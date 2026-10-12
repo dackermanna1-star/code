@@ -112,6 +112,32 @@ type V2 = [number, number];
 type V3 = [number, number, number];
 
 // ------------------------------------------------------------------ helpers
+/**
+ * Baked chrome-like shading: bright sky reflection on top, a dark horizon band
+ * and a dim ground bounce below. Steel then reads as metal whether or not the
+ * scene has an environment map (the kit's metal class is near-black without one).
+ */
+function steel(base: THREE.ColorRepresentation) {
+  const c0 = new THREE.Color(base);
+  return (_p: THREE.Vector3, n: THREE.Vector3) => {
+    const y = n.y;
+    const f = y > 0.2 ? 1.12 + 0.18 * y : y > -0.3 ? 0.6 + ((y + 0.3) / 0.5) * 0.4 : 0.8 - 0.1 * (y + 0.3);
+    const c = c0.clone().multiplyScalar(f);
+    c.r = Math.min(1, c.r);
+    c.g = Math.min(1, c.g);
+    c.b = Math.min(1, c.b);
+    return c;
+  };
+}
+
+/** PartBuilder whose 'metal' parts are steel-shaded on the low-metalness plastic class. */
+class GunBuilder extends PartBuilder {
+  override add(geo: THREE.BufferGeometry, color: THREE.ColorRepresentation, mat: MatClass = 'plastic', xf: Xf = {}): this {
+    if (mat === 'metal') return this.addShaded(geo, steel(color), 'plastic', xf);
+    return super.add(geo, color, mat, xf);
+  }
+}
+
 const clamp01 = (x: number) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const smooth = (a: number, b: number, x: number) => {
   const t = clamp01((x - a) / (b - a));
@@ -162,6 +188,17 @@ function extrudeHoles(outer: V2[], holes: V2[][], d: number, bevel = 0.003) {
   });
   g.translate(0, 0, -(d - 2 * bevel) / 2);
   return g;
+}
+
+/** Flat band swept along a curve (straps). `thick` across the curve's plane, `width` along its binormal. */
+function ribbon(curve: THREE.Curve<THREE.Vector3>, thick: number, width: number, steps: number) {
+  const sh = new THREE.Shape([
+    new THREE.Vector2(-thick / 2, -width / 2),
+    new THREE.Vector2(thick / 2, -width / 2),
+    new THREE.Vector2(thick / 2, width / 2),
+    new THREE.Vector2(-thick / 2, width / 2),
+  ]);
+  return new THREE.ExtrudeGeometry(sh, { steps, extrudePath: curve, bevelEnabled: false });
 }
 
 /** Wood with a subtle grain along the stock. */
@@ -227,16 +264,16 @@ function buildPistol(): WeaponModel {
   const B = 0.066;
   const group = new THREE.Group();
   group.name = 'pistol';
-  const F = new PartBuilder();
+  const F = new GunBuilder();
   // frame: dust cover + grip
   F.add(roundBox(0.125, 0.024, 0.032, 0.006), C.polymer, 'plastic', { p: [-0.088, 0.037, 0] });
   F.add(
-    extrude([[-0.03, 0.046], [0.044, 0.046], [0.052, -0.06], [0.044, -0.076], [-0.012, -0.076], [-0.022, -0.064], [-0.033, 0.012]], 0.033, 0.004),
+    extrude([[-0.027, 0.046], [0.034, 0.046], [0.047, -0.058], [0.041, -0.074], [-0.005, -0.074], [-0.015, -0.063], [-0.029, 0.012]], 0.033, 0.004),
     C.polymer,
     'plastic',
   );
   // stippled grip panel
-  F.add(extrude([[-0.024, 0.02], [0.036, 0.02], [0.042, -0.055], [-0.014, -0.055]], 0.0345, 0.001), C.polymerHi, 'plastic');
+  F.add(extrude([[-0.02, 0.018], [0.028, 0.018], [0.036, -0.052], [-0.008, -0.052]], 0.0345, 0.001), 0x2a2d31, 'plastic');
   guard(F, -0.057, 0.03, 0.025, 0.0045, C.polymer, 'plastic', 1.1);
   F.add(box(0.006, 0.02, 0.006), C.bluedDark, 'darkmetal', { p: [-0.047, 0.018, 0], r: [0, 0, 0.25] });
   // slide stop / decocker levers (left side)
@@ -245,7 +282,7 @@ function buildPistol(): WeaponModel {
   F.buildInto(group);
 
   const slide = part('slide', group);
-  const S = new PartBuilder();
+  const S = new GunBuilder();
   S.add(roundBox(0.205, 0.043, 0.035, 0.007), C.blued, 'darkmetal', { p: [-0.053, B + 0.003, 0] });
   for (let i = 0; i < 5; i++) S.add(box(0.003, 0.03, 0.0365), C.bluedDark, 'darkmetal', { p: [0.018 + i * 0.006, B + 0.002, 0] });
   S.add(box(0.008, 0.008, 0.006), C.bluedDark, 'darkmetal', { p: [-0.145, B + 0.028, 0] });
@@ -254,14 +291,14 @@ function buildPistol(): WeaponModel {
   S.add(cylX(0.0068, 0.004), C.bore, 'rubber', { p: [-0.1555, B, 0] });
   S.buildInto(slide);
 
-  const mag = part('magazine', group, [0.014, -0.02, 0]);
-  mag.rotation.z = 0.1;
-  const Mg = new PartBuilder();
-  Mg.add(box(0.04, 0.1, 0.026), C.bluedDark, 'darkmetal', { p: [0, -0.005, 0] });
-  Mg.add(roundBox(0.05, 0.012, 0.036, 0.004), C.polymer, 'plastic', { p: [0, -0.06, 0] });
+  const mag = part('magazine', group, [0.01, -0.02, 0]);
+  mag.rotation.z = 0.12;
+  const Mg = new GunBuilder();
+  Mg.add(box(0.034, 0.1, 0.026), C.bluedDark, 'darkmetal', { p: [0, -0.005, 0] });
+  Mg.add(roundBox(0.044, 0.012, 0.036, 0.004), C.polymer, 'plastic', { p: [0, -0.058, 0] });
   Mg.buildInto(mag);
   const magBase = mag.position.clone();
-  const magAxis = new THREE.Vector3(Math.sin(0.1), -Math.cos(0.1), 0);
+  const magAxis = new THREE.Vector3(Math.sin(0.12), -Math.cos(0.12), 0);
 
   const muzzle = marker('muzzle', group, [-0.158, B, 0]);
   const ejector = marker('ejector', group, [-0.025, B + 0.02, 0.018], [0.4, 0.8, 0.6]);
@@ -290,7 +327,7 @@ function buildMagnum(): WeaponModel {
   const CY = 0.048; // cylinder axis
   const group = new THREE.Group();
   group.name = 'magnum';
-  const M = new PartBuilder();
+  const M = new GunBuilder();
   // wood grip with medallion
   M.addShaded(
     extrude([[-0.006, 0.03], [0.03, 0.036], [0.05, 0.024], [0.064, -0.034], [0.06, -0.07], [0.046, -0.084], [0.012, -0.08], [-0.004, -0.052], [-0.013, -0.008]], 0.039, 0.005),
@@ -320,7 +357,7 @@ function buildMagnum(): WeaponModel {
   // cylinder (turns 60 deg per shot, swings out on reload)
   const crane = part('crane', group, [-0.046, CY, 0]);
   const cylinder = part('cylinder', crane);
-  const Cy = new PartBuilder();
+  const Cy = new GunBuilder();
   Cy.add(cylX(0.028, 0.058, 18), C.stainless, 'metal');
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * PI * 2;
@@ -362,7 +399,7 @@ function buildMP5(): WeaponModel {
   const B = 0.05;
   const group = new THREE.Group();
   group.name = 'mp5';
-  const M = new PartBuilder();
+  const M = new GunBuilder();
   // receiver
   M.add(roundBox(0.33, 0.05, 0.04, 0.012), C.blued, 'darkmetal', { p: [-0.075, 0.06, 0] });
   // cocking tube + barrel
@@ -398,7 +435,7 @@ function buildMP5(): WeaponModel {
 
   // curved magazine
   const mag = part('magazine', group, [-0.112, 0.01, 0]);
-  const Mg = new PartBuilder();
+  const Mg = new GunBuilder();
   curvedMag(Mg, [0, 0], 5, 0.037, [-0.06, -0.12, -0.19, -0.26, -0.33], 0.034, 0.024, C.bluedDark);
   Mg.buildInto(mag);
   const magBase = mag.position.clone();
@@ -455,11 +492,11 @@ function grenadeParts(P: PartBuilder, ring: PartBuilder | null, s = 1) {
     }
   }
   // fuse
-  P.add(cyl(0.015 * s, 0.017 * s, 0.026 * s, 12), C.greyDark, 'darkmetal', { p: [0, 0.058 * s, 0] });
+  P.add(cyl(0.015 * s, 0.017 * s, 0.026 * s, 12), C.grey, 'metal', { p: [0, 0.058 * s, 0] });
   P.add(cyl(0.01 * s, 0.01 * s, 0.012 * s, 10), C.grey, 'metal', { p: [0, 0.075 * s, 0] });
   // spoon down the +X side
-  P.add(box(0.008 * s, 0.07 * s, 0.014 * s), C.greyDark, 'darkmetal', { p: [0.043 * s, 0.035 * s, 0], r: [0, 0, 0.18] });
-  P.add(box(0.03 * s, 0.006 * s, 0.014 * s), C.greyDark, 'darkmetal', { p: [0.03 * s, 0.072 * s, 0] });
+  P.add(box(0.008 * s, 0.07 * s, 0.014 * s), C.grey, 'metal', { p: [0.043 * s, 0.035 * s, 0], r: [0, 0, 0.18] });
+  P.add(box(0.03 * s, 0.006 * s, 0.014 * s), C.grey, 'metal', { p: [0.03 * s, 0.072 * s, 0] });
   if (ring) {
     ring.add(torus(0.013 * s, 0.0025 * s, 6, 14), C.grey, 'metal', { p: [-0.024 * s, 0.07 * s, 0.012 * s], r: [0, 0.6, 0] });
   }
@@ -469,7 +506,7 @@ function grenadeParts(P: PartBuilder, ring: PartBuilder | null, s = 1) {
 export function createGrenadeModel(): THREE.Group {
   const g = new THREE.Group();
   g.name = 'grenade';
-  const P = new PartBuilder();
+  const P = new GunBuilder();
   grenadeParts(P, null, 1.25);
   P.buildInto(g);
   return g;
@@ -480,8 +517,8 @@ function buildGrenades(): WeaponModel {
   group.name = 'grenades';
   const body = part('grenade', group);
   const ringPart = part('pin', body);
-  const P = new PartBuilder();
-  const R = new PartBuilder();
+  const P = new GunBuilder();
+  const R = new GunBuilder();
   grenadeParts(P, R, 1.25);
   P.buildInto(body);
   R.buildInto(ringPart);
@@ -510,7 +547,7 @@ function buildShotgun(): WeaponModel {
   const B = 0.058;
   const group = new THREE.Group();
   group.name = 'shotgun';
-  const M = new PartBuilder();
+  const M = new GunBuilder();
   // receiver
   M.add(roundBox(0.19, 0.062, 0.037, 0.008), C.blued, 'darkmetal', { p: [-0.11, 0.045, 0] });
   M.add(box(0.06, 0.016, 0.002), C.bluedDark, 'darkmetal', { p: [-0.1, 0.06, 0.0192] }); // ejection port
@@ -535,7 +572,7 @@ function buildShotgun(): WeaponModel {
   M.buildInto(group);
 
   const pump = part('pump', group);
-  const Pp = new PartBuilder();
+  const Pp = new GunBuilder();
   Pp.add(roundBox(0.17, 0.042, 0.044, 0.016), C.polymer, 'plastic', { p: [-0.37, 0.031, 0] });
   for (let i = 0; i < 7; i++) Pp.add(box(0.006, 0.044, 0.0455), C.bluedDark, 'plastic', { p: [-0.31 - i * 0.02, 0.031, 0] });
   Pp.buildInto(pump);
@@ -559,7 +596,7 @@ function buildShotgun(): WeaponModel {
 
 // =================================================================== MAC-10
 function macParts(group: THREE.Group, withStock: boolean) {
-  const M = new PartBuilder();
+  const M = new GunBuilder();
   M.add(roundBox(0.27, 0.052, 0.05, 0.007), C.grey, 'metal', { p: [-0.07, 0.048, 0] });
   M.add(roundBox(0.24, 0.034, 0.048, 0.006), C.greyDark, 'metal', { p: [-0.085, 0.008, 0] });
   M.add(box(0.12, 0.004, 0.0505), C.greyDark, 'metal', { p: [-0.1, 0.06, 0] }); // seam
@@ -585,7 +622,7 @@ function macParts(group: THREE.Group, withStock: boolean) {
   M.buildInto(group);
   const mag = part('magazine', group, [0.004, -0.04, 0]);
   mag.rotation.z = 0.06;
-  const Mg = new PartBuilder();
+  const Mg = new GunBuilder();
   Mg.add(box(0.034, 0.24, 0.028), C.gunmetalDark, 'darkmetal', { p: [0, -0.07, 0] });
   Mg.add(roundBox(0.04, 0.012, 0.034, 0.004), C.gunmetalDark, 'darkmetal', { p: [0, -0.193, 0] });
   Mg.buildInto(mag);
@@ -635,7 +672,7 @@ function launcherRoundParts(P: PartBuilder, s: number, x = 0, y = 0, z = 0) {
 export function createLauncherRoundModel(): THREE.Group {
   const g = new THREE.Group();
   g.name = 'launcherRound';
-  const P = new PartBuilder();
+  const P = new GunBuilder();
   launcherRoundParts(P, 1.6);
   P.buildInto(g);
   return g;
@@ -647,7 +684,7 @@ function buildFlunk(): WeaponModel {
   const DX = -0.14;
   const group = new THREE.Group();
   group.name = 'flunk';
-  const M = new PartBuilder();
+  const M = new GunBuilder();
   // pistol grip + rear frame
   M.add(extrude([[-0.022, 0.032], [0.026, 0.032], [0.04, -0.07], [0.03, -0.082], [-0.01, -0.08], [-0.026, -0.022]], 0.036, 0.004), C.polymer, 'plastic');
   M.add(roundBox(0.09, 0.09, 0.044, 0.01), C.greyDark, 'metal', { p: [-0.02, 0.055, 0] });
@@ -674,7 +711,7 @@ function buildFlunk(): WeaponModel {
 
   // revolving drum with six rounds whose noses peek out of the front face
   const drum = part('drum', group, [DX, DY, 0]);
-  const D = new PartBuilder();
+  const D = new GunBuilder();
   D.add(cylX(0.076, 0.15, 24), C.greyLight, 'metal');
   D.add(cylX(0.07, 0.006, 24), C.grey, 'metal', { p: [-0.0755, 0, 0] });
   for (let i = 0; i < 6; i++) {
@@ -712,7 +749,7 @@ function buildM4(): WeaponModel {
   const B = 0.06;
   const group = new THREE.Group();
   group.name = 'm4';
-  const M = new PartBuilder();
+  const M = new GunBuilder();
   // upper receiver + carry handle
   M.add(roundBox(0.2, 0.046, 0.034, 0.006), C.blued, 'darkmetal', { p: [-0.03, B, 0] });
   M.add(extrudeHoles([[-0.1, 0.08], [0.07, 0.08], [0.07, 0.124], [0.045, 0.13], [-0.075, 0.13], [-0.1, 0.112]], [[[-0.075, 0.09], [0.045, 0.09], [0.045, 0.114], [-0.075, 0.114]]], 0.022, 0.003), C.blued, 'darkmetal');
@@ -744,7 +781,7 @@ function buildM4(): WeaponModel {
   M.buildInto(group);
 
   const mag = part('magazine', group, [-0.085, -0.008, 0]);
-  const Mg = new PartBuilder();
+  const Mg = new GunBuilder();
   curvedMag(Mg, [0, 0], 4, 0.045, [-0.04, -0.1, -0.16, -0.22], 0.04, 0.022, C.bluedDark);
   Mg.buildInto(mag);
   const magBase = mag.position.clone();
@@ -771,7 +808,7 @@ function buildAWP(): WeaponModel {
   const B = 0.062;
   const group = new THREE.Group();
   group.name = 'awp';
-  const M = new PartBuilder();
+  const M = new GunBuilder();
   // olive thumbhole stock with forend
   M.add(
     extrudeHoles(
@@ -816,13 +853,13 @@ function buildAWP(): WeaponModel {
   M.buildInto(group);
 
   const bolt = part('bolt', group, [0, B, 0]);
-  const Bt = new PartBuilder();
+  const Bt = new GunBuilder();
   Bt.add(cylZ(0.005, 0.05), C.stainlessDark, 'metal', { p: [0.0, 0, 0.042] });
   Bt.add(sphere(0.012, 10, 8), C.bluedDark, 'darkmetal', { p: [0.0, 0, 0.068] });
   Bt.buildInto(bolt);
 
   const mag = part('magazine', group, [-0.11, -0.012, 0]);
-  const Mg = new PartBuilder();
+  const Mg = new GunBuilder();
   Mg.add(roundBox(0.075, 0.07, 0.032, 0.004), C.bluedDark, 'darkmetal', { p: [0, -0.02, 0] });
   Mg.buildInto(mag);
   const magBase = mag.position.clone();
@@ -863,9 +900,9 @@ function buildVintage(): WeaponModel {
   const XM = -1.78; // muzzle
   const group = new THREE.Group();
   group.name = 'vintage';
-  const M = new PartBuilder();
+  const M = new GunBuilder();
   // action / lock
-  M.add(roundBox(0.15, 0.13, 0.074, 0.014), C.gunmetal, 'darkmetal', { p: [-0.07, 0.05, 0] });
+  M.add(roundBox(0.15, 0.13, 0.074, 0.014), C.gunmetal, 'metal', { p: [-0.07, 0.05, 0] });
   M.add(roundBox(0.11, 0.07, 0.078, 0.01), C.gunmetalDark, 'darkmetal', { p: [-0.05, 0.035, 0] });
   M.add(cylZ(0.008, 0.084), C.gunmetalDark, 'darkmetal', { p: [-0.13, 0.0, 0] }); // hinge pin
   // triggers + guard
@@ -883,11 +920,11 @@ function buildVintage(): WeaponModel {
 
   // barrels + fore-end hinge down at the breech for reloading
   const barrels = part('barrels', group, [-0.13, 0.0, 0]);
-  const Bb = new PartBuilder();
+  const Bb = new GunBuilder();
   const X0 = -0.015;
   const X1 = XM + 0.13;
-  Bb.add(cylX(R, X0 - X1, 18, R * 0.92), C.gunmetal, 'darkmetal', { p: [(X0 + X1) / 2, BU, 0] });
-  Bb.add(cylX(R, X0 - X1, 18, R * 0.92), C.gunmetal, 'darkmetal', { p: [(X0 + X1) / 2, BL, 0] });
+  Bb.add(cylX(R, X0 - X1, 18, R * 0.92), C.gunmetal, 'metal', { p: [(X0 + X1) / 2, BU, 0] });
+  Bb.add(cylX(R, X0 - X1, 18, R * 0.92), C.gunmetal, 'metal', { p: [(X0 + X1) / 2, BL, 0] });
   Bb.add(box(X0 - X1, BU - BL, 0.02), C.gunmetalDark, 'darkmetal', { p: [(X0 + X1) / 2, B, 0] });
   Bb.add(box(X0 - X1 - 0.05, 0.008, 0.012), C.gunmetalDark, 'darkmetal', { p: [(X0 + X1) / 2, BU + R, 0] }); // top rib
   for (const bx of [-0.36, -0.82, -1.24, X1 + 0.02]) {
@@ -910,7 +947,7 @@ function buildVintage(): WeaponModel {
   const hammers: THREE.Object3D[] = [];
   for (const [hz, hx] of [[0.026, 0.0], [-0.026, -0.008]] as Array<[number, number]>) {
     const h = part('hammer', group, [hx, 0.105, hz]);
-    const Hp = new PartBuilder();
+    const Hp = new GunBuilder();
     Hp.add(extrude([[-0.012, -0.01], [0.012, -0.01], [0.03, 0.03], [0.05, 0.044], [0.046, 0.054], [0.024, 0.046], [-0.006, 0.016]], 0.012, 0.002), C.gunmetalDark, 'darkmetal');
     Hp.buildInto(h);
     hammers.push(h);
@@ -945,7 +982,7 @@ function buildMinigun(): WeaponModel {
   const XH = -0.33; // housing front
   const group = new THREE.Group();
   group.name = 'minigun';
-  const M = new PartBuilder();
+  const M = new GunBuilder();
   // rear grip assembly
   M.add(roundBox(0.03, 0.15, 0.13, 0.01), C.greyDark, 'metal', { p: [-0.03, 0.05, 0] });
   M.add(roundBox(0.03, 0.12, 0.034, 0.008), C.polymer, 'plastic', { p: [0.012, -0.012, 0], r: [0, 0, -0.12] });
@@ -979,39 +1016,37 @@ function buildMinigun(): WeaponModel {
     M.add(cylX(0.0035, 0.012, 6, 0.0015), C.copper, 'metal', { p: [p.x - 0.031, p.y, p.z] });
     M.add(box(0.012, 0.012, 0.004), C.gunmetal, 'darkmetal', { p: [p.x + 0.01, p.y, p.z] });
   }
-  // blue carry strap from the handle over the shoulder
+  // blue carry strap: from the front of the carry handle up over the shoulder
   const strap = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-0.25, B + 0.14, 0.012),
-    new THREE.Vector3(-0.18, B + 0.3, 0.02),
-    new THREE.Vector3(0.0, B + 0.38, 0.02),
-    new THREE.Vector3(0.14, B + 0.3, 0.01),
-    new THREE.Vector3(0.05, B + 0.08, 0.0),
+    new THREE.Vector3(-0.25, B + 0.15, 0.0),
+    new THREE.Vector3(-0.17, B + 0.25, 0.0),
+    new THREE.Vector3(-0.02, B + 0.31, -0.02),
+    new THREE.Vector3(0.12, B + 0.27, -0.08),
+    new THREE.Vector3(0.2, B + 0.1, -0.16),
   ]);
-  const sg = new THREE.TubeGeometry(strap, 28, 0.011, 6, false);
-  sg.scale(1, 1, 1.6);
-  M.add(sg, C.strap, 'cloth');
+  M.add(ribbon(strap, 0.006, 0.036, 32), C.strap, 'cloth');
   M.buildInto(group);
 
   // rotating barrel cluster
   const cluster = part('barrels', group, [XH, B, 0]);
   const L = 0.62;
-  const Cb = new PartBuilder();
-  const Hot = new PartBuilder();
+  const Cb = new GunBuilder();
+  const Hot = new GunBuilder();
   for (let i = 0; i < 6; i++) {
     const a = (i / 6) * PI * 2;
     const y = Math.cos(a) * 0.03;
     const z = Math.sin(a) * 0.03;
-    Cb.add(cylX(0.0115, 0.3, 10), C.gunmetal, 'darkmetal', { p: [-0.15, y, z] });
-    Hot.add(cylX(0.0115, L - 0.3, 10), C.gunmetal, 'darkmetal', { p: [-0.3 - (L - 0.3) / 2, y, z] });
+    Cb.add(cylX(0.0115, 0.3, 10), C.grey, 'metal', { p: [-0.15, y, z] });
+    Hot.add(cylX(0.0115, L - 0.3, 10), C.grey, 'metal', { p: [-0.3 - (L - 0.3) / 2, y, z] });
     Hot.add(cylX(0.006, 0.003), C.bore, 'rubber', { p: [-L - 0.0015, y, z] });
   }
   Cb.add(cylX(0.012, L, 10), C.greyDark, 'metal', { p: [-L / 2, 0, 0] });
   for (const cx of [-0.05, -0.36, -L + 0.03]) Cb.add(cylX(0.05, 0.026, 18), C.greyDark, 'metal', { p: [cx, 0, 0] });
   Cb.buildInto(cluster);
   const hotMeshes = Hot.buildInto(cluster);
-  const glow = MATERIALS.darkmetal.clone();
+  const glow = MATERIALS.plastic.clone();
   glow.emissive = new THREE.Color(0, 0, 0);
-  for (const m of hotMeshes) m.material = glow;
+  for (const m of hotMeshes) if (m.userData.matClass === 'plastic') m.material = glow;
 
   const muzzle = marker('muzzle', group, [XH - L - 0.005, B, 0]);
   const ejector = marker('ejector', group, [-0.2, B - 0.07, 0.0], [0.4, -1, 0.3]);
@@ -1145,7 +1180,7 @@ export function createShellModel(kind: ShellKind): THREE.BufferGeometry {
 export function createClipModel(kind: ClipKind): THREE.Group {
   const g = new THREE.Group();
   g.name = `clip_${kind}`;
-  const P = new PartBuilder();
+  const P = new GunBuilder();
   switch (kind) {
     case 'small':
       P.add(box(0.04, 0.1, 0.026), C.bluedDark, 'darkmetal', { p: [0, 0.006, 0] });

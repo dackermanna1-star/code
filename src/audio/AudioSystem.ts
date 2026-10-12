@@ -647,11 +647,16 @@ export class AudioSystem {
 
   // ------------------------------------------------------------- events
 
-  /** Wire logic events to sounds as the original did. Returns an unsubscribe function. */
+  /**
+   * Wire logic events to sounds as the original did. Returns an unsubscribe function.
+   * `opts.shellEject`: time shell landings from 'shellEject' (off by default because
+   * the renderer's debris physics plays each casing bounce itself).
+   */
   bindGameEvents(
     bus: EventBus,
     getX: (enemyId: number) => number | undefined,
     getPlayerX: (playerId: number) => number,
+    opts: { shellEject?: boolean } = {},
   ): () => void {
     const offs: (() => void)[] = [];
     const ex = (id: number, fallback?: number) => getX(id) ?? fallback;
@@ -752,7 +757,7 @@ export class AudioSystem {
 
       bus.on('shellEject', (e) => {
         const ref = WEAPON_SOUNDS[e.weapon].shell;
-        if (!ref) return;
+        if (!ref || !opts.shellEject) return;
         const x = getPlayerX(e.playerId) + 0.4;
         const rapid = WEAPONS[e.weapon].fireTicks <= 5 || e.weapon === 'minigun';
         const n = Math.min(6, Math.max(1, e.count));

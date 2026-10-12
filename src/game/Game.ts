@@ -50,6 +50,7 @@ export class Game {
 
     this.hud = new Hud(stage.view, icons);
     this.hud.onSlotClick = (id) => this.slot(id);
+    this.hud.levelBarTint = false; // ref2 shows a pure white bar near the end
     this.overlay = new WorldOverlay(stage.view);
     this.screens = new Screens(stage.view);
     this.screens.onOptionsChange = (o) => this.applyOptions(o);

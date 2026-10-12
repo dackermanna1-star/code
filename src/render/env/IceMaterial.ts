@@ -40,8 +40,8 @@ export function createIceUniforms(): IceUniforms {
     uDesignVP: { value: new THREE.Matrix4() },
     uBackdrop: { value: null },
     uMirrorLine: { value: new Float32Array(MIRROR_SAMPLES) },
-    uMirrorStrength: { value: 0.55 },
-    uMirrorFalloff: { value: 0.2 },
+    uMirrorStrength: { value: 0.62 },
+    uMirrorFalloff: { value: 0.15 },
     uMirrorStretch: { value: 1.0 },
     uReflMap: { value: null },
     uReflMatrix: { value: new THREE.Matrix4() },
@@ -51,7 +51,7 @@ export function createIceUniforms(): IceUniforms {
     uDecalRect: { value: new THREE.Vector4(-30, -25, 60, 50) },
     uAlbedoNorm: { value: new THREE.Vector3(1, 1, 1) },
     // Pre-tone-mapping linear colours (ACES inverse of the original's sRGB tones).
-    uIceBase: { value: new THREE.Vector3(0.262, 0.326, 0.4) }, // #9eabb7
+    uIceBase: { value: new THREE.Vector3(0.24, 0.3, 0.37) }, // ~#9eabb7 on screen
     uIceHaze: { value: new THREE.Vector3(0.9, 1.0, 1.11) }, // #dfe2e5
     uIceTop: { value: new THREE.Vector3(0.5, 0.53, 0.62) }, // #c5c8cf
     uTime: { value: 0 },
@@ -115,7 +115,7 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
           float glow = exp(-pow((u - 0.08) / 0.2, 2.0) - pow((v - 0.4) / 0.085, 2.0));
           // Haze band through the middle of the floe.
           float band = exp(-pow((v - 0.5) / 0.09, 2.0)) * 0.25;
-          float h = clamp(plume * 0.95 + glow * 0.5 + band * (1.0 - plume), 0.0, 1.0);
+          float h = clamp(plume * 0.95 + glow * 0.3 + band * (1.0 - plume), 0.0, 1.0);
           vec3 c = mix(uIceBase, uIceHaze, h * h * 0.35 + h * 0.65);
           // A little brighter towards the back edge overall.
           c = mix(c, uIceTop, smoothstep(0.52, 0.33, v) * 0.35 * (1.0 - h));
@@ -164,8 +164,16 @@ export function createIceMaterial(u: IceUniforms, opts: { reflections: boolean }
           float dEdge = max(edgeY - iceScr.y, 0.0);
           vec2 mUv = vec2(iceScr.x, edgeY + dEdge * uMirrorStretch) + iceGrad * vec2(0.01, 0.02);
           mUv.y = min(mUv.y, 0.999);
-          vec3 berg = texture2D(uBackdrop, mUv).rgb;
-          float mk = uMirrorStrength * exp(-dEdge / uMirrorFalloff) * (0.35 + 0.65 * clean);
+          // Soft (glossy) reflection: a small blur kernel widening with distance.
+          vec2 bk = vec2(0.002, 0.003) + dEdge * vec2(0.02, 0.03);
+          vec3 berg = texture2D(uBackdrop, mUv).rgb * 0.4
+            + texture2D(uBackdrop, mUv + vec2(bk.x, bk.y)).rgb * 0.15
+            + texture2D(uBackdrop, mUv + vec2(-bk.x, bk.y)).rgb * 0.15
+            + texture2D(uBackdrop, mUv + vec2(bk.x, -bk.y)).rgb * 0.15
+            + texture2D(uBackdrop, mUv + vec2(-bk.x, -bk.y)).rgb * 0.15;
+          // Misty: the reflection is washed towards the ice colour.
+          berg = mix(berg, outgoingLight, 0.3);
+          float mk = uMirrorStrength * exp(-dEdge / uMirrorFalloff) * (0.08 + 0.92 * clean);
           outgoingLight = mix(outgoingLight, berg, mk);
           #ifdef ICE_REFL
           // Planar reflection of characters (blurred, faint).

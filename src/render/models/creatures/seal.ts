@@ -56,7 +56,7 @@ export function createSeal(): CreatureRig {
           { x: -0.07, y: 0.0, w: 0.055, h: 0.012 },
           { x: -0.13, y: 0.008, w: 0.07, h: 0.008 },
         ],
-        { radial: 10, sub: 2, cap0: 0.01, cap1: 0.025 },
+        { radial: 8, sub: 1, cap0: 0.01, cap1: 0.025 },
       );
       fl.rotateZ(0.2);
       fl.rotateY(s * 0.45);
@@ -81,8 +81,8 @@ export function createSeal(): CreatureRig {
     const headFn = shade(BACK, 0x9a744c, { mid: BROWN, bias: -0.25, sharp: 1.4, noise: 0.06 });
     const hx = SPINE[HEAD_AT].x;
     const hy = SPINE[HEAD_AT].y;
-    addRoot(pb, head, blob(0.135, 0.12, 0.13, 12, 9).translate(hx, hy, 0), furFn);
-    addRoot(pb, head, blob(0.165, 0.15, 0.15, 16, 12).translate(hx + 0.1, hy + 0.115, 0), headFn);
+    addRoot(pb, head, blob(0.135, 0.12, 0.13, 10, 8).translate(hx, hy, 0), furFn);
+    addRoot(pb, head, blob(0.165, 0.15, 0.15, 16, 11).translate(hx + 0.1, hy + 0.115, 0), headFn);
     addRoot(
       pb,
       head,
@@ -128,7 +128,7 @@ export function createSeal(): CreatureRig {
             { x: 0.05, y: -0.22, w: 0.015, h: 0.075 },
             { x: 0.08, y: -0.3, w: 0.01, h: 0.065 },
           ],
-          { radial: 10, sub: 2, cap0: 0.02, cap1: 0.03 },
+          { radial: 8, sub: 2, cap0: 0.02, cap1: 0.03 },
         ),
         shade(0x3c1e0b, 0x5a331b, { noise: 0.05 }),
         'fur',

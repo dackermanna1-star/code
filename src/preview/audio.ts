@@ -11,10 +11,12 @@ const audio = new AudioSystem();
 const bus = new EventBus();
 const enemyX = new Map<number, number>();
 const playerX = [8, 10];
+// No debris physics here, so let the audio system time the shell landings.
 audio.bindGameEvents(
   bus,
   (id) => enemyX.get(id),
   (pid) => playerX[pid] ?? 8,
+  { shellEject: true },
 );
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;

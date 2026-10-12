@@ -67,6 +67,7 @@ const MESSAGE_LINE = 16.3;
 const MESSAGE_SCROLL_MS = 326;
 const MAX_MESSAGES = 10;
 
+const FRESH_START = new Set(['pause', 'gameover', 'victory']);
 const ENEMY_ORDER: EnemyType[] = ['seal', 'activist', 'cub', 'penguin', 'fatseal', 'bear', 'turtle', 'walrus'];
 
 interface Ctl {
@@ -83,8 +84,11 @@ interface ScreenState {
   horizontal: boolean;
   back: (() => void) | null;
   openedAt: number;
+  /** Activation keys are ignored until this time (held fire keys). */
+  activateAfter: number;
 }
 
+const NBSP = '\u00a0';
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const fmt = (n: number) => Math.round(n).toLocaleString('en-US');
 const fmtTime = (sec: number) => {
@@ -131,6 +135,7 @@ export class Screens {
   private msgTimer = 0;
   private msgScrolling = false;
   private fpsShown: number | null = null;
+  private navigating = false;
   private readonly recorded = new WeakMap<GameStats, number>();
 
   constructor(view: HTMLElement) {
@@ -159,12 +164,12 @@ export class Screens {
     const root = h('div', 'sh-screen sh-title');
     root.appendChild(h('div', 'sh-vignette'));
     root.appendChild(h('div', 'sh-logo', 'SealHunter'));
-    root.appendChild(h('div', 'sh-logo-sub', '3D · after the 2005 original by Cute ’n Fluffy'));
+    root.appendChild(h('div', 'sh-logo-sub', '3D remake of the 2005 original'));
 
     const menu = this.buildMenu('-- Main menu --', [
       ['Start game', () => { this.closeScreen(); hd.onStart(); }],
-      ['How to play', () => this.showHelp(reopen)],
-      ['Options', () => this.showOptions(reopen)],
+      ['How to play', () => this.nav(() => this.showHelp(() => this.nav(reopen)))],
+      ['Options', () => this.nav(() => this.showOptions(() => this.nav(reopen)))],
     ]);
     menu.el.style.left = '414px';
     menu.el.style.top = '240px';
@@ -217,8 +222,8 @@ export class Screens {
     const items: Array<[string, () => void]> = [
       ['Resume', resume],
       ['Restart', () => { this.closeScreen(); hd.onRestart(); }],
-      ['Options', () => this.showOptions(reopen)],
-      ['How to play', () => this.showHelp(reopen)],
+      ['Options', () => this.nav(() => this.showOptions(() => this.nav(reopen)))],
+      ['How to play', () => this.nav(() => this.showHelp(() => this.nav(reopen)))],
       ['Quit to title', () => { this.closeScreen(); hd.onQuit(); }],
     ];
     const menu = this.buildMenu('', items);
@@ -232,9 +237,9 @@ export class Screens {
   showGameOver(reason: string, stats: GameStats, hd: { onRetry(): void; onTitle(): void }): void {
     const root = h('div', 'sh-screen sh-dim');
     const title = h('div', 'sh-go-title', 'GAME OVER');
-    title.style.top = '8px';
+    title.style.top = '64px';
     const why = h('div', 'sh-go-reason', reason);
-    why.style.top = '84px';
+    why.style.top = '123px';
     root.append(title, why);
     const ctls = this.buildResults(root, stats, false, hd);
     this.openScreen('gameover', root, ctls, { back: null, horizontal: true });
@@ -243,9 +248,9 @@ export class Screens {
   showVictory(stats: GameStats, hd: { onRetry(): void; onTitle(): void }): void {
     const root = h('div', 'sh-screen sh-dim');
     const head = h('div', 'sh-go-head', 'The last seal on the planet is dead.');
-    head.style.top = '34px';
+    head.style.top = '78px';
     const sub = h('div', 'sh-go-reason', `You cleared every level in ${fmtTime(stats.timeSec)}.`);
-    sub.style.top = '84px';
+    sub.style.top = '116px';
     root.append(head, sub);
     const ctls = this.buildResults(root, stats, true, hd);
     this.openScreen('victory', root, ctls, { back: null, horizontal: true });
@@ -256,7 +261,8 @@ export class Screens {
     const back = onBack ?? (() => this.closeScreen());
     const root = h('div', 'sh-screen sh-dim');
     const panel = h('div', 'sh-panel');
-    Object.assign(panel.style, { left: '26px', top: '12px', width: '588px', height: '456px', padding: '12px 18px' });
+    panel.classList.add('sh-help');
+    Object.assign(panel.style, { left: '26px', top: '12px', width: '588px', height: '456px', padding: '12px 18px 10px' });
     root.appendChild(panel);
 
     panel.appendChild(h('div', 'sh-h1', 'HOW TO PLAY'));
@@ -266,9 +272,8 @@ export class Screens {
         'p',
         'sh-p',
         'Animals pour onto the ice floe from the left. Shoot them before they get across: if a single one ' +
-          'reaches the right edge, the game is over. Every kill pays a bounty, headshots pay extra and three or ' +
-          'more kills with one shot is a nice shot. Spend the money on bigger guns in the top bar. Each level ' +
-          'ends with a boss; survive all five.',
+          'reaches the right edge, the game is over. Kills pay a bounty, headshots pay extra and three or more ' +
+          'kills with one bullet is a nice shot. Buy bigger guns in the top bar. Every level ends with a boss.',
       ),
     );
 
@@ -278,7 +283,7 @@ export class Screens {
       const span = h('span');
       ks.forEach((k, i) => {
         if (i) span.appendChild(document.createTextNode(' '));
-        span.appendChild(h('span', 'sh-key', k));
+        span.appendChild(k === '–' ? document.createTextNode(k) : h('span', 'sh-key', k));
       });
       return span;
     };
@@ -307,13 +312,13 @@ export class Screens {
       d.appendChild(document.createTextNode(` — ${text}`));
       foes.appendChild(d);
     };
-    foe('seal', '$50. Crawls on when wounded; kick or stomp it.');
-    foe('activist', '$100. Shoot the cub out of his arms and he flees.');
-    foe('cub', '$25. Slow, stops to sniff. Knocks you over.');
-    foe('penguin', '$100. Waddles, then belly-slides off the edges.');
+    foe('seal', '$50. Crawls on when wounded: kick or stomp it.');
+    foe('activist', '$100. Shoot the cub from his arms and he flees.');
+    foe('cub', '$25. Slow; stops to sniff. Knocks you over.');
+    foe('penguin', '$100. Waddles, then belly-slides around.');
     foe('fatseal', '$200. Stops to regenerate. Bowls you over.');
     foe('bear', '$500. The more you hurt it, the faster it runs.');
-    foe('turtle', '$500. Shell deflects bullets: aim for head and legs.');
+    foe('turtle', '$500. Bullets bounce off the shell. Aim low.');
     foe('walrus', 'Final boss. Sharpens its tusks, then charges.');
     panel.appendChild(foes);
     panel.appendChild(h('div', 'sh-h2', 'Bosses'));
@@ -321,13 +326,11 @@ export class Screens {
       h(
         'p',
         'sh-p',
-        'Level 1: the fat seal · Level 2: a penguin flock · Level 3: the polar bear · ' +
-          'Level 4: the turtle · Level 5: the walrus … and then the last seal on the planet.',
+        'Fat seal · penguin flock · polar bear · turtle · walrus … and then the last seal on the planet.',
       ),
     );
 
     const btn = h('div', 'sh-btn', 'Back');
-    Object.assign(btn.style, { position: 'absolute', right: '16px', bottom: '10px' });
     panel.appendChild(btn);
     this.openScreen('help', root, [{ el: btn, activate: back }], { back });
   }
@@ -420,7 +423,7 @@ export class Screens {
 
     sliderRow('Master volume', () => o.masterVolume, (v) => (o.masterVolume = v));
     sliderRow('Effects volume', () => o.sfxVolume, (v) => (o.sfxVolume = v));
-    choiceRow<boolean>('Wind & sea ambience', [[true, 'On'], [false, 'Off']], () => o.ambience, (v) => (o.ambience = v));
+    choiceRow<boolean>('Ambience (wind, sea)', [[true, 'On'], [false, 'Off']], () => o.ambience, (v) => (o.ambience = v));
     choiceRow<Options['blood']>('Blood', [['low', 'Low'], ['normal', 'Normal'], ['max', 'Max']], () => o.blood, (v) => (o.blood = v));
     choiceRow<Options['quality']>('Graphics quality', [['low', 'Low'], ['medium', 'Medium'], ['high', 'High']], () => o.quality, (v) => (o.quality = v));
     choiceRow<boolean>('Show FPS', [[false, 'Off'], [true, 'On']], () => o.showFps, (v) => (o.showFps = v));
@@ -474,6 +477,16 @@ export class Screens {
   }
 
   // ------------------------------------------------------------- internals
+
+  /** Run an internal menu-to-menu navigation (no activation grace period). */
+  private nav(fn: () => void): void {
+    this.navigating = true;
+    try {
+      fn();
+    } finally {
+      this.navigating = false;
+    }
+  }
 
   private hideSplash(): void {
     window.clearTimeout(this.splashTimer);
@@ -533,7 +546,7 @@ export class Screens {
 
     // Stats.
     const left = h('div', 'sh-panel');
-    Object.assign(left.style, { left: '30px', top: '116px', width: '330px', height: '292px', padding: '10px 14px' });
+    Object.assign(left.style, { left: '30px', top: '145px', width: '330px', height: '264px', padding: '9px 14px' });
     const lh = h('div', 'sh-h2', 'This hunt');
     lh.style.marginTop = '0';
     left.appendChild(lh);
@@ -547,7 +560,7 @@ export class Screens {
     const lvlName = s.levelName && s.levelName !== `Level ${s.level}` ? ` — ${s.levelName}` : '';
     add('Level reached', `${s.level}${lvlName}`);
     const breakdown = ENEMY_ORDER.filter((t) => (s.killsByType[t] ?? 0) > 0)
-      .map((t) => `${ENEMIES[t].name} ${fmt(s.killsByType[t] ?? 0)}`)
+      .map((t) => `${ENEMIES[t].name} ${fmt(s.killsByType[t] ?? 0)}`.replace(/ /g, NBSP))
       .join(' · ');
     add('Kills', fmt(s.kills), breakdown || undefined);
     add('Money earned', `$${fmt(s.moneyEarned)}`, `$${fmt(s.moneyLeft)} left unspent`);
@@ -555,7 +568,7 @@ export class Screens {
     add('Accuracy', s.shots > 0 ? `${acc}%` : '—', s.shots > 0 ? `${fmt(s.hits)} hits from ${fmt(s.shots)} shots` : undefined);
     add('Headshots', fmt(s.headshots));
     add('Nice shots', fmt(s.niceShots), s.bestNiceShot > 0 ? `best: ${s.bestNiceShot} kills with one shot` : undefined);
-    const bought = s.weaponsBought.filter((w) => WEAPONS[w]).map((w) => WEAPONS[w].name);
+    const bought = s.weaponsBought.filter((w) => WEAPONS[w]).map((w) => WEAPONS[w].name.replace(/ /g, NBSP));
     add('Weapons bought', String(bought.length), bought.length ? bought.join(', ') : undefined);
     add('Favourite weapon', s.favoriteWeapon && WEAPONS[s.favoriteWeapon] ? WEAPONS[s.favoriteWeapon].name : '—');
     left.appendChild(grid);
@@ -563,7 +576,7 @@ export class Screens {
 
     // High scores.
     const right = h('div', 'sh-panel');
-    Object.assign(right.style, { left: '372px', top: '116px', width: '238px', height: '292px', padding: '10px 12px' });
+    Object.assign(right.style, { left: '372px', top: '145px', width: '238px', height: '264px', padding: '9px 12px' });
     const rh = h('div', 'sh-h2', 'Best hunts');
     rh.style.marginTop = '0';
     right.appendChild(rh);
@@ -607,7 +620,7 @@ export class Screens {
 
     // Buttons.
     const btns = h('div', 'sh-go-btns');
-    btns.style.top = '424px';
+    btns.style.top = '421px';
     const retry = h('div', 'sh-btn', 'Retry');
     const title = h('div', 'sh-btn', 'Title');
     btns.append(retry, title);
@@ -660,10 +673,16 @@ export class Screens {
       name,
       root,
       ctls,
-      index: Math.min(this.selected.get(name) ?? 0, Math.max(0, ctls.length - 1)),
+      // Menus remember their last item (menu.py SELECTED), except that pause /
+      // game over / victory start on their first item when the game opens them.
+      index: Math.min(
+        this.navigating || !FRESH_START.has(name) ? (this.selected.get(name) ?? 0) : 0,
+        Math.max(0, ctls.length - 1),
+      ),
       horizontal: !!opt.horizontal,
       back: opt.back,
       openedAt: performance.now(),
+      activateAfter: performance.now() + (this.navigating ? 0 : ACTIVATE_GRACE_MS),
     };
     ctls.forEach((c, i) => {
       c.el.addEventListener('pointerenter', () => {
@@ -703,7 +722,7 @@ export class Screens {
     e.stopImmediatePropagation();
     if (fresh) return;
     const ctl = st.ctls[st.index];
-    const settled = performance.now() - st.openedAt > ACTIVATE_GRACE_MS;
+    const settled = performance.now() >= st.activateAfter;
     let handled = true;
     switch (e.code) {
       case 'ArrowUp':

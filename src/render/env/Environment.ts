@@ -262,7 +262,11 @@ export class Environment {
 
   private buildEnvMap(renderer: THREE.WebGLRenderer, scene: THREE.Scene): void {
     const envScene = new THREE.Scene();
-    const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), createSkyMaterial(true));
+    const skyMat = createSkyMaterial(true);
+    // Below the horizon the characters mostly "see" the bright floe, not the sea.
+    skyMat.uniforms.uSea.value.set(0.24, 0.29, 0.36);
+    skyMat.uniforms.uSeaFar.value.set(0.4, 0.42, 0.52);
+    const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), skyMat);
     envScene.add(sky);
     const pmrem = new THREE.PMREMGenerator(renderer);
     this.envTarget = pmrem.fromScene(envScene, 0.02, 1, 1000, { size: this.quality === 'low' ? 64 : 128 });

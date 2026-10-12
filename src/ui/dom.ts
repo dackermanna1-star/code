@@ -46,7 +46,8 @@ const tracked = new WeakSet<HTMLElement>();
 export function prepareView(view: HTMLElement): void {
   if (tracked.has(view)) return;
   tracked.add(view);
-  if (getComputedStyle(view).position === 'static') view.style.position = 'relative';
+  // Stage positions the view with left/top, i.e. it expects position:absolute.
+  if (getComputedStyle(view).position === 'static') view.style.position = 'absolute';
   view.classList.add('sh-view');
   const apply = () => {
     const w = view.clientWidth;

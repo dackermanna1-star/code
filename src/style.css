@@ -1,20 +1,3 @@
-@font-face {
-  font-family: 'trebuc';
-  src: url('/fonts/trebuc.ttf') format('truetype');
-}
-@font-face {
-  font-family: 'kinifed';
-  src: url('/fonts/kinifed.ttf') format('truetype');
-}
-@font-face {
-  font-family: 'Kroftsmann';
-  src: url('/fonts/Kroftsmann.ttf') format('truetype');
-}
-@font-face {
-  font-family: 'default';
-  src: url('/fonts/default.ttf') format('truetype');
-}
-
 html,
 body {
   margin: 0;
@@ -48,7 +31,7 @@ body {
   gap: 18px;
   background: radial-gradient(ellipse at center, #3a4656 0%, #11161d 75%);
   color: #dfe6ee;
-  font-family: 'trebuc', 'Trebuchet MS', sans-serif;
+  font-family: 'SH Trebuchet', 'Trebuchet MS', sans-serif;
   transition: opacity 0.5s;
 }
 .loading.done {
@@ -56,7 +39,7 @@ body {
   pointer-events: none;
 }
 .loading-title {
-  font-family: 'kinifed', serif;
+  font-family: 'SH Kinifed', serif;
   font-style: italic;
   font-size: 72px;
   color: #6e0000;

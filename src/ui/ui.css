@@ -407,15 +407,6 @@
   z-index: -1;
 }
 
-.sh-mi-row {
-  display: flex;
-  gap: 18px;
-}
-
-.sh-mi-row .sh-mi {
-  padding: 0 4px;
-}
-
 .sh-hint {
   position: absolute;
   left: 0;
@@ -457,16 +448,16 @@
 }
 
 .sh-h2 {
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: bold;
   color: #a8c4ec;
-  margin: 7px 0 3px;
+  margin: 7px 0 2px;
   letter-spacing: 0.2px;
 }
 
 .sh-p {
-  font-size: 11.5px;
-  line-height: 1.32;
+  font-size: 11px;
+  line-height: 1.3;
   color: #e6ebf3;
   margin: 0;
 }
@@ -475,9 +466,9 @@
   display: grid;
   grid-template-columns: auto 1fr;
   column-gap: 12px;
-  row-gap: 1.5px;
-  font-size: 11.5px;
-  line-height: 1.28;
+  row-gap: 2px;
+  font-size: 11px;
+  line-height: 13px;
 }
 
 .sh-kv .k {
@@ -492,14 +483,15 @@
 
 .sh-key {
   display: inline-block;
-  padding: 0 3px;
+  padding: 0 2.5px;
   margin: 0 0.5px;
   border: 0.8px solid rgba(220, 230, 245, 0.55);
-  border-bottom-width: 1.4px;
+  border-bottom-width: 1.3px;
   border-radius: 2.5px;
   background: rgba(255, 255, 255, 0.08);
-  font-size: 10px;
-  line-height: 12px;
+  font-size: 9.5px;
+  line-height: 10.5px;
+  vertical-align: 0.5px;
   color: #fff;
   white-space: nowrap;
 }
@@ -509,9 +501,23 @@
   grid-template-columns: 1fr 1fr;
   column-gap: 14px;
   row-gap: 2px;
-  font-size: 10.5px;
+  font-size: 10px;
   line-height: 1.25;
   color: #d8dfea;
+}
+
+.sh-foes > div {
+  white-space: nowrap;
+}
+
+.sh-help {
+  display: flex;
+  flex-direction: column;
+}
+
+.sh-help .sh-btn {
+  align-self: flex-end;
+  margin-top: auto;
 }
 
 .sh-foes b {
@@ -559,6 +565,7 @@
 
 .sh-opt-label {
   flex: 1 1 auto;
+  white-space: nowrap;
 }
 
 .sh-opt-ctl {
@@ -640,8 +647,9 @@
   text-align: center;
   font-family: 'SH Kinifed', 'SH Trebuchet', serif;
   font-style: italic;
-  font-size: 58px;
+  font-size: 50px;
   line-height: 1.118;
+  word-spacing: 0.22em;
   color: rgb(110, 0, 0);
   text-shadow: 1px 1px 0 #141414, 2px 2px 0 #141414, 3px 3px 0 #141414, 0 0 12px rgba(255, 255, 255, 0.25);
   white-space: nowrap;
@@ -652,7 +660,7 @@
   left: 0;
   right: 0;
   text-align: center;
-  font-size: 25px;
+  font-size: 24px;
   font-weight: bold;
   line-height: 1.162;
   color: rgb(60, 60, 120);
@@ -667,7 +675,7 @@
   left: 20px;
   right: 20px;
   text-align: center;
-  font-size: 14px;
+  font-size: 13px;
   font-style: italic;
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.6);
@@ -677,9 +685,9 @@
   display: grid;
   grid-template-columns: auto 1fr;
   column-gap: 10px;
-  row-gap: 2px;
-  font-size: 12px;
-  line-height: 1.3;
+  row-gap: 1.5px;
+  font-size: 11px;
+  line-height: 1.25;
 }
 
 .sh-stats .k {
@@ -695,8 +703,8 @@
 
 .sh-stats .sub {
   grid-column: 1 / span 2;
-  font-size: 10px;
-  line-height: 1.3;
+  font-size: 9.5px;
+  line-height: 1.25;
   color: #c4cfde;
   font-weight: normal;
   text-align: left;

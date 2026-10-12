@@ -224,9 +224,10 @@ export function loft(input: Sec[], o: LoftOpts = {}): THREE.BufferGeometry {
     const t = T[mi].clone().multiplyScalar(end === 0 ? -1 : 1);
     const c = P[mi];
     const base = sp.length / 3;
+    // Rim keeps the side normals so the cut is invisible where pieces meet.
     for (let j = 0; j < radial; j++) {
       const v = sRing + j;
-      pushV(sp[v * 3], sp[v * 3 + 1], sp[v * 3 + 2], t.x, t.y, t.z);
+      pushV(sp[v * 3], sp[v * 3 + 1], sp[v * 3 + 2], sn[v * 3], sn[v * 3 + 1], sn[v * 3 + 2]);
     }
     const ctr = pushV(c.x, c.y, c.z, t.x, t.y, t.z);
     for (let j = 0; j < radial; j++) {
@@ -383,16 +384,16 @@ export function eye(
   glint = true,
   iris?: THREE.ColorRepresentation,
 ): void {
-  pb.add(new THREE.SphereGeometry(r, 10, 8), color, 'eye', { p });
+  pb.add(new THREE.SphereGeometry(r, 10, 7), color, 'eye', { p });
   if (iris !== undefined) {
     // coloured iris disc slightly outward (towards ±z side of p)
     const sz = Math.sign(p[2]) || 1;
-    pb.add(new THREE.SphereGeometry(r * 0.62, 10, 8), iris, 'eye', { p: [p[0] + r * 0.25, p[1], p[2] + sz * r * 0.5] });
-    pb.add(new THREE.SphereGeometry(r * 0.32, 8, 6), 0x050505, 'eye', { p: [p[0] + r * 0.4, p[1], p[2] + sz * r * 0.72] });
+    pb.add(new THREE.SphereGeometry(r * 0.62, 8, 6), iris, 'eye', { p: [p[0] + r * 0.25, p[1], p[2] + sz * r * 0.5] });
+    pb.add(new THREE.SphereGeometry(r * 0.32, 6, 4), 0x050505, 'eye', { p: [p[0] + r * 0.4, p[1], p[2] + sz * r * 0.72] });
   }
   if (glint) {
     const sz = Math.sign(p[2]) || 1;
-    pb.add(new THREE.SphereGeometry(r * 0.26, 6, 5), 0xffffff, 'eye', {
+    pb.add(new THREE.SphereGeometry(r * 0.26, 5, 4), 0xffffff, 'eye', {
       p: [p[0] + r * 0.45, p[1] + r * 0.45, p[2] + sz * r * 0.62],
     });
   }

@@ -44,20 +44,22 @@ const SKY_FRAG = /* glsl */ `
 #else
     vec3 base = skyGradient(el, az);
     // Stratus streaks: coordinates in azimuth / elevation, stretched horizontally.
-    vec2 q = vec2(az * 7.0 + uTime * 0.012, el * 30.0);
-    vec2 w = vec2(envFbm3(q * vec2(0.5, 1.2) + 3.7), envFbm3(q * vec2(0.5, 1.2) + 9.1));
-    q += (w - 0.5) * vec2(2.2, 0.9);
-    float n = envFbm(q * vec2(0.8, 2.0));
-    float fine = envFbm3(q * vec2(2.4, 7.0) + 5.0);
-    float dark = smoothstep(0.38, 0.7, n + (fine - 0.5) * 0.35);
-    float light = smoothstep(0.55, 0.3, n + (fine - 0.5) * 0.25);
+    vec2 q = vec2(az * 6.0 + uTime * 0.01, el * 36.0);
+    vec2 w = vec2(envFbm3(q * vec2(0.35, 0.8) + 3.7), envFbm3(q * vec2(0.35, 0.8) + 9.1));
+    q += (w - 0.5) * vec2(1.6, 1.1);
+    float n = envFbm(q * vec2(0.55, 1.5));
+    float fine = envFbm(q * vec2(1.6, 8.0) + 5.0);
+    float streak = envFbm3(q * vec2(4.0, 22.0) + 11.0);
+    float cloud = n + (fine - 0.5) * 0.7 + (streak - 0.5) * 0.25;
+    float dark = smoothstep(0.46, 0.64, cloud);
+    float light = smoothstep(0.42, 0.26, cloud);
     // Fewer dark clouds near the horizon and on the bright right side.
-    float hz = 1.0 - smoothstep(0.0, 0.05, el);
-    dark *= 1.0 - 0.75 * hz;
-    dark *= 1.0 - 0.45 * smoothstep(0.08, 0.2, az) * (1.0 - smoothstep(0.03, 0.11, el));
+    float hz = 1.0 - smoothstep(0.0, 0.045, el);
+    dark *= 1.0 - 0.7 * hz;
+    dark *= 1.0 - 0.5 * smoothstep(0.08, 0.2, az) * (1.0 - smoothstep(0.03, 0.1, el));
     vec3 c = base;
-    c = mix(c, uLight * (0.85 + 0.3 * fine), light * 0.65);
-    c = mix(c, uDark * (0.8 + 0.4 * fine), dark * 0.85);
+    c = mix(c, uLight * (0.85 + 0.3 * streak), light * 0.75);
+    c = mix(c, uDark * (0.75 + 0.5 * streak), dark * 0.9);
     gl_FragColor = vec4(c, 1.0);
 #endif
   }
@@ -66,12 +68,12 @@ const SKY_FRAG = /* glsl */ `
 export function skyUniforms() {
   return {
     uTime: { value: 0 },
-    uTop: { value: new THREE.Vector3(0.24, 0.24, 0.34) },
-    uHorizon: { value: new THREE.Vector3(0.62, 0.56, 0.72) },
-    uHorizonR: { value: new THREE.Vector3(0.95, 0.9, 1.35) },
-    uHorizonL: { value: new THREE.Vector3(0.66, 0.57, 0.66) },
-    uDark: { value: new THREE.Vector3(0.18, 0.186, 0.27) },
-    uLight: { value: new THREE.Vector3(0.78, 0.74, 1.0) },
+    uTop: { value: new THREE.Vector3(0.2, 0.205, 0.29) },
+    uHorizon: { value: new THREE.Vector3(0.52, 0.5, 0.68) },
+    uHorizonR: { value: new THREE.Vector3(1.0, 0.95, 1.4) },
+    uHorizonL: { value: new THREE.Vector3(0.6, 0.54, 0.62) },
+    uDark: { value: new THREE.Vector3(0.13, 0.14, 0.21) },
+    uLight: { value: new THREE.Vector3(0.7, 0.68, 0.92) },
     uSea: { value: new THREE.Vector3(0.06, 0.08, 0.13) },
     uSeaFar: { value: new THREE.Vector3(0.3, 0.33, 0.45) },
   };

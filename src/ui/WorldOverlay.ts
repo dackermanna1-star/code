@@ -151,12 +151,13 @@ export class WorldOverlay {
     ctx.fillStyle = c.color ?? CROSS_COLOR;
     for (const [x, y, w, h] of CROSS_RECTS) ctx.fillRect(ox + x * px, oy + y * px, w * px, h * px);
     if (c.text) {
-      // player.py: info text centred 9 px (MONEY_FONT_SIZE) above the crosshair.
-      ctx.font = `${(9 * k).toFixed(2)}px ${FONT_FAMILY}`;
+      // player.py centres the info text MONEY_FONT_SIZE (9) px above the
+      // crosshair; the 2005 frames show ~10 px digits about 8 px above it.
+      ctx.font = `${(10 * k).toFixed(2)}px ${FONT_FAMILY}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = c.textColor;
-      ctx.fillText(c.text, c.x, c.y - 9.5 * k);
+      ctx.fillText(c.text, c.x, c.y - 8.5 * k);
     }
   }
 
@@ -165,10 +166,10 @@ export class WorldOverlay {
     const key = `${w}x${h}`;
     if (key !== this.vignetteKey || !this.vignetteGrad) {
       const r = Math.hypot(w, h) / 2;
-      const g = ctx.createRadialGradient(w / 2, h / 2, r * 0.42, w / 2, h / 2, r);
-      g.addColorStop(0, 'rgba(150,0,0,0)');
-      g.addColorStop(0.55, 'rgba(150,0,0,0.35)');
-      g.addColorStop(1, 'rgba(110,0,0,0.85)');
+      const g = ctx.createRadialGradient(w / 2, h * 0.55, r * 0.5, w / 2, h * 0.55, r);
+      g.addColorStop(0, 'rgba(160,0,0,0)');
+      g.addColorStop(0.45, 'rgba(150,0,0,0.28)');
+      g.addColorStop(1, 'rgba(100,0,0,0.85)');
       this.vignetteGrad = g;
       this.vignetteKey = key;
     }

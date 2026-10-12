@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Hunter + weapons preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1d2026; overflow: hidden; }
+  #game-view { position: absolute; overflow: hidden; }
+  #info { position: fixed; left: 6px; top: 6px; color: #fff; font: 12px/1.35 monospace; z-index: 10; white-space: pre; text-shadow: 0 1px 2px #000; pointer-events: none; }
+  .lbl { position: fixed; color: #fff; font: bold 13px/1.2 sans-serif; text-shadow: 0 1px 2px #000; z-index: 10; pointer-events: none; }
+  #hud { position: fixed; left: 0; top: 0; right: 0; padding: 14px; background: #6f86a8; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .slot { width: 112px; height: 84px; border-radius: 12px; background: linear-gradient(#8ea2c0, #6d82a3); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.25), 0 1px 3px rgba(0,0,0,0.4); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  .slot img { width: 104px; height: 52px; }
+  .slot span { font: bold 14px/1 Trebuchet MS, sans-serif; color: #c9d2de; margin-top: 4px; }
+  .big { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .big img { background: #5d7395; border-radius: 8px; }
+</style>
+</head>
+<body>
+<div id="info"></div>
+<script type="module" src="/src/preview/hunter.ts"></script>
+</body>
+</html>

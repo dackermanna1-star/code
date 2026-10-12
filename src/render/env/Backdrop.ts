@@ -20,7 +20,7 @@ export const BACKDROP_FRAME: BackdropFrame = {
 };
 
 /** Direction towards the light in the backdrop (upper left, slightly in front). */
-export const BACKDROP_LIGHT = new THREE.Vector3(-0.62, 0.62, 0.48).normalize();
+export const BACKDROP_LIGHT = new THREE.Vector3(-0.8, 0.5, 0.33).normalize();
 
 export interface BackdropOptions {
   /** Render-target resolution relative to the drawing buffer. */

@@ -7,10 +7,12 @@ import { renderWeaponIcons } from './render/models/weaponIcons';
 import { Game } from './game/Game';
 import { World } from './core/World';
 import { Bot } from './core/Bot';
+import { ensureFonts } from './ui/dom';
 
 const params = new URLSearchParams(location.search);
 
 async function boot(): Promise<void> {
+  ensureFonts();
   const host = document.getElementById('app')!;
   const loading = document.createElement('div');
   loading.className = 'loading';
@@ -30,7 +32,7 @@ async function boot(): Promise<void> {
 
   const audio = new AudioSystem();
   const fontsReady = Promise.all(
-    ['trebuc', 'kinifed', 'Kroftsmann', 'default'].map((f) =>
+    ['SH Trebuchet', 'SH Kinifed', 'SH Kroftsmann', 'SH Default'].map((f) =>
       document.fonts.load(`16px "${f}"`).catch(() => undefined),
     ),
   );

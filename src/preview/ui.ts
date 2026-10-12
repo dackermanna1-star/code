@@ -211,6 +211,10 @@ function frame(now: number) {
     fpsFrames = 0;
   }
 
+  if (screen !== 'hud') {
+    overlay.render({ crosshairs: [], texts: [] });
+    return;
+  }
   if (fake && FAKES[fake]) {
     hud.update(FAKES[fake]);
     const f = FAKES[fake];
@@ -286,7 +290,7 @@ function frame(now: number) {
     ],
     texts,
     lines: sel === 'awp' ? [{ x0: hx - 30 * k, y0: hy, x1: 0, y1: hy, color: '#ff0000', width: 1, alpha: 0.5 }] : [],
-    vignette: Math.max(0, Math.sin(t * 0.9)) ** 8 * 0.8,
+    vignette: t % 10 > 8 ? Math.sin(((t % 10) - 8) * Math.PI * 0.5) * 0.7 : 0,
   });
 }
 requestAnimationFrame(frame);

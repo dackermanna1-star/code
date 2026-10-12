@@ -214,6 +214,7 @@ export const EVENT_SOUNDS: Partial<Record<EventName, SoundRef[]>> = {
   cubShotOut: [SFX.spout, SFX.panic],
   explosion: [SFX.explosion],
   grenadeBounce: [SFX.grenadeBounce],
+  // Only with bindGameEvents(..., { shellEject: true }); in the game the debris physics plays casing bounces.
   shellEject: [SHELL_SMALL, SHELL_NORMAL, SHELL_SHOTGUN],
   buy: [SFX.buy, SFX.awpBuyLaugh],
   weaponSwitch: [SFX.weaponSwitch],

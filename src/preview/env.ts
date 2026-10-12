@@ -88,6 +88,11 @@ if (params.get('decal') !== '0') {
   env.setDecalMap(tex, rect);
 }
 
+if (params.get('only') === 'backdrop') {
+  for (const c of env.group.children) if (!(c as THREE.Light).isLight) c.visible = false;
+  for (const c of caps) c.visible = false;
+}
+
 const anim = params.get('anim') === '1';
 stage.onUpdate((dt, time) => {
   env.update(dt, time);
