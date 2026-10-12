@@ -94,6 +94,7 @@ export class Hud {
     this.fade = { health: 0, armor: 0, ammo: 0, money: 0 };
     this.panic = { t: 0, on: false };
     this.pain = { front: 0, back: 0, left: 0, right: 0 };
+    this.layers = []; // extra drawing from game-side modules (addLayer)
     this.sized = false;
     this.resize({ x: 0, y: 0, w: container.clientWidth || window.innerWidth, h: container.clientHeight || window.innerHeight });
     this.sized = false;
@@ -199,6 +200,23 @@ export class Hud {
     this._pushChat([{ text: String(text), color }]);
   }
 
+  /**
+   * An extra HUD layer drawn every frame the HUD is up: fn(hud, s, dt) with the primitives
+   * (text, spr, fillAdd, gUnder / gAdd / gTop, k, vw, vh...). z < 0: under the stock HUD
+   * (screen tints, vignettes); z >= 0: over it, below the kill feed, chat and centre text.
+   * Zombie survival features register theirs from their own modules. Returns a remover.
+   */
+  addLayer(fn, z = 0) {
+    const l = { fn, z };
+    this.layers.push(l);
+    this.layers.sort((a, b) => a.z - b.z);
+    return () => { const i = this.layers.indexOf(l); if (i >= 0) this.layers.splice(i, 1); };
+  }
+
+  drawLayers(s, dt, under) {
+    for (const l of this.layers) if ((l.z < 0) === under) l.fn(this, s, dt);
+  }
+
   moneyDelta(amount) {
     amount = Math.round(amount || 0);
     if (!amount) return;
@@ -227,6 +245,7 @@ export class Hud {
     A.globalCompositeOperation = 'lighter';
     A.globalAlpha = 1;
     T.globalAlpha = 1;
+    if (this.layers.length) this.drawLayers(s, dt, true);
 
     const alive = !!s.alive && s.team !== 'SPEC';
     if (alive && s.scope) this.drawScope();
@@ -247,6 +266,7 @@ export class Hud {
       if (s.spectator) this.drawSpectator(s);
     }
     if (s.zombie) this.drawZombie(s);
+    if (this.layers.length) this.drawLayers(s, dt, false);
     this.drawKills();
     this.drawChat();
     this.drawCenter();
@@ -747,7 +767,7 @@ export class Hud {
     const top = s.alive ? 6 * k : Math.round(this.vh * 0.11) + 6 * k; // under the spectator bar
     const px = Math.round(this.fontPx * 1.7);
     this.text(z.wave ? `WAVE ${z.wave}` : 'GET READY', vw / 2, top, [210, 34, 24], { align: 'center', font: fontString(px, true) });
-    const info = z.state === 'wave' ? `Zombies left: ${z.left}` : z.state === 'break' ? `Next wave in ${Math.ceil(z.next ?? 0)}` : 'GAME OVER';
+    const info = z.state === 'wave' ? `Zombies left: ${z.left}${z.extras ? ` (+${z.extras})` : ''}` : z.state === 'break' ? `Next wave in ${Math.ceil(z.next ?? 0)}` : 'GAME OVER';
     const y2 = top + Math.round(px * 1.2);
     this.text(`${info}     Kills: ${z.kills}     Best: ${z.best} wave${z.best === 1 ? '' : 's'}`, vw / 2, y2, [255, 176, 0], { align: 'center' });
     // boss health bar

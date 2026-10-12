@@ -103,7 +103,26 @@ export class BossDirector {
     g.sound?.play(def.id === 'banshee' ? 'banshee_scream' : 'boss_roar', { pos: p.eyePos(), volume: 1 });
     g.shakeAt?.(p.pm.origin, 6, 3000);
     g.announce?.(def.name);
+    Z.events.mode('boss', { phase: 'spawn', id: def.id, name: def.name, boss: p });
     return true;
+  }
+
+  /** Off the map at once, no death and no body (zm_* cheats): the next spawn starts clean. */
+  despawn() {
+    const b = this.boss, g = this.game;
+    this.pendingBoom = null;
+    if (!b) return;
+    if (b.alive) {
+      b.alive = false;
+      b.health = 0;
+      b.deathTime = 0;
+      b.cmd = null;
+      b.box.active = false;
+      b.model.object3D.visible = false;
+    }
+    if (!b.alive && b.deathTime) g.gore?.bakePlayer(b); // (a dead one's body stays)
+    g.removePlayer(b, true, true);
+    this.boss = null;
   }
 
   // ---------------------------------------------------------------- damage

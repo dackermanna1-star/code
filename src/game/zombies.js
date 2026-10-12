@@ -1,9 +1,11 @@
 // Zombie survival: you (and any bot teammates) start with $16000 and hold out
 // against endless, growing waves of zombies until you die.
-//  - waves: a 12 s break to buy before the first, 15 s between waves; buying works
-//    anywhere, any time; a cleared wave pays a bonus and patches you up a little
+//  - waves: a 12 s break to buy before the first, 15 s between waves (the difficulty's);
+//    buying works anywhere, any time; a cleared wave pays a bonus and patches you up a little
 //  - each wave brings more zombies, with more health, more damage and, from wave 3,
-//    runners faster than a knife; at most 12 are up at once (waveStats)
+//    runners faster than a knife; at most 12 are up at once (zdiff.js waveStats)
+//  - the difficulty (zdiff.js, from the New Game options) is this.diff; what happens in a
+//    run goes out on this.events and is tallied in this.runStats (runstats.js)
 //  - zombies are Player objects on the T side (hitboxes, blood, wounds, ragdolls and
 //    the kill feed work as for players) that walk through each other but not through
 //    people; they hunt along a flow field over the bots' nav graph toward the nearest
@@ -16,39 +18,25 @@ import { IN_JUMP } from '../engine/pmove.js';
 import { MinHeap } from './nav.js';
 import * as CR from './combatrules.js';
 import { Specials } from './specials.js';
+import { waveStats, zombieOptions, resolveDiff } from './zdiff.js';
+import { RunEvents, RunStats } from './runstats.js';
+import { ZEconomy } from './zeconomy.js';
+import { ZDowned } from './zdowned.js';
+import { ZFeedback } from './zfeedback.js';
+
+export { waveStats };
 
 /** Zombies move through each other but not through people; people bump into both. */
 export const MASK_ZOMBIE_MOVE = CONTENTS_SOLID | CONTENTS_PLAYERCLIP | CONTENTS_PLAYER;
 export const MASK_HUMAN_MOVE = MASK_ZOMBIE_MOVE | CONTENTS_ZOMBIE;
 
 export const ZOMBIE_START_MONEY = 16000;
-const FIRST_BREAK = 12, BREAK = 15;
 const POOL = 20; // zombie bodies reused wave after wave (a model each)
 const CORPSE_TIME = 4; // a body lies at least this long before its zombie comes back
 const REACH = 46; // start a swipe within this (horizontal, hull edge to hull edge ~14)
 const HIT_RANGE = 72; // the swipe lands if still within this when it comes down
 const WINDUP = 0.3, COOLDOWN = 0.95;
 const BEST_KEY = 'cs16-zombies-best';
-
-/**
- * What wave n brings. It keeps getting harder for good, but gently past wave 10:
- * health +10 a wave to wave 10, then +4; the common ones top out at 222 units/s, slower
- * than you with any rifle (only the runners, up to 20% of a wave, outpace you); a claw
- * does at most 22; up to 12 up at once.
- */
-export function waveStats(n) {
-  const early = Math.min(n, 10) - 1, late = Math.max(0, n - 10);
-  return {
-    count: 6 + 3 * (n - 1),
-    maxAlive: Math.min(12, 4 + n),
-    health: 100 + 10 * early + 4 * late,
-    speed: Math.min(222, 186 + 4 * n),
-    runners: n < 3 ? 0 : Math.min(0.2, 0.04 * (n - 2)),
-    damage: Math.min(22, Math.round(10 + 1.6 * n)),
-    interval: Math.max(0.5, 1.6 - 0.08 * n),
-    bonus: 500 + 250 * n,
-  };
-}
 
 const rand = (a, b) => a + Math.random() * (b - a);
 const angDiff = (a, b) => ((a - b) % 360 + 540) % 360 - 180;
@@ -64,12 +52,28 @@ export class ZombieMode {
     this.rev = null;
     this.cands = null;
     this.specials = new Specials(game);
-    this.best = 0;
-    try { this.best = +(localStorage.getItem(BEST_KEY) || 0); } catch { /* storage blocked */ }
+    this.events = new RunEvents(game);
+    this.runStats = new RunStats(game, this.events);
+    // Milestone 1 features, a module each (they hook in through events, tick and hud)
+    this.economy = new ZEconomy(game);
+    this.downed = new ZDowned(game);
+    this.feedback = new ZFeedback(game);
+    this.configure({});
+    this.best = this.bestBefore = this.loadBest();
   }
 
+  /** New Game options: the mode, and the difficulty with its options (zdiff.js). */
   configure(opts) {
     this.enabled = opts.mode === 'zombies';
+    this.opts = zombieOptions(opts);
+    this.diff = resolveDiff(this.opts);
+  }
+
+  /** What waveStats scales with: the difficulty, and the squad (humans + botCrowd x bots). */
+  waveOpts() {
+    let crowd = 0;
+    for (const p of this.game.players) if (p.team === TEAM_CT && !p.isZombie) crowd += p.isBot ? this.diff.horde.botCrowd : 1;
+    return { diff: this.diff, crowd: Math.max(1, crowd) };
   }
 
   // ---------------------------------------------------------------- game flow
@@ -78,14 +82,17 @@ export class ZombieMode {
     const g = this.game;
     this.pool = [];
     this.wave = 0;
-    this.kills = 0;
-    this.killed = 0;
+    this.kills = 0; // yours
+    this.squadKills = 0; // everybody's on your side
+    this.killed = 0; // of this wave's count
     this.spawned = 0;
+    this.survived = 0;
     this.state = 'break';
-    this.nextWaveAt = g.time + FIRST_BREAK;
+    this.nextWaveAt = g.time + this.diff.firstBreak;
     this.flowAt = 0;
     this.overAt = 0;
-    this.stats = waveStats(1);
+    this.best = this.bestBefore = this.loadBest(); // (a new best is measured against this)
+    this.stats = waveStats(1, this.waveOpts());
     g.rounds.removeBomb();
     g.clearDropped();
     g.grenades.clear();
@@ -97,8 +104,9 @@ export class ZombieMode {
     g.explosives?.clear();
     this.bossAt = 0;
     g.spectate = { mode: 'free', angles: [20, 90, 0] };
-    g.hud?.centerPrint?.(`Zombie survival\nBuy anything, anywhere. The first wave comes in ${FIRST_BREAK} seconds.`, 6);
+    g.hud?.centerPrint?.(`Zombie survival (${this.diff.label})\nBuy anything, anywhere. The first wave comes in ${this.diff.firstBreak} seconds.`, 6);
     g.bots.onRoundStart();
+    this.events.mode('run', { phase: 'start', wave: 0, diff: this.diff.id });
   }
 
   /** Joining a team spawns you only before the first wave (no respawns after that). */
@@ -107,7 +115,7 @@ export class ZombieMode {
   startWave(n) {
     const g = this.game;
     this.wave = n;
-    this.stats = waveStats(n);
+    this.stats = waveStats(n, this.waveOpts());
     this.spawned = 0;
     this.killed = 0;
     this.state = 'wave';
@@ -126,31 +134,43 @@ export class ZombieMode {
     g.hud?.centerPrint?.(this.bossWave ? `WAVE ${n}\nSomething big is coming...` : `WAVE ${n}`, 3);
     g.sound?.play('zombie_wave', { volume: 1, attenuation: 'none' });
     g.announce?.(`Wave ${n}`);
+    this.events.mode('wave', { phase: 'start', wave: n, boss: this.bossWave, count: this.stats.count });
   }
 
   waveCleared() {
     const g = this.game;
     this.state = 'break';
-    this.nextWaveAt = g.time + BREAK;
-    const bonus = this.stats.bonus;
+    const brk = this.diff.breakLen;
+    this.nextWaveAt = g.time + brk;
+    const bonus = this.stats.bonus, heal = this.diff.econ.waveHeal;
     for (const p of g.players) {
       if (p.team !== TEAM_CT || !p.alive) continue;
       g.rounds.addMoney(p, bonus);
-      p.health = Math.min(100, p.health + 25);
+      p.health = Math.min(100, p.health + heal);
     }
-    g.hud?.centerPrint?.(`Wave ${this.wave} cleared!\n+$${bonus}, +25 health. Next wave in ${BREAK} seconds.`, 5);
+    g.hud?.centerPrint?.(`Wave ${this.wave} cleared!\n+$${bonus}${heal ? `, +${heal} health` : ''}. Next wave in ${brk} seconds.`, 5);
     g.sound?.play('radio_beep', { volume: 0.6 });
     this.saveBest(this.wave);
+    this.events.mode('wave', { phase: 'cleared', wave: this.wave, boss: this.bossWave, count: this.stats.count, bonus, heal });
   }
 
   gameOver() {
     const g = this.game;
     if (this.state === 'over') return;
+    // dying in a break, the wave before it was cleared: it counts
+    this.survived = this.state === 'break' ? this.wave : Math.max(0, this.wave - 1);
     this.state = 'over';
     this.overAt = g.time;
-    this.survived = Math.max(0, this.wave - 1);
     this.saveBest(this.survived);
     g.hud?.centerPrint?.(`GAME OVER\nYou survived ${this.survived} wave${this.survived === 1 ? '' : 's'} and killed ${this.kills} zombies.`, 8);
+    this.events.mode('run', { phase: 'over', diff: this.diff.id, survived: this.survived, kills: this.kills });
+  }
+
+  /** Records: the most waves survived. A new best beats bestBefore (the best when the run began). */
+  isNewBest() { return this.survived > this.bestBefore; }
+
+  loadBest() {
+    try { return +(localStorage.getItem(BEST_KEY) || 0) || 0; } catch { return 0; } // (storage blocked)
   }
 
   saveBest(waves) {
@@ -162,15 +182,22 @@ export class ZombieMode {
   /** Per tick, after everyone moved (RoundManager.tick). */
   tick() {
     const g = this.game, t = g.time;
+    this.economy.tick(t);
+    this.downed.tick(t);
+    this.feedback.tick(t);
     if (this.state === 'break' && t >= this.nextWaveAt) this.startWave(this.wave + 1);
     if (this.state !== 'wave') return;
     const S = this.stats;
     if (this.bossAt && t >= this.bossAt) { if (this.game.bosses.spawn(this.wave)) this.bossAt = 0; else this.bossAt = t + 1; }
-    const alive = this.pool.reduce((n, z) => n + (z.alive ? 1 : 0), 0);
+    let alive = 0;
+    for (const z of this.pool) if (z.alive) alive++;
     if (this.spawned < S.count && alive < S.maxAlive && t >= this.nextSpawn) {
+      const n0 = this.spawned;
       const kind = this.specials.pick(this.wave);
-      if (kind) this.spawned += this.specials.spawn(kind) || (this.spawnZombie() ? 1 : 0);
+      // (a sprinter pack never takes the wave past its count)
+      if (kind) this.spawned += this.specials.spawn(kind, { max: S.count - this.spawned }) || (this.spawnZombie() ? 1 : 0);
       else if (this.spawnZombie()) this.spawned++;
+      alive += this.spawned - n0; // (the last of the wave just came up: not cleared yet)
       this.nextSpawn = t + S.interval * rand(0.6, 1.4);
     }
     if (this.spawned >= S.count && alive === 0 && !this.bossAt && !this.game.bosses.alive()) this.waveCleared();
@@ -178,15 +205,22 @@ export class ZombieMode {
 
   /** RoundManager.onPlayerKilled */
   onKilled(victim, attacker) {
+    if (victim.isZombie) {
+      if (attacker && attacker === this.game.local) this.kills++; // (yours: the record)
+      if (attacker && attacker.team === TEAM_CT && !attacker.isZombie) this.squadKills++;
+    }
     if (victim.isBoss) {
-      if (attacker && attacker.team === TEAM_CT) this.kills++;
       this.game.bosses.onKilled(victim, attacker);
+      const B = victim.boss;
+      this.events.mode('boss', { phase: 'death', id: B?.def.id, name: B?.def.name, boss: victim, attacker: attacker || null });
       return;
     }
     if (victim.isZombie) {
-      if (victim.special) this.specials.onDeath(victim, attacker);
+      if (victim.special) {
+        this.specials.onDeath(victim, attacker);
+        this.events.mode('special', { phase: 'death', kind: victim.special, zombie: victim, attacker: attacker || null });
+      }
       if (!victim.extra) this.killed++;
-      if (attacker && attacker.team === TEAM_CT) this.kills++;
       return;
     }
     if (victim === this.game.local) this.gameOver();
@@ -194,19 +228,52 @@ export class ZombieMode {
 
   humans() { return this.game.players.filter((p) => p.alive && p.team === TEAM_CT); }
 
+  /**
+   * A key bind or console command the stock game doesn't handle (F1 is 'autobuy', N
+   * 'nightvision'; typed ones like 'zm_ready'), from player p: the features get a look.
+   * Returns true when one of them took it.
+   */
+  command(p, cmd, args = []) {
+    return this.economy.command(p, cmd, args) || this.downed.command(p, cmd, args) || this.feedback.command(p, cmd, args);
+  }
+
   hudInfo() {
-    const S = this.stats || waveStats(1);
+    const S = this.stats || waveStats(1, this.waveOpts());
     const t = this.game.time;
-    const extras = this.pool.reduce((n, z) => n + (z.alive && z.extra ? 1 : 0), 0);
+    let extras = 0;
+    for (const z of this.pool) if (z.alive && z.extra) extras++;
     return {
       wave: this.wave,
       state: this.state,
       boss: this.game.bosses?.hudInfo() || null,
-      left: this.state === 'wave' ? Math.max(0, S.count - this.killed) + extras : 0,
+      left: this.state === 'wave' ? Math.max(0, S.count - this.killed) : 0, // of the wave's count
+      extras: this.state === 'wave' ? extras : 0, // summoned ones up (bile hordes, broods, packs): on top
       next: this.state === 'break' ? Math.max(0, this.nextWaveAt - t) : null,
       kills: this.kills,
+      squadKills: this.squadKills,
       best: this.best,
+      diff: this.diff.label,
+      hardcore: this.diff.hardcore,
     };
+  }
+
+  /** Take every zombie (and the boss) off the map at once: no kills, no bodies (cheats, skips). */
+  clearHorde() {
+    for (const z of this.pool) if (z.alive) this.despawn(z);
+    this.game.bosses?.despawn();
+    this.bossAt = 0;
+  }
+
+  despawn(z) {
+    const S = z.sp;
+    if (S?.victim) { if (z.special === 'hunter') this.specials.unpin(z); else if (z.special === 'smoker') this.specials.release(z); }
+    this.game.stopWeaponLoops(z);
+    z.alive = false;
+    z.health = 0;
+    z.deathTime = 0; // (free for the next spawn; nothing left lying)
+    z.cmd = null;
+    z.box.active = false;
+    if (z.model) z.model.object3D.visible = false;
   }
 
   // ---------------------------------------------------------------- zombies

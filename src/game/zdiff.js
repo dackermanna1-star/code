@@ -1,0 +1,158 @@
+// Zombie survival difficulty: one table every tuning knob of the mode reads.
+// A preset = { id, label, blurb, sandbox, breakLen, firstBreak, econ, horde, specials, squad }.
+// The groups are kept as separate tables below, one per owner, so each can be tuned on its
+// own: econ (money and buying), horde (waveStats), specials (how often and how many),
+// squad (downed / revive). NORMAL's horde and specials reproduce the curve the mode was
+// tuned to before difficulty existed; the other presets scale from it. Sandbox plays
+// Normal's horde, specials and squad rules (only its economy differs).
+// The New Game options (zombieOptions) pick a preset and adjust it (resolveDiff): the result
+// is g.zombies.diff, read-only for everyone (copy before changing anything).
+
+export const ZDIFF_ORDER = ['casual', 'normal', 'hard', 'nightmare', 'sandbox'];
+export const DEFAULT_ZDIFF = 'normal';
+
+/** Name, card text, break between waves (s; the New Game "break length" overrides it), the first break. */
+const META = {
+  casual: { label: 'Casual', blurb: 'A smaller, slower, weaker horde, longer breaks and more cash. For learning the ropes.', breakLen: 20, firstBreak: 15 },
+  normal: { label: 'Normal', blurb: 'The intended run: start with a pistol, earn every gun, keep each other alive.', breakLen: 15, firstBreak: 12 },
+  hard: { label: 'Hard', blurb: 'More of them, tougher and quicker, and it keeps climbing after wave 10.', breakLen: 15, firstBreak: 12 },
+  nightmare: { label: 'Nightmare', blurb: 'A relentless horde, little money and short breaks. Expect to lose.', breakLen: 12, firstBreak: 12 },
+  sandbox: { label: 'Sandbox', blurb: 'The power fantasy: $16000, buy anything, anywhere, any time. The Normal horde.', breakLen: 15, firstBreak: 12, sandbox: true },
+};
+
+/**
+ * Money and buying. startMoney / moneyCap ($); buyAnywhere (no buy zones); buyAnytime (guns
+ * and upgrades mid-wave too, else only ammo, medkits and armour, at +combatPremium);
+ * killPay: a common kill pays base + perWave x wave up to max, +headBonus (fraction) on a
+ * headshot; specialPay / bossPay ($, the boss's split by damage share); waveBonus [base,
+ * perWave] for a cleared wave; waveHeal (HP back for a cleared wave).
+ * sandbox = how the mode played before the economy: $16000 cap, $300 a kill, buy anything.
+ */
+const ECON = {
+  casual: { startMoney: 3000, moneyCap: 100000, buyAnywhere: true, buyAnytime: false, combatPremium: 0.25, killPay: { base: 70, perWave: 6, max: 130, headBonus: 0.5 }, specialPay: 350, bossPay: 3500, waveBonus: [600, 250], waveHeal: 35 },
+  normal: { startMoney: 2000, moneyCap: 100000, buyAnywhere: true, buyAnytime: false, combatPremium: 0.5, killPay: { base: 50, perWave: 5, max: 100, headBonus: 0.5 }, specialPay: 300, bossPay: 3000, waveBonus: [500, 250], waveHeal: 25 },
+  hard: { startMoney: 1500, moneyCap: 100000, buyAnywhere: true, buyAnytime: false, combatPremium: 0.5, killPay: { base: 50, perWave: 4, max: 90, headBonus: 0.5 }, specialPay: 300, bossPay: 3000, waveBonus: [400, 200], waveHeal: 15 },
+  nightmare: { startMoney: 1000, moneyCap: 100000, buyAnywhere: true, buyAnytime: false, combatPremium: 0.75, killPay: { base: 40, perWave: 4, max: 80, headBonus: 0.5 }, specialPay: 250, bossPay: 2500, waveBonus: [300, 150], waveHeal: 10 },
+  sandbox: { startMoney: 16000, moneyCap: 16000, buyAnywhere: true, buyAnytime: true, combatPremium: 0, killPay: { base: 300, perWave: 0, max: 300, headBonus: 0 }, specialPay: 300, bossPay: 5000, waveBonus: [500, 250], waveHeal: 25 },
+};
+
+/**
+ * The horde (waveStats): multipliers on the tuned base curve (WAVE below) and caps.
+ * count / health / damage / speed / maxAlive / interval: x the base; damageCap (a claw),
+ * speedCap (units/s, the commons), runnerCap (share of runners) with runnersFrom (first
+ * wave with runners) and runners (x their growth), maxAliveCap (up at once). Past lateFrom
+ * the caps (damage, runners, maxAlive) keep rising by lateGrowth (fraction) a wave.
+ * botCrowd: what a bot teammate counts for when the horde scales with the squad
+ * (crowd = humans + botCrowd x bots; used when squad scaling is on).
+ */
+const HORDE = {
+  casual: { count: 0.85, health: 0.8, damage: 0.7, damageCap: 16, speed: 0.96, speedCap: 212, runners: 0.75, runnerCap: 0.12, runnersFrom: 4, maxAlive: 1, maxAliveCap: 10, interval: 1.1, lateFrom: 10, lateGrowth: 0, botCrowd: 0.4 },
+  normal: { count: 1, health: 1, damage: 1, damageCap: 22, speed: 1, speedCap: 222, runners: 1, runnerCap: 0.2, runnersFrom: 3, maxAlive: 1, maxAliveCap: 12, interval: 1, lateFrom: 10, lateGrowth: 0, botCrowd: 0.5 },
+  hard: { count: 1.15, health: 1.2, damage: 1.25, damageCap: 26, speed: 1.03, speedCap: 228, runners: 1.25, runnerCap: 0.26, runnersFrom: 3, maxAlive: 1.1, maxAliveCap: 14, interval: 0.9, lateFrom: 10, lateGrowth: 0.015, botCrowd: 0.5 },
+  nightmare: { count: 1.3, health: 1.45, damage: 1.5, damageCap: 30, speed: 1.06, speedCap: 236, runners: 1.5, runnerCap: 0.32, runnersFrom: 2, maxAlive: 1.2, maxAliveCap: 16, interval: 0.8, lateFrom: 10, lateGrowth: 0.025, botCrowd: 0.6 },
+};
+
+/**
+ * Special infected (Specials.pick): the chance a spawn is a special is
+ * min(cap, base + perWave x wave) x rate; perKind: how many of one kind may be up at once
+ * (a sprinter pack counts as one).
+ */
+const SPECIALS = {
+  casual: { base: 0.02, perWave: 0.005, cap: 0.08, rate: 0.8, perKind: 1 },
+  normal: { base: 0.02, perWave: 0.007, cap: 0.1, rate: 1, perKind: 1 },
+  hard: { base: 0.025, perWave: 0.008, cap: 0.13, rate: 1, perKind: 1 },
+  nightmare: { base: 0.03, perWave: 0.009, cap: 0.16, rate: 1, perKind: 2 },
+};
+
+/**
+ * Downed and revive: bleedOut (s on the floor before you die), shorter by bleedOutStep for
+ * every further down in the same wave (not below bleedOutMin); reviveTime (s of holding
+ * use); reviveHealth (HP you get back up with).
+ */
+const SQUAD = {
+  casual: { bleedOut: 45, bleedOutStep: 10, bleedOutMin: 15, reviveTime: 2.5, reviveHealth: 40 },
+  normal: { bleedOut: 30, bleedOutStep: 10, bleedOutMin: 10, reviveTime: 3, reviveHealth: 30 },
+  hard: { bleedOut: 25, bleedOutStep: 8, bleedOutMin: 8, reviveTime: 3.5, reviveHealth: 30 },
+  nightmare: { bleedOut: 20, bleedOutStep: 7, bleedOutMin: 6, reviveTime: 4, reviveHealth: 25 },
+};
+
+/**
+ * The tuned base curve (before multipliers), wave n: count = c0 + c1 (n - 1); maxAlive = a0 + n;
+ * health h0 + h1 a wave to lateFrom, then + h2; speed s0 + s1 n; runners r1 a wave from
+ * runnersFrom; damage d0 + d1 n; spawn interval max(i2, i0 - i1 n).
+ */
+const WAVE = { c0: 6, c1: 3, a0: 4, h0: 100, h1: 10, h2: 4, s0: 186, s1: 4, r1: 0.04, d0: 10, d1: 1.6, i0: 1.6, i1: 0.08, i2: 0.5 };
+
+const deepFreeze = (o) => { for (const v of Object.values(o)) if (v && typeof v === 'object') deepFreeze(v); return Object.freeze(o); };
+
+/** Every preset, assembled: ZDIFF.normal etc. (frozen; a group a preset doesn't list is Normal's). */
+export const ZDIFF = deepFreeze(Object.fromEntries(ZDIFF_ORDER.map((id) => [id, {
+  id, sandbox: false, ...META[id],
+  econ: ECON[id], horde: HORDE[id] || HORDE.normal, specials: SPECIALS[id] || SPECIALS.normal, squad: SQUAD[id] || SQUAD.normal,
+}])));
+
+/** A preset by id (unknown ids: Normal). */
+export function getDiff(id) { return ZDIFF[id] || ZDIFF[DEFAULT_ZDIFF]; }
+
+/**
+ * The zombie part of the New Game options, normalised (missing / bad values: defaults).
+ *  zdiff: preset id ('normal'); squadScaling: the horde grows with the squad (true);
+ *  breakLen: seconds between waves, 0 / missing = the preset's; hardcore: no wave heal,
+ *  buying only in the breaks, radar pings only (false).
+ */
+export function zombieOptions(opts = {}) {
+  const b = +opts.breakLen;
+  return {
+    zdiff: ZDIFF[opts.zdiff] ? opts.zdiff : DEFAULT_ZDIFF,
+    squadScaling: opts.squadScaling !== false && opts.squadScaling !== 0 && opts.squadScaling !== '0',
+    breakLen: b > 0 ? Math.max(5, Math.min(120, Math.round(b))) : 0,
+    hardcore: opts.hardcore === true || opts.hardcore === 1 || opts.hardcore === '1',
+  };
+}
+
+/**
+ * The difficulty a run plays at (g.zombies.diff): the preset with the options folded in, so
+ * readers never look at the options themselves. Adds hardcore, squadScaling, and the
+ * effective breakLen. Hardcore: no wave heal, no buying mid-wave (even on Sandbox).
+ */
+export function resolveDiff(o = zombieOptions()) {
+  const d = getDiff(o.zdiff);
+  const r = {
+    ...d,
+    econ: { ...d.econ }, horde: { ...d.horde }, specials: { ...d.specials }, squad: { ...d.squad },
+    hardcore: !!o.hardcore, squadScaling: o.squadScaling !== false,
+    breakLen: o.breakLen > 0 ? o.breakLen : d.breakLen,
+  };
+  if (r.hardcore) { r.econ.waveHeal = 0; r.econ.buyAnytime = false; }
+  return deepFreeze(r);
+}
+
+/**
+ * What wave n brings at difficulty diff (default Normal). It keeps getting harder for good,
+ * but gently past wave 10: on Normal health +10 a wave to wave 10, then +4; the commons top
+ * out at 222 units/s, slower than you with any rifle (only the runners, up to 20% of a
+ * wave, outpace you); a claw does at most 22; up to 12 up at once.
+ * crowd (humans + botCrowd x bots) is for squad scaling and not applied yet.
+ */
+export function waveStats(n, { diff = ZDIFF[DEFAULT_ZDIFF], crowd = 1 } = {}) {
+  const H = diff.horde, E = diff.econ, B = WAVE;
+  const early = Math.min(n, H.lateFrom) - 1, late = Math.max(0, n - H.lateFrom);
+  const L = 1 + H.lateGrowth * late; // (Normal: 1)
+  void crowd;
+  return {
+    count: Math.round((B.c0 + B.c1 * (n - 1)) * H.count),
+    maxAlive: Math.min(Math.round(H.maxAliveCap * L), Math.round((B.a0 + n) * H.maxAlive)),
+    health: Math.round((B.h0 + B.h1 * early + B.h2 * late) * H.health),
+    speed: Math.min(H.speedCap, (B.s0 + B.s1 * n) * H.speed),
+    runners: n < H.runnersFrom ? 0 : Math.min(0.45, H.runnerCap * L, B.r1 * H.runners * (n - H.runnersFrom + 1)),
+    damage: Math.round(Math.min(H.damageCap * L, (B.d0 + B.d1 * n) * H.damage)),
+    interval: Math.max(B.i2, B.i0 - B.i1 * n) * H.interval,
+    bonus: E.waveBonus[0] + E.waveBonus[1] * n,
+  };
+}
+
+/** The chance a spawn in wave n is a special (Specials.pick). */
+export function specialChance(n, diff = ZDIFF[DEFAULT_ZDIFF]) {
+  const S = diff.specials;
+  return Math.min(S.cap, S.base + S.perWave * n) * S.rate;
+}

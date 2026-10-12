@@ -12,7 +12,8 @@
 //    drags you in; shoot it (or break the line of sight) to snap the tongue. Dies in a
 //    choking cloud.
 // Specials replace a common zombie now and then (more often later on), at most one of
-// a kind up at once (sprinters: a pack). They are ordinary zombies to the rest of the
+// a kind up at once (sprinters: a pack); the difficulty sets both (zdiff.js specials).
+// They are ordinary zombies to the rest of the
 // mode (flow field, claws, kills, bodies); this module adds their looks' stats and tricks.
 import * as THREE from 'three';
 import { Player, TEAM_T } from './player.js';
@@ -20,6 +21,7 @@ import { createPlayerModel } from '../assets/playermodels.js';
 import { CONTENTS_ZOMBIE, TraceResult, MASK_SHOT } from '../engine/collision.js';
 import { IN_JUMP } from '../engine/pmove.js';
 import * as CR from './combatrules.js';
+import { specialChance } from './zdiff.js';
 
 const DEG = 180 / Math.PI;
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -57,28 +59,42 @@ export class Specials {
   // ---------------------------------------------------------------- spawning
   /** Now and then a special instead of a common zombie: its kind, or null. */
   pick(wave) {
-    if (Math.random() > Math.min(0.1, 0.02 + 0.007 * wave)) return null;
-    const alive = (k) => this.Z.pool.some((z) => z.alive && z.special === k);
-    const kinds = Object.entries(SPECIALS).filter(([k, d]) => wave >= d.from && !alive(k));
+    const diff = this.Z.diff;
+    if (Math.random() > specialChance(wave, diff)) return null;
+    // how many of a kind may be up (a pack counts once)
+    const full = (k, d) => {
+      let n = 0;
+      for (const z of this.Z.pool) if (z.alive && z.special === k) n++;
+      return (d.pack ? Math.ceil(n / d.pack[1]) : n) >= diff.specials.perKind;
+    };
+    const kinds = Object.entries(SPECIALS).filter(([k, d]) => wave >= d.from && !full(k, d));
     if (!kinds.length) return null;
     let r = Math.random() * kinds.reduce((n, [, d]) => n + d.weight, 0);
     for (const [k, d] of kinds) { r -= d.weight; if (r <= 0) return k; }
     return kinds[0][0];
   }
 
-  /** Bring a special in (a sprinter pack: several). Returns how many came. */
-  spawn(kind) {
+  /**
+   * Bring a special in (a sprinter pack: several). Returns how many came.
+   * o: { max (no more than this many), near ([x,y,z]: close to there), extra (outside the
+   * wave's count, like a boss's summons) }
+   */
+  spawn(kind, o = {}) {
     const def = SPECIALS[kind];
-    const n = def.pack ? Math.round(rnd(def.pack[0], def.pack[1])) : 1;
-    let made = 0, near = null;
+    if (!def) return 0;
+    const n = Math.min(o.max ?? Infinity, def.pack ? Math.round(rnd(def.pack[0], def.pack[1])) : 1);
+    let made = 0, near = o.near || null, first = null;
     for (let i = 0; i < n; i++) {
       const z = this.body(kind);
       if (!z || !this.Z.spawnZombie({ use: z, near, special: true })) break;
       near = near || z.pm.origin.slice(); // the pack comes together
       this.setup(z, def);
+      z.extra = !!o.extra;
+      first = first || z;
       made++;
     }
     if (made && kind !== 'sprinter') this.game.sound?.play(IDLE[kind], { volume: 0.5 }); // a warning, from wherever
+    if (made) this.Z.events.mode('special', { phase: 'spawn', kind, zombie: first, count: made });
     return made;
   }
 

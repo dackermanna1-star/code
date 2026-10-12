@@ -223,7 +223,15 @@ export class RoundManager {
   }
 
   // ------------------------------------------------------------------ buying
+  /** Buy item for p (menus, bots, buyammo binds). Zombie survival: a buy event when it goes through. */
   buy(p, item) {
+    const before = p.money;
+    const ok = this.buyItem(p, item);
+    if (ok && this.game.zombies?.enabled) this.game.zombies.events.buy(p, item, before - p.money);
+    return ok;
+  }
+
+  buyItem(p, item) {
     const g = this.game;
     const say = (t) => { if (p.isLocal) g.hud?.centerPrint?.(t, 2); };
     if (!p.alive) return false;

@@ -105,6 +105,7 @@ export class Game {
     this.explosives = new Explosives(this); // claymores, remote C4
     this.gore = new Gore(this); // gibs, permanent bodies
     this.shake = null;
+    this.shotSeq = 0; // trigger pulls fired (a bullet shot's id: its pellets share it)
     this.rounds = new RoundManager(this);
     this.bots = new BotManager(this);
   }
@@ -515,6 +516,8 @@ export class Game {
 
   // ------------------------------------------------------------------ shooting
   fireBullets(p, o) {
+    o.shotId = ++this.shotSeq;
+    if (this.zombies.enabled) this.zombies.events.shot(p, o.weapon, o.shotId, o.shots ?? 1);
     const ang = p.pm.angles, pu = p.pm.punch;
     angleVectors(ang[0] + pu[0], ang[1] + pu[1], _f, _r, _u);
     const src = p.eyePos();
@@ -583,7 +586,7 @@ export class Game {
       const left = (o?.penetration ?? 1) - (hit.penetrated ?? 0) - 1;
       const thin = hit.hitgroup === CR.HITGROUP.HEAD || (hit.hitgroup >= CR.HITGROUP.LEFTARM && hit.hitgroup <= CR.HITGROUP.RIGHTLEG);
       const exit = left > 0 || (thin && hit.damage >= 20 && Math.random() < 0.5);
-      this.damagePlayer(victim, attacker, hit.damage, hit.hitgroup, attacker.active?.id || 'world', hit.dir, hit.point, { exit });
+      this.damagePlayer(victim, attacker, hit.damage, hit.hitgroup, attacker.active?.id || 'world', hit.dir, hit.point, { exit, shot: o?.shotId || 0 });
     } else if (hit.point && hit.normal) {
       // zombie survival: bodies on the floor take the bullet (and come apart)
       if (this.zombies.enabled && hit.dir) {
@@ -646,6 +649,7 @@ export class Game {
     if (victim.god) return;
     if (victim.boss) { res.knockback = 0; if (res.velocityModifier) res.velocityModifier = Math.max(res.velocityModifier, 0.9); } // too heavy to shove
     if (victim.special) this.zombies.specials.onDamage(victim, victim.health - res.health);
+    const hp0 = victim.health, ar0 = victim.armor;
     victim.health = res.health;
     victim.armor = res.armor;
     victim.helmet = res.helmet;
@@ -679,6 +683,7 @@ export class Game {
     else this.sound.play('hit_flesh', { pos, volume: 0.9 });
     if (victim === this.local && attacker && attacker !== victim) this.hudDamage(attacker);
     if (victim.isBot) this.bots.onHurt(victim, attacker);
+    if (this.zombies.enabled) this.zombies.events.hit(victim, attacker, hp0 - Math.max(0, victim.health), ar0 - victim.armor, damage, res.hitgroup ?? hitgroup, head, weaponId, dir, point, opts);
     if (victim.health <= 0) this.killPlayer(victim, attacker, weaponId, head && !opts.blast);
     else if (!opts.blast && Math.random() < (victim.isZombie ? 0.35 : 0.25)) this.sound.play(victim.isZombie ? 'zombie_pain' : 'pain', { pos, volume: 0.6, channel: victim.isZombie ? `${victim.id}:voice` : null });
   }
@@ -755,6 +760,7 @@ export class Game {
       this.renderer.setZoom(0);
       this.spectate = { mode: 'death', target: victim, killer: attacker, until: this.time + 3, angles: victim.pm.angles.slice() };
     }
+    if (this.zombies.enabled) this.zombies.events.kill(victim, attacker, weaponId, headshot);
     this.bots.onDeath(victim, attacker);
     this.rounds.onPlayerKilled(victim, attacker);
   }
@@ -778,7 +784,7 @@ export class Game {
       case 'detonate': if (p.alive && this.zombies.enabled) this.explosives.detonate(p); break;
       case 'buyammo1': this.rounds.buy(p, 'primammo'); break;
       case 'buyammo2': this.rounds.buy(p, 'secammo'); break;
-      default: break;
+      default: if (this.zombies.enabled) this.zombies.command(p, cmd); break;
     }
   }
 
@@ -1323,6 +1329,8 @@ export class Game {
   /** Tesla gun: a bolt into what's in the sights, arcing on to the next ones close by. */
   zapFrom(p, w) {
     const d = w.def, e = p.eyePos(), pu = p.pm.punch;
+    const shot = ++this.shotSeq;
+    if (this.zombies.enabled) this.zombies.events.shot(p, w.id, shot, 1);
     angleVectors(p.pm.angles[0] + pu[0], p.pm.angles[1] + pu[1], _f, _r, _u);
     const start = [e[0] + _f[0] * 18 + _r[0] * 5 - _u[0] * 5, e[1] + _f[1] * 18 + _r[1] * 5 - _u[1] * 5, e[2] + _f[2] * 18 + _r[2] * 5 - _u[2] * 5];
     const cam = this.camPos || e;
@@ -1356,7 +1364,7 @@ export class Game {
       this.arcs.bolt(from, c, cam, i ? 0.22 : 0.16);
       hitList.add(cur);
       const l = Math.hypot(c[0] - from[0], c[1] - from[1], c[2] - from[2]) || 1;
-      this.damagePlayer(cur, p, dmg, CR.HITGROUP.CHEST, 'tesla', [(c[0] - from[0]) / l, (c[1] - from[1]) / l, (c[2] - from[2]) / l], c, { blast: true });
+      this.damagePlayer(cur, p, dmg, CR.HITGROUP.CHEST, 'tesla', [(c[0] - from[0]) / l, (c[1] - from[1]) / l, (c[2] - from[2]) / l], c, { blast: true, shot });
       cur.pm.velocityModifier = Math.min(cur.pm.velocityModifier ?? 1, 0.45); // jolted
       for (let k = 0; k < 6; k++) this.fire.emit('spark', c, [(Math.random() - 0.5) * 260, (Math.random() - 0.5) * 260, Math.random() * 220], { life: 0.35, size: 2, size1: 0.5, drag: 1, buoy: -500 });
       from = c;
@@ -1373,6 +1381,7 @@ export class Game {
   }
 
   launchFrom(p, type) {
+    if (this.zombies.enabled) this.zombies.events.shot(p, p.active?.id || type, ++this.shotSeq, 1);
     const a = p.pm.angles, pu = p.pm.punch;
     angleVectors(a[0] + pu[0] - (type === 'grenade40' ? 2.5 : 0), a[1] + pu[1], _f, _r, _u);
     const e = p.eyePos();

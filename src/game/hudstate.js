@@ -97,5 +97,7 @@ export function buildHudState(game, extra = {}) {
     else s.flash = max * (me.flashUntil - t) / Math.max(0.01, me.flashUntil - me.flashFull);
   }
   s.damage = (game.damageIndicators || []).filter((d) => t - d.t < 1).map((d) => ({ dir: d.dir, t: t - d.t }));
+  // zombie survival features: each adds its own fields (and may adjust the ones above)
+  if (Z) { Z.economy.hud(s); Z.downed.hud(s); Z.feedback.hud(s); }
   return s;
 }

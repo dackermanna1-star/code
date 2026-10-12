@@ -168,8 +168,8 @@ async function boot() {
     if (zombieOverShown || !Z?.enabled || Z.state !== 'over' || game.time - Z.overAt < 4) return;
     zombieOverShown = true;
     input.exitLock();
-    const best = Z.best;
-    menus.showZombieOver?.({ waves: Z.survived, kills: Z.kills, best, newBest: Z.survived > 0 && Z.survived >= best }, () => newGame(settings.get('newgame')), () => openMain());
+    // (a new best: more than the best before this run, Z.isNewBest)
+    menus.showZombieOver?.({ waves: Z.survived, kills: Z.kills, best: Z.best, newBest: Z.isNewBest(), diff: Z.diff.label, stats: Z.runStats }, () => newGame(settings.get('newgame')), () => openMain());
   }
 
   function chooseTeam(team) {
@@ -368,7 +368,13 @@ async function boot() {
   } else if (params.has('autostart')) {
     const team = params.get('team') === 'ct' ? TEAM_CT : TEAM_T;
     const mode = params.get('mode') === 'zombies' ? 'zombies' : 'classic';
-    newGame({ ...settings.get('newgame'), mode, allies: +(params.get('allies') ?? 0), perTeam: +(params.get('bots') ?? 5), freezeTime: +(params.get('freeze') ?? 6) });
+    // zombie survival options (zdiff.js zombieOptions): &zdiff=hard&hardcore=1&squad=0&breaklen=20
+    const zo = {};
+    if (params.has('zdiff')) zo.zdiff = params.get('zdiff');
+    if (params.has('hardcore')) zo.hardcore = params.get('hardcore') !== '0';
+    if (params.has('squad')) zo.squadScaling = params.get('squad') !== '0';
+    if (params.has('breaklen')) zo.breakLen = +params.get('breaklen');
+    newGame({ ...settings.get('newgame'), mode, allies: +(params.get('allies') ?? 0), perTeam: +(params.get('bots') ?? 5), freezeTime: +(params.get('freeze') ?? 6), ...zo });
     pendingTeam = mode === 'zombies' ? TEAM_CT : team;
     chooseClass(null);
   } else {
