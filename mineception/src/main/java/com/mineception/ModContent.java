@@ -3,7 +3,9 @@ package com.mineception;
 import com.mineception.block.LaptopBlock;
 import com.mineception.block.LaptopBlockEntity;
 import com.mineception.block.LaptopDataCodecs;
+import com.mineception.block.LaptopItem;
 import com.mineception.dream.LaptopData;
+import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.fabricmc.fabric.api.object.builder.v1.block.entity.FabricBlockEntityTypeBuilder;
 import net.minecraft.core.Registry;
 import net.minecraft.core.component.DataComponentType;
@@ -11,6 +13,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -45,11 +48,12 @@ public final class ModContent {
 
 	public static final ResourceKey<Item> LAPTOP_ITEM_KEY = ResourceKey.create(Registries.ITEM, Mineception.id("laptop"));
 	public static final BlockItem LAPTOP_ITEM = Registry.register(BuiltInRegistries.ITEM, LAPTOP_ITEM_KEY,
-		new BlockItem(LAPTOP, new Item.Properties().setId(LAPTOP_ITEM_KEY).useBlockDescriptionPrefix().stacksTo(1)));
+		new LaptopItem(LAPTOP, new Item.Properties().setId(LAPTOP_ITEM_KEY).useBlockDescriptionPrefix().stacksTo(1)));
 
 	private ModContent() {
 	}
 
 	public static void init() {
+		ItemGroupEvents.modifyEntriesEvent(CreativeModeTabs.FUNCTIONAL_BLOCKS).register(entries -> entries.accept(LAPTOP_ITEM));
 	}
 }

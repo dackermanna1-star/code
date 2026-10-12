@@ -1,8 +1,7 @@
 package com.mineception;
 
-import com.mineception.network.EditBlockPayload;
+import com.mineception.network.LaptopEdits;
 import net.fabricmc.api.ModInitializer;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +18,6 @@ public class Mineception implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		ModContent.init();
-		PayloadTypeRegistry.playC2S().register(EditBlockPayload.TYPE, EditBlockPayload.CODEC);
-		// TODO(agent A): server-side handling and validation of EditBlockPayload, creative tab entry
+		LaptopEdits.init();
 	}
 }

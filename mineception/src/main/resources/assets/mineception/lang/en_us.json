@@ -1,0 +1,11 @@
+{
+	"block.mineception.laptop": "Laptop",
+	"item.mineception.laptop.fresh": "Dreamless: dreams up its own worlds when placed",
+	"item.mineception.laptop.dreams": "Carries its dreams (%s blocks changed)",
+	"item.mineception.laptop.seed": "Dream seed: %s",
+	"dream.mineception.city": "The City",
+	"dream.mineception.hotel": "The Hotel",
+	"dream.mineception.fortress": "The Fortress",
+	"dream.mineception.limbo": "Limbo",
+	"message.mineception.dream_full": "This dream can't hold any more changes"
+}

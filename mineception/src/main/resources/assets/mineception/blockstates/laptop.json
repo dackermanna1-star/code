@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=south": {
+      "model": "mineception:block/laptop"
+    },
+    "facing=west": {
+      "model": "mineception:block/laptop",
+      "y": 90
+    },
+    "facing=north": {
+      "model": "mineception:block/laptop",
+      "y": 180
+    },
+    "facing=east": {
+      "model": "mineception:block/laptop",
+      "y": 270
+    }
+  }
+}
