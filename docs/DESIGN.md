@@ -171,7 +171,8 @@ placed by region (mine platforms and frames, brick ruins, ice pillars, Hiisi bun
 jungle vines and mushrooms, vault glass pipes full of liquid), liquid pools and gas pockets that then
 settle physically. Every voxel is a pure function of the seed, so a seed reproduces a world exactly.
 
-Holy Mountains (built from Noita's durability-14 brickwork): entrance shaft, a room with a shop
+Gold dust (from eroded gold veins) is collected on touch, 1 gold per voxel, and blasts fling loose
+items around. Holy Mountains (built from Noita's durability-14 brickwork): entrance shaft, a room with a shop
 (spells or wands with prices), a perk altar (take 1 of 3), a Spell Refresher, the Full Health heart
 (+10 max HP, full heal), and an exit shaft. **Wands can only be edited inside an un-collapsed Holy
 Mountain** (or with Tinker with Wands Everywhere). Leaving down the exit collapses it behind you.
@@ -179,8 +180,8 @@ Damaging the brickwork angers the gods and summons Stevari (here and in every la
 30 perks are implemented (`game/perks.ts`).
 
 **Deviations.** Noita's Holy Mountains are entered through Teleportatium-powered portals and exits;
-here they are physical shafts (the world is one continuous 3D column). No perk reroll machine or
-pacifist chest yet.
+here they are physical shafts (the world is one continuous 3D column). The perk reroll machine
+(200 gold, doubling) and the pacifist chest (no kills in the biome above) are implemented.
 
 ## 9. Potions (`game/inventory.ts`, `game/run.ts`)
 

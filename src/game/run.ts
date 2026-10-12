@@ -216,6 +216,17 @@ export class Run {
 
   explosionFx(x: number, y: number, z: number, r: number, fire: boolean): void {
     const g = this.game;
+    // blast impulse flings loose items (gold nuggets, flasks, wands, chests)
+    for (const pk of this.pickups.list) {
+      if (pk.floating) continue;
+      const dx = pk.body.x - x, dy = pk.body.y - y, dz = pk.body.z - z;
+      const d = Math.hypot(dx, dy, dz);
+      if (d > r * 2 || d < 0.01) continue;
+      const f = (1 - d / (r * 2)) * 40;
+      pk.body.vx += (dx / d) * f;
+      pk.body.vy += Math.max(0.4, dy / d) * f;
+      pk.body.vz += (dz / d) * f;
+    }
     const d = Math.hypot(x - g.player.cx, y - g.player.cy, z - g.player.cz);
     g.shake = Math.max(g.shake, Math.min(4, (r * 2.5) / (1 + d * 0.15)));
     g.flash = Math.max(g.flash, Math.min(0.5, r / (8 + d * 0.5)));
@@ -445,6 +456,7 @@ export class Run {
       if (it && input.held('interact')) this.fillFromAim(it);
       this.damage.updateCreature(p, dt);
       this.updateBreath(dt);
+      this.collectGoldDust();
     }
     this.projectiles.update(dt);
     this.pickups.update(dt, g.time);
@@ -713,6 +725,7 @@ export class Run {
         case 'chest': txt = '[E] Open chest'; break;
         case 'perk': txt = `[E] Take perk: ${pk.label}`; break;
         case 'refresher': txt = '[E] Use Spell Refresher'; break;
+        case 'reroll': txt = `[E] Reroll perks — ${this.progression.rerollCost} gold`; break;
         case 'sampo': txt = '[E] Claim the Sampo'; break;
         default: txt = pk.label;
       }
@@ -780,7 +793,7 @@ export class Run {
         break;
       default:
         if (!this.progression.interact(pk)) return;
-        if (pk.kind === 'perk' || pk.kind === 'refresher' || pk.kind === 'sampo') return; // progression handles removal
+        if (pk.kind === 'perk' || pk.kind === 'refresher' || pk.kind === 'sampo' || pk.kind === 'reroll') return; // progression handles removal
     }
     if (pk.price > 0) {
       p.gold -= pk.price;
@@ -833,6 +846,21 @@ export class Run {
     const p = this.game.player;
     const d = this.game.lookDir();
     this.pickups.add('potion', p.body.x + d.x * 3, p.eyeY - 1, p.body.z + d.z * 3, { potion: it });
+  }
+
+  /** Noita: gold powder is collected on touch, 1 gold per pixel. */
+  private collectGoldDust(): void {
+    const g = this.game;
+    const b = g.player.body;
+    for (let y = Math.floor(b.y - 1); y <= Math.floor(b.y + 2); y++)
+      for (let z = Math.floor(b.z - b.hw - 1); z <= Math.floor(b.z + b.hw + 1); z++)
+        for (let x = Math.floor(b.x - b.hw - 1); x <= Math.floor(b.x + b.hw + 1); x++) {
+          if (g.world.get(x, y, z) === GOLDSAND) {
+            g.world.set(x, y, z, AIR);
+            g.player.gold += 1;
+            if (this.rng.f() < 0.2) audio.play('pickup_gold', { volume: 0.2 });
+          }
+        }
   }
 
   // ------------------------------------------------------------------ breath & death

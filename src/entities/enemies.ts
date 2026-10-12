@@ -492,6 +492,8 @@ export class EnemySystem {
       run.explosionFx(e.cx, e.cy, e.cz, 6, true);
     }
     run.kills++;
+    const layer = Math.floor((1920 - e.body.y) / 320);
+    run.progression.killsInLayer.set(layer, (run.progression.killsInLayer.get(layer) ?? 0) + 1);
     this.sound('enemy_death', e, 0.7);
     // corpse: a little pile of the creature's material
     if (def.blood === 'blood') {

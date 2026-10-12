@@ -21,6 +21,10 @@ export class Progression {
   private stevariSpawned = new Set<number>();
   private tutorial: { x: number; y: number; z: number } | null = null;
   won = false;
+  rerollCost = 200;
+  private rerolls = new Map<number, number>();
+  /** kills counted per biome layer (pacifist chest) */
+  killsInLayer = new Map<number, number>();
 
   constructor(private run: Run) {
     run.damage.hooks.text = run.damage.hooks.text ?? (() => {});
@@ -92,7 +96,7 @@ export class Progression {
         if (idx >= count) return;
         const pool = PERKS.filter((p) => p.stackable || !this.hasPerk(p.id));
         const chosen: string[] = [];
-        const pr = new Rng(hash3(run.game.opts.seed, layer, 0x9e4c));
+        const pr = new Rng(hash3(run.game.opts.seed, layer, 0x9e4c + (this.rerolls.get(layer) ?? 0) * 7919));
         while (chosen.length < 3 && pool.length) {
           const p = pr.weighted(pool, (q) => q.weight);
           chosen.push(p.id);
@@ -102,6 +106,9 @@ export class Progression {
         run.pickups.add('perk', s.x, s.y + 1, s.z, { perk: id, label: PERK_BY_ID[id].name, baseY: s.y + 1, layer });
         break;
       }
+      case 'hm_reroll':
+        run.pickups.add('reroll', s.x, s.y, s.z, { baseY: s.y, layer, label: 'Perk reroll' });
+        break;
       case 'hm_refresher':
         run.pickups.add('refresher', s.x, s.y + 1.4, s.z, { baseY: s.y + 1.4, layer });
         break;
@@ -142,6 +149,27 @@ export class Progression {
         run.sound('heal');
         run.pickups.remove(pk);
         return n >= 0;
+      }
+      case 'reroll': {
+        if (this.perkTaken.has(pk.layer)) {
+          run.hud.log('The altar is empty', '#b09878');
+          return false;
+        }
+        if (p.gold < this.rerollCost) {
+          run.hud.log(`Rerolling costs ${this.rerollCost} gold`, '#ff8060');
+          return false;
+        }
+        p.gold -= this.rerollCost;
+        this.rerollCost *= 2;
+        this.rerolls.set(pk.layer, (this.rerolls.get(pk.layer) ?? 0) + 1);
+        // remove and re-roll this altar's perks
+        const old = run.pickups.list.filter((o) => o.kind === 'perk' && o.layer === pk.layer);
+        const spots = old.map((o) => ({ x: o.body.x, y: o.baseY - 1, z: o.body.z }));
+        for (const o of old) run.pickups.remove(o);
+        spots.forEach((sp, i) => this.handleSpawn({ kind: 'hm_perk', x: sp.x, y: sp.y, z: sp.z, seed: 0, data: { layer: pk.layer, index: 10 + i } }, new Rng(1)));
+        run.sound('perk_pick');
+        run.hud.log(`Perks rerolled. Next reroll: ${this.rerollCost} gold`, '#e8c050');
+        return true;
       }
       case 'sampo': {
         this.won = true;
@@ -276,6 +304,10 @@ export class Progression {
       this.visited.add(room);
       run.sound('holy_mountain');
       run.hud.log('A Holy Mountain: a sanctuary. Here you may modify your wands.', '#e8d8a0');
+      if ((this.killsInLayer.get(room) ?? 0) === 0) {
+        run.pickups.add('chest', HM.cx + 0.5, hmFloorY(room) + 4, HM.roomZ1 - 9, { gold: hash3(run.game.opts.seed, room, 0xc4e57) });
+        run.hud.log('Pacifist! A chest appears above the altar.', '#e8c050');
+      }
       if (this.angered && !this.hasPerk('PEACE_WITH_GODS')) this.spawnStevari(room);
     }
     // passing the exit shaft collapses the mountain behind you

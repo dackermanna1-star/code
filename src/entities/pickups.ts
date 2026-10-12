@@ -12,7 +12,7 @@ import { SPELLS } from '../magic/spells';
 import { Potion, potionMain, potionTotal } from '../game/inventory';
 import { MATERIALS } from '../world/materials';
 
-export type PickupKind = 'wand' | 'spell' | 'potion' | 'gold' | 'heart' | 'heart_full' | 'chest' | 'refresher' | 'perk' | 'sampo' | 'orb';
+export type PickupKind = 'wand' | 'spell' | 'potion' | 'gold' | 'heart' | 'heart_full' | 'chest' | 'refresher' | 'perk' | 'sampo' | 'orb' | 'reroll';
 
 export interface Pickup {
   id: number;
@@ -108,6 +108,11 @@ export class PickupSystem {
       case 'refresher':
         mesh = new THREE.Mesh(this.geo('ref', () => extrudeGrid(gridFromImage(refresherIcon()), 0.2, 2)), this.glowMat);
         label = 'Spell Refresher';
+        floating = true;
+        break;
+      case 'reroll':
+        mesh = new THREE.Mesh(this.geo('reroll', () => extrudeGrid(gridFromImage(perkIcon('EXTRA_PERK')), 0.2, 3)), this.glowMat);
+        label = 'Perk reroll';
         floating = true;
         break;
       case 'perk':

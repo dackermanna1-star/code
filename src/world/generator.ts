@@ -451,6 +451,7 @@ export class WorldGenerator {
     add('hm_refresher', HM.roomX0 + 4.5, floor + 0.05, HM.cz + 6.5, 20);
     add('hm_heart', HM.cx + 0.5, floor + 1.5, HM.cz + 0.5, 21);
     add('hm_sign', HM.exitX + 0.5, floor + 6, HM.exitZ + 0.5, 22);
+    add('hm_reroll', HM.cx + 13.5, floor + 1.5, HM.roomZ1 - 5.5, 24);
     add('hm_trigger', HM.cx + 0.5, floor + 1, HM.cz + 0.5, 23);
   }
 
