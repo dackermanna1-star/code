@@ -77,6 +77,25 @@ SHOTS = {"S3-04": s3_04}
 - Screen-space helpers (`fr.s_rect`, `fr.s_poly`, `fr.s_circle`) use 0..1
   coordinates.
 
+### DEPTH & SCALE RULE (read this before any OTS / foreground shot)
+`d` is distance from camera relative to the subject plane. So **the size
+ratio between two fighters equals the inverse ratio of their depths**, and
+their real separation follows from it. When two fighters are within arm's
+reach of each other (any punch, grab or stall shot), their depths may differ
+by **at most about 2×**:
+- **The limit:** foreground fighter at d ≈ 0.5–0.6, background fighter at
+  d = 1. The foreground one looks about 1.7–2× bigger.
+- **Raise zoom instead:** to frame the far fighter well, raise `cam.zoom`.
+  Do not push the near fighter to d = 0.2–0.3.
+- **Never stretch a limb across depths.** A reach from a d = 0.25 shoulder
+  to a d = 1 target produces a 3-metre arm and a doll-sized opponent.
+- **Draw the reaching arm foreshortened.** Taper it strongly toward the far
+  end. Its screen length should be short, and often largely hidden behind
+  the near fighter's own shoulder or fist.
+- **Sanity check:** in every two-shot, both characters' heads must read as
+  being at a plausible distance for the action (about 0.6–1.2 m apart for a
+  stalled punch).
+
 ### Environments (`env`)
 - `env.city_street(fr, tg, state)`: sky, clouds, skyline, smoke, street,
   crater(s), traffic-light gantry.

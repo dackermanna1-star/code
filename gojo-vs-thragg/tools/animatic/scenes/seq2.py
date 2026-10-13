@@ -171,7 +171,7 @@ def face_pt(J, up=0.15, st=GOJO, fwd_k=1.18):
 def chest_front(J, y, st=GOJO):
     """x of the front of Gojo's jacket at height y."""
     f = J["facing"]
-    return J["chest"][0] + f * st.w_chest * 0.72 * 0.5 * J["scale"] + (J["pelvis"][0] - J["chest"][0]) * 0.0
+    return J["chest"][0] + f * st.w_chest * 0.72 * 0.5 * J["scale"]
 
 
 def gopts(fr, **kw):
@@ -213,7 +213,6 @@ G_PINCH = P("g_idle", ua_n=46, fa_n=166, hand_n="open")                   # righ
 # facing WEST the right hand is the far one
 G_LOOSE_W = P("g_idle", ua_f=5, fa_f=0, hand_f="open")
 G_FRONT = P("front_pockets", ua_f=9, fa_f=4, hand_f="open")               # mid-turn, facing camera
-G_FRONT_P = P("front_pockets")
 
 # ---- Thragg poses (facing WEST unless noted: near = LEFT side) -------------
 # airborne: knees bent and feet trailing, so a Viltrumite hover never reads as standing on the arm
@@ -1138,7 +1137,7 @@ def s2_06(fr):
     if t_hit <= t < t_hit + 0.3:
         # heavy tier on the STEEL (star, rings, spray) - drawn a step back in depth so the
         # star stays on the arm and never reads as a hit on Gojo
-        dI = 1.8
+        dI = 3.0
         c = fr.cam
         fx.impact(fr, c.x + (hit_pt[0] - c.x) * dI, c.y + (hit_pt[1] - c.y) * dI, t - t_hit, kind="heavy",
                   dirx=-1, salt="armhit", d=dI)
@@ -1295,7 +1294,7 @@ def s2_08(fr):
                    t, "s208g", size=0.022)
     elif u > 0.3:
         # anticipation: left shoulder dips, the fist cocked low by his hip
-        lo = fr.P(J["pelvis"][0] - 0.05, J["pelvis"][1] - 0.15, d)
+        lo = fr.P(J["pelvis"][0] - 0.34, J["pelvis"][1] + 0.08, d)
         fr.draw.line([sh_px, lo], fill=shade(THRAGG.suit, 0.92), width=int(fr.S(THRAGG.w_ua, d)))
         rr = fr.S(THRAGG.fist, d)
         fr.draw.ellipse([lo[0] - rr, lo[1] - rr, lo[0] + rr, lo[1] + rr], fill=THRAGG.accent)
@@ -1477,7 +1476,7 @@ def s2_11(fr):
     # ---- the slab
     th = 0.55
     hang_c = (jacket + 0.01 + th / 2, jy)
-    rel_c = (6.3, 3.0)
+    rel_c = (6.9, 3.0)
     if t_tear - T(fr, 8) <= t < t_hit:
         if t < t_tear:
             # the street bulges around his wrists
@@ -1485,10 +1484,16 @@ def s2_11(fr):
             fr.ellipse(8.5, 0.0, 1.8, 0.12 + 0.18 * k, fill=shade(PAL["street"], 1.15))
             cpos, ang = (8.5, 0.05 + 0.15 * k), 0.0
             draw = False
-        elif t < t_rel:
+        elif t < T(fr, 30):
             k = EASE["inout"](clamp((t - t_tear) / (T(fr, 30) - t_tear)))
-            cpos = (lerp(8.5, 7.7, k), lerp(0.15, 3.25, k))
-            ang = lerp(-30.0 * (1 - k), 0.0, k) + 8.0 * math.sin(clamp((t - T(fr, 30)) / (t_rel - T(fr, 30))) * math.pi)
+            cpos = (lerp(8.5, 8.0, k), lerp(0.15, 3.3, k))
+            ang = -30.0 * (1 - k)
+            draw = True
+        elif t < t_rel:
+            # pivots with it overhead (anticipation), cocking it back toward the release point
+            k = EASE["inout"](clamp((t - T(fr, 30)) / (t_rel - T(fr, 30))))
+            cpos = (lerp(8.0, rel_c[0], k * k), lerp(3.3, rel_c[1], k))
+            ang = 8.0 * math.sin(k * math.pi)
             draw = True
         elif t < t_drop:
             g0 = math.hypot(hang_c[0] - rel_c[0], hang_c[1] - rel_c[1])
@@ -1691,13 +1696,13 @@ T_DIVE_BACK = P(T_DIVE_C, ua_n=40, fa_n=150, lean=118)
 D_DIR = (0.8, -0.6)                    # dive direction (down-east)
 
 
-def gojo_turning(fr, phase, neck=0.0, hand_pocket=0.0):
+def gojo_turning(fr, phase, neck=0.0):
     """phase 0 = facing east, 1 = facing west (via a front view).  Drawn on 2s."""
     if phase < 0.33:
         pose = P(G_LOOSE, neck=neck)
         return gojo(fr, pose, 1), 1
     if phase < 0.67:
-        J = gojo(fr, G_FRONT if hand_pocket < 0.5 else G_FRONT_P, 1, view="front")
+        J = gojo(fr, G_FRONT, 1, view="front")
         gojo_front_head(fr, J)
         return J, 0
     pose = P(G_LOOSE_W, neck=neck)
@@ -1751,8 +1756,9 @@ def s2_13(fr):
             pose = T_DIVE
             px, py = place(THRAGG, pose, 1, lambda J: knuckle(J, "n"), (X, Y))
             if d < 6:
-                fx.trail(fr, [(px - D_DIR[0] * k * 0.8 * d, py - D_DIR[1] * k * 0.8 * d) for k in range(6, -1, -1)],
-                         width_m=0.8, alpha=110, d=d)
+                bx_, by_ = px + 0.3, py + 0.3
+                fx.trail(fr, [(bx_ - D_DIR[0] * k * 0.6 * d, by_ - D_DIR[1] * k * 0.6 * d) for k in range(5, -1, -1)],
+                         width_m=0.35, alpha=70, d=d)
             J = thragg(fr, pose, px, py, 1, depth=d, cape_wind=(-0.9, 0.5))
             cx_, cy_ = J["chest"]
             kx, ky = knuckle(J, "n")
@@ -1765,8 +1771,9 @@ def s2_13(fr):
             kn = (tgt[0] - D_DIR[0] * (g - 0.01), tgt[1] - D_DIR[1] * (g - 0.01))
             px, py = place(THRAGG, pose, 1, lambda J: knuckle(J, "n"), kn)
             if t < t_stall + 1 / FPS:
-                fx.trail(fr, [(px - D_DIR[0] * k * 0.9, py - D_DIR[1] * k * 0.9) for k in range(8, -1, -1)],
-                         width_m=1.0, alpha=130)
+                bx_, by_ = px + 0.3, py + 0.3
+                fx.trail(fr, [(bx_ - D_DIR[0] * k * 0.7, by_ - D_DIR[1] * k * 0.7) for k in range(6, -1, -1)],
+                         width_m=0.4, alpha=80)
             wind = kf(t, [(t_stall, (-0.9, 0.5)), (t_stall + 0.3, (0.6, 2.4))], "out")
             J = thragg(fr, pose, px, py, 1, cape_wind=wind)
             if t >= t_stall - 1 / FPS:
