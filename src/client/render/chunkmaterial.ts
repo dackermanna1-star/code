@@ -9,6 +9,7 @@ const vert = /* glsl */ `
 precision highp float;
 uniform mat4 modelViewMatrix;
 uniform mat4 projectionMatrix;
+uniform mat4 modelMatrix;
 uniform float uTime;
 uniform float uWater;
 in vec4 position;
@@ -21,6 +22,7 @@ out float vSky;
 out float vBl;
 out float vShade;
 out float vDist;
+out vec3 vWorld;
 void main() {
   vec3 p = position.xyz;
   float face = position.w;
@@ -35,6 +37,7 @@ void main() {
   vBl = info.w;
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   vDist = length(mv.xyz);
+  vWorld = (modelMatrix * vec4(p, 1.0)).xyz;
   gl_Position = projectionMatrix * mv;
 }`;
 
@@ -51,6 +54,9 @@ uniform float uFogFar;
 uniform float uAlpha;
 uniform float uAoStrength;
 uniform float uGamma;
+uniform vec3 uHandLightPos;
+uniform float uHandLightRadius;
+in vec3 vWorld;
 in vec2 vUv;
 flat in float vLayer;
 in float vAo;
@@ -68,6 +74,11 @@ void main() {
   vec3 sky = uSkyTint * curve(vSky) * uDaylight;
   vec3 blk = uTorch * curve(vBl);
   vec3 light = max(max(sky, blk), vec3(0.035));
+  if (uHandLightRadius > 0.0) {
+    // Held light source (torch): warm falloff around the player, like dynamic-light mods.
+    float hl = clamp(1.0 - distance(vWorld, uHandLightPos) / uHandLightRadius, 0.0, 1.0);
+    light = max(light, uTorch * hl * hl * 0.95);
+  }
   vec3 col = c.rgb * light * ao * vShade;
   col = pow(col, vec3(uGamma));
   float fog = smoothstep(uFogNear, uFogFar, vDist);
@@ -87,6 +98,8 @@ export interface ChunkUniforms {
   uTime: { value: number };
   uAoStrength: { value: number };
   uGamma: { value: number };
+  uHandLightPos: { value: THREE.Vector3 };
+  uHandLightRadius: { value: number };
 }
 
 export function makeChunkUniforms(tex: THREE.DataArrayTexture): ChunkUniforms {
@@ -101,6 +114,8 @@ export function makeChunkUniforms(tex: THREE.DataArrayTexture): ChunkUniforms {
     uTime: { value: 0 },
     uAoStrength: { value: 0.55 },
     uGamma: { value: 1.0 },
+    uHandLightPos: { value: new THREE.Vector3() },
+    uHandLightRadius: { value: 0 },
   };
 }
 

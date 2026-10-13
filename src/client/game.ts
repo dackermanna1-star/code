@@ -782,6 +782,8 @@ export class ClientGame {
     this.ambient.intensity = 0.05 + Math.pow(day, 1.6) * 0.8;
     const held = this.heldDef();
     this.torchLight.intensity = held?.heldLight ? 1.6 : 0;
+    u.uHandLightRadius.value = held?.heldLight ?? 0;
+    u.uHandLightPos.value.copy(cam);
     // weather particles: snow in cold biomes
     let snow = false;
     if (this.gen) {

@@ -4,8 +4,25 @@ Newest first. Each entry: what changed, how it was verified, bugs found, what's 
 
 ## Session 1 — 2026-10-13
 
-### Merges from parallel agents
-_(filled in when the agent branches land — see the entries below)_
+### Final verification pass
+* Full run: typecheck clean, **255/255 tests**, e2e OK (spawn 1.2 s, IndexedDB save → reload verified),
+  benchmarks: worldgen 4.1 ms/chunk, meshing 8.9 ms/chunk, tick 0.12 ms mean (p99 0.58 ms). See
+  VERIFICATION.md.
+* Screenshot review found that a held torch did not light terrain (the custom chunk shader ignores Three.js
+  lights) → added a hand-light term to the shader. Night ambient for entities now follows the terrain curve.
+
+### Merges from parallel agents (each in its own git worktree, reviewed and verified before merge)
+* **QA agent** — 219 tests across 12 areas; found 9 bugs (3 already fixed on main, 6 fixed at merge:
+  unloadable worlds from one bad record, destroyed craft refunds, NaN drop corruption, non-atomic
+  `removeAll`, RLE trailing bytes; plus corrupt chunks now regenerate and the tick loop survives errors).
+* **Map agent** — region-tile map renderer (≤1 ms redraws), pan/zoom, legend, compass, grid, minimap,
+  per-world explored-map persistence (wired in `main.ts`).
+* **Monuments agent** — 4 monuments reworked (10 previously unreachable crates fixed), 3 new ones, 7 new
+  decorative blocks, 36 POI tests incl. on-foot reachability; scavengers now spawn on walkable ground (fixed
+  at merge).
+* **Models agent** — humanoid scavengers (they rendered as boars), animated animals with pixel faces,
+  dressed players, lying corpses, item-model drops, first-person models for every held item with
+  sway/bob/swing/recoil/ADS.
 
 ### Gameplay fixes found by playtesting & benchmarking
 * **Data loss on save (fixed, `55f8667`)**: `Game.save()` called while an autosave was in flight returned

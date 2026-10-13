@@ -45,10 +45,21 @@ dark? spend metal on a door or on ammo?
   common under mountains; sulfur is boosted in deserts/mountains/tundra; rich (high-quality) ore only deep
   (y < 30). Surface **ore boulders** (2×2×2 clusters) make ore available to a starting player, more of them in
   rocky biomes. Hemp, berries, mushrooms and cacti are biome specific.
-* **Monuments / POIs [partial]** — one per 384×384 region at most, on flattened land: Radio Outpost (low),
-  Container Yard (mid, light radiation), Globe Tank (high, radiation), Sealed Bunker (high, strong radiation).
-  Each places supply/military crates and barrels; mid/high tiers have scavenger garrisons that respawn after
-  being cleared. (A parallel agent is polishing layouts and adding monuments — see VERIFICATION.md.)
+* **Monuments / POIs [done]** — one per 384×384 region at most, on flattened land, each fully traversable on
+  foot (verified by a reachability test):
+
+  | Monument | Tier | Radiation | Identity |
+  |---|---|---|---|
+  | Radio Outpost | low | none | fenced compound, hut with roof crate, climbable mast |
+  | Abandoned Gas Station | low | none | canopy and pumps, shop, car wreck, roof crate |
+  | Harbour Container Yard | mid | light | quay basin, teal dock crane, container stacks, gantry, smokestack |
+  | Stone Quarry | mid | light | terraced pit with mineable ore, excavator, conveyor to a hopper shed |
+  | Globe Tank | high | medium | plated sphere on legs, ring walkway, inner spiral to a roof crate |
+  | Sealed Bunker | high | strong | blockhouse, stairwell to an armory hall, watchtower, helipad |
+  | Power Station | high | medium | turbine hall + control room, boiler house, twin 40-block stacks, cooling tower |
+
+  Each places supply/military crates and barrels that refill after being emptied; mid/high tiers have
+  scavenger garrisons that respawn after being cleared.
 * **Time & weather [done]** — 40-minute cycle, 30 % night; rain/snow fronts lower temperature, visibility and
   sound clarity.
 * **World size** — unbounded in practice (int32 chunk coords); spawns pick beaches within ~600–900 blocks of

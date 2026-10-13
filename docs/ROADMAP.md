@@ -55,7 +55,7 @@ evidence.
 | 2 | Survival loop | gather → craft → survive → die → recover body; saves | **Done** — playtested in browser; covered by tests |
 | 3 | Building & progression | foundations → walls/doors/floors, tiers, stability, totem/upkeep, workbenches, research, basic raiding | **Done** (raid table matches research ratios) |
 | 4 | Simulation foundation (was "multiplayer foundation") | authoritative sim with prediction/reconciliation, persistence, reload correctness | **Done** for singleplayer; multiplayer transport **deferred** by the owner |
-| 5 | Combat & exploration | weapons/ammo/armor/healing, loot containers, monuments, wildlife, scavenger NPCs, sound | **Done**, monument art/polish **in progress** (agent) |
+| 5 | Combat & exploration | weapons/ammo/armor/healing, loot containers, monuments, wildlife, scavenger NPCs, sound | **Done** — 7 monuments, all loot reachable (tested) |
 | 6 | Complete sandbox | progression balance, building/raiding polish, more biomes/monuments, environment & audio polish | **Partial** — NPC raid parties, soft/hard sides, electricity planned |
 | 7 | Optimization & release prep | profiling on real GPUs, accessibility, packaging | **Partial** — CPU benchmarks done; GPU profiling not possible headlessly |
 
