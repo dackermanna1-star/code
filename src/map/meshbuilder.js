@@ -11,8 +11,15 @@ const VERT = /* glsl */`
   varying vec2 vUv;
   varying vec2 vLm;
   #include <fog_pars_vertex>
+  #ifdef SCROLL
+    uniform vec2 scroll;
+    uniform float time;
+  #endif
   void main() {
     vUv = uv;
+    #ifdef SCROLL
+      vUv += scroll * time;
+    #endif
     vLm = uv1;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
     #ifdef USE_FOG
@@ -56,7 +63,9 @@ export const worldUniforms = {
   brightness: { value: 1.0 },
   lightGamma: { value: 0.7 },
   fullbright: { value: 0.0 },
+  time: { value: 0.0 }, // seconds, for drifting textures (meta scroll: water)
 };
+const tickTime = () => { worldUniforms.time.value = (performance.now() / 1000) % 10000; };
 
 // GoldSrc-style light curve, shared by the world shader and model lighting:
 // `gamma` (default 2.5) bends light values like the engine's lightgamma table,
@@ -80,6 +89,7 @@ export function createWorldMaterial(tex, lightmapTex, alpha, opts = {}) {
   if (alpha && !opts.blend) defines.ALPHATEST = 1;
   if (opts.blend) defines.BLEND = 1;
   if (opts.encoding === 'sqrt') defines.LM_SQRT = 1;
+  if (opts.scroll) defines.SCROLL = 1;
   return new THREE.ShaderMaterial({
     uniforms: {
       map: { value: tex },
@@ -87,6 +97,7 @@ export function createWorldMaterial(tex, lightmapTex, alpha, opts = {}) {
       brightness: worldUniforms.brightness,
       lightGamma: worldUniforms.lightGamma,
       fullbright: worldUniforms.fullbright,
+      ...(opts.scroll ? { scroll: { value: new THREE.Vector2(opts.scroll[0], opts.scroll[1]) }, time: worldUniforms.time } : {}),
       ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
     },
     vertexShader: VERT,
@@ -178,8 +189,9 @@ export function buildWorldMeshes(faces, alloc, lightmapTex, getTexture, texInfo,
     geo.setAttribute('uv1', new THREE.BufferAttribute(uv1, 2));
     geo.computeBoundingSphere();
     geo.computeBoundingBox();
-    const mat = createWorldMaterial(getTexture(name), lightmapTex, !!info.alpha, { blend: !!info.blend, encoding: opts.encoding });
+    const mat = createWorldMaterial(getTexture(name), lightmapTex, !!info.alpha, { blend: !!info.blend, encoding: opts.encoding, scroll: info.scroll });
     const mesh = new THREE.Mesh(geo, mat);
+    if (info.scroll) mesh.onBeforeRender = tickTime; // (a drifting texture: water)
     mesh.name = 'world:' + name;
     mesh.matrixAutoUpdate = false;
     meshes.push(mesh);
