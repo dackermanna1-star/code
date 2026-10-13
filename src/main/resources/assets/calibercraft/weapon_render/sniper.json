@@ -1,0 +1,99 @@
+{
+  "category": "sniper",
+  "bounds": {
+    "min": [
+      6.42,
+      -3.05,
+      -22.0
+    ],
+    "max": [
+      11.5,
+      10.2,
+      24.7
+    ]
+  },
+  "animated_parts": [
+    "bolt_handle",
+    "magazine"
+  ],
+  "parts": {
+    "magazine": {
+      "pivot": [
+        8,
+        4.95,
+        3.4
+      ],
+      "style": "drop"
+    },
+    "bolt_handle": {
+      "pivot": [
+        8,
+        8,
+        8
+      ],
+      "lift_deg": 60,
+      "travel": [
+        0,
+        0,
+        5
+      ]
+    }
+  },
+  "points": {
+    "grip": [
+      8,
+      1.8,
+      10.4
+    ],
+    "support": [
+      8,
+      5.5,
+      -6.0
+    ],
+    "ejection": [
+      9.25,
+      8.1,
+      3.1
+    ],
+    "mag_well": [
+      8,
+      2.4,
+      3.4
+    ]
+  },
+  "sights": {
+    "iron": {
+      "y": 11.2,
+      "z": 8.5
+    },
+    "calibercraft:sniper_scope": {
+      "y": 13.2,
+      "z": 2.8
+    },
+    "calibercraft:acog_scope": {
+      "y": 12.7,
+      "z": 2.8
+    }
+  },
+  "muzzle": {
+    "default": [
+      8,
+      8,
+      -22.0
+    ],
+    "calibercraft:heavy_barrel": [
+      8,
+      8,
+      -22.0
+    ],
+    "calibercraft:short_barrel": [
+      8,
+      8,
+      -17.6
+    ]
+  },
+  "muzzle_length": {
+    "calibercraft:muzzle_brake": 3.6,
+    "calibercraft:suppressor": 9.3
+  }
+}

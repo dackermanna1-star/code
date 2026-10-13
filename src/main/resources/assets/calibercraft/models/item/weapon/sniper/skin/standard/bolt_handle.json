@@ -1,0 +1,14 @@
+{
+  "parent": "calibercraft:item/weapon/sniper/bolt_handle",
+  "textures": {
+    "receiver": "calibercraft:item/material/parkerized",
+    "furniture": "calibercraft:item/material/od_polymer",
+    "metal": "calibercraft:item/material/dark_steel",
+    "detail": "calibercraft:item/material/black_anodized",
+    "accent": "calibercraft:item/material/gunmetal",
+    "mag": "calibercraft:item/material/black_polymer",
+    "brass": "calibercraft:item/material/brass",
+    "shell": "calibercraft:item/material/red_plastic",
+    "particle": "calibercraft:item/material/parkerized"
+  }
+}

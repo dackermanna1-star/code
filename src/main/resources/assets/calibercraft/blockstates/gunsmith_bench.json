@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "calibercraft:block/gunsmith_bench"
+    },
+    "facing=east": {
+      "model": "calibercraft:block/gunsmith_bench",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "calibercraft:block/gunsmith_bench",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "calibercraft:block/gunsmith_bench",
+      "y": 270
+    }
+  }
+}

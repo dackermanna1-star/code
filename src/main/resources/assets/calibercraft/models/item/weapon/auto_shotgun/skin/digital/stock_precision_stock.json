@@ -1,0 +1,14 @@
+{
+  "parent": "calibercraft:item/weapon/auto_shotgun/stock_precision_stock",
+  "textures": {
+    "receiver": "calibercraft:item/material/digital_receiver",
+    "furniture": "calibercraft:item/material/digital_furniture",
+    "metal": "calibercraft:item/material/gunmetal",
+    "detail": "calibercraft:item/material/dark_steel",
+    "accent": "calibercraft:item/material/digital_accent",
+    "mag": "calibercraft:item/material/digital_mag",
+    "brass": "calibercraft:item/material/brass",
+    "shell": "calibercraft:item/material/red_plastic",
+    "particle": "calibercraft:item/material/digital_receiver"
+  }
+}

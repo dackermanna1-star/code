@@ -1,0 +1,1465 @@
+{
+  "weapon.m9.fire": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/m9/fire_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/m9/fire_2",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/m9/fire_3",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/m9/fire_4",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "weapon.m9.fire_far": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/m9/fire_far_1",
+        "attenuation_distance": 192
+      },
+      {
+        "name": "calibercraft:weapon/m9/fire_far_2",
+        "attenuation_distance": 192
+      }
+    ]
+  },
+  "weapon.m9.fire_suppressed": {
+    "subtitle": "subtitles.calibercraft.weapon.fire_suppressed",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/m9/fire_suppressed_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/m9/fire_suppressed_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/m9/fire_suppressed_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "weapon.m9.equip": {
+    "subtitle": "subtitles.calibercraft.weapon.equip",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/m9/equip_1",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "weapon.m9.mag_out": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/m9/mag_out_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.m9.mag_in": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/m9/mag_in_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.m9.slide_back": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/m9/slide_back_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.m9.slide_release": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/m9/slide_release_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.revolver.fire": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/revolver/fire_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/revolver/fire_2",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/revolver/fire_3",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/revolver/fire_4",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "weapon.revolver.fire_far": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/revolver/fire_far_1",
+        "attenuation_distance": 192
+      },
+      {
+        "name": "calibercraft:weapon/revolver/fire_far_2",
+        "attenuation_distance": 192
+      }
+    ]
+  },
+  "weapon.revolver.fire_suppressed": {
+    "subtitle": "subtitles.calibercraft.weapon.fire_suppressed",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/revolver/fire_suppressed_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/revolver/fire_suppressed_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/revolver/fire_suppressed_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "weapon.revolver.equip": {
+    "subtitle": "subtitles.calibercraft.weapon.equip",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/revolver/equip_1",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "weapon.revolver.cylinder_open": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/revolver/cylinder_open_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.revolver.eject": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/revolver/eject_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.revolver.speedloader": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/revolver/speedloader_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.revolver.cylinder_close": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/revolver/cylinder_close_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.revolver.hammer": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/revolver/hammer_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.vector9.fire": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/vector9/fire_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/vector9/fire_2",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/vector9/fire_3",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/vector9/fire_4",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "weapon.vector9.fire_far": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/vector9/fire_far_1",
+        "attenuation_distance": 192
+      },
+      {
+        "name": "calibercraft:weapon/vector9/fire_far_2",
+        "attenuation_distance": 192
+      }
+    ]
+  },
+  "weapon.vector9.fire_suppressed": {
+    "subtitle": "subtitles.calibercraft.weapon.fire_suppressed",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/vector9/fire_suppressed_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/vector9/fire_suppressed_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/vector9/fire_suppressed_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "weapon.vector9.equip": {
+    "subtitle": "subtitles.calibercraft.weapon.equip",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/vector9/equip_1",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "weapon.vector9.mag_out": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/vector9/mag_out_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.vector9.mag_in": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/vector9/mag_in_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.vector9.charge": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/vector9/charge_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.mp5.fire": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/mp5/fire_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/mp5/fire_2",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/mp5/fire_3",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/mp5/fire_4",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "weapon.mp5.fire_far": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/mp5/fire_far_1",
+        "attenuation_distance": 192
+      },
+      {
+        "name": "calibercraft:weapon/mp5/fire_far_2",
+        "attenuation_distance": 192
+      }
+    ]
+  },
+  "weapon.mp5.fire_suppressed": {
+    "subtitle": "subtitles.calibercraft.weapon.fire_suppressed",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/mp5/fire_suppressed_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/mp5/fire_suppressed_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/mp5/fire_suppressed_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "weapon.mp5.equip": {
+    "subtitle": "subtitles.calibercraft.weapon.equip",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/mp5/equip_1",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "weapon.mp5.mag_out": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/mp5/mag_out_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.mp5.mag_in": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/mp5/mag_in_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.mp5.charge_back": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/mp5/charge_back_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.mp5.charge_slap": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/mp5/charge_slap_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.ar15.fire": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ar15/fire_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/ar15/fire_2",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/ar15/fire_3",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/ar15/fire_4",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "weapon.ar15.fire_far": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ar15/fire_far_1",
+        "attenuation_distance": 192
+      },
+      {
+        "name": "calibercraft:weapon/ar15/fire_far_2",
+        "attenuation_distance": 192
+      }
+    ]
+  },
+  "weapon.ar15.fire_suppressed": {
+    "subtitle": "subtitles.calibercraft.weapon.fire_suppressed",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ar15/fire_suppressed_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/ar15/fire_suppressed_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/ar15/fire_suppressed_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "weapon.ar15.equip": {
+    "subtitle": "subtitles.calibercraft.weapon.equip",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ar15/equip_1",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "weapon.ar15.mag_out": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ar15/mag_out_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.ar15.mag_in": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ar15/mag_in_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.ar15.charge": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ar15/charge_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.ar15.bolt_release": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ar15/bolt_release_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.ak.fire": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ak/fire_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/ak/fire_2",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/ak/fire_3",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/ak/fire_4",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "weapon.ak.fire_far": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ak/fire_far_1",
+        "attenuation_distance": 192
+      },
+      {
+        "name": "calibercraft:weapon/ak/fire_far_2",
+        "attenuation_distance": 192
+      }
+    ]
+  },
+  "weapon.ak.fire_suppressed": {
+    "subtitle": "subtitles.calibercraft.weapon.fire_suppressed",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ak/fire_suppressed_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/ak/fire_suppressed_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/ak/fire_suppressed_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "weapon.ak.equip": {
+    "subtitle": "subtitles.calibercraft.weapon.equip",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ak/equip_1",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "weapon.ak.mag_out": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ak/mag_out_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.ak.mag_in": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ak/mag_in_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.ak.charge": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/ak/charge_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.bullpup.fire": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/bullpup/fire_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/bullpup/fire_2",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/bullpup/fire_3",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/bullpup/fire_4",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "weapon.bullpup.fire_far": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/bullpup/fire_far_1",
+        "attenuation_distance": 192
+      },
+      {
+        "name": "calibercraft:weapon/bullpup/fire_far_2",
+        "attenuation_distance": 192
+      }
+    ]
+  },
+  "weapon.bullpup.fire_suppressed": {
+    "subtitle": "subtitles.calibercraft.weapon.fire_suppressed",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/bullpup/fire_suppressed_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/bullpup/fire_suppressed_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/bullpup/fire_suppressed_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "weapon.bullpup.equip": {
+    "subtitle": "subtitles.calibercraft.weapon.equip",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/bullpup/equip_1",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "weapon.bullpup.mag_out": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/bullpup/mag_out_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.bullpup.mag_in": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/bullpup/mag_in_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.bullpup.charge": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/bullpup/charge_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.pump_shotgun.fire": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/pump_shotgun/fire_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/pump_shotgun/fire_2",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/pump_shotgun/fire_3",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/pump_shotgun/fire_4",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "weapon.pump_shotgun.fire_far": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/pump_shotgun/fire_far_1",
+        "attenuation_distance": 192
+      },
+      {
+        "name": "calibercraft:weapon/pump_shotgun/fire_far_2",
+        "attenuation_distance": 192
+      }
+    ]
+  },
+  "weapon.pump_shotgun.fire_suppressed": {
+    "subtitle": "subtitles.calibercraft.weapon.fire_suppressed",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/pump_shotgun/fire_suppressed_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/pump_shotgun/fire_suppressed_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/pump_shotgun/fire_suppressed_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "weapon.pump_shotgun.equip": {
+    "subtitle": "subtitles.calibercraft.weapon.equip",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/pump_shotgun/equip_1",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "weapon.pump_shotgun.pump_back": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/pump_shotgun/pump_back_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.pump_shotgun.pump_forward": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/pump_shotgun/pump_forward_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.pump_shotgun.shell_insert": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/pump_shotgun/shell_insert_1",
+        "attenuation_distance": 12
+      },
+      {
+        "name": "calibercraft:weapon/pump_shotgun/shell_insert_2",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.auto_shotgun.fire": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/auto_shotgun/fire_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/auto_shotgun/fire_2",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/auto_shotgun/fire_3",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/auto_shotgun/fire_4",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "weapon.auto_shotgun.fire_far": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/auto_shotgun/fire_far_1",
+        "attenuation_distance": 192
+      },
+      {
+        "name": "calibercraft:weapon/auto_shotgun/fire_far_2",
+        "attenuation_distance": 192
+      }
+    ]
+  },
+  "weapon.auto_shotgun.fire_suppressed": {
+    "subtitle": "subtitles.calibercraft.weapon.fire_suppressed",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/auto_shotgun/fire_suppressed_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/auto_shotgun/fire_suppressed_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/auto_shotgun/fire_suppressed_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "weapon.auto_shotgun.equip": {
+    "subtitle": "subtitles.calibercraft.weapon.equip",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/auto_shotgun/equip_1",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "weapon.auto_shotgun.mag_out": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/auto_shotgun/mag_out_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.auto_shotgun.mag_in": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/auto_shotgun/mag_in_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.auto_shotgun.charge": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/auto_shotgun/charge_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.sniper.fire": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/sniper/fire_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/sniper/fire_2",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/sniper/fire_3",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/sniper/fire_4",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "weapon.sniper.fire_far": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/sniper/fire_far_1",
+        "attenuation_distance": 192
+      },
+      {
+        "name": "calibercraft:weapon/sniper/fire_far_2",
+        "attenuation_distance": 192
+      }
+    ]
+  },
+  "weapon.sniper.fire_suppressed": {
+    "subtitle": "subtitles.calibercraft.weapon.fire_suppressed",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/sniper/fire_suppressed_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/sniper/fire_suppressed_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/sniper/fire_suppressed_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "weapon.sniper.equip": {
+    "subtitle": "subtitles.calibercraft.weapon.equip",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/sniper/equip_1",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "weapon.sniper.bolt_up": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/sniper/bolt_up_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.sniper.bolt_back": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/sniper/bolt_back_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.sniper.bolt_forward": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/sniper/bolt_forward_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.sniper.bolt_down": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/sniper/bolt_down_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.sniper.mag_out": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/sniper/mag_out_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.sniper.mag_in": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/sniper/mag_in_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.dmr.fire": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/dmr/fire_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/dmr/fire_2",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/dmr/fire_3",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/dmr/fire_4",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "weapon.dmr.fire_far": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/dmr/fire_far_1",
+        "attenuation_distance": 192
+      },
+      {
+        "name": "calibercraft:weapon/dmr/fire_far_2",
+        "attenuation_distance": 192
+      }
+    ]
+  },
+  "weapon.dmr.fire_suppressed": {
+    "subtitle": "subtitles.calibercraft.weapon.fire_suppressed",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/dmr/fire_suppressed_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/dmr/fire_suppressed_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/dmr/fire_suppressed_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "weapon.dmr.equip": {
+    "subtitle": "subtitles.calibercraft.weapon.equip",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/dmr/equip_1",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "weapon.dmr.mag_out": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/dmr/mag_out_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.dmr.mag_in": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/dmr/mag_in_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.dmr.charge": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/dmr/charge_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.lmg.fire": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/lmg/fire_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/lmg/fire_2",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/lmg/fire_3",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "calibercraft:weapon/lmg/fire_4",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "weapon.lmg.fire_far": {
+    "subtitle": "subtitles.calibercraft.weapon.fire",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/lmg/fire_far_1",
+        "attenuation_distance": 192
+      },
+      {
+        "name": "calibercraft:weapon/lmg/fire_far_2",
+        "attenuation_distance": 192
+      }
+    ]
+  },
+  "weapon.lmg.fire_suppressed": {
+    "subtitle": "subtitles.calibercraft.weapon.fire_suppressed",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/lmg/fire_suppressed_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/lmg/fire_suppressed_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:weapon/lmg/fire_suppressed_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "weapon.lmg.equip": {
+    "subtitle": "subtitles.calibercraft.weapon.equip",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/lmg/equip_1",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "weapon.lmg.cover_open": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/lmg/cover_open_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.lmg.box_out": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/lmg/box_out_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.lmg.box_in": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/lmg/box_in_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.lmg.belt": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/lmg/belt_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.lmg.cover_close": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/lmg/cover_close_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "weapon.lmg.charge": {
+    "subtitle": "subtitles.calibercraft.weapon.reload",
+    "sounds": [
+      {
+        "name": "calibercraft:weapon/lmg/charge_1",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "mech.dry_fire": {
+    "subtitle": "subtitles.calibercraft.mech.dry_fire",
+    "sounds": [
+      {
+        "name": "calibercraft:mech/dry_fire_1",
+        "attenuation_distance": 8
+      },
+      {
+        "name": "calibercraft:mech/dry_fire_2",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "mech.fire_mode": {
+    "subtitle": "subtitles.calibercraft.mech.fire_mode",
+    "sounds": [
+      {
+        "name": "calibercraft:mech/fire_mode",
+        "attenuation_distance": 6
+      }
+    ]
+  },
+  "mech.overheat": {
+    "subtitle": "subtitles.calibercraft.mech.overheat",
+    "sounds": [
+      {
+        "name": "calibercraft:mech/overheat",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "mech.inspect": {
+    "subtitle": "subtitles.calibercraft.mech.inspect",
+    "sounds": [
+      {
+        "name": "calibercraft:mech/inspect_1",
+        "attenuation_distance": 6
+      },
+      {
+        "name": "calibercraft:mech/inspect_2",
+        "attenuation_distance": 6
+      }
+    ]
+  },
+  "casing.brass": {
+    "subtitle": "subtitles.calibercraft.casing.brass",
+    "sounds": [
+      {
+        "name": "calibercraft:casing/brass_1",
+        "attenuation_distance": 10
+      },
+      {
+        "name": "calibercraft:casing/brass_2",
+        "attenuation_distance": 10
+      },
+      {
+        "name": "calibercraft:casing/brass_3",
+        "attenuation_distance": 10
+      },
+      {
+        "name": "calibercraft:casing/brass_4",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "casing.shell": {
+    "subtitle": "subtitles.calibercraft.casing.shell",
+    "sounds": [
+      {
+        "name": "calibercraft:casing/shell_1",
+        "attenuation_distance": 10
+      },
+      {
+        "name": "calibercraft:casing/shell_2",
+        "attenuation_distance": 10
+      }
+    ]
+  },
+  "impact.stone": {
+    "subtitle": "subtitles.calibercraft.impact.stone",
+    "sounds": [
+      {
+        "name": "calibercraft:impact/stone_1",
+        "attenuation_distance": 24
+      },
+      {
+        "name": "calibercraft:impact/stone_2",
+        "attenuation_distance": 24
+      },
+      {
+        "name": "calibercraft:impact/stone_3",
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "impact.dirt": {
+    "subtitle": "subtitles.calibercraft.impact.dirt",
+    "sounds": [
+      {
+        "name": "calibercraft:impact/dirt_1",
+        "attenuation_distance": 20
+      },
+      {
+        "name": "calibercraft:impact/dirt_2",
+        "attenuation_distance": 20
+      },
+      {
+        "name": "calibercraft:impact/dirt_3",
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "impact.wood": {
+    "subtitle": "subtitles.calibercraft.impact.wood",
+    "sounds": [
+      {
+        "name": "calibercraft:impact/wood_1",
+        "attenuation_distance": 24
+      },
+      {
+        "name": "calibercraft:impact/wood_2",
+        "attenuation_distance": 24
+      },
+      {
+        "name": "calibercraft:impact/wood_3",
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "impact.metal": {
+    "subtitle": "subtitles.calibercraft.impact.metal",
+    "sounds": [
+      {
+        "name": "calibercraft:impact/metal_1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "calibercraft:impact/metal_2",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "calibercraft:impact/metal_3",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "impact.glass": {
+    "subtitle": "subtitles.calibercraft.impact.glass",
+    "sounds": [
+      {
+        "name": "calibercraft:impact/glass_1",
+        "attenuation_distance": 24
+      },
+      {
+        "name": "calibercraft:impact/glass_2",
+        "attenuation_distance": 24
+      },
+      {
+        "name": "calibercraft:impact/glass_3",
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "impact.water": {
+    "subtitle": "subtitles.calibercraft.impact.water",
+    "sounds": [
+      {
+        "name": "calibercraft:impact/water_1",
+        "attenuation_distance": 20
+      },
+      {
+        "name": "calibercraft:impact/water_2",
+        "attenuation_distance": 20
+      },
+      {
+        "name": "calibercraft:impact/water_3",
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "impact.flesh": {
+    "subtitle": "subtitles.calibercraft.impact.flesh",
+    "sounds": [
+      {
+        "name": "calibercraft:impact/flesh_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:impact/flesh_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:impact/flesh_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "impact.soft": {
+    "subtitle": "subtitles.calibercraft.impact.soft",
+    "sounds": [
+      {
+        "name": "calibercraft:impact/soft_1",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:impact/soft_2",
+        "attenuation_distance": 16
+      },
+      {
+        "name": "calibercraft:impact/soft_3",
+        "attenuation_distance": 16
+      }
+    ]
+  },
+  "bullet.ricochet": {
+    "subtitle": "subtitles.calibercraft.bullet.ricochet",
+    "sounds": [
+      {
+        "name": "calibercraft:bullet/ricochet_1",
+        "attenuation_distance": 40
+      },
+      {
+        "name": "calibercraft:bullet/ricochet_2",
+        "attenuation_distance": 40
+      },
+      {
+        "name": "calibercraft:bullet/ricochet_3",
+        "attenuation_distance": 40
+      },
+      {
+        "name": "calibercraft:bullet/ricochet_4",
+        "attenuation_distance": 40
+      }
+    ]
+  },
+  "bullet.whiz": {
+    "subtitle": "subtitles.calibercraft.bullet.whiz",
+    "sounds": [
+      {
+        "name": "calibercraft:bullet/whiz_1",
+        "attenuation_distance": 12
+      },
+      {
+        "name": "calibercraft:bullet/whiz_2",
+        "attenuation_distance": 12
+      },
+      {
+        "name": "calibercraft:bullet/whiz_3",
+        "attenuation_distance": 12
+      }
+    ]
+  },
+  "hit.marker": {
+    "sounds": [
+      {
+        "name": "calibercraft:hit/marker",
+        "attenuation_distance": 4
+      }
+    ]
+  },
+  "hit.headshot": {
+    "sounds": [
+      {
+        "name": "calibercraft:hit/headshot",
+        "attenuation_distance": 4
+      }
+    ]
+  },
+  "hit.kill": {
+    "sounds": [
+      {
+        "name": "calibercraft:hit/kill",
+        "attenuation_distance": 4
+      }
+    ]
+  },
+  "ui.attachment_install": {
+    "sounds": [
+      {
+        "name": "calibercraft:ui/attachment_install",
+        "attenuation_distance": 4
+      }
+    ]
+  },
+  "ui.attachment_remove": {
+    "sounds": [
+      {
+        "name": "calibercraft:ui/attachment_remove",
+        "attenuation_distance": 4
+      }
+    ]
+  },
+  "ui.click": {
+    "sounds": [
+      {
+        "name": "calibercraft:ui/click",
+        "attenuation_distance": 4
+      }
+    ]
+  },
+  "ui.skin_apply": {
+    "sounds": [
+      {
+        "name": "calibercraft:ui/skin_apply",
+        "attenuation_distance": 4
+      }
+    ]
+  },
+  "ui.gunsmith_open": {
+    "sounds": [
+      {
+        "name": "calibercraft:ui/gunsmith_open",
+        "attenuation_distance": 4
+      }
+    ]
+  }
+}

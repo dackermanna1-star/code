@@ -1,0 +1,97 @@
+{
+  "category": "shotgun",
+  "bounds": {
+    "min": [
+      6.5,
+      0.2,
+      -21.5
+    ],
+    "max": [
+      9.6,
+      10.8,
+      22.9
+    ]
+  },
+  "animated_parts": [
+    "pump",
+    "shell"
+  ],
+  "parts": {
+    "pump": {
+      "travel": [
+        0,
+        0,
+        4.3
+      ]
+    },
+    "shell": {
+      "from": [
+        10.6,
+        1.4,
+        3.6
+      ],
+      "to": [
+        8.0,
+        4.25,
+        3.1
+      ]
+    }
+  },
+  "points": {
+    "grip": [
+      8,
+      5.9,
+      11.6
+    ],
+    "support": [
+      8,
+      5.6,
+      -7.5
+    ],
+    "ejection": [
+      9.4,
+      8.0,
+      2.8
+    ],
+    "mag_well": [
+      8,
+      4.8,
+      3.1
+    ]
+  },
+  "sights": {
+    "iron": {
+      "y": 10.3,
+      "z": 7.8
+    },
+    "calibercraft:red_dot": {
+      "y": 12.55,
+      "z": 4.4
+    },
+    "calibercraft:holo_sight": {
+      "y": 12.65,
+      "z": 4.4
+    }
+  },
+  "muzzle": {
+    "default": [
+      8,
+      8,
+      -18.0
+    ],
+    "calibercraft:short_barrel": [
+      8,
+      8,
+      -12.6
+    ],
+    "calibercraft:precision_barrel": [
+      8,
+      8,
+      -21.5
+    ]
+  },
+  "muzzle_length": {
+    "calibercraft:suppressor": 9.3,
+    "calibercraft:shotgun_choke": 2.6
+  }
+}

@@ -1,0 +1,393 @@
+{
+  "textures": {
+    "particle": "calibercraft:item/material/black_anodized"
+  },
+  "elements": [
+    {
+      "from": [
+        7.2,
+        9,
+        4
+      ],
+      "to": [
+        8.8,
+        10,
+        12
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.2,
+            6,
+            8.8,
+            7
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "south": {
+          "uv": [
+            7.2,
+            6,
+            8.8,
+            7
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "east": {
+          "uv": [
+            4,
+            6,
+            12,
+            7
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "west": {
+          "uv": [
+            4,
+            6,
+            12,
+            7
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "up": {
+          "uv": [
+            7.2,
+            4,
+            8.8,
+            12
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "down": {
+          "uv": [
+            7.2,
+            4,
+            8.8,
+            12
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        }
+      }
+    },
+    {
+      "from": [
+        7.2,
+        5.5,
+        11
+      ],
+      "to": [
+        8.8,
+        10,
+        12
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.2,
+            6,
+            8.8,
+            10.5
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "south": {
+          "uv": [
+            7.2,
+            6,
+            8.8,
+            10.5
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "east": {
+          "uv": [
+            4,
+            6,
+            5,
+            10.5
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "west": {
+          "uv": [
+            11,
+            6,
+            12,
+            10.5
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "up": {
+          "uv": [
+            7.2,
+            11,
+            8.8,
+            12
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "down": {
+          "uv": [
+            7.2,
+            4,
+            8.8,
+            5
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        }
+      }
+    },
+    {
+      "from": [
+        7.2,
+        5.5,
+        4
+      ],
+      "to": [
+        8.8,
+        6.4,
+        12
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.2,
+            9.6,
+            8.8,
+            10.5
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "south": {
+          "uv": [
+            7.2,
+            9.6,
+            8.8,
+            10.5
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "east": {
+          "uv": [
+            4,
+            9.6,
+            12,
+            10.5
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "west": {
+          "uv": [
+            4,
+            9.6,
+            12,
+            10.5
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "up": {
+          "uv": [
+            7.2,
+            4,
+            8.8,
+            12
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        },
+        "down": {
+          "uv": [
+            7.2,
+            4,
+            8.8,
+            12
+          ],
+          "texture": "calibercraft:item/material/black_polymer"
+        }
+      },
+      "rotation": {
+        "origin": [
+          8,
+          6,
+          4
+        ],
+        "axis": "x",
+        "angle": 12
+      }
+    },
+    {
+      "from": [
+        7.1,
+        5,
+        11.8
+      ],
+      "to": [
+        8.9,
+        10.4,
+        12.4
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.1,
+            5.6,
+            8.9,
+            11
+          ],
+          "texture": "calibercraft:item/material/rubber"
+        },
+        "south": {
+          "uv": [
+            7.1,
+            5.6,
+            8.9,
+            11
+          ],
+          "texture": "calibercraft:item/material/rubber"
+        },
+        "east": {
+          "uv": [
+            3.6,
+            5.6,
+            4.2,
+            11
+          ],
+          "texture": "calibercraft:item/material/rubber"
+        },
+        "west": {
+          "uv": [
+            11.8,
+            5.6,
+            12.4,
+            11
+          ],
+          "texture": "calibercraft:item/material/rubber"
+        },
+        "up": {
+          "uv": [
+            7.1,
+            11.8,
+            8.9,
+            12.4
+          ],
+          "texture": "calibercraft:item/material/rubber"
+        },
+        "down": {
+          "uv": [
+            7.1,
+            3.6,
+            8.9,
+            4.2
+          ],
+          "texture": "calibercraft:item/material/rubber"
+        }
+      }
+    }
+  ],
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [
+        60,
+        0,
+        0
+      ],
+      "translation": [
+        0.0,
+        2.1293,
+        1.0639
+      ],
+      "scale": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -100,
+        10
+      ],
+      "translation": [
+        1.1236,
+        3.1773,
+        0.9901
+      ],
+      "scale": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    },
+    "gui": {
+      "rotation": [
+        25,
+        -135,
+        0
+      ],
+      "translation": [
+        0.202,
+        0.303,
+        0.3642
+      ],
+      "scale": [
+        1.4286,
+        1.4286,
+        1.4286
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        0.4,
+        0.6,
+        -0.0
+      ],
+      "scale": [
+        2.0,
+        2.0,
+        2.0
+      ]
+    },
+    "on_shelf": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        0.3429,
+        0.5143,
+        -0.0
+      ],
+      "scale": [
+        1.7143,
+        1.7143,
+        1.7143
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0.0,
+        2.15,
+        -0.1
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    }
+  },
+  "gui_light": "side"
+}

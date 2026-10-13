@@ -1,0 +1,22 @@
+{
+  "subtitles.calibercraft.weapon.fire": "Gunshot",
+  "subtitles.calibercraft.weapon.fire_suppressed": "Suppressed gunshot",
+  "subtitles.calibercraft.weapon.equip": "Weapon handled",
+  "subtitles.calibercraft.weapon.reload": "Weapon reloads",
+  "subtitles.calibercraft.mech.dry_fire": "Trigger clicks",
+  "subtitles.calibercraft.mech.fire_mode": "Fire mode switched",
+  "subtitles.calibercraft.mech.overheat": "Weapon overheats",
+  "subtitles.calibercraft.mech.inspect": "Weapon inspected",
+  "subtitles.calibercraft.casing.brass": "Casing clinks",
+  "subtitles.calibercraft.casing.shell": "Shell casing bounces",
+  "subtitles.calibercraft.impact.stone": "Bullet hits stone",
+  "subtitles.calibercraft.impact.dirt": "Bullet hits dirt",
+  "subtitles.calibercraft.impact.wood": "Bullet hits wood",
+  "subtitles.calibercraft.impact.metal": "Bullet hits metal",
+  "subtitles.calibercraft.impact.glass": "Bullet hits glass",
+  "subtitles.calibercraft.impact.water": "Bullet hits water",
+  "subtitles.calibercraft.impact.flesh": "Bullet hits flesh",
+  "subtitles.calibercraft.impact.soft": "Bullet hits something soft",
+  "subtitles.calibercraft.bullet.ricochet": "Bullet ricochets",
+  "subtitles.calibercraft.bullet.whiz": "Bullet whizzes past"
+}

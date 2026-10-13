@@ -1,0 +1,14 @@
+{
+  "parent": "calibercraft:item/weapon/auto_shotgun/charging_handle",
+  "textures": {
+    "receiver": "calibercraft:item/material/desert_tan_receiver",
+    "furniture": "calibercraft:item/material/desert_tan_furniture",
+    "metal": "calibercraft:item/material/parkerized",
+    "detail": "calibercraft:item/material/dark_steel",
+    "accent": "calibercraft:item/material/desert_tan_accent",
+    "mag": "calibercraft:item/material/desert_tan_mag",
+    "brass": "calibercraft:item/material/brass",
+    "shell": "calibercraft:item/material/red_plastic",
+    "particle": "calibercraft:item/material/desert_tan_receiver"
+  }
+}

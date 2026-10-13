@@ -1,0 +1,12 @@
+{
+  "parent": "minecraft:block/cube",
+  "textures": {
+    "particle": "calibercraft:block/gunsmith_bench_side",
+    "up": "calibercraft:block/gunsmith_bench_top",
+    "down": "calibercraft:block/gunsmith_bench_bottom",
+    "north": "calibercraft:block/gunsmith_bench_front",
+    "south": "calibercraft:block/gunsmith_bench_side",
+    "east": "calibercraft:block/gunsmith_bench_side",
+    "west": "calibercraft:block/gunsmith_bench_side"
+  }
+}

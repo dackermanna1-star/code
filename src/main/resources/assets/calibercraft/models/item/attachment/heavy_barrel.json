@@ -1,0 +1,325 @@
+{
+  "textures": {
+    "particle": "calibercraft:item/material/black_anodized"
+  },
+  "elements": [
+    {
+      "from": [
+        6.8,
+        6.8,
+        2
+      ],
+      "to": [
+        9.2,
+        9.2,
+        14
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6.8,
+            6.8,
+            9.2,
+            9.2
+          ],
+          "texture": "calibercraft:item/material/dark_steel"
+        },
+        "south": {
+          "uv": [
+            6.8,
+            6.8,
+            9.2,
+            9.2
+          ],
+          "texture": "calibercraft:item/material/dark_steel"
+        },
+        "east": {
+          "uv": [
+            2,
+            6.8,
+            14,
+            9.2
+          ],
+          "texture": "calibercraft:item/material/dark_steel"
+        },
+        "west": {
+          "uv": [
+            2,
+            6.8,
+            14,
+            9.2
+          ],
+          "texture": "calibercraft:item/material/dark_steel"
+        },
+        "up": {
+          "uv": [
+            6.8,
+            2,
+            9.2,
+            14
+          ],
+          "texture": "calibercraft:item/material/dark_steel"
+        },
+        "down": {
+          "uv": [
+            6.8,
+            2,
+            9.2,
+            14
+          ],
+          "texture": "calibercraft:item/material/dark_steel"
+        }
+      }
+    },
+    {
+      "from": [
+        6.992,
+        6.992,
+        2
+      ],
+      "to": [
+        9.008,
+        9.008,
+        14
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6.992,
+            6.992,
+            9.008,
+            9.008
+          ],
+          "texture": "calibercraft:item/material/dark_steel"
+        },
+        "south": {
+          "uv": [
+            6.992,
+            6.992,
+            9.008,
+            9.008
+          ],
+          "texture": "calibercraft:item/material/dark_steel"
+        },
+        "east": {
+          "uv": [
+            2,
+            6.992,
+            14,
+            9.008
+          ],
+          "texture": "calibercraft:item/material/dark_steel"
+        },
+        "west": {
+          "uv": [
+            2,
+            6.992,
+            14,
+            9.008
+          ],
+          "texture": "calibercraft:item/material/dark_steel"
+        },
+        "up": {
+          "uv": [
+            6.992,
+            2,
+            9.008,
+            14
+          ],
+          "texture": "calibercraft:item/material/dark_steel"
+        },
+        "down": {
+          "uv": [
+            6.992,
+            2,
+            9.008,
+            14
+          ],
+          "texture": "calibercraft:item/material/dark_steel"
+        }
+      },
+      "rotation": {
+        "origin": [
+          8,
+          8,
+          8
+        ],
+        "axis": "z",
+        "angle": 45
+      }
+    },
+    {
+      "from": [
+        6.6,
+        6.6,
+        11.5
+      ],
+      "to": [
+        9.4,
+        9.4,
+        13
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6.6,
+            6.6,
+            9.4,
+            9.4
+          ],
+          "texture": "calibercraft:item/material/black_anodized"
+        },
+        "south": {
+          "uv": [
+            6.6,
+            6.6,
+            9.4,
+            9.4
+          ],
+          "texture": "calibercraft:item/material/black_anodized"
+        },
+        "east": {
+          "uv": [
+            3,
+            6.6,
+            4.5,
+            9.4
+          ],
+          "texture": "calibercraft:item/material/black_anodized"
+        },
+        "west": {
+          "uv": [
+            11.5,
+            6.6,
+            13,
+            9.4
+          ],
+          "texture": "calibercraft:item/material/black_anodized"
+        },
+        "up": {
+          "uv": [
+            6.6,
+            11.5,
+            9.4,
+            13
+          ],
+          "texture": "calibercraft:item/material/black_anodized"
+        },
+        "down": {
+          "uv": [
+            6.6,
+            3,
+            9.4,
+            4.5
+          ],
+          "texture": "calibercraft:item/material/black_anodized"
+        }
+      }
+    }
+  ],
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [
+        60,
+        0,
+        0
+      ],
+      "translation": [
+        0.0,
+        2.0,
+        1.0
+      ],
+      "scale": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -100,
+        10
+      ],
+      "translation": [
+        1.0,
+        3.0,
+        1.0
+      ],
+      "scale": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    },
+    "gui": {
+      "rotation": [
+        25,
+        -135,
+        0
+      ],
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.4,
+        1.4,
+        1.4
+      ]
+    },
+    "on_shelf": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.2,
+        1.2,
+        1.2
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0.0,
+        2.0,
+        0.0
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    }
+  },
+  "gui_light": "side"
+}
