@@ -162,7 +162,7 @@ blockItem('glass', 'Glass', 0xc8e0e8);
 add({ key: 'rock', name: 'Rock', desc: 'A rock. Gathers wood and stone slowly. You always start with one.', category: 'tool', stack: 1, durability: 300, icon: { shape: 'rock', c1: 0x8d8d8d },
   tool: { damage: 9, effective: { axe: 1, pick: 1, any: 1 }, gather: { wood: 0.6, stone: 0.6, ore: 0.5, soil: 1, plant: 1 } },
   weapon: { kind: 'melee', damage: 9, damageType: 'melee', interval: 0.8, range: 2.6, loudness: 12 } });
-add({ key: 'torch', name: 'Torch', desc: 'Lights the way. Can be placed as a block.', category: 'tool', stack: 8, durability: 400, icon: { shape: 'torch', c1: 0x8a6034, c2: 0xffa020 }, heldLight: 12, placeBlock: 'torch',
+add({ key: 'torch', name: 'Torch', desc: 'Lights the way. Can be placed as a block.', category: 'tool', stack: 1, durability: 400, icon: { shape: 'torch', c1: 0x8a6034, c2: 0xffa020 }, heldLight: 12, placeBlock: 'torch',
   tool: { damage: 3, effective: { any: 1 }, gather: { plant: 1, soil: 0.5 } },
   weapon: { kind: 'melee', damage: 6, damageType: 'melee', interval: 0.8, range: 2.4, loudness: 10 } });
 add({ key: 'stone_hatchet', name: 'Stone Hatchet', desc: 'Chops wood much faster than a rock.', category: 'tool', stack: 1, durability: 400, icon: { shape: 'axe', c1: 0x8a6034, c2: 0x8d8d8d },
