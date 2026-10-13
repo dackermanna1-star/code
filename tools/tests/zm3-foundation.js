@@ -509,8 +509,9 @@
       for (const z of Z().pool) if (z.alive && Math.hypot(z.pm.origin[0] - o[0], z.pm.origin[1] - o[1]) < 200) { close++; break; }
     }
     check('zombies still find you', close > 0 && Z().spawned > 5, `spawned ${Z().spawned}, close ${close}`);
-    check('no perks, drops or drafts on their own', !of('perk').length && !of('pickup').length && !of('draft').length && !g.dropped.some((d) => d.kind !== 'weapon'));
-    check('the pipeline stays idle; max health 100', !M().live && squad().every((p) => !p.zm && p.maxHealth === 100));
+    // (perks builder: a cleared wave now deals a draft and the bots pick at once - perks come from drafts only)
+    check('no drops on their own; perks only from a cleared wave\'s draft', of('perk').every((e) => e.phase === 'expire' || ['draft', 'synergy', 'perk'].includes(e.source)) && of('draft').every((e) => e.source === 'draft') && !of('pickup').length && !g.dropped.some((d) => d.kind !== 'weapon'));
+    check('the pipeline holds the drafts\' perks only (idle without a draft); max health from them', (of('draft').length || !M().live) && squad().every((p) => p.maxHealth === 100 + M().factor(p, 'maxHealth') && (!p.zmSrc || [...p.zmSrc.keys()].every((k) => /^(perk|buff):/.test(k)))));
     con('zm_wave 4'); // (the bots may have cleared wave 3 by now)
     rec = [];
     con('zm_skip');

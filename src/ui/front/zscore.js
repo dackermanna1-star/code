@@ -21,6 +21,8 @@ export class SquadTally {
   revives(p) { return this.r.get(p) || 0; }
 }
 
+import { perkIconURL } from '../perkicons.js';
+
 const mmss = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
 function el(tag, cls, text) {
@@ -32,7 +34,7 @@ function el(tag, cls, text) {
 
 /**
  * z = { wave, state ('break' | 'wave' | 'over'), left, next (s), time (s), diff, hardcore, squadKills,
- *       kills (yours), best, map, players: [{ name, kills, deaths, downs, revives, money, status, isLocal, isBot }] }
+ *       kills (yours), best, map, players: [{ name, kills, deaths, downs, revives, money, status, isLocal, isBot, perks? ([{ icon, rgb, name, n }]) }] }
  */
 export function renderZombieScore(p, z) {
   p.className = 'zs-panel';
@@ -68,6 +70,11 @@ export function renderZombieScore(p, z) {
     const n = el('td', 'name');
     n.appendChild(el('b', null, q.name));
     if (q.isBot) n.appendChild(el('em', null, 'BOT'));
+    if (q.perks?.length) { // (their build: perks.js badges)
+      const k = el('span', 'zs-perks');
+      for (const b of q.perks) { const i = el('img'); i.src = perkIconURL(b.icon, 24, b.rgb); i.title = b.n > 1 ? `${b.name} x${b.n}` : b.name; k.appendChild(i); }
+      n.appendChild(k);
+    }
     const s = el('td');
     s.appendChild(el('span', 'zs-st ' + q.status, q.status));
     r.append(n, el('td', null, String(q.kills ?? 0)), el('td', null, String(q.downs ?? 0)), el('td', null, String(q.revives ?? 0)),

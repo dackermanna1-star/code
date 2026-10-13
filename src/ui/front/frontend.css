@@ -177,6 +177,14 @@
 .fe-bars { display: flex; align-items: flex-end; gap: calc(3 * var(--u)); height: calc(56 * var(--u)); margin: calc(16 * var(--u)) 0 calc(4 * var(--u)); padding: 0 calc(4 * var(--u)); }
 .fe-bars i { flex: 1; max-width: calc(26 * var(--u)); min-height: calc(2 * var(--u)); background: linear-gradient(180deg, var(--red), var(--red2)); opacity: 0.85; }
 .fe-bars-k { font-size: calc(10.5 * var(--u)); letter-spacing: 0.18em; text-transform: uppercase; color: var(--faint); }
+/* your build: the perks you held (perks.js report; ui/perkicons.js glyphs) */
+.fe-build { display: flex; flex-wrap: wrap; justify-content: center; gap: calc(6 * var(--u)); margin: calc(14 * var(--u)) 0 calc(4 * var(--u)); }
+.fe-perk { --c: 205, 205, 205; display: flex; align-items: center; gap: calc(6 * var(--u)); padding: calc(4 * var(--u)) calc(10 * var(--u)) calc(4 * var(--u)) calc(5 * var(--u));
+  background: linear-gradient(90deg, rgba(var(--c), 0.16), rgba(14, 10, 12, 0.85) 70%); border: 1px solid rgba(var(--c), 0.35); border-left: calc(2 * var(--u)) solid rgb(var(--c)); }
+.fe-perk canvas { width: calc(22 * var(--u)); height: calc(22 * var(--u)); filter: drop-shadow(0 0 calc(5 * var(--u)) rgba(var(--c), 0.7)); }
+.fe-perk .n { font-size: calc(12 * var(--u)); font-weight: 800; color: var(--ink); letter-spacing: 0.03em; }
+.fe-perk .x { font-size: calc(10 * var(--u)); font-weight: 800; color: rgb(var(--c)); }
+.fe-perk.syn { box-shadow: 0 0 calc(12 * var(--u)) rgba(var(--c), 0.35); }
 .fe-actions { display: flex; justify-content: center; gap: calc(12 * var(--u)); margin-top: calc(22 * var(--u)); }
 
 /* ------------------------------------------------------------------ loading */
@@ -211,6 +219,8 @@
 .zs-panel tr.me td:first-child { box-shadow: inset 2px 0 0 var(--amber); }
 .zs-panel td.name b { font-weight: 700; }
 .zs-panel td.name em { font-style: normal; font-size: 7px; letter-spacing: 0.15em; color: var(--faint); margin-left: 5px; }
+.zs-perks { margin-left: 6px; }
+.zs-perks img { width: 10px; height: 10px; margin-right: 1px; vertical-align: -1px; filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9)); }
 .zs-st { display: inline-block; min-width: 40px; padding: 1px 5px; font-size: 7px; font-weight: 800; letter-spacing: 0.14em; text-align: center; text-transform: uppercase; }
 .zs-st.alive { color: #9fe0a0; background: rgba(80, 180, 90, 0.14); }
 .zs-st.down { color: #fff; background: var(--red); }

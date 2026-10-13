@@ -200,7 +200,8 @@ async function boot() {
     input.exitLock();
     // (a new best: more than the best before this run, Z.isNewBest)
     // (out of it - Main menu, Change setup, Esc - the run is done: the title screen, no Resume)
-    menus.showZombieOver?.({ waves: Z.survived, kills: Z.kills, best: Z.best, newBest: Z.isNewBest(), cheated: Z.cheated, diff: Z.diff.label, hardcore: Z.diff.hardcore, stats: Z.runStats }, () => newGame(settings.get('newgame')), () => leaveGame());
+    menus.showZombieOver?.({ waves: Z.survived, kills: Z.kills, best: Z.best, newBest: Z.isNewBest(), cheated: Z.cheated, diff: Z.diff.label, hardcore: Z.diff.hardcore, stats: Z.runStats,
+      perks: Z.perks.report(game.local) }, () => newGame(settings.get('newgame')), () => leaveGame()); // (perks: your build, perks.js)
   }
 
   function chooseTeam(team) {
@@ -399,6 +400,7 @@ async function boot() {
         players: game.players.filter((p) => p.team === TEAM_CT && !p.isZombie).map((p) => ({
           name: p.name, kills: p.kills, deaths: p.deaths, downs: tally.downs(p), revives: tally.revives(p), money: p.money | 0,
           status: !p.alive ? 'dead' : p.downed ? 'down' : 'alive', isLocal: p.isLocal, isBot: !!p.isBot,
+          perks: Z.perks.badges(p), // (their build: perks.js)
         })),
       } };
     }
