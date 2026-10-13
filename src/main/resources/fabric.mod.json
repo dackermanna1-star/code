@@ -4,17 +4,32 @@
   "version": "${version}",
   "name": "CaliberCraft Arsenal",
   "description": "A complete firearms expansion: 12 weapons, modular attachments, skins, procedural animation, original audio and server-authoritative combat.",
-  "authors": ["CaliberCraft contributors"],
+  "authors": [
+    "CaliberCraft contributors"
+  ],
   "license": "MIT",
   "environment": "*",
   "entrypoints": {
-    "main": ["dev.calibercraft.CaliberCraft"],
-    "client": ["dev.calibercraft.client.CaliberCraftClient"]
+    "main": [
+      "dev.calibercraft.CaliberCraft"
+    ],
+    "client": [
+      "dev.calibercraft.client.CaliberCraftClient"
+    ]
   },
   "depends": {
     "fabricloader": ">=0.19.5",
     "minecraft": "~1.21.11",
     "java": ">=21",
     "fabric-api": "*"
+  },
+  "mixins": [
+    {
+      "config": "calibercraft.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "contact": {
+    "sources": "https://github.com/dackermanna1-star/code"
   }
 }

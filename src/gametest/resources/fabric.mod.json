@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "id": "calibercraft-gametest",
+  "version": "1.0.0",
+  "name": "CaliberCraft Game Tests",
+  "environment": "*",
+  "entrypoints": {
+    "fabric-gametest": ["dev.calibercraft.gametest.CaliberCraftGameTests"],
+    "fabric-client-gametest": ["dev.calibercraft.gametest.CaliberCraftClientGameTest"]
+  },
+  "depends": {
+    "calibercraft": "*"
+  }
+}
