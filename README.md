@@ -8,7 +8,7 @@ All models, textures and sounds are original and were generated procedurally by 
 | | |
 |---|---|
 | Minecraft | 1.21.11 (Java Edition) |
-| Mod loader | Fabric Loader ≥ 0.19.5 |
+| Mod loader | Fabric Loader ≥ 0.17.3 (tested with 0.19.2 and 0.19.5) |
 | Required mods | Fabric API (built against 0.141.6+1.21.11) |
 | Java | 21 or newer |
 | Sides | Install on **both** the client and the server (the server alone owns all gameplay state) |

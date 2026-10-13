@@ -40,6 +40,6 @@
 
 ## Compatibility
 
-* Requires Minecraft 1.21.11 with Fabric Loader ≥ 0.19.5 and Fabric API. Forge/NeoForge and Bedrock are not
+* Requires Minecraft 1.21.11 with Fabric Loader ≥ 0.17.3 and Fabric API. Forge/NeoForge and Bedrock are not
   supported.
 * The mod must be installed on both the client and the server.
