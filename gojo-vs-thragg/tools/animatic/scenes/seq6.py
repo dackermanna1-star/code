@@ -2282,14 +2282,16 @@ def s6_11(fr):
     t22 = cue(fr, "cloth", 0, 22)
     t28 = cue(fr, "domain_bed", 0, 28)
     t10 = T(fr, 10)
-    zoom = lerp(560.0, 470.0, seg(t, 0.0, fr.dur, "inout"))
-    fr.cam = Cam(0.25, 2.12, zoom)
+    # DEPTH & SCALE: they are touching, so Thragg's foreground bulk may only be
+    # ~1.5-2x Gojo's scale -> tight on Gojo (about 1.8 m wide at his plane)
+    zoom = lerp(1060.0, 940.0, seg(t, 0.0, fr.dur, "inout"))
+    fr.cam = Cam(-0.12, 2.33, zoom)
     void_bg(fr, center=(0.6, 0.12), blur=1.5, info=0.8 if t < t28 else 1.0)
     # ---- Gojo (sharp, MCU): holds Thragg's eyes; withdraws the spear-hand f22-28; drifts back a metre
     tq = on2(fr)
     wd = seg(tq, t22, t28, "inout")
     drift = seg(tq, t28, fr.dur, "inout")
-    gx = lerp(G_STRIKE_X + G_DART, -1.3, drift)
+    gx = lerp(G_STRIKE_X + G_DART, -0.7, drift)
     g_off = soles_offset(GOJO, G_SET)
     gy = G_STRIKE_SOLES + g_off
     arm_in = reach(GOJO, P(G_SPEAR, hand_n="point"), G_STRIKE_X + G_DART, gy, 1, "n", (1.0, 2.05))
@@ -2419,9 +2421,11 @@ def s6_12(fr):
     void_bg(fr, center=(0.3, 0.14), blur=5.0)
     # ---- Gojo in the background (screen-left): breathing hard, the hand, the jaw, the drift back
     drift = seg(tq, T(fr, 96), fr.dur, "inout")
-    gxw = lerp(-1.3, -7.0, drift)
-    gsoles = lerp(0.6, 3.0, drift)
-    dg = lerp(1.5, 3.9, drift)
+    # DEPTH & SCALE: Gojo has backed off ~3 m and then drifts further; he is
+    # small because he is far - and set well apart from Thragg's frozen hand
+    gxw = lerp(-1.4, -3.0, drift)
+    gsoles = lerp(0.6, 1.6, drift)
+    dg = lerp(1.0, 2.4, drift)
     fr.cam = Cam(0.4, 2.3, 380.0)
     heave = math.sin(tq * math.tau / T(fr, 26))
     look = seg(tq, T(fr, 54), T(fr, 62), "inout") * (1 - seg(tq, T(fr, 88), T(fr, 96), "inout"))
@@ -2447,10 +2451,12 @@ def s6_12(fr):
         # the frozen right arm, reaching across to frame-centre for a throat that is gone
         d = fr.draw
         W, H = fr.W, fr.H
-        hx, hy = 0.42 * W, 0.6 * H
-        d.polygon([(0.74 * W, 1.05 * H), (0.6 * W, 0.78 * H), (hx + 0.03 * H, hy - 0.035 * H),
-                   (hx + 0.045 * H, hy + 0.045 * H), (0.66 * W, 0.88 * H), (0.84 * W, 1.05 * H)], fill=THRAGG_V.suit)
-        r = 0.04 * H
+        # the hand hangs where the throat WAS - in front of his own chest, not
+        # stretched across the frame toward the distant Gojo
+        hx, hy = 0.57 * W, 0.7 * H
+        d.polygon([(0.78 * W, 1.05 * H), (0.66 * W, 0.84 * H), (hx + 0.03 * H, hy - 0.045 * H),
+                   (hx + 0.06 * H, hy + 0.06 * H), (0.7 * W, 0.93 * H), (0.88 * W, 1.05 * H)], fill=THRAGG_V.suit)
+        r = 0.055 * H
         d.ellipse([hx - r * 0.3, hy - r, hx + r * 1.5, hy + r], fill=THRAGG_V.accent)
         for k in (-1, 0, 1):
             a = math.pi + k * 0.4

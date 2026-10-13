@@ -155,6 +155,18 @@ def reach(st, pose, x, y, facing, side, target, scale=1.0, elbow="down"):
     return q
 
 
+def straight(st, pose, x, y, facing, side, target, ext=0.94):
+    """A straight punch seen in profile: the arm stays (nearly) straight along
+    the shoulder->fist line and is FORESHORTENED (the bend happens in depth),
+    instead of folding up/down in the picture plane. Returns (pose, style)."""
+    J = solve(st, pose, x, y, facing, 1.0, "side")
+    sx, sy = J[f"sh_{side}"]
+    d = math.hypot(target[0] - sx, target[1] - sy) - 0.95 * st.fist
+    k = clamp(d / ((st.upper_arm + st.forearm) * ext), 0.35, 1.0)
+    st2 = replace(st, upper_arm=st.upper_arm * k, forearm=st.forearm * k)
+    return reach(st2, pose, x, y, facing, side, target, elbow="down"), st2
+
+
 def ground_pelvis(st, pose, facing=1, scale=1.0):
     """Pelvis height when the pose's lowest point is snapped to the street."""
     return solve(st, pose, 0.0, None, facing, scale, "side")["pelvis"][1]
@@ -359,7 +371,7 @@ T_STRAIGHT = P("t_stand", lean=22, neck=-10, ua_n=-50, fa_n=-30, ua_f=90, fa_f=9
 T_STALL = P(T_STRAIGHT, lean=26, neck=-10, ua_f=96, fa_f=84)
 T_BLAST = P("t_stand", lean=-58, neck=-40, ua_n=40, fa_n=80, ua_f=110, fa_f=140, th_n=60, sh_n=40, th_f=20,
             sh_f=-10, hand_f="open")
-T_BACK = P("fallen", lean=-90, neck=6, ua_n=-80, fa_n=-100, ua_f=-110, fa_f=-130, th_n=84, sh_n=96, th_f=76,
+T_BACK = P("fallen", lean=-90, neck=6, ua_n=-80, fa_n=-100, ua_f=-150, fa_f=-160, th_n=84, sh_n=96, th_f=76,
            sh_f=92, hand_n="open", hand_f="open")
 
 
@@ -394,7 +406,14 @@ def blur_rgba(layer, r):
 
 def paste(fr, layer, blur=0.0, alpha=1.0, offset=(0, 0)):
     if blur > 0.25:
-        layer = blur_rgba(layer, blur * fr.ss)
+        bb = layer.getchannel("A").getbbox()
+        if bb is None:
+            return
+        pad = int(3 * blur * fr.ss) + 2
+        bb = (max(0, bb[0] - pad), max(0, bb[1] - pad), min(layer.width, bb[2] + pad), min(layer.height, bb[3] + pad))
+        sub = blur_rgba(layer.crop(bb), blur * fr.ss)
+        layer = Image.new("RGBA", layer.size, (0, 0, 0, 0))
+        layer.paste(sub, bb[:2])
     if alpha < 0.999:
         a = layer.getchannel("A").point(lambda v, k=alpha: int(v * k))
         layer.putalpha(a)
@@ -625,9 +644,17 @@ def gojo_eye(fr, L, ex, ey, sz, lid=0.0, gaze=(0.0, 0.0), veins=0.9, glow=1.0, s
             L.line(pts, (196, 52, 64), 0.0045 * sz)
     ix, iy = ex + 0.012 * sz + gaze[0] * 0.045 * sz, ey + gaze[1] * 0.022 * sz
     ir = 0.066 * sz
-    layer = Image.new("RGBA", (fr.W, fr.H), (0, 0, 0, 0))
+    apts = [L.p(px, py) for px, py in almond]
+    bx0 = int(max(0, min(p[0] for p in apts) - 4))
+    by0 = int(max(0, min(p[1] for p in apts) - 4))
+    bx1 = int(min(fr.W, max(p[0] for p in apts) + 4))
+    by1 = int(min(fr.H, max(p[1] for p in apts) + 4))
+    if bx1 - bx0 < 2 or by1 - by0 < 2:
+        return
+    layer = Image.new("RGBA", (bx1 - bx0, by1 - by0), (0, 0, 0, 0))
     dr = ImageDraw.Draw(layer)
     X, Y = L.p(ix, iy)
+    X, Y = X - bx0, Y - by0
     R = ir * 0.5 * fr.H * L.s
     dr.ellipse([X - R, Y - R, X + R, Y + R], fill=(28, 128, 222, 255))
     dr.ellipse([X - R * 0.86, Y - R * 0.86, X + R * 0.86, Y + R * 0.86], fill=(66, 192, 255, 255))
@@ -647,10 +674,10 @@ def gojo_eye(fr, L, ex, ey, sz, lid=0.0, gaze=(0.0, 0.0), veins=0.9, glow=1.0, s
                              fill=(70, 18, 26, int(200 * min(1, reflect))))
     gx, gy = X - R * 0.32, Y - R * 0.34
     dr.ellipse([gx - R * 0.13, gy - R * 0.1, gx + R * 0.13, gy + R * 0.1], fill=(250, 254, 255, 255))
-    mask = Image.new("L", (fr.W, fr.H), 0)
-    ImageDraw.Draw(mask).polygon([L.p(px, py) for px, py in almond], fill=255)
+    mask = Image.new("L", layer.size, 0)
+    ImageDraw.Draw(mask).polygon([(p[0] - bx0, p[1] - by0) for p in apts], fill=255)
     layer.putalpha(ImageChops.multiply(layer.getchannel("A"), mask))
-    fr.img.paste(layer, (0, 0), layer)
+    fr.img.paste(layer, (bx0, by0), layer)
     if glow > 0.01:
         L.glow(ix, iy, 0.07 * sz, shade((30, 110, 210), 0.45 * glow))
     L.line(up, shade(GOJO.skin, 0.45), 0.009 * sz)
@@ -1011,8 +1038,8 @@ def s7_05(fr):
     # ---- Gojo: four measured strides east, x -6.5 -> -3.9
     tg = on2(fr)
     base_g = P(G_WALK, ua_n=2, fa_n=6, hand_n="open", hand_f="open")
-    x_first = -6.5 + 0.16
-    q, gx = walk(GOJO, tg, steps, x_first, base_g)
+    x_first = -6.5 + 0.15
+    q, gx = walk(GOJO, tg, steps, x_first, base_g, amp=0.93)
     gojo(fr, q, gx, None)
     fr.vignette = 0.4
 
@@ -1048,7 +1075,9 @@ def frag_list():
     rng = random.Random("s7frags")
     tau_inf = INF_BACK_REAL - PUSH_OFF_REAL
     out = []
-    heroes = [((-5.80, 1.64), (-5.935, 1.70), 0.016),     # beside his cheek/jaw (S7-14's hero)
+    heroes = [((-5.79, 1.70), (-5.957, 1.752), 0.012),    # beside his cheek, in the gap (S7-14's hero)
+              ((-5.80, 1.80), (-5.962, 1.79), 0.006),     # grit in the gap at the eye line
+              ((-5.75, 1.62), (-5.93, 1.69), 0.016),      # by the jaw
               ((-5.72, 1.86), (-5.925, 1.91), 0.011),     # above the knuckles' line
               ((-5.78, 1.46), (-5.88, 1.47), 0.04),       # by the neck
               ((-5.74, 2.0), (-5.86, 1.98), 0.03),        # by the crown
@@ -1207,7 +1236,7 @@ def s7_06(fr):
     world_dust(fr, -8, 3, 0.2, 5, n=70, salt="dust06", size_px=1.6, alpha=120)
     tq = on2(fr)
     period = T(fr, 40)
-    q, gx = walk(GOJO, tq, [t20 - period, t20], -3.9 + 0.07, P(G_WALK, hand_n="open", hand_f="open"), amp=0.62)
+    q, gx = walk(GOJO, tq, [t20 - period, t20], -4.11, P(G_WALK, hand_n="open", hand_f="open"), amp=0.62)
     layer, _ = capture(fr, lambda: gojo(fr, q, gx, None))
     sep = 14.0 * (1 - seg(t, t14, t30, "inout"))
     if sep > 0.5:
@@ -1341,15 +1370,18 @@ def s7_08(fr):
     k = (t + 1.0 / FPS) / (t3 + 1.0 / FPS)
     su, sv = lerp(0.98, hu, k), lerp(1.12, hv, k)
     if k < 1.9:
-        tail = 0.16
+        tail = 0.26
         img, dr = fr.layer()
         a = math.atan2(hv - 1.12, hu - 0.98)
         tipx, tipy = su * fr.W, sv * fr.H
         bx, by = tipx - math.cos(a) * tail * fr.H, tipy - math.sin(a) * tail * fr.H
         nx, ny = -math.sin(a) * 0.012 * fr.H, math.cos(a) * 0.012 * fr.H
-        dr.polygon([(bx + nx * 3, by + ny * 3), (tipx, tipy), (bx - nx * 3, by - ny * 3)], fill=(150, 150, 160, 70))
-        dr.polygon([(tipx - math.cos(a) * 0.06 * fr.H + nx, tipy - math.sin(a) * 0.06 * fr.H + ny), (tipx, tipy),
-                    (tipx - math.cos(a) * 0.06 * fr.H - nx, tipy - math.sin(a) * 0.06 * fr.H - ny)], fill=(30, 28, 34, 255))
+        dr.polygon([(bx + nx * 3, by + ny * 3), (tipx, tipy), (bx - nx * 3, by - ny * 3)], fill=(170, 165, 170, 80))
+        sl = 0.11 * fr.H
+        dr.polygon([(tipx - math.cos(a) * sl + nx * 1.6, tipy - math.sin(a) * sl + ny * 1.6), (tipx, tipy),
+                    (tipx - math.cos(a) * sl - nx * 1.6, tipy - math.sin(a) * sl - ny * 1.6)], fill=(24, 22, 28, 255))
+        dr.line([(tipx - math.cos(a) * sl + nx * 1.6, tipy - math.sin(a) * sl + ny * 1.6), (tipx, tipy)],
+                fill=(200, 170, 140, 255), width=max(1, int(2 * fr.ss)))
         fr.merge(img)
     if t3 <= t < t3 + 1.0 / FPS:
         # the impact frame: no white-out, a hard line of light along the cut
@@ -1439,7 +1471,6 @@ def s7_09(fr):
         R = 0.035 * fr.H
         dr.ellipse([u * fr.W - R, v * fr.H - R * 1.3, u * fr.W + R, v * fr.H + R * 1.3], fill=(150, 12, 24, 210))
         fr.merge(img)
-        fr.img = fr.img  # (kept soft by the lens: small blur below)
     fr.vignette = 0.5
 
 
@@ -1701,8 +1732,8 @@ def s7_13(fr):
     fist = (lerp(-4.72, -5.6, u), lerp(1.5, 1.78, EASE["out"](u)))
     base = pose_at(u, [(0, T_DRIVE), (0.5, P(T_STRAIGHT, lean=24)), (1, T_STRAIGHT)])
     sole = soles_offset(THRAGG, base, -1)
-    pose = reach(THRAGG, P(base, hand_f="fist"), bx, 0.2 + sole, -1, "f", fist, elbow="down")
-    J = thragg(fr, pose, bx, 0.2 + sole)
+    pose, st = straight(THRAGG_W, P(base, hand_f="fist"), bx, 0.2 + sole, -1, "f", fist)
+    J = thragg(fr, pose, bx, 0.2 + sole, style=st)
     open_flank(fr, J, k=1.0)
     thragg_tears_back(fr, J)
     fx.trail(fr, [(fist[0] + 0.5 - 0.08 * k, fist[1] - 0.01 * k) for k in range(7)], width_m=0.12, alpha=60)
@@ -1748,15 +1779,17 @@ def s7_14(fr):
     s = ins_scale(fr, 0.16)
     cu, cv = place_local(fr, s, 0.0, 1, (0.3, -0.15), EYE14)
     inj = gopts(fr)["injuries"]
-    xf = kf(t, [(0, -5.6), (t16, -5.9, "linear")]) if t < t16 else -5.9 - 0.05 * (1 - math.exp(-5.0 * (t - t16)))
-    reflect = clamp((xf + 5.6) / -0.3 + 0.3)
+    front = EYE14[0] + 0.035             # the front of his face (the gap is measured from here)
+    xf = kf(t, [(0, front + 0.4), (t16, front + 0.1, "linear")]) if t < t16 else \
+        front + 0.1 - 0.05 * (1 - math.exp(-5.0 * (t - t16)))
+    reflect = clamp((front + 0.4 - xf) / 0.3 + 0.3)
     lid = 0.45 + 0.25 * seg(t, 0.0, t14, "inout")
     shimmer = 0.0 if t >= t15 else 0.55 + 0.45 * math.sin(fr.f * math.tau / 4)
     L = gojo_cu(fr, cu, cv, s, inj, lid=lid, gaze=(0.85, 0.0), cut=1.0, nose=1.0, shimmer=shimmer, reflect=reflect,
                 glow=1.0)
     # the repair completes: a fresh pulse from the left nostril, droplets lifting slowly
     if t >= t14:
-        te = (sc - slow_clock_at("S7-14", 14))
+        te = (sc - slow_clock_at("S7-14", t14 * FPS))
         rng = fr.srng("spurt14")
         for i in range(7):
             vx, vy = rng.uniform(0.2, 0.9), rng.uniform(0.4, 1.4)
@@ -2035,8 +2068,7 @@ class Proj:
         self.f = (fx_ / L, fy_ / L, fz_ / L)
         self.r = (1.0, 0.0, 0.0)
         f = self.f
-        self.u = (f[1] * 0 - f[2] * 0, f[2] * 1 - f[0] * 0, f[0] * 0 - f[1] * 1)
-        self.u = (0.0, f[2], -f[1])
+        self.u = (0.0, f[2], -f[1])                   # camera up = forward x right
         self.F = F * fr.ss
 
     def p(self, x, y, z):
@@ -2213,13 +2245,13 @@ def s7_17(fr):
         a_pitch, yaw, lift, bx = 90.0, 180.0, 0.0, MAST_X
     else:
         u = clamp((t - t6) / (t26 - t6))
-        a_pitch = lerp(90.0, 2.0, EASE["in"](u))
+        a_pitch = lerp(90.0, 2.0, EASE["smooth"](u) ** 1.3)
         yaw = lerp(180.0, 360.0, EASE["inout"](u))
         lift = 2.2 * math.sin(math.pi * min(1.0, u * 1.15))
         bx = lerp(MAST_X, MAST_X - 0.6, EASE["out"](u))
     L = 6.4 if t < t6 else 6.2
     pr, yr = math.radians(a_pitch), math.radians(yaw)
-    top = (bx + math.cos(pr) * math.cos(yr) * -L * -1, lift + math.sin(pr) * L, 0.8 + math.cos(pr) * math.sin(yr) * L)
+    top = (bx + math.cos(pr) * math.cos(yr) * L, lift + math.sin(pr) * L, 0.8 + math.cos(pr) * math.sin(yr) * L)
     b3 = (bx, lift + (0.3 if t >= t26 else 0.0), 0.8)
     if t >= t26:
         top = (-1.4, 0.45, 0.8)
@@ -2237,7 +2269,7 @@ def s7_17(fr):
     # ---- the north blocks: facades ripple out in a ring of blown windows
     img, ld = fr.layer()
     for (x0, x1, z0, z1, h, col) in sorted(blocks17(), key=lambda b: -b[2]):
-        _box(P3, ld, x0, x1, z0, z1, h, col + (255,) if False else col)
+        _box(P3, ld, x0, x1, z0, z1, h, col)
         dist = math.hypot((x0 + x1) / 2 - BX, z0 - BZ)
         rngw = random.Random(f"w{x0:.1f}")
         for wv in range(int((x1 - x0) / 3)):
@@ -2272,7 +2304,7 @@ def s7_17(fr):
 # =============================================================================
 # S7-18  WS from street level: one figure standing, one shape in the crater. Silence.
 # =============================================================================
-G_FRONT = P("front_tired", lean=0, neck=6, ua_n=10, fa_n=8, ua_f=8, fa_f=4, th_n=6, sh_n=2, th_f=9, sh_f=3)
+G_FRONT = P("front_tired", lean=0, neck=6, ua_n=22, fa_n=14, ua_f=13, fa_f=6, th_n=6, sh_n=2, th_f=9, sh_f=3)
 
 
 def s7_18(fr):
@@ -2316,8 +2348,9 @@ def s7_18(fr):
     fr.merge(img)
     # ---- Gojo: one dark figure, three-quarter to camera; the stump reads on the crater side
     breath = pulse(t, t40, 0.4, 0.8) + pulse(t, t90, 0.4, 0.8)
-    pose = P(G_FRONT, neck=6 - 3 * breath, ua_n=10 + 2 * breath, ua_f=8 + 2 * breath)
+    pose = P(G_FRONT, neck=6 - 3 * breath, ua_n=22 + 2 * breath, ua_f=13 + 2 * breath)
     o = gopts(fr)
+    o["eyes"] = "blindfold"            # a silhouette: no Six Eyes glow leaking through the shape
     lay, G = capture(fr, lambda: draw_fighter(fr, GOJO_W, pose, -6.0, None, 1, view="front", opts=o))
     silhouette(fr, lay, (16, 14, 20), rim=(255, 196, 140), rim_off=(-2.2, -1.4))
     # chunks hanging a hand's breadth above his head and shoulders (Infinity): micro-jitter only

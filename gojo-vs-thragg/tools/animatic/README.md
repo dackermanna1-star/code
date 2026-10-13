@@ -59,12 +59,13 @@ SHOTS = {"S3-04": s3_04}
 - **World units are metres. y is up, and the street is at y = 0.** The camera
   always faces NORTH: west is screen-left and east is screen-right. Never
   flip this; it keeps screen direction consistent across the film.
-- Geography, at depth d = 1:
+- Geography, at depth d = 1 (see the header of env.py):
   - intersection centre: x = 0
-  - traffic-light mast: x = +7, top y = 6.4 (Gojo's perch)
-  - west block: x -14 … -60
+  - traffic-light mast on the WEST corner: x = -7, top y = 6.4, arm reaching east (Gojo's perch)
+  - east block (Red's tunnel): x +20 … +60
   - unfinished tower: x 80 … 110, 176 m tall
-  - Purple's scar: through the west skyline
+  - Purple's channel: through the eastern towers
+  - the lit city: far west, across the river
 - `Cam(x, y, zoom, rot, shake)`:
   - `zoom` is px/m at 1080p. 30 ≈ a 64 m wide view; 140 ≈ 14 m; 400 ≈ 5 m.
   - Animate any parameter with `kf()`.
@@ -173,8 +174,8 @@ Frame-level post effects (set on `fr`):
    - Injuries never vanish.
    - City damage only accumulates.
 3. **Screen direction:**
-   - Thragg starts west (left) of Gojo.
-   - When he attacks Gojo he moves left to right, unless the shot list says
-     he has circled around.
+   - Gojo is screen-left (west), Thragg screen-right (east).
+   - When Thragg attacks Gojo he moves right to left, unless the shot list
+     says he has circled around.
 4. Keep everything readable: big clear silhouettes and one focal action per
    shot. Effects support the action and never bury the characters.
