@@ -345,6 +345,8 @@ export class Game {
 
   private processInputs(p: Player, dt: number) {
     p.moveBudget = Math.min(p.moveBudget + dt, 0.25);
+    // Keep the spatial index current (perception, hit tests and explosions query it).
+    if (p.alive) this.entities.updateCell(p);
     if (!p.ready) {
       // Wait until the 3x3 chunks around the player exist and were sent.
       const cx = Math.floor(p.x / CHUNK_SIZE), cz = Math.floor(p.z / CHUNK_SIZE);
@@ -383,6 +385,7 @@ export class Game {
     }
     // Commands beyond what real time allows are discarded, keeping simulation speed honest.
     if (p.inputQueue.length > 45) p.inputQueue.splice(0, p.inputQueue.length - 45);
+    if (p.alive) this.entities.updateCell(p);
     if (p.y < -20) this.combat.damagePlayer(p, 1000, 'fall', null);
   }
 

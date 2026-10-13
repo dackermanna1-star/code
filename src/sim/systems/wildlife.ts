@@ -39,7 +39,7 @@ export const SPECIES: Record<string, Species> = {
     harvest: [['raw_meat', 8], ['leather', 6], ['bone', 8], ['animal_fat', 6]], biomes: [Biome.Forest, Biome.Plains, Biome.Swamp, Biome.Savanna, Biome.BirchForest], weight: 4 },
   wolf: { key: 'wolf', name: 'Grey Wolf', hp: 100, speed: 7.2, walk: 2.2, halfWidth: 0.4, height: 1.0, temper: 'hunter', sight: 18, damage: 14, attackInterval: 1.0,
     harvest: [['raw_meat', 4], ['leather', 8], ['bone', 6], ['animal_fat', 2]], biomes: [Biome.Taiga, Biome.Snowy, Biome.Forest, Biome.Mountains], weight: 2 },
-  scavenger: { key: 'scavenger', name: 'Scavenger', hp: 110, speed: 4.6, walk: 1.6, halfWidth: 0.3, height: 1.8, temper: 'hunter', sight: 32, damage: 13, attackInterval: 1.25,
+  scavenger: { key: 'scavenger', name: 'Scavenger', hp: 110, speed: 4.6, walk: 1.6, halfWidth: 0.3, height: 1.8, temper: 'hunter', sight: 32, damage: 11, attackInterval: 1.5,
     harvest: [], biomes: [], weight: 0, ranged: true },
   bear: { key: 'bear', name: 'Bear', hp: 300, speed: 6.6, walk: 1.8, halfWidth: 0.7, height: 1.5, temper: 'defensive', sight: 12, damage: 30, attackInterval: 1.6,
     harvest: [['raw_meat', 20], ['leather', 25], ['bone', 20], ['animal_fat', 15]], biomes: [Biome.Forest, Biome.Taiga, Biome.Snowy], weight: 1 },
@@ -310,6 +310,7 @@ export class Wildlife {
     let target: Player | null = null;
     for (const p of this.game.players.values()) if (p.alive && this.sees(a, p)) target = p;
     if (target) {
+      if (a.state !== 'chase') a.lastAttack = now + 0.6 + this.rnd() * 0.6 - a.spec.attackInterval; // reaction time
       a.target = target;
       a.lastSeen = now;
       a.state = 'chase';
@@ -335,7 +336,7 @@ export class Wildlife {
       if (target && now - a.lastAttack > a.spec.attackInterval && d < 40) {
         a.lastAttack = now + this.rnd() * 0.4;
         const moving = Math.hypot(t.move.vx, t.move.vz) > 1;
-        const spread = 0.03 + d * 0.0012 + (moving ? 0.025 : 0);
+        const spread = 0.04 + d * 0.0015 + (moving ? 0.03 : 0) + (t.move.crouching ? 0.01 : 0);
         this.game.combat.npcFire(a, a.x, a.y + 1.5, a.z, t.x, t.y + 1.1, t.z, a.spec.damage, spread, a.spec.name);
       }
       return;
