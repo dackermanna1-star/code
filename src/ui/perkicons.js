@@ -275,6 +275,60 @@ export const GLYPHS = {
     drawOps(g, [P(...pts)]);
   },
 };
+// ---------------------------------------------------------------- boss relics (relics.js) and power-up buffs (powerups.js)
+Object.assign(GLYPHS, {
+  cleaver: (g) => {
+    drawOps(g, [P(3, 3, 17, 3, 17, 14, 6, 14, 3, 11), R(16, 6.5, 6.5, 3.2)]);
+    cut(g, () => drawOps(g, [C(6.5, 6.5, 1.5), L(4, 12.3, 16, 12.3, 0.7)]));
+    drawOps(g, [L(19, 9.5, 21.5, 21.5, 3.2)]);
+  },
+  acidgland: (g) => {
+    drop(g, 11, 12, 10);
+    cut(g, () => drawOps(g, [C(8.5, 15, 2.2), C(13.5, 11.5, 1.5), C(12.5, 17.5, 1.1)]));
+    drawOps(g, [C(19.5, 5, 2.2), C(21, 10.5, 1.3)]);
+  },
+  veil: (g) => {
+    g.beginPath();
+    g.moveTo(3, 22); g.lineTo(3, 11); g.quadraticCurveTo(3, 2, 12, 2); g.quadraticCurveTo(21, 2, 21, 11); g.lineTo(21, 22);
+    g.quadraticCurveTo(18.5, 18, 16.5, 22); g.quadraticCurveTo(14.2, 18, 12, 22); g.quadraticCurveTo(9.8, 18, 7.5, 22); g.quadraticCurveTo(5.5, 18, 3, 22);
+    g.closePath(); g.fill();
+    cut(g, () => drawOps(g, [E(8.6, 10, 2, 2.8), E(15.4, 10, 2, 2.8), E(12, 16, 2.2, 1.6)]));
+  },
+  infernocore: (g) => {
+    flame(g, 12, 23, 22, 10.5);
+    cut(g, () => drawOps(g, [C(12, 15.5, 4.6)]));
+    drawOps(g, [C(12, 15.5, 2.6)]);
+  },
+  plating: (g) => {
+    shield(g, 12, 1.5, 19, 21);
+    cut(g, () => drawOps(g, [L(4, 9, 20, 9, 1.2), L(12, 9, 12, 21, 1.2)]));
+    cut(g, () => drawOps(g, [C(6.5, 5.6, 1), C(17.5, 5.6, 1), C(7.5, 13, 1), C(16.5, 13, 1)]));
+  },
+  crown: (g) => {
+    drawOps(g, [P(2, 7, 7, 12, 12, 3, 17, 12, 22, 7, 20, 18, 4, 18), R(4, 19.2, 16, 2.8)]);
+    cut(g, () => drawOps(g, [C(12, 13.5, 1.8), C(7.2, 15, 1.2), C(16.8, 15, 1.2)]));
+    drop(g, 9.5, 21.5, 1.6);
+  },
+  seal: (g) => {
+    gear(g, 12, 12, 8.4, 12);
+    cut(g, () => drawOps(g, [C(12, 12, 6)]));
+    const pts = [];
+    for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + (i / 10) * Math.PI * 2, r = i % 2 ? 2.2 : 5; pts.push(12 + Math.cos(a) * r, 12.4 + Math.sin(a) * r); }
+    drawOps(g, [P(...pts)]);
+  },
+  coin: (g) => {
+    drawOps(g, [C(12, 12, 10.5)]);
+    cut(g, () => { drawOps(g, [C(12, 12, 8.6)]); });
+    drawOps(g, [C(12, 12, 7.2)]);
+    cut(g, () => drawOps(g, [R(10.9, 6.5, 2.2, 11), R(8, 9.2, 8, 2.2)]));
+  },
+  adrenal: (g) => { GLYPHS.adrenaline(g); drop(g, 18.5, 17, 4.2); },
+  instakill: (g) => { skull(g, 12, 11, 9.5); cut(g, () => drawOps(g, [L(3, 3, 21, 21, 1.4)])); },
+  firesale: (g) => {
+    drawOps(g, [P(2, 9, 9, 2, 22, 2, 22, 22, 9, 22, 2, 15)]);
+    cut(g, () => { drawOps(g, [C(7, 12, 1.8)]); text(g, '%', 15.5, 12.5, 11); });
+  },
+});
 // timed buffs drawn with their perk's glyph
 GLYPHS.adrenalinerush = GLYPHS.adrenaline;
 GLYPHS.hitandrunrush = GLYPHS.hitandrun;

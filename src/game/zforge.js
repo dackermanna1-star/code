@@ -67,7 +67,7 @@ const ROUND_GUN = 0.1;
 // the chance a hit procs, by weapon id, else by kind (the shotguns: per pellet; one proc a pull)
 const PROC = {
   pistol: 0.3, deagle: 0.45, elite: 0.16, shotgun: 0.06, xm1014: 0.05, aa12: 0.025, smg: 0.1, rifle: 0.15,
-  sniper: 0.35, scout: 0.8, awp: 1, barrett: 0.7, mg: 0.07, minigun: 0.025,
+  sniper: 0.35, scout: 0.8, awp: 1, barrett: 0.7, crossbow: 0.9, mg: 0.07, minigun: 0.025,
 };
 const PROC_TIER = 0.15; // x (1 + this) for every tier past roundFrom
 const CD = { incendiary: 1.2, shock: 0.8, cryo: 0.3, explosive: 0.4, vampiric: 0.2 }; // s, per victim

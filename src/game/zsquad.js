@@ -55,7 +55,7 @@ export const ROLES = {
   rifleman: { label: 'Rifleman', short: 'RIF', guns: null, interim: null, extras: [], atts: null, rgb: [228, 218, 196], text: 'Whatever rifle the money buys. Holds the line.' },
   gunner: { label: 'Gunner', short: 'GUN', guns: ['minigun', 'm249'], interim: ['ak47', 'galil', 'ump45', 'mp5'], extras: [], atts: ['extmag', 'laser', 'foregrip'], rgb: [255, 152, 56], text: 'Saves up for the M249, then the minigun. Takes the busiest lane.' },
   medic: { label: 'Medic', short: 'MED', guns: ['p90', 'ump45', 'mp5'], interim: null, extras: ['medkit', 'medkit'], atts: ['reddot', 'extmag'], rgb: [96, 232, 118], text: 'Revives first, patches you up sooner and from farther away.' },
-  demo: { label: 'Demo', short: 'DEM', guns: ['aa12', 'xm1014', 'm3'], interim: null, extras: ['molotov', 'claymore', 'molotov', 'claymore'], atts: ['extmag', 'laser'], rgb: [255, 86, 64], text: 'Shotguns, claymores where you hold, molotovs into packs.' },
+  demo: { label: 'Demo', short: 'DEM', guns: ['aa12', 'xm1014', 'm3'], interim: null, extras: ['molotov', 'claymore', 'pipebomb', 'molotov', 'claymore'], atts: ['extmag', 'laser'], rgb: [255, 86, 64], text: 'Shotguns, claymores where you hold, molotovs into packs, a pipe bomb to pull the horde off a downed teammate.' },
   marksman: { label: 'Marksman', short: 'MRK', guns: ['barrett', 'g3sg1', 'sg550'], interim: ['famas', 'galil', 'mp5'], extras: [], atts: ['laser', 'compensator'], rgb: [112, 192, 255], text: 'Works up to the Barrett. Specials and bosses first.' },
 };
 /** The order roles are handed out in (the first bots get these, the rest are riflemen). */
@@ -96,7 +96,7 @@ const STATE = {
   dead: ['OUT', [140, 140, 140]], down: ['DOWN', [255, 60, 40]], pinned: ['PINNED', [255, 70, 200]], reviving: ['REVIVING', [96, 232, 118]],
   healing: ['HEALING', [96, 232, 118]], molotov: ['MOLOTOV', [255, 140, 60]], claymore: ['CLAYMORE', [255, 140, 60]], fallback: ['FALL BACK', [255, 200, 90]],
   rescue: ['RESCUE', [255, 120, 210]], focus: ['FOCUS', [255, 80, 60]], holding: ['HOLDING', [255, 196, 60]], moving: ['MOVING UP', [255, 196, 60]],
-  follow: ['FOLLOW', [190, 210, 255]], cover: ['COVERING', [190, 210, 255]], reload: ['RELOAD', [200, 200, 200]], fight: ['ENGAGED', [255, 225, 180]], idle: ['WITH YOU', [170, 170, 160]],
+  loot: ['LOOTING', [255, 214, 90]], follow: ['FOLLOW', [190, 210, 255]], cover: ['COVERING', [190, 210, 255]], reload: ['RELOAD', [200, 200, 200]], fight: ['ENGAGED', [255, 225, 180]], idle: ['WITH YOU', [170, 170, 160]],
 };
 
 const DEG = Math.PI / 180;
@@ -484,6 +484,8 @@ export class ZSquad {
       if (bot.inPosition && !H.said) { H.said = true; if (Math.random() < 0.35) this.say(bot, 'hold'); }
       return true;
     }
+    // loot close by when it's safe (pickups.js: it only says yes when it's closer to the bot than to you)
+    if (g.zombies.pickups.botLoot(bot, it)) { bot.watchDanger(it); bot.zmState = 'loot'; return true; }
     // follow: an order, or (orders run out) sticking with the human
     const L = bot.follow && t < bot.follow.until && bot.follow.p?.alive ? bot.follow : null;
     const lead = L ? L.p : g.local?.alive && inSquad(g.local) && g.local !== p ? g.local : null;
@@ -804,6 +806,7 @@ export class ZSquad {
       else if (b?.zmTask) st = STATE.claymore;
       else if (b?.fallback && t < b.fallback.until) st = STATE.fallback;
       else if (b?.zmState === 'rescue' && b.mode === 'task') st = STATE.rescue;
+      else if (b?.zmState === 'loot' && b.mode === 'task') st = STATE.loot;
       else if (b?.focus && t < b.focus.until && b.focus.target?.alive && b.target === b.focus.target) st = STATE.focus;
       else if (b?.holdHere && t < b.holdHere.until) st = b.inPosition || b.mode !== 'task' ? STATE.holding : STATE.moving;
       else if (p.active?.inReload && p.active.def.clip > 0) st = STATE.reload;

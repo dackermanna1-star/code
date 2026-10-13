@@ -14,9 +14,11 @@
 import { TraceResult, MASK_WORLD_PLAYER } from '../engine/collision.js';
 import { inSquad } from './runstats.js';
 import { WEAPON_DEFS } from './weaponsys.js';
-import { ATTACHMENTS, ATTACHMENT_IDS, isGun, whyNot, fit } from './attachments.js';
+import { ATTACHMENTS, ATTACHMENT_IDS, isGun, whyNot, fit, forgeTarget, canRound, TIER_NAMES } from './attachments.js';
 import { chuteModel, flareModel } from '../assets/dropmodels.js';
 
+const CORE_P = 0.2, DRAFT_P = 0.2; // a crate's odds (when it isn't a weapon kit) of a forge core / a supply draft; else a heavy gun
+const CORE_ROUNDS = ['incendiary', 'shock', 'cryo', 'explosive']; // a forge core that reaches the round tier loads one of these
 const rand = (a, b) => a + Math.random() * (b - a);
 const tr = new TraceResult();
 const FLARE_T = 6; // s from the flare to the crate showing up overhead
@@ -195,7 +197,8 @@ export class Airdrops {
   /**
    * What p finds (d.id names a gun: the zm_drop cheat): a heavy gun (never one p holds; a
    * bot gets no launcher) or, about a third of the time when the gun in p's hands can take
-   * some, a weapon kit. Armour either way. Returns { id, kind: 'gun' | 'kit', name, text }.
+   * some, a weapon kit; else now and then a forge core (the gun in hand a tier up) or a supply
+   * draft (a perk card). Armour either way. Returns { id, kind: 'gun' | 'kit', name, text }.
    */
   reward(p, d) {
     const g = this.game, rnd = this.pk.rnd;
@@ -210,6 +213,25 @@ export class Airdrops {
       g.onLoadoutChanged?.(p, w);
       const gun = w.def.shortName || w.def.name;
       return { id: 'kit', kind: 'kit', name: 'WEAPON KIT', text: `${kit.map((a) => ATTACHMENTS[a].name).join(', ')} and gold plating on your ${gun}` };
+    }
+    // (Milestone 3 together: a forge core - your gun a tier up, zforge.js - or a supply draft -
+    // pick 1 of 3 uncommon-or-rarer perks, perks.js; a draft opened mid-wave waits for the break)
+    const x = d.id ? 1 : rnd(), Z = this.Z, fw = forgeTarget(p), FD = Z.diff.forge;
+    if (x < CORE_P && fw && (fw.tier | 0) < FD.tiers) {
+      fw.tier = (fw.tier | 0) + 1;
+      if (fw.tier >= FD.roundFrom && !fw.round && canRound(fw)) fw.round = CORE_ROUNDS[Math.floor(rnd() * CORE_ROUNDS.length)];
+      Z.forge.refit(p, fw);
+      if (fw.def.maxAmmo > 0) fw.ammo = fw.def.maxAmmo;
+      if (p.isLocal) { Z.forge.present(p, fw, fw.tier >= 5); g.sound?.play(fw.tier >= 5 ? 'forge_tier5' : 'forge_hammer', { volume: 0.8 }); }
+      const gun = fw.def.shortName || fw.def.name;
+      return { id: 'core', kind: 'kit', name: 'FORGE CORE', text: `your ${gun} forged to Tier ${TIER_NAMES[fw.tier]}${fw.round ? `, ${fw.round} rounds` : ''}, full ammo, and armour` };
+    }
+    if (x < CORE_P + DRAFT_P) {
+      const ids = Z.perks.roll(3, { p, curses: false, weight: (pid, row, wt) => (row.rarity === 'common' ? 0 : wt) });
+      if (ids.length) {
+        Z.perks.offer(p, ids, { source: 'airdrop', title: 'SUPPLY DRAFT - PICK A PERK', quiet: true });
+        return { id: 'draft', kind: 'kit', name: 'SUPPLY DRAFT', text: Z.state === 'wave' ? 'a perk card for you at the break, and armour' : 'pick a perk, and armour' };
+      }
     }
     const id = d.id && WEAPON_DEFS[d.id] ? d.id : this.heavy(p);
     g.giveWeapon(p, id, { select: true, fullAmmo: true });

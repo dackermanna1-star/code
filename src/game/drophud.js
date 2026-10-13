@@ -319,11 +319,14 @@ export class DropHud {
     if (!b) return;
     const age = now - b.t0;
     if (age < 0 || age > BANNER_T + BANNER_FADE) { this.bn = null; return; }
+    // (M3 integration: the wave type's banner sits in the same band - the newest news wins; its tag stays under the wave info)
+    const D = this.pk.Z?.director;
+    if (D?.bannerOn?.()) D.bannerT = -99;
     const k = hud.k, G = hud.gTop, W = hud.vw;
     const a = Math.min(1, age / 0.12, (BANNER_T + BANNER_FADE - age) / BANNER_FADE);
     const pop = 1 + 0.35 * Math.max(0, 1 - age / 0.18);
-    const y = Math.round(hud.vh * 0.235);
-    const bh = Math.round(hud.fontPx * 4.6);
+    const bh = Math.round(hud.fontPx * 4.6), BS = this.pk.game.bosses?.stage;
+    const y = Math.round(Math.max(hud.vh * 0.235, BS && hud.time - BS.bannerAt < 0.1 ? BS.bannerBottom + bh * 0.2 + 4 * k : 0)); // (under a boss's banner: bossstage.js)
     G.globalAlpha = a * 0.5;
     const gr = G.createLinearGradient(0, 0, W, 0);
     gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(0.2, 'rgba(0,0,0,1)'); gr.addColorStop(0.8, 'rgba(0,0,0,1)'); gr.addColorStop(1, 'rgba(0,0,0,0)');

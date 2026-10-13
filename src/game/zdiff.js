@@ -52,14 +52,17 @@ const ECON = {
  * once (the cap too, never past MAX_ALIVE), and they come faster: the spawn interval / (more
  * zombies)^crowdPace. count / maxAlive / caps
  * here are a solo player's: fewer commons than a squad faces, and more specials (SPECIALS).
+ * M3 integration: botCrowd and crowdAlive went up (Normal 0.5 -> 1, 0.3 -> 0.4) - a bot with a role, a
+ * forged gun and perks is worth a gun of its own now, so it brings as much of the horde, and
+ * more of it up at once (solo play is untouched).
  * Up at once (Milestone 2, zhorde.js): solo it stays as it was on Normal; a squad gets more
  * up (crowdAlive), up to MAX_ALIVE late with a full one; Hard and Nightmare more again.
  */
 const HORDE = {
-  casual: { count: 0.6, health: 0.75, damage: 0.7, damageCap: 16, speed: 0.96, speedCap: 212, speedLate: 0, runners: 0.75, runnerCap: 0.12, runnersFrom: 5, maxAlive: 0.9, maxAliveCap: 8, interval: 1.1, lateFrom: 10, lateGrowth: 0.004, botCrowd: 0.4, crowdCount: 0.05, crowdAlive: 0.08, crowdPace: 0.3 },
-  normal: { count: 0.7, health: 1, damage: 1, damageCap: 22, speed: 1, speedCap: 222, speedLate: 0, runners: 1, runnerCap: 0.2, runnersFrom: 4, maxAlive: 1, maxAliveCap: 9, interval: 1, lateFrom: 10, lateGrowth: 0.008, botCrowd: 0.5, crowdCount: 0.08, crowdAlive: 0.3, crowdPace: 0.3 },
-  hard: { count: 0.8, health: 1.2, damage: 1.25, damageCap: 26, speed: 1.03, speedCap: 228, speedLate: 0.4, runners: 1.25, runnerCap: 0.26, runnersFrom: 3, maxAlive: 1.1, maxAliveCap: 11, interval: 0.9, lateFrom: 10, lateGrowth: 0.015, botCrowd: 0.5, crowdCount: 0.09, crowdAlive: 0.35, crowdPace: 0.3 },
-  nightmare: { count: 0.9, health: 1.45, damage: 1.5, damageCap: 30, speed: 1.06, speedCap: 236, speedLate: 0.6, runners: 1.5, runnerCap: 0.32, runnersFrom: 2, maxAlive: 1.3, maxAliveCap: 14, interval: 0.8, lateFrom: 10, lateGrowth: 0.022, botCrowd: 0.6, crowdCount: 0.1, crowdAlive: 0.4, crowdPace: 0.3 },
+  casual: { count: 0.6, health: 0.75, damage: 0.7, damageCap: 16, speed: 0.96, speedCap: 212, speedLate: 0, runners: 0.75, runnerCap: 0.12, runnersFrom: 5, maxAlive: 0.9, maxAliveCap: 8, interval: 1.1, lateFrom: 10, lateGrowth: 0.004, botCrowd: 0.8, crowdCount: 0.05, crowdAlive: 0.12, crowdPace: 0.3 },
+  normal: { count: 0.7, health: 1, damage: 1, damageCap: 22, speed: 1, speedCap: 222, speedLate: 0, runners: 1, runnerCap: 0.2, runnersFrom: 4, maxAlive: 1, maxAliveCap: 9, interval: 1, lateFrom: 10, lateGrowth: 0.008, botCrowd: 1, crowdCount: 0.08, crowdAlive: 0.4, crowdPace: 0.3 },
+  hard: { count: 0.8, health: 1.2, damage: 1.25, damageCap: 26, speed: 1.03, speedCap: 228, speedLate: 0.4, runners: 1.25, runnerCap: 0.26, runnersFrom: 3, maxAlive: 1.1, maxAliveCap: 11, interval: 0.9, lateFrom: 10, lateGrowth: 0.015, botCrowd: 1.05, crowdCount: 0.09, crowdAlive: 0.45, crowdPace: 0.3 },
+  nightmare: { count: 0.9, health: 1.45, damage: 1.5, damageCap: 30, speed: 1.06, speedCap: 236, speedLate: 0.6, runners: 1.5, runnerCap: 0.32, runnersFrom: 2, maxAlive: 1.3, maxAliveCap: 14, interval: 0.8, lateFrom: 10, lateGrowth: 0.022, botCrowd: 1.15, crowdCount: 0.1, crowdAlive: 0.5, crowdPace: 0.3 },
 };
 
 /**
@@ -184,13 +187,15 @@ const COMBO = {
  * Perk draft (perks.js): choices (cards offered at a break), rareEvery (every nth wave's draft
  * rolls rarer cards), rerolls (free rerolls a run), curse (chance a draft holds a boon-and-curse
  * card), from (the first break with a draft: after wave n), rerollCost [base, perWave] ($ for a
- * reroll once the free ones are spent: one per draft; perks' price discounts apply).
+ * reroll once the free ones are spent: one per draft; perks' price discounts apply), botEvery
+ * (bots draft every nth break only: they support, the build is yours - M3 integration: bots
+ * drafting every break carried the run).
  */
 const PERKS = {
-  casual: { choices: 4, rareEvery: 5, rerolls: 2, curse: 0.1, from: 1, rerollCost: [150, 15] },
-  normal: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.15, from: 1, rerollCost: [250, 25] },
-  hard: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.2, from: 1, rerollCost: [300, 30] },
-  nightmare: { choices: 2, rareEvery: 5, rerolls: 0, curse: 0.25, from: 1, rerollCost: [400, 40] },
+  casual: { choices: 4, rareEvery: 5, rerolls: 2, curse: 0.1, from: 1, rerollCost: [150, 15], botEvery: 1 },
+  normal: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.15, from: 1, rerollCost: [250, 25], botEvery: 2 },
+  hard: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.2, from: 1, rerollCost: [300, 30], botEvery: 2 },
+  nightmare: { choices: 2, rareEvery: 5, rerolls: 0, curse: 0.25, from: 1, rerollCost: [400, 40], botEvery: 3 },
 };
 
 /**
@@ -201,8 +206,8 @@ const PERKS = {
  */
 const FORGE = {
   casual: { priceK: 0.8, tiers: 5, roundFrom: 3, procK: 1.2, leech: 10, botTier: 3 },
-  normal: { priceK: 1, tiers: 5, roundFrom: 3, procK: 1, leech: 8, botTier: 2 },
-  hard: { priceK: 1.15, tiers: 5, roundFrom: 3, procK: 0.9, leech: 6, botTier: 2 },
+  normal: { priceK: 1, tiers: 5, roundFrom: 3, procK: 1, leech: 8, botTier: 1 },
+  hard: { priceK: 1.15, tiers: 5, roundFrom: 3, procK: 0.9, leech: 6, botTier: 1 },
   nightmare: { priceK: 1.3, tiers: 5, roundFrom: 3, procK: 0.8, leech: 5, botTier: 1 },
 };
 
@@ -248,10 +253,10 @@ const BOSS = {
  * on), floor (bits of small loot lying about at once).
  */
 const DROPS = {
-  casual: { budget: [6, 0.6], chance: 0.18, powerup: 0.12, pity: 0.05, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.5, crateLife: 40, vial: 30, cash: 1.6, nukePay: 400, fireSale: 0.5, floor: 14 },
-  normal: { budget: [5, 0.5], chance: 0.15, powerup: 0.1, pity: 0.04, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.4, crateLife: 30, vial: 25, cash: 1.5, nukePay: 300, fireSale: 0.5, floor: 12 },
-  hard: { budget: [4, 0.4], chance: 0.12, powerup: 0.08, pity: 0.03, life: 25, powerupSecs: 15, airdropFrom: 5, airdropChance: 0.35, crateLife: 30, vial: 20, cash: 1.3, nukePay: 250, fireSale: 0.6, floor: 10 },
-  nightmare: { budget: [3, 0.3], chance: 0.1, powerup: 0.06, pity: 0.02, life: 20, powerupSecs: 12, airdropFrom: 6, airdropChance: 0.3, crateLife: 25, vial: 15, cash: 1.2, nukePay: 200, fireSale: 0.7, floor: 8 },
+  casual: { budget: [6, 0.6], chance: 0.18, powerup: 0.1, pity: 0.035, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.5, crateLife: 40, vial: 30, cash: 1.6, nukePay: 400, fireSale: 0.5, floor: 14 },
+  normal: { budget: [5, 0.5], chance: 0.15, powerup: 0.07, pity: 0.02, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.4, crateLife: 30, vial: 25, cash: 1.5, nukePay: 300, fireSale: 0.5, floor: 12 },
+  hard: { budget: [4, 0.4], chance: 0.12, powerup: 0.06, pity: 0.015, life: 25, powerupSecs: 15, airdropFrom: 5, airdropChance: 0.35, crateLife: 30, vial: 20, cash: 1.3, nukePay: 250, fireSale: 0.6, floor: 10 },
+  nightmare: { budget: [3, 0.3], chance: 0.1, powerup: 0.05, pity: 0.01, life: 20, powerupSecs: 12, airdropFrom: 6, airdropChance: 0.3, crateLife: 25, vial: 15, cash: 1.2, nukePay: 200, fireSale: 0.7, floor: 8 },
 };
 
 /**

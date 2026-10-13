@@ -377,14 +377,15 @@
   // ---------------------------------------------------------------- bots
   steps.push(async () => {
     newRun({ allies: 2 });
-    const b = squad().find((q) => q.isBot);
+    // (M3 integration: the squad's Demo carries the pipe bombs - zsquad.js; the other roles don't)
+    const [b, r] = squad().filter((q) => q.isBot);
     b.god = true;
-    // a break with money to spare: a bot buys a pipe bomb
+    b.role = 'demo'; r.role = 'rifleman';
+    // a break with money to spare: the Demo buys a pipe bomb
     Z().state = 'break'; Z().wave = Math.max(1, Z().wave);
     for (const q of squad()) if (q.isBot) { q.money = 9000; if (!q.weapons[1]) g.giveWeapon(q, 'ak47', { select: true, fullAmmo: true }); }
-    const buys0 = A().counts.botBuys;
     run(150, 10);
-    check('bots with money to spare buy a pipe bomb in a break', A().counts.botBuys > buys0 && b.weapons[4].some((x) => x.id === 'pipebomb'));
+    check('the Demo with money to spare buys a pipe bomb in a break; a rifleman doesn\'t', b.weapons[4].some((x) => x.id === 'pipebomb') && !r.weapons[4].some((x) => x.id === 'pipebomb'));
     // swarmed: it throws it out past the crowd
     Z().nextWaveAt = g.time + 9999;
     const o = b.pm.origin;
@@ -392,7 +393,7 @@
     for (let k = 0; k < 7; k++) { const a = k * (Math.PI * 2 / 7); walker([o[0] + Math.cos(a) * 140, o[1] + Math.sin(a) * 140, o[2]], 2000); }
     let ok = false;
     for (let i = 0; i < 600 && !ok; i++) { g.tick(); if (i % 4 === 0) g.frame(0); ok = A().counts.botPipes > thrown0 && A().nades.some((n) => n.kind === 'pipebomb' && n.owner?.isBot); }
-    check('a swarmed bot throws its pipe bomb', ok, `botPipes ${A().counts.botPipes - thrown0}`);
+    check('a swarmed Demo throws its pipe bomb', ok, `botPipes ${A().counts.botPipes - thrown0}`);
     return false;
   });
 

@@ -8,17 +8,18 @@
 //   info: { best, bestDiff, quick (text: the last setup) | null, map } (all optional)
 import { titleSVG } from './titleart.js';
 
-export const UPDATE_ID = 'zm2'; // bump to show the What's new panel again
+export const UPDATE_ID = 'zm3'; // bump to show the What's new panel again
 const NEWS_KEY = 'cs16-whatsnew-seen';
 
 export const WHATS_NEW = {
-  title: 'A horde worth fighting',
+  title: 'Every run is different',
   items: [
-    ['Shove them back', 'Press T or Mouse 4 to shove: it knocks zombies back, breaks a pounce and pulls a grabbed teammate free. Spam it and you tire.'],
-    ['Waves with a plan', 'The horde comes through named fronts, in surges and a final push, and some waves have a twist: Crawler Swarm, Iron Rain, The Dead Rise and more.'],
-    ['A meaner crowd', 'Runners, crawlers, riot armour, bloaters, burning zombies and the Screamer, and they flank and surround you.'],
-    ['Read the threat', 'Arcs round the crosshair warn of a special winding up, and HELP marks a teammate who has been grabbed.'],
-    ['The Dead of Dust basics', 'Earn your guns between waves, pick downed teammates up with E, and the run ends only when the whole squad falls.'],
+    ['Draft your build', 'After every wave pick 1 of 3 perk cards. Pair the right tags for a synergy, gamble on a boon-and-curse, reroll a bad hand.'],
+    ['The Weapon Forge', 'Forge any gun up to Tier V at the break, then load Incendiary, Shock, Cryo, Explosive or Vampiric rounds.'],
+    ['A squad you lead', 'Your bots are a Gunner, Medic, Demo and Marksman. Order them to Hold here, Follow or Focus your target (middle mouse).'],
+    ['Bosses reborn', 'Any boss can come first. Break their posture for a kneel, survive their phases, and take a trophy relic off the body.'],
+    ['Loot and power-ups', 'Kills drop cash, ammo and vials. Grab Insta-Kill, Nuke, Max Ammo, Double Cash and Fire Sale, and race to the airdrop.'],
+    ['New arsenal', 'Machete, fire axe and katana, a silent crossbow, pipe bombs that lure the horde and cryo grenades that freeze it.'],
   ],
 };
 

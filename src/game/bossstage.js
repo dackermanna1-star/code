@@ -456,6 +456,7 @@ export class BossStage {
         G.fillStyle = '#000';
         G.fillRect(0, y - Math.round(bh * 0.15), W, bh);
         G.globalAlpha = 1;
+        this.bannerBottom = y - Math.round(bh * 0.15) + bh; this.bannerAt = hud.time; // (drophud.js puts a power-up's banner under it)
         let ly = y;
         if (N.hint) { hud.text(N.hint, W / 2, ly, N.rgb, { align: 'center', alpha: al, font: F.small }); ly += Math.round(hud.fontPx * 1.3); }
         const shake = N.kind === 'break' && a < 0.3 ? (Math.random() - 0.5) * 6 * k : 0;

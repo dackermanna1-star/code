@@ -93,7 +93,7 @@
     }
     check('up at once rises casual -> nightmare, never past MAX_ALIVE', mono && capOk && ZD.MAX_ALIVE === 28);
     const late = W('normal', 30, 6).maxAlive, solo = W('normal', 20, 1).maxAlive, def = W('normal', 20, 2.5).maxAlive;
-    check('Normal: up to about 28 late with a full squad, solo unchanged (fair)', late >= 25 && W('normal', 40, 6).maxAlive >= 27 && solo <= 10 && W('normal', 12, 1).maxAlive <= 10 && def <= 14, `normal w30 full ${late}, w40 full ${W('normal', 40, 6).maxAlive}, w20 default squad ${def}, w20 solo ${solo}`);
+    check('Normal: up to about 28 late with a full squad, solo unchanged (fair)', late >= 25 && W('normal', 40, 6).maxAlive >= 27 && solo <= 10 && W('normal', 12, 1).maxAlive <= 10 && def <= 16 /* (M3 integration: crowdAlive 0.3 -> 0.4: the M3 squad is stronger) */, `normal w30 full ${late}, w40 full ${W('normal', 40, 6).maxAlive}, w20 default squad ${def}, w20 solo ${solo}`);
     check('Hard / Nightmare: the bigger crowd', W('hard', 20, 2.5).maxAlive > def && W('nightmare', 20, 2.5).maxAlive > W('hard', 20, 2.5).maxAlive && W('nightmare', 15, 6).maxAlive === 28 && W('hard', 12, 1).maxAlive >= 11, `w20 default squad hard ${W('hard', 20, 2.5).maxAlive} nightmare ${W('nightmare', 20, 2.5).maxAlive}; w12 solo hard ${W('hard', 12, 1).maxAlive}`);
     return false;
   });

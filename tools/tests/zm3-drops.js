@@ -343,7 +343,9 @@
     ticks(200);
     hold = false;
     const w = p.weapons[1];
-    check('holding E opens it: a heavy gun (full) or a weapon kit, and armour', A.state === 'opened' && d.opened && p.armor === 100 && w && ((w.id !== prim0 && w.ammo === w.def.maxAmmo) || w.skin === 'gold'), `${w?.id} ${w?.skin}`);
+    // (M3 integration: or a forge core - the gun a tier up - or a supply draft - a perk card, waiting for the break)
+    const got0 = pk.ui.bn?.title || '';
+    check('holding E opens it: a heavy gun (full), a weapon kit, a forge core or a supply draft, and armour', A.state === 'opened' && d.opened && p.armor === 100 && w && ((w.id !== prim0 && w.ammo === w.def.maxAmmo) || w.skin === 'gold' || (w.tier | 0) > 0 || (/SUPPLY DRAFT/.test(got0) && !!(Z().perks.waiting(p) || Z().perks.offerFor(p)))), `${w?.id} ${w?.skin} T${w?.tier | 0} ${got0}`);
     check('...open event, the lid, a banner', of('airdrop', (e) => e.phase === 'open').length === 1 && played.includes('crate_open') && pk.ui.bn?.id === 'crate');
     ticks(300);
     check('...an opened crate goes after a moment, the flare with it', !A.state && !A.flare && d.taken && !g.dropped.includes(d));

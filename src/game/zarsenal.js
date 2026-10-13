@@ -41,6 +41,7 @@ const LURE_R = 950, LURE_PATH = 1500, LURE_SCAN = 0.25, LURE_ARM = 0.7; // strai
 const BOLT_GRAVITY = 260, BOLT_LIFE = 2.5, STUCK_LIFE = 30, STUCK_MAX = 24, BOLT_REACH = 40;
 const SWARM_R = 330, SWARM_N = 5, BOT_PIPE_GAP = 9; // bots: this many zombies this close; s between their throws
 const BOT_PIPE_KEEP = 1500; // $ a bot keeps back after buying a pipe bomb
+const DEMO_SWARM_R = 460, DEMO_SWARM_N = 3, DEMO_RESCUE = 900; // the squad's Demo (zsquad.js): a looser trigger, and a downed teammate's pack
 const SHARD_MAX = 140;
 const PIECES = ['head', 'chest', 'belly', 'uarm_r', 'farm_r', 'uarm_l', 'farm_l', 'thigh_r', 'shin_r', 'thigh_l', 'shin_l']; // (gore.js body pieces)
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -612,24 +613,30 @@ export class ZArsenal {
    */
   bot(b, e, d) {
     const p = b.p, g = this.game, t = g.time;
-    if (b.nade || p.downed || t < (p.zmPipeT || 0) || d > SWARM_R) return false;
+    // (the squad's Demo, zsquad.js: throws sooner, from farther, and pulls a pack off a downed teammate)
+    const demo = p.role === 'demo', R = demo ? DEMO_SWARM_R : SWARM_R;
+    if (b.nade || p.downed || t < (p.zmPipeT || 0) || (d > R && !demo)) return false;
     p.zmPipeT = t + 0.5;
     const w = p.weapons[4].find((x) => x.id === 'pipebomb' && (x.count ?? 1) > 0);
     if (!w) return false;
     const o = p.pm.origin;
-    let n = 0, cx = 0, cy = 0;
-    for (const z of this.Z.pool) {
-      if (!z.alive || z.isBoss || z.lure) continue;
-      const dx = z.pm.origin[0] - o[0], dy = z.pm.origin[1] - o[1];
-      if (dx * dx + dy * dy > SWARM_R * SWARM_R || Math.abs(z.pm.origin[2] - o[2]) > 80) continue;
-      n++; cx += dx; cy += dy;
+    let target = demo ? this.rescueSpot(p) : null;
+    if (!target) {
+      if (d > R) return false;
+      let n = 0, cx = 0, cy = 0;
+      for (const z of this.Z.pool) {
+        if (!z.alive || z.isBoss || z.lure) continue;
+        const dx = z.pm.origin[0] - o[0], dy = z.pm.origin[1] - o[1];
+        if (dx * dx + dy * dy > R * R || Math.abs(z.pm.origin[2] - o[2]) > 80) continue;
+        n++; cx += dx; cy += dy;
+      }
+      if (n < (demo ? DEMO_SWARM_N : SWARM_N)) return false;
+      // out past the crowd, where it came from (on the nav)
+      const l = Math.hypot(cx, cy) || 1, nav = g.nav;
+      const at = [o[0] + cx / l * 430, o[1] + cy / l * 430, o[2] - 36];
+      const node = nav.nearest(at, 220) || nav.nearestXY(at, 300, 120);
+      target = node ? [node.x, node.y, node.z + 4] : at;
     }
-    if (n < SWARM_N) return false;
-    // out past the crowd, where it came from (on the nav)
-    const l = Math.hypot(cx, cy) || 1, nav = g.nav;
-    const at = [o[0] + cx / l * 430, o[1] + cy / l * 430, o[2] - 36];
-    const node = nav.nearest(at, 220) || nav.nearestXY(at, 300, 120);
-    const target = node ? [node.x, node.y, node.z + 4] : at;
     for (const q of this.nades) if (q.kind === 'pipebomb' && Math.hypot(q.origin[0] - target[0], q.origin[1] - target[1]) < 500) return false; // (one's beeping out there already)
     // a quick toss (no wind-up: the bot is in a fight), along the arc the bot planner finds
     const eye = p.eyePos(), sol = b.K?.throwSolution?.(eye, target, 'pipebomb');
@@ -649,12 +656,33 @@ export class ZArsenal {
     return true;
   }
 
-  /** In a break, a bot with money to spare carries a pipe bomb (one). */
+  /**
+   * The Demo: a downed teammate within DEMO_RESCUE u with DEMO_SWARM_N+ zombies on him - a spot
+   * on the nav 420 u past him (away from the Demo, outside the blast), so the pack turns its back on him. Or null.
+   */
+  rescueSpot(p) {
+    const o = p.pm.origin, nav = this.game.nav;
+    for (const q of this.game.players) {
+      if (q === p || !q.downed || !q.alive || !inSquad(q)) continue;
+      const qo = q.pm.origin, dx = qo[0] - o[0], dy = qo[1] - o[1], l = Math.hypot(dx, dy);
+      if (l > DEMO_RESCUE) continue;
+      let n = 0;
+      for (const z of this.Z.pool) if (z.alive && !z.isBoss && !z.lure && Math.hypot(z.pm.origin[0] - qo[0], z.pm.origin[1] - qo[1]) < 260) n++;
+      if (n < DEMO_SWARM_N) continue;
+      const k = 420 / (l || 1), at = [qo[0] + dx * k, qo[1] + dy * k, qo[2] - 36];
+      const node = nav.nearest(at, 220) || nav.nearestXY(at, 300, 120);
+      return node ? [node.x, node.y, node.z + 4] : at;
+    }
+    return null;
+  }
+
+  /** In a break, the squad's Demo (a bot with no role yet too) with money to spare carries a pipe bomb (one). */
   botShop() {
     const g = this.game, Z = this.Z;
     if (Z.state !== 'break' || Z.wave < 1) return;
     for (const p of g.players) {
       if (!p.isBot || !p.alive || p.downed || !inSquad(p) || p.weapons[4].some((x) => x.id === 'pipebomb')) continue;
+      if (p.role && p.role !== 'demo') continue; // (M3 integration: the squad's Demo carries them - zsquad.js; a whole squad lobbing lures carried the run)
       const c = Z.economy.cost(p, 'pipebomb') ?? WEAPON_DEFS.pipebomb.price;
       if (p.money < c + BOT_PIPE_KEEP || !p.weapons[1]) continue; // (a gun first)
       if (g.rounds.buy(p, 'pipebomb')) this.counts.botBuys++;

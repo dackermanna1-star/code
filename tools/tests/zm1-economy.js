@@ -154,6 +154,8 @@
     const p = g.local, bot = bots()[0].p, bot2 = bots()[1].p;
     p.god = bot.god = bot2.god = true;
     con('zm_wave 5');
+    // (Milestone 3: the cleared wave's perk draft may have dealt a money perk - Lucky Charm, Greed: none for this one)
+    for (const q of [p, bot, bot2]) for (const x of g.zombies.perks.list(q)) g.zombies.perks.revoke(q, x.id);
     con('zm_boss butcher');
     const b = g.bosses.boss;
     rec = [];

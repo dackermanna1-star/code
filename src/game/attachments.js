@@ -177,7 +177,7 @@ export const TIERS = {
 };
 // share of the damage / magazine gain by kind (an id overrides its kind)
 const TIER_DMG = { pistol: 1.5, smg: 1.2, shotgun: 1, rifle: 1, sniper: 1, mg: 0.75, flame: 0.8, launcher: 0.6, saw: 1, tesla: 0.75, minigun: 0.6, aa12: 0.8, barrett: 0.8, elite: 1.2 };
-const TIER_CLIP = { launcher: 0.5, mg: 0.75, flame: 0.75, saw: 0.75, tesla: 0.75 };
+const TIER_CLIP = { launcher: 0.5, mg: 0.75, flame: 0.75, saw: 0.75, tesla: 0.75, crossbow: 0 }; // (the crossbow: one bolt on the rail at any tier)
 /** Kinds the forge takes (the specials too: their damage reads w.mods.damage); rounds go in bullet guns only (GUN_KINDS). */
 const FORGE_KINDS = new Set([...GUN_KINDS, 'flame', 'launcher', 'saw', 'tesla']);
 export const canForge = (w) => !!w && FORGE_KINDS.has(w.def.kind);

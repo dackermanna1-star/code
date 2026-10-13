@@ -69,7 +69,7 @@ for (const [k, st] of Object.entries(KIND_STATS)) defineStat(st, { kind: 'mul', 
 defineStat('revive', { kind: 'rate', min: 0.4, max: 3, label: 'Revive speed' }); // (zdowned.js: the reviver's)
 const WSTAT = Object.create(null), WKIND = Object.create(null); // weapon id -> its family's stat / its kind
 for (const id in WEAPON_DEFS) { WKIND[id] = WEAPON_DEFS[id].kind; if (KIND_STATS[WEAPON_DEFS[id].kind]) WSTAT[id] = KIND_STATS[WEAPON_DEFS[id].kind]; }
-const MELEE = new Set(['knife', 'chainsaw', 'shove']);
+const MELEE = new Set(['knife', 'chainsaw', 'shove', 'machete', 'fireaxe', 'katana']); // (the arsenal's blades too: zarsenal.js)
 const LAST_STAND = 0.35; // Last Stand: below this share of max health
 /** The HUD strip's icon size (px at the 640 sprite scale). */
 export const STRIP_PX = 17;
@@ -160,8 +160,8 @@ const RARE_DRAFT = { common: 0.25, uncommon: 1.5, rare: 5 };
 const rareWeight = (id, r, w) => w * (RARE_DRAFT[r.rarity] ?? 1);
 const curseOnly = (id, r, w) => (r.curse ? w : 0);
 /** What a bot's guns say it wants (weaponsys kind -> tags; equipment by id). */
-const KIND_TAGS = { pistol: ['pistol'], shotgun: ['shotgun'], smg: ['smg'], rifle: ['rifle'], sniper: ['sniper', 'aim'], mg: ['mg'], flame: ['fire'], launcher: ['blast'], saw: ['melee'], tesla: ['tesla'], mine: ['blast'], medkit: ['medic'] };
-const ITEM_TAGS = { hegrenade: ['blast'], molotov: ['fire'], remotec4: ['blast'] };
+const KIND_TAGS = { pistol: ['pistol'], shotgun: ['shotgun'], smg: ['smg'], rifle: ['rifle'], sniper: ['sniper', 'aim'], mg: ['mg'], flame: ['fire'], launcher: ['blast'], saw: ['melee'], tesla: ['tesla'], mine: ['blast'], medkit: ['medic'], knife: ['melee'] };
+const ITEM_TAGS = { hegrenade: ['blast'], molotov: ['fire'], remotec4: ['blast'], pipebomb: ['blast'], cryogrenade: [] };
 /** ...and its squad role (zsquad.js p.role). */
 const ROLE_TAGS = { gunner: { mg: 3 }, medic: { medic: 3, body: 1 }, demo: { blast: 3, fire: 1 }, marksman: { sniper: 3, aim: 1.5 }, rifleman: { rifle: 2 } };
 
@@ -583,8 +583,9 @@ export class ZPerks {
   draft(n) {
     const D = this.Z.diff.perks;
     if (n < D.from || this.Z.state === 'over') return;
+    const bots = (n - D.from) % Math.max(1, D.botEvery ?? 1) === 0; // (bots draft every botEvery breaks: they support, you carry the build)
     for (const p of this.game.players) {
-      if (p.team !== TEAM_CT || p.isZombie) continue;
+      if (p.team !== TEAM_CT || p.isZombie || (p.isBot && !bots)) continue;
       const { ids, rare } = this.deal(p, n);
       if (ids.length) this.offer(p, ids, { source: 'draft', title: rare ? 'RARE DRAFT' : 'PERK DRAFT', rare, wave: n });
     }
@@ -607,7 +608,7 @@ export class ZPerks {
     if (p.isBot) { this.resolve(of, this.botPick(p, of.ids, of)); return of; }
     const q = this.offers.get(p);
     if (q) q.push(of); else this.offers.set(p, [of]);
-    if (of.wait && p === this.game.local) this.game.hud?.centerPrint?.(`${of.title}: pick in the break`, 3, 'info');
+    if (of.wait && p === this.game.local && !o.quiet) this.game.hud?.centerPrint?.(`${of.title}: pick in the break`, 3, 'info'); // (quiet: the caller says so itself - airdrop.js)
     return of;
   }
 
@@ -708,6 +709,7 @@ export class ZPerks {
     const add = (tags, k) => { for (const t of tags || []) want[t] = (want[t] || 0) + k; };
     if (p.weapons?.[1]) add(KIND_TAGS[p.weapons[1].def.kind], 2.5);
     if (p.weapons?.[2]) add(KIND_TAGS[p.weapons[2].def.kind], 1);
+    if (p.weapons?.[3] && p.weapons[3].id !== 'knife') add(KIND_TAGS.knife, 1.5); // (a bought blade: zarsenal.js)
     for (const w of p.weapons?.[4] || []) add(ITEM_TAGS[w.id] || KIND_TAGS[w.def?.kind], 0.8);
     const R = ROLE_TAGS[p.role];
     if (R) for (const t in R) want[t] = (want[t] || 0) + R[t];

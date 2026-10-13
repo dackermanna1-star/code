@@ -50,7 +50,7 @@ export const TROPHY = {
   take(Z, p, d) {
     const ids = d.data?.choices?.length ? d.data.choices : relicChoices(Z, p, d.data?.bossId, Z.diff.boss.relics);
     if (!ids.length) return false;
-    Z.perks.offer(p, ids, { source: 'trophy', title: `TROPHY${d.data?.boss ? `: ${d.data.boss}` : ''} - PICK A RELIC` });
+    Z.perks.offer(p, ids, { source: 'trophy', title: d.data?.boss ? `${d.data.boss}'S TROPHY` : 'BOSS TROPHY' });
     if (p.isLocal) Z.game.sound?.play('trophy_take', { volume: 0.9, attenuation: 'none' });
     Z.events.mode('trophy', { phase: 'take', player: p, boss: d.data?.boss || null });
     return true;
