@@ -94,7 +94,7 @@ _Every sound effect, music event and line of dialogue with its absolute timecode
 | 00:50:07 | S2-14 | SFX | `metal_snap` | gain 0.6 |
 | 00:50:08 | S2-14 | SFX | `glass_shatter` | east facades |
 | 00:50:14 | S2-14 | SFX | `debris_rain` | gain 0.6 |
-| 00:51:16 | S2-15 | SFX | `whoosh` | backward rise |
+| 00:51:16 | S2-15 | SFX | `whoosh` | rise over Gojo |
 | 00:52:16 | S2-15 | SFX | `cloth` | cape settling |
 | 00:52:18 | S2-15 | MUSIC | `return` | Low brass states Thragg's descending minor third over a bare 96 BPM pulse, handing over to Seq 3's 112 BPM entry. |
 | 00:52:18 | S2-15 | SFX | `wind_gust` | gain 0.5 |
@@ -174,9 +174,9 @@ _Every sound effect, music event and line of dialogue with its absolute timecode
 | 01:24:06 | S3-13 | SFX | `footstep` | boot onto the rubble crest |
 | 01:24:10 | S3-13 | SFX | `cloth` | cape rags |
 | 01:24:20 | S3-14 | SFX | `cloth` | glove across the mouth |
-| 01:25:22 | S3-14 | MUSIC | `drop_out` | The rhythm stops and a single low chord is held under "Now we're fighting" (the held beat). The score ducks 8 dB under the line. |
-| 01:25:22 | S3-14 | SFX | `breath` | slow exhale through the nose before the line |
-| 01:26:06 | S3-14 | DIALOGUE | `Thragg` | “Now we're fighting.” |
+| 01:26:02 | S3-14 | MUSIC | `drop_out` | The rhythm stops and a single low chord is held under "Now we're fighting" (the held beat). The score ducks 8 dB under the line. |
+| 01:26:02 | S3-14 | SFX | `breath` | slow exhale through the nose before the line |
+| 01:26:08 | S3-14 | DIALOGUE | `Thragg` | “Now we're fighting.” |
 | 01:27:18 | S3-14 | SFX | `wind_gust` | gain 0.3 |
 | 01:28:16 | S3-15 | SFX | `cloth` | blindfold drawn down |
 | 01:29:04 | S3-15 | MUSIC | `swell` | Gojo's rising fifth in high strings swells from the uncovered eyes into Seq 4's 140 BPM taiko entry. |
@@ -218,7 +218,7 @@ _Every sound effect, music event and line of dialogue with its absolute timecode
 | 01:41:16 | S4-06 | SFX | `wind_gust` | dust hiss |
 | 01:42:14 | S4-06 | SFX | `whoosh` | gain 0.8 |
 | 01:42:16 | S4-06 | SFX | `infinity_stop` | gain 1 |
-| 01:42:22 | S4-06 | SFX | `breath` | Gojo's small intake as he notices |
+| 01:42:18 | S4-06 | SFX | `breath` | Gojo's small intake as he notices |
 | 01:43:04 | S4-06 | SFX | `cloth` | gain 0.3 |
 | 01:43:18 | S4-07 | MUSIC | `swell` | Gojo's rising-fifth motif swells with the Blue over the ostinato. |
 | 01:43:18 | S4-07 | SFX | `blue` | gain 1 |
@@ -249,9 +249,9 @@ _Every sound effect, music event and line of dialogue with its absolute timecode
 | 01:50:08 | S4-10 | SFX | `thunder_distant` | the deck tearing |
 | 01:50:10 | S4-10 | SFX | `wind_gust` | gain 0.7 |
 | 01:50:22 | S4-10 | SFX | `debris_rain` | gain 0.4 |
-| 01:51:23 | S4-11 | SFX | `cloth` | gain 0.4 |
-| 01:52:02 | S4-11 | SFX | `blue` | distant point forming |
-| 01:52:04 | S4-11 | SFX | `whoosh` | gain 0.9 |
+| 01:52:08 | S4-11 | SFX | `cloth` | gain 0.4 |
+| 01:52:10 | S4-11 | SFX | `blue` | distant point forming |
+| 01:52:11 | S4-11 | SFX | `whoosh` | gain 0.9 |
 | 01:52:14 | S4-12 | SFX | `whoosh` | Gojo's pull |
 | 01:52:18 | S4-12 | SFX | `accel_burst` | gain 0.9 |
 | 01:52:20 | S4-12 | SFX | `sonic_boom` | gain 0.9 |
@@ -259,10 +259,8 @@ _Every sound effect, music event and line of dialogue with its absolute timecode
 | 01:53:04 | S4-12 | MUSIC | `hit` | THE PEAK of Seq 4: full taiko and brass, both motifs stacked in counterpoint, on the tower crash. |
 | 01:53:04 | S4-12 | SFX | `glass_shatter` | gain 1 |
 | 01:53:04 | S4-12 | SFX | `metal_snap` | gain 0.9 |
-| 01:53:12 | S4-12 | SFX | `concrete_break` | gain 0.8 |
-| 01:53:12 | S4-12 | SFX | `metal_groan` | gain 0.8 |
-| 01:53:20 | S4-12 | SFX | `concrete_break` | gain 0.8 |
-| 01:53:20 | S4-12 | SFX | `metal_snap` | gain 0.8 |
+| 01:53:16 | S4-12 | SFX | `concrete_break` | gain 0.8 |
+| 01:53:16 | S4-12 | SFX | `metal_snap` | gain 0.8 |
 | 01:54:04 | S4-12 | SFX | `glass_shatter` | gain 0.8 |
 | 01:54:14 | S4-12 | SFX | `building_collapse` | gain 0.6 |
 | 01:55:00 | S4-12 | SFX | `debris_rain` | gain 0.5 |
@@ -300,7 +298,7 @@ _Every sound effect, music event and line of dialogue with its absolute timecode
 | 02:04:08 | S4-17 | SFX | `cloth` | shoulder roll |
 | 02:04:18 | S4-18 | SFX | `wind_gust` | gain 0.35 |
 | 02:04:21 | S4-18 | SFX | `breath` | guarded breath over the ribs |
-| 02:05:02 | S4-18 | DIALOGUE | `Thragg` | “So. It is a choice.” |
+| 02:04:22 | S4-18 | DIALOGUE | `Thragg` | “So. It is a choice.” |
 | 02:07:02 | S4-18 | SFX | `cloth` | cape rags |
 | 02:07:06 | S4-19 | MUSIC | `drop_out` | Music drops out for the close-up: wind only. |
 | 02:07:06 | S4-19 | SFX | `wind_gust` | gain 0.3 |
@@ -435,10 +433,10 @@ _Every sound effect, music event and line of dialogue with its absolute timecode
 | 03:15:04 | S6-13 | SFX | `thunder_distant` | gain 0.35 |
 | 03:16:00 | S6-13 | SFX | `wind_gust` | air stirring as the dome thins |
 | 03:17:16 | S6-14 | SFX | `blue` | the Blue's throb guttering |
-| 03:18:22 | S6-14 | MUSIC | `drop_out` | Back inside, the clusters resume, thinner, then bend downward and unravel into the reversed shatter. The score drops out completely at f60, so Seq 7's isolated piano-like tones open on the dust. |
-| 03:18:22 | S6-14 | SFX | `domain_close` | the reversed glass shatter as the last of the void collapses |
 | 03:19:02 | S6-14 | SFX | `wind_gust` | the city's wind returns |
 | 03:19:10 | S6-14 | SFX | `breath` | Gojo, hard |
+| 03:19:22 | S6-14 | MUSIC | `drop_out` | Back inside, the clusters resume, thinner, then bend downward and unravel into the reversed shatter. The score drops out completely at f84, so Seq 7's isolated piano-like tones open on the dust. |
+| 03:19:22 | S6-14 | SFX | `domain_close` | the reversed glass shatter as the last of the void collapses (f85) |
 | 03:20:00 | S7-01 | SFX | `wind_gust` | the first real-world sound after the domain: wind across the empty intersection |
 | 03:20:06 | S7-01 | SFX | `thunder_distant` | far off inside the cloud deck |
 | 03:20:08 | S7-01 | MUSIC | `return` | Music returns after the domain's rhythmless bed as isolated piano-like tones, one every second or so, over the dust. No pulse. The landings are left to the close angles. |
@@ -446,7 +444,7 @@ _Every sound effect, music event and line of dialogue with its absolute timecode
 | 03:22:04 | S7-02 | SFX | `cloth` | arm flung out |
 | 03:22:12 | S7-02 | SFX | `breath` | sharp exhale |
 | 03:23:02 | S7-03 | SFX | `crack_ground` | crack star under the knee |
-| 03:23:02 | S7-03 | SFX | `land_heavy` | knee contact |
+| 03:23:02 | S7-03 | SFX | `punch_light` | knee contact (light tier) |
 | 03:23:08 | S7-03 | SFX | `blood_spit` | wet cough of frothy blood |
 | 03:23:14 | S7-03 | SFX | `breath` | laboured and wet (ruptured lung) |
 | 03:24:02 | S7-04 | SFX | `breath` | exhale as he straightens |
@@ -480,9 +478,8 @@ _Every sound effect, music event and line of dialogue with its absolute timecode
 | 03:34:11 | S7-11 | SFX | `blood_spit` | blood spray |
 | 03:34:11 | S7-11 | SFX | `punch_heavy` | contact frame: bone-and-sinew crack of the elbow parting |
 | 03:34:13 | S7-11 | SFX | `breath` | Gojo's pain grunt |
-| 03:34:18 | S7-11 | SFX | `footstep` | the stagger |
-| 03:35:03 | S7-12 | SFX | `footstep` | Gojo's staggering step |
-| 03:35:06 | S7-12 | SFX | `cloth` | the severed forearm hits the asphalt |
+| 03:34:18 | S7-11 | SFX | `footstep` | heel skid |
+| 03:35:07 | S7-12 | SFX | `footstep` | Gojo's heels catch at the end of the skid |
 | 03:35:09 | S7-12 | SFX | `accel_burst` | push-off |
 | 03:35:09 | S7-12 | SFX | `concrete_break` | the slab bursts under his foot |
 | 03:35:22 | S7-12 | MUSIC | `drop_out` | The ostinato at its fastest, then it stops dead 2 frames before the cut into the stretched chord of S7-13. |
