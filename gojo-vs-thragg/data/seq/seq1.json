@@ -1,0 +1,927 @@
+{
+ "sequence": {
+  "id": 1,
+  "title": "The Encounter",
+  "objective": "Establish atmosphere, character and tension; plant the lit city, the trace-cursed-energy read, and Gojo's perch.",
+  "logic": "Geography first: the aerial plants west = lit city + sunset (screen-left) and east = dark towers (screen-right) before any character appears. Thragg's arrival is an announcement (heavy, not massive, tier). His survey ends on the lights, which are his leverage (T1-19), and the cut reveals Gojo standing literally in that line. Mutual assessment in two halves: Thragg classifies an obstacle (S1-05). Gojo's Six Eyes plant R1, a civilian-level trace on an absurdly dense body, and R5, location without intent (S1-06); he peeks with one bare eye and drops the blindfold back, arrogance that Seq 3 cashes in (S1-07). Two lines; Gojo's lazy step onto the arm puts him further in the way and lands him on the boundary position. Silence intercut on both. Thragg ends the talk the way he ends everything: without warning (S1-10). Infinity is deliberately never visualised in Seq 1, so Seq 2 introduces it cold. Beat timings sit within the +/-1.5 s slack to give the dialogue its 9-frames-per-word room.",
+  "music_cue": "Low string drone on D, distant restrained choir, wind; solitary taiko on the landing (S1-02 f16); near-silence for the exchange (drop_out S1-08 f0); FULL silence for the final beat before the launch (S1-09 f58 through S1-10); the sonic crack breaks it.",
+  "state_out": "Gojo: on the west mast arm, x=-6, y=6.2, facing east, blindfold, no injuries. Thragg: launching from x=0 toward Gojo, facing west, cape full, no injuries. Env: landing crater at x=0 with radial cracks; storefront glass burst."
+ },
+ "shots": [
+  {
+   "id": "S1-01",
+   "frames": 136,
+   "shot_size": "EWS",
+   "angle": "high oblique aerial, ~35 degrees down",
+   "lens_mm": 24,
+   "camera": "Aerial crane-down: the camera faces north, tilted about 35 degrees down, and sinks from about 420 m (inside the cloud base) to about 60 m over the intersection with an ease-out. No pan, no roll.",
+   "location": "sky",
+   "characters": [],
+   "screen_direction": "Establishes the film's geography: camera faces north; the lit city and sunset are screen-left (west), the dark towers and the unfinished tower screen-right (east). The falling speck drops dead vertical at frame centre onto x=0.",
+   "staging": "Camera centre x=-30 -> x=-8, y=420 -> 60, animatic zoom 2.6 -> 14 (about 740 m -> 137 m wide), ease-out. Intersection centre x=0 at lower centre; mast at x=-7 (top y=6.4); east block x=+20..+60; unfinished tower x=+80..+110 (176 m, crane) at right; river and lit city (lit-city layer, x < -260 at d=8) at frame-left. Gojo is on the mast at (-7, 6.4) but sub-pixel. Thragg: speck at x=0 enters frame-top at f122 (y~99) and is at y~70 at the cut, falling at about 100 m/s.",
+   "action": "f0-30: the camera sinks through the ragged underside of the storm deck; cloud tatters stream past the lens. f30-70: the district resolves below: dark, evacuated towers with shattered windows; the wide, empty intersection at centre with the bent traffic-light mast on its west corner; screen-left, across the river, the LIT city glitters under a smouldering sunset; screen-right, dark towers and the unfinished tower with its yellow crane. f36-37: sheet lightning flickers inside the clouds (thunder arrives f44). f70-120: the crane-down eases toward the street; tarps and curtains flap from broken windows; a sheet of dust and paper slides right to left (east wind) across the empty crosswalks. f122-135: a tiny dark speck with a fleck of crimson enters frame-top, falling dead vertical toward the intersection centre (Thragg). Gojo is already on the mast but sub-pixel; nothing is featured.",
+   "animatic_caption": "Storm-dark dusk. Evacuated district; lit city across the river (west). A speck falls.",
+   "prompt_core": "Extreme wide aerial at dusk, the camera sinking north-facing through the underside of a storm-dark cloud deck. Below: an evacuated metropolitan district of dark glass towers with shattered windows, a wide empty four-way intersection at centre with crosswalk stripes and a bent traffic-light mast on its left corner. Far left, across a river, a populated city glows with thousands of lit windows beneath a smouldering orange sunset bleeding under the clouds. Right: dark towers and an unfinished skyscraper topped by a yellow tower crane. Sheet lightning flickers inside the clouds. Tarps and curtains flap from broken windows; a sheet of dust and loose paper slides across the empty intersection. In the final second a tiny dark speck with a fleck of crimson falls straight down toward the intersection.",
+   "tactical": null,
+   "dialogue": [],
+   "animation_notes": "Camera move on 1s with an ease-out: fast through the cloud, settling as the district resolves. Clouds and haze as 3-4 parallax layers drifting east to west. Lightning is a 2-frame flicker (f36-37) inside the cloud, never a bolt to the ground; thunder lands 8 frames later at f44 to sell distance. Wind-blown tarps and paper on 2s. Gojo is physically on the mast throughout but sub-pixel: do not draw or feature him. The speck is Thragg: a 2-4 px dark fleck with one crimson glint, falling dead vertical, f122-135, no wobble. For the animatic, the lit city sits in the d>=5 layers at frame-left; it only enters frame at zoom <= 30, which this shot satisfies.",
+   "vfx": [
+    "storm cloud deck parting around the descending camera",
+    "sheet lightning inside the clouds f36-37 (no bolt)",
+    "volumetric dusk haze between depth layers",
+    "lit-city window speckle across the river, far left",
+    "warm sunset glow under the cloud edge, far left",
+    "tarps and curtains flapping in shattered windows",
+    "sheet of dust and paper sliding east to west across the intersection",
+    "falling speck with a crimson glint f122-135"
+   ],
+   "impact_tier": "none",
+   "technique": null,
+   "canon_refs": [
+    "T1-44"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 0,
+     "cue": "wind_gust",
+     "gain": 0.55,
+     "pan": 0,
+     "note": "high-altitude wind as the camera sinks through the cloud"
+    },
+    {
+     "at": 44,
+     "cue": "thunder_distant",
+     "gain": 0.6,
+     "pan": -0.2,
+     "note": "8 frames after the sheet-lightning flicker"
+    },
+    {
+     "at": 86,
+     "cue": "wind_gust",
+     "gain": 0.45,
+     "pan": 0.3,
+     "note": "wind whistling through shattered windows, tarps flapping"
+    },
+    {
+     "at": 124,
+     "cue": "whoosh",
+     "gain": 0.2,
+     "pan": 0,
+     "note": "thin, distant falling whistle as the speck enters"
+    }
+   ],
+   "music": {
+    "at": 0,
+    "event": null,
+    "intensity": 0.35,
+    "note": "From black: low string drone on D fades up over ~2 s; the distant, restrained choir enters around f60. No percussion."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "standing at ease on top of the west-corner traffic-light mast, x=-7, y=6.4",
+     "facing": "east",
+     "condition": "fresh; relaxed, hands in pockets; sub-pixel in the aerial, not featured",
+     "eyes": "blindfold",
+     "cape": "n/a",
+     "injuries": [],
+     "techniques_used": [
+      "infinity (passive, automatic; never visualised in Seq 1)"
+     ]
+    },
+    "thragg": {
+     "pos": "high above the intersection, falling dead vertical toward x=0 (about y=70 at the cut)",
+     "facing": "down",
+     "condition": "pristine; descending at about 100 m/s, body straight, cape streaming upward",
+     "eyes": "n/a",
+     "cape": "full",
+     "injuries": [],
+     "techniques_used": [
+      "viltrumite flight"
+     ]
+    },
+    "env": "pristine evacuated district at storm-dark dusk; lit city across the river to the west"
+   }
+  },
+  {
+   "id": "S1-02",
+   "frames": 86,
+   "shot_size": "WS",
+   "angle": "worm's-eye, camera on the asphalt, tilted slightly up",
+   "lens_mm": 28,
+   "camera": "Locked-off worm's-eye camera on the asphalt about 14 m south of the intersection centre, facing north and tilted slightly up. The mast stays just outside frame-left. Shake on the contact only.",
+   "location": "intersection",
+   "characters": [
+    "thragg"
+   ],
+   "screen_direction": "Vertical drop at frame centre, no lateral travel. Thragg lands with his body square to camera (facing south). Gojo and the mast are just off frame-left (west).",
+   "staging": "Camera at x=+3, y=0.3, about 14 m south, animatic centre (+3, 3.5), zoom 95 (about 20 m wide, x -7..+13: the mast at x=-7 stays out of frame). Thragg falls along x=0: smear f14-15 from y~10 to y~1, contact f16 at (0, 0). Crater radius ~2 m; radial cracks to ~9 m; dust ring radius 0 -> 14 m (f16-40). Storefront glass bursts on the far (north) side, background d~2.4, x=-4..+18, staggered f20-32.",
+   "action": "f0-13: the empty intersection from asphalt level, crosswalk stripes leading to the centre, dust drifting right to left; a falling whistle rises; f10-13 loose paper lifts as the air pushed ahead of him arrives. f14-15: two smear drawings: Thragg streaks in from frame-top, feet first, arms tight to his body, cape streaming upward. f16 CONTACT (one-frame impact hold, small white flash): the asphalt caves into a crater about 4 m across around his boots as his knees fold deep to absorb the drop. f16-24: radial cracks race outward. f17-40: a ground-hugging dust ring rolls out toward the lens. f20-32: storefront windows on the far side burst outward in staggered, glittering sheets. f16-21: camera shake. f40-62: the dust thins to reveal him in a compact crouch, head bowed, hands loose; no fist on the ground, no pose. f44-72: the crimson cape, thrown upward at contact, settles heavily over his back. f72-85: total stillness while grit patters down.",
+   "animatic_caption": "Thragg drops straight down into the intersection: crater, dust ring, storefront glass bursts.",
+   "prompt_core": "Worm's-eye shot from the asphalt, crosswalk stripes leading to the centre of an empty intersection, dark storefronts beyond. Thragg drops vertically into frame feet first, arms close to his body, his crimson cape streaming upward like a flame, and lands dead centre. The asphalt caves into a shallow crater, radial cracks race outward, a ring of grey dust hugs the ground and rolls toward the lens, and the storefront windows behind burst outward one after another in glittering sheets. Brief camera shake. As the dust thins he is revealed in a deep, compact crouch, head bowed, hands loose, no fist on the ground. The cape drifts down and settles over his back. Absolute stillness.",
+   "tactical": {
+    "intent": "Arrive at the centre of the district with no wasted motion; a hard landing that announces him and invites any defender to show himself.",
+    "read": "Nothing moves: the district is evacuated and dark.",
+    "outcome": "Crater, radial cracks and burst storefront glass; nothing in the district answers.",
+    "learned": "The people have gone. What matters lies elsewhere, and his survey will find it to the west."
+   },
+   "dialogue": [],
+   "animation_notes": "Thragg on 1s for the drop (two smear drawings f14-15); the contact drawing f16 is held one frame as the impact frame (small fr.flash, NO invert: save inverts for bigger hits). Then the crouch on 2s. The knees fold deep: the asphalt absorbs the energy, not a flourish. No three-point superhero landing, no fist on the ground. Cape: 3 frames of upward overshoot at contact, then a slow, heavy settle f44-72 on 2s. Dust ring, cracks and glass on 1s. Heavy-tier signature: star + rings + debris spray + 6 frames of shake (under 14 px). He does not look up yet.",
+   "vfx": [
+    "vertical motion smear f14-15",
+    "one-frame impact hold on contact f16 with a small white flash (no invert)",
+    "crater about 4 m across plus radial cracks f16-24",
+    "ground-hugging dust ring, radius 0 to 14 m, f17-40",
+    "staggered storefront glass bursts on the north side f20-32",
+    "pebble and grit debris bouncing toward the lens",
+    "camera shake f16-21 under 14 px",
+    "cape overshoot and heavy settle f44-72"
+   ],
+   "impact_tier": "heavy",
+   "technique": null,
+   "canon_refs": [
+    "T1-44",
+    "T1-09",
+    "T1-11",
+    "T2-30"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 2,
+     "cue": "whoosh",
+     "gain": 0.6,
+     "pan": 0,
+     "note": "falling whistle rising to the contact"
+    },
+    {
+     "at": 16,
+     "cue": "land_heavy",
+     "gain": 1,
+     "pan": 0,
+     "note": "contact frame: 25-40 Hz sub thump plus asphalt crunch"
+    },
+    {
+     "at": 16,
+     "cue": "crack_ground",
+     "gain": 0.8,
+     "pan": 0,
+     "note": "radial cracks, contact frame"
+    },
+    {
+     "at": 20,
+     "cue": "glass_shatter",
+     "gain": 0.7,
+     "pan": 0.25,
+     "note": "first storefront bursts"
+    },
+    {
+     "at": 26,
+     "cue": "glass_shatter",
+     "gain": 0.55,
+     "pan": -0.3,
+     "note": "second storefront, staggered"
+    },
+    {
+     "at": 30,
+     "cue": "debris_rain",
+     "gain": 0.5,
+     "pan": 0,
+     "note": "grit and glass pattering down"
+    },
+    {
+     "at": 46,
+     "cue": "cloth",
+     "gain": 0.4,
+     "pan": 0,
+     "note": "heavy cape settling"
+    }
+   ],
+   "music": {
+    "at": 16,
+    "event": "hit",
+    "intensity": 0.45,
+    "note": "Solitary taiko on the contact frame f16; the D drone and distant choir continue beneath."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "standing at ease on top of the west-corner traffic-light mast, x=-7, y=6.4",
+     "facing": "east",
+     "condition": "fresh; relaxed, hands in pockets; watched the landing without moving (off-screen)",
+     "eyes": "blindfold",
+     "cape": "n/a",
+     "injuries": [],
+     "techniques_used": [
+      "infinity (passive, automatic; never visualised in Seq 1)"
+     ]
+    },
+    "thragg": {
+     "pos": "crouched in the centre of his landing crater, x=0, y=0",
+     "facing": "down",
+     "condition": "pristine; compact crouch, head bowed, utterly still",
+     "eyes": "n/a",
+     "cape": "full",
+     "injuries": [],
+     "techniques_used": [
+      "viltrumite flight"
+     ]
+    },
+    "env": "landing crater at x=0 with radial cracks; storefront glass burst"
+   }
+  },
+  {
+   "id": "S1-03",
+   "frames": 70,
+   "shot_size": "MS",
+   "angle": "low angle",
+   "lens_mm": 35,
+   "camera": "Low camera about 1 m off the street, 4 m south of Thragg, facing north. It tilts up to follow the rise, then holds.",
+   "location": "intersection",
+   "characters": [
+    "thragg"
+   ],
+   "screen_direction": "Thragg at centre with his body facing camera. His head turns from screen-right (east, the dark towers) to screen-left (west); he ends looking screen-left and slightly up, which sets the eyeline for the cut to Gojo.",
+   "staging": "Thragg at (0, 0). Rise f4-34: head from y~1.2 (crouch) to y~1.95. Camera (x=+0.4, y=1.0 -> 1.6), animatic zoom 280 (about 6.9 m wide), tilt-up follow. Head turn f38-62 from east to west; eyes settle on the lit city on the western horizon. Shoulders turn 10-15 degrees west f62-69. Gojo off-screen at (-7, 6.4).",
+   "action": "f0-4: hold on the crouch. f4-34: he rises slowly and levelly to full height, the camera tilting up with him; grit slides off his shoulders and the cape unfolds and hangs. f34-38: stillness; one controlled breath (f36). f38-62: one economical turn of the head, the eyes leading by two frames: from the dark towers screen-right, across the empty street, to screen-left, where his gaze settles on the distant lights of the city across the river, warm light catching the side of his face. f62-69: his shoulders follow 10-15 degrees. Cold contempt: lids half-lowered, mouth unmoving under the mustache.",
+   "animatic_caption": "He rises slowly. One turn of the head, cold contempt. His gaze settles west: the lit city.",
+   "prompt_core": "Low-angle medium shot at the crater's edge. Thragg rises slowly from the crouch to full height, the camera tilting up with him, the crimson cape hanging heavy, grit sliding off his shoulders. Upright, he is utterly still: chin level, breathing controlled. One slow, economical turn of the head carries his gaze from the dark towers on the right, across the empty street, to the left, where it stops on the distant glow of the lit city across the river, warm light catching the side of his face. Cold contempt, eyes half-lidded, mouth unmoving under the black mustache. Dust drifts past; his shoulders turn a few degrees to follow his gaze.",
+   "tactical": {
+    "intent": "Survey the ground for threats and for leverage.",
+    "read": "Dark, empty towers; the only sign of life is the lit city across the river.",
+    "outcome": "His gaze settles on the lights: a populated city is leverage (his canonical hostage tactic).",
+    "learned": "The prize is west, and someone is standing in the line (revealed on the cut)."
+   },
+   "dialogue": [],
+   "animation_notes": "Acting on 2s. The rise takes a full 30 frames: slow and level, no wobble, no hands on knees. Head turn is one continuous ease-in-out over 24 frames, eyes leading by 2 frames, no blink. One chest rise at f36. Contempt lives in the lids and the stillness, never a sneer. He is not searching; he is cataloguing. Use the front view for the rise, rotating to three-quarter facing screen-left for the last 8 frames.",
+   "vfx": [
+    "residual dust thinning and drifting east to west",
+    "grit sliding off the shoulders",
+    "warm rim light growing on the west side of his face as he turns toward it"
+   ],
+   "impact_tier": "none",
+   "technique": null,
+   "canon_refs": [
+    "T1-41",
+    "T1-42",
+    "T2-29",
+    "T1-19"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 6,
+     "cue": "cloth",
+     "gain": 0.3,
+     "pan": 0,
+     "note": "cape and suit as he rises"
+    },
+    {
+     "at": 36,
+     "cue": "breath",
+     "gain": 0.25,
+     "pan": 0,
+     "note": "one controlled breath"
+    },
+    {
+     "at": 44,
+     "cue": "wind_gust",
+     "gain": 0.3,
+     "pan": -0.4,
+     "note": "wind from the street as his head turns"
+    }
+   ],
+   "music": {
+    "at": 0,
+    "event": null,
+    "intensity": 0.35,
+    "note": "Taiko tail decays; drone and distant choir sustain. No rhythm."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "standing at ease on top of the west-corner traffic-light mast, x=-7, y=6.4",
+     "facing": "east",
+     "condition": "fresh; relaxed, hands in pockets (off-screen)",
+     "eyes": "blindfold",
+     "cape": "n/a",
+     "injuries": [],
+     "techniques_used": [
+      "infinity (passive, automatic; never visualised in Seq 1)"
+     ]
+    },
+    "thragg": {
+     "pos": "standing upright in the landing crater, x=0, y=0",
+     "facing": "west",
+     "condition": "pristine; cold contempt, gaze on the lit city across the river",
+     "eyes": "n/a",
+     "cape": "full",
+     "injuries": [],
+     "techniques_used": []
+    },
+    "env": "landing crater at x=0 with radial cracks; storefront glass burst"
+   }
+  },
+  {
+   "id": "S1-04",
+   "frames": 44,
+   "shot_size": "MS",
+   "angle": "eye level with Gojo, craned 7-8 m up",
+   "lens_mm": 50,
+   "camera": "The camera pedestals straight up from the mast cap to Gojo's eye level, about 4 m south of him, facing north. No pan.",
+   "location": "intersection",
+   "characters": [
+    "gojo"
+   ],
+   "screen_direction": "Gojo left of centre, facing screen-right (east) and down toward Thragg. The lit city sits on the horizon at frame-left behind him, matching Thragg's westward eyeline from S1-03.",
+   "staging": "Gojo on the mast cap: feet (-7.0, 6.4), head about (-7.0, 8.3), facing east. Camera x=-6.5, y=6.6 -> 8.1 (pedestal f0-26), animatic zoom 330 (about 5.8 m wide), Gojo left of centre. Thragg off-screen at (0, 0), below right. Animatic: paint the lit-city horizon and sunset as a background card at frame-left (the engine's d>=5 lit-city layer only reaches frame at zoom <= 30).",
+   "action": "f0-26: slow pedestal up the bent mast: black shoes resting on its narrow cap 6.4 m above the street, slim dark trousers, hands pushed into his jacket pockets, then Gojo's face. f8: a lazy weight shift onto one leg. f26-43: hold at eye level. He faces screen-right and down toward the intersection, head tilted; behind him on the left horizon the lit city glows under the sunset, warm rim on his hair and collar. f30-38: a faint, amused smile forms at one corner of his mouth. The east wind stirs his jacket hem: harmless wind reaches him, which is not an Infinity cue.",
+   "animatic_caption": "Gojo, atop the bent traffic-light mast, hands in pockets, the lit city behind him. Faint smile.",
+   "prompt_core": "A slow crane up the bent traffic-light mast, starting on a pair of black shoes resting casually on its narrow cap high above the empty street, rising past slim dark trousers and hands pushed into jacket pockets to Gojo's face at eye level. He stands with his weight on one leg, head tilted, facing right toward the intersection below, a faint amused smile under the black blindfold. Behind him on the left horizon, across the river, the lit city glows under the smouldering sunset, warm rim light outlining his white hair and high collar against the storm sky. A gentle gust stirs his jacket hem. The street far below is dark and empty.",
+   "tactical": null,
+   "dialogue": [],
+   "animation_notes": "Camera pedestal ease-in-out f0-26, then hold. Gojo on 2s; the only motion is the weight shift at f8, the head tilt settling at f28 and the smile forming f30-38 (one corner of the mouth only). Jacket hem and hair tips move on 2s in the east wind, drifting screen-left. No aura, no refraction, no visible Infinity.",
+   "vfx": [
+    "warm rim light from screen-left on hair and collar",
+    "lit-city horizon and sunset glow behind him at frame-left",
+    "light wind drift on the jacket hem"
+   ],
+   "impact_tier": "none",
+   "technique": null,
+   "canon_refs": [
+    "G2-36",
+    "G2-37",
+    "G2-38",
+    "G2-39",
+    "G2-40"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 0,
+     "cue": "wind_gust",
+     "gain": 0.4,
+     "pan": -0.3,
+     "note": "wind at mast height"
+    },
+    {
+     "at": 18,
+     "cue": "cloth",
+     "gain": 0.25,
+     "pan": 0,
+     "note": "jacket hem stirring"
+    }
+   ],
+   "music": {
+    "at": 0,
+    "event": null,
+    "intensity": 0.3,
+    "note": "The choir thins to a single high open fifth over the D drone as Gojo is revealed. Restrained; his motif is saved for Seq 3."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "standing at ease on top of the west-corner traffic-light mast, x=-7, y=6.4",
+     "facing": "east",
+     "condition": "fresh; amused, faint smile, hands in pockets, weight on one leg",
+     "eyes": "blindfold",
+     "cape": "n/a",
+     "injuries": [],
+     "techniques_used": [
+      "infinity (passive, automatic; never visualised in Seq 1)"
+     ]
+    },
+    "thragg": {
+     "pos": "standing upright in the landing crater, x=0, y=0",
+     "facing": "west",
+     "condition": "pristine; looking up at Gojo (off-screen)",
+     "eyes": "n/a",
+     "cape": "full",
+     "injuries": [],
+     "techniques_used": []
+    },
+    "env": "landing crater at x=0 with radial cracks; storefront glass burst"
+   }
+  },
+  {
+   "id": "S1-05",
+   "frames": 26,
+   "shot_size": "ECU",
+   "angle": "eye level",
+   "lens_mm": 100,
+   "camera": "Locked-off extreme close-up insert at Thragg's eye level, facing north, long lens.",
+   "location": "insert",
+   "characters": [
+    "thragg"
+   ],
+   "screen_direction": "Thragg's eyes look up and screen-left, toward Gojo (west and above).",
+   "staging": "Insert. Thragg's head at (0, 1.95), facing west. Eyeline up-left to Gojo's head at (-7, 8.3), about 42 degrees elevation. Background: dusk sky and dark towers, soft.",
+   "action": "ECU of Thragg's eyes and brow. f0-5: the eyes lift from the far lights, up and to the left, onto the figure on the mast. f6-14: one slow, measuring pass down and back up: build, hands, covered eyes, no weapon, no stance. f15-25: they settle and hold: flat, unblinking, unimpressed; a single exhale through the nose stirs the edge of the mustache at f16. He registered Gojo on landing and made him wait. This is classification, not discovery: an obstacle, not an equal.",
+   "animatic_caption": "Thragg studies him once, top to bottom. An obstacle, not an equal.",
+   "prompt_core": "Extreme close-up on Thragg's eyes and brow, framed tight, background a soft dusk blur. His cold dark-brown eyes lift up and to the left, finding someone above him. They make one slow, measuring pass down and back up, cataloguing, then settle and hold: flat, unblinking, unimpressed, the look one gives a locked door rather than a rival. Not a muscle in the brow moves. Warm rim light from the left glints in the eyes; one slow exhale through the nose stirs the edge of the black mustache at the bottom of frame.",
+   "tactical": {
+    "intent": "Classify the figure on the mast.",
+    "read": "Lean, unarmoured, unarmed, hands in pockets, eyes covered, no fighting stance: no visible threat posture.",
+    "outcome": "Filed as an obstacle between him and the city, not an equal.",
+    "learned": "Nothing that warrants caution. Seq 2 breaks this assumption."
+   },
+   "dialogue": [],
+   "animation_notes": "Insert (inserts.thragg_eyes_ecu, mood 'contempt'). Eyes on 1s; the head does not move at all. f0-5 lift; f6-14 the measuring pass; f15-25 hold. A held reaction of 26 frames, above the 18-frame minimum. Do not play surprise: he knew Gojo was there.",
+   "vfx": [
+    "warm specular glint in the eyes from screen-left"
+   ],
+   "impact_tier": "none",
+   "technique": null,
+   "canon_refs": [
+    "T1-05",
+    "T1-41",
+    "T2-29"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 16,
+     "cue": "breath",
+     "gain": 0.3,
+     "pan": 0,
+     "note": "one slow exhale through the nose"
+    }
+   ],
+   "music": {
+    "at": 0,
+    "event": null,
+    "intensity": 0.2,
+    "note": "The choir withdraws; drone only."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "standing at ease on top of the west-corner traffic-light mast, x=-7, y=6.4",
+     "facing": "east",
+     "condition": "fresh; amused, hands in pockets (off-screen)",
+     "eyes": "blindfold",
+     "cape": "n/a",
+     "injuries": [],
+     "techniques_used": [
+      "infinity (passive, automatic; never visualised in Seq 1)"
+     ]
+    },
+    "thragg": {
+     "pos": "standing upright in the landing crater, x=0, y=0",
+     "facing": "west",
+     "condition": "pristine; has classified Gojo as an obstacle, eyes on him",
+     "eyes": "n/a",
+     "cape": "full",
+     "injuries": [],
+     "techniques_used": []
+    },
+    "env": "landing crater at x=0 with radial cracks; storefront glass burst"
+   }
+  },
+  {
+   "id": "S1-06",
+   "frames": 26,
+   "shot_size": "POV",
+   "angle": "high angle, looking down about 45 degrees",
+   "lens_mm": 35,
+   "camera": "Gojo's POV from the mast top, looking down and to the right at Thragg. A slight drift closer and a 3-degree tilt late in the shot.",
+   "location": "intersection",
+   "characters": [
+    "thragg"
+   ],
+   "screen_direction": "A POV looking down and screen-right from Gojo (west, high) onto Thragg (east, low). Thragg is framed right of centre so the left-right relationship holds.",
+   "staging": "POV from Gojo's eyes at (-7, 8.2) toward Thragg at (0, 1.0): about 46 degrees down, looking east. Frame centred about (-0.6, 1.2) so Thragg sits right of centre. Crater rim (radius ~2 m) and the north storefronts traced in flow lines. Screen-space zoom x1.0 -> x1.08 f14-25 plus a 3-degree roll.",
+   "action": "Gojo's POV through the blindfold. f0-3: the black weave of the cloth fills frame and thins to nothing. f4-13: the Six Eyes view resolves: a deep-navy field where faint currents of residual cursed energy trace the street, crater and storefronts as thin contour lines. Thragg stands right of centre, a man-shaped mass so dense the currents crowd and bend around his outline like water around a boulder. On his skin clings only a thin, faint, flickering haze at civilian level, with no structure or flow channels inside: a trace, not zero (R1). f8: one slow, heavy heartbeat. f14-25: the view pushes in slightly and tilts 3 degrees as Gojo's head cocks in curiosity. Nothing in the haze shows intent (R5).",
+   "animatic_caption": "Six Eyes: a civilian-level haze of cursed energy wrapped around a body of absurd density.",
+   "prompt_core": "Point-of-view from high on a mast looking down-right at Thragg standing in a crater, rendered entirely as perceived through a blindfold: a dark navy field where faint currents of residual energy flow like heat haze, tracing the street, crater and storefronts as thin luminous contour lines. Thragg is a man-shaped mass so dense that the currents bunch and bend around his outline like water around a boulder. Clinging to his skin is only a thin, faint, flickering haze, as weak as an ordinary person's, with no structure inside it. The shot opens on black cloth weave thinning to transparency; the view drifts slightly closer and tilts a few degrees, curious.",
+   "tactical": {
+    "intent": "Gojo: read the newcomer with the Six Eyes.",
+    "read": "A civilian-level trace of cursed energy wrapped around a body of absurd density; no technique, no structured flow.",
+    "outcome": "He can locate Thragg, but the energy shows him no intent (R5).",
+    "learned": "This body outclasses its cursed energy, a Toji-type reading problem; and the trace is real, not zero (R1)."
+   },
+   "dialogue": [],
+   "animation_notes": "Screen-space treatment: desaturate to deep navy and contour-trace the environment from flow lines; Thragg's silhouette is a dense dark mass with the flow lines compressing at its edges; the haze on his skin flickers on 2s at very low intensity (fainter than any environmental residue). f0-3 cloth-weave overlay dissolving. Slow push and 3-degree roll f14-25 stand in for Gojo's head tilt. Do NOT show Infinity or any of Gojo's own energy. This is the only Six Eyes POV in the film's grammar; keep it distinct from the domain's information streams.",
+   "vfx": [
+    "blindfold weave overlay dissolving f0-3",
+    "Six Eyes cursed-energy vision: deep-navy field with flowing contour lines",
+    "flow lines compressing around Thragg's dense silhouette",
+    "thin, faint, flickering civilian-level haze on his skin",
+    "slight push-in and 3-degree tilt f14-25"
+   ],
+   "impact_tier": "none",
+   "technique": "six_eyes",
+   "canon_refs": [
+    "G2-30",
+    "G1-05",
+    "G1-03",
+    "G2-28",
+    "G2-31",
+    "G2-33",
+    "X1-16",
+    "G1-06",
+    "G2-29",
+    "X1-50"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 8,
+     "cue": "heartbeat",
+     "gain": 0.25,
+     "pan": 0.2,
+     "note": "one slow, heavy beat: the density made audible; quietly plants the heart that ends the film"
+    }
+   ],
+   "music": {
+    "at": 0,
+    "event": null,
+    "intensity": 0.15,
+    "note": "Drone only, filtered darker under the Six Eyes view."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "standing at ease on top of the west-corner traffic-light mast, x=-7, y=6.4",
+     "facing": "east",
+     "condition": "fresh; intrigued by the read, head cocked, hands in pockets",
+     "eyes": "blindfold",
+     "cape": "n/a",
+     "injuries": [],
+     "techniques_used": [
+      "infinity (passive, automatic; never visualised in Seq 1)",
+      "six_eyes (read through the blindfold)"
+     ]
+    },
+    "thragg": {
+     "pos": "standing upright in the landing crater, x=0, y=0",
+     "facing": "west",
+     "condition": "pristine; motionless, eyes on Gojo",
+     "eyes": "n/a",
+     "cape": "full",
+     "injuries": [],
+     "techniques_used": []
+    },
+    "env": "landing crater at x=0 with radial cracks; storefront glass burst"
+   }
+  },
+  {
+   "id": "S1-07",
+   "frames": 40,
+   "shot_size": "MCU",
+   "angle": "slightly below eye level",
+   "lens_mm": 85,
+   "camera": "Camera slightly below Gojo's eye level, about 2.5 m south of him, facing north; a very slow push-in.",
+   "location": "intersection",
+   "characters": [
+    "gojo"
+   ],
+   "screen_direction": "Gojo faces screen-right and slightly down (east, toward Thragg).",
+   "staging": "Gojo feet (-7, 6.4), head (-7, 8.3), facing east. Camera (x=-6.6, y=8.0), animatic zoom 600 -> 680 (about 3.2 -> 2.8 m wide). Thragg off-screen at (0, 0), below right.",
+   "action": "MCU, Gojo on the mast, three-quarter facing screen-right and down. f0-5: the smile fades into curiosity. f6-9: one eyebrow lifts above the edge of the blindfold. f9-14: the right hand leaves its pocket. f14-19: two fingers hook under the blindfold and lift it a finger's width over the near (right) eye: one brilliant blue Six Eyes eye, white lashes catching the dusk light (glint f22), looking straight down at Thragg. f19-27: a beat. f27-30: he lets the cloth drop back. f30-36: the hand goes back into the pocket. f36-39: the amused smile returns, a hair wider. Covering the eyes saves fatigue, and this one is not yet worth uncovering.",
+   "animatic_caption": "One eyebrow lifts. He hooks the blindfold up: one brilliant blue eye. Then lets it drop back.",
+   "prompt_core": "Medium close-up of Gojo high on a mast against the dusky sky, three-quarter view facing right and down toward the intersection. His smile fades into curiosity; one eyebrow lifts above the edge of the black blindfold. He draws his right hand from his pocket and hooks two fingers under the blindfold, lifting it a finger's width to reveal one vivid, brilliant blue eye with long white lashes, catching the dusk light and looking down at his opponent. A beat. He lets the blindfold drop back into place, slides the hand back into his pocket, and the amused smile returns, a little wider.",
+   "tactical": {
+    "intent": "Check the Six Eyes read with the naked eye.",
+    "read": "The body confirms it: compact, heavy, utterly still, and nothing in it leaks intent.",
+    "outcome": "He drops the blindfold back. Uncovering the eyes costs fatigue and this is not yet worth it.",
+    "learned": "Interesting, not worrying: his canonical arrogance. Seq 3 makes him pull the blindfold down for good."
+   },
+   "dialogue": [],
+   "animation_notes": "On 2s. Timing: f0-5 smile fades; f6-9 brow lifts; f9-14 hand out; f14-19 hook and lift (the blindfold rises a finger's width over the RIGHT, near eye only; hair stays spiked); f19-27 the blue eye holds, specular glint f22; f27-30 drop; f30-36 hand back to pocket; f36-39 smile. Eyes state: 'lifted' f14-30, 'blindfold' at the end. No glow beyond the eye's own colour.",
+   "vfx": [
+    "specular glint in the uncovered blue eye f22",
+    "warm rim from screen-left on the white lashes"
+   ],
+   "impact_tier": "none",
+   "technique": "six_eyes",
+   "canon_refs": [
+    "G2-37",
+    "G1-05",
+    "G2-30",
+    "G2-40"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 10,
+     "cue": "cloth",
+     "gain": 0.25,
+     "pan": 0,
+     "note": "hand out of the pocket"
+    },
+    {
+     "at": 15,
+     "cue": "cloth",
+     "gain": 0.2,
+     "pan": 0,
+     "note": "blindfold lifts"
+    },
+    {
+     "at": 28,
+     "cue": "cloth",
+     "gain": 0.2,
+     "pan": 0,
+     "note": "blindfold drops back"
+    }
+   ],
+   "music": {
+    "at": 0,
+    "event": null,
+    "intensity": 0.12,
+    "note": "Drone thinning toward near-silence."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "standing at ease on top of the west-corner traffic-light mast, x=-7, y=6.4",
+     "facing": "east",
+     "condition": "fresh; amused, smile a hair wider; looked once with one bare eye, blindfold back on, hands in pockets",
+     "eyes": "blindfold",
+     "cape": "n/a",
+     "injuries": [],
+     "techniques_used": [
+      "infinity (passive, automatic; never visualised in Seq 1)",
+      "six_eyes (one eye uncovered briefly)"
+     ]
+    },
+    "thragg": {
+     "pos": "standing upright in the landing crater, x=0, y=0",
+     "facing": "west",
+     "condition": "pristine; motionless, eyes on Gojo (off-screen)",
+     "eyes": "n/a",
+     "cape": "full",
+     "injuries": [],
+     "techniques_used": []
+    },
+    "env": "landing crater at x=0 with radial cracks; storefront glass burst"
+   }
+  },
+  {
+   "id": "S1-08",
+   "frames": 52,
+   "shot_size": "CU",
+   "angle": "low angle",
+   "lens_mm": 65,
+   "camera": "Low camera at chest height about 2 m south of Thragg, facing north and looking up at him. Locked off.",
+   "location": "intersection",
+   "characters": [
+    "thragg"
+   ],
+   "screen_direction": "Thragg faces screen-left, looking up-left (west, toward Gojo).",
+   "staging": "Thragg at (0, 0), head (0, 1.95), facing west. Camera (x=+0.3, y=1.2) below his eyeline, animatic zoom 560 (about 3.4 m wide). Eyeline up-left toward Gojo's head at (-7, 8.3); his eyes flick to the western horizon on 'way'.",
+   "action": "Low-angle CU, Thragg three-quarter facing screen-left, eyes up-left at Gojo. f0-3: stillness. f4-50: THRAGG: \"You stand in my way.\" Low, unhurried, formal; only the jaw moves. On \"way\" (f40-44) his eyes flick past Gojo to the city lights and back. It is literal: Gojo stands between him and the lights. f50-51: hold; the cape edge stirs in the wind.",
+   "animatic_caption": "THRAGG: \"You stand in my way.\"",
+   "prompt_core": "Low-angle close-up of Thragg in three-quarter profile facing left, looking up toward someone above him, the dark eastern towers and storm sky behind. Warm rim light from the left falls across his severe face and black mustache. Utterly still except for his mouth, he speaks one short, flat sentence. His eyes flick for an instant past the person above him to the distant city lights, then return. No gesture, no raised voice, jaw set. The crimson cape barely stirs at his shoulders. Dust drifts across the bottom of frame.",
+   "tactical": null,
+   "dialogue": [
+    {
+     "speaker": "Thragg",
+     "line": "You stand in my way.",
+     "at_frame": 4,
+     "frames": 46
+    }
+   ],
+   "animation_notes": "Lip-sync f4-50 (5 words, about 9 frames per word, slow). The mustache masks most mouth shapes, so articulate the jaw. The eye flick on 'way' f40-44 is the only other motion. Delivery: low, unhurried, formal, never raised. Cape edge on 2s.",
+   "vfx": [
+    "warm rim light from screen-left across the face",
+    "dust drifting east to west along the bottom of frame"
+   ],
+   "impact_tier": "none",
+   "technique": null,
+   "canon_refs": [
+    "T1-42",
+    "T2-29",
+    "T1-19"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 0,
+     "cue": "wind_gust",
+     "gain": 0.15,
+     "pan": 0.3,
+     "note": "low wind bed, cleared for the line"
+    }
+   ],
+   "music": {
+    "at": 0,
+    "event": "drop_out",
+    "intensity": 0.05,
+    "note": "The score drops to near-silence for the exchange: only a sub-audible D pedal, ducked about 8 dB under the line."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "standing at ease on top of the west-corner traffic-light mast, x=-7, y=6.4",
+     "facing": "east",
+     "condition": "fresh; amused, listening, hands in pockets (off-screen)",
+     "eyes": "blindfold",
+     "cape": "n/a",
+     "injuries": [],
+     "techniques_used": [
+      "infinity (passive, automatic; never visualised in Seq 1)"
+     ]
+    },
+    "thragg": {
+     "pos": "standing upright in the landing crater, x=0, y=0",
+     "facing": "west",
+     "condition": "pristine; calm and formal, has spoken",
+     "eyes": "n/a",
+     "cape": "full",
+     "injuries": [],
+     "techniques_used": []
+    },
+    "env": "landing crater at x=0 with radial cracks; storefront glass burst"
+   }
+  },
+  {
+   "id": "S1-09",
+   "frames": 78,
+   "shot_size": "MWS",
+   "angle": "low angle, looking up about 35 degrees",
+   "lens_mm": 28,
+   "camera": "Camera at street level near the foot of the mast, facing north and tilted up about 35 degrees. A slow, constant push-in through the line and the silence after it.",
+   "location": "intersection",
+   "characters": [
+    "gojo"
+   ],
+   "screen_direction": "Gojo faces screen-right (east). His single step moves him 1 m screen-right onto the arm: a motivated move, made on camera.",
+   "staging": "Gojo's feet at (-7.0, 6.4) on the cap, then a step to (-6.0, 6.2) on the arm, f54-66. The mast arm runs from x=-7 to x=-1.5 at y=6.2 toward screen-right. Camera near the mast foot, animatic centre (-6.0, 5.6), zoom 170 -> 205 (about 11 -> 9.4 m wide). Thragg off-screen at (0, 0), right.",
+   "action": "Low-angle MWS from the street at the mast's foot, looking up: Gojo on the cap, hands in pockets, the mast arm reaching screen-right over the intersection; storm sky and the sunset glow (screen-left) behind. f0-3: hold. f4-58: GOJO: \"You should've picked an easier planet.\" Light and amused, a small head tilt on \"easier\". f54-66: as the line ends he takes one unhurried step east, off the cap and onto the steel arm (right foot plants f61, left follows f62-66). He is now at x=-6, y=6.2, further into Thragg's way, hands never leaving his pockets. f58-77: SILENCE, wind only. The camera keeps creeping in; he is perfectly still, smiling.",
+   "animatic_caption": "GOJO: \"You should've picked an easier planet.\" He steps out onto the mast arm. Silence.",
+   "prompt_core": "Low-angle medium wide shot from the street at the foot of a traffic-light mast, looking up at Gojo standing on its top cap, hands in pockets, the mast arm reaching out to the right over the intersection. Storm sky behind, sunset glow on the left. Relaxed, head tilted, smiling, he speaks one light, teasing sentence down toward the right. As he finishes, he takes one unhurried step to the right, off the cap and onto the narrow steel arm, balancing without effort, hands never leaving his pockets. Then stillness; the wind stirs his jacket. The camera creeps slowly closer.",
+   "tactical": null,
+   "dialogue": [
+    {
+     "speaker": "Gojo",
+     "line": "You should've picked an easier planet.",
+     "at_frame": 4,
+     "frames": 54
+    }
+   ],
+   "animation_notes": "Lip-sync f4-58 (6 words, about 9 frames per word), with a light, amused delivery and a small head tilt on 'easier'. The step: weight shift f54, right foot lifts f56 and plants on the arm f61 (footstep SFX), left foot follows f62-66; hands stay in pockets; balance on 2s with no arm flailing; the arm does not bend. Push zoom 170 -> 205, slow and constant. From f58: silence, and only the wind moves him.",
+   "vfx": [
+    "sunset glow and storm sky behind, warm rim from screen-left",
+    "light wind drift on the jacket hem f58-77"
+   ],
+   "impact_tier": "none",
+   "technique": null,
+   "canon_refs": [
+    "G2-40",
+    "G2-39"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 61,
+     "cue": "footstep",
+     "gain": 0.35,
+     "pan": -0.2,
+     "note": "shoe on the steel arm, the only sound besides wind once the line ends"
+    },
+    {
+     "at": 62,
+     "cue": "wind_gust",
+     "gain": 0.3,
+     "pan": -0.2,
+     "note": "silence: wind only"
+    }
+   ],
+   "music": {
+    "at": 58,
+    "event": "silence",
+    "intensity": 0.03,
+    "note": "Near-silence (sub-audible D pedal) under the line; FULL silence from f58, the end of the line: wind only."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "on the west mast arm, x=-6, y=6.2",
+     "facing": "east",
+     "condition": "fresh; amused smile, hands in pockets, standing easily on the mast arm",
+     "eyes": "blindfold",
+     "cape": "n/a",
+     "injuries": [],
+     "techniques_used": [
+      "infinity (passive, automatic; never visualised in Seq 1)"
+     ]
+    },
+    "thragg": {
+     "pos": "standing upright in the landing crater, x=0, y=0",
+     "facing": "west",
+     "condition": "pristine; motionless, eyes on Gojo (off-screen)",
+     "eyes": "n/a",
+     "cape": "full",
+     "injuries": [],
+     "techniques_used": []
+    },
+    "env": "landing crater at x=0 with radial cracks; storefront glass burst"
+   }
+  },
+  {
+   "id": "S1-10",
+   "frames": 42,
+   "shot_size": "WS",
+   "angle": "low angle",
+   "lens_mm": 24,
+   "camera": "Low wide camera about 18 m south of the intersection, facing north, framing both fighters. A very slow push-in, locked through the launch, with 2 frames of shake at the very end.",
+   "location": "intersection",
+   "characters": [
+    "gojo",
+    "thragg"
+   ],
+   "screen_direction": "Two-shot: Gojo upper screen-left, Thragg lower screen-right. Thragg launches right to left and upward along the line to Gojo's head; debris is thrown screen-right, behind him.",
+   "staging": "Gojo feet (-6, 6.2) on the arm, head about (-6, 8.1), facing east. Thragg feet (0, 0), facing west. Camera centre (-3.0, 4.2), animatic zoom 105 -> 118 (about 18 -> 16 m wide), f0-37. Launch vector from Thragg's chest (0, 1.4) toward Gojo's head (-6, 8.1): about 48 degrees up-left. f39: smear from (0, 0.9) to (-1.2, 2.2); f41: leading edge about (-1.5, 2.5). Asphalt fan erupts from the crater's east lip, x=+0.5..+3. Sonic ring centred about (-0.6, 1.4).",
+   "action": "Low-angle WS two-shot in total silence: Gojo upper screen-left on the mast arm (x=-6, y=6.2), hands in pockets, facing east; Thragg lower screen-right in his crater (x=0), cape stirring, facing west and up. f0-37: slow push-in; dust drifts right to left; nothing else moves. f38: ONE compressed anticipation frame: knees and shoulders drop, the cape lifts, the crater floor cracks under his boots. f39 LAUNCH: Thragg becomes a smear tearing up-left along the line to Gojo's head, a vapour cone forming at his shoulders. f39-41: behind him the crater's east lip erupts in a fan of torn asphalt slabs and a ring-shaped shock front bursts through the dust; the sonic crack (f40) destroys the silence. Gojo has not moved. CUT on f41, mid-acceleration, into S2-01.",
+   "animatic_caption": "Silence. Then, without warning, Thragg launches. The ground tears; a sonic crack.",
+   "prompt_core": "Low-angle wide two-shot of an empty intersection in silence. Upper left: Gojo standing on the steel arm of a traffic-light mast six metres up, hands in pockets, facing right. Lower right: Thragg standing in his landing crater, cape stirring, facing up-left at him. Drifting dust, the camera pushing in very slowly. Without warning Thragg compresses for a single frame, knees and shoulders dropping, then launches: he becomes a streak tearing up-left toward Gojo's head, a cone of vapour forming around him, the crater's far lip erupting into a fan of torn asphalt slabs behind him, a ring-shaped shock front bursting outward through the dust. Gojo has not moved.",
+   "tactical": {
+    "intent": "End it with one blow to the head before the obstacle can react: no wind-up, no warning.",
+    "read": "Gojo shows no guard and no tension, so there is nothing to time against.",
+    "outcome": "Launch; the strike resolves in S2-01, where Infinity stops it.",
+    "learned": "Nothing yet. It carries into Seq 2, where his knuckles feel nothing."
+   },
+   "dialogue": [],
+   "animation_notes": "Push zoom 105 -> 118, constant, f0-37. Both fighters are still; cape and hair move on 2s only. f38: ONE anticipation drawing (knees and shoulders compressed, cape lifting), held exactly 1 frame, per the character bible. The launch is acceleration, not a strike: the strike's anticipation, contact and recovery belong to S2-01. f39: launch smear on 1s. f40-41: asphalt fan and shock ring; shake f40-41 under 10 px. Cut on f41 with the motion still accelerating so the cut lands on the acceleration. Do not let him reach Gojo in this shot.",
+   "vfx": [
+    "single compressed anticipation drawing f38",
+    "launch smear on 1s f39",
+    "vapour cone ring at the shoulders f39-41",
+    "sonic boom ring through the dust f40-41",
+    "fan of torn asphalt slabs from the crater's east lip f39-41",
+    "dust jets thrown east",
+    "camera shake f40-41 under 10 px"
+   ],
+   "impact_tier": "heavy",
+   "technique": null,
+   "canon_refs": [
+    "T1-44",
+    "T1-18",
+    "T1-56",
+    "T2-38"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 0,
+     "cue": "wind_gust",
+     "gain": 0.35,
+     "pan": 0,
+     "note": "silence: wind only"
+    },
+    {
+     "at": 39,
+     "cue": "accel_burst",
+     "gain": 1,
+     "pan": 0.2,
+     "note": "launch frame: compressed-air chuff plus ground tear"
+    },
+    {
+     "at": 39,
+     "cue": "crack_ground",
+     "gain": 0.8,
+     "pan": 0.3,
+     "note": "crater floor shatters under his boots"
+    },
+    {
+     "at": 40,
+     "cue": "sonic_boom",
+     "gain": 1,
+     "pan": 0,
+     "note": "the crack that destroys the silence; tail carries over the cut"
+    },
+    {
+     "at": 40,
+     "cue": "concrete_break",
+     "gain": 0.7,
+     "pan": 0.4,
+     "note": "east lip of the crater tears up behind him"
+    }
+   ],
+   "music": {
+    "at": 0,
+    "event": "silence",
+    "intensity": 0,
+    "note": "Full silence, wind only; the launch's sonic crack at f39-40 destroys it. Seq 2's 96 BPM pulse enters on the cut."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "on the west mast arm, x=-6, y=6.2",
+     "facing": "east",
+     "condition": "fresh; relaxed, unmoving, faint smile, hands in pockets",
+     "eyes": "blindfold",
+     "cape": "n/a",
+     "injuries": [],
+     "techniques_used": [
+      "infinity (passive, automatic; never visualised in Seq 1)"
+     ]
+    },
+    "thragg": {
+     "pos": "launching from x=0 toward Gojo (a smear just leaving the crater along the line up-left to Gojo's head; leading edge about x=-1.5, y=2.5 at the cut)",
+     "facing": "west",
+     "condition": "pristine; full acceleration, right fist chambering for a straight to the head",
+     "eyes": "n/a",
+     "cape": "full",
+     "injuries": [],
+     "techniques_used": [
+      "viltrumite flight (launch)"
+     ]
+    },
+    "env": "landing crater at x=0 with radial cracks (its east lip freshly torn up by the launch); storefront glass burst"
+   }
+  }
+ ]
+}
