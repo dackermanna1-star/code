@@ -14,7 +14,7 @@ import { tinted } from './icons.js';
 const CSS = `
 .zp-root { position: absolute; inset: 0; pointer-events: none; z-index: 9; --u: 1px; overflow: hidden;
   font-family: "Segoe UI", Inter, Roboto, "Helvetica Neue", "DejaVu Sans", Arial, sans-serif; color: #f3e9dc; }
-.zp-draft { position: absolute; left: 50%; bottom: calc(80 * var(--u)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
+.zp-draft { position: absolute; left: 50%; bottom: calc(90 * var(--u)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
 .zp-draft.out { animation: zp-out 0.32s ease-in forwards; }
 @keyframes zp-out { to { opacity: 0; transform: translateX(-50%) translateY(calc(18 * var(--u))); } }
 .zp-head { text-align: center; margin-bottom: calc(7 * var(--u)); animation: zp-head 0.35s ease-out both; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); }
