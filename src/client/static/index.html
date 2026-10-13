@@ -59,6 +59,7 @@
     <div id="hurtdir"></div>
     <div id="toasts"></div>
     <div id="progress"><div></div></div>
+    <div id="minimap" class="hidden"><canvas id="minimap-canvas" width="180" height="180"></canvas><div id="minimap-info"></div></div>
   </div>
 
   <!-- Inventory / crafting / loot -->
@@ -93,7 +94,19 @@
     <div id="tooltip" class="hidden"></div>
   </div>
 
-  <div id="map" class="screen hidden"><canvas id="map-canvas" width="640" height="640"></canvas><div class="map-legend muted small">M / Esc to close · scroll to zoom</div></div>
+  <div id="map" class="screen hidden">
+    <div id="map-frame">
+      <canvas id="map-canvas" width="640" height="640"></canvas>
+      <div id="map-tools">
+        <button id="map-zoom-in" title="Zoom in (+)">+</button>
+        <button id="map-zoom-out" title="Zoom out (−)">−</button>
+        <button id="map-recentre" title="Centre on me (Space)">◎</button>
+      </div>
+      <div id="map-legend"></div>
+    </div>
+    <div id="map-status"><span id="map-me"></span><span id="map-cursor"></span><span id="map-zoom"></span></div>
+    <div class="map-help muted small">Drag to pan · Scroll / + − to zoom · Arrows / WASD to pan · Space to centre on you · M / Esc to close</div>
+  </div>
 
   <div id="death" class="screen hidden">
     <div class="menu-card">
