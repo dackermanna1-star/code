@@ -300,8 +300,8 @@ function weightedPick(arr, wf = (x) => x.weight) {
   for (const r of arr) { x -= wf(r); if (x <= 0) return r; }
   return arr[arr.length - 1];
 }
-const isSniper = (w) => !!w && (w.id === 'awp' || w.id === 'scout' || w.id === 'g3sg1' || w.id === 'sg550');
-const isBolt = (w) => !!w && (w.id === 'awp' || w.id === 'scout');
+const isSniper = (w) => !!w && (w.id === 'awp' || w.id === 'scout' || w.id === 'g3sg1' || w.id === 'sg550' || w.id === 'crossbow');
+const isBolt = (w) => !!w && (w.id === 'awp' || w.id === 'scout' || w.id === 'crossbow'); // (zombie survival: the crossbow shoots like a bolt-action)
 const isGun = (w) => !!w && w.def.clip > 0;
 const hasAmmo = (w) => isGun(w) && (w.clip > 0 || w.ammo > 0);
 const teamKey = (t) => (t === TEAM_T ? 'T' : 'CT');
@@ -1505,6 +1505,7 @@ class Bot {
     if (cls === 'knife') { it.move = e.feet(); it.tol = 8; if (d < 70) it.attack = Math.random() < 0.5; return; }
     it.fire = true;
     if (e.isZombie && this.game.zombies.shove.bot(this, e, d)) return; // zombie survival: shove them off / free a pinned teammate (shove.js)
+    if (e.isZombie && this.game.zombies.arsenal.bot(this, e, d)) return; // zombie survival: swarmed - a pipe bomb to pull them off (zarsenal.js)
     // zombie survival: they can only claw, so keep them at arm's length - back off while
     // shooting (sideways if there's no room behind)
     if (e.isZombie && d < (e.boss ? 380 : 280)) {

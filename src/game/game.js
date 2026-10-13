@@ -293,6 +293,8 @@ export class Game {
       canThrow: () => g.explosives.canThrow(p),
       detonate: () => g.explosives.detonate(p),
       zap: (w) => g.zapFrom(p, w),
+      melee: (w, swing) => g.zombies.arsenal.swing(p, w, swing), // zombie survival arsenal: the blades and the crossbow (zarsenal.js)
+      bolt: (w, spread) => g.zombies.arsenal.fireBolt(p, w, spread),
       healTarget: (other) => g.healTarget(p, other),
       heal: (q, amount) => g.heal(p, q, amount),
       plantBomb: () => g.rounds.plantBomb(p),
@@ -416,7 +418,7 @@ export class Game {
   }
 
   dropWeapon(p, w, selectNext = true, vel = null) {
-    if (!w || w.id === 'knife') return;
+    if (!w || w.def.slot === 3) return; // (the knife - and zombie survival's machete, axe, katana - stay in hand)
     if (w.def.slot === 4) return; // grenades are not dropped in 1.6 (only thrown)
     this.removeWeaponFromInventory(p, w);
     if (p.active === w) {
@@ -506,9 +508,9 @@ export class Game {
       channel: opts.channel ? `${p.id}:${opts.channel}` : `${p.id}:weapon`,
       attenuation: opts.attenuation,
     });
-    if (opts.loud !== false && /^(ak47|m4a1|awp|deagle|usp|glock|p228|elite|fiveseven|mp5|mac10|tmp|ump45|p90|galil|famas|sg552|aug|scout|g3sg1|sg550|m249|m3|xm1014|rpg_fire|m32_fire|minigun|aa12|barrett|sup_\w+|\w+_silenced)$/.test(name)) {
+    if (opts.loud !== false && /^(ak47|m4a1|awp|deagle|usp|glock|p228|elite|fiveseven|mp5|mac10|tmp|ump45|p90|galil|famas|sg552|aug|scout|g3sg1|sg550|m249|m3|xm1014|rpg_fire|m32_fire|minigun|aa12|barrett|crossbow_fire|sup_\w+|\w+_silenced)$/.test(name)) {
       p.lastShot = this.time;
-      const quiet = name.includes('silenced') || name.startsWith('sup_') || name === 'tmp';
+      const quiet = name.includes('silenced') || name.startsWith('sup_') || name === 'tmp' || name === 'crossbow_fire'; // (the crossbow: a twang the horde doesn't hear)
       if (!quiet) p.lastLoud = this.time; // (zombies go for whoever's making a racket)
       this.bots.onNoise(p, p.eyePos(), quiet ? 400 : 2000);
     }
@@ -1005,7 +1007,8 @@ export class Game {
     const dur = opts.duration ?? this.vm?.duration?.(name) ?? 1;
     const at = (frac, snd, vol = 0.8) => (p.soundQueue || (p.soundQueue = [])).push({ t: this.time + dur * frac, name: snd, vol, weapon: w });
     const kind = w.def.kind;
-    if (name === 'reload' && (kind === 'flame' || kind === 'launcher')) {
+    if (name === 'reload' && w.id === 'crossbow') { at(0.08, 'crossbow_crank'); at(0.62, 'crossbow_load'); } // (zombie survival arsenal)
+    else if (name === 'reload' && (kind === 'flame' || kind === 'launcher')) {
       if (w.id === 'flamethrower') { at(0.12, 'clipout'); at(0.5, 'fuel_in'); at(0.8, 'boltpull'); }
       else if (w.id === 'rpg') { at(0.35, 'rocket_load'); at(0.75, 'clipin'); }
       else { at(0.15, 'clipout'); at(0.45, 'shotgun_insert'); at(0.6, 'shotgun_insert'); at(0.85, 'boltpull'); }
@@ -1196,7 +1199,7 @@ export class Game {
         this.vm.state.spin = aw?.spin || 0; // minigun barrels
         this.vm.state.sawing = !!(aw && aw.sawing > this.time - 0.12);
         this.vm.state.zap = aw?.zapped ? this.time - aw.zapped : 99;
-        const showVm = p.fov >= 90 || !(p.active && /awp|scout|g3sg1|sg550|barrett/.test(p.active.id));
+        const showVm = p.fov >= 90 || !(p.active && /awp|scout|g3sg1|sg550|barrett|crossbow/.test(p.active.id));
         this.vm.object3D.visible = showVm;
         // aiming down a red dot (zombie survival upgrade)
         const adsT = p.ads && p.active?.mods?.optic ? 1 : 0;

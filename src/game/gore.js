@@ -24,7 +24,7 @@ const LIGHT_K = 1.5; // vertex colours are stored / LIGHT_K (bytes hold 0..1; li
 const LOD_CELL = 5; // vertex clustering grid for the far-away index
 const BODY_LAYOUT = [['position', 3, Float32Array], ['uv', 2, Float32Array], ['color', 3, Uint8Array, true]];
 /** Weapons whose headshot kill pops the head off. */
-export const HEAD_POPPERS = new Set(['deagle', 'm3', 'xm1014', 'scout', 'awp', 'g3sg1', 'sg550', 'ak47', 'm4a1', 'aug', 'sg552', 'galil', 'famas', 'm249', 'barrett', 'minigun', 'aa12']);
+export const HEAD_POPPERS = new Set(['deagle', 'm3', 'xm1014', 'scout', 'awp', 'g3sg1', 'sg550', 'ak47', 'm4a1', 'aug', 'sg552', 'galil', 'famas', 'm249', 'barrett', 'minigun', 'aa12', 'machete', 'fireaxe', 'katana']); // (the arsenal's blades take heads too)
 const GRAVITY = 800;
 const HIT_R = 60; // a bullet passing farther than this (x boss scale) from a body's centre misses it
 

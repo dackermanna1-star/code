@@ -574,6 +574,78 @@ def('m32', 'rifle', { leftHand: [9.0, 0, 0.2], muzzle: [17, 0, 2.0], mag: [3.5, 
   b.taper(-1.5, [0.2, 2.8, 1.4], -12.0, [-1.4, 2.6, 1.4], C.black);
   b.box(2.0, 5.0, 4.0, 5.0, 0.7, C.black);
 });
+// --- the zombie-survival arsenal (zarsenal.js): blades held like the knife, a crossbow, throwables
+def('machete', 'knife', { muzzle: [19, 0, 0.6] }, (b) => {
+  b.taper(-4.2, [-0.6, 0.6, 1.1], 1.0, [-0.55, 0.55, 1.05], C.rubber); // grip
+  b.box(-4.6, -4.2, -0.65, 0.65, 1.15, C.dark); // butt
+  for (const x of [-2.6, -0.6]) b.box(x - 0.2, x + 0.2, -0.62, 0.62, 1.16, C.steel); // rivets
+  b.box(1.0, 1.4, -0.9, 0.9, 1.2, C.dark); // bolster
+  // the blade widens toward a clipped tip, edge down
+  b.hex([[1.4, -0.12, -0.9], [16.5, -0.1, -1.4], [16.5, 0.1, -1.4], [1.4, 0.12, -0.9],
+    [1.4, -0.12, 0.85], [16.5, -0.1, 1.2], [16.5, 0.1, 1.2], [1.4, 0.12, 0.85]], C.steel);
+  b.hex([[16.5, -0.1, -1.4], [20.0, -0.04, -0.4], [20.0, 0.04, -0.4], [16.5, 0.1, -1.4],
+    [16.5, -0.1, 1.2], [20.0, -0.04, 0.1], [20.0, 0.04, 0.1], [16.5, 0.1, 1.2]], C.steel);
+  b.box(2.0, 15.5, 0.7, 1.15, 0.24, C.gun); // the darker spine
+});
+def('fireaxe', 'knife', { muzzle: [24, 0, 0] }, (b) => {
+  b.taper(-5.0, [-0.7, 0.7, 1.2], 21.0, [-0.55, 0.55, 1.0], C.wood); // haft
+  b.box(-5.4, -5.0, -0.75, 0.75, 1.25, C.dark);
+  b.box(-4.6, -1.0, -0.74, 0.74, 1.24, C.rubber); // grip wrap
+  // the head: red, a steel edge on top, the pick below
+  b.box(19.0, 23.0, -1.2, 2.2, 1.6, C.red);
+  b.hex([[19.4, -0.5, 2.2], [22.6, -0.5, 2.2], [22.6, 0.5, 2.2], [19.4, 0.5, 2.2],
+    [18.2, -0.14, 6.6], [23.8, -0.14, 6.6], [23.8, 0.14, 6.6], [18.2, 0.14, 6.6]], C.red);
+  b.hex([[18.2, -0.15, 6.3], [23.8, -0.15, 6.3], [23.8, 0.15, 6.3], [18.2, 0.15, 6.3],
+    [17.9, -0.05, 7.0], [24.1, -0.05, 7.0], [24.1, 0.05, 7.0], [17.9, 0.05, 7.0]], C.steel); // edge
+  b.hex([[20.8, -0.15, -5.4], [21.2, -0.15, -5.4], [21.2, 0.15, -5.4], [20.8, 0.15, -5.4],
+    [19.8, -0.6, -1.2], [22.2, -0.6, -1.2], [22.2, 0.6, -1.2], [19.8, 0.6, -1.2]], C.red); // pick
+});
+def('katana', 'knife', { muzzle: [30, 0, 1.4] }, (b) => {
+  b.taper(-7.0, [-0.6, 0.6, 1.0], 2.0, [-0.55, 0.55, 0.95], C.black); // tsuka
+  for (let x = -6.2; x < 1.6; x += 1.1) b.box(x, x + 0.45, -0.66, 0.66, 1.06, C.dark); // the wrap's diamonds
+  b.box(-7.4, -7.0, -0.66, 0.66, 1.06, C.brass); // kashira
+  b.cyl('x', 2.0, 2.4, 0, 0, 1.6, C.dark, 8); // tsuba
+  b.box(2.4, 3.2, -0.5, 0.6, 0.7, C.brass); // habaki
+  // the blade, a gentle curve up toward the tip
+  b.taper(3.2, [-0.5, 0.55, 0.26], 14.0, [-0.38, 0.72, 0.24], C.steel);
+  b.taper(14.0, [-0.38, 0.72, 0.24], 24.0, [-0.12, 0.92, 0.2], C.steel);
+  b.taper(24.0, [-0.12, 0.92, 0.2], 29.0, [0.2, 1.05, 0.16], C.steel);
+  b.hex([[29.0, -0.08, 0.2], [31.0, -0.02, 0.9], [31.0, 0.02, 0.9], [29.0, 0.08, 0.2],
+    [29.0, -0.08, 1.05], [31.0, -0.02, 1.15], [31.0, 0.02, 1.15], [29.0, 0.08, 1.05]], C.steel); // kissaki
+});
+def('crossbow', 'rifle', { leftHand: [10.5, 0, 0.6], muzzle: [21, 0, 2.4], mag: [8, 0, 2.4] }, (b) => {
+  b.box(-1.0, 18.0, 1.4, 2.6, 1.3, C.dark); // the rail
+  b.box(0.0, 14.0, 0.2, 1.4, 1.6, C.darkwood); // the fore-end
+  b.taper(-1.0, [-0.2, 2.6, 1.5], -13.0, [-2.2, 2.6, 1.6], C.darkwood); // stock
+  b.box(-13.4, -13.0, -2.3, 2.7, 1.6, C.rubber);
+  pistolGrip(b, C.darkwood, 1.2, [-2.6, 0.2], [-3.6, -1.0], 0.8, -2.6);
+  triggerGuard(b);
+  // the bow: limbs swept back from the front, the string to the latch
+  b.box(16.5, 18.0, 1.0, 2.8, 2.0, C.black); // riser
+  for (const s of [-1, 1]) {
+    const q = s > 0 ? [[16.6, 1.0], [18.0, 1.0], [16.0, 9.0], [14.8, 9.0]] : [[14.8, -9.0], [16.0, -9.0], [18.0, -1.0], [16.6, -1.0]]; // (corners -x-y, +x-y, +x+y, -x+y)
+    b.hex([...q.map(([x, y]) => [x, y, 1.6]), ...q.map(([x, y]) => [x, y, 2.4])], C.black);
+    b.cyl('y', s * 9.0, s * 9.3, 15.4, 2.0, 0.45, C.gun, 5); // cam
+    b.box(5.0, 15.4, 2.0, 2.15, 0.12, C.tan, s * 4.6); // the string (each half, foreshortened)
+  }
+  b.box(18.0, 20.6, 0.6, 1.2, 1.4, C.gun); // stirrup
+  b.cyl('x', 3.0, 17.0, 0, 2.95, 0.18, C.brass, 4); // the bolt on the rail
+  scope(b, 1.0, 8.0, 4.4, 0.6);
+});
+def('pipebomb', 'grenade', {}, (b) => {
+  b.cyl('x', -3.4, 3.4, 0, 0, 1.1, C.gun, 8); // the pipe
+  for (const x of [-3.9, 3.4]) b.cyl('x', x, x + 0.6, 0, 0, 1.3, C.dark, 6); // end caps
+  for (const x of [-2.2, 1.6]) b.cyl('x', x, x + 0.7, 0, 0, 1.14, C.black, 8); // tape
+  b.box(-1.2, 1.2, 0.9, 1.6, 1.3, C.black); // the timer
+  b.cyl('x', 3.9, 5.0, 0, 0.3, 0.12, C.red, 4); // fuse wire
+});
+def('cryogrenade', 'grenade', {}, (b) => {
+  b.cyl('z', -2.0, 1.2, 0, 0, 1.05, C.silver, 8); // canister
+  for (const z of [-1.5, 0.6]) b.cyl('z', z, z + 0.3, 0, 0, 1.1, C.steel, 8); // bands
+  b.cyl('z', 1.2, 1.7, 0, 0, 0.75, C.dark, 6);
+  b.cyl('z', 1.7, 2.3, 0, 0, 0.42, C.gun, 6); // fuze
+  b.box(0.3, 0.7, -1.0, 2.2, 0.5, C.steel); // spoon
+});
 // projectiles (nose along +X)
 def('rpg_rocket', 'none', {}, (b) => {
   b.cyl('x', -9, 0, 0, 0, 0.9, C.olive, 6); // motor
@@ -582,6 +654,11 @@ def('rpg_rocket', 'none', {}, (b) => {
   b.cyl('x', 2.5, 4.5, 0, 0, 1.7, C.olive, 8);
   b.cyl('x', 4.5, 6.2, 0, 0, 1.1, C.olive, 8);
   b.cyl('x', 6.2, 7.2, 0, 0, 0.45, C.olive, 6);
+});
+def('crossbow_bolt', 'none', {}, (b) => {
+  b.cyl('x', -9.0, 0, 0, 0, 0.17, C.dark, 4); // shaft
+  b.hex([[0, -0.05, -0.45], [2.2, -0.02, 0], [2.2, 0.02, 0], [0, 0.05, -0.45], [0, -0.05, 0.45], [2.2, -0.02, 0.02], [2.2, 0.02, 0.02], [0, 0.05, 0.45]], C.steel); // broadhead
+  b.box(-9.0, -6.8, -0.8, 0.8, 0.06, C.red); b.box(-9.0, -6.8, -0.03, 0.03, 1.6, C.red); // fletching
 });
 def('grenade40', 'none', {}, (b) => {
   b.cyl('x', -2.2, -1.0, 0, 0, 1.05, C.brass, 8);

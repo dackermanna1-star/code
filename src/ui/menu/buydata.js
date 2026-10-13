@@ -29,7 +29,7 @@ export const MENU = {
   equip: {
     T: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'nvgs'],
     CT: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'defuser', 'nvgs'],
-    ALL: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'molotov', 'medkit', 'claymore', 'remotec4'],
+    ALL: ['vest', 'vesthelm', 'hegrenade', 'molotov', 'medkit', 'claymore', 'remotec4', 'grenades', 'melee'], // (zombie survival: the flashbang and smoke moved to Special grenades...)
   },
   upgrade: { ALL: [...ATTACHMENT_IDS.map((a) => 'att_' + a), SECOND_WIND.id, 'skins'] },
   skins: { ALL: SKIN_IDS.map((k) => 'skin_' + k) },
@@ -90,8 +90,26 @@ export const ITEMS = {
   [SECOND_WIND.id]: { name: SECOND_WIND.name, price: SECOND_WIND.price, text: SECOND_WIND.text, upgrade: true }, // a perk (zdowned.js; "owned" from attachments.js menuState)
 };
 
+// ---- the zombie-survival arsenal (zarsenal.js): two pages off Equipment
+Object.assign(SUBPAGES, {
+  grenades: { id: 'grenades', label: 'Special Grenades', parent: 'equip' },
+  melee: { id: 'melee', label: 'Melee & Crossbow', parent: 'equip' },
+});
+MENU.grenades = { ALL: ['pipebomb', 'cryogrenade', 'flashbang', 'smokegrenade'] };
+MENU.melee = { ALL: ['machete', 'fireaxe', 'katana', 'crossbow'] };
+Object.assign(ITEMS, {
+  grenades: { name: 'Special grenades...', price: null, page: 'grenades', text: 'Pipe bombs, cryo grenades, flashbangs and smoke.' },
+  melee: { name: 'Melee & crossbow...', price: null, page: 'melee', text: 'Machete, fire axe and katana (they replace your knife), and a silent crossbow.' },
+  machete: { name: 'Machete', price: 1200, text: 'Replaces your knife. Fast, wide slashes left and right: 52 damage a cut, two or three cuts drop a walker, a headshot takes its head off. Silent.' },
+  fireaxe: { name: 'Fire Axe', price: 1800, text: 'Replaces your knife. A slow overhead chop: 135 damage, and whatever it hits staggers back. A head chop takes the head clean off.' },
+  katana: { name: 'Katana', price: 2500, text: 'Replaces your knife. A three-cut combo: two sweeping slashes that can cut two zombies at once, then a heavy downward finisher. Keep swinging to chain it.' },
+  crossbow: W('Hunting Crossbow', 2400, 'USA', 'Broadhead bolts', '1 bolt', 'Cranked by hand', '3.4 kg', '28 g', '370 ft/s', 'Silent; through one body'),
+  pipebomb: { name: 'Pipe Bomb', price: 500, text: 'Throw it: it beeps and flashes, and every zombie nearby forgets you and crowds round it for 4 seconds - then it blows them apart. Carry 2.' },
+  cryogrenade: { name: 'Cryo Grenade', price: 600, text: 'Bursts 1.5 s after the throw: every zombie in the frost cloud freezes solid for 3 seconds. Kill one while it is frozen and it shatters. Bosses only feel the chill. Carry 2.' },
+});
+
 // equipment pictures in the info panel reuse the HUD / kill icons
-export const ITEM_ICON = { vest: 'suit_full', vesthelm: 'suithelmet_full', defuser: 'defuser', nvgs: null, flashbang: 'flashbang', hegrenade: 'hegrenade', smokegrenade: 'smokegrenade', molotov: 'molotov', medkit: 'medkit', claymore: 'claymore', remotec4: 'remotec4' };
+export const ITEM_ICON = { vest: 'suit_full', vesthelm: 'suithelmet_full', defuser: 'defuser', nvgs: null, flashbang: 'flashbang', hegrenade: 'hegrenade', smokegrenade: 'smokegrenade', molotov: 'molotov', medkit: 'medkit', claymore: 'claymore', remotec4: 'remotec4', machete: 'machete', fireaxe: 'fireaxe', katana: 'katana', pipebomb: 'pipebomb', cryogrenade: 'cryogrenade' };
 
 export function itemsFor(cat, team) {
   const t = team === 'CT' ? 'CT' : team === 'ALL' ? 'ALL' : 'T';
