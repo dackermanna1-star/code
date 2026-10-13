@@ -53,7 +53,7 @@ export function zombieCheat(g, cmd, args = []) {
       Z.taint();
       g.bosses.despawn();
       Z.bossAt = 0;
-      if (!g.bosses.spawn((k + 1) * 5)) return 'zm_boss: no spawn spot found, try again';
+      if (!g.bosses.spawn((k + 1) * 5, { def: BOSSES[k % BOSSES.length], cycle: Math.floor(k / BOSSES.length) })) return 'zm_boss: no spawn spot found, try again'; // (that boss, whatever the run's order)
       const b = g.bosses.boss;
       return `${b.boss.def.name}: ${Math.round(b.health)} hp`;
     }

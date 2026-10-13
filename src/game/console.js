@@ -87,7 +87,7 @@ export class Console {
       case 'status': for (const p of g.players) this.print(`# ${p.id} "${p.name}" ${p.team} ${p.kills}/${p.deaths} ${p.isBot ? 'BOT' : ''}`); break;
       case 'quit': case 'disconnect': location.reload(); break;
       case 'help': case 'cmdlist':
-        this.print('sensitivity, cl_showfps, net_graph, fov, vid_mode <640x480|800x600|1024x768|1280x960|native>, vid_aspect <fill|4:3>, cl_crosshair_color "r g b", cl_dynamiccrosshair, name, volume, announcer, violence_hblood 0/1, cl_bulletcam 0/1, map <name>, mp_restartgame, mp_roundtime, mp_freezetime, mp_c4timer, mp_friendlyfire, bot_add, bot_add_t, bot_add_ct, bot_kick, bot_difficulty 0-3, kill, status, sv_cheats, god, impulse 101, zm_status; with sv_cheats: zm_wave n, zm_special kind [near], zm_boss 0-4|id, zm_skip, zm_god_squad');
+        this.print('sensitivity, cl_showfps, net_graph, fov, vid_mode <640x480|800x600|1024x768|1280x960|native>, vid_aspect <fill|4:3>, cl_crosshair_color "r g b", cl_dynamiccrosshair, name, volume, announcer, violence_hblood 0/1, cl_bulletcam 0/1, map <name>, mp_restartgame, mp_roundtime, mp_freezetime, mp_c4timer, mp_friendlyfire, bot_add, bot_add_t, bot_add_ct, bot_kick, bot_difficulty 0-3, kill, status, sv_cheats, god, impulse 101, zm_status; with sv_cheats: zm_wave n, zm_special kind [near], zm_boss 0-4|id, zm_skip, zm_god_squad, zm_perk id, zm_buff id, zm_offer, zm_drop kind; also zm_perks, zm_pick n, zm_mods, zm_drops, zm_squad');
         break;
       default:
         // zombie survival cheats (zcheats.js)

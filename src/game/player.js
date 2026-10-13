@@ -19,6 +19,7 @@ export class Player {
     this.pm = createPlayerMove();
     this.alive = false;
     this.health = 100;
+    this.maxHealth = 100; // (zombie survival: perks raise it, zmods.js; zombies and bosses set their own)
     this.armor = 0;
     this.helmet = false;
     this.money = 800;
@@ -90,7 +91,7 @@ export class Player {
     this.prevOrigin = pos.slice();
     this.renderOrigin = pos.slice();
     this.alive = true;
-    this.health = 100;
+    this.health = this.maxHealth || 100;
     this.planting = false;
     this.defusing = false;
     this.flashUntil = 0;

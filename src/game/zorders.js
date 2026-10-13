@@ -5,12 +5,16 @@
 //  - Cover me: the nearest one stays right by you
 //  - Hold this position: the ones close by stay where they stand and fight from there
 //  - Team, fall back!: everybody breaks off and comes back to you, shooting on the way
+//  - Focus fire on my target! (the radio menu's zombie-survival item): every bot puts its gun
+//    on what you point at, for diff.roles.focus s (zsquad.js focus / targetWeight)
+// Every order goes out on the bus as 'order' (Milestone 3: the squad builder owns this file).
 // A new order replaces the one before it ("hold", then "follow me": they follow). Need
 // backup / Taking fire keep the stock rule (the ones close by come over for a while).
 
 // the radio menu's lines (radiomenu.js SAY, bots.js RADIO)
 const FOLLOW = 'Follow me.', REGROUP = 'Regroup team.', TOGETHER = 'Stick together, team.', COVER = 'Cover me!';
 const HOLD = 'Hold this position.', FALLBACK = 'Team, fall back!';
+export const FOCUS = 'Focus fire on my target!'; // (radiomenu.js ZOMBIE_ITEMS)
 const AFFIRM = 'Affirmative.', NEGATIVE = 'Negative.';
 /** How long an order lasts (s), and how close counts as "with him" / "at the spot" (units). */
 export const ORDERS = { follow: 25, cover: 12, hold: 30, fallback: 15, holdRange: 900, coverRange: 1500, backAt: 110, fightLeash: 260, holdLeash: 90, holdGive: 250, clawed: 70 };
@@ -34,6 +38,16 @@ export function zombieRadio(mgr, p, text, mates) {
     }
     case HOLD: list = mates.filter((b) => !b.p.downed && flat(b.p.pm.origin, o) < ORDERS.holdRange); break;
     case FALLBACK: list = mates.filter((b) => !b.p.downed); break;
+    case FOCUS: {
+      list = mates.filter((b) => !b.p.downed);
+      const z = mgr.game.zombies.squad.focus(p, list);
+      if (!z) list = [];
+      mgr.game.zombies.events.mode('order', { player: p, order: 'focus', target: z, bots: list.length });
+      let near = null, nd = Infinity;
+      for (const b of mates) { const d = flat(b.p.pm.origin, o); if (d < nd) { nd = d; near = b; } }
+      near?.queueRadio(list.length ? AFFIRM : NEGATIVE, 0.6 + Math.random() * 0.8, true);
+      return true;
+    }
     default: return false;
   }
   for (const b of list) {
@@ -42,6 +56,7 @@ export function zombieRadio(mgr, p, text, mates) {
     else if (text === FALLBACK) b.fallback = { p, until: t + ORDERS.fallback };
     else b.follow = { p, until: t + (text === COVER ? ORDERS.cover : ORDERS.follow) };
   }
+  mgr.game.zombies.events.mode('order', { player: p, order: text === HOLD ? 'hold' : text === FALLBACK ? 'fallback' : text === COVER ? 'cover' : 'follow', target: null, bots: list.length });
   // the nearest one answers (always: an order wants an answer, whatever the radio chatter)
   let near = null, nd = Infinity;
   for (const b of list) { const d = flat(b.p.pm.origin, o); if (d < nd) { nd = d; near = b; } }

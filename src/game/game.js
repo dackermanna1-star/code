@@ -70,7 +70,7 @@ export class Game {
     this.bulletCam = new BulletCam(this);
     this.grenades = new Grenades(this);
     this.ragdolls = new RagdollSystem(this.collision);
-    this.dropped = []; // weapons on the ground { weapon, pos, vel, obj, rest }
+    this.dropped = []; // on the ground: weapons { kind: 'weapon', weapon, pos, vel, obj, rest, time }, zombie survival pickups (pickups.js)
     this.acc = 0;
     this.vmCache = new Map();
     this.vm = null;
@@ -317,6 +317,7 @@ export class Game {
     ctx.player = p;
     ctx.viewAngles = p.pm.angles;
     ctx.inBombZone = p.team === TEAM_T && !!this.bombZoneOf(p) && this.rounds.state === 'live';
+    ctx.zk = this.zombies.enabled && !p.isZombie ? this.zombies.mods.wk(p) : null; // zombie survival: reload / draw / fire-rate time multipliers (zmods.js)
     ctx.isDefusing = !!p.defusing;
     ctx.canShoot = !this.rounds.freeze;
     return ctx;
@@ -436,7 +437,7 @@ export class Game {
     try { obj = createDroppedWeapon(w.id); } catch { obj = new THREE.Group(); }
     obj.position.set(pos[0], pos[1], pos[2]);
     this.renderer.world.add(obj);
-    this.dropped.push({ weapon: w, pos: pos.slice(), vel: vel.slice(), obj, rest: false, time: this.time });
+    this.dropped.push({ kind: 'weapon', weapon: w, pos: pos.slice(), vel: vel.slice(), obj, rest: false, time: this.time });
   }
 
   clearDropped() {
@@ -448,7 +449,7 @@ export class Game {
     const h = { mins: [-6, -6, 0], maxs: [6, 6, 4] };
     for (const d of this.dropped) {
       if (!d.rest) {
-        d.vel[2] -= 800 * dt;
+        d.vel[2] -= (d.gravity ?? 800) * dt; // (zombie survival: an airdrop crate falls slower, pickups.js)
         const end = [d.pos[0] + d.vel[0] * dt, d.pos[1] + d.vel[1] * dt, d.pos[2] + d.vel[2] * dt];
         this.collision.trace(d.pos, end, h.mins, h.maxs, MASK_WORLD_PLAYER, tmpTr);
         if (tmpTr.fraction < 1) {
@@ -463,11 +464,12 @@ export class Game {
         if (d.rest) d.obj.rotation.set(0, 0, Math.random() * Math.PI * 2);
       }
       // pickup by walking over (after a short delay)
-      if (this.time - d.time < 0.5) continue;
+      if (this.time - d.time < 0.5 || d.taken) continue;
+      const reach = d.reach ?? 28;
       for (const p of this.players) {
         if (!p.alive || p.isZombie) continue; // (zombies don't carry guns: one walking over a fallen bot's gun took it for good)
         const o = p.pm.origin;
-        if (Math.abs(o[0] - d.pos[0]) > 28 || Math.abs(o[1] - d.pos[1]) > 28 || Math.abs(o[2] + p.hull().mins[2] - d.pos[2]) > 48) continue;
+        if (Math.abs(o[0] - d.pos[0]) > reach || Math.abs(o[1] - d.pos[1]) > reach || Math.abs(o[2] + p.hull().mins[2] - d.pos[2]) > 48) continue;
         if (this.tryPickup(p, d)) break;
       }
     }
@@ -475,6 +477,7 @@ export class Game {
   }
 
   tryPickup(p, d) {
+    if (d.kind && d.kind !== 'weapon') return this.zombies.pickups.take(p, d); // zombie survival loot, power-ups, crates (pickups.js)
     const w = d.weapon;
     if (w.id === 'c4') {
       if (p.team !== TEAM_T) return false;
@@ -649,6 +652,7 @@ export class Game {
     if (victim.variant) { damage = this.zombies.roster.adjust(victim, attacker, damage, hitgroup, weaponId, dir, opts); if (damage <= 0) return; } // zombie survival commons (riot armour...: zroster.js)
     if (attacker?.boss && attacker !== victim) damage *= BOSS_NERF * (attacker.boss.def.k ?? 1); // every boss attack (claws, acid, fire, blasts)
     if (victim.downed) damage *= this.zombies.downed.hurtScale; // zombie survival: on the floor the bleed-out goes slower than health would
+    if (this.zombies.enabled) { damage = this.zombies.mods.damage(victim, attacker, damage, hitgroup, weaponId, opts); if (damage <= 0) return; } // zombie survival: perks, relics, power-ups - dealt and taken (zmods.js)
     const teammate = !!(attacker && attacker !== victim && attacker.team === victim.team);
     const res = CR.computeDamage({ health: victim.health, armor: victim.armor, helmet: victim.helmet, ducking: victim.pm.ducking, speed: Math.hypot(victim.pm.velocity[0], victim.pm.velocity[1]) },
       damage, hitgroup, { attackerWeapon: weaponId, teammate, self: attacker === victim, friendlyFire: this.rounds.friendlyFire, blast: opts.blast });
@@ -870,6 +874,7 @@ export class Game {
     const w = p.active;
     const zoomed = p.fov < 90;
     pm.maxspeed = p.isZombie ? (p.speedNow ?? p.zSpeed) : w ? WS.weaponMaxSpeed(w, zoomed) * (p.ads ? 0.8 : 1) : 250;
+    if (this.zombies.enabled && !p.isZombie) { pm.maxspeed *= this.zombies.mods.speed(p); if (w) this.zombies.mods.weapon(p, w); } // zombie survival: perks' move speed and magazine (zmods.js)
     p.prevOrigin = pm.origin.slice();
     this.mover.ignore = p.box;
     p.box.active = false; // don't collide with own box
@@ -943,6 +948,7 @@ export class Game {
       return false;
     }
     const before = q.health;
+    if (this.zombies.enabled) amount = this.zombies.mods.heal(p, amount); // (zombie survival: a medic's perks, zmods.js)
     q.health = Math.min(q.maxHealth || 100, q.health + amount);
     const got = Math.round(q.health - before);
     this.sound.play('medkit_heal', { pos: q === this.viewTarget ? null : q.eyePos(), volume: 0.8 });

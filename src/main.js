@@ -90,7 +90,7 @@ async function boot() {
   game.announce = (t) => announcer.say(t);
   const radioMenu = new RadioMenu(app, (text) => {
     if (game.local?.alive) { game.rounds.radio(game.local, text); game.bots.onRadio?.(game.local, text); }
-  });
+  }, { zombie: () => !!game.zombies?.enabled }); // (zombie survival: its squad orders too)
   const con = new Console(game, menus, settings, renderer, input, hud);
   game.console = con;
   // the front end: the title backdrop, first-run tips, the zombie scoreboard's downs / revives
@@ -328,6 +328,7 @@ async function boot() {
     if (game.mapEnts?.camera && game.time - game.mapEnts.camera.start > 0.3 && (cmd === '+attack' || cmd === '+use' || cmd === '+jump')) { game.mapEnts.camera = null; return true; }
     // number keys feed open menus first (team/class/buy menus handle their own keys)
     if (radioMenu.open && cmd && cmd.startsWith('slot')) { radioMenu.choose(+cmd.slice(4)); return true; }
+    if (game.zombies?.enabled && game.zombies.perks.key(cmd)) return true; // (zombie survival: a perk card open takes the number keys: perks.js)
     if (!!menus.isOpen?.()) return false;
     switch (cmd) {
       case '+showscores': showScores = true; return true;

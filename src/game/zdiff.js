@@ -1,6 +1,7 @@
 // Zombie survival difficulty: one table every tuning knob of the mode reads.
 // A preset = { id, label, blurb, sandbox, breakLen, firstBreak, econ, horde, specials, squad,
-// and from Milestone 2 stagger, shove, ai, director, roster, combo }.
+// from Milestone 2 stagger, shove, ai, director, roster, combo, and from Milestone 3 perks,
+// forge, roles, boss, drops }.
 // The groups are kept as separate tables below, one per owner, so each can be tuned on its
 // own: econ (money and buying), horde (waveStats), specials (how often and how many),
 // squad (downed / revive). NORMAL's horde and specials are the mode's tuned curve, sized
@@ -173,6 +174,77 @@ const COMBO = {
   nightmare: { from: 4, chance: 0.45, gap: [2, 3.5], arcs: 0.9, cost: 1.35 },
 };
 
+// ---------------------------------------------------------------- Milestone 3 ("every run is different")
+// One table per builder again (m3-contracts section 9): only the owner edits it, one preset per
+// line; Sandbox plays Normal's rows. The values are scaffold defaults nothing reads yet (bar
+// drops.life / powerupSecs, roles.focus and boss.relics, read by the foundation's working
+// scaffolds): tune them. Help (choices, drops, heals, posture) shrinks Casual -> Nightmare.
+
+/**
+ * Perk draft (perks.js): choices (cards offered at a break), rareEvery (every nth wave's draft
+ * rolls rarer cards), rerolls (free rerolls a run), curse (chance a draft holds a boon-and-curse
+ * card), from (the first break with a draft: after wave n).
+ */
+const PERKS = {
+  casual: { choices: 4, rareEvery: 5, rerolls: 2, curse: 0.1, from: 1 },
+  normal: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.15, from: 1 },
+  hard: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.2, from: 1 },
+  nightmare: { choices: 2, rareEvery: 5, rerolls: 0, curse: 0.25, from: 1 },
+};
+
+/**
+ * Weapon forge (zforge.js): priceK (x every forge price), tiers (the top tier), roundFrom (the
+ * tier a round type fits from), procK (x the elemental rounds' proc rates).
+ */
+const FORGE = {
+  casual: { priceK: 0.8, tiers: 5, roundFrom: 3, procK: 1.2 },
+  normal: { priceK: 1, tiers: 5, roundFrom: 3, procK: 1 },
+  hard: { priceK: 1.15, tiers: 5, roundFrom: 3, procK: 0.9 },
+  nightmare: { priceK: 1.3, tiers: 5, roundFrom: 3, procK: 0.8 },
+};
+
+/**
+ * Squad roles and orders (zsquad.js; downed / revive is the M1 `squad` group): focus (s a
+ * Focus order lasts), medicHeal (a Medic patches a teammate up below this HP; the others 55),
+ * holdArc (u: the radius of the arc "Hold here" sets the squad in).
+ */
+const ROLES = {
+  casual: { focus: 15, medicHeal: 70, holdArc: 240 },
+  normal: { focus: 12, medicHeal: 65, holdArc: 240 },
+  hard: { focus: 12, medicHeal: 60, holdArc: 260 },
+  nightmare: { focus: 10, medicHeal: 55, holdArc: 260 },
+};
+
+/**
+ * Bosses (bosses.js; they were nerfed on purpose: readable, never tankier): hpWave [first,
+ * per] (a boss's HP x first + per x (n/5 - 1) by the wave it shows up in, instead of the fixed
+ * cycle; Normal averages today's 1.0 over waves 5-25), heal / armor (HP and armour back for
+ * everyone standing after a boss kill, instead of a full heal), relics (relics a trophy offers),
+ * posture (x posture a hit builds), kneel (s a posture break holds it down), kneelK (x damage
+ * while it kneels), phases (health fractions that add a move), elitesFrom (first wave with an
+ * elite: odd waves only), eliteChance (an odd wave brings one), eliteHp (x an elite's health).
+ */
+const BOSS = {
+  casual: { hpWave: [0.7, 0.1], heal: 100, armor: 100, relics: 3, posture: 1.3, kneel: 3.5, kneelK: 2, phases: [0.66, 0.33], elitesFrom: 9, eliteChance: 0.25, eliteHp: 1.6 },
+  normal: { hpWave: [0.8, 0.1], heal: 50, armor: 50, relics: 2, posture: 1, kneel: 3, kneelK: 2, phases: [0.66, 0.33], elitesFrom: 7, eliteChance: 0.35, eliteHp: 2 },
+  hard: { hpWave: [0.9, 0.11], heal: 40, armor: 25, relics: 2, posture: 0.85, kneel: 2.5, kneelK: 2, phases: [0.66, 0.33], elitesFrom: 5, eliteChance: 0.5, eliteHp: 2.3 },
+  nightmare: { hpWave: [1, 0.12], heal: 30, armor: 0, relics: 2, posture: 0.7, kneel: 2.2, kneelK: 2, phases: [0.75, 0.5, 0.25], elitesFrom: 3, eliteChance: 0.65, eliteHp: 2.6 },
+};
+
+/**
+ * Drops and power-ups (pickups.js, powerups.js): budget [base, perWave] (loot drops a wave
+ * may hold: base + perWave x wave), chance (a kill drops loot while there's budget), powerup
+ * (share of drops that are power-ups), life (s before loot on the floor fades), powerupSecs (s
+ * a timed power-up lasts), airdropFrom (first wave with an airdrop flare), airdropChance (a
+ * wave from there gets one).
+ */
+const DROPS = {
+  casual: { budget: [6, 0.6], chance: 0.1, powerup: 0.12, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.5 },
+  normal: { budget: [5, 0.5], chance: 0.08, powerup: 0.1, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.4 },
+  hard: { budget: [4, 0.4], chance: 0.07, powerup: 0.08, life: 25, powerupSecs: 15, airdropFrom: 5, airdropChance: 0.35 },
+  nightmare: { budget: [3, 0.3], chance: 0.06, powerup: 0.06, life: 20, powerupSecs: 12, airdropFrom: 6, airdropChance: 0.3 },
+};
+
 /**
  * The tuned base curve (before multipliers), wave n: count = c0 + c1 (n - 1); maxAlive = a0 + n;
  * health h0 + h1 a wave to lateFrom, then + h2, x open[n - 1] in the opening waves (a
@@ -183,8 +255,12 @@ const WAVE = { c0: 6, c1: 3, a0: 4, h0: 100, h1: 10, h2: 4, open: [0.8, 0.9], s0
 /** Never more zombies up at once than this (zombies.js keeps 32 common bodies), nor commons faster, nor more specials. */
 export const MAX_ALIVE = 28, SPEED_MAX = 245, SPECIAL_MAX = 0.3;
 
-/** The Milestone 2 groups by field name (diff.stagger, diff.shove, ...). */
+/** The Milestone 2 groups by field name (diff.stagger, diff.shove, ...), then Milestone 3's (diff.perks, diff.forge, ...). */
 const M2 = { stagger: STAGGER, shove: SHOVE, ai: AI, director: DIRECTOR, roster: ROSTER, combo: COMBO };
+const M3 = { perks: PERKS, forge: FORGE, roles: ROLES, boss: BOSS, drops: DROPS };
+const GROUPS = { ...M2, ...M3 };
+/** The per-builder group names (diff[name]) from Milestone 2 on. */
+export const ZDIFF_GROUPS = Object.freeze(Object.keys(GROUPS));
 
 const deepFreeze = (o) => { for (const v of Object.values(o)) if (v && typeof v === 'object') deepFreeze(v); return Object.freeze(o); };
 
@@ -192,7 +268,7 @@ const deepFreeze = (o) => { for (const v of Object.values(o)) if (v && typeof v 
 export const ZDIFF = deepFreeze(Object.fromEntries(ZDIFF_ORDER.map((id) => [id, {
   id, sandbox: false, ...META[id],
   econ: ECON[id], horde: HORDE[id] || HORDE.normal, specials: SPECIALS[id] || SPECIALS.normal, squad: SQUAD[id] || SQUAD.normal,
-  ...Object.fromEntries(Object.entries(M2).map(([k, T]) => [k, T[id] || T.normal])),
+  ...Object.fromEntries(Object.entries(GROUPS).map(([k, T]) => [k, T[id] || T.normal])),
 }])));
 
 /** A preset by id (unknown ids: Normal). */
@@ -202,7 +278,8 @@ export function getDiff(id) { return ZDIFF[id] || ZDIFF[DEFAULT_ZDIFF]; }
  * The zombie part of the New Game options, normalised (missing / bad values: defaults).
  *  zdiff: preset id ('normal'); squadScaling: the horde grows with the squad (true);
  *  breakLen: seconds between waves, 0 / missing = the preset's; hardcore: no wave heal,
- *  guns only in the breaks (no re-arm window after a respawn), radar pings only (false).
+ *  guns only in the breaks (no re-arm window after a respawn), radar pings only (false);
+ *  seed: the run's random seed (zrng.js: the boss order...; null = a fresh one every run).
  */
 export function zombieOptions(opts = {}) {
   const b = +opts.breakLen;
@@ -211,6 +288,7 @@ export function zombieOptions(opts = {}) {
     squadScaling: opts.squadScaling !== false && opts.squadScaling !== 0 && opts.squadScaling !== '0',
     breakLen: b > 0 ? Math.max(5, Math.min(120, Math.round(b))) : 0,
     hardcore: opts.hardcore === true || opts.hardcore === 1 || opts.hardcore === '1',
+    seed: opts.seed != null && opts.seed !== '' && Number.isFinite(+opts.seed) ? +opts.seed >>> 0 : null,
   };
 }
 
@@ -226,7 +304,7 @@ export function resolveDiff(o = zombieOptions()) {
   const r = {
     ...d,
     econ: { ...d.econ }, horde: { ...d.horde }, specials: { ...d.specials }, squad: { ...d.squad },
-    ...Object.fromEntries(Object.keys(M2).map((k) => [k, { ...d[k] }])),
+    ...Object.fromEntries(Object.keys(GROUPS).map((k) => [k, { ...d[k] }])),
     hardcore: !!o.hardcore, squadScaling: o.squadScaling !== false,
     breakLen: o.breakLen > 0 ? o.breakLen : d.breakLen,
   };

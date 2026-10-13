@@ -273,7 +273,7 @@ export class RoundManager {
       return true;
     }
     if (item === 'nvgs') { return !g.zombies?.enabled && pay(1250); } // (zombie survival: none for now - nothing to see them with yet)
-    if (/^(att|skin)_/.test(item)) return g.zombies?.enabled ? ATT.buyUpgrade(g, p, item, pay, say) : false; // zombie survival upgrades
+    if (/^(att|skin|tier|round)_/.test(item)) return g.zombies?.enabled ? ATT.buyUpgrade(g, p, item, pay, say) : false; // zombie survival upgrades (and the forge: zforge.js)
     if (/^perk_/.test(item)) return g.zombies?.enabled ? g.zombies.downed.buyPerk(p, item, pay, say) : false; // ...and perks (Second Wind: zdowned.js)
     const def = WS.WEAPON_DEFS[item];
     if (!def) return false;

@@ -11,6 +11,8 @@
 //   grip   - vertical foregrip: less recoil, steadier on the move
 //   mag    - extended magazine: half again as many rounds
 // Skins only change the paint.
+// The weapon layer (w.mods) multiplies with its holder's perks (zmods.js: the player layer);
+// the forge (zforge.js, Milestone 3.2) folds w.tier / w.round in here too (refresh).
 import * as WS from './weaponsys.js';
 
 export const ATTACHMENTS = {
@@ -72,11 +74,14 @@ export function skinTarget(p) {
   return upgradeTarget(p);
 }
 
-/** Recompute the stat multipliers from w.att (call after any change). */
+/**
+ * Recompute the stat multipliers from w.att (call after any change). m.reload / m.handling
+ * are reload / draw time multipliers (weaponsys reloadK / drawK; the forge's tiers).
+ */
 export function refresh(w) {
   const att = w.att || {};
   const has = (id) => Object.values(att).includes(id);
-  const m = { spread: 1, moveSpread: 1, hip: 1, ads: 0.6, recoil: 1, damage: 1, clip: w.def.clip, suppressed: false, laser: false, optic: false };
+  const m = { spread: 1, moveSpread: 1, hip: 1, ads: 0.6, recoil: 1, damage: 1, clip: w.def.clip, reload: 1, handling: 1, suppressed: false, laser: false, optic: false };
   if (has('suppressor')) { m.suppressed = true; m.recoil *= 0.92; m.damage *= 0.95; }
   if (has('compensator')) m.recoil *= 0.72;
   if (has('foregrip')) { m.recoil *= 0.8; m.moveSpread *= 0.7; }
@@ -85,6 +90,7 @@ export function refresh(w) {
   if (has('extmag') && w.def.clip > 0) m.clip = Math.round(w.def.clip * 1.5);
   w.mods = m;
   w.clipMax = m.clip;
+  w.zmRev = -1; // (its holder's magazine perks fold in again: zmods.js weapon)
   return m;
 }
 
@@ -96,9 +102,10 @@ export function fit(w, att) {
   if (att === 'extmag') w.clip = Math.max(w.clip, w.clipMax); // the bigger magazine comes loaded
 }
 
-/** Buy `item` ('att_<id>' or 'skin_<id>') for p. Returns true if bought. */
+/** Buy `item` ('att_<id>', 'skin_<id>'; the forge's 'tier_<n>' / 'round_<id>': zforge.js) for p. Returns true if bought. */
 export function buyUpgrade(game, p, item, pay, say) {
   const [kind, id] = item.split('_');
+  if (kind === 'tier' || kind === 'round') return !!game.zombies?.forge?.buy(p, item, pay, say);
   if (kind === 'att') {
     const w = upgradeTarget(p);
     if (!w) { say('Get a gun first!'); return false; }

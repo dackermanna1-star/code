@@ -1386,6 +1386,7 @@ class Bot {
       this.memory.set(e, { t: this.time, pos: e.feet(), first: m && this.time - m.t < 3 ? m.first : this.time });
       const aimingAtMe = this.aimedAtBy(e, eye);
       let score = d * (known ? 0.55 : 1) * (aimingAtMe ? 0.6 : 1) * (e.weapons[5] || e.defusing || e.planting ? 0.7 : 1) * (e.target?.downed ? 0.5 : 1); // (zombie survival: the ones on a downed teammate first)
+      if (e.isZombie && g.zombies?.enabled) score *= g.zombies.squad.targetWeight(this, e, d); // (zombie survival: a Focus order, the roles - zsquad.js)
       if (score < bestScore) { bestScore = score; best = e; bestParts = { vh, vc, vb, cos, d }; }
     }
     if (best) {
@@ -2055,7 +2056,7 @@ class Bot {
     if (g.zombies?.enabled && g.zombies.allyObjective(this, it)) { this.watchDanger(it); return; }
     // pick up a primary lying close by
     if (!p.weapons[1] && !this.isCommitted()) {
-      const dw = g.dropped.find((d) => d.weapon.def.slot === 1 && d.rest && dist2(d.pos, p.pm.origin) < 450 && Math.abs(d.pos[2] - p.pm.origin[2]) < 100 && !this.skipPickup.has(d));
+      const dw = g.dropped.find((d) => d.weapon?.def.slot === 1 && d.rest && dist2(d.pos, p.pm.origin) < 450 && Math.abs(d.pos[2] - p.pm.origin[2]) < 100 && !this.skipPickup.has(d));
       if (dw) {
         if (this.pickupTry?.d !== dw) this.pickupTry = { d: dw, until: this.time + 6 };
         if (this.time > this.pickupTry.until) this.skipPickup.add(dw);
@@ -2073,7 +2074,7 @@ class Bot {
     const bomb = R.bomb && !R.bomb.exploded && !R.bomb.defused ? R.bomb : null;
     if (bomb) return this.tPostPlant(it, bomb);
     // the bomb is on the ground: the nearest terrorist fetches it
-    const dropped = g.dropped.find((d) => d.weapon.id === 'c4');
+    const dropped = g.dropped.find((d) => d.weapon?.id === 'c4');
     if (dropped && !R.bombCarrier && T) {
       // one terrorist (the nearest, re-picked only when he dies) fetches it
       if (!T.fetcher || !T.fetcher.p.alive || T.fetchDrop !== dropped) {

@@ -107,11 +107,10 @@ export class ZEconomy {
     const g = this.game;
     if (e.phase === 'cleared') {
       this.breakStart(e.wave);
-      // (ZombieMode.waveCleared paid everyone standing; the fallen, back next wave, get half)
+      // (ZombieMode.waveCleared paid everyone standing, through pay; the fallen, back next wave, get half)
       for (const p of g.players) {
-        if (p.team !== TEAM_CT || p.isZombie) continue;
-        if (p.alive) this.earn(p, e.bonus, 'wave');
-        else this.pay(p, Math.round(e.bonus * FALLEN_BONUS), 'wave');
+        if (p.team !== TEAM_CT || p.isZombie || p.alive) continue;
+        this.pay(p, Math.round(e.bonus * FALLEN_BONUS), 'wave');
       }
       return;
     }
@@ -161,10 +160,14 @@ export class ZEconomy {
   }
 
   // ---------------------------------------------------------------- pay
-  /** Pay p (rounds.addMoney, so the cap holds) and tell the bus how much actually came in. */
+  /**
+   * Pay p (rounds.addMoney, so the cap holds) and tell the bus how much actually came in. Every
+   * income goes through here (reason 'kill' | 'special' | 'boss' | 'wave' | 'pickup'): perks
+   * and power-ups scale it (zmods.js money).
+   */
   pay(p, amount, reason) {
     const before = p.money;
-    this.game.rounds.addMoney(p, amount);
+    this.game.rounds.addMoney(p, this.Z.mods.money(p, amount, reason));
     this.earn(p, p.money - before, reason);
   }
 
@@ -246,9 +249,10 @@ export class ZEconomy {
     return `The shop is shut until the wave is over.\nMid-wave: ammo, armour and medkits only${k ? ` (+${Math.round(k * 100)}%)` : ''}.`;
   }
 
-  /** The price factor on item for p right now (the mid-wave premium on ammo, armour, medkits). */
+  /** The price factor on item for p right now (the mid-wave premium on ammo, armour, medkits; perks: zmods.js price). */
   scale(p, item) {
-    return this.open(p) || !COMBAT_ITEMS.has(item) ? 1 : 1 + this.Z.diff.econ.combatPremium;
+    const k = this.open(p) || !COMBAT_ITEMS.has(item) ? 1 : 1 + this.Z.diff.econ.combatPremium;
+    return k * this.Z.mods.price(p, item);
   }
 
   /** rounds.buyItem's gate: 0 (refused; the reason is said) or the factor on the price. */
@@ -270,6 +274,7 @@ export class ZEconomy {
     if (kind === 'att') return ATT.ATTACHMENTS[k]?.price ?? null;
     if (kind === 'skin') return ATT.SKINS[k]?.price ?? null;
     if (kind === 'perk') return id === SECOND_WIND.id ? SECOND_WIND.price : null; // (perks: zdowned.js)
+    if (kind === 'tier' || kind === 'round') return this.Z.forge.price(p, id); // (the forge: zforge.js)
     return WS.WEAPON_DEFS[id]?.price ?? null;
   }
 
@@ -282,6 +287,7 @@ export class ZEconomy {
   /** Why item would be refused whatever the phase (already have it, full...): { off, note }. */
   owned(p, id) {
     if (/^(att|skin|perk)_/.test(id)) return ATT.menuState(p, id); // (a perk: "owned" once bought)
+    if (/^(tier|round)_/.test(id)) return this.Z.forge.menuState(p, id); // (zforge.js)
     if (id === 'primammo' || id === 'secammo') {
       const w = p.weapons[id === 'primammo' ? 1 : 2];
       if (!w || !w.def.ammoBuy) return { off: true, note: 'no gun' };
@@ -307,8 +313,9 @@ export class ZEconomy {
     const why = this.refusal(p, id);
     const price = this.cost(p, id);
     if (why) return { off: true, note: own.off ? own.note : null, why: why.replace('\n', ' '), price, closed: true };
-    const k = this.scale(p, id);
-    return { off: !!own.off, note: own.note || null, why: k > 1 ? `Mid-wave price (+${Math.round((k - 1) * 100)}%): $${this.base(p, id)} in the break.` : null, price };
+    const prem = this.open(p) || !COMBAT_ITEMS.has(id) ? 0 : this.Z.diff.econ.combatPremium; // (the markup alone: perks' discounts are in the price)
+    const brk = price != null ? Math.round(price / (1 + prem) / 5) * 5 : null;
+    return { off: !!own.off, note: own.note || null, why: prem > 0 ? `Mid-wave price (+${Math.round(prem * 100)}%): $${brk} in the break.` : null, price };
   }
 
   /** The line along the bottom of the buy menu: what the shop sells right now. */
@@ -337,6 +344,7 @@ export class ZEconomy {
    * attachments when there's money to spare.
    */
   shop(bot) {
+    if (this.Z.squad.shop(bot, this)) return; // (a role with its own loadout: zsquad.js)
     const g = this.game, p = bot.p, R = g.rounds;
     const b = (id) => R.buy(p, id);
     const cost = (id) => this.cost(p, id) ?? Infinity;

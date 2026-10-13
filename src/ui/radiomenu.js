@@ -1,4 +1,5 @@
-// The old-style CS radio menus (Z / X / C): plain text list at the left edge.
+// The old-style CS radio menus (Z / X / C): plain text list at the left edge. Zombie survival
+// adds its squad orders to them (ZOMBIE_ITEMS: zorders.js; the squad builder's, Milestone 3.3).
 
 const MENUS = {
   1: { title: 'Radio Commands', items: ['Cover Me', 'You Take the Point', 'Hold This Position', 'Regroup Team', 'Follow Me', 'Taking Fire, Need Assistance'] },
@@ -13,15 +14,28 @@ const SAY = {
   'Storm the Front': 'Storm the front!', 'Report In': 'Report in, team.', 'Affirmative/Roger': 'Affirmative.', 'Enemy Spotted': 'Enemy spotted.',
   'Need Backup': 'Need backup.', 'Sector Clear': 'Sector clear.', "I'm in Position": "I'm in position.", 'Reporting In': 'Reporting in.',
   "She's gonna Blow!": "Get out of there, it's gonna blow!", Negative: 'Negative.', 'Enemy Down': 'Enemy down.',
+  'Focus My Target': 'Focus fire on my target!', // (zombie survival: zorders.js FOCUS)
 };
 
+/** Extra items per menu in zombie survival (after the stock ones). */
+export const ZOMBIE_ITEMS = { 1: ['Focus My Target'] };
+
 export class RadioMenu {
-  constructor(container, onSay) {
+  /** opts.zombie() -> true while zombie survival runs (its items show then). */
+  constructor(container, onSay, opts = {}) {
     this.onSay = onSay;
+    this.zombie = opts.zombie || (() => false);
     this.el = document.createElement('div');
     this.el.style.cssText = 'position:absolute;left:12px;top:38%;font:bold 13px Verdana,Tahoma,sans-serif;color:#fff;line-height:17px;white-space:pre;pointer-events:none;display:none;text-shadow:1px 1px 0 #000;z-index:20';
     container.appendChild(this.el);
     this.open = 0;
+  }
+
+  /** Menu n's items now (zombie survival: its extra orders too). */
+  items(n) {
+    const m = MENUS[n];
+    if (!m) return [];
+    return this.zombie() && ZOMBIE_ITEMS[n] ? m.items.concat(ZOMBIE_ITEMS[n]) : m.items;
   }
 
   show(n) {
@@ -33,7 +47,7 @@ export class RadioMenu {
     t.textContent = m.title;
     this.el.appendChild(t);
     this.el.appendChild(document.createElement('br'));
-    m.items.forEach((it, i) => {
+    this.items(n).forEach((it, i) => {
       const d = document.createElement('div');
       d.textContent = `${i + 1}. ${it}`;
       this.el.appendChild(d);
@@ -45,9 +59,9 @@ export class RadioMenu {
   }
 
   choose(k) {
-    const m = MENUS[this.open];
-    if (!m) return;
-    if (k >= 1 && k <= m.items.length) this.onSay(SAY[m.items[k - 1]] || m.items[k - 1]);
+    const items = this.items(this.open);
+    if (!items.length) return;
+    if (k >= 1 && k <= items.length) this.onSay(SAY[items[k - 1]] || items[k - 1]);
     this.close();
   }
 

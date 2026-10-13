@@ -52,6 +52,23 @@
 //            by: 'director' | 'screamer', t }
 //  specialsux: save { player (pulled free), by (null: on his own), kind (the special), t },
 //            combo { kinds ([first, second]), front, t }
+// Milestone 3 (m3-contracts section 8; earn's reason may also be 'pickup'):
+//  perks:    perk { phase: 'grant' | 'revoke' | 'expire', player (null: the whole squad), squad,
+//            id, rarity, n (stacks), source ('draft' | 'trophy' | 'buff' | 'powerup' | 'cheat'
+//            ...), until (a timed one's end, else 0), t } (foundation: perks.js emits it),
+//            draft { phase: 'offer' | 'pick', player, ids (the cards), id (picked), source, t }
+//            (foundation), synergy { player, id, t }
+//  forge:    forge { player, weapon (id), kind: 'tier' | 'round', tier, round, cost, t },
+//            proc { attacker, victim, round, weapon, t } (hot: obj / emit behind has())
+//  squad:    role { player, role, t } (foundation: zsquad.js), order { player (who gave it),
+//            order: 'follow' | 'cover' | 'hold' | 'fallback' | 'focus', target, bots, t }
+//            (foundation: zorders.js)
+//  bosses:   posture { phase: 'break' | 'recover', boss, by, t }, bossphase { boss, id, phase
+//            (1, 2...), t }, trophy { phase: 'drop' | 'take', player, boss (its name), t },
+//            elite { phase: 'spawn' | 'death', kind, zombie, name, t }
+//  drops:    pickup { phase: 'spawn' | 'take' | 'expire', kind, id, amount, player, pos, t }
+//            (foundation: pickups.js), powerup { phase: 'on' | 'off', id, player, until, t },
+//            airdrop { phase: 'call' | 'land' | 'open', id, pos, t }
 import { TEAM_CT } from './player.js';
 
 export const EVENT_TYPES = new Set([
@@ -64,6 +81,8 @@ export const EVENT_TYPES = new Set([
   'streak',
   // Milestone 2: stagger, shove, director, specialsux
   'stagger', 'shove', 'front', 'pace', 'save', 'combo',
+  // Milestone 3: perks, forge, squad, bosses, drops
+  'perk', 'draft', 'synergy', 'forge', 'proc', 'role', 'order', 'posture', 'bossphase', 'trophy', 'elite', 'pickup', 'powerup', 'airdrop',
 ]);
 
 /** In the squad: you or a bot teammate (the CT side; zombies and spectators aren't). */

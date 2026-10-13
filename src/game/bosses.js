@@ -11,6 +11,11 @@
 //    hurls fireballs and sets off a ring of fire; explodes when he dies.
 //  - THE ABOMINATION: armoured (shoot the head, or the core when his chest opens);
 //    GROUND SLAM shockwave (jump it); raises the dead around him.
+// Milestone 3.4 (owner: bosses; m3-contracts section 10) builds on these seams, each of which
+// plays today's game in the foundation: plan(seed) / pick(n) (the order: all five before any
+// repeats), healthFor (HP by the wave it shows up in), arrive(n) (its staged arrival), posture
+// (fed from adjust; hudInfo().posture), reward (what a kill gives the squad: the trophy flow
+// replaces the full heal) - plus phases next to the enrage check and the elites.
 import { Player, TEAM_T, TEAM_CT } from './player.js';
 import { createPlayerModel } from '../assets/playermodels.js';
 import { setDynamicBox, CONTENTS_ZOMBIE, TraceResult, MASK_WORLD_PLAYER } from '../engine/collision.js';
@@ -39,6 +44,7 @@ export class BossDirector {
     this.game = game;
     this.boss = null;
     this.models = new Map(); // boss id -> PlayerModel (reused; the corpse is baked first)
+    this.order = BOSSES.map((_, i) => i); // BOSSES indices in the order they come (plan)
   }
 
   get Z() { return this.game.zombies; }
@@ -52,12 +58,29 @@ export class BossDirector {
   }
 
   // ---------------------------------------------------------------- spawning
-  /** Boss for wave n (n a multiple of 5). */
-  spawn(n) {
+  /** A run starts (ZombieMode.start): the order the bosses come in, from the run's seed (zrng.js rng(seed, 'bosses')). Foundation: the fixed order. */
+  plan(seed) { void seed; this.order = BOSSES.map((_, i) => i); }
+
+  /** The boss for wave n (a multiple of 5) and its cycle (0 for the first five): { def, cycle }. */
+  pick(n) {
+    const k = Math.max(0, Math.round(n / 5) - 1);
+    return { def: BOSSES[this.order[k % this.order.length]], cycle: Math.floor(k / BOSSES.length) };
+  }
+
+  /** Its health for wave n with a squad worth crowd guns (a bot counts 0.3: keep it). */
+  healthFor(def, n, cycle, crowd) {
+    void n;
+    return Math.round(def.health * BOSS_NERF * (def.k ?? 1) * (1 + 0.6 * cycle) * (1 + 0.3 * (crowd - 1)));
+  }
+
+  /** startWave on a boss wave: s until the boss comes (its staged arrival goes in that time). */
+  arrive(n) { void n; return 3; }
+
+  /** Boss for wave n (n a multiple of 5). o: { def, cycle } to name it (zm_boss) instead of pick(n). */
+  spawn(n, o = {}) {
     const g = this.game, Z = this.Z;
-    const k = n / 5 - 1;
-    const def = BOSSES[k % BOSSES.length];
-    const cycle = Math.floor(k / BOSSES.length);
+    const P = o.def ? { def: o.def, cycle: o.cycle ?? 0 } : this.pick(n);
+    const def = P.def, cycle = P.cycle;
     const humans = Z.humans();
     const node = Z.pickSpawn();
     if (!node) return false;
@@ -80,8 +103,8 @@ export class BossDirector {
     g.renderer.world.add(m.object3D);
     p.model = m;
     // more shooters, more health (a bot counts a third: they die, and it doesn't get weaker)
-    const crowd = Math.max(1, humans.reduce((n, q) => n + (q.downed ? 0 : q.isBot ? 0.3 : 1), 0)); // (one who's down doesn't count)
-    const hp = Math.round(def.health * BOSS_NERF * (def.k ?? 1) * (1 + 0.6 * cycle) * (1 + 0.3 * (crowd - 1)));
+    const crowd = Math.max(1, humans.reduce((m, q) => m + (q.downed ? 0 : q.isBot ? 0.3 : 1), 0)); // (one who's down doesn't count)
+    const hp = this.healthFor(def, n, cycle, crowd);
     const h = humans[0];
     const yaw = h ? Math.atan2(h.pm.origin[1] - node.y, h.pm.origin[0] - node.x) / DEG : 0;
     p.resetForSpawn([node.x, node.y, node.z + 37], yaw);
@@ -93,6 +116,7 @@ export class BossDirector {
       def, cycle, scale: def.scale, hpMax: hp, dmgK: 1 + 0.25 * cycle,
       state: 'intro', until: g.time + 1.6, cd: {}, status: '', enraged: false, exposedUntil: 0, stunUntil: 0,
       lastHurt: 0, recent: 0, brood: 0, trailT: 0, auraT: 0, novaDone: false,
+      posture: 0, postureMax: 0, brokenUntil: 0, phase: 0, // (Milestone 3.4: postureMax 0 = no posture bar; phase: the phases passed)
     };
     // the zombie chase fields
     Object.assign(p, { target: null, targetT: 0, node: null, nodeT: 0, goal: null, goalT: 0, windup: 0, nextAttack: g.time + 2, progPos: p.pm.origin.slice(), progT: g.time, stuckSince: 0, nextGrowl: g.time + 3 });
@@ -143,7 +167,26 @@ export class BossDirector {
     B.lastHurt = t;
     B.recent = (B.recent || 0) * Math.max(0, 1 - (t - (B.recentT || t))) + damage * k;
     B.recentT = t;
+    this.posture(b, attacker, damage * k, hitgroup, weaponId, opts);
     return damage * k;
+  }
+
+  /** Every hit on a boss (adjust, after its armour): builds B.posture toward B.postureMax (shotguns, explosives, weak spots; x diff.boss.posture). Foundation: none. */
+  posture(b, attacker, damage, hitgroup, weaponId, opts) { void b; void attacker; void damage; void hitgroup; void weaponId; void opts; }
+
+  /**
+   * What the squad gets for the kill (onKilled, after the bounty): returns the centre line's
+   * tail. Foundation: today's full health and armour; Milestone 3.4: diff.boss.heal / armor and
+   * a trophy (pickups.spawn('trophy', ...): relics.js) instead.
+   */
+  reward(b, attacker) {
+    void b; void attacker;
+    for (const p of this.game.players) {
+      if (p.team !== TEAM_CT || !p.alive || p.downed) continue; // (one who's down is bleeding out, not hurt: a revive gets him up)
+      p.health = p.maxHealth;
+      p.armor = 100; p.helmet = true;
+    }
+    return 'full health and armour.';
   }
 
   onKilled(b, attacker) {
@@ -165,13 +208,8 @@ export class BossDirector {
       this.pendingBoom = { pos: o.slice(), at: g.time + 1.4, owner: b };
     }
     const cut = this.Z.economy.bossPay(); // the bounty, shared out by damage dealt (zeconomy.js): your cut
-    for (const p of g.players) {
-      if (p.team !== TEAM_CT || !p.alive || p.downed) continue; // (one who's down is bleeding out, not hurt: a revive gets him up)
-      p.health = 100;
-      p.armor = 100; p.helmet = true;
-    }
-    g.hud?.centerPrint?.(`${def.name} IS DEAD!\n${cut}full health and armour.`, 5);
-    void attacker;
+    const got = this.reward(b, attacker); // (the heal, and from 3.4 the trophy)
+    g.hud?.centerPrint?.(`${def.name} IS DEAD!\n${cut}${got}`, 5);
   }
 
   // ---------------------------------------------------------------- AI
@@ -635,6 +673,6 @@ export class BossDirector {
     const b = this.boss;
     if (!b || !b.alive) return null;
     const B = b.boss;
-    return { name: B.def.name, hp: Math.max(0, b.health), hpMax: b.maxHealth, status: B.status, color: B.def.color };
+    return { name: B.def.name, hp: Math.max(0, b.health), hpMax: b.maxHealth, status: B.status, color: B.def.color, posture: B.postureMax ? Math.min(1, B.posture / B.postureMax) : null, broken: this.game.time < B.brokenUntil };
   }
 }

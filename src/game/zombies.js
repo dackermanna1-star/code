@@ -18,6 +18,9 @@
 //    when; the roster (zroster.js) what each common is (z.variant); stagger (zstagger.js)
 //    holds a zombie that took a hit (z.staggerUntil); the horde AI (zhorde.js) its flow
 //    field and surround slot; shove.js and zthreats.js hook in like the others
+//  - Milestone 3 (m3-contracts): the modifier pipeline (zmods.js) every build source feeds:
+//    perks and relics (perks.js), the forge (zforge.js), drops and power-ups (pickups.js), the
+//    squad's roles and orders (zsquad.js); the run's seed (zrng.js: the boss order...)
 // game.js / rounds.js hand the mode its ticks, kills and buy / spawn rules.
 import { Player, TEAM_T, TEAM_CT } from './player.js';
 import { createPlayerModel, warmPlayerModel, ZOMBIE_SKINS } from '../assets/playermodels.js';
@@ -38,6 +41,12 @@ import { ZHorde } from './zhorde.js';
 import { WaveDirector } from './director.js';
 import { ZRoster } from './zroster.js';
 import { ZThreats } from './zthreats.js';
+import { ZMods } from './zmods.js';
+import { ZPerks } from './perks.js';
+import { Pickups } from './pickups.js';
+import { ZForge } from './zforge.js';
+import { ZSquad } from './zsquad.js';
+import { newSeed } from './zrng.js';
 
 export { waveStats };
 
@@ -88,6 +97,13 @@ export class ZombieMode {
     this.director = new WaveDirector(game);
     this.roster = new ZRoster(game);
     this.threats = new ZThreats(game);
+    // Milestone 3 features (m3-contracts): the modifier pipeline first (the others feed it)
+    this.mods = new ZMods(game);
+    this.perks = new ZPerks(game);
+    this.pickups = new Pickups(game);
+    this.forge = new ZForge(game);
+    this.squad = new ZSquad(game);
+    this.seed = 0;
     this.configure({});
     this.best = this.bestBefore = this.loadBest();
   }
@@ -117,6 +133,7 @@ export class ZombieMode {
     // every zombie look warmed in the first break, ahead of its first spawn (tick)
     this.warmQ = ZOMBIE_SKINS.filter((s) => !WARMED.has(s)); this.warmN = 0;
     this.wave = 0;
+    this.seed = this.opts.seed ?? newSeed(); // (zrng.js streams: the boss order...)
     this.kills = 0; // yours
     this.squadKills = 0; // everybody's on your side
     this.killed = 0; // of this wave's count
@@ -136,6 +153,7 @@ export class ZombieMode {
     g.mapEnts?.reset();
     g.hostages?.reset(); // (disabled in this mode: clears any left over)
     g.bosses?.clear();
+    g.bosses?.plan?.(this.seed); // (the order the bosses come in)
     this.specials.clear();
     g.explosives?.clear();
     this.bossAt = 0;
@@ -159,7 +177,7 @@ export class ZombieMode {
     this.nextSpawn = g.time + 1;
     // every 5th wave: a boss (and half the usual crowd)
     this.bossWave = n % 5 === 0;
-    if (this.bossWave) { this.stats = { ...this.stats, count: Math.ceil(this.stats.count * 0.5) }; this.bossAt = g.time + 3; }
+    if (this.bossWave) { this.stats = { ...this.stats, count: Math.ceil(this.stats.count * 0.5) }; this.bossAt = g.time + g.bosses.arrive(n); } // (its staged arrival: bosses.js)
     // the squad's dead (bots, and you if you bled out) come back for the next wave
     // (before the director plans it: its fronts keep clear of where they stand)
     for (const p of g.players) {
@@ -186,8 +204,8 @@ export class ZombieMode {
     const bonus = this.stats.bonus, heal = this.diff.econ.waveHeal;
     for (const p of g.players) {
       if (p.team !== TEAM_CT || !p.alive) continue;
-      g.rounds.addMoney(p, bonus);
-      p.health = Math.min(100, p.health + heal);
+      this.economy.pay(p, bonus, 'wave'); // (an 'earn'; perks may scale it: zmods.js)
+      p.health = Math.min(p.maxHealth, p.health + heal);
     }
     g.hud?.centerPrint?.(`Wave ${this.wave} cleared!\n+$${bonus}${heal ? `, +${heal} health` : ''}. Next wave in ${brk} seconds.`, 5);
     g.sound?.play('radio_beep', { volume: 0.6 });
@@ -256,6 +274,7 @@ export class ZombieMode {
     this.downed.tick(t);
     this.feedback.tick(t);
     this.staggers.tick(t); this.shove.tick(t); this.horde.tick(t); this.roster.tick(t); this.threats.tick(t);
+    this.mods.tick(t); this.perks.tick(t); this.pickups.tick(t); this.forge.tick(t); this.squad.tick(t);
     this.director.tick(t); // (last: just before the spawn step)
     if (this.state === 'break' && t >= this.nextWaveAt) this.startWave(this.wave + 1);
     if (this.wave === 0) this.syncRecord(); // (the squad fills up before the first wave)
@@ -311,18 +330,21 @@ export class ZombieMode {
   command(p, cmd, args = []) {
     return this.economy.command(p, cmd, args) || this.downed.command(p, cmd, args) || this.feedback.command(p, cmd, args)
       || this.shove.command(p, cmd, args) || this.staggers.command(p, cmd, args) || this.director.command(p, cmd, args)
-      || this.horde.command(p, cmd, args) || this.roster.command(p, cmd, args) || this.threats.command(p, cmd, args);
+      || this.horde.command(p, cmd, args) || this.roster.command(p, cmd, args) || this.threats.command(p, cmd, args)
+      || this.mods.command(p, cmd, args) || this.perks.command(p, cmd, args) || this.pickups.command(p, cmd, args) || this.forge.command(p, cmd, args) || this.squad.command(p, cmd, args);
   }
 
-  /** The Milestone 2 features' HUD state (buildHudState, after economy / downed / feedback). */
+  /** The Milestone 2 and 3 features' HUD state (buildHudState, after economy / downed / feedback). */
   hud(s) {
     this.staggers.hud(s); this.shove.hud(s); this.horde.hud(s); this.roster.hud(s); this.threats.hud(s);
+    this.mods.hud(s); this.perks.hud(s); this.pickups.hud(s); this.forge.hud(s); this.squad.hud(s);
     this.director.hud(s); // (last: the radar policy sees every blip)
   }
 
-  /** Per frame (game.frame, while the mode runs): the Milestone 2 features' visuals. */
+  /** Per frame (game.frame, while the mode runs): the Milestone 2 and 3 features' visuals. */
   frame(dt) {
     this.staggers.frame(dt); this.shove.frame(dt); this.horde.frame(dt); this.roster.frame(dt); this.threats.frame(dt); this.director.frame(dt);
+    this.mods.frame(dt); this.perks.frame(dt); this.pickups.frame(dt); this.forge.frame(dt); this.squad.frame(dt);
   }
 
   /**

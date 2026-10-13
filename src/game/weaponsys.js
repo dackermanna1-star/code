@@ -21,7 +21,10 @@
 //   setFov(fov | 0 = default), fireBullets(params), knifeTrace(range), knifeDamage(target, dmg, hitgroup),
 //   throwGrenade(type, params), plantBomb(), playSound(name, opts), playAnim(name, opts),
 //   emitShell(type), random(), randomInt(lo, hi), retire?(w) (switch to next best weapon),
-//   event?(type, data) (hud messages, muzzle flash, player anims, radio, progress bar ...)
+//   event?(type, data) (hud messages, muzzle flash, player anims, radio, progress bar ...),
+//   zk? { reload, draw, cycle } (zombie survival: the holder's time multipliers for reloads,
+//   draws and the fire cycle - perks, zmods.js; null / missing = 1). The weapon's own layer is
+//   w.mods (attachments.js: reload, handling); the two multiply.
 // DOM-free and dependency-free (only imports the sibling combat rules).
 
 import { BULLET, WEAPON_ARMOR_RATIO, grenadeThrow, C4 as C4_RULES } from './combatrules.js';
@@ -469,6 +472,9 @@ const rndInt = (ctx, lo, hi) => (ctx.randomInt ? ctx.randomInt(lo, hi) : lo + Ma
 const rndFloat = (ctx, lo, hi) => lo + (hi - lo) * rnd(ctx);
 const emit = (ctx, type, data) => { if (ctx.event) ctx.event(type, data); };
 const sound = (ctx, name, opts = {}) => { if (ctx.playSound) ctx.playSound(name, opts); };
+// zombie survival: the weapon's own reload / draw time (w.mods: the forge) x its holder's (ctx.zk: perks)
+const reloadK = (w, ctx) => (w.mods?.reload ?? 1) * (ctx.zk ? ctx.zk.reload : 1);
+const drawK = (w, ctx) => (w.mods?.handling ?? 1) * (ctx.zk ? ctx.zk.draw : 1);
 
 /** Play a view-model animation. `name` uses the view-model vocabulary, `cs` the weapons.h sequence. */
 function anim(w, ctx, name, cs, duration) {
@@ -587,6 +593,7 @@ function defaultReload(w, ctx, animName, cs, delay) {
   const j = Math.min(clipSize(w) - w.clip, r);
   if (!j) return false;
   const t = ctx.time;
+  delay *= reloadK(w, ctx);
   w.nextAttack = t + delay;
   emit(ctx, 'reload_sound', { weapon: w.id }); // ReloadSound(): other players within 512 units hear it
   anim(w, ctx, animName, cs, delay);
@@ -599,6 +606,8 @@ function defaultReload(w, ctx, animName, cs, delay) {
 function defaultShotgunReload(w, ctx, delay, startDelay, insertSounds) {
   const t = ctx.time;
   if (reserve(w) <= 0 || w.clip >= clipSize(w)) return false;
+  const rk = reloadK(w, ctx);
+  delay *= rk; startDelay *= rk;
   if (w.nextPrimary > t) return false; // don't reload until recoil is done
   if (w.specialReload === 0) {
     emit(ctx, 'player_anim', { anim: 'reload', weapon: w.id });
@@ -1605,6 +1614,8 @@ export function weaponDeploy(w, ctx) {
   w.spent = false;
   w.retired = false;
   BEHAVIOR[w.id].deploy(w, ctx);
+  const dk = drawK(w, ctx);
+  if (dk !== 1) { const t = ctx.time; if (w.nextAttack > t) w.nextAttack = t + (w.nextAttack - t) * dk; if (w.nextPrimary > t) w.nextPrimary = t + (w.nextPrimary - t) * dk; }
   syncAmmo(w);
   return Math.max(0, w.nextAttack - ctx.time);
 }
@@ -1706,7 +1717,10 @@ export function weaponFrame(w, ctx, buttons = 0, prevButtons = 0) { // eslint-di
       if (ctx.waterLevel === 3 && d.noFireUnderwater) {
         playEmptySound(w, ctx);
         w.nextPrimary = t + 0.15;
-      } else B.primary(w, ctx);
+      } else {
+        B.primary(w, ctx);
+        if (ctx.zk && ctx.zk.cycle !== 1 && w.nextPrimary > t) w.nextPrimary = t + (w.nextPrimary - t) * ctx.zk.cycle; // (zombie survival: fire-rate perks)
+      }
     }
   } else if ((btn & BUTTON.RELOAD) && d.clip !== WEAPON_NOCLIP && !w.inReload && w.nextPrimary < t) {
     if (w.famasShoot === 0 && w.glockShoot === 0) B.reload(w, ctx);

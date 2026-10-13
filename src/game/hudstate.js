@@ -75,7 +75,7 @@ export function buildHudState(game, extra = {}) {
   }
   if (me.team === TEAM_T) {
     if (R.bomb && !R.bomb.exploded) blips.push({ x: R.bomb.pos[0], y: R.bomb.pos[1], z: R.bomb.pos[2], kind: 'bomb_planted', flash: true });
-    const dropped = game.dropped.find((d) => d.weapon.id === 'c4');
+    const dropped = game.dropped.find((d) => d.weapon?.id === 'c4');
     if (dropped) blips.push({ x: dropped.pos[0], y: dropped.pos[1], z: dropped.pos[2], kind: 'bomb' });
   }
   // zombie survival: the zombies show up red

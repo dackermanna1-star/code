@@ -218,7 +218,7 @@ function tBomb(bot, it) {
     bot.hold(it, spot, { quiet: true });
     return;
   }
-  const dropped = g.dropped.find((d) => d.weapon.id === 'c4');
+  const dropped = g.dropped.find((d) => d.weapon?.id === 'c4');
   if (dropped && !R.bombCarrier) {
     const near = bot.mgr.alive(TEAM_T).sort((a, b) => dist3(a.p.pm.origin, dropped.pos) - dist3(b.p.pm.origin, dropped.pos))[0];
     if (near === bot) { it.move = dropped.pos.slice(); it.tol = 4; bot.watchDanger(it); return; }
