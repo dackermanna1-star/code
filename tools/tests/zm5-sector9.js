@@ -282,7 +282,7 @@
   // each front arriving (screenshots): stand by its mouth, a pack walks in from its far end
   const ARRIVE = {
     containment: [[0, 480, 0]], lowerlabs: [[-544, 1300, 0]], tunnels: [[-480, -200, 0]],
-    ramp: [[-420, -1150, 0]], freight: [[200, -1150, 0]], vents: [[480, 200, 0]],
+    ramp: [[-560, -1440, 0]], freight: [[250, -1360, 0]], vents: [[480, 200, 0]],
   };
   for (const id of Object.keys(ARRIVE)) {
     steps.push(async () => {
@@ -354,7 +354,7 @@
     for (const [i, s] of (window.__game.W?.mapDef?.titleShots || []).entries()) views.push([`title shot ${i}`, s.eye, s.look]);
     views.push(['extraction: the helipad', [-1790, -1300, 420], [-2016, -1776, 324]]);
     views.push(['extraction: the cargo elevator', [-1850, 250, 64], [-2304, 0, 120]]);
-    views.push(['a dark corner: the pump room', [-1240, -1150, -120], [-1700, -980, -180]]);
+    views.push(['a dark corner: the pump room', [-1150, -1100, -110], [-1700, -1000, -180]]);
     views.push(['a dark corner: the cell block (red)', [-560, 1820, 60], [-560, 700, 30]]);
     views.push(['the landmark from the lab row', [-1700, 0, 64], [0, 0, 100]]);
   }
@@ -407,7 +407,7 @@
     info(`28 zombies up: ${up} alive, ${(sim / N).toFixed(1)} ms simulation + models, ${(ren / N).toFixed(1)} ms render, ${(calls / N) | 0} draw calls per frame (software GL, ${innerWidth}x${innerHeight})`);
     check('28 zombies up for the frame measurement', up >= 24, `${up}`);
     // and a fight to look at: aim at the thick of them
-    const near = Z().pool.filter((z) => z.alive && g.visible(p.eyePos(), [z.pm.origin[0], z.pm.origin[1], z.pm.origin[2] + 16])).sort((a, b) => flat(a.pm.origin, p.pm.origin) - flat(b.pm.origin, p.pm.origin))[3];
+    const near = Z().pool.filter((z) => z.alive && g.visible(p.eyePos(), [z.pm.origin[0], z.pm.origin[1], z.pm.origin[2] + 16])).sort((a, b) => flat(a.pm.origin, p.pm.origin) - flat(b.pm.origin, p.pm.origin))[6];
     if (near) aim(p, [near.pm.origin[0], near.pm.origin[1], near.pm.origin[2] + 16]);
     g.frame(1 / 60);
     return { shot: true, wait: 200 };
