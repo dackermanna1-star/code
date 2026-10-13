@@ -61,7 +61,7 @@ export const SOUND_GROUPS = {
   Perks: [], // (snd/perks.js)
   Forge: [], // (snd/forge.js)
   'Squad roles': [], // (snd/squad.js)
-  'Boss overhaul': [], // (snd/bossfx.js)
+  'Boss overhaul': ['boss_posture_break', 'boss_weak_hit', 'boss_recover', 'boss_phase', 'boss_rumble', 'boss_far_roar', 'boss_title', 'boss_hook_throw', 'boss_hook_hit', 'boss_meteor', 'boss_telegraph', 'elite_spawn', 'elite_down', 'trophy_drop', 'trophy_take', 'boss_quake'], // (snd/bossfx.js)
   Drops: [], // (snd/drops.js)
   Arsenal: [], // (gunshots: GUNS in snd/weapons.js; the rest snd/arsenal.js)
   'Title screen': ['title_theme', 'title_start'],

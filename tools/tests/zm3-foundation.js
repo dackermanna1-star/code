@@ -391,11 +391,13 @@
     freezeBots();
     const B = g.bosses;
     const BS = await import('/src/game/bosses.js');
-    const order = [5, 10, 15, 20, 25, 30].map((n) => B.pick(n));
-    check('boss order: today\'s fixed one, then round again (pick)', order.map((x) => x.def.id).join() === 'butcher,spitter,banshee,inferno,abomination,butcher' && order[5].cycle === 1 && order[4].cycle === 0);
-    const hp = B.healthFor(BS.BOSSES[0], 5, 0, 1);
-    check('healthFor: today\'s formula', hp === Math.round(BS.BOSSES[0].health * BS.BOSS_NERF));
-    check('arrive: 3 s', B.arrive(5) === 3);
+    // (Milestone 3.4 replaced the scaffold's fixed order, fixed health, 3 s arrival and full heal: tools/tests/zm3-bosses.js has the rest)
+    const order = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((n) => B.pick(n));
+    const ids = order.map((x) => x.def.id);
+    check('boss order: a seeded shuffle, all five before any repeats (pick)', new Set(ids.slice(0, 5)).size === 5 && new Set(ids.slice(5)).size === 5 && order[5].cycle === 1 && order[4].cycle === 0, ids.join());
+    const hp = B.healthFor(BS.BOSSES[0], 5, 0, 1), hw = Z().diff.boss.hpWave;
+    check('healthFor: by the wave it comes in (diff.boss.hpWave)', hp === Math.round(BS.BOSSES[0].health * BS.BOSS_NERF * hw[0]) && B.healthFor(BS.BOSSES[0], 30, 0, 1) === B.healthFor(BS.BOSSES[0], 30, 1, 1));
+    check('arrive: the staged arrival\'s time', B.arrive(5) === BS.ARRIVE && BS.ARRIVE > 3);
     B.order = [4, 3, 2, 1, 0];
     con('sv_cheats 1');
     con('zm_boss 2');
@@ -406,16 +408,17 @@
     g.damagePlayer(B.boss, me(), 30, CR.HITGROUP.CHEST, 'deagle', [1, 0, 0], B.boss.eyePos());
     B.posture = p0;
     const hi = B.hudInfo();
-    check('adjust feeds posture; hudInfo has posture (null: no bar yet)', posture === 1 && hi.posture === null && hi.broken === false);
+    check('adjust feeds posture; hudInfo has the posture bar (0..1)', posture === 1 && hi.posture > 0 && hi.posture < 1 && hi.broken === false);
     me().health = 40; me().armor = 0;
     const bot = botPs()[0];
     bot.health = 30;
     B.boss.god = false;
     g.damagePlayer(B.boss, me(), 999999, CR.HITGROUP.CHEST, 'deagle', [1, 0, 0], B.boss.eyePos());
-    check('the boss kill reward: today\'s full heal and armour', !B.alive() && me().health === me().maxHealth && me().armor === 100 && bot.health === 100);
+    const D = Z().diff.boss;
+    check('the boss kill reward: diff.boss.heal and armor, and a trophy', !B.alive() && me().health === Math.min(me().maxHealth, 40 + D.heal) && me().armor === Math.min(100, D.armor) && bot.health === Math.min(bot.maxHealth, 30 + D.heal) && Z().pickups.count('trophy') === 1);
     B.order = [0, 1, 2, 3, 4];
     Z().startWave(5);
-    check('a boss wave: the boss comes arrive() s later', near(Z().bossAt - g.time, 3, 0.02));
+    check('a boss wave: the boss comes arrive() s later', near(Z().bossAt - g.time, BS.ARRIVE, 0.02));
     Z().clearHorde();
     // squad roles and Focus
     ticks(60);

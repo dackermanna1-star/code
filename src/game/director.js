@@ -557,8 +557,14 @@ export class WaveDirector {
     return true;
   }
 
-  /** Specials.spawn({ elite }): one of the Twin Elites - k x the health, harder-hitting, bigger. Returns true. */
+  /**
+   * Specials.spawn({ elite }): k a named elite's row (zelites.js ELITES: the Alpha Hunter, the
+   * Juggernaut) makes it that one; else one of the Twin Elites - k x the health, harder-hitting,
+   * bigger. Returns true. (Milestone 3.4: the bosses builder's.)
+   */
   elite(z, def, k) {
+    if (k && typeof k === 'object') return this.game.bosses.elites.make(z, def, k);
+    this.game.bosses?.elites.track(z); // (on the boss bar too)
     if (!(typeof k === 'number' && k > 1)) k = 2;
     z.health = z.maxHealth = Math.round(z.maxHealth * k);
     z.zDamage = Math.round(z.zDamage * 1.2);
