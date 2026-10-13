@@ -11,6 +11,7 @@ import { Game } from '../src/game/game.js';
 import { DEFAULTS } from '../src/settings.js';
 import { createEffects } from '../src/fx/effects.js';
 import { missingActions } from '../src/game/tables.js';
+import { VoxelLibrary } from '../src/vox/library.js';
 import '../src/game/enemy.js';
 import '../src/game/weapons.js';
 
@@ -25,6 +26,8 @@ try {
 }
 const res = new Resources(stack);
 res.init();
+// VOX=1 also builds the 3D monster models and runs the ragdolls.
+if (process.env.VOX) res.voxels = new VoxelLibrary(res);
 const missing = missingActions();
 if (missing.length) {
   console.error('unimplemented actions:', missing);
@@ -106,7 +109,7 @@ for (const name of maps) {
     if (!same) failures++;
     const fx = g.world && g.world.fx;
     console.log(`${name.padEnd(6)} ok  ${String(Date.now() - t0).padStart(5)} ms  kills ${p.killcount}/${g.world ? g.world.totalkills : '?'}`
-      + `  decals ${fx ? fx.decals.list.length : 0}  gibs ${fx ? fx.gibs.length : 0}  save/load ${same ? 'deterministic' : 'DIVERGED'}`);
+      + `  decals ${fx ? fx.decals.list.length : 0}  gibs ${fx ? fx.gibs.length : 0}${fx && fx.vox ? `  ragdolls ${fx.vox.ragdolls.size}` : ""}  save/load ${same ? 'deterministic' : 'DIVERGED'}`);
   } catch (e) {
     failures++;
     console.log(`${name.padEnd(6)} FAILED: ${e.stack}`);

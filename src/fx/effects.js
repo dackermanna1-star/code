@@ -15,6 +15,7 @@ import {
 import { Decals } from './decals.js';
 import { ChunkCache, Gib } from './gibs.js';
 import { buildFxImages } from './images.js';
+import { VoxelMonsters } from '../vox/monsters.js';
 
 const BLUE_BLOOD = new Set(['HEAD']);
 const GREEN_BLOOD = new Set(['BOSS', 'BOS2']);
@@ -54,7 +55,11 @@ class Effects {
     this.particles.onWall = (i, hit) => this.particleWall(i, hit);
     this.particles.onLand = (i, hit) => this.particleLand(i, hit);
     this.collideResult = { wall: false, nx: 0, ny: 0, floor: 0, ceil: 0, light: 0, line: null, side: 0, sector: null };
+    // 3D monsters and ragdolls, when the voxel models can be built here.
+    this.vox = res.voxels ? new VoxelMonsters(this, w, res.voxels) : null;
   }
+
+  ragdolled(mo) { return !!(this.vox && this.vox.hasRagdoll(mo)); }
 
   get gore() { return this.s.gore ?? 2; }
   get pscale() { return PART_SCALE[this.s.particles ?? 2] * (this.gore === 1 ? 0.6 : 1); }
@@ -301,7 +306,7 @@ class Effects {
     e.deathTic = w.leveltime;
     e.shootable = true;
     e.flinch = 0;
-    if (!this.gore) return;
+    const gore = this.gore;
     const blood = this.bloodOf(target);
     let ang = e.hitAngle ?? (source ? pointToAngle(source.x, source.y, target.x, target.y) : target.angle + Math.PI);
     const overkill = -target.health;
@@ -311,27 +316,32 @@ class Effects {
     const close = hit && hit.dist !== undefined && hit.dist < 160;
     if (explosive && hit.spot) ang = pointToAngle(hit.spot.x, hit.spot.y, target.x, target.y);
     // Decide on dismemberment.
-    const canGib = this.s.dismemberment !== false;
+    const canGib = gore && this.s.dismemberment !== false;
     const hasX = target.info.xdeathstate !== S.S_NULL;
     let gib = canGib && (xdeath || (overkill > sh * 0.9 && (explosive || hit?.pellet || hit?.saw || hit?.berserk)) || (explosive && overkill > Math.min(60, sh * 0.5) && !hasX && sh < 500));
     if (sprName(target) === 'SKUL') gib = false;
     const headshot = canGib && !gib && hit && hit.zone === 'head' && HAS_HEAD.has(sprName(target))
       && (overkill >= 6 || weapon === WP.SHOTGUN || weapon === WP.SUPERSHOTGUN) && (!hit.pellet || close || overkill > 10);
+    // How hard the killing blow throws the body.
+    let force = Math.min(14, 2 + overkill * 0.12);
+    let up = 1 + overkill * 0.05;
+    if (explosive) { force = Math.min(18, 5 + overkill * 0.1); up = Math.min(11, 3 + overkill * 0.08); }
+    if (weapon === WP.SHOTGUN || weapon === WP.SUPERSHOTGUN) { force *= close ? 1.6 : 1.1; up += close ? 2.5 : 0.8; }
+    if (hit && hit.melee) { force *= hit.berserk ? 2.2 : 0.6; up *= hit.berserk ? 2 : 0.5; }
+    const massK = Math.min(1.6, Math.max(0.15, 100 / target.info.mass));
+    force *= (this.s.knockback ?? 1.6) / 1.6 * massK;
+    up *= massK;
+    // 3D monsters become ragdolls (also with gore off); the sprite gore
+    // below is skipped for them.
+    const ragdoll = !!(this.vox && this.s.physics !== false && this.vox.onKill(target, hit, { ang, gib, headshot, explosive, force, up, damage: Math.max(0, overkill) }));
     if (gib) {
-      this.gibMobj(target, ang, explosive ? 9 : 6, blood, !hasX);
-    } else if (headshot) {
+      if (ragdoll) this.gibGore(target, ang, explosive ? 9 : 6, blood, !hasX);
+      else this.gibMobj(target, ang, explosive ? 9 : 6, blood, !hasX);
+    } else if (headshot && !ragdoll) {
       this.headPop(target, ang, blood);
     }
-    // Launch the body (billboard ragdoll).
-    if (this.s.physics !== false && !e.hidden) {
-      let force = Math.min(14, 2 + overkill * 0.12);
-      let up = 1 + overkill * 0.05;
-      if (explosive) { force = Math.min(18, 5 + overkill * 0.1); up = Math.min(11, 3 + overkill * 0.08); }
-      if (weapon === WP.SHOTGUN || weapon === WP.SUPERSHOTGUN) { force *= close ? 1.6 : 1.1; up += close ? 2.5 : 0.8; }
-      if (hit && hit.melee) { force *= hit.berserk ? 2.2 : 0.6; up *= hit.berserk ? 2 : 0.5; }
-      const massK = Math.min(1.6, Math.max(0.15, 100 / target.info.mass));
-      force *= (this.s.knockback ?? 1.6) / 1.6 * massK;
-      up *= massK;
+    // Launch the corpse object (billboard ragdoll).
+    if (gore && this.s.physics !== false && !e.hidden) {
       target.momx += Math.cos(ang) * force;
       target.momy += Math.sin(ang) * force;
       if (!(target.flags & MF.NOGRAVITY) && up > 1.5) {
@@ -340,9 +350,32 @@ class Effects {
         e.spin = (Math.random() - 0.5) * 0.25 * Math.min(1, force / 8) * (Math.sin(ang - target.angle) >= 0 ? 1 : -1);
       }
     }
+    if (!gore) return;
     // Pool of blood once settled is handled in tick().
     e.bloodPool = blood;
     if (hit && hit.x !== undefined) this.spray(hit.x, hit.y, hit.z, ang, 0.2, 12, 4, blood);
+  }
+
+  // The blood, meat and noise of a gib, for bodies that tear apart as
+  // ragdolls instead of as sprite chunks.
+  gibGore(mo, ang, power, blood, hideBody) {
+    const e = this.ext(mo);
+    const cap = GIB_CAPS[this.s.particles ?? 2];
+    const meat = this.img.chunks[blood === 'fire' ? 'red' : blood] || this.img.chunks.red;
+    const extra = Math.round((8 + power) * this.pscale);
+    for (let k = 0; k < extra; k++) {
+      if (this.gibs.length >= cap) this.gibs.shift();
+      const a = ang + (Math.random() - 0.5) * 2.4;
+      const sp = power * (0.3 + Math.random() * 0.9);
+      this.gibs.push(new Gib(mo.x, mo.y, mo.z + 10 + Math.random() * 30, Math.cos(a) * sp, Math.sin(a) * sp, 3 + Math.random() * 7,
+        meat[(Math.random() * meat.length) | 0], blood, { radius: 2, trail: 10 }));
+    }
+    this.spray(mo.x, mo.y, mo.z + 28, ang, 0.6, 30, 6, blood, { cone: 3.5, vcone: 1.2 });
+    this.decals.addFlat(mo.x, mo.y, this.img.splat[blood === 'fire' ? 'red' : blood][(Math.random() * 6) | 0], false, 0.9 + Math.random() * 0.3);
+    this.w.sound({ x: mo.x, y: mo.y, z: mo.z }, 'x_splat', { channel: 'gib', volume: 0.9 });
+    this.w.sound({ x: mo.x, y: mo.y, z: mo.z }, 'x_bone', { channel: 'gib2', volume: 0.6 });
+    e.gibbed = true;
+    if (hideBody) e.hidden = true;
   }
 
   // Tear a mobj into chunks of its current sprite art.
@@ -439,7 +472,7 @@ class Effects {
     mo.momx = (mo.momx - 2 * d * nx) * 0.35;
     mo.momy = (mo.momy - 2 * d * ny) * 0.35;
     const e = this.ext(mo);
-    if (speed > 5 && this.gore >= 2) {
+    if (speed > 5 && this.gore >= 2 && !this.ragdolled(mo)) {
       const blood = this.bloodOf(mo);
       if (blood !== 'fire') {
         const list = this.img.wallSplat[blood];
@@ -495,17 +528,20 @@ class Effects {
       this.explosion(x, y, z, 1, e);
     } else if (t === MT.PLASMA) {
       this.light(x, y, z, 140, 7, 8);
+      if (this.vox) this.vox.blast(x, y, z, 40, 140);
       this.burst(x, y, z, 10, R.plasma, 3, true);
       if (e.hitLine) this.scorchWall(mo, e.hitLine, this.img.plasmaBurn, 0.8);
       else if (e.hitPlane === 'floor') this.decals.addFlat(x, y, this.img.plasmaBurn[0], false, 0.8);
     } else if (t === MT.BFG) {
       this.light(x, y, z, 520, 22, 30);
       this.burst(x, y, z, 70, R.bfg, 6, true);
+      if (this.vox) this.vox.blast(x, y, z, 260, 700);
       this.shakeNear(x, y, 9, 700);
       if (e.hitLine) this.scorchWall(mo, e.hitLine, this.img.scorch, 1.6);
       else if (e.hitPlane === 'floor') this.decals.addFlat(x, y, this.img.scorch[2], false, 1.6);
     } else if (t === MT.TROOPSHOT || t === MT.HEADSHOT) {
       this.light(x, y, z, 120, 6, 10);
+      if (this.vox) this.vox.blast(x, y, z, 48, 160);
       this.burst(x, y, z, 12, t === MT.HEADSHOT ? R.plasma : R.fire, 3, true);
     } else if (t === MT.BRUISERSHOT) {
       this.light(x, y, z, 130, 7, 10);
@@ -545,6 +581,7 @@ class Effects {
     else if (z - sec.floorheight < 40) this.decals.addFlat(x, y, this.img.scorch[(Math.random() * 3) | 0], false, size);
     else if (e.hitPlane === 'ceiling') this.decals.addFlat(x, y, this.img.scorch[0], true, size);
     this.shakeNear(x, y, 6 * size, 520);
+    if (this.vox) this.vox.blast(x, y, z, 200 * size, 460 * size);
     // Blast nearby gibs
     for (const g of this.gibs) {
       const d = Math.hypot(g.x - x, g.y - y);
@@ -767,6 +804,16 @@ class Effects {
     }
   }
 
+  // A player bullet's full path, for hitting ragdolls where they lie.
+  bulletTrace(player, x0, y0, z0, angle, slope, res, damage, opts = {}) {
+    if (!this.vox || !this.vox.ragdolls.size) return;
+    const l = Math.sqrt(1 + slope * slope);
+    const dx = Math.cos(angle) / l, dy = Math.sin(angle) / l, dz = slope / l;
+    let maxDist = 2048;
+    if (res && res.x !== undefined) maxDist = Math.hypot(res.x - x0, res.y - y0, res.z - z0) + 2;
+    this.vox.bulletTrace(x0, y0, z0, dx, dy, dz, maxDist, damage, !!opts.pellet);
+  }
+
   meleeImpact(player, res, saw = false) {
     if (!res) return;
     if (res.kind === 'thing') {
@@ -786,6 +833,8 @@ class Effects {
       corpse.momx += Math.cos(angle) * damage * k * 0.3;
       corpse.momy += Math.sin(angle) * damage * k * 0.3;
     }
+    // Ragdolls take bullets along the actual ray (bulletTrace).
+    if (this.ragdolled(corpse)) { e.corpseDamage = (e.corpseDamage || 0) + damage; return; }
     this.spray(corpse.x, corpse.y, corpse.z + 6, angle, 0.5, 4 + damage * 0.3, 2.5, blood);
     e.corpseDamage = (e.corpseDamage || 0) + damage;
     if (e.corpseDamage > corpse.info.spawnhealth * 0.8 + 40 && this.s.dismemberment !== false && !e.gibbed) {
@@ -808,12 +857,17 @@ class Effects {
     e.airborne = true;
     e.spin = (Math.random() - 0.5) * 0.3;
     e.corpseDamage = (e.corpseDamage || 0) + damage * f;
+    if (this.ragdolled(thing)) return;
     if (this.gore && e.corpseDamage > thing.info.spawnhealth * 0.8 + 40 && !e.gibbed && this.s.dismemberment !== false) {
       this.gibMobj(thing, a, 8, this.bloodOf(thing), true);
     }
   }
 
   crushCorpse(thing) {
+    if (this.vox && this.vox.crushed(thing)) {
+      if (this.gore) this.w.sound(thing, 'x_splat', { channel: 'gib' });
+      return;
+    }
     if (!this.gore) return;
     const blood = this.bloodOf(thing);
     if (blood === 'fire') return;
@@ -829,6 +883,7 @@ class Effects {
   }
 
   resurrect(corpse) {
+    if (this.vox) this.vox.resurrect(corpse);
     if (corpse.ext) {
       const e = corpse.ext;
       e.roll = 0; e.spin = 0; e.airborne = false; e.clipRel = undefined; e.fountain = 0; e.landed = false;
@@ -849,6 +904,7 @@ class Effects {
     if (cap !== this.particles.cap) this.particles.resize(cap);
     this.particles.tick(w, (x0, y0, x1, y1, z) => this.collide(x0, y0, x1, y1, z));
     this.tickGibs();
+    if (this.vox) this.vox.tick();
     for (const L of this.lights) L.life--;
     this.lights = this.lights.filter((L) => L.life > 0);
     const lifetime = (this.s.corpseLifetime || 0) * 35;
@@ -870,14 +926,16 @@ class Effects {
   tickCorpse(mo, e, lifetime) {
     const w = this.w;
     const onGround = mo.z <= mo.floorz + 0.5;
+    // A ragdoll does its own landing, bleeding and pooling.
+    const rag = this.ragdolled(mo);
     if (e.airborne) {
       e.physRoll = (e.physRoll || 0) + (e.spin || 0);
       if (onGround && mo.momz <= 0 && w.leveltime - (e.deathTic || 0) > 2) {
         e.airborne = false;
         e.spin = 0;
         const speed = Math.hypot(mo.momx, mo.momy);
-        w.sound(mo, 'x_body_fall', { channel: 'body', volume: Math.min(1, 0.4 + speed / 10) });
-        if (this.gore && !e.hidden) {
+        if (!rag) w.sound(mo, 'x_body_fall', { channel: 'body', volume: Math.min(1, 0.4 + speed / 10) });
+        if (this.gore && !e.hidden && !rag) {
           const blood = this.bloodOf(mo);
           if (blood !== 'fire') this.spray(mo.x, mo.y, mo.z + 4, Math.atan2(mo.momy, mo.momx), 0.4, 6, 2, blood);
         }
@@ -889,14 +947,14 @@ class Effects {
       if (Math.abs(e.physRoll) < 0.01) e.physRoll = 0;
     }
     // Neck fountain after a head pop.
-    if (e.fountain > 0 && this.gore) {
+    if (e.fountain > 0 && this.gore && !rag) {
       e.fountain--;
       const blood = this.bloodOf(mo);
       const neckZ = mo.z + Math.max(8, (e.clipRel || 40) * (mo.tics === -1 ? 0.2 : 0.9));
       this.spray(mo.x, mo.y, neckZ, Math.random() * TAU, 1.1, 1.5, 2.5, blood, { cone: 1.5, vcone: 0.5, mist: false });
     }
     // Blood pool once the body rests.
-    if (!e.pooled && mo.tics === -1 && onGround && Math.hypot(mo.momx, mo.momy) < 0.5 && this.gore && !e.hidden) {
+    if (!e.pooled && mo.tics === -1 && onGround && Math.hypot(mo.momx, mo.momy) < 0.5 && this.gore && !e.hidden && !rag) {
       e.pooled = true;
       const blood = e.bloodPool || this.bloodOf(mo);
       if (blood !== 'fire' && this.decals) {
@@ -1006,6 +1064,7 @@ class Effects {
 
   render(r, cam, frac) {
     this.lastCam = cam;
+    if (this.vox) this.vox.render(r, cam, frac);
     this.particles.render(r, frac, (x, y) => this.w.pointInSubsector(x, y).sector.lightlevel);
     for (const g of this.gibs) {
       const x = g.px + (g.x - g.px) * frac, y = g.py + (g.y - g.py) * frac, z = g.pz + (g.z - g.pz) * frac;

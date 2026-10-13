@@ -68,6 +68,7 @@ export class ViewRenderer {
     const r = this.r;
     const res = this.res;
     const self = w.player && w.player.mo;
+    const vox = w.fx && w.fx.vox;
     for (const mo of w.mobjs) {
       if (mo === self) continue;
       // Not in any sector's thing list, so never drawn by R_AddSprites
@@ -82,6 +83,8 @@ export class ViewRenderer {
       const x = lerp(mo.px, mo.x, frac);
       const y = lerp(mo.py, mo.y, frac);
       let z = lerp(mo.pz, mo.z, frac);
+      // 3D monsters (and their ragdolls) draw themselves.
+      if (vox && vox.drawMobj(r, mo, x, y, z, cam)) continue;
       let rot = 0;
       if (fr.rotate) {
         const ang = Math.atan2(y - cam.y, x - cam.x);

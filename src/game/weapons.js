@@ -424,7 +424,10 @@ function playerBullet(w, player, damage, spreadDeg, vSpreadDeg, opts = {}) {
     },
     hitCorpses: (corpse, dist, ang) => { if (w.fx) w.fx.shootCorpse(corpse, ang, damage, player); },
   });
-  if (w.fx) w.fx.bulletImpact(player, res, player.readyweapon, opts);
+  if (w.fx) {
+    w.fx.bulletImpact(player, res, player.readyweapon, opts);
+    if (w.fx.bulletTrace) w.fx.bulletTrace(player, mo.x, mo.y, player.shootZ(), normAngle(angle), slope, res, damage, opts);
+  }
   return res;
 }
 

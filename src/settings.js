@@ -95,6 +95,8 @@ export const DEFAULTS = {
   gore: 2,
   dismemberment: true,
   physics: true,
+  voxelMonsters: true,
+  ragdollLimit: 16,
   particles: 2,
   maxDecals: 600,
   corpseLifetime: 0,

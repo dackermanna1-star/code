@@ -106,7 +106,9 @@ export function buildOptionMenus(menu) {
   const effects = page('effects', [
     choice('gore', 'gore', [0, 1, 2], ['off', 'reduced', 'full']),
     toggle('dismemberment', 'dismemberment'),
+    toggle('3d monsters', 'voxelMonsters'),
     toggle('ragdoll physics', 'physics'),
+    choice('active ragdolls', 'ragdollLimit', [4, 8, 16, 32], ['4', '8', '16', '32']),
     choice('particles', 'particles', [0, 1, 2], ['low', 'medium', 'high']),
     choice('decal limit', 'maxDecals', [0, 150, 300, 600, 1200], ['off', '150', '300', '600', '1200']),
     toggle('shell casings', 'shellCasings'),

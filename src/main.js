@@ -13,6 +13,7 @@ import './game/weapons.js';
 import { missingActions } from './game/tables.js';
 import { App } from './app.js';
 import { loadStoredIwad } from './wadstore.js';
+import { VoxelLibrary } from './vox/library.js';
 
 const bootEl = document.getElementById('boot');
 const bootMsg = document.getElementById('boot-msg');
@@ -80,6 +81,8 @@ async function main() {
   const res = new Resources(stack);
   res.init();
   res.prewarmPatches();
+  // 3D monster models are built in the background as levels need them.
+  res.voxels = new VoxelLibrary(res);
   const missing = missingActions();
   if (missing.length) console.warn('Unimplemented actions:', missing);
 

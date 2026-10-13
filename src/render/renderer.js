@@ -10,6 +10,7 @@ import {
 import { compileProgram, createVertexArray, createDataTexture, DynamicBuffer } from './gl.js';
 import { perspective, viewMatrix, multiply } from './math.js';
 import { WorldGeometry } from './worldgeo.js';
+import { VoxelPass } from './voxels.js';
 
 export const SPR_FULLBRIGHT = 1;
 export const SPR_FUZZ = 2;
@@ -57,6 +58,7 @@ export class Renderer {
     this.uiVao = createVertexArray(gl, this.programs.ui, this.uiBatch.buffer, UI_LAYOUT);
     this.lineVao = createVertexArray(gl, this.programs.ui, this.lineBatch.buffer, UI_LAYOUT);
     this.decalVao = createVertexArray(gl, this.programs.world, this.decalBatch.buffer, WORLD_LAYOUT);
+    this.voxels = new VoxelPass(gl);
 
     const quad = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quad);
@@ -225,6 +227,7 @@ export class Renderer {
     this.uiBatch.reset();
     this.lineBatch.reset();
     this.decalBatch.reset();
+    this.voxels.reset();
     this.lights.length = 0;
   }
 
@@ -366,9 +369,10 @@ export class Renderer {
       gl.disable(gl.POLYGON_OFFSET_FILL);
     }
 
-    // Sprites & particles
+    // Sprites & particles (and voxel models, which the same callback adds)
     gl.disable(gl.CULL_FACE);
     if (scene.sprites) scene.sprites(this);
+    this.voxels.draw(this, false, extralight, fixed);
     const spp = this.programs.sprite;
     if (this.spriteBatch.count) {
       this.spriteBatch.upload();
@@ -393,6 +397,7 @@ export class Renderer {
       gl.drawArrays(gl.TRIANGLES, 0, this.fuzzBatch.count);
       gl.depthMask(true);
     }
+    this.voxels.draw(this, true, extralight, fixed);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.SCISSOR_TEST);
     gl.viewport(0, 0, this.W, this.H);

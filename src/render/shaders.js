@@ -425,3 +425,145 @@ void main() {
   o_color = vec4(c, 1.0);
 }
 `;
+
+// --- Voxel models (3D monsters and ragdoll parts) ---------------------------
+// One instanced box per model part. The fragment shader marches the ray
+// through the part's voxels (Amanatides-Woo DDA) in an RG8 3D texture
+// (R = palette index, G = part label), writes the true depth of the voxel
+// face it hits and lights it with COLORMAP like everything else.
+// Per instance: a 3x4 matrix from voxel coordinates to world (rows m0..m2),
+// lo.xyz/label, hi.xyz/light, misc = flags, severed-label mask, alpha,
+// blood colour.
+export const VOX_INSTANCE = [['i_m0', 4], ['i_m1', 4], ['i_m2', 4], ['i_lo', 4], ['i_hi', 4], ['i_misc', 4]];
+export const VOX_FLOATS = 24;
+
+export const VOX_VS = HEADER + `
+in vec3 a_corner;
+in vec4 i_m0;
+in vec4 i_m1;
+in vec4 i_m2;
+in vec4 i_lo;
+in vec4 i_hi;
+in vec4 i_misc;
+uniform mat4 u_view;
+uniform mat4 u_proj;
+uniform vec3 u_cam;
+out vec3 v_vox;
+flat out vec3 v_camVox;
+flat out vec4 v_m0;
+flat out vec4 v_m1;
+flat out vec4 v_m2;
+flat out vec4 v_lo;
+flat out vec4 v_hi;
+flat out vec4 v_misc;
+void main() {
+  vec3 p = mix(i_lo.xyz, i_hi.xyz, a_corner);
+  vec4 hp = vec4(p, 1.0);
+  vec3 w = vec3(dot(i_m0, hp), dot(i_m1, hp), dot(i_m2, hp));
+  // The matrix is a scaled rotation: its inverse is the transpose / s^2.
+  vec3 d = u_cam - vec3(i_m0.w, i_m1.w, i_m2.w);
+  float s2 = dot(i_m0.xyz, i_m0.xyz);
+  v_camVox = (i_m0.xyz * d.x + i_m1.xyz * d.y + i_m2.xyz * d.z) / s2;
+  v_vox = p;
+  v_m0 = i_m0; v_m1 = i_m1; v_m2 = i_m2;
+  v_lo = i_lo; v_hi = i_hi; v_misc = i_misc;
+  gl_Position = u_proj * u_view * vec4(w.x, w.z, -w.y, 1.0);
+}
+`;
+
+export const VOX_FS = HEADER + `precision highp sampler3D;
+` + COMMON + `
+in vec3 v_vox;
+flat in vec3 v_camVox;
+flat in vec4 v_m0;
+flat in vec4 v_m1;
+flat in vec4 v_m2;
+flat in vec4 v_lo;
+flat in vec4 v_hi;
+flat in vec4 v_misc;
+uniform highp sampler3D u_vox;
+uniform sampler2D u_scene;
+uniform mat4 u_view;
+uniform mat4 u_proj;
+uniform float u_fuzzPhase;
+uniform float u_pixelScale;
+out vec4 o_color;
+bool bit(float flags, float b) { return mod(floor(flags / b), 2.0) >= 1.0; }
+float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+void main() {
+  float alpha = v_misc.z;
+  if (alpha < 1.0 && alpha < bayer4(gl_FragCoord.xy)) discard;
+  vec3 ro = v_camVox;
+  vec3 rd = normalize(v_vox - ro);
+  rd = mix(rd, vec3(1e-6), vec3(lessThan(abs(rd), vec3(1e-6))));
+  vec3 inv = 1.0 / rd;
+  vec3 lo = v_lo.xyz, hi = v_hi.xyz;
+  vec3 t0 = (lo - ro) * inv, t1 = (hi - ro) * inv;
+  vec3 tmn = min(t0, t1), tmx = max(t0, t1);
+  float tn = max(max(tmn.x, tmn.y), tmn.z);
+  float tf = min(min(tmx.x, tmx.y), tmx.z);
+  float t = max(tn, 0.0);
+  if (t >= tf) discard;
+  ivec3 ilo = ivec3(lo + 0.5), ihi = ivec3(hi + 0.5) - 1;
+  ivec3 cell = clamp(ivec3(floor(ro + rd * (t + 1e-3))), ilo, ihi);
+  ivec3 stp = ivec3(sign(rd));
+  vec3 tDelta = abs(inv);
+  vec3 tMax = (vec3(cell) + max(vec3(stp), vec3(0.0)) - ro) * inv;
+  int axis = tmn.x >= tmn.y && tmn.x >= tmn.z ? 0 : (tmn.y >= tmn.z ? 1 : 2);
+  int want = int(v_lo.w + 0.5);
+  int prev = -1;
+  bool found = false;
+  vec2 hit = vec2(0.0);
+  for (int i = 0; i < 640; i++) {
+    vec2 v = texelFetch(u_vox, cell, 0).rg;
+    int lab = int(v.g * 255.0 + 0.5);
+    if (lab != 0 && (want == 0 || lab == want)) { hit = v; found = true; break; }
+    prev = lab;
+    if (tMax.x < tMax.y && tMax.x < tMax.z) { t = tMax.x; tMax.x += tDelta.x; cell.x += stp.x; axis = 0; }
+    else if (tMax.y < tMax.z) { t = tMax.y; tMax.y += tDelta.y; cell.y += stp.y; axis = 1; }
+    else { t = tMax.z; tMax.z += tDelta.z; cell.z += stp.z; axis = 2; }
+    if (t > tf || any(lessThan(cell, ilo)) || any(greaterThan(cell, ihi))) break;
+  }
+  if (!found) discard;
+  float flags = v_misc.x;
+  vec3 n = vec3(0.0);
+  if (axis == 0) n.x = -float(stp.x); else if (axis == 1) n.y = -float(stp.y); else n.z = -float(stp.z);
+  vec3 pv = ro + rd * t;
+  vec4 hp = vec4(pv, 1.0);
+  vec3 pw = vec3(dot(v_m0, hp), dot(v_m1, hp), dot(v_m2, hp));
+  vec4 viewPos = u_view * vec4(pw.x, pw.z, -pw.y, 1.0);
+  vec4 clip = u_proj * viewPos;
+  gl_FragDepth = clamp((clip.z / clip.w) * 0.5 + 0.5, 0.0, 1.0);
+  if (bit(flags, 2.0)) {
+    // Spectre fuzz: darkened, jittered copy of what's behind.
+    float row = floor(gl_FragCoord.y / u_pixelScale);
+    float off = hash(vec2(floor(gl_FragCoord.x / u_pixelScale), row + u_fuzzPhase)) > 0.5 ? 1.0 : -1.0;
+    ivec2 sp = ivec2(gl_FragCoord.xy + vec2(0.0, off * u_pixelScale));
+    float base = floor(texelFetch(u_scene, sp, 0).r * 255.0 + 0.5);
+    o_color = vec4(shade(base, 6.0), 0.0, 0.0, 1.0);
+    return;
+  }
+  float idx = floor(hit.r * 255.0 + 0.5);
+  // Torn faces: next to a severed part, or (for chunks) a cut through the box.
+  bool torn = false;
+  if (prev > 0 && prev != want) {
+    int mask = int(v_misc.y + 0.5);
+    torn = ((mask >> (prev - 1)) & 1) == 1;
+  } else if (prev < 0 && bit(flags, 4.0) && tn > 0.0) {
+    ivec3 outside = cell;
+    if (axis == 0) outside.x -= stp.x; else if (axis == 1) outside.y -= stp.y; else outside.z -= stp.z;
+    torn = texelFetch(u_vox, outside, 0).g > 0.0;
+  }
+  if (torn) {
+    float hsh = hash(vec2(float(cell.x * 7 + cell.z), float(cell.y * 13 - cell.z)));
+    idx = v_misc.w + floor(hsh * 4.0);
+  }
+  // Faces lit like DOOM walls: a step brighter facing up or east-west,
+  // darker facing down or north-south.
+  vec3 nw = vec3(dot(v_m0.xyz, n), dot(v_m1.xyz, n), dot(v_m2.xyz, n));
+  nw /= max(length(nw), 1e-6);
+  float contrast = nw.z > 0.6 ? 1.0 : (nw.z < -0.6 ? -1.0 : (abs(nw.x) > abs(nw.y) ? 0.5 : -0.5));
+  float level = lightLevel(v_hi.w, -viewPos.z, contrast, false, pw, bit(flags, 1.0));
+  o_color = vec4(shade(idx, level), 0.0, 0.0, 1.0);
+}
+`;
