@@ -27,7 +27,7 @@ import random
 from PIL import Image, ImageDraw, ImageFilter
 
 import scenes.common as C
-from engine import Cam, kf, clamp, EASE, lerp, mix_color, shade, PAL, FPS, OUT_W, OUT_H
+from engine import Cam, kf, pulse, clamp, EASE, lerp, mix_color, shade, PAL, FPS, OUT_W, OUT_H
 import env
 import fx
 import inserts
@@ -158,7 +158,7 @@ def place(st, pose, facing, getter, target, scale=1.0):
     return target[0] - ex, target[1] - ey
 
 
-def face_pt(J, up=0.15, st=GOJO, fwd_k=1.04):
+def face_pt(J, up=0.15, st=GOJO, fwd_k=1.18):
     """Front of Gojo's blindfold (the point every head strike stalls at)."""
     hx, hy = J["head"]
     r = st.head_r * J["scale"]
@@ -186,8 +186,18 @@ GSOLE = 6.2      # Gojo's soles: the mast arm's top, then the same height on emp
 GX = -6.0
 
 
-def gojo(fr, pose, facing=1, x=GX, sole=GSOLE, view="side", depth=1.0, **kw):
-    return draw_fighter(fr, GOJO, pose, x, None, facing, view=view, opts=gopts(fr, **kw), ground=sole,
+HALO = (120, 150, 196)
+
+
+def gojo(fr, pose, facing=1, x=GX, sole=GSOLE, view="side", depth=1.0, halo=0.0, scale=1.0, **kw):
+    """Gojo with his feet on `sole`. halo (px) draws a cool rim silhouette
+    behind him so the black uniform reads against the dark facades in wides."""
+    if halo > 0:
+        o = halo / fr.cam.zoom * depth
+        for dx, dy in ((o, 0), (-o, 0), (0, o), (0, -o), (o * 0.7, o * 0.7), (-o * 0.7, o * 0.7)):
+            draw_fighter(fr, GOJO, pose, x + dx, None, facing, view=view, scale=scale, opts=gopts(fr, **kw),
+                         ground=sole + dy, depth=depth, silhouette=HALO)
+    return draw_fighter(fr, GOJO, pose, x, None, facing, view=view, scale=scale, opts=gopts(fr, **kw), ground=sole,
                         depth=depth)
 
 
@@ -206,19 +216,19 @@ G_FRONT = P("front_pockets", ua_f=9, fa_f=4, hand_f="open")               # mid-
 G_FRONT_P = P("front_pockets")
 
 # ---- Thragg poses (facing WEST unless noted: near = LEFT side) -------------
-T_STALL_R = swap_arms(P("t_punch", lean=22, neck=-2, th_n=14, sh_n=-12, th_f=-22, sh_f=-40))
+# airborne: knees bent and feet trailing, so a Viltrumite hover never reads as standing on the arm
+LEGS_AIR = dict(th_n=22, sh_n=-62, th_f=-4, sh_f=-86)
+T_STALL_R = swap_arms(P("t_punch", lean=22, neck=-2, **LEGS_AIR))
 T_STALL_R_C = P(T_STALL_R, lean=27, ua_f=99, fa_f=86)                     # compressed behind the fist
 T_FLY = swap_arms(P("t_fly_punch", lean=36, neck=-20, ua_n=144, fa_n=144, ua_f=-40, fa_f=10,
                     th_n=-30, sh_n=-44, th_f=-40, sh_f=-58))
-T_GUARD = P("t_guard", th_n=14, sh_n=-12, th_f=-22, sh_f=-40)
-T_HOOK_WIND = P("t_hook_wind", lean=-8, neck=4, ua_n=-26, fa_n=96, ua_f=40, fa_f=128,
-                th_n=10, sh_n=-16, th_f=-26, sh_f=-44)
-T_HOOK = P("t_hook", lean=18, neck=0, ua_n=96, fa_n=124, ua_f=36, fa_f=124, th_n=18, sh_n=-10,
-           th_f=-28, sh_f=-44, hand_n="fist")
-T_HOOK_C = P(T_HOOK, lean=22, ua_n=104, fa_n=138)
+T_GUARD = P("t_guard", **LEGS_AIR)
+T_HOOK_WIND = P("t_hook_wind", lean=-8, neck=4, ua_n=-26, fa_n=96, ua_f=40, fa_f=128, **LEGS_AIR)
+T_HOOK = P("t_hook", lean=16, neck=2, ua_n=80, fa_n=128, ua_f=34, fa_f=126, hand_n="fist", **LEGS_AIR)
+T_HOOK_C = P(T_HOOK, lean=21, ua_n=88, fa_n=140)
 T_KNEE_WIND = swap_legs(P("t_knee", lean=10, neck=6, ua_n=50, fa_n=110, ua_f=30, fa_f=100,
                           th_n=-30, sh_n=-70, th_f=20, sh_f=-20))
-T_KNEE = swap_legs(P("t_knee", lean=-4, neck=8, ua_n=56, fa_n=120, ua_f=36, fa_f=110,
+T_KNEE = swap_legs(P("t_knee", lean=-4, neck=8, ua_n=18, fa_n=150, ua_f=4, fa_f=140,
                      th_n=106, sh_n=-4, th_f=-10, sh_f=-30))
 T_KNEE_C = P(T_KNEE, lean=4, neck=10)
 
@@ -272,6 +282,22 @@ def shards(fr, pts, t, salt, size=0.03, d=None, col=(96, 92, 96)):
         fr.poly(poly, shade(col, rng.uniform(0.6, 1.5)), d=d)
 
 
+RIPPLE = 0.3       # s: fx.impact('blocked') fades its rings toward BLACK, so stop drawing them before that reads
+
+
+def inf_stop(fr, J, gojo_xy, t_since, side="n", r=0.85, gap=0.05):
+    """C.infinity_stop, except that after RIPPLE seconds the compressed-air
+    ripple is dropped (its fade goes dark) and only the refraction and the
+    hanging grit remain - drawn exactly as infinity_stop draws them."""
+    if t_since < RIPPLE:
+        C.infinity_stop(fr, J, gojo_xy, t_since, side=side, r=r, gap=gap)
+        return
+    hx, hy = rig.hand_pos(J, side)
+    fx.infinity(fr, gojo_xy[0], gojo_xy[1], r=r, strength=1.0, t=fr.t)
+    x0, x1 = sorted((hx, gojo_xy[0]))
+    fx.suspended_dust(fr, x0 + gap, hy - 0.12, x1 - gap, hy + 0.12, n=46, t=fr.t, salt=f"inf{side}")
+
+
 def stall_cues(fr, gojo_pt, lead_pt, t_since, salt, r=0.7, dirx=None, gap_cloud=0.22, n_dust=30,
                strength=1.0, d=None):
     """Infinity cues for a blow (knee, heel, slab...) without a hand to hand
@@ -282,7 +308,8 @@ def stall_cues(fr, gojo_pt, lead_pt, t_since, salt, r=0.7, dirx=None, gap_cloud=
     fx.infinity(fr, gojo_pt[0], gojo_pt[1], r=r, strength=(0.4 + 0.6 * k) * strength, t=fr.t, d=d)
     if dirx is None:
         dirx = 1 if gojo_pt[0] > lead_pt[0] else -1
-    fx.impact(fr, lead_pt[0], lead_pt[1], t_since, kind="blocked", dirx=dirx, d=d)
+    if t_since < RIPPLE:
+        fx.impact(fr, lead_pt[0], lead_pt[1], t_since, kind="blocked", dirx=dirx, d=d)
     x0, x1 = sorted((gojo_pt[0], lead_pt[0]))
     fx.suspended_dust(fr, x0 + 0.004, min(gojo_pt[1], lead_pt[1]) - gap_cloud * 0.5,
                       max(x1, x0 + 0.02), max(gojo_pt[1], lead_pt[1]) + gap_cloud * 0.5,
@@ -351,7 +378,7 @@ def windows_blown(fr, x0, x1, salt, origin, reveal=1.0, lit=1.0, max_floor=7):
         return
     span = max(abs(x0 - origin), abs(x1 - origin)) + 12
     hole = shade((12, 12, 18), lit)
-    edge = shade(PAL["glass"], lit * 0.7)
+    edge = shade(PAL["glass"], lit * 0.42)
     for b in env._buildings(3):
         if b["x1"] < x0 or b["x0"] > x1:
             continue
@@ -370,11 +397,13 @@ def windows_blown(fr, x0, x1, salt, origin, reveal=1.0, lit=1.0, max_floor=7):
                     continue
                 wy = k * 4.2
                 fr.rect(wx + 0.35, wy + 0.65, wx + cw - 0.35, wy + 3.55, hole, d=depth)
-                # jagged teeth of glass left in the frame
-                for j in range(3):
-                    gx = wx + 0.35 + (cw - 0.7) * (j + rng.random()) / 3
-                    fr.poly([(gx - 0.25, wy + 0.65), (gx + 0.25, wy + 0.65), (gx, wy + 0.65 + rng.uniform(0.4, 1.1))],
-                            edge, d=depth)
+                # a jagged tooth of glass left in the frame
+                if rng.random() < 0.6:
+                    gx = wx + 0.5 + (cw - 1.0) * rng.random()
+                    top = rng.random() < 0.5
+                    y0 = wy + (3.55 if top else 0.65)
+                    fr.poly([(gx - 0.2, y0), (gx + 0.2, y0), (gx + rng.uniform(-0.1, 0.1),
+                             y0 + (-1 if top else 1) * rng.uniform(0.3, 0.8))], edge, d=depth)
 
 
 def lamp_post(fr, x, d, s, lit=1.0):
@@ -499,7 +528,8 @@ def draw_slab(fr, cx, cy, ang, lit=1.0, L=3.0, th=0.55, d=None, top_side=1):
     fr.line([(mx - ux * 0.5, my - uy * 0.5), (mx + ux * 0.5, my + uy * 0.5)], shade(PAL["street_line"], lit),
             width_m=0.07, d=d)
     # body: road base (concrete) with the asphalt skin on the top side
-    fr.poly(base, shade(PAL["concrete"], lit * 0.8), d=d)
+    fr.poly(base, shade(PAL["concrete"], lit * 1.08), d=d)
+    fr.line([base[0], base[1], base[2], base[3], base[0]], shade(PAL["concrete"], lit * 1.45), width_m=0.04, d=d)
     skin = slab_poly(cx + nx * th * 0.36, cy + ny * th * 0.36, ang, L, th * 0.28)
     fr.poly(skin, shade(PAL["street"], lit * 0.9), d=d)
     rng = random.Random("slabtex")
@@ -537,65 +567,126 @@ def aftermath(fr, lit=1.0, skip=()):
             lamp_post(fr, x, d, since(fr, "S2-14", f0), lit)
 
 
-def street(fr, extra=(), lit=1.0, gantry=True, skip=()):
+def _seq1():
+    """Seq 1's module, for its north-side storefront row (continuity across
+    the S1-10 / S2-01 cut). Guarded: if it is missing or broken, seq 2 simply
+    renders without the row."""
+    try:
+        import scenes.seq1 as S1
+        return S1 if hasattr(S1, "storefronts") else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def storefront_row(fr, lit=1.0):
+    S1 = _seq1()
+    if S1 is None:
+        return
+    try:
+        S1.storefronts(fr, "burst", 0.0, lit)
+        # S2-01's side lobes blow out the panes Seq 1 left intact around the west corner
+        d = S1.STORE_D
+        for i, (x0, x1) in enumerate(S1.STORES):
+            cx = 0.5 * (x0 + x1)
+            if S1.pane_burst_f(cx) is not None or not (-30.0 < cx < 4.0):
+                continue
+            if since(fr, "S2-01", 6 + 0.25 * abs(cx + 6.0)) < 0:
+                continue
+            fr.rect(x0, 0.4, x1, 3.4, shade((17, 17, 23), lit), d=d)
+            fr.rect(x0 + 0.3, 0.4, x1 - 0.3, 1.0, shade((25, 25, 31), lit), d=d)
+            rng = random.Random(f"s2pane{i}")
+            g = shade((62, 72, 88), lit * 1.2)
+            for k in range(rng.randint(2, 3)):
+                xa = rng.uniform(x0, x1 - 0.4)
+                w = rng.uniform(0.2, 0.6)
+                fr.poly([(xa, 3.4), (xa + w, 3.4), (xa + w * rng.uniform(0.2, 0.8), 3.4 - rng.uniform(0.3, 1.1))], g, d=d)
+            for k in range(6):
+                gx = rng.uniform(x0, x1)
+                fr.rect(gx, 0.26, gx + 0.14, 0.33, shade(PAL["glass"], rng.uniform(0.55, 0.95)), d=d)
+    except Exception:  # noqa: BLE001
+        return
+
+
+def street(fr, extra=(), lit=1.0, gantry=True, skip=(), blur=0.0):
+    """C.stage(fr, 2, 'street') - same layers, same order - with the north
+    storefront row slotted between skyline and street, the persistent seq-2
+    damage on top, and an optional depth-of-field blur for tight shots."""
     flags = set(extra)
     if since(fr, "S2-06", 29) >= 0:
         flags.add("mast_sheared")
-    st = C.stage(fr, SEQ, "street", extra=tuple(flags), lit=lit, gantry_on=gantry)
-    aftermath(fr, lit, skip)
+    st = C.state(SEQ, *flags)
+    tg = C.tg(fr)
+    env.sky(fr, lit)
+    env.clouds(fr, tg, lit=lit)
+    env.river(fr, lit)
+    env.skyline(fr, st, layers=(0, 1, 2, 3), lit=lit)
+    env.smoke_columns(fr, tg, st, lit)
+    env.light_shafts(fr, st)
+    if "win_west" not in skip:
+        windows_blown(fr, -40.0, 2.0, "wwest", origin=-6.0, reveal=clamp(since(fr, "S2-01", 6) / (8 / FPS)), lit=lit)
+    if "win_east" not in skip:
+        windows_blown(fr, 5.0, 44.0, "weast", origin=-6.0, reveal=clamp(since(fr, "S2-14", 4) / (10 / FPS)), lit=lit)
+    storefront_row(fr, lit)
+    env.street(fr, st, lit, show_gantry=gantry)
+    aftermath(fr, lit, tuple(skip) + ("win_west", "win_east"))
+    if blur > 0:
+        fr.img = fr.img.filter(ImageFilter.GaussianBlur(blur * fr.ss))
+        fr.draw = ImageDraw.Draw(fr.img)
     return st
 
 
 def lookup_bg(fr, steep=0.6, lit=1.0, west_blown=True):
     """Worm's-eye backdrop for the cameras on the asphalt tilted up (S2-05,
-    S2-09): storm sky with the deck overhead, facades converging upward at
-    both frame edges (the west corner's windows blown), the mast pole."""
-    env.sky(fr, light=0.92 * lit)
+    S2-09): storm sky with the deck overhead, and the corner facades rising
+    from both frame edges and converging on a vanishing point above frame
+    (the west corner's windows blown). The engine camera cannot tilt, so the
+    facades are drawn in screen space; the mast is drawn in world space."""
+    env.sky(fr, light=0.9 * lit)
     tg = C.tg(fr)
-    # storm deck masses overhead (screen space, drifting with global time)
     img, dr = fr.layer()
     rng = random.Random("deck")
-    for i in range(16):
+    for i in range(18):
         u = (rng.uniform(-0.2, 1.2) - tg * 0.004 * (1 + i % 3)) % 1.4 - 0.2
-        v = rng.uniform(-0.12, 0.42) * (0.6 + 0.6 * steep)
+        v = rng.uniform(-0.12, 0.45) * (0.6 + 0.6 * steep)
         w, h = rng.uniform(0.22, 0.45), rng.uniform(0.06, 0.14)
         c = mix_color(PAL["cloud"], PAL["cloud_lit"], clamp(0.75 - u) * 0.8)
-        dr.ellipse([(u - w) * fr.W, (v - h) * fr.H, (u + w) * fr.W, (v + h) * fr.H], fill=shade(c, lit) + (210,))
+        dr.ellipse([(u - w) * fr.W, (v - h) * fr.H, (u + w) * fr.W, (v + h) * fr.H], fill=shade(c, lit) + (205,))
     fr.merge(img)
-    vpu, vpv = 0.5, -0.9 - 1.6 * (1 - steep)
+    vp = (0.5, -0.35 - 0.9 * (1 - steep))
+
+    def f(h):                                  # equal floors shrink toward the vanishing point
+        return 1 - 1 / (1 + h * 1.15)
+
     for side in (-1, 1):
-        x_in = 0.5 + side * (0.36 - 0.1 * steep)
-        x_out = 0.0 if side < 0 else 1.0
-        # inner edge from (x_in, 1.1) toward the vanishing point, cut at v = -0.05
-        def edge(v, xb):
-            return xb + (vpu - xb) * (1.1 - v) / (1.1 - vpv)
-        top_in, top_out = edge(-0.05, x_in), edge(-0.05, x_out - side * 0.25)
-        col = shade(PAL["bldg_near"], lit * (1.15 if side < 0 else 1.0))
-        poly = [(x_out - side * 0.25, 1.1), (x_in, 1.1), (top_in, -0.05), (top_out, -0.05)]
-        fr.s_poly(poly, col)
-        fr.s_line([(x_in, 1.1), (top_in, -0.05)], shade(mix_color(col, PAL["rim_warm"], 0.4), lit), width=3)
-        # floor bands + windows (perspective: spacing shrinks upward)
+        b_in = (0.5 + side * (0.31 - 0.07 * steep), 1.06)
+        b_out = (0.5 + side * 1.4, 1.06)
+        roof = 2.2 if side < 0 else 2.6
+
+        def Pt(sx, h):
+            bx, by = lerp(b_out[0], b_in[0], sx), lerp(b_out[1], b_in[1], sx)
+            k = f(h)
+            return (bx + (vp[0] - bx) * k, by + (vp[1] - by) * k)
+        col = shade(mix_color(PAL["bldg_near"], (84, 76, 88) if side < 0 else (66, 66, 80), 0.42), lit)
+        fr.s_poly([Pt(0, 0), Pt(1, 0), Pt(1, roof), Pt(0, roof)], col)
+        fr.s_line([Pt(1, 0), Pt(1, roof)], shade(mix_color(col, PAL["rim_warm"], 0.45 if side < 0 else 0.2), lit),
+                  width=3)
+        fr.s_line([Pt(0, roof), Pt(1, roof)], shade(col, 1.3), width=2)
         rngw = random.Random(f"look{side}")
-        v = 1.1
-        step = 0.13
-        while v > 0.0:
-            vb = v - step * 0.62
-            a_in, b_in = edge(v, x_in), edge(vb, x_in)
-            a_out, b_out = edge(v, x_out - side * 0.25), edge(vb, x_out - side * 0.25)
-            ncol = 4
-            for c in range(ncol):
-                f0, f1 = (c + 0.18) / ncol, (c + 0.82) / ncol
-                q = [(a_in + (a_out - a_in) * f0, v - step * 0.12), (a_in + (a_out - a_in) * f1, v - step * 0.12),
-                     (b_in + (b_out - b_in) * f1, vb), (b_in + (b_out - b_in) * f0, vb)]
+        dh, ncol = 0.16, 9
+        for i in range(int(roof / dh)):
+            h0, h1 = i * dh + 0.035, (i + 1) * dh - 0.02
+            for j in range(ncol):
+                s0, s1 = j / ncol + 0.018, (j + 1) / ncol - 0.018
+                if s1 < 0.45:
+                    continue                    # off-frame part of the facade
+                q = [Pt(s0, h0), Pt(s1, h0), Pt(s1, h1), Pt(s0, h1)]
                 r = rngw.random()
-                if side < 0 and west_blown and r < 0.55:
-                    fr.s_poly(q, (10, 10, 16))
-                elif r < 0.2:
-                    fr.s_poly(q, shade(mix_color(PAL["window_lit"], col, 0.35), lit))
+                if side < 0 and west_blown and i < 7 and r < 0.6:
+                    fr.s_poly(q, (9, 9, 14))
+                elif r < 0.12:
+                    fr.s_poly(q, shade(mix_color(PAL["window_lit"], col, 0.45), lit))
                 else:
-                    fr.s_poly(q, shade(col, 1.35))
-            v = vb - step * 0.2
-            step *= 0.86
+                    fr.s_poly(q, shade(mix_color(col, (24, 30, 44), 0.55), lit))
 
 
 # =============================================================================
@@ -616,8 +707,17 @@ def s2_01(fr):
         fr.blur_dir = (-22 * k, 30 * k)
     street(fr)
 
+    # the shock's side lobes flow AROUND him and blow out the windows behind, in a staggered ring
+    t0 = t_glass - T(fr, 2)
+    for k, (x0, x1, df) in enumerate([(-9.0, -3.5, 0), (-3.5, 0.5, 1), (-15.0, -9.0, 2), (0.5, 4.0, 3),
+                                      (-21.0, -15.0, 4)]):
+        fx.glass_shatter(fr, x0, 4.5, x1, 16.0, t - t0 - T(fr, df * 1.6), n=22, outward=-1 if x1 < -6 else 1,
+                         salt=f"g201{k}", d=2.8)
+        fx.glass_shatter(fr, x0, 0.6, x1, 3.3, t - t0 - T(fr, df * 1.6), n=12, outward=-1 if x1 < -6 else 1,
+                         salt=f"g201s{k}", d=2.4)
+
     # Gojo: a held cel. Nothing moves, not even his hair.
-    G = gojo(fr, G_POCKETS)
+    G = gojo(fr, G_POCKETS, halo=1.5)
     F = face_pt(G)
 
     # Thragg's knuckles: launch line from the crater to arm's length, then the stall
@@ -641,6 +741,10 @@ def s2_01(fr):
     if t < T(fr, 3):
         fx.trail(fr, [(lerp(0.3, px, k / 7), lerp(0.6, py + 0.2, k / 7)) for k in range(8)], width_m=1.1, alpha=120)
         fx.speed_lines(fr, 0.9 * (1 - clamp((t - t_arm) / (1 / FPS))), direction=(-0.6, -0.8), salt="s201")
+    if t > t_stall:
+        # the air shoved ahead of the fist spills around him and on to the facades behind
+        fx.dust_cloud(fr, F[0] - 1.8, F[1] - 0.9, t - t_stall, r=1.3, n=10, ground=False, rise=0.2, alpha=55,
+                      salt="lobe")
     J = thragg(fr, pose, px, py, -1, cape_wind=wind)
     if t < T(fr, 3):
         cx, cy = J["chest"]
@@ -663,17 +767,7 @@ def s2_01(fr):
     shards(fr, pts, t, "s201sh", size=0.05)
 
     if t >= t_stall - 1 / FPS:
-        C.infinity_stop(fr, J, F, t - t_stall, side="f", r=0.75, gap=0.0)
-
-    # the shock's side lobes flow AROUND him and blow out the windows behind, in a staggered ring
-    t0 = t_glass - T(fr, 2)
-    for k, (x0, x1, df) in enumerate([(-9.0, -3.5, 0), (-3.5, 0.5, 1), (-15.0, -9.0, 2), (0.5, 4.0, 3),
-                                      (-21.0, -15.0, 4)]):
-        fx.glass_shatter(fr, x0, 4.5, x1, 16.0, t - t0 - T(fr, df * 1.6), n=26, outward=-1 if x1 < -6 else 1,
-                         salt=f"g201{k}", d=2.8)
-    if t > t_stall:
-        fx.dust_cloud(fr, F[0] - 1.6, F[1] - 0.6, t - t_stall, r=1.2, n=10, ground=False, rise=0.2, alpha=60,
-                      salt="lobe")
+        inf_stop(fr, J, F, t - t_stall, side="f", r=0.75, gap=0.0)
 
 
 # =============================================================================
@@ -774,59 +868,64 @@ def _depth_arm(fr, sh_px, fist_xy, w_sh, flex=0.0, sleeve=None):
 
 def s2_03(fr):
     t, dur = fr.t, fr.dur
-    zoom = kf(t, [(0, 260.0), (dur, 290.0)], "linear")
-    fr.cam = Cam(-5.25, 7.72, zoom)
-    street(fr)
+    zoom = kf(t, [(0, 260.0), (dur, 290.0)], "linear")       # very slow push-in
+    fr.cam = Cam(-5.05, 7.72, zoom)
+    street(fr, blur=2.2)
 
-    # ---- Gojo acting, on 2s
+    # ---- Gojo acting, on 2s: incline at the knuckles, chin up to Thragg's eyes, the pinch, the line
     t2 = on2(fr)
     neck = kf(t2, [(0, -4), (T(fr, 16), 7, "inout"), (T(fr, 18), 7), (T(fr, 32), -13, "inout")])
     hand = kf(t2, [(T(fr, 28), 0.0), (T(fr, 36), 1.0, "inout"), (T(fr, 72), 1.0), (T(fr, 84), 0.0, "inout")])
-    pose = rig.blend(P(G_POCKETS, neck=neck), P(G_PINCH, neck=neck), hand)
-    if hand > 0.5 and t2 > T(fr, 72):
-        pose = rig.blend(P(G_LOOSE, neck=neck), P(G_PINCH, neck=neck), hand)
+    rest = G_LOOSE if t2 > T(fr, 72) else G_POCKETS
+    pose = rig.blend(P(rest, neck=neck), P(G_PINCH, neck=neck), hand)
     G = gojo(fr, pose)
     F = face_pt(G)
     # dialogue: "That's close. ... For you." (mouth on 2s, half-beat pause after 'close')
     dl = (fr.shot.get("dialogue") or [{}])[0]
-    a0 = dl.get("at_frame", 36) / FPS
-    fl = (fr.f - fr.f % 2)
-    words = [(0, 7), (8, 15), (22, 30), (31, 38)]      # frames after at_frame
+    a0 = dl.get("at_frame", 36)
+    fl = fr.f - fr.f % 2
     mouth = 0.0
-    for w0, w1 in words:
-        if w0 <= fl - a0 * FPS < w1:
+    for w0, w1 in ((0, 7), (8, 15), (22, 30), (31, 38)):          # frames after at_frame
+        if w0 <= fl - a0 < w1:
             mouth = 0.6 + 0.4 * ((fl // 2) % 2)
     gojo_mouth(fr, G, mouth)
     if hand > 0.35:
-        # the pinch: thumb and forefinger almost shut, a 1 cm gap beside the fist
+        # the pinch: thumb and forefinger almost shut - a 1 cm gap - held up beside the fist
         wx, wy = rig.hand_pos(G, "n", 0.07)
         gap = 0.012 + 0.03 * (1 - clamp((hand - 0.35) / 0.65))
         fr.line([(wx, wy), (wx + 0.035, wy + 0.075)], GOJO.skin, width_m=0.018)
-        fr.line([(wx + 0.01, wy - 0.01), (wx + 0.05, wy + 0.075 - gap - 0.012)], shade(GOJO.skin, 0.9), width_m=0.018)
+        fr.line([(wx + 0.01, wy - 0.01), (wx + 0.05, wy + 0.075 - gap - 0.012)], shade(GOJO.skin, 0.9),
+                width_m=0.018)
 
-    # ---- the stalled right fist, locked where S2-02 left it, and its sleeve
+    # ---- the stalled right fist, locked exactly where S2-02 left it, shards still hanging
     fist = (F[0] + 0.01 + THRAGG.fist, F[1] - 0.005)
     flex = pulse(t, T(fr, 60), T(fr, 3), T(fr, 6))
-    # foreground Thragg: big, soft, screen-right; only his eyes (head) and fingers move
-    dF = 0.5
-    z0 = 260.0
-    c0 = Cam(-5.25, 7.72, z0)
-    hx = c0.x + (0.865 * OUT_W - OUT_W / 2) * dF / z0
-    hy = c0.y - (0.30 * OUT_H - OUT_H / 2) * dF / z0
-    tneck = kf(t, [(T(fr, 44), 0), (T(fr, 50), 12, "out"), (T(fr, 62), 12), (T(fr, 70), 3, "inout")])
-    tpose = P("t_hover_ready", lean=6, neck=tneck, ua_n=-10, fa_n=40, ua_f=10, fa_f=40, th_n=10, sh_n=-10,
-              th_f=-12, sh_f=-30)
+    rng = fr.srng("s203sh")
+    pts = [(F[0] + 0.003 + 0.004 * rng.random(), F[1] + rng.uniform(-0.05, 0.05)) for _ in range(4)]
+    pts += [(fist[0] + rng.uniform(-0.04, 0.16), fist[1] + rng.choice((-1, 1)) * rng.uniform(0.09, 0.2))
+            for _ in range(9)]
+    fx.infinity(fr, F[0] + 0.006, F[1], r=0.06, strength=0.45, t=t)        # faint, in the gap only
+
+    # ---- Thragg in the soft screen-right foreground (we are behind his LEFT shoulder)
+    dF = 0.24
+    c0 = Cam(-5.05, 7.72, 260.0)
+    hx = c0.x + (0.835 * OUT_W - OUT_W / 2) * dF / c0.zoom
+    hy = c0.y - (0.36 * OUT_H - OUT_H / 2) * dF / c0.zoom
+    # only his eyes and fingers move: eyes drop to the knuckles (f44-62), the jaw sets (f68-88)
+    tneck = kf(t, [(T(fr, 44), 2), (T(fr, 52), 15, "out"), (T(fr, 62), 15), (T(fr, 72), 4, "inout")])
+    tpose = P("t_stand", lean=4, neck=tneck, ua_n=6, fa_n=10, ua_f=6, fa_f=8)
     J0 = solve(THRAGG, tpose, 0, 0, -1)
     px, py = hx - J0["head"][0], hy - J0["head"][1]
-    # sleeve from his (hidden) right shoulder across frame to the fist - under the foreground body
-    sh_far = fr.P(px + J0["sh_f"][0] + 0.05, py + J0["sh_f"][1] - 0.02, dF)
-    _depth_arm(fr, sh_far, fist, fr.S(THRAGG.w_ua, dF) * 0.9, flex=flex)
-    shards(fr, [(F[0] + 0.004 + 0.002 * i, F[1] + 0.03 * (i - 2)) for i in range(5)] +
-           [(fist[0] + 0.02 + 0.05 * (i % 3), fist[1] + (0.12 if i % 2 else -0.12) + 0.02 * i) for i in range(7)],
-           t, "s203", size=0.012)
-    fx.infinity(fr, F[0] + 0.006, F[1], r=0.05, strength=0.5, t=t)
-    soft_draw(fr, lambda: draw_fighter(fr, THRAGG, tpose, px, py, -1, opts=topts(fr, cape_wind=(0.7, 0.4)),
-                                       depth=dF), radius=3.0)
+    # his right arm: from the far shoulder (hidden behind his head) across frame to the fist
+    sh_far = fr.P(px + J0["sh_f"][0] - 0.03, py + J0["sh_f"][1] + 0.03, dF)
+    _depth_arm(fr, sh_far, fist, fr.S(THRAGG.w_ua, dF) * 0.85, flex=flex)
+    shards(fr, pts, t, "s203", size=0.014)
+
+    def fg():
+        J = draw_fighter(fr, THRAGG, tpose, px, py, -1, opts=topts(fr, cape_wind=(0.9, 0.2)), depth=dF)
+        thragg_brow(fr, J, k=clamp((t - T(fr, 68)) / T(fr, 12)), d=dF)
+        return J
+    soft_draw(fr, fg, radius=4.0)
 
 
 # =============================================================================
@@ -839,16 +938,16 @@ def s2_04(fr):
     t_launch = t_stall - 2 / FPS
     cx = kf(t, [(T(fr, 4), -4.8), (T(fr, 15), -5.7)], "inout")       # 2 m lateral track left with the arc
     fr.cam = Cam(cx, 7.4, 150.0)
-    street(fr)
+    street(fr, blur=1.3)
 
     # Gojo: right hand loose; tilts his head TOWARD the stalled fist (f14-26, on 2s)
     t2 = on2(fr)
     neck = kf(t2, [(T(fr, 14), -4), (T(fr, 26), 3, "inout")])
     G = gojo(fr, P(G_LOOSE, neck=neck))
     hx, hy = G["head"]
-    ang = math.radians(28)
+    ang = math.radians(30)
     dirv = (math.cos(ang), math.sin(ang))
-    rr = GOJO.head_r * 1.62 + 0.01 + THRAGG.fist
+    rr = GOJO.head_r * 1.66 + 0.01 + THRAGG.fist
     target = (hx + dirv[0] * rr, hy + dirv[1] * rr)          # 1 cm off the right temple
     g_st = 0.07
 
@@ -856,7 +955,7 @@ def s2_04(fr):
     B = place(THRAGG, T_HOOK, -1, lambda J: fist_c(J, "n"), (target[0] + dirv[0] * g_st, target[1] + dirv[1] * g_st))
     Bprev = place(THRAGG, T_STALL_R_C, -1, lambda J: knuckle(J, "f"), (face_pt(G)[0] + 0.01, face_pt(G)[1] - 0.005))
     if t < t_stall:
-        pose = pose_seq = rig.pose_at(t, [(0, T_STALL_R_C), (T(fr, 4), T_GUARD, "snap"), (T(fr, 9), T_HOOK_WIND, "inout"),
+        pose = rig.pose_at(t, [(0, T_STALL_R_C), (T(fr, 4), T_GUARD, "snap"), (T(fr, 9), T_HOOK_WIND, "inout"),
                                           (t_launch, T_HOOK_WIND), (t_stall, T_HOOK, "snap")])
         u = EASE["inout"](clamp(t / T(fr, 9)))
         px, py = lerp(Bprev[0], B[0], u), lerp(Bprev[1], B[1], u)
@@ -881,8 +980,8 @@ def s2_04(fr):
         shards(fr, pts, t, "s204", size=0.03)
     J = thragg(fr, pose, px, py, -1, cape_wind=(0.8, -0.1) if t < t_stall else (0.4, 0.3))
     if t >= t_stall - 1 / FPS:
-        C.infinity_stop(fr, J, (hx + dirv[0] * GOJO.head_r * 1.3, hy + dirv[1] * GOJO.head_r * 1.3), t - t_stall,
-                        side="n", r=0.6, gap=0.0)
+        inf_stop(fr, J, (hx + dirv[0] * GOJO.head_r * 1.2, hy + dirv[1] * GOJO.head_r * 1.2), t - t_stall,
+                 side="n", r=0.6, gap=0.0)
 
 
 # =============================================================================
@@ -957,10 +1056,10 @@ def s2_06(fr):
     t_land = cue(fr, "concrete_break", 0, 50)
     t_fall = t_tear + T(fr, 1)
     # camera: profile two-shot incl. the whole arm; tilt down with the fall; settle on Gojo
-    cx = kf(t, [(t_fall, -3.0), (t_land, -3.0), (dur, -4.5, "inout")])
-    cy = kf(t, [(t_fall, 4.5), (t_land, 3.0, "inout"), (dur, 5.0, "inout")])
+    cx = kf(t, [(t_fall, -3.4), (t_land, -3.4), (dur, -4.6, "inout")])
+    cy = kf(t, [(t_fall, 4.6), (t_land, 3.2, "inout"), (dur, 5.2, "inout")])
     sh = C.shake(t, t_hit, amp=10.0, dur=4 / FPS)
-    fr.cam = Cam(cx, cy, 55.0, shake=sh)
+    fr.cam = Cam(cx, cy, 66.0, shake=sh)
     street(fr, gantry=t < t_hit, skip=("arm",) if t < t_land else ())
     if t >= t_hit:
         env.gantry(fr, env.GANTRY_X, sheared=True)
@@ -986,7 +1085,7 @@ def s2_06(fr):
     # ---- Gojo: weight on one leg; absolutely still from f26 except the head tilt (f34-46, 2s)
     t2 = on2(fr)
     neck = kf(t2, [(T(fr, 34), -4), (T(fr, 46), 12, "inout")])
-    G = gojo(fr, P(G_WEIGHT, neck=neck))
+    G = gojo(fr, P(G_WEIGHT, neck=neck), halo=1.5)
     kn = G["kn_f"]                                     # his LEFT knee (far side)
     knee_t = (kn[0] + GOJO.w_sh * 0.5 + 0.01 + THRAGG.w_sh * 0.4, kn[1])
     toe = max(G["toe_n"][0], G["toe_f"][0])
@@ -1036,8 +1135,13 @@ def s2_06(fr):
     if t_kick - 1 / FPS <= t < T(fr, 18):
         stall_cues(fr, (knee_t[0] - THRAGG.w_sh * 0.4 - 0.01, knee_t[1]), J["an_f"], t - t_kick, "s206k",
                    r=0.5, gap_cloud=0.15, n_dust=10)
-    if t >= t_hit:
-        fx.impact(fr, hit_pt[0], hit_pt[1], t - t_hit, kind="heavy", dirx=-1, salt="armhit")
+    if t_hit <= t < t_hit + 0.3:
+        # heavy tier on the STEEL (star, rings, spray) - drawn a step back in depth so the
+        # star stays on the arm and never reads as a hit on Gojo
+        dI = 1.8
+        c = fr.cam
+        fx.impact(fr, c.x + (hit_pt[0] - c.x) * dI, c.y + (hit_pt[1] - c.y) * dI, t - t_hit, kind="heavy",
+                  dirx=-1, salt="armhit", d=dI)
         # sparks off the steel (real contact)
         rng = fr.srng("sparks")
         for i in range(18):
@@ -1049,8 +1153,16 @@ def s2_06(fr):
             p0 = fx.ballistic(hit_pt, (math.cos(a) * sp, math.sin(a) * sp), tt, g=9.8)
             p1 = fx.ballistic(hit_pt, (math.cos(a) * sp, math.sin(a) * sp), max(0, tt - 0.03), g=9.8)
             fr.glow_line([p1, p0], shade((255, 190, 90), 1 - tt * 2), width_px=3)
-    if t_tear <= t < t_tear + 0.4:
-        fx.impact(fr, -6.95, 6.2, t - t_tear, kind="light", salt="root")
+    if t_tear <= t < t_tear + 0.35:
+        # the bolted root plate tears: a shriek of sparks at the pole
+        rng = fr.srng("rootsp")
+        tt = t - t_tear
+        for i in range(10):
+            a = rng.uniform(-0.6, math.pi * 0.6)
+            sp = rng.uniform(2, 6)
+            p0 = fx.ballistic((-6.95, 6.2), (math.cos(a) * sp, math.sin(a) * sp), tt, g=9.8)
+            p1 = fx.ballistic((-6.95, 6.2), (math.cos(a) * sp, math.sin(a) * sp), max(0, tt - 0.03), g=9.8)
+            fr.glow_line([p1, p0], shade((255, 180, 90), 1 - tt * 2.6), width_px=2)
     if t >= t_ank - 1 / FPS:
         stall_cues(fr, (toe + 0.005, ankle_t[1]), J["an_n"], t - t_ank, "s206a", r=0.45, gap_cloud=0.1, n_dust=10)
 
@@ -1101,90 +1213,92 @@ def s2_07(fr):
 # S2-08  MS: the feint gets nothing; the real hook comes from the blind flank
 # =============================================================================
 
-T_JAB_HALF = swap_arms(P("t_punch", lean=18, neck=0, ua_n=-30, fa_n=70, ua_f=-20, fa_f=60,
-                         th_n=14, sh_n=-12, th_f=-22, sh_f=-40))
-T_JAB_HALF = P(T_JAB_HALF, ua_f=78, fa_f=72)
-T_SLIDE = P("t_hover_ready", lean=22, neck=4, ua_n=20, fa_n=60, ua_f=30, fa_f=90,
-            th_n=40, sh_n=-20, th_f=-10, sh_f=-50)
+T_HOVER_GUARD = P("t_guard", **LEGS_AIR)
+T_JAB_HALF = swap_arms(P("t_punch", lean=18, neck=0, ua_n=-30, fa_n=70, ua_f=-20, fa_f=60, **LEGS_AIR))
+T_JAB_HALF = P(T_JAB_HALF, ua_f=80, fa_f=74)
+T_SLIDE = P("t_hover_ready", lean=20, neck=4, ua_n=-34, fa_n=-20, ua_f=-14, fa_f=-6,
+            th_n=34, sh_n=-40, th_f=-14, sh_f=-76)
+
+
+def thragg_back(fr, J, d, t, k=1.0):
+    """Thragg from BEHIND (the rig only draws profiles): his cape covers the
+    back from the shoulders to the knees, and we see the back of his head."""
+    sx, sy = J["sh_n"]
+    hx, hy = J["head"]
+    pl = J["pelvis"]
+    r = THRAGG.head_r
+    sway = 0.06 * math.sin(t * 7.0)
+    cape = [(sx + 0.3, sy + 0.08), (sx - 0.3, sy + 0.06), (pl[0] - 0.42, pl[1] - 0.62 + sway),
+            (pl[0] + 0.1, pl[1] - 0.72), (pl[0] + 0.55, pl[1] - 0.6 - sway)]
+    fr.poly(cape, shade(THRAGG.accent, 0.5 + 0.08 * k), d=d)
+    fr.line([(sx - 0.05, sy + 0.02), (pl[0] - 0.12, pl[1] - 0.55)], shade(THRAGG.accent, 0.38), width_m=0.03, d=d)
+    fr.poly([(sx + 0.3, sy + 0.08), (sx - 0.3, sy + 0.06), (sx - 0.24, sy - 0.1), (sx + 0.24, sy - 0.08)],
+            THRAGG.accent, d=d)
+    fr.line([(J["neck"][0], J["neck"][1]), (hx, hy)], THRAGG.skin, width_m=r * 1.2, d=d)
+    fr.ellipse(hx, hy, r * 0.98, r * 1.05, fill=THRAGG.skin, d=d)
+    fr.ellipse(hx, hy + 0.02, r * 0.95, r * 0.95, fill=THRAGG.hair, d=d)
+    fr.ellipse(hx - r * 0.92, hy - 0.01, r * 0.16, r * 0.24, fill=shade(THRAGG.skin, 0.85), d=d)   # ear
 
 
 def s2_08(fr):
     t = fr.t
     t_stall = cue(fr, "infinity_stop", 0, 20)
     t_feint = T(fr, 5)
-    fr.cam = Cam(-5.55, 7.15, 170.0)
-    street(fr)
-    G = gojo(fr, G_WEIGHT)                     # a held cel: he does nothing at all
-    F = face_pt(G)
+    fr.cam = Cam(-5.25, 7.15, 170.0)
+    street(fr, blur=1.3)
+    G = gojo(fr, G_WEIGHT)                     # a held cel: he does nothing at all, keeps 'looking' east
     sp_y = 7.42
     sp = (chest_front(G, sp_y), sp_y)          # zip line at the solar plexus
 
-    dF = 0.78                                  # 0.9 m nearer the camera after the slide
-    start = (-4.8, None)
-    # ---- f0-5 feint: a committed jab that dies at half extension on f5, snapped back
-    B0 = place(THRAGG, T_GUARD, -1, lambda J: J["head"], (-4.85, 8.15))
+    # ---- f0-5 the feint: a committed jab that dies at half extension on f5, snapped back
+    B0 = place(THRAGG, T_HOVER_GUARD, -1, lambda J: J["head"], (-4.8, 8.3))
     if t < T(fr, 6):
-        pose = rig.pose_at(t, [(0, T_GUARD), (T(fr, 3), T_JAB_HALF, "snap"), (t_feint, T_JAB_HALF),
-                               (T(fr, 6), T_GUARD, "snap")])
-        J = thragg(fr, pose, B0[0], B0[1], -1, cape_wind=(0.6, -0.1))
+        pose = rig.pose_at(t, [(0, T_HOVER_GUARD), (T(fr, 3), T_JAB_HALF, "snap"), (t_feint, T_JAB_HALF),
+                               (T(fr, 6), T_HOVER_GUARD, "snap")])
+        thragg(fr, pose, B0[0], B0[1], -1, cape_wind=(0.6, -0.1))
         return
-    # ---- f6-14 slide around his right flank toward camera (drops a level, hips load)
+    # ---- f6-14 drops a level and slides round his right flank TOWARD the camera
+    dF = 0.78                                  # 0.9 m nearer the lens (camera 4 m south)
     u = EASE["inout"](clamp((t - T(fr, 6)) / T(fr, 8)))
     d = lerp(1.0, dF, u)
-    # screen anchor of his body: from beside Gojo (right) to the near right foreground
-    bx0, by0 = B0
-    bx1, by1 = -5.02, 6.6
-    px, py = lerp(bx0, bx1, u), lerp(by0, by1, u)
-    if t < t_stall - 2 / FPS:
-        pose = rig.blend(T_GUARD, T_SLIDE, u)
-    else:
-        pose = T_SLIDE
-    # grit flicked up by the slide (it will hang beside the fist)
-    J = thragg(fr, P(pose, ua_n=10, fa_n=10), px, py, -1, depth=d, cape_wind=(0.9, 0.3))
-    # back to camera: his cape and the back of his head cover the profile
-    if u > 0.5:
-        k = clamp((u - 0.5) / 0.5)
-        sx, sy = J["sh_n"]
-        hx, hy = J["head"]
-        pl = J["pelvis"]
-        r = THRAGG.head_r
-        cape = [(sx + 0.24, sy + 0.06), (sx - 0.26, sy + 0.04), (pl[0] - 0.36, pl[1] - 0.55 - 0.1 * math.sin(t * 8)),
-                (pl[0] + 0.45, pl[1] - 0.6)]
-        fr.poly(cape, shade(THRAGG.accent, 0.62 + 0.1 * k), d=d)
-        fr.poly([(sx + 0.24, sy + 0.06), (sx - 0.26, sy + 0.04), (sx - 0.2, sy - 0.12), (sx + 0.2, sy - 0.1)],
-                THRAGG.accent, d=d)
-        fr.ellipse(hx + 0.02, hy, r * 0.98, r * 1.05, fill=THRAGG.skin, d=d)
-        fr.ellipse(hx + 0.02, hy + 0.025, r * 0.95, r * 0.92, fill=THRAGG.hair, d=d)
-        fr.ellipse(hx - r * 0.9 + 0.02, hy - 0.01, r * 0.18, r * 0.26, fill=shade(THRAGG.skin, 0.85), d=d)
+    B1 = (-4.62, 6.62)                         # cheated 0.5 m east of the staging so the stall stays readable
+    px, py = lerp(B0[0], B1[0], u), lerp(B0[1], B1[1], u) - 0.12 * math.sin(math.pi * u)
+    pose = rig.blend(T_HOVER_GUARD, T_SLIDE, u)
+    wind = (0.9, 0.3)
+    # grit flicked up by the slide (it ends up hanging beside the fist)
+    if u < 1:
+        fx.speed_lines(fr, 0.35 * math.sin(math.pi * u), direction=(-1.0, 0.1), salt="slide")
+    J = thragg(fr, pose, px, py, -1, depth=d, cape_wind=wind)
+    k = clamp((u - 0.45) / 0.4)
+    if k > 0:
+        thragg_back(fr, J, d, t, k)            # his broad back and cape fill the right foreground
     # ---- f15-19 the real strike: left shovel hook up into the solar plexus; f20 STALL
     fist_end = (sp[0] + 0.01 + THRAGG.fist, sp[1] - 0.02)
-    sh_px = fr.P(*J["sh_n"], d)
+    sh_px = fr.P(J["sh_n"][0] + 0.12, J["sh_n"][1] - 0.04, d)
     t_l = t_stall - T(fr, 5)
+    up = (0.55, -0.45)                         # rising: the fist travels up-and-in
     if t >= t_l:
         if t < t_stall:
             uu = EASE["snap"](clamp((t - t_l) / (t_stall - t_l)))
-            # from low by his hip, rising up-and-in
-            start_pt = s2w(fr, *w2s(fr, J["pelvis"][0] - 0.25, J["pelvis"][1] - 0.15, d))
-            g = lerp(0.5, 0.07, uu)
-            fist = (lerp(start_pt[0], fist_end[0] + 0.07 * 0.7, uu), lerp(start_pt[1], fist_end[1] - 0.07 * 0.7, uu))
+            low = s2w(fr, *w2s(fr, J["pelvis"][0] - 0.1, J["pelvis"][1] - 0.2, d))
+            near = (fist_end[0] + up[0] * 0.1, fist_end[1] + up[1] * 0.1)
+            fist = (lerp(low[0], near[0], uu), lerp(low[1], near[1], uu))
         else:
-            g = post_gap(t, t_stall, 0.07)
-            k = (g - 0.01) * 0.7
-            fist = (fist_end[0] + k, fist_end[1] - k)
-        _depth_arm(fr, sh_px, fist, fr.S(THRAGG.w_ua, d) * 0.95, sleeve=shade(THRAGG.suit, 0.95))
+            g = post_gap(t, t_stall, 0.1)
+            fist = (fist_end[0] + up[0] * (g - 0.01), fist_end[1] + up[1] * (g - 0.01))
+        _depth_arm(fr, sh_px, fist, fr.S(THRAGG.w_ua, d) * 0.95, sleeve=shade(THRAGG.suit, 0.92))
         if t >= t_stall - 1 / FPS:
             stall_cues(fr, sp, (fist[0] - THRAGG.fist, fist[1]), t - t_stall, "s208", r=0.5, gap_cloud=0.16,
                        n_dust=12, strength=0.7)
             rng = fr.srng("slidegrit")
-            shards(fr, [(sp[0] + 0.006 + rng.uniform(0, 0.08), fist[1] + rng.uniform(-0.25, 0.2)) for _ in range(9)],
+            shards(fr, [(sp[0] + 0.006 + rng.uniform(0, 0.1), fist[1] + rng.uniform(-0.28, 0.22)) for _ in range(9)],
                    t, "s208g", size=0.022)
-    else:
-        # near arm cocked low by his hip (anticipation: left shoulder dips)
-        lo = (J["pelvis"][0] - 0.3, J["pelvis"][1] + 0.05)
-        lpx = fr.P(*lo, d)
-        fr.draw.line([sh_px, lpx], fill=shade(THRAGG.suit, 0.95), width=int(fr.S(THRAGG.w_ua, d)))
+    elif u > 0.3:
+        # anticipation: left shoulder dips, the fist cocked low by his hip
+        lo = fr.P(J["pelvis"][0] - 0.05, J["pelvis"][1] - 0.15, d)
+        fr.draw.line([sh_px, lo], fill=shade(THRAGG.suit, 0.92), width=int(fr.S(THRAGG.w_ua, d)))
         rr = fr.S(THRAGG.fist, d)
-        fr.draw.ellipse([lpx[0] - rr, lpx[1] - rr, lpx[0] + rr, lpx[1] + rr], fill=THRAGG.accent)
+        fr.draw.ellipse([lo[0] - rr, lo[1] - rr, lo[0] + rr, lo[1] + rr], fill=THRAGG.accent)
 
 
 # =============================================================================
@@ -1251,7 +1365,8 @@ def s2_09(fr):
         fc = fist_c(J, "n")
         bottom = (fc[0], fc[1] - THRAGG.fist)
         fx.infinity(fr, crown[0], crown[1], r=0.55, strength=0.4 + 0.6 * clamp((t - t_stall) / 0.1), t=t)
-        fx.impact(fr, bottom[0], bottom[1], t - t_stall, kind="blocked", dirx=0, diry=-1)
+        if t - t_stall < RIPPLE:
+            fx.impact(fr, bottom[0], bottom[1], t - t_stall, kind="blocked", dirx=0, diry=-1)
         # a flat layer of the grit that fell with him, hanging above the crown
         rng = fr.srng("crowngrit")
         shards(fr, [(crown[0] + rng.uniform(-0.32, 0.32), crown[1] + 0.012 + rng.uniform(0, 0.03)) for _ in range(14)],
@@ -1279,7 +1394,8 @@ def _thragg_eyes(fr, h, look=(0.0, 0.0), brow=0.0, rot=0.0, cv=0.5, cu=0.5, s=1.
     L.poly([(-4, -3), (4, -3), (4, 3), (-4, 3)], shade(skin, 0.62))
     L.poly([(-4, -0.62 + brow), (4, -0.66 + brow), (4, -0.3), (-4, -0.26)], shade(skin, 0.45))
     L.poly([(-4, -3), (4, -3), (4, -0.7 + brow), (-4, -0.66 + brow)], skin)
-    L.poly([(-0.18, -0.4), (0.18, -0.4), (0.12, 0.9), (-0.22, 0.95)], shade(skin, 0.74))      # nose bridge
+    L.poly([(-0.1, -0.4), (0.1, -0.4), (0.16, 0.9), (-0.2, 0.95)], shade(skin, 0.57))      # nose bridge (shadow side)
+    L.line([(0.08, -0.38), (0.15, 0.9)], shade(skin, 0.75), 0.02)
     for ex, sx in ((-0.7, 0.8), (0.75, 1.0)):                    # far eye (screen-left) foreshortened
         by = brow * (1.4 if ex > 0 else 1.2)
         L.poly([(ex - 0.55 * sx, -0.42 + by), (ex + 0.5 * sx, -0.5 + by * 1.3), (ex + 0.52 * sx, -0.36 + by * 1.3),
@@ -1354,7 +1470,7 @@ def s2_11(fr):
     # ---- Gojo: watches it come (head inclined), then follows it down (f56-82, 2s)
     t2 = on2(fr)
     neck = kf(t2, [(t_rel, -4), (t_stall, 6, "out"), (t_drop, 6), (t_hit, 26, "in")])
-    G = gojo(fr, P(G_WEIGHT, neck=neck))
+    G = gojo(fr, P(G_WEIGHT, neck=neck), halo=1.5)
     jy = 7.3
     jacket = chest_front(G, jy)
 
@@ -1411,8 +1527,7 @@ def s2_11(fr):
     if t >= t_hit:
         fx.dust_cloud(fr, -5.5, 0.2, t - t_hit, r=3.0, n=18, salt="slabdust")
         fx.debris(fr, -5.5, 0.4, t - t_hit, n=20, speed=5.5, spread=2.4, size=(0.05, 0.22), salt="slabdeb", ground=0.0)
-        if t - t_hit < 0.3:
-            fx.impact(fr, -5.5, 0.4, t - t_hit, kind="light", salt="slabimp")
+        fx.shockwave(fr, -5.5, 0.05, t - t_hit, r_max=5.0, dur=0.4, ground=True, color=(200, 190, 175))
 
     # ---- Thragg: drop, land, dig, heave, pivot, throw
     land_x = 8.0
@@ -1464,11 +1579,38 @@ def _loop_pos(fr, t):
     return keys[-1][1]
 
 
+def district(fr, lit=1.0):
+    """The district seen from the high wide (S2-12): rows of rooftops between
+    the camera and the skyline (open_sky only draws the far skyline band).
+    The intersection stays open so tiny Gojo is visible on his corner."""
+    sky = PAL["sky_mid"]
+    for row, d in enumerate((2.1, 1.6, 1.25, 1.0, 0.85)):
+        rng = random.Random(f"dist{row}")
+        x = -700.0
+        haze = clamp((d - 0.85) / 1.25) * 0.35
+        while x < 800.0:
+            w = rng.uniform(14, 42)
+            h = rng.uniform(12, 30 if d < 1.1 else 55)
+            if d <= 1.25 and x + w > -34 and x < 30:      # the avenue / intersection canyon
+                x = 30 + rng.uniform(0, 4)
+                continue
+            col = shade(mix_color(shade(PAL["bldg_near"], rng.uniform(0.85, 1.25)), sky, haze), lit)
+            fr.rect(x, -40, x + w, h, col, d=d)
+            fr.line([(x, 0), (x, h)], shade(mix_color(col, PAL["rim_warm"], 0.3), lit), width_m=0.8, d=d)
+            for _ in range(int(w * h / 180)):
+                wx, wy = rng.uniform(x + 1, x + w - 2), rng.uniform(3, h - 3)
+                fr.rect(wx, wy, wx + 1.4, wy + 1.2, shade(mix_color(PAL["window_lit"], col, 0.45), lit), d=d)
+            x += w + rng.uniform(2, 8)
+    # the street in the canyon, with the crater and the fallen arm too small to read
+    fr.rect(-34, -2, 30, 0.3, shade(PAL["street"], lit), d=1.0)
+
+
 def s2_12(fr):
     t = fr.t
     t_go = T(fr, 1)
     fr.cam = Cam(60.0, 176.0, 2.45)
     C.stage(fr, SEQ, "sky", extra=("mast_sheared",))
+    district(fr)
     # the storm deck across the top of frame (the loop runs inside it)
     deck_y = 330.0
     img, dr = fr.layer()
@@ -1501,11 +1643,14 @@ def s2_12(fr):
             continue
         fr.line([(x0, y0), (x1, y1)], shade((24, 22, 34), 1.0), width_m=10 * heal + 2)
         fr.glow_line([(x0, y0), (x1, y1)], shade((150, 130, 170), heal * 0.6), width_px=4)
-    flash = pulse(t, cue(fr, "thunder_distant", 0, 24), 0.03, 0.3)
+    # sheet lightning flickering inside the furrow (twice, on the thunder cue)
+    tl = cue(fr, "thunder_distant", 0, 24)
+    flash = max(pulse(t, tl - 2 / FPS, 0.02, 0.08), 0.7 * pulse(t, tl + 1 / FPS, 0.02, 0.12))
     if flash > 0 and len(pts) > 2:
-        lx, ly = _loop_pos(fr, cue(fr, "thunder_distant", 0, 24))
-        fr.glow_circle(lx, ly, 60, shade((190, 180, 230), flash))
-        fr.soft_circle(lx, ly, 120, shade((120, 110, 160), flash))
+        for k in range(3):
+            lx, ly = _loop_pos(fr, tl - (0.1 + 0.12 * k))
+            fr.glow_circle(lx, ly + 12, 22 - 5 * k, shade((170, 165, 220), flash * (1 - 0.25 * k)))
+        fr.soft_circle(lx, ly, 70, shade((90, 85, 130), flash))
     # vapour trail: one continuous hook (outside the deck)
     if len(pts) > 2:
         fx.trail(fr, pts, width_m=4.5, alpha=120)
@@ -1530,8 +1675,9 @@ def s2_12(fr):
     elif head[1] < deck_y - 2 and head[0] > -270:
         fr.circle(head[0], head[1], 1.8, fill=(240, 236, 236))
         fr.circle(head[0], head[1], 0.9, fill=THRAGG.accent)
-    # Gojo, tiny, on air at the west corner, still facing east
-    gojo(fr, G_POCKETS)
+    # Gojo, tiny, on air at the west corner, still facing east (pole beside him)
+    fr.line([(-7.0, 0.0), (-7.0, 6.4)], shade(POLE, 1.2), width_m=0.6)
+    gojo(fr, G_POCKETS, halo=1.2, scale=1.6)
 
 
 # =============================================================================
@@ -1564,7 +1710,7 @@ def s2_13(fr):
     t_arm = t_stall - 2 / FPS
     t_spk = T(fr, 22)
     fr.cam = Cam(-6.3, 8.0, 200.0)                   # rock steady
-    street(fr)
+    street(fr, blur=1.3)
     # ---- background torrent behind Gojo (screen-left to right) after the arrival
     if t >= t_stall:
         k = clamp(1 - (t - t_stall) / 0.9)
@@ -1609,8 +1755,9 @@ def s2_13(fr):
                          width_m=0.8, alpha=110, d=d)
             J = thragg(fr, pose, px, py, 1, depth=d, cape_wind=(-0.9, 0.5))
             cx_, cy_ = J["chest"]
-            fx.sonic_boom(fr, cx_, cy_, 0.12 + 0.1 * math.sin(t * 40), dirx=D_DIR[0], diry=D_DIR[1],
-                          size=0.9 * (1 + 2 * u), d=d)
+            kx, ky = knuckle(J, "n")
+            fx.sonic_boom(fr, kx, ky, 0.15 + 0.06 * math.sin(t * 40), dirx=D_DIR[0], diry=D_DIR[1],
+                          size=0.7, d=d)
         else:
             g = stall_gap(t, t_arm, t_stall, g_arm)
             comp = EASE["out"](clamp((t - t_stall) / 0.3))
@@ -1623,8 +1770,9 @@ def s2_13(fr):
             wind = kf(t, [(t_stall, (-0.9, 0.5)), (t_stall + 0.3, (0.6, 2.4))], "out")
             J = thragg(fr, pose, px, py, 1, cape_wind=wind)
             if t >= t_stall - 1 / FPS:
-                fx.sonic_boom(fr, F[0] - 0.4, F[1], t - t_stall, dirx=D_DIR[0], diry=D_DIR[1], size=1.6)
-                C.infinity_stop(fr, J, F, t - t_stall, side="n", r=0.75, gap=0.0)
+                kx, ky = knuckle(J, "n")
+                fx.sonic_boom(fr, kx, ky, (t - t_stall) * 1.6, dirx=D_DIR[0], diry=D_DIR[1], size=0.75)
+                inf_stop(fr, J, F, t - t_stall, side="n", r=0.75, gap=0.0)
                 rng = fr.srng("dive_sh")
                 shards(fr, [(F[0] - 0.004 - 0.32 * rng.random() ** 2, F[1] + rng.uniform(-0.2, 0.2)) for _ in range(16)],
                        t, "s213sh", size=0.035)
@@ -1639,7 +1787,7 @@ def s2_14(fr):
     t_ring = cue(fr, "shockwave", 0, 2)
     t_back = T(fr, 28)
     sh = C.shake(t, t_ring, amp=8.0, dur=4 / FPS)
-    fr.cam = Cam(4.0, 5.0, 26.0, shake=sh)
+    fr.cam = Cam(4.0, 8.0, 26.0, shake=sh)
     street(fr)
     # boom ring: air ring off the pair, then the footprint racing over the asphalt
     fx.shockwave(fr, RING_X, 7.0, t + 1 / FPS, r_max=9.0, dur=0.3, width=4)
@@ -1656,7 +1804,7 @@ def s2_14(fr):
         fx.debris(fr, RING_X + 4, 0.2, tr, n=26, speed=7.0, spread=1.4, angle=math.radians(40), size=(0.04, 0.12),
                   color=(200, 196, 186), salt="paper", ground=0.0, drag=1.4)
     # ---- the pair at upper-left: held cels until f28; then he draws the fist back
-    G = gojo(fr, P(G_LOOSE_W, neck=-12), -1)
+    G = gojo(fr, P(G_LOOSE_W, neck=-12), -1, halo=1.5)
     F = face_pt(G)
     tgt = (F[0] - 0.01, F[1] + 0.02)
     back = EASE["in"](clamp((t - t_back) / (fr.dur - t_back + 0.25)))
@@ -1682,11 +1830,11 @@ def s2_15(fr):
     t, dur = fr.t, fr.dur
     t_over = T(fr, 6)
     t12, t26, t40 = T(fr, 12), T(fr, 26), T(fr, 40)
-    z0 = 27.0
-    c0 = (1.5, 14.0)
+    z0 = 29.0
+    c0 = (0.5, 13.5)
     # final foreground hover: head on screen, depth (he is 3 m from the lens)
-    dF = 0.1
-    head_F = (0.79, 0.27)
+    dF = 0.05
+    head_F = (0.8, 0.26)
     # push-in (12% over the last 44 frames) anchored on his face
     pk = EASE["inout"](clamp((t - t40) / (dur - t40)))
     zoom = z0 * (1 + 0.12 * pk)
@@ -1706,12 +1854,12 @@ def s2_15(fr):
     phase = 1 - EASE["inout"](clamp((t2 - T(fr, 18)) / T(fr, 22)))
     hp = EASE["inout"](clamp((t2 - T(fr, 36)) / T(fr, 12)))
     if phase >= 0.67:
-        G = gojo(fr, P(G_LOOSE_W, neck=-14 * (1 - clamp((t2 - T(fr, 10)) / T(fr, 8)))), -1)
+        G = gojo(fr, P(G_LOOSE_W, neck=-14 * (1 - clamp((t2 - T(fr, 10)) / T(fr, 8)))), -1, halo=1.5)
     elif phase >= 0.33:
-        G = gojo(fr, G_FRONT, 1, view="front")
+        G = gojo(fr, G_FRONT, 1, view="front", halo=1.5)
         gojo_front_head(fr, G)
     else:
-        G = gojo(fr, rig.blend(P(G_LOOSE, neck=-16), P(G_POCKETS, neck=-16), hp), 1)
+        G = gojo(fr, rig.blend(P(G_LOOSE, neck=-16), P(G_POCKETS, neck=-16), hp), 1, halo=1.5)
 
     # ---- Thragg: rise over him (pivot through facing-down), back away to the foreground
     F = face_pt(solve(GOJO, P(G_LOOSE_W, neck=-12), GX, None, -1, ground=GSOLE))

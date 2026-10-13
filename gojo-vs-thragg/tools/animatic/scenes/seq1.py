@@ -25,8 +25,13 @@ Local helpers (kept here so no shared module is touched):
                           view='front'), with yaw / pitch / gaze.
   * front_cape()        - symmetric cape for view='front' (the rig's cape is
                           one-sided).
+  * soft_street()       - the real street set, blurred, behind a street-level
+                          close-up (S1-08).
   * thragg_eyes(), thragg_cu(), gojo_mcu() - insert portraits with gaze, jaw
                           and blindfold-lift controls the shared inserts lack.
+  * S1-01 aerial        - the engine cameras cannot tilt, so the opening
+                          crane-down is a pinhole projection of a box model of
+                          the same geography (_Pin, _city, _box ...).
 """
 from __future__ import annotations
 
@@ -40,7 +45,7 @@ from engine import Cam, kf, pulse, clamp, EASE, lerp, mix_color, shade, smoothst
 import env
 import fx
 import inserts
-from rig import GOJO, THRAGG, P, pose_at, draw_fighter, hand_pos, blend, solve
+from rig import GOJO, THRAGG, P, pose_at, draw_fighter, blend, solve
 import scenes.common as C
 
 SEQ = 1
@@ -148,11 +153,22 @@ def storefronts(fr, mode="burst", t=0.0, lit=1.0):
             fr.rect(x0, 0.4, x1, 3.4, shade((17, 17, 23), lit), d=d)          # dark, empty shop
             fr.rect(x0 + 0.3, 0.4, x1 - 0.3, 1.0, shade((25, 25, 31), lit), d=d)
             rng = random.Random(f"shard{i}")
-            # a few shards left hanging in the frame corners
-            for (xa, ya, sx, sy) in ((x0, 3.4, 1, -1), (x1, 3.4, -1, -1), (x0, 0.4, 1, 1), (x1, 0.4, -1, 1)):
-                if rng.random() < 0.7:
-                    w, h = rng.uniform(0.3, 0.9), rng.uniform(0.3, 1.0)
-                    fr.poly([(xa, ya), (xa + sx * w, ya), (xa, ya + sy * h)], shade(glass_c, rng.uniform(1.0, 1.3)), d=d)
+            # a few irregular shards still stuck in the frame
+            for k in range(rng.randint(2, 4)):
+                edge = rng.choice(("top", "top", "bottom", "side"))
+                g = shade(glass_c, rng.uniform(1.0, 1.35))
+                if edge == "top":
+                    xa = rng.uniform(x0, x1 - 0.4)
+                    w = rng.uniform(0.2, 0.6)
+                    fr.poly([(xa, 3.4), (xa + w, 3.4), (xa + w * rng.uniform(0.2, 0.8), 3.4 - rng.uniform(0.3, 1.2))], g, d=d)
+                elif edge == "bottom":
+                    xa = rng.uniform(x0, x1 - 0.4)
+                    w = rng.uniform(0.2, 0.5)
+                    fr.poly([(xa, 0.4), (xa + w, 0.4), (xa + w * rng.uniform(0.3, 0.7), 0.4 + rng.uniform(0.2, 0.5))], g, d=d)
+                else:
+                    xa, sx = (x0, 1) if rng.random() < 0.5 else (x1, -1)
+                    ya = rng.uniform(1.0, 2.8)
+                    fr.poly([(xa, ya), (xa, ya + rng.uniform(0.4, 0.9)), (xa + sx * rng.uniform(0.2, 0.5), ya + 0.2)], g, d=d)
             # glass glittering on the pavement in front
             for k in range(8):
                 gx = rng.uniform(x0, x1)
@@ -211,6 +227,18 @@ def plate(fr, horizon_v=0.6, lit=1.0, blur=0.0, card_x=-106.0, card_zoom=8.0, ca
         fr.draw = ImageDraw.Draw(fr.img)
 
 
+def soft_street(fr, cam, blur=7.0, extra=("landing_crater",)):
+    """The real street set seen through `cam`, blurred: background for the
+    close shots at street level (keeps the geography behind the insert)."""
+    real = fr.cam
+    fr.cam = cam
+    street_stage(fr, extra=extra, store="burst")
+    fr.cam = real
+    if blur > 0:
+        fr.img = fr.img.filter(ImageFilter.GaussianBlur(blur * fr.ss))
+        fr.draw = ImageDraw.Draw(fr.img)
+
+
 def drift_dust(fr, x0, x1, y0, y1, t, n=40, d=1.0, speed=1.4, salt="drift", alpha=110, size=0.02):
     """Fine dust drifting east -> west (screen right -> left) on the wind."""
     rng = fr.srng(salt)
@@ -224,12 +252,6 @@ def drift_dust(fr, x0, x1, y0, y1, t, n=40, d=1.0, speed=1.4, salt="drift", alph
         r = max(1.0, fr.S(size * rng.uniform(0.6, 1.6), d))
         c = shade(PAL["dust"], rng.uniform(0.8, 1.2))
         dr.ellipse([X - r * 1.8, Y - r * 0.8, X + r * 1.8, Y + r * 0.8], fill=c + (int(alpha * rng.uniform(0.5, 1)),))
-    fr.merge(img)
-
-
-def warm_haze(fr, u0=0.0, u1=0.5, v0=0.0, v1=1.0, a=26):
-    img, dr = fr.layer()
-    dr.rectangle([u0 * fr.W, v0 * fr.H, u1 * fr.W, v1 * fr.H], fill=(255, 150, 90, a))
     fr.merge(img)
 
 
@@ -277,10 +299,11 @@ def front_cape(fr, J, lift=0.0, flutter=0.0, kind="full", sil=None):
     px, py = J["pelvis"]
     hx, hy = J["head"]
     L = 1.0 if kind == "full" else 0.45
-    hem_y0 = max(0.05, py - 0.8 * L * s)
+    # standing: hangs to the calves; crouched: bunched over the back, hidden behind him
+    hem_y0 = lerp(py - 0.12 * s, max(0.05, py - 0.8 * L * s), clamp((py - 0.62) / 0.3))
     hem_y1 = hy + (0.25 + 0.55 * L) * s
     hy_ = lerp(hem_y0, hem_y1, clamp(lift))
-    spread = lerp(0.2, 0.55, clamp(lift)) * s
+    spread = lerp(0.1, 0.55, clamp(lift)) * s
     xl, xr = sl[0] - spread, sr[0] + spread
     pts = [(sl[0] + 0.02, sl[1] + 0.05), (J["neck"][0], J["neck"][1] + 0.02), (sr[0] - 0.02, sr[1] + 0.05),
            (sr[0] + 0.1 * s, sr[1] - 0.05)]
@@ -291,7 +314,8 @@ def front_cape(fr, J, lift=0.0, flutter=0.0, kind="full", sil=None):
         wav = 0.05 * s * math.sin(k * 1.9 + flutter) + (0.07 * s if k % 2 else 0) * (0.3 + lift)
         pts.append((x, hy_ + wav))
     pts.append((sl[0] - 0.1 * s, sl[1] - 0.05))
-    col = sil if sil is not None else shade(THRAGG.accent, 0.72)
+    col = sil if sil is not None else mix_color(shade(THRAGG.accent, 0.5), shade(THRAGG.accent, 0.72),
+                                                 clamp((J["pelvis"][1] - 0.6) / 0.35))
     fr.poly(pts, col)
     if lift > 0.35 and sil is None:
         # dark lining shows when the cape is thrown up
@@ -369,6 +393,14 @@ def thragg_front_face(fr, J, yaw=0.0, pitch=0.0, gaze=(0.0, 0.0), warm=0.0):
         fr.glow_line([at(-0.98, -0.6), at(-1.02, 0.1), at(-0.85, 0.75)], shade((190, 100, 50), warm), width_px=5)
 
 
+def impact_scaled(fr, x, y, t, kind="heavy", k=0.5, salt="imp"):
+    """fx.impact at k x its size, placed so it lands on world point (x, y):
+    drawn on a farther depth plane (d = 1/k) at the matching coordinates."""
+    d = 1.0 / k
+    cx, cy = fr.cam.x, fr.cam.y
+    fx.impact(fr, cx + (x - cx) * d, cy + (y - cy) * d, t, kind=kind, d=d, salt=salt)
+
+
 def streak(fr, x, y_lo, y_hi, width_m=0.7, d=1.0, alpha=140, color=(245, 238, 236)):
     """Vertical smear ribbon + a few hard speed strokes (falling body)."""
     img, dr = fr.layer()
@@ -412,7 +444,7 @@ def thragg_eyes(fr, gaze=(0.0, 0.0), mood="contempt", lid=0.0, glint=1.0, t=0.0)
         L.poly([(ex - 0.62, 0.0), (ex - 0.5, 0.0), (ex - 0.2, -h), (ex + 0.25, -h * 1.1), (ex + 0.5, -0.02),
                 (ex + 0.62, -0.02), (ex + 0.62, -0.32), (ex - 0.62, -0.28)], shade(skin, 0.62))
         L.poly([(ex - 0.62, 0.0), (ex - 0.5, 0.0), (ex - 0.2, h * 0.7), (ex + 0.2, h * 0.6), (ex + 0.5, -0.02),
-                (ex + 0.62, -0.02), (ex + 0.62, 0.45), (ex - 0.62, 0.45)], shade(skin, 0.6))
+                (ex + 0.62, -0.02), (ex + 0.62, 0.45), (ex - 0.62, 0.45)], shade(skin, 0.62))
         L.line([(ex - 0.5, 0.0), (ex - 0.2, -h), (ex + 0.25, -h * 1.1), (ex + 0.5, -0.02)], (40, 26, 26), 0.022)
         L.line([(ex - 0.45, 0.02), (ex - 0.2, h * 0.7), (ex + 0.2, h * 0.6)], shade(skin, 0.45), 0.01)
     L.poly([(-2, -0.62), (2, -0.66), (2, -0.3), (-2, -0.26)], shade(skin, 0.45))     # brow shadow
@@ -420,7 +452,8 @@ def thragg_eyes(fr, gaze=(0.0, 0.0), mood="contempt", lid=0.0, glint=1.0, t=0.0)
     for ex in (-0.75, 0.75):
         L.poly([(ex - 0.55, -0.42), (ex + 0.5, -0.5), (ex + 0.52, -0.36), (ex - 0.5, -0.3)], THRAGG.hair)
     # nose bridge between the eyes, cheek mass below
-    L.poly([(-0.16, -0.3), (0.16, -0.3), (0.2, 0.6), (-0.2, 0.6)], shade(skin, 0.7))
+    L.poly([(-0.08, -0.27), (0.08, -0.27), (0.17, 0.62), (-0.17, 0.62)], shade(skin, 0.66))
+    L.line([(0.08, -0.27), (0.17, 0.62)], shade(skin, 0.55), 0.01)
     # warm wash from the west
     fr.soft_circle(0.0, 0.5, 0.7, (90, 44, 20), world=False)
 
@@ -443,15 +476,15 @@ def thragg_cu(fr, cu=0.52, cv=0.56, s=1.0, gaze=(0.0, 0.0), jaw=0.0, rot=0.0, wa
     L.poly(face, skin)
     L.poly([(-0.52, -0.42), (-0.5, 0.2), (-0.36, 0.56 + j * 0.6), (0.04, 0.74 + j), (-0.1, 0.3), (-0.3, -0.2)], shadow)
     # ear
-    L.ell(-0.44, -0.08, 0.08, 0.15, fill=shade(skin, 0.8))
+    L.ell(-0.44, -0.08, 0.08, 0.15, fill=shade(skin, 0.66))
     # brow ridge
-    L.poly([(-0.2, -0.3), (0.56, -0.34), (0.56, -0.22), (-0.18, -0.2)], shade(skin, 0.6))
+    L.poly([(-0.2, -0.3), (0.56, -0.34), (0.56, -0.22), (-0.18, -0.2)], shade(skin, 0.78))
     gx, gy = gaze
     for ex in (0.34, -0.06):
         L.ell(ex, -0.13, 0.1, 0.034, fill=(220, 214, 214))
         L.ell(ex + 0.02 + gx * 0.05, -0.13 - gy * 0.012, 0.035, 0.028, fill=(26, 18, 22))
         # heavy half-lowered lid
-        L.poly([(ex - 0.11, -0.13), (ex + 0.11, -0.135), (ex + 0.11, -0.19), (ex - 0.11, -0.19)], shade(skin, 0.7))
+        L.poly([(ex - 0.11, -0.13), (ex + 0.11, -0.135), (ex + 0.11, -0.17), (ex - 0.11, -0.17)], shade(skin, 0.86))
         L.line([(ex - 0.1, -0.135), (ex + 0.1, -0.14)], (50, 34, 34), 0.012)
     L.poly([(-0.2, -0.36), (0.56, -0.4), (0.56, -0.3), (-0.18, -0.27)], hair)          # heavy black brow
     # nose
@@ -509,7 +542,6 @@ def gojo_mcu(fr, cu=0.42, cv=0.56, s=1.0, smile=1.0, brow=0.0, lift=0.0, hand=0.
         L.ell(ex + 0.02, ey + 0.005, 0.065, 0.065, fill=(60, 190, 255))
         L.ell(ex + 0.02, ey + 0.005, 0.03, 0.03, fill=(200, 240, 255))
         L.ell(ex + 0.0, ey - 0.02, 0.018, 0.014, fill=(255, 255, 255))
-        L.glow(ex, ey, 0.16, (40, 130, 220))
         L.line([(ex - 0.13, ey - 0.06), (ex + 0.13, ey - 0.08)], hair, 0.014)     # white lashes
         L.line([(ex - 0.12, ey + 0.055), (ex + 0.1, ey + 0.05)], shade(hair, 0.9), 0.008)
         if glint > 0:
@@ -518,12 +550,11 @@ def gojo_mcu(fr, cu=0.42, cv=0.56, s=1.0, smile=1.0, brow=0.0, lift=0.0, hand=0.
                 ang = a * math.pi / 2 + math.pi / 4
                 L.line([(gx, gy), (gx + math.cos(ang) * 0.07 * glint, gy + math.sin(ang) * 0.07 * glint)],
                        (255, 255, 255), 0.008)
-            L.glow(gx, gy, 0.1 * glint, (200, 220, 255))
     # brow lifting above the band: a sliver of forehead + the white brow
     if brow > 0.02:
-        bl = 0.07 * brow
-        L.poly([(0.1, -0.29), (0.52, -0.31), (0.52, -0.31 - bl - 0.03), (0.12, -0.29 - bl - 0.02)], skin)
-        L.line([(0.14, -0.3 - bl), (0.3, -0.33 - bl), (0.48, -0.32 - bl)], shade(hair, 0.82), 0.022)
+        bl = 0.09 * brow
+        L.poly([(0.08, -0.29), (0.52, -0.31), (0.52, -0.31 - bl - 0.04), (0.1, -0.29 - bl - 0.03)], skin)
+        L.line([(0.14, -0.3 - bl), (0.3, -0.34 - bl), (0.48, -0.33 - bl)], shade(hair, 0.62), 0.028)
     # blindfold band; the near end lifts a finger's width
     lw = 0.17 * clamp(lift)
 
@@ -559,7 +590,7 @@ def gojo_mcu(fr, cu=0.42, cv=0.56, s=1.0, smile=1.0, brow=0.0, lift=0.0, hand=0.
         for k, (bx, tx) in enumerate(((kx - 0.07, 0.38), (kx + 0.05, 0.47))):
             tip = (lerp(bx - 0.03, tx, hk), lerp(ky - 0.3, -0.02 + ly - 0.02 * k, hk))
             mid = (lerp(bx - 0.01, tx + 0.05, hk), lerp(ky - 0.15, 0.06 + ly, hk))
-            L.line([(bx, ky), mid, tip], skin if k == 0 else shade(skin, 0.92), 0.05)
+            L.line([(bx, ky + 0.07), (bx, ky), mid, tip], skin if k == 0 else shade(skin, 0.92), 0.068)
         # curled ring + little fingers, thumb
         L.ell(kx + 0.04, ky + 0.1, 0.07, 0.06, fill=shadow)
         L.line([(wx - 0.05, wy - 0.1), (kx - 0.14, ky + 0.16)], shade(skin, 0.88), 0.045)
@@ -847,20 +878,20 @@ def _aerial_deck(fr, pj, flash=0.0):
     img, dr = fr.layer()
     rng = random.Random("deck3d")
     Y = 440.0
-    for i in range(160):
+    for i in range(260):
         z = pj.ez + 30 + 6000 * rng.random() ** 2.2
         x = pj.ex + rng.uniform(-1.4, 1.4) * (z - pj.ez)
-        size = rng.uniform(60, 220)
+        size = rng.uniform(120, 380)
         X, Yp = pj(x, Y, z)
         zc = pj.zc(x, Y, z)
         rx = pj.F * size / zc
-        ry = rx * 0.32
+        ry = rx * 0.16
         if Yp + ry < 0 or Yp - ry > pj.horizon + 6 or X + rx < 0 or X - rx > fr.W:
             continue
         far = clamp((z - pj.ez) / 5000.0)
-        c = mix_color((30, 28, 42), (112, 82, 92), far * 0.9)
+        c = mix_color((32, 30, 46), (92, 70, 86), far * 0.9)
         c = mix_color(c, (200, 190, 230), flash * 0.6)
-        dr.ellipse([X - rx, Yp - ry, X + rx, Yp + ry], fill=c + (int(200 - 90 * far),))
+        dr.ellipse([X - rx, Yp - ry, X + rx, Yp + ry], fill=c + (int(150 - 80 * far),))
     fr.merge(img)
 
 
@@ -993,9 +1024,9 @@ def s1_01(fr):
         img, dr = fr.layer()
         dr.line([(X2, Y2), (X, Y)], fill=(220, 214, 226, 90), width=max(1, int(fr.ss * 1.2)))
         fr.merge(img)
-        r = 1.6 * fr.ss
-        fr.draw.ellipse([X - r, Y - r * 1.6, X + r, Y + r * 1.6], fill=(24, 18, 22))
-        fr.draw.ellipse([X - r * 0.4, Y + r * 0.2, X + r * 0.7, Y + r * 1.2], fill=(220, 40, 46))
+        r = 1.7 * fr.ss
+        fr.draw.ellipse([X - r, Y - r * 1.7, X + r, Y + r * 1.7], fill=(214, 208, 204))
+        fr.draw.ellipse([X - r * 0.7, Y - r * 1.9, X + r * 0.9, Y - r * 0.2], fill=(200, 34, 42))
     if t < 1.8:
         _aerial_tatters(fr, pj, t)
     fr.vignette = 0.45
@@ -1043,13 +1074,17 @@ def s1_02(fr):
     gojo_at(fr, P("g_idle"), MAST_X)
     # dust drifting right to left before the landing; paper lifts as the air arrives
     drift_dust(fr, -8, 14, 0.05, 1.2, t, n=30, d=1.4, salt="pre")
-    if f < fc:
-        k = smoothstep(F(fr, 10, n0), tc, t)
-        rng = fr.srng("paperlift")
-        for i in range(10):
-            px = rng.uniform(-4, 5)
-            py = 0.05 + k * rng.uniform(0.5, 2.2)
-            fr.rect(px, py, px + 0.3, py + 0.2, (220, 216, 204), d=1.2)
+    k = smoothstep(F(fr, 10, n0), tc, t)
+    rng = fr.srng("paperlift")
+    ta_ = max(0.0, t - tc)
+    for i in range(10):
+        px = rng.uniform(-4, 5)
+        py = 0.05 + k * rng.uniform(0.5, 2.2)
+        if ta_ > 0:                                   # blown out by the blast, then fluttering down
+            px += (1 if px > 0 else -1) * 9.0 * (1 - math.exp(-3 * ta_)) + math.sin(ta_ * 5 + i) * 0.3
+            py = max(0.03, py + 1.5 * (1 - math.exp(-4 * ta_)) - 0.6 * ta_)
+        tilt = 0.12 * math.sin(t * 6 + i)
+        fr.poly([(px, py), (px + 0.3, py + tilt), (px + 0.3, py + 0.2 + tilt), (px, py + 0.2)], (220, 216, 204), d=1.2)
     tt = t - tc
     if landed:
         # radial cracks race outward f16-24 (beyond the crater's own cracks)
@@ -1065,7 +1100,7 @@ def s1_02(fr):
                 fx.glass_shatter(fr, x0, 0.5, x1, 3.3, tb, n=28, outward=0.5 if x0 > 0 else -0.5,
                                  salt=f"pane{i}", d=STORE_D)
     if landed:
-        fx.impact(fr, 0.0, 0.2, tt, kind="heavy", salt="land")
+        impact_scaled(fr, 0.0, 0.05, tt * 2.0 + 0.045, "heavy", k=0.4, salt="land")
     # ---- Thragg -------------------------------------------------------------
     if f == fc - 2 or f == fc - 1:
         # two smear drawings: feet-first, arms tight, cape streaming up
@@ -1094,7 +1129,7 @@ def s1_02(fr):
         fade = 1 - smoothstep(F(fr, 40, n0), F(fr, 62, n0), t)
         if fade > 0:
             fx.dust_cloud(fr, 0.0, 0.1, tt - 1 / FPS, r=5.0, n=24, alpha=int(120 * fade), salt="ring", rise=0.3)
-            fx.dust_cloud(fr, 1.5, 0.0, tt - 6 / FPS, r=2.6, n=12, alpha=int(90 * fade), salt="lens", d=0.62,
+            fx.dust_cloud(fr, 1.5, 0.0, tt - 6 / FPS, r=2.0, n=10, alpha=int(55 * fade), salt="lens", d=0.62,
                           rise=0.2)
         fx.debris(fr, 0.0, 0.25, tt, n=18, speed=7.5, angle=math.pi / 2, spread=math.pi * 0.85,
                   size=(0.04, 0.14), color=PAL["street"], g=9.8, ground=0.0, salt="grit")
@@ -1122,7 +1157,7 @@ def s1_03(fr):
     street_stage(fr, extra=("landing_crater",), store="burst")
     # residual dust thinning and drifting east -> west
     drift_dust(fr, -6, 6, 0.0, 1.0, t, n=34, d=1.3, salt="resid", alpha=int(lerp(120, 50, t / fr.dur)))
-    fx.dust_cloud(fr, 0.3, 0.05, 2.0 + t, r=4.5, n=16, alpha=int(lerp(55, 20, t / fr.dur)), salt="ring", rise=0.2)
+    fx.dust_cloud(fr, 0.3, 0.05, 2.0 + t, r=4.5, n=16, alpha=int(lerp(32, 10, t / fr.dur)), salt="ring", rise=0.1)
     # the head turn: east (screen-right) -> west, eyes lead by 2 frames; on 2s
     yaw_of = lambda tt: kf(tt, [(T(20), 0.0), (T(34), 0.5), (T(38), 0.5), (T(62), -0.85, "inout")])  # noqa: E731
     yaw = yaw_of(ta)
@@ -1171,7 +1206,6 @@ def s1_04(fr):
     cy = kf(t, [(0.0, 6.6), (T(26), 8.1, "inout")])
     fr.cam = Cam(x=-6.5, y=cy, zoom=330)
     plate(fr, horizon_v=0.7)
-    warm_haze(fr, 0.0, 0.38, 0.3, 0.75, a=14)
     env.gantry(fr, MAST_X)
     pose = pose_at(ta, [(T(6), "g_idle"), (T(10), G_WEIGHT, "inout")])
     pose = P(pose, neck=kf(ta, [(0.0, -2.0), (T(20), 4.0), (T(28), 10.0, "out")]))
@@ -1289,11 +1323,10 @@ def s1_06(fr):
         for j in range(61):
             u = j / 60
             du, dv = (u - tu) * 1920 / 1080, v0 - tv
-            rx, ry = 0.07 * (1 + 0.15 * hb), hgt * 0.62
-            q = (du / rx) ** 2 + (dv / ry) ** 2
-            push_v = 0.0
-            if q < 9:
-                push_v = (0.055 + 0.02 * hb) * (1 if dv >= 0 else -1) * math.exp(-q * 0.55) / max(0.25, abs(dv) / ry + 0.25)
+            rx, ry = 0.11 * (1 + 0.12 * hb), hgt * 0.6 * (1 + 0.1 * hb)
+            a_ = abs(dv) / ry
+            env_ = math.exp(-0.5 * (du / rx) ** 2)
+            push_v = (1 if dv >= 0 else -1) * ry * env_ * 1.05 / (a_ + 1.05) * (1 + 0.15 * hb)
             wav = 0.004 * math.sin(u * 14 + i + t * 3)
             pts.append(((u + 0.0) * W, (v0 + push_v + wav) * H))
         dense = math.exp(-((v0 - tv) / (hgt * 0.9)) ** 2)
@@ -1348,7 +1381,6 @@ def s1_07(fr):
     T = lambda f: F(fr, f, n0)   # noqa: E731
     ta = on2(fr)
     plate(fr, horizon_v=0.68, blur=6.0, near=True)
-    warm_haze(fr, 0.0, 0.45, 0.0, 1.0, a=16)
     s = lerp(0.98, 1.06, t / fr.dur)                       # very slow push-in (zoom 600 -> 680)
     smile = kf(ta, [(0.0, 1.0), (T(5), 0.15, "inout"), (T(36), 0.15), (T(39), 1.35, "out")])
     brow = kf(ta, [(T(6), 0.0), (T(9), 1.0, "out"), (T(27), 1.0), (T(30), 0.4), (T(36), 0.0)])
@@ -1386,8 +1418,9 @@ def _cape_edge(fr, t, side=1):
 def s1_08(fr):
     t, n0 = fr.t, 52
     T = lambda f: F(fr, f, n0)   # noqa: E731
-    # low camera looking up: sky and the tops of the dark north block behind him
-    plate(fr, horizon_v=0.96, blur=5.0, near=False)
+    # low camera looking north past him: the dark north block and its burst
+    # shop windows, softened by the long lens
+    soft_street(fr, Cam(x=0.6, y=3.4, zoom=150), blur=7.0)
     _cape_edge(fr, t, side=1)
     t0, ln = dlg_t(fr, 4, 46)
     tq = on2(fr)
@@ -1395,8 +1428,8 @@ def s1_08(fr):
     # eyes on Gojo (up-left); on "way" (f40-44) they flick to the city lights and back
     gx = kf(t, [(T(39), -0.55), (T(41), -1.0, "out"), (T(43), -1.0), (T(45), -0.55, "out")])
     gy = kf(t, [(T(39), 0.6), (T(41), -0.1, "out"), (T(43), -0.1), (T(45), 0.6, "out")])
-    thragg_cu(fr, cu=0.55, cv=0.6, s=1.05, gaze=(gx, gy), jaw=jaw, rot=-4.0)
     _cu_dust(fr, t)
+    thragg_cu(fr, cu=0.55, cv=0.6, s=1.05, gaze=(gx, gy), jaw=jaw, rot=-4.0)
     fr.vignette = 0.5
 
 
@@ -1485,10 +1518,32 @@ def s1_09(fr):
 # ===========================================================================
 
 T_LOOKUP = P("t_stand", neck=-24, ua_n=10, fa_n=6, ua_f=-8, fa_f=-4)
-T_COIL = P("t_stand", lean=22, neck=-30, ua_n=26, fa_n=74, ua_f=-36, fa_f=18, th_n=74, sh_n=-26, th_f=44,
-           sh_f=-62)
+T_COIL = P("t_stand", lean=30, neck=-36, ua_n=-34, fa_n=12, ua_f=-52, fa_f=4, th_n=62, sh_n=-40, th_f=30,
+           sh_f=-72)
 T_LAUNCH = P("t_stand", lean=42, neck=-26, ua_n=58, fa_n=84, ua_f=-58, fa_f=34, th_n=-24, sh_n=-46,
              th_f=-44, sh_f=-74)
+
+
+def _sonic_ring(fr, x, y, t, ux, uy, r_max=3.2, dur=0.3):
+    """Boom ring seen edge-on: an ellipse perpendicular to the flight line,
+    expanding through the dust (plus the refraction warp of fx.shockwave)."""
+    u = clamp(t / dur)
+    if u >= 1:
+        return
+    R = r_max * EASE["out"](u)
+    a = 1 - u
+    nx, ny = -uy, ux
+    pts = []
+    for i in range(40):
+        q = i * math.tau / 40
+        o, w = math.cos(q) * R, math.sin(q) * R * 0.28
+        pts.append(fr.P(x + nx * o + ux * w, y + ny * o + uy * w))
+    img, dr = fr.layer()
+    dr.line(pts + pts[:1], fill=(238, 240, 248, int(220 * a)), width=max(1, int(4 * fr.ss)), joint="curve")
+    dr.line(pts + pts[:1], fill=(200, 210, 230, int(90 * a)), width=max(1, int(10 * fr.ss)), joint="curve")
+    fr.merge(img)
+    px, py = fr.P(x, y)
+    fr.post.append(("ring", px / fr.ss, py / fr.ss, fr.S(R) / fr.ss, 0.5 * a, t))
 
 
 def s1_10(fr):
@@ -1522,16 +1577,17 @@ def s1_10(fr):
         bx, by = lead[0] - ux * 0.9, lead[1] - uy * 1.35  # pelvis behind the leading edge
         _ground_cracks(fr, 0.0, 0.3, 2.6, "floor", n=12, width=0.04)
         # smear: a torn-air ribbon from the crater floor up the launch line to
-        # him, white with the cape's crimson streaked through it
-        root = (0.15, 0.35)
-        fx.trail(fr, [root, (lerp(root[0], bx, 0.5), lerp(root[1], by, 0.5) + 0.25), (bx + ux * 0.4, by + uy * 0.4)],
-                 color=(246, 240, 238), width_m=1.15, alpha=165)
-        fx.trail(fr, [(root[0] + 0.2, root[1]), (bx * 0.5 + 0.25, by * 0.5 + 0.1), (bx + 0.2, by)],
-                 color=(200, 40, 48), width_m=0.45, alpha=150)
+        # his heels, white with the cape's crimson streaked through it
+        root = (0.2, 0.3)
+        heel = (bx + 0.35, by - 0.55)
+        fx.trail(fr, [root, (lerp(root[0], heel[0], 0.5) + 0.1, lerp(root[1], heel[1], 0.5)), heel],
+                 color=(246, 240, 238), width_m=1.0, alpha=150)
+        fx.trail(fr, [(root[0] + 0.15, root[1]), (lerp(root[0], heel[0], 0.5) + 0.2, lerp(root[1], heel[1], 0.5)),
+                      (heel[0] + 0.1, heel[1] + 0.1)], color=(200, 40, 48), width_m=0.4, alpha=140)
         J = thragg_side(fr, T_LAUNCH, bx, by, cape_wind=(0.95, -0.7))
-        # vapour cone at the shoulders
-        sx, sy = J["chest"]
-        fx.sonic_boom(fr, sx + ux * 0.3, sy + uy * 0.3, (k + 1) / FPS, ux, uy, size=0.6)
+        # vapour cone peeling off the shoulders
+        cx_, cy_ = J["chest"]
+        fx.sonic_boom(fr, cx_ + ux * 0.5, cy_ + uy * 0.5, (k + 1) / FPS, ux, uy, size=0.36)
         # asphalt fan from the crater's east lip, dust jets thrown east
         tl = t - t_launch
         fx.debris(fr, 1.6, 0.15, tl + 1.5 / FPS, n=22, speed=15, angle=math.radians(58), spread=math.radians(48),
@@ -1541,8 +1597,9 @@ def s1_10(fr):
         fx.dust_cloud(fr, 2.2, 0.2, tl * 3 + 0.15, r=2.6, n=14, alpha=110, salt="jets", rise=0.8)
         if t >= t_boom:
             # the sonic crack: ring-shaped shock front through the dust
-            fx.shockwave(fr, -0.6, 1.4, t - t_boom + 1 / FPS, r_max=4.0, dur=0.3, width=5)
-            fx.shockwave(fr, -0.3, 0.05, t - t_boom + 1 / FPS, r_max=6.0, dur=0.35, ground=True, width=3)
+            ts = t - t_boom + 1 / FPS
+            _sonic_ring(fr, -0.45, 1.2, ts, ux, uy)
+            fx.shockwave(fr, -0.3, 0.05, ts, r_max=7.0, dur=0.35, ground=True, width=4)
 
 
 SHOTS = {
