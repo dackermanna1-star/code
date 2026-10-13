@@ -1,6 +1,6 @@
 import { itemDef } from '../../shared/data/items';
 import { recipe } from '../../shared/data/recipes';
-import { addToAny, makeStack, removeAll } from '../../shared/sim/inventory';
+import { addToAny, makeStack, removeAll, type ItemStack } from '../../shared/sim/inventory';
 import type { Game } from '../game';
 import type { Player } from '../player';
 
@@ -52,12 +52,21 @@ export class Crafting {
     for (const [k, n] of job.ing) this.game.entities.give(p, k, n * job.n);
   }
 
-  /** On death everything queued is refunded into the inventory (it then goes into the corpse). */
-  cancelAll(p: Player) {
+  /**
+   * On death everything queued is refunded into the inventory (it then goes
+   * into the corpse). Returns refunds that did not fit, which the caller must
+   * put in the corpse or on the ground — nothing is ever destroyed.
+   */
+  cancelAll(p: Player): ItemStack[] {
+    const overflow: ItemStack[] = [];
     while (p.craftQueue.length) {
       const job = p.craftQueue.pop()!;
-      for (const [k, n] of job.ing) addToAny(p.inv.all(), makeStack(k, n * job.n));
+      for (const [k, n] of job.ing) {
+        const left = addToAny(p.inv.all(), makeStack(k, n * job.n));
+        if (left > 0) overflow.push(makeStack(k, left));
+      }
     }
+    return overflow;
   }
 
   tick(dt: number) {

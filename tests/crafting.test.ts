@@ -164,11 +164,11 @@ describe('crafting', () => {
     expect(totals([corpse.container])).toEqual(before);
   });
 
-  // BUG: Crafting.cancelAll (src/sim/systems/crafting.ts) refunds with addToAny() into main+belt
+  // Regression (was a bug, fixed): Crafting.cancelAll (src/sim/systems/crafting.ts) refunds with addToAny() into main+belt
   // and ignores the leftover, so when the inventory is full at death the refunded ingredients
   // are destroyed instead of going into the corpse (which has 36 slots vs 30 for main+belt, or
   // being dropped like entities.give does).
-  it.fails('dying with a full inventory still refunds queued crafts (nothing is destroyed)', () => {
+  it('dying with a full inventory still refunds queued crafts (nothing is destroyed)', () => {
     const { game, p } = setup();
     give(p, 'wood', 150);
     give(p, 'stone', 75);

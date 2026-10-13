@@ -150,8 +150,8 @@ export class Combat {
     p.deaths++;
     p.deadAt = this.game.now;
     p.killedBy = killer && killer !== p ? killer.name : cause;
-    this.game.crafting.cancelAll(p);
-    this.game.entities.createPlayerCorpse(p);
+    const overflow = this.game.crafting.cancelAll(p);
+    this.game.entities.createPlayerCorpse(p, overflow);
     p.inv.clear();
     p.loot = null;
     p.pendingUse = null;

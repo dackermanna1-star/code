@@ -152,6 +152,7 @@ export function rleDecode(src: Uint8Array, expectedLength = CHUNK_VOLUME, offset
     o += run;
   }
   if (o !== expectedLength) throw new Error(`RLE: decoded ${o} of ${expectedLength} bytes`);
+  if (i !== src.length) throw new Error(`RLE: ${src.length - i} trailing bytes after a complete chunk`);
   return out;
 }
 

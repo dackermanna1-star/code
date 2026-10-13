@@ -194,18 +194,22 @@ describe('corrupted saves', () => {
     expect(g2.building.pieces.size).toBe(game.building.pieces.size);
   });
 
-  it('a corrupt chunk record is rejected loudly rather than producing garbage terrain', async () => {
+  it('a corrupt chunk record is logged and regenerated from the seed (never garbage, never a crash)', async () => {
     const { st } = await populate();
     st.chunks.set(chunkKey(-2, -2), { rev: 9, data: Uint8Array.from([1, 2, 3]) });
     const g2 = reload(st);
-    expect(() => g2.world.ensureSync(-2, -2)).toThrow(/RLE/);
+    const c = g2.world.ensureSync(-2, -2);
+    expect(g2.world.stats.corruptChunks).toBe(1);
+    expect(Array.from(c.blocks)).toEqual(Array.from(g2.world.gen.generateChunk(-2, -2)));
+    // marked dirty so the next save overwrites the bad record
+    expect(g2.world.dirtyChunks().some((d) => d.key === c.key)).toBe(true);
   });
 
-  // BUG: a structurally invalid piece record (valid JSON, but no socket `s`, or a tier outside
+  // Regression (was a bug, fixed): a structurally invalid piece record (valid JSON, but no socket `s`, or a tier outside
   // 0..4) crashes the Game constructor: Building.rebuildAll sorts by `a.d.s.oy` and addPiece reads
   // TIERS[tier].hp outside the per-record try/catch in Game.load (src/sim/game.ts load(),
   // src/sim/systems/building.ts rebuildAll/addPiece). One bad record makes the whole world unloadable.
-  it.fails('skips a piece record with no socket or an out-of-range tier instead of crashing', async () => {
+  it('skips a piece record with no socket or an out-of-range tier instead of crashing', async () => {
     const { st, game } = await populate();
     st.objects.push({ id: 900020, kind: 'piece', data: JSON.stringify({ tier: 0, hp: 10, owner: 'x', placedAt: 0, lastDamaged: 0 }) });
     st.objects.push({ id: 900021, kind: 'piece', data: JSON.stringify({ s: { type: 'foundation', i: -6, j: -6, oy: OY }, tier: 9, hp: 10, owner: 'x', placedAt: 0, lastDamaged: 0 }) });
@@ -213,10 +217,10 @@ describe('corrupted saves', () => {
     expect(g2.building.pieces.size).toBe(game.building.pieces.size);
   });
 
-  // BUG: a player record without its `save` payload is accepted by Game.load and then makes
+  // Regression (was a bug, fixed): a player record without its `save` payload is accepted by Game.load and then makes
   // Game.join throw (Player.load reads d.x of undefined; src/sim/player.ts load / src/sim/game.ts join),
   // so the world cannot be entered at all.
-  it.fails('a player record with missing data does not prevent joining', async () => {
+  it('a player record with missing data does not prevent joining', async () => {
     const { st } = await populate();
     st.objects = st.objects.filter((o) => o.kind !== 'player');
     st.objects.push({ id: 900030, kind: 'player', data: JSON.stringify({ name: 'Saver' }) });
@@ -227,20 +231,20 @@ describe('corrupted saves', () => {
 });
 
 describe('autosave & concurrent saves', () => {
-  // BUG (reported by lead, fixed on main): Game.lastSave starts at 0 and is only reset by start(),
+  // Regression (was a bug, fixed): Game.lastSave starts at 0 and is only reset by start(),
   // so the first tick of a game driven by tick() (tests, headless runs) immediately autosaves
   // (src/sim/game.ts tick(): `Date.now() - this.lastSave > saveIntervalSec * 1000`).
-  it.fails('does not autosave on the very first tick', () => {
+  it('does not autosave on the very first tick', () => {
     const st = flatStorage();
     const game = makeGame({ saveIntervalSec: 60 }, st);
     game.tick();
     expect(st.saves).toBe(0);
   });
 
-  // BUG (reported by lead, fixed on main): save() while a save is in flight returns the in-flight
+  // Regression (was a bug, fixed): save() while a save is in flight returns the in-flight
   // promise, whose snapshot predates later changes, so a caller awaiting "its" save silently
   // loses the newer state (src/sim/game.ts save(): `if (this.saving) return this.saving`).
-  it.fails('a save requested while another is in flight still persists the latest state', async () => {
+  it('a save requested while another is in flight still persists the latest state', async () => {
     const st = flatStorage();
     const game = makeGame({}, st);
     build(game, null, { type: 'foundation', i: 0, j: 0, oy: OY });

@@ -95,9 +95,9 @@ export function tickUntil(game: Game, cond: () => boolean, max = 400): number {
 }
 
 /**
- * Move a player instantly (like /tp). Also re-buckets them in the entity grid:
- * the simulation itself never does that for players (see the it.fails test in
- * combat.test.ts), and without it hit detection cannot find a moved player.
+ * Move a player instantly (like /tp). Re-buckets them in the entity grid right
+ * away so hit detection works before the next tick (the simulation itself
+ * re-buckets players every tick).
  */
 export function teleport(game: Game, p: Player, x: number, y: number, z: number) {
   p.move.x = x;

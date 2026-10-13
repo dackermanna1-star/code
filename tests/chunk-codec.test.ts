@@ -129,11 +129,11 @@ describe('RLE codec', () => {
       expect(() => new Chunk(0, 0, new Uint8Array(100))).toThrow(/Bad chunk buffer length/);
     });
 
-    // BUG (low): rleDecode stops once the output is full and silently ignores any
+    // Regression (was a bug, fixed): rleDecode stops once the output is full and silently ignores any
     // trailing bytes, so a stream with appended/duplicated data (e.g. a corrupted
     // save record) decodes "successfully". src/shared/world/chunk.ts rleDecode:
     // the loop condition `o < expectedLength` exits without checking `i === src.length`.
-    it.fails('rejects trailing garbage after a complete chunk', () => {
+    it('rejects trailing garbage after a complete chunk', () => {
       const tail = Uint8Array.from([...good, 7, 3]);
       expect(() => rleDecode(tail)).toThrow();
     });

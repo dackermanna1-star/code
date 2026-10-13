@@ -100,7 +100,10 @@ export class Game {
         if (o.kind === 'piece') this.building.loadPiece(o.id, data);
         else if (o.kind === 'tile') this.tiles.loadTile(data);
         else if (o.kind === 'corpse') this.entities.loadCorpse(o.id, data);
-        else if (o.kind === 'player') this.savedPlayer = { id: o.id, name: data.name, save: data.save };
+        else if (o.kind === 'player') {
+          if (!data || typeof data.save !== 'object' || data.save === null) throw new Error('player record has no state');
+          this.savedPlayer = { id: o.id, name: data.name, save: data.save };
+        }
         this.nextId = Math.max(this.nextId, o.id + 1);
       } catch (e) {
         // A damaged record must not take the whole world down: skip it and say so.
@@ -281,7 +284,13 @@ export class Game {
       last = nowMs;
       let steps = 0;
       while (acc >= TICK_DT && steps < 5) {
-        this.tick();
+        try {
+          this.tick();
+        } catch (e) {
+          // A bug in one system must not freeze the world: log it and keep simulating.
+          log.error('Simulation tick failed', { error: String(e), stack: (e as Error).stack?.split('\n').slice(0, 5).join(' | ') });
+          for (const p of this.players.values()) this.msg(p, `Internal error (logged): ${String(e)}`, 'error');
+        }
         acc -= TICK_DT;
         steps++;
       }

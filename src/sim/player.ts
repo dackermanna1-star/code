@@ -185,6 +185,7 @@ export class Player {
   }
 
   load(d: ReturnType<Player['toSave']>) {
+    if (!d || !Number.isFinite(d.x) || !Number.isFinite(d.y) || !Number.isFinite(d.z)) throw new Error('invalid player state');
     this.move.x = d.x; this.move.y = d.y; this.move.z = d.z; this.yaw = d.yaw ?? 0;
     this.inv.load(d.inv);
     this.sel = d.sel ?? 0;

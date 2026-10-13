@@ -51,7 +51,9 @@ export class InventoryOps {
     } else if (m.op === 'drop') {
       const s = src.get(si);
       if (!s) return;
-      const n = Math.max(1, Math.min(s.n, m.n === undefined ? s.n : Math.floor(Number(m.n))));
+      const req = m.n === undefined ? s.n : Math.floor(Number(m.n));
+      if (!Number.isFinite(req) || req < 1) return;
+      const n = Math.min(s.n, req);
       const stack = { ...s, n };
       s.n -= n;
       if (s.n <= 0) src.slots[si] = null;

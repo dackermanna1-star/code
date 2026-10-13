@@ -1,5 +1,5 @@
 import type { EntSnap } from '../../shared/net/protocol';
-import { Container, makeStack, addToAny, type ItemStack } from '../../shared/sim/inventory';
+import { Container, makeStack, addToAny, addStack, type ItemStack } from '../../shared/sim/inventory';
 import { SOLID } from '../../shared/world/blocks';
 import { itemDef, tryItemDef } from '../../shared/data/items';
 import type { Game } from '../game';
@@ -146,11 +146,20 @@ export class Entities {
     }
   }
 
-  createPlayerCorpse(p: Player): Corpse {
+  /** Body holding everything the player carried, plus `extra` stacks (e.g. craft refunds); overflow drops on the ground. */
+  createPlayerCorpse(p: Player, extra: ItemStack[] = []): Corpse {
     const c = new Corpse(this.game.allocId(), p.name, p.x, p.y, p.z, this.game.now + this.game.config.corpseLifetimeSec);
     let i = 0;
     for (const cont of [p.inv.belt, p.inv.main, p.inv.wear]) {
-      for (const s of cont.slots) if (s && i < c.container.size) c.container.slots[i++] = { ...s };
+      for (const s of cont.slots) {
+        if (!s) continue;
+        if (i < c.container.size) c.container.slots[i++] = { ...s };
+        else this.dropItem({ ...s }, p.x, p.y + 0.5, p.z, 600);
+      }
+    }
+    for (const s of extra) {
+      const left = addStack(c.container, s);
+      if (left > 0) this.dropItem({ ...s, n: left }, p.x, p.y + 0.5, p.z, 600);
     }
     c.container.touch();
     this.add(c);

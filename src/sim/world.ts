@@ -2,6 +2,7 @@ import { CHUNK_SIZE } from '../shared/constants';
 import { Chunk, chunkKey, rleDecode, rleEncode, VoxelWorld } from '../shared/world/chunk';
 import { WorldGenerator } from '../shared/world/worldgen';
 import type { WorldStorage } from './storage';
+import { log } from './log';
 
 /**
  * Authoritative voxel world. Chunks come from (1) the save if the chunk was
@@ -20,7 +21,7 @@ export class SimWorld extends VoxelWorld {
   readonly pending = new Map<number, Array<[number, number, number, number]>>();
   /** Called once for chunks produced by the generator (never for loaded saves). */
   onFreshChunk: ((c: Chunk) => void) | null = null;
-  stats = { fromSave: 0, generated: 0, syncGenerated: 0, unloaded: 0, genMs: 0 };
+  stats = { fromSave: 0, generated: 0, syncGenerated: 0, unloaded: 0, genMs: 0, corruptChunks: 0 };
   private budgetLeft = 0;
 
   constructor(readonly seed: number, private storage: WorldStorage, private budgetMs = 25) {
@@ -42,12 +43,8 @@ export class SimWorld extends VoxelWorld {
     const key = chunkKey(cx, cz);
     this.lastNeeded.set(key, Date.now());
     if (this.chunks.has(key)) return true;
-    const saved = this.storage.loadChunk(key);
-    if (saved) {
-      this.install(new Chunk(cx, cz, rleDecode(saved.data)), saved.rev, false);
-      this.stats.fromSave++;
-      return true;
-    }
+    const fromSave = this.loadSaved(cx, cz);
+    if (fromSave) return true;
     if (this.budgetLeft <= 0) return false;
     const t0 = performance.now();
     const data = this.gen.generateChunk(cx, cz);
@@ -64,17 +61,36 @@ export class SimWorld extends VoxelWorld {
     const key = chunkKey(cx, cz);
     const have = this.chunks.get(key);
     if (have) return have;
-    const saved = this.storage.loadChunk(key);
-    if (saved) {
-      this.stats.fromSave++;
-      return this.install(new Chunk(cx, cz, rleDecode(saved.data)), saved.rev, false);
-    }
+    const fromSave = this.loadSaved(cx, cz);
+    if (fromSave) return fromSave;
     this.stats.syncGenerated++;
     return this.install(new Chunk(cx, cz, this.gen.generateChunk(cx, cz)), 0, true);
   }
 
   ensureSyncAt(x: number, z: number) {
     return this.ensureSync(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE));
+  }
+
+  /**
+   * Install a chunk from the save. A corrupt record is logged and replaced by
+   * freshly generated terrain (marked edited so the bad record is overwritten
+   * on the next save) — one damaged chunk must never make a world unplayable.
+   */
+  private loadSaved(cx: number, cz: number): Chunk | null {
+    const saved = this.storage.loadChunk(chunkKey(cx, cz));
+    if (!saved) return null;
+    try {
+      const c = this.install(new Chunk(cx, cz, rleDecode(saved.data)), saved.rev, false);
+      this.stats.fromSave++;
+      return c;
+    } catch (e) {
+      this.stats.corruptChunks++;
+      log.error('Corrupt chunk in save — regenerating it from the seed', { cx, cz, error: String(e) });
+      const c = this.install(new Chunk(cx, cz, this.gen.generateChunk(cx, cz)), saved.rev + 1, true);
+      c.edited = true;
+      this.savedRev.set(c.key, saved.rev); // dirty: the next save overwrites the corrupt record
+      return c;
+    }
   }
 
   private install(c: Chunk, rev: number, fresh: boolean): Chunk {

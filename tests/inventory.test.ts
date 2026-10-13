@@ -211,12 +211,12 @@ describe('removeItem / removeAll', () => {
     expect(c.get(1)).toBeNull();
   });
 
-  // BUG: removeAll checks each [id, n] entry against the inventory independently, so a
+  // Regression (was a bug, fixed): removeAll checks each [id, n] entry against the inventory independently, so a
   // cost list that names the same item twice is "affordable" when only one entry is,
   // and removeAll returns true after taking less than the total (src/shared/sim/inventory.ts
   // removeAll: the pre-check does not aggregate duplicate ids, and the result of removeItem
   // is ignored). No current recipe repeats an ingredient, but merged cost lists would.
-  it.fails('removeAll is all-or-nothing even when the same item appears twice', () => {
+  it('removeAll is all-or-nothing even when the same item appears twice', () => {
     const c = filled(1, [0, 'wood', 60]);
     expect(removeAll([c], [['wood', 50], ['wood', 50]])).toBe(false);
     expect(countItem([c], 'wood')).toBe(60);
@@ -360,12 +360,12 @@ describe('server inventory requests (game.handle)', () => {
     expect(everything()).toEqual(before);
   });
 
-  // BUG: a drop request with a non-numeric amount (e.g. n: "abc") turns into NaN, which
+  // Regression (was a bug, fixed): a drop request with a non-numeric amount (e.g. n: "abc") turns into NaN, which
   // survives Math.max/Math.min clamping in InventoryOps.handle (src/sim/systems/inventoryops.ts,
   // `op === 'drop'`): the source slot becomes {n: NaN} (never cleared, since NaN <= 0 is false)
   // and an ItemDrop with n: NaN is spawned. The UI never sends this, but handle() is documented
   // as "never trusts its contents".
-  it.fails('a drop request with a non-numeric amount is rejected or clamped, never corrupts the stack', () => {
+  it('a drop request with a non-numeric amount is rejected or clamped, never corrupts the stack', () => {
     const game = makeGame();
     const { p } = spawnPlayer(game, 'Dropper', 8.5, 8.5);
     hold(p, 'wood', 100);

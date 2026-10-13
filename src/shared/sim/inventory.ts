@@ -159,8 +159,11 @@ export function removeItem(containers: Container[], id: string, n: number): bool
 
 /** Remove a list of ingredients atomically. */
 export function removeAll(containers: Container[], items: Array<[string, number]>): boolean {
-  for (const [id, n] of items) if (countItem(containers, id) < n) return false;
-  for (const [id, n] of items) removeItem(containers, id, n);
+  // Aggregate first so a list naming the same item twice is checked against its total.
+  const need = new Map<string, number>();
+  for (const [id, n] of items) need.set(id, (need.get(id) ?? 0) + Math.max(0, n));
+  for (const [id, n] of need) if (countItem(containers, id) < n) return false;
+  for (const [id, n] of need) if (!removeItem(containers, id, n)) throw new Error(`removeAll: inconsistent count for ${id}`);
   return true;
 }
 

@@ -249,12 +249,12 @@ describe('fall damage through the server', () => {
 });
 
 describe('players who moved', () => {
-  // BUG: players are put in the entity spatial grid when they join/respawn, but never re-bucketed
+  // Regression (was a bug, fixed): players are put in the entity spatial grid when they join/respawn, but never re-bucketed
   // when they move (only animals and thrown explosives call entities.updateCell; see
   // src/sim/game.ts processInputs). Once a player walks out of their 32x32 grid cell,
   // entities.near() no longer returns them, so bullets, melee, explosions, the "something is in
   // the way" build check and door-blocking checks all ignore them.
-  it.fails('a player who walked away from their spawn cell can still be shot', () => {
+  it('a player who walked away from their spawn cell can still be shot', () => {
     const game = makeGame();
     const { p: target } = spawnPlayer(game, 'Walker', -40.5, 8.5);
     const { p: shooter } = spawnPlayer(game, 'Shooter', -55.5, 8.5);

@@ -792,8 +792,12 @@ export class Building {
 
   private loaded: Array<{ id: number; d: { s: Socket; tier: number; hp: number; owner: string; placedAt: number; lastDamaged: number; open?: boolean; lock?: Lock } }> = [];
 
+  /** Queue a saved piece; structurally invalid records are rejected (and skipped by the caller). */
   loadPiece(id: number, d: { s: Socket; tier: number; hp: number; owner: string; placedAt: number; lastDamaged: number; open?: boolean; lock?: Lock }) {
-    this.loaded.push({ id, d });
+    const s = d && sanitizeSocket(d.s);
+    const maxTier = s?.type === 'door' ? DOORS.length - 1 : TIERS.length - 1;
+    if (!s || !Number.isInteger(d.tier) || d.tier < 0 || d.tier > maxTier) throw new Error('invalid building piece record');
+    this.loaded.push({ id, d: { ...d, s } });
   }
 
   /** Rebuild indices after loading pieces (foundations first so support exists). */
@@ -801,12 +805,14 @@ export class Building {
     const order = (t: PieceType) => (t === 'foundation' ? 0 : t === 'door' ? 3 : t === 'floor' || t === 'stairs' ? 2 : 1);
     this.loaded.sort((a, b) => a.d.s.oy - b.d.s.oy || order(a.d.s.type) - order(b.d.s.type));
     for (const { id, d } of this.loaded) {
-      const s = sanitizeSocket(d.s) ?? (d.s.type === 'door' ? d.s : null);
-      if (!s) continue;
+      const s = d.s;
       const geom = pieceGeometry(s);
-      if (geom.slots.some((x) => this.slots.has(x))) continue;
+      if (geom.slots.some((x) => this.slots.has(x))) {
+        log.warn('Skipped overlapping building piece from save', { id });
+        continue;
+      }
       const piece = this.addPieceSilently(s, d, id);
-      piece.hp = Math.min(piece.maxHp, d.hp);
+      piece.hp = Math.max(1, Math.min(piece.maxHp, Number(d.hp) || piece.maxHp));
     }
     this.loaded = [];
     for (const bid of [...this.buildings.keys()]) this.recomputeStability(bid);
