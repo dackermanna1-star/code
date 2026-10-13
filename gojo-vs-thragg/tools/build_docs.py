@@ -78,7 +78,7 @@ def compose_prompt(sl, bible, i):
         cb = bible["characters"][who]
         st = char_state_text(bible, who, (co_in or {}).get(who) or {})
         lines.append(f"{cb['name'].upper()}: {cb['block']}" + (f" At the start of this shot - {st}." if st else ""))
-    lines.append(f"CAMERA: {s['shot_size']}; {s.get('angle', '')}; {s.get('lens_mm', '')}mm lens; {s['camera']}.")
+    lines.append(f"CAMERA: {s['shot_size']}; {s.get('angle', '')}; {s.get('lens_mm', '')}mm lens; {s['camera'].rstrip('. ')}.")
     lines.append("ACTION: " + s["prompt_core"])
     if s.get("vfx"):
         lines.append("EFFECTS: " + "; ".join(s["vfx"]) + ".")
