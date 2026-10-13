@@ -353,9 +353,11 @@
     ticks(70);
     check('power-up: Double Cash on the whole squad', P().has(botPs()[0], 'doublecash') === 1 && P().has(p, 'doublecash') === 1);
     // airdrop
-    PU.spawn('airdrop', at(), { id: 'm249', vel: [0, 0, 0] });
+    const ad = PU.spawn('airdrop', at(), { id: 'm249', vel: [0, 0, 0] });
     ticks(70);
-    check('airdrop: the gun inside', p.weapons[1]?.id === 'm249');
+    const walked = !ad.taken && !ad.opened;
+    PU.air.open(p, ad); // (drops builder: a crate opens by holding use beside it, airdrop.js; zm3-drops.js tests that)
+    check('airdrop: not by walking over it; opened, the gun inside', walked && p.weapons[1]?.id === 'm249');
     // trophy -> relic offer
     PU.spawn('trophy', at(), { data: { choices: ['ironheart', 'hunterseye'] }, vel: [0, 0, 0] });
     ticks(70);
@@ -509,8 +511,10 @@
       for (const z of Z().pool) if (z.alive && Math.hypot(z.pm.origin[0] - o[0], z.pm.origin[1] - o[1]) < 200) { close++; break; }
     }
     check('zombies still find you', close > 0 && Z().spawned > 5, `spawned ${Z().spawned}, close ${close}`);
-    check('no perks, drops or drafts on their own', !of('perk').length && !of('pickup').length && !of('draft').length && !g.dropped.some((d) => d.kind !== 'weapon'));
-    check('the pipeline stays idle; max health 100', !M().live && squad().every((p) => !p.zm && p.maxHealth === 100));
+    // (drops builder: kills drop loot now, within the wave's budget - zm3-drops.js; a power-up taken wakes the pipeline)
+    const buffs = of('perk', (e) => e.source === 'powerup').length;
+    check('no perks or drafts on their own; loot within the wave\'s budget', !of('perk', (e) => e.source !== 'powerup' && e.source !== 'buff').length && !of('draft').length && Z().pickups.spent <= Z().pickups.budget, `${of('pickup', (e) => e.phase === 'spawn').length} drops`);
+    check('the pipeline stays idle (unless a power-up was taken); max health 100', (!M().live || buffs > 0) && squad().every((p) => (!p.zm || buffs > 0) && p.maxHealth === 100), `live ${M().live} buffs ${buffs}`);
     con('zm_wave 4'); // (the bots may have cleared wave 3 by now)
     rec = [];
     con('zm_skip');

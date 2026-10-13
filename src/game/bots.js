@@ -2052,6 +2052,8 @@ class Bot {
       this.hold(it, { pos: this.holdHere.pos, watch: [], n: 'here' });
       return;
     }
+    // zombie survival: loot close by when it's safe (pickups.js)
+    if (g.zombies?.enabled && g.zombies.pickups.botLoot(this, it)) { this.watchDanger(it); return; }
     // zombie survival: stick with the human (once his radio orders above have run out)
     if (g.zombies?.enabled && g.zombies.allyObjective(this, it)) { this.watchDanger(it); return; }
     // pick up a primary lying close by

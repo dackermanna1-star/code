@@ -233,16 +233,20 @@ const BOSS = {
 
 /**
  * Drops and power-ups (pickups.js, powerups.js): budget [base, perWave] (loot drops a wave
- * may hold: base + perWave x wave), chance (a kill drops loot while there's budget), powerup
- * (share of drops that are power-ups), life (s before loot on the floor fades), powerupSecs (s
- * a timed power-up lasts), airdropFrom (first wave with an airdrop flare), airdropChance (a
- * wave from there gets one).
+ * may hold: base + perWave x wave; x1.25 a bot's worth more squad, up to x2), chance (a kill
+ * drops loot while there's budget), powerup (share of drops that are power-ups), pity (+ that
+ * share for every drop since the last power-up), life (s before loot on the floor fades),
+ * powerupSecs (s a timed power-up lasts), airdropFrom (first wave with an airdrop flare),
+ * airdropChance (a wave from there gets one), crateLife (s a landed crate waits to be opened),
+ * vial (HP in a health vial), cash (a cash drop, x a common kill's pay), nukePay ($ the Nuke
+ * pays everyone standing, instead of the kills), fireSale (x shop prices while Fire Sale is
+ * on), floor (bits of small loot lying about at once).
  */
 const DROPS = {
-  casual: { budget: [6, 0.6], chance: 0.1, powerup: 0.12, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.5 },
-  normal: { budget: [5, 0.5], chance: 0.08, powerup: 0.1, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.4 },
-  hard: { budget: [4, 0.4], chance: 0.07, powerup: 0.08, life: 25, powerupSecs: 15, airdropFrom: 5, airdropChance: 0.35 },
-  nightmare: { budget: [3, 0.3], chance: 0.06, powerup: 0.06, life: 20, powerupSecs: 12, airdropFrom: 6, airdropChance: 0.3 },
+  casual: { budget: [6, 0.6], chance: 0.1, powerup: 0.12, pity: 0.05, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.5, crateLife: 40, vial: 30, cash: 1.6, nukePay: 400, fireSale: 0.5, floor: 14 },
+  normal: { budget: [5, 0.5], chance: 0.08, powerup: 0.1, pity: 0.04, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.4, crateLife: 30, vial: 25, cash: 1.5, nukePay: 300, fireSale: 0.5, floor: 12 },
+  hard: { budget: [4, 0.4], chance: 0.07, powerup: 0.08, pity: 0.03, life: 25, powerupSecs: 15, airdropFrom: 5, airdropChance: 0.35, crateLife: 30, vial: 20, cash: 1.3, nukePay: 250, fireSale: 0.6, floor: 10 },
+  nightmare: { budget: [3, 0.3], chance: 0.06, powerup: 0.06, pity: 0.02, life: 20, powerupSecs: 12, airdropFrom: 6, airdropChance: 0.3, crateLife: 25, vial: 15, cash: 1.2, nukePay: 200, fireSale: 0.7, floor: 8 },
 };
 
 /**

@@ -231,7 +231,7 @@ export class ZEconomy {
   /** The whole shop is open to p: the break, Sandbox's any time, or just back from a respawn. */
   open(p) {
     const Z = this.Z;
-    return Z.state !== 'wave' || Z.diff.econ.buyAnytime || this.rearm(p) > 0;
+    return Z.state !== 'wave' || Z.diff.econ.buyAnytime || this.rearm(p) > 0 || Z.perks.has(p, 'firesale') > 0; // (a Fire Sale power-up: powerups.js)
   }
 
   /** Seconds left of p's re-arm window (back from a respawn mid-wave), else 0 (always on hardcore). */
@@ -324,6 +324,7 @@ export class ZEconomy {
     if (p.downed) return "You're down: no shopping";
     if (E.buyAnytime) return null;
     if (Z.state !== 'wave') return 'BREAK: everything is for sale (F1: ready)';
+    if (Z.perks.has(p, 'firesale')) return `FIRE SALE: the whole shop, ${Math.round((1 - Z.diff.drops.fireSale) * 100)}% off`; // (powerups.js)
     const r = this.rearm(p);
     if (r > 0) return `RE-ARM: the whole shop for ${Math.ceil(r)} more seconds`;
     return `MID-WAVE: ammo, armour, medkits only${E.combatPremium ? ` (+${Math.round(E.combatPremium * 100)}%)` : ''}`;
