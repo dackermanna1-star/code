@@ -25,30 +25,34 @@
     }
   },
   "injury_text": {
-    "mouth_blood": "a thin line of blood at the corner of the mouth",
+    "mouth_blood": "a split lip with a line of blood at the corner of the mouth",
+    "torn_suit": "the uniform torn open across the right shoulder and chest",
+    "cracked_ribs": "heavy bruising over cracked right ribs, breathing guarded",
+    "chest_burn": "a scorched burn across the chest where the uniform is blasted away",
+    "forearm_lost": "the left forearm is gone at mid-forearm (Thragg) / at the elbow (Gojo), the stump cauterised or raw",
+    "flank_flayed": "the left flank flayed raw from armpit to hip, uniform and skin stripped away",
+    "ear_torn": "the left ear torn away, blood down the neck",
+    "lung_ruptured": "frothy blood at the mouth, laboured wet breathing",
+    "ear_blood": "thin trickles of blood from the ears",
+    "eye_blood": "blood tears running from the corners of the eyes",
     "nosebleed": "blood running from the nose",
     "nosebleed_trace": "dried streaks of blood under the nose",
-    "brow_cut": "a cut above the right eyebrow with blood running down",
-    "eye_blood": "blood tears running from the corners of the eyes",
-    "ear_blood": "thin trickles of blood from the ears",
-    "bruise": "a dark bruise along the cheekbone",
-    "broken_nose": "a broken, swollen, bleeding nose",
-    "torn_suit": "the uniform torn open across the chest and shoulder",
-    "burned_suit": "the left side of the uniform burned and scorched away",
-    "purple_graze": "a deep scooped wound gouged out of the left shoulder and upper arm, its edges cauterised dark violet-red",
-    "cracked_sternum": "a dark crater-shaped bruise in the centre of the chest, breathing laboured",
-    "torso_erased": "a clean-edged void where the left side of the torso and the left arm were erased",
-    "broken_forearm": "the left forearm visibly broken",
-    "torn_sleeve": "the left sleeve of the jacket torn to the elbow",
-    "dust_covered": "pale dust settled on the shoulders and hair"
+    "chest_destroyed": "the chest blasted open and smoking",
+    "collarbone_broken": "the left collarbone visibly broken, shoulder dropped",
+    "jacket_torn_shoulder": "the uniform jacket torn and bloodstained at the left shoulder",
+    "bloodshot_eyes": "bloodshot eyes",
+    "cheek_cut": "a fresh cut across the left cheekbone, bleeding",
+    "stump_sealed": "the stump sealed with new tissue beginning to grow",
+    "dust_covered": "pale dust on the shoulders and hair"
   },
   "locations": {
-    "intersection": "A vast abandoned metropolitan district: a wide four-way intersection of an eight-lane avenue with crosswalk stripes and a few abandoned cars, ringed by 30- to 80-storey glass and concrete towers with shattered windows; a traffic-light mast arm on the EAST corner (screen-right); wind-blown dust and paper; no people anywhere.",
-    "west_block": "The block of mid-rise concrete office buildings directly WEST of the intersection (screen-left): ground-floor lobbies, concrete pillars, interior office floors, a parking lot behind them.",
+    "intersection": "A vast evacuated metropolitan district: a wide four-way intersection of an eight-lane avenue with crosswalk stripes and a few abandoned cars, ringed by 30- to 80-storey glass and concrete towers with shattered windows; a bent traffic-light mast stands on the WEST corner (screen-left), its arm reaching east over the intersection; beyond the western towers, across a river, the LIT skyline of a populated city glows under the sunset; wind-blown dust and paper; no people anywhere.",
+    "west_block": "(unused - see east_block)",
     "rooftops": "The rooftops between the intersection and the unfinished tower to the EAST: water tanks on steel legs, AC units, parapets and antenna masts, 40 to 120 m above the street, the skyline all around.",
     "tower": "An unfinished 42-storey skyscraper EAST of the intersection: exposed concrete floor slabs every 4.2 m, steel columns, rebar, a half-installed glass curtain wall on the lower floors, tarps, a yellow tower crane on top.",
-    "sky": "Open sky 150 to 300 m above the city at dusk: the storm deck overhead, torn cloud, the dark skyline spread below with the ruined intersection visible, smoke columns rising from earlier damage.",
+    "sky": "Open sky 150 to 300 m above the city at dusk: the storm deck overhead (torn open after Sequence 4), the dark evacuated district below, the river and the lit populated city to the west under the sunset, smoke columns rising from earlier damage.",
     "domain": "Inside Unlimited Void: a boundless starfield with impossible depth, concentric rings of light receding to a vanishing point, a slow galactic spiral, and endless streams of luminous information-particles rushing outward too fast to read; no floor, no horizon; deep blacks with cold blue-white light.",
-    "insert": "A tight insert/close-up; background is the surrounding location softly out of focus."
+    "insert": "A tight insert/close-up; background is the surrounding location softly out of focus.",
+    "east_block": "The block of mid-rise concrete office buildings directly EAST of the intersection (screen-right): ground-floor lobbies, concrete pillars, interior office floors, a parking lot behind them."
   }
 }

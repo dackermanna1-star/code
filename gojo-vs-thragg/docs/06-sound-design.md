@@ -39,7 +39,7 @@ the shot list.
 | 2 The First Impact | 00:25–00:55 | Pulse enters | 96 BPM low percussion, electronic pulse, low brass stabs placed *between* blows | Music thins to let each `infinity_stop` ring read; brass motif for Thragg (descending minor 3rd) |
 | 3 The Sorcerer Takes Control | 00:55–01:30 | Gojo's motif appears | 112 BPM, rising-fifth brass motif for Gojo, glassy synth arpeggio | Hit on the Red release; a held beat under "Now we're fighting" |
 | 4 Viltrumite Fury | 01:30–02:10 | Full aggression | 140 BPM, rapid taiko and toms, driving ostinato, both motifs in counterpoint | The tower crash is the peak; music drops for the "smile fades" close-up |
-| 5 Hollow Purple | 02:10–02:45 | Falls away, then the biggest swell | Low rumble only during the charge, choir and brass entering in layers, full orchestra at the release | Total drop as Gojo raises his hands; the swell crests on the release frame; the aftermath is sustained strings |
+| 5 Hollow Purple | 02:10–02:45 | Falls away, then the biggest swell (the lit city shapes the staging; the score holds its breath) | Low rumble only during the charge, choir and brass entering in layers, full orchestra at the release | Total drop as Gojo raises his hands; the swell crests on the release frame; the aftermath is sustained strings |
 | 6 The Domain | 02:45–03:20 | Leaves music behind | Silence at the hand sign, then high crystalline clusters, a sub drone and granular ticks; heartbeat under Thragg's close-ups | No rhythm at all inside the domain; it "breaks" with a reversed shatter |
 | 7 The Final Exchange | 03:20–03:50 | Rebuilds, then the fastest material in the film | Isolated piano-like tones over the dust, then a 150 BPM ostinato with both motifs colliding | The slow motion stretches a single chord; **hard cut to silence on the impact frame**; the silence holds through the wide silhouette |
 | 8 The Verdict | 03:50–04:00 | Restrained final statement | Solo low brass plus strings, Gojo's rising fifth resolved, no percussion | The last note ends on the cut to black at 04:00:00 |
@@ -64,13 +64,19 @@ the shot list.
 
 ## Dialogue
 
-There are four original lines (plus one optional closing beat), all short
+There are six original lines plus the canonical technique call, all short
 enough to sit in silence pockets:
 
 - **Thragg:** "You stand in my way."
 - **Gojo:** "You should've picked an easier planet."
 - **Gojo:** "That's close. For you."
 - **Thragg:** "Now we're fighting."
+- **Thragg:** "So. It is a choice." (Seq 4, open sky, after watching Gojo's
+  collarbone heal)
+- **Gojo:** "Domain Expansion. Unlimited Void." (Seq 6, the canonical call,
+  over silence)
+- **Gojo:** "Told you." (Seq 8, quiet and tired, under the final music
+  statement)
 
 Delivery:
 - **Thragg** (comics-informed; the animated performance is described as calm

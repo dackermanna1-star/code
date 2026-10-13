@@ -2,23 +2,26 @@
 
 WORLD GEOGRAPHY (metres along x on the fighters' plane, d = 1). The camera
 always looks NORTH, so west = screen-left and east = screen-right in every
-shot. That keeps screen direction consistent for the whole film:
-  x =   0        centre of the intersection (Thragg's landing point)
-  x =  +7        traffic-light gantry, top at y = 6.4 (Gojo's perch)
-  x = -14..-60   west block: Red throws Thragg through these facades (Seq 3)
-  x = +95        the unfinished tower, 42 floors / ~170 m (Seq 4)
-  sky above the west skyline: Hollow Purple's path (Seq 5)
-The low sun sits behind the storm deck in the WEST (screen-left): warm rim
-light comes from screen-left in every shot.
+shot. Gojo is screen-left, Thragg screen-right; Thragg attacks right->left.
+  far west   across a river ~3 km away: a LIT, populated city; the sun sets
+             behind it (warm rim light comes from screen-left in every shot)
+  x =  -7    the traffic-light mast on the WEST corner, top y = 6.4, its arm
+             reaching EAST over the intersection (Gojo's perch, Seq 1)
+  x =   0    centre of the intersection (Thragg's landing crater)
+  x = +20..+60  east block: Red throws Thragg east through three facades (Seq 3)
+  x = +80..+110 the unfinished tower, 176 m (gutted in Seq 4, crane down)
+  east skyline: Hollow Purple's clean channel through four towers (Seq 5)
+  x ~ -4     final crater at the west corner, the mast toppled (Seq 7)
 
 DAMAGE STATE flags (pass a set to the draw functions):
   'landing_crater'  Thragg's landing crater + radial cracks at x=0 (Seq 1 on)
-  'gantry_bent'     traffic-light gantry bent (after Seq 2's first strike area)
-  'west_smash'      punched-through facades on the west block (after Seq 3)
-  'tower_collapsed' unfinished tower broken at mid-height (after Seq 4)
-  'purple_scar'     a gouged channel through the west skyline (after Seq 5)
-  'final_crater'    huge crater at the intersection (after Seq 7)
+  'mast_sheared'    the mast's arm sheared off (Seq 2 on)
+  'east_smash'      Red's tunnel through three east-block facades (Seq 3 on)
+  'tower_gutted'    unfinished tower gutted on three floors, crane down (Seq 4 on)
+  'clouds_torn'     the storm deck torn open by Seq 4's shockwave -> light shafts
+  'purple_scar'     the channel through the eastern towers (Seq 5 on)
   'smoke'           smoke columns rising from damaged areas
+  'final_crater'    big crater at the west corner, mast toppled (Seq 7 on)
 `STATE[seq]` gives the damage set at the START of each sequence.
 """
 from __future__ import annotations
@@ -28,19 +31,23 @@ import random
 
 from engine import PAL, clamp, mix_color, shade, smoothstep
 
+_S4 = {"landing_crater", "mast_sheared", "east_smash"}
 STATE = {
     1: set(),
     2: {"landing_crater"},
-    3: {"landing_crater", "gantry_bent"},
-    4: {"landing_crater", "gantry_bent", "west_smash", "smoke"},
-    5: {"landing_crater", "gantry_bent", "west_smash", "tower_collapsed", "smoke"},
-    6: {"landing_crater", "gantry_bent", "west_smash", "tower_collapsed", "purple_scar", "smoke"},
-    7: {"landing_crater", "gantry_bent", "west_smash", "tower_collapsed", "purple_scar", "smoke"},
-    8: {"landing_crater", "gantry_bent", "west_smash", "tower_collapsed", "purple_scar", "smoke", "final_crater"},
+    3: {"landing_crater", "mast_sheared"},
+    4: set(_S4),
+    5: _S4 | {"tower_gutted", "clouds_torn", "smoke"},
+    6: _S4 | {"tower_gutted", "clouds_torn", "purple_scar", "smoke"},
+    7: _S4 | {"tower_gutted", "clouds_torn", "purple_scar", "smoke"},
+    8: _S4 | {"tower_gutted", "clouds_torn", "purple_scar", "smoke", "final_crater"},
 }
 
-# purple scar: a band in world space at the skyline layers' plane (see _scarred)
-SCAR = dict(x0=-520.0, x1=-60.0, y0=70.0, y1=140.0)
+# purple scar: a band through the EASTERN towers (skyline layer coords at d=5)
+SCAR = dict(x0=60.0, x1=520.0, y0=70.0, y1=140.0)
+# the lit city: everything west of this (layer coords at d=8) is the populated city
+LIT_CITY_X = -260.0
+GANTRY_X = -7.0
 
 
 # --------------------------------------------------------------------------
@@ -193,17 +200,24 @@ def skyline(fr, state=frozenset(), layers=(0, 1, 2, 3), lit: float = 1.0, haze: 
                 for k in range(1, nc):
                     xx = x0 + k * (x1 - x0) / nc
                     fr.line([(xx, 0), (xx, top_y - 0.8)], mull, width_m=0.25 * (cw / 3), d=depth)
-                nlit = int(floors * (x1 - x0) / 10 * b["wd"] * 0.12)
+                lit_city = depth >= 5.0 and x1 < LIT_CITY_X * depth / 8.0
+                nlit = int(floors * (x1 - x0) / 10 * b["wd"] * (0.9 if lit_city else 0.12))
                 for _ in range(nlit):
                     wx = x0 + rng.randint(0, max(0, nc - 1)) * (x1 - x0) / max(1, nc)
                     wy = rng.randint(2, max(2, floors - 2)) * 4.2
                     if wy > top_y - 4:
                         continue
-                    c = mix_color(PAL["window_lit"], col, rng.uniform(0.25, 0.7))
+                    c = mix_color(PAL["window_lit"], col, rng.uniform(0.0, 0.25) if lit_city else rng.uniform(0.25, 0.7))
                     fr.rect(wx + 0.3, wy - 3.6, wx + (x1 - x0) / max(1, nc) - 0.3, wy - 0.6, shade(c, lit), d=depth)
+                if lit_city and fr.S(4.2, depth) <= 2.5:
+                    # too far for floor detail: a warm speckle of lights instead
+                    for _ in range(int((x1 - x0) * h / 400)):
+                        wx = rng.uniform(x0 + 1, x1 - 1)
+                        wy = rng.uniform(4, h - 4)
+                        fr.rect(wx, wy, wx + 1.6, wy + 1.4, shade(PAL["window_lit"], lit * rng.uniform(0.7, 1.0)), d=depth)
             fr.line([(x0, 0), (x0, h * 0.86 if b["top"] == "step" else h)], shade(mix_color(col, PAL["rim_warm"], 0.35), lit),
                     width_m=0.6, d=depth)
-            if "west_smash" in state and li == 3 and -150 < x0 < -30:
+            if "east_smash" in state and li == 3 and 40 < x0 < 170:
                 # punched-through facade: a dark ragged hole at street height
                 hx = (x0 + x1) / 2
                 fr.poly([(hx - 7, 3), (hx - 5, 12), (hx + 1, 14), (hx + 6, 10), (hx + 7, 2), (hx, 0.5)],
@@ -216,11 +230,11 @@ def skyline(fr, state=frozenset(), layers=(0, 1, 2, 3), lit: float = 1.0, haze: 
 def smoke_columns(fr, t_global, state, lit=1.0):
     if "smoke" not in state:
         return
-    sources = [(-40, 1.9), (-55, 3.0), (95, 3.0)]
+    sources = [(40, 1.9), (55, 3.0), (95, 1.0)]
     if "purple_scar" in state:
-        sources += [(-200, 3.0), (-320, 5.0), (-90, 3.0)]
+        sources += [(200, 3.0), (320, 5.0), (140, 3.0)]
     if "final_crater" in state:
-        sources += [(0, 1.2)]
+        sources += [(-4, 1.2)]
     for i, (sx, d) in enumerate(sources):
         rng = random.Random(f"smoke{i}")
         for k in range(16):
@@ -236,7 +250,7 @@ def smoke_columns(fr, t_global, state, lit=1.0):
 # street level
 # --------------------------------------------------------------------------
 
-def street(fr, state=frozenset(), lit: float = 1.0, show_gantry: bool = True, gantry_x: float = 7.0):
+def street(fr, state=frozenset(), lit: float = 1.0, show_gantry: bool = True, gantry_x: float = GANTRY_X):
     """Road plane from the far curb (d=2.4) to the camera, lane markings,
     crosswalk, abandoned cars, the traffic-light gantry."""
     road = shade(PAL["street"], lit)
@@ -268,9 +282,12 @@ def street(fr, state=frozenset(), lit: float = 1.0, show_gantry: bool = True, ga
     if "landing_crater" in state:
         crater(fr, 0.0, 3.2, lit)
     if "final_crater" in state:
-        crater(fr, 0.0, 9.0, lit, deep=True)
+        crater(fr, -4.0, 8.0, lit, deep=True)
     if show_gantry:
-        gantry(fr, gantry_x, bent="gantry_bent" in state, lit=lit)
+        if "final_crater" in state:
+            toppled_mast(fr, lit)
+        else:
+            gantry(fr, gantry_x, sheared="mast_sheared" in state, lit=lit)
 
 
 def crater(fr, x, r, lit=1.0, deep=False):
@@ -299,21 +316,53 @@ def crater(fr, x, r, lit=1.0, deep=False):
                 shade(PAL["street"], lit * rng.uniform(0.8, 1.3)))
 
 
-def gantry(fr, x, bent=False, lit=1.0):
-    """Traffic-light pole + mast arm reaching west over the intersection."""
+def gantry(fr, x=GANTRY_X, sheared=False, lit=1.0):
+    """Traffic-light pole on the WEST corner + mast arm reaching EAST over the
+    intersection. sheared=True: the arm is gone (Seq 2 on), a torn stub left."""
     pole = shade((58, 62, 70), lit)
     top = 6.4
     fr.line([(x, 0), (x, top)], pole, width_m=0.22)
-    if bent:
-        arm = [(x, top - 0.2), (x - 2.5, top - 0.5), (x - 4.6, top - 1.6)]
+    if sheared:
+        fr.line([(x, top - 0.2), (x + 0.9, top - 0.35)], pole, width_m=0.14)
+        fr.poly([(x + 0.9, top - 0.25), (x + 1.1, top - 0.5), (x + 0.85, top - 0.45)], shade((150, 150, 150), lit))
     else:
-        arm = [(x, top - 0.2), (x - 5.5, top - 0.2)]
-    fr.line(arm, pole, width_m=0.14)
-    lx, ly = arm[-1]
-    fr.rect(lx - 0.25, ly - 1.1, lx + 0.25, ly - 0.05, shade((30, 32, 36), lit))
-    for k, c in enumerate([(70, 20, 20), (70, 60, 20), (20, 70, 30)]):
-        fr.circle(lx, ly - 0.25 - k * 0.32, 0.11, fill=c)
+        arm = [(x, top - 0.2), (x + 5.5, top - 0.2)]
+        fr.line(arm, pole, width_m=0.14)
+        lx, ly = arm[-1]
+        fr.rect(lx - 0.25, ly - 1.1, lx + 0.25, ly - 0.05, shade((30, 32, 36), lit))
+        for k, c in enumerate([(70, 20, 20), (70, 60, 20), (20, 70, 30)]):
+            fr.circle(lx, ly - 0.25 - k * 0.32, 0.11, fill=c)
     fr.rect(x - 0.18, top, x + 0.18, top + 0.08, pole)
+
+
+def toppled_mast(fr, lit=1.0):
+    """After Seq 7: the west-corner mast lies across the new crater."""
+    pole = shade((58, 62, 70), lit)
+    fr.line([(GANTRY_X - 0.6, 0.1), (GANTRY_X + 5.6, 0.45)], pole, width_m=0.22, d=1.15)
+    fr.line([(GANTRY_X - 0.6, 0.1), (GANTRY_X - 0.9, 0.0)], pole, width_m=0.26, d=1.15)
+
+
+def river(fr, lit=1.0):
+    """Glimmer of the river in front of the lit city (far west, visible in
+    wides and aerials)."""
+    for d, w in ((6.0, 0.6), (9.0, 0.5)):
+        x0, x1 = -4000.0, LIT_CITY_X * d / 8.0 + 40
+        fr.poly([(x0, -1), (x1, -1), (x1, 1.5), (x0, 1.5)], shade((60, 56, 70), lit), d=d)
+        for k in range(14):
+            xx = x0 + (x1 - x0) * k / 14 + (fr.gf % 48) * 0.6
+            fr.line([(xx, 0.5), (xx + 30, 0.5)], shade((200, 150, 110), lit * w), width_m=0.6, d=d)
+
+
+def light_shafts(fr, state, strength=1.0):
+    """Shafts of evening light through the torn storm deck (Seq 4 on)."""
+    if "clouds_torn" not in state or strength <= 0:
+        return
+    img, dr = fr.layer()
+    for k, (u, w) in enumerate(((0.22, 0.05), (0.38, 0.08), (0.55, 0.04), (0.7, 0.06))):
+        sway = 0.01 * math.sin(fr.gf / 48 + k)
+        dr.polygon([((u + sway) * fr.W, 0), ((u + w + sway) * fr.W, 0), ((u + w * 2.4 + 0.12) * fr.W, fr.H),
+                    ((u + 0.12) * fr.W, fr.H)], fill=(255, 190, 130, int(26 * strength)))
+    fr.merge(img)
 
 
 def rooftops(fr, roof_y: float, x0: float, x1: float, lit=1.0, details=True):
@@ -368,24 +417,31 @@ def tower_interior(fr, floor_y: float, lit=1.0, broken: float = 0.0, x0=80.0, x1
 
 
 def open_sky(fr, t_global, state, lit=1.0, lightning=0.0, haze=0.0):
-    """High-altitude backdrop: sky, clouds, the whole skyline below."""
+    """High-altitude backdrop: sky, clouds, the whole skyline below (lit city
+    and river to the west), the unfinished tower, smoke."""
     sky(fr, lit, lightning)
     clouds(fr, t_global, lit=lit)
+    river(fr, lit)
     skyline(fr, state, layers=(0, 1, 2, 3), lit=lit, haze=haze)
+    unfinished_tower(fr, lit=lit, gutted="tower_gutted" in state)
     smoke_columns(fr, t_global, state, lit)
+    light_shafts(fr, state)
 
 
 def city_street(fr, t_global, state, lit=1.0, lightning=0.0, gantry_on=True, haze=0.0):
     """Standard street-level backdrop at the intersection."""
     sky(fr, lit, lightning)
     clouds(fr, t_global, lit=lit)
+    river(fr, lit)
     skyline(fr, state, layers=(0, 1, 2, 3), lit=lit, haze=haze)
     smoke_columns(fr, t_global, state, lit)
+    light_shafts(fr, state)
     street(fr, state, lit, show_gantry=gantry_on)
 
 
 def unfinished_tower(fr, lit=1.0, collapse_u: float = 0.0, x0: float = 80.0, x1: float = 110.0,
-                     height: float = 176.0, d: float = 1.0, broken_at: float = 84.0):
+                     height: float = 176.0, d: float = 1.0, broken_at: float = 84.0, gutted: bool = False,
+                     gut_y: float = 120.0):
     """The unfinished 42-storey tower east of the intersection (x 80..110 on
     the fighters' plane). collapse_u: 0 intact, 0..1 upper section toppling
     (east, away from camera-left), 1 = collapsed stump with rubble pile."""
@@ -408,6 +464,16 @@ def unfinished_tower(fr, lit=1.0, collapse_u: float = 0.0, x0: float = 80.0, x1:
                 fr.line([(xx, y), (xx, y + 3.85)], shade(glass, 1.4), width_m=0.12, d=d)
         y += 4.2
         k += 1
+    if gutted:
+        # three floors blown out by Seq 4's point-blank Red; crane gone
+        fr.rect(x0 - 1, gut_y, x1 + 1, gut_y + 12.6, (14, 14, 20), d=d)
+        rng = random.Random("gut")
+        for j in range(18):
+            gx = rng.uniform(x0, x1)
+            gy = gut_y + rng.choice([0, 12.6])
+            fr.poly([(gx, gy), (gx + 1.8, gy + rng.uniform(-2, 2)), (gx + 0.6, gy + rng.uniform(-3, 3))],
+                    shade((90, 86, 86), lit), d=d)
+        return
     if collapse_u <= 0:
         # tower crane on top
         fr.rect(x0 + 12, height, x0 + 14, height + 22, shade((180, 140, 40), lit), d=d)

@@ -25,11 +25,19 @@ energy or "block" anything.
 | The attacker's arm **compresses** a little (shoulder bunches, elbow bends) because their body keeps moving while the fist cannot | Impact shockwave **at Gojo's skin** |
 | Shockwaves and debris that miss him **flow around** the region and wreck the environment behind him | Gojo's clothes or hair reacting to the impact |
 
-**Dust as a continuity tool.** Throughout the film, drifting dust never lands
-on Gojo: it parts and hangs around him. Seq 7 depends on this. When his
-technique is burnt out after the domain, dust settles on his shoulders and
-hair for the first time. That is how Thragg (and the audience) can see that
-Infinity is gone. Keep this rule exact in every shot from Seq 1 on.
+**Fragments as a continuity tool (not dust).** Infinity's automatic filter
+only holds things that are *dangerous* (mass, speed, shape; G1-09).
+Harmless drifting dust, air and light reach Gojo normally. The visual rule
+is therefore about **fragments moving at dangerous speed**: shards, grit and
+chips thrown by Thragg's blows **hang** in the air short of Gojo every time
+(Seq 2 onward). Seq 7 pays this off in two steps:
+- During burnout, a shard thrown up by Thragg's lunge **cuts Gojo's cheek**.
+  That is the tell Thragg reads.
+- When Infinity returns, the fragments kicked up by the final charge
+  **stop in mid-air** again.
+
+Keep this rule exact: never show dangerous-speed debris touching Gojo while
+Limitless is active, and never use "dust can't touch him" as a cue.
 
 **Sound:** a pressure swell that stalls instead of landing, then a thin,
 glassy high ring that hangs (`infinity_stop`). There is never a "thud".
@@ -90,10 +98,13 @@ Toji's torso.
 - **Effect on matter:** buildings in the path are **erased** in a
   clean-edged channel, not exploded. Rubble at the edges is pulled into the
   wake, and a violet afterglow lines the cut edges for a few seconds.
-- **The graze (Seq 5):** Thragg is not in the path's centre. The edge of the
-  sphere takes a scooped, cauterised gouge out of his left shoulder and upper
-  arm and burns away that side of his uniform. No claim is made about what a
-  direct hit would do until Seq 7 shows it.
+- **The miss (Seq 5):**
+  - Thragg's corkscrew takes him out of the core. The sphere's outer shell
+    clips his trailing left forearm, which is torn away at mid-forearm, the
+    stump cauterised.
+  - The displacement wake flays his left flank and tears his left ear.
+  - No claim is made about what the core would do to Viltrumite flesh (see
+    02-crossover-rules R7).
 - **Never:** a beam or laser, or a generic purple explosion.
 - **Sound:** two tones beating and converging, with crackle that builds
   (`purple_charge`), then a sub drop and tearing (`purple_release`).
@@ -152,13 +163,15 @@ The impact scale is **tiered** so the largest moments keep their weight.
 Gojo is in burnout, so there is no Limitless: no Infinity, no Blue or Red, and
 no teleport.
 
-- **Signature:** the absence of every Infinity cue. Dust lands on him, his
-  hair and coat move in the wind for the first time, and his footsteps puff
-  dust.
+- **Signature:**
+  - Gojo can no longer hover. He drops to the asphalt and his shoes skid.
+  - No refraction ripple.
+  - A shard of asphalt thrown up by Thragg's lunge cuts his cheek: the
+    first thing that has touched him since Seq 4's deliberate bait.
 - **Restoring the technique:** Gojo repairs the burnt-out part of his brain
   with Reverse Cursed Technique (ch 226). We see the cost: blood running from
-  his nose and the corner of one eye. Then the first suspended particle stops
-  in mid-air. That is the cue that Infinity is back.
+  his nose. Then the concrete fragments kicked up by Thragg's charge stop in
+  mid-air. That is the cue that Infinity is back.
 
 ## 8. Reverse Cursed Technique
 
@@ -173,9 +186,9 @@ Damage is cumulative and never resets. The flags below match
 
 | From | Damage |
 |---|---|
-| Seq 1 | landing crater + radial cracks at the intersection centre; shattered glass on the surrounding facades |
-| Seq 2 | traffic-light mast arm bent by shockwaves flowing around Infinity; ring of cracked asphalt behind Gojo |
-| Seq 3 | dragged cars and gouges toward Blue's point; a straight line of punched-through facades in the west block (Red) |
-| Seq 4 | wrecked rooftops; the unfinished tower snapped at mid-height and collapsed; smoke columns begin |
-| Seq 5 | Hollow Purple's clean channel through the west skyline (mid layers), violet afterglow fading over 3 s |
-| Seq 7–8 | the final crater at the intersection |
+| Seq 1 | landing crater + radial cracks at the intersection centre (x = 0); shattered storefront glass |
+| Seq 2 | the west-corner mast arm sheared away; a torn-up street slab; ring of blown windows; lamp posts flattened |
+| Seq 3 | Blue's heap of dragged cars; a straight Red tunnel through three east-side facades |
+| Seq 4 | dust-shattered facades; skyline windows blown; **storm deck torn open** (cause of Seq 7's light shafts); the unfinished tower gutted on three floors, crane down; smoke columns begin |
+| Seq 5 | Hollow Purple's clean channel through four EASTERN towers + a trench in the street; violet afterglow fading over 3 s |
+| Seq 7–8 | the final crater at the west corner; the traffic-light mast toppled; **the lit city across the river untouched** |

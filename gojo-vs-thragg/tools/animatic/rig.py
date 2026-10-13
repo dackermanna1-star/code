@@ -344,6 +344,16 @@ def _hand(fr, st, J, side, kind, color, skin, s, dx=0.0, dy=0.0):
     return cx, cy
 
 
+def _stump(fr, st, J, side, s, dx=0.0, dy=0.0, rim=False):
+    """Lost forearm: a short stump below the elbow, cauterised/raw end."""
+    ex, ey = J[f"el_{side}"]
+    d = J[f"hand_dir_{side}"]
+    tip = (ex + d[0] * st.forearm * s * 0.25, ey + d[1] * st.forearm * s * 0.25)
+    _capsule(fr, (ex, ey), tip, st.w_fa * s, st.w_fa * 0.9 * s, (20, 20, 26) if st.name == "gojo" else st.suit, dx, dy)
+    if not rim:
+        fr.circle(tip[0] + dx, tip[1] + dy, st.w_fa * 0.45 * s, fill=(120, 20, 26))
+
+
 def _head(fr, st, J, s, colors, opts, dx=0.0, dy=0.0, rim=False):
     hx, hy = J["head"]
     hx += dx
@@ -441,6 +451,29 @@ def _head(fr, st, J, s, colors, opts, dx=0.0, dy=0.0, rim=False):
             elif inj == "bruise":
                 bx, by = at(0.6, -0.1)
                 fr.ellipse(bx, by, r * 0.22, r * 0.18, fill=(150, 110, 140))
+            elif inj == "lung_ruptured":
+                mx, my = at(0.8, -0.62)
+                fr.line([(mx, my), (mx - fwd[0] * r * 0.05, my - r * 0.6)], (190, 40, 50), width_m=r * 0.1)
+            elif inj in ("ear_torn", "ear_blood"):
+                ex, ey = at(-0.15, 0.0)
+                fr.ellipse(ex, ey, r * 0.16, r * 0.2, fill=(130, 14, 22) if inj == "ear_torn" else None,
+                           outline=(130, 14, 22), width=1)
+                fr.line([(ex, ey), (ex, ey - r * 0.9)], (140, 10, 18), width_m=r * 0.06)
+            elif inj == "cheek_cut":
+                cx_, cy_ = at(0.55, -0.15)
+                fr.line([(cx_ - r * 0.15, cy_ + r * 0.05), (cx_ + r * 0.12, cy_ - r * 0.04)], (170, 14, 22), width_m=r * 0.05)
+                fr.line([(cx_, cy_), (cx_, cy_ - r * 0.3)], (150, 10, 18), width_m=r * 0.035)
+            elif inj == "nosebleed_trace":
+                mx, my = at(0.95, -0.25)
+                fr.line([(mx, my), (mx, my - r * 0.25)], (110, 20, 26), width_m=r * 0.04)
+
+
+def left_side(facing: int, view: str = "side") -> str:
+    """Which rig side ('n' near / 'f' far) is the character's LEFT. Camera
+    faces north: facing west (-1) shows the left side to camera."""
+    if view == "front":
+        return "n"          # front view: character's left is screen-right
+    return "n" if facing == -1 else "f"
 
 
 def draw_fighter(fr, st: Style, pose: dict, x: float, y: float | None = None, facing: int = 1,
@@ -454,6 +487,8 @@ def draw_fighter(fr, st: Style, pose: dict, x: float, y: float | None = None, fa
        rim:      False to disable rim light
     Returns the joint dict (useful for attaching effects to hands etc.)."""
     opts = opts or {}
+    inj = set(opts.get("injuries", []))
+    lost = left_side(facing, view) if "forearm_lost" in inj else None
     prev_depth = fr.depth
     fr.depth = depth
     J = solve(st, pose, x, y, facing, scale, view, ground)
@@ -493,9 +528,12 @@ def draw_fighter(fr, st: Style, pose: dict, x: float, y: float | None = None, fa
         _capsule(fr, J["an_f"], J["toe_f"], st.w_sh * 0.7 * s, st.w_sh * 0.5 * s,
                  far["accent"] if st.name == "thragg" else far["suit"], dx, dy)
         _capsule(fr, J["sh_f"], J["el_f"], st.w_ua * s, st.w_fa * s, far["suit"], dx, dy)
-        _capsule(fr, J["el_f"], J["wr_f"], st.w_fa * s, st.w_fa * 0.85 * s,
-                 far["suit"] if st.name == "gojo" else far["suit"], dx, dy)
-        _hand(fr, st, J, "f", pose["hand_f"], None, far["skin"] if st.name == "gojo" else far["accent"], s, dx, dy)
+        if lost != "f":
+            _capsule(fr, J["el_f"], J["wr_f"], st.w_fa * s, st.w_fa * 0.85 * s,
+                     far["suit"] if st.name == "gojo" else far["suit"], dx, dy)
+            _hand(fr, st, J, "f", pose["hand_f"], None, far["skin"] if st.name == "gojo" else far["accent"], s, dx, dy)
+        else:
+            _stump(fr, st, J, "f", s, dx, dy, rim)
         # torso
         px, py = J["pelvis"]
         cx, cy = J["chest"]
@@ -547,6 +585,25 @@ def draw_fighter(fr, st: Style, pose: dict, x: float, y: float | None = None, fa
                         col = shade(cmap["skin"], 0.9) if inj == "torn_suit" else (40, 30, 30)
                         fr.poly([(ox - sz, oy), (ox, oy + sz * 1.4), (ox + sz * 0.9, oy - sz * 0.2),
                                  (ox + sz * 0.2, oy - sz * 1.1)], col)
+                if inj in ("flank_flayed",) and J["view"] == "side":
+                    side = left_side(J["facing"])
+                    k = 1.0 if side == "n" else -0.6
+                    fr.poly([(px + nx * ww * 0.9 * k, py + ny * ww * 0.9 * k),
+                             (cx + nx * wc * 0.95 * k, cy + ny * wc * 0.95 * k),
+                             (cx + nx * wc * 0.2 * k - vx * 0.15, cy + ny * wc * 0.2 * k - vy * 0.15),
+                             (px + nx * ww * 0.1 * k + vx * 0.15, py + ny * ww * 0.1 * k + vy * 0.15)], (150, 30, 36))
+                    fr.line([(px + nx * ww * 0.5 * k + vx * 0.2, py + ny * ww * 0.5 * k + vy * 0.2),
+                             (cx + nx * wc * 0.5 * k - vx * 0.2, cy + ny * wc * 0.5 * k - vy * 0.2)], (210, 190, 180), width_m=0.012 * s)
+                if inj in ("cracked_ribs", "chest_burn"):
+                    fr.ellipse(cx - vx / L * 0.18 * s, cy - vy / L * 0.18 * s, 0.09 * s, 0.07 * s,
+                               fill=(70, 40, 40) if inj == "chest_burn" else (120, 90, 120))
+                if inj == "chest_destroyed":
+                    fr.ellipse(cx - vx / L * 0.22 * s, cy - vy / L * 0.22 * s, 0.14 * s, 0.12 * s, fill=(60, 8, 14))
+                    fr.glow_circle(cx - vx / L * 0.22 * s, cy - vy / L * 0.22 * s, 0.12 * s, (90, 20, 20))
+                if inj == "jacket_torn_shoulder":
+                    sxx, syy = J["sh_" + left_side(J["facing"])]
+                    fr.poly([(sxx - 0.05 * s, syy), (sxx, syy + 0.06 * s), (sxx + 0.06 * s, syy - 0.02 * s),
+                             (sxx, syy - 0.08 * s)], (110, 30, 36))
                 if inj == "purple_graze":
                     # a scooped-out wound on the near shoulder/upper arm, edges cauterised
                     sx, sy = J["sh_n"]
@@ -561,12 +618,12 @@ def draw_fighter(fr, st: Style, pose: dict, x: float, y: float | None = None, fa
         _capsule(fr, J["an_n"], J["toe_n"], st.w_sh * 0.7 * s, st.w_sh * 0.5 * s,
                  cmap["accent"] if st.name == "thragg" else cmap["suit"], dx, dy)
         _capsule(fr, J["sh_n"], J["el_n"], st.w_ua * s, st.w_fa * s, cmap["suit"], dx, dy)
-        _capsule(fr, J["el_n"], J["wr_n"], st.w_fa * s, st.w_fa * 0.85 * s, cmap["suit"], dx, dy)
-        if not rim and silhouette is None and "bleeding_arm" in opts.get("injuries", []):
-            ex, ey = J["el_n"]
-            fr.circle(ex, ey, st.w_fa * s * 0.45, fill=(130, 10, 20))
-        _hand(fr, st, J, "n", pose["hand_n"], None,
-              cmap["skin"] if st.name == "gojo" else cmap["accent"], s, dx, dy)
+        if lost != "n":
+            _capsule(fr, J["el_n"], J["wr_n"], st.w_fa * s, st.w_fa * 0.85 * s, cmap["suit"], dx, dy)
+            _hand(fr, st, J, "n", pose["hand_n"], None,
+                  cmap["skin"] if st.name == "gojo" else cmap["accent"], s, dx, dy)
+        else:
+            _stump(fr, st, J, "n", s, dx, dy, rim)
 
     if opts.get("rim", True) and silhouette is None:
         rim_off = 0.018 * s
