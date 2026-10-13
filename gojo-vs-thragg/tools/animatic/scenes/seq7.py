@@ -296,7 +296,7 @@ def open_flank(fr, J, k=1.0, d=1.0, glow=0.0, entry=None):
         wx, wy = torso_pt(J, *entry)
         fr.ellipse(wx, wy, 0.05 * s, 0.065 * s, fill=(70, 4, 12))
         if glow > 0:
-            fr.glow_circle(wx, wy, 0.25 * s * glow, shade((230, 30, 40), glow))
+            fr.glow_circle(wx, wy, 0.07 * s * (0.6 + 0.4 * glow), shade((230, 30, 40), 0.7 * glow))
             fr.ellipse(wx, wy, 0.04 * s, 0.05 * s, fill=mix_color((70, 4, 12), (255, 90, 80), glow))
     fr.depth = prev
 
@@ -351,12 +351,12 @@ T_TEAR = P(T_GRIP, lean=-18, neck=4, ua_n=60, fa_n=80, ua_f=40, fa_f=20, th_n=30
 T_HOLD = P(T_TEAR, lean=-4, neck=2, ua_f=20, fa_f=10, th_n=20, sh_n=4, th_f=-20, sh_f=-24, hand_f="claw")
 T_STEP = P("t_stand", lean=20, neck=-6, ua_n=20, fa_n=30, ua_f=-40, fa_f=40, th_n=60, sh_n=10, th_f=-20,
            sh_f=-40, hand_f="fist")
-T_DRAW = P("t_stand", lean=36, neck=-16, ua_n=-10, fa_n=10, ua_f=-70, fa_f=40, th_n=56, sh_n=6, th_f=-50,
-           sh_f=-64, hand_f="fist")
-T_DRIVE = P(T_DRAW, lean=40, neck=-18, ua_f=40, fa_f=90, th_n=50, sh_n=4, th_f=-60, sh_f=-74)
-T_STRAIGHT = P("t_stand", lean=30, neck=-14, ua_n=-50, fa_n=-30, ua_f=90, fa_f=90, th_n=54, sh_n=10, th_f=-58,
-               sh_f=-70, hand_f="fist")
-T_STALL = P(T_STRAIGHT, lean=34, neck=-12, ua_f=96, fa_f=84)
+T_DRAW = P("t_stand", lean=28, neck=-12, ua_n=-10, fa_n=10, ua_f=-70, fa_f=40, th_n=48, sh_n=6, th_f=-44,
+           sh_f=-60, hand_f="fist")
+T_DRIVE = P(T_DRAW, lean=26, neck=-14, ua_f=40, fa_f=90, th_n=40, sh_n=4, th_f=-44, sh_f=-62)
+T_STRAIGHT = P("t_stand", lean=22, neck=-10, ua_n=-50, fa_n=-30, ua_f=90, fa_f=90, th_n=34, sh_n=4, th_f=-40,
+               sh_f=-56, hand_f="fist")
+T_STALL = P(T_STRAIGHT, lean=26, neck=-10, ua_f=96, fa_f=84)
 T_BLAST = P("t_stand", lean=-58, neck=-40, ua_n=40, fa_n=80, ua_f=110, fa_f=140, th_n=60, sh_n=40, th_f=20,
             sh_f=-10, hand_f="open")
 T_BACK = P("fallen", lean=-90, neck=6, ua_n=-80, fa_n=-100, ua_f=-110, fa_f=-130, th_n=84, sh_n=96, th_f=76,
@@ -498,10 +498,11 @@ def specks(fr, t, n=40, salt="specks", col=(196, 170, 140), drift=(0.01, -0.004)
 
 
 def world_dust(fr, x0, x1, y0, y1, n=120, salt="wdust", d=1.0, drift=0.22, size_px=1.6, alpha=170,
-               col=(236, 204, 160), settle=0.0):
+               col=(236, 204, 160), settle=0.0, clock=None):
     """Dust hanging in the evening light, anchored in the WORLD and drifting
-    slowly west -> east on the global clock, so overlapping angles match."""
-    tg = C.tg(fr)
+    slowly west -> east on the global clock, so overlapping angles match.
+    clock: override (the slow motion runs the dust on the story clock)."""
+    tg = C.tg(fr) if clock is None else clock
     rng = random.Random(f"s7{salt}")
     img, dr = fr.layer()
     span = x1 - x0
@@ -577,6 +578,20 @@ def fist_crater(fr, x=FIST_CRATER_X, k=1.0, d=1.0):
         L = r * rng.uniform(1.4, 2.6)
         fr.line([(x + math.cos(a) * r * 0.8, -math.sin(a) * r * 0.16), (x + math.cos(a) * L, -math.sin(a) * L * 0.18)],
                 (16, 14, 16), width_m=0.025, d=d)
+
+
+def headless(fr, fn, st):
+    """Draw a rig figure with its head masked out (when an insert face is
+    drawn in its place at insert scale)."""
+    layer, J = capture(fr, fn)
+    hx, hy = J["head"]
+    X, Y = fr.P(hx, hy, J.get("depth", 1.0))
+    R = fr.S(st.head_r * 1.9, J.get("depth", 1.0))
+    mask = Image.new("L", layer.size, 255)
+    ImageDraw.Draw(mask).ellipse([X - R, Y - R * 1.05, X + R, Y + R * 1.05], fill=0)
+    layer.putalpha(ImageChops.multiply(layer.getchannel("A"), mask))
+    fr.img.paste(layer, (0, 0), layer)
+    return J
 
 
 def gojo_eye(fr, L, ex, ey, sz, lid=0.0, gaze=(0.0, 0.0), veins=0.9, glow=1.0, salt="gv", skin_patch=True,
@@ -674,26 +689,28 @@ def gojo_cu(fr, cu, cv, s, inj, lid=0.3, gaze=(0.6, 0.0), expr="serious", rot=0.
     if flare > 0:
         L.ell(0.39, 0.19, 0.03 + 0.012 * flare, 0.016 + 0.008 * flare, fill=shade(GOJO.skin, 0.55))
     if "cheek_cut" in inj and cut > 0:
-        # far (left) cheekbone, beside the near eye: thin line, then beads, then a run
+        # far (left) cheekbone, out beyond the nose: a thin line, then beads, then a short run
         k = clamp(cut)
-        x0, y0, x1, y1 = 0.36, 0.0, 0.5, -0.06
-        L.line([(x0, y0), (lerp(x0, x1, min(1, k * 2)), lerp(y0, y1, min(1, k * 2)))], (170, 14, 24), 0.012)
+        x0, y0, x1, y1 = 0.43, 0.0, 0.51, -0.05
+        L.line([(x0, y0), (lerp(x0, x1, min(1, k * 2)), lerp(y0, y1, min(1, k * 2)))], (170, 14, 24), 0.01)
         if k > 0.4:
             for j in range(3):
                 bx = lerp(x0, x1, 0.2 + 0.3 * j)
-                L.ell(bx, lerp(y0, y1, 0.2 + 0.3 * j) + 0.012, 0.008, 0.01 * (k - 0.3), fill=(150, 8, 18))
+                L.ell(bx, lerp(y0, y1, 0.2 + 0.3 * j) + 0.01, 0.006, 0.008 * (k - 0.3) / 0.7 + 0.002, fill=(150, 8, 18))
         if k > 0.7:
-            L.line([(0.43, -0.02), (0.43, 0.04 + 0.12 * (k - 0.7) / 0.3)], (140, 8, 16), 0.008)
+            L.line([(0.47, -0.015), (0.475, 0.0 + 0.07 * (k - 0.7) / 0.3)], (140, 8, 16), 0.006)
     if nose > 0:
         k = clamp(nose)
-        L.ell(0.37, 0.215, 0.018, 0.012, fill=(150, 10, 20))
-        L.line([(0.37, 0.22), (0.365, 0.22 + 0.17 * k)], (160, 12, 22), 0.02)
-        if k > 0.8:
-            L.line([(0.365, 0.38), (0.33, 0.4)], (150, 10, 20), 0.016)
+        L.ell(0.37, 0.215, 0.015, 0.01, fill=(150, 10, 20))
+        L.line([(0.37, 0.22), (0.366, 0.22 + 0.15 * k)], (160, 12, 22), 0.013)
     if shimmer > 0:
         # RCT: soft warm-white under the skin at the near temple, no green, no sparkles
-        L.glow(-0.34, -0.26, 0.09, shade((255, 232, 196), 0.32 * shimmer))
-        L.ell(-0.34, -0.26, 0.07, 0.05, fill=mix_color(GOJO.skin, (255, 250, 236), 0.6 * shimmer))
+        L.glow(-0.34, -0.26, 0.08, shade((255, 232, 196), 0.28 * shimmer))
+        X, Y = L.p(-0.34, -0.26)
+        R = 0.07 * 0.5 * fr.H * L.s
+        img, dr = fr.layer()
+        dr.ellipse([X - R, Y - R * 0.7, X + R, Y + R * 0.7], fill=(255, 248, 232, int(70 * shimmer)))
+        fr.merge(img)
     return L
 
 
@@ -844,7 +861,7 @@ def s7_03(fr):
     t, dur = fr.t, fr.dur
     t6 = cue(fr, "punch_light", 0, 6)
     t9 = T(fr, 9)
-    fr.cam = Cam(0.95, 0.92, 300.0)
+    fr.cam = Cam(0.82, 0.74, 380.0)
     C.stage(fr, SEQ, "street")
     world_dust(fr, -3, 5, 0.1, 4, n=50, salt="dust03", size_px=1.8, alpha=120)
     pg = ground_pelvis(THRAGG, T_KNEEL, -1)
@@ -898,7 +915,7 @@ def s7_04(fr):
     cv = 0.5 + (0.53 + 0.32 * (1 - rise) - 0.5) * push
     s = 0.8 * push
     inj = gopts(fr)["injuries"]
-    lid = 0.25 + 0.4 * seg(tq, t16, t20 + T(fr, 2), "inout")
+    lid = 0.25 + 0.55 * seg(tq, t16, t20 + T(fr, 2), "inout")
     flare = pulse(tq, 0.0, T(fr, 3), T(fr, 6)) + 0.6 * pulse(tq, T(fr, 22), T(fr, 3), T(fr, 6))
     L = gojo_cu(fr, cu, cv, s, inj, lid=lid, gaze=(0.7, 0.05), flare=flare)
     # the right hand: rises and flexes (nothing happens - no hum, no ripple),
@@ -1022,26 +1039,32 @@ _FRAGS = None
 
 def frag_list():
     """Concrete fragments burst up by Thragg's push-off (S7-12 f9). Hero
-    fragments are aimed to be passing beside Gojo's face, neck and hip just
-    as Infinity resumes (S7-14 f16), so they visibly stop dead."""
+    fragments are aimed to be passing beside Gojo's jaw, eye, neck, head and
+    leg just as Infinity resumes (S7-14 f16): from there each decelerates on a
+    Zeno curve toward its rest point and hangs, jittering. The rest fly on."""
     global _FRAGS
     if _FRAGS is not None:
         return _FRAGS
     rng = random.Random("s7frags")
     tau_inf = INF_BACK_REAL - PUSH_OFF_REAL
     out = []
-    for (hx, hy, sz) in ((-5.72, 1.76, 0.05), (-5.76, 1.46, 0.04), (-5.69, 2.02, 0.03), (-5.78, 1.18, 0.035),
-                         (-5.74, 1.62, 0.022), (-5.7, 1.9, 0.02)):
+    heroes = [((-5.80, 1.64), (-5.935, 1.70), 0.016),     # beside his cheek/jaw (S7-14's hero)
+              ((-5.72, 1.86), (-5.925, 1.91), 0.011),     # above the knuckles' line
+              ((-5.78, 1.46), (-5.88, 1.47), 0.04),       # by the neck
+              ((-5.74, 2.0), (-5.86, 1.98), 0.03),        # by the crown
+              ((-5.70, 0.80), (-5.86, 0.78), 0.035),      # by the knee
+              ((-5.76, 1.30), (-5.9, 1.33), 0.022)]       # at the collarbone
+    for (pi, rest, sz) in heroes:
         x0, y0 = -3.3 + rng.uniform(-0.12, 0.08), 0.06
-        vx = (hx - x0) / tau_inf
-        vy = (hy - y0 + 0.5 * GRAV * tau_inf ** 2) / tau_inf
+        vx = (pi[0] - x0) / tau_inf
+        vy = (pi[1] - y0 + 0.5 * GRAV * tau_inf ** 2) / tau_inf
         out.append(dict(x0=x0, y0=y0, vx=vx, vy=vy, s=sz, a0=rng.uniform(0, 6.3), spin=rng.uniform(-14, 14),
-                        hero=True, shade=rng.uniform(0.7, 1.15)))
+                        hero=True, rest=rest, shade=rng.uniform(0.7, 1.15)))
     for i in range(30):
         x0, y0 = -3.3 + rng.uniform(-0.35, 0.3), 0.04
         vx, vy = rng.uniform(-6.0, -0.4), rng.uniform(1.6, 6.8)
         out.append(dict(x0=x0, y0=y0, vx=vx, vy=vy, s=rng.uniform(0.015, 0.07), a0=rng.uniform(0, 6.3),
-                        spin=rng.uniform(-16, 16), hero=False, shade=rng.uniform(0.7, 1.15)))
+                        spin=rng.uniform(-16, 16), hero=False, rest=None, shade=rng.uniform(0.7, 1.15)))
     _FRAGS = out
     return out
 
@@ -1062,13 +1085,21 @@ def frag_pos(fg, tau, infinity_on=True, zone=0.42, r_min=0.11, rate=55.0):
     """Position, rotation and 'stalled' factor of a fragment at real-time
     clock tau (s since the push-off). With Infinity on (from S7-14 f16) a
     fragment that comes within `zone` of Gojo decelerates on a Zeno curve
-    and never gets closer than r_min; the far ones keep their arcs."""
+    and never arrives; the far ones keep their arcs."""
     tau_inf = INF_BACK_REAL - PUSH_OFF_REAL
     ang = fg["a0"] + fg["spin"] * tau
     if not infinity_on or tau <= tau_inf:
         x, y = _free(fg, tau)
         return x, y, ang, 0.0
-    # when does it enter the zone (after Infinity is back)?
+    if fg["rest"] is not None:
+        x0, y0 = _free(fg, tau_inf)
+        vx, vy = fg["vx"], fg["vy"] - GRAV * tau_inf
+        rx, ry = fg["rest"]
+        dist = math.hypot(rx - x0, ry - y0) or 1e-6
+        r = min(rate, math.hypot(vx, vy) / dist)
+        k = 1 - math.exp(-r * (tau - tau_inf))
+        ang = fg["a0"] + fg["spin"] * (tau_inf + k / r)
+        return x0 + (rx - x0) * k, y0 + (ry - y0) * k, ang, k
     t_in = None
     tt = tau_inf
     while tt <= tau + 1e-9:
@@ -1089,7 +1120,7 @@ def frag_pos(fg, tau, infinity_on=True, zone=0.42, r_min=0.11, rate=55.0):
     r = min(rate, sp / max(travel, 1e-3))
     k = 1 - math.exp(-r * (tau - t_in))
     x, y = x0 + ux * travel * k, y0 + uy * travel * k
-    ang = fg["a0"] + fg["spin"] * (t_in + (1 - math.exp(-r * (tau - t_in))) / r)
+    ang = fg["a0"] + fg["spin"] * (t_in + k / r)
     return x, y, ang, k
 
 
@@ -1269,7 +1300,7 @@ def s7_07(fr):
     if t >= t12:
         te = t - t12
         if te < 0.4:
-            impact_scaled(fr, FIST_CRATER_X, 0.05, te, kind="heavy", k=0.45, salt="i07")
+            impact_scaled(fr, FIST_CRATER_X, 0.05, te, kind="heavy", k=0.3, salt="i07")
         fx.debris(fr, FIST_CRATER_X, 0.05, te, n=22, speed=8.0, spread=1.3, angle=math.radians(100),
                   size=(0.05, 0.22), color=(64, 60, 66), salt="slab07", g=9.8)
         # dagger shards rising past Gojo's head
@@ -1476,7 +1507,7 @@ def s7_10(fr):
     J = thragg(fr, pose, tx, None)
     if t >= t7:
         if t - t7 < 0.35:
-            impact_scaled(fr, -3.66, 1.9, t - t7, kind="heavy", k=0.24, salt="i10")
+            impact_scaled(fr, -3.66, 1.9, t - t7, kind="heavy", k=0.14, salt="i10")
         fx.debris(fr, -3.66, 1.88, t - t7, n=14, speed=3.0, spread=2.4, angle=math.radians(110), size=(0.006, 0.02),
                   color=(90, 86, 90), salt="grit10", g=6.0)
     fr.vignette = 0.42
@@ -1541,7 +1572,7 @@ def s7_11(fr):
         fr.line([(tgt[0] - 0.05, tgt[1] + 0.05), (tgt[0] + 0.05, tgt[1] - 0.05)], (12, 12, 18), width_m=0.012)
     else:
         k = 0.0 if hold else seg(t, t9 + 1.0 / FPS, t14, "out")
-        tgt = (lerp(-3.56, -3.0, k), lerp(1.6, 1.25, k))
+        tgt = (lerp(-3.56, -3.32, k), lerp(1.6, 1.5, k))
         pose = reach(THRAGG, P(base, hand_f="fist"), pel[0], pel[1], -1, "f", tgt)
         J = thragg(fr, pose, tx, None)
         severed_forearm(fr, J, te)
@@ -1607,6 +1638,699 @@ def s7_12(fr):
     draw_frags(fr, tau)
     fr.vignette = 0.42
 
+
+
+def slow_clock(fr):
+    """Dust/smoke clock through the slow motion: S7-13 f0 on the global clock,
+    then advancing at the story's real-time rate (~17x slower)."""
+    start = 5184 / 24.0                      # S7-13 f0 (global seconds)
+    return start + (real_time(fr) - REAL["S7-13"][0])
+
+
+def place_local(fr, s, rot, flip, local_pt, world_pt):
+    """(cu, cv) for an insert drawn with inserts.Local(fr, cu, cv, s, rot, flip)
+    so that its local point `local_pt` lands on world point `world_pt`."""
+    L = inserts.Local(fr, 0.0, 0.0, s, rot, flip)
+    dx, dy = L.p(*local_pt)
+    PX, PY = fr.P(*world_pt)
+    return (PX - dx) / fr.W, (PY - dy) / fr.H
+
+
+def ins_scale(fr, m_per_unit):
+    """Insert scale s so that one local unit = m_per_unit metres at fr.cam.zoom."""
+    return m_per_unit * fr.cam.zoom / (0.5 * OUT_H)
+
+
+# =============================================================================
+# S7-13  MWS from the asphalt, exact profile: THE slow motion begins
+# =============================================================================
+
+def thragg_tears_back(fr, J, k=1.0):
+    """Blood tears streaming BACK off his eyes with the forward drive."""
+    s = J["scale"]
+    ex, ey = head_at(J, THRAGG, 0.72, 0.12)
+    f = J["facing"]
+    for j in range(2):
+        fr.line([(ex, ey - 0.01 * j), (ex - f * 0.09 * k * s, ey + 0.02 - 0.02 * j), (ex - f * 0.17 * k * s, ey + 0.035)],
+                (150, 8, 18), width_m=0.012 * s)
+
+
+def s7_13(fr):
+    t, dur = fr.t, fr.dur
+    u = fr.f / fr.n
+    tau = frag_clock(fr)
+    sc = slow_clock(fr)
+    fr.cam = Cam(-5.3, 1.25, zkf(t, [(0, 215.0), (dur, 228.0)]))
+    C.stage(fr, SEQ, "street")
+    fist_crater(fr)
+    shaft(fr, -3.0, -6.4, 0.8, 1.6, y_top=12, alpha=24)
+    world_dust(fr, -9, -1, 0.2, 4, n=90, salt="dust13", size_px=1.7, alpha=130, clock=sc)
+    # ---- Gojo: upright, retreating no further; two fingers coming up and forward at his hip
+    g = seg(t, 0.0, dur, "inout")
+    gpose = pose_at(g, [(0, G_PLANT), (1, G_RISE_HAND)])
+    G = gojo(fr, gpose, -6.0, None)
+    stump_blood(fr, G, sc * 0.4, "f", n=5, salt="st13")
+    # droplets from his nose drifting down through the shaft
+    nx_, ny_ = head_at(G, GOJO, 0.95, -0.3)
+    rng = fr.srng("nd13")
+    for i in range(4):
+        ph = (rng.random() + (sc - 216.0) * 0.6) % 1.0
+        fr.circle(nx_ + 0.02 * i, ny_ - 0.15 - ph * 1.2, 0.011, fill=(150, 10, 20))
+    # ---- Thragg: whole body behind the straight, rear toe off the ground, no guard
+    bx = lerp(-4.4, -4.8, u)
+    fist = (lerp(-4.72, -5.6, u), lerp(1.5, 1.78, EASE["out"](u)))
+    base = pose_at(u, [(0, T_DRIVE), (0.5, P(T_STRAIGHT, lean=24)), (1, T_STRAIGHT)])
+    sole = soles_offset(THRAGG, base, -1)
+    pose = reach(THRAGG, P(base, hand_f="fist"), bx, 0.2 + sole, -1, "f", fist, elbow="down")
+    J = thragg(fr, pose, bx, 0.2 + sole)
+    open_flank(fr, J, k=1.0)
+    thragg_tears_back(fr, J)
+    fx.trail(fr, [(fist[0] + 0.5 - 0.08 * k, fist[1] - 0.01 * k) for k in range(7)], width_m=0.12, alpha=60)
+    draw_frags(fr, tau)
+    fr.vignette = 0.45
+
+
+# =============================================================================
+# S7-14  ECU 3/4: the repair completes; a fragment stops dead. Infinity is back.
+# =============================================================================
+EYE14 = (-6.0, 1.8)
+
+
+def far_frags(fr, sc, n=14, salt="ff", d_rng=(2.2, 4.0), x_rng=(-7.6, -4.4), y_rng=(1.2, 2.6), size=(0.02, 0.06)):
+    """Fragments further back, still tumbling in slow motion (contrast)."""
+    rng = random.Random(f"s7{salt}")
+    for i in range(n):
+        d = rng.uniform(*d_rng)
+        x0, y0 = rng.uniform(*x_rng), rng.uniform(*y_rng)
+        vx, vy = rng.uniform(-0.5, 0.2), rng.uniform(-0.1, 0.25)
+        tt = (sc - 216.0)
+        draw_frag(fr, x0 + vx * tt, y0 + vy * tt, rng.uniform(0, 6) + rng.uniform(-3, 3) * tt, rng.uniform(*size),
+                  0.8, d=d)
+
+
+def s7_14(fr):
+    t, dur = fr.t, fr.dur
+    t14 = cue(fr, "rct_heal", 0, 14)
+    t15, t16, t18 = T(fr, 15), T(fr, 16), T(fr, 18)
+    tau = frag_clock(fr)
+    sc = slow_clock(fr)
+    K = 4200.0
+    # background: the west corner behind his head, defocused; the light shaft behind him
+    plate(fr, Cam(-8.0, 2.4, 260.0), blur=11.0, dim=0.1)
+    fr.cam = Cam(-5.95, 1.8, K)
+    img, dr = fr.layer()
+    dr.polygon([(0.05 * fr.W, 0), (0.2 * fr.W, 0), (0.48 * fr.W, fr.H), (0.3 * fr.W, fr.H)], fill=(255, 196, 140, 34))
+    fr.merge(img)
+    layer, _ = capture(fr, lambda: far_frags(fr, sc, salt="ff14", x_rng=(-6.3, -5.5), y_rng=(1.65, 2.0),
+                                             size=(0.008, 0.02)))
+    paste(fr, layer, blur=4.0)
+    # ---- Gojo's face, life-size at this lens; near eye on EYE14
+    s = ins_scale(fr, 0.16)
+    cu, cv = place_local(fr, s, 0.0, 1, (0.3, -0.15), EYE14)
+    inj = gopts(fr)["injuries"]
+    xf = kf(t, [(0, -5.6), (t16, -5.9, "linear")]) if t < t16 else -5.9 - 0.05 * (1 - math.exp(-5.0 * (t - t16)))
+    reflect = clamp((xf + 5.6) / -0.3 + 0.3)
+    lid = 0.45 + 0.25 * seg(t, 0.0, t14, "inout")
+    shimmer = 0.0 if t >= t15 else 0.55 + 0.45 * math.sin(fr.f * math.tau / 4)
+    L = gojo_cu(fr, cu, cv, s, inj, lid=lid, gaze=(0.85, 0.0), cut=1.0, nose=1.0, shimmer=shimmer, reflect=reflect,
+                glow=1.0)
+    # the repair completes: a fresh pulse from the left nostril, droplets lifting slowly
+    if t >= t14:
+        te = (sc - slow_clock_at("S7-14", 14))
+        rng = fr.srng("spurt14")
+        for i in range(7):
+            vx, vy = rng.uniform(0.2, 0.9), rng.uniform(0.4, 1.4)
+            px = 0.37 + vx * te * 1.6
+            py = 0.24 - vy * te * 1.6 + 6.0 * te * te
+            L.ell(px, py, 0.008, 0.009, fill=(160, 12, 22))
+        L.ell(0.37, 0.228, 0.018, 0.014, fill=(150, 8, 18))
+    # ---- the near fragments: one stops dead beside his cheek and jitters
+    draw_frags(fr, tau, infinity_on=True, only="hero", jitter_px=2.0)
+    # ---- Infinity resumes on its own: refraction in front of his face, strongest on the fist side
+    if t >= t16:
+        k = seg(t, t16, t16 + T(fr, 10), "out")
+        fx.infinity(fr, -5.9, 1.8, r=0.1, strength=0.35 + 0.65 * k, t=t)
+    # ---- the fist: a huge soft shape from screen-right, slowing from f16
+    s_f = ins_scale(fr, 0.17)
+    cuf, cvf = place_local(fr, s_f, -3.0, -1, (0.46, -0.02), (xf, 1.81))
+    layer, _ = capture(fr, lambda: inserts.thragg_fist(fr, cuf, cvf, s_f, rot=-3.0, flip=-1))
+    paste(fr, layer, blur=9.0)
+    fr.vignette = 0.55
+
+
+def slow_clock_at(sid, f):
+    """slow_clock() value at frame f of shot sid."""
+    a, b = REAL[sid]
+    n = NOM[sid]
+    for sh in C.shotlist()["shots"]:
+        if sh["id"] == sid:
+            n = sh["frames"]
+            break
+    return 5184 / 24.0 + (a + (b - a) * f / n - REAL["S7-13"][0])
+
+
+# =============================================================================
+# S7-15  ECU exact profile (the S2-02 composition), then the tilt down to the flank
+# =============================================================================
+FACE15 = -6.0                    # world x of the front of Gojo's face (the eye line)
+EYE_Y = 1.8
+K15_0, K15_1 = 3712.0, 1500.0    # insert scale (S2-02's face at s=1.1) -> the flank framing
+
+
+def gap_shards(fr, x0, x1, y, t, salt="gs15", n=18, spread=0.03):
+    """Grit and shards hanging in the gap and loosely around the knuckles:
+    individual 1-2 px jitter, zero net drift (S2-02's grammar)."""
+    rng = fr.srng(salt)
+    for i in range(n):
+        if i < 7:
+            x = x0 + (x1 - x0) * rng.uniform(0.15, 0.85)
+            yy = y + rng.uniform(-spread, spread)
+        else:
+            x = x1 + rng.uniform(0.0, 0.07)
+            yy = y + rng.choice((-1, 1)) * rng.uniform(0.04, 0.11)
+        jr = random.Random(f"{salt}{i}:{fr.f}")
+        j = 1.4 / fr.cam.zoom
+        x += jr.uniform(-j, j)
+        yy += jr.uniform(-j, j)
+        sz = rng.uniform(0.0015, 0.0045)
+        a = rng.uniform(0, 6)
+        fr.poly([(x + math.cos(a + k * 2.1) * sz, yy + math.sin(a + k * 2.1) * sz) for k in range(3)],
+                shade(PAL["concrete"], rng.uniform(0.5, 0.9)))
+
+
+def s7_15(fr):
+    t, dur = fr.t, fr.dur
+    t12 = cue(fr, "infinity_stop", 0, 12)
+    t52 = cue(fr, "grab", 0, 52)
+    t60 = cue(fr, "red_charge", 0, 60)
+    t36, t48, t58 = T(fr, 36), T(fr, 48), T(fr, 58)
+    tau = frag_clock(fr)
+    sc = slow_clock(fr)
+    m = seg(t, t36, t58, "inout")                              # the tilt/crane down the arm
+    K = K15_0 * (K15_1 / K15_0) ** m
+    push = 1 + 0.02 * seg(t, 0.0, t36)
+    cx = lerp(-5.986, -5.42, m)
+    cy = lerp(EYE_Y, 1.36, m)
+    # background: defocused street, moving at parallax with the crane
+    plate(fr, Cam(-6.6 + (cx + 6.0) * 0.4, 2.0 + (cy - EYE_Y) * 0.4, 380.0), blur=12.0, dim=0.12)
+    fr.cam = Cam(cx, cy, K * push)
+    # ---- the fist: covers the last centimetres, then crawls; the stall at f12 (no flash)
+    if t < t12:
+        xf = FACE15 + 0.01 + fx.zeno(0.04, t, rate=2.2 / max(t12, 1e-3) * 3)
+        xf = lerp(FACE15 + 0.05, xf, clamp(t / t12) ** 0.35)
+    else:
+        xf = FACE15 + 0.01 + 0.0006 * math.exp(-4.0 * (t - t12))
+    trem = 0.0006 * math.sin(t * 61) if t >= t12 else 0.0
+    fist_pt = (xf + trem, EYE_Y)
+    # ---- Thragg's body (rig), his arm reaching the fist; the shoulder bunches after the stall
+    bunch = seg(t, t12, t36, "out")
+    sh_target = (-5.29 - 0.03 * bunch, 1.63 + 0.01 * bunch)
+    base = P(T_STALL, lean=22 + 4 * bunch)
+    J0 = solve(THRAGG, base, 0.0, 0.0, -1)
+    pel = (sh_target[0] - J0["sh_f"][0], sh_target[1] - J0["sh_f"][1])
+    wrist = (fist_pt[0] + 0.12, fist_pt[1] - 0.005)
+    pose = reach(THRAGG, P(base, hand_f="fist"), pel[0], pel[1], -1, "f", wrist, elbow="up")
+    o = topts(fr)
+    J = thragg(fr, pose, pel[0], pel[1], opts=o, style=replace(THRAGG_W, fist=0.02))
+    entry = (0.6, 0.15)
+    glow = 0.0 if t < t60 else 0.6 + 0.4 * random.Random(fr.f).random()
+    open_flank(fr, J, k=1.0, entry=entry, glow=glow)
+    wx, wy = torso_pt(J, *entry)
+    # the forearm as one clean lit capsule into the insert fist
+    el = J["el_f"]
+    fr.line([el, wrist], THRAGG.suit, width_m=THRAGG.w_fa)
+    fr.line([J["sh_f"], el], shade(THRAGG.suit, 0.9), width_m=THRAGG.w_ua)
+    # ---- Gojo: body (rig) with the right arm sliding two fingers into the wound
+    gpose = P(G_THRUST, lean=10)
+    gJ0 = solve(GOJO, gpose, 0.0, None, 1)
+    gpx = -6.083 - (gJ0["head"][0] - gJ0["pelvis"][0])
+    gJ0 = solve(GOJO, gpose, gpx, None, 1)
+    hand_t = kf(t, [(0, (-5.72, 0.98)), (t36, (-5.72, 0.98)), (t48, (wx - 0.12, wy - 0.05), "inout"),
+                    (T(fr, 60), (wx - 0.035, wy - 0.01), "inout")])
+    gpose = reach(GOJO, P(gpose, hand_n="sign"), gJ0["pelvis"][0], gJ0["pelvis"][1], 1, "n", hand_t)
+    go = gopts(fr, profile=True)
+    go.update(eyes="blindfold")         # (head is masked out: no eye glow)
+    G = headless(fr, lambda: gojo(fr, gpose, gpx, None, opts=go), GOJO)
+    if t >= t48:
+        # the wound's near lip closes over the fingertips: they are inside
+        k = seg(t, t48, T(fr, 60), "inout")
+        fr.ellipse(wx + 0.01, wy, 0.03 + 0.012 * k, 0.05, fill=(150, 30, 36))
+        fr.ellipse(wx + 0.012, wy, 0.018, 0.035, fill=(70, 4, 12))
+    if t >= t60:
+        fx.red_charge(fr, wx + 0.02, wy, t - t60, r=0.012, strength=0.8)
+        fr.glow_circle(wx + 0.02, wy, 0.07, shade((200, 20, 30), 0.25 + 0.15 * glow))
+    # ---- Gojo's face: the S2-02 key, eye bare, narrowed, blood under the nose
+    s_g = ins_scale(fr, 0.16)
+    cu, cv = place_local(fr, s_g, 0.0, 1, (0.52, -0.15), (FACE15, EYE_Y))
+    inj = [i for i in gopts(fr)["injuries"] if i != "cheek_cut"]      # the cut is on his far cheek
+    gojo_cu(fr, cu, cv, s_g, inj, lid=0.62, gaze=(0.9, 0.0), nose=1.0)
+    # ---- the gap: hanging grit and fragments, refraction only in the gap, the air ripple at the knuckles
+    gap_shards(fr, FACE15, xf, EYE_Y, t)
+    draw_frags(fr, tau, infinity_on=True, only="hero", jitter_px=1.5)
+    if t >= t12 - 2.0 / FPS:
+        ts = max(0.0, t - t12)
+        fx.infinity(fr, FACE15 + 0.006, EYE_Y, r=0.025, strength=0.9, t=t)
+        if ts < 0.5:
+            c = fr.cam
+            fr.cam = Cam(c.x, c.y, c.zoom * 0.08, c.rot, c.shake)
+            fx.impact(fr, xf, EYE_Y, ts, kind="blocked", dirx=-1.0)
+            fr.cam = c
+    s_f = ins_scale(fr, 0.128)
+    cuf, cvf = place_local(fr, s_f, -4.0, -1, (0.46, -0.02), fist_pt)
+    inserts.thragg_fist(fr, cuf, cvf, s_f, rot=-4.0, flip=-1)
+    fr.vignette = 0.5
+
+
+# =============================================================================
+# S7-16  MS low profile: Red, inside the chest. Silence on the impact frame.
+# =============================================================================
+RED_DIR = (math.cos(math.radians(-30)), math.sin(math.radians(-30)))     # down and EAST, away from the lit city
+
+
+def final_crater(fr, x, r, lit=1.0, d=1.0):
+    """The new crater at the west corner, growing (deterministic, scale-stable)."""
+    if r <= 0.05:
+        return
+    rng = random.Random("s7finalcrater")
+    fr.ellipse(x, -0.05, r, r * 0.16, fill=shade(PAL["concrete"], lit * 0.72), d=d)
+    fr.ellipse(x, -0.33 * (r / 8.0), r * 0.84, r * 0.12, fill=shade((18, 16, 20), lit), d=d)
+    for k in range(18):
+        a = rng.uniform(0, math.tau)
+        L = r * rng.uniform(1.25, 2.3)
+        pts = [(x + math.cos(a) * r * 0.9, -math.sin(a) * r * 0.13)]
+        for j in range(1, 4):
+            ll = L * j / 3
+            pts.append((x + math.cos(a + rng.uniform(-0.12, 0.12)) * ll, -math.sin(a) * ll * 0.14))
+        fr.line(pts, shade((16, 14, 16), lit), width_m=0.06, d=d)
+    for k in range(24):
+        a = rng.uniform(0, math.tau)
+        rr = r * rng.uniform(0.86, 1.2)
+        cx, cy = x + math.cos(a) * rr, -math.sin(a) * rr * 0.14 + 0.1
+        sz = rng.uniform(0.2, 0.7) * (r / 8.0) ** 0.5
+        fr.poly([(cx - sz, cy), (cx - sz * 0.3, cy + sz * 0.9), (cx + sz * 0.8, cy + sz * 0.4), (cx + sz * 0.6, cy - 0.05)],
+                shade(PAL["street"], lit * rng.uniform(0.8, 1.3)), d=d)
+
+
+def blast_tongue(fr, k=1.0, gx=-6.0, x_end=-12.0, lit=1.0):
+    """The blast-shadow tongue of intact asphalt under Gojo's feet, running
+    west to the crater rim (Infinity held the backwash)."""
+    if k <= 0:
+        return
+    xe = lerp(gx - 0.6, x_end, k)
+    fr.poly([(gx + 0.45, 0.0), (gx, 0.1), (xe, 0.22), (xe, -0.3), (gx, -0.12)], shade(PAL["street"], lit * 1.05))
+    fr.line([(gx + 0.45, 0.0), (gx, 0.1), (xe, 0.22)], shade(PAL["concrete"], lit * 0.6), width_m=0.04)
+
+
+def s7_16(fr):
+    t, dur = fr.t, fr.dur
+    t3 = cue(fr, "final_impact", 0, 3)
+    t4, t8, t10, t18 = T(fr, 4), T(fr, 8), T(fr, 10), dur
+    tau = frag_clock(fr)
+    fr.cam = Cam(-4.6, 1.2, 120.0, shake=C.shake(t, t3, amp=16.0, dur=T(fr, 8)))
+    C.stage(fr, SEQ, "street", gantry_on=False)
+    ck = seg(t, t8, t18, "out") if t >= t8 else 0.0
+    if ck < 0.35:
+        fist_crater(fr)
+    final_crater(fr, -4.0, 8.0 * ck)
+    blast_tongue(fr, ck)
+    env.gantry(fr, MAST_X, sheared=True)                  # still standing - for now
+    te = t - t3
+    # ---- Gojo: unmoved, a held cel on 2s; only the bloodied hand withdraws to his side
+    tq = on2(fr)
+    gk = seg(tq, t3, t10, "inout") if t >= t3 else 0.0
+    gpose0 = P(G_THRUST, lean=10)
+    gJ0 = solve(GOJO, gpose0, -6.0, None, 1)
+    hand = (lerp(BLAST[0] - 0.05, -5.82, gk), lerp(BLAST[1] - 0.02, 0.95, gk))
+    gpose = reach(GOJO, P(pose_at(gk, [(0, gpose0), (1, G_AFTER)]), hand_n="sign" if gk < 0.5 else "open"),
+                  gJ0["pelvis"][0], gJ0["pelvis"][1], 1, "n", hand)
+    G = gojo(fr, gpose, -6.0, None)
+    stump_blood(fr, G, t, "f", n=4, salt="st16")
+    # ---- Thragg: the stalled lunge -> hurled down and east -> on his back, ploughing east
+    o = topts(fr, switch=t3)
+    if t < t4:
+        base = P(T_STALL, lean=34)
+        sh0 = solve(THRAGG, base, 0.0, 0.0, -1)["sh_f"]
+        pel = (-5.32 - sh0[0], 1.64 - sh0[1])
+        pose = reach(THRAGG, P(base, hand_f="fist"), pel[0], pel[1], -1, "f", (-5.88, 1.8), elbow="up")
+        J = thragg(fr, pose, pel[0], pel[1], opts=o)
+        open_flank(fr, J, k=1.0, entry=(0.6, 0.15), glow=0.9 if t < t3 else 1.0)
+    elif t < t10:
+        u = (t - t4) / (t10 - t4)
+        px = lerp(-4.9, -4.0, EASE["out"](u))
+        py = lerp(1.05, 0.25, EASE["in"](u))
+        base = pose_at(u, [(0, T_BLAST), (0.6, P(T_BLAST, lean=-80)), (1.0, T_BACK)])
+        if t < t4 + 1.0 / FPS:      # the fist hangs in the air a frame before following
+            base = reach(THRAGG, P(base, hand_f="fist"), px, py, -1, "f", (-5.88, 1.8))
+        J = thragg(fr, base, px, py, opts=o)
+    else:
+        px = kf(t, [(t10, -4.0), (t18, -3.0, "out")])
+        J = thragg(fr, T_BACK, px, None, opts=o)
+        fx.debris(fr, px + 0.4, 0.1, t - t10, n=14, speed=4.0, spread=1.2, angle=math.radians(70),
+                  size=(0.06, 0.25), color=(64, 60, 66), salt="plough16")
+    if t >= t3:
+        cx_, cy_ = J["chest"]
+        for i in range(4):          # smoke rising off the blasted chest
+            ph = (te * 0.9 + i / 4) % 1.0
+            fx.dust_cloud(fr, cx_, cy_ + ph * 0.6, 0.3, r=0.2 + 0.2 * ph, n=3, color=(70, 64, 66), salt=f"sm{i}",
+                          alpha=int(90 * (1 - ph)))
+    # ---- Red: the crimson point jitters inside the ribs, then detonates INSIDE the chest
+    if t < t3:
+        fx.red_charge(fr, BLAST[0], BLAST[1], t, r=0.05, strength=0.9)
+    else:
+        if t3 <= t < t3 + 1.0 / FPS:
+            fr.invert = 1.0
+        fx.red_release(fr, BLAST[0], BLAST[1], RED_DIR[0], RED_DIR[1], te * 1.8, length=5.0, width=1.4)
+        # pressure front flowing AROUND Gojo; chunks thrown back at him hang short of him
+        fx.infinity(fr, -6.0, 1.1, r=1.0, strength=0.45 * (1 - clamp(te / 0.6)), t=t)
+        rng = fr.srng("back16")
+        for i in range(10):
+            a = rng.uniform(-0.5, 0.6)
+            r_stop = rng.uniform(0.45, 0.75)
+            r0 = 1.3 + rng.uniform(0, 0.6)
+            rr = r_stop + (r0 - r_stop) * math.exp(-7.0 * te)
+            draw_frag(fr, -6.0 + math.cos(a) * rr, 1.1 + math.sin(a) * rr * 1.2, rng.uniform(0, 6) + te * 2,
+                      rng.uniform(0.04, 0.1), 0.9, jitter=0.006 if te > 0.3 else 0.0, salt=100 + i)
+        fx.dust_cloud(fr, -3.6, 0.05, te, r=4.0, n=18, alpha=110, salt="erupt16")
+        fx.shockwave(fr, -3.9, 0.0, te - 0.1, r_max=12.0, dur=0.9, ground=True, color=(220, 190, 170))
+        fx.debris(fr, -3.8, 0.1, t - t8, n=26, speed=7.0, spread=2.2, angle=math.radians(80), size=(0.08, 0.35),
+                  color=(70, 66, 70), salt="erupt16d")
+    draw_frags(fr, tau, infinity_on=True, only="hero", jitter_px=1.2)
+    fr.vignette = 0.42
+
+
+
+# =============================================================================
+# S7-17  EWS from 90 m up: the shockwave crosses the intersection in silence
+# =============================================================================
+
+class Proj:
+    """A simple perspective camera for the high, steep view (x east, y up,
+    z north). Still facing north: west is screen-left."""
+
+    def __init__(self, fr, cam=(-3.0, 90.0, -50.0), target=(-3.0, 0.0, 1.0), F=2250.0):
+        self.fr = fr
+        self.C = cam
+        fx_, fy_, fz_ = (target[0] - cam[0], target[1] - cam[1], target[2] - cam[2])
+        L = math.sqrt(fx_ * fx_ + fy_ * fy_ + fz_ * fz_)
+        self.f = (fx_ / L, fy_ / L, fz_ / L)
+        self.r = (1.0, 0.0, 0.0)
+        f = self.f
+        self.u = (f[1] * 0 - f[2] * 0, f[2] * 1 - f[0] * 0, f[0] * 0 - f[1] * 1)
+        self.u = (0.0, f[2], -f[1])
+        self.F = F * fr.ss
+
+    def p(self, x, y, z):
+        d = (x - self.C[0], y - self.C[1], z - self.C[2])
+        zc = d[0] * self.f[0] + d[1] * self.f[1] + d[2] * self.f[2]
+        xc = d[0] * self.r[0] + d[1] * self.r[1] + d[2] * self.r[2]
+        yc = d[0] * self.u[0] + d[1] * self.u[1] + d[2] * self.u[2]
+        zc = max(zc, 0.5)
+        return (self.fr.W / 2 + self.F * xc / zc, self.fr.H / 2 - self.F * yc / zc)
+
+    def scale(self, x, y, z):
+        """px per metre at a world point (for sizes)."""
+        a = self.p(x, y, z)
+        b = self.p(x + 1.0, y, z)
+        return abs(b[0] - a[0])
+
+    def gpoly(self, pts, fill, y=0.0, dr=None):
+        (dr or self.fr.draw).polygon([self.p(x, y, z) for x, z in pts], fill=fill)
+
+    def ring(self, cx, cz, r, n=64, y=0.0):
+        return [self.p(cx + math.cos(a) * r, y, cz + math.sin(a) * r) for a in (k * math.tau / n for k in range(n))]
+
+
+def _box(P3, dr, x0, x1, z0, z1, h, col, lit=1.0):
+    """An extruded building block: south facade + roof (camera is south, above)."""
+    roof = [P3.p(x0, h, z0), P3.p(x1, h, z0), P3.p(x1, h, z1), P3.p(x0, h, z1)]
+    face = [P3.p(x0, 0, z0), P3.p(x1, 0, z0), P3.p(x1, h, z0), P3.p(x0, h, z0)]
+    dr.polygon(face, fill=shade(col, 0.8 * lit))
+    if x1 < -2:
+        side = [P3.p(x1, 0, z0), P3.p(x1, 0, z1), P3.p(x1, h, z1), P3.p(x1, h, z0)]
+        dr.polygon(side, fill=shade(col, 0.6 * lit))
+    elif x0 > -4:
+        side = [P3.p(x0, 0, z0), P3.p(x0, 0, z1), P3.p(x0, h, z1), P3.p(x0, h, z0)]
+        dr.polygon(side, fill=shade(mix_color(col, PAL["rim_warm"], 0.25), 0.9 * lit))
+    dr.polygon(roof, fill=shade(mix_color(col, PAL["rim_warm"], 0.12), 1.0 * lit))
+
+
+_BLOCKS = None
+
+
+def blocks17():
+    global _BLOCKS
+    if _BLOCKS is None:
+        rng = random.Random("s7blocks")
+        out = []
+        for (xa, xb, za, zb) in ((-80, -12, 5, 50), (12, 80, 5, 50), (-12, 12, 30, 60)):
+            x = xa
+            while x < xb:
+                w = rng.uniform(9, 18)
+                out.append((x, min(xb, x + w), za + rng.uniform(0, 3), zb, rng.uniform(16, 46),
+                            shade((52, 50, 62), rng.uniform(0.85, 1.15))))
+                x += w + rng.uniform(0.5, 2)
+        _BLOCKS = out
+    return _BLOCKS
+
+
+def s7_17(fr):
+    t, dur = fr.t, fr.dur
+    t6, t12, t18, t26 = T(fr, 6), T(fr, 12), T(fr, 18), T(fr, 26)
+    P3 = Proj(fr)
+    dr = fr.draw
+    BX, BZ = -4.0, 0.0
+    R = lerp(8.5, 40.0, EASE["out"](clamp(t / dur)))               # the pressure ring
+    # ---- ground: avenue (E-W), cross street (N-S), corners, markings
+    dr.rectangle([0, 0, fr.W, fr.H], fill=shade(PAL["street"], 0.95))
+    side = PAL["concrete_dark"]
+    P3.gpoly([(-200, 3.0), (-7.2, 3.0), (-7.2, 60), (-200, 60)], side)
+    P3.gpoly([(7.2, 3.0), (200, 3.0), (200, 60), (7.2, 60)], side)
+    P3.gpoly([(-200, -16), (200, -16), (200, -80), (-200, -80)], side)
+    for xx in range(-90, 91, 6):
+        if abs(xx) > 9:
+            P3.gpoly([(xx, -6.6), (xx + 3, -6.6), (xx + 3, -6.3), (xx, -6.3)], shade(PAL["street_line"], 0.75))
+    for k in range(6):
+        for cx in (-10.5, 10.5):
+            z0 = -14 + k * 2.6
+            P3.gpoly([(cx - 1.6, z0), (cx + 1.6, z0), (cx + 1.6, z0 + 1.2), (cx - 1.6, z0 + 1.2)],
+                     shade((180, 175, 160), 0.6))
+    # ---- the landing crater (x=0) and the new crater (x=-4, ~16 m), rims merging
+    for (cx, r, pit) in ((0.0, 3.4, 0.82), (BX, 8.0, 0.86)):
+        dr.polygon(P3.ring(cx, 0.0, r * 1.08), fill=shade(PAL["concrete"], 0.6))
+        dr.polygon(P3.ring(cx, 0.0, r * pit), fill=(20, 18, 22))
+    rng = random.Random("s7c17")
+    for k in range(26):
+        a = rng.uniform(0, math.tau)
+        L = 8.0 * rng.uniform(1.15, 2.2)
+        pts = [P3.p(BX + math.cos(a) * 8.0, 0, math.sin(a) * 8.0)]
+        for j in range(1, 4):
+            aa = a + rng.uniform(-0.1, 0.1)
+            pts.append(P3.p(BX + math.cos(aa) * (8 + (L - 8) * j / 3), 0, math.sin(aa) * (8 + (L - 8) * j / 3)))
+        dr.line(pts, fill=(18, 16, 20), width=max(1, int(2 * fr.ss)))
+    # ---- the blast-shadow tongue of intact asphalt behind Gojo (west), the front parted around him
+    tongue = [(-5.6, 0.0), (-6.0, 0.55), (-8.0, 1.6), (-11.0, 2.2), (-12.3, 0.0), (-11.0, -2.2), (-8.0, -1.6),
+              (-6.0, -0.55)]
+    P3.gpoly(tongue, shade(PAL["street"], 1.05))
+    # ---- the pressure ring: dust torus hugging the ground + a thin crimson leading edge (gone by f12)
+    img, ld = fr.layer()
+    for j in range(6):
+        rr = R - j * 0.9
+        if rr <= 8.6:
+            continue
+        a = int(95 * (1 - j / 6) * (1 - 0.45 * clamp(t / dur)))
+        ld.line(P3.ring(BX, BZ, rr, n=96) + [P3.ring(BX, BZ, rr, n=96)[0]], fill=(186, 160, 136, a),
+                width=max(1, int(P3.scale(BX, 0, 0) * 1.8)))
+    edge = 1 - clamp(t / t12)
+    if edge > 0:
+        ld.line(P3.ring(BX, BZ, R + 0.6, n=96) + [P3.ring(BX, BZ, R + 0.6, n=96)[0]],
+                fill=(255, 60, 60, int(220 * edge)), width=max(1, int(3 * fr.ss)))
+    fr.merge(img)
+    # ---- crater-rim slabs thrown off in every direction
+    rng = fr.srng("slabs17")
+    for i in range(40):
+        a = rng.uniform(0, math.tau)
+        sp = rng.uniform(6, 16)
+        vy = rng.uniform(4, 10)
+        tt = t - rng.uniform(0.0, 0.08)
+        if tt < 0:
+            continue
+        rr = 8.0 + sp * tt
+        y = max(0.0, vy * tt - 4.9 * tt * tt)
+        X, Y = P3.p(BX + math.cos(a) * rr, y, math.sin(a) * rr)
+        sz = P3.scale(BX, 0, 0) * rng.uniform(0.3, 0.9)
+        dr.polygon([(X - sz, Y), (X, Y - sz * 0.8), (X + sz * 0.9, Y + sz * 0.2), (X + sz * 0.2, Y + sz * 0.7)],
+                   fill=shade(PAL["concrete"], rng.uniform(0.6, 1.0)))
+    # ---- cars and lamp posts flung outward as the front passes
+    for i, (cx, cz, col) in enumerate(((-17.0, -4.0, (70, 40, 40)), (21.0, -7.0, (50, 60, 70)), (-31.0, -10.0, (60, 62, 58)),
+                                       (26.0, 1.5, (80, 76, 60)), (-22.0, 1.0, (64, 58, 70)), (2.0, -12.5, (58, 52, 50)))):
+        dist = math.hypot(cx - BX, cz - BZ)
+        ang = math.atan2(cz - BZ, cx - BX)
+        tp = max(0.0, R - dist) / 18.0
+        push = 7.0 * (1 - math.exp(-3.0 * tp)) if R > dist else 0.0
+        hop = max(0.0, 2.5 * math.sin(min(math.pi, tp * 4))) if R > dist else 0.0
+        x, z = cx + math.cos(ang) * push, cz + math.sin(ang) * push
+        rot = ang + (tp * 3.0 if R > dist else 0.0) + 0.3 * i
+        c, sn = math.cos(rot), math.sin(rot)
+        pts = [(x + c * dx - sn * dz, z + sn * dx + c * dz) for dx, dz in ((-2.2, -0.9), (2.2, -0.9), (2.2, 0.9), (-2.2, 0.9))]
+        dr.polygon([P3.p(px, 0.0, pz) for px, pz in pts], fill=(14, 12, 16))
+        dr.polygon([P3.p(px, 1.2 + hop, pz) for px, pz in pts], fill=col)
+    for i, lx in enumerate(range(-46, 47, 15)):
+        for lz in (-15.0, 3.6):
+            dist = math.hypot(lx - BX, lz - BZ)
+            ang = math.atan2(lz - BZ, lx - BX)
+            tp = max(0.0, R - dist) / 12.0
+            tilt = min(math.pi / 2, tp * 6) if R > dist else 0.0
+            top = (lx + math.cos(ang) * 7 * math.sin(tilt), 7 * math.cos(tilt), lz + math.sin(ang) * 7 * math.sin(tilt))
+            dr.line([P3.p(lx, 0, lz), P3.p(*top)], fill=(40, 42, 50), width=max(1, int(2.2 * fr.ss)))
+    # ---- Thragg: on his back at x=-2 beneath where the mast will land; smoke from his chest
+    dr.polygon([P3.p(x, 0.3, z) for x, z in ((-3.0, -0.25), (-1.2, -0.25), (-1.2, 0.25), (-3.0, 0.25))],
+               fill=(196, 190, 186))
+    dr.polygon([P3.p(x, 0.32, z) for x, z in ((-2.2, -0.2), (-1.85, -0.2), (-1.85, 0.2), (-2.2, 0.2))], fill=(60, 10, 16))
+    for k in range(6):
+        ph = (t * 0.6 + k / 6) % 1.0
+        X, Y = P3.p(-2.0, 0.6 + ph * 7.0, 0.0)
+        rr = P3.scale(-2, 0, 0) * (0.3 + 0.8 * ph)
+        dr.ellipse([X - rr, Y - rr, X + rr, Y + rr], fill=mix_color((70, 64, 66), PAL["street"], ph))
+    # ---- Gojo: a tiny dark vertical on the tongue; the chunks flying at him hang in a ring
+    gb, gt = P3.p(-6.0, 0.0, 0.0), P3.p(-6.0, 1.9, 0.0)
+    w = max(2.0, P3.scale(-6, 0, 0) * 0.45)
+    dr.line([gb, gt], fill=(14, 14, 20), width=int(w))
+    hx, hy = P3.p(-6.0, 1.85, 0.0)
+    dr.ellipse([hx - w * 0.6, hy - w * 0.6, hx + w * 0.6, hy + w * 0.6], fill=(236, 240, 248))
+    rng = fr.srng("ringchunks17")
+    for i in range(14):
+        a = rng.uniform(-1.4, 1.4)
+        r_stop = rng.uniform(0.7, 1.2)
+        r0 = 6.0
+        rr = r_stop + (r0 - r_stop) * math.exp(-6.0 * t)
+        jx = random.Random(f"j{i}:{fr.f}").uniform(-0.03, 0.03) if t > 0.4 else 0.0
+        X, Y = P3.p(-6.0 + math.cos(a) * rr + jx, rng.uniform(0.4, 2.2), math.sin(a) * rr)
+        sz = P3.scale(-6, 0, 0) * rng.uniform(0.15, 0.3)
+        dr.polygon([(X - sz, Y), (X, Y - sz), (X + sz, Y), (X, Y + sz)], fill=shade(PAL["concrete"], 0.8))
+    # ---- the mast: kicked up (f6), a half-turn spin through the dust, crashes across the crater (f18-26)
+    base0 = (MAST_X, 0.0, 0.8)
+    if t < t6:
+        a_pitch, yaw, lift, bx = 90.0, 180.0, 0.0, MAST_X
+    else:
+        u = clamp((t - t6) / (t26 - t6))
+        a_pitch = lerp(90.0, 2.0, EASE["in"](u))
+        yaw = lerp(180.0, 360.0, EASE["inout"](u))
+        lift = 2.2 * math.sin(math.pi * min(1.0, u * 1.15))
+        bx = lerp(MAST_X, MAST_X - 0.6, EASE["out"](u))
+    L = 6.4 if t < t6 else 6.2
+    pr, yr = math.radians(a_pitch), math.radians(yaw)
+    top = (bx + math.cos(pr) * math.cos(yr) * -L * -1, lift + math.sin(pr) * L, 0.8 + math.cos(pr) * math.sin(yr) * L)
+    b3 = (bx, lift + (0.3 if t >= t26 else 0.0), 0.8)
+    if t >= t26:
+        top = (-1.4, 0.45, 0.8)
+        b3 = (MAST_X - 0.6, 0.1, 0.8)
+    wpx = max(3, int(P3.scale(-4, 0, 0) * 0.42))
+    dr.line([P3.p(*b3), P3.p(*top)], fill=(12, 12, 16), width=wpx + int(2 * fr.ss))
+    dr.line([P3.p(*b3), P3.p(*top)], fill=(150, 154, 166), width=wpx)
+    if t >= t18 and t < t26 + T(fr, 3):
+        fx_k = clamp((t - t18) / 0.3)
+        X, Y = P3.p(-2.5, 0.3, 0.8)
+        rr = P3.scale(-2.5, 0, 0) * (1.0 + 3.0 * fx_k)
+        img, ld = fr.layer()
+        ld.ellipse([X - rr * 1.6, Y - rr * 0.7, X + rr * 1.6, Y + rr * 0.7], fill=(160, 140, 120, int(110 * (1 - fx_k))))
+        fr.merge(img)
+    # ---- the north blocks: facades ripple out in a ring of blown windows
+    img, ld = fr.layer()
+    for (x0, x1, z0, z1, h, col) in sorted(blocks17(), key=lambda b: -b[2]):
+        _box(P3, ld, x0, x1, z0, z1, h, col + (255,) if False else col)
+        dist = math.hypot((x0 + x1) / 2 - BX, z0 - BZ)
+        rngw = random.Random(f"w{x0:.1f}")
+        for wv in range(int((x1 - x0) / 3)):
+            for hv in range(int(h / 4)):
+                wx, wy = x0 + 1.0 + wv * 3.0, 2.0 + hv * 4.0
+                d_w = math.hypot(wx - BX, z0 - BZ)
+                blown = R > d_w
+                c = (24, 22, 30) if blown else mix_color((70, 72, 90), PAL["window_lit"], 0.18 if rngw.random() < 0.3 else 0.0)
+                q = [P3.p(wx, wy, z0 - 0.05), P3.p(wx + 1.6, wy, z0 - 0.05), P3.p(wx + 1.6, wy + 2.2, z0 - 0.05),
+                     P3.p(wx, wy + 2.2, z0 - 0.05)]
+                ld.polygon(q, fill=c)
+                if blown and R - d_w < 6.0:
+                    X, Y = q[0]
+                    for g in range(3):
+                        gx_ = X + (R - d_w) * rngw.uniform(-2, 2) * fr.ss
+                        gy_ = Y + (R - d_w) * rngw.uniform(0.5, 3) * fr.ss
+                        ld.ellipse([gx_ - 1.5 * fr.ss, gy_ - 1.5 * fr.ss, gx_ + 1.5 * fr.ss, gy_ + 1.5 * fr.ss],
+                                   fill=(200, 220, 240, 220))
+    fr.merge(img)
+    # ---- evening light raking from the west; the dust rolls in (f26-30)
+    img, ld = fr.layer()
+    for (u0, w) in ((0.05, 0.06), (0.24, 0.09), (0.47, 0.05)):
+        ld.polygon([(u0 * fr.W, 0), ((u0 + w) * fr.W, 0), ((u0 + w + 0.18) * fr.W, fr.H), ((u0 + 0.18) * fr.W, fr.H)],
+                   fill=(255, 196, 140, 13))
+    haze = seg(t, t26 - T(fr, 4), dur, "in")
+    if haze > 0:
+        ld.rectangle([0, 0, fr.W, fr.H], fill=(150, 128, 108, int(70 * haze)))
+    fr.merge(img)
+    fr.vignette = 0.45
+
+
+# =============================================================================
+# S7-18  WS from street level: one figure standing, one shape in the crater. Silence.
+# =============================================================================
+G_FRONT = P("front_tired", lean=0, neck=6, ua_n=10, fa_n=8, ua_f=8, fa_f=4, th_n=6, sh_n=2, th_f=9, sh_f=3)
+
+
+def s7_18(fr):
+    t, dur = fr.t, fr.dur
+    t40, t60, t90 = T(fr, 40), T(fr, 60), T(fr, 90)
+    settle = seg(t, t60, dur, "inout")
+    fr.cam = Cam(-4.0, 2.5, 70.0)
+    C.stage(fr, SEQ, "street", extra=("final_crater",))
+    bake_soft(fr)
+    blast_tongue(fr, 1.0)
+    # ---- the backlit dust wall, lit gold by the shafts from screen-left (thinner at the ground)
+    img, ld = fr.layer()
+    v_ground = fr.P(0, 0)[1] / fr.H
+    for i in range(30):
+        v0, v1 = i / 30, (i + 1) / 30
+        dense = 1.0 - 0.55 * smoothstep(v_ground - 0.12, v_ground + 0.02, v0)
+        a = int((95 + 45 * (1 - abs(v0 - 0.45) / 0.55)) * dense * (1 - 0.3 * settle))
+        ld.rectangle([0, v0 * fr.H, fr.W, v1 * fr.H + 2], fill=mix_color((206, 156, 100), (150, 118, 96), v0) + (a,))
+    fr.merge(img)
+    env.light_shafts(fr, C.state(SEQ), strength=2.2)
+    shaft(fr, -9.0, -6.6, 3.0, 2.0, y_top=30, alpha=40)
+    world_dust(fr, -18, 10, 0.2, 9, n=170, salt="dust18", size_px=1.6, alpha=170, settle=0.8 * settle,
+               col=(250, 214, 160))
+    # the toppled mast: the long diagonal across the crater, its upper end over Thragg
+    m0, m1 = (env.GANTRY_X - 0.6, 0.1), (env.GANTRY_X + 5.6, 0.45)
+    fr.line([m0, m1], (22, 22, 28), width_m=0.26, d=1.15)
+    fr.line([(m0[0], m0[1] + 0.05), (m1[0], m1[1] + 0.05)], (150, 120, 96), width_m=0.05, d=1.15)
+    # ---- Thragg: dark shape on his back in the crater, beneath the mast; smoke from the chest
+    lay, J = capture(fr, lambda: thragg(fr, T_BACK, -2.0, None))
+    silhouette(fr, lay, (34, 28, 30), rim=(150, 110, 90), rim_off=(-1.5, -1.0))
+    cx_, cy_ = J["chest"]
+    rng = fr.srng("smoke18")
+    img, ld = fr.layer()
+    for k in range(10):
+        ph = (t * 0.25 + k / 10) % 1.0
+        x = cx_ + 0.15 * math.sin(ph * 6 + k) + ph * 0.4
+        y = cy_ + 0.1 + ph * 3.2
+        X, Y = fr.P(x, y)
+        R = fr.S(0.08 + 0.35 * ph)
+        ld.ellipse([X - R, Y - R, X + R, Y + R], fill=(60, 54, 58, int(150 * (1 - ph))))
+    fr.merge(img)
+    # ---- Gojo: one dark figure, three-quarter to camera; the stump reads on the crater side
+    breath = pulse(t, t40, 0.4, 0.8) + pulse(t, t90, 0.4, 0.8)
+    pose = P(G_FRONT, neck=6 - 3 * breath, ua_n=10 + 2 * breath, ua_f=8 + 2 * breath)
+    o = gopts(fr)
+    lay, G = capture(fr, lambda: draw_fighter(fr, GOJO_W, pose, -6.0, None, 1, view="front", opts=o))
+    silhouette(fr, lay, (16, 14, 20), rim=(255, 196, 140), rim_off=(-2.2, -1.4))
+    # chunks hanging a hand's breadth above his head and shoulders (Infinity): micro-jitter only
+    rng = fr.srng("hang18")
+    for i in range(6):
+        x = -6.0 + rng.uniform(-0.45, 0.45)
+        y = rng.uniform(2.02, 2.3)
+        draw_frag(fr, x, y, rng.uniform(0, 6), rng.uniform(0.03, 0.07), 0.55, jitter=0.004, salt=300 + i)
+    # dust drifting past and around him (harmless dust reaches him)
+    world_dust(fr, -8, -4, 0.2, 3.2, n=40, salt="dust18b", size_px=1.4, alpha=150, settle=0.5 * settle,
+               col=(250, 220, 170))
+    fr.vignette = 0.5
+
 SHOTS = {
     "S7-01": s7_01,
     "S7-02": s7_02,
@@ -1620,4 +2344,10 @@ SHOTS = {
     "S7-10": s7_10,
     "S7-11": s7_11,
     "S7-12": s7_12,
+    "S7-13": s7_13,
+    "S7-14": s7_14,
+    "S7-15": s7_15,
+    "S7-16": s7_16,
+    "S7-17": s7_17,
+    "S7-18": s7_18,
 }
