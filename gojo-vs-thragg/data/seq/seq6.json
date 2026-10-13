@@ -1,0 +1,1658 @@
+{
+ "sequence": {
+  "id": 6,
+  "title": "The Domain",
+  "objective": "Unlimited Void as the supernatural climax - mechanism shown, not a magic button; the touch exemption nearly saves Thragg; Gojo's gamble begins.",
+  "logic": "Thragg's last leverage is the lit city (T1-19). He climbs into Purple's dust plume to deny Gojo the body-read he has relied on since Seq 3 (S6-01). The Six Eyes still find the civilian-level haze (R1): it tells Gojo WHERE Thragg is, never what he intends (R5). It coils, then snaps down and west (S6-02). The geometry gives the WHY: extended, Thragg's line runs straight down the avenue at the lights (S6-03). Seq 5 taught Gojo that anything he aims, this body can dodge; a chase loses; Purple needs time. The one thing Thragg cannot dodge is a sure-hit. So Gojo spends his single teleport (R11) to stand in the path at the west corner (S6-03 to S6-04). Thragg, true to his Seq 2-4 lessons, does not run into the stall or stop in reach: he brakes dead on the air 8 m out to re-read a man who appeared from nowhere. The plant costs him a second, because the torn ear makes his flight wobble (S6-04). In that second Gojo forms the one-hand sign in total silence and makes the call (S6-05). Thragg's Seq 5 lesson ('when he needs time, strike') makes him lunge, and the barrier closes on the first frame of the lunge, so its momentum dies with his mind (S6-05/06). The barrier registers his faint haze (R1), so the sure-hit lands. Inside, about 2.0 s of real time plays as about 20 s of perception time (logged deviation; G2-16); it is never slow motion. His flight dies with his mind and he sinks (S6-07), and his perception drowns (S6-08). One Blue pins and turns him, opening the Purple-flayed flank (S6-09). Gojo knows touch exempts (G1-32), so his three positioning touches last one frame each (one-frame pupil strobes), but a heart thrust cannot. For its duration Thragg is lucid, and his body corkscrews the heart off the line: ribs and the left lung go, the heart does not (S6-10, T1-34). His grab stalls in Infinity; Gojo pulls out, and the flood slams back (S6-11). Gojo cannot read Thragg's vitals, and every touch inside wakes him, while 2 s of flood (ten times Shibuya's dose, double Shoko's Sukuna figure) should leave him frozen afterwards. So he decides to finish by hand outside and withdraws to his corner (S6-12). The exterior cutaway runs on the objective clock: everything inside was a silent black dome for exactly 2.0 s, which makes the pre-set visible (S6-13). The void peels away with both men hanging in the air, Gojo's technique about to burn out (S6-14 into Seq 7). Gojo's lesson, that a precise blow can be slipped, is why Seq 7's finish is a Red inside the chest and not a hand for the heart. Screen direction: Gojo is screen-left and Thragg screen-right in every shot. Reverse-angle cameras face north-east or north-west, never south. Slow motion is never used.",
+  "music_cue": "Seq 5's aftermath strings thin to one high line, with a tempo-less sub pulse under the climb (S6-01, S6-02). Thragg's descending minor-third motif SWELLS in fast low brass on the break (S6-03 f4) and peaks on the teleport. SILENCE (score and ambience) falls at S6-04 f20 as the hand rises; the call is delivered over total silence (S6-05). domain_open's snap (S6-06 f0) is followed by 7 frames of absolute zero, then high crystalline clusters SWELL over a sub drone and the granular information-tick bed (S6-06 f8). There is no rhythm anywhere inside the domain; a heartbeat sits under Thragg's close-ups (S6-07, S6-08, S6-10, S6-12). The bed is the flood made audible: each one-frame touch hiccups it, it DROPS OUT for the spear-hand's contact while Thragg is exempt (S6-10 f23), and it RETURNS at full on the frame contact ends (S6-11 f28). The exterior is a hard cut to SILENCE, wind only (S6-13 f0). Back inside, the clusters bend downward into the reversed shatter (domain_close) and DROP OUT on S6-14 f60, so Seq 7 opens on isolated piano-like tones over the dust.",
+  "state_out": "Gojo: at the west corner, ~3 m up, x=-7, y=3 (about to drop); facing east; eyes narrow; injuries jacket_torn_shoulder, bloodshot_eyes; condition: domain ending -> burnout (drained, breathing hard; right hand bloody to the wrist with Thragg's blood; decided to finish by hand). Thragg: mid-lunge ~8 m east of Gojo, x=+1, y=2 (about to drop), held only by a guttering Blue pin; facing west; cape torn; injuries mouth_blood, torn_suit, cracked_ribs, chest_burn, forearm_lost, flank_flayed, ear_torn, lung_ruptured, nosebleed, ear_blood, eye_blood (plus two broken left ribs and unequal pupils, not tagged); right hand frozen reaching. Env: no new damage from the domain itself (flags unchanged: landing_crater, mast_sheared, east_smash, tower_gutted, clouds_torn, purple_scar, smoke); Purple's dust plume torn open by the break; the mast pole (arm sheared) still standing."
+ },
+ "shots": [
+  {
+   "id": "S6-01",
+   "frames": 72,
+   "shot_size": "EWS",
+   "angle": "level, extreme wide from the south at the fighters' altitude",
+   "lens_mm": 28,
+   "camera": "Locked-off extreme wide from 320 m south at y=165, facing north. A slow 6 m lateral drift east and a slight tilt up follow Thragg's climb; the horizon stays level.",
+   "location": "sky",
+   "characters": [
+    "gojo",
+    "thragg"
+   ],
+   "screen_direction": "Gojo is screen-left facing screen-right. Thragg is screen-right facing screen-left, and rises up and back (up-right) into the plume without turning his face from Gojo.",
+   "staging": "Gojo hovers at x=-20, y=200 (soles), static. Thragg starts at x=+70, y=140 (torso centre), listing 8 degrees to his left. From f24 to f62 he rises and drifts back to x=+82, y=178, into the plume's underside (plume body x=+50..+130, y=165..260, drifting west at 2 m/s). The Purple channel runs through the eastern towers below (x=+60 and east). Camera centre x=+28, y=172; zoom 12 (about 160 m wide).",
+   "action": "Real time. f0-18: the pause after Purple. Both hover 90 m apart over the smoking district. Thragg breathes heavily; the cauterised stump of his left forearm hangs; blood ribbons from his flayed flank and torn ear in the wind. His flight lists and he trims it. His head turns a few degrees, past Gojo to the lit city glowing on the far-left horizon, then back to Gojo. f18-23: one compressed anticipation: shoulders drop, chin tucks. f24-60: he rises up and backs away east, still facing Gojo, into the belly of the brown-grey Purple dust plume drifting west over the channel. The torn ear makes him list twice and correct. f52-62: the plume's underside swallows his silhouette; the shredded cape is the last thing to vanish. f62-72: hold on the churning plume. Gojo, tiny on screen-left, has not moved; only his head has tracked.",
+   "animatic_caption": "Thragg looks past Gojo at the lit city, then backs up into Purple's dust plume and vanishes.",
+   "prompt_core": "Extreme wide shot high above a ruined city at storm-dark dusk. Screen-left, a tiny tall figure with white hair and a black high-collared uniform hovers in open air. Screen-right and lower, a massive one-armed man in a torn white-and-crimson bodysuit hovers listing to one side: the cauterised stump of his left forearm hangs, a raw flayed wound runs down his left flank, and shredded crimson cape remnants trail from one shoulder. Below them, a clean-edged channel cuts through four dark towers, faint violet afterglow on the cut edges, smoke columns rising. A towering brown-grey dust plume drifts across the channel; the big man rises backwards into its belly and disappears. Far left, across a river, a lit city glows under a smouldering sunset; light shafts fall through torn clouds.",
+   "tactical": {
+    "intent": "Thragg: put dust between himself and Gojo to deny the body-read Gojo has used since Seq 3, and set up a break Gojo cannot predict.",
+    "read": "Gojo: this is cover, the way Toji used it against him. The Six Eyes will still see the faint haze, so he waits for it to commit rather than fire blind at a body that dodged Purple.",
+    "outcome": "Thragg vanishes from sight. Gojo holds his position and his output.",
+    "learned": "Thragg: Gojo will not fire blindly into cover. The first move is his."
+   },
+   "dialogue": [],
+   "animation_notes": "Thragg on 2s for the hover, on 1s for the climb. The list is a slow 8-degree roll with two corrective trims (torn ear: flavour only, per R12). Blood ribbons stream east (wind from the west). Gojo is a near-held cel with a slow head track; his loose hair stirs in the altitude wind. The plume is a volumetric mass with parallax, drifting west across frame. Continuity in: Gojo's eyes open and still bloodshot after Seq 5's RCT refresh.",
+   "vfx": [
+    "Purple channel through the eastern towers with violet afterglow fading on the cut edges",
+    "smoke columns rising from the eastern district",
+    "volumetric dust plume drifting west; Thragg's silhouette fading inside it f52-62",
+    "blood ribbons streaming from flank, ear and stump",
+    "light shafts through the torn cloud deck",
+    "lit-city glow on the far-left horizon"
+   ],
+   "impact_tier": "none",
+   "technique": null,
+   "canon_refs": [
+    "T1-19",
+    "T1-31",
+    "T1-44",
+    "T1-47",
+    "G2-29",
+    "G1-06"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 0,
+     "cue": "wind_gust",
+     "gain": 0.6,
+     "pan": 0,
+     "note": "altitude wind"
+    },
+    {
+     "at": 6,
+     "cue": "breath",
+     "gain": 0.35,
+     "pan": 0.6,
+     "note": "Thragg's heavy, guarded breathing"
+    },
+    {
+     "at": 10,
+     "cue": "thunder_distant",
+     "gain": 0.4,
+     "pan": 0.2
+    },
+    {
+     "at": 24,
+     "cue": "accel_burst",
+     "gain": 0.4,
+     "pan": 0.7,
+     "note": "a short chuff as he climbs"
+    },
+    {
+     "at": 40,
+     "cue": "debris_rain",
+     "gain": 0.3,
+     "pan": 0.8,
+     "note": "grit sifting from the plume"
+    }
+   ],
+   "music": {
+    "intensity": 0.3,
+    "event": null,
+    "note": "Seq 5's sustained strings thin to a single high line; a sub pulse with no tempo creeps in under Thragg's climb."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "hovering in open sky west of the Purple channel, x=-20, y=200",
+     "facing": "east",
+     "eyes": "open",
+     "cape": "n/a",
+     "condition": "breathing deliberately after Purple; eyes clear after the RCT refresh but still bloodshot; watching the plume",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "infinity (passive)",
+      "levitation"
+     ]
+    },
+    "thragg": {
+     "pos": "hidden inside the dust plume, x=+82, y=178 (torso centre)",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "no longer amused; breathing heavily; flight listing; hidden from sight",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "flight"
+     ]
+    },
+    "env": "Purple channel through four eastern towers + street trench; smoke columns; Purple dust plume drifting west over the channel (x=+50..+130, y=165..260); torn cloud deck with light shafts"
+   }
+  },
+  {
+   "id": "S6-02",
+   "frames": 52,
+   "shot_size": "MCU",
+   "angle": "eye level, three-quarter front, pushing in to an ECU of the eye",
+   "lens_mm": 85,
+   "camera": "At Gojo's eye level, 3 m south-east of him and facing north-west, so he stays screen-left facing screen-right with the plume soft in the screen-right background. The camera holds the MCU f0-20, then makes a smooth push-in to an ECU of his near (right) eye by f36 and holds it.",
+   "location": "sky",
+   "characters": [
+    "gojo"
+   ],
+   "screen_direction": "Gojo is screen-left facing screen-right. The plume, and Thragg's haze inside it, are screen-right. The haze's snap and Gojo's eye-flick both go down and to screen-left (west).",
+   "staging": "Gojo hovers at x=-20, y=200 (soles), head at y=201.8. Camera at x=-17, y=201.8, 3 m south. The plume (x=+50..+130) fills the soft background 70+ m away. Zoom goes from 300 (MCU) to 1800 (ECU) by f36. The haze inside the plume, as the Six Eyes read it: x=+80, y=176 coiling, then snapping toward x=+70, y=165.",
+   "action": "Real time. f0-14: MCU. Gojo hovers, breathing deliberately, eyes open and bloodshot; the plume churns behind him. f14-22: his eyes narrow; whatever was left of the clowning is gone. f20-36: push in to the near eye. f36-44: across the blue iris plays what the Six Eyes see in the plume, in Seq 1's grammar: a deep-navy field of faint flowing contour lines. Low in the dust the lines crowd and bend around a dense, man-shaped mass, wrapped in a faint, flickering, civilian-level haze. It tells him WHERE, not what Thragg intends (R5). The haze tightens into a coil, the only anticipation the dust lets him see. f44-46: the haze snaps down and west, a bright streak across the iris. f46-52: the pupil flicks down-left after it.",
+   "animatic_caption": "The Six Eyes can't see through the dust, only a faint haze. It coils, then snaps down and west.",
+   "prompt_core": "Medium close-up pushing into an extreme close-up of a white-haired man hovering in a dusk sky, three-quarter view facing right: hair loose over his forehead, a black blindfold hanging around his neck, a high-collared black uniform torn and bloodstained at the left shoulder. His vivid blue eyes, faintly bloodshot, narrow in total concentration. Behind him, softly out of focus, a towering brown-grey dust plume churns. In the extreme close-up the crystalline blue iris fills the frame, and across its surface plays a dark navy field of faint flowing contour lines. The lines bunch around a dense, hidden man-shaped mass wrapped in a thin flickering haze. The haze coils, then streaks down and to the left, and the pupil flicks to follow.",
+   "tactical": {
+    "intent": "Gojo: find Thragg without the body-read.",
+    "read": "The haze coils low in the plume, so he is loading a break, but its direction cannot be read until it fires (R5).",
+    "outcome": "Gojo sees the break the instant it starts: down and west.",
+    "learned": "Gojo: he is not coming at me. He is going past me."
+   },
+   "dialogue": [],
+   "animation_notes": "Gojo on 2s; the narrowing is a 6-frame ease, and his eyes switch to 'narrow' from f22 for the rest of the sequence. The push-in eases in and out. The Six Eyes field in the iris uses S1-06's grammar exactly (navy field, contour lines bending around a dense mass, thin flickering haze), so the audience reads it as the same sense. Keep the iris overlay low-contrast; the f44 streak is its only bright mark.",
+   "vfx": [
+    "Six Eyes field playing across the iris: navy contour lines, dense mass, faint civilian-level haze",
+    "haze streak down-left f44-46",
+    "plume churning in the soft background",
+    "specular glint in the iris",
+    "warm rim from screen-left on the white lashes"
+   ],
+   "impact_tier": "none",
+   "technique": "six_eyes",
+   "canon_refs": [
+    "G1-03",
+    "G1-06",
+    "G2-29",
+    "X1-15",
+    "G2-28",
+    "X1-16",
+    "G2-41"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 0,
+     "cue": "wind_gust",
+     "gain": 0.35,
+     "pan": 0
+    },
+    {
+     "at": 4,
+     "cue": "breath",
+     "gain": 0.4,
+     "pan": -0.3,
+     "note": "Gojo, deliberate"
+    },
+    {
+     "at": 44,
+     "cue": "accel_burst",
+     "gain": 0.3,
+     "pan": 0.5,
+     "note": "muffled by the plume: the break fires"
+    }
+   ],
+   "music": {
+    "intensity": 0.25,
+    "event": null,
+    "note": "A thin high string tremolo; the score holds its breath; no pulse."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "hovering in open sky, x=-20, y=200",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "focused; reading the haze; eyes tracking down and west",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "six_eyes",
+      "infinity (passive)",
+      "levitation"
+     ]
+    },
+    "thragg": {
+     "pos": "breaking down and west inside the plume's underside, x=+70, y=165 (torso centre)",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "committed to the break; flight listing",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "flight (break)"
+     ]
+    },
+    "env": "as S6-01: Purple channel, smoke columns, dust plume drifting west"
+   }
+  },
+  {
+   "id": "S6-03",
+   "frames": 40,
+   "shot_size": "OTS",
+   "angle": "high angle over Gojo's right shoulder, looking down about 35 degrees",
+   "lens_mm": 24,
+   "camera": "Behind and above Gojo's right shoulder (camera at x=-22, y=202, 3 m south, facing north-north-east and tilted 35 degrees down). His shoulder and white hair are a dark, soft silhouette in the screen-left foreground. The whole district lies below: plume screen-right, intersection centre-frame, river and lit city on the far-left horizon. Locked off.",
+   "location": "sky",
+   "characters": [
+    "gojo",
+    "thragg"
+   ],
+   "screen_direction": "Thragg's streak runs from upper screen-right, down and left across frame toward screen-left (east to west), aimed at the lit city on the far-left horizon. Gojo is in the screen-left foreground facing screen-right and down.",
+   "staging": "Gojo at x=-20, y=200. Thragg bursts from the plume at x=+70, y=165 on f4 and dives on a hard curve to x=+40, y=6 by f36, just above the street on the east side of the intersection. Extended, his line runs west down the avenue through the west corner (x=-7), across the river about 1.5 km west and into the lit city. Gojo vanishes on f30. The framing is about 260 m wide at street level.",
+   "action": "Real time. f0-3: the plume's underside bulges. f4: Thragg bursts out of it in a white vapour cone with a boom ring, tearing the dust open behind him. f4-30: he dives down and left in one hard curve, levelling off just above the street at the east edge of the intersection. The last intact windows along the east block burst outward in sequence beneath his path. The geometry is the whole read: from up here his line, extended, runs straight down the avenue, across the river, into the lit city on the far-left horizon. f8-22: Gojo's head (foreground) turns down-left, tracking. f22-26: a half-beat: his head lifts a few degrees toward the lit city, then comes back. The split-second decision. f26-30: space folds in around him and his silhouette compresses toward a point. f30: he is gone, leaving a faint implosion ring and a puff of displaced air. f30-40: empty air in the foreground; far below, the streak races low into the intersection toward the west corner.",
+   "animatic_caption": "Thragg breaks low and west, straight at the lit city. Gojo reads the line and vanishes.",
+   "prompt_core": "High-angle over-the-shoulder shot from behind a white-haired man hovering 200 metres above a ruined city at dusk, his shoulder and hair a dark silhouette in the lower-left foreground. Below lie a dark evacuated district, a wide intersection, smoke columns and a clean channel cut through eastern towers. A white-and-crimson streak bursts from the underside of a huge dust plume on the right in a vapour cone and boom ring, then dives in a hard curve toward the street as windows burst outward in sequence along its path. The streak levels off low and points straight along the avenue at a river and a brightly lit city glowing under a sunset on the far-left horizon. Space folds inward around the hovering man and he vanishes in a faint implosion ring.",
+   "tactical": {
+    "intent": "Thragg: go for the lights at full speed. Gojo must choose between the people and holding back, and there is no time for another Purple.",
+    "read": "Gojo: the haze told him where, and the line tells him why: the lights. Anything he aims, this body can dodge (Seq 5). A chase loses, and Purple needs charge time. Only a sure-hit cannot be dodged.",
+    "outcome": "Gojo teleports to the west corner, into Thragg's path.",
+    "learned": "Gojo: he will use the city every time. End it now, with the one thing he cannot dodge."
+   },
+   "dialogue": [],
+   "animation_notes": "Thragg's streak on 1s, with smear frames f4-8 only. Gojo's head turn on 2s. Teleport: 4 frames of radial compression (the silhouette and the air around it shrink toward his centre, with the background lensing slightly), then one frame of empty air with a thin implosion ring. No flash and no glow trail: teleport is space compressed by Limitless (G1-43). This is R11's single use.",
+   "vfx": [
+    "vapour cone and boom ring at the plume burst f4",
+    "dust plume torn open behind the streak",
+    "the last intact windows along the east block bursting in sequence",
+    "motion trail low over the street",
+    "teleport: radial space compression around Gojo f26-30, implosion ring f30",
+    "lit city on the far-left horizon as the line's end point"
+   ],
+   "impact_tier": "none",
+   "technique": "teleport",
+   "canon_refs": [
+    "G1-43",
+    "X1-41",
+    "G1-29",
+    "G1-47",
+    "G2-41",
+    "T1-19",
+    "T1-31"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 4,
+     "cue": "sonic_boom",
+     "gain": 0.9,
+     "pan": 0.6,
+     "note": "the plume bursts"
+    },
+    {
+     "at": 6,
+     "cue": "flyby",
+     "gain": 0.8,
+     "pan": 0.4,
+     "note": "Doppler roar panned right to left with the dive"
+    },
+    {
+     "at": 14,
+     "cue": "glass_shatter",
+     "gain": 0.6,
+     "pan": 0.3,
+     "note": "windows bursting in sequence along the east block"
+    },
+    {
+     "at": 30,
+     "cue": "teleport",
+     "gain": 0.7,
+     "pan": -0.6,
+     "note": "space folding: a soft inward pop"
+    }
+   ],
+   "music": {
+    "intensity": 0.65,
+    "event": "swell",
+    "at": 4,
+    "note": "Thragg's descending minor-third motif in fast low brass over a surging string swell; it peaks on the teleport."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "teleported: gone from x=-20, y=200, arriving at the west corner, x=-7, y=3 (S6-04 f0)",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "decided; focused",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "six_eyes",
+      "teleport"
+     ]
+    },
+    "thragg": {
+     "pos": "diving low over the east side of the intersection, x=+40, y=6 (torso centre), flying west at full speed",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "all-in; flight listing slightly",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "flight (full-speed dive)"
+     ]
+    },
+    "env": "dust plume torn open by the break; the last intact east-block windows along his path burst; otherwise as S6-01"
+   }
+  },
+  {
+   "id": "S6-04",
+   "frames": 32,
+   "shot_size": "WS",
+   "angle": "low angle from street level",
+   "lens_mm": 28,
+   "camera": "Street level, 25 m south of the west corner, 1 m off the ground, facing north. Frames the sheared mast pole screen-left and the intersection to screen-right. Locked off.",
+   "location": "intersection",
+   "characters": [
+    "gojo",
+    "thragg"
+   ],
+   "screen_direction": "Gojo appears screen-left facing screen-right. Thragg enters from screen-right travelling right to left, and stops dead facing screen-left.",
+   "staging": "Gojo appears at x=-7, y=3 (soles), beside the sheared mast pole (top y=6.4), directly on Thragg's line. Thragg enters frame on f1 at x=+30, y=5 (torso centre) at full speed, plants on the air and stops at x=+1, y=4.5 by f8, then wobbles until f18. Camera centre x=-2, y=4; zoom 45 (about 43 m wide).",
+   "action": "Real time. f0: space unfolds at the west corner and Gojo is simply there, hovering 3 m up beside the sheared mast pole, his old perch, facing east, directly in the line. A faint outward ring of displaced air marks the arrival. f1-3: Thragg's streak enters frame-right, low over the crater. f3: he sees Gojo where Gojo cannot be. f3-8: a hard plant on the air. His body rotates upright first, then the trajectory dies: a vapour cone collapses forward off him and a fan of grit is blasted off the street below. He stops dead 8 m from Gojo, out of reach. f5-10: the braking shock rolls on ahead of him and stalls in the space around Gojo. Grit and chips thrown at dangerous speed hang a hand's width short of him, jittering, while the shock's side lobes flow around and lift the dust of the corner behind him. Gojo's collar and hair do not stir. f8-20: the plant costs Thragg. His torn ear makes his flight wobble and list, and he trims once, twice. f18-32: Gojo's right hand begins to rise. f20: THE WORLD GOES SILENT: wind, debris and music are all gone. The picture keeps moving; the sound does not.",
+   "animatic_caption": "Gojo teleports into the path. Thragg brakes on the air 8 m out. The world goes silent.",
+   "prompt_core": "Low wide shot from street level in a ruined dusk intersection. On the left, beside a bent traffic-light pole whose arm has been sheared off, a tall white-haired man in a high-collared black uniform hovers three metres above the asphalt, facing right, a faint ring of displaced air around him as if he has just appeared. From the right, a massive one-armed man in a torn white-and-crimson bodysuit brakes violently in mid-air low over a crater, body upright, a white vapour cone collapsing forward off him and a fan of grit blasted off the street below. Grit and chips hang motionless a hand's width short of the hovering man; there is no glow and no barrier. Shredded crimson cape remnants whip forward. Light shafts fall through torn clouds; a lit city glows far left.",
+   "tactical": {
+    "intent": "Thragg: never run into the stall and never stop in reach (Seq 2-4). Brake dead, out of reach, and re-read a man who just appeared from nowhere.",
+    "read": "Gojo: he stopped. He reads before he commits, and he is wobbling.",
+    "outcome": "Thragg halts 8 m out, and his torn ear costs him about a second to re-trim. The shock's grit hangs short of Gojo.",
+    "learned": "Thragg: the man can be anywhere instantly. The run for the lights is dead."
+   },
+   "dialogue": [],
+   "animation_notes": "Thragg on 1s: the plant follows the VFX bible's 'hard plant' (rotation leads, trajectory follows). Gojo is a held cel f0-18 apart from the arrival ring; the hand rise is on 2s from f18. The hanging grit uses S2-02's Zeno grammar (hang, jitter, no drift toward him). From f20 only the sound stops; dust, smoke and Thragg's trim keep moving.",
+   "vfx": [
+    "teleport arrival: faint outward ring of displaced air at x=-7 f0",
+    "vapour cone collapsing forward off Thragg f3-8",
+    "fan of grit blasted off the street under the plant",
+    "braking shock stalling short of Gojo: grit and chips hanging (fx.zeno_particles), no flash, no surface",
+    "side lobes lifting dust around the west corner",
+    "cape shreds whipping forward"
+   ],
+   "impact_tier": "blocked",
+   "technique": "teleport",
+   "canon_refs": [
+    "G1-43",
+    "G1-07",
+    "G1-09",
+    "X1-08",
+    "T1-44",
+    "T1-52"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 0,
+     "cue": "teleport",
+     "gain": 0.6,
+     "pan": -0.6,
+     "note": "arrival: a soft outward air pop"
+    },
+    {
+     "at": 1,
+     "cue": "flyby",
+     "gain": 0.8,
+     "pan": 0.8
+    },
+    {
+     "at": 4,
+     "cue": "shockwave",
+     "gain": 0.8,
+     "pan": 0.5,
+     "note": "the air-plant: compressed air slamming forward"
+    },
+    {
+     "at": 7,
+     "cue": "infinity_stop",
+     "gain": 0.6,
+     "pan": -0.5,
+     "note": "the braking shock and its grit stall short of Gojo"
+    },
+    {
+     "at": 12,
+     "cue": "breath",
+     "gain": 0.3,
+     "pan": 0.4,
+     "note": "Thragg, ragged"
+    },
+    {
+     "at": 18,
+     "cue": "cloth",
+     "gain": 0.2,
+     "pan": -0.4,
+     "note": "Gojo's sleeve as the hand rises: the last sound before the silence"
+    }
+   ],
+   "music": {
+    "intensity": 0.55,
+    "event": "silence",
+    "at": 20,
+    "note": "The swell peaks on the arrival and the plant, then the score AND the ambience cut dead on f20 as the hand begins to rise. Total silence from here through the call."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "hovering beside the sheared mast pole at the west corner, x=-7, y=3 (soles)",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "focused; right hand rising",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "teleport (arrival)",
+      "infinity (passive)"
+     ]
+    },
+    "thragg": {
+     "pos": "braked on the air low over the crater's west edge, x=+1, y=4.5 (torso centre), 8 m east of Gojo",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "stopped dead; re-trimming his listing flight; reading Gojo",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "flight (air-plant brake)"
+     ]
+    },
+    "env": "dust lifted around the west corner; no new structural damage"
+   }
+  },
+  {
+   "id": "S6-05",
+   "frames": 56,
+   "shot_size": "OTS",
+   "angle": "low angle over Gojo's right shoulder",
+   "lens_mm": 50,
+   "camera": "Low, behind Gojo's right shoulder (camera at x=-8.2, y=4.2, 1.5 m south-west of him, facing east-north-east). Gojo's raised right hand and the line of his jaw are a sharp silhouette in the screen-left foreground; Thragg hangs in the screen-right background 8 m away. Deep focus. Locked off, with a very slow 3% push-in.",
+   "location": "intersection",
+   "characters": [
+    "gojo",
+    "thragg"
+   ],
+   "screen_direction": "Gojo is in the screen-left foreground facing screen-right. Thragg is in the screen-right background facing screen-left, and launches right to left on f53.",
+   "staging": "Gojo at x=-7, y=3 (soles); his raised right hand at about x=-6.6, y=4.8 (face height). Thragg at x=+1, y=4.5 (torso centre), 8 m east, launching from there on f53 and gaining about 0.3 m by the cut. Camera at x=-8.2, y=4.2, 1.5 m south. Centre on x=-3, y=4.6; the sign at 1.5 m and Thragg at 8 m are both sharp.",
+   "action": "Real time, in total silence: no wind, no score. f0-6: Gojo's right hand completes its rise to face height and forms the sign, middle finger crossed over the index. One hand, as in canon (logged deviation from the brief's 'hands together'). f6-26: GOJO: \"Domain Expansion.\" Quiet and flat. Beyond the sign, Thragg has finished trimming his flight, and his eyes go to the hand. He has never seen this: no orbs, no charge, no pull, just a gesture. f26-32: a half-beat. Thragg's read is Seq 5's lesson: when this man needs time, strike before the thing forms. f32-50: \"Unlimited Void.\" f36-52: Thragg coils: his weight drops, his right hand draws back into a spear-hand, the stump of the left arm tucks, the cape shreds lift. f52: one compressed anticipation frame. f53: his drive fires, the first frame of the lunge, body pitched forward. f53-56: the sign holds perfectly still. In this instant Gojo has fixed the domain's length: about two seconds, double Shoko's ~1 s for Sukuna. It becomes visible on the objective clock in S6-13.",
+   "animatic_caption": "Silence. One hand, middle finger over index: \"Domain Expansion. Unlimited Void.\" Thragg lunges.",
+   "prompt_core": "Low over-the-shoulder shot from behind a tall white-haired man hovering above a ruined street at dusk. In the sharp left foreground his raised right hand forms a precise sign at face height, middle finger crossed over the index finger, silhouetted against the sky with a warm rim of sunset light on the knuckles. Eight metres beyond, sharp in the right background, a massive one-armed man in a torn white-and-crimson bodysuit hangs low in the air above a crater, eyes fixed on the hand, coiling: his weight drops, his right hand draws back into a spear-hand, and shredded crimson cape remnants lift. Fine dust drifts slowly through the air. Smoke columns and torn storm clouds rise behind him.",
+   "tactical": {
+    "intent": "Gojo: a sure-hit, the one thing this body cannot dodge, pre-set to two seconds.",
+    "read": "Thragg: no orbs, no charge, only a gesture. The man needed time for his last big technique, so strike before this one forms.",
+    "outcome": "Thragg's drive fires on the last syllable, and the barrier closes on the first frame of his lunge, 8 m out.",
+    "learned": "Thragg: nothing yet. It lands before he can learn."
+   },
+   "dialogue": [
+    {
+     "speaker": "Gojo",
+     "line": "Domain Expansion. Unlimited Void.",
+     "at_frame": 6,
+     "frames": 44
+    }
+   ],
+   "animation_notes": "Gojo is a held silhouette except for the hand forming the sign (f0-6, on 1s, precise) and one breath in his shoulders. No lip-sync is visible in the OTS. Thragg on 2s for the read and on 1s for the coil, with one compressed anticipation frame at f52 before the drive. Dialogue pace is about 9 frames per word, with a 6-frame pause between the two phrases. The score is fully ducked: the voice is the only sound.",
+   "vfx": [
+    "warm rim light on the knuckles of the sign",
+    "ambient dust drifting slowly (real time; not an Infinity cue)",
+    "Thragg's cape shreds lifting on the coil",
+    "first wisp of vapour at Thragg's shoulders f53"
+   ],
+   "impact_tier": "none",
+   "technique": "domain",
+   "canon_refs": [
+    "G1-30",
+    "G1-29",
+    "G1-33",
+    "G1-35",
+    "X1-22",
+    "X1-30",
+    "T1-35"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 2,
+     "cue": "breath",
+     "gain": 0.2,
+     "pan": -0.4,
+     "note": "Gojo's intake before the call: the only sound besides the voice"
+    }
+   ],
+   "music": {
+    "intensity": 0,
+    "event": null,
+    "note": "Total silence holds; only Gojo's voice."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "hovering at the west corner, x=-7, y=3 (soles)",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "focused; sign held at face height; domain cast, pre-set to 2.0 s",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "domain hand sign",
+      "unlimited_void (cast)"
+     ]
+    },
+    "thragg": {
+     "pos": "launching from x=+1, y=4.5 (torso centre), the first frame of a lunge at Gojo",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "coiled into a lunge, drive just fired; right hand a spear-hand",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "flight (lunge launch)"
+     ]
+    },
+    "env": "as S6-04"
+   }
+  },
+  {
+   "id": "S6-06",
+   "frames": 64,
+   "shot_size": "EWS",
+   "angle": "ECU on the sign in profile, then a pull-back to a level extreme wide",
+   "lens_mm": 35,
+   "camera": "Opens on an ECU of the crossed fingers in profile, from the south (camera facing north). The black sphere erupts from the fingertips and overtakes the lens. Inside, a long, accelerating pull-back (dolly-out and crane) reveals the void at impossible scale, ending on a level extreme wide with Gojo screen-left and Thragg screen-right. This is the sequence's one extravagant camera move.",
+   "location": "domain",
+   "characters": [
+    "gojo",
+    "thragg"
+   ],
+   "screen_direction": "Gojo is screen-left facing screen-right. Thragg is screen-right facing screen-left, frozen in his lunge.",
+   "staging": "Hand sign at x=-6.6, y=4.8. The barrier grows from it to a 13 m radius centred on x=-4, y=0 (a dome over the west corner that encloses Gojo at x=-7 and Thragg at x=+1). At the end of the pull-back: Gojo at x=-7, y=3 (soles); Thragg at x=+1, y=4.1 (torso centre), tiny figures in a void that has no real scale. Zoom 1200 down to 4.",
+   "action": "PERCEPTION TIME begins at f0. From here to the end of the sequence about 2.0 s of real time plays as about 20 s of screen, roughly 9.5:1. The domain floods experienced time, and Gojo's Six Eyes perception is canonically accelerated (G2-16). It is not slow motion. This shot covers real 0.00-0.28 s. f0: the snap: a tiny bead of absolute black appears at the crossed fingertips. f0-7: total silence; nothing moves. f8-24: the black sphere erupts from the sign outward, its edge a razor-thin line of cold blue light. It swallows the hand, the street, the dusk and Thragg's lunging silhouette (screen-right, wiped mid-launch), then overtakes the lens. f24-30: pure black. f30-36: stars ignite at impossible depth, then concentric rings receding to a vanishing point, a slow galactic spiral, and streams of luminous information rushing outward past the camera, far too fast to read. f34-64: the camera pulls back and back to two tiny figures in the void: Gojo screen-left, Thragg screen-right, frozen on the first frame of his lunge. The sure-hit has taken him, and his lunge's momentum has died with his mind.",
+   "animatic_caption": "A black sphere swallows the frame from the sign outward. Inside: a boundless void of light and information.",
+   "prompt_core": "A hand with the middle finger crossed over the index; a bead of absolute black blooms at the fingertips and erupts outward as a perfect black sphere edged with a razor-thin line of cold blue light. It swallows the hand, the dusk street and the silhouette of a lunging giant. Then darkness, and stars igniting at impossible depth: concentric rings of pale light receding to a vanishing point, a slow galactic spiral, and dense streams of luminous particles rushing outward past the viewer. The view pulls far back to two tiny figures suspended in the boundless void: a slim white-haired man on the left and a massive one-armed man frozen mid-lunge on the right. Deep blacks, cold blue-white light, no floor, no horizon.",
+   "tactical": {
+    "intent": "Gojo: land the sure-hit before the lunge can arrive.",
+    "read": "The barrier registers Thragg's faint haze (R1), so he is a target; Toji's zero-energy exemption does not apply to him.",
+    "outcome": "The sure-hit lands on the first frame of the lunge. His mind floods and his flight drive cuts out.",
+    "learned": "Gojo: it takes him. The window is open, and it closes in two seconds."
+   },
+   "dialogue": [],
+   "animation_notes": "The sphere grows on a 16-frame ease-out (fast start), and its blue rim line stays 2-3 px at 4K. Void layers: (1) starfield at infinite depth, (2) receding rings, (3) a slow galactic spiral, (4) information streams of thin luminous dashes on 1s, rushing radially outward. Controlled complexity: one focal vanishing point, no grid, no floor, no arena. Gojo and Thragg on 2s; Thragg is a held pose with only his cape shreds drifting. Inside the domain the only light is the void's cold blue-white glow, keyed from screen-left to keep the film's light direction.",
+   "vfx": [
+    "bead of absolute black at the fingertips f0",
+    "black sphere expanding from the sign with a thin cold-blue rim line (fx.domain_transition)",
+    "full black f24-30",
+    "domain interior: starfield, receding rings, galactic spiral, outward information streams (fx.domain_void)",
+    "camera pull-back reveal"
+   ],
+   "impact_tier": "technique",
+   "technique": "domain",
+   "canon_refs": [
+    "G1-30",
+    "G1-31",
+    "X1-20",
+    "G2-28",
+    "G2-33",
+    "X1-16",
+    "G2-16"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 0,
+     "cue": "domain_open",
+     "gain": 1,
+     "pan": -0.3,
+     "note": "the snap, then absolute silence f1-7"
+    },
+    {
+     "at": 8,
+     "cue": "domain_bed",
+     "gain": 0.8,
+     "pan": 0,
+     "note": "a crystalline chord swells with the sphere over the information-tick bed and a sub drone"
+    },
+    {
+     "at": 10,
+     "cue": "whoosh",
+     "gain": 0.4,
+     "pan": 0,
+     "note": "the sphere's edge passing the lens"
+    }
+   ],
+   "music": {
+    "intensity": 0.45,
+    "event": "swell",
+    "at": 8,
+    "note": "Not the score: high crystalline clusters swell with the sphere over a sub drone. There is no rhythm anywhere inside the domain."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "inside the domain at the west corner, x=-7, y=3 (soles)",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "focused; holding the domain",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "unlimited_void"
+     ]
+    },
+    "thragg": {
+     "pos": "frozen mid-lunge at x=+1, y=4.1 (torso centre), beginning to sink",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "flooded by the sure-hit: cannot think or move; flight drive cut",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn"
+     ],
+     "healed": [],
+     "techniques_used": []
+    },
+    "env": "Unlimited Void's barrier closed over the west corner (dome of about 13 m radius centred on x=-4); outside unchanged"
+   }
+  },
+  {
+   "id": "S6-07",
+   "frames": 44,
+   "shot_size": "WS",
+   "angle": "extreme low angle (worm's-eye) beneath Thragg",
+   "lens_mm": 18,
+   "camera": "Very low, 2.5 m below and 3 m south of Thragg, wide lens looking up at him (facing north). A slow 0.5 m crane up as he sinks toward the lens.",
+   "location": "domain",
+   "characters": [
+    "gojo",
+    "thragg"
+   ],
+   "screen_direction": "Thragg fills screen-right facing screen-left; Gojo is small and screen-left, facing screen-right.",
+   "staging": "Thragg's torso sinks at x=+1 from y=4.1 to y=3.4 over the shot; Gojo at x=-7, y=3 (soles), small at screen-left. Camera at x=+1.5, y=1.6, 3 m south, tilted up 30 degrees. The wide lens exaggerates Thragg's mass.",
+   "action": "Perception time: real 0.28-0.47 s (about 9.5:1, not slow motion). f0-44: Thragg hangs in his lunge, frozen in the void: right hand drawn back into a spear-hand, the cauterised stump trailing, the flayed flank raw. The shredded cape still drifts with its residual motion, slowly in perception time. He is visibly huge and visibly helpless: nothing in him moves of its own will. His flight died with his mind, so his mass sinks, slowly in perception time. Streams of luminous information pour through the void past him and wash over his skin. f20-44: Gojo, tiny on screen-left, watches him without moving, confirming the overload before he commits to anything.",
+   "animatic_caption": "Thragg hangs mid-lunge in the void, huge and helpless, slowly sinking: his flight died with his mind.",
+   "prompt_core": "Extreme low angle looking up at a massive man frozen mid-lunge inside a boundless starry void: close-cropped black hair, black mustache, a torn white-and-crimson bodysuit, his right hand drawn back into a rigid spear-hand, the cauterised stump of his left forearm trailing, his left flank flayed raw from armpit to hip, his left ear torn, shredded crimson cape remnants drifting. His face is locked in a half-formed snarl, eyes unblinking. Streams of luminous particles rush outward past him and wash over his skin, and concentric rings of pale light recede behind him to a vanishing point. Far left, small, a white-haired man in black hovers motionless, watching. Cold blue-white light, deep blacks.",
+   "tactical": {
+    "intent": "Gojo: confirm the sure-hit has truly taken him before committing to contact.",
+    "read": "No twitch, no guard, no flight: the body sinks under its own weight.",
+    "outcome": "Confirmed: total overload. The lunge is dead, and Thragg is falling.",
+    "learned": "Gojo: his strength means nothing in here. The only door back for it is contact with me (G1-32)."
+   },
+   "dialogue": [],
+   "animation_notes": "Thragg is a held pose with zero self-driven secondary motion (the rigid stillness of overload). Only gravity moves him, a smooth, gently accelerating perception-time sink, and his cape shreds drift. Information streams on 1s. Gojo on 2s with one breath.",
+   "vfx": [
+    "domain interior background (fx.domain_void)",
+    "information streams washing over Thragg's skin",
+    "blood droplets from the flank drifting slowly (perception time)",
+    "rings receding behind him"
+   ],
+   "impact_tier": "none",
+   "technique": "domain",
+   "canon_refs": [
+    "G1-31",
+    "X1-20",
+    "G2-22",
+    "G2-16",
+    "T1-44"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 6,
+     "cue": "heartbeat",
+     "gain": 0.6,
+     "pan": 0.4,
+     "note": "Thragg's heart, slow and huge"
+    },
+    {
+     "at": 32,
+     "cue": "heartbeat",
+     "gain": 0.6,
+     "pan": 0.4,
+     "note": "an irregular interval"
+    }
+   ],
+   "music": {
+    "intensity": 0.35,
+    "event": null,
+    "note": "Crystalline clusters and the information-tick bed; a heartbeat underneath; no rhythm."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "inside the domain at the west corner, x=-7, y=3 (soles)",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "focused; watching",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "unlimited_void"
+     ]
+    },
+    "thragg": {
+     "pos": "frozen mid-lunge, sinking, x=+1, y=3.4 (torso centre)",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "flooded: cannot think or move; sinking",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn"
+     ],
+     "healed": [],
+     "techniques_used": []
+    },
+    "env": "inside Unlimited Void; outside unchanged"
+   }
+  },
+  {
+   "id": "S6-08",
+   "frames": 46,
+   "shot_size": "ECU",
+   "angle": "eye level, three-quarter front, rack focus",
+   "lens_mm": 135,
+   "camera": "ECU of Thragg's eyes at eye level from slightly west of south (camera facing north-north-east, so his face is three-quarter toward camera and screen-right). The camera is locked to his face and sinks with him, so the void's streams appear to rise past. An 8-frame rack focus to a dust speck 30 cm in front of the lens.",
+   "location": "domain",
+   "characters": [
+    "thragg"
+   ],
+   "screen_direction": "Thragg faces screen-left in three-quarter view, toward Gojo (off-screen left).",
+   "staging": "Thragg's head sinks from y=4.1 to y=2.9 at x=+0.75 over the shot (torso 3.4 to 2.2); the camera, 0.6 m south-west of his face, sinks with him. The dust speck was kicked up by his plant and is falling alongside him at the same rate, so it holds 0.45 m in front of his eye (x=+0.3). Zoom about 2500 (frame about 0.35 m wide). Gojo is off-screen left at x=-7, y=3.",
+   "action": "Perception time: real 0.47-0.68 s. f0-20: his eyes, unblinking. The pupils are flooding: thin streaks of light pour into them from every direction, more than an eye could hold. A muscle under one eye has begun a twitch that never completes. One brow is half-lifted, a nostril half-flared, the snarl half-formed: micro-expressions frozen midway. f20-28: rack focus forward to a single speck of asphalt dust between him and Gojo, kicked up by his plant and falling with him. f28-46: the speck unfolds, and in its facets its whole history streams past, unreadably fast: the street being poured, decades of tyres, Thragg's landing crater cracking open, the violet light of Purple. Then every speck in frame does the same, and the frame saturates with information. This is what he is being made to perceive, all of it, at once, and he cannot process any of it.",
+   "animatic_caption": "His pupils flood with light; every speck of dust replays its whole history. He cannot process any of it.",
+   "prompt_core": "Extreme close-up of a massive man's cold dark-brown eyes in three-quarter view inside a starry void: close-cropped black hair, a heavy black mustache, a torn left ear crusted with blood. His pupils are flooded with thin streaks of pale light pouring in from every direction; his brow is half-raised, a nostril half-flared, a snarl frozen half-formed. In the foreground a single speck of grey asphalt dust hangs in the air and comes into focus. Inside its tiny facets flicker countless microscopic images, too fast to read. Around it more specks bloom with the same flickering streams until the frame is saturated with luminous information. Cold blue-white light, deep blacks.",
+   "tactical": null,
+   "dialogue": [],
+   "animation_notes": "Thragg's face is a held drawing, with one micro-twitch under the eye frozen mid-travel (draw it as a held deformation, not a cycle). The pupil light-streaks are on 1s, flowing inward as thin, information-like dashes; never a pull (that is Blue's grammar). Rack focus over 8 frames. The dust 'history' images are tiny and abstract (silhouettes and colour fields, never literal footage), on 1s.",
+   "vfx": [
+    "light streaks flooding into the pupils",
+    "rack focus to a hanging dust speck",
+    "information 'history' blooming inside dust specks and multiplying across frame",
+    "domain void bokeh behind"
+   ],
+   "impact_tier": "none",
+   "technique": "domain",
+   "canon_refs": [
+    "G1-31",
+    "X1-20",
+    "X1-63",
+    "G2-16"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 0,
+     "cue": "heartbeat",
+     "gain": 0.7,
+     "pan": 0.3
+    },
+    {
+     "at": 28,
+     "cue": "domain_bed",
+     "gain": 0.7,
+     "pan": 0,
+     "note": "the tick bed thickens into a dense granular roar as the specks bloom"
+    },
+    {
+     "at": 34,
+     "cue": "heartbeat",
+     "gain": 0.7,
+     "pan": 0.3,
+     "note": "irregular interval: no rhythm"
+    }
+   ],
+   "music": {
+    "intensity": 0.4,
+    "event": null,
+    "note": "A heartbeat under the close-up; the clusters thicken as the specks bloom; still no rhythm."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "inside the domain at the west corner, x=-7, y=3 (soles)",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "focused; about to move",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "unlimited_void"
+     ]
+    },
+    "thragg": {
+     "pos": "frozen mid-lunge, sinking, x=+1, y=2.2 (torso centre)",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "flooded; pupils full of light-streaks; micro-expressions frozen half-formed",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn"
+     ],
+     "healed": [],
+     "techniques_used": []
+    },
+    "env": "inside Unlimited Void; outside unchanged"
+   }
+  },
+  {
+   "id": "S6-09",
+   "frames": 52,
+   "shot_size": "CU",
+   "angle": "eye level, three-quarter CU, widening to a profile MS",
+   "lens_mm": 50,
+   "camera": "Opens on a CU of Gojo's face, three-quarter, from 1 m south-east (camera facing north-west). As he glides east, the camera dollies back and trucks east with him, swinging round to face north and widening to a profile MS two-shot as he arrives at Thragg.",
+   "location": "domain",
+   "characters": [
+    "gojo",
+    "thragg"
+   ],
+   "screen_direction": "Gojo is screen-left, moving and facing screen-right. Thragg is screen-right; his head stays turned screen-left as the Blue turns his torso.",
+   "staging": "Gojo starts at x=-7, y=3 (soles) and glides east and down to x=-0.3, y=0.6 by f36 (his chest at y=2.0, level with Thragg's heart). The Blue core is placed at x=+1.5, y=2.4, 0.4 m behind Thragg's right shoulder blade, formed on f6. Thragg is caught at x=+1, y=2.0 (torso centre) f8-14; his torso has turned about 50 degrees by f30 (chest toward north-west, flayed left flank open toward Gojo and the camera).",
+   "action": "Perception time: real 0.68-0.91 s. f0-6: CU on Gojo's face: eyes narrowed and bloodshot, utterly focused, breath held, cold void light. f4-8: two fingers of his right hand lift into frame and point past camera, screen-right. f6: a Blue forms behind Thragg's right shoulder blade: a small white-blue core, a ring of darkened lensing space, a thin bright edge. f8-14: the pull catches Thragg's sinking mass and pins it, and he stops dead in the air. Light things go first: dust specks and blood droplets streak straight into the core, then the cape shreds, then the body. f12-30: the pull draws his right shoulder back and his whole torso turns, the flayed left flank swinging open toward Gojo. His head is locked by the overload, his eyes still fixed on where Gojo was. f10-36: the camera pulls back and trucks with Gojo as he glides in, down and close, and comes to rest on nothing a step from the flank. f36-52: profile MS. Gojo is set a step from the open flank: the raw ribs, the stump, the frozen face, and the Blue humming behind Thragg's shoulder.",
+   "animatic_caption": "A Blue behind his shoulder pins Thragg and turns his torso, opening the flayed flank. Gojo glides in.",
+   "prompt_core": "Close-up of a white-haired man's face in a starry void, blue eyes narrowed and bloodshot, a blindfold hanging at his neck; he raises two fingers. The view pulls back and tracks as he glides toward a massive one-armed man frozen mid-lunge in the air. Behind the big man's right shoulder blade sits a small white-blue sphere ringed by dark, lensing space with a thin bright edge, and specks of dust and droplets of blood stream straight into it. The pull holds the giant motionless and twists his torso, swinging his raw, flayed left flank open toward the approaching man. The giant's face stays locked in a half-formed snarl. Cold blue-white void light; luminous streams rush past.",
+   "tactical": {
+    "intent": "Gojo: fix the body in place and present the target: the heart, through ribs the flayed flank has already stripped.",
+    "read": "Thragg cannot resist. This time the Blue's pull meets no flight thrust (contrast Seq 3).",
+    "outcome": "Thragg is pinned 2 m up, torso turned, flank open.",
+    "learned": "Gojo: the body is his to place. The one risk left is contact."
+   },
+   "dialogue": [],
+   "animation_notes": "The Blue follows the VFX bible's grammar exactly: a clear focal point; light objects first (dust, then blood droplets, then cape shreds) on straight-line streaks; no swirl. Output is kept low, a pin rather than a crushing pull, so the body hangs from it instead of flying into it. Thragg's turn is a rigid-body rotation driven by the pull, since the overload gives no muscle response: his head turns with the torso and his eyes stay fixed. Gojo glides on 2s with an elegant, economical body line; his feet find no floor. This Blue stays up as the pin until the domain ends (it is the ledger's Blue x1).",
+   "vfx": [
+    "Blue (fx.blue): white-blue core, dark lensing ring, thin bright edge, low output",
+    "fx.pull: dust, then blood droplets, then cape shreds streaking into the core",
+    "void information streams continuing behind",
+    "camera pull-back and truck"
+   ],
+   "impact_tier": "technique",
+   "technique": "blue",
+   "canon_refs": [
+    "G1-17",
+    "G1-20",
+    "X1-40",
+    "G1-44",
+    "G1-08",
+    "G1-45"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 6,
+     "cue": "blue",
+     "gain": 0.7,
+     "pan": 0.5,
+     "note": "a rising suck and a low throb, at low output"
+    },
+    {
+     "at": 12,
+     "cue": "whoosh",
+     "gain": 0.35,
+     "pan": -0.2,
+     "note": "Gojo's glide"
+    },
+    {
+     "at": 30,
+     "cue": "cloth",
+     "gain": 0.25,
+     "pan": 0,
+     "note": "Gojo sets; sleeves settle"
+    },
+    {
+     "at": 40,
+     "cue": "heartbeat",
+     "gain": 0.5,
+     "pan": 0.4
+    }
+   ],
+   "music": {
+    "intensity": 0.35,
+    "event": null,
+    "note": "The clusters thin to one high tone under the Blue's throb; no rhythm."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "hovering a step west of Thragg's flank, x=-0.3, y=0.6 (soles)",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "focused; set to strike",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "unlimited_void",
+      "blue (pin)",
+      "levitation"
+     ]
+    },
+    "thragg": {
+     "pos": "pinned in the air by the Blue at x=+1, y=2.0 (torso centre); torso turned about 50 degrees, flayed left flank open toward Gojo",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "flooded; pinned; helpless",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn"
+     ],
+     "healed": [],
+     "techniques_used": []
+    },
+    "env": "inside Unlimited Void; outside unchanged"
+   }
+  },
+  {
+   "id": "S6-10",
+   "frames": 66,
+   "shot_size": "MCU",
+   "angle": "eye level, tight two-shot in profile, slightly low",
+   "lens_mm": 65,
+   "camera": "Tight two-shot from the south at chest height (camera facing north): Gojo screen-left; Thragg's face, flank and torso screen-right. Locked off, with 2 frames of 6 px shake on the spear-hand contact.",
+   "location": "domain",
+   "characters": [
+    "gojo",
+    "thragg"
+   ],
+   "screen_direction": "Gojo is screen-left, striking screen-right. Thragg is screen-right, his face turned screen-left.",
+   "staging": "Gojo at x=-0.3, y=0.6 (soles), chest at y=2.0. Thragg's torso at x=+1, y=2.0; face at x=+0.8, y=2.7. Contact points: right elbow x=+1.3, y=2.4; hip x=+0.8, y=1.3; rib gap on the flayed flank x=+0.65, y=2.1. The spear-hand drives from x=-0.1 to x=+0.95 (wrist-deep). Camera 2.2 m south; zoom about 350 (about 5.5 m wide).",
+   "action": "Perception time: real 0.91-1.20 s. Gojo knows the rule (G1-32): touch exempts, so every touch is one frame. f0-3: wind-up. f4: contact one: Gojo's left palm snaps Thragg's cocked right elbow up and out of the line; for that single frame Thragg's pupils strobe clear, then flood again. f5-8: wind-up. f9: contact two: two fingers snap his hip square, putting the heart behind the open ribs; strobe. f10-13: wind-up. f14: contact three: a fingertip finds the gap between two exposed ribs, the target; strobe. f15-22: anticipation: Gojo draws his right hand back, fingers locked into a spear-hand, shoulder and hip winding. f23: CONTACT: the spear-hand drives into the flayed ribs toward the heart (impact frame). The contact lasts, so Thragg is exempt for its whole duration. f24-28: his pupils clear and focus, lucid and murderous, locked on Gojo's eyes. f26-38: his body acts before he could think. The whole torso corkscrews around Gojo's arm against the Blue's hold, the reflex that took him out of Purple's core, and the ribcage rolls a hand's breadth along the fingers. The heart slides off the line. f32: two ribs snap. f35: the fingers punch into the left lung instead. f38-44: frothy blood bursts from his mouth. f44-66: Gojo is in to the wrist and has missed the heart. Thragg's eyes have not left his, and Thragg's right hand begins to rise.",
+   "animatic_caption": "Three one-frame touches strobe his pupils awake. The spear-hand for the heart lasts longer: Thragg wakes.",
+   "prompt_core": "Tight two-shot in profile inside a starry void. On the left, a white-haired man in a black high-collared uniform drives a rigid spear-hand, fingers locked together, wrist-deep into the raw, flayed ribs of a massive one-armed man on the right. The giant's eyes, a moment ago flooded with streaks of light, have snapped clear and lucid and are locked on his attacker's with murderous focus. His whole torso corkscrews around the attacker's arm, ribs cracking, frothy blood bursting from his mustached mouth. A small white-blue sphere glows behind his right shoulder. Cold blue-white light, streams of luminous particles rushing past, a burst of blood droplets hanging in the air.",
+   "tactical": {
+    "intent": "Gojo: kill while he is frozen: the heart, by hand, through the open flank, as he did to Sukuna. Keep every other touch to one frame so the exemption never gives Thragg time.",
+    "read": "The three strobes confirm that contact wakes him, and a spear-hand cannot last only one frame.",
+    "outcome": "Exempt for the length of the thrust, Thragg's body slips the heart off the line. Ribs break and the left lung ruptures; the heart is missed.",
+    "learned": "Gojo: touching him wakes him, and the Six Eyes cannot tell him what his hand just hit."
+   },
+   "dialogue": [],
+   "animation_notes": "The three contacts are single-frame snaps on 1s, each with 4 frames of wind-up, and each strobe is exactly one frame of clear pupils (back to flooded on the next frame). The spear-hand has 8 frames of anticipation and its contact frame at f23, with an impact-frame treatment (fr.invert on f23 only) and 2 frames of 6 px shake. Thragg's corkscrew is the first self-willed motion since the domain closed: big, fast, on 1s, driven from the hips and twisting against the Blue's hold. His strength is plain, and it buys him a lung instead of his heart. Gojo's arm stays straight and locked, and the twist does not turn him.",
+   "vfx": [
+    "one-frame pupil strobes on each touch (flooded, clear, flooded)",
+    "impact frame on the spear-hand contact f23",
+    "light-streaks draining out of his pupils as he goes lucid f24-28",
+    "blood burst from the flank wound, droplets hanging (perception time)",
+    "frothy blood from the mouth f38-44",
+    "Blue core still glowing behind his right shoulder"
+   ],
+   "impact_tier": "heavy",
+   "technique": "domain",
+   "canon_refs": [
+    "G1-32",
+    "X1-21",
+    "G1-35",
+    "X1-22",
+    "T1-34",
+    "G1-45",
+    "G1-08"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 4,
+     "cue": "punch_light",
+     "gain": 0.5,
+     "pan": 0,
+     "note": "touch one: palm to the elbow"
+    },
+    {
+     "at": 9,
+     "cue": "punch_light",
+     "gain": 0.45,
+     "pan": 0.1,
+     "note": "touch two: fingers to the hip"
+    },
+    {
+     "at": 14,
+     "cue": "punch_light",
+     "gain": 0.35,
+     "pan": 0.1,
+     "note": "touch three: fingertip to the rib gap"
+    },
+    {
+     "at": 23,
+     "cue": "punch_heavy",
+     "gain": 1,
+     "pan": 0.1,
+     "note": "the spear-hand into the ribs"
+    },
+    {
+     "at": 25,
+     "cue": "heartbeat",
+     "gain": 0.9,
+     "pan": 0.3,
+     "note": "his heart, suddenly fast: he is awake"
+    },
+    {
+     "at": 32,
+     "cue": "punch_heavy",
+     "gain": 0.4,
+     "pan": 0.2,
+     "note": "two ribs snapping (layered bone crack)"
+    },
+    {
+     "at": 38,
+     "cue": "blood_spit",
+     "gain": 0.7,
+     "pan": 0.3,
+     "note": "frothy blood from the ruptured lung"
+    }
+   ],
+   "music": {
+    "intensity": 0.1,
+    "event": "drop_out",
+    "at": 23,
+    "note": "The flood's sound IS the domain. Each one-frame touch hiccups the bed for one frame. On the spear-hand contact the clusters and tick bed DROP OUT (Thragg is exempt; for him the flood has stopped), leaving only the heartbeat and the wet sounds of the wound."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "hovering at Thragg's flank, x=-0.3, y=0.6 (soles), right hand wrist-deep in his left flank",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "focused; arm locked in the wound; the heart missed",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "unlimited_void",
+      "blue (pin)",
+      "spear-hand"
+     ]
+    },
+    "thragg": {
+     "pos": "pinned at x=+1, y=2.0 (torso centre), torso twisted around Gojo's arm",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "EXEMPT while touched: lucid and murderous; two left ribs broken, heart slipped off the line; right hand rising",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn",
+      "lung_ruptured"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "heart-slip reflex (while exempt)"
+     ]
+    },
+    "env": "inside Unlimited Void; outside unchanged"
+   }
+  },
+  {
+   "id": "S6-11",
+   "frames": 50,
+   "shot_size": "OTS",
+   "angle": "eye level, over Thragg's right shoulder",
+   "lens_mm": 50,
+   "camera": "Over Thragg's right shoulder from behind and slightly above him (camera east-south-east of his head, facing west-north-west, so Gojo stays screen-left). Thragg's shoulder, ear and rising right arm are soft in the screen-right foreground; Gojo is sharp in MCU. A slow 1 m pull-back as Gojo withdraws.",
+   "location": "domain",
+   "characters": [
+    "gojo",
+    "thragg"
+   ],
+   "screen_direction": "Thragg is in the screen-right foreground, reaching right to left. Gojo is screen-left facing screen-right, and drifts screen-left as he withdraws.",
+   "staging": "Thragg's torso at x=+1, y=2.0. His right hand rises from x=+1.4, y=2.6 toward Gojo's throat at x=-0.2, y=2.2 and hangs 1 cm short from f10. Gojo withdraws the spear-hand f22-28 and drifts back to x=-1.3, y=0.6 (soles) by f50, leaving the frozen hand hanging at x=-0.2, y=2.2. Camera at x=+2.4, y=3.0, 1 m south.",
+   "action": "Perception time: real 1.20-1.42 s. Thragg is still exempt (still touched). f0-2: his right hand comes up and around, fingers hooked for the windpipe, and covers 80% of the gap. f3: the deceleration begins; 15% more over f3-9, then it crawls. f10-22: it hangs 1 cm from Gojo's throat: fingers straining, blood from the knuckles beading in the air, a thin ripple of compressed air ahead of the fingertips. No flash and no surface: Infinity is up, because Limitless runs inside the domain. His strength is plain in the trembling forearm, and useless. Gojo does not look at the hand; he holds Thragg's eyes. f22-28: Gojo withdraws the spear-hand in one clean pull, blood following it out in a slow arc. f28: contact ends, and the flood slams back. In a single frame Thragg's pupils fill with light-streaks again, his lucid snarl freezes half-formed, and the hand stops trying. f28-50: Gojo drifts back a metre. The frozen hand stays where it was, reaching for a throat that is no longer there.",
+   "animatic_caption": "Thragg's hand stalls 1 cm from Gojo's throat. Gojo pulls out; the flood slams back and Thragg freezes.",
+   "prompt_core": "Over-the-shoulder shot from behind a massive man's right shoulder in a starry void. His crimson-gloved right hand reaches across the frame toward the throat of a white-haired man in a high-collared black uniform, fingers hooked, stopped a finger's width short: the forearm trembles with strain, a thin ripple of compressed air sits ahead of the fingertips, and tiny beads of blood hang motionless. There is no glow and no barrier. The white-haired man, blue eyes narrowed and bloodshot, pulls a blood-wet hand back out of the giant's ribs and drifts away, leaving the frozen hand reaching for empty space. Cold blue-white light; luminous particle streams rush past.",
+   "tactical": {
+    "intent": "Thragg (exempt): kill the man touching him by crushing his windpipe.",
+    "read": "Gojo: Infinity holds the hand. The danger is not the hand but every frame Thragg stays awake.",
+    "outcome": "The grab stalls 1 cm short. Gojo breaks contact, and the sure-hit takes Thragg back mid-snarl.",
+    "learned": "Gojo: inside the domain, my touch is his only way out of it. Stay out of contact."
+   },
+   "dialogue": [],
+   "animation_notes": "The grab is on 1s with Infinity's deceleration curve (VFX bible section 1); the forearm compresses and trembles while the hand hangs, with no bounce. The flood's return takes ONE frame (f28): pupils flood and the expression freezes, with no ease. Gojo's withdrawal is on 2s, elegant and unhurried. Lock the frozen hand's drawing exactly where it hung while Gojo drifts away: this composition is the image of the exemption.",
+   "vfx": [
+    "Infinity on the grab: deceleration, compressed-air ripple, blood beads hanging (fx.zeno, fx.zeno_particles), no flash",
+    "blood arc following Gojo's withdrawn hand (perception-time drift)",
+    "one-frame return of the pupil light-streaks f28",
+    "Blue core behind Thragg's shoulder"
+   ],
+   "impact_tier": "blocked",
+   "technique": "infinity",
+   "canon_refs": [
+    "G1-07",
+    "G1-09",
+    "G1-08",
+    "G1-15",
+    "G1-32",
+    "X1-21"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 0,
+     "cue": "whoosh",
+     "gain": 0.4,
+     "pan": 0.5,
+     "note": "the hand comes around"
+    },
+    {
+     "at": 3,
+     "cue": "infinity_stop",
+     "gain": 0.9,
+     "pan": -0.1,
+     "note": "the grab stalls; the glassy ring hangs"
+    },
+    {
+     "at": 22,
+     "cue": "cloth",
+     "gain": 0.3,
+     "pan": -0.3,
+     "note": "Gojo's sleeve as he withdraws"
+    },
+    {
+     "at": 28,
+     "cue": "domain_bed",
+     "gain": 1,
+     "pan": 0,
+     "note": "the flood slams back: clusters and tick bed at full in one frame"
+    },
+    {
+     "at": 34,
+     "cue": "heartbeat",
+     "gain": 0.5,
+     "pan": 0.4,
+     "note": "slower again"
+    }
+   ],
+   "music": {
+    "intensity": 0.5,
+    "event": "return",
+    "at": 28,
+    "note": "The flood slams back: crystalline clusters and the tick bed return at full, louder than before, on the frame contact ends. Still no rhythm."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "hovering a metre west of Thragg, x=-1.3, y=0.6 (soles)",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "focused; contact broken; right hand bloody to the wrist with Thragg's blood",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "unlimited_void",
+      "infinity",
+      "blue (pin)"
+     ]
+    },
+    "thragg": {
+     "pos": "pinned at x=+1, y=2.0 (torso centre); right hand frozen reaching at x=-0.2, y=2.2",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "flooded again, frozen mid-snarl; left lung ruptured, two left ribs broken",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn",
+      "lung_ruptured"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "throat grab (while exempt; stalled in Infinity)"
+     ]
+    },
+    "env": "inside Unlimited Void; outside unchanged"
+   }
+  },
+  {
+   "id": "S6-12",
+   "frames": 120,
+   "shot_size": "CU",
+   "angle": "eye level, three-quarter on Thragg, rack focus to the background",
+   "lens_mm": 100,
+   "camera": "Thragg's face in CU, screen-right foreground. The camera is south-east of him, facing north-west, so Gojo (further west) sits in the screen-left background. Locked off, with a 10-frame rack to Gojo at f40-50 and back to Thragg at f100-110.",
+   "location": "domain",
+   "characters": [
+    "gojo",
+    "thragg"
+   ],
+   "screen_direction": "Thragg in the screen-right foreground faces screen-left. Gojo in the screen-left background faces screen-right, and drifts further screen-left (west) back to his corner.",
+   "staging": "Camera at x=+2.6, y=2.7, 1.6 m south of Thragg, facing north-west. Thragg's face at x=+0.8, y=2.7, sharp CU screen-right; his frozen hand reaches into frame-centre at x=-0.2, y=2.2. Gojo in the background drifts from x=-1.3, y=0.6 to x=-7, y=3 (soles) between f96 and f120.",
+   "action": "Perception time: real 1.42-1.95 s. f0-40: the uninterrupted flood. Blood beads at Thragg's nostrils and runs, slowly in perception time; thin threads of blood creep from his ears; blood tears well at the corners of his eyes and spill. f20-30: his pupils go unequal, the left blown wide and the right a pinpoint, and blank: the light-streaks keep pouring in, and nothing looks back out. An irregular heartbeat thuds. His right hand still hangs, reaching for nothing. f40-50: rack focus to Gojo in the background, breathing hard, chest heaving, narrowed eyes on Thragg. f50-90: he cannot tell whether this is killing him: the Six Eyes show the faint haze, not the heart or the brain behind it (R5). He glances at his own blood-wet right hand, the hand that woke Thragg, and flexes it. f90-104: he looks back at Thragg, and his jaw sets. Decided: no more touching in here. He will finish by hand outside, where a body that has taken two seconds of this should stay frozen. f96-120: he drifts back to his corner, out of reach and squared to Thragg, and lets the pre-set run out. f100-110: focus racks back to Thragg's bleeding, blank face.",
+   "animatic_caption": "Blood from his nose, ears and eyes; pupils unequal and blank. Gojo can't tell if it's killing him. He decides.",
+   "prompt_core": "Close-up of a massive man's face frozen in a starry void, three-quarter view on the right: close-cropped black hair, black mustache, a torn left ear. Blood runs from his nose, thin threads of blood trickle from his ears, and blood tears spill from the corners of his eyes. His pupils are unequal, one blown wide and one a pinpoint, both blank and flooded with streaks of pale light; frothy blood sits at his lips. Softly behind him on the left, a white-haired man in a black high-collared uniform hovers, breathing hard, blue eyes narrowed and bloodshot, looking down at his own blood-wet right hand, then back at the giant. Cold blue-white light; luminous streams rush outward.",
+   "tactical": {
+    "intent": "Gojo: decide the finish before the pre-set expires.",
+    "read": "The Six Eyes cannot read Thragg's vitals: the flood might be killing him, or might not. Every touch inside wakes him. Outside, two seconds of flood (ten times Shibuya's dose) should leave him frozen.",
+    "outcome": "He chooses to finish by hand outside the domain, stays out of contact until then, and withdraws to the west corner.",
+    "learned": "Gojo: a precise blow can be slipped, so the finish must not depend on finding the heart. Seq 7's internal Red pays this off."
+   },
+   "dialogue": [],
+   "animation_notes": "Thragg is a held face; only the blood moves (a perception-time creep of about 1 cm per second of screen), and the pupils change size once, over 10 frames (f20-30), to unequal. The heartbeat drives a barely visible, irregular pulse at his temple. Gojo on 2s: hard breathing in big, slow chest heaves (the domain's first visible cost), the glance at the hand, the jaw set, the drift back. Each rack takes 10 frames.",
+   "vfx": [
+    "blood creeping from nose, ears and tear ducts (perception time)",
+    "pupils unequal and blank, light-streaks still pouring in",
+    "frothy blood at the lips",
+    "rack focus foreground to background and back",
+    "domain void and streams behind"
+   ],
+   "impact_tier": "none",
+   "technique": "domain",
+   "canon_refs": [
+    "G2-22",
+    "G1-33",
+    "G2-23",
+    "X1-15",
+    "G1-06",
+    "X1-22",
+    "G2-40"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 2,
+     "cue": "heartbeat",
+     "gain": 0.8,
+     "pan": 0.3
+    },
+    {
+     "at": 34,
+     "cue": "heartbeat",
+     "gain": 0.7,
+     "pan": 0.3,
+     "note": "late: irregular"
+    },
+    {
+     "at": 44,
+     "cue": "breath",
+     "gain": 0.5,
+     "pan": -0.4,
+     "note": "Gojo breathing hard"
+    },
+    {
+     "at": 70,
+     "cue": "breath",
+     "gain": 0.45,
+     "pan": -0.4
+    },
+    {
+     "at": 82,
+     "cue": "heartbeat",
+     "gain": 0.6,
+     "pan": 0.3,
+     "note": "later still, stumbling"
+    },
+    {
+     "at": 96,
+     "cue": "cloth",
+     "gain": 0.25,
+     "pan": -0.5,
+     "note": "Gojo drifts back"
+    }
+   ],
+   "music": {
+    "intensity": 0.4,
+    "event": null,
+    "note": "Clusters and tick bed at full, unchanging and endless. The heartbeat under them is the only thing that changes, slowing and stumbling. No rhythm."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "back at the west corner inside the domain, x=-7, y=3 (soles)",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "drained, breathing hard; decided to finish by hand outside; right hand bloody to the wrist with Thragg's blood",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "unlimited_void",
+      "blue (pin, holding)",
+      "levitation"
+     ]
+    },
+    "thragg": {
+     "pos": "pinned by the Blue at x=+1, y=2.0 (torso centre), frozen mid-lunge, right hand still reaching",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "flooded; pupils unequal and blank; bleeding from nose, ears and tear ducts; heartbeat irregular",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn",
+      "lung_ruptured",
+      "nosebleed",
+      "ear_blood",
+      "eye_blood"
+     ],
+     "healed": [],
+     "techniques_used": []
+    },
+    "env": "inside Unlimited Void; outside unchanged"
+   }
+  },
+  {
+   "id": "S6-13",
+   "frames": 60,
+   "shot_size": "EWS",
+   "angle": "low, street level, extreme wide",
+   "lens_mm": 24,
+   "camera": "Locked off at street level, 60 m south of the west corner, facing north. The dome sits just left of centre; the lit city glows on the far-left horizon past it; the Purple channel and smoke columns are screen-right.",
+   "location": "intersection",
+   "characters": [],
+   "screen_direction": "No visible movement of the fighters. Wind carries dust and paper right to left (east to west) across frame and around the dome.",
+   "staging": "The dome is centred on x=-4, y=0 with a 13 m radius (x=-17 to +9, top y=13), enclosing Gojo (x=-7, y=3) and Thragg (x=+1, y=2), who cannot be seen. Camera centre x=-2, y=8; zoom 22 (about 87 m wide).",
+   "action": "OBJECTIVE REAL TIME, an overlapping cutaway. f0 is the instant the barrier closed, the same instant as S6-06 f0. f0-47 is real 0.00-2.00 s: everything shown inside, from S6-06 to S6-12, happened within these two seconds, inside this silent shape. A perfect black dome sits over the west corner of the intersection: no reflection, no texture, no sound, only a hair-thin line of cold blue light where it meets the asphalt. Wind tugs dust and loose paper across the street and around its curve. Smoke drifts from the eastern towers; light shafts fall through the torn cloud deck; far left, the lit city glows, untouched. f48: the pre-set expires at exactly 2.0 s. f48-60: the dome thins from its crown downward, its black turning smoky and translucent with the dusk beginning to show through; the blue base line flickers. Cut before anything inside can be seen.",
+   "animatic_caption": "Outside, in real time: a silent black dome sat over the corner for exactly two seconds. It begins to thin.",
+   "prompt_core": "Wide low shot of a ruined dusk intersection seen from street level. Over the left corner sits a perfect hemisphere of absolute black, about thirteen metres high, with no reflection or texture and only a hair-thin line of cold blue light where it meets the asphalt. Wind drives dust and loose paper across the empty street and around its curve. To the right, a clean channel is cut through dark towers, its violet afterglow faded, smoke columns rising; shafts of warm evening light fall through torn storm clouds. Far left, across a river, a lit city glows under a smouldering sunset. At the end, the black dome thins from its crown downward, turning smoky and translucent.",
+   "tactical": null,
+   "dialogue": [],
+   "animation_notes": "The dome is a flat, perfect black shape with zero shading; it reads as a hole in the picture. Only the base line carries light. Everything around it moves at real speed: dust on 1s, paper on 2s, smoke slow. The f48-60 thinning is a top-down dissolve to 60% opacity that never reveals the figures; Seq 7 owns that reveal.",
+   "vfx": [
+    "fx.domain_dome: perfect black hemisphere with a cold-blue base line",
+    "wind-blown dust and paper sliding around the dome",
+    "smoke columns and the Purple channel (env)",
+    "light shafts through the torn cloud deck",
+    "dome thinning from the crown f48-60"
+   ],
+   "impact_tier": "none",
+   "technique": "domain",
+   "canon_refs": [
+    "G1-30",
+    "G1-33",
+    "X1-30",
+    "G1-35",
+    "X1-22"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 0,
+     "cue": "wind_gust",
+     "gain": 0.6,
+     "pan": -0.2
+    },
+    {
+     "at": 14,
+     "cue": "debris_rain",
+     "gain": 0.25,
+     "pan": 0.5,
+     "note": "grit settling far off"
+    },
+    {
+     "at": 30,
+     "cue": "thunder_distant",
+     "gain": 0.35,
+     "pan": 0.4
+    },
+    {
+     "at": 50,
+     "cue": "wind_gust",
+     "gain": 0.5,
+     "pan": -0.4,
+     "note": "air stirring as the dome thins"
+    }
+   ],
+   "music": {
+    "intensity": 0,
+    "event": "silence",
+    "at": 0,
+    "note": "A hard cut from the interior's clusters to the outside world: no score at all, only wind. The dome makes no sound."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "inside the thinning dome at the west corner, x=-7, y=3 (soles); unseen",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "drained, breathing hard; waiting for the pre-set to run out",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "unlimited_void"
+     ]
+    },
+    "thragg": {
+     "pos": "inside the dome, pinned at x=+1, y=2.0 (torso centre); unseen",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "flooded; frozen mid-lunge",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn",
+      "lung_ruptured",
+      "nosebleed",
+      "ear_blood",
+      "eye_blood"
+     ],
+     "healed": [],
+     "techniques_used": []
+    },
+    "env": "black dome over the west corner, thinning from the crown; no new damage from the domain; lit city untouched"
+   }
+  },
+  {
+   "id": "S6-14",
+   "frames": 86,
+   "shot_size": "WS",
+   "angle": "level, profile two-shot",
+   "lens_mm": 35,
+   "camera": "Level wide shot from the south (camera facing north) framing both fighters. Locked off; the void dissolves around the fixed frame.",
+   "location": "domain",
+   "characters": [
+    "gojo",
+    "thragg"
+   ],
+   "screen_direction": "Gojo is screen-left facing screen-right; Thragg is screen-right facing screen-left. Both are held in place.",
+   "staging": "Gojo at x=-7, y=3 (soles), beside the sheared mast pole; Thragg at x=+1, y=2.0 (torso centre), frozen mid-lunge, right hand reaching; the Blue core at x=+1.5, y=2.4. Camera 14 m south; centre x=-3, y=3.5; zoom 90 (about 21 m wide).",
+   "action": "Perception time ramping back to real time: real 2.00-2.50 s, the flood ebbing from about 7:1 down to near 1:1 by the cut. f0-20: inside, the information streams slow and dim, and the rings stop receding. f12-60: the void dissolves from its edges inward. The starfield peels back from the frame's borders like burning film, and through the gaps comes the real dusk: warm light from screen-left, the torn street, the sheared mast pole behind Gojo. f30-60: the Blue behind Thragg's shoulder gutters and shrinks; the technique is about to burn out. f60: the reversed shatter, as the last of the void collapses. f60-86: real light on both. Gojo hovers 3 m up at his corner, breathing hard, narrowed eyes on Thragg, weight forward, blood-wet hand loose at his side. Thragg hangs 8 m east, frozen mid-lunge, bleeding from nose, ears and eyes, his frozen right hand reaching for nothing, the Blue a dying pinpoint at his shoulder. Both are about to drop. The consequences of the exchange are one frame from being revealed.",
+   "animatic_caption": "The void peels back from the edges. Dusk light returns. Both hang in the air, about to drop.",
+   "prompt_core": "Wide level shot of two figures hanging in the air above a ruined dusk street as a starry black void peels away from the edges of the frame like burning film, letting in warm evening light from the left. Left, a tall white-haired man in a black high-collared uniform hovers three metres up beside a bent, armless traffic-light pole, breathing hard, blue eyes narrowed, right hand bloodied to the wrist. Right, eight metres away, a massive one-armed man in a torn white-and-crimson bodysuit hangs frozen mid-lunge, his flank flayed, blood running from his nose, ears and eyes, his right hand reaching for empty air; a tiny dying white-blue spark glows at his shoulder. Dust hangs in the light.",
+   "tactical": null,
+   "dialogue": [],
+   "animation_notes": "The dissolve is edge-inward, organic and asymmetric (never a clean iris). The returning world is the city exactly as it was left (env.STATE[6]), lit by the film's dusk rim from screen-left. Both fighters are held, breathing only: Gojo's chest heaves; Thragg does not move. The Blue gutters on 1s, shrinking to a pinpoint by the last frame; it collapses on Seq 7's first frame with the burnout. The last frame must match Seq 7's first frame exactly: x=-7, y=3 and x=+1, y=2.",
+   "vfx": [
+    "void dissolving from the frame edges inward (fx.domain_void fade with an edge burn)",
+    "warm dusk light flooding back from screen-left",
+    "Blue core guttering to a pinpoint",
+    "information streams slowing and dimming",
+    "dust hanging in the returning light shafts"
+   ],
+   "impact_tier": "none",
+   "technique": "domain",
+   "canon_refs": [
+    "G1-37",
+    "X1-27",
+    "G1-39",
+    "X1-28",
+    "G2-17",
+    "G1-33"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 30,
+     "cue": "blue",
+     "gain": 0.25,
+     "pan": 0.5,
+     "note": "the Blue's throb guttering"
+    },
+    {
+     "at": 60,
+     "cue": "domain_close",
+     "gain": 1,
+     "pan": 0,
+     "note": "the reversed glass shatter as the last of the void collapses"
+    },
+    {
+     "at": 64,
+     "cue": "wind_gust",
+     "gain": 0.5,
+     "pan": -0.5,
+     "note": "the city's wind returns"
+    },
+    {
+     "at": 72,
+     "cue": "breath",
+     "gain": 0.45,
+     "pan": -0.6,
+     "note": "Gojo, hard"
+    }
+   ],
+   "music": {
+    "intensity": 0.2,
+    "event": "drop_out",
+    "at": 60,
+    "note": "Back inside, the clusters resume, thinner, then bend downward and unravel into the reversed shatter. The score drops out completely at f60, so Seq 7's isolated piano-like tones open on the dust."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "at the west corner, ~3 m up, x=-7, y=3 (about to drop)",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "domain ending -> burnout; drained, breathing hard; right hand bloody to the wrist with Thragg's blood; decided to finish by hand",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "unlimited_void (ending)",
+      "blue (pin, guttering)"
+     ]
+    },
+    "thragg": {
+     "pos": "mid-lunge ~8 m east of Gojo, x=+1, y=2 (about to drop)",
+     "facing": "west",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "flooded to the last frame; pupils unequal and blank; two left ribs broken; held only by the guttering Blue pin; right hand frozen reaching",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn",
+      "lung_ruptured",
+      "nosebleed",
+      "ear_blood",
+      "eye_blood"
+     ],
+     "healed": [],
+     "techniques_used": []
+    },
+    "env": "no new damage from the domain itself; intersection west corner; torn cloud deck with light shafts; mast pole (arm sheared) still standing"
+   }
+  }
+ ]
+}

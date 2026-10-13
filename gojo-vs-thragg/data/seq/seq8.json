@@ -1,0 +1,489 @@
+{
+ "sequence": {
+  "id": 8,
+  "title": "The Verdict",
+  "objective": "Reveal the winner decisively, in the order the audience needs it: who is down, whether he is finished, what winning cost the man still standing, and who he is again now it is over. End on an image of Gojo's personality, set between the fallen conqueror and the city he protected, and cut to black at exactly 04:00:00.",
+  "logic": "Seq 7 ends in silence on a wide silhouette through the dust. Seq 8 resolves that silhouette in four real-time shots and keeps the film's grammar throughout: the camera faces north (north-west for the push-in, the S5-14 set-up), west is screen-left, Gojo is screen-left and Thragg screen-right. (1) The verdict on Thragg comes first, from straight above (S8-01). A plan view with north at the top of frame keeps west at screen-left and shows the whole result in one image: the radial starburst left by the internal Red; the toppled traffic-light mast, Gojo's Seq 1 perch, where Thragg said 'You stand in my way', now lying over him; and Gojo at the west rim, still literally between Thragg and the lights. A warm shaft through the torn cloud deck (Seq 4's tear, still the motivated light source) lays Gojo's long, faint shadow across the crater to Thragg's boots. (2) The defeat is then made unmistakable at the body's own level (S8-02): one agonal rise of the destroyed chest, then a stillness held for 18 frames. The eyes stay open, and a fleck of ash lands on his cheek without a blink. The cause is canon-legible and planted in Seq 7: the heart is destroyed, the one injury Viltrumite healing cannot survive (#141; X1-55, T1-34), and nothing Thragg lost could ever have grown back (T1-47). There is no last word and no glow leaving the eyes; the body simply stops. (3) The survivor's cost and character arrive in one slow push-in as the score returns (S8-03). His actions follow the mechanics in order. First, only now, with the technique repaired and nothing left to fight, can his RCT go to his body (he could not repair and heal at once; G1-38), so the stump seals; his output is low after the domain and the repair, so regrowth only begins (G1-41). Second, the nosebleed, the price of the repair, stops, and he wipes it to a dried trace (nosebleed healed, nosebleed_trace stays). Third, he covers the Six Eyes again, because it rests them (G2-38) and he no longer needs them bare; the hair springs back into the silhouette from Seq 1. The cut on his cheek, the bloodshot eyes and the torn shoulder stay. 'Told you.' is said to the crater, quiet and tired: a callback to 'You should've picked an easier planet' with the cost on him. (4) The final image (S8-04) turns his back on the body and his face to what he protected. In a low, locked-off wide he stands at the left third against the last band of sunset and the lit, untouched city on the left horizon, his one hand in his pocket and his weight on one leg: the Seq 1 stance with one sleeve empty. The toppled mast and Thragg's smoke thread are to his right, and beyond them the ruined east. That is the film's argument in one composition: Gojo's losses regrow, Thragg's never do, and the lights behind Gojo were never touched. There is no slow motion; Seq 7 held the film's only slow motion. Silence carries over from Seq 7 until the cut to the survivor, and the score's last note is cut by the end of the film. No title, no tail, no black frames inside the runtime.",
+  "music_cue": "S8-01 and S8-02: SILENCE carried over from Seq 7's impact (event silence at f0 of each), with no score; only Seq 7's faint high ring decaying to nothing by S8-01 f30, plus wind, settling grit and Thragg's last breath. S8-03 f0: RETURN on the cut to the survivor. Solo low brass states Gojo's rising fifth (D up to A) once and leaves it open, with strings entering softly underneath and no percussion; the score ducks about 8 dB under 'Told you.' (f68-86). S8-04 f14: a restrained SWELL in the strings as the final pose settles, and the rising fifth resolves home to D. The last note is cut, not faded, on the film's final frame (04:00:00).",
+  "state_out": "Gojo: standing at the west corner on the crater's western shoulder, x=-6, y=0; facing west toward the lit city, three-quarter to camera; eyes: blindfold back on, white hair in its tall spikes; right hand in his trouser pocket, weight on one leg, a faint tired smile; injuries jacket_torn_shoulder, bloodshot_eyes, cheek_cut, forearm_lost, nosebleed_trace, stump_sealed; healed: nosebleed (stopped by RCT, dried trace remains); stump sealed with slow regrowth begun. Thragg: dead on his back on the crater floor beneath the toppled mast, x=-2; facing up; cape torn; injuries mouth_blood, torn_suit, cracked_ribs, chest_burn, forearm_lost, flank_flayed, ear_torn, lung_ruptured, nosebleed, ear_blood, eye_blood, chest_destroyed. Env: dust settling; the lit western city untouched (flags: landing_crater, mast_sheared, east_smash, tower_gutted, clouds_torn, purple_scar, smoke, final_crater). Cut to black at exactly 04:00:00."
+ },
+ "shots": [
+  {
+   "id": "S8-01",
+   "frames": 44,
+   "shot_size": "WS",
+   "angle": "overhead (bird's-eye), looking straight down",
+   "lens_mm": 35,
+   "camera": "Straight down from directly above the crater, centred on x=-3, with north at the top of frame so west stays screen-left as in every shot. A slow, eased crane-down from 26 m to 16 m over the whole shot. No rotation, no shake.",
+   "location": "intersection",
+   "characters": [
+    "gojo",
+    "thragg"
+   ],
+   "screen_direction": "Plan view with north at frame top: west is screen-left. Gojo stands at screen-left facing screen-right (east), toward Thragg. Thragg lies centre-right, his head to screen-right (east) and his boots toward Gojo. The east wind strips the dust off toward screen-left (west).",
+   "staging": "Plan view. Crater centre x=-4, radius 8 m (x=-12..+4), deepest near x=-2. Thragg lies on his back on the crater floor at x=-2, about 1 m below grade, along the east-west axis: boots at x=-3, head at x=-1, right arm flung north toward the mast, left stump and flayed flank on the south side. The toppled mast lies across the crater from its torn base on the west rim (x=-7.6) to its bent arm tip (x=-1.4), about 1.5 m north of Thragg's shoulders, its dead signal head on the rubble beside his head. Gojo stands on the crater's western shoulder at x=-6, y=0, facing east. The camera is straight down over x=-3 and descends from 26 m to 16 m, so the frame narrows from about 27 m to about 16 m wide and both fighters stay in frame throughout. Animatic: draw as a plan, centre x=-3, zoom 72 to 117.",
+   "action": "Real time. f0: the frame is a grey-white veil of the dust the Red threw up; only shapes show through. f0-30: the east wind strips the veil away toward screen-left (west) in layers, nearest first, and the verdict resolves in plan. A deep crater sits at the west corner, inside a radial starburst of split asphalt, with lamp posts flattened outward and two cars flung to the edges, all spreading from a point just west of the crater's centre. The traffic-light mast, Gojo's perch in Seq 1, lies toppled across the crater, its bent arm reaching over the floor. Beneath that arm Thragg lies on his back, head east and boots toward Gojo. The shredded cape is spread under him; the left forearm is gone and the left flank is raw. In the middle of the white-and-crimson chest is a dark, charred cavity, and a thin thread of smoke rises from it straight up at the lens. He does not move. f12-44: at the left of frame Gojo stands on the crater's western shoulder, seen from above: loose white hair, the blindfold a dark band at his neck, the torn and bloodied left shoulder, the left arm ending in a raw stump at the elbow, the right hand hanging. He is looking down at Thragg. A shaft of warm light through the torn cloud deck lays Gojo's long, faint shadow east across the crater floor until its head touches Thragg's boots. f30-44: the air is clear, settling grit glints in the shaft, and the camera finishes its slow descent.",
+   "animatic_caption": "Overhead, the dust clears: Thragg lies under the toppled mast, chest smoking. Gojo stands at the rim.",
+   "prompt_core": "Overhead top-down shot looking straight down into a fresh crater at a wrecked city intersection at dusk; the camera slowly descends. A veil of pale dust thins and slides away to the left, revealing a radial starburst of split asphalt, flattened lamp posts and overturned cars flung outward. A bent traffic-light mast lies toppled across the crater. Beneath its arm a massive man in a torn white-and-crimson bodysuit lies motionless on his back on a shredded crimson cape, left forearm missing, his chest a dark charred cavity sending a thin thread of smoke straight up at the lens. At the crater's left edge stands a tall white-haired man in black, seen from above, his left arm ending at the elbow. A warm shaft of light from the left lays his long faint shadow across the crater.",
+   "tactical": null,
+   "dialogue": [],
+   "animation_notes": "Thragg is a held cel: nothing on him moves, and only the smoke animates (on 1s). Gojo on 2s: one slow breath cycle (24 frames in, 24 out) shows as a shoulder rise from above, and a few loose strands of white hair stir in the east wind. The dust veil is on 1s, in multiplane layers drifting west at different speeds, thinning from about 70% opacity at f0 to about 10% by f30. The starburst and crater are painted into the ground plate (env flag final_crater). Keep the mast's arm clear of the chest so the cavity reads. The crane-down eases in and out.",
+   "vfx": [
+    "dust veil thinning and drifting west in multiplane layers (f0-30)",
+    "thin smoke thread rising straight up from Thragg's chest toward the lens",
+    "radial starburst of the internal Red's shockwave: split asphalt, flattened lamp posts, cars flung outward (ground plate)",
+    "warm shaft of evening light through the torn cloud deck; Gojo's long, faint shadow across the crater floor",
+    "settling grit glinting in the shaft"
+   ],
+   "impact_tier": "none",
+   "technique": null,
+   "canon_refs": [
+    "G1-21",
+    "X1-55",
+    "T1-34",
+    "#141",
+    "T1-47"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 0,
+     "cue": "wind_gust",
+     "gain": 0.3,
+     "pan": 0.3,
+     "note": "east wind carrying the dust west; with the decaying ring from S7, the only sound"
+    },
+    {
+     "at": 8,
+     "cue": "debris_rain",
+     "gain": 0.2,
+     "pan": 0,
+     "note": "fine grit settling into the crater"
+    },
+    {
+     "at": 22,
+     "cue": "metal_groan",
+     "gain": 0.2,
+     "pan": 0.1,
+     "note": "the toppled mast settles a centimetre on the rubble"
+    }
+   ],
+   "music": {
+    "at": 0,
+    "event": "silence",
+    "intensity": 0,
+    "note": "Silence carried over from Seq 7's impact: no score. Only S7's faint high ring decays to nothing by f30, under wind and settling grit."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "standing on the crater's western shoulder at the west corner, x=-6, y=0",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "standing, spent; looking down at Thragg; slow breathing; nose still bleeding; stump still raw",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes",
+      "cheek_cut",
+      "forearm_lost",
+      "nosebleed"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "infinity (passive, restored by the Seq 7 repair)"
+     ]
+    },
+    "thragg": {
+     "pos": "on his back on the crater floor beneath the toppled mast, x=-2, about 1 m below grade",
+     "facing": "up",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "motionless; chest destroyed and smoking; one agonal breath still to come",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn",
+      "lung_ruptured",
+      "nosebleed",
+      "ear_blood",
+      "eye_blood",
+      "chest_destroyed"
+     ],
+     "healed": [],
+     "techniques_used": []
+    },
+    "env": "final crater at the west corner with a radial starburst; the mast toppled across it; dust clearing west; warm shaft through the torn cloud deck"
+   }
+  },
+  {
+   "id": "S8-02",
+   "frames": 52,
+   "shot_size": "CU",
+   "angle": "ground level on the crater floor, level, side-on",
+   "lens_mm": 50,
+   "camera": "Low on the crater floor 1.6 m south of Thragg's chest, the lens 0.35 m above his body, facing north and level. Locked, with a barely felt 3% creep-in from f12 to the end.",
+   "location": "intersection",
+   "characters": [
+    "thragg"
+   ],
+   "screen_direction": "Thragg lies in profile with his head screen-right (east) and his boots off screen-left, toward Gojo (west, off-screen). Nothing crosses the frame.",
+   "staging": "Thragg on the crater floor at x=-2, about 1 m below grade, head east at x=-1. Camera at x=-2.2, 1.6 m south, lens height 0.35 m above the body; the frame is about 1.6 m wide, with the chest cavity centre-left and the head right. The toppled mast's arm crosses the top of frame about 1.5 m north and 1 m up, soft. Gojo is off-screen left at x=-6, y=0, standing. Animatic: centre x=-1.9, y=-0.8; zoom 700 to 720.",
+   "action": "Real time. f0-12: Thragg in profile on the crater floor, head screen-right. His square jaw is still set; his black mustache is greyed with dust. Dried blood tears sit at the corners of his open, unequal eyes, froth and blood at his lips, and blood runs down his neck from the torn left ear. At frame-centre is the charred cavity of his chest, with smoke curling up out of it. Nothing moves but the smoke. f12-26: one last rise of the chest, slow and laboured, a wet rattle drawn through froth; the edge of the cavity lifts and a bubble swells at the corner of his mouth. f26-34: the chest falls, faster. A small puff of smoke escapes the wound, the bubble breaks, and the jaw slackens a few millimetres. f34-52: stillness. The open eyes stay on the torn sky above him and do not blink. At f44 a fleck of ash settles on his cheek below the left eye, and nothing answers it. The smoke thins to a thread. The Grand Regent is dead: the heart is destroyed, and Viltrumite healing cannot repair it.",
+   "animatic_caption": "One last breath lifts Thragg's ruined chest. Then stillness; his open eyes never blink again.",
+   "prompt_core": "Ground-level close-up on the floor of a crater: a fallen giant lies on his back in profile, head to the right. His square, severe face is pale and still; close-cropped black hair and a thick black mustache are greyed with dust; dried blood tears mark the corners of his open dark eyes, froth and blood sit at his lips, and his left ear is torn away. His chest, in the remains of a white-and-crimson uniform, is a dark, charred, smoking cavity. The chest rises once, slowly, a last laboured breath; a small puff of smoke escapes and the jaw slackens. Then complete stillness: the eyes stay open on the torn storm sky, and a fleck of ash settles on his cheek without a blink. Above, out of focus, lies the bent arm of a toppled traffic-light mast.",
+   "tactical": null,
+   "dialogue": [],
+   "animation_notes": "Thragg on 2s for the breath; the smoke on 1s. The rise is slow and laboured (14 frames) and the fall quicker (8). The jaw slackens a few millimetres on the fall. No eye movement, no blink, no expression change: this is not acting, it is the body stopping. After f34 nothing on the body moves at all, and the ash fleck at f44 lands with no reaction. Keep the wound restrained: a dark, charred cavity with no anatomical detail. Continuity check: the torn left ear, the flayed left flank (camera side, at the bottom edge) and the frothy mouth are all on the camera side.",
+   "vfx": [
+    "thin smoke curl from the chest cavity, a small puff on the exhale (f26-30), then a thinner thread",
+    "froth and blood at the lips; one bubble swells (f16-26) and breaks (f28)",
+    "a drifting ash fleck settling on his cheek (f44)",
+    "shallow depth of field, with the toppled mast's arm soft above"
+   ],
+   "impact_tier": "none",
+   "technique": null,
+   "canon_refs": [
+    "X1-55",
+    "T1-34",
+    "#141",
+    "T1-46",
+    "T1-53"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 12,
+     "cue": "breath",
+     "gain": 0.45,
+     "pan": 0.15,
+     "note": "Thragg's last inhale: a slow, wet rattle drawn through froth"
+    },
+    {
+     "at": 28,
+     "cue": "breath",
+     "gain": 0.3,
+     "pan": 0.15,
+     "note": "the final exhale, shallow, cut short"
+    },
+    {
+     "at": 38,
+     "cue": "wind_gust",
+     "gain": 0.15,
+     "pan": 0.3,
+     "note": "nothing else: thin wind over the crater"
+    }
+   ],
+   "music": {
+    "at": 0,
+    "event": "silence",
+    "intensity": 0,
+    "note": "Still no score. The last breath plays in silence."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "standing on the crater's western shoulder, x=-6, y=0 (off-screen left)",
+     "facing": "east",
+     "eyes": "narrow",
+     "cape": "n/a",
+     "condition": "standing, spent; watching the body; nose still bleeding; stump still raw",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes",
+      "cheek_cut",
+      "forearm_lost",
+      "nosebleed"
+     ],
+     "healed": [],
+     "techniques_used": [
+      "infinity (passive)"
+     ]
+    },
+    "thragg": {
+     "pos": "dead on his back on the crater floor beneath the toppled mast, x=-2",
+     "facing": "up",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "dead: eyes open on the sky; no breath; smoke thinning from the chest",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn",
+      "lung_ruptured",
+      "nosebleed",
+      "ear_blood",
+      "eye_blood",
+      "chest_destroyed"
+     ],
+     "healed": [],
+     "techniques_used": []
+    },
+    "env": "final crater; the mast toppled over Thragg; dust nearly settled"
+   }
+  },
+  {
+   "id": "S8-03",
+   "frames": 96,
+   "shot_size": "MS",
+   "angle": "chest-to-eye level, front three-quarter, very slight low angle at the start",
+   "lens_mm": 65,
+   "camera": "Starts 4.5 m south-east of Gojo at chest height, facing north-west (the S5-14 set-up), and dollies slowly and constantly toward him along that line, rising to his eye level: a medium shot at f0, a medium close-up by f96. No shake, no rotation.",
+   "location": "intersection",
+   "characters": [
+    "gojo"
+   ],
+   "screen_direction": "Gojo faces screen-right (east) and down toward the crater, off-screen lower right, with lead room on the right. The lit city sits behind him at screen-left on the horizon (the S1-04 convention). Thragg stays off-screen right.",
+   "staging": "Gojo at x=-6, y=0, facing east, head bowed toward Thragg (x=-2, on the crater floor, off-screen lower right). The camera starts at x=-2.8, 3.2 m south, y=1.45, and ends at x=-4.1, 1.9 m south, y=1.75 (about 2.7 m from him). The frame narrows from about 1.9 m wide (waist up) to about 0.95 m wide (head and shoulders), with Gojo held left of centre. Animatic: centre x=-6.1, y=1.25 moving to x=-6.0, y=1.65; zoom 300 to 480.",
+   "action": "Real time; the score returns on f0. A constant slow push-in throughout, from waist up to head and shoulders. f0-4: Gojo stands in the ruin, facing east, his head bowed toward the crater. Behind him, low on the left horizon across the river, the warm windows of the lit city burn, untouched. f4-20: with the technique repaired and nothing left to fight, his RCT finally goes to his body. He lifts what is left of his left arm a few centimetres and glances at it as a soft warm-white shimmer passes over the raw stump at the elbow for 16 frames; pale new tissue seals it, with a first faint swell of regrowth beneath. It is slow, because his output is low. f20-34: blood is still running from his nose, the price of the repair. It stops. He draws the back of his right wrist once under his nose (f24-30) and lowers it, leaving a dried smear. f34-56: one-handed, he hooks his thumb under the blindfold hanging at his collar (f36-40) and draws it up over the bridge of his nose and his bloodshot eyes (f40-50); it seats at f50. His loose white hair springs up into its tall, spiky silhouette (f50-56). The fresh cut on his left cheekbone sits just below the edge of the cloth. f56-68: a faint, tired smile at one corner of his mouth. f68-86: GOJO (quiet, to the crater): \"Told you.\" f86-96: he breathes out; the smile stays; he holds.",
+   "animatic_caption": "Push-in. RCT seals the stump; he wipes his nose, pulls the blindfold up, a tired smile. \"Told you.\"",
+   "prompt_core": "Slow push-in from medium shot to medium close-up on a tall, lean man with loose snow-white hair standing amid ruins at dusk, front three-quarter, looking down and to the right. His black high-collared uniform is torn and bloodstained at the left shoulder; his left arm ends at the elbow, where a faint warm-white shimmer seals the stump with pale new tissue. A fresh cut crosses his left cheekbone; blood runs from his nose, and he wipes it with the back of his right wrist, leaving a dried smear. One-handed, he draws a black blindfold up from his neck over his eyes, and his white hair springs into a tall spiky silhouette. A faint, tired smile; two quiet words. Behind him, low on the left horizon across a river, glow the warm windows of a lit, untouched city.",
+   "tactical": {
+    "intent": "Gojo: with the technique repaired and nothing left to fight, spend RCT on his own body at last (he could not repair and heal at once), and cover the Six Eyes to rest them.",
+    "read": "Thragg is dead: no breath, no movement, the heart destroyed. There is no further threat and no need for bare eyes.",
+    "outcome": "The stump seals and regrowth only begins, because his output is low. The nosebleed stops, leaving a dried trace. The cheek cut, the bloodshot eyes and the torn shoulder stay.",
+    "learned": "Gojo: the gamble came within a centimetre of his skull and cost him an arm, which will come back; Thragg's losses never will."
+   },
+   "dialogue": [
+    {
+     "speaker": "Gojo",
+     "line": "Told you.",
+     "at_frame": 68,
+     "frames": 18
+    }
+   ],
+   "animation_notes": "Gojo on 2s; every gesture is economical and a little slow from exhaustion. The RCT follows the VFX bible: a soft warm-white shimmer for 16 frames, the tissue knitting from the inside out, then pale new skin over the stump and the first millimetres of regrowth; no green, no sparkles. The wipe is one pass with the back of the wrist. The blindfold: the thumb hooks the cloth at the collar and draws it up over the bridge of the nose, and it seats at f50. The hair goes from loose fringe to the tall spiky silhouette over 6 frames with a 2-frame overshoot, as overlapping action, not a pop. The smile is one corner of the mouth, tired, not smug. 'Told you.' is barely voiced and the lips hardly move. The push never eases out; it just stops with the shot.",
+   "vfx": [
+    "RCT: a soft warm-white shimmer at the left stump (f4-20), tissue knitting from the inside out, pale new skin and a faint swell of regrowth",
+    "nosebleed stopping and wiped to a dried trace (f20-30)",
+    "lit-city bokeh low at screen-left: warm windows across the river",
+    "dust motes drifting through the warm rim light from screen-left"
+   ],
+   "impact_tier": "none",
+   "technique": "rct",
+   "canon_refs": [
+    "G1-38",
+    "G1-41",
+    "G1-40",
+    "X1-29",
+    "G2-37",
+    "G2-38",
+    "G2-30",
+    "G2-40"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 4,
+     "cue": "rct_heal",
+     "gain": 0.35,
+     "pan": 0.1,
+     "note": "soft airy chord, almost inaudible, at the stump"
+    },
+    {
+     "at": 24,
+     "cue": "cloth",
+     "gain": 0.2,
+     "pan": 0,
+     "note": "sleeve across the face (the wipe)"
+    },
+    {
+     "at": 40,
+     "cue": "cloth",
+     "gain": 0.25,
+     "pan": 0,
+     "note": "blindfold drawn up from the collar"
+    },
+    {
+     "at": 50,
+     "cue": "cloth",
+     "gain": 0.15,
+     "pan": 0,
+     "note": "the blindfold seats and the hair springs up"
+    },
+    {
+     "at": 88,
+     "cue": "breath",
+     "gain": 0.3,
+     "pan": 0,
+     "note": "a tired breath out after the line"
+    }
+   ],
+   "music": {
+    "at": 0,
+    "event": "return",
+    "intensity": 0.3,
+    "note": "The soundtrack returns on the cut to the survivor. Solo low brass states Gojo's rising fifth (D up to A) once and leaves it open, with strings entering softly beneath and no percussion. Ducked about 8 dB under 'Told you.' (f68-86)."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "standing on the crater's western shoulder at the west corner, x=-6, y=0",
+     "facing": "east",
+     "eyes": "blindfold",
+     "cape": "n/a",
+     "condition": "blindfold back on, hair in its spikes; a faint tired smile; stump sealed with slow regrowth begun; nosebleed stopped and wiped",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes",
+      "cheek_cut",
+      "forearm_lost",
+      "nosebleed_trace",
+      "stump_sealed"
+     ],
+     "healed": [
+      "nosebleed"
+     ],
+     "techniques_used": [
+      "infinity (passive)",
+      "rct (stump sealed; nosebleed stopped)"
+     ]
+    },
+    "thragg": {
+     "pos": "dead on his back on the crater floor beneath the toppled mast, x=-2 (off-screen)",
+     "facing": "up",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "dead",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn",
+      "lung_ruptured",
+      "nosebleed",
+      "ear_blood",
+      "eye_blood",
+      "chest_destroyed"
+     ],
+     "healed": [],
+     "techniques_used": []
+    },
+    "env": "dust settling; the lit western city untouched on the left horizon"
+   }
+  },
+  {
+   "id": "S8-04",
+   "frames": 48,
+   "shot_size": "WS",
+   "angle": "low angle (worm's-eye), tilted up 10 degrees",
+   "lens_mm": 28,
+   "camera": "Locked-off worm's-eye wide on the asphalt 12 m south of the crater at x=-3.5, the lens 0.5 m off the ground, facing north and tilted up 10 degrees. The street and the crater rim fill the lower fifth and the sky the upper half. No move at all: the image composes itself as Gojo turns.",
+   "location": "intersection",
+   "characters": [
+    "gojo"
+   ],
+   "screen_direction": "Gojo, at the left third, turns from facing screen-right (east, the crater) through the camera to facing screen-left (west, the lit city), ending three-quarter toward camera with his left side nearest the lens. The crater, the toppled mast and the hidden body stay screen-right. The film's last frame keeps its geography: the survivor on the left, the city's light behind him on the left, the fallen on the right.",
+   "staging": "Camera at x=-3.5, 12 m south, y=0.5, tilted up 10 degrees; the frame is about 15 m wide at the subjects (x=-11..+4). Gojo at x=-6, y=0 (u about 0.34) turns from east to west, three-quarter to camera. The crater spans x=-12..+4; Thragg at x=-2 lies below the near rim, hidden, and his smoke thread rises at u about 0.6. The toppled mast runs low across the frame from x=-7.6 to -1.4. The lit city and the sunset band sit low on the left horizon behind Gojo; the ruined eastern towers, the Purple scar and the smoke columns are to the right. Animatic: centre x=-3.5, y=3.5; zoom 125; draw Gojo's silhouette over the sky() sun glow at screen-left.",
+   "action": "Real time. f0-12: in the low wide, Gojo, at the left third, turns his back on the crater: hips first, then shoulders, then head, the right foot pivoting and the left stepping (f8). He ends facing west toward the lit city, three-quarter to camera, with his left side nearest the lens: the sleeve ending at the sealed stump. f10-18: his remaining hand slides into his trouser pocket. f14-20: his weight settles onto one leg and his head tilts a few degrees: the Seq 1 stance. f20-47: the final image holds. Blindfolded and spiky-haired, he is a dark silhouette against the last band of sunset beneath the torn storm deck and the lit, untouched city across the river on the left horizon, a warm rim along his hair and shoulders. To the right the toppled mast lies across the crater, and from behind its near rim, where Thragg lies hidden, a thin thread of smoke rises and bends in the wind. Beyond are the ruined eastern towers, the clean-cut Purple scar and the smoke columns. Dust motes fall slowly through the light. f47 is the last frame: cut to black at exactly 04:00:00. No title, no tail.",
+   "animatic_caption": "He turns to the lit city, hand in pocket, weight on one leg: a silhouette against the sunset. Black.",
+   "prompt_core": "Final image: a locked-off, low-angle wide shot from street level at dusk. In the left third, a tall, lean figure with a black blindfold and tall spiky white hair stands at the edge of a fresh crater, a dark silhouette against the last band of sunset glowing low on the left horizon over a lit city across a river. He turns from the crater toward the distant lights, slides his one remaining hand into his trouser pocket and settles his weight on one leg, head tilted slightly; his left sleeve ends at the elbow. A warm rim outlines his hair and shoulders. To the right, a toppled traffic-light mast lies across the crater, and a thin thread of smoke rises from below its rim. Beyond: ruined towers, a torn storm deck, dust motes falling slowly through shafts of light.",
+   "tactical": null,
+   "dialogue": [],
+   "animation_notes": "Gojo on 2s. The turn is unhurried: hips lead, shoulders follow, head last; the right foot pivots and the left steps (f8). The hand finds the pocket cleanly, the weight shift drops one hip, and the head tilts about 6 degrees. From f20 everything on him holds except the wind in his hair and jacket hem; only the smoke thread and the falling dust motes animate. The empty left sleeve hangs at the elbow on the camera side and must read in silhouette. The last frame is a fully composed image, not a blur, fade or dip: the film ends on it.",
+   "vfx": [
+    "the last band of sunset low on the left horizon beneath the torn cloud deck",
+    "the lit city across the river: dense warm windows on the left horizon, untouched",
+    "warm rim light from screen-left on Gojo's spiky hair and shoulders",
+    "thin smoke thread rising from the crater where Thragg lies hidden",
+    "dust motes falling slowly through the light shafts",
+    "smoke columns over the eastern damage and the Purple scar at screen-right"
+   ],
+   "impact_tier": "none",
+   "technique": null,
+   "canon_refs": [
+    "G2-37",
+    "G2-40",
+    "G2-41",
+    "G1-41",
+    "T1-47"
+   ],
+   "slow_motion": false,
+   "sfx": [
+    {
+     "at": 2,
+     "cue": "wind_gust",
+     "gain": 0.25,
+     "pan": 0.2,
+     "note": "east wind across the crater"
+    },
+    {
+     "at": 8,
+     "cue": "footstep",
+     "gain": 0.3,
+     "pan": -0.35,
+     "note": "the shoe pivots on grit as he turns west"
+    },
+    {
+     "at": 14,
+     "cue": "cloth",
+     "gain": 0.2,
+     "pan": -0.35,
+     "note": "hand into the trouser pocket"
+    }
+   ],
+   "music": {
+    "at": 14,
+    "event": "swell",
+    "intensity": 0.4,
+    "note": "The restrained final statement: strings swell gently as the pose settles and the rising fifth resolves home to D. No percussion. The last note is cut, not faded, on the final frame (04:00:00)."
+   },
+   "continuity_out": {
+    "gojo": {
+     "pos": "x=-6, y=0, standing at the west corner on the crater's western shoulder; turned toward the lit city, three-quarter to camera",
+     "facing": "west",
+     "eyes": "blindfold",
+     "cape": "n/a",
+     "condition": "standing, spent; right hand in his trouser pocket, weight on one leg, head tilted; a faint tired smile; stump sealed with slow regrowth begun",
+     "injuries": [
+      "jacket_torn_shoulder",
+      "bloodshot_eyes",
+      "cheek_cut",
+      "forearm_lost",
+      "nosebleed_trace",
+      "stump_sealed"
+     ],
+     "healed": [
+      "nosebleed"
+     ],
+     "techniques_used": [
+      "infinity (passive)",
+      "rct (slow regrowth continuing)"
+     ]
+    },
+    "thragg": {
+     "pos": "dead in the crater, x=-2 (on his back beneath the toppled mast, hidden below the near rim)",
+     "facing": "up",
+     "eyes": "n/a",
+     "cape": "torn",
+     "condition": "dead",
+     "injuries": [
+      "mouth_blood",
+      "torn_suit",
+      "cracked_ribs",
+      "chest_burn",
+      "forearm_lost",
+      "flank_flayed",
+      "ear_torn",
+      "lung_ruptured",
+      "nosebleed",
+      "ear_blood",
+      "eye_blood",
+      "chest_destroyed"
+     ],
+     "healed": [],
+     "techniques_used": []
+    },
+    "env": "dust settling; lit western city untouched"
+   }
+  }
+ ]
+}
