@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CORRODE</title>
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- Main menu -->
+  <div id="menu" class="screen">
+    <div class="menu-card wide">
+      <h1 class="logo">CORR<span>O</span>DE</h1>
+      <p class="tag">Voxel survival. Gather, build, fortify, survive.</p>
+      <label>Survivor name<input id="m-name" maxlength="16" placeholder="Survivor" autocomplete="off" /></label>
+      <h3>Worlds</h3>
+      <div id="m-worlds"></div>
+      <details id="m-new">
+        <summary>Create new world</summary>
+        <label>World name<input id="nw-name" maxlength="32" placeholder="New World" autocomplete="off" /></label>
+        <label>Seed<input id="nw-seed" maxlength="32" placeholder="random" autocomplete="off" /></label>
+        <label class="inline"><input id="nw-cheats" type="checkbox" /> Allow cheats (/give, /time, /tp …)</label>
+        <div class="row"><button id="nw-create" class="primary">Create &amp; play</button></div>
+      </details>
+      <div class="row">
+        <button id="m-settings">Settings</button>
+        <button id="m-help">How to play</button>
+      </div>
+      <div id="m-error" class="error"></div>
+    </div>
+  </div>
+
+  <div id="loading" class="screen hidden"><div class="menu-card"><h2>Loading world…</h2><div id="load-text" class="muted">Connecting</div><div class="bar"><div id="load-bar"></div></div></div></div>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="crosshair"></div>
+    <div id="hitmarker"></div>
+    <div id="hint"></div>
+    <div id="clock"></div>
+    <div id="fps"></div>
+    <div id="bp-indicator"></div>
+    <div id="status"></div>
+    <div id="vitals">
+      <div class="vital" id="v-hp"><span class="vi">✚</span><div class="vbar"><div></div></div><b></b></div>
+      <div class="vital" id="v-food"><span class="vi">🍖</span><div class="vbar"><div></div></div><b></b></div>
+      <div class="vital" id="v-water"><span class="vi">💧</span><div class="vbar"><div></div></div><b></b></div>
+    </div>
+    <div id="belt"></div>
+    <div id="ammo"></div>
+    <div id="feed"></div>
+    <div id="buildhud"></div>
+    <div id="pieceinfo"></div>
+    <div id="chat"><div id="chat-log"></div><input id="chat-input" maxlength="200" autocomplete="off" /></div>
+    <div id="damage"></div>
+    <div id="hurtdir"></div>
+    <div id="toasts"></div>
+    <div id="progress"><div></div></div>
+  </div>
+
+  <!-- Inventory / crafting / loot -->
+  <div id="inventory" class="hidden">
+    <div class="inv-col" id="inv-left">
+      <h3>Clothing</h3>
+      <div id="wear" class="grid g2"></div>
+      <div id="charstats"></div>
+    </div>
+    <div class="inv-col" id="inv-center">
+      <h3>Inventory</h3>
+      <div id="main" class="grid g6"></div>
+      <h3>Belt</h3>
+      <div id="beltinv" class="grid g6"></div>
+      <div class="muted small">Drag to move · Shift-click quick move · Right-click split · Drag outside to drop</div>
+    </div>
+    <div class="inv-col" id="inv-right">
+      <div id="loot" class="hidden">
+        <h3 id="loot-title">Container</h3>
+        <div id="loot-extra"></div>
+        <div id="lootgrid" class="grid g6"></div>
+      </div>
+      <div id="craft">
+        <h3>Crafting <span id="bench-level" class="muted small"></span></h3>
+        <div id="craft-cats"></div>
+        <div id="craft-list"></div>
+        <div id="craft-detail"></div>
+        <h3>Queue</h3>
+        <div id="craft-queue"></div>
+      </div>
+    </div>
+    <div id="tooltip" class="hidden"></div>
+  </div>
+
+  <div id="map" class="screen hidden"><canvas id="map-canvas" width="640" height="640"></canvas><div class="map-legend muted small">M / Esc to close · scroll to zoom</div></div>
+
+  <div id="death" class="screen hidden">
+    <div class="menu-card">
+      <h2 class="dead">YOU DIED</h2>
+      <div id="death-by" class="muted"></div>
+      <div class="row"><button id="respawn-beach" class="primary">Respawn on a beach</button></div>
+      <div id="death-bags"></div>
+    </div>
+  </div>
+
+  <div id="pause" class="screen hidden">
+    <div class="menu-card">
+      <h2>Paused</h2>
+      <div class="row col">
+        <button id="p-resume" class="primary">Resume</button>
+        <button id="p-save">Save</button>
+        <button id="p-settings">Settings</button>
+        <button id="p-help">Controls</button>
+        <button id="p-quit">Save &amp; quit to menu</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings" class="screen hidden"><div class="menu-card wide"><h2>Settings</h2><div id="settings-body"></div><div class="row"><button id="s-close" class="primary">Done</button><button id="s-reset">Reset controls</button></div></div></div>
+
+  <div id="keypad" class="screen hidden"><div class="menu-card narrow"><h2 id="kp-title">Code Lock</h2><input id="kp-code" maxlength="4" inputmode="numeric" autocomplete="off" /><div class="row"><button id="kp-ok" class="primary">OK</button><button id="kp-cancel">Cancel</button></div></div></div>
+
+  <div id="help" class="screen hidden"><div class="menu-card wide"><h2>How to play</h2><div id="help-body"></div><div class="row"><button id="h-close" class="primary">Close</button></div></div></div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
