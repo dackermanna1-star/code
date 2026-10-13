@@ -253,9 +253,15 @@ export class PlayerInventory {
     return [this.main, this.belt];
   }
 
-  /** Pickup order: belt first (hotbar) like most survival games, then main. */
-  pickupOrder(): Container[] {
-    return [this.belt, this.main];
+  /**
+   * Where newly acquired items go: tools, weapons, consumables and placeables
+   * land on the belt (hotbar) first; bulk resources, ammo and components go to
+   * the main inventory first so they never crowd the hotbar.
+   */
+  pickupOrder(itemId?: string): Container[] {
+    const cat = itemId ? tryItemDef(itemId)?.category : undefined;
+    const bulk = cat === 'resource' || cat === 'component' || cat === 'ammo' || cat === 'block';
+    return bulk ? [this.main, this.belt] : [this.belt, this.main];
   }
 
   toJSON() {

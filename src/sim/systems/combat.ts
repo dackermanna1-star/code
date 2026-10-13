@@ -128,7 +128,7 @@ export class Combat {
 
   // ---------------------------------------------------------------- damage
   damagePlayer(p: Player, amount: number, type: DamageType, attacker: Player | null, opts: { zone?: HitZone; bleed?: number; source?: string; fromX?: number; fromZ?: number } = {}) {
-    if (!p.alive || amount <= 0) return;
+    if (!p.alive || amount <= 0 || p.god) return;
     const armorType = type === 'animal' ? 'melee' : type;
     const prot = ['melee', 'bullet', 'arrow', 'explosive'].includes(armorType) ? p.armor(armorType) : 0;
     const eff = amount * (1 - prot);

@@ -83,6 +83,10 @@ export class Player {
   underwater = 0;
   lastDrink = 0;
   lastPreview = 0;
+  /** Simulation time of the last (re)spawn, for new-spawn grace periods. */
+  spawnedAt = 0;
+  /** Cheat: ignore all damage. */
+  god = false;
 
   constructor(readonly id: number, readonly name: string, x: number, y: number, z: number) {
     this.move = newMoveState(x, y, z);

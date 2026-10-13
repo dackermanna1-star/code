@@ -24,7 +24,7 @@ export class Commands {
     const reply = (s: string) => this.game.msg(p, s, 'info');
     switch (cmd) {
       case 'help':
-        return reply('Commands: /help /kill /stats /status /save' + (this.game.config.cheats ? ' | cheats: /give <item> [n] /time <0-1> /heal /spawn <animal|scavenger> /tp <x> <y> <z> /items' : ' (cheats disabled for this world)'));
+        return reply('Commands: /help /kill /stats /status /save' + (this.game.config.cheats ? ' | cheats: /give <item> [n] /time <0-1> /heal /god /spawn <animal|scavenger> /tp <x> <y> <z> /items' : ' (cheats disabled for this world)'));
       case 'kill':
         return this.game.combat.kill(p, null, 'Suicide');
       case 'stats':
@@ -37,6 +37,7 @@ export class Commands {
         return reply('Saving…');
     }
     if (!this.game.config.cheats) return this.game.msg(p, 'Unknown command (cheats are disabled in this world). Try /help', 'error');
+    if (!p.alive) return this.game.msg(p, 'You are dead — respawn first', 'error');
     log.audit('Cheat command', { player: p.name, line });
     switch (cmd) {
       case 'give': {
@@ -59,6 +60,9 @@ export class Commands {
         this.game.time = Math.floor(this.game.time / cycle) * cycle + v * cycle;
         return reply(`Time set to phase ${v}`);
       }
+      case 'god':
+        p.god = !p.god;
+        return reply(`God mode ${p.god ? 'on' : 'off'}`);
       case 'heal':
         Object.assign(p.vitals, { hp: 100, cal: 500, hyd: 250, bleed: 0, rad: 0, poison: 0 });
         return reply('Healed');

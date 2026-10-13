@@ -53,8 +53,9 @@ export class Game {
   paused = false;
   private weatherTarget = 0;
   private nextId = 1;
-  private lastSave = 0;
+  private lastSave = Date.now();
   private saving: Promise<void> | null = null;
+  private queuedSave: Promise<void> | null = null;
   private chunkFrameCache = new Map<number, { rev: number; frame: Uint8Array }>();
   private streamOffsets: Array<[number, number]> = [];
   private savedPlayer: { id: number; name: string; save: ReturnType<Player['toSave']> } | null = null;
@@ -111,9 +112,21 @@ export class Game {
     log.info('World loaded', { seed: this.seed, objects: objs.length, pieces: this.building.pieces.size, tiles: this.tiles.tiles.size });
   }
 
-  /** Snapshot all state and persist it atomically. Concurrent calls share one save. */
+  /**
+   * Snapshot all state and persist it atomically. If a save is already in
+   * flight, a new snapshot is queued to run after it (never coalesced into
+   * the older snapshot, which would silently drop the latest changes).
+   */
   save(reason = 'autosave'): Promise<void> {
-    if (this.saving) return this.saving;
+    if (this.saving) {
+      if (!this.queuedSave) {
+        this.queuedSave = this.saving.then(() => {
+          this.queuedSave = null;
+          return this.save(reason);
+        });
+      }
+      return this.queuedSave;
+    }
     const t0 = performance.now();
     const dirty = this.world.dirtyChunks();
     const chunks = dirty.map((c) => this.world.encodeForSave(c));
@@ -179,7 +192,7 @@ export class Game {
   giveStartItems(p: Player) {
     for (const [id, n] of this.config.startItems) {
       try {
-        addToAny(p.inv.pickupOrder(), makeStack(id, n));
+        addToAny(p.inv.pickupOrder(id), makeStack(id, n));
       } catch (e) {
         log.warn('Bad start item in config', { id, error: String(e) });
       }
@@ -344,6 +357,7 @@ export class Game {
       }
       if (isStuck(this.world, p.move)) this.unstick(p);
       p.ready = true;
+      p.spawnedAt = this.now;
       p.link?.send({ t: 'spawned', pos: [p.x, p.y, p.z] });
     }
     let n = 0;

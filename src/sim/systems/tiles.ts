@@ -287,7 +287,7 @@ export class Tiles {
 
   private giveStack(p: Player, s: ItemStack): number {
     let left = s.n;
-    for (const c of p.inv.pickupOrder()) {
+    for (const c of p.inv.pickupOrder(s.id)) {
       if (left <= 0) break;
       left = addStack(c, { ...s, n: left });
     }

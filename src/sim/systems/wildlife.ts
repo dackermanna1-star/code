@@ -396,7 +396,9 @@ export class Wildlife {
       let pick = this.rnd() * total;
       let spec = options[0];
       for (const o of options) { pick -= o.weight; if (pick <= 0) { spec = o; break; } }
-      if (spec.temper === 'hunter' && !this.game.isNight() && this.rnd() < 0.6) continue;
+      if (spec.temper === 'hunter' && !this.game.isNight() && this.rnd() < 0.85) continue;
+      // Grace period: no predators or bears close to a freshly (re)spawned player.
+      if (spec.temper !== 'passive' && spec.key !== 'boar' && this.game.now - p.spawnedAt < 120) continue;
       this.spawn(spec.key, x + 0.5, top + 1, z + 0.5);
     }
   }

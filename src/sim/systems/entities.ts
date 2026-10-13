@@ -139,7 +139,7 @@ export class Entities {
   /** Give items to a player; anything that doesn't fit is dropped at their feet. */
   give(p: Player, id: string, n: number) {
     if (n <= 0 || !tryItemDef(id)) return;
-    const left = addToAny(p.inv.pickupOrder(), makeStack(id, n));
+    const left = addToAny(p.inv.pickupOrder(id), makeStack(id, n));
     if (left > 0) {
       this.dropItem(makeStack(id, left), p.x, p.y + 0.5, p.z);
       this.game.msg(p, 'Inventory full — item dropped', 'error');
