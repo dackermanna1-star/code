@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { blockDef } from '../../shared/world/blocks';
 import { pieceGeometry, type Socket } from '../../shared/sim/buildgeom';
-import { heldModel } from './entities';
 import { tryItemDef } from '../../shared/data/items';
+import { buildHeld } from './helditems';
+import { blockCube } from './blockitems';
+import { instantiate, shade, template } from './voxelmodel';
 
 /**
  * Visual effects: block selection outline + crack overlay, particles
@@ -204,69 +206,326 @@ export class Effects {
   }
 }
 
-/** First-person arm + held item, rendered in its own scene on top. */
+// ------------------------------------------------------------------ first person
+type V3 = [number, number, number];
+type SwingStyle = 'chop' | 'thrust' | 'punch' | 'throw';
+
+/** First-person pose of an item: grip position in camera space, rest orientation, scale. */
+interface Pose {
+  hand: V3;
+  rot: V3;
+  scale: number;
+  style: SwingStyle;
+  /** Aim-down-sights grip position (y from the sight line; x defaults to centred) and orientation. */
+  ads?: { z: number; x?: number; y?: number; rot?: V3 };
+  /** Support-hand point in item space (two-handed items). */
+  forend?: V3;
+  /** The left hand holds the grip and the right hand the support point (bows). */
+  leftGrip?: boolean;
+  /** Where the support arm reaches back to while aiming (default: its off-screen shoulder). */
+  supportTo?: V3;
+  /** Muzzle flash on recoil. */
+  flash?: boolean;
+  /** Model offset from the grip (item space, before scaling) so the hand doesn't cover small items. */
+  offset?: V3;
+}
+
+const POSES: Record<string, Pose> = {
+  hand: { hand: [0.31, -0.2, -0.44], rot: [0, 0, 0], scale: 1, style: 'punch' },
+  item: { hand: [0.28, -0.26, -0.5], rot: [0.45, -0.55, 0.05], scale: 0.85, style: 'punch', offset: [0, 0.075, -0.03] },
+  block: { hand: [0.27, -0.25, -0.52], rot: [0.45, -0.78, 0], scale: 1, style: 'punch', offset: [0, 0.03, -0.02] },
+  rock: { hand: [0.29, -0.27, -0.5], rot: [0.35, -0.5, 0.1], scale: 0.5, style: 'chop', offset: [0, 0.07, -0.03] },
+  tool: { hand: [0.29, -0.3, -0.52], rot: [1.05, 0.15, Math.PI / 2 - 0.2], scale: 0.72, style: 'chop' },
+  torch: { hand: [0.3, -0.31, -0.52], rot: [1.3, 0.1, 0.2], scale: 0.72, style: 'chop' },
+  spear: { hand: [0.27, -0.3, -0.38], rot: [0.12, 0.1, 0.0], scale: 0.7, style: 'thrust' },
+  pistol: { hand: [0.22, -0.2, -0.5], rot: [0.04, -0.06, 0.05], scale: 0.9, style: 'punch', ads: { z: -0.52 }, flash: true },
+  long: { hand: [0.2, -0.2, -0.44], rot: [0.03, -0.03, 0.04], scale: 0.68, style: 'punch', ads: { z: -0.27 }, forend: [0, -0.005, -0.33], flash: true },
+  shotgun: { hand: [0.2, -0.2, -0.44], rot: [0.03, -0.03, 0.04], scale: 0.68, style: 'punch', ads: { z: -0.29 }, forend: [0, -0.005, -0.27], flash: true },
+  crossbow: { hand: [0.2, -0.23, -0.46], rot: [0.04, -0.02, 0.04], scale: 0.66, style: 'punch', ads: { z: -0.24 }, forend: [0, 0.03, -0.3] },
+  bow: { hand: [-0.17, -0.15, -0.5], rot: [0.06, -0.12, -0.3], scale: 0.56, style: 'punch', ads: { z: -0.74, x: -0.1, y: -0.07, rot: [0.02, 0.08, -0.28] }, forend: [0.024, 0, 0.16], leftGrip: true, supportTo: [0.8, -0.7, 0.05] },
+  throw: { hand: [0.28, -0.25, -0.48], rot: [0.3, -0.5, 0.1], scale: 0.72, style: 'throw', offset: [0, 0.07, -0.02] },
+  plan: { hand: [0.24, -0.27, -0.46], rot: [-0.55, -0.3, -0.12], scale: 0.7, style: 'punch' },
+  thin: { hand: [0.27, -0.25, -0.48], rot: [0.9, -0.2, 0.6], scale: 0.9, style: 'punch' },
+};
+
+/** Item shapes whose placeable block is a textured cube (shown with the world's block textures). */
+const CUBE_SHAPES = new Set(['block', 'box', 'bench', 'furnace', 'totem', 'research']);
+
+function poseFor(shape: string): Pose {
+  switch (shape) {
+    case '': return POSES.hand;
+    case 'block': return POSES.block;
+    case 'rock': return POSES.rock;
+    case 'axe': case 'pick': case 'hammer': case 'blade': return POSES.tool;
+    case 'torch': return POSES.torch;
+    case 'spear': return POSES.spear;
+    case 'pistol': return POSES.pistol;
+    case 'rifle': return POSES.long;
+    case 'shotgun': return POSES.shotgun;
+    case 'crossbow': return POSES.crossbow;
+    case 'bow': return POSES.bow;
+    case 'grenade': case 'charge': return POSES.throw;
+    case 'plan': return POSES.plan;
+    case 'syringe': case 'arrow': return POSES.thin;
+    default: return POSES.item;
+  }
+}
+
+/** Small procedural glow / star textures (no external assets). */
+function radialTexture(spikes: number): THREE.DataTexture {
+  const N = 32, d = new Uint8Array(N * N * 4);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const dx = (x + 0.5) / N - 0.5, dy = (y + 0.5) / N - 0.5;
+    const r = Math.hypot(dx, dy) * 2;
+    let a = Math.max(0, 1 - r);
+    if (spikes) a = Math.max(a * a, Math.max(0, 1 - r * 1.1) * Math.pow(Math.abs(Math.cos(Math.atan2(dy, dx) * spikes * 0.5)), 6));
+    else a = a * a;
+    const i = (y * N + x) * 4;
+    d[i] = 255; d[i + 1] = 235; d[i + 2] = 190; d[i + 3] = Math.min(255, a * 255);
+  }
+  const t = new THREE.DataTexture(d, N, N, THREE.RGBAFormat);
+  t.magFilter = THREE.LinearFilter;
+  t.minFilter = THREE.LinearFilter;
+  t.needsUpdate = true;
+  return t;
+}
+
+/** First-person arms + held item, rendered in its own scene on top. */
 export class ViewModel {
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(60, 1, 0.01, 10);
   private root = new THREE.Group();
+  /** Item transform (grip at origin). */
   private item = new THREE.Group();
-  private arm: THREE.Mesh;
+  private model: THREE.Object3D | null = null;
+  private armR = new THREE.Group();
+  private armL = new THREE.Group();
+  /** Off-screen points the forearms reach back towards (camera space). */
+  private shoulderR = new THREE.Vector3(0.7, -1.0, -0.05);
+  private shoulderL = new THREE.Vector3(-0.55, -1.0, -0.05);
   private heldId = '';
-  private swing = 0;
+  private pose: Pose = POSES.hand;
+  private skin = 0xe0b48c;
+  private swingT = 1;
   private recoil = 0;
   private bob = 0;
+  private moveK = 0;
+  private aimK = 0;
+  private equip = 1;
+  private time = 0;
+  private flashT = 0;
+  private flames: THREE.Object3D[] = [];
+  private muzzle: THREE.Object3D | null = null;
+  private forend = new THREE.Object3D();
+  private flash: THREE.Mesh;
+  private halo: THREE.Sprite;
   private light: THREE.DirectionalLight;
   private amb: THREE.AmbientLight;
+  private glowLight = new THREE.PointLight(0xffa850, 0, 1.6, 1);
+  private restQ = new THREE.Quaternion();
+  private adsQ = new THREE.Quaternion();
+  private q = new THREE.Quaternion();
+  private e = new THREE.Euler();
+  private v = new THREE.Vector3();
+  private v2 = new THREE.Vector3();
+  private sightY = 0;
 
   constructor() {
-    this.arm = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.16, 0.7), new THREE.MeshLambertMaterial({ color: 0xe0b48c }));
-    this.arm.position.set(0, -0.05, 0.3);
-    this.root.add(this.arm);
-    this.root.add(this.item);
-    this.root.position.set(0.42, -0.42, -0.6);
+    this.root.add(this.item, this.armR, this.armL);
     this.scene.add(this.root);
+    this.setSkin(this.skin);
     this.light = new THREE.DirectionalLight(0xffffff, 1.2);
-    this.light.position.set(1, 2, 1);
+    this.light.position.set(1, 2, 1.2);
     this.amb = new THREE.AmbientLight(0xffffff, 0.6);
-    this.scene.add(this.light, this.amb);
+    this.scene.add(this.light, this.amb, this.glowLight);
+    const fm = new THREE.MeshBasicMaterial({ map: radialTexture(6), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffd080 });
+    const fg = new THREE.PlaneGeometry(1, 1);
+    this.flash = new THREE.Mesh(fg, fm);
+    const side = new THREE.Mesh(fg, fm);
+    side.rotation.y = Math.PI / 2;
+    side.scale.set(1.4, 0.5, 1);
+    this.flash.add(side);
+    this.flash.visible = false;
+    this.halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: radialTexture(0), color: 0xff9a40, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.55 }));
+    this.halo.scale.setScalar(0.32);
   }
 
   setHeld(id: string) {
     if (id === this.heldId) return;
     this.heldId = id;
-    this.item.clear();
+    if (this.model) this.item.remove(this.model);
+    this.model = null;
+    this.flames = [];
+    this.muzzle = null;
+    this.flash.removeFromParent();
+    this.halo.removeFromParent();
+    this.forend.removeFromParent();
     const d = id ? tryItemDef(id) : undefined;
-    if (!d) return;
-    const shape = d.icon.shape;
-    const model = shape === 'block' ? new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, 0.3), new THREE.MeshLambertMaterial({ color: d.icon.c1 })) : heldModel(shape, d.icon.c1, d.icon.c2 ?? d.icon.c1);
-    model.scale.setScalar(shape === 'block' ? 0.7 : 0.75);
-    model.position.set(0.05, 0.02, -0.2);
-    if (['axe', 'pick', 'hammer', 'blade', 'torch', 'spear'].includes(shape)) model.rotation.x = 0.9;
-    this.item.add(model);
+    const shape = d?.icon.shape ?? '';
+    // placeable cube blocks (and cube deployables) are shown with their world textures
+    let cube: THREE.Mesh | null = null;
+    if (d?.placeBlock && CUBE_SHAPES.has(shape)) cube = blockCube(d.placeBlock);
+    this.pose = cube ? POSES.block : poseFor(shape);
+    if (cube) {
+      cube.scale.setScalar(shape === 'block' ? 0.13 : 0.12);
+      cube.position.y = 0.045;
+      this.model = cube;
+    } else if (d) {
+      const m = buildHeld(d.icon.shape, d.icon.c1, d.icon.c2 ?? d.icon.c1);
+      this.flames = m.userData.flames ?? [];
+      this.muzzle = m.userData.muzzle ?? null;
+      this.sightY = m.userData.sightY ?? 0;
+      this.model = m;
+    }
+    if (this.model) {
+      this.model.scale.multiplyScalar(this.pose.scale);
+      const o = this.pose.offset;
+      if (o) this.model.position.add(this.v.set(o[0], o[1], o[2]).multiplyScalar(this.pose.scale));
+      this.item.add(this.model);
+    }
+    if (this.pose.flash && this.muzzle) this.muzzle.add(this.flash);
+    if (this.flames.length) this.flames[0].add(this.halo);
+    if (this.pose.forend && this.model) {
+      this.forend.position.set(this.pose.forend[0], this.pose.forend[1], this.pose.forend[2]);
+      this.model.add(this.forend);
+    }
+    this.e.set(this.pose.rot[0], this.pose.rot[1], this.pose.rot[2]);
+    this.restQ.setFromEuler(this.e);
+    const ar = this.pose.ads?.rot ?? [0, 0, 0];
+    this.e.set(ar[0], ar[1], ar[2]);
+    this.adsQ.setFromEuler(this.e);
+    this.armR.visible = true;
+    this.armL.visible = true;
+    this.equip = 0;
+    this.swingT = 1;
   }
 
   setSkin(color: number) {
-    (this.arm.material as THREE.MeshLambertMaterial).color.setHex(color);
+    this.skin = color;
+    const t = template(`fparm:${color.toString(16)}`, (m) => {
+      // forearm reaching back from the grip (z = 0) towards the elbow; knuckles + wrist crease near the hand
+      m.part('arm').box([0.082, 0.082, 0.6], [0, 0, 0.3], color, {
+        d: 26,
+        n: 0.04,
+        f: {
+          top: (p) => { for (let x = 0; x < p.w; x += 2) p.px(x, 0, shade(color, 0.82), 0); p.rows(3, 1, shade(color, 0.9)); },
+          side: (p) => { p.cols(0, 1, shade(color, 0.85)); p.cols(3, 1, shade(color, 0.9)); },
+          bottom: (p) => p.cols(3, 1, shade(color, 0.9)),
+          front: (p) => p.border(0.85),
+        },
+      });
+    }, 26);
+    for (const arm of [this.armR, this.armL]) {
+      arm.clear();
+      arm.add(instantiate(t).root);
+    }
   }
 
   doSwing() {
-    this.swing = 1;
+    this.swingT = 0;
   }
 
   doRecoil(amount = 1) {
-    this.recoil = Math.min(1.5, this.recoil + amount);
+    this.recoil = Math.min(1.6, this.recoil + amount);
+    this.flashT = 0.06;
+    this.flash.rotation.z = Math.random() * Math.PI;
   }
 
   update(dt: number, moving: number, brightness: number, aspect: number, aiming: boolean) {
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
-    this.bob += dt * moving * 9;
-    this.swing = Math.max(0, this.swing - dt * 4);
-    this.recoil = Math.max(0, this.recoil - dt * 8);
-    const s = Math.sin(this.swing * Math.PI);
-    const ax = aiming ? 0.0 : 0.42, ay = aiming ? -0.3 : -0.42;
-    this.root.position.set(ax + Math.sin(this.bob) * 0.02 * moving, ay + Math.abs(Math.cos(this.bob)) * 0.02 * moving - s * 0.1, -0.6 + this.recoil * 0.08);
-    this.root.rotation.set(-s * 1.1 + this.recoil * 0.15, s * 0.3, 0);
+    const P = this.pose;
+    this.time += dt;
+    this.moveK += (moving - this.moveK) * Math.min(1, dt * 10);
+    this.bob += dt * this.moveK * 8.6;
+    this.aimK += ((aiming && P.ads ? 1 : 0) - this.aimK) * Math.min(1, dt * 14);
+    this.equip = Math.min(1, this.equip + dt / 0.3);
+    this.recoil *= Math.exp(-dt * 11);
+    if (this.swingT < 1) this.swingT = Math.min(1, this.swingT + dt / (P.style === 'throw' ? 0.42 : P.style === 'thrust' ? 0.36 : 0.3));
+    const aim = this.aimK, free = 1 - aim * 0.85, mk = this.moveK;
+    // grip position: hip pose blended into aim-down-sights (sights on the crosshair)
+    const s = this.model ? P.scale : 1;
+    let hx = P.hand[0], hy = P.hand[1], hz = P.hand[2];
+    if (P.ads) {
+      hx += ((P.ads.x ?? 0) - hx) * aim;
+      hy += ((P.ads.y ?? -this.sightY * s) - hy) * aim;
+      hz += (P.ads.z - hz) * aim;
+    }
+    // idle sway + walk bob (figure-eight), damped while aiming
+    hx += (Math.sin(this.bob) * 0.016 * mk + Math.sin(this.time * 1.1) * 0.003) * free;
+    hy += (-Math.abs(Math.cos(this.bob)) * 0.014 * mk + Math.sin(this.time * 1.7) * 0.004) * free;
+    // equip: raise from below
+    const eq = 1 - this.equip;
+    hy -= eq * eq * 0.45;
+    // swing
+    let rx = 0, ry = 0, rz = 0;
+    const t = this.swingT;
+    if (t < 1) {
+      const s1 = Math.sin(Math.sqrt(t) * Math.PI), s2 = Math.sin(t * t * Math.PI), s3 = Math.sin(t * Math.PI);
+      switch (P.style) {
+        case 'chop':
+          hx -= 0.2 * s1; hy += 0.07 * Math.sin(Math.sqrt(t) * Math.PI * 2); hz -= 0.12 * s3;
+          rx -= 1.25 * s1; ry -= 0.35 * s2; rz += 0.25 * s1;
+          break;
+        case 'thrust':
+          hz -= 0.32 * s2; hx -= 0.06 * s2; hy += 0.03 * s2;
+          rx -= 0.08 * s2;
+          break;
+        case 'throw': {
+          const back = Math.sin(Math.min(1, t * 2.2) * Math.PI) * (t < 0.45 ? 1 : 0);
+          hz += 0.12 * back - 0.25 * Math.max(0, s2 - back); hy += 0.12 * back + 0.05 * s2; hx -= 0.12 * s2;
+          rx += 0.6 * back - 1.1 * s2;
+          break;
+        }
+        default:
+          hx -= 0.16 * s1; hy += 0.06 * Math.sin(Math.sqrt(t) * Math.PI * 2); hz -= 0.14 * s3;
+          rx -= 0.45 * s1; ry -= 0.25 * s2;
+      }
+    }
+    // recoil: kick back + muzzle climb (less when aiming)
+    const rk = this.recoil * (1 - aim * 0.45);
+    hz += rk * 0.055;
+    hy += rk * 0.012;
+    rx += rk * 0.16;
+    rz += Math.sin(this.bob) * 0.025 * mk * free;
+    this.item.position.set(hx, hy, hz);
+    // rest orientation (hip) -> straight ahead when aiming
+    this.q.copy(this.adsQ).slerp(this.restQ, 1 - aim);
+    this.e.set(rx, ry, rz);
+    this.item.quaternion.setFromEuler(this.e).multiply(this.q);
+    // arms: one hand closes on the grip, the other on the support point; both reach back to off-screen shoulders
+    const left = !!P.leftGrip;
+    const grip = left ? this.armL : this.armR, support = left ? this.armR : this.armL;
+    grip.position.copy(this.item.position);
+    grip.lookAt(left ? this.shoulderL : this.shoulderR);
+    support.visible = !!P.forend && !!this.model;
+    if (support.visible) {
+      this.item.updateMatrixWorld(true);
+      this.forend.getWorldPosition(this.v);
+      support.position.copy(this.v);
+      const sh = left ? this.shoulderR : this.shoulderL;
+      if (P.supportTo) this.v2.set(P.supportTo[0], P.supportTo[1], P.supportTo[2]).lerp(sh, 1 - aim);
+      else this.v2.copy(sh);
+      support.lookAt(this.v2);
+    }
+    // flames, muzzle flash, lights
+    let glow = 0;
+    for (const f of this.flames) {
+      const k = 1 + Math.sin(this.time * 23 + f.id) * 0.07 + Math.sin(this.time * 37.7) * 0.05;
+      f.scale.set(k, k, 1 + (k - 1) * 2.5);
+      glow = 1;
+    }
+    if (glow) this.halo.material.opacity = 0.45 + Math.sin(this.time * 19) * 0.08;
+    // the flash shows for at least one frame, however low the frame rate
+    this.flash.visible = this.flashT > 0 && !!this.flash.parent;
+    this.flashT -= dt;
+    const flashing = this.flash.visible ? 1 : 0;
+    if (this.flash.visible) this.flash.scale.setScalar(0.18 + Math.random() * 0.06);
+    const flick = 1 + Math.sin(this.time * 17) * 0.08 + Math.sin(this.time * 29) * 0.06;
+    this.glowLight.intensity = glow * 1.1 * flick + flashing * 3;
+    this.glowLight.color.setHex(flashing ? 0xffd090 : 0xffa850);
+    if (glow && this.flames[0]) this.flames[0].getWorldPosition(this.glowLight.position);
+    else if (flashing && this.muzzle) this.muzzle.getWorldPosition(this.glowLight.position);
     this.light.intensity = 0.4 + brightness * 0.9;
     this.amb.intensity = 0.25 + brightness * 0.45;
   }

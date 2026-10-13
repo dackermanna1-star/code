@@ -2,32 +2,20 @@ import * as THREE from 'three';
 import { tryItemDef } from '../../shared/data/items';
 import type { EntSnap } from '../../shared/net/protocol';
 import { hash4 } from '../../shared/math';
+import { buildAnimalRig, buildHumanoidRig, hairFor, playerOutfit, SCAVENGER_OUTFIT, speciesOf, type Rig } from './creatures';
+import { buildHeld } from './helditems';
+import { blockCube } from './blockitems';
+import { hurtMaterial } from './voxelmodel';
 
 /**
- * Blocky entity models (players, wildlife, drops, corpses, explosives) built
- * from boxes, with snapshot interpolation ~100 ms in the past.
+ * Blocky entity models (players, wildlife, scavenger NPCs, drops, corpses,
+ * explosives) with snapshot interpolation ~100 ms in the past and
+ * procedural animation (gaits driven by the interpolated ground speed,
+ * head bob/grazing, tail wag, aiming poses, hurt flash).
  */
 
-const matCache = new Map<number, THREE.MeshLambertMaterial>();
-function mat(color: number) {
-  let m = matCache.get(color);
-  if (!m) matCache.set(color, (m = new THREE.MeshLambertMaterial({ color })));
-  return m;
-}
-const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-
-/** Box with its pivot at the TOP centre (limbs) or centre. */
-function box(w: number, h: number, d: number, color: number, pivotTop = false): THREE.Object3D {
-  const m = new THREE.Mesh(boxGeo, mat(color));
-  m.scale.set(w, h, d);
-  if (!pivotTop) return m;
-  const g = new THREE.Group();
-  m.position.y = -h / 2;
-  g.add(m);
-  return g;
-}
-
 const SKIN = [0xe0b48c, 0xc68e64, 0x8d5a3c, 0xf1c9a5, 0xa86f4c];
+const TAU = Math.PI * 2;
 
 interface Snap {
   t: number;
@@ -48,10 +36,45 @@ export class EntityView {
   wearSig = '';
   label: THREE.Sprite | null = null;
   skin = 0xe0b48c;
+  /** Animated skeleton (players, animals, scavengers, corpses). */
+  rig: Rig | null = null;
+  /** Item pitch for the third-person held item (radians, world). */
+  heldPitch = 0;
+  seed = 0;
+  speed = 0;
+  private px = NaN;
+  private pz = NaN;
+  moveBlend = 0;
+  runBlend = 0;
+  aimBlend = 0;
+  hurt = 0;
+  tinted = false;
+  flames: THREE.Object3D[] = [];
   constructor(public id: number, public kind: EntSnap['k'], first: EntSnap) {
     this.last = first;
+    this.seed = (hash4(id, 77) % 1000) / 159;
+  }
+
+  /** Smoothed horizontal speed from the interpolated position (m/s). */
+  trackSpeed(x: number, z: number, dt: number) {
+    if (dt > 0 && this.px === this.px) {
+      const v = Math.min(14, Math.hypot(x - this.px, z - this.pz) / dt);
+      this.speed += (v - this.speed) * Math.min(1, dt * 8);
+    }
+    this.px = x;
+    this.pz = z;
   }
 }
+
+/** Third-person held item from boxes, by icon shape (grip at origin, pointing -Z). */
+export function heldModel(shape: string, c1: number, c2: number): THREE.Object3D {
+  return buildHeld(shape, c1, c2);
+}
+
+const TOOLISH = new Set(['axe', 'pick', 'hammer', 'blade', 'spear', 'rock']);
+const GUNS = new Set(['pistol', 'rifle', 'shotgun', 'crossbow', 'bow']);
+let ledMat: THREE.MeshBasicMaterial | null = null;
+let ledGeo: THREE.BoxGeometry | null = null;
 
 export class EntityRenderer {
   readonly group = new THREE.Group();
@@ -67,6 +90,8 @@ export class EntityRenderer {
       this.build(v, e);
       this.views.set(e.id, v);
       this.group.add(v.root);
+    } else if (e.hp !== undefined && v.last.hp !== undefined && e.hp < v.last.hp - 1e-3) {
+      v.hurt = 0.28;
     }
     v.last = e;
     v.snaps.push({ t, x: e.x, y: e.y, z: e.z, yaw: e.yaw ?? 0, pitch: e.pitch ?? 0 });
@@ -92,96 +117,86 @@ export class EntityRenderer {
   }
 
   // ------------------------------------------------------------ models
+  private setRig(v: EntityView, rig: Rig) {
+    if (v.rig) v.root.remove(v.rig.inst.root);
+    v.rig = rig;
+    v.tinted = false;
+    v.root.add(rig.inst.root);
+    v.parts = { ...rig.inst.nodes };
+  }
+
   private build(v: EntityView, e: EntSnap) {
     const r = v.root;
     if (e.k === 'p') {
-      const skin = SKIN[hash4(e.n?.length ?? 0, e.n?.charCodeAt(0) ?? 0) % SKIN.length];
-      v.skin = skin;
-      const P = v.parts;
-      P.body = box(0.5, 0.7, 0.26, skin);
-      P.body.position.y = 0.95;
-      P.head = new THREE.Group();
-      P.head.position.y = 1.3;
-      const head = box(0.48, 0.48, 0.48, skin);
-      head.position.y = 0.24;
-      P.head.add(head);
-      P.headgear = box(0.52, 0.2, 0.52, 0x000000);
-      P.headgear.position.y = 0.42;
-      P.headgear.visible = false;
-      P.head.add(P.headgear);
-      for (const ex of [-0.11, 0.11]) {
-        const eye = box(0.08, 0.06, 0.02, 0x2a2a3a);
-        eye.position.set(ex, 0.28, -0.245);
-        P.head.add(eye);
-      }
-      P.armL = box(0.2, 0.7, 0.2, skin, true);
-      P.armR = box(0.2, 0.7, 0.2, skin, true);
-      P.armL.position.set(-0.35, 1.3, 0);
-      P.armR.position.set(0.35, 1.3, 0);
-      P.legL = box(0.23, 0.6, 0.23, 0xb8a888, true);
-      P.legR = box(0.23, 0.6, 0.23, 0xb8a888, true);
-      P.legL.position.set(-0.13, 0.6, 0);
-      P.legR.position.set(0.13, 0.6, 0);
-      P.held = new THREE.Group();
-      P.held.position.set(0, -0.62, -0.15);
-      P.armR.add(P.held);
-      for (const k of ['body', 'head', 'armL', 'armR', 'legL', 'legR']) r.add(P[k]);
+      v.skin = SKIN[hash4(e.n?.length ?? 0, e.n?.charCodeAt(0) ?? 0) % SKIN.length];
       v.label = makeLabel(e.n ?? '?');
       v.label.position.y = 2.15;
       r.add(v.label);
       this.dressPlayer(v, e);
     } else if (e.k === 'a') {
-      buildAnimal(v, e.n ?? 'boar');
+      const sp = speciesOf(e.n);
+      if (sp === 'scavenger') {
+        this.setRig(v, buildHumanoidRig(SCAVENGER_OUTFIT));
+        v.rig!.held!.add(buildHeld('pistol', 0x6a6a72, 0x8a6034));
+        v.heldPitch = 0;
+      } else this.setRig(v, buildAnimalRig(sp ?? 'boar'));
     } else if (e.k === 'i') {
       const d = tryItemDef(e.n ?? '');
-      const c = box(0.28, 0.28, 0.28, d?.icon.c1 ?? 0xffffff);
-      c.position.y = 0.2;
-      v.parts.cube = c;
-      r.add(c);
-    } else if (e.k === 'c') {
-      const animal = (e.f ?? 0) & 1;
-      if (animal) {
-        buildAnimal(v, e.n ?? 'boar');
-        v.root.rotation.z = Math.PI / 2;
-        v.root.position.y = 0.3;
-      } else {
-        const bag = box(1.6, 0.32, 0.55, 0x3a4a32);
-        bag.position.y = 0.16;
-        r.add(bag);
-        const strap = box(1.62, 0.06, 0.57, 0x222222);
-        strap.position.set(0, 0.2, 0);
-        r.add(strap);
+      const holder = new THREE.Group();
+      let model: THREE.Object3D | null = d?.placeBlock && d.icon.shape === 'block' ? blockCube(d.placeBlock) : null;
+      if (model) model.scale.setScalar(0.28);
+      else {
+        model = buildHeld(d?.icon.shape ?? 'block', d?.icon.c1 ?? 0xffffff, d?.icon.c2 ?? d?.icon.c1 ?? 0xffffff);
+        fitTo(model, 0.4, 0.62);
       }
+      holder.add(model);
+      holder.position.y = 0.25;
+      v.parts.cube = holder;
+      r.add(holder);
+    } else if (e.k === 'c') {
+      const animal = ((e.f ?? 0) & 1) !== 0;
+      const sp = speciesOf(e.n);
+      if (animal) this.setRig(v, buildAnimalRig(sp && sp !== 'scavenger' ? sp : 'boar', true));
+      else if (sp === 'scavenger') this.setRig(v, buildHumanoidRig({ ...SCAVENGER_OUTFIT, dead: true }));
+      else {
+        const skin = SKIN[hash4(e.n?.length ?? 0, e.n?.charCodeAt(0) ?? 0) % SKIN.length];
+        this.setRig(v, buildHumanoidRig(playerOutfit(skin, hairFor(hash4(e.n?.length ?? 0, 3)), [], true)));
+      }
+      // corpses have no yaw: give each a stable random heading
+      r.rotation.y = (hash4(e.id, 911) / 4294967296) * TAU;
     } else if (e.k === 'x') {
       const d = tryItemDef(e.n ?? '');
-      const b = box(0.22, 0.14, 0.3, d?.icon.c1 ?? 0x555555);
+      const b = buildHeld(d?.icon.shape ?? 'charge', d?.icon.c1 ?? 0x555555, d?.icon.c2 ?? d?.icon.c1 ?? 0x555555);
+      b.position.y = 0.06;
       r.add(b);
-      const led = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.06), new THREE.MeshBasicMaterial({ color: 0xff2020 }));
-      led.position.y = 0.1;
+      ledMat ??= new THREE.MeshBasicMaterial({ color: 0xff2020 });
+      ledGeo ??= new THREE.BoxGeometry(0.05, 0.05, 0.05);
+      const led = new THREE.Mesh(ledGeo, ledMat);
+      led.position.y = 0.2;
       v.parts.led = led;
       r.add(led);
     }
   }
 
   private dressPlayer(v: EntityView, e: EntSnap) {
-    const P = v.parts;
     const w = e.w ?? [];
-    const col = (i: number) => (w[i] ? tryItemDef(w[i])?.icon.c1 : undefined);
-    // wear slots: head, torso, vest, legs, feet, hands
-    const torso = col(2) ?? col(1);
-    const skin = v.skin;
-    setColor(P.body, torso ?? skin);
-    setColor(P.armL, col(1) ?? skin);
-    setColor(P.armR, col(1) ?? skin);
-    const legs = col(3) ?? 0xb8a888;
-    setColor(P.legL, legs);
-    setColor(P.legR, legs);
-    P.headgear.visible = !!col(0);
-    if (col(0)) setColor(P.headgear, col(0)!);
-    // held item
-    P.held.clear();
+    const wear = [0, 1, 2, 3, 4, 5].map((i) => {
+      const d = w[i] ? tryItemDef(w[i]) : undefined;
+      return d ? { key: d.key, c: d.icon.c1 } : undefined;
+    });
+    const hair = hairFor(hash4(e.n?.length ?? 0, e.n?.charCodeAt(1) ?? 5));
+    const rig = buildHumanoidRig(playerOutfit(v.skin, hair, wear));
+    this.setRig(v, rig);
     const h = e.h ? tryItemDef(e.h) : undefined;
-    if (h) P.held.add(heldModel(h.icon.shape, h.icon.c1, h.icon.c2 ?? h.icon.c1));
+    v.flames = [];
+    if (h) {
+      const m = buildHeld(h.icon.shape, h.icon.c1, h.icon.c2 ?? h.icon.c1);
+      m.scale.setScalar(0.8);
+      rig.held!.add(m);
+      v.flames = m.userData.flames ?? [];
+      const s = h.icon.shape;
+      v.heldPitch = s === 'torch' ? 1.2 : TOOLISH.has(s) ? 0.45 : 0;
+    }
     v.wearSig = w.join(',');
     v.heldId = e.h ?? '';
   }
@@ -210,56 +225,147 @@ export class EntityRenderer {
       const pitch = a.pitch + (b.pitch - a.pitch) * Math.min(1, k);
       const flags = v.last.f ?? 0;
       v.root.position.set(x, y, z);
+      if (v.kind === 'p' || v.kind === 'a') v.trackSpeed(x, z, dt);
       if (v.kind === 'p') this.animatePlayer(v, yaw, pitch, flags, dt, camPos);
-      else if (v.kind === 'a') this.animateAnimal(v, yaw, flags, dt);
-      else if (v.kind === 'i') {
+      else if (v.kind === 'a') {
+        if (v.rig?.biped) this.animateBiped(v, yaw, 0, flags, dt, false);
+        else this.animateAnimal(v, yaw, flags, dt);
+      } else if (v.kind === 'i') {
         v.parts.cube.rotation.y = this.clock * 1.5 + v.id;
-        v.parts.cube.position.y = 0.25 + Math.sin(this.clock * 2 + v.id) * 0.05;
+        v.parts.cube.position.y = 0.28 + Math.sin(this.clock * 2 + v.id) * 0.05;
       } else if (v.kind === 'x' && v.parts.led) {
         v.parts.led.visible = Math.floor(this.clock * 4) % 2 === 0;
+      }
+      if (v.hurt > 0 || v.tinted) {
+        v.hurt -= dt;
+        setTint(v, v.hurt > 0);
       }
     }
   }
 
   private animatePlayer(v: EntityView, yaw: number, pitch: number, f: number, dt: number, cam: THREE.Vector3) {
-    const P = v.parts;
     const sleeping = (f & 8) !== 0;
     v.root.rotation.set(0, yaw, sleeping ? Math.PI / 2 : 0);
     if (sleeping) v.root.position.y += 0.3;
-    const moving = (f & 2) !== 0;
-    const crouch = (f & 1) !== 0;
-    const attacking = (f & 4) !== 0;
-    v.anim += dt * (moving ? 9 : 0);
-    if (!moving) v.anim *= 0.8;
-    const sw = Math.sin(v.anim) * (moving ? 0.7 : 0);
-    P.legL.rotation.x = sw;
-    P.legR.rotation.x = -sw;
-    P.armL.rotation.x = -sw * 0.8;
-    P.armR.rotation.x = attacking ? -1.4 + Math.sin(this.clock * 30) * 0.3 : P.held.children.length ? -0.6 : sw * 0.8;
-    P.head.rotation.x = -pitch * 0.8;
-    const cy = crouch ? -0.25 : 0;
-    P.body.position.y = 0.95 + cy;
-    P.body.rotation.x = crouch ? 0.35 : 0;
-    P.head.position.y = 1.3 + cy;
-    P.armL.position.y = P.armR.position.y = 1.3 + cy;
+    this.animateBiped(v, yaw, pitch, f, dt, true);
     if (v.label) v.label.visible = !sleeping && v.root.position.distanceTo(cam) < 18;
   }
 
+  /** Humanoids: players and scavenger NPCs (flag 4 = aiming for NPCs, swinging for players). */
+  private animateBiped(v: EntityView, yaw: number, pitch: number, f: number, dt: number, player: boolean) {
+    const r = v.rig;
+    if (!r) return;
+    if (!player) v.root.rotation.y = yaw;
+    const moving = (f & 2) !== 0;
+    const crouch = player && (f & 1) !== 0;
+    const gun = player ? GUNS.has(tryItemDef(v.heldId)?.icon.shape ?? '') : true;
+    const aiming = player ? gun : (f & 4) !== 0;
+    const attacking = player && !gun && (f & 4) !== 0;
+    const spd = Math.max(v.speed, moving ? r.walk * 0.9 : 0);
+    v.moveBlend += ((spd > 0.25 ? 1 : 0) - v.moveBlend) * Math.min(1, dt * 8);
+    v.aimBlend += ((aiming ? 1 : 0) - v.aimBlend) * Math.min(1, dt * 7);
+    v.anim += Math.min(14, (spd / (r.legLen * 2.3)) * TAU) * dt;
+    const mb = v.moveBlend, ab = v.aimBlend;
+    const amp = Math.min(0.85, 0.35 + spd * 0.12) * mb;
+    const sw = Math.sin(v.anim) * amp;
+    const legs = r.legs, arms = r.arms;
+    legs[0].rotation.x = sw;
+    legs[1].rotation.x = -sw;
+    const breathe = Math.sin(this.clock * 1.6 + v.seed) * 0.03;
+    const cy = crouch ? -0.22 : 0;
+    r.body!.position.y = r.bodyY + cy + Math.abs(Math.cos(v.anim)) * 0.035 * mb;
+    r.body!.rotation.x = crouch ? -0.35 : 0;
+    // arms: relaxed swing vs. two-handed aim
+    const aimX = Math.PI / 2 + (player ? pitch : 0.05);
+    const relaxR = player && v.heldId ? 0.35 + sw * 0.2 : -sw * 0.9;
+    let armRX = relaxR + (aimX - relaxR) * ab;
+    const armLX = sw * 0.9 * (1 - ab) + (aimX - 0.05) * ab;
+    if (attacking) armRX = 1.5 + Math.sin(this.clock * 16) * 0.7;
+    arms[1].rotation.set(armRX, 0.15 * ab, 0.04 + breathe * (1 - ab));
+    arms[0].rotation.set(armLX, -0.75 * ab, -0.04 - breathe * (1 - ab));
+    const relaxPitch = player ? v.heldPitch : -0.55;
+    if (r.held) r.held.rotation.x = attacking ? -0.4 : -armRX + relaxPitch * (1 - ab);
+    // head: players look where they aim; NPCs glance around when idle
+    r.head.rotation.x = player ? Math.max(-1.2, Math.min(1.2, pitch)) * 0.85 : -0.05 * (1 - ab);
+    r.head.rotation.y = player ? 0 : Math.sin(this.clock * 0.5 + v.seed * 3) * 0.45 * (1 - ab) * (1 - mb * 0.6);
+    for (const fl of v.flames) fl.scale.setScalar(1 + Math.sin(this.clock * 23 + fl.id) * 0.08 + Math.sin(this.clock * 37) * 0.05);
+  }
+
   private animateAnimal(v: EntityView, yaw: number, f: number, dt: number) {
+    const r = v.rig;
+    if (!r) return;
     v.root.rotation.y = yaw;
     const moving = (f & 2) !== 0;
-    v.anim += dt * (moving ? ((f & 4) ? 14 : 7) : 0);
-    const sw = Math.sin(v.anim) * (moving ? 0.6 : 0);
-    const legs = ['legFL', 'legFR', 'legBL', 'legBR'];
-    legs.forEach((k, i) => {
-      if (v.parts[k]) v.parts[k].rotation.x = i % 3 === 0 ? sw : -sw;
-    });
+    const alert = (f & 4) !== 0;
+    const nominal = moving ? (alert ? r.run : r.walk) : 0;
+    const spd = Math.max(v.speed, nominal * 0.85);
+    v.moveBlend += ((spd > 0.2 ? 1 : 0) - v.moveBlend) * Math.min(1, dt * 7);
+    v.runBlend += ((spd > (r.walk + r.run) * 0.5 ? 1 : 0) - v.runBlend) * Math.min(1, dt * 5);
+    v.aimBlend += ((alert ? 1 : 0) - v.aimBlend) * Math.min(1, dt * 4);
+    v.anim += Math.min(22, (spd / (r.legLen * 2.6)) * TAU) * dt;
+    const p = v.anim, mb = v.moveBlend, rb = v.runBlend, al = v.aimBlend;
+    const amp = (0.45 + 0.4 * rb) * mb;
+    // trot (diagonal pairs) blending into a gallop (front pair / back pair)
+    const L = r.legs;
+    L[0].rotation.x = Math.sin(p) * amp;
+    L[1].rotation.x = Math.sin(p + Math.PI + (0.5 - Math.PI) * rb) * amp;
+    L[2].rotation.x = Math.sin(p + Math.PI) * amp;
+    L[3].rotation.x = Math.sin(p + (Math.PI + 0.5) * rb) * amp;
+    const body = r.body!;
+    body.position.y = r.bodyY + Math.abs(Math.sin(p)) * 0.035 * mb * (1 + rb);
+    body.rotation.x = Math.cos(p) * 0.07 * rb;
+    body.rotation.z = Math.sin(p) * 0.035 * mb * (1 - rb);
+    // head: bob while moving, graze / look around when idle, lowered when hunting
+    const idle = 1 - mb;
+    const g = r.graze ? smooth01((Math.sin(this.clock * 0.23 + v.seed * 2.1) - 0.35) / 0.4) * idle * (1 - al) : 0;
+    const huntDip = r.graze === 0 ? -0.18 * al : 0;
+    r.head.rotation.x = r.headRX + Math.sin(p * 2) * 0.06 * mb - r.graze * g + huntDip + Math.sin(this.clock * 1.3 + v.seed) * 0.02;
+    r.head.rotation.y = Math.sin(this.clock * 0.45 + v.seed * 3) * 0.35 * idle * (1 - g);
+    if (r.jaw) {
+      // bears roar when angry
+      const want = al > 0.5 ? -0.32 - 0.18 * Math.max(0, Math.sin(this.clock * 2.6 + v.seed)) : -0.03 - g * 0.15;
+      r.jaw.rotation.x += (want - r.jaw.rotation.x) * Math.min(1, dt * 10);
+    }
+    if (r.tail) {
+      const wag = r.tailRX ? 0.25 + 0.35 * mb : 0.4;
+      r.tail.rotation.y = Math.sin(this.clock * (r.tailRX ? 4 : 7) + v.seed) * wag * (1 - al * 0.7);
+      r.tail.rotation.x = r.tailRX * (1 - al * 0.85) + Math.sin(p) * 0.15 * mb;
+    }
+    for (let i = 0; i < r.ears.length; i++) {
+      const twitch = Math.max(0, Math.sin(this.clock * 0.9 + v.seed * 5 + i * 2.3) - 0.92) * 6;
+      r.ears[i].rotation.x = -0.35 * al + twitch * 0.3;
+      r.ears[i].rotation.z = (i ? -1 : 1) * (0.25 * al + twitch * 0.15);
+    }
   }
 }
 
-function setColor(o: THREE.Object3D, color: number) {
-  o.traverse((c) => {
-    if ((c as THREE.Mesh).isMesh) (c as THREE.Mesh).material = mat(color);
+function smooth01(t: number) {
+  t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return t * t * (3 - 2 * t);
+}
+
+/** Uniformly scale an object so its largest dimension lands in [min, max] (about half its real size), centred on the origin. */
+function fitTo(o: THREE.Object3D, min: number, max: number) {
+  const b = new THREE.Box3().setFromObject(o);
+  const s = b.getSize(new THREE.Vector3());
+  const big = Math.max(0.05, s.x, s.y, s.z);
+  const k = Math.min(max, Math.max(min, big * 0.55)) / big;
+  const c = b.getCenter(new THREE.Vector3());
+  o.scale.setScalar(k);
+  o.position.set(-c.x * k, -c.y * k, -c.z * k);
+}
+
+/** Swap all meshes of a view to their red "hurt" material (or back). */
+function setTint(v: EntityView, on: boolean) {
+  if (v.tinted === on) return;
+  v.tinted = on;
+  v.root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh || m.userData.glow) return;
+    if (on) {
+      m.userData.mat0 = m.material;
+      m.material = hurtMaterial(m.material as THREE.Material);
+    } else if (m.userData.mat0) m.material = m.userData.mat0;
   });
 }
 
@@ -280,91 +386,4 @@ function makeLabel(text: string): THREE.Sprite {
   const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: t, depthTest: true, transparent: true }));
   s.scale.set(1.2, 0.225, 1);
   return s;
-}
-
-function buildAnimal(v: EntityView, species: string) {
-  const r = v.root;
-  const P = v.parts;
-  const spec: Record<string, { body: [number, number, number]; legH: number; color: number; dark: number; head: [number, number, number] }> = {
-    stag: { body: [0.5, 0.55, 1.15], legH: 0.75, color: 0x9a6a3e, dark: 0x5a3a20, head: [0.3, 0.32, 0.45] },
-    boar: { body: [0.55, 0.55, 1.0], legH: 0.35, color: 0x4a3a2e, dark: 0x2a2018, head: [0.42, 0.4, 0.45] },
-    wolf: { body: [0.38, 0.42, 0.95], legH: 0.5, color: 0x8a8a8e, dark: 0x5a5a60, head: [0.32, 0.3, 0.42] },
-    bear: { body: [0.9, 0.85, 1.5], legH: 0.55, color: 0x5a3a24, dark: 0x3a2414, head: [0.55, 0.5, 0.55] },
-  };
-  const s = spec[species] ?? spec.boar;
-  const [bw, bh, bl] = s.body;
-  const body = box(bw, bh, bl, s.color);
-  body.position.y = s.legH + bh / 2;
-  r.add(body);
-  const head = box(s.head[0], s.head[1], s.head[2], s.color);
-  head.position.set(0, s.legH + bh * 0.85, -bl / 2 - s.head[2] * 0.35);
-  r.add(head);
-  const snout = box(s.head[0] * 0.6, s.head[1] * 0.45, 0.15, s.dark);
-  snout.position.set(0, s.legH + bh * 0.72, -bl / 2 - s.head[2] * 0.8);
-  r.add(snout);
-  if (species === 'stag') {
-    for (const sx of [-1, 1]) {
-      const a1 = box(0.05, 0.4, 0.05, 0xd8c8a0);
-      a1.position.set(sx * 0.12, s.legH + bh + 0.45, -bl / 2 - 0.1);
-      a1.rotation.z = sx * 0.4;
-      r.add(a1);
-      const a2 = box(0.05, 0.25, 0.05, 0xd8c8a0);
-      a2.position.set(sx * 0.25, s.legH + bh + 0.6, -bl / 2 - 0.15);
-      a2.rotation.x = -0.5;
-      r.add(a2);
-    }
-  }
-  if (species === 'boar') {
-    for (const sx of [-1, 1]) {
-      const t = box(0.05, 0.12, 0.05, 0xeeeedd);
-      t.position.set(sx * 0.14, s.legH + bh * 0.62, -bl / 2 - s.head[2] * 0.85);
-      r.add(t);
-    }
-  }
-  if (species === 'wolf') {
-    const tail = box(0.1, 0.1, 0.4, s.dark);
-    tail.position.set(0, s.legH + bh * 0.8, bl / 2 + 0.15);
-    tail.rotation.x = 0.5;
-    r.add(tail);
-    for (const sx of [-1, 1]) {
-      const ear = box(0.08, 0.12, 0.05, s.dark);
-      ear.position.set(sx * 0.1, s.legH + bh + 0.12, -bl / 2 - 0.05);
-      r.add(ear);
-    }
-  }
-  const lw = species === 'bear' ? 0.26 : 0.14;
-  const legs: Array<[string, number, number]> = [['legFL', -1, -1], ['legFR', 1, -1], ['legBL', -1, 1], ['legBR', 1, 1]];
-  for (const [k, sx, sz] of legs) {
-    const leg = box(lw, s.legH, lw, s.dark, true);
-    leg.position.set(sx * (bw / 2 - lw / 2), s.legH, sz * (bl / 2 - lw));
-    P[k] = leg;
-    r.add(leg);
-  }
-}
-
-/** Third-person held item from boxes, by icon shape. */
-export function heldModel(shape: string, c1: number, c2: number): THREE.Object3D {
-  const g = new THREE.Group();
-  const add = (w: number, h: number, d: number, c: number, x = 0, y = 0, z = 0, rx = 0) => {
-    const b = box(w, h, d, c);
-    b.position.set(x, y, z);
-    b.rotation.x = rx;
-    g.add(b);
-  };
-  switch (shape) {
-    case 'pistol': add(0.08, 0.1, 0.3, c1, 0, 0, -0.1); add(0.07, 0.18, 0.08, c2, 0, -0.1, 0.02); break;
-    case 'rifle': add(0.08, 0.1, 0.9, c1, 0, 0, -0.3); add(0.07, 0.16, 0.1, c2, 0, -0.1, 0.05); add(0.06, 0.12, 0.25, c2, 0, -0.02, 0.22); break;
-    case 'shotgun': add(0.1, 0.1, 0.8, c1, 0, 0, -0.25); add(0.08, 0.14, 0.25, c2, 0, -0.04, 0.2); break;
-    case 'bow': add(0.04, 0.9, 0.06, c1, 0, 0, -0.1); add(0.01, 0.85, 0.01, c2, 0, 0, -0.02); break;
-    case 'crossbow': add(0.5, 0.05, 0.06, c1, 0, 0, -0.35); add(0.08, 0.08, 0.6, c2, 0, 0, -0.15); break;
-    case 'axe': add(0.05, 0.05, 0.6, c1, 0, 0, -0.2); add(0.05, 0.2, 0.12, c2, 0, 0.08, -0.48); break;
-    case 'pick': add(0.05, 0.05, 0.6, c1, 0, 0, -0.2); add(0.05, 0.08, 0.3, c2, 0, 0.0, -0.5, Math.PI / 2); break;
-    case 'hammer': add(0.05, 0.05, 0.45, c1, 0, 0, -0.15); add(0.12, 0.12, 0.2, c2, 0, 0, -0.4); break;
-    case 'spear': add(0.05, 0.05, 1.4, c1, 0, 0, -0.4); add(0.06, 0.06, 0.15, 0xaaaaaa, 0, 0, -1.15); break;
-    case 'blade': add(0.03, 0.08, 0.55, c1, 0, 0, -0.3); add(0.05, 0.05, 0.15, c2, 0, 0, 0.05); break;
-    case 'torch': add(0.06, 0.06, 0.4, c1, 0, 0, -0.1); add(0.09, 0.09, 0.09, c2, 0, 0, -0.33); break;
-    case 'rock': add(0.18, 0.15, 0.2, c1); break;
-    default: add(0.18, 0.18, 0.18, c1);
-  }
-  return g;
 }
