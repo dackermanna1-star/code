@@ -99,7 +99,7 @@ def build():
     body.box((7.2, 9.95, 0.35), (7.8, 10.5, 0.85), "detail")  # rear blade ears (notch between)
     body.box((8.2, 9.95, 0.35), (8.8, 10.5, 0.85), "detail")
     body.box((7.8, 9.95, 0.35), (8.2, 10.2, 0.85), "detail")
-    body.box((8.8, 9.7, -0.2), (9.0, 9.9, 0.1), "metal")  # windage screw
+    body.box((8.7, 9.65, -0.3), (8.9, 9.9, 0.0), "metal")  # windage screw
     # trigger guard (round-backed) + wide double-action trigger
     body.box((7.6, 3.0, -1.65), (8.4, 4.3, -1.2), "receiver")  # front
     body.box((7.6, 2.6, -1.45), (8.4, 3.05, 1.75), "receiver")  # bottom
@@ -213,9 +213,9 @@ def build():
 
     # ---------------------------------------------------------------- metadata
     w.anim = {
-        "cylinder": {"pivot": list(CRANE_PIVOT), "swing_deg": -75,
+        "cylinder": {"pivot": list(CRANE_PIVOT), "swing_deg": 80,
                      "spin_center": [CYL_X, CYL_Y, round((CYL_Z0 + CYL_Z1) / 2, 3)], "chambers": 6},
-        "hammer": {"pivot": [8, 7.2, 1.4], "cock_deg": -35},
+        "hammer": {"pivot": [8, 7.2, 1.4], "cock_deg": 35},
     }
     w.points = {
         "grip": grip_pt(2.0, 2.5),

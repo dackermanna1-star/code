@@ -22,10 +22,11 @@ import net.minecraft.resources.Identifier;
  * @param heat       heat level at {@code heatTime}
  * @param heatTime   game time at which {@code heat} was recorded (heat decays lazily)
  * @param overheated latched overheat lockout
+ * @param actionSeq  incremented by the server at every reload commit/chamber/shell load (client reconciliation)
  */
 public record GunState(int rounds, boolean chambered, Optional<Identifier> loadedAmmo, Optional<Identifier> selectedAmmo,
-		int fireMode, int lastSeq, float heat, long heatTime, boolean overheated) {
-	public static final GunState EMPTY = new GunState(0, false, Optional.empty(), Optional.empty(), 0, 0, 0f, 0L, false);
+		int fireMode, int lastSeq, float heat, long heatTime, boolean overheated, int actionSeq) {
+	public static final GunState EMPTY = new GunState(0, false, Optional.empty(), Optional.empty(), 0, 0, 0f, 0L, false, 0);
 
 	public static final Codec<GunState> CODEC = RecordCodecBuilder.create(i -> i.group(
 		Codec.INT.optionalFieldOf("rounds", 0).forGetter(GunState::rounds),
@@ -36,7 +37,8 @@ public record GunState(int rounds, boolean chambered, Optional<Identifier> loade
 		Codec.INT.optionalFieldOf("last_seq", 0).forGetter(GunState::lastSeq),
 		Codec.FLOAT.optionalFieldOf("heat", 0f).forGetter(GunState::heat),
 		Codec.LONG.optionalFieldOf("heat_time", 0L).forGetter(GunState::heatTime),
-		Codec.BOOL.optionalFieldOf("overheated", false).forGetter(GunState::overheated)
+		Codec.BOOL.optionalFieldOf("overheated", false).forGetter(GunState::overheated),
+		Codec.INT.optionalFieldOf("action_seq", 0).forGetter(GunState::actionSeq)
 	).apply(i, GunState::new));
 
 	public static final StreamCodec<ByteBuf, GunState> STREAM_CODEC = new StreamCodec<>() {
@@ -51,7 +53,8 @@ public record GunState(int rounds, boolean chambered, Optional<Identifier> loade
 			float heat = ByteBufCodecs.FLOAT.decode(buf);
 			long heatTime = ByteBufCodecs.VAR_LONG.decode(buf);
 			boolean overheated = ByteBufCodecs.BOOL.decode(buf);
-			return new GunState(rounds, chambered, loaded, selected, mode, seq, heat, heatTime, overheated);
+			int actionSeq = ByteBufCodecs.VAR_INT.decode(buf);
+			return new GunState(rounds, chambered, loaded, selected, mode, seq, heat, heatTime, overheated, actionSeq);
 		}
 
 		@Override
@@ -65,6 +68,7 @@ public record GunState(int rounds, boolean chambered, Optional<Identifier> loade
 			ByteBufCodecs.FLOAT.encode(buf, s.heat);
 			ByteBufCodecs.VAR_LONG.encode(buf, s.heatTime);
 			ByteBufCodecs.BOOL.encode(buf, s.overheated);
+			ByteBufCodecs.VAR_INT.encode(buf, s.actionSeq);
 		}
 	};
 
@@ -78,30 +82,38 @@ public record GunState(int rounds, boolean chambered, Optional<Identifier> loade
 	}
 
 	public GunState withRounds(int r) {
-		return new GunState(r, chambered, loadedAmmo, selectedAmmo, fireMode, lastSeq, heat, heatTime, overheated);
+		return new GunState(r, chambered, loadedAmmo, selectedAmmo, fireMode, lastSeq, heat, heatTime, overheated, actionSeq);
 	}
 
 	public GunState withChambered(boolean c) {
-		return new GunState(rounds, c, loadedAmmo, selectedAmmo, fireMode, lastSeq, heat, heatTime, overheated);
+		return new GunState(rounds, c, loadedAmmo, selectedAmmo, fireMode, lastSeq, heat, heatTime, overheated, actionSeq);
 	}
 
 	public GunState withLoadedAmmo(Optional<Identifier> a) {
-		return new GunState(rounds, chambered, a, selectedAmmo, fireMode, lastSeq, heat, heatTime, overheated);
+		return new GunState(rounds, chambered, a, selectedAmmo, fireMode, lastSeq, heat, heatTime, overheated, actionSeq);
 	}
 
 	public GunState withSelectedAmmo(Optional<Identifier> a) {
-		return new GunState(rounds, chambered, loadedAmmo, a, fireMode, lastSeq, heat, heatTime, overheated);
+		return new GunState(rounds, chambered, loadedAmmo, a, fireMode, lastSeq, heat, heatTime, overheated, actionSeq);
 	}
 
 	public GunState withFireMode(int m) {
-		return new GunState(rounds, chambered, loadedAmmo, selectedAmmo, m, lastSeq, heat, heatTime, overheated);
+		return new GunState(rounds, chambered, loadedAmmo, selectedAmmo, m, lastSeq, heat, heatTime, overheated, actionSeq);
 	}
 
 	public GunState withLastSeq(int seq) {
-		return new GunState(rounds, chambered, loadedAmmo, selectedAmmo, fireMode, seq, heat, heatTime, overheated);
+		return new GunState(rounds, chambered, loadedAmmo, selectedAmmo, fireMode, seq, heat, heatTime, overheated, actionSeq);
 	}
 
 	public GunState withHeat(float h, long time, boolean over) {
-		return new GunState(rounds, chambered, loadedAmmo, selectedAmmo, fireMode, lastSeq, h, time, over);
+		return new GunState(rounds, chambered, loadedAmmo, selectedAmmo, fireMode, lastSeq, h, time, over, actionSeq);
+	}
+
+	public GunState withActionSeq(int a) {
+		return new GunState(rounds, chambered, loadedAmmo, selectedAmmo, fireMode, lastSeq, heat, heatTime, overheated, a);
+	}
+
+	public GunState nextAction() {
+		return withActionSeq(actionSeq + 1);
 	}
 }

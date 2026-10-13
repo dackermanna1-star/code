@@ -1,0 +1,31 @@
+{
+  "slot": "stock",
+  "item": "calibercraft:precision_stock",
+  "modifiers": [
+    {
+      "stat": "recoil_vertical",
+      "op": "multiply",
+      "value": 0.88
+    },
+    {
+      "stat": "recoil_recovery",
+      "op": "add",
+      "value": 0.1
+    },
+    {
+      "stat": "sway",
+      "op": "multiply",
+      "value": 0.8
+    },
+    {
+      "stat": "ads_time",
+      "op": "add",
+      "value": 1
+    },
+    {
+      "stat": "move_speed",
+      "op": "multiply",
+      "value": 0.98
+    }
+  ]
+}

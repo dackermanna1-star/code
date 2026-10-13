@@ -1,0 +1,14 @@
+{
+  "parent": "calibercraft:item/weapon/ak/barrel_short_barrel",
+  "textures": {
+    "receiver": "calibercraft:item/material/industrial_receiver",
+    "furniture": "calibercraft:item/material/industrial_furniture",
+    "metal": "calibercraft:item/material/stainless",
+    "detail": "calibercraft:item/material/gunmetal",
+    "accent": "calibercraft:item/material/industrial_accent",
+    "mag": "calibercraft:item/material/industrial_mag",
+    "brass": "calibercraft:item/material/brass",
+    "shell": "calibercraft:item/material/red_plastic",
+    "particle": "calibercraft:item/material/industrial_receiver"
+  }
+}

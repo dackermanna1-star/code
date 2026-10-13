@@ -1,0 +1,26 @@
+{
+  "slot": "magazine",
+  "item": "calibercraft:extended_mag",
+  "modifiers": [
+    {
+      "stat": "magazine",
+      "op": "multiply",
+      "value": 1.5
+    },
+    {
+      "stat": "reload_speed",
+      "op": "multiply",
+      "value": 0.88
+    },
+    {
+      "stat": "ads_time",
+      "op": "add",
+      "value": 0.5
+    },
+    {
+      "stat": "move_speed",
+      "op": "multiply",
+      "value": 0.99
+    }
+  ]
+}

@@ -7,12 +7,12 @@
       "from": [
         9.08,
         5.4,
-        13.08
+        12.28
       ],
       "to": [
         9.32,
         6.8,
-        13.32
+        12.52
       ],
       "faces": {
         "north": {
@@ -35,18 +35,18 @@
         },
         "east": {
           "uv": [
-            2.68,
+            3.48,
             9.2,
-            2.92,
+            3.72,
             10.6
           ],
           "texture": "calibercraft:item/material/stainless"
         },
         "west": {
           "uv": [
-            13.08,
+            12.28,
             9.2,
-            13.32,
+            12.52,
             10.6
           ],
           "texture": "calibercraft:item/material/stainless"
@@ -54,18 +54,18 @@
         "up": {
           "uv": [
             9.08,
-            13.08,
+            12.28,
             9.32,
-            13.32
+            12.52
           ],
           "texture": "calibercraft:item/material/stainless"
         },
         "down": {
           "uv": [
             9.08,
-            2.68,
+            3.48,
             9.32,
-            2.92
+            3.72
           ],
           "texture": "calibercraft:item/material/stainless"
         }
@@ -75,12 +75,12 @@
       "from": [
         8.6,
         4.2,
-        12.6
+        11.8
       ],
       "to": [
         9.8,
         5.4,
-        13.8
+        13
       ],
       "faces": {
         "north": {
@@ -103,18 +103,18 @@
         },
         "east": {
           "uv": [
-            2.2,
+            3,
             10.6,
-            3.4,
+            4.2,
             11.8
           ],
           "texture": "calibercraft:item/material/glass_lens"
         },
         "west": {
           "uv": [
-            12.6,
+            11.8,
             10.6,
-            13.8,
+            13,
             11.8
           ],
           "texture": "calibercraft:item/material/glass_lens"
@@ -122,18 +122,18 @@
         "up": {
           "uv": [
             8.6,
-            12.6,
+            11.8,
             9.8,
-            13.8
+            13
           ],
           "texture": "calibercraft:item/material/glass_lens"
         },
         "down": {
           "uv": [
             8.6,
-            2.2,
+            3,
             9.8,
-            3.4
+            4.2
           ],
           "texture": "calibercraft:item/material/glass_lens"
         }
@@ -142,7 +142,7 @@
         "origin": [
           9.2,
           4.8,
-          13.2
+          12.4
         ],
         "x": 35,
         "y": 45,

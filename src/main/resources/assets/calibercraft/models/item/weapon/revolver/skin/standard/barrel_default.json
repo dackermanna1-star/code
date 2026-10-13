@@ -1,0 +1,14 @@
+{
+  "parent": "calibercraft:item/weapon/revolver/barrel_default",
+  "textures": {
+    "receiver": "calibercraft:item/material/stainless",
+    "furniture": "calibercraft:item/material/dark_walnut",
+    "metal": "calibercraft:item/material/stainless",
+    "detail": "calibercraft:item/material/dark_steel",
+    "accent": "calibercraft:item/material/gunmetal",
+    "mag": "calibercraft:item/material/black_polymer",
+    "brass": "calibercraft:item/material/brass",
+    "shell": "calibercraft:item/material/red_plastic",
+    "particle": "calibercraft:item/material/stainless"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "caliber": "calibercraft:762x39",
+  "item": "calibercraft:ammo_762_ap",
+  "order": 1,
+  "tracer_color": "#B0D0FF",
+  "modifiers": [
+    {
+      "stat": "damage",
+      "op": "multiply",
+      "value": 0.9
+    },
+    {
+      "stat": "armor_penetration",
+      "op": "add",
+      "value": 0.35
+    },
+    {
+      "stat": "penetration",
+      "op": "add",
+      "value": 1.0
+    }
+  ]
+}

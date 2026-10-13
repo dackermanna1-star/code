@@ -1,0 +1,77 @@
+{
+  "hand_animation_on_swap": false,
+  "model": {
+    "type": "minecraft:select",
+    "property": "minecraft:custom_model_data",
+    "index": 0,
+    "cases": [
+      {
+        "when": "calibercraft:matte_black",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/revolver/skin/matte_black/cylinder"
+        }
+      },
+      {
+        "when": "calibercraft:desert_tan",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/revolver/skin/desert_tan/cylinder"
+        }
+      },
+      {
+        "when": "calibercraft:woodland",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/revolver/skin/woodland/cylinder"
+        }
+      },
+      {
+        "when": "calibercraft:arctic",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/revolver/skin/arctic/cylinder"
+        }
+      },
+      {
+        "when": "calibercraft:digital",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/revolver/skin/digital/cylinder"
+        }
+      },
+      {
+        "when": "calibercraft:industrial",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/revolver/skin/industrial/cylinder"
+        }
+      },
+      {
+        "when": "calibercraft:worn",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/revolver/skin/worn/cylinder"
+        }
+      },
+      {
+        "when": "calibercraft:neon",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/revolver/skin/neon/cylinder"
+        }
+      },
+      {
+        "when": "calibercraft:energy",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/revolver/skin/energy/cylinder"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "calibercraft:item/weapon/revolver/skin/standard/cylinder"
+    }
+  }
+}

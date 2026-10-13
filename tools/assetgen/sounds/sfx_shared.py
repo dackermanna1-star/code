@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from sfx_dsp import (SR, TWO_PI, add_space, bp, crackle, env_exp, env_swell, eq, finish, hp, lp, make_ir,
+from sfx_dsp import (TWO_PI, add_space, bp, crackle, env_exp, env_swell, eq, finish, hp, lp, make_ir,
                      modal, normalize, ns, osc, place, reso, softclip, svf, taper, tvec, white)
 from sfx_foley import (bounces, casing_ping, click, cloth, grain_cloud, noise_burst, rattle, scrape, spring,
                        thud, tock, wood_knock)

@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "calibercraft:gun_parts",
+    "minecraft:iron_ingot",
+    "minecraft:iron_ingot",
+    "minecraft:iron_ingot"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:extended_mag"
+  }
+}

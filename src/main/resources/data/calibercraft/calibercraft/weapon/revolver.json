@@ -1,0 +1,82 @@
+{
+  "category": "revolver",
+  "caliber": "calibercraft:44_magnum",
+  "fire_modes": [
+    "semi"
+  ],
+  "action": "double_action",
+  "stats": {
+    "damage": 13.0,
+    "rpm": 160,
+    "magazine": 6,
+    "effective_range": 28,
+    "max_range": 100,
+    "min_damage_mult": 0.6,
+    "velocity": 22,
+    "gravity": 0.0245,
+    "penetration": 0.9,
+    "armor_penetration": 0.2,
+    "headshot_mult": 1.75,
+    "recoil_vertical": 7.5,
+    "recoil_horizontal": 1.6,
+    "recoil_recovery": 0.8,
+    "spread_hip": 2.2,
+    "spread_ads": 0.35,
+    "spread_move": 1.5,
+    "spread_bloom": 1.2,
+    "spread_bloom_max": 3.5,
+    "ads_time": 5,
+    "equip_time": 8,
+    "move_speed": 1.0,
+    "ads_move_speed": 0.85,
+    "zoom": 1.15,
+    "loudness": 1.4,
+    "flash": 1.5,
+    "sway": 0.6,
+    "knockback": 0.3,
+    "melee_damage": 3.0
+  },
+  "reload": {
+    "type": "cylinder",
+    "tactical": {
+      "length": 52,
+      "commit": 34,
+      "cues": [
+        {
+          "t": 3,
+          "cue": "cylinder_open"
+        },
+        {
+          "t": 10,
+          "cue": "eject"
+        },
+        {
+          "t": 30,
+          "cue": "speedloader"
+        },
+        {
+          "t": 44,
+          "cue": "cylinder_close"
+        }
+      ]
+    }
+  },
+  "attachments": {
+    "optic": [
+      "calibercraft:red_dot",
+      "calibercraft:acog_scope"
+    ],
+    "tactical": [
+      "calibercraft:laser_sight"
+    ],
+    "charm": [
+      "calibercraft:charm_creeper",
+      "calibercraft:charm_diamond",
+      "calibercraft:charm_dogtag"
+    ],
+    "barrel": [
+      "calibercraft:short_barrel",
+      "calibercraft:precision_barrel"
+    ]
+  }
+}

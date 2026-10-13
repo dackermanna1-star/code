@@ -1,0 +1,26 @@
+{
+  "slot": "muzzle",
+  "item": "calibercraft:muzzle_brake",
+  "modifiers": [
+    {
+      "stat": "recoil_vertical",
+      "op": "multiply",
+      "value": 0.88
+    },
+    {
+      "stat": "recoil_horizontal",
+      "op": "multiply",
+      "value": 0.75
+    },
+    {
+      "stat": "loudness",
+      "op": "multiply",
+      "value": 1.15
+    },
+    {
+      "stat": "flash",
+      "op": "multiply",
+      "value": 1.25
+    }
+  ]
+}

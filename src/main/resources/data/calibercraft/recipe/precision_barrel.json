@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "calibercraft:precision_parts",
+    "minecraft:iron_ingot",
+    "minecraft:iron_ingot"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:precision_barrel"
+  }
+}

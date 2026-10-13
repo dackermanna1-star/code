@@ -1,0 +1,120 @@
+{
+  "category": "shotgun",
+  "caliber": "calibercraft:12_gauge",
+  "fire_modes": [
+    "semi"
+  ],
+  "action": "self_loading",
+  "stats": {
+    "damage": 2.4,
+    "pellets": 8,
+    "rpm": 260,
+    "magazine": 8,
+    "effective_range": 8,
+    "max_range": 36,
+    "min_damage_mult": 0.25,
+    "velocity": 20,
+    "gravity": 0.03,
+    "penetration": 0.2,
+    "armor_penetration": 0.0,
+    "headshot_mult": 1.25,
+    "recoil_vertical": 4.2,
+    "recoil_horizontal": 1.4,
+    "recoil_recovery": 0.8,
+    "spread_hip": 5.5,
+    "spread_ads": 4.2,
+    "spread_move": 1.1,
+    "spread_bloom": 0.4,
+    "spread_bloom_max": 2.0,
+    "ads_time": 6,
+    "equip_time": 10,
+    "move_speed": 0.95,
+    "ads_move_speed": 0.8,
+    "zoom": 1.1,
+    "loudness": 1.25,
+    "flash": 1.3,
+    "sway": 0.55,
+    "knockback": 0.3,
+    "melee_damage": 5.0
+  },
+  "reload": {
+    "type": "magazine",
+    "tactical": {
+      "length": 44,
+      "commit": 28,
+      "cues": [
+        {
+          "t": 6,
+          "cue": "mag_out"
+        },
+        {
+          "t": 27,
+          "cue": "mag_in"
+        }
+      ]
+    },
+    "empty": {
+      "length": 56,
+      "commit": 28,
+      "chamber": 48,
+      "cues": [
+        {
+          "t": 6,
+          "cue": "mag_out"
+        },
+        {
+          "t": 27,
+          "cue": "mag_in"
+        },
+        {
+          "t": 46,
+          "cue": "charge"
+        }
+      ]
+    }
+  },
+  "cycle": {
+    "length": 14,
+    "chamber": 10,
+    "cues": [
+      {
+        "t": 3,
+        "cue": "charge"
+      }
+    ]
+  },
+  "attachments": {
+    "optic": [
+      "calibercraft:red_dot",
+      "calibercraft:holo_sight"
+    ],
+    "muzzle": [
+      "calibercraft:suppressor",
+      "calibercraft:shotgun_choke",
+      "calibercraft:muzzle_brake"
+    ],
+    "grip": [
+      "calibercraft:vertical_grip",
+      "calibercraft:angled_grip"
+    ],
+    "tactical": [
+      "calibercraft:laser_sight"
+    ],
+    "charm": [
+      "calibercraft:charm_creeper",
+      "calibercraft:charm_diamond",
+      "calibercraft:charm_dogtag"
+    ],
+    "barrel": [
+      "calibercraft:short_barrel"
+    ],
+    "magazine": [
+      "calibercraft:extended_mag",
+      "calibercraft:quick_mag"
+    ],
+    "stock": [
+      "calibercraft:lightweight_stock",
+      "calibercraft:precision_stock"
+    ]
+  }
+}

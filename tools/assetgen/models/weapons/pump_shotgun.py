@@ -107,7 +107,7 @@ def build():
     # ---- Barrels
     def barrel(vid, z_tip, rib=False):
         b = w.variant("barrel", vid)
-        b.octo_rod(8, 8, z_tip, -0.6, 1.5, "metal")
+        b.octo_rod(8, 8, z_tip + 0.05, -0.6, 1.5, "metal")
         b.octo_rod(8, 8, z_tip, z_tip + 0.45, 1.62, "detail")  # crown
         if rib:  # ventilated rib with posts, ported muzzle
             b.box((7.6, 9.55, z_tip + 0.3), (8.4, 9.8, -0.9), "detail")
@@ -146,22 +146,25 @@ def build():
     m.box((9.0, 5.9, -16.3), (9.3, 6.6, -15.7), "metal")  # clamp screw
 
     # ---- Stocks (all share the wrist position so the right hand sits the same on each)
-    def wedge_stock(s, comb_drop=2.5, toe=(21.2, 0.8), width=2.4, extra_comb=False):
+    def wedge_stock(s, comb_drop=2.5, toe=(21.2, 0.8), width=2.4):
         """Sporting stock: narrow wrist, comb sloping slightly down, belly line falling to the toe."""
         x0, x1 = 8 - width / 2, 8 + width / 2
         s.box((6.8, 3.9, 9.0), (9.2, 9.15, 10.0), "furniture")  # head (matches receiver + trigger plate)
-        s.box((7.05, 4.4, 9.8), (8.95, 8.95, 13.5), "furniture",
+        s.box((7.05, 4.4, 9.8), (8.95, 8.95, 14.1), "furniture",
               rot={"origin": (8, 8.95, 9.8), "axis": "x", "angle": 3})  # wrist
-        s.box((x0, 5.2, 13.0), (x1, 8.85, toe[0]), "furniture",
+        s.box((x0, 4.9, 13.0), (x1, 8.85, toe[0]), "furniture",
               rot={"origin": (8, 8.85, 13.0), "axis": "x", "angle": comb_drop})  # comb / upper butt
-        dz, dy = toe[0] - 12.8, 4.6 - toe[1]
-        ang = math.degrees(math.atan2(dy, dz))
-        # belly band: its bottom edge is the toe line; the band is thin so its tilted rear edge stays
-        # hidden inside the butt pad
-        s.box((x0 + 0.05, 4.6, 12.8), (x1 - 0.05, 6.4, 12.8 + math.hypot(dz, dy)), "furniture",
-              rot={"origin": (8, 4.6, 12.8), "axis": "x", "angle": ang})
+        # belly band: its bottom edge is the toe line (from the wrist at z 12.8, y 4.6 down to the toe).
+        # It starts at z 13.9 so its tilted front end sits inside the butt, and it is thin so its tilted
+        # rear end stays hidden inside the butt pad.
+        slope = (4.6 - toe[1]) / (toe[0] - 12.8)
+        zb = 13.9
+        yb = 4.6 - (zb - 12.8) * slope
+        ang = math.degrees(math.atan(slope))
+        s.box((x0 + 0.05, yb, zb), (x1 - 0.05, yb + 1.8, zb + math.hypot(toe[0] - zb, yb - toe[1])),
+              "furniture", rot={"origin": (8, yb, zb), "axis": "x", "angle": ang})
         y_c = 2.7
-        z_c = 12.8 + (4.6 - y_c) * dz / dy
+        z_c = 12.8 + (4.6 - y_c) / slope
         s.box((x0 + 0.1, y_c, z_c), (x1 - 0.1, 5.4, toe[0]), "furniture")  # heel fill
         return x0, x1
 

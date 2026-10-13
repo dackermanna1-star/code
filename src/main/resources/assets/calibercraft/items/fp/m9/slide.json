@@ -1,0 +1,77 @@
+{
+  "hand_animation_on_swap": false,
+  "model": {
+    "type": "minecraft:select",
+    "property": "minecraft:custom_model_data",
+    "index": 0,
+    "cases": [
+      {
+        "when": "calibercraft:matte_black",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/m9/skin/matte_black/slide"
+        }
+      },
+      {
+        "when": "calibercraft:desert_tan",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/m9/skin/desert_tan/slide"
+        }
+      },
+      {
+        "when": "calibercraft:woodland",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/m9/skin/woodland/slide"
+        }
+      },
+      {
+        "when": "calibercraft:arctic",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/m9/skin/arctic/slide"
+        }
+      },
+      {
+        "when": "calibercraft:digital",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/m9/skin/digital/slide"
+        }
+      },
+      {
+        "when": "calibercraft:industrial",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/m9/skin/industrial/slide"
+        }
+      },
+      {
+        "when": "calibercraft:worn",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/m9/skin/worn/slide"
+        }
+      },
+      {
+        "when": "calibercraft:neon",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/m9/skin/neon/slide"
+        }
+      },
+      {
+        "when": "calibercraft:energy",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/m9/skin/energy/slide"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "calibercraft:item/weapon/m9/skin/standard/slide"
+    }
+  }
+}

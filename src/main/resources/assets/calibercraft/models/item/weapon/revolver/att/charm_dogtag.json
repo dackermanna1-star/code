@@ -1,0 +1,341 @@
+{
+  "textures": {
+    "particle": "calibercraft:item/material/black_anodized"
+  },
+  "elements": [
+    {
+      "from": [
+        7.9,
+        -0.745,
+        5.394
+      ],
+      "to": [
+        8.1,
+        0.455,
+        5.594
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.9,
+            14.8,
+            8.1,
+            16
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "south": {
+          "uv": [
+            7.9,
+            14.8,
+            8.1,
+            16
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "east": {
+          "uv": [
+            10.406,
+            14.8,
+            10.606,
+            16
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "west": {
+          "uv": [
+            5.394,
+            14.8,
+            5.594,
+            16
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "up": {
+          "uv": [
+            7.9,
+            5.394,
+            8.1,
+            5.594
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "down": {
+          "uv": [
+            7.9,
+            10.406,
+            8.1,
+            10.606
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        }
+      }
+    },
+    {
+      "from": [
+        7.45,
+        -2.145,
+        5.434
+      ],
+      "to": [
+        8.55,
+        -0.745,
+        5.554
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.45,
+            0.745,
+            8.55,
+            2.145
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "south": {
+          "uv": [
+            7.45,
+            0.745,
+            8.55,
+            2.145
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "east": {
+          "uv": [
+            10.446,
+            0.745,
+            10.566,
+            2.145
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "west": {
+          "uv": [
+            5.434,
+            0.745,
+            5.554,
+            2.145
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "up": {
+          "uv": [
+            7.45,
+            5.434,
+            8.55,
+            5.554
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "down": {
+          "uv": [
+            7.45,
+            10.446,
+            8.55,
+            10.566
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        }
+      }
+    },
+    {
+      "from": [
+        7.55,
+        -2.445,
+        5.574
+      ],
+      "to": [
+        8.65,
+        -1.045,
+        5.674
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.35,
+            1.045,
+            8.45,
+            2.445
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "south": {
+          "uv": [
+            7.55,
+            1.045,
+            8.65,
+            2.445
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "east": {
+          "uv": [
+            10.326,
+            1.045,
+            10.426,
+            2.445
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "west": {
+          "uv": [
+            5.574,
+            1.045,
+            5.674,
+            2.445
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "up": {
+          "uv": [
+            7.55,
+            5.574,
+            8.65,
+            5.674
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "down": {
+          "uv": [
+            7.55,
+            10.326,
+            8.65,
+            10.426
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        }
+      },
+      "rotation": {
+        "origin": [
+          8,
+          -1.045,
+          5.494
+        ],
+        "axis": "z",
+        "angle": -12
+      }
+    }
+  ],
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0.0,
+        2.2776,
+        3.1773
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gui": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        -10.3859,
+        2.6495,
+        0.0
+      ],
+      "scale": [
+        0.8152,
+        0.8152,
+        0.8152
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        -17.656,
+        4.5041,
+        0.0
+      ],
+      "scale": [
+        1.3859,
+        1.3859,
+        1.3859
+      ]
+    },
+    "on_shelf": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        -14.5402,
+        3.7092,
+        0.0
+      ],
+      "scale": [
+        1.1413,
+        1.1413,
+        1.1413
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0.0,
+        3.43,
+        5.6056
+      ],
+      "scale": [
+        0.44,
+        0.44,
+        0.44
+      ]
+    },
+    "head": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0.0,
+        11.7875,
+        -7.007
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    }
+  }
+}

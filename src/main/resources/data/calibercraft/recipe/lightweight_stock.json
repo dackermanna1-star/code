@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "calibercraft:gun_parts",
+    "minecraft:stick",
+    "minecraft:stick",
+    "minecraft:stick"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:lightweight_stock"
+  }
+}

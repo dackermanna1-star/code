@@ -1,0 +1,36 @@
+{
+  "slot": "barrel",
+  "item": "calibercraft:heavy_barrel",
+  "modifiers": [
+    {
+      "stat": "recoil_vertical",
+      "op": "multiply",
+      "value": 0.88
+    },
+    {
+      "stat": "effective_range",
+      "op": "multiply",
+      "value": 1.15
+    },
+    {
+      "stat": "heat_cooling",
+      "op": "multiply",
+      "value": 1.3
+    },
+    {
+      "stat": "ads_time",
+      "op": "add",
+      "value": 2
+    },
+    {
+      "stat": "move_speed",
+      "op": "multiply",
+      "value": 0.96
+    },
+    {
+      "stat": "sway",
+      "op": "multiply",
+      "value": 0.85
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "values": [
+    "#minecraft:leaves",
+    "#minecraft:wool_carpets",
+    "minecraft:moss_carpet",
+    "minecraft:pale_moss_carpet",
+    "minecraft:scaffolding",
+    "minecraft:snow",
+    "minecraft:iron_chain",
+    "minecraft:vine",
+    "minecraft:glow_lichen",
+    "minecraft:cobweb"
+  ]
+}

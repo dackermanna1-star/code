@@ -1,0 +1,109 @@
+{
+  "category": "pistol",
+  "caliber": "calibercraft:9mm",
+  "fire_modes": [
+    "semi"
+  ],
+  "action": "self_loading",
+  "stats": {
+    "damage": 5.0,
+    "rpm": 400,
+    "magazine": 15,
+    "effective_range": 20,
+    "max_range": 80,
+    "min_damage_mult": 0.55,
+    "velocity": 18,
+    "gravity": 0.0245,
+    "penetration": 0.4,
+    "armor_penetration": 0.05,
+    "headshot_mult": 1.6,
+    "recoil_vertical": 2.4,
+    "recoil_horizontal": 0.9,
+    "recoil_recovery": 0.85,
+    "spread_hip": 1.8,
+    "spread_ads": 0.45,
+    "spread_move": 1.4,
+    "spread_bloom": 0.35,
+    "spread_bloom_max": 2.0,
+    "ads_time": 4,
+    "equip_time": 6,
+    "move_speed": 1.0,
+    "ads_move_speed": 0.85,
+    "zoom": 1.1,
+    "loudness": 0.8,
+    "flash": 0.8,
+    "sway": 0.4,
+    "melee_damage": 3.0
+  },
+  "reload": {
+    "type": "magazine",
+    "tactical": {
+      "length": 28,
+      "commit": 18,
+      "cues": [
+        {
+          "t": 4,
+          "cue": "mag_out"
+        },
+        {
+          "t": 17,
+          "cue": "mag_in"
+        }
+      ]
+    },
+    "empty": {
+      "length": 36,
+      "commit": 18,
+      "chamber": 30,
+      "cues": [
+        {
+          "t": 4,
+          "cue": "mag_out"
+        },
+        {
+          "t": 17,
+          "cue": "mag_in"
+        },
+        {
+          "t": 29,
+          "cue": "slide_release"
+        }
+      ]
+    }
+  },
+  "cycle": {
+    "length": 10,
+    "chamber": 6,
+    "cues": [
+      {
+        "t": 2,
+        "cue": "slide_back"
+      },
+      {
+        "t": 6,
+        "cue": "slide_release"
+      }
+    ]
+  },
+  "attachments": {
+    "optic": [
+      "calibercraft:red_dot"
+    ],
+    "muzzle": [
+      "calibercraft:suppressor",
+      "calibercraft:compensator"
+    ],
+    "tactical": [
+      "calibercraft:laser_sight"
+    ],
+    "charm": [
+      "calibercraft:charm_creeper",
+      "calibercraft:charm_diamond",
+      "calibercraft:charm_dogtag"
+    ],
+    "magazine": [
+      "calibercraft:extended_mag",
+      "calibercraft:quick_mag"
+    ]
+  }
+}

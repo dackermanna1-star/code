@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:amethyst_shard",
+    "minecraft:amethyst_shard",
+    "minecraft:glowstone_dust",
+    "minecraft:prismarine_crystals",
+    "minecraft:iron_nugget"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:prismatic_finish_kit"
+  }
+}

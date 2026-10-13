@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "G": "calibercraft:gun_parts",
+    "T": "minecraft:crafting_table",
+    "P": "#minecraft:planks"
+  },
+  "pattern": [
+    "III",
+    "GTG",
+    "P P"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:gunsmith_bench"
+  }
+}

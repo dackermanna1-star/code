@@ -1,0 +1,14 @@
+{
+  "parent": "calibercraft:item/weapon/ak/magazine_extended_mag",
+  "textures": {
+    "receiver": "calibercraft:item/material/energy_receiver",
+    "furniture": "calibercraft:item/material/energy_furniture",
+    "metal": "calibercraft:item/material/dark_steel",
+    "detail": "calibercraft:item/material/black_anodized",
+    "accent": "calibercraft:item/material/energy_accent",
+    "mag": "calibercraft:item/material/energy_mag",
+    "brass": "calibercraft:item/material/brass",
+    "shell": "calibercraft:item/material/red_plastic",
+    "particle": "calibercraft:item/material/energy_receiver"
+  }
+}

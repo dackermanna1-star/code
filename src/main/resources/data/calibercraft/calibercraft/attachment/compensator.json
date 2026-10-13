@@ -1,0 +1,26 @@
+{
+  "slot": "muzzle",
+  "item": "calibercraft:compensator",
+  "modifiers": [
+    {
+      "stat": "recoil_vertical",
+      "op": "multiply",
+      "value": 0.8
+    },
+    {
+      "stat": "recoil_horizontal",
+      "op": "multiply",
+      "value": 0.9
+    },
+    {
+      "stat": "flash",
+      "op": "multiply",
+      "value": 1.15
+    },
+    {
+      "stat": "loudness",
+      "op": "multiply",
+      "value": 1.05
+    }
+  ]
+}

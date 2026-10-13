@@ -1,0 +1,14 @@
+{
+  "parent": "calibercraft:item/weapon/lmg/barrel_heavy_barrel",
+  "textures": {
+    "receiver": "calibercraft:item/material/matte_black_receiver",
+    "furniture": "calibercraft:item/material/matte_black_furniture",
+    "metal": "calibercraft:item/material/dark_steel",
+    "detail": "calibercraft:item/material/black_anodized",
+    "accent": "calibercraft:item/material/matte_black_accent",
+    "mag": "calibercraft:item/material/matte_black_mag",
+    "brass": "calibercraft:item/material/brass",
+    "shell": "calibercraft:item/material/red_plastic",
+    "particle": "calibercraft:item/material/matte_black_receiver"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "slot": "magazine",
+  "item": "calibercraft:quick_mag",
+  "modifiers": [
+    {
+      "stat": "reload_speed",
+      "op": "multiply",
+      "value": 1.3
+    },
+    {
+      "stat": "ads_time",
+      "op": "add",
+      "value": 0.5
+    },
+    {
+      "stat": "move_speed",
+      "op": "multiply",
+      "value": 0.99
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "caliber": "calibercraft:12_gauge",
+  "item": "calibercraft:shell_incendiary",
+  "order": 2,
+  "tracer_color": "#FF7020",
+  "modifiers": [
+    {
+      "stat": "damage",
+      "op": "multiply",
+      "value": 0.75
+    },
+    {
+      "stat": "effective_range",
+      "op": "multiply",
+      "value": 0.7
+    },
+    {
+      "stat": "max_range",
+      "op": "multiply",
+      "value": 0.7
+    }
+  ],
+  "fire_seconds": 4
+}

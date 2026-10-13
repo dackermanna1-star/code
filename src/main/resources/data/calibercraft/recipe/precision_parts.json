@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:diamond",
+    "calibercraft:gun_parts",
+    "calibercraft:gun_parts",
+    "minecraft:gold_ingot",
+    "minecraft:redstone"
+  ],
+  "result": {
+    "count": 2,
+    "id": "calibercraft:precision_parts"
+  }
+}

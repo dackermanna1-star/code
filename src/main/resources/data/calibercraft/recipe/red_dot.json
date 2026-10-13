@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "calibercraft:gun_parts",
+    "minecraft:glass_pane",
+    "minecraft:redstone",
+    "minecraft:iron_ingot"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:red_dot"
+  }
+}

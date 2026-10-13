@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:paper",
+    "minecraft:gunpowder",
+    "minecraft:iron_ingot",
+    "minecraft:green_dye"
+  ],
+  "result": {
+    "count": 6,
+    "id": "calibercraft:shell_slug"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "values": [
+    "minecraft:obsidian",
+    "minecraft:crying_obsidian",
+    "minecraft:bedrock",
+    "minecraft:iron_block",
+    "minecraft:iron_door",
+    "minecraft:iron_trapdoor",
+    "minecraft:iron_bars",
+    "#minecraft:anvil"
+  ]
+}

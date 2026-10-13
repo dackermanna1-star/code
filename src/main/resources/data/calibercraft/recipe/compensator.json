@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "calibercraft:gun_parts",
+    "minecraft:iron_ingot",
+    "minecraft:iron_nugget",
+    "minecraft:iron_nugget"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:compensator"
+  }
+}

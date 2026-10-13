@@ -1,0 +1,31 @@
+{
+  "slot": "barrel",
+  "item": "calibercraft:precision_barrel",
+  "modifiers": [
+    {
+      "stat": "effective_range",
+      "op": "multiply",
+      "value": 1.3
+    },
+    {
+      "stat": "velocity",
+      "op": "multiply",
+      "value": 1.12
+    },
+    {
+      "stat": "spread_ads",
+      "op": "multiply",
+      "value": 0.8
+    },
+    {
+      "stat": "ads_time",
+      "op": "add",
+      "value": 1
+    },
+    {
+      "stat": "move_speed",
+      "op": "multiply",
+      "value": 0.98
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "slot": "stock",
+  "item": "calibercraft:lightweight_stock",
+  "modifiers": [
+    {
+      "stat": "ads_time",
+      "op": "add",
+      "value": -1.5
+    },
+    {
+      "stat": "move_speed",
+      "op": "multiply",
+      "value": 1.03
+    },
+    {
+      "stat": "ads_move_speed",
+      "op": "multiply",
+      "value": 1.08
+    },
+    {
+      "stat": "recoil_vertical",
+      "op": "multiply",
+      "value": 1.12
+    },
+    {
+      "stat": "sway",
+      "op": "multiply",
+      "value": 1.15
+    }
+  ]
+}

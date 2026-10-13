@@ -1,0 +1,111 @@
+{
+  "category": "lmg",
+  "bounds": {
+    "min": [
+      3.5,
+      -2.9,
+      -22.0
+    ],
+    "max": [
+      11.6,
+      12.0,
+      22.7
+    ]
+  },
+  "animated_parts": [
+    "feed_cover",
+    "belt",
+    "charging_handle",
+    "magazine"
+  ],
+  "parts": {
+    "magazine": {
+      "pivot": [
+        6.2,
+        5.0,
+        4.2
+      ],
+      "style": "drop"
+    },
+    "feed_cover": {
+      "pivot": [
+        8,
+        10.0,
+        0.15
+      ],
+      "open_deg": -70
+    },
+    "belt": {
+      "follow": "magazine"
+    },
+    "charging_handle": {
+      "travel": [
+        0,
+        0,
+        4.0
+      ]
+    }
+  },
+  "points": {
+    "grip": [
+      8,
+      2.0,
+      11.7
+    ],
+    "support": [
+      8,
+      4.6,
+      -5.0
+    ],
+    "ejection": [
+      9.8,
+      6.7,
+      7.0
+    ],
+    "mag_well": [
+      6.2,
+      5.0,
+      4.2
+    ]
+  },
+  "sights": {
+    "iron": {
+      "y": 11.45,
+      "z": 10.2
+    },
+    "calibercraft:red_dot": {
+      "y": 13.8,
+      "z": 4.6
+    },
+    "calibercraft:holo_sight": {
+      "y": 13.9,
+      "z": 4.6
+    },
+    "calibercraft:acog_scope": {
+      "y": 14.0,
+      "z": 4.6
+    }
+  },
+  "muzzle": {
+    "default": [
+      8,
+      8,
+      -21.0
+    ],
+    "calibercraft:short_barrel": [
+      8,
+      8,
+      -15.4
+    ],
+    "calibercraft:heavy_barrel": [
+      8,
+      8,
+      -22.0
+    ]
+  },
+  "muzzle_length": {
+    "calibercraft:flash_hider": 3.0,
+    "calibercraft:suppressor": 9.3,
+    "calibercraft:compensator": 3.0
+  }
+}

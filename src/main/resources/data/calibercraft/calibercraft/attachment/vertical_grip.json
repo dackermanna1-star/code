@@ -1,0 +1,21 @@
+{
+  "slot": "grip",
+  "item": "calibercraft:vertical_grip",
+  "modifiers": [
+    {
+      "stat": "recoil_vertical",
+      "op": "multiply",
+      "value": 0.85
+    },
+    {
+      "stat": "ads_time",
+      "op": "add",
+      "value": 0.5
+    },
+    {
+      "stat": "sway",
+      "op": "multiply",
+      "value": 0.9
+    }
+  ]
+}

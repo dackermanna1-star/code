@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "calibercraft:precision_parts",
+    "minecraft:glass_pane",
+    "minecraft:glass_pane",
+    "minecraft:iron_ingot"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:acog_scope"
+  }
+}

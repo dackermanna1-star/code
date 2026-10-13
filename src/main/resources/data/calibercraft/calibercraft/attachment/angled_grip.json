@@ -1,0 +1,21 @@
+{
+  "slot": "grip",
+  "item": "calibercraft:angled_grip",
+  "modifiers": [
+    {
+      "stat": "ads_time",
+      "op": "add",
+      "value": -1
+    },
+    {
+      "stat": "recoil_horizontal",
+      "op": "multiply",
+      "value": 0.9
+    },
+    {
+      "stat": "recoil_vertical",
+      "op": "multiply",
+      "value": 0.95
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "calibercraft:ammo_9mm",
+    "calibercraft:ammo_9mm",
+    "calibercraft:ammo_9mm",
+    "calibercraft:ammo_9mm",
+    "minecraft:flint"
+  ],
+  "result": {
+    "count": 4,
+    "id": "calibercraft:ammo_9mm_hp"
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "category": "smg",
+  "bounds": {
+    "min": [
+      5.5,
+      -3.05,
+      -17.9
+    ],
+    "max": [
+      10.0,
+      12.3,
+      14.6
+    ]
+  },
+  "animated_parts": [
+    "charging_handle",
+    "magazine"
+  ],
+  "parts": {
+    "magazine": {
+      "pivot": [
+        8,
+        6.6,
+        -4.5
+      ],
+      "style": "drop"
+    },
+    "charging_handle": {
+      "travel": [
+        0,
+        0,
+        4.0
+      ]
+    }
+  },
+  "points": {
+    "grip": [
+      8.0,
+      3.247,
+      2.491
+    ],
+    "support": [
+      8,
+      5.2,
+      -9.4
+    ],
+    "ejection": [
+      9.55,
+      8.25,
+      -0.8
+    ],
+    "mag_well": [
+      8,
+      3.6,
+      -4.5
+    ]
+  },
+  "sights": {
+    "iron": {
+      "y": 11.8,
+      "z": 3.55
+    },
+    "calibercraft:red_dot": {
+      "y": 12.7,
+      "z": -0.6
+    },
+    "calibercraft:holo_sight": {
+      "y": 12.8,
+      "z": -0.6
+    }
+  },
+  "muzzle": {
+    "default": [
+      8,
+      8,
+      -13.4
+    ],
+    "calibercraft:short_barrel": [
+      8,
+      8,
+      -12.0
+    ],
+    "calibercraft:precision_barrel": [
+      8,
+      8,
+      -17.9
+    ]
+  },
+  "muzzle_length": {
+    "calibercraft:suppressor": 9.3,
+    "calibercraft:compensator": 3.0,
+    "calibercraft:flash_hider": 3.0
+  }
+}

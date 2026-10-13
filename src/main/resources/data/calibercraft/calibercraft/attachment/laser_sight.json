@@ -1,0 +1,19 @@
+{
+  "slot": "tactical",
+  "item": "calibercraft:laser_sight",
+  "modifiers": [
+    {
+      "stat": "spread_hip",
+      "op": "multiply",
+      "value": 0.75
+    },
+    {
+      "stat": "spread_move",
+      "op": "multiply",
+      "value": 0.92
+    }
+  ],
+  "flags": [
+    "laser"
+  ]
+}

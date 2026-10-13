@@ -1,0 +1,35 @@
+{
+  "slot": "optic",
+  "item": "calibercraft:sniper_scope",
+  "modifiers": [
+    {
+      "stat": "zoom",
+      "op": "multiply",
+      "value": 6.0
+    },
+    {
+      "stat": "spread_ads",
+      "op": "multiply",
+      "value": 0.5
+    },
+    {
+      "stat": "ads_time",
+      "op": "add",
+      "value": 4
+    },
+    {
+      "stat": "ads_move_speed",
+      "op": "multiply",
+      "value": 0.85
+    },
+    {
+      "stat": "sway",
+      "op": "multiply",
+      "value": 1.4
+    }
+  ],
+  "optic": {
+    "reticle": "scope",
+    "overlay": true
+  }
+}

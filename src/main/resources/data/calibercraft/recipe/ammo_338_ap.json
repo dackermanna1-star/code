@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "calibercraft:ammo_338",
+    "calibercraft:ammo_338",
+    "calibercraft:ammo_338",
+    "calibercraft:ammo_338",
+    "minecraft:iron_ingot",
+    "minecraft:flint"
+  ],
+  "result": {
+    "count": 4,
+    "id": "calibercraft:ammo_338_ap"
+  }
+}

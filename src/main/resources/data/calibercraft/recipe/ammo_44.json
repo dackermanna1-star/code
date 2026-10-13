@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:copper_ingot",
+    "minecraft:gunpowder",
+    "minecraft:gunpowder",
+    "minecraft:iron_nugget",
+    "minecraft:iron_nugget"
+  ],
+  "result": {
+    "count": 8,
+    "id": "calibercraft:ammo_44"
+  }
+}

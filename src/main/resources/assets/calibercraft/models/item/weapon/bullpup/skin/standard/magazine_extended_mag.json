@@ -1,0 +1,14 @@
+{
+  "parent": "calibercraft:item/weapon/bullpup/magazine_extended_mag",
+  "textures": {
+    "receiver": "calibercraft:item/material/od_polymer",
+    "furniture": "calibercraft:item/material/od_polymer",
+    "metal": "calibercraft:item/material/dark_steel",
+    "detail": "calibercraft:item/material/black_polymer",
+    "accent": "calibercraft:item/material/black_polymer",
+    "mag": "calibercraft:item/material/grey_polymer",
+    "brass": "calibercraft:item/material/brass",
+    "shell": "calibercraft:item/material/red_plastic",
+    "particle": "calibercraft:item/material/od_polymer"
+  }
+}

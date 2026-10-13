@@ -92,7 +92,7 @@ def build():
     body.box((9.3, 8.0, -1.6), (9.36, 9.15, 3.1), "detail", faces=("east",))
     body.box((9.36, 8.85, 2.0), (9.5, 9.15, 8.3), "detail")  # long safety lever
     body.box((9.36, 7.9, 7.5), (9.55, 9.15, 8.3), "detail")  # lever finger tab
-    body.box((9.36, 8.75, 7.7), (9.46, 9.0, 8.1), "metal")  # lever pivot
+    body.box((9.55, 8.7, 7.75), (9.62, 9.05, 8.1), "metal")  # lever pivot
     # rear sight block + tangent leaf
     body.box((7.0, 8.4, -6.0), (9.0, 10.3, -3.8), "receiver")
     body.box((7.15, 10.3, -5.6), (8.85, 10.55, -3.9), "detail")  # leaf base
@@ -115,7 +115,7 @@ def build():
     for x0, x1 in ((9.05, 9.1), (6.9, 6.95)):
         for y in (1.2, 1.8, 2.4, 3.0, 3.6):
             body.box((x0, y, 7.5), (x1, y + 0.18, 9.1), "detail", rot=GRIP_ROT)  # grip grooves
-    body.box((7.7, 0.3, 7.8), (8.3, 0.35, 8.8), "metal", rot=GRIP_ROT, faces=("down",))  # grip screw
+    body.box((7.7, 0.24, 7.8), (8.3, 0.3, 8.8), "metal", rot=GRIP_ROT)  # grip screw
 
     # ---------------------------------------------------------------- gas system + wood handguards
     body.octo_rod(8, GAS_Y, -16.0, -6.0, 1.0, "receiver")  # gas tube

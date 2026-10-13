@@ -80,7 +80,7 @@ def build():
     body.box((8.7, 10.2, -12.45), (9.05, 12.35, -11.55), "receiver")
     body.box((6.95, 12.35, -12.45), (9.05, 12.7, -11.55), "receiver")  # hood top
     body.box((7.85, 10.45, -12.15), (8.15, 11.6, -11.85), "detail")  # front post
-    body.box((7.3, 8.6, -12.5), (8.7, 10.2, -11.5), "receiver")  # sight block around the barrel
+    body.box((7.25, 8.6, -12.5), (8.75, 10.2, -11.5), "receiver")  # sight block around the barrel
     # rotary drum diopter (rear)
     body.box((7.3, 10.3, 4.6), (8.7, 11.0, 6.8), "receiver")  # drum base
     body.box((6.75, 10.95, 5.15), (9.25, 12.25, 6.35), "detail")  # drum
@@ -210,7 +210,7 @@ def build():
     q.box((8.8, 2.8, MAG_Z1 - 0.8), (9.0, 3.4, MAG_Z1 - 0.3), "metal")  # clamp screw
 
     # ---------------------------------------------------------------- metadata
-    mz = (MAG_Z0 + MAG_Z1) / 2
+    mz = round((MAG_Z0 + MAG_Z1) / 2, 3)
     w.anim = {
         "magazine": {"pivot": [8, 6.25, mz], "style": "drop"},
         "charging_handle": {"travel": [0, 0, 3.5]},

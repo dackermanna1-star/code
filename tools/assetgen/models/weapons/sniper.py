@@ -71,7 +71,7 @@ def build():
     body.box((6.9, 6.5, -0.45), (9.1, 9.3, 0.0), "detail")  # recoil lug
     body.box((9.25, 7.0, 7.2), (9.32, 7.3, 8.5), "detail", faces=("east",))  # bolt handle notch
     body.box((9.25, 7.05, 8.6), (9.55, 7.45, 9.0), "detail")  # safety
-    body.box((6.55, 8.1, 7.8), (6.75, 8.6, 8.7), "detail")  # bolt release (left)
+    body.box((6.55, 8.1, 6.6), (6.75, 8.6, 7.6), "detail")  # bolt release (left)
     for x0, x1 in ((9.25, 9.31), (6.69, 6.75)):  # action screws
         for z in (0.6, 8.2):
             body.box((x0, 7.75, z), (x1, 8.25, z + 0.5), "metal")
@@ -135,7 +135,7 @@ def build():
     # ---- Barrels (≈22 units ahead of the action)
     def barrel(vid, z_tip, d, fluted):
         b = w.variant("barrel", vid)
-        b.octo_rod(8, 8, z_tip, hz1, d, "metal")
+        b.octo_rod(8, 8, z_tip + 0.05, hz1, d, "metal")
         b.octo_rod(8, 8, z_tip, z_tip + 0.7, d + 0.2, "detail")  # thread cap
         if fluted:
             r = d / 2

@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "calibercraft:gun_parts",
+    "minecraft:leather",
+    "minecraft:leather"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:ergonomic_grip"
+  }
+}

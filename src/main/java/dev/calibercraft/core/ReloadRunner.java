@@ -148,6 +148,22 @@ public final class ReloadRunner {
 		};
 	}
 
+	/**
+	 * Ticks until the action reaches the point where firing may interrupt it (commit for tactical reloads,
+	 * chamber for empty reloads and cycles), or -1 if that never happens in the current phase.
+	 */
+	public float ticksUntilFireReady() {
+		if (phase == Phase.DONE) {
+			return 0;
+		}
+		return switch (kind) {
+			case CYCLE -> timeline.length() - t; // a manual cycle always completes
+			case TACTICAL -> committed || timeline.commit() < 0 ? 0 : Math.max(0, timeline.commit() - t + 1e-3f);
+			case EMPTY -> chambered ? 0 : timeline.chamber() < 0 ? -1 : Math.max(0, timeline.chamber() - t + 1e-3f);
+			case SINGLE -> -1;
+		};
+	}
+
 	/** Advances by {@code dt} ticks, firing events in order. Returns true when finished. */
 	public boolean advance(float dt, Listener l) {
 		int guard = 0;

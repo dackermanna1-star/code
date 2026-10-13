@@ -1,0 +1,148 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": {
+        "type": "minecraft:uniform",
+        "min": 1,
+        "max": 2
+      },
+      "entries": [
+        {
+          "type": "minecraft:empty",
+          "weight": 20
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:ammo_556",
+          "weight": 10,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 6,
+                "max": 16
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:ammo_762",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 6,
+                "max": 16
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:ammo_9mm",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 8,
+                "max": 20
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:gun_parts",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 3
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:precision_parts",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:m9",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:mp5",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:vector9",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:ar15",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:ak",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:pump_shotgun",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:red_dot",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:holo_sight",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:vertical_grip",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:suppressor",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:extended_mag",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:acog_scope",
+          "weight": 1
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:dmr",
+          "weight": 1
+        }
+      ]
+    }
+  ]
+}

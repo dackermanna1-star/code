@@ -1,0 +1,14 @@
+{
+  "parent": "calibercraft:item/weapon/vector9/stock_lightweight_stock",
+  "textures": {
+    "receiver": "calibercraft:item/material/worn_receiver",
+    "furniture": "calibercraft:item/material/worn_furniture",
+    "metal": "calibercraft:item/material/dark_steel",
+    "detail": "calibercraft:item/material/dark_steel",
+    "accent": "calibercraft:item/material/worn_accent",
+    "mag": "calibercraft:item/material/worn_mag",
+    "brass": "calibercraft:item/material/brass",
+    "shell": "calibercraft:item/material/red_plastic",
+    "particle": "calibercraft:item/material/worn_receiver"
+  }
+}

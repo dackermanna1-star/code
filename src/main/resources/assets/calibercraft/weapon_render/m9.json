@@ -1,0 +1,79 @@
+{
+  "category": "pistol",
+  "bounds": {
+    "min": [
+      6.55,
+      -2.9,
+      -7.45
+    ],
+    "max": [
+      9.45,
+      9.95,
+      8.2
+    ]
+  },
+  "animated_parts": [
+    "slide",
+    "magazine"
+  ],
+  "parts": {
+    "magazine": {
+      "pivot": [
+        8.0,
+        5.97,
+        4.047
+      ],
+      "style": "drop"
+    },
+    "slide": {
+      "travel": [
+        0,
+        0,
+        3
+      ]
+    }
+  },
+  "points": {
+    "grip": [
+      8.0,
+      3.34,
+      4.853
+    ],
+    "support": [
+      6.6,
+      2.145,
+      4.676
+    ],
+    "ejection": [
+      9.05,
+      8.35,
+      0.1
+    ],
+    "mag_well": [
+      8.0,
+      0.442,
+      5.632
+    ]
+  },
+  "sights": {
+    "iron": {
+      "y": 9.7,
+      "z": 6.4
+    },
+    "calibercraft:red_dot": {
+      "y": 11.3,
+      "z": 3.3
+    }
+  },
+  "muzzle": {
+    "default": [
+      8,
+      8,
+      -7.45
+    ]
+  },
+  "muzzle_length": {
+    "calibercraft:suppressor": 9.3,
+    "calibercraft:compensator": 3.0
+  }
+}

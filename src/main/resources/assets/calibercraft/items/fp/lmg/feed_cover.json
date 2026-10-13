@@ -1,0 +1,77 @@
+{
+  "hand_animation_on_swap": false,
+  "model": {
+    "type": "minecraft:select",
+    "property": "minecraft:custom_model_data",
+    "index": 0,
+    "cases": [
+      {
+        "when": "calibercraft:matte_black",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/matte_black/feed_cover"
+        }
+      },
+      {
+        "when": "calibercraft:desert_tan",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/desert_tan/feed_cover"
+        }
+      },
+      {
+        "when": "calibercraft:woodland",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/woodland/feed_cover"
+        }
+      },
+      {
+        "when": "calibercraft:arctic",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/arctic/feed_cover"
+        }
+      },
+      {
+        "when": "calibercraft:digital",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/digital/feed_cover"
+        }
+      },
+      {
+        "when": "calibercraft:industrial",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/industrial/feed_cover"
+        }
+      },
+      {
+        "when": "calibercraft:worn",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/worn/feed_cover"
+        }
+      },
+      {
+        "when": "calibercraft:neon",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/neon/feed_cover"
+        }
+      },
+      {
+        "when": "calibercraft:energy",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/energy/feed_cover"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "calibercraft:item/weapon/lmg/skin/standard/feed_cover"
+    }
+  }
+}

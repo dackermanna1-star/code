@@ -1,0 +1,14 @@
+{
+  "parent": "calibercraft:item/weapon/mp5/magazine_default",
+  "textures": {
+    "receiver": "calibercraft:item/material/parkerized",
+    "furniture": "calibercraft:item/material/black_polymer",
+    "metal": "calibercraft:item/material/dark_steel",
+    "detail": "calibercraft:item/material/dark_steel",
+    "accent": "calibercraft:item/material/gunmetal",
+    "mag": "calibercraft:item/material/dark_steel",
+    "brass": "calibercraft:item/material/brass",
+    "shell": "calibercraft:item/material/red_plastic",
+    "particle": "calibercraft:item/material/parkerized"
+  }
+}

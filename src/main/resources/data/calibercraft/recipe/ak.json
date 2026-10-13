@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "G": "calibercraft:gun_parts",
+    "P": "#minecraft:planks"
+  },
+  "pattern": [
+    "IIG",
+    "PGI",
+    "P  "
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:ak"
+  }
+}

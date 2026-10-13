@@ -1,0 +1,144 @@
+{
+  "category": "sniper",
+  "caliber": "calibercraft:338",
+  "fire_modes": [
+    "semi"
+  ],
+  "action": "bolt",
+  "stats": {
+    "damage": 26.0,
+    "rpm": 60,
+    "magazine": 5,
+    "effective_range": 160,
+    "max_range": 400,
+    "min_damage_mult": 0.75,
+    "velocity": 50,
+    "gravity": 0.0245,
+    "penetration": 3.0,
+    "armor_penetration": 0.55,
+    "headshot_mult": 2.0,
+    "recoil_vertical": 7.0,
+    "recoil_horizontal": 1.2,
+    "recoil_recovery": 0.7,
+    "spread_hip": 9.0,
+    "spread_ads": 0.03,
+    "spread_move": 1.6,
+    "spread_bloom": 0,
+    "spread_bloom_max": 0,
+    "ads_time": 10,
+    "equip_time": 14,
+    "move_speed": 0.92,
+    "ads_move_speed": 0.65,
+    "zoom": 1.3,
+    "loudness": 1.6,
+    "flash": 1.4,
+    "sway": 1.2,
+    "knockback": 0.6,
+    "melee_damage": 5.0
+  },
+  "reload": {
+    "type": "magazine",
+    "tactical": {
+      "length": 46,
+      "commit": 28,
+      "cues": [
+        {
+          "t": 6,
+          "cue": "mag_out"
+        },
+        {
+          "t": 27,
+          "cue": "mag_in"
+        }
+      ]
+    },
+    "empty": {
+      "length": 64,
+      "commit": 28,
+      "chamber": 54,
+      "cues": [
+        {
+          "t": 6,
+          "cue": "mag_out"
+        },
+        {
+          "t": 27,
+          "cue": "mag_in"
+        },
+        {
+          "t": 42,
+          "cue": "bolt_up"
+        },
+        {
+          "t": 45,
+          "cue": "bolt_back"
+        },
+        {
+          "t": 51,
+          "cue": "bolt_forward"
+        },
+        {
+          "t": 55,
+          "cue": "bolt_down"
+        }
+      ]
+    }
+  },
+  "cycle": {
+    "length": 18,
+    "chamber": 13,
+    "cues": [
+      {
+        "t": 2,
+        "cue": "bolt_up"
+      },
+      {
+        "t": 5,
+        "cue": "bolt_back"
+      },
+      {
+        "t": 11,
+        "cue": "bolt_forward"
+      },
+      {
+        "t": 15,
+        "cue": "bolt_down"
+      }
+    ]
+  },
+  "attachments": {
+    "optic": [
+      "calibercraft:sniper_scope",
+      "calibercraft:acog_scope"
+    ],
+    "muzzle": [
+      "calibercraft:muzzle_brake",
+      "calibercraft:suppressor"
+    ],
+    "grip": [
+      "calibercraft:bipod"
+    ],
+    "tactical": [
+      "calibercraft:laser_sight"
+    ],
+    "charm": [
+      "calibercraft:charm_creeper",
+      "calibercraft:charm_diamond",
+      "calibercraft:charm_dogtag"
+    ],
+    "barrel": [
+      "calibercraft:heavy_barrel",
+      "calibercraft:short_barrel"
+    ],
+    "magazine": [
+      "calibercraft:extended_mag"
+    ],
+    "stock": [
+      "calibercraft:precision_stock",
+      "calibercraft:lightweight_stock"
+    ]
+  },
+  "default_attachments": {
+    "optic": "calibercraft:sniper_scope"
+  }
+}

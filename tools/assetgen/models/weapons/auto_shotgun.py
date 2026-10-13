@@ -54,13 +54,14 @@ def slope_fill(p: Part, x0, x1, z0, y0, z1, y1, role, band=1.2):
         y_top = y_bot
 
 
-def box_mag(m: Part, x0, x1, bottom, curve, shell=True, windows=True):
+def box_mag(m: Part, x0, x1, bottom, curve, shell=True, windows=True, lower=True):
     """12 gauge double-stack box magazine (top at y=5.0, z 1.3..5.9)."""
-    m.box((x0, -0.15, 1.3), (x1, 5.0, 5.9), "mag")
-    m.box((x0 + 0.02, bottom, 1.3), (x1 - 0.02, 0.4, 5.9), "mag", rot=curve)
-    m.box((x0 - 0.1, bottom - 0.5, 1.15), (x1 + 0.1, bottom, 6.05), "detail", rot=curve)  # floor plate
-    m.box((x0 - 0.05, 2.3, 1.35), (x1 + 0.05, 2.65, 5.85), "mag")  # stiffening ridges
-    m.box((x0 - 0.05, bottom + 0.9, 1.35), (x1 + 0.05, bottom + 1.25, 5.85), "mag", rot=curve)
+    m.box((x0, -0.15 if lower else 0.4, 1.3), (x1, 5.0, 5.9), "mag")
+    m.box((x0 - 0.05, 2.3, 1.35), (x1 + 0.05, 2.65, 5.85), "mag")  # stiffening ridge
+    if lower:  # curved lower body + floor plate (the drum replaces these)
+        m.box((x0 + 0.02, bottom, 1.3), (x1 - 0.02, 0.4, 5.9), "mag", rot=curve)
+        m.box((x0 - 0.1, bottom - 0.5, 1.15), (x1 + 0.1, bottom, 6.05), "detail", rot=curve)  # floor plate
+        m.box((x0 - 0.05, bottom + 0.9, 1.35), (x1 + 0.05, bottom + 1.25, 5.85), "mag", rot=curve)
     m.box(((x0 + x1) / 2 - 0.45, 3.9, 0.95), ((x0 + x1) / 2 + 0.45, 4.9, 1.3), "mag")  # front catch lug
     m.box(((x0 + x1) / 2 - 0.4, 3.0, 5.9), ((x0 + x1) / 2 + 0.4, 3.6, 6.15), "detail")  # rear lock notch
     if windows:  # round-count witness holes showing red shells
@@ -169,7 +170,7 @@ def build():
     # ---- Barrels
     def barrel(vid, z_tip):
         b = w.variant("barrel", vid)
-        b.octo_rod(8, 8, z_tip, -0.6, 1.6, "metal")
+        b.octo_rod(8, 8, z_tip + 0.05, -0.6, 1.6, "metal")
         b.octo_rod(8, 8, z_tip, z_tip + 0.9, 1.85, "detail")  # thread protector
         b.box((7.9, 8.85, z_tip + 0.95), (8.1, 8.95, -13.4), "detail", faces=("up",))  # top flat
         w.muzzle_by_barrel[vid] = (8, 8, z_tip)
@@ -182,7 +183,7 @@ def build():
     curve = {"origin": (8, 0.4, 3.6), "axis": "x", "angle": 11}
     box_mag(w.variant("magazine", "default"), 6.85, 9.15, -3.4, curve)
     d = w.variant("magazine", f"{NS}:extended_mag")  # 12-round drum
-    box_mag(d, 6.85, 9.15, 0.4, curve, windows=False)
+    box_mag(d, 6.85, 9.15, 0.4, curve, windows=False, lower=False)
     x_round(d, -2.2, 3.6, 6.2, 9.8, 7.2, "mag")
     x_round(d, -2.2, 3.6, 9.8, 9.9, 5.6, "detail")  # drum faces
     x_round(d, -2.2, 3.6, 6.1, 6.2, 5.6, "detail")

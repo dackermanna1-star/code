@@ -1,0 +1,145 @@
+{
+  "category": "lmg",
+  "caliber": "calibercraft:556",
+  "fire_modes": [
+    "auto"
+  ],
+  "action": "self_loading",
+  "stats": {
+    "damage": 5.4,
+    "rpm": 720,
+    "magazine": 100,
+    "effective_range": 48,
+    "max_range": 192,
+    "min_damage_mult": 0.6,
+    "velocity": 44,
+    "gravity": 0.0245,
+    "penetration": 1.3,
+    "armor_penetration": 0.25,
+    "headshot_mult": 1.5,
+    "recoil_vertical": 1.1,
+    "recoil_horizontal": 0.95,
+    "recoil_recovery": 0.6,
+    "spread_hip": 4.0,
+    "spread_ads": 0.6,
+    "spread_move": 1.6,
+    "spread_bloom": 0.08,
+    "spread_bloom_max": 3.5,
+    "ads_time": 12,
+    "equip_time": 18,
+    "move_speed": 0.86,
+    "ads_move_speed": 0.7,
+    "zoom": 1.15,
+    "loudness": 1.2,
+    "flash": 1.2,
+    "sway": 0.9,
+    "heat_per_shot": 0.011,
+    "heat_cooling": 0.012,
+    "melee_damage": 5.0
+  },
+  "reload": {
+    "type": "magazine",
+    "tactical": {
+      "length": 92,
+      "commit": 60,
+      "cues": [
+        {
+          "t": 4,
+          "cue": "cover_open"
+        },
+        {
+          "t": 18,
+          "cue": "box_out"
+        },
+        {
+          "t": 42,
+          "cue": "box_in"
+        },
+        {
+          "t": 56,
+          "cue": "belt"
+        },
+        {
+          "t": 72,
+          "cue": "cover_close"
+        }
+      ]
+    },
+    "empty": {
+      "length": 104,
+      "commit": 60,
+      "chamber": 96,
+      "cues": [
+        {
+          "t": 4,
+          "cue": "cover_open"
+        },
+        {
+          "t": 18,
+          "cue": "box_out"
+        },
+        {
+          "t": 42,
+          "cue": "box_in"
+        },
+        {
+          "t": 56,
+          "cue": "belt"
+        },
+        {
+          "t": 72,
+          "cue": "cover_close"
+        },
+        {
+          "t": 92,
+          "cue": "charge"
+        }
+      ]
+    }
+  },
+  "cycle": {
+    "length": 14,
+    "chamber": 10,
+    "cues": [
+      {
+        "t": 3,
+        "cue": "charge"
+      }
+    ]
+  },
+  "attachments": {
+    "optic": [
+      "calibercraft:red_dot",
+      "calibercraft:holo_sight",
+      "calibercraft:acog_scope"
+    ],
+    "muzzle": [
+      "calibercraft:flash_hider",
+      "calibercraft:suppressor",
+      "calibercraft:compensator"
+    ],
+    "grip": [
+      "calibercraft:bipod",
+      "calibercraft:vertical_grip"
+    ],
+    "tactical": [
+      "calibercraft:laser_sight"
+    ],
+    "charm": [
+      "calibercraft:charm_creeper",
+      "calibercraft:charm_diamond",
+      "calibercraft:charm_dogtag"
+    ],
+    "barrel": [
+      "calibercraft:short_barrel",
+      "calibercraft:heavy_barrel"
+    ],
+    "magazine": [
+      "calibercraft:extended_mag",
+      "calibercraft:quick_mag"
+    ],
+    "stock": [
+      "calibercraft:lightweight_stock"
+    ]
+  }
+}

@@ -1,0 +1,77 @@
+{
+  "hand_animation_on_swap": false,
+  "model": {
+    "type": "minecraft:select",
+    "property": "minecraft:custom_model_data",
+    "index": 0,
+    "cases": [
+      {
+        "when": "calibercraft:matte_black",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/mp5/skin/matte_black/charging_handle"
+        }
+      },
+      {
+        "when": "calibercraft:desert_tan",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/mp5/skin/desert_tan/charging_handle"
+        }
+      },
+      {
+        "when": "calibercraft:woodland",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/mp5/skin/woodland/charging_handle"
+        }
+      },
+      {
+        "when": "calibercraft:arctic",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/mp5/skin/arctic/charging_handle"
+        }
+      },
+      {
+        "when": "calibercraft:digital",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/mp5/skin/digital/charging_handle"
+        }
+      },
+      {
+        "when": "calibercraft:industrial",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/mp5/skin/industrial/charging_handle"
+        }
+      },
+      {
+        "when": "calibercraft:worn",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/mp5/skin/worn/charging_handle"
+        }
+      },
+      {
+        "when": "calibercraft:neon",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/mp5/skin/neon/charging_handle"
+        }
+      },
+      {
+        "when": "calibercraft:energy",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/mp5/skin/energy/charging_handle"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "calibercraft:item/weapon/mp5/skin/standard/charging_handle"
+    }
+  }
+}

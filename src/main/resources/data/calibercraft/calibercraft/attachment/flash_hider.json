@@ -1,0 +1,16 @@
+{
+  "slot": "muzzle",
+  "item": "calibercraft:flash_hider",
+  "modifiers": [
+    {
+      "stat": "flash",
+      "op": "multiply",
+      "value": 0.4
+    },
+    {
+      "stat": "recoil_vertical",
+      "op": "multiply",
+      "value": 0.95
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "parent": "calibercraft:item/weapon/vector9/body_glow",
+  "textures": {
+    "receiver": "calibercraft:item/material/neon_receiver",
+    "furniture": "calibercraft:item/material/neon_furniture",
+    "metal": "calibercraft:item/material/black_anodized",
+    "detail": "calibercraft:item/material/black_anodized",
+    "accent": "calibercraft:item/material/neon_accent",
+    "mag": "calibercraft:item/material/neon_mag",
+    "brass": "calibercraft:item/material/brass",
+    "shell": "calibercraft:item/material/red_plastic",
+    "particle": "calibercraft:item/material/neon_receiver"
+  }
+}

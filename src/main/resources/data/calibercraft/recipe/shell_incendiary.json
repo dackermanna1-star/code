@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:paper",
+    "minecraft:gunpowder",
+    "minecraft:blaze_powder",
+    "minecraft:orange_dye"
+  ],
+  "result": {
+    "count": 6,
+    "id": "calibercraft:shell_incendiary"
+  }
+}

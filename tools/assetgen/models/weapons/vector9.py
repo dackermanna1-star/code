@@ -61,7 +61,7 @@ def build():
     # ---------------------------------------------------------------- lower housing ("stacked" block)
     body.box((6.6, WELL_Y, -5.95), (9.4, 7.0, -2.6), "receiver")  # magazine / mechanism housing
     body.box((6.6, 2.6, -8.6), (9.4, 7.0, -5.6), "receiver", rot=NOSE_ROT)  # raked nose
-    body.box((6.55, 2.6, -8.65), (9.45, 3.3, -8.4), "detail", rot=NOSE_ROT)  # nose bumper
+    body.box((6.55, 2.55, -8.65), (9.45, 3.3, -8.4), "detail", rot=NOSE_ROT)  # nose bumper
     body.box((6.7, 5.0, -2.6), (9.3, 7.0, 5.0), "receiver")  # trigger housing / rear lower
     body.box((6.75, 4.6, 2.6), (9.25, 5.05, 5.0), "receiver")  # rear lower lip
     for x0, x1 in ((9.4, 9.45), (6.55, 6.6)):  # angular grey insert panels on the housing
@@ -154,7 +154,7 @@ def build():
           rot={"origin": (8, 7.1, 6.2), "axis": "x", "angle": 9})
     s.box((7.3, 5.0, 12.8), (8.7, 9.3, 13.5), "furniture")
     s.box((7.2, 4.8, 13.5), (8.8, 9.5, 13.9), "detail")
-    s.box((7.5, 6.4, 6.2), (8.5, 9.1, 6.9), "metal")  # adaptor collar
+    s.box((7.5, 6.4, 6.2), (8.5, 9.18, 6.9), "metal")  # adaptor collar
     s = w.variant("stock", f"{NS}:precision_stock")  # adjustable solid stock
     s.box((7.0, 5.6, 6.2), (9.0, 9.2, 13.8), "furniture")
     s.box((7.1, 4.4, 9.5), (8.9, 5.7, 13.8), "furniture",
@@ -178,7 +178,7 @@ def build():
     glock_mag(w.variant("magazine", "default"), 1.2)
     ext = glock_mag(w.variant("magazine", f"{NS}:extended_mag"), -2.6)
     for y in (-1.6, -0.2, 1.2):  # ribs on the long stick mag
-        ext.box((7.2, y, MAG_Z0 + 0.2), (8.8, y + 0.3, MAG_Z1 - 0.2), "mag")
+        ext.box((7.15, y, MAG_Z0 + 0.2), (8.85, y + 0.3, MAG_Z1 - 0.2), "mag")
     q = glock_mag(w.variant("magazine", f"{NS}:quick_mag"), 1.2, base_extra=0.25)
     q.box((7.0, 0.35, MAG_Z0 - 0.35), (9.0, 0.6, MAG_Z1 + 0.35), "detail")  # flared base
     q.box((7.7, -0.65, MAG_Z0 + 0.7), (8.3, 0.35, MAG_Z1 - 0.7), "shell")  # pull tab

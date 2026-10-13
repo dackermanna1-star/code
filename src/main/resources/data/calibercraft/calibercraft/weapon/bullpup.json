@@ -1,0 +1,119 @@
+{
+  "category": "rifle",
+  "caliber": "calibercraft:556",
+  "fire_modes": [
+    "semi",
+    "burst",
+    "auto"
+  ],
+  "action": "self_loading",
+  "burst_count": 3,
+  "stats": {
+    "damage": 5.6,
+    "rpm": 820,
+    "magazine": 30,
+    "effective_range": 44,
+    "max_range": 176,
+    "min_damage_mult": 0.6,
+    "velocity": 44,
+    "gravity": 0.0245,
+    "penetration": 1.1,
+    "armor_penetration": 0.25,
+    "headshot_mult": 1.6,
+    "recoil_vertical": 1.15,
+    "recoil_horizontal": 0.85,
+    "recoil_recovery": 0.8,
+    "spread_hip": 2.5,
+    "spread_ads": 0.22,
+    "spread_move": 1.4,
+    "spread_bloom": 0.1,
+    "spread_bloom_max": 1.8,
+    "ads_time": 5,
+    "equip_time": 8,
+    "move_speed": 1.0,
+    "ads_move_speed": 0.85,
+    "zoom": 1.25,
+    "loudness": 1.0,
+    "flash": 0.9,
+    "sway": 0.45,
+    "melee_damage": 4.0
+  },
+  "reload": {
+    "type": "magazine",
+    "tactical": {
+      "length": 46,
+      "commit": 30,
+      "cues": [
+        {
+          "t": 8,
+          "cue": "mag_out"
+        },
+        {
+          "t": 29,
+          "cue": "mag_in"
+        }
+      ]
+    },
+    "empty": {
+      "length": 58,
+      "commit": 30,
+      "chamber": 50,
+      "cues": [
+        {
+          "t": 8,
+          "cue": "mag_out"
+        },
+        {
+          "t": 29,
+          "cue": "mag_in"
+        },
+        {
+          "t": 48,
+          "cue": "charge"
+        }
+      ]
+    }
+  },
+  "cycle": {
+    "length": 14,
+    "chamber": 10,
+    "cues": [
+      {
+        "t": 3,
+        "cue": "charge"
+      }
+    ]
+  },
+  "attachments": {
+    "optic": [
+      "calibercraft:red_dot",
+      "calibercraft:holo_sight",
+      "calibercraft:acog_scope"
+    ],
+    "muzzle": [
+      "calibercraft:suppressor",
+      "calibercraft:compensator",
+      "calibercraft:flash_hider"
+    ],
+    "grip": [
+      "calibercraft:vertical_grip",
+      "calibercraft:angled_grip"
+    ],
+    "tactical": [
+      "calibercraft:laser_sight"
+    ],
+    "charm": [
+      "calibercraft:charm_creeper",
+      "calibercraft:charm_diamond",
+      "calibercraft:charm_dogtag"
+    ],
+    "barrel": [
+      "calibercraft:short_barrel",
+      "calibercraft:precision_barrel"
+    ],
+    "magazine": [
+      "calibercraft:extended_mag",
+      "calibercraft:quick_mag"
+    ]
+  }
+}

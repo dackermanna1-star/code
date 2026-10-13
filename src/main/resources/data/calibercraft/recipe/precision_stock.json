@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "calibercraft:precision_parts",
+    "#minecraft:planks",
+    "#minecraft:planks",
+    "minecraft:leather"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:precision_stock"
+  }
+}

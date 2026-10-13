@@ -186,4 +186,21 @@ class ReloadRunnerTest {
 		assertEquals(3, g.state.rounds());
 		assertEquals(List.of("bolt_up", "bolt_back", "bolt_forward", "CHAMBER", "bolt_down"), g.events);
 	}
+
+	@Test
+	void ticksUntilFireReadySupportsServerCatchUp() {
+		Gun g = new Gun(GunState.EMPTY.withRounds(4).withChambered(true), 30);
+		ReloadRunner r = ReloadRunner.timeline(ReloadRunner.Kind.TACTICAL, TACTICAL, 1.0);
+		run(r, g, 24);
+		float until = r.ticksUntilFireReady();
+		assertEquals(2f, until, 0.01f);
+		r.advance(until, g);
+		assertTrue(r.interruptibleByFire());
+		assertEquals(30, g.state.rounds(), "fast-forwarding applies the commit exactly once");
+		ReloadRunner cycle = ReloadRunner.timeline(ReloadRunner.Kind.CYCLE, new Timeline(18, -1, 13, List.of()), 1.0);
+		Gun bolt = new Gun(GunState.EMPTY.withRounds(4), 5);
+		run(cycle, bolt, 11);
+		cycle.advance(cycle.ticksUntilFireReady(), bolt);
+		assertTrue(bolt.state.chambered());
+	}
 }

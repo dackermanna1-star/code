@@ -1,0 +1,21 @@
+{
+  "slot": "grip",
+  "item": "calibercraft:ergonomic_grip",
+  "modifiers": [
+    {
+      "stat": "spread_hip",
+      "op": "multiply",
+      "value": 0.85
+    },
+    {
+      "stat": "spread_move",
+      "op": "multiply",
+      "value": 0.9
+    },
+    {
+      "stat": "equip_time",
+      "op": "multiply",
+      "value": 0.85
+    }
+  ]
+}

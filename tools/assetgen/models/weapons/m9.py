@@ -41,7 +41,7 @@ def build():
     body.box((7.55, 3.55, -2.45), (8.45, 4.1, 2.9), "receiver")  # bottom
     body.box((7.55, 3.75, -2.75), (8.45, 4.15, -2.35), "receiver")  # rounded front-bottom corner
     for y in (4.25, 4.6, 4.95, 5.3):
-        body.box((7.6, y, -2.8), (8.4, y + 0.15, -2.75), "detail", faces=("north",))  # serrations
+        body.box((7.6, y, -2.85), (8.4, y + 0.15, -2.8), "detail", faces=("north",))  # serrations
     # trigger + trigger bar pin
     body.box((7.75, 4.55, -0.7), (8.25, 5.75, -0.25), "detail",
              rot={"origin": (8.0, 5.7, -0.45), "axis": "x", "angle": -14})
@@ -58,7 +58,7 @@ def build():
     hrot = {"origin": (8.0, 6.9, 7.3), "axis": "x", "angle": -18}
     body.box((7.62, 6.6, 6.95), (8.38, 8.55, 7.55), "detail", rot=hrot)
     body.box((7.62, 8.15, 7.15), (8.38, 8.75, 8.15), "detail", rot=hrot)  # spur
-    body.box((7.58, 8.25, 7.95), (8.42, 8.65, 8.15), "metal", rot=hrot)  # spur checkering
+    body.box((7.58, 8.25, 7.95), (8.42, 8.65, 8.2), "metal", rot=hrot)  # spur checkering
 
     # ---------------------------------------------------------------- barrel (static; slide recoils over it)
     body.octo_rod(8, 8, -7.45, 1.1, 1.1, "metal")
@@ -134,11 +134,11 @@ def build():
 
     mag("default", -0.25, (7.1, 8.9, 2.35, 5.85))
     ext = mag(f"{NS}:extended_mag", -2.55, (7.0, 9.0, 2.2, 5.95))
-    ext.box((7.08, -2.55, 2.3), (8.92, -0.25, 5.85), "mag", rot=GRIP_ROT)  # +5 extension sleeve
+    ext.box((7.08, -2.55, 2.22), (8.92, -0.25, 6.0), "mag", rot=GRIP_ROT)  # +5 extension sleeve
     for y in (-2.0, -1.2):
         ext.box((8.92, y, 2.6), (8.97, y + 0.35, 5.6), "detail", rot=GRIP_ROT, faces=("east",))
         ext.box((7.03, y, 2.6), (7.08, y + 0.35, 5.6), "detail", rot=GRIP_ROT, faces=("west",))
-    q = mag(f"{NS}:quick_mag", -0.25, (7.05, 8.95, 2.25, 5.95), flare=True)
+    q = mag(f"{NS}:quick_mag", -0.25, (7.1, 8.9, 2.3, 5.9), flare=True)
     q.box((7.7, -1.85, 3.6), (8.3, -0.85, 4.3), "shell", rot=GRIP_ROT)  # bright pull tab
     q.box((7.55, -2.15, 3.45), (8.45, -1.8, 4.45), "shell", rot=GRIP_ROT)  # tab loop
 
@@ -153,7 +153,7 @@ def build():
         "ejection": (9.05, 8.35, 0.1),
         "mag_well": grip_pt(-0.3, 4.05),
     }
-    w.iron_sight_y = 9.75
+    w.iron_sight_y = 9.7
     w.iron_sight_z = 6.4
     w.mounts = {
         "optic": (8, 9.0, 3.3),  # milled optic cut: clamp sits 0.45 into the slide

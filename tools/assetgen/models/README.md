@@ -37,6 +37,9 @@ python3 tools/assetgen/models/generate_models.py --only ak --no-clean --preview 
   `attachments.py`). Barrel/stock/magazine compatibility is implied by the variants you model.
 * `w.anim` — hints for the procedural animation system:
 
+All rotations follow Minecraft's right-hand rule (the same as element rotations): positive angles about +Z turn
++X toward +Y; about +X they turn +Y toward +Z.
+
 | part              | keys |
 |-------------------|------|
 | `magazine`        | `pivot` [x,y,z] (top centre of the magazine), `style`: `drop` (straight down) or `rock` (AK-style: tilts forward around the pivot, which sits at the *front* top edge) |
@@ -45,8 +48,8 @@ python3 tools/assetgen/models/generate_models.py --only ak --no-clean --preview 
 | `charging_handle` | `travel` |
 | `pump`            | `travel` |
 | `bolt_handle`     | `pivot` (point on the bolt axis), `lift_deg` (rotation about +Z when lifted, positive = handle rises), `travel` |
-| `cylinder`        | `pivot` (crane hinge point), `swing_deg` (rotation about +Z to swing out; negative swings to the left), `spin_center` (cylinder axis centre), `chambers` |
-| `hammer`          | `pivot`, `cock_deg` (rotation about +X when cocked) |
+| `cylinder`        | `pivot` (crane hinge point), `swing_deg` (rotation about +Z to swing out; positive swings a cylinder hinged below-left out to the left), `spin_center` (cylinder axis centre), `chambers` |
+| `hammer`          | `pivot`, `cock_deg` (rotation about +X when cocked; positive moves a spur above the pivot rearward) |
 | `feed_cover`      | `pivot` (hinge), `open_deg` (rotation about +X; negative lifts the rear upward) |
 | `belt`            | `follow`: `"magazine"` (moves with the ammo box) |
 | `shell`           | `from` [x,y,z] (where the hand holds it), `to` [x,y,z] (loading port) |

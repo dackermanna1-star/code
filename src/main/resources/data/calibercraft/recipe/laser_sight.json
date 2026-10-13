@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "calibercraft:gun_parts",
+    "minecraft:redstone",
+    "minecraft:redstone",
+    "minecraft:glass_pane"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:laser_sight"
+  }
+}

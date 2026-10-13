@@ -1,0 +1,24 @@
+{
+  "slot": "optic",
+  "item": "calibercraft:red_dot",
+  "modifiers": [
+    {
+      "stat": "zoom",
+      "op": "multiply",
+      "value": 1.25
+    },
+    {
+      "stat": "spread_ads",
+      "op": "multiply",
+      "value": 0.9
+    },
+    {
+      "stat": "ads_time",
+      "op": "add",
+      "value": 0.5
+    }
+  ],
+  "optic": {
+    "reticle": "red_dot"
+  }
+}

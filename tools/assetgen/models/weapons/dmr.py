@@ -92,9 +92,9 @@ def build():
     body.box((9.1, -1.0, 10.8), (9.15, 3.0, 12.2), "detail", faces=("east",), rot=grip_rot)
     body.box((6.85, -1.0, 10.8), (6.9, 3.0, 12.2), "detail", faces=("west",), rot=grip_rot)
     # ---- Buffer tube, castle nut, QD end plate
-    body.octo_rod(8, 8.3, 12.0, 21.0, 1.8, "receiver")
+    body.octo_rod(8, 8.3, 11.0, 21.0, 1.8, "receiver")
     body.octo_rod(8, 8.3, 12.0, 12.8, 2.5, "detail")
-    body.box((9.0, 6.8, 12.8), (9.4, 7.7, 13.6), "detail")  # QD sling point (charm)
+    body.box((9.0, 6.8, 12.1), (9.4, 7.7, 12.7), "detail")  # QD sling point on the end plate (charm)
     # ---- Free-float handguard (octagonal profile)
     hz0 = -17.0
     body.box((6.2, 6.3, hz0), (9.8, 9.9, 0.0), "receiver")
@@ -125,13 +125,12 @@ def build():
     ch = w.part("charging_handle", animated=True)
     ch.box((7.3, 9.4, 11.0), (8.7, 10.1, 12.2), "detail")
     ch.box((6.4, 9.4, 12.2), (9.6, 10.1, 12.85), "detail")
-    ch.box((6.15, 9.35, 12.3), (6.5, 10.15, 12.85), "metal")  # extended latch
+    ch.box((6.15, 9.35, 12.3), (6.5, 10.15, 12.95), "metal")  # extended latch
 
     # ---- Barrels
     def barrel(vid, z_tip, d, fluted=False):
         b = w.variant("barrel", vid)
-        b.octo_rod(8, 8, z_tip, hz0, d, "metal")
-        b.octo_rod(8, 8, hz0, 0.0, 1.3, "metal")  # under the handguard
+        b.octo_rod(8, 8, z_tip + 0.05, hz0, d, "metal")
         b.octo_rod(8, 8, z_tip, z_tip + 0.8, d + 0.25, "detail")  # thread protector
         if fluted:
             r = d / 2
@@ -174,7 +173,7 @@ def build():
 
     # ---- Stocks (slide over the buffer tube, z 13+)
     s = w.variant("stock", "default")  # precision-style adjustable
-    s.box((6.8, 5.8, 13.6), (9.2, 9.15, 17.4), "furniture")  # nose (low: charging handle clears it)
+    s.box((6.8, 5.8, 13.6), (9.2, 9.3, 17.4), "furniture")  # nose (low: charging handle clears it)
     s.box((6.8, 5.8, 17.4), (9.2, 9.6, 21.4), "furniture")
     slope_fill(s, 6.8, 9.2, 13.6, 5.8, 21.4, 3.4, "furniture")
     s.box((7.0, 9.6, 17.4), (9.0, 10.6, 21.0), "furniture")  # cheek riser
@@ -193,12 +192,12 @@ def build():
     s.box((7.3, 3.4, 21.2), (8.7, 9.25, 22.0), "furniture")
     s.box((7.4, 5.6, 15.1), (8.6, 6.3, 21.6), "furniture",
           rot={"origin": (8, 6.0, 15.1), "axis": "x", "angle": 20})
-    s.box((7.2, 7.2, 14.6), (8.8, 9.4, 16.0), "furniture")  # tube collar
+    s.box((7.2, 7.2, 14.6), (8.8, 9.3, 16.0), "furniture")  # tube collar
     s.box((7.1, 3.2, 22.0), (8.9, 9.5, 22.5), "detail")
     s = w.variant("stock", f"{NS}:precision_stock")  # fixed rifle stock with tall comb
-    s.box((6.8, 5.4, 12.8), (9.2, 9.2, 21.6), "furniture")
+    s.box((6.8, 5.4, 12.8), (9.2, 9.3, 21.6), "furniture")
     slope_fill(s, 6.8, 9.2, 12.8, 5.4, 21.6, 1.8, "furniture")
-    s.box((6.9, 9.2, 17.0), (9.1, 10.9, 21.6), "furniture")  # raised comb
+    s.box((6.9, 9.3, 17.0), (9.1, 10.9, 21.6), "furniture")  # raised comb
     s.box((6.85, 10.2, 17.4), (6.9, 10.6, 21.2), "detail", faces=("west",))  # comb seam
     s.box((9.1, 10.2, 17.4), (9.15, 10.6, 21.2), "detail", faces=("east",))
     s.box((7.6, 1.9, 19.8), (8.4, 2.6, 20.6), "metal")  # sling swivel
@@ -222,7 +221,7 @@ def build():
         "optic": (8, rail_top, 5.0),
         "grip": (8, grip_y, -10.5),
         "tactical": (tac_x, 7.8, -13.3),
-        "charm": (9.2, 6.8, 13.2),
+        "charm": (9.2, 6.8, 12.4),
     }
     w.slots = {
         "optic": [f"{NS}:acog_scope", f"{NS}:red_dot", f"{NS}:holo_sight", f"{NS}:sniper_scope"],

@@ -1,0 +1,23 @@
+{
+  "caliber": "calibercraft:9mm",
+  "item": "calibercraft:ammo_9mm_hp",
+  "order": 1,
+  "tracer_color": "#FFB070",
+  "modifiers": [
+    {
+      "stat": "damage",
+      "op": "multiply",
+      "value": 1.2
+    },
+    {
+      "stat": "armor_penetration",
+      "op": "multiply",
+      "value": 0.3
+    },
+    {
+      "stat": "penetration",
+      "op": "multiply",
+      "value": 0.3
+    }
+  ]
+}

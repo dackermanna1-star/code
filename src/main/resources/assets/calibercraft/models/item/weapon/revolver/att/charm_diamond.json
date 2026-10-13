@@ -1,0 +1,275 @@
+{
+  "textures": {
+    "particle": "calibercraft:item/material/black_anodized"
+  },
+  "elements": [
+    {
+      "from": [
+        7.88,
+        -0.945,
+        5.374
+      ],
+      "to": [
+        8.12,
+        0.455,
+        5.614
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.88,
+            14.6,
+            8.12,
+            16
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "south": {
+          "uv": [
+            7.88,
+            14.6,
+            8.12,
+            16
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "east": {
+          "uv": [
+            10.386,
+            14.6,
+            10.626,
+            16
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "west": {
+          "uv": [
+            5.374,
+            14.6,
+            5.614,
+            16
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "up": {
+          "uv": [
+            7.88,
+            5.374,
+            8.12,
+            5.614
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        },
+        "down": {
+          "uv": [
+            7.88,
+            10.386,
+            8.12,
+            10.626
+          ],
+          "texture": "calibercraft:item/material/stainless"
+        }
+      }
+    },
+    {
+      "from": [
+        7.4,
+        -2.145,
+        4.894
+      ],
+      "to": [
+        8.6,
+        -0.945,
+        6.094
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.4,
+            0.945,
+            8.6,
+            2.145
+          ],
+          "texture": "calibercraft:item/material/glass_lens"
+        },
+        "south": {
+          "uv": [
+            7.4,
+            0.945,
+            8.6,
+            2.145
+          ],
+          "texture": "calibercraft:item/material/glass_lens"
+        },
+        "east": {
+          "uv": [
+            9.906,
+            0.945,
+            11.106,
+            2.145
+          ],
+          "texture": "calibercraft:item/material/glass_lens"
+        },
+        "west": {
+          "uv": [
+            4.894,
+            0.945,
+            6.094,
+            2.145
+          ],
+          "texture": "calibercraft:item/material/glass_lens"
+        },
+        "up": {
+          "uv": [
+            7.4,
+            4.894,
+            8.6,
+            6.094
+          ],
+          "texture": "calibercraft:item/material/glass_lens"
+        },
+        "down": {
+          "uv": [
+            7.4,
+            9.906,
+            8.6,
+            11.106
+          ],
+          "texture": "calibercraft:item/material/glass_lens"
+        }
+      },
+      "rotation": {
+        "origin": [
+          8,
+          -1.545,
+          5.494
+        ],
+        "x": 35,
+        "y": 45,
+        "z": 0
+      },
+      "light_emission": 6
+    }
+  ],
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0.0,
+        2.2776,
+        3.1773
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gui": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        -10.3859,
+        2.6495,
+        0.0
+      ],
+      "scale": [
+        0.8152,
+        0.8152,
+        0.8152
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        -17.656,
+        4.5041,
+        0.0
+      ],
+      "scale": [
+        1.3859,
+        1.3859,
+        1.3859
+      ]
+    },
+    "on_shelf": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        -14.5402,
+        3.7092,
+        0.0
+      ],
+      "scale": [
+        1.1413,
+        1.1413,
+        1.1413
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0.0,
+        3.43,
+        5.6056
+      ],
+      "scale": [
+        0.44,
+        0.44,
+        0.44
+      ]
+    },
+    "head": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        0.0,
+        11.7875,
+        -7.007
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    }
+  }
+}

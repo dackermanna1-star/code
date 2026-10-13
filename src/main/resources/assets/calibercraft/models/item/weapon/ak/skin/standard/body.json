@@ -1,0 +1,14 @@
+{
+  "parent": "calibercraft:item/weapon/ak/body",
+  "textures": {
+    "receiver": "calibercraft:item/material/blued_steel",
+    "furniture": "calibercraft:item/material/walnut_wood",
+    "metal": "calibercraft:item/material/blued_steel",
+    "detail": "calibercraft:item/material/dark_steel",
+    "accent": "calibercraft:item/material/gunmetal",
+    "mag": "calibercraft:item/material/dark_steel",
+    "brass": "calibercraft:item/material/brass",
+    "shell": "calibercraft:item/material/red_plastic",
+    "particle": "calibercraft:item/material/blued_steel"
+  }
+}

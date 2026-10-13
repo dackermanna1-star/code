@@ -1,0 +1,53 @@
+{
+  "caliber": "calibercraft:12_gauge",
+  "item": "calibercraft:shell_slug",
+  "order": 1,
+  "tracer_color": "#FFE0A0",
+  "modifiers": [
+    {
+      "stat": "pellets",
+      "op": "multiply",
+      "value": 0
+    },
+    {
+      "stat": "damage",
+      "op": "multiply",
+      "value": 6.5
+    },
+    {
+      "stat": "spread_hip",
+      "op": "multiply",
+      "value": 0.35
+    },
+    {
+      "stat": "spread_ads",
+      "op": "multiply",
+      "value": 0.15
+    },
+    {
+      "stat": "effective_range",
+      "op": "multiply",
+      "value": 3.5
+    },
+    {
+      "stat": "max_range",
+      "op": "multiply",
+      "value": 3.5
+    },
+    {
+      "stat": "penetration",
+      "op": "add",
+      "value": 1.0
+    },
+    {
+      "stat": "velocity",
+      "op": "multiply",
+      "value": 1.1
+    },
+    {
+      "stat": "recoil_vertical",
+      "op": "multiply",
+      "value": 1.2
+    }
+  ]
+}

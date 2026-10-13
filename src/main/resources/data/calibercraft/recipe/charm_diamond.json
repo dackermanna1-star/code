@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:string",
+    "minecraft:diamond"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:charm_diamond"
+  }
+}

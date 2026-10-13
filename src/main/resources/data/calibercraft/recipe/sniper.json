@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "G": "calibercraft:gun_parts",
+    "X": "calibercraft:precision_parts",
+    "P": "#minecraft:planks"
+  },
+  "pattern": [
+    "XII",
+    "GXI",
+    "P  "
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:sniper"
+  }
+}

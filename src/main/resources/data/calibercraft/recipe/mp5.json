@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "G": "calibercraft:gun_parts"
+  },
+  "pattern": [
+    "IIG",
+    "GGI",
+    "I  "
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:mp5"
+  }
+}

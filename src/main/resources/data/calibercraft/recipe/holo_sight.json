@@ -1,0 +1,14 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "calibercraft:gun_parts",
+    "minecraft:glass_pane",
+    "minecraft:redstone",
+    "minecraft:glowstone_dust"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:holo_sight"
+  }
+}

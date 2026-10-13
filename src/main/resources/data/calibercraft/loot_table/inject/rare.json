@@ -1,0 +1,138 @@
+{
+  "type": "minecraft:chest",
+  "pools": [
+    {
+      "rolls": {
+        "type": "minecraft:uniform",
+        "min": 1,
+        "max": 2
+      },
+      "entries": [
+        {
+          "type": "minecraft:empty",
+          "weight": 10
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:ammo_308",
+          "weight": 8,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 6,
+                "max": 14
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:ammo_338",
+          "weight": 5,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 3,
+                "max": 8
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:precision_parts",
+          "weight": 6,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 1,
+                "max": 2
+              }
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:prismatic_finish_kit",
+          "weight": 4
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:sniper",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:lmg",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:dmr",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:bullpup",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:auto_shotgun",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:revolver",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:sniper_scope",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:acog_scope",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:suppressor",
+          "weight": 3
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:precision_barrel",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:heavy_barrel",
+          "weight": 2
+        },
+        {
+          "type": "minecraft:item",
+          "name": "calibercraft:ammo_556_ap",
+          "weight": 3,
+          "functions": [
+            {
+              "function": "minecraft:set_count",
+              "count": {
+                "type": "minecraft:uniform",
+                "min": 4,
+                "max": 10
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

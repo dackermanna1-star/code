@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "calibercraft:gun_parts",
+    "minecraft:iron_ingot",
+    "minecraft:slime_ball"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:quick_mag"
+  }
+}

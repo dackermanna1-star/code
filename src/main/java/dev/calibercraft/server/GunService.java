@@ -56,6 +56,7 @@ public final class GunService {
 	private static final Map<UUID, PlayerGunData> DATA = new HashMap<>();
 	private static final Identifier HANDLING_MODIFIER = CaliberCraft.id("weapon_handling");
 	private static final int EQUIP_TOLERANCE_TICKS = 2;
+	private static final float FIRE_CATCH_UP_TICKS = 3f;
 
 	private GunService() {
 	}
@@ -131,6 +132,7 @@ public final class GunService {
 			return; // duplicate or replayed packet
 		}
 		pd.lastSeq = p.seq();
+		catchUpRunner(c);
 		String reject = validateShot(c, p, now);
 		if (reject != null) {
 			rejectShot(c, p.seq(), reject);
@@ -156,6 +158,25 @@ public final class GunService {
 			startRunner(c, ReloadRunner.timeline(ReloadRunner.Kind.CYCLE, c.def.cycle(), 1.0), false);
 		}
 		spawnShot(c, p, now);
+	}
+
+	/**
+	 * The client runs the same timelines, so a shot may arrive a moment before the server's reload commit or
+	 * bolt cycle completes (network jitter). Within a small tolerance the action is fast-forwarded to its
+	 * ready point — applying the ammunition change exactly as if it had completed — instead of rejecting.
+	 */
+	private static void catchUpRunner(Ctx c) {
+		ReloadRunner r = c.pd.runner;
+		if (r == null) {
+			return;
+		}
+		float until = r.ticksUntilFireReady();
+		if (until > 0 && until <= FIRE_CATCH_UP_TICKS) {
+			r.advance(until, new ServerReloadListener(c));
+			if (r.done()) {
+				c.pd.runner = null;
+			}
+		}
 	}
 
 	private static String validateShot(Ctx c, FirePayload p, long now) {
@@ -543,12 +564,12 @@ public final class GunService {
 					AmmoInventory.give(c.player, old, r.returned());
 				}
 			}
-			c.setState(ns);
+			c.setState(ns.nextAction());
 		}
 
 		@Override
 		public void chamber() {
-			c.setState(AmmoLogic.cycle(c.state()));
+			c.setState(AmmoLogic.cycle(c.state()).nextAction());
 		}
 
 		@Override
@@ -571,7 +592,7 @@ public final class GunService {
 				c.setState(s);
 				return false;
 			}
-			c.setState(loaded.withLoadedAmmo(selected));
+			c.setState(loaded.withLoadedAmmo(selected).nextAction());
 			return true;
 		}
 

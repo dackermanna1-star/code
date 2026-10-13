@@ -1,0 +1,77 @@
+{
+  "hand_animation_on_swap": false,
+  "model": {
+    "type": "minecraft:select",
+    "property": "minecraft:custom_model_data",
+    "index": 0,
+    "cases": [
+      {
+        "when": "calibercraft:matte_black",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/matte_black/belt"
+        }
+      },
+      {
+        "when": "calibercraft:desert_tan",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/desert_tan/belt"
+        }
+      },
+      {
+        "when": "calibercraft:woodland",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/woodland/belt"
+        }
+      },
+      {
+        "when": "calibercraft:arctic",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/arctic/belt"
+        }
+      },
+      {
+        "when": "calibercraft:digital",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/digital/belt"
+        }
+      },
+      {
+        "when": "calibercraft:industrial",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/industrial/belt"
+        }
+      },
+      {
+        "when": "calibercraft:worn",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/worn/belt"
+        }
+      },
+      {
+        "when": "calibercraft:neon",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/neon/belt"
+        }
+      },
+      {
+        "when": "calibercraft:energy",
+        "model": {
+          "type": "minecraft:model",
+          "model": "calibercraft:item/weapon/lmg/skin/energy/belt"
+        }
+      }
+    ],
+    "fallback": {
+      "type": "minecraft:model",
+      "model": "calibercraft:item/weapon/lmg/skin/standard/belt"
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "category": "rifle",
+  "bounds": {
+    "min": [
+      5.53,
+      -6.169,
+      -26.6
+    ],
+    "max": [
+      10.6,
+      11.75,
+      20.6
+    ]
+  },
+  "animated_parts": [
+    "charging_handle",
+    "magazine"
+  ],
+  "parts": {
+    "magazine": {
+      "pivot": [
+        8,
+        6.4,
+        1.0
+      ],
+      "style": "rock"
+    },
+    "charging_handle": {
+      "travel": [
+        0,
+        0,
+        4.5
+      ]
+    }
+  },
+  "points": {
+    "grip": [
+      8.0,
+      3.533,
+      9.123
+    ],
+    "support": [
+      8,
+      6.4,
+      -10.2
+    ],
+    "ejection": [
+      9.35,
+      8.6,
+      0.8
+    ],
+    "mag_well": [
+      8,
+      5.3,
+      2.3
+    ]
+  },
+  "sights": {
+    "iron": {
+      "y": 11.3,
+      "z": -4.2
+    },
+    "calibercraft:red_dot": {
+      "y": 13.25,
+      "z": 3.8
+    },
+    "calibercraft:holo_sight": {
+      "y": 13.35,
+      "z": 3.8
+    },
+    "calibercraft:acog_scope": {
+      "y": 13.45,
+      "z": 3.8
+    }
+  },
+  "muzzle": {
+    "default": [
+      8,
+      8,
+      -24.0
+    ],
+    "calibercraft:short_barrel": [
+      8,
+      8,
+      -19.6
+    ],
+    "calibercraft:heavy_barrel": [
+      8,
+      8,
+      -26.6
+    ]
+  },
+  "muzzle_length": {
+    "calibercraft:suppressor": 9.3,
+    "calibercraft:compensator": 3.0,
+    "calibercraft:muzzle_brake": 3.6
+  }
+}

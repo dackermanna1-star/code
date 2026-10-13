@@ -1,0 +1,26 @@
+{
+  "slot": "muzzle",
+  "item": "calibercraft:shotgun_choke",
+  "modifiers": [
+    {
+      "stat": "spread_hip",
+      "op": "multiply",
+      "value": 0.7
+    },
+    {
+      "stat": "spread_ads",
+      "op": "multiply",
+      "value": 0.65
+    },
+    {
+      "stat": "effective_range",
+      "op": "multiply",
+      "value": 1.2
+    },
+    {
+      "stat": "recoil_vertical",
+      "op": "multiply",
+      "value": 1.05
+    }
+  ]
+}

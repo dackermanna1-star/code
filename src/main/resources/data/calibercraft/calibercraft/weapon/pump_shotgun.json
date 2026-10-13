@@ -1,0 +1,111 @@
+{
+  "category": "shotgun",
+  "caliber": "calibercraft:12_gauge",
+  "fire_modes": [
+    "semi"
+  ],
+  "action": "pump",
+  "stats": {
+    "damage": 2.8,
+    "pellets": 9,
+    "rpm": 90,
+    "magazine": 6,
+    "effective_range": 9,
+    "max_range": 40,
+    "min_damage_mult": 0.25,
+    "velocity": 20,
+    "gravity": 0.03,
+    "penetration": 0.2,
+    "armor_penetration": 0.0,
+    "headshot_mult": 1.25,
+    "recoil_vertical": 6.0,
+    "recoil_horizontal": 1.5,
+    "recoil_recovery": 0.85,
+    "spread_hip": 4.5,
+    "spread_ads": 3.5,
+    "spread_move": 1.1,
+    "spread_bloom": 0,
+    "spread_bloom_max": 0,
+    "ads_time": 6,
+    "equip_time": 9,
+    "move_speed": 0.96,
+    "ads_move_speed": 0.8,
+    "zoom": 1.1,
+    "loudness": 1.3,
+    "flash": 1.4,
+    "sway": 0.5,
+    "knockback": 0.4,
+    "melee_damage": 5.0
+  },
+  "reload": {
+    "type": "single",
+    "single": {
+      "start": {
+        "length": 6
+      },
+      "per_round": 10,
+      "round_commit": 6,
+      "round_cue": "shell_insert",
+      "end": {
+        "length": 6
+      },
+      "end_empty": {
+        "length": 14,
+        "chamber": 10,
+        "cues": [
+          {
+            "t": 3,
+            "cue": "pump_back"
+          },
+          {
+            "t": 9,
+            "cue": "pump_forward"
+          }
+        ]
+      }
+    }
+  },
+  "cycle": {
+    "length": 13,
+    "chamber": 9,
+    "cues": [
+      {
+        "t": 2,
+        "cue": "pump_back"
+      },
+      {
+        "t": 8,
+        "cue": "pump_forward"
+      }
+    ]
+  },
+  "attachments": {
+    "optic": [
+      "calibercraft:red_dot",
+      "calibercraft:holo_sight"
+    ],
+    "muzzle": [
+      "calibercraft:suppressor",
+      "calibercraft:shotgun_choke"
+    ],
+    "tactical": [
+      "calibercraft:laser_sight"
+    ],
+    "charm": [
+      "calibercraft:charm_creeper",
+      "calibercraft:charm_diamond",
+      "calibercraft:charm_dogtag"
+    ],
+    "barrel": [
+      "calibercraft:short_barrel",
+      "calibercraft:precision_barrel"
+    ],
+    "magazine": [
+      "calibercraft:extended_mag"
+    ],
+    "stock": [
+      "calibercraft:lightweight_stock",
+      "calibercraft:precision_stock"
+    ]
+  }
+}

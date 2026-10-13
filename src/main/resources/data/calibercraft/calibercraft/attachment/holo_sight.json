@@ -1,0 +1,24 @@
+{
+  "slot": "optic",
+  "item": "calibercraft:holo_sight",
+  "modifiers": [
+    {
+      "stat": "zoom",
+      "op": "multiply",
+      "value": 1.3
+    },
+    {
+      "stat": "spread_ads",
+      "op": "multiply",
+      "value": 0.88
+    },
+    {
+      "stat": "ads_time",
+      "op": "add",
+      "value": 1
+    }
+  ],
+  "optic": {
+    "reticle": "holo"
+  }
+}

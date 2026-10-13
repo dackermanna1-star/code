@@ -1,0 +1,39 @@
+{
+  "slot": "muzzle",
+  "item": "calibercraft:suppressor",
+  "modifiers": [
+    {
+      "stat": "loudness",
+      "op": "multiply",
+      "value": 0.3
+    },
+    {
+      "stat": "flash",
+      "op": "multiply",
+      "value": 0.1
+    },
+    {
+      "stat": "velocity",
+      "op": "multiply",
+      "value": 0.93
+    },
+    {
+      "stat": "effective_range",
+      "op": "multiply",
+      "value": 0.92
+    },
+    {
+      "stat": "recoil_vertical",
+      "op": "multiply",
+      "value": 0.92
+    },
+    {
+      "stat": "ads_time",
+      "op": "add",
+      "value": 1
+    }
+  ],
+  "flags": [
+    "suppressed"
+  ]
+}

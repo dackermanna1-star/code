@@ -1,0 +1,14 @@
+{
+  "slot": "grip",
+  "item": "calibercraft:bipod",
+  "modifiers": [
+    {
+      "stat": "recoil_vertical",
+      "op": "multiply",
+      "value": 0.97
+    }
+  ],
+  "flags": [
+    "bipod"
+  ]
+}

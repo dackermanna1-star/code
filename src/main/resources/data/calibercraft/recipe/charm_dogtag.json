@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:string",
+    "minecraft:iron_nugget",
+    "minecraft:iron_nugget"
+  ],
+  "result": {
+    "count": 1,
+    "id": "calibercraft:charm_dogtag"
+  }
+}

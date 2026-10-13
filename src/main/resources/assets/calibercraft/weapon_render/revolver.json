@@ -1,0 +1,92 @@
+{
+  "category": "revolver",
+  "bounds": {
+    "min": [
+      6.2,
+      -1.0,
+      -13.73
+    ],
+    "max": [
+      9.8,
+      10.5,
+      4.25
+    ]
+  },
+  "animated_parts": [
+    "cylinder",
+    "hammer"
+  ],
+  "parts": {
+    "cylinder": {
+      "pivot": [
+        7.1,
+        5.0,
+        -3.85
+      ],
+      "swing_deg": 80,
+      "spin_center": [
+        8.0,
+        6.75,
+        -2.0
+      ],
+      "chambers": 6
+    },
+    "hammer": {
+      "pivot": [
+        8,
+        7.2,
+        1.4
+      ],
+      "cock_deg": 35
+    }
+  },
+  "points": {
+    "grip": [
+      8.0,
+      2.768,
+      3.314
+    ],
+    "support": [
+      6.6,
+      1.651,
+      3.264
+    ],
+    "ejection": [
+      8.0,
+      6.75,
+      -0.3
+    ]
+  },
+  "sights": {
+    "iron": {
+      "y": 10.3,
+      "z": 0.6
+    },
+    "calibercraft:red_dot": {
+      "y": 12.45,
+      "z": -2.25
+    },
+    "calibercraft:acog_scope": {
+      "y": 12.65,
+      "z": -2.25
+    }
+  },
+  "muzzle": {
+    "default": [
+      8,
+      8,
+      -10.7
+    ],
+    "calibercraft:short_barrel": [
+      8,
+      8,
+      -7.7
+    ],
+    "calibercraft:precision_barrel": [
+      8,
+      8,
+      -13.7
+    ]
+  },
+  "muzzle_length": {}
+}
