@@ -46,6 +46,7 @@ import { ZPerks } from './perks.js';
 import { Pickups } from './pickups.js';
 import { ZForge } from './zforge.js';
 import { ZSquad } from './zsquad.js';
+import { ZArsenal } from './zarsenal.js';
 import { newSeed } from './zrng.js';
 
 export { waveStats };
@@ -103,6 +104,7 @@ export class ZombieMode {
     this.pickups = new Pickups(game);
     this.forge = new ZForge(game);
     this.squad = new ZSquad(game);
+    this.arsenal = new ZArsenal(game); // (the arsenal's weapons: blades, crossbow bolts, pipe bombs, cryo - zarsenal.js)
     this.seed = 0;
     this.configure({});
     this.best = this.bestBefore = this.loadBest();
@@ -275,6 +277,7 @@ export class ZombieMode {
     this.feedback.tick(t);
     this.staggers.tick(t); this.shove.tick(t); this.horde.tick(t); this.roster.tick(t); this.threats.tick(t);
     this.mods.tick(t); this.perks.tick(t); this.pickups.tick(t); this.forge.tick(t); this.squad.tick(t);
+    this.arsenal.tick(t);
     this.director.tick(t); // (last: just before the spawn step)
     if (this.state === 'break' && t >= this.nextWaveAt) this.startWave(this.wave + 1);
     if (this.wave === 0) this.syncRecord(); // (the squad fills up before the first wave)
@@ -331,13 +334,15 @@ export class ZombieMode {
     return this.economy.command(p, cmd, args) || this.downed.command(p, cmd, args) || this.feedback.command(p, cmd, args)
       || this.shove.command(p, cmd, args) || this.staggers.command(p, cmd, args) || this.director.command(p, cmd, args)
       || this.horde.command(p, cmd, args) || this.roster.command(p, cmd, args) || this.threats.command(p, cmd, args)
-      || this.mods.command(p, cmd, args) || this.perks.command(p, cmd, args) || this.pickups.command(p, cmd, args) || this.forge.command(p, cmd, args) || this.squad.command(p, cmd, args);
+      || this.mods.command(p, cmd, args) || this.perks.command(p, cmd, args) || this.pickups.command(p, cmd, args) || this.forge.command(p, cmd, args) || this.squad.command(p, cmd, args)
+      || this.arsenal.command(p, cmd, args);
   }
 
   /** The Milestone 2 and 3 features' HUD state (buildHudState, after economy / downed / feedback). */
   hud(s) {
     this.staggers.hud(s); this.shove.hud(s); this.horde.hud(s); this.roster.hud(s); this.threats.hud(s);
     this.mods.hud(s); this.perks.hud(s); this.pickups.hud(s); this.forge.hud(s); this.squad.hud(s);
+    this.arsenal.hud(s);
     this.director.hud(s); // (last: the radar policy sees every blip)
   }
 
@@ -345,6 +350,7 @@ export class ZombieMode {
   frame(dt) {
     this.staggers.frame(dt); this.shove.frame(dt); this.horde.frame(dt); this.roster.frame(dt); this.threats.frame(dt); this.director.frame(dt);
     this.mods.frame(dt); this.perks.frame(dt); this.pickups.frame(dt); this.forge.frame(dt); this.squad.frame(dt);
+    this.arsenal.frame(dt);
   }
 
   /**
@@ -604,6 +610,7 @@ export class ZombieMode {
       const target = this.pickTarget(z, humans, t);
       if (!target) { z.pm.angles[0] = 0; continue; }
       if (z.staggerUntil > t && this.staggers.hold(z, target, cmd, t)) continue; // staggered: no step, no swing (zstagger.js)
+      if (z.lure && this.arsenal.lured(z, cmd, t)) continue; // a pipe bomb's beeping draws it in (zarsenal.js)
       if (z.special && this.specials.think(z, target, cmd, t)) continue; // its own trick this tick
       this.chase(z, target, cmd, t);
       this.separate(z, cmd);
@@ -658,7 +665,7 @@ export class ZombieMode {
    * posed every POSE_STEP s. Scoped in, everything is posed every frame.
    */
   modelDt(z, dt) {
-    if (z.fgFrozen > this.game.time) { z.poseDt = 0; return 0; } // frozen solid (Cryo rounds, zforge.js): the pose holds
+    if (z.fgFrozen > this.game.time || z.frozenUntil > this.game.time) { z.poseDt = 0; return 0; } // frozen solid (Cryo rounds, zforge.js; the cryo grenade, zarsenal.js): the pose holds
     const acc = (z.poseDt || 0) + dt, cam = this.game.camPos, c = this.game.renderer?.camera;
     z.poseDt = 0;
     if (!this.lod || !z.alive || z.isBoss || !cam || !c || acc >= POSE_STEP || (this.game.local?.fov ?? 90) < 90) return acc;

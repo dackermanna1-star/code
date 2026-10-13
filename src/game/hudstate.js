@@ -7,6 +7,7 @@ const XHAIR = {
   p228: [8, 3], hegrenade: [8, 3], smokegrenade: [8, 3], fiveseven: [8, 3], usp: [8, 3], glock: [8, 3], awp: [8, 3], flashbang: [8, 3], deagle: [8, 3],
   mp5: [6, 2], m3: [8, 6], g3sg1: [6, 4], ak47: [4, 4], tmp: [7, 3], knife: [7, 3], p90: [7, 3], xm1014: [9, 4], mac10: [9, 3],
   aug: [3, 3], c4: [6, 3], ump45: [6, 3], m249: [6, 3], scout: [5, 3], sg550: [5, 3], sg552: [5, 3],
+  machete: [7, 3], fireaxe: [8, 3], katana: [7, 3], crossbow: [5, 2], pipebomb: [8, 3], cryogrenade: [8, 3], // (zombie survival arsenal)
 };
 
 const xh = { dist: 4, lastClip: -1, lastWeapon: null };
@@ -57,7 +58,7 @@ export function buildHudState(game, extra = {}) {
     if (xh.dist < target) xh.dist = target;
     xh.dist -= 0.013 * 60 * (extra.dt || 0.016) * (xh.dist - target);
   }
-  const scoped = p.fov < 90 && w && /awp|scout|g3sg1|sg550|barrett/.test(w.id);
+  const scoped = p.fov < 90 && w && /awp|scout|g3sg1|sg550|barrett|crossbow/.test(w.id);
   s.scope = scoped ? (p.fov <= 15 ? 2 : 1) : 0;
   s.crosshair = {
     visible: !!w && !scoped && me.alive && !p.ads, // (not while aiming down a red dot)

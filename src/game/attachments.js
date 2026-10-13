@@ -39,15 +39,15 @@ export const SKINS = {
 export const SKIN_IDS = Object.keys(SKINS);
 
 const GUN_KINDS = new Set(['pistol', 'shotgun', 'smg', 'rifle', 'sniper', 'mg']);
-const SCOPED = new Set(['aug', 'sg552', 'scout', 'awp', 'g3sg1', 'sg550', 'barrett']);
+const SCOPED = new Set(['aug', 'sg552', 'scout', 'awp', 'g3sg1', 'sg550', 'barrett', 'crossbow']);
 const BUILT_IN_SILENCER = new Set(['usp', 'm4a1']);
 // what each kind of gun can't take
 const NO = {
-  muzzle: (id) => BUILT_IN_SILENCER.has(id) || id === 'minigun' || id === 'elite',
+  muzzle: (id) => BUILT_IN_SILENCER.has(id) || id === 'minigun' || id === 'elite' || id === 'crossbow', // (a crossbow is silent already)
   optic: (id) => SCOPED.has(id) || id === 'minigun' || id === 'elite',
   grip: (id, def) => def.slot === 2 || id === 'p90' || id === 'elite' || id === 'minigun',
   laser: (id) => id === 'elite',
-  mag: () => false,
+  mag: (id) => id === 'crossbow', // (one bolt on the rail)
 };
 
 export const isGun = (w) => !!w && GUN_KINDS.has(w.def.kind);

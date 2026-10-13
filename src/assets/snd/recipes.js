@@ -63,7 +63,8 @@ export const SOUND_GROUPS = {
   'Squad roles': [], // (snd/squad.js)
   'Boss overhaul': [], // (snd/bossfx.js)
   Drops: ['loot_drop', 'loot_cash', 'loot_ammo', 'loot_health', 'powerup_spawn', 'powerup_loop', 'powerup_grab', 'pu_maxammo', 'pu_instakill', 'pu_doublecash', 'pu_nuke', 'pu_firesale', 'powerup_fade', 'powerup_vanish', 'airdrop_flare', 'flare_loop', 'airdrop_plane', 'airdrop_land', 'crate_beep', 'crate_open'], // (snd/drops.js)
-  Arsenal: [], // (gunshots: GUNS in snd/weapons.js; the rest snd/arsenal.js)
+  Arsenal: ['machete_slash', 'machete_hit', 'axe_swing', 'axe_hit', 'axe_draw', 'katana_slash', 'katana_heavy', 'katana_hit', 'katana_draw', 'blade_wall',
+    'crossbow_fire', 'crossbow_crank', 'crossbow_load', 'bolt_hit', 'bolt_flesh', 'pipebomb_arm', 'pipebomb_beep', 'pipebomb_explode', 'cryo_burst', 'freeze', 'ice_shatter'], // (gunshots: GUNS in snd/weapons.js; the rest snd/arsenal.js)
   'Title screen': ['title_theme', 'title_start'],
 };
 

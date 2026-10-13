@@ -69,9 +69,13 @@ export const AMMO_TYPES = Object.freeze({
   Fuel: { max: 300, cost: 120, amount: 100 },
   Rocket: { max: 6, cost: 600, amount: 1 },
   Grenade40: { max: 18, cost: 450, amount: 6 },
+  // zombie survival arsenal (Milestone 3: zarsenal.js)
+  Bolt: { max: 20, cost: 120, amount: 5 },
+  PipeBomb: { max: 2, cost: 500, amount: 1 },
+  CryoGrenade: { max: 2, cost: 600, amount: 1 },
 });
 
-export const WEAPON_IDS = Object.freeze(['knife', 'glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven', 'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90', 'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249', 'hegrenade', 'flashbang', 'smokegrenade', 'c4', 'molotov', 'flamethrower', 'rpg', 'm32', 'medkit', 'minigun', 'aa12', 'barrett', 'chainsaw', 'tesla', 'claymore', 'remotec4']);
+export const WEAPON_IDS = Object.freeze(['knife', 'glock', 'usp', 'p228', 'deagle', 'elite', 'fiveseven', 'm3', 'xm1014', 'mac10', 'tmp', 'mp5', 'ump45', 'p90', 'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249', 'hegrenade', 'flashbang', 'smokegrenade', 'c4', 'molotov', 'flamethrower', 'rpg', 'm32', 'medkit', 'minigun', 'aa12', 'barrett', 'chainsaw', 'tesla', 'claymore', 'remotec4', 'machete', 'fireaxe', 'katana', 'crossbow', 'pipebomb', 'cryogrenade']);
 
 // view-model sequence tables (weapons.h enums, in order)
 const SEQ_RIFLE = ['idle1', 'reload', 'draw', 'shoot1', 'shoot2', 'shoot3'];
@@ -102,6 +106,9 @@ const SEQ = {
   medkit: ['idle', 'use', 'draw'],
   minigun: SEQ_RIFLE, aa12: SEQ_RIFLE, barrett: SEQ_RIFLE, chainsaw: SEQ_RIFLE, tesla: SEQ_RIFLE,
   claymore: ['idle', 'place', 'draw'], remotec4: ['idle', 'pullpin', 'throw', 'draw'],
+  // the arsenal (zombie survival)
+  machete: ['idle', 'slash1', 'slash2', 'draw'], fireaxe: ['idle', 'chop', 'chop_miss', 'draw'], katana: ['idle', 'slash1', 'slash2', 'slash3', 'draw'],
+  crossbow: ['idle', 'shoot1', 'reload', 'draw'], pipebomb: ['idle', 'pullpin', 'throw', 'draw'], cryogrenade: ['idle', 'pullpin', 'throw', 'draw'],
 };
 
 const W = (f) => `weapons/${f}.wav`;
@@ -379,10 +386,64 @@ const RAW = {
     heal: 50, useTime: 1.4,
     sounds: { fire: 'medkit_use', files: {} },
   },
+  // ---- the arsenal (zombie survival, Milestone 3: zarsenal.js does the hits, bolts, lures and frost)
+  // Melee weapons take the knife's slot when bought. swings: the combo, in order (a swing
+  // starts the next one if it comes within comboWindow s): its view-model animation, the
+  // damage, when the blade lands (delay s after the press), the cycle, the arc it sweeps
+  // (half-angle, deg) traced by rays, and its stagger (the fire axe).
+  machete: {
+    name: 'Machete', shortName: 'Machete', slot: 3, position: 2, menu: 'melee', menuSlot: 1, team: null, price: 1200, zombieOnly: true,
+    clip: WEAPON_NOCLIP, ammoType: null, maxSpeed: 250, weight: 0, kind: 'knife', hasSecondary: false,
+    damage: 52, swingRange: 66, targets: 1, comboWindow: 0.9, drawTime: 0.7,
+    swings: [
+      { anim: 'slash1', damage: 52, delay: 0.09, cycle: 0.44, arc: 16, rays: 3 },
+      { anim: 'slash2', damage: 52, delay: 0.09, cycle: 0.44, arc: 16, rays: 3 },
+    ],
+    sounds: { fire: 'machete_slash', hit: 'machete_hit', deploy: 'knife_deploy', files: {} },
+  },
+  fireaxe: {
+    name: 'Fire Axe', shortName: 'Fire Axe', slot: 3, position: 3, menu: 'melee', menuSlot: 2, team: null, price: 1800, zombieOnly: true,
+    clip: WEAPON_NOCLIP, ammoType: null, maxSpeed: 240, weight: 0, kind: 'knife', hasSecondary: false,
+    damage: 135, swingRange: 74, targets: 1, comboWindow: 0, drawTime: 0.85,
+    swings: [
+      { anim: 'chop', damage: 135, delay: 0.3, cycle: 1.0, arc: 10, rays: 3, vertical: true, stagger: 1.25 },
+    ],
+    sounds: { fire: 'axe_swing', hit: 'axe_hit', deploy: 'axe_draw', files: {} },
+  },
+  katana: {
+    name: 'Katana', shortName: 'Katana', slot: 3, position: 4, menu: 'melee', menuSlot: 3, team: null, price: 2500, zombieOnly: true,
+    clip: WEAPON_NOCLIP, ammoType: null, maxSpeed: 250, weight: 0, kind: 'knife', hasSecondary: false,
+    damage: 68, swingRange: 82, targets: 2, comboWindow: 1.0, drawTime: 0.9,
+    swings: [
+      { anim: 'slash1', damage: 68, delay: 0.1, cycle: 0.46, arc: 36, rays: 7 },
+      { anim: 'slash2', damage: 68, delay: 0.1, cycle: 0.46, arc: 36, rays: 7 },
+      { anim: 'slash3', damage: 115, delay: 0.17, cycle: 0.78, arc: 14, rays: 3, vertical: true, sound: 'katana_heavy' },
+    ],
+    sounds: { fire: 'katana_slash', hit: 'katana_hit', deploy: 'katana_draw', files: {} },
+  },
+  crossbow: {
+    name: 'Hunting Crossbow', shortName: 'Crossbow', slot: 1, position: 14, menu: 'melee', menuSlot: 4, team: null, price: 2400, zombieOnly: true,
+    clip: 1, ammoType: 'Bolt', spawnReserve: 5, maxSpeed: 235, maxSpeedZoom: 200, weight: 20, kind: 'sniper', hasSecondary: true,
+    damage: 210, pierceDamage: 0.7, boltSpeed: 3200, rangeModifier: 1, penetration: 0, distance: 6000, bulletType: BULLET.PLAYER_338MAG,
+    cycleTime: 0.3, reloadTime: 1.6, zoomLevels: [40], initialAccuracy: 0,
+    sounds: { fire: 'crossbow_fire', zoom: 'zoom', files: {} },
+  },
+  pipebomb: {
+    name: 'Pipe Bomb', shortName: 'Pipe Bomb', slot: 4, position: 8, menu: 'grenades', menuSlot: 3, team: null, price: 500, zombieOnly: true,
+    clip: WEAPON_NOCLIP, ammoType: 'PipeBomb', maxSpeed: 250, weight: 1, kind: 'grenade', hasSecondary: true,
+    lure: 4, damage: 250, radius: 320,
+    sounds: { fire: 'pipebomb_arm', files: {} },
+  },
+  cryogrenade: {
+    name: 'Cryo Grenade', shortName: 'Cryo', slot: 4, position: 9, menu: 'grenades', menuSlot: 4, team: null, price: 600, zombieOnly: true,
+    clip: WEAPON_NOCLIP, ammoType: 'CryoGrenade', maxSpeed: 250, weight: 1, kind: 'grenade', hasSecondary: true,
+    freeze: 3, radius: 230, fuse: 1.5,
+    sounds: { fire: 'cryo_burst', files: {} },
+  },
 };
 
 /** How many of a slot-4 item one can carry. */
-export function stackMax(id) { return id === 'flashbang' || id === 'claymore' ? 2 : id === 'molotov' || id === 'medkit' || id === 'remotec4' ? 3 : 1; }
+export function stackMax(id) { return id === 'flashbang' || id === 'claymore' || id === 'pipebomb' || id === 'cryogrenade' ? 2 : id === 'molotov' || id === 'medkit' || id === 'remotec4' ? 3 : 1; }
 
 function buildDef(id, r) {
   const a = r.ammoType ? AMMO_TYPES[r.ammoType] : null;
@@ -1562,6 +1623,68 @@ function c4Deploy(w, ctx) {
   defaultDeploy(w, ctx, 'draw', 'draw');
 }
 
+// ---------------------------------------------------------------- the arsenal (zombie survival)
+// Machete, fire axe, katana: a swing plays its animation and whoosh at once and the blade
+// lands def.swings[n].delay s later - the host traces and hurts then (ctx.melee(w, swing):
+// zarsenal.js). The katana's swings chain into a combo (comboWindow).
+function meleePrimary(w, ctx) {
+  const d = w.def, t = ctx.time;
+  if (!(t - (w.lastSwing ?? -99) <= d.comboWindow)) w.swing = 0;
+  const s = d.swings[w.swing % d.swings.length];
+  w.swing++;
+  w.lastSwing = t;
+  anim(w, ctx, s.anim, s.anim);
+  emit(ctx, 'player_anim', { anim: 'attack1', weapon: w.id });
+  sound(ctx, s.sound || d.sounds.fire, { channel: 'weapon', pitch: rndFloat(ctx, 0.95, 1.05), weapon: w.id });
+  if (ctx.melee) ctx.melee(w, s);
+  w.nextPrimary = t + s.cycle;
+  w.timeIdle = t + s.cycle + 1.5;
+}
+
+function meleeDeploy(w, ctx) {
+  sound(ctx, w.def.sounds.deploy, { channel: 'item', volume: 0.5, weapon: w.id });
+  w.swing = 0;
+  defaultDeploy(w, ctx, 'draw', 'draw');
+  w.nextAttack = ctx.time + w.def.drawTime;
+}
+
+// Crossbow: one bolt at a time, silent; the game flies it (ctx.bolt(w, spread): a projectile
+// that goes through the first body). Right-click: a 2.25x scope. Empty: it cranks the next one in.
+function crossbowPrimary(w, ctx) {
+  const t = ctx.time;
+  if (w.shotsFired > 0) return; // semi-auto
+  if (w.clip <= 0) { if (reserve(w) > 0) crossbowReload(w, ctx); else emptyFire(w, ctx); return; }
+  w.shotsFired = 1;
+  w.clip--;
+  let spread = !grounded(ctx) ? 0.12 : ctx.speed2d > 140 ? 0.035 : ctx.speed2d > 10 ? 0.012 : ctx.ducking ? 0.001 : 0.003;
+  if (w.fov === DEFAULT_FOV) spread += 0.006;
+  if (w.mods) spread *= w.mods.spread * (w.fov === DEFAULT_FOV ? w.mods.hip : 1);
+  if (ctx.bolt) ctx.bolt(w, spread);
+  shootEffects(w, ctx, 'shoot1', 'shoot1', { muzzle: false, ejectNow: false });
+  w.nextPrimary = w.nextSecondary = t + w.def.cycleTime;
+  w.timeIdle = t + 1.5;
+  ctx.punch[0] -= 1.6;
+  ctx.punch[1] += rndFloat(ctx, -0.3, 0.3);
+}
+function crossbowZoom(w, ctx) {
+  setFov(w, ctx, w.fov === DEFAULT_FOV ? w.def.zoomLevels[0] : DEFAULT_FOV);
+  emit(ctx, 'reset_max_speed', { weapon: w.id });
+  sound(ctx, 'zoom', { channel: 'item', volume: 0.2, weapon: w.id });
+  w.nextSecondary = ctx.time + 0.3;
+}
+function crossbowReload(w, ctx) {
+  if (!defaultReload(w, ctx, 'reload', 'reload', w.def.reloadTime)) return;
+  emit(ctx, 'player_anim', { anim: 'reload', weapon: w.id });
+  if (w.fov !== DEFAULT_FOV) setFov(w, ctx, DEFAULT_FOV);
+}
+function crossbowIdle(w, ctx) {
+  w.shotsFired = 0;
+  resetEmptySound(w);
+  if (w.timeIdle > ctx.time || !w.clip) return;
+  w.timeIdle = ctx.time + 60;
+  anim(w, ctx, 'idle', 'idle');
+}
+
 // ---------------------------------------------------------------- dispatch table
 const noop = () => {};
 const BEHAVIOR = {};
@@ -1599,6 +1722,9 @@ BEHAVIOR.tesla = { primary: teslaPrimary, secondary: noop, reload: specialReload
 BEHAVIOR.claymore = { primary: minePrimary, secondary: noop, reload: noop, idle: mineIdle, deploy: (w, ctx) => { w.placeEnd = 0; defaultDeploy(w, ctx, 'draw', 'draw'); w.nextAttack = ctx.time + 0.5; } };
 BEHAVIOR.remotec4 = { primary: remotePrimary, secondary: remoteSecondary, reload: noop, idle: grenadeIdle, deploy: grenadeDeploy };
 BEHAVIOR.medkit = { primary: medkitPrimary, secondary: medkitSecondary, reload: noop, idle: medkitIdle, deploy: (w, ctx) => { w.healEnd = 0; w.healTarget = null; defaultDeploy(w, ctx, 'draw', 'draw'); w.nextAttack = ctx.time + 0.35; } };
+for (const id of ['machete', 'fireaxe', 'katana']) BEHAVIOR[id] = { primary: meleePrimary, secondary: noop, reload: noop, idle: knifeIdle, deploy: meleeDeploy };
+BEHAVIOR.crossbow = { primary: crossbowPrimary, secondary: crossbowZoom, reload: crossbowReload, idle: crossbowIdle, deploy: (w, ctx) => { w.shotsFired = 0; defaultDeploy(w, ctx, 'draw', 'draw'); } };
+for (const id of ['pipebomb', 'cryogrenade']) BEHAVIOR[id] = { ...BEHAVIOR.hegrenade };
 
 // ---------------------------------------------------------------- public API
 /** CanDeploy: grenades / C4 need ammo. */

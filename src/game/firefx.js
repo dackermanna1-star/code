@@ -52,9 +52,11 @@ const RAMPS = {
   volt: [[0, 1, 1, 1, 1], [0.3, 0.62, 0.8, 1, 1], [1, 0.2, 0.35, 1, 0]],
   siphon: [[0, 1, 0.45, 0.45, 0], [0.12, 1, 0.12, 0.16, 0.95], [0.7, 0.65, 0.02, 0.05, 0.7], [1, 0.3, 0, 0.02, 0]],
   signal: [[0, 0.95, 0.22, 0.12, 0], [0.08, 0.9, 0.2, 0.12, 0.8], [0.55, 0.72, 0.24, 0.18, 0.5], [1, 0.55, 0.32, 0.28, 0]], // an airdrop flare's red smoke (airdrop.js)
+  cryo: [[0, 0.85, 0.95, 1, 0], [0.1, 0.8, 0.92, 1, 0.75], [0.6, 0.7, 0.85, 0.98, 0.4], [1, 0.75, 0.88, 1, 0]], // a cryo grenade's frost cloud (zarsenal.js)
+  glint: [[0, 0.6, 0.85, 1, 1], [0.5, 0.45, 0.75, 1, 0.8], [1, 0.2, 0.4, 0.8, 0]], // ice sparkle (zarsenal.js)
 };
-const ADDITIVE = new Set(['fire', 'acid', 'spark', 'ember', 'frost', 'volt', 'siphon']);
-const FRAME = { fire: [0, 1], acid: [0, 1], spark: [3, 3], ember: [3, 3], smoke: [2, 2], mist: [2, 2], dust: [2, 2], trail: [2, 2], gas: [2, 2], frost: [3, 0], icemist: [2, 2], volt: [3, 3], siphon: [3, 0], signal: [2, 2] };
+const ADDITIVE = new Set(['fire', 'acid', 'spark', 'ember', 'frost', 'volt', 'siphon', 'glint']);
+const FRAME = { fire: [0, 1], acid: [0, 1], spark: [3, 3], ember: [3, 3], smoke: [2, 2], mist: [2, 2], dust: [2, 2], trail: [2, 2], gas: [2, 2], frost: [3, 0], icemist: [2, 2], volt: [3, 3], siphon: [3, 0], signal: [2, 2], cryo: [2, 2], glint: [3, 3] };
 const KIND_IDS = Object.keys(RAMPS);
 
 function sampleRamp(r, t, out) {

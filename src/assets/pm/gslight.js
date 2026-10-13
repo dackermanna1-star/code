@@ -37,6 +37,7 @@ uniform float uWound;
 uniform sampler2D glowMap; // self-lit parts (zombie bosses: embers, pustules, eyes), same UVs
 uniform vec3 uGlow;
 uniform float uChar;       // burnt black by fire (0..1)
+uniform float uFrost;      // frozen solid (zombie survival cryo grenade, 0..1): pale ice, a cold sheen
 varying vec2 vUv;
 varying vec3 vLight;
 varying vec3 vRim;
@@ -52,6 +53,7 @@ void main() {
 #else
   if (t.a < 0.5) discard;
   vec3 c = t.rgb * mix(vec3(1.0), vec3(0.16, 0.13, 0.11), uChar) * vLight;
+  if (uFrost > 0.0) c = mix(c, vec3(0.55, 0.78, 1.0) * (0.35 + 0.95 * dot(c, vec3(0.3, 0.45, 0.25))) + vec3(0.05, 0.09, 0.14), uFrost);
   if (uGlow.x + uGlow.y + uGlow.z > 0.0) c += texture2D(glowMap, vUv).rgb * uGlow;
   c += vRim;
   gl_FragColor = vec4(c, 1.0);
@@ -106,6 +108,7 @@ export function createGsMaterial(map, lightUniforms, translucent = false) {
   uniforms.uGlow = { value: new THREE.Vector3(0, 0, 0) };
   uniforms.uRim = { value: new THREE.Vector3(0, 0, 0) };
   uniforms.uChar = { value: 0 };
+  uniforms.uFrost = { value: 0 };
   const m = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, fog: true });
   m.name = 'gs-studio';
   if (translucent) {

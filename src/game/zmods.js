@@ -71,7 +71,7 @@ export function defineStat(name, spec) {
   return STATS[name];
 }
 
-const MELEE = new Set(['knife', 'chainsaw', 'shove']);
+const MELEE = new Set(['knife', 'chainsaw', 'shove', 'machete', 'fireaxe', 'katana']); // (the arsenal's blades: weaponsys.js)
 /**
  * What kind of damage a hit is: 'fire' | 'acid' | 'melee' (knife, chainsaw, shove, and a
  * zombie's or a boss's claws) | 'energy' (the tesla) | 'blast' (explosions, screams, slams) |

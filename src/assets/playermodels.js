@@ -491,6 +491,9 @@ class PlayerModel {
   /** Burnt black by fire (0..1). */
   setChar(c) { this.material.uniforms.uChar.value = c; }
 
+  /** Frozen over by a cryo grenade (zombie survival, zarsenal.js): 0..1. */
+  setFrost(k) { if (this.material.uniforms.uFrost) this.material.uniforms.uFrost.value = k; }
+
   /** Wound overlay (a texture in the skin's UV layout, see src/game/wounds.js); null removes it. */
   setWoundMap(tex) {
     const u = this.material.uniforms;

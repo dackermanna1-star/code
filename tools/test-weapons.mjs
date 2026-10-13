@@ -89,7 +89,7 @@ class Sim {
 
 // ------------------------------------------------------------------ 1. definitions
 section('definitions');
-check('29 weapon ids', WEAPON_IDS.length === 29 && WEAPON_IDS.every((id) => WEAPON_DEFS[id]));
+check('29 weapon ids (the stock 1.6 set; zombie-survival extras on top)', WEAPON_IDS.filter((id) => !WEAPON_DEFS[id].zombieOnly).length === 29 && WEAPON_IDS.every((id) => WEAPON_DEFS[id]));
 const d = WEAPON_DEFS;
 check('buy-menu names', d.galil.name === 'IDF Defender' && d.famas.name === 'Clarion 5.56' && d.mp5.name === 'KM Sub-Machine Gun' && d.ak47.name === 'CV-47' && d.m4a1.name === 'Maverick M4A1 Carbine' && d.awp.name === 'Magnum Sniper Rifle' && d.deagle.name === 'Night Hawk .50C' && d.usp.name === 'K&M .45 Tactical' && d.glock.name === '9x19mm Sidearm');
 check('prices', d.ak47.price === 2500 && d.m4a1.price === 3100 && d.awp.price === 4750 && d.galil.price === 2000 && d.famas.price === 2250 && d.deagle.price === 650 && d.m249.price === 5750 && d.hegrenade.price === 300 && d.flashbang.price === 200);
@@ -621,7 +621,40 @@ section('misc');
       if (!Number.isFinite(s.w.clip) || !Number.isFinite(s.w.ammo)) ok = false;
     } catch (e) { ok = false; console.log('   ', id, e.message); }
   }
-  check('all 29 weapons run deploy/fire/alt/reload/idle/holster without errors', ok);
+  check(`all ${WEAPON_IDS.length} weapons run deploy/fire/alt/reload/idle/holster without errors`, ok);
+}
+
+section('zombie survival arsenal');
+{
+  // melee: the swing hands the host its swing (ctx.melee) - the machete alternates, the katana chains three
+  const swings = (id, secs) => {
+    const s = new Sim(id);
+    const got = [];
+    s.ctx.melee = (w, sw) => got.push({ t: s.t, anim: sw.anim, damage: sw.damage, delay: sw.delay });
+    s.deploy(); s.run(1, 0); s.run(secs, ATTACK);
+    return got;
+  };
+  const m = swings('machete', 1.0), k = swings('katana', 1.6), a = swings('fireaxe', 2.05);
+  check('machete: fast alternating slashes', m.length >= 2 && m[0].anim === 'slash1' && m[1].anim === 'slash2' && near(m[1].t - m[0].t, 0.44, 0.011), m.map((x) => x.anim).join());
+  check('katana: a three-swing combo, the third the heavy one', k.length >= 3 && k[2].anim === 'slash3' && k[2].damage > k[0].damage, k.map((x) => x.anim).join());
+  check('fire axe: one heavy chop a second, landing late', a.length === 3 && a[0].damage >= 120 && a[0].delay >= 0.25 && near(a[1].t - a[0].t, 1.0, 0.011));
+  check('melee weapons take the knife slot and need no ammo', ['machete', 'fireaxe', 'katana'].every((id) => WEAPON_DEFS[id].slot === 3 && WEAPON_DEFS[id].clip === -1 && WEAPON_DEFS[id].zombieOnly));
+  // crossbow: one bolt, cranked in again when empty
+  const s = new Sim('crossbow', { weapon: { reserve: 3 } });
+  const bolts = [];
+  s.ctx.bolt = (w, spread) => bolts.push({ t: s.t, spread });
+  s.deploy(); s.run(1, 0); s.run(0.1, ATTACK); s.run(0.1, 0);
+  check('crossbow: a bolt per pull, silent (no flash), empty after it', bolts.length === 1 && s.w.clip === 0 && !s.log.events.some((e) => e.type === 'muzzleflash'));
+  s.run(2.0, 0);
+  check('crossbow: cranks the next bolt in (1.6 s)', s.w.clip === 1 && s.w.ammo === 2 && s.log.anims.some((x) => x.name === 'reload'));
+  s.run(0.1, ATTACK2);
+  check('crossbow: right-click scopes in', s.ctx.fov === 40);
+  // throwables go through the host's throw (grenades.js hands them to zarsenal.js)
+  for (const id of ['pipebomb', 'cryogrenade']) {
+    const g = new Sim(id);
+    g.deploy(); g.run(1, 0); g.run(0.3, ATTACK); g.run(1.5, 0);
+    check(`${id}: thrown like a grenade`, g.log.grenades.length === 1 && g.log.grenades[0].type === id);
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed${fail ? ': ' + failures.join('; ') : ''}`);

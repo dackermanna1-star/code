@@ -22,6 +22,7 @@ export const WEAPON_IDS = [
   'galil', 'famas', 'ak47', 'm4a1', 'sg552', 'aug', 'scout', 'awp', 'g3sg1', 'sg550', 'm249',
   'hegrenade', 'flashbang', 'smokegrenade', 'c4',
   'molotov', 'flamethrower', 'rpg', 'm32', 'medkit', 'minigun', 'aa12', 'barrett', 'chainsaw', 'tesla', 'claymore', 'remotec4',
+  'machete', 'fireaxe', 'katana', 'crossbow', 'pipebomb', 'cryogrenade',
 ];
 
 // HUD ammo icon used by each weapon (weapon_*.txt "ammo" sprite)
@@ -36,6 +37,7 @@ export const WEAPON_AMMO = {
   hegrenade: 'hegrenade', flashbang: 'flashbang', smokegrenade: 'smokegrenade', c4: 'c4',
   molotov: 'molotov', flamethrower: 'fuel', rpg: 'rocket', m32: 'grenade40', medkit: 'medkit',
   minigun: '556natobox', aa12: 'buckshot', barrett: '50bmg', chainsaw: 'fuel', tesla: 'cell', claymore: 'claymore', remotec4: 'remotec4',
+  machete: 'blade', fireaxe: 'blade', katana: 'blade', crossbow: 'bolt', pipebomb: 'pipebomb', cryogrenade: 'cryo', // (the arsenal; a blade shows no count)
 };
 
 // kill-feed sprite widths (hud.txt d_* rectangles, all 16 high)
@@ -45,6 +47,7 @@ export const KILL_ICON_W = {
   galil: 48, famas: 48, ak47: 48, m4a1: 48, sg552: 48, aug: 44, scout: 48, awp: 48, g3sg1: 48, sg550: 48, m249: 48,
   hegrenade: 32, flashbang: 48, smokegrenade: 48, c4: 32, skull: 32, headshot: 36,
   molotov: 32, flamethrower: 48, rpg: 48, m32: 48, medkit: 32, minigun: 48, aa12: 48, barrett: 48, chainsaw: 48, tesla: 48, claymore: 32, remotec4: 32, zombie: 32, fireball: 32, acid: 32,
+  machete: 48, fireaxe: 48, katana: 48, crossbow: 48, pipebomb: 32, cryogrenade: 32,
 };
 
 // ---------------------------------------------------------------- rasterising
@@ -540,6 +543,44 @@ Object.assign(WEAPON_SHAPES, {
     P(9, 5, 0, 7.5, 0, 11.6, 2, 11.6, 9, 9),                          // stock
     R(25, 8.4, 1.6, 4.6),
   ] },
+  // the arsenal (zarsenal.js)
+  machete: { w: 48, ops: [
+    P(1, 8.2, 3, 7.2, 12, 7.4, 12, 10.6, 3, 10.8, 1, 9.8), X(C(5, 9, 0.7)), X(C(9, 9, 0.7)), // grip, rivets
+    R(12, 6.6, 1.8, 4.8),                                                                  // bolster
+    P(13.8, 7.0, 38, 5.0, 44, 4.6, 47.4, 6.2, 45.4, 10.2, 38, 11.4, 13.8, 10.3),           // blade, widening to the tip
+    X(L(16, 7.8, 40, 6.2, 0.5)),                                                           // spine
+  ] },
+  fireaxe: { w: 48, ops: [
+    R(1, 8.6, 38, 2.4), X(R(3, 9.3, 7, 1)),                       // haft, grip wrap
+    R(36.4, 5.4, 6, 7.2),                                         // head
+    P(36.4, 5.6, 34.2, 0.6, 46.2, 0.6, 42.4, 5.6),                // the bit, up
+    P(38.2, 12.6, 40.8, 12.6, 40, 15.8, 39, 15.8),                // the pick, down
+  ] },
+  katana: { w: 48, ops: [
+    R(1, 8.3, 11, 2.8), X(L(2.5, 8.6, 4.5, 10.8, 0.6)), X(L(5.5, 8.6, 7.5, 10.8, 0.6)), X(L(8.5, 8.6, 10.5, 10.8, 0.6)), // tsuka
+    E(12.8, 9.7, 1.2, 3.4),                                       // tsuba
+    P(14, 8.6, 30, 8.0, 40, 6.6, 46.8, 3.8, 44.6, 7.8, 31, 10.4, 14, 10.8), // the curved blade
+    X(L(16, 9.1, 40, 7.4, 0.35)),                                 // hamon
+  ] },
+  crossbow: { w: 48, ops: [
+    P(0, 7, 10, 7.4, 10, 11.6, 1.4, 13.4),                        // stock
+    R(10, 6.6, 23, 2.6), P(12, 9, 15, 9, 14, 14, 11, 14),          // body, grip
+    L(33.6, 7.6, 30.6, 1.2, 1.3), L(33.6, 8.6, 30.6, 15, 1.3),     // limbs
+    L(30.6, 1.2, 20, 7.6, 0.45), L(30.6, 15, 20, 8.6, 0.45),       // string
+    R(15, 3.6, 9, 1.8), R(16, 5.2, 1.2, 1.6), R(22, 5.2, 1.2, 1.6), // scope
+    P(33, 7.4, 37.5, 8.1, 33, 8.8),                               // bolt tip
+  ] },
+  pipebomb: { w: 32, ops: [
+    R(5, 6, 20, 6.2), R(3, 5.2, 2.4, 7.8), R(24.6, 5.2, 2.4, 7.8), // pipe, caps
+    X(R(9, 6.6, 1.2, 5)), X(R(18.4, 6.6, 1.2, 5)),                 // tape
+    R(11, 2.6, 6.4, 3.2), X(R(12.2, 3.4, 4, 1.2)),                 // the timer
+    L(27, 9, 30.5, 4.2, 0.8),                                      // the fuse wire
+  ] },
+  cryogrenade: { w: 32, ops: [
+    P(6, 6, 7, 5, 19, 5, 20, 6, 20, 12, 19, 13, 7, 13, 6, 12),     // canister
+    R(20, 7, 3, 4), R(23, 7.8, 2.4, 2.4), L(21, 5, 26, 2.6, 0.9),  // cap, fuze, spoon
+    X(L(9, 9, 17, 9, 0.8)), X(L(13, 6, 13, 12, 0.8)), X(L(10.4, 6.6, 15.6, 11.4, 0.7)), X(L(10.4, 11.4, 15.6, 6.6, 0.7)), // the snowflake
+  ] },
   zombie: { w: 32, ops: [L(6, 2, 14, 14, 2), L(13, 1.5, 21, 14.5, 2.2), L(20, 2, 28, 14, 2)] }, // claw marks
   fireball: { w: 32, ops: [E(18, 8.5, 6.5, 5.5), P(12, 6, 2, 3, 8, 8.5, 1, 11, 12, 11.5), X(E(19.5, 8, 3, 2.4))] },
   acid: { w: 32, ops: [P(16, 1, 21, 8, 21, 11, 16, 15, 11, 11, 11, 8), E(6, 11, 2.4, 3), E(26, 12, 2, 2.6), X(E(14, 9, 1.4, 2))] },
@@ -870,6 +911,10 @@ const HUD_BUILDERS = {
   ammo_fuel: () => ammo([P(12, 1.5, 18, 11, 18.5, 15, 16, 20, 12, 21.5, 8, 20, 5.5, 15, 6, 11), X(E(10, 14, 1.4, 2.6))], null, 0),
   ammo_rocket: () => ammo([P(2, 22, 4, 18, 13, 9, 15, 11, 6, 20), P(13, 9, 15, 6, 21, 3, 18, 9, 15, 11), P(2, 15, 6, 16, 4, 18), P(9, 22, 8, 18, 6, 20)], null, 0),
   ammo_grenade40: () => ammo([R(6, 9, 12, 12), P(6, 9, 8, 5, 16, 5, 18, 9), X(R(6, 16, 12, 1))], '40', 13),
+  ammo_bolt: () => ammo([L(4, 20, 18, 6, 1.6), P(16, 4, 22, 2, 20, 8), P(4, 20, 2.6, 15.6, 6.4, 17.6), P(4, 20, 8.4, 21.4, 6.4, 17.6)], null, 0),
+  ammo_pipebomb: () => ammo([R(4, 10, 16, 7), R(2, 9, 2.4, 9), R(19.6, 9, 2.4, 9), R(8, 5.4, 7, 3.6), X(R(9, 6.2, 5, 1.4))], null, 0),
+  ammo_cryo: () => grenadeAmmo('CR', false),
+  ammo_blade: () => ammo([P(3, 21, 6, 18, 17, 6, 22, 2, 19, 8, 8, 20)], null, 0),
   ammo_c4: () => ammo([P(1, 9.6, 2.6, 8, 21.4, 8, 23, 9.6, 23, 15.4, 21.4, 17, 2.6, 17, 1, 15.4), X(R(4, 9.6, 6, 3)), X(R(3.4, 14, 17, 0.8))], 'C4', 2),
 };
 

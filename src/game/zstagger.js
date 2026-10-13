@@ -95,6 +95,13 @@ const STOP = {
   g3sg1: { gain: 0, amt: 0, leg: 0 },
   sg550: { gain: 0, amt: 0, leg: 0 },
   barrett: { gain: 0, amt: 0, leg: 0 },
+  // the arsenal (zarsenal.js): the machete and katana chop a zombie off balance in two or
+  // three cuts; the fire axe staggers by itself (its own hold, every chop), the crossbow kills
+  // but doesn't stop
+  machete: { gain: 0.011, amt: 0.65, leg: 0.5 },
+  katana: { gain: 0.009, amt: 0.6, leg: 0.5 },
+  fireaxe: { gain: 0, amt: 0, leg: 0 },
+  crossbow: { gain: 0, amt: 0, leg: 0 },
 };
 const DEFAULT = { gain: 0.007, amt: 0.6, leg: 0.3 };
 const BLAST = { gain: 0.01, amt: 1, leg: 0, push: 0 }; // grenades, rockets, mines: by damage
