@@ -777,7 +777,9 @@ export class ClientGame {
     this.sun.position.copy(cam).addScaledVector(sunDir, 50);
     this.sun.target.position.copy(cam);
     this.sun.intensity = Math.max(0, sunDir.y) * 1.4 * day;
-    this.ambient.intensity = 0.25 + day * 0.6;
+    // Match entity brightness to the terrain's sky-light curve: dark at night,
+    // a little brighter if the player holds a light (the torch point light adds locally).
+    this.ambient.intensity = 0.05 + Math.pow(day, 1.6) * 0.8;
     const held = this.heldDef();
     this.torchLight.intensity = held?.heldLight ? 1.6 : 0;
     // weather particles: snow in cold biomes
