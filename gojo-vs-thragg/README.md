@@ -18,6 +18,9 @@ All dialogue is original.
 > - sound and VFX bibles
 > - an assembly tool that conforms clips into an exactly-240.000-second master
 > - a fully timed **240-second animatic with temp sound**, the editorial reference
+>
+> **Verified:** 110 shots · 5,760 frames · 24 fps · **240.000 s** video and audio
+> (ffprobe-counted, 0 render errors). See `docs/08-qc-report.md`.
 
 ## Contents
 

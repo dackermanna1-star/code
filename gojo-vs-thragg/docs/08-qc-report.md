@@ -15,7 +15,7 @@ final footage**.
 | Shot list | 8 storyboard authors, then 3 critics (canon, continuity/space, brief/craft), then fixers | 34 issues found (3 blockers, 14 majors, 17 minors); all fixed |
 | Timeline maths | `tools/validate.py` | 110 shots, contiguous, **5,760 frames = 240.000 s**, every sequence on its brief window, no vanished injuries: **OK** |
 | Animatic staging | 8 animators, each with ≥2 contact-sheet QA passes; then a depth/scale audit of all 37 close two-shots | 3 scale errors found and fixed (S2-03, S6-11, S6-12) |
-| Runtime of the rendered animatic | ffprobe frame count and duration | see §Runtime verification |
+| Runtime of the rendered animatic | ffprobe frame count and duration | **5,760 frames, 240.000 s, 0 render errors** |
 
 ## Phase 9 checklist
 
@@ -132,4 +132,17 @@ final footage**.
    signature heart strike is used, and fails, in Seq 4.
 
 ## Runtime verification
-_(filled in from the rendered animatic below)_
+Measured with ffprobe on `animatic/gojo_vs_thragg_animatic.mp4`:
+
+| Property | Required | Measured |
+|---|---|---|
+| Video frames | 5,760 | **5,760** (counted) |
+| Frame rate | 24 fps | **24/1** |
+| Duration | 240.000 s | **240.000 s** |
+| Audio | 240 s | **AAC, 240.000 s** |
+| Resolution | 16:9 | 1920×1080 (animatic; final target 3840×2160 via `assemble.py --res`) |
+| Render errors | 0 | **0** (no error frames, no tracebacks in the render log) |
+
+The animatic burns in timecode, shot id and dialogue captions because it is
+a review tool. The final film carries none: `render.py --clean` produces a
+caption-free version.
