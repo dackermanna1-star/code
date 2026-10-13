@@ -46,9 +46,14 @@ const RAMPS = {
   dust: [[0, 0.55, 0.48, 0.38, 0], [0.12, 0.5, 0.44, 0.35, 0.55], [1, 0.6, 0.55, 0.45, 0]],
   trail: [[0, 0.75, 0.73, 0.7, 0.6], [1, 0.55, 0.54, 0.53, 0]],
   gas: [[0, 0.42, 0.5, 0.14, 0], [0.15, 0.38, 0.46, 0.12, 0.5], [0.7, 0.3, 0.36, 0.1, 0.35], [1, 0.26, 0.3, 0.1, 0]], // a bloater's cloud (zroster.js)
+  // the forge's elemental rounds (zforge.js): ice glints, a cold breath, electric sparks, a blood siphon
+  frost: [[0, 0.9, 0.97, 1, 0], [0.08, 0.75, 0.92, 1, 0.95], [0.6, 0.45, 0.75, 1, 0.55], [1, 0.25, 0.45, 0.85, 0]],
+  icemist: [[0, 0.78, 0.88, 0.98, 0], [0.2, 0.72, 0.84, 0.96, 0.4], [1, 0.82, 0.9, 1, 0]],
+  volt: [[0, 1, 1, 1, 1], [0.3, 0.62, 0.8, 1, 1], [1, 0.2, 0.35, 1, 0]],
+  siphon: [[0, 1, 0.45, 0.45, 0], [0.12, 1, 0.12, 0.16, 0.95], [0.7, 0.65, 0.02, 0.05, 0.7], [1, 0.3, 0, 0.02, 0]],
 };
-const ADDITIVE = new Set(['fire', 'acid', 'spark', 'ember']);
-const FRAME = { fire: [0, 1], acid: [0, 1], spark: [3, 3], ember: [3, 3], smoke: [2, 2], mist: [2, 2], dust: [2, 2], trail: [2, 2], gas: [2, 2] };
+const ADDITIVE = new Set(['fire', 'acid', 'spark', 'ember', 'frost', 'volt', 'siphon']);
+const FRAME = { fire: [0, 1], acid: [0, 1], spark: [3, 3], ember: [3, 3], smoke: [2, 2], mist: [2, 2], dust: [2, 2], trail: [2, 2], gas: [2, 2], frost: [3, 0], icemist: [2, 2], volt: [3, 3], siphon: [3, 0] };
 const KIND_IDS = Object.keys(RAMPS);
 
 function sampleRamp(r, t, out) {
@@ -235,7 +240,7 @@ export class FireFX {
     this.parent = parent;
   }
 
-  /** kind: fire | acid | spark | ember | smoke | mist | dust | trail. o: { life, size, size1, drag, buoy, rot, spin } */
+  /** kind: fire | acid | spark | ember | smoke | mist | dust | trail | gas | frost | icemist | volt | siphon. o: { life, size, size1, drag, buoy, rot, spin } */
   emit(kind, pos, vel, o = {}) {
     (ADDITIVE.has(kind) ? this.add : this.alpha).spawn(kind, pos, vel, o);
   }

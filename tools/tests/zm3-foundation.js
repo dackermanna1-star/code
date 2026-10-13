@@ -451,7 +451,11 @@
     Z().clearHorde();
     // forge routes
     me().money = 10000;
-    check('forge items route to the forge (closed for now)', g.rounds.buy(me(), 'tier_1') === false && g.rounds.buy(me(), 'round_cryo') === false && me().money === 10000 && Z().economy.menuState(me(), 'tier_1').off === true);
+    // (the forge builder: the forge is open, break-only like the attachments - this runs mid-wave: the
+    // economy's gate shuts it; the forge itself prices Tier I for the gun in hand and holds rounds for Tier III)
+    const fw = (await import('/src/game/attachments.js')).forgeTarget(me()), fc = Z().forge.price(me(), 'tier_1');
+    const shut = Z().state === 'wave' ? g.rounds.buy(me(), 'tier_1') === false && me().money === 10000 && Z().economy.menuState(me(), 'tier_1').closed === true : g.rounds.buy(me(), 'tier_1') === true && fw.tier === 1;
+    check('forge items route to the forge (Tier I priced for the gun in hand, break-only; rounds from Tier III)', !!fw && fc > 0 && shut && Z().forge.menuState(me(), 'tier_1').off === false && Z().forge.menuState(me(), 'round_cryo').off === true && g.rounds.buy(me(), 'round_cryo') === false, `${fw?.id} $${fc} ${Z().state}`);
     // seed
     g.newGame({ mode: 'zombies', allies: 1, seed: 4242 });
     const R = await import('/src/game/zrng.js');

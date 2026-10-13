@@ -49,6 +49,7 @@ export class Projectiles {
   launch(type, owner, pos, vel, o = {}) {
     const g = this.game, def = PROJECTILES[type];
     const pr = { type, def, owner, pos: pos.slice(), vel: vel.slice(), born: g.time, bounces: 0, spin: Math.random() * 6, obj: null, ...o };
+    if (pr.dmgK == null) pr.dmgK = (type === 'rocket' || type === 'grenade40') && owner?.active?.mods?.damage || 1; // the launcher's forge tier (zforge.js), fixed at launch
     if (typeof document !== 'undefined') {
       if (def.model) {
         try { pr.obj = createWorldWeapon(def.model); g.renderer.world.add(pr.obj); } catch (e) { console.warn('projectile model', e); }
@@ -170,10 +171,10 @@ export class Projectiles {
     const back = [point[0] - v[0] / sp * 6 + (normal ? normal[0] * 4 : 0), point[1] - v[1] / sp * 6 + (normal ? normal[1] * 4 : 0), point[2] - v[2] / sp * 6 + (normal ? normal[2] * 4 : 0)];
     switch (pr.type) {
       case 'rocket':
-        g.explode(back, { owner: pr.owner, damage: 240, radius: 330, weapon: 'rpg', selfScale: 0.5, push: 1.6, sound: 'rocket_explode', scale: 1.6, shake: 12 });
+        g.explode(back, { owner: pr.owner, damage: 240 * pr.dmgK, radius: 330, weapon: 'rpg', selfScale: 0.5, push: 1.6, sound: 'rocket_explode', scale: 1.6, shake: 12 });
         break;
       case 'grenade40':
-        g.explode(back, { owner: pr.owner, damage: 170, radius: 240, weapon: 'm32', selfScale: 0.5, sound: 'he_explode', scale: 1.1, shake: 7 });
+        g.explode(back, { owner: pr.owner, damage: 170 * pr.dmgK, radius: 240, weapon: 'm32', selfScale: 0.5, sound: 'he_explode', scale: 1.1, shake: 7 });
         break;
       case 'molotov': {
         g.sound?.play('molotov_break', { pos: point, volume: 1 });

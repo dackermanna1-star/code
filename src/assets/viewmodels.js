@@ -251,12 +251,12 @@ export class ViewModel {
     rig.quaternion.slerp(_q3, k);
   }
 
-  /** Attachments ({ slot: id }) and skin id on this view model (vm/attach.js). */
-  setLoadout(att, skin) {
-    const key = JSON.stringify([att || {}, skin || null]);
-    if (key === (this._loadoutKey || '[{},null]')) return;
+  /** Attachments ({ slot: id }), skin id, and the forge's tier / round on this view model (vm/attach.js). */
+  setLoadout(att, skin, tier = 0, round = null) {
+    const key = JSON.stringify([att || {}, skin || null, tier | 0, round || null]);
+    if (key === (this._loadoutKey || '[{},null,0,null]')) return;
     this._loadoutKey = key;
-    applyLoadout(this, att || {}, skin || null);
+    applyLoadout(this, att || {}, skin || null, tier | 0, round || null);
   }
 
   /**

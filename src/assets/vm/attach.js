@@ -11,6 +11,13 @@
 // Skins swap the gun's materials (not the hands', not the attachments') for a painted
 // one: a tiling pattern instead of the detail map, the part's own shade kept a little so
 // the details still read, and a highlight for the metallic finishes.
+//
+// The forge (game/zforge.js) marks a gun's tier: coloured bands round the barrel (a stripe
+// along the slide on pistols) - steel blue, bronze, silver, gold, obsidian with a molten glow -
+// and an emblem plate on the left of the receiver (the side you see) with a pip per tier; from Tier III the gun
+// takes the forge's own finish when it wears no skin (forged damascus steel, gilded scrollwork,
+// obsidian with glowing cracks), and a loaded round type shows as a glowing canister under the
+// emblem. The glowing parts' materials are in vm.forgeGlow (zforge.js frame pulses them).
 import * as THREE from 'three';
 import { ModelBuilder } from './builder.js';
 import { BODY_PIVOT } from './kit.js';
@@ -88,7 +95,12 @@ export function measure(vm) {
     const yb = bottom(gz - 0.6, gz + 0.6, 0.9, M[1] - 3.5);
     grip = { p: [M[0], Number.isFinite(yb) ? yb : M[1] - 1.2, gz] };
   }
-  return { M, tip, rb: Math.min(rb, 0.75), pistol, optic: Number.isFinite(oy) ? { p: [M[0], oy, oz] } : null, laser, grip, lh };
+  // the forge's emblem: on the left of the receiver (the side the camera sees), a little under the bore line
+  const ez = O.emblemZ ?? (pistol ? M[2] * 0.42 : Math.max(-4, Math.min(-1.4, M[2] * 0.2)));
+  let exl = Infinity;
+  scanTris(arrs, (xa, xb, ya, yb, za, zb) => { if (zb >= ez - 0.9 && za <= ez + 0.9 && yb >= M[1] - 1.6 && ya <= M[1] + 0.3 && xa < exl) exl = xa; });
+  const emblem = { p: [(Number.isFinite(exl) ? exl : M[0] - 0.7) - 0.02, M[1] - (pistol ? 0.75 : 0.6), ez] };
+  return { M, tip, rb: Math.min(rb, 0.75), pistol, optic: Number.isFinite(oy) ? { p: [M[0], oy, oz] } : null, laser, grip, lh, emblem };
 }
 
 // hand-tuned spots where the measuring gets it wrong
@@ -171,18 +183,20 @@ export function clearLoadout(vm) {
   vm._loadout = null;
   vm.adsPose = null;
   vm.laserEmitter = null;
+  vm.forgeGlow = null;
 }
 
-/** Put the attachments `att` ({ slot: id }) and the skin on vm. */
-export function applyLoadout(vm, att = {}, skin = null) {
+/** Put the attachments `att` ({ slot: id }), the skin and the forge's tier / round (zforge.js) on vm. */
+export function applyLoadout(vm, att = {}, skin = null, tier = 0, round = null) {
   clearLoadout(vm);
   const L = { objects: [], geometries: [], materials: [], scaled: [], swapped: [], muzzle: null };
   vm._loadout = L;
-  const m = Object.keys(att).length ? measure(vm) : null;
+  const m = Object.keys(att).length || tier > 0 ? measure(vm) : null;
   if (m) {
     const mb = new ModelBuilder();
     mb.node('att', 'root');
     const info = drawParts(mb.pen('att'), m, att);
+    if (tier > 0) drawForge(mb.pen('att'), m, tier, round);
     const built = mb.build(vm.shared);
     const node = built.nodes.att;
     node.traverse((o) => { o.userData.att = true; });
@@ -217,6 +231,7 @@ export function applyLoadout(vm, att = {}, skin = null) {
       L.objects.push(beam); L.geometries.push(beam.geometry); L.materials.push(beam.material);
       vm.laserBeam = beam;
     } else vm.laserBeam = null;
+    if (tier > 0) forgeGlow(vm, m, tier, round, L);
   }
   // extended magazine: the magazine grows along its length
   if (att.mag === 'extmag') {
@@ -232,6 +247,81 @@ export function applyLoadout(vm, att = {}, skin = null) {
     }
   }
   if (skin) paint(vm, skin, L);
+  else if (tier >= 3) paint(vm, `forge${Math.min(5, tier)}`, L); // (a skin hides the forge's finish; the bands and the emblem stay)
+}
+
+// ------------------------------------------------------------------ the forge's marks (zforge.js)
+// band tint and count by tier (I steel blue, II bronze, III silver, IV gold, V obsidian + a molten glow)
+const TIER_TINT = [null, [0.42, 0.53, 0.68], [0.72, 0.45, 0.22], [0.84, 0.86, 0.9], [0.97, 0.77, 0.32], [0.12, 0.1, 0.1]];
+const TIER_BANDS = [0, 1, 2, 2, 3, 3];
+const PIP = [null, [0.5, 0.65, 0.9], [0.85, 0.55, 0.25], [0.95, 0.96, 1], [1, 0.82, 0.3], [1, 0.45, 0.12]];
+// a round type's glow colour (zforge.js ROUNDS rgb)
+const ROUND_GLOW = { incendiary: 0xff6a1a, shock: 0x4aa0ff, cryo: 0x9be4ff, explosive: 0xffb830, vampiric: 0xe0102a };
+
+function drawForge(pen, m, tier, round) {
+  const [mx, my] = m.M, fTip = -m.tip, tint = TIER_TINT[tier];
+  if (!m.pistol) {
+    // bands round the barrel, just behind the muzzle (clear of a muzzle device)
+    const r = Math.max(m.rb * 1.22, m.rb + 0.07);
+    for (let i = 0; i < TIER_BANDS[tier]; i++) {
+      const f1 = fTip - 1.0 - i * 0.7;
+      pen.tube('metal', tint, f1 - 0.42, f1, my, r, r, { x: mx, n: 12 });
+    }
+  } else if (m.optic) {
+    // a pistol: an inlay along the top of the slide
+    const [x, y, z] = m.optic.p, f = -z;
+    pen.span('metal', tint, f - 1.3, f + 1.3, y - 0.02, y + 0.04, 0.24, { x });
+    if (tier >= 4) pen.span('metal', tint, f - 1.3, f + 1.3, y - 0.3, y - 0.02, 0.04, { x: x + 0.42 });
+  }
+  // the emblem (on the left flank: x outward is -): a dark plate framed in the tier's colour, a
+  // pip per tier; a round's canister in a cradle under it
+  const [ex, ey, ez] = m.emblem.p, f = -ez, W = EMBLEM_W(m), H = m.pistol ? 0.3 : 0.4;
+  pen.span('metal', DARK, f - W / 2, f + W / 2, ey - H, ey + H, 0.06, { x: ex - 0.03 });
+  pen.span('metal', tint, f - W / 2 - 0.07, f + W / 2 + 0.07, ey - H - 0.08, ey - H, 0.08, { x: ex - 0.04 });
+  pen.span('metal', tint, f - W / 2 - 0.07, f + W / 2 + 0.07, ey + H, ey + H + 0.08, 0.08, { x: ex - 0.04 });
+  if (tier < 5) {
+    for (let i = 0; i < tier; i++) {
+      const pf = f - W / 2 + (W / (tier + 1)) * (i + 1);
+      pen.span('metal', PIP[tier], pf - 0.08, pf + 0.08, ey - H * 0.65, ey + H * 0.65, 0.06, { x: ex - 0.08 });
+    }
+  }
+  if (round) pen.span('metal', BLACK, f - W * 0.42, f + W * 0.42, ey - H - 0.62, ey - H - 0.14, 0.12, { x: ex - 0.06 });
+}
+const EMBLEM_W = (m) => (m.pistol ? 1.3 : 2.0);
+
+/** The glowing parts (additive, pulsed by zforge.js frame): Tier V's molten rings, seam and pips; the round's canister. */
+function forgeGlow(vm, m, tier, round, L) {
+  const glow = [];
+  const add = (geo, color, base, p, r = null, rate = 3, ph = 0) => {
+    const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: base, blending: THREE.AdditiveBlending, depthWrite: false });
+    mat.userData = { base, rate, ph };
+    const o = new THREE.Mesh(geo, mat);
+    o.position.set(p[0], p[1], p[2]);
+    if (r) o.rotation.set(r[0], r[1], r[2]);
+    o.userData.att = true; o.frustumCulled = false; o.renderOrder = 2;
+    vm.nodes.gun.add(o);
+    L.objects.push(o); L.geometries.push(geo); L.materials.push(mat);
+    glow.push(mat);
+  };
+  const [mx, my] = m.M, [ex, ey, ez] = m.emblem.p;
+  if (tier >= 5) {
+    if (!m.pistol) {
+      const r = Math.max(m.rb * 1.22, m.rb + 0.07);
+      for (let i = 0; i < 2; i++) add(new THREE.TorusGeometry(r * 1.01, 0.05, 6, 18), 0xff5a10, 0.95, [mx, my, m.tip + 1.0 + 0.56 + i * 0.7], null, 4, i);
+      add(new THREE.BoxGeometry(0.07, 0.035, 2.6), 0xff7a20, 0.8, [mx, my + m.rb * 1.05, m.tip + 2.6], null, 2.5, 1.3); // a seam along the barrel
+    } else if (m.optic) {
+      const [x, y, z] = m.optic.p;
+      add(new THREE.BoxGeometry(0.06, 0.03, 2.4), 0xff7a20, 0.85, [x, y + 0.055, z], null, 2.5, 0.4);
+    }
+    const W = EMBLEM_W(m), H = m.pistol ? 0.3 : 0.4, f = -ez;
+    for (let i = 0; i < 5; i++) { const pf = f - W / 2 + (W / 6) * (i + 1); add(new THREE.BoxGeometry(0.06, H * 1.3, 0.14), 0xff6a14, 0.9, [ex - 0.08, ey, -pf], null, 5, i * 0.7); }
+  }
+  if (round && ROUND_GLOW[round]) {
+    const H = m.pistol ? 0.3 : 0.4, L = EMBLEM_W(m) * 0.78, y = ey - H - 0.38;
+    add(new THREE.CylinderGeometry(0.17, 0.17, L, 10), ROUND_GLOW[round], 0.95, [ex - 0.16, y, ez], [Math.PI / 2, 0, 0], round === 'shock' ? 9 : 3.5, 0);
+    add(new THREE.CylinderGeometry(0.27, 0.27, L + 0.15, 10), ROUND_GLOW[round], 0.25, [ex - 0.16, y, ez], [Math.PI / 2, 0, 0], 3.5, 1);
+  }
+  vm.forgeGlow = glow.length ? glow : null;
 }
 
 // ------------------------------------------------------------------ aiming down the sight
@@ -331,6 +421,10 @@ const FINISH = {
   digital: { unit: 10, keep: 0.4, spec: 0.08, shin: 10, specCol: [1, 1, 1] },
   crimson: { unit: 9, keep: 0.35, spec: 0.25, shin: 24, specCol: [1, 0.7, 0.7] },
   neon: { unit: 9, keep: 0.3, spec: 0.3, shin: 30, specCol: [0.7, 0.9, 1], glow: 1 },
+  // the forge's finishes (Tier III-V, when the gun wears no skin)
+  forge3: { unit: 8, keep: 0.45, spec: 0.5, shin: 26, specCol: [0.85, 0.9, 1] },
+  forge4: { unit: 9, keep: 0.42, spec: 0.6, shin: 20, specCol: [1, 0.86, 0.55] },
+  forge5: { unit: 10, keep: 0.35, spec: 0.7, shin: 40, specCol: [1, 0.62, 0.42], glow: 1 },
 };
 
 const texCache = new Map();
@@ -446,7 +540,155 @@ function camo(g, n, rnd, base, layers) {
   grain(g, n, rnd, 0.08);
 }
 
+// steel brushed along the gun (the forge's lower tiers: swatches)
+function brushed(g, n, rnd, c0, c1, c2, dark, light) {
+  const grd = g.createLinearGradient(0, 0, n, n);
+  grd.addColorStop(0, c0); grd.addColorStop(0.5, c1); grd.addColorStop(1, c2);
+  g.fillStyle = grd; g.fillRect(0, 0, n, n);
+  for (let i = 0; i < 240; i++) {
+    const y = rnd() * n, l = n * (0.2 + rnd() * 0.6), x = rnd() * n;
+    g.strokeStyle = rnd() < 0.5 ? `rgba(${dark},${0.05 + rnd() * 0.08})` : `rgba(${light},${0.05 + rnd() * 0.1})`;
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + l, y); g.stroke();
+    g.beginPath(); g.moveTo(x - n, y); g.lineTo(x - n + l, y); g.stroke();
+  }
+}
+// a crack / bolt: a jagged walk from (x, y), drawn with its wrapped copies
+function jagged(g, n, rnd, x, y, steps, len, wobble, dir) {
+  const pts = [[x, y]];
+  let a = dir;
+  for (let i = 0; i < steps; i++) { a += (rnd() - 0.5) * wobble; x += Math.cos(a) * len; y += Math.sin(a) * len; pts.push([x, y]); }
+  for (const ox of [-n, 0, n]) {
+    for (const oy of [-n, 0, n]) {
+      g.beginPath();
+      pts.forEach(([px, py], i) => (i ? g.lineTo(px + ox, py + oy) : g.moveTo(px + ox, py + oy)));
+      g.stroke();
+    }
+  }
+}
+// a seeded stream of its own (to draw the same crack in several widths)
+const stream = (seed) => { let k = Math.max(1, Math.floor(seed)); return () => ((k = (k * 16807) % 2147483647) / 2147483647); };
+
 const SKIN_PAINT = {
+  // the forge (zforge.js): Tier I-II swatches, Tier III-V finishes
+  forge1(g, n, rnd) { brushed(g, n, rnd, '#6f7f95', '#93a3b8', '#5f6e82', '20,30,50', '220,235,255'); },
+  forge2(g, n, rnd) { brushed(g, n, rnd, '#8a5426', '#b8763c', '#7a4720', '60,30,10', '255,210,160'); },
+  forge3(g, n, rnd) {
+    // damascus: folded steel, wavy layers of light and dark (every term repeats over n: it tiles)
+    g.fillStyle = '#62676f'; g.fillRect(0, 0, n, n);
+    const W = [[1, rnd() * 6.28, 9], [2, rnd() * 6.28, 6], [3, rnd() * 6.28, 3]];
+    g.lineWidth = 1.3;
+    for (let y = 0; y < n; y += 4) {
+      g.strokeStyle = (y / 4) % 2 ? 'rgba(36,40,46,0.42)' : 'rgba(196,202,212,0.32)';
+      for (const oy of [-n, 0, n]) {
+        g.beginPath();
+        for (let x = 0; x <= n; x += 4) {
+          let d = 0;
+          for (const [k, ph, amp] of W) d += Math.sin((x / n) * Math.PI * 2 * k + ph + (y / n) * Math.PI * 2) * amp;
+          if (x === 0) g.moveTo(x, y + d + oy); else g.lineTo(x, y + d + oy);
+        }
+        g.stroke();
+      }
+    }
+    grain(g, n, rnd, 0.06);
+  },
+  forge4(g, n, rnd) {
+    // gilded: blued steel with gold scrollwork
+    g.fillStyle = '#262c38'; g.fillRect(0, 0, n, n);
+    grain(g, n, rnd, 0.05, 1500);
+    g.strokeStyle = '#d8b257'; g.lineCap = 'round';
+    for (let i = 0; i < 26; i++) {
+      const x = rnd() * n, y = rnd() * n, r = 8 + rnd() * 16, a0 = rnd() * 6.28, sweep = 2 + rnd() * 3;
+      g.lineWidth = 1.4 + rnd() * 1.4;
+      wrap(n, x, y, r + 4, (cx, cy) => {
+        g.beginPath();
+        for (let k = 0; k <= 24; k++) {
+          const a = a0 + sweep * k / 24, rr = r * (1 - 0.6 * k / 24), px = cx + Math.cos(a) * rr, py = cy + Math.sin(a) * rr;
+          if (k) g.lineTo(px, py); else g.moveTo(px, py);
+        }
+        g.stroke();
+      });
+    }
+    g.fillStyle = '#f0cf78';
+    for (let i = 0; i < 90; i++) { g.beginPath(); g.arc(rnd() * n, rnd() * n, 0.8 + rnd() * 1.2, 0, Math.PI * 2); g.fill(); }
+  },
+  forge5(g, n, rnd) {
+    // obsidian with molten cracks (saturated: the finish's glow makes them burn)
+    g.fillStyle = '#131015'; g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 30; i++) { g.fillStyle = `rgba(${rnd() < 0.5 ? '40,30,45' : '5,4,6'},${0.3 + rnd() * 0.3})`; blob(g, n, rnd() * n, rnd() * n, 12 + rnd() * 24, rnd); }
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    for (let i = 0; i < 9; i++) {
+      const x = rnd() * n, y = rnd() * n, dir = rnd() * 6.28, steps = 10 + Math.floor(rnd() * 12), seed = 1 + rnd() * 1e9;
+      for (const [w, col] of [[5, 'rgba(255,70,10,0.35)'], [2.6, '#ff6a14'], [1, '#ffd25a']]) {
+        g.lineWidth = w; g.strokeStyle = col;
+        jagged(g, n, stream(seed), x, y, steps, 9, 1.4, dir);
+      }
+    }
+  },
+  // the rounds (buy menu swatches)
+  round_incendiary(g, n, rnd) {
+    const grd = g.createLinearGradient(0, n, 0, 0);
+    grd.addColorStop(0, '#ffd04a'); grd.addColorStop(0.35, '#ff7a18'); grd.addColorStop(0.75, '#b0200c'); grd.addColorStop(1, '#3a0804');
+    g.fillStyle = grd; g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 14; i++) {
+      const x = rnd() * n, h = n * (0.3 + rnd() * 0.5), w = 10 + rnd() * 16;
+      g.fillStyle = `rgba(255,${180 + Math.floor(rnd() * 70)},80,${0.25 + rnd() * 0.3})`;
+      g.beginPath(); g.moveTo(x - w, n); g.bezierCurveTo(x - w, n - h * 0.5, x + w * 0.3, n - h * 0.6, x, n - h); g.bezierCurveTo(x + w * 0.2, n - h * 0.55, x + w, n - h * 0.4, x + w, n); g.fill();
+    }
+  },
+  round_shock(g, n, rnd) {
+    g.fillStyle = '#0a1430'; g.fillRect(0, 0, n, n);
+    g.lineCap = 'round';
+    for (let i = 0; i < 6; i++) {
+      const x = rnd() * n, seed = 1 + rnd() * 1e9;
+      for (const [w, col, blur] of [[6, 'rgba(60,130,255,0.35)', 12], [2.2, '#8ec4ff', 6], [1, '#ffffff', 0]]) {
+        g.lineWidth = w; g.strokeStyle = col; g.shadowColor = col; g.shadowBlur = blur;
+        jagged(g, n, stream(seed), x, 0, 14, 20, 1.6, Math.PI / 2);
+      }
+    }
+    g.shadowBlur = 0;
+  },
+  round_cryo(g, n, rnd) {
+    const grd = g.createLinearGradient(0, 0, n, n);
+    grd.addColorStop(0, '#dff6ff'); grd.addColorStop(0.5, '#8fcff0'); grd.addColorStop(1, '#4f8fc0');
+    g.fillStyle = grd; g.fillRect(0, 0, n, n);
+    g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineCap = 'round';
+    for (let i = 0; i < 16; i++) {
+      const x = rnd() * n, y = rnd() * n, r = 6 + rnd() * 12;
+      g.lineWidth = 1 + rnd() * 1.2;
+      wrap(n, x, y, r, (cx, cy) => {
+        for (let k = 0; k < 6; k++) {
+          const a = k * Math.PI / 3, bx = cx + Math.cos(a) * r * 0.6, by = cy + Math.sin(a) * r * 0.6;
+          g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); g.stroke();
+          for (const s of [-1, 1]) { g.beginPath(); g.moveTo(bx, by); g.lineTo(bx + Math.cos(a + s * 0.8) * r * 0.3, by + Math.sin(a + s * 0.8) * r * 0.3); g.stroke(); }
+        }
+      });
+    }
+  },
+  round_explosive(g, n, rnd) {
+    g.fillStyle = '#1c1612'; g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 5; i++) {
+      const x = rnd() * n, y = rnd() * n, r = 24 + rnd() * 30;
+      wrap(n, x, y, r, (cx, cy) => {
+        const gr = g.createRadialGradient(cx, cy, 0, cx, cy, r);
+        gr.addColorStop(0, 'rgba(255,240,170,0.95)'); gr.addColorStop(0.35, 'rgba(255,170,40,0.8)'); gr.addColorStop(0.7, 'rgba(200,60,10,0.45)'); gr.addColorStop(1, 'rgba(60,20,5,0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.fill();
+      });
+    }
+    g.fillStyle = 'rgba(30,20,15,0.9)';
+    for (let i = 0; i < 70; i++) { g.beginPath(); g.arc(rnd() * n, rnd() * n, 0.8 + rnd() * 2, 0, Math.PI * 2); g.fill(); }
+  },
+  round_vampiric(g, n, rnd) {
+    g.fillStyle = '#4a0610'; g.fillRect(0, 0, n, n);
+    for (let i = 0; i < 26; i++) { g.fillStyle = `rgba(${rnd() < 0.5 ? '25,0,4' : '150,10,25'},${0.2 + rnd() * 0.25})`; blob(g, n, rnd() * n, rnd() * n, 10 + rnd() * 18, rnd); }
+    for (let i = 0; i < 12; i++) {
+      const x = rnd() * n, l = 20 + rnd() * 60, w = 3 + rnd() * 4;
+      g.fillStyle = 'rgba(120,0,15,0.85)';
+      g.fillRect(x - w / 2, 0, w, l);
+      g.beginPath(); g.arc(x, l, w * 0.9, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(255,90,100,0.5)'; g.fillRect(x - w * 0.2, 0, w * 0.25, l * 0.8);
+    }
+  },
+
   gold(g, n, rnd) {
     const grd = g.createLinearGradient(0, 0, n, n);
     grd.addColorStop(0, '#e2b84a'); grd.addColorStop(0.5, '#f4d27a'); grd.addColorStop(1, '#d0a038');

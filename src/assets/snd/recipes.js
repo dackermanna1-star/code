@@ -59,7 +59,7 @@ export const SOUND_GROUPS = {
   'Melee shove': ['shove_swing', 'shove_hit'], // zombie survival (shove.js)
   // Milestone 3: one line per builder, its recipes in its own snd/ file
   Perks: [], // (snd/perks.js)
-  Forge: [], // (snd/forge.js)
+  Forge: ['forge_hammer', 'forge_tier5', 'forge_round', 'forge_ignite', 'forge_shock', 'forge_chill', 'forge_freeze', 'forge_shatter', 'forge_blast', 'forge_siphon'], // (snd/forge.js)
   'Squad roles': [], // (snd/squad.js)
   'Boss overhaul': [], // (snd/bossfx.js)
   Drops: [], // (snd/drops.js)

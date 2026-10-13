@@ -315,7 +315,7 @@ export class ZEconomy {
     if (why) return { off: true, note: own.off ? own.note : null, why: why.replace('\n', ' '), price, closed: true };
     const prem = this.open(p) || !COMBAT_ITEMS.has(id) ? 0 : this.Z.diff.econ.combatPremium; // (the markup alone: perks' discounts are in the price)
     const brk = price != null ? Math.round(price / (1 + prem) / 5) * 5 : null;
-    return { off: !!own.off, note: own.note || null, why: prem > 0 ? `Mid-wave price (+${Math.round(prem * 100)}%): $${brk} in the break.` : null, price };
+    return { off: !!own.off, note: own.note || null, why: prem > 0 ? `Mid-wave price (+${Math.round(prem * 100)}%): $${brk} in the break.` : own.why || null, price }; // (own.why: the forge explains itself)
   }
 
   /** The line along the bottom of the buy menu: what the shop sells right now. */
