@@ -16,8 +16,9 @@
 // never tankier.
 //  - The order: a seeded shuffle of all five (zrng.js rng(seed, 'bosses')), reshuffled every
 //    cycle (never the same boss twice in a row), so a 30-minute run can meet any of them.
-//  - Health by the wave it shows up in (diff.boss.hpWave), not by its slot; the crowd weight
-//    stays 0.3 a bot. A later cycle still hits harder (dmgK) and walks faster.
+//  - Health by the wave it shows up in (diff.boss.hpWave), not by its slot; a bot counts
+//    diff.boss.botShare of a shooter (0.45 on Normal: role guns and perks). A later cycle still
+//    hits harder (dmgK) and walks faster.
 //  - POSTURE: a second bar filled by shotguns, explosives, melee and hits on its weak point
 //    (WEAK below; bullets elsewhere barely count, bots' hits count POSTURE.bot as much), x
 //    diff.boss.posture; it drains when left alone. Full: a break - it drops to its knees for
@@ -26,7 +27,8 @@
 //    grows by POSTURE.grow, so it can't be chain-broken.
 //  - PHASES at diff.boss.phases (66% / 33%; Nightmare three): each adds one move (MOVES,
 //    built from the helpers here: lob, the charge, blink, slam, the hunter's leap, the smoker's
-//    pull); past a boss's two moves a phase is a FRENZY (everything comes faster).
+//    pull); past a boss's two moves a phase is a FRENZY (everything comes faster). A new phase
+//    takes GUARD_K damage until its move has gone off (GUARD_T s at most): each one gets seen.
 //  - The staged arrival (arrive: ARRIVE s): the ground rumbles, the lights dip, a roar comes
 //    from where it will come in and the commons back off; then a title card (bossstage.js).
 //  - Trophies replace the full heal (reward): diff.boss.heal HP and diff.boss.armor armour, and
@@ -78,6 +80,13 @@ export const BOSSES = [
 
 /** A boss's health and hits at wave 5 when its tier is later (early). */
 const EARLY_MIN = 0.65;
+/**
+ * A new phase holds a moment: x GUARD_K damage until its move has gone off once, GUARD_T s at
+ * most (a frenzy: 40% of that), so a squad with heavy guns still sees each phase. GUARD_BY: a
+ * phase move that changes another move ends the guard when that one goes off.
+ */
+const GUARD_K = 0.35, GUARD_T = 3.5;
+const GUARD_BY = { bloodlust: 'charge', aftershock: 'slam' };
 
 /** The moves a phase adds: the banner's name and hint (bossstage.js). */
 export const MOVES = {
@@ -211,8 +220,9 @@ export class BossDirector {
     m.object3D.visible = true;
     g.renderer.world.add(m.object3D);
     p.model = m;
-    // more shooters, more health (a bot counts a third: they die, and it doesn't get weaker)
-    const crowd = Math.max(1, humans.reduce((m, q) => m + (q.downed ? 0 : q.isBot ? 0.3 : 1), 0)); // (one who's down doesn't count)
+    // more shooters, more health (a bot counts diff.boss.botShare of one: they die, and it doesn't get weaker)
+    const bw = this.Z.diff.boss.botShare ?? 0.3; // (a bot's share of a shooter: diff.boss.botShare)
+    const crowd = Math.max(1, humans.reduce((m, q) => m + (q.downed ? 0 : q.isBot ? bw : 1), 0)); // (one who's down doesn't count)
     const hp = this.healthFor(def, n, cycle, crowd);
     const h = humans[0];
     const yaw = h ? Math.atan2(h.pm.origin[1] - node.y, h.pm.origin[0] - node.x) / DEG : 0;
@@ -223,7 +233,7 @@ export class BossDirector {
     p.zSpeed = def.speed * (1 + 0.08 * cycle);
     p.boss = {
       def, cycle, wave: n, scale: def.scale, hpMax: hp, dmgK: (1 + 0.25 * cycle) * this.early(def, n),
-      state: 'intro', until: t + 1.6, cd: {}, status: '', enraged: false, exposedUntil: 0, stunUntil: 0,
+      state: 'intro', until: t + 1.6, cd: {}, status: '', enraged: false, exposedUntil: 0, stunUntil: 0, guardUntil: 0, guardMove: null,
       lastHurt: 0, recent: 0, brood: 0, trailT: 0, auraT: 0, novaDone: false,
       posture: 0, postureMax: Math.round(hp * POSTURE.of), postureT: 0, brokenUntil: 0, breaks: 0, // (the posture bar; a break: brokenUntil)
       phase: 0, moves: new Set(), frenzy: false, // (the phases passed and the moves they added)
@@ -275,6 +285,7 @@ export class BossDirector {
       if (opts.fire) k *= 0.5;
     }
     if (t < B.stunUntil) k *= 1.6;
+    if (t < B.guardUntil) k *= GUARD_K; // (a fresh phase: its move gets seen - phases)
     if (t < B.brokenUntil) {
       // on its knees: everything hurts more, the glowing weak point most (the Abomination: its core is open instead)
       if (def.id !== 'abomination') k *= this.Z.diff.boss.kneelK;
@@ -489,6 +500,8 @@ export class BossDirector {
       const id = B.def.moves[B.phase - 1] || 'frenzy';
       if (id === 'frenzy') { if (!B.frenzy) { B.frenzy = true; b.zSpeed *= 1.08; } }
       else { B.moves.add(id); B.cd[id] = t + 1.5; } // (shown off soon after)
+      // the new phase gets its moment: GUARD_K damage until its move has gone off once (GUARD_T at most)
+      B.guardUntil = t + (id === 'frenzy' ? GUARD_T * 0.4 : GUARD_T); B.guardMove = GUARD_BY[id] || id;
       this.phaseShift(b, B.phase, id);
     }
   }
@@ -515,7 +528,10 @@ export class BossDirector {
 
   has(B, move) { return B.moves.has(move); }
   ready(B, name, t) { return t >= (B.cd[name] || 0); }
-  cool(B, name, t, s) { B.cd[name] = t + s * (B.enraged ? 0.7 : 1) * (B.frenzy ? 0.8 : 1); }
+  cool(B, name, t, s) {
+    B.cd[name] = t + s * (B.enraged ? 0.7 : 1) * (B.frenzy ? 0.8 : 1);
+    if (name === B.guardMove) B.guardUntil = 0; // (the phase's move has been seen: full damage again)
+  }
 
   face(b, pos, maxTurn = 9) {
     const o = b.pm.origin;

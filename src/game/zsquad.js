@@ -3,8 +3,8 @@
 // from farther), a Demo (claymores where you hold, molotovs into packs; never an RPG or M32:
 // friendly fire) and a Marksman (the Barrett, specials and bosses first); the rest are
 // Riflemen. The New Game screen can pick them (roles: one per bot, 'auto' for the default).
-//  - shopping: each role buys its own loadout in the breaks (best gun it can afford, a stand-in
-//    until then), keeps its kit stocked, and restocks mid-wave before it runs dry (ammo, the
+//  - shopping: each role buys its own loadout in the breaks (best gun it can afford - the heavies
+//    only from their wave, diff.roles.heavyFrom - a stand-in until then), keeps its kit stocked, and restocks mid-wave before it runs dry (ammo, the
 //    Medic's medkits: the shop sells those mid-wave at its markup)
 //  - "Hold here" (zorders.js): an arc around the spot you called it from, facing the lanes the
 //    horde comes in by (paths from the director's fronts to you, snapped to nav nodes): the
@@ -33,7 +33,7 @@
 //   squad.inFight(bot, it, e, d)  zorders.js zombieOrderInFight: the roles' moves in a fight (the Marksman's scope)
 // Events: 'role' { player, role }, 'order' { player (who gave it), order: 'follow' | 'cover' |
 // 'hold' | 'fallback' | 'focus', target (focus), bots (how many took it) } (runstats.js).
-// Difficulty: g.zombies.diff.roles { focus (s), medicHeal, holdArc, medicRange, restock } (zdiff.js).
+// Difficulty: g.zombies.diff.roles { focus (s), medicHeal, holdArc, medicRange, restock, heavyFrom } (zdiff.js).
 // Console: zm_squad (roles and states), zm_role <bot> <role>, zm_focus (the Focus order; bound to Mouse 3 and I).
 // Gate every change to zombie mode only (bots.js is shared with classic CS).
 import { TEAM_CT } from './player.js';
@@ -209,9 +209,11 @@ export class ZSquad {
     // 1. the role's gun: the best it can afford (with a pack of ammo) that beats what it has;
     // until then an interim gun if it has no primary at all (it saves for the real thing)
     const cur = p.weapons[1], have = cur ? R.guns.indexOf(cur.id) : -1;
+    const from = sandbox ? null : this.Z.diff.roles.heavyFrom, next = this.Z.wave + 1; // (a heavy only from its wave on: diff.roles.heavyFrom)
     let want = null;
     for (let i = 0; i < (have < 0 ? R.guns.length : have) && !want; i++) {
       const id = R.guns[i];
+      if (from && from[id] > next) continue;
       if (p.money >= cost(id) + KEEP + ammo(id)) want = id;
     }
     if (!want && !cur && R.interim) for (const id of R.interim) if (p.money >= cost(id) + KEEP) { want = id; break; }

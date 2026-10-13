@@ -29,6 +29,8 @@
   const frames = (n, dt = 0.016) => { for (let i = 0; i < n; i++) g.frame(dt); };
   const con = (line) => { const lines = []; const pr = g.console.menus.print; g.console.menus.print = (t) => lines.push(String(t)); try { g.console.exec(line); } finally { g.console.menus.print = pr; } return lines.join(' | '); };
   const Z = () => g.zombies;
+  /** Hold slot key k down long enough to pick (past the deal's grace first), then let go. True if the key was taken. */
+  const holdKey = (k) => { frames(40); const took = window.__game.zombies.perks.key(`slot${k}`, true); frames(25); window.__game.zombies.perks.key(`slot${k}`, false); return took; };
   const M = () => g.zombies.mods;
   const P = () => g.zombies.perks;
   const me = () => g.local;
@@ -277,6 +279,17 @@
     const scav = (head) => { const a0 = ak.ammo; kill(walker(), 'ak47', head); return ak.ammo - a0; };
     const sv = holding(['scavenger'], () => [scav(false), scav(true)]), sv0 = scav(false);
     check('Scavenger: a kill puts a tenth of a magazine back in the reserve (3), a headshot a fifth (6); without it nothing', sv.join() === '3,6' && sv0 === 0, `${sv} ${sv0}`);
+    // ...worth $20 of ammo at most: a launcher's rounds come back over many kills, not one a kill
+    const launch = (id, kills) => holding(['scavenger'], () => {
+      const w = g.giveWeapon(p, id, { select: true, fullAmmo: true });
+      w.ammo = 0; w.scav = 0;
+      for (let i = 0; i < kills; i++) P().onKill({ attacker: p, zombie: true, squad: true, weapon: id, head: false }); // (the kill event's path, without the bodies)
+      const got = w.ammo;
+      g.giveWeapon(p, 'ak47', { select: true, fullAmmo: true });
+      return got;
+    });
+    const rpg4 = launch('rpg', 4), rpg30 = launch('rpg', 30), m32x4 = launch('m32', 4), bow4 = launch('crossbow', 4), bow10 = launch('crossbow', 10);
+    check('...worth $20 at most a kill: 4 RPG kills give no rocket (30 give one), 4 M32 kills one grenade, a crossbow a bolt per 10 kills', rpg4 === 0 && rpg30 === 1 && m32x4 === 1 && bow4 === 0 && bow10 === 1, `rpg ${rpg4}/${rpg30} m32 ${m32x4} bow ${bow4}/${bow10}`);
     // Bloodthirst, Butcher
     const healK = (ids, weapon, head) => holding(ids, () => { p.health = 50; kill(walker(), weapon, head); const d = p.health - 50; p.health = p.maxHealth; return d; });
     check('Bloodthirst: a kill heals 2, a headshot kill 5', healK(['bloodthirst'], 'ak47', false) === 2 && healK(['bloodthirst'], 'ak47', true) === 5 && healK([], 'ak47', true) === 0);
@@ -445,24 +458,52 @@
     // reroll: the first is free (normal: 1 a run), once a draft, new cards
     const ids0 = P().offerFor(p).ids.slice(), m0 = p.money;
     rec = [];
-    const k = P().key(`slot${D.choices + 1}`);
+    // a tap on a card's key is still a weapon switch (on the key up); nothing picked, nothing spent
+    frames(40); // (past the grace after the deal)
+    const sel = [];
+    const lc0 = g.localCommand;
+    g.localCommand = (c) => { sel.push(c); return lc0.call(g, c); };
+    const tap1 = P().key('slot3', true); frames(3); const up1 = P().key('slot3', false);
+    const tapR = P().key(`slot${D.choices + 1}`, true); frames(3); P().key(`slot${D.choices + 1}`, false);
+    g.localCommand = lc0;
+    check('a tap on a number key picks nothing, spends nothing, and still switches weapons (on the key up)', tap1 && up1 && tapR && sel.join() === `slot3,slot${D.choices + 1}` && P().offerFor(p)?.ids.join() === ids0.join() && !P().offerFor(p).rerolled && p.money === m0, sel.join());
+    // held: the card fills, then it goes
+    const k = holdKey(D.choices + 1);
     const of1 = P().offerFor(p);
-    check('the key after the cards rerolls: a free one, new cards', k && of1.rerolled && of1.ids.length === D.choices && of1.ids.every((id) => !ids0.includes(id)) && p.money === m0 && of('draft', (e) => e.phase === 'offer' && e.reroll).length === 1, `${ids0} -> ${of1.ids}`);
+    check('holding the key after the cards rerolls: a free one, new cards', k && of1.rerolled && of1.ids.length === D.choices && of1.ids.every((id) => !ids0.includes(id)) && p.money === m0 && of('draft', (e) => e.phase === 'offer' && e.reroll).length === 1, `${ids0} -> ${of1.ids}`);
     check('...once a draft', !P().reroll(p) && P().offerFor(p) === of1);
     frames(3);
     check('the overlay shows the new cards, the button spent', [...document.querySelectorAll('.zp-card .zp-name')].map((e) => e.textContent).join() === of1.ids.map((id) => PK.PERKS[id].name).join() && document.querySelector('.zp-roll')?.classList.contains('off'));
-    // pick with a key
+    // a key held while a menu is up does nothing (the cards hide under it)
+    g.menus.isOpen = () => true;
+    frames(2);
+    const underOk = P().key('slot2', true) === false && document.querySelector('.zp-root')?.classList.contains('under') && window.getComputedStyle(document.querySelector('.zp-root')).visibility === 'hidden';
+    delete g.menus.isOpen;
+    frames(2);
+    check('a menu up (the buy menu): the cards hide under it and the keys stay the menu\'s', underOk && !document.querySelector('.zp-root').classList.contains('under'));
+    // pick with a key: held, its card fills, then it's picked
     const want = of1.ids[1];
-    const took = P().key('slot2');
-    check('key 2 picks the second card', took && P().has(p, want) >= 1 && !P().offerFor(p) && of('draft', (e) => e.phase === 'pick' && e.id === want && e.player === p).length === 1, want);
+    P().key('slot2', true); frames(8);
+    const fill = document.querySelectorAll('.zp-card .zp-fill')[1]?.style.transform || '';
+    const early = !!P().offerFor(p);
+    frames(20); P().key('slot2', false);
+    check('holding key 2 fills the second card, then picks it', early && /scaleX\(0\.[1-9]/.test(fill) && P().has(p, want) >= 1 && !P().offerFor(p) && of('draft', (e) => e.phase === 'pick' && e.id === want && e.player === p).length === 1, `${want} ${fill}`);
     check('number keys are weapons again with no card open', P().key('slot1') === false);
-    // the next break: a paid reroll
+    // a reflex press as the cards come up doesn't count
     quietWave(2);
     con('zm_skip');
-    const price = P().rerollPrice(p), m1 = p.money;
-    check(`the second reroll of the run costs money ($${price} at wave 2)`, P().freeRerolls(p) === 0 && price === Math.round((D.rerollCost[0] + D.rerollCost[1] * 2) / 5) * 5 && P().reroll(p) && m1 - p.money === price, `${m1} -> ${p.money}`);
-    // can't afford it
+    frames(5);
+    const fresh = P().key('slot1', true);
+    check('a key pressed as the cards are dealt (grace) is a weapon key', fresh === false && !!P().offerFor(p));
+    P().choose(p, 0);
+    // the next break: a paid reroll
     quietWave(3);
+    con('zm_skip');
+    const price = P().rerollPrice(p), m1 = p.money;
+    check(`the second reroll of the run costs money ($${price} at wave 3)`, P().freeRerolls(p) === 0 && price === Math.round((D.rerollCost[0] + D.rerollCost[1] * 3) / 5) * 5 && P().reroll(p) && m1 - p.money === price, `${m1} -> ${p.money}`);
+    // can't afford it
+    P().offerFor(p) && P().choose(p, 0);
+    quietWave(4);
     con('zm_skip');
     p.money = 10;
     const ids3 = P().offerFor(p).ids.slice();
@@ -505,7 +546,15 @@
     check('...the break opens it, ahead of the break\'s draft', P().offerFor(p)?.source === 'trophy' && q.length === 2 && q[1].source === 'draft');
     P().choose(p, 'ironheart');
     check('...picked; the draft is next', P().has(p, 'ironheart') === 1 && P().offerFor(p)?.source === 'draft');
-    P().choose(p, 0);
+    // two offers queued in the break and neither picked: the wave start picks them both (none stays open into the wave)
+    P().offer(p, ['hunterseye', 'ironheart'], { source: 'trophy', title: 'TROPHY: TEST 2' });
+    const qn = (P().offers.get(p) || []).length;
+    con(`zm_wave ${Z().wave + 1}`);
+    frames(45);
+    const took = P().key('slot2', true);
+    if (took) P().key('slot2', false, true);
+    check('two offers queued at the wave start: both picked for you, no card open in the wave, the number keys stay weapons', qn === 2 && !P().offers.get(p) && !P().offerFor(p) && took === false && !document.querySelector('.zp-draft:not(.out) .zp-card:not(.picked):not(.gone)'), `queued ${qn}, left ${(P().offers.get(p) || []).length}`);
+    Z().clearHorde(); Z().spawned = Z().stats.count; Z().bossAt = 1e9;
     return false;
   });
 

@@ -17,9 +17,10 @@
 //    when they have the money to spare.
 //  - the cryo grenade: bursts after its fuse into a frost cloud that freezes the zombies in
 //    def.radius solid for def.freeze s (they stand stock still, frosted over: the stagger hold
-//    and a frozen pose; specials mid-trick shrug it off, bosses are only chilled). One killed
-//    while frozen - and alive - shatters into ice (gore's body pieces, frosted, and shards that
-//    melt away); a corpse never does (death thaws it).
+//    and a frozen pose; specials mid-trick shrug it off, bosses are only chilled). One a blast
+//    or a blade kills while frozen - and alive - shatters into ice (gore's body pieces, frosted,
+//    and shards that melt away); a bullet kill only cracks the ice off (bullets never gib
+//    bodies); a corpse never does (death thaws it).
 // Per zombie (written here only; read by zombies.js): z.lure (the bomb it walks to, or null),
 // z.lureUntil, z.frozenUntil.
 // Console: zm_arsenal (sv_cheats 1: every arsenal weapon, full ammo; taints the records).
@@ -43,6 +44,7 @@ const SWARM_R = 330, SWARM_N = 5, BOT_PIPE_GAP = 9; // bots: this many zombies t
 const BOT_PIPE_KEEP = 1500; // $ a bot keeps back after buying a pipe bomb
 const DEMO_SWARM_R = 460, DEMO_SWARM_N = 3, DEMO_RESCUE = 900; // the squad's Demo (zsquad.js): a looser trigger, and a downed teammate's pack
 const SHARD_MAX = 140;
+const SHATTER_MELEE = new Set(['knife', 'machete', 'fireaxe', 'katana', 'chainsaw', 'shove']); // (a frozen zombie these kill breaks apart; a blast does too, a bullet never)
 const PIECES = ['head', 'chest', 'belly', 'uarm_r', 'farm_r', 'uarm_l', 'farm_l', 'thigh_r', 'shin_r', 'thigh_l', 'shin_l']; // (gore.js body pieces)
 const rnd = (a, b) => a + Math.random() * (b - a);
 const _f = [0, 0, 0], _r = [0, 0, 0], _u = [0, 0, 0], _eye = [0, 0, 0], _end = [0, 0, 0], _feet = [0, 0, 0];
@@ -87,7 +89,7 @@ export class ZArsenal {
     for (const p of this.game.players || []) p.zmBlade = null;
     this.nextScan = 0; this.nextShop = 0; this.nextPick = 0;
     // tallies (tests, tuning)
-    this.counts = { swings: 0, hits: 0, bolts: 0, boltHits: 0, pierced: 0, retrieved: 0, pipes: 0, lured: 0, cryos: 0, frozen: 0, shattered: 0, botPipes: 0, botBuys: 0 };
+    this.counts = { swings: 0, hits: 0, bolts: 0, boltHits: 0, pierced: 0, retrieved: 0, pipes: 0, lured: 0, cryos: 0, frozen: 0, shattered: 0, cracked: 0, botPipes: 0, botBuys: 0 };
   }
 
   // ---------------------------------------------------------------- blades
@@ -523,14 +525,30 @@ export class ZArsenal {
     if (z.staggerKind === 'frozen' && z.staggerUntil > this.game.time) z.staggerUntil = this.game.time;
   }
 
-  /** The bus: a zombie killed while frozen (and alive till now) shatters; a blade's owner remembered. */
+  /**
+   * The bus: a zombie killed while frozen (and alive till now) by a blast or a blade shatters;
+   * one a bullet (or a flame, a bolt...) kills cracks - a burst of ice - and falls whole (bullets
+   * never gib bodies).
+   */
   onKill(e) {
     const z = e.victim, t = this.game.time;
     if (z.isZombie && z.frozenUntil > t) {
       const dir = z.lastHit?.dir || [1, 0, 0];
       this.thaw(z);
-      if (!z.gibbed) this.shatter(z, dir);
+      if (z.gibbed) return;
+      if (z.lastHit?.blast || SHATTER_MELEE.has(e.weapon)) this.shatter(z, dir);
+      else this.crack(z, dir);
     } else if (z.frozenUntil || z.chillUntil) this.thaw(z);
+  }
+
+  /** A frozen zombie a bullet killed: the ice bursts off it (a few shards, a softer crack); the body stays whole. */
+  crack(z, dir) {
+    const g = this.game, o = z.pm.origin, c = [o[0], o[1], o[2] + 6];
+    this.counts.cracked++;
+    g.sound.play('ice_shatter', { pos: c, volume: 0.6 });
+    for (let i = 0; i < 6; i++) g.fire.emit('cryo', [c[0] + rnd(-10, 10), c[1] + rnd(-10, 10), c[2] + rnd(-20, 30)], [rnd(-80, 80), rnd(-80, 80), rnd(0, 90)], { life: rnd(0.6, 1), size: rnd(12, 18), size1: rnd(30, 44), drag: 3, buoy: 20 });
+    for (let i = 0; i < 14; i++) g.fire.emit('glint', [c[0], c[1], c[2] + rnd(-20, 30)], [rnd(-260, 260), rnd(-260, 260), rnd(40, 300)], { life: rnd(0.35, 0.7), size: rnd(1.2, 2), size1: 0.5, drag: 1.2, buoy: -420 });
+    for (let i = 0; i < 7; i++) this.shard([c[0] + rnd(-8, 8), c[1] + rnd(-8, 8), c[2] + rnd(-25, 30)], dir);
   }
 
   /** Blow a frozen zombie into ice: its body pieces (frosted, no blood) and shards that melt. */

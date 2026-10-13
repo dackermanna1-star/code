@@ -288,7 +288,7 @@ export class DropHud {
   /** Beside the crate: "hold E", and the bar while you're opening it. */
   prompt(hud, s, F) {
     const C = s.drops?.prompt;
-    if (!C || !s.alive) return;
+    if (!C || !s.alive || s.revivePrompt || s.reviving) return; // (a revive in reach wins the use key: zdowned.js draws its own prompt here)
     const k = hud.k, W = hud.vw, y0 = Math.round(hud.vh * 0.6);
     if (C.mine && C.prog > 0) {
       const bw = Math.round(Math.min(W * 0.36, 240 * k)), bh = Math.round(7 * k), x = Math.round(W / 2 - bw / 2), by = y0 + hud.lineH + Math.round(3 * k);
@@ -302,8 +302,10 @@ export class DropHud {
   }
 
   drawToasts(hud, F, now) {
-    const T = this.toasts;
+    const T = this.toasts, BS = this.pk.game.bosses?.stage;
     let y = Math.round(hud.vh * 0.665);
+    const tb = T.length && BS ? BS.titleBottom(hud) : 0;
+    if (tb) y = Math.max(y, Math.round(tb + hud.lineH * 1.2)); // (a boss's title card is up: under its last line - they drift up a little)
     for (let i = 0; i < T.length; i++) {
       const e = T[i], age = now - e.t0;
       if (age > e.dur || age < 0) { T.splice(i--, 1); continue; }

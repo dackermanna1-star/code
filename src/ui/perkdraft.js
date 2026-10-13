@@ -1,18 +1,19 @@
 // The perk draft overlay (zombie survival, perks.js): the cards of your open offer dealt
 // along the bottom of the view - icon, name, rarity colour, what it does (a gamble's downside
-// in red), the synergy it would complete - with keys 1..n (or a click while the pointer is
-// free: the buy menu, a fresh page), a reroll button, and how long until the wave picks for
+// in red), the synergy it would complete - picked by holding 1..n (a tap still switches weapons)
+// or a click while the pointer is free, a reroll button (hold n+1), and how long until the wave picks for
 // you. It never takes the pointer: you keep moving and looking while it's up. Also the
 // "SYNERGY UNLOCKED" card. DOM in the HUD's root (z above the HUD canvases, under the menus).
 //
 //   const ui = new PerkDraftUI(hud.root, { onPick(k), onReroll(), sound(name) });
 //   ui.show(view, { reroll })   view: perks.js ZPerks.view(offer)
 //   ui.pick(k) / ui.hide(now) / ui.timer(left, total) / ui.rerollState(r) / ui.toast(t) / ui.frame(dt)
+//   ui.fill(k, f) (a held key's progress) / ui.under(on) (hidden under an open menu)
 import { perkIcon } from './perkicons.js';
 import { tinted } from './icons.js';
 
 const CSS = `
-.zp-root { position: absolute; inset: 0; pointer-events: none; z-index: 9; --u: 1px; overflow: hidden;
+.zp-root { position: absolute; inset: 0; pointer-events: none; z-index: 9; --u: 1px; overflow: hidden; transition: opacity 0.12s;
   font-family: "Segoe UI", Inter, Roboto, "Helvetica Neue", "DejaVu Sans", Arial, sans-serif; color: #f3e9dc; }
 .zp-draft { position: absolute; left: 50%; bottom: calc(90 * var(--u)); transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; }
 .zp-draft.out { animation: zp-out 0.32s ease-in forwards; }
@@ -70,6 +71,12 @@ const CSS = `
 .zp-roll:hover { background: rgba(242, 165, 65, 0.22); color: #fff; }
 .zp-roll.off { opacity: 0.42; cursor: default; pointer-events: none; }
 .zp-roll.poor { color: #ff7a6a; border-color: rgba(255, 90, 70, 0.45); }
+.zp-root.under { opacity: 0; visibility: hidden; transition: none; }
+.zp-root.under * { pointer-events: none !important; }
+.zp-fill { position: absolute; left: 0; right: 0; bottom: 0; height: calc(4 * var(--u)); background: rgb(var(--c)); box-shadow: 0 0 calc(10 * var(--u)) rgba(var(--c), 0.9);
+  transform: scaleX(0); transform-origin: 0 50%; pointer-events: none; }
+.zp-roll { position: relative; overflow: hidden; }
+.zp-roll .zp-fill { --c: 242, 165, 65; height: 100%; opacity: 0.35; box-shadow: none; }
 .zp-timer { width: 100%; height: calc(3 * var(--u)); margin-top: calc(6 * var(--u)); background: rgba(0, 0, 0, 0.55); border-radius: calc(2 * var(--u)); overflow: hidden; }
 .zp-timer i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #e0452b, #f2a541); transform-origin: 0 50%; }
 .zp-timer.low i { background: #e0452b; animation: zp-blink 0.5s steps(2) infinite; }
@@ -127,7 +134,7 @@ export class PerkDraftUI {
     this.toastEl = null; this.toastT = 0; this.toastQ = null; // (the synergy card, and one waiting for the cards to go)
     this.sfx = []; // [{ at (s), name }]: the cards' deal sounds, staggered
     this.t = 0;
-    this.lastFrac = -1; this.lastLow = null; this.lastRoll = null;
+    this.lastFrac = -1; this.lastLow = null; this.lastRoll = null; this.lastFill = -1;
     this.u = 0;
     this.top = null; // (measure)
     this.layout();
@@ -187,6 +194,7 @@ export class PerkDraftUI {
       const meta = c.syn.length ? el('div', 'zp-meta syn', `+ ${c.syn[0].with} = ${c.syn[0].name}`)
         : el('div', 'zp-meta', c.max > 1 ? `Stacks ${c.have}/${c.max}` : c.squad ? 'Squad aura' : c.tags.join(' · '));
       card.appendChild(meta);
+      card.appendChild(el('div', 'zp-fill')); // (a held key fills it: fill)
       card.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); this.cb.onPick?.(i); });
       row.appendChild(card);
       return card;
@@ -194,7 +202,7 @@ export class PerkDraftUI {
     const foot = el('div', 'zp-foot');
     this.hint = el('div', 'zp-hint');
     const n = view.cards.length;
-    this.hint.innerHTML = `<b>${n > 1 ? `1-${n}` : '1'}</b> or click to pick &nbsp;·&nbsp; <span class="zp-left"></span>`;
+    this.hint.innerHTML = `Hold <b>${n > 1 ? `1-${n}` : '1'}</b> or click to pick &nbsp;·&nbsp; <span class="zp-left"></span>`;
     this.leftEl = this.hint.querySelector('.zp-left');
     foot.appendChild(this.hint);
     this.roll = null;
@@ -268,11 +276,27 @@ export class PerkDraftUI {
     const L = this.lastRoll;
     if (L && L.key === r.key && L.used === r.used && L.free === r.free && L.cost === r.cost && L.afford === r.afford) return; // (as shown)
     this.lastRoll = { key: r.key, used: r.used, free: r.free, cost: r.cost, afford: r.afford };
-    const label = r.used ? 'Rerolled' : r.free ? `Reroll · free (${r.free} left)` : `Reroll · $${r.cost}`;
-    this.roll.innerHTML = `<b>${r.key}</b>${label}`;
+    const label = r.used ? 'Rerolled' : `Hold to reroll · ${r.free ? `free (${r.free} left)` : `$${r.cost}`}`;
+    this.roll.innerHTML = `<b>${r.key}</b>${label}<i class="zp-fill"></i>`;
+    this.lastFill = -1;
     this.roll.classList.toggle('off', !!r.used);
     this.roll.classList.toggle('poor', !r.used && !r.free && !r.afford);
   }
+
+  /** A held number key: card k (k = the card count: the reroll button) filled to f (0..1); k -1: none. */
+  fill(k, f) {
+    const key = k < 0 ? -1 : k * 1000 + Math.round(f * 100);
+    if (key === this.lastFill) return;
+    this.lastFill = key;
+    const all = this.draft ? this.draft.querySelectorAll('.zp-fill') : [];
+    for (let i = 0; i < all.length; i++) {
+      const on = k >= 0 && (all[i].closest('.zp-roll') ? k === this.cards.length : this.cards[k]?.contains(all[i]));
+      all[i].style.transform = `scaleX(${on ? f.toFixed(2) : 0})`;
+    }
+  }
+
+  /** A menu is up (the buy menu in the break): the cards hide under it (on: true), and come back. */
+  under(on) { this.root.classList.toggle('under', !!on); }
 
   /** "SYNERGY UNLOCKED": t { kicker, name, from, text, icon, rgb }. While cards are up it waits for them to go (then shows where they were). */
   toast(t) {

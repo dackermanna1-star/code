@@ -314,7 +314,7 @@ async function boot() {
   // ---------------------------------------------------------------- input commands
   input.onCommand((cmd, pressed, code) => {
     if (!pressed && cmd === '+showscores') { showScores = false; menus.hideScoreboard?.(); return true; }
-    if (!pressed) return false;
+    if (!pressed) return !!(cmd && game.zombies?.enabled && game.zombies.perks.key(cmd, false, code == null)); // (a slot key up: a tap on a perk card is a weapon switch after all)
     if (cmd === 'toggleconsole' || code === 'Backquote') { menus.toggleConsole?.(); input.exitLock(); return true; }
     if (code === 'Escape' || cmd === 'cancelselect') {
       if (radioMenu.open) { radioMenu.close(); return true; }
@@ -329,7 +329,7 @@ async function boot() {
     if (game.mapEnts?.camera && game.time - game.mapEnts.camera.start > 0.3 && (cmd === '+attack' || cmd === '+use' || cmd === '+jump')) { game.mapEnts.camera = null; return true; }
     // number keys feed open menus first (team/class/buy menus handle their own keys)
     if (radioMenu.open && cmd && cmd.startsWith('slot')) { radioMenu.choose(+cmd.slice(4)); return true; }
-    if (game.zombies?.enabled && game.zombies.perks.key(cmd)) return true; // (zombie survival: a perk card open takes the number keys: perks.js)
+    if (game.zombies?.enabled && !menus.isOpen?.() && game.zombies.perks.key(cmd, true)) return true; // (zombie survival: holding a number key picks your open perk card, a tap still switches weapons: perks.js)
     if (!!menus.isOpen?.()) return false;
     switch (cmd) {
       case '+showscores': showScores = true; return true;

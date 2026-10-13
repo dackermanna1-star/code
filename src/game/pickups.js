@@ -31,8 +31,9 @@
 // Loot rules (onKill): only kills by the squad, mid-wave, never a boss's; a kill drops loot
 // with diff.drops.chance (x2.5 a special, x0.5 a summoned extra, x the killer's luck, up to
 // x1.6 when the squad is hurting) while the wave's budget lasts (base + perWave x wave, more
-// for a bigger squad and a rush wave); an elite always drops something. Each drop is a power-up
-// with diff.drops.powerup, + pity for every drop since the last one; else cash, ammo or a vial,
+// for a bigger squad and a rush wave); an elite always drops something (charged to the budget,
+// x2.5 the power-up odds). Each drop is a power-up with diff.drops.powerup, + pity for every
+// drop since the last one; else cash, ammo or a vial,
 // weighted toward what the squad is short of. At most diff.drops.floor bits of small loot lie
 // about at once (the oldest fades first) and two power-ups.
 import * as THREE from 'three';
@@ -48,6 +49,7 @@ import { DropHud } from './drophud.js';
 const rand = (a, b) => a + Math.random() * (b - a);
 const BLINK = 5; // s before fading out that it starts to blink
 const PU_MAX = 2; // power-ups on the floor at once
+const ELITE_PU = 2.5; // x an elite's drop's power-up odds (like a special's loot chance; never a sure thing)
 const _f = [0, 0, 0];
 // x the wave's loot budget by its type (director.js MODS): more bodies, more loot
 const MOD_LOOT = { rush: 1.3, specials: 1.15, elites: 1.15, crawlers: 1.1 };
@@ -155,14 +157,19 @@ export class Pickups {
 
   /** A new run (ZombieMode.start already cleared the floor: game.clearDropped). */
   reset() {
+    this.clear();
+    this.rnd = rng(this.Z.seed >>> 0, 'drops');
+    this.stats.drops = this.stats.powerups = this.stats.taken = this.stats.expired = 0;
+  }
+
+  /** Nothing running, humming or coming down (a new run; the mode turned off: ZombieMode.teardown). */
+  clear() {
     this.budget = 0; this.spent = 0; this.sincePU = 0; this.lastPU = null;
     this.active.clear();
     removeHooks(this.Z);
     this.nukeQ.length = 0;
     for (const h of this.hums.values()) h.stop(0.1);
     this.hums.clear();
-    this.rnd = rng(this.Z.seed >>> 0, 'drops');
-    this.stats.drops = this.stats.powerups = this.stats.taken = this.stats.expired = 0;
     this.air.reset();
     this.ui.reset();
   }
@@ -205,17 +212,17 @@ export class Pickups {
     const luck = 1 + Z.mods.factor(e.attacker, 'luck');
     const chance = D.chance * (e.special ? 2.5 : 1) * (e.extra ? 0.5 : 1) * Math.max(0, luck) * (1 + 0.6 * need.hp);
     if (!elite && this.rnd() >= chance) return;
-    if (!elite) this.spent++;
+    this.spent++; // (an elite's drop comes out of the budget too, past its end if need be)
     const o = v.pm.origin;
-    this.drop([o[0], o[1], o[2] + 8], need, elite);
+    this.drop([o[0], o[1], o[2] + 8], need, elite ? ELITE_PU : 1);
   }
 
-  /** One drop at pos: a power-up (rare; pity raises the odds) or cash / ammo / a vial by need. */
-  drop(pos, need = this.need(), forcePU = false) {
+  /** One drop at pos: a power-up (rare; pity raises the odds, puK multiplies them) or cash / ammo / a vial by need. */
+  drop(pos, need = this.need(), puK = 1) {
     const D = this.D, Z = this.Z, t = this.game.time;
     this.stats.drops++;
     let pu = null;
-    if (this.count('powerup') < PU_MAX && (forcePU || this.rnd() < Math.min(0.6, D.powerup + D.pity * this.sincePU))) pu = this.rollPowerup();
+    if (this.count('powerup') < PU_MAX && this.rnd() < Math.min(0.6, (D.powerup + D.pity * this.sincePU) * puK)) pu = this.rollPowerup();
     const vel = [rand(-70, 70), rand(-70, 70), rand(160, 230)];
     let d;
     if (pu) {

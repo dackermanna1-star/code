@@ -160,9 +160,12 @@
         }
         if (draftShot && z.perks.offerFor(me())) {
           const of = z.perks.offerFor(me());
-          const took = z.perks.key('slot1');
+          frames(40); // (past the deal's grace)
+          const took = z.perks.key('slot1', true); // (held: a tap would switch weapons)
+          frames(25);
+          z.perks.key('slot1', false);
           const held = z.perks.list(me()).map((x) => x.id);
-          check('key 1 picks the first card', took && held.includes(of.ids[0]), held.join(','));
+          check('holding key 1 picks the first card', took && held.includes(of.ids[0]), held.join(','));
           frames(20);
           log(`bought ${shop().join(',')}`);
           con('zm_ready');

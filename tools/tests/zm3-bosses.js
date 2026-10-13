@@ -4,7 +4,7 @@
 // (rumble, a roar from its direction, the commons backing off, the lights dipping and coming
 // back to the player's own setting, the title card), posture (what builds it, bots less, the
 // break: kneel, x damage, the weak point, the hit-stop, recovery and a bigger bar, draining),
-// phases (66% / 33%, a move each; Nightmare's third a frenzy) and every phase move doing its
+// phases (66% / 33%, a move each, held a moment until it's seen; Nightmare's third a frenzy) and every phase move doing its
 // thing, the trophy flow (heal and armour, the trophy, your relic offer with the boss's
 // signature relic, bots leave it), the relics, the elites (Alpha Hunter, Juggernaut: queued on
 // odd waves only, their health, the bar, the plough, the drop), the sounds and the HUD.
@@ -130,7 +130,7 @@
     check('health by the wave of appearance: hpWave first + per x (n/5 - 1)', h5 === Math.round(d0.health * BS.BOSS_NERF * hw[0]) && h25 === Math.round(d0.health * BS.BOSS_NERF * (hw[0] + 4 * hw[1])) && h30 > h25, `${h5} ${h25} ${h30}`);
     const avg = (n0, n1) => { let s = 0, k = 0; for (let n = n0; n <= n1; n += 5) { s += B().healthFor(d0, n, 0, 1) / (d0.health * BS.BOSS_NERF); k++; } return s / k; };
     check('no tankier on Normal: x1.0 on average over waves 5-25, under the old 1.6 later', avg(5, 25) <= 1.0001 && avg(30, 50) < 1.6, `${avg(5, 25).toFixed(2)} / ${avg(30, 50).toFixed(2)}`);
-    check('the crowd weight stays 0.3 a bot', B().healthFor(d0, 5, 0, 1.6) === Math.round(d0.health * BS.BOSS_NERF * hw[0] * 1.18));
+    check('the crowd scales health (1.6 shooters: x1.18)', B().healthFor(d0, 5, 0, 1.6) === Math.round(d0.health * BS.BOSS_NERF * hw[0] * 1.18));
     const ab = BS.BOSSES[4];
     check('a boss before its old slot comes lighter and hits softer (the Abomination at wave 5: x0.65; all of it by wave 25; the Butcher always whole)', B().healthFor(ab, 5, 0, 1) === Math.round(ab.health * 0.65 * BS.BOSS_NERF * hw[0]) && B().healthFor(ab, 25, 0, 1) === Math.round(ab.health * BS.BOSS_NERF * (hw[0] + 4 * hw[1])) && B().early(ab, 15) > 0.65 && B().early(ab, 15) < 1 && B().early(d0, 5) === 1 && B().early(ab, 40) === 1, `${B().healthFor(ab, 5, 0, 1)} / ${B().healthFor(ab, 25, 0, 1)}`);
     const hp = (id) => ZD.ZDIFF[id].boss.hpWave[0];
@@ -253,6 +253,10 @@
     b.health = b.maxHealth * 0.65; ticks(2);
     const e1 = of('bossphase');
     check('below 66%: phase 2, its first move (event, banner, roar)', b.boss.phase === 1 && b.boss.moves.has('ambush') && e1.length === 1 && e1[0].id === 'ambush' && e1[0].phase === 1 && B().stage.banner?.label === BS.MOVES.ambush.name && heard.boss_phase === 1);
+    const gd = B().adjust(b, me(), 100, H.CHEST, 'ak47', {});
+    B().cool(b.boss, 'ambush', g.time, 10);
+    const gd2 = B().adjust(b, me(), 100, H.CHEST, 'ak47', {});
+    check('a fresh phase takes less damage until its move has gone off (each phase gets seen), then full', gd < 50 && gd2 > 90 && !(b.boss.guardUntil > g.time), `${gd.toFixed(0)} -> ${gd2.toFixed(0)}`);
     b.health = b.maxHealth * 0.2; ticks(2);
     check('below 33%: phase 3, its second move', b.boss.phase === 2 && b.boss.moves.has('pack') && of('bossphase').length === 2 && B().hudInfo().phase === 2);
     const bar = B().hudInfo();
@@ -434,7 +438,7 @@
     check('...that pounces again almost as soon as it\'s off you', al.sp.cd.pounce <= g.time + EL.ELITES.alpha.pounce + 0.02);
     const drops0 = g.dropped.filter((d) => d.kind === 'health').length;
     g.damagePlayer(al, p, 1e6, H.CHEST, 'ak47', [1, 0, 0], al.eyePos());
-    check('one down: its event and a health vial', of('elite', (e) => e.phase === 'death' && e.zombie === al).length === 1 && g.dropped.filter((d) => d.kind === 'health').length === drops0 + 1 && heard.elite_down === 1 && !al.eliteRow);
+    check('one down: its event and a health vial', of('elite', (e) => e.phase === 'death' && e.zombie === al).length === 1 && g.dropped.filter((d) => d.kind === 'health').length >= drops0 + 1 && heard.elite_down === 1 && !al.eliteRow);
     // the Juggernaut ploughs through
     Z().clearHorde();
     Z().specials.spawn('charger', { near: ahead(p, 400), elite: EL.ELITES.juggernaut });

@@ -58,6 +58,9 @@ const SHOVE_KEYS = [['KeyT', 'T'], ['KeyJ', 'J'], ['KeyK', 'K'], ['KeyL', 'L'], 
 const XHAIR_COLORS = [['Green', [50, 250, 50]], ['Red', [250, 50, 50]], ['Blue', [50, 50, 250]], ['Yellow', [250, 250, 50]], ['Light Blue', [50, 250, 250]]];
 const sameColor = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => +v === +b[i]);
 
+/** menuState notes that mean you have it already (a loaded round, a fitted part...): the button drops its price. */
+const HAVE_NOTES = new Set(['loaded', 'owned', 'forged', 'fitted', 'current', 'have it', 'max', 'full']);
+
 export class Menus {
   constructor(container, { onCommand } = {}) {
     this.container = container;
@@ -690,7 +693,8 @@ export class Menus {
         const it = ITEMS[id];
         const st = stateOf(id);
         const off = !it.page && (st.off || (priceOf(id) ?? 0) > money);
-        const b = this._vgButton(i + 1, st.note ? `${it.name} (${st.note})` : it.name, () => press(id), { price: it.page ? null : priceOf(id), off });
+        const had = st.off && HAVE_NOTES.has(st.note); // (yours already: no price to read, and the label gets the room)
+        const b = this._vgButton(i + 1, st.note ? `${it.name} (${st.note})` : it.name, () => press(id), { price: it.page || had ? null : priceOf(id), off });
         b.addEventListener('mouseenter', () => showItem(id));
         col.appendChild(b);
       });

@@ -3,7 +3,8 @@
 // bought (the blades take the knife's slot), and doing what they do in the world: blades that
 // land late, cut two (katana), stagger (axe) and take heads; a silent crossbow whose bolt goes
 // through one body and can be picked up again; a pipe bomb that draws the horde in and blows;
-// a cryo grenade that freezes them solid, a frozen one shattering when killed (never a corpse);
+// a cryo grenade that freezes them solid, a frozen one shattering when a blade or blast kills it
+// (a bullet: the ice cracks off, the body falls whole; never a corpse);
 // bots throwing pipe bombs when swarmed; screenshots of every view model in game.
 // usage (dev server running):
 //   node tools/drive.mjs "http://localhost:5173/?autostart=1&mode=zombies&allies=2" tools/tests/zm3-arsenal.js /tmp/zm3a
@@ -341,11 +342,16 @@
     const moved = frozen.map((z, k) => Math.hypot(z.pm.origin[0] - pos0[k][0], z.pm.origin[1] - pos0[k][1]));
     const still = moved.filter((d) => d < 2).length;
     check('frozen zombies stand stock still, frosted', still === frozen.length && frozen.every((z) => z.model.material.uniforms.uFrost.value > 0.5), `${still}/${frozen.length} still (moved ${moved.map((d) => d.toFixed(1)).join(',')}; frozen ${frozen.map((z) => (z.frozenUntil - g.time).toFixed(1)).join(',')})`);
-    // kill one frozen: it shatters into ice
-    const v = frozen[0];
+    // kill one frozen with a bullet: the ice cracks off, the body falls whole (bullets never gib bodies)
+    const v = frozen[0], cr0 = A().counts.cracked;
     g.damagePlayer(v, me(), 1000, 2, 'deagle', [1, 0, 0], chest(v));
     run(4);
-    check('one killed while frozen shatters (ice, no body left)', A().counts.shattered === sh0 + 1 && v.gibbed && A().shards.length > 5 && heard('ice_shatter') >= 1);
+    check('one a bullet kills while frozen cracks: ice bursts off, the body falls whole', !v.alive && A().counts.cracked === cr0 + 1 && A().counts.shattered === sh0 && !v.gibbed && v.model.object3D.visible && A().shards.length >= 5 && heard('ice_shatter') >= 1);
+    // ...one a blade kills shatters into ice
+    const v2 = frozen[1];
+    if (v2) g.damagePlayer(v2, me(), 1000, 2, 'machete', [1, 0, 0], chest(v2));
+    run(4);
+    check('one a blade kills while frozen shatters (ice, no body left)', !!v2 && A().counts.shattered === sh0 + 1 && v2.gibbed && A().shards.length > 5);
     aim(me(), chest(v)); g.frame(0); // (the shot: the frozen ones and the ice)
     return { shot: true };
   });

@@ -22,6 +22,7 @@ export class Input {
     this.el = element;
     this.binds = { ...DEFAULT_BINDS };
     this.down = new Set(); // active +commands
+    this.taps = new Set(); // key codes of plain commands held down (their key up goes to the handlers too)
     this.mouseDX = 0;
     this.mouseDY = 0;
     this.locked = false;
@@ -110,7 +111,10 @@ export class Input {
       if (pressed) this.down.add(name); else this.down.delete(name);
       for (const h of this.handlers) if (h(cmd, pressed, code)) return;
     } else if (pressed) {
+      this.taps.add(code);
       for (const h of this.handlers) if (h(cmd, true, code)) return;
+    } else if (this.taps.delete(code)) {
+      for (const h of this.handlers) if (h(cmd, false, code)) return; // (a plain command's key up: the perk draft's hold-to-pick)
     }
   }
 
@@ -132,6 +136,10 @@ export class Input {
     for (const n of [...this.down]) {
       this.down.delete(n);
       for (const h of this.handlers) h('+' + n, false, null);
+    }
+    for (const c of [...this.taps]) { // (code null: let go without a key up - focus lost)
+      this.taps.delete(c);
+      if (this.binds[c]) for (const h of this.handlers) h(this.binds[c], false, null);
     }
   }
 

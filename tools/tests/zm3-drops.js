@@ -1,7 +1,7 @@
 // Zombie survival, Milestone 3.5: drops, power-ups and airdrops (pickups.js, powerups.js,
 // airdrop.js, drophud.js, dropmodels.js, snd/drops.js) - the registrations (sounds, buffs, the
 // difficulty group), loot from kills (only the squad's, mid-wave, never a boss's, within the
-// wave's budget; elites always), the loot itself (cash, ammo, vials), the five power-ups (Max
+// wave's budget; elites always, x2.5 the power-up odds), the loot itself (cash, ammo, vials), the five power-ups (Max
 // Ammo, Insta-Kill not on bosses, Double Cash, Nuke not on bosses, Fire Sale opening the shop),
 // their timers running out, fading and the floor cap, the airdrop (flare, chute, landing, hold E
 // to open, what's inside, fading unopened, planned into a wave), bots fetching loot when it's
@@ -150,14 +150,22 @@
     let n0 = pk.stats.drops;
     for (let i = 0; i < 6; i++) { pk.rnd = seq(0, 0.99, 0); kill(walker(atMe(150, i * 30))); }
     check('the wave\'s budget caps it (3 of 6 lucky kills)', pk.stats.drops - n0 === 3 && pk.spent === 3);
-    // an elite drops something whatever the budget: a power-up
-    const els = Z().specials;
+    // an elite drops something whatever the budget: ordinary loot, charged to the budget, x2.5 the power-up odds (never a sure power-up)
+    const els = Z().specials, D0 = Z().diff.drops;
+    const pus0 = () => g.dropped.filter((q) => q.kind === 'powerup' && !q.taken).length;
     els.spawn('hunter', { extra: true, near: me().pm.origin.slice(), elite: 2 });
     const el = Z().pool.find((q) => q.alive && q.elite);
-    pk.rnd = seq(0.99, 0.99, 0.2, 0.5);
+    pk.rnd = seq(0.99, 0.99, 0.2, 0.5); pk.sincePU = 0;
     n0 = pk.stats.drops;
+    let pu0 = pus0(), sp0 = pk.spent;
     if (el) kill(el);
-    check('an elite always drops (a power-up), budget or not', el && pk.stats.drops - n0 === 1 && g.dropped.some((q) => q.kind === 'powerup' && !q.taken), el ? '' : 'no elite spawned');
+    check('an elite always drops (ordinary loot), budget or not, and it counts toward the budget', el && pk.stats.drops - n0 === 1 && pus0() === pu0 && pk.spent === sp0 + 1, el ? `spent ${sp0} -> ${pk.spent}` : 'no elite spawned');
+    els.spawn('hunter', { extra: true, near: me().pm.origin.slice(), elite: 2 });
+    const el2 = Z().pool.find((q) => q.alive && q.elite);
+    pk.rnd = seq(D0.powerup * 2, 0.5, 0.5); pk.sincePU = 0; // (a roll a plain kill's drop would miss)
+    n0 = pk.stats.drops; pu0 = pus0();
+    if (el2) kill(el2);
+    check('...with better power-up odds than a plain kill', el2 && pk.stats.drops - n0 === 1 && pus0() === pu0 + 1, el2 ? '' : 'no elite spawned');
     // power-ups: pity raises the odds
     pk.sincePU = 0;
     const p0 = Math.min(0.6, D.powerup + D.pity * 0), p10 = Math.min(0.6, D.powerup + D.pity * 10);

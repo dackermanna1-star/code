@@ -154,10 +154,18 @@
     const M = byRole('medic').p, D = byRole('demo').p, G = byRole('gunner').p, K = byRole('marksman').p;
     check('first break: the Medic and the Demo buy their role guns, the Gunner / Marksman a stand-in', ['p90', 'ump45', 'mp5'].includes(M.weapons[1]?.id) && ['aa12', 'xm1014', 'm3'].includes(D.weapons[1]?.id) && !!G.weapons[1] && !!K.weapons[1], first);
     check('nobody overspends (money never negative)', squadBots().every((b) => b.p.money >= 0));
-    // rich: the role guns and kit
+    // rich, but early: the heavies wait for their wave (diff.roles.heavyFrom)
+    for (const b of squadBots()) { b.p.money = 14000; E.st(b.p).shopped = -99; E.botBuy(b); }
+    const early = desc(), HF = Z().diff.roles.heavyFrom;
+    check('rich at wave 1: no heavy before its wave (no M249 / minigun, Barrett, AA-12 yet)', !['minigun', 'm249'].includes(G.weapons[1]?.id) && K.weapons[1]?.id !== 'barrett' && D.weapons[1]?.id !== 'aa12' && !!G.weapons[1] && HF.minigun > HF.m249, early);
+    Z().wave = HF.m249 - 1;
+    for (const b of squadBots()) { b.p.money = 14000; E.st(b.p).shopped = -99; E.botBuy(b); }
+    check('...the Gunner saves for the M249 first', G.weapons[1]?.id === 'm249', desc());
+    // rich, from the heavies' waves: the role guns and kit
+    Z().wave = Math.max(HF.minigun, HF.aa12, HF.barrett) - 1;
     for (const b of squadBots()) { b.p.money = 14000; E.st(b.p).shopped = -99; E.botBuy(b); }
     const rich = desc();
-    check('the Gunner gets the minigun', G.weapons[1]?.id === 'minigun', rich);
+    check('...then the minigun', G.weapons[1]?.id === 'minigun', rich);
     check('the Marksman gets the Barrett', K.weapons[1]?.id === 'barrett', rich);
     check('the Demo: AA-12, 2 claymores, 2 molotovs', D.weapons[1]?.id === 'aa12' && D.weapons[4].find((w) => w.id === 'claymore')?.count === 2 && D.weapons[4].find((w) => w.id === 'molotov')?.count === 2, rich);
     check('the Medic: P90 and 2 medkits', M.weapons[1]?.id === 'p90' && M.weapons[4].find((w) => w.id === 'medkit')?.count === 2, rich);
@@ -370,7 +378,9 @@
   steps.push(async () => {
     newRun();
     const E = Z().economy;
+    Z().wave = 20; // (shopping as if late in the run: the heavies are open - diff.roles.heavyFrom)
     for (const b of squadBots()) { b.p.money = 14000; E.st(b.p).shopped = -99; E.botBuy(b); }
+    Z().wave = 0;
     Z().nextWaveAt = g.time + 0.02; ticks(5);
     Z().nextSpawn = 1e9; Z().clearHorde();
     const dist = goOpen(1000);

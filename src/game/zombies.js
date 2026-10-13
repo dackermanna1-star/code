@@ -112,10 +112,26 @@ export class ZombieMode {
 
   /** New Game options: the mode, and the difficulty with its options (zdiff.js). */
   configure(opts) {
+    const was = this.enabled;
     this.enabled = opts.mode === 'zombies';
+    if (was && !this.enabled) this.teardown();
     this.opts = zombieOptions(opts);
     this.diff = resolveDiff(this.opts);
     this.squad?.configure(opts); // (the New Game's role picks: zsquad.js)
+  }
+
+  /**
+   * The mode is off (a classic game next, game.newGame -> configure): what the run's features
+   * left in the world and on the speakers goes - their per-tick code won't run again to do it
+   * (a power-up's hum, an airdrop's flare and loop, stuck bolts, pipe bombs, ice, a boss's
+   * floor markers and dimmed lights, the perk cards).
+   */
+  teardown() {
+    this.pickups?.clear();
+    this.arsenal?.reset();
+    this.forge?.reset();
+    this.game.bosses?.clear();
+    this.perks?.ui?.hide(true);
   }
 
   /** A hardcore run (no wave heal, guns only in breaks, radar pings only; its own records). */
@@ -205,12 +221,14 @@ export class ZombieMode {
     const brk = this.diff.breakLen;
     this.nextWaveAt = g.time + brk;
     const bonus = this.stats.bonus, heal = this.diff.econ.waveHeal;
+    let mine = bonus; // (what you got: perks and power-ups scale it)
     for (const p of g.players) {
       if (p.team !== TEAM_CT || !p.alive) continue;
-      this.economy.pay(p, bonus, 'wave'); // (an 'earn'; perks may scale it: zmods.js)
+      const got = this.economy.pay(p, bonus, 'wave'); // (an 'earn'; perks may scale it: zmods.js)
+      if (p === g.local) mine = got;
       p.health = Math.min(p.maxHealth, p.health + heal);
     }
-    g.hud?.centerPrint?.(`Wave ${this.wave} cleared!\n+$${bonus}${heal ? `, +${heal} health` : ''}. Next wave in ${brk} seconds.`, 5);
+    g.hud?.centerPrint?.(`Wave ${this.wave} cleared!\n+$${mine}${heal ? `, +${heal} health` : ''}. Next wave in ${brk} seconds.`, 5);
     g.sound?.play('radio_beep', { volume: 0.6 });
     this.saveBest(this.wave);
     this.events.mode('wave', { phase: 'cleared', wave: this.wave, boss: this.bossWave, count: this.stats.count, bonus, heal });

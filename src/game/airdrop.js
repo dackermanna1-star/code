@@ -321,7 +321,7 @@ export class Airdrops {
     S.prog = this.prog;
     S.mine = !!me && this.opener === me;
     H.crate = S;
-    if (this.state === 'landed' && me?.alive && !me.downed && inSquad(me)) {
+    if (this.state === 'landed' && me?.alive && !me.downed && !me.reviving && inSquad(me)) { // (reviving: useTick skips you, so no prompt)
       const o = me.pm.origin;
       if (Math.hypot(o[0] - d.pos[0], o[1] - d.pos[1]) <= OPEN_REACH && Math.abs(o[2] - 36 - d.pos[2]) <= 64) H.prompt = S;
     }

@@ -443,7 +443,7 @@ export class Game {
   }
 
   clearDropped() {
-    for (const d of this.dropped) { d.obj.removeFromParent(); d.obj.userData.dispose?.(); }
+    for (const d of this.dropped) { d.obj.removeFromParent(); d.obj.userData.dispose?.(); d.taken = true; } // (taken: anything still holding one - an airdrop's crate - knows it's gone)
     this.dropped = [];
   }
 

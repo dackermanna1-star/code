@@ -21,7 +21,7 @@ import { TEAM_CT } from './player.js';
 
 export const BUFFS = {
   doublecash: { name: 'Double Cash', text: 'Everything the squad earns is doubled.', stats: { money: 1 } },
-  instakill: { name: 'Insta-Kill', text: 'Every zombie dies in one hit (bosses take no extra).' },
+  instakill: { name: 'Insta-Kill', text: 'Commons and specials die in one hit; elites take 4x damage, bosses no extra.' },
   firesale: { name: 'Fire Sale', text: 'The whole shop is open, mid-wave too, at a knock-down price.' },
 };
 
@@ -35,7 +35,7 @@ function maxAmmo(Z) {
 
 export const POWERUPS = {
   maxammo: { name: 'MAX AMMO', say: 'Max Ammo!', sub: 'Every gun in the squad: full reserves', rgb: [70, 160, 255], weight: 3, from: 1, sound: 'pu_maxammo', apply: (Z) => maxAmmo(Z) },
-  instakill: { name: 'INSTA-KILL', say: 'Insta-Kill!', sub: 'One hit, one kill', rgb: [255, 45, 45], weight: 2, from: 3, sound: 'pu_instakill', buff: 'instakill', squad: true },
+  instakill: { name: 'INSTA-KILL', say: 'Insta-Kill!', sub: 'One hit, one kill (elites take 4x)', rgb: [255, 45, 45], weight: 2, from: 3, sound: 'pu_instakill', buff: 'instakill', squad: true },
   doublecash: { name: 'DOUBLE CASH', say: 'Double Cash!', sub: 'Everything the squad earns, doubled', rgb: [70, 235, 90], weight: 2, from: 2, sound: 'pu_doublecash', buff: 'doublecash', squad: true },
   nuke: { name: 'NUKE', say: 'Kaboom!', sub: 'Every zombie on the map, gone', rgb: [255, 215, 40], weight: 1, from: 5, wave: true, sound: 'pu_nuke', apply: (Z, p, d) => Z.pickups.nuke(p, d.pos) },
   firesale: { name: 'FIRE SALE', say: 'Fire Sale!', sub: (Z) => `The whole shop is open, ${Math.round((1 - Z.diff.drops.fireSale) * 100)}% off`, rgb: [255, 120, 25], weight: 1.5, from: 4, wave: true, sound: 'pu_firesale', buff: 'firesale', squad: true, apply: (Z) => Z.pickups.fireSale() },

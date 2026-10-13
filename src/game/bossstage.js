@@ -409,6 +409,13 @@ export class BossStage {
     }
   }
 
+  /** Where the title card's last line ends (px down the view), while it's up; else 0 (drophud.js keeps its toasts under it). */
+  titleBottom(hud) {
+    if (!this.title || this.game.time - this.title.t0 > TITLE_TIME) return 0;
+    const fp = hud.fontPx; // (drawOver's steps down the card)
+    return Math.round(hud.vh * 0.55) + Math.round(fp * 1.5) + Math.round(fp * 3.5) + Math.round(fp * 1.7) + Math.round(fp * 1.25) + hud.lineH;
+  }
+
   /** Over the stock HUD: the title card, the banners, the arrival's arrow, the trophy's marker, the elites' plates. */
   drawOver(hud, s) {
     const Z = this.Z;

@@ -189,13 +189,13 @@ const COMBO = {
  * card), from (the first break with a draft: after wave n), rerollCost [base, perWave] ($ for a
  * reroll once the free ones are spent: one per draft; perks' price discounts apply), botEvery
  * (bots draft every nth break only: they support, the build is yours - M3 integration: bots
- * drafting every break carried the run).
+ * drafting every break carried the run; the M3 review raised it again with the role heavies).
  */
 const PERKS = {
-  casual: { choices: 4, rareEvery: 5, rerolls: 2, curse: 0.1, from: 1, rerollCost: [150, 15], botEvery: 1 },
-  normal: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.15, from: 1, rerollCost: [250, 25], botEvery: 2 },
-  hard: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.2, from: 1, rerollCost: [300, 30], botEvery: 2 },
-  nightmare: { choices: 2, rareEvery: 5, rerolls: 0, curse: 0.25, from: 1, rerollCost: [400, 40], botEvery: 3 },
+  casual: { choices: 4, rareEvery: 5, rerolls: 2, curse: 0.1, from: 1, rerollCost: [150, 15], botEvery: 3 },
+  normal: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.15, from: 1, rerollCost: [250, 25], botEvery: 4 },
+  hard: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.2, from: 1, rerollCost: [300, 30], botEvery: 4 },
+  nightmare: { choices: 2, rareEvery: 5, rerolls: 0, curse: 0.25, from: 1, rerollCost: [400, 40], botEvery: 5 },
 };
 
 /**
@@ -205,7 +205,7 @@ const PERKS = {
  * from roundFrom they load a round too).
  */
 const FORGE = {
-  casual: { priceK: 0.8, tiers: 5, roundFrom: 3, procK: 1.2, leech: 10, botTier: 3 },
+  casual: { priceK: 0.8, tiers: 5, roundFrom: 3, procK: 1.2, leech: 10, botTier: 2 },
   normal: { priceK: 1, tiers: 5, roundFrom: 3, procK: 1, leech: 8, botTier: 1 },
   hard: { priceK: 1.15, tiers: 5, roundFrom: 3, procK: 0.9, leech: 6, botTier: 1 },
   nightmare: { priceK: 1.3, tiers: 5, roundFrom: 3, procK: 0.8, leech: 5, botTier: 1 },
@@ -216,13 +216,17 @@ const FORGE = {
  * Focus order lasts), medicHeal (a Medic patches a teammate up below this HP; the others 55),
  * holdArc (u: the radius of the arc "Hold here" sets the squad in), medicRange (u: how far a
  * Medic walks over to patch somebody up; the others 450), restock ($ a bot keeps back when it
- * tops up mid-wave: ammo before it runs dry, the Medic's medkit).
+ * tops up mid-wave: ammo before it runs dry, the Medic's medkit), heavyFrom ({ gun: wave }: the
+ * first wave a role bot takes that heavy into - the Gunner's M249 then minigun, the Demo's AA-12,
+ * the Marksman's Barrett; until then the next gun on its list. M3 integration review: bots that
+ * bought them outright carried a weak player to wave ~15-25 on Normal).
  */
+const HEAVY_LATE = { m249: 6, minigun: 15, aa12: 12, barrett: 12 };
 const ROLES = {
-  casual: { focus: 15, medicHeal: 70, holdArc: 240, medicRange: 850, restock: 300 },
-  normal: { focus: 12, medicHeal: 65, holdArc: 240, medicRange: 800, restock: 400 },
-  hard: { focus: 12, medicHeal: 60, holdArc: 260, medicRange: 700, restock: 500 },
-  nightmare: { focus: 10, medicHeal: 55, holdArc: 260, medicRange: 600, restock: 650 },
+  casual: { focus: 15, medicHeal: 70, holdArc: 240, medicRange: 850, restock: 300, heavyFrom: HEAVY_LATE },
+  normal: { focus: 12, medicHeal: 65, holdArc: 240, medicRange: 800, restock: 400, heavyFrom: HEAVY_LATE },
+  hard: { focus: 12, medicHeal: 60, holdArc: 260, medicRange: 700, restock: 500, heavyFrom: HEAVY_LATE },
+  nightmare: { focus: 10, medicHeal: 55, holdArc: 260, medicRange: 600, restock: 650, heavyFrom: HEAVY_LATE },
 };
 
 /**
@@ -231,14 +235,15 @@ const ROLES = {
  * cycle; Normal averages today's 1.0 over waves 5-25), heal / armor (HP and armour back for
  * everyone standing after a boss kill, instead of a full heal), relics (relics a trophy offers),
  * posture (x posture a hit builds), kneel (s a posture break holds it down), kneelK (x damage
- * while it kneels), phases (health fractions that add a move), elitesFrom (first wave with an
+ * while it kneels), phases (health fractions that add a move), botShare (a bot's share of a
+ * shooter in its health: 0.3 before M3's role guns and perks), elitesFrom (first wave with an
  * elite: odd waves only), eliteChance (an odd wave brings one), eliteHp (x an elite's health).
  */
 const BOSS = {
-  casual: { hpWave: [0.7, 0.1], heal: 100, armor: 100, relics: 3, posture: 1.3, kneel: 3.5, kneelK: 2, phases: [0.66, 0.33], elitesFrom: 9, eliteChance: 0.25, eliteHp: 1.6 },
-  normal: { hpWave: [0.8, 0.1], heal: 50, armor: 50, relics: 2, posture: 1, kneel: 3, kneelK: 2, phases: [0.66, 0.33], elitesFrom: 7, eliteChance: 0.35, eliteHp: 2 },
-  hard: { hpWave: [0.9, 0.11], heal: 40, armor: 25, relics: 2, posture: 0.85, kneel: 2.5, kneelK: 2, phases: [0.66, 0.33], elitesFrom: 5, eliteChance: 0.5, eliteHp: 2.3 },
-  nightmare: { hpWave: [1, 0.12], heal: 30, armor: 0, relics: 2, posture: 0.7, kneel: 2.2, kneelK: 2, phases: [0.75, 0.5, 0.25], elitesFrom: 3, eliteChance: 0.65, eliteHp: 2.6 },
+  casual: { hpWave: [0.7, 0.1], heal: 100, armor: 100, relics: 3, posture: 1.3, kneel: 3.5, kneelK: 2, phases: [0.66, 0.33], botShare: 0.4, elitesFrom: 9, eliteChance: 0.25, eliteHp: 1.6 },
+  normal: { hpWave: [0.8, 0.1], heal: 50, armor: 50, relics: 2, posture: 1, kneel: 3, kneelK: 2, phases: [0.66, 0.33], botShare: 0.45, elitesFrom: 7, eliteChance: 0.35, eliteHp: 2 },
+  hard: { hpWave: [0.9, 0.11], heal: 40, armor: 25, relics: 2, posture: 0.85, kneel: 2.5, kneelK: 2, phases: [0.66, 0.33], botShare: 0.5, elitesFrom: 5, eliteChance: 0.5, eliteHp: 2.3 },
+  nightmare: { hpWave: [1, 0.12], heal: 30, armor: 0, relics: 2, posture: 0.7, kneel: 2.2, kneelK: 2, phases: [0.75, 0.5, 0.25], botShare: 0.5, elitesFrom: 3, eliteChance: 0.65, eliteHp: 2.6 },
 };
 
 /**

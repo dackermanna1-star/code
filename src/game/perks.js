@@ -3,9 +3,10 @@
 // Overclock, Demolitions...), rarer cards every diff.perks.rareEvery waves; some are
 // boon-and-curse gambles (curse: true: Blood Pact, Glass Cannon...); tag pairs unlock named
 // synergies (Pyro + Tesla = Plasma Arc); bots draft by tags that match their guns. The draft
-// is a non-pointer-locking overlay (ui/perkdraft.js: keys 1-n or a click, the next key
-// rerolls once) that auto-picks at random when the wave starts; the perks you hold sit in a
-// strip on the HUD, and the run report lists them.
+// is a non-pointer-locking overlay (ui/perkdraft.js: hold 1-n or click, hold the next key to
+// reroll once; a tap still switches weapons; hidden under the buy menu) that auto-picks at
+// random when the wave starts; the perks you hold sit in a strip on the HUD, and the run
+// report lists them.
 //
 // Contract (m3-contracts section 4) - the API the bosses (relics), drops (timed buffs) and
 // squad builders use:
@@ -22,7 +23,7 @@
 //                                     a human gets it queued (offerFor) until choose() or the auto-pick;
 //                                     one made mid-wave waits for the break (number keys stay weapons)
 //   perks.offerFor(p) / perks.choose(p, k | id) / perks.reroll(p)   the open offer / pick / reroll it
-//   perks.key(cmd)                    main.js: a number key while your card is open picks (n+1 rerolls)
+//   perks.key(cmd, pressed, cancel)   main.js: a number key held while your card is up picks (n+1 rerolls); a tap switches weapons
 // A perk's stats feed the modifier pipeline (zmods.js: within a stat bonuses add). What a stat
 // can't say goes through hooks this module registers while anybody holds a perk (zmods 'out' /
 // 'in' / 'money': weapon-family damage, Last Stand, Executioner, Live Wire, Bounty Hunter, Black
@@ -71,6 +72,9 @@ const WSTAT = Object.create(null), WKIND = Object.create(null); // weapon id -> 
 for (const id in WEAPON_DEFS) { WKIND[id] = WEAPON_DEFS[id].kind; if (KIND_STATS[WEAPON_DEFS[id].kind]) WSTAT[id] = KIND_STATS[WEAPON_DEFS[id].kind]; }
 const MELEE = new Set(['knife', 'chainsaw', 'shove', 'machete', 'fireaxe', 'katana']); // (the arsenal's blades too: zarsenal.js)
 const LAST_STAND = 0.35; // Last Stand: below this share of max health
+const HOLD_T = 0.3; // s a number key is held down to pick a card (a tap is still a weapon switch)
+const GRACE_T = 0.6; // s after the cards are dealt before a key counts
+const SCAV_VALUE = 20; // $ of ammo (at its shop price) a Scavenger kill gives back at most (a headshot: twice)
 /** The HUD strip's icon size (px at the 640 sprite scale). */
 export const STRIP_PX = 17;
 
@@ -183,9 +187,11 @@ export class ZPerks {
     this.onMoney = (p, amount, reason) => this.money(p, amount, reason);
     this.jolts = Array.from({ length: 8 }, () => ({ v: null, a: null })); // Live Wire's jolts, done next tick
     this.jn = 0;
-    this.shown = null; this.shownRev = -1; // the offer the overlay shows
+    this.shown = null; this.shownRev = -1; this.shownAge = 0; // the offer the overlay shows, s since it was dealt
+    this.hold = { cmd: null, k: 0, of: null, t: 0, done: false }; // a number key held on it (key / holdTick)
+    this.under = false; // (the overlay is hidden under an open menu)
     this.fonts = { px: 0, small: '' };
-    this.strip = { hud: null, t: 0, i: 0, sz: 0, gap: 0, x0: 0, yb: 0, timed: false }; // (the strip's frame, for stripIcon)
+    this.strip = { hud: null, t: 0, i: 0, sz: 0, gap: 0, x0: 0, yb: 0, timed: false, pu: null }; // (the strip's frame, for stripIcon)
     this.stripFn = (e, id) => this.stripIcon(e, id);
     this.rv = { key: 0, used: false, free: 0, cost: 0, afford: false }; // (the reroll button's state, refilled each frame)
     this.subscribed = false;
@@ -490,11 +496,19 @@ export class ZPerks {
     if (melee && P.has('hitandrun')) this.rush(p, 'hitandrunrush');
   }
 
-  /** Scavenger: a tenth of a magazine (a headshot: a fifth) back into the reserve of the gun that made the kill. */
+  /**
+   * Scavenger: a tenth of a magazine (a headshot: a fifth) back into the reserve of the gun that
+   * made the kill, worth SCAV_VALUE at most (by its ammo's price: a rocket is a long way off), the
+   * fractions kept on the gun (w.scav) until they make a round.
+   */
   scavenge(p, weapon, head) {
     const w = p.active?.id === weapon ? p.active : p.weapons[1]?.id === weapon ? p.weapons[1] : p.weapons[2]?.id === weapon ? p.weapons[2] : null;
-    if (!w || !w.def.ammoBuy || !(w.def.maxAmmo > 0) || w.ammo >= w.def.maxAmmo) return;
-    w.ammo = Math.min(w.def.maxAmmo, w.ammo + Math.max(1, Math.round(clipSize(w) * (head ? 0.2 : 0.1))));
+    const ab = w?.def.ammoBuy;
+    if (!ab || !(w.def.maxAmmo > 0) || w.ammo >= w.def.maxAmmo) return;
+    const n = Math.min(clipSize(w) * 0.1, SCAV_VALUE * ab.amount / ab.cost) * (head ? 2 : 1) + (w.scav || 0);
+    const whole = Math.floor(n + 1e-9);
+    w.scav = Math.max(0, n - whole);
+    if (whole) w.ammo = Math.min(w.def.maxAmmo, w.ammo + whole);
   }
 
   /** A kill-triggered rush (3 s; another kill restarts it). */
@@ -716,27 +730,70 @@ export class ZPerks {
     return want;
   }
 
-  /** Open offers past their time (t; 0: every one waiting for a wave start) are picked at random (not a curse, if there's another card). */
+  /**
+   * Offers due are picked at random (not a curse, if there's another card). t: a tick's time
+   * (the ones with an until past it, from the front of each queue); 0: a wave starts - every
+   * offer of the break (no until, not waiting for the next break) in the queue, so none stays
+   * open into the wave.
+   */
   autoPick(t) {
+    let mine = null;
     for (const q of [...this.offers.values()]) {
-      const of = q[0];
-      if (!of || of.wait || !(t ? of.until && t >= of.until : !of.until)) continue;
-      const safe = of.ids.filter((id) => !PERKS[id]?.curse);
-      const id = this.resolve(of, pick1(safe.length ? safe : of.ids));
-      if (of.p === this.game.local) this.game.hud?.centerPrint?.(`Picked for you: ${PERKS[id]?.name}`, 3, 'info');
+      for (const of of q.slice()) {
+        if (of.wait || !(t ? of.until && t >= of.until : !of.until)) { if (t) break; continue; }
+        const safe = of.ids.filter((id) => !PERKS[id]?.curse);
+        const id = this.resolve(of, pick1(safe.length ? safe : of.ids));
+        if (of.p === this.game.local) (mine ??= []).push(PERKS[id]?.name);
+      }
     }
+    if (mine) this.game.hud?.centerPrint?.(`Picked for you: ${mine.join(', ')}`, 3, 'info');
   }
 
-  /** main.js, a key command before the game sees it: with a card open for you, 1..n pick from it, n+1 rerolls a draft. True when it took the key. */
-  key(cmd) {
-    const me = this.game.local, of = me && this.offerFor(me);
-    const m = of && /^slot(\d+)$/.exec(cmd || '');
+  /**
+   * main.js, a slot key going down / up before the game sees it. With your card on screen (for
+   * GRACE_T s: a reflex press as the last zombie dies doesn't count), no menu up and not mid-wave
+   * (unless the offer has its own clock): holding 1..n for HOLD_T s picks that card, n+1 rerolls
+   * a draft (frame() runs the hold and fills the card); a tap is still a weapon switch, sent on
+   * the key up. cancel: let go without a key up (focus lost). True when it took the key.
+   */
+  key(cmd, pressed = true, cancel = false) {
+    const m = /^slot(\d+)$/.exec(cmd || '');
     if (!m) return false;
-    const k = +m[1];
-    if (k === of.ids.length + 1 && of.source === 'draft') { this.reroll(me); return true; }
-    if (k < 1 || k > of.ids.length) return false;
-    this.choose(me, k - 1);
+    const H = this.hold;
+    if (!pressed) {
+      if (H.cmd !== cmd) return false;
+      const tap = !H.done && !cancel;
+      this.letGo();
+      if (tap) this.game.localCommand?.(cmd); // (a tap: the weapon switch it would have been)
+      return true;
+    }
+    const me = this.game.local, of = me && this.offerFor(me);
+    if (!of || of !== this.shown || this.shownAge < GRACE_T || this.game.menus?.isOpen?.() || (this.Z.state === 'wave' && !of.until)) return false;
+    const k = +m[1], n = of.ids.length;
+    if (k < 1 || k > n + 1 || (k === n + 1 && (of.source !== 'draft' || of.rerolled))) return false;
+    H.cmd = cmd; H.k = k; H.of = of; H.t = 0; H.done = false;
     return true;
+  }
+
+  /** The held key is done with (picked, let go, or the card's gone): the fill comes off. */
+  letGo() {
+    const H = this.hold;
+    H.cmd = null; H.of = null; H.done = false;
+    this.ui?.fill(-1, 0);
+  }
+
+  /** frame(): a held key fills its card (or the reroll button); full, it picks (rerolls). */
+  holdTick(dt, of) {
+    const H = this.hold;
+    if (H.done) return;
+    if (H.of !== of || this.game.menus?.isOpen?.()) { H.done = true; this.ui?.fill(-1, 0); return; } // (the card went another way, or a menu came up: the key up won't switch weapons either)
+    H.t += dt;
+    const n = of.ids.length, f = Math.min(1, H.t / HOLD_T);
+    this.ui?.fill(H.k > n ? n : H.k - 1, f);
+    if (f < 1) return;
+    H.done = true;
+    const me = this.game.local;
+    if (H.k > n) this.reroll(me); else this.choose(me, H.k - 1);
   }
 
   // ---------------------------------------------------------------- the module hooks
@@ -754,13 +811,18 @@ export class ZPerks {
     const ui = this.ui;
     if (!ui) return;
     const g = this.game, Z = this.Z, me = g.local, of = me && Z.state !== 'over' ? this.offerFor(me) : null;
+    const under = !!g.menus?.isOpen?.(); // (a menu up - the buy menu in the break - hides the cards; their clock runs on)
+    if (under !== this.under) { this.under = under; ui.under(under); }
     if (of !== this.shown || (of && of.rev !== this.shownRev)) {
       const fresh = of && of !== this.shown;
       if (of) ui.show(this.view(of), { reroll: !fresh });
       else if (this.shown) ui.hide();
       if (fresh) g.sound?.play(of.rare || of.source === 'trophy' ? 'perk_rare' : 'perk_open', { volume: 0.75, attenuation: 'none' });
+      if (fresh) this.shownAge = 0;
       this.shown = of; this.shownRev = of ? of.rev : -1;
     }
+    this.shownAge += under ? 0 : dt; // (out from under a menu: no instant pick either)
+    if (this.hold.cmd) this.holdTick(dt, of);
     if (of) {
       const left = Z.state === 'break' && !of.until ? Math.max(0, Z.nextWaveAt - g.time) : of.until ? Math.max(0, of.until - g.time) : null;
       const total = Z.state === 'break' ? Math.max(1, Z.nextWaveAt - of.t) : of.until ? Math.max(1, of.until - of.t) : 1;
@@ -805,7 +867,7 @@ export class ZPerks {
     const P = me.perks, wait = this.offers.size ? this.waiting(me) : null;
     if ((!P || !P.size) && !wait && !this.squadBuffs.size) return;
     const S = this.strip, k = hud.k;
-    S.hud = hud; S.t = this.game.time; S.i = 0;
+    S.hud = hud; S.t = this.game.time; S.i = 0; S.pu = this.Z.pickups?.active || null;
     S.sz = Math.round(STRIP_PX * k); S.gap = Math.round(3 * k); S.x0 = Math.round(16 * k);
     S.yb = Math.round(hud.vh - 25 * k * 1.5 - 8 * k - S.sz); // (above the health row)
     if (me.secondWind) S.yb -= hud.lineH + Math.round(2 * k); // (zdowned.js "SECOND WIND" sits there)
@@ -823,7 +885,7 @@ export class ZPerks {
   /** One icon of the strip (Map.forEach over p.perks / squadBuffs: e { n, t, until }). */
   stripIcon(e, id) {
     const S = this.strip, r = PERKS[id];
-    if (!r || !!e.until !== S.timed) return;
+    if (!r || !!e.until !== S.timed || (S.pu && S.pu.has(id))) return; // (a running power-up's timer is drophud.js's chip)
     const hud = S.hud, sz = S.sz, i = S.i++, per = 10;
     const x = S.x0 + (i % per) * (sz + S.gap), y = S.yb - Math.floor(i / per) * (sz + S.gap * 2);
     const age = S.t - e.t, fresh = age < 2 ? 0.5 + 0.5 * Math.cos(age * 9) : 0;

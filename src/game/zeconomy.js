@@ -163,12 +163,14 @@ export class ZEconomy {
   /**
    * Pay p (rounds.addMoney, so the cap holds) and tell the bus how much actually came in. Every
    * income goes through here (reason 'kill' | 'special' | 'boss' | 'wave' | 'pickup'): perks
-   * and power-ups scale it (zmods.js money).
+   * and power-ups scale it (zmods.js money). Returns what actually came in (the prints show that).
    */
   pay(p, amount, reason) {
     const before = p.money;
     this.game.rounds.addMoney(p, this.Z.mods.money(p, amount, reason));
-    this.earn(p, p.money - before, reason);
+    const got = p.money - before;
+    this.earn(p, got, reason);
+    return got;
   }
 
   earn(p, amount, reason) {
@@ -208,7 +210,7 @@ export class ZEconomy {
     const g = this.game, E = this.Z.diff.econ, me = g.local;
     let mine = 0, share = 0, total = 0;
     if (!E.bossSplit) {
-      for (const p of g.players) if (p.team === TEAM_CT && !p.isZombie && p.alive) { this.pay(p, E.bossPay, 'boss'); if (p === me) mine = E.bossPay; }
+      for (const p of g.players) if (p.team === TEAM_CT && !p.isZombie && p.alive) { const got = this.pay(p, E.bossPay, 'boss'); if (p === me) mine = got; }
       this.bossDmg.clear();
       return mine ? `+$${mine}, ` : '';
     }
@@ -220,8 +222,8 @@ export class ZEconomy {
     }
     for (const [p, d] of this.bossDmg) {
       const amount = Math.round(E.bossPay * d / total / 10) * 10;
-      if (amount > 0 && g.players.includes(p)) this.pay(p, amount, 'boss');
-      if (p === me) { mine = amount; share = d / total; }
+      const got = amount > 0 && g.players.includes(p) ? this.pay(p, amount, 'boss') : 0; // (what came in: perks and power-ups scale it)
+      if (p === me) { mine = got; share = d / total; }
     }
     this.bossDmg.clear();
     return mine ? `+$${mine} (${Math.round(share * 100)}% of the damage), ` : '';
