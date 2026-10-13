@@ -201,6 +201,16 @@ reg(102, { key: 'bricks', name: 'Bricks', ...cube, hardness: 50, blastHp: 18, to
 reg(103, { key: 'glass', name: 'Glass', shape: 'cube', solid: true, opaque: false, translucent: true, hardness: 6, blastHp: 3, sound: 'glass', mapColor: 0xc8e0e8 });
 reg(104, { key: 'torch', name: 'Torch', shape: 'cross', solid: false, opaque: false, cutout: true, hardness: 1, blastHp: 1, sound: 'wood', light: 14, needsSupport: true, yields: [{ item: 'torch', amount: 1, fixed: true }], mapColor: 0xffa020 });
 
+// --- More monument decoration (unbreakable POI structure) -------------------
+const poiMetal = { ...cube, hardness: Infinity, blastHp: Infinity, tool: 'none' as const, sound: 'metal' as const };
+reg(105, { key: 'metal_grate', name: 'Steel Grating', ...poiMetal, opaque: false, cutout: true, mapColor: 0x5a5e62 });
+reg(106, { key: 'tank_plate', name: 'Tank Plating', ...poiMetal, mapColor: 0xc0622a });
+reg(107, { key: 'crane_stripes', name: 'Crane Plating', ...poiMetal, mapColor: 0x2a9a8a });
+reg(108, { key: 'container_orange', name: 'Shipping Container', ...poiMetal, mapColor: 0xd0702a });
+reg(109, { key: 'fuel_pump', name: 'Fuel Pump', ...poiMetal, tex: { top: 'fuel_pump_top', side: 'fuel_pump_side' }, mapColor: 0xb03028 });
+reg(110, { key: 'control_panel', name: 'Control Panel', ...poiMetal, light: 5, tex: { top: 'metal_plate', side: 'control_panel' }, mapColor: 0x5a6a70 });
+reg(111, { key: 'road_marking', name: 'Road Marking', ...cube, hardness: 200, blastHp: 300, tool: 'pick', sound: 'stone', tex: { top: 'road_marking', side: 'asphalt' }, yields: [{ item: 'stone', amount: 3 }], mapColor: 0x55555a });
+
 export const BLOCKS: readonly BlockDef[] = defs;
 export const MAX_BLOCK_ID = defs.length - 1;
 
@@ -241,6 +251,8 @@ export const B = {
   concrete: 80, rusted_metal: 81, container_red: 82, container_blue: 83, container_teal: 84, asphalt: 85,
   steel_beam: 86, hazard_stripes: 87, chain_fence: 88, lamp: 89,
   planks: 100, cobblestone: 101, bricks: 102, glass: 103, torch: 104,
+  metal_grate: 105, tank_plate: 106, crane_stripes: 107, container_orange: 108, fuel_pump: 109,
+  control_panel: 110, road_marking: 111,
 } as const;
 
 export const STRUCT_TIER_BLOCKS = [B.struct_twig, B.struct_wood, B.struct_stone, B.struct_metal, B.struct_armored];

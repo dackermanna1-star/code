@@ -263,6 +263,45 @@ const TILES: Record<string, (cv: Canvas) => void> = {
   cobblestone: (cv) => { cv.noise(0x6f6f6f, 0.05); for (let i = 0; i < 9; i++) { const x = Math.floor(cv.rnd() * 12), y = Math.floor(cv.rnd() * 12); const w = 3 + Math.floor(cv.rnd() * 3); cv.rect(x, y, w, 3, shade(hex(0x8a8a8a), 0.85 + cv.rnd() * 0.3)); } for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) if (cv.rnd() < 0.08) cv.set(x, y, [60, 60, 60]); },
   bricks: (cv) => bricksPattern(cv, 0x9a4a3a, 0xb0a898),
   glass: (cv) => { cv.clear(); for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) cv.set(x, y, [200, 225, 235], 50); frame(cv, 0xc8e0e8); cv.set(4, 4, [255, 255, 255], 200); cv.set(5, 3, [255, 255, 255], 200); cv.set(3, 5, [255, 255, 255], 200); },
+  // monument decoration
+  metal_grate: (cv) => {
+    cv.clear();
+    for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) {
+      const bar = x % 4 === 0 || y % 4 === 0;
+      if (bar) cv.set(x, y, shade(hex(0x5a5e62), (x % 4 === 0 && y % 4 === 0 ? 0.8 : 1) * (0.92 + cv.rnd() * 0.16)));
+    }
+    frame(cv, 0x3a3e42);
+    blobs(cv, 0x7a4a2a, 2, 1);
+  },
+  tank_plate: (cv) => {
+    cv.noise(0xcc6a2c, 0.07);
+    for (let i = 0; i < TILE; i++) { cv.set(i, 7, shade(hex(0xcc6a2c), 0.72)); cv.set(i, 15, shade(hex(0xcc6a2c), 0.72)); }
+    for (let y = 0; y < 7; y++) cv.set(4, y, shade(hex(0xcc6a2c), 0.75));
+    for (let y = 8; y < 15; y++) cv.set(11, y, shade(hex(0xcc6a2c), 0.75));
+    for (const [x, y] of [[1, 2], [7, 2], [14, 10], [8, 12]]) cv.set(x, y, [230, 170, 110]);
+    for (let k = 0; k < 5; k++) { const x = Math.floor(cv.rnd() * 16); for (let y = Math.floor(cv.rnd() * 6); y < 16; y++) if (cv.rnd() < 0.7) cv.set(x, y, shade(hex(0x8a4a2a), 0.9 + cv.rnd() * 0.2)); }
+  },
+  crane_stripes: (cv) => { for (let y = 0; y < TILE; y++) for (let x = 0; x < TILE; x++) cv.set(x, y, Math.floor((x + y) / 4) % 2 ? [28, 32, 34] : shade([42, 154, 138], 0.94 + cv.rnd() * 0.12)); frame(cv, 0x1c2224); },
+  container_orange: (cv) => { corrugated(cv, 0xd0702a, 0.15); frame(cv, 0x8a4418); },
+  fuel_pump_side: (cv) => {
+    cv.noise(0xb03028, 0.05);
+    frame(cv, 0x6a1a14);
+    cv.rect(3, 2, 10, 4, [30, 36, 30]);
+    cv.rect(4, 3, 6, 1, [120, 230, 120]);
+    cv.rect(3, 8, 10, 1, [235, 225, 210]);
+    cv.rect(10, 10, 2, 4, [40, 40, 44]);
+    cv.rect(4, 11, 4, 2, [220, 190, 60]);
+  },
+  fuel_pump_top: (cv) => { cv.noise(0xa02820, 0.05); frame(cv, 0x6a1a14); },
+  control_panel: (cv) => {
+    cv.noise(0x5a6a70, 0.05);
+    frame(cv, 0x2e383c);
+    cv.rect(2, 2, 12, 5, [24, 30, 34]);
+    for (let x = 3; x < 13; x++) cv.set(x, 6 - Math.floor(cv.rnd() * 4), [90, 220, 140]);
+    for (const [x, c] of [[3, [230, 70, 50]], [6, [240, 200, 60]], [9, [80, 200, 90]], [12, [80, 160, 230]]] as Array<[number, RGB]>) { cv.rect(x - 1, 9, 2, 2, c); }
+    cv.rect(2, 12, 12, 2, [70, 80, 86]);
+  },
+  road_marking: (cv) => { cv.noise(0x3a3a3c, 0.1); cv.speckle(0x55555a, 0.1); cv.rect(6, 0, 4, 16, [218, 200, 120]); for (let y = 0; y < 16; y++) if (cv.rnd() < 0.25) cv.set(6 + Math.floor(cv.rnd() * 4), y, [120, 116, 100]); },
   torch: (cv) => cross(cv, () => { cv.rect(7, 6, 2, 10, [110, 80, 40]); cv.rect(7, 3, 2, 3, [255, 200, 60]); cv.set(7, 2, [255, 240, 150]); cv.set(8, 4, [255, 140, 30]); }),
 };
 

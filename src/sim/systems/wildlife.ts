@@ -372,12 +372,20 @@ export class Wildlife {
         let have = 0;
         for (const a of this.animals) if (a.home?.key === key) have++;
         if (have >= want[POI_DEFS[poi.def.kind].tier]) continue;
-        const x = Math.floor(poi.x0 + 2 + this.rnd() * (poi.def.w - 4)), z = Math.floor(poi.z0 + 2 + this.rnd() * (poi.def.d - 4));
-        if (Math.hypot(x - p.x, z - p.z) < 25) continue;
-        if (!this.game.world.isLoaded(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE))) continue;
-        const top = this.game.world.topSolid(x, z);
-        if (top < 0) continue;
-        this.spawnNpc(x + 0.5, top + 1, z + 0.5, { key, x: poi.cx, z: poi.cz });
+        // Spawn on walkable ground at the monument's ground level (never on roofs or chimneys).
+        const w = this.game.world;
+        for (let attempt = 0; attempt < 6; attempt++) {
+          const x = Math.floor(poi.x0 + 2 + this.rnd() * (poi.def.w - 4)), z = Math.floor(poi.z0 + 2 + this.rnd() * (poi.def.d - 4));
+          if (Math.hypot(x - p.x, z - p.z) < 25) continue;
+          if (!w.isLoaded(Math.floor(x / CHUNK_SIZE), Math.floor(z / CHUNK_SIZE))) continue;
+          let y = -1;
+          for (let yy = poi.y + 1; yy <= poi.y + 2; yy++) {
+            if (SOLID[w.getBlock(x, yy - 1, z)] && !SOLID[w.getBlock(x, yy, z)] && !SOLID[w.getBlock(x, yy + 1, z)] && !LIQUID[w.getBlock(x, yy, z)]) { y = yy; break; }
+          }
+          if (y < 0) continue;
+          this.spawnNpc(x + 0.5, y, z + 0.5, { key, x: poi.cx, z: poi.cz });
+          break;
+        }
       }
     }
   }
