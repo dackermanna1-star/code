@@ -317,9 +317,9 @@ function forgeGlow(vm, m, tier, round, L) {
     for (let i = 0; i < 5; i++) { const pf = f - W / 2 + (W / 6) * (i + 1); add(new THREE.BoxGeometry(0.06, H * 1.3, 0.14), 0xff6a14, 0.9, [ex - 0.08, ey, -pf], null, 5, i * 0.7); }
   }
   if (round && ROUND_GLOW[round]) {
-    const H = m.pistol ? 0.3 : 0.4, L = EMBLEM_W(m) * 0.78, y = ey - H - 0.38;
-    add(new THREE.CylinderGeometry(0.17, 0.17, L, 10), ROUND_GLOW[round], 0.95, [ex - 0.16, y, ez], [Math.PI / 2, 0, 0], round === 'shock' ? 9 : 3.5, 0);
-    add(new THREE.CylinderGeometry(0.27, 0.27, L + 0.15, 10), ROUND_GLOW[round], 0.25, [ex - 0.16, y, ez], [Math.PI / 2, 0, 0], 3.5, 1);
+    const H = m.pistol ? 0.3 : 0.4, len = EMBLEM_W(m) * 0.78, y = ey - H - 0.38;
+    add(new THREE.CylinderGeometry(0.17, 0.17, len, 10), ROUND_GLOW[round], 0.95, [ex - 0.16, y, ez], [Math.PI / 2, 0, 0], round === 'shock' ? 9 : 3.5, 0);
+    add(new THREE.CylinderGeometry(0.27, 0.27, len + 0.15, 10), ROUND_GLOW[round], 0.25, [ex - 0.16, y, ez], [Math.PI / 2, 0, 0], 3.5, 1);
   }
   vm.forgeGlow = glow.length ? glow : null;
 }
