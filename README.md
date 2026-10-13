@@ -1,12 +1,12 @@
 # DOOM — modern rebuild
 
-A faithful recreation of DOOM (1993) that runs in the browser. It renders the original game data (maps, textures, sprites, sounds, music) through the original palette and light-diminishing model, so screenshots look like 1993 DOOM. Underneath it adds modern FPS handling, smarter monsters, physics-driven corpses, dismemberment and layered combat effects.
+A faithful recreation of DOOM (1993) that runs in the browser. It renders the original game data (maps, textures, sprites, sounds, music) through the original palette and light-diminishing model, so screenshots look like 1993 DOOM. Underneath it adds modern FPS handling, smarter monsters, 3D monsters with full ragdoll physics, dismemberment and layered combat effects.
 
 Shareware Episode 1 ("Knee-Deep in the Dead") is included and playable out of the box. If you own the full game you can load `DOOM.WAD` (Ultimate DOOM) or `DOOM2.WAD` from the in-game menu (Options → Game Files). The file is stored only in your browser.
 
 ## Running
 
-**Single file:** `npm install && npm run build:html` writes `dist/doom.html`, a self-contained 8 MB page (code, music worklet and WADs embedded) that you can open straight from disk.
+**Single file:** `npm install && npm run build:html` writes `dist/doom.html`, a self-contained 8 MB page (code, workers and WADs embedded) that you can open straight from disk.
 
 **From source:**
 
@@ -22,7 +22,7 @@ Then open http://localhost:8080/ in a WebGL 2 browser (Chrome, Edge, Firefox or 
 
 Handy URL parameters for testing: `?map=E1M3&skill=4` starts a map directly (skill 1–5), `&god` enables god mode, `?shareware` ignores a stored IWAD.
 
-`npm test` runs every map headlessly with a scripted player and the full effects layer. It also checks that a game saved mid-level and reloaded stays in exact lock-step with the original. `npm run check` validates the game data tables against the WAD.
+`npm test` runs every map headlessly with a scripted player and the full effects layer. It also checks that a game saved mid-level and reloaded stays in exact lock-step with the original. Run it with `VOX=1` to include the 3D models and ragdolls. `npm run check` validates the game data tables against the WAD.
 
 ## Default controls
 
@@ -67,11 +67,18 @@ The original cheat codes work (`iddqd`, `idkfa`, `idclip`, `idclev`, `idbehold`,
   - Locational damage: head shots deal 1.5×.
   - Monsters flinch away from hits and stagger under sustained fire.
   - When a monster loses track of you it pathfinds across the map's sector graph instead of walking into walls. Some flank, and hitscan zombies and imps side-step when you aim at them. Their attacks and timing are unchanged.
-- **Gore and physics:**
-  - Corpses are thrown by the killing blow: they tumble, bounce off walls, slide down stairs and get tossed by later explosions.
-  - Overkill tears a monster into chunks cut from its own sprite art. Head shots can pop heads.
+- **3D monsters:**
+  - Every monster is a voxel model built from its own sprites, so it looks like the original art from every angle (see below).
+  - Monsters play the original animation frame by frame, turn smoothly instead of snapping between eight angles, and lean away from hits.
+- **Ragdolls and gore:**
+  - Dead monsters become articulated ragdolls: pelvis, chest, head, upper and lower arms and legs, and whatever they hold, joined by hips, knees, waist, neck, shoulders and elbows with realistic joint limits.
+  - The killing blow throws the body; it topples, buckles at the knees, hits walls and steps, and settles. Bodies pile on each other, and you and live monsters push them around.
+  - Bullets hit corpses where they lie and move them. Limbs and heads tear off under enough damage and the stumps bleed.
+  - Explosions throw bodies. Overkill and crushers break them apart, and head shots send heads flying.
+  - An arch-vile's resurrection pulls a body back into its standing pose.
   - Blood and debris particles, and persistent blood, bullet-hole and scorch decals on walls and floors.
   - Blood colour depends on the monster (cacodemons blue, barons green), and metal surfaces spark.
+  - With 3D monsters off, corpses are physical billboards and overkill cuts the sprite art into chunks, as before.
 - **Audio:**
   - 3D positional sound using DOOM's 200–1200 unit falloff.
   - Muffling through walls (line-of-sight occlusion) and reverb sized to the current room.
@@ -83,9 +90,20 @@ The cosmetic layer uses its own random numbers, so it never changes the game's d
 
 Dynamic lights brighten through the COLORMAP light levels rather than adding colour. Particles, decals and gibs are palette-indexed pixel art lit like everything else, and translucency is done with ordered dithering. There is no smoothing or post-processing besides optional scanlines, so effects stay inside the 1993 look.
 
-### A note on "ragdolls"
+### How the 3D monsters are made
 
-The monsters are 2D sprites, so there are no skeletons to ragdoll. Corpses are instead physical billboards: they carry momentum and spin, collide with walls, floors and steps, then settle onto the original death frames. Dismemberment cuts the actual sprite art into pieces that are simulated individually. This keeps the original animation and silhouettes intact while still giving physical deaths.
+There are no 3D models in the WAD, so the game builds them from the sprites:
+
+- **Carving:** each rotated animation frame becomes a block of voxels, carved down to the silhouettes of its eight sprite rotations (a visual hull), one voxel per sprite pixel.
+- **Colouring:** every surface voxel takes its colour from the rotation that faces it best, so the model matches the original art when seen head-on from any of the eight angles. Between those angles it shows true 3D in-between views.
+- **Splitting into parts:** the model is cut at anatomical heights into rigid body parts. Each part gets its mass and inertia from its voxels, and its collision shape is a set of spheres fitted inside it.
+- **Building:** models are built in background workers when a level starts. Monsters stay sprites until their models are ready.
+- **Rendering:** the GPU raymarches each part through a 3D texture of palette indices. Faces are lit with COLORMAP and the original light diminishing, with DOOM's wall-style contrast, so the models stay inside the 1993 look. Spectres keep their fuzz.
+- **Physics:** ragdolls use extended position-based dynamics (rigid bodies, substepped). Joints are ball sockets with swing and twist limits, plus hinge knees and elbows. Joints keep a little muscle tone for the first instant, so a body topples before it goes limp.
+
+Lost souls and pain elementals keep their original exploding death animations. Options → Effects has switches for 3D monsters, ragdoll physics and the number of ragdolls simulated at once. With 3D monsters off, monsters are the original sprites.
+
+The game's own corpse objects behave exactly as in the original. Ragdolls are cosmetic and aren't saved: a loaded game lets its corpses settle into fresh ragdolls.
 
 ## Assets
 
@@ -101,6 +119,7 @@ src/
   game/      game simulation (ported from the original C source) + modern player/weapons/AI
     specials/  doors, lifts, floors, ceilings, lights, switches, teleports, animations
   fx/        particles, decals, gibs, corpse physics, explosions
+  vox/       voxel models from sprites, body-part segmentation, ragdoll physics, model workers
   audio/     sound effects system, OPL3 emulator, MUS/MIDI sequencer, music worklet
   ui/        status bar, menus, options, intermission, finale, automap, cheats
 tools/       dev server, extras WAD builder, data validation, offline music renderer

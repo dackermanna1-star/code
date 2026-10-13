@@ -69,6 +69,7 @@ export class ViewRenderer {
     const res = this.res;
     const self = w.player && w.player.mo;
     const vox = w.fx && w.fx.vox;
+    if (vox) vox.beginFrame(r, cam);
     for (const mo of w.mobjs) {
       if (mo === self) continue;
       // Not in any sector's thing list, so never drawn by R_AddSprites

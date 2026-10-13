@@ -346,7 +346,8 @@ export class Ragdoll {
     this.age = 0;
     this.tone = opts.tone ?? 1;
     this.aabb = [0, 0, 0, 0, 0, 0];
-    this.events = [];
+    // Hard hits against walls this tic: { line, side, x, y, z, speed }.
+    this.impacts = [];
     this.updateAabb();
   }
 
@@ -513,6 +514,8 @@ export class RagdollWorld {
 
   simulate(r, dt) {
     const h = dt / SUBSTEPS;
+    this.current = r;
+    this.ticCount = (this.ticCount || 0) + 1;
     r.age += dt;
     r.tone = Math.max(0, r.tone - dt * (r.opts.toneDecay ?? 4));
     // Broad phase once per tic.
@@ -681,6 +684,7 @@ export class RagdollWorld {
             }
             const pen = r - sd;
             vB[0] = cx - nx0 * sg * r - b.x[0]; vB[1] = cy - ny0 * sg * r - b.x[1]; vB[2] = cz - b.x[2];
+            this.wallImpact(b, l, side, qx, qy, cz, nx0 * sg, ny0 * sg);
             this.contact(b, vB, nx0 * sg, ny0 * sg, 0, pen, h);
             continue;
           }
@@ -695,6 +699,7 @@ export class RagdollWorld {
             let nx, ny, nz;
             if (d > 1e-4) { nx = dx / d; ny = dy / d; nz = dz / d; } else { nx = nx0 * sg; ny = ny0 * sg; nz = 0; }
             vB[0] = qx - b.x[0]; vB[1] = qy - b.x[1]; vB[2] = qz - b.x[2];
+            if (Math.abs(nz) < 0.7) this.wallImpact(b, l, side, qx, qy, qz, nx, ny);
             this.contact(b, vB, nx, ny, nz, r - d, h);
           }
         }
@@ -714,6 +719,15 @@ export class RagdollWorld {
         this.contact(b, vB, 0, 0, -1, pc, h);
       }
     }
+  }
+
+  // Remembers a body hitting a wall hard (once per body per tic).
+  wallImpact(b, line, side, x, y, z, nx, ny) {
+    const speed = -(b.v[0] * nx + b.v[1] * ny);
+    if (speed < 140 || b.impactTic === this.ticCount) return;
+    b.impactTic = this.ticCount;
+    const r = this.current;
+    if (r && r.impacts.length < 4) r.impacts.push({ line, side, x, y, z, speed });
   }
 
   // Static contact at offset r from the body's centre, normal n, depth C,

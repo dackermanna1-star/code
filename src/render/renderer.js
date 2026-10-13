@@ -256,6 +256,7 @@ export class Renderer {
     this.viewProj = multiply(this.proj, this.view);
     this.cam = cam;
     this.projScale = P;
+    this.tanX = tanX;
   }
 
   bindCommon(p, extralight, fixedColormap) {

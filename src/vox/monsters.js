@@ -14,7 +14,7 @@ import { FRAMEMASK, FULLBRIGHT } from '../game/tables.js';
 import { VOX_FUZZ, VOX_FULLBRIGHT } from '../render/voxels.js';
 
 const BLOOD_BASE = { red: 181, green: 119, blue: 200, fire: 181 };
-const MAX_RAGDOLLS = 96;
+const MAX_RAGDOLLS = 160;
 const PRESETTLE_PER_FRAME = 2;
 const MAX_DRAW_DIST = 4200;
 
@@ -59,7 +59,37 @@ export class VoxelMonsters {
     this.ragdolls = new Map(); // mobj -> ragdoll
     this.scanned = false;
     this.presettled = 0;
-    this.lastRender = 0;
+    // Corpses whose ragdoll was dropped for the cap keep their sprite.
+    this.dropped = new WeakSet();
+    this.view = null;
+  }
+
+  // Per-frame culling setup: the horizontal view cone. Boxes off screen
+  // would otherwise still be raymarched (the shader writes depth, so hidden
+  // fragments aren't rejected early). REJECT isn't used: maps rig it to
+  // blind monsters, and vanilla never hides anything with it.
+  beginFrame(r, cam) {
+    this.view = {
+      x: cam.x, y: cam.y,
+      fx: Math.cos(cam.yaw), fy: Math.sin(cam.yaw),
+      // Looking steeply up or down shows more to the sides.
+      half: Math.atan(r.tanX || 1) + 0.08 + Math.max(0, Math.abs(cam.pitch || 0) - 0.3) * 2,
+    };
+  }
+
+  // Could something at (x, y), `rad` units across, be on screen?
+  visible(x, y, rad) {
+    const v = this.view;
+    if (!v) return true;
+    const dx = x - v.x, dy = y - v.y;
+    const d = Math.sqrt(dx * dx + dy * dy);
+    if (d > MAX_DRAW_DIST) return false;
+    if (d > rad) {
+      const cos = (dx * v.fx + dy * v.fy) / d;
+      const ang = Math.acos(Math.max(-1, Math.min(1, cos)));
+      if (ang > v.half + Math.asin(Math.min(1, rad / d))) return false;
+    }
+    return true;
   }
 
   get enabled() { return this.s.voxelMonsters !== false; }
@@ -100,12 +130,13 @@ export class VoxelMonsters {
     if (!this.lib.supports(mo.sprite)) return false;
     const model = this.modelFor(mo);
     if (!model) {
-      if (this.lib.ready(mo.sprite) && this.isCorpseFrame(mo) && this.presettled < PRESETTLE_PER_FRAME) {
+      if (this.lib.ready(mo.sprite) && !this.dropped.has(mo) && this.isCorpseFrame(mo) && this.presettled < PRESETTLE_PER_FRAME) {
         this.presettled++;
         if (this.presettle(mo)) return true;
       }
       return false;
     }
+    if (!this.visible(x, y, Math.max(model.nx, model.ny) * model.s)) return true;
     const v = this.viewState(mo);
     const now = performance.now();
     const dt = Math.min(0.1, Math.max(0, (now - v.t) / 1000));
@@ -151,6 +182,7 @@ export class VoxelMonsters {
     const kind = this.lib.deathFrames.get(mo.sprite * 64 + (mo.frame & FRAMEMASK));
     if (kind !== 'death') return false;
     if (mo.flags & MF.SHOOTABLE) return false;
+    if (this.s.physics === false) return false;
     const cfg = this.lib.config(mo.sprite);
     if (!cfg || cfg.ragdoll === false) return false;
     // Only the end of the animation: the body has already fallen.
@@ -183,11 +215,12 @@ export class VoxelMonsters {
   }
 
   dropOldest() {
+    let victim = null;
     for (const [mo, r] of this.ragdolls) {
-      if (r.asleep) { this.removeRagdoll(mo); return; }
+      if (r.asleep) { victim = mo; break; }
     }
-    const first = this.ragdolls.keys().next().value;
-    if (first) this.removeRagdoll(first);
+    if (!victim) victim = this.ragdolls.keys().next().value;
+    if (victim) { this.removeRagdoll(victim); this.dropped.add(victim); }
   }
 
   removeRagdoll(mo) {
@@ -465,6 +498,19 @@ export class VoxelMonsters {
         const b = rag.bodies[0];
         this.w.sound({ x: b.x[0], y: b.x[1], z: b.x[2] }, 'x_body_fall', { channel: 'body', volume: 0.8 });
       }
+      // Bodies slammed into walls leave a smear.
+      for (const hit of rag.impacts) {
+        if (fx.gore >= 2 && rag.blood !== 'fire' && fx.decalBudget > 0) {
+          fx.decalBudget--;
+          const list = fx.img.wallSplat[rag.blood];
+          fx.decals.addWall(hit.line, hit.side, hit.x, hit.y, hit.z, list[(Math.random() * list.length) | 0], fx.partAt(hit.line, hit.side, hit.z), Math.min(1.2, 0.5 + hit.speed / 500));
+        }
+        if (hit.speed > 200 && fx.soundBudget > 0) {
+          fx.soundBudget--;
+          this.w.sound({ x: hit.x, y: hit.y, z: hit.z }, 'x_body_fall', { channel: 'body2', volume: Math.min(0.9, hit.speed / 400) });
+        }
+      }
+      rag.impacts.length = 0;
       // Severed stumps pump blood for a while.
       if (rag.stumps.length && fx.gore) {
         for (const st of rag.stumps) {
@@ -514,16 +560,12 @@ export class VoxelMonsters {
 
   render(r, cam, frac) {
     if (!this.enabled || !this.ragdolls.size) return;
-    const fwdx = Math.cos(cam.yaw), fwdy = Math.sin(cam.yaw);
     const q = [0, 0, 0, 1];
     for (const rag of this.ragdolls.values()) {
       const a = rag.aabb;
-      const cx = (a[0] + a[3]) / 2 - cam.x, cy = (a[1] + a[4]) / 2 - cam.y;
+      const cx = (a[0] + a[3]) / 2, cy = (a[1] + a[4]) / 2;
       const rad = Math.max(a[3] - a[0], a[4] - a[1]) / 2 + 8;
-      const dist = Math.hypot(cx, cy);
-      if (dist > MAX_DRAW_DIST) continue;
-      // Behind the camera (with room for wide fields of view and pitch).
-      if (cx * fwdx + cy * fwdy < -rad && dist > rad * 2) continue;
+      if (!this.visible(cx, cy, rad)) continue;
       const model = rag.model;
       const mo = rag.mo;
       const e = mo && mo.ext;
