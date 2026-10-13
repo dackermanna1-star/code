@@ -1,10 +1,12 @@
 // Zombie survival is over: waves survived, a new-best badge, the run's numbers (runstats.js),
-// kills per wave as small bars, and Play again / Change setup / Main menu.
+// your build (the perks you held: perks.js report), kills per wave as small bars, and Play
+// again / Change setup / Main menu.
 // Keys: Enter plays again (Esc closes it: Menus._key, then the main menu).
 //
 //   const o = buildRunOver(r, { onAgain, onSetup, onMenu });  r as Menus.showZombieOver gets it:
-//   { waves, kills, best, newBest, diff (label), stats (runStats), hardcore?, cheated? (no record) }
+//   { waves, kills, best, newBest, diff (label), stats (runStats), hardcore?, cheated? (no record), perks? }
 import { escapeHtml } from './mainmenu.js';
+import { drawPerkIcon } from '../perkicons.js';
 
 function el(tag, cls, html) {
   const e = document.createElement(tag);
@@ -43,6 +45,23 @@ export function buildRunOver(r = {}, { onAgain, onSetup, onMenu, sound } = {}) {
   stat(M ? `${M.specials | 0} / ${M.bosses | 0}` : '-', 'Specials / bosses');
   stat(S ? S.squad.kills | 0 : '-', 'Squad kills');
   f.appendChild(grid);
+
+  // your build: the perks, relics and synergies you held (perks.js report)
+  if (r.perks?.length) {
+    const build = el('div', 'fe-build');
+    for (const k of r.perks) {
+      const chip = el('div', `fe-perk${k.synergy ? ' syn' : ''}`);
+      chip.style.setProperty('--c', k.rgb.join(', '));
+      chip.title = `${k.name} (${k.label}): ${k.text}${k.bane ? ` ${k.bane}` : ''}`;
+      const c = document.createElement('canvas');
+      c.width = c.height = 44;
+      try { drawPerkIcon(c.getContext('2d'), k.icon, 0, 0, 44, k.rgb, [1, 0.8, 0.66]); } catch { /* (no canvas: the name will do) */ }
+      chip.append(c, el('span', 'n', escapeHtml(k.name)));
+      if (k.n > 1) chip.appendChild(el('span', 'x', `x${k.n}`));
+      build.appendChild(chip);
+    }
+    f.append(build, el('div', 'fe-bars-k', 'Your build'));
+  }
 
   // kills per wave
   const rows = S?.waves || [];

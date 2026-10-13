@@ -58,7 +58,7 @@ export const SOUND_GROUPS = {
   'Readable specials': ['save_sting'], // zombie survival (zthreats.js)
   'Melee shove': ['shove_swing', 'shove_hit'], // zombie survival (shove.js)
   // Milestone 3: one line per builder, its recipes in its own snd/ file
-  Perks: [], // (snd/perks.js)
+  Perks: ['perk_open', 'perk_deal', 'perk_pick', 'perk_rare', 'perk_curse', 'perk_reroll', 'perk_synergy', 'perk_rush'], // (snd/perks.js)
   Forge: [], // (snd/forge.js)
   'Squad roles': [], // (snd/squad.js)
   'Boss overhaul': [], // (snd/bossfx.js)

@@ -183,13 +183,14 @@ const COMBO = {
 /**
  * Perk draft (perks.js): choices (cards offered at a break), rareEvery (every nth wave's draft
  * rolls rarer cards), rerolls (free rerolls a run), curse (chance a draft holds a boon-and-curse
- * card), from (the first break with a draft: after wave n).
+ * card), from (the first break with a draft: after wave n), rerollCost [base, perWave] ($ for a
+ * reroll once the free ones are spent: one per draft; perks' price discounts apply).
  */
 const PERKS = {
-  casual: { choices: 4, rareEvery: 5, rerolls: 2, curse: 0.1, from: 1 },
-  normal: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.15, from: 1 },
-  hard: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.2, from: 1 },
-  nightmare: { choices: 2, rareEvery: 5, rerolls: 0, curse: 0.25, from: 1 },
+  casual: { choices: 4, rareEvery: 5, rerolls: 2, curse: 0.1, from: 1, rerollCost: [150, 15] },
+  normal: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.15, from: 1, rerollCost: [250, 25] },
+  hard: { choices: 3, rareEvery: 5, rerolls: 1, curse: 0.2, from: 1, rerollCost: [300, 30] },
+  nightmare: { choices: 2, rareEvery: 5, rerolls: 0, curse: 0.25, from: 1, rerollCost: [400, 40] },
 };
 
 /**

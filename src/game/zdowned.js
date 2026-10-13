@@ -213,7 +213,7 @@ export class ZDowned {
     }
     const D = q.downed, t = this.game.time;
     if (D.by !== p) { D.by = p; D.prog = 0; D.self = q === p; p.reviving = q; }
-    D.prog += Math.max(0, Math.min(0.05, t - (D.byT || t))) / this.Z.diff.squad.reviveTime;
+    D.prog += Math.max(0, Math.min(0.05, t - (D.byT || t))) / (this.Z.diff.squad.reviveTime * this.Z.mods.factor(p, 'revive')); // (the reviver's perks: Field Medic, perks.js)
     D.byT = t;
     if (D.prog >= 1) {
       p.reviving = null;
