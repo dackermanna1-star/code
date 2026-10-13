@@ -1,0 +1,54 @@
+{
+  "style_block": "Theatrical Japanese anime feature-film quality. Hand-drawn 2D character animation with clean, confident, slightly tapered linework and cel shading (one hard shadow tone + one soft rim light), composited into painted, 3D-camera-tracked environments. Volumetric dusk light shafts, atmospheric haze between depth layers, detailed hand-drawn effects animation (debris, dust, shockwaves, energy) with sharp impact frames and stylized smears only at contact moments. Characters animated on 2s for acting, on 1s for fast action and effects. Strong silhouettes, dramatic foreshortening, physically weighted motion. One consistent look for the entire film: no photorealism, no plastic 3D render look, no video-game cinematic look, no style shifts between shots.",
+  "lighting_block": "Late dusk under a storm-darkened sky. The low sun is hidden behind the cloud deck in the WEST (screen-left: the camera always faces north) and throws warm orange-red rim light from screen-left; cool blue-violet ambient fill from the overcast sky; streetlights and windows dead (abandoned district); occasional distant sheet lightning inside the clouds; no rain. Light direction, colour temperature and time of day are identical in every shot.",
+  "negative_prompt": "photorealism, live action, 3D plastic render, video-game cutscene look, style change, watermark, logo, subtitles, captions, UI, text overlay, extra fingers, extra limbs, distorted hands, broken anatomy, melting or flickering face, changing costume, changing hair colour or hairstyle between shots, wrong character design, generic glowing force field or shield bubble around Gojo, fist bouncing off an invisible wall, generic laser beam, generic purple beam, random swirling debris, weightless floaty motion, characters sliding without footwork, characters teleporting between frames, unmotivated camera shake, excessive motion blur, unreadable action, explosions hiding the characters, background crowds or civilians, rain, daylight, night, bright blue sky, injuries disappearing, duplicated frames, black frames",
+  "characters": {
+    "gojo": {
+      "name": "Satoru Gojo",
+      "block": "Satoru Gojo from Jujutsu Kaisen, exactly on-model: very tall (about 190 cm), lean, long-limbed athletic build; pale skin; snow-white hair; black near-navy jujutsu-high uniform jacket with a broad, high standing collar zipped to the chin, slim dark trousers, black shoes; long white eyelashes; relaxed, playful, arrogant body language, often hands in pockets, weight on one leg; precise, economical, elegant movement. Never shown with a glowing aura except at the peak of a technique.",
+      "eyes_variants": {
+        "blindfold": "his eyes are covered by a black cloth blindfold, which pushes his white hair up into its tall spiky silhouette",
+        "lifted": "he is lifting the black blindfold with two fingers, uncovering one vivid bright-blue Six Eyes eye",
+        "open": "the blindfold is pulled down and hangs loosely around his neck; his white hair falls loose over his forehead; his eyes are uncovered: vivid, piercing bright blue with white lashes",
+        "narrow": "the blindfold hangs around his neck, hair loose, his bright-blue eyes narrowed in total concentration"
+      }
+    },
+    "thragg": {
+      "name": "Grand Regent Thragg",
+      "block": "Grand Regent Thragg from the Invincible comics, exactly on-model: about 198 cm, enormously muscular, broad-shouldered and thick-necked, visibly more massive than any normal Viltrumite; pale skin; a square, severe, angular face with a pronounced jaw; close-cropped jet-black hair; a thick, well-groomed black Viltrumite mustache; cold dark-brown eyes with no warmth. Grand Regent bodysuit in white with crimson sections, a circular Viltrum emblem on the chest split by three vertical lines, crimson belt, a short Grecian-style skirt, crimson gloves and boots. Moves with economical, controlled power; still and unblinking at rest; never a screaming brute.",
+      "eyes_variants": {},
+      "cape_variants": {
+        "full": "a heavy crimson cape hangs from his shoulders",
+        "torn": "the shredded remains of his crimson cape hang from one shoulder clasp",
+        "none": "no cape (it was torn away by Red)"
+      }
+    }
+  },
+  "injury_text": {
+    "mouth_blood": "a thin line of blood at the corner of the mouth",
+    "nosebleed": "blood running from the nose",
+    "nosebleed_trace": "dried streaks of blood under the nose",
+    "brow_cut": "a cut above the right eyebrow with blood running down",
+    "eye_blood": "blood tears running from the corners of the eyes",
+    "ear_blood": "thin trickles of blood from the ears",
+    "bruise": "a dark bruise along the cheekbone",
+    "broken_nose": "a broken, swollen, bleeding nose",
+    "torn_suit": "the uniform torn open across the chest and shoulder",
+    "burned_suit": "the left side of the uniform burned and scorched away",
+    "purple_graze": "a deep scooped wound gouged out of the left shoulder and upper arm, its edges cauterised dark violet-red",
+    "cracked_sternum": "a dark crater-shaped bruise in the centre of the chest, breathing laboured",
+    "torso_erased": "a clean-edged void where the left side of the torso and the left arm were erased",
+    "broken_forearm": "the left forearm visibly broken",
+    "torn_sleeve": "the left sleeve of the jacket torn to the elbow",
+    "dust_covered": "pale dust settled on the shoulders and hair"
+  },
+  "locations": {
+    "intersection": "A vast abandoned metropolitan district: a wide four-way intersection of an eight-lane avenue with crosswalk stripes and a few abandoned cars, ringed by 30- to 80-storey glass and concrete towers with shattered windows; a traffic-light mast arm on the EAST corner (screen-right); wind-blown dust and paper; no people anywhere.",
+    "west_block": "The block of mid-rise concrete office buildings directly WEST of the intersection (screen-left): ground-floor lobbies, concrete pillars, interior office floors, a parking lot behind them.",
+    "rooftops": "The rooftops between the intersection and the unfinished tower to the EAST: water tanks on steel legs, AC units, parapets and antenna masts, 40 to 120 m above the street, the skyline all around.",
+    "tower": "An unfinished 42-storey skyscraper EAST of the intersection: exposed concrete floor slabs every 4.2 m, steel columns, rebar, a half-installed glass curtain wall on the lower floors, tarps, a yellow tower crane on top.",
+    "sky": "Open sky 150 to 300 m above the city at dusk: the storm deck overhead, torn cloud, the dark skyline spread below with the ruined intersection visible, smoke columns rising from earlier damage.",
+    "domain": "Inside Unlimited Void: a boundless starfield with impossible depth, concentric rings of light receding to a vanishing point, a slow galactic spiral, and endless streams of luminous information-particles rushing outward too fast to read; no floor, no horizon; deep blacks with cold blue-white light.",
+    "insert": "A tight insert/close-up; background is the surrounding location softly out of focus."
+  }
+}
