@@ -46,7 +46,11 @@ export type C2S =
   | { t: 'chat'; text: string }
   | { t: 'ping'; ct: number }
   | { t: 'drink'; yaw: number; pitch: number }
-  | { t: 'toggle' };
+  | { t: 'toggle' }
+  /** Cheat: set god mode (omit `on` to toggle). Needs the world's cheats flag. */
+  | { t: 'god'; on?: boolean }
+  /** Turn the world's cheats flag on or off (singleplayer: the player owns the world). */
+  | { t: 'cheats'; on: boolean };
 
 // ---------------------------------------------------------------- server -> client
 export interface EntSnap {
@@ -120,6 +124,7 @@ export interface PieceInfo {
 
 export type S2C =
   | { t: 'welcome'; id: number; name: string; seed: number; time: number; rules: ClientRules; pos: [number, number, number] }
+  | { t: 'rules'; rules: ClientRules }
   | { t: 'fatal'; reason: string }
   | { t: 'saved'; ms: number }
   | { t: 'unload'; keys: Array<[number, number]> }

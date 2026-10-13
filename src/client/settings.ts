@@ -18,19 +18,19 @@ export interface Settings {
 
 export type Action =
   | 'forward' | 'back' | 'left' | 'right' | 'jump' | 'sprint' | 'crouch' | 'inventory' | 'interact'
-  | 'reload' | 'map' | 'chat' | 'teamChat' | 'team' | 'drop' | 'demolish' | 'rotate' | 'help';
+  | 'reload' | 'map' | 'chat' | 'teamChat' | 'team' | 'drop' | 'demolish' | 'rotate' | 'help' | 'god';
 
 export const ACTION_LABELS: Record<Action, string> = {
   forward: 'Move forward', back: 'Move back', left: 'Strafe left', right: 'Strafe right', jump: 'Jump / swim up',
   sprint: 'Sprint', crouch: 'Crouch', inventory: 'Inventory & crafting', interact: 'Use / open / pick up / drink',
   reload: 'Reload', map: 'Map', chat: 'Chat', teamChat: 'Team chat', team: 'Team panel', drop: 'Drop held item',
-  demolish: 'Demolish (hammer)', rotate: 'Rotate stairs / cycle tier', help: 'Controls help',
+  demolish: 'Demolish (hammer)', rotate: 'Rotate stairs / cycle tier', help: 'Controls help', god: 'Toggle god mode (cheats)',
 };
 
 export const DEFAULT_KEYS: Record<Action, string> = {
   forward: 'KeyW', back: 'KeyS', left: 'KeyA', right: 'KeyD', jump: 'Space', sprint: 'ShiftLeft', crouch: 'ControlLeft',
   inventory: 'Tab', interact: 'KeyE', reload: 'KeyR', map: 'KeyM', chat: 'Enter', teamChat: 'KeyY', team: 'KeyT',
-  drop: 'KeyG', demolish: 'KeyX', rotate: 'KeyQ', help: 'F1',
+  drop: 'KeyG', demolish: 'KeyX', rotate: 'KeyQ', help: 'F1', god: 'KeyH',
 };
 
 const DEFAULTS: Settings = {

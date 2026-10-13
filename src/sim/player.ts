@@ -180,7 +180,7 @@ export class Player {
       x: this.move.x, y: this.move.y, z: this.move.z, yaw: this.yaw,
       inv: this.inv.toJSON(), sel: this.sel, vitals: this.vitals, alive: this.alive,
       blueprints: [...this.blueprints], kills: this.kills, deaths: this.deaths,
-      craftQueue: this.craftQueue,
+      craftQueue: this.craftQueue, god: this.god,
     };
   }
 
@@ -194,6 +194,7 @@ export class Player {
     this.blueprints = new Set(d.blueprints ?? []);
     this.kills = d.kills ?? 0;
     this.deaths = d.deaths ?? 0;
+    this.god = d.god === true;
     this.craftQueue = Array.isArray(d.craftQueue) ? d.craftQueue.filter((j) => tryItemDef(j.id)) : [];
   }
 }

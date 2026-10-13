@@ -22,7 +22,7 @@ import { Effects, ViewModel } from './render/effects';
 import { EntityRenderer } from './render/entities';
 import { Sky } from './render/sky';
 import { buildTiles } from './render/textures';
-import type { Settings } from './settings';
+import { keyLabel, type Settings } from './settings';
 import { LocalSim } from './sim';
 import { Hud } from './ui/hud';
 import { InventoryUI } from './ui/inventory';
@@ -98,6 +98,8 @@ export class ClientGame {
   private expectLoot = 0;
   private worldCalls = 0;
   onSpawned: () => void = () => undefined;
+  /** The world's rules changed (e.g. cheats allowed from the pause menu). */
+  onRules: (r: ClientRules) => void = () => undefined;
   onQuit: () => void = () => undefined;
 
   constructor(private canvas: HTMLCanvasElement, private settings: Settings, workerBase: string) {
@@ -174,6 +176,25 @@ export class ClientGame {
   }
 
   // ------------------------------------------------------------------ modes
+  get godMode() {
+    return !!this.vitals?.fx.includes('god');
+  }
+
+  get cheatsAllowed() {
+    return this.rules.cheats;
+  }
+
+  /** Pause-menu switches mirror the simulation's state (also changed by /god). */
+  updateCheatButtons() {
+    const god = $('p-god') as HTMLButtonElement;
+    god.textContent = `God mode: ${this.godMode ? 'on' : 'off'}`;
+    god.disabled = !this.rules.cheats;
+    god.title = this.rules.cheats ? `Toggle with ${keyLabel(this.settings.keys.god)}` : 'Allow cheats first';
+    const cheats = $('p-cheats') as HTMLButtonElement;
+    delete cheats.dataset.confirm;
+    cheats.textContent = `Allow cheats: ${this.rules.cheats ? 'on' : 'off'}`;
+  }
+
   setMode(m: Mode) {
     const prev = this.mode;
     this.mode = m;
@@ -217,6 +238,10 @@ export class ClientGame {
       this.setMode(this.mode === 'help' ? 'play' : 'help');
       return true;
     }
+    if (this.mode === 'play' && code === k.god) {
+      this.sim.send({ t: 'god' });
+      return true;
+    }
     if (this.mode === 'play' && (code === k.chat || code === 'Slash')) {
       this.setMode('chat');
       if (code === 'Slash') setTimeout(() => (($('chat-input') as HTMLInputElement).value = '/'), 0);
@@ -239,6 +264,7 @@ export class ClientGame {
     switch (m.t) {
       case 'welcome':
         this.rules = m.rules;
+        this.updateCheatButtons();
         this.time = m.time;
         this.gen = new WorldGenerator(m.seed);
         this.local.teleport(m.pos[0], m.pos[1], m.pos[2]);
@@ -292,6 +318,12 @@ export class ClientGame {
         this.vitals = m;
         this.local.noSprint = m.hyd <= 0;
         this.hud.vitals(m);
+        this.updateCheatButtons();
+        break;
+      case 'rules':
+        this.rules = m.rules;
+        this.onRules(m.rules);
+        this.updateCheatButtons();
         break;
       case 'craftq':
         this.invUI.setQueue(m.q);

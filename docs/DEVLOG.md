@@ -4,6 +4,16 @@ Newest first. Each entry: what changed, how it was verified, bugs found, what's 
 
 ## Session 1 — 2026-10-13
 
+### Toggleable god mode (owner request)
+* **H** (rebindable) or the pause menu's *God mode* switch toggles it; `/god` still works. While on: no
+  damage of any kind, and health/food/water stay full with bleeding, radiation and poison cleared. A
+  "God mode" status chip shows on the HUD. Saved with the player.
+* It needs the world's cheats flag, which can now be turned on for an existing world from the pause menu
+  (two clicks to confirm). The flag is saved with the world and the world list shows the "cheats" tag;
+  turning cheats off ends god mode.
+* Verified: 5 new tests (260 total), e2e OK, and a headless-browser run of the full UI flow (refused
+  without cheats → allow cheats → button → H key → world list tag).
+
 ### Final verification pass
 * Full run: typecheck clean, **255/255 tests**, e2e OK (spawn 1.2 s, IndexedDB save → reload verified),
   benchmarks: worldgen 4.1 ms/chunk, meshing 8.9 ms/chunk, tick 0.12 ms mean (p99 0.58 ms). See

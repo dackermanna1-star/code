@@ -9,7 +9,7 @@ const $ = (id: string) => document.getElementById(id)!;
 const STATUS_LABEL: Record<string, [string, string]> = {
   cold: ['Cold', 'cold'], hot: ['Overheating', 'bad'], starving: ['Starving', 'bad'], hungry: ['Hungry', ''], dehydrated: ['Dehydrated', 'bad'],
   thirsty: ['Thirsty', ''], bleeding: ['Bleeding', 'bad'], poisoned: ['Poisoned', 'bad'], radiation: ['Radiation', 'bad'], irradiated: ['Radiation poisoning', 'bad'],
-  wet: ['Wet', 'cold'], privilege: ['Building privilege', 'good'], blocked: ['Building blocked', 'bad'],
+  wet: ['Wet', 'cold'], god: ['God mode', 'good'], privilege: ['Building privilege', 'good'], blocked: ['Building blocked', 'bad'],
 };
 
 /** Heads-up display. Pure DOM updates; no game logic. */

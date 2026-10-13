@@ -51,6 +51,11 @@ export function newVitals(): Vitals {
   return { hp: 60, cal: 150, hyd: 80, bleed: 0, rad: 0, poison: 0, hot: 0, wet: 0, temp: 20 };
 }
 
+/** Full health, food and water; clears bleeding, radiation and poison (god mode, /heal). */
+export function restoreVitals(v: Vitals) {
+  Object.assign(v, { hp: MAX_HEALTH, cal: MAX_CALORIES, hyd: MAX_HYDRATION, bleed: 0, rad: 0, poison: 0 });
+}
+
 export const COMFORT_MIN = 8;
 export const COMFORT_MAX = 32;
 

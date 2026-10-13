@@ -1,11 +1,11 @@
 import { CHUNK_SIZE, MOVE_DT, PROTOCOL_VERSION, TICK_DT } from '../shared/constants';
-import type { WorldConfig } from '../shared/config';
+import type { ClientRules, WorldConfig } from '../shared/config';
 import { mulberry32, seedFromString } from '../shared/math';
 import { encodeChunkFrame, type C2S, type EntSnap, type S2C } from '../shared/net/protocol';
 import { chunkKey, rleEncode, type Chunk } from '../shared/world/chunk';
 import { DEFAULT_MOVE, fallDamage, isStuck, stepMovement, type MoveInput } from '../shared/sim/movement';
 import { makeStack, addToAny } from '../shared/sim/inventory';
-import { newVitals } from '../shared/sim/vitals';
+import { newVitals, restoreVitals } from '../shared/sim/vitals';
 import { dayPhase } from '../shared/sim/time';
 import type { Link } from './link';
 import { log } from './log';
@@ -177,11 +177,12 @@ export class Game {
     }
     p.link = link;
     p.ready = false;
+    if (!this.config.cheats) p.god = false;
     this.players.set(p.id, p);
     if (p.alive) this.entities.add(p);
     link.send({
       t: 'welcome', id: p.id, name: p.name, seed: this.seed, time: this.time,
-      rules: { dayLengthMin: this.config.dayLengthMin, nightFraction: this.config.nightFraction, viewDistance: this.config.viewDistance, cheats: this.config.cheats },
+      rules: this.clientRules(),
       pos: [p.x, p.y, p.z],
     });
     const pois = this.world.gen.pois.poisNear(p.x, p.z, 2500).map((q) => ({ name: q.def.name, x: q.cx, z: q.cz, tier: q.def.tier }));
@@ -200,6 +201,29 @@ export class Game {
         log.warn('Bad start item in config', { id, error: String(e) });
       }
     }
+  }
+
+  clientRules(): ClientRules {
+    return { dayLengthMin: this.config.dayLengthMin, nightFraction: this.config.nightFraction, viewDistance: this.config.viewDistance, cheats: this.config.cheats };
+  }
+
+  /** Cheat: no damage, and health/food/water stay full. */
+  setGod(p: Player, on: boolean) {
+    p.god = on;
+    if (on) restoreVitals(p.vitals);
+    p.flags = on ? ['god'] : p.flags.filter((f) => f !== 'god');
+    this.survival.replicate(p); // update the HUD now, even while paused
+    this.msg(p, `God mode ${on ? 'on' : 'off'}`, 'info');
+  }
+
+  /** The world's cheats flag. Saved with the world config; turning it off also ends god mode. */
+  setCheats(p: Player, on: boolean) {
+    if (this.config.cheats === on) return;
+    this.config.cheats = on;
+    if (!on) for (const q of this.players.values()) if (q.god) this.setGod(q, false);
+    for (const q of this.players.values()) q.link?.send({ t: 'rules', rules: this.clientRules() });
+    this.msg(p, `Cheats ${on ? 'allowed' : 'turned off'} for this world`, 'info');
+    void this.save('cheats');
   }
 
   /** Entry point for every request from the UI. Never trusts its contents. */
@@ -233,6 +257,14 @@ export class Game {
         return;
       case 'respawn':
         this.respawn(p, typeof m.bag === 'number' ? m.bag : undefined);
+        return;
+      case 'god':
+        if (!this.config.cheats) return this.msg(p, 'God mode needs cheats. Turn on "Allow cheats" in the pause menu.', 'error');
+        if (!p.alive) return this.msg(p, 'You are dead', 'error');
+        this.setGod(p, typeof m.on === 'boolean' ? m.on : !p.god);
+        return;
+      case 'cheats':
+        this.setCheats(p, !!m.on);
         return;
     }
     if (!p.alive || !p.ready || this.paused) return;

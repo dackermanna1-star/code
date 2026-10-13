@@ -24,7 +24,8 @@ npm run dev          # build + serve, then open http://localhost:8080
 ```
 Create a world (optionally with a seed and cheats), then press **F1** in game for the controls and survival
 guide. Basics: WASD/Space/Shift/Ctrl move, LMB use/attack, RMB secondary, **E** interact/drink, **Tab**
-inventory & crafting, **M** map, **R** reload, **Enter** console (`/help`).
+inventory & crafting, **M** map, **R** reload, **Enter** console (`/help`), **H** god mode (cheats; allow
+cheats for an existing world from the pause menu).
 
 ## Develop
 

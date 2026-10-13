@@ -1,4 +1,5 @@
 import { isItem, itemDef } from '../../shared/data/items';
+import { restoreVitals } from '../../shared/sim/vitals';
 import type { Game } from '../game';
 import { log } from '../log';
 import type { Player } from '../player';
@@ -61,10 +62,9 @@ export class Commands {
         return reply(`Time set to phase ${v}`);
       }
       case 'god':
-        p.god = !p.god;
-        return reply(`God mode ${p.god ? 'on' : 'off'}`);
+        return this.game.setGod(p, !p.god);
       case 'heal':
-        Object.assign(p.vitals, { hp: 100, cal: 500, hyd: 250, bleed: 0, rad: 0, poison: 0 });
+        restoreVitals(p.vitals);
         return reply('Healed');
       case 'spawn': {
         const key = args[0] ?? 'boar';

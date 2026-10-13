@@ -3,7 +3,7 @@ import { itemDef, tryItemDef } from '../../shared/data/items';
 import { dirFromAngles } from '../../shared/math';
 import { removeItem } from '../../shared/sim/inventory';
 import { dayPhase, sunElevation } from '../../shared/sim/time';
-import { applyFood, MAX_HEALTH, tickVitals } from '../../shared/sim/vitals';
+import { applyFood, MAX_HEALTH, restoreVitals, tickVitals } from '../../shared/sim/vitals';
 import { LIQUID, OPAQUE } from '../../shared/world/blocks';
 import { Biome } from '../../shared/world/biomes';
 import { raycastVoxels } from '../../shared/world/raycast';
@@ -62,6 +62,10 @@ export class Survival {
         metabolismRate: g.config.metabolismRate,
       }, step);
       p.flags = res.flags;
+      if (p.god) {
+        restoreVitals(p.vitals);
+        p.flags = ['god'];
+      }
       p.bp = g.building.privilegeState(p);
       if (p.bp === 2) p.flags.push('blocked');
       else if (p.bp === 1) p.flags.push('privilege');

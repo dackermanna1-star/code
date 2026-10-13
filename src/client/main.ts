@@ -78,6 +78,10 @@ async function startWorld(w: WorldEntry, isNew = false) {
   game.map.setWorldKey(w.id); // explored-map persistence per world
   (window as unknown as { __corrode?: unknown }).__corrode = game; // debugging & automated smoke tests
   game.onSpawned = () => $('load-text').textContent = 'Ready';
+  game.onRules = (r) => {
+    w.cheats = r.cheats; // keep the world list's "cheats" tag in step
+    void putWorld(w).catch(() => undefined);
+  };
   try {
     $('load-text').textContent = isNew ? 'Generating world…' : 'Loading save…';
     await game.start(w.id, name, isNew ? { seed: w.seed, cheats: w.cheats } : undefined);
@@ -131,6 +135,17 @@ $('p-settings').onclick = () => {
   game.setMode('settings');
   settingsUI.onClose = () => game?.setMode('pause');
   settingsUI.open();
+};
+$('p-god').onclick = () => game?.sim.send({ t: 'god' });
+$('p-cheats').onclick = () => {
+  if (!game) return;
+  const btn = $('p-cheats') as HTMLButtonElement;
+  if (game.cheatsAllowed) return game.sim.send({ t: 'cheats', on: false });
+  // Allowing cheats marks the world; ask for a second click instead of a dialog.
+  if (btn.dataset.confirm) return game.sim.send({ t: 'cheats', on: true });
+  btn.dataset.confirm = '1';
+  btn.textContent = 'Click again to allow cheats';
+  setTimeout(() => game?.updateCheatButtons(), 4000);
 };
 $('p-help').onclick = () => game?.setMode('help');
 $('p-quit').onclick = () => void quitToMenu();
