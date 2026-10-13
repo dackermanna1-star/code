@@ -40,19 +40,26 @@ def load_shotlist(path=SHOTLIST):
         return json.load(f)
 
 
-_SCENES = None
+_SCENES = {}
+_LOADED = set()
 
 
-def scenes():
-    global _SCENES
-    if _SCENES is None:
-        _SCENES = {}
-        for i in range(1, 9):
-            try:
-                m = importlib.import_module(f"scenes.seq{i}")
-            except ModuleNotFoundError:
-                continue
+def scenes(seq=None):
+    """Shot functions. Modules are imported lazily, one sequence at a time,
+    and a broken module (e.g. another animator's work in progress) only
+    affects its own sequence - its shots fall back to placeholder cards."""
+    wanted = [seq] if seq else range(1, 9)
+    for i in wanted:
+        if i in _LOADED:
+            continue
+        _LOADED.add(i)
+        try:
+            m = importlib.import_module(f"scenes.seq{i}")
             _SCENES.update(getattr(m, "SHOTS", {}))
+        except ModuleNotFoundError:
+            pass
+        except Exception as e:  # noqa: BLE001
+            print(f"  ! scenes.seq{i} failed to import: {e!r}", flush=True)
     return _SCENES
 
 
@@ -114,7 +121,7 @@ def render_frame(job):
     shot_id, f = job
     shot = _CTX["by_id"][shot_id]
     fr = Frame(shot, f, ss=_CTX["ss"])
-    fn = scenes().get(shot_id)
+    fn = scenes(shot["seq"]).get(shot_id)
     try:
         if fn is None:
             placeholder(fr)

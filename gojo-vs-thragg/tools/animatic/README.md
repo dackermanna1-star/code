@@ -39,6 +39,22 @@ def s3_04(fr):
 SHOTS = {"S3-04": s3_04}
 ```
 
+### Shared helpers (`scenes/common.py`), so use them
+- `C.opts(fr, 'gojo'|'thragg', switch=None)` gives the rig opts (eyes, hair,
+  injuries, cape) **derived from the continuity ledger**. The fighter looks
+  like the previous shot's `continuity_out` until `switch` seconds, then like
+  this shot's. Never hand-type injuries.
+- `C.stage(fr, seq, kind='street'|'sky'|'tower'|'roof'|'void', extra=('flag',...))`
+  draws the environment with the correct damage state for the sequence.
+- `C.infinity_stop(fr, J_attacker, gojo_point, t_since)` draws every Infinity
+  cue for a blow being stopped.
+- `C.approach(x_from, x_to, t, t0, t_reach)` gives fast travel, then Zeno
+  deceleration.
+- `C.shake(t, t0, amp)` gives impact camera shake. Use it only for real
+  heavy or massive contacts.
+- `C.tg(fr)` is global time, for cloud and smoke drift that stays continuous
+  across cuts.
+
 ### World and camera
 - **World units are metres. y is up, and the street is at y = 0.** The camera
   always faces NORTH: west is screen-left and east is screen-right. Never
