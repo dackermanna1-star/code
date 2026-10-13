@@ -484,12 +484,14 @@ export class ClientGame {
     this.updateCamera(dt);
     this.updateWorldVisuals(dt);
     this.updateHudFrame(dt, held);
-    if (this.mode === 'map') {
+    this.map.showMinimap(this.spawned && (this.mode === 'play' || this.mode === 'chat'));
+    if (this.mode === 'map' || this.map.minimapDue()) {
       const markers: MapMarker[] = this.pois.map((p) => ({ x: p.x, z: p.z, label: p.name, kind: `poi-${p.tier}` as MapMarker['kind'] }));
       markers.push(...this.bags);
       if (this.deathPos) markers.push({ x: this.deathPos[0], z: this.deathPos[2], label: 'Your body', kind: 'death' });
       this.map.setMarkers(markers);
-      this.map.render(this.local.state.x, this.local.state.z, this.local.yaw);
+      if (this.mode === 'map') this.map.render(this.local.state.x, this.local.state.z, this.local.yaw);
+      else this.map.minimap(this.local.state.x, this.local.state.z, this.local.yaw);
     }
     this.invUI.tick(dt);
     this.chunks.pump(this.local.state.x, this.local.state.z);
