@@ -69,6 +69,8 @@ export class Animal implements WorldEntity {
   npcYaw = 0;
   npcSpeed = 0;
   strafe = 1;
+  /** Rounds fired since the last reload (scavengers carry 6-round pistols). */
+  shots = 0;
   constructor(public id: number, public spec: Species, public x: number, public y: number, public z: number) {
     this.hp = spec.hp;
   }
@@ -338,6 +340,11 @@ export class Wildlife {
         const moving = Math.hypot(t.move.vx, t.move.vz) > 1;
         const spread = 0.04 + d * 0.0015 + (moving ? 0.03 : 0) + (t.move.crouching ? 0.01 : 0);
         this.game.combat.npcFire(a, a.x, a.y + 1.5, a.z, t.x, t.y + 1.1, t.z, a.spec.damage, spread, a.spec.name);
+        if (++a.shots >= 6) {
+          a.shots = 0;
+          a.lastAttack = now + 2.5; // reloading: a window to push or retreat
+          this.game.fx('reload', a.x, a.y + 1.4, a.z, 25, { s: 'pipe_pistol' });
+        }
       }
       return;
     }
