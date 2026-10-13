@@ -1,6 +1,7 @@
 import { ClientGame } from './game';
 import { loadSettings, saveSettings } from './settings';
 import { SettingsUI, renderHelp, show } from './ui/menus';
+import { MapUI } from './ui/map';
 import { deleteWorld, listWorlds, newWorldId, putWorld, type WorldEntry } from './worlds';
 
 /** Entry point: main menu, world selection, and game lifecycle. */
@@ -55,6 +56,7 @@ async function refreshWorlds() {
     del.onclick = async () => {
       if (!confirm(`Delete world "${w.name}" permanently?`)) return;
       await deleteWorld(w.id);
+      void MapUI.forgetWorld(w.id);
       void refreshWorlds();
     };
     row.append(play, del);
@@ -73,6 +75,7 @@ async function startWorld(w: WorldEntry, isNew = false) {
   w.lastPlayed = Date.now();
   await putWorld(w).catch(() => undefined);
   game = new ClientGame($('game') as HTMLCanvasElement, settings, workerBase);
+  game.map.setWorldKey(w.id); // explored-map persistence per world
   (window as unknown as { __corrode?: unknown }).__corrode = game; // debugging & automated smoke tests
   game.onSpawned = () => $('load-text').textContent = 'Ready';
   try {
