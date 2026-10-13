@@ -1,8 +1,10 @@
 // Pack the production build into one self-contained HTML file that runs straight from
 // disk (double-click it; no server, no npm): the script, the stylesheet, the sound
-// synthesis worker (as a Blob URL) and the baked de_dust2 lightmap (as data: URLs) all
-// go inline. Maps bundled under gamedata/ are left out (your own game files stay
-// local); without the lightmap the map bakes its lighting on load instead.
+// synthesis worker (as a Blob URL) and every file under maps/ (each built-in map's baked
+// lightmap and thumbnail) go inline. The files are data: URLs in window.__cs16Assets,
+// keyed by path ('maps/de_dust2.lm.png'), which src/engine/assetpath.js assetUrl() reads.
+// Maps bundled under gamedata/ are left out (your own game files stay local); a map
+// without its lightmap bakes its lighting on load instead.
 //
 // usage: npx vite build && node tools/singlefile.mjs [out.html]   (default dist/cs16.html)
 import { readFile, writeFile, readdir } from 'fs/promises';
@@ -31,20 +33,25 @@ if (workerName) {
   js = `const __cs16Worker=URL.createObjectURL(new Blob([${JSON.stringify(code)}],{type:"text/javascript"}));\n` + js.replace(ref, () => '__cs16Worker');
 }
 
-// the lightmap: data: URLs (fetch reads those from a file:// page too)
-for (const [file, type] of [['de_dust2.lm.json', 'application/json'], ['de_dust2.lm.png', 'image/png']]) {
-  const p = join(dist, 'maps', file);
-  if (!existsSync(p)) continue;
-  const url = `data:${type};base64,${(await readFile(p)).toString('base64')}`;
-  js = js.replace(new RegExp(`\\$\\{\\w+\\}maps/${file.replace(/[.]/g, '\\.')}`, 'g'), () => url);
+// maps/*: data: URLs (fetch reads those from a file:// page too), set before the bundle runs
+const TYPES = { json: 'application/json', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg' };
+const inline = {};
+const mapsDir = join(dist, 'maps');
+if (existsSync(mapsDir)) {
+  for (const file of (await readdir(mapsDir)).sort()) {
+    const type = TYPES[file.split('.').pop().toLowerCase()];
+    if (!type) continue;
+    inline[`maps/${file}`] = `data:${type};base64,${(await readFile(join(mapsDir, file))).toString('base64')}`;
+  }
 }
+const table = `<script>window.__cs16Assets=${JSON.stringify(inline)};</script>`;
 
 js = js.replace(/<\/script/gi, '<\\/script');
 const html = (await readFile(join(dist, 'index.html'), 'utf8'))
   .replace(/\s*<script type="module"[^>]*src="[^"]*"><\/script>/, '')
   .replace(/\s*<link rel="stylesheet"[^>]*>/, '')
   // (function replacers: the code is full of $' and $& that a replacement string would expand)
-  .replace('</head>', () => `<style>${css}</style>\n</head>`)
+  .replace('</head>', () => `<style>${css}</style>\n${table}\n</head>`)
   .replace('</body>', () => `<script type="module">${js}</script>\n</body>`);
 await writeFile(out, html);
-console.log(`wrote ${out} (${(html.length / 1048576).toFixed(1)} MB)`);
+console.log(`wrote ${out} (${(html.length / 1048576).toFixed(1)} MB; ${Object.keys(inline).length} map files inline: ${Object.keys(inline).join(', ')})`);

@@ -129,10 +129,11 @@ function mulberry32(a) {
 
 export const DEFAULT_LIGHTING = {
   sunDir: [-0.42, 0.38, 0.82],
-  sunColor: [0.95, 0.88, 0.72],
-  skyColor: [0.40, 0.42, 0.47],
+  sunColor: [0.95, 0.88, 0.72], // [0, 0, 0]: no sun (underground); the sun pass is skipped
+  skyColor: [0.40, 0.42, 0.47], // [0, 0, 0]: no sky light (closed spaces); the sky pass is skipped
   ambientMin: [0.06, 0.055, 0.05],
   bounce: 0.55,
+  voidColor: [0.5, 0.42, 0.3], // bounce rays that escape below the horizon see this (dust2: sunlit sand)
   skySamples: 32,
   sunSamples: 4,
   lights: [], // { pos:[x,y,z], color:[r,g,b], intensity, radius }
@@ -141,11 +142,61 @@ export const DEFAULT_LIGHTING = {
 // Bake. faces must have .lm from allocateLightmaps. albedo(texName) -> [r,g,b] 0..1.
 // Returns Float32Array RGB (width*height*3).
 export function bakeLightmaps(faces, world, alloc, opts = {}, albedo = () => [0.6, 0.5, 0.4], onProgress) {
+  const it = bakeSteps(faces, world, alloc, opts, albedo, onProgress);
+  let r;
+  while (!(r = it.next()).done);
+  return r.value;
+}
+
+// The same bake, sliced: yields to the event loop every `sliceMs` so a loading screen
+// keeps drawing; onProgress(0..1). Resolves to the same Float32Array as bakeLightmaps.
+export async function bakeLightmapsAsync(faces, world, alloc, opts = {}, albedo = () => [0.6, 0.5, 0.4], onProgress, sliceMs = 40) {
+  const it = bakeSteps(faces, world, alloc, opts, albedo, null);
+  const now = () => (globalThis.performance ? performance.now() : Date.now());
+  let t = now(), r;
+  while (!(r = it.next()).done) {
+    if (now() - t < sliceMs) continue;
+    if (onProgress) onProgress(r.value);
+    await new Promise((res) => setTimeout(res, 0));
+    t = now();
+  }
+  return r.value;
+}
+
+// Point lights that can reach face f: in front of its plane and within their radius of
+// its bounds (conservative: a skipped light would add nothing to any of its luxels).
+function lightsFor(f, lights, out) {
+  out.length = 0;
+  if (!lights.length) return out;
+  let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+  for (const v of f.poly) {
+    if (v[0] < x0) x0 = v[0]; if (v[0] > x1) x1 = v[0];
+    if (v[1] < y0) y0 = v[1]; if (v[1] > y1) y1 = v[1];
+    if (v[2] < z0) z0 = v[2]; if (v[2] > z1) z1 = v[2];
+  }
+  const n = f.n;
+  for (const lt of lights) {
+    const p = lt.pos;
+    if (n[0] * p[0] + n[1] * p[1] + n[2] * p[2] - f.d < -1e-3) continue;
+    const dx = Math.max(x0 - p[0], 0, p[0] - x1), dy = Math.max(y0 - p[1], 0, p[1] - y1), dz = Math.max(z0 - p[2], 0, p[2] - z1);
+    const r = lt.radius + 1;
+    if (dx * dx + dy * dy + dz * dz > r * r) continue;
+    out.push(lt);
+  }
+  return out;
+}
+
+// The baker proper: a generator yielding its progress (0..1) after every face.
+function* bakeSteps(faces, world, alloc, opts, albedo, onProgress) {
   const L = { ...DEFAULT_LIGHTING, ...opts };
   const W = alloc.width, H = alloc.height;
   const direct = new Float32Array(W * H * 3);
   const sd = norm(L.sunDir.slice());
   const rand = mulberry32(1234);
+  const sunOn = L.sunColor[0] > 0 || L.sunColor[1] > 0 || L.sunColor[2] > 0;
+  const skyOn = L.skyColor[0] > 0 || L.skyColor[1] > 0 || L.skyColor[2] > 0;
+  const VOID = L.voidColor;
+  const near = [];
 
   // precompute luxel positions
   const tmp2 = [0, 0], P = [0, 0, 0], start = [0, 0, 0], end = [0, 0, 0];
@@ -183,13 +234,14 @@ export function bakeLightmaps(faces, world, alloc, opts = {}, albedo = () => [0.
     const tA = Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0];
     const b1 = norm(cross(tA, n)), b2 = cross(n, b1);
     const castsLight = f.brush.fullbright;
+    const lights = lightsFor(f, L.lights, near);
     for (let j = 0; j < lm.h; j++) {
       for (let i = 0; i < lm.w; i++) {
         const o = ((lm.y + j) * W + (lm.x + i)) * 3;
         if (castsLight) { direct[o] = direct[o + 1] = direct[o + 2] = 1; continue; }
         let r = 0, g = 0, b = 0;
         // sun
-        if (cosSun > 0) {
+        if (sunOn && cosSun > 0) {
           let lit = 0;
           const ns = L.sunSamples;
           for (let k = 0; k < ns; k++) {
@@ -207,7 +259,7 @@ export function bakeLightmaps(faces, world, alloc, opts = {}, albedo = () => [0.
         luxPos(f, i, j, 0, 0, P);
         start[0] = P[0] + n[0] * 0.5; start[1] = P[1] + n[1] * 0.5; start[2] = P[2] + n[2] * 0.5;
         // point lights
-        for (const lt of L.lights) {
+        for (const lt of lights) {
           const dx = lt.pos[0] - P[0], dy = lt.pos[1] - P[1], dz = lt.pos[2] - P[2];
           const dist = Math.hypot(dx, dy, dz);
           if (dist > lt.radius) continue;
@@ -220,6 +272,7 @@ export function bakeLightmaps(faces, world, alloc, opts = {}, albedo = () => [0.
           r += lt.color[0] * k; g += lt.color[1] * k; b += lt.color[2] * k;
         }
         direct[o] = r; direct[o + 1] = g; direct[o + 2] = b;
+        if (!skyOn) continue;
         // sky visibility (random rotation per luxel)
         let vis = 0;
         const rot = rand() * Math.PI * 2, cr = Math.cos(rot), srt = Math.sin(rot);
@@ -239,6 +292,7 @@ export function bakeLightmaps(faces, world, alloc, opts = {}, albedo = () => [0.
     }
     done++;
     if (onProgress && (done & 63) === 0) onProgress(0.5 * done / total);
+    yield 0.5 * done / total;
   }
 
   // ---- pass 2: one bounce of (direct + sky) light
@@ -268,8 +322,8 @@ export function bakeLightmaps(faces, world, alloc, opts = {}, albedo = () => [0.
             end[0] = start[0] + dx * 3000; end[1] = start[1] + dy * 3000; end[2] = start[2] + dz * 3000;
             world.trace(start, end, ZERO, ZERO, MASK_SHOT, tr);
             if (tr.fraction >= 1 || !tr.brush) {
-              if (dz < 0) { // looking down past the horizon into the void: assume sunlit sand
-                r += 0.5; g += 0.42; b += 0.3;
+              if (dz < 0) { // looking down past the horizon into the void (dust2: sunlit sand)
+                r += VOID[0]; g += VOID[1]; b += VOID[2];
               }
               continue;
             }
@@ -290,6 +344,7 @@ export function bakeLightmaps(faces, world, alloc, opts = {}, albedo = () => [0.
     }
     done++;
     if (onProgress && (done & 63) === 0) onProgress(0.5 + 0.5 * done / total);
+    yield 0.5 + 0.5 * done / total;
   }
   smoothFaces(faces, out, W);
   padBorders(faces, out, W);
@@ -389,9 +444,21 @@ function padBorders(faces, buf, W) {
   }
 }
 
-// Encode to RGBA8 with 2x headroom (stored = light / 2).
-export function encodeLightmap(rgb, W, H) {
+// Encode to RGBA8 with 2x headroom. 'linear' (de_dust2): stored = light / 2, one step =
+// 0.0078 light everywhere, which bands in dim scenes (at light 0.03 one step is +26 %).
+// 'sqrt': stored = sqrt(light / 2), four times finer at light 0.03 (+6.5 % a step) and a
+// little coarser near full sun; decoded as stored^2 * 2 (meshbuilder LM_SQRT, decodeLight).
+export function encodeLightmap(rgb, W, H, encoding = 'linear') {
   const out = new Uint8Array(W * H * 4);
+  if (encoding === 'sqrt') {
+    for (let i = 0, n = W * H; i < n; i++) {
+      out[i * 4] = Math.min(255, Math.round(Math.sqrt(Math.max(0, rgb[i * 3]) * 0.5) * 255));
+      out[i * 4 + 1] = Math.min(255, Math.round(Math.sqrt(Math.max(0, rgb[i * 3 + 1]) * 0.5) * 255));
+      out[i * 4 + 2] = Math.min(255, Math.round(Math.sqrt(Math.max(0, rgb[i * 3 + 2]) * 0.5) * 255));
+      out[i * 4 + 3] = 255;
+    }
+    return out;
+  }
   for (let i = 0, n = W * H; i < n; i++) {
     out[i * 4] = Math.min(255, Math.round(rgb[i * 3] * 127.5));
     out[i * 4 + 1] = Math.min(255, Math.round(rgb[i * 3 + 1] * 127.5));
@@ -399,6 +466,12 @@ export function encodeLightmap(rgb, W, H) {
     out[i * 4 + 3] = 255;
   }
   return out;
+}
+
+/** A stored lightmap byte back to light (0..2) for the given encoding. */
+export function decodeLight(v, encoding = 'linear') {
+  if (encoding === 'sqrt') { const s = v / 255; return s * s * 2; }
+  return v / 127.5;
 }
 
 // Lightmap UV for a world point on face f (centre-of-luxel convention).

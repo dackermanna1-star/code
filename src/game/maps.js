@@ -1,14 +1,16 @@
 // Map registry and map-file loading.
 //
-// de_dust2 is built into the game. Other maps are original GoldSrc .bsp files the
-// player supplies (they are third-party / Valve content and never part of this repo):
-// bundled into a local build with tools/packmap.mjs (public/gamedata/), picked once in
-// the New Game menu and kept in the browser (IndexedDB), or in development served from
-// a folder with ?mapsrc=http://localhost:8898.
+// Built into the game: de_dust2 and the original maps (src/map/maps/*: built from code,
+// with their own lighting, sky, fog, textures and metadata). Other maps are original GoldSrc
+// .bsp files the player supplies (they are third-party / Valve content and never part of
+// this repo): bundled into a local build with tools/packmap.mjs (public/gamedata/), picked
+// once in the New Game menu and kept in the browser (IndexedDB), or in development served
+// from a folder with ?mapsrc=http://localhost:8898.
 import { decodeTga } from '../bsp/tga.js';
+import { BUILTIN_MAPS } from '../map/maps/index.js';
 
 export const MAPS = {
-  de_dust2: { id: 'de_dust2', title: 'de_dust2', builtin: true, mode: 'bomb' },
+  ...Object.fromEntries(BUILTIN_MAPS.map((d) => [d.id, d])),
   cs_mansion: {
     id: 'cs_mansion', title: 'cs_mansion', mode: 'hostage',
     bsp: 'cs_mansion.bsp',
@@ -19,6 +21,16 @@ export const MAPS = {
     url: 'https://gamebanana.com/mods/92163',
   },
 };
+
+/** Does this map offer that game mode ('classic' | 'zombies')? BSP maps: both. */
+export function mapOffers(def, mode) {
+  return !def.modes || def.modes.includes(mode);
+}
+
+/** The name a menu shows: the title for built-in maps ("Fort Ember"), else the id. */
+export function mapLabel(def) {
+  return def.builtin && def.title !== def.id ? def.title : def.id;
+}
 
 /** A map id that isn't registered but whose .bsp the player added: generic entry. */
 export function mapDef(id) {

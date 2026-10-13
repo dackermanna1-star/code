@@ -1,5 +1,7 @@
-// Map-only viewer for screenshots and walkthroughs: ?pos=x,y,z&ang=pitch,yaw (feet position)
-// or ?view=top&bounds=x0,y0,x1,y1&zcut=z for a top-down plan
+// Map-only viewer for screenshots and walkthroughs (no game, no zombies: fly around a map
+// you're building): ?map=<built-in id> (default de_dust2) &pos=x,y,z&ang=pitch,yaw (feet
+// position; default: the first squad spawn) or ?view=top&bounds=x0,y0,x1,y1&zcut=z for a
+// top-down plan; &bake bakes the lighting at load (an edited map before tools/bake.mjs).
 import * as THREE from 'three';
 import { Renderer } from '../../src/engine/renderer.js';
 import { Input } from '../../src/engine/input.js';
@@ -7,8 +9,9 @@ import { TextureLibrary } from '../../src/engine/assets.js';
 import * as TexLib from '../../src/assets/textures.js';
 import { createSky } from '../../src/assets/sky.js';
 import { loadWorld } from '../../src/game/world.js';
+import { MAPS } from '../../src/game/maps.js';
+import { applyMapFog, applyGrade } from '../../src/engine/fog.js';
 import { PlayerMover, createPlayerMove, IN_JUMP, IN_DUCK, IN_WALK } from '../../src/engine/pmove.js';
-import { DUST2_LIGHTING } from '../../src/map/lighting.js';
 
 const params = new URLSearchParams(location.search);
 const app = document.getElementById('app');
@@ -16,12 +19,16 @@ const r = new Renderer(app);
 if (params.get('aspect')) r.configure({ aspect: params.get('aspect') });
 const input = new Input(r.canvas);
 const texLib = new TextureLibrary(TexLib);
-r.scene.background = createSky(r.renderer, { sunDir: DUST2_LIGHTING.sunDir });
-const W = await loadWorld(texLib, () => {}, { forceBake: params.has('bake') });
+const def = MAPS[params.get('map') || 'de_dust2'] || MAPS.de_dust2;
+const W = await loadWorld(texLib, () => {}, { forceBake: params.has('bake'), mapDef: def });
+r.scene.background = createSky(r.renderer, { ...def.sky, sunDir: W.lighting.sunDir, fog: def.fog });
+applyMapFog(r.scene, def.fog);
+applyGrade(r.canvas, def.grade);
 for (const m of W.meshes) r.world.add(m);
 const mover = new PlayerMover(W.collision);
 const pm = createPlayerMove();
-const pos = (params.get('pos') || '-1300,-900,128').split(',').map(Number);
+const sp = W.map.entities.find((e) => e.classname === 'info_player_start');
+const pos = (params.get('pos') || (def.id === 'de_dust2' || !sp ? '-1300,-900,128' : `${sp.origin[0]},${sp.origin[1]},${sp.origin[2] - 37}`)).split(',').map(Number);
 const ang = (params.get('ang') || '0,90').split(',').map(Number);
 pm.origin = [pos[0], pos[1], pos[2] + 37];
 pm.angles = [ang[0], ang[1], 0];
@@ -31,7 +38,7 @@ r.canvas.addEventListener('click', () => input.requestLock());
 // ?view=top&bounds=x0,y0,x1,y1&zcut=z : orthographic top-down render
 let topCam = null;
 if (params.get('view') === 'top') {
-  const b = (params.get('bounds') || '-2476,-1266.6,2029.6,3239').split(',').map(Number);
+  const b = (params.get('bounds') || (def.id === 'de_dust2' ? '-2476,-1266.6,2029.6,3239' : W.map.bounds.join(','))).split(',').map(Number);
   const w = b[2] - b[0], h = b[3] - b[1];
   const zcut = params.get('zcut');
   topCam = new THREE.OrthographicCamera(-w / 2, w / 2, h / 2, -h / 2, zcut ? 4000 - +zcut : 1, 20000);

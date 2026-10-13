@@ -9,6 +9,7 @@ import { ZOMBIE_FX } from './zombie.js';
 import { HIT_FX } from './hitfx.js';
 import { TITLE_FX } from './title.js';
 import { SHOVE_FX } from './shove.js';
+import { MAP_AMBIENCE } from './ambience.js';
 
 // ------------------------------------------------------------- catalogue ---
 
@@ -51,6 +52,7 @@ export const SOUND_GROUPS = {
   'Readable specials': ['save_sting'], // zombie survival (zthreats.js)
   'Melee shove': ['shove_swing', 'shove_hit'], // zombie survival (shove.js)
   'Title screen': ['title_theme', 'title_start'],
+  'Map ambience': Object.keys(MAP_AMBIENCE), // one loop per original map (lazy: SoundEngine.ensure)
 };
 
 // Default GoldSrc-style attenuation and per-play pitch jitter for each sound.
@@ -83,6 +85,8 @@ for (const [name, d] of Object.entries({ ...HANDLING, ...FOLEY, ...MISC, ...ZOMB
 DEFS.buy = { alias: 'ammo_pickup' };
 for (const [name, d] of Object.entries(HIT_FX)) DEFS[name] = { ...d };
 for (const [name, d] of Object.entries(SHOVE_FX)) DEFS[name] = { ...d };
+// map ambience: not in the load-time bank; synthesised when the map asks (sounds.js ensure)
+for (const [name, d] of Object.entries(MAP_AMBIENCE)) DEFS[name] = { attn: 'none', ...d, lazy: true };
 // a recipe nobody listed above still gets made (the bank only renders catalogued names)
 {
   const listed = new Set(Object.values(SOUND_GROUPS).flat());
@@ -133,7 +137,7 @@ export function jobList(bankRate) {
   const jobs = [];
   for (const name of SOUND_NAMES) {
     const def = DEFS[name];
-    if (def.alias) continue;
+    if (def.alias || def.lazy) continue;
     const cost = (def.dur + (def.loop || 0)) * (def.stereo ? 2 : 1) * (rateFor(name, bankRate) / 44100) + 0.05;
     for (let v = 0; v < (def.variants || 1); v++) jobs.push({ name, v, cost });
   }

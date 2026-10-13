@@ -4,14 +4,20 @@
 import * as THREE from 'three';
 import { textureAxes, lightmapUV } from './lightmap.js';
 
+// Fog (a map's scene fog, src/engine/fog.js) and the lightmap encodings compile in only
+// when used: without them (de_dust2) the shaders are exactly the old ones.
 const VERT = /* glsl */`
   attribute vec2 uv1;
   varying vec2 vUv;
   varying vec2 vLm;
+  #include <fog_pars_vertex>
   void main() {
     vUv = uv;
     vLm = uv1;
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    #ifdef USE_FOG
+      vFogDepth = -(modelViewMatrix * vec4(position, 1.0)).z;
+    #endif
   }
 `;
 
@@ -23,15 +29,26 @@ const FRAG = /* glsl */`
   uniform float fullbright;
   varying vec2 vUv;
   varying vec2 vLm;
+  #include <fog_pars_fragment>
   void main() {
     vec4 t = texture2D(map, vUv);
     #ifdef ALPHATEST
       if (t.a < 0.5) discard;
     #endif
-    vec3 l = texture2D(lightmap, vLm).rgb * 2.0;
+    #ifdef LM_SQRT
+      vec3 s = texture2D(lightmap, vLm).rgb;
+      vec3 l = s * s * 2.0;
+    #else
+      vec3 l = texture2D(lightmap, vLm).rgb * 2.0;
+    #endif
     l = pow(l, vec3(lightGamma));
     l = mix(l, vec3(1.0), fullbright);
-    gl_FragColor = vec4(t.rgb * l * brightness, 1.0);
+    #ifdef BLEND
+      gl_FragColor = vec4(t.rgb * l * brightness, t.a);
+    #else
+      gl_FragColor = vec4(t.rgb * l * brightness, 1.0);
+    #endif
+    #include <fog_fragment>
   }
 `;
 
@@ -54,7 +71,15 @@ export function lightCurve(l) {
   return Math.pow(Math.max(0, l), worldUniforms.lightGamma.value) * worldUniforms.brightness.value;
 }
 
-export function createWorldMaterial(tex, lightmapTex, alpha) {
+/**
+ * alpha: alpha-tested texture (fences); opts.blend: alpha-blended (glass: drawn after the
+ * opaque world, no depth write); opts.encoding: the lightmap's ('linear' | 'sqrt', lightmap.js).
+ */
+export function createWorldMaterial(tex, lightmapTex, alpha, opts = {}) {
+  const defines = {};
+  if (alpha && !opts.blend) defines.ALPHATEST = 1;
+  if (opts.blend) defines.BLEND = 1;
+  if (opts.encoding === 'sqrt') defines.LM_SQRT = 1;
   return new THREE.ShaderMaterial({
     uniforms: {
       map: { value: tex },
@@ -62,18 +87,22 @@ export function createWorldMaterial(tex, lightmapTex, alpha) {
       brightness: worldUniforms.brightness,
       lightGamma: worldUniforms.lightGamma,
       fullbright: worldUniforms.fullbright,
+      ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
     },
     vertexShader: VERT,
     fragmentShader: FRAG,
-    defines: alpha ? { ALPHATEST: 1 } : {},
+    defines,
     side: THREE.FrontSide,
+    fog: true,
+    transparent: !!opts.blend,
+    depthWrite: !opts.blend,
   });
 }
 
 const dot3 = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
 
-// texInfo(name) -> { world:[wu,wv] }
-export function buildWorldMeshes(faces, alloc, lightmapTex, getTexture, texInfo) {
+// texInfo(name) -> { world:[wu,wv], alpha?, blend? }; opts.encoding: the lightmap's encoding
+export function buildWorldMeshes(faces, alloc, lightmapTex, getTexture, texInfo, opts = {}) {
   const groups = new Map();
   for (const f of faces) {
     let g = groups.get(f.texName);
@@ -149,7 +178,7 @@ export function buildWorldMeshes(faces, alloc, lightmapTex, getTexture, texInfo)
     geo.setAttribute('uv1', new THREE.BufferAttribute(uv1, 2));
     geo.computeBoundingSphere();
     geo.computeBoundingBox();
-    const mat = createWorldMaterial(getTexture(name), lightmapTex, !!info.alpha);
+    const mat = createWorldMaterial(getTexture(name), lightmapTex, !!info.alpha, { blend: !!info.blend, encoding: opts.encoding });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.name = 'world:' + name;
     mesh.matrixAutoUpdate = false;
