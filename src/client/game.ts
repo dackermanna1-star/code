@@ -78,6 +78,8 @@ export class ClientGame {
   private useTotal = 0;
   private pieceIdx = 0;
   private stairRot = 0;
+  /** Target tier for hammer upgrades (1 wood .. 4 armored), cycled with the rotate key. */
+  private hammerTier = 1;
   private ghost: { socket: Socket | null; ok: boolean; reason?: string } = { socket: null, ok: false };
   private lastPreview = 0;
   private lastInspect = 0;
@@ -93,6 +95,7 @@ export class ClientGame {
   private lastSnapAck = 0;
   private benchCheck = 0;
   private worldTris = 0;
+  private expectLoot = 0;
   private worldCalls = 0;
   onSpawned: () => void = () => undefined;
   onQuit: () => void = () => undefined;
@@ -278,7 +281,12 @@ export class ClientGame {
         this.inv = m;
         this.invUI.setInv(m);
         this.hud.belt(m);
-        if (m.loot && this.mode === 'play') this.setMode('inventory');
+        // Open the loot pane only in response to our own interact (avoids stale
+        // updates re-opening it right after the player closed it).
+        if (m.loot && this.mode === 'play' && performance.now() - this.expectLoot < 2000) {
+          this.expectLoot = 0;
+          this.setMode('inventory');
+        }
         break;
       case 'vitals':
         this.vitals = m;
@@ -545,7 +553,10 @@ export class ClientGame {
       const solid = raycastVoxels(this.world, ex, ey, ez, d.x, d.y, d.z, REACH);
       const any = raycastVoxels(this.world, ex, ey, ez, d.x, d.y, d.z, REACH, (id) => id !== 0);
       if (any && LIQUID[any.id] && (!solid || any.dist < solid.dist) && !this.entityInFront()) this.sim.send({ t: 'drink', yaw, pitch });
-      else this.sim.send({ t: 'interact', yaw, pitch });
+      else {
+        this.expectLoot = performance.now();
+        this.sim.send({ t: 'interact', yaw, pitch });
+      }
     }
     if (this.input.wasPressed('drop') && this.inv?.belt[this.inv.sel]) {
       this.sim.send({ t: 'inv', op: 'drop', from: ['belt', this.inv.sel] });
@@ -574,7 +585,11 @@ export class ClientGame {
         this.vm.doSwing();
         this.sim.send({ t: 'hammer', mode: 'repair', yaw, pitch });
       }
-      if (rmbClick) this.sim.send({ t: 'hammer', mode: 'upgrade', yaw, pitch });
+      if (rmbClick) this.sim.send({ t: 'hammer', mode: 'upgrade', yaw, pitch, tier: this.hammerTier });
+      if (this.input.wasPressed('rotate')) {
+        this.hammerTier = (this.hammerTier % 4) + 1;
+        this.audio.ui('click');
+      }
       if (this.input.codePressed(keys.demolish)) this.sim.send({ t: 'hammer', mode: 'demolish', yaw, pitch });
       return;
     }
@@ -707,6 +722,8 @@ export class ClientGame {
       this.hud.buildHud('');
     }
     if (held?.key === 'hammer' && playing) {
+      const tierCost = pieceCost('wall', this.hammerTier).map(([k, n]) => `${n} ${tryItemDef(k)?.name ?? k}`).join(', ');
+      this.hud.buildHud(`Upgrade target: <b>${TIERS[this.hammerTier].name}</b> (wall ${tierCost})<br><span class="muted small">RMB upgrade · LMB repair · ${this.settings.keys.rotate.replace('Key', '')} change tier · ${this.settings.keys.demolish.replace('Key', '')} demolish</span>`);
       if (now - this.lastInspect > 0.25) {
         this.lastInspect = now;
         this.sim.send({ t: 'inspect', yaw, pitch });
