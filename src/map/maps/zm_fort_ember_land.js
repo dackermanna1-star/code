@@ -7,8 +7,8 @@
 // hop them) or tall (96+: nobody gets up there); boulders are low, or tall with a hull top.
 import { wall } from '../kit.js';
 import {
-  T, FIRE, prop, beam, brazier, torch, lantern, sandbags, rubble, rockSpire, deadTree, clipRoof,
-  truck, jeep, hull, boulder, shearedBox, doorFrame, parapet, flame,
+  T, FIRE, prop, beam, brazier, torch, lantern, sandbags, rubble, deadTree, clipRoof,
+  truck, jeep, hull, boulder, shearedBox, doorFrame, parapet, flame, paint, sign, cellSpec, signpost,
 } from './zm_fort_ember_parts.js';
 
 const LOW = -256, VIL = -128, TUN = -160;
@@ -57,12 +57,33 @@ function facets(m, axis, a0, a1, face, out, zTop, zBot, seed, o = {}) {
   }
 }
 
-/** Tall crags on an unreachable rim (outer walls): steep spires that break the skyline. */
+/**
+ * Tall crags on an unreachable rim (outer walls) that break the skyline: weathered pinnacles -
+ * a wide jagged foot, a waist and a broken, leaning top (one convex hull each) - with a smaller
+ * one beside most of them, on the side away from the play space.
+ */
 function crags(m, list) {
+  const B = [-1792, -1792, 2048, 1472];
+  const pinnacle = (x, y, z, r, h, rr) => {
+    const pts = [], lx = (rr() - 0.5) * r * 0.5, ly = (rr() - 0.5) * r * 0.5;
+    for (const [f, k, n] of [[0, 1, 7], [0.4, 0.78, 6], [0.8, 0.46, 5]]) {
+      const a0 = rr() * Math.PI * 2;
+      for (let i = 0; i < n; i++) {
+        const a = a0 + (i / n) * Math.PI * 2 + rr() * 0.5, d = r * k * (0.75 + rr() * 0.4);
+        pts.push([x + lx * f + Math.cos(a) * d, y + ly * f + Math.sin(a) * d, z - 32 + (h + 32) * f + (f ? rr() * 24 : 0)]);
+      }
+    }
+    pts.push([x + lx + (rr() - 0.5) * r * 0.3, y + ly + (rr() - 0.5) * r * 0.3, z + h + 16 + rr() * 40]);
+    hull(m, pts, T.rock, { name: 'rock' });
+  };
   for (const [x, y, z, r, h, seed] of list) {
-    const rr = rng(seed), pts = [];
-    for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + rr() * 0.6; const k = r * (0.7 + rr() * 0.4); pts.push([x + Math.cos(a) * k, y + Math.sin(a) * k]); }
-    rockSpire(m, pts, z - 32, z + h, 40 + rr() * 60);
+    const rr = rng(seed);
+    pinnacle(x, y, z, r, h, rr);
+    if (rr() < 0.25) continue;
+    // a smaller one outboard (away from the map's middle, kept in bounds)
+    const a = Math.atan2(y - 0, x - 0) + (rr() - 0.5) * 1.2, d = r * (1.1 + rr() * 0.3);
+    const sx = Math.min(B[2] - r, Math.max(B[0] + r, x + Math.cos(a) * d)), sy = Math.min(B[3] - r, Math.max(B[1] + r, y + Math.sin(a) * d));
+    pinnacle(sx, sy, z, r * 0.6, h * (0.4 + rr() * 0.25), rr);
   }
 }
 
@@ -88,6 +109,7 @@ function cliffs(m) {
     [-900, 1330, 192, 80, 260, 34], [-200, 1300, 192, 70, 200, 35], [520, 1340, 192, 90, 320, 36], [1240, 1300, 192, 60, 240, 37],
     [1880, -500, 96, 70, 240, 38], [1900, 400, 96, 80, 300, 39], [1700, 1360, 192, 70, 200, 40],
     [-1100, -1640, -144, 70, 200, 41], [-300, -1660, -144, 80, 260, 42], [500, -1640, -144, 60, 180, 43], [-1560, -1300, -144, 70, 220, 44],
+    [-700, -1690, -144, 60, 170, 45], [120, -1700, -144, 70, 230, 46], [-1620, -1080, -144, 60, 190, 47], [960, -1420, 64, 70, 200, 48],
   ]);
 }
 
@@ -98,11 +120,28 @@ function mesaProps(m) {
   sandbags(m, 760, -704, 880, -680, 0);
   sandbags(m, 856, -800, 880, -704, 0);
   prop(m, 700, -952, 0, 712, -940, 36, T.timber, { surface: 'wood' }); // the barrier: post, pole
-  prop(m, 712, -950, 30, 940, -942, 36, { all: T.canvas }, { surface: 'wood', contents: 0 });
+  prop(m, 712, -950, 30, 940, -942, 36, { all: paint('yellow'), s: cellSpec('hazard', 's', 712, 940, 30, 36), n: cellSpec('hazard', 'n', 712, 940, 30, 36) }, { surface: 'wood', contents: 0 });
   prop(m, 930, -952, 0, 942, -940, 32, T.timber, { surface: 'wood' });
   brazier(m, 690, -880, 0, { radius: 360 });
   brazier(m, -280, -700, 0, { radius: 380 });
   brazier(m, 280, -700, 0, { radius: 380 });
+  // the last barricade outside the gate: sandbag walls either side of the approach (36: hop
+  // them), a spiked timber cheval on the outside, a painted warning; the name over the arch
+  sandbags(m, -236, -708, -136, -684, 0);
+  sandbags(m, 136, -708, 236, -684, 0);
+  sign(m, 'keepout', 's', -708, -230, -142, 7, 29);
+  for (const cx of [-186, 186]) {
+    prop(m, cx - 56, -736, 0, cx + 56, -726, 10, T.timber, { surface: 'wood', name: 'cheval' });
+    for (let k = -2; k <= 2; k++) {
+      const x = cx + k * 24, s = k & 1 ? 1 : -1;
+      shearedBox(m, x, -731 - s * 30, 2, x, -731 + s * 34, 52, 2.5, T.timber, { detail: true, contents: 0, surface: 'wood', name: 'stake' });
+    }
+  }
+  sign(m, 'fort', 's', -640, -110, 110, 180, 214, { depth: 3 });
+  // survivors' paint on the south wall, for anyone flying over the plain
+  sign(m, 'help', 's', -576, -560, -300, 88, 153, { decal: true });
+  // the way out: a signpost by the gate
+  signpost(m, ['airstrip', 'village'], -200, -744, 0, 'n');
   // the flag: a tall pole and a torn red flag (no collision up there)
   prop(m, -404, -684, 0, -396, -676, 420, T.iron, { surface: 'metal' });
   prop(m, -396, -681, 330, -300, -679, 400, T.canvas, { contents: 0 });
@@ -156,6 +195,15 @@ function barrelAt(m, x, y, z, tex = T.iron) {
   return m.prism('z', octo(x, y, 13), z, z + 40, { all: tex }, { surface: 'metal', name: 'barrel' });
 }
 
+/** A burning oil drum (40: hop it): a fire somebody kept going down here, glowing coals and flames. */
+export function fireBarrel(m, x, y, z, o = {}) {
+  m.prism('z', octo(x, y, 14), z, z + 40, { all: T.iron, top: paint('soot') }, { surface: 'metal', name: 'barrel' });
+  const b = m.prism('z', octo(x, y, 11), z + 40, z + 42, { all: T.glow }, { detail: true, contents: 0, name: 'coals' });
+  b.fullbright = true; b.castShadow = false;
+  flame(m, x, y, z + 42, o.flame ?? 30, 9);
+  m.light(x, y, z + 92, FIRE, o.intensity ?? 0.95, o.radius ?? 400);
+}
+
 function octo(x, y, r) {
   const pts = [];
   for (let i = 0; i < 8; i++) { const a = (i + 0.5) * Math.PI / 4; pts.push([x + Math.cos(a) * r, y + Math.sin(a) * r]); }
@@ -170,7 +218,11 @@ function tunnelMouths(m) {
     prop(m, -976, y1 - 12, TUN, -960, y1, -16, T.timber, { surface: 'wood' });
     prop(m, -980, y0 - 8, -30, -956, y1 + 8, -14, T.timber, { surface: 'wood' });
   }
-  rubble(m, -1040, -120, TUN, 40, 61, T.rock);
+  // the mines were boarded up once: the boards over the portals are torn down to the top one
+  sign(m, 'sealed', 'w', -980, -6, 70, -62, -36, { depth: 3 });
+  sign(m, 'keepout', 'w', -980, -334, -242, -60, -38, { depth: 3 });
+  for (const [y0, y1, z0, z1] of [[-24, 40, -70, -100], [-300, -250, -66, -112]]) shearedBox(m, -986, y0, z0, -986, y1, z1, 3, T.planks, { detail: true, contents: 0, surface: 'wood', name: 'board' });
+  rubble(m, -1040, -120, TUN, 40, 61, T.rock, 14);
   m.crate(-1060, 40, TUN, 32);
   lantern(m, -1000, 32, -30, { radius: 300 });
   lantern(m, -1000, -288, -30, { radius: 280 });
@@ -199,6 +251,8 @@ function wadi(m) {
   cart(m, -1240, -560, LOW, 'y');
   m.prism('z', octo(-1180, 280, 28), LOW, LOW + 8, { all: T.stone }, { name: 'firepit' });
   brazier(m, -1260, -40, LOW, { radius: 420, intensity: 0.9 }); // a scavengers' fire
+  fireBarrel(m, -1110, -800, LOW);
+  fireBarrel(m, -1290, 620, LOW);
 }
 
 // ------------------------------------------------------------------ the canyon and the cliff path
@@ -220,14 +274,20 @@ function canyon(m) {
   }
   torch(m, 300, 900, -40, 'n', { radius: 300 });
   brazier(m, 640, 1140, LOW, { radius: 420, intensity: 0.9 });
+  fireBarrel(m, -820, 1120, LOW);
+  fireBarrel(m, 60, 1150, LOW);
 }
 
 // ------------------------------------------------------------------ the plain, the airstrip, the crash
 function plain(m) {
   // the airstrip: hardpan overlay with a dashed centre line and threshold bars (coplanar)
   m.box(-1280, -1440, LOW - 8, 512, -1216, LOW, { all: null, top: T.hardpan }, { name: 'airstrip' });
-  for (let x = -1120; x < 400; x += 192) m.box(x, -1332, LOW - 8, x + 96, -1324, LOW, { all: null, top: 'sidewalk' }, { name: 'marking' });
-  for (const x0 of [-1264, 432]) for (let y = -1424; y < -1232; y += 32) m.box(x0, y, LOW - 8, x0 + 64, y + 14, LOW, { all: null, top: 'sidewalk' }, { name: 'marking' });
+  for (let x = -1120; x < 400; x += 192) m.box(x, -1332, LOW - 8, x + 96, -1324, LOW, { all: null, top: paint('white') }, { name: 'marking' });
+  for (const x0 of [-1264, 432]) for (let y = -1424; y < -1232; y += 32) m.box(x0, y, LOW - 8, x0 + 64, y + 14, LOW, { all: null, top: paint('white') }, { name: 'marking' });
+  // fires along the strip: the last crew's burning drums (light down in the mesa's shadow)
+  fireBarrel(m, -560, -1170, LOW);
+  fireBarrel(m, 330, -1040, LOW);
+  fireBarrel(m, -380, -1480, LOW, { radius: 360 });
   // the control hut against the cliff (two doors, a window; its roof clipped)
   hut(m);
   // a windsock on a pole
@@ -305,7 +365,7 @@ function road(m) {
   }
   // the wrecked convoy: a truck slewed across the hairpin, a jeep, one burnt out at the foot
   truck(m, 1600, -952, VIL, 'y', 1);
-  jeep(m, 1580, -880, VIL, 'x', -1);
+  jeep(m, 1560, -792, VIL, 'x', -1); // (pulled up by the house: clear of the truck and the bend)
   truck(m, 660, -1040, LOW, 'x', -1, { tarp: false });
   for (const [x, y] of [[1520, -1060], [1700, -940], [1690, -910]]) barrelAt(m, x, y, VIL);
   m.crate(1530, -930, VIL, 40);

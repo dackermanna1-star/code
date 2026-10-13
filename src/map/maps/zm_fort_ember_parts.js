@@ -8,13 +8,72 @@
 // slope (merlon caps, parapet tops, rock spires, tarps) so nobody stands there at all.
 import { Brush, planeFromPoints, resolveTex } from '../brush.js';
 import { playerClip } from '../kit.js';
+import { SIGNS, PAINT } from '../../assets/tex/fortember.js';
 
 export const T = {
   adobe: 'fe_adobe', stone: 'fe_stone', rock: 'fe_rock', sand: 'fe_sand', flag: 'fe_flagstone',
   timber: 'fe_timber', mud: 'fe_mudbrick', canvas: 'fe_canvas', wreck: 'fe_wreck', bags: 'fe_sandbag',
   glow: 'fe_glow', hardpan: 'fe_hardpan', pad: 'fe_helipad', planks: 'wood_planks', crate: 'crate',
-  door: 'door', iron: 'metal_rust', mesh: 'chainlink',
+  door: 'door', iron: 'metal_rust', sign: 'fe_sign',
 };
+
+/**
+ * A flat colour from fe_sign's paint cells ('white', 'black', 'yellow', 'red', 'soot', 'glass',
+ * 'rubber', 'olive'): a scale so large every face samples one texel, offset onto the cell.
+ */
+export function paint(name) {
+  const [cx, cy] = PAINT[name];
+  return { name: T.sign, scale: [1e5, 1e5], offset: [cx, cy - 256] };
+}
+
+/**
+ * The texture spec that maps atlas cell `key` (SIGNS in tex/fortember.js) onto a face looking
+ * `face` ('n'|'s'|'e'|'w') that spans u0..u1 along it (x for n/s, y for e/w) and z0..z1.
+ * World-aligned (textureAxes): n/s faces run s along x, e/w along y, t down z; seen from the
+ * front, n and w faces run s right-to-left, so the cell is mirrored onto them.
+ */
+export function cellSpec(key, face, u0, u1, z0, z1) {
+  const [, x0, y0, x1, y1] = SIGNS[key];
+  const flip = face === 'n' || face === 'w';
+  const su = (flip ? -1 : 1) * (u1 - u0) / (x1 - x0), sv = (z1 - z0) / (y1 - y0);
+  return { name: T.sign, scale: [su, sv], offset: [x0 - (flip ? u1 : u0) / su, z0 / sv - 256 + y1] };
+}
+
+/**
+ * A sign: atlas cell `key` on a plaque `depth` thick standing on a wall plane. face: the way it
+ * looks; plane: the wall's y (n/s) or x (e/w); u0..u1 along the wall, z0..z1. Plaques have no
+ * collision (o.solid gives them some). o: { depth (2), gap (0: off the wall), back (timber),
+ * decal: a see-through painted mark on the wall itself (no plaque, no collision, no shadow) }
+ */
+export function sign(m, key, face, plane, u0, u1, z0, z1, o = {}) {
+  const d = o.depth ?? (o.decal ? 1 : 2), g = o.gap ?? (o.decal ? 0.5 : 0);
+  const front = cellSpec(key, face, u0, u1, z0, z1);
+  const spec = o.decal ? { all: null, [face]: front } : { all: o.back || T.timber, [face]: front };
+  const opts = o.decal ? { contents: 0, name: 'graffiti' } : { name: 'sign', contents: o.solid ? undefined : 0 };
+  let b;
+  if (face === 'n') b = prop(m, u0, plane + g, z0, u1, plane + g + d, z1, spec, opts);
+  else if (face === 's') b = prop(m, u0, plane - g - d, z0, u1, plane - g, z1, spec, opts);
+  else if (face === 'e') b = prop(m, plane + g, u0, z0, plane + g + d, u1, z1, spec, opts);
+  else b = prop(m, plane - g - d, u0, z0, plane - g, u1, z1, spec, opts);
+  if (o.decal) b.castShadow = false;
+  return b;
+}
+
+/**
+ * A free-standing signpost at (x, y) on z: a post and boards (atlas keys, top one first) facing
+ * `face`, w wide, stacked down from 120 up. The boards have no collision; the post is thin.
+ */
+export function signpost(m, keys, x, y, z, face, w = 104) {
+  const ns = face === 'n' || face === 's';
+  const p = ns ? y + (face === 'n' ? 4 : -4) : x + (face === 'e' ? 4 : -4), c = ns ? x : y;
+  let top = z + 120;
+  prop(m, x - 4, y - 4, z, x + 4, y + 4, top + 12, T.timber, { surface: 'wood', name: 'signpost' });
+  for (const key of keys) {
+    const [, x0, y0, x1, y1] = SIGNS[key], hh = Math.round(w * (y1 - y0) / (x1 - x0));
+    sign(m, key, face, p, c - w / 2, c + w / 2, top - hh, top, { depth: 3 });
+    top -= hh + 4;
+  }
+}
 
 // warm light colours
 export const FIRE = [1.0, 0.56, 0.22];
@@ -187,20 +246,29 @@ export function truck(m, x, y, z, axis = 'x', dir = 1, o = {}) {
     else m.box(x + v0, y + a0, z + z0, x + v1, y + a1, z + z1, typeof tex === 'string' ? { all: tex } : tex, { surface: 'metal', name: 'truck', ...opts });
   };
   const h = L / 2;
-  // wheels (flat, burnt): 4 + 2 rear
-  for (const u of [-h + 28, -h + 76, h - 40]) for (const s of [-1, 1]) box(u - 18, u + 18, s > 0 ? W / 2 - 14 : -W / 2, s > 0 ? W / 2 : -W / 2 + 14, 0, 26, T.wreck, D);
+  const nc = { ...D, contents: 0 };
+  // wheels (flat, the tyres burnt down to the rubber's char), iron hubs: 4 + 2 rear
+  for (const u of [-h + 28, -h + 76, h - 40]) for (const s of [-1, 1]) {
+    box(u - 18, u + 18, s > 0 ? W / 2 - 14 : -W / 2, s > 0 ? W / 2 : -W / 2 + 14, 0, 26, { all: paint('rubber') }, D);
+    box(u - 7, u + 7, s > 0 ? W / 2 : -W / 2 - 2, s > 0 ? W / 2 + 2 : -W / 2, 6, 20, T.iron, nc);
+  }
   // chassis
   box(-h + 8, h - 8, -W / 2 + 14, W / 2 - 14, 14, 30, T.wreck);
-  // bonnet (38 high: a hop) and grille
+  // bonnet (38 high: a hop) and grille, a bumper and the headlamps' empty sockets
   box(h - 64, h, -W / 2 + 6, W / 2 - 6, 14, 38, T.wreck);
-  // cab: 112 high, a steep windscreen wedge in front
+  box(h, h + 4, -W / 2 + 2, W / 2 - 2, 12, 20, T.iron, D);
+  for (const s of [-1, 1]) box(h, h + 2, s * 26 - 6, s * 26 + 6, 26, 34, { all: paint('glass') }, nc);
+  // cab: 112 high, dark glass in its sides, a steep windscreen wedge in front
   box(h - 112, h - 64, -W / 2 + 4, W / 2 - 4, 14, 112, T.wreck);
+  for (const s of [-1, 1]) box(h - 104, h - 72, s > 0 ? W / 2 - 4 : -W / 2 + 3, s > 0 ? W / 2 - 3 : -W / 2 + 4, 70, 104, { all: paint('glass') }, nc);
   const fw = h - 64;
   const wedge = dir > 0
     ? [[fw, 66], [fw + 22, 66], [fw, 112]]
     : [[-fw - 22, 66], [-fw, 66], [-fw, 112]];
-  if (axis === 'x') m.prism('y', wedge.map(([u, zz]) => [x + u, z + zz]), y - W / 2 + 6, y + W / 2 - 6, { all: T.wreck }, { surface: 'metal', name: 'truck' });
-  else m.prism('x', wedge.map(([u, zz]) => [y + u, z + zz]), x - W / 2 + 6, x + W / 2 - 6, { all: T.wreck }, { surface: 'metal', name: 'truck' });
+  const front = axis === 'x' ? (dir > 0 ? 'e' : 'w') : (dir > 0 ? 'n' : 's');
+  const ws = { all: T.wreck, [front]: paint('glass') };
+  if (axis === 'x') m.prism('y', wedge.map(([u, zz]) => [x + u, z + zz]), y - W / 2 + 6, y + W / 2 - 6, ws, { surface: 'metal', name: 'truck' });
+  else m.prism('x', wedge.map(([u, zz]) => [y + u, z + zz]), x - W / 2 + 6, x + W / 2 - 6, ws, { surface: 'metal', name: 'truck' });
   // bed: sides 104 high (from the bonnet that's 66: no perch), a tarp ridge on top
   const b0 = -h + 4, b1 = h - 118;
   box(b0, b1, -W / 2, W / 2, 30, 104, { all: T.wreck, top: o.tarp === false ? T.wreck : T.canvas });
@@ -220,11 +288,16 @@ export function jeep(m, x, y, z, axis = 'x', dir = 1) {
     if (axis === 'x') m.box(x + a0, y + v0, z + z0, x + a1, y + v1, z + z1, { all: tex }, { surface: 'metal', name: 'jeep', ...opts });
     else m.box(x + v0, y + a0, z + z0, x + v1, y + a1, z + z1, { all: tex }, { surface: 'metal', name: 'jeep', ...opts });
   };
-  for (const u of [-h + 24, h - 26]) for (const s of [-1, 1]) box(u - 16, u + 16, s > 0 ? W / 2 - 12 : -W / 2, s > 0 ? W / 2 : -W / 2 + 12, 0, 24, T.wreck, D);
+  for (const u of [-h + 24, h - 26]) for (const s of [-1, 1]) box(u - 16, u + 16, s > 0 ? W / 2 - 12 : -W / 2, s > 0 ? W / 2 : -W / 2 + 12, 0, 24, paint('rubber'), D);
   box(-h, h, -W / 2 + 6, W / 2 - 6, 12, 38, T.wreck);
-  // seats / roll bar: thin, high (not a platform)
+  // seats / roll bar: thin, high (not a platform); a cracked windscreen frame
   box(-h + 20, -h + 26, -W / 2 + 6, W / 2 - 6, 38, 112, T.iron, D);
   box(10, 14, -W / 2 + 6, W / 2 - 6, 38, 112, T.wreck, D);
+  box(14, 15, -W / 2 + 10, W / 2 - 10, 46, 100, paint('glass'), { ...D, contents: 0 });
+  box(-h + 30, -h + 60, -W / 2 + 10, W / 2 - 10, 38, 50, T.canvas, { ...D, contents: 0 });
+  // nobody stands on it (the bars would snag the horde on the way over): clipped above the body
+  if (axis === 'x') clipRoof(m, x - h, y - W / 2, x + h, y + W / 2, z + 38);
+  else clipRoof(m, x - W / 2, y - h, x + W / 2, y + h, z + 38);
 }
 
 /**
@@ -257,15 +330,18 @@ export function sandbags(m, x0, y0, x1, y1, z, h = 36) {
   return m.box(Math.min(x0, x1), Math.min(y0, y1), z, Math.max(x0, x1), Math.max(y0, y1), z + h, { all: T.bags }, { surface: 'dirt', name: 'sandbags', detail: true });
 }
 
-/** Rubble: a low heap of tumbled blocks (all at most 24 up, slopes walkable) around (x, y), deterministic by seed. */
-export function rubble(m, x, y, z, r, seed = 1, tex = T.adobe) {
+/**
+ * Rubble: a low heap of tumbled blocks around (x, y), deterministic by seed, at most maxH up
+ * (16 or less: a step, so nobody snags on them in a doorway or a breach).
+ */
+export function rubble(m, x, y, z, r, seed = 1, tex = T.adobe, maxH = 22) {
   let s = seed >>> 0;
   const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
   const n = Math.max(3, Math.round(r / 18));
   for (let i = 0; i < n; i++) {
     const a = rnd() * Math.PI * 2, d = rnd() * r * 0.8;
     const cx = x + Math.cos(a) * d, cy = y + Math.sin(a) * d;
-    const sx = 10 + rnd() * 16, sy = 8 + rnd() * 14, h = 6 + rnd() * 16;
+    const sx = 10 + rnd() * 16, sy = 8 + rnd() * 14, h = 6 + rnd() * (maxH - 6);
     const rot = rnd() * Math.PI;
     const c = Math.cos(rot), si = Math.sin(rot);
     const pts = [[-sx, -sy], [sx, -sy], [sx, sy], [-sx, sy]].map(([u, v]) => [cx + u * c - v * si, cy + u * si + v * c]);

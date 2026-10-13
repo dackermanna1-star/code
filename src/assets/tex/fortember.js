@@ -363,6 +363,147 @@ function helipad() {
   return img;
 }
 
+// ------------------------------------------------------------------ signs and paint (an alpha atlas)
+// A 5x7 pixel font: the letters the fort's signs and the survivors' graffiti use.
+const FONT = {
+  A: '01110 10001 10001 11111 10001 10001 10001', B: '11110 10001 10001 11110 10001 10001 11110',
+  C: '01111 10000 10000 10000 10000 10000 01111', D: '11110 10001 10001 10001 10001 10001 11110',
+  E: '11111 10000 10000 11110 10000 10000 11111', F: '11111 10000 10000 11110 10000 10000 10000',
+  G: '01111 10000 10000 10011 10001 10001 01111', H: '10001 10001 10001 11111 10001 10001 10001',
+  I: '11111 00100 00100 00100 00100 00100 11111', K: '10001 10010 10100 11000 10100 10010 10001',
+  L: '10000 10000 10000 10000 10000 10000 11111', M: '10001 11011 10101 10101 10001 10001 10001',
+  N: '10001 11001 10101 10011 10001 10001 10001', O: '01110 10001 10001 10001 10001 10001 01110',
+  P: '11110 10001 10001 11110 10000 10000 10000', R: '11110 10001 10001 11110 10100 10010 10001',
+  S: '01111 10000 10000 01110 00001 00001 11110', T: '11111 00100 00100 00100 00100 00100 00100',
+  U: '10001 10001 10001 10001 10001 10001 01110', V: '10001 10001 10001 10001 01010 01010 00100',
+  W: '10001 10001 10001 10101 10101 11011 10001', Y: '10001 10001 01010 00100 00100 00100 00100',
+  0: '01110 10011 10101 10101 10101 11001 01110', 1: '00100 01100 00100 00100 00100 00100 01110',
+  9: '01110 10001 10001 01111 00001 00001 01110', '!': '00100 00100 00100 00100 00100 00000 00100',
+  '>': '00000 00100 00010 11111 00010 00100 00000', '<': '00000 00100 01000 11111 01000 00100 00000',
+  '-': '00000 00000 00000 01110 00000 00000 00000', ' ': '00000 00000 00000 00000 00000 00000 00000',
+};
+
+/**
+ * The cells of fe_sign (pixels, row 0 at the top): [text, x0, y0, x1, y1, bg, ink, px, style].
+ * bg: 'board' weathered planks, 'olive' army paint, 'tin' rusty sheet, null transparent (graffiti
+ * on a wall); style: 'paint' (brushy, drips when on a wall) or 'stencil' (crisp, bridged).
+ */
+export const SIGNS = {
+  fort: ['FORT EMBER', 0, 0, 256, 40, 'board', [226, 214, 186], 3, 'paint'],
+  ammo: ['AMMO', 0, 40, 80, 72, 'olive', [222, 214, 180], 3, 'stencil'],
+  fuel: ['FUEL', 80, 40, 160, 72, 'tin', [178, 40, 30], 3, 'stencil'],
+  x: ['X', 160, 40, 200, 72, null, [170, 30, 24], 0, 'cross'],
+  evac: ['EVAC >', 0, 72, 128, 104, null, [232, 226, 212], 3, 'paint'],
+  help: ['HELP', 128, 72, 256, 104, null, [236, 232, 220], 4, 'paint'],
+  keepout: ['KEEP OUT', 0, 104, 128, 136, 'board', [196, 36, 28], 2, 'paint'],
+  nofire: ['NO FIRE', 128, 104, 256, 136, 'tin', [236, 228, 206], 2, 'stencil'],
+  dontgo: ['DONT GO DOWN', 0, 136, 176, 168, null, [168, 26, 22], 2, 'paint'],
+  tally: ['', 176, 136, 256, 168, null, [40, 32, 30], 0, 'tally'],
+  sealed: ['SEALED', 0, 168, 96, 200, 'board', [196, 36, 28], 2, 'paint'],
+  water: ['WATER', 96, 168, 176, 200, 'board', [222, 214, 186], 2, 'paint'],
+  day: ['DAY 9', 176, 168, 256, 200, null, [40, 32, 30], 2, 'paint'],
+  airstrip: ['AIRSTRIP >', 0, 200, 128, 232, 'board', [226, 214, 186], 2, 'paint'],
+  village: ['< VILLAGE', 128, 200, 256, 232, 'board', [226, 214, 186], 2, 'paint'],
+  hazard: ['', 0, 232, 128, 256, 'hazard', null, 0, 'none'],
+};
+/** Flat paint cells (16 x 24, under the hazard strip's right): where to sample a solid colour. */
+export const PAINT = { white: [136, 244], black: [152, 244], yellow: [168, 244], red: [184, 244], soot: [200, 244], glass: [216, 244], rubber: [232, 244], olive: [248, 244] };
+const PAINT_RGB = { white: [226, 220, 204], black: [26, 24, 24], yellow: [212, 168, 48], red: [158, 36, 28], soot: [44, 38, 36], glass: [30, 36, 40], rubber: [34, 32, 32], olive: [86, 92, 62] };
+
+function signAtlas() {
+  const W = 256, H = 256, S = 8401;
+  const rng = new Rng(S);
+  const img = makeImg(W, H, true);
+  const grain = fbm(W, H, { cx: 32, cy: 3, oct: 3, seed: S + 1 });
+  const blot = fbm(W, H, { cx: 6, oct: 4, gain: 0.6, seed: S + 2 });
+  const wear = fbm(W, H, { cx: 16, oct: 3, seed: S + 3 });
+  const set = (x, y, c, a = 1) => { const i = y * W + x; img.r[i] = c[0]; img.g[i] = c[1]; img.b[i] = c[2]; img.a[i] = a; };
+  // transparent, mid-grey under it (mip filtering at the letter edges stays neutral)
+  for (let i = 0; i < W * H; i++) { img.r[i] = img.g[i] = img.b[i] = 110; img.a[i] = 0; }
+  for (const [, x0, y0, x1, y1, bg] of Object.values(SIGNS)) {
+    if (!bg) continue;
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const i = y * W + x, u = x - x0, v = y - y0, h = y1 - y0;
+      let c;
+      if (bg === 'hazard') {
+        c = mod(x + y, 32) < 16 ? [204, 160, 44] : [34, 30, 28];
+        c = c.map((k) => k * (1 - smooth(0.6, 0.8, blot[i]) * 0.35));
+      } else if (bg === 'tin') {
+        const rust = smooth(0.5, 0.75, blot[i] + (wear[i] - 0.5) * 0.4);
+        c = [176 + (130 - 176) * rust, 168 + (72 - 168) * rust, 152 + (44 - 152) * rust];
+        if (u < 3 || u > x1 - x0 - 4 || v < 3 || v > h - 4) c = c.map((k) => k * 0.72);
+        if ((u === 5 || u === x1 - x0 - 6) && (v === 5 || v === h - 6)) c = [60, 50, 44];
+      } else {
+        // planks along u, 10-12 px high; olive: the same planks painted army green
+        const rows = Math.max(2, Math.round(h / 11)), pr = Math.floor(v / (h / rows)), pv = v - pr * (h / rows);
+        const f = 1 + (grain[i] - 0.5) * 0.45 + ((pr * 37) % 5 - 2) * 0.04;
+        c = bg === 'olive' ? [92, 96, 64] : [138, 112, 86];
+        if (bg === 'olive') { const chip = smooth(0.66, 0.72, wear[i]); c = [c[0] + (130 - c[0]) * chip, c[1] + (104 - c[1]) * chip, c[2] + (80 - c[2]) * chip]; }
+        c = c.map((k) => k * f * (pv < 1 ? 0.55 : 1));
+        if ((u === 4 || u === x1 - x0 - 5) && Math.abs(pv - h / rows / 2) < 1) c = [56, 48, 44]; // nails
+        if (u === 0 || u === x1 - x0 - 1 || v === 0 || v === h - 1) c = c.map((k) => k * 0.6);
+      }
+      set(x, y, c);
+    }
+  }
+  // the flat paint cells
+  for (const [k, [cx, cy]] of Object.entries(PAINT)) for (let y = cy - 12; y < cy + 12; y++) for (let x = cx - 8; x < cx + 8; x++) if (x < W && y < H) set(x, y, PAINT_RGB[k]);
+  // the lettering
+  for (const [text, x0, y0, x1, y1, bg, ink, px, style] of Object.values(SIGNS)) {
+    if (style === 'none') continue;
+    const onWall = !bg;
+    const dab = (x, y, a) => {
+      if (x < x0 || x >= x1 || y < y0 || y >= y1) return;
+      const i = y * W + x;
+      // paint thins where it's worn (boards) and has ragged edges (graffiti)
+      const k = a * (style === 'stencil' ? 1 - smooth(0.7, 0.78, wear[i]) * 0.8 : 1 - smooth(0.72, 0.8, wear[i]) * 0.6);
+      if (k <= 0.05) return;
+      img.r[i] += (ink[0] - img.r[i]) * k; img.g[i] += (ink[1] - img.g[i]) * k; img.b[i] += (ink[2] - img.b[i]) * k;
+      if (onWall) img.a[i] = Math.max(img.a[i], k > 0.45 ? 1 : 0);
+    };
+    if (style === 'cross') { // a big daubed X: two thick strokes and drips
+      const w = x1 - x0, h = y1 - y0;
+      for (let t = 0; t <= 1; t += 0.01) for (const s of [0, 1]) {
+        const x = x0 + 6 + (w - 12) * t, y = y0 + 4 + (h - 10) * (s ? 1 - t : t);
+        for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (dx * dx + dy * dy <= 5 + rng.next() * 2) dab(Math.round(x + dx), Math.round(y + dy), 1);
+      }
+      for (const dx of [8, w - 9, w / 2]) { const L = rng.int(3, 6); for (let d = 0; d < L; d++) dab(Math.round(x0 + dx), y1 - 6 + d, 1); }
+      continue;
+    }
+    if (style === 'tally') { // survivors' day count: four strokes and a bar, twice, and a fifth stroke
+      for (let gI = 0; gI < 3; gI++) {
+        const bx = x0 + 6 + gI * 26, n = gI === 2 ? 2 : 4;
+        for (let s = 0; s < n; s++) for (let y = y0 + 6; y < y1 - 6; y++) dab(bx + s * 5 + Math.round((y - y0) * 0.06), y, 1);
+        if (gI < 2) for (let t = 0; t < 24; t++) dab(bx - 2 + t, Math.round(y1 - 9 - t * 0.6), 1);
+      }
+      continue;
+    }
+    const n = text.length, cw = 6 * px, tw = n * cw - px, th = 7 * px;
+    if (tw > x1 - x0 - 4) throw new Error(`fe_sign: "${text}" is ${tw} px, its cell ${x1 - x0}`);
+    const ox = Math.round(x0 + (x1 - x0 - tw) / 2), oy = Math.round(y0 + (y1 - y0 - th) / 2);
+    for (let c = 0; c < n; c++) {
+      const rows = (FONT[text[c]] || FONT[' ']).split(' ');
+      const jy = style === 'paint' ? rng.int(-1, 1) : 0;
+      for (let r = 0; r < 7; r++) for (let q = 0; q < 5; q++) {
+        if (rows[r][q] !== '1') continue;
+        const gx = ox + c * cw + q * px, gy = oy + r * px + jy;
+        for (let y = 0; y < px; y++) for (let x = 0; x < px; x++) {
+          // stencil bridges: a gap through the middle of each stroke column
+          if (style === 'stencil' && px >= 3 && r === 3 && x === 1 && rows[2][q] === '1' && rows[4][q] === '1') continue;
+          const edge = style === 'paint' && (x === 0 || y === 0 || x === px - 1 || y === px - 1) && rng.next() < 0.18 ? 0.5 : 0;
+          dab(gx + x, gy + y, 1 - edge);
+        }
+        // runs of wet paint under the bottom strokes of graffiti
+        if (onWall && (r === 6 || rows[r + 1][q] !== '1') && rng.next() < 0.35) {
+          const L = rng.int(2, 7), dx = gx + rng.int(0, px - 1);
+          for (let d = 0; d < L; d++) dab(dx, gy + px + d, 1);
+        }
+      }
+    }
+  }
+  return img;
+}
+
 export const PACK = {
   name: 'fortember',
   textures: {
@@ -379,5 +520,6 @@ export const PACK = {
     fe_glow: { size: [64, 64], world: [32, 32], gen: glow },
     fe_hardpan: { size: [256, 256], world: [256, 256], surface: 'dirt', gen: hardpan },
     fe_helipad: { size: [128, 128], world: [128, 128], fit: true, gen: helipad },
+    fe_sign: { size: [256, 256], world: [256, 256], alpha: true, albedo: [150, 120, 96], surface: 'wood', gen: signAtlas },
   },
 };
