@@ -866,17 +866,24 @@ def _depth_arm(fr, sh_px, fist_xy, w_sh, flex=0.0, sleeve=None):
 
 
 def s2_03(fr):
+    """OTS from behind Thragg's left shoulder. DEPTH & SCALE: the two are at
+    arm's length, so Thragg sits at d=0.5 (about 2x Gojo's scale, never a
+    giant) and the camera is TIGHT on Gojo (about 1.8 m wide at his plane).
+    The punching arm recedes into the frame: wide at Thragg's shoulder, narrow
+    at the stalled fist, 1 cm from Gojo's face."""
     t, dur = fr.t, fr.dur
-    zoom = kf(t, [(0, 260.0), (dur, 290.0)], "linear")       # very slow push-in
-    fr.cam = Cam(-5.05, 7.72, zoom)
-    street(fr, blur=2.2)
-
     # ---- Gojo acting, on 2s: incline at the knuckles, chin up to Thragg's eyes, the pinch, the line
     t2 = on2(fr)
     neck = kf(t2, [(0, -4), (T(fr, 16), 7, "inout"), (T(fr, 18), 7), (T(fr, 32), -13, "inout")])
     hand = kf(t2, [(T(fr, 28), 0.0), (T(fr, 36), 1.0, "inout"), (T(fr, 72), 1.0), (T(fr, 84), 0.0, "inout")])
     rest = G_LOOSE if t2 > T(fr, 72) else G_POCKETS
     pose = rig.blend(P(rest, neck=neck), P(G_PINCH, neck=neck), hand)
+    F0 = face_pt(solve(GOJO, P(G_POCKETS), GX, None, 1, 1.0, "side", GSOLE))
+    c0 = Cam(F0[0] + 0.30, F0[1] - 0.16, 1000.0)
+    zoom = kf(t, [(0, 1000.0), (dur, 1070.0)], "linear")       # very slow push-in
+    fr.cam = Cam(c0.x, c0.y, zoom)
+    street(fr, blur=3.2)
+
     G = gojo(fr, pose)
     F = face_pt(G)
     # dialogue: "That's close. ... For you." (mouth on 2s, half-beat pause after 'close')
@@ -896,35 +903,34 @@ def s2_03(fr):
         fr.line([(wx + 0.01, wy - 0.01), (wx + 0.05, wy + 0.075 - gap - 0.012)], shade(GOJO.skin, 0.9),
                 width_m=0.018)
 
-    # ---- the stalled right fist, locked exactly where S2-02 left it, shards still hanging
-    fist = (F[0] + 0.01 + THRAGG.fist, F[1] - 0.005)
+    # ---- the stalled right fist, shards hanging in the visible gap (it never arrives)
+    fist = (F[0] + 0.05 + THRAGG.fist * 1.05, F[1] - 0.005)
     flex = pulse(t, T(fr, 60), T(fr, 3), T(fr, 6))
     rng = fr.srng("s203sh")
-    pts = [(F[0] + 0.003 + 0.004 * rng.random(), F[1] + rng.uniform(-0.05, 0.05)) for _ in range(4)]
+    pts = [(F[0] + 0.012 + 0.03 * rng.random(), F[1] + rng.uniform(-0.05, 0.05)) for _ in range(7)]
     pts += [(fist[0] + rng.uniform(-0.04, 0.16), fist[1] + rng.choice((-1, 1)) * rng.uniform(0.09, 0.2))
             for _ in range(9)]
     fx.infinity(fr, F[0] + 0.006, F[1], r=0.06, strength=0.45, t=t)        # faint, in the gap only
 
-    # ---- Thragg in the soft screen-right foreground (we are behind his LEFT shoulder)
-    dF = 0.24
-    c0 = Cam(-5.05, 7.72, 260.0)
-    hx = c0.x + (0.835 * OUT_W - OUT_W / 2) * dF / c0.zoom
-    hy = c0.y - (0.36 * OUT_H - OUT_H / 2) * dF / c0.zoom
-    # only his eyes and fingers move: eyes drop to the knuckles (f44-62), the jaw sets (f68-88)
+    # ---- Thragg: soft foreground at d=0.5, back of his head + left shoulder filling frame-right
+    dF = 0.5
+    hx = c0.x + (0.88 * OUT_W - OUT_W / 2) * dF / c0.zoom
+    hy = c0.y - (0.30 * OUT_H - OUT_H / 2) * dF / c0.zoom
     tneck = kf(t, [(T(fr, 44), 2), (T(fr, 52), 15, "out"), (T(fr, 62), 15), (T(fr, 72), 4, "inout")])
     tpose = P("t_stand", lean=4, neck=tneck, ua_n=6, fa_n=10, ua_f=6, fa_f=8)
     J0 = solve(THRAGG, tpose, 0, 0, -1)
     px, py = hx - J0["head"][0], hy - J0["head"][1]
-    # his right arm: from the far shoulder (hidden behind his head) across frame to the fist
-    sh_far = fr.P(px + J0["sh_f"][0] - 0.03, py + J0["sh_f"][1] + 0.03, dF)
-    _depth_arm(fr, sh_far, fist, fr.S(THRAGG.w_ua, dF) * 0.85, flex=flex)
+    # his right arm leaves the far shoulder (behind his head) and recedes to the fist:
+    # strongly tapered = foreshortened, short on screen relative to his bulk
+    sh_far = fr.P(px + J0["sh_f"][0] - 0.02, py + J0["sh_f"][1] + 0.02, dF)
+    _depth_arm(fr, sh_far, fist, fr.S(THRAGG.w_ua, dF) * 0.9, flex=flex)
     shards(fr, pts, t, "s203", size=0.014)
 
     def fg():
         J = draw_fighter(fr, THRAGG, tpose, px, py, -1, opts=topts(fr, cape_wind=(0.9, 0.2)), depth=dF)
         thragg_brow(fr, J, k=clamp((t - T(fr, 68)) / T(fr, 12)), d=dF)
         return J
-    soft_draw(fr, fg, radius=4.0)
+    soft_draw(fr, fg, radius=5.0)
 
 
 # =============================================================================
