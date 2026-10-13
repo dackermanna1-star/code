@@ -65,7 +65,24 @@ try {
   await page.waitForTimeout(400);
   await page.screenshot({ path: `${out}/04-map.png` });
   await page.keyboard.press('KeyM');
-  ok = errors.length === 0;
+  // --- persistence through IndexedDB: give items, quit, reload page, continue ---
+  await page.evaluate(() => window.__corrode.sim.send({ t: 'chat', text: '/give scrap 123' }));
+  await page.waitForTimeout(500);
+  const before = await page.evaluate(() => [...window.__corrode.inv.main, ...window.__corrode.inv.belt].filter((s) => s && s.id === 'scrap').reduce((a, s) => a + s.n, 0));
+  await page.evaluate(() => window.__corrode.setMode('pause'));
+  await page.waitForTimeout(300);
+  await page.click('#p-quit');
+  await page.waitForSelector('#menu:not(.hidden)', { timeout: 30000 });
+  await page.reload();
+  await page.waitForSelector('#m-worlds .world button.primary', { timeout: 10000 });
+  await page.click('#m-worlds .world button.primary');
+  await page.waitForSelector('#loading.hidden', { state: 'attached', timeout: 60000 });
+  await page.waitForTimeout(800);
+  const after = await page.evaluate(() => [...window.__corrode.inv.main, ...window.__corrode.inv.belt].filter((s) => s && s.id === 'scrap').reduce((a, s) => a + s.n, 0));
+  console.log(`persistence: scrap before quit ${before}, after reload ${after}`);
+  const persisted = before === 123 && after === 123;
+  await page.screenshot({ path: `${out}/05-reloaded.png` });
+  ok = errors.length === 0 && persisted;
   console.log('hint:', await page.textContent('#hint'));
 } catch (e) {
   console.error('E2E failure:', e);
