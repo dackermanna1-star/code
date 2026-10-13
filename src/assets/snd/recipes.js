@@ -62,7 +62,7 @@ export const SOUND_GROUPS = {
   Forge: ['forge_hammer', 'forge_tier5', 'forge_round', 'forge_ignite', 'forge_shock', 'forge_chill', 'forge_freeze', 'forge_shatter', 'forge_blast', 'forge_siphon'], // (snd/forge.js)
   'Squad roles': [], // (snd/squad.js)
   'Boss overhaul': [], // (snd/bossfx.js)
-  Drops: [], // (snd/drops.js)
+  Drops: ['loot_drop', 'loot_cash', 'loot_ammo', 'loot_health', 'powerup_spawn', 'powerup_loop', 'powerup_grab', 'pu_maxammo', 'pu_instakill', 'pu_doublecash', 'pu_nuke', 'pu_firesale', 'powerup_fade', 'powerup_vanish', 'airdrop_flare', 'flare_loop', 'airdrop_plane', 'airdrop_land', 'crate_beep', 'crate_open'], // (snd/drops.js)
   Arsenal: [], // (gunshots: GUNS in snd/weapons.js; the rest snd/arsenal.js)
   'Title screen': ['title_theme', 'title_start'],
 };
