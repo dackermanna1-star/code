@@ -206,13 +206,15 @@ const FORGE = {
 /**
  * Squad roles and orders (zsquad.js; downed / revive is the M1 `squad` group): focus (s a
  * Focus order lasts), medicHeal (a Medic patches a teammate up below this HP; the others 55),
- * holdArc (u: the radius of the arc "Hold here" sets the squad in).
+ * holdArc (u: the radius of the arc "Hold here" sets the squad in), medicRange (u: how far a
+ * Medic walks over to patch somebody up; the others 450), restock ($ a bot keeps back when it
+ * tops up mid-wave: ammo before it runs dry, the Medic's medkit).
  */
 const ROLES = {
-  casual: { focus: 15, medicHeal: 70, holdArc: 240 },
-  normal: { focus: 12, medicHeal: 65, holdArc: 240 },
-  hard: { focus: 12, medicHeal: 60, holdArc: 260 },
-  nightmare: { focus: 10, medicHeal: 55, holdArc: 260 },
+  casual: { focus: 15, medicHeal: 70, holdArc: 240, medicRange: 850, restock: 300 },
+  normal: { focus: 12, medicHeal: 65, holdArc: 240, medicRange: 800, restock: 400 },
+  hard: { focus: 12, medicHeal: 60, holdArc: 260, medicRange: 700, restock: 500 },
+  nightmare: { focus: 10, medicHeal: 55, holdArc: 260, medicRange: 600, restock: 650 },
 };
 
 /**

@@ -60,7 +60,7 @@ export const SOUND_GROUPS = {
   // Milestone 3: one line per builder, its recipes in its own snd/ file
   Perks: [], // (snd/perks.js)
   Forge: [], // (snd/forge.js)
-  'Squad roles': [], // (snd/squad.js)
+  'Squad roles': ['squad_order', 'squad_hold', 'squad_focus', 'squad_mark'], // (snd/squad.js)
   'Boss overhaul': [], // (snd/bossfx.js)
   Drops: [], // (snd/drops.js)
   Arsenal: [], // (gunshots: GUNS in snd/weapons.js; the rest snd/arsenal.js)

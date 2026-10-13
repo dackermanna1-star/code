@@ -12,8 +12,9 @@ export const DEFAULT_BINDS = {
   Numpad1: 'slot1', Numpad2: 'slot2', Numpad3: 'slot3', Numpad4: 'slot4', Numpad5: 'slot5',
   Numpad6: 'slot6', Numpad7: 'slot7', Numpad8: 'slot8', Numpad9: 'slot9', Numpad0: 'slot10',
   F5: 'snapshot', KeyV: 'detonate',
-  MOUSE1: '+attack', MOUSE2: '+attack2', MOUSE3: '+attack3', MWHEELUP: 'invprev', MWHEELDOWN: 'invnext',
+  MOUSE1: '+attack', MOUSE2: '+attack2', MOUSE3: 'zm_focus', MWHEELUP: 'invprev', MWHEELDOWN: 'invnext',
   MOUSE4: 'shove', // zombie survival melee shove (shove.js; the Options shove key binds a key to it too)
+  KeyI: 'zm_focus', // zombie survival "Focus target" (and Mouse 3): every bot on what you aim at (zsquad.js; H stays the tips' "got it")
 };
 
 export class Input {

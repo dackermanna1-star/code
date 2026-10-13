@@ -433,6 +433,7 @@ async function boot() {
     if (params.has('hardcore')) zo.hardcore = params.get('hardcore') !== '0';
     if (params.has('squad')) zo.squadScaling = params.get('squad') !== '0';
     if (params.has('breaklen')) zo.breakLen = +params.get('breaklen');
+    if (params.has('roles')) zo.roles = params.get('roles'); // (&roles=medic,auto,gunner: the bots' roles - zsquad.js)
     newGame({ ...settings.get('newgame'), skin: undefined, mode, allies: +(params.get('allies') ?? 0), perTeam: +(params.get('bots') ?? 5), freezeTime: +(params.get('freeze') ?? 6), ...zo });
     pendingTeam = mode === 'zombies' ? TEAM_CT : team;
     chooseClass(null);
