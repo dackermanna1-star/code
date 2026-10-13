@@ -18,5 +18,8 @@
   "subtitles.calibercraft.impact.flesh": "Bullet hits flesh",
   "subtitles.calibercraft.impact.soft": "Bullet hits something soft",
   "subtitles.calibercraft.bullet.ricochet": "Bullet ricochets",
-  "subtitles.calibercraft.bullet.whiz": "Bullet whizzes past"
+  "subtitles.calibercraft.bullet.whiz": "Bullet whizzes past",
+  "subtitles.calibercraft.hit.marker": "Hit confirmed",
+  "subtitles.calibercraft.hit.headshot": "Headshot confirmed",
+  "subtitles.calibercraft.hit.kill": "Target eliminated"
 }

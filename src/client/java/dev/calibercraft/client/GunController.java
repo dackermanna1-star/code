@@ -65,6 +65,13 @@ public final class GunController {
 
 	// Trigger
 	private boolean triggerWasDown;
+	// Attack clicks vanilla consumed while a gun was held, matched against press edges seen by the frame loop:
+	// a press and release that both happen between two frames never shows up in isDown(), but its click does.
+	private int clicks;
+	private int clicksSeen;
+	private long lastClickTime;
+	private int unmatchedEdges;
+	private long lastEdgeTime;
 	private long nextShotNanos;
 	private int burstRemaining;
 	private boolean semiConsumed;
@@ -419,10 +426,36 @@ public final class GunController {
 		return mc.screen == null && mc.options.keyAttack.isDown() && mc.getOverlay() == null;
 	}
 
+	/** Called when vanilla consumes an attack click while a firearm is held. */
+	public void queueClick() {
+		clicks++;
+		lastClickTime = System.nanoTime();
+	}
+
 	private void handleTrigger(Minecraft mc, LocalPlayer player) {
-		boolean down = triggerDown(mc);
-		boolean pressed = down && !triggerWasDown;
-		triggerWasDown = down;
+		long nowNs = System.nanoTime();
+		boolean held = triggerDown(mc);
+		boolean edge = held && !triggerWasDown;
+		triggerWasDown = held;
+		if (edge) {
+			unmatchedEdges++;
+			lastEdgeTime = nowNs;
+		} else if (nowNs - lastEdgeTime > 300_000_000L) {
+			unmatchedEdges = 0; // vanilla consumes a click within a tick of the press
+		}
+		boolean tap = false;
+		if (nowNs - lastClickTime > 300_000_000L) {
+			clicksSeen = clicks; // stale (e.g. consumed before this gun was ready)
+		}
+		for (; clicksSeen < clicks; clicksSeen++) {
+			if (unmatchedEdges > 0) {
+				unmatchedEdges--; // this click's press was already seen as held
+			} else {
+				tap = true;
+			}
+		}
+		boolean down = held || tap;
+		boolean pressed = edge || tap;
 		if (pressed) {
 			pullId++;
 			semiConsumed = false;
@@ -432,7 +465,7 @@ public final class GunController {
 			}
 			inspect = -1;
 		}
-		long now = System.nanoTime();
+		long now = nowNs;
 		GunState s = predicted();
 		ActionType action = def.action();
 		FireMode mode = def.fireMode(s.fireMode());

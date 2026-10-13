@@ -140,7 +140,6 @@ SETTINGS = {
     "screen_shake": ("Screen Shake", "Camera shake when firing"),
     "camera_recoil": ("Camera Recoil", "How strongly recoil moves your view"),
     "reduced_motion": ("Reduced Motion", "Disable weapon sway, bobbing, inspect flourishes and shake"),
-    "cosmetic_effects": ("Cosmetic Effects", "Charms and other purely cosmetic flourishes"),
     "toggle_aim": ("Toggle Aim", "Press once to aim instead of holding"),
     "aim_sensitivity": ("Aim Sensitivity", "Mouse sensitivity while aiming with iron sights or red dots"),
     "scope_sensitivity": ("Scope Sensitivity", "Mouse sensitivity while looking through magnified scopes"),

@@ -10,7 +10,9 @@ import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import java.util.List;
 import net.minecraft.client.CameraType;
+import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
@@ -95,6 +97,9 @@ public class CaliberCraftClientGameTest implements FabricClientGameTest {
 			ctx.takeScreenshot("third_person_ak");
 			ctx.runOnClient(mc -> mc.options.setCameraType(CameraType.FIRST_PERSON));
 
+			// The default 854x480 window caps the GUI scale at 2; use 1080p so scales 3 and 4 are really applied.
+			ctx.getInput().resizeWindow(1920, 1080);
+			ctx.waitTick();
 			for (int scale : new int[] {2, 3, 4}) {
 				int s = scale;
 				ctx.runOnClient(mc -> {
@@ -107,12 +112,30 @@ public class CaliberCraftClientGameTest implements FabricClientGameTest {
 				});
 				ctx.waitTicks(10);
 				ctx.takeScreenshot("gunsmith_scale_" + scale);
+				if (scale == 3) {
+					// Hover the second optic: the preview and the statistics show the candidate before installing.
+					double[] pos = ctx.computeOnClient(mc -> {
+						List<AbstractWidget> options = mc.screen.children().stream()
+							.filter(c -> c.getClass().getSimpleName().equals("OptionButton")).map(c -> (AbstractWidget) c).toList();
+						if (options.size() < 2) {
+							throw new AssertionError("expected several optic options, found " + options.size());
+						}
+						AbstractWidget w = options.get(1);
+						double gui = mc.getWindow().getGuiScale();
+						return new double[] {(w.getX() + w.getWidth() / 2.0) * gui, (w.getY() + w.getHeight() / 2.0) * gui};
+					});
+					ctx.getInput().setCursorPos(pos[0], pos[1]);
+					ctx.waitTicks(3);
+					ctx.takeScreenshot("gunsmith_hover_preview");
+				}
 				ctx.setScreen(() -> null);
 			}
+			ctx.getInput().resizeWindow(854, 480);
 			ctx.runOnClient(mc -> {
 				mc.options.guiScale().set(2);
 				mc.resizeDisplay();
 			});
+			ctx.waitTick();
 			ctx.setScreen(() -> new SettingsScreen(null));
 			ctx.waitTicks(5);
 			ctx.takeScreenshot("settings_screen");

@@ -100,4 +100,5 @@ Mechanical events (1 variant each unless noted; attenuation 12; level ≈ -10 dB
 
 Subtitle keys: weapon events use `subtitles.calibercraft.weapon.fire`, `...weapon.fire_suppressed`,
 `...weapon.reload` (all mechanical reload events), `...weapon.equip`; shared events use
-`subtitles.calibercraft.<event>` (e.g. `subtitles.calibercraft.impact.metal`). UI/hit events have no subtitle.
+`subtitles.calibercraft.<event>` (e.g. `subtitles.calibercraft.impact.metal`), including the hit-confirmation
+events (for players who rely on subtitles). UI events have no subtitle.

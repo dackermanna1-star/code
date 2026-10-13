@@ -1,1 +1,457 @@
-{"textures":{"particle":"calibercraft:item/material/black_anodized"},"elements":[{"from":[8,7.3,6.8],"to":[8.5,8.7,9.2],"faces":{"north":{"uv":[7.5,7.3,8,8.7],"texture":"calibercraft:item/material/black_anodized"},"south":{"uv":[8,7.3,8.5,8.7],"texture":"calibercraft:item/material/black_anodized"},"east":{"uv":[6.8,7.3,9.2,8.7],"texture":"calibercraft:item/material/black_anodized"},"west":{"uv":[6.8,7.3,9.2,8.7],"texture":"calibercraft:item/material/black_anodized"},"up":{"uv":[8,6.8,8.5,9.2],"texture":"calibercraft:item/material/black_anodized"},"down":{"uv":[8,6.8,8.5,9.2],"texture":"calibercraft:item/material/black_anodized"}}},{"from":[8.5,7.1,5.4],"to":[10,8.9,9.6],"faces":{"north":{"uv":[6,7.1,7.5,8.9],"texture":"calibercraft:item/material/black_anodized"},"south":{"uv":[8.5,7.1,10,8.9],"texture":"calibercraft:item/material/black_anodized"},"east":{"uv":[6.4,7.1,10.6,8.9],"texture":"calibercraft:item/material/black_anodized"},"west":{"uv":[5.4,7.1,9.6,8.9],"texture":"calibercraft:item/material/black_anodized"},"up":{"uv":[8.5,5.4,10,9.6],"texture":"calibercraft:item/material/black_anodized"},"down":{"uv":[8.5,6.4,10,10.6],"texture":"calibercraft:item/material/black_anodized"}}},{"from":[8.9,7.5,5.25],"to":[9.6,8.2,5.4],"faces":{"north":{"uv":[6.4,7.8,7.1,8.5],"texture":"calibercraft:item/material/glow_red"},"south":{"uv":[8.9,7.8,9.6,8.5],"texture":"calibercraft:item/material/glow_red"},"east":{"uv":[10.6,7.8,10.75,8.5],"texture":"calibercraft:item/material/glow_red"},"west":{"uv":[5.25,7.8,5.4,8.5],"texture":"calibercraft:item/material/glow_red"},"up":{"uv":[8.9,5.25,9.6,5.4],"texture":"calibercraft:item/material/glow_red"},"down":{"uv":[8.9,10.6,9.6,10.75],"texture":"calibercraft:item/material/glow_red"}},"light_emission":15},{"from":[8.9,8.3,5.3],"to":[9.6,8.7,5.4],"faces":{"north":{"uv":[6.4,7.3,7.1,7.7],"texture":"calibercraft:item/material/glass_lens"},"south":{"uv":[8.9,7.3,9.6,7.7],"texture":"calibercraft:item/material/glass_lens"},"east":{"uv":[10.6,7.3,10.7,7.7],"texture":"calibercraft:item/material/glass_lens"},"west":{"uv":[5.3,7.3,5.4,7.7],"texture":"calibercraft:item/material/glass_lens"},"up":{"uv":[8.9,5.3,9.6,5.4],"texture":"calibercraft:item/material/glass_lens"},"down":{"uv":[8.9,10.6,9.6,10.7],"texture":"calibercraft:item/material/glass_lens"}}},{"from":[10,7.6,7.4],"to":[10.3,8.4,8.6],"faces":{"north":{"uv":[5.7,7.6,6,8.4],"texture":"calibercraft:item/material/dark_steel"},"south":{"uv":[10,7.6,10.3,8.4],"texture":"calibercraft:item/material/dark_steel"},"east":{"uv":[7.4,7.6,8.6,8.4],"texture":"calibercraft:item/material/dark_steel"},"west":{"uv":[7.4,7.6,8.6,8.4],"texture":"calibercraft:item/material/dark_steel"},"up":{"uv":[10,7.4,10.3,8.6],"texture":"calibercraft:item/material/dark_steel"},"down":{"uv":[10,7.4,10.3,8.6],"texture":"calibercraft:item/material/dark_steel"}}}],"display":{"thirdperson_righthand":{"rotation":[60,0,0],"translation":[-0.46,1.8008,1.115],"scale":[0.4,0.4,0.4]},"firstperson_righthand":{"rotation":[0,-100,10],"translation":[0.7782,2.8802,0.2709],"scale":[0.6,0.6,0.6]},"gui":{"rotation":[25,-135,0],"translation":[0.8132,1.031,-2.211],"scale":[2.0,2.0,2.0]},"fixed":{"rotation":[0,-90,0],"translation":[-1.61,0.0,-3.22],"scale":[2.8,2.8,2.8]},"on_shelf":{"rotation":[0,-90,0],"translation":[-1.38,0.0,-2.76],"scale":[2.4,2.4,2.4]},"ground":{"rotation":[0,0,0],"translation":[-0.575,2.0,0.2875],"scale":[0.5,0.5,0.5]}},"gui_light":"side"}
+{
+  "textures": {
+    "particle": "calibercraft:item/material/black_anodized",
+    "m_black_anodized": "calibercraft:item/material/black_anodized",
+    "m_glow_red": "calibercraft:item/material/glow_red",
+    "m_glass_lens": "calibercraft:item/material/glass_lens",
+    "m_dark_steel": "calibercraft:item/material/dark_steel"
+  },
+  "elements": [
+    {
+      "from": [
+        8,
+        7.3,
+        6.8
+      ],
+      "to": [
+        8.5,
+        8.7,
+        9.2
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.5,
+            7.3,
+            8,
+            8.7
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "south": {
+          "uv": [
+            8,
+            7.3,
+            8.5,
+            8.7
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "east": {
+          "uv": [
+            6.8,
+            7.3,
+            9.2,
+            8.7
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "west": {
+          "uv": [
+            6.8,
+            7.3,
+            9.2,
+            8.7
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "up": {
+          "uv": [
+            8,
+            6.8,
+            8.5,
+            9.2
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "down": {
+          "uv": [
+            8,
+            6.8,
+            8.5,
+            9.2
+          ],
+          "texture": "#m_black_anodized"
+        }
+      }
+    },
+    {
+      "from": [
+        8.5,
+        7.1,
+        5.4
+      ],
+      "to": [
+        10,
+        8.9,
+        9.6
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6,
+            7.1,
+            7.5,
+            8.9
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "south": {
+          "uv": [
+            8.5,
+            7.1,
+            10,
+            8.9
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "east": {
+          "uv": [
+            6.4,
+            7.1,
+            10.6,
+            8.9
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "west": {
+          "uv": [
+            5.4,
+            7.1,
+            9.6,
+            8.9
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "up": {
+          "uv": [
+            8.5,
+            5.4,
+            10,
+            9.6
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "down": {
+          "uv": [
+            8.5,
+            6.4,
+            10,
+            10.6
+          ],
+          "texture": "#m_black_anodized"
+        }
+      }
+    },
+    {
+      "from": [
+        8.9,
+        7.5,
+        5.25
+      ],
+      "to": [
+        9.6,
+        8.2,
+        5.4
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6.4,
+            7.8,
+            7.1,
+            8.5
+          ],
+          "texture": "#m_glow_red"
+        },
+        "south": {
+          "uv": [
+            8.9,
+            7.8,
+            9.6,
+            8.5
+          ],
+          "texture": "#m_glow_red"
+        },
+        "east": {
+          "uv": [
+            10.6,
+            7.8,
+            10.75,
+            8.5
+          ],
+          "texture": "#m_glow_red"
+        },
+        "west": {
+          "uv": [
+            5.25,
+            7.8,
+            5.4,
+            8.5
+          ],
+          "texture": "#m_glow_red"
+        },
+        "up": {
+          "uv": [
+            8.9,
+            5.25,
+            9.6,
+            5.4
+          ],
+          "texture": "#m_glow_red"
+        },
+        "down": {
+          "uv": [
+            8.9,
+            10.6,
+            9.6,
+            10.75
+          ],
+          "texture": "#m_glow_red"
+        }
+      },
+      "light_emission": 15
+    },
+    {
+      "from": [
+        8.9,
+        8.3,
+        5.3
+      ],
+      "to": [
+        9.6,
+        8.7,
+        5.4
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6.4,
+            7.3,
+            7.1,
+            7.7
+          ],
+          "texture": "#m_glass_lens"
+        },
+        "south": {
+          "uv": [
+            8.9,
+            7.3,
+            9.6,
+            7.7
+          ],
+          "texture": "#m_glass_lens"
+        },
+        "east": {
+          "uv": [
+            10.6,
+            7.3,
+            10.7,
+            7.7
+          ],
+          "texture": "#m_glass_lens"
+        },
+        "west": {
+          "uv": [
+            5.3,
+            7.3,
+            5.4,
+            7.7
+          ],
+          "texture": "#m_glass_lens"
+        },
+        "up": {
+          "uv": [
+            8.9,
+            5.3,
+            9.6,
+            5.4
+          ],
+          "texture": "#m_glass_lens"
+        },
+        "down": {
+          "uv": [
+            8.9,
+            10.6,
+            9.6,
+            10.7
+          ],
+          "texture": "#m_glass_lens"
+        }
+      }
+    },
+    {
+      "from": [
+        10,
+        7.6,
+        7.4
+      ],
+      "to": [
+        10.3,
+        8.4,
+        8.6
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5.7,
+            7.6,
+            6,
+            8.4
+          ],
+          "texture": "#m_dark_steel"
+        },
+        "south": {
+          "uv": [
+            10,
+            7.6,
+            10.3,
+            8.4
+          ],
+          "texture": "#m_dark_steel"
+        },
+        "east": {
+          "uv": [
+            7.4,
+            7.6,
+            8.6,
+            8.4
+          ],
+          "texture": "#m_dark_steel"
+        },
+        "west": {
+          "uv": [
+            7.4,
+            7.6,
+            8.6,
+            8.4
+          ],
+          "texture": "#m_dark_steel"
+        },
+        "up": {
+          "uv": [
+            10,
+            7.4,
+            10.3,
+            8.6
+          ],
+          "texture": "#m_dark_steel"
+        },
+        "down": {
+          "uv": [
+            10,
+            7.4,
+            10.3,
+            8.6
+          ],
+          "texture": "#m_dark_steel"
+        }
+      }
+    }
+  ],
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [
+        60,
+        0,
+        0
+      ],
+      "translation": [
+        -0.46,
+        1.8008,
+        1.115
+      ],
+      "scale": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        -100,
+        10
+      ],
+      "translation": [
+        0.7782,
+        2.8802,
+        0.2709
+      ],
+      "scale": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    },
+    "gui": {
+      "rotation": [
+        25,
+        -135,
+        0
+      ],
+      "translation": [
+        0.8132,
+        1.031,
+        -2.211
+      ],
+      "scale": [
+        2.0,
+        2.0,
+        2.0
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        -1.61,
+        0.0,
+        -3.22
+      ],
+      "scale": [
+        2.8,
+        2.8,
+        2.8
+      ]
+    },
+    "on_shelf": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        -1.38,
+        0.0,
+        -2.76
+      ],
+      "scale": [
+        2.4,
+        2.4,
+        2.4
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        -0.575,
+        2.0,
+        0.2875
+      ],
+      "scale": [
+        0.5,
+        0.5,
+        0.5
+      ]
+    }
+  },
+  "gui_light": "side"
+}

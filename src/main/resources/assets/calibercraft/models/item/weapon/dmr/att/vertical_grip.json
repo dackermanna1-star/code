@@ -1,1 +1,403 @@
-{"textures":{"particle":"calibercraft:item/material/black_anodized"},"elements":[{"from":[7.1,4.5,-11.9],"to":[8.9,5.2,-9.1],"faces":{"north":{"uv":[7.1,10.8,8.9,11.5],"texture":"calibercraft:item/material/black_anodized"},"south":{"uv":[7.1,10.8,8.9,11.5],"texture":"calibercraft:item/material/black_anodized"},"east":{"uv":[9.1,10.8,11.9,11.5],"texture":"calibercraft:item/material/black_anodized"},"west":{"uv":[4.1,10.8,6.9,11.5],"texture":"calibercraft:item/material/black_anodized"},"up":{"uv":[7.1,4.1,8.9,6.9],"texture":"calibercraft:item/material/black_anodized"},"down":{"uv":[7.1,9.1,8.9,11.9],"texture":"calibercraft:item/material/black_anodized"}}},{"from":[7.2,-0.4,-11.4],"to":[8.8,4.5,-9.6],"faces":{"north":{"uv":[7.2,11.1,8.8,16],"texture":"calibercraft:item/material/black_polymer"},"south":{"uv":[7.2,11.1,8.8,16],"texture":"calibercraft:item/material/black_polymer"},"east":{"uv":[9.6,11.1,11.4,16],"texture":"calibercraft:item/material/black_polymer"},"west":{"uv":[4.6,11.1,6.4,16],"texture":"calibercraft:item/material/black_polymer"},"up":{"uv":[7.2,4.6,8.8,6.4],"texture":"calibercraft:item/material/black_polymer"},"down":{"uv":[7.2,9.6,8.8,11.4],"texture":"calibercraft:item/material/black_polymer"}}},{"from":[7.15,0.2,-11.45],"to":[8.85,3.8,-9.55],"faces":{"north":{"uv":[7.15,12.2,8.85,15.8],"texture":"calibercraft:item/material/rubber"},"south":{"uv":[7.15,12.2,8.85,15.8],"texture":"calibercraft:item/material/rubber"},"east":{"uv":[9.55,12.2,11.45,15.8],"texture":"calibercraft:item/material/rubber"},"west":{"uv":[4.55,12.2,6.45,15.8],"texture":"calibercraft:item/material/rubber"},"up":{"uv":[7.15,4.55,8.85,6.45],"texture":"calibercraft:item/material/rubber"},"down":{"uv":[7.15,9.55,8.85,11.45],"texture":"calibercraft:item/material/rubber"}}},{"from":[7.1,-0.8,-11.5],"to":[8.9,-0.3,-9.5],"faces":{"north":{"uv":[7.1,0.3,8.9,0.8],"texture":"calibercraft:item/material/black_anodized"},"south":{"uv":[7.1,0.3,8.9,0.8],"texture":"calibercraft:item/material/black_anodized"},"east":{"uv":[9.5,0.3,11.5,0.8],"texture":"calibercraft:item/material/black_anodized"},"west":{"uv":[4.5,0.3,6.5,0.8],"texture":"calibercraft:item/material/black_anodized"},"up":{"uv":[7.1,4.5,8.9,6.5],"texture":"calibercraft:item/material/black_anodized"},"down":{"uv":[7.1,9.5,8.9,11.5],"texture":"calibercraft:item/material/black_anodized"}}}],"display":{"thirdperson_righthand":{"rotation":[0,0,0],"translation":[0.0,2.12,-0.92],"scale":[0.4,0.4,0.4]},"firstperson_righthand":{"rotation":[0,0,0],"translation":[0,0,0],"scale":[1,1,1]},"gui":{"rotation":[0,-90,0],"translation":[-2.9688,1.9297,0.1719],"scale":[0.3125,0.3125,0.3125]},"fixed":{"rotation":[0,-90,0],"translation":[-5.0469,3.2805,0.2922],"scale":[0.5312,0.5312,0.5312]},"on_shelf":{"rotation":[0,-90,0],"translation":[-4.1562,2.7016,0.2406],"scale":[0.4375,0.4375,0.4375]},"ground":{"rotation":[0,0,0],"translation":[0.176,3.976,3.04],"scale":[0.32,0.32,0.32]},"head":{"rotation":[0,180,0],"translation":[-0.22,12.47,-3.8],"scale":[0.4,0.4,0.4]}}}
+{
+  "textures": {
+    "particle": "calibercraft:item/material/black_anodized",
+    "m_black_anodized": "calibercraft:item/material/black_anodized",
+    "m_black_polymer": "calibercraft:item/material/black_polymer",
+    "m_rubber": "calibercraft:item/material/rubber"
+  },
+  "elements": [
+    {
+      "from": [
+        7.1,
+        4.5,
+        -11.9
+      ],
+      "to": [
+        8.9,
+        5.2,
+        -9.1
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.1,
+            10.8,
+            8.9,
+            11.5
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "south": {
+          "uv": [
+            7.1,
+            10.8,
+            8.9,
+            11.5
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "east": {
+          "uv": [
+            9.1,
+            10.8,
+            11.9,
+            11.5
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "west": {
+          "uv": [
+            4.1,
+            10.8,
+            6.9,
+            11.5
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "up": {
+          "uv": [
+            7.1,
+            4.1,
+            8.9,
+            6.9
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "down": {
+          "uv": [
+            7.1,
+            9.1,
+            8.9,
+            11.9
+          ],
+          "texture": "#m_black_anodized"
+        }
+      }
+    },
+    {
+      "from": [
+        7.2,
+        -0.4,
+        -11.4
+      ],
+      "to": [
+        8.8,
+        4.5,
+        -9.6
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.2,
+            11.1,
+            8.8,
+            16
+          ],
+          "texture": "#m_black_polymer"
+        },
+        "south": {
+          "uv": [
+            7.2,
+            11.1,
+            8.8,
+            16
+          ],
+          "texture": "#m_black_polymer"
+        },
+        "east": {
+          "uv": [
+            9.6,
+            11.1,
+            11.4,
+            16
+          ],
+          "texture": "#m_black_polymer"
+        },
+        "west": {
+          "uv": [
+            4.6,
+            11.1,
+            6.4,
+            16
+          ],
+          "texture": "#m_black_polymer"
+        },
+        "up": {
+          "uv": [
+            7.2,
+            4.6,
+            8.8,
+            6.4
+          ],
+          "texture": "#m_black_polymer"
+        },
+        "down": {
+          "uv": [
+            7.2,
+            9.6,
+            8.8,
+            11.4
+          ],
+          "texture": "#m_black_polymer"
+        }
+      }
+    },
+    {
+      "from": [
+        7.15,
+        0.2,
+        -11.45
+      ],
+      "to": [
+        8.85,
+        3.8,
+        -9.55
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.15,
+            12.2,
+            8.85,
+            15.8
+          ],
+          "texture": "#m_rubber"
+        },
+        "south": {
+          "uv": [
+            7.15,
+            12.2,
+            8.85,
+            15.8
+          ],
+          "texture": "#m_rubber"
+        },
+        "east": {
+          "uv": [
+            9.55,
+            12.2,
+            11.45,
+            15.8
+          ],
+          "texture": "#m_rubber"
+        },
+        "west": {
+          "uv": [
+            4.55,
+            12.2,
+            6.45,
+            15.8
+          ],
+          "texture": "#m_rubber"
+        },
+        "up": {
+          "uv": [
+            7.15,
+            4.55,
+            8.85,
+            6.45
+          ],
+          "texture": "#m_rubber"
+        },
+        "down": {
+          "uv": [
+            7.15,
+            9.55,
+            8.85,
+            11.45
+          ],
+          "texture": "#m_rubber"
+        }
+      }
+    },
+    {
+      "from": [
+        7.1,
+        -0.8,
+        -11.5
+      ],
+      "to": [
+        8.9,
+        -0.3,
+        -9.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.1,
+            0.3,
+            8.9,
+            0.8
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "south": {
+          "uv": [
+            7.1,
+            0.3,
+            8.9,
+            0.8
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "east": {
+          "uv": [
+            9.5,
+            0.3,
+            11.5,
+            0.8
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "west": {
+          "uv": [
+            4.5,
+            0.3,
+            6.5,
+            0.8
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "up": {
+          "uv": [
+            7.1,
+            4.5,
+            8.9,
+            6.5
+          ],
+          "texture": "#m_black_anodized"
+        },
+        "down": {
+          "uv": [
+            7.1,
+            9.5,
+            8.9,
+            11.5
+          ],
+          "texture": "#m_black_anodized"
+        }
+      }
+    }
+  ],
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0.0,
+        2.12,
+        -0.92
+      ],
+      "scale": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        0,
+        0
+      ],
+      "scale": [
+        1,
+        1,
+        1
+      ]
+    },
+    "gui": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        -2.9688,
+        1.9297,
+        0.1719
+      ],
+      "scale": [
+        0.3125,
+        0.3125,
+        0.3125
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        -5.0469,
+        3.2805,
+        0.2922
+      ],
+      "scale": [
+        0.5312,
+        0.5312,
+        0.5312
+      ]
+    },
+    "on_shelf": {
+      "rotation": [
+        0,
+        -90,
+        0
+      ],
+      "translation": [
+        -4.1562,
+        2.7016,
+        0.2406
+      ],
+      "scale": [
+        0.4375,
+        0.4375,
+        0.4375
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0.176,
+        3.976,
+        3.04
+      ],
+      "scale": [
+        0.32,
+        0.32,
+        0.32
+      ]
+    },
+    "head": {
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "translation": [
+        -0.22,
+        12.47,
+        -3.8
+      ],
+      "scale": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    }
+  }
+}

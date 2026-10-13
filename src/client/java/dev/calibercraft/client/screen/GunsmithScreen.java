@@ -397,19 +397,24 @@ public final class GunsmithScreen extends Screen {
 			double b = value(row.key, before, def);
 			double a = value(row.key, after, def);
 			g.drawString(font, Component.translatable("calibercraft.stat." + row.key), x, y, 0xFFC8D0D8, false);
+			// Columns: label | bar | change arrow | value (right-aligned, kept clear of the panel frame).
+			int valueRight = x + w - 2;
 			int barX = x + w / 2 - 6;
-			int barW = w / 2 - 18;
+			int barW = valueRight - 26 - 10 - barX;
 			g.fill(barX, y + 2, barX + barW, y + 6, 0xFF20262C);
 			int fb = (int) (barW * Mth.clamp(b / row.max, 0, 1));
 			int fa = (int) (barW * Mth.clamp(a / row.max, 0, 1));
 			g.fill(barX, y + 2, barX + Math.min(fb, fa), y + 6, 0xFFB8C0C8);
+			int valueColor = 0xFF808890;
 			if (Math.abs(a - b) > 1e-6) {
 				boolean better = (a > b) == row.higherBetter;
 				int col = better ? 0xFF50D060 : 0xFFE05050;
+				valueColor = col;
 				g.fill(barX + Math.min(fb, fa), y + 2, barX + Math.max(fb, fa), y + 6, col);
-				g.blitSprite(RenderPipelines.GUI_TEXTURED, (a > b) ? STAT_UP : STAT_DOWN, barX + barW + 3, y, 7, 7, better ? 0xFF80FF80 : 0xFFFF8080);
+				g.blitSprite(RenderPipelines.GUI_TEXTURED, (a > b) ? STAT_UP : STAT_DOWN, barX + barW + 2, y, 7, 7, col);
 			}
-			g.drawString(font, format(row.key, a), x + w - font.width(format(row.key, a)) + 1, y - 0, 0xFF808890, false);
+			String text = format(row.key, a);
+			g.drawString(font, text, valueRight - font.width(text), y, valueColor, false);
 			y += 12;
 		}
 	}

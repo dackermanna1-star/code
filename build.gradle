@@ -67,3 +67,67 @@ java {
 	sourceCompatibility = JavaVersion.VERSION_21
 	targetCompatibility = JavaVersion.VERSION_21
 }
+
+jar {
+	def archivesName = project.base.archivesName
+	inputs.property "archivesName", archivesName
+	from("LICENSE") {
+		rename { "${it}_${archivesName.get()}" }
+	}
+}
+
+// Production check: runs the same client game test against the remapped release jar in a production
+// (intermediary-named) client, i.e. the way players run the mod. Linux needs Xvfb (useXVFB).
+configurations {
+	productionMods {
+		canBeConsumed = false
+		transitive = false
+	}
+}
+
+dependencies {
+	productionMods "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+	productionMods fabricApi.module("fabric-gametest-api-v1", project.fabric_api_version)
+	productionMods fabricApi.module("fabric-client-gametest-api-v1", project.fabric_api_version)
+}
+
+// Only the client test goes into the production test jar: in a production (intermediary) runtime, reading
+// Fabric API's @GameTest annotation fails because its rotation() default names an unmapped enum constant.
+def productionGametestModJson = tasks.register("productionGametestModJson") {
+	def source = file("src/gametest/resources/fabric.mod.json")
+	def out = layout.buildDirectory.file("productionGametest/fabric.mod.json")
+	inputs.file(source)
+	outputs.file(out)
+	doLast {
+		def json = new groovy.json.JsonSlurper().parse(source)
+		json.entrypoints.remove("fabric-gametest")
+		out.get().asFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(json))
+	}
+}
+
+def gametestJar = tasks.register("gametestJar", Jar) {
+	from(sourceSets.gametest.output) {
+		exclude "fabric.mod.json", "dev/calibercraft/gametest/CaliberCraftGameTests*.class"
+	}
+	from(productionGametestModJson)
+	archiveClassifier = "gametest-dev"
+	destinationDirectory = layout.buildDirectory.dir("devlibs")
+}
+
+def remapGametestJar = tasks.register("remapGametestJar", net.fabricmc.loom.task.RemapJarTask) {
+	inputFile = gametestJar.flatMap { it.archiveFile }
+	archiveClassifier = "gametest"
+	destinationDirectory = layout.buildDirectory.dir("devlibs")
+	addNestedDependencies = false
+}
+
+tasks.register("runProductionClientGameTest", net.fabricmc.loom.task.prod.ClientProductionRunTask) {
+	group = "verification"
+	description = "Runs the client game test against the release jar in a production client."
+	mods.from(tasks.named("remapJar"))
+	mods.from(remapGametestJar)
+	mods.from(configurations.productionMods)
+	jvmArgs.add("-Dfabric.client.gametest")
+	useXVFB = true
+	runDir = layout.buildDirectory.dir("run/productionClientGameTest")
+}

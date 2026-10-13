@@ -1,6 +1,7 @@
 {
   "textures": {
-    "particle": "calibercraft:item/material/black_anodized"
+    "particle": "calibercraft:item/material/black_anodized",
+    "m_stainless": "calibercraft:item/material/stainless"
   },
   "elements": [
     {
@@ -22,7 +23,7 @@
             8.1,
             16
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "south": {
           "uv": [
@@ -31,7 +32,7 @@
             8.1,
             16
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "east": {
           "uv": [
@@ -40,7 +41,7 @@
             10.606,
             16
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "west": {
           "uv": [
@@ -49,7 +50,7 @@
             5.594,
             16
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "up": {
           "uv": [
@@ -58,7 +59,7 @@
             8.1,
             5.594
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "down": {
           "uv": [
@@ -67,7 +68,7 @@
             8.1,
             10.606
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         }
       }
     },
@@ -90,7 +91,7 @@
             8.55,
             2.145
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "south": {
           "uv": [
@@ -99,7 +100,7 @@
             8.55,
             2.145
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "east": {
           "uv": [
@@ -108,7 +109,7 @@
             10.566,
             2.145
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "west": {
           "uv": [
@@ -117,7 +118,7 @@
             5.554,
             2.145
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "up": {
           "uv": [
@@ -126,7 +127,7 @@
             8.55,
             5.554
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "down": {
           "uv": [
@@ -135,7 +136,7 @@
             8.55,
             10.566
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         }
       }
     },
@@ -158,7 +159,7 @@
             8.45,
             2.445
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "south": {
           "uv": [
@@ -167,7 +168,7 @@
             8.65,
             2.445
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "east": {
           "uv": [
@@ -176,7 +177,7 @@
             10.426,
             2.445
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "west": {
           "uv": [
@@ -185,7 +186,7 @@
             5.674,
             2.445
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "up": {
           "uv": [
@@ -194,7 +195,7 @@
             8.65,
             5.674
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "down": {
           "uv": [
@@ -203,7 +204,7 @@
             8.65,
             10.426
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         }
       },
       "rotation": {

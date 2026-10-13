@@ -203,7 +203,7 @@ public final class GunHud {
 			.map(id -> Component.translatable("calibercraft.ammo." + id.getPath()).getString()).orElse("");
 
 		float scale = cfg.hudScale;
-		int panelW = 116;
+		int panelW = 128;
 		int panelH = 44;
 		int w = (int) (g.guiWidth() / scale);
 		int h = (int) (g.guiHeight() / scale);
@@ -222,7 +222,7 @@ public final class GunHud {
 			g.fill(x + 2, y, x + panelW, y + 1, 0x40FFFFFF);
 		}
 		String name = c.stack().getHoverName().getString();
-		g.drawString(font, font.plainSubstrByWidth(name, panelW - 30), x + 6, y + 4, 0xFFB8C0C8, false);
+		g.drawString(font, ellipsize(font, name, panelW - 32), x + 6, y + 4, 0xFFB8C0C8, false);
 		FireMode mode = c.fireMode();
 		String modeKey = c.definition().action().manualCycle()
 			? (c.definition().action() == dev.calibercraft.core.ActionType.BOLT ? "bolt" : "pump")
@@ -260,9 +260,13 @@ public final class GunHud {
 			float progress = r.kind() == ReloadRunner.Kind.SINGLE ? Math.min(1, (rounds) / (float) Math.max(1, cap))
 				: Mth.clamp(r.totalElapsed() / Math.max(1, r.currentTimeline().length()), 0, 1);
 			String label = r.kind() == ReloadRunner.Kind.CYCLE ? "calibercraft.hud.cycling" : "calibercraft.hud.reloading";
-			g.fill(x + 6, barY, x + panelW - 6, barY + 3, 0x80000000);
-			g.fill(x + 6, barY, x + 6 + (int) ((panelW - 12) * progress), barY + 3, 0xFFE8B040);
-			g.drawString(font, Component.translatable(label), x + 6, barY - 9, 0xFFE8B040, false);
+			Component text = Component.translatable(label);
+			// Label and bar share the bottom row so they never overlap the round counter above.
+			int bx = x + 6 + font.width(text) + 4;
+			int bw = x + panelW - 6 - bx;
+			g.drawString(font, text, x + 6, barY - 3, 0xFFE8B040, false);
+			g.fill(bx, barY, bx + bw, barY + 3, 0x80000000);
+			g.fill(bx, barY, bx + (int) (bw * progress), barY + 3, 0xFFE8B040);
 		} else if (c.heat() > 0.02f) {
 			float heat = Mth.clamp(c.heat(), 0, 1);
 			g.blitSprite(RenderPipelines.GUI_TEXTURED, HEAT_BG, x + 6, barY, 64, 4);
@@ -280,6 +284,13 @@ public final class GunHud {
 		}
 		g.pose().popMatrix();
 	};
+
+	private static String ellipsize(Font font, String text, int width) {
+		if (font.width(text) <= width) {
+			return text;
+		}
+		return font.plainSubstrByWidth(text, width - font.width("…")) + "…";
+	}
 
 	private static void drawBullets(GuiGraphics g, int x, int y, int width, int rounds, int cap, WeaponCategory category) {
 		Identifier sprite = switch (category) {

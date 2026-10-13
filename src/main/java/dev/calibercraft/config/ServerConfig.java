@@ -14,8 +14,8 @@ import java.util.Map;
 import net.fabricmc.loader.api.FabricLoader;
 
 /**
- * Gameplay configuration ({@code config/calibercraft/server.json}). Values are validated and clamped on load;
- * a malformed file is reported and replaced by defaults (the broken file is kept as {@code .bak}).
+ * Gameplay configuration ({@code config/calibercraft/server.json}), read at startup and on {@code /reload}.
+ * Values are validated and clamped on load; a malformed file is reported and the previous settings are kept.
  * Per-weapon statistics can be tuned with {@link #weaponOverrides} or with a data pack.
  */
 public final class ServerConfig {
@@ -71,6 +71,10 @@ public final class ServerConfig {
 		return FabricLoader.getInstance().getConfigDir().resolve(CaliberCraft.MOD_ID).resolve("server.json");
 	}
 
+	/**
+	 * (Re)reads the config file. A file that cannot be parsed is left untouched and the previous settings stay
+	 * active (defaults at startup), so a typo never wipes the admin's edits; fix it and run {@code /reload}.
+	 */
 	public static void load() {
 		Path file = path();
 		ServerConfig cfg = new ServerConfig();
@@ -81,17 +85,14 @@ public final class ServerConfig {
 					cfg = read;
 				}
 			} catch (IOException | JsonParseException e) {
-				CaliberCraft.LOGGER.error("Could not read {} ({}); using defaults. The broken file is kept as server.json.bak", file, e.getMessage());
-				try {
-					Files.copy(file, file.resolveSibling("server.json.bak"), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-				} catch (IOException ignored) {
-					// best effort
-				}
+				CaliberCraft.LOGGER.error("Could not read {} ({}); keeping the previous settings. Fix the file and run /reload.",
+					file, e.getMessage());
+				return;
 			}
 		}
 		cfg.validate();
 		instance = cfg;
-		save(cfg);
+		save(cfg); // writes newly added options and clamped values back so the file documents what is active
 	}
 
 	public static void save(ServerConfig cfg) {

@@ -257,6 +257,31 @@ def part_has_glow(part: Part):
     return any(b.glow for b in part.boxes)
 
 
+def bind_face_textures(model):
+    """Faces may only reference texture variables ("#name"); fixed texture ids used by attachment boxes are
+    declared in the model's "textures" map under a derived variable and referenced through it."""
+    textures = dict(model.get("textures", {}))
+    elements = []
+    for e in model["elements"]:
+        faces = {}
+        for face, f in e["faces"].items():
+            tex = f["texture"]
+            if not tex.startswith("#"):
+                var = "m_" + tex.rsplit("/", 1)[-1]
+                if textures.get(var, tex) != tex:
+                    raise ValueError(f"texture variable clash for {var}: {textures[var]} vs {tex}")
+                textures[var] = tex
+                f = dict(f, texture="#" + var)
+            faces[face] = f
+        elements.append(dict(e, faces=faces))
+    out = {k: v for k, v in model.items() if k not in ("textures", "elements")}
+    out["textures"] = textures
+    out["elements"] = elements
+    # Keep the conventional key order: parent, textures, elements, display...
+    order = ["parent", "textures", "elements"]
+    return {k: out[k] for k in order if k in out} | {k: v for k, v in out.items() if k not in order}
+
+
 class Writer:
     """Collects files and writes them with stable formatting; tracks what it wrote."""
 
@@ -265,6 +290,8 @@ class Writer:
         self.files: set[str] = set()
 
     def json(self, rel, obj):
+        if rel.startswith("models/") and isinstance(obj, dict) and "elements" in obj:
+            obj = bind_face_textures(obj)
         path = os.path.join(self.root, rel)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         text = json.dumps(obj, separators=(",", ":"))

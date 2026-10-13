@@ -90,6 +90,9 @@ SUBTITLES = {
     SUB + "impact.soft": "Bullet hits something soft",
     SUB + "bullet.ricochet": "Bullet ricochets",
     SUB + "bullet.whiz": "Bullet whizzes past",
+    SUB + "hit.marker": "Hit confirmed",
+    SUB + "hit.headshot": "Headshot confirmed",
+    SUB + "hit.kill": "Target eliminated",
 }
 
 # shared events: (event, file stem, variants, attenuation, builder, has_subtitle)
@@ -110,9 +113,9 @@ SHARED = [
     ("impact.soft", "impact/soft", 3, 16, shared.impact_soft, True),
     ("bullet.ricochet", "bullet/ricochet", 4, 40, shared.ricochet, True),
     ("bullet.whiz", "bullet/whiz", 3, 12, shared.whiz, True),
-    ("hit.marker", "hit/marker", 1, 4, shared.hit_marker, False),
-    ("hit.headshot", "hit/headshot", 1, 4, shared.hit_headshot, False),
-    ("hit.kill", "hit/kill", 1, 4, shared.hit_kill, False),
+    ("hit.marker", "hit/marker", 1, 4, shared.hit_marker, True),
+    ("hit.headshot", "hit/headshot", 1, 4, shared.hit_headshot, True),
+    ("hit.kill", "hit/kill", 1, 4, shared.hit_kill, True),
     ("ui.attachment_install", "ui/attachment_install", 1, 4, shared.ui_attachment_install, False),
     ("ui.attachment_remove", "ui/attachment_remove", 1, 4, shared.ui_attachment_remove, False),
     ("ui.click", "ui/click", 1, 4, shared.ui_click, False),

@@ -5,7 +5,7 @@
 
 Checks (exit code 1 on any failure):
   * sounds.json is valid JSON and contains exactly the spec's events, variant counts, file names,
-    attenuation distances and subtitle keys (UI/hit events without subtitle)
+    attenuation distances and subtitle keys (UI events without subtitle)
   * every referenced .ogg exists, no unreferenced .ogg files are lying around
   * every subtitle key has English text in subtitles_en_us.json
   * every file is Ogg Vorbis, mono, 44.1 kHz (ffprobe)
@@ -110,7 +110,7 @@ def expected_events() -> dict:
         count, att = int(count), int(att)
         files = [stem] if count == 1 else [f"{stem}_{i}" for i in range(1, count + 1)]
         top = name.split(".")[0]
-        exp[name] = dict(files=files, att=att, subtitle=None if top in ("hit", "ui") else sub + name, cat=top)
+        exp[name] = dict(files=files, att=att, subtitle=None if top == "ui" else sub + name, cat=top)
     return exp
 
 
@@ -188,7 +188,7 @@ def main() -> int:
                 errors.append(f"{name}: unexpected type in {s}")
         if e["subtitle"] is None:
             if "subtitle" in entry:
-                errors.append(f"{name}: UI/hit event must not have a subtitle")
+                errors.append(f"{name}: UI event must not have a subtitle")
         else:
             if entry.get("subtitle") != e["subtitle"]:
                 errors.append(f"{name}: subtitle {entry.get('subtitle')} != {e['subtitle']}")

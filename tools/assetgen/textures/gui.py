@@ -285,7 +285,9 @@ LOCK = [
 
 
 def stat_arrow(up=True):
-    pal = {"K": OL, "g": "#a6f59a", "G": "#46c63a"} if up else {"K": OL, "g": "#ff9a8f", "G": "#d93025"}
+    # Neutral light arrows: the gunsmith screen tints them green (better) or red (worse) independently of
+    # the direction, since a higher value is not always better (e.g. aim time).
+    pal = {"K": OL, "g": "#ffffff", "G": "#d8d8d8"}
     img = grid_sprite(ARROW_UP, pal)
     return img if up else img[::-1].copy()
 

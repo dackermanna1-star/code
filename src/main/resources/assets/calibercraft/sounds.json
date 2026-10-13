@@ -1399,6 +1399,7 @@
     ]
   },
   "hit.marker": {
+    "subtitle": "subtitles.calibercraft.hit.marker",
     "sounds": [
       {
         "name": "calibercraft:hit/marker",
@@ -1407,6 +1408,7 @@
     ]
   },
   "hit.headshot": {
+    "subtitle": "subtitles.calibercraft.hit.headshot",
     "sounds": [
       {
         "name": "calibercraft:hit/headshot",
@@ -1415,6 +1417,7 @@
     ]
   },
   "hit.kill": {
+    "subtitle": "subtitles.calibercraft.hit.kill",
     "sounds": [
       {
         "name": "calibercraft:hit/kill",

@@ -1,6 +1,8 @@
 {
   "textures": {
-    "particle": "calibercraft:item/material/black_anodized"
+    "particle": "calibercraft:item/material/black_anodized",
+    "m_stainless": "calibercraft:item/material/stainless",
+    "m_glass_lens": "calibercraft:item/material/glass_lens"
   },
   "elements": [
     {
@@ -22,7 +24,7 @@
             8.12,
             11.5
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "south": {
           "uv": [
@@ -31,7 +33,7 @@
             8.12,
             11.5
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "east": {
           "uv": [
@@ -40,7 +42,7 @@
             10.52,
             11.5
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "west": {
           "uv": [
@@ -49,7 +51,7 @@
             5.72,
             11.5
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "up": {
           "uv": [
@@ -58,7 +60,7 @@
             8.12,
             5.72
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         },
         "down": {
           "uv": [
@@ -67,7 +69,7 @@
             8.12,
             10.52
           ],
-          "texture": "calibercraft:item/material/stainless"
+          "texture": "#m_stainless"
         }
       }
     },
@@ -90,7 +92,7 @@
             8.6,
             12.7
           ],
-          "texture": "calibercraft:item/material/glass_lens"
+          "texture": "#m_glass_lens"
         },
         "south": {
           "uv": [
@@ -99,7 +101,7 @@
             8.6,
             12.7
           ],
-          "texture": "calibercraft:item/material/glass_lens"
+          "texture": "#m_glass_lens"
         },
         "east": {
           "uv": [
@@ -108,7 +110,7 @@
             11,
             12.7
           ],
-          "texture": "calibercraft:item/material/glass_lens"
+          "texture": "#m_glass_lens"
         },
         "west": {
           "uv": [
@@ -117,7 +119,7 @@
             6.2,
             12.7
           ],
-          "texture": "calibercraft:item/material/glass_lens"
+          "texture": "#m_glass_lens"
         },
         "up": {
           "uv": [
@@ -126,7 +128,7 @@
             8.6,
             6.2
           ],
-          "texture": "calibercraft:item/material/glass_lens"
+          "texture": "#m_glass_lens"
         },
         "down": {
           "uv": [
@@ -135,7 +137,7 @@
             8.6,
             11
           ],
-          "texture": "calibercraft:item/material/glass_lens"
+          "texture": "#m_glass_lens"
         }
       },
       "rotation": {

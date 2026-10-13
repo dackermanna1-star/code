@@ -25,6 +25,8 @@ public final class CaliberDataLoader extends SimplePreparableReloadListener<Cali
 
 	@Override
 	protected CaliberData prepare(ResourceManager manager, ProfilerFiller profiler) {
+		// /reload re-reads config/calibercraft/server.json too, so config edits apply without a restart.
+		ServerConfig.load();
 		Map<Identifier, WeaponDefinition> weapons = scan(manager, "weapon", WeaponDefinition.CODEC);
 		Map<Identifier, AttachmentDefinition> attachments = scan(manager, "attachment", AttachmentDefinition.CODEC);
 		Map<Identifier, AmmoDefinition> ammo = scan(manager, "ammo", AmmoDefinition.CODEC);
@@ -47,7 +49,7 @@ public final class CaliberDataLoader extends SimplePreparableReloadListener<Cali
 		return out;
 	}
 
-	/** Applies {@code weapon_overrides} from the server config on top of the data pack values. */
+	/** Applies {@code weaponOverrides} from the server config on top of the data pack values. */
 	private static void applyConfigOverrides(Map<Identifier, WeaponDefinition> weapons) {
 		Map<String, Map<String, Double>> overrides = ServerConfig.get().weaponOverrides;
 		if (overrides == null || overrides.isEmpty()) {
@@ -57,14 +59,14 @@ public final class CaliberDataLoader extends SimplePreparableReloadListener<Cali
 			Identifier id = Identifier.tryParse(weaponId);
 			WeaponDefinition def = id == null ? null : weapons.get(id);
 			if (def == null) {
-				CaliberCraft.LOGGER.warn("Config weapon_overrides references unknown weapon '{}'", weaponId);
+				CaliberCraft.LOGGER.warn("Config weaponOverrides references unknown weapon '{}'", weaponId);
 				return;
 			}
 			Map<Stat, Double> parsed = new EnumMap<>(Stat.class);
 			stats.forEach((key, value) -> {
 				Stat stat = Stat.byKey(key);
 				if (stat == null || value == null) {
-					CaliberCraft.LOGGER.warn("Config weapon_overrides for {} has unknown stat '{}'", weaponId, key);
+					CaliberCraft.LOGGER.warn("Config weaponOverrides for {} has unknown stat '{}'", weaponId, key);
 				} else {
 					parsed.put(stat, value);
 				}

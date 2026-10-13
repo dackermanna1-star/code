@@ -1,5 +1,6 @@
 package dev.calibercraft.client.mixin;
 
+import dev.calibercraft.client.GunController;
 import dev.calibercraft.item.WeaponStacks;
 import dev.calibercraft.registry.ModTags;
 import net.minecraft.client.Minecraft;
@@ -36,6 +37,7 @@ abstract class MinecraftMixin {
 	@Inject(method = "startAttack", at = @At("HEAD"), cancellable = true)
 	private void calibercraft$noAttack(CallbackInfoReturnable<Boolean> cir) {
 		if (calibercraft$holdingGun()) {
+			GunController.INSTANCE.queueClick();
 			cir.setReturnValue(false);
 		}
 	}

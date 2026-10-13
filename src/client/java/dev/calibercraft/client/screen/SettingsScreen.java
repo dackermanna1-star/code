@@ -63,7 +63,6 @@ public final class SettingsScreen extends Screen {
 				slider("screen_shake", 0, 2, () -> c.screenShake, v -> c.screenShake = (float) v, "%.0f%%", 100);
 				slider("camera_recoil", 0, 2, () -> c.cameraRecoil, v -> c.cameraRecoil = (float) v, "%.0f%%", 100);
 				toggle("reduced_motion", () -> c.reducedMotion, v -> c.reducedMotion = v);
-				toggle("cosmetic_effects", () -> c.cosmeticEffects, v -> c.cosmeticEffects = v);
 			}
 			case "controls" -> {
 				toggle("toggle_aim", () -> c.toggleAim, v -> c.toggleAim = v);

@@ -1,5 +1,7 @@
 package dev.calibercraft.gametest;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.mojang.authlib.GameProfile;
 import dev.calibercraft.config.ServerConfig;
 import dev.calibercraft.core.GunState;
@@ -14,9 +16,17 @@ import dev.calibercraft.registry.ModItems;
 import dev.calibercraft.server.AmmoInventory;
 import dev.calibercraft.server.GunService;
 import dev.calibercraft.server.GunsmithService;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -305,5 +315,48 @@ public class CaliberCraftGameTests {
 			cleanup(h, p);
 			h.succeed();
 		});
+	}
+
+	@GameTest
+	public void everyRegisteredItemAndSoundHasAssets(GameTestHelper h) {
+		ModContainer mod = FabricLoader.getInstance().getModContainer("calibercraft").orElseThrow();
+		JsonObject lang = json(mod, "assets/calibercraft/lang/en_us.json");
+		JsonObject sounds = json(mod, "assets/calibercraft/sounds.json");
+		List<String> problems = new ArrayList<>();
+		int items = 0;
+		for (Item item : BuiltInRegistries.ITEM) {
+			Identifier id = BuiltInRegistries.ITEM.getKey(item);
+			if (!id.getNamespace().equals("calibercraft")) {
+				continue;
+			}
+			items++;
+			if (mod.findPath("assets/calibercraft/items/" + id.getPath() + ".json").isEmpty()) {
+				problems.add("item " + id + " has no item model definition");
+			}
+			if (!lang.has(item.getDescriptionId())) {
+				problems.add("item " + id + " has no translation (" + item.getDescriptionId() + ")");
+			}
+		}
+		int soundCount = 0;
+		for (Identifier id : BuiltInRegistries.SOUND_EVENT.keySet()) {
+			if (id.getNamespace().equals("calibercraft")) {
+				soundCount++;
+				if (!sounds.has(id.getPath())) {
+					problems.add("sound event " + id + " is missing from sounds.json");
+				}
+			}
+		}
+		h.assertTrue(items >= 12 + 24 + 15, "registered items: " + items);
+		h.assertTrue(soundCount > 50, "registered sound events: " + soundCount);
+		h.assertTrue(problems.isEmpty(), problems.size() + " asset problem(s): " + String.join("; ", problems.subList(0, Math.min(10, problems.size()))));
+		h.succeed();
+	}
+
+	private static JsonObject json(ModContainer mod, String path) {
+		try (Reader r = Files.newBufferedReader(mod.findPath(path).orElseThrow())) {
+			return JsonParser.parseReader(r).getAsJsonObject();
+		} catch (IOException e) {
+			throw new UncheckedIOException(e);
+		}
 	}
 }

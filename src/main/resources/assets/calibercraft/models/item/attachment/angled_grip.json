@@ -1,6 +1,9 @@
 {
   "textures": {
-    "particle": "calibercraft:item/material/black_anodized"
+    "particle": "calibercraft:item/material/black_anodized",
+    "m_black_anodized": "calibercraft:item/material/black_anodized",
+    "m_black_polymer": "calibercraft:item/material/black_polymer",
+    "m_rubber": "calibercraft:item/material/rubber"
   },
   "elements": [
     {
@@ -22,7 +25,7 @@
             8.9,
             8.6
           ],
-          "texture": "calibercraft:item/material/black_anodized"
+          "texture": "#m_black_anodized"
         },
         "south": {
           "uv": [
@@ -31,7 +34,7 @@
             8.9,
             8.6
           ],
-          "texture": "calibercraft:item/material/black_anodized"
+          "texture": "#m_black_anodized"
         },
         "east": {
           "uv": [
@@ -40,7 +43,7 @@
             10.8,
             8.6
           ],
-          "texture": "calibercraft:item/material/black_anodized"
+          "texture": "#m_black_anodized"
         },
         "west": {
           "uv": [
@@ -49,7 +52,7 @@
             10.2,
             8.6
           ],
-          "texture": "calibercraft:item/material/black_anodized"
+          "texture": "#m_black_anodized"
         },
         "up": {
           "uv": [
@@ -58,7 +61,7 @@
             8.9,
             10.2
           ],
-          "texture": "calibercraft:item/material/black_anodized"
+          "texture": "#m_black_anodized"
         },
         "down": {
           "uv": [
@@ -67,7 +70,7 @@
             8.9,
             10.8
           ],
-          "texture": "calibercraft:item/material/black_anodized"
+          "texture": "#m_black_anodized"
         }
       }
     },
@@ -90,7 +93,7 @@
             8.85,
             10.6
           ],
-          "texture": "calibercraft:item/material/black_polymer"
+          "texture": "#m_black_polymer"
         },
         "south": {
           "uv": [
@@ -99,7 +102,7 @@
             8.85,
             10.6
           ],
-          "texture": "calibercraft:item/material/black_polymer"
+          "texture": "#m_black_polymer"
         },
         "east": {
           "uv": [
@@ -108,7 +111,7 @@
             10.6,
             10.6
           ],
-          "texture": "calibercraft:item/material/black_polymer"
+          "texture": "#m_black_polymer"
         },
         "west": {
           "uv": [
@@ -117,7 +120,7 @@
             9,
             10.6
           ],
-          "texture": "calibercraft:item/material/black_polymer"
+          "texture": "#m_black_polymer"
         },
         "up": {
           "uv": [
@@ -126,7 +129,7 @@
             8.85,
             9
           ],
-          "texture": "calibercraft:item/material/black_polymer"
+          "texture": "#m_black_polymer"
         },
         "down": {
           "uv": [
@@ -135,7 +138,7 @@
             8.85,
             10.6
           ],
-          "texture": "calibercraft:item/material/black_polymer"
+          "texture": "#m_black_polymer"
         }
       },
       "rotation": {
@@ -167,7 +170,7 @@
             8.8,
             10
           ],
-          "texture": "calibercraft:item/material/rubber"
+          "texture": "#m_rubber"
         },
         "south": {
           "uv": [
@@ -176,7 +179,7 @@
             8.8,
             10
           ],
-          "texture": "calibercraft:item/material/rubber"
+          "texture": "#m_rubber"
         },
         "east": {
           "uv": [
@@ -185,7 +188,7 @@
             10.4,
             10
           ],
-          "texture": "calibercraft:item/material/rubber"
+          "texture": "#m_rubber"
         },
         "west": {
           "uv": [
@@ -194,7 +197,7 @@
             7,
             10
           ],
-          "texture": "calibercraft:item/material/rubber"
+          "texture": "#m_rubber"
         },
         "up": {
           "uv": [
@@ -203,7 +206,7 @@
             8.8,
             7
           ],
-          "texture": "calibercraft:item/material/rubber"
+          "texture": "#m_rubber"
         },
         "down": {
           "uv": [
@@ -212,7 +215,7 @@
             8.8,
             10.4
           ],
-          "texture": "calibercraft:item/material/rubber"
+          "texture": "#m_rubber"
         }
       },
       "rotation": {

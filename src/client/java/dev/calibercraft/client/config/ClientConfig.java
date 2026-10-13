@@ -47,7 +47,6 @@ public final class ClientConfig {
 	public float cameraRecoil = 1.0f;
 	/** Disables weapon sway, bobbing, inspect flourishes and screen shake. */
 	public boolean reducedMotion = false;
-	public boolean cosmeticEffects = true;
 
 	// Controls
 	public boolean toggleAim = false;
