@@ -142,9 +142,9 @@ export function beam(rgb, radius, height, opacity = 0.5) {
   return m;
 }
 
-/** A flat textured card (unlit), facing +x by default; both sides show. */
+/** A flat textured card (unlit) standing up, facing -y turned by rz (deg) about z. */
 function card(tex, w, h, x, y, z, rz = 0, rx = 90) {
-  const mat = once(`card:${tex?.uuid}`, () => new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.08, side: THREE.DoubleSide, depthWrite: false }));
+  const mat = once(`card:${tex?.uuid}`, () => new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.08, depthWrite: false })); // (front side only: a back card carries the other face)
   const m = new THREE.Mesh(PLANE, mat);
   m.scale.set(w, h, 1);
   m.rotation.set(rx * Math.PI / 180, 0, rz * Math.PI / 180, 'ZXY');
@@ -238,18 +238,18 @@ const EMBLEMS = {
     const g = once('geo:pu:instakill', () => bake([
       [BALL, BONE, [0, 0, 1.2], [0, 0, 0], [5.2, 5.6, 5.4]], // the cranium
       box(BONE, 0, 2.6, -3.6, 6.2, 3.2, 3.2), // the jaw
-      [BALL, BLACK, [-2.1, 4.25, -0.2], [0, 0, 0], [1.6, 1.1, 1.5]], [BALL, BLACK, [2.1, 4.25, -0.2], [0, 0, 0], [1.6, 1.1, 1.5]], // eye sockets
+      [BALL, BLACK, [-2.1, 3.9, -0.1], [0, 0, 0], [2.0, 1.6, 1.9]], [BALL, BLACK, [2.1, 3.9, -0.1], [0, 0, 0], [2.0, 1.6, 1.9]], // eye sockets
       [CONE, BLACK, [0, 5.0, -2.0], [-90, 0, 0], [0.8, 0.8, 1.4]], // the nose
       box(BLACK, -1.4, 4.21, -4.4, 0.35, 0.2, 1.8), box(BLACK, 0, 4.21, -4.4, 0.35, 0.2, 1.8), box(BLACK, 1.4, 4.21, -4.4, 0.35, 0.2, 1.8), // teeth
     ]));
-    const eyes = [-2.1, 2.1].map((x) => at(new THREE.Sprite(glowMat(radial(), [255, 40, 30], 1, true)), x, 4.8, -0.2));
+    const eyes = [-2.1, 2.1].map((x) => at(new THREE.Sprite(glowMat(radial(), [255, 40, 30], 1, true)), x, 5.2, -0.1));
     for (const e of eyes) e.scale.set(3.4, 3.4, 1);
     return [solid(g), ...eyes];
   },
   doublecash: () => {
     const g = once('geo:pu:coin', () => bake([cyl(GOLD, 0, 0, 0, 6.4, 1.6, [90, 0, 0]), cyl(GOLD_D, 0, 0, 0, 6.6, 1.2, [90, 0, 0])]));
     const t = coinTex();
-    return [solid(g), card(t, 11.6, 11.6, 0, 0.84, 0, 0, 90), card(t, 11.6, 11.6, 0, -0.84, 0, 180, 90)];
+    return [solid(g), card(t, 11.6, 11.6, 0, 0.84, 0, 180, 90), card(t, 11.6, 11.6, 0, -0.84, 0, 0, 90)];
   },
   nuke: () => {
     const g = once('geo:pu:nuke', () => bake([
@@ -259,7 +259,7 @@ const EMBLEMS = {
       box(C(0x3a3a30), 0, 0, 9.2, 8.6, 0.5, 3.2), box(C(0x3a3a30), 0, 0, 9.2, 0.5, 8.6, 3.2), // fins
     ]));
     const t = trefoilTex();
-    return [solid(g), card(t, 5.6, 5.6, 0, 4.42, -2, 0, 90), card(t, 5.6, 5.6, 0, -4.42, -2, 180, 90)];
+    return [solid(g), card(t, 5.6, 5.6, 0, 4.42, -2, 180, 90), card(t, 5.6, 5.6, 0, -4.42, -2, 0, 90)];
   },
   firesale: () => {
     const g = once('geo:pu:tag', () => bake([
@@ -273,7 +273,7 @@ const EMBLEMS = {
       f.userData.flicker = true;
       return f;
     });
-    return [solid(g), card(t, 12, 6, -1, 0.64, 0, 0, 90), card(t, 12, 6, -1, -0.64, 0, 180, 90), ...flames];
+    return [solid(g), card(t, 12, 6, -1, 0.64, 0, 180, 90), card(t, 12, 6, -1, -0.64, 0, 0, 90), ...flames];
   },
 };
 

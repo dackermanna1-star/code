@@ -16,7 +16,7 @@ import { fontString } from '../ui/hud/font.js';
 import { POWERUPS } from './powerups.js';
 
 const BANNER_T = 2.8, BANNER_FADE = 0.5, TOAST_T = 1.7, FLASH_T = 1.6;
-const CRATE_RGB = [255, 150, 50];
+const CRATE_RGB = [255, 150, 50], WHITE = [255, 255, 255];
 const _s = [0, 0, 0], _p = [0, 0, 0];
 const css = (rgb, a = 1) => `rgba(${rgb[0] | 0},${rgb[1] | 0},${rgb[2] | 0},${a})`;
 
@@ -99,7 +99,9 @@ export class DropHud {
     this.bn = null; // the banner: { id, title, sub, rgb, t0 }
     this.toasts = []; // [{ text, rgb, t0, dur }]
     this.flashT = -99;
+    this.tintT = -99; this.tintRgb = WHITE;
     this.rows = []; // pickups.hud's buff rows (reused)
+    this.edgeCv = null; // Insta-Kill's red screen edges (a canvas per screen size)
     const hud = pk.game.hud;
     hud?.addLayer?.((h, s, dt) => this.draw(h, s, dt), 2);
     hud?.addLayer?.((h, s) => this.under(h, s), -2);
@@ -107,7 +109,7 @@ export class DropHud {
 
   get now() { return this.pk.game.hud?.time ?? this.pk.game.time; }
 
-  reset() { this.bn = null; this.toasts.length = 0; this.flashT = -99; }
+  reset() { this.bn = null; this.toasts.length = 0; this.flashT = this.tintT = -99; }
 
   buffRow(i) { return this.rows[i] || (this.rows[i] = { id: null, left: 0, frac: 0 }); }
 
@@ -115,7 +117,8 @@ export class DropHud {
   banner(id, p) {
     const P = POWERUPS[id], me = this.pk.game.local;
     const by = p && p !== me ? `  -  ${p.name}` : '';
-    this.bn = { id, title: P.name, sub: P.sub + by, rgb: P.rgb, t0: this.now };
+    const sub = typeof P.sub === 'function' ? P.sub(this.pk.Z) : P.sub;
+    this.bn = { id, title: P.name, sub: sub + by, rgb: P.rgb, t0: this.now };
   }
 
   /** Any banner: glyph id (a POWERUPS id, 'crate', 'flare'), title, sub, rgb. */
@@ -135,6 +138,9 @@ export class DropHud {
   }
 
   flash() { this.flashT = this.now; }
+
+  /** A quick wash of colour over the screen (a power-up taken). */
+  tint(rgb) { this.tintT = this.now; this.tintRgb = rgb; }
 
   fonts(hud) {
     const F = this.F;
@@ -156,12 +162,24 @@ export class DropHud {
     const left = A.until - this.pk.game.time;
     const a = (0.14 + 0.08 * Math.sin(hud.time * 5)) * Math.min(1, left / 1.5);
     if (a <= 0) return;
-    const e = Math.round(Math.min(W, H) * 0.09);
+    G.globalAlpha = Math.min(1, a);
+    G.drawImage(this.edges(W, H), 0, 0);
+    G.globalAlpha = 1;
+  }
+
+  /** The red edge glow, drawn once per screen size. */
+  edges(W, H) {
+    let c = this.edgeCv;
+    if (c && c.width === W && c.height === H) return c;
+    c = this.edgeCv = document.createElement('canvas');
+    c.width = W; c.height = H;
+    const G = c.getContext('2d'), e = Math.round(Math.min(W, H) * 0.09);
     for (const [x, y, w, h, x0, y0, x1, y1] of [[0, 0, W, e, 0, 0, 0, e], [0, H - e, W, e, 0, H, 0, H - e], [0, 0, e, H, 0, 0, e, 0], [W - e, 0, e, H, W, 0, W - e, 0]]) {
       const gr = G.createLinearGradient(x0, y0, x1, y1);
-      gr.addColorStop(0, `rgba(230,20,20,${a.toFixed(3)})`); gr.addColorStop(1, 'rgba(230,20,20,0)');
+      gr.addColorStop(0, 'rgba(230,20,20,1)'); gr.addColorStop(1, 'rgba(230,20,20,0)');
       G.fillStyle = gr; G.fillRect(x, y, w, h);
     }
+    return c;
   }
 
   // ---------------------------------------------------------------- over the HUD
@@ -177,6 +195,11 @@ export class DropHud {
     }
     this.drawToasts(hud, F, now);
     this.drawBanner(hud, F, now);
+    const tt = now - this.tintT;
+    if (tt >= 0 && tt < 0.45) {
+      hud.gTop.fillStyle = css(this.tintRgb, 0.22 * (1 - tt / 0.45));
+      hud.gTop.fillRect(0, 0, hud.vw, hud.vh);
+    }
     const ft = now - this.flashT;
     if (ft >= 0 && ft < FLASH_T) {
       const a = ft < 0.12 ? 0.95 : 0.95 * Math.exp(-(ft - 0.12) / 0.4);
@@ -219,23 +242,24 @@ export class DropHud {
 
   /** Loot on the radar (hud.drawRadar's layout: a 128k disc at the top left, range s.radar.range). */
   radar(hud, s) {
-    const r = s.radar, k = hud.k, R = 64 * k, range = r.range || 1024, scale = (R - 3 * k) / range;
-    const yaw = (r.yaw || 0) * Math.PI / 180, sy = Math.sin(yaw), cy = Math.cos(yaw), t = this.pk.game.time;
-    const dot = (x, y, rgb, size, pin) => {
-      const dx = x - r.pos[0], dy = y - r.pos[1];
-      let px = dx * sy - dy * cy, py = -(dx * cy + dy * sy);
-      px *= scale; py *= scale;
-      const l = Math.hypot(px, py), lim = R - 3 * k;
-      if (l > lim) { if (!pin) return; px *= lim / l; py *= lim / l; }
-      hud.fillAdd(R + px - size / 2, R + py - size / 2, size, size, rgb, 255);
-    };
+    const r = s.radar, k = hud.k, t = this.pk.game.time;
     for (const d of this.pk.game.dropped) {
       if (d.taken || d.kind === 'weapon' || d.kind === 'airdrop' || d.kind === 'trophy') continue;
-      if (d.kind === 'powerup') { if ((t * 3) % 1 < 0.7) dot(d.pos[0], d.pos[1], POWERUPS[d.id]?.rgb || [255, 255, 255], 3 * k, false); }
-      else dot(d.pos[0], d.pos[1], this.pk.kinds[d.kind]?.rgb || [255, 255, 255], 2 * k, false);
+      if (d.kind === 'powerup') { if ((t * 3) % 1 < 0.7) this.dot(hud, r, d.pos, POWERUPS[d.id]?.rgb || WHITE, 3 * k, false); }
+      else this.dot(hud, r, d.pos, this.pk.kinds[d.kind]?.rgb || WHITE, 2 * k, false);
     }
     const C = s.drops?.crate;
-    if (C && C.state !== 'opened' && (t * 2) % 1 < 0.6) dot(C.pos[0], C.pos[1], CRATE_RGB, 4 * k, true);
+    if (C && C.state !== 'opened' && (t * 2) % 1 < 0.6) this.dot(hud, r, C.pos, CRATE_RGB, 4 * k, true);
+  }
+
+  /** A radar dot at world pos (pin: kept on the rim when it's out of range). */
+  dot(hud, r, pos, rgb, size, pin) {
+    const k = hud.k, R = 64 * k, scale = (R - 3 * k) / (r.range || 1024), yaw = (r.yaw || 0) * Math.PI / 180;
+    const sy = Math.sin(yaw), cy = Math.cos(yaw), dx = pos[0] - r.pos[0], dy = pos[1] - r.pos[1];
+    let px = (dx * sy - dy * cy) * scale, py = -(dx * cy + dy * sy) * scale;
+    const l = Math.hypot(px, py), lim = R - 3 * k;
+    if (l > lim) { if (!pin) return; px *= lim / l; py *= lim / l; }
+    hud.fillAdd(R + px - size / 2, R + py - size / 2, size, size, rgb, 255);
   }
 
   /** The running power-ups: glyph chips along the bottom middle, above the break's countdown. */

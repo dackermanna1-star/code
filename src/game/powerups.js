@@ -7,9 +7,10 @@
 //    feeds the modifier pipeline (zmods.js) while it lasts; one that needs logic (Insta-Kill)
 //    has a zmods hook (mods.addHook('out', ...)) that checks perks.has(p, id) inside.
 //  - POWERUPS: what a power-up pickup does (pickups.js kind 'powerup', d.id): { name (the
-//    banner), say (the announcer), sub (the banner's second line), rgb, weight (drop odds),
-//    from (first wave it drops in), wave (only mid-wave), sound (its stinger), buff (a BUFFS
-//    id) and squad (on everyone), or apply(Z, p, d) for an instant one (Max Ammo, Nuke) }.
+//    banner), say (the announcer), sub (the banner's second line, or (Z) => it), rgb, weight
+//    (drop odds), from (first wave it drops in), wave (only mid-wave), sound (its stinger),
+//    buff (a BUFFS id) and squad (on everyone), or apply(Z, p, d) for an instant one (Max
+//    Ammo, Nuke) }.
 //
 // The hooks (Insta-Kill's damage, Fire Sale's prices) are only on while one of those runs
 // (installHooks / removeHooks), so the pipeline stays idle (mods.live false) the rest of the
@@ -37,7 +38,7 @@ export const POWERUPS = {
   instakill: { name: 'INSTA-KILL', say: 'Insta-Kill!', sub: 'One hit, one kill', rgb: [255, 45, 45], weight: 2, from: 3, sound: 'pu_instakill', buff: 'instakill', squad: true },
   doublecash: { name: 'DOUBLE CASH', say: 'Double Cash!', sub: 'Everything the squad earns, doubled', rgb: [70, 235, 90], weight: 2, from: 2, sound: 'pu_doublecash', buff: 'doublecash', squad: true },
   nuke: { name: 'NUKE', say: 'Kaboom!', sub: 'Every zombie on the map, gone', rgb: [255, 215, 40], weight: 1, from: 5, wave: true, sound: 'pu_nuke', apply: (Z, p, d) => Z.pickups.nuke(p, d.pos) },
-  firesale: { name: 'FIRE SALE', say: 'Fire Sale!', sub: 'The whole shop is open, and half price', rgb: [255, 120, 25], weight: 1.5, from: 4, wave: true, sound: 'pu_firesale', buff: 'firesale', squad: true, apply: (Z) => Z.pickups.fireSale() },
+  firesale: { name: 'FIRE SALE', say: 'Fire Sale!', sub: (Z) => `The whole shop is open, ${Math.round((1 - Z.diff.drops.fireSale) * 100)}% off`, rgb: [255, 120, 25], weight: 1.5, from: 4, wave: true, sound: 'pu_firesale', buff: 'firesale', squad: true, apply: (Z) => Z.pickups.fireSale() },
 };
 export const POWERUP_IDS = Object.keys(POWERUPS);
 

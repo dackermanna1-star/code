@@ -222,7 +222,10 @@ export class Pickups {
       this.sincePU = 0; this.lastPU = pu;
       this.stats.powerups++;
       d = this.spawn('powerup', pos, { id: pu, vel });
-      if (d) this.game.sound?.play('powerup_spawn', { pos, volume: 1 });
+      if (d) {
+        this.game.sound?.play('powerup_spawn', { pos, volume: 1 });
+        this.sparks(pos, 18); // (it bursts out of the body)
+      }
     } else {
       this.sincePU++;
       const w = { cash: 1, ammo: 0.45 + 1.4 * need.ammo, health: 0.35 + 1.8 * need.hp };
@@ -351,8 +354,19 @@ export class Pickups {
     if (P.sound) g.sound?.play(P.sound, { volume: 1, attenuation: 'none' });
     g.announce?.(P.say || P.name);
     this.ui.banner(d.id, p);
+    this.ui.tint(P.rgb);
+    this.sparks(d.pos, 24);
     Z.events.mode('powerup', { phase: 'on', id: d.id, player: p, until });
     return true;
+  }
+
+  /** A burst of sparks at pos (a power-up appearing or taken). */
+  sparks(pos, n) {
+    const g = this.game;
+    for (let i = 0; i < n; i++) {
+      _f[0] = rand(-160, 160); _f[1] = rand(-160, 160); _f[2] = rand(60, 320);
+      g.fire?.emit('spark', [pos[0], pos[1], pos[2] + 14], _f, { life: rand(0.3, 0.7), size: rand(1.5, 3), size1: 0.6, drag: 1.5, buoy: -400 });
+    }
   }
 
   /** A timed buff ran out (the 'perk' expire event). */

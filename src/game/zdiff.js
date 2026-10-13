@@ -243,10 +243,10 @@ const BOSS = {
  * on), floor (bits of small loot lying about at once).
  */
 const DROPS = {
-  casual: { budget: [6, 0.6], chance: 0.1, powerup: 0.12, pity: 0.05, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.5, crateLife: 40, vial: 30, cash: 1.6, nukePay: 400, fireSale: 0.5, floor: 14 },
-  normal: { budget: [5, 0.5], chance: 0.08, powerup: 0.1, pity: 0.04, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.4, crateLife: 30, vial: 25, cash: 1.5, nukePay: 300, fireSale: 0.5, floor: 12 },
-  hard: { budget: [4, 0.4], chance: 0.07, powerup: 0.08, pity: 0.03, life: 25, powerupSecs: 15, airdropFrom: 5, airdropChance: 0.35, crateLife: 30, vial: 20, cash: 1.3, nukePay: 250, fireSale: 0.6, floor: 10 },
-  nightmare: { budget: [3, 0.3], chance: 0.06, powerup: 0.06, pity: 0.02, life: 20, powerupSecs: 12, airdropFrom: 6, airdropChance: 0.3, crateLife: 25, vial: 15, cash: 1.2, nukePay: 200, fireSale: 0.7, floor: 8 },
+  casual: { budget: [6, 0.6], chance: 0.18, powerup: 0.12, pity: 0.05, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.5, crateLife: 40, vial: 30, cash: 1.6, nukePay: 400, fireSale: 0.5, floor: 14 },
+  normal: { budget: [5, 0.5], chance: 0.15, powerup: 0.1, pity: 0.04, life: 30, powerupSecs: 15, airdropFrom: 4, airdropChance: 0.4, crateLife: 30, vial: 25, cash: 1.5, nukePay: 300, fireSale: 0.5, floor: 12 },
+  hard: { budget: [4, 0.4], chance: 0.12, powerup: 0.08, pity: 0.03, life: 25, powerupSecs: 15, airdropFrom: 5, airdropChance: 0.35, crateLife: 30, vial: 20, cash: 1.3, nukePay: 250, fireSale: 0.6, floor: 10 },
+  nightmare: { budget: [3, 0.3], chance: 0.1, powerup: 0.06, pity: 0.02, life: 20, powerupSecs: 12, airdropFrom: 6, airdropChance: 0.3, crateLife: 25, vial: 15, cash: 1.2, nukePay: 200, fireSale: 0.7, floor: 8 },
 };
 
 /**
