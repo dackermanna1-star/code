@@ -40,7 +40,7 @@
 
   /** A fresh zombie game like the menu's New Game (you on CT, bots filled in). */
   function newRun(opts = {}) {
-    g.newGame({ mode: 'zombies', allies: 2, ...opts });
+    g.newGame({ mode: 'zombies', allies: 2, roles: Array(10).fill('rifleman'), ...opts }); // (riflemen: the economy's own shopping trip; the roles shop for themselves - zsquad.js, zm3-squad.js)
     g.joinTeam(g.local, 'CT');
     g.bots.fillTeams(opts.allies ?? 2);
     ticks(50);

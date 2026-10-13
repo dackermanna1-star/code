@@ -115,6 +115,7 @@ export class ZombieMode {
     this.enabled = opts.mode === 'zombies';
     this.opts = zombieOptions(opts);
     this.diff = resolveDiff(this.opts);
+    this.squad?.configure(opts); // (the New Game's role picks: zsquad.js)
   }
 
   /** A hardcore run (no wave heal, guns only in breaks, radar pings only; its own records). */

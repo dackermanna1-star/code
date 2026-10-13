@@ -60,7 +60,7 @@ export const SOUND_GROUPS = {
   // Milestone 3: one line per builder, its recipes in its own snd/ file
   Perks: ['perk_open', 'perk_deal', 'perk_pick', 'perk_rare', 'perk_curse', 'perk_reroll', 'perk_synergy', 'perk_rush'], // (snd/perks.js)
   Forge: ['forge_hammer', 'forge_tier5', 'forge_round', 'forge_ignite', 'forge_shock', 'forge_chill', 'forge_freeze', 'forge_shatter', 'forge_blast', 'forge_siphon'], // (snd/forge.js)
-  'Squad roles': [], // (snd/squad.js)
+  'Squad roles': ['squad_order', 'squad_hold', 'squad_focus', 'squad_mark'], // (snd/squad.js)
   'Boss overhaul': [], // (snd/bossfx.js)
   Drops: ['loot_drop', 'loot_cash', 'loot_ammo', 'loot_health', 'powerup_spawn', 'powerup_loop', 'powerup_grab', 'pu_maxammo', 'pu_instakill', 'pu_doublecash', 'pu_nuke', 'pu_firesale', 'powerup_fade', 'powerup_vanish', 'airdrop_flare', 'flare_loop', 'airdrop_plane', 'airdrop_land', 'crate_beep', 'crate_open'], // (snd/drops.js)
   Arsenal: ['machete_slash', 'machete_hit', 'axe_swing', 'axe_hit', 'axe_draw', 'katana_slash', 'katana_heavy', 'katana_hit', 'katana_draw', 'blade_wall',

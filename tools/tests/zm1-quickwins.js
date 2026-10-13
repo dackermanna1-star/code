@@ -85,18 +85,20 @@
       return true;
     });
     let holdPos = null;
+    /** At their hold slots: all but one within 90 u, and that one (boxed in by a teammate: holds close by) within 240. */
+    const held = (drift) => drift.filter((d) => d < 90).length >= drift.length - 1 && drift.every((d) => d < 240);
     steps.push(() => {
       const p = me();
       const pend = () => bots().some((b) => b.pendingRadio.some((r) => r.text === 'Affirmative.'));
       radio('Hold this position.');
       check('hold: a bot answers', pend());
-      holdPos = new Map(bots().map((b) => [b, b.p.feet()]));
+      holdPos = new Map(bots().map((b) => [b, b.holdHere?.pos || b.p.feet()])); // (Milestone 3.3: each bot holds its slot in the arc - zsquad.js holdFormation)
       check('hold: every bot close by holds', bots().every((b) => b.holdHere), bots().map((b) => !!b.holdHere).join());
       tp(p, far);
       ticks(600);
       const drift = bots().map((b) => flat(b.p.pm.origin, holdPos.get(b)) | 0);
       const away = bots().map((b) => flat(b.p.pm.origin, p.pm.origin) | 0);
-      check('hold: they stay put while you walk off', drift.every((d) => d < 90) && away.every((d) => d > 500), `drift ${drift} away ${away}`);
+      check('hold: they stay put (at their slots) while you walk off', held(drift) && away.every((d) => d > 500), `drift ${drift} away ${away}`);
       return true;
     });
     steps.push(() => {
@@ -111,11 +113,11 @@
       const p = me();
       // a hold given while following replaces it (it used to lose to the 25 s follow)
       radio('Hold this position.');
-      holdPos = new Map(bots().map((b) => [b, b.p.feet()]));
+      holdPos = new Map(bots().map((b) => [b, b.holdHere?.pos || b.p.feet()])); // (Milestone 3.3: each bot holds its slot in the arc - zsquad.js holdFormation)
       tp(p, home);
       ticks(500);
       const drift = bots().map((b) => flat(b.p.pm.origin, holdPos.get(b)) | 0);
-      check('hold after follow: they hold', drift.every((d) => d < 90), `drift ${drift}`);
+      check('hold after follow: they hold', held(drift), `drift ${drift}`);
       radio('Team, fall back!');
       check('fall back: everybody', bots().every((b) => b.fallback && b.fallback.p === p && !b.holdHere && !b.follow));
       const t = until(() => bots().every((b) => !b.fallback), 20);
@@ -127,11 +129,11 @@
       const p = me();
       // orders run out: then they stick with you again
       radio('Hold this position.');
-      holdPos = new Map(bots().map((b) => [b, b.p.feet()]));
+      holdPos = new Map(bots().map((b) => [b, b.holdHere?.pos || b.p.feet()])); // (Milestone 3.3: each bot holds its slot in the arc - zsquad.js holdFormation)
       tp(p, far);
       ticks(2500);
       const drift = bots().map((b) => flat(b.p.pm.origin, holdPos.get(b)) | 0);
-      check('hold: still holding at 25 s', drift.every((d) => d < 90), `drift ${drift}`);
+      check('hold: still holding at 25 s', held(drift), `drift ${drift}`);
       const t = until(() => bots().every((b) => flat(b.p.pm.origin, p.pm.origin) < 320), 25);
       check('hold runs out: back with you', t >= 0 && bots().every((b) => !b.holdHere || g.bots.time >= b.holdHere.until), `${t.toFixed(1)}s after 25 s`);
       return true;
@@ -148,7 +150,7 @@
       Z().nextWaveAt = g.time + 1e6;
       fticks(300);
       radio('Hold this position.');
-      holdPos = new Map(bots().map((b) => [b, b.p.feet()]));
+      holdPos = new Map(bots().map((b) => [b, b.holdHere?.pos || b.p.feet()])); // (Milestone 3.3: each bot holds its slot in the arc - zsquad.js holdFormation)
       tp(p, far);
       let fights = 0, worst = 0;
       for (let i = 0; i < 80; i++) {

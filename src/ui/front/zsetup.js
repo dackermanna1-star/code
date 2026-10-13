@@ -1,6 +1,6 @@
 // Zombie Survival setup: difficulty cards (zdiff.js presets: label, blurb, start money, break),
-// squad size (0-10 bots), bot skill, your look, map, break length, squad scaling, hardcore
-// and first-run tips. Start hands onStart the New Game options (zdiff.js zombieOptions keys
+// squad size (0-10 bots), bot skill, the bots' roles (zsquad.js: Auto, or a pick per bot),
+// your look, map, break length, squad scaling, hardcore and first-run tips. Start hands onStart the New Game options (zdiff.js zombieOptions keys
 // plus mode / map / allies / difficulty / skin / tips) on top of the previous ones.
 // Keys: Enter starts, left / right pick the difficulty, Esc goes back (Menus._key).
 //
@@ -8,6 +8,7 @@
 //   d: the previous options + maps [[id, label]], mapInfo(id), addFiles(FileList) (see Menus.showNewGame)
 import { ZDIFF, ZDIFF_ORDER, DEFAULT_ZDIFF } from '../../game/zdiff.js';
 import { CLASSES } from '../menu/text.js';
+import { ROLES, ROLE_IDS, ROLE_ORDER } from '../../game/zsquad.js';
 
 const PIPS = { casual: 1, normal: 2, hard: 3, nightmare: 4 };
 const BREAKS = [0, 5, 8, 10, 12, 15, 20, 25, 30, 45, 60, 90, 120];
@@ -39,6 +40,9 @@ export function buildZombieSetup(d = {}, { onStart, onBack, sound } = {}) {
     squadScaling: d.squadScaling !== false,
     hardcore: !!d.hardcore,
     tips: d.tips !== false,
+    // the bots' roles: 'auto' (ROLE_ORDER, then riflemen) or a pick per bot slot (zsquad.js)
+    roles: Array.from({ length: 10 }, (_, i) => (Array.isArray(d.roles) && ROLES[d.roles[i]] ? d.roles[i] : 'auto')),
+    roleMode: Array.isArray(d.roles) && d.roles.some((r) => ROLES[r]) ? 'pick' : 'auto',
   };
   const click = (n = 'menu_click') => { try { sound?.(n); } catch { /* ignore */ } };
   const root = el('div', 'fe-screen fe fe-setup');
@@ -104,6 +108,12 @@ export function buildZombieSetup(d = {}, { onStart, onBack, sound } = {}) {
   const skillV = el('div', 'v');
   skillV.appendChild(skill);
   row(sq, 'Bot skill', skillV);
+  // roles: Auto, or click a bot's chip to cycle its role
+  const roleSeg = seg([['auto', 'Auto'], ['pick', 'Pick']], 'roleMode');
+  const chips = el('div', 'fe-roles');
+  const rolesV = el('div', 'v');
+  rolesV.append(roleSeg, chips);
+  row(sq, 'Roles', rolesV);
   const look = seg(LOOKS, 'skin');
   const lookV = el('div', 'v');
   lookV.appendChild(look);
@@ -168,10 +178,39 @@ export function buildZombieSetup(d = {}, { onStart, onBack, sound } = {}) {
     figs.innerHTML = figure('you') + Array.from({ length: 10 }, (_, i) => figure(i < st.allies ? 'bot' : 'off')).join('');
     for (const o of skill.children) o.classList.toggle('on', o.dataset.k === st.difficulty);
     for (const o of look.children) o.classList.toggle('on', o.dataset.k === st.skin);
+    for (const o of roleSeg.children) o.classList.toggle('on', o.dataset.k === st.roleMode);
+    drawRoles();
     for (const t of [tips, scaling, hard]) t.classList.toggle('on', !!st[t.dataset.key]);
     brkVal.innerHTML = st.breakLen ? `${st.breakLen} s` : `Preset <small>(${P.breakLen} s)</small>`;
     const squad = st.allies ? `you + ${st.allies} bot${st.allies === 1 ? '' : 's'}` : 'solo';
-    summary.innerHTML = `<b>${P.label}</b>${st.hardcore ? ' &middot; <b>Hardcore</b>' : ''} &middot; ${squad} &middot; ${st.breakLen || P.breakLen} s breaks &middot; ${map.value}`;
+    summary.innerHTML = `<b>${P.label}</b>${st.hardcore ? ' &middot; <b>Hardcore</b>' : ''} &middot; ${squad}${st.allies && st.roleMode === 'pick' ? ' (roles picked)' : ''} &middot; ${st.breakLen || P.breakLen} s breaks &middot; ${map.value}`;
+  }
+
+  /** The role each bot slot ends up with: its pick, else the next of ROLE_ORDER nobody picked, else Rifleman (as zsquad.js assign). */
+  function effectiveRoles() {
+    const pick = st.roleMode === 'pick', out = [], taken = new Set();
+    for (let i = 0; i < st.allies; i++) if (pick && st.roles[i] !== 'auto') taken.add(st.roles[i]);
+    for (let i = 0; i < st.allies; i++) {
+      if (pick && st.roles[i] !== 'auto') { out.push(st.roles[i]); continue; }
+      const r = ROLE_ORDER.find((x) => !taken.has(x)) || 'rifleman';
+      taken.add(r);
+      out.push(r);
+    }
+    return out;
+  }
+  function drawRoles() {
+    chips.innerHTML = '';
+    const eff = effectiveRoles(), pick = st.roleMode === 'pick';
+    if (!st.allies) { chips.appendChild(el('small', 'fe-rolenote', 'Solo: no bots')); return; }
+    eff.forEach((r, i) => {
+      const R = ROLES[r], c = `rgb(${R.rgb.join(',')})`, set = pick && st.roles[i] !== 'auto';
+      const ch = el('span', set ? 'set' : pick ? '' : 'off', R.short);
+      ch.style.borderColor = c;
+      if (set) ch.style.background = c; else ch.style.color = c;
+      ch.title = `${R.label}${set ? '' : ' (auto)'}: ${R.text}${pick ? '\nClick: change' : ''}`;
+      if (pick) ch.addEventListener('click', () => { click(); const k = ['auto', ...ROLE_IDS]; st.roles[i] = k[(k.indexOf(st.roles[i]) + 1) % k.length]; refresh(); });
+      chips.appendChild(ch);
+    });
   }
 
   let mapOk = true;
@@ -204,6 +243,7 @@ export function buildZombieSetup(d = {}, { onStart, onBack, sound } = {}) {
     onStart?.({
       ...prev, mode: 'zombies', map: map.value, allies: st.allies, difficulty: st.difficulty, skin: st.skin,
       zdiff: st.zdiff, squadScaling: st.squadScaling, breakLen: st.breakLen, hardcore: st.hardcore, tips: st.tips,
+      roles: st.roleMode === 'pick' && st.allies ? st.roles.slice(0, st.allies) : null,
     });
   }
 

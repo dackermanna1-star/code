@@ -128,6 +128,12 @@
 .fe-seg span:last-child { border-right: 0; }
 .fe-seg span:hover { color: #fff; background: rgba(255, 255, 255, 0.05); }
 .fe-seg span.on { color: #fff; background: rgba(224, 69, 43, 0.75); }
+.fe-roles { display: flex; flex-wrap: wrap; gap: calc(4 * var(--u)); }
+.fe-roles span { min-width: calc(30 * var(--u)); padding: calc(5 * var(--u)) calc(5 * var(--u)); font-size: calc(11 * var(--u)); font-weight: 800; letter-spacing: 0.06em; text-align: center; border: 1px solid var(--line); cursor: pointer; background: rgba(0, 0, 0, 0.25); }
+.fe-roles span.set { color: #160d08; }
+.fe-roles span.off { cursor: default; opacity: 0.55; }
+.fe-roles span:not(.off):hover { filter: brightness(1.25); }
+.fe-rolenote { font-size: calc(11 * var(--u)); color: var(--dim); }
 .fe-select { height: calc(32 * var(--u)); min-width: calc(200 * var(--u)); padding: 0 calc(10 * var(--u)); font: 600 calc(13 * var(--u)) var(--sans); color: var(--ink); background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--line); outline: none; border-radius: 0; }
 .fe-select option { background: #1a1214; color: var(--ink); }

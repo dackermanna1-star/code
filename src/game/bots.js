@@ -1286,7 +1286,7 @@ class Bot {
     // planting: finish it when the C4 is nearly armed
     const c4 = p.weapons[5];
     const keepPlant = this.planting && c4 && c4.startedArming && c4.armedTime - this.time < 1.2;
-    if (this.nade && fighting && this.nade.phase !== 'pull') this.nade = null;
+    if (this.nade && fighting && this.nade.phase !== 'pull' && !this.nade.fight) this.nade = null; // (zombie survival: the Demo's molotovs go into the fight - zsquad.js)
     if (g.zombies?.enabled && !this.revive && !this.heal && !this.nade) this.considerRevive(fighting); // a teammate down (zdowned.js)
     if (g.zombies?.enabled && !this.heal && !this.nade) this.considerHeal(fighting);
     if (keepPlant) {
@@ -1299,6 +1299,7 @@ class Bot {
     } else if (this.revive) this.runRevive(it, fighting);
     else if (this.heal) this.runHeal(it);
     else if (this.nade) this.runGrenade(it);
+    else if (this.zmTask && g.zombies?.enabled && g.zombies.squad.runTask(this, it, fighting)) { /* a role's job in hand (the Demo's claymores: zsquad.js) */ }
     else if (fighting) this.combat(it);
     else {
       this.mode = 'task';
@@ -1558,6 +1559,7 @@ class Bot {
     if (!w) return 'none';
     if (isBolt(w)) return 'bolt';
     if (isSniper(w)) return 'autosniper';
+    if (w.id === 'barrett') return 'autosniper'; // (zombie survival's semi-auto .50: tapped - the Marksman, zsquad.js)
     return w.def.kind;
   }
 
@@ -1827,12 +1829,13 @@ class Bot {
     if (this.zombieNear(HEAL_SAFE, 280)) return;
     // badly hurt: patch up even mid-fight while the closest one is still a second away
     if (p.health < 40 || (p.health < 60 && !fighting && this.time - this.targetSeen > 1.5)) { this.heal = { kit, target: p, phase: 'select', t: this.time }; return; }
-    if (fighting || this.time - this.targetSeen < 1.5) return;
+    const S = g.zombies.squad, at = S.healAt(this), far = S.healRange(this); // (the Medic: sooner, from farther, mid-fight too - zsquad.js)
+    if ((fighting || this.time - this.targetSeen < 1.5) && p.role !== 'medic') return;
     let best = null, bs = Infinity;
     for (const q of g.players) {
-      if (q === p || !q.alive || q.downed || q.team !== p.team || q.isZombie || q.health >= 55) continue;
+      if (q === p || !q.alive || q.downed || q.team !== p.team || q.isZombie || q.health >= at) continue;
       const d = dist3(p.pm.origin, q.pm.origin);
-      if (d > 450) continue;
+      if (d > far) continue;
       const sc = d + q.health * 4 - (q.isBot ? 0 : 400);
       if (sc < bs) { bs = sc; best = q; }
     }
@@ -1888,7 +1891,7 @@ class Bot {
       if (p.secondWind && !p.downed.by && (!this.zombieNear(220, 320) || D.left(p) < 8)) this.revive = { target: p, t: this.time };
       return;
     }
-    const q = D.reviveTarget(p, fighting ? 900 : 1800);
+    const q = D.reviveTarget(p, g.zombies.squad.reviveRange(this, fighting)); // (the Medic goes first and farther: zsquad.js)
     if (!q || this.zombieNear(reviveClear(q, 0), q.isBot ? 400 : 320)) return;
     this.takeRevive(q);
   }
@@ -2036,6 +2039,7 @@ class Bot {
     if (p.team === TEAM_T && p.weapons[5] && R.state === 'live' && !R.bomb && this.tryPlant(it)) return;
     // zombie survival: "fall back" is back to the one who called it (zorders.js)
     if (g.zombies?.enabled && this.fallback && zombieFallBack(this, it)) { this.watchDanger(it); return; }
+    if (g.zombies?.enabled && g.zombies.squad.objective(this, it)) return; // (a pinned teammate, the Hold arc, the follow slots: zsquad.js)
     // radio-driven behaviour (human teammates)
     if (this.fallback && this.time < this.fallback.until) {
       it.move = p.team === TEAM_T ? (this.K.generic ? this.K.tSpawn : this.K.routes.long.pts[1].p) : this.K.ctSpawn;

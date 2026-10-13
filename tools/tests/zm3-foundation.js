@@ -422,7 +422,7 @@
     // squad roles and Focus
     ticks(60);
     const bp = botPs();
-    check('every bot in the squad gets a role (riflemen for now; role events)', bp.length >= 2 && bp.every((q) => q.role === 'rifleman') && /Rifleman/.test(con('zm_squad')));
+    check('every bot in the squad gets a role (ROLE_ORDER first: zsquad.js; role events)', bp.length >= 2 && bp[0].role === 'gunner' && bp[1].role === 'medic' && /Gunner/.test(con('zm_squad')));
     const SQ = await import('/src/game/zsquad.js');
     check('ROLES table (gunner, medic, demo, marksman, rifleman)', ['gunner', 'medic', 'demo', 'marksman', 'rifleman'].every((r) => SQ.ROLES[r]?.label) && SQ.ROLE_ORDER.length === 4);
     let z = null;
@@ -441,7 +441,8 @@
     g.bots.onRadio(me(), ZO.FOCUS);
     const mates = g.bots.bots.filter((b) => b.p.team === 'CT' && b.p.alive);
     check('Focus target: every bot on what you aim at (order event)', !!z && mates.every((b) => b.focus?.target === z) && of('order', (x) => x.order === 'focus' && x.target === z && x.bots === mates.length).length === 1);
-    check('a focused bot rates its target 0.35, the rest 1', !!z && Z().squad.targetWeight(mates[0], z, 100) === 0.35 && Z().squad.targetWeight(mates[0], me(), 100) === 1);
+    const rifle = mates.find((b) => b.p.role !== 'gunner' && b.p.role !== 'marksman') || mates[0];
+    check('a focused bot rates its target well under the rest (0.25 for a medic / rifleman)', !!z && Z().squad.targetWeight(rifle, z, 100) === 0.25 && Z().squad.targetWeight(rifle, me(), 100) === 1);
     g.bots.onRadio(me(), 'Hold this position.');
     check('the other orders go out as order events too', of('order', (x) => x.order === 'hold').length === 1);
     const RM = await import('/src/ui/radiomenu.js');
