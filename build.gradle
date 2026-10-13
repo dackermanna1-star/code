@@ -129,5 +129,12 @@ tasks.register("runProductionClientGameTest", net.fabricmc.loom.task.prod.Client
 	mods.from(configurations.productionMods)
 	jvmArgs.add("-Dfabric.client.gametest")
 	useXVFB = true
-	runDir = layout.buildDirectory.dir("run/productionClientGameTest")
+	def dir = layout.buildDirectory.dir("run/productionClientGameTest")
+	runDir = dir
+	// The test starts a dedicated server in the run directory, which refuses to start without an accepted EULA.
+	doFirst {
+		def eula = dir.get().file("eula.txt").asFile
+		eula.parentFile.mkdirs()
+		eula.text = "eula=true\n"
+	}
 }

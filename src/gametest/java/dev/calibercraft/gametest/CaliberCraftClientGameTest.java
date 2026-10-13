@@ -43,8 +43,8 @@ public class CaliberCraftClientGameTest implements FabricClientGameTest {
 			sp.getClientWorld().waitForChunksRender();
 			sp.getServer().runCommand("time set noon");
 			sp.getServer().runCommand("weather clear");
-			sp.getServer().runCommand("gamerule doDaylightCycle false");
-			sp.getServer().runCommand("gamerule doWeatherCycle false");
+			sp.getServer().runCommand("gamerule advance_time false");
+			sp.getServer().runCommand("gamerule advance_weather false");
 			sp.getServer().runCommand("summon minecraft:zombie ~ ~ ~6 {NoAI:1b,PersistenceRequired:1b}");
 			ctx.waitTicks(20);
 
