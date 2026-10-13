@@ -19,6 +19,7 @@ import { digitSprites, layoutNumber, DIGIT_H } from './hud/digits.js';
 import { PixelSprite, scaleSprite, makeCanvas } from './hud/pixel.js';
 import { engineFontPx, engineLineHeight, spriteScale, fontString } from './hud/font.js';
 import { hudSprite, tinted, weaponIcon, ammoSpriteName } from './icons.js';
+import { drawBossBar } from './bossbar.js';
 
 export const RGB_YELLOWISH = [255, 160, 0];
 export const RGB_REDISH = [255, 16, 16];
@@ -926,24 +927,8 @@ export class Hud {
     const info = z.state === 'wave' ? `Zombies left: ${z.left}${z.extras ? ` (+${z.extras})` : ''}` : z.state === 'break' ? `Next wave in ${Math.ceil(z.next ?? 0)}` : 'GAME OVER';
     const y2 = top + Math.round(px * 1.2);
     this.text(`${info}     Kills: ${z.kills}     Best: ${z.best} wave${z.best === 1 ? '' : 's'}`, vw / 2, y2, [255, 176, 0], { align: 'center' });
-    // boss health bar
-    const b = z.boss;
-    if (!b) return;
-    const g = this.gTop;
-    const w = Math.round(Math.min(vw * 0.5, 420 * k)), h = Math.round(9 * k);
-    const x = Math.round(vw / 2 - w / 2), y = y2 + this.lineH + Math.round(4 * k);
-    const f = Math.max(0, Math.min(1, b.hp / b.hpMax));
-    const col = b.color || [220, 40, 30];
-    this.text(b.name + (b.status ? `  -  ${b.status}` : ''), vw / 2, y, col, { align: 'center' });
-    const by = y + this.lineH + Math.round(2 * k);
-    g.fillStyle = 'rgba(0,0,0,0.6)';
-    g.fillRect(x - 2, by - 2, w + 4, h + 4);
-    g.fillStyle = `rgba(${col[0] * 0.35 | 0},${col[1] * 0.35 | 0},${col[2] * 0.35 | 0},0.9)`;
-    g.fillRect(x, by, w, h);
-    g.fillStyle = `rgb(${col[0]},${col[1]},${col[2]})`;
-    g.fillRect(x, by, Math.round(w * f), h);
-    g.fillStyle = 'rgba(255,255,255,0.25)';
-    g.fillRect(x, by, Math.round(w * f), Math.max(1, Math.round(h * 0.3)));
+    // the boss block: its health, phases and posture bars, the elites' (src/ui/bossbar.js)
+    if (z.boss) drawBossBar(this, z.boss, y2 + this.lineH + Math.round(4 * k));
   }
 
   drawFps(s) {
