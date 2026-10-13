@@ -8,7 +8,11 @@
     "start": "node tools/serve.mjs 8080",
     "test": "node tools/smoke-test.mjs",
     "check": "node tools/check-info.mjs",
-    "music": "node tools/render-music.mjs assets/wads/doom1.wad D_E1M1 30 e1m1.wav"
+    "music": "node tools/render-music.mjs assets/wads/doom1.wad D_E1M1 30 e1m1.wav",
+    "build:html": "node tools/build-standalone.mjs"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
 }

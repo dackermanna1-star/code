@@ -36,7 +36,8 @@ export class MusicPlayer {
     let player = null;
     if (audioContext.audioWorklet && typeof AudioWorkletNode !== 'undefined') {
       try {
-        await audioContext.audioWorklet.addModule(new URL('./music-worklet.js', import.meta.url));
+        // The single-file build provides the worklet as a blob URL.
+        await audioContext.audioWorklet.addModule(globalThis.__DOOM_WORKLET_URL || new URL('./music-worklet.js', import.meta.url));
         const node = new AudioWorkletNode(audioContext, 'doom-music', {
           numberOfInputs: 0,
           numberOfOutputs: 1,

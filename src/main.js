@@ -40,6 +40,14 @@ function fail(err) {
 }
 
 async function fetchWad(url) {
+  // The single-file build embeds the WADs as base64.
+  const embedded = globalThis.__DOOM_WADS && globalThis.__DOOM_WADS[url];
+  if (embedded) {
+    const bin = atob(embedded);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes.buffer;
+  }
   const res = await fetch(url);
   if (!res.ok) throw new Error(`could not load ${url} (${res.status})`);
   return res.arrayBuffer();

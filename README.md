@@ -6,6 +6,10 @@ Shareware Episode 1 ("Knee-Deep in the Dead") is included and playable out of th
 
 ## Running
 
+**Single file:** `npm install && npm run build:html` writes `dist/doom.html`, a self-contained 8 MB page (code, music worklet and WADs embedded) that you can open straight from disk.
+
+**From source:**
+
 ES modules and audio worklets need an HTTP server (opening `index.html` from disk won't work):
 
 ```sh
