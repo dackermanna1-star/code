@@ -2,6 +2,7 @@
 // prices and the info-panel text shown next to the weapon picture.
 import { ATTACHMENTS, ATTACHMENT_IDS, SKINS, SKIN_IDS } from '../../game/attachments.js';
 import { SECOND_WIND } from '../../game/zdowned.js';
+import { ROUNDS, ROUND_IDS } from '../../game/zforge.js';
 
 export const CATEGORIES = [
   { key: 1, id: 'pistol', label: 'Handgun' },
@@ -15,7 +16,11 @@ export const CATEGORIES = [
   { key: 9, id: 'upgrade', label: 'Upgrades & Skins', zombieOnly: true }, // zombie survival: for the gun in hand
 ];
 // pages reached from inside another page (no key on the main page)
-export const SUBPAGES = { skins: { id: 'skins', label: 'Weapon Skins', parent: 'upgrade' } };
+export const SUBPAGES = {
+  skins: { id: 'skins', label: 'Weapon Skins', parent: 'upgrade' },
+  forge: { id: 'forge', label: 'Weapon Forge', parent: 'upgrade', forge: true }, // (zforge.js: the title names the gun and its tier)
+  forgerounds: { id: 'forgerounds', label: 'Elemental Rounds', parent: 'forge', forge: true },
+};
 
 // item order per category and team (index + 1 = number key)
 // ALL: zombie survival sells both teams' guns (the auto-snipers move to the MG page so
@@ -31,9 +36,21 @@ export const MENU = {
     CT: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'defuser', 'nvgs'],
     ALL: ['vest', 'vesthelm', 'flashbang', 'hegrenade', 'smokegrenade', 'molotov', 'medkit', 'claymore', 'remotec4'],
   },
-  upgrade: { ALL: [...ATTACHMENT_IDS.map((a) => 'att_' + a), SECOND_WIND.id, 'skins'] },
+  upgrade: { ALL: [...ATTACHMENT_IDS.map((a) => 'att_' + a), SECOND_WIND.id, 'skins', 'forge'] },
   skins: { ALL: SKIN_IDS.map((k) => 'skin_' + k) },
+  forge: { ALL: ['tier_1', 'tier_2', 'tier_3', 'tier_4', 'tier_5', 'forgerounds'] },
+  forgerounds: { ALL: ROUND_IDS.map((r) => 'round_' + r) },
 };
+
+// the forge's tiers (game/attachments.js TIERS: the numbers for your gun are in the info panel)
+const FORGE_TEXT = [
+  '',
+  'Tier I: the barrel trued and the action polished. A little more damage, a few more rounds, a quicker reload.',
+  'Tier II: bronze-banded and re-chambered. More damage, a bigger magazine, faster reloads.',
+  'Tier III: forged steel. Hits much harder, and from here the gun takes Elemental Rounds.',
+  'Tier IV: gilded and hand-fitted. Heavy damage, a big magazine, fast reloads.',
+  'Tier V: obsidian with molten seams. The most the forge can do: pistols hit like rifles.',
+];
 
 // name, price and the classic VGUI info text
 // [price, origin, caliber, clip, rate, weight, projectile, velocity, energy]
@@ -88,6 +105,11 @@ export const ITEMS = {
   ...Object.fromEntries(SKIN_IDS.map((k) => ['skin_' + k, { name: SKINS[k].name, price: SKINS[k].price, text: SKINS[k].text, skin: k, upgrade: true }])),
   skins: { name: 'Weapon Skins...', price: null, page: 'skins', text: 'Paint jobs for the weapon in your hands.' },
   [SECOND_WIND.id]: { name: SECOND_WIND.name, price: SECOND_WIND.price, text: SECOND_WIND.text, upgrade: true }, // a perk (zdowned.js; "owned" from attachments.js menuState)
+  // the weapon forge (game/zforge.js; prices by the gun: the menu state has them; skin: the info panel's swatch, vm/attach.js)
+  forge: { name: 'Weapon Forge...', price: null, page: 'forge', text: 'Forge the gun in your hands up through Tiers I-V: more damage, a bigger magazine, faster reloads, and a finish to show for it. From Tier III it takes a round type.' },
+  ...Object.fromEntries([1, 2, 3, 4, 5].map((n) => [`tier_${n}`, { name: `Forge Tier ${['', 'I', 'II', 'III', 'IV', 'V'][n]}`, price: null, upgrade: true, skin: `forge${n}`, text: FORGE_TEXT[n] }])),
+  forgerounds: { name: 'Elemental Rounds...', price: null, page: 'forgerounds', text: 'Load a Tier III+ gun with Incendiary, Shock, Cryo, Explosive or Vampiric rounds: some of its hits burn, arc, freeze, blow up or drain. Fast-firing guns proc less often a round, slow heavy ones more.' },
+  ...Object.fromEntries(ROUND_IDS.map((r) => [`round_${r}`, { name: ROUNDS[r].name, price: null, upgrade: true, skin: `round_${r}`, text: ROUNDS[r].text }])),
 };
 
 // equipment pictures in the info panel reuse the HUD / kill icons

@@ -163,8 +163,9 @@ export class FireSystem {
         const scale = q.boss ? q.boss.scale : 1;
         if (Math.hypot(px, py, pz) > 16 * scale + along * 0.2) continue;
         if (along > 60 && !g.visible(eye, o)) continue;
-        this.hurt(q, p, 7, 'flamethrower', 'fire');
-        this.burn(q, p, 3, 16, 'flamethrower');
+        const k = p.active?.mods?.damage ?? 1; // (the forge's tier: zforge.js)
+        this.hurt(q, p, 7 * k, 'flamethrower', 'fire');
+        this.burn(q, p, 3, 16 * k, 'flamethrower');
       }
     }
     if (!p.flameSound) {

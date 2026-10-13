@@ -682,7 +682,7 @@ export class Menus {
     };
     const openCat = (c) => {
       state.page = c.id;
-      const on = c.id === 'upgrade' || c.id === 'skins' ? upgradeTarget?.(c.id === 'skins') : null;
+      const on = c.id === 'upgrade' || c.id === 'skins' || c.forge ? upgradeTarget?.(c.forge ? 'forge' : c.id === 'skins') : null; // (the forge: its gun and tier)
       title.textContent = c.label.toUpperCase() + (on ? ` - ${on.toUpperCase()}` : '');
       col.textContent = '';
       const ids = itemsFor(c.id, team);

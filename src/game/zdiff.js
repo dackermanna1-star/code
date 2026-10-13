@@ -195,13 +195,15 @@ const PERKS = {
 
 /**
  * Weapon forge (zforge.js): priceK (x every forge price), tiers (the top tier), roundFrom (the
- * tier a round type fits from), procK (x the elemental rounds' proc rates).
+ * tier a round type fits from), procK (x the elemental rounds' proc rates), leech (HP a second
+ * Vampiric rounds can give back at most), botTier (the tier bots forge their main gun up to;
+ * from roundFrom they load a round too).
  */
 const FORGE = {
-  casual: { priceK: 0.8, tiers: 5, roundFrom: 3, procK: 1.2 },
-  normal: { priceK: 1, tiers: 5, roundFrom: 3, procK: 1 },
-  hard: { priceK: 1.15, tiers: 5, roundFrom: 3, procK: 0.9 },
-  nightmare: { priceK: 1.3, tiers: 5, roundFrom: 3, procK: 0.8 },
+  casual: { priceK: 0.8, tiers: 5, roundFrom: 3, procK: 1.2, leech: 10, botTier: 3 },
+  normal: { priceK: 1, tiers: 5, roundFrom: 3, procK: 1, leech: 8, botTier: 2 },
+  hard: { priceK: 1.15, tiers: 5, roundFrom: 3, procK: 0.9, leech: 6, botTier: 2 },
+  nightmare: { priceK: 1.3, tiers: 5, roundFrom: 3, procK: 0.8, leech: 5, botTier: 1 },
 };
 
 /**

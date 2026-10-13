@@ -88,6 +88,7 @@ export function refresh(w) {
   if (has('laser')) { m.laser = true; m.hip = 0.7; }
   if (has('reddot')) { m.optic = true; m.spread *= 0.85; }
   if (has('extmag') && w.def.clip > 0) m.clip = Math.round(w.def.clip * 1.5);
+  forgeFold(w, m); // (the forge's tier and round: zforge.js)
   w.mods = m;
   w.clipMax = m.clip;
   w.zmRev = -1; // (its holder's magazine perks fold in again: zmods.js weapon)
@@ -154,8 +155,57 @@ export function menuState(p, item) {
   return { off: false, note: null };
 }
 
-/** Name of the weapon the upgrades page works on (title of the page). */
+/** Name of the weapon the upgrades page works on (title of the page; skins 'forge': the forge's gun and its tier). */
 export function targetName(p, skins = false) {
+  if (skins === 'forge') { const f = forgeTarget(p); return f ? `${WS.WEAPON_DEFS[f.id]?.shortName || f.def.name}${f.tier ? ` (Tier ${TIER_NAMES[f.tier]})` : ''}` : null; }
   const w = skins ? skinTarget(p) : upgradeTarget(p);
   return w ? (WS.WEAPON_DEFS[w.id]?.shortName || w.def.name) : null;
+}
+
+// ------------------------------------------------------------------ the forge's tables (zforge.js sells them)
+// Tiers I-V (w.tier) fold into the weapon layer here: damage, magazine, reload and draw time.
+// Each row is the factor at tier 0..5; a kind takes a share of the damage / magazine gain
+// (pistols the most: a Tier V Deagle stays viable at wave 25; machine guns and launchers less,
+// they hit hard already). From Tier III (diff.forge.roundFrom) a gun takes one round type
+// (w.round: zforge.js ROUNDS); the round changes no stat, it procs on hits.
+export const TIER_NAMES = ['', 'I', 'II', 'III', 'IV', 'V'];
+export const TIERS = {
+  damage: [1, 1.12, 1.26, 1.42, 1.6, 1.8],
+  clip: [1, 1.1, 1.2, 1.32, 1.45, 1.6],
+  reload: [1, 0.93, 0.86, 0.8, 0.74, 0.68], // (time multipliers)
+  handling: [1, 0.96, 0.92, 0.88, 0.84, 0.8],
+};
+// share of the damage / magazine gain by kind (an id overrides its kind)
+const TIER_DMG = { pistol: 1.5, smg: 1.2, shotgun: 1, rifle: 1, sniper: 1, mg: 0.75, flame: 0.8, launcher: 0.6, saw: 1, tesla: 0.75, minigun: 0.6, aa12: 0.8, barrett: 0.8, elite: 1.2 };
+const TIER_CLIP = { launcher: 0.5, mg: 0.75, flame: 0.75, saw: 0.75, tesla: 0.75 };
+/** Kinds the forge takes (the specials too: their damage reads w.mods.damage); rounds go in bullet guns only (GUN_KINDS). */
+const FORGE_KINDS = new Set([...GUN_KINDS, 'flame', 'launcher', 'saw', 'tesla']);
+export const canForge = (w) => !!w && FORGE_KINDS.has(w.def.kind);
+export const canRound = (w) => isGun(w);
+
+/** The tier-n factors for weapon w (a fresh object: menus and the forge's text, not per shot). */
+export function tierStats(w, n) {
+  const k = TIER_DMG[w.id] ?? TIER_DMG[w.def.kind] ?? 1, c = TIER_CLIP[w.id] ?? TIER_CLIP[w.def.kind] ?? 1;
+  n = Math.max(0, Math.min(5, n | 0));
+  return {
+    damage: 1 + (TIERS.damage[n] - 1) * k,
+    clip: w.def.clip > 0 ? Math.max(w.def.clip, Math.round(w.def.clip * (1 + (TIERS.clip[n] - 1) * c))) / w.def.clip : 1,
+    reload: TIERS.reload[n], handling: TIERS.handling[n],
+  };
+}
+
+/** refresh(): the tier's factors on top of the attachments (m.tier / m.round for the readers). */
+function forgeFold(w, m) {
+  const n = w.tier | 0;
+  m.tier = n; m.round = (n && w.round) || null;
+  if (!n) return;
+  const T = tierStats(w, n);
+  m.damage *= T.damage; m.reload *= T.reload; m.handling *= T.handling;
+  if (w.def.clip > 0) m.clip = Math.max(1, Math.round(m.clip * T.clip));
+}
+
+/** The weapon the forge works on: the gun (or special weapon) in hand, else the primary, else the pistol. */
+export function forgeTarget(p) {
+  if (canForge(p.active)) return p.active;
+  return [p.weapons[1], p.weapons[2]].find(canForge) || null;
 }

@@ -354,7 +354,7 @@ export class Game {
       this.vmCache.set(key, vm);
     }
     if (vm.setSilencer) vm.setSilencer(!!w.silenced);
-    vm.setLoadout?.(w.att, w.skin); // zombie survival upgrades
+    vm.setLoadout?.(w.att, w.skin, w.tier, w.round); // zombie survival upgrades (and the forge's tier paint)
     vm.ads = 0;
     r.vmScene.add(vm.object3D);
     this.vm = vm;
@@ -362,7 +362,7 @@ export class Game {
 
   /** Attachments / skin on w changed (attachments.js). */
   onLoadoutChanged(p, w) {
-    if (p === this.viewTarget && p.active === w && this.vm) this.vm.setLoadout?.(w.att, w.skin);
+    if (p === this.viewTarget && p.active === w && this.vm) this.vm.setLoadout?.(w.att, w.skin, w.tier, w.round);
   }
 
   /** Aim down a red-dot sight (zombie survival): 1.3x zoom, tighter, steadier. */
@@ -1327,7 +1327,7 @@ export class Game {
       if (dist > d.reach + 18 * sc || (v[0] * _f[0] + v[1] * _f[1] + v[2] * _f[2]) / dist < 0.55 || !this.visible(e, c)) continue;
       const k = Math.min(dist - 8, d.reach);
       const pt = [e[0] + _f[0] * k, e[1] + _f[1] * k, e[2] + _f[2] * k - 6];
-      this.damagePlayer(q, p, d.damage, CR.HITGROUP.CHEST, 'chainsaw', _f.slice(), pt);
+      this.damagePlayer(q, p, d.damage * (w.mods?.damage ?? 1), CR.HITGROUP.CHEST, 'chainsaw', _f.slice(), pt); // (x the forge's tier: zforge.js)
       if (this.zombies.enabled && q.alive) this.zombies.stagger(q, 1, null, 'chainsaw', p); // held while it cuts (zstagger.js)
       this.effects.blood?.(pt, [_f[0], _f[1], 0.4], 45, {});
       cut = pt;
@@ -1383,7 +1383,7 @@ export class Game {
       return;
     }
     const hitList = new Set();
-    let from = start, cur = first, dmg = d.damage;
+    let from = start, cur = first, dmg = d.damage * (w.mods?.damage ?? 1); // (x the forge's tier: zforge.js)
     for (let i = 0; i < d.chain && cur; i++) {
       const c = center(cur);
       this.arcs.bolt(from, c, cam, i ? 0.22 : 0.16);

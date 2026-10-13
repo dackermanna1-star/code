@@ -658,6 +658,7 @@ export class ZombieMode {
    * posed every POSE_STEP s. Scoped in, everything is posed every frame.
    */
   modelDt(z, dt) {
+    if (z.fgFrozen > this.game.time) { z.poseDt = 0; return 0; } // frozen solid (Cryo rounds, zforge.js): the pose holds
     const acc = (z.poseDt || 0) + dt, cam = this.game.camPos, c = this.game.renderer?.camera;
     z.poseDt = 0;
     if (!this.lod || !z.alive || z.isBoss || !cam || !c || acc >= POSE_STEP || (this.game.local?.fov ?? 90) < 90) return acc;
