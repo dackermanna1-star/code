@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import net.abyssaldescent.AbyssalDescent;
+import net.abyssaldescent.dungeon.zone.Zone;
 import net.fabricmc.loader.api.FabricLoader;
 
 /**
@@ -96,6 +97,14 @@ public final class AdConfig {
 			items.weaponDamageMultiplier = clamp(items.weaponDamageMultiplier, 0.1, 10);
 			items.procChanceMultiplier = clamp(items.procChanceMultiplier, 0, 10);
 			loot.rarityShiftPerFloor = clamp(loot.rarityShiftPerFloor, 0, 1);
+			if (loot.coinsPerEnemy == null || loot.coinsPerEnemy.length != 2) {
+				loot.coinsPerEnemy = new int[] {0, 2};
+			}
+			int coinsMin = (int) clamp(loot.coinsPerEnemy[0], 0, 64);
+			int coinsMax = (int) clamp(loot.coinsPerEnemy[1], 0, 64);
+			loot.coinsPerEnemy = new int[] {Math.min(coinsMin, coinsMax), Math.max(coinsMin, coinsMax)};
+			rules.maxFloor = (int) clamp(rules.maxFloor, 1, Zone.MAX_FLOOR);
+			rules.gatePartyRadius = clamp(rules.gatePartyRadius, 1, 32);
 			client.cameraShakeScale = clamp(client.cameraShakeScale, 0, 2);
 			client.particleDensity = clamp(client.particleDensity, 0, 2);
 		}

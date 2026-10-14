@@ -86,7 +86,7 @@ public final class AbyssalCommands {
 			player.sendSystemMessage(Component.translatable("message.abyssal_descent.gate.already_in_run"));
 			return 0;
 		}
-		if (floor > Zone.deepestImplementedFloor()) {
+		if (floor > RunManager.deepestReachableFloor()) {
 			player.sendSystemMessage(Component.translatable("message.abyssal_descent.sealed_below", Zone.forFloor(floor).displayName()));
 			return 0;
 		}
@@ -97,7 +97,7 @@ public final class AbyssalCommands {
 	private static int floor(ServerPlayer player, int floor) {
 		RunManager manager = RunManager.get(player.level().getServer());
 		DungeonRun run = manager.runOf(player);
-		if (run == null || floor > Zone.deepestImplementedFloor()) {
+		if (run == null || floor > RunManager.deepestReachableFloor()) {
 			return 0;
 		}
 		manager.enterFloor(run, floor);

@@ -376,7 +376,7 @@ public final class RunManager extends SavedData {
 		for (int i = 0; i < movers.size(); i++) {
 			ServerPlayer p = movers.get(i);
 			double angle = i / (double) Math.max(1, movers.size()) * Math.PI * 2;
-			double offset = movers.size() > 1 ? 1.4 : 0.0;
+			double offset = movers.size() > 1 ? FloorLayout.ARRIVAL_RADIUS : 0.0;
 			Vec3 target = new Vec3(spawn.getX() + 0.5 + Math.cos(angle) * offset, spawn.getY(), spawn.getZ() + 0.5 + Math.sin(angle) * offset);
 			teleport(p, dungeon, target, 180.0F);
 			p.fallDistance = 0;

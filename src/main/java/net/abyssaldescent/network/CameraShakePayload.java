@@ -26,6 +26,9 @@ public record CameraShakePayload(float intensity, int duration) implements Custo
 	}
 
 	public static void send(ServerLevel level, Vec3 at, double radius, float intensity, int duration) {
+		if (radius <= 0) {
+			return;
+		}
 		for (ServerPlayer player : PlayerLookup.around(level, at, radius)) {
 			float falloff = (float) (1.0 - player.position().distanceTo(at) / radius);
 			ServerPlayNetworking.send(player, new CameraShakePayload(intensity * Math.max(0.2F, falloff), duration));

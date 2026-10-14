@@ -53,7 +53,7 @@
   "effect_desc.abyssal_descent.soul_flare.name": "Soul Flare",
   "effect_desc.abyssal_descent.soul_flare": "Fully charged hits have a %s%% chance to erupt in soul fire, dealing %s damage to nearby foes.",
   "effect_desc.abyssal_descent.chain_lightning.name": "Stormcall",
-  "effect_desc.abyssal_descent.chain_lightning": "Fully charged hits have a %s%% chance to arc lightning through up to %s more foes for %s damage.",
+  "effect_desc.abyssal_descent.chain_lightning": "Fully charged hits have a %s%% chance to arc lightning through up to %s more foes for %s damage, %s%% less with each jump after the first.",
   "effect_desc.abyssal_descent.grave_slam.name": "Grave Slam",
   "effect_desc.abyssal_descent.grave_slam": "Falling critical hits send out a shockwave dealing %s damage within %s blocks.",
   "effect_desc.abyssal_descent.soulreaver.name": "Soulreaver",
@@ -292,6 +292,9 @@
   "message.abyssal_descent.run_lost": "Your expedition ended while you were away. You have been returned to the surface.",
   "message.abyssal_descent.abandoned": "You left the depths without a waystone. Your expedition is over and your unsecured loot is lost.",
   "message.abyssal_descent.protected": "The dungeon's stones resist you.",
+  "message.abyssal_descent.rift_home": "No deeper floor is open on this server. Returning to the surface in %s...",
+  "message.abyssal_descent.boss_reset": "The guardian returns to its throne, and the arena's seals fade.",
+  "message.abyssal_descent.expelled": "You are not on an expedition. The depths have returned you to the surface.",
   "command.abyssal_descent.stats.header": "Abyssal Descent: Your Record",
   "command.abyssal_descent.stats.line": "Expeditions: %s  Deepest floor: %s  Guardians slain: %s  Extractions: %s  Defeats: %s",
   "command.abyssal_descent.stats.checkpoints": "Starting floors: %s",
@@ -344,5 +347,6 @@
   "subtitles.abyssal_descent.entity.crypt_ghoul.leap": "Crypt Ghoul leaps",
   "subtitles.abyssal_descent.entity.barrow_knight.swing": "Barrow Knight swings",
   "subtitles.abyssal_descent.entity.soul_bolt.hit": "Soul bolt bursts",
-  "subtitles.abyssal_descent.music.boss_sting": "Ominous sting"
+  "subtitles.abyssal_descent.music.boss_sting": "Ominous sting",
+  "subtitles.abyssal_descent.ambient.forgotten_halls.additions": "The crypt stirs"
 }

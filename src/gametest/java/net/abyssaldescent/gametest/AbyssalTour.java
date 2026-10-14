@@ -109,7 +109,20 @@ public final class AbyssalTour implements FabricClientGameTest {
 			context.takeScreenshot("abyssal_07_throne_room");
 			log("before waking", bossState(server));
 
-			// Crossing the threshold wakes the Warden: title card, boss bar and intro roar.
+			// A fight nobody is left in is called off: wake the Warden, leave the arena, and it returns to its throne.
+			tp(server, boss.arenaInside, boss.arenaYaw, 4);
+			context.waitTicks(40);
+			check(bossState(server).contains("bossStarted=true"), "the Warden should wake when the arena is entered");
+			tp(server, boss.antechamber, boss.arenaYaw, 4);
+			String reset = "";
+			for (int i = 0; i < 30 && !(reset = bossState(server)).contains("bossStarted=false"); i++) {
+				context.waitTicks(20);
+			}
+			log("after leaving the arena", reset);
+			check(reset.contains("dormant=true") && reset.contains("bossStarted=false") && reset.contains("hp=320.0/320.0"),
+				"an abandoned boss fight should reset to a dormant, fully healed Warden: " + reset);
+
+			// Crossing the threshold again wakes the Warden: title card, boss bar and intro roar.
 			tp(server, boss.arenaInside, boss.arenaYaw, 4);
 			context.waitTicks(30);
 			faceBoss(server);
@@ -157,11 +170,10 @@ public final class AbyssalTour implements FabricClientGameTest {
 			Inventory beforeExtract = server.computeOnServer(AbyssalTour::inventory);
 			log("before extraction", beforeExtract.toString());
 			check(beforeExtract.unsecured > 0, "expected unsecured loot before extracting, got " + beforeExtract);
-			server.runOnServer(s -> {
-				ServerPlayer player = s.getPlayerList().getPlayers().get(0);
-				RunManager.get(s).useWaystone(player); // first use asks for confirmation
-				RunManager.get(s).useWaystone(player);
-			});
+			// Two separate presses: the first asks for confirmation, a held key does not confirm.
+			server.runOnServer(s -> RunManager.get(s).useWaystone(s.getPlayerList().getPlayers().get(0)));
+			context.waitTicks(15);
+			server.runOnServer(s -> RunManager.get(s).useWaystone(s.getPlayerList().getPlayers().get(0)));
 			context.waitTicks(40);
 			world.getClientWorld().waitForChunksRender();
 			Inventory afterExtract = server.computeOnServer(AbyssalTour::inventory);
@@ -313,7 +325,7 @@ public final class AbyssalTour implements FabricClientGameTest {
 	}
 
 	record Spots(Vec3 lineupEye, float lineupYaw, Vec3 lineupStart, Vec3 lineupStep, @Nullable Vec3 treasure, float treasureYaw, Vec3 combat,
-		float combatYaw, @Nullable Vec3 arenaEntry, @Nullable Vec3 arenaInside, float arenaYaw) {
+		float combatYaw, @Nullable Vec3 arenaEntry, @Nullable Vec3 arenaInside, @Nullable Vec3 antechamber, float arenaYaw) {
 	}
 
 	private static Spots findSpots(MinecraftServer server) {
@@ -361,6 +373,7 @@ public final class AbyssalTour implements FabricClientGameTest {
 
 		Vec3 arenaEntry = null;
 		Vec3 arenaInside = null;
+		Vec3 antechamber = null;
 		float arenaYaw = 0;
 		for (Room room : layout.rooms()) {
 			if (room.type() != RoomType.BOSS_ARENA) {
@@ -371,9 +384,10 @@ public final class AbyssalTour implements FabricClientGameTest {
 			Doorway door = entrance(layout, room);
 			arenaEntry = inside(door, 1.0, room.floorY());
 			arenaInside = inside(door, 6.0, room.floorY());
+			antechamber = inside(door, -3.0, room.floorY());
 			arenaYaw = yawToward(arenaEntry, target);
 		}
-		return new Spots(eye, lineYaw, lineStart, step, treasure, treasureYaw, combatPos, combatYaw, arenaEntry, arenaInside, arenaYaw);
+		return new Spots(eye, lineYaw, lineStart, step, treasure, treasureYaw, combatPos, combatYaw, arenaEntry, arenaInside, antechamber, arenaYaw);
 	}
 
 	private static int area(Room room) {

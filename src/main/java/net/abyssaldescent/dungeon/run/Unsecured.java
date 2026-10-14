@@ -111,7 +111,8 @@ public final class Unsecured {
 
 	/** The inventory and the 2x2 crafting grid, which keeps its items while the inventory screen is open. */
 	private static List<Container> containers(Player player) {
-		return List.of(player.getInventory(), player.inventoryMenu.getCraftSlots());
+		// The ender chest counts: loot stashed there mid-run is still unsecured and shares the run's fate.
+		return List.of(player.getInventory(), player.inventoryMenu.getCraftSlots(), player.getEnderChestInventory());
 	}
 
 	/** Menus whose cursor can hold a stack: the open one and, if that is another menu, the inventory's own. */

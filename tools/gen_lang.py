@@ -56,7 +56,7 @@ EFFECTS = {
     "sunder": ("Sunder", "+%s damage per point of the target's armor, up to +%s."),
     "bleed": ("Rend", "Critical hits make the target bleed for %s seconds."),
     "soul_flare": ("Soul Flare", "Fully charged hits have a %s%% chance to erupt in soul fire, dealing %s damage to nearby foes."),
-    "chain_lightning": ("Stormcall", "Fully charged hits have a %s%% chance to arc lightning through up to %s more foes for %s damage."),
+    "chain_lightning": ("Stormcall", "Fully charged hits have a %s%% chance to arc lightning through up to %s more foes for %s damage, %s%% less with each jump after the first."),
     "grave_slam": ("Grave Slam", "Falling critical hits send out a shockwave dealing %s damage within %s blocks."),
     "soulreaver": ("Soulreaver", "Fully charged critical hits loose a wave of soul fire, dealing %s damage along a %s-block line."),
     "reap_souls": ("Reap Souls", "Kills draw the victim's soul into you, restoring %s health."),
@@ -289,6 +289,9 @@ M = {
     "run_lost": "Your expedition ended while you were away. You have been returned to the surface.",
     "abandoned": "You left the depths without a waystone. Your expedition is over and your unsecured loot is lost.",
     "protected": "The dungeon's stones resist you.",
+    "rift_home": "No deeper floor is open on this server. Returning to the surface in %s...",
+    "boss_reset": "The guardian returns to its throne, and the arena's seals fade.",
+    "expelled": "You are not on an expedition. The depths have returned you to the surface.",
 }
 for key, text in M.items():
     put(f"message.{NS}.{key}", text)
@@ -354,6 +357,7 @@ SUBTITLES = {
     "entity.barrow_knight.swing": "Barrow Knight swings",
     "entity.soul_bolt.hit": "Soul bolt bursts",
     "music.boss_sting": "Ominous sting",
+    "ambient.forgotten_halls.additions": "The crypt stirs",
 }
 for sid, text in SUBTITLES.items():
     put(f"subtitles.{NS}.{sid}", text)
