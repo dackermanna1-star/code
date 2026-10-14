@@ -1,14 +1,16 @@
 // Zombie survival difficulty: one table every tuning knob of the mode reads.
 // A preset = { id, label, blurb, sandbox, breakLen, firstBreak, econ, horde, specials, squad,
-// from Milestone 2 stagger, shove, ai, director, roster, combo, and from Milestone 3 perks,
-// forge, roles, boss, drops }.
+// from Milestone 2 stagger, shove, ai, director, roster, combo, from Milestone 3 perks,
+// forge, roles, boss, drops, and from Milestone 4 atmos, fortify, objectives, meta }.
 // The groups are kept as separate tables below, one per owner, so each can be tuned on its
 // own: econ (money and buying), horde (waveStats), specials (how often and how many),
 // squad (downed / revive). NORMAL's horde and specials are the mode's tuned curve, sized
 // to the squad (waveStats); the other presets scale from it. Sandbox plays
 // Normal's horde, specials and squad rules (only its economy differs).
 // The New Game options (zombieOptions) pick a preset and adjust it (resolveDiff): the result
-// is g.zombies.diff, read-only for everyone (copy before changing anything).
+// is g.zombies.diff, read-only for everyone (copy before changing anything). Milestone 4 adds
+// two run options that aren't presets: how the run ends (ENDINGS: Extraction at wave 15 / 20 /
+// 25, or Endless) and the time of day it starts at (DAYTIMES): diff.ending, diff.daytime.
 
 export const ZDIFF_ORDER = ['casual', 'normal', 'hard', 'nightmare', 'sandbox'];
 export const DEFAULT_ZDIFF = 'normal';
@@ -238,12 +240,16 @@ const ROLES = {
  * while it kneels), phases (health fractions that add a move), botShare (a bot's share of a
  * shooter in its health: 0.3 before M3's role guns and perks), elitesFrom (first wave with an
  * elite: odd waves only), eliteChance (an odd wave brings one), eliteHp (x an elite's health).
+ * Milestone 4 (owner: horde; m4-contracts): count ([[fromWave, bosses], ...]: a boss wave from
+ * fromWave brings that many at once - 1 before the first row; bosses.countFor reads it) and
+ * multiHp (x each boss's health when more than one comes: together they're a bigger fight,
+ * each one no tankier). Scaffold: bosses.spawnSet still brings one (the horde builder's).
  */
 const BOSS = {
-  casual: { hpWave: [0.7, 0.1], heal: 100, armor: 100, relics: 3, posture: 1.3, kneel: 3.5, kneelK: 2, phases: [0.66, 0.33], botShare: 0.4, elitesFrom: 9, eliteChance: 0.25, eliteHp: 1.6 },
-  normal: { hpWave: [0.8, 0.1], heal: 50, armor: 50, relics: 2, posture: 1, kneel: 3, kneelK: 2, phases: [0.66, 0.33], botShare: 0.45, elitesFrom: 7, eliteChance: 0.35, eliteHp: 2 },
-  hard: { hpWave: [0.9, 0.11], heal: 40, armor: 25, relics: 2, posture: 0.85, kneel: 2.5, kneelK: 2, phases: [0.66, 0.33], botShare: 0.5, elitesFrom: 5, eliteChance: 0.5, eliteHp: 2.3 },
-  nightmare: { hpWave: [1, 0.12], heal: 30, armor: 0, relics: 2, posture: 0.7, kneel: 2.2, kneelK: 2, phases: [0.75, 0.5, 0.25], botShare: 0.5, elitesFrom: 3, eliteChance: 0.65, eliteHp: 2.6 },
+  casual: { hpWave: [0.7, 0.1], heal: 100, armor: 100, relics: 3, posture: 1.3, kneel: 3.5, kneelK: 2, phases: [0.66, 0.33], botShare: 0.4, elitesFrom: 9, eliteChance: 0.25, eliteHp: 1.6, count: [[20, 2], [45, 3]], multiHp: 0.55 },
+  normal: { hpWave: [0.8, 0.1], heal: 50, armor: 50, relics: 2, posture: 1, kneel: 3, kneelK: 2, phases: [0.66, 0.33], botShare: 0.45, elitesFrom: 7, eliteChance: 0.35, eliteHp: 2, count: [[15, 2], [35, 3]], multiHp: 0.6 },
+  hard: { hpWave: [0.9, 0.11], heal: 40, armor: 25, relics: 2, posture: 0.85, kneel: 2.5, kneelK: 2, phases: [0.66, 0.33], botShare: 0.5, elitesFrom: 5, eliteChance: 0.5, eliteHp: 2.3, count: [[10, 2], [25, 3]], multiHp: 0.65 },
+  nightmare: { hpWave: [1, 0.12], heal: 30, armor: 0, relics: 2, posture: 0.7, kneel: 2.2, kneelK: 2, phases: [0.75, 0.5, 0.25], botShare: 0.5, elitesFrom: 3, eliteChance: 0.65, eliteHp: 2.6, count: [[10, 2], [20, 3]], multiHp: 0.7 },
 };
 
 /**
@@ -264,6 +270,98 @@ const DROPS = {
   nightmare: { budget: [3, 0.3], chance: 0.1, powerup: 0.05, pity: 0.01, life: 20, powerupSecs: 12, airdropFrom: 6, airdropChance: 0.3, crateLife: 25, vial: 15, cash: 1.2, nukePay: 200, fireSale: 0.7, floor: 8 },
 };
 
+// ---------------------------------------------------------------- Milestone 4 ("a night worth remembering")
+// One table per builder again (m4-contracts): only the owner edits it, one preset per line;
+// Sandbox plays Normal's rows. Scaffold defaults: nothing reads them until their builder
+// lands (bar objectives.from / every / order, which objectives.js plans the run with). The
+// horde builder's boss count is in BOSS above; the music has no table (a volume setting).
+
+/**
+ * Atmosphere (atmos.js; owner: atmos): dusk (the atmos level a "Dusk to night" run starts at:
+ * 0 = day, the map as baked; 0.5 dusk; 1 night), nightFrom / nightFull (the wave night starts
+ * falling, and the wave it is full night, in a "Dusk to night" run; a "Night" run is night
+ * from the start, a "Day" run never darkens: diff.daytime), fog (x the haze density atmos
+ * tunes for zombie mode - readability first: a zombie must read at 1200 u on Normal),
+ * blackoutFrom (first wave that may be a Blackout wave), blackoutChance (a non-boss wave from
+ * there is one), flash (s of flashlight battery), flashRecharge (battery back a second while
+ * it's off, fraction of full), nvg / nvgRecharge (the same for the $1250 NVGs).
+ */
+const ATMOS = {
+  casual: { dusk: 0.5, nightFrom: 10, nightFull: 18, fog: 0.8, blackoutFrom: 12, blackoutChance: 0.1, flash: 120, flashRecharge: 0.08, nvg: 90, nvgRecharge: 0.06 },
+  normal: { dusk: 0.5, nightFrom: 8, nightFull: 14, fog: 1, blackoutFrom: 9, blackoutChance: 0.15, flash: 90, flashRecharge: 0.06, nvg: 60, nvgRecharge: 0.05 },
+  hard: { dusk: 0.55, nightFrom: 6, nightFull: 12, fog: 1.15, blackoutFrom: 7, blackoutChance: 0.2, flash: 75, flashRecharge: 0.05, nvg: 50, nvgRecharge: 0.04 },
+  nightmare: { dusk: 0.6, nightFrom: 4, nightFull: 10, fog: 1.3, blackoutFrom: 5, blackoutChance: 0.25, flash: 60, flashRecharge: 0.04, nvg: 40, nvgRecharge: 0.035 },
+};
+
+/**
+ * Fortify (fortify.js; owner: fortify): barricades (most standing at once: world.dynamic
+ * boxes), barricadeCost ($ to board a doorway up: breaks only, a deploy_ item), barricadeHp (a
+ * fresh one's health), clawHit (health a zombie's blow takes off it), repairRate (health a
+ * second of holding E puts back), repairPay ($ for every repairStep health put back: repairs
+ * pay), crateCost ($: an ammo crate for the squad) with crateUses (refills in it), trapCost ($ to
+ * arm one of dust2's traps for a wave) and trapCooldown (s before it can be armed again), cost
+ * (what a path through a standing barricade pays in the flow field: horde.addBlocker - they go
+ * round when there's another way, and bash through when there isn't), breach (s a crowd at a
+ * barricade needs at most to break in, whatever its health).
+ */
+const FORTIFY = {
+  casual: { barricades: 12, barricadeCost: 300, barricadeHp: 900, clawHit: 25, repairRate: 120, repairPay: 15, repairStep: 100, crateCost: 600, crateUses: 6, trapCost: 500, trapCooldown: 30, cost: 1200, breach: 30 },
+  normal: { barricades: 12, barricadeCost: 400, barricadeHp: 800, clawHit: 30, repairRate: 100, repairPay: 10, repairStep: 100, crateCost: 750, crateUses: 5, trapCost: 650, trapCooldown: 35, cost: 1200, breach: 25 },
+  hard: { barricades: 10, barricadeCost: 450, barricadeHp: 700, clawHit: 35, repairRate: 90, repairPay: 10, repairStep: 100, crateCost: 850, crateUses: 4, trapCost: 750, trapCooldown: 40, cost: 1000, breach: 20 },
+  nightmare: { barricades: 8, barricadeCost: 500, barricadeHp: 600, clawHit: 40, repairRate: 80, repairPay: 8, repairStep: 100, crateCost: 1000, crateUses: 4, trapCost: 850, trapCooldown: 45, cost: 900, breach: 16 },
+};
+
+/**
+ * Objective waves and the Extraction finale (objectives.js; owner: objectives): from (the
+ * first objective wave), every (then one every n waves; a boss wave passes it on to the next
+ * wave, and none comes at or after the finale), order (the kinds in the order they ship,
+ * cycling: OBJECTIVES ids), holdSecs (s in the ring for Hold), supplySecs (s to bring the crate
+ * back), defendHp (the generator's health), escortHp (the survivor's), reward ($ for everyone
+ * standing when a job is done), extractSecs (s to hold the landing zone while the helicopter
+ * comes down), extractBosses (bosses during the extraction: bosses.spawnSet). A failed job
+ * costs its reward (the generator's: the next wave is dark - atmos.setBlackout), never the run.
+ */
+const OBJECTIVES = {
+  casual: { from: 4, every: 4, order: ['hold', 'supply', 'defend', 'escort'], holdSecs: 45, supplySecs: 75, defendHp: 3000, escortHp: 400, reward: 800, extractSecs: 75, extractBosses: 1 },
+  normal: { from: 3, every: 4, order: ['hold', 'supply', 'defend', 'escort'], holdSecs: 60, supplySecs: 60, defendHp: 2500, escortHp: 300, reward: 600, extractSecs: 90, extractBosses: 2 },
+  hard: { from: 3, every: 3, order: ['hold', 'supply', 'defend', 'escort'], holdSecs: 60, supplySecs: 55, defendHp: 2200, escortHp: 250, reward: 550, extractSecs: 90, extractBosses: 2 },
+  nightmare: { from: 2, every: 3, order: ['hold', 'supply', 'defend', 'escort'], holdSecs: 75, supplySecs: 50, defendHp: 2000, escortHp: 200, reward: 500, extractSecs: 105, extractBosses: 3 },
+};
+
+/**
+ * The long game (zmeta.js and its own modules: profile, contracts, achievements, dailies;
+ * owner: meta): xpK (x the XP a run earns: harder pays more), contracts (optional contracts a
+ * run offers), contractXp (XP a finished contract pays). Ranks widen choice (perk cards, forge
+ * elements, modifiers, cosmetics), never raw power, and never lock the existing arsenal.
+ */
+const METAGAME = {
+  casual: { xpK: 0.6, contracts: 3, contractXp: 150 },
+  normal: { xpK: 1, contracts: 3, contractXp: 200 },
+  hard: { xpK: 1.4, contracts: 3, contractXp: 250 },
+  nightmare: { xpK: 1.8, contracts: 3, contractXp: 300 },
+};
+
+/**
+ * How a run ends (the New Game "Run ending"; diff.ending = { id, label, kind, wave }): an
+ * Extraction finale at wave 15, 20 or 25 (objectives.js plays it; a win: ZombieMode.win), or
+ * Endless (until the squad is down). Extraction 20 is the default.
+ */
+export const ENDINGS = {
+  x15: { label: 'Extraction 15', kind: 'extraction', wave: 15 },
+  x20: { label: 'Extraction 20', kind: 'extraction', wave: 20 },
+  x25: { label: 'Extraction 25', kind: 'extraction', wave: 25 },
+  endless: { label: 'Endless', kind: 'endless', wave: 0 },
+};
+export const DEFAULT_ENDING = 'x20';
+
+/** The time of day (New Game "Time of day"; diff.daytime): atmos.js plays it. Dusk to night is the default. */
+export const DAYTIMES = {
+  dusk: { label: 'Dusk to night', text: 'It starts at dusk; night falls as the run goes on.' },
+  night: { label: 'Night', text: 'Dark from the first wave: flashlights on.' },
+  day: { label: 'Day', text: 'Broad daylight all run long.' },
+};
+export const DEFAULT_DAYTIME = 'dusk';
+
 /**
  * The tuned base curve (before multipliers), wave n: count = c0 + c1 (n - 1); maxAlive = a0 + n;
  * health h0 + h1 a wave to lateFrom, then + h2, x open[n - 1] in the opening waves (a
@@ -271,13 +369,20 @@ const DROPS = {
  * spawn interval max(i2, i0 - i1 n).
  */
 const WAVE = { c0: 6, c1: 3, a0: 4, h0: 100, h1: 10, h2: 4, open: [0.8, 0.9], s0: 186, s1: 4, r1: 0.04, d0: 10, d1: 1.6, i0: 1.6, i1: 0.08, i2: 0.5 };
-/** Never more zombies up at once than this (zombies.js keeps 32 common bodies), nor commons faster, nor more specials. */
+/**
+ * Never more zombies up at once than this (zombies.js keeps 32 common bodies), nor commons faster, nor more specials.
+ * HORDE CAP (m4-contracts, the horde builder's: the owner wants every zombie of a wave on the
+ * map, no "up at once" limiter): MAX_ALIVE and waveStats' maxAlive (HORDE maxAlive /
+ * maxAliveCap / crowdAlive) are one of the places the cap lives - the full list is in the
+ * contracts (director.maxAlive, the spawn step, the 32-body POOL, rise()).
+ */
 export const MAX_ALIVE = 28, SPEED_MAX = 245, SPECIAL_MAX = 0.3;
 
-/** The Milestone 2 groups by field name (diff.stagger, diff.shove, ...), then Milestone 3's (diff.perks, diff.forge, ...). */
+/** The Milestone 2 groups by field name (diff.stagger, diff.shove, ...), then Milestone 3's (diff.perks, diff.forge, ...) and 4's (diff.atmos, ...). */
 const M2 = { stagger: STAGGER, shove: SHOVE, ai: AI, director: DIRECTOR, roster: ROSTER, combo: COMBO };
 const M3 = { perks: PERKS, forge: FORGE, roles: ROLES, boss: BOSS, drops: DROPS };
-const GROUPS = { ...M2, ...M3 };
+const M4 = { atmos: ATMOS, fortify: FORTIFY, objectives: OBJECTIVES, meta: METAGAME };
+const GROUPS = { ...M2, ...M3, ...M4 };
 /** The per-builder group names (diff[name]) from Milestone 2 on. */
 export const ZDIFF_GROUPS = Object.freeze(Object.keys(GROUPS));
 
@@ -298,7 +403,9 @@ export function getDiff(id) { return ZDIFF[id] || ZDIFF[DEFAULT_ZDIFF]; }
  *  zdiff: preset id ('normal'); squadScaling: the horde grows with the squad (true);
  *  breakLen: seconds between waves, 0 / missing = the preset's; hardcore: no wave heal,
  *  guns only in the breaks (no re-arm window after a respawn), radar pings only (false);
- *  seed: the run's random seed (zrng.js: the boss order...; null = a fresh one every run).
+ *  seed: the run's random seed (zrng.js: the boss order...; null = a fresh one every run);
+ *  ending: how the run ends (ENDINGS id: 'x15' | 'x20' | 'x25' | 'endless'; 'x20');
+ *  daytime: the time of day (DAYTIMES id: 'dusk' | 'night' | 'day'; 'dusk').
  */
 export function zombieOptions(opts = {}) {
   const b = +opts.breakLen;
@@ -308,6 +415,8 @@ export function zombieOptions(opts = {}) {
     breakLen: b > 0 ? Math.max(5, Math.min(120, Math.round(b))) : 0,
     hardcore: opts.hardcore === true || opts.hardcore === 1 || opts.hardcore === '1',
     seed: opts.seed != null && opts.seed !== '' && Number.isFinite(+opts.seed) ? +opts.seed >>> 0 : null,
+    ending: ENDINGS[opts.ending] ? opts.ending : DEFAULT_ENDING,
+    daytime: DAYTIMES[opts.daytime] ? opts.daytime : DEFAULT_DAYTIME,
   };
 }
 
@@ -316,16 +425,20 @@ export function zombieOptions(opts = {}) {
  * readers never look at the options themselves. Adds hardcore, squadScaling, and the
  * effective breakLen. Hardcore: no wave heal; guns, upgrades and perks in the breaks only
  * (even on Sandbox; no re-arm window: zeconomy.js rearm), mid-wave still ammo, armour and
- * medkits at the combat premium.
+ * medkits at the combat premium. Milestone 4: ending ({ id, label, kind: 'extraction' |
+ * 'endless', wave: the finale's, 0 endless }) and daytime (a DAYTIMES id).
  */
 export function resolveDiff(o = zombieOptions()) {
   const d = getDiff(o.zdiff);
+  const end = ENDINGS[o.ending] ? o.ending : DEFAULT_ENDING;
   const r = {
     ...d,
     econ: { ...d.econ }, horde: { ...d.horde }, specials: { ...d.specials }, squad: { ...d.squad },
     ...Object.fromEntries(Object.keys(GROUPS).map((k) => [k, { ...d[k] }])),
     hardcore: !!o.hardcore, squadScaling: o.squadScaling !== false,
     breakLen: o.breakLen > 0 ? o.breakLen : d.breakLen,
+    ending: { id: end, ...ENDINGS[end] },
+    daytime: DAYTIMES[o.daytime] ? o.daytime : DEFAULT_DAYTIME,
   };
   if (r.hardcore) { r.econ.waveHeal = 0; r.econ.buyAnytime = false; }
   return deepFreeze(r);
@@ -349,7 +462,7 @@ export function waveStats(n, { diff = ZDIFF[DEFAULT_ZDIFF], crowd = 1 } = {}) {
   const many = 1 + H.crowdCount * c, up = 1 + H.crowdAlive * c;
   return {
     count: Math.max(1, Math.round((B.c0 + B.c1 * (n - 1)) * H.count * many)),
-    maxAlive: Math.min(MAX_ALIVE, Math.round(H.maxAliveCap * L * up), Math.round((B.a0 + n) * H.maxAlive * up)),
+    maxAlive: Math.min(MAX_ALIVE, Math.round(H.maxAliveCap * L * up), Math.round((B.a0 + n) * H.maxAlive * up)), // HORDE CAP (m4-contracts: the horde builder's)
     health: Math.round((B.h0 + B.h1 * early + B.h2 * late) * H.health * (B.open[n - 1] ?? 1)),
     speed: Math.min(SPEED_MAX, H.speedCap + H.speedLate * late, (B.s0 + B.s1 * n) * H.speed),
     runners: n < H.runnersFrom ? 0 : Math.min(0.45, H.runnerCap * L, B.r1 * H.runners * (n - H.runnersFrom + 1)),

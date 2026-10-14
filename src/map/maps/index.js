@@ -13,6 +13,12 @@ import * as zm_blackwater from './zm_blackwater.js';
 
 const MODULES = [de_dust2, zm_fort_ember, zm_hollow_creek, zm_sector9, zm_blackwater];
 
+// Placeholder maps, unlisted until the maps work resumes: every player-facing list (New Game,
+// Zombie Survival setup, the title, records) skips a `hidden` map (maps.js mapListed), but
+// ?map=<id> and the `map` console command still load one for development. Remove an id here
+// to ship that map.
+export const HIDDEN_MAPS = new Set(['zm_fort_ember', 'zm_hollow_creek', 'zm_sector9', 'zm_blackwater']);
+
 /** What a definition gets when it leaves a field out (lighting is never filled in: it is hashed). */
 export const MAP_DEFAULTS = {
   mode: 'survival', // the classic briefing's kind ('bomb' | 'hostage'); survival maps have none
@@ -31,7 +37,7 @@ function normalize(mod) {
   const M = mod.MAP;
   if (!M?.id || typeof mod.build !== 'function') throw new Error('maps: a built-in map module needs MAP.id and build()');
   if (!M.lighting?.sunDir) throw new Error(`maps: ${M.id} needs MAP.lighting with sunDir`);
-  return { ...MAP_DEFAULTS, ...M, builtin: true, build: mod.build, thumb: `maps/${M.id}.thumb.jpg` };
+  return { ...MAP_DEFAULTS, ...M, builtin: true, hidden: HIDDEN_MAPS.has(M.id), build: mod.build, thumb: `maps/${M.id}.thumb.jpg` };
 }
 
 /** Normalised definitions, in menu order. */

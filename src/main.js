@@ -19,7 +19,7 @@ import { RadioMenu } from './ui/radiomenu.js';
 import { Announcer } from './game/announcer.js';
 import { DUST2_LIGHTING } from './map/lighting.js';
 import { setLightCurve } from './map/meshbuilder.js';
-import { MAPS, mapDef as lookupMap, mapAvailability, storeUserFiles, listUserFiles, bundledMaps, mapOffers, mapLabel } from './game/maps.js';
+import { MAPS, mapDef as lookupMap, mapAvailability, storeUserFiles, listUserFiles, bundledMaps, mapOffers, mapLabel, mapListed } from './game/maps.js';
 import { applyMapFog, applyGrade } from './engine/fog.js';
 import { assetUrl } from './engine/assetpath.js';
 import * as ATT from './game/attachments.js';
@@ -149,8 +149,9 @@ async function boot() {
     for (const f of await listUserFiles()) if (f.endsWith('.bsp')) { const id = f.slice(0, -4); if (!ids.includes(id)) ids.push(id); }
     return ids;
   };
-  // [id, label] for a menu's map list: the maps that offer this mode (src/map/maps/*: MAP.modes)
-  const mapList = (ids, mode) => ids.filter((id) => !mode || mapOffers(lookupMap(id), mode)).map((id) => [id, mapLabel(lookupMap(id))]);
+  // [id, label] for a menu's map list: the maps that offer this mode (src/map/maps/*: MAP.modes),
+  // never a hidden placeholder (maps.js mapListed) unless it's the one loaded (?map= in development)
+  const mapList = (ids, mode) => ids.filter((id) => (!mode || mapOffers(lookupMap(id), mode)) && (mapListed(lookupMap(id)) || id === W.mapDef?.id)).map((id) => [id, mapLabel(lookupMap(id))]);
   async function mapInfo(id) {
     const def = lookupMap(id);
     if (def.builtin) return { ok: true, bundled: true, html: builtinInfo(def) };

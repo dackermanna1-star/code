@@ -27,6 +27,11 @@ export function mapOffers(def, mode) {
   return !def.modes || def.modes.includes(mode);
 }
 
+/** Is the map in player-facing lists? (hidden placeholders: src/map/maps/index.js HIDDEN_MAPS; ?map= still loads them) */
+export function mapListed(def) {
+  return !def?.hidden;
+}
+
 /** The name a menu shows: the title for built-in maps ("Fort Ember"), else the id. */
 export function mapLabel(def) {
   return def.builtin && def.title !== def.id ? def.title : def.id;
