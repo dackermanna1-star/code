@@ -11,7 +11,12 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "sim": "vite-node tools/sim.ts"
+    "sim": "vite-node tools/sim.ts",
+    "ferry": "vite --config last-ferry/vite.config.ts",
+    "ferry:build": "tsc -p last-ferry --noEmit && vite build --config last-ferry/vite.config.ts",
+    "ferry:test": "vitest run --config last-ferry/vite.config.ts",
+    "ferry:sim": "vite-node last-ferry/tools/sim.ts",
+    "ferry:single": "npm run ferry:build && node tools/singlefile.mjs release/LastFerry.html last-ferry/dist"
   },
   "dependencies": {
     "cannon-es": "0.20.0",

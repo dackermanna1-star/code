@@ -5,13 +5,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const dist = 'dist';
 const outFile = process.argv[2] ?? 'release/SealHunter.html';
+const dist = process.argv[3] ?? 'dist';
 let html = fs.readFileSync(path.join(dist, 'index.html'), 'utf8');
 
 // Embedded assets: everything copied from public/ (audio, fonts).
 const assets = {};
 const walk = (dir) => {
+  if (!fs.existsSync(dir)) return;
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, ent.name);
     if (ent.isDirectory()) walk(full);
