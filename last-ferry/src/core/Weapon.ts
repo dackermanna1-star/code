@@ -50,6 +50,16 @@ export class Weapon implements WeaponView {
     return Math.min(1, this.reloadT / this.def.reload);
   }
 
+  /** Per-shell reloads: shells being loaded in this reload (0 when not reloading or not per-shell). */
+  get shellsLoading(): number {
+    return this.reloading && this.def.perShell ? this.reloadNeed : 0;
+  }
+
+  /** Per-shell reloads: progress of the shell going in now. */
+  get shellProgress(): number {
+    return this.reloading && this.def.perShell ? Math.min(1, this.reloadT / this.def.reload) : 0;
+  }
+
   /** Seconds since the last shot (presentation). */
   get sinceShot(): number {
     return (this.player.world.tick - this.lastShotTick) * TICK;

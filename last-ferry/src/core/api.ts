@@ -113,6 +113,16 @@ export interface WeaponView {
   spin: number;
   /** 0..1 barrel heat (outboard). */
   heat: number;
+  /**
+   * Per-shell reloads (shotgun): shells being loaded in this reload (0 when
+   * not reloading). `reloadProgress` is always for the WHOLE reload; the
+   * current shell's progress is `shellProgress`.
+   */
+  shellsLoading?: number;
+  /** Per-shell reloads: 0..1 progress of the shell going in now (0 when not reloading). */
+  shellProgress?: number;
+  /** Outboard: stalled from overheating until it cools down. */
+  overheated?: boolean;
 }
 
 export interface PlayerView {
