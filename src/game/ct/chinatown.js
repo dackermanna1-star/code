@@ -174,15 +174,28 @@ export class ChinatownScript {
     }
   }
 
+  // How high a door or gate sector opens: like DOOM, 4 under the lowest
+  // ceiling around it, but ignoring neighbours that are shut themselves
+  // (a gate's track or frame drawn as a closed sector).
+  doorTop(sec) {
+    let top = Infinity;
+    for (const line of sec.lines) {
+      const other = line.frontsector === sec ? line.backsector : line.frontsector;
+      if (!other || other === sec || other.ceilingheight <= other.floorheight) continue;
+      top = Math.min(top, other.ceilingheight);
+    }
+    return top === Infinity ? findLowestCeilingSurrounding(sec) - 4 : top - 4;
+  }
+
   // Opens the doors tagged `tag` (staying open), over `tics` if given.
   openDoor(tag, tics = 0) {
     const w = this.w;
     const started = w.specials.doDoor({ tag }, 'open');
-    if (started && tics) {
-      for (const sec of this.sectors(tag)) {
-        const d = sec.specialdata;
-        if (d instanceof VerticalDoor && d.direction === 1) d.speed = Math.max(0.25, (d.topheight - sec.ceilingheight) / tics);
-      }
+    for (const sec of this.sectors(tag)) {
+      const d = sec.specialdata;
+      if (!(d instanceof VerticalDoor) || d.direction !== 1) continue;
+      d.topheight = this.doorTop(sec);
+      if (tics) d.speed = Math.max(0.01, (d.topheight - sec.ceilingheight) / tics);
     }
     return started;
   }
@@ -192,7 +205,7 @@ export class ChinatownScript {
     const w = this.w;
     for (const sec of this.sectors(tag)) {
       if (sec.specialdata) continue;
-      sec.ceilingheight = findLowestCeilingSurrounding(sec) - 4;
+      sec.ceilingheight = this.doorTop(sec);
       w.changeSector(sec, false);
     }
   }
@@ -250,7 +263,7 @@ export class ChinatownScript {
     // The roadblock ladder hangs out of reach until the switch.
     this.ct.enableLadder(LADDER_ROADBLOCK, false);
     // The crank gate's travel.
-    s.gate6 = this.sectors(6).map((sec) => ({ sector: sec, floor: sec.floorheight, top: findLowestCeilingSurrounding(sec) - 4 }));
+    s.gate6 = this.sectors(6).map((sec) => ({ sector: sec, floor: sec.floorheight, top: this.doorTop(sec) }));
     this.say(`OBJECTIVE: ${OBJECTIVES[1]}`, 4 * T);
   }
 

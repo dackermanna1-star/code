@@ -4,8 +4,9 @@
 // applies the layer offsets (subway x-5000, sewer x+6000) and snaps to 8.
 //
 // Tags and specials follow tools/ct/SPEC.md sections 5-9. Extra tag used by
-// this map (builder's call, SPEC section 8 leaves it free):
-//   sector tag 3  = welder-garage doorway (garage_door1), a door sector that
+// this map (builder's call, SPEC section 8 leaves it free; the map script's
+// GARAGE_TAG in src/game/ct/chinatown.js):
+//   sector tag 8  = welder-garage doorway (garage_door1), a door sector that
 //                   starts OPEN; the script may close it on its 50% roll.
 
 // ---------------------------------------------------------------------------
@@ -29,6 +30,7 @@ const UPPER = { downtown: ['CTAPT1', 'CTBRK1', 'CTAPT2', 'CTSTUC1', 'CTBRK2'], c
   west: ['CTSTUC1', 'CTAPT2', 'CTBRK1', 'CTSTUC2'], docks: ['CTMETL1', 'CTCONC2', 'CTBRK2', 'CTMETL2'] };
 // shop band texture (ground floor): stays the same along ~128 units of a facade
 export function facadeLower(cls, zone, k) {
+  if (cls === 'container') return 'CTCONT' + (1 + (hash(k >> 6) % 3));
   if (cls === 'glass') return SHOPS[hash(k >> 4) % SHOPS.length];
   if (cls === 'shutter') return 'CTSHUT1';
   const list = SHOPBAND[zone.style] || SHOPBAND.downtown;
@@ -226,7 +228,7 @@ export function geometry(api) {
   barrierLine(S, [-2432, -4880, -2336, -4880], 'CTGATE1', { special: 903, tag: 50, front: 's' });
   barrierLine(S, [-2336, -4880, -2200, -4880], 'CTFENC1', { optional: true });
   // Maintenance room door off the mezzanine.
-  A.carve(S, [-2312, -4120, -2232, -4072], { floor: -384, ceil: -272 });
+  A.carve(S, [-2312, -4120, -2232, -4072], { floor: -448, ceil: -336 });
   door(S, [-2264, -4120, -2256, -4072], { axis: 'x', header: 112, special: 1, tex: 'CTDOOR2', frame: 8 });
   // Ticket-hall freight-elevator door (sector tag 1) and its button (904/1).
   door(S, [-2688, -4936, -2672, -4824], { axis: 'x', floor: -256, header: 112, tag: 1, tex: 'CTELEV1', frame: 8, jamb: 'CTMETL2' });
@@ -282,7 +284,7 @@ export function geometry(api) {
   }
 
   // === WELDER GARAGE doorway (tag 3, starts open) ==========================
-  door(T, [-2496, -1760, -2488, -1632], { axis: 'x', header: 96, tag: 3, tex: 'CTGRGE1', frame: 8, open: true });
+  door(T, [-2496, -1760, -2488, -1632], { axis: 'x', header: 96, tag: 8, tex: 'CTGRGE1', frame: 8, open: true });
   // Boarded medical room behind the burning car (903/52)
   barrierLine(T, [-3392, -1256, -3392, -1168], 'CTBORD1', { special: 903, tag: 52, front: 'w' });
 
@@ -304,6 +306,18 @@ export function geometry(api) {
     A.KIND[k] = 3; A.FZ[k] = -256; A.CZ[k] = A.SKY; A.SPEC[k] = 65;
   }
   A.set(T, [-3800, 1900, 2600, 4400], { fflat: 'CFBAY1' }, (k) => A.KIND[k] === 3);
+  // Open horizon: void cells on the bay's outer edge become closed sky sectors
+  // (floor = ceiling, sky ceiling) so the sea meets the sky instead of a wall.
+  const hz = [];
+  for (let k = 0; k < A.KIND.length; k++) {
+    if (A.KIND[k] || A.LAY[k] !== 1) continue;
+    const i = k % A.W, j = (k / A.W) | 0;
+    const x = A.cellX(i), y = A.cellY(j);
+    if (!(x > 0 || y > 4100 || x < -3640)) continue;
+    if ([k + 1, k - 1, k + A.W, k - A.W].some((q) => q >= 0 && q < A.KIND.length && A.KIND[q] === 3)) hz.push(k);
+  }
+  for (const k of hz) { A.KIND[k] = 3; A.FZ[k] = -256; A.CZ[k] = -256; A.SPEC[k] = 65; A.GROUP[k] = 65; }
+  A.set(T, [-3800, 1900, 2600, 4400], { fflat: 'CFBAY1', cflat: 'F_SKY1' }, (k) => A.GROUP[k] === 65);
 }
 
 // ---------------------------------------------------------------------------
@@ -388,7 +402,7 @@ export function decorate(api, h) {
     2: [[T, -880, -3500], [T, -700, -3700], [T, -300, -4250], [T, 200, -4250], [T, -820, -3100], [T, 150, -3800]],
     3: [[T, 200, -2900], [T, -50, -3300], [T, 1300, -2450], [T, 900, -2400], [T, 1900, -2450], [T, 300, -2600]],
     4: [[T, -1100, -1700], [T, -700, -1600], [T, 300, -1800], [T, -1500, -900], [T, -1800, -1300], [T, -900, -2300]],
-    5: [[T, -2800, -200], [T, -2700, 400], [T, -2200, -400], [T, -2900, -1100], [T, -2450, 650], [T, -1700, -350]],
+    5: [[T, -2800, -200], [T, -2300, 100], [T, -2200, -400], [T, -2900, -1100], [T, -2650, -600], [T, -1700, -350]],
     6: [[T, -1700, 1100], [T, -1200, 1700], [T, -2000, 2300], [T, -900, 2300], [T, -2900, 2300], [T, -700, 3300], [T, -1200, 3400], [T, -3500, 2200]],
   };
   for (const [g, list] of Object.entries(waves)) for (const [L, x, y] of list) snapThing(L, x, y, 9010, +g);
@@ -417,9 +431,32 @@ function layerOfPoint(x, y, z) {
   if (x > -2700 && x < -600 && y > -2450 && y < -150 && z < -150 && !(x < -1250 && y < -2048)) return 'sewer';
   return 'street';
 }
+// size of the connected open (walkable, unblocked) area around each cell
+let AREA = null;
+function areaSize(k) {
+  if (!AREA) {
+    AREA = new Int32Array(A.KIND.length);
+    const lab = new Int32Array(A.KIND.length).fill(-1);
+    const sizes = [];
+    for (let k0 = 0; k0 < A.KIND.length; k0++) {
+      if (A.KIND[k0] !== 1 || A.BLOCK[k0] || lab[k0] >= 0) continue;
+      const id = sizes.length, st = [k0]; lab[k0] = id; let n = 0;
+      while (st.length) {
+        const q = st.pop(); n++;
+        for (const r of [q + 1, q - 1, q + A.W, q - A.W]) if (r >= 0 && r < A.KIND.length && lab[r] < 0 && A.KIND[r] === 1 && !A.BLOCK[r]) { lab[r] = id; st.push(r); }
+      }
+      sizes.push(n);
+    }
+    for (let k1 = 0; k1 < A.KIND.length; k1++) AREA[k1] = lab[k1] >= 0 ? sizes[lab[k1]] : 0;
+  }
+  return AREA[k];
+}
 function freeSpot(layer, x, y, rad = 64, clear = 1) {
   // nearest walkable, non-blocked cell centre with `clear` cells of clearance
+  // inside a reasonably large open area (not a sliver behind props)
   const ok = (px, py) => {
+    const kc = A.idx(A.gridX(layer, px - 4), A.gridY(py - 4));
+    if (areaSize(kc) < 300) return false;
     for (let dy = -clear; dy <= clear; dy++) for (let dx = -clear; dx <= clear; dx++) {
       const c = A.cell(layer, px + dx * 8, py + dy * 8);
       if (!c || c.kind !== 1 || c.block) return false;
@@ -488,7 +525,9 @@ function placeItems(ref) {
     ref.spawners.forEach((t, j) => { if (!used[j] && Math.hypot(t.x - s.x, t.y - s.y) < 48 && Math.abs(t.z - s.z) < 64) { used[j] = true; c.push(t); } });
     clusters.push(c);
   });
-  let chainguns = 0;
+  const cgDone = { gun: false, base: false };
+  // shotguns only where NMRiH rolls them most (gun shop, secret 1 storage, secret 2 alley, boarded medical room)
+  const shotgunOK = (x, y) => (x < -2900 && y > -3950 && y < -3650) || (x > -1120 && x < -980 && y > -3500 && y < -3380) || (x < -2900 && y > -1300 && y < -1000) || (x > -2700 && x < -2180 && y > -2800 && y < -2100);
   const put = (x, y, z, type) => {
     const L = layerOfPoint(x, y, z);
     const s = freeSpot(L, x, y, 64, 1) || freeSpot(L, x, y, 96, 0);
@@ -498,9 +537,12 @@ function placeItems(ref) {
     const x = Math.round(c.reduce((a, s) => a + s.x, 0) / c.length), y = Math.round(c.reduce((a, s) => a + s.y, 0) / c.length), z = c[0].z;
     const cat = {};
     for (const s of c) for (const [k, v] of Object.entries(s.cats)) cat[k] = Math.max(cat[k] || 0, v);
-    if (cat.me_chainsaw) { put(x, y, z, 2005); continue; }
-    if ((cat.fa_m16a4 || cat.military || cat.rifle) && chainguns < 2 && ((x < -2100 && y > -2800) || (x > -1000 && y < -5400))) { put(x, y, z, 2002); chainguns++; continue; }
-    if ((cat.shotgun || 0) >= 70) { put(x, y, z, 2001); continue; }
+    if (cat.me_chainsaw) continue; // the chainsaw is placed in the secret 3 storage below
+    if (cat.fa_m16a4 || cat.military || cat.rifle) {
+      const where = x < -2100 && y > -2800 && y < -2100 ? 'gun' : x > -1000 && y < -5400 ? 'base' : null;
+      if (where && !cgDone[where]) { put(x, y, z, 2002); cgDone[where] = true; continue; }
+    }
+    if ((cat.shotgun || 0) >= 45 && shotgunOK(x, y)) { put(x, y, z, 2001); continue; }
     if (cat.ammobox_12gauge || cat.shotgun) { put(x, y, z, c.length >= 3 ? 2049 : 2008); continue; }
     if (cat.item_pills) { put(x, y, z, 2011); continue; }
     const ammo = ['ammobox_9mm', 'ammobox_45acp', 'ammobox_357', 'ammobox_556', 'ammobox_762mm', 'ammobox_308', 'ammobox_22lr', 'handgun', 'ammo', 'fa_m16a4', 'fa_sks', 'fa_sako85', 'fa_1022', 'firearm', 'fa_1911', 'fa_m92fs'];
@@ -612,6 +654,11 @@ function placeSigns(ref) {
     const [dx, dy] = DIR[best.f];
     const px = dx ? s.x + dx * 32 : s.x, py = dy ? s.y + dy * 32 : s.y;
     niche('street', px, py, best.f, { tex, w, z0, z1: z0 + hgt, xoff: 0 });
+    // neon glow on the street in front of the sign
+    for (const k of A.cellsOf('street', [px - 96, py - 96, px + 96, py + 96])) {
+      if (A.KIND[k] !== 1 || A.SPEC[k] || A.TAG[k] || A.GROUP[k]) continue;
+      A.LIGHT[k] = Math.min(200, Math.max(A.LIGHT[k], 160 + (tex === 'CTNSG7' || tex === 'CTNSG1' ? 16 : 0)));
+    }
   }
 }
 
@@ -626,5 +673,3 @@ export const PREVIEWS = [
   { name: 'docks', layer: 'street', box: [-3712, 800, 0, 4300], scale: 4 },
 ];
 
-// Objective checkpoints for tools/ct/check-map.mjs (layer, x, y).
-export const CHECKPOINTS = [];

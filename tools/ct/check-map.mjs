@@ -112,7 +112,7 @@ lines.forEach((l, li) => {
 });
 
 // --- door / special tables ---------------------------------------------------------
-const doorTags = new Set([1, 2, 3, 4, 5, 6, 7]);
+const doorTags = new Set([1, 2, 4, 5, 6, 7, 8]);
 const lowestNeighbourCeil = (s) => {
   let m = Infinity;
   for (const l of s.lines) { const o = l.frontsector === s ? l.backsector : l.frontsector; if (o && o !== s) m = Math.min(m, o.ceilingheight); }
@@ -246,7 +246,7 @@ const anySeen = (seen, cells) => cells.some((k) => k >= 0 && seen[k]);
 // --- stages -------------------------------------------------------------------------------
 const start = mapthings.find((t) => t.type === 1);
 if (!start) { console.log('FAIL: no player start'); process.exit(1); }
-const st = { doors: new Set([3]), broken: new Set(), ladders: new Set([81]) };
+const st = { doors: new Set([8]), broken: new Set(), ladders: new Set([81]) };
 let seen = null;
 const results = [];
 let failures = 0;
