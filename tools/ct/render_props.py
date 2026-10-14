@@ -102,7 +102,11 @@ SPRITES = [
     V('VTRK', 'delivery', (300, 100, 138), paint=((1, 3), (196, 190, 176))),
     V('VFTR', 'firetruck', (340, 100, 130), lights='fire', paint=((1, 6), (170, 26, 20))),
     V('VGRB', 'garbage-truck', (320, 104, 132), paint=((1, 3), (196, 196, 186))),
-    V('VMIL', 'delivery-flat', (290, 100, 130), build='military', mono=(86, 92, 52)),
+    # Humvee pick-up: what 6 of the map's 9 military vehicles are (NMRiH's
+    # car_humvee_pick-up, footprint 190x92 in tools/ct/layout/ref.json); the
+    # 290-long cargo truck (build='military') overhung those footprints by 50
+    # units at each end.
+    V('VMIL', 'truck', (192, 92, 74), build='humvee', mono=(86, 92, 52), wheel=1.08),
     dict(name='VHEL', build='heli', rot=8, frames='AB'),
     # Props
     dict(name='PBAR', build='ph', ph='concrete_road_barrier', rot=8, size=('y', 62), tint=1.0, sat=0.45),
@@ -740,6 +744,36 @@ def bpy_worker(job_path):
         # cut the lower half of the tarp cylinder (hidden inside the box anyway)
         ground_centre(meshes(), centre_xy=False)
 
+    def build_humvee(spec):
+        """Olive humvee pick-up: the Kenney pickup squat and wide, a canvas
+        cover over the bed, a brush guard, a roof ring and blackout lights."""
+        objs = kenney_vehicle(spec)
+        L, W, H = spec['dims']
+        mn, mx = bounds(objs)
+        canvas = mat_grimy('hmv_canvas', (128, 118, 80), rough=0.95, scale=0.08, lo=0.78)
+        dark = mat('hmv_dark', (30, 32, 26), rough=0.7, metal=0.2)
+        olive = mat_grimy('hmv_olive', spec['mono'], rough=0.75, scale=0.12, lo=0.82, z_dirt=H * 0.5)
+        pts = verts_of(objs)
+        # Kenney truck: the cab ends 1.72 of the 2.95 model units behind the nose.
+        cab_back = mx[0] - L * 1.72 / 2.95
+        bed = pts[(pts[:, 0] < cab_back - 4) & (pts[:, 0] > mn[0] + 4)]
+        rail = float(bed[:, 2].max())
+        x0, x1 = mn[0] + 2, cab_back - 1
+        bl, cz0, cz1 = x1 - x0, rail - 3, H * 0.9
+        cube('cover', (bl, W - 10, cz1 - cz0 - 6), ((x0 + x1) / 2, 0, (cz0 + cz1 - 6) / 2), canvas)
+        r = (W - 10) / 2
+        t = cyl('cover_top', r, r, bl, ((x0 + x1) / 2, 0, cz1 - 6), canvas, M=Ry(90), segs=28)
+        xform([t], T((x0 + x1) / 2, 0, cz1 - 6) @ S(1, 1, 6 / r) @ T(-(x0 + x1) / 2, 0, -(cz1 - 6)))
+        # brush guard in front of the grille
+        for y in (-W * 0.3, W * 0.3):
+            cube('guard_v%d' % (y > 0), (2.5, 2.5, 20), (mx[0] + 2, y, 24), dark)
+        cube('guard_h', (2.5, W * 0.66, 2.5), (mx[0] + 2, 0, 33), dark)
+        cube('guard_l', (2.5, W * 0.66, 2.5), (mx[0] + 2, 0, 18), dark)
+        # gunner's ring on the cab roof
+        cyl('ring', 13, 13, 3, (cab_back + 26, 0, H + 1.5), olive, segs=20)
+        cyl('hatch', 10, 10, 4, (cab_back + 26, 0, H + 2), dark, segs=16)
+        ground_centre(meshes(), centre_xy=False)
+
     # --------------------------------------------------------- helicopter
     def build_heli(spec):
         u = UPM
@@ -1162,7 +1196,7 @@ def bpy_worker(job_path):
         cube('post', (6, 6, 44), (24, 16, 22), blue)
 
     BUILDERS = {
-        'kenney': build_kenney, 'military': build_military, 'heli': build_heli, 'ph': build_ph,
+        'kenney': build_kenney, 'military': build_military, 'humvee': build_humvee, 'heli': build_heli, 'ph': build_ph,
         'hydrant': build_hydrant, 'trashcan': build_trashcan, 'lamp': build_lamp, 'cone': build_cone,
         'sawhorse': build_sawhorse, 'generator': build_generator, 'radio': build_radio,
         'payphone': build_payphone, 'bench': build_bench, 'crate': build_crate, 'pallets': build_pallets,
@@ -2136,7 +2170,7 @@ Cycles) and quantized to the DOOM palette. Sources and licences:
 
 | used for | source | licence |
 |---|---|---|
-| VPOL VAMB VTAX VVAN VPCK VSED VSUV VTRK VFTR VGRB VMIL (cab/chassis), PCON | Kenney **Car Kit** 3.1 (police, ambulance, taxi, van, truck, sedan, suv, delivery, firetruck, garbage-truck, delivery-flat, cone), www.kenney.nl | CC0 1.0 |
+| VPOL VAMB VTAX VVAN VPCK VSED VSUV VTRK VFTR VGRB VMIL (humvee body), PCON | Kenney **Car Kit** 3.1 (police, ambulance, taxi, van, truck, sedan, suv, delivery, firetruck, garbage-truck, cone), www.kenney.nl | CC0 1.0 |
 | PBAR | Poly Haven `concrete_road_barrier` | CC0 |
 | PHYD | Poly Haven `fire_hydrant` (aged variant) | CC0 |
 | PTRA | Poly Haven `metal_trash_can` (rust variant) | CC0 |
@@ -2147,7 +2181,7 @@ Cycles) and quantized to the DOOM palette. Sources and licences:
 | PWLD | Poly Haven `portable_welding_cart` | CC0 |
 | IGAS, CTIGAS | Poly Haven `metal_jerrycan` | CC0 |
 | ITOR, CTITOR | Poly Haven `propane_torch_02` | CC0 |
-| VHEL, VMIL tarp, PSAW, PGEN trailer, PPHN hood, PBEN, PCRT, PPAL, PLNT, IPLG, CTIPLG | modelled procedurally in the script (original) | CC0 (this project) |
+| VHEL, VMIL bed cover/brush guard/roof ring, PSAW, PGEN trailer, PPHN hood, PBEN, PCRT, PPAL, PLNT, IPLG, CTIPLG | modelled procedurally in the script (original) | CC0 (this project) |
 | text on PSAW / PPHN sign / VHEL | DejaVu Sans Bold (Bitstream Vera licence; rasterized) | permissive |
 | 福, 唐人街, 酒家, 藥行, 中華門 | Ma Shan Zheng (Google Fonts, via npm `@fontsource/ma-shan-zheng`), fallback WenQuanYi Zen Hei | SIL OFL 1.1 / GPLv2 with font exception (only rasterized pixels ship) |
 | M_EPICT, CTTITLE title letters | cut from the IWAD's own menu graphics (M_SKILL, M_EPI1, M_LOADG, M_NGAME) at build time | id Software (needs the IWAD present; nothing is copied into the repo) |
