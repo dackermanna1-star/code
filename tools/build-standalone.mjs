@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 // Builds dist/doom.html: one self-contained file with all code, the music
-// worklet, the voxel model worker and the WADs embedded, playable by
-// opening it from disk.
+// worklet, the voxel model worker and the WADs (shareware, extras and
+// Chinatown when built) embedded, playable by opening it from disk.
 // Usage: npm run build:html
 
 import { build } from 'esbuild';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 
 const root = new URL('..', import.meta.url);
 const path = (p) => new URL(p, root).pathname;
@@ -23,6 +23,8 @@ const wads = {
   'assets/wads/doom1.wad': wad('assets/wads/doom1.wad'),
   'assets/wads/doomx-extras.wad': wad('assets/wads/doomx-extras.wad'),
 };
+// The Chinatown PWAD, once built (tools/ct/pack.mjs).
+if (existsSync(path('assets/wads/chinatown.wad'))) wads['assets/wads/chinatown.wad'] = wad('assets/wads/chinatown.wad');
 
 let html = readFileSync(path('index.html'), 'utf8');
 const prelude = `<script>

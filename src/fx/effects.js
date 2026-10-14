@@ -21,7 +21,8 @@ const BLUE_BLOOD = new Set(['HEAD']);
 const GREEN_BLOOD = new Set(['BOSS', 'BOS2']);
 const NO_BLOOD_FIRE = new Set(['SKUL']);
 const METAL_PARTS = new Set(['CYBR', 'SPID', 'BSPI']);
-const HAS_HEAD = new Set(['POSS', 'SPOS', 'CPOS', 'SSWV', 'TROO', 'PLAY', 'BOSS', 'BOS2', 'SKEL', 'VILE']);
+const HAS_HEAD = new Set(['POSS', 'SPOS', 'CPOS', 'SSWV', 'TROO', 'PLAY', 'BOSS', 'BOS2', 'SKEL', 'VILE',
+  'ZCV1', 'ZCV2', 'ZCV3', 'ZCV4', 'ZRUN', 'ZKID']);
 const METAL_TEX = /METAL|SUPPORT|DOOR|COMP|PIPE|PLAT|STEEL|TEK|BRONZE|SHAWN|LITE|EXIT|SW[12]|STEP|SILVER|GRAY|PANEL|MIDGRAT|MIDBARS|SPCDOOR|BIGDOOR|CRATE|TEKWALL/;
 const LIQUID_FLAT = /NUKAGE|FWATER|SWATER|LAVA|BLOOD|SLIME/;
 
@@ -892,6 +893,59 @@ class Effects {
   }
 
   teleported() {}
+
+  // --- Chinatown (ct/) ----------------------------------------------------------
+
+  // Through a portal: the 3D model keeps its smoothed facing in the new frame.
+  portaled(mo, rot) {
+    if (this.vox && this.vox.portaled) this.vox.portaled(mo, rot);
+  }
+
+  // A breakable line gave way: shards, splinters or chain links along it.
+  breakLine(line, material, bottom, top) {
+    const R = this.img.ramps;
+    const len = line.length || 1;
+    const nx = line.dy / len, ny = -line.dx / len;
+    const res = this.w.res;
+    const glass = res.nearest ? res.nearest(170, 200, 230) : -1;
+    const wood = res.nearest ? res.nearest(130, 90, 50) : R.dust[1];
+    const n = Math.max(3, Math.min(14, Math.round(len / 10)));
+    for (let k = 0; k < n; k++) {
+      const t = (k + Math.random()) / n;
+      const x = line.v1.x + line.dx * t, y = line.v1.y + line.dy * t;
+      const z = bottom + Math.random() * Math.max(8, top - bottom);
+      const side = Math.random() < 0.5 ? 1 : -1;
+      if (material === 'glass') {
+        this.debris(x, y, z, glass, 3, 4, [nx * side, ny * side]);
+        this.sparks(x, y, z, Math.atan2(ny * side, nx * side), 1);
+      } else if (material === 'metal') {
+        this.sparks(x, y, z, Math.atan2(ny * side, nx * side), 2);
+        this.debris(x, y, z, R.mag[0], 1, 3, [nx * side, ny * side]);
+      } else {
+        this.debris(x, y, z, wood, 3, 3.5, [nx * side, ny * side]);
+        this.dust(x, y, z, R.dust[1], 1, [nx * side, ny * side, 0.3]);
+      }
+    }
+    this.shakeNear((line.v1.x + line.v2.x) / 2, (line.v1.y + line.v2.y) / 2, 1.5, 256);
+  }
+
+  // Blowtorch on a padlock: a spray of hot sparks and a flickering light.
+  weldSparks(x, y, z, ang) {
+    this.sparks(x, y, z, ang, 3);
+    if (Math.random() < 0.5) this.light(x, y, z, 120, 6 + Math.random() * 4, 2);
+  }
+
+  // Stepping into water.
+  splash(x, y, z, sector) {
+    const col = sector ? this.flatColor(sector.floorpic, x, y) : -1;
+    const R = this.img.ramps.dust;
+    const n = Math.round(10 * this.pscale);
+    for (let k = 0; k < n; k++) {
+      const a = Math.random() * TAU, sp = 0.5 + Math.random() * 2;
+      this.particles.spawn(x, y, z + 1, Math.cos(a) * sp, Math.sin(a) * sp, 2 + Math.random() * 3,
+        18 + Math.random() * 10, col >= 0 ? col : R[0], 1.2, P_GRAVITY);
+    }
+  }
 
   // --- Per tic ----------------------------------------------------------------
 

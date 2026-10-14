@@ -31,13 +31,35 @@ function rand(w) {
 function buildGraph(w) {
   const level = w.level;
   const adj = level.sectors.map(() => []);
+  // Chinatown's portals (special 900) lead to their partner line's far side
+  // instead of across (edges from ct/portal.js, with an `exit` point).
+  const portals = w.ct && w.ct.portals.size ? w.ct.portals : null;
   for (const line of level.lines) {
     if (!line.backsector || line.frontsector === line.backsector) continue;
+    if (portals && portals.has(line)) continue;
     const mid = { x: (line.v1.x + line.v2.x) / 2, y: (line.v1.y + line.v2.y) / 2 };
     adj[line.frontsector.index].push({ line, to: line.backsector, mid });
     adj[line.backsector.index].push({ line, to: line.frontsector, mid });
   }
+  w.navPortals = null;
+  if (portals) {
+    const edges = w.ct.navEdges();
+    for (const { from, edge } of edges) adj[from.index].push(edge);
+    w.navPortals = edges.map((e) => e.edge);
+  }
   w.navGraph = adj;
+}
+
+// A* estimate on a map with portals: straight there, or through one portal.
+function portalHeuristic(edges, goal) {
+  return (p) => {
+    let best = aproxDistance(p.x - goal.x, p.y - goal.y);
+    for (const e of edges) {
+      const d = aproxDistance(p.x - e.mid.x, p.y - e.mid.y) + aproxDistance(e.exit.x - goal.x, e.exit.y - goal.y);
+      if (d < best) best = d;
+    }
+    return best;
+  };
 }
 
 function passable(actor, from, edge) {
@@ -71,13 +93,19 @@ function findPath(w, actor, fromSec, toSec) {
   pos[fromSec.index] = { x: actor.x, y: actor.y };
   const open = [fromSec.index];
   const goal = actor.target;
+  // With portals the estimate is cached per sector (it is costlier) and
+  // big city maps get a longer search.
+  const h = w.navPortals ? portalHeuristic(w.navPortals, goal) : null;
+  const hv = h ? new Float64Array(n) : null;
+  if (h) hv[fromSec.index] = h(pos[fromSec.index]);
+  const maxExpand = h || w.ct ? 2000 : 600;
   let expanded = 0;
-  while (open.length && expanded < 600) {
+  while (open.length && expanded < maxExpand) {
     let bi = 0;
     for (let i = 1; i < open.length; i++) {
       const a = open[i], b = open[bi];
-      const ha = dist[a] + aproxDistance(pos[a].x - goal.x, pos[a].y - goal.y);
-      const hb = dist[b] + aproxDistance(pos[b].x - goal.x, pos[b].y - goal.y);
+      const ha = dist[a] + (h ? hv[a] : aproxDistance(pos[a].x - goal.x, pos[a].y - goal.y));
+      const hb = dist[b] + (h ? hv[b] : aproxDistance(pos[b].x - goal.x, pos[b].y - goal.y));
       if (ha < hb) bi = i;
     }
     const cur = open.splice(bi, 1)[0];
@@ -92,7 +120,9 @@ function findPath(w, actor, fromSec, toSec) {
         if (dist[ni] === Infinity) open.push(ni);
         dist[ni] = d;
         prev[ni] = { from: cur, edge };
-        pos[ni] = edge.mid;
+        // Through a portal the walk goes on from the partner line.
+        pos[ni] = edge.exit || edge.mid;
+        if (h) hv[ni] = h(pos[ni]);
       }
     }
   }
@@ -156,8 +186,8 @@ export function chaseGoal(w, actor) {
   let t = (actor.x - l.v1.x) * ux + (actor.y - l.v1.y) * uy;
   const margin = Math.min(len / 2, actor.radius + 8);
   t = Math.max(margin, Math.min(len - margin, t));
-  // Left of v1->v2 is the back side.
-  const sgn = edge.to === l.backsector ? 1 : -1;
+  // Left of v1->v2 is the back side (a portal edge says which side it crosses to).
+  const sgn = edge.sgn || (edge.to === l.backsector ? 1 : -1);
   return { x: l.v1.x + ux * t - uy * 32 * sgn, y: l.v1.y + uy * t + ux * 32 * sgn };
 }
 

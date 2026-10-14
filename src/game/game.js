@@ -1,5 +1,6 @@
 // Game flow: title, levels, intermission and finale, plus level
-// progression rules for DOOM, Ultimate DOOM and DOOM II.
+// progression rules for DOOM, Ultimate DOOM and DOOM II, and stand-alone
+// maps played by name (Chinatown, see ct/maps.js).
 
 import { World } from './world.js';
 import { newGamePlayer } from './player.js';
@@ -8,6 +9,8 @@ import { MUSIC_NAMES } from './info.js';
 import { LEVEL_NAMES, PAR_TIMES, FINALE } from './data.js';
 import { MAP_COMPAT } from './compat.js';
 import { saveGame, loadGame } from './savegame.js';
+import { customMapDef } from './ct/maps.js';
+import { isEpisodeMapName } from '../wad/wad.js';
 
 const E4_MUSIC = ['e3m4', 'e3m2', 'e3m3', 'e1m5', 'e2m7', 'e2m4', 'e2m6', 'e2m5', 'e1m9'];
 
@@ -25,6 +28,8 @@ export class Game {
     this.skill = SKILL.MEDIUM;
     this.episode = 1;
     this.map = 1;
+    // Name of the stand-alone map being played (e.g. 'CHINATWN'), else null.
+    this.customMap = null;
     this.secretExit = false;
     this.listeners = {};
     this.fxFactory = null;
@@ -34,14 +39,44 @@ export class Game {
   on(ev, fn) { (this.listeners[ev] ||= []).push(fn); }
   emit(ev, ...args) { for (const fn of this.listeners[ev] || []) fn(...args); }
 
-  mapName(episode = this.episode, map = this.map) {
+  // The current map's lump name; with arguments, the ExMy / MAPxx name.
+  mapName(episode, map) {
+    if (episode === undefined && map === undefined && this.customMap) return this.customMap;
+    if (episode === undefined) episode = this.episode;
+    if (map === undefined) map = this.map;
     return this.commercial ? `MAP${String(map).padStart(2, '0')}` : `E${episode}M${map}`;
   }
 
-  levelTitle(episode = this.episode, map = this.map) {
-    const name = this.mapName(episode, map);
+  levelTitle(episode, map) {
+    if (episode === undefined && map === undefined && this.customMap) return customMapDef(this.customMap).title;
+    const name = this.mapName(episode ?? this.episode, map ?? this.map);
     const table = this.commercial ? LEVEL_NAMES.doom2 : LEVEL_NAMES.doom;
     return (table && table[name]) || name;
+  }
+
+  // First of a list of lump names the WADs provide (custom map fallbacks).
+  firstLump(names, has = (n) => this.stack.has(n)) {
+    return (names || []).find((n) => has(n)) || null;
+  }
+
+  // Music and sky of the level being played.
+  levelMusic() {
+    if (this.customMap) {
+      // The map script may have changed it (Chinatown's evacuation music).
+      const w = this.world;
+      const override = w && w.ct && w.ct.musicOverride();
+      if (override) return override;
+      return this.firstLump(customMapDef(this.customMap).music);
+    }
+    return this.musicFor(this.episode, this.map);
+  }
+
+  levelSky() {
+    if (this.customMap) {
+      const sky = this.firstLump(customMapDef(this.customMap).sky, (n) => this.res.textureByName.has(n));
+      if (sky) return sky;
+    }
+    return this.skyFor(this.episode, this.map);
   }
 
   musicFor(episode, map) {
@@ -57,10 +92,16 @@ export class Game {
     return `SKY${Math.min(4, episode)}`;
   }
 
+  // `map` may also be a map name outside ExMy / MAPxx (e.g. 'CHINATWN'):
+  // that map is played on its own, from a pistol start.
   newGame(episode, skill, map = 1) {
+    const custom = typeof map === 'string' && !isEpisodeMapName(map.toUpperCase()) ? map.toUpperCase() : null;
     this.skill = skill;
-    this.episode = episode;
-    this.map = map;
+    this.customMap = custom;
+    // A custom map is map 0 of episode 1, so no ExMy rule (E1M8's boss
+    // floor, the secret exit, the episode end) ever applies to it.
+    this.episode = custom ? 1 : episode;
+    this.map = custom ? 0 : map;
     // G_InitNew: a new game is never paused and forgets any pending level.
     this.paused = false;
     this.pendingNext = null;
@@ -98,7 +139,7 @@ export class Game {
     this.state = 'level';
     this.levelStartTime = performance.now();
     this.emit('levelStart', w);
-    const music = this.musicFor(this.episode, this.map);
+    const music = this.levelMusic();
     if (music) this.emit('music', music);
   }
 
@@ -119,7 +160,7 @@ export class Game {
       this.restartLevelAfterDeath();
       return;
     }
-    if (w.exitRequest) this.completeLevel(w.exitRequest.secret);
+    if (w.exitRequest) this.completeLevel(w.exitRequest.secret, w.exitRequest.finale);
   }
 
   restartLevelAfterDeath() {
@@ -127,11 +168,13 @@ export class Game {
     this.startLevel();
   }
 
-  completeLevel(secret) {
+  // `toFinale`: skip the stats screen (a custom map's scripted ending).
+  completeLevel(secret, toFinale = false) {
     const w = this.world;
     const p = this.player;
     this.secretExit = secret;
     const parTable = this.commercial ? PAR_TIMES.doom2 : PAR_TIMES.doom;
+    const custom = this.customMap ? customMapDef(this.customMap) : null;
     const stats = {
       episode: this.episode,
       map: this.map,
@@ -142,8 +185,9 @@ export class Game {
       items: p.itemcount, totalItems: w.totalitems,
       secrets: p.secretcount, totalSecrets: w.totalsecret,
       time: Math.floor(w.leveltime / TICRATE),
-      par: (parTable && parTable[this.mapName()]) || 0,
+      par: custom ? custom.par || 0 : (parTable && parTable[this.mapName()]) || 0,
       didSecret: secret,
+      custom: !!custom,
     };
     // Weapons survive, powers and keys do not.
     p.powers.fill(0);
@@ -158,7 +202,7 @@ export class Game {
     stats.secretExit = secret;
     this.lastStats = stats;
     // Like G_DoCompleted: DOOM 1 episode ends go straight to the finale.
-    if (!this.commercial && this.map === 8) {
+    if ((!this.commercial && this.map === 8) || toFinale) {
       this.advance();
       return;
     }
@@ -167,6 +211,7 @@ export class Game {
   }
 
   nextMap(secret) {
+    if (this.customMap) return null;
     const e = this.episode, m = this.map;
     if (this.commercial) {
       if (secret) {
@@ -207,6 +252,15 @@ export class Game {
   }
 
   finaleAfter(stats) {
+    if (stats.custom) {
+      const f = customMapDef(stats.mapName).finale;
+      if (!f) return null;
+      const flatOk = (n) => this.res.flatByName.has(n);
+      return {
+        text: f.text, flat: this.firstLump(f.flat, flatOk), music: this.firstLump(f.music),
+        custom: true, key: stats.mapName,
+      };
+    }
     if (this.commercial) {
       const m = stats.map;
       const table = FINALE.doom2 || {};
@@ -254,11 +308,12 @@ export class Game {
     this.state = 'level';
     this.paused = false;
     this.emit('levelStart', w);
-    const music = this.musicFor(this.episode, this.map);
+    const music = this.levelMusic();
     if (music) this.emit('music', music);
   }
 
-  // IDCLEV: like G_DeferedInitNew, a fresh pistol start on the chosen map.
+  // IDCLEV: like G_DeferedInitNew, a fresh pistol start on the chosen map
+  // (a custom map's name works too: warp(1, 'CHINATWN')).
   warp(episode, map) {
     this.newGame(episode, this.skill, map);
   }

@@ -15,6 +15,7 @@ import { AudioSystem } from './audio/audio.js';
 import { createEffects } from './fx/effects.js';
 import { storeIwad, clearStoredIwad } from './wadstore.js';
 import { writeSlot, readSlot } from './game/savegame.js';
+import { ctDebug } from './game/ct/debug.js';
 
 const TIC_SEC = 1 / TICRATE;
 
@@ -34,6 +35,8 @@ export class App {
     this.audio = new AudioSystem(this.stack, this.settings);
     this.game = new Game({ stack: this.stack, res: this.res, settings: this.settings, gamemode: this.gamemode, audio: this.audio });
     this.game.fxFactory = (w) => createEffects(w, this);
+    // Chinatown test hooks: window.doom.ct.state() / goto(stage).
+    this.ct = ctDebug(this.game);
     this.hud = new Hud(this);
     this.menu = new Menu(this);
     this.intermission = new Intermission(this);
@@ -45,7 +48,7 @@ export class App {
     const g = this.game;
     g.on('levelStart', (w) => {
       this.renderer.setLevel(w.level);
-      this.renderer.setSky(g.skyFor(g.episode, g.map));
+      this.renderer.setSky(g.levelSky());
       w.hooks.sideChanged = (side) => this.renderer.world && this.renderer.world.updateSide(side);
       w.hooks.sectorChanged = (sec) => this.renderer.world && this.renderer.world.updateSectorFlats(sec);
       this.automap.reset(w);
@@ -80,6 +83,9 @@ export class App {
       const em = /^E(\d)M(\d)$/.exec(m);
       const mm = /^MAP(\d\d)$/.exec(m);
       if (em) { ep = +em[1]; map = +em[2]; } else if (mm) map = +mm[1];
+      // Any other map name in the loaded WADs (e.g. CHINATWN) plays that map on its own.
+      else if (this.stack.customMapNames().includes(m)) map = m;
+      else console.warn(`?map=${m}: no such map in the loaded WADs`);
       this.game.newGame(ep, skill, map);
       if (p.has('god')) this.game.player.cheats |= 2;
       this.input.wantLock = true; // like startNewGame: the first click grabs the mouse
@@ -173,9 +179,10 @@ export class App {
 
   quickLoad() { this.loadFromSlot('quick'); }
 
-  startNewGame(episode, skill) {
+  // `map`: a custom map's name (e.g. 'CHINATWN'), else the episode's first map.
+  startNewGame(episode, skill, map = 1) {
     this.menu.close();
-    this.game.newGame(episode, skill);
+    this.game.newGame(episode, skill, map);
     this.input.wantLock = true;
     this.input.requestLock();
   }

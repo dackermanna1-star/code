@@ -310,6 +310,7 @@ export class Automap {
     if (this.cheating === 2) this.drawThings(v, frac);
     // AM_drawCrosshair: a single point in the middle of the window.
     r.fillRect(Math.floor(ox), Math.floor(oy), Math.max(1, Math.round(r.vScaleX)), Math.max(1, Math.round(r.vScaleY)), XHAIRCOLORS);
+    this.drawObjective(v);
     r.flushUI();
     this.drawMarks(v);
     this.drawInfo(r, rect, p);
@@ -415,6 +416,25 @@ export class Automap {
       const color = KEY_COLORS.get(t.info && t.info.doomednum) ?? GREENS;
       this.drawLineCharacter(v, THINTRIANGLE_GUY, 16, t.angle, color, x, y);
     }
+  }
+
+  // Chinatown: the current objective's spot, a blinking diamond (fixed
+  // screen size at any zoom).
+  drawObjective(v) {
+    const w = this.world;
+    const info = w && w.ct ? w.ct.hud() : null;
+    const m = info && info.marker;
+    if (!m) return;
+    const clock = this.app.hud ? this.app.hud.clock : 0;
+    if (clock & 16) return;
+    const k = 7 / this.scale; // 7 virtual pixels in map units
+    const pts = [[m.x + k, m.y], [m.x, m.y + k], [m.x - k, m.y], [m.x, m.y - k]];
+    for (let i = 0; i < 4; i++) {
+      const [ax, ay] = pts[i], [bx, by] = pts[(i + 1) % 4];
+      this.mline(v, ax, ay, bx, by, YELLOWS);
+    }
+    this.mline(v, m.x - k / 2, m.y, m.x + k / 2, m.y, YELLOWS);
+    this.mline(v, m.x, m.y - k / 2, m.x, m.y + k / 2, YELLOWS);
   }
 
   // AMMNUM digits where marks were placed, only when fully inside.

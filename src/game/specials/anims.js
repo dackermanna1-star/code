@@ -3,10 +3,11 @@
 // equivalent of texturetranslation[] / flattranslation[].
 
 import { ANIMDEFS } from '../data.js';
+import { CT_ANIMDEFS } from '../ct/info.js';
 
 export function initPicAnims(res) {
   const anims = [];
-  for (const def of ANIMDEFS) {
+  for (const def of [...ANIMDEFS, ...CT_ANIMDEFS]) {
     const byName = def.istexture ? res.textureByName : res.flatByName;
     const start = byName.get(def.startname);
     const end = byName.get(def.endname);

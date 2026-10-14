@@ -79,4 +79,11 @@ export const HIT_ZONES = {
   HEAD: null, SKUL: null, PAIN: null, SPID: { head: 0.92, legs: 0.5, headMult: 1.25, legMult: 0.8 },
   CYBR: { head: 0.86, legs: 0.35, headMult: 1.25, legMult: 0.9 },
   SARG: { head: 0.72, legs: 0.3, headMult: 1.35, legMult: 0.9 },
+  // Chinatown's zombies: aim for the head, as in No More Room in Hell.
+  ZCV1: { head: 0.8, legs: 0.33, headMult: 3, legMult: 0.8 },
+  ZCV2: { head: 0.8, legs: 0.33, headMult: 3, legMult: 0.8 },
+  ZCV3: { head: 0.8, legs: 0.33, headMult: 3, legMult: 0.8 },
+  ZCV4: { head: 0.8, legs: 0.33, headMult: 3, legMult: 0.8 },
+  ZRUN: { head: 0.8, legs: 0.33, headMult: 3, legMult: 0.8 },
+  ZKID: { head: 0.76, legs: 0.33, headMult: 3, legMult: 0.8 },
 };

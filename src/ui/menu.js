@@ -8,8 +8,11 @@ import { drawText, eventToVirtual, keyName } from './menu-util.js';
 import { buildOptionMenus } from './menu-options.js';
 import { STRINGS, QUIT_MESSAGES } from '../game/data.js';
 import { DEFAULTS, DEFAULT_BINDS } from '../settings.js';
+import { CUSTOM_MAPS } from '../game/ct/maps.js';
 
 const LINEHEIGHT = 16;
+// Menu entries without their graphic are drawn in the HUD font at this scale.
+const TEXT_ITEM_SCALE = 2;
 const SKULLXOFF = -32;
 const SKULLS = ['M_SKULL1', 'M_SKULL2'];
 
@@ -40,6 +43,7 @@ export class Menu {
     this.capture = null; // action being rebound
     this.quitTics = 0;
     this.epi = 0;
+    this.customMap = null; // stand-alone map chosen in the episode list
     this.openTime = 0;
     this.clock = 0;
     this.mouseV = null; // last pointer position in virtual coords
@@ -80,18 +84,29 @@ export class Menu {
       main.y += 8;
     }
     const episodes = mode === 'retail' ? 4 : 3;
-    const epi = {
-      kind: 'patch', x: 48, y: 63, lastOn: 0, prev: main,
-      items: [
+    // Stand-alone maps the loaded WADs contain (Chinatown) follow the
+    // episodes; DOOM II, which has no episode menu, gets one for them.
+    const loaded = new Set(this.app.stack ? this.app.stack.customMapNames() : []);
+    const customItems = Object.entries(CUSTOM_MAPS).filter(([name]) => loaded.has(name)).map(([name, def]) => ({
+      patch: def.menuPatch, text: def.menuText || name.toLowerCase(), key: (def.menuText || name)[0].toLowerCase(),
+      run: () => this.chooseCustom(name),
+    }));
+    this.hasCustomMaps = customItems.length > 0;
+    const epiItems = commercial
+      ? [{ text: 'hell on earth', key: 'h', run: () => this.chooseEpisode(0) }]
+      : [
         { patch: 'M_EPI1', key: 'k' }, { patch: 'M_EPI2', key: 't' },
         { patch: 'M_EPI3', key: 'i' }, { patch: 'M_EPI4', key: 't' },
-      ].slice(0, episodes).map((it, i) => ({ ...it, run: () => this.chooseEpisode(i) })),
+      ].slice(0, episodes).map((it, i) => ({ ...it, run: () => this.chooseEpisode(i) }));
+    const epi = {
+      kind: 'patch', x: 48, y: 63, lastOn: 0, prev: main,
+      items: [...epiItems, ...customItems],
       draw: (r) => r.drawPatch('M_EPISOD', 54, 38),
     };
     const skill = this.settings.get('skill');
     const newg = {
       kind: 'patch', x: 48, y: 63, lastOn: Number.isInteger(skill) && skill >= 0 && skill <= 4 ? skill : 2,
-      prev: commercial ? main : epi,
+      prev: commercial && !this.hasCustomMaps ? main : epi,
       items: [
         { patch: 'M_JKILL', key: 'i' }, { patch: 'M_ROUGH', key: 'h' }, { patch: 'M_HURT', key: 'h' },
         { patch: 'M_ULTRA', key: 'u' }, { patch: 'M_NMARE', key: 'n' },
@@ -204,16 +219,23 @@ export class Menu {
   // --- Main menu actions ----------------------------------------------------
 
   newGame() {
-    this.setup(this.commercial ? this.newDef : this.epiDef);
+    this.setup(this.commercial && !this.hasCustomMaps ? this.newDef : this.epiDef);
   }
 
   chooseEpisode(choice) {
+    this.customMap = null;
     if (this.gamemode === 'shareware' && choice) {
       this.startMessage(STRINGS.SWSTRING);
       return;
     }
     if (this.gamemode === 'registered' && choice > 2) choice = 0;
     this.epi = choice;
+    this.setup(this.newDef);
+  }
+
+  // A stand-alone map from the episode list (e.g. Chinatown), then the skill.
+  chooseCustom(name) {
+    this.customMap = name;
     this.setup(this.newDef);
   }
 
@@ -228,7 +250,7 @@ export class Menu {
   startGame(skill) {
     this.newDef.lastOn = skill;
     this.settings.set('skill', skill);
-    this.app.startNewGame(this.commercial ? 1 : this.epi + 1, skill);
+    this.app.startNewGame(this.commercial ? 1 : this.epi + 1, skill, this.customMap || 1);
   }
 
   quitDoom() {
@@ -637,8 +659,9 @@ export class Menu {
     if (m.kind === 'patch') {
       for (let i = 0; i < m.items.length; i++) {
         const y = m.y + i * LINEHEIGHT;
-        const p = this.app.res.patch(m.items[i].patch);
-        const w = p ? p.width : 160;
+        const it = m.items[i];
+        const p = this.itemPatch(it);
+        const w = p ? p.width : it.text ? this.font.width(it.text) * TEXT_ITEM_SCALE : 160;
         if (v.y >= y - 1 && v.y < y + LINEHEIGHT - 1 && v.x >= m.x + SKULLXOFF && v.x <= m.x + w + 8) return i;
       }
       return null;
@@ -722,10 +745,20 @@ export class Menu {
     r.drawPatch(SKULLS[this.whichSkull], m.x + SKULLXOFF, m.y - 5);
   }
 
+  // An item's graphic, or null when it has to be drawn from its text.
+  itemPatch(item) {
+    return item.patch ? this.app.res.patch(item.patch) : null;
+  }
+
   drawPatchMenu(r, m) {
     if (m.draw) m.draw(r);
     for (let i = 0; i < m.items.length; i++) {
-      r.drawPatch(m.items[i].patch, m.x, m.y + i * LINEHEIGHT);
+      const it = m.items[i];
+      if (it.text && !this.itemPatch(it)) {
+        drawText(r, this.font, it.text, m.x, m.y + i * LINEHEIGHT + 1, { scale: TEXT_ITEM_SCALE });
+      } else {
+        r.drawPatch(it.patch, m.x, m.y + i * LINEHEIGHT);
+      }
     }
     r.drawPatch(SKULLS[this.whichSkull], m.x + SKULLXOFF, m.y - 5 + this.itemOn * LINEHEIGHT);
   }

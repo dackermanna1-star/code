@@ -12,8 +12,10 @@ import { checkPosition, tryMove, changeSector } from './map.js';
 import { checkSight } from './sight.js';
 import { damageMobj, touchSpecialThing } from './inter.js';
 import { move as enemyMove } from './enemy.js';
+import './ct/zombies.js';
 import { playerThink, spawnPlayerSetup, STAND_HEIGHT } from './player.js';
 import { Specials } from './specials/specials.js';
+import { CtLevel, wantsCtLevel } from './ct/level.js';
 
 export class World {
   constructor(opts) {
@@ -49,6 +51,8 @@ export class World {
     this.level = loadMapData(opts.lumps, this.res);
     this.skyFlatIndex = this.res.skyFlat ? this.res.skyFlat.index : -1;
     this.specials = new Specials(this);
+    // Chinatown's specials and map script, on maps that use them.
+    this.ct = wantsCtLevel(this.level, this.mapName) ? new CtLevel(this) : null;
   }
 
   // --- Setup --------------------------------------------------------------
@@ -62,6 +66,7 @@ export class World {
     }
     if (!spawned) this.spawnPlayer();
     this.specials.spawnSpecials();
+    if (this.ct) this.ct.start();
   }
 
   spawnPlayer() {
@@ -110,6 +115,7 @@ export class World {
     }
     if (list.some((t) => t.removed)) this.thinkers = list.filter((t) => !t.removed);
     this.specials.updateSpecials();
+    if (this.ct) this.ct.tick();
     if (this.fx) this.fx.tick();
     this.leveltime++;
     this.gametic++;
@@ -150,8 +156,14 @@ export class World {
     if (this.audio) this.audio.stopOrigin(origin);
   }
 
-  exitLevel(secret = false) {
-    if (!this.exitRequest) this.exitRequest = { secret };
+  // Ends a sound started with { loop: true } (cosmetic, like all sound).
+  stopLoop(origin, channel) {
+    if (this.audio && this.audio.stop) this.audio.stop(origin, channel);
+  }
+
+  // opts.finale: straight to the finale text, no stats (Chinatown's rescue).
+  exitLevel(secret = false, opts = null) {
+    if (!this.exitRequest) this.exitRequest = { secret, finale: !!(opts && opts.finale) };
   }
 
   // Compatibility rule: jumping can be disabled per map/sector.

@@ -10,6 +10,7 @@ import { FloatTable } from './gl.js';
 const F_FLAT = 1;
 const F_MASKED = 2;
 const F_NOVWRAP = 4;
+const F_FULLBRIGHT = 32; // per surface (surface table w), e.g. neon textures
 
 const PLANE_FLOOR = 0;
 const PLANE_CEIL = 1;
@@ -49,18 +50,29 @@ export class WorldGeometry {
     return t ? t.id : -1;
   }
 
+  // Surface flags of a flat / wall texture (fullbright by name, see Resources).
+  flatFlags(pic) {
+    const f = this.res.flats[pic];
+    return f && f.fullbright ? F_FULLBRIGHT : 0;
+  }
+
+  textureFlags(num) {
+    const t = num ? this.res.textures[num] : null;
+    return t && t.fullbright ? F_FULLBRIGHT : 0;
+  }
+
   updateSectorFlats(sec) {
-    this.surfaceTable.set(sec.index * 2, this.flatImage(sec.floorpic), 0, 0, 0);
-    this.surfaceTable.set(sec.index * 2 + 1, this.flatImage(sec.ceilingpic), 0, 0, 0);
+    this.surfaceTable.set(sec.index * 2, this.flatImage(sec.floorpic), 0, 0, this.flatFlags(sec.floorpic));
+    this.surfaceTable.set(sec.index * 2 + 1, this.flatImage(sec.ceilingpic), 0, 0, this.flatFlags(sec.ceilingpic));
   }
 
   updateSide(side) {
     const b = this.sideBase + side.index * 3;
     const xo = side.textureoffset;
     const yo = side.rowoffset;
-    this.surfaceTable.set(b, side.toptexture ? this.textureImage(side.toptexture) : -1, xo, yo, 0);
-    this.surfaceTable.set(b + 1, side.midtexture ? this.textureImage(side.midtexture) : -1, xo, yo, 0);
-    this.surfaceTable.set(b + 2, side.bottomtexture ? this.textureImage(side.bottomtexture) : -1, xo, yo, 0);
+    this.surfaceTable.set(b, side.toptexture ? this.textureImage(side.toptexture) : -1, xo, yo, this.textureFlags(side.toptexture));
+    this.surfaceTable.set(b + 1, side.midtexture ? this.textureImage(side.midtexture) : -1, xo, yo, this.textureFlags(side.midtexture));
+    this.surfaceTable.set(b + 2, side.bottomtexture ? this.textureImage(side.bottomtexture) : -1, xo, yo, this.textureFlags(side.bottomtexture));
   }
 
   // Interpolated heights/light for rendering.

@@ -7,6 +7,8 @@ import {
 } from './defs.js';
 import { S, WEAPONINFO } from './tables.js';
 import { MAX_AMMO } from './info.js';
+import { KEY_ITEM_COUNT } from './ct/items.js';
+import { climbThink, abortClimb } from './ct/ladder.js';
 import { setMobjState } from './mobj.js';
 import { useLines } from './map.js';
 import {
@@ -42,6 +44,10 @@ export class Player {
     this.powers = [0, 0, 0, 0, 0, 0];
     this.cards = [false, false, false, false, false, false];
     this.backpack = false;
+    // Chinatown key items carried (ct/items.js KEY_ITEM order).
+    this.keyItems = new Array(KEY_ITEM_COUNT).fill(false);
+    // Chinatown ladder climb in progress (ct/ladder.js), else null.
+    this.climb = null;
     this.weaponowned = new Array(9).fill(false);
     this.ammo = [0, 0, 0, 0];
     this.maxammo = MAX_AMMO.slice();
@@ -136,6 +142,8 @@ export class Player {
 
   resetForNewLevel() {
     this.cards.fill(false);
+    this.keyItems.fill(false);
+    this.climb = null;
     this.powers.fill(0);
     this.extralight = 0;
     this.fixedcolormap = 0;
@@ -342,34 +350,42 @@ export function playerThink(w, player) {
     mo.flags &= ~MF.JUSTATTACKED;
   }
   if (player.playerstate === 'dead') {
+    if (player.climb) abortClimb(w, player);
     deathThink(w, player);
     return;
   }
-  updateCrouch(w, player);
-  if (mo.reactiontime) mo.reactiontime--;
-  else movePlayer(w, player);
-  calcHeight(w, player);
-  if (mo.subsector.sector.special) w.specials.playerInSpecialSector(player);
+  if (player.climb) {
+    // On a Chinatown ladder (ct/ladder.js): the climb moves body and view,
+    // the controls and the weapon wait.
+    climbThink(w, player);
+    player.usedown = !!cmd.use;
+  } else {
+    updateCrouch(w, player);
+    if (mo.reactiontime) mo.reactiontime--;
+    else movePlayer(w, player);
+    calcHeight(w, player);
+    if (mo.subsector.sector.special) w.specials.playerInSpecialSector(player);
 
-  // Weapon change
-  let newweapon = cmd.weapon;
-  if (cmd.nextWeapon) newweapon = cycleWeapon(w, player, cmd.nextWeapon);
-  if (newweapon >= 0) {
-    if (newweapon === WP.FIST && player.weaponowned[WP.CHAINSAW]
-      && !(player.readyweapon === WP.CHAINSAW && player.powers[PW.STRENGTH])) newweapon = WP.CHAINSAW;
-    if (w.commercial && newweapon === WP.SHOTGUN && player.weaponowned[WP.SUPERSHOTGUN]
-      && player.readyweapon !== WP.SUPERSHOTGUN) newweapon = WP.SUPERSHOTGUN;
-    if (player.weaponowned[newweapon] && newweapon !== player.readyweapon) player.pendingweapon = newweapon;
-  }
-  if (cmd.use) {
-    if (!player.usedown) {
-      useLines(w, player);
-      player.usedown = true;
+    // Weapon change
+    let newweapon = cmd.weapon;
+    if (cmd.nextWeapon) newweapon = cycleWeapon(w, player, cmd.nextWeapon);
+    if (newweapon >= 0) {
+      if (newweapon === WP.FIST && player.weaponowned[WP.CHAINSAW]
+        && !(player.readyweapon === WP.CHAINSAW && player.powers[PW.STRENGTH])) newweapon = WP.CHAINSAW;
+      if (w.commercial && newweapon === WP.SHOTGUN && player.weaponowned[WP.SUPERSHOTGUN]
+        && player.readyweapon !== WP.SUPERSHOTGUN) newweapon = WP.SUPERSHOTGUN;
+      if (player.weaponowned[newweapon] && newweapon !== player.readyweapon) player.pendingweapon = newweapon;
     }
-  } else player.usedown = false;
+    if (cmd.use) {
+      if (!player.usedown) {
+        useLines(w, player);
+        player.usedown = true;
+      }
+    } else player.usedown = false;
 
-  tickHandling(w, player);
-  movePsprites(w, player);
+    tickHandling(w, player);
+    movePsprites(w, player);
+  }
 
   if (player.powers[PW.STRENGTH]) player.powers[PW.STRENGTH]++;
   if (player.powers[PW.INVULNERABILITY]) player.powers[PW.INVULNERABILITY]--;

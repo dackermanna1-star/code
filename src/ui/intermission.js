@@ -4,6 +4,8 @@
 
 import { INTERMISSION, RNDTABLE } from '../game/data.js';
 import { TICRATE } from '../game/defs.js';
+import { customMapDef } from '../game/ct/maps.js';
+import { DoomFont } from './font.js';
 
 const SCREENWIDTH = 320;
 const SCREENHEIGHT = 200;
@@ -42,6 +44,9 @@ export class Intermission {
     const g = this.app.game;
     this.stats = stats;
     this.commercial = !!g.commercial;
+    // A stand-alone map (Chinatown): its own background and title, no
+    // episode map, and no next level (the stats stay up until the finale).
+    this.custom = stats.custom ? customMapDef(stats.mapName) : null;
     // wbstartstruct_t: 0-based episode and map numbers.
     this.epsd = this.commercial ? 0 : stats.episode - 1;
     this.last = stats.map - 1;
@@ -63,7 +68,13 @@ export class Intermission {
 
   loadData() {
     const P = (n) => this.patch(n);
-    if (this.commercial) {
+    if (this.custom) {
+      const c = this.custom;
+      this.lnameLast = c.menuPatch ? P(c.menuPatch) : null;
+      this.lnameNext = null;
+      this.titleText = this.lnameLast ? null : c.title;
+      if (!this.font) this.font = new DoomFont(this.app.res);
+    } else if (this.commercial) {
       const name = (m) => (m >= 0 ? P(`CWILV${String(m).padStart(2, '0')}`) : null);
       this.lnameLast = name(this.last);
       this.lnameNext = name(this.next);
@@ -75,9 +86,10 @@ export class Intermission {
       this.splat = [P('WISPLAT'), null];
     }
     // Episode 4 of Ultimate DOOM has no map: Chocolate uses INTERPIC.
-    this.background = this.commercial || this.epsd > 2 ? P('INTERPIC') : P(`WIMAP${this.epsd}`);
+    if (this.custom) this.background = (this.custom.interpic || []).map(P).find(Boolean) || null;
+    else this.background = this.commercial || this.epsd > 2 ? P('INTERPIC') : P(`WIMAP${this.epsd}`);
     this.anims = [];
-    if (!this.commercial && this.epsd <= 2) {
+    if (!this.custom && !this.commercial && this.epsd <= 2) {
       const defs = INTERMISSION.anims[this.epsd] || [];
       defs.forEach((d, j) => {
         const a = { ...d, ctr: -1, nexttic: 0, p: [] };
@@ -285,7 +297,7 @@ export class Intermission {
     if (!this.stats) return;
     this.r = r;
     // After ExM8 (no next map) the stats stay up until the finale starts.
-    if (this.state === ST_STATCOUNT || (!this.commercial && this.next < 0)) {
+    if (this.state === ST_STATCOUNT || this.custom || (!this.commercial && this.next < 0)) {
       this.drawStats();
     } else if (this.state === ST_SHOWNEXTLOC) {
       this.drawShowNextLoc();
@@ -304,7 +316,10 @@ export class Intermission {
 
   dp(x, y, patch, opts) { if (patch) this.r.drawPatch(patch, x, y, opts); }
 
-  slamBackground() { this.dp(0, 0, this.background); }
+  slamBackground() {
+    if (!this.background) this.r.fillRect(0, 0, this.r.W, this.r.H, 0);
+    this.dp(0, 0, this.background);
+  }
 
   drawAnimatedBack() {
     for (const a of this.anims) if (a.ctr >= 0) this.dp(a.loc.x, a.loc.y, a.p[a.ctr]);
@@ -317,6 +332,10 @@ export class Intermission {
     if (ln) {
       this.dp((SCREENWIDTH - ln.width) >> 1, y, ln);
       y += (5 * ln.height) >> 2;
+    } else if (this.custom && this.titleText) {
+      // No title graphic: the level name in the HUD font, twice its size.
+      this.font.draw(this.r, this.titleText, SCREENWIDTH / 2, y + 2, { align: 'center', scale: 2 });
+      y += 20;
     } else {
       y += 16;
     }
@@ -423,7 +442,7 @@ export class Intermission {
     this.drawPercent(SCREENWIDTH - SP_STATSX, SP_STATSY + 2 * lh, this.cntSecret);
     this.dp(SP_TIMEX, SP_TIMEY, this.timepatch);
     this.drawTime(SCREENWIDTH / 2 - SP_TIMEX, SP_TIMEY, this.cntTime);
-    if (this.epsd < 3) {
+    if (this.custom ? this.stats.par > 0 : this.epsd < 3) {
       this.dp(SCREENWIDTH / 2 + SP_TIMEX, SP_TIMEY, this.par);
       this.drawTime(SCREENWIDTH - SP_TIMEX, SP_TIMEY, this.cntPar);
     }

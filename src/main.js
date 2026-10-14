@@ -10,6 +10,7 @@ import { Game } from './game/game.js';
 import { TICRATE, SKILL } from './game/defs.js';
 import './game/enemy.js';
 import './game/weapons.js';
+import './game/ct/zombies.js';
 import { missingActions } from './game/tables.js';
 import { App } from './app.js';
 import { loadStoredIwad } from './wadstore.js';
@@ -70,6 +71,18 @@ async function main() {
   }
   if (!iwadBuf) iwadBuf = await fetchWad('assets/wads/doom1.wad');
   stack.add(new Wad(iwadBuf, iwadName));
+  // PWADs layered over the IWAD: the Chinatown map and its content (when
+  // built), then a development PWAD given as ?pwad=<relative path>.
+  const pwads = ['assets/wads/chinatown.wad'];
+  const extra = params.get('pwad');
+  if (extra && /^[\w-]+(\/[\w.-]+)*\.wad$/i.test(extra) && !extra.includes('..')) pwads.push(extra);
+  for (const url of pwads) {
+    try {
+      stack.add(new Wad(await fetchWad(url), url.split('/').pop()));
+    } catch (e) {
+      if (url !== pwads[0]) console.warn(`PWAD ${url} not loaded`, e);
+    }
+  }
   try {
     stack.add(new Wad(await fetchWad('assets/wads/doomx-extras.wad'), 'extras'), { fallback: true });
   } catch (e) {

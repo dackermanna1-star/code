@@ -31,7 +31,9 @@ function recursiveSound(w, sec, soundblocks, target) {
     if (!(check.flags & ML.TWOSIDED) || !check.backsector) continue;
     lineOpening(check);
     if (opening.range <= 0) continue;
-    const other = check.frontsector === sec ? check.backsector : check.frontsector;
+    let other = check.frontsector === sec ? check.backsector : check.frontsector;
+    // Through a Chinatown portal the sound comes out past the partner line.
+    if (check.special === 900 && w.ct) other = w.ct.portalExitSector(check, sec) || other;
     if (check.flags & ML.SOUNDBLOCK) {
       if (!soundblocks) recursiveSound(w, other, 1, target);
     } else {
@@ -51,7 +53,10 @@ export function checkMeleeRange(w, actor) {
   const pl = actor.target;
   if (!pl) return false;
   const dist = aproxDistance(pl.x - actor.x, pl.y - actor.y);
-  if (dist >= MELEERANGE - 20 + pl.info.radius) return false;
+  // Chinatown's zombies give their reach (centre to centre against a
+  // 16-radius player); DOOM's monsters use MELEERANGE.
+  const reach = actor.info.ct && actor.info.ct.reach;
+  if (dist >= (reach ? reach - 16 : MELEERANGE - 20) + pl.info.radius) return false;
   // Can't bite what's far above or below (relevant once players can jump).
   if (pl.z > actor.z + actor.height + 24 || pl.z + pl.height < actor.z - 24) return false;
   return w.checkSight(actor, pl);
@@ -188,11 +193,17 @@ export function lookForPlayers(w, actor, allaround) {
 
 // --- Actions ------------------------------------------------------------
 
+// Chinatown's zombie groans come in three takes, like the posit/bgsit sounds.
+function zombieGroan(w, sound) {
+  return sound === 'zsgrn1' ? 'zsgrn' + (1 + w.rng.P() % 3) : sound;
+}
+
 function seeSound(w, actor) {
   let sound = actor.info.seesound;
   if (!sound) return;
   if (sound === 'posit1' || sound === 'posit2' || sound === 'posit3') sound = 'posit' + (1 + w.rng.P() % 3);
   else if (sound === 'bgsit1' || sound === 'bgsit2') sound = 'bgsit' + (1 + w.rng.P() % 2);
+  else sound = zombieGroan(w, sound);
   if (actor.type === MT.SPIDER || actor.type === MT.CYBORG) w.sound(null, sound);
   else w.sound(actor, sound, { channel: 'voice' });
 }
@@ -259,7 +270,7 @@ export function A_Chase(w, actor) {
   } else if (--actor.movecount < 0 || !move(w, actor)) {
     newChaseDir(w, actor);
   }
-  if (actor.info.activesound && w.rng.P() < 3) w.sound(actor, actor.info.activesound, { channel: 'voice' });
+  if (actor.info.activesound && w.rng.P() < 3) w.sound(actor, zombieGroan(w, actor.info.activesound), { channel: 'voice' });
 }
 
 export function A_FaceTarget(w, actor) {
@@ -618,6 +629,7 @@ export function A_Scream(w, actor) {
   if (!sound) return;
   if (/^podth[123]$/.test(sound)) sound = 'podth' + (1 + w.rng.P() % 3);
   else if (/^bgdth[12]$/.test(sound)) sound = 'bgdth' + (1 + w.rng.P() % 2);
+  else if (sound === 'zsdth1') sound = 'zsdth' + (1 + w.rng.P() % 2);
   if (actor.type === MT.SPIDER || actor.type === MT.CYBORG) w.sound(null, sound);
   else w.sound(actor, sound, { channel: 'voice' });
 }

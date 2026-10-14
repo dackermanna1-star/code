@@ -14,6 +14,7 @@ import { Plat } from './specials/plats.js';
 import { FloorMove } from './specials/floors.js';
 import { Ceiling } from './specials/ceilings.js';
 import { FireFlicker, LightFlash, StrobeFlash, Glow } from './specials/lights.js';
+import { isEpisodeMapName } from '../wad/wad.js';
 
 export const SAVE_VERSION = 1;
 const CLASSES = { VerticalDoor, Plat, FloorMove, Ceiling, FireFlicker, LightFlash, StrobeFlash, Glow };
@@ -109,6 +110,8 @@ export function saveGame(game, description = '') {
     episode: game.episode,
     map: game.map,
     mapName: game.mapName(),
+    // A stand-alone map played by name (e.g. CHINATWN), else null.
+    customMap: game.customMap || null,
     skill: game.skill,
     world: {
       leveltime: w.leveltime,
@@ -148,6 +151,8 @@ export function saveGame(game, description = '') {
       buttons: enc.ref(w.specials.buttons),
     },
     player: enc.plainFields(p, PLAYER_SKIP),
+    // Chinatown specials and map script state (ct/level.js), else null.
+    ct: w.ct ? enc.ref(w.ct.s) : null,
   };
   return data;
 }
@@ -277,6 +282,7 @@ export function loadGame(game, data) {
   w.specials.buttons = dec.deref(data.specials.buttons) || [];
   for (const b of w.specials.buttons) if (b && typeof b.btexture === 'number') b.btexture = tex(b.btexture);
   if (ws.brainTargets) { w.brainTargets = dec.deref(ws.brainTargets); w.brainTargetOn = ws.brainTargetOn; }
+  if (w.ct && data.ct) w.ct.restore(dec.deref(data.ct));
 
   // Player
   Object.assign(player, dec.deref(data.player));
@@ -287,7 +293,9 @@ export function loadGame(game, data) {
   game.skill = data.skill;
   game.episode = data.episode;
   game.map = data.map;
+  game.customMap = data.customMap || (isEpisodeMapName(data.mapName) ? null : data.mapName);
   game.player = player;
+  if (w.ct) w.ct.loaded();
   return w;
 }
 

@@ -107,7 +107,8 @@ export class VoxelMonsters {
   // Sprites seen on the map start building at once.
   scan() {
     this.scanned = true;
-    for (const mo of this.w.mobjs) if (this.lib.supports(mo.sprite)) this.lib.request(mo.sprite);
+    // Invisible markers (NOSECTOR, e.g. teleport destinations) don't count.
+    for (const mo of this.w.mobjs) if (!(mo.flags & MF.NOSECTOR) && this.lib.supports(mo.sprite)) this.lib.request(mo.sprite);
   }
 
   // Monster art that hangs below the floor is lifted like the sprite renderer does.
@@ -196,6 +197,12 @@ export class VoxelMonsters {
     const lib = this.lib;
     if (!lib.ready(mo.sprite)) return null;
     return lib.model(mo.sprite, mo.frame) || lib.model(mo.sprite, 0) || lib.model(mo.sprite, 1);
+  }
+
+  // A thing went through a Chinatown portal: turn its smoothed facing too.
+  portaled(mo, rot) {
+    const v = this.views.get(mo);
+    if (v) v.yaw += rot;
   }
 
   createRagdoll(mo, model, yaw, vel) {

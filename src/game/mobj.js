@@ -139,6 +139,11 @@ export function xyMovement(w, mo) {
         xmove = ymove = 0;
       }
       if (mo.removed) return;
+    } else if (mapState.portal) {
+      // Through a Chinatown portal: the rest of the move turns with it.
+      const c = Math.cos(mapState.portal.rot), s = Math.sin(mapState.portal.rot);
+      [xmove, ymove] = [xmove * c - ymove * s, xmove * s + ymove * c];
+      mapState.portal = null;
     }
   } while (xmove || ymove);
 

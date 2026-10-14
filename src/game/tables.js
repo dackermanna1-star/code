@@ -1,6 +1,9 @@
 // Compiles the info.js tables (string references) into fast index-based
 // arrays and holds the action function registry.
 
+// Chinatown's sprites, states, things and sounds are appended to the info.js
+// tables first (see ct/install.js), so they compile with the rest.
+import './ct/install.js';
 import { SPRNAMES, STATE_DEFS, MOBJ_DEFS, SFX_DEFS, WEAPON_DEFS, FF_FULLBRIGHT, FF_FRAMEMASK } from './info.js';
 import { flagsOf } from './defs.js';
 
@@ -60,6 +63,7 @@ export const MOBJINFO = MOBJ_DEFS.map((d, i) => ({
   activesound: d.activesound,
   flags: flagsOf(d.flags),
   raisestate: S[d.raisestate],
+  ct: d.ct || null,
 }));
 
 export const DOOMEDNUM = new Map();

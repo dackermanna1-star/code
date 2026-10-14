@@ -2,15 +2,18 @@
 // Validates src/game/info.js and src/game/data.js: table sizes, cross
 // references, a set of well-known values from the original source, and that the
 // sprite frames / textures / lumps the tables reference exist in the bundled WADs.
+// Also checks the Chinatown additions (src/game/ct/info.js) against them and
+// tools/ct/SPEC.md, and reports which of their sprites chinatown.wad has.
 //
 // Usage: node tools/check-info.mjs
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import * as info from '../src/game/info.js';
 import * as data from '../src/game/data.js';
+import * as ct from '../src/game/ct/info.js';
 import { Wad, WadStack } from '../src/wad/wad.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -375,6 +378,87 @@ for (const lump of ['WIMAP0', 'WISPLAT', 'WIURH0', 'WIURH1']) check(stack.has(lu
 const missingSfx = SFX_DEFS.slice(1).filter((s) => !s.link && !stack.has(`DS${s.name}`)).map((s) => s.name);
 notes.push(`sfx lumps absent from doom1.wad + extras (DOOM II / registered only): ${missingSfx.length}`);
 for (let m = 1; m <= 9; m++) check(stack.has(`D_E1M${m}`), `music D_E1M${m} missing`);
+
+// ---------------------------------------------------------------- Chinatown (src/game/ct/info.js)
+// Data only: importing it does not append it to the tables above (tables.js
+// does that through ct/install.js), so the counts above stay DOOM's.
+{
+  const allSpr = new Set([...SPRNAMES, ...ct.CT_SPRNAMES]);
+  check(allSpr.size === SPRNAMES.length + ct.CT_SPRNAMES.length, 'CT sprite names collide with DOOM\'s or each other');
+  for (const n of ct.CT_SPRNAMES) check(/^[A-Z0-9]{4}$/.test(n), `bad CT sprite name ${n}`);
+  const ctStates = new Map(ct.CT_STATE_DEFS.map((st) => [st[0], st]));
+  check(ctStates.size === ct.CT_STATE_DEFS.length, 'duplicate CT state names');
+  const allActions = new Set([...ACTION_NAMES, ...ct.CT_ACTION_NAMES]);
+  const stateOk = (n) => stateIndex.has(n) || ctStates.has(n);
+  for (const [name, spr, frame, tics, action, next, misc1, misc2] of ct.CT_STATE_DEFS) {
+    check(!stateIndex.has(name), `CT state ${name} shadows a DOOM state`);
+    check(allSpr.has(spr), `${name}: unknown sprite ${spr}`);
+    check(Number.isInteger(frame) && (frame & FF_FRAMEMASK) < 29, `${name}: bad frame ${frame}`);
+    check(Number.isInteger(tics) && tics >= -1, `${name}: bad tics ${tics}`);
+    check(action === null || allActions.has(action), `${name}: unknown action ${action}`);
+    check(stateOk(next) && misc1 === 0 && misc2 === 0, `${name}: bad nextstate/misc`);
+  }
+  const allSfx = new Set([...sfxNames, ...ct.CT_SFX_DEFS.map((x) => x.name)]);
+  check(allSfx.size === sfxNames.size + ct.CT_SFX_DEFS.length, 'CT sound names collide');
+  for (const x of ct.CT_SFX_DEFS) {
+    eq(Object.keys(x), ['name', 'singularity', 'priority', 'link', 'pitch', 'volume'], `CT sfx ${x.name} fields`);
+    check(/^[a-z0-9]{1,6}$/.test(x.name), `CT sfx ${x.name}: lump DS${x.name.toUpperCase()} must fit 8 characters`);
+  }
+  const ctNums = new Map();
+  for (const m of ct.CT_MOBJ_DEFS) {
+    const keys = Object.keys(m);
+    eq(keys.filter((k) => k !== 'ct'), mobjFields, `${m.name} fields`);
+    check(!mobjByName.has(m.name), `CT mobj ${m.name} shadows a DOOM type`);
+    for (const f of stateFields) check(stateOk(m[f]), `${m.name}.${f}: unknown state ${m[f]}`);
+    for (const f of soundFields) check(m[f] === null || allSfx.has(m[f]), `${m.name}.${f}: unknown sound ${m[f]}`);
+    for (const f of m.flags) check(f.startsWith('MF_') && f.slice(3) in MF, `${m.name}: unknown flag ${f}`);
+    if (m.doomednum !== -1) {
+      check(!doomednums.has(m.doomednum) && !ctNums.has(m.doomednum), `${m.name}: duplicate doomednum ${m.doomednum}`);
+      ctNums.set(m.doomednum, m);
+    }
+  }
+  // SPEC section 4: every thing type, with its solidity and radius.
+  const specNums = [9000, 9001, 9002, 9003, 9004, 9005, 9010, 9040, 9041, 9042, 9061, 9062];
+  for (let n = 9100; n <= 9110; n++) specNums.push(n);
+  for (let n = 9120; n <= 9133; n++) specNums.push(n);
+  for (const n of specNums) check(ctNums.has(n), `SPEC doomednum ${n} missing`);
+  const specRadius = { 9120: 24, 9121: 20, 9122: 8, 9124: 16, 9125: 16, 9126: 12, 9127: 8, 9128: 12, 9129: 16, 9130: 8, 9132: 20, 9133: 24 };
+  for (const [n, r] of Object.entries(specRadius)) {
+    const m = ctNums.get(+n);
+    check(m && m.flags.includes('MF_SOLID') && m.radius === r, `SPEC ${n}: solid, radius ${r}`);
+  }
+  for (const n of [9100, 9105, 9110, 9123, 9131]) check(ctNums.get(n) && !ctNums.get(n).flags.includes('MF_SOLID'), `SPEC ${n}: not solid`);
+  check(ctNums.get(9131).flags.includes('MF_SPAWNCEILING'), 'SPEC 9131: hangs from the ceiling');
+  const zspec = { 9000: [60, 16, 56], 9004: [40, 16, 56], 9005: [25, 12, 40] };
+  for (const [n, [hp, r, h]] of Object.entries(zspec)) {
+    const m = ctNums.get(+n);
+    check(m.spawnhealth === hp && m.radius === r && m.height === h && m.missilestate === 'S_NULL' && m.ct && m.ct.zombie, `SPEC zombie ${n}`);
+  }
+  // Frames each CT sprite needs (from the states): checked against
+  // chinatown.wad when it exists; a missing frame is a note while the art is
+  // being made.
+  const need = new Map();
+  for (const [name, spr, frame, tics] of ct.CT_STATE_DEFS) {
+    if (!need.has(spr)) need.set(spr, new Set());
+    need.get(spr).add(String.fromCharCode(65 + (frame & FF_FRAMEMASK)));
+  }
+  const ctWad = path.join(root, 'assets', 'wads', 'chinatown.wad');
+  if (existsSync(ctWad)) {
+    const sprites = spriteFrames(loadWad('chinatown.wad'));
+    const missing = [];
+    for (const [spr, letters] of need) {
+      for (const l of letters) {
+        const rots = sprites.get(spr) && sprites.get(spr).get(l);
+        const full = rots && ['1', '2', '3', '4', '5', '6', '7', '8'].every((r) => rots.has(r));
+        if (!rots || !(rots.has('0') || full)) missing.push(`${spr}${l}`);
+      }
+    }
+    notes.push(`chinatown.wad: ${missing.length ? `${missing.length} CT sprite frames missing or incomplete: ${missing.join(' ')}` : 'all CT sprite frames present'}`);
+  } else {
+    notes.push('chinatown.wad not built yet: CT sprite frames not checked');
+  }
+  notes.push(`chinatown tables: ${ct.CT_SPRNAMES.length} sprites, ${ct.CT_STATE_DEFS.length} states, ${ct.CT_MOBJ_DEFS.length} things, ${ct.CT_SFX_DEFS.length} sounds`);
+}
 
 // ---------------------------------------------------------------- report
 console.log(`check-info: ${checks} checks`);

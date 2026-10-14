@@ -10,6 +10,7 @@ import { MT, S, SPR, WEAPONINFO } from './tables.js';
 import { MAX_AMMO, CLIP_AMMO } from './info.js';
 import { STRINGS } from './data.js';
 import { setMobjState, spawnMobj, removeMobj } from './mobj.js';
+import { touchKeyItem } from './ct/items.js';
 
 const BONUSADD = 6;
 const BASETHRESHOLD = 100;
@@ -177,7 +178,12 @@ export function touchSpecialThing(w, special, toucher) {
     case SPR.PLAS: if (!giveWeapon(w, player, WP.PLASMA, false)) return; msg = S2.GOTPLASMA; sound = 'wpnup'; break;
     case SPR.SHOT: if (!giveWeapon(w, player, WP.SHOTGUN, special.flags & MF.DROPPED)) return; msg = S2.GOTSHOTGUN; sound = 'wpnup'; break;
     case SPR.SGN2: if (!giveWeapon(w, player, WP.SUPERSHOTGUN, special.flags & MF.DROPPED)) return; msg = S2.GOTSHOTGUN2; sound = 'wpnup'; break;
-    default: return;
+    default:
+      // Chinatown's key items (gas can, plug, blowtorch).
+      msg = touchKeyItem(w, special, player);
+      if (!msg) return;
+      sound = 'wpnup';
+      break;
   }
   if (msg) player.message = Array.isArray(msg) ? msg.join('\n') : msg;
   if (special.flags & MF.COUNTITEM) player.itemcount++;
@@ -283,7 +289,9 @@ export function damageMobj(w, target, inflictor, source, damage, hit = null) {
     setMobjState(w, target, target.info.painstate);
   }
   target.reactiontime = 0;
-  if ((!target.threshold || target.type === MT.VILE) && source && source !== target && source.type !== MT.VILE) {
+  // Chinatown's zombies only ever go for the player (no infighting).
+  const infight = source && !source.player && target.info.ct && target.info.ct.zombie;
+  if ((!target.threshold || target.type === MT.VILE) && source && source !== target && source.type !== MT.VILE && !infight) {
     target.target = source;
     target.threshold = BASETHRESHOLD;
     if (target.state === target.info.spawnstate && target.info.seestate !== S.S_NULL) {

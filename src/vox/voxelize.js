@@ -31,6 +31,33 @@ export const VOX_TYPES = {
   SKUL: { kind: 'rigid', ragdoll: false },
   SPID: { kind: 'spider', coreK: 0.5, maxVoxels: 1.6e6 },
   BSPI: { kind: 'spider', coreK: 0.5 },
+  // Chinatown: zombies ragdoll like DOOM's humans; vehicles and props with
+  // eight rotations become solid 3D models that never ragdoll.
+  ZCV1: { kind: 'humanoid' },
+  ZCV2: { kind: 'humanoid' },
+  ZCV3: { kind: 'humanoid' },
+  ZCV4: { kind: 'humanoid' },
+  ZRUN: { kind: 'humanoid' },
+  ZKID: { kind: 'humanoid' },
+  VPOL: { kind: 'rigid', ragdoll: false },
+  VAMB: { kind: 'rigid', ragdoll: false },
+  VTAX: { kind: 'rigid', ragdoll: false },
+  VVAN: { kind: 'rigid', ragdoll: false },
+  VPCK: { kind: 'rigid', ragdoll: false },
+  VSED: { kind: 'rigid', ragdoll: false },
+  VSUV: { kind: 'rigid', ragdoll: false },
+  VTRK: { kind: 'rigid', ragdoll: false },
+  VFTR: { kind: 'rigid', ragdoll: false },
+  VGRB: { kind: 'rigid', ragdoll: false },
+  VMIL: { kind: 'rigid', ragdoll: false },
+  VHEL: { kind: 'rigid', ragdoll: false },
+  PBAR: { kind: 'rigid', ragdoll: false },
+  PSAW: { kind: 'rigid', ragdoll: false },
+  PGEN: { kind: 'rigid', ragdoll: false },
+  PRAD: { kind: 'rigid', ragdoll: false },
+  PWLD: { kind: 'rigid', ragdoll: false },
+  PPHN: { kind: 'rigid', ragdoll: false },
+  PBEN: { kind: 'rigid', ragdoll: false },
 };
 
 const MAX_LABELS = 24;

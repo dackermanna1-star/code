@@ -169,7 +169,8 @@ export class AudioSystem {
     return origin && this.listener.mo && origin === this.listener.mo;
   }
 
-  // origin: mobj, {x,y,z} or null. opts: channel, volume, ui, pitch
+  // origin: mobj, {x,y,z} or null. opts: channel, volume, ui, pitch, loop
+  // (repeats until stop(origin, channel), e.g. a running generator).
   start(origin, name, opts = {}) {
     if (!this.ctx || !name) return;
     if (this.ctx.state === 'suspended') return;
@@ -195,6 +196,7 @@ export class AudioSystem {
     const ctx = this.ctx;
     const src = ctx.createBufferSource();
     src.buffer = buffer;
+    src.loop = !!opts.loop;
     let rate = opts.pitch || 1;
     if (s.get('pitchVariation') && !opts.ui && !NO_PITCH.has(name) && !opts.noPitch) rate *= 1 + (Math.random() * 2 - 1) * 0.035;
     src.playbackRate.value = rate;
@@ -274,6 +276,13 @@ export class AudioSystem {
   cleanup(v) {
     const i = this.voices.indexOf(v);
     if (i >= 0) this.voices.splice(i, 1);
+  }
+
+  // Stops an origin's sounds (only those on `channel` if given), e.g. loops.
+  stop(origin, channel = null) {
+    for (const v of this.voices.slice()) {
+      if (v.origin === origin && (!channel || v.channel === channel)) this.stopVoice(v, 0.05, true);
+    }
   }
 
   // A removed object's sound keeps playing from its last position.

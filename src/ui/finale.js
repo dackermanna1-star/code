@@ -31,10 +31,12 @@ export class Finale {
     this.flat = this.app.res.flatByName.get(String(this.f.flat || '').toUpperCase()) || null;
     this.episode = this.f.episode || g.episode;
     this.castAfter = this.commercial && this.f.afterMap === 30;
+    // A stand-alone map's ending (Chinatown): its text, then the title.
+    this.custom = !!this.f.custom;
     this.stage = 'text';
     this.count = 0;
     this.laststage = 0;
-    this.app.audio.playMusic(this.commercial ? 'D_READ_M' : 'D_VICTOR');
+    this.app.audio.playMusic(this.f.music || (this.commercial ? 'D_READ_M' : 'D_VICTOR'));
   }
 
   // finalecount at which the whole text has been typed out.
@@ -72,7 +74,8 @@ export class Finale {
       case 'text':
         if (this.count < 10) return;
         if (this.count < this.textEnd()) { this.count = this.textEnd(); return; }
-        if (!this.commercial) this.startArt();
+        if (this.custom) this.done();
+        else if (!this.commercial) this.startArt();
         else if (this.castAfter) this.startCast();
         else this.done();
         break;
@@ -103,7 +106,7 @@ export class Finale {
       this.cast.tick();
       return;
     }
-    if (this.commercial) return; // DOOM II waits for a button
+    if (this.commercial || this.custom) return; // DOOM II waits for a button
     if (this.stage === 'text' && this.count > this.text.length * TEXTSPEED + TEXTWAIT) {
       this.startArt();
     } else if (this.stage === 'art' && this.f.bunnyScroll) {

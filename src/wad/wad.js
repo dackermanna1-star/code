@@ -1,8 +1,9 @@
 // WAD archive reader and layered resource lookup.
 //
-// A WadStack holds an IWAD plus any PWADs. Later WADs override earlier ones by
-// lump name, except for "fallback" WADs, which only fill in lumps that no
-// primary WAD provides (used for the Freedoom extras on top of shareware).
+// A WadStack holds an IWAD plus any PWADs (e.g. chinatown.wad). Later WADs
+// override earlier ones by lump name, except for "fallback" WADs, which only
+// fill in lumps that no primary WAD provides (used for the Freedoom extras on
+// top of shareware). Maps are only looked up in primary WADs.
 
 const decoder = new TextDecoder('latin1');
 
@@ -110,11 +111,28 @@ export class WadStack {
     const names = new Set();
     for (const wad of this.wads) {
       for (const lump of wad.lumps) {
-        if (/^E\dM\d$/.test(lump.name) || /^MAP\d\d$/.test(lump.name)) names.add(lump.name);
+        if (isEpisodeMapName(lump.name)) names.add(lump.name);
       }
     }
     return [...names];
   }
+
+  // Maps with other names (e.g. CHINATWN): any marker followed by THINGS.
+  customMapNames() {
+    const names = new Set();
+    for (const wad of this.wads) {
+      wad.lumps.forEach((lump, i) => {
+        const next = wad.lumps[i + 1];
+        if (next && next.name === 'THINGS' && !isEpisodeMapName(lump.name)) names.add(lump.name);
+      });
+    }
+    return [...names];
+  }
+}
+
+// ExMy (DOOM) and MAPxx (DOOM II) map names.
+export function isEpisodeMapName(name) {
+  return /^E\dM\d$/.test(name) || /^MAP\d\d$/.test(name);
 }
 
 export function detectGameMode(stack) {

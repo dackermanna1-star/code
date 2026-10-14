@@ -148,6 +148,11 @@ export class Specials {
 
   crossSpecialLine(line, side, thing) {
     const w = this.w;
+    // Chinatown's walk-over specials (ct/level.js); never on DOOM's maps.
+    if (line.special >= 900 && line.special <= 906) {
+      if (w.ct) w.ct.crossLine(line, side, thing);
+      return;
+    }
     // Triggers that other things can activate
     if (!thing.player) {
       // Things that should NOT trigger specials...
@@ -280,6 +285,9 @@ export class Specials {
           return false;
       }
     }
+
+    // Chinatown's ladders and objective lines (ct/level.js).
+    if (line.special === 902 || line.special === 904) return w.ct ? w.ct.useLine(thing, line, side) : true;
 
     const sw = (activated, useAgain) => { if (activated) this.changeSwitchTexture(line, useAgain); };
     switch (line.special) {
@@ -433,6 +441,11 @@ export class Specials {
         player.cheats &= ~CF_GODMODE;
         if (!(w.leveltime & 0x1f)) w.damageMobj(mo, null, null, 20);
         if (player.health <= 10) w.exitLevel(false);
+        break;
+      case 64: // Chinatown: sewer water
+      case 65: // deep water
+      case 66: // extraction zone
+        if (w.ct) w.ct.playerInSector(player, sector);
         break;
       default:
         // Vanilla aborts with "unknown special"; ignore instead.

@@ -26,6 +26,7 @@ export const mapState = {
   spechit: [],
   floatok: false,
   linetarget: null,
+  portal: null, // { rot } after a move through a Chinatown portal
 };
 
 let w = null; // current world during a check
@@ -139,6 +140,13 @@ export const STEPHEIGHT = 24;
 export function tryMove(world, thing, x, y) {
   const tm = mapState;
   tm.floatok = false;
+  if (world.ct) {
+    // Chinatown's portals (special 900): crossing one moves the thing to the
+    // partner line instead (ct/portal.js). tm.portal tells xyMovement.
+    tm.portal = null;
+    const moved = world.ct.portalTry(thing, x, y);
+    if (moved !== null) return moved;
+  }
   if (!checkPosition(world, thing, x, y)) return false;
   if (!(thing.flags & MF.NOCLIP)) {
     if (tm.ceilingz - tm.floorz < thing.height) return false;
@@ -325,12 +333,16 @@ export function lineAttack(world, t1, angle, distance, slope, damage, opts = {})
       if (li.special && !opts.noSpecials) world.shootSpecialLine(t1, li);
       let hit = false;
       let part = 'mid';
+      let breakable = false;
       if (!(li.flags & ML.TWOSIDED) || !li.backsector) {
         hit = true;
       } else {
         lineOpening(li);
         const z = shootz + slope * dist;
         if (z < opening.bottom) { hit = true; part = 'lower'; } else if (z > opening.top) { hit = true; part = 'upper'; }
+        // Chinatown's breakable lines (special 903) stop shots that hit
+        // their boards, glass or fence (ct/breakable.js).
+        else if (li.special === 903 && world.ct && world.ct.blocksShot(li, z)) { hit = true; breakable = true; }
       }
       if (!hit) {
         lastDist = dist;
@@ -351,6 +363,7 @@ export function lineAttack(world, t1, angle, distance, slope, damage, opts = {})
       }
       result = { kind: 'wall', x, y, z, line: li, side, part, sector: facing, dist: d };
       if (!opts.noPuff) world.spawnPuff(x, y, z, distance <= 64);
+      if (breakable && damage) world.ct.damageLine(li, damage, t1, { x, y, z });
       return false;
     }
     const th = ic.thing;
@@ -440,6 +453,8 @@ export function radiusAttack(world, spot, source, damage) {
       });
     }
   }
+  // Blasts also break Chinatown's breakable lines (special 903).
+  if (world.ct) world.ct.radiusDamage(spot, source, damage);
 }
 
 // --- Sector change ----------------------------------------------------------

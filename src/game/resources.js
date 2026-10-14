@@ -8,6 +8,9 @@ import {
 } from '../wad/graphics.js';
 import { Atlas } from '../render/atlas.js';
 import { SPRNAMES } from './info.js';
+import { FULLBRIGHT_TEXTURE_PREFIX, FULLBRIGHT_FLAT_PREFIX } from './ct/info.js';
+
+const TEXTURE_LUMPS = ['TEXTURE1', 'TEXTURE2'];
 
 export class Resources {
   constructor(stack) {
@@ -42,9 +45,15 @@ export class Resources {
     return id;
   }
 
+  // Wall textures from every WAD in the stack. Each WAD's TEXTURE1/TEXTURE2
+  // is read against its own PNAMES (or, lacking one, the closest earlier
+  // WAD's), so a PWAD that brings its own PNAMES can't remap the IWAD's
+  // textures. A later WAD overrides a texture by name in place, keeping its
+  // number, and appends new ones; within one WAD the first definition of a
+  // name wins (R_TextureNumForName). With one IWAD this is exactly
+  // TEXTURE1 + TEXTURE2 over PNAMES, so texture numbers never change.
   loadTextures() {
     const s = this.stack;
-    const pnames = readPatchNames(s.data('PNAMES'));
     const patchCache = new Map();
     const patchLumps = this.stack.namespace(['P_START', 'PP_START'], ['P_END', 'PP_END']);
     const getPatch = (name) => {
@@ -55,15 +64,38 @@ export class Resources {
       return p;
     };
     const defs = [];
-    for (const lumpNameStr of ['TEXTURE1', 'TEXTURE2']) {
-      const data = s.data(lumpNameStr);
-      if (data) defs.push(...readTextureDefs(data, pnames));
+    const byName = new Map(); // name -> index in defs (first definition)
+    let pnames = null;
+    for (const wad of [...this.stack.fallbacks, ...this.stack.wads]) {
+      const own = wad.lumps.filter((l) => l.name === 'PNAMES').pop();
+      if (own) pnames = readPatchNames(wad.data(own));
+      const fromWad = new Set();
+      for (const lumpNameStr of TEXTURE_LUMPS) {
+        const lump = wad.lumps.filter((l) => l.name === lumpNameStr).pop();
+        if (!lump || !pnames) continue;
+        for (const def of readTextureDefs(wad.data(lump), pnames)) {
+          const i = byName.get(def.name);
+          if (i === undefined) {
+            byName.set(def.name, defs.length);
+            defs.push(def);
+          } else if (!fromWad.has(def.name)) {
+            defs[i] = def;
+          } else {
+            defs.push(def); // a duplicate within one WAD: numbered, unreachable by name
+          }
+          fromWad.add(def.name);
+        }
+      }
     }
     for (let i = 0; i < defs.length; i++) {
       const def = defs[i];
       const img = composeTexture(def, getPatch);
       const id = this.addImage(img, def.name);
-      const tex = { name: def.name, id, width: def.width, height: def.height, index: i, masked: img.mask.some((m) => m === 0) };
+      const tex = {
+        name: def.name, id, width: def.width, height: def.height, index: i,
+        masked: img.mask.some((m) => m === 0),
+        fullbright: def.name.startsWith(FULLBRIGHT_TEXTURE_PREFIX),
+      };
       this.textures.push(tex);
       if (!this.textureByName.has(def.name)) this.textureByName.set(def.name, tex);
     }
@@ -86,7 +118,7 @@ export class Resources {
       if (!lump) continue;
       const img = decodeFlat(lump.wad.data(lump));
       const id = this.addImage(img, name);
-      const flat = { name, id, index: this.flats.length };
+      const flat = { name, id, index: this.flats.length, fullbright: name.startsWith(FULLBRIGHT_FLAT_PREFIX) };
       this.flats.push(flat);
       this.flatByName.set(name, flat);
     }

@@ -8,6 +8,7 @@ import { WEAPONINFO } from '../game/tables.js';
 import { readyRounds, weaponCfg } from '../game/weapons.js';
 import { RNDTABLE } from '../game/data.js';
 import { keyName, drawText } from './menu-util.js';
+import { CtHud } from './ct-hud.js';
 
 const TICRATE = 35;
 const HU_MSGTIMEOUT = 4 * TICRATE;
@@ -57,6 +58,8 @@ export class Hud {
     this.clock = 0;
     this.msg = null; // {text, counter, force}
     this.center = null; // {text, counter}
+    this.ct = new CtHud(this); // Chinatown's objective HUD
+    this.ctInfo = null;
     this.reset();
   }
 
@@ -285,10 +288,12 @@ export class Hud {
     const p = this.player;
     if (!p) return;
     const mode = this.app.settings.get('hud');
+    this.ctInfo = this.ct.info();
     if (mode === 'classic') this.drawClassic(r, p);
     else if (mode === 'minimal') this.drawMinimal(r, p);
     else this.drawFullscreen(r, p);
     this.drawText(r, p, rect, mode);
+    if (this.ctInfo) this.ct.draw(r, p, rect, mode, this.ctInfo);
   }
 
   // Edges of the visible screen in virtual coordinates (widescreen aware).
@@ -355,11 +360,12 @@ export class Hud {
     // Face
     r.drawPatch(FACE_NAMES[this.face.index] || FACE_NAMES[0], 143, 168);
 
-    // Keys
+    // Keys (Chinatown's key items take the boxes there).
     const keys = this.keyBoxes(p);
     for (let i = 0; i < 3; i++) {
       if (keys[i] >= 0) r.drawPatch(`STKEYS${keys[i]}`, 239, 171 + i * 10);
     }
+    if (this.ctInfo) this.ct.drawItemsClassic(r, this.ctInfo);
 
     // Ammo reserve and maximum per type.
     for (let i = 0; i < 4; i++) {
@@ -442,12 +448,16 @@ export class Hud {
     x += this.drawNumLeft(r, x, B - 16, p.armorpoints, 'STTNUM', p.armorpoints ? NONE : GRAY);
     r.drawPatch('STTPRCNT', x, B - 16, p.armorpoints ? NONE : GRAY);
 
-    // Ammo bottom right, keys above it.
+    // Ammo bottom right, keys above it, then Chinatown's key items.
     this.drawAmmoRight(r, p, R, B, true);
     const kw = this.drawKeysRow(r, p, R, B - 27);
+    let y = B - 27 - (kw > 0 ? 11 : 2) - 8;
+    if (this.ctInfo) {
+      const ih = this.ct.drawItemsRow(r, this.ctInfo, R, y + 7);
+      if (ih) y -= ih + 3;
+    }
 
     // Power-up timers, right aligned above the keys.
-    let y = B - 27 - (kw > 0 ? 11 : 2) - 8;
     for (const [pw, label] of POWER_LABELS) {
       const t = p.powers[pw];
       if (!t) continue;
@@ -468,7 +478,8 @@ export class Hud {
     x += this.drawNumLeft(r, x, B - 16, p.armorpoints, 'STTNUM', GRAY);
     r.drawPatch('STTPRCNT', x, B - 16, GRAY);
     this.drawAmmoRight(r, p, R, B, false);
-    this.drawKeysRow(r, p, R, B - 27);
+    const kw = this.drawKeysRow(r, p, R, B - 27);
+    if (this.ctInfo) this.ct.drawItemsRow(r, this.ctInfo, R, B - 27 - (kw > 0 ? 11 : 2) - 1);
   }
 
   // Messages, automap title, centred notices and the death hint.
@@ -476,7 +487,8 @@ export class Hud {
     const { left } = this.edges(r);
     const font = this.font;
     const x = left + (r.vLeft > 0 ? 2 : 0);
-    if (this.msg) drawText(r, font, this.msg.text, x, 0);
+    // Under Chinatown's objective line when there is one.
+    if (this.msg) drawText(r, font, this.msg.text, x, this.ctInfo && this.ctInfo.objective ? 11 : 0);
 
     // Automap level title (HU_TITLEX/Y), above the bar or the HUD numbers.
     const am = this.app.automap;
