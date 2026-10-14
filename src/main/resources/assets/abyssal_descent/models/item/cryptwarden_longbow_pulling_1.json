@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/bow",
+  "textures": {
+    "layer0": "abyssal_descent:item/cryptwarden_longbow_pulling_1"
+  }
+}

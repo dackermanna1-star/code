@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "abyssal_descent:item/delver_merchant_spawn_egg"
+  }
+}

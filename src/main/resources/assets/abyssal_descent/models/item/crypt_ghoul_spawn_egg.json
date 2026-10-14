@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "abyssal_descent:item/crypt_ghoul_spawn_egg"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/crossbow",
+  "textures": {
+    "layer0": "abyssal_descent:item/bonecaster_firework"
+  }
+}

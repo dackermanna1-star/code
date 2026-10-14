@@ -3064,6 +3064,214 @@ def paint_mourner_armor():
 	return {"equipment/humanoid/mourner.png": h, "equipment/humanoid_leggings/mourner.png": lgl}
 
 
+# Wraithbound (cursed epic): blackened blue-grey plate, binding chains, thin violet curse veins, grey shroud
+WR_IRON = pal("#0b0c11", "#151821", "#20242f", "#2f3442", "#444b5c", "#626b80")   # 5 = crisp edge
+SHROUD = pal("#18171c", "#24222a", "#323039", "#43404b", "#55515e")
+CURSE = pal("#3a1450", "#7a2a9b", "#b76bff", "#e4c8ff")
+
+
+def _chain_row(F: Face, j, phase=0):
+	"""A horizontal run of chain links: bright link face, mid link, dark gap."""
+	for i in range(F.w):
+		F.set(i, j, (WR_IRON[5], WR_IRON[3], WR_IRON[0])[(i + phase) % 3])
+
+
+def _veins(F: Face, pts, bright=()):
+	for (i, j) in pts:
+		F.set(i, j, CURSE[2] if (i, j) in bright else CURSE[1])
+
+
+def paint_wraithbound_armor():
+	h = Tex(64, 32)
+	# digits = blackened plate, a..e = shroud cloth, v/V/X/Y = curse glow (faded -> core)
+	lg = L(WR_IRON, a=SHROUD, v=CURSE[0], V=CURSE[1], X=CURSE[2], Y=CURSE[3])
+
+	# ---- Helmet "Wraithbound Visage": smooth featureless mask, hollow violet-lit slits, ragged hood
+	Hd = HUM_HEAD
+	Hd.face(h, "front").art([
+		"abcddcba",
+		"b234432a",
+		"b345543a",
+		"bKV44VKa",
+		"a234432a",
+		"a123321a",
+		"01222210",
+		"00111100",
+	], lg)
+	side = [
+		"bccdddcc",
+		"abccdcc3",
+		"abbcccb3",
+		"aabccb23",
+		"aabbcb22",
+		"aaabbb12",
+		"a_abba11",
+		"_a__a_a0",
+	]
+	Hd.face(h, "right").art(side, lg)
+	Hd.face(h, "left").art(remap(mirror_rows(side), {"d": "c", "c": "b", "3": "2", "2": "1"}), lg)
+	Hd.face(h, "back").art([
+		"bccddccb",
+		"bccdccbb",
+		"abccccba",
+		"abcbccba",
+		"abbcbbaa",
+		"aabbbbaa",
+		"a_abba_a",
+		"_a__a__a",
+	], lg)
+	Hd.face(h, "top").art([
+		"abbccbba",
+		"abccccba",
+		"bccddccb",
+		"bccddccb",
+		"bcddddcb",
+		"bcddddcb",
+		"ccdeedcc",
+		"cdeeeedc",
+	], lg)
+	# hat layer: a looser outer hood lip that falls behind the mask (graceful if the hat isn't drawn)
+	T = HUM_HAT
+	T.face(h, "front").art(["_cdeedc_"], lg)
+	T.face(h, "top").art([
+		"abbccbba",
+		"abccccba",
+		"bccddccb",
+		"bccddccb",
+		"bcddddcb",
+		"bcddddcb",
+		"ccdeedcc",
+		"cdeeeedc",
+	], lg)
+	T.face(h, "back").art([
+		"abccccba",
+		"abcbccba",
+		"aabbcbaa",
+		"a_abba_a",
+		"__a__a__",
+	], lg)
+	T.face(h, "right").art(["abbcc___", "aab_____", "a_a_____"], lg)
+	T.face(h, "left").art(["___ccbba", "_____baa", "_____a_a"], lg)
+
+	# ---- Chest "Wraithbound Mantle": layered plates, chain-bound shroud over the shoulders,
+	#      a curse sigil over the heart (wearer's left = front cols 4-6) with veins spreading from it
+	B = HUM_BODY
+	B.face(h, "front").art([
+		"bcddddcb",
+		"abcddcba",
+		"0abccba0",
+		"........",
+		"00000000",
+		"34455443",
+		"23333332",
+		"12233221",
+		"34455443",
+		"23333332",
+		"12222221",
+		"01111110",
+	], lg)
+	B.face(h, "back").art([
+		"bcddddcb",
+		"bccdccbb",
+		"abccccba",
+		"........",
+		"0bcbbcb0",
+		"aabbbbaa",
+		"a1abba1a",
+		"34455443",
+		"23333332",
+		"12222221",
+		"12222221",
+		"01111110",
+	], lg)
+	for f in ("right", "left"):
+		B.face(h, f).art([
+			"bccd" if f == "right" else "dccb",
+			"abcc" if f == "right" else "ccba",
+			"0abb" if f == "right" else "bba0",
+			"....",
+			"0000",
+			"3445" if f == "right" else "5443",
+			"2333",
+			"1122",
+			"3445" if f == "right" else "5443",
+			"2333",
+			"1222",
+			"0111",
+		], lg)
+	_chain_row(B.strip(h), 3)
+	front = B.face(h, "front")
+	front.art([".X.", "XYX", ".X."], {"X": CURSE[2], "Y": CURSE[3]}, ox=4, oy=5)
+	_veins(front, [(6, 4), (7, 4), (4, 8), (3, 9), (2, 10), (3, 6), (2, 5), (7, 6)], bright={(6, 4), (4, 8)})
+	_veins(B.face(h, "left"), [(0, 6), (1, 7), (1, 8)])
+	front.set(2, 10, CURSE[0])
+	front.set(2, 5, CURSE[0])
+	B.face(h, "top").art(["bccddccb", "bcddddcb", "cdeeeedc", "cddeeddc"], lg)
+
+	A = HUM_ARM
+	S = A.strip(h)
+	S.art([
+		"bccd" "deed" "dccb" "bbbb",
+		"abcc" "cddc" "ccba" "abba",
+		"0aab" "bccb" "baa0" "0aa0",
+		"................",
+		"0000" "0000" "0000" "0000",
+		"3445" "4554" "5443" "3333",
+		"1222" "2332" "2221" "1111",
+		"3445" "4554" "5443" "3333",
+		"2233" "3443" "3322" "1222",
+		"1122" "2332" "2211" "0111",
+	], lg)
+	_chain_row(S, 3, phase=1)
+	_veins(S, [(1, 5), (1, 6), (2, 7), (2, 8), (2, 9)], bright={(2, 7)})
+	A.face(h, "top").art(["bccd", "cdde", "cdde", "bccd"], lg)
+
+	# ---- Boots "Wraithbound Stride": pointed blackened sabatons under tattered wraps
+	G = HUM_LEG
+	G.strip(h).art([
+		"a_ba" "b_cb" "ab_a" "_a_a",
+		"bcab" "cdbc" "bcab" "abaa",
+		"3442" "1441" "2443" "2332",
+		"2345" "2442" "5432" "1221",
+		"0125" "1551" "5210" "0000",
+	], lg, oy=12 - BOOT_ROWS)
+	G.face(h, "bottom").art(["0000", "0110", "0220", "0330"], lg)
+
+	# ---- Leggings layer "Wraithbound Legguards": chain belt, plate faulds, hanging shroud strips
+	lgl = Tex(64, 32)
+	for f in ("right", "front", "left", "back"):
+		B.face(lgl, f).art([
+			"........",
+			"34455443"[:B.face(lgl, f).w],
+			"23333332"[:B.face(lgl, f).w],
+			"12222221"[:B.face(lgl, f).w],
+			"01111110"[:B.face(lgl, f).w],
+		], lg, oy=WAIST_ROW)
+	_chain_row(B.strip(lgl), WAIST_ROW)
+	B.face(lgl, "front").art(["...cb...", "...cb...", "...ba...", "...a_..."], lg, ox=0, oy=WAIST_ROW + 1)
+	B.face(lgl, "back").art(["..cb.cb.", "..ba.ba.", "..a_.a_.", "........"], lg, oy=WAIST_ROW + 1)
+	S = G.strip(lgl)
+	S.art([
+		# right(4)  front(4)  left(4)  back(4)
+		"3cb5" "cb54" "5443" "3bc3",
+		"2cb3" "cb43" "3332" "2bc2",
+		"1ba2" "ba32" "2221" "1ba1",
+		"3a45" "a554" "5443" "3a_3",
+		"2_33" "_443" "3332" "2_22",
+		"3445" "4V54" "5443" "3333",
+		"1222" "2332" "2221" "1111",
+		"2334" "3443" "4332" "2222",
+		"1223" "2332" "3221" "1111",
+		"0112" "1221" "2110" "0000",
+	], lg)
+	# a cut where the shroud strips end must still show plate underneath, not the wearer's leg
+	for (i, j) in ((1, 4), (4, 4), (14, 3), (14, 4)):
+		S.set(i, j, WR_IRON[2])
+	_veins(S, [(5, 6), (6, 7)], bright=set())
+	G.face(lgl, "top").fill(WR_IRON[1])
+	return {"equipment/humanoid/wraithbound.png": h, "equipment/humanoid_leggings/wraithbound.png": lgl}
+
+
 def _mannequin():
 	m = Tex(64, 64)
 	HUM_HEAD.fill(m, pal("#5a5048", "#7a6c60", "#9a8a7a"), 1)
@@ -3100,6 +3308,10 @@ def preview_mourner_armor(texs, outdir):
 	return _armor_preview("mourner", texs, outdir)
 
 
+def preview_wraithbound_armor(texs, outdir):
+	return _armor_preview("wraithbound", texs, outdir)
+
+
 # ----------------------------------------------------------------------------------------------
 # Registry / main
 # ----------------------------------------------------------------------------------------------
@@ -3114,6 +3326,7 @@ REGISTRY = [
 	("delver_merchant", paint_delver_merchant, preview_delver_merchant),
 	("gravewarden_armor", paint_gravewarden_armor, preview_gravewarden_armor),
 	("mourner_armor", paint_mourner_armor, preview_mourner_armor),
+	("wraithbound_armor", paint_wraithbound_armor, preview_wraithbound_armor),
 ]
 
 

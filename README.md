@@ -10,6 +10,16 @@ never how you fight.
 > Citadel, Abyssal Throne) are designed but sealed in-game until they are built. See
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the plan.
 
+<p align="center">
+  <img src="docs/screenshots/bestiary.jpg" width="49%" alt="The six Forgotten Halls enemies in the entry hall">
+  <img src="docs/screenshots/warden-phase2.jpg" width="49%" alt="The Hollow Warden in its second phase, with the dungeon boss bar">
+  <img src="docs/screenshots/loot.jpg" width="49%" alt="A loot fountain with rarity sparkles after a cleared chamber">
+  <img src="docs/screenshots/tooltip-gravebrand.jpg" width="49%" alt="Tooltip of the legendary Gravebrand">
+</p>
+
+*Screenshots are captured automatically by the client gametest tour (software rendering, so no shaders or smoothing).
+More in [docs/screenshots](docs/screenshots).*
+
 ## Playing
 
 1. Craft an **Abyssal Gate** and place it anywhere in the overworld.
