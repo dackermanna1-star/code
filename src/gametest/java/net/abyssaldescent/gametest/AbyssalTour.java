@@ -8,6 +8,7 @@ import net.abyssaldescent.dungeon.layout.Room;
 import net.abyssaldescent.dungeon.layout.RoomType;
 import net.abyssaldescent.dungeon.run.DungeonRun;
 import net.abyssaldescent.dungeon.run.RunManager;
+import net.abyssaldescent.dungeon.run.Unsecured;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
@@ -20,6 +21,8 @@ import net.abyssaldescent.world.DungeonDimension;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -42,6 +45,9 @@ public final class AbyssalTour implements FabricClientGameTest {
 			server.runCommand("effect give @a minecraft:resistance infinite 4 true");
 			server.runCommand("effect give @a minecraft:saturation infinite 0 true");
 			context.runOnClient(client -> client.options.hideGui = false);
+
+			// Gear brought from the surface: must survive both extraction and defeat.
+			server.runCommand("give @p minecraft:diamond_sword");
 
 			// ---------------------------------------------------------------- floor 1
 			server.runCommand("execute as @p run abyssal start 1");
@@ -146,6 +152,45 @@ public final class AbyssalTour implements FabricClientGameTest {
 			context.waitTicks(40);
 			context.takeScreenshot("abyssal_14_arena_rewards");
 
+			// ---------------------------------------------------------------- extraction: unsecured loot is kept
+			Inventory beforeExtract = server.computeOnServer(AbyssalTour::inventory);
+			log("before extraction", beforeExtract.toString());
+			check(beforeExtract.unsecured > 0, "expected unsecured loot before extracting, got " + beforeExtract);
+			server.runOnServer(s -> {
+				ServerPlayer player = s.getPlayerList().getPlayers().get(0);
+				RunManager.get(s).useWaystone(player); // first use asks for confirmation
+				RunManager.get(s).useWaystone(player);
+			});
+			context.waitTicks(40);
+			world.getClientWorld().waitForChunksRender();
+			Inventory afterExtract = server.computeOnServer(AbyssalTour::inventory);
+			log("after extraction", afterExtract.toString());
+			check(!afterExtract.inDungeon && !afterExtract.inRun, "extraction should return the player to the surface: " + afterExtract);
+			check(afterExtract.unsecured == 0 && afterExtract.stacks >= beforeExtract.stacks, "extraction should secure every stack: " + afterExtract);
+			check(afterExtract.hasSword, "brought gear must be kept on extraction");
+			context.takeScreenshot("abyssal_15_extracted");
+
+			// ---------------------------------------------------------------- defeat: unsecured loot is lost, gear kept
+			server.runCommand("execute as @p run abyssal start 1");
+			context.waitTicks(60);
+			server.runCommand("execute as @p at @s run abyssal loot treasure");
+			context.waitTicks(60);
+			Inventory beforeDefeat = server.computeOnServer(AbyssalTour::inventory);
+			log("before defeat", beforeDefeat.toString());
+			check(beforeDefeat.inRun && beforeDefeat.unsecured > 0, "expected an expedition with unsecured loot: " + beforeDefeat);
+			server.runCommand("effect clear @p");
+			// A lethal spike-trap hit: the realistic way to fall in the depths.
+			server.runCommand("damage @p 1000 abyssal_descent:spikes");
+			context.waitTicks(40);
+			world.getClientWorld().waitForChunksRender();
+			Inventory afterDefeat = server.computeOnServer(AbyssalTour::inventory);
+			log("after defeat", afterDefeat.toString());
+			check(afterDefeat.alive && !afterDefeat.inDungeon && !afterDefeat.inRun, "defeat should expel the player alive: " + afterDefeat);
+			check(afterDefeat.unsecured == 0 && afterDefeat.stacks == afterExtract.stacks, "defeat should destroy only unsecured loot: " + afterDefeat);
+			check(afterDefeat.hasSword, "brought gear must be kept on defeat");
+			context.takeScreenshot("abyssal_16_defeated");
+			server.runCommand("effect give @a minecraft:resistance infinite 4 true");
+
 			// Tooltip of the boss-exclusive greatsword.
 			server.runCommand("clear @p");
 			server.runCommand("give @p abyssal_descent:gravebrand");
@@ -156,13 +201,13 @@ public final class AbyssalTour implements FabricClientGameTest {
 			context.waitTicks(5);
 			hoverHotbarSlot(context, 0);
 			context.waitTicks(5);
-			context.takeScreenshot("abyssal_15_tooltip_gravebrand");
+			context.takeScreenshot("abyssal_17_tooltip_gravebrand");
 			hoverHotbarSlot(context, 1);
 			context.waitTicks(5);
-			context.takeScreenshot("abyssal_16_tooltip_crown");
+			context.takeScreenshot("abyssal_18_tooltip_crown");
 			hoverHotbarSlot(context, 2);
 			context.waitTicks(5);
-			context.takeScreenshot("abyssal_17_tooltip_cuirass");
+			context.takeScreenshot("abyssal_19_tooltip_cuirass");
 			context.setScreen(() -> null);
 		}
 	}
@@ -176,6 +221,36 @@ public final class AbyssalTour implements FabricClientGameTest {
 			return new double[] {(left + 8 + slot * 18 + 8) * scale, (top + 142 + 8) * scale};
 		});
 		context.getInput().setCursorPos(pos[0], pos[1]);
+	}
+
+	record Inventory(int stacks, int unsecured, boolean hasSword, int swordDamage, boolean inDungeon, boolean inRun, boolean alive) {
+	}
+
+	private static Inventory inventory(MinecraftServer server) {
+		ServerPlayer player = server.getPlayerList().getPlayers().get(0);
+		int stacks = 0;
+		boolean sword = false;
+		int swordDamage = 0;
+		var inv = player.getInventory();
+		for (int i = 0; i < inv.getContainerSize(); i++) {
+			ItemStack stack = inv.getItem(i);
+			if (stack.isEmpty()) {
+				continue;
+			}
+			stacks++;
+			if (stack.is(Items.DIAMOND_SWORD)) {
+				sword = true;
+				swordDamage = stack.getDamageValue();
+			}
+		}
+		return new Inventory(stacks, Unsecured.countUnsecured(player), sword, swordDamage, DungeonDimension.isDungeon(player.level()),
+			RunManager.get(server).runOf(player) != null, player.isAlive());
+	}
+
+	private static void check(boolean condition, String message) {
+		if (!condition) {
+			throw new AssertionError(message);
+		}
 	}
 
 	private static void faceBoss(TestServerContext server) {

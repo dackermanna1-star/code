@@ -59,7 +59,6 @@ GHOUL = pal("#3a3442", "#5a5266", "#7a7088", "#9a90a8")
 VOID = C("#0f0e12")          # eye sockets / deep holes
 SHADOW = C("#1a181d")         # very dark recess
 LINEN = pal("#3f3c33", "#6a6555", "#918b77", "#b8b19a")    # stained burial linen
-OLDBONE = pal("#33291b", "#6e5e40", "#968360", "#b8a57c", "#d6c69c")   # yellowed bone (archer)
 PALEBONE = pal("#433c30", "#8a806a", "#b5aa90", "#d6ccb2", "#f1ead6")  # pale heavy bone (shieldbearer)
 TABARD_RED = pal("#2a1410", "#45201a", "#642e22", "#83412d")
 KNIGHT_CLOTH = pal("#0f1410", "#18201a", "#243026", "#334234")      # green-black tabard
@@ -73,7 +72,6 @@ BEARD = pal("#4a4744", "#77736c", "#a29d93", "#cfcac0")
 TUNIC = pal("#2e1512", "#4a211a", "#6a3222", "#88452c")
 AMBER = pal("#c9962a", "#ffcf5a")
 GHOUL_EYE = pal("#c8ff60", "#f0ffb0")
-TRANSPARENT = (0, 0, 0, 0)
 
 
 def shift(mat, idx, d=0):
@@ -222,33 +220,13 @@ def L(main=None, a=None, A=None, p=None, **extra):
 	"""Build an art legend: digits -> main palette, a.. -> second, A.. -> third, p.. -> fourth."""
 	leg = {"K": VOID, "k": SHADOW, "W": C("#ffffff")}
 	for mat, keys in ((main, "0123456789"), (a, "abcdefgh"), (A, "ABCDEFGH"), (p, "pqrstuvw")):
+		if mat and isinstance(mat[0], int):   # a single colour: binds just the first key
+			mat = [mat]
 		if mat:
 			for k, c in zip(keys, mat):
 				leg[k] = c
 	leg.update(extra)
 	return leg
-
-
-# ----------------------------------------------------------------------------------------------
-# Small procedural helpers (deterministic; used sparingly under hand-placed art)
-# ----------------------------------------------------------------------------------------------
-def vgrad(F: Face, mat, base, top_boost=1, bottom_drop=1, edge=0.25):
-	"""Fill with a gentle vertical gradient: top rows one tone lighter, bottom rows one tone darker."""
-	h = F.h
-	for j in range(h):
-		t = j / max(1, h - 1)
-		d = 0
-		if t < edge:
-			d = top_boost
-		elif t > 1 - edge:
-			d = -bottom_drop
-		for i in range(F.w):
-			F.set(i, j, shift(mat, base, d))
-
-
-def tones(F: Face, mat, rows):
-	"""Paint from rows of tone digits ('.' skip, '_' clear)."""
-	F.art(rows, {str(k): c for k, c in enumerate(mat)})
 
 
 # ----------------------------------------------------------------------------------------------
@@ -611,19 +589,6 @@ SKEL_ARM = Box(40, 16, 2, 12, 2, "arm")
 SKEL_LEG = Box(0, 16, 2, 12, 2, "leg")
 HUMANOID_BOXES = [HUM_HEAD, HUM_HAT, HUM_BODY, HUM_ARM, HUM_LEG]
 SKELETON_BOXES = [HUM_HEAD, HUM_HAT, HUM_BODY, SKEL_ARM, SKEL_LEG]
-
-
-def wrap_bands(F: Face, box: Box, rows, mat, base, pitch=4, width=2, slope=1, phase=0, gaps=()):
-	"""Diagonal spiral wrappings around a limb strip (continuous across faces)."""
-	for j in rows:
-		for i in range(F.w):
-			k = (j + (i // 2) * slope + phase) % pitch
-			if k < width and (i, j) not in gaps:
-				face, _ = box.strip_face_of(i)
-				d = 1 if k == 0 else 0
-				if face == "back":
-					d -= 1
-				F.set(i, j, shift(mat, base, d))
 
 
 # ----------------------------------------------------------------------------------------------
@@ -1090,11 +1055,12 @@ def paint_skeleton_base(bone, heavy=False):
 	return t
 
 
-def skeleton_eyes():
+def skeleton_eyes(row=3):
+	"""Soul-blue pinpoints in the sockets (row 4 peeks out under the shieldbearer's helmet brim)."""
 	e = Tex(64, 32)
 	f = HUM_HEAD.face(e, "front")
-	f.set(2, 3, SOUL[2])
-	f.set(5, 3, SOUL[2])
+	f.set(2, row, SOUL[2])
+	f.set(5, row, SOUL[2])
 	return e
 
 
@@ -1392,7 +1358,7 @@ def paint_bone_shieldbearer():
 		"1_1_" "_1_1" "1__1" "_0_0",
 	], lg)
 	return {"skeleton/bone_shieldbearer.png": base, "skeleton/bone_shieldbearer_overlay.png": o,
-		"skeleton/bone_shieldbearer_eyes.png": skeleton_eyes()}
+		"skeleton/bone_shieldbearer_eyes.png": skeleton_eyes(row=4)}
 
 
 def _skeleton_preview(name, texs, prefix, outdir):
@@ -1984,7 +1950,7 @@ def paint_barrow_knight():
 			"ABBA" "BBAB" "BAAB" "AAAA",
 			"3a44" "3454" "4a33" "3233",
 			"1222" "4545" "2221" "1111",
-		][:13], lg)
+		], lg)
 		A.face(t, "top").each(lambda i, j: _mail(i, j, 1))
 		A.face(t, "bottom").art(["0000", "0110", "0110", "0000"], lg)
 
@@ -2257,7 +2223,7 @@ def paint_hollow_warden():
 		"23343332",
 		"34a43443",
 		"12b22221",
-		"rsstssrq".replace("r", "q").replace("s", "s"),
+		"qsstssqq",
 	], L(KIRON, a=RUST, q=BONE[1], s=BONE[3], t=BONE[4]))
 	P.face(t, "front").art(["2344445", "1223332", "23a3443", "1122221", "qsstssq"],
 		L(KIRON, a=RUST, q=BONE[1], s=BONE[3], t=BONE[4]))
@@ -2784,6 +2750,357 @@ def preview_delver_merchant(texs, outdir):
 
 
 # ----------------------------------------------------------------------------------------------
+# 9. Armor equipment layers (64x32, vanilla armor layout)
+#    humanoid:          helmet = head, chestplate = body + arms, boots = bottom rows of the legs
+#    humanoid_leggings: waist (lower body rows) + legs
+# ----------------------------------------------------------------------------------------------
+BOOT_ROWS = 5          # boots cover the bottom 5 rows of the leg cube
+LEGGING_ROWS = 10      # leggings cover the top 10 rows of the leg cube
+WAIST_ROW = 7          # leggings cover body rows 7..11
+
+
+def paint_gravewarden_armor():
+	h = Tex(64, 32)
+	lg = L(IRON, q=BONE[2], s=BONE[3], t=BONE[4], r=BONE[1], W=SOUL[2], V=SOUL[1], U=SOUL[0], k=SHADOW)
+	# ---- Helmet: closed crypt-iron helm, bone crest ridge, visor slit
+	Hd = HUM_HEAD
+	Hd.face(h, "front").art([
+		"233ts332",
+		"223ts322",
+		"122ts221",
+		"1KKtsKK1",
+		"112ts211",
+		"1k1qs1k1",
+		"112qs211",
+		"qsstsssq",
+	], lg)
+	side = [
+		"22233333",
+		"12223333",
+		"12222333",
+		"11222232",
+		"11122232",
+		"11122222",
+		"11112222",
+		"qqsssstt",
+	]
+	Hd.face(h, "right").art(side, lg)
+	Hd.face(h, "left").art(remap(mirror_rows(side), {"3": "2", "2": "1", "t": "s"}), lg)
+	Hd.face(h, "back").art([
+		"122ts221",
+		"112ts211",
+		"112qs211",
+		"111qs111",
+		"111qs111",
+		"011qq110",
+		"011qq110",
+		"qqsqqsqq",
+	], lg)
+	Hd.face(h, "top").art([
+		"122qs221",
+		"223ts322",
+		"233ts332",
+		"233ts332",
+		"233ts332",
+		"233ts332",
+		"234ts432",
+		"234ts432",
+	], lg)
+
+	# ---- Chestplate: dark breastplate, bone collar and trim, soul gem; plate pauldrons on the arms
+	B = HUM_BODY
+	B.face(h, "front").art([
+		"qssttssq",
+		"12s33s21",
+		"1233s321",
+		"123sWs21",
+		"12qsVsq1",
+		"1223s221",
+		"12233221",
+		"11233211",
+		"qssssssq",
+		"12222221",
+		"11222211",
+		"01111110",
+	], lg)
+	B.face(h, "back").art([
+		"qsssssss",
+		"11122111",
+		"12222221",
+		"12233221",
+		"12222221",
+		"11222211",
+		"11222211",
+		"11122111",
+		"qsqqqqsq",
+		"11111111",
+		"01111110",
+		"00000000",
+	], lg)
+	for f in ("right", "left"):
+		B.face(h, f).art([
+			"ssss",
+			"2222",
+			"2332" if f == "right" else "2221",
+			"2222",
+			"1221",
+			"1221",
+			"1111",
+			"1111",
+			"qssq",
+			"1111",
+			"0110",
+			"0000",
+		], lg)
+	B.face(h, "top").art(["11222211", "12333321", "s233332s", "ssssssss"], lg)
+	A = HUM_ARM
+	A.strip(h).art([
+		"3344" "4443" "3332" "2222",
+		"2333" "3332" "3322" "1222",
+		"1222" "2221" "2211" "1111",
+		"qsst" "sstt" "tssq" "qqqq",
+		"1222" "2332" "2221" "1111",
+		"1222" "2332" "2221" "1111",
+		"1122" "2222" "2211" "0111",
+		"0111" "1111" "1110" "0000",
+		"1222" "2332" "2221" "1111",
+		"1122" "2222" "2211" "0111",
+	], lg)
+	A.face(h, "top").art(["2334", "3344", "3344", "2334"], lg)
+
+	# ---- Boots: plate sabatons with a bone cuff
+	G = HUM_LEG
+	G.strip(h).art([
+		"qsst" "sttq" "tssq" "qqqq",
+		"1222" "2332" "2221" "1111",
+		"1222" "2332" "2221" "1111",
+		"1122" "3443" "2211" "0111",
+		"0011" "1221" "1100" "0000",
+	], lg, oy=12 - BOOT_ROWS)
+	G.face(h, "bottom").art(["0000", "0110", "0110", "0000"], lg)
+
+	# ---- Leggings layer: belt with bone studs, faulds, cuisses, knee cops
+	lgl = Tex(64, 32)
+	B.face(lgl, "front").art([
+		"qsqttqsq",
+		"12233221",
+		"11222211",
+		"12233221",
+		"01122110",
+	], lg, oy=WAIST_ROW)
+	for f, rows in (("right", ["qsqs", "1222", "1122", "1222", "0111"]), ("left", ["sqsq", "2221", "2211", "2221", "1110"]),
+		("back", ["qsqqqqsq", "11222211", "11111111", "11222211", "01111110"])):
+		B.face(lgl, f).art(rows, lg, oy=WAIST_ROW)
+	G.strip(lgl).art([
+		"1222" "2332" "2221" "1111",
+		"1222" "2332" "2221" "1111",
+		"1122" "2332" "2211" "0111",
+		"1122" "2222" "2211" "0111",
+		"0111" "1221" "1110" "0000",
+		"1232" "3ts3" "2321" "1111",
+		"0111" "1221" "1110" "0000",
+		"1222" "2332" "2221" "1111",
+		"1122" "2332" "2211" "0111",
+		"0111" "1221" "1110" "0000",
+	], lg)
+	G.face(lgl, "top").fill(IRON[1])
+	return {"equipment/humanoid/gravewarden.png": h, "equipment/humanoid_leggings/gravewarden.png": lgl}
+
+
+def paint_mourner_armor():
+	h = Tex(64, 32)
+	lg = L(CLOTH, v=VIOLET[0], w=VIOLET[1], k=SHADOW, A=LINEN, p=LEATHER)
+	# ---- Hood: deep cowl, violet-trimmed rim around an open face, frayed hem
+	Hd = HUM_HEAD
+	Hd.face(h, "top").art([
+		"11122111",
+		"11222211",
+		"12233221",
+		"12233221",
+		"12333321",
+		"12333321",
+		"23333332",
+		"wwwwwwww",
+	], lg)
+	Hd.face(h, "front").art([
+		"wwwwwwww",
+		"vkkkkkkv",
+		"v______v",
+		"v______v",
+		"v______v",
+		"v______v",
+		"1______1",
+		"_______1",
+	], lg)
+	Hd.face(h, "right").art([
+		"1122233w",
+		"1122223w",
+		"1112223v",
+		"0112222v",
+		"0111222v",
+		"0011122v",
+		"0011111v",
+		"_0_0_001",
+	], lg)
+	Hd.face(h, "left").art([
+		"w3322211",
+		"w3222111",
+		"v3221111",
+		"v2221110",
+		"v2221110",
+		"v2211100",
+		"v1111000",
+		"100_0_0_",
+	], lg)
+	Hd.face(h, "back").art([
+		"11122111",
+		"11222211",
+		"11222211",
+		"01122110",
+		"01122110",
+		"00111100",
+		"0010_100",
+		"_0__0_0_",
+	], lg)
+
+	# ---- Robe: dark cloth, violet trim down the opening and collar, sash, ragged hem; wide sleeves
+	B = HUM_BODY
+	B.face(h, "front").art([
+		"wwwvwwww",
+		"233vw321",
+		"232vw221",
+		"232vw221",
+		"122vw211",
+		"122vw211",
+		"vvvvwvvv",
+		"121vw121",
+		"121vw111",
+		"121vw110",
+		"0_1vw_10",
+		"__0v_0__",
+	], lg)
+	B.face(h, "back").art([
+		"wwwwwwww",
+		"12322321",
+		"12322321",
+		"12322321",
+		"11211211",
+		"11211211",
+		"vvvvvvvv",
+		"11211211",
+		"01211210",
+		"01111110",
+		"0_10_10_",
+		"_0___0__",
+	], lg)
+	for f in ("right", "left"):
+		B.face(h, f).art([
+			"wwww",
+			"2332" if f == "right" else "2321",
+			"2332" if f == "right" else "2321",
+			"1221",
+			"1221",
+			"1221",
+			"vvvv",
+			"1111",
+			"1111",
+			"0110",
+			"0_1_",
+			"_0__",
+		], lg)
+	B.face(h, "top").art(["wwwwwwww", "12222221", "22222222", "wwwwwwww"], lg)
+	A = HUM_ARM
+	A.strip(h).art([
+		"2233" "3332" "3322" "2222",
+		"1223" "2332" "3221" "1122",
+		"1222" "2322" "2221" "1112",
+		"1122" "2222" "2211" "0111",
+		"1122" "2232" "2211" "0111",
+		"0112" "1222" "2110" "0011",
+		"0112" "1221" "2110" "0011",
+		"0111" "1121" "1110" "0001",
+		"wwww" "wwww" "vvvv" "vvvv",
+		"0110" "1111" "1100" "0000",
+		"0_10" "_11_" "1_0_" "_00_",
+	], lg)
+	A.face(h, "top").art(["2233", "2333", "2333", "2233"], lg)
+
+	# ---- Boots: cloth-wrapped feet over soft leather soles
+	G = HUM_LEG
+	S = G.strip(h)
+	for j in range(12 - BOOT_ROWS, 12):
+		for i in range(16):
+			face, _ = G.strip_face_of(i)
+			k = (j + i // 2) % 3
+			tone = [2, 1, 0][k] - (1 if face == "back" else 0)
+			S.set(i, j, CLOTH[max(0, tone)] if k < 2 else LEATHER[1 if face != "back" else 0])
+	S.art(["................"] * (BOOT_ROWS - 1) + ["pppp" "pqqp" "pppp" "pppp"], lg, oy=12 - BOOT_ROWS)
+	G.face(h, "bottom").art(["pppp", "pqqp", "pqqp", "pppp"], lg)
+
+	# ---- Leggings layer: robe skirt panels with a ragged hem, wrapped shins
+	lgl = Tex(64, 32)
+	B.face(lgl, "front").art(["vvvvwvvv", "121vw121", "121vw111", "011vw110", "011vw110"], lg, oy=WAIST_ROW)
+	for f, rows in (("right", ["vvvv", "1221", "1221", "0110", "0110"]), ("left", ["vvvv", "1221", "1221", "0110", "0110"]),
+		("back", ["vvvvvvvv", "11211211", "01211210", "01111110", "01111110"])):
+		B.face(lgl, f).art(rows, lg, oy=WAIST_ROW)
+	S = G.strip(lgl)
+	S.art([
+		"1122" "2332" "2211" "1111",
+		"1122" "2332" "2211" "0111",
+		"1122" "2222" "2211" "0111",
+		"0112" "1221" "2110" "0011",
+		"0112" "1221" "2110" "0011",
+		"0_11" "1_21" "1_0_" "00_1",
+	], lg)
+	for j in range(6, LEGGING_ROWS):
+		for i in range(16):
+			face, _ = G.strip_face_of(i)
+			k = (j - i // 2) % 3
+			if (i, j) in ((1, 6), (5, 6), (9, 6), (14, 6)):
+				continue
+			tone = [3, 2, 1][k] - (1 if face == "back" else 0)
+			S.set(i, j, CLOTH[max(0, tone)] if k < 2 else CLOTH[0])
+	G.face(lgl, "top").fill(CLOTH[1])
+	return {"equipment/humanoid/mourner.png": h, "equipment/humanoid_leggings/mourner.png": lgl}
+
+
+def _mannequin():
+	m = Tex(64, 64)
+	HUM_HEAD.fill(m, pal("#5a5048", "#7a6c60", "#9a8a7a"), 1)
+	HUM_BODY.fill(m, pal("#3a4a5a", "#4a5e72", "#5c7490"), 1)
+	HUM_ARM.fill(m, pal("#5a5048", "#7a6c60", "#9a8a7a"), 1)
+	HUM_LEG.fill(m, pal("#2a2a3a", "#3a3a50", "#4a4a64"), 1)
+	f = HUM_HEAD.face(m, "front")
+	f.set(2, 4, C("#ffffff"))
+	f.set(5, 4, C("#ffffff"))
+	return m
+
+
+def _armor_preview(name, texs, outdir):
+	hum, leg = texs[f"equipment/humanoid/{name}.png"], texs[f"equipment/humanoid_leggings/{name}.png"]
+	sheets = [uv_sheet(hum, HUMANOID_BOXES, 8, "humanoid"), uv_sheet(leg, HUMANOID_BOXES, 8, "humanoid_leggings")]
+	base = humanoid(parts=["head", "body", "right_arm", "left_arm", "right_leg", "left_leg"])
+	helmet = humanoid(grow=1.0, parts=["head", "hat"])
+	chest = humanoid(grow=1.0, parts=["body", "right_arm", "left_arm"])
+	boots = humanoid(grow=1.0, parts=["right_leg", "left_leg"])
+	legs = humanoid(grow=0.5, parts=["body", "right_leg", "left_leg"])
+	m = _mannequin()
+	full = [(base, m, None), (legs, leg, None), (helmet, hum, None), (chest, hum, None), (boots, hum, None)]
+	renders = standard_renders(full, scale=10)
+	only_legs = [(base, m, None), (legs, leg, None), (boots, hum, None)]
+	renders += [render_models(only_legs, 0, 0.1, 10)[0], render_models(only_legs, -0.6, 0.25, 10)[0]]
+	return compose_preview(name + "_armor", sheets, renders, outdir)
+
+
+def preview_gravewarden_armor(texs, outdir):
+	return _armor_preview("gravewarden", texs, outdir)
+
+
+def preview_mourner_armor(texs, outdir):
+	return _armor_preview("mourner", texs, outdir)
+
+
+# ----------------------------------------------------------------------------------------------
 # Registry / main
 # ----------------------------------------------------------------------------------------------
 REGISTRY = [
@@ -2795,7 +3112,39 @@ REGISTRY = [
 	("barrow_knight", paint_barrow_knight, preview_barrow_knight),
 	("hollow_warden", paint_hollow_warden, preview_hollow_warden),
 	("delver_merchant", paint_delver_merchant, preview_delver_merchant),
+	("gravewarden_armor", paint_gravewarden_armor, preview_gravewarden_armor),
+	("mourner_armor", paint_mourner_armor, preview_mourner_armor),
 ]
+
+
+TEXTURE_BOXES = {
+	"risen/": HUMANOID_BOXES,
+	"skeleton/bone_archer_overlay": HUMANOID_BOXES,
+	"skeleton/bone_shieldbearer_overlay": HUMANOID_BOXES,
+	"skeleton/": SKELETON_BOXES,
+	"crypt_ghoul": GHOUL_BOXES,
+	"wailing_skull": WAILING_BOXES,
+	"barrow_knight": KNIGHT_BOXES,
+	"hollow_warden": WARDEN_BOXES,
+	"delver_merchant": HUMANOID_BOXES,
+	"equipment/": HUMANOID_BOXES,
+}
+
+
+def check_unused_transparent(rel, tex):
+	"""Every pixel outside the model's used face rects must be fully transparent."""
+	boxes = next(b for k, b in TEXTURE_BOXES.items() if rel.startswith(k))
+	used = np.zeros((tex.h, tex.w), bool)
+	for b in boxes:
+		for _, x0, y0, w, h in b.rects():
+			used[y0:y0 + h, x0:x0 + w] = True
+	stray = (tex.a[..., 3] > 0) & ~used
+	if stray.any():
+		ys, xs = np.nonzero(stray)
+		raise SystemExit(f"{rel}: {len(xs)} opaque pixels outside used UV rects, e.g. {list(zip(xs[:5], ys[:5]))}")
+	partial = (tex.a[..., 3] > 0) & (tex.a[..., 3] < 255)
+	if partial.any():
+		raise SystemExit(f"{rel}: semi-transparent pixels found (cutout textures must be 0/255 alpha)")
 
 
 def main(argv=None):
@@ -2808,6 +3157,7 @@ def main(argv=None):
 			continue
 		texs = painter()
 		for rel, tex in texs.items():
+			check_unused_transparent(rel, tex)
 			tex.save(rel)
 			print("wrote", os.path.relpath(os.path.join(OUT, rel), ROOT))
 		if args.preview:

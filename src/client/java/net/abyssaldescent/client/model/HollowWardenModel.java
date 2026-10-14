@@ -20,7 +20,7 @@ import net.minecraft.util.Mth;
 
 /**
  * The Hollow Warden: a towering skeletal knight in rusted plate, horned crown, tattered cloak and a greatsword. 128x128
- * texture; UV layout documented in tools/assets/README.md.
+ * texture; the UV layout is documented by the box constants in tools/assets/entity_textures.py.
  */
 public class HollowWardenModel extends EntityModel<HollowWardenRenderState> {
 	private final ModelPart head;
