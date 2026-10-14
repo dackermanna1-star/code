@@ -64,7 +64,7 @@ export interface PostSettings {
 }
 
 const POST_QUALITY: Record<Exclude<PostQuality, 'off'>, { msaa: number; levels: number; bloomScale: number }> = {
-  low: { msaa: 0, levels: 4, bloomScale: 0.5 },
+  low: { msaa: 2, levels: 4, bloomScale: 0.5 },
   medium: { msaa: 4, levels: 5, bloomScale: 0.5 },
   high: { msaa: 4, levels: 6, bloomScale: 0.5 },
 };
@@ -85,7 +85,11 @@ export class Stage {
   maxPixelRatio = 2;
   /** Camera offset for screen shake / punches (world units, applied every frame). */
   readonly shakeOffset = new THREE.Vector3();
-  /** Optional custom render (replaces the whole main render + post chain). */
+  /**
+   * Optional custom main render, called instead of renderer.render(scene, camera)
+   * with the main target bound and cleared (so post-processing still applies).
+   * It must render into the currently bound target (do not change it).
+   */
   renderFn: (() => void) | null = null;
   /** Post-processing parameters (mutable; see PostSettings). */
   readonly post: PostSettings = {
@@ -123,7 +127,8 @@ export class Stage {
     this.view = document.createElement('div');
     this.view.id = 'game-view';
     host.appendChild(this.view);
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    // With post-processing the scene is multisampled in the HDR target; canvas MSAA would be wasted.
+    this.renderer = new THREE.WebGLRenderer({ antialias: (opts.post ?? 'high') === 'off', powerPreference: 'high-performance' });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
@@ -144,7 +149,11 @@ export class Stage {
     this.resize();
   }
 
-  /** Post-processing quality: 'off' renders straight to the canvas. Safe to call any time. */
+  /**
+   * Post-processing quality: 'off' renders straight to the canvas (three's ACES, no
+   * bloom/grade; canvas antialiasing only if the Stage was constructed with post 'off').
+   * Safe to call any time.
+   */
   setPostQuality(q: PostQuality): void {
     this.postQuality = q;
     this.chain?.dispose();
@@ -258,8 +267,7 @@ export class Stage {
     this.camera.position.copy(this.basePos).add(this.shakeOffset);
     this.camera.updateMatrixWorld();
     for (const f of this.preRender) f(dt, this.time);
-    if (this.renderFn) this.renderFn();
-    else this.renderMain(dt);
+    this.renderMain(dt);
     for (const f of this.postRender) f(dt, this.time);
   }
 
@@ -283,7 +291,8 @@ export class Stage {
       r.setRenderTarget(target);
       r.clearDepth();
     }
-    r.render(this.scene, this.camera);
+    if (this.renderFn) this.renderFn();
+    else r.render(this.scene, this.camera);
     for (const f of this.afterMain) f(dt, this.time);
     r.autoClear = prevAuto;
     if (chain) chain.render(this.post, this.time);
@@ -448,8 +457,12 @@ class PostChain {
     private renderer: THREE.WebGLRenderer,
     private q: { msaa: number; levels: number; bloomScale: number },
   ) {
+    // Float colour buffers are near universal on WebGL2; fall back to 8-bit (no HDR bloom headroom) if missing.
+    const ext = renderer.extensions;
+    const hdr = ext.has('EXT_color_buffer_float') || ext.has('EXT_color_buffer_half_float');
+    const type = hdr ? THREE.HalfFloatType : THREE.UnsignedByteType;
     this.sceneTarget = new THREE.WebGLRenderTarget(4, 4, {
-      type: THREE.HalfFloatType,
+      type,
       depthBuffer: true,
       stencilBuffer: false,
       samples: q.msaa,
@@ -460,7 +473,7 @@ class PostChain {
     this.sceneTarget.texture.name = 'SceneHDR';
     for (let i = 0; i < q.levels; i++) {
       const t = new THREE.WebGLRenderTarget(4, 4, {
-        type: THREE.HalfFloatType,
+        type,
         depthBuffer: false,
         stencilBuffer: false,
         minFilter: THREE.LinearFilter,

@@ -896,10 +896,16 @@ export class Backdrop {
     gb.add(cyl(1.8, 2.1, 7, 10), new THREE.Color(0.65, 0.12, 0.08), { p: [0, 16, 2] }, { aInfo: [0, 3, 0, 0] });
     gb.add(cyl(1.85, 1.85, 1.4, 10), 0x111111, { p: [0, 19.6, 2] }, { aInfo: [0, 3, 0, 0] });
     // Nav / deck lights.
-    gb.add(sphere(0.7, 4, 3), new THREE.Color(1.8, 1.6, 1.2), { p: [0, 22, -10] }, { aInfo: [12.1, 4, 0, 0] });
+    gb.add(sphere(1.1, 4, 3), new THREE.Color(3.0, 2.7, 2.0), { p: [0, 22, -10] }, { aInfo: [12.1, 4, 0, 0] });
+    gb.add(sphere(0.9, 4, 3), new THREE.Color(3.0, 2.6, 1.8), { p: [0, 12, 26] }, { aInfo: [12.9, 4, 0, 0] });
     gb.add(sphere(0.6, 4, 3), new THREE.Color(0.2, 1.8, 0.4), { p: [7.2, 7, -20] }, { aInfo: [13.7, 4, 0, 0] });
     gb.add(sphere(0.6, 4, 3), new THREE.Color(1.8, 0.2, 0.15), { p: [-7.2, 7, -20] }, { aInfo: [17.3, 4, 0, 0] });
-    for (let k = 0; k < 12; k++) gb.add(sphere(0.45, 4, 3), new THREE.Color(1.6, 1.1, 0.5), { p: [-7.05, 4.5, -24 + k * 4] }, { aInfo: [30 + k, 4, 0, 0] });
+    for (let k = 0; k < 12; k++) {
+      gb.add(sphere(0.55, 4, 3), new THREE.Color(1.8, 1.2, 0.55), { p: [-7.05, 4.5, -24 + k * 4] }, { aInfo: [30 + k, 4, 0, 0] });
+      gb.add(sphere(0.55, 4, 3), new THREE.Color(1.8, 1.2, 0.55), { p: [7.05, 4.5, -24 + k * 4] }, { aInfo: [50 + k, 4, 0, 0] });
+    }
+    // Stern windows (seen from behind as she sails away).
+    for (let k = 0; k < 6; k++) gb.add(box(1.2, 0.9, 0.2), new THREE.Color(2.2, 1.5, 0.7), { p: [-4.5 + k * 1.8, 9.2, 13.1] }, { aInfo: [60 + k, 4, 0, 0] });
     const m = gb.mesh(this.townMat, 'BackdropFerry');
     m.frustumCulled = false;
     this.ferry.add(m);
@@ -952,9 +958,9 @@ export class Backdrop {
     const k = this.departure;
     this.ferry.visible = k > 0.001;
     if (this.ferry.visible) {
-      const e = k * k * (3 - 2 * k);
-      const a = new THREE.Vector3(118, 0, -260);
-      const b = new THREE.Vector3(360, 0, -1750);
+      const e = Math.pow(k, 1.6);
+      const a = new THREE.Vector3(110, 0, -230);
+      const b = new THREE.Vector3(330, 0, -1500);
       this.ferry.position.lerpVectors(a, b, e);
       this.ferry.rotation.y = -0.12 - 0.08 * e;
       sea.uWake.value.set(this.ferry.position.x, this.ferry.position.z + 28, Math.min(1, k * 4) * 0.8, 0);

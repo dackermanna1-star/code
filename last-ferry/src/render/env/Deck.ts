@@ -277,7 +277,7 @@ export function createDeckMaterial(u: DeckUniforms, opts: { reflections?: boolea
         deckAlbedo *= mix(0.55, 1.0, isTop);
         diffuseColor.rgb = deckAlbedo;
         float deckWet = max(damp, bloodWet);
-        vec2 deckGrad = (vec2(sign(across) * edgeX * edgeX * 0.7, 0.0) + vec2((gB - 0.5) * 0.06, (gA - 0.5) * 0.03) * (1.0 - deckWet)) * (1.0 - 0.9 * pud * uWetness);`,
+        vec2 deckGrad = (vec2(sign(across) * edgeX * edgeX * 0.5, 0.0) + vec2((gB - 0.5) * 0.06, (gA - 0.5) * 0.03) * (1.0 - deckWet)) * (1.0 - 0.97 * smoothstep(0.0, 0.6, pud * uWetness));`,
       )
       .replace(
         '#include <roughnessmap_fragment>',

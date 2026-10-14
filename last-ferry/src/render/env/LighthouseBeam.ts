@@ -5,7 +5,7 @@
 import * as THREE from 'three';
 
 /** Where the beam comes from in gameplay space (off-frame, top left, toward the lighthouse). */
-const ORIGIN = new THREE.Vector3(-64, 30, -86);
+const ORIGIN = new THREE.Vector3(-50, 50, -70);
 /** Ground point the sweep is centred on. */
 const CENTRE = new THREE.Vector3(0, 0, 0);
 
@@ -61,7 +61,7 @@ export class LighthouseBeam {
 
   constructor(quality: 'low' | 'medium' | 'high') {
     this.group.name = 'LighthouseBeam';
-    this.spot = new THREE.SpotLight(0xfff0d0, 0, 0, 0.075, 0.55, 0);
+    this.spot = new THREE.SpotLight(0xfff0d0, 0, 0, 0.085, 0.85, 0);
     this.spot.position.copy(ORIGIN);
     this.spot.castShadow = false;
     this.group.add(this.spot, this.spot.target);
@@ -113,7 +113,7 @@ export class LighthouseBeam {
     this.spot.target.updateMatrixWorld();
     const on = Math.max(0, 1 - Math.abs(best) / 0.75);
     this.sweep = on;
-    this.spot.intensity = 9 * level * night * on;
+    this.spot.intensity = 7 * level * night * on;
     this.shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
     this.shaftMat.uniforms.uLevel.value = 0.17 * level * night * Math.pow(on, 0.8);
     this.shaftMat.uniforms.uTime.value = time;

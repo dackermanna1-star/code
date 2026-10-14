@@ -53,6 +53,8 @@ export class Crane {
   readonly workLight: THREE.PointLight | null;
   /** Cut wire end swinging after the drop. */
   private whip = 0;
+  /** Seconds since the pallet hit the deck (-1 = not smashed). Drives the scatter burst. */
+  private impactAge = -1;
 
   constructor(private mats: EnvMaterials, private glows: Glows, quality: 'low' | 'medium' | 'high' = 'high') {
     this.group.name = 'Crane';
@@ -383,6 +385,12 @@ export class Crane {
     this.synced = false;
     const t = this.stateTime;
     const drop = CRANE.dropTime;
+    // Impact bookkeeping (the logic may switch to 'down' exactly at impact, or jump straight there).
+    if (this.state === 'hanging' || this.state === 'gone') this.impactAge = this.state === 'gone' ? Math.max(this.impactAge, 1) : -1;
+    else if (this.impactAge < 0) {
+      if (this.state === 'falling' && t >= drop) this.impactAge = t - drop;
+      else if (this.state === 'down') this.impactAge = t < 0.3 ? t : 1;
+    } else this.impactAge += dt;
     const g = (2 * CRANE.palletY) / (drop * drop);
     let loadY = CRANE.palletY;
     let showLoad = true;
@@ -406,7 +414,7 @@ export class Crane {
           showLoad = false;
           showDebris = true;
           wireLen = 0.6;
-          debrisK = Math.min(1, (t - drop) / 0.25);
+          debrisK = Math.min(1, Math.max(0, this.impactAge) / 0.25);
         }
         break;
       }
@@ -414,7 +422,7 @@ export class Crane {
         showLoad = false;
         showDebris = true;
         wireLen = 0.6;
-        debrisK = Math.min(1, t / 0.25 + (t > 0.05 ? 1 : 0));
+        debrisK = Math.min(1, Math.max(0, this.impactAge) / 0.25);
         break;
       case 'gone':
         showLoad = false;

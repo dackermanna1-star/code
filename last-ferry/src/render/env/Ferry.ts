@@ -213,8 +213,13 @@ class SurvivorQueue {
       return;
     }
     if (boarded > this.boarded) {
-      this.pendingBoard += boarded - this.boarded;
+      const delta = boarded - this.boarded;
       this.boarded = boarded;
+      if (delta + this.pendingBoard > 4) {
+        // A big jump (loading, skipping): settle the queue at once, walk only the last one up.
+        this.fill(total - boarded + 1);
+        this.pendingBoard = 1;
+      } else this.pendingBoard += delta;
     }
   }
 
@@ -668,6 +673,12 @@ export class Ferry {
     this.departure = Math.min(1, Math.max(0, t));
   }
 
+  /** Hull x (world, at the pier) and prop-wash strength while pulling away. */
+  get wash(): { x: number; strength: number } {
+    const d = this.departure;
+    return { x: this.ship.position.x - 0.2, strength: d > 0 && d < 0.75 ? Math.min(1, d * 8) * (1 - Math.max(0, (d - 0.55) / 0.2)) : 0 };
+  }
+
   gunMuzzle(out = new THREE.Vector3()): THREE.Vector3 {
     this.ship.updateMatrixWorld(true);
     return this.barrel.localToWorld(out.set(-2.7, 0, 0));
@@ -689,11 +700,11 @@ export class Ferry {
   }
 
   update(dt: number, time: number, windows: number, night: number): void {
-    // Departure: pull away to the right, swing the bow out, gone from view by t ≈ 0.35.
-    const k = Math.min(1, this.departure / 0.35);
-    const e = k * k * (3 - 2 * k);
-    this.ship.position.set(PIVOT.x + 26 * e, 0, PIVOT.z + 4 * e);
-    this.ship.rotation.y = YAW - 0.3 * e;
+    // Departure: ease away from the pier (slowly at first), swing the bow out; gone from view by t ≈ 0.6.
+    const k = Math.min(1, this.departure / 0.6);
+    const e = Math.pow(k, 2.2);
+    this.ship.position.set(PIVOT.x + 24 * e, 0, PIVOT.z + 3 * e);
+    this.ship.rotation.y = YAW - 0.35 * e;
     this.ship.visible = k < 1;
     this.moorLine.visible = this.departure <= 0;
     // The gangway drops off the pier end when the ship leaves.

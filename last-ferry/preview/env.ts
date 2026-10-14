@@ -91,11 +91,14 @@ if (craneP) {
   const [st, tm] = craneP.split(':');
   env.setCrane(st as CraneState, Number(tm ?? 0));
 }
+let boarded = 0;
+let total = 48;
+env.setBoarding(boarded, total);
 const boardP = params.get('board');
 if (boardP) {
-  const [b, t] = boardP.split('/').map(Number);
-  env.setBoarding(0, t);
-  env.setBoarding(b, t);
+  [boarded, total] = boardP.split('/').map(Number);
+  env.setBoarding(0, total);
+  env.setBoarding(boarded, total);
 }
 if (params.get('horn') === '1') env.ferryHorn();
 if (params.get('dep')) env.setDeparture(Number(params.get('dep')));
@@ -110,6 +113,7 @@ for (const name of (params.get('hide') ?? '').split(',').filter(Boolean)) {
   });
 }
 if (params.get('nosh') === '1') env.sea.receiveShadow = false;
+if (params.get('norefl') === '1') env.deckUniforms.uReflStrength.value = 0;
 
 stage.renderer.info.autoReset = false;
 stage.onUpdate((dt, time) => {
@@ -130,9 +134,6 @@ tod.oninput = () => {
   todv.textContent = tod.value;
 };
 for (const b of panel.querySelectorAll<HTMLButtonElement>('[data-crane]')) b.onclick = () => env.setCrane(b.dataset.crane as CraneState, 0);
-let boarded = 0;
-let total = 48;
-env.setBoarding(boarded, total);
 (document.getElementById('board') as HTMLButtonElement).onclick = () => env.setBoarding(++boarded, total);
 (document.getElementById('horn') as HTMLButtonElement).onclick = () => env.ferryHorn();
 (document.getElementById('scare') as HTMLButtonElement).onclick = () => env.scareGulls(0, 0, 4);

@@ -6,11 +6,18 @@
 //   post-processing value following the time of day.
 //
 // Usage (game view):
-//   const env = new Environment(stage, { quality: 'high' });
+//   const env = new Environment(stage, { quality: 'high' });   // after the Stage, before anything else draws
 //   env.setDecalMap(blood.texture, DECAL_RECT);
-//   stage.onUpdate((dt, t) => env.update(dt, t));   // or call it from the game loop
-//   env.setTimeOfDay(world.timeOfDay); env.setCrane(world.crane.state, world.crane.stateTime);
-//   env.setBoarding(world.boarded, world.passengers); events: horn → env.ferryHorn(), …
+//   blood.isOnFloe = debris.isOnFloe = (x, z) => env.isOnDeck(x, z);
+//   env.setTimeOfDay(world.timeOfDay, true);                     // snap once at start (env.settle())
+//   every frame: env.setTimeOfDay(world.timeOfDay); env.setCrane(world.crane.state, world.crane.stateTime);
+//                env.setBoarding(world.boarded, world.passengers); env.update(dt, time);
+//   events: horn → env.ferryHorn(); cannonStrike → env.ferryGunRecoil(target) per shell + muzzle
+//           = env.ferryGunMuzzle(); shot → env.scareGulls(muzzle.x, muzzle.z, 1);
+//           explosion → env.scareGulls(x, z, 3), env.flashScreen(0.15); victory → ramp env.setDeparture(0→1).
+//   Scale effect lights with env.lightRig.darkness (muzzle flashes / flares read stronger at night).
+// The backdrop is drawn through stage.onBeforeMainRender; the wet-deck reflection
+// through stage.onPreRender (high/medium quality).
 import * as THREE from 'three';
 import { DECAL_RECT, FERRY, PIER } from '../../config/world';
 import { CAMERA_FOV } from '../../config/view';
@@ -138,8 +145,6 @@ export class Environment {
   private lastDt = 0;
   /** Lighthouse rotation (rad). */
   private beamAngle = 0.4;
-  /** Seconds left of the horn's light flash. */
-  private hornFlash = 0;
   /** Extra flash requested for the post chain (cannon etc.), decays. */
   private flash = 0;
   private readonly _v = new THREE.Vector3();
@@ -329,14 +334,13 @@ export class Environment {
   /** The ferry horn: steam from the whistle, lights flash, survivors cheer, gulls scatter. */
   ferryHorn(): void {
     this.ferry.horn();
-    this.hornFlash = 1.6;
     this.gulls.scare(10, 0, 3);
   }
 
   /** Victory sequence 0..1: the ferry pulls away and sails off toward the moon path. */
   setDeparture(t: number): void {
     this.ferry.setDeparture(t);
-    this.backdrop.departure = Math.min(1, Math.max(0, (t - 0.28) / 0.72));
+    this.backdrop.departure = Math.min(1, Math.max(0, (t - 0.5) / 0.5));
   }
 
   /** World position of the ferry's deck-gun muzzle (cannon strike origin). */
@@ -386,10 +390,11 @@ export class Environment {
     this.fireLight.intensity = 140 * p.fireLight * fl;
     this.crane.update(dt, time, p.lamps);
     this.ferry.update(dt, time, p.windows, night);
+    const wash = this.ferry.wash;
+    this.seaUniforms.uHullWake.value.set(wash.x, wash.strength * 0.9);
     this.gulls.update(dt, time);
     this.atmosphere.update(dt, time, night, p.fireLight, this.fog.color);
-    // Horn flash / screen flash.
-    if (this.hornFlash > 0) this.hornFlash = Math.max(0, this.hornFlash - dt);
+    // Screen flash (flashScreen) decays.
     this.flash = Math.max(0, this.flash - dt * 3.5);
     this.stage.post.flash = this.flash * 0.6;
   }
@@ -479,7 +484,7 @@ export class Environment {
     v3(this.seaU.uSeaDeep.value, p.seaDeep);
     v3(this.seaU.uSeaShallow.value, p.seaShallow);
     this.seaU.uGlitter.value = p.glitter;
-    this.seaUniforms.uFoamCol.value.set(0.5, 0.52, 0.55).multiplyScalar(0.35 + 0.65 * (1 - Math.min(1, t * 1.3)));
+    this.seaUniforms.uFoamCol.value.set(0.42, 0.44, 0.47).multiplyScalar(0.35 + 0.65 * (1 - Math.min(1, t * 1.3)));
 
     // Key light.
     const el = (p.keyElev * Math.PI) / 180;
