@@ -3,7 +3,7 @@
 // step() at a fixed 50 ticks per second, deterministic for a given seed.
 import type { DeathKind, ZombieKind } from '../config/ids';
 import { BETWEEN_SECONDS, CHAPTERS, SPLASH_SECONDS, type SpawnKind } from '../config/chapters';
-import { TICK_RATE, spawnX } from '../config/world';
+import { PIER, TICK_RATE, spawnX } from '../config/world';
 import { STRETCHER, ZOMBIES } from '../config/zombies';
 import { BARRICADE, FAVOUR, FEEL, FIRE, MONEY } from '../config/rules';
 import { chapterDamage } from '../config/weapons';
@@ -74,6 +74,14 @@ export class World implements WorldView {
   god: boolean;
   readonly quiet: boolean;
   gameOverInfo: GameOverInfo | null = null;
+  /**
+   * After victory the pier lives on while the ferry departs: step() keeps
+   * simulating the Bosun, the dead, bodies and fire (no schedule, no boss,
+   * nothing can end the game; a straggler now and then shambles in from town
+   * and those who reach the end of the pier walk off it into the sea). Off
+   * by default; the app switches it on for the departure sequence.
+   */
+  aftermath = false;
   readonly favourRules = FAVOUR;
   private ids = { zombie: 0, corpse: 0, fx: 0, stretcher: 0 };
   /** 1 m buckets of live zombies, rebuilt each tick after they move (neighbour queries). */
@@ -215,7 +223,10 @@ export class World implements WorldView {
 
   /** Advance one logic tick (1/50 s). */
   step(): void {
-    if (this.gameEnded) return;
+    if (this.gameEnded) {
+      if (this.aftermath && this.phase === 'victory') this.stepAftermath();
+      return;
+    }
     if (this.pendingSplash) {
       this.pendingSplash = false;
       const d = this.level.def;
@@ -263,6 +274,31 @@ export class World implements WorldView {
     }
     this.updateTimeOfDay();
   }
+
+  /** One tick of the aftermath (see `aftermath`). */
+  private stepAftermath(): void {
+    this.tick++;
+    this.phaseTicks++;
+    if (this.phaseTicks >= this.nextStragglerTick) {
+      this.nextStragglerTick = this.phaseTicks + Math.round(this.rng.range(0.9, 2.2) * TICK_RATE);
+      this.spawn('shambler');
+    }
+    for (const p of this.players) p.tick();
+    for (const t of this.teams) t.tick();
+    for (let i = 0, n = this.zombies.length; i < n; i++) this.zombies[i].tick();
+    this.rebuildZombieGrid();
+    this.combat.tick();
+    this.hazards.tick();
+    this.bodies.tick();
+    this.pier.tick();
+    this.resolveDeaths();
+    this.zombies = this.zombies.filter((z) => !z.removed);
+    this.bodies.compact();
+    this.hazards.compact();
+    if (this.teams.length) this.teams = this.teams.filter((t) => !t.dropped && t.members.length > 0);
+  }
+
+  private nextStragglerTick = Math.round(1.5 * TICK_RATE);
 
   private updateTimeOfDay(): void {
     const [a, b] = this.level.def.timeOfDay;
@@ -378,6 +414,14 @@ export class World implements WorldView {
   }
 
   zombieEscaped(zb: Zombie): void {
+    if (this.phase === 'victory') {
+      // Aftermath: the gangway is up and the ferry is gone; at the end of the pier there is only the sea.
+      if (zb.alive && zb.x > PIER.maxX - 0.25) {
+        zb.lastHit = { damage: zb.life, part: 'body', point: { x: zb.x, y: 0, z: zb.z }, dirX: 1, dirZ: 0, source: 'sea', player: null, weapon: null };
+        zb.life = 0;
+      }
+      return;
+    }
     if (this.god) {
       zb.removed = true;
       if (zb.grabbing) zb.releaseGrab();

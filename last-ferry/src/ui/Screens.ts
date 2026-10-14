@@ -111,6 +111,8 @@ export class Screens {
   onOptionsChange: ((o: Options) => void) | null = null;
   /** UI sound hook (menu moves, selects, back). */
   onUiSound: ((s: UiSound) => void) | null = null;
+  /** Store finished runs in the records (off for bot / god-mode runs). */
+  recordRuns = true;
 
   private readonly root: HTMLDivElement;
   private readonly splash: HTMLDivElement;
@@ -481,7 +483,7 @@ export class Screens {
    * Game over. `cause`: 'gangway' (a zombie boarded), 'dead' (the Bosun went
    * down) or any custom line.
    */
-  showGameOver(cause: 'gangway' | 'dead' | string, stats: RunStats, hd: { onRetry(): void; onTitle(): void }): void {
+  showGameOver(cause: 'gangway' | 'dead' | string, stats: RunStats, hd: { onRetry(): void; onTitle(): void }, detail?: string): void {
     const rank = this.record(stats, false);
     const root = h('div', 'lf-screen lf-scrim lf-results is-over');
     const c = h('div', 'lf-center');
@@ -496,7 +498,7 @@ export class Screens {
         : cause === 'dead'
           ? ['The Bosun is down', 'You’ll be back on your feet in a few seconds. That’s the problem.']
           : ['Game over', cause];
-    head.append(h('div', 'lf-eyebrow is-red', `Chapter ${stats.chapter} · ${stats.chapterName}`), h('div', 'lf-res-title', title), h('div', 'lf-res-line', line));
+    head.append(h('div', 'lf-eyebrow is-red', `Chapter ${stats.chapter} · ${stats.chapterName}`), h('div', 'lf-res-title', title), h('div', 'lf-res-line', detail || line));
     col.appendChild(head);
     col.appendChild(this.resultCards(stats, rank, false));
 
@@ -527,7 +529,7 @@ export class Screens {
     head.append(
       boat,
       h('div', 'lf-vic-title', 'The ferry departs'),
-      h('div', 'lf-res-line', `${stats.passengersSaved ? `${fmtInt(stats.passengersSaved)} souls aboard. ` : ''}The pier burns behind you.`),
+      h('div', 'lf-res-line', `${stats.passengersSaved ? `${fmtInt(stats.passengersSaved)} souls aboard. ` : ''}Somebody had to hold the pier.`),
       h('div', 'lf-tbc', 'To be continued'),
     );
     col.appendChild(head);
@@ -630,7 +632,7 @@ export class Screens {
 
   /** Store a run once per stats object; returns its rank among the top 5 or -1. */
   private record(s: RunStats, victory: boolean): number {
-    if (s.kills <= 0 && !victory) return -1;
+    if (!this.recordRuns || (s.kills <= 0 && !victory)) return -1;
     let date = this.recorded.get(s);
     if (date === undefined) {
       date = Date.now() + Math.random();

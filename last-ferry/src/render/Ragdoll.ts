@@ -21,8 +21,13 @@ export interface RagdollOptions {
   detachSpeed?: number;
   /** Explosion origin, pushes everything away and up. */
   blast?: { point: THREE.Vector3; speed: number };
-  /** Collide with the ice only (e.g. a cub dropped from its carrier's arms). */
+  /** Collide with the deck only (dropped props, plates). */
   groundOnly?: boolean;
+  /**
+   * Steer the body so its root part comes to rest at (x, z): the logic decides
+   * where a corpse lies, the ragdoll is guided there (gently, while it moves).
+   */
+  guide?: { x: number; z: number };
 }
 
 interface Part {
@@ -59,7 +64,17 @@ const _pm = new THREE.Matrix4();
 export class Ragdoll {
   readonly parts: Part[] = [];
   private constraints: CANNON.Constraint[] = [];
+  /** Every joint (kept across freeze / wake). */
+  private joints: CANNON.Constraint[] = [];
   private order: Part[] = [];
+  /** Where the root part should come to rest (see RagdollOptions.guide). */
+  guide: { x: number; z: number } | null = null;
+  /** Guidance strength (1/s): how fast the horizontal error is closed. */
+  guideK = 2.6;
+  /** Sea level: parts below it are slowed and sink gently. */
+  waterY = -2.6;
+  /** Pins (harpoon cable): parts held at a point by a kinematic anchor. */
+  private pins: Array<{ anchor: CANNON.Body; c: CANNON.Constraint }> = [];
   frozen = false;
   age = 0;
   private stillTime = 0;
@@ -141,7 +156,9 @@ export class Ragdoll {
       });
       physics.world.addConstraint(c);
       this.constraints.push(c);
+      this.joints.push(c);
     }
+    this.guide = opts.guide ? { ...opts.guide } : null;
 
     // Order parts parent-first so local transforms can be rebuilt top-down.
     const depth = (o: THREE.Object3D) => {
@@ -222,8 +239,45 @@ export class Ragdoll {
       }
     }
     let moving = false;
+    // Guidance: close the horizontal error of the root part toward the target
+    // by nudging every part's velocity together (the pose is untouched).
+    const g = this.guide;
+    if (g && this.order.length && !this.pins.length) {
+      const r = this.order[0].body;
+      const ex = g.x - r.position.x;
+      const ez = g.z - r.position.z;
+      const err = Math.hypot(ex, ez);
+      if (err > 0.04) {
+        // Desired drift speed (m/s), capped so it reads as a skid, not a flight.
+        const sp = Math.min(3.2, err * this.guideK);
+        const vx = (ex / err) * sp;
+        const vz = (ez / err) * sp;
+        let ax = 0;
+        let az = 0;
+        for (const p of this.parts) {
+          ax += p.body.velocity.x;
+          az += p.body.velocity.z;
+        }
+        ax /= this.parts.length;
+        az /= this.parts.length;
+        const k = Math.min(1, dt * (this.age < 0.35 ? 1.5 : 6));
+        const dvx = (vx - ax) * k;
+        const dvz = (vz - az) * k;
+        for (const p of this.parts) {
+          p.body.velocity.x += dvx;
+          p.body.velocity.z += dvz;
+        }
+        if (err > 0.12) moving = true;
+      }
+    }
     for (const p of this.order) {
       const b = p.body;
+      if (b.position.y < this.waterY) {
+        // In the sea: heavy drag, slow sinking.
+        b.velocity.scale(Math.exp(-dt * 4), b.velocity);
+        b.angularVelocity.scale(Math.exp(-dt * 3), b.angularVelocity);
+        b.velocity.y += 11 * dt;
+      }
       // Clamp runaway spin / speed (joint explosions).
       const av = b.angularVelocity;
       const al = av.length();
@@ -277,6 +331,7 @@ export class Ragdoll {
       }
       this.calmSamples = this.age > 0.8 && maxMove < 0.035 ? this.calmSamples + 1 : 0;
     }
+    if (this.pins.length) return;
     if ((this.stillTime > 0.5 && this.age > 1.0) || this.calmSamples >= 2 || this.age > 8) this.freeze();
   }
 
@@ -284,10 +339,95 @@ export class Ragdoll {
   freeze(): void {
     if (this.frozen) return;
     this.frozen = true;
+    this.unpinAll();
     for (const c of this.constraints) this.physics.world.removeConstraint(c);
     for (const p of this.parts) this.physics.world.removeBody(p.body);
     this.constraints.length = 0;
     this.onFrozen?.(this);
+  }
+
+  /**
+   * Put a frozen ragdoll back into the simulation (shoves, twitching, blasts).
+   * Bodies are re-placed from the bones' current world transforms, so the rig
+   * may have been moved while frozen.
+   */
+  wake(): void {
+    if (!this.frozen) {
+      this.stillTime = 0;
+      this.calmSamples = 0;
+      return;
+    }
+    this.rig.root.updateMatrixWorld(true);
+    for (const p of this.parts) {
+      p.bone.matrixWorld.decompose(_v, _q, _s);
+      p.body.position.set(_v.x, _v.y, _v.z);
+      p.body.quaternion.set(_q.x, _q.y, _q.z, _q.w);
+      p.body.velocity.setZero();
+      p.body.angularVelocity.setZero();
+      this.physics.world.addBody(p.body);
+    }
+    for (const c of this.joints) {
+      this.physics.world.addConstraint(c);
+      this.constraints.push(c);
+    }
+    this.frozen = false;
+    this.age = 0.9;
+    this.stillTime = 0;
+    this.calmSamples = 0;
+    this.sampleT = 0;
+    this.samples.length = 0;
+  }
+
+  /** Add a velocity change to one part (by bone name) or, without a name, to every part. */
+  kick(dx: number, dy: number, dz: number, bone?: string, spin = 0): void {
+    for (const p of this.parts) {
+      if (bone && p.name !== bone) continue;
+      p.body.velocity.x += dx;
+      p.body.velocity.y += dy;
+      p.body.velocity.z += dz;
+      if (spin) {
+        p.body.angularVelocity.x += (Math.random() - 0.5) * spin;
+        p.body.angularVelocity.y += (Math.random() - 0.5) * spin;
+        p.body.angularVelocity.z += (Math.random() - 0.5) * spin;
+      }
+    }
+  }
+
+  /** Part by bone name. */
+  part(name: string): Part | undefined {
+    return this.parts.find((p) => p.name === name);
+  }
+
+  /**
+   * Hold a part at a world point with a kinematic anchor (the harpoon cable).
+   * Returns the anchor body (move it to drag the part along).
+   */
+  pin(bone: string, at: THREE.Vector3): CANNON.Body | null {
+    const p = this.part(bone) ?? this.order[0];
+    if (!p || this.frozen) return null;
+    const anchor = new CANNON.Body({ mass: 0, type: CANNON.Body.KINEMATIC, position: new CANNON.Vec3(at.x, at.y, at.z) });
+    anchor.collisionResponse = false;
+    anchor.collisionFilterGroup = 0;
+    anchor.collisionFilterMask = 0;
+    this.physics.world.addBody(anchor);
+    const local = p.body.pointToLocalFrame(new CANNON.Vec3(at.x, at.y, at.z));
+    const c = new CANNON.PointToPointConstraint(p.body, local, anchor, new CANNON.Vec3(0, 0, 0), 4000);
+    this.physics.world.addConstraint(c);
+    this.pins.push({ anchor, c });
+    return anchor;
+  }
+
+  /** Release every pin (the cable lets go). */
+  unpinAll(): void {
+    for (const pin of this.pins) {
+      this.physics.world.removeConstraint(pin.c);
+      this.physics.world.removeBody(pin.anchor);
+    }
+    this.pins.length = 0;
+  }
+
+  get pinned(): boolean {
+    return this.pins.length > 0;
   }
 
   /** Lowest body (for blood pools). */
@@ -310,7 +450,10 @@ export class Ragdoll {
   }
 
   dispose(): void {
+    const cb = this.onFrozen;
+    this.onFrozen = null;
     this.freeze();
+    this.onFrozen = cb;
   }
 }
 

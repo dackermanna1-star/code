@@ -485,12 +485,19 @@ export class Effects {
   private lights: Array<{ light: THREE.PointLight; life: number; max: number; peak: number }> = [];
   /** Particle density multiplier (quality). */
   density = 1;
+  /** Colour of dust puffs (snowPuff): wet-plank dust on the pier. */
+  dustColor: THREE.ColorRepresentation = 0xb4a898;
+  /**
+   * Flash lights are routed here when set (the game view's light pool);
+   * otherwise the effect's own point lights are used.
+   */
+  flashSink: ((x: number, y: number, z: number, color: THREE.ColorRepresentation, intensity: number, life: number, distance: number) => void) | null = null;
 
   constructor(private scene: THREE.Scene, lightCount = 3) {
     this.add = new ParticleLayer(5000, this.atlas, true);
     this.norm = new ParticleLayer(4000, this.atlas, false);
     this.beams = new BeamLayer(400);
-    this.solidBeams = new BeamLayer(32, false);
+    this.solidBeams = new BeamLayer(320, false);
     scene.add(this.norm.mesh, this.add.mesh, this.beams.mesh, this.solidBeams.mesh);
     for (let i = 0; i < lightCount; i++) {
       const l = new THREE.PointLight(0xffc070, 0, 9, 2);
@@ -539,6 +546,11 @@ export class Effects {
   }
 
   flash(x: number, y: number, z: number, color: THREE.ColorRepresentation, intensity: number, life: number, distance = 9): void {
+    if (this.flashSink) {
+      this.flashSink(x, y, z, color, intensity, life, distance);
+      return;
+    }
+    if (!this.lights.length) return;
     let slot = this.lights[0];
     for (const l of this.lights) if (l.life <= 0 || l.life / l.max < slot.life / slot.max) slot = l;
     slot.light.position.set(x, y, z);
@@ -653,8 +665,8 @@ export class Effects {
         g: 0.6,
         size: [size * 0.5, size * 1.6],
         life: 0.5 + Math.random() * 0.6,
-        color: 0xf4f8ff,
-        alpha: [0.55, 0],
+        color: this.dustColor,
+        alpha: [0.5, 0],
         frame: Frame.Smoke,
         vr: (Math.random() - 0.5),
       });
@@ -733,19 +745,20 @@ export class Effects {
         ground: true,
       });
     }
-    // ice chips and snow dust
+    // wood splinters and plank dust
     for (let i = 0; i < Math.round(22 * d); i++) {
       const a = Math.random() * Math.PI * 2;
       const s = 2 + Math.random() * 6;
       this.emit(false, p.x, p.y + 0.2, p.z, {
         vel: [Math.cos(a) * s, 3 + Math.random() * 7, Math.sin(a) * s * 0.7],
         g: 18,
-        size: [0.06 + Math.random() * 0.08, 0.05],
+        size: [0.05 + Math.random() * 0.07, 0.04],
         life: 0.8 + Math.random() * 0.6,
-        color: 0xeef6ff,
-        color1: 0xc8d8ea,
-        alpha: [1, 0.6],
-        frame: Frame.Flake,
+        color: 0x6a5238,
+        color1: 0x3a2a1c,
+        alpha: [1, 0.7],
+        frame: Frame.Spark,
+        streak: 0.4,
         vr: (Math.random() - 0.5) * 16,
         ground: true,
       });
@@ -757,8 +770,8 @@ export class Effects {
         drag: 3.2,
         size: [0.4, 1.4],
         life: 0.8 + Math.random() * 0.5,
-        color: 0xf2f6fa,
-        alpha: [0.6, 0],
+        color: 0x8a7e72,
+        alpha: [0.5, 0],
         frame: Frame.Smoke,
       });
     }

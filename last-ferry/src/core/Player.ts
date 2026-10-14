@@ -374,7 +374,7 @@ export class Player implements PlayerView {
   }
 
   private die(): void {
-    if (this.world.god) {
+    if (this.world.god || this.world.phase === 'victory') {
       this.life = HUNTER.life;
       return;
     }

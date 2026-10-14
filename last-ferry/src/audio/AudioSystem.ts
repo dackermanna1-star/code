@@ -191,8 +191,9 @@ export class AudioSystem {
   /** A realtime AudioContext (not an OfflineAudioContext). */
   private readonly realtime: boolean;
 
-  constructor(opts: { context?: BaseAudioContext } = {}) {
-    this.ctx = opts.context ?? createContext();
+  /** `context: null` = no audio at all (tests, ?nosound): every call is a no-op. */
+  constructor(opts: { context?: BaseAudioContext | null } = {}) {
+    this.ctx = opts.context === null ? null : (opts.context ?? createContext());
     const ctx = this.ctx;
     this.realtime = !!ctx && !('startRendering' in ctx);
     if (!ctx) return;

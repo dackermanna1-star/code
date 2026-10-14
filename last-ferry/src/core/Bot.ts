@@ -138,7 +138,7 @@ export class Bot {
     const p = this.player;
     const inp = p.input;
     inp.left = inp.right = inp.up = inp.down = inp.fire = inp.jump = inp.horn = inp.cannon = false;
-    if (!p.alive || world.gameEnded) return;
+    if (!p.alive || (world.gameEnded && !(world.aftermath && world.phase === 'victory'))) return;
     const rng = world.rng;
 
     // --- shopping

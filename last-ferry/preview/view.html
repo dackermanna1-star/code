@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Last Ferry · game view preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  #app { position: fixed; inset: 0; }
+  #game-view { position: absolute; overflow: hidden; }
+  #game-canvas { display: block; width: 100%; height: 100%; }
+  #info { position: fixed; left: 8px; bottom: 8px; color: #fff; font: 12px/1.4 monospace; opacity: 0.8; pointer-events: none; text-shadow: 0 1px 2px #000; white-space: pre; }
+  body.shot #info { display: none; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="info"></div>
+<script type="module" src="./view.ts"></script>
+</body>
+</html>
