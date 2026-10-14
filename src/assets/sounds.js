@@ -266,6 +266,7 @@ export async function buildSoundBank(sampleRate = 44100, { workers = 'auto' } = 
   const bank = new Map();
   for (const name of SOUND_NAMES) {
     const def = DEFS[name];
+    if (def.lazy) continue; // (map ambience: SoundEngine.ensure)
     const arr = tmp.get(def.alias ?? name);
     bank.set(name, arr.length === 1 ? arr[0] : arr);
   }
@@ -318,6 +319,28 @@ export class SoundEngine {
     this.buildTime = this.bank.buildTime;
     this.ready = true;
     return this;
+  }
+
+  /**
+   * Make sure a lazy sound (a recipe with lazy: true - the map ambience loops) is in the
+   * bank, synthesising it on the main thread the first time. Resolves true when it can play.
+   */
+  ensure(name) {
+    if (!this.bank) return Promise.resolve(false);
+    if (this.bank.has(name)) return Promise.resolve(true);
+    if (!DEFS[name]) return Promise.resolve(false);
+    this._ensuring ??= new Map();
+    let p = this._ensuring.get(name);
+    if (!p) {
+      p = (async () => {
+        const n = DEFS[name].variants || 1, bufs = [];
+        for (let v = 0; v < n; v++) bufs.push(await renderLimited(synthesize(name, v, this.bank.sampleRate)));
+        this.bank.set(name, bufs.length === 1 ? bufs[0] : bufs);
+        return true;
+      })().catch((e) => { console.warn('sound ensure failed', name, e); return false; });
+      this._ensuring.set(name, p);
+    }
+    return p;
   }
 
   resume() {

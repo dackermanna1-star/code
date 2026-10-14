@@ -1,4 +1,6 @@
-// de_dust2 "des" skybox, generated procedurally on the GPU.
+// de_dust2 "des" skybox, generated procedurally on the GPU - and the other maps' skies:
+// createSky(renderer, { preset }) with 'dust' (this one), 'sunset', 'night', 'overcast'
+// (SKY_PRESETS, a cheaper parametric shader further down) or 'none' (a plain colour).
 //
 // The original CS skyboxes were Terragen renders squeezed into 256 px faces: a faded
 // blue sky with big soft cumulus, a ring of brown rocky desert mountains close to the
@@ -41,6 +43,10 @@ uniform vec3 uSun;       // toward the sun, GoldSrc space
 uniform vec2 uSeedT;     // terrain noise offset
 uniform vec2 uSeedC;     // cloud noise offset
 uniform float uPix;      // angular size of one texel (radians)
+#ifdef FOG_HORIZON
+uniform vec3 uFogCol;    // a map's fog: the horizon fades into it (src/engine/fog.js)
+uniform float uFogH;     // ...up to this elevation (sin)
+#endif
 
 #define ZENITH ${v3(ZENITH)}
 #define MIDSKY ${v3(MIDSKY)}
@@ -359,6 +365,9 @@ void main() {
 #else
   col = render(g, sky);
 #endif
+#ifdef FOG_HORIZON
+  col = mix(col, uFogCol, 1.0 - smoothstep(-0.02, uFogH, g.z));
+#endif
   gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
 }
 `;
@@ -385,28 +394,8 @@ function mulberry32(seed) {
   };
 }
 
-/**
- * Render the dust2 skybox into a cube render target (deterministic for a given seed).
- * @param {THREE.WebGLRenderer} renderer
- * @param {object} [opts]
- * @param {number[]} [opts.sunDir] normalized direction TOWARD the sun, GoldSrc space
- *   [x east, y north, z up]; lights the mountains, the clouds and the sky glow.
- * @param {number} [opts.faceSize=256] texels per cube face (GoldSrc skies were 256).
- * @param {number} [opts.seed=1337] terrain/cloud layout seed.
- * @param {number|'auto'} [opts.samples='auto'] terrain rays per texel (1, 2 or 4);
- *   'auto' = 2 on GPUs, 1 on software GL (SwiftShader/llvmpipe).
- * @returns {THREE.CubeTexture} render-target cube texture for a Y-up three.js scene where
- *   GoldSrc (x, y, z) = three (x, z, -y); assign to scene.background.
- *   texture.userData.dispose() frees the underlying render target.
- */
-export function createSky(renderer, { sunDir = DEFAULT_SUN, faceSize = 256, seed = 1337, samples = 'auto' } = {}) {
-  const t0 = performance.now();
-  if (samples === 'auto') samples = isSoftwareGL(renderer) ? 1 : 2;
-  const sun = new THREE.Vector3(...sunDir).normalize();
-  const rand = mulberry32(seed);
-  const seedT = new THREE.Vector2(rand() * 200 - 100, rand() * 200 - 100);
-  const seedC = new THREE.Vector2(rand() * 200 - 100, rand() * 200 - 100);
-
+/** Render a sky material into a new cube render target (faceSize per face). */
+function renderCube(renderer, mat, faceSize, name) {
   const rt = new THREE.WebGLCubeRenderTarget(faceSize, {
     type: THREE.UnsignedByteType,
     format: THREE.RGBAFormat,
@@ -415,22 +404,7 @@ export function createSky(renderer, { sunDir = DEFAULT_SUN, faceSize = 256, seed
     magFilter: THREE.LinearFilter,
     depthBuffer: false,
   });
-  rt.texture.name = 'sky_des';
-
-  const mat = new THREE.ShaderMaterial({
-    vertexShader: VERT,
-    fragmentShader: FRAG,
-    defines: { SAMPLES: samples >= 4 ? 4 : samples >= 2 ? 2 : 1 },
-    uniforms: {
-      uSun: { value: sun },
-      uSeedT: { value: seedT },
-      uSeedC: { value: seedC },
-      uPix: { value: Math.PI / 2 / faceSize },
-    },
-    side: THREE.BackSide,
-    depthTest: false,
-    depthWrite: false,
-  });
+  rt.texture.name = name;
   const geo = new THREE.BoxGeometry(2, 2, 2);
   const mesh = new THREE.Mesh(geo, mat);
   mesh.frustumCulled = false;
@@ -449,14 +423,268 @@ export function createSky(renderer, { sunDir = DEFAULT_SUN, faceSize = 256, seed
 
   geo.dispose();
   mat.dispose();
-
   const tex = rt.texture;
   tex.userData.dispose = () => rt.dispose();
   tex.userData.renderTarget = rt;
+  return tex;
+}
+
+/**
+ * A map's sky (src/map/maps/*: MAP.sky), rendered once into a cube (deterministic per seed).
+ * @param {THREE.WebGLRenderer} renderer
+ * @param {object} [opts]
+ * @param {string} [opts.preset='dust'] 'dust' (de_dust2's "des" sky, unchanged), 'sunset',
+ *   'night', 'overcast', or 'none' (a plain colour, for closed spaces: opts.color).
+ * @param {number[]} [opts.sunDir] normalized direction TOWARD the sun (the moon at night),
+ *   GoldSrc space [x east, y north, z up]; pass the map's lighting.sunDir so the disc, the
+ *   glow and the lit cloud edges agree with the baked shadows.
+ * @param {object|null} [opts.fog] the map's fog ({ color }): the horizon fades into it.
+ * @param {number} [opts.fogHeight=0.12] how high that fade reaches (sine of the elevation).
+ * @param {number} [opts.faceSize=256] texels per cube face (GoldSrc skies were 256).
+ * @param {number} [opts.seed=1337] terrain/cloud/star layout seed.
+ * @param {number|'auto'} [opts.samples='auto'] dust: terrain rays per texel (1, 2 or 4);
+ *   'auto' = 2 on GPUs, 1 on software GL (SwiftShader/llvmpipe).
+ * Any SKY_PRESETS field (zenith, horizon, clouds, ridge, stars...) can be overridden in opts.
+ * @returns {THREE.CubeTexture | THREE.Color} for scene.background (a cube for a Y-up three.js
+ *   scene where GoldSrc (x, y, z) = three (x, z, -y); texture.userData.dispose() frees it).
+ */
+export function createSky(renderer, opts = {}) {
+  const preset = opts.preset || 'dust';
+  if (preset === 'none') {
+    const c = opts.color || opts.fog?.color || [0, 0, 0];
+    return new THREE.Color(c[0], c[1], c[2]);
+  }
+  if (preset === 'dust') return dustSky(renderer, opts);
+  if (!SKY_PRESETS[preset]) throw new Error(`sky: unknown preset "${preset}"`);
+  return atmoSky(renderer, { ...SKY_PRESETS[preset], ...opts });
+}
+
+function dustSky(renderer, { sunDir = DEFAULT_SUN, faceSize = 256, seed = 1337, samples = 'auto', fog = null, fogHeight = 0.12 } = {}) {
+  const t0 = performance.now();
+  if (samples === 'auto') samples = isSoftwareGL(renderer) ? 1 : 2;
+  const sun = new THREE.Vector3(...sunDir).normalize();
+  const rand = mulberry32(seed);
+  const seedT = new THREE.Vector2(rand() * 200 - 100, rand() * 200 - 100);
+  const seedC = new THREE.Vector2(rand() * 200 - 100, rand() * 200 - 100);
+  const defines = { SAMPLES: samples >= 4 ? 4 : samples >= 2 ? 2 : 1 };
+  const uniforms = {
+    uSun: { value: sun },
+    uSeedT: { value: seedT },
+    uSeedC: { value: seedC },
+    uPix: { value: Math.PI / 2 / faceSize },
+  };
+  if (fog) {
+    defines.FOG_HORIZON = 1;
+    uniforms.uFogCol = { value: new THREE.Vector3(...fog.color) };
+    uniforms.uFogH = { value: fogHeight };
+  }
+  const mat = new THREE.ShaderMaterial({
+    vertexShader: VERT,
+    fragmentShader: FRAG,
+    defines,
+    uniforms,
+    side: THREE.BackSide,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const tex = renderCube(renderer, mat, faceSize, 'sky_des');
   tex.userData.genMs = performance.now() - t0; // CPU-side submit time (GPU may still be busy)
   return tex;
 }
 
+// ---------------------------------------------------------------- the other presets
+// One parametric sky (no terrain march: cheap on software GL): a three-stop gradient, a glow
+// band on the horizon toward the sun, a sun / moon disc with a halo, stars, one or two cloud
+// layers lit from the sun's side (with lit undersides at sunset), a distant silhouette (hills,
+// trees or a city skyline with lit windows) and the fog fade at the horizon. Colours are
+// gamma-space 0..1, as written to the screen.
+export const SKY_PRESETS = {
+  sunset: {
+    zenith: [0.16, 0.18, 0.36], mid: [0.55, 0.36, 0.52], horizon: [0.98, 0.58, 0.32], ground: [0.22, 0.15, 0.14],
+    glow: [0.55, 0.24, 0.06], glowWidth: 3, disc: [1.0, 0.86, 0.58], discSize: 1.8, halo: [0.55, 0.3, 0.12], haloPow: 10,
+    stars: 0, clouds: { cover: 0.44, opacity: 0.95, scale: 1, height: 4.5, layers: 1 },
+    cloudLit: [1.0, 0.66, 0.46], cloudDark: [0.34, 0.22, 0.34], cloudUnder: [1.0, 0.46, 0.22],
+    ridge: { kind: 'hills', height: 0.05, rough: 1 }, ridgeColor: [0.17, 0.1, 0.14], windows: 0,
+  },
+  night: {
+    zenith: [0.012, 0.018, 0.055], mid: [0.03, 0.045, 0.1], horizon: [0.075, 0.09, 0.15], ground: [0.02, 0.025, 0.03],
+    glow: [0.03, 0.04, 0.06], glowWidth: 2, disc: [0.95, 0.95, 0.86], discSize: 1.3, halo: [0.12, 0.14, 0.2], haloPow: 26,
+    stars: 1, clouds: { cover: 0.32, opacity: 0.6, scale: 1, height: 5, layers: 1 },
+    cloudLit: [0.2, 0.22, 0.29], cloudDark: [0.045, 0.055, 0.085], cloudUnder: [0.09, 0.1, 0.14],
+    ridge: { kind: 'trees', height: 0.045, rough: 1 }, ridgeColor: [0.01, 0.012, 0.02], windows: 0,
+  },
+  overcast: {
+    zenith: [0.5, 0.52, 0.55], mid: [0.56, 0.58, 0.6], horizon: [0.63, 0.65, 0.67], ground: [0.3, 0.32, 0.33],
+    glow: [0.0, 0.0, 0.0], glowWidth: 2, disc: [0, 0, 0], discSize: 0, halo: [0.07, 0.07, 0.06], haloPow: 4,
+    stars: 0, clouds: { cover: 0.12, opacity: 1, scale: 1.4, height: 3, layers: 2 },
+    cloudLit: [0.67, 0.68, 0.71], cloudDark: [0.4, 0.42, 0.46], cloudUnder: [0.5, 0.51, 0.54],
+    ridge: { kind: 'city', height: 0.035, rough: 1 }, ridgeColor: [0.32, 0.34, 0.37], windows: 0,
+  },
+};
+
+const RIDGE_KIND = { none: 0, hills: 1, city: 2, trees: 3 };
+
+const ATMO_FRAG = /* glsl */ `
+precision highp float;
+varying vec3 vDir;
+uniform vec3 uSun;
+uniform vec3 uZenith, uMid, uHorizon, uGround, uGlow, uDisc, uHalo;
+uniform float uGlowWidth, uDiscCos, uHaloPow, uStars, uPix;
+uniform vec4 uCloud;      // cover threshold, opacity, scale, height (km)
+uniform float uLayers;
+uniform vec3 uCloudLit, uCloudDark, uCloudUnder;
+uniform vec4 uRidge;      // height (sin elev), roughness, kind (0 none, 1 hills, 2 city, 3 trees), windows
+uniform vec3 uRidgeCol;
+uniform vec4 uFog;        // rgb, fade height (sin elev; 0 = no fog)
+uniform vec2 uSeed;
+
+const mat2 M2 = mat2(0.80, -0.60, 0.60, 0.80);
+float hash12(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
+float hash13(vec3 p3) { p3 = fract(p3 * 0.1031); p3 += dot(p3, p3.zyx + 31.32); return fract((p3.x + p3.y) * p3.z); }
+float noise(vec2 x) {
+  vec2 i = floor(x), f = x - i, u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash12(i), hash12(i + vec2(1.0, 0.0)), u.x), mix(hash12(i + vec2(0.0, 1.0)), hash12(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p) { float a = 0.0, b = 0.5; for (int i = 0; i < 5; i++) { a += b * noise(p); b *= 0.5; p = M2 * p * 2.03; } return a / 0.97; }
+
+float cloudRaw(vec2 p) {
+  vec2 q = p * 0.15 * uCloud.z + uSeed;
+  vec2 w = vec2(fbm(q * 0.35 + 5.2), fbm(q * 0.35 + 1.3)) - 0.5;
+  q += 0.7 * w;
+  float n = fbm(q * 0.6);
+  float bil = 0.0, b = 0.5; vec2 pq = q * 2.6;
+  for (int i = 0; i < 3; i++) { bil += b * abs(2.0 * noise(pq) - 1.0); b *= 0.5; pq = M2 * pq * 2.1; }
+  return 0.5 + (n - 0.5) * 2.3 + (0.42 - bil) * 0.35;
+}
+
+// one cloud layer at height h (km) over the eye: rgb + alpha
+vec4 layer(vec3 rd, float h, float cover, vec2 off) {
+  if (rd.z <= 0.005) return vec4(0.0);
+  float t = h / rd.z;
+  vec2 p = rd.xy * t + off;
+  float n0 = cloudRaw(p);
+  float a = smoothstep(cover, cover + 0.26, n0);
+  if (a <= 0.0) return vec4(0.0);
+  vec2 sxy = uSun.xy / max(length(uSun.xy), 1e-3) * (0.4 + 0.9 * length(uSun.xy));
+  float n1 = cloudRaw(p + sxy);
+  float thick = clamp((n0 - cover) * 2.2, 0.0, 1.0);
+  float lit = clamp(0.78 + (n0 - n1) * 3.2 - 0.6 * thick, 0.0, 1.0);
+  vec3 col = mix(uCloudDark, uCloudLit, smoothstep(0.0, 1.0, lit));
+  // undersides toward a low sun catch its light (sunset)
+  float az = max(dot(normalize(rd.xy + 1e-5), normalize(uSun.xy + 1e-5)), 0.0);
+  col = mix(col, uCloudUnder, az * az * (1.0 - smoothstep(0.0, 0.5, rd.z)) * 0.8 * thick);
+  col = mix(uHorizon, col, exp(-t * 0.012)); // far clouds melt into the horizon
+  a *= smoothstep(0.01, 0.09, rd.z) * uCloud.y;
+  return vec4(col, a);
+}
+
+// the silhouette's height (sin elevation) at azimuth phi
+float ridgeH(float phi, out float win) {
+  win = 0.0;
+  float k = uRidge.z, h0 = uRidge.x;
+  vec2 c = vec2(cos(phi), sin(phi));
+  if (k < 1.5) return h0 * (0.25 + 0.75 * fbm(c * 2.2 + uSeed * 0.01)) * uRidge.y;
+  if (k < 2.5) {
+    // city: blocks of random height in 2-degree lots, a few towers
+    float lot = floor(phi * 90.0 / 3.14159);
+    float r = hash12(vec2(lot, 7.0) + uSeed);
+    float hb = h0 * (0.3 + 0.7 * r * r) * (hash12(vec2(lot, 3.0)) > 0.9 ? 1.8 : 1.0) * uRidge.y;
+    win = hb;
+    return hb * step(0.15, hash12(vec2(lot, 11.0)));
+  }
+  // trees: a ragged canopy
+  float n = fbm(c * 6.0 + uSeed * 0.01) * 0.6 + noise(c * 70.0 + 3.0) * 0.4;
+  return h0 * (0.45 + 0.55 * n) * uRidge.y;
+}
+
+void main() {
+  vec3 d = normalize(vDir);
+  vec3 g = vec3(d.x, -d.z, d.y);  // three -> GoldSrc
+  float e = g.z, up = max(e, 0.0);
+  vec3 col = mix(uHorizon, uMid, smoothstep(0.0, 0.25, up));
+  col = mix(col, uZenith, smoothstep(0.2, 1.0, up));
+  float az = max(dot(normalize(g.xy + 1e-5), normalize(uSun.xy + 1e-5)), 0.0);
+  col += uGlow * pow(az, uGlowWidth) * exp(-up * 5.0);
+  float sd = max(dot(g, uSun), 0.0);
+  col += uHalo * pow(sd, uHaloPow);
+  // stars: a sparse jittered grid on the sphere, fading near the horizon
+  if (uStars > 0.0 && e > 0.0) {
+    vec3 sp = g * 210.0, cell = floor(sp);
+    float h = hash13(cell + 17.0);
+    if (h > 0.982) {
+      vec3 c = cell + 0.5 + (vec3(hash13(cell + 3.0), hash13(cell + 5.0), hash13(cell + 9.0)) - 0.5) * 0.6;
+      float s = smoothstep(0.55, 0.0, length(sp - c)) * (0.35 + 0.65 * (h - 0.982) / 0.018);
+      col += vec3(0.85, 0.88, 1.0) * s * uStars * smoothstep(0.02, 0.25, e);
+    }
+  }
+  // the sun / moon disc (the moon a little mottled)
+  if (uDiscCos > 0.0) {
+    float dd = dot(g, uSun);
+    float disc = smoothstep(uDiscCos - uPix * 0.6, uDiscCos + uPix * 0.6, dd);
+    float mott = 0.86 + 0.14 * noise(g.xy * 900.0);
+    col = mix(col, uDisc * mott, disc);
+  }
+  // clouds
+  if (uCloud.y > 0.0 && e > 0.0) {
+    vec4 c1 = layer(g, uCloud.w, uCloud.x, vec2(0.0));
+    col = mix(col, c1.rgb, c1.a);
+    if (uLayers > 1.5) {
+      vec4 c2 = layer(g, uCloud.w * 0.6, uCloud.x + 0.18, vec2(37.0, -11.0));
+      col = mix(col, c2.rgb * 0.92, c2.a * 0.85);
+    }
+  }
+  // below the horizon: ground haze
+  if (e < 0.0) col = mix(uHorizon * 0.9, uGround, smoothstep(0.0, 0.12, -e));
+  // the distant silhouette
+  if (uRidge.z > 0.5 && e > -0.1) {
+    float win;
+    float phi = atan(g.y, g.x);
+    float h = ridgeH(phi, win);
+    if (e < h) {
+      vec3 rc = uRidgeCol * (0.85 + 0.15 * smoothstep(-0.05, h, e));
+      // city at night: a scatter of lit windows
+      if (uRidge.w > 0.0 && uRidge.z > 1.5 && uRidge.z < 2.5) {
+        vec2 wc = floor(vec2(phi * 900.0, e * 900.0));
+        if (hash12(wc + uSeed) > 0.93 && e < win - 0.003 && e > 0.002) rc += vec3(1.0, 0.75, 0.4) * uRidge.w * 0.6;
+      }
+      col = rc;
+    }
+  }
+  if (uFog.a > 0.0) col = mix(col, uFog.rgb, 1.0 - smoothstep(-0.02, uFog.a, e));
+  gl_FragColor = vec4(clamp(col, 0.0, 1.0), 1.0);
+}
+`;
+
+function atmoSky(renderer, P) {
+  const t0 = performance.now();
+  const faceSize = P.faceSize || 256;
+  const rand = mulberry32(P.seed ?? 1337);
+  const V = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+  const C = P.clouds || { cover: 0, opacity: 0, scale: 1, height: 5, layers: 1 };
+  const R = P.ridge || { kind: 'none', height: 0, rough: 1 };
+  const mat = new THREE.ShaderMaterial({
+    vertexShader: VERT,
+    fragmentShader: ATMO_FRAG,
+    uniforms: {
+      uSun: { value: V(P.sunDir || DEFAULT_SUN).normalize() },
+      uZenith: { value: V(P.zenith) }, uMid: { value: V(P.mid) }, uHorizon: { value: V(P.horizon) }, uGround: { value: V(P.ground) },
+      uGlow: { value: V(P.glow) }, uGlowWidth: { value: P.glowWidth }, uDisc: { value: V(P.disc) },
+      uDiscCos: { value: P.discSize > 0 ? Math.cos(P.discSize * Math.PI / 180) : 0 }, uHalo: { value: V(P.halo) }, uHaloPow: { value: P.haloPow },
+      uStars: { value: P.stars || 0 }, uPix: { value: Math.PI / 2 / faceSize },
+      uCloud: { value: new THREE.Vector4(C.cover, C.opacity, C.scale, C.height) }, uLayers: { value: C.layers || 1 },
+      uCloudLit: { value: V(P.cloudLit) }, uCloudDark: { value: V(P.cloudDark) }, uCloudUnder: { value: V(P.cloudUnder) },
+      uRidge: { value: new THREE.Vector4(R.height, R.rough ?? 1, RIDGE_KIND[R.kind] ?? 0, P.windows || 0) }, uRidgeCol: { value: V(P.ridgeColor) },
+      uFog: { value: P.fog ? new THREE.Vector4(P.fog.color[0], P.fog.color[1], P.fog.color[2], P.fogHeight ?? 0.12) : new THREE.Vector4(0, 0, 0, 0) },
+      uSeed: { value: new THREE.Vector2(rand() * 200 - 100, rand() * 200 - 100) },
+    },
+    side: THREE.BackSide,
+    depthTest: false,
+    depthWrite: false,
+  });
+  const tex = renderCube(renderer, mat, faceSize, 'sky_' + (P.preset || 'atmo'));
+  tex.userData.genMs = performance.now() - t0;
+  return tex;
+}
 /**
  * Average colours of the default sky (0..1, gamma space as displayed), measured from the
  * generated cube (tools/preview/sky.html?stats=1):

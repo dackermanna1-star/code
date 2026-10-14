@@ -233,7 +233,7 @@ export class WaveDirector {
     this.frontsFor = cands;
     this.frontsBy = new Map();
     this.frontsList = [];
-    const g = this.game, defs = ZOMBIE_FRONTS[g.W?.mapDef?.id || g.map?.name];
+    const g = this.game, defs = g.W?.mapDef?.fronts || ZOMBIE_FRONTS[g.W?.mapDef?.id || g.map?.name]; // (an original map's own: src/map/maps/*)
     if (!defs) { this.cluster(cands); return this.frontsList; }
     for (const d of defs) {
       const zones = new Set(d.zones), nodes = [];

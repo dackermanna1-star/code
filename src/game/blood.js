@@ -77,6 +77,7 @@ const DECAL_VERT = /* glsl */`
     attribute float aProg;
     varying float vProg;
   #endif
+  #include <fog_pars_vertex>
   void main() {
     vUv = uv;
     vCol = aCol;
@@ -84,6 +85,9 @@ const DECAL_VERT = /* glsl */`
       vProg = aProg;
     #endif
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    #ifdef USE_FOG
+      vFogDepth = -(modelViewMatrix * vec4(position, 1.0)).z;
+    #endif
   }
 `;
 
@@ -94,6 +98,7 @@ const DECAL_FRAG = /* glsl */`
   #ifdef PUDDLE
     varying float vProg;
   #endif
+  #include <fog_pars_fragment>
   void main() {
     vec4 t = texture2D(map, vUv);
     #ifdef PUDDLE
@@ -110,6 +115,7 @@ const DECAL_FRAG = /* glsl */`
       gl_FragColor = vec4(t.rgb * vCol.rgb, t.a * vCol.a);
     #endif
     if (gl_FragColor.a < 0.004) discard;
+    #include <fog_fragment>
   }
 `;
 
@@ -122,8 +128,12 @@ const PART_VERT = /* glsl */`
   uniform float pxScale; // world units per pixel at distance 1
   varying vec2 vUv;
   varying vec4 vCol;
+  #include <fog_pars_vertex>
   void main() {
     vec4 mv = modelViewMatrix * vec4(iPos, 1.0);
+    #ifdef USE_FOG
+      vFogDepth = -mv.z;
+    #endif
     vec2 ax = vec2(cos(iSRF.y), sin(iSRF.y));
     float st = 1.0;
     if (iVel.w > 0.0) {
@@ -146,11 +156,13 @@ const PART_FRAG = /* glsl */`
   uniform sampler2D map;
   varying vec2 vUv;
   varying vec4 vCol;
+  #include <fog_pars_fragment>
   void main() {
     vec4 t = texture2D(map, vUv);
     float a = t.a * vCol.a;
     if (a < 0.01) discard;
     gl_FragColor = vec4(t.rgb * vCol.rgb, a);
+    #include <fog_fragment>
   }
 `;
 
@@ -165,7 +177,8 @@ class DecalBatch {
     this.cols = cols;
     this.rows = rows;
     this.material = new THREE.ShaderMaterial({
-      uniforms: { map: { value: tex } },
+      uniforms: { map: { value: tex }, ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog) },
+      fog: true, // (a map's scene fog: src/engine/fog.js)
       vertexShader: DECAL_VERT,
       fragmentShader: DECAL_FRAG,
       defines: puddle ? { PUDDLE: 1 } : {},
@@ -227,7 +240,8 @@ class BloodParticles {
     g.instanceCount = 0;
     this.geometry = g;
     this.material = new THREE.ShaderMaterial({
-      uniforms: { map: { value: tex }, cells: { value: new THREE.Vector2(2, 2) }, pxScale: { value: 0.002 } },
+      uniforms: { map: { value: tex }, cells: { value: new THREE.Vector2(2, 2) }, pxScale: { value: 0.002 }, ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog) },
+      fog: true,
       vertexShader: PART_VERT,
       fragmentShader: PART_FRAG,
       transparent: true,

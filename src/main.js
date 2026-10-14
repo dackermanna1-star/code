@@ -19,7 +19,9 @@ import { RadioMenu } from './ui/radiomenu.js';
 import { Announcer } from './game/announcer.js';
 import { DUST2_LIGHTING } from './map/lighting.js';
 import { setLightCurve } from './map/meshbuilder.js';
-import { MAPS, mapDef as lookupMap, mapAvailability, storeUserFiles, listUserFiles, bundledMaps } from './game/maps.js';
+import { MAPS, mapDef as lookupMap, mapAvailability, storeUserFiles, listUserFiles, bundledMaps, mapOffers, mapLabel } from './game/maps.js';
+import { applyMapFog, applyGrade } from './engine/fog.js';
+import { assetUrl } from './engine/assetpath.js';
 import * as ATT from './game/attachments.js';
 import { TitleScene } from './ui/titlescene.js';
 import { ZTips } from './ui/ztips.js';
@@ -52,11 +54,6 @@ async function boot() {
   await frame();
   const texLib = new TextureLibrary(TexLib);
 
-  progress('Building sky', 0.18);
-  await frame();
-  const sky = createSky(renderer.renderer, { sunDir: DUST2_LIGHTING.sunDir });
-  renderer.scene.background = sky;
-
   progress('Precaching sounds', 0.26);
   const sound = new SoundEngine();
   const soundReady = sound.init(44100).catch((e) => console.warn('sound init failed', e));
@@ -76,12 +73,21 @@ async function boot() {
     W = await loadWorld(texLib, (msg, p) => progress(msg, 0.3 + p * 0.5), loadOpts);
   }
   for (const m of W.meshes) renderer.world.add(m);
+  // the map's sky, fog and grade (src/map/maps/*: MAP.sky / fog / grade; a BSP map: dust2's sky or its own skybox)
+  const mapFx = W.mapDef?.builtin ? W.mapDef : null;
+  progress('Building sky', 0.82);
+  await frame();
+  renderer.scene.background = createSky(renderer.renderer, { ...(mapFx?.sky || {}), sunDir: (mapFx ? W.lighting : DUST2_LIGHTING).sunDir, fog: mapFx?.fog || null });
+  applyMapFog(renderer.scene, mapFx?.fog);
+  applyGrade(renderer.canvas, mapFx?.grade);
   if (W.skybox) renderer.scene.background = null;
 
   progress('Precaching player models', 0.85);
   await frame();
   try { preloadPlayerModels?.(); } catch (e) { console.warn(e); }
   await soundReady;
+  const amb = W.mapDef?.ambience || { loop: 'ambience_wind', volume: 0.35 };
+  sound.ensure?.(amb.loop); // (a map's loop is synthesised on demand: snd/ambience.js)
 
   progress('Building navigation mesh', 0.93);
   await frame();
@@ -111,8 +117,13 @@ async function boot() {
   window.__game = game;
 
   function startAmbience() {
-    if (ambience.handle) return;
-    try { ambience.handle = sound.loop('ambience_wind', { volume: 0.35 }); } catch { /* ignore */ }
+    if (ambience.handle || ambience.waiting) return;
+    ambience.waiting = true;
+    (sound.ensure?.(amb.loop) ?? Promise.resolve(true)).then(() => {
+      ambience.waiting = false;
+      if (ambience.handle) return;
+      try { ambience.handle = sound.loop(amb.loop, { volume: amb.volume ?? 0.35 }); } catch { /* ignore */ }
+    });
   }
 
   /** What the main menu shows: the setup Quick start would use, and the best run with it. */
@@ -138,9 +149,11 @@ async function boot() {
     for (const f of await listUserFiles()) if (f.endsWith('.bsp')) { const id = f.slice(0, -4); if (!ids.includes(id)) ids.push(id); }
     return ids;
   };
+  // [id, label] for a menu's map list: the maps that offer this mode (src/map/maps/*: MAP.modes)
+  const mapList = (ids, mode) => ids.filter((id) => !mode || mapOffers(lookupMap(id), mode)).map((id) => [id, mapLabel(lookupMap(id))]);
   async function mapInfo(id) {
     const def = lookupMap(id);
-    if (def.builtin) return { ok: true, html: '' };
+    if (def.builtin) return { ok: true, bundled: true, html: builtinInfo(def) };
     if (id === W.mapDef?.id) return { ok: true, html: `<b>${id}</b> is loaded.${def.credit ? ' ' + def.credit + '.' : ''}` };
     const a = await mapAvailability(def);
     if (a.bundled) return { ok: true, bundled: true, html: `&#10003; <b>${id}</b> is included in this build with its original textures${a.sky ? ' and sky' : ''}.${def.credit ? '<br>' + def.credit + '.' : ''}` };
@@ -155,6 +168,13 @@ async function boot() {
     return { ok: a.ok, html: lines.filter(Boolean).join('<br>') };
   }
   async function addFiles(fileList) { await storeUserFiles(fileList); }
+  /** A built-in map's card: thumbnail (tools/thumb.mjs), tagline, blurb, squad size. */
+  function builtinInfo(def) {
+    const esc = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    const sq = def.squad ? ` &middot; best with ${def.squad.best}` : '';
+    return `<img src="${assetUrl(def.thumb)}" alt="" onerror="this.remove()" style="float:left;width:120px;height:68px;object-fit:cover;margin:0 8px 2px 0;image-rendering:pixelated">`
+      + `<b>${esc(def.title)}</b>${def.tagline ? ` - ${esc(def.tagline)}` : ''}<br>${esc(def.blurb)}<br><span style="opacity:.7">${esc((def.mood || []).join(', '))}${sq}</span>`;
+  }
 
   function openMain() {
     input.exitLock();
@@ -231,7 +251,7 @@ async function boot() {
     switch (cmd) {
       case 'zsetup':
         mapIds().then((ids) => {
-          const d = { ...zombieDefaults(), map: W.mapDef?.id || 'de_dust2', maps: ids.map((id) => [id, id]), mapInfo, addFiles };
+          const d = { ...zombieDefaults(), map: W.mapDef?.id || 'de_dust2', maps: mapList(ids, 'zombies'), mapInfo, addFiles };
           menus.showZombieSetup?.(d, (opts) => {
             if ((opts.map || 'de_dust2') !== (W.mapDef?.id || 'de_dust2')) switchMap(opts.map, opts);
             else newGame(opts);
@@ -243,7 +263,7 @@ async function boot() {
         break;
       case 'newgame':
         mapIds().then((ids) => {
-          const d = { ...settings.get('newgame'), ...(arg === 'classic' ? { mode: 'classic' } : {}), map: W.mapDef?.id || 'de_dust2', maps: ids.map((id) => [id, id]), mapInfo, addFiles };
+          const d = { ...settings.get('newgame'), ...(arg === 'classic' ? { mode: 'classic' } : {}), map: W.mapDef?.id || 'de_dust2', maps: mapList(ids, arg === 'classic' ? 'classic' : null), mapInfo, addFiles };
           menus.showNewGame?.(d, (opts) => {
             const { maps, mapInfo: _a, addFiles: _b, ...rest } = opts;
             if ((rest.map || 'de_dust2') !== (W.mapDef?.id || 'de_dust2')) switchMap(rest.map, rest);

@@ -18,6 +18,7 @@
 
 import { TEAM_T, TEAM_CT } from './player.js';
 import { initGenericKnowledge, planGeneric, genericObjective } from './botsgeneric.js';
+import { activeZones } from './mapmeta.js';
 import { zombieRadio, zombieFallBack, zombieOrderInFight, zombieMayStepTo } from './zorders.js';
 import { Player } from './player.js';
 import { IN_JUMP, IN_DUCK, IN_WALK } from '../engine/pmove.js';
@@ -87,7 +88,7 @@ const ZONES = [
 ];
 
 export function zoneOf(pos) {
-  for (const z of ZONES) {
+  for (const z of activeZones() || ZONES) { // (the loaded map's own callouts: src/map/maps/*, mapmeta.js)
     if (pos[0] >= z[2] && pos[0] <= z[4] && pos[1] >= z[3] && pos[1] <= z[5] && pos[2] >= z[6] && pos[2] <= z[7]) return z;
   }
   return null;
@@ -315,7 +316,7 @@ class Knowledge {
     this.throwCache = new Map();
     this.slotCache = new Map();
     // original BSP maps have no hand-made bot data: derive it (botsgeneric.js)
-    if (game.map?.source === 'bsp') { initGenericKnowledge(this, game); return; }
+    if (game.map?.source === 'bsp' || (game.W?.mapDef && game.W.mapDef.bots !== 'mapdata')) { initGenericKnowledge(this, game); return; } // (and the original maps: only dust2 has MAPDATA)
     const D = MAPDATA;
     const S = (p) => this.snap(p);
     const HS = (h) => ({ ...h, pos: S(h.p), watch: h.w.map(eyeAt) });

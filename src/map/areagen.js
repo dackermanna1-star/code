@@ -11,6 +11,13 @@ import { CONTENTS_PLAYERCLIP } from '../engine/collision.js';
 const GRID = 8;
 const BASE = -640; // bottom of the world
 
+// Default textures of the generated geometry (de_dust2's). A new map sets its own before
+// adding areas: m.style = { ...m.style, ground: 'asphalt', wall: 'brick_red', cap: null, ... }.
+//   ground: area floors (opts.tex)   side: floor slab sides   step: stair risers
+//   wall: auto-wall sides            cap: 16-unit band on top of auto walls (null: none)
+//   roof: tops of auto walls         ceil: underside of area ceilings   slabBottom: under slabs
+export const AREA_STYLE = { ground: 'ground_sand', side: 'wall_stone', step: 'wall_stone', wall: 'wall_stone', cap: 'trim_cap', roof: 'wall_plaster', ceil: 'wood_planks', slabBottom: 'wood_planks' };
+
 export class AreaMap extends MapDSL {
   constructor(bounds) {
     super();
@@ -19,6 +26,7 @@ export class AreaMap extends MapDSL {
     this.wallZones = []; // { rect, tex, capTex, extra, rock }
     this.solidMask = []; // extra rects forced solid (pillars)
     this.massing = null; // measured wall-top heights (see setMassing)
+    this.style = { ...AREA_STYLE };
   }
 
   // Measured wall/roof top heights on a grid ({x0,y0,cell,w,h,rle}, see
@@ -46,14 +54,14 @@ export class AreaMap extends MapDSL {
 
   // Flat rectangular area. opts: { tex, wall, ceil, slab, side }
   A(name, x0, y0, x1, y1, z, opts = {}) {
-    const a = { name, kind: 'rect', x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1), z0: z, z1: z, dir: null, ...defaults(opts) };
+    const a = { name, kind: 'rect', x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1), z0: z, z1: z, dir: null, ...defaults(opts, this.style) };
     this.areas.push(a);
     return a;
   }
 
   // Ramp rising toward dir ('n','s','e','w') from zLow to zHigh.
   R(name, x0, y0, x1, y1, zLow, zHigh, dir, opts = {}) {
-    const a = { name, kind: 'ramp', x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1), z0: zLow, z1: zHigh, dir, ...defaults(opts) };
+    const a = { name, kind: 'ramp', x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1), z0: zLow, z1: zHigh, dir, ...defaults(opts, this.style) };
     this.areas.push(a);
     return a;
   }
@@ -68,7 +76,7 @@ export class AreaMap extends MapDSL {
 
   // Opening through solid mass (window / door gap): cells are cleared from the
   // auto walls and replaced by a sill below zLo and a lintel above zHi.
-  opening(x0, y0, x1, y1, zLo, zHi, top, tex = 'wall_stone') {
+  opening(x0, y0, x1, y1, zLo, zHi, top, tex = this.style.wall) {
     const xa = Math.min(x0, x1), xb = Math.max(x0, x1), ya = Math.min(y0, y1), yb = Math.max(y0, y1);
     this.areas.push({ name: 'opening', kind: 'rect', x0: xa, y0: ya, x1: xb, y1: yb, z0: zLo, z1: zLo, noFloor: true, wall: 0, tex: null });
     if (zLo > BASE) this.add(boxBrush([xa, ya, BASE], [xb, yb, zLo], { all: tex }, { name: 'sill' }));
@@ -81,7 +89,7 @@ export class AreaMap extends MapDSL {
     const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
     const plane = Array.isArray(z) ? z : null;
     const zs = plane ? pts.map(([x, y]) => plane[0] + plane[1] * x + plane[2] * y) : [z];
-    const a = { name, kind: 'poly', pts, plane, x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys), z0: Math.min(...zs), z1: Math.max(...zs), dir: null, ...defaults(opts) };
+    const a = { name, kind: 'poly', pts, plane, x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys), z0: Math.min(...zs), z1: Math.max(...zs), dir: null, ...defaults(opts, this.style) };
     this.areas.push(a);
     return a;
   }
@@ -125,11 +133,12 @@ export class AreaMap extends MapDSL {
   // Build: floors + auto walls. Returns this (brushes in this.brushes).
   generate() {
     // --- floors
+    const S = this.style;
     for (const a of this.areas) {
       const bottom = a.slab ? Math.min(a.z0, a.z1) - (a.slabDepth || 16) : BASE;
       const topTex = a.tex;
-      const side = a.side || 'wall_stone';
-      const tex = { top: topTex, all: side, bottom: a.slab ? (a.slabBottom || 'wood_planks') : null };
+      const side = a.side || S.side;
+      const tex = { top: topTex, all: side, bottom: a.slab ? (a.slabBottom || S.slabBottom) : null };
       if (a.noFloor) continue;
       if (a.kind === 'stairs') {
         const { x0, y0, x1, y1, z0, z1, dir, steps } = a;
@@ -141,7 +150,7 @@ export class AreaMap extends MapDSL {
           if (dir === 's') by1 = y1 - (y1 - y0) * f0;
           if (dir === 'e') bx0 = x0 + (x1 - x0) * f0;
           if (dir === 'w') bx1 = x1 - (x1 - x0) * f0;
-          this.add(boxBrush([bx0, by0, i === 0 ? bottom : z0 + (z1 - z0) * i / steps - 8], [bx1, by1, zt], { top: a.tex, all: a.stepTex || 'wall_stone' }, { name: a.name }));
+          this.add(boxBrush([bx0, by0, i === 0 ? bottom : z0 + (z1 - z0) * i / steps - 8], [bx1, by1, zt], { top: a.tex, all: a.stepTex || S.step }, { name: a.name }));
         }
         // landing at the bottom
         this.add(boxBrush([x0, y0, bottom], [x1, y1, z0], tex, { name: a.name }));
@@ -163,7 +172,7 @@ export class AreaMap extends MapDSL {
       // ceiling slab
       if (a.ceil != null) {
         const top = a.ceilTop ?? (Math.max(a.z0, a.z1) + a.wall);
-        const ctex = { bottom: a.ceilTex || 'wood_planks', all: a.wallTex || 'wall_stone' };
+        const ctex = { bottom: a.ceilTex || S.ceil, all: a.wallTex || S.wall };
         if (a.kind === 'poly') this.add(prismBrush('z', a.pts, a.ceil, top, ctex, { name: a.name + ':ceil' }));
         else this.add(boxBrush([a.x0, a.y0, a.ceil], [a.x1, a.y1, top], ctex, { name: a.name + ':ceil' }));
       }
@@ -287,9 +296,9 @@ export class AreaMap extends MapDSL {
       const top = height[k];
       if (clip[k]) this.add(boxBrush([x0, y0, top], [x1, y1, 1600], { all: null }, { name: 'clip', contents: CONTENTS_PLAYERCLIP, visible: false, castShadow: false }));
       const zn = zoneOf[k];
-      const sideTex = zn?.tex || wallTex[k] || 'wall_stone';
-      const roofTex = zn?.roof || 'wall_plaster';
-      const capTex = zn ? (zn.capTex ?? null) : 'trim_cap';
+      const sideTex = zn?.tex || wallTex[k] || this.style.wall;
+      const roofTex = zn?.roof || this.style.roof;
+      const capTex = zn ? (zn.capTex ?? null) : this.style.cap;
       if (capTex) {
         this.add(boxBrush([x0, y0, BASE], [x1, y1, top - 16], this._wallTex(x0, y0, x1, y1, sideTex, roofTex), { name: 'wall' }));
         this.add(boxBrush([x0, y0, top - 16], [x1, y1, top], { ...this._wallTex(x0, y0, x1, y1, capTex, roofTex), bottom: null }, { name: 'wallcap' }));
@@ -434,8 +443,8 @@ export class AreaMap extends MapDSL {
   }
 }
 
-function defaults(o) {
-  return { tex: 'ground_sand', wall: 224, ceil: null, slab: false, ...o };
+function defaults(o, style) {
+  return { tex: style.ground, wall: 224, ceil: null, slab: false, ...o };
 }
 
 function pointInConvex(pts, x, y) {

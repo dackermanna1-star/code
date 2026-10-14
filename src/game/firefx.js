@@ -12,8 +12,12 @@ const VERT = /* glsl */`
   uniform vec2 cells;
   varying vec2 vUv;
   varying vec4 vCol;
+  #include <fog_pars_vertex>
   void main() {
     vec4 mv = modelViewMatrix * vec4(iPos, 1.0);
+    #ifdef USE_FOG
+      vFogDepth = -mv.z;
+    #endif
     vec2 ax = vec2(cos(iSRF.y), sin(iSRF.y));
     vec2 ay = vec2(-ax.y, ax.x);
     mv.xy += (ax * position.x + ay * position.y) * iSRF.x;
@@ -27,11 +31,13 @@ const FRAG = /* glsl */`
   uniform sampler2D map;
   varying vec2 vUv;
   varying vec4 vCol;
+  #include <fog_pars_fragment>
   void main() {
     vec4 t = texture2D(map, vUv);
     float a = t.a * vCol.a;
     if (a < 0.004) discard;
     gl_FragColor = vec4(t.rgb * vCol.rgb, a);
+    #include <fog_fragment>
   }
 `;
 
@@ -141,7 +147,8 @@ class Batch {
     g.instanceCount = 0;
     this.geometry = g;
     this.material = new THREE.ShaderMaterial({
-      uniforms: { map: { value: tex }, cells: { value: new THREE.Vector2(2, 2) } },
+      uniforms: { map: { value: tex }, cells: { value: new THREE.Vector2(2, 2) }, ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog) },
+      fog: true, // (a map's scene fog: additive kinds fade out in it, src/engine/fog.js)
       vertexShader: VERT, fragmentShader: FRAG,
       transparent: true, depthWrite: false,
       blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,

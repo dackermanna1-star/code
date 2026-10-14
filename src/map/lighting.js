@@ -41,7 +41,8 @@ export function albedoOf(name) {
   let a = cache.get(name);
   if (a) return a;
   try {
-    if (TEXTURES[name]) {
+    if (TEXTURES[name]?.albedo) a = TEXTURES[name].albedo.slice(); // (a pack's override: glass)
+    else if (TEXTURES[name]) {
       const c = averageColor(name);
       a = [c[0] / 255, c[1] / 255, c[2] / 255];
     }

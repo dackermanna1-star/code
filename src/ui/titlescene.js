@@ -9,7 +9,9 @@
 // last SHOT_LEN s and cross through black. The dusk look is CSS over the game canvas
 // (multiply / screen gradients, a vignette, film grain, drifting dust and embers), so the
 // world's baked lighting is untouched and nothing of it remains once a game starts.
-// Maps too small for a nav-graph shot fall back to a slow look around from a spawn.
+// Maps too small for a nav-graph shot fall back to a slow look around from a spawn. An
+// original map can place its own shots instead (MAP.titleShots: night and underground maps
+// have no sunlit, open-sky spots for the random picker).
 import { createPlayerModel } from '../assets/playermodels.js';
 import { lightCurve } from '../map/meshbuilder.js';
 import { MASK_SHOT } from '../engine/collision.js';
@@ -50,7 +52,7 @@ export class TitleScene {
     this.root.hidden = false;
     this.shot = null;
     this.t = 0;
-    this.renderer.canvas.style.filter = 'saturate(1.12) contrast(1.06)';
+    this.renderer.canvas.style.filter = `${this.renderer.canvas.dataset.grade || ''} saturate(1.12) contrast(1.06)`.trim(); // (on top of the map's grade: engine/fog.js)
     try { if (!this.theme) this.theme = this.sound.loop('title_theme', { volume: 0.55, fadeIn: 2.5 }); } catch { /* sound not ready */ }
   }
 
@@ -58,7 +60,7 @@ export class TitleScene {
     if (!this.active) return;
     this.active = false;
     this.root.hidden = true;
-    this.renderer.canvas.style.filter = '';
+    this.renderer.canvas.style.filter = this.renderer.canvas.dataset.grade || '';
     for (const z of this.models) z.m.object3D.visible = false;
     this.theme?.stop?.(0.8);
     this.theme = null;
@@ -94,6 +96,8 @@ export class TitleScene {
   _pickShot() {
     const g = this.game, nav = g.nav, N = nav?.nodes;
     if (!N || N.length < 60) return null;
+    const placed = g.W?.mapDef?.titleShots; // (an original map's hand-placed shots: src/map/maps/*)
+    if (placed?.length) { const s = this._placedShot(placed); if (s) return s; }
     const W = g.collision;
     const box = [-14, -14, -14], boxM = [14, 14, 14];
     for (let tries = 0; tries < 200; tries++) {
@@ -154,6 +158,42 @@ export class TitleScene {
       };
     }
     return null;
+  }
+
+  /**
+   * The map's own shots in turn ({ eye, look, dolly? }): the camera at eye facing look, a slow
+   * dolly toward it (or to dolly), zombies walking the nav path from look toward the camera.
+   */
+  _placedShot(list) {
+    const g = this.game, nav = g.nav, W = g.collision;
+    this.placedIdx = ((this.placedIdx ?? -1) + 1) % list.length;
+    const sh = list[this.placedIdx];
+    const eye = sh.eye.slice(), look = sh.look;
+    const dx = look[0] - eye[0], dy = look[1] - eye[1], dl = Math.hypot(dx, dy) || 1;
+    const end = sh.dolly ? sh.dolly.slice() : [eye[0] + dx / dl * 150, eye[1] + dy / dl * 150, eye[2]];
+    const box = [-14, -14, -14], boxM = [14, 14, 14];
+    const clear = !W.occluded(eye, end, MASK_SHOT) && !W.testBox(end, box, boxM, MASK_SHOT);
+    const a = nav.nearestXY([eye[0], eye[1], eye[2] - EYE], 400, 400), b = nav.nearestXY([look[0], look[1], look[2]], 400, 200);
+    const path = a && b ? nav.findPath(b, a) : null;
+    const zombies = [];
+    if (path && path.length > 3) {
+      const pts = path.map((n) => [n.x, n.y, n.z]);
+      const cum = [0];
+      for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+      const spots = [];
+      for (let i = 0; i < pts.length; i++) {
+        const q = pts[i], de = Math.hypot(q[0] - eye[0], q[1] - eye[1]);
+        if (de > 300 && de < 1500 && !W.occluded(eye, [q[0], q[1], q[2] + 46], MASK_SHOT)) spots.push(i);
+      }
+      const used = [];
+      for (let k = 0; k < 40 && spots.length && zombies.length < 5; k++) {
+        const at = cum[spots[(Math.random() * spots.length) | 0]] + rnd(-16, 16);
+        if (used.some((u) => Math.abs(u - at) < 70)) continue;
+        used.push(at);
+        zombies.push(this._zombie(zombies.length, pts, cum, at, eye, zombies.length === 0 && Math.random() < 0.35));
+      }
+    }
+    return { still: false, eye0: eye, eye1: clear ? end : eye.slice(), yaw0: Math.atan2(dy, dx) / DEG, yawDrift: rnd(-5, 5), pitch: Math.atan2(eye[2] - look[2], dl) / DEG, zombies };
   }
 
   /** The old backdrop: a slow look around from a spawn (maps without a usable nav graph). */

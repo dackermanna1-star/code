@@ -1,5 +1,6 @@
 // Material type of a brush face (GoldSrc materials.txt equivalent): drives
 // footstep sounds, bullet impact effects and penetration.
+import { TEXTURES } from '../assets/textures.js';
 
 const TEXTURE_MATERIAL = {
   ground_sand: 'sand', ground_dirt: 'dirt', ground_stone: 'concrete',
@@ -19,5 +20,5 @@ export function surfaceOfBrush(brush, normal) {
   }
   const t = best?.tex;
   const name = typeof t === 'string' ? t : t?.name;
-  return TEXTURE_MATERIAL[name] || 'concrete';
+  return TEXTURE_MATERIAL[name] || TEXTURES[name]?.surface || 'concrete'; // (a texture pack's own: src/assets/tex/*)
 }

@@ -16,6 +16,7 @@ import { SQUAD_FX } from './squad.js';
 import { BOSS_FX } from './bossfx.js';
 import { DROP_FX } from './drops.js';
 import { ARSENAL_FX } from './arsenal.js';
+import { MAP_AMBIENCE } from './ambience.js';
 
 // ------------------------------------------------------------- catalogue ---
 
@@ -66,6 +67,7 @@ export const SOUND_GROUPS = {
   Arsenal: ['machete_slash', 'machete_hit', 'axe_swing', 'axe_hit', 'axe_draw', 'katana_slash', 'katana_heavy', 'katana_hit', 'katana_draw', 'blade_wall',
     'crossbow_fire', 'crossbow_crank', 'crossbow_load', 'bolt_hit', 'bolt_flesh', 'pipebomb_arm', 'pipebomb_beep', 'pipebomb_explode', 'cryo_burst', 'freeze', 'ice_shatter'], // (gunshots: GUNS in snd/weapons.js; the rest snd/arsenal.js)
   'Title screen': ['title_theme', 'title_start'],
+  'Map ambience': Object.keys(MAP_AMBIENCE), // one loop per original map (lazy: SoundEngine.ensure)
 };
 
 // Default GoldSrc-style attenuation and per-play pitch jitter for each sound.
@@ -99,6 +101,8 @@ DEFS.buy = { alias: 'ammo_pickup' };
 for (const [name, d] of Object.entries(HIT_FX)) DEFS[name] = { ...d };
 for (const [name, d] of Object.entries(SHOVE_FX)) DEFS[name] = { ...d };
 for (const [name, d] of Object.entries({ ...PERK_FX, ...FORGE_FX, ...SQUAD_FX, ...BOSS_FX, ...DROP_FX, ...ARSENAL_FX })) DEFS[name] = { ...d }; // (Milestone 3)
+// map ambience: not in the load-time bank; synthesised when the map asks (sounds.js ensure)
+for (const [name, d] of Object.entries(MAP_AMBIENCE)) DEFS[name] = { attn: 'none', ...d, lazy: true };
 // a recipe nobody listed above still gets made (the bank only renders catalogued names)
 {
   const listed = new Set(Object.values(SOUND_GROUPS).flat());
@@ -149,7 +153,7 @@ export function jobList(bankRate) {
   const jobs = [];
   for (const name of SOUND_NAMES) {
     const def = DEFS[name];
-    if (def.alias) continue;
+    if (def.alias || def.lazy) continue;
     const cost = (def.dur + (def.loop || 0)) * (def.stereo ? 2 : 1) * (rateFor(name, bankRate) / 44100) + 0.05;
     for (let v = 0; v < (def.variants || 1); v++) jobs.push({ name, v, cost });
   }

@@ -33,6 +33,7 @@ import {
   sprMuzzle1, sprMuzzle2, sprMuzzle3, sprSmoke, sprDust, sprSpark, sprExplosion, sprFlare,
 } from './tex/fx.js';
 import { decalBloodSplats, decalBloodDrops, decalBloodPool, sprBlood } from './tex/blood.js';
+import { TEXTURE_PACKS } from './tex/packs.js';
 
 export const TEXTURES = {
   // world surfaces
@@ -113,6 +114,16 @@ const GENERATORS = {
   spr_flare: sprFlare,
   spr_blood: sprBlood,
 };
+
+// texture packs (the shared modern set and one per original map: tex/packs.js); a pack
+// texture's meta may add blend (alpha-blended world surface, e.g. glass) and albedo
+for (const pack of TEXTURE_PACKS) {
+  for (const [name, { gen, ...meta }] of Object.entries(pack.textures)) {
+    if (TEXTURES[name]) throw new Error(`textures: pack "${pack.name}" redefines "${name}"`);
+    TEXTURES[name] = { ...meta, pack: pack.name };
+    GENERATORS[name] = gen;
+  }
+}
 
 /** Palettise opaque textures to 256 colours like WAD3 (kept subtle). */
 const QUANTIZE = true;

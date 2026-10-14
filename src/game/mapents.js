@@ -5,6 +5,7 @@
 // Everything resets at round start.
 import { TraceResult, MASK_SHOT, MASK_PLAYER } from '../engine/collision.js';
 import { HULL_STAND } from '../engine/pmove.js';
+import { Hazards } from './hazards.js';
 
 const DEG = Math.PI / 180;
 const SF_DOOR_ROTATE_BACKWARDS = 2, SF_DOOR_ONEWAY = 16, SF_DOOR_USE_ONLY = 256;
@@ -92,6 +93,7 @@ export class MapEntities {
     }
     for (const d of this.doors) d.be.door = d;
     this.camera = null; // active trigger_camera view { pos, look, until, player }
+    this.hazards = new Hazards(game); // an original map's water / pits (MAP.hazards; cuts them out of the nav graph)
   }
 
   get any() { return this.doors.length + this.breakables.length + this.buttons.length > 0; }
@@ -109,6 +111,7 @@ export class MapEntities {
 
   // ---------------------------------------------------------------- per tick
   update(dt) {
+    this.hazards.update(dt);
     if (!this.doors.length) return;
     const g = this.game, now = g.time;
     // touching a door opens it (unless it's use-only): a short probe along the move
