@@ -100,14 +100,14 @@ export class Atmosphere {
     this.emberMat.uniforms.uTime.value = time;
     this.emberMat.uniforms.uLevel.value = (0.25 + 0.75 * night) * fire;
     // Sea fog: drifts slowly to the right, thickening after dark.
-    const level = 0.04 + 0.6 * night;
-    if (fogColor) (this.fog.material.uniforms.uColor.value as THREE.Color).copy(fogColor).multiplyScalar(2.2).addScalar(0.01);
+    const level = 0.05 + 0.95 * night;
+    if (fogColor) (this.fog.material.uniforms.uColor.value as THREE.Color).copy(fogColor).multiplyScalar(3.2).addScalar(0.015);
     this.fog.begin();
     for (const w of this.wisps) {
       const x = ((w.x + time * w.speed + 60) % 120 + 120) % 120 - 60;
       const edge = Math.min(1, (60 - Math.abs(x)) / 15);
       const breathe = 0.6 + 0.4 * Math.sin(time * 0.15 + w.seed * 20);
-      this.fog.push(x, w.y, w.z, w.size, level * edge * breathe * 0.55, w.seed);
+      this.fog.push(x, w.y, w.z, w.size, level * edge * breathe * 0.7, w.seed);
     }
     this.fog.end();
     void dt;

@@ -376,6 +376,7 @@ export class Ferry {
   private bunting: THREE.Mesh;
   private buntingBulbs: number[] = [];
   private departure = 0;
+  private placedDeparture = -1;
 
   constructor(private mats: EnvMaterials, private glows: Glows, quality: 'low' | 'medium' | 'high') {
     this.group.name = 'Ferry';
@@ -724,11 +725,14 @@ export class Ferry {
     const hornBlink = this.hornT < 2.2 ? (Math.sin(this.hornT * 18) > 0 ? 1.8 : 0.4) : 1;
     const level = windows * (this.departure > 0.3 ? 0 : 1);
     this.windowsMat.color.setScalar(level * (this.hornT < 2.2 ? 0.6 + 0.6 * hornBlink : 1));
+    const movePositions = this.departure !== this.placedDeparture;
+    this.placedDeparture = this.departure;
+    if (movePositions) this.ship.updateMatrixWorld(true);
     for (let i = 0; i < this.festoon.length; i++) {
       const tw = 0.75 + 0.25 * Math.sin(time * 2 + i * 1.7);
       const chase = this.hornT < 2.2 ? (Math.floor(this.hornT * 12 + i) % 3 === 0 ? 2.5 : 0.3) : 1;
       this.glows.set(this.festoon[i], level * tw * chase * (0.3 + 0.7 * night));
-      if (this.ship.visible) this.glows.setPosition(this.festoon[i], this.festoonWorld(i));
+      if (movePositions) this.glows.setPosition(this.festoon[i], this.festoonWorld(i));
     }
     this.bunting.visible = this.departure <= 0;
     for (let i = 0; i < this.buntingBulbs.length; i++) {

@@ -68,7 +68,7 @@ or a crawler finishes it for good ("tidy": +$5).
   `Corpse` with `risesAt` set). After the rise delay it **twitches** for 2 s (event
   `corpseTwitch`) and then **rises as a crawler** (event `corpseRise` → a new Zombie with
   `risen = true`, same `kind` and `look` seed, state `rise` → `crawl`).
-- Rise delay by chapter: ch.1 9–15 s, ch.2 7–13 s, ch.3 6–11 s (random per body).
+- Rise delay by chapter: ch.1 9–15 s, ch.2 7–13 s, ch.3 5–9 s (random per body).
 - A body stays dead for good (`risesAt = null`) if: killed by a **headshot**, **burned**,
   **gibbed** (explosion/cannon/crates), **popped** (bloater), **harpooned**, **stomped**,
   **drowned**, or later: burned while down, stomped while down, hit by an explosion while
@@ -111,12 +111,20 @@ or a crawler finishes it for good ("tidy": +$5).
   15 hp/s inside. Fire touching gas → **gas explosion**: radius 3.5 m, 150 damage, ignites.
 
 ## 6. Hunter & economy
+
+Extra rules found in tuning (all in `src/config/rules.ts`): burning bodies ignite zombies
+walking over them; standing in deck fire or held by a burning zombie burns the hunter
+(10 dps); he takes 25% of blast damage (max 40); crawlers bite (8 dps) if not kicked; kicks
+deal 60 and knock back 1.5 m; blasts near the edge can knock zombies into the sea; the
+harpoon cable pins downed bodies it passes over; nails pin only bodies already down.
+
 - Life 100, regen 12/s after 3 s without damage. Zombies that reach the hunter **grab**
   (`grab` state, 18 dps) until shot, kicked off (walk away / stomp) or killed.
 - Bounties are paid on kill (killer = the player who dealt the fatal blow). Headshot kill
   bonus +$15. **Nice shot**: 3+ kills by one trigger pull → +$25 × (n−2) × chapter, a
   "NICE SHOT" / "MASSACRE" (6+) callout, Favour +15, and a **slow-motion** beat.
-- Start: $0, the revolver. Expected earnings: ch.1 ≈ $3k, ch.2 ≈ $6k, ch.3 ≈ $9k.
+- Start: $0, the revolver. Expected earnings: ch.1 ≈ $4.5–5k, ch.2 ≈ $8k, ch.3 ≈ $11–12k.
+- Balance (bot sims, skill 0.9): clears ch.1 94%, ch.2 63%, wins 22%.
 
 ## 7. Weapons (lane hitscan unless noted; dmg per bullet/pellet; times in s)
 
@@ -127,7 +135,7 @@ or a crawler finishes it for good ("tidy": +$5).
 | shotgun | Pump shotgun | 1500 | 8×16 | 6 | 0.75 (pump) | 0.45/shell | 9 | 0 | pushes zombies back 0.6 m; close range head-off |
 | flare | Flare pistol | 2200 | 30 | 1 | — | 1.3 | 0 | 0 | **projectile** (fast, slight arc, 28 m/s): ignites what it hits (or the deck: burns 8 s, ignites what walks through), lights the area (essential at night) |
 | harpoon | Harpoon gun | 3500 | 220 | 1 | — | 2.2 | 0 | all (≤5) | skewers a kebab of up to 5 zombies, reels them 2 m toward the hunter, harpooned = permanently dead; pierces riot shields |
-| outboard | "Outboard" boat-engine minigun | 9000 | 22 | 300 | 0.045 after 0.6 s pull-start spin-up | 3.5 | 4 | 0 | engine idles between bursts; heat haze; head-off at close range |
+| outboard | "Outboard" boat-engine minigun | 12000 | 22 | 300 | 0.045 after 0.6 s pull-start spin-up | 3.5 | 4 | 0 | engine idles between bursts; overheats after ≈6 s of fire (stalls, restarts with a pull-start below 45% heat); head-off at close range |
 
 Damage +10% per chapter after the first. Recoil pushes the hunter right a little (shotgun,
 harpoon, outboard).
@@ -136,7 +144,7 @@ harpoon, outboard).
 
 | Kind | Life | Speed | Bounty | Head ×| Notes |
 |---|---|---|---|---|---|
-| shambler | 70 (+15/ch) | 0.9–1.3 | 40 | 3 | random "looks": fisherman, tourist (Hawaiian shirt), waiter (tray), granny (handbag), office worker, lifeguard |
+| shambler | 70 (+15/ch) | 1.1–1.6 | 30 | 3 | random "looks": fisherman, tourist (Hawaiian shirt), waiter (tray), granny (handbag), office worker, lifeguard |
 | jogger | 50 (+10/ch) | 4.5–5.5 | 60 | 3 | race bib + headband; zig-zags lanes; trips over corpses |
 | bloater | 160 (+30/ch) | 0.55–0.7 | 120 | 2 | swollen belly; **pops** on death: gas cloud + 2 crawlers spill out; never rises |
 | medic ×2 + patient | 60 each / 70 | 1.3 | 70 / 40 | 3 | two medics carry a stretcher with a patient; kill a medic → stretcher drops, the patient gets up after 1.5 s as a shambler, the other medic walks on as a shambler. Hitting the stretcher (part 'stretcher') does nothing |
@@ -144,24 +152,27 @@ harpoon, outboard).
 | crawler | see 4.1 | 0.55–0.75 | 15 | 3 | risen corpse; low profile |
 
 **Bosses** (the boss bar replaces the boarding bar when they arrive):
-- Ch.1 **Big Dave** — a 3 m bloater in a stained chef's apron. Life 2600. Walks 0.45 m/s.
-  Every 6 s he **belches** a gas cloud 4 m ahead in his lane. At 50% life he tears off the
-  apron and walks 0.7 m/s. Death: huge pop — gas cloud radius 4, 6 crawlers, gore rain,
+- Ch.1 **Big Dave** — a 3 m bloater in a stained chef's apron. Life 3400. Walks 0.55 m/s,
+  escorted by shamblers every ~4.5 s. Every 5 s he **belches** a gas cloud 4 m ahead in his
+  lane. At 50% life he tears off the apron and walks 0.9 m/s. Death: huge pop — gas cloud radius 4, 6 crawlers, gore rain,
   1.2 s slow-motion. Bounty $1000.
-- Ch.2 **The Marathon** — 40 joggers (boss = true) in waves of 8 every 4 s, all lanes; the
-  40th wears a gold medal (bounty $500). Boss alone (the field must be clear first).
-- Ch.3 **The Riot Squad** — 3 riot brutes in formation (z −3, 0, +3), shields up, plus
-  ordinary spawns continue. Bounty $800 each.
+- Ch.2 **The Marathon** — 40 joggers (boss = true, "marathon pace" 3.7–4.5 m/s, $30 each) in
+  waves of 8 every 4 s, all lanes; the 40th wears a gold medal (bounty $500). Boss alone (the
+  field must be clear first, or 25 s pass).
+- Ch.3 **The Riot Squad** — 3 riot brutes in formation (z −3, 0, +3), shields up (life 3200,
+  plates ×3, 1.15 m/s), escorted by a shambler every 1.7 s, a jogger every 2.3 s and a bloater
+  every 15 s. Bounty $800 each.
 
 ## 9. Chapters
 
 | Ch | Name | Clock | Spawn phase | Spawns | Boss | Passengers |
 |---|---|---|---|---|---|---|
-| 1 | Last Light | 18:40 | 75 s | 34 shamblers, 3 bloaters, 1 paramedic team | Big Dave | 48 |
+| 1 | Last Light | 18:40 | 75 s | 48 shamblers, 4 bloaters, 2 paramedic teams | Big Dave | 48 |
 | 2 | Blue Hour | 19:25 | 90 s | 40 shamblers, 14 joggers, 4 bloaters, 3 paramedic teams | The Marathon (alone) | 60 |
-| 3 | Lights Out | 21:10 | 100 s | 46 shamblers, 16 joggers, 5 bloaters, 3 paramedic teams, 2 riot | The Riot Squad | 72 |
+| 3 | Lights Out | 21:10 | 100 s | 58 shamblers, 28 joggers, 6 bloaters, 3 paramedic teams, 3 riot | The Riot Squad | 72 |
 
-Spawn scheduling as Seal Hunter: each kind's count is spread over the spawn phase with
+Surges: a shambler spawn has a 40% chance to bring a pack of 2–4, a jogger spawn 30% for 2–3
+(totals unchanged). Spawn scheduling as Seal Hunter: each kind's count is spread over the spawn phase with
 random gaps (between ½ and 1× the average gap). A chapter ends 3 s after its bosses die;
 then a 2.5 s chapter splash. Corpses and blood carry over between chapters (the pier keeps
 its history); crane and horn are restored; downed bodies keep their timers.

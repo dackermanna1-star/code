@@ -56,7 +56,11 @@ describe('weapons: cadence and reloads', () => {
     run(w, 1);
     expect(p.weapon.bullets).toBe(4);
     p.reload();
-    run(w, 0.5);
+    expect(p.weapon.shellsLoading).toBe(2);
+    run(w, 0.2);
+    expect(p.weapon.shellProgress).toBeCloseTo(0.2 / WEAPONS.shotgun.reload, 1);
+    expect(p.weapon.reloadProgress).toBeCloseTo(0.2 / WEAPONS.shotgun.reload / 2, 1);
+    run(w, 0.3);
     expect(p.weapon.bullets).toBe(5); // one shell per 0.45 s
     expect(p.weapon.reloading).toBe(true);
     // Firing mid-reload interrupts it.

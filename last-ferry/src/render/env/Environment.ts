@@ -207,8 +207,10 @@ export class Environment {
     if (this.reflection) {
       this.deckUniforms.uReflMap.value = this.reflection.target.texture;
       this.deckUniforms.uReflMatrix.value = this.reflection.textureMatrix;
+      let frames = 0;
       stage.onPreRender(() => {
-        if (!this.disposed && this.reflection) this.reflection.render(renderer, scene, stage.camera);
+        // Skip the very first frame: the key light's shadow map does not exist yet.
+        if (!this.disposed && this.reflection && frames++ > 0) this.reflection.render(renderer, scene, stage.camera);
       });
     }
     this.deck = new THREE.Mesh(deckBuild.geo, createDeckMaterial(this.deckUniforms, { reflections: !!this.reflection }));

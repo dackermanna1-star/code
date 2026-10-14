@@ -608,10 +608,43 @@ export class Backdrop {
       gb.add(box(9, 4.5, len), wallCol, { p: [mid.x - 3, 2.25, mid.z], r: [0, ang, 0] }, { aInfo: [0, 3, 0, 0] });
       // Ground behind the promenade.
       gb.add(box(260, 4, len), new THREE.Color(0.12, 0.11, 0.1), { p: [mid.x - 135, 2.0, mid.z], r: [0, ang, 0] }, { aInfo: [0, 2, 0, 0] });
-      // Hills: lumpy ridge further inland.
-      const t = i / N;
-      const hh = 35 + 60 * Math.sin(t * 7.0 + 1.3) ** 2 + 30 * rnd() + t * 50;
-      gb.add(box(320, hh, len * 1.05), new THREE.Color(0.08, 0.075, 0.08), { p: [mid.x - 330, hh / 2, mid.z - 40], r: [0, ang, 0] }, { aInfo: [0, 2, 0, 0] });
+    }
+    // Hills: two smooth ridge curtains inland (rolling silhouettes, not boxes).
+    for (const [back, h0, h1, col] of [
+      [200, 30, 70, new THREE.Color(0.075, 0.07, 0.075)],
+      [480, 60, 120, new THREE.Color(0.06, 0.06, 0.07)],
+    ] as Array<[number, number, number, THREE.Color]>) {
+      const M = 90;
+      const pos: number[] = [];
+      const nor: number[] = [];
+      const ridge = (t: number) => {
+        const p = shoreAt(t);
+        const ang = Math.atan2(shoreAt(t + 0.01).x - p.x, shoreAt(t + 0.01).z - p.z);
+        const x = p.x + back * Math.cos(ang);
+        const z = p.z - back * Math.sin(ang);
+        const h = h0 + (h1 - h0) * (0.5 + 0.5 * Math.sin(t * 9.0 + back)) * (0.6 + 0.4 * Math.sin(t * 23.0 + 1.7)) + t * h1 * 0.6;
+        return new THREE.Vector3(x, h, z);
+      };
+      for (let i = 0; i < M; i++) {
+        const a = ridge((i / M) * 1.1);
+        const b = ridge(((i + 1) / M) * 1.1);
+        const quad = [
+          [a.x, 0, a.z],
+          [b.x, 0, b.z],
+          [b.x, b.y, b.z],
+          [a.x, 0, a.z],
+          [b.x, b.y, b.z],
+          [a.x, a.y, a.z],
+        ];
+        for (const v of quad) {
+          pos.push(v[0], v[1], v[2]);
+          nor.push(0.3, 0.2, 1);
+        }
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+      gb.add(g, col, {}, { aInfo: [0, 2, 0, 0] });
     }
     // Seafront buildings.
     let s = 0.0;
@@ -781,7 +814,8 @@ export class Backdrop {
     for (const [s, inland, size, smoke] of specs) {
       const p = shore(s);
       p.x -= inland;
-      p.y = 3;
+      // Fires burn on the roofs / upper floors so the flames show over the seafront.
+      p.y = 8 + size * 0.45;
       this.fires.push({ p, size, smoke });
       if (i < 8) this.fireUniform[i].set(p.x, p.y + size * 0.5, p.z, 1);
       // Flame billboard (faces the camera).

@@ -167,7 +167,10 @@ interface Lamp {
 
 const SODIUM = new THREE.Color(1.0, 0.52, 0.16);
 const SODIUM_COLD = new THREE.Color(1.0, 0.22, 0.2);
+const GLASS_OFF = new THREE.Color(0.18, 0.16, 0.13);
 const _c = new THREE.Color();
+const _c2 = new THREE.Color();
+const _c3 = new THREE.Color();
 
 export class Lamps {
   readonly group = new THREE.Group();
@@ -294,9 +297,9 @@ export class Lamps {
         l.light.color.copy(_c);
         l.light.intensity = this.intensity * b;
       }
-      this.glass.setColorAt(i, new THREE.Color(0.18, 0.16, 0.13).lerp(_c.clone().multiplyScalar(6), b));
-      this.glows.set(l.glow, b, _c.clone().multiplyScalar(2.0));
-      this.cones.setColorAt(i, _c.clone().multiplyScalar(b * 0.06));
+      this.glass.setColorAt(i, _c2.copy(GLASS_OFF).lerp(_c3.copy(_c).multiplyScalar(6), b));
+      this.glows.set(l.glow, b, _c2.copy(_c).multiplyScalar(2.0));
+      this.cones.setColorAt(i, _c2.copy(_c).multiplyScalar(b * 0.06));
     }
     if (this.glass.instanceColor) this.glass.instanceColor.needsUpdate = true;
     if (this.cones.instanceColor) this.cones.instanceColor.needsUpdate = true;

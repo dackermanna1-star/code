@@ -111,7 +111,9 @@ for (const name of (params.get('hide') ?? '').split(',').filter(Boolean)) {
 }
 if (params.get('nosh') === '1') env.sea.receiveShadow = false;
 
+stage.renderer.info.autoReset = false;
 stage.onUpdate((dt, time) => {
+  stage.renderer.info.reset();
   blood.update(dt);
   env.update(dt, time);
 });
@@ -147,6 +149,7 @@ let lastFps = performance.now();
 stage.onPostRender(() => {
   frames++;
   const now = performance.now();
+  (window as unknown as Record<string, unknown>).lfInfo = { calls: stage.renderer.info.render.calls, tris: stage.renderer.info.render.triangles, programs: stage.renderer.info.programs?.length };
   if (now - lastFps > 1000) {
     info.textContent = `q=${quality} post=${post} t=${env.timeOfDayValue.toFixed(2)} fps=${((frames * 1000) / (now - lastFps)).toFixed(0)} calls=${stage.renderer.info.render.calls} tris=${stage.renderer.info.render.triangles}`;
     frames = 0;
