@@ -7,7 +7,8 @@
 //     --url URL          app URL (default http://127.0.0.1:5180/)
 //     --file PATH        open a file instead (e.g. release/LastFerry.html, via file://)
 //     --out DIR          screenshots (default tests/output/ferry-e2e[-full], git-ignored)
-//     --mode quick|full  quick (default): title → Play → autoplay N s → pause → forced game over
+//     --mode quick|full  quick (default): loading → title → options → Play → the human controls →
+//                        autoplay N s → pause → forced game over → retry → chapter 3 boss → victory → play again
 //                        full: god + autoplay through all three chapters to the victory screen
 //     --seconds N        quick mode: game seconds of autoplay (default 40)
 //     --quality Q        low|medium|high (default low)
@@ -84,6 +85,9 @@ const run = (sec, dt = 0.05, every = 20) =>
 
 log(`open ${base}?${query}`);
 await page.goto(`${base}${base.includes('?') ? '&' : '?'}${query}`);
+await page.waitForSelector('.lf-loading', { timeout: 120000 }).catch(() => null);
+await page.waitForTimeout(1500);
+await page.screenshot({ path: `${out}/${String(shotN++).padStart(2, '0')}_loading.png` });
 await page.waitForFunction(() => window.__lf, null, { timeout: 240000 });
 log('booted');
 await page.evaluate(() => window.__lf.stage.stop());
@@ -95,11 +99,36 @@ check(s.mode === 'title' && s.screen === 'title', `title screen (mode ${s.mode},
 check(s.t > 0, 'attract game runs behind the title');
 await shot('title');
 
+// ---- Options from the title (keyboard): change the graphics quality and come back.
+if (mode === 'quick') {
+  const q0 = await page.evaluate(() => [window.__lf.screens.options.quality, window.__lf.stage.postQualityLevel]);
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(300);
+  await page.keyboard.press('Enter');
+  await run(0.1, 1 / 30, 3);
+  check((await stats()).screen === 'options', 'Options opens from the title');
+  for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
+  await page.keyboard.press(q0[0] === 'high' ? 'ArrowLeft' : 'ArrowRight');
+  await run(0.1, 1 / 30, 3);
+  const q1 = await page.evaluate(() => [window.__lf.screens.options.quality, window.__lf.stage.postQualityLevel, window.__lf.stage.maxPixelRatio]);
+  check(q1[0] !== q0[0] && q1[1] === q1[0], `quality option applies to the stage (${q0} → ${q1})`);
+  await shot('options');
+  await page.keyboard.press('Escape');
+  await run(0.1, 1 / 30, 3);
+  check((await stats()).screen === 'title', 'Esc returns to the title');
+  // Put the menu cursor back on Play.
+  await page.keyboard.press('ArrowUp');
+  await page.keyboard.press('ArrowUp');
+  await page.waitForTimeout(300);
+}
+
 // ---- Play (the real menu path: Enter on "Play")
 await page.evaluate((full) => {
   const lf = window.__lf;
-  lf.game.autoplay = true;
-  if (full) lf.god(true);
+  // The full run is the bot's from the start; the quick run checks the human controls first.
+  lf.game.autoplay = full;
+  lf.god(true);
 }, mode === 'full');
 await page.keyboard.press('Enter');
 // Two quick frames without drawing: the chapter splash is a real-time CSS
@@ -111,10 +140,96 @@ await page.evaluate(() => {
 s = await stats();
 check(s.mode === 'playing' && s.chapter >= 1, `Play starts a game (mode ${s.mode}, phase ${s.phase})`);
 check(await page.evaluate(() => !!document.querySelector('.lf-splash-in')), 'chapter splash shown');
+// Pin the splash's CSS sequence mid-way for the capture (headless frames are slower than its timers).
+await page.evaluate(() => {
+  for (const a of document.getAnimations()) {
+    const t = a.effect?.target;
+    if (t instanceof Element && t.closest('.lf-splash')) {
+      a.pause();
+      a.currentTime = 1100;
+    }
+  }
+});
 await shot('chapter_splash');
+await page.evaluate(() => document.getAnimations().forEach((a) => a.playState === 'paused' && a.play()));
 await run(1.2, 1 / 30, 12);
 
 if (mode === 'quick') {
+  // ---- the human controls (real key / mouse events), god mode so nothing interrupts
+  await run(2.6, 1 / 30, 80);
+  const P = () =>
+    page.evaluate(() => {
+      const w = window.__lf.world();
+      const p = w.player;
+      return { x: p.x, z: p.z, y: p.y, weapon: p.weapon.id, wstate: p.weapon.state, bullets: p.weapon.bullets, shots: p.stats.shots, money: p.money, owned: [...p.owned.keys()], horn: w.hornReady, favour: w.favour, state: p.state };
+    });
+  const hold = async (key, sec) => {
+    await page.keyboard.down(key);
+    await run(sec, 1 / 30, 1000);
+    await page.keyboard.up(key);
+    await run(1 / 30, 1 / 30, 1000);
+  };
+  const tap = async (key, sec = 0.1) => {
+    await page.keyboard.press(key);
+    await run(sec, 1 / 30, 1000);
+  };
+  let a = await P();
+  await hold('ArrowUp', 0.6);
+  let b = await P();
+  check(b.z < a.z - 0.6, `↑ moves the Bosun (z ${a.z.toFixed(2)} → ${b.z.toFixed(2)})`);
+  await hold('KeyA', 0.5);
+  a = await P();
+  check(a.x < b.x - 0.6, `A moves him left (x ${b.x.toFixed(2)} → ${a.x.toFixed(2)})`);
+  await hold('Space', 0.8);
+  b = await P();
+  check(b.shots > a.shots, `Space fires (${a.shots} → ${b.shots} shots)`);
+  await tap('KeyR');
+  a = await P();
+  check(a.wstate === 'reload' || a.bullets === 6, `R reloads (${a.wstate}, ${a.bullets})`);
+  await run(2, 1 / 30, 1000);
+  await page.mouse.move(640, 420);
+  await page.mouse.down();
+  await run(0.7, 1 / 30, 1000);
+  await page.mouse.up();
+  b = await P();
+  check(b.shots > a.shots, `left mouse fires (${a.shots} → ${b.shots} shots)`);
+  await page.evaluate(() => window.__lf.money(5000));
+  await tap('KeyB');
+  a = await P();
+  check(a.owned.includes('harpoon') && a.weapon === 'harpoon', `B buys the best affordable (${a.owned} / ${a.weapon})`);
+  await tap('KeyQ');
+  b = await P();
+  check(b.weapon !== a.weapon, `Q cycles weapons (${a.weapon} → ${b.weapon})`);
+  await tap('Digit1');
+  check((await P()).weapon === 'revolver', '1 selects the revolver');
+  const tiles = page.locator('.lf-tile');
+  await tiles.nth(5).click();
+  await run(0.05, 1 / 30, 1000);
+  check(await tiles.nth(5).evaluate((e) => e.classList.contains('is-deny')), 'clicking an unaffordable tile is denied');
+  await tiles.nth(2).click();
+  await run(0.1, 1 / 30, 1000);
+  a = await P();
+  check(a.owned.includes('shotgun') && a.weapon === 'shotgun', `clicking a tile buys it (${a.weapon}, $${a.money})`);
+  await tap('KeyH', 0.2);
+  check(!(await P()).horn, 'H blows the ferry horn');
+  await page.evaluate(() => {
+    const lf = window.__lf;
+    lf.world().setFavour(100);
+    lf.spawn('shambler', -6, lf.world().player.z);
+  });
+  await tap('KeyF', 0.3);
+  check((await P()).favour < 100, 'F calls the deck gun when the Favour is full');
+  await tap('KeyE', 0.15);
+  check((await P()).state === 'air', 'E jumps (stomp)');
+  await run(1, 1 / 30, 30);
+  await shot('controls');
+  await tap('KeyP');
+  check((await stats()).mode === 'paused', 'P pauses');
+  await page.waitForTimeout(350);
+  await tap('KeyP');
+  check((await stats()).mode === 'playing', 'P resumes');
+  await page.evaluate(() => window.__lf.autoplay(true));
+
   const chunks = Math.max(1, Math.round(seconds / 10));
   for (let i = 0; i < chunks; i++) {
     await run(seconds / chunks);
@@ -161,6 +276,38 @@ if (mode === 'quick') {
   await run(0.3, 1 / 30, 9);
   s = await stats();
   check(s.mode === 'playing' && s.t < 1, `Retry starts a new game (${s.mode}, t ${s.t})`);
+
+  // ---- the fast way to the end: chapter 3, the Riot Squad, the ferry departs.
+  await page.evaluate(() => {
+    const lf = window.__lf;
+    lf.god(true);
+    lf.setChapter(3);
+  });
+  await run(3, 1 / 15, 45);
+  await page.evaluate(() => window.__lf.skipToBoss());
+  await run(4, 1 / 15, 60);
+  s = await stats();
+  check(s.chapter === 3 && s.phase === 'boss', `chapter 3 boss phase (${s.chapter}/${s.phase})`);
+  await shot('ch3_boss');
+  await page.evaluate(() => {
+    for (const b of window.__lf.world().level.bosses) b.life = 0;
+  });
+  await run(5, 1 / 15, 75);
+  s = await stats();
+  check(s.mode === 'victory', `beating the last boss wins (${s.mode}/${s.phase})`);
+  await run(3, 1 / 15, 45);
+  s = await stats();
+  check(s.departure > 0 && s.t > 0, `the ferry departs while the pier lives on (departure ${s.departure.toFixed(2)})`);
+  await shot('victory_departure');
+  await run(4, 1 / 15, 60);
+  s = await stats();
+  check(s.screen === 'victory', `victory screen (${s.screen})`);
+  await shot('victory_screen');
+  await page.waitForTimeout(2800); // the results ignore keys until "TO BE CONTINUED" has played
+  await page.keyboard.press('Enter');
+  await run(0.3, 1 / 30, 9);
+  s = await stats();
+  check(s.mode === 'playing' && s.t < 1, `Play again starts a new game (${s.mode}, t ${s.t})`);
 } else {
   // ---- full run: all chapters to the victory screen (god mode: nothing can board).
   const seen = new Set();
@@ -177,7 +324,7 @@ if (mode === 'quick') {
     ['ch3_early', (s) => s.chapter === 3 && s.phase === 'playing' && s.boarded >= 10],
     ['ch3_late', (s) => s.chapter === 3 && s.phase === 'playing' && s.boarded >= 55],
     ['boss3_riot', (s) => s.chapter === 3 && s.phase === 'boss' && s.bossLife < 0.9],
-    ['boss3_late', (s) => s.chapter === 3 && s.phase === 'boss' && s.bossLife < 0.35],
+    ['boss3_late', (s) => s.chapter === 3 && s.phase === 'boss' && s.bossLife < 0.5],
     ['victory_departure', (s) => s.mode === 'victory' && s.departure > 0.15],
     ['victory_screen', (s) => s.screen === 'victory'],
   ];
@@ -186,7 +333,7 @@ if (mode === 'quick') {
   while (Date.now() < deadline) {
     // Big frames (1/15 s: the ragdoll physics' most per frame), drawing only every 45th:
     // the run is CPU bound in software GL.
-    await run(3, 1 / 15, 45);
+    await run(s?.phase === 'boss' ? 1.2 : 3, 1 / 15, 45);
     s = await stats();
     const line = `ch${s.chapter} ${s.phase} t=${s.t} boarded=${s.boarded} boss=${s.bossLife?.toFixed?.(2) ?? '-'} kills=${s.kills} $${s.money} ${s.weapon} z=${s.zombies} c=${s.corpses} rag=${s.view?.ragdolls} calls=${s.view?.drawCalls}`;
     if (line.split(' t=')[0] !== last) log(line);

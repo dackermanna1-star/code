@@ -3,7 +3,7 @@
 // the paramedics' stretchers, fire on burning bodies, crawl trails, hit
 // flinches, nails sticking in them and the spawn pop-in of crawlers.
 import * as THREE from 'three';
-import { PLATE_CHEST, PLATE_HELMET, PLATE_SHIELD, type ZombieKind } from '../../config/ids';
+import { PLATE_HELMET, type ZombieKind } from '../../config/ids';
 import { TICK } from '../../config/world';
 import type { GameEvents } from '../../core/events';
 import type { Zombie } from '../../core/Zombie';
@@ -12,6 +12,10 @@ import type { AnimInput, BoneSpec, CreatureRig } from '../models/types';
 import { Ragdoll } from '../Ragdoll';
 import { REFLECT_LAYER } from '../Stage';
 import { clamp, rand, type Ctx } from './ctx';
+import { skinify, unskin, type SkinState } from './skin';
+
+/** Merge live zombies into skinned meshes (fewer draw calls). */
+let SKIN = true;
 import { ember, flame, smoke } from './fx';
 
 export interface ZRec {
@@ -41,6 +45,12 @@ export interface ZRec {
   nails: number;
   /** Last plates mask applied. */
   plates: number;
+  /** Groan: mouth open for a moment (s left). */
+  groan: number;
+  /** Skinned stand-ins for the per-bone meshes while alive (draw calls). */
+  skin: SkinState | null;
+  /** Animation params (reused every frame). */
+  params: Record<string, number | boolean>;
 }
 
 interface StretcherRec {
@@ -60,9 +70,7 @@ interface StretcherRec {
 const FIRE_BONES = ['chest', 'head', 'pelvis', 'upperArmL', 'upperArmR', 'foreArmL', 'foreArmR', 'thighL', 'thighR'];
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
-const _q = new THREE.Quaternion();
 const _anim: AnimInput = { state: 'walk', stateTime: 0, time: 0, distance: 0, speed: 0, dt: 0, params: {} };
-const _params: Record<string, number | boolean> = {};
 const NAIL_Q = new THREE.Quaternion();
 
 /** Detach a piece (prop, plate, apron) at its world transform as a one-body ragdoll. */
@@ -127,6 +135,9 @@ export class Horde {
       apronDropped: false,
       nails: 0,
       plates: -1,
+      groan: 0,
+      skin: SKIN ? skinify(r) : null,
+      params: { facing: 1, burning: false, enraged: false, charred: 0, front: true, blend: false },
     };
     // Crawlers spilling out of a bloater appear in view: pop them in.
     if (!rig && z.risen && this.onScreen(z.x, z.z)) rec.pop = 0;
@@ -138,7 +149,13 @@ export class Horde {
   /** Remove a zombie's record (it died: the rig is handed to the bodies). */
   take(id: number): ZRec | undefined {
     const r = this.recs.get(id);
-    if (r) this.recs.delete(id);
+    if (r) {
+      this.recs.delete(id);
+      if (r.skin) {
+        unskin(r.skin);
+        r.skin = null;
+      }
+    }
     return r;
   }
 
@@ -160,7 +177,10 @@ export class Horde {
   }
 
   clear(): void {
-    for (const r of this.recs.values()) r.rig.root.removeFromParent();
+    for (const r of this.recs.values()) {
+      r.rig.root.removeFromParent();
+      if (r.skin) unskin(r.skin);
+    }
     this.recs.clear();
     for (const s of this.stretchers.values()) s.obj.removeFromParent();
     this.stretchers.clear();
@@ -188,6 +208,22 @@ export class Horde {
     if (r.nails >= 14) return;
     r.nails++;
     attachNail(r.rig, point);
+  }
+
+  /** Debug: skinned stand-ins on/off for every live zombie. */
+  setSkinned(on: boolean): void {
+    SKIN = on;
+    for (const r of this.recs.values()) {
+      if (!on && r.skin) {
+        unskin(r.skin);
+        r.skin = null;
+      } else if (on && !r.skin) r.skin = skinify(r.rig);
+    }
+  }
+
+  onGroan(zombieId: number): void {
+    const r = this.recs.get(zombieId);
+    if (r) r.groan = 0.9;
   }
 
   onPlateOff(e: GameEvents['plateOff']): void {
@@ -257,6 +293,7 @@ export class Horde {
       if (z.removed && !z.dead) {
         // Escaped (or cleared): drop it.
         r.rig.root.removeFromParent();
+        if (r.skin) unskin(r.skin);
         this.recs.delete(id);
         continue;
       }
@@ -293,17 +330,16 @@ export class Horde {
       }
 
       // Animate.
-      const p = _params;
-      for (const k in p) delete p[k];
+      // Fixed-shape params (no per-frame allocation or key deletion).
+      const p = r.params;
       p.facing = z.facing;
-      if (z.burning > 0) p.burning = true;
-      if (z.enraged) p.enraged = true;
-      if (r.charred > 0) p.charred = r.charred;
-      if (z.stretcher) p.front = z.stretcher.role === 'front';
-      if (r.blend > 0) {
-        p.blend = r.blend;
-        r.blend = 0;
-      }
+      p.burning = z.burning > 0;
+      p.enraged = !!z.enraged;
+      p.charred = r.charred;
+      p.front = z.stretcher ? z.stretcher.role === 'front' : true;
+      // blend: a number only on the frame it should apply (the rig reads typeof).
+      p.blend = r.blend > 0 ? r.blend : false;
+      r.blend = 0;
       _anim.state = z.state;
       _anim.stateTime = (z.stateTicks + a) * TICK;
       _anim.time = ctx.time;
@@ -324,6 +360,12 @@ export class Horde {
           head.rotation.y += 0.15 * k * Math.sin(ctx.time * 40);
         }
         r.flinch = Math.max(0, r.flinch - dt * 6);
+      }
+      // Groaning: the jaw drops.
+      if (r.groan > 0) {
+        r.groan = Math.max(0, r.groan - dt);
+        const jaw = r.rig.bones.get('jaw');
+        if (jaw) jaw.rotation.z -= 0.55 * Math.sin((1 - r.groan / 0.9) * Math.PI) * (0.8 + 0.2 * Math.sin(ctx.time * 30));
       }
       // Spawn pop-in (crawlers out of a bloater).
       if (r.pop < 1) {
@@ -369,7 +411,7 @@ export class Horde {
   private burnFx(r: ZRec, dt: number): void {
     const ctx = this.ctx;
     const fx = ctx.effects;
-    const rate = (r.z.kind === 'bigdave' ? 70 : 34) * fx.density;
+    const rate = (r.z.kind === 'bigdave' ? 90 : 46) * fx.density;
     let n = rate * dt;
     const big = r.z.kind === 'bigdave' ? 1.8 : r.z.kind === 'bloater' ? 1.3 : 1;
     while (n > 0) {
@@ -379,7 +421,7 @@ export class Horde {
       const b = r.rig.bones.get(name);
       if (!b) continue;
       b.getWorldPosition(_v);
-      flame(fx, _v.x + rand(-0.08, 0.08), _v.y + rand(-0.05, 0.1), _v.z + rand(-0.08, 0.08), big * rand(0.8, 1.25), Math.random() < 0.3);
+      flame(fx, _v.x + rand(-0.1, 0.1), _v.y + rand(-0.05, 0.12), _v.z + rand(-0.1, 0.1), big * rand(1.0, 1.6), Math.random() < 0.3);
     }
     if (Math.random() < dt * 5) {
       const b = r.rig.bones.get('head');
@@ -500,7 +542,4 @@ export function attachNail(rig: CreatureRig, point: { x: number; y: number; z: n
   rig.root.parent?.add(nail);
   if (!rig.root.parent) rig.root.add(nail);
   best.attach(nail);
-  void _q;
-  void PLATE_CHEST;
-  void PLATE_SHIELD;
 }

@@ -271,7 +271,7 @@ export function createDeckMaterial(u: DeckUniforms, opts: { reflections?: boolea
         // Unpremultiplied blood colour, darkened: it soaked into old wood. Thin films go brown.
         vec3 bcol = dec.rgb / max(dec.a, 1e-4) * (0.36 + 0.14 * grain);
         bcol = mix(vec3(0.06, 0.014, 0.008), bcol, smoothstep(0.3, 0.85, da));
-        float bloodWet = smoothstep(0.2, 0.7, da);
+        float bloodWet = smoothstep(0.42, 0.85, da);
         vec3 deckAlbedo = mix(wood * (1.0 - 0.45 * da), bcol, da);
         // Sides of the boards: darker end grain.
         deckAlbedo *= mix(0.55, 1.0, isTop);

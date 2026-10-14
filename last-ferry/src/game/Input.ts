@@ -23,7 +23,9 @@ export type Action =
   | { kind: 'buyBest' }
   | { kind: 'slot'; id: WeaponId }
   | { kind: 'cycle'; dir: number }
-  | { kind: 'pause' };
+  | { kind: 'pause' }
+  /** A one-shot verb was pressed (it also reaches the logic via tickInput; this is for feedback). */
+  | { kind: 'press'; verb: 'horn' | 'cannon' };
 
 export interface HeldInput {
   left: boolean;
@@ -82,6 +84,7 @@ export class Input {
   private actions: Action[] = [];
   private latched: Record<Verb, boolean> = { jump: false, horn: false, cannon: false };
   private padPrev: boolean[] = [];
+  private padMuted: boolean[] = [];
   private padAxisPrev = { x: 0, y: 0 };
   private padRepeatAt = 0;
   private padHeld: HeldInput = { left: false, right: false, up: false, down: false, fire: false, jump: false, horn: false, cannon: false };
@@ -146,7 +149,10 @@ export class Input {
     }
     if (!this.enabled) return;
     const verb = VERBS[e.code];
-    if (verb) this.latched[verb] = true;
+    if (verb) {
+      this.latched[verb] = true;
+      if (verb !== 'jump') this.actions.push({ kind: 'press', verb });
+    }
     if (e.code === 'KeyR') this.actions.push({ kind: 'reload' });
     else if (e.code === 'KeyB' || e.code === 'Enter' || e.code === 'NumpadEnter') this.actions.push({ kind: 'buyBest' });
     else if (e.code === 'KeyQ' || e.code === 'Tab') this.actions.push({ kind: 'cycle', dir: e.shiftKey ? -1 : 1 });
@@ -196,6 +202,11 @@ export class Input {
       const up = ay < -STICK || b(PAD.UP);
       const down = ay > STICK || b(PAD.DOWN);
 
+      // Buttons held while a menu was up (A on "Play", B to resume) stay muted until released.
+      const live = this.enabled && !this.menuOpen();
+      for (let i = 0; i < n; i++) this.padMuted[i] = now0[i] && (!live || (this.padMuted[i] ?? false));
+      const g = (i: number) => b(i) && !this.padMuted[i];
+
       if (this.menuOpen()) {
         // Navigate menus with synthetic keys (Screens reads KeyboardEvent.code), with key repeat on hold.
         const dirX = left ? -1 : right ? 1 : 0;
@@ -218,13 +229,19 @@ export class Input {
           ph.right = right;
           ph.up = up;
           ph.down = down;
-          ph.fire = b(PAD.A) || b(PAD.RT);
-          ph.jump = b(PAD.B);
-          ph.horn = b(PAD.L3) || b(PAD.BACK);
-          ph.cannon = b(PAD.LT) || b(PAD.R3);
+          ph.fire = g(PAD.A) || g(PAD.RT);
+          ph.jump = g(PAD.B);
+          ph.horn = g(PAD.L3) || g(PAD.BACK);
+          ph.cannon = g(PAD.LT) || g(PAD.R3);
           if (edge(PAD.B)) this.latched.jump = true;
-          if (edge(PAD.L3) || edge(PAD.BACK)) this.latched.horn = true;
-          if (edge(PAD.LT) || edge(PAD.R3)) this.latched.cannon = true;
+          if (edge(PAD.L3) || edge(PAD.BACK)) {
+            this.latched.horn = true;
+            this.actions.push({ kind: 'press', verb: 'horn' });
+          }
+          if (edge(PAD.LT) || edge(PAD.R3)) {
+            this.latched.cannon = true;
+            this.actions.push({ kind: 'press', verb: 'cannon' });
+          }
           if (edge(PAD.X)) this.actions.push({ kind: 'reload' });
           if (edge(PAD.Y)) this.actions.push({ kind: 'buyBest' });
           if (edge(PAD.RB)) this.actions.push({ kind: 'cycle', dir: 1 });

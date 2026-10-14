@@ -218,6 +218,7 @@ const partVert = /* glsl */ `
 const partFrag = /* glsl */ `
   uniform sampler2D uMap;
   uniform float uAdditive;
+  uniform vec3 uTint;
   varying vec2 vUv;
   varying vec4 vCol;
   void main() {
@@ -225,6 +226,7 @@ const partFrag = /* glsl */ `
     float a = t.a * vCol.a;
     if (a < 0.003) discard;
     vec3 c = vCol.rgb * mix(1.0, t.r, 0.4);
+    c *= uTint;
     if (uAdditive > 0.5) gl_FragColor = vec4(c * a, a);
     else gl_FragColor = vec4(c, a);
     #include <tonemapping_fragment>
@@ -240,6 +242,8 @@ class ParticleLayer {
   private aMisc: THREE.InstancedBufferAttribute;
   private aVel: THREE.InstancedBufferAttribute;
   readonly list: P[] = [];
+  /** Recycled particle records (no per-particle allocation in steady state). */
+  readonly free: P[] = [];
 
   constructor(private max: number, map: THREE.Texture, additive: boolean) {
     const quad = new THREE.PlaneGeometry(2, 2);
@@ -259,7 +263,7 @@ class ParticleLayer {
     const mat = new THREE.ShaderMaterial({
       vertexShader: partVert,
       fragmentShader: partFrag,
-      uniforms: { uMap: { value: map }, uAdditive: { value: additive ? 1 : 0 } },
+      uniforms: { uMap: { value: map }, uAdditive: { value: additive ? 1 : 0 }, uTint: { value: additive ? new THREE.Color(1, 1, 1) : Effects.lightTint } },
       transparent: true,
       depthWrite: false,
       blending: additive ? THREE.CustomBlending : THREE.NormalBlending,
@@ -272,9 +276,25 @@ class ParticleLayer {
     this.mesh.layers.enable(REFLECT_LAYER);
   }
 
+  private cursor = 0;
   add(p: P): void {
-    if (this.list.length >= this.max) this.list.shift();
+    if (this.list.length >= this.max) {
+      // Full: overwrite an old slot (O(1); no array shifting under load).
+      const i = this.cursor++ % this.max;
+      this.free.push(this.list[i]);
+      this.list[i] = p;
+      return;
+    }
     this.list.push(p);
+  }
+
+  alloc(): P {
+    return (
+      this.free.pop() ?? {
+        x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, g: 0, drag: 0, life: 0, max: 1, s0: 0, s1: 0, rot: 0, vr: 0,
+        c0: new THREE.Color(), c1: new THREE.Color(), a0: 1, a1: 0, frame: 0, streak: 0, ground: false,
+      }
+    );
   }
 
   update(dt: number): void {
@@ -286,7 +306,10 @@ class ParticleLayer {
     for (let i = 0; i < this.list.length; i++) {
       const p = this.list[i];
       p.life -= dt;
-      if (p.life <= 0) continue;
+      if (p.life <= 0) {
+        this.free.push(p);
+        continue;
+      }
       const k = Math.exp(-p.drag * dt);
       p.vx *= k;
       p.vz *= k;
@@ -416,9 +439,30 @@ class BeamLayer {
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = additive ? 30 : 29;
   }
+  private free: Beam[] = [];
+  private cursor = 0;
   add(b: Beam): void {
-    if (this.list.length >= this.max) this.list.shift();
+    if (this.list.length >= this.max) {
+      const i = this.cursor++ % this.max;
+      this.free.push(this.list[i]);
+      this.list[i] = b;
+      return;
+    }
     this.list.push(b);
+  }
+  /** Add a beam from a recycled record. `once` = drawn for this frame only. */
+  push(a: THREE.Vector3, b: THREE.Vector3, width: number, color: THREE.ColorRepresentation, alpha: number, life: number, once: boolean): void {
+    const r = this.free.pop() ?? { a: new THREE.Vector3(), b: new THREE.Vector3(), width: 0, color: new THREE.Color(), alpha: 0, life: 0, max: 0 };
+    r.a.copy(a);
+    r.b.copy(b);
+    r.width = width;
+    r.color.set(color);
+    r.alpha = alpha;
+    r.life = life;
+    r.max = once ? 0 : life;
+    r.once = once;
+    r.drawn = false;
+    this.add(r);
   }
   update(dt: number): void {
     let w = 0;
@@ -429,11 +473,17 @@ class BeamLayer {
     for (let i = 0; i < this.list.length; i++) {
       const b = this.list[i];
       if (b.once) {
-        if (b.drawn) continue;
+        if (b.drawn) {
+          this.free.push(b);
+          continue;
+        }
         b.drawn = true;
       } else {
         b.life -= dt;
-        if (b.life <= 0) continue;
+        if (b.life <= 0) {
+          this.free.push(b);
+          continue;
+        }
       }
       this.list[w++] = b;
       const k = w - 1;
@@ -474,6 +524,12 @@ interface Ring {
 const _c = new THREE.Color();
 
 export class Effects {
+  /**
+   * Scene light on unlit, normal-blended particles (smoke, gas, dust, blood
+   * mist): set it from the time of day so smoke darkens at night. Additive
+   * particles (fire, sparks, flashes) are emissive and ignore it.
+   */
+  static readonly lightTint = new THREE.Color(1, 1, 1);
   readonly atlas = makeAtlas();
   readonly add: ParticleLayer;
   readonly norm: ParticleLayer;
@@ -508,41 +564,40 @@ export class Effects {
   }
 
   emit(additive: boolean, x: number, y: number, z: number, o: EmitOpts = {}): void {
+    const layer = additive ? this.add : this.norm;
     const life = o.life ?? 0.5;
-    const c0 = new THREE.Color(o.color ?? 0xffffff);
-    const p: P = {
-      x,
-      y,
-      z,
-      vx: o.vel?.[0] ?? 0,
-      vy: o.vel?.[1] ?? 0,
-      vz: o.vel?.[2] ?? 0,
-      g: o.g ?? 0,
-      drag: o.drag ?? 0,
-      life,
-      max: life,
-      s0: o.size?.[0] ?? 0.2,
-      s1: o.size?.[1] ?? o.size?.[0] ?? 0.2,
-      rot: o.rot ?? Math.random() * Math.PI * 2,
-      vr: o.vr ?? 0,
-      c0,
-      c1: o.color1 !== undefined ? new THREE.Color(o.color1) : c0,
-      a0: o.alpha?.[0] ?? 1,
-      a1: o.alpha?.[1] ?? 0,
-      frame: o.frame ?? Frame.Dot,
-      streak: o.streak ?? 0,
-      ground: o.ground ?? false,
-    };
-    (additive ? this.add : this.norm).add(p);
+    const p = layer.alloc();
+    p.x = x;
+    p.y = y;
+    p.z = z;
+    p.vx = o.vel?.[0] ?? 0;
+    p.vy = o.vel?.[1] ?? 0;
+    p.vz = o.vel?.[2] ?? 0;
+    p.g = o.g ?? 0;
+    p.drag = o.drag ?? 0;
+    p.life = life;
+    p.max = life;
+    p.s0 = o.size?.[0] ?? 0.2;
+    p.s1 = o.size?.[1] ?? o.size?.[0] ?? 0.2;
+    p.rot = o.rot ?? Math.random() * Math.PI * 2;
+    p.vr = o.vr ?? 0;
+    p.c0.set(o.color ?? 0xffffff);
+    p.c1.set(o.color1 ?? o.color ?? 0xffffff);
+    p.a0 = o.alpha?.[0] ?? 1;
+    p.a1 = o.alpha?.[1] ?? 0;
+    p.frame = o.frame ?? Frame.Dot;
+    p.streak = o.streak ?? 0;
+    p.ground = o.ground ?? false;
+    layer.add(p);
   }
 
   beam(a: THREE.Vector3, b: THREE.Vector3, width: number, color: THREE.ColorRepresentation, alpha: number, life: number): void {
-    this.beams.add({ a: a.clone(), b: b.clone(), width, color: new THREE.Color(color), alpha, life, max: life });
+    this.beams.push(a, b, width, color, alpha, life, false);
   }
 
   /** A beam drawn for this frame only (re-add it every frame to keep it visible). */
   beamFrame(a: THREE.Vector3, b: THREE.Vector3, width: number, color: THREE.ColorRepresentation, alpha: number, solid = false): void {
-    (solid ? this.solidBeams : this.beams).add({ a: a.clone(), b: b.clone(), width, color: new THREE.Color(color), alpha, life: 1, max: 0, once: true });
+    (solid ? this.solidBeams : this.beams).push(a, b, width, color, alpha, 1, true);
   }
 
   flash(x: number, y: number, z: number, color: THREE.ColorRepresentation, intensity: number, life: number, distance = 9): void {

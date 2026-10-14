@@ -100,32 +100,34 @@ export function metalHit(fx: Effects, p: P3, dirX: number, n = 10): void {
   fx.emit(true, p.x, p.y, p.z, { size: [0.3, 0.08], life: 0.07, color: 0xfff0d0, alpha: [1, 0], frame: F.Star });
 }
 
-/** A puff of the bloater's green gas. */
-export function gasPuff(fx: Effects, x: number, z: number, radius: number, strength = 1): void {
+/** A puff of the bloater's gas: murky yellow-green, darker toward the edges. */
+export function gasPuff(fx: Effects, x: number, z: number, radius: number, strength = 1, night = 0): void {
   const a = Math.random() * Math.PI * 2;
-  const d = Math.sqrt(Math.random()) * radius * 0.85;
+  const r = Math.sqrt(Math.random());
+  const d = r * radius * 0.85;
   const px = x + Math.cos(a) * d;
   const pz = z + Math.sin(a) * d * 0.85;
-  const big = radius * rand(0.45, 0.8);
-  fx.emit(false, px, rand(0.2, 1.1), pz, {
-    vel: [rand(-0.2, 0.2), rand(0.05, 0.3), rand(-0.15, 0.15)],
+  const big = radius * rand(0.4, 0.75);
+  const edge = r > 0.6;
+  fx.emit(false, px, rand(0.2, 1.2), pz, {
+    vel: [Math.cos(a) * rand(0, 0.25), rand(0.05, 0.3), Math.sin(a) * rand(0, 0.2)],
     drag: 0.4,
-    size: [big * 0.8, big * 1.25],
+    size: [big * 0.75, big * 1.2],
     life: rand(1.8, 2.8),
-    color: 0x9cc040,
-    color1: 0x4a6a1c,
-    alpha: [0.2 * strength, 0],
+    color: edge ? 0x6e8a2a : 0xa2c048,
+    color1: 0x4a5a1e,
+    alpha: [(edge ? 0.2 : 0.27) * strength, 0],
     frame: F.Smoke,
     vr: rand(-0.4, 0.4),
   });
-  if (Math.random() < 0.5) {
+  if (Math.random() < 0.45) {
     fx.emit(true, px, rand(0.2, 1.0), pz, {
       vel: [0, rand(0.05, 0.25), 0],
       drag: 0.5,
-      size: [big * 0.7, big * 1.1],
-      life: rand(1.0, 1.8),
-      color: 0x6a9a18,
-      alpha: [0.1 * strength, 0],
+      size: [big * 0.6, big * 0.9],
+      life: rand(1.0, 1.6),
+      color: 0x7aa01c,
+      alpha: [(0.035 + 0.075 * night) * strength, 0],
       frame: F.Mist,
       vr: rand(-0.3, 0.3),
     });

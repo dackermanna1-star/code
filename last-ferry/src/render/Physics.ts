@@ -25,7 +25,7 @@ export class Physics {
     this.world = new CANNON.World({ gravity: new CANNON.Vec3(0, -15, 0) });
     this.world.broadphase = new CANNON.SAPBroadphase(this.world);
     this.world.allowSleep = true;
-    (this.world.solver as CANNON.GSSolver).iterations = 12;
+    (this.world.solver as CANNON.GSSolver).iterations = 8;
     this.world.defaultContactMaterial.friction = 0.35;
     this.world.addContactMaterial(
       new CANNON.ContactMaterial(this.iceMat, this.fleshMat, {
@@ -60,12 +60,12 @@ export class Physics {
   update(dt: number): void {
     this.acc += Math.min(dt, 0.1);
     let n = 0;
-    while (this.acc >= this.step && n < 4) {
+    while (this.acc >= this.step && n < 3) {
       this.world.step(this.step);
       this.acc -= this.step;
       n++;
     }
-    if (n === 4) this.acc = 0;
+    if (n === 3) this.acc = 0;
   }
 
   /** Radial impulse on every dynamic body near an explosion. */

@@ -72,9 +72,29 @@ export class HazardFx {
   private markers: Marker[] = [];
   private waves: Wave[] = [];
   private flareMat = new THREE.MeshBasicMaterial({ color: 0xffd0c0, toneMapped: false });
+  private hornWave: HornWave | null = null;
   private shellMat = new THREE.MeshStandardMaterial({ color: 0x2a2c2e, roughness: 0.4, metalness: 0.7, emissive: 0x180800 });
 
   constructor(private ctx: Ctx) {}
+
+  /** One of each mesh this draws (shader warm-up); the horn wave is shown until endPrewarm(). */
+  prewarmObjects(): THREE.Object3D[] {
+    flareGeo ??= new THREE.SphereGeometry(0.07, 10, 8);
+    shellGeo ??= new THREE.CapsuleGeometry(0.11, 0.32, 4, 8);
+    const f = new THREE.Mesh(flareGeo, this.flareMat);
+    f.position.set(3, 1, 2);
+    const s = new THREE.Mesh(shellGeo, this.shellMat);
+    s.position.set(5, 1, 2);
+    s.castShadow = true;
+    this.hornWave ??= new HornWave(this.ctx.scene);
+    this.hornWave.start();
+    return [f, s];
+  }
+
+  endPrewarm(): void {
+    this.hornWave?.update(99);
+    this.hornWave?.update(0);
+  }
 
   clear(): void {
     for (const f of this.fires.values()) f.stick.removeFromParent();
@@ -125,7 +145,7 @@ export class HazardFx {
   onGas(e: GameEvents['gas']): void {
     this.gas.set(e.id, { id: e.id, x: e.x, z: e.z, r: e.radius, acc: 0, gone: -1 });
     // A first thick belch of it.
-    for (let i = 0; i < 10; i++) gasPuff(this.ctx.effects, e.x, e.z, e.radius * 0.6, 1.4);
+    for (let i = 0; i < 10; i++) gasPuff(this.ctx.effects, e.x, e.z, e.radius * 0.6, 1.3, this.ctx.darkness);
   }
 
   onProjectile(e: GameEvents['projectile']): void {
@@ -249,7 +269,9 @@ export class HazardFx {
   onHorn(): void {
     const ctx = this.ctx;
     ctx.env.ferryHorn();
-    for (let i = 0; i < 3; i++) this.waves.push({ t: 0, delay: i * 0.14, done: false });
+    this.hornWave ??= new HornWave(ctx.scene);
+    this.hornWave.start();
+    this.waves.push({ t: 0, delay: 0, done: false });
     ctx.env.flashScreen(0.06, 0xfff0d8);
     ctx.env.scareGulls(0, 0, 6);
   }
@@ -305,9 +327,9 @@ export class HazardFx {
       g.acc += dt * 13 * fx.density * (0.4 + 0.6 * life) * (g.r / 2.5);
       while (g.acc >= 1) {
         g.acc -= 1;
-        gasPuff(fx, g.x, g.z, g.r, 0.6 + 0.6 * life);
+        gasPuff(fx, g.x, g.z, g.r, 0.7 + 0.5 * life, ctx.darkness);
       }
-      ctx.lights.add(g.x, 1.0, g.z + 0.3, 0x9ad040, 1.6 * life * (0.3 + ctx.darkness), g.r * 2.2, 0.3);
+      ctx.lights.add(g.x, 1.0, g.z + 0.3, 0x9ad040, 3 * (0.4 + 0.6 * life) * (0.25 + ctx.darkness), g.r * 2.4, 0.6);
     }
     // Projectiles.
     const a = ctx.alpha;
@@ -345,9 +367,12 @@ export class HazardFx {
           r.acc -= 1;
           fx.emit(false, sx, sy, sz, { vel: [rand(-0.3, 0.3), rand(0, 0.5), rand(-0.3, 0.3)], drag: 1.5, size: [0.1, 0.55], life: rand(0.5, 0.9), color: 0x8a8480, alpha: [0.4, 0], frame: F.Smoke, vr: rand(-1, 1) });
         }
-        fx.emit(true, sx, sy, sz, { size: [0.45, 0.45], life: 0.02, color: 0xffb060, alpha: [0.9, 0.9], frame: F.Dot });
-        fx.beamFrame(r.obj.position, _v.set(sx - p.vx * 0.04, sy - vy * 0.04, sz - p.vz * 0.04), 0.06, 0xffc070, 0.6);
-        ctx.lights.add(sx, sy, sz, 0xffa050, 12, 8, 1.2);
+        // A hot streak with a glowing head (it has to read against the sky).
+        fx.emit(true, sx, sy, sz, { size: [1.1, 1.1], life: 0.02, color: 0xffc070, alpha: [0.9, 0.9], frame: F.Dot });
+        fx.emit(true, sx, sy, sz, { size: [0.4, 0.4], life: 0.02, color: 0xfff4d0, alpha: [1, 1], frame: F.Dot });
+        fx.beamFrame(r.obj.position, _v.set(sx - p.vx * 0.09, sy - vy * 0.09, sz - p.vz * 0.09), 0.14, 0xffb050, 0.75);
+        if (Math.random() < 0.6) fx.emit(true, sx, sy, sz, { vel: [rand(-1, 1), rand(-0.5, 1), rand(-1, 1)], g: 6, size: [0.06, 0.03], life: rand(0.2, 0.4), color: 0xffd080, color1: 0xff5010, alpha: [1, 0], frame: F.Spark, streak: 1 });
+        ctx.lights.add(sx, sy, sz, 0xffa050, 18, 10, 1.5);
       }
     }
     // Target markers for an incoming cannon strike: red rings pulsing on the deck.
@@ -368,11 +393,7 @@ export class HazardFx {
     let ww = 0;
     for (const wv of this.waves) {
       wv.t += dt;
-      if (wv.t >= wv.delay && !wv.done) {
-        wv.done = true;
-        fx.ring(FERRY_X, 0.08, 0, 1, 52, 1.25, 0xfff2d8, 0.35);
-        fx.ring(FERRY_X, 1.2, 0, 1, 46, 1.1, 0xfff6e8, 0.12);
-      }
+      if (wv.t >= wv.delay && !wv.done) wv.done = true;
       // Dust kicked up as the wave passes along the deck.
       const front = (wv.t - wv.delay) * 42;
       if (wv.delay === 0 && front > 0 && front < 50 && Math.random() < dt * 40) {
@@ -382,6 +403,7 @@ export class HazardFx {
       if (wv.t < 1.6) this.waves[ww++] = wv;
     }
     this.waves.length = ww;
+    this.hornWave?.update(dt);
   }
 
   /** The deck gun's muzzle blast. */
@@ -409,4 +431,68 @@ export class HazardFx {
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
+
+/**
+ * The horn's shockwave: thin bright bands racing down the pier from the
+ * ferry (a flat additive disc drawn on the deck, three rings in one shader).
+ */
+class HornWave {
+  private mesh: THREE.Mesh;
+  private mat: THREE.ShaderMaterial;
+  private t = 99;
+  private static readonly R = 56;
+
+  constructor(scene: THREE.Scene) {
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: { uT: { value: 0 }, uR: { value: HornWave.R } },
+      vertexShader: /* glsl */ `
+        varying vec2 vP;
+        void main() { vP = position.xy; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: /* glsl */ `
+        uniform float uT, uR;
+        varying vec2 vP;
+        void main() {
+          float d = length(vP) * uR;
+          float a = 0.0;
+          for (int i = 0; i < 3; i++) {
+            float t = uT - float(i) * 0.13;
+            if (t < 0.0) continue;
+            float r = t * 44.0;
+            float w = 0.35 + t * 0.9;
+            float k = exp(-pow((d - r) / w, 2.0)) * (1.0 - smoothstep(0.6, 1.25, t)) * (i == 0 ? 0.55 : 0.28);
+            // a faint bright wake just behind the front
+            k += smoothstep(r - 4.0 * w, r, d) * step(d, r) * 0.06 * (1.0 - smoothstep(0.3, 1.0, t)) * (i == 0 ? 1.0 : 0.0);
+            a += k;
+          }
+          if (a < 0.002) discard;
+          gl_FragColor = vec4(vec3(1.0, 0.93, 0.8) * a, a);
+        }`,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.mat);
+    this.mesh.rotation.x = -Math.PI / 2;
+    this.mesh.position.set(FERRY_X, 0.07, 0);
+    this.mesh.scale.setScalar(HornWave.R);
+    this.mesh.renderOrder = 6;
+    this.mesh.frustumCulled = false;
+    this.mesh.visible = false;
+    scene.add(this.mesh);
+  }
+
+  start(): void {
+    this.t = 0;
+    this.mesh.visible = true;
+  }
+
+  update(dt: number): void {
+    if (this.t > 1.6) {
+      this.mesh.visible = false;
+      return;
+    }
+    this.t += dt;
+    this.mat.uniforms.uT.value = this.t;
+  }
+}
 const FERRY_X = 23.5;

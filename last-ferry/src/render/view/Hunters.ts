@@ -45,10 +45,6 @@ const _anim: AnimInput = { state: 'stand', stateTime: 0, time: 0, distance: 0, s
 const _params: Record<string, number | boolean> = {};
 const EXHAUST = new THREE.Vector3(0.32, -0.21, -0.06);
 
-/** A timed beam record for a beam layer (solid core tracers). */
-function beamOf(a: THREE.Vector3, b: THREE.Vector3, width: number, color: number, alpha: number, life: number) {
-  return { a: a.clone(), b: b.clone(), width, color: new THREE.Color(color), alpha, life, max: life };
-}
 
 export class Hunters {
   readonly recs = new Map<number, HRec>();
@@ -168,7 +164,12 @@ export class Hunters {
 
   onDeath(e: GameEvents['playerDeath']): void {
     const h = this.recs.get(e.playerId);
-    if (h) h.deadT = 0;
+    if (!h) return;
+    h.deadT = 0;
+    const p = h.p;
+    this.ctx.blood.spray({ x: p.x, y: 1.2, z: p.z }, 60, { dirX: 1, speed: [1, 5], up: [1, 4], spread: Math.PI });
+    this.ctx.effects.bloodPuff({ x: p.x, y: 1.2, z: p.z }, 1, 2);
+    this.ctx.shake.add(0.3);
   }
 
   // ------------------------------------------------------------------ frame
@@ -186,7 +187,6 @@ export class Hunters {
       h.rig.root.position.set(x, y, z);
       const wp = p.weapon;
       const prm = _params;
-      for (const k in prm) delete prm[k];
       const fireT = (w.tick - wp.lastShotTick + a) * TICK;
       prm.weapon = WEAPON_ORDER.indexOf(wp.id);
       prm.fireT = fireT;
@@ -334,14 +334,14 @@ export class Hunters {
           break;
         }
         case 'pellet': {
-          fx.solidBeams.add(beamOf(from, to, 0.028, 0xfff0c0, path.ric ? 0.5 : 0.75, 0.04));
+          fx.solidBeams.push(from, to, 0.028, 0xfff0c0, path.ric ? 0.5 : 0.75, 0.04, false);
           fx.beam(from, to, 0.07, 0xffb060, 0.3, 0.06);
           break;
         }
         default: {
           const big = e.weapon === 'revolver';
           const core = path.ric ? 0xcfe8ff : 0xfff3c8;
-          fx.solidBeams.add(beamOf(from, to, big ? 0.045 : 0.034, core, 0.85, big ? 0.06 : 0.04));
+          fx.solidBeams.push(from, to, big ? 0.045 : 0.034, core, 0.85, big ? 0.06 : 0.04, false);
           fx.beam(from, to, big ? 0.16 : 0.11, 0xffa040, big ? 0.35 : 0.25, big ? 0.09 : 0.06);
           // A bright slug racing down the line.
           const t0 = rand(0.05, 0.4);

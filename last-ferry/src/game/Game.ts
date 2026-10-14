@@ -21,7 +21,7 @@ import type { AudioSystem } from '../audio';
 import type { Environment } from '../render/env/Environment';
 import { GameView } from '../render/GameView';
 import type { PostQuality, Stage } from '../render/Stage';
-import { Hud, Screens, WorldOverlay, hudSnapshot, overlayFrame, runStats, type HudSnapshot, type Options, type Quality, type RunStats } from '../ui';
+import { Hud, Screens, WorldOverlay, hudSnapshot, loadRuns, overlayFrame, runStats, type HudSnapshot, type Options, type Quality, type RunStats } from '../ui';
 import { Input, type Action, type HeldInput } from './Input';
 import { MoneyPops } from './MoneyPops';
 import { TimeControl } from './TimeControl';
@@ -69,6 +69,7 @@ export class Game {
   speed = 1;
   /** ?quality=…: overrides the saved graphics quality for this session. */
   qualityOverride: Quality | null = null;
+  private lastQuality: Quality | null = null;
   /** Options for new games (?chapter, ?money, ?god, ?seed). */
   worldOptions: { startChapter?: number; money?: number; god?: boolean; seed?: number } = {};
 
@@ -80,6 +81,8 @@ export class Game {
   private attractRuns = 0;
   /** Real seconds since boot (sequences, cooldowns). */
   private clock = 0;
+  /** Game seconds since boot (scaled by slow motion, frozen by hit-stop and pause). */
+  private gameClock = 0;
   private later: Later[] = [];
   private seqT = 0;
   private seqShown = false;
@@ -96,6 +99,8 @@ export class Game {
   private chapterMoney = 0;
   private told = new Set<string>();
   private bestAffordable: WeaponId | null = null;
+  /** No run recorded yet: a couple of onboarding lines at the start. */
+  private firstNight = false;
   private readonly tickIn: HeldInput = { left: false, right: false, up: false, down: false, fire: false, jump: false, horn: false, cannon: false };
   private readonly pv = new THREE.Vector3();
   private readonly pp = { x: 0, y: 0 };
@@ -128,6 +133,9 @@ export class Game {
   // ------------------------------------------------------------------ options
 
   applyOptions(o: Options): void {
+    // A ?quality override lasts until the player picks a quality in Options.
+    if (this.lastQuality !== null && o.quality !== this.lastQuality) this.qualityOverride = null;
+    this.lastQuality = o.quality;
     this.audio.setVolumes(o.masterVolume, o.sfxVolume, o.musicVolume);
     this.view.setOptions({ blood: o.blood, shake: o.shake });
     const q = this.qualityOverride ?? o.quality;
@@ -174,6 +182,7 @@ export class Game {
     this.startWorld({ seed, startChapter: ch, money, god: !!this.worldOptions.god }, false);
     this.bot = this.autoplay && this.world ? new Bot(this.world.player, { skill: 0.92 }) : null;
     this.screens.recordRuns = !this.autoplay && !this.worldOptions.god;
+    this.firstNight = ch === 1 && loadRuns().length === 0;
     this.hud.setVisible(true);
     this.input.clear();
     this.input.enabled = !this.autoplay;
@@ -228,6 +237,13 @@ export class Game {
     });
     on('chapterStart', (e) => {
       if (e.num > 1) this.after(0.4, () => this.hud.callout('The crane is rehung · the horn is ready', 'info'));
+      else if (this.firstNight && !this.bot) {
+        // First night on the pier: the two things you need before the first one arrives.
+        this.after(0.6, () =>
+          this.hud.callout(this.input.device === 'pad' ? 'Hold A or RT to fire · left stick to move' : 'Hold Space (or click) to fire · W A S D to move', 'info'),
+        );
+        this.after(5.5, () => this.hud.callout('If one of them reaches the gangway, nobody sails', 'danger'));
+      }
     });
     on('bossSpawn', (e) => {
       this.hud.callout(e.name, 'boss');
@@ -248,7 +264,12 @@ export class Game {
     // Callouts.
     on('niceShot', (e) => this.callout(e.n >= 6 ? `MASSACRE ×${e.n}` : `NICE SHOT ×${e.n}`, e.n >= 6 ? 'massacre' : 'nice'));
     on('headshotStreak', (e) => {
-      if (e.n >= 3) this.callout(`HEADSHOT ×${e.n}`, 'headshot');
+      // A long streak would re-pop the callout on every kill: milestones always, the rest at most every 0.45 s.
+      if (e.n < 3) return;
+      if (e.n === 3 || e.n % 5 === 0 || this.clock - this.lastHeadshotCallout >= 0.45) {
+        this.lastHeadshotCallout = this.clock;
+        this.callout(`HEADSHOT ×${e.n}`, 'headshot');
+      }
     });
     on('money', (e) => {
       if (e.playerId !== 0) return;
@@ -292,6 +313,7 @@ export class Game {
     this.hud.callout(text, kind);
   }
 
+  private lastHeadshotCallout = -1;
   private bigUntil = 0;
   private bigRank = 0;
   /** Big callouts by priority: a lesser one does not knock out a bigger one that just appeared. */
@@ -303,8 +325,9 @@ export class Game {
     this.hud.callout(text, kind);
   }
 
+  /** Run `fn` after `seconds` of game time (paused time and hit-stops don't count). */
   private after(seconds: number, fn: () => void): void {
-    this.later.push({ at: this.clock + seconds, fn });
+    this.later.push({ at: this.gameClock + seconds, fn });
   }
 
   pause(): void {
@@ -337,6 +360,7 @@ export class Game {
     this.seqT = 0;
     this.seqShown = false;
     this.time.slowmo(GAMEOVER.slowScale, GAMEOVER.slowSeconds);
+    this.env.flashScreen(0.45, 0xff2a18);
     const info = w.gameOverInfo;
     this.endStats = runStats(w, w.player.stats, w.tick * TICK, { passengersSaved: this.savedPassengers + w.boarded });
     if (info?.reason === 'gangway') this.hud.callout('One of them made it up the gangway!', 'danger');
@@ -425,6 +449,21 @@ export class Game {
       case 'slot':
         this.slot(a.id);
         break;
+      case 'press':
+        // The press reaches the logic on the next tick; here only feedback when it can't do anything.
+        if (a.verb === 'horn' && !w.hornReady) {
+          this.audio.ui('deny');
+          this.hud.callout('The horn sounds once per chapter', 'info');
+        } else if (a.verb === 'cannon') {
+          if (!w.favourReady) {
+            this.audio.ui('deny');
+            this.hud.callout(`Captain's Favour ${Math.floor(w.favour)}% · the deck gun needs 100%`, 'info');
+          } else if (!w.pier.pickTargets(p).length) {
+            this.audio.ui('deny');
+            this.hud.callout('Nothing for the deck gun to shoot at', 'info');
+          }
+        }
+        break;
     }
   }
 
@@ -440,13 +479,6 @@ export class Game {
       this.fpsFrames = 0;
       if (this.screens.options.showFps) this.screens.setFps(this.fps);
     }
-    for (const l of this.later.length ? [...this.later] : []) {
-      if (this.clock >= l.at) {
-        this.later.splice(this.later.indexOf(l), 1);
-        l.fn();
-      }
-    }
-
     this.input.enabled = this.controlling && !this.autoplay && !this.screens.isMenuOpen;
     this.input.poll();
     for (const a of this.input.takeActions()) this.action(a);
@@ -457,6 +489,13 @@ export class Game {
     const w = this.world;
     const paused = this.mode === 'paused' || this.mode === 'boot';
     const gdt = paused ? 0 : this.time.advance(dt * this.speed);
+    this.gameClock += gdt;
+    for (const l of this.later.length ? [...this.later] : []) {
+      if (this.gameClock >= l.at) {
+        this.later.splice(this.later.indexOf(l), 1);
+        l.fn();
+      }
+    }
     if (w && !paused) {
       this.acc += gdt;
       const maxSteps = Math.ceil(6 * Math.max(1, this.speed));
@@ -547,6 +586,16 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ debug
+
+  /** Debug / tests: hand the running game to the bot (or take it back). */
+  setAutoplay(on: boolean): void {
+    this.autoplay = on;
+    const w = this.world;
+    if (!w || this.mode === 'title') return;
+    this.bot = on ? new Bot(w.player, { skill: 0.92 }) : null;
+    this.input.clear();
+    if (on) this.screens.recordRuns = false;
+  }
 
   /** Debug: add a zombie to the running world. */
   spawn(kind: ZombieKind, x?: number, z?: number, opts: SpawnOpts = {}): Zombie | null {

@@ -29,6 +29,7 @@ let world!: World;
 let bot: Bot | null = null;
 let acc = 0;
 const tod = q.has('tod') ? num('tod', 0) : null;
+let todOverride: number | null = tod;
 
 function newWorld(opts: { quiet?: boolean; chapter?: number; money?: number; seed?: number } = {}): World {
   world = new World({ seed: opts.seed ?? num('seed', 1), startChapter: opts.chapter ?? num('chapter', 1), money: opts.money ?? num('money', 50000), god: q.get('god') !== '0', quiet: opts.quiet ?? true, skipSplash: true });
@@ -39,6 +40,7 @@ function newWorld(opts: { quiet?: boolean; chapter?: number; money?: number; see
 
 /** Override the world's time of day (scenes at night). */
 function forceTod(t: number): void {
+  todOverride = t;
   (world as unknown as { tod: number }).tod = t;
   env.setTimeOfDay(t, true);
 }
@@ -55,8 +57,8 @@ function advance(seconds: number, o: { fps?: number; render?: boolean; each?: ()
       view.beforeStep();
       if (bot) bot.think(world);
       o.each?.();
-      if (tod !== null) (world as unknown as { tod: number }).tod = tod;
       world.step();
+      if (todOverride !== null) (world as unknown as { tod: number }).tod = todOverride;
     }
     view.update(dt, acc / TICK);
     const last = i === n - 1;
@@ -105,6 +107,13 @@ const P = () => world.player;
 function hold(fire: boolean): void {
   P().input.fire = fire;
 }
+/** Press a key-like input for one tick (horn, cannon, jump). */
+function press(k: 'horn' | 'cannon' | 'jump'): void {
+  P().input[k] = true;
+  view.beforeStep();
+  world.step();
+  P().input[k] = false;
+}
 function give(...ids: WeaponId[]): void {
   P().money = 99999;
   for (const id of ids) P().selectOrBuy(id);
@@ -147,6 +156,8 @@ const scenes: Record<string, () => void> = {
     spawn('bloater', -1, 2.5);
   },
 };
+
+scenes.none = () => {};
 
 function scene(name: string): void {
   newWorld();
@@ -225,6 +236,7 @@ const api = {
   newWorld,
   forceTod,
   hold,
+  press,
   give,
   place,
   spawn,

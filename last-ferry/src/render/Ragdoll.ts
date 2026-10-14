@@ -114,7 +114,9 @@ export class Ragdoll {
       });
       addShape(body, spec, _s.x);
       body.collisionFilterGroup = bit;
-      body.collisionFilterMask = opts.groundOnly ? GROUP_GROUND : GROUP_GROUND | (0x1fe & ~bit) | GROUP_DEBRIS;
+      // Ragdolls collide with the deck and loose debris, not with each other
+      // (bodies piling up mid-air are rare; the contacts are what costs).
+      body.collisionFilterMask = opts.groundOnly ? GROUP_GROUND : GROUP_GROUND | GROUP_DEBRIS;
       physics.world.addBody(body);
       const part = { name, bone, body, spec, axis: longAxis(spec) };
       this.parts.push(part);
@@ -332,7 +334,7 @@ export class Ragdoll {
       this.calmSamples = this.age > 0.8 && maxMove < 0.035 ? this.calmSamples + 1 : 0;
     }
     if (this.pins.length) return;
-    if ((this.stillTime > 0.5 && this.age > 1.0) || this.calmSamples >= 2 || this.age > 8) this.freeze();
+    if ((this.stillTime > 0.5 && this.age > 1.0) || this.calmSamples >= 2 || this.age > 5) this.freeze();
   }
 
   /** Remove from the simulation; meshes stay put. */
@@ -351,7 +353,15 @@ export class Ragdoll {
    * Bodies are re-placed from the bones' current world transforms, so the rig
    * may have been moved while frozen.
    */
-  wake(): void {
+  wake(lively = false): void {
+    if (lively && this.calmed) {
+      // Loosen up again (twitching): low damping so jolts read.
+      this.calmed = false;
+      for (const p of this.parts) {
+        p.body.linearDamping = 0.1;
+        p.body.angularDamping = 0.5;
+      }
+    }
     if (!this.frozen) {
       this.stillTime = 0;
       this.calmSamples = 0;
@@ -371,7 +381,7 @@ export class Ragdoll {
       this.constraints.push(c);
     }
     this.frozen = false;
-    this.age = 0.9;
+    this.age = lively ? 0.2 : 0.9;
     this.stillTime = 0;
     this.calmSamples = 0;
     this.sampleT = 0;
@@ -472,7 +482,7 @@ function addShape(body: CANNON.Body, spec: BoneSpec, scale: number): void {
     const hl = Math.max(0.01, sz[1]);
     const axis = spec.axis ?? 'y';
     const d = axis === 'x' ? new CANNON.Vec3(1, 0, 0) : axis === 'z' ? new CANNON.Vec3(0, 0, 1) : new CANNON.Vec3(0, 1, 0);
-    const n = Math.max(2, Math.ceil((2 * hl) / r)) + 1;
+    const n = Math.min(3, Math.max(2, Math.ceil((2 * hl) / r)) + 1);
     for (let i = 0; i < n; i++) {
       const t = -hl + (2 * hl * i) / (n - 1);
       body.addShape(new CANNON.Sphere(r), off.vadd(d.scale(t)));

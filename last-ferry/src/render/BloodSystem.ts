@@ -128,8 +128,9 @@ const dropVert = /* glsl */ `
 
 const dropFrag = /* glsl */ `
   varying float vShade;
+  uniform vec3 uTint;
   void main() {
-    gl_FragColor = vec4(vec3(0.42, 0.015, 0.02) * vShade, 1.0);
+    gl_FragColor = vec4(vec3(0.42, 0.015, 0.02) * vShade * uTint, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
@@ -153,6 +154,8 @@ export class BloodSystem {
   private aVel: THREE.InstancedBufferAttribute;
   /** 0.4 / 1 / 1.8 multiplier from options. */
   amount = 1;
+  /** Scene light on the (unlit) flying droplets. */
+  readonly lightTint = new THREE.Color(1, 1, 1);
   /** Tells whether (x,z) is on the ice (droplets landing elsewhere sink). */
   isOnFloe: (x: number, z: number) => boolean = () => true;
   gravity = 42;
@@ -215,7 +218,7 @@ export class BloodSystem {
     this.dropGeo.instanceCount = 0;
     this.dropMesh = new THREE.Mesh(
       this.dropGeo,
-      new THREE.ShaderMaterial({ vertexShader: dropVert, fragmentShader: dropFrag }),
+      new THREE.ShaderMaterial({ vertexShader: dropVert, fragmentShader: dropFrag, uniforms: { uTint: { value: this.lightTint } } }),
     );
     this.dropMesh.frustumCulled = false;
     this.dropMesh.layers.enable(REFLECT_LAYER);
@@ -331,7 +334,7 @@ export class BloodSystem {
     const [z0, z1] = o.size ?? [0.03, 0.085];
     const jitter = o.jitter ?? 0.8;
     for (let i = 0; i < n; i++) {
-      if (this.drops.length >= MAX_DROPS) this.drops.shift();
+      if (this.drops.length >= MAX_DROPS) break;
       const sp = s0 + Math.random() * (s1 - s0);
       const a = (Math.random() - 0.5) * 2 * spread;
       const c = Math.cos(a);

@@ -5,7 +5,7 @@ import type { World } from '../../core/World';
 import type { BloodSystem } from '../BloodSystem';
 import { Corpses } from '../Corpses';
 import { Debris } from '../Debris';
-import type { Effects } from '../Effects';
+import { Effects } from '../Effects';
 import type { Environment } from '../env/Environment';
 import { Physics } from '../Physics';
 import type { Stage } from '../Stage';
@@ -18,10 +18,13 @@ import { Hunters } from './Hunters';
 import { LightPool } from './LightPool';
 import { Shake } from './Shake';
 import { F, metalHit, splinters } from './fx';
+import { createZombieRig } from '../models/index';
+import { skinify } from './skin';
 
 export type { ViewOptions };
 
 const _m = new THREE.Vector3();
+const LIGHT_TINT = new THREE.Color();
 
 export class ViewCore {
   readonly ctx: Ctx;
@@ -32,6 +35,8 @@ export class ViewCore {
   private unsub: Array<() => void> = [];
   private opts: ViewOptions = { blood: 'normal', shake: 1 };
   private warmStep = 0;
+  /** Draw calls of the last rendered frame (all passes). */
+  private lastCalls = 0;
 
   constructor(stage: Stage, env: Environment, blood: BloodSystem, effects: Effects) {
     const scene = stage.scene;
@@ -67,6 +72,13 @@ export class ViewCore {
       bloodK: 1,
       darkness: 0,
     };
+    // Count draw calls over whole frames (shadow, reflection, backdrop, scene, post).
+    const info = stage.renderer.info;
+    info.autoReset = false;
+    stage.onUpdate(() => info.reset());
+    stage.onPostRender(() => {
+      this.lastCalls = info.render.calls;
+    });
     this.horde = new Horde(this.ctx);
     this.bodies = new Bodies(this.ctx, this.horde);
     this.hunters = new Hunters(this.ctx);
@@ -123,6 +135,7 @@ export class ViewCore {
       ctx.blood.spray({ x: hp.x + 0.3, y: hp.y - 0.2, z: hp.z }, 10, { dirX: 1, speed: [1, 3], up: [0, 1], spread: 0.6 });
     });
     on('enrage', () => ctx.shake.add(0.15));
+    on('groan', (e) => this.horde.onGroan(e.zombieId));
 
     // Bodies.
     on('corpseTwitch', (e) => this.bodies.onTwitch(e.corpseId));
@@ -245,6 +258,11 @@ export class ViewCore {
     const env = ctx.env;
     ctx.darkness = env.lightRig.darkness;
     ctx.lights.boost = 1 + 0.6 * ctx.darkness;
+    // Unlit smoke, gas, dust and droplets follow the light level.
+    const dk = ctx.darkness;
+    LIGHT_TINT.setRGB(1 - 0.66 * dk, 0.97 - 0.62 * dk, 0.94 - 0.5 * dk);
+    Effects.lightTint.copy(LIGHT_TINT);
+    ctx.blood.lightTint.setRGB(1 - 0.45 * dk, 1 - 0.45 * dk, 1 - 0.4 * dk);
     const w = ctx.world;
     if (w) {
       env.setTimeOfDay(w.timeOfDay);
@@ -267,12 +285,81 @@ export class ViewCore {
     env.update(dt, ctx.time);
   }
 
-  /** Shader / pipeline warm-up: one representative of each effect, a step at a time. */
+  /**
+   * Shader / pipeline warm-up: put one of everything the view can draw in front
+   * of the camera (a charred rig, a baked body, every particle layer, beams,
+   * rings, gore, casings), compile, let the app render a frame or two with them,
+   * then take them away. Returns true when done.
+   */
   prewarm(budgetMs: number): boolean {
     void budgetMs;
-    this.warmStep++;
-    return this.warmStep > 2;
+    const ctx = this.ctx;
+    if (this.warmStep === 0) {
+      const g = new THREE.Group();
+      g.name = 'Prewarm';
+      const a = createZombieRig('shambler', 7);
+      a.root.position.set(4, 0, 2);
+      a.setCharred(0.5);
+      g.add(a.root);
+      const b = createZombieRig('bloater', 11);
+      b.root.position.set(6, 0, 2);
+      g.add(b.root);
+      // Live zombies are drawn skinned (plain and charred variants).
+      const d = createZombieRig('shambler', 9);
+      d.root.position.set(2, 0, 2);
+      g.add(d.root);
+      skinify(d);
+      const e = createZombieRig('jogger', 5);
+      e.root.position.set(0, 0, 2);
+      g.add(e.root);
+      skinify(e);
+      e.setCharred(0.6);
+      for (const o of this.hazards.prewarmObjects()) g.add(o);
+      const c = createZombieRig('riot', 3);
+      c.root.position.set(8, 0, 2);
+      ctx.scene.add(g);
+      ctx.scene.add(c.root);
+      c.root.updateMatrixWorld(true);
+      this.warm = { group: g, bake: ctx.corpses.bake(c.root) };
+      const fx = ctx.effects;
+      fx.emit(true, 4, 1, 2, { life: 0.3, frame: 2 });
+      fx.emit(false, 4, 1, 2, { life: 0.3, frame: 1 });
+      fx.beam(_m.set(3, 1, 2), new THREE.Vector3(5, 1, 2), 0.05, 0xffffff, 0.5, 0.2);
+      fx.beamFrame(_m.set(3, 1, 2), new THREE.Vector3(5, 1, 2), 0.05, 0xffffff, 0.5, true);
+      fx.ring(4, 0.05, 2, 0.2, 1, 0.3, 0xffffff, 0.2);
+      ctx.gore.burst({ x: 4, y: 0.5, z: 2 }, 2, { speed: 0.5 });
+      ctx.debris.shell('shotgun', _m.set(4, 1, 2), new THREE.Vector3(), 0.2);
+      ctx.debris.shell('minigun', _m.set(4, 1, 2), new THREE.Vector3(), 0.2);
+      try {
+        ctx.stage.renderer.compile(ctx.scene, ctx.stage.camera);
+      } catch {
+        /* compile is an optimisation only */
+      }
+      this.warmStep = 1;
+      return false;
+    }
+    if (this.warmStep === 1) {
+      // Render one frame with everything in view (shadow and reflection passes compile too).
+      this.warmStep = 2;
+      try {
+        ctx.stage.frame(0, true);
+      } catch {
+        /* optimisation only */
+      }
+      return false;
+    }
+    if (this.warm) {
+      this.hazards.endPrewarm();
+      this.warm.group.removeFromParent();
+      ctx.corpses.unbake(this.warm.bake);
+      this.warm = null;
+      ctx.effects.clear();
+      ctx.gore.clear();
+      ctx.debris.clear();
+    }
+    return true;
   }
+  private warm: { group: THREE.Group; bake: import('../Corpses').BakeHandle } | null = null;
 
   stats(): { zombies: number; corpses: number; ragdolls: number; drops: number; drawCalls: number } {
     const ctx = this.ctx;
@@ -281,7 +368,7 @@ export class ViewCore {
       corpses: ctx.corpses.count + this.bodies.liveCount,
       ragdolls: this.bodies.ragdolls,
       drops: ctx.blood.activeDrops,
-      drawCalls: ctx.stage.renderer.info.render.calls,
+      drawCalls: this.lastCalls,
     };
   }
 }

@@ -10,7 +10,7 @@
 //   ?quality=low|medium|high (this session)  ?nosound    no audio at all
 //
 // window.__lf: { stage, env, game, audio, screens, view, world(), step(n, dt),
-//   spawn(kind, x, z, opts), setChapter(n), god(on), money(n), stats(), skipToBoss() }
+//   spawn(kind, x, z, opts), setChapter(n), god(on), money(n), autoplay(on), stats(), skipToBoss() }
 import { AudioSystem } from './audio';
 import type { ZombieKind } from './config/ids';
 import type { SpawnOpts } from './core/World';
@@ -121,6 +121,10 @@ async function boot(): Promise<void> {
     },
     money(n: number) {
       if (game.world) game.world.player.money = n;
+    },
+    /** Let the bot play the running game (true) or give it back (false). */
+    autoplay(on = true) {
+      game.setAutoplay(on);
     },
     skipToBoss() {
       game.world?.skipToBoss();

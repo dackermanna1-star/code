@@ -80,6 +80,8 @@ const WEAPON_K: Record<string, number> = { revolver: 1, nailgun: 0.7, shotgun: 1
 const AIM_K = 2.3;
 /** In the lying pose the pelvis sits this far ahead (+x) of the rig root. */
 const PELVIS_X = 0.08;
+/** Ragdolls simulated at once (older ones freeze where they are). */
+const MAX_RAGDOLLS = 14;
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
@@ -97,8 +99,8 @@ function ashGeometry(): THREE.BufferGeometry {
     const y = pos.getY(i);
     const z = pos.getZ(i);
     const n = 0.8 + 0.35 * Math.sin(x * 7.1 + z * 5.3) * Math.cos(z * 6.7 - x * 3.1);
-    pos.setXYZ(i, x * 0.85, y * 0.22 * n, z * 0.5);
-    const c = 0.07 + 0.09 * Math.max(0, y) * n + 0.03 * Math.sin(x * 23 + z * 17);
+    pos.setXYZ(i, x * 0.85, y * 0.12 * n, z * 0.5);
+    const c = 0.035 + 0.05 * Math.max(0, y) * n + 0.02 * Math.sin(x * 23 + z * 17);
     col[i * 3] = c * 1.05;
     col[i * 3 + 1] = c;
     col[i * 3 + 2] = c * 0.95;
@@ -287,12 +289,19 @@ export class Bodies {
     } else {
       vel.set(e.dirX * dv * 0.5, 0, e.dirZ * dv * 0.3);
     }
-    vel.y = dv * 0.22;
+    vel.y = dv * (e.weapon === 'shotgun' ? 0.32 : 0.2);
     const dir = new THREE.Vector3(e.dirX, 0.3, e.dirZ).normalize();
+    // The blow jolts the part it hit (the body twists and folds over it);
+    // the rest of the body is biased the other way so the whole still lands
+    // where the logic put it.
+    const jolt = dv * 1.05;
+    if (target) {
+      vel.x -= dir.x * jolt * 0.55;
+      vel.z -= dir.z * jolt * 0.55;
+    }
     opts.velocity = vel;
-    opts.impulse = { point: pt, dir, speed: dv * 0.55 };
+    opts.impulse = { point: pt, dir, speed: jolt };
     const gibBones = new Set(Object.entries(rig.spec).filter(([, s]) => s.gib).map(([k]) => k));
-    const bloodK = ctx.bloodK;
     const blood = ctx.blood;
     const head = rig.bones.get(rig.head);
 
@@ -327,9 +336,9 @@ export class Bodies {
           return;
         }
         opts.detach = gibBones;
-        opts.detachSpeed = 7 + Math.min(5, force / 120);
+        opts.detachSpeed = 3.5 + Math.min(2.5, force / 200);
         const bp = ex ? new THREE.Vector3(ex.x, Math.min(ex.y, 0.3), ex.z) : new THREE.Vector3(z.x - e.dirX, 0.2, z.z - e.dirZ);
-        opts.blast = { point: bp, speed: Math.min(9, 4 + force / 120) };
+        opts.blast = { point: bp, speed: Math.min(5.5, 3 + force / 200) };
         opts.guide = undefined;
         opts.impulse = undefined;
         opts.velocity = new THREE.Vector3(0, 1, 0);
@@ -338,9 +347,14 @@ export class Bodies {
       }
       case 'pop': {
         this.pop(rec, pelvisPos);
-        // The legs stay standing for a moment, then topple.
+        // Only the legs are left: they stand for a moment, then topple.
         const chest = rig.bones.get('chest');
         if (chest) chest.visible = false;
+        const pel = rig.bones.get('pelvis');
+        if (pel) for (const c of pel.children) if ((c as THREE.Mesh).isMesh) c.visible = false;
+        const belly = rig.bones.get('belly');
+        if (belly) belly.visible = false;
+        if (rig.apron) rig.apron.visible = false;
         opts.guide = undefined;
         opts.impulse = { point: pelvisPos.clone().add(new THREE.Vector3(0.3, 0.3, 0)), dir: new THREE.Vector3(rand(-1, 1), 0.2, rand(-1, 1)).normalize(), speed: 1.2 };
         opts.velocity = new THREE.Vector3(0, 0.5, 0);
@@ -401,8 +415,8 @@ export class Bodies {
       this.seenCorpse = Math.max(this.seenCorpse, corpse.id);
     }
     this.active.push(body);
-    if (body.permanent || kind === 'burn') rig.setEyeGlow(kind !== 'burn' && !body.permanent);
-    void bloodK;
+    // Bodies that will never rise have their eyes put out.
+    if (body.permanent) rig.setEyeGlow(false);
   }
 
   /** Head destroyed: red mist, chunks, a spray. */
@@ -439,7 +453,7 @@ export class Bodies {
     for (let i = 0; i < 14 * k; i++) {
       const a = Math.random() * Math.PI * 2;
       const s = rand(1.5, 4) * Math.sqrt(k);
-      ctx.effects.emit(false, c.x, c.y, c.z, { vel: [Math.cos(a) * s, rand(0.5, 2.5), Math.sin(a) * s * 0.7], drag: 2.2, size: [0.4 * k, 1.6 * k], life: rand(1, 1.8), color: 0x9cc040, color1: 0x5a7a20, alpha: [0.45, 0], frame: F.Smoke, vr: rand(-1, 1) });
+      ctx.effects.emit(false, c.x, c.y, c.z, { vel: [Math.cos(a) * s, rand(0.5, 2.5), Math.sin(a) * s * 0.7], drag: 2.2, size: [0.4 * k, 1.3 * k], life: rand(1, 1.8), color: 0x7a8c34, color1: 0x46561c, alpha: [0.26, 0], frame: F.Smoke, vr: rand(-1, 1) });
     }
     ctx.effects.ring(p.x, 0.05, p.z, 0.3, 2.4 * k, 0.4, 0xb04030, 0.6);
     ctx.shake.add(dave ? 0.45 : 0.12);
@@ -599,9 +613,10 @@ export class Bodies {
     rig.root.position.set(zb.x, zb.y, zb.z);
     rig.root.rotation.set(0, zb.facing < 0 ? Math.PI : 0, 0);
     rig.root.updateMatrixWorld(true);
-    if (pelvis && pw) {
+    if (pelvis && pw && pelvis.parent) {
       // Keep the lying pose where it is: re-express the pelvis under the moved root.
-      _m.copy(rig.root.matrixWorld).invert().multiply(pw);
+      pelvis.parent.updateMatrixWorld(true);
+      _m.copy(pelvis.parent.matrixWorld).invert().multiply(pw);
       _m.decompose(pelvis.position, pelvis.quaternion, _s);
     }
     rig.setEyeGlow(true);
@@ -708,7 +723,7 @@ export class Bodies {
         b.rig.root.updateMatrixWorld(true);
         const gibBones = new Set(Object.entries(b.rig.spec).filter(([, s]) => s.gib).map(([k]) => k));
         const bp = ex ? new THREE.Vector3(ex.x, 0, ex.z) : p.clone().setY(0);
-        b.rag = new Ragdoll(ctx.physics, b.rig, { detach: gibBones, detachSpeed: 8, blast: { point: bp, speed: 7 }, velocity: new THREE.Vector3(0, 1.5, 0) });
+        b.rag = new Ragdoll(ctx.physics, b.rig, { detach: gibBones, detachSpeed: 4, blast: { point: bp, speed: 4.5 }, velocity: new THREE.Vector3(0, 1, 0) });
         b.rag.onFrozen = () => this.onSettled(b);
         b.id = null;
         b.permanent = true;
@@ -814,7 +829,7 @@ export class Bodies {
     const ctx = this.ctx;
     const m = new THREE.Mesh(ashGeometry(), MATERIALS.cloth);
     m.userData.matClass = 'cloth';
-    const s = 0.55 * Math.sqrt(k);
+    const s = 0.5 * Math.sqrt(k);
     m.position.set(x, 0.0, z);
     m.scale.set(s * rand(0.9, 1.2), s, s * rand(0.9, 1.2));
     m.rotation.y = Math.random() * Math.PI;
@@ -836,6 +851,7 @@ export class Bodies {
       this.pendingKebab.clear();
     }
     this.updateKebabs(dt, muzzleOf);
+    this.capRagdolls();
     const list = this.active;
     for (let i = list.length - 1; i >= 0; i--) {
       const b = list[i];
@@ -858,19 +874,20 @@ export class Bodies {
         b.jolt -= dt;
         if (b.jolt <= 0) {
           const prog = 1 - b.twitch / 2.2;
-          b.jolt = rand(0.14, 0.4) * (1 - 0.35 * prog);
-          rag.wake();
-          const limbs = ['foreArmL', 'foreArmR', 'shinL', 'shinR', 'upperArmL', 'upperArmR', 'head'];
-          const n = 1 + (Math.random() < 0.5 ? 1 : 0);
-          const s = 1.6 + 1.6 * prog;
-          for (let j = 0; j < n; j++) {
+          b.jolt = rand(0.1, 0.3) * (1 - 0.35 * prog);
+          rag.wake(true);
+          const limbs = ['foreArmL', 'foreArmR', 'shinL', 'shinR', 'upperArmL', 'upperArmR', 'thighL', 'thighR'];
+          const s = 2.2 + 2 * prog;
+          for (let j = 0; j < 2; j++) {
             const limb = limbs[(Math.random() * limbs.length) | 0];
-            rag.kick(rand(-1, 1) * s * 0.6, rand(1.2, 2.4) * s, rand(-1, 1) * s * 0.5, limb, 10);
+            rag.kick(rand(-1, 1) * s * 0.5, rand(1.4, 2.6) * s, rand(-1, 1) * s * 0.45, limb, 12);
           }
-          if (Math.random() < 0.3 + 0.3 * prog) rag.kick(0, rand(1.2, 2.2), 0, 'chest', 3);
-          if (Math.random() < 0.25) {
+          // The back arches, the head snaps.
+          if (Math.random() < 0.45 + 0.3 * prog) rag.kick(0, rand(1.8, 3.2), 0, 'chest', 4);
+          if (Math.random() < 0.4) rag.kick(rand(-1, 1), rand(1.5, 3), rand(-1, 1), b.rig.head, 14);
+          if (Math.random() < 0.3) {
             const ch = b.rig.bones.get('chest');
-            if (ch) ctx.blood.spray(ch.getWorldPosition(_v), 5, { dirX: 0, speed: [0.3, 1.2], up: [1, 2.5], spread: Math.PI });
+            if (ch) ctx.blood.spray(ch.getWorldPosition(_v), 6, { dirX: 0, speed: [0.3, 1.4], up: [1, 2.8], spread: Math.PI });
           }
         }
         if (b.twitch <= 0) {
@@ -903,6 +920,21 @@ export class Bodies {
     }
   }
 
+  /** Too many bodies in the simulation at once: the oldest calm ones stop where they are. */
+  private capRagdolls(): void {
+    let n = 0;
+    for (const b of this.active) if (b.rag && !b.rag.frozen) n++;
+    if (n <= MAX_RAGDOLLS) return;
+    const cands = this.active.filter((b) => b.rag && !b.rag.frozen && !b.rag.pinned && b.twitch <= 0 && !b.sinking);
+    cands.sort((a, b) => b.rag!.age - a.rag!.age);
+    for (let i = 0; i < cands.length && n > MAX_RAGDOLLS; i++) {
+      const r = cands[i].rag!;
+      if (r.age < 0.6) break;
+      r.freeze();
+      n--;
+    }
+  }
+
   private bakeOrphanless(b: Body): void {
     if (b.twitch > 0) return;
     this.bake(b);
@@ -913,7 +945,7 @@ export class Bodies {
     const fx = ctx.effects;
     b.charred = Math.min(1, b.charred + dt / 4.5);
     b.rig.setCharred(b.charred);
-    const rate = 26 * fx.density * Math.sqrt(b.massK);
+    const rate = 48 * fx.density * Math.sqrt(b.massK);
     let n = rate * dt;
     const names = ['chest', 'pelvis', 'head', 'thighL', 'thighR', 'upperArmL', 'upperArmR'];
     while (n > 0) {
@@ -922,7 +954,7 @@ export class Bodies {
       const bone = b.rig.bones.get(names[(Math.random() * names.length) | 0]);
       if (!bone) continue;
       bone.getWorldPosition(_v);
-      flame(fx, _v.x + rand(-0.12, 0.12), Math.max(0.05, _v.y), _v.z + rand(-0.1, 0.1), rand(0.8, 1.3) * Math.sqrt(b.massK));
+      flame(fx, _v.x + rand(-0.15, 0.15), Math.max(0.05, _v.y), _v.z + rand(-0.12, 0.12), rand(1.1, 1.8) * Math.sqrt(b.massK), Math.random() < 0.25);
     }
     if (Math.random() < dt * 4) {
       const ch = b.rig.bones.get('chest');
@@ -942,7 +974,7 @@ export class Bodies {
     if (pel) {
       pel.getWorldPosition(_v);
       const fl = 0.75 + 0.2 * Math.sin(ctx.time * 19 + b.seed) + 0.12 * Math.sin(ctx.time * 37.7 + b.seed * 2);
-      ctx.lights.add(_v.x, 0.7, _v.z + 0.3, 0xff7020, 6 * fl, 5.5, 0.9);
+      ctx.lights.add(_v.x, 0.8, _v.z + 0.3, 0xff7020, 9 * fl, 6.5, 0.9);
     }
   }
 }
