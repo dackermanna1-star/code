@@ -87,7 +87,7 @@ public class ReliquaryBlock extends BaseEntityBlock {
 			return InteractionResult.SUCCESS;
 		}
 		if (!(level.getBlockEntity(pos) instanceof ReliquaryBlockEntity reliquary)) {
-			return InteractionResult.PASS;
+			return InteractionResult.CONSUME;
 		}
 		if (reliquary.hasLooted(player.getUUID())) {
 			serverPlayer.displayClientMessage(Component.translatable("message.abyssal_descent.reliquary.claimed"), true);

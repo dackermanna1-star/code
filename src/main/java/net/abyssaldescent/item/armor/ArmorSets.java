@@ -30,8 +30,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Armour set bonuses. Counts equipped pieces every half second and applies transient modifiers; event-driven bonuses
- * (Deathward, Veil) are queried from the combat hooks.
+ * Armour set bonuses. Counts equipped pieces every half second and applies the attribute modifiers; event-driven
+ * bonuses (Deathward, Veil) are queried from the combat hooks.
  */
 public final class ArmorSets {
 	public static final String GRAVEWARDEN = "gravewarden";
@@ -43,7 +43,13 @@ public final class ArmorSets {
 	private static final Identifier WRAITHBOUND_DAMAGE = AbyssalDescent.id("set_wraithbound_damage");
 	private static final Identifier WRAITHBOUND_CURSE = AbyssalDescent.id("set_wraithbound_curse");
 	private static final int VEIL_TICKS = 60;
+	private static final int DEATHWARD_COOLDOWN = 20 * 90;
 	private static final Map<UUID, Long> LAST_HURT = new HashMap<>();
+	/**
+	 * Game time Deathward was last spent. The DEATHWARD_SPENT effect is only its indicator: milk, a totem or a command
+	 * would clear it.
+	 */
+	private static final Map<UUID, Long> DEATHWARD_SPENT_AT = new HashMap<>();
 
 	private ArmorSets() {
 	}
@@ -65,37 +71,52 @@ public final class ArmorSets {
 		boolean wraith = count(player, WRAITHBOUND) >= 2;
 		toggle(player, Attributes.ATTACK_DAMAGE, WRAITHBOUND_DAMAGE, wraith, 0.15, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
 		toggle(player, Attributes.MAX_HEALTH, WRAITHBOUND_CURSE, wraith, -4.0, AttributeModifier.Operation.ADD_VALUE);
-		if (count(player, MOURNER) >= 4 && veilReady(player) && player.tickCount % 10 == 0 && player.level() instanceof ServerLevel level) {
+		if (count(player, MOURNER) >= 4 && veilReady(player) && player.level() instanceof ServerLevel level) {
 			level.sendParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 0.2, player.getZ(), 2, 0.25, 0.05, 0.25, 0.0);
 		}
 		if (player.getHealth() > player.getMaxHealth()) {
 			player.setHealth(player.getMaxHealth());
 		}
+		// The indicator and the cooldown restore each other: the saved effect after a restart, the effect after milk.
+		MobEffectInstance indicator = player.getEffect(ModEffects.DEATHWARD_SPENT);
+		long cooldown = deathwardCooldown(player);
+		if (cooldown > 0 && indicator == null) {
+			player.addEffect(deathwardSpent((int) cooldown));
+		} else if (cooldown <= 0 && indicator != null && !indicator.isInfiniteDuration()) {
+			DEATHWARD_SPENT_AT.put(player.getUUID(), player.level().getGameTime() - DEATHWARD_COOLDOWN + indicator.getDuration());
+		} else if (cooldown <= 0) {
+			DEATHWARD_SPENT_AT.remove(player.getUUID());
+		}
 	}
 
+	/**
+	 * Adds or removes a set modifier. The modifier is saved with the player (like vanilla's effect modifiers), so a
+	 * health bonus is already in place when the saved health is loaded and is not clamped away on a relog.
+	 */
 	private static void toggle(ServerPlayer player, net.minecraft.core.Holder<net.minecraft.world.entity.ai.attributes.Attribute> attribute, Identifier id,
 		boolean on, double amount, AttributeModifier.Operation op) {
 		AttributeInstance instance = player.getAttribute(attribute);
 		if (instance == null) {
 			return;
 		}
-		boolean has = instance.hasModifier(id);
-		if (on && !has) {
-			instance.addTransientModifier(new AttributeModifier(id, amount, op));
-		} else if (!on && has) {
+		AttributeModifier current = instance.getModifier(id);
+		if (on && (current == null || current.amount() != amount || current.operation() != op)) {
+			instance.addOrReplacePermanentModifier(new AttributeModifier(id, amount, op));
+		} else if (!on && current != null) {
 			instance.removeModifier(id);
 		}
 	}
 
 	/** Gravewarden 4pc: survive a lethal blow once every 90 seconds. Returns true if death was prevented. */
 	public static boolean tryDeathward(ServerPlayer player) {
-		if (count(player, GRAVEWARDEN) < 4 || player.hasEffect(ModEffects.DEATHWARD_SPENT)) {
+		if (count(player, GRAVEWARDEN) < 4 || deathwardCooldown(player) > 0 || player.hasEffect(ModEffects.DEATHWARD_SPENT)) {
 			return false;
 		}
 		ServerLevel level = (ServerLevel) player.level();
 		player.setHealth(2.0F);
 		player.addEffect(new MobEffectInstance(MobEffects.ABSORPTION, 100, 1));
-		player.addEffect(new MobEffectInstance(ModEffects.DEATHWARD_SPENT, 20 * 90, 0, false, false, true));
+		DEATHWARD_SPENT_AT.put(player.getUUID(), level.getGameTime());
+		player.addEffect(deathwardSpent(DEATHWARD_COOLDOWN));
 		for (LivingEntity e : level.getEntitiesOfClass(LivingEntity.class, player.getBoundingBox().inflate(4.0), e -> e instanceof Enemy && e.isAlive())) {
 			e.hurtServer(level, level.damageSources().source(ModDamageTypes.SOUL_MAGIC, player), 4.0F);
 			Vec3 push = e.position().subtract(player.position()).normalize();
@@ -106,6 +127,16 @@ public final class ArmorSets {
 		level.playSound(null, player.getX(), player.getY(), player.getZ(), ModSounds.DEATHWARD, SoundSource.PLAYERS, 1.5F, 1.0F);
 		player.displayClientMessage(Component.translatable("message.abyssal_descent.deathward").withStyle(ChatFormatting.AQUA), true);
 		return true;
+	}
+
+	/** Ticks until Deathward is ready again (0 when ready). */
+	private static long deathwardCooldown(Player player) {
+		Long spent = DEATHWARD_SPENT_AT.get(player.getUUID());
+		return spent == null ? 0 : Math.max(0, spent + DEATHWARD_COOLDOWN - player.level().getGameTime());
+	}
+
+	private static MobEffectInstance deathwardSpent(int ticks) {
+		return new MobEffectInstance(ModEffects.DEATHWARD_SPENT, ticks, 0, false, false, true);
 	}
 
 	public static void onPlayerHurt(Player player) {

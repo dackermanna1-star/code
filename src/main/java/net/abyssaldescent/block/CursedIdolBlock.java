@@ -58,7 +58,8 @@ public class CursedIdolBlock extends HorizontalDirectionalBlock {
 	@Override
 	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
 		if (state.getValue(USED)) {
-			return InteractionResult.PASS;
+			// Still consumes the click: passing would let vanilla place the held block against the idol.
+			return InteractionResult.CONSUME;
 		}
 		if (level instanceof ServerLevel serverLevel && player instanceof ServerPlayer serverPlayer) {
 			if (RunManager.get(serverLevel.getServer()).useCursedIdol(serverPlayer, pos)) {

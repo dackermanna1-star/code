@@ -648,12 +648,40 @@ public final class LayoutGenerator {
 				return;
 			}
 			boolean darts = floor >= 2 && r.nextFloat() < 0.45F;
-			corridor.setTrap(darts ? Corridor.Trap.DARTS : Corridor.Trap.SPIKES);
 			int mid = alongX ? seg.centerX() : seg.centerZ();
-			if (darts) {
-				// Two wall-mounted dart launchers on opposite walls, staggered.
-				for (int i = 0; i < 2; i++) {
-					int along = mid + (i == 0 ? -1 : 1) * (1 + r.nextInt(2));
+			if (darts && placeDarts(corridor, seg, alongX, mid, r)) {
+				corridor.setTrap(Corridor.Trap.DARTS);
+			} else {
+				// Also the fallback when no wall block could take a launcher; spikes sit in the floor anywhere.
+				corridor.setTrap(Corridor.Trap.SPIKES);
+				int rows = 2 + (zone.ordinal() + local >= 4 ? 1 : 0);
+				int startRow = mid - rows / 2;
+				for (int row = 0; row < rows; row++) {
+					for (int w = -1; w <= 1; w++) {
+						BlockPos pos = alongX ? new BlockPos(startRow + row, Y0, seg.centerZ() + w) : new BlockPos(seg.centerX() + w, Y0, startRow + row);
+						corridor.addFixture(Fixture.of(Fixture.Type.SPIKE_TRAP, pos));
+					}
+				}
+			}
+		}
+
+		/** Two wall-mounted dart launchers on opposite walls of {@code seg}, staggered. False if neither found a wall. */
+		private boolean placeDarts(Corridor corridor, Box seg, boolean alongX, int mid, RandomSource r) {
+			int segMin = alongX ? seg.minX() : seg.minZ();
+			int segMax = alongX ? seg.maxX() : seg.maxZ();
+			int length = segMax - segMin + 1;
+			int first = Integer.MIN_VALUE;
+			boolean placed = false;
+			for (int i = 0; i < 2; i++) {
+				int dir = i == 0 ? -1 : 1;
+				int target = mid + dir * (1 + r.nextInt(2));
+				// The other legs of a bent corridor open the side walls at the bends and the ends meet the room walls (with
+				// their doorways), so slide to the nearest block of this wall that is solid corridor wall, outward first.
+				for (int step = 0; step <= 2 * length; step++) {
+					int along = target + dir * ((step & 1) == 1 ? (step + 1) / 2 : -step / 2);
+					if (along < segMin || along > segMax || along == first) {
+						continue;
+					}
 					BlockPos pos;
 					Direction facing;
 					if (alongX) {
@@ -665,18 +693,34 @@ public final class LayoutGenerator {
 						pos = new BlockPos(west ? seg.minX() - 1 : seg.maxX() + 1, Y0 + 1, along);
 						facing = west ? Direction.EAST : Direction.WEST;
 					}
-					corridor.addFixture(Fixture.of(Fixture.Type.DART_TRAP, pos, facing));
-				}
-			} else {
-				int rows = 2 + (zone.ordinal() + local >= 4 ? 1 : 0);
-				int startRow = mid - rows / 2;
-				for (int row = 0; row < rows; row++) {
-					for (int w = -1; w <= 1; w++) {
-						BlockPos pos = alongX ? new BlockPos(startRow + row, Y0, seg.centerZ() + w) : new BlockPos(seg.centerX() + w, Y0, startRow + row);
-						corridor.addFixture(Fixture.of(Fixture.Type.SPIKE_TRAP, pos));
+					if (isCorridorWall(corridor, pos, facing)) {
+						corridor.addFixture(Fixture.of(Fixture.Type.DART_TRAP, pos, facing));
+						first = along;
+						placed = true;
+						break;
 					}
 				}
 			}
+			return placed;
+		}
+
+		/** A block of corridor wall: outside every passage and room shell, facing into {@code corridor}. */
+		private boolean isCorridorWall(Corridor corridor, BlockPos pos, Direction facing) {
+			BlockPos front = pos.relative(facing);
+			if (!corridor.containsInterior(front.getX(), front.getY(), front.getZ())) {
+				return false;
+			}
+			for (Corridor c : corridors) {
+				if (c.containsInterior(pos.getX(), pos.getY(), pos.getZ())) {
+					return false;
+				}
+			}
+			for (Room room : rooms) {
+				if (room.shell().contains(pos)) {
+					return false;
+				}
+			}
+			return true;
 		}
 
 		private void shuffle(List<Integer> list) {

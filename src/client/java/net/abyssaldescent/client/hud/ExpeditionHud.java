@@ -57,6 +57,7 @@ public final class ExpeditionHud {
 		if (!hud.active()) {
 			lastObjective = -1;
 			syncedCountdown = localCountdown = 0;
+			drop = 0.0F;
 			return;
 		}
 		if (hud.countdown() != syncedCountdown) {
@@ -123,7 +124,9 @@ public final class ExpeditionHud {
 		// Drop below the boss bar when the two would overlap (narrow windows, large GUI scales).
 		int barBottom = DungeonBossBar.bottom(minecraft, graphics.guiHeight());
 		float targetDrop = barBottom > 0 && left + width > DungeonBossBar.left(graphics.guiWidth()) ? barBottom + 2 - top : 0;
-		drop += (targetDrop - drop) * 0.2F;
+		// Eases 20% of the way per 1/60 s of real time, so the step takes as long at any frame rate.
+		float ease = 1.0F - (float) Math.pow(0.8, delta.getRealtimeDeltaTicks() * 3.0F);
+		drop += (targetDrop - drop) * Mth.clamp(ease, 0.0F, 1.0F);
 		top += Math.round(drop);
 
 		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, left, top, width, height, ARGB.white(fade * 0.92F));

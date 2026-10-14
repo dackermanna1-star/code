@@ -1,5 +1,6 @@
 package net.abyssaldescent.entity.projectile;
 
+import net.abyssaldescent.entity.DungeonMonster;
 import net.abyssaldescent.registry.ModDamageTypes;
 import net.abyssaldescent.registry.ModEntities;
 import net.abyssaldescent.registry.ModParticles;
@@ -12,6 +13,7 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
 import net.minecraft.world.level.Level;
@@ -32,6 +34,8 @@ public class SoulBoltEntity extends Projectile {
 	private float damage = 4.0F;
 	private double homing;
 	private double speed = 0.4;
+	/** Fired by a hostile mob. Kept on the bolt because the owner can be removed (killed) while it is in flight. */
+	private boolean hostile;
 
 	public SoulBoltEntity(EntityType<? extends SoulBoltEntity> type, Level level) {
 		super(type, level);
@@ -40,6 +44,7 @@ public class SoulBoltEntity extends Projectile {
 	public SoulBoltEntity(Level level, LivingEntity owner, Vec3 direction, double speed, float damage, double homing) {
 		this(ModEntities.SOUL_BOLT, level);
 		setOwner(owner);
+		this.hostile = owner instanceof Enemy;
 		this.damage = damage;
 		this.homing = homing;
 		this.speed = speed;
@@ -83,7 +88,9 @@ public class SoulBoltEntity extends Projectile {
 		if (level() instanceof ServerLevel level) {
 			Entity owner = getOwner();
 			DamageSource source = level.damageSources().source(ModDamageTypes.SOUL_MAGIC, this, owner);
-			result.getEntity().hurtServer(level, source, damage);
+			if (result.getEntity().hurtServer(level, source, damage) && owner instanceof DungeonMonster monster) {
+				monster.onDamageDealt(level, damage);
+			}
 			burst(level);
 		}
 	}
@@ -98,9 +105,9 @@ public class SoulBoltEntity extends Projectile {
 
 	@Override
 	protected boolean canHitEntity(Entity entity) {
-		Entity owner = getOwner();
-		// Dungeon enemies' bolts pass through other monsters so groups can fire safely.
-		if (owner instanceof net.minecraft.world.entity.monster.Enemy && entity instanceof net.minecraft.world.entity.monster.Enemy) {
+		// Dungeon enemies' bolts pass through other monsters so groups can fire safely, even after the caster died. The
+		// owner check covers clients, which never see the saved flag.
+		if ((hostile || getOwner() instanceof Enemy) && entity instanceof Enemy) {
 			return false;
 		}
 		return super.canHitEntity(entity);
@@ -136,6 +143,7 @@ public class SoulBoltEntity extends Projectile {
 		output.putFloat("damage", damage);
 		output.putDouble("homing", homing);
 		output.putDouble("speed", speed);
+		output.putBoolean("hostile", hostile);
 	}
 
 	@Override
@@ -144,6 +152,8 @@ public class SoulBoltEntity extends Projectile {
 		damage = input.getFloatOr("damage", 4.0F);
 		homing = input.getDoubleOr("homing", 0.0);
 		speed = input.getDoubleOr("speed", 0.4);
+		// Every bolt in the mod is cast by a dungeon enemy, so older saves default to hostile.
+		hostile = input.getBooleanOr("hostile", true);
 	}
 
 	@Nullable

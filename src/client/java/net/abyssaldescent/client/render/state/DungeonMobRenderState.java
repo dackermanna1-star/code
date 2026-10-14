@@ -9,6 +9,8 @@ public class DungeonMobRenderState extends LivingEntityRenderState {
 	public final AnimationState actionB = new AnimationState();
 	public final AnimationState actionC = new AnimationState();
 	public int action;
+	/** Playback speed for the action animations (faster for frenzied elites, whose attacks are quicker). */
+	public float actionSpeed = 1.0F;
 	public boolean elite;
 	public int eliteColor;
 }

@@ -1,6 +1,7 @@
 package net.abyssaldescent.entity.ai;
 
 import java.util.EnumSet;
+import net.abyssaldescent.entity.DungeonMonster;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -101,17 +102,18 @@ public class KitingBowGoal<T extends PathfinderMob & RangedAttackMob> extends Go
 			int used = mob.getTicksUsingItem();
 			if (!sees && seeTime < -40) {
 				mob.stopUsingItem();
-			} else if (sees && used >= drawTicks) {
+			} else if (sees && used >= cadenceScaled(mob, drawTicks)) {
 				mob.stopUsingItem();
 				mob.performRangedAttack(target, BowItem.getPowerForTime(used));
-				cooldown = 20;
+				cooldown = cadenceScaled(mob, 20);
 			}
 		} else if (--cooldown <= 0 && seeTime >= -20) {
 			mob.startUsingItem(InteractionHand.MAIN_HAND);
 		}
 	}
 
-	public static float cadenceScaled(Mob mob, int base) {
-		return base;
+	/** Scales a draw or cooldown time by the archer's attack cadence (frenzied elites draw and loose faster). */
+	public static int cadenceScaled(Mob mob, int base) {
+		return mob instanceof DungeonMonster monster ? Math.max(1, Math.round(base * monster.cadence())) : base;
 	}
 }

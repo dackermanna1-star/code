@@ -77,8 +77,9 @@ public class BarrowKnightModel extends EntityModel<DungeonMobRenderState> {
 			walk.applyWalk(state.walkAnimationPos, state.walkAnimationSpeed, 2.0F, 2.5F);
 			idle.apply((long) (state.ageInTicks * 50.0F), 1.0F);
 		}
-		smash.apply(state.actionA, state.ageInTicks);
-		bash.apply(state.actionB, state.ageInTicks);
+		// The action is held through windup and recovery; frenzied knights do both faster, so play to match.
+		smash.apply(state.actionA, state.ageInTicks, state.actionSpeed);
+		bash.apply(state.actionB, state.ageInTicks, state.actionSpeed);
 	}
 
 	static final AnimationDefinition IDLE = AnimationDefinition.Builder.withLength(3.0F).looping()

@@ -58,7 +58,7 @@ public class BoneArcherEntity extends DungeonMonster implements RangedAttackMob 
 		goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 0.8));
 		goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 12.0F));
 		goalSelector.addGoal(8, new RandomLookAroundGoal(this));
-		targetSelector.addGoal(1, new HurtByTargetGoal(this));
+		targetSelector.addGoal(1, new HurtByTargetGoal(this, DungeonMonster.class));
 		targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
 	}
 
@@ -84,7 +84,7 @@ public class BoneArcherEntity extends DungeonMonster implements RangedAttackMob 
 		ItemStack bow = getMainHandItem();
 		AbstractArrow arrow = ProjectileUtil.getMobArrow(this, new ItemStack(Items.ARROW), power, bow);
 		int floor = dungeonFloor();
-		arrow.setBaseDamage(1.6 + floor * 0.18);
+		arrow.setBaseDamage((1.6 + floor * 0.18) * damageScale());
 		arrow.pickup = AbstractArrow.Pickup.DISALLOWED;
 		if (floor >= 3 && arrow instanceof Arrow plain && random.nextFloat() < 0.35F) {
 			plain.addEffect(new MobEffectInstance(MobEffects.SLOWNESS, 60, 0));

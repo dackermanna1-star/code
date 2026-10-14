@@ -1,5 +1,6 @@
 package net.abyssaldescent.client.hud;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +22,12 @@ public final class TooltipWrap {
 	}
 
 	public static void wrap(List<Component> lines) {
+		// Tooltip lines are also built on worker threads (the creative and recipe-book search trees). Measuring text
+		// there can bake glyphs, which uploads to the GPU and throws off the render thread; search only needs the
+		// unwrapped text anyway.
+		if (!RenderSystem.isOnRenderThread()) {
+			return;
+		}
 		Font font = Minecraft.getInstance().font;
 		if (font == null || lines.size() < 2) {
 			return;

@@ -50,7 +50,10 @@ public final class CombatEvents {
 		});
 
 		ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
-			if (!(entity.level() instanceof ServerLevel level) || !(source.getEntity() instanceof ServerPlayer killer)) {
+			// Bleed ticks, traps and fire carry no attacker: credit the player who hurt the victim recently, as vanilla does.
+			ServerPlayer killer = source.getEntity() instanceof ServerPlayer direct ? direct
+				: entity.getLastHurtByPlayer() instanceof ServerPlayer credited ? credited : null;
+			if (!(entity.level() instanceof ServerLevel level) || killer == null) {
 				return;
 			}
 			ArmorSets.onKill(killer, entity);

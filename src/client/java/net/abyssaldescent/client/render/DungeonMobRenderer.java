@@ -59,6 +59,7 @@ public class DungeonMobRenderer<T extends DungeonMonster, M extends EntityModel<
 			}
 		}
 		state.action = entity.action();
+		state.actionSpeed = 1.0F / Math.max(0.1F, entity.syncedCadence());
 		EliteAffix affix = entity.affix();
 		state.elite = affix != null;
 		state.eliteColor = affix == null ? 0 : affix.color();

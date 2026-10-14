@@ -14,6 +14,8 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ai.attributes.AttributeInstance;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
@@ -26,6 +28,8 @@ import org.jetbrains.annotations.Nullable;
 public abstract class DungeonMonster extends Monster {
 	/** Current telegraphed action (0 = none); drives client animations. */
 	private static final EntityDataAccessor<Integer> DATA_ACTION = SynchedEntityData.defineId(DungeonMonster.class, EntityDataSerializers.INT);
+	/** Attack cadence mirrored to clients so action animations can keep pace with faster (frenzied) attacks. */
+	private static final EntityDataAccessor<Float> DATA_CADENCE = SynchedEntityData.defineId(DungeonMonster.class, EntityDataSerializers.FLOAT);
 	private static final int WARD_INTERVAL = 160;
 	private float ward;
 	private int wardTimer = 60;
@@ -39,6 +43,7 @@ public abstract class DungeonMonster extends Monster {
 	protected void defineSynchedData(SynchedEntityData.Builder builder) {
 		super.defineSynchedData(builder);
 		builder.define(DATA_ACTION, 0);
+		builder.define(DATA_CADENCE, 1.0F);
 	}
 
 	public int action() {
@@ -86,14 +91,29 @@ public abstract class DungeonMonster extends Monster {
 		this.xpReward = isElite() ? 20 : 6 + dungeonFloor();
 	}
 
-	/** Attack cooldown multiplier for subclasses (frenzied elites attack faster). */
-	protected float cadence() {
+	/** Attack cooldown multiplier for subclasses and shared goals (frenzied elites attack faster). */
+	public float cadence() {
 		return affix() == EliteAffix.FRENZIED ? 0.7F : 1.0F;
+	}
+
+	/** {@link #cadence()} as synced to clients; action animations play at {@code 1 / syncedCadence()} speed. */
+	public float syncedCadence() {
+		return entityData.get(DATA_CADENCE);
+	}
+
+	/**
+	 * How much dungeon scaling (difficulty config, depth, elite) multiplies this enemy's attack damage. Ranged attacks
+	 * that set their own damage multiply by this so they scale like melee.
+	 */
+	protected float damageScale() {
+		AttributeInstance attack = getAttribute(Attributes.ATTACK_DAMAGE);
+		return attack == null || attack.getBaseValue() <= 0 ? 1.0F : (float) (attack.getValue() / attack.getBaseValue());
 	}
 
 	@Override
 	protected void customServerAiStep(ServerLevel level) {
 		super.customServerAiStep(level);
+		entityData.set(DATA_CADENCE, cadence());
 		EliteAffix affix = affix();
 		if (affix == null) {
 			return;
@@ -124,6 +144,10 @@ public abstract class DungeonMonster extends Monster {
 
 	@Override
 	public boolean hurtServer(ServerLevel level, DamageSource source, float amount) {
+		// No friendly fire: stray arrows and swings from other dungeon enemies neither hurt nor enrage this one.
+		if (source.getEntity() instanceof DungeonMonster other && other != this) {
+			return false;
+		}
 		if (ward > 0 && !source.is(net.minecraft.tags.DamageTypeTags.BYPASSES_INVULNERABILITY)) {
 			float absorbed = Math.min(ward, amount);
 			ward -= absorbed;
@@ -145,11 +169,21 @@ public abstract class DungeonMonster extends Monster {
 	@Override
 	public boolean doHurtTarget(ServerLevel level, Entity target) {
 		boolean hit = super.doHurtTarget(level, target);
-		if (hit && affix() == EliteAffix.VAMPIRIC) {
-			heal((float) getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.ATTACK_DAMAGE) * 0.6F);
-			level.sendParticles(ModParticles.BLOOD_MOTE, getX(), getY() + 1, getZ(), 8, 0.3, 0.4, 0.3, 0.02);
+		if (hit) {
+			onDamageDealt(level, (float) getAttributeValue(Attributes.ATTACK_DAMAGE));
 		}
 		return hit;
+	}
+
+	/**
+	 * Called after one of this enemy's attacks lands, whatever its path (melee, special strikes, its projectiles), with
+	 * the damage the attack dealt before armour.
+	 */
+	public void onDamageDealt(ServerLevel level, float amount) {
+		if (amount > 0 && isAlive() && affix() == EliteAffix.VAMPIRIC) {
+			heal(amount * 0.6F);
+			level.sendParticles(ModParticles.BLOOD_MOTE, getX(), getY() + 1, getZ(), 8, 0.3, 0.4, 0.3, 0.02);
+		}
 	}
 
 	@Override
@@ -160,7 +194,7 @@ public abstract class DungeonMonster extends Monster {
 			for (int i = 0; i < 8; i++) {
 				double angle = i / 8.0 * Math.PI * 2;
 				Vec3 dir = new Vec3(Math.cos(angle), 0.0, Math.sin(angle));
-				SoulBoltEntity bolt = new SoulBoltEntity(level, this, dir, 0.35, 3.0F + dungeonFloor() * 0.3F, 0.0);
+				SoulBoltEntity bolt = new SoulBoltEntity(level, this, dir, 0.35, (3.0F + dungeonFloor() * 0.3F) * damageScale(), 0.0);
 				bolt.setPos(getX() + dir.x * 0.6, getY() + 0.9, getZ() + dir.z * 0.6);
 				level.addFreshEntity(bolt);
 			}

@@ -65,7 +65,7 @@ public class WailingSkullEntity extends DungeonMonster {
 	@Override
 	protected void registerGoals() {
 		goalSelector.addGoal(2, new HoverAndCastGoal());
-		targetSelector.addGoal(1, new HurtByTargetGoal(this));
+		targetSelector.addGoal(1, new HurtByTargetGoal(this, DungeonMonster.class));
 		targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, false));
 	}
 
@@ -156,7 +156,8 @@ public class WailingSkullEntity extends DungeonMonster {
 					setAction(0);
 					Vec3 dir = target.getEyePosition().subtract(getEyePosition());
 					double homing = Math.min(0.08, 0.025 + dungeonFloor() * 0.008);
-					SoulBoltEntity bolt = new SoulBoltEntity(level, WailingSkullEntity.this, dir, 0.34, 2.5F + dungeonFloor() * 0.45F, homing);
+					float damage = (2.5F + dungeonFloor() * 0.45F) * damageScale();
+					SoulBoltEntity bolt = new SoulBoltEntity(level, WailingSkullEntity.this, dir, 0.34, damage, homing);
 					level.addFreshEntity(bolt);
 					level.playSound(null, getX(), getY(), getZ(), ModSounds.SKULL_SHOOT, SoundSource.HOSTILE, 1.0F, 1.0F + random.nextFloat() * 0.2F);
 					castCooldown = Math.round((50 + random.nextInt(25)) * cadence());

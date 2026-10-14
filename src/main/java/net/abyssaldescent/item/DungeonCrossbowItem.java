@@ -2,10 +2,13 @@ package net.abyssaldescent.item;
 
 import java.util.function.Consumer;
 import net.abyssaldescent.item.combat.ProjectileTraits;
+import net.abyssaldescent.item.effect.Effects;
 import net.abyssaldescent.item.effect.WeaponEffect;
+import net.abyssaldescent.mixin.AbstractArrowAccessor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.projectile.arrow.AbstractArrow;
 import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
@@ -31,6 +34,9 @@ public class DungeonCrossbowItem extends CrossbowItem implements GearItem {
 		Projectile projectile = super.createProjectile(level, shooter, weapon, ammo, crit);
 		for (WeaponEffect effect : spec.effects()) {
 			effect.onProjectileLaunch(projectile, shooter, weapon);
+		}
+		if (projectile instanceof AbstractArrow arrow) {
+			arrow.setBaseDamage(Effects.weaponDamage((float) ((AbstractArrowAccessor) arrow).abyssal_descent$getBaseDamage()));
 		}
 		ProjectileTraits.tag(projectile, this);
 		return projectile;

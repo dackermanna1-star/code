@@ -3,11 +3,15 @@
   "values": [
     "abyssal_descent:gravewarden_helm",
     "abyssal_descent:mourner_hood",
+    "abyssal_descent:wraithbound_visage",
     "abyssal_descent:gravewarden_cuirass",
     "abyssal_descent:mourner_shroud",
+    "abyssal_descent:wraithbound_mantle",
     "abyssal_descent:gravewarden_greaves",
     "abyssal_descent:mourner_wraps",
+    "abyssal_descent:wraithbound_legguards",
     "abyssal_descent:gravewarden_sabatons",
-    "abyssal_descent:mourner_treads"
+    "abyssal_descent:mourner_treads",
+    "abyssal_descent:wraithbound_stride"
   ]
 }

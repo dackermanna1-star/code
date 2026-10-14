@@ -1,15 +1,18 @@
 package net.abyssaldescent.entity.forgotten;
 
 import net.abyssaldescent.entity.DungeonMonster;
+import net.minecraft.network.syncher.EntityDataAccessor;
+import net.minecraft.network.syncher.EntityDataSerializers;
+import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundEvents;
+import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.DifficultyInstance;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
-import net.minecraft.world.entity.AnimationState;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
@@ -30,18 +33,46 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.level.Level;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
+import net.minecraft.world.level.storage.ValueOutput;
 
 /**
  * The shambling dead of the Forgotten Halls. Slow and fragile alone, dangerous in numbers: they claw their way out of
  * the floor and their grasp slows whoever they hit, pinning delvers for the archers behind them.
  */
 public class RisenEntity extends DungeonMonster {
-	public static final byte EVENT_EMERGE = 101;
+	/**
+	 * Game time this Risen started clawing out of the floor. Saved and synced (entity tick counts are neither), so it
+	 * does not re-emerge after a reload and late-tracking clients draw it already standing.
+	 */
+	private static final EntityDataAccessor<Long> DATA_EMERGE_START = SynchedEntityData.defineId(RisenEntity.class, EntityDataSerializers.LONG);
 	private static final int EMERGE_TICKS = 24;
-	public final AnimationState emergeAnimation = new AnimationState();
 
 	public RisenEntity(EntityType<? extends Monster> type, Level level) {
 		super(type, level);
+		if (!level.isClientSide()) {
+			entityData.set(DATA_EMERGE_START, level.getGameTime());
+		}
+	}
+
+	@Override
+	protected void defineSynchedData(SynchedEntityData.Builder builder) {
+		super.defineSynchedData(builder);
+		// 0 = emerged long ago (also what a client sees until told otherwise).
+		builder.define(DATA_EMERGE_START, 0L);
+	}
+
+	private long emergeAge() {
+		return level().getGameTime() - entityData.get(DATA_EMERGE_START);
+	}
+
+	private boolean emerging() {
+		return emergeAge() < EMERGE_TICKS;
+	}
+
+	/** 0 = still underground, 1 = fully risen. */
+	public float emergeProgress(float partialTick) {
+		return Mth.clamp((emergeAge() + partialTick) / EMERGE_TICKS, 0.0F, 1.0F);
 	}
 
 	public static AttributeSupplier.Builder createAttributes() {
@@ -57,15 +88,40 @@ public class RisenEntity extends DungeonMonster {
 	protected void registerGoals() {
 		goalSelector.addGoal(0, new FloatGoal(this));
 		goalSelector.addGoal(2, new MeleeAttackGoal(this, 1.0, false) {
+			// Own swing cooldown: vanilla's is private and fixed at 20 ticks, but frenzied elites swing faster.
+			private int attackCooldown;
+
 			@Override
 			public boolean canUse() {
-				return tickCount > EMERGE_TICKS && super.canUse();
+				return !emerging() && super.canUse();
+			}
+
+			@Override
+			public void start() {
+				super.start();
+				attackCooldown = 0;
+			}
+
+			@Override
+			public void tick() {
+				attackCooldown = Math.max(attackCooldown - 1, 0);
+				super.tick();
+			}
+
+			@Override
+			protected void resetAttackCooldown() {
+				attackCooldown = adjustedTickDelay(Math.round(20 * cadence()));
+			}
+
+			@Override
+			protected boolean isTimeToAttack() {
+				return attackCooldown <= 0;
 			}
 		});
 		goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 0.8));
 		goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 10.0F));
 		goalSelector.addGoal(8, new RandomLookAroundGoal(this));
-		targetSelector.addGoal(1, new HurtByTargetGoal(this));
+		targetSelector.addGoal(1, new HurtByTargetGoal(this, DungeonMonster.class));
 		targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
 	}
 
@@ -84,16 +140,8 @@ public class RisenEntity extends DungeonMonster {
 	}
 
 	@Override
-	public void tick() {
-		super.tick();
-		if (!level().isClientSide() && tickCount == 1) {
-			level().broadcastEntityEvent(this, EVENT_EMERGE);
-		}
-	}
-
-	@Override
 	protected void customServerAiStep(ServerLevel level) {
-		if (tickCount < EMERGE_TICKS) {
+		if (emerging()) {
 			getNavigation().stop();
 			if (tickCount % 4 == 0) {
 				level.sendParticles(new net.minecraft.core.particles.BlockParticleOption(net.minecraft.core.particles.ParticleTypes.BLOCK,
@@ -101,15 +149,6 @@ public class RisenEntity extends DungeonMonster {
 			}
 		}
 		super.customServerAiStep(level);
-	}
-
-	@Override
-	public void handleEntityEvent(byte id) {
-		if (id == EVENT_EMERGE) {
-			emergeAnimation.start(tickCount);
-		} else {
-			super.handleEntityEvent(id);
-		}
 	}
 
 	@Override
@@ -123,7 +162,19 @@ public class RisenEntity extends DungeonMonster {
 
 	@Override
 	public boolean isInvulnerableTo(ServerLevel level, DamageSource source) {
-		return tickCount < EMERGE_TICKS / 2 && !source.isCreativePlayer() || super.isInvulnerableTo(level, source);
+		return emergeAge() < EMERGE_TICKS / 2 && !source.isCreativePlayer() || super.isInvulnerableTo(level, source);
+	}
+
+	@Override
+	protected void addAdditionalSaveData(ValueOutput output) {
+		super.addAdditionalSaveData(output);
+		output.putLong("emerge_start", entityData.get(DATA_EMERGE_START));
+	}
+
+	@Override
+	protected void readAdditionalSaveData(ValueInput input) {
+		super.readAdditionalSaveData(input);
+		entityData.set(DATA_EMERGE_START, input.getLongOr("emerge_start", 0L));
 	}
 
 	@Override

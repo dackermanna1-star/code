@@ -71,7 +71,8 @@ public final class Relics {
 		if (health != null) {
 			boolean has = health.hasModifier(LOCKET_HEALTH);
 			if (found.contains(RelicKind.GRAVEDUST_LOCKET) && !has) {
-				health.addTransientModifier(new AttributeModifier(LOCKET_HEALTH, 2.0, AttributeModifier.Operation.ADD_VALUE));
+				// Saved with the player, so the bonus is back before the saved health is loaded (no clamp on relog).
+				health.addOrReplacePermanentModifier(new AttributeModifier(LOCKET_HEALTH, 2.0, AttributeModifier.Operation.ADD_VALUE));
 			} else if (!found.contains(RelicKind.GRAVEDUST_LOCKET) && has) {
 				health.removeModifier(LOCKET_HEALTH);
 				if (player.getHealth() > player.getMaxHealth()) {

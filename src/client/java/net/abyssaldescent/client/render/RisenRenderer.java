@@ -11,13 +11,11 @@ import net.minecraft.client.renderer.entity.HumanoidMobRenderer;
 import net.minecraft.client.renderer.entity.layers.LivingEntityEmissiveLayer;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.resources.Identifier;
-import net.minecraft.util.Mth;
 
 /** The Risen: zombie rig, own texture and glowing eye pinpoints; claws its way out of the floor when summoned. */
 public class RisenRenderer extends HumanoidMobRenderer<RisenEntity, RisenRenderState, ZombieModel<RisenRenderState>> {
 	private static final Identifier TEXTURE = AbyssalDescent.id("textures/entity/risen/risen.png");
 	private static final Identifier EYES = AbyssalDescent.id("textures/entity/risen/risen_eyes.png");
-	private static final float EMERGE_TICKS = 24.0F;
 
 	public RisenRenderer(EntityRendererProvider.Context context) {
 		super(context, new ZombieModel<>(context.bakeLayer(ModelLayers.ZOMBIE)), 0.5F);
@@ -38,7 +36,7 @@ public class RisenRenderer extends HumanoidMobRenderer<RisenEntity, RisenRenderS
 	public void extractRenderState(RisenEntity entity, RisenRenderState state, float partialTick) {
 		super.extractRenderState(entity, state, partialTick);
 		state.isAggressive = entity.isAggressive();
-		state.emerge = Mth.clamp((entity.tickCount + partialTick) / EMERGE_TICKS, 0.0F, 1.0F);
+		state.emerge = entity.emergeProgress(partialTick);
 	}
 
 	@Override

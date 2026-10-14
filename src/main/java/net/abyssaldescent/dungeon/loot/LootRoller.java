@@ -1,29 +1,44 @@
 package net.abyssaldescent.dungeon.loot;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import net.abyssaldescent.AbyssalDescent;
 import net.abyssaldescent.config.AdConfig;
 import net.abyssaldescent.dungeon.run.DungeonRun;
 import net.abyssaldescent.dungeon.run.RunManager;
 import net.abyssaldescent.dungeon.run.Unsecured;
 import net.abyssaldescent.dungeon.zone.Zone;
+import net.abyssaldescent.entity.DungeonBoss;
 import net.abyssaldescent.registry.ModItems;
 import net.abyssaldescent.registry.ModPotions;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.Potion;
 import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.level.storage.loot.LootContext;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 
 /**
  * Rolls dungeon loot. Rarity weights come from the config per source and shift towards higher tiers with depth; the
  * item is then drawn from the zone's pool for that rarity (falling back to lower tiers if a pool is empty).
  */
 public final class LootRoller {
+	/** The coin range an ordinary enemy's loot table drops; {@code loot.coinsPerEnemy} rescales from it. */
+	private static final int TABLE_COINS_MIN = 0;
+	private static final int TABLE_COINS_MAX = 2;
+
 	private LootRoller() {
 	}
 
@@ -128,6 +143,49 @@ public final class LootRoller {
 		loot.add(new ItemStack(ModItems.ANCIENT_COIN, 2 + random.nextInt(3)));
 		tagAll(player, loot);
 		return loot;
+	}
+
+	/**
+	 * Applies the {@code loot.coinsPerEnemy} setting to the drops of a slain dungeon enemy (called from the loot-table
+	 * drop hook). The enemy tables are written for the default range, 0-2 coins for an ordinary enemy, so the amount
+	 * they rolled is mapped linearly onto the configured range: tougher enemies keep dropping proportionally more and
+	 * [0, 0] turns enemy coins off. Bosses keep their fixed hoard.
+	 */
+	public static void applyCoinsPerEnemy(Holder<LootTable> table, LootContext context, List<ItemStack> drops) {
+		int[] range = AdConfig.get().loot.coinsPerEnemy;
+		if (range == null || range.length < 2) {
+			return;
+		}
+		int min = Math.max(0, Math.min(range[0], range[1]));
+		int max = Math.max(0, Math.max(range[0], range[1]));
+		if (min == TABLE_COINS_MIN && max == TABLE_COINS_MAX) {
+			return;
+		}
+		Entity entity = context.getOptionalParameter(LootContextParams.THIS_ENTITY);
+		if (!(entity instanceof Enemy) || entity instanceof DungeonBoss || !context.hasParameter(LootContextParams.LAST_DAMAGE_PLAYER)) {
+			return;
+		}
+		Identifier id = table.unwrapKey().map(ResourceKey::identifier).orElse(null);
+		if (id == null || !id.getNamespace().equals(AbyssalDescent.MOD_ID) || !id.getPath().startsWith("entities/")) {
+			return;
+		}
+		int rolled = 0;
+		Iterator<ItemStack> it = drops.iterator();
+		while (it.hasNext()) {
+			ItemStack stack = it.next();
+			if (stack.is(ModItems.ANCIENT_COIN)) {
+				rolled += stack.getCount();
+				it.remove();
+			}
+		}
+		double scaled = min + (rolled - TABLE_COINS_MIN) * (max - min) / (double) (TABLE_COINS_MAX - TABLE_COINS_MIN);
+		// Random rounding keeps the average exact when the mapping lands between two counts.
+		int coins = Mth.floor(Math.max(0, scaled) + context.getRandom().nextDouble());
+		while (coins > 0) {
+			int count = Math.min(coins, ModItems.ANCIENT_COIN.getDefaultMaxStackSize());
+			drops.add(new ItemStack(ModItems.ANCIENT_COIN, count));
+			coins -= count;
+		}
 	}
 
 	/** Cursed idol gift: one Epic-or-better relic or weapon. */

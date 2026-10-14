@@ -10,6 +10,9 @@ import org.jetbrains.annotations.Nullable;
  * chunk generator (to paint blocks) and by server logic (to know where rooms, doors and fixtures are).
  */
 public final class FloorLayout {
+	/** A party arriving together is spread over a ring of this radius around the spawn block's centre. */
+	public static final double ARRIVAL_RADIUS = 1.4;
+
 	private final int slot;
 	private final int floor;
 	private final Zone zone;
@@ -95,6 +98,17 @@ public final class FloorLayout {
 	public BlockPos spawnPos() {
 		Room start = startRoom();
 		return new BlockPos(start.interior().centerX(), start.floorY(), start.interior().centerZ() + 1);
+	}
+
+	/**
+	 * Feet and head blocks a party member arriving on the {@link #ARRIVAL_RADIUS} ring around {@link #spawnPos()} can
+	 * overlap. Decorators keep it free of anything solid.
+	 */
+	public Box arrivalArea() {
+		BlockPos spawn = spawnPos();
+		// Ring radius plus half a player's width, measured from the centre of the spawn block.
+		int reach = (int) Math.ceil(ARRIVAL_RADIUS + 0.3 - 0.5);
+		return new Box(spawn.getX() - reach, spawn.getY(), spawn.getZ() - reach, spawn.getX() + reach, spawn.getY() + 1, spawn.getZ() + reach);
 	}
 
 	@Nullable

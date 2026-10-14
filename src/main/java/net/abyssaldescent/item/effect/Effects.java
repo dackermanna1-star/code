@@ -1,9 +1,13 @@
 package net.abyssaldescent.item.effect;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.WeakHashMap;
 import net.abyssaldescent.config.AdConfig;
 import net.abyssaldescent.registry.ModDamageTypes;
 import net.abyssaldescent.registry.ModEffects;
@@ -14,10 +18,12 @@ import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.EntityTypeTags;
+import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
@@ -35,6 +41,28 @@ public final class Effects {
 
 	static float proc(float chance) {
 		return (float) (chance * AdConfig.get().items.procChanceMultiplier);
+	}
+
+	/** Damage dealt by a dungeon weapon (its hits, projectiles and procs), scaled by the configured multiplier. */
+	public static float weaponDamage(float damage) {
+		return (float) (damage * AdConfig.get().items.weaponDamageMultiplier);
+	}
+
+	/** A tooltip number: whole values without a decimal point, others to at most two places. */
+	static Object num(double value) {
+		if (value == Math.rint(value)) {
+			return (int) value;
+		}
+		return BigDecimal.valueOf(value).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString();
+	}
+
+	/**
+	 * A proc's extra hit on a foe. The swing's own sweep has usually just hurt that foe, and its hurt cooldown would
+	 * otherwise swallow all or part of the proc, so the cooldown is cleared first.
+	 */
+	static void procHurt(ServerLevel level, LivingEntity victim, DamageSource source, float damage) {
+		victim.invulnerableTime = 0;
+		victim.hurtServer(level, source, damage);
 	}
 
 	/** True for things a player's weapon effects may hurt (monsters, and anything hostile to the attacker). */
@@ -91,12 +119,22 @@ public final class Effects {
 
 		@Override
 		public Object[] args() {
-			return new Object[] {perArmor, (int) max};
+			return new Object[] {num(perArmor), num(max)};
 		}
 
 		@Override
 		public float damageBonus(LivingEntity attacker, Entity target, float baseDamage) {
-			return target instanceof LivingEntity living ? Math.min(max, living.getArmorValue() * perArmor) : 0.0F;
+			if (!(target instanceof LivingEntity living)) {
+				return 0.0F;
+			}
+			// Scaled by swing strength like the weapon's own damage, so spam-clicking never beats a charged swing.
+			// Vanilla passes a player's attack damage already scaled by charge; the ratio recovers that scale.
+			float scale = 1.0F;
+			if (attacker instanceof Player) {
+				double full = attacker.getAttributeValue(Attributes.ATTACK_DAMAGE);
+				scale = full > 0 ? Mth.clamp((float) (baseDamage / full), 0.0F, 1.0F) : 1.0F;
+			}
+			return Math.min(max, living.getArmorValue() * perArmor) * scale;
 		}
 
 		@Override
@@ -117,7 +155,7 @@ public final class Effects {
 
 		@Override
 		public Object[] args() {
-			return new Object[] {ticks / 20};
+			return new Object[] {num(ticks / 20.0)};
 		}
 
 		@Override
@@ -146,7 +184,7 @@ public final class Effects {
 
 		@Override
 		public Object[] args() {
-			return new Object[] {Math.round(chance * 100), (int) damage};
+			return new Object[] {Math.round(chance * 100), num(damage)};
 		}
 
 		@Override
@@ -157,18 +195,20 @@ public final class Effects {
 			Vec3 c = ctx.target().position().add(0, ctx.target().getBbHeight() * 0.5, 0);
 			for (LivingEntity e : hostilesNear(ctx.level(), ctx.attacker(), c, radius)) {
 				if (e != ctx.target()) {
-					e.hurtServer(ctx.level(), ctx.level().damageSources().source(ModDamageTypes.SOUL_MAGIC, ctx.attacker()), damage);
+					procHurt(ctx.level(), e, ctx.level().damageSources().source(ModDamageTypes.SOUL_MAGIC, ctx.attacker()), weaponDamage(damage));
 				}
 			}
-			ctx.target().hurtServer(ctx.level(), ctx.level().damageSources().source(ModDamageTypes.SOUL_MAGIC, ctx.attacker()), damage * 0.5F);
 			ctx.level().sendParticles(ParticleTypes.SOUL_FIRE_FLAME, c.x, c.y, c.z, 36, radius * 0.4, 0.4, radius * 0.4, 0.08);
 			ctx.level().sendParticles(ModParticles.SHOCK_RING, ctx.target().getX(), ctx.target().getY() + 0.05, ctx.target().getZ(), 1, 0, 0, 0, 0);
 			ctx.level().playSound(null, c.x, c.y, c.z, ModSounds.SOUL_FLARE, SoundSource.PLAYERS, 1.0F, 1.1F);
 		}
 	}
 
-	/** Lightning arcs from the target to nearby enemies. */
+	/** Lightning arcs from the target to nearby enemies, weakening with each jump. */
 	public record ChainLightning(float chance, int jumps, float damage, double range) implements WeaponEffect {
+		/** Damage lost per jump after the first. */
+		static final float FALLOFF = 0.15F;
+
 		@Override
 		public String id() {
 			return "chain_lightning";
@@ -176,7 +216,7 @@ public final class Effects {
 
 		@Override
 		public Object[] args() {
-			return new Object[] {Math.round(chance * 100), jumps, (int) damage};
+			return new Object[] {Math.round(chance * 100), jumps, num(damage), Math.round(FALLOFF * 100)};
 		}
 
 		@Override
@@ -184,7 +224,7 @@ public final class Effects {
 			if (!ctx.fullCharge() || ctx.level().random.nextFloat() >= proc(chance)) {
 				return;
 			}
-			chain(ctx.level(), ctx.attacker(), ctx.target(), jumps, damage, range);
+			chain(ctx.level(), ctx.attacker(), ctx.target(), jumps, weaponDamage(damage), range);
 		}
 
 		public static void chain(ServerLevel level, LivingEntity attacker, LivingEntity first, int jumps, float damage, double range) {
@@ -206,7 +246,7 @@ public final class Effects {
 					break;
 				}
 				arc(level, current.position().add(0, current.getBbHeight() * 0.6, 0), next.position().add(0, next.getBbHeight() * 0.6, 0));
-				next.hurtServer(level, source, damage * (1.0F - i * 0.15F));
+				procHurt(level, next, source, damage * (1.0F - i * FALLOFF));
 				hit.add(next);
 				current = next;
 			}
@@ -238,7 +278,7 @@ public final class Effects {
 
 		@Override
 		public Object[] args() {
-			return new Object[] {(int) damage, (int) radius};
+			return new Object[] {num(damage), num(radius)};
 		}
 
 		@Override
@@ -248,7 +288,8 @@ public final class Effects {
 			}
 			Vec3 c = ctx.target().position();
 			for (LivingEntity e : hostilesNear(ctx.level(), ctx.attacker(), c, radius)) {
-				if (e != ctx.target() && e.hurtServer(ctx.level(), ctx.level().damageSources().source(ModDamageTypes.SHOCKWAVE, ctx.attacker()), damage)) {
+				if (e != ctx.target()
+					&& e.hurtServer(ctx.level(), ctx.level().damageSources().source(ModDamageTypes.SHOCKWAVE, ctx.attacker()), weaponDamage(damage))) {
 					Vec3 push = e.position().subtract(c).normalize();
 					e.push(push.x * 0.6, 0.3, push.z * 0.6);
 				}
@@ -269,7 +310,7 @@ public final class Effects {
 
 		@Override
 		public Object[] args() {
-			return new Object[] {(int) damage, (int) length};
+			return new Object[] {num(damage), num(length)};
 		}
 
 		@Override
@@ -289,7 +330,7 @@ public final class Effects {
 				}
 				for (LivingEntity e : hostilesNear(ctx.level(), attacker, p, 1.3)) {
 					if (hit.add(e) && e != ctx.target()) {
-						e.hurtServer(ctx.level(), ctx.level().damageSources().source(ModDamageTypes.SOUL_MAGIC, attacker), damage);
+						e.hurtServer(ctx.level(), ctx.level().damageSources().source(ModDamageTypes.SOUL_MAGIC, attacker), weaponDamage(damage));
 					}
 				}
 			}
@@ -306,7 +347,7 @@ public final class Effects {
 
 		@Override
 		public Object[] args() {
-			return new Object[] {(int) heal};
+			return new Object[] {num(heal)};
 		}
 
 		@Override
@@ -352,8 +393,11 @@ public final class Effects {
 		}
 	}
 
-	/** Bolts burst into bone shrapnel on impact. */
+	/** Bolts burst into bone shrapnel on impact, once per bolt. */
 	public record BoneShrapnel(float damage, double radius) implements WeaponEffect {
+		/** Bolts that already burst: one bounced off a shield or a foe in its hurt cooldown would burst again where it lands. */
+		private static final Set<Projectile> BURST = Collections.newSetFromMap(new WeakHashMap<>());
+
 		@Override
 		public String id() {
 			return "bone_shrapnel";
@@ -361,17 +405,17 @@ public final class Effects {
 
 		@Override
 		public Object[] args() {
-			return new Object[] {(int) damage, (int) radius};
+			return new Object[] {num(damage), num(radius)};
 		}
 
 		@Override
 		public void onProjectileHit(ServerLevel level, Projectile projectile, @Nullable Entity hit, Vec3 at, @Nullable LivingEntity owner) {
-			if (owner == null) {
+			if (owner == null || !BURST.add(projectile)) {
 				return;
 			}
 			for (LivingEntity e : hostilesNear(level, owner, at, radius)) {
 				if (e != hit) {
-					e.hurtServer(level, level.damageSources().source(ModDamageTypes.SHOCKWAVE, projectile, owner), damage);
+					e.hurtServer(level, level.damageSources().source(ModDamageTypes.SHOCKWAVE, projectile, owner), weaponDamage(damage));
 				}
 			}
 			level.sendParticles(ModParticles.BONE_SHARD, at.x, at.y, at.z, 14, 0.1, 0.1, 0.1, 0.35);

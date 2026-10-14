@@ -39,6 +39,12 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public class BoneShieldbearerEntity extends DungeonMonster {
 	public static final int ACTION_WINDUP = 1;
+	/**
+	 * Ticks the shield stays raised in melee range before each swing (scaled by cadence). The minimum keeps it well
+	 * above the shield's 5-tick block delay, so the guard really blocks before it is lowered again.
+	 */
+	private static final int GUARD_TICKS = 20;
+	private static final int GUARD_TICKS_MIN = 8;
 	private int shieldBrokenTicks;
 
 	public BoneShieldbearerEntity(EntityType<? extends Monster> type, Level level) {
@@ -62,7 +68,7 @@ public class BoneShieldbearerEntity extends DungeonMonster {
 		goalSelector.addGoal(6, new WaterAvoidingRandomStrollGoal(this, 0.8));
 		goalSelector.addGoal(7, new LookAtPlayerGoal(this, Player.class, 10.0F));
 		goalSelector.addGoal(8, new RandomLookAroundGoal(this));
-		targetSelector.addGoal(1, new HurtByTargetGoal(this));
+		targetSelector.addGoal(1, new HurtByTargetGoal(this, DungeonMonster.class));
 		targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, Player.class, true));
 	}
 
@@ -173,6 +179,9 @@ public class BoneShieldbearerEntity extends DungeonMonster {
 			}
 			if (dist > 2.6) {
 				getNavigation().moveTo(target, isUsingItem() ? 0.85 : 1.1);
+			} else if (isUsingItem() && getTicksUsingItem() < Math.max(GUARD_TICKS_MIN, Math.round(GUARD_TICKS * cadence()))) {
+				// Hold the guard up between swings (long enough to actually block) before lowering it to strike.
+				getNavigation().stop();
 			} else {
 				getNavigation().stop();
 				stopUsingItem();

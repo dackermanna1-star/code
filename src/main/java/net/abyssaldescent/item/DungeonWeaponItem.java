@@ -2,6 +2,7 @@ package net.abyssaldescent.item;
 
 import java.util.function.Consumer;
 import net.abyssaldescent.item.combat.CombatState;
+import net.abyssaldescent.item.effect.Effects;
 import net.abyssaldescent.item.effect.WeaponEffect;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
@@ -39,7 +40,8 @@ public class DungeonWeaponItem extends Item implements GearItem {
 				bonus += effect.damageBonus(attacker, target, baseDamage);
 			}
 		}
-		return bonus;
+		// The configured weapon damage multiplier scales the whole hit; this is the only hook into vanilla's melee damage.
+		return Effects.weaponDamage(baseDamage + bonus) - baseDamage;
 	}
 
 	@Override

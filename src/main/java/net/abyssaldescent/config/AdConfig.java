@@ -160,6 +160,7 @@ public final class AdConfig {
 	}
 
 	public static final class Items {
+		/** Multiplier for all damage dealt by dungeon weapons: melee hits, arrows and bolts, and their effects. */
 		public double weaponDamageMultiplier = 1.0;
 		public double procChanceMultiplier = 1.0;
 	}
