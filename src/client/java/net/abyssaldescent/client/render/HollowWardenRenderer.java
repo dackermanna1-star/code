@@ -55,7 +55,10 @@ public class HollowWardenRenderer extends MobRenderer<HollowWardenEntity, Hollow
 		state.busy = entity.action() != 0;
 		state.phase = entity.phase();
 		state.dormant = entity.dormant();
-		// The boss's death is a long cinematic: never apply the vanilla tip-over.
+		// The boss's death is a long cinematic: never apply the vanilla tip-over or the red death tint.
 		state.deathTime = 0.0F;
+		if (entity.deathTime > 0) {
+			state.hasRedOverlay = false;
+		}
 	}
 }

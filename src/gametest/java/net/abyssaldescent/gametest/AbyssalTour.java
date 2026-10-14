@@ -12,9 +12,14 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.BlockPos;
+import net.abyssaldescent.entity.boss.HollowWardenEntity;
+import net.abyssaldescent.world.DungeonDimension;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -28,9 +33,10 @@ public final class AbyssalTour implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
-		context.getInput().resizeWindow(1280, 720);
 		try (TestSingleplayerContext world = context.worldBuilder().create()) {
 			TestServerContext server = world.getServer();
+			// Enlarge only once the world is up: software renderers struggle with a large loading screen.
+			context.getInput().resizeWindow(1280, 720);
 			world.getClientWorld().waitForChunksRender();
 			server.runCommand("gamemode survival @a");
 			server.runCommand("effect give @a minecraft:resistance infinite 4 true");
@@ -86,22 +92,59 @@ public final class AbyssalTour implements FabricClientGameTest {
 			context.waitTicks(60);
 			world.getClientWorld().waitForChunksRender();
 			Spots boss = server.computeOnServer(AbyssalTour::findSpots);
-			if (boss.arenaEntry != null) {
-				tp(server, boss.arenaEntry, boss.arenaYaw, 6);
-				context.waitTicks(10);
-				world.getClientWorld().waitForChunksRender();
-				context.waitTicks(20);
-				context.takeScreenshot("abyssal_07_throne_room");
-				tp(server, boss.arenaInside, boss.arenaYaw, 4);
-				context.waitTicks(50);
-				context.takeScreenshot("abyssal_08_warden_awakens");
-				context.waitTicks(120);
-				context.takeScreenshot("abyssal_09_warden_fight");
-				context.waitTicks(40);
-				context.takeScreenshot("abyssal_10_warden_fight_2");
-				context.waitTicks(40);
-				context.takeScreenshot("abyssal_11_warden_fight_3");
+			if (boss.arenaEntry == null) {
+				throw new AssertionError("floor 5 has no boss arena");
 			}
+			tp(server, boss.arenaEntry, boss.arenaYaw, 6);
+			context.waitTicks(10);
+			world.getClientWorld().waitForChunksRender();
+			context.waitTicks(20);
+			context.takeScreenshot("abyssal_07_throne_room");
+			log("before waking", bossState(server));
+
+			// Crossing the threshold wakes the Warden: title card, boss bar and intro roar.
+			tp(server, boss.arenaInside, boss.arenaYaw, 4);
+			context.waitTicks(30);
+			faceBoss(server);
+			context.waitTicks(2);
+			context.takeScreenshot("abyssal_08_warden_awakens");
+			log("awake", bossState(server));
+			context.waitTicks(90);
+			faceBoss(server);
+			context.waitTicks(2);
+			context.takeScreenshot("abyssal_09_warden_phase1");
+
+			// Phase 2 below 60% health, phase 3 below 25%: drive it there with real player damage.
+			server.runCommand("damage @e[type=abyssal_descent:hollow_warden,limit=1] 150 minecraft:player_attack by @p");
+			context.waitTicks(20);
+			log("after 150 damage", bossState(server));
+			faceBoss(server);
+			context.waitTicks(2);
+			context.takeScreenshot("abyssal_10_warden_phase2_roar");
+			context.waitTicks(80);
+			faceBoss(server);
+			context.waitTicks(2);
+			context.takeScreenshot("abyssal_11_warden_phase2");
+			server.runCommand("damage @e[type=abyssal_descent:hollow_warden,limit=1] 130 minecraft:player_attack by @p");
+			context.waitTicks(20);
+			log("after 130 more damage", bossState(server));
+			context.waitTicks(60);
+			faceBoss(server);
+			context.waitTicks(2);
+			context.takeScreenshot("abyssal_12_warden_phase3");
+
+			// The killing blow starts the death sequence; the arena rewards appear when it ends.
+			server.runCommand("damage @e[type=abyssal_descent:hollow_warden,limit=1] 400 minecraft:player_attack by @p");
+			context.waitTicks(30);
+			faceBoss(server);
+			context.waitTicks(2);
+			context.takeScreenshot("abyssal_13_warden_death");
+			log("dying", bossState(server));
+			context.waitTicks(100);
+			log("after death sequence", bossState(server));
+			tp(server, boss.arenaInside, boss.arenaYaw, 10);
+			context.waitTicks(40);
+			context.takeScreenshot("abyssal_14_arena_rewards");
 
 			// Tooltip of the boss-exclusive greatsword.
 			server.runCommand("clear @p");
@@ -109,17 +152,17 @@ public final class AbyssalTour implements FabricClientGameTest {
 			server.runCommand("give @p abyssal_descent:hollow_crown");
 			server.runCommand("give @p abyssal_descent:gravewarden_cuirass");
 			context.waitTicks(5);
-			context.setScreen(() -> new InventoryScreen(context.computeOnClient(client -> client.player)));
+			context.setScreen(() -> new InventoryScreen(Minecraft.getInstance().player));
 			context.waitTicks(5);
 			hoverHotbarSlot(context, 0);
 			context.waitTicks(5);
-			context.takeScreenshot("abyssal_12_tooltip_gravebrand");
+			context.takeScreenshot("abyssal_15_tooltip_gravebrand");
 			hoverHotbarSlot(context, 1);
 			context.waitTicks(5);
-			context.takeScreenshot("abyssal_13_tooltip_crown");
+			context.takeScreenshot("abyssal_16_tooltip_crown");
 			hoverHotbarSlot(context, 2);
 			context.waitTicks(5);
-			context.takeScreenshot("abyssal_14_tooltip_cuirass");
+			context.takeScreenshot("abyssal_17_tooltip_cuirass");
 			context.setScreen(() -> null);
 		}
 	}
@@ -133,6 +176,37 @@ public final class AbyssalTour implements FabricClientGameTest {
 			return new double[] {(left + 8 + slot * 18 + 8) * scale, (top + 142 + 8) * scale};
 		});
 		context.getInput().setCursorPos(pos[0], pos[1]);
+	}
+
+	private static void faceBoss(TestServerContext server) {
+		server.runCommand("execute as @p at @s run tp @s ~ ~ ~ facing entity @e[type=abyssal_descent:hollow_warden,limit=1,sort=nearest] eyes");
+	}
+
+	private static void log(String step, String state) {
+		System.out.println("[AbyssalTour] " + step + ": " + state);
+	}
+
+	/** Health, phase and dormancy of the Warden, read on the server thread. */
+	private static String bossState(TestServerContext server) {
+		return server.computeOnServer(s -> {
+			ServerLevel level = s.getLevel(DungeonDimension.LEVEL);
+			if (level == null) {
+				return "no dungeon level";
+			}
+			StringBuilder out = new StringBuilder();
+			for (Entity e : level.getAllEntities()) {
+				if (e instanceof HollowWardenEntity warden) {
+					out.append(String.format("hp=%.1f/%.1f phase=%d dormant=%s alive=%s removed=%s ", warden.getHealth(), warden.getMaxHealth(),
+						warden.phase(), warden.dormant(), warden.isAlive(), warden.isRemoved()));
+				}
+			}
+			ServerPlayer player = s.getPlayerList().getPlayers().get(0);
+			DungeonRun run = RunManager.get(s).runOf(player);
+			if (run != null) {
+				out.append("bossStarted=").append(run.floorState.bossStarted).append(" bossDefeated=").append(run.floorState.bossDefeated);
+			}
+			return out.length() == 0 ? "no warden" : out.toString();
+		});
 	}
 
 	private static void tp(TestServerContext server, Vec3 pos, float yaw, float pitch) {

@@ -78,3 +78,12 @@ fabricApi {
 		eula = true
 	}
 }
+
+loom {
+	runs {
+		clientGameTest {
+			// Fabric's packet synchronizer misfires on the mod's synced attachments; the tour waits on ticks instead.
+			vmArg "-Dfabric.client.gametest.disableNetworkSynchronizer=true"
+		}
+	}
+}

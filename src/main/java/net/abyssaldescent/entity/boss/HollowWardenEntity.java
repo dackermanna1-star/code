@@ -137,7 +137,8 @@ public class HollowWardenEntity extends DungeonBossEntity {
 
 	@Override
 	protected Component title() {
-		return Component.translatable("entity.abyssal_descent.hollow_warden").withStyle(ChatFormatting.WHITE, ChatFormatting.BOLD);
+		// Title text is drawn at 4x scale: a short, unbolded name keeps it on screen at every GUI scale.
+		return Component.translatable("boss.abyssal_descent.hollow_warden.title").withStyle(ChatFormatting.WHITE);
 	}
 
 	@Override

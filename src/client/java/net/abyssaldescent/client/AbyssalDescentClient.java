@@ -5,6 +5,7 @@ import net.abyssaldescent.client.fx.CameraShake;
 import net.abyssaldescent.client.fx.ClientEffects;
 import net.abyssaldescent.client.hud.DungeonBossBar;
 import net.abyssaldescent.client.hud.ExpeditionHud;
+import net.abyssaldescent.client.hud.TooltipWrap;
 import net.abyssaldescent.client.model.BarrowKnightModel;
 import net.abyssaldescent.client.model.CryptGhoulModel;
 import net.abyssaldescent.client.model.WailingSkullModel;
@@ -31,6 +32,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.AnimationState;
 
@@ -66,7 +68,8 @@ public final class AbyssalDescentClient implements ClientModInitializer {
 
 	private static void registerBlockLayers() {
 		BlockRenderLayerMap.putBlocks(ChunkSectionLayer.TRANSLUCENT, ModBlocks.RUNIC_SEAL, ModBlocks.DESCENT_RIFT);
-		BlockRenderLayerMap.putBlocks(ChunkSectionLayer.CUTOUT, ModBlocks.ABYSSAL_GATE, ModBlocks.WAYSTONE, ModBlocks.SPIKE_TRAP,
+		BlockRenderLayerMap.putBlocks(ChunkSectionLayer.CUTOUT, ModBlocks.ABYSSAL_GATE, ModBlocks.WAYSTONE, ModBlocks.SPIKE_TRAP, ModBlocks.DART_TRAP,
+			ModBlocks.CRUMBLING_STONE_BRICKS,
 			ModBlocks.RELIQUARY, ModBlocks.BURIAL_URN, ModBlocks.ALTAR_OF_TRIALS, ModBlocks.CURSED_IDOL, ModBlocks.SOUL_BRAZIER,
 			ModBlocks.RUNE_STONE);
 	}
@@ -98,6 +101,9 @@ public final class AbyssalDescentClient implements ClientModInitializer {
 				lines.add(at, Component.translatable("tooltip.abyssal_descent.unsecured").withStyle(ChatFormatting.GOLD));
 				lines.add(at + 1, Component.translatable("tooltip.abyssal_descent.unsecured.hint").withStyle(ChatFormatting.DARK_GRAY,
 					ChatFormatting.ITALIC));
+			}
+			if (BuiltInRegistries.ITEM.getKey(stack.getItem()).getNamespace().equals(AbyssalDescent.MOD_ID)) {
+				TooltipWrap.wrap(lines);
 			}
 		});
 	}

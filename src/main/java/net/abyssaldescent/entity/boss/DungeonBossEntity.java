@@ -260,8 +260,8 @@ public abstract class DungeonBossEntity extends DungeonMonster implements Dungeo
 	public void die(DamageSource source) {
 		super.die(source);
 		for (ServerPlayer player : List.copyOf(bossEvent.getPlayers())) {
-			Messages.title(player, Component.translatable("message.abyssal_descent.boss_defeated").withStyle(ChatFormatting.GOLD, ChatFormatting.BOLD),
-				title().copy().withStyle(ChatFormatting.GRAY), 10, 60, 30);
+			Messages.title(player, Component.translatable("message.abyssal_descent.boss_defeated").withStyle(ChatFormatting.GOLD),
+				Component.translatable("message.abyssal_descent.boss_defeated.sub", title()).withStyle(ChatFormatting.GRAY), 10, 60, 30);
 		}
 	}
 

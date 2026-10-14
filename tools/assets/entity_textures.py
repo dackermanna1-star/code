@@ -1799,6 +1799,991 @@ def preview_wailing_skull(texs, outdir):
 
 
 # ----------------------------------------------------------------------------------------------
+# 6. Barrow knight (128x64) + glow
+# ----------------------------------------------------------------------------------------------
+K_HELM = Box(0, 0, 9, 9, 9, "helm")
+K_HORN_L = Box(36, 0, 2, 5, 2, "horn_l")
+K_HORN_R = Box(44, 0, 2, 5, 2, "horn_r")
+K_PAULDRON = Box(52, 0, 6, 5, 7, "pauldron")
+K_GRIP = Box(80, 0, 2, 5, 2, "grip")
+K_POMMEL = Box(80, 10, 3, 2, 3, "pommel")
+K_GUARD = Box(88, 0, 2, 2, 8, "guard")
+K_BLADE = Box(110, 0, 1, 22, 4, "blade")
+K_TORSO = Box(0, 18, 10, 13, 6, "torso")
+K_LARM = Box(32, 18, 4, 13, 4, "l_arm")
+K_RARM = Box(48, 18, 4, 13, 4, "r_arm")
+K_TABARD = Box(40, 37, 8, 10, 0, "tabard")
+K_LLEG = Box(0, 37, 5, 14, 5, "l_leg")
+K_RLEG = Box(20, 37, 5, 14, 5, "r_leg")
+KNIGHT_BOXES = [K_HELM, K_HORN_L, K_HORN_R, K_PAULDRON, K_GRIP, K_POMMEL, K_GUARD, K_BLADE, K_TORSO,
+	K_LARM, K_RARM, K_TABARD, K_LLEG, K_RLEG]
+
+
+def remap(rows, mapping):
+	return ["".join(mapping.get(ch, ch) for ch in r) for r in rows]
+
+
+DARKEN = {"4": "3", "3": "2", "2": "1", "1": "0"}
+
+
+def mirror_rows(rows):
+	return [r[::-1] for r in rows]
+
+
+def mail_fill(F: Face, j0, j1, base=1, phase=0):
+	for j in range(j0, j1):
+		for i in range(F.w):
+			F.set(i, j, _mail(i + phase, j, base))
+
+
+def paint_barrow_knight():
+	t = Tex(128, 64)
+	g = Tex(128, 64)
+	# Knight plate sits one tone darker than raw crypt iron; '5' is the crisp edge highlight.
+	lg = L([C("#18191d")] + IRON, a=RUST, A=LEATHER, p=BONE, h=HORN[0], j=HORN[1], m=HORN[2], n=HORN[3],
+		o=HORN[4], d=GOLD[2], e=GOLD[0])
+	lgs = L(IRON, a=RUST, A=LEATHER)
+
+	# --- Great helm
+	H = K_HELM
+	H.face(t, "front").art([
+		"344454443",
+		"453343354",
+		"334454433",
+		"1KKK5KKK1",
+		"122242221",
+		"12b343221",
+		"12a3430a1",
+		"12a34303a",
+		"112242211",
+	], lg)
+	side = [
+		"334444444",
+		"233333354",
+		"233333333",
+		"222333353",
+		"222333332",
+		"122223353",
+		"12222b332",
+		"11222a253",
+		"111122211",
+	]
+	H.face(t, "right").art(side, lg)
+	H.face(t, "left").art(remap(mirror_rows(side), DARKEN), lg)
+	H.face(t, "back").art([
+		"333343333",
+		"232232232",
+		"222232222",
+		"122232221",
+		"122232221",
+		"112232211",
+		"112a32211",
+		"112a22211",
+		"111121111",
+	], lg)
+	H.face(t, "top").art([
+		"334444433",
+		"353444353",
+		"344454443",
+		"344454443",
+		"455555554",
+		"344454443",
+		"34a454443",
+		"353454353",
+		"344454443",
+	], lg)
+	H.face(t, "bottom").art([
+		"111111111",
+		"100000001",
+		"10KKKKK01",
+		"10KKKKK01",
+		"10KKKKK01",
+		"10KKKKK01",
+		"10KKKKK01",
+		"100000001",
+		"111111111",
+	], lg)
+
+	# --- Horns: dark, ridged, pale worn tips (row 0 = tip)
+	for Hn in (K_HORN_L, K_HORN_R):
+		Hn.strip(t).art([
+			"no" "on" "nm" "mn",
+			"mn" "nm" "mj" "jm",
+			"jm" "mj" "jj" "hj",
+			"mn" "nm" "mj" "jm",
+			"hj" "jj" "jh" "hh",
+		], lg)
+		Hn.face(t, "top").art(["oo", "on"], lg)
+		Hn.face(t, "bottom").art(["hh", "hh"], lg)
+
+	# --- Pauldrons (mirrored pair): layered lames, rivets, rust. top col 0 / front col 0 = inner side
+	P = K_PAULDRON
+	P.face(t, "top").art([
+		"123343",
+		"234454",
+		"234445",
+		"234445",
+		"234445",
+		"234454",
+		"123343",
+	], lg)
+	P.face(t, "left").art([
+		"5444445",
+		"2222222",
+		"4433b34",
+		"1222a21",
+		"0000000",
+	], lg)
+	P.face(t, "front").art(["234445", "122222", "233344", "112222", "000000"], lg)
+	P.face(t, "back").art(["322221", "111111", "222222", "111111", "000000"], lg)
+	P.face(t, "right").art(["1111111", "0000000", "1111111", "0000000", "0000000"], lg)
+	P.face(t, "bottom").fill(IRON[0])
+
+	# --- Torso: rusted breastplate over mail, belt, mail skirt
+	T = K_TORSO
+	S = T.strip(t)
+	mail_fill(S, 9, 13, 0)
+	S.art([
+		# right(6)   front(10)       left(6)   back(10)
+		"233444" "2344554432" "444332" "2333443332",
+		"112222" "0122332210" "222211" "1112222111",
+		"122333" "3445555443" "333221" "2223333222",
+		"12A333" "3443553432" "333A21" "2A2233222A",
+		"12B333" "3444554b32" "333B21" "22A22322A2",
+		"12A223" "234455ab32" "322A21" "122A33A221",
+		"122223" "2344554a22" "322221" "1222AA2221",
+		"112222" "123344a221" "222211" "112A22A211",
+		"234444" "4555555554" "444432" "23A3443A32",
+		"ABBBBA" "BCBBedBBCB" "ABBBBA" "BCBBBBBBCB",
+	], lg)
+	T.face(t, "top").art([
+		"2333333332",
+		"3444444443",
+		"34420K2443",
+		"3442KK2443",
+		"4455555544",
+		"4455555544",
+	], lg)
+	T.face(t, "bottom").each(lambda i, j: _mail(i, j, 0))
+
+	# --- Arms: mail sleeves, elbow couter, rusted vambrace, gauntlet
+	for A in (K_LARM, K_RARM):
+		S = A.strip(t)
+		mail_fill(S, 0, 6, 1)
+		S.art([
+			"................",
+			"................",
+			"................",
+			"................",
+			"................",
+			"1111" "1111" "1111" "0000",
+			"4554" "4554" "4443" "3333",
+			"1221" "1221" "1110" "0000",
+			"3444" "3454" "4443" "3333",
+			"3b44" "3454" "4b43" "3233",
+			"ABBA" "BBAB" "BAAB" "AAAA",
+			"3a44" "3454" "4a33" "3233",
+			"1222" "4545" "2221" "1111",
+		][:13], lg)
+		A.face(t, "top").each(lambda i, j: _mail(i, j, 1))
+		A.face(t, "bottom").art(["0000", "0110", "0110", "0000"], lg)
+
+	# --- Legs: mail chausses, knee poleyn, greaves, sabatons
+	for G in (K_LLEG, K_RLEG):
+		S = G.strip(t)
+		mail_fill(S, 0, 5, 1)
+		S.art([
+			".........." "..........",
+			".........." "..........",
+			".........." "..........",
+			".........." "..........",
+			"00000" "00000" "00000" "00000",
+			"34444" "45554" "44443" "33333",
+			"12232" "23532" "23221" "11111",
+			"23444" "34543" "44432" "22222",
+			"23444" "3b543" "44432" "22222",
+			"23444" "3a543" "44432" "22222",
+			"23444" "3a543" "44432" "22222",
+			"12333" "23432" "33321" "11111",
+			"34444" "44544" "44443" "33333",
+			"00000" "01110" "00000" "00000",
+		], lg)
+		G.face(t, "top").each(lambda i, j: _mail(i, j, 0))
+		G.face(t, "bottom").art(["00000", "01110", "01110", "01110", "00000"], lg)
+
+	# --- Tabard plane: green-black cloth, faded bone sigil (ring-cross over a sword), ragged hem
+	cl = L(KNIGHT_CLOTH, p=BONE)
+	TF = K_TABARD.face(t, "front")
+	TF.art([
+		"23333332",
+		"22233222",
+		"222qq222",
+		"22qr1q22",
+		"2q1rq1q2",
+		"21q22q12",
+		"112rq211",
+		"1112q111",
+		"_1112_11",
+		"_0_11__0",
+	], cl)
+	TB = K_TABARD.face(t, "back")
+	TB.mirror_of(TF)
+	for j in range(10):
+		for i in range(8):
+			if TB.get(i, j)[3]:
+				TB.set(i, j, KNIGHT_CLOTH[0] if (i + j) % 3 else KNIGHT_CLOTH[1])
+
+	# --- Sword: leather-wrapped grip, iron pommel and guard, broad notched blade
+	gr = K_GRIP.strip(t)
+	gr.art(["AB" "CB" "BA" "AA", "BC" "BA" "AA" "AB", "CB" "AB" "AB" "BA", "BA" "BC" "BA" "AA", "AB" "CB" "BA" "AA"], lgs)
+	K_GRIP.face(t, "top").fill(IRON[1])
+	K_GRIP.face(t, "bottom").fill(IRON[1])
+	K_POMMEL.strip(t).art(["343" "444" "332" "222", "122" "232" "221" "111"], lgs)
+	K_POMMEL.face(t, "top").art(["233", "343", "233"], lgs)
+	K_POMMEL.face(t, "bottom").art(["111", "121", "111"], lgs)
+	K_GUARD.face(t, "top").art(["34", "34", "23", "34", "34", "23", "34", "33"], lgs)
+	K_GUARD.face(t, "bottom").fill(IRON[1])
+	K_GUARD.face(t, "right").art(["23443432", "11221211"], lgs)
+	K_GUARD.face(t, "left").art(["23434432", "11212211"], lgs)
+	K_GUARD.face(t, "front").art(["34", "12"], lgs)
+	K_GUARD.face(t, "back").art(["33", "11"], lgs)
+	blade = [
+		"_43_",
+		"3442",
+		"3443",
+		"4323",
+		"4213",
+		"4213",
+		"4213",
+		"4213",
+		"4213",
+		"_213",
+		"4213",
+		"4213",
+		"4213",
+		"4213",
+		"421_",
+		"4213",
+		"4213",
+		"4213",
+		"4a13",
+		"4323",
+		"4333",
+		"3332",
+	]
+	# right face: col 0 = back edge, col 3 = front edge; left face mirrored (col 0 = front edge)
+	K_BLADE.face(t, "right").art(blade, lgs)
+	K_BLADE.face(t, "left").art(mirror_rows(blade), lgs)
+	edge_f = ["_" if r[3] == "_" or j == 0 else "4" for j, r in enumerate(blade)]
+	edge_b = ["_" if r[0] == "_" or j == 0 else "3" for j, r in enumerate(blade)]
+	K_BLADE.face(t, "front").art(edge_f, lgs)
+	K_BLADE.face(t, "back").art(edge_b, lgs)
+	K_BLADE.face(t, "bottom").fill(IRON[2])
+
+	# --- Glow: pale light in the visor slit, two faint sigil pixels
+	f = H.face(g, "front")
+	f.art(["...", "...", "...", ".012.210."], {"0": SOUL[0], "1": SOUL[1], "2": SOUL[2]})
+	tf = K_TABARD.face(g, "front")
+	tf.set(3, 4, SOUL[0])
+	tf.set(4, 3, SOUL[0])
+	return {"barrow_knight.png": t, "barrow_knight_glow.png": g}
+
+
+def preview_barrow_knight(texs, outdir):
+	base, glow = texs["barrow_knight.png"], texs["barrow_knight_glow.png"]
+	sheets = [uv_sheet(base, KNIGHT_BOXES, 7, "barrow_knight")]
+	renders = standard_renders([(barrow_knight_model(), base, glow)], scale=9,
+		views=[(0, 0.1), (-0.6, 0.25), (-math.pi / 2, 0.1), (math.pi, 0.1), (math.pi - 0.6, 0.3)])
+	return compose_preview("barrow_knight", sheets, renders, outdir)
+
+
+# ----------------------------------------------------------------------------------------------
+# 7. The Hollow Warden (boss, 128x128) + glow
+# ----------------------------------------------------------------------------------------------
+HW_SKULL = Box(0, 0, 8, 9, 8, "skull")
+HW_CROWN = Box(32, 0, 10, 4, 10, "crown")
+HW_JAW = Box(0, 17, 6, 2, 6, "jaw")
+HW_HORN_L = Box(72, 0, 2, 5, 2, "horn_l")
+HW_HORN_R = Box(80, 0, 2, 5, 2, "horn_r")
+HW_PAULDRON = Box(64, 16, 7, 5, 8, "pauldron")
+HW_TORSO = Box(0, 32, 12, 14, 7, "torso")
+HW_HIPS = Box(40, 32, 10, 4, 6, "hips")
+HW_LARM = Box(0, 64, 4, 18, 4, "l_arm")
+HW_RARM = Box(16, 64, 4, 18, 4, "r_arm")
+HW_LLEG = Box(32, 64, 5, 22, 5, "l_leg")
+HW_RLEG = Box(52, 64, 5, 22, 5, "r_leg")
+HW_CLOAK = Box(72, 64, 14, 30, 1, "cloak")
+HW_GRIP = Box(100, 0, 2, 6, 2, "grip")
+HW_POMMEL = Box(108, 0, 3, 2, 3, "pommel")
+HW_GUARD = Box(100, 8, 2, 2, 8, "guard")
+HW_BLADE = Box(118, 20, 1, 32, 4, "blade")
+WARDEN_BOXES = [HW_SKULL, HW_CROWN, HW_JAW, HW_HORN_L, HW_HORN_R, HW_PAULDRON, HW_TORSO, HW_HIPS, HW_LARM,
+	HW_RARM, HW_LLEG, HW_RLEG, HW_CLOAK, HW_GRIP, HW_POMMEL, HW_GUARD, HW_BLADE]
+KIRON = [C("#18191d")] + IRON
+TARNISH = pal("#4a3a16", "#8a6418", "#c9962a")
+GAP = C("#0a0f18")          # void behind the ribs (soul fire lives in the glow layer)
+GAP2 = C("#101a2a")
+
+
+def _fire(heat):
+	if heat >= 2.5:
+		return SOUL[3]
+	if heat >= 1.8:
+		return SOUL[2]
+	if heat >= 1.0:
+		return SOUL[1]
+	return SOUL[0]
+
+
+def paint_hollow_warden():
+	t = Tex(128, 128)
+	g = Tex(128, 128)
+	# legends: plate (digits = darkened crypt iron, 5 = edge highlight), bone, cloth, blackened steel
+	lp = L(KIRON, a=RUST, p=BONE, g=TARNISH[0], h=TARNISH[1], i=TARNISH[2], f=GAP, F=GAP2,
+		A=LEATHER, m=HORN[2], n=HORN[3])
+	lb = L(BONE, r=C("#5c5140"), A=LEATHER, f=GAP)
+
+	# ---------------- Skull (rows 0-2 sit inside the crown)
+	S = HW_SKULL
+	S.face(t, "front").art([
+		"34444443",
+		"34444443",
+		"33433r33",
+		"2KK3rKK2",
+		"2KK32KK2",
+		"3KK32KK1",
+		"223KK321",
+		"12322r21",
+		"14040401",
+	], lb)
+	side = [
+		"22333334",
+		"22333344",
+		"12233r34",
+		"122r3333",
+		"12r23443",
+		"122K2332",
+		"11222232",
+		"11122122",
+		"01111111",
+	]
+	S.face(t, "right").art(side, lb)
+	S.face(t, "left").art(remap(mirror_rows(side), DARKEN), lb)
+	S.face(t, "back").art([
+		"22333322",
+		"23333332",
+		"2233r322",
+		"222r3222",
+		"22r22222",
+		"122r2221",
+		"11222211",
+		"11122111",
+		"01111110",
+	], lb)
+	S.face(t, "top").art([
+		"22333322",
+		"23333332",
+		"233r3333",
+		"33r34433",
+		"333r4443",
+		"33434r43",
+		"3444r443",
+		"34444443",
+	], lb)
+	S.face(t, "bottom").art([
+		"11111111",
+		"111KK111",
+		"111KK111",
+		"11100111",
+		"10000001",
+		"10000001",
+		"12000021",
+		"14040401",
+	], lb)
+
+	# ---------------- Jaw
+	J = HW_JAW
+	J.face(t, "top").art(["100001", "1kkkk1", "1kkkk1", "3kkkk3", "4kkkk4", "404040"], lb)
+	J.face(t, "front").art(["404040", "123321"], lb)
+	J.face(t, "right").art(["112334", "111222"], lb)
+	J.face(t, "left").art(["433211", "222111"], lb)
+	J.face(t, "back").art(["111111", "011110"], lb)
+	J.face(t, "bottom").art(["011110", "111111", "112211", "112211", "122221", "111111"], lb)
+
+	# ---------------- Crown-helm ring: open top, spiked band, tarnished gold trim, glowing cracks
+	CR = HW_CROWN
+	band = [
+		"_3__45__3_",
+		"3433553343",
+		"4344a44344",
+		"hghihhighg",
+	]
+	CR.face(t, "front").art(band, lp)
+	CR.face(t, "back").art(remap(band, DARKEN), lp)
+	CR.face(t, "right").art(band, lp)
+	CR.face(t, "left").art(remap(band, DARKEN), lp)
+	CR.face(t, "front").art(["..........", "..........", "..0....0..", ".........."], lp)
+	CR.face(t, "right").art(["..........", "..........", "......0...", ".........."], lp)
+	CR.face(t, "left").art(["..........", "..........", "...0......", ".........."], lp)
+	CR.face(t, "bottom").fill(KIRON[0])
+	# top stays transparent: the horns and the cracked cranium show inside the ring
+
+	# ---------------- Horns: blackened, ridged, curling (row 0 = tip)
+	for Hn in (HW_HORN_L, HW_HORN_R):
+		Hn.strip(t).art([
+			"10" "01" "10" "00",
+			"21" "12" "21" "11",
+			"12" "21" "11" "01",
+			"23" "32" "21" "12",
+			"01" "11" "10" "00",
+		], {"0": HORN[0], "1": HORN[1], "2": HORN[2], "3": HORN[3]})
+		Hn.face(t, "top").art(["10", "01"], {"0": HORN[0], "1": HORN[2]})
+		Hn.face(t, "bottom").fill(HORN[0])
+
+	# ---------------- Pauldrons (mirrored pair): spiked plate, bone trim. top/front col 0 = inner
+	P = HW_PAULDRON
+	P.face(t, "top").art([
+		"2334443",
+		"2345443",
+		"23441a3",
+		"2344443",
+		"2345443",
+		"2334143",
+		"2345443",
+		"2334432",
+	], lp)
+	P.face(t, "left").art([
+		"45555554",
+		"23343332",
+		"34a43443",
+		"12b22221",
+		"rsstssrq".replace("r", "q").replace("s", "s"),
+	], L(KIRON, a=RUST, q=BONE[1], s=BONE[3], t=BONE[4]))
+	P.face(t, "front").art(["2344445", "1223332", "23a3443", "1122221", "qsstssq"],
+		L(KIRON, a=RUST, q=BONE[1], s=BONE[3], t=BONE[4]))
+	P.face(t, "back").art(["5444432", "2333221", "3443332", "1222211", "qssssq0"],
+		L(KIRON, a=RUST, q=BONE[1], s=BONE[2]))
+	P.face(t, "right").art(["22222222", "11111111", "22222222", "11111111", "00000000"], lp)
+	P.face(t, "bottom").fill(KIRON[0])
+
+	# ---------------- Torso: breastplate split open over a ribcage with soul fire behind it
+	lt = L(KIRON, a=RUST, b=RUST[1], g=TARNISH[0], h=TARNISH[1], i=TARNISH[2], f=GAP, F=GAP2,
+		q=BONE[1], r=BONE[2], s=BONE[3], t=BONE[4], A=LEATHER[1], B=LEATHER[2], C=LEATHER[3])
+	TO = HW_TORSO
+	front = [
+		"334455554433",
+		"ghhghiihghhg",
+		"3445fstf5443",
+		"34brsstsrb43",
+		"345ffstffa42",
+		"33aqrstrqa43",
+		"345ffstff532",
+		"34bqrrsrqb32",
+		"235ffrsff532",
+		"2345fqqf5432",
+		"23445ff54432",
+		"234450054432",
+		"123444444321",
+		"112333333211",
+	]
+	TO.face(t, "front").art(front, lt)
+	side = [
+		"2334444",
+		"hghhihh",
+		"2334443",
+		"2334453",
+		"BCBhiCB",
+		"ABAghBA",
+		"2334443",
+		"23a4443",
+		"23b4453",
+		"2334443",
+		"2234443",
+		"2233443",
+		"1223332",
+		"1122221",
+	]
+	TO.face(t, "right").art(side, lt)
+	TO.face(t, "left").art(remap(mirror_rows(side), DARKEN), lt)
+	TO.face(t, "back").art([
+		"233344443332",
+		"ghhghhhhghhg",
+		"2B3333333B32",
+		"2C3344433C32",
+		"2B3333333B32",
+		"2C33a3333C32",
+		"2B33b3333B32",
+		"2C3333a33C32",
+		"2B3333b33B32",
+		"2C3333333C32",
+		"2B2333332B22",
+		"1C2222222C21",
+		"112222222211",
+		"011111111110",
+	], lt)
+	TO.face(t, "top").art([
+		"233333333332",
+		"344444444443",
+		"344410014443",
+		"34441KK14443",
+		"344410014443",
+		"345555555543",
+		"hghhiiiihhgh",
+	], lt)
+	TO.face(t, "bottom").fill(KIRON[1])
+
+	# ---------------- Hips: leather belt, skull buckle, iron faulds
+	HI = HW_HIPS
+	HI.face(t, "front").art([
+		"BCBrssrBCB",
+		"ABrKssKrBA",
+		"34rsKKsr43",
+		"232tqqt232",
+	], lt)
+	HI.strip(t).art([
+		"BCBCBC" "..........",
+		"ABABAB" "..........",
+		"343343" "..........",
+		"212212" "..........",
+	], lt)
+	HI.strip(t).art([
+		"......" ".........." "CBCBCB" "BCBCBCBCBC",
+		"......" ".........." "BABABA" "ABABABABAB",
+		"......" ".........." "343343" "3433433433",
+		"......" ".........." "212212" "2122122122",
+	], lt)
+	HI.face(t, "top").fill(KIRON[0])
+	HI.face(t, "bottom").fill(KIRON[0])
+
+	# ---------------- Arms: bare bone above, rusted vambrace below, bony fingers
+	la = L(BONE, a=RUST, A=LEATHER, i=IRON, k=SHADOW, K=VOID,
+		u=KIRON[1], v=KIRON[2], w=KIRON[3], x=KIRON[4], y=KIRON[5], z=KIRON[0],
+		g=TARNISH[1], h=TARNISH[2], r=C("#5c5140"), L=CLOTH[0], M=CLOTH[1], N=CLOTH[2], O=CLOTH[3])
+	arm = [
+		# right(4) front(4) left(4) back(4)
+		"MNNM" "NOON" "NNMM" "MMLM",
+		"LMNM" "MNON" "NMML" "LMLL",
+		"LMML" "NMNM" "MLML" "LLML",
+		"M2LM" "L4N3" "ML2L" "L1LL",
+		"1L32" "2343" "L321" "11L1",
+		"1232" "2r43" "3321" "1221",
+		"1232" "23r3" "3221" "1221",
+		"0121" "1232" "2210" "0110",
+		"2343" "3443" "3432" "2221",
+		"1221" "1221" "1221" "0110",
+		"wxxw" "xyyx" "wxxw" "vwwv",
+		"vwwv" "wxyw" "vwav" "uvvu",
+		"vwav" "wxyw" "vwav" "uvvu",
+		"ABBA" "BgBA" "ABBA" "AAAA",
+		"vwav" "wxyw" "vwwv" "uvvu",
+		"uvvu" "vwwv" "uvvu" "zuuz",
+		"2K2K" "3K3K" "2K2K" "1K1K",
+		"2K2K" "3K3K" "2K2K" "1K1K",
+	]
+	for A in (HW_LARM, HW_RARM):
+		A.strip(t).art(arm, la)
+		A.face(t, "top").art(["MNNM", "NOON", "NOON", "MNNM"], la)
+		A.face(t, "bottom").art(["1K1K", "KKKK", "2K3K", "3K4K"], la)
+
+	# ---------------- Legs: bone thigh with a strapped cuisse, armoured knee, greaves, sabatons
+	ll = L(KIRON, a=RUST, A=LEATHER[1], B=LEATHER[2], q=BONE[1], r=BONE[2], s=BONE[3], t=BONE[4],
+		h=TARNISH[1], i=TARNISH[2], k=SHADOW)
+	leg = [
+		# right(5)  front(5)  left(5)  back(5)
+		"11111" "11111" "11111" "00000",
+		"11111" "11111" "11111" "00000",
+		"kqrsk" "23432" "ksrqk" "kqrqk",
+		"kqrsk" "34543" "ksrqk" "kqrqk",
+		"ABABA" "BAhAB" "ABABA" "ABABA",
+		"kqrsk" "34543" "ksrqk" "kqrqk",
+		"kqrsk" "34543" "ksrqk" "kqrqk",
+		"ABABA" "BAhAB" "ABABA" "ABABA",
+		"kqrqk" "23432" "kqrqk" "kqqqk",
+		"23443" "34543" "34432" "22222",
+		"34554" "45i54" "45543" "23332",
+		"12332" "23432" "23321" "11111",
+		"23443" "34543" "34432" "22222",
+		"23443" "34543" "34432" "22222",
+		"23443" "34543" "34432" "22222",
+		"23443" "34543" "34432" "22222",
+		"23443" "34543" "34432" "22222",
+		"23443" "34543" "34432" "22222",
+		"12332" "23432" "23321" "11111",
+		"hihhi" "hhihh" "ihhih" "hhhhh",
+		"23333" "34443" "33332" "22222",
+		"01111" "12221" "11110" "00000",
+	]
+	rust_spots = {  # (strip column, row) -> tone; streaks run down from rivets and plate seams
+		"l": {(6, 13): "b", (6, 14): "a", (6, 15): "a", (2, 15): "b", (2, 16): "a", (17, 14): "a"},
+		"r": {(8, 12): "b", (8, 13): "a", (13, 15): "b", (13, 16): "a", (16, 13): "a", (16, 14): "a"},
+	}
+	for side_key, G in (("l", HW_LLEG), ("r", HW_RLEG)):
+		G.strip(t).art(leg, ll)
+		for (i, j), ch in rust_spots[side_key].items():
+			G.strip(t).set(i, j, ll[ch])
+		G.face(t, "top").fill(KIRON[1])
+		G.face(t, "bottom").art(["00000", "01110", "01110", "01110", "00000"], ll)
+
+	# ---------------- Cloak: tattered mourner cloth, faded bone sigil, ragged hem (shared alpha mask)
+	CK = HW_CLOAK
+	bottoms = [26, 29, 27, 24, 28, 30, 26, 27, 30, 28, 25, 27, 29, 25]   # first transparent row per column
+	holes = {(2, 19), (11, 21), (5, 23), (9, 16), (12, 12), (1, 9)}
+	fold = [1, 2, 2, 1, 0, 1, 2, 3, 2, 1, 0, 1, 2, 1]
+	outer = CK.face(t, "back")      # visible outside (+Z); col 0 = creature's left
+	inner = CK.face(t, "front")     # lining facing the body; col 0 = creature's right
+	for j in range(30):
+		for i in range(14):
+			k = fold[i]
+			if j < 2:
+				k = max(0, k - 1)
+			if j > 20:
+				k = max(0, k - (1 if (i + j) % 5 == 0 else 0))
+			outer.set(i, j, CLOTH[k])
+			inner.set(i, j, CLOTH[max(0, k - 1)])
+	sig = L(CLOTH, p=BONE[1], q=BONE[2], r=BONE[3], s=BONE[4])
+	outer.art([
+		"...q..q...",
+		"...rs.r...",
+		"q..r..rs.q",
+		"rq.rqqr.qr",
+		"rrrrrrsrrq",
+		"qr.qrsq.rq",
+		"....rs....",
+		"..qrrsrq..",
+		"....rq....",
+		"....rq....",
+		"....q.....",
+		"....pq....",
+		"....p.....",
+	], sig, ox=2, oy=3)
+	outer.art(["vVVvvVVvVVvvVv"], {"v": VIOLET[0], "V": C("#4a3264")}, oy=1)
+	for i, b in enumerate(bottoms):
+		for j in range(b, 30):
+			outer.clear(13 - i, j)
+			inner.clear(i, j)
+	for (i, j) in holes:
+		outer.clear(13 - i, j)
+		inner.clear(i, j)
+	CK.face(t, "top").fill(CLOTH[1])
+	re, le, bo = CK.face(t, "right"), CK.face(t, "left"), CK.face(t, "bottom")
+	for j in range(30):
+		re.set(0, j, CLOTH[0]) if inner.get(0, j)[3] else re.clear(0, j)
+		le.set(0, j, CLOTH[0]) if inner.get(13, j)[3] else le.clear(0, j)
+	for i in range(14):
+		bo.set(i, 0, CLOTH[0]) if bottoms[i] >= 30 else bo.clear(i, 0)
+
+	# ---------------- Greatsword: leather grip, iron pommel/guard, blackened blade with a rune fuller
+	ls = L(BLACKSTEEL, a=RUST, A=LEATHER, R=C("#16303f"), S=C("#1f4458"), h=TARNISH[1], i=TARNISH[2])
+	HW_GRIP.strip(t).art(["AB" "CB" "BA" "AA", "BC" "BA" "AA" "AB", "CB" "AB" "AB" "BA",
+		"BA" "BC" "BA" "AA", "AB" "CB" "BA" "AA", "BC" "BA" "AA" "AB"], ls)
+	HW_GRIP.face(t, "top").fill(BLACKSTEEL[2])
+	HW_GRIP.face(t, "bottom").fill(BLACKSTEEL[2])
+	HW_POMMEL.strip(t).art(["342" "4h4" "243" "222", "121" "232" "121" "111"], ls)
+	HW_POMMEL.face(t, "top").art(["233", "3i3", "233"], ls)
+	HW_POMMEL.face(t, "bottom").art(["111", "121", "111"], ls)
+	HW_GUARD.face(t, "top").art(["34", "23", "23", "34", "4h", "23", "23", "34"], ls)
+	HW_GUARD.face(t, "bottom").fill(BLACKSTEEL[1])
+	HW_GUARD.face(t, "right").art(["34324423", "12112211"], ls)
+	HW_GUARD.face(t, "left").art(["32442343", "11221121"], ls)
+	HW_GUARD.face(t, "front").art(["34", "12"], ls)
+	HW_GUARD.face(t, "back").art(["33", "11"], ls)
+	runes = [("R.", "RR", "R."), (".R", "RR", "R."), ("RR", ".R", "RR"), ("R.", ".R", "R."),
+		("RR", "R.", "R."), (".R", "R.", ".R"), ("RR", "R.", "RR")]
+	blade = ["_32_", "3443", "4223", "4003"]
+	ri = 0
+	while len(blade) < 29:
+		rr = runes[ri % len(runes)]
+		for row in rr:
+			if len(blade) < 29:
+				blade.append("4" + row.replace(".", "0") + "3")
+		if len(blade) < 29:
+			blade.append("4003")
+		ri += 1
+	blade += ["4003", "4223", "4hh3"][: 32 - len(blade)]
+	blade = blade[:32]
+	HW_BLADE.face(t, "right").art(blade, ls)
+	HW_BLADE.face(t, "left").art(mirror_rows(blade), ls)
+	HW_BLADE.face(t, "front").art(["_"] + ["4"] * 31, ls)
+	HW_BLADE.face(t, "back").art(["_"] + ["3"] * 31, ls)
+	HW_BLADE.face(t, "bottom").fill(BLACKSTEEL[2])
+
+	# ---------------- Glow layer
+	# eye flames: white core at the bottom of each socket, licking up past the brow
+	ef = HW_SKULL.face(g, "front")
+	ef.art([
+		"........",
+		"........",
+		".0....0.",
+		".10..01.",
+		".21..12.",
+		".32..23.",
+	], {str(i): c for i, c in enumerate(SOUL)})
+	# soul fire through the rib gaps (hotter toward the centre and the bottom of the cavity)
+	tf = HW_TORSO.face(g, "front")
+	for j, row in enumerate(front):
+		for i, ch in enumerate(row):
+			if ch in "fF":
+				heat = 2.6 - abs(i - 5.5) * 0.9 + (j - 2) * 0.18
+				tf.set(i, j, _fire(heat))
+	tf.set(5, 11, SOUL[0])
+	tf.set(6, 11, SOUL[0])
+	# rune fuller on both broad faces of the blade
+	for fname, rows in (("right", blade), ("left", mirror_rows(blade))):
+		bf = HW_BLADE.face(g, fname)
+		for j, row in enumerate(rows):
+			for i, ch in enumerate(row):
+				if ch == "R":
+					bf.set(i, j, SOUL[2] if j % 7 == 3 else SOUL[1])
+	# a few glowing cracks in the crown band
+	for fname, pts in (("front", [(2, 2), (7, 2)]), ("right", [(6, 2)]), ("left", [(3, 2)])):
+		cf = HW_CROWN.face(g, fname)
+		for (i, j) in pts:
+			cf.set(i, j, SOUL[1])
+	return {"hollow_warden.png": t, "hollow_warden_glow.png": g}
+
+
+def preview_hollow_warden(texs, outdir):
+	base, glow = texs["hollow_warden.png"], texs["hollow_warden_glow.png"]
+	sheets = [uv_sheet(base, WARDEN_BOXES, 6, "hollow_warden"), uv_sheet(glow, WARDEN_BOXES, 3, "glow")]
+	renders = standard_renders([(hollow_warden_model(), base, glow)], scale=7,
+		views=[(0, 0.1), (-0.6, 0.25), (-math.pi / 2, 0.1), (math.pi, 0.1), (math.pi - 0.6, 0.3)])
+	return compose_preview("hollow_warden", sheets, renders, outdir)
+
+
+# ----------------------------------------------------------------------------------------------
+# 8. Delver merchant (humanoid 64x64)
+# ----------------------------------------------------------------------------------------------
+CLOAK_BROWN = LEATHER + [C("#a37a55")]
+TROUSER = pal("#231c17", "#352a22", "#4a3c30", "#5f4e3e")
+
+
+def paint_delver_merchant():
+	t = Tex(64, 64)
+	lg = L(CLOAK_BROWN, a=BEARD, A=TUNIC, p=SKIN, g=GOLD[0], h=GOLD[1], i=GOLD[2], E=AMBER[1], F=AMBER[0],
+		s=C("#140d09"), t=TROUSER[0], u=TROUSER[1], v=TROUSER[2], w=TROUSER[3], x=LINEN[1], y=LINEN[2], z=LINEN[3])
+	H = HUM_HEAD
+	# Face in the hood's shadow: grizzled beard, weathered nose, two warm eye glints
+	H.face(t, "front").art([
+		"ssssssss",
+		"sspqqpss",
+		"spqqqqps",
+		"psEpqEsp",
+		"spqrrqps",
+		"pbcaacbp",
+		"sabcbbas",
+		"ssacbass",
+	], lg)
+	H.face(t, "right").art([
+		"ssssssss",
+		"ssssssps",
+		"ssssppqp",
+		"sssppqpp",
+		"ssspqrpp",
+		"sssppabb",
+		"ssssabcb",
+		"sssssabc",
+	], lg)
+	H.face(t, "left").art([
+		"ssssssss",
+		"spssssss",
+		"pqppssss",
+		"ppqppsss",
+		"pprqpsss",
+		"bbappsss",
+		"bcbassss",
+		"cbasssss",
+	], lg)
+	H.face(t, "back").fill(C("#140d09"))
+	H.face(t, "top").fill(C("#1a120c"))
+	H.face(t, "bottom").art([
+		"ssssssss",
+		"ssssssss",
+		"ssppppss",
+		"spppppps",
+		"spaaaaps",
+		"saabbaas",
+		"aabbbbaa",
+		"aabccbaa",
+	], lg)
+
+	# Hood (hat layer): weathered brown, lighter rim around the face opening
+	T = HUM_HAT
+	T.face(t, "top").art([
+		"11222211",
+		"12233221",
+		"12333321",
+		"23344332",
+		"23344332",
+		"23333332",
+		"23333332",
+		"34444443",
+	], lg)
+	T.face(t, "front").art([
+		"34444443",
+		"32222223",
+		"3______2",
+		"3______2",
+		"2______2",
+		"3______1",
+		"2______1",
+		"2______1",
+	], lg)
+	T.face(t, "right").art([
+		"12222334",
+		"11222333",
+		"11222334",
+		"01122233",
+		"01122333",
+		"01112233",
+		"00111223",
+		"00111123",
+	], lg)
+	T.face(t, "left").art([
+		"43322221",
+		"33322211",
+		"43322211",
+		"33222110",
+		"33322110",
+		"33221110",
+		"32211100",
+		"32111100",
+	], lg)
+	T.face(t, "back").art([
+		"11122111",
+		"11222211",
+		"01222210",
+		"01122110",
+		"01122110",
+		"00111100",
+		"00111100",
+		"00011000",
+	], lg)
+
+	# Body: open travelling cloak over a deep red tunic; satchel strap, belt and coin pouches
+	B = HUM_BODY
+	B.face(t, "front").art([
+		"43BCCB43",
+		"32CDC432",
+		"32CC4CB2",
+		"32BChCB2",
+		"32C4CBA2",
+		"32B4CBA2",
+		"324CBBA2",
+		"200ih002",
+		"23hBBh32",
+		"233CB332",
+		"212BC212",
+		"21ABBA12",
+	], lg)
+	B.face(t, "right").art([
+		"2334",
+		"2233",
+		"1233",
+		"1224",
+		"1243",
+		"1ss3",
+		"s443",
+		"s3h3",
+		"s333",
+		"s222",
+		"0122",
+		"0011",
+	], lg)
+	B.face(t, "left").art([
+		"4332",
+		"3322",
+		"3221",
+		"4221",
+		"3421",
+		"2241",
+		"2214",
+		"2210",
+		"2211",
+		"2211",
+		"2210",
+		"1100",
+	], lg)
+	B.face(t, "back").art([
+		"23333332",
+		"3yzzyzz3",
+		"4xyyxyy3",
+		"20xx0xx2",
+		"12223221",
+		"12222221",
+		"11222211",
+		"11222211",
+		"11122111",
+		"01122110",
+		"01111110",
+		"00111100",
+	], {**lg, "0": LEATHER[0]})
+	B.face(t, "top").art([
+		"22333322",
+		"23333332",
+		"33AAAA33",
+		"44BCCB44",
+	], lg)
+	B.face(t, "bottom").art(["11111111", "1tttttt1", "1tttttt1", "11111111"], lg)
+
+	# Arms (mirrored): cloak sleeve, tunic cuff, weathered hands
+	A = HUM_ARM
+	A.strip(t).art([
+		"3343" "4443" "3332" "2222",
+		"2233" "3343" "3322" "1222",
+		"2233" "3332" "3322" "1122",
+		"1223" "2333" "3221" "1112",
+		"1223" "3332" "3221" "1112",
+		"1122" "2232" "2211" "0111",
+		"1122" "2232" "2211" "0111",
+		"0112" "1222" "2110" "0011",
+		"ABBA" "BCCB" "ABBA" "AAAA",
+		"BCBA" "CCBC" "BBAA" "AABA",
+		"pqqp" "qrrq" "pqqp" "ppqp",
+		"opqp" "pqqp" "pqpo" "oppo",
+	], {**lg, "o": SKIN[0]})
+	A.face(t, "top").art(["3343", "3444", "3443", "3333"], lg)
+	A.face(t, "bottom").art(["oppo", "pqqp", "pqqp", "oppo"], {**lg, "o": SKIN[0]})
+
+	# Legs (mirrored): worn trousers, wrapped boots
+	G = HUM_LEG
+	G.strip(t).art([
+		"uvvu" "vwwv" "vvuu" "tuut",
+		"uvvu" "vwvv" "vuvu" "tuut",
+		"uuvu" "vvwv" "vuuu" "ttut",
+		"tuvu" "vwvv" "uvut" "ttut",
+		"tuuu" "vvvu" "uuut" "tttt",
+		"tuvu" "vwvv" "uvut" "ttut",
+		"tuuu" "uvvu" "uuut" "tttt",
+		"1221" "2332" "2221" "1111",
+	], lg)
+	S = G.strip(t)
+	for j in range(8, 12):
+		for i in range(16):
+			face, _ = G.strip_face_of(i)
+			k = (j + i // 2) % 3
+			back = face == "back"
+			if k == 0:
+				S.set(i, j, LINEN[1] if back else LINEN[2])
+			elif k == 1:
+				S.set(i, j, LINEN[0] if back else LINEN[1])
+			else:
+				S.set(i, j, LEATHER[0] if back else LEATHER[1])
+	S.art(["................"] * 3 + ["0110" "1221" "1100" "0000"], lg, oy=8)
+	G.face(t, "top").fill(TROUSER[1])
+	G.face(t, "bottom").art(["0000", "0110", "0110", "0000"], lg)
+	return {"delver_merchant.png": t}
+
+
+def preview_delver_merchant(texs, outdir):
+	base = texs["delver_merchant.png"]
+	sheets = [uv_sheet(base, HUMANOID_BOXES, 8, "delver_merchant")]
+	body = humanoid(parts=["head", "body", "right_arm", "left_arm", "right_leg", "left_leg"])
+	hat = humanoid(parts=["hat"])
+	renders = standard_renders([(body, base, None), (hat, base, None)], scale=10)
+	return compose_preview("delver_merchant", sheets, renders, outdir)
+
+
+# ----------------------------------------------------------------------------------------------
 # Registry / main
 # ----------------------------------------------------------------------------------------------
 REGISTRY = [
@@ -1807,6 +2792,9 @@ REGISTRY = [
 	("bone_shieldbearer", paint_bone_shieldbearer, preview_bone_shieldbearer),
 	("crypt_ghoul", paint_crypt_ghoul, preview_crypt_ghoul),
 	("wailing_skull", paint_wailing_skull, preview_wailing_skull),
+	("barrow_knight", paint_barrow_knight, preview_barrow_knight),
+	("hollow_warden", paint_hollow_warden, preview_hollow_warden),
+	("delver_merchant", paint_delver_merchant, preview_delver_merchant),
 ]
 
 

@@ -39,10 +39,12 @@ OUT = os.path.join(ROOT, "src", "main", "resources", "assets", "abyssal_descent"
 MOD = "abyssal_descent"
 
 # Chunk layer each block needs (informational; the Java client code must register these).
+# Any block whose model uses a transparent overlay texture must NOT be in the solid layer,
+# otherwise the overlay's transparent pixels render as opaque black.
 RENDER_LAYERS = {
-    "abyssal_gate": "cutout", "descent_rift": "cutout", "waystone": "cutout",
+    "abyssal_gate": "cutout", "descent_rift": "cutout or translucent", "waystone": "cutout",
     "runic_seal": "translucent", "spike_trap": "cutout", "dart_trap": "cutout",
-    "crumbling_stone_bricks": "cutout", "reliquary": "cutout", "burial_urn": "solid",
+    "crumbling_stone_bricks": "cutout", "reliquary": "cutout", "burial_urn": "solid (cutout harmless)",
     "altar_of_trials": "cutout", "cursed_idol": "cutout", "soul_brazier": "cutout",
     "rune_stone": "cutout",
 }
@@ -667,10 +669,8 @@ def crystal_cluster():
         return d
 
     els = [
-        el((6, 15, 6), (10, 22, 10), faces(3, 10), rot=rot_y45((8, 15, 8)), emit=15, shade=False),
-        el((6.75, 22, 6.75), (9.25, 24, 9.25), faces(1, 3, 0.75, 2.5), rot=rot_y45((8, 22, 8)), emit=15,
-           shade=False),
-        el((7.5, 24, 7.5), (8.5, 25.5, 8.5), faces(0, 1.5, 1.5, 1.0, up=[1.5, 0, 2.5, 1]), rot=rot_y45((8, 24, 8)),
+        el((5.5, 15, 5.5), (10.5, 22, 10.5), faces(3, 10, 0, 4), rot=rot_y45((8, 15, 8)), emit=15, shade=False),
+        el((6.5, 22, 6.5), (9.5, 24, 9.5), faces(1, 3, 0.5, 3, up=[4.5, 1, 7.5, 4]), rot=rot_y45((8, 22, 8)),
            emit=15, shade=False),
         el((4.5, 15, 7), (6.5, 19, 9), faces(6, 10, 1, 2, up=[1, 5, 3, 7]),
            rot={"origin": [5.5, 15, 8], "axis": "z", "angle": 22.5}, emit=15, shade=False),
@@ -745,37 +745,32 @@ def gen_waystone():
                 out.append(a)
         return out_l, out_u
 
+    # Inscription channel (x6..9, rows 3..10): two stacked 4-wide runes; groove glints in the bands.
     lf = empty_levels()
-    # inscription channel x5..10 rows 3..10: three stacked glyphs + spine
-    for gy, gi in ((3, 1), (7, 3)):
-        stamp(lf, RUNES5[gi][:4], 6, gy, 3)
-    for y in range(3, 11):
-        if lf[y][7] < 0:
-            lf[y][7] = 2
-    lf[11][6] = 2; lf[11][7] = 3; lf[11][8] = 2  # glow in the lower band groove
-    for x in range(3, 13):
-        if lf[1][x] < 0 and x % 3 == 0:
-            lf[1][x] = 2
+    stamp(lf, ["#.#", "###", ".#."], 6, 4, 3)   # algiz
+    stamp(lf, ["#.#", ".#.", "#.#"], 7, 8, 3)   # gebo
+    for x in (4, 7, 8, 11):
+        lf[1][x] = 2
+        lf[11][x] = 2
     ls = empty_levels()
-    stamp(ls, RUNES3[0], 6, 4, 3)
-    stamp(ls, RUNES3[2], 6, 8, 3)
-    for x in (4, 7, 10):
+    stamp(ls, ["#.#", ".#.", "#.#", "#.."], 6, 4, 3)
+    stamp(ls, [".#.", "##.", ".##", ".#."], 7, 8, 3)
+    for x in (5, 10):
         ls[1][x] = 2
         ls[11][x] = 2
+    # upper: an open eye in a ring (the waystone "watching" the way home) + a rune below
     uf = empty_levels()
-    ring_lv = [".####.", "#....#", "#.##.#", "#....#", ".####."]
-    for y, r in enumerate(ring_lv):
+    eye_lv = ["..##..", ".#..#.", "#.##.#", ".#..#.", "..##.."]
+    for y, r in enumerate(eye_lv):
         for x, ch in enumerate(r):
             if ch == "#":
                 uf[6 + y][5 + x] = 3
-    uf[8][7] = 4; uf[8][8] = 4
-    for y in range(11, 16):
-        uf[y][7] = 2
-    stamp(uf, ["#.#", ".#."], 6, 11, 3)
+    uf[8][7] = 4
+    uf[8][8] = 4
+    stamp(uf, ["#..#", ".##.", "#..#"], 6, 12, 2)
     us = empty_levels()
-    stamp(us, RUNES3[4], 6, 7, 3)
-    for y in range(11, 16):
-        us[y][7] = 2
+    stamp(us, ["#.#", "###", ".#.", ".#."], 6, 7, 3)
+    stamp(us, ["#.", ".#"], 7, 12, 2)
     lfront, ufront = wave_frames(lf, uf)
     lside, uside = wave_frames(ls, us)
     block_tex("waystone_runes_lower", lfront, frametime=3, interpolate=True)
@@ -840,13 +835,13 @@ def gen_waystone():
     remap_up = {"stone": "ustone", "runes": "urunes", "runes_side": "urunes_side"}
     inv = [scale_element(e, 0.5, (8, 0, 8), 0, remap_lo) for e in lower_els]
     inv += [scale_element(e, 0.5, (8, 0, 8), 8, remap_up) for e in upper_els]
-    disp = {
-        "gui": {"rotation": [30, 225, 0], "translation": [0, 0.75, 0], "scale": [0.95, 0.95, 0.95]},
-        "ground": {"rotation": [0, 0, 0], "translation": [0, 3, 0], "scale": [0.5, 0.5, 0.5]},
-        "fixed": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [0.9, 0.9, 0.9]},
-        "thirdperson_righthand": {"rotation": [75, 45, 0], "translation": [0, 2.5, 0], "scale": [0.6, 0.6, 0.6]},
-        "firstperson_righthand": {"rotation": [0, 45, 0], "translation": [0, 0, 0], "scale": [0.7, 0.7, 0.7]},
-        "firstperson_lefthand": {"rotation": [0, 225, 0], "translation": [0, 0, 0], "scale": [0.7, 0.7, 0.7]},
+    disp = {  # model spans y 0..~20.75 and x/z 5..11, so shrink and lower it to sit in a slot
+        "gui": {"rotation": [30, 225, 0], "translation": [0, -1.5, 0], "scale": [0.72, 0.72, 0.72]},
+        "ground": {"rotation": [0, 0, 0], "translation": [0, 2, 0], "scale": [0.3, 0.3, 0.3]},
+        "fixed": {"rotation": [0, 0, 0], "translation": [0, -2, 0], "scale": [0.6, 0.6, 0.6]},
+        "thirdperson_righthand": {"rotation": [75, 45, 0], "translation": [0, 2.5, 0], "scale": [0.45, 0.45, 0.45]},
+        "firstperson_righthand": {"rotation": [0, 45, 0], "translation": [0, -1, 0], "scale": [0.5, 0.5, 0.5]},
+        "firstperson_lefthand": {"rotation": [0, 225, 0], "translation": [0, -1, 0], "scale": [0.5, 0.5, 0.5]},
     }
     m_inv = model("waystone_inventory", inv_tex, inv, extra={"display": disp})
     item_def("waystone", m_inv)
@@ -877,8 +872,8 @@ def scale_element(e, s, pivot, dy, remap):
 def gen_runic_seal():
     frames = []
     # runes sitting in the four cells of the X lattice: (glyph, x, y)
-    cells = ((["#.#", ".#.", "#.#", ".#."], 6, 1), ([".#.", "###", "#.#"], 7, 11),
-             (["#", "#", "#"], 2, 6), (["#", ".", "#"], 13, 6))
+    cells = ((["#.#", "###", ".#.", ".#.", ".#."], 6, 1), (["..#", ".#.", "#.#", ".#.", "#.."], 7, 10),
+             (["#.", "##", "#.", "#."], 2, 6), ([".#", "##", ".#", ".#"], 12, 6))
     for f in range(8):
         a = img(16, fill=C("#2f8fb8", 96))
         # soft sheen band drifting down the field (2px per frame -> loops in 8 frames)
@@ -944,26 +939,25 @@ def gen_spike_trap():
 
     s = img(16)
     # four tapered spikes centred on u = 2, 6, 10, 14; tip at row 3, 4px-wide base at row 15
-    widths = {3: 1, 4: 1, 5: 1, 6: 2, 7: 2, 8: 2, 9: 2, 10: 3, 11: 3, 12: 3, 13: 4, 14: 4, 15: 4}
+    widths = {3: 1, 4: 1, 5: 2, 6: 2, 7: 2, 8: 2, 9: 3, 10: 3, 11: 3, 12: 3, 13: 4, 14: 4, 15: 4}
     cols_for = {1: (-1,), 2: (-1, 0), 3: (-1, 0, 1), 4: (-2, -1, 0, 1)}
-    blood = {0: ((1, 4), (1, 5), (1, 6), (2, 7)), 1: ((5, 6), (5, 7)), 2: ((9, 4), (9, 5), (10, 7), (9, 9)),
-             3: ((13, 5), (13, 6), (14, 8))}
+    blood = {0: ((2, 6), (2, 7), (2, 9)), 1: ((6, 7), (6, 8)), 2: ((10, 6), (10, 7), (10, 8), (11, 11)),
+             3: ((14, 7), (14, 9))}
     for k, cx in enumerate((2, 6, 10, 14)):
         for y, w in widths.items():
             cols = [cx + d for d in cols_for[w]]
             for i, x in enumerate(cols):
                 if y == 3:
-                    c = I[7]
+                    c = I[6]
                 elif i == 0:
                     c = I[6] if y < 9 else I[5]
                 elif i == len(cols) - 1:
-                    c = I[2] if w > 1 else I[5]
+                    c = I[3] if w > 1 else I[5]
                 else:
-                    c = I[4]
+                    c = I[5] if y < 11 else I[4]
                 px(s, x, y, c)
         # rust creeping up from the base
-        for (dx, y, c) in ((-2, 15, R[2]), (-1, 14, R[3]), (0, 15, R[1]), (1, 14, R[1]), (0, 12, R[2]),
-                           (-1, 11, R[2] if k % 2 else I[4])):
+        for (dx, y, c) in ((-2, 15, R[1]), (0, 14, R[2]), (1, 15, R[1]) if k % 2 else (-1, 13, R[2])):
             px(s, cx + dx, y, c)
         for (x, y) in blood.get(k, ()):
             px(s, x, y, BLOOD[2] if (x + y) % 2 else BLOOD[1])
@@ -1344,8 +1338,8 @@ def gen_altar():
                 else:
                     c = BLOOD[2]
                 R = 1.0 + 5.2 * f / 8
-                if abs(r - R) < 0.55 and edge > 0:
-                    c = BLOOD[4] if f < 4 else BLOOD[3]
+                if abs(r - R) < 0.55 and edge > 0 and f < 6:
+                    c = BLOOD[3]
                 a[y, x] = c
         # specular glint near the lit (top-left) wall
         for (x, y, c) in ((5, 5, BLOOD[4]), (6, 5, BLOOD[4]), (5, 6, BLOOD[3]), (4, 4, BLOOD[5])):
@@ -1530,20 +1524,30 @@ def gen_soul_brazier():
         px(a, x, 15, R[1])
     iron = block_tex("soul_brazier_iron", a)
 
+    # Charcoal lumps (Voronoi cells around hand-placed centres) with soul-fire glowing in the
+    # cracks between them; a few lumps are hot all the way through.
+    centres = [(4, 4), (8, 3), (12, 4), (6, 7), (10, 7), (3, 9), (7, 11), (12, 11), (9, 13), (4, 13), (13, 8)]
+    hot = {3}
+    charcoal = [C("#0b141a"), C("#13232d"), C("#1d3442")]
     em = []
     for f in range(4):
-        e = img(16, fill=SOUL[0])
+        e = img(16, fill=charcoal[0])
         for y in range(16):
             for x in range(16):
-                # charcoal lumps with glowing cracks between them
-                cell = ((x // 3) * 7 + (y // 3) * 13) % 5
-                edge = (x % 3 == 0) or (y % 3 == 0)
-                if edge:
-                    lvl = 3 + ((x * 5 + y * 3 + f) % 4 == 0) + ((x + y + f) % 7 == 0)
+                ds = sorted((math.hypot(x + 0.5 - cx - 0.5, y + 0.5 - cy - 0.5), i) for i, (cx, cy) in enumerate(centres))
+                (d0, i0), (d1, i1) = ds[0], ds[1]
+                if d1 - d0 < 0.6:  # crack between two lumps
+                    flick = (i0 * 3 + i1 * 5 + f) % 4
+                    e[y, x] = SOUL[3] if flick else SOUL[4]
+                    if d1 - d0 < 0.2 and (i0 + i1 + f) % 3 == 0:
+                        e[y, x] = SOUL[5]
+                elif i0 in hot:
+                    e[y, x] = SOUL[2] if d0 > 1.0 else SOUL[3 + (f % 2)]
                 else:
-                    lvl = 1 + (cell == 2) + ((x + 2 * y + f * 3) % 11 == 0) * 2
-                e[y, x] = SOUL[min(5, lvl)]
-        outline_rect(e, 0, 0, 15, 15, I[1], I[1])
+                    # top-left lit facet on each lump
+                    cx, cy = centres[i0]
+                    lit = (x < cx and y < cy)
+                    e[y, x] = charcoal[2] if lit and d0 < 1.6 else (charcoal[1] if d0 < 1.6 else charcoal[0])
         em.append(e)
     embers = block_tex("soul_brazier_embers", em, frametime=4, interpolate=True)
 
@@ -1703,58 +1707,59 @@ def gen_particles():
     ids = []
     for i, g in enumerate(glyphs):
         oy = 1 if len(g) == 5 else 2
-        ids.append(part_tex(f"rune_glyph_{i}", glow_glyph(g, SOUL[4], C("#56d8ff", 150), ox=2, oy=oy)))
+        ids.append(part_tex(f"rune_glyph_{i}", glow_glyph(g, C("#e6fcff"), C("#8fe6ff", 120), ox=2, oy=oy)))
     particle_json("rune_glyph", ids)
 
     # rift_mote: shrinking violet motes
     specs = [
-        [(3.6, C("#4f2770", 110)), (2.9, C("#8a4fc4", 200)), (2.0, VIO[4]), (1.0, VIO[5])],
-        [(2.9, C("#4f2770", 110)), (2.1, C("#8a4fc4", 210)), (1.2, VIO[4]), (0.6, VIO[5])],
-        [(2.1, C("#8a4fc4", 150)), (1.3, VIO[4]), (0.6, VIO[5])],
-        [(1.3, C("#8a4fc4", 160)), (0.8, VIO[5])],
+        [(3.6, C("#a46ad8", 90)), (2.9, C("#c99bf5", 190)), (2.0, C("#e2c8ff")), (1.0, C("#ffffff"))],
+        [(2.9, C("#a46ad8", 90)), (2.1, C("#c99bf5", 200)), (1.2, C("#e2c8ff")), (0.6, C("#ffffff"))],
+        [(2.1, C("#c99bf5", 150)), (1.3, C("#e2c8ff")), (0.6, C("#ffffff"))],
+        [(1.3, C("#c99bf5", 160)), (0.8, C("#f6ecff"))],
     ]
     particle_json("rift_mote", [part_tex(f"rift_mote_{i}", disc(8, s)) for i, s in enumerate(specs)])
 
     # loot_glint: gold twinkle
     lg = [
-        star(8, 1, GOLD[5], GOLD[4], GOLD[3], 3, 3),
-        star(8, 2, GOLD[5], GOLD[4], GOLD[3], 3, 3, diag=C("#c9962a", 160)),
-        star(8, 3, C("#ffffff"), GOLD[5], GOLD[3], 3, 3, diag=GOLD[4]),
-        star(8, 2, GOLD[5], GOLD[3], GOLD[2], 3, 3),
+        star(8, 1, C("#ffffff"), GOLD[5], GOLD[4], 3, 3),
+        star(8, 2, C("#ffffff"), GOLD[5], GOLD[4], 3, 3, diag=C("#f2c94c", 150)),
+        star(8, 3, C("#ffffff"), C("#fff8d8"), GOLD[4], 3, 3, diag=GOLD[5]),
+        star(8, 2, GOLD[5], GOLD[4], GOLD[3], 3, 3),
     ]
     particle_json("loot_glint", [part_tex(f"loot_glint_{i}", a) for i, a in enumerate(lg)])
 
     # blood_mote
     b0 = from_map(["........", "...aa...", "..abba..", "..bccb..", "..abbd..", "...dd...", "........", "........"],
-                  {"a": BLOOD[3], "b": BLOOD[3], "c": BLOOD[4], "d": BLOOD[2]}, img(8))
-    px(b0, 3, 2, BLOOD[5])
+                  {"a": C("#ff5c6e"), "b": C("#ff5c6e"), "c": C("#ff9aa6"), "d": C("#c8283e")}, img(8))
+    px(b0, 3, 2, C("#ffd0d6"))
     b1 = from_map(["........", "........", "...ab...", "..abbd..", "...dd...", "........", "........", "........"],
-                  {"a": BLOOD[4], "b": BLOOD[3], "d": BLOOD[2]}, img(8))
+                  {"a": C("#ff9aa6"), "b": C("#ff5c6e"), "d": C("#c8283e")}, img(8))
     particle_json("blood_mote", [part_tex("blood_mote_0", b0), part_tex("blood_mote_1", b1)])
 
     # bleed_drip
+    dpal = {"a": C("#d8384c"), "b": C("#ff5c6e"), "c": C("#ff9aa6"), "d": C("#a8182f")}
     d0 = from_map(["...a....", "...a....", "..aba...", "..bcb...", ".bbcbb..", ".bbbbd..", "..ddd...", "........"],
-                  {"a": BLOOD[2], "b": BLOOD[3], "c": BLOOD[4], "d": BLOOD[1]}, img(8))
-    px(d0, 2, 4, BLOOD[5])
+                  dpal, img(8))
+    px(d0, 2, 4, C("#ffd0d6"))
     d1 = from_map(["........", "........", "...a....", "..aba...", "..bcb...", "..bbd...", "...d....", "........"],
-                  {"a": BLOOD[2], "b": BLOOD[3], "c": BLOOD[4], "d": BLOOD[1]}, img(8))
+                  dpal, img(8))
     particle_json("bleed_drip", [part_tex("bleed_drip_0", d0), part_tex("bleed_drip_1", d1)])
 
     # curse_mote: purple wisps
-    cw = [
-        ["........", "....ab..", "...a..b.", "...bc...", "....cb..", ".....c..", "....d...", "........"],
-        ["........", "..ba....", ".b..a...", "...cb...", "..bc....", "..c.....", "...d....", "........"],
-        ["........", "........", "...ab...", "..b.cb..", "...cc...", "....d...", "........", "........"],
+    cw = [  # twisted smoke tendrils (bright tip, fading tail)
+        ["....a...", "...ab...", "..bbc...", "..bc....", "...cc...", "....cd..", ".....d..", "........"],
+        ["...a....", "...ba...", "...cbb..", "....cb..", "...cc...", "..dc....", "..d.....", "........"],
+        ["........", "........", "...ab...", "...bc...", "....cd..", "....d...", "........", "........"],
     ]
-    cpal = {"a": VIO[5], "b": VIO[4], "c": VIO[3], "d": C("#4f2770", 170)}
+    cpal = {"a": C("#ffffff"), "b": VIO[5], "c": C("#dcbcff"), "d": C("#c99bf5", 160)}
     particle_json("curse_mote", [part_tex(f"curse_mote_{i}", from_map(m, cpal, img(8))) for i, m in enumerate(cw)])
 
     # soul_ember: shrinking cyan ember
     se = [
-        [(2.6, C("#2f8fb8", 170)), (1.9, SOUL[3]), (1.1, SOUL[4]), (0.5, SOUL[5])],
-        [(2.0, C("#2f8fb8", 170)), (1.4, SOUL[3]), (0.8, SOUL[4])],
-        [(1.4, C("#2f8fb8", 170)), (0.8, SOUL[4])],
-        [(0.8, SOUL[3])],
+        [(2.6, C("#56d8ff", 140)), (1.9, SOUL[4]), (1.1, C("#e6fcff")), (0.5, SOUL[5])],
+        [(2.0, C("#56d8ff", 140)), (1.4, SOUL[4]), (0.8, C("#e6fcff"))],
+        [(1.4, C("#56d8ff", 150)), (0.8, C("#e6fcff"))],
+        [(0.8, SOUL[4])],
     ]
     particle_json("soul_ember", [part_tex(f"soul_ember_{i}", disc(8, s)) for i, s in enumerate(se)])
 
@@ -1784,7 +1789,7 @@ def gen_particles():
             r = 0.6 + i * 0.28
             x = int(math.floor(3.5 + r * math.cos(ang) + 0.5))
             y = int(math.floor(3.5 + r * math.sin(ang) + 0.5))
-            c = SOUL[5] if i < 2 else (SOUL[4] if i < 5 else (SOUL[3] if i < 8 else C("#2f8fb8", 170)))
+            c = SOUL[5] if i < 2 else (C("#e6fcff") if i < 5 else (SOUL[4] if i < 8 else C("#56d8ff", 160)))
             if 0 <= x < 8 and 0 <= y < 8 and a[y, x, 3] == 0:
                 a[y, x] = c
         sw.append(a)
@@ -1944,16 +1949,16 @@ def gen_gui():
             ".........",
         ], {"s": C("#d8dce4"), "g": GOLD[4], "h": C("#6b4a2a")}),
         "objective_descend": ([
-            "..vvvvv..",
-            ".v.....v.",
-            ".v.ppp.v.",
-            "..p.v..p.",
-            "....v....",
-            "..lvvvl..",
-            "...lvl...",
-            "....l....",
+            "...lvv...",
+            "...lvv...",
+            ".llvvvvp.",
+            "..lvvvp..",
+            "...lvp...",
+            "....p....",
             ".........",
-        ], {"v": VIO[3], "p": VIO[2], "l": VIO[5]}),
+            ".ddkkkdd.",
+            "..ddddd..",
+        ], {"l": VIO[4], "v": VIO[3], "p": VIO[2], "d": VIO[2], "k": VIO[5]}),
         "objective_boss": ([
             "..bbbbb..",
             ".bbbbbbb.",
@@ -1999,16 +2004,16 @@ def gen_gui():
             ".........",
         ], {"b": SOUL[3], "g": GOLD[4]}),
         "floor": ([
-            "ss.......",
-            "dds......",
-            "..ss.....",
-            "..dds....",
-            "....ss...",
-            "....dds..",
-            "......ss.",
-            "......dds",
+            "hh.......",
+            "dd.......",
+            "ddhh.....",
+            "dddd.....",
+            "ddddhh...",
+            "dddddd...",
+            "ddddddhh.",
+            "dddddddd.",
             ".........",
-        ], {"s": PALE[6], "d": PALE[3]}),
+        ], {"h": PALE[6], "d": PALE[3]}),
     }
     for name, (rows, pal) in sprites.items():
         save_png(hud + name + ".png", outlined(rows, pal))

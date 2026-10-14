@@ -17,6 +17,9 @@ def put(key, value):
 put(f"itemGroup.{NS}", "Abyssal Descent")
 put(f"modmenu.descriptionTranslation.{NS}", "A thirty-floor roguelike dungeon beneath the world.")
 
+put(f"tag.item.{NS}.relics", "Relics")
+put(f"tag.item.{NS}.dungeon_banned", "Banned in the Depths")
+
 # ------------------------------------------------------------------ zones
 ZONES = {
     "forgotten_halls": ("The Forgotten Halls", "Where the first delvers were laid to rest, and did not stay there."),
@@ -221,6 +224,7 @@ for oid, text in [("explore", "Explore the floor"), ("clear_room", "Survive the 
     put(f"hud.{NS}.objective.{oid}", text)
 
 # ------------------------------------------------------------------ boss
+put(f"boss.{NS}.hollow_warden.title", "Hollow Warden")
 put(f"boss.{NS}.hollow_warden.subtitle", "Keeper of the Forgotten Halls")
 put(f"boss.{NS}.hollow_warden.phase2", "The Warden's armor splits, and soul fire pours from the cracks.")
 put(f"boss.{NS}.hollow_warden.phase3", "\"I will not let you pass.\" The Warden burns with everything it has left.")
@@ -258,7 +262,8 @@ M = {
     "checkpoint_unlocked": "Checkpoint unlocked: you may now begin expeditions on floor %s (%s).",
     "boss_reward": "The guardian falls. A rift opens toward %s, and a waystone offers a way home.",
     "boss_reward_sealed": "The guardian falls. A waystone offers a way home. %s still lies sealed below.",
-    "boss_defeated": "Guardian Defeated",
+    "boss_defeated": "Victory",
+    "boss_defeated.sub": "%s has fallen",
     "waystone.idle": "The waystone hums quietly. It answers only to delvers.",
     "waystone.confirm": "Use the waystone again to extract and secure %s unsecured items.",
     "extracted": "Extracted",

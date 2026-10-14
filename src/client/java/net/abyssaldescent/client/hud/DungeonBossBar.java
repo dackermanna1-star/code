@@ -26,6 +26,8 @@ public final class DungeonBossBar {
 	private static final int WIDTH = 204;
 	private static final int BAR_HEIGHT = 6;
 	private static final String[] NUMERALS = {"I", "II", "III", "IV", "V"};
+	/** Bar fill per zone: saturated versions of the zone accents, so the bar reads as the fight's focal colour. */
+	private static final int[] ZONE_FILL = {0x5FD3FF, 0xFF6A1F, 0xB07CFF, 0x2FD6C2, 0xE0213F, 0x8B5CFF};
 	/** Per boss event: the slowly-following "damage taken" value and the last flash time. */
 	private static final Map<UUID, Trail> TRAILS = new HashMap<>();
 
@@ -74,7 +76,7 @@ public final class DungeonBossBar {
 		graphics.nextStratum();
 		Font font = minecraft.font;
 		int floor = DungeonDimension.floorAt(minecraft.player.level(), minecraft.player.blockPosition());
-		int accent = Zone.forFloor(floor).accentColor();
+		int accent = ZONE_FILL[Zone.forFloor(floor).ordinal() % ZONE_FILL.length];
 		float partial = delta.getGameTimeDeltaPartialTick(false);
 		int y = 16;
 		for (LerpingBossEvent event : events.values()) {
@@ -141,6 +143,29 @@ public final class DungeonBossBar {
 		int percent = Math.round(progress * 100);
 		String pct = percent + "%";
 		graphics.drawString(font, pct, x, y - 12, 0xA0C8C8C8, true);
+	}
+
+	/** Lowest GUI y used by the dungeon boss bars this frame, or 0 when none are shown. */
+	public static int bottom(Minecraft minecraft, int guiHeight) {
+		if (minecraft.player == null || !DungeonDimension.isDungeon(minecraft.player.level())) {
+			return 0;
+		}
+		int count = ((BossHealthOverlayAccessor) minecraft.gui.getBossOverlay()).abyssal_descent$events().size();
+		if (count == 0) {
+			return 0;
+		}
+		int y = 16;
+		int shown = 0;
+		while (shown < count && y < guiHeight / 3) {
+			shown++;
+			y += 26;
+		}
+		return 16 + (shown - 1) * 26 + BAR_HEIGHT + 4;
+	}
+
+	/** Left edge of the bars in GUI coordinates. */
+	public static int left(int guiWidth) {
+		return guiWidth / 2 - WIDTH / 2 - 4;
 	}
 
 	@Nullable

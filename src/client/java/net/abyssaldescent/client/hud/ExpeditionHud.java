@@ -44,6 +44,8 @@ public final class ExpeditionHud {
 	/** The server refreshes the snapshot once a second; the countdown ticks down locally in between. */
 	private static int syncedCountdown;
 	private static int localCountdown;
+	/** Smoothed vertical offset used to move the panel out of the boss bar's way. */
+	private static float drop;
 
 	private ExpeditionHud() {
 	}
@@ -118,6 +120,11 @@ public final class ExpeditionHud {
 		// Slide in from the left as the panel fades in.
 		int slide = (int) ((1.0F - easeOut(fade)) * -24);
 		left += slide;
+		// Drop below the boss bar when the two would overlap (narrow windows, large GUI scales).
+		int barBottom = DungeonBossBar.bottom(minecraft, graphics.guiHeight());
+		float targetDrop = barBottom > 0 && left + width > DungeonBossBar.left(graphics.guiWidth()) ? barBottom + 2 - top : 0;
+		drop += (targetDrop - drop) * 0.2F;
+		top += Math.round(drop);
 
 		graphics.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, left, top, width, height, ARGB.white(fade * 0.92F));
 
