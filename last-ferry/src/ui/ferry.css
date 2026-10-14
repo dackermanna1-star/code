@@ -1,0 +1,2911 @@
+/* Last Ferry — UI. Every size is a design px of the 1280x720 frame (scaled by
+ * --k). Dark glass, a brass/amber accent, signal red for danger; system type
+ * with tabular numerals. */
+
+.lf-layer {
+  --lf-fg: #f6f1e7;
+  --lf-fg-2: rgba(246, 241, 231, 0.84);
+  --lf-muted: rgba(246, 241, 231, 0.62);
+  --lf-faint: rgba(246, 241, 231, 0.36);
+  --lf-line: rgba(255, 244, 222, 0.13);
+  --lf-glass: rgba(9, 13, 19, 0.5);
+  --lf-glass-strong: rgba(8, 11, 16, 0.74);
+  --lf-brass: #e9ac4e;
+  --lf-brass-hi: #ffd593;
+  --lf-brass-lo: #a8702a;
+  --lf-signal: #ff4936;
+  --lf-signal-lo: #b5231a;
+  --lf-sea: #8fc6cf;
+  --lf-gas: #a8e063;
+  --lf-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --lf-pop: cubic-bezier(0.2, 1.4, 0.4, 1);
+  --lf-shadow: 0 1px 2px rgba(0, 4, 10, 0.6), 0 0 14px rgba(0, 4, 10, 0.3);
+  --lf-font: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Display', 'Segoe UI', 'Inter', Roboto, system-ui,
+    'Helvetica Neue', Arial, sans-serif;
+  --lf-serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, 'DejaVu Serif', serif;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: calc(100% / var(--k, 1));
+  height: calc(100% / var(--k, 1));
+  transform-origin: 0 0;
+  transform: scale(var(--k, 1));
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: var(--lf-font);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  font-size: 14px;
+  line-height: 1.25;
+  color: var(--lf-fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: geometricPrecision;
+  overflow: hidden;
+}
+
+.lf-layer svg.lf-ico {
+  display: block;
+  overflow: visible;
+}
+
+.lf-glass {
+  background: var(--lf-glass);
+  -webkit-backdrop-filter: blur(10px) saturate(1.3);
+  backdrop-filter: blur(10px) saturate(1.3);
+  box-shadow: inset 0 0 0 1px var(--lf-line), inset 0 1px 0 rgba(255, 240, 210, 0.06), 0 4px 18px rgba(0, 6, 14, 0.18);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lf-glass {
+    background: rgba(12, 16, 23, 0.78);
+  }
+}
+
+.lf-kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 4px;
+  background: rgba(255, 244, 222, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 244, 222, 0.3), inset 0 -1.5px 0 rgba(255, 244, 222, 0.12);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+  color: var(--lf-fg);
+  white-space: nowrap;
+}
+
+/* =============================================================== HUD */
+
+.lf-hud {
+  z-index: 10;
+}
+
+.lf-hud.is-hidden {
+  display: none;
+}
+
+/* ---------------------------------------------- boarding / boss bar */
+
+.lf-board {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  width: 452px;
+  margin-left: -226px;
+  box-sizing: border-box;
+  padding: 9px 16px 11px;
+  border-radius: 14px;
+}
+
+.lf-board-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 20px;
+}
+
+.lf-board-ico {
+  width: 30px;
+  height: 15px;
+  color: var(--lf-brass);
+  flex: 0 0 auto;
+  animation: lf-bob 3.4s ease-in-out infinite;
+}
+
+.lf-board-ico svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lf-board-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  color: var(--lf-fg-2);
+}
+
+.lf-board-ch {
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--lf-faint);
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.lf-board-count {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.lf-board-count b {
+  font-size: 19px;
+  font-weight: 750;
+  color: var(--lf-fg);
+  transition: color 300ms var(--lf-ease);
+}
+
+.lf-board-count i {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lf-muted);
+}
+
+.lf-board.is-bump .lf-board-count b {
+  animation: lf-bump 420ms var(--lf-pop);
+}
+
+@keyframes lf-bump {
+  0% {
+    color: var(--lf-brass-hi);
+    transform: translateY(-1px) scale(1.18);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.lf-ticks {
+  display: flex;
+  gap: 2px;
+  height: 9px;
+  margin-top: 7px;
+}
+
+.lf-ticks i {
+  flex: 1 1 0;
+  min-width: 1px;
+  border-radius: 1.5px;
+  background: rgba(255, 244, 222, 0.14);
+  transition: background-color 260ms var(--lf-ease), box-shadow 260ms var(--lf-ease);
+}
+
+.lf-ticks i.on {
+  background: var(--lf-brass);
+  box-shadow: 0 0 6px rgba(233, 172, 78, 0.35);
+}
+
+.lf-ticks i.next {
+  background: rgba(255, 213, 147, 0.42);
+  animation: lf-tick-wait 1.3s ease-in-out infinite;
+}
+
+.lf-ticks i.fresh {
+  animation: lf-tick-fresh 600ms var(--lf-pop);
+}
+
+@keyframes lf-tick-wait {
+  50% {
+    background: rgba(255, 213, 147, 0.16);
+  }
+}
+
+@keyframes lf-tick-fresh {
+  0% {
+    background: #fff6e0;
+    transform: scaleY(1.9);
+    box-shadow: 0 0 10px rgba(255, 213, 147, 0.9);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.lf-board .lf-boss {
+  display: none;
+}
+
+.lf-board.is-danger {
+  animation: lf-danger 0.8s ease-in-out infinite;
+}
+
+@keyframes lf-danger {
+  50% {
+    box-shadow: inset 0 0 0 1.5px rgba(255, 73, 54, 0.85), 0 0 26px rgba(255, 40, 20, 0.45);
+  }
+}
+
+.lf-hud.is-boss .lf-board {
+  box-shadow: inset 0 0 0 1px rgba(255, 73, 54, 0.32), 0 4px 22px rgba(120, 10, 4, 0.28);
+}
+
+.lf-hud.is-boss .lf-board-pass {
+  display: none;
+}
+
+.lf-hud.is-boss .lf-board .lf-boss {
+  display: block;
+}
+
+.lf-boss-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 20px;
+}
+
+.lf-boss-skull {
+  width: 17px;
+  height: 17px;
+  color: var(--lf-signal);
+  filter: drop-shadow(0 0 5px rgba(255, 73, 54, 0.55));
+  animation: lf-throb 1.1s ease-in-out infinite;
+}
+
+.lf-boss-skull svg {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes lf-throb {
+  50% {
+    transform: scale(0.86);
+    opacity: 0.75;
+  }
+}
+
+.lf-boss-name {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #ff7a6a;
+  white-space: nowrap;
+}
+
+.lf-boss-pct {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--lf-fg-2);
+}
+
+.lf-boss-track {
+  position: relative;
+  height: 10px;
+  margin-top: 7px;
+  border-radius: 3px;
+  background: rgba(255, 73, 54, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 73, 54, 0.22);
+  overflow: hidden;
+}
+
+.lf-boss-ghost,
+.lf-boss-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 50%;
+}
+
+.lf-boss-ghost {
+  background: rgba(255, 220, 200, 0.75);
+  transition: transform 700ms cubic-bezier(0.5, 0, 0.3, 1) 260ms;
+}
+
+.lf-boss-fill {
+  background: linear-gradient(180deg, #ff6b55 0%, #e0261a 55%, #b3170e 100%);
+  box-shadow: 0 0 10px rgba(255, 73, 54, 0.6);
+  transition: transform 90ms linear;
+}
+
+.lf-boss-track::after {
+  /* quarter notches */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 24.8%, rgba(0, 0, 0, 0.45) 24.8% 25.2%, transparent 25.2% 49.8%,
+      rgba(0, 0, 0, 0.45) 49.8% 50.2%, transparent 50.2% 74.8%, rgba(0, 0, 0, 0.45) 74.8% 75.2%, transparent 75.2%);
+}
+
+.lf-board.is-hit .lf-boss-track {
+  animation: lf-hitflash 160ms linear;
+}
+
+@keyframes lf-hitflash {
+  0% {
+    box-shadow: inset 0 0 0 1px rgba(255, 240, 230, 0.9), 0 0 14px rgba(255, 90, 60, 0.7);
+  }
+}
+
+/* ------------------------------------------------------- chapter tag */
+
+.lf-chtag {
+  position: absolute;
+  left: 20px;
+  top: 18px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--lf-fg-2);
+  text-shadow: var(--lf-shadow);
+  white-space: nowrap;
+}
+
+.lf-chtag b {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  min-width: 20px;
+  padding: 0 6px;
+  box-sizing: border-box;
+  border-radius: 5px;
+  background: var(--lf-brass);
+  color: #1b130a;
+  letter-spacing: 0.04em;
+  font-size: 12px;
+  font-weight: 800;
+  text-shadow: none;
+}
+
+.lf-chtag span {
+  color: var(--lf-muted);
+}
+
+.lf-chtag-clock {
+  font-style: normal;
+  letter-spacing: 0.08em;
+  color: var(--lf-brass);
+}
+
+.lf-chtag-clock:empty {
+  display: none;
+}
+
+/* ------------------------------------------------------ money / kills */
+
+.lf-purse {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 44px;
+  padding: 0 16px 0 12px;
+  border-radius: 14px;
+  white-space: nowrap;
+}
+
+.lf-money {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.lf-coin {
+  width: 20px;
+  height: 20px;
+  color: var(--lf-brass);
+}
+
+.lf-coin svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lf-money-num {
+  font-size: 24px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  color: var(--lf-fg);
+  display: inline-block;
+}
+
+.lf-money.is-up .lf-money-num {
+  animation: lf-money-up 360ms var(--lf-pop);
+}
+
+@keyframes lf-money-up {
+  0% {
+    color: var(--lf-brass-hi);
+    transform: scale(1.12);
+    text-shadow: 0 0 12px rgba(255, 196, 100, 0.8);
+  }
+}
+
+.lf-money.is-down .lf-money-num {
+  animation: lf-money-down 420ms var(--lf-ease);
+}
+
+@keyframes lf-money-down {
+  0% {
+    color: #ffb8a8;
+  }
+}
+
+.lf-sep {
+  width: 1px;
+  height: 22px;
+  background: rgba(255, 244, 222, 0.18);
+}
+
+.lf-kills {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.lf-kills-num {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--lf-fg);
+}
+
+.lf-kills-lbl {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--lf-muted);
+}
+
+/* ------------------------------------------------------- weapon bar */
+
+.lf-bar {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 4px;
+  padding: 5px;
+  border-radius: 16px;
+}
+
+.lf-tile {
+  position: relative;
+  width: 88px;
+  height: 64px;
+  border-radius: 11px;
+  pointer-events: auto;
+  cursor: pointer;
+  color: var(--lf-faint);
+  transition: background-color 160ms var(--lf-ease), box-shadow 160ms var(--lf-ease), color 160ms var(--lf-ease),
+    transform 160ms var(--lf-ease);
+}
+
+.lf-tile:hover {
+  background: rgba(255, 244, 222, 0.07);
+}
+
+/* Name tooltip above a hovered tile. */
+.lf-tile::before {
+  content: attr(data-tip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(8, 11, 16, 0.92);
+  box-shadow: inset 0 0 0 1px rgba(255, 244, 222, 0.14), 0 4px 16px rgba(0, 0, 0, 0.4);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--lf-fg);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate(-50%, 4px);
+  pointer-events: none;
+  transition: opacity 140ms var(--lf-ease), transform 140ms var(--lf-ease);
+}
+
+.lf-tile:hover::before {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.lf-tile-key {
+  position: absolute;
+  left: 7px;
+  top: 5px;
+  font-size: 10.5px;
+  font-weight: 750;
+  line-height: 1;
+  color: var(--lf-faint);
+}
+
+.lf-tile-ico {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 9px;
+  height: 30px;
+  transition: opacity 160ms var(--lf-ease), transform 220ms var(--lf-pop);
+}
+
+.lf-tile-ico svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lf-tile-cap {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 6px;
+  text-align: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--lf-faint);
+  transition: color 160ms var(--lf-ease);
+}
+
+.lf-tile.is-locked .lf-tile-ico {
+  opacity: 0.42;
+}
+
+.lf-tile.is-afford {
+  color: rgba(255, 228, 182, 0.86);
+}
+
+.lf-tile.is-afford .lf-tile-cap {
+  color: var(--lf-brass);
+}
+
+.lf-tile.is-afford::after {
+  /* "you can buy this" dot */
+  content: '';
+  position: absolute;
+  right: 8px;
+  top: 7px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lf-brass);
+  box-shadow: 0 0 6px rgba(233, 172, 78, 0.9);
+  animation: lf-throb 1.4s ease-in-out infinite;
+}
+
+.lf-tile.is-new {
+  animation: lf-tile-new 900ms var(--lf-ease);
+}
+
+@keyframes lf-tile-new {
+  0% {
+    box-shadow: inset 0 0 0 1.5px var(--lf-brass-hi), 0 0 22px rgba(233, 172, 78, 0.7);
+    background: rgba(233, 172, 78, 0.22);
+  }
+}
+
+.lf-tile.is-owned {
+  color: rgba(246, 241, 231, 0.78);
+}
+
+.lf-tile.is-owned .lf-tile-cap {
+  color: var(--lf-fg-2);
+}
+
+.lf-tile.is-owned .lf-tile-key {
+  color: var(--lf-muted);
+}
+
+.lf-tile.is-selected {
+  color: var(--lf-fg);
+  background: linear-gradient(180deg, rgba(233, 172, 78, 0.26) 0%, rgba(233, 172, 78, 0.12) 100%);
+  box-shadow: inset 0 0 0 1.5px var(--lf-brass), 0 0 16px rgba(233, 172, 78, 0.22);
+}
+
+.lf-tile.is-selected .lf-tile-ico {
+  transform: translateY(-1px) scale(1.05);
+}
+
+.lf-tile.is-selected .lf-tile-key,
+.lf-tile.is-selected .lf-tile-cap {
+  color: var(--lf-brass-hi);
+}
+
+.lf-tile.is-empty .lf-tile-cap {
+  color: var(--lf-signal);
+}
+
+.lf-tile.is-deny {
+  animation: lf-deny 300ms linear;
+}
+
+@keyframes lf-deny {
+  20%,
+  60% {
+    transform: translateX(-3px);
+  }
+  40%,
+  80% {
+    transform: translateX(3px);
+  }
+}
+
+/* ---------------------------------------------------- active weapon */
+
+.lf-wpn {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  min-width: 168px;
+  box-sizing: border-box;
+  padding: 9px 16px 11px;
+  border-radius: 16px;
+  text-align: right;
+}
+
+.lf-wpn-name {
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--lf-muted);
+  white-space: nowrap;
+}
+
+.lf-wpn-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 3px;
+  height: 40px;
+}
+
+.lf-wpn-num {
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.lf-wpn-mag {
+  font-size: 36px;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  transition: color 160ms var(--lf-ease), opacity 160ms var(--lf-ease);
+}
+
+.lf-wpn-clip {
+  margin-left: 3px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lf-muted);
+}
+
+.lf-wpn.is-low .lf-wpn-mag {
+  color: var(--lf-signal);
+}
+
+.lf-wpn.is-empty .lf-wpn-mag {
+  color: var(--lf-signal);
+  animation: lf-blink 600ms steps(2, jump-none) infinite;
+}
+
+@keyframes lf-blink {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.lf-wpn.is-reloading .lf-wpn-mag {
+  opacity: 0.32;
+}
+
+.lf-pips {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.lf-pips:empty {
+  display: none;
+}
+
+.lf-pip {
+  width: 7px;
+  height: 18px;
+  border-radius: 2px 2px 1.5px 1.5px;
+  background: linear-gradient(180deg, #e9493a 0 68%, var(--lf-brass) 68% 100%);
+  transition: opacity 120ms var(--lf-ease), transform 160ms var(--lf-ease);
+}
+
+.lf-pip.is-spent {
+  opacity: 0.16;
+  transform: translateY(2px);
+}
+
+.lf-pip.flare {
+  width: 12px;
+  height: 24px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #ff8a3a 0 70%, #c9c3b4 70% 100%);
+}
+
+.lf-pip.bolt {
+  width: 34px;
+  height: 6px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(90deg, transparent 0 2px, #d8dde2 2px);
+  clip-path: polygon(0 50%, 22% 0, 22% 30%, 100% 30%, 100% 70%, 22% 70%, 22% 100%);
+}
+
+.lf-cyl {
+  width: 34px;
+  height: 34px;
+  color: var(--lf-fg);
+  transition: transform 180ms var(--lf-pop);
+}
+
+.lf-cyl svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lf-cyl .ch {
+  fill: var(--lf-brass);
+  transition: fill 120ms var(--lf-ease);
+}
+
+.lf-cyl .ch.is-spent {
+  fill: rgba(0, 0, 0, 0.55);
+}
+
+.lf-mag {
+  position: relative;
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: rgba(255, 244, 222, 0.14);
+  overflow: hidden;
+}
+
+.lf-mag-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: 100% 50%;
+  background: var(--lf-fg-2);
+}
+
+.lf-wpn.is-low .lf-mag-fill {
+  background: var(--lf-signal);
+}
+
+.lf-wpn-reload {
+  position: relative;
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: rgba(255, 244, 222, 0.14);
+  overflow: hidden;
+  display: none;
+}
+
+.lf-wpn.is-reloading .lf-wpn-reload {
+  display: block;
+}
+
+.lf-wpn.is-reloading .lf-mag {
+  display: none;
+}
+
+.lf-wpn-reload-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 50%;
+  background: var(--lf-brass);
+  box-shadow: 0 0 6px rgba(233, 172, 78, 0.8);
+}
+
+.lf-wpn-reload-lbl {
+  position: absolute;
+  right: 16px;
+  top: 9px;
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.22em;
+  color: var(--lf-brass);
+  display: none;
+}
+
+.lf-wpn.is-reloading .lf-wpn-reload-lbl {
+  display: block;
+}
+
+.lf-wpn.is-reloading .lf-wpn-name {
+  visibility: hidden;
+}
+
+.lf-engine {
+  display: none;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 5px;
+  margin-top: 8px;
+}
+
+.lf-wpn.is-engine .lf-engine {
+  display: grid;
+}
+
+.lf-engine span {
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.2em;
+  color: var(--lf-faint);
+  text-align: left;
+}
+
+.lf-gauge {
+  position: relative;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 244, 222, 0.12);
+  overflow: hidden;
+}
+
+.lf-gauge i {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+}
+
+.lf-gauge.rpm i {
+  background: linear-gradient(90deg, #7fb6c0, #d6f2f6);
+}
+
+.lf-gauge.heat i {
+  background: linear-gradient(90deg, #e9ac4e 0%, #ff7a2e 55%, #ff3b2a 100%);
+  background-size: var(--w, 100%) 100%;
+}
+
+.lf-wpn.is-hot .lf-gauge.heat {
+  box-shadow: 0 0 8px rgba(255, 73, 54, 0.7);
+  animation: lf-blink 400ms steps(2, jump-none) infinite;
+}
+
+.lf-wpn.is-spinning .lf-gauge.rpm i {
+  box-shadow: 0 0 6px rgba(200, 240, 250, 0.7);
+}
+
+/* ------------------------------------------- abilities: favour, horn, crane */
+
+.lf-abil {
+  position: absolute;
+  left: 18px;
+  bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.lf-abil-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 14px 7px 7px;
+  border-radius: 44px 16px 16px 44px;
+}
+
+.lf-wheel {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  flex: 0 0 auto;
+}
+
+.lf-wheel-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.lf-wheel-spokes {
+  color: rgba(246, 241, 231, 0.3);
+  transform-origin: 50% 50%;
+  transform-box: view-box;
+  transition: color 300ms var(--lf-ease);
+}
+
+.lf-wheel-track {
+  stroke: rgba(0, 0, 0, 0.35);
+}
+
+.lf-wheel-fill {
+  stroke: var(--lf-brass);
+  stroke-linecap: round;
+  transition: stroke-dasharray 220ms var(--lf-ease);
+  filter: drop-shadow(0 0 2px rgba(233, 172, 78, 0.6));
+}
+
+.lf-wheel-key {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--lf-faint);
+  background: rgba(8, 11, 16, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(255, 244, 222, 0.16);
+}
+
+.lf-wheel.is-ready .lf-wheel-spokes {
+  color: var(--lf-brass-hi);
+  animation: lf-wheel-spin 6s linear infinite;
+}
+
+.lf-wheel.is-ready .lf-wheel-fill {
+  stroke: var(--lf-brass-hi);
+  filter: drop-shadow(0 0 5px rgba(255, 196, 100, 0.95));
+}
+
+.lf-wheel.is-ready .lf-wheel-key {
+  color: #1b130a;
+  background: var(--lf-brass-hi);
+  box-shadow: 0 0 0 0 rgba(255, 213, 147, 0.8);
+  animation: lf-key-pulse 1s var(--lf-ease) infinite;
+}
+
+@keyframes lf-wheel-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes lf-key-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 213, 147, 0.85);
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.14);
+  }
+  100% {
+    box-shadow: 0 0 0 14px rgba(255, 213, 147, 0);
+    transform: scale(1);
+  }
+}
+
+.lf-abil-text {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lf-favour-lbl {
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.22em;
+  color: var(--lf-muted);
+  white-space: nowrap;
+}
+
+.lf-favour-lbl b {
+  color: var(--lf-fg);
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  margin-left: 4px;
+}
+
+.lf-abil-row.is-ready .lf-favour-lbl {
+  color: var(--lf-brass-hi);
+}
+
+.lf-chips {
+  display: flex;
+  gap: 6px;
+}
+
+.lf-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px 0 4px;
+  border-radius: 7px;
+  background: rgba(255, 244, 222, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 244, 222, 0.12);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.16em;
+  color: var(--lf-fg-2);
+  white-space: nowrap;
+  transition: opacity 300ms var(--lf-ease), background-color 300ms var(--lf-ease);
+}
+
+.lf-chip .lf-kbd {
+  min-width: 17px;
+  height: 17px;
+  font-size: 10.5px;
+}
+
+.lf-chip-ico {
+  width: 15px;
+  height: 15px;
+  color: var(--lf-brass);
+}
+
+.lf-chip-ico svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lf-chip.is-used {
+  opacity: 0.38;
+  background: transparent;
+}
+
+.lf-chip.is-used .lf-chip-ico {
+  color: var(--lf-faint);
+}
+
+.lf-chip.is-used span:last-child {
+  text-decoration: line-through;
+  text-decoration-thickness: 1.5px;
+}
+
+.lf-chip.is-fresh {
+  animation: lf-chip-fresh 900ms var(--lf-ease);
+}
+
+@keyframes lf-chip-fresh {
+  0% {
+    background: rgba(233, 172, 78, 0.45);
+    box-shadow: inset 0 0 0 1.5px var(--lf-brass-hi), 0 0 18px rgba(233, 172, 78, 0.6);
+  }
+}
+
+.lf-health {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 26px;
+  padding: 0 12px 0 9px;
+  border-radius: 13px;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 240ms var(--lf-ease), transform 240ms var(--lf-ease);
+}
+
+.lf-health.is-hurt {
+  opacity: 1;
+  transform: none;
+}
+
+.lf-health-ico {
+  width: 12px;
+  height: 12px;
+  color: var(--lf-fg-2);
+}
+
+.lf-health-ico svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lf-health-track {
+  position: relative;
+  width: 150px;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 244, 222, 0.14);
+  overflow: hidden;
+}
+
+.lf-health-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 50%;
+  background: var(--lf-fg);
+  transition: transform 140ms linear, background-color 240ms var(--lf-ease);
+}
+
+.lf-health-num {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--lf-fg-2);
+  min-width: 26px;
+  text-align: right;
+}
+
+.lf-health.is-low .lf-health-fill {
+  background: var(--lf-signal);
+}
+
+.lf-health.is-low .lf-health-ico {
+  color: var(--lf-signal);
+  animation: lf-throb 0.7s ease-in-out infinite;
+}
+
+.lf-health.is-low .lf-health-num {
+  color: #ff8a7a;
+}
+
+/* --------------------------------------------------------- callouts */
+
+.lf-callouts {
+  z-index: 12;
+}
+
+.lf-co-big {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 168px;
+  display: flex;
+  justify-content: center;
+}
+
+.lf-co {
+  position: absolute;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  white-space: nowrap;
+  font-weight: 900;
+  font-style: italic;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--lf-fg);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35), 0 4px 22px rgba(0, 0, 0, 0.45);
+  animation: lf-co-in 1500ms var(--lf-ease) both;
+}
+
+.lf-co-text {
+  display: block;
+  padding: 0 0.12em;
+}
+
+.lf-co::after {
+  content: '';
+  width: 60%;
+  height: 3px;
+  margin-top: 9px;
+  border-radius: 2px;
+  background: currentColor;
+  opacity: 0.85;
+  transform-origin: 50% 50%;
+  animation: lf-co-rule 1500ms var(--lf-ease) both;
+}
+
+.lf-co.k-nice {
+  font-size: 66px;
+  color: var(--lf-brass-hi);
+  text-shadow: 0 2px 0 #6b4210, 0 4px 26px rgba(233, 140, 40, 0.5);
+}
+
+.lf-co.k-massacre {
+  font-size: 92px;
+  color: #ff5a43;
+  text-shadow: 0 3px 0 #5e0d07, 0 0 34px rgba(255, 50, 30, 0.6);
+  animation: lf-co-in-hard 1800ms var(--lf-ease) both;
+}
+
+.lf-co.k-massacre .lf-co-text {
+  animation: lf-co-shake 90ms linear 6;
+}
+
+.lf-co.k-headshot {
+  font-size: 46px;
+  color: #fff;
+}
+
+.lf-co.k-headshot::after {
+  background: var(--lf-signal);
+  height: 4px;
+}
+
+.lf-co.k-tidy {
+  font-size: 32px;
+  font-style: normal;
+  letter-spacing: 0.24em;
+  color: #c6ecc0;
+  animation-duration: 1100ms;
+}
+
+.lf-co.k-tidy::after {
+  display: none;
+}
+
+.lf-co.k-boss {
+  font-size: 84px;
+  font-style: normal;
+  letter-spacing: 0.14em;
+  color: #ff5440;
+  text-shadow: 0 3px 0 #4a0904, 0 0 40px rgba(255, 40, 20, 0.55);
+  animation: lf-co-boss 2600ms var(--lf-ease) both;
+}
+
+.lf-co.k-boss::before {
+  content: 'BOSS';
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.6em;
+  margin-bottom: 10px;
+  margin-right: -0.6em;
+  color: var(--lf-fg-2);
+  text-shadow: var(--lf-shadow);
+}
+
+@keyframes lf-co-in {
+  0% {
+    opacity: 0;
+    transform: scale(1.7);
+    filter: blur(6px);
+  }
+  12% {
+    opacity: 1;
+    transform: scale(0.96);
+    filter: blur(0);
+  }
+  20% {
+    transform: scale(1);
+  }
+  78% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-26px);
+  }
+}
+
+@keyframes lf-co-in-hard {
+  0% {
+    opacity: 0;
+    transform: scale(2.4) rotate(-4deg);
+    filter: blur(8px);
+  }
+  10% {
+    opacity: 1;
+    transform: scale(0.92) rotate(1deg);
+    filter: blur(0);
+  }
+  18% {
+    transform: scale(1.04) rotate(0);
+  }
+  26% {
+    transform: scale(1);
+  }
+  82% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scale(1.04);
+  }
+}
+
+@keyframes lf-co-boss {
+  0% {
+    opacity: 0;
+    letter-spacing: 0.6em;
+    filter: blur(10px);
+  }
+  18% {
+    opacity: 1;
+    letter-spacing: 0.14em;
+    filter: blur(0);
+  }
+  84% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+@keyframes lf-co-rule {
+  0% {
+    transform: scaleX(0);
+  }
+  22% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes lf-co-shake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-4px, 2px);
+  }
+  50% {
+    transform: translate(3px, -3px);
+  }
+  75% {
+    transform: translate(-2px, -1px);
+  }
+}
+
+.lf-co.is-out {
+  animation: lf-co-out 180ms var(--lf-ease) both !important;
+}
+
+@keyframes lf-co-out {
+  to {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.92);
+  }
+}
+
+.lf-co-lines {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 96px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.lf-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 16px;
+  border-radius: 15px;
+  font-size: 13.5px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: var(--lf-fg);
+  animation: lf-line-in 220ms var(--lf-ease) both;
+  transition: opacity 260ms var(--lf-ease), transform 260ms var(--lf-ease);
+}
+
+.lf-line::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--lf-brass);
+}
+
+.lf-line.k-danger {
+  background: rgba(150, 18, 10, 0.62);
+  box-shadow: inset 0 0 0 1px rgba(255, 110, 90, 0.4), 0 4px 18px rgba(80, 0, 0, 0.3);
+}
+
+.lf-line.k-danger::before {
+  background: #fff;
+  animation: lf-throb 0.6s ease-in-out infinite;
+}
+
+.lf-line.is-out {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+@keyframes lf-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+/* ======================================================= world overlay */
+
+.lf-overlay-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lf-layer *,
+  .lf-layer *::before,
+  .lf-layer *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
+
+/* ============================================================ SCREENS */
+
+.lf-screens {
+  z-index: 20;
+}
+
+.lf-screen {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  cursor: default;
+  animation: lf-fade-in 220ms var(--lf-ease) both;
+}
+
+@keyframes lf-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes lf-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.lf-scrim {
+  background: radial-gradient(ellipse at 50% 45%, rgba(10, 13, 19, 0.5) 0%, rgba(5, 7, 10, 0.8) 100%);
+  -webkit-backdrop-filter: blur(6px) saturate(0.9);
+  backdrop-filter: blur(6px) saturate(0.9);
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lf-scrim {
+    background: rgba(6, 8, 12, 0.86);
+  }
+}
+
+.lf-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.lf-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--lf-brass);
+  text-shadow: var(--lf-shadow);
+  white-space: nowrap;
+}
+
+.lf-eyebrow.is-red {
+  color: #ff7a66;
+}
+
+.lf-live {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--lf-signal);
+  box-shadow: 0 0 0 0 rgba(255, 73, 54, 0.7);
+  animation: lf-live 1.6s var(--lf-ease) infinite;
+}
+
+@keyframes lf-live {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 73, 54, 0.75);
+  }
+  70%,
+  100% {
+    box-shadow: 0 0 0 9px rgba(255, 73, 54, 0);
+  }
+}
+
+.lf-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 22px;
+  display: flex;
+  justify-content: center;
+  gap: 22px;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--lf-muted);
+  text-shadow: var(--lf-shadow);
+  white-space: nowrap;
+}
+
+.lf-hint-g {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lf-hint-g .lf-kbd:last-of-type {
+  margin-right: 4px;
+}
+
+/* --------------------------------------------------------------- menu */
+
+.lf-menu {
+  display: flex;
+  flex-direction: column;
+  margin-top: 40px;
+}
+
+.lf-mi {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  font-size: 23px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  color: rgba(246, 241, 231, 0.62);
+  text-shadow: 0 1px 2px rgba(0, 4, 10, 0.5);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 160ms var(--lf-ease);
+}
+
+.lf-mi-arrow {
+  display: inline-block;
+  width: 0;
+  height: 3px;
+  margin-right: 0;
+  border-radius: 2px;
+  background: var(--lf-brass);
+  box-shadow: 0 0 8px rgba(233, 172, 78, 0.6);
+  transition: width 200ms var(--lf-ease), margin-right 200ms var(--lf-ease);
+}
+
+.lf-mi-text {
+  transition: transform 200ms var(--lf-ease);
+}
+
+.lf-mi.is-active {
+  color: var(--lf-fg);
+}
+
+.lf-mi.is-active .lf-mi-arrow {
+  width: 22px;
+  margin-right: 14px;
+}
+
+/* ============================================================== TITLE */
+
+.lf-title {
+  background: none;
+}
+
+.lf-title-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(5, 7, 11, 0.86) 0%, rgba(5, 7, 11, 0.62) 30%, rgba(5, 7, 11, 0.12) 58%, rgba(5, 7, 11, 0) 70%),
+    linear-gradient(0deg, rgba(5, 7, 11, 0.55) 0%, rgba(5, 7, 11, 0) 26%),
+    linear-gradient(180deg, rgba(5, 7, 11, 0.35) 0%, rgba(5, 7, 11, 0) 18%);
+  pointer-events: none;
+}
+
+.lf-title-col {
+  position: absolute;
+  left: max(72px, 7.5%);
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-bottom: 20px;
+}
+
+.lf-title .lf-eyebrow {
+  animation: lf-rise-in 600ms var(--lf-ease) 100ms both;
+}
+
+.lf-wordmark {
+  position: relative;
+  isolation: isolate;
+  margin-top: 18px;
+  width: max-content;
+  animation: lf-rise-in 700ms var(--lf-ease) 180ms both;
+}
+
+.lf-wm-last {
+  font-size: 46px;
+  font-weight: 300;
+  letter-spacing: 0.66em;
+  margin-right: -0.66em;
+  line-height: 1;
+  color: var(--lf-fg);
+  padding-left: 0.08em;
+  text-shadow: 0 2px 14px rgba(0, 4, 10, 0.5);
+}
+
+.lf-wm-ferry {
+  position: relative;
+  margin-top: 6px;
+  font-size: 138px;
+  font-weight: 900;
+  letter-spacing: 0.035em;
+  margin-right: -0.035em;
+  line-height: 0.8;
+  color: var(--lf-brass);
+  /* Brass fill plus a lighthouse beam that sweeps across every few seconds. */
+  background:
+    linear-gradient(105deg, rgba(255, 250, 235, 0) 42%, rgba(255, 250, 235, 0.85) 50%, rgba(255, 250, 235, 0) 58%) no-repeat,
+    linear-gradient(180deg, #ffe2a8 0%, #f2b75a 38%, #d88d2c 72%, #9c5a1a 100%);
+  background-size: 250% 100%, 100% 100%;
+  background-position: 160% 0, 0 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  filter: drop-shadow(0 4px 22px rgba(255, 140, 40, 0.26));
+  animation: lf-beam 7s ease-in-out 1.2s infinite;
+}
+
+@keyframes lf-beam {
+  0% {
+    background-position: 160% 0, 0 0;
+  }
+  28%,
+  100% {
+    background-position: -60% 0, 0 0;
+  }
+}
+
+.lf-wm-water {
+  position: relative;
+  height: 14px;
+  margin-top: 4px;
+}
+
+.lf-wm-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6px;
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, rgba(233, 172, 78, 0) 0%, rgba(233, 172, 78, 0.9) 12%, rgba(233, 172, 78, 0.9) 86%, rgba(233, 172, 78, 0) 100%);
+}
+
+.lf-wm-boat {
+  position: absolute;
+  right: 3%;
+  top: -11px;
+  width: 30px;
+  height: 15px;
+  color: var(--lf-fg);
+  animation: lf-bob 3.2s ease-in-out infinite;
+}
+
+.lf-wm-boat svg {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes lf-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+  50% {
+    transform: translateY(1.5px) rotate(-2deg);
+  }
+}
+
+.lf-wm-refl {
+  position: relative;
+  font-size: 138px;
+  font-weight: 900;
+  letter-spacing: 0.035em;
+  line-height: 0.8;
+  height: 110px;
+  margin-bottom: -50px;
+  white-space: nowrap;
+  color: rgba(240, 166, 72, 0.34);
+  transform-origin: 50% 0;
+  transform: translateY(60px) scaleY(-0.55);
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 25%, rgba(0, 0, 0, 0.9) 100%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 25%, rgba(0, 0, 0, 0.9) 100%);
+  filter: blur(0.8px);
+  pointer-events: none;
+  animation: lf-ripple 4.6s ease-in-out infinite;
+}
+
+.lf-wm-refl::after {
+  /* water bands cutting through the reflection */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(180deg, rgba(6, 9, 14, 0) 0 5px, rgba(6, 9, 14, 0.55) 5px 8px);
+}
+
+@keyframes lf-ripple {
+  0%,
+  100% {
+    transform: translateY(60px) scaleY(-0.55) skewX(0deg);
+  }
+  50% {
+    transform: translateY(60px) scaleY(-0.58) skewX(-4deg) translateX(3px);
+  }
+}
+
+.lf-tagline {
+  margin-top: 4px;
+  font-family: var(--lf-serif);
+  font-style: italic;
+  font-size: 25px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--lf-fg-2);
+  text-shadow: var(--lf-shadow);
+  animation: lf-rise-in 700ms var(--lf-ease) 320ms both;
+}
+
+.lf-title .lf-menu {
+  animation: lf-rise-in 700ms var(--lf-ease) 420ms both;
+}
+
+.lf-best {
+  margin-top: 30px;
+  font-size: 12.5px;
+  color: var(--lf-muted);
+  text-shadow: var(--lf-shadow);
+  white-space: nowrap;
+  animation: lf-fade-in 800ms var(--lf-ease) 600ms both;
+}
+
+.lf-best b {
+  font-weight: 750;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--lf-brass);
+  margin-right: 10px;
+  font-size: 11px;
+}
+
+.lf-title .lf-hint {
+  left: max(72px, 7.5%);
+  right: auto;
+  justify-content: flex-start;
+}
+
+.lf-depart {
+  position: absolute;
+  right: 26px;
+  top: 24px;
+  width: 200px;
+  padding: 11px 15px 12px;
+  border-radius: 12px;
+  box-sizing: border-box;
+  animation: lf-rise-in 700ms var(--lf-ease) 500ms both;
+}
+
+.lf-depart-head {
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--lf-faint);
+  margin-bottom: 6px;
+}
+
+.lf-depart-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 3px 0;
+  border-top: 1px solid rgba(255, 244, 222, 0.07);
+  font-size: 12.5px;
+}
+
+.lf-depart-row .k {
+  color: var(--lf-muted);
+}
+
+.lf-depart-row .v {
+  font-weight: 700;
+  color: var(--lf-fg);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.lf-depart-row .v.is-live {
+  color: var(--lf-brass-hi);
+  animation: lf-blink 1.4s steps(2, jump-none) infinite;
+}
+
+/* ========================================================= CHAPTER SPLASH */
+
+.lf-splash {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.lf-splash-in {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 190px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-shadow: 0 2px 4px rgba(0, 4, 10, 0.45), 0 0 34px rgba(0, 4, 10, 0.45);
+  animation: lf-splash var(--ms, 2600ms) linear both;
+}
+
+@keyframes lf-splash {
+  0% {
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.lf-splash-eyebrow {
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: 0.6em;
+  margin-right: -0.6em;
+  text-transform: uppercase;
+  color: var(--lf-brass);
+}
+
+.lf-splash-title {
+  margin-top: 10px;
+  font-size: 84px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin-right: -0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--lf-fg);
+  white-space: nowrap;
+  animation: lf-splash-track var(--ms, 2600ms) var(--lf-ease) both;
+}
+
+@keyframes lf-splash-track {
+  0% {
+    letter-spacing: 0.32em;
+    filter: blur(8px);
+  }
+  30% {
+    letter-spacing: 0.08em;
+    filter: blur(0);
+  }
+  100% {
+    letter-spacing: 0.1em;
+  }
+}
+
+.lf-splash-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.lf-splash-rule {
+  width: 120px;
+  height: 2px;
+  border-radius: 1px;
+  background: linear-gradient(90deg, rgba(233, 172, 78, 0), var(--lf-brass));
+  transform-origin: 100% 50%;
+  animation: lf-co-rule var(--ms, 2600ms) var(--lf-ease) both;
+}
+
+.lf-splash-rule.r {
+  background: linear-gradient(90deg, var(--lf-brass), rgba(233, 172, 78, 0));
+  transform-origin: 0 50%;
+}
+
+.lf-splash-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--lf-fg-2);
+}
+
+.lf-splash-clock svg {
+  width: 20px;
+  height: 20px;
+  color: var(--lf-brass);
+}
+
+/* ================================================================ PAUSE */
+
+.lf-pause-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.lf-pause-title {
+  margin-top: 10px;
+  font-size: 58px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  margin-right: -0.2em;
+  text-transform: uppercase;
+  color: var(--lf-fg);
+  text-shadow: var(--lf-shadow);
+}
+
+.lf-pause-menu {
+  align-items: center;
+  margin-top: 30px;
+}
+
+.lf-pause-menu .lf-mi {
+  height: 42px;
+  font-size: 21px;
+}
+
+.lf-pause-menu .lf-mi.is-active .lf-mi-arrow {
+  width: 16px;
+  margin-right: 12px;
+}
+
+/* =============================================================== PANELS */
+
+.lf-panel {
+  position: relative;
+  box-sizing: border-box;
+  padding: 24px 28px;
+  border-radius: 18px;
+  background: var(--lf-glass-strong);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  backdrop-filter: blur(16px) saturate(1.2);
+  box-shadow: inset 0 0 0 1px rgba(255, 244, 222, 0.1), inset 0 1px 0 rgba(255, 240, 210, 0.06), 0 14px 50px rgba(0, 4, 10, 0.45);
+  animation: lf-rise-in 260ms var(--lf-ease) both;
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .lf-panel {
+    background: rgba(12, 15, 21, 0.95);
+  }
+}
+
+.lf-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+
+.lf-h1 {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--lf-fg);
+  white-space: nowrap;
+}
+
+.lf-panel-note {
+  font-size: 11.5px;
+  color: var(--lf-faint);
+  letter-spacing: 0.04em;
+}
+
+.lf-section {
+  margin: 16px 0 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--lf-brass);
+}
+
+.lf-section:first-child {
+  margin-top: 0;
+}
+
+.lf-panel-foot {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.lf-btns {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.lf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  height: 40px;
+  padding: 0 24px;
+  box-sizing: border-box;
+  border-radius: 20px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--lf-fg);
+  background: rgba(255, 244, 222, 0.07);
+  box-shadow: inset 0 0 0 1px rgba(255, 244, 222, 0.22);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 160ms var(--lf-ease), color 160ms var(--lf-ease), box-shadow 160ms var(--lf-ease),
+    transform 160ms var(--lf-ease);
+}
+
+.lf-btn.is-active {
+  background: var(--lf-brass);
+  color: #1b130a;
+  box-shadow: 0 4px 22px rgba(233, 172, 78, 0.35);
+  transform: translateY(-1px);
+}
+
+/* -------------------------------------------------------------- options */
+
+.lf-options {
+  width: 560px;
+}
+
+.lf-opt {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 40px;
+  margin: 0 -14px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 15px;
+  color: var(--lf-fg-2);
+  cursor: pointer;
+  transition: background-color 160ms var(--lf-ease), color 160ms var(--lf-ease);
+}
+
+.lf-opt.is-active {
+  background: rgba(255, 244, 222, 0.07);
+  color: var(--lf-fg);
+}
+
+.lf-opt::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 11px;
+  bottom: 11px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--lf-brass);
+  opacity: 0;
+  transition: opacity 160ms var(--lf-ease);
+}
+
+.lf-opt.is-active::before {
+  opacity: 1;
+}
+
+.lf-opt-label {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}
+
+.lf-opt-ctl {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.lf-slider {
+  position: relative;
+  width: 190px;
+  height: 22px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.lf-slider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 9.5px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 244, 222, 0.16);
+}
+
+.lf-slider-fill {
+  position: absolute;
+  left: 0;
+  top: 9.5px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--lf-brass);
+}
+
+.lf-slider-knob {
+  position: absolute;
+  top: 4px;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 50%;
+  background: var(--lf-fg);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  transition: transform 160ms var(--lf-ease);
+}
+
+.lf-opt.is-active .lf-slider-knob {
+  transform: scale(1.2);
+  background: #fff;
+}
+
+.lf-opt-val {
+  width: 44px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--lf-muted);
+}
+
+.lf-seg {
+  display: flex;
+  padding: 3px;
+  border-radius: 9px;
+  background: rgba(255, 244, 222, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 244, 222, 0.08);
+}
+
+.lf-seg-i {
+  min-width: 56px;
+  padding: 5px 12px;
+  box-sizing: border-box;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  color: var(--lf-muted);
+  white-space: nowrap;
+  transition: background-color 160ms var(--lf-ease), color 160ms var(--lf-ease);
+}
+
+.lf-seg-i:hover {
+  color: var(--lf-fg);
+}
+
+.lf-seg-i.is-on {
+  background: var(--lf-fg);
+  color: #14100a;
+  font-weight: 750;
+}
+
+.lf-opt.is-active .lf-seg-i.is-on {
+  background: var(--lf-brass);
+}
+
+/* ---------------------------------------------------------- how to play */
+
+.lf-help {
+  width: 1180px;
+  max-height: 650px;
+  padding: 22px 26px 20px;
+}
+
+.lf-help .lf-panel-head {
+  margin-bottom: 14px;
+  align-items: center;
+}
+
+.lf-lede {
+  margin: 0;
+  max-width: 760px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--lf-fg-2);
+  text-align: right;
+}
+
+.lf-help-cols {
+  display: grid;
+  grid-template-columns: 330px 380px 1fr;
+  column-gap: 26px;
+}
+
+.lf-help-col {
+  min-width: 0;
+}
+
+.lf-keys {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 14px;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.lf-keys > div {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  min-height: 29px;
+  border-bottom: 1px solid rgba(255, 244, 222, 0.06);
+  color: var(--lf-fg-2);
+}
+
+.lf-keys .k {
+  color: var(--lf-muted);
+  white-space: nowrap;
+}
+
+.lf-keys .v {
+  font-size: 12.5px;
+  color: var(--lf-muted);
+}
+
+.lf-keys .lf-kbd {
+  color: var(--lf-fg);
+}
+
+.lf-rule {
+  display: flex;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 244, 222, 0.06);
+}
+
+.lf-rule-n {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 850;
+  color: #1b130a;
+  background: var(--lf-brass);
+}
+
+.lf-rule-n svg {
+  width: 17px;
+  height: 17px;
+}
+
+.lf-rule-n:empty,
+.lf-rule-n:has(svg) {
+  background: rgba(233, 172, 78, 0.16);
+  color: var(--lf-brass);
+}
+
+.lf-rule-n .lf-wheel-svg {
+  position: static;
+  width: 20px;
+  height: 20px;
+}
+
+.lf-rule-n .lf-wheel-svg .lf-wheel-spokes {
+  color: var(--lf-brass);
+}
+
+.lf-rule-n .lf-wheel-svg .lf-wheel-track,
+.lf-rule-n .lf-wheel-svg .lf-wheel-fill {
+  display: none;
+}
+
+.lf-rule-t {
+  font-size: 14.5px;
+  font-weight: 750;
+  color: var(--lf-fg);
+}
+
+.lf-rule-p {
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--lf-muted);
+}
+
+.lf-rule-p .lf-kbd {
+  height: 16px;
+  min-width: 16px;
+  font-size: 10px;
+}
+
+.lf-money-rules {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--lf-muted);
+}
+
+.lf-money-rules b {
+  color: var(--lf-brass-hi);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  margin-right: 4px;
+}
+
+.lf-roster {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.lf-card {
+  display: flex;
+  gap: 10px;
+  padding: 10px 10px 10px 8px;
+  border-radius: 12px;
+  background: rgba(255, 244, 222, 0.04);
+  box-shadow: inset 0 0 0 1px rgba(255, 244, 222, 0.07);
+}
+
+.lf-card-ico {
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: radial-gradient(circle at 50% 40%, rgba(160, 200, 140, 0.18), rgba(160, 200, 140, 0.04));
+  color: #b9cfa8;
+}
+
+.lf-card-ico svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lf-card-body {
+  min-width: 0;
+}
+
+.lf-card-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.lf-card-name {
+  font-size: 13.5px;
+  font-weight: 750;
+  color: var(--lf-fg);
+  white-space: nowrap;
+}
+
+.lf-card-bounty {
+  font-size: 12px;
+  font-weight: 750;
+  color: var(--lf-brass);
+}
+
+.lf-card-text {
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.38;
+  color: var(--lf-muted);
+}
+
+.lf-card-tag {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 9.5px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #ff8a7a;
+  background: rgba(255, 73, 54, 0.12);
+}
+
+.lf-bosses {
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--lf-fg-2);
+}
+
+.lf-bosses b {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: #ff7a66;
+  margin-right: 10px;
+}
+
+/* =============================================================== RESULTS */
+
+.lf-res {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+
+.lf-res-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  text-shadow: var(--lf-shadow);
+}
+
+.lf-res-title {
+  margin-top: 12px;
+  font-size: 68px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  margin-right: -0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+  color: var(--lf-fg);
+  white-space: nowrap;
+  animation: lf-res-slam 700ms var(--lf-ease) both;
+}
+
+.is-over .lf-res-title {
+  color: #ff5a46;
+  text-shadow: 0 3px 0 #4a0904, 0 0 40px rgba(255, 40, 20, 0.4);
+}
+
+@keyframes lf-res-slam {
+  0% {
+    opacity: 0;
+    transform: scale(1.4);
+    filter: blur(8px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(0.98);
+    filter: blur(0);
+  }
+  100% {
+    transform: none;
+  }
+}
+
+.lf-res-line {
+  margin-top: 12px;
+  font-family: var(--lf-serif);
+  font-style: italic;
+  font-size: 19px;
+  color: var(--lf-fg-2);
+  animation: lf-fade-in 700ms var(--lf-ease) 300ms both;
+}
+
+.lf-res-cards {
+  display: flex;
+  gap: 14px;
+  align-items: stretch;
+  animation: lf-rise-in 500ms var(--lf-ease) 300ms both;
+}
+
+.lf-res-cards .lf-panel {
+  padding: 18px 22px 20px;
+  animation: none;
+}
+
+.lf-res-run {
+  width: 560px;
+}
+
+.lf-res-best {
+  width: 340px;
+}
+
+.lf-hero {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.lf-hero > div {
+  padding: 10px 12px 11px;
+  border-radius: 10px;
+  background: rgba(255, 244, 222, 0.05);
+}
+
+.lf-hero .v {
+  font-size: 27px;
+  font-weight: 800;
+  line-height: 1.05;
+  white-space: nowrap;
+}
+
+.lf-hero .is-brass .v {
+  color: var(--lf-brass-hi);
+}
+
+.lf-hero .l {
+  margin-top: 3px;
+  font-size: 9.5px;
+  font-weight: 750;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--lf-faint);
+}
+
+.lf-stats {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 0;
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+
+.lf-stats > div {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 244, 222, 0.06);
+}
+
+.lf-stats .k {
+  padding-right: 20px;
+  color: var(--lf-muted);
+  white-space: nowrap;
+}
+
+.lf-stats .v {
+  color: var(--lf-fg);
+  font-weight: 650;
+  text-align: right;
+}
+
+.lf-stats .v small {
+  display: block;
+  font-size: 11px;
+  font-weight: 450;
+  color: var(--lf-faint);
+}
+
+.lf-hs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+  line-height: 1.3;
+}
+
+.lf-hs td {
+  padding: 7px 4px;
+  border-bottom: 1px solid rgba(255, 244, 222, 0.06);
+  color: var(--lf-fg-2);
+  white-space: nowrap;
+}
+
+.lf-hs td.r {
+  text-align: right;
+}
+
+.lf-hs tr.th td {
+  font-size: 9.5px;
+  font-weight: 750;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--lf-faint);
+  border-bottom-color: rgba(255, 244, 222, 0.12);
+}
+
+.lf-hs tr.is-new td {
+  color: var(--lf-brass-hi);
+  font-weight: 750;
+}
+
+.lf-hs tr.is-empty td {
+  color: rgba(255, 244, 222, 0.22);
+}
+
+.lf-note {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--lf-faint);
+}
+
+.lf-note.is-new {
+  color: var(--lf-brass-hi);
+}
+
+.lf-horde-h {
+  margin-top: 18px;
+}
+
+.lf-horde {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px 10px;
+}
+
+.lf-horde-i {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--lf-muted);
+  white-space: nowrap;
+}
+
+.lf-horde-i b {
+  min-width: 26px;
+  text-align: right;
+  font-weight: 750;
+  color: var(--lf-fg);
+}
+
+.lf-horde-ico {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  background: rgba(160, 200, 140, 0.1);
+  color: #b9cfa8;
+}
+
+.lf-horde-ico svg {
+  width: 100%;
+  height: 100%;
+}
+
+.lf-results .lf-btns {
+  animation: lf-rise-in 500ms var(--lf-ease) 450ms both;
+}
+
+/* -------------------------------------------------------------- victory */
+
+.lf-victory-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(4, 6, 12, 0.35) 0%, rgba(4, 6, 12, 0.72) 55%, rgba(4, 6, 12, 0.9) 100%);
+  animation: lf-fade-in 1600ms var(--lf-ease) both;
+}
+
+.lf-vic-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  text-shadow: var(--lf-shadow);
+}
+
+.lf-vic-boat {
+  width: 64px;
+  height: 32px;
+  color: var(--lf-brass);
+  animation: lf-sail 2400ms var(--lf-ease) both, lf-bob 3.2s ease-in-out 2.4s infinite;
+}
+
+.lf-vic-boat svg {
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes lf-sail {
+  0% {
+    opacity: 0;
+    transform: translateX(-120px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lf-vic-title {
+  margin-top: 12px;
+  font-size: 72px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  margin-right: -0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: linear-gradient(180deg, #fff1d4 0%, #f2b75a 55%, #c47a24 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  animation: lf-vic-title 2600ms var(--lf-ease) both;
+}
+
+.lf-tbc {
+  margin-top: 22px;
+  padding: 7px 18px 8px;
+  border-top: 1px solid rgba(233, 172, 78, 0.5);
+  border-bottom: 1px solid rgba(233, 172, 78, 0.5);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.7em;
+  margin-right: -0.7em;
+  text-transform: uppercase;
+  color: var(--lf-brass-hi);
+  animation: lf-tbc 1400ms var(--lf-ease) 1500ms both;
+}
+
+@keyframes lf-vic-title {
+  0% {
+    opacity: 0;
+    letter-spacing: 0.3em;
+  }
+  40% {
+    opacity: 1;
+    letter-spacing: 0.08em;
+  }
+  100% {
+    letter-spacing: 0.09em;
+  }
+}
+
+@keyframes lf-tbc {
+  0% {
+    opacity: 0;
+    letter-spacing: 1.2em;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.lf-victory .lf-late {
+  animation: lf-rise-in 600ms var(--lf-ease) 2300ms both;
+}
+
+.lf-victory .lf-res-line {
+  animation-delay: 900ms;
+}
+
+/* ============================================================ LOADING / FPS */
+
+.lf-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(ellipse at 50% 60%, #121a24 0%, #06080c 70%);
+  pointer-events: auto;
+  transition: opacity 400ms var(--lf-ease);
+}
+
+.lf-loading.is-out {
+  opacity: 0;
+}
+
+.lf-loading-in {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 420px;
+}
+
+.lf-loading-mark {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  white-space: nowrap;
+}
+
+.lf-loading-mark .a {
+  font-size: 22px;
+  font-weight: 300;
+  letter-spacing: 0.5em;
+  color: var(--lf-fg);
+}
+
+.lf-loading-mark .b {
+  font-size: 46px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  color: var(--lf-brass);
+}
+
+.lf-loading-bar {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  margin-top: 22px;
+  border-radius: 2px;
+  background: rgba(255, 244, 222, 0.12);
+  overflow: hidden;
+}
+
+.lf-loading-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 50%;
+  transform: scaleX(0);
+  background: var(--lf-brass);
+  box-shadow: 0 0 10px rgba(233, 172, 78, 0.8);
+  transition: transform 200ms var(--lf-ease);
+}
+
+.lf-loading-label {
+  margin-top: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--lf-faint);
+}
+
+.lf-loading-tip {
+  margin-top: 30px;
+  font-family: var(--lf-serif);
+  font-style: italic;
+  font-size: 17px;
+  color: var(--lf-muted);
+  text-align: center;
+}
+
+.lf-fps {
+  position: absolute;
+  left: 20px;
+  top: 46px;
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.16em;
+  color: var(--lf-muted);
+  text-shadow: var(--lf-shadow);
+}

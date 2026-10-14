@@ -66,6 +66,8 @@ export interface ZombieView {
   stretcher?: { id: number; role: 'front' | 'back' | 'patient' };
   /** Big Dave: apron torn off. */
   enraged?: boolean;
+  /** The Marathon's 40th runner wears a gold medal (bounty $500). */
+  medal?: boolean;
   /** Killed (still in the list for the tick it died). */
   dead: boolean;
   /** Removed from the world (dead and handed over, or escaped). */
@@ -195,4 +197,10 @@ export interface WorldView {
   readonly bossLife: number | null;
   /** 0 (sunset, chapter 1) → 1 (deep night, end of chapter 3). */
   readonly timeOfDay: number;
+  /** Name of this chapter's boss ("Big Dave", "The Marathon", "The Riot Squad"). */
+  readonly bossName?: string;
+  /** Favour is full: F calls the cannon strike. */
+  readonly favourReady?: boolean;
+  /** The crane's pallet is hanging (shoot the hook block). */
+  readonly craneReady?: boolean;
 }

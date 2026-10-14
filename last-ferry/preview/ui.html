@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Last Ferry — UI preview</title>
+<link rel="icon" href="data:," />
+<style>
+  html, body { margin: 0; height: 100%; background: #05070a; overflow: hidden; }
+  #game-view { position: absolute; overflow: hidden; }
+  .pv-bg { position: absolute; inset: 0; }
+  .pv-nav { position: fixed; right: 6px; bottom: 6px; z-index: 100; display: flex; gap: 4px; flex-wrap: wrap; max-width: 60vw; justify-content: flex-end; font: 11px system-ui; opacity: 0.25; }
+  .pv-nav:hover { opacity: 1; }
+  .pv-nav a { color: #ddd; background: #0009; padding: 2px 6px; border-radius: 4px; text-decoration: none; }
+  body.shot .pv-nav { display: none; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="./ui.ts"></script>
+</body>
+</html>

@@ -1,7 +1,11 @@
-/** Small seedable PRNG (mulberry32) so simulations are reproducible. */
+/**
+ * Small seedable PRNG (mulberry32) so games and simulations are reproducible.
+ * The logic never touches Math.random: pass a seed (the app can use e.g.
+ * Date.now() for a fresh game).
+ */
 export class Rng {
   private s: number;
-  constructor(seed = (Math.random() * 2 ** 32) >>> 0) {
+  constructor(seed = 0x5eed) {
     this.s = seed >>> 0;
   }
   next(): number {

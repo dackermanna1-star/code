@@ -1,50 +1,20 @@
-// Shared helpers for the 2D UI: font registration and "design layers".
+// Shared helpers for the 2D UI: design layers, a tiny element factory and
+// defensive localStorage access.
 //
-// All UI is laid out in the original 640x480 design pixels inside a layer that
-// is scaled by `--k` (CSS px per design px, set on #game-view by Stage). The
-// browser rasterises text and borders at the final size, so everything stays
-// crisp at any window size.
+// All UI is laid out in 1280x720 design pixels (config/view.ts) inside layers
+// scaled by `--k` (CSS px per design px). Stage sets --k on #game-view when it
+// resizes the letterboxed 16:9 frame; prepareView() keeps it in sync for
+// hosts that are not a Stage (previews). The browser rasterises text, SVG and
+// borders at the final size, so everything stays crisp at any window size.
 //
-// --k is min(viewW / 640, viewH / 480): in the classic 4:3 frame both are
-// equal; a wider (first-person) view keeps the design scale of its height.
-// Classic layers stay a 640x480 box (centred in a wider view); "fluid" layers
-// (the modern UI) cover the whole view, viewW/k x viewH/k design px, so their
-// content can anchor to the real view edges.
-import { embeddedDataUrl } from '../core/embedded';
+// A "fluid" layer covers the whole view: viewW/k x viewH/k design px. In the
+// 16:9 game frame that is exactly 1280x720; in any other host the content
+// still anchors to the real view edges.
+import { DESIGN_H, DESIGN_W } from '../config/view';
+import '../style.css';
+import './ferry.css';
 
-export const DESIGN_W = 640;
-export const DESIGN_H = 480;
-
-let fontsInjected = false;
-
-/** Register the original game fonts (public/fonts) once. */
-export function ensureFonts(): void {
-  if (fontsInjected || typeof document === 'undefined') return;
-  fontsInjected = true;
-  const base = import.meta.env?.BASE_URL ?? './';
-  const faces: Array<[family: string, file: string]> = [
-    ['SH Trebuchet', 'trebuc.ttf'],
-    ['SH Default', 'default.ttf'],
-    ['SH Kinifed', 'kinifed.ttf'],
-    ['SH Kroftsmann', 'Kroftsmann.ttf'],
-  ];
-  const css = faces
-    .map(
-      ([family, file]) =>
-        `@font-face{font-family:'${family}';src:url('${embeddedDataUrl(`fonts/${file}`, 'font/ttf') ?? `${base}fonts/${file}`}') format('truetype');font-display:swap;}`,
-    )
-    .join('\n');
-  const style = document.createElement('style');
-  style.setAttribute('data-sh-fonts', '');
-  style.textContent = css;
-  document.head.appendChild(style);
-  // Kick off loading right away so the first HUD frame uses the right metrics.
-  try {
-    for (const [family] of faces) void document.fonts?.load(`16px '${family}'`).catch(() => undefined);
-  } catch {
-    /* FontFaceSet unavailable */
-  }
-}
+export { DESIGN_H, DESIGN_W };
 
 const tracked = new WeakSet<HTMLElement>();
 
@@ -57,9 +27,8 @@ export function viewScale(w: number, h: number): number {
 export function prepareView(view: HTMLElement): void {
   if (tracked.has(view)) return;
   tracked.add(view);
-  // Stage positions the view with left/top, i.e. it expects position:absolute.
   if (getComputedStyle(view).position === 'static') view.style.position = 'absolute';
-  view.classList.add('sh-view');
+  view.classList.add('lf-view');
   const apply = () => {
     const w = view.clientWidth;
     const hgt = view.clientHeight;
@@ -72,19 +41,10 @@ export function prepareView(view: HTMLElement): void {
   if (typeof ResizeObserver !== 'undefined') new ResizeObserver(apply).observe(view);
 }
 
-/** Create a 640x480 design-pixel layer inside the view. */
-export function designLayer(view: HTMLElement, className: string): HTMLDivElement {
-  ensureFonts();
-  prepareView(view);
-  const layer = h('div', `sh-layer ${className}`);
-  view.appendChild(layer);
-  return layer;
-}
-
-/** Create a layer covering the whole view in design px (modern UI). */
+/** Create a layer covering the whole view, laid out in design px. */
 export function fluidLayer(view: HTMLElement, className: string): HTMLDivElement {
   prepareView(view);
-  const layer = h('div', `shm-layer ${className}`);
+  const layer = h('div', `lf-layer ${className}`);
   view.appendChild(layer);
   return layer;
 }
@@ -99,6 +59,13 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   if (className) e.className = className;
   if (text !== undefined) e.textContent = text;
   return e;
+}
+
+/** Element from trusted, static markup (our own inline SVG icons). */
+export function fromHtml<T extends Element = HTMLElement>(html: string): T {
+  const t = document.createElement('template');
+  t.innerHTML = html.trim();
+  return t.content.firstElementChild as T;
 }
 
 /** localStorage wrappers that never throw. */
@@ -117,4 +84,19 @@ export function storageSet(key: string, value: unknown): void {
   } catch {
     /* private mode / quota / disabled storage */
   }
+}
+
+export const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
+export const fmtInt = (n: number) => Math.round(n).toLocaleString('en-US');
+export const fmtTime = (sec: number) => {
+  const s = Math.max(0, Math.floor(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+/** Restart a CSS animation class on an element (cheap "pulse" triggers). */
+export function retrigger(el: HTMLElement, cls: string): void {
+  el.classList.remove(cls);
+  // Force a style flush so the animation restarts.
+  void el.offsetWidth;
+  el.classList.add(cls);
 }

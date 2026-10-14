@@ -36,6 +36,10 @@ export interface HudSnapshot {
   favourReady: boolean;
   hornReady: boolean;
   craneReady: boolean;
+  /** Optional: in-game clock shown next to the chapter ("18:52"). */
+  clock?: string;
+  /** Optional 0..1: a zombie is close to the gangway (the boarding bar pulses red). */
+  danger?: number;
 }
 
 /** Big centred callouts (NICE SHOT, MASSACRE, HEADSHOT ×3, TIDY …). */

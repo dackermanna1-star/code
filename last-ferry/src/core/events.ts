@@ -78,7 +78,15 @@ export interface GameEvents {
   belch: { zombieId: number; x: number; z: number };
   enrage: { zombieId: number };
   /** Paramedics: the stretcher hit the deck (a medic died). */
-  stretcherDrop: { zombieId: number; x: number; z: number };
+  stretcherDrop: {
+    zombieId: number;
+    x: number;
+    z: number;
+    /** The stretcher (ZombieView.stretcher.id of the team). */
+    stretcherId?: number;
+    /** The patient who was on it (gets up as a shambler 1.5 s later), if still alive. */
+    patientId?: number;
+  };
   grab: { zombieId: number; playerId: number };
   release: { zombieId: number; playerId: number };
 
