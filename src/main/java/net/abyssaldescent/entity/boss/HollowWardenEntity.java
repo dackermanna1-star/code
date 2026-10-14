@@ -3,10 +3,12 @@ package net.abyssaldescent.entity.boss;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import net.abyssaldescent.AbyssalDescent;
 import net.abyssaldescent.entity.DungeonMobs;
 import net.abyssaldescent.entity.MobInfo;
 import net.abyssaldescent.entity.fx.TelegraphEntity;
 import net.abyssaldescent.entity.projectile.SoulBoltEntity;
+import net.abyssaldescent.network.CameraShakePayload;
 import net.abyssaldescent.registry.ModDamageTypes;
 import net.abyssaldescent.registry.ModEntities;
 import net.abyssaldescent.registry.ModParticles;
@@ -16,6 +18,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -36,6 +39,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -67,6 +71,7 @@ public class HollowWardenEntity extends DungeonBossEntity {
 	public static final int ACTION_ROAR = 11;
 	public static final int ACTION_DEATH = 12;
 
+	private static final Identifier ENRAGE = AbyssalDescent.id("warden_enrage");
 	private static final int SOUL_BLUE = 0xC056D8FF;
 	private static final int SOUL_PALE = 0xB0C8F4FF;
 	private static final int DANGER = 0xC8FF5050;
@@ -211,10 +216,56 @@ public class HollowWardenEntity extends DungeonBossEntity {
 	}
 
 	@Override
+	protected void resetFight() {
+		super.resetFight();
+		current = null;
+		attackTick = 0;
+		attackLength = 0;
+		globalCooldown = 30;
+		java.util.Arrays.fill(cooldowns, 0);
+		eruptionPoints.clear();
+		chargeHits.clear();
+		lastCombo = 0;
+		raiseTimer = 600;
+		stunTicks = 0;
+		// The phase-3 speed is a permanent modifier (saved with the boss), so it has to be taken off explicitly.
+		var speed = getAttribute(Attributes.MOVEMENT_SPEED);
+		if (speed != null) {
+			speed.removeModifier(ENRAGE);
+		}
+		setAction(ACTION_SEATED);
+	}
+
+	@Override
+	protected void clearFightLeftovers(ServerLevel level) {
+		for (UUID id : minions) {
+			Entity e = level.getEntity(id);
+			if (e != null) {
+				e.discard();
+			}
+		}
+		minions.clear();
+		super.clearFightLeftovers(level);
+	}
+
+	@Override
+	protected void readAdditionalSaveData(ValueInput input) {
+		super.readAdditionalSaveData(input);
+		if (isDeadOrDying()) {
+			// Reloaded during the death sequence: keep collapsing rather than sitting back on the throne.
+			setAction(ACTION_DEATH);
+		}
+	}
+
+	@Override
 	protected int onPhaseStart(ServerLevel level, int phase) {
 		current = null;
+		// The roar ends a stagger: a stun left over after it would freeze the Warden in its idle pose, still exposed.
+		stunTicks = 0;
+		globalCooldown = Math.max(globalCooldown, 10);
 		setAction(ACTION_ROAR);
 		level.playSound(null, getX(), getY(), getZ(), ModSounds.WARDEN_ROAR, SoundSource.HOSTILE, 3.0F, phase == 3 ? 0.8F : 1.0F);
+		CameraShakePayload.send(level, position(), 28.0, phase == 3 ? 1.0F : 0.8F, 30);
 		// A wave of force pushes everyone back (no damage) so the transition is never a free hit for either side.
 		for (ServerPlayer player : playersInArena(level)) {
 			Vec3 away = player.position().subtract(position());
@@ -237,7 +288,7 @@ public class HollowWardenEntity extends DungeonBossEntity {
 			var speed = getAttribute(Attributes.MOVEMENT_SPEED);
 			if (speed != null) {
 				speed.addOrReplacePermanentModifier(new net.minecraft.world.entity.ai.attributes.AttributeModifier(
-					net.abyssaldescent.AbyssalDescent.id("warden_enrage"), 0.25, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+					ENRAGE, 0.25, net.minecraft.world.entity.ai.attributes.AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
 			}
 		}
 		return 50;
@@ -457,17 +508,18 @@ public class HollowWardenEntity extends DungeonBossEntity {
 						erupt(level, p);
 					}
 				}
+				// Each chasing burst lands on the circles shown 12 ticks earlier, and only then are the next ones placed.
+				if (enraged && (attackTick == 46 || attackTick == 58)) {
+					for (Vec3 p : eruptionPoints) {
+						erupt(level, p);
+					}
+				}
 				if (enraged && (attackTick == 34 || attackTick == 46)) {
 					// Chasing eruptions under the closest delvers.
 					eruptionPoints.clear();
 					for (ServerPlayer player : playersInArena(level)) {
 						eruptionPoints.add(player.position());
-						TelegraphEntity.circle(level, player.position().add(0, 0.05, 0), 2.2F, 12, SOUL_PALE);
-					}
-				}
-				if (enraged && (attackTick == 46 || attackTick == 58)) {
-					for (Vec3 p : eruptionPoints) {
-						erupt(level, p);
+						TelegraphEntity.circle(level, player.position().add(0, 0.05, 0), 2.4F, 12, SOUL_PALE);
 					}
 				}
 			}
@@ -539,12 +591,13 @@ public class HollowWardenEntity extends DungeonBossEntity {
 		}
 		impactEffects(level, position(), 4.6);
 		level.playSound(null, getX(), getY(), getZ(), ModSounds.WARDEN_SLAM, SoundSource.HOSTILE, 2.5F, 0.8F);
+		CameraShakePayload.send(level, position(), 18.0, 1.2F, 14);
 		if (phase() >= 3) {
 			// Burning ground lingers around the impact.
 			for (int i = 0; i < 3; i++) {
 				double angle = random.nextDouble() * Math.PI * 2;
 				Vec3 p = position().add(Math.cos(angle) * 3, 0.05, Math.sin(angle) * 3);
-				TelegraphEntity.zone(level, p, 1.6F, 100, 0xA040A0FF).setHazard(this, 2.0F + bossFloor * 0.3F);
+				TelegraphEntity.zone(level, p, 1.6F, 100, 0xA040A0FF).setHazard(this, (2.0F + bossFloor * 0.3F) * damageScale());
 			}
 		}
 	}
@@ -611,8 +664,10 @@ public class HollowWardenEntity extends DungeonBossEntity {
 			}
 			if (horizontalCollision) {
 				// Crashed into a wall or pillar: dazed and exposed.
-				impactEffects(level, position().add(lockedDir.scale(0.8)), 2.0);
+				Vec3 crash = position().add(lockedDir.scale(0.8));
+				impactEffects(level, crash, 2.0);
 				level.playSound(null, getX(), getY(), getZ(), ModSounds.WARDEN_SLAM, SoundSource.HOSTILE, 2.0F, 0.6F);
+				CameraShakePayload.send(level, crash, 16.0, 1.0F, 12);
 				current = null;
 				setAction(ACTION_STUNNED);
 				stunTicks = phase() >= 3 ? 45 : 60;
@@ -638,7 +693,7 @@ public class HollowWardenEntity extends DungeonBossEntity {
 			double cos = Math.cos(offset);
 			double sin = Math.sin(offset);
 			Vec3 dir = new Vec3(aim.x * cos - aim.z * sin, aim.y, aim.x * sin + aim.z * cos);
-			SoulBoltEntity bolt = new SoulBoltEntity(level, this, dir, 0.42, 5.0F, 0.0);
+			SoulBoltEntity bolt = new SoulBoltEntity(level, this, dir, 0.42, 5.0F * damageScale(), 0.0);
 			bolt.setPos(eye.x + dir.x, eye.y - 0.3, eye.z + dir.z);
 			level.addFreshEntity(bolt);
 		}
@@ -741,6 +796,7 @@ public class HollowWardenEntity extends DungeonBossEntity {
 			level.sendParticles(ModParticles.SHOCK_RING, getX(), getY() + 0.1, getZ(), 1, 0, 0, 0, 0);
 			level.sendParticles(ParticleTypes.SOUL, getX(), getY() + 2, getZ(), 80, 1.5, 1.5, 1.5, 0.1);
 			level.playSound(null, getX(), getY(), getZ(), ModSounds.SOUL_FLARE, SoundSource.HOSTILE, 2.5F, 0.7F);
+			CameraShakePayload.send(level, position(), 28.0, 1.4F, 24);
 		}
 	}
 

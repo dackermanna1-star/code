@@ -8,6 +8,9 @@ import net.abyssaldescent.dungeon.run.RunManager;
 import net.abyssaldescent.dungeon.zone.Zone;
 import net.abyssaldescent.entity.DungeonBoss;
 import net.abyssaldescent.entity.DungeonMonster;
+import net.abyssaldescent.entity.MobInfo;
+import net.abyssaldescent.entity.fx.TelegraphEntity;
+import net.abyssaldescent.registry.ModAttachments;
 import net.abyssaldescent.util.Messages;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
@@ -22,12 +25,14 @@ import net.minecraft.world.BossEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.storage.ValueInput;
 import net.minecraft.world.level.storage.ValueOutput;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
 
@@ -47,6 +52,8 @@ public abstract class DungeonBossEntity extends DungeonMonster implements Dungeo
 	protected Box arena;
 	protected final List<BlockPos> minionSpawns = new ArrayList<>();
 	protected Vec3 home = Vec3.ZERO;
+	/** The way the boss faces on its throne. */
+	protected float homeYaw;
 	/** Ticks remaining in the intro (no attacks). */
 	protected int introTicks;
 	/** Ticks remaining in a phase transition (invulnerable). */
@@ -120,22 +127,33 @@ public abstract class DungeonBossEntity extends DungeonMonster implements Dungeo
 		this.minionSpawns.clear();
 		this.minionSpawns.addAll(minionSpawns);
 		this.home = position();
+		this.homeYaw = getYRot();
 		Zone zone = Zone.forFloor(floor);
 		bossEvent.setColor(zone.bossBarColor());
 	}
 
 	@Override
 	public void beginEncounter(int partySize) {
-		if (!(level() instanceof ServerLevel level) || !dormant()) {
+		// A slain boss finishing its death sequence is never woken (that would bring it back to full health).
+		if (!(level() instanceof ServerLevel level) || !dormant() || isDeadOrDying()) {
 			return;
 		}
-		double scale = AdConfig.get().difficulty.healthMultiplier * (1.0 + AdConfig.get().difficulty.bossPartyHealthScaling * Math.max(0, partySize - 1));
+		AdConfig.Difficulty difficulty = AdConfig.get().difficulty;
+		double scale = difficulty.healthMultiplier * (1.0 + difficulty.bossPartyHealthScaling * Math.max(0, partySize - 1));
 		var health = getAttribute(Attributes.MAX_HEALTH);
 		if (health != null) {
 			health.addOrReplacePermanentModifier(new AttributeModifier(net.abyssaldescent.AbyssalDescent.id("boss_party"), scale - 1.0,
 				AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
 			setHealth(getMaxHealth());
 		}
+		// Like its health, the boss's damage follows the global multiplier only: its stats are tuned for its floor.
+		var damage = getAttribute(Attributes.ATTACK_DAMAGE);
+		if (damage != null) {
+			damage.addOrReplacePermanentModifier(new AttributeModifier(net.abyssaldescent.AbyssalDescent.id("boss_damage"),
+				difficulty.damageMultiplier - 1.0, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+		}
+		// Minions left over from a fight interrupted by a reload are not tracked any more: clear them before starting over.
+		clearFightLeftovers(level);
 		setDormant(false);
 		bossEvent.setVisible(true);
 		introTicks = introLength();
@@ -268,7 +286,65 @@ public abstract class DungeonBossEntity extends DungeonMonster implements Dungeo
 	@Override
 	public void remove(RemovalReason reason) {
 		bossEvent.removeAllPlayers();
+		if (reason == RemovalReason.DISCARDED && level() instanceof ServerLevel level) {
+			// Cleared away with its floor (the run ended or moved on): what it summoned goes with it.
+			clearFightLeftovers(level);
+		}
 		super.remove(reason);
+	}
+
+	/**
+	 * Calls the fight off (the run manager does this when nobody is left in the arena): back to the throne, dormant, at
+	 * full health, with its minions and telegraphs gone. The next delver to cross the threshold starts the fight again.
+	 */
+	public void resetEncounter() {
+		if (!(level() instanceof ServerLevel level) || isDeadOrDying()) {
+			return;
+		}
+		resetFight();
+		clearFightLeftovers(level);
+		bossEvent.removeAllPlayers();
+		setTarget(null);
+		getNavigation().stop();
+		removeAllEffects();
+		clearFire();
+		setDeltaMovement(Vec3.ZERO);
+		if (!home.equals(Vec3.ZERO)) {
+			snapTo(home.x, home.y, home.z, homeYaw, 0.0F);
+			setYHeadRot(homeYaw);
+			setYBodyRot(homeYaw);
+		}
+	}
+
+	/**
+	 * Puts the fight back to its start: dormant, phase 1, full health. Only touches the boss itself, so it is safe while
+	 * the boss is being loaded; subclasses also reset their attack state here.
+	 */
+	protected void resetFight() {
+		setDormant(true);
+		setPhase(1);
+		introTicks = 0;
+		transitionTicks = 0;
+		setHealth(getMaxHealth());
+		bossEvent.setVisible(false);
+	}
+
+	/** Discards what a fight left in the arena: minions (also untracked ones from before a reload) and telegraphs. */
+	protected void clearFightLeftovers(ServerLevel level) {
+		if (arena == null) {
+			return;
+		}
+		AABB box = arena.toAabb().inflate(2, 6, 2);
+		for (Mob minion : level.getEntitiesOfClass(Mob.class, box, m -> {
+			MobInfo info = m.getAttached(ModAttachments.MOB_INFO);
+			// Boss minions are the run's enemies that belong to no room.
+			return m != this && info != null && info.runSlot() == runSlot && info.roomId() == -1;
+		})) {
+			minion.discard();
+		}
+		for (TelegraphEntity telegraph : level.getEntitiesOfClass(TelegraphEntity.class, box)) {
+			telegraph.discard();
+		}
 	}
 
 	@Override
@@ -281,6 +357,7 @@ public abstract class DungeonBossEntity extends DungeonMonster implements Dungeo
 		}
 		output.store("minions", BlockPos.CODEC.listOf(), List.copyOf(minionSpawns));
 		output.store("home", Vec3.CODEC, home);
+		output.putFloat("home_yaw", homeYaw);
 	}
 
 	@Override
@@ -296,14 +373,22 @@ public abstract class DungeonBossEntity extends DungeonMonster implements Dungeo
 		minionSpawns.clear();
 		input.read("minions", BlockPos.CODEC.listOf()).ifPresent(minionSpawns::addAll);
 		home = input.read("home", Vec3.CODEC).orElse(position());
-		// An interrupted fight starts over: back to the throne, full health, dormant.
-		setDormant(true);
-		setPhase(1);
-		setHealth(getMaxHealth());
+		homeYaw = input.getFloatOr("home_yaw", 0.0F);
 		bossEvent.setName(getDisplayName());
 		bossEvent.setColor(Zone.forFloor(bossFloor).bossBarColor());
+		if (isDeadOrDying()) {
+			// Saved during its death sequence: the kill stands. The sequence picks up where it stopped and then ends the
+			// fight, so the floor is still won and the loot (dropped when it fell) is not dropped again.
+			setDormant(false);
+			return;
+		}
+		// An interrupted fight starts over: back to the throne, full health, dormant.
+		resetFight();
 		if (!home.equals(Vec3.ZERO)) {
 			setPos(home.x, home.y, home.z);
+			setYRot(homeYaw);
+			setYHeadRot(homeYaw);
+			setYBodyRot(homeYaw);
 		}
 	}
 
