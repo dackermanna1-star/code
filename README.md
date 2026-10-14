@@ -5,6 +5,10 @@ three.js, TypeScript and cannon-es. Same rules, same numbers, same 4:3 framing a
 the original — rebuilt with 3D models, physics ragdolls, permanent blood on a
 reflective ice floe and the original sound effects.
 
+> **Also in this repo:** [LAST FERRY](last-ferry/README.md), a new zombie game in the spirit of
+> Seal Hunter built on this engine (a rotting pier at dusk, a ferry to defend, and the dead don't
+> stay down). Play `release/LastFerry.html`.
+
 ![reference](docs/reference/ref2.jpg)
 
 ## Run it
