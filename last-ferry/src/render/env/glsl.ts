@@ -168,7 +168,7 @@ vec3 skyBand(vec3 d) {
  * `uniformName` (diffuse untouched): the key light's gameplay elevation would
  * otherwise put mirror glints on water and wet planks everywhere.
  */
-export function dirSpecularScaledLightsChunk(uniformName: string, maxSpec?: number, pointMaxSpec?: number): string {
+export function dirSpecularScaledLightsChunk(uniformName: string, maxSpec?: number, pointMaxSpec?: number, pointScale?: number): string {
   let chunk = THREE.ShaderChunk.lights_fragment_begin;
   const call = 'RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );';
   // Replace the RE_Direct call of one light loop (loops are unrolled without braces: wrap ours).
@@ -184,7 +184,7 @@ export function dirSpecularScaledLightsChunk(uniformName: string, maxSpec?: numb
     chunk = chunk.slice(0, at) + patched + chunk.slice(at + call.length);
   };
   patch('#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )', uniformName, maxSpec);
-  if (pointMaxSpec !== undefined) patch('#if ( NUM_POINT_LIGHTS > 0 ) && defined( RE_Direct )', null, pointMaxSpec);
+  if (pointMaxSpec !== undefined || pointScale !== undefined) patch('#if ( NUM_POINT_LIGHTS > 0 ) && defined( RE_Direct )', pointScale !== undefined ? pointScale.toFixed(3) : null, pointMaxSpec);
   return chunk;
 }
 

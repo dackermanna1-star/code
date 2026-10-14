@@ -131,7 +131,7 @@ export function skinify(rig: ZombieRigExt): SkinState | null {
     const sm = new THREE.SkinnedMesh(m.geo, MATERIALS[m.cls]);
     sm.userData.matClass = m.cls;
     sm.userData.skinned = true;
-    sm.castShadow = true;
+    sm.castShadow = m.cls !== 'hivis';
     sm.receiveShadow = false;
     sm.layers.enable(REFLECT_LAYER);
     sm.bind(skeleton, IDENTITY);

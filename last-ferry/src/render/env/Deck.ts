@@ -292,7 +292,7 @@ export function createDeckMaterial(u: DeckUniforms, opts: { reflections?: boolea
         roughnessFactor = mix(0.86 - 0.12 * grain, 0.34, deckWet);
         roughnessFactor = mix(roughnessFactor, 0.2, pud * uWetness * (1.0 - da));`,
       )
-      .replace('#include <lights_fragment_begin>', dirSpecularScaledLightsChunk('uDeckDirSpec'))
+      .replace('#include <lights_fragment_begin>', dirSpecularScaledLightsChunk('uDeckDirSpec', 0.3))
       .replace(
         '#include <lights_fragment_end>',
         `#include <lights_fragment_end>

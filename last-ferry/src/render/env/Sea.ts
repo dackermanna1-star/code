@@ -195,7 +195,8 @@ export function createMainSea(sky: SkyUniforms, sea: SeaUniforms, foam: THREE.Te
       )
       .replace(
         '#include <lights_fragment_begin>',
-        dirSpecularScaledLightsChunk('uSeaDirK', 0.35, 0.6),
+        // Lamps and flashes leave faint glints, not broad blobs, on the rippled water next to the HUD.
+        dirSpecularScaledLightsChunk('uSeaDirK', 0.22, 0.07, 0.4),
       )
       .replace(
         '#include <normal_fragment_maps>',
@@ -227,7 +228,7 @@ export function createMainSea(sky: SkyUniforms, sea: SeaUniforms, foam: THREE.Te
         #include <opaque_fragment>`,
       );
   };
-  mat.customProgramCacheKey = () => 'lf-main-sea-v4';
+  mat.customProgramCacheKey = () => 'lf-main-sea-v5';
   // Covers the frame below the seam (and a margin for screen shake).
   const geo = new THREE.PlaneGeometry(220, 70, 1, 1).rotateX(-Math.PI / 2).translate(0, PIER.waterY, -2);
   const mesh = new THREE.Mesh(geo, mat);

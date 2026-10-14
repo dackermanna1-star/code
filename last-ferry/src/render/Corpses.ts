@@ -56,7 +56,7 @@ export class Corpses {
     let b = this.batches.get(cls);
     if (!b) {
       b = new THREE.BatchedMesh(MAX_INSTANCES, MAX_VERTICES, 0, MATERIALS[cls]);
-      b.castShadow = cls !== 'glow' && cls !== 'glass';
+      b.castShadow = cls !== 'glow' && cls !== 'glass' && cls !== 'hivis';
       b.receiveShadow = false;
       b.perObjectFrustumCulled = true;
       b.sortObjects = false;

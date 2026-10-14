@@ -84,9 +84,9 @@ along the lane and ±0.8 m across it.
   down, or **nailed** (3+ nail-gun nails in a downed body pin it to the planks).
 - A risen crawler (any kind except bloater/bigdave/riot) has 35% of the kind's base life
   (min 20), crawls at 0.55–0.75 m/s, height ~0.55 m (low profile: the gun line at 1.0 m
-  passes over it unless the view-consistent band catches it — kick or stomp it), bounty $15,
-  and when killed it stays dead. The low crawler bounty ($8) is on purpose: stomping the body
-  before it gets up (tidy, $15) pays more than kicking the crawler it becomes.
+  passes over it unless the view-consistent band catches it — kick or stomp it), bounty $8,
+  and when killed it stays dead. The low bounty is on purpose: stomping the body before it
+  gets up (tidy, $15) pays more than kicking the crawler it becomes.
 - Crawlers that spill out of a bloater or Big Dave are flagged (`spilled`); the game-over
   line tells them apart from bodies the Bosun left lying.
 

@@ -758,6 +758,11 @@ export class AudioSystem {
         for (let i = 0; i < 6; i++) this.play('plate_hit', { x: -20, volume: 0.6 + i * 0.06, pitch: 0.8, delay: 0.5 + i * (i < 3 ? 0.5 : 0.25) });
       }
     });
+    // The boss is down: the queue cheers a little and the music leaves its boss state for the mop-up.
+    on('mopUp', () => {
+      this.play('cheer', { x: 21, volume: 0.45, delay: 0.2 });
+      this.music?.setState({ boss: false });
+    });
     on('chapterComplete', () => {
       this.play('cheer', { x: 21, volume: 0.9, delay: 0.3 });
       this.music?.setState({ boss: false });

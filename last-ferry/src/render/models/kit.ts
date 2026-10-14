@@ -281,7 +281,7 @@ export class PartBuilder {
       const merged = shareGeometry(built);
       merged.computeBoundingSphere();
       const mesh = new THREE.Mesh(merged, MATERIALS[mat]);
-      mesh.castShadow = (opts.castShadow ?? true) && mat !== 'glass' && mat !== 'glow';
+      mesh.castShadow = (opts.castShadow ?? true) && mat !== 'glass' && mat !== 'glow' && mat !== 'hivis';
       mesh.receiveShadow = false;
       if (opts.reflect ?? true) mesh.layers.enable(REFLECT_LAYER);
       mesh.userData.matClass = mat;

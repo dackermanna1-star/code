@@ -506,8 +506,8 @@ export class Environment {
     this.fog.far = p.fogFar;
     this.lightRig.fogColor.copy(this.fog.color);
     this.lightRig.darkness = Math.min(1, Math.max(0, (t - 0.25) / 0.45));
-    this.seaUniforms.uSeaDirK.value = 0.14 - 0.1 * this.lightRig.darkness;
-    this.deckUniforms.uDeckDirSpec.value = 0.6 - 0.45 * this.lightRig.darkness;
+    this.seaUniforms.uSeaDirK.value = 0.1 - 0.07 * this.lightRig.darkness;
+    this.deckUniforms.uDeckDirSpec.value = 0.6 - 0.55 * this.lightRig.darkness;
     this.deckUniforms.uPudEnv.value = 0.55 - 0.4 * this.lightRig.darkness;
     this.stage.scene.environmentIntensity = p.envIntensity;
     this.deckUniforms.uWetness.value = 0.45 + 0.4 * t;
