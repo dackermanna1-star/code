@@ -87,13 +87,12 @@ export class HazardFx {
     s.position.set(5, 1, 2);
     s.castShadow = true;
     this.hornWave ??= new HornWave(this.ctx.scene);
-    this.hornWave.start();
+    this.hornWave.warm(true);
     return [f, s];
   }
 
   endPrewarm(): void {
-    this.hornWave?.update(99);
-    this.hornWave?.update(0);
+    this.hornWave?.warm(false);
   }
 
   clear(): void {
@@ -482,11 +481,22 @@ class HornWave {
   }
 
   start(): void {
+    this.warming = false;
     this.t = 0;
     this.mesh.visible = true;
   }
 
+  /** Shader warm-up: drawn (so it compiles) but fully transparent until warm(false). */
+  warm(on: boolean): void {
+    this.warming = on;
+    this.mesh.visible = on;
+    if (on) this.mat.uniforms.uT.value = 9;
+    else this.t = 99;
+  }
+  private warming = false;
+
   update(dt: number): void {
+    if (this.warming) return;
     if (this.t > 1.6) {
       this.mesh.visible = false;
       return;

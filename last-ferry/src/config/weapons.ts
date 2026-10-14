@@ -69,7 +69,7 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
   },
   flare: {
     id: 'flare', name: 'Flare pistol', short: 'Flare Pistol', price: 2200, mode: 'flare',
-    damage: 30, pellets: 1, clip: 1, fireInterval: 0, reload: 1.3, perShell: false, spreadDeg: 0, pierce: 0,
+    damage: 50, pellets: 1, clip: 1, fireInterval: 0, reload: 1.2, perShell: false, spreadDeg: 0, pierce: 0,
     recoil: 0.3, shake: 0.05, spinUp: 0, headoffRange: 0, knockback: 0, plateMult: 1, ignoresPlates: false,
     shell: 'normal', clipKind: 'none',
   },
@@ -121,8 +121,8 @@ export const MUZZLE_Z: Record<WeaponId, number> = {
  */
 export const OUTBOARD = { idleSpin: 0.35, stallSeconds: 12, heatPerShot: 0.0075, coolPerSecond: 0.32, hotSpread: 1.5, restartHeat: 0.45 };
 
-/** Flare projectile (DESIGN §7: fast, slight arc). */
-export const FLARE = { speed: 28, vy: 0.6, gravity: 3, radius: 0.12 };
+/** Flare projectile (DESIGN §7: fast, slight arc). A hit sprays fire on everything within `splash` m. */
+export const FLARE = { speed: 28, vy: 0.6, gravity: 3, radius: 0.12, splash: 1.3 };
 
 /** Harpoon: bodies on the line are reeled this far toward the hunter. */
 export const HARPOON = { reel: 2, maxSkewer: 5 };

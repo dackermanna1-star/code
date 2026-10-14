@@ -20,6 +20,7 @@ export interface BulletPath {
 }
 
 export type ExplosionKind = 'cannon' | 'gas' | 'crates';
+export type NiceSource = 'shot' | 'crane' | 'cannon' | 'gas';
 export type CraneState = 'hanging' | 'falling' | 'down' | 'gone';
 export type CorpseEndReason = 'ash' | 'gib' | 'stomp' | 'sea' | 'harpoon';
 
@@ -132,7 +133,8 @@ export interface GameEvents {
   playerDeath: { playerId: number };
   /** Money earned (popups); `x,y,z` is where the money came from. */
   money: { playerId: number; amount: number; reason: 'bounty' | 'headshot' | 'nice' | 'tidy'; x: number; y: number; z: number };
-  niceShot: { playerId: number; n: number };
+  /** 3+ kills at once. `source`: one trigger pull ('shot'), a crane drop, a cannon strike or a gas explosion. */
+  niceShot: { playerId: number; n: number; source?: NiceSource };
   headshotStreak: { playerId: number; n: number };
 
   // --- the pier -------------------------------------------------------------------

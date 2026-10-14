@@ -9,7 +9,8 @@ export const REANIMATION = {
   crawlerLifeFrac: 0.35,
   crawlerMinLife: 20,
   crawlSpeed: [0.55, 0.75] as [number, number],
-  crawlerBounty: 15,
+  /** Low on purpose: stomping the body before it gets up (tidy) pays more. */
+  crawlerBounty: 8,
   /** Nails in a downed body that pin it for good. */
   nailsToPin: 3,
   /** Crawler standing height (low profile). */
@@ -37,13 +38,14 @@ export const BARRICADE = {
   seaZ: 6.05,
 };
 
-/** §5 Fire. */
+/** §5 Fire. Burn damage scales with the chapter like weapon damage (chapterDamage). */
 export const FIRE = {
-  burnSeconds: 4,
-  dps: 12,
-  panicSpeed: 1.4,
-  spreadRadius: 0.9,
-  spreadPerSecond: 0.25,
+  burnSeconds: 5,
+  dps: 20,
+  /** Burning zombies flail and lurch across lanes; only a little faster. */
+  panicSpeed: 1.1,
+  spreadRadius: 1.3,
+  spreadPerSecond: 0.7,
   corpseRadius: 0.75,
   corpsePerSecond: 0.4,
   /** A burning corpse ignites zombies walking over it (radius, chance per second). */
@@ -51,8 +53,8 @@ export const FIRE = {
   corpseToZombiePerSecond: 0.6,
   corpseAshSeconds: 6,
   /** A flare on the deck. */
-  deckSeconds: 8,
-  deckRadius: 1.1,
+  deckSeconds: 10,
+  deckRadius: 1.5,
   /** Hunter damage per second standing in fire / held by a burning zombie. */
   hunterDps: 10,
 };
@@ -69,7 +71,8 @@ export const GAS = {
 /** §4.3 The pier fights back. */
 export const HORN = { stagger: 2.0, bossStagger: 1.0, crawlerPush: 1.0, shake: 0.3 };
 
-export const FAVOUR = { max: 100, kill: 2, headshot: 3, nice: 15, tidy: 5 };
+/** Captain's Favour. The deck gun's own kills (and its nice shot) add nothing. */
+export const FAVOUR = { max: 100, kill: 2, headshot: 3, nice: 15, tidy: 8 };
 
 export const CANNON = {
   shells: 3,
@@ -107,20 +110,25 @@ export const HUNTER_RULES = {
   kickSeconds: 0.3,
   /** Landing ('stomp' state) and stomp reach. */
   stompSeconds: 0.22,
-  stompReachX: 0.85,
-  stompReachZ: 0.6,
+  stompReachX: 1.15,
+  stompReachZ: 0.8,
   /** How often accumulated damage-over-time is reported as playerHurt (s). */
   hurtReportSeconds: 0.2,
 };
 
-export const MONEY = { headshotBonus: 15, niceBase: 25, tidy: 5 };
+/** Tidy: a downed body or crawler finished with a stomp. */
+export const MONEY = { headshotBonus: 15, niceBase: 25, tidy: 20 };
 
 /** §10 Feel: hit-stop, slow motion, shake requested by the rules. */
 export const FEEL = {
   hitstopHeadshot: 45,
   hitstopKebab: 70,
+  /** Slow motion for a MASSACRE (this many kills or more) and the set pieces (crane, cannon, gas). */
+  massacre: 6,
   niceSlowmo: { scale: 0.35, seconds: 0.6 },
   bossSlowmo: { scale: 0.25, seconds: 1.2 },
+  /** At most one slow motion every this many game seconds (boss deaths excepted). */
+  slowmoCooldown: 4,
   hornShake: 0.3,
   craneShake: 0.35,
   /** Explosion shake = k · radius / (1 + distance / falloff). */

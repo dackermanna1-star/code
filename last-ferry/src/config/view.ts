@@ -68,3 +68,12 @@ export function viewHeightAt(y: number, zRay: number, zc: number): number {
   const t = (zc - CAMERA_POS.z) / (zRay - CAMERA_POS.z);
   return CAMERA_POS.y + t * (y - CAMERA_POS.y);
 }
+
+/**
+ * Lane (z of a gun line at height y0) that appears to cross depth zc at
+ * height h: the inverse of viewHeightAt. Aim helpers (bot, crane, overlay).
+ */
+export function laneFor(y0: number, h: number, zc: number): number {
+  const k = (y0 - CAMERA_POS.y) / (h - CAMERA_POS.y);
+  return CAMERA_POS.z + (zc - CAMERA_POS.z) * k;
+}

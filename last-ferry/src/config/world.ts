@@ -66,14 +66,25 @@ export const HUNTER = {
   jumpSpeed: 6.2,
 } as const;
 
-/** Cargo crane: the hook block you shoot and where the pallet of crates lands. */
+/**
+ * Cargo crane: the hook block you shoot and where the pallet of crates lands.
+ * Cutting the rope is a deliberate play: only a shot fired while the gun line
+ * is lined up with the hook block (its lane ± laneBand) reaches it.
+ */
 export const CRANE = {
-  /** Hook block (hit box) centre and half sizes; it hangs on the gun line in its lane. */
+  /** Hook block centre and half sizes (the visible block spans hookY0..hookY1). */
   hookX: -6,
   hookZ: -1.5,
   hookY0: 0.85,
   hookY1: 1.55,
   hookHalfX: 0.35,
+  /** Height the line-up aims at (the block's centre) and the lane tolerance (m of gun-line z). */
+  hookCY: 1.2,
+  laneBand: 0.22,
+  /** The overlay starts showing the hook marker within this distance of its lane (m). */
+  hintBand: 1.6,
+  /** "They're under the crane": zombies in the drop square that make it worth dropping. */
+  crowd: 3,
   /** Pallet resting height while hanging (bottom of the crates). */
   palletY: 2.2,
   /** Seconds from the rope being cut to the pallet hitting the deck. */

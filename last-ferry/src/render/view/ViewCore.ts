@@ -1,5 +1,6 @@
 // Wiring of the game view: subsystems, event routing, the frame update.
 import * as THREE from 'three';
+import { CAMERA_POS } from '../../config/view';
 import type { GameEvents } from '../../core/events';
 import type { World } from '../../core/World';
 import type { BloodSystem } from '../BloodSystem';
@@ -24,6 +25,8 @@ import { skinify } from './skin';
 export type { ViewOptions };
 
 const _m = new THREE.Vector3();
+/** Where the shader warm-up set is put: behind the gameplay camera, out of every view. */
+const WARM_AT = new THREE.Vector3(CAMERA_POS.x, CAMERA_POS.y + 12, CAMERA_POS.z + 16);
 const LIGHT_TINT = new THREE.Color();
 
 export class ViewCore {
@@ -101,6 +104,8 @@ export class ViewCore {
   // ------------------------------------------------------------------ lifecycle
 
   attach(world: World): void {
+    // A warm-up interrupted by a new world (Play pressed early) never stays in the scene.
+    this.endPrewarm();
     this.detach();
     const ctx = this.ctx;
     ctx.world = world;
@@ -286,10 +291,14 @@ export class ViewCore {
   }
 
   /**
-   * Shader / pipeline warm-up: put one of everything the view can draw in front
-   * of the camera (a charred rig, a baked body, every particle layer, beams,
-   * rings, gore, casings), compile, let the app render a frame or two with them,
-   * then take them away. Returns true when done.
+   * Shader / pipeline warm-up: put one of everything the view can draw in the
+   * scene (a charred rig, a baked body, every particle layer, beams, rings,
+   * gore, casings), compile, let the app render a frame or two with them, then
+   * take them away. Returns true when done.
+   *
+   * The warm-up set sits behind the camera (frustum culling off, so it is
+   * still drawn and every pass compiles) and is never seen; attach() ends a
+   * warm-up that was interrupted, so it can never leak into a game.
    */
   prewarm(budgetMs: number): boolean {
     void budgetMs;
@@ -297,6 +306,7 @@ export class ViewCore {
     if (this.warmStep === 0) {
       const g = new THREE.Group();
       g.name = 'Prewarm';
+      g.position.copy(WARM_AT);
       const a = createZombieRig('shambler', 7);
       a.root.position.set(4, 0, 2);
       a.setCharred(0.5);
@@ -316,20 +326,24 @@ export class ViewCore {
       e.setCharred(0.6);
       for (const o of this.hazards.prewarmObjects()) g.add(o);
       const c = createZombieRig('riot', 3);
-      c.root.position.set(8, 0, 2);
+      c.root.position.copy(WARM_AT).add(_m.set(8, 0, 2));
       ctx.scene.add(g);
       ctx.scene.add(c.root);
+      g.traverse((o) => (o.frustumCulled = false));
       c.root.updateMatrixWorld(true);
       this.warm = { group: g, bake: ctx.corpses.bake(c.root) };
       const fx = ctx.effects;
-      fx.emit(true, 4, 1, 2, { life: 0.3, frame: 2 });
-      fx.emit(false, 4, 1, 2, { life: 0.3, frame: 1 });
-      fx.beam(_m.set(3, 1, 2), new THREE.Vector3(5, 1, 2), 0.05, 0xffffff, 0.5, 0.2);
-      fx.beamFrame(_m.set(3, 1, 2), new THREE.Vector3(5, 1, 2), 0.05, 0xffffff, 0.5, true);
-      fx.ring(4, 0.05, 2, 0.2, 1, 0.3, 0xffffff, 0.2);
-      ctx.gore.burst({ x: 4, y: 0.5, z: 2 }, 2, { speed: 0.5 });
-      ctx.debris.shell('shotgun', _m.set(4, 1, 2), new THREE.Vector3(), 0.2);
-      ctx.debris.shell('minigun', _m.set(4, 1, 2), new THREE.Vector3(), 0.2);
+      const W = WARM_AT;
+      fx.emit(true, W.x + 4, W.y + 1, W.z + 2, { life: 0.3, frame: 2 });
+      fx.emit(false, W.x + 4, W.y + 1, W.z + 2, { life: 0.3, frame: 1 });
+      const b0 = new THREE.Vector3(W.x + 3, W.y + 1, W.z + 2);
+      const b1 = new THREE.Vector3(W.x + 5, W.y + 1, W.z + 2);
+      fx.beam(b0, b1, 0.05, 0xffffff, 0.5, 0.2);
+      fx.beamFrame(b0, b1, 0.05, 0xffffff, 0.5, true);
+      fx.ring(W.x + 4, W.y + 0.05, W.z + 2, 0.2, 1, 0.3, 0xffffff, 0.2);
+      ctx.gore.burst({ x: W.x + 4, y: W.y + 0.5, z: W.z + 2 }, 2, { speed: 0.5 });
+      ctx.debris.shell('shotgun', _m.set(W.x + 4, W.y + 1, W.z + 2), new THREE.Vector3(), 0.2);
+      ctx.debris.shell('minigun', _m.set(W.x + 4, W.y + 1, W.z + 2), new THREE.Vector3(), 0.2);
       try {
         ctx.stage.renderer.compile(ctx.scene, ctx.stage.camera);
       } catch {
@@ -339,7 +353,7 @@ export class ViewCore {
       return false;
     }
     if (this.warmStep === 1) {
-      // Render one frame with everything in view (shadow and reflection passes compile too).
+      // Render one frame with everything in the scene (shadow and reflection passes compile too).
       this.warmStep = 2;
       try {
         ctx.stage.frame(0, true);
@@ -348,16 +362,22 @@ export class ViewCore {
       }
       return false;
     }
-    if (this.warm) {
-      this.hazards.endPrewarm();
-      this.warm.group.removeFromParent();
-      ctx.corpses.unbake(this.warm.bake);
-      this.warm = null;
-      ctx.effects.clear();
-      ctx.gore.clear();
-      ctx.debris.clear();
-    }
+    this.endPrewarm();
     return true;
+  }
+
+  /** Take the warm-up set out of the scene (an unfinished warm-up starts over next time). */
+  endPrewarm(): void {
+    const ctx = this.ctx;
+    if (!this.warm) return;
+    this.hazards.endPrewarm();
+    this.warm.group.removeFromParent();
+    ctx.corpses.unbake(this.warm.bake);
+    this.warm = null;
+    ctx.effects.clear();
+    ctx.gore.clear();
+    ctx.debris.clear();
+    if (this.warmStep < 2) this.warmStep = 0;
   }
   private warm: { group: THREE.Group; bake: import('../Corpses').BakeHandle } | null = null;
 

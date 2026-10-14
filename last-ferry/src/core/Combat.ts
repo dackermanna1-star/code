@@ -10,7 +10,7 @@ import { FLARE, HARPOON, OUTBOARD, WEAPONS, chapterDamage, spreadToYaw, type Wea
 import { CAMERA_POS, viewHeightAt } from '../config/view';
 import { CANNON, FEEL, KNOCKBACK_STAGGER, REANIMATION } from '../config/rules';
 import type { ProjectileView } from './api';
-import type { BulletPath, V3 } from './events';
+import type { BulletPath, NiceSource, V3 } from './events';
 import type { Corpse } from './Corpses';
 import { explode } from './Hazards';
 import type { Player } from './Player';
@@ -43,6 +43,8 @@ export class Projectile implements ProjectileView {
   done = false;
   /** Seconds in flight. */
   age = 0;
+  /** Flare fired while lined up with the crane's hook: it flies over the crowd in the drop square to the hook. */
+  hookShot = false;
   constructor(
     readonly id: number,
     readonly kind: 'flare' | 'shell',
@@ -108,13 +110,20 @@ export class Combat {
     this.reward(player, kills);
   }
 
-  /** Nearest thing the line meets (zombie, nail-able body, hook), or null. */
+  /**
+   * Nearest thing the line meets (zombie, nail-able body, hook), or null.
+   * The hook block only counts when the shooter is lined up with it (a
+   * deliberate shot: Pier.hookLined); such a shot goes over the crowd standing
+   * in the drop square, so a pile-up under the pallet can't shield the hook.
+   */
   private nearest(o: V3, yaw: number, opts: { corpses: boolean; hook: boolean; skip?: Set<Zombie> }): Target | null {
     const w = this.world;
     const tz = Math.tan(yaw);
+    const hook = opts.hook && w.pier.hookLined(o);
     let best: Target | null = null;
     for (const zb of w.zombies) {
       if (!zb.alive || zb.left > o.x || opts.skip?.has(zb)) continue;
+      if (hook && w.pier.inDropZone(zb.x, zb.z)) continue;
       const run = Math.max(0, o.x - zb.x);
       const zRay = o.z + run * tz;
       if (Math.abs(zb.z - zRay) > 3.4) continue;
@@ -128,6 +137,7 @@ export class Combat {
     if (opts.corpses) {
       for (const c of w.bodies.list) {
         if (!c.solid || c.x - BODY_HALF > o.x) continue;
+        if (hook && w.pier.inDropZone(c.x, c.z)) continue;
         const run = Math.max(0, o.x - c.x);
         const zRay = o.z + run * tz;
         const dz = c.z - zRay;
@@ -139,15 +149,11 @@ export class Combat {
         if (!best || lx > best.lx) best = { t: 'corpse', x: hx, lx, y: Math.max(0.05, yEff), c };
       }
     }
-    if (opts.hook && w.pier.crane.state === 'hanging' && CRANE.hookX - CRANE.hookHalfX <= o.x) {
-      const run = Math.max(0, o.x - CRANE.hookX);
-      const zRay = o.z + run * tz;
-      const yEff = viewHeightAt(o.y, zRay, CRANE.hookZ);
-      if (yEff >= CRANE.hookY0 && yEff <= CRANE.hookY1) {
-        const hx = Math.min(CRANE.hookX + CRANE.hookHalfX, o.x);
-        const lx = Math.min(lineX(hx, zRay, CRANE.hookZ), o.x);
-        if (!best || lx > best.lx) best = { t: 'hook', x: hx, lx, y: yEff };
-      }
+    if (hook) {
+      const zRay = o.z + Math.max(0, o.x - CRANE.hookX) * tz;
+      const hx = Math.min(CRANE.hookX + CRANE.hookHalfX, o.x);
+      const lx = Math.min(lineX(hx, zRay, CRANE.hookZ), o.x);
+      if (!best || lx > best.lx) best = { t: 'hook', x: hx, lx, y: CRANE.hookCY };
     }
     return best;
   }
@@ -300,6 +306,7 @@ export class Combat {
     const w = this.world;
     const o = player.muzzle();
     const p = new Projectile(w.nextId('fx'), 'flare', o.x, o.y, o.z, -FLARE.speed + player.vx * 0.3, FLARE.vy, player.vz * 0.2, player, weapon.id);
+    p.hookShot = w.pier.hookLined(o);
     this.projectiles.push(p);
     w.events.emit('shot', { playerId: player.id, weapon: weapon.id, muzzle: o, paths: [] });
     w.events.emit('projectile', { id: p.id, kind: 'flare', x: p.x, y: p.y, z: p.z, vx: p.vx, vy: p.vy, vz: p.vz });
@@ -359,9 +366,11 @@ export class Combat {
     let hitZb: Zombie | null = null;
     let hitShape: HitShape | null = null;
     let hx = -Infinity;
+    const hookShot = p.hookShot && w.pier.crane.state === 'hanging';
     for (const zb of w.zombies) {
       if (!zb.alive || zb.left > x0 || zb.right < p.x) continue;
       if (Math.abs(zb.z - p.z) > 3.4) continue;
+      if (hookShot && w.pier.inDropZone(zb.x, zb.z)) continue;
       const yEff = viewHeightAt(Math.max(0, p.y), p.z, zb.z);
       const sil = zb.silhouetteAt(yEff);
       if (!sil || sil.right + FLARE.radius < p.x || sil.left - FLARE.radius > x0) continue;
@@ -372,15 +381,12 @@ export class Combat {
         hitShape = sil.shape;
       }
     }
-    // The crane's hook block.
-    if (w.pier.crane.state === 'hanging' && x0 >= CRANE.hookX - CRANE.hookHalfX && p.x <= CRANE.hookX + CRANE.hookHalfX) {
-      const yEff = viewHeightAt(p.y, p.z, CRANE.hookZ);
-      if (yEff >= CRANE.hookY0 && yEff <= CRANE.hookY1 && CRANE.hookX + CRANE.hookHalfX > hx) {
-        p.x = CRANE.hookX + CRANE.hookHalfX;
-        this.end(p);
-        w.pier.cutRope(p.owner);
-        return;
-      }
+    // The crane's hook block (only a flare fired lined up with it).
+    if (hookShot && x0 >= CRANE.hookX - CRANE.hookHalfX && p.x <= CRANE.hookX + CRANE.hookHalfX && CRANE.hookX + CRANE.hookHalfX > hx) {
+      p.x = CRANE.hookX + CRANE.hookHalfX;
+      this.end(p);
+      w.pier.cutRope(p.owner);
+      return;
     }
     if (hitZb && hitShape) {
       p.x = hx;
@@ -398,6 +404,13 @@ export class Combat {
         weapon: 'flare',
       });
       hitZb.ignite(owner);
+      // Burning phosphorus sprays the ones around it.
+      const zx = hitZb.x;
+      const zz = hitZb.z;
+      w.forEachZombieNear(zx, zz, FLARE.splash, (o) => {
+        if (o !== hitZb && Math.hypot(o.x - zx, o.z - zz) <= FLARE.splash) o.ignite(owner);
+      });
+      w.bodies.forEachNear(zx, zz, FLARE.splash, (c) => w.bodies.ignite(c, owner));
       this.end(p);
       const kills = w.resolveDeaths();
       if (owner) this.reward(owner, kills);
@@ -408,7 +421,9 @@ export class Combat {
       const g = w.hazards.gasAt(p.x, p.z, 0);
       if (g) {
         this.end(p);
-        w.hazards.ignite(g, p.owner);
+        const kills: Zombie[] = [];
+        w.hazards.ignite(g, p.owner, kills);
+        if (p.owner) this.reward(p.owner, kills, 'gas');
         return;
       }
     }
@@ -446,8 +461,12 @@ export class Combat {
 
   // ------------------------------------------------------------------ rewards
 
-  /** Nice shot: 3+ kills by one trigger pull (or one strike / drop). */
-  reward(player: Player, kills: Zombie[]): void {
+  /**
+   * Nice shot: 3+ kills by one trigger pull (or one crane drop, cannon strike
+   * or gas explosion). Pays and fills the Favour (not for the deck gun's own
+   * kills). Slow motion only for the big ones: a MASSACRE (6+) or a set piece.
+   */
+  reward(player: Player, kills: Zombie[], source: NiceSource = 'shot'): void {
     const n = kills.length;
     if (n < 3) return;
     const w = this.world;
@@ -460,9 +479,9 @@ export class Combat {
       sz += k.z;
     }
     player.earn(w.niceShotBonus(n), 'nice', sx / n, 2.2, sz / n);
-    w.events.emit('niceShot', { playerId: player.id, n });
-    w.pier.addFavour(w.favourRules.nice);
-    w.events.emit('slowmo', { scale: FEEL.niceSlowmo.scale, seconds: FEEL.niceSlowmo.seconds });
+    w.events.emit('niceShot', { playerId: player.id, n, source });
+    if (source !== 'cannon') w.pier.addFavour(w.favourRules.nice);
+    if (n >= FEEL.massacre || source !== 'shot') w.slowmo(FEEL.niceSlowmo.scale, FEEL.niceSlowmo.seconds);
   }
 }
 

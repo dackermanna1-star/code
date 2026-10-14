@@ -1,6 +1,7 @@
 // The pier fights back (DESIGN §4.3): the ferry horn, the cargo crane and the
 // Captain's Favour cannon strike.
-import { CRANE, TICK, TICK_RATE } from '../config/world';
+import { CRANE, HUNTER, TICK, TICK_RATE } from '../config/world';
+import { laneFor } from '../config/view';
 import { CANNON, FAVOUR, FEEL, HORN } from '../config/rules';
 import type { CraneView } from './api';
 import type { CraneState, V3 } from './events';
@@ -73,6 +74,35 @@ export class Pier {
     this.world.events.emit('crane', { state: s, x: CRANE.hookX, z: CRANE.hookZ });
   }
 
+  /** Gun-line lane (z at muzzle height y0) that is lined up with the hook block. */
+  static hookLane(y0: number = HUNTER.muzzleHeight): number {
+    return laneFor(y0, CRANE.hookCY, CRANE.hookZ);
+  }
+
+  /** How far (m of lane) a gun line from muzzle `o` is from the hook's lane (Infinity when the crane can't be cut from there). */
+  hookOffset(o: V3): number {
+    if (this.crane.state !== 'hanging' || o.x < CRANE.hookX + CRANE.hookHalfX + 0.5) return Infinity;
+    return o.z - Pier.hookLane(o.y);
+  }
+
+  /** A shot from muzzle `o` reaches the hook block: the shooter is lined up with it (deliberate, tight band). */
+  hookLined(o: V3): boolean {
+    return Math.abs(this.hookOffset(o)) <= CRANE.laneBand;
+  }
+
+  /** Inside the square the pallet lands on. */
+  inDropZone(x: number, z: number): boolean {
+    return Math.abs(x - CRANE.hookX) <= CRANE.radius && Math.abs(z - CRANE.hookZ) <= CRANE.radius;
+  }
+
+  /** Live zombies under the hanging pallet right now. */
+  get under(): number {
+    if (this.crane.state !== 'hanging') return 0;
+    let n = 0;
+    for (const zb of this.world.zombies) if (zb.alive && this.inDropZone(zb.x, zb.z)) n++;
+    return n;
+  }
+
   /** A shot hit the hook block: the pallet falls. */
   cutRope(by: Player | null): void {
     if (this.crane.state !== 'hanging') return;
@@ -92,7 +122,7 @@ export class Pier {
 
   /** Inside the crate barricade (counts as 4 bodies). */
   inBarricade(x: number, z: number): boolean {
-    return this.crane.state === 'down' && Math.abs(x - CRANE.hookX) <= CRANE.radius && Math.abs(z - CRANE.hookZ) <= CRANE.radius;
+    return this.crane.state === 'down' && this.inDropZone(x, z);
   }
 
   private land(): void {
@@ -125,7 +155,7 @@ export class Pier {
     w.bodies.forEachIn(cx, cz, r, r, (c) => crushed.push(c));
     for (const c of crushed) w.bodies.remove(c, 'gib');
     const kills = w.resolveDeaths();
-    if (this.cutBy) w.combat.reward(this.cutBy, kills);
+    if (this.cutBy) w.combat.reward(this.cutBy, kills, 'crane');
   }
 
   // ------------------------------------------------------------------ cannon
@@ -219,7 +249,7 @@ export class Pier {
       this.fireShells();
       if (s.fired >= s.targets.length && s.shells.every((p) => p.done)) {
         this.strike = null;
-        this.world.combat.reward(s.player, s.kills);
+        this.world.combat.reward(s.player, s.kills, 'cannon');
       }
     }
   }

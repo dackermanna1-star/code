@@ -6,7 +6,7 @@
 // crawlers and downed bodies, blows the horn when something gets close to the
 // gangway, drops the crane's pallet on a crowd and calls the cannon strike.
 import type { WeaponId } from '../config/ids';
-import { CAMERA_POS, viewHeightAt } from '../config/view';
+import { laneFor, viewHeightAt } from '../config/view';
 import { CRANE, ESCAPE_X, HUNTER, PLAYER_MAX_X, PLAYER_MAX_Z, PLAYER_MIN_X, PLAYER_MIN_Z } from '../config/world';
 import { MUZZLE_Z, WEAPONS } from '../config/weapons';
 import { CANNON } from '../config/rules';
@@ -31,14 +31,7 @@ export interface BotOptions {
 
 export const BOT_BUY_LIST: WeaponId[] = ['nailgun', 'shotgun', 'harpoon', 'outboard'];
 
-/**
- * Lane (z of the gun line) at which a line at height y0 appears to cross
- * depth zc at height h: the inverse of viewHeightAt.
- */
-export function laneFor(y0: number, h: number, zc: number): number {
-  const k = (y0 - CAMERA_POS.y) / (h - CAMERA_POS.y);
-  return CAMERA_POS.z + (zc - CAMERA_POS.z) * k;
-}
+export { laneFor };
 
 export class Bot {
   readonly skill: number;
