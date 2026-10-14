@@ -59,8 +59,9 @@ mechanics, not just numbers:
 * **Weapons**: swords, axes, daggers, a greatsword, a bow and a crossbow with passives and procs such as Undead Bane,
   Rend (bleeding crits), Soul Flare, Stormcall chain lightning, Grave Slam shockwaves, Soulreaver waves, Soul Pierce
   arrows and Bone Shrapnel bolts. Procs need a fully charged swing, so the vanilla cooldown stays the skill check.
-* **Armour sets**: *Gravewarden* (2: +2 hearts, 4: Deathward cheats death every 90 s) and *Mourner* (2: +8% speed,
-  4: Veil, a +40% opening strike after 3 s unharmed).
+* **Armour sets**: *Gravewarden* (2: +2 hearts, 4: Deathward cheats death every 90 s), *Mourner* (2: +8% speed,
+  4: Veil, a +40% opening strike after 3 s unharmed) and the cursed *Wraithbound* set (2: +15% melee damage but
+  -2 hearts, 4: kills heal and quicken you but you take 15% more damage).
 * **Relics** (active from the hotbar/off-hand, up to 3): Gravedust Locket, Vigil Candle (reveals false walls and
   traps), Blood Sigil, Cracked Phylactery, Hollow Crown.
 * **Potions** (brewed from Awkward Potions): Mending (Glow Berries), Warding (Ancient Bone), Bloodrage (Ghoul Fang),

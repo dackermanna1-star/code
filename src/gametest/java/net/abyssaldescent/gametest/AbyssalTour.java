@@ -13,6 +13,7 @@ import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
+import net.minecraft.client.CameraType;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.BlockPos;
@@ -190,6 +191,25 @@ public final class AbyssalTour implements FabricClientGameTest {
 			check(afterDefeat.hasSword, "brought gear must be kept on defeat");
 			context.takeScreenshot("abyssal_16_defeated");
 			server.runCommand("effect give @a minecraft:resistance infinite 4 true");
+
+			// ---------------------------------------------------------------- armour sets on the player
+			context.runOnClient(client -> client.options.setCameraType(CameraType.THIRD_PERSON_FRONT));
+			String[][] sets = {
+				{"wraithbound", "wraithbound_visage", "wraithbound_mantle", "wraithbound_legguards", "wraithbound_stride", "16"},
+				{"gravewarden", "gravewarden_helm", "gravewarden_cuirass", "gravewarden_greaves", "gravewarden_sabatons", "24"},
+				{"mourner", "mourner_hood", "mourner_shroud", "mourner_wraps", "mourner_treads", "20"}};
+			for (String[] set : sets) {
+				server.runCommand("item replace entity @p armor.head with abyssal_descent:" + set[1]);
+				server.runCommand("item replace entity @p armor.chest with abyssal_descent:" + set[2]);
+				server.runCommand("item replace entity @p armor.legs with abyssal_descent:" + set[3]);
+				server.runCommand("item replace entity @p armor.feet with abyssal_descent:" + set[4]);
+				context.waitTicks(25);
+				float maxHealth = server.computeOnServer(s -> s.getPlayerList().getPlayers().get(0).getMaxHealth());
+				log(set[0] + " set max health", String.valueOf(maxHealth));
+				check(maxHealth == Float.parseFloat(set[5]), set[0] + " set should give " + set[5] + " max health, got " + maxHealth);
+				context.takeScreenshot("abyssal_armor_" + set[0]);
+			}
+			context.runOnClient(client -> client.options.setCameraType(CameraType.FIRST_PERSON));
 
 			// Tooltip of the boss-exclusive greatsword.
 			server.runCommand("clear @p");

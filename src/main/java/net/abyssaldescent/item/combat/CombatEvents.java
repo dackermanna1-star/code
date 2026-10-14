@@ -53,6 +53,7 @@ public final class CombatEvents {
 			if (!(entity.level() instanceof ServerLevel level) || !(source.getEntity() instanceof ServerPlayer killer)) {
 				return;
 			}
+			ArmorSets.onKill(killer, entity);
 			if (Relics.isActive(killer, RelicKind.CRACKED_PHYLACTERY) && level.random.nextFloat() < 0.2F) {
 				killer.heal(3.0F);
 				level.sendParticles(ParticleTypes.HEART, killer.getX(), killer.getY() + 2.0, killer.getZ(), 2, 0.3, 0.1, 0.3, 0.0);

@@ -49,6 +49,9 @@ public final class DamageHooks {
 			if (attacker != null && attacker.getType().is(EntityTypeTags.UNDEAD) && Relics.isActive(player, RelicKind.HOLLOW_CROWN)) {
 				amount *= 0.85F;
 			}
+			if (ArmorSets.hunted(player)) {
+				amount *= 1.15F;
+			}
 			ArmorSets.onPlayerHurt(player);
 		}
 		return amount;

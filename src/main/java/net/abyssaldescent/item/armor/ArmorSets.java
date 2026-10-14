@@ -36,8 +36,12 @@ import net.minecraft.world.phys.Vec3;
 public final class ArmorSets {
 	public static final String GRAVEWARDEN = "gravewarden";
 	public static final String MOURNER = "mourner";
+	/** Cursed set: strong offence paid for with lower health and higher damage taken. */
+	public static final String WRAITHBOUND = "wraithbound";
 	private static final Identifier GRAVEWARDEN_HEALTH = AbyssalDescent.id("set_gravewarden_health");
 	private static final Identifier MOURNER_SPEED = AbyssalDescent.id("set_mourner_speed");
+	private static final Identifier WRAITHBOUND_DAMAGE = AbyssalDescent.id("set_wraithbound_damage");
+	private static final Identifier WRAITHBOUND_CURSE = AbyssalDescent.id("set_wraithbound_curse");
 	private static final int VEIL_TICKS = 60;
 	private static final Map<UUID, Long> LAST_HURT = new HashMap<>();
 
@@ -58,6 +62,9 @@ public final class ArmorSets {
 	public static void tick(ServerPlayer player) {
 		toggle(player, Attributes.MAX_HEALTH, GRAVEWARDEN_HEALTH, count(player, GRAVEWARDEN) >= 2, 4.0, AttributeModifier.Operation.ADD_VALUE);
 		toggle(player, Attributes.MOVEMENT_SPEED, MOURNER_SPEED, count(player, MOURNER) >= 2, 0.08, AttributeModifier.Operation.ADD_MULTIPLIED_BASE);
+		boolean wraith = count(player, WRAITHBOUND) >= 2;
+		toggle(player, Attributes.ATTACK_DAMAGE, WRAITHBOUND_DAMAGE, wraith, 0.15, AttributeModifier.Operation.ADD_MULTIPLIED_TOTAL);
+		toggle(player, Attributes.MAX_HEALTH, WRAITHBOUND_CURSE, wraith, -4.0, AttributeModifier.Operation.ADD_VALUE);
 		if (count(player, MOURNER) >= 4 && veilReady(player) && player.tickCount % 10 == 0 && player.level() instanceof ServerLevel level) {
 			level.sendParticles(ParticleTypes.SMOKE, player.getX(), player.getY() + 0.2, player.getZ(), 2, 0.25, 0.05, 0.25, 0.0);
 		}
@@ -119,9 +126,36 @@ public final class ArmorSets {
 		return false;
 	}
 
+	public static boolean isCursed(String set) {
+		return WRAITHBOUND.equals(set);
+	}
+
+	/** Wraithbound 4pc curse: +15% damage taken. */
+	public static boolean hunted(Player player) {
+		return count(player, WRAITHBOUND) >= 4;
+	}
+
+	/** Wraithbound 4pc: a kill feeds the armour, restoring 1.5 hearts and granting a burst of speed. */
+	public static void onKill(ServerPlayer killer, LivingEntity victim) {
+		if (count(killer, WRAITHBOUND) < 4 || !(killer.level() instanceof ServerLevel level)) {
+			return;
+		}
+		killer.heal(3.0F);
+		killer.addEffect(new MobEffectInstance(MobEffects.SPEED, 50, 0, false, false, true));
+		Vec3 from = victim.position().add(0, victim.getBbHeight() * 0.6, 0);
+		Vec3 to = killer.position().add(0, 1.0, 0);
+		for (int i = 0; i <= 8; i++) {
+			Vec3 p = from.lerp(to, i / 8.0);
+			level.sendParticles(ModParticles.CURSE_MOTE, p.x, p.y, p.z, 1, 0.05, 0.05, 0.05, 0.0);
+		}
+	}
+
 	public static void appendSetTooltip(ItemStack stack, String set, Consumer<Component> out) {
 		String base = "set." + AbyssalDescent.MOD_ID + "." + set;
 		out.accept(Component.translatable(base).withStyle(ChatFormatting.GOLD));
+		if (isCursed(set)) {
+			out.accept(Component.translatable("tooltip.abyssal_descent.cursed_set").withStyle(ChatFormatting.DARK_RED));
+		}
 		out.accept(Component.literal("  ").append(Component.translatable(base + ".two")).withStyle(ChatFormatting.GRAY));
 		out.accept(Component.literal("  ").append(Component.translatable(base + ".four")).withStyle(ChatFormatting.GRAY));
 	}

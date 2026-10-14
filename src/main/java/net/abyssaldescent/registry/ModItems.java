@@ -58,6 +58,8 @@ public final class ModItems {
 
 	public static final ArmorMaterial GRAVEWARDEN_ARMOR = new ArmorMaterial(25, defense(2, 6, 7, 3), 12, SoundEvents.ARMOR_EQUIP_IRON, 1.0F, 0.0F,
 		ItemTags.REPAIRS_IRON_ARMOR, asset("gravewarden"));
+	public static final ArmorMaterial WRAITHBOUND_ARMOR = new ArmorMaterial(22, defense(2, 5, 6, 2), 10, SoundEvents.ARMOR_EQUIP_CHAIN, 1.0F, 0.0F,
+		ItemTags.REPAIRS_IRON_ARMOR, asset("wraithbound"));
 	public static final ArmorMaterial MOURNER_ARMOR = new ArmorMaterial(14, defense(1, 4, 5, 2), 18, SoundEvents.ARMOR_EQUIP_LEATHER, 0.0F, 0.0F,
 		ItemTags.REPAIRS_LEATHER_ARMOR, asset("mourner"));
 
@@ -109,6 +111,13 @@ public final class ModItems {
 	public static final Item MOURNER_SHROUD = armor("mourner_shroud", Rarity.UNCOMMON, ArmorSets.MOURNER, MOURNER_ARMOR, ArmorType.CHESTPLATE);
 	public static final Item MOURNER_WRAPS = armor("mourner_wraps", Rarity.UNCOMMON, ArmorSets.MOURNER, MOURNER_ARMOR, ArmorType.LEGGINGS);
 	public static final Item MOURNER_TREADS = armor("mourner_treads", Rarity.UNCOMMON, ArmorSets.MOURNER, MOURNER_ARMOR, ArmorType.BOOTS);
+
+	public static final Item WRAITHBOUND_VISAGE = armor("wraithbound_visage", Rarity.EPIC, ArmorSets.WRAITHBOUND, WRAITHBOUND_ARMOR, ArmorType.HELMET);
+	public static final Item WRAITHBOUND_MANTLE = armor("wraithbound_mantle", Rarity.EPIC, ArmorSets.WRAITHBOUND, WRAITHBOUND_ARMOR,
+		ArmorType.CHESTPLATE);
+	public static final Item WRAITHBOUND_LEGGUARDS = armor("wraithbound_legguards", Rarity.EPIC, ArmorSets.WRAITHBOUND, WRAITHBOUND_ARMOR,
+		ArmorType.LEGGINGS);
+	public static final Item WRAITHBOUND_STRIDE = armor("wraithbound_stride", Rarity.EPIC, ArmorSets.WRAITHBOUND, WRAITHBOUND_ARMOR, ArmorType.BOOTS);
 
 	// ------------------------------------------------------------------ relics
 

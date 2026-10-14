@@ -86,6 +86,10 @@ put(f"set.{NS}.gravewarden.four", "(4) Deathward: once every 90 seconds, survive
 put(f"set.{NS}.mourner", "Mourner Set")
 put(f"set.{NS}.mourner.two", "(2) +8% movement speed.")
 put(f"set.{NS}.mourner.four", "(4) Veil: after 3 seconds unharmed, your next hit deals +40% damage.")
+put(f"set.{NS}.wraithbound", "Wraithbound Set")
+put(f"set.{NS}.wraithbound.two", "(2) +15% melee damage. Curse: -2 maximum hearts.")
+put(f"set.{NS}.wraithbound.four", "(4) Soul Hunger: kills restore 1.5 hearts and grant a burst of speed. Curse: you take 15% more damage.")
+put(f"tooltip.{NS}.cursed_set", "☠ Cursed")
 
 # ------------------------------------------------------------------ items
 ITEMS = {
@@ -113,6 +117,10 @@ ITEMS = {
     "mourner_shroud": ("Mourner's Shroud", "Grief is quiet. So is the one wearing this."),
     "mourner_wraps": ("Mourner's Wraps", "Bound tight against the cold of the crypts."),
     "mourner_treads": ("Mourner's Treads", "Soft soles for walking among sleepers."),
+    "wraithbound_visage": ("Wraithbound Visage", "The face behind the mask is yours now. The hunger behind it is not."),
+    "wraithbound_mantle": ("Wraithbound Mantle", "Woven from the shrouds of those who swore to rise again."),
+    "wraithbound_legguards": ("Wraithbound Legguards", "Every step drags a little life with it."),
+    "wraithbound_stride": ("Wraithbound Stride", "Swift as a wraith, and as welcome."),
     "gravedust_locket": ("Gravedust Locket", "Holds a pinch of someone. They seem to approve of you."),
     "vigil_candle": ("Vigil Candle", "Its flame leans toward what is hidden."),
     "blood_sigil": ("Blood Sigil", "A pact signed in a hand that was not entirely willing."),
