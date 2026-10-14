@@ -82,9 +82,15 @@ const splatFrag = /* glsl */ `
     float ang = atan(vUv.y, vUv.x);
     float edge;
     if (style < 0.5) {
-      // droplet: slightly irregular ellipse
-      edge = 1.0 - 0.18 * noise(vec2(ang * 2.0 + seed * 13.0, seed));
-      float a = smoothstep(edge, edge - 0.25, r);
+      // droplet: an irregular splat (lobed rim; some with spikes and a satellite
+      // drop), never a clean disc: a field of them must not read as polka dots.
+      float n1 = noise(vec2(ang * 1.6 + seed * 13.0, seed));
+      float n2 = noise(vec2(ang * 4.5 + seed * 3.0, seed * 1.7));
+      float spk = step(0.5, fract(seed * 0.731)) * pow(max(0.0, sin(ang * (4.0 + floor(fract(seed * 0.37) * 4.0)) + seed)), 10.0) * 0.3;
+      edge = 0.86 - 0.34 * n1 - 0.14 * n2 + spk;
+      float a = smoothstep(edge, edge - 0.18, r);
+      vec2 so = vec2(cos(seed * 2.1), sin(seed * 2.1)) * 0.78;
+      a = max(a, smoothstep(0.17, 0.09, length(vUv - so)) * step(0.35, fract(seed * 0.513)));
       gl_FragColor = vColor * a;
     } else if (style < 1.5) {
       // pool: lobed blob with a darker rim
@@ -145,6 +151,8 @@ export class BloodSystem {
   private aColor: THREE.InstancedBufferAttribute;
   private aMisc: THREE.InstancedBufferAttribute;
   private pending: Splat[] = [];
+  /** 'drop' splats queued this frame by 15 cm cell (merging). */
+  private dropCells = new Map<number, number>();
   private needsClear = true;
 
   private drops: Drop[] = [];
@@ -232,6 +240,7 @@ export class BloodSystem {
   clear(): void {
     this.needsClear = true;
     this.pending.length = 0;
+    this.dropCells.clear();
     this.drops.length = 0;
   }
 
@@ -239,6 +248,24 @@ export class BloodSystem {
   splat(kind: SplatKind, x: number, z: number, size: number, opts: { angle?: number; stretch?: number; alpha?: number; shade?: number } = {}): void {
     if (this.pending.length >= MAX_SPLATS_PER_FRAME) return;
     const shade = opts.shade ?? 0.8 + Math.random() * 0.4;
+    let brown = 0;
+    if (kind === 'drop') {
+      // Sizes spread log-normally (a few big splats, many specks), not all alike.
+      const gs = Math.random() + Math.random() + Math.random() - 1.5;
+      size *= Math.min(1.9, Math.max(0.4, Math.exp(gs * 0.75)));
+      // Drops landing on top of each other this frame merge into one bigger splat.
+      const key = Math.floor(x / 0.15) * 100003 + Math.floor(z / 0.15);
+      const at = this.dropCells.get(key);
+      if (at !== undefined) {
+        const d = this.pending[at];
+        const k = Math.min(1.35, Math.sqrt(1 + (size * size) / Math.max(1e-4, d.sy * d.sy)) );
+        d.sx *= k;
+        d.sy *= k;
+        return;
+      }
+      this.dropCells.set(key, this.pending.length);
+      brown = Math.random() < 0.3 ? Math.random() : 0;
+    }
     let r: number;
     let g: number;
     let b: number;
@@ -246,10 +273,11 @@ export class BloodSystem {
     let style = 0;
     switch (kind) {
       case 'drop':
-        r = 0.48 * shade;
-        g = 0.016 * shade;
-        b = 0.008 * shade;
-        a *= 0.92;
+        // Some go darker and browner (thinner, drying).
+        r = (0.48 - 0.2 * brown) * shade;
+        g = (0.016 + 0.03 * brown) * shade;
+        b = (0.008 + 0.008 * brown) * shade;
+        a *= 0.92 - 0.25 * brown;
         break;
       case 'pool':
         r = 0.36 * shade;
@@ -439,6 +467,7 @@ export class BloodSystem {
     // the target's mipmaps after a render, not after a bare clear.
     r.render(this.paintScene, this.paintCam);
     this.pending.length = 0;
+    this.dropCells.clear();
     r.setRenderTarget(prevTarget);
     r.autoClear = prevAuto;
     r.setClearColor(prevClear, prevAlpha);

@@ -573,8 +573,12 @@ export function outfit(look: Look, d: Dims, sp: SkinPal): Outfitted {
     }
     // ------------------------------------------------------------------ BLOATER
     case 'bloater': {
-      const vest = stains(fabric(0xe8e2cc, { fold: 0.25 }), 0x8a7a2a, 0.35, 5, 1.7);
-      const torso: ColorFn = (p, n) => (p.y > 0.14 + (p.x > 0 ? 0.05 : -0.08) || (p.y > 0.0 && p.x < 0.0) ? (p.y > d.shY - 0.06 && Math.abs(p.z) > d.torsoW * 0.5 ? skin(p, n) : vest(p, n)) : veined(sp, 0x4a2c5a, 1, 8)(p, n));
+      // Sickly and swollen: a yellow-green stained vest over a bright, veined, jaundiced
+      // belly (the gas threat shows before it pops).
+      const vest = stains(fabric(0xc8cc9a, { fold: 0.25 }), 0x8aa03a, 0.85, 4, 1.7);
+      const sick = { ...sp, base: sp.base.clone().lerp(col(0xa8c05a), 0.72) };
+      const gut = veined(sick, 0x3e5a20, 1.15, 7);
+      const torso: ColorFn = (p, n) => (p.y > 0.14 + (p.x > 0 ? 0.05 : -0.08) || (p.y > 0.0 && p.x < 0.0) ? (p.y > d.shY - 0.06 && Math.abs(p.z) > d.torsoW * 0.5 ? skin(p, n) : vest(p, n)) : gut(p, n));
       const trousers = fabric([0x5c4630, 0x3a4a5c, 0x4a4a3a][pal], { fold: 0.3 });
       dress = {
         torso,
@@ -586,10 +590,15 @@ export function outfit(look: Look, d: Dims, sp: SkinPal): Outfitted {
         thigh: trousers,
         shin: trousers,
         hand: skin,
-        belly: veined(sp, 0x3a1c4a, 1.1, 6),
+        belly: veined(sick, 0x3a4a1c, 1.1, 6),
         foot: 'shoe',
         footCol: 0x3a2a1a,
         extra: {
+          belly: (pb) => {
+            // the gut bulges far out over the belt
+            const r = d.waistD;
+            pb.addShaded(blob(r * 1.5, r * 1.3, d.waistW * 1.18, 22, 16), veined(sick, 0x3a4a1c, 1.0, 6), 'skin', { p: [0.1, -0.03, 0] });
+          },
           head: (pb) => {
             if (pal === 2) {
               hairCap(pb, hs, 0x5a4a3a, { front: -0.02, back: -0.04, bump: 0.1 });
@@ -748,13 +757,17 @@ export function outfit(look: Look, d: Dims, sp: SkinPal): Outfitted {
     }
     // ------------------------------------------------------------------ RIOT
     case 'riot': {
-      const navy = fabric(0x28324a, { fold: 0.35, noise: 0.08 });
+      // Police blue and black, with retro-reflective hi-vis tape (it catches the
+      // lamps and muzzle flashes, so a brute reads even on the dark left of the pier at night).
+      const navy = fabric(0x2c3e66, { fold: 0.35, noise: 0.08 });
       const quilt: ColorFn = (p, n) => {
         const c = navy(p, n);
         if (Math.abs(((p.y + 1) % 0.07) - 0.035) < 0.004) c.multiplyScalar(0.7);
         return c;
       };
-      const black = 0x101216;
+      const black = 0x1a1e26;
+      const HIVIS = 0xd4f03c;
+      const SILVER = 0xd8dcd4;
       dress = {
         torso: quilt,
         hips: navy,
@@ -772,16 +785,24 @@ export function outfit(look: Look, d: Dims, sp: SkinPal): Outfitted {
             // buzz cut (visible once the helmet is shot off)
             hairCap(pb, hs, 0x2a2622, { front: 0.12, bump: 0.02 });
           },
-          upperArmL: (pb) => pb.add(blob(0.1 * d.limb, 0.085 * d.limb, 0.09 * d.limb, 10, 7), black, 'plastic', { p: V(0, 0.0, 0.02) }),
-          upperArmR: (pb) => pb.add(blob(0.1 * d.limb, 0.085 * d.limb, 0.09 * d.limb, 10, 7), black, 'plastic', { p: V(0, 0.0, -0.02) }),
+          upperArmL: (pb) => {
+            pb.add(blob(0.11 * d.limb, 0.095 * d.limb, 0.1 * d.limb, 10, 7), black, 'plastic', { p: V(0, 0.0, 0.02) });
+            pb.add(cyl(0.062 * d.limb, 0.062 * d.limb, 0.035, 10), HIVIS, 'hivis', { p: V(0, -0.13, 0) });
+          },
+          upperArmR: (pb) => {
+            pb.add(blob(0.11 * d.limb, 0.095 * d.limb, 0.1 * d.limb, 10, 7), black, 'plastic', { p: V(0, 0.0, -0.02) });
+            pb.add(cyl(0.062 * d.limb, 0.062 * d.limb, 0.035, 10), HIVIS, 'hivis', { p: V(0, -0.13, 0) });
+          },
           foreArmL: (pb) => pb.add(blob(0.05 * d.limb, 0.06 * d.limb, 0.055 * d.limb, 8, 6), black, 'plastic', { p: V(-0.035, 0.0, 0) }),
           foreArmR: (pb) => pb.add(blob(0.05 * d.limb, 0.06 * d.limb, 0.055 * d.limb, 8, 6), black, 'plastic', { p: V(-0.035, 0.0, 0) }),
           shinL: (pb) => {
             pb.add(roundBox(0.05, d.shin * 0.75, 0.11 * d.limb, 0.02), black, 'plastic', { p: V(0.065 * d.limb, -d.shin * 0.42, 0) });
+            pb.add(box(0.012, 0.03, 0.1 * d.limb), SILVER, 'hivis', { p: V(0.092 * d.limb, -d.shin * 0.5, 0) });
             pb.add(blob(0.06, 0.07, 0.075, 8, 6), black, 'plastic', { p: V(0.06 * d.limb, 0.0, 0) });
           },
           shinR: (pb) => {
             pb.add(roundBox(0.05, d.shin * 0.75, 0.11 * d.limb, 0.02), black, 'plastic', { p: V(0.065 * d.limb, -d.shin * 0.42, 0) });
+            pb.add(box(0.012, 0.03, 0.1 * d.limb), SILVER, 'hivis', { p: V(0.092 * d.limb, -d.shin * 0.5, 0) });
             pb.add(blob(0.06, 0.07, 0.075, 8, 6), black, 'plastic', { p: V(0.06 * d.limb, 0.0, 0) });
           },
           pelvis: (pb) => {
@@ -804,10 +825,10 @@ export function outfit(look: Look, d: Dims, sp: SkinPal): Outfitted {
             const [sx, sy] = HEAD.skull;
             const S = (x: number, y: number, z: number): [number, number, number] => [x * hs, y * hs, z * hs];
             const shell = new THREE.SphereGeometry(0.19, 22, 12, 0, Math.PI * 2, 0, Math.PI * 0.62);
-            pb.addShaded(shell, (_p, n) => col(0x1a1e26).multiplyScalar(0.8 + Math.max(0, n.y) * 0.45 + Math.max(0, n.x) * 0.1), 'plastic', { p: S(sx - 0.005, sy - 0.01, 0), s: [hs * 1.02, hs * 1.05, hs] });
+            pb.addShaded(shell, (_p, n) => col(0x223050).multiplyScalar(0.8 + Math.max(0, n.y) * 0.45 + Math.max(0, n.x) * 0.1), 'plastic', { p: S(sx - 0.005, sy - 0.01, 0), s: [hs * 1.02, hs * 1.05, hs] });
             pb.add(torus(0.19, 0.012, 5, 24), 0x0c0e12, 'rubber', { p: S(sx - 0.005, sy - 0.01 - 0.072, 0), r: [Math.PI / 2, 0, 0], s: [hs, hs, hs] });
             // white band with lettering
-            pb.add(cyl(0.192 * hs, 0.192 * hs, 0.028 * hs, 24, true), 0xe8e8e8, 'plastic', { p: S(sx - 0.005, sy + 0.04, 0) });
+            pb.add(cyl(0.193 * hs, 0.193 * hs, 0.034 * hs, 24, true), SILVER, 'hivis', { p: S(sx - 0.005, sy + 0.04, 0) });
             // visor (clear, tinted) in front of the face
             const visor = new THREE.SphereGeometry(0.205, 18, 8, -0.95, 1.9, Math.PI * 0.32, Math.PI * 0.36);
             visor.rotateY(Math.PI / 2);
@@ -826,13 +847,14 @@ export function outfit(look: Look, d: Dims, sp: SkinPal): Outfitted {
             const fx = torsoFront(d, y);
             const bx = torsoBack(d, y);
             const w = torsoHalfW(d, y);
-            pb.add(roundBox(0.05, 0.36, w * 1.9, 0.03), 0x15181e, 'plastic', { p: V(fx + 0.01, y, 0), r: [0, 0, -0.04] });
-            pb.add(roundBox(0.05, 0.34, w * 1.9, 0.03), 0x15181e, 'plastic', { p: V(bx - 0.01, y + 0.01, 0), r: [0, 0, 0.06] });
-            for (const s of [1, -1]) pb.add(roundBox(fx - bx + 0.07, 0.04, 0.07, 0.015), 0x15181e, 'plastic', { p: V((fx + bx) / 2, d.shY + 0.05, s * 0.12) });
-            pb.add(box(0.012, 0.055, w * 1.7), 0xf2f2f2, 'plastic', { p: V(fx + 0.04, y + 0.06, 0) });
-            // letters (blocks)
-            for (let i = 0; i < 6; i++) pb.add(box(0.004, 0.034, 0.028), 0x101216, 'plastic', { p: V(fx + 0.047, y + 0.06, (2.5 - i) * 0.042) });
-            pb.add(box(0.012, 0.055, w * 1.7), 0xf2f2f2, 'plastic', { p: V(bx - 0.04, y + 0.06, 0) });
+            pb.add(roundBox(0.05, 0.36, w * 1.9, 0.03), 0x1c2230, 'plastic', { p: V(fx + 0.01, y, 0), r: [0, 0, -0.04] });
+            pb.add(roundBox(0.05, 0.34, w * 1.9, 0.03), 0x1c2230, 'plastic', { p: V(bx - 0.01, y + 0.01, 0), r: [0, 0, 0.06] });
+            for (const s of [1, -1]) pb.add(roundBox(fx - bx + 0.07, 0.04, 0.07, 0.015), 0x1c2230, 'plastic', { p: V((fx + bx) / 2, d.shY + 0.05, s * 0.12) });
+            // hi-vis POLICE band front and back, and a reflective stripe under it, wrapping the sides
+            pb.add(box(0.012, 0.07, w * 1.8), HIVIS, 'hivis', { p: V(fx + 0.04, y + 0.06, 0) });
+            for (let i = 0; i < 6; i++) pb.add(box(0.004, 0.036, 0.028), 0x101216, 'plastic', { p: V(fx + 0.047, y + 0.06, (2.5 - i) * 0.042) });
+            pb.add(box(0.012, 0.07, w * 1.8), HIVIS, 'hivis', { p: V(bx - 0.04, y + 0.06, 0) });
+            pb.add(box(fx - bx + 0.1, 0.028, w * 1.95), SILVER, 'hivis', { p: V((fx + bx) / 2, y - 0.07, 0) });
           },
         },
         {
@@ -856,17 +878,18 @@ export function outfit(look: Look, d: Dims, sp: SkinPal): Outfitted {
             rimTop.rotateX(Math.PI / 2);
             rimTop.rotateY(arc / 2);
             rimTop.translate(-R, 0, 0);
-            pb.add(rimTop.clone(), 0x101216, 'rubber', { p: V(0, H / 2, 0) });
-            pb.add(rimTop, 0x101216, 'rubber', { p: V(0, -H / 2, 0) });
+            // hi-vis trim around the edge: the shield's outline reads at night
+            pb.add(rimTop.clone(), HIVIS, 'hivis', { p: V(0, H / 2, 0) });
+            pb.add(rimTop, HIVIS, 'hivis', { p: V(0, -H / 2, 0) });
             for (const s of [1, -1]) {
               const a = (s * arc) / 2;
-              pb.add(cyl(0.018, 0.018, H, 6), 0x101216, 'rubber', { p: V(-R + Math.cos(a) * R, 0, -Math.sin(a) * R) });
+              pb.add(cyl(0.02, 0.02, H, 6), HIVIS, 'hivis', { p: V(-R + Math.cos(a) * R, 0, -Math.sin(a) * R) });
             }
-            // white POLICE band across the middle
-            const band = new THREE.CylinderGeometry(R + 0.004, R + 0.004, 0.09, 18, 1, true, -arc / 2 + 0.05, arc - 0.1);
+            // reflective POLICE band across the middle
+            const band = new THREE.CylinderGeometry(R + 0.004, R + 0.004, 0.1, 18, 1, true, -arc / 2 + 0.05, arc - 0.1);
             band.rotateY(Math.PI / 2);
             band.translate(-R, 0, 0);
-            pb.add(band, 0xf4f4f4, 'plastic', { p: V(0, 0.28, 0) });
+            pb.add(band, SILVER, 'hivis', { p: V(0, 0.28, 0) });
             for (let i = 0; i < 6; i++) {
               const a = ((i - 2.5) / 6) * (arc - 0.25);
               pb.add(box(0.006, 0.055, 0.045), 0x101216, 'plastic', { p: V(-R + Math.cos(a) * (R + 0.009), 0.28, -Math.sin(a) * (R + 0.009)), r: [0, a, 0] });

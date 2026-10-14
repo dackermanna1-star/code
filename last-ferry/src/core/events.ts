@@ -29,6 +29,9 @@ export interface GameEvents {
   chapterSplash: { num: number; name: string; clock: string };
   chapterStart: { num: number };
   bossSpawn: { num: number; name: string };
+  /** The chapter's bosses are down but zombies are still alive: mop them up before the pier is held. */
+  mopUp: { num: number; left: number };
+  /** The pier is clear (bosses down, stragglers mopped up): the chapter is won. */
   chapterComplete: { num: number };
   /** A survivor walks up the gangway (cosmetic queue + counter). */
   boarding: { boarded: number; total: number };

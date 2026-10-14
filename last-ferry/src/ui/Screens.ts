@@ -6,6 +6,8 @@
 // select, Esc/Backspace back. Mouse: hover selects, click activates, sliders
 // drag. Menus swallow their own input so the game never sees it.
 import type { WeaponId } from '../config/ids';
+import { MONEY, REANIMATION } from '../config/rules';
+import { ZOMBIES } from '../config/zombies';
 import { clamp01, fluidLayer, fmtInt, fmtTime, fromHtml, h } from './dom';
 import { CLOCK_SVG, CRANE_SVG, FERRY_SVG, HORN_SVG, ROSTER_SVG, WHEEL_SVG } from './icons';
 import {
@@ -57,13 +59,15 @@ const FRESH_START = new Set(['pause', 'gameover', 'victory']);
 
 const TIPS = [
   'Not dead till the head’s gone. Aim high.',
-  'Stomp the twitching ones before they get up. Tidy pays $5.',
+  `Stomp the twitching ones before they get up. Tidy pays $${MONEY.tidy}.`,
   'Bodies slow the horde. Build a wall of them.',
   'Three nails pin a body to the planks for good.',
   'Flares set piles of bodies on fire. Bodies burn well.',
   'Don’t pop a bloater next to yourself.',
   'The horn buys you two seconds. Once per chapter.',
-  'Shoot the crane hook. Fish crates are heavy.',
+  'Line up with the crane hook and shoot it. Fish crates are heavy.',
+  'A flare into a crowd: they all go up. It reloads itself in your belt.',
+  'Kill the boss, then mop up. The pier isn’t held until it’s clear.',
   'A harpoon goes through five of them. And riot shields.',
 ];
 
@@ -91,6 +95,14 @@ function bindSlider(slider: HTMLElement, put: (f: number) => void): void {
   slider.addEventListener('pointermove', (e) => {
     if (slider.hasPointerCapture?.(e.pointerId)) fromPointer(e);
   });
+}
+
+const MONEY_TIDY = MONEY.tidy;
+const MONEY_HEAD = MONEY.headshotBonus;
+
+/** "1 nice shot", "3 nice shots". */
+function plural(n: number, one: string, many = `${one}s`): string {
+  return `${fmtInt(n)} ${n === 1 ? one : many}`;
 }
 
 /** "[W] [A] [S] [D] or arrows" → text with key chips. */
@@ -241,7 +253,7 @@ export class Screens {
 
   // ------------------------------------------------------------- pause
 
-  showPause(hd: { onResume(): void; onRestart(): void; onQuit(): void }): void {
+  showPause(hd: { onResume(): void; onRestart(): void; onQuit(): void; onRetryChapter?: () => void; retryLabel?: string }): void {
     const reopen = () => this.showPause(hd);
     const resume = () => { this.closeScreen(); hd.onResume(); };
     const root = h('div', 'lf-screen lf-scrim');
@@ -249,9 +261,12 @@ export class Screens {
     const head = h('div', 'lf-pause-head');
     head.append(h('div', 'lf-eyebrow', 'Ship’s log'), h('div', 'lf-pause-title', 'Paused'));
     c.appendChild(head);
+    const items: Array<[string, () => void]> = [['Resume', resume]];
+    const retry = hd.onRetryChapter;
+    if (retry) items.push([hd.retryLabel ?? 'Retry chapter', () => { this.closeScreen(); retry(); }]);
+    items.push([retry ? 'Restart night' : 'Restart', () => { this.closeScreen(); hd.onRestart(); }]);
     const menu = this.menu('lf-menu lf-pause-menu', [
-      ['Resume', resume],
-      ['Restart', () => { this.closeScreen(); hd.onRestart(); }],
+      ...items,
       ['Options', () => this.nav(() => this.showOptions(() => this.nav(reopen)))],
       ['How to play', () => this.nav(() => this.showHelp(() => this.nav(reopen)))],
       ['Quit to title', () => { this.closeScreen(); hd.onQuit(); }],
@@ -394,16 +409,16 @@ export class Screens {
       keys.appendChild(v);
     };
     krow('Move', '[W] [A] [S] [D] or arrows');
-    krow('Fire', '[Space] [Ctrl] or hold [Left mouse]');
+    krow('Fire', '[Space] [J] or hold [Left mouse]');
     krow('Reload', '[R]');
     krow('Buy / select', '[1] – [6] or click a weapon');
     krow('Buy best', '[B] [Enter]');
-    krow('Cycle weapons', '[Q] [Tab]');
+    krow('Cycle weapons', '[Q] [Tab] or the wheel');
     krow('Stomp', '[E] [Shift] jump, land on it');
     krow('Kick', 'walk into a crawler');
     krow('Ferry horn', '[H] once per chapter');
     krow('Cannon strike', '[F] when the wheel is full');
-    krow('Crane', 'shoot the hook in its lane');
+    krow('Crane', 'line up with the hook, then fire');
     krow('Pause', '[P] [Esc]');
     c1.appendChild(keys);
 
@@ -427,7 +442,7 @@ export class Screens {
     );
     rule('2', 'The dead are terrain', 'Bodies stay where they fall and slow the horde. Joggers trip over them. Piles burn beautifully.');
     rule('', 'The horn', 'Every zombie on screen staggers for two seconds. Once per chapter.', HORN_SVG);
-    rule('', 'The crane', 'Shoot the hook and a pallet of fish crates flattens whatever is under it.', CRANE_SVG);
+    rule('', 'The crane', 'Line up with the hook (it lights up) and shoot it: a pallet of fish crates flattens whatever is under it.', CRANE_SVG);
     rule('', 'Captain’s Favour', 'Kills fill the wheel. When it’s full, [F] calls three shells from the ferry’s deck gun.', WHEEL_SVG);
     c2.querySelectorAll('.lf-rule-p').forEach((p) => {
       const t = p.textContent ?? '';
@@ -437,8 +452,7 @@ export class Screens {
       }
     });
     const money = h('div', 'lf-money-rules');
-    money.innerHTML =
-      '<span><b>+$15</b> headshot</span><span><b>NICE SHOT</b> 3+ kills, one pull</span><span><b>TIDY</b> stomp a body +$5</span>';
+    money.innerHTML = `<span><b>+$${MONEY_HEAD}</b> headshot</span><span><b>NICE SHOT</b> 3+ kills, one pull</span><span><b>TIDY</b> stomp a body +$${MONEY_TIDY}</span>`;
     c2.appendChild(money);
 
     // Roster.
@@ -457,12 +471,13 @@ export class Screens {
       el.append(ico, body);
       roster.appendChild(el);
     };
-    card('shambler', 'Shambler', '$40', 'Fishermen, tourists, waiters, grannies. Slow. Plenty of them.');
-    card('jogger', 'Jogger', '$60', 'Still running the 10k. Zig-zags, trips over bodies.');
-    card('bloater', 'Bloater', '$120', 'Pops into a gas cloud and two crawlers. Not up close.');
-    card('medic', 'Paramedics', '$70', 'Drop a medic and the patient gets up.');
-    card('riot', 'Riot brute', '$300', 'Helmet, shield, plate. Shotgun ×2 on armour; harpoons go through.', 'Chapter 3');
-    card('crawler', 'Crawler', '$15', 'A body that got back up. Low — kick it or stomp it.');
+    const $ = (n: number) => `$${n}`;
+    card('shambler', 'Shambler', $(ZOMBIES.shambler.bounty), 'Fishermen, tourists, waiters, grannies. Slow. Plenty of them.');
+    card('jogger', 'Jogger', $(ZOMBIES.jogger.bounty), 'Still running the 10k. Zig-zags, trips over bodies.');
+    card('bloater', 'Bloater', $(ZOMBIES.bloater.bounty), 'Pops into a gas cloud and two crawlers. Not up close.');
+    card('medic', 'Paramedics', $(ZOMBIES.medic.bounty), 'Drop a medic and the patient gets up.');
+    card('riot', 'Riot brute', $(ZOMBIES.riot.bounty), 'Helmet, shield, plate. Shotgun ×2 on armour; harpoons go through.', 'Chapter 3');
+    card('crawler', 'Crawler', $(REANIMATION.crawlerBounty), 'A body that got back up. Low — kick it or stomp it.');
     c3.appendChild(roster);
     const bosses = h('div', 'lf-bosses');
     bosses.append(h('b', '', 'Bosses'), document.createTextNode('Big Dave · The Marathon · The Riot Squad'));
@@ -483,7 +498,12 @@ export class Screens {
    * Game over. `cause`: 'gangway' (a zombie boarded), 'dead' (the Bosun went
    * down) or any custom line.
    */
-  showGameOver(cause: 'gangway' | 'dead' | string, stats: RunStats, hd: { onRetry(): void; onTitle(): void }, detail?: string): void {
+  showGameOver(
+    cause: 'gangway' | 'dead' | string,
+    stats: RunStats,
+    hd: { onRetry(): void; onTitle(): void; onRetryChapter?: () => void; retryLabel?: string },
+    detail?: string,
+  ): void {
     const rank = this.record(stats, false);
     const root = h('div', 'lf-screen lf-scrim lf-results is-over');
     const c = h('div', 'lf-center');
@@ -503,14 +523,20 @@ export class Screens {
     col.appendChild(this.resultCards(stats, rank, false));
 
     const btns = h('div', 'lf-btns');
-    const retry = h('div', 'lf-btn is-primary', 'Try again');
+    const ctls: Ctl[] = [];
+    // Retry the chapter that was lost (with what you had when it began), or start the night over.
+    const again = hd.onRetryChapter;
+    if (again) {
+      const rc = h('div', 'lf-btn is-primary', hd.retryLabel ?? 'Retry chapter');
+      btns.appendChild(rc);
+      ctls.push({ el: rc, activate: () => { this.closeScreen(); again(); } });
+    }
+    const retry = h('div', again ? 'lf-btn' : 'lf-btn is-primary', again ? 'Restart night' : 'Try again');
     const tbtn = h('div', 'lf-btn', 'Title');
     btns.append(retry, tbtn);
+    ctls.push({ el: retry, activate: () => { this.closeScreen(); hd.onRetry(); } }, { el: tbtn, activate: () => { this.closeScreen(); hd.onTitle(); } });
     col.appendChild(btns);
-    this.openScreen('gameover', root, [
-      { el: retry, activate: () => { this.closeScreen(); hd.onRetry(); } },
-      { el: tbtn, activate: () => { this.closeScreen(); hd.onTitle(); } },
-    ], { back: null, horizontal: true });
+    this.openScreen('gameover', root, ctls, { back: null, horizontal: true });
   }
 
   /** Victory: "THE FERRY DEPARTS", then "TO BE CONTINUED", then the night's numbers. */
@@ -575,10 +601,9 @@ export class Screens {
     };
     add('Chapter reached', victory ? `${s.chapter} — all cleared` : `${s.chapter} · ${s.chapterName}`);
     add('Time on the pier', fmtTime(s.timeSec));
-    add('Best nice shot', s.bestNiceShot >= 3 ? `${s.bestNiceShot} with one pull` : '—', s.niceShots > 0 ? `${fmtInt(s.niceShots)} nice shots` : undefined);
+    add('Best nice shot', s.bestNiceShot >= 3 ? `${s.bestNiceShot} at once` : '—', s.niceShots > 0 ? plural(s.niceShots, 'nice shot') : undefined);
     add('Favourite weapon', s.favouriteWeapon ? WEAPON_NAMES[s.favouriteWeapon] : '—');
     add('Bodies stomped', fmtInt(s.corpsesStomped));
-    if (s.risenKilled !== undefined) add('Crawlers put down', fmtInt(s.risenKilled));
     if (s.bodiesNailed) add('Bodies nailed down', fmtInt(s.bodiesNailed));
     if (s.passengersSaved !== undefined) add('Passengers aboard', fmtInt(s.passengersSaved));
     if (s.moneyLeft !== undefined) add('Money left', `$${fmtInt(s.moneyLeft)}`);
@@ -602,18 +627,19 @@ export class Screens {
     right.appendChild(table);
     right.appendChild(h('div', rank >= 0 ? 'lf-note is-new' : 'lf-note', rank >= 0 ? `New best night at #${rank + 1}` : '⚓ = the ferry departed'));
     // Tonight's horde, by kind.
+    // Every kill once (crawlers are not in killsByKind), so the list adds up to KILLS.
     const kinds: Array<[keyof typeof ROSTER_SVG, string, number]> = [];
     const by = s.killsByKind ?? {};
-    const add2 = (k: keyof typeof ROSTER_SVG, label: string, n: number | undefined) => {
-      if (n && n > 0) kinds.push([k, label, n]);
+    const add2 = (k: keyof typeof ROSTER_SVG, one: string, many: string, n: number | undefined) => {
+      if (n && n > 0) kinds.push([k, n === 1 ? one : many, n]);
     };
-    add2('shambler', 'Shamblers', (by.shambler ?? 0) + (by.patient ?? 0));
-    add2('jogger', 'Joggers', by.jogger);
-    add2('bloater', 'Bloaters', by.bloater);
-    add2('medic', 'Medics', by.medic);
-    add2('riot', 'Riot', by.riot);
-    add2('bigdave', 'Big Dave', by.bigdave);
-    add2('crawler', 'Crawlers', s.risenKilled);
+    add2('shambler', 'Shambler', 'Shamblers', (by.shambler ?? 0) + (by.patient ?? 0));
+    add2('jogger', 'Jogger', 'Joggers', by.jogger);
+    add2('bloater', 'Bloater', 'Bloaters', by.bloater);
+    add2('medic', 'Medic', 'Medics', by.medic);
+    add2('riot', 'Riot brute', 'Riot brutes', by.riot);
+    add2('bigdave', 'Big Dave', 'Big Daves', by.bigdave);
+    add2('crawler', 'Crawler', 'Crawlers', s.risenKilled);
     if (kinds.length) {
       right.appendChild(h('div', 'lf-section lf-horde-h', 'Put down tonight'));
       const grid = h('div', 'lf-horde');

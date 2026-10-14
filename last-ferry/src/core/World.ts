@@ -1,8 +1,8 @@
 // The game world: chapters, the hunter, the horde, bodies on the deck, fire
 // and gas, the pier's tricks and the game flow. Pure logic: advanced by
 // step() at a fixed 50 ticks per second, deterministic for a given seed.
-import type { DeathKind, ZombieKind } from '../config/ids';
-import { BETWEEN_SECONDS, CHAPTERS, SPLASH_SECONDS, type SpawnKind } from '../config/chapters';
+import type { DeathKind, WeaponId, ZombieKind } from '../config/ids';
+import { BETWEEN_SECONDS, CHAPTERS, MOPUP_CRAWLER_X, SPLASH_SECONDS, type SpawnKind } from '../config/chapters';
 import { PIER, TICK_RATE, spawnX } from '../config/world';
 import { STRETCHER, ZOMBIES } from '../config/zombies';
 import { BARRICADE, FAVOUR, FEEL, FIRE, MONEY } from '../config/rules';
@@ -35,6 +35,9 @@ export interface WorldOptions {
   skipSplash?: boolean;
   /** Hunter start position. */
   start?: { x: number; z: number };
+  /** Weapons owned from the start (a chapter retry keeps what you had); the last one is selected unless `weapon` says otherwise. */
+  weapons?: WeaponId[];
+  weapon?: WeaponId;
 }
 
 export interface SpawnOpts extends Omit<ZombieOpts, 'x' | 'z'> {
@@ -48,6 +51,8 @@ export interface GameOverInfo {
   kind?: ZombieKind;
   risen?: boolean;
   boss?: boolean;
+  /** A crawler that spilled out of a bloater / Big Dave (not a body the hunter left lying). */
+  spilled?: 'bloater' | 'bigdave';
 }
 
 export const SPLASH_TICKS = Math.round(SPLASH_SECONDS * TICK_RATE);
@@ -103,6 +108,9 @@ export class World implements WorldView {
     const s = opts.start ?? HUNTER_START;
     const p = new Player(this, 0, s.x, s.z);
     if (opts.money) p.money = opts.money;
+    for (const id of opts.weapons ?? []) p.give(id);
+    const sel = opts.weapon ?? opts.weapons?.[opts.weapons.length - 1];
+    if (sel) p.switchTo(sel);
     this.players.push(p);
     this.loadChapter(Math.max(1, Math.min(CHAPTERS.length, opts.startChapter ?? 1)));
     if (opts.skipSplash) {
@@ -154,6 +162,29 @@ export class World implements WorldView {
   }
   get bossName(): string {
     return this.level.def.bossName;
+  }
+  get mopUp(): boolean {
+    return this.phase === 'boss' && this.level.mopUp;
+  }
+  /** A live zombie that keeps the pier from being held (crawlers far back don't). */
+  holdsPier(z: Zombie): boolean {
+    return z.alive && !(z.risen && z.x <= MOPUP_CRAWLER_X);
+  }
+  /** Zombies that still hold up the end of the chapter (the mop-up counter). */
+  get stragglers(): number {
+    let n = 0;
+    for (const z of this.zombies) if (this.holdsPier(z)) n++;
+    return n;
+  }
+  get stragglersMax(): number {
+    return this.level.mopUpMax;
+  }
+  get craneUnder(): number {
+    return this.pier.under;
+  }
+  /** Between chapters (and during a chapter's title): the dead rest and nothing can hurt the Bosun. */
+  get truce(): boolean {
+    return this.phase === 'between' || this.phase === 'splash';
   }
   get timeOfDay(): number {
     return this.tod;
@@ -267,10 +298,18 @@ export class World implements WorldView {
     this.hazards.compact();
     if (this.teams.length) this.teams = this.teams.filter((t) => !t.dropped && t.members.length > 0);
 
-    if (this.phase === 'boss' && this.level.finished) {
-      this.phase = 'between';
-      this.phaseTicks = 0;
-      this.events.emit('chapterComplete', { num: this.chapter });
+    // The pier is held only once it is clear: bosses down, then every straggler mopped up.
+    if (this.phase === 'boss' && this.level.bossesBeaten) {
+      const left = this.stragglers;
+      if (left === 0) {
+        this.level.finished = true;
+        this.phase = 'between';
+        this.phaseTicks = 0;
+        this.events.emit('chapterComplete', { num: this.chapter });
+      } else if (!this.level.mopUp) {
+        this.level.startMopUp(left);
+        this.events.emit('mopUp', { num: this.chapter, left });
+      }
     }
     this.updateTimeOfDay();
   }
@@ -406,9 +445,11 @@ export class World implements WorldView {
     else this.spawn(kind);
   }
 
-  /** A crawler (risen) spilling out of a bloater / Big Dave. */
-  spawnCrawler(kind: ZombieKind, x: number, z: number, look: number): Zombie {
+  /** A crawler spilling out of a bloater / Big Dave. */
+  spawnCrawler(kind: ZombieKind, x: number, z: number, look: number, from: 'bloater' | 'bigdave' = 'bloater', speed?: number): Zombie {
     const zb = new Crawler(this, kind, { x, z, look });
+    zb.spilled = from;
+    if (speed !== undefined) zb.speed = speed;
     this.addZombie(zb);
     return zb;
   }
@@ -480,13 +521,15 @@ export class World implements WorldView {
     const c = zb.corpseId !== null ? this.corpseById(zb.corpseId) : undefined;
     if (c && c.burning > 0) this.events.emit('ignite', { zombieId: null, corpseId: c.id, x: c.x, z: c.z });
     if (zb.isBoss && (zb.kind === 'bigdave' || zb.medal || zb.kind === 'riot')) {
-      this.events.emit('slowmo', { scale: FEEL.bossSlowmo.scale, seconds: FEEL.bossSlowmo.seconds });
+      this.slowmo(FEEL.bossSlowmo.scale, FEEL.bossSlowmo.seconds, true);
     }
     const p = killer ?? this.players[0] ?? null;
     if (!p) return;
     p.kills++;
     p.stats.kills++;
-    p.stats.killsByKind[zb.kind] = (p.stats.killsByKind[zb.kind] ?? 0) + 1;
+    // Crawlers are counted on their own (kills = Σ killsByKind + risenKills).
+    if (zb.risen) p.stats.risenKills++;
+    else p.stats.killsByKind[zb.kind] = (p.stats.killsByKind[zb.kind] ?? 0) + 1;
     const wid = zb.lastHit?.weapon ?? 'other';
     p.stats.killsByWeapon[wid] = (p.stats.killsByWeapon[wid] ?? 0) + 1;
     const top = zb.height + 0.35;
@@ -501,8 +544,21 @@ export class World implements WorldView {
     } else {
       p.headStreak = 0;
     }
-    this.pier.addFavour(fav);
+    // The deck gun doesn't refill its own meter.
+    if (zb.lastHit?.source !== 'cannon') this.pier.addFavour(fav);
   }
+
+  /**
+   * Ask the presentation for slow motion. At most one every
+   * FEEL.slowmoCooldown game seconds so it keeps its punch (`force`: boss deaths).
+   */
+  slowmo(scale: number, seconds: number, force = false): boolean {
+    if (!force && this.tick - this.lastSlowmoTick < FEEL.slowmoCooldown * TICK_RATE) return false;
+    this.lastSlowmoTick = this.tick;
+    this.events.emit('slowmo', { scale, seconds });
+    return true;
+  }
+  private lastSlowmoTick = -1e9;
 
   /** A downed body gets up as a crawler. */
   riseCorpse(c: Corpse): Zombie {
@@ -529,7 +585,7 @@ export class World implements WorldView {
   gameOver(reason: 'gangway' | 'dead', zb?: Zombie): void {
     if (this.gameEnded || this.god) return;
     this.phase = 'gameover';
-    this.gameOverInfo = { reason, zombieId: zb?.id, kind: zb?.kind, risen: zb?.risen, boss: zb?.isBoss };
+    this.gameOverInfo = { reason, zombieId: zb?.id, kind: zb?.kind, risen: zb?.risen, boss: zb?.isBoss, spilled: zb?.spilled };
     this.events.emit('gameOver', { reason, zombieId: zb?.id });
   }
 
@@ -538,6 +594,8 @@ export class World implements WorldView {
     const g = this.gameOverInfo;
     if (!g) return '';
     if (g.reason === 'dead') return 'The Bosun went down. No one boards dead.';
+    if (g.spilled === 'bigdave') return 'Something that spilled out of Big Dave crawled up the gangway.';
+    if (g.spilled === 'bloater') return 'A crawler that burst out of a bloater dragged itself up the gangway.';
     if (g.risen) return 'A body you left lying crawled up the gangway. Not dead till the head’s gone.';
     switch (g.kind) {
       case 'jogger':

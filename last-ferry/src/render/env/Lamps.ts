@@ -163,6 +163,11 @@ interface Lamp {
   warm: number;
   on: boolean;
   quirk: 'none' | 'dying' | 'buzz';
+  /** Near-row bollard lantern. */
+  near: boolean;
+  /** Halo and light scale (the bollards are smaller lanterns). */
+  glowK: number;
+  lightK: number;
 }
 
 const SODIUM = new THREE.Color(1.0, 0.52, 0.16);
@@ -190,37 +195,65 @@ export class Lamps {
       ...LAMPS_FAR.map((x) => ({ x, z: PIER.minZ + 0.05, side: -1 })),
       ...LAMPS_NEAR.map((x) => ({ x, z: PIER.maxZ - 0.05, side: 1 })),
     ];
+    // Far row: tall cast-iron posts behind the action. Near row: low bollard
+    // lanterns on the railing posts. At the 36° camera a 4 m near lantern
+    // projects onto the middle lanes (it hid the Bosun and the horde); a 1.2 m
+    // bollard head lands on the near edge of the deck instead.
     const H = 4.0;
+    const HN = 1.15;
     positions.forEach((p, i) => {
-      // Plinth, fluted pole, collar, crossbar, lantern cage and cap.
-      iron.add(box(0.34, 0.32, 0.34), ironCol, { p: [p.x, 0.16, p.z] });
-      iron.add(cyl(0.11, 0.15, 0.5, 8), ironCol, { p: [p.x, 0.55, p.z] });
-      iron.add(cyl(0.065, 0.085, H - 0.8, 8), ironCol, { p: [p.x, 0.8 + (H - 0.8) / 2, p.z] });
-      iron.add(torus(0.1, 0.03, 4, 10), ironCol, { p: [p.x, 1.4, p.z], r: [Math.PI / 2, 0, 0] });
-      iron.add(box(0.7, 0.05, 0.05), ironCol, { p: [p.x, H - 0.35, p.z] });
-      iron.add(cyl(0.12, 0.06, 0.12, 8), ironCol, { p: [p.x, H + 0.0, p.z] });
-      // Lantern cage posts.
-      for (const [dx, dz] of [
-        [-0.17, -0.17],
-        [0.17, -0.17],
-        [-0.17, 0.17],
-        [0.17, 0.17],
-      ]) iron.add(box(0.03, 0.5, 0.03), ironCol, { p: [p.x + dx, H + 0.31, p.z + dz] });
-      iron.add(cone(0.3, 0.3, 4), ironCol, { p: [p.x, H + 0.71, p.z], r: [0, Math.PI / 4, 0] });
-      iron.add(sphere(0.05, 6, 4), ironCol, { p: [p.x, H + 0.9, p.z] });
-      const head = new THREE.Vector3(p.x, H + 0.32, p.z);
+      const near = p.side > 0;
+      let head: THREE.Vector3;
+      if (!near) {
+        // Plinth, fluted pole, collar, crossbar, lantern cage and cap.
+        iron.add(box(0.34, 0.32, 0.34), ironCol, { p: [p.x, 0.16, p.z] });
+        iron.add(cyl(0.11, 0.15, 0.5, 8), ironCol, { p: [p.x, 0.55, p.z] });
+        iron.add(cyl(0.065, 0.085, H - 0.8, 8), ironCol, { p: [p.x, 0.8 + (H - 0.8) / 2, p.z] });
+        iron.add(torus(0.1, 0.03, 4, 10), ironCol, { p: [p.x, 1.4, p.z], r: [Math.PI / 2, 0, 0] });
+        iron.add(box(0.7, 0.05, 0.05), ironCol, { p: [p.x, H - 0.35, p.z] });
+        iron.add(cyl(0.12, 0.06, 0.12, 8), ironCol, { p: [p.x, H + 0.0, p.z] });
+        // Lantern cage posts.
+        for (const [dx, dz] of [
+          [-0.17, -0.17],
+          [0.17, -0.17],
+          [-0.17, 0.17],
+          [0.17, 0.17],
+        ]) iron.add(box(0.03, 0.5, 0.03), ironCol, { p: [p.x + dx, H + 0.31, p.z + dz] });
+        iron.add(cone(0.3, 0.3, 4), ironCol, { p: [p.x, H + 0.71, p.z], r: [0, Math.PI / 4, 0] });
+        iron.add(sphere(0.05, 6, 4), ironCol, { p: [p.x, H + 0.9, p.z] });
+        head = new THREE.Vector3(p.x, H + 0.32, p.z);
+        this.perches.push({ x: p.x, y: H + 0.95, z: p.z, yaw: i * 1.7 });
+      } else {
+        // Bollard lantern: squat fluted base, short post, a small lantern and cap.
+        iron.add(cyl(0.16, 0.2, 0.3, 8), ironCol, { p: [p.x, 0.15, p.z] });
+        iron.add(torus(0.15, 0.03, 4, 10), ironCol, { p: [p.x, 0.31, p.z], r: [Math.PI / 2, 0, 0] });
+        iron.add(cyl(0.06, 0.08, HN - 0.5, 8), ironCol, { p: [p.x, 0.3 + (HN - 0.5) / 2, p.z] });
+        iron.add(cyl(0.1, 0.06, 0.08, 8), ironCol, { p: [p.x, HN - 0.16, p.z] });
+        for (const [dx, dz] of [
+          [-0.1, -0.1],
+          [0.1, -0.1],
+          [-0.1, 0.1],
+          [0.1, 0.1],
+        ]) iron.add(box(0.025, 0.3, 0.025), ironCol, { p: [p.x + dx, HN + 0.03, p.z + dz] });
+        iron.add(cone(0.18, 0.18, 4), ironCol, { p: [p.x, HN + 0.27, p.z], r: [0, Math.PI / 4, 0] });
+        iron.add(sphere(0.035, 6, 4), ironCol, { p: [p.x, HN + 0.39, p.z] });
+        head = new THREE.Vector3(p.x, HN + 0.03, p.z);
+        this.perches.push({ x: p.x, y: HN + 0.42, z: p.z, yaw: i * 1.7 });
+      }
       // Real lights: all on high, far side only on medium, every other far lamp on low.
       const real = quality === 'high' || (quality === 'medium' && p.side < 0) || (quality === 'low' && p.side < 0 && i % 2 === 0);
       let light: THREE.PointLight | null = null;
       if (real) {
         light = new THREE.PointLight(SODIUM, 0, quality === 'low' ? 16 : 11.5, 2);
-        light.position.copy(head).add(new THREE.Vector3(0, -0.1, -p.side * 0.3));
+        // The near lanterns light the deck from a little above and inboard of the glass
+        // (a pool of light on the near lanes, not a hot spot at the railing).
+        if (near) light.position.set(p.x, HN + 0.9, p.z - 0.8);
+        else light.position.copy(head).add(new THREE.Vector3(0, -0.1, -p.side * 0.3));
         this.group.add(light);
       }
-      const glow = this.glows.add(head, SODIUM.clone().multiplyScalar(2.2), 2.2);
+      const glow = this.glows.add(head, SODIUM.clone().multiplyScalar(near ? 1.6 : 2.2), near ? 0.95 : 2.2);
       const quirk: Lamp['quirk'] = p.x === -17.5 ? 'dying' : p.x === 3 ? 'buzz' : 'none';
-      this.lamps.push({ x: p.x, z: p.z, head, light, glow, onAt: 0.08 + ((i * 0.37) % 1) * 0.4, level: 0, warm: 99, on: false, quirk });
-      this.perches.push({ x: p.x, y: H + 0.95, z: p.z, yaw: i * 1.7 });
+      this.lamps.push({ x: p.x, z: p.z, head, light, glow, onAt: 0.08 + ((i * 0.37) % 1) * 0.4, level: 0, warm: 99, on: false, quirk, near, glowK: near ? 0.75 : 1, lightK: near ? 0.7 : 1 });
     });
     const posts = iron.mesh(mats.metal, 'LampPosts');
     posts.castShadow = true;
@@ -247,11 +280,14 @@ export class Lamps {
       this.cones = new THREE.InstancedMesh(g, this.coneMat, this.lamps.length);
     }
     const m = new THREE.Matrix4();
+    const sc = new THREE.Matrix4();
     this.lamps.forEach((l, i) => {
       m.makeTranslation(l.head.x, l.head.y, l.head.z);
+      if (l.near) m.multiply(sc.makeScale(0.6, 0.62, 0.6));
       this.glass.setMatrixAt(i, m);
       this.glass.setColorAt(i, _c.setRGB(0.2, 0.2, 0.2));
-      m.makeTranslation(l.head.x, 0, l.head.z - Math.sign(l.z) * 0.6);
+      m.makeTranslation(l.head.x, 0, l.head.z - Math.sign(l.z) * (l.near ? 0.3 : 0.6));
+      if (l.near) m.multiply(sc.makeScale(0.45, (HN + 0.1) / (H + 0.1), 0.45));
       this.cones.setMatrixAt(i, m);
       this.cones.setColorAt(i, _c.setRGB(0, 0, 0));
     });
@@ -295,10 +331,10 @@ export class Lamps {
       _c.copy(SODIUM_COLD).lerp(SODIUM, warmK);
       if (l.light) {
         l.light.color.copy(_c);
-        l.light.intensity = this.intensity * b;
+        l.light.intensity = this.intensity * b * l.lightK;
       }
-      this.glass.setColorAt(i, _c2.copy(GLASS_OFF).lerp(_c3.copy(_c).multiplyScalar(6), b));
-      this.glows.set(l.glow, b, _c2.copy(_c).multiplyScalar(2.0));
+      this.glass.setColorAt(i, _c2.copy(GLASS_OFF).lerp(_c3.copy(_c).multiplyScalar(l.near ? 4 : 6), b));
+      this.glows.set(l.glow, b * l.glowK, _c2.copy(_c).multiplyScalar(2.0));
       this.cones.setColorAt(i, _c2.copy(_c).multiplyScalar(b * 0.06));
     }
     if (this.glass.instanceColor) this.glass.instanceColor.needsUpdate = true;

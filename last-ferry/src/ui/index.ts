@@ -2,7 +2,7 @@
 export { Hud } from './Hud';
 export { Callouts } from './Callouts';
 export { WorldOverlay } from './WorldOverlay';
-export type { MoneyReason, OverlayCrosshair, OverlayFrame, OverlayTwitch } from './WorldOverlay';
+export type { MoneyReason, OverlayCrane, OverlayCrosshair, OverlayFrame, OverlayMark, OverlayTwitch } from './WorldOverlay';
 export { Screens, WEAPON_NAMES } from './Screens';
 export type { UiSound } from './Screens';
 export { DEFAULT_OPTIONS, loadOptions, saveOptions, loadRuns } from './options';

@@ -31,6 +31,8 @@ export interface DeckUniforms {
   uTime: { value: number };
   /** Key-light specular scale on the planks (wet sheen without mirror glare). */
   uDeckDirSpec: { value: number };
+  /** Sky (environment map) reflection kept in puddles (1 = all; lowered at night). */
+  uPudEnv: { value: number };
   /** Planar reflection of REFLECT_LAYER objects (characters, corpses, effects) in wet spots. */
   uReflMap: { value: THREE.Texture | null };
   uReflMatrix: { value: THREE.Matrix4 };
@@ -131,6 +133,7 @@ export function createDeckUniforms(): DeckUniforms {
     uWetness: { value: 0.5 },
     uTime: { value: 0 },
     uDeckDirSpec: { value: 0.4 },
+    uPudEnv: { value: 1 },
     uReflMap: { value: null },
     uReflMatrix: { value: new THREE.Matrix4() },
     uReflStrength: { value: 0.5 },
@@ -172,7 +175,7 @@ export function createDeckMaterial(u: DeckUniforms, opts: { reflections?: boolea
         uniform sampler2D uDecalMap;
         uniform vec4 uDecalRect;
         uniform vec2 uDecalTexel;
-        uniform float uWetness, uTime, uDeckDirSpec;
+        uniform float uWetness, uTime, uDeckDirSpec, uPudEnv;
         #ifdef DECK_REFL
         uniform sampler2D uReflMap;
         uniform mat4 uReflMatrix;
@@ -208,14 +211,16 @@ export function createDeckMaterial(u: DeckUniforms, opts: { reflections?: boolea
         vec3 cDark = vec3(0.075, 0.058, 0.045);
         vec3 cNew = vec3(0.42, 0.27, 0.14);
         vec3 cPaint = vec3(0.09, 0.16, 0.22);
-        vec3 wood = mix(cGrey, cBrown, smoothstep(0.25, 0.75, fract(bSeed * 7.31)) * 0.65);
-        wood = mix(wood, cDark, step(0.86, bSeed) * 0.7);
-        wood = mix(wood, cNew, step(bSeed, 0.05) * 0.8);
+        // (Board-to-board variety kept modest: strong value jumps between boards read as
+        // shadow stripes and fight the characters for attention.)
+        vec3 wood = mix(cGrey, cBrown, 0.25 + smoothstep(0.25, 0.75, fract(bSeed * 7.31)) * 0.45);
+        wood = mix(wood, cDark, step(0.86, bSeed) * 0.38);
+        wood = mix(wood, cNew, step(bSeed, 0.05) * 0.45);
         float painted = step(0.07, bSeed) * step(bSeed, 0.082);
-        // Remnants of old paint, worn through along the middle.
+        // Remnants of old paint, worn through along the middle (faded: it must not read as a shadow).
         float paintKeep = smoothstep(0.35, 0.65, envFbm3(vec2(across * 2.0, along * 1.4) + bSeed * 40.0) + abs(across) * 0.35);
-        wood = mix(wood, cPaint, painted * paintKeep);
-        wood *= 0.78 + 0.44 * grain;
+        wood = mix(wood, cPaint, painted * paintKeep * 0.4);
+        wood *= 0.82 + 0.36 * grain;
         // Knots.
         vec2 kc = vec2(across * 1.0, along * 0.8 + bSeed * 13.0);
         vec2 kcell = floor(kc);
@@ -255,6 +260,8 @@ export function createDeckMaterial(u: DeckUniforms, opts: { reflections?: boolea
         float pud = smoothstep(0.64, 0.74, envFbm(wp * vec2(0.16, 0.24) + 31.0) + edgeZ * 0.08);
         float damp = clamp(pud * uWetness + edgeZ * 0.35 + edgeX * 0.25 + rust * 0.2, 0.0, 1.0);
         wood *= 1.0 - 0.45 * damp;
+        // Standing water: the wood under it goes much darker (a dark mirror, not a pale smudge).
+        wood *= 1.0 - 0.45 * pud * uWetness;
         // --- blood / scorch decal (premultiplied)
         // Blood creeps along the grain (along z) inside each board.
         vec2 grainOff = vec2(0.0, (gB - 0.5) * 0.05 + (gC - 0.5) * 0.03);
@@ -286,6 +293,12 @@ export function createDeckMaterial(u: DeckUniforms, opts: { reflections?: boolea
         roughnessFactor = mix(roughnessFactor, 0.2, pud * uWetness * (1.0 - da));`,
       )
       .replace('#include <lights_fragment_begin>', dirSpecularScaledLightsChunk('uDeckDirSpec'))
+      .replace(
+        '#include <lights_fragment_end>',
+        `#include <lights_fragment_end>
+        // Puddles mirror the lamps and the planar reflection, not the bright sky map (pale blue smudges at night).
+        reflectedLight.indirectSpecular *= mix(1.0, uPudEnv, clamp(pud * uWetness * (1.0 - da) * 1.4, 0.0, 1.0));`,
+      )
       .replace(
         '#include <opaque_fragment>',
         /* glsl */ `
@@ -319,6 +332,6 @@ export function createDeckMaterial(u: DeckUniforms, opts: { reflections?: boolea
         }`,
       );
   };
-  mat.customProgramCacheKey = () => `lf-deck-v2-${opts.reflections ? 1 : 0}`;
+  mat.customProgramCacheKey = () => `lf-deck-v3-${opts.reflections ? 1 : 0}`;
   return mat;
 }

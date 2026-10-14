@@ -5,15 +5,18 @@
 //   hud.update(hudSnapshot(world))
 //   overlay.render(overlayFrame(world, overlay.project.bind(overlay)), dt)
 //   screens.showGameOver(cause, runStats(world, player.stats, seconds), …)
-import { CHAPTERS } from '../config/chapters';
+import { CHAPTERS, MOPUP_CRAWLER_X } from '../config/chapters';
 import { WEAPON_ORDER, type WeaponId, type ZombieKind } from '../config/ids';
 import { REANIMATION } from '../config/rules';
 import { WEAPONS } from '../config/weapons';
-import { ESCAPE_X, HUNTER, TICK_RATE } from '../config/world';
+import { CRANE, ESCAPE_X, HUNTER, TICK_RATE } from '../config/world';
+import { laneFor } from '../config/view';
+import { MUZZLE_Z } from '../config/weapons';
+import { ZOMBIES } from '../config/zombies';
 import type { PlayerView, WorldView } from '../core/api';
 import type { RunStats } from './options';
 import type { HudSlot, HudSnapshot } from './hudTypes';
-import type { OverlayFrame, OverlayTwitch } from './WorldOverlay';
+import type { OverlayCrane, OverlayFrame, OverlayMark, OverlayTwitch } from './WorldOverlay';
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -64,7 +67,10 @@ export function hudSnapshot(w: WorldView, opts: { playerId?: number; bossName?: 
     } as unknown as HudSnapshot);
   s.chapter = w.chapter;
   s.chapterName = w.chapterName || ch.name;
-  s.mode = w.phase === 'boss' && w.bossLife !== null ? 'boss' : 'boarding';
+  s.mode = w.phase === 'boss' && w.bossLife !== null ? (w.mopUp ? 'mopup' : 'boss') : 'boarding';
+  s.stragglers = w.stragglers ?? 0;
+  s.stragglersMax = w.stragglersMax ?? 0;
+  s.craneUnder = w.craneUnder ?? 0;
   s.boarded = w.boarded;
   s.passengers = w.passengers;
   s.bossLife = w.bossLife ?? 1;
@@ -116,7 +122,7 @@ export function hudSnapshot(w: WorldView, opts: { playerId?: number; bossName?: 
 export function overlayFrame(
   w: WorldView,
   project: (x: number, y: number, z: number) => { x: number; y: number },
-  opts: { playerId?: number; ahead?: number; recentDamage?: number; kick?: number; showCrosshair?: boolean } = {},
+  opts: { playerId?: number; ahead?: number; recentDamage?: number; kick?: number; showCrosshair?: boolean; marks?: boolean; culpritId?: number } = {},
 ): OverlayFrame {
   const p: PlayerView | undefined = w.players.find((q) => q.id === (opts.playerId ?? 0)) ?? w.players[0];
   const f: OverlayFrame = {};
@@ -136,13 +142,25 @@ export function overlayFrame(
     };
   }
   const tw: OverlayTwitch[] = [];
+  const stir: OverlayTwitch[] = [];
   const twitchTicks = REANIMATION.twitchSeconds * TICK_RATE;
+  const stirTicks = STIR_SECONDS * TICK_RATE;
   for (const c of w.corpses) {
-    if (c.removed || c.ash || !c.twitching || c.risesAt === null) continue;
-    const s = project(c.x, 0.15, c.z);
-    tw.push({ x: s.x, y: s.y, t: clamp01(1 - (c.risesAt - w.tick) / twitchTicks) });
+    if (c.removed || c.ash || c.risesAt === null) continue;
+    const left = c.risesAt - w.tick;
+    if (c.twitching) {
+      const s = project(c.x, 0.15, c.z);
+      tw.push({ x: s.x, y: s.y, t: clamp01(1 - left / twitchTicks) });
+    } else if (left - twitchTicks < stirTicks) {
+      // Not dead yet: a quiet grey tell before the red '!'.
+      const s = project(c.x, 0.15, c.z);
+      stir.push({ x: s.x, y: s.y, t: clamp01(1 - (left - twitchTicks) / stirTicks) });
+    }
   }
   f.twitches = tw;
+  f.stirring = stir;
+  if (opts.marks !== false) f.marks = zombieMarks(w, project, opts.culpritId);
+  if (p && p.state !== 'dead' && opts.showCrosshair !== false) f.crane = craneHint(w, p, project);
   if (p) {
     const hurt = clamp01((0.55 - p.life / HUNTER.life) / 0.55);
     f.damage = Math.max(hurt * 0.8, clamp01(opts.recentDamage ?? 0));
@@ -156,6 +174,63 @@ export function overlayFrame(
   f.night = clamp01((w.timeOfDay - 0.62) / 0.38) * 0.55;
   f.danger = gangwayDanger(w);
   return f;
+}
+
+/** Seconds before a downed body starts twitching that the grey "not dead yet" tell shows. */
+const STIR_SECONDS = 4;
+/** Zombies this close to the gangway get a red ring on the deck. */
+const GANGWAY_RING_X = ESCAPE_X - 4;
+
+/** Markers over zombies: mop-up stragglers, the ones nearly at the gangway, the one that boarded. */
+function zombieMarks(w: WorldView, project: (x: number, y: number, z: number) => { x: number; y: number }, culpritId?: number): OverlayMark[] {
+  const out: OverlayMark[] = [];
+  const end = w.phase === 'gameover' || w.phase === 'victory';
+  for (const z of w.zombies) {
+    if (z.dead || z.removed) continue;
+    const def = ZOMBIES[z.kind];
+    const top = z.risen ? REANIMATION.crawlerHeight : def.height;
+    const culprit = z.id === culpritId;
+    const kind = culprit ? 'culprit' : end ? null : w.mopUp && !(z.risen && z.x <= MOPUP_CRAWLER_X) ? 'straggler' : z.x > GANGWAY_RING_X ? 'gangway' : null;
+    if (!kind) continue;
+    // (project may reuse its result object: read each point before the next call.)
+    let q = project(z.x, top + 0.35, z.z);
+    const x = q.x;
+    const y = q.y;
+    q = project(z.x, 0.02, z.z);
+    const fx = q.x;
+    const fy = q.y;
+    q = project(z.x + def.halfLength, 0.02, z.z);
+    const r = Math.max(6, Math.abs(q.x - fx));
+    out.push({ kind, x, y, fx, fy, r });
+  }
+  return out;
+}
+
+/**
+ * The crane affordance: the hook block and the drop square, how close the
+ * Bosun's gun line is to the hook's lane (and which way to move), lined up or
+ * not, and how many zombies stand under the pallet. Null when the crane is
+ * used or out of reach (the Bosun must be right of it).
+ */
+function craneHint(w: WorldView, p: PlayerView, project: (x: number, y: number, z: number) => { x: number; y: number }): OverlayCrane | null {
+  if (w.crane.state !== 'hanging' || w.phase === 'gameover' || w.phase === 'victory') return null;
+  const mz = p.z + MUZZLE_Z[p.weapon.id];
+  const y0 = p.y + HUNTER.muzzleHeight;
+  if (p.x - 0.6 < CRANE.hookX + CRANE.hookHalfX + 0.5) return null;
+  const off = mz - laneFor(y0, CRANE.hookCY, CRANE.hookZ);
+  const lined = Math.abs(off) <= CRANE.laneBand;
+  const near = lined ? 1 : clamp01(1 - (Math.abs(off) - CRANE.laneBand) / (CRANE.hintBand - CRANE.laneBand));
+  const r = CRANE.radius;
+  let under = 0;
+  for (const z of w.zombies) {
+    if (!z.dead && !z.removed && Math.abs(z.x - CRANE.hookX) <= r && Math.abs(z.z - CRANE.hookZ) <= r) under++;
+  }
+  // (project may reuse its result object: copy each point.)
+  const h = project(CRANE.hookX, CRANE.hookCY, CRANE.hookZ);
+  const hook = { x: h.x, y: h.y };
+  const c = project(p.x - 4.5, y0, p.z);
+  const ch = { x: c.x, y: c.y };
+  return { hook, near, lined, under, crowd: CRANE.crowd, dir: lined ? 0 : off > 0 ? -1 : 1, ch };
 }
 
 /** The stats object the logic keeps per player (core/Player.ts PlayerStats); every field optional here. */
@@ -174,7 +249,7 @@ export interface PlayerStatsLike {
   craneDrops?: number;
   cannonStrikes?: number;
   bought?: WeaponId[];
-  risen?: number;
+  risenKills?: number;
   nailed?: number;
 }
 
@@ -204,11 +279,12 @@ export function runStats(w: WorldView, st: PlayerStatsLike, timeSec: number, opt
     bestNiceShot: st.bestNiceShot ?? 0,
     favouriteWeapon: fav,
     corpsesStomped: st.stomps ?? 0,
-    risenKilled: st.risen,
+    risenKilled: st.risenKills,
     bodiesNailed: st.nailed,
     passengersSaved: opts.passengersSaved,
-    killsByKind: st.killsByKind,
-    weaponsBought: st.bought,
+    // Copies: the logic keeps counting (the departure, the next run).
+    killsByKind: { ...(st.killsByKind ?? {}) },
+    weaponsBought: [...(st.bought ?? [])],
     hornsUsed: st.horns,
     cannonStrikes: st.cannonStrikes,
     craneDrops: st.craneDrops,

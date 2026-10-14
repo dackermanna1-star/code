@@ -54,7 +54,8 @@ describe('the meat barricade', () => {
 
   it('joggers trip over bodies (state trip for 0.9 s) and get up again', () => {
     const w = quiet();
-    for (let i = 0; i < 14; i++) w.addCorpse('shambler', -6 + i * 0.6, 0, { risesIn: null });
+    // A carpet of bodies (joggers zig-zag across lanes).
+    for (let i = 0; i < 14; i++) for (const z of [-1.5, -0.75, 0, 0.75, 1.5]) w.addCorpse('shambler', -6 + i * 0.6, z, { risesIn: null });
     const j = w.spawn('jogger', -12, 0);
     j.vz = 0;
     const trips = record(w, 'trip');

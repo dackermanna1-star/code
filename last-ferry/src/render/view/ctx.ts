@@ -9,6 +9,7 @@ import type { Environment } from '../env/Environment';
 import type { Physics } from '../Physics';
 import type { Stage } from '../Stage';
 import type { Gore } from './Gore';
+import type { Halos } from './Halos';
 import type { LightPool } from './LightPool';
 import type { Shake } from './Shake';
 
@@ -31,6 +32,8 @@ export interface Ctx {
   readonly corpses: Corpses;
   readonly gore: Gore;
   readonly lights: LightPool;
+  /** Per-frame glow sprites (undead eyes and glow, crane hook). */
+  readonly halos: Halos;
   readonly shake: Shake;
   world: World | null;
   /** Presentation time (s), advances with update dt. */

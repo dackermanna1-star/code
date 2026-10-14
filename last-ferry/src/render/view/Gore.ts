@@ -140,7 +140,7 @@ export class Gore {
           }
         } else {
           c.y = floor;
-          if (c.bounces === 0) this.blood.splat('drop', c.x, c.z, c.s * (1.6 + Math.random()), { angle: Math.atan2(c.vz, c.vx), stretch: 1.5 });
+          if (c.bounces === 0 && Math.random() < 0.65) this.blood.splat('drop', c.x, c.z, c.s * (1.3 + Math.random() * 1.2), { angle: Math.atan2(c.vz, c.vx), stretch: 1.3 + Math.random() * 1.2 });
           if (c.vy < -2 && c.bounces < 2) {
             c.vy = -c.vy * 0.25;
             c.vx *= 0.45;

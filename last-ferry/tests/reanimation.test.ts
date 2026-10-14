@@ -1,7 +1,7 @@
 // §4.1 "Not dead till the head's gone".
 import { describe, expect, it } from 'vitest';
 import { CHAPTERS } from '../src/config/chapters';
-import { REANIMATION } from '../src/config/rules';
+import { MONEY, REANIMATION } from '../src/config/rules';
 import { TICK_RATE } from '../src/config/world';
 import { ZOMBIES } from '../src/config/zombies';
 import type { World } from '../src/core/World';
@@ -131,7 +131,10 @@ describe('reanimation', () => {
     expect(stomps[0].killed).toBe(true);
     expect(cr.deathKind).toBe('stomp');
     expect(w.corpseById(cr.corpseId!)!.risesAt).toBeNull();
-    expect(money.some((m) => m.reason === 'tidy' && m.amount === 5)).toBe(true);
+    expect(money.some((m) => m.reason === 'tidy' && m.amount === MONEY.tidy)).toBe(true);
+    // A stomp is worth more than letting it get up and kicking it.
+    expect(MONEY.tidy).toBeGreaterThan(REANIMATION.crawlerBounty);
+    expect(p.stats.stomps).toBe(1);
   });
 
   it('downed bodies are made permanent by fire, a stomp, an explosion or three nails', () => {

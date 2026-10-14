@@ -49,8 +49,9 @@ function seaPointAt(u: number, d: number): THREE.Vector3 {
 
 /** Sun / moon frame positions. */
 export const SUN_U = 0.6;
-export const MOON_U = 0.83;
-export const MOON_TAN = 0.068;
+// The moon sits in open sky between the passengers bar and the money panel (frame x ≈ 900 px at 1280).
+export const MOON_U = 0.705;
+export const MOON_TAN = 0.072;
 
 /** Lighthouse position in the backdrop (frame u ≈ 0.2). */
 export const LIGHTHOUSE = { u: 0.205, dist: 640, rockH: 13, towerH: 27 };
@@ -169,10 +170,17 @@ const SEA_FRAG = /* glsl */ `
     vec3 n1 = envNoiseD(p * vec2(0.016, 0.045) + vec2(uTime * 0.03, uTime * 0.01));
     vec3 n2 = envNoiseD(p * vec2(0.05, 0.13) + vec2(-uTime * 0.05, uTime * 0.04) + 7.0);
     vec3 n3 = envNoiseD(p * vec2(0.18, 0.42) + vec2(uTime * 0.11, -uTime * 0.07) + 13.0);
-    vec2 grad = n1.yz * vec2(0.016, 0.045) * 2.2
-              + n2.yz * vec2(0.05, 0.13) * 0.55 * (1.0 - lod * 0.7)
-              + n3.yz * vec2(0.18, 0.42) * 0.1 * (1.0 - lod);
-    grad *= vec2(1.0, 1.6);
+    // A cross-swell at an angle and slow large patches of calmer / rougher water break up
+    // the evenly spaced horizontal bands the stretched octaves alone make.
+    vec2 pr = mat2(0.8, -0.6, 0.6, 0.8) * p;
+    vec3 n4 = envNoiseD(pr * vec2(0.03, 0.06) + vec2(uTime * 0.02, -uTime * 0.03) + 23.0);
+    float patchK = 0.45 + 1.1 * envNoise(p * vec2(0.0035, 0.009) + vec2(uTime * 0.004, 31.0));
+    vec2 g4 = mat2(0.8, 0.6, -0.6, 0.8) * (n4.yz * vec2(0.03, 0.06));
+    vec2 grad = n1.yz * vec2(0.016, 0.045) * 1.6
+              + g4 * 0.7
+              + (n2.yz * vec2(0.05, 0.13) * 0.55 * (1.0 - lod * 0.7)
+              + n3.yz * vec2(0.18, 0.42) * 0.1 * (1.0 - lod)) * patchK;
+    grad *= vec2(1.0, 1.5);
     vec3 N = normalize(vec3(-grad.x, 1.0, -grad.y));
     vec3 R = reflect(d, N);
     R.y = abs(R.y);
@@ -186,7 +194,8 @@ const SEA_FRAG = /* glsl */ `
     col += uSunDisc * glit * uGlitter * 0.16 * step(0.0, uSunDir.y + 0.01);
     // Moon glitter path.
     float md = max(dot(R, uMoonDir), 0.0);
-    col += vec3(0.9, 1.0, 1.25) * (pow(md, 700.0) * 10.0 + pow(md, 90.0) * 0.3) * uMoon * uGlitter;
+    // Narrow and broken into glints by the waves (a broad term here blooms into a white band).
+    col += vec3(0.85, 0.95, 1.2) * (pow(md, 1400.0) * 2.0 + pow(md, 160.0) * 0.05) * uMoon * uGlitter;
     // Fire reflections: wobbly orange streaks below each fire.
     float az = skyAz(d);
     for (int i = 0; i < 8; i++) {
@@ -214,6 +223,8 @@ const SEA_FRAG = /* glsl */ `
     // Haze toward the horizon.
     float hz = smoothstep(300.0, 9000.0, dist);
     col = mix(col, uHaze, hz * 0.85);
+    // Keep the HDR glints in a range the bloom can carry without smearing.
+    col = min(col, vec3(4.0));
     gl_FragColor = vec4(col, 1.0);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
@@ -960,7 +971,8 @@ export class Backdrop {
     if (this.ferry.visible) {
       const e = Math.pow(k, 1.6);
       const a = new THREE.Vector3(110, 0, -230);
-      const b = new THREE.Vector3(330, 0, -1500);
+      // Out along the moon's azimuth.
+      const b = new THREE.Vector3(1500 * (MOON_U - 0.5) * 2 * TH, 0, -1500);
       this.ferry.position.lerpVectors(a, b, e);
       this.ferry.rotation.y = -0.12 - 0.08 * e;
       sea.uWake.value.set(this.ferry.position.x, this.ferry.position.z + 28, Math.min(1, k * 4) * 0.8, 0);

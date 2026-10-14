@@ -36,8 +36,13 @@ export interface PlayerStats {
   earned: number;
   niceShots: number;
   bestNiceShot: number;
+  /** Downed bodies and crawlers finished with a stomp (tidy). */
   stomps: number;
   kicks: number;
+  /** Crawlers killed (risen bodies and the ones that spilled out of bloaters). */
+  risenKills: number;
+  /** Downed bodies pinned for good with nails. */
+  nailed: number;
   horns: number;
   craneDrops: number;
   cannonStrikes: number;
@@ -86,6 +91,8 @@ export class Player implements PlayerView {
     bestNiceShot: 0,
     stomps: 0,
     kicks: 0,
+    risenKills: 0,
+    nailed: 0,
     horns: 0,
     craneDrops: 0,
     cannonStrikes: 0,
@@ -222,8 +229,9 @@ export class Player implements PlayerView {
 
     if (this.onGround && (this.state === 'stand' || this.state === 'walk')) this.kickCrawlers();
 
-    // --- weapon
+    // --- weapon (a stowed flare pistol reloads itself)
     if (this.weapon.update(this.armed && inp.fire)) w.combat.fire(this, this.weapon);
+    for (const wp of this.owned.values()) if (wp !== this.weapon) wp.stowed();
 
     // --- regeneration and damage reports
     if (this.life < HUNTER.life && w.tick - this.lastHurtTick > HUNTER.regenDelay * TICK_RATE) {
@@ -263,7 +271,7 @@ export class Player implements PlayerView {
       finished++;
       this.tidy(c.x, c.z);
     });
-    this.stats.stomps++;
+    this.stats.stomps += finished;
     w.events.emit('stomp', { playerId: this.id, x: this.x, z: this.z, killed: finished > 0 });
     w.resolveDeaths();
   }
@@ -336,14 +344,14 @@ export class Player implements PlayerView {
 
   /** Damage over time (grab, gas, fire): reported in batches. */
   hurtOverTime(amount: number, source: HurtSource): void {
-    if (!this.alive || amount <= 0) return;
+    if (!this.alive || amount <= 0 || this.world.truce) return;
     this.hurtAcc[source] += amount;
     this.applyDamage(amount);
   }
 
   /** One-off damage (blasts): reported at once, with a shove. */
   hurt(amount: number, source: HurtSource, fromX?: number, fromZ?: number): void {
-    if (!this.alive || amount <= 0) return;
+    if (!this.alive || amount <= 0 || this.world.truce) return;
     this.world.events.emit('playerHurt', { playerId: this.id, damage: amount, source });
     if (fromX !== undefined && fromZ !== undefined) {
       const dx = this.x - fromX;
@@ -399,6 +407,11 @@ export class Player implements PlayerView {
 
   has(id: WeaponId): boolean {
     return this.owned.has(id);
+  }
+
+  /** Own a weapon without paying (a chapter retry restores the arsenal). */
+  give(id: WeaponId): void {
+    if (!this.owned.has(id)) this.owned.set(id, new Weapon(this, id));
   }
 
   buy(id: WeaponId): boolean {

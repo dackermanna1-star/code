@@ -7,7 +7,8 @@ import type { World } from '../../core/World';
 import { createFlareCartridge } from '../models/index';
 import { REFLECT_LAYER } from '../Stage';
 import { clamp, rand, type Ctx } from './ctx';
-import { dust, ember, F, fireball, flame, gasPuff, metalHit, smoke, splinters } from './fx';
+import { CraneCue } from './CraneCue';
+import { dust, ember, F, fireball, flame, gasPuff, metalHit, shockDust, smoke, splinters } from './fx';
 
 interface FireRec {
   id: number;
@@ -75,7 +76,11 @@ export class HazardFx {
   private hornWave: HornWave | null = null;
   private shellMat = new THREE.MeshStandardMaterial({ color: 0x2a2c2e, roughness: 0.4, metalness: 0.7, emissive: 0x180800 });
 
-  constructor(private ctx: Ctx) {}
+  private craneCue: CraneCue;
+
+  constructor(private ctx: Ctx) {
+    this.craneCue = new CraneCue(ctx);
+  }
 
   /** One of each mesh this draws (shader warm-up); the horn wave is shown until endPrewarm(). */
   prewarmObjects(): THREE.Object3D[] {
@@ -103,6 +108,7 @@ export class HazardFx {
     this.projs.clear();
     this.markers.length = 0;
     this.waves.length = 0;
+    this.craneCue.clear();
   }
 
   beforeStep(w: World): void {
@@ -207,12 +213,13 @@ export class HazardFx {
     switch (e.kind) {
       case 'cannon': {
         fireball(ctx.effects, p, e.radius, 'fire');
-        ctx.effects.ring(e.x, 0.04, e.z, 0.3, e.radius * 2.4, 0.32, 0xffd0a0, 0.75);
-        ctx.effects.ring(e.x, 0.06, e.z, 0.2, e.radius * 1.2, 0.5, 0xff8040, 0.5);
+        // A brief scorching flash on the planks, then the shock of dust racing out.
+        ctx.effects.ring(e.x, 0.06, e.z, 0.3, e.radius * 1.1, 0.25, 0xff9040, 0.35, { frame: F.BrokenRing });
+        if (onDeck) shockDust(ctx.effects, e.x, e.z, e.radius, 26, 0x8a7c6c);
         splinters(ctx.effects, { x: e.x, y: 0.2, z: e.z }, 26, 8);
-        dust(ctx.effects, e.x, e.z, 10, 0.6, 2.4, 0x7a6e62);
-        ctx.lights.flash(e.x, 1.6, e.z + 0.6, 0xffa050, 140, 0.45, 24);
-        ctx.env.flashScreen(0.22 * near + 0.08, 0xffe0b0);
+        dust(ctx.effects, e.x, e.z, 8, 0.6, 2.4, 0x6a5e54);
+        ctx.lights.flash(e.x, 1.6, e.z + 0.6, 0xff9a48, 70, 0.4, 20, true);
+        ctx.env.flashScreen(0.12 * near + 0.04, 0xffd8a8);
         ctx.shake.punch(0, -1.6 * near, 0);
         if (onDeck) {
           ctx.blood.splat('scorch', e.x, e.z, e.radius * 0.55);
@@ -223,9 +230,9 @@ export class HazardFx {
       case 'gas': {
         fireball(ctx.effects, p, e.radius, 'gas');
         fireball(ctx.effects, p, e.radius * 0.7, 'fire');
-        ctx.effects.ring(e.x, 0.05, e.z, 0.3, e.radius * 2.2, 0.35, 0xd8ff90, 0.6);
-        ctx.lights.flash(e.x, 1.4, e.z + 0.5, 0xc8ff70, 110, 0.5, 20);
-        ctx.env.flashScreen(0.16 * near + 0.05, 0xe8ffb0);
+        if (onDeck) shockDust(ctx.effects, e.x, e.z, e.radius, 22, 0x7a7c5a);
+        ctx.lights.flash(e.x, 1.4, e.z + 0.5, 0xb8f060, 55, 0.45, 18, true);
+        ctx.env.flashScreen(0.1 * near + 0.03, 0xe0f8b0);
         ctx.shake.punch(0, -1.0 * near, 0);
         if (onDeck) {
           ctx.blood.splat('scorch', e.x, e.z, e.radius * 0.45);
@@ -235,9 +242,9 @@ export class HazardFx {
         break;
       }
       case 'crates': {
-        dust(ctx.effects, e.x, e.z, 22, 0.7, 3.2, 0x8a7c6c);
+        dust(ctx.effects, e.x, e.z, 16, 0.7, 3.2, 0x8a7c6c);
+        shockDust(ctx.effects, e.x, e.z, e.radius, 28, 0x9a8c7a, 0.5);
         splinters(ctx.effects, { x: e.x, y: 0.4, z: e.z }, 30, 7);
-        ctx.effects.ring(e.x, 0.04, e.z, 0.4, e.radius * 2, 0.4, 0xd8c8b0, 0.55);
         // Fish and ice spilling out of the smashed crates.
         for (let i = 0; i < 18; i++) {
           const a = Math.random() * Math.PI * 2;
@@ -403,6 +410,7 @@ export class HazardFx {
     }
     this.waves.length = ww;
     this.hornWave?.update(dt);
+    this.craneCue.update(dt, w);
   }
 
   /** The deck gun's muzzle blast. */

@@ -252,6 +252,8 @@ export class CorpseField {
   tick(): void {
     const w = this.world;
     const now = w.tick;
+    // Between chapters the dead rest: rise timers hold (twitching ones stay twitching).
+    const truce = w.truce;
     const twitch = Math.round(REANIMATION.twitchSeconds * TICK_RATE);
     const pSpread = 1 - Math.pow(1 - FIRE.corpsePerSecond, TICK);
     const pToZombie = 1 - Math.pow(1 - FIRE.corpseToZombiePerSecond, TICK);
@@ -279,6 +281,10 @@ export class CorpseField {
         continue;
       }
       if (c.risesAt !== null) {
+        if (truce) {
+          c.risesAt++;
+          continue;
+        }
         if (!c.twitching && now >= c.risesAt - twitch) {
           c.twitching = true;
           w.events.emit('corpseTwitch', { corpseId: c.id });

@@ -38,8 +38,13 @@ export function bakeFoamMap(pilings: Array<{ x: number; z: number; r: number }>,
   const H = FOAM_RECT.sizeZ * res;
   const data = new Uint8Array(W * H * 4);
   const dist = new Float32Array(W * H).fill(99);
+  /** Per-piling random strength / phase of the nearest piling (B channel). */
+  const vary = new Float32Array(W * H);
   const reach = 1.4;
+  let seed = 9;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   for (const p of pilings) {
+    const pv = 0.15 + 0.85 * rnd();
     const x0 = Math.max(0, Math.floor((p.x - reach - p.r - FOAM_RECT.minX) * res));
     const x1 = Math.min(W - 1, Math.ceil((p.x + reach + p.r - FOAM_RECT.minX) * res));
     const z0 = Math.max(0, Math.floor((p.z - reach - p.r - FOAM_RECT.minZ) * res));
@@ -50,7 +55,10 @@ export function bakeFoamMap(pilings: Array<{ x: number; z: number; r: number }>,
         const wz = FOAM_RECT.minZ + (j + 0.5) / res;
         const d = Math.hypot(wx - p.x, wz - p.z) - p.r;
         const k = j * W + i;
-        if (d < dist[k]) dist[k] = d;
+        if (d < dist[k]) {
+          dist[k] = d;
+          vary[k] = pv;
+        }
       }
     }
   }
@@ -70,7 +78,7 @@ export function bakeFoamMap(pilings: Array<{ x: number; z: number; r: number }>,
       const shadeV = Math.max(inX * inZ, hull * 0.8);
       data[k * 4] = Math.round(foam * foam * 255);
       data[k * 4 + 1] = Math.round(shadeV * 255);
-      data[k * 4 + 2] = 0;
+      data[k * 4 + 2] = Math.round((dist[k] <= dh + 0.05 ? vary[k] : 0.6) * 255);
       data[k * 4 + 3] = 255;
     }
   }
@@ -160,11 +168,14 @@ export function createMainSea(sky: SkyUniforms, sea: SeaUniforms, foam: THREE.Te
         float inRect = step(0.0, fUv.x) * step(fUv.x, 1.0) * step(0.0, fUv.y) * step(fUv.y, 1.0);
         float near = fm.r * inRect;
         float under = fm.g * inRect;
+        // Each piling has its own strength and swell phase (no row of identical white crescents).
+        float pv = fm.b;
+        near *= 0.45 + 0.65 * pv;
         // Foam: rings that breathe with the swell, broken up by noise.
         float fn = envNoise(sp * 2.4 + vec2(uTime * 0.3, -uTime * 0.2)) * 0.6 + envNoise(sp * 7.0 - uTime * 0.5) * 0.4;
-        float swell = 0.5 + 0.5 * sin(uTime * 1.3 + sp.x * 0.35 + sp.y * 0.2);
-        float foam = smoothstep(0.55, 0.9, near * (0.75 + 0.4 * swell) + fn * 0.45 - 0.15);
-        foam += smoothstep(0.8, 1.0, near) * 0.6;
+        float swell = 0.5 + 0.5 * sin(uTime * (1.0 + 0.6 * pv) + pv * 23.0 + sp.x * 0.35 + sp.y * 0.2);
+        float foam = smoothstep(0.55, 0.9, near * (0.7 + 0.45 * swell) + fn * 0.5 - 0.18);
+        foam += smoothstep(0.85, 1.0, near) * 0.2 * (0.6 + 0.4 * fn);
         // Sparse whitecaps out on the water.
         float wc = smoothstep(0.66, 0.8, envFbm3(sp * vec2(0.22, 0.4) + vec2(uTime * 0.05, uTime * 0.015))) * smoothstep(0.55, 0.85, envNoise(sp * vec2(2.0, 4.0) + uTime * 0.7));
         foam = clamp(foam + wc * 0.14, 0.0, 1.0);
@@ -173,17 +184,18 @@ export function createMainSea(sky: SkyUniforms, sea: SeaUniforms, foam: THREE.Te
         foam = clamp(foam + hw, 0.0, 1.0);
         float crest = clamp(0.5 + dot(sg, vec2(0.7, 0.9)) * 3.0, 0.0, 1.0);
         vec3 water = mix(uSeaDeep, uSeaShallow, crest * 0.7 + near * 0.4);
-        diffuseColor.rgb = mix(water, uFoamCol, foam * 0.85);
+        // Foam in the deck's shade is dimmer than foam out in the open.
+        diffuseColor.rgb = mix(water, uFoamCol * (1.0 - 0.6 * under), foam * 0.85);
         float seaFoam = foam;
         float seaUnder = under;`,
       )
       .replace(
         '#include <roughnessmap_fragment>',
-        `#include <roughnessmap_fragment>\nroughnessFactor = mix(0.13, 0.6, seaFoam);`,
+        `#include <roughnessmap_fragment>\nroughnessFactor = mix(0.26, 0.6, seaFoam);`,
       )
       .replace(
         '#include <lights_fragment_begin>',
-        dirSpecularScaledLightsChunk('uSeaDirK'),
+        dirSpecularScaledLightsChunk('uSeaDirK', 0.35, 0.6),
       )
       .replace(
         '#include <normal_fragment_maps>',
@@ -202,7 +214,8 @@ export function createMainSea(sky: SkyUniforms, sea: SeaUniforms, foam: THREE.Te
           float sd = max(dot(R, normalize(vec3(uSunDir.x, max(uSunDir.y, 0.0) + 0.24, uSunDir.z))), 0.0);
           vec3 glit = uSunDisc * pow(sd, 400.0) * 0.03 * uGlitter;
           float md = max(dot(R, normalize(vec3(uMoonDir.x, uMoonDir.y + 0.22, uMoonDir.z))), 0.0);
-          glit += vec3(0.8, 0.9, 1.1) * (pow(md, 500.0) * 3.0 + pow(md, 60.0) * 0.03) * uMoon * uGlitter;
+          // Moon: a dim, broken path of small glints (kept under the night bloom threshold).
+          glit += vec3(0.75, 0.85, 1.05) * (pow(md, 900.0) * 0.55 + pow(md, 60.0) * 0.012) * uMoon * uGlitter;
           float shadeK = 1.0 - 0.75 * seaUnder;
           vec3 refl = (sky * fres * (1.0 - seaFoam)) * shadeK;
           outgoingLight = outgoingLight + refl + glit * (1.0 - seaFoam) * shadeK;
@@ -214,7 +227,7 @@ export function createMainSea(sky: SkyUniforms, sea: SeaUniforms, foam: THREE.Te
         #include <opaque_fragment>`,
       );
   };
-  mat.customProgramCacheKey = () => 'lf-main-sea-v1';
+  mat.customProgramCacheKey = () => 'lf-main-sea-v4';
   // Covers the frame below the seam (and a margin for screen shake).
   const geo = new THREE.PlaneGeometry(220, 70, 1, 1).rotateX(-Math.PI / 2).translate(0, PIER.waterY, -2);
   const mesh = new THREE.Mesh(geo, mat);

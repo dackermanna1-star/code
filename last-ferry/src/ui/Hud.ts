@@ -5,15 +5,17 @@
 //   top left      chapter tag
 //   top centre    boarding bar: ferry icon, PASSENGERS 23 / 48, one tick per
 //                 passenger (boss phases: skull, boss name, red life bar with a
-//                 lagging "damage" ghost)
+//                 lagging "damage" ghost; mop-up: MOP UP · N LEFT)
 //   top right     money · kills
 //   bottom left   Captain's Favour (ship's-wheel ring, pulsing F when ready),
-//                 horn H chip, crane chip; health above them only when hurt
+//                 horn H chip, crane chip (glows when a crowd is under the
+//                 pallet); health above them only when hurt
 //   bottom centre six weapon tiles (key, silhouette, price or ammo; locked /
 //                 affordable / owned / selected states; click to buy/select)
 //   bottom right  active weapon: name, ammo (revolver cylinder, shells, flare,
 //                 bolt or a magazine bar), reload bar, outboard heat + RPM
 import type { WeaponId } from '../config/ids';
+import { CRANE } from '../config/world';
 import { Callouts } from './Callouts';
 import { clamp01, fluidLayer, fmtInt, fromHtml, h, retrigger } from './dom';
 import type { CalloutKind, HudSlot, HudSnapshot } from './hudTypes';
@@ -128,6 +130,8 @@ export class Hud {
   private pFavourReady: boolean | null = null;
   private pHorn: boolean | null = null;
   private pCrane: boolean | null = null;
+  private pCraneHot = false;
+  private pLeft = -1;
   private pHealth = -1;
   private moneyPulseAt = 0;
 
@@ -290,6 +294,11 @@ export class Hud {
     return this.visible;
   }
 
+  /** Flash an ability chip to point at it (e.g. the horn when one of them nears the gangway). */
+  flashChip(which: 'horn' | 'crane'): void {
+    retrigger(which === 'horn' ? this.hornChip : this.craneChip, 'is-hint');
+  }
+
   /** Flash a tile as "can't afford" (e.g. a 1–6 key press on a locked weapon). */
   denySlot(id: WeaponId): void {
     const tv = this.tiles.find((t) => t.id === id);
@@ -309,8 +318,11 @@ export class Hud {
   private updateBoard(s: HudSnapshot): void {
     if (s.mode !== this.pMode) {
       this.pMode = s.mode;
-      this.root.classList.toggle('is-boss', s.mode === 'boss');
+      this.root.classList.toggle('is-boss', s.mode === 'boss' || s.mode === 'mopup');
+      this.root.classList.toggle('is-mopup', s.mode === 'mopup');
       this.pBoss = -1;
+      this.pBossName = '';
+      this.pLeft = -1;
     }
     if (s.chapter !== this.pChapter || s.chapterName !== this.pChName) {
       this.pChapter = s.chapter;
@@ -327,6 +339,24 @@ export class Hud {
     if (danger !== this.pDanger) {
       this.pDanger = danger;
       this.board.classList.toggle('is-danger', danger);
+    }
+    if (s.mode === 'mopup') {
+      // The boss is down; the stragglers still on the deck hold up the end of the chapter.
+      if (this.pBossName !== 'MOP UP') {
+        this.pBossName = 'MOP UP';
+        this.bossName.textContent = 'MOP UP';
+      }
+      const left = Math.max(0, Math.round(s.stragglers ?? 0));
+      const max = Math.max(left, Math.round(s.stragglersMax ?? 0), 1);
+      if (left !== this.pLeft) {
+        if (this.pLeft >= 0 && left < this.pLeft) retrigger(this.board, 'is-hit');
+        this.pLeft = left;
+        const f = left / max;
+        this.bossFill.style.transform = `scaleX(${f})`;
+        this.bossGhost.style.transform = `scaleX(${f})`;
+        this.bossPct.textContent = `${left} LEFT`;
+      }
+      return;
     }
     if (s.mode === 'boss') {
       if (s.bossName !== this.pBossName) {
@@ -544,8 +574,13 @@ export class Hud {
       const restored = this.pCrane === false && s.craneReady;
       this.pCrane = s.craneReady;
       this.craneChip.classList.toggle('is-used', !s.craneReady);
-      this.craneChip.title = s.craneReady ? 'Shoot the crane hook to drop the crates' : 'Crane used this chapter';
+      this.craneChip.title = s.craneReady ? 'Line up with the crane hook and shoot it to drop the crates' : 'Crane used this chapter';
       if (restored) retrigger(this.craneChip, 'is-fresh');
+    }
+    const hot = s.craneReady && (s.craneUnder ?? 0) >= CRANE.crowd;
+    if (hot !== this.pCraneHot) {
+      this.pCraneHot = hot;
+      this.craneChip.classList.toggle('is-hot', hot);
     }
     const hp = Math.round(clamp01(s.health) * 200) / 200;
     if (hp !== this.pHealth) {

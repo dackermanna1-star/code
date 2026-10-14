@@ -1090,6 +1090,58 @@
   animation: lf-chip-fresh 900ms var(--lf-ease);
 }
 
+/* Pointing at a chip (the horn when one of them nears the gangway). */
+.lf-chip.is-hint {
+  animation: lf-chip-hint 520ms ease-in-out 3;
+}
+
+@keyframes lf-chip-hint {
+  50% {
+    background: rgba(255, 73, 54, 0.4);
+    box-shadow: inset 0 0 0 1.5px #ff8a76, 0 0 18px rgba(255, 73, 54, 0.55);
+    transform: scale(1.12);
+  }
+}
+
+/* A crowd under the pallet: the crane chip glows. */
+.lf-chip.is-hot {
+  background: rgba(233, 172, 78, 0.22);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 217, 154, 0.75), 0 0 12px rgba(233, 172, 78, 0.45);
+  color: var(--lf-fg);
+  animation: lf-chip-hot 1s ease-in-out infinite;
+}
+
+@keyframes lf-chip-hot {
+  50% {
+    box-shadow: inset 0 0 0 1.5px rgba(255, 217, 154, 0.35), 0 0 4px rgba(233, 172, 78, 0.2);
+  }
+}
+
+/* Mop-up: the boss bar counts the stragglers, in brass. */
+.lf-hud.is-mopup .lf-boss-name {
+  color: var(--lf-brass-hi, #ffd99a);
+}
+
+.lf-hud.is-mopup .lf-boss-skull {
+  color: var(--lf-brass, #e9ac4e);
+  filter: drop-shadow(0 0 5px rgba(233, 172, 78, 0.5));
+  animation: none;
+}
+
+.lf-hud.is-mopup .lf-boss-fill {
+  background: linear-gradient(180deg, #ffd99a 0%, #e9ac4e 55%, #b47a26 100%);
+  box-shadow: 0 0 10px rgba(233, 172, 78, 0.55);
+}
+
+.lf-hud.is-mopup .lf-boss-track {
+  background: rgba(233, 172, 78, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(233, 172, 78, 0.25);
+}
+
+.lf-hud.is-mopup .lf-boss-track::after {
+  display: none;
+}
+
 @keyframes lf-chip-fresh {
   0% {
     background: rgba(233, 172, 78, 0.45);
@@ -1747,11 +1799,12 @@
   height: 110px;
   margin-bottom: -50px;
   white-space: nowrap;
-  color: rgba(240, 166, 72, 0.34);
+  color: rgba(240, 166, 72, 0.3);
   transform-origin: 50% 0;
   transform: translateY(60px) scaleY(-0.55);
-  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 25%, rgba(0, 0, 0, 0.9) 100%);
-  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 25%, rgba(0, 0, 0, 0.9) 100%);
+  /* Only a faint shimmer just under the water line (≈15 px, ≈15% at most): it sits over the deck. */
+  -webkit-mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 72%, rgba(0, 0, 0, 0.55) 100%);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 72%, rgba(0, 0, 0, 0.55) 100%);
   filter: blur(0.8px);
   pointer-events: none;
   animation: lf-ripple 4.6s ease-in-out infinite;

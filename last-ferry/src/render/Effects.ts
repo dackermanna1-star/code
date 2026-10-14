@@ -13,6 +13,10 @@ export const enum Frame {
   Ring = 5,
   Mist = 6,
   Flake = 7,
+  /** Noisy ring with gaps (ring() only). */
+  BrokenRing = 8,
+  /** Wide soft dust ring (ring() only). */
+  Shock = 9,
 }
 
 function makeAtlas(): THREE.CanvasTexture {
@@ -133,6 +137,37 @@ function makeAtlas(): THREE.CanvasTexture {
       else g.lineTo(px, py);
     }
     g.fill();
+  }
+  // 8 broken ring: a thin, noisy ring with gaps (water rings: never a clean UI-like circle)
+  {
+    const [x, y] = cell(8);
+    const cx = x + S / 2;
+    const cy = y + S / 2;
+    for (let i = 0; i < 110; i++) {
+      const a = (i / 110) * Math.PI * 2;
+      const gap = Math.sin(a * 3 + 1.3) + 0.6 * Math.sin(a * 7 + 0.4) + 0.4 * Math.sin(a * 13 + 2.1);
+      if (gap > 0.95) continue;
+      const r = S * (0.37 + (rnd() - 0.5) * 0.05);
+      const w = S * (0.018 + rnd() * 0.026) * (gap > 0.5 ? 0.6 : 1);
+      radial(cx + Math.cos(a) * r, cy + Math.sin(a) * r, w * 1.8, [
+        [0, 'rgba(255,255,255,0.5)'],
+        [1, 'rgba(255,255,255,0)'],
+      ]);
+    }
+  }
+  // 9 shock: a wide, soft, lumpy ring of dust (blast and impact shock on the planks)
+  {
+    const [x, y] = cell(9);
+    const cx = x + S / 2;
+    const cy = y + S / 2;
+    for (let i = 0; i < 70; i++) {
+      const a = rnd() * Math.PI * 2;
+      const r = S * (0.25 + rnd() * 0.15);
+      radial(cx + Math.cos(a) * r, cy + Math.sin(a) * r, S * (0.04 + rnd() * 0.05), [
+        [0, 'rgba(255,255,255,0.22)'],
+        [1, 'rgba(255,255,255,0)'],
+      ]);
+    }
   }
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
@@ -518,6 +553,18 @@ interface Ring {
   r0: number;
   r1: number;
   a0: number;
+  /** Base colour; `lit` rings follow Effects.lightTint (darker at night). */
+  color: THREE.Color;
+  lit: boolean;
+}
+
+export interface RingOpts {
+  /** 'add' (default): glowing; 'normal': a matte mark (dust, water). */
+  blend?: 'add' | 'normal';
+  /** Scale the colour by the scene light (Effects.lightTint). Default: true for normal rings. */
+  lit?: boolean;
+  /** Atlas cell: Ring (default, clean), BrokenRing or Shock. */
+  frame?: Frame;
 }
 
 // ---------------------------------------------------------------- effects facade
@@ -616,7 +663,22 @@ export class Effects {
     slot.light.intensity = intensity;
   }
 
-  ring(x: number, y: number, z: number, r0: number, r1: number, life: number, color: THREE.ColorRepresentation, alpha: number): void {
+  private ringGeos = new Map<number, THREE.PlaneGeometry>();
+  /** Quad mapped to one atlas cell. */
+  private ringGeo(frame: number): THREE.PlaneGeometry {
+    let g = this.ringGeos.get(frame);
+    if (!g) {
+      g = new THREE.PlaneGeometry(2, 2);
+      const cx = frame % 4;
+      const cy = Math.floor(frame / 4);
+      const uv = g.getAttribute('uv') as THREE.BufferAttribute;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, (cx + uv.getX(i)) / 4, 1 - (cy + (1 - uv.getY(i))) / 4);
+      this.ringGeos.set(frame, g);
+    }
+    return g;
+  }
+
+  ring(x: number, y: number, z: number, r0: number, r1: number, life: number, color: THREE.ColorRepresentation, alpha: number, o: RingOpts = {}): void {
     let mesh = this.ringPool.pop();
     if (!mesh) {
       const m = new THREE.MeshBasicMaterial({
@@ -627,18 +689,18 @@ export class Effects {
         // additive: first-person fog would add a haze-coloured quad wherever alpha > 0
         fog: false,
       });
-      const g = new THREE.PlaneGeometry(2, 2);
-      // Use the ring cell of the atlas.
-      const uv = g.getAttribute('uv') as THREE.BufferAttribute;
-      for (let i = 0; i < uv.count; i++) uv.setXY(i, (1 + uv.getX(i)) / 4, 1 - (1 + (1 - uv.getY(i))) / 4);
-      mesh = new THREE.Mesh(g, m);
+      mesh = new THREE.Mesh(this.ringGeo(Frame.Ring), m);
       mesh.rotation.x = -Math.PI / 2;
       mesh.renderOrder = 5;
     }
+    const normal = o.blend === 'normal';
+    mesh.geometry = this.ringGeo(o.frame ?? Frame.Ring);
+    const mat = mesh.material as THREE.MeshBasicMaterial;
+    mat.blending = normal ? THREE.NormalBlending : THREE.AdditiveBlending;
+    mat.color.set(color);
     mesh.position.set(x, y, z);
-    (mesh.material as THREE.MeshBasicMaterial).color.set(color);
     this.scene.add(mesh);
-    this.rings.push({ mesh, life, max: life, r0, r1, a0: alpha });
+    this.rings.push({ mesh, life, max: life, r0, r1, a0: alpha, color: new THREE.Color(color), lit: o.lit ?? normal });
   }
 
   // ------------------------------------------------------------ presets
@@ -728,22 +790,26 @@ export class Effects {
     }
   }
 
+  /**
+   * Something falls in the water: a spray of droplets and a faint, broken ripple
+   * (lit by the scene, normal-blended: it must not read as a UI marker).
+   */
   splash(p: { x: number; y: number; z: number }, size: number): void {
-    const n = Math.round((6 + size * 14) * this.density);
+    const n = Math.round((5 + size * 10) * this.density);
     for (let i = 0; i < n; i++) {
       const a = Math.random() * Math.PI * 2;
-      const s = 0.8 + Math.random() * 2.5 * size;
+      const s = 0.6 + Math.random() * 2.0 * size;
       this.emit(false, p.x, p.y, p.z, {
-        vel: [Math.cos(a) * s, 2 + Math.random() * 4 * size, Math.sin(a) * s],
+        vel: [Math.cos(a) * s, 2 + Math.random() * 3.5 * size, Math.sin(a) * s],
         g: 16,
-        size: [0.06 + size * 0.05, 0.03],
-        life: 0.5 + Math.random() * 0.3,
-        color: 0xe8f2ff,
-        alpha: [0.9, 0.2],
+        size: [0.05 + size * 0.04, 0.025],
+        life: 0.45 + Math.random() * 0.3,
+        color: 0xc8d4e0,
+        alpha: [0.75, 0.1],
         frame: Frame.Dot,
       });
     }
-    this.ring(p.x, p.y + 0.02, p.z, 0.2, 1 + size * 1.6, 0.9, 0xa8c0d8, 0.6);
+    this.ring(p.x, p.y + 0.02, p.z, 0.15, Math.min(2, 0.6 + size * 0.9), 0.65, 0x8aa0b4, 0.24, { blend: 'normal', frame: Frame.BrokenRing });
   }
 
   explosion(p: { x: number; y: number; z: number }, radius: number): void {
@@ -858,6 +924,7 @@ export class Effects {
       r.mesh.scale.set(s, s, s);
       const m = r.mesh.material as THREE.MeshBasicMaterial;
       m.opacity = r.a0 * (1 - t);
+      if (r.lit) m.color.copy(r.color).multiply(Effects.lightTint);
       this.rings[w++] = r;
     }
     this.rings.length = w;

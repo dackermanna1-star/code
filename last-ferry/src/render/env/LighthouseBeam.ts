@@ -38,10 +38,13 @@ const SHAFT_FRAG = /* glsl */ `
   }
   void main() {
     float f = abs(dot(normalize(vN), normalize(vV)));
-    float core = pow(f, 3.0);
+    // Soft across the shaft: the core falls off smoothly to nothing at the silhouette.
+    float core = pow(f, 4.0) * smoothstep(0.15, 0.6, f);
     // Drifting mist in the beam.
     float mist = 0.65 + 0.35 * n2(vWorld.xz * 0.12 + vec2(uTime * 0.3, uTime * 0.1)) * n2(vWorld.xy * 0.2 - uTime * 0.2);
-    float k = core * mist * (0.55 + 0.45 * (1.0 - vAlong)) * smoothstep(0.0, 0.04, vAlong) * uLevel;
+    // Brightest near the lantern, fading out well before the cone's open end
+    // (it must never end in a hard straight edge across the frame).
+    float k = core * mist * (0.45 + 0.55 * (1.0 - vAlong)) * smoothstep(0.0, 0.04, vAlong) * smoothstep(1.0, 0.62, vAlong) * uLevel;
     // Fade out below the deck (the water / deck catch the light instead).
     k *= smoothstep(-1.0, 1.5, vWorld.y);
     gl_FragColor = vec4(uColor * k, 1.0);
@@ -61,7 +64,7 @@ export class LighthouseBeam {
 
   constructor(quality: 'low' | 'medium' | 'high') {
     this.group.name = 'LighthouseBeam';
-    this.spot = new THREE.SpotLight(0xfff0d0, 0, 0, 0.085, 0.85, 0);
+    this.spot = new THREE.SpotLight(0xfff0d0, 0, 0, 0.065, 0.9, 0);
     this.spot.position.copy(ORIGIN);
     this.spot.castShadow = false;
     this.group.add(this.spot, this.spot.target);
@@ -113,9 +116,9 @@ export class LighthouseBeam {
     this.spot.target.updateMatrixWorld();
     const on = Math.max(0, 1 - Math.abs(best) / 0.75);
     this.sweep = on;
-    this.spot.intensity = 7 * level * night * on;
+    this.spot.intensity = 3.5 * level * night * on;
     this.shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
-    this.shaftMat.uniforms.uLevel.value = 0.17 * level * night * Math.pow(on, 0.8);
+    this.shaftMat.uniforms.uLevel.value = 0.085 * level * night * Math.pow(on, 0.8);
     this.shaftMat.uniforms.uTime.value = time;
     this.shaft.visible = this.shaftMat.uniforms.uLevel.value > 0.001;
     void dt;

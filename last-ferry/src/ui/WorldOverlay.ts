@@ -2,7 +2,12 @@
 //   - the hunter's crosshair in front of him with an ammo ring (segmented for
 //     small clips), a brass reload ring and the outboard's spin-up arc;
 //   - "+$40" money pop-ups that float up and fade;
-//   - twitch warnings over downed bodies that are about to rise;
+//   - twitch warnings over downed bodies that are about to rise (and a quiet
+//     grey tell a few seconds earlier: that body is not dead yet);
+//   - the crane: the hook marker and the drop square, a "line up" arrow by the
+//     crosshair, "DROP" when the gun line is on the hook;
+//   - markers: mop-up stragglers, red rings under zombies nearing the gangway,
+//     the one that boarded (game over);
 //   - screen tints: damage vignette, gas-cloud green, night vignette, and a red
 //     glow on the right edge when a zombie nears the gangway.
 // Positions are CSS px inside the view (Stage.project gives them), or world
@@ -39,9 +44,39 @@ export interface OverlayTwitch {
   t: number;
 }
 
+/** The crane affordance (CSS px). */
+export interface OverlayCrane {
+  /** The hook block's centre. (The drop square itself is painted on the deck by the game view.) */
+  hook: { x: number; y: number };
+  /** 0..1 how close the gun line is to the hook's lane (1 = lined up). */
+  near: number;
+  lined: boolean;
+  /** Zombies under the pallet, and how many make it worth a drop. */
+  under: number;
+  crowd: number;
+  /** Which way to move to line up: -1 up, +1 down, 0 lined up. */
+  dir: number;
+  /** Where the crosshair is (the arrow hangs next to it). */
+  ch?: { x: number; y: number };
+}
+
+/** A marker on a zombie: head chevron at (x, y), deck ring at (fx, fy) with radius r (CSS px). */
+export interface OverlayMark {
+  kind: 'straggler' | 'gangway' | 'culprit';
+  x: number;
+  y: number;
+  fx: number;
+  fy: number;
+  r: number;
+}
+
 export interface OverlayFrame {
   crosshair?: OverlayCrosshair | null;
   twitches?: OverlayTwitch[];
+  /** Downed bodies a few seconds before they start twitching (t 0..1). */
+  stirring?: OverlayTwitch[];
+  crane?: OverlayCrane | null;
+  marks?: OverlayMark[];
   /** 0..1 red damage vignette. */
   damage?: number;
   /** 0..1 inside a gas cloud: green tint. */
@@ -98,7 +133,7 @@ export class WorldOverlay {
   /** Night vignette strength set by options/chapter; combined with frame.night. */
   nightBase = 0;
   /** Debug: last frame's drawn item counts. */
-  readonly stats = { popups: 0, twitches: 0, crosshair: false };
+  readonly stats = { popups: 0, twitches: 0, crosshair: false, marks: 0, crane: '' };
 
   constructor(view: HTMLElement) {
     prepareView(view);
@@ -188,11 +223,17 @@ export class WorldOverlay {
     const night = clamp01(Math.max(this.nightBase, f.night ?? 0));
     const danger = clamp01(f.danger ?? 0);
     const tw = f.twitches ?? [];
+    const stir = f.stirring ?? [];
+    const marks = f.marks ?? [];
+    const crane = f.crane ?? null;
     const ch = f.crosshair ?? null;
-    const empty = !ch && tw.length === 0 && this.popups.length === 0 && damage < 0.002 && gas < 0.002 && night < 0.002 && danger < 0.002;
+    const empty =
+      !ch && !crane && tw.length === 0 && stir.length === 0 && marks.length === 0 && this.popups.length === 0 && damage < 0.002 && gas < 0.002 && night < 0.002 && danger < 0.002;
     this.stats.popups = this.popups.length;
     this.stats.twitches = tw.length;
     this.stats.crosshair = !!ch;
+    this.stats.marks = marks.length;
+    this.stats.crane = crane ? (crane.lined ? 'lined' : crane.near > 0 ? 'near' : crane.under >= crane.crowd ? 'crowd' : 'idle') : '';
     if (empty && this.wasEmpty && !this.dirty) return;
     this.wasEmpty = empty;
     this.dirty = false;
@@ -209,8 +250,12 @@ export class WorldOverlay {
     if (danger > 0.002) this.drawDanger(danger);
     if (damage > 0.002) this.drawDamage(damage);
 
+    if (crane) this.drawCrane(crane, k);
+    for (const m of marks) this.drawMark(m, k);
+    for (const t of stir) this.drawStir(t, k);
     for (const t of tw) this.drawTwitch(t, k);
     if (ch) this.drawCrosshair(ch, k);
+    if (crane) this.drawCraneHint(crane, k);
     for (const p of this.popups) this.drawPopup(p, k);
     ctx.globalAlpha = 1;
   }
@@ -421,6 +466,124 @@ export class WorldOverlay {
     ctx.closePath();
     ctx.fillStyle = SIGNAL;
     ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  /** "Not dead yet": a small grey ring that fills before the red '!' takes over. */
+  private drawStir(t: OverlayTwitch, k: number): void {
+    const { ctx } = this;
+    const p = clamp01(t.t);
+    const x = t.x;
+    const y = t.y - 22 * k;
+    const r = 5 * k;
+    ctx.globalAlpha = 0.35 + 0.45 * p;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(10, 10, 12, 0.6)';
+    ctx.fill();
+    ctx.lineWidth = Math.max(1, 1.3 * k);
+    ctx.strokeStyle = 'rgba(200, 200, 205, 0.35)';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p);
+    ctx.strokeStyle = 'rgba(225, 222, 215, 0.9)';
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  /** Stragglers (mop-up), zombies nearing the gangway, the one that boarded. */
+  private drawMark(m: OverlayMark, k: number): void {
+    const { ctx } = this;
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * (m.kind === 'gangway' ? 9 : 5));
+    if (m.kind !== 'straggler') {
+      // A ring on the deck under it.
+      const rx = m.r * (m.kind === 'culprit' ? 1.6 : 1.25) + pulse * 3 * k;
+      ctx.beginPath();
+      ctx.ellipse(m.fx, m.fy, rx, rx * 0.42, 0, 0, Math.PI * 2);
+      ctx.globalAlpha = m.kind === 'culprit' ? 0.95 : 0.55 + 0.35 * pulse;
+      ctx.lineWidth = Math.max(1.2, (m.kind === 'culprit' ? 3 : 2) * k);
+      ctx.strokeStyle = SIGNAL;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    if (m.kind === 'gangway') return;
+    // A chevron over the head.
+    const s = (m.kind === 'culprit' ? 9 : 5.5) * k;
+    const y = m.y - (m.kind === 'culprit' ? 6 : 2) * k - pulse * 2.5 * k;
+    ctx.beginPath();
+    ctx.moveTo(m.x - s, y - s * 0.9);
+    ctx.lineTo(m.x, y);
+    ctx.lineTo(m.x + s, y - s * 0.9);
+    this.outlined(Math.max(1.4, (m.kind === 'culprit' ? 3 : 2) * k), m.kind === 'culprit' ? SIGNAL : '#ff7a5c', m.kind === 'culprit' ? 1 : 0.85);
+  }
+
+  /** The hook marker: brackets around the block, brass when lined up, with DROP / the crowd under it. */
+  private drawCrane(c: OverlayCrane, k: number): void {
+    const { ctx } = this;
+    const crowd = c.under >= c.crowd;
+    const show = Math.max(c.near, crowd ? 0.55 : 0);
+    if (show <= 0.01) return;
+    const pulse = 0.5 + 0.5 * Math.sin(this.time * (c.lined ? 7 : 4));
+    const r = (11 + (c.lined ? 3 * pulse : 0)) * k;
+    const { x, y } = c.hook;
+    const col = c.lined ? BRASS_HI : 'rgba(255, 249, 238, 0.95)';
+    const a = Math.min(1, 0.3 + show);
+    for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+      ctx.beginPath();
+      ctx.moveTo(x + sx * r, y + sy * r * 0.45);
+      ctx.lineTo(x + sx * r, y + sy * r);
+      ctx.lineTo(x + sx * r * 0.45, y + sy * r);
+      this.outlined(Math.max(1.2, 1.8 * k), col, a);
+    }
+    // Label over the hook: how many are under it, or DROP when lined up.
+    const label = c.lined ? (c.under > 0 ? `DROP ×${c.under}` : 'DROP') : crowd ? `×${c.under}` : '';
+    if (label) {
+      ctx.globalAlpha = a;
+      ctx.font = `800 ${(11 * k).toFixed(2)}px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = Math.max(2, 3 * k);
+      ctx.strokeStyle = OUTLINE;
+      ctx.strokeText(label, x, y - r - 3 * k);
+      ctx.fillStyle = c.lined ? BRASS_HI : '#ffd1b8';
+      ctx.fillText(label, x, y - r - 3 * k);
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  /**
+   * Next to the crosshair: "ON THE HOOK" whenever the gun line is on it (a shot
+   * drops the pallet), and "HOOK" with an arrow toward its lane when a crowd
+   * stands under it and the Bosun is close to that lane.
+   */
+  private drawCraneHint(c: OverlayCrane, k: number): void {
+    if (!c.ch || c.near <= 0.01 || (!c.lined && c.under < c.crowd)) return;
+    const { ctx } = this;
+    const x = c.ch.x - 26 * k;
+    const y = c.ch.y;
+    ctx.globalAlpha = Math.min(1, 0.25 + c.near);
+    ctx.font = `800 ${(9.5 * k).toFixed(2)}px ${FONT}`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(2, 2.6 * k);
+    ctx.strokeStyle = OUTLINE;
+    const text = c.lined ? 'ON THE HOOK' : 'HOOK';
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = c.lined ? BRASS_HI : FG;
+    ctx.fillText(text, x, y);
+    if (!c.lined) {
+      // A chevron pointing the way to move.
+      const ax = x + 8 * k;
+      const s = 4 * k;
+      const ay = y + c.dir * 1.5 * k;
+      ctx.beginPath();
+      ctx.moveTo(ax - s, ay - c.dir * s * 0.6);
+      ctx.lineTo(ax, ay + c.dir * s * 0.6);
+      ctx.lineTo(ax + s, ay - c.dir * s * 0.6);
+      this.outlined(Math.max(1.2, 1.6 * k), FG, Math.min(1, 0.25 + c.near));
+    }
     ctx.globalAlpha = 1;
   }
 

@@ -22,7 +22,12 @@ export type MatClass =
   /** Transparent polycarbonate / glass (riot shield, visor). Does not cast shadows. */
   | 'glass'
   /** Self-lit: the vertex colour is emitted (flare tips, embers, pipe ember, hot barrels). */
-  | 'glow';
+  | 'glow'
+  /**
+   * Retro-reflective tape (riot gear): lit like plastic and also emits its own
+   * colour by HIVIS.level (raised at night: it catches every lamp and flash).
+   */
+  | 'hivis';
 
 const mk = (p: THREE.MeshStandardMaterialParameters) =>
   new THREE.MeshStandardMaterial({ vertexColors: true, ...p });
@@ -42,18 +47,24 @@ export const MATERIALS: Record<MatClass, THREE.MeshStandardMaterial> = {
   ice: mk({ roughness: 0.15, metalness: 0, flatShading: true }),
   glass: mk({ roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.4, depthWrite: false }),
   glow: makeGlow(),
+  hivis: makeGlow({ color: 0xffffff, roughness: 0.35, emissiveIntensity: 0.15 }, 'lf-hivis-vcolor'),
 };
 
+/** Night level of the reflective tape (set by the game view from the darkness). */
+export function setHivisLevel(k: number): void {
+  MATERIALS.hivis.emissiveIntensity = k;
+}
+
 /** Emissive material whose emitted colour is the vertex colour (diffuse black). */
-function makeGlow(): THREE.MeshStandardMaterial {
-  const m = mk({ color: 0x000000, roughness: 1, metalness: 0, emissive: 0xffffff, emissiveIntensity: 1.4 });
+function makeGlow(o: THREE.MeshStandardMaterialParameters = {}, key = 'lf-glow-vcolor'): THREE.MeshStandardMaterial {
+  const m = mk({ color: 0x000000, roughness: 1, metalness: 0, emissive: 0xffffff, emissiveIntensity: 1.4, ...o });
   m.onBeforeCompile = (sh) => {
     sh.fragmentShader = sh.fragmentShader.replace(
       '#include <emissivemap_fragment>',
       '#include <emissivemap_fragment>\n#if defined( USE_COLOR ) || defined( USE_COLOR_ALPHA )\n\ttotalEmissiveRadiance *= vColor.rgb;\n#endif',
     );
   };
-  m.customProgramCacheKey = () => 'lf-glow-vcolor';
+  m.customProgramCacheKey = () => key;
   return m;
 }
 
@@ -76,11 +87,31 @@ export function charredMaterial(cls: MatClass, t: number): THREE.MeshStandardMat
   let m = CHAR_CACHE.get(key);
   if (!m) {
     const k = level / CHAR_LEVELS;
-    m = MATERIALS[cls].clone();
+    // Burnt tape no longer reflects: char it like plastic.
+    m = MATERIALS[cls === 'hivis' ? 'plastic' : cls].clone();
     m.color.copy(new THREE.Color(1, 1, 1).lerp(CHAR, Math.min(1, k * 1.04)));
     m.roughness = THREE.MathUtils.lerp(m.roughness, 0.95, k);
     m.metalness = THREE.MathUtils.lerp(m.metalness, 0.05, k);
     CHAR_CACHE.set(key, m);
+  }
+  return m;
+}
+
+const RISEN_CACHE = new Map<MatClass, THREE.MeshStandardMaterial>();
+/**
+ * Shared "risen" variant of a material class: a corpse that got back up is
+ * greyed-green and faintly self-lit (it reads as undead even lying flat at
+ * night). Marked like the charred variants so burning still chars it.
+ */
+export function risenMaterial(cls: MatClass): THREE.MeshStandardMaterial {
+  if (cls === 'glow' || cls === 'glass' || cls === 'eye') return MATERIALS[cls];
+  let m = RISEN_CACHE.get(cls);
+  if (!m) {
+    m = MATERIALS[cls].clone();
+    m.color.setRGB(0.72, 0.9, 0.6);
+    m.emissive.setRGB(0.05, 0.11, 0.02);
+    m.userData.lfCharred = true;
+    RISEN_CACHE.set(cls, m);
   }
   return m;
 }

@@ -25,6 +25,8 @@ export interface WeaponDef {
   reload: number;
   /** Shells go in one by one (shotgun); firing interrupts the reload. */
   perShell: boolean;
+  /** Reloads itself while holstered (the flare pistol: switch to it, fire, switch back). */
+  stowReload?: boolean;
   /** ± spread on screen (degrees); converted to a ground-plane yaw by spreadToYaw. */
   spreadDeg: number;
   /** Extra zombies a projectile passes through (harpoon: up to 5 in total). */
@@ -69,7 +71,7 @@ export const WEAPONS: Record<WeaponId, WeaponDef> = {
   },
   flare: {
     id: 'flare', name: 'Flare pistol', short: 'Flare Pistol', price: 2200, mode: 'flare',
-    damage: 50, pellets: 1, clip: 1, fireInterval: 0, reload: 1.2, perShell: false, spreadDeg: 0, pierce: 0,
+    damage: 50, pellets: 1, clip: 1, fireInterval: 0, reload: 1.2, perShell: false, stowReload: true, spreadDeg: 0, pierce: 0,
     recoil: 0.3, shake: 0.05, spinUp: 0, headoffRange: 0, knockback: 0, plateMult: 1, ignoresPlates: false,
     shell: 'normal', clipKind: 'none',
   },

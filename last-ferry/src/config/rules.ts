@@ -72,7 +72,7 @@ export const GAS = {
 export const HORN = { stagger: 2.0, bossStagger: 1.0, crawlerPush: 1.0, shake: 0.3 };
 
 /** Captain's Favour. The deck gun's own kills (and its nice shot) add nothing. */
-export const FAVOUR = { max: 100, kill: 2, headshot: 3, nice: 15, tidy: 8 };
+export const FAVOUR = { max: 100, kill: 1, headshot: 2, nice: 8, tidy: 5 };
 
 export const CANNON = {
   shells: 3,
@@ -117,7 +117,7 @@ export const HUNTER_RULES = {
 };
 
 /** Tidy: a downed body or crawler finished with a stomp. */
-export const MONEY = { headshotBonus: 15, niceBase: 25, tidy: 20 };
+export const MONEY = { headshotBonus: 10, niceBase: 25, tidy: 15 };
 
 /** §10 Feel: hit-stop, slow motion, shake requested by the rules. */
 export const FEEL = {

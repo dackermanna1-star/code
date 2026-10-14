@@ -68,7 +68,7 @@ export class Hazards {
     return f;
   }
 
-  /** Fire touched a gas cloud: it goes up. */
+  /** Fire touched a gas cloud: it goes up (kills collected into `kills`). */
   ignite(g: GasCloud, by: Player | null, kills?: Zombie[]): void {
     if (g.done) return;
     g.done = true;
@@ -77,6 +77,14 @@ export class Hazards {
       ignite: true,
       kills,
     });
+  }
+
+  /** Set a cloud off and pay the one who lit it for what the blast takes with it (a nice shot for 3+). */
+  igniteAndReward(g: GasCloud, by: Player | null): void {
+    const kills: Zombie[] = [];
+    this.ignite(g, by, kills);
+    const owner = by ?? g.owner;
+    if (owner) this.world.combat.reward(owner, kills, 'gas');
   }
 
   /** First gas cloud containing (x, z) (with a margin), if any. */
@@ -120,7 +128,7 @@ export class Hazards {
           if (fire === undefined && c.burning > 0) fire = c.burnBy;
         });
       }
-      if (fire !== undefined) this.ignite(g, fire);
+      if (fire !== undefined) this.igniteAndReward(g, fire);
     }
     // Deck fires: ignite whatever walks through or lies in them; scorch the hunter.
     for (const f of this.fires) {

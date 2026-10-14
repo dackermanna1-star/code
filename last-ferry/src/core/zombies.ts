@@ -140,10 +140,10 @@ export class Bloater extends Zombie {
     for (let i = 0; i < 2; i++) {
       const cx = this.x + this.world.rng.range(-0.5, 0.6);
       const cz = this.z + (i === 0 ? -0.45 : 0.45) + this.world.rng.range(-0.15, 0.15);
-      this.world.spawnCrawler('shambler', cx, cz, (this.look * 31 + i * 977) & 0x7fffffff);
+      this.world.spawnCrawler('shambler', cx, cz, (this.look * 31 + i * 977) & 0x7fffffff, 'bloater');
     }
     // A burning bloater goes up in flames the moment it bursts.
-    if (this.burning > 0 || this.lastHit?.source === 'fire') this.world.hazards.ignite(gas, owner);
+    if (this.burning > 0 || this.lastHit?.source === 'fire') this.world.hazards.igniteAndReward(gas, owner);
   }
 }
 
@@ -510,9 +510,13 @@ export class BigDave extends Zombie {
   protected afterDeath(): void {
     const owner = this.lastHit?.player ?? this.burnBy;
     this.world.hazards.addGas(this.x, this.z, BIG_DAVE.popGasRadius, GAS.seconds + 1, owner);
+    // His crawlers spill out behind him (away from the gangway) and drag themselves along slowly.
+    const rng = this.world.rng;
+    const cx = this.x - BIG_DAVE.crawlersBehind;
     for (let i = 0; i < BIG_DAVE.popCrawlers; i++) {
       const a = (i / BIG_DAVE.popCrawlers) * Math.PI * 2;
-      this.world.spawnCrawler('shambler', this.x + Math.cos(a) * 0.9, this.z + Math.sin(a) * 0.9, (this.look * 17 + i * 7919) & 0x7fffffff);
+      const speed = rng.range(BIG_DAVE.crawlerSpeed[0], BIG_DAVE.crawlerSpeed[1]);
+      this.world.spawnCrawler('shambler', cx + Math.cos(a) * 1.0, this.z + Math.sin(a) * 1.0, (this.look * 17 + i * 7919) & 0x7fffffff, 'bigdave', speed);
     }
   }
 }

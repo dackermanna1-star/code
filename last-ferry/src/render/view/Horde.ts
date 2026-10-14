@@ -7,7 +7,8 @@ import { PLATE_HELMET, type ZombieKind } from '../../config/ids';
 import { TICK } from '../../config/world';
 import type { GameEvents } from '../../core/events';
 import type { Zombie } from '../../core/Zombie';
-import { createNail, createStretcher, createZombieRig, STRETCHER_MODEL, type ZombieRigExt } from '../models/index';
+import { createNail, createStretcher, createZombieRig, risenMaterial, STRETCHER_MODEL, type ZombieRigExt } from '../models/index';
+import type { MatClass } from '../models/kit';
 import type { AnimInput, BoneSpec, CreatureRig } from '../models/types';
 import { Ragdoll } from '../Ragdoll';
 import { REFLECT_LAYER } from '../Stage';
@@ -72,6 +73,9 @@ const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
 const _anim: AnimInput = { state: 'walk', stateTime: 0, time: 0, distance: 0, speed: 0, dt: 0, params: {} };
 const NAIL_Q = new THREE.Quaternion();
+const UNDEAD_GLOW = new THREE.Color(0.22, 0.62, 0.06);
+const UNDEAD_EYE = new THREE.Color(0.75, 1.0, 0.3);
+const NIGHT_EYE = new THREE.Color(0.95, 0.85, 0.5);
 
 /** Detach a piece (prop, plate, apron) at its world transform as a one-body ragdoll. */
 export function dropPiece(ctx: Ctx, obj: THREE.Object3D, spec: BoneSpec, vel: THREE.Vector3, spin = 6, clone = false): { rag: Ragdoll; holder: THREE.Group } {
@@ -141,6 +145,8 @@ export class Horde {
     };
     // Crawlers spilling out of a bloater appear in view: pop them in.
     if (!rig && z.risen && this.onScreen(z.x, z.z)) rec.pop = 0;
+    // The risen are tinted (greyed green, faintly self-lit) while they crawl.
+    if (z.risen && rec.skin) for (const m of rec.skin.meshes) m.material = risenMaterial(m.userData.matClass as MatClass);
     this.recs.set(z.id, rec);
     if (z.stretcher && z.kind === 'medic') this.ensureStretcher(z.stretcher.id, z.x, z.z);
     return rec;
@@ -383,6 +389,8 @@ export class Horde {
         this.pieces.push(piece);
       }
 
+      // Eyes in the dark and the undead tell of risen crawlers.
+      this.tells(r, x, zz);
       // Fire on the body.
       if (z.burning > 0) this.burnFx(r, dt);
       // Crawl trail.
@@ -406,6 +414,29 @@ export class Horde {
       this.pieces[w++] = pc;
     }
     this.pieces.length = w;
+  }
+
+  /**
+   * Risen crawlers carry the same sickly green glow and pale green eyes as the
+   * bodies that are about to rise (they read even flat on the planks or inside
+   * gas); every other zombie only gets faint eye glints as the night falls,
+   * so the horde coming in from the dark left edge can be picked out.
+   */
+  private tells(r: ZRec, x: number, zz: number): void {
+    const ctx = this.ctx;
+    const z = r.z;
+    const risen = z.risen && !z.dead;
+    const dark = ctx.darkness;
+    if (!risen && dark < 0.05) return;
+    const head = r.rig.bones.get(r.rig.head);
+    const hp = head && head.visible ? head.getWorldPosition(_v) : null;
+    if (risen) {
+      const pulse = 0.85 + 0.15 * Math.sin(ctx.time * 5 + z.id);
+      ctx.halos.push(x + 0.2, 0.3, zz, UNDEAD_GLOW, 1.15 * pulse, 1.5, 0.9);
+      if (hp) ctx.halos.push(hp.x, hp.y + 0.03, hp.z, UNDEAD_EYE, 2.0, 0.22, 0.7);
+    } else if (hp && z.state !== 'carried') {
+      ctx.halos.push(hp.x + 0.08 * z.facing, hp.y + 0.03, hp.z, NIGHT_EYE, 1.3 * dark, 0.16, 0.6);
+    }
   }
 
   private burnFx(r: ZRec, dt: number): void {

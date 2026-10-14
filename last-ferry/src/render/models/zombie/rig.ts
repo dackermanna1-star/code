@@ -30,8 +30,10 @@ export interface ZombieRigExt extends ZombieRig {
 }
 
 /** Bloaters are the fat body scaled up by this factor; Big Dave even more (≈3 m to the top of his head). */
-export const BLOATER_SCALE = 1.2;
+export const BLOATER_SCALE = 1.27;
 export const BIG_DAVE_SCALE = 1.9;
+/** Riot brutes: the bulky body a little bigger than a shambler (≈1.95 m, the logic height). */
+export const RIOT_SCALE = 1.06;
 
 export function bodyTypeFor(kind: ZombieKind, look: Look): BodyType {
   switch (kind) {
@@ -50,7 +52,7 @@ export function bodyTypeFor(kind: ZombieKind, look: Look): BodyType {
 export function createZombie(kind: ZombieKind, lookSeed: number): ZombieRigExt {
   const look = decodeLook(kind, lookSeed >>> 0);
   const d = DIMS[bodyTypeFor(kind, look)];
-  const scale = kind === 'bigdave' ? BIG_DAVE_SCALE : kind === 'bloater' ? BLOATER_SCALE : 1;
+  const scale = kind === 'bigdave' ? BIG_DAVE_SCALE : kind === 'bloater' ? BLOATER_SCALE : kind === 'riot' ? RIOT_SCALE : 1;
   const sp = skinPal(look.tint);
   const { dress, extras, hat } = outfit(look, d, sp);
   const rb = new RigBuilder(`zombie:${look.key}`);

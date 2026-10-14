@@ -31,7 +31,7 @@ interface HRec {
 /** Muzzle flash look per weapon: [size, light intensity, light colour, star?]. */
 const FLASH: Record<WeaponId, { size: number; light: number; color: number; star: boolean; smoke: number }> = {
   revolver: { size: 0.62, light: 14, color: 0xffc070, star: true, smoke: 1.4 },
-  nailgun: { size: 0.22, light: 3, color: 0xd8e8ff, star: false, smoke: 0.6 },
+  nailgun: { size: 0.3, light: 4, color: 0xd8e8ff, star: false, smoke: 0.8 },
   shotgun: { size: 0.95, light: 22, color: 0xffb860, star: true, smoke: 2.2 },
   flare: { size: 0.7, light: 20, color: 0xff5a3a, star: true, smoke: 2 },
   harpoon: { size: 0.4, light: 0, color: 0xffffff, star: false, smoke: 1.8 },
@@ -139,7 +139,7 @@ export class Hunters {
 
   onStomp(e: GameEvents['stomp']): void {
     const ctx = this.ctx;
-    ctx.effects.ring(e.x, 0.03, e.z, 0.2, 1.5, 0.35, 0xd8c8b0, 0.55);
+    ctx.effects.ring(e.x, 0.04, e.z, 0.2, 1.4, 0.4, 0xa89a88, 0.3, { blend: 'normal', frame: F.Shock });
     dust(ctx.effects, e.x, e.z, 7, 0.3, 1.3);
     if (e.killed) {
       ctx.blood.spray({ x: e.x - 0.2, y: 0.12, z: e.z }, 40, { dirX: -1, speed: [1, 5], up: [0.5, 3], spread: Math.PI });
@@ -288,8 +288,16 @@ export class Hunters {
     const dark = ctx.darkness;
     // Flash.
     if (f.star) {
-      fx.emit(true, m.x - f.size * 0.35, m.y, m.z, { size: [f.size, f.size * 1.3], life: e.weapon === 'outboard' ? 0.04 : 0.06, color: 0xfff4c0, color1: f.color, alpha: [1, 0.2], frame: F.Star, rot: Math.random() * 6 });
-      fx.emit(true, m.x - f.size * 0.9, m.y, m.z, { size: [f.size * 0.8, f.size * 0.35], life: 0.05, color: 0xffd890, alpha: [0.9, 0], frame: F.Spark, streak: 0.0001, vel: [-30, 0, 0] });
+      const auto = e.weapon === 'outboard';
+      const life = auto ? 0.045 : 0.08;
+      fx.emit(true, m.x - f.size * 0.35, m.y, m.z, { size: [f.size, f.size * 1.3], life, color: 0xfff4c0, color1: f.color, alpha: [1, 0.2], frame: F.Star, rot: Math.random() * 6 });
+      // A warm glow around the muzzle so the shot reads at game scale (the star alone is a speck).
+      fx.emit(true, m.x - f.size * 0.45, m.y, m.z, { size: [f.size * 0.75, f.size * 0.9], life: life * 0.9, color: f.color, alpha: [auto ? 0.45 : 0.7, 0], frame: F.Dot });
+      fx.emit(true, m.x - f.size * 0.9, m.y, m.z, { size: [f.size * 1.1, f.size * 0.45], life: life * 0.8, color: 0xffd890, alpha: [0.9, 0], frame: F.Spark, streak: 0.0001, vel: [-30, 0, 0] });
+      if (!auto || Math.random() < 0.3) {
+        // Side jets: the cylinder gap / ported barrel spits two short flames up and down.
+        for (const sy of [1, -1]) fx.emit(true, m.x - f.size * 0.2, m.y, m.z, { size: [f.size * 0.45, f.size * 0.2], life: life * 0.7, color: 0xffe0a0, alpha: [0.8, 0], frame: F.Spark, streak: 0.0001, vel: [-6, sy * 22, rand(-3, 3)] });
+      }
     } else if (e.weapon === 'nailgun' || e.weapon === 'harpoon') {
       // Compressed air / gas: a pale puff.
       fx.emit(false, m.x - 0.08, m.y, m.z, { vel: [-1.5, 0.2, 0], drag: 5, size: [0.06, f.size * 2.2], life: 0.25, color: 0xe8eef4, alpha: [0.45, 0], frame: F.Smoke });

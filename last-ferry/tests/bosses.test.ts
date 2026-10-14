@@ -62,6 +62,14 @@ describe('Big Dave', () => {
     expect(deaths[0]).toMatchObject({ kind: 'bigdave', deathKind: 'pop', boss: true, corpseId: null });
     expect(gas.at(-1)!.radius).toBe(BIG_DAVE.popGasRadius);
     expect(spawns.filter((s) => s.risen)).toHaveLength(BIG_DAVE.popCrawlers);
+    // They spill out behind him (away from the gangway), slow, and are told apart from risen bodies.
+    const crawlers = w.zombies.filter((z) => z.risen && z.alive);
+    expect(crawlers).toHaveLength(BIG_DAVE.popCrawlers);
+    for (const c of crawlers) {
+      expect(c.x).toBeLessThan(d.x - 1);
+      expect(c.speed).toBeLessThanOrEqual(BIG_DAVE.crawlerSpeed[1]);
+      expect(c.spilled).toBe('bigdave');
+    }
     expect(slow).toContainEqual(FEEL.bossSlowmo);
     expect(money.find((m) => m.reason === 'bounty')!.amount).toBe(ZOMBIES.bigdave.bounty);
   });
@@ -79,21 +87,35 @@ describe('Big Dave', () => {
 });
 
 describe('The Marathon', () => {
-  it('40 runners in waves of 8 every 4 s, the 40th wears the gold medal', () => {
+  it('40 runners in pace groups (4–5 bunched in neighbouring lanes, alternating near/far half), the 40th wears the gold medal', () => {
     const w = new World({ seed: 5, startChapter: 2, skipSplash: true, god: true });
     w.skipToBoss();
     const boss = record(w, 'bossSpawn');
-    const spawns: Array<{ t: number; id: number }> = [];
-    w.events.on('spawn', (e) => e.boss && spawns.push({ t: w.tick, id: e.zombieId }));
+    const spawns: Array<{ t: number; id: number; z: number }> = [];
+    w.events.on('spawn', (e) => {
+      if (!e.boss) return;
+      const z = w.zombieById(e.zombieId)!;
+      spawns.push({ t: w.tick, id: e.zombieId, z: z.z });
+    });
     until(w, () => boss.length > 0, 1);
     expect(boss[0].name).toBe('The Marathon');
-    run(w, MARATHON.waveEvery * 5 + 0.1);
+    run(w, MARATHON.groupEvery * 12);
     expect(spawns).toHaveLength(MARATHON.total);
-    const waves = new Map<number, number>();
-    for (const s of spawns) waves.set(s.t, (waves.get(s.t) ?? 0) + 1);
-    expect([...waves.values()]).toEqual([8, 8, 8, 8, 8]);
-    const times = [...waves.keys()];
-    expect((times[1] - times[0]) / 50).toBeCloseTo(MARATHON.waveEvery, 1);
+    const groups = new Map<number, number[]>();
+    for (const s of spawns) groups.set(s.t, [...(groups.get(s.t) ?? []), s.z]);
+    const sizes = [...groups.values()].map((g) => g.length);
+    expect(sizes.reduce((a, b) => a + b, 0)).toBe(MARATHON.total);
+    for (const n of sizes.slice(0, -1)) expect(n).toBeGreaterThanOrEqual(MARATHON.group[0]);
+    for (const n of sizes) expect(n).toBeLessThanOrEqual(MARATHON.group[1] + MARATHON.group[0]);
+    const times = [...groups.keys()];
+    expect((times[1] - times[0]) / 50).toBeCloseTo(MARATHON.groupEvery, 1);
+    // Bunched: each group within 2 × laneSpread; consecutive groups on opposite halves.
+    const centres: number[] = [];
+    for (const g of groups.values()) {
+      expect(Math.max(...g) - Math.min(...g)).toBeLessThanOrEqual(2 * MARATHON.laneSpread + 1e-6);
+      centres.push(g.reduce((a, b) => a + b, 0) / g.length);
+    }
+    for (let i = 1; i < centres.length; i++) expect(Math.sign(centres[i])).toBe(-Math.sign(centres[i - 1]));
     const runners = spawns.map((s) => w.zombieById(s.id)).filter((z) => z);
     const medal = w.level.bosses.filter((z) => z.medal);
     expect(medal).toHaveLength(1);
@@ -118,10 +140,11 @@ describe('The Marathon', () => {
     const w = bossWorld(2);
     expect(w.bossLife).toBeCloseTo(1, 5);
     expect(w.level.bossesLeft).toBe(MARATHON.total);
-    expect(w.level.bosses).toHaveLength(MARATHON.perWave);
+    const first = w.level.bosses.length;
+    expect(first).toBeGreaterThanOrEqual(MARATHON.group[0]);
     for (const z of w.level.bosses) z.life = 0;
     w.resolveDeaths();
-    expect(w.bossLife).toBeCloseTo((MARATHON.total - MARATHON.perWave) / MARATHON.total, 5);
+    expect(w.bossLife).toBeCloseTo((MARATHON.total - first) / MARATHON.total, 5);
   });
 });
 

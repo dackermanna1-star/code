@@ -200,6 +200,20 @@ export class Weapon implements WeaponView {
     return true;
   }
 
+  /** One tick in the holster: a stowReload weapon (the flare pistol) reloads itself. */
+  stowed(): void {
+    if (!this.def.stowReload || this.bullets >= this.def.clip) {
+      this.stowT = 0;
+      return;
+    }
+    this.stowT += TICK;
+    if (this.stowT >= this.def.reload - EPS) {
+      this.bullets = this.def.clip;
+      this.stowT = 0;
+    }
+  }
+  private stowT = 0;
+
   /** Put away: a reload in progress is abandoned (per-shell: the shells loaded so far stay). */
   holster(): void {
     if (this.reloading) {

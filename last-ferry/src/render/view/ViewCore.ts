@@ -1,6 +1,6 @@
 // Wiring of the game view: subsystems, event routing, the frame update.
 import * as THREE from 'three';
-import { CAMERA_POS } from '../../config/view';
+import { CAMERA_FOV, CAMERA_POS } from '../../config/view';
 import type { GameEvents } from '../../core/events';
 import type { World } from '../../core/World';
 import type { BloodSystem } from '../BloodSystem';
@@ -13,13 +13,14 @@ import type { Stage } from '../Stage';
 import { Bodies } from './Bodies';
 import { BLOOD_K, type Ctx, type ViewOptions } from './ctx';
 import { Gore } from './Gore';
+import { Halos } from './Halos';
 import { HazardFx } from './HazardFx';
 import { Horde } from './Horde';
 import { Hunters } from './Hunters';
 import { LightPool } from './LightPool';
 import { Shake } from './Shake';
 import { F, metalHit, splinters } from './fx';
-import { createZombieRig } from '../models/index';
+import { createZombieRig, setHivisLevel } from '../models/index';
 import { skinify } from './skin';
 
 export type { ViewOptions };
@@ -67,6 +68,7 @@ export class ViewCore {
       corpses,
       gore,
       lights,
+      halos: new Halos(scene, 320, CAMERA_POS),
       shake: new Shake(stage.shakeOffset),
       world: null,
       time: 0,
@@ -81,6 +83,10 @@ export class ViewCore {
     stage.onUpdate(() => info.reset());
     stage.onPostRender(() => {
       this.lastCalls = info.render.calls;
+    });
+    stage.onResize(() => {
+      const size = stage.renderer.getDrawingBufferSize(new THREE.Vector2());
+      this.ctx.halos.setViewport(size.y, CAMERA_FOV);
     });
     this.horde = new Horde(this.ctx);
     this.bodies = new Bodies(this.ctx, this.horde);
@@ -209,6 +215,7 @@ export class ViewCore {
     ctx.blood.clear();
     ctx.gore.clear();
     ctx.lights.clear();
+    ctx.halos.clear();
     ctx.shake.reset();
     ctx.world = null;
   }
@@ -267,8 +274,11 @@ export class ViewCore {
     const dk = ctx.darkness;
     LIGHT_TINT.setRGB(1 - 0.66 * dk, 0.97 - 0.62 * dk, 0.94 - 0.5 * dk);
     Effects.lightTint.copy(LIGHT_TINT);
+    // Reflective tape (riot gear) shines more as the light goes.
+    setHivisLevel(0.1 + 0.5 * dk);
     ctx.blood.lightTint.setRGB(1 - 0.45 * dk, 1 - 0.45 * dk, 1 - 0.4 * dk);
     const w = ctx.world;
+    ctx.halos.begin();
     if (w) {
       env.setTimeOfDay(w.timeOfDay);
       env.setCrane(w.crane.state, w.crane.stateTime);
@@ -286,6 +296,7 @@ export class ViewCore {
     ctx.effects.update(dt);
     ctx.debris.update(dt);
     ctx.lights.commit(dt);
+    ctx.halos.end();
     ctx.shake.update(dt);
     env.update(dt, ctx.time);
   }

@@ -30,6 +30,8 @@ interface Flash {
   life: number;
   max: number;
   distance: number;
+  /** Already as bright as it should be at night (skip the night boost). */
+  flat: boolean;
 }
 
 const MAX_REQ = 96;
@@ -76,10 +78,13 @@ export class LightPool {
     q.key = intensity * distance * priority;
   }
 
-  /** A short flash that decays quadratically over `life` seconds. */
-  flash(x: number, y: number, z: number, color: THREE.ColorRepresentation, intensity: number, life: number, distance = 9): void {
+  /**
+   * A short flash that decays quadratically over `life` seconds. `flat`: no
+   * night boost (big blasts would otherwise light the whole pier like day).
+   */
+  flash(x: number, y: number, z: number, color: THREE.ColorRepresentation, intensity: number, life: number, distance = 9, flat = false): void {
     if (this.flashes.length > 24) this.flashes.shift();
-    this.flashes.push({ x, y, z, color: new THREE.Color(color), peak: intensity, life, max: life, distance });
+    this.flashes.push({ x, y, z, color: new THREE.Color(color), peak: intensity, life, max: life, distance, flat });
   }
 
   /** Assign the real lights (call once per frame after every system has made its requests). */
@@ -89,7 +94,7 @@ export class LightPool {
       f.life -= dt;
       if (f.life <= 0) continue;
       const t = f.life / f.max;
-      this.add(f.x, f.y, f.z, f.color, f.peak * t * t, f.distance, 2.5);
+      this.add(f.x, f.y, f.z, f.color, (f.peak * t * t) / (f.flat ? this.boost : 1), f.distance, 2.5);
       this.flashes[w++] = f;
     }
     this.flashes.length = w;

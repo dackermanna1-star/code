@@ -190,7 +190,10 @@ export class Combat {
       const point = { x: hit.x - w.rng.range(0, 0.25), y: hit.y, z: c.z };
       c.nails++;
       w.events.emit('nail', { zombieId: null, corpseId: c.id, point });
-      if (c.downed && ++c.pinNails >= REANIMATION.nailsToPin) w.bodies.makePermanent(c, 'nailed');
+      if (c.downed && ++c.pinNails >= REANIMATION.nailsToPin) {
+        w.bodies.makePermanent(c, 'nailed');
+        player.stats.nailed++;
+      }
       return;
     }
     const zb = hit.zb;
@@ -421,9 +424,7 @@ export class Combat {
       const g = w.hazards.gasAt(p.x, p.z, 0);
       if (g) {
         this.end(p);
-        const kills: Zombie[] = [];
-        w.hazards.ignite(g, p.owner, kills);
-        if (p.owner) this.reward(p.owner, kills, 'gas');
+        w.hazards.igniteAndReward(g, p.owner);
         return;
       }
     }

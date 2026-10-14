@@ -1,7 +1,7 @@
 // §5 Fire & gas.
 import { describe, expect, it } from 'vitest';
 import { FIRE, GAS } from '../src/config/rules';
-import { WEAPONS, FLARE } from '../src/config/weapons';
+import { WEAPONS, FLARE, chapterDamage } from '../src/config/weapons';
 import { aimLane, arm, hold, quiet, record, run, until } from './helpers';
 
 describe('fire', () => {
@@ -25,9 +25,10 @@ describe('fire', () => {
     expect(z.burning).toBeGreaterThan(FIRE.burnSeconds - 0.6);
   });
 
-  it('burning: 12 dps for 4 s, panicking ×1.4 faster (state burn), then it goes out', () => {
+  it('burning: FIRE.dps (× the chapter’s damage scale) for 5 s, flailing a little faster (state burn), then it goes out', () => {
     const w = quiet();
-    const z = w.spawn('shambler', -10, 0);
+    // A riot brute has the life to survive the whole burn.
+    const z = w.spawn('riot', -10, 0);
     const v0 = z.speed;
     run(w, 0.5);
     const life0 = z.life;
@@ -43,6 +44,50 @@ describe('fire', () => {
     expect(life0 - z.life).toBeCloseTo(FIRE.dps * FIRE.burnSeconds, 0);
     run(w, 0.1);
     expect(z.state).toBe('walk');
+    // Later chapters burn hotter, like the guns.
+    const w3 = quiet({ startChapter: 3 });
+    const r = w3.spawn('riot', -10, 0);
+    const l3 = r.life;
+    r.ignite(null);
+    run(w3, 1);
+    expect(l3 - r.life).toBeCloseTo(FIRE.dps * chapterDamage(3), 1);
+  });
+
+  it('the flare is worth its price: one shot burns a lone shambler to death in every chapter, and a pack with it', () => {
+    for (const ch of [1, 2, 3]) {
+      const w = quiet({ startChapter: ch });
+      arm(w, 'flare');
+      aimLane(w, 0, 16);
+      const z = w.spawn('shambler', 0, 0);
+      const x0 = z.x;
+      w.player.input.fire = true;
+      w.step();
+      w.player.input.fire = false;
+      expect(until(w, () => z.dead, FIRE.burnSeconds + 1)).toBe(true);
+      expect(z.deathKind).toBe('burn');
+      // It dies on its feet: not even half-way to the gangway from here.
+      expect(z.x - x0).toBeLessThan(6);
+    }
+    // Into a pack: the burst and the spread burn (nearly) all of them; the bodies never rise.
+    const w = quiet({ startChapter: 2 });
+    arm(w, 'flare');
+    aimLane(w, 0, 16);
+    const pack = [0, -0.7, -1.4, -2.1, -0.4].map((dx, i) => w.spawn('shambler', -2 + dx, (i % 3) * 0.45 - 0.45));
+    w.player.input.fire = true;
+    w.step();
+    w.player.input.fire = false;
+    run(w, FIRE.burnSeconds + 3);
+    const burned = pack.filter((z) => z.dead && z.deathKind === 'burn');
+    expect(burned.length).toBeGreaterThanOrEqual(4);
+    for (const z of burned) expect(w.corpseById(z.corpseId!)?.risesAt ?? null).toBeNull();
+    // Holstered, it reloads itself: switch to it, fire, switch back.
+    arm(w, 'nailgun');
+    const flare = w.player.owned.get('flare')!;
+    flare.bullets = 0;
+    run(w, WEAPONS.flare.reload - 0.2);
+    expect(flare.bullets).toBe(0);
+    run(w, 0.3);
+    expect(w.player.owned.get('flare')!.bullets).toBe(1);
   });
 
   it('a flare on the deck burns for 8 s and ignites whatever walks through or lies there', () => {
@@ -66,8 +111,8 @@ describe('fire', () => {
     expect(w.fires).toHaveLength(0);
   });
 
-  it('fire spreads between zombies (0.9 m) and through corpse piles', () => {
-    // 25% per second for a 4 s burn: a neighbour catches fire ~68% of the time.
+  it('fire spreads between zombies (within FIRE.spreadRadius) and through corpse piles', () => {
+    // 70% per second for a 5 s burn: a neighbour nearly always catches fire.
     const w = quiet();
     const pairs = Array.from({ length: 40 }, (_, i) => {
       const x = -24 + (i % 10) * 4;
@@ -77,8 +122,14 @@ describe('fire', () => {
     for (const [a] of pairs) a.ignite(w.player);
     run(w, FIRE.burnSeconds);
     const caught = pairs.filter(([, b]) => b.burning > 0 || b.dead).length;
-    expect(caught / pairs.length).toBeGreaterThan(0.5);
-    expect(caught / pairs.length).toBeLessThan(0.86);
+    expect(caught / pairs.length).toBeGreaterThan(0.85);
+    // Out of reach stays out of reach.
+    const w3 = quiet();
+    const a3 = hold(w3.spawn('shambler', -10, 0));
+    const b3 = hold(w3.spawn('shambler', -10 + FIRE.spreadRadius + 0.3, 0));
+    a3.ignite(w3.player);
+    run(w3, 2);
+    expect(b3.burning).toBe(0);
     expect(pairs.find(([, b]) => b.burning > 0)![1].burnBy).toBe(w.player);
     const w2 = quiet();
     const pile = [0, 0.5, 1.0, 1.5, 2.0].map((x) => w2.addCorpse('shambler', -5 + x, 1, { risesIn: 30 }));

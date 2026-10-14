@@ -68,6 +68,8 @@ export interface ZombieView {
   enraged?: boolean;
   /** The Marathon's 40th runner wears a gold medal (bounty $500). */
   medal?: boolean;
+  /** A crawler that spilled out of a bloater / Big Dave (risen is true too). */
+  spilled?: 'bloater' | 'bigdave';
   /** Killed (still in the list for the tick it died). */
   dead: boolean;
   /** Removed from the world (dead and handed over, or escaped). */
@@ -213,4 +215,11 @@ export interface WorldView {
   readonly favourReady?: boolean;
   /** The crane's pallet is hanging (shoot the hook block). */
   readonly craneReady?: boolean;
+  /** Live zombies under the hanging pallet (in its drop square). */
+  readonly craneUnder?: number;
+  /** Bosses down, stragglers still alive: the mop-up before the pier is held. */
+  readonly mopUp?: boolean;
+  /** Zombies alive now / when the mop-up began. */
+  readonly stragglers?: number;
+  readonly stragglersMax?: number;
 }

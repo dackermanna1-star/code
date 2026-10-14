@@ -7,8 +7,9 @@
 //     --url URL          app URL (default http://127.0.0.1:5180/)
 //     --file PATH        open a file instead (e.g. release/LastFerry.html, via file://)
 //     --out DIR          screenshots (default tests/output/ferry-e2e[-full], git-ignored)
-//     --mode quick|full  quick (default): loading → title → options → Play → the human controls →
-//                        autoplay N s → pause → forced game over → retry → chapter 3 boss → victory → play again
+//     --mode quick|full  quick (default): loading → title → options → Play → the human controls
+//                        (incl. lining up with the crane hook) → autoplay N s → pause → forced game over → retry →
+//                        chapter 3 → forced game over → Retry chapter 3 → boss → mop-up → victory → play again
 //                        full: god + autoplay through all three chapters to the victory screen
 //     --seconds N        quick mode: game seconds of autoplay (default 40)
 //     --quality Q        low|medium|high (default low)
@@ -183,6 +184,32 @@ if (mode === 'quick') {
   await hold('Space', 0.8);
   b = await P();
   check(b.shots > a.shots, `Space fires (${a.shots} → ${b.shots} shots)`);
+  await run(1.7, 1 / 30, 1000);
+  await hold('KeyJ', 0.5);
+  a = await P();
+  check(a.shots > b.shots, `J fires (${b.shots} → ${a.shots} shots)`);
+  await hold('ControlLeft', 0.5);
+  b = await P();
+  check(b.shots === a.shots, `Ctrl does not fire (it belongs to the browser: Ctrl+W) (${a.shots} → ${b.shots})`);
+  // The crane: walk into the hook's lane → the overlay shows the line-up, and the rope is still hanging.
+  const hookZ = await page.evaluate(() => {
+    const w = window.__lf.world();
+    w.clearZombies();
+    return w.pier.constructor.hookLane(1) - 0.1; // revolver muzzle offset
+  });
+  for (let i = 0; i < 40; i++) {
+    const p = await P();
+    if (Math.abs(p.z - hookZ) < 0.08) break;
+    await hold(p.z > hookZ ? 'ArrowUp' : 'ArrowDown', Math.min(0.25, Math.max(1 / 30, Math.abs(p.z - hookZ) / 3.2)));
+    await run(0.15, 1 / 30, 1000);
+  }
+  s = await stats();
+  check(s.overlay.crane === 'lined' && s.crane === 'hanging', `lined up with the crane hook: the overlay shows it (${s.overlay.crane}, crane ${s.crane})`);
+  await shot('crane_lined_up');
+  await hold('Space', 0.3);
+  await run(0.8, 1 / 30, 1000);
+  check((await stats()).crane !== 'hanging', `firing lined up drops the pallet (${(await stats()).crane})`);
+  await hold('ArrowDown', 0.6);
   await tap('KeyR');
   a = await P();
   check(a.wstate === 'reload' || a.bullets === 6, `R reloads (${a.wstate}, ${a.bullets})`);
@@ -278,11 +305,35 @@ if (mode === 'quick') {
   check(s.mode === 'playing' && s.t < 1, `Retry starts a new game (${s.mode}, t ${s.t})`);
 
   // ---- the fast way to the end: chapter 3, the Riot Squad, the ferry departs.
-  await page.evaluate(() => {
+  const start3 = await page.evaluate(() => {
     const lf = window.__lf;
     lf.god(true);
     lf.setChapter(3);
+    const p = lf.world().player;
+    return { money: p.money, owned: [...p.owned.keys()] };
   });
+  await run(3, 1 / 15, 45);
+  // Lose chapter 3 once: the results offer "Retry chapter 3" with the money and guns it began with.
+  await page.evaluate(() => {
+    const lf = window.__lf;
+    lf.god(false);
+    lf.world().pier.hornReady = false;
+    lf.spawn('shambler', 21.3, 0, { life: 9999 });
+  });
+  await run(6, 1 / 30, 30);
+  s = await stats();
+  const labels = await page.evaluate(() => [...document.querySelectorAll('.lf-results .lf-btn')].map((b) => b.textContent));
+  check(s.screen === 'gameover' && labels[0] === 'Retry chapter 3' && labels.includes('Restart night'), `game over in chapter 3 offers ${JSON.stringify(labels)}`);
+  await shot('gameover_retry_options');
+  await page.waitForTimeout(400);
+  await page.keyboard.press('Enter');
+  await run(0.3, 1 / 30, 9);
+  const again3 = await page.evaluate(() => {
+    const p = window.__lf.world().player;
+    return { chapter: window.__lf.world().chapter, money: p.money, owned: [...p.owned.keys()] };
+  });
+  check(again3.chapter === 3 && again3.money === start3.money && again3.owned.join() === start3.owned.join(), `Retry chapter 3 restarts it with the same money and guns (${JSON.stringify(again3)})`);
+  await page.evaluate(() => window.__lf.god(true));
   await run(3, 1 / 15, 45);
   await page.evaluate(() => window.__lf.skipToBoss());
   await run(4, 1 / 15, 60);
@@ -290,11 +341,24 @@ if (mode === 'quick') {
   check(s.chapter === 3 && s.phase === 'boss', `chapter 3 boss phase (${s.chapter}/${s.phase})`);
   await shot('ch3_boss');
   await page.evaluate(() => {
-    for (const b of window.__lf.world().level.bosses) b.life = 0;
+    const lf = window.__lf;
+    lf.autoplay(false);
+    for (const b of lf.world().level.bosses) b.life = 0;
+    // A straggler in front of the gangway that the boss's death leaves behind.
+    lf.spawn('shambler', 4, 1.5, { life: 9999 }).speed = 0;
+  });
+  await run(1.5, 1 / 15, 20);
+  s = await stats();
+  check(s.mode === 'playing' && s.phase === 'boss' && s.mopUp && s.stragglers > 0, `bosses down, stragglers left: mop-up, the pier is not held yet (${s.phase}, mopUp ${s.mopUp}, ${s.stragglers} left)`);
+  const mopHud = await page.evaluate(() => document.querySelector('.lf-boss-name')?.textContent + ' · ' + document.querySelector('.lf-boss-pct')?.textContent);
+  check(/MOP UP/.test(mopHud) && /LEFT/.test(mopHud), `the HUD shows the mop-up (${mopHud})`);
+  await shot('mopup');
+  await page.evaluate(() => {
+    for (const z of window.__lf.world().zombies) z.life = 0;
   });
   await run(5, 1 / 15, 75);
   s = await stats();
-  check(s.mode === 'victory', `beating the last boss wins (${s.mode}/${s.phase})`);
+  check(s.mode === 'victory', `beating the last boss and mopping up wins (${s.mode}/${s.phase})`);
   await run(3, 1 / 15, 45);
   s = await stats();
   check(s.departure > 0 && s.t > 0, `the ferry departs while the pier lives on (departure ${s.departure.toFixed(2)})`);

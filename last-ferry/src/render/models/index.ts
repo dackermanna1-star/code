@@ -92,5 +92,5 @@ export { CRATE_MODEL, HARPOON_BOLT_LENGTH, PALLET_MODEL, STRETCHER_MODEL, holdMu
 export type { BosunRig, LFWeaponModel, WeaponModel, ZombieRigExt };
 export { CARRY } from './zombie/anim';
 export { decodeLook, type Look, type Outfit } from './zombie/looks';
-export { BIG_DAVE_SCALE, BLOATER_SCALE } from './zombie/rig';
-export { charredTint, applyCharred, MATERIALS } from './kit';
+export { BIG_DAVE_SCALE, BLOATER_SCALE, RIOT_SCALE } from './zombie/rig';
+export { charredTint, applyCharred, risenMaterial, setHivisLevel, MATERIALS } from './kit';

@@ -5,22 +5,27 @@ import type { Effects } from '../Effects';
 import { rand } from './ctx';
 
 /** Atlas cells (see Effects' makeAtlas). */
-export const F = { Dot: 0, Smoke: 1, Fire: 2, Spark: 3, Star: 4, Ring: 5, Mist: 6, Flake: 7 } as const;
+export const F = { Dot: 0, Smoke: 1, Fire: 2, Spark: 3, Star: 4, Ring: 5, Mist: 6, Flake: 7, BrokenRing: 8, Shock: 9 } as const;
 
 type P3 = { x: number; y: number; z: number };
 
-/** One tongue of flame rising from p. `k` scales size. */
+/**
+ * One tongue of flame rising from p (a narrow lick stretched along its upward
+ * velocity, orange to deep red; `hot` = a brighter yellow core). `k` scales size.
+ */
 export function flame(fx: Effects, x: number, y: number, z: number, k = 1, hot = false): void {
+  const up = rand(1.6, 3.0) * (0.7 + 0.3 * k);
   fx.emit(true, x, y, z, {
-    vel: [rand(-0.25, 0.25), rand(1.2, 2.6) * (0.7 + 0.3 * k), rand(-0.2, 0.2)],
-    drag: 1.2,
-    size: [rand(0.16, 0.3) * k, rand(0.04, 0.1) * k],
-    life: rand(0.3, 0.55),
-    color: hot ? 0xfff2c0 : 0xffd27a,
-    color1: 0xd2300a,
-    alpha: [0.95, 0],
+    vel: [rand(-0.25, 0.25), up, rand(-0.2, 0.2)],
+    drag: 1.1,
+    g: -1.5,
+    size: [rand(0.13, 0.22) * k, rand(0.04, 0.08) * k],
+    life: rand(0.22, 0.4),
+    color: hot ? 0xffc860 : 0xffa838,
+    color1: 0xa82808,
+    alpha: [hot ? 0.8 : 0.9, 0],
     frame: F.Fire,
-    vr: rand(-3, 3),
+    streak: 4,
   });
 }
 
@@ -134,38 +139,62 @@ export function gasPuff(fx: Effects, x: number, z: number, radius: number, stren
   }
 }
 
-/** Fireball + smoke + embers with a colour scheme (cannon: orange; gas: sickly green-yellow). */
+/**
+ * Fireball + smoke + embers with a colour scheme (cannon: orange; gas: sickly
+ * green-yellow). A short warm core over dark, rolling billows; the smoke that
+ * stays behind is dark and thins out as it rises (no pale veil over the pile).
+ */
 export function fireball(fx: Effects, p: P3, radius: number, scheme: 'fire' | 'gas'): void {
   const d = fx.density;
-  const hot = scheme === 'gas' ? 0xf4ffa0 : 0xfff0a0;
-  const mid = scheme === 'gas' ? 0x8ac020 : 0xc02a08;
-  for (let i = 0; i < Math.round(18 * d); i++) {
+  const gas = scheme === 'gas';
+  const hot = gas ? 0xd8f080 : 0xffc060;
+  const mid = gas ? 0x5a8010 : 0x8a2008;
+  // Fire core (additive, kept under ~half the blast radius).
+  for (let i = 0; i < Math.round(11 * d); i++) {
     const a = Math.random() * Math.PI * 2;
     const r = Math.random() * radius * 0.35;
     fx.emit(true, p.x + Math.cos(a) * r, p.y + 0.2 + Math.random() * 0.8, p.z + Math.sin(a) * r * 0.7, {
       vel: [Math.cos(a) * 3.5 * Math.random(), 1.5 + Math.random() * 3.5, Math.sin(a) * 2.5 * Math.random()],
       drag: 2.6,
-      size: [0.5 + Math.random() * 0.5, radius * (0.38 + Math.random() * 0.3)],
-      life: 0.4 + Math.random() * 0.4,
+      size: [0.4 + Math.random() * 0.4, radius * (0.26 + Math.random() * 0.2)],
+      life: 0.35 + Math.random() * 0.35,
       color: hot,
       color1: mid,
-      alpha: [1, 0],
+      alpha: [0.9, 0],
       frame: F.Fire,
       vr: (Math.random() - 0.5) * 3,
     });
   }
-  fx.emit(true, p.x, p.y + 0.7, p.z, { size: [radius * 0.6, radius * 1.1], life: 0.14, color: 0xffffe8, alpha: [1, 0], frame: F.Dot });
-  for (let i = 0; i < Math.round(14 * d); i++) {
+  // A brief warm flash (not a white disc).
+  fx.emit(true, p.x, p.y + 0.7, p.z, { size: [radius * 0.35, radius * 0.6], life: 0.07, color: gas ? 0xd8ff90 : 0xffc880, alpha: [0.6, 0], frame: F.Dot });
+  // Rolling dark-orange billows (alpha-blended: they give the fire a body and a silhouette).
+  for (let i = 0; i < Math.round(8 * d); i++) {
+    const a = Math.random() * Math.PI * 2;
+    const r = Math.random() * radius * 0.3;
+    fx.emit(false, p.x + Math.cos(a) * r, p.y + 0.4 + Math.random() * 0.7, p.z + Math.sin(a) * r * 0.7, {
+      vel: [Math.cos(a) * 2.2 * Math.random(), 1.8 + Math.random() * 2.4, Math.sin(a) * 1.6 * Math.random()],
+      drag: 2.0,
+      size: [radius * 0.22, radius * (0.45 + Math.random() * 0.25)],
+      life: 0.6 + Math.random() * 0.45,
+      color: gas ? 0x4a5a18 : 0x6a2a0e,
+      color1: gas ? 0x1e2410 : 0x1c1614,
+      alpha: [0.85, 0],
+      frame: F.Smoke,
+      vr: (Math.random() - 0.5) * 1.6,
+    });
+  }
+  // Smoke that rises off the pile and thins (dark, never lighter than the planks).
+  for (let i = 0; i < Math.round(10 * d); i++) {
     const a = Math.random() * Math.PI * 2;
     const r = Math.random() * radius * 0.35;
-    fx.emit(false, p.x + Math.cos(a) * r, p.y + 0.5 + Math.random() * 1.2, p.z + Math.sin(a) * r * 0.7, {
-      vel: [Math.cos(a) * 1.4, 1.4 + Math.random() * 2.2, Math.sin(a) * 1.0],
-      drag: 1.1,
-      size: [0.9, radius * (0.7 + Math.random() * 0.5)],
-      life: 1.8 + Math.random() * 1.8,
-      color: scheme === 'gas' ? 0x3a4220 : 0x2e2a28,
-      color1: scheme === 'gas' ? 0x7a8a5a : 0x8e8a88,
-      alpha: [0.8, 0],
+    fx.emit(false, p.x + Math.cos(a) * r, p.y + 0.6 + Math.random() * 1.2, p.z + Math.sin(a) * r * 0.7, {
+      vel: [Math.cos(a) * 1.2, 2.0 + Math.random() * 2.2, Math.sin(a) * 0.9],
+      drag: 0.9,
+      size: [0.7, radius * (0.55 + Math.random() * 0.35)],
+      life: 1.5 + Math.random() * 1.3,
+      color: gas ? 0x2a3018 : 0x2a2624,
+      color1: gas ? 0x4a5236 : 0x4a4644,
+      alpha: [0.55, 0],
       frame: F.Smoke,
       vr: (Math.random() - 0.5) * 0.8,
     });
@@ -179,12 +208,36 @@ export function fireball(fx: Effects, p: P3, radius: number, scheme: 'fire' | 'g
       drag: 0.8,
       size: [0.05, 0.03],
       life: 0.5 + Math.random() * 0.7,
-      color: scheme === 'gas' ? 0xeaffa0 : 0xffe080,
-      color1: scheme === 'gas' ? 0x6aa010 : 0xff5010,
+      color: gas ? 0xeaffa0 : 0xffd070,
+      color1: gas ? 0x6aa010 : 0xff4a10,
       alpha: [1, 0.2],
       frame: F.Spark,
       streak: 1.5,
       ground: true,
     });
   }
+}
+
+/**
+ * A shock of dust racing out over the planks from (x, z): low puffs thrown
+ * radially (blasts, the crates landing, a stomp) plus a soft lumpy ring.
+ */
+export function shockDust(fx: Effects, x: number, z: number, radius: number, n: number, color: THREE.ColorRepresentation = 0x9a8c7a, alpha = 0.42): void {
+  n = Math.max(4, Math.round(n * fx.density));
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + rand(-0.15, 0.15);
+    const sp = radius * rand(2.2, 3.4);
+    fx.emit(false, x + Math.cos(a) * 0.3, rand(0.05, 0.2), z + Math.sin(a) * 0.25, {
+      vel: [Math.cos(a) * sp, rand(0.1, 0.6), Math.sin(a) * sp * 0.75],
+      drag: 3.2,
+      g: 0.2,
+      size: [0.2, rand(0.25, 0.4) * radius],
+      life: rand(0.7, 1.2),
+      color,
+      alpha: [alpha, 0],
+      frame: F.Smoke,
+      vr: rand(-1, 1),
+    });
+  }
+  fx.ring(x, 0.05, z, radius * 0.25, radius * 1.6, 0.55, color, 0.3, { blend: 'normal', frame: F.Shock });
 }

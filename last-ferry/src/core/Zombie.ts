@@ -3,7 +3,7 @@
 // damage and death (corpses, bounties, reanimation timers).
 import type { DeathKind, HitPart, WeaponId, ZombieKind } from '../config/ids';
 import { ESCAPE_X, HUNTER, LANE_MAX_Z, LANE_MIN_Z, TICK, TICK_RATE, leftEdgeX } from '../config/world';
-import { ZOMBIES, type ZombieDef } from '../config/zombies';
+import { ZOMBIES, chapterBounty, type ZombieDef } from '../config/zombies';
 import { BARRICADE, FIRE, GROAN_SECONDS, HUNTER_RULES } from '../config/rules';
 import type { ZombieState, ZombieView } from './api';
 import type { V3 } from './events';
@@ -100,6 +100,8 @@ export abstract class Zombie implements ZombieView {
   enraged?: boolean;
   /** The Marathon's 40th runner wears the gold medal. */
   medal?: boolean;
+  /** A crawler that spilled out of a bloater / Big Dave. */
+  spilled?: 'bloater' | 'bigdave';
   dead = false;
   removed = false;
 
@@ -138,7 +140,7 @@ export abstract class Zombie implements ZombieView {
     const ch = Math.max(1, world.chapter);
     const life = opts.life ?? this.def.life + this.def.lifeInc * (ch - 1);
     this.life = this.maxLife = Math.max(1, life);
-    this.bounty = this.def.bounty;
+    this.bounty = chapterBounty(this.def.bounty, ch);
     const [s0, s1] = this.def.speed;
     this.speed = s0 === s1 ? s0 : world.rng.range(s0, s1);
     this.z = opts.z ?? world.rng.range(LANE_MIN_Z, LANE_MAX_Z);
@@ -384,11 +386,12 @@ export abstract class Zombie implements ZombieView {
 
   private burnTick(): void {
     this.burning = Math.max(0, this.burning - TICK);
-    this.life -= FIRE.dps * TICK;
+    const dmg = FIRE.dps * this.world.damageScale * TICK;
+    this.life -= dmg;
     if (this.life <= 0) {
       if (!this.lastHit || this.lastHit.source !== 'fire') {
         this.lastHit = {
-          damage: FIRE.dps * TICK,
+          damage: dmg,
           part: 'body',
           point: { x: this.x, y: this.def.height * 0.5, z: this.z },
           dirX: 1,

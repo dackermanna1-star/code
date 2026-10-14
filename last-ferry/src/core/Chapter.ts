@@ -1,16 +1,23 @@
-// One chapter: spawn scheduling (Seal Hunter's: each kind's count spread over
-// the spawn phase with random gaps between ½ and 1× the average gap), the
-// boarding queue, and the boss (Big Dave, The Marathon, The Riot Squad).
-import { BOSS_ALONE_TIMEOUT, PACKS, RIOT_SQUAD_Z, type ChapterDef, type SpawnKind } from '../config/chapters';
+// One chapter: the spawn schedule (a crescendo: built when the chapter starts
+// from a rising intensity curve, surges later on), the boarding queue, the
+// boss (Big Dave, The Marathon, The Riot Squad) and the mop-up after it.
+import { BOSS_ALONE_TIMEOUT, KIND_FROM, PACKS, RAMP, RIOT_SQUAD_Z, type ChapterDef, type SpawnKind } from '../config/chapters';
 import { LANE_MAX_Z, LANE_MIN_Z, TICK_RATE } from '../config/world';
 import { BOSS_BOUNTY, MARATHON, ZOMBIES } from '../config/zombies';
 import type { World } from './World';
 import type { Zombie } from './Zombie';
 
-interface SpawnTrack {
+/** One scheduled spawn (tick of the spawn phase). */
+export interface ScheduledSpawn {
   kind: SpawnKind;
-  togo: number;
   at: number;
+}
+
+/** Inverse CDF of the ramp density ∝ a + b·u on [0, 1]. */
+export function rampInverse(q: number, a = RAMP.base, b = RAMP.slope): number {
+  if (b <= 1e-9) return q;
+  const c = q * (a + b / 2);
+  return (-a + Math.sqrt(a * a + 2 * b * c)) / b;
 }
 
 export class Chapter {
@@ -20,8 +27,12 @@ export class Chapter {
   readonly spawnTicks: number;
   started = false;
   bossesSpawned = false;
-  /** Bosses dead: the chapter is won. */
+  /** The pier is clear: the chapter is won (set by the world). */
   finished = false;
+  /** Bosses beaten; the stragglers still on the deck are being mopped up. */
+  mopUp = false;
+  /** Zombies alive when the mop-up began (the HUD's bar). */
+  mopUpMax = 0;
   bosses: Zombie[] = [];
   /** Survivors aboard. */
   boarded = 0;
@@ -29,26 +40,21 @@ export class Chapter {
   forceBoss = false;
   /** Tests / previews: no spawns and no boss. */
   quiet = false;
-  private tracks: SpawnTrack[];
+  /** The spawn phase's schedule (sorted by tick), built at start(). */
+  queue: ScheduledSpawn[] = [];
+  private next = 0;
   private escort: Array<{ kind: SpawnKind; gap: number; at: number }> = [];
-  private marathon = { spawned: 0, nextAt: 0 };
-  /** Pack members still to arrive. */
-  private pending: Array<{ kind: SpawnKind; at: number }> = [];
+  private marathon = { spawned: 0, nextAt: 0, side: 1 };
 
   constructor(private world: World, def: ChapterDef) {
     this.def = def;
     this.spawnTicks = Math.round(def.spawnSeconds * TICK_RATE);
-    this.tracks = def.spawns.map(([kind, n]) => ({ kind, togo: n, at: -1 }));
   }
 
   /** Debug: end the spawn phase now (pending spawns are dropped). */
   skipSpawns(): void {
     this.ticks = Math.max(this.ticks, this.spawnTicks);
-    for (const t of this.tracks) {
-      t.togo = 0;
-      t.at = -1;
-    }
-    this.pending = [];
+    this.next = this.queue.length;
   }
 
   /** Number of zombies scheduled (informative). */
@@ -58,7 +64,8 @@ export class Chapter {
 
   start(): void {
     this.started = true;
-    for (const t of this.tracks) this.schedule(t);
+    this.queue = this.quiet ? [] : this.buildSchedule();
+    this.next = 0;
   }
 
   /** Fraction of the spawn phase elapsed. */
@@ -66,39 +73,58 @@ export class Chapter {
     return Math.min(1, this.ticks / this.spawnTicks);
   }
 
-  private schedule(t: SpawnTrack): void {
-    if (t.togo <= 0) {
-      t.at = -1;
-      return;
-    }
+  /**
+   * Every spawn of the phase: each kind's n spawns sit at the ramp's
+   * quantiles (jittered within their slot), later kinds only from their
+   * KIND_FROM fraction; from PACKS.from on, runs of a kind bunch into packs
+   * (centred on their mean time) more and more often.
+   */
+  private buildSchedule(): ScheduledSpawn[] {
     const rng = this.world.rng;
-    const left = Math.max(this.spawnTicks - this.ticks, 0);
-    const gap = Math.floor(left / t.togo);
-    t.at = this.ticks + 1 + rng.int(Math.floor(gap / 2), gap);
-    t.togo--;
+    const T = this.spawnTicks;
+    const out: ScheduledSpawn[] = [];
+    for (const [kind, n] of this.def.spawns) {
+      if (n <= 0) continue;
+      const u0 = this.def.from?.[kind] ?? KIND_FROM[kind] ?? 0;
+      const us: number[] = [];
+      for (let i = 0; i < n; i++) {
+        const q = Math.max(0, Math.min(1, (i + 0.5 + rng.range(-RAMP.jitter, RAMP.jitter)) / n));
+        us.push(u0 + (1 - u0) * rampInverse(q));
+      }
+      us.sort((a, b) => a - b);
+      const pack = PACKS[kind];
+      for (let i = 0; i < us.length; ) {
+        const u = us[i];
+        if (pack && u >= pack.from && i + 1 < us.length) {
+          const f = (u - pack.from) / Math.max(1e-6, 1 - pack.from);
+          if (rng.chance(pack.chance[0] + (pack.chance[1] - pack.chance[0]) * f)) {
+            const size = Math.min(us.length - i, rng.int(pack.size[0], pack.size[1]));
+            let mean = 0;
+            for (let k = 0; k < size; k++) mean += us[i + k];
+            mean /= size;
+            let at = Math.round(mean * T);
+            for (let k = 0; k < size; k++) {
+              out.push({ kind, at: Math.min(T, at) });
+              at += Math.max(1, Math.round(rng.range(pack.gap[0], pack.gap[1]) * TICK_RATE));
+            }
+            i += size;
+            continue;
+          }
+        }
+        out.push({ kind, at: Math.min(T, Math.round(u * T)) });
+        i++;
+      }
+    }
+    // Stable: equal ticks keep the kinds' order.
+    return out.map((e, i) => ({ e, i })).sort((a, b) => a.e.at - b.e.at || a.i - b.i).map((x) => x.e);
   }
 
   tick(): void {
     if (!this.started || this.finished || this.quiet) return;
     const w = this.world;
-    for (const t of this.tracks) {
-      if (this.ticks !== t.at) continue;
-      w.spawnKind(t.kind);
-      const pack = PACKS[t.kind];
-      if (pack && t.togo > 0 && w.rng.chance(pack.chance)) {
-        const extra = Math.min(t.togo, w.rng.int(pack.size[0], pack.size[1]) - 1);
-        let at = this.ticks;
-        for (let k = 0; k < extra; k++) {
-          at += Math.max(1, Math.round(w.rng.range(pack.gap[0], pack.gap[1]) * TICK_RATE));
-          this.pending.push({ kind: t.kind, at });
-        }
-        t.togo -= extra;
-      }
-      this.schedule(t);
-    }
-    if (this.pending.length) {
-      for (const p of this.pending) if (p.at <= this.ticks) w.spawnKind(p.kind);
-      this.pending = this.pending.filter((p) => p.at > this.ticks);
+    while (this.next < this.queue.length && this.queue[this.next].at <= this.ticks) {
+      w.spawnKind(this.queue[this.next].kind);
+      this.next++;
     }
     this.ticks++;
 
@@ -110,13 +136,14 @@ export class Chapter {
     }
 
     if (!this.bossesSpawned) {
-      if (this.ticks >= this.spawnTicks && this.tracks.every((t) => t.at < 0) && !this.pending.length) {
+      if (this.ticks >= this.spawnTicks && this.next >= this.queue.length) {
         const clear = w.zombies.every((z) => !z.alive);
         const waited = this.ticks - this.spawnTicks >= BOSS_ALONE_TIMEOUT * TICK_RATE;
         if (this.forceBoss || !this.def.bossAlone || clear || waited) this.spawnBosses();
       }
       return;
     }
+    if (this.mopUp) return;
 
     if (this.def.boss === 'marathon') this.marathonTick();
     for (const e of this.escort) {
@@ -125,10 +152,20 @@ export class Chapter {
         e.at = this.ticks + Math.round(w.rng.range(0.6, 1.4) * e.gap * TICK_RATE);
       }
     }
+  }
+
+  /** Every boss is down (marathon: all 40 out and down). */
+  get bossesBeaten(): boolean {
+    if (!this.bossesSpawned) return false;
     const allOut = this.def.boss !== 'marathon' || this.marathon.spawned >= MARATHON.total;
-    if (allOut && this.bosses.every((z) => z.dead || z.removed)) {
-      this.finished = true;
-    }
+    return allOut && this.bosses.every((z) => z.dead || z.removed);
+  }
+
+  /** Bosses beaten with zombies still alive: no more escorts, mop them up. */
+  startMopUp(left: number): void {
+    this.mopUp = true;
+    this.mopUpMax = left;
+    this.escort = [];
   }
 
   /** Remaining boss life 0..1 (unspawned marathon runners count as full). */
@@ -169,7 +206,7 @@ export class Chapter {
         break;
       }
       case 'marathon':
-        this.marathon = { spawned: 0, nextAt: this.ticks };
+        this.marathon = { spawned: 0, nextAt: this.ticks, side: w.rng.chance(0.5) ? 1 : -1 };
         break;
       case 'riotsquad':
         for (const z of RIOT_SQUAD_Z) {
@@ -183,28 +220,31 @@ export class Chapter {
     w.onBossSpawn(this);
   }
 
+  /**
+   * The Marathon comes in pace groups: 4–6 runners bunched in one or two
+   * neighbouring lanes, alternating between the near and the far half of the
+   * deck, a group every MARATHON.groupEvery s. The 40th wears the gold medal.
+   */
   private marathonTick(): void {
     const w = this.world;
     const m = this.marathon;
     if (m.spawned >= MARATHON.total || this.ticks < m.nextAt) return;
-    const n = Math.min(MARATHON.perWave, MARATHON.total - m.spawned);
-    const band = (LANE_MAX_Z - LANE_MIN_Z) / n;
-    // Shuffle lane slots so each wave arrives ragged.
-    const slots = Array.from({ length: n }, (_, i) => i);
-    for (let i = slots.length - 1; i > 0; i--) {
-      const j = w.rng.int(0, i);
-      [slots[i], slots[j]] = [slots[j], slots[i]];
-    }
+    let n = Math.min(w.rng.int(MARATHON.group[0], MARATHON.group[1]), MARATHON.total - m.spawned);
+    // Don't leave a straggler group of one or two.
+    if (MARATHON.total - m.spawned - n < MARATHON.group[0] - 1) n = MARATHON.total - m.spawned;
+    m.side = -m.side;
+    const s = MARATHON.laneSpread;
+    const centre = m.side > 0 ? w.rng.range(s, LANE_MAX_Z - s) : w.rng.range(LANE_MIN_Z + s, -s);
     for (let i = 0; i < n; i++) {
-      const z = LANE_MIN_Z + (slots[i] + 0.5) * band + w.rng.range(-0.25, 0.25);
+      const z = Math.max(LANE_MIN_Z, Math.min(LANE_MAX_Z, centre + w.rng.range(-s, s)));
       m.spawned++;
       const medal = m.spawned === MARATHON.total;
-      const x = w.spawnXFor(z, ZOMBIES.jogger.halfLength) - i * 0.45 - w.rng.range(0, 1.2);
+      const x = w.spawnXFor(z, ZOMBIES.jogger.halfLength) - i * w.rng.range(0.5, 0.9);
       const zb = w.spawn('jogger', x, z, { boss: true, medal });
       zb.speed = w.rng.range(MARATHON.pace[0], MARATHON.pace[1]);
       zb.bounty = medal ? BOSS_BOUNTY.marathonMedal : MARATHON.bounty;
       this.bosses.push(zb);
     }
-    m.nextAt = this.ticks + Math.round(MARATHON.waveEvery * TICK_RATE);
+    m.nextAt = this.ticks + Math.round(MARATHON.groupEvery * TICK_RATE);
   }
 }

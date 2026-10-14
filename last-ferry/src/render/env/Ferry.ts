@@ -103,6 +103,9 @@ interface Survivor {
 }
 
 const COAT_COLS = [0xc23b22, 0x2d5f8b, 0xe0b130, 0x3f6e3a, 0x7a3f8f, 0xd96c2b, 0x2a2f38, 0xb5b0a4, 0x8a2a3a, 0x3a8a8a, 0xe8d6b0, 0x5a4a3a];
+const MUTE = new THREE.Color(0x5a5650);
+/** Life vests (safety orange, a few faded). */
+const VEST_COLS = [0xe2581a, 0xe86a1e, 0xd84e14, 0xf07a2a];
 const SKIN_COLS = [0xf1c8a8, 0xd8a582, 0xb07a55, 0x8a5a3c, 0x5e3b26, 0xf5d5bc];
 const HAT_COLS = [0x1a1a1a, 0xc23b22, 0xe0b130, 0x2d5f8b, 0x6a4a2a, 0xe8e2d0];
 
@@ -165,14 +168,17 @@ class SurvivorQueue {
     const r = mulberry32(Math.floor(p.seed * 1e9));
     p.kid = r() < 0.15;
     p.scale = p.kid ? 0.62 : 0.92 + r() * 0.16;
-    const coat = new THREE.Color(COAT_COLS[Math.floor(r() * COAT_COLS.length)]);
+    // Muted civilian coats under bright life vests: the queue reads as "ours" at a
+    // glance (no zombie wears a vest), so a zombie reaching the gangway stands out.
+    const coat = new THREE.Color(COAT_COLS[Math.floor(r() * COAT_COLS.length)]).lerp(MUTE, 0.45);
+    const vest = r() < 0.85 ? new THREE.Color(VEST_COLS[Math.floor(r() * VEST_COLS.length)]) : coat;
     const legs = new THREE.Color([0x24262c, 0x2a3348, 0x3a3026, 0x55504a][Math.floor(r() * 4)]);
     const skin = new THREE.Color(SKIN_COLS[Math.floor(r() * SKIN_COLS.length)]);
     const hasHat = r() < 0.6;
     const hat = new THREE.Color(HAT_COLS[Math.floor(r() * HAT_COLS.length)]);
     const bag = new THREE.Color([0x7a2b2b, 0x2b4a6a, 0xc7a25a, 0x3a3a3a, 0x5a6b3a][Math.floor(r() * 5)]);
     const i = p.idx;
-    this.torso.setColorAt(i, coat);
+    this.torso.setColorAt(i, vest);
     this.armL.setColorAt(i, coat);
     this.armR.setColorAt(i, coat);
     this.legs.setColorAt(i, legs);

@@ -10,6 +10,7 @@
 //   gone                ash pile / slides into the sea / torn apart
 import * as THREE from 'three';
 import type { ZombieKind } from '../../config/ids';
+import { TICK } from '../../config/world';
 import type { GameEvents, V3 } from '../../core/events';
 import type { Zombie } from '../../core/Zombie';
 import type { BakeHandle } from '../Corpses';
@@ -18,7 +19,7 @@ import type { CorpseView } from '../../core/api';
 import { Ragdoll, type RagdollOptions } from '../Ragdoll';
 import { REFLECT_LAYER } from '../Stage';
 import { clamp, rand, type Ctx } from './ctx';
-import { ember, flame, smoke, F } from './fx';
+import { ember, flame, shockDust, smoke, F } from './fx';
 import { attachNail, dropPiece, type Horde, type ZRec } from './Horde';
 
 type Mode = 'live' | 'baked' | 'gone';
@@ -54,6 +55,10 @@ export interface Body {
   /** Fire flicker seed. */
   seed: number;
   massK: number;
+  /** Head position while baked (eye / undead glow), cached at bake time. */
+  headAt: THREE.Vector3 | null;
+  /** Ticks from death to rising (for the growing tell), 0 = unknown. */
+  riseSpan: number;
 }
 
 interface Kebab {
@@ -85,6 +90,12 @@ const MAX_RAGDOLLS = 14;
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
+/** Bake tint of a body that will never rise (darker, drab). */
+const DEAD_TINT = new THREE.Color(0.6, 0.53, 0.5);
+/** The undead tell: sickly green glow, pale green eyes. */
+const UNDEAD_GLOW = new THREE.Color(0.22, 0.62, 0.06);
+const UNDEAD_EYE = new THREE.Color(0.75, 1.0, 0.3);
+const UNDEAD_MIST = 0x7aa832;
 const _m = new THREE.Matrix4();
 const _s = new THREE.Vector3();
 
@@ -123,6 +134,8 @@ export class Bodies {
   private harpoonHit: { zombieId: number; tick: number } | null = null;
   /** Last explosion this tick (blast origin for gibs). */
   lastExplosion: { x: number; y: number; z: number; kind: string; tick: number } | null = null;
+  /** Last splash of each body falling into the sea (one ripple per body, not per limb). */
+  private splashes = new WeakMap<Body, { t: number; x: number; z: number; mass: number }>();
   /** Count of every body ever made (stats). */
   made = 0;
   /** Highest logic corpse id seen (bodies laid without a death event are picked up). */
@@ -197,6 +210,8 @@ export class Bodies {
       nails: 0,
       seed: Math.random() * 100,
       massK: MASS[c.kind] / 70,
+      headAt: null,
+      riseSpan: c.risesAt !== null && ctx.world ? Math.max(1, c.risesAt - ctx.world.tick) : 0,
     };
     if (c.deathKind === 'headshot' || c.deathKind === 'stomp') {
       const head = rig.bones.get(rig.head);
@@ -271,6 +286,8 @@ export class Bodies {
       nails: rec.nails,
       seed: Math.random() * 100,
       massK: mass / 70,
+      headAt: null,
+      riseSpan: corpse && corpse.risesAt !== null ? Math.max(1, corpse.risesAt - w.tick) : 0,
     };
     this.made++;
 
@@ -406,7 +423,14 @@ export class Bodies {
     body.rag = rag;
     rag.onSink = (part) => {
       const p = part.body.position;
-      ctx.effects.splash({ x: p.x, y: -2.5, z: p.z }, Math.min(1.6, part.spec.mass / 14));
+      // One splash per body (its parts hit the water within moments of each other), sized by the mass.
+      const last = this.splashes.get(body);
+      if (last && ctx.time - last.t < 0.4 && Math.hypot(p.x - last.x, p.z - last.z) < 1.2) {
+        last.mass += part.spec.mass;
+      } else {
+        this.splashes.set(body, { t: ctx.time, x: p.x, z: p.z, mass: part.spec.mass });
+        ctx.effects.splash({ x: p.x, y: -2.5, z: p.z }, Math.min(1.4, 0.35 + (MASS[body.kind] / 70) * 0.5));
+      }
       body.sinking = true;
     };
     rag.onFrozen = () => this.onSettled(body);
@@ -455,7 +479,7 @@ export class Bodies {
       const s = rand(1.5, 4) * Math.sqrt(k);
       ctx.effects.emit(false, c.x, c.y, c.z, { vel: [Math.cos(a) * s, rand(0.5, 2.5), Math.sin(a) * s * 0.7], drag: 2.2, size: [0.4 * k, 1.3 * k], life: rand(1, 1.8), color: 0x7a8c34, color1: 0x46561c, alpha: [0.26, 0], frame: F.Smoke, vr: rand(-1, 1) });
     }
-    ctx.effects.ring(p.x, 0.05, p.z, 0.3, 2.4 * k, 0.4, 0xb04030, 0.6);
+    shockDust(ctx.effects, p.x, p.z, 1.2 * k, Math.round(10 * k), 0x6a7436, 0.32);
     ctx.shake.add(dave ? 0.45 : 0.12);
     if (dave) ctx.shake.punch(0, -1.2, 0);
   }
@@ -771,7 +795,11 @@ export class Bodies {
 
   private bake(b: Body): void {
     if (b.mode !== 'live') return;
-    const tint = b.charred > 0 ? charredTint(b.charred) : undefined;
+    // Dead for good: the body goes dark and drab (it recedes into the deck);
+    // a body that will rise keeps its colours (and its glowing eyes).
+    const tint = b.charred > 0 ? charredTint(b.charred) : b.permanent ? DEAD_TINT : undefined;
+    const head = b.rig.bones.get(b.rig.head);
+    b.headAt = head && head.visible ? head.getWorldPosition(b.headAt ?? new THREE.Vector3()) : null;
     if (b.charred > 0) b.rig.setCharred(0);
     b.bake = this.ctx.corpses.bake(b.rig.root, tint);
     this.ctx.corpses.setBlood(b.bake, b.soaked);
@@ -852,6 +880,7 @@ export class Bodies {
     }
     this.updateKebabs(dt, muzzleOf);
     this.capRagdolls();
+    this.undeadTells(dt);
     const list = this.active;
     for (let i = list.length - 1; i >= 0; i--) {
       const b = list[i];
@@ -917,6 +946,53 @@ export class Bodies {
       }
       if (b.mode === 'live' && rag && rag.frozen) this.maybeBake(b);
       else if (b.mode === 'live' && !rag && !b.burning) this.bakeOrphanless(b);
+    }
+  }
+
+  /**
+   * The tell of a body that will get up again: pale green eyes and a sickly
+   * green glow that swells (and breathes faster) as the rise approaches, with
+   * a wisp of green mist now and then. Bodies dead for good show nothing.
+   */
+  private undeadTells(dt: number): void {
+    const ctx = this.ctx;
+    const w = ctx.world;
+    if (!w) return;
+    const halos = ctx.halos;
+    const t = ctx.time;
+    for (const c of w.corpses) {
+      if (c.risesAt === null || c.removed) continue;
+      const b = this.byId.get(c.id);
+      if (!b || b.permanent || b.mode === 'gone' || b.sinking) continue;
+      let hp: THREE.Vector3 | null;
+      if (b.mode === 'baked') hp = b.headAt;
+      else {
+        const head = b.rig.bones.get(b.rig.head);
+        hp = head && head.visible ? head.getWorldPosition(_v2) : null;
+      }
+      const remain = (c.risesAt - w.tick) * TICK;
+      const span = b.riseSpan > 0 ? b.riseSpan * TICK : 12;
+      // 0.2 just after death → 1 when it starts twitching (2 s before it gets up).
+      const k = clamp(1 - (remain - 2) / Math.max(1, span - 2), 0.2, 1);
+      const pulse = c.twitching ? 0.7 + 0.3 * Math.sin(t * 18 + b.seed) : 0.72 + 0.28 * Math.sin(t * (1.6 + 4 * k) + b.seed);
+      const cx = c.x;
+      const cz = c.z;
+      // Glow over the body.
+      halos.push(cx, 0.25, cz, UNDEAD_GLOW, (0.6 + 0.9 * k) * pulse, 1.1 + 0.6 * k, 0.9);
+      if (hp) halos.push(hp.x, hp.y + 0.04, hp.z, UNDEAD_EYE, 1.4 + 0.8 * k, 0.22, 0.7);
+      // Mist rising off it, more as the rise comes.
+      if (Math.random() < dt * (0.6 + 4 * k) * ctx.effects.density) {
+        ctx.effects.emit(true, cx + rand(-0.4, 0.5), 0.15, cz + rand(-0.25, 0.25), {
+          vel: [rand(-0.1, 0.1), rand(0.25, 0.55), 0],
+          drag: 0.6,
+          size: [0.25, 0.7],
+          life: rand(1.2, 2),
+          color: UNDEAD_MIST,
+          alpha: [0.05 + 0.09 * k, 0],
+          frame: F.Mist,
+          vr: rand(-0.5, 0.5),
+        });
+      }
     }
   }
 

@@ -17,8 +17,8 @@ export interface HudSlot {
 export interface HudSnapshot {
   chapter: number;
   chapterName: string;
-  /** 'boss' shows the boss bar instead of the boarding bar. */
-  mode: 'boarding' | 'boss';
+  /** 'boss' shows the boss bar instead of the boarding bar; 'mopup' the stragglers left after the boss. */
+  mode: 'boarding' | 'boss' | 'mopup';
   /** Boarding: survivors aboard / total. */
   boarded: number;
   passengers: number;
@@ -40,6 +40,11 @@ export interface HudSnapshot {
   clock?: string;
   /** Optional 0..1: a zombie is close to the gangway (the boarding bar pulses red). */
   danger?: number;
+  /** Mop-up: zombies still to put down before the pier is held, and how many there were. */
+  stragglers?: number;
+  stragglersMax?: number;
+  /** Zombies under the crane's pallet (the chip glows when it's worth dropping). */
+  craneUnder?: number;
 }
 
 /** Big centred callouts (NICE SHOT, MASSACRE, HEADSHOT ×3, TIDY …). */

@@ -168,14 +168,24 @@ vec3 skyBand(vec3 d) {
  * `uniformName` (diffuse untouched): the key light's gameplay elevation would
  * otherwise put mirror glints on water and wet planks everywhere.
  */
-export function dirSpecularScaledLightsChunk(uniformName: string): string {
-  const chunk = THREE.ShaderChunk.lights_fragment_begin;
-  const start = chunk.indexOf('#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )');
+export function dirSpecularScaledLightsChunk(uniformName: string, maxSpec?: number, pointMaxSpec?: number): string {
+  let chunk = THREE.ShaderChunk.lights_fragment_begin;
   const call = 'RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );';
-  const at = chunk.indexOf(call, start);
-  if (start < 0 || at < 0) return chunk;
-  const patched = `vec3 lfSpecBefore = reflectedLight.directSpecular;\n\t\t${call}\n\t\treflectedLight.directSpecular = lfSpecBefore + (reflectedLight.directSpecular - lfSpecBefore) * ${uniformName};`;
-  return chunk.slice(0, at) + patched + chunk.slice(at + call.length);
+  // Replace the RE_Direct call of one light loop (loops are unrolled without braces: wrap ours).
+  const patch = (marker: string, scale: string | null, cap: number | undefined): void => {
+    const start = chunk.indexOf(marker);
+    const at = chunk.indexOf(call, start);
+    if (start < 0 || at < 0) return;
+    let delta = '(reflectedLight.directSpecular - lfSpecBefore)';
+    if (scale) delta = `${delta} * ${scale}`;
+    // Optionally cap what one light adds (a GGX peak on rippled water is ~1000×: blooms to white).
+    if (cap !== undefined) delta = `min(${delta}, vec3(${cap.toFixed(3)}))`;
+    const patched = `{ vec3 lfSpecBefore = reflectedLight.directSpecular;\n\t\t${call}\n\t\treflectedLight.directSpecular = lfSpecBefore + ${delta}; }`;
+    chunk = chunk.slice(0, at) + patched + chunk.slice(at + call.length);
+  };
+  patch('#if ( NUM_DIR_LIGHTS > 0 ) && defined( RE_Direct )', uniformName, maxSpec);
+  if (pointMaxSpec !== undefined) patch('#if ( NUM_POINT_LIGHTS > 0 ) && defined( RE_Direct )', null, pointMaxSpec);
+  return chunk;
 }
 
 /** Vector3 from an [r,g,b] palette entry. */

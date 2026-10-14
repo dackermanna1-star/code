@@ -9,8 +9,9 @@
 //   (bot or input → view.beforeStep → world.step) → view.update (also drives
 //   the environment) → sequences → HUD / overlay / pop-ups → audio.update
 import * as THREE from 'three';
-import { CHAPTERS } from '../config/chapters';
+import { CHAPTERS, CHAPTER_START_MONEY } from '../config/chapters';
 import { WEAPON_ORDER, type WeaponId, type ZombieKind } from '../config/ids';
+import { CRANE } from '../config/world';
 import { WEAPONS } from '../config/weapons';
 import { TICK, TICK_RATE } from '../config/world';
 import { Bot } from '../core/Bot';
@@ -30,8 +31,7 @@ export type GameMode = 'boot' | 'title' | 'playing' | 'paused' | 'over' | 'victo
 
 /** Attract mode: a fixed seed per chapter so the title always opens on a good show. */
 const ATTRACT_SEED = 1905;
-/** Money for a game that starts at a later chapter (debug / ?chapter=N): what a run would have earned. */
-export const CHAPTER_START_MONEY = [0, 0, 3000, 12000];
+export { CHAPTER_START_MONEY };
 /** Post-processing per quality option. */
 const POST: Record<Quality, PostQuality> = { low: 'low', medium: 'medium', high: 'high' };
 const PIXEL_RATIO: Record<Quality, number> = { low: 1, medium: 1.5, high: 2 };
@@ -101,6 +101,12 @@ export class Game {
   private bestAffordable: WeaponId | null = null;
   /** No run recorded yet: a couple of onboarding lines at the start. */
   private firstNight = false;
+  /** What the Bosun had when the current chapter began ("Retry chapter" restarts from here). */
+  private chapterStart: { chapter: number; money: number; weapons: WeaponId[]; weapon: WeaponId } | null = null;
+  /** This game is a chapter retry (not a full night: it skips the Best Nights table). */
+  private retrying = false;
+  /** The horn has been pointed out this game. */
+  private hornTaught = false;
   private readonly tickIn: HeldInput = { left: false, right: false, up: false, down: false, fire: false, jump: false, horn: false, cannon: false };
   private readonly pv = new THREE.Vector3();
   private readonly pp = { x: 0, y: 0 };
@@ -166,8 +172,11 @@ export class Game {
     this.screens.showTitle({ onPlay: () => this.newGame() });
   }
 
-  /** Start a new game (title Play, Retry, ?play). */
-  newGame(opts: { startChapter?: number; money?: number } = {}): void {
+  /**
+   * Start a new game (title Play, Retry, ?play). `weapons`/`weapon`: the arsenal
+   * to start with (a chapter retry); `retry` marks a chapter retry.
+   */
+  newGame(opts: { startChapter?: number; money?: number; weapons?: WeaponId[]; weapon?: WeaponId; retry?: boolean } = {}): void {
     this.audio.unlock();
     this.screens.hideAll();
     this.hud.callouts.clear();
@@ -179,14 +188,28 @@ export class Game {
     const ch = opts.startChapter ?? this.worldOptions.startChapter ?? 1;
     const money = opts.money ?? this.worldOptions.money ?? CHAPTER_START_MONEY[ch] ?? 0;
     const seed = this.worldOptions.seed ?? (Math.random() * 0x7fffffff) >>> 0;
-    this.startWorld({ seed, startChapter: ch, money, god: !!this.worldOptions.god }, false);
+    this.startWorld({ seed, startChapter: ch, money, god: !!this.worldOptions.god, weapons: opts.weapons, weapon: opts.weapon }, false);
     this.bot = this.autoplay && this.world ? new Bot(this.world.player, { skill: 0.92 }) : null;
-    this.screens.recordRuns = !this.autoplay && !this.worldOptions.god;
+    this.retrying = !!opts.retry;
+    this.screens.recordRuns = !this.autoplay && !this.worldOptions.god && !this.retrying;
     this.firstNight = ch === 1 && loadRuns().length === 0;
     this.hud.setVisible(true);
     this.input.clear();
     this.input.enabled = !this.autoplay;
     this.audio.setMode('game');
+  }
+
+  /** "Retry chapter": the chapter that was lost, with the money and guns the Bosun had when it began. */
+  retryChapter(): void {
+    const c = this.chapterStart;
+    if (!c) return this.newGame();
+    this.newGame({ startChapter: c.chapter, money: c.money, weapons: c.weapons, weapon: c.weapon, retry: c.chapter > 1 });
+  }
+
+  /** Label for the retry button, or null when it would be the same as a restart. */
+  private get retryLabel(): string | null {
+    const c = this.chapterStart;
+    return c && (c.chapter > 1 || c.money > 0 || c.weapons.length > 1) ? `Retry chapter ${c.chapter}` : null;
   }
 
   private startAttract(): void {
@@ -214,8 +237,10 @@ export class Game {
     this.savedPassengers = 0;
     this.chapterMoney = 0;
     this.told.clear();
+    this.hornTaught = false;
     this.bestAffordable = null;
     this.snap = undefined;
+    if (!attract) this.chapterStart = null;
 
     const world = new World(o);
     this.world = world;
@@ -234,6 +259,8 @@ export class Game {
     on('chapterSplash', (e) => {
       this.screens.showChapterSplash(e.num, e.name, e.clock, 2600);
       this.chapterMoney = world.player.stats.earned;
+      const p = world.player;
+      this.chapterStart = { chapter: e.num, money: p.money, weapons: WEAPON_ORDER.filter((id) => p.has(id)), weapon: p.weapon.id };
     });
     on('chapterStart', (e) => {
       if (e.num > 1) this.after(0.4, () => this.hud.callout('The crane is rehung · the horn is ready', 'info'));
@@ -250,10 +277,14 @@ export class Game {
       const line = BOSS_LINES[e.num];
       if (line) this.after(2.2, () => this.hud.callout(line, 'info'));
     });
+    on('mopUp', (e) => {
+      const who = world.bossName || 'The boss';
+      this.hud.callout(`${who} ${e.num === 2 ? 'is finished' : 'is down'} · mop up the last ${e.left === 1 ? 'one' : e.left}`, 'info');
+    });
     on('chapterComplete', (e) => {
       this.savedPassengers += world.passengers;
       const earned = world.player.stats.earned - this.chapterMoney;
-      this.after(1.4, () => {
+      this.after(0.8, () => {
         this.hud.callout(e.num >= CHAPTERS.length ? 'THE LAST FERRY IS BOARDED' : 'PIER HELD', 'nice');
         this.hud.callout(`${world.passengers} passengers aboard · $${earned.toLocaleString('en-US')} earned`, 'info');
       });
@@ -262,7 +293,11 @@ export class Game {
     on('victory', () => this.beginVictory());
 
     // Callouts.
-    on('niceShot', (e) => this.callout(e.n >= 6 ? `MASSACRE ×${e.n}` : `NICE SHOT ×${e.n}`, e.n >= 6 ? 'massacre' : 'nice'));
+    on('niceShot', (e) => {
+      const big = e.n >= 6;
+      const label = e.source === 'gas' ? 'GAS!' : e.source === 'crane' ? 'CRUSHED' : e.source === 'cannon' ? 'DECK GUN' : big ? 'MASSACRE' : 'NICE SHOT';
+      this.callout(`${label} ×${e.n}`, big ? 'massacre' : 'nice');
+    });
     on('headshotStreak', (e) => {
       // A long streak would re-pop the callout on every kill: milestones always, the rest at most every 0.45 s.
       if (e.n < 3) return;
@@ -291,7 +326,7 @@ export class Game {
         this.hud.callout("Captain's Favour is full · F calls the deck gun", 'info');
       }
     });
-    on('corpseTwitch', () => this.teach('twitch', 'A body is twitching · stomp it (E) before it gets up', 'info'));
+
     on('corpseRise', () => this.teach('rise', 'They get back up. Not dead till the head’s gone.', 'danger'));
     on('grab', (e) => {
       if (e.playerId === 0) this.teach('grab', 'Grabbed! Stomp (E) to shake them off', 'danger');
@@ -339,6 +374,8 @@ export class Game {
     this.screens.showPause({
       onResume: () => this.resume(),
       onRestart: () => this.newGame(),
+      onRetryChapter: this.retryLabel ? () => this.retryChapter() : undefined,
+      retryLabel: this.retryLabel ?? undefined,
       onQuit: () => this.showTitle(),
     });
   }
@@ -389,6 +426,8 @@ export class Game {
         this.screens.showGameOver(info?.reason ?? 'gangway', this.endStats ?? runStats(w, w.player.stats, w.tick * TICK), {
           onRetry: () => this.newGame(),
           onTitle: () => this.showTitle(),
+          onRetryChapter: this.retryLabel ? () => this.retryChapter() : undefined,
+          retryLabel: this.retryLabel ?? undefined,
         }, w.describeGameOver() || undefined);
       }
     } else if (this.mode === 'victory') {
@@ -406,7 +445,9 @@ export class Game {
       if (!this.seqShown && t >= VICTORY.screenAt) {
         this.seqShown = true;
         const w = this.world!;
-        this.screens.showVictory(this.endStats ?? runStats(w, w.player.stats, w.tick * TICK), {
+        // Counted now: the stragglers shot during the departure are in the totals too.
+        this.endStats = runStats(w, w.player.stats, w.tick * TICK, { passengersSaved: this.savedPassengers });
+        this.screens.showVictory(this.endStats, {
           onRetry: () => this.newGame(),
           onTitle: () => this.showTitle(),
         });
@@ -437,6 +478,9 @@ export class Game {
     if (!this.controlling || !w || this.bot) return;
     const p = w.player;
     switch (a.kind) {
+      case 'ctrlHint':
+        this.teach('ctrl', 'Fire with Space, J or the mouse (Ctrl belongs to the browser)', 'info');
+        break;
       case 'reload':
         p.reload();
         break;
@@ -533,6 +577,7 @@ export class Game {
         recentDamage: this.damagePulse,
         kick: this.kick,
         showCrosshair: this.mode === 'playing' || this.mode === 'paused' || (this.controlling && !this.autoplay),
+        culpritId: this.mode === 'over' ? w.gameOverInfo?.zombieId : undefined,
       });
       if (this.mode === 'over') {
         const reason = w.gameOverInfo?.reason;
@@ -566,16 +611,38 @@ export class Game {
     }
   }
 
-  /** Danger line near the gangway, weapon-for-sale hints. */
+  /** Danger line near the gangway (and the horn, the first time), the crane and twitch lessons, weapon-for-sale hints. */
   private watchPlay(w: World, dt: number): void {
     this.dangerCool -= dt;
     const d = this.snap?.danger ?? 0;
     if (d > 0.72 && this.dangerCool <= 0) {
       this.dangerCool = 6;
-      this.hud.callout('One of them is at the gangway!', 'danger');
+      if (w.hornReady && !this.bot) {
+        // The best panic button, taught the first time it would help.
+        const key = this.input.device === 'pad' ? 'Back' : 'H';
+        this.hud.callout(this.hornTaught ? 'One of them is at the gangway!' : `One of them is at the gangway! · ${key} blows the ferry horn`, 'danger');
+        this.hud.flashChip('horn');
+        this.hornTaught = true;
+      } else {
+        this.hud.callout('One of them is at the gangway!', 'danger');
+      }
     }
     if (this.bot) return;
     const p = w.player;
+    // A crowd under the pallet: point at the crane once.
+    if (w.craneReady && !this.told.has('crane') && w.pier.under >= CRANE.crowd) {
+      this.teach('crane', 'They’re under the crane · line up with the hook and shoot it', 'info');
+      this.hud.flashChip('crane');
+    }
+    // A body twitching near the Bosun: the stomp lesson, where it can be used.
+    if (!this.told.has('twitch')) {
+      for (const c of w.corpses) {
+        if (c.twitching && Math.abs(c.x - p.x) < 4 && Math.abs(c.z - p.z) < 2.5) {
+          this.teach('twitch', 'That body is twitching · stomp it (E) before it gets up', 'info');
+          break;
+        }
+      }
+    }
     let best: WeaponId | null = null;
     for (const id of WEAPON_ORDER) if (!p.has(id) && p.money >= WEAPONS[id].price) best = id;
     if (best && best !== this.bestAffordable && !this.told.has(`buy-${best}`) && WEAPON_ORDER.indexOf(best) > WEAPON_ORDER.indexOf(this.bestAffordable ?? 'revolver')) {
@@ -618,6 +685,10 @@ export class Game {
       zombies: w?.zombies.length,
       corpses: w?.corpses.length,
       view: this.view.stats,
+      overlay: { ...this.overlay.stats },
+      mopUp: w?.mopUp ?? false,
+      stragglers: w?.mopUp ? w.stragglers : 0,
+      crane: w?.crane.state,
       pops: this.pops.stats,
       slow: this.time.slow,
       departure: this.departure,

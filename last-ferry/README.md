@@ -23,10 +23,15 @@ that runs offline. Double-click it to play.
   Fire burns the pile away and explosions scatter it.
 - **The pier fights back.**
   - **H** blows the ferry's horn, once per chapter: everything staggers.
-  - Shoot the crane's hook block to drop a pallet of fish crates on the horde.
+  - Line up with the crane's hook (it lights up) and shoot it to drop a pallet of fish
+    crates on whatever crowds under it. Stray shots from other lanes never cut the rope.
   - Fill **Captain's Favour** and press **F**: the ferry's deck gun shells your lane.
-- **Fire and gas.** The flare pistol sets zombies alight, and they panic and run faster.
-  Bloaters burst into green gas, and gas plus fire makes an explosion.
+- **Fire and gas.** A flare sets a whole crowd alight and leaves the deck burning; it
+  reloads itself in your belt. Bloaters burst into green gas, and gas plus fire makes an
+  explosion.
+- **Mop up.** Killing the boss isn't the end: the pier is held only once the stragglers
+  are down too (the boss bar counts them). Lost a chapter? *Retry chapter* starts it again
+  with the money and guns you had.
 - **Three chapters, three times of night.**
   - *Last Light* (sunset): boss Big Dave, a 3 m bloater chef.
   - *Blue Hour*: boss The Marathon, 40 joggers in race bibs.
@@ -38,11 +43,11 @@ that runs offline. Double-click it to play.
 | Action | Keys |
 |---|---|
 | Move | W A S D / arrow keys (the Bosun always fires left, along his lane) |
-| Fire | Space / Ctrl / left mouse |
+| Fire | Space / J / K / left mouse (not Ctrl: Ctrl+W would close the tab) |
 | Reload | R |
 | Buy best weapon / select or buy | B or Enter / 1–6 or click a tile |
-| Cycle weapons | Q / Tab |
-| Stomp (jump) | E / Shift (walk into a crawler to kick it) |
+| Cycle weapons | Q / Tab / mouse wheel |
+| Stomp (jump) | E / Shift / right mouse (walk into a crawler to kick it) |
 | Ferry horn | H (once per chapter) |
 | Cannon strike | F (when Captain's Favour is full) |
 | Pause | P / Esc |
@@ -56,7 +61,7 @@ Gamepads work too.
 | "Old Faithful" revolver | free | Six shots; headshots ×3 |
 | Pneumatic nail gun | $600 | Fast; 3 nails pin a downed body to the planks |
 | Pump shotgun | $1,500 | 8 pellets; knocks zombies back; loaded shell by shell |
-| Flare pistol | $2,200 | Sets zombies (and the deck) on fire; lights the night |
+| Flare pistol | $2,200 | Sets a crowd (and the deck) on fire; lights the night; reloads itself when holstered |
 | Harpoon gun | $3,500 | Skewers up to 5 zombies and reels them in; goes through riot shields |
 | "Outboard" minigun | $12,000 | A boat engine with barrels. Pull-start it, then mind the heat |
 
@@ -69,7 +74,7 @@ Gamepads work too.
   npm install
   npm run ferry            # dev server at http://127.0.0.1:5180
   npm run ferry:test       # unit tests (logic)
-  npm run ferry:sim -- 16 0.9   # headless bot balance runs
+  npm run ferry:sim -- 40 0.9   # headless bot balance runs (skill 0..1; MAXCH=1 stops after chapter 1)
   npm run ferry:single     # build release/LastFerry.html
   node last-ferry/tools/e2e.mjs --file release/LastFerry.html [--mode full]
   ```
