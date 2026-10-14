@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "abyssal_descent:soul_eruption",
+    "abyssal_descent:shockwave",
+    "abyssal_descent:bleed",
+    "abyssal_descent:spikes"
+  ]
+}

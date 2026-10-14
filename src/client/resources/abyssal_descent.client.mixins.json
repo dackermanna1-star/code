@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "net.abyssaldescent.client.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "BossHealthOverlayAccessor",
+    "CameraMixin",
+    "MinecraftMusicMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

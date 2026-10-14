@@ -1,0 +1,63 @@
+{
+  "attributes": {
+    "minecraft:visual/fog_color": "#1a2027",
+    "minecraft:visual/fog_start_distance": 3.0,
+    "minecraft:visual/fog_end_distance": 46.0,
+    "minecraft:visual/water_fog_color": "#050533",
+    "minecraft:visual/sky_color": "#000000",
+    "minecraft:visual/ambient_particles": [
+      {
+        "particle": {
+          "type": "abyssal_descent:dust_mote"
+        },
+        "probability": 0.0035
+      },
+      {
+        "particle": {
+          "type": "minecraft:white_ash"
+        },
+        "probability": 0.0012
+      }
+    ],
+    "minecraft:audio/background_music": {
+      "default": {
+        "sound": "minecraft:music.overworld.deep_dark",
+        "min_delay": 1800,
+        "max_delay": 4800,
+        "replace_current_music": false
+      }
+    },
+    "minecraft:audio/ambient_sounds": {
+      "loop": "abyssal_descent:ambient.forgotten_halls.loop",
+      "mood": {
+        "sound": "minecraft:ambient.cave",
+        "tick_delay": 3000,
+        "block_search_extent": 8,
+        "offset": 2.0
+      },
+      "additions": {
+        "sound": "abyssal_descent:ambient.forgotten_halls.additions",
+        "tick_chance": 0.006
+      }
+    }
+  },
+  "carvers": [],
+  "downfall": 0.0,
+  "effects": {
+    "water_color": "#3f76e4"
+  },
+  "features": [],
+  "has_precipitation": false,
+  "spawn_costs": {},
+  "spawners": {
+    "ambient": [],
+    "axolotls": [],
+    "creature": [],
+    "misc": [],
+    "monster": [],
+    "underground_water_creature": [],
+    "water_ambient": [],
+    "water_creature": []
+  },
+  "temperature": 0.5
+}

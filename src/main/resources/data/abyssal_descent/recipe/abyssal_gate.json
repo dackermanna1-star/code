@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "CGC",
+    "OEO",
+    "CGC"
+  ],
+  "key": {
+    "C": "minecraft:chiseled_stone_bricks",
+    "G": "minecraft:gold_ingot",
+    "O": "minecraft:crying_obsidian",
+    "E": "minecraft:ender_eye"
+  },
+  "result": {
+    "id": "abyssal_descent:abyssal_gate",
+    "count": 1
+  }
+}

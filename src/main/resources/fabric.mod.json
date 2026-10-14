@@ -1,0 +1,35 @@
+{
+	"schemaVersion": 1,
+	"id": "abyssal_descent",
+	"version": "${version}",
+	"name": "Abyssal Descent",
+	"description": "A roguelike dungeon of thirty floors across six zones: procedural halls, telegraphed bosses, extraction runs and unique loot, built on vanilla combat.",
+	"authors": [
+		"Abyssal Descent contributors"
+	],
+	"contact": {},
+	"license": "MIT",
+	"icon": "assets/abyssal_descent/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"net.abyssaldescent.AbyssalDescent"
+		],
+		"client": [
+			"net.abyssaldescent.client.AbyssalDescentClient"
+		]
+	},
+	"mixins": [
+		"abyssal_descent.mixins.json",
+		{
+			"config": "abyssal_descent.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}

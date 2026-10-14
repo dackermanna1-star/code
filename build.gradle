@@ -1,0 +1,80 @@
+plugins {
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+	id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+loom {
+	splitEnvironmentSourceSets()
+
+	mods {
+		"abyssal_descent" {
+			sourceSet sourceSets.main
+			sourceSet sourceSets.client
+		}
+	}
+}
+
+dependencies {
+	minecraft "com.mojang:minecraft:${project.minecraft_version}"
+	mappings loom.officialMojangMappings()
+	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+}
+
+processResources {
+	def version = project.version
+	inputs.property "version", version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+	it.options.encoding = "UTF-8"
+}
+
+java {
+	withSourcesJar()
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+}
+
+jar {
+	def projectName = project.name
+	inputs.property "projectName", projectName
+	from("LICENSE") {
+		rename { "${it}_$projectName" }
+	}
+}
+
+loom {
+	runs {
+		selftest {
+			server()
+			name = "Self Test Server"
+			vmArg "-Dabyssal_descent.selftest=true"
+			runDir "run/selftest"
+		}
+	}
+}
+
+// Automated client tour (./gradlew runClientGameTest): builds a world, starts an expedition, and saves screenshots
+// of the dungeon, HUD and boss fight to run/clientGameTest/screenshots. Lives in its own source set and test mod.
+fabricApi {
+	configureTests {
+		createSourceSet = true
+		modId = "abyssal_descent_gametest"
+		enableGameTests = false
+		enableClientGameTests = true
+		eula = true
+	}
+}

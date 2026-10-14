@@ -1,0 +1,628 @@
+{
+  "block.trap.click": {
+    "subtitle": "subtitles.abyssal_descent.block.trap.click",
+    "sounds": [
+      {
+        "name": "minecraft:block.stone_pressure_plate.click_on",
+        "type": "event",
+        "volume": 0.9,
+        "pitch": 0.7
+      },
+      {
+        "name": "minecraft:block.tripwire.click_on",
+        "type": "event",
+        "volume": 0.9,
+        "pitch": 0.6
+      }
+    ]
+  },
+  "block.spike_trap.extend": {
+    "subtitle": "subtitles.abyssal_descent.block.spike_trap.extend",
+    "sounds": [
+      {
+        "name": "minecraft:block.piston.extend",
+        "type": "event",
+        "volume": 0.8,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block.pointed_dripstone.land",
+        "type": "event",
+        "pitch": 0.8
+      }
+    ]
+  },
+  "block.dart_trap.fire": {
+    "subtitle": "subtitles.abyssal_descent.block.dart_trap.fire",
+    "sounds": [
+      {
+        "name": "minecraft:block.dispenser.launch",
+        "type": "event",
+        "volume": 0.9,
+        "pitch": 1.35
+      }
+    ]
+  },
+  "block.crumbling_wall.crumble": {
+    "subtitle": "subtitles.abyssal_descent.block.crumbling_wall.crumble",
+    "sounds": [
+      {
+        "name": "minecraft:block.deepslate_bricks.break",
+        "type": "event",
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:entity.zombie.break_wooden_door",
+        "type": "event",
+        "volume": 0.5,
+        "pitch": 0.5
+      }
+    ]
+  },
+  "block.reliquary.open": {
+    "subtitle": "subtitles.abyssal_descent.block.reliquary.open",
+    "sounds": [
+      {
+        "name": "minecraft:block.vault.open_shutter",
+        "type": "event",
+        "pitch": 0.9
+      }
+    ]
+  },
+  "block.runic_seal.close": {
+    "subtitle": "subtitles.abyssal_descent.block.runic_seal.close",
+    "sounds": [
+      {
+        "name": "minecraft:block.beacon.activate",
+        "type": "event",
+        "volume": 0.9,
+        "pitch": 1.35
+      },
+      {
+        "name": "abyssal_descent:block/seal_hum",
+        "volume": 0.6
+      }
+    ]
+  },
+  "block.runic_seal.open": {
+    "subtitle": "subtitles.abyssal_descent.block.runic_seal.open",
+    "sounds": [
+      {
+        "name": "minecraft:block.beacon.deactivate",
+        "type": "event",
+        "volume": 0.9,
+        "pitch": 1.3
+      }
+    ]
+  },
+  "block.abyssal_gate.attune": {
+    "subtitle": "subtitles.abyssal_descent.block.abyssal_gate.attune",
+    "sounds": [
+      {
+        "name": "minecraft:block.respawn_anchor.charge",
+        "type": "event",
+        "pitch": 0.7
+      }
+    ]
+  },
+  "block.abyssal_gate.travel": {
+    "subtitle": "subtitles.abyssal_descent.block.abyssal_gate.travel",
+    "sounds": [
+      {
+        "name": "minecraft:block.respawn_anchor.deplete",
+        "type": "event",
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:entity.enderman.teleport",
+        "type": "event",
+        "volume": 0.8,
+        "pitch": 0.5
+      }
+    ]
+  },
+  "event.descend": {
+    "subtitle": "subtitles.abyssal_descent.event.descend",
+    "sounds": [
+      {
+        "name": "minecraft:block.respawn_anchor.deplete",
+        "type": "event",
+        "pitch": 0.5
+      }
+    ]
+  },
+  "event.extract": {
+    "subtitle": "subtitles.abyssal_descent.event.extract",
+    "sounds": [
+      {
+        "name": "minecraft:block.beacon.power_select",
+        "type": "event",
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:block.respawn_anchor.set_spawn",
+        "type": "event",
+        "pitch": 0.9
+      }
+    ]
+  },
+  "event.defeat": {
+    "subtitle": "subtitles.abyssal_descent.event.defeat",
+    "sounds": [
+      {
+        "name": "minecraft:entity.elder_guardian.curse",
+        "type": "event",
+        "volume": 0.7,
+        "pitch": 0.6
+      }
+    ]
+  },
+  "event.floor_enter": {
+    "subtitle": "subtitles.abyssal_descent.event.floor_enter",
+    "sounds": [
+      {
+        "name": "abyssal_descent:event/floor_enter",
+        "volume": 0.9
+      }
+    ]
+  },
+  "event.room_clear": {
+    "subtitle": "subtitles.abyssal_descent.event.room_clear",
+    "sounds": [
+      {
+        "name": "minecraft:block.vault.deactivate",
+        "type": "event",
+        "pitch": 1.1
+      },
+      {
+        "name": "minecraft:block.amethyst_block.resonate",
+        "type": "event",
+        "pitch": 0.9
+      }
+    ]
+  },
+  "event.encounter_start": {
+    "subtitle": "subtitles.abyssal_descent.event.encounter_start",
+    "sounds": [
+      {
+        "name": "minecraft:block.trial_spawner.ominous_activate",
+        "type": "event",
+        "volume": 0.9
+      }
+    ]
+  },
+  "event.enemy_summon": {
+    "subtitle": "subtitles.abyssal_descent.event.enemy_summon",
+    "sounds": [
+      {
+        "name": "minecraft:block.trial_spawner.spawn_mob",
+        "type": "event",
+        "pitch": 0.85
+      }
+    ]
+  },
+  "event.curse_accept": {
+    "subtitle": "subtitles.abyssal_descent.event.curse_accept",
+    "sounds": [
+      {
+        "name": "minecraft:event.mob_effect.bad_omen",
+        "type": "event",
+        "volume": 0.9,
+        "pitch": 0.8
+      }
+    ]
+  },
+  "event.trial_begin": {
+    "subtitle": "subtitles.abyssal_descent.event.trial_begin",
+    "sounds": [
+      {
+        "name": "minecraft:event.mob_effect.trial_omen",
+        "type": "event",
+        "pitch": 0.9
+      }
+    ]
+  },
+  "loot.uncommon": {
+    "subtitle": "subtitles.abyssal_descent.loot.uncommon",
+    "sounds": [
+      {
+        "name": "minecraft:entity.experience_orb.pickup",
+        "type": "event",
+        "volume": 0.5,
+        "pitch": 0.75
+      }
+    ]
+  },
+  "loot.rare": {
+    "subtitle": "subtitles.abyssal_descent.loot.rare",
+    "sounds": [
+      {
+        "name": "minecraft:block.amethyst_block.chime",
+        "type": "event",
+        "pitch": 1.1
+      },
+      {
+        "name": "minecraft:block.note_block.chime",
+        "type": "event",
+        "volume": 0.5,
+        "pitch": 1.2
+      }
+    ]
+  },
+  "loot.epic": {
+    "subtitle": "subtitles.abyssal_descent.loot.epic",
+    "sounds": [
+      {
+        "name": "minecraft:block.amethyst_cluster.break",
+        "type": "event",
+        "pitch": 1.2
+      },
+      {
+        "name": "minecraft:block.note_block.bell",
+        "type": "event",
+        "volume": 0.6,
+        "pitch": 0.9
+      }
+    ]
+  },
+  "loot.legendary": {
+    "subtitle": "subtitles.abyssal_descent.loot.legendary",
+    "sounds": [
+      {
+        "name": "minecraft:ui.toast.challenge_complete",
+        "type": "event",
+        "volume": 0.55
+      }
+    ]
+  },
+  "weapon.chain_lightning": {
+    "subtitle": "subtitles.abyssal_descent.weapon.chain_lightning",
+    "sounds": [
+      {
+        "name": "minecraft:entity.lightning_bolt.impact",
+        "type": "event",
+        "volume": 0.35,
+        "pitch": 1.7
+      },
+      {
+        "name": "minecraft:block.copper_bulb.turn_on",
+        "type": "event",
+        "pitch": 0.7
+      }
+    ]
+  },
+  "weapon.soul_flare": {
+    "subtitle": "subtitles.abyssal_descent.weapon.soul_flare",
+    "sounds": [
+      {
+        "name": "minecraft:entity.blaze.shoot",
+        "type": "event",
+        "volume": 0.8,
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:item.firecharge.use",
+        "type": "event",
+        "volume": 0.8,
+        "pitch": 0.8
+      }
+    ]
+  },
+  "weapon.shockwave": {
+    "subtitle": "subtitles.abyssal_descent.weapon.shockwave",
+    "sounds": [
+      {
+        "name": "minecraft:item.mace.smash_ground_heavy",
+        "type": "event",
+        "volume": 0.9,
+        "pitch": 0.9
+      }
+    ]
+  },
+  "weapon.bleed": {
+    "subtitle": "subtitles.abyssal_descent.weapon.bleed",
+    "sounds": [
+      {
+        "name": "minecraft:entity.player.hurt_sweet_berry_bush",
+        "type": "event",
+        "pitch": 0.8
+      }
+    ]
+  },
+  "weapon.bone_shrapnel": {
+    "subtitle": "subtitles.abyssal_descent.weapon.bone_shrapnel",
+    "sounds": [
+      {
+        "name": "minecraft:block.bone_block.break",
+        "type": "event",
+        "pitch": 1.3
+      },
+      {
+        "name": "minecraft:entity.skeleton.hurt",
+        "type": "event",
+        "volume": 0.6,
+        "pitch": 1.4
+      }
+    ]
+  },
+  "armor.deathward": {
+    "subtitle": "subtitles.abyssal_descent.armor.deathward",
+    "sounds": [
+      {
+        "name": "minecraft:item.totem.use",
+        "type": "event",
+        "volume": 0.8,
+        "pitch": 1.1
+      }
+    ]
+  },
+  "entity.hollow_warden.awaken": {
+    "subtitle": "subtitles.abyssal_descent.entity.hollow_warden.awaken",
+    "sounds": [
+      {
+        "name": "minecraft:entity.warden.emerge",
+        "type": "event",
+        "pitch": 0.9
+      }
+    ]
+  },
+  "entity.hollow_warden.roar": {
+    "subtitle": "subtitles.abyssal_descent.entity.hollow_warden.roar",
+    "sounds": [
+      {
+        "name": "minecraft:entity.warden.roar",
+        "type": "event",
+        "pitch": 0.85
+      }
+    ]
+  },
+  "entity.hollow_warden.cleave": {
+    "subtitle": "subtitles.abyssal_descent.entity.hollow_warden.cleave",
+    "sounds": [
+      {
+        "name": "minecraft:entity.player.attack.sweep",
+        "type": "event",
+        "pitch": 0.55
+      },
+      {
+        "name": "minecraft:item.trident.throw",
+        "type": "event",
+        "pitch": 0.6
+      }
+    ]
+  },
+  "entity.hollow_warden.slam": {
+    "subtitle": "subtitles.abyssal_descent.entity.hollow_warden.slam",
+    "sounds": [
+      {
+        "name": "minecraft:item.mace.smash_ground_heavy",
+        "type": "event",
+        "pitch": 0.75
+      }
+    ]
+  },
+  "entity.hollow_warden.charge": {
+    "subtitle": "subtitles.abyssal_descent.entity.hollow_warden.charge",
+    "sounds": [
+      {
+        "name": "minecraft:entity.ravager.roar",
+        "type": "event",
+        "pitch": 1.1
+      }
+    ]
+  },
+  "entity.hollow_warden.volley": {
+    "subtitle": "subtitles.abyssal_descent.entity.hollow_warden.volley",
+    "sounds": [
+      {
+        "name": "minecraft:entity.wither.shoot",
+        "type": "event",
+        "volume": 0.8,
+        "pitch": 0.8
+      },
+      {
+        "name": "minecraft:entity.evoker.cast_spell",
+        "type": "event",
+        "pitch": 0.7
+      }
+    ]
+  },
+  "entity.hollow_warden.hurt": {
+    "subtitle": "subtitles.abyssal_descent.entity.hollow_warden.hurt",
+    "sounds": [
+      {
+        "name": "minecraft:entity.iron_golem.hurt",
+        "type": "event",
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:entity.skeleton.hurt",
+        "type": "event",
+        "pitch": 0.5
+      }
+    ]
+  },
+  "entity.hollow_warden.death": {
+    "subtitle": "subtitles.abyssal_descent.entity.hollow_warden.death",
+    "sounds": [
+      {
+        "name": "minecraft:entity.warden.death",
+        "type": "event",
+        "pitch": 0.8
+      }
+    ]
+  },
+  "entity.hollow_warden.step": {
+    "subtitle": "subtitles.abyssal_descent.entity.hollow_warden.step",
+    "sounds": [
+      {
+        "name": "minecraft:entity.iron_golem.step",
+        "type": "event",
+        "pitch": 0.7
+      }
+    ]
+  },
+  "entity.telegraph": {
+    "subtitle": "subtitles.abyssal_descent.entity.telegraph",
+    "sounds": [
+      {
+        "name": "abyssal_descent:entity/telegraph_low",
+        "volume": 0.8
+      },
+      {
+        "name": "abyssal_descent:entity/telegraph_high",
+        "volume": 0.8
+      }
+    ]
+  },
+  "entity.wailing_skull.wail": {
+    "subtitle": "subtitles.abyssal_descent.entity.wailing_skull.wail",
+    "sounds": [
+      {
+        "name": "minecraft:entity.ghast.warn",
+        "type": "event",
+        "volume": 0.5,
+        "pitch": 1.5
+      },
+      {
+        "name": "minecraft:entity.vex.charge",
+        "type": "event",
+        "pitch": 0.6
+      }
+    ]
+  },
+  "entity.wailing_skull.shoot": {
+    "subtitle": "subtitles.abyssal_descent.entity.wailing_skull.shoot",
+    "sounds": [
+      {
+        "name": "minecraft:entity.blaze.shoot",
+        "type": "event",
+        "volume": 0.8,
+        "pitch": 1.3
+      }
+    ]
+  },
+  "entity.crypt_ghoul.screech": {
+    "subtitle": "subtitles.abyssal_descent.entity.crypt_ghoul.screech",
+    "sounds": [
+      {
+        "name": "minecraft:entity.zoglin.angry",
+        "type": "event",
+        "volume": 0.9,
+        "pitch": 1.35
+      }
+    ]
+  },
+  "entity.crypt_ghoul.leap": {
+    "subtitle": "subtitles.abyssal_descent.entity.crypt_ghoul.leap",
+    "sounds": [
+      {
+        "name": "minecraft:entity.wolf.growl",
+        "type": "event",
+        "volume": 0.8,
+        "pitch": 0.65
+      },
+      {
+        "name": "minecraft:entity.goat.long_jump",
+        "type": "event",
+        "pitch": 0.8
+      }
+    ]
+  },
+  "entity.barrow_knight.swing": {
+    "subtitle": "subtitles.abyssal_descent.entity.barrow_knight.swing",
+    "sounds": [
+      {
+        "name": "minecraft:entity.player.attack.sweep",
+        "type": "event",
+        "pitch": 0.6
+      },
+      {
+        "name": "minecraft:entity.iron_golem.attack",
+        "type": "event",
+        "pitch": 0.8
+      }
+    ]
+  },
+  "entity.soul_bolt.hit": {
+    "subtitle": "subtitles.abyssal_descent.entity.soul_bolt.hit",
+    "sounds": [
+      {
+        "name": "minecraft:item.firecharge.use",
+        "type": "event",
+        "volume": 0.6,
+        "pitch": 1.6
+      },
+      {
+        "name": "minecraft:block.amethyst_block.break",
+        "type": "event",
+        "pitch": 0.8
+      }
+    ]
+  },
+  "music.boss_sting": {
+    "subtitle": "subtitles.abyssal_descent.music.boss_sting",
+    "sounds": [
+      {
+        "name": "abyssal_descent:music/boss_sting",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "music.boss.forgotten_halls": {
+    "sounds": [
+      {
+        "name": "minecraft:music.dragon",
+        "type": "event"
+      }
+    ]
+  },
+  "ambient.forgotten_halls.loop": {
+    "sounds": [
+      {
+        "name": "minecraft:ambient.soul_sand_valley.loop",
+        "type": "event",
+        "volume": 0.7,
+        "pitch": 0.8
+      }
+    ]
+  },
+  "ambient.forgotten_halls.additions": {
+    "subtitle": "subtitles.abyssal_descent.ambient.forgotten_halls.additions",
+    "sounds": [
+      {
+        "name": "minecraft:ambient.cave",
+        "type": "event",
+        "volume": 0.6,
+        "pitch": 0.9,
+        "weight": 3
+      },
+      {
+        "name": "minecraft:block.pointed_dripstone.drip_water",
+        "type": "event",
+        "pitch": 0.8,
+        "weight": 3
+      },
+      {
+        "name": "minecraft:block.chain.step",
+        "type": "event",
+        "volume": 0.6,
+        "pitch": 0.6,
+        "weight": 2
+      },
+      {
+        "name": "minecraft:entity.skeleton.ambient",
+        "type": "event",
+        "volume": 0.4,
+        "pitch": 0.5
+      },
+      {
+        "name": "minecraft:ambient.soul_sand_valley.additions",
+        "type": "event",
+        "volume": 0.8,
+        "pitch": 0.7,
+        "weight": 2
+      }
+    ]
+  }
+}

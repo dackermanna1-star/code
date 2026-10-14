@@ -1,0 +1,18 @@
+{
+  "type": "abyssal_descent:the_depths",
+  "generator": {
+    "type": "abyssal_descent:dungeon",
+    "biome_source": {
+      "type": "abyssal_descent:zones",
+      "void": "abyssal_descent:the_void",
+      "zones": [
+        "abyssal_descent:forgotten_halls",
+        "abyssal_descent:ashen_forge",
+        "abyssal_descent:crystal_depths",
+        "abyssal_descent:drowned_kingdom",
+        "abyssal_descent:blood_citadel",
+        "abyssal_descent:abyssal_throne"
+      ]
+    }
+  }
+}

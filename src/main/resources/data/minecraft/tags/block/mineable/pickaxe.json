@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "abyssal_descent:abyssal_gate",
+    "abyssal_descent:soul_brazier",
+    "abyssal_descent:rune_stone",
+    "abyssal_descent:crumbling_stone_bricks"
+  ]
+}

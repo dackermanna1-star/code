@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "stage=0": {
+      "model": "abyssal_descent:block/spike_trap_plate"
+    },
+    "stage=1": {
+      "model": "abyssal_descent:block/spike_trap_primed"
+    },
+    "stage=2": {
+      "model": "abyssal_descent:block/spike_trap_extended"
+    },
+    "stage=3": {
+      "model": "abyssal_descent:block/spike_trap_plate"
+    }
+  }
+}

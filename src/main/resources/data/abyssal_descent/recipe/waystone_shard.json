@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "DSD",
+    "SPS",
+    "DSD"
+  ],
+  "key": {
+    "D": "abyssal_descent:soul_dust",
+    "S": "minecraft:amethyst_shard",
+    "P": "minecraft:ender_pearl"
+  },
+  "result": {
+    "id": "abyssal_descent:waystone_shard",
+    "count": 1
+  }
+}

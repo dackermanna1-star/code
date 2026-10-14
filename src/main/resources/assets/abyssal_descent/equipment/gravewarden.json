@@ -1,0 +1,14 @@
+{
+  "layers": {
+    "humanoid": [
+      {
+        "texture": "abyssal_descent:gravewarden"
+      }
+    ],
+    "humanoid_leggings": [
+      {
+        "texture": "abyssal_descent:gravewarden"
+      }
+    ]
+  }
+}

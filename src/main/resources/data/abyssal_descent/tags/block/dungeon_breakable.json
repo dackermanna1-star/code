@@ -1,0 +1,12 @@
+{
+  "replace": false,
+  "values": [
+    "abyssal_descent:crumbling_stone_bricks",
+    "abyssal_descent:burial_urn",
+    "minecraft:cobweb",
+    "minecraft:decorated_pot",
+    "minecraft:moss_carpet",
+    "minecraft:pale_hanging_moss",
+    "minecraft:hanging_roots"
+  ]
+}

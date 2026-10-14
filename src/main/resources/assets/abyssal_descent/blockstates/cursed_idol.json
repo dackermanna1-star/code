@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,used=false": {
+      "model": "abyssal_descent:block/cursed_idol"
+    },
+    "facing=north,used=true": {
+      "model": "abyssal_descent:block/cursed_idol_used"
+    },
+    "facing=east,used=false": {
+      "model": "abyssal_descent:block/cursed_idol",
+      "y": 90
+    },
+    "facing=east,used=true": {
+      "model": "abyssal_descent:block/cursed_idol_used",
+      "y": 90
+    },
+    "facing=south,used=false": {
+      "model": "abyssal_descent:block/cursed_idol",
+      "y": 180
+    },
+    "facing=south,used=true": {
+      "model": "abyssal_descent:block/cursed_idol_used",
+      "y": 180
+    },
+    "facing=west,used=false": {
+      "model": "abyssal_descent:block/cursed_idol",
+      "y": 270
+    },
+    "facing=west,used=true": {
+      "model": "abyssal_descent:block/cursed_idol_used",
+      "y": 270
+    }
+  }
+}

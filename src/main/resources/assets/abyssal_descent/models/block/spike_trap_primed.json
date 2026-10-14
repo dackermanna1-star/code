@@ -1,0 +1,170 @@
+{
+  "parent": "minecraft:block/block",
+  "ambientocclusion": false,
+  "textures": {
+    "particle": "abyssal_descent:block/spike_trap_plate",
+    "plate": "abyssal_descent:block/spike_trap_plate",
+    "spikes": "abyssal_descent:block/spike_trap_spikes"
+  },
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        1,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#plate",
+          "cullface": "north"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#plate",
+          "cullface": "south"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#plate",
+          "cullface": "west"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#plate",
+          "cullface": "east"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#plate"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#plate",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        0,
+        1,
+        8
+      ],
+      "to": [
+        16,
+        3,
+        8
+      ],
+      "rotation": {
+        "origin": [
+          8,
+          8,
+          8
+        ],
+        "axis": "y",
+        "angle": 45,
+        "rescale": true
+      },
+      "shade": false,
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ],
+          "texture": "#spikes"
+        },
+        "south": {
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ],
+          "texture": "#spikes"
+        }
+      }
+    },
+    {
+      "from": [
+        8,
+        1,
+        0
+      ],
+      "to": [
+        8,
+        3,
+        16
+      ],
+      "rotation": {
+        "origin": [
+          8,
+          8,
+          8
+        ],
+        "axis": "y",
+        "angle": 45,
+        "rescale": true
+      },
+      "shade": false,
+      "faces": {
+        "west": {
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ],
+          "texture": "#spikes"
+        },
+        "east": {
+          "uv": [
+            0,
+            3,
+            16,
+            5
+          ],
+          "texture": "#spikes"
+        }
+      }
+    }
+  ]
+}

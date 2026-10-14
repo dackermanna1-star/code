@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "abyssal_descent:block/dart_trap"
+    },
+    "facing=east": {
+      "model": "abyssal_descent:block/dart_trap",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "abyssal_descent:block/dart_trap",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "abyssal_descent:block/dart_trap",
+      "y": 270
+    }
+  }
+}

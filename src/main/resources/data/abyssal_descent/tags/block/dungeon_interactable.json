@@ -1,0 +1,15 @@
+{
+  "replace": false,
+  "values": [
+    "abyssal_descent:reliquary",
+    "abyssal_descent:waystone",
+    "abyssal_descent:altar_of_trials",
+    "abyssal_descent:cursed_idol",
+    "minecraft:barrel",
+    "minecraft:lectern",
+    "minecraft:chest",
+    "#minecraft:buttons",
+    "#minecraft:doors",
+    "minecraft:lever"
+  ]
+}

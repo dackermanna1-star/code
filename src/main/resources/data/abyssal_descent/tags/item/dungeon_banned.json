@@ -1,0 +1,10 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:chorus_fruit",
+    "minecraft:flint_and_steel",
+    "minecraft:fire_charge",
+    "minecraft:ender_eye",
+    "#minecraft:boats"
+  ]
+}

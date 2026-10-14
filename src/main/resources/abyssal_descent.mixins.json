@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "net.abyssaldescent.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"AbstractArrowAccessor",
+		"AbstractArrowMixin",
+		"LivingEntityDamageMixin",
+		"ServerExplosionMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

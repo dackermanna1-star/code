@@ -1,0 +1,17 @@
+{
+	"schemaVersion": 1,
+	"id": "abyssal_descent_gametest",
+	"version": "1.0.0",
+	"name": "Abyssal Descent Client Tour",
+	"description": "Development-only automated client tour that captures screenshots of the dungeon.",
+	"environment": "client",
+	"entrypoints": {
+		"fabric-client-gametest": [
+			"net.abyssaldescent.gametest.AbyssalTour"
+		]
+	},
+	"depends": {
+		"abyssal_descent": "*",
+		"fabric-api": "*"
+	}
+}

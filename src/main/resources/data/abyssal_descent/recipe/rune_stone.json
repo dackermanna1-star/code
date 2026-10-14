@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    " D ",
+    "DTD",
+    " D "
+  ],
+  "key": {
+    "D": "abyssal_descent:soul_dust",
+    "T": "minecraft:chiseled_tuff"
+  },
+  "result": {
+    "id": "abyssal_descent:rune_stone",
+    "count": 4
+  }
+}

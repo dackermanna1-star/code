@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "I I",
+    "ISI",
+    " B "
+  ],
+  "key": {
+    "I": "minecraft:iron_ingot",
+    "S": "minecraft:soul_soil",
+    "B": "minecraft:polished_blackstone"
+  },
+  "result": {
+    "id": "abyssal_descent:soul_brazier",
+    "count": 1
+  }
+}
