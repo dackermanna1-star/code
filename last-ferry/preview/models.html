@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Last Ferry · models preview</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #1d2026; overflow: hidden; }
+  #game-view { position: absolute; overflow: hidden; }
+  #info { position: fixed; left: 6px; top: 6px; color: #fff; font: 12px/1.35 monospace; z-index: 10; white-space: pre; text-shadow: 0 1px 2px #000; pointer-events: none; }
+  .lbl { position: absolute; color: #fff; font: 11px/1.1 monospace; text-shadow: 0 1px 2px #000, 0 0 3px #000; transform: translate(-50%, 0); white-space: nowrap; pointer-events: none; z-index: 5; }
+</style>
+</head>
+<body>
+<div id="info"></div>
+<script type="module" src="./models.ts"></script>
+</body>
+</html>

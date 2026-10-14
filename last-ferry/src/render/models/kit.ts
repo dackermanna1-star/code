@@ -7,7 +7,22 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { REFLECT_LAYER } from '../Stage';
 
-export type MatClass = 'fur' | 'skin' | 'cloth' | 'rubber' | 'metal' | 'darkmetal' | 'wood' | 'plastic' | 'eye' | 'shell' | 'ice';
+export type MatClass =
+  | 'fur'
+  | 'skin'
+  | 'cloth'
+  | 'rubber'
+  | 'metal'
+  | 'darkmetal'
+  | 'wood'
+  | 'plastic'
+  | 'eye'
+  | 'shell'
+  | 'ice'
+  /** Transparent polycarbonate / glass (riot shield, visor). Does not cast shadows. */
+  | 'glass'
+  /** Self-lit: the vertex colour is emitted (flare tips, embers, pipe ember, hot barrels). */
+  | 'glow';
 
 const mk = (p: THREE.MeshStandardMaterialParameters) =>
   new THREE.MeshStandardMaterial({ vertexColors: true, ...p });
@@ -25,7 +40,76 @@ export const MATERIALS: Record<MatClass, THREE.MeshStandardMaterial> = {
   eye: mk({ roughness: 0.08, metalness: 0 }),
   shell: mk({ roughness: 0.7, metalness: 0 }),
   ice: mk({ roughness: 0.15, metalness: 0, flatShading: true }),
+  glass: mk({ roughness: 0.08, metalness: 0.1, transparent: true, opacity: 0.4, depthWrite: false }),
+  glow: makeGlow(),
 };
+
+/** Emissive material whose emitted colour is the vertex colour (diffuse black). */
+function makeGlow(): THREE.MeshStandardMaterial {
+  const m = mk({ color: 0x000000, roughness: 1, metalness: 0, emissive: 0xffffff, emissiveIntensity: 1.4 });
+  m.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace(
+      '#include <emissivemap_fragment>',
+      '#include <emissivemap_fragment>\n#if defined( USE_COLOR ) || defined( USE_COLOR_ALPHA )\n\ttotalEmissiveRadiance *= vColor.rgb;\n#endif',
+    );
+  };
+  m.customProgramCacheKey = () => 'lf-glow-vcolor';
+  return m;
+}
+
+// ---------------------------------------------------------------- charring
+/** Colour a fully charred body is multiplied by. */
+const CHAR = new THREE.Color(0x1d1714);
+const CHAR_LEVELS = 8;
+const CHAR_CACHE = new Map<string, THREE.MeshStandardMaterial>();
+
+/**
+ * Shared charred variant of a material class (t 0..1, quantised to 8 levels).
+ * t = 0 returns the shared base material itself, so un-charring restores
+ * batchable meshes. The variant keeps vertex colours and multiplies them
+ * toward soot black.
+ */
+export function charredMaterial(cls: MatClass, t: number): THREE.MeshStandardMaterial {
+  const level = Math.max(0, Math.min(CHAR_LEVELS, Math.round(t * CHAR_LEVELS)));
+  if (level === 0 || cls === 'glow') return MATERIALS[cls];
+  const key = `${cls}:${level}`;
+  let m = CHAR_CACHE.get(key);
+  if (!m) {
+    const k = level / CHAR_LEVELS;
+    m = MATERIALS[cls].clone();
+    m.color.copy(new THREE.Color(1, 1, 1).lerp(CHAR, Math.min(1, k * 1.04)));
+    m.roughness = THREE.MathUtils.lerp(m.roughness, 0.95, k);
+    m.metalness = THREE.MathUtils.lerp(m.metalness, 0.05, k);
+    CHAR_CACHE.set(key, m);
+  }
+  return m;
+}
+
+/**
+ * Instance tint matching charredMaterial(t), for baking a charred body into
+ * the corpse batches (call rig.setCharred(0) first so the meshes use the
+ * shared materials again, then Corpses.bake(root, charredTint(t))).
+ */
+export function charredTint(t: number, out = new THREE.Color()): THREE.Color {
+  const k = Math.max(0, Math.min(1, t));
+  return out.setRGB(1, 0.94, 0.94).lerp(CHAR, Math.min(1, k * 1.04));
+}
+
+/** Swap every mesh under `root` to the charred variant of its material class. */
+export function applyCharred(root: THREE.Object3D, t: number): void {
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (!m.isMesh) return;
+    const cls = m.userData.matClass as MatClass | undefined;
+    if (!cls) return;
+    // Meshes with their own (non-shared) material, e.g. hot barrels, are left alone.
+    const cur = m.material as THREE.Material;
+    if (cur !== MATERIALS[cls] && !cur.userData?.lfCharred) return;
+    const next = charredMaterial(cls, t);
+    if (next !== MATERIALS[cls]) next.userData.lfCharred = true;
+    m.material = next;
+  });
+}
 
 export interface Xf {
   p?: [number, number, number];
@@ -110,6 +194,12 @@ export class PartBuilder {
     colorAt: (p: THREE.Vector3, n: THREE.Vector3) => THREE.Color,
     mat: MatClass = 'fur',
     xf: Xf = {},
+    /**
+     * Evaluate the colour once per triangle (true) or per pair of triangles
+     * ('quad', for lofts / grids whose quads are emitted as consecutive
+     * triangle pairs): crisp, pixel-like patterns that read at small sizes.
+     */
+    perFace: boolean | 'quad' = false,
   ): this {
     this.add(geo, 0xffffff, mat, xf);
     const list = this.items.get(mat)!;
@@ -119,6 +209,24 @@ export class PartBuilder {
     const col = g.attributes.color;
     const p = new THREE.Vector3();
     const nn = new THREE.Vector3();
+    if (perFace) {
+      const a = new THREE.Vector3();
+      const per = perFace === 'quad' ? 6 : 3;
+      for (let i = 0; i < pos.count; i += per) {
+        const n = Math.min(per, pos.count - i);
+        p.set(0, 0, 0);
+        nn.set(0, 0, 0);
+        for (let k = 0; k < n; k++) {
+          p.add(a.fromBufferAttribute(pos, i + k));
+          nn.add(a.fromBufferAttribute(nor, i + k));
+        }
+        p.multiplyScalar(1 / n);
+        if (nn.lengthSq() > 1e-12) nn.normalize();
+        const c = colorAt(p, nn);
+        for (let k = 0; k < n; k++) col.setXYZ(i + k, c.r, c.g, c.b);
+      }
+      return this;
+    }
     for (let i = 0; i < pos.count; i++) {
       p.fromBufferAttribute(pos, i);
       nn.fromBufferAttribute(nor, i);
@@ -142,7 +250,7 @@ export class PartBuilder {
       const merged = shareGeometry(built);
       merged.computeBoundingSphere();
       const mesh = new THREE.Mesh(merged, MATERIALS[mat]);
-      mesh.castShadow = opts.castShadow ?? true;
+      mesh.castShadow = (opts.castShadow ?? true) && mat !== 'glass' && mat !== 'glow';
       mesh.receiveShadow = false;
       if (opts.reflect ?? true) mesh.layers.enable(REFLECT_LAYER);
       mesh.userData.matClass = mat;
@@ -241,4 +349,31 @@ export function bone(name: string, parent: THREE.Object3D | null, p: [number, nu
   b.position.set(...p);
   if (parent) parent.add(b);
   return b;
+}
+
+// ---------------------------------------------------------------- baked steel
+/**
+ * Baked chrome-like shading: bright sky reflection on top, a dark horizon band
+ * and a dim ground bounce below. Steel then reads as metal whether or not the
+ * scene has an environment map (the kit's metal class is near-black without one).
+ */
+export function steel(base: THREE.ColorRepresentation): (p: THREE.Vector3, n: THREE.Vector3) => THREE.Color {
+  const c0 = new THREE.Color(base);
+  return (_p, n) => {
+    const y = n.y;
+    const f = y > 0.2 ? 1.12 + 0.18 * y : y > -0.3 ? 0.6 + ((y + 0.3) / 0.5) * 0.4 : 0.8 - 0.1 * (y + 0.3);
+    const c = c0.clone().multiplyScalar(f);
+    c.r = Math.min(1, c.r);
+    c.g = Math.min(1, c.g);
+    c.b = Math.min(1, c.b);
+    return c;
+  };
+}
+
+/** PartBuilder whose 'metal' parts are steel-shaded on the low-metalness plastic class. */
+export class GunBuilder extends PartBuilder {
+  override add(geo: THREE.BufferGeometry, color: THREE.ColorRepresentation, mat: MatClass = 'plastic', xf: Xf = {}): this {
+    if (mat === 'metal') return this.addShaded(geo, steel(color), 'plastic', xf);
+    return super.add(geo, color, mat, xf);
+  }
 }

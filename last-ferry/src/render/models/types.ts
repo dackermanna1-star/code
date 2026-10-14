@@ -88,6 +88,14 @@ export interface ZombieRig extends CreatureRig {
   apron?: THREE.Object3D;
   /** Approximate standing height (m) for UI anchors (money popups, boss bar). */
   readonly height: number;
+  /** Glowing eyes on/off (put them out when the body is dead for good, before baking). */
+  setEyeGlow?(on: boolean): void;
+  /** Jogger: show the gold medal (the 40th Marathon runner). */
+  setMedal?(on: boolean): void;
+  /** One-body ragdoll specs (in each piece's local frame) for the detachable prop, riot plates and apron. */
+  propSpec?: BoneSpec;
+  plateSpec?: Record<number, BoneSpec>;
+  apronSpec?: BoneSpec;
 }
 
 /** How the hunter holds a weapon. */
@@ -149,7 +157,10 @@ export interface HunterRig extends CreatureRig {
  * spin, heat, cock, loaded, hurt (0..1), and the state names from PlayerState
  * (stand, walk, air, stomp, kick, grabbed, dead).
  *
- * Zombie AnimInput.state: the ZombieState names in src/core/api.ts, plus
- * params: burning (bool), enraged (bool), charred (0..1), twitch (bool, for
- * downed-but-not-ragdolled poses if used).
+ * Zombie AnimInput.state: the ZombieState names in src/core/api.ts (plus
+ * 'down': lying on the back), params: burning (bool), enraged (bool),
+ * charred (0..1), twitch (bool, 'down'), front (bool, medic 'carry': true =
+ * front medic), facing (+1/−1, keep the 3/4 turn when walking left), blend
+ * (s, cross-fade on the next state change; default 0.22).
+ * Hunter extra params: shells (shotgun: shells loaded over one reloadT 0..1).
  */
