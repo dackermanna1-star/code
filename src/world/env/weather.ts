@@ -30,7 +30,7 @@ export interface WeatherParams {
 
 export const WEATHER_PRESETS: Record<WeatherKind, WeatherParams> = {
   clear: {
-    cloudCover: 0.22,
+    cloudCover: 0.34,
     cloudDarkness: 0.0,
     fogDensity: 0.00028,
     fogFalloff: 0.006,

@@ -226,8 +226,9 @@ export class CharacterVisual implements ICharacterVisual {
     li.sprinting = c.isSprinting;
     li.special = this.specialKind();
     if (li.special === 'loco' as ClipKind) li.special = null;
-    inst.rig.resetToRest();
+    inst.rig.restorePostMixer();
     this.loco!.update(dt, li);
+    inst.rig.savePostMixer();
     inst.container.updateMatrixWorld(true);
 
     // ── procedural ──

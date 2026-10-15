@@ -77,24 +77,24 @@ vec4 layerSample( vec2 uv, out float h ) {
   float rough = 0.9;
   h = 0.5;
   if ( uLayer == 0 || uLayer == 1 ) {
-    // grass / dry grass: clumps, fine blades, a few dry/dirt specks
-    float clump = pfbm( uv, 5.0, 3, 0.5 );
-    float fine = pfbm( uv + 0.37, 40.0, 3, 0.55 );
-    vec3 vb = pvoronoi( uv + vec2( 0.0, pnoise( uv * 24.0, 24.0 ) * 0.05 ), 56.0 );
-    float blade = 1.0 - smoothstep( 0.0, 0.45, vb.x );
-    float spec = step( 0.93, vb.y );
-    float soil = smoothstep( 0.42, 0.25, clump + fine * 0.3 );
+    // grass / dry grass: soft multi-scale variation, dense fine blades, rare specks (3D grass covers it up close)
+    float clump = pfbm( uv, 3.0, 3, 0.5 );
+    float mid = pfbm( uv + 0.71, 12.0, 3, 0.5 );
+    float fine = pfbm( uv + 0.37, 64.0, 2, 0.55 );
+    vec3 vb = pvoronoi( uv + vec2( 0.0, pnoise( uv * 32.0, 32.0 ) * 0.04 ), 96.0 );
+    float blade = 1.0 - smoothstep( 0.0, 0.5, vb.x );
+    float spec = step( 0.965, vb.y );
+    float t = clamp( fine * 0.45 + blade * 0.35 + mid * 0.3, 0.0, 1.0 );
     if ( uLayer == 0 ) {
-      col = mix( vec3( 0.035, 0.065, 0.016 ), vec3( 0.12, 0.175, 0.042 ), clamp( fine * 0.8 + blade * 0.5, 0.0, 1.0 ) );
-      col = mix( col, col * vec3( 1.25, 1.1, 0.7 ), smoothstep( 0.45, 0.75, clump ) * 0.6 ); // yellow-green clumps
-      col = mix( col, vec3( 0.24, 0.22, 0.09 ), spec * 0.6 );
-      col = mix( col, vec3( 0.10, 0.08, 0.05 ), soil * 0.55 );
+      col = mix( vec3( 0.045, 0.075, 0.020 ), vec3( 0.105, 0.155, 0.040 ), t );
+      col = mix( col, col * vec3( 1.18, 1.08, 0.75 ), smoothstep( 0.4, 0.8, clump ) * 0.5 );
+      col = mix( col, vec3( 0.20, 0.18, 0.08 ), spec * 0.4 );
     } else {
-      col = mix( vec3( 0.11, 0.10, 0.045 ), vec3( 0.29, 0.26, 0.12 ), clamp( fine * 0.8 + blade * 0.5, 0.0, 1.0 ) );
-      col = mix( col, vec3( 0.12, 0.14, 0.05 ), ( 1.0 - spec ) * smoothstep( 0.55, 0.75, clump ) * 0.5 );
-      col = mix( col, vec3( 0.13, 0.10, 0.06 ), soil * 0.5 );
+      col = mix( vec3( 0.12, 0.11, 0.05 ), vec3( 0.25, 0.225, 0.11 ), t );
+      col = mix( col, vec3( 0.09, 0.115, 0.04 ), smoothstep( 0.5, 0.8, clump ) * 0.45 );
+      col = mix( col, vec3( 0.11, 0.09, 0.055 ), spec * 0.5 );
     }
-    h = clamp( blade * 0.55 + fine * 0.35 + clump * 0.2 - soil * 0.2, 0.0, 1.0 );
+    h = clamp( blade * 0.5 + fine * 0.3 + mid * 0.2, 0.0, 1.0 );
     rough = 0.88 + 0.08 * fine;
   } else if ( uLayer == 2 ) {
     // forest floor: needles, leaves, twigs, moss
@@ -131,17 +131,21 @@ vec4 layerSample( vec2 uv, out float h ) {
     h = n * ( 1.0 - puddle );
     rough = mix( 0.55, 0.08, puddle );
   } else if ( uLayer == 5 ) {
-    // rock: strata, cracks, lichen
-    float n = pfbm( uv, 4.0, 6, 0.55 );
-    float strata = ridge( pnoise( vec2( uv.x * 2.0, uv.y * 12.0 + n * 3.0 ), 12.0 ) );
-    vec3 cr = pvoronoi( uv, 6.0 );
-    float crack = smoothstep( 0.04, 0.0, cr.z );
-    float lichen = smoothstep( 0.62, 0.7, pfbm( uv + 7.7, 10.0, 3, 0.5 ) );
-    col = mix( vec3( 0.13, 0.125, 0.115 ), vec3( 0.36, 0.35, 0.32 ), n * 0.7 + strata * 0.3 );
-    col = mix( col, col * vec3( 1.08, 1.0, 0.9 ), cr.y * 0.5 );
-    col *= 1.0 - crack * 0.6;
-    col = mix( col, vec3( 0.30, 0.31, 0.16 ), lichen * 0.6 );
-    h = clamp( n * 0.6 + strata * 0.3 - crack * 0.4 + 0.1, 0.0, 1.0 );
+    // rock: warped strata, irregular multi-scale cracks, lichen; low regularity so it does not read as tiles
+    vec2 w = vec2( pfbm( uv + 1.3, 3.0, 3, 0.5 ), pfbm( uv + 5.1, 3.0, 3, 0.5 ) ) - 0.5;
+    vec2 wu = uv + w * 0.18;
+    float n = pfbm( wu, 4.0, 6, 0.55 );
+    float strata = ridge( pnoise( vec2( wu.x * 2.0, wu.y * 10.0 + n * 4.0 ), 10.0 ) );
+    vec3 cr = pvoronoi( wu, 5.0 );
+    vec3 cr2 = pvoronoi( wu + 0.37, 13.0 );
+    float crack = smoothstep( 0.035, 0.0, cr.z ) * smoothstep( 0.35, 0.65, pnoise( wu * 9.0, 9.0 ) );
+    crack = max( crack, smoothstep( 0.02, 0.0, cr2.z ) * 0.5 * smoothstep( 0.5, 0.7, n ) );
+    float lichen = smoothstep( 0.6, 0.72, pfbm( uv + 7.7, 10.0, 3, 0.5 ) );
+    col = mix( vec3( 0.085, 0.082, 0.075 ), vec3( 0.24, 0.23, 0.21 ), n * 0.75 + strata * 0.25 );
+    col = mix( col, col * vec3( 1.06, 1.0, 0.92 ), cr.y * 0.4 );
+    col *= 1.0 - crack * 0.45;
+    col = mix( col, vec3( 0.22, 0.23, 0.12 ), lichen * 0.5 );
+    h = clamp( n * 0.65 + strata * 0.3 - crack * 0.3 + 0.05, 0.0, 1.0 );
     rough = 0.82 - lichen * 0.05;
   } else if ( uLayer == 6 ) {
     // sand: fine grain + wind ripples
@@ -208,7 +212,9 @@ void main() {
     layerSample( uv + vec2( e, 0.0 ), hx1 );
     layerSample( uv - vec2( 0.0, e ), hz0 );
     layerSample( uv + vec2( 0.0, e ), hz1 );
-    float k = 0.012 / e; // bump strength scales with resolution
+    // bump strength per layer (grass is soft; rock/gravel strong), scaled with resolution
+    float ls = uLayer <= 1 ? 0.35 : uLayer == 2 ? 0.6 : uLayer == 3 ? 0.7 : uLayer == 4 ? 0.5 : uLayer == 6 ? 0.45 : uLayer == 8 ? 0.8 : 1.0;
+    float k = 0.012 / e * ls;
     vec3 n = normalize( vec3( ( hx0 - hx1 ) * k * 0.5, ( hz0 - hz1 ) * k * 0.5, 1.0 ) );
     float ao = clamp( 0.55 + h * 0.6 - ( ( hx0 + hx1 + hz0 + hz1 ) * 0.25 - h ) * 2.0, 0.35, 1.0 );
     gl_FragColor = vec4( n.xy * 0.5 + 0.5, ao, h );

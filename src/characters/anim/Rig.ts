@@ -196,10 +196,40 @@ export class Rig {
     };
   }
 
-  /** Restore rest local rotations for all bones (clips then overwrite the animated ones). */
+  /** Restore rest local rotations for all bones. */
   resetToRest(): void {
     for (const [b, q] of this.restLocal) b.quaternion.copy(q);
     for (const [b, p] of this.restLocalPos) b.position.copy(p);
+  }
+
+  private snapshot: { b: THREE.Object3D; q: THREE.Quaternion; p: THREE.Vector3 }[] | null = null;
+
+  /**
+   * Save the pose written by the mixer. three.js' PropertyMixer skips writing values that did not change
+   * since its previous update, so before the next mixer update the bones must hold exactly what the
+   * mixer last wrote (not the procedurally edited pose) — see restorePostMixer().
+   */
+  savePostMixer(): void {
+    if (!this.snapshot) {
+      this.snapshot = [];
+      for (const b of this.restLocal.keys()) this.snapshot.push({ b, q: new THREE.Quaternion(), p: new THREE.Vector3() });
+    }
+    for (const e of this.snapshot) {
+      e.q.copy(e.b.quaternion);
+      e.p.copy(e.b.position);
+    }
+  }
+
+  /** Undo last frame's procedural edits (back to the last mixer output; rest pose before the first). */
+  restorePostMixer(): void {
+    if (!this.snapshot) {
+      this.resetToRest();
+      return;
+    }
+    for (const e of this.snapshot) {
+      e.b.quaternion.copy(e.q);
+      e.b.position.copy(e.p);
+    }
   }
 
   bonePos(key: BoneKey, out: THREE.Vector3): THREE.Vector3 | null {

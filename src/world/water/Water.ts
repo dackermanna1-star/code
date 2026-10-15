@@ -124,7 +124,7 @@ export function createWaterMaterial(u: WaterUniforms): THREE.MeshStandardMateria
     transparent: true,
     depthWrite: true,
     side: THREE.DoubleSide,
-    envMapIntensity: 1,
+    envMapIntensity: 0.8,
   });
   m.name = 'water';
   m.onBeforeCompile = (shader) => {

@@ -349,8 +349,8 @@ def make_kind_material(kind, mask_img):
     nb.link(bev.outputs['Normal'], dot.inputs[0]); nb.link(geo.outputs['Normal'], dot.inputs[1])
     edge_bev = nb.ramp(nb.math('SUBTRACT', 1.0, dot.outputs['Value']), 0.004, 0.08)
     aoi = nb.n('ShaderNodeAmbientOcclusion'); aoi.samples = 16; aoi.inside = True; aoi.only_local = True
-    aoi.inputs['Distance'].default_value = 0.003
-    edge_ao = nb.ramp(nb.math('SUBTRACT', 1.0, aoi.outputs['AO']), 0.22, 0.65)
+    aoi.inputs['Distance'].default_value = 0.0045
+    edge_ao = nb.ramp(nb.math('SUBTRACT', 1.0, aoi.outputs['AO']), 0.16, 0.55)
     edge_live = nb.math('MAXIMUM', edge_bev, edge_ao)
     ao = nb.n('ShaderNodeAmbientOcclusion'); ao.samples = 16; ao.inputs['Distance'].default_value = 0.025
     comb = nb.n('ShaderNodeCombineColor'); comb.name = 'MASK_LIVE'
@@ -770,6 +770,10 @@ class Gun:
             if noncolor: im.colorspace_settings.name = 'Non-Color'
             return im
         for kind in self.kind_mats: self._wire(kind, 'bsdf')
+        dbg = os.environ.get('WKIT_DEBUG')
+        if dbg:
+            for k in ('mask', 'col', 'nrm'):
+                im = imgs[k]; im.filepath_raw = os.path.join(dbg, f'{self.id}_{k}.png'); im.file_format = 'PNG'; im.save()
         # ---- pack ORM ----
         import numpy as np
         n = tex * tex * 4

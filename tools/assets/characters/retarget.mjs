@@ -144,6 +144,11 @@ async function getRig(id) {
   const def = job.rigs[id];
   const rest = await loadRig(def.rest);
   const map = nameMap(def.type);
+  if (def.type === 'mixamo' && !rest.byName.has(map.Hips)) {
+    // Mixamo exports sometimes use numbered prefixes (mixamorig7:Hips) or none at all
+    const h = rest.nodes.find((n) => /(^|:)Hips$/.test(n.name));
+    if (h) { const pre = h.name.slice(0, -4); for (const k of Object.keys(map)) map[k] = pre + map[k].replace(/^mixamorig:/, ''); }
+  }
   if (def.mapOverride) Object.assign(map, def.mapOverride);
   const lower = new Map(rest.nodes.map((n) => [n.name.toLowerCase(), n.name]));
   for (const [t, sname] of Object.entries(map)) if (!rest.byName.has(sname) && lower.has(sname.toLowerCase())) map[t] = lower.get(sname.toLowerCase());
