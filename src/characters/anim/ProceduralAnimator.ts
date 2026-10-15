@@ -132,7 +132,10 @@ export class ProceduralAnimator {
     this.pelvisDip = clamp(this.pelvisDip + this.pelvisDipVel * dt, -0.3, 0.05);
 
     // ── stance synthesis ──
-    const synthCrouch = st.loco.synthCrouch || (st.loco.synthProne && crouch > 0);
+    // Weight of the procedural crouch: full when the whole group is synthesized, else the idle share of a
+    // crouch group whose idle comes from the stand set.
+    const synthW = st.loco.synthCrouch || (st.loco.synthProne && crouch > 0) ? 1 : st.loco.synthCrouchIdle;
+    const synthCrouch = synthW > 1e-3;
     if (knocked) {
       this.applyKnocked(st);
     } else if (st.loco.synthProne && prone > 0) {
@@ -148,17 +151,17 @@ export class ProceduralAnimator {
       }
       this.captureFeet();
       let drop = this.pelvisDip;
-      if (synthCrouch) drop -= this.rig.hipHeight * 0.36 * crouch;
+      if (synthCrouch) drop -= this.rig.hipHeight * 0.36 * crouch * synthW;
       const needLegs = synthCrouch || Math.abs(drop) > 0.004 || (st.near && c.isGrounded) || Math.abs(this.pelvisOffset) > 0.004;
       if (Math.abs(drop) > 1e-4 || synthCrouch) {
         const hipsPos = pc.pos('hips', _p);
         hipsPos.y += drop;
-        if (synthCrouch) hipsPos.addScaledVector(pc.fwd, -0.06 * crouch);
+        if (synthCrouch) hipsPos.addScaledVector(pc.fwd, -0.06 * crouch * synthW);
         pc.setWorldPos('hips', hipsPos, true);
       }
-      if (synthCrouch) pc.rotate('spine', pc.right, -16 * DEG * crouch, true);
+      if (synthCrouch) pc.rotate('spine', pc.right, -16 * DEG * crouch * synthW, true);
       // Legs back onto the clip's foot positions (plus terrain offsets).
-      if (needLegs) this.solveLegs(st, synthCrouch ? crouch : 0);
+      if (needLegs) this.solveLegs(st, synthCrouch ? crouch * synthW : 0);
     }
 
     this.applyAim(st, prone);

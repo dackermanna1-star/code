@@ -28,6 +28,8 @@ export interface LocoOutput {
   /** True when the stance group was synthesized from stand clips (procedural crouch/prone needed). */
   synthCrouch: boolean;
   synthProne: boolean;
+  /** 0..1 weight of a procedural crouch over the stand idle (crouch group without a usable idle clip). */
+  synthCrouchIdle: number;
   /** Only forward-direction clips exist: procedural hips orientation required. */
   forwardOnly: boolean;
   /** Signed lower-body yaw offset the procedural layer should apply (rad), and whether playback is reversed. */
@@ -58,6 +60,7 @@ export class Locomotion {
   readonly out: LocoOutput = {
     synthCrouch: false,
     synthProne: false,
+    synthCrouchIdle: 0,
     forwardOnly: true,
     hipYaw: 0,
     reversed: false,
@@ -103,6 +106,7 @@ export class Locomotion {
     o.hipYaw = 0;
     o.reversed = false;
     o.synthCrouch = o.synthProne = false;
+    o.synthCrouchIdle = 0;
 
     if (this.forceClip) {
       const c = this.lib.clipByName.get(this.forceClip);
@@ -244,12 +248,20 @@ export class Locomotion {
     if (!g) return;
     // Synthesized prone uses the plain idle (legs straight) — the crawl is procedural.
     const loco = o.synthProne ? [] : g.loco;
-    const idle = (inp.aiming && g.aimIdle) || g.idle || g.aimIdle;
+    let idle = (inp.aiming && g.aimIdle) || g.idle || g.aimIdle;
+    let crouchFromStand = false;
+    if (!idle && stance === 'crouch') {
+      // No usable crouch idle: stand idle + procedural crouch (weighted by the idle share below).
+      const sg = this.set.group('stand', inp.style).g;
+      idle = sg ? (inp.aiming && sg.aimIdle) || sg.idle || sg.aimIdle : null;
+      crouchFromStand = !!idle;
+    }
     if (idle) this.setTime(idle, this.idleTime);
     if (loco.length === 0 || speed < 0.05) {
       if (idle) this.target.set(idle, 1);
       o.idleWeight = 1;
       o.forwardOnly = true;
+      if (crouchFromStand) o.synthCrouchIdle = 1;
       return;
     }
 
@@ -293,6 +305,7 @@ export class Locomotion {
     const moveW = Math.min(1, speed / Math.max(0.3, slowest * 0.6));
     o.idleWeight = 1 - moveW;
     if (idle && moveW < 1) this.target.set(idle, 1 - moveW);
+    if (crouchFromStand) o.synthCrouchIdle = 1 - moveW;
     for (const { c, w } of clipsForBlend) {
       if (w <= 1e-4) continue;
       this.target.set(c, (this.target.get(c) ?? 0) + w * moveW);

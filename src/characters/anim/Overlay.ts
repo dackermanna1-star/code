@@ -1,6 +1,8 @@
 // Upper-body action overlays: samples a clip's spine/arm/hand tracks directly (interpolants) and blends
 // them over the locomotion pose, so legs keep walking while healing, reviving, throwing or swinging.
-// Time is either synced to an action's progress (0..1) or free-running for one-shot events.
+// Only each clip's "active window" is used (where the upper body actually moves: 5–95 % of its motion),
+// so long source clips with idle lead-in/out still read as a quick gesture. Time is synced to an action's
+// progress (0..1), ping-pong looped at natural speed for long actions, or free-running for one-shot events.
 import * as THREE from 'three';
 import type { ClipInfo } from './Clips';
 import type { ClipSet, OverlayRole } from './ClipSet';
@@ -13,8 +15,18 @@ interface Channel {
   interp: THREE.Interpolant;
 }
 
+/** Active time window of a clip (seconds). */
+export interface ClipWindow {
+  t0: number;
+  t1: number;
+}
+
 export class Overlay {
   private readonly cache = new Map<ClipInfo, Channel[]>();
+  private readonly windows = new Map<ClipInfo, ClipWindow>();
+  /** Free-running time for looped (natural speed) playback. */
+  private loopT = 0;
+  private loopRole: OverlayRole | null = null;
   private readonly bones = new Map<string, THREE.Object3D>();
   private role: OverlayRole | null = null;
   private weight = 0;
@@ -47,6 +59,44 @@ export class Overlay {
     return ch;
   }
 
+  /** Active window of a clip: where 5 %..95 % of its upper-body rotation happens (padded 0.1 s). */
+  window(c: ClipInfo): ClipWindow {
+    let w = this.windows.get(c);
+    if (w) return w;
+    const ch = this.channels(c);
+    const D = c.clip.duration;
+    const N = 60;
+    const prev = ch.map(() => new THREE.Quaternion());
+    const cum = new Float32Array(N + 1);
+    const q = new THREE.Quaternion();
+    for (let i = 0; i <= N; i++) {
+      const t = (i / N) * D;
+      let m = 0;
+      for (let k = 0; k < ch.length; k++) {
+        const v = ch[k].interp.evaluate(t);
+        q.set(v[0], v[1], v[2], v[3]);
+        if (i > 0) m += 2 * Math.acos(Math.min(1, Math.abs(q.dot(prev[k]))));
+        prev[k].copy(q);
+      }
+      cum[i] = (i > 0 ? cum[i - 1] : 0) + m;
+    }
+    const total = cum[N];
+    if (total < 1e-3 || D < 0.3) {
+      w = { t0: 0, t1: D };
+    } else {
+      let i0 = 0;
+      while (i0 < N && cum[i0] < total * 0.05) i0++;
+      let i1 = N;
+      while (i1 > 0 && cum[i1] > total * 0.95) i1--;
+      const pad = 0.1;
+      const t0 = Math.max(0, (i0 / N) * D - pad);
+      const t1 = Math.min(D, (i1 / N) * D + pad);
+      w = t1 - t0 > 0.25 ? { t0, t1 } : { t0: 0, t1: D };
+    }
+    this.windows.set(c, w);
+    return w;
+  }
+
   /** Start a free-running one-shot (e.g. pickup, door), `dur` seconds long. */
   trigger(role: OverlayRole, dur: number): void {
     if (!this.set.overlays.has(role)) return;
@@ -68,9 +118,14 @@ export class Overlay {
    * Per frame, after the mixer: `syncRole/sync01` from the character action (null when none).
    * Writes local quaternions of upper-body bones (restored by Rig.restorePostMixer next frame).
    */
-  update(dt: number, syncRole: OverlayRole | null, sync01: number): void {
+  update(dt: number, syncRole: OverlayRole | null, sync01: number, loop = false): void {
     let role = syncRole;
     let t01 = sync01;
+    if (loop && syncRole) {
+      if (this.loopRole !== syncRole) this.loopT = 0;
+      this.loopT += dt;
+    }
+    this.loopRole = loop ? syncRole : null;
     if (!role && this.shotRole) {
       this.shotT += dt;
       if (this.shotT >= this.shotDur) this.shotRole = null;
@@ -90,7 +145,14 @@ export class Overlay {
     if (this.weight <= 0.001 || !this.role) return;
     const clip = this.set.overlays.get(this.role);
     if (!clip) return;
-    const t = this.time01 * clip.clip.duration;
+    const win = this.window(clip);
+    const len = win.t1 - win.t0;
+    let t: number;
+    if (this.loopRole) {
+      // Ping-pong over the active window at natural speed (no pop at the wrap).
+      const k = (this.loopT % (2 * len)) / len;
+      t = win.t0 + (k <= 1 ? k : 2 - k) * len;
+    } else t = win.t0 + this.time01 * len;
     for (const ch of this.channels(clip)) {
       const v = ch.interp.evaluate(t);
       this.q.set(v[0], v[1], v[2], v[3]);

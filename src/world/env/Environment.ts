@@ -13,7 +13,6 @@ const MOON_INTENSITY = 0.85;
 
 const _c = new THREE.Color();
 const _c2 = new THREE.Color();
-const _v = new THREE.Vector3();
 const _d = { x: 0, y: 0, z: 0 };
 
 export class Environment implements IEnvironment {
@@ -212,14 +211,8 @@ export class Environment implements IEnvironment {
     for (const f of this.onChange) f();
   }
 
-  /** Average sky radiance toward a direction (cheap CPU approximation, for debug/tools). */
-  skyBrightness(): number {
-    return (1 - this.night) * this.params.skyIntensity;
-  }
-
   dispose(): void {
     this.envRT?.dispose();
     this.pmrem.dispose();
-    void _v;
   }
 }

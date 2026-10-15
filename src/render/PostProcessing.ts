@@ -68,11 +68,9 @@ export class PostProcessing {
   private aaPass: EffectPass | null = null;
   private aaMode: GraphicsSettings['antialias'] | null = null;
   enabled = true;
-  private bloomOn = true;
   private dofAllowed = true;
   private manualFocus: number | null = null;
   private dofAmount = 0;
-  private raycaster = new THREE.Raycaster();
   private focusTimer = 0;
   private focusDist = 50;
 
@@ -122,7 +120,6 @@ export class PostProcessing {
     this.enabled = g.postProcessing;
     this.aoPass.enabled = g.ssao;
     this.aoPass.configuration.halfRes = g.preset !== 'ultra';
-    this.bloomOn = g.bloom;
     this.bloom.intensity = g.bloom ? 0.32 : 0;
     this.dofAllowed = g.effectsQuality > 0;
     this.setAA(g.antialias);
@@ -165,7 +162,6 @@ export class PostProcessing {
     this.dof.cocMaterial.worldFocusDistance = this.focusDist;
     this.dof.cocMaterial.worldFocusRange = Math.max(8, this.focusDist * 0.8);
     this.dof.bokehScale = 2.5 * this.dofAmount;
-    void this.raycaster;
   }
 
   render(renderer: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.PerspectiveCamera, dt: number, exposure: number): void {
@@ -183,7 +179,6 @@ export class PostProcessing {
       this.composer.setMainCamera(camera);
     }
     this.updateDof(camera, dt);
-    void this.bloomOn;
     this.composer.render(dt);
   }
 }

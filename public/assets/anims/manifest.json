@@ -14,23 +14,55 @@
  "files": [
   {
    "file": "locomotion.glb",
-   "clips": 28,
-   "bytes": 968688
+   "clips": 31,
+   "bytes": 1094300
   },
   {
    "file": "rifle.glb",
-   "clips": 46,
-   "bytes": 1050956
+   "clips": 55,
+   "bytes": 1481076
   },
   {
    "file": "pistol.glb",
-   "clips": 16,
-   "bytes": 372216
+   "clips": 17,
+   "bytes": 380236
   },
   {
    "file": "actions.glb",
-   "clips": 35,
-   "bytes": 1122852
+   "clips": 45,
+   "bytes": 2066768
+  }
+ ],
+ "sources": [
+  {
+   "id": "mixamo",
+   "name": "Adobe Mixamo animations (Pro Rifle Pack, Basic Shooter Pack, pistol / locomotion / prone / vault / climb / car / hit / death clips)",
+   "url": "https://www.mixamo.com",
+   "obtained_from": "FBX files committed to public GitHub game projects: theKooker/FPS-Multiplayer, alexlp04/RobotSurvival, Gus2169/Duel-Arena, shtolyan/HexLive, DiogoAlmeida777/Loose-Limbs, Krushna0304/StrikeFront, chetan-code/RigidbodyRaycastBased-CharacterController3D-Unity, annaborja/FantasyMelee, S-N-D-R/UnityMixamoLibrary, kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo terms (Adobe General Terms): royalty-free use in games/projects; animations may not be redistributed as standalone assets. Re-download from mixamo.com with a (free) Adobe account before a public release to have first-party provenance."
+  },
+  {
+   "id": "rpm",
+   "name": "Ready Player Me Animation Library (masculine)",
+   "url": "https://github.com/readyplayerme/animation-library",
+   "license": "Ready Player Me animation library license: free, intended for use with Ready Player Me avatars; check terms before a public release (used for idle, walk_f/b, jog_f/b, sprint_f, crouch_walk_f/b)."
+  },
+  {
+   "id": "ual",
+   "name": "Quaternius Universal Animation Library 1 & 2",
+   "url": "https://quaternius.itch.io/universal-animation-library",
+   "license": "CC0 1.0"
+  },
+  {
+   "id": "rocketbox",
+   "name": "Microsoft Rocketbox animation library",
+   "url": "https://github.com/microsoft/Microsoft-Rocketbox",
+   "license": "MIT"
+  },
+  {
+   "id": "authored",
+   "name": "Procedural poses / recoil authored in tools/assets/characters/retarget.mjs",
+   "license": "project-authored"
   }
  ],
  "clips": {
@@ -39,6 +71,10 @@
    "duration": 6.6667,
    "loop": true,
    "mode": "inplace",
+   "facing_deg": {
+    "pelvis": 2,
+    "shoulders": 6
+   },
    "hips_y_mean": 0.888,
    "head_y_mean": 1.579,
    "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
@@ -56,6 +92,10 @@
     1
    ],
    "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": -2,
+    "shoulders": 1
+   },
    "hips_y_mean": 0.876,
    "head_y_mean": 1.555,
    "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
@@ -73,6 +113,10 @@
     -1
    ],
    "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": 0,
+    "shoulders": 1
+   },
    "hips_y_mean": 0.873,
    "head_y_mean": 1.56,
    "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
@@ -81,37 +125,45 @@
   },
   "walk_l": {
    "file": "locomotion.glb",
-   "duration": 1.0333,
+   "duration": 0.9333,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.35,
+   "speed_mps": 1.661,
    "move_dir": [
     -1,
-    0.001
+    0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.872,
-   "head_y_mean": 1.548,
-   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
-   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
-   "source_clip": "M_Walk_Strafe_Left_002"
+   "facing_deg": {
+    "pelvis": 83,
+    "shoulders": 37
+   },
+   "hips_y_mean": 0.861,
+   "head_y_mean": 1.545,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Left_Strafe_Walk"
   },
   "walk_r": {
    "file": "locomotion.glb",
-   "duration": 2.0333,
+   "duration": 1.0333,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.322,
+   "speed_mps": 1.476,
    "move_dir": [
     1,
     0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.879,
-   "head_y_mean": 1.559,
-   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
-   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
-   "source_clip": "M_Walk_Strafe_Right_002"
+   "facing_deg": {
+    "pelvis": -68,
+    "shoulders": -47
+   },
+   "hips_y_mean": 0.837,
+   "head_y_mean": 1.495,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Right_Strafe_Walking"
   },
   "jog_f": {
    "file": "locomotion.glb",
@@ -124,6 +176,10 @@
     1
    ],
    "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": -4,
+    "shoulders": -3
+   },
    "hips_y_mean": 0.867,
    "head_y_mean": 1.528,
    "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
@@ -141,6 +197,10 @@
     -1
    ],
    "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": -3,
+    "shoulders": -4
+   },
    "hips_y_mean": 0.854,
    "head_y_mean": 1.541,
    "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
@@ -149,37 +209,67 @@
   },
   "jog_l": {
    "file": "locomotion.glb",
-   "duration": 0.7,
+   "duration": 0.6667,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 3.627,
+   "speed_mps": 3.852,
    "move_dir": [
     -1,
     0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.821,
-   "head_y_mean": 1.448,
-   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
-   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
-   "source_clip": "M_Jog_Strafe_Left_001"
+   "facing_deg": {
+    "pelvis": 77,
+    "shoulders": 53
+   },
+   "hips_y_mean": 0.808,
+   "head_y_mean": 1.409,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Left_Strafe"
   },
   "jog_r": {
    "file": "locomotion.glb",
-   "duration": 0.7,
+   "duration": 0.6667,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 3.697,
+   "speed_mps": 3.852,
    "move_dir": [
     1,
     0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.814,
-   "head_y_mean": 1.445,
-   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
-   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
-   "source_clip": "M_Jog_Strafe_Right_001"
+   "facing_deg": {
+    "pelvis": -78,
+    "shoulders": -53
+   },
+   "hips_y_mean": 0.808,
+   "head_y_mean": 1.409,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Right_Strafe"
+  },
+  "run_f": {
+   "file": "locomotion.glb",
+   "duration": 0.6333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 5.044,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": 2,
+    "shoulders": 1
+   },
+   "hips_y_mean": 0.84,
+   "head_y_mean": 1.5,
+   "notes": "fast run between jog_f and sprint_f",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Running"
   },
   "sprint_f": {
    "file": "locomotion.glb",
@@ -192,39 +282,30 @@
     1
    ],
    "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": -1,
+    "shoulders": 8
+   },
    "hips_y_mean": 0.81,
    "head_y_mean": 1.376,
    "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
    "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
    "source_clip": "M_Run_001"
   },
-  "run_f": {
-   "file": "locomotion.glb",
-   "duration": 0.6333,
-   "loop": true,
-   "mode": "loco",
-   "speed_mps": 4.966,
-   "move_dir": [
-    0,
-    1
-   ],
-   "speed_source": "root_motion",
-   "hips_y_mean": 0.762,
-   "head_y_mean": 1.423,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Run__Run_Fwd"
-  },
   "crouch_idle": {
    "file": "locomotion.glb",
-   "duration": 1,
+   "duration": 2.5333,
    "loop": true,
    "mode": "inplace",
-   "hips_y_mean": 0.567,
-   "head_y_mean": 1.039,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Crouch__Crouch_Idle"
+   "facing_deg": {
+    "pelvis": 4,
+    "shoulders": 7
+   },
+   "hips_y_mean": 0.444,
+   "head_y_mean": 0.761,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub annaborja/FantasyMelee",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "fm__YBot_Unarmed_CrouchIdle"
   },
   "crouch_walk_f": {
    "file": "locomotion.glb",
@@ -237,6 +318,10 @@
     1
    ],
    "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": -16,
+    "shoulders": -19
+   },
    "hips_y_mean": 0.685,
    "head_y_mean": 1.083,
    "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
@@ -254,6 +339,10 @@
     -1
    ],
    "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": -18,
+    "shoulders": -26
+   },
    "hips_y_mean": 0.669,
    "head_y_mean": 1.093,
    "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
@@ -262,740 +351,1163 @@
   },
   "crouch_walk_l": {
    "file": "locomotion.glb",
-   "duration": 1.6667,
+   "duration": 1.2667,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.739,
+   "speed_mps": 0.903,
    "move_dir": [
     -1,
     0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.652,
-   "head_y_mean": 0.958,
-   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
-   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
-   "source_clip": "M_Crouch_Strafe_Left_002"
+   "facing_deg": {
+    "pelvis": 22,
+    "shoulders": 18
+   },
+   "hips_y_mean": 0.64,
+   "head_y_mean": 1.17,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Crouched_Sneaking_Left"
   },
   "crouch_walk_r": {
    "file": "locomotion.glb",
-   "duration": 1.7,
+   "duration": 1.1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.7,
+   "speed_mps": 0.96,
    "move_dir": [
     1,
-    -0.001
+    0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.635,
-   "head_y_mean": 0.977,
-   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
-   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
-   "source_clip": "M_Crouch_Strafe_Right_002"
+   "facing_deg": {
+    "pelvis": -19,
+    "shoulders": -3
+   },
+   "hips_y_mean": 0.623,
+   "head_y_mean": 1.168,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Crouched_Sneaking_Right"
   },
-  "prone_idle": {
+  "stand_to_crouch": {
    "file": "locomotion.glb",
-   "duration": 1,
-   "loop": true,
-   "mode": "inplace",
-   "hips_y_mean": 0.176,
-   "head_y_mean": 0.31,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Crawling__Crawling_Idle"
-  },
-  "prone_crawl_f": {
-   "file": "locomotion.glb",
-   "duration": 1,
-   "loop": true,
-   "mode": "loco",
-   "speed_mps": 1.112,
-   "move_dir": [
-    0,
-    1
-   ],
-   "speed_source": "root_motion",
-   "hips_y_mean": 0.153,
-   "head_y_mean": 0.256,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Crawling__Crawling_Fwd"
-  },
-  "prone_crawl_b": {
-   "file": "locomotion.glb",
-   "duration": 1,
-   "loop": true,
-   "mode": "loco",
-   "speed_mps": 1.112,
-   "move_dir": [
-    0,
-    -1
-   ],
-   "speed_source": "root_motion",
-   "hips_y_mean": 0.153,
-   "head_y_mean": 0.256,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Crawling__Crawling_Bwd"
-  },
-  "prone_to_crouch": {
-   "file": "locomotion.glb",
-   "duration": 1,
+   "duration": 0.6333,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": -0.012,
-    "up": 0.367,
-    "forward": -0.087
+    "right": 0.008,
+    "up": -0.373,
+    "forward": -0.164
    },
-   "hips_y_mean": 0.479,
-   "head_y_mean": 0.775,
-   "notes": "play reversed for crouch_to_prone",
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Crawling__Crawling_Crouch"
+   "yaw_change_deg": 52.8,
+   "facing_deg": {
+    "pelvis": -23,
+    "shoulders": -8
+   },
+   "hips_y_mean": 0.683,
+   "head_y_mean": 1.144,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub annaborja/FantasyMelee",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "fm__YBot_Unarmed_StandToCrouch"
   },
-  "jump_start": {
+  "crouch_to_stand": {
    "file": "locomotion.glb",
-   "duration": 0.4333,
+   "duration": 0.6333,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
     "right": -0.008,
-    "up": -0.002,
-    "forward": -0.023
+    "up": 0.373,
+    "forward": 0.246
    },
-   "hips_y_mean": 0.872,
-   "head_y_mean": 1.518,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Jump__Jump_Enter"
+   "yaw_change_deg": -52.8,
+   "facing_deg": {
+    "pelvis": -18,
+    "shoulders": -5
+   },
+   "hips_y_mean": 0.68,
+   "head_y_mean": 1.181,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub annaborja/FantasyMelee",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "fm__YBot_Unarmed_CrouchToStand"
   },
-  "fall_loop": {
+  "prone_idle": {
    "file": "locomotion.glb",
-   "duration": 1,
+   "duration": 4.9333,
    "loop": true,
    "mode": "inplace",
-   "hips_y_mean": 0.82,
-   "head_y_mean": 1.478,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Jump__Jump_Loop"
+   "facing_deg": {
+    "pelvis": 2,
+    "shoulders": -17
+   },
+   "hips_y_mean": 0.099,
+   "head_y_mean": 0.221,
+   "source": "Mixamo (Adobe) clips on X Bot, via GitHub shtolyan/HexLive",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "hexlive__Prone_Idle"
   },
-  "land": {
+  "prone_crawl_f": {
    "file": "locomotion.glb",
-   "duration": 0.5,
+   "duration": 2.3333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 0.207,
+   "move_dir": [
+    -0.013,
+    1
+   ],
+   "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": 0,
+    "shoulders": 12
+   },
+   "hips_y_mean": 0.11,
+   "head_y_mean": 0.211,
+   "source": "Mixamo (Adobe) prone/injured clips, via GitHub DiogoAlmeida777/Loose-Limbs",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "loose__MainCharacter_Prone_Forward"
+  },
+  "prone_crawl_b": {
+   "file": "locomotion.glb",
+   "duration": 1.9,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 0.187,
+   "move_dir": [
+    -0.219,
+    -0.976
+   ],
+   "speed_source": "planted_foot",
+   "facing_deg": {
+    "pelvis": -5,
+    "shoulders": 2
+   },
+   "hips_y_mean": 0.214,
+   "head_y_mean": 0.342,
+   "source": "Mixamo (Adobe) prone/climb clips, via GitHub Krushna0304/StrikeFront",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "strike___Prone_Backward"
+  },
+  "prone_turn_l": {
+   "file": "locomotion.glb",
+   "duration": 1.0333,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": -0.003,
-    "up": 0.002,
-    "forward": 0.026
+    "right": 0,
+    "up": 0,
+    "forward": 0
    },
-   "hips_y_mean": 0.755,
-   "head_y_mean": 1.411,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Jump__Jump_Exit"
+   "facing_deg": {
+    "pelvis": 1,
+    "shoulders": -25
+   },
+   "hips_y_mean": 0.12,
+   "head_y_mean": 0.238,
+   "source": "Mixamo (Adobe) prone/climb clips, via GitHub Krushna0304/StrikeFront",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "strike___Prone_Left_Turn"
+  },
+  "prone_turn_r": {
+   "file": "locomotion.glb",
+   "duration": 1.3333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "facing_deg": {
+    "pelvis": 1,
+    "shoulders": -28
+   },
+   "hips_y_mean": 0.137,
+   "head_y_mean": 0.274,
+   "source": "Mixamo (Adobe) prone/climb clips, via GitHub Krushna0304/StrikeFront",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "strike___Prone_Right_Turn"
+  },
+  "jump_start": {
+   "file": "locomotion.glb",
+   "duration": 0.6,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.076,
+    "up": 0.201,
+    "forward": -0.02
+   },
+   "facing_deg": {
+    "pelvis": -46,
+    "shoulders": -34
+   },
+   "hips_y_mean": 0.72,
+   "head_y_mean": 1.318,
+   "notes": "standing jump take-off; feet leave the ground at the end",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub annaborja/FantasyMelee",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "fm__YBot_Unarmed_Jump"
+  },
+  "fall_loop": {
+   "file": "locomotion.glb",
+   "duration": 0.7,
+   "loop": true,
+   "mode": "inplace",
+   "facing_deg": {
+    "pelvis": -43,
+    "shoulders": -35
+   },
+   "hips_y_mean": 0.82,
+   "head_y_mean": 1.262,
+   "notes": "upright fall, arms up",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Falling_Idle"
+  },
+  "land": {
+   "file": "locomotion.glb",
+   "duration": 0.9,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.039,
+    "up": -0.357,
+    "forward": 0.028
+   },
+   "yaw_change_deg": -13.3,
+   "facing_deg": {
+    "pelvis": -30,
+    "shoulders": -23
+   },
+   "hips_y_mean": 0.768,
+   "head_y_mean": 1.319,
+   "notes": "feet touch down ~0.1 s into the clip",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub annaborja/FantasyMelee",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "fm__YBot_Unarmed_Jump"
   },
   "swim_idle": {
    "file": "locomotion.glb",
-   "duration": 1.8333,
+   "duration": 3,
    "loop": true,
    "mode": "inplace",
-   "hips_y_mean": 0.823,
-   "head_y_mean": 1.497,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Swim__Swim_idle"
+   "facing_deg": {
+    "pelvis": -1,
+    "shoulders": -4
+   },
+   "hips_y_mean": 0.889,
+   "head_y_mean": 1.44,
+   "source": "Mixamo (Adobe) clips on X Bot, via GitHub shtolyan/HexLive",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "hexlive__TreadWater"
   },
   "swim_f": {
    "file": "locomotion.glb",
-   "duration": 1.3333,
+   "duration": 4.5333,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.4,
+   "speed_mps": 1,
+   "move_dir": [
+    0,
+    1
+   ],
    "speed_source": "manual",
-   "hips_y_mean": 0.922,
-   "head_y_mean": 0.949,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Swim__Swim_fwd"
+   "facing_deg": {
+    "pelvis": 0,
+    "shoulders": 2
+   },
+   "hips_y_mean": 0.615,
+   "head_y_mean": 0.773,
+   "notes": "in-place source; speed_mps is a nominal value (front crawl)",
+   "source": "Mixamo (Adobe) clips on X Bot, via GitHub shtolyan/HexLive",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "hexlive__Swimming"
   },
   "swim_b": {
    "file": "locomotion.glb",
-   "duration": 1.1667,
+   "duration": 3,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 0.8,
+   "speed_mps": 0.6,
    "move_dir": [
-    -0.793,
-    0.609
+    0,
+    -1
    ],
    "speed_source": "manual",
-   "hips_y_mean": 0.841,
-   "head_y_mean": 1.505,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Swim__Swim_Bwd"
+   "facing_deg": {
+    "pelvis": -1,
+    "shoulders": -4
+   },
+   "hips_y_mean": 0.889,
+   "head_y_mean": 1.44,
+   "notes": "treading water (no dedicated back-swim clip); nominal speed",
+   "source": "Mixamo (Adobe) clips on X Bot, via GitHub shtolyan/HexLive",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "hexlive__TreadWater"
   },
   "swim_l": {
    "file": "locomotion.glb",
-   "duration": 1.3333,
+   "duration": 3,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 0.8,
+   "speed_mps": 0.6,
    "move_dir": [
-    0.999,
-    -0.043
+    -1,
+    0
    ],
    "speed_source": "manual",
-   "hips_y_mean": 0.921,
-   "head_y_mean": 0.949,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Swim__Swim_L"
+   "facing_deg": {
+    "pelvis": -1,
+    "shoulders": -4
+   },
+   "hips_y_mean": 0.889,
+   "head_y_mean": 1.44,
+   "notes": "treading water (no dedicated side-swim clip); nominal speed",
+   "source": "Mixamo (Adobe) clips on X Bot, via GitHub shtolyan/HexLive",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "hexlive__TreadWater"
   },
   "swim_r": {
    "file": "locomotion.glb",
-   "duration": 1.3333,
+   "duration": 3,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 0.8,
+   "speed_mps": 0.6,
+   "move_dir": [
+    1,
+    0
+   ],
    "speed_source": "manual",
-   "hips_y_mean": 0.924,
-   "head_y_mean": 0.951,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Swim__Swim_R"
+   "facing_deg": {
+    "pelvis": -1,
+    "shoulders": -4
+   },
+   "hips_y_mean": 0.889,
+   "head_y_mean": 1.44,
+   "notes": "treading water (no dedicated side-swim clip); nominal speed",
+   "source": "Mixamo (Adobe) clips on X Bot, via GitHub shtolyan/HexLive",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "hexlive__TreadWater"
   },
   "rifle_idle": {
    "file": "rifle.glb",
-   "duration": 10,
+   "duration": 8.6,
    "loop": true,
    "mode": "inplace",
-   "hips_y_mean": 0.852,
-   "head_y_mean": 1.542,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Idle__Idle"
+   "facing_deg": {
+    "pelvis": -5,
+    "shoulders": 0
+   },
+   "hips_y_mean": 0.876,
+   "head_y_mean": 1.565,
+   "grip_fixed": true,
+   "notes": "relaxed low-ready",
+   "source": "Mixamo (Adobe) rifle/prone clips, via GitHub Gus2169/Duel-Arena",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "duel__Ch35_nonPBR_Rifle_Idle"
+  },
+  "rifle_idle_ready": {
+   "file": "rifle.glb",
+   "duration": 2.1,
+   "loop": true,
+   "mode": "inplace",
+   "facing_deg": {
+    "pelvis": -55,
+    "shoulders": -53
+   },
+   "hips_y_mean": 0.835,
+   "head_y_mean": 1.51,
+   "notes": "weapon raised (same hold as the rifle locomotion clips)",
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__idle"
   },
   "rifle_aim": {
    "file": "rifle.glb",
-   "duration": 1,
+   "duration": 2.1,
    "loop": true,
    "mode": "inplace",
-   "hips_y_mean": 0.756,
-   "head_y_mean": 1.392,
+   "facing_deg": {
+    "pelvis": -74,
+    "shoulders": -73
+   },
+   "hips_y_mean": 0.841,
+   "head_y_mean": 1.484,
    "aim_corrected": true,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Aim_Idle"
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__idle_aiming"
   },
   "rifle_aim_up": {
    "file": "rifle.glb",
    "duration": 1,
    "loop": true,
    "mode": "static",
-   "hips_y_mean": 0.769,
-   "head_y_mean": 1.451,
+   "facing_deg": {
+    "pelvis": -74,
+    "shoulders": -64
+   },
+   "hips_y_mean": 0.842,
+   "head_y_mean": 1.39,
    "aim_corrected": true,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Aim_Sweep_V"
+   "notes": "barrel 55 deg up; blend with rifle_aim / rifle_aim_down by camera pitch",
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__idle_aiming"
   },
   "rifle_aim_down": {
    "file": "rifle.glb",
    "duration": 1,
    "loop": true,
    "mode": "static",
-   "hips_y_mean": 0.764,
-   "head_y_mean": 1.352,
+   "facing_deg": {
+    "pelvis": -74,
+    "shoulders": -59
+   },
+   "hips_y_mean": 0.842,
+   "head_y_mean": 1.319,
    "aim_corrected": true,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Aim_Sweep_V"
-  },
-  "rifle_hip_aim": {
-   "file": "rifle.glb",
-   "duration": 3,
-   "loop": true,
-   "mode": "static",
-   "hips_y_mean": 0.853,
-   "head_y_mean": 1.543,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_HipAim_Pose"
+   "notes": "barrel 55 deg down",
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__idle_aiming"
   },
   "rifle_walk_f": {
    "file": "rifle.glb",
-   "duration": 0.9333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.911,
+   "speed_mps": 1.649,
    "move_dir": [
     0,
     1
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.846,
-   "head_y_mean": 1.525,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Walk_Fwd"
+   "facing_deg": {
+    "pelvis": -40,
+    "shoulders": -25
+   },
+   "hips_y_mean": 0.762,
+   "head_y_mean": 1.37,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_forward"
   },
   "rifle_walk_b": {
    "file": "rifle.glb",
-   "duration": 0.9333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.911,
+   "speed_mps": 1.655,
    "move_dir": [
     0,
     -1
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.847,
-   "head_y_mean": 1.537,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Walk_Bwd"
+   "facing_deg": {
+    "pelvis": -38,
+    "shoulders": -46
+   },
+   "hips_y_mean": 0.763,
+   "head_y_mean": 1.403,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_backward"
   },
   "rifle_walk_l": {
    "file": "rifle.glb",
-   "duration": 0.9333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.911,
+   "speed_mps": 1.649,
    "move_dir": [
     -1,
     0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.846,
-   "head_y_mean": 1.531,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Walk_LF"
+   "facing_deg": {
+    "pelvis": -52,
+    "shoulders": -43
+   },
+   "hips_y_mean": 0.749,
+   "head_y_mean": 1.343,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_left"
   },
   "rifle_walk_r": {
    "file": "rifle.glb",
-   "duration": 0.9333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.911,
+   "speed_mps": 1.649,
    "move_dir": [
     1,
     0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.846,
-   "head_y_mean": 1.532,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Walk_RF"
+   "facing_deg": {
+    "pelvis": -52,
+    "shoulders": -51
+   },
+   "hips_y_mean": 0.794,
+   "head_y_mean": 1.375,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_right"
   },
   "rifle_walk_fl": {
    "file": "rifle.glb",
-   "duration": 0.9333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.911,
+   "speed_mps": 1.649,
    "move_dir": [
     -0.707,
     0.707
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.847,
-   "head_y_mean": 1.525,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Walk_Fwd_L"
+   "facing_deg": {
+    "pelvis": 6,
+    "shoulders": -31
+   },
+   "hips_y_mean": 0.765,
+   "head_y_mean": 1.399,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_forward_left"
   },
   "rifle_walk_fr": {
    "file": "rifle.glb",
-   "duration": 0.9333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.911,
+   "speed_mps": 1.649,
    "move_dir": [
     0.707,
     0.707
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.847,
-   "head_y_mean": 1.525,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Walk_Fwd_R"
+   "facing_deg": {
+    "pelvis": -42,
+    "shoulders": -28
+   },
+   "hips_y_mean": 0.769,
+   "head_y_mean": 1.367,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_forward_right"
   },
   "rifle_walk_bl": {
    "file": "rifle.glb",
-   "duration": 0.9333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.922,
+   "speed_mps": 1.649,
    "move_dir": [
     -0.707,
     -0.707
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.845,
-   "head_y_mean": 1.536,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Walk_Bwd_L"
+   "facing_deg": {
+    "pelvis": -56,
+    "shoulders": -55
+   },
+   "hips_y_mean": 0.798,
+   "head_y_mean": 1.412,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_backward_left"
   },
   "rifle_walk_br": {
    "file": "rifle.glb",
-   "duration": 0.9333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.922,
+   "speed_mps": 1.649,
    "move_dir": [
     0.707,
     -0.707
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.845,
-   "head_y_mean": 1.536,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Walk_Bwd_R"
+   "facing_deg": {
+    "pelvis": 5,
+    "shoulders": -28
+   },
+   "hips_y_mean": 0.763,
+   "head_y_mean": 1.408,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_backward_right"
   },
   "rifle_jog_f": {
    "file": "rifle.glb",
-   "duration": 0.8667,
+   "duration": 0.5,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 2.551,
+   "speed_mps": 4.123,
    "move_dir": [
     0,
     1
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.745,
-   "head_y_mean": 1.369,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_strafe_fwd"
+   "facing_deg": {
+    "pelvis": -36,
+    "shoulders": -45
+   },
+   "hips_y_mean": 0.782,
+   "head_y_mean": 1.389,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__run_forward"
   },
   "rifle_jog_b": {
    "file": "rifle.glb",
-   "duration": 0.8667,
+   "duration": 0.5,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 2.551,
+   "speed_mps": 4.123,
    "move_dir": [
     0,
     -1
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.787,
-   "head_y_mean": 1.473,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_bwd"
+   "facing_deg": {
+    "pelvis": -25,
+    "shoulders": -34
+   },
+   "hips_y_mean": 0.803,
+   "head_y_mean": 1.481,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__run_backward"
   },
   "rifle_jog_l": {
    "file": "rifle.glb",
-   "duration": 0.8667,
+   "duration": 0.5,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 2.551,
+   "speed_mps": 4.123,
    "move_dir": [
     -1,
     0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.796,
-   "head_y_mean": 1.457,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_LF"
+   "facing_deg": {
+    "pelvis": -58,
+    "shoulders": -48
+   },
+   "hips_y_mean": 0.846,
+   "head_y_mean": 1.479,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__run_left"
   },
   "rifle_jog_r": {
    "file": "rifle.glb",
-   "duration": 0.8667,
+   "duration": 0.5,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 2.551,
+   "speed_mps": 4.123,
    "move_dir": [
     1,
     0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.796,
-   "head_y_mean": 1.458,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_RF"
+   "facing_deg": {
+    "pelvis": -68,
+    "shoulders": -55
+   },
+   "hips_y_mean": 0.811,
+   "head_y_mean": 1.436,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__run_right"
   },
   "rifle_jog_fl": {
    "file": "rifle.glb",
-   "duration": 0.8667,
+   "duration": 0.5,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 2.551,
+   "speed_mps": 4.123,
    "move_dir": [
     -0.707,
     0.707
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.744,
-   "head_y_mean": 1.365,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Fwd_L_45"
+   "facing_deg": {
+    "pelvis": 11,
+    "shoulders": -15
+   },
+   "hips_y_mean": 0.826,
+   "head_y_mean": 1.456,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__run_forward_left"
   },
   "rifle_jog_fr": {
    "file": "rifle.glb",
-   "duration": 0.8667,
+   "duration": 0.5,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 2.551,
+   "speed_mps": 4.123,
    "move_dir": [
     0.707,
     0.707
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.744,
-   "head_y_mean": 1.365,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Fwd_R_45"
+   "facing_deg": {
+    "pelvis": -45,
+    "shoulders": -43
+   },
+   "hips_y_mean": 0.838,
+   "head_y_mean": 1.474,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__run_forward_right"
   },
   "rifle_jog_bl": {
    "file": "rifle.glb",
-   "duration": 0.8667,
+   "duration": 0.5,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 2.551,
+   "speed_mps": 4.123,
    "move_dir": [
     -0.707,
     -0.707
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.797,
-   "head_y_mean": 1.48,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Bwd_L_45"
+   "facing_deg": {
+    "pelvis": -55,
+    "shoulders": -36
+   },
+   "hips_y_mean": 0.805,
+   "head_y_mean": 1.483,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__run_backward_left"
   },
   "rifle_jog_br": {
    "file": "rifle.glb",
-   "duration": 0.8667,
+   "duration": 0.5,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 2.551,
+   "speed_mps": 4.123,
    "move_dir": [
     0.707,
     -0.707
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.795,
-   "head_y_mean": 1.478,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Bwd_R_45"
+   "facing_deg": {
+    "pelvis": 22,
+    "shoulders": -16
+   },
+   "hips_y_mean": 0.831,
+   "head_y_mean": 1.487,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__run_backward_right"
   },
-  "rifle_run_f": {
+  "rifle_aim_walk_f": {
    "file": "rifle.glb",
-   "duration": 0.6333,
+   "duration": 1.3667,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 4.966,
+   "speed_mps": 0.852,
    "move_dir": [
     0,
     1
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.762,
-   "head_y_mean": 1.424,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Run_Fwd"
+   "facing_deg": {
+    "pelvis": -33,
+    "shoulders": -61
+   },
+   "hips_y_mean": 0.83,
+   "head_y_mean": 1.49,
+   "aim_corrected": true,
+   "grip_fixed": true,
+   "notes": "walking while aiming down sights (weapon levelled forward)",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Rifle_Aiming_Walk_Forward"
   },
-  "rifle_sprint": {
-   "file": "rifle.glb",
-   "duration": 0.6,
-   "loop": true,
-   "mode": "loco",
-   "speed_mps": 6.085,
-   "move_dir": [
-    0,
-    1
-   ],
-   "speed_source": "root_motion",
-   "hips_y_mean": 0.782,
-   "head_y_mean": 1.228,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Sprint_Fwd"
-  },
-  "rifle_crouch_idle": {
+  "rifle_fire_walk_f": {
    "file": "rifle.glb",
    "duration": 1,
    "loop": true,
-   "mode": "inplace",
-   "hips_y_mean": 0.567,
-   "head_y_mean": 1.039,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Crouch__Crouch_Idle"
-  },
-  "rifle_crouch_aim": {
-   "file": "rifle.glb",
-   "duration": 3,
-   "loop": true,
-   "mode": "static",
-   "hips_y_mean": 0.531,
-   "head_y_mean": 1.092,
-   "aim_corrected": true,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Aim_Crouch_Pose"
-  },
-  "rifle_crouch_walk_f": {
-   "file": "rifle.glb",
-   "duration": 0.7333,
-   "loop": true,
    "mode": "loco",
-   "speed_mps": 3.018,
+   "speed_mps": 1.325,
    "move_dir": [
     0,
     1
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.703,
-   "head_y_mean": 1.187,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Crouch_Fwd"
+   "facing_deg": {
+    "pelvis": -23,
+    "shoulders": -52
+   },
+   "hips_y_mean": 0.817,
+   "head_y_mean": 1.422,
+   "aim_corrected": true,
+   "grip_fixed": true,
+   "notes": "walking while firing",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Rifle_Firing_Walking"
+  },
+  "rifle_sprint": {
+   "file": "rifle.glb",
+   "duration": 0.5,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 6.185,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": -5,
+    "shoulders": 3
+   },
+   "hips_y_mean": 0.793,
+   "head_y_mean": 1.362,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__sprint_forward"
+  },
+  "rifle_sprint_fl": {
+   "file": "rifle.glb",
+   "duration": 0.5,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 6.185,
+   "move_dir": [
+    -0.707,
+    0.707
+   ],
+   "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": 27,
+    "shoulders": 14
+   },
+   "hips_y_mean": 0.834,
+   "head_y_mean": 1.46,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__sprint_forward_left"
+  },
+  "rifle_sprint_fr": {
+   "file": "rifle.glb",
+   "duration": 0.5,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 6.185,
+   "move_dir": [
+    0.707,
+    0.707
+   ],
+   "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": -36,
+    "shoulders": -18
+   },
+   "hips_y_mean": 0.823,
+   "head_y_mean": 1.407,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__sprint_forward_right"
+  },
+  "rifle_crouch_idle": {
+   "file": "rifle.glb",
+   "duration": 2.1,
+   "loop": true,
+   "mode": "inplace",
+   "facing_deg": {
+    "pelvis": -40,
+    "shoulders": -28
+   },
+   "hips_y_mean": 0.374,
+   "head_y_mean": 0.988,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__idle_crouching"
+  },
+  "rifle_crouch_aim": {
+   "file": "rifle.glb",
+   "duration": 2,
+   "loop": true,
+   "mode": "inplace",
+   "facing_deg": {
+    "pelvis": -58,
+    "shoulders": -47
+   },
+   "hips_y_mean": 0.375,
+   "head_y_mean": 0.955,
+   "aim_corrected": true,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__idle_crouching_aiming"
+  },
+  "rifle_crouch_walk_f": {
+   "file": "rifle.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.75,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": -27,
+    "shoulders": -28
+   },
+   "hips_y_mean": 0.628,
+   "head_y_mean": 1.128,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_crouching_forward"
   },
   "rifle_crouch_walk_b": {
    "file": "rifle.glb",
-   "duration": 0.7333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 3.018,
+   "speed_mps": 1.75,
    "move_dir": [
     0,
     -1
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.697,
-   "head_y_mean": 1.253,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Crouch_Bwd"
+   "facing_deg": {
+    "pelvis": -28,
+    "shoulders": -39
+   },
+   "hips_y_mean": 0.627,
+   "head_y_mean": 1.171,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_crouching_backward"
   },
   "rifle_crouch_walk_l": {
    "file": "rifle.glb",
-   "duration": 0.7333,
+   "duration": 1.0333,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 3.018,
+   "speed_mps": 1.692,
    "move_dir": [
     -1,
     0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.699,
-   "head_y_mean": 1.172,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Crouch_L"
+   "facing_deg": {
+    "pelvis": -75,
+    "shoulders": -51
+   },
+   "hips_y_mean": 0.637,
+   "head_y_mean": 1.14,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_crouching_left"
   },
   "rifle_crouch_walk_r": {
    "file": "rifle.glb",
-   "duration": 0.7333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 3.018,
+   "speed_mps": 1.75,
    "move_dir": [
     1,
     0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.698,
-   "head_y_mean": 1.198,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Crouch_R"
+   "facing_deg": {
+    "pelvis": -74,
+    "shoulders": -51
+   },
+   "hips_y_mean": 0.635,
+   "head_y_mean": 1.138,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_crouching_right"
   },
   "rifle_crouch_walk_fl": {
    "file": "rifle.glb",
-   "duration": 0.7333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 3.06,
+   "speed_mps": 1.75,
    "move_dir": [
     -0.707,
     0.707
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.703,
-   "head_y_mean": 1.157,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Crouch_Fwd_L"
+   "facing_deg": {
+    "pelvis": 2,
+    "shoulders": -12
+   },
+   "hips_y_mean": 0.629,
+   "head_y_mean": 1.147,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_crouching_forward_left"
   },
   "rifle_crouch_walk_fr": {
    "file": "rifle.glb",
-   "duration": 0.7333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 3.076,
+   "speed_mps": 1.75,
    "move_dir": [
     0.707,
     0.707
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.703,
-   "head_y_mean": 1.206,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Crouch_Fwd_R"
+   "facing_deg": {
+    "pelvis": -41,
+    "shoulders": -41
+   },
+   "hips_y_mean": 0.603,
+   "head_y_mean": 1.126,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_crouching_forward_right"
   },
   "rifle_crouch_walk_bl": {
    "file": "rifle.glb",
-   "duration": 0.7333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 3.012,
+   "speed_mps": 1.75,
    "move_dir": [
     -0.707,
     -0.707
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.694,
-   "head_y_mean": 1.168,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Crouch_Bwd_L"
+   "facing_deg": {
+    "pelvis": -54,
+    "shoulders": -41
+   },
+   "hips_y_mean": 0.611,
+   "head_y_mean": 1.156,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_crouching_backward_left"
   },
   "rifle_crouch_walk_br": {
    "file": "rifle.glb",
-   "duration": 0.7333,
+   "duration": 1,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 3.012,
+   "speed_mps": 1.75,
    "move_dir": [
     0.707,
     -0.707
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.694,
-   "head_y_mean": 1.207,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Strf_Crouch_Bwd_R"
+   "facing_deg": {
+    "pelvis": 3,
+    "shoulders": -14
+   },
+   "hips_y_mean": 0.627,
+   "head_y_mean": 1.143,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__walk_crouching_backward_right"
+  },
+  "rifle_turn_l": {
+   "file": "rifle.glb",
+   "duration": 1,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.003,
+    "up": 0,
+    "forward": 0.001
+   },
+   "yaw_change_deg": 90,
+   "facing_deg": {
+    "pelvis": -9,
+    "shoulders": 7
+   },
+   "hips_y_mean": 0.83,
+   "head_y_mean": 1.505,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__turn_90_left"
+  },
+  "rifle_turn_r": {
+   "file": "rifle.glb",
+   "duration": 1,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.007,
+    "up": -0.001,
+    "forward": 0.005
+   },
+   "yaw_change_deg": -90,
+   "facing_deg": {
+    "pelvis": -110,
+    "shoulders": -98
+   },
+   "hips_y_mean": 0.833,
+   "head_y_mean": 1.509,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__turn_90_right"
+  },
+  "rifle_crouch_turn_l": {
+   "file": "rifle.glb",
+   "duration": 1.2667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.011,
+    "up": 0,
+    "forward": 0.008
+   },
+   "yaw_change_deg": 90,
+   "facing_deg": {
+    "pelvis": 25,
+    "shoulders": 40
+   },
+   "hips_y_mean": 0.44,
+   "head_y_mean": 1.067,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__crouching_turn_90_left"
+  },
+  "rifle_crouch_turn_r": {
+   "file": "rifle.glb",
+   "duration": 1.2333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.007,
+    "up": 0,
+    "forward": 0.011
+   },
+   "yaw_change_deg": -89.6,
+   "facing_deg": {
+    "pelvis": -81,
+    "shoulders": -92
+   },
+   "hips_y_mean": 0.419,
+   "head_y_mean": 1.047,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__crouching_turn_90_right"
   },
   "rifle_reload": {
    "file": "rifle.glb",
-   "duration": 1.4,
+   "duration": 3.3,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
@@ -1003,15 +1515,41 @@
     "up": 0,
     "forward": 0
    },
-   "hips_y_mean": 0.853,
-   "head_y_mean": 1.541,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Reloading"
+   "facing_deg": {
+    "pelvis": -33,
+    "shoulders": -34
+   },
+   "hips_y_mean": 0.859,
+   "head_y_mean": 1.51,
+   "grip_fixed": true,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub Gus2169/Duel-Arena",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "duel__Y_Bot_Reloading"
+  },
+  "rifle_crouch_reload": {
+   "file": "rifle.glb",
+   "duration": 6.8667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "facing_deg": {
+    "pelvis": -52,
+    "shoulders": -46
+   },
+   "hips_y_mean": 0.384,
+   "head_y_mean": 0.898,
+   "grip_fixed": true,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub Gus2169/Duel-Arena",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "duel__Y_Bot_Crouch_Reload"
   },
   "rifle_fire": {
    "file": "rifle.glb",
-   "duration": 0.4667,
+   "duration": 0.2667,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
@@ -1019,16 +1557,22 @@
     "up": 0,
     "forward": 0
    },
-   "hips_y_mean": 0.758,
-   "head_y_mean": 1.395,
+   "facing_deg": {
+    "pelvis": -53,
+    "shoulders": -58
+   },
+   "hips_y_mean": 0.857,
+   "head_y_mean": 1.484,
    "aim_corrected": true,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Aim_Shooting"
+   "grip_fixed": true,
+   "notes": "single shot recoil from the aim pose (0.27 s); play as upper-body overlay",
+   "source": "Mixamo (Adobe) rifle/prone clips, via GitHub Gus2169/Duel-Arena",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "duel__Ch35_nonPBR_Up_Firing_Rifle"
   },
-  "rifle_hip_fire": {
+  "rifle_crouch_fire": {
    "file": "rifle.glb",
-   "duration": 0.4667,
+   "duration": 1.0333,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
@@ -1036,72 +1580,56 @@
     "up": 0,
     "forward": 0
    },
-   "hips_y_mean": 0.853,
-   "head_y_mean": 1.543,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_HipAim_Shooting"
+   "facing_deg": {
+    "pelvis": -54,
+    "shoulders": -49
+   },
+   "hips_y_mean": 0.399,
+   "head_y_mean": 0.873,
+   "aim_corrected": true,
+   "grip_fixed": true,
+   "source": "Mixamo (Adobe) rifle/prone clips, via GitHub Gus2169/Duel-Arena",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "duel__Ch35_nonPBR_Crouch_Firing_Rifle"
   },
   "rifle_prone_idle": {
    "file": "rifle.glb",
-   "duration": 3,
+   "duration": 4.9333,
    "loop": true,
-   "mode": "static",
-   "hips_y_mean": 0.117,
-   "head_y_mean": 0.243,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Crawling_Idle_Pose"
+   "mode": "inplace",
+   "facing_deg": {
+    "pelvis": -11,
+    "shoulders": -33
+   },
+   "hips_y_mean": 0.101,
+   "head_y_mean": 0.223,
+   "aim_corrected": true,
+   "grip_fixed": true,
+   "source": "Mixamo (Adobe) rifle/prone clips, via GitHub Gus2169/Duel-Arena",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "duel__Ch35_nonPBR_Prone_Idle"
   },
   "rifle_prone_aim": {
    "file": "rifle.glb",
    "duration": 3,
    "loop": true,
    "mode": "static",
-   "hips_y_mean": 0.117,
-   "head_y_mean": 0.193,
+   "facing_deg": {
+    "pelvis": -11,
+    "shoulders": -33
+   },
+   "hips_y_mean": 0.101,
+   "head_y_mean": 0.223,
    "aim_corrected": true,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Crawling_Aim_Pose"
-  },
-  "rifle_prone_crawl_f": {
-   "file": "rifle.glb",
-   "duration": 1,
-   "loop": true,
-   "mode": "loco",
-   "speed_mps": 1.112,
-   "move_dir": [
-    0,
-    1
-   ],
-   "speed_source": "root_motion",
-   "hips_y_mean": 0.153,
-   "head_y_mean": 0.256,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Crawling_Fwd"
-  },
-  "rifle_prone_crawl_b": {
-   "file": "rifle.glb",
-   "duration": 1,
-   "loop": true,
-   "mode": "loco",
-   "speed_mps": 1.112,
-   "move_dir": [
-    0,
-    -1
-   ],
-   "speed_source": "root_motion",
-   "hips_y_mean": 0.153,
-   "head_y_mean": 0.256,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Crawling_Bwd"
+   "grip_fixed": true,
+   "notes": "prone aim (weapon heading exactly forward, ~9 deg muzzle-up like the source)",
+   "source": "Mixamo (Adobe) rifle/prone clips, via GitHub Gus2169/Duel-Arena",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "duel__Ch35_nonPBR_Prone_Idle"
   },
   "rifle_prone_fire": {
    "file": "rifle.glb",
-   "duration": 0.4667,
+   "duration": 0.4333,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
@@ -1109,15 +1637,288 @@
     "up": 0,
     "forward": 0
    },
-   "hips_y_mean": 0.117,
-   "head_y_mean": 0.192,
+   "facing_deg": {
+    "pelvis": -11,
+    "shoulders": -33
+   },
+   "hips_y_mean": 0.105,
+   "head_y_mean": 0.227,
    "aim_corrected": true,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Crawling_Shooting"
+   "grip_fixed": true,
+   "source": "Mixamo (Adobe) rifle/prone clips, via GitHub Gus2169/Duel-Arena",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "duel__Ch35_nonPBR_Prone_Firing_Rifle"
   },
   "rifle_prone_reload": {
    "file": "rifle.glb",
+   "duration": 6.4,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "facing_deg": {
+    "pelvis": 0,
+    "shoulders": -3
+   },
+   "hips_y_mean": 0.137,
+   "head_y_mean": 0.403,
+   "grip_fixed": true,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub Gus2169/Duel-Arena",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "duel__Y_Bot_Prone_Reloading"
+  },
+  "rifle_kneel_to_prone": {
+   "file": "rifle.glb",
+   "duration": 1.9667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.002,
+    "up": -0.22,
+    "forward": -0.003
+   },
+   "yaw_change_deg": -16.7,
+   "facing_deg": {
+    "pelvis": -2,
+    "shoulders": -23
+   },
+   "hips_y_mean": 0.364,
+   "head_y_mean": 0.521,
+   "grip_fixed": true,
+   "source": "Mixamo (Adobe) rifle/prone clips, via GitHub Gus2169/Duel-Arena",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "duel__Ch35_nonPBR_Rifle_Kneel_To_Prone"
+  },
+  "rifle_prone_to_kneel": {
+   "file": "rifle.glb",
+   "duration": 1.9667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.016,
+    "up": 0.22,
+    "forward": 0.093
+   },
+   "yaw_change_deg": 16.7,
+   "facing_deg": {
+    "pelvis": -11,
+    "shoulders": -23
+   },
+   "hips_y_mean": 0.302,
+   "head_y_mean": 0.541,
+   "grip_fixed": true,
+   "source": "Mixamo (Adobe) rifle/prone clips, via GitHub Gus2169/Duel-Arena",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "duel__Ch35_nonPBR_Rifle_Prone_To_Kneel"
+  },
+  "rifle_equip": {
+   "file": "rifle.glb",
+   "duration": 2.0333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.001,
+    "up": 0.002,
+    "forward": -0.003
+   },
+   "facing_deg": {
+    "pelvis": -1,
+    "shoulders": 4
+   },
+   "hips_y_mean": 0.874,
+   "head_y_mean": 1.56,
+   "grip_fixed": true,
+   "notes": "rifle brought up from the hip/sling into a low-ready (blend into rifle_idle / rifle_idle_ready)",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Rifle_Draw"
+  },
+  "rifle_jump_start": {
+   "file": "rifle.glb",
+   "duration": 0.5333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.005,
+    "up": -0.001,
+    "forward": 0.004
+   },
+   "facing_deg": {
+    "pelvis": -55,
+    "shoulders": -56
+   },
+   "hips_y_mean": 0.759,
+   "head_y_mean": 1.38,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__jump_up"
+  },
+  "rifle_fall_loop": {
+   "file": "rifle.glb",
+   "duration": 0.9667,
+   "loop": true,
+   "mode": "inplace",
+   "facing_deg": {
+    "pelvis": -53,
+    "shoulders": -56
+   },
+   "hips_y_mean": 0.841,
+   "head_y_mean": 1.473,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__jump_loop"
+  },
+  "rifle_land": {
+   "file": "rifle.glb",
+   "duration": 0.6667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.005,
+    "up": 0.001,
+    "forward": -0.004
+   },
+   "facing_deg": {
+    "pelvis": -54,
+    "shoulders": -55
+   },
+   "hips_y_mean": 0.787,
+   "head_y_mean": 1.424,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__jump_down"
+  },
+  "rifle_hit_react": {
+   "file": "rifle.glb",
+   "duration": 0.4333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "facing_deg": {
+    "pelvis": -40,
+    "shoulders": -49
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.498,
+   "grip_fixed": true,
+   "source": "Mixamo (Adobe) \"Basic Shooter Pack\", via GitHub alexlp04/RobotSurvival",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "basicshooter__hit_reaction"
+  },
+  "pistol_idle": {
+   "file": "pistol.glb",
+   "duration": 4,
+   "loop": true,
+   "mode": "inplace",
+   "facing_deg": {
+    "pelvis": -16,
+    "shoulders": -14
+   },
+   "hips_y_mean": 0.847,
+   "head_y_mean": 1.537,
+   "notes": "two-handed low ready",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub Gus2169/Duel-Arena",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "duel__Y_Bot_Pistol_NoAim_Idle"
+  },
+  "pistol_aim": {
+   "file": "pistol.glb",
+   "duration": 1.3333,
+   "loop": true,
+   "mode": "inplace",
+   "facing_deg": {
+    "pelvis": -49,
+    "shoulders": -24
+   },
+   "hips_y_mean": 0.852,
+   "head_y_mean": 1.524,
+   "aim_corrected": true,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Pistol_Aimed_Idle"
+  },
+  "pistol_aim_up": {
+   "file": "pistol.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "static",
+   "facing_deg": {
+    "pelvis": -49,
+    "shoulders": -19
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.466,
+   "aim_corrected": true,
+   "notes": "barrel 55 deg up",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Pistol_Aimed_Idle"
+  },
+  "pistol_aim_down": {
+   "file": "pistol.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "static",
+   "facing_deg": {
+    "pelvis": -49,
+    "shoulders": -9
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.297,
+   "aim_corrected": true,
+   "notes": "barrel 55 deg down",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Pistol_Aimed_Idle"
+  },
+  "pistol_fire": {
+   "file": "pistol.glb",
+   "duration": 0.3,
+   "loop": false,
+   "mode": "static",
+   "facing_deg": {
+    "pelvis": -49,
+    "shoulders": -24
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.525,
+   "aim_corrected": true,
+   "notes": "procedural recoil kick on top of pistol_aim (upper-body overlay)",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon + procedural recoil",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Pistol_Aimed_Idle"
+  },
+  "pistol_fire_alt": {
+   "file": "pistol.glb",
+   "duration": 1.1667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "facing_deg": {
+    "pelvis": -15,
+    "shoulders": -4
+   },
+   "hips_y_mean": 0.794,
+   "head_y_mean": 1.422,
+   "aim_corrected": true,
+   "notes": "Mixamo \"Pistol Shooting\" (arms fully extended)",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Pistol_Shooting"
+  },
+  "pistol_reload": {
+   "file": "pistol.glb",
    "duration": 1.6667,
    "loop": false,
    "mode": "oneshot",
@@ -1126,438 +1927,479 @@
     "up": 0,
     "forward": 0
    },
-   "hips_y_mean": 0.117,
-   "head_y_mean": 0.285,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Crawling_Reload"
+   "facing_deg": {
+    "pelvis": -14,
+    "shoulders": -28
+   },
+   "hips_y_mean": 0.863,
+   "head_y_mean": 1.538,
+   "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
+   "license": "CC0 1.0",
+   "source_clip": "Pistol_Reload"
   },
-  "rifle_equip": {
-   "file": "rifle.glb",
-   "duration": 0.9333,
+  "pistol_draw": {
+   "file": "pistol.glb",
+   "duration": 2,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": 0,
+    "right": -0.001,
     "up": 0,
-    "forward": 0
+    "forward": 0.007
    },
-   "hips_y_mean": 0.853,
-   "head_y_mean": 1.54,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Equiping"
-  },
-  "rifle_unequip": {
-   "file": "rifle.glb",
-   "duration": 0.9333,
-   "loop": false,
-   "mode": "oneshot",
-   "root_displacement": {
-    "right": 0,
-    "up": 0,
-    "forward": 0
+   "facing_deg": {
+    "pelvis": -21,
+    "shoulders": -29
    },
-   "hips_y_mean": 0.853,
-   "head_y_mean": 1.535,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Unequiping"
-  },
-  "rifle_fall_loop": {
-   "file": "rifle.glb",
-   "duration": 0.5333,
-   "loop": true,
-   "mode": "inplace",
-   "hips_y_mean": 0.897,
-   "head_y_mean": 1.535,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Fall"
-  },
-  "rifle_vault": {
-   "file": "rifle.glb",
-   "duration": 0.8333,
-   "loop": false,
-   "mode": "oneshot",
-   "root_displacement": {
-    "right": -0.036,
-    "up": 0.019,
-    "forward": 3.212
-   },
-   "hips_y_mean": 1.113,
-   "head_y_mean": 1.663,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Assault_Rifle__AR_Obstacle_Vault"
-  },
-  "pistol_idle": {
-   "file": "pistol.glb",
-   "duration": 10,
-   "loop": true,
-   "mode": "inplace",
-   "hips_y_mean": 0.852,
-   "head_y_mean": 1.542,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Idle__Idle"
-  },
-  "pistol_aim": {
-   "file": "pistol.glb",
-   "duration": 3,
-   "loop": true,
-   "mode": "static",
-   "hips_y_mean": 0.853,
-   "head_y_mean": 1.533,
-   "aim_corrected": true,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Aim_Pose"
-  },
-  "pistol_aim_up": {
-   "file": "pistol.glb",
-   "duration": 1,
-   "loop": true,
-   "mode": "static",
-   "hips_y_mean": 0.861,
-   "head_y_mean": 1.543,
-   "aim_corrected": true,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Aim_Sweep_V"
-  },
-  "pistol_aim_down": {
-   "file": "pistol.glb",
-   "duration": 1,
-   "loop": true,
-   "mode": "static",
-   "hips_y_mean": 0.862,
-   "head_y_mean": 1.492,
-   "aim_corrected": true,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Aim_Sweep_V"
-  },
-  "pistol_fire": {
-   "file": "pistol.glb",
-   "duration": 0.2333,
-   "loop": false,
-   "mode": "oneshot",
-   "root_displacement": {
-    "right": 0,
-    "up": 0,
-    "forward": 0
-   },
-   "hips_y_mean": 0.853,
-   "head_y_mean": 1.531,
-   "aim_corrected": true,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Aim_Shooting"
-  },
-  "pistol_reload": {
-   "file": "pistol.glb",
-   "duration": 2.0667,
-   "loop": false,
-   "mode": "oneshot",
-   "root_displacement": {
-    "right": 0,
-    "up": 0,
-    "forward": 0
-   },
-   "hips_y_mean": 0.853,
-   "head_y_mean": 1.542,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Reload"
+   "hips_y_mean": 0.847,
+   "head_y_mean": 1.523,
+   "notes": "draw from the right hip into pistol_aim",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Pistol_Draw"
   },
   "pistol_walk_f": {
    "file": "pistol.glb",
-   "duration": 0.9333,
+   "duration": 0.8,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.911,
+   "speed_mps": 2.282,
    "move_dir": [
     0,
     1
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.846,
-   "head_y_mean": 1.525,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Strf_Walk_Fwd"
+   "facing_deg": {
+    "pelvis": -20,
+    "shoulders": -30
+   },
+   "hips_y_mean": 0.851,
+   "head_y_mean": 1.517,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Pistol_Aimed_Walk"
   },
   "pistol_walk_b": {
    "file": "pistol.glb",
-   "duration": 0.9333,
+   "duration": 1.0333,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.911,
+   "speed_mps": 1.255,
    "move_dir": [
     0,
     -1
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.847,
-   "head_y_mean": 1.537,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Strf_Walk_Bwd"
+   "facing_deg": {
+    "pelvis": -28,
+    "shoulders": -36
+   },
+   "hips_y_mean": 0.801,
+   "head_y_mean": 1.472,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Pistol_Aimed_Walk_Backward"
   },
   "pistol_walk_l": {
    "file": "pistol.glb",
-   "duration": 0.9333,
+   "duration": 0.5667,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.911,
+   "speed_mps": 1.924,
    "move_dir": [
     -1,
     0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.846,
-   "head_y_mean": 1.531,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Strf_Walk_LF"
+   "facing_deg": {
+    "pelvis": -40,
+    "shoulders": -35
+   },
+   "hips_y_mean": 0.766,
+   "head_y_mean": 1.429,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Pistol_Aimed_Strafe_Left"
   },
   "pistol_walk_r": {
    "file": "pistol.glb",
-   "duration": 0.9333,
+   "duration": 0.6,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 1.911,
+   "speed_mps": 2.16,
    "move_dir": [
     1,
     0
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.846,
-   "head_y_mean": 1.532,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Strf_Walk_RF"
+   "facing_deg": {
+    "pelvis": -33,
+    "shoulders": -22
+   },
+   "hips_y_mean": 0.753,
+   "head_y_mean": 1.421,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Pistol_Aimed_Strafe_Right"
   },
   "pistol_run_f": {
-   "file": "pistol.glb",
-   "duration": 0.6333,
-   "loop": true,
-   "mode": "loco",
-   "speed_mps": 4.969,
-   "move_dir": [
-    0.005,
-    1
-   ],
-   "speed_source": "root_motion",
-   "hips_y_mean": 0.762,
-   "head_y_mean": 1.423,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Run_Fwd"
-  },
-  "pistol_sprint": {
-   "file": "pistol.glb",
-   "duration": 0.6,
-   "loop": true,
-   "mode": "loco",
-   "speed_mps": 6.085,
-   "move_dir": [
-    0,
-    1
-   ],
-   "speed_source": "root_motion",
-   "hips_y_mean": 0.782,
-   "head_y_mean": 1.228,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Sprint_Fwd"
-  },
-  "pistol_crouch_walk_f": {
    "file": "pistol.glb",
    "duration": 0.7333,
    "loop": true,
    "mode": "loco",
-   "speed_mps": 3.018,
+   "speed_mps": 2.696,
    "move_dir": [
     0,
     1
    ],
    "speed_source": "root_motion",
-   "hips_y_mean": 0.703,
-   "head_y_mean": 1.147,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Crouch_Walk_Fwd"
+   "facing_deg": {
+    "pelvis": -9,
+    "shoulders": -17
+   },
+   "hips_y_mean": 0.761,
+   "head_y_mean": 1.418,
+   "notes": "running while aiming",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Pistol_Aimed_Run"
+  },
+  "pistol_run_b": {
+   "file": "pistol.glb",
+   "duration": 0.5333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 2.948,
+   "move_dir": [
+    0,
+    -1
+   ],
+   "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": -3,
+    "shoulders": -21
+   },
+   "hips_y_mean": 0.798,
+   "head_y_mean": 1.438,
+   "notes": "running backwards while aiming",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Pistol_Aimed_Run_Backward"
+  },
+  "pistol_sprint": {
+   "file": "pistol.glb",
+   "duration": 0.5,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 4.243,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": 0,
+    "shoulders": -27
+   },
+   "hips_y_mean": 0.836,
+   "head_y_mean": 1.478,
+   "notes": "weapon lowered",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Pistol_Run"
   },
   "pistol_crouch_aim": {
    "file": "pistol.glb",
-   "duration": 3,
+   "duration": 3.8,
    "loop": true,
-   "mode": "static",
-   "hips_y_mean": 0.531,
-   "head_y_mean": 1.108,
+   "mode": "inplace",
+   "facing_deg": {
+    "pelvis": -18,
+    "shoulders": -26
+   },
+   "hips_y_mean": 0.428,
+   "head_y_mean": 1.104,
    "aim_corrected": true,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Aim_Crouch_Pose"
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub Gus2169/Duel-Arena",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "duel__Y_Bot_Pistol_Kneeling_Idle"
   },
-  "pistol_equip": {
+  "pistol_crouch_walk_f": {
    "file": "pistol.glb",
-   "duration": 0.9333,
-   "loop": false,
-   "mode": "oneshot",
-   "root_displacement": {
-    "right": 0,
-    "up": 0,
-    "forward": 0
+   "duration": 1.6667,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.611,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "facing_deg": {
+    "pelvis": -16,
+    "shoulders": -24
    },
-   "hips_y_mean": 0.853,
-   "head_y_mean": 1.543,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Equip"
-  },
-  "pistol_unequip": {
-   "file": "pistol.glb",
-   "duration": 0.9333,
-   "loop": false,
-   "mode": "oneshot",
-   "root_displacement": {
-    "right": 0,
-    "up": 0,
-    "forward": 0
-   },
-   "hips_y_mean": 0.853,
-   "head_y_mean": 1.543,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Handgun__HG_Unequip"
+   "hips_y_mean": 0.685,
+   "head_y_mean": 1.339,
+   "aim_corrected": true,
+   "notes": "RPM crouch walk legs + pistol_aim upper body (layered from Spine1), weapon levelled",
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library) + Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution / Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "M_Crouch_Walk_003"
   },
   "death_f": {
    "file": "actions.glb",
-   "duration": 1.1667,
+   "duration": 2.9667,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": 0.423,
-    "up": -0.727,
-    "forward": 0.736
+    "right": -0.225,
+    "up": -0.645,
+    "forward": 0.977
    },
-   "hips_y_mean": 0.357,
-   "head_y_mean": 0.682,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Death__Death_Fwd"
+   "facing_deg": {
+    "pelvis": -92,
+    "shoulders": -30
+   },
+   "hips_y_mean": 0.542,
+   "head_y_mean": 0.892,
+   "notes": "falls forward (shot from behind)",
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__death_from_the_back"
   },
   "death_b": {
    "file": "actions.glb",
-   "duration": 2.4,
+   "duration": 2.6,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": -0.007,
-    "up": -0.795,
-    "forward": -0.449
+    "right": 0.233,
+    "up": -0.618,
+    "forward": -0.797
    },
-   "hips_y_mean": 0.366,
-   "head_y_mean": 0.67,
-   "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
-   "license": "CC0 1.0",
-   "source_clip": "Death01"
+   "yaw_change_deg": 132.7,
+   "facing_deg": {
+    "pelvis": 13,
+    "shoulders": 17
+   },
+   "hips_y_mean": 0.327,
+   "head_y_mean": 0.557,
+   "notes": "falls backward",
+   "source": "Mixamo (Adobe) prone/injured clips, via GitHub DiogoAlmeida777/Loose-Limbs",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "loose__MainCharacter_Falling_Back_Death"
   },
   "death_l": {
    "file": "actions.glb",
-   "duration": 1.2,
+   "duration": 3.3,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": -1.115,
-    "up": -0.631,
-    "forward": -0.211
+    "right": -0.752,
+    "up": -0.661,
+    "forward": -0.094
    },
-   "hips_y_mean": 0.371,
-   "head_y_mean": 0.378,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Death__Death_L"
+   "yaw_change_deg": 69.6,
+   "facing_deg": {
+    "pelvis": -24,
+    "shoulders": -66
+   },
+   "hips_y_mean": 0.402,
+   "head_y_mean": 0.682,
+   "notes": "falls to the left (shot from the right)",
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__death_from_right"
   },
   "death_r": {
    "file": "actions.glb",
-   "duration": 0.9,
+   "duration": 3.3,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": 0.658,
-    "up": -0.644,
-    "forward": 0.111
+    "right": 0.752,
+    "up": -0.661,
+    "forward": -0.094
    },
-   "hips_y_mean": 0.395,
-   "head_y_mean": 0.691,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Death__Death_R"
+   "yaw_change_deg": -69.6,
+   "facing_deg": {
+    "pelvis": 24,
+    "shoulders": 66
+   },
+   "hips_y_mean": 0.402,
+   "head_y_mean": 0.682,
+   "notes": "mirror of death_l: falls to the right",
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__death_from_right"
   },
-  "death_b_alt": {
+  "death_f_alt": {
    "file": "actions.glb",
-   "duration": 1.1667,
+   "duration": 3.4333,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": 0.073,
-    "up": -0.699,
-    "forward": -0.8
+    "right": -0.232,
+    "up": -0.651,
+    "forward": 0.906
    },
-   "hips_y_mean": 0.23,
-   "head_y_mean": 0.342,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Death__Death_Bwd"
+   "yaw_change_deg": -26,
+   "facing_deg": {
+    "pelvis": -5,
+    "shoulders": -42
+   },
+   "hips_y_mean": 0.523,
+   "head_y_mean": 0.727,
+   "notes": "doubles over, falls forward",
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__death_from_the_front"
   },
-  "knocked_crawl": {
+  "death_headshot_f": {
    "file": "actions.glb",
-   "duration": 3.2333,
-   "loop": true,
-   "mode": "loco",
-   "speed_mps": 0.137,
-   "move_dir": [
-    0.194,
-    0.981
-   ],
-   "speed_source": "root_motion",
-   "hips_y_mean": 0.494,
-   "head_y_mean": 0.67,
-   "notes": "CMU source crawl is slow (~0.15 m/s); play at 2-3x for gameplay speeds",
-   "source": "CMU Graphics Lab Motion Capture Database (mocap.cs.cmu.edu), BVH conversion by B. Hahn / EcstasyMotion (archive.org/details/cmu-ecstasy-motion-bvh-poser-friendly-2012)",
-   "license": "CMU mocap: free for all uses (no restrictions)",
-   "source_clip": "111_03"
+   "duration": 3.7,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.054,
+    "up": -0.661,
+    "forward": 0.845
+   },
+   "yaw_change_deg": 151.9,
+   "facing_deg": {
+    "pelvis": -11,
+    "shoulders": -2
+   },
+   "hips_y_mean": 0.516,
+   "head_y_mean": 0.85,
+   "notes": "falls forward",
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__death_from_back_headshot"
+  },
+  "death_headshot_b": {
+   "file": "actions.glb",
+   "duration": 2.8333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.256,
+    "up": -0.722,
+    "forward": -0.22
+   },
+   "yaw_change_deg": -38.5,
+   "facing_deg": {
+    "pelvis": -17,
+    "shoulders": -17
+   },
+   "hips_y_mean": 0.504,
+   "head_y_mean": 0.888,
+   "notes": "falls backward/sideways",
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__death_from_front_headshot"
+  },
+  "death_crouch": {
+   "file": "actions.glb",
+   "duration": 1.9,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.119,
+    "up": -0.277,
+    "forward": 0.826
+   },
+   "yaw_change_deg": 141.8,
+   "facing_deg": {
+    "pelvis": -25,
+    "shoulders": -23
+   },
+   "hips_y_mean": 0.492,
+   "head_y_mean": 0.85,
+   "source": "Mixamo (Adobe) \"Pro Rifle Pack\", via GitHub theKooker/FPS-Multiplayer",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "prorifle__death_crouching_headshot_front"
+  },
+  "death_prone": {
+   "file": "actions.glb",
+   "duration": 1.8667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.125,
+    "up": -0.019,
+    "forward": 0.007
+   },
+   "yaw_change_deg": -84,
+   "facing_deg": {
+    "pelvis": 8,
+    "shoulders": -14
+   },
+   "hips_y_mean": 0.148,
+   "head_y_mean": 0.189,
+   "source": "Mixamo (Adobe) prone/injured clips, via GitHub DiogoAlmeida777/Loose-Limbs",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "loose__MainCharacter_Prone_Death"
   },
   "knocked_idle": {
    "file": "actions.glb",
    "duration": 3,
    "loop": true,
    "mode": "static",
-   "hips_y_mean": 0.346,
-   "head_y_mean": 0.667,
-   "source": "CMU Graphics Lab Motion Capture Database (mocap.cs.cmu.edu), BVH conversion by B. Hahn / EcstasyMotion (archive.org/details/cmu-ecstasy-motion-bvh-poser-friendly-2012)",
-   "license": "CMU mocap: free for all uses (no restrictions)",
-   "source_clip": "111_03"
+   "facing_deg": {
+    "pelvis": -2,
+    "shoulders": -12
+   },
+   "hips_y_mean": 0.432,
+   "head_y_mean": 0.396,
+   "notes": "frame of knocked_crawl with breathing",
+   "source": "Mixamo (Adobe) clips on X Bot, via GitHub shtolyan/HexLive",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "hexlive__X_Bot_Crawling"
+  },
+  "knocked_crawl": {
+   "file": "actions.glb",
+   "duration": 1.8333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 0.48,
+   "move_dir": [
+    0.034,
+    0.999
+   ],
+   "speed_source": "planted_foot",
+   "facing_deg": {
+    "pelvis": 4,
+    "shoulders": -2
+   },
+   "hips_y_mean": 0.45,
+   "head_y_mean": 0.481,
+   "notes": "hands-and-knees crawl",
+   "source": "Mixamo (Adobe) clips on X Bot, via GitHub shtolyan/HexLive",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "hexlive__X_Bot_Crawling"
   },
   "hit_react_f": {
    "file": "actions.glb",
-   "duration": 1,
+   "duration": 2.6,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": -0.007,
-    "up": 0.004,
-    "forward": -0.052
+    "right": 0,
+    "up": -0.025,
+    "forward": -0.012
    },
-   "hips_y_mean": 0.816,
-   "head_y_mean": 1.484,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Hits__Hit_Fwd"
+   "facing_deg": {
+    "pelvis": -1,
+    "shoulders": -6
+   },
+   "hips_y_mean": 0.859,
+   "head_y_mean": 1.436,
+   "notes": "hit in the torso from the front; in place",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Getting_Hit"
   },
   "hit_react_b": {
    "file": "actions.glb",
@@ -1565,51 +2407,150 @@
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": -0.002,
-    "up": -0.014,
-    "forward": 0.08
+    "right": 0,
+    "up": 0,
+    "forward": 1.132
    },
-   "hips_y_mean": 0.848,
-   "head_y_mean": 1.417,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Hits__Hit_Bwd"
+   "facing_deg": {
+    "pelvis": -49,
+    "shoulders": -47
+   },
+   "hips_y_mean": 0.794,
+   "head_y_mean": 1.36,
+   "notes": "hit from behind; staggers ~1 m forward (root_displacement)",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub annaborja/FantasyMelee",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "fm__YBot_ArmedBow_HitReact_BackLarge"
   },
   "hit_react_l": {
    "file": "actions.glb",
-   "duration": 0.6333,
+   "duration": 1.8333,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": 0.019,
+    "right": 0,
     "up": -0.001,
-    "forward": 0.006
+    "forward": 0
    },
-   "hips_y_mean": 0.837,
-   "head_y_mean": 1.507,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Hits__Hit_L"
+   "facing_deg": {
+    "pelvis": -64,
+    "shoulders": -64
+   },
+   "hips_y_mean": 0.807,
+   "head_y_mean": 1.397,
+   "notes": "hit on the left side; in place",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Male_Reaction_Hit_On_The_Left_Side"
   },
   "hit_react_r": {
    "file": "actions.glb",
-   "duration": 0.5667,
+   "duration": 1.6667,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": -0.077,
-    "up": 0.001,
-    "forward": -0.036
+    "right": 0,
+    "up": 0,
+    "forward": 0
    },
-   "hips_y_mean": 0.851,
-   "head_y_mean": 1.524,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Hits__Hit_R"
+   "facing_deg": {
+    "pelvis": -50,
+    "shoulders": -42
+   },
+   "hips_y_mean": 0.818,
+   "head_y_mean": 1.404,
+   "notes": "hit on the right side; in place",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Male_Reaction_Hit_On_The_Right_Side"
+  },
+  "hit_stagger_f": {
+   "file": "actions.glb",
+   "duration": 1,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": -1.168
+   },
+   "facing_deg": {
+    "pelvis": -51,
+    "shoulders": -51
+   },
+   "hips_y_mean": 0.78,
+   "head_y_mean": 1.417,
+   "notes": "big hit from the front; staggers ~1 m back (root_displacement)",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub annaborja/FantasyMelee",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "fm__YBot_ArmedBow_HitReact_FrontLarge"
+  },
+  "hit_stagger_l": {
+   "file": "actions.glb",
+   "duration": 1,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.761,
+    "up": 0,
+    "forward": 0
+   },
+   "facing_deg": {
+    "pelvis": -69,
+    "shoulders": -63
+   },
+   "hips_y_mean": 0.765,
+   "head_y_mean": 1.341,
+   "notes": "big hit from the left; staggers right",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub annaborja/FantasyMelee",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "fm__YBot_ArmedBow_HitReact_LeftLarge"
+  },
+  "hit_stagger_r": {
+   "file": "actions.glb",
+   "duration": 1,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.756,
+    "up": 0,
+    "forward": 0
+   },
+   "facing_deg": {
+    "pelvis": -72,
+    "shoulders": -68
+   },
+   "hips_y_mean": 0.806,
+   "head_y_mean": 1.435,
+   "notes": "big hit from the right; staggers left",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub annaborja/FantasyMelee",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "fm__YBot_ArmedBow_HitReact_RightLarge"
+  },
+  "hit_react_head": {
+   "file": "actions.glb",
+   "duration": 1.4333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "facing_deg": {
+    "pelvis": -50,
+    "shoulders": -32
+   },
+   "hips_y_mean": 0.776,
+   "head_y_mean": 1.356,
+   "notes": "in place",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub annaborja/FantasyMelee",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "fm__YBot_Unarmed_HitReact_Head"
   },
   "throw_grenade": {
    "file": "actions.glb",
-   "duration": 1.3333,
+   "duration": 2.2,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
@@ -1617,15 +2558,20 @@
     "up": 0,
     "forward": 0
    },
-   "hips_y_mean": 0.833,
-   "head_y_mean": 1.489,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Combat__ThrowObject"
+   "facing_deg": {
+    "pelvis": -9,
+    "shoulders": 0
+   },
+   "hips_y_mean": 0.878,
+   "head_y_mean": 1.554,
+   "notes": "overhand throw, release at ~0.75 s (right hand)",
+   "source": "Mixamo (Adobe) clips, via GitHub S-N-D-R/UnityMixamoLibrary",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "ml__throw"
   },
   "melee_swing": {
    "file": "actions.glb",
-   "duration": 1.5333,
+   "duration": 2.4,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
@@ -1633,11 +2579,37 @@
     "up": 0,
     "forward": 0
    },
-   "hips_y_mean": 0.698,
-   "head_y_mean": 1.315,
-   "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
-   "license": "CC0 1.0",
-   "source_clip": "Sword_Attack"
+   "facing_deg": {
+    "pelvis": -19,
+    "shoulders": -17
+   },
+   "hips_y_mean": 0.75,
+   "head_y_mean": 1.387,
+   "notes": "one-handed horizontal swing (weapon in the right hand)",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Axe_Standing_Melee_Attack_Horizontal"
+  },
+  "melee_swing_unarmed": {
+   "file": "actions.glb",
+   "duration": 2.4,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "facing_deg": {
+    "pelvis": -19,
+    "shoulders": -17
+   },
+   "hips_y_mean": 0.758,
+   "head_y_mean": 1.396,
+   "notes": "right-hand horizontal swing",
+   "source": "Mixamo (Adobe) clips on X Bot, via GitHub shtolyan/HexLive",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "hexlive__Standing_Melee_Attack_Horizontal"
   },
   "punch_r": {
    "file": "actions.glb",
@@ -1648,6 +2620,10 @@
     "right": 0,
     "up": 0,
     "forward": 0
+   },
+   "facing_deg": {
+    "pelvis": -3,
+    "shoulders": 10
    },
    "hips_y_mean": 0.844,
    "head_y_mean": 1.472,
@@ -1665,6 +2641,10 @@
     "up": 0,
     "forward": 0
    },
+   "facing_deg": {
+    "pelvis": -16,
+    "shoulders": -34
+   },
    "hips_y_mean": 0.829,
    "head_y_mean": 1.471,
    "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
@@ -1673,71 +2653,71 @@
   },
   "use_item": {
    "file": "actions.glb",
-   "duration": 3.3667,
+   "duration": 1.7,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": 0,
-    "up": 0,
-    "forward": 0
+    "right": -0.058,
+    "up": -0.029,
+    "forward": -0.031
    },
-   "hips_y_mean": 0.811,
-   "head_y_mean": 1.461,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Interactions__Heal_bandages"
+   "yaw_change_deg": -43.5,
+   "facing_deg": {
+    "pelvis": -7,
+    "shoulders": 0
+   },
+   "hips_y_mean": 0.88,
+   "head_y_mean": 1.529,
+   "notes": "both hands working at belly height (bandage / kit)",
+   "source": "Mixamo (Adobe) clips on X Bot, via GitHub shtolyan/HexLive",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "hexlive__X_Bot_Searching_Pockets"
   },
   "drink": {
    "file": "actions.glb",
-   "duration": 2.4667,
+   "duration": 4.5,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": 0,
-    "up": 0,
-    "forward": 0
+    "right": 0.004,
+    "up": 0.001,
+    "forward": 0.012
    },
-   "hips_y_mean": 0.859,
-   "head_y_mean": 1.551,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Interactions__Drink"
+   "facing_deg": {
+    "pelvis": -7,
+    "shoulders": -6
+   },
+   "hips_y_mean": 0.871,
+   "head_y_mean": 1.55,
+   "notes": "bottle in the LEFT hand; drinks 0.5-4.0 s",
+   "source": "Mixamo (Adobe) clips on X Bot, via GitHub shtolyan/HexLive",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "hexlive__X_Bot_Drinking"
   },
   "pickup": {
    "file": "actions.glb",
-   "duration": 1.7333,
+   "duration": 2,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": 0,
-    "up": 0,
-    "forward": 0
+    "right": -0.021,
+    "up": 0.003,
+    "forward": -0.052
    },
-   "hips_y_mean": 0.764,
-   "head_y_mean": 1.287,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Interactions__Pick_Fwd"
-  },
-  "pickup_high": {
-   "file": "actions.glb",
-   "duration": 1.5,
-   "loop": false,
-   "mode": "oneshot",
-   "root_displacement": {
-    "right": 0,
-    "up": 0,
-    "forward": 0
+   "facing_deg": {
+    "pelvis": 10,
+    "shoulders": 7
    },
-   "hips_y_mean": 0.853,
-   "head_y_mean": 1.531,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Interactions__Grab_item"
+   "hips_y_mean": 0.827,
+   "head_y_mean": 1.191,
+   "notes": "right hand reaches the floor at ~0.9 s",
+   "source": "Mixamo (Adobe) clips, via GitHub S-N-D-R/UnityMixamoLibrary",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "ml__pick_up"
   },
   "interact_door": {
    "file": "actions.glb",
-   "duration": 1.0667,
+   "duration": 6.2,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
@@ -1745,92 +2725,160 @@
     "up": 0,
     "forward": 0
    },
-   "hips_y_mean": 0.853,
-   "head_y_mean": 1.543,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Interactions__Open_Door"
+   "facing_deg": {
+    "pelvis": -28,
+    "shoulders": -21
+   },
+   "hips_y_mean": 0.891,
+   "head_y_mean": 1.575,
+   "source": "Microsoft Rocketbox animation library (github.com/microsoft/Microsoft-Rocketbox)",
+   "license": "MIT",
+   "source_clip": "m_try_door_inwards"
   },
-  "vault": {
+  "interact": {
    "file": "actions.glb",
-   "duration": 0.8333,
+   "duration": 3.2333,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
     "right": 0,
     "up": 0,
-    "forward": 3.228
+    "forward": 0
    },
-   "hips_y_mean": 1.099,
-   "head_y_mean": 1.642,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "ObstaclesWallpoints__Obstacle_Vault"
+   "facing_deg": {
+    "pelvis": -3,
+    "shoulders": 6
+   },
+   "hips_y_mean": 0.896,
+   "head_y_mean": 1.588,
+   "notes": "press a button / switch at chest height",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Button_Pushing"
+  },
+  "vault": {
+   "file": "actions.glb",
+   "duration": 1.1667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.005,
+    "up": 0.009,
+    "forward": 4.348
+   },
+   "yaw_change_deg": 31.7,
+   "facing_deg": {
+    "pelvis": 2,
+    "shoulders": 2
+   },
+   "hips_y_mean": 0.968,
+   "head_y_mean": 1.456,
+   "notes": "running speed vault over a ~1 m obstacle (see root_displacement)",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub annaborja/FantasyMelee",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "fm__YBot_Unarmed_Vault"
   },
   "climb": {
    "file": "actions.glb",
-   "duration": 1.3333,
+   "duration": 2.5667,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": 0,
-    "up": 0.975,
-    "forward": 1.1
+    "right": 0.004,
+    "up": 1.405,
+    "forward": 0.339
    },
-   "hips_y_mean": 1.482,
-   "head_y_mean": 1.874,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "ObstaclesWallpoints__Obstacle_ClimbM"
+   "facing_deg": {
+    "pelvis": -2,
+    "shoulders": 1
+   },
+   "hips_y_mean": 1.761,
+   "head_y_mean": 2.127,
+   "notes": "jump-grab-pull-up onto a ~1.7 m ledge (see root_displacement)",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub annaborja/FantasyMelee",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "fm__YBot_Unarmed_MantleTall"
   },
   "climb_low": {
    "file": "actions.glb",
-   "duration": 0.6667,
+   "duration": 1.9333,
    "loop": false,
    "mode": "oneshot",
    "root_displacement": {
-    "right": 0,
-    "up": 0.976,
-    "forward": 1.636
+    "right": 0.197,
+    "up": 0.585,
+    "forward": 0.803
    },
-   "hips_y_mean": 1.284,
-   "head_y_mean": 1.675,
-   "source": "Quaternius Universal Animation Library 2 (quaternius.itch.io/universal-animation-library-2)",
-   "license": "CC0 1.0",
-   "source_clip": "ClimbUp_1m"
-  },
-  "ladder_idle": {
-   "file": "actions.glb",
-   "duration": 1,
-   "loop": true,
-   "mode": "inplace",
-   "hips_y_mean": 0.744,
-   "head_y_mean": 1.421,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Ladder__Ladder_Idle"
+   "yaw_change_deg": 88.3,
+   "facing_deg": {
+    "pelvis": 28,
+    "shoulders": 39
+   },
+   "hips_y_mean": 1.094,
+   "head_y_mean": 1.294,
+   "notes": "mantle onto a ~0.7 m ledge (see root_displacement)",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub annaborja/FantasyMelee",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "fm__YBot_Unarmed_MantleShort"
   },
   "ladder_up": {
    "file": "actions.glb",
-   "duration": 1,
+   "duration": 0.7667,
    "loop": true,
    "mode": "keep",
-   "hips_y_mean": 0.855,
-   "head_y_mean": 1.542,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Ladder__Ladder_Ascend_Loop"
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "facing_deg": {
+    "pelvis": 5,
+    "shoulders": 2
+   },
+   "climb_speed_mps": 0.65,
+   "hips_y_mean": 0.814,
+   "head_y_mean": 1.487,
+   "notes": "in place; move the character up at ~0.65 m/s (one rung ~0.26 m per half cycle) at timeScale 1",
+   "source": "Mixamo (Adobe) \"Climbing Ladder\", via GitHub chetan-code/RigidbodyRaycastBased-CharacterController3D-Unity",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "ladder__Climbing_Ladder"
   },
   "ladder_down": {
    "file": "actions.glb",
-   "duration": 1,
+   "duration": 0.7667,
    "loop": true,
    "mode": "keep",
-   "hips_y_mean": 0.862,
-   "head_y_mean": 1.527,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Ladder__Ladder_Descend_Loop"
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "facing_deg": {
+    "pelvis": 5,
+    "shoulders": 2
+   },
+   "climb_speed_mps": -0.65,
+   "hips_y_mean": 0.814,
+   "head_y_mean": 1.487,
+   "notes": "ladder_up reversed; move down at ~0.65 m/s",
+   "source": "Mixamo (Adobe) \"Climbing Ladder\", via GitHub chetan-code/RigidbodyRaycastBased-CharacterController3D-Unity",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "ladder__Climbing_Ladder"
+  },
+  "ladder_idle": {
+   "file": "actions.glb",
+   "duration": 2,
+   "loop": true,
+   "mode": "static",
+   "facing_deg": {
+    "pelvis": -3,
+    "shoulders": 7
+   },
+   "hips_y_mean": 0.739,
+   "head_y_mean": 1.416,
+   "source": "Mixamo (Adobe) \"Climbing Ladder\", via GitHub chetan-code/RigidbodyRaycastBased-CharacterController3D-Unity",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "ladder__Climbing_Ladder"
   },
   "revive_teammate": {
    "file": "actions.glb",
@@ -1842,6 +2890,10 @@
     "up": 0,
     "forward": 0
    },
+   "facing_deg": {
+    "pelvis": -3,
+    "shoulders": 1
+   },
    "hips_y_mean": 0.575,
    "head_y_mean": 1.047,
    "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
@@ -1850,111 +2902,161 @@
   },
   "drive_sit": {
    "file": "actions.glb",
-   "duration": 1.6667,
+   "duration": 5,
    "loop": true,
    "mode": "inplace",
-   "hips_y_mean": 0.527,
-   "head_y_mean": 1.201,
-   "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
-   "license": "CC0 1.0",
-   "source_clip": "Driving_Loop"
+   "facing_deg": {
+    "pelvis": -7,
+    "shoulders": 0
+   },
+   "hips_y_mean": 0.557,
+   "head_y_mean": 1.232,
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Driving"
+  },
+  "car_enter": {
+   "file": "actions.glb",
+   "duration": 5.4667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.133,
+    "up": -0.133,
+    "forward": 1.65
+   },
+   "yaw_change_deg": 96.9,
+   "facing_deg": {
+    "pelvis": 69,
+    "shoulders": 66
+   },
+   "hips_y_mean": 0.82,
+   "head_y_mean": 1.434,
+   "notes": "driver side: step in, turn ~95 deg and sit (ends in drive_sit; see root_displacement / yaw_change_deg)",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Entering_Car"
+  },
+  "car_exit": {
+   "file": "actions.glb",
+   "duration": 5.8,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -1.678,
+    "up": 0.133,
+    "forward": 0.178
+   },
+   "yaw_change_deg": 87.4,
+   "facing_deg": {
+    "pelvis": 18,
+    "shoulders": 19
+   },
+   "hips_y_mean": 0.832,
+   "head_y_mean": 1.454,
+   "notes": "from drive_sit: turn and step out to the left",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Exiting_Car"
   },
   "passenger_sit": {
    "file": "actions.glb",
    "duration": 1.6667,
    "loop": true,
    "mode": "inplace",
+   "facing_deg": {
+    "pelvis": 0,
+    "shoulders": -3
+   },
    "hips_y_mean": 0.529,
    "head_y_mean": 1.196,
    "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
    "license": "CC0 1.0",
    "source_clip": "Sitting_Idle_Loop"
   },
-  "car_enter_l": {
+  "injured_idle": {
    "file": "actions.glb",
-   "duration": 2.5667,
-   "loop": false,
-   "mode": "oneshot",
-   "root_displacement": {
-    "right": 0.398,
-    "up": -0.371,
-    "forward": 0.978
+   "duration": 11.7333,
+   "loop": true,
+   "mode": "inplace",
+   "facing_deg": {
+    "pelvis": -5,
+    "shoulders": 3
    },
-   "hips_y_mean": 0.641,
-   "head_y_mean": 1.289,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Car__Car_Enter_L"
+   "hips_y_mean": 0.849,
+   "head_y_mean": 1.465,
+   "source": "Mixamo (Adobe) prone/injured clips, via GitHub DiogoAlmeida777/Loose-Limbs",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "loose__MainCharacter_Injured_Idle"
   },
-  "car_enter_r": {
+  "injured_walk_f": {
    "file": "actions.glb",
-   "duration": 2.5667,
-   "loop": false,
-   "mode": "oneshot",
-   "root_displacement": {
-    "right": -0.511,
-    "up": -0.371,
-    "forward": 0.978
+   "duration": 2.0667,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 0.902,
+   "move_dir": [
+    0.003,
+    1
+   ],
+   "speed_source": "planted_foot",
+   "facing_deg": {
+    "pelvis": 5,
+    "shoulders": -7
    },
-   "hips_y_mean": 0.641,
-   "head_y_mean": 1.289,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Car__Car_Enter_R"
-  },
-  "car_exit_l": {
-   "file": "actions.glb",
-   "duration": 2.8333,
-   "loop": false,
-   "mode": "oneshot",
-   "root_displacement": {
-    "right": 0.978,
-    "up": 0.371,
-    "forward": -0.398
-   },
-   "hips_y_mean": 0.621,
-   "head_y_mean": 1.281,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Car__Car_Exit_L"
-  },
-  "car_exit_r": {
-   "file": "actions.glb",
-   "duration": 2.8333,
-   "loop": false,
-   "mode": "oneshot",
-   "root_displacement": {
-    "right": -0.978,
-    "up": 0.373,
-    "forward": -0.511
-   },
-   "hips_y_mean": 0.622,
-   "head_y_mean": 1.284,
-   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
-   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
-   "source_clip": "Car__Car_Exit_R"
+   "hips_y_mean": 0.836,
+   "head_y_mean": 1.362,
+   "source": "Mixamo (Adobe) prone/injured clips, via GitHub DiogoAlmeida777/Loose-Limbs",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "loose__MainCharacter_Injured_Walk"
   },
   "freefall": {
    "file": "actions.glb",
-   "duration": 2,
+   "duration": 4.5,
    "loop": true,
-   "mode": "static",
-   "hips_y_mean": 0.827,
-   "head_y_mean": 0.862,
-   "source": "authored (procedural pose on the shared skeleton, tools/assets/characters)",
-   "license": "project-authored",
-   "source_clip": "Idle__Idle"
+   "mode": "inplace",
+   "facing_deg": {
+    "pelvis": 3,
+    "shoulders": 1
+   },
+   "hips_y_mean": 0.939,
+   "head_y_mean": 1.033,
+   "notes": "skydiving: body horizontal, face down",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Falling_in_the_Air"
+  },
+  "parachute_hang": {
+   "file": "actions.glb",
+   "duration": 4.7333,
+   "loop": true,
+   "mode": "inplace",
+   "facing_deg": {
+    "pelvis": 2,
+    "shoulders": -1
+   },
+   "hips_y_mean": 1.043,
+   "head_y_mean": 1.727,
+   "notes": "alternative parachute pose: hanging with both hands up on the risers",
+   "source": "Mixamo (Adobe) clips on Y Bot, via GitHub kirbycope/godot-3d-player-controller-addon",
+   "license": "Mixamo/Adobe terms: free for use in projects, no standalone redistribution",
+   "source_clip": "kc__Free_Hanging_Idle"
   },
   "parachute_idle": {
    "file": "actions.glb",
    "duration": 4,
    "loop": true,
    "mode": "static",
-   "hips_y_mean": 0.827,
-   "head_y_mean": 1.516,
-   "source": "authored (procedural pose on the shared skeleton, tools/assets/characters)",
+   "facing_deg": {
+    "pelvis": 2,
+    "shoulders": 6
+   },
+   "hips_y_mean": 0.888,
+   "head_y_mean": 1.578,
+   "notes": "hanging under canopy, hands on the brake toggles",
+   "source": "authored (procedural pose on the shared skeleton, tools/assets/characters/retarget.mjs)",
    "license": "project-authored",
-   "source_clip": "Idle__Idle"
+   "source_clip": "M_Standing_Idle_001"
   }
  },
  "canonical_missing": []

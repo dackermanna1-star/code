@@ -1,0 +1,188 @@
+# Mixamo FBX sources used by the animation job (tools/assets/characters/anim_jobs/prod.py).
+# tag<TAB>github repo<TAB>path in repo. Downloaded by download_anim_sources.sh to <out>/<tag>__<file name with spaces/@ -> _>.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/idle.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/jump up.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/run left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/run right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/jump loop.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/jump down.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/sprint left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/idle aiming.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/run forward.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/sprint right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk forward.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/turn 90 left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/run backward.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/turn 90 right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk backward.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/sprint forward.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/idle crouching.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/sprint backward.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/run forward left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/death from right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/run forward right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/run backward left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk forward left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk backward left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/run backward right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk forward right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk backward right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk crouching left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/death from the back.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/sprint forward left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/death from the front.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/sprint forward right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk crouching right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/sprint backward left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/sprint backward right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/idle crouching aiming.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/crouching turn 90 left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk crouching forward.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/crouching turn 90 right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk crouching backward.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/death from back headshot.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/death from front headshot.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk crouching forward left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk crouching backward left.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk crouching forward right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/walk crouching backward right.fbx
+prorifle	theKooker/FPS-Multiplayer	Assets/Rifle 8-Way Locomotion Pack/death crouching headshot front.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/walking.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/reloading.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/rifle run.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/turn left.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/rifle jump.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/strafe left.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/hit reaction.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/toss grenade.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/strafe right.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/firing rifle.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/run backwards.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/run strafe left.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/run strafe right.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/walking backwards.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/rifle aiming idle.fbx
+basicshooter	alexlp04/RobotSurvival	Assets/Basic Shooter Pack/turning right 45 degrees.fbx
+strike	Krushna0304/StrikeFront	Assets/Player/PlayerAnims/Prone/@Prone Idle.fbx
+strike	Krushna0304/StrikeFront	Assets/Player/PlayerAnims/Prone/@Prone Forward.fbx
+strike	Krushna0304/StrikeFront	Assets/Player/PlayerAnims/Prone/@Prone Backward.fbx
+strike	Krushna0304/StrikeFront	Assets/Player/PlayerAnims/Prone/@Prone Left Turn.fbx
+strike	Krushna0304/StrikeFront	Assets/Player/PlayerAnims/Prone/@Prone Right Turn.fbx
+strike	Krushna0304/StrikeFront	Assets/Player/PlayerAnims/@Climbing.fbx
+strike	Krushna0304/StrikeFront	Assets/Player/PlayerAnims/@Running Slide.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/Ch35_nonPBR@Prone Idle.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/Ch35_nonPBR@Prone Firing Rifle.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/Ch35_nonPBR@Rifle Kneel To Prone.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/Ch35_nonPBR@Rifle Prone To Kneel.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/Ch35_nonPBR@Crouch Firing Rifle.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/Ch35_nonPBR@Idle Crouching Aiming.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/Ch35_nonPBR@Up Firing Rifle.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/Ch35_nonPBR@Rifle Idle.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/Ch35_nonPBR@Rifle Aiming Idle.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/Y Bot@Reloading.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/New/Y Bot@Prone Reloading.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/New/Y Bot@Moving Backward In Prone Position.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/New/Y Bot@Crouch Reload.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/New/Y Bot@Pistol Aim Idle.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/New/Y Bot@Pistol NoAim Idle.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/New/Y Bot@Pistol Kneeling Idle.fbx
+duel	Gus2169/Duel-Arena	Assets/_ProjectArt/Animations/New/Y Bot@Idle Crouching.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/Swimming.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/TreadWater.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/X Bot@Crawling.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/Zombie Crawl.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/X Bot@Drinking.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/X Bot@Searching Pockets.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/X Bot@Gathering Objects.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/X Bot@Standing React Large From Right_once.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/Standing Melee Attack Horizontal.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/X Bot@Fallen Idle.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/X Bot@Falling.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/X Bot@Death From Back Headshot.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/Limp.fbx
+hexlive	shtolyan/HexLive	Assets/ImportedActors/AnimLibrary/Prone Idle.fbx
+loose	DiogoAlmeida777/Loose-Limbs	Assets/Animations/Human/Injured/MainCharacter@Injured Idle.fbx
+loose	DiogoAlmeida777/Loose-Limbs	Assets/Animations/Human/Injured/MainCharacter@Injured Walk.fbx
+loose	DiogoAlmeida777/Loose-Limbs	Assets/Animations/Human/Injured/MainCharacter@Injured Walk Backwards.fbx
+loose	DiogoAlmeida777/Loose-Limbs	Assets/Animations/Human/Death/MainCharacter@Falling Back Death.fbx
+loose	DiogoAlmeida777/Loose-Limbs	Assets/Animations/Human/Death/MainCharacter@Prone Death.fbx
+loose	DiogoAlmeida777/Loose-Limbs	Assets/Animations/Human/Prone/MainCharacter@Prone Idle.fbx
+loose	DiogoAlmeida777/Loose-Limbs	Assets/Animations/Human/Prone/MainCharacter@Prone Forward.fbx
+ladder	chetan-code/RigidbodyRaycastBased-CharacterController3D-Unity	Assets/Animations/Mixamo/Climbing Ladder.fbx
+fm	annaborja/FantasyMelee	Assets/Mixamo/YBot/Unarmed/Casual/Locomotion/YBot_Unarmed_Vault.fbx
+fm	annaborja/FantasyMelee	Assets/Mixamo/YBot/Unarmed/Casual/Locomotion/YBot_Unarmed_MantleTall.fbx
+fm	annaborja/FantasyMelee	Assets/Mixamo/YBot/Unarmed/Casual/Locomotion/YBot_Unarmed_MantleShort.fbx
+fm	annaborja/FantasyMelee	Assets/Mixamo/YBot/Unarmed/Casual/Locomotion/YBot_Unarmed_CrouchIdle.fbx
+fm	annaborja/FantasyMelee	Assets/Mixamo/YBot/Unarmed/Casual/Transitions/YBot_Unarmed_StandToCrouch.fbx
+fm	annaborja/FantasyMelee	Assets/Mixamo/YBot/Unarmed/Casual/Transitions/YBot_Unarmed_CrouchToStand.fbx
+fm	annaborja/FantasyMelee	Assets/Mixamo/YBot/Unarmed/Combat/Reactions/YBot_Unarmed_HitReact_Head.fbx
+fm	annaborja/FantasyMelee	Assets/Mixamo/YBot/ArmedBow/Combat/Reactions/YBot_ArmedBow_HitReact_BackLarge.fbx
+fm	annaborja/FantasyMelee	Assets/Mixamo/YBot/ArmedBow/Combat/Reactions/YBot_ArmedBow_HitReact_LeftLarge.fbx
+fm	annaborja/FantasyMelee	Assets/Mixamo/YBot/ArmedBow/Combat/Reactions/YBot_ArmedBow_HitReact_FrontLarge.fbx
+fm	annaborja/FantasyMelee	Assets/Mixamo/YBot/ArmedBow/Combat/Reactions/YBot_ArmedBow_HitReact_RightLarge.fbx
+fm	annaborja/FantasyMelee	Assets/Mixamo/YBot/Unarmed/Casual/Locomotion/YBot_Unarmed_Jump.fbx
+fm	annaborja/FantasyMelee	Assets/Mixamo/YBot/Unarmed/Injured/Locomotion/YBot_Unarmed_InjuredIdle.fbx
+ml	S-N-D-R/UnityMixamoLibrary	Assets/MixamoAnimations/Movement/run_jump_over_vault.fbx
+ml	S-N-D-R/UnityMixamoLibrary	Assets/MixamoAnimations/Generic/pick_up.fbx
+ml	S-N-D-R/UnityMixamoLibrary	Assets/MixamoAnimations/Generic/throw.fbx
+ml	S-N-D-R/UnityMixamoLibrary	Assets/MixamoAnimations/Movement/swim.fbx
+ml	S-N-D-R/UnityMixamoLibrary	Assets/MixamoAnimations/Movement/crawl.fbx
+ml	S-N-D-R/UnityMixamoLibrary	Assets/MixamoAnimations/Seated/driving.fbx
+ml	S-N-D-R/UnityMixamoLibrary	Assets/MixamoAnimations/Injury/stunned.fbx
+ml	S-N-D-R/UnityMixamoLibrary	Assets/MixamoAnimations/Injury/dying.fbx
+ml	S-N-D-R/UnityMixamoLibrary	Assets/MixamoAnimations/Injury/dying_1.fbx
+ml	S-N-D-R/UnityMixamoLibrary	Assets/MixamoAnimations/Injury/dying_2.fbx
+ml	S-N-D-R/UnityMixamoLibrary	Assets/MixamoAnimations/Injury/dying_3.fbx
+ml	S-N-D-R/UnityMixamoLibrary	Assets/MixamoAnimations/Seated/ducking.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Idle.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Standard Walk.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Running.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Sprint.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Walking Backwards.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Running Backward.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Left Strafe Walk.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Right Strafe Walking.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Left Strafe.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Right Strafe.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Crouching Idle.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Crouched Walking.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Crouched Sneaking Left.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Crouched Sneaking Right.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Jumping Up.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Falling Idle.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Falling in the Air.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Running Jump.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Entering Car.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Exiting Car.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Driving.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Swimming.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Treading Water.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Climbing Up Wall.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Braced Hang Climbing On.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Pistol Aimed Idle.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Pistol Aimed Walk.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Pistol Aimed Walk Backward.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Pistol Aimed Strafe Left.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Pistol Aimed Strafe Right.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Pistol Aimed Run.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Pistol Aimed Run Backward.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Pistol Shooting.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Pistol Draw.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Pistol Run.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Rifle Draw.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Rifle Firing Walking.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Rifle Firing Standing.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Rifle Aiming Standing Idle.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Rifle Aiming Walk Forward.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Rifle Standing Idle.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Getting Hit.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Male Reaction Hit On The Left Side.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Male Reaction Hit On The Right Side.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Shove Reaction.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Standing Throw.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Button Pushing.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Axe Standing Melee Attack Horizontal.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Free Hanging Idle.fbx
+kc	kirbycope/godot-3d-player-controller-addon	addons/3d_player_controller/assets/mixamo/animations/source/Braced Hang Idle.fbx

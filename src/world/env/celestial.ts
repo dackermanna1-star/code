@@ -32,7 +32,7 @@ export function sunDirection(hours: number, out: Dir3): Dir3 {
 export function moonDirection(hours: number, out: Dir3): Dir3 {
   const s = sunDirection((hours + 12) % 24, out);
   // lift and skew so the moon is a usable light source all night
-  const y = Math.max(0.42, s.y + 0.25);
+  const y = Math.min(0.95, Math.max(0.42, s.y + 0.25));
   const len = Math.hypot(s.x + 0.15, s.z - 0.1) || 1;
   const h = Math.sqrt(1 - y * y);
   out.x = ((s.x + 0.15) / len) * h;

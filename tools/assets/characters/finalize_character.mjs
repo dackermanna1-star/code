@@ -45,7 +45,8 @@ skin.setSkeleton(hips);
 // ---------- sockets ----------
 const sockFile = opt('--sockets');
 if (sockFile) {
-  const socks = JSON.parse(fs.readFileSync(sockFile, 'utf8'));
+  let socks = JSON.parse(fs.readFileSync(sockFile, 'utf8'));
+  if (!Array.isArray(socks)) socks = socks.sockets; // compute_sockets.mjs output {sockets, check}
   for (const s of socks) {
     const parent = joints.find((j) => j.getName() === s.parent);
     const n = doc.createNode(s.name).setTranslation(s.t).setRotation(s.r);

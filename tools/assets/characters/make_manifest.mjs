@@ -89,9 +89,13 @@ for (const [name, m] of Object.entries(meta)) {
   if (m.move_dir) c.move_dir = m.move_dir; // [right, forward]
   if (m.speed_source) c.speed_source = m.speed_source;
   if (m.root_displacement) c.root_displacement = m.root_displacement; // {right, up, forward} metres, hips start -> end
+  if (m.yaw_change_deg != null) c.yaw_change_deg = m.yaw_change_deg; // body turn over the clip, + = to the left
+  if (m.facing_deg) c.facing_deg = m.facing_deg; // average pelvis / shoulder heading, 0 = +Z, + = toward +X (left)
+  if (m.climb_speed_mps != null) c.climb_speed_mps = m.climb_speed_mps;
   if (m.hips_y_mean != null) c.hips_y_mean = m.hips_y_mean;
   if (m.head_y_mean != null) c.head_y_mean = m.head_y_mean;
-  if (m.aim_fix_deg) c.aim_corrected = true;
+  if (m.aim_fix_deg) c.aim_corrected = true; // weapon socket barrel exactly along the clip's aim direction
+  if (m.grip_fix_deg != null) c.grip_fixed = true; // right-hand grip adjusted so the shared weapon socket meets the support hand
   if (m.notes) c.notes = m.notes;
   c.source = m.source; c.license = m.license; c.source_clip = m.src_clip;
   clips[name] = c;
@@ -134,9 +138,10 @@ const charManifest = {
     },
     bones,
     sockets: sockets.map((s) => ({ ...s, description: {
-      socket_weapon_r: 'Child node of RightHand. Attach weapon GLBs here unchanged (weapon convention: origin = firing-hand grip, barrel +Z, up +Y). Derived from the rifle aim pose (barrel from right grip to left grip); also correct for pistols in the shipped pistol clips. In rifle_aim / pistol_aim / *_crouch_aim / *_prone_aim / *_fire the barrel points exactly along character +Z and level.',
+      socket_weapon_r: 'Child node of RightHand. Attach LONG GUNS here unchanged (weapon convention: origin = firing-hand grip, barrel +Z, up +Y). Derived from the rifle_aim pose (barrel = right grip -> left grip, no cant). In rifle_aim, rifle_crouch_aim, rifle_fire, rifle_crouch_fire, rifle_aim_walk_f, rifle_fire_walk_f the barrel points exactly along character +Z and level; rifle_aim_up / rifle_aim_down are exactly +55 / -55 deg; rifle_prone_* point straight ahead with ~9 deg muzzle-up.',
+      socket_pistol_r: 'Child node of RightHand for PISTOLS (same weapon convention). Derived from the pistol_aim pose (barrel level, along the eye->sights heading). pistol_aim / pistol_fire / pistol_crouch_aim / pistol_crouch_walk_f aim exactly along +Z; pistol_aim_up / _down are +55 / -55 deg.',
       socket_weapon_l: 'Child node of LeftHand, mirror of socket_weapon_r (for left-hand items: grenade before throw, melee weapons held left).',
-      socket_support_l: 'Child node of LeftHand at the left palm centre (identity orientation). Use as the IK end-effector: drive the left arm so this point reaches the weapon\'s grip_support node. In rifle_aim the support point sits ~0.35 m along the barrel from the right grip; in the low-ready rifle clips ~0.43 m.',
+      socket_support_l: 'Child node of LeftHand at the left palm centre (identity orientation). Use as the IK end-effector: drive the left arm so this point reaches the weapon\'s grip_support node. In the shipped rifle clips the support hand sits 0.30-0.38 m along the barrel from the right grip and within ~2 cm of the barrel axis (reload/equip/sprint clips excepted).',
     }[s.name] })),
   },
   variants,
@@ -149,12 +154,21 @@ const charManifest = {
     canonical_missing: missingCanon,
   },
 };
+const SOURCES = [
+  { id: 'mixamo', name: 'Adobe Mixamo animations (Pro Rifle Pack, Basic Shooter Pack, pistol / locomotion / prone / vault / climb / car / hit / death clips)', url: 'https://www.mixamo.com', obtained_from: 'FBX files committed to public GitHub game projects: theKooker/FPS-Multiplayer, alexlp04/RobotSurvival, Gus2169/Duel-Arena, shtolyan/HexLive, DiogoAlmeida777/Loose-Limbs, Krushna0304/StrikeFront, chetan-code/RigidbodyRaycastBased-CharacterController3D-Unity, annaborja/FantasyMelee, S-N-D-R/UnityMixamoLibrary, kirbycope/godot-3d-player-controller-addon', license: 'Mixamo terms (Adobe General Terms): royalty-free use in games/projects; animations may not be redistributed as standalone assets. Re-download from mixamo.com with a (free) Adobe account before a public release to have first-party provenance.' },
+  { id: 'rpm', name: 'Ready Player Me Animation Library (masculine)', url: 'https://github.com/readyplayerme/animation-library', license: 'Ready Player Me animation library license: free, intended for use with Ready Player Me avatars; check terms before a public release (used for idle, walk_f/b, jog_f/b, sprint_f, crouch_walk_f/b).' },
+  { id: 'ual', name: 'Quaternius Universal Animation Library 1 & 2', url: 'https://quaternius.itch.io/universal-animation-library', license: 'CC0 1.0' },
+  { id: 'rocketbox', name: 'Microsoft Rocketbox animation library', url: 'https://github.com/microsoft/Microsoft-Rocketbox', license: 'MIT' },
+  { id: 'authored', name: 'Procedural poses / recoil authored in tools/assets/characters/retarget.mjs', license: 'project-authored' },
+];
+charManifest.anims.sources = SOURCES;
 const animManifest = {
   category: 'anims',
   version: 1,
   skeleton: 'pubg_m55 (see /assets/characters/manifest.json)',
   conventions,
   files,
+  sources: SOURCES,
   clips,
   canonical_missing: missingCanon,
 };

@@ -1,0 +1,73 @@
+{
+ "sockets": [
+  {
+   "name": "socket_weapon_r",
+   "parent": "RightHand",
+   "t": [
+    -0.0136,
+    -0.0573,
+    0.009
+   ],
+   "r": [
+    0.64455,
+    -0.11995,
+    -0.20095,
+    0.72787
+   ]
+  },
+  {
+   "name": "socket_weapon_l",
+   "parent": "LeftHand",
+   "t": [
+    0.0136,
+    -0.0573,
+    0.009
+   ],
+   "r": [
+    0.64455,
+    0.11995,
+    0.20095,
+    0.72787
+   ]
+  },
+  {
+   "name": "socket_support_l",
+   "parent": "LeftHand",
+   "t": [
+    0.0119,
+    -0.0568,
+    0.0135
+   ],
+   "r": [
+    0,
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "name": "socket_pistol_r",
+   "parent": "RightHand",
+   "t": [
+    -0.0121,
+    -0.0569,
+    0.0127
+   ],
+   "r": [
+    0.57828,
+    -0.17652,
+    -0.21054,
+    0.76818
+   ]
+  }
+ ],
+ "check": {
+  "rifle_aim": {
+   "support_along_m": 0.348,
+   "support_offaxis_avg_m": 0.001,
+   "support_offaxis_max_m": 0.001,
+   "barrel_pitch_deg": 0,
+   "barrel_yaw_deg": 0
+  }
+ }
+}

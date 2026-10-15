@@ -9,7 +9,7 @@ import { layerFragment, layerVertex } from './terrainLayerShader';
 export const LAYER_NAMES = ['grass', 'dry_grass', 'forest_floor', 'dirt', 'mud', 'rock', 'sand', 'gravel', 'field'] as const;
 
 /** Keyword preferences for matching texture-set ids to layers (first match wins, `-word` excludes). */
-const LAYER_KEYWORDS: string[][] = [
+export const LAYER_KEYWORDS: string[][] = [
   ['terrain_grass', 'grass_green', 'grass_lush', 'grass', 'meadow', 'lawn', '-dry', '-wild'],
   ['grass_dry', 'dry_grass', 'drygrass', 'grass_wild', 'hay'],
   ['forest_floor', 'forest_ground', 'forestfloor', 'leaves', 'needles', 'moss'],
@@ -29,7 +29,7 @@ export interface LayerSource {
   height: THREE.Texture | null;
 }
 
-function setIdsFromManifest(m: unknown): string[] {
+export function setIdsFromManifest(m: unknown): string[] {
   const ids = new Set<string>();
   const visit = (v: unknown) => {
     if (!v) return;
@@ -47,7 +47,7 @@ function setIdsFromManifest(m: unknown): string[] {
   return [...ids];
 }
 
-function pickSet(ids: string[], keywords: string[]): string | null {
+export function pickSet(ids: string[], keywords: string[]): string | null {
   const excl = keywords.filter((k) => k.startsWith('-')).map((k) => k.slice(1));
   for (const kw of keywords) {
     if (kw.startsWith('-')) continue;

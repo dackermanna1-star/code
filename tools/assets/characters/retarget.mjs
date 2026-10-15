@@ -25,6 +25,9 @@
 //   aimFix {dir:[x,y,z], pitch:false, yawFromLevel, yawChain, pitchChain} - weapon barrel exactly along dir
 //   mode loco (measure speed, strip root motion) | oneshot (keep motion from the start pose) | inplace | static
 //   hipsOffset, ground (groundPct | groundFrame), osc [{bones, axis, deg, period, phase}], loop fix
+//   speedOverride + moveDir (manual speed for in-place sources), metaExtra {..} (copied into meta + glTF extras)
+// Per-clip metadata written to `meta` and to each glTF animation's extras: loop, mode, duration, speed_mps,
+// move_dir [right, forward], root_displacement, yaw_change_deg, facing_deg, hips_y_mean, head_y_mean, aim_fix_deg, notes.
 //
 // Method (per bone, per frame):
 //   T_world(t) = S_world(t) * inverse(S_rest_world) * F_s * inverse(F_t)

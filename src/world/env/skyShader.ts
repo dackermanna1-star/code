@@ -145,7 +145,7 @@ void main() {
   // horizon fog consistent with the scene's height fog (ray to ~6 km)
   vec3 rel = dir * 6000.0;
   float fogF = heightFogFactor( rel, uCamPos.y, uFogDensity, uFogFalloff );
-  fogF = max( fogF, smoothstep( 0.32, -0.06, dir.y ) * min( 1.0, uFogDensity * 1800.0 ) );
+  fogF = max( fogF, smoothstep( 0.2, -0.06, dir.y ) * min( 1.0, uFogDensity * 900.0 ) );
   col = mix( col, uFogColor, fogF * 0.97 );
 
   gl_FragColor = vec4( min( col, vec3( 2000.0 ) ), 1.0 );

@@ -80,12 +80,3 @@ export class Noise2D {
     return sum / norm;
   }
 }
-
-/** Tileable value noise on an integer lattice of period `period` (for procedural textures). */
-export function tileableNoise(n: Noise2D, x: number, z: number, period: number): number {
-  // Blend 4 samples of the infinite noise to make it periodic.
-  const u = x / period, v = z / period;
-  const a = n.noise(x, z), b = n.noise(x - period, z), c = n.noise(x, z - period), d = n.noise(x - period, z - period);
-  const fu = u - Math.floor(u), fv = v - Math.floor(v);
-  return (a * (1 - fu) + b * fu) * (1 - fv) + (c * (1 - fu) + d * fu) * fv;
-}

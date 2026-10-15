@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 import fs from 'node:fs';
 
 const base = process.argv[2] || 'http://localhost:5202';
-const outDir = process.argv[3] || '.';
+const outDir = process.argv[3] || `${(await import('node:os')).tmpdir()}/characters-shots`;
 const filter = process.argv[4] || '';
 fs.mkdirSync(outDir, { recursive: true });
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'] });

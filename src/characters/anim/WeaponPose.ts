@@ -187,9 +187,15 @@ export class WeaponPose {
     // follows the sprint lean.
     {
       this.torsoFrame(_tf, _tu, _tr);
+      // Half-way between the chest and the body frame: sprint clips pitch/twist the chest a lot, which
+      // would otherwise point the muzzle at the ground.
+      _tf.add(pc.fwd).normalize();
+      _tu.y += 1;
+      _tu.normalize();
+      _tr.add(pc.right).normalize();
       const chest = this.pc.pos(this.rig.bones.upperChest ? 'upperChest' : 'spine', _tp);
-      this.sprint.pos.copy(chest).addScaledVector(_tr, 0.13 * pc.scale).addScaledVector(_tu, -0.3 * pc.scale).addScaledVector(_tf, 0.24 * pc.scale);
-      _f.copy(_tf).multiplyScalar(0.62).addScaledVector(_tr, -0.6).addScaledVector(_tu, -0.42).normalize();
+      this.sprint.pos.copy(chest).addScaledVector(_tr, 0.13 * pc.scale).addScaledVector(_tu, -0.24 * pc.scale).addScaledVector(_tf, 0.26 * pc.scale);
+      _f.copy(_tf).multiplyScalar(0.78).addScaledVector(_tr, -0.58).addScaledVector(_tu, -0.22).normalize();
       _u.copy(_tu).multiplyScalar(0.75).addScaledVector(_tr, 0.35).addScaledVector(_tf, 0.2).normalize();
       quatFromBasis(_f, _u, this.sprint.quat);
     }

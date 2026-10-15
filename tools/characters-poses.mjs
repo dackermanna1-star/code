@@ -1,11 +1,11 @@
 // Pose gallery for the Characters sandbox: puts a subject character into each stance/state, frames it with a
 // free camera and saves one screenshot per scenario (plus a contact sheet HTML listing them).
-// Usage: node tools/characters-poses.mjs [baseUrl] [outDir] [filter]
+// Usage: node tools/characters-poses.mjs [baseUrl] [outDir] [filterRegex]
 import { chromium } from 'playwright';
 import fs from 'node:fs';
 
 const base = process.argv[2] || 'http://localhost:5202';
-const outDir = process.argv[3] || '.';
+const outDir = process.argv[3] || `${(await import('node:os')).tmpdir()}/characters-shots`;
 const filter = process.argv[4] || '';
 const extra = process.argv[5] || '';
 const dbg = process.argv[6] || '';
@@ -85,6 +85,7 @@ const scenarios = [
   S('rifle_idle', `g.giveWeapon(c.id,'ar_m416'); await __wait(1);`),
   S('rifle_run', `g.giveWeapon(c.id,'ar_m416'); c.intent.moveY=1; await __wait(1.4);`, { yaw: 1.2 }),
   S('rifle_sprint', `g.giveWeapon(c.id,'ar_m416'); c.intent.moveY=1; c.intent.sprint=true; await __wait(1.4);`, { yaw: 1.2 }),
+  S('rifle_sprint_front', `g.giveWeapon(c.id,'ar_m416'); c.intent.moveY=1; c.intent.sprint=true; await __wait(1.4);`, { yaw: 0.35 }),
   S('rifle_aim', `g.giveWeapon(c.id,'ar_m416'); c.intent.aim=true; await __wait(1);`, { yaw: 1.0 }),
   S('rifle_ads_side', `g.giveWeapon(c.id,'ar_m416'); c.intent.ads=true; c.intent.aim=true; await __wait(1);`, { yaw: 1.57, dist: 2.2, height: 1.5, target: 1.4 }),
   S('rifle_aim_up', `g.giveWeapon(c.id,'ar_m416'); c.intent.aim=true; c.intent.pitch=0.6; await __wait(1);`, { yaw: 1.4 }),
@@ -121,7 +122,7 @@ const scenarios = [
 
 const results = [];
 for (const sc of scenarios) {
-  if (filter && !sc.name.includes(filter)) continue;
+  if (filter && !new RegExp(filter).test(sc.name)) continue;
   try {
     await page.evaluate(async ({ body, cam }) => {
       const g = window.__game;

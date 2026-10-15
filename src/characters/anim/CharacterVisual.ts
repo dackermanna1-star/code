@@ -319,7 +319,8 @@ export class CharacterVisual implements ICharacterVisual {
     this.loco!.update(dt, li);
     inst.rig.savePostMixer();
     const [orole, ot] = this.overlayFromAction();
-    this.overlay?.update(dt, orole, ot);
+    // Long actions (healing, drinking, reviving) loop their gesture at natural speed.
+    this.overlay?.update(dt, orole, ot, orole === 'useItem' || orole === 'drink' || orole === 'revive');
     inst.container.updateMatrixWorld(true);
     let t1 = performance.now();
     animProfile.mixer += t1 - t0;
@@ -393,8 +394,9 @@ export class CharacterVisual implements ICharacterVisual {
       case 'interact':
         return /reviv/i.test(a.label) ? ['revive', a.progress / Math.max(0.01, a.duration)] : [null, 0];
       case 'throw':
-        // Wind-up while cooking; the release plays when the action ends (combat clears it).
-        return ['throw', Math.min(0.42, 0.2 + a.progress * 0.3)];
+        // Wind-up while cooking (first part of the clip's active window); the release plays when the
+        // action ends (combat clears it).
+        return ['throw', Math.min(0.45, 0.15 + a.progress * 0.3)];
       case 'melee':
         return ['melee', a.progress / Math.max(0.01, a.duration)];
       default:

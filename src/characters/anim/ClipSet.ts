@@ -41,7 +41,7 @@ const SPECIAL_NAMES: Record<SpecialRole, string[]> = {
   swimL: ['swim_l'],
   swimR: ['swim_r'],
   freefall: ['freefall'],
-  parachute: ['parachute_idle'],
+  parachute: ['parachute_hang', 'parachute_idle'],
   driveSit: ['drive_sit'],
   passengerSit: ['passenger_sit'],
   knockedIdle: ['knocked_idle'],
@@ -55,7 +55,7 @@ const OVERLAY_NAMES: Record<OverlayRole, string[]> = {
   melee: ['melee_swing'],
   revive: ['revive_teammate'],
   pickup: ['pickup'],
-  door: ['interact_door'],
+  door: ['interact_door', 'interact'],
   punch: ['punch_r'],
   hitF: ['hit_react_f'],
   hitB: ['hit_react_b'],
@@ -67,10 +67,10 @@ const GROUP_NAMES: Record<string, { idle: string[]; aim: string[]; loco: RegExp 
   'stand/unarmed': { idle: ['idle'], aim: [], loco: /^(walk|jog|run|sprint)_(f|b|l|r|fl|fr|bl|br)$/ },
   'crouch/unarmed': { idle: ['crouch_idle'], aim: [], loco: /^crouch_walk_(f|b|l|r|fl|fr|bl|br)$/ },
   'prone/unarmed': { idle: ['prone_idle'], aim: [], loco: /^prone_crawl_(f|b)$/ },
-  'stand/rifle': { idle: ['rifle_idle'], aim: ['rifle_aim'], loco: /^rifle_(walk|jog)_(f|b|l|r|fl|fr|bl|br)$|^rifle_run_f$|^rifle_sprint$/ },
+  'stand/rifle': { idle: ['rifle_idle'], aim: ['rifle_aim'], loco: /^rifle_(walk|jog)_(f|b|l|r|fl|fr|bl|br)$|^rifle_run_f$|^rifle_sprint(_fl|_fr)?$/ },
   'crouch/rifle': { idle: ['rifle_crouch_idle'], aim: ['rifle_crouch_aim'], loco: /^rifle_crouch_walk_(f|b|l|r|fl|fr|bl|br)$/ },
   'prone/rifle': { idle: ['rifle_prone_idle'], aim: ['rifle_prone_aim'], loco: /^rifle_prone_crawl_(f|b)$/ },
-  'stand/pistol': { idle: ['pistol_idle'], aim: ['pistol_aim'], loco: /^pistol_(walk_(f|b|l|r)|run_f|sprint)$/ },
+  'stand/pistol': { idle: ['pistol_idle'], aim: ['pistol_aim'], loco: /^pistol_(walk_(f|b|l|r)|run_(f|b)|sprint)$/ },
   'crouch/pistol': { idle: [], aim: ['pistol_crouch_aim'], loco: /^pistol_crouch_walk_f$/ },
 };
 
@@ -78,6 +78,8 @@ export class ClipSet {
   readonly groups = new Map<string, LocoGroup>();
   readonly specials = new Map<SpecialRole, ClipInfo>();
   readonly overlays = new Map<OverlayRole, ClipInfo>();
+  /** Crouch idles rejected as too low (debug). */
+  readonly lowCrouchIdle = new Set<string>();
 
   constructor(lib: CharacterLibrary) {
     const byName = lib.clipByName;
@@ -107,6 +109,19 @@ export class ClipSet {
         if (loco.length === 0) loco = lib.clips.filter((c) => c.kind === 'loco' && c.stance === stance && c.style === style && c.speed > 0.05);
         if (idle || aimIdle || loco.length) this.groups.set(key, { idle, aimIdle, loco });
       }
+    // A crouch idle much lower than its crouch walk (e.g. a deep squat with a hand on the ground) pops when
+    // starting/stopping and does not match the crouch collider: drop it so the procedural crouch
+    // (stand idle + bent legs) is used for idling instead.
+    for (const style of styles) {
+      const g = this.groups.get(`crouch/${style}`);
+      if (!g?.idle || g.loco.length === 0) continue;
+      const idleY = hipsHeight(g.idle);
+      const walkY = g.loco.reduce((a, c) => a + hipsHeight(c), 0) / g.loco.length;
+      if (idleY > 0 && walkY > 0 && idleY < walkY * 0.75) {
+        this.lowCrouchIdle.add(g.idle.name);
+        g.idle = null;
+      }
+    }
     // Weapon groups borrow unarmed clips for speeds/directions they don't cover (arms are IK-driven).
     for (const stance of stances) {
       const un = this.groups.get(`${stance}/unarmed`);
@@ -162,6 +177,16 @@ export class ClipSet {
     const st = this.groups.get(`stand/${style}`) ?? this.groups.get('stand/unarmed') ?? null;
     return { g: st, stance: 'stand' };
   }
+}
+
+/** Mean hips height of a clip (from its Hips position track), 0 if unknown. */
+function hipsHeight(c: ClipInfo): number {
+  const t = c.clip.tracks.find((tr) => /(^|[:_.])Hips\.position$/.test(tr.name) || tr.name === 'Hips.position');
+  if (!t || t.values.length < 3) return 0;
+  let sum = 0;
+  const n = t.values.length / 3;
+  for (let i = 0; i < n; i++) sum += t.values[i * 3 + 1];
+  return sum / n;
 }
 
 function angDiff(a: number, b: number): number {

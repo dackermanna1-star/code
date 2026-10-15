@@ -1,0 +1,99 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>gear sheet</title>
+<style>html,body{margin:0;background:#777}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+</head><body>
+<script type="module">
+// Contact-sheet renderer for gear / attachment / item GLBs.
+// ?files=a.glb,b.glb (paths relative to the repo root) &views=q34,side,front,top,rear,back,persp &w=&h=&cols=&markers=1
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+const q = new URLSearchParams(location.search);
+const files = (q.get('files') || '').split(',').filter(Boolean);
+const cellW = +(q.get('w') || 400), cellH = +(q.get('h') || 400);
+const views = (q.get('views') || 'q34,side').split(',');
+const markers = q.get('markers') === '1';
+const perRow = +(q.get('cols') || 1);
+const bg = q.get('bg') || '8a8d90';
+const cols = views.length * perRow;
+const rows = Math.ceil(files.length / perRow);
+const W = cellW * cols, H = cellH * rows;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setScissorTest(true);
+document.body.appendChild(renderer.domElement);
+const pmrem = new THREE.PMREMGenerator(renderer);
+const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+const info = [];
+const colors = { eye: 0x20ff20, sight_eye: 0x20ff20, muzzle: 0xff2020, grip_support: 0x2060ff, grip: 0x2060ff, rail_top: 0xffe020,
+  mount: 0xffe020, attach: 0xff40ff, riser_l: 0xff8000, riser_r: 0xff8000, pin: 0x00ffff, spoon: 0x00ffff };
+async function run() {
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    let gltf;
+    try { gltf = await loader.loadAsync('/' + f); } catch (e) { info.push({ f, err: String(e) }); continue; }
+    const scene = new THREE.Scene();
+    scene.environment = env;
+    scene.background = new THREE.Color('#' + bg);
+    const dl = new THREE.DirectionalLight(0xffffff, 2.2); dl.position.set(2, 3, 1.5); scene.add(dl);
+    const dl2 = new THREE.DirectionalLight(0xffffff, 0.8); dl2.position.set(-2, 1, -1); scene.add(dl2);
+    const root = gltf.scene; scene.add(root);
+    root.updateMatrixWorld(true);
+    let tris = 0; const names = [];
+    root.traverse(o => { names.push(o.name); if (o.isMesh) { tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; } });
+    const box = new THREE.Box3().setFromObject(root);
+    const size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
+    const rad = Math.max(size.x, size.y, size.z);
+    if (markers) {
+      const ms = rad * 0.018;
+      root.traverse(o => { if (colors[o.name] !== undefined) { const s = new THREE.Mesh(new THREE.SphereGeometry(ms), new THREE.MeshBasicMaterial({ color: colors[o.name], depthTest: false })); s.renderOrder = 10; o.add(s); } });
+      root.traverse(o => { if (o.name === 'lens' && o.isMesh) { o.material = new THREE.MeshBasicMaterial({ color: 0x00e0ff }); } });
+      const s = new THREE.Mesh(new THREE.SphereGeometry(ms * 1.2), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false })); s.renderOrder = 10; scene.add(s);
+      const ax = new THREE.AxesHelper(rad * 0.25); ax.material.depthTest = false; ax.renderOrder = 11; scene.add(ax);
+    }
+    info.push({ f, tris, size: size.toArray().map(v => +v.toFixed(3)), min: box.min.toArray().map(v => +v.toFixed(3)), max: box.max.toArray().map(v => +v.toFixed(3)), names });
+    const r = Math.floor(i / perRow), cc = i % perRow;
+    views.forEach((v, j) => {
+      const x = (cc * views.length + j) * cellW, y = H - (r + 1) * cellH;
+      renderer.setViewport(x, y, cellW, cellH); renderer.setScissor(x, y, cellW, cellH);
+      const aspect = cellW / cellH;
+      const dirs = { side: [-1, 0, 0], left: [1, 0, 0], front: [0, 0, 1], back: [0, 0, -1], rear: [-0.25, 0.2, -1], top: [0, 1, 0.0001], bottom: [0, -1, 0.0001], q34: [-1.0, 0.6, 0.8], q34b: [1.0, 0.6, -0.8], persp: [-1.0, 0.5, 0.8], low: [-1.0, 0.15, 0.9] };
+      const d = new THREE.Vector3(...(dirs[v] || dirs.q34)).normalize();
+      let cam;
+      // fit a bounding sphere-ish span
+      const span = Math.max(size.x, size.y, size.z) * 1.15;
+      if (v === 'persp' || v === 'low') {
+        cam = new THREE.PerspectiveCamera(30, aspect, rad * 0.01, rad * 50);
+        const dist = (span * 0.62) / Math.tan(THREE.MathUtils.degToRad(15)) / Math.min(1, aspect);
+        cam.position.copy(ctr).addScaledVector(d, dist);
+      } else {
+        // exact ortho fit: project the box corners onto the camera plane
+        cam = new THREE.OrthographicCamera(-1, 1, 1, -1, rad * 0.001, rad * 50);
+        cam.position.copy(ctr).addScaledVector(d, rad * 5);
+        if (v === 'top' || v === 'bottom') cam.up.set(0, 0, v === 'top' ? -1 : 1);
+        cam.lookAt(ctr); cam.updateMatrixWorld(true);
+        const inv = cam.matrixWorldInverse; let mx = 0, my = 0;
+        for (let k = 0; k < 8; k++) {
+          const p = new THREE.Vector3(k & 1 ? box.max.x : box.min.x, k & 2 ? box.max.y : box.min.y, k & 4 ? box.max.z : box.min.z).applyMatrix4(inv);
+          const c = ctr.clone().applyMatrix4(inv);
+          mx = Math.max(mx, Math.abs(p.x - c.x)); my = Math.max(my, Math.abs(p.y - c.y));
+        }
+        const hw = Math.max(mx, my * aspect) * 1.08, hh = hw / aspect;
+        cam.left = -hw; cam.right = hw; cam.top = hh; cam.bottom = -hh;
+      }
+      if (v === 'top' || v === 'bottom') cam.up.set(0, 0, v === 'top' ? -1 : 1);
+      cam.lookAt(ctr);
+      cam.updateProjectionMatrix();
+      renderer.render(scene, cam);
+    });
+  }
+  window.__done = info;
+}
+run();
+</script></body></html>

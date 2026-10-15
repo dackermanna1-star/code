@@ -84,19 +84,34 @@ vec3 tSrgbToLinear( vec3 c ) {
   return mix( c / 12.92, pow( ( c + 0.055 ) / 1.055, vec3( 2.4 ) ), step( 0.04045, c ) );
 }
 
-// Anti-tiling: two samples at noise-indexed offsets, blended (I. Quilez, "texture repetition" technique 3).
+// Anti-tiling: hex-tiling (after Mikkelsen, "Practical Real-Time Hex-Tiling"): three samples with random
+// per-hex-cell offsets, blended with sharpened barycentric weights. Translation-only, so normal maps stay valid.
+vec2 tHash2( vec2 p ) {
+  vec3 p3 = fract( vec3( p.xyx ) * vec3( 0.1031, 0.1030, 0.0973 ) );
+  p3 += dot( p3, p3.yzx + 33.33 );
+  return fract( ( p3.xx + p3.yz ) * p3.zy );
+}
 void tSampleLayer( float layer, vec2 uv, vec2 dx, vec2 dy, float k, out vec4 alb, out vec4 nrm ) {
-  float l = k * 8.0;
-  float ia = floor( l ), f = fract( l );
-  vec2 oa = sin( vec2( 3.0, 7.0 ) * ia );
-  vec2 ob = sin( vec2( 3.0, 7.0 ) * ( ia + 1.0 ) );
-  vec4 a1 = textureGrad( tLayerAlbedo, vec3( uv + oa, layer ), dx, dy );
-  vec4 a2 = textureGrad( tLayerAlbedo, vec3( uv + ob, layer ), dx, dy );
-  vec4 n1 = textureGrad( tLayerNormal, vec3( uv + oa, layer ), dx, dy );
-  vec4 n2 = textureGrad( tLayerNormal, vec3( uv + ob, layer ), dx, dy );
-  float b = smoothstep( 0.2, 0.8, f - 0.1 * dot( a1.rgb - a2.rgb, vec3( 1.0 ) ) );
-  alb = mix( a1, a2, b );
-  nrm = mix( n1, n2, b );
+  vec2 sk = vec2( uv.x - 0.57735027 * uv.y, 1.15470054 * uv.y ) * 1.6; // hex cells ~0.6 tile
+  vec2 base = floor( sk );
+  vec3 f = vec3( fract( sk ), 0.0 );
+  f.z = 1.0 - f.x - f.y;
+  vec3 w;
+  vec2 v1, v2, v3;
+  if ( f.z > 0.0 ) { w = vec3( f.z, f.y, f.x ); v1 = base; v2 = base + vec2( 0.0, 1.0 ); v3 = base + vec2( 1.0, 0.0 ); }
+  else { w = vec3( - f.z, 1.0 - f.y, 1.0 - f.x ); v1 = base + 1.0; v2 = base + vec2( 1.0, 0.0 ); v3 = base + vec2( 0.0, 1.0 ); }
+  vec2 o1 = tHash2( v1 + k ) * 7.0, o2 = tHash2( v2 + k ) * 7.0, o3 = tHash2( v3 + k ) * 7.0;
+  vec4 a1 = textureGrad( tLayerAlbedo, vec3( uv + o1, layer ), dx, dy );
+  vec4 a2 = textureGrad( tLayerAlbedo, vec3( uv + o2, layer ), dx, dy );
+  vec4 a3 = textureGrad( tLayerAlbedo, vec3( uv + o3, layer ), dx, dy );
+  vec4 n1 = textureGrad( tLayerNormal, vec3( uv + o1, layer ), dx, dy );
+  vec4 n2 = textureGrad( tLayerNormal, vec3( uv + o2, layer ), dx, dy );
+  vec4 n3 = textureGrad( tLayerNormal, vec3( uv + o3, layer ), dx, dy );
+  // sharpen weights using the layer height so transitions follow texture features
+  vec3 hw = pow( w, vec3( 5.0 ) ) * ( vec3( n1.a, n2.a, n3.a ) * 0.6 + 0.4 );
+  hw /= max( dot( hw, vec3( 1.0 ) ), 1e-4 );
+  alb = a1 * hw.x + a2 * hw.y + a3 * hw.z;
+  nrm = n1 * hw.x + n2 * hw.y + n3 * hw.z;
 }
 `;
 
@@ -118,11 +133,13 @@ const mapFragment = /* glsl */ `
   vec2 tDX = dFdx( tXZ ), tDY = dFdy( tXZ );
   vec2 tDXxy = dFdx( vTerrainPos.xy ), tDYxy = dFdy( vTerrainPos.xy );
   vec2 tDXzy = dFdx( vTerrainPos.zy ), tDYzy = dFdy( vTerrainPos.zy );
-  float tK = tMac2.r;
   vec4 tLA[ ${LAYERS} ];
   vec4 tLN[ ${LAYERS} ];
   float tHW[ ${LAYERS} ];
   float tHMax = -1.0;
+  vec4 tBreakA = texture2D( tMacro, tXZ / 6.1 + 0.37 );
+  vec4 tBreakB = texture2D( tMacro, tXZ / 17.3 - 0.21 );
+  vec4 tBreak = tBreakA * 0.65 + tBreakB * 0.35;
   // triplanar weights for rock
   vec3 tTriW = pow( abs( tN ), vec3( 4.0 ) );
   tTriW /= dot( tTriW, vec3( 1.0 ) );
@@ -135,15 +152,16 @@ const mapFragment = /* glsl */ `
       if ( k == 5 && tTriW.y < 0.92 ) {
         vec4 a, n, a2, n2, a3, n3;
         vec2 uxz = tXZ * sc, uxy = vTerrainPos.xy * sc, uzy = vTerrainPos.zy * sc;
-        tSampleLayer( 5.0, uxz, tDX * sc, tDY * sc, tK, a, n );
-        tSampleLayer( 5.0, uxy, tDXxy * sc, tDYxy * sc, tK, a2, n2 );
-        tSampleLayer( 5.0, uzy, tDXzy * sc, tDYzy * sc, tK, a3, n3 );
+        tSampleLayer( 5.0, uxz, tDX * sc, tDY * sc, 36.5, a, n );
+        tSampleLayer( 5.0, uxy, tDXxy * sc, tDYxy * sc, 41.3, a2, n2 );
+        tSampleLayer( 5.0, uzy, tDXzy * sc, tDYzy * sc, 47.9, a3, n3 );
         tLA[ k ] = a * tTriW.y + a2 * tTriW.z + a3 * tTriW.x;
         tLN[ k ] = n * tTriW.y + n2 * tTriW.z + n3 * tTriW.x;
       } else {
-        tSampleLayer( float( k ), tXZ * sc, tDX * sc, tDY * sc, tK, tLA[ k ], tLN[ k ] );
+        tSampleLayer( float( k ), tXZ * sc, tDX * sc, tDY * sc, float( k ) * 7.31, tLA[ k ], tLN[ k ] );
       }
-      tHW[ k ] = tW[ k ] + tLN[ k ].a * 0.45;
+      // height blend with a non-periodic world-space breakup term so layer borders never repeat with the tile
+      tHW[ k ] = tW[ k ] + ( tLN[ k ].a * 0.12 + tBreak[ k % 4 ] * 0.4 );
       tHMax = max( tHMax, tHW[ k ] );
     }
   }
@@ -153,7 +171,7 @@ const mapFragment = /* glsl */ `
   float tPorous = 0.0;
   for ( int k = 0; k < ${LAYERS}; k ++ ) {
     if ( tHW[ k ] < -0.5 ) continue;
-    float b = max( tHW[ k ] - tHMax + 0.2, 0.0 ) * tW[ k ];
+    float b = max( tHW[ k ] - tHMax + 0.28, 0.0 ) * tW[ k ];
     tAlb += tSrgbToLinear( tLA[ k ].rgb ) * b;
     tRough += tLA[ k ].a * b;
     tNXY += ( tLN[ k ].rg * 2.0 - 1.0 ) * b;
@@ -165,8 +183,10 @@ const mapFragment = /* glsl */ `
   tAlb /= tWS; tRough /= tWS; tNXY /= tWS; tAO /= tWS; tPorous /= tWS;
   // macro variation: large-scale brightness/hue shifts break up repetition at distance
   float tGrassy = tW[ 0 ] + tW[ 1 ];
-  tAlb *= mix( 0.84, 1.14, tMac.r );
-  tAlb = mix( tAlb, tAlb * vec3( 1.08, 1.02, 0.86 ), ( tMac.g - 0.35 ) * 0.9 * tGrassy );
+  vec4 tMac3 = texture2D( tMacro, tXZ / 190.0 + 0.5 );
+  tAlb *= mix( 0.8, 1.16, tMac.r ) * mix( 0.9, 1.08, tMac3.b );
+  tAlb = mix( tAlb, tAlb * vec3( 1.1, 1.03, 0.82 ), clamp( ( tMac.g - 0.35 ) * 1.1, -0.3, 1.0 ) * tGrassy );
+  tAlb = mix( tAlb, tAlb * vec3( 0.88, 1.02, 0.95 ), smoothstep( 0.55, 0.8, tMac3.r ) * 0.5 * tGrassy );
   // wetness: darker, glossier, especially porous ground
   float tWet = uWetness * mix( 0.6, 1.0, tPorous ) * smoothstep( 0.55, 0.9, tN.y );
   tAlb *= 1.0 - 0.38 * tWet;
