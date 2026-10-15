@@ -12,4 +12,8 @@ export async function installCharacters(ctx: GameContext): Promise<void> {
     queryRadius: (p, r, out = []) => { out.length = 0; for (const c of list) if (c.position.distanceTo(p) <= r) out.push(c); return out; },
   };
   ctx.characters = chars;
+  ctx.cameraRig = {
+    mode: 'menu', perspective: 'tpp', zoom: 1,
+    setMode() {}, spectate() {}, setPerspective() {}, shake() {},
+  };
 }

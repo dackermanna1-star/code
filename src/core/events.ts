@@ -1,7 +1,7 @@
 // Core cross-module events. Modules can add more via declaration merging on GameEvents.
 import type * as THREE from 'three';
-import type { DamageInfo, DamageResult, EntityId, NoiseEvent, WeaponSlot } from './types';
-import type { ICharacter, IVehicle, KillRecord, MatchState, PlayerResult } from './contracts';
+import type { DamageInfo, DamageResult, EntityId, NoiseEvent, SurfaceType, WeaponSlot } from './types';
+import type { ICharacter, IDoor, IVehicle, KillRecord, MatchState, PlayerResult } from './contracts';
 
 declare module './EventBus' {
   interface GameEvents {
@@ -51,6 +51,18 @@ declare module './EventBus' {
     /** UI overlay opened/closed. */
     'ui:overlay': { open: boolean; name: string };
     'settings:changed': { section: string };
+    /** Character movement sounds (audio + AI hearing derive from these). */
+    'character:footstep': { character: ICharacter; surface: SurfaceType; speed: number; position: THREE.Vector3 };
+    'character:jump': { character: ICharacter };
+    'character:land': { character: ICharacter; impactSpeed: number; surface: SurfaceType };
+    'character:stance': { character: ICharacter; from: string; to: string };
+    'character:swim': { character: ICharacter; position: THREE.Vector3 };
+    'character:parachute': { character: ICharacter; phase: 'jump' | 'open' | 'land' };
+    'door:toggle': { door: IDoor; open: boolean; by?: ICharacter };
+    'glass:break': { position: THREE.Vector3 };
+    explosion: { position: THREE.Vector3; radius: number; kind: 'frag' | 'vehicle' | 'redzone' | 'molotov' };
+    'throwable:bounce': { position: THREE.Vector3; itemId: string };
+    'vehicle:collision': { vehicle: IVehicle; impulse: number; position: THREE.Vector3 };
     /** Fired once all systems are installed and the world is ready. */
     'game:ready': {};
   }

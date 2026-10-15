@@ -406,6 +406,8 @@ export interface ICharacter {
   /** Rough bounding capsule radius/height for broadphase. */
   readonly radius: number;
   readonly height: number;
+  /** Set the current action (used by combat for reload/switch, items for healing, etc.). */
+  setAction(a: CharacterAction): void;
   /** Apply final health damage (already processed by DamageSystem). */
   applyHealthDelta(delta: number, info?: DamageInfo): void;
   /** Lifecycle transitions are driven by the DamageSystem / Match rules. */
@@ -612,6 +614,8 @@ export interface ICombat {
    * 'sight_eye' (active optic eye point) are guaranteed to exist once loaded (userData.loaded = true).
    */
   createWeaponModel?(w: IWeaponInstance): THREE.Object3D;
+  /** Active sight of a weapon: magnification (1 = no zoom) and kind, for camera FOV + UI scope overlay. */
+  getOptic?(w: IWeaponInstance): { zoom: number; kind: 'iron' | 'reddot' | 'holo' | 'scope'; id: string | null };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -806,6 +810,34 @@ export interface IEffects {
   shellEject(pos: THREE.Vector3, dir: THREE.Vector3, kind: 'rifle' | 'pistol' | 'shotgun'): void;
   /** Screen flash for stun grenades (0..1). */
   flashbang(intensity: number): void;
+  /** 0..1 how much active smoke clouds block sight along from→to (used by AI vision). */
+  smokeDensityAlong?(from: THREE.Vector3, to: THREE.Vector3): number;
+}
+
+/** Something a bullet/explosion can break (windows). Set as ColliderInfo.owner for kind 'glass'. */
+export interface IBreakable {
+  readonly broken: boolean;
+  break(point?: THREE.Vector3, dir?: THREE.Vector3): void;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CAMERA RIG (implemented by the Characters module)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type CameraMode = 'player' | 'spectate' | 'plane' | 'deathcam' | 'menu' | 'free';
+
+export interface ICameraRig {
+  readonly mode: CameraMode;
+  /** Current effective perspective of the player camera. */
+  readonly perspective: Perspective;
+  setMode(mode: CameraMode): void;
+  /** Follow another character (spectating). */
+  spectate(c: ICharacter | null): void;
+  setPerspective(p: Perspective): void;
+  /** Add camera shake (e.g. explosions): intensity 0..1, duration seconds. */
+  shake(intensity: number, duration: number): void;
+  /** Current horizontal FOV in degrees after zoom (for UI scope overlay). */
+  readonly zoom: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

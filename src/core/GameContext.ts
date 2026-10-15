@@ -14,6 +14,7 @@ import type {
   IBuildings,
   ICharacter,
   ICharacters,
+  ICameraRig,
   ICombat,
   IEffects,
   IEnvironment,
@@ -52,6 +53,7 @@ export interface GameContext {
   audio: IAudio;
   fx: IEffects;
   ui: IUI;
+  cameraRig: ICameraRig;
 
   /** The local player's character, once spawned. */
   player: ICharacter | null;
