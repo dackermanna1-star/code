@@ -3,6 +3,8 @@
 import * as THREE from 'three';
 import { SOUND_DEFS, SOUND_NAMES as SFX_NAMES, renderSound } from './sfx/sounds.js';
 import { MUSIC_DEFS, MUSIC_CUES as CUE_NAMES, renderMusic } from './sfx/music.js';
+// inlined so the single-file build (and file://) can start synth workers
+import SfxWorker from './sfx/worker.js?worker&inline';
 
 export const SOUND_NAMES = SFX_NAMES.slice();
 export const MUSIC_CUES = CUE_NAMES.slice();
@@ -255,7 +257,7 @@ export class AudioEngine {
     }
     for (let i = 0; i < n; i++) {
       try {
-        const w = new Worker(new URL('./sfx/worker.js', import.meta.url), { type: 'module' });
+        const w = new SfxWorker();
         const slot = { w, job: null, dead: false };
         w.onmessage = (e) => this._onWorkerMessage(slot, e.data);
         w.onerror = (e) => { console.warn('[audio] synth worker failed, falling back to main thread', e.message || e); this._killWorker(slot); };
