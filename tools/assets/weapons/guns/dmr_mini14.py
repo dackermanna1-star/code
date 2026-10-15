@@ -15,7 +15,7 @@ def build(g):
     g.side('recv', [(316, 256), (640, 256), (640, 288), (360, 291, 4), (330, 288), (316, 270)], 30, 'blued', bevel=3, bres=2)
     g.side('hguard', [(478, 262), (690, 262), (692, 284, 4), (478, 286, 4)], 32, 'poly', bevel=4, bres=2)
     for i in range(5):
-        g.box(f'hg_vent{i}', 540 + i * 26, 556 + i * 26, 278, 282, 33, 'park', r=1.5, bevel=0.4)
+        g.box(f'hg_vent{i}', 540 + i * 26, 556 + i * 26, 278, 282, 33, 'park!', r=1.5, bevel=0.4)
     g.side('rsight', [(342, 288), (376, 288), (374, SIGHT + 7, 3), (346, SIGHT + 7, 3)], 22, 'blued', bevel=2)
     g.front('rsight_ring', [(-6, -5, 2), (6, -5, 2), (6, 5, 2), (-6, 5, 2)], 356, 362, 'blued', bevel=0.6, u=SIGHT, holes=[circle(0, 0, 1.4, 10)])
     # trigger guard + safety + trigger
@@ -35,7 +35,7 @@ def build(g):
     g.side('fs_post', [(783, 280), (787, 280), (786.5, SIGHT), (783.5, SIGHT)], 3, 'blued', bevel=0.4)
     g.lathe('flash', [(898, 4), (898, 12.4), (902, 13.4), (940, 13.4), (946, 12.2), (946, 4)], 'blued', u=BORE, closed=True, segs=24)
     for i in range(4):
-        g.side(f'fslot{i}', [(912, -1.4), (944, -1.4), (944, 1.4), (912, 1.4)], 2.8, 'blued', bevel=0.2,
+        g.side(f'fslot{i}', [(912, -1.4), (944, -1.4), (944, 1.4), (912, 1.4)], 2.8, 'blued!', bevel=0.2,
                M=rot_f(45 + 90 * i, BORE, 0) @ T(0, BORE + 12.2, 0))
     # operating rod handle (right side)
     g.side('oprod', [(470, 262), (640, 262), (640, 272), (470, 272)], 6, 'blued', group='bolt', s=16.5, bevel=1)

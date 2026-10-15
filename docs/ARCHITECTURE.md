@@ -94,3 +94,12 @@ that module's `index.ts` exports.
 - 2026-10-15, Characters: `ICameraRig.zoom` doc clarified as optic magnification (the stub already used 1); added optional
   `fovH` (horizontal FOV, degrees) and `adsBlend` (0..1).
 - 2026-10-15, Characters: event `'character:vault'` { character, kind: 'vault' | 'climb', height }.
+- 2026-10-15, World: `IEnvironment.setWeather(w, transitionSeconds?)` (optional smooth blend; default instant) and optional
+  `IEnvironment.timeSpeed` (hours per real second, default 0 = frozen time).
+- 2026-10-15, World (core-adjacent, no core file edits): the render pipeline patches three's shared shader chunks at
+  install: `shadowmap_pars_fragment` (sun shadow cascade count 2 → 4, see src/render/CascadedShadow.ts) and the four
+  `fog_*` chunks (global exponential height fog with sun in-scattering; `scene.fog` is a `HeightFog` whose
+  `near`/`far` carry density/height-falloff). Every built-in lit material gets cascaded shadows and fog automatically.
+  Do not add shadow-casting DirectionalLights; use the existing sun (`getRenderPipeline().lighting.sun`).
+  World/render reference for other modules: docs/progress/world.md.
+- 2026-10-15, Characters: `ICharacter` += optional `setTeamMarker?(color: number | null)` (teammate marker hook for match/UI).

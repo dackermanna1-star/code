@@ -1,0 +1,75 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>weapons sheet</title>
+<style>html,body{margin:0;background:#777}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+const q = new URLSearchParams(location.search);
+const files = (q.get('files') || '').split(',').filter(Boolean);
+const base = q.get('base') || '/public/assets/weapons/';
+const cellW = +(q.get('w') || 600), cellH = +(q.get('h') || 260);
+const views = (q.get('views') || 'side,q34').split(',');
+const markers = q.get('markers') === '1';
+const cols = views.length * (+(q.get('cols') || 1));
+const perRow = +(q.get('cols') || 1);
+const rows = Math.ceil(files.length / perRow);
+const W = cellW * cols, H = cellH * rows;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.0;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setScissorTest(true);
+document.body.appendChild(renderer.domElement);
+const pmrem = new THREE.PMREMGenerator(renderer);
+const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+const info = [];
+const colors = { muzzle: 0xff2020, sight_eye: 0x20ff20, grip_support: 0x2060ff, rail_top: 0xffe020 };
+async function run() {
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    let gltf;
+    try { gltf = await loader.loadAsync(base + f); } catch (e) { info.push({ f, err: String(e) }); continue; }
+    const scene = new THREE.Scene();
+    scene.environment = env;
+    scene.background = new THREE.Color(0x8a8d90);
+    const dl = new THREE.DirectionalLight(0xffffff, 2.2); dl.position.set(2, 3, 1.5); scene.add(dl);
+    const dl2 = new THREE.DirectionalLight(0xffffff, 0.8); dl2.position.set(-2, 1, -1); scene.add(dl2);
+    const root = gltf.scene; scene.add(root);
+    root.updateMatrixWorld(true);
+    let tris = 0; const names = [];
+    root.traverse(o => { names.push(o.name); if (o.isMesh) { tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; } });
+    if (markers) {
+      root.traverse(o => { if (colors[o.name] !== undefined) { const s = new THREE.Mesh(new THREE.SphereGeometry(0.006), new THREE.MeshBasicMaterial({ color: colors[o.name], depthTest: false })); s.renderOrder = 10; o.add(s); } });
+      const s = new THREE.Mesh(new THREE.SphereGeometry(0.007), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false })); s.renderOrder = 10; scene.add(s);
+      const ax = new THREE.AxesHelper(0.05); ax.material.depthTest = false; ax.renderOrder = 11; scene.add(ax);
+    }
+    const box = new THREE.Box3().setFromObject(root);
+    const size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
+    info.push({ f, tris, size: size.toArray().map(v => +v.toFixed(3)), min: box.min.toArray().map(v => +v.toFixed(3)), max: box.max.toArray().map(v => +v.toFixed(3)), names });
+    const r = Math.floor(i / perRow), cc = i % perRow;
+    views.forEach((v, j) => {
+      const x = (cc * views.length + j) * cellW, y = H - (r + 1) * cellH;
+      renderer.setViewport(x, y, cellW, cellH); renderer.setScissor(x, y, cellW, cellH);
+      const aspect = cellW / cellH;
+      const span = Math.max(size.z, size.y * aspect) * 1.08;
+      const cam = new THREE.OrthographicCamera(-span / 2, span / 2, span / aspect / 2, -span / aspect / 2, 0.01, 20);
+      if (v === 'side') { cam.position.set(ctr.x - 3, ctr.y, ctr.z); }
+      else if (v === 'left') { cam.position.set(ctr.x + 3, ctr.y, ctr.z); }
+      else if (v === 'q34') { cam.position.set(ctr.x - 2.0, ctr.y + 1.0, ctr.z + 1.6); }
+      else if (v === 'rear') { cam.position.set(ctr.x - 0.6, ctr.y + 0.35, ctr.z - 3); }
+      else if (v === 'top') { cam.position.set(ctr.x, ctr.y + 3, ctr.z); cam.up.set(1, 0, 0); }
+      cam.lookAt(ctr);
+      if (v === 'rear') { const p = new THREE.PerspectiveCamera(35, aspect, 0.01, 20); p.position.copy(cam.position); p.lookAt(ctr); }
+      renderer.render(scene, cam);
+    });
+  }
+  window.__done = info;
+}
+run();
+</script></body></html>

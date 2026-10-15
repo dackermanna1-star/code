@@ -34,7 +34,7 @@ def build(g):
     g.tube('barrel', 656, 878, 7.6, 'park', u=BORE, r1=7.2, bore=3.0)
     g.lathe('brake', [(870, 4.4), (870, 11.5), (874, 13.2), (938, 13.2), (943, 12), (943, 4.4)], 'park', u=BORE, closed=True, segs=24)
     for i in range(4):
-        g.box(f'brake_port{i}', 890 + i * 12, 898 + i * 12, BORE - 4, BORE + 4, 30, 'park', r=3, bevel=0.6)
+        g.box(f'brake_port{i}', 890 + i * 12, 898 + i * 12, BORE - 4, BORE + 4, 30, 'park!', r=3, bevel=0.6)
     # rear notch sight on the rail
     g.side('rsight', [(298, 285.4), (318, 285.4), (318, SIGHT + 5, 2), (298, SIGHT + 5, 2)], 18, 'anod', bevel=1.2)
     # grip / trigger guard / trigger
@@ -42,7 +42,11 @@ def build(g):
     g.side_geom('guard', S.clip((296, 140, 360, 176)), 10, 'park', bevel=1.2, bres=1)
     g.side('trigger', [(318, 176), (324, 176), (326, 164, 3), (331, 156, 2), (327, 155), (319, 163, 3)], 6, 'park', bevel=1)
     # magazine (polymer 30rd AK)
-    g.side_geom('mag', S.clip(MAG_R), 27, 'poly', group='mag', bevel=2.6, bres=2)
+    mag = S.clip(MAG_R)
+    g.side_geom('mag', mag, 27, 'poly', group='mag', bevel=2.6, bres=2)
+    from shapely.geometry import LineString, box
+    keep = mag.difference(LineString([(430, -10), (556, -4)]).buffer(22)).intersection(box(300, 0, 600, 174))
+    g.offset_ribs('mag_rib', mag, [9, 22], 3.2, 29, 'poly', group='mag', keep=keep)
     g.pivot('mag', 406, 182)
     # AK bolt carrier + charging handle (right side) and selector
     g.side('bolt_carrier', [(380, 214), (470, 214), (470, 226), (380, 226)], 5, 'steel', group='bolt', s=17.5, bevel=1)

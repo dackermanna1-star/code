@@ -1,0 +1,30 @@
+{
+ "tris": 3956,
+ "bounds_min": [
+  -0.022,
+  -0.0613,
+  -0.0698
+ ],
+ "bounds_max": [
+  0.022,
+  0.0574,
+  0.428
+ ],
+ "length_m": 0.4978,
+ "nodes": [
+  "pistol_sawedoff",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "sight_eye"
+ ],
+ "name": "Sawed-off",
+ "real_length_m": 0.5,
+ "cycle_node": "bolt",
+ "mag_kind": "break",
+ "id": "pistol_sawedoff"
+}

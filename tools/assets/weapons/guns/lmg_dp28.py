@@ -35,12 +35,12 @@ def build(g):
            holes=[[(612, SIGHT - 10), (624, SIGHT - 10), (624, SIGHT - 2), (612, SIGHT - 2)]])
     # barrel shroud with perforations, barrel, flash cone
     g.lathe('shroud', [(600, 0), (600, 21), (606, 23), (930, 23), (940, 20), (940, 0)], 'blued', u=BORE, segs=28)
-    for row in range(4):
-        for j in range(9):
-            a = math.radians(-60 + row * 40)
-            f = 630 + j * 32 + (row % 2) * 16
-            g.lathe(f'hole{row}_{j}', [(0, 0), (0, 5.5), (1.2, 5.5), (1.2, 0)], 'rubber', f=f, u=BORE + 22.6 * math.sin(a + math.pi / 2), s=22.6 * math.cos(a + math.pi / 2), axis='s', segs=10,
-                    M=rot_f(0))
+    for side in (1, -1):
+        for row, dang in enumerate((-32, 0, 32)):
+            for j in range(9):
+                f = 632 + j * 32 + (row % 2) * 16
+                g.lathe(f'hole{side}{row}_{j}', [(0, 0), (0, 5.2), (1.4 * side, 5.2), (1.4 * side, 0)], 'rubber', f=f, u=BORE, s=22.2 * side,
+                        axis='s', segs=10, M=rot_f(dang * side, BORE, 0))
     g.tube('barrel', 930, 1196, 11.5, 'blued', u=BORE, r1=10.5, bore=3.8)
     g.lathe('cone', [(1190, 5), (1190, 12), (1200, 13), (1266, 21), (1266, 17), (1206, 8)], 'blued', u=BORE, closed=True, segs=24)
     # front sight with protective ears (tall, as on the DP)
@@ -57,7 +57,7 @@ def build(g):
         g.side(f'bipod_foot{sgn}', [(690, BORE - 60), (712, BORE - 60), (706, BORE - 44), (696, BORE - 44)], 4, 'blued', s=16 * sgn, bevel=1)
     g.lathe('bipod_clamp', [(990, 0), (990, 24), (1006, 24), (1006, 0)], 'blued', u=BORE, segs=24)
     # charging handle (right side)
-    g.box('ch_slot', 470, 590, 222, 232, 2, 'blued', s=20.6, r=4, bevel=0.5)
+    g.box('ch_slot', 470, 590, 222, 232, 2, 'blued!', s=20.6, r=4, bevel=0.5)
     g.side('ch', [(560, 220), (576, 220), (576, 234), (560, 234)], 8, 'blued', group='bolt', s=24, bevel=1.5)
     g.lathe('ch_knob', [(0, 0), (0, 6), (16, 6), (20, 4.5), (20, 0)], 'blued', group='bolt', f=568, u=227, s=26, axis='s', segs=12)
     g.pivot('bolt', 568, 227, 24)

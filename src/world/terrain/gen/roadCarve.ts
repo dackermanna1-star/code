@@ -115,7 +115,7 @@ function carveOne(
   }
 
   // 5) grade limiting (keeps bridge spans and ramps up/down to them)
-  const g = (asphalt ? 0.085 : 0.14) * 2; // per 2 m sample
+  const g = (asphalt ? 0.085 : 0.2) * 2; // per 2 m sample (tracks may be steep: fewer deep cuts in hills)
   for (let it = 0; it < 3; it++) {
     for (let k = 1; k < n; k++) if (!fixed[k] && Number.isNaN(pin[k])) prof[k] = Math.min(Math.max(prof[k], prof[k - 1] - g), prof[k - 1] + g);
     for (let k = n - 2; k >= 0; k--) if (!fixed[k] && Number.isNaN(pin[k])) prof[k] = Math.min(Math.max(prof[k], prof[k + 1] - g), prof[k + 1] + g);

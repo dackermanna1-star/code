@@ -148,10 +148,12 @@ export const SKYDIVE = {
 
 /** Footstep cadence: meters per step for each gait (steps sync with the animation cadence). */
 export const STEP_LENGTH = {
-  walk: 0.72,
-  run: 1.15,
-  sprint: 1.45,
-  crouch: 0.6,
+  // half of each locomotion clip's metres-per-cycle (walk_f 1.49, jog/run ~2.3–3.1, sprint 3.1, crouch ~2.2,
+  // crawl 1.1) so step events line up with the animation cadence
+  walk: 0.75,
+  run: 1.4,
+  sprint: 1.55,
+  crouch: 1.0,
   prone: 0.55,
   swim: 1.4,
   knocked: 0.5,

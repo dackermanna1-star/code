@@ -19,25 +19,25 @@ interface CapsuleDef {
 
 /** Hitbox layout. Radii are tuned to the visual body (chest/pelvis use an extra cross capsule for width). */
 export const HITBOX_DEFS: readonly CapsuleDef[] = [
-  { zone: 'head', a: 'head', b: 'headTop', ta: 0.22, tb: 0.72, radius: 0.105 },
+  { zone: 'head', a: 'head', b: 'headTop', ta: 0.22, tb: 0.78, radius: 0.118 },
   { zone: 'neck', a: 'neck', b: 'head', ta: 0, tb: 0.9, radius: 0.06 },
-  { zone: 'chest', a: 'chest', b: 'neck', ta: 0.15, tb: 0.72, radius: 0.15 },
+  { zone: 'chest', a: 'chest', b: 'neck', ta: 0.0, tb: 0.72, radius: 0.155 },
   { zone: 'chest', a: 'upperArmL', b: 'upperArmR', ta: 0.12, tb: 0.88, radius: 0.1 },
   { zone: 'stomach', a: 'spine', b: 'chest', ta: -0.1, tb: 1.0, radius: 0.145 },
-  { zone: 'pelvis', a: 'hips', b: 'spine', ta: -0.2, tb: 0.6, radius: 0.14 },
+  { zone: 'pelvis', a: 'hips', b: 'spine', ta: -0.35, tb: 0.6, radius: 0.15 },
   { zone: 'pelvis', a: 'upperLegL', b: 'upperLegR', ta: 0, tb: 1, radius: 0.11 },
   { zone: 'arm', a: 'upperArmL', b: 'lowerArmL', ta: 0.05, tb: 1, radius: 0.06 },
   { zone: 'arm', a: 'lowerArmL', b: 'handL', ta: 0, tb: 0.95, radius: 0.05 },
-  { zone: 'hand', a: 'handL', b: 'fingersL', ta: -0.05, tb: 1.1, radius: 0.05 },
+  { zone: 'hand', a: 'handL', b: 'fingersL', ta: -0.05, tb: 1.6, radius: 0.052 },
   { zone: 'arm', a: 'upperArmR', b: 'lowerArmR', ta: 0.05, tb: 1, radius: 0.06 },
   { zone: 'arm', a: 'lowerArmR', b: 'handR', ta: 0, tb: 0.95, radius: 0.05 },
-  { zone: 'hand', a: 'handR', b: 'fingersR', ta: -0.05, tb: 1.1, radius: 0.05 },
+  { zone: 'hand', a: 'handR', b: 'fingersR', ta: -0.05, tb: 1.6, radius: 0.052 },
   { zone: 'leg', a: 'upperLegL', b: 'lowerLegL', ta: 0.08, tb: 1, radius: 0.085 },
   { zone: 'leg', a: 'lowerLegL', b: 'footL', ta: 0, tb: 0.95, radius: 0.065 },
-  { zone: 'foot', a: 'footL', b: 'toesL', ta: -0.15, tb: 1.15, radius: 0.055 },
+  { zone: 'foot', a: 'footL', b: 'toesL', ta: -0.35, tb: 1.35, radius: 0.065 },
   { zone: 'leg', a: 'upperLegR', b: 'lowerLegR', ta: 0.08, tb: 1, radius: 0.085 },
   { zone: 'leg', a: 'lowerLegR', b: 'footR', ta: 0, tb: 0.95, radius: 0.065 },
-  { zone: 'foot', a: 'footR', b: 'toesR', ta: -0.15, tb: 1.15, radius: 0.055 },
+  { zone: 'foot', a: 'footR', b: 'toesR', ta: -0.35, tb: 1.35, radius: 0.065 },
 ];
 
 const _m = new THREE.Matrix4();

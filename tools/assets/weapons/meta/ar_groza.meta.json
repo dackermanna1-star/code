@@ -1,0 +1,31 @@
+{
+ "tris": 12220,
+ "bounds_min": [
+  -0.045,
+  -0.0894,
+  -0.366
+ ],
+ "bounds_max": [
+  0.021,
+  0.1719,
+  0.248
+ ],
+ "length_m": 0.614,
+ "nodes": [
+  "ar_groza",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "Groza",
+ "real_length_m": 0.61,
+ "cycle_node": "bolt",
+ "mag_kind": "box",
+ "id": "ar_groza"
+}

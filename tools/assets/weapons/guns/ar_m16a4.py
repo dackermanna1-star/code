@@ -26,7 +26,7 @@ def build(g):
     g.side('upper', [(270, 181), (470, 181), (470, RAIL), (292, RAIL), (276, 206, 4)], 30, 'anod', bevel=2.4)
     g.rail('rail_top', 284, 468, RAIL, 'anod')
     g.lathe('fwd_assist', [(0, 0), (0, 7.5), (12, 7.5), (14, 6), (14, 0)], 'anod', f=448, u=200, s=15, axis='s', segs=14)
-    g.box('eject', 360, 425, 182, 202, 1.6, 'park', s=15.4, r=1.5, bevel=0.5)
+    g.box('eject', 360, 425, 182, 202, 1.6, 'park!', s=15.4, r=1.5, bevel=0.5)
     g.lathe('brass_def', [(0, 0), (0, 6), (8, 5), (8, 0)], 'anod', f=432, u=192, s=15, axis='s', segs=12)
     # charging handle (rear, T-handle)
     g.side('ch', [(258, 204), (300, 204), (300, 211), (258, 211)], 18, 'anod', group='charging_handle', bevel=1.2)
@@ -50,7 +50,7 @@ def build(g):
     g.side('fsight_post', [(817, 236), (821, 236), (820.5, SIGHT), (817.5, SIGHT)], 3, 'park', bevel=0.4)
     g.lathe('flash', [(948, 4.5), (948, 10), (952, 11.2), (998, 11.2), (1003, 10), (1003, 4.5)], 'park', u=BORE, closed=True, segs=24)
     for i in range(5):
-        g.side(f'fslot{i}', [(966, -1.2), (1002, -1.2), (1002, 1.2), (966, 1.2)], 2.4, 'park', bevel=0.2,
+        g.side(f'fslot{i}', [(966, -1.2), (1002, -1.2), (1002, 1.2), (966, 1.2)], 2.4, 'park!', bevel=0.2,
                M=rot_f(18 + 72 * i, BORE, 0) @ T(0, BORE + 10.4, 0))
     # rear BUIS (flip-up)
     rt = RAIL + 9.4

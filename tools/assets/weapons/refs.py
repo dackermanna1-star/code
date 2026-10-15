@@ -34,8 +34,8 @@ REFS = {
     'sr_win94':    ('Winchester-94-32spl_noBG.png', 1280, '--len 965'),
     'sg_s1897':    ('WncsterCatMod97trench.jpg', 1280, '--len 1000 --thr 200 --crop 0,0,1280,260'),
     'ar_m416':     ('HK416N.png', 2143, '--len 900'),
-    'pistol_p92':  ('Beretta-92FS.jpg', 1024, '--len 217 --thr 70 --close 5'),
-    'pistol_p1911': ('M1911_and_M1911A1_pistols.JPG', 1024, '--len 216 --flip --crop 0,0,1024,640 --thr 200'),
+    'pistol_p92':  ('Beretta-92FS.jpg', 1024, '--len 217 --thr 52 --close 5'),
+    'pistol_p1911': ('M1911_and_M1911A1_pistols.JPG', 1024, '--len 216 --flip --crop 0,0,1024,640 --thr 150'),
     'lmg_dp28':    ('Chinese_Type_53.jpg', 1280, '--len 1270 --thr 60'),
 }
 

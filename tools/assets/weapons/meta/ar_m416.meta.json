@@ -1,0 +1,31 @@
+{
+ "tris": 11420,
+ "bounds_min": [
+  -0.0354,
+  -0.1093,
+  -0.258
+ ],
+ "bounds_max": [
+  0.0354,
+  0.166,
+  0.642
+ ],
+ "length_m": 0.9,
+ "nodes": [
+  "ar_m416",
+  "body",
+  "charging_handle",
+  "mag",
+  "charging_handle_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "M416",
+ "real_length_m": 0.9,
+ "cycle_node": "charging_handle",
+ "mag_kind": "box",
+ "id": "ar_m416"
+}

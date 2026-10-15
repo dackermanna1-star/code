@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { ctx } from '../../core/GameContext';
 import { Assets } from '../../core/Assets';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { IWeaponInstance } from '../../core/contracts';
 import type { WeaponClass } from '../../core/types';
 
@@ -103,10 +104,54 @@ export function proceduralWeapon(cls: WeaponClass, id: string): THREE.Object3D {
       empty('sight_eye', 0, scoped ? 0.11 : 0.115, -0.14, g);
       empty('mag', 0, -0.07, 0.09, g);
     }
-    tpl = g;
-    procCache.set(key, g);
+    tpl = mergeStatic(g);
+    procCache.set(key, tpl);
   }
   return tpl.clone(true);
+}
+
+const MERGED_MAT = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.6, metalness: 0.35 });
+
+/**
+ * Merge all meshes of a static group into one vertex-coloured mesh (one draw call instead of ~8),
+ * keeping the named empties.
+ */
+export function mergeStatic(g: THREE.Object3D, material: THREE.Material = MERGED_MAT): THREE.Object3D {
+  g.updateMatrixWorld(true);
+  const geos: THREE.BufferGeometry[] = [];
+  const keep: THREE.Object3D[] = [];
+  g.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if (m.isMesh) {
+      const geo = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone();
+      geo.applyMatrix4(m.matrixWorld);
+      const col = ((m.material as THREE.MeshStandardMaterial).color ?? new THREE.Color(0x808080)).clone();
+      const n = geo.attributes.position.count;
+      const c = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) col.toArray(c, i * 3);
+      for (const k of Object.keys(geo.attributes)) if (k !== 'position' && k !== 'normal') geo.deleteAttribute(k);
+      geo.setAttribute('color', new THREE.BufferAttribute(c, 3));
+      geos.push(geo);
+    } else if (o !== g && o.name) keep.push(o);
+  });
+  const out = new THREE.Group();
+  out.name = g.name;
+  if (geos.length) {
+    const merged = mergeGeometries(geos, false);
+    if (merged) {
+      const mesh = new THREE.Mesh(merged, material);
+      mesh.castShadow = true;
+      out.add(mesh);
+    }
+  }
+  for (const o of keep) {
+    const e = new THREE.Object3D();
+    e.name = o.name;
+    o.getWorldPosition(e.position);
+    o.getWorldQuaternion(e.quaternion);
+    out.add(e);
+  }
+  return out;
 }
 
 function findNode(root: THREE.Object3D, ...names: string[]): THREE.Object3D | null {

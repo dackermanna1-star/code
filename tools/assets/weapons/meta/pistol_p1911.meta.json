@@ -1,0 +1,31 @@
+{
+ "tris": 4928,
+ "bounds_min": [
+  -0.0165,
+  -0.0554,
+  -0.0373
+ ],
+ "bounds_max": [
+  0.015,
+  0.082,
+  0.1785
+ ],
+ "length_m": 0.2158,
+ "nodes": [
+  "pistol_p1911",
+  "body",
+  "mag",
+  "slide",
+  "mag_mesh",
+  "slide_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "P1911",
+ "real_length_m": 0.216,
+ "cycle_node": "slide",
+ "mag_kind": "box",
+ "id": "pistol_p1911"
+}

@@ -65,6 +65,30 @@ export function installScriptedBots(ctx: GameContext, origin: THREE.Vector3): Ch
     i.stance = Math.floor(t / 6) % 2 ? (c.stance !== 'crouch' ? 'crouch' : null) : c.stance !== 'stand' ? 'stand' : null;
   });
 
+  // Crowd mode (?count=N): N extra armed bots wandering around the arena (performance tests).
+  const count = Number(ctx.flags.get('count') ?? 0);
+  const rng = (i: number) => {
+    const x = Math.sin(i * 12.9898) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  for (let i = 0; i < count; i++) {
+    const ang = rng(i) * Math.PI * 2;
+    const rad = 10 + rng(i + 100) * 60;
+    const c = spawn(Math.cos(ang) * rad, 40 + Math.sin(ang) * rad, rng(i + 7) * 6, i, (cc, t) => {
+      const ii = cc.intent;
+      const k = Math.floor(t / 3 + i);
+      ii.yaw = rng(k * 31 + i) * Math.PI * 2;
+      ii.moveY = rng(k * 17 + i) > 0.2 ? 1 : 0;
+      ii.sprint = rng(k * 13 + i) > 0.6;
+      ii.aim = rng(k * 7 + i) > 0.7;
+      const st = rng(k * 5 + i);
+      ii.stance = st > 0.92 ? 'prone' : st > 0.75 ? 'crouch' : 'stand';
+      if (cc.stance === ii.stance) ii.stance = null;
+    });
+    (window as any).__game.giveWeapon?.(c.id, i % 5 === 0 ? 'pistol_p92' : 'ar_m416');
+    (window as any).__game.giveGear?.(c.id, (i % 3) + 1, (i % 3) + 1, (i % 3) + 1);
+  }
+
   let paused = false;
   ctx.engine.addSystem({
     name: 'scriptedBots',

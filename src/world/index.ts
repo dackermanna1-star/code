@@ -186,6 +186,28 @@ export async function installWorld(ctx: GameContext): Promise<void> {
     debugState.freeCam = true;
   }
   installDebugTools(ctx, world, env, fly);
+  registerDebug('showTerrainLayers', (on = true, which: 'albedo' | 'normal' = 'albedo') => {
+    const old = ctx.camera.getObjectByName('layer-preview');
+    if (old) ctx.camera.remove(old);
+    if (!on) return false;
+    const group = new THREE.Group();
+    group.name = 'layer-preview';
+    for (let i = 0; i < 9; i++) {
+      const m = new THREE.ShaderMaterial({
+        uniforms: { tArr: { value: which === 'albedo' ? arrays.albedo.texture : arrays.normal.texture }, uLayer: { value: i } },
+        vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }',
+        fragmentShader:
+          'precision highp sampler2DArray; uniform sampler2DArray tArr; uniform float uLayer; varying vec2 vUv; void main(){ vec4 c = texture(tArr, vec3(vUv * 2.0, uLayer)); gl_FragColor = vec4(c.rgb, 1.0); }',
+        depthTest: false,
+      });
+      const q = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.2), m);
+      q.position.set(-0.9 + (i % 5) * 0.22, 0.25 - Math.floor(i / 5) * 0.22, -1);
+      q.renderOrder = 9999;
+      group.add(q);
+    }
+    ctx.camera.add(group);
+    return true;
+  });
   registerDebug('terrainDebug', (mode: number) => {
     const m = terrainR.mesh.material as THREE.MeshStandardMaterial;
     if (mode) m.defines = { ...(m.defines ?? {}), TERRAIN_DEBUG: mode };

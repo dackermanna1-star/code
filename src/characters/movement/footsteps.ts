@@ -8,7 +8,7 @@ export function stepLengthFor(c: Character): number {
   if (c.lifeState === 'knocked') return STEP_LENGTH.knocked;
   if (c.mode === 'swim') return STEP_LENGTH.swim;
   if (c.stance === 'prone') return STEP_LENGTH.prone;
-  if (c.stance === 'crouch') return STEP_LENGTH.crouch * (c.isSprinting ? 1.6 : c.gait === 'run' ? 1.3 : 1);
+  if (c.stance === 'crouch') return STEP_LENGTH.crouch * (c.isSprinting ? 1.3 : c.gait === 'run' ? 1.1 : 1);
   if (c.isSprinting) return STEP_LENGTH.sprint;
   if (c.gait === 'walk') return STEP_LENGTH.walk;
   return STEP_LENGTH.run;

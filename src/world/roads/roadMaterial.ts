@@ -41,9 +41,9 @@ float rPuddle = 0.0;
 if ( kind < 0.5 ) {
   // asphalt: aggregate speckle, patches, wheel tracks, cracks
   float tone = 0.055 + 0.03 * nA.r + 0.02 * ( nC.b - 0.5 ) + 0.012 * ( rHash( floor( vRoadW.xz * 30.0 ) ) - 0.5 );
-  float patchy = smoothstep( 0.62, 0.66, nB.g ) * 0.025;
+  float patchy = smoothstep( 0.62, 0.66, nB.g ) * 0.012;
   float wheel = exp( -pow( ( ax - hw * 0.5 ) / ( hw * 0.18 ), 2.0 ) ) * 0.012;
-  float crack = smoothstep( 0.8, 0.95, nB.a ) * smoothstep( 0.45, 0.65, nA.g );
+  float crack = smoothstep( 0.9, 0.97, nB.a ) * smoothstep( 0.58, 0.75, nA.g );
   rc = vec3( tone + patchy - wheel ) * vec3( 1.0, 1.0, 1.04 );
   rc *= 1.0 - crack * 0.5;
   rRough = 0.82 - wheel * 4.0;

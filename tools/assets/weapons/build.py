@@ -4,6 +4,7 @@ Gun definitions live in tools/assets/weapons/guns/<id>.py and expose build(g).
 Writes <out_dir>/<id>.glb and <out_dir>/<id>.meta.json (consumed by make_manifest.mjs).
 """
 import bpy, sys, os, json, importlib.util
+sys.dont_write_bytecode = True
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)

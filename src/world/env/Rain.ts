@@ -12,6 +12,7 @@ uniform vec3 uCam;
 uniform vec3 uBox;
 uniform vec3 uVel;
 uniform float uLen;
+uniform float uPixel; // world size of one pixel at 1 m distance
 varying float vA;
 varying vec2 vUv;
 void main() {
@@ -22,11 +23,12 @@ void main() {
   vec3 dir = normalize( uVel );
   vec3 toCam = normalize( cameraPosition - wp );
   vec3 side = normalize( cross( dir, toCam ) );
-  float w = 0.012 + 0.006 * drop.w;
+  float d = length( rel );
+  float wWorld = 0.0035 + 0.003 * drop.w;
+  float w = max( wWorld, d * uPixel * 0.75 ); // never thinner than ~1.5 px (no sub-pixel flicker)
   vec3 pos = wp + side * position.x * w + dir * position.y * uLen;
   vUv = position.xy;
-  float d = length( rel );
-  vA = ( 1.0 - smoothstep( uBox.x * 0.25, uBox.x * 0.5, d ) ) * smoothstep( 0.5, 2.0, d );
+  vA = ( 1.0 - smoothstep( uBox.x * 0.25, uBox.x * 0.5, d ) ) * smoothstep( 1.2, 3.5, d ) * ( wWorld / w );
   gl_Position = projectionMatrix * viewMatrix * vec4( pos, 1.0 );
 }
 `;
@@ -52,9 +54,10 @@ export class Rain {
     uCam: { value: new THREE.Vector3() },
     uBox: { value: BOX.clone() },
     uVel: { value: new THREE.Vector3(0, -9, 0) },
-    uLen: { value: 0.55 },
+    uLen: { value: 0.32 },
     uColor: { value: new THREE.Color(0.55, 0.6, 0.65) },
     uOpacity: { value: 0.32 },
+    uPixel: { value: 0.001 },
   };
   /** 0..1 fraction of MAX_DROPS allowed by the effects quality setting. */
   quality = 1;
@@ -90,8 +93,10 @@ export class Rain {
     const u = this.uniforms;
     u.uTime.value += dt;
     u.uCam.value.copy(camera.position);
+    const pc = camera as THREE.PerspectiveCamera;
+    if (pc.isPerspectiveCamera) u.uPixel.value = (2 * Math.tan(THREE.MathUtils.degToRad(pc.fov) / 2)) / Math.max(1, window.innerHeight);
     u.uVel.value.set(wind * 0.35, -9.5, wind * 0.12);
     u.uColor.value.setRGB(0.5, 0.55, 0.6).multiplyScalar(0.4 + 0.8 * light);
-    u.uOpacity.value = 0.18 + 0.2 * Math.min(1, amount);
+    u.uOpacity.value = 0.22 + 0.18 * Math.min(1, amount);
   }
 }

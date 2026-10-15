@@ -12,7 +12,7 @@ export class SkyDome {
     uRayleigh: { value: 1.0 },
     uMieCoef: { value: 0.005 },
     uMieG: { value: 0.8 },
-    uSkyScale: { value: 0.16 },
+    uSkyScale: { value: 0.42 },
     uSkyIntensity: { value: 1 },
     uSkyGrey: { value: 0 },
     uNight: { value: 0 },

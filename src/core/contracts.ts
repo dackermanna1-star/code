@@ -140,7 +140,10 @@ export interface IEnvironment {
   /** Max view distance in meters due to fog/weather (for AI + rendering). */
   readonly fogDistance: number;
   setTimeOfDay(h: number): void;
-  setWeather(w: WeatherKind): void;
+  /** Change weather; `transitionSeconds` > 0 blends smoothly (default/0 = instant, e.g. at match start). */
+  setWeather(w: WeatherKind, transitionSeconds?: number): void;
+  /** Optional (World, additive): hours advanced per real second (0 = frozen time, the PUBG default). */
+  timeSpeed?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -437,6 +440,8 @@ export interface ICharacter {
   readonly stanceProgress?: number;
   /** True when weapons cannot be used (swimming, skydiving, knocked, driving, vaulting). */
   readonly weaponsBlocked?: boolean;
+  /** Team marker above the head (screen-space diamond, visible through walls); null hides it. */
+  setTeamMarker?(color: number | null): void;
 }
 
 export interface CharacterSpawnOptions {

@@ -90,6 +90,13 @@ const _desired = { x: 0, y: 0, z: 0 };
 const _moved = { x: 0, y: 0, z: 0 };
 const _wall = new THREE.Vector3();
 const _coll = new RAPIER.CharacterCollision();
+const _start = new THREE.Vector3();
+const _save = new THREE.Vector3();
+const _lift = { x: 0, y: 0, z: 0 };
+const _ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 });
+/** Step-up probe distances beyond the capsule front, and the minimum tread normal (cos 50°). */
+const STEP_PROBES = [0.06, 0.2];
+const STEP_MIN_NORMAL_Y = 0.64;
 
 export class CharacterBody {
   readonly collider: RAPIER.Collider;
@@ -146,14 +153,44 @@ export class CharacterBody {
 
   /**
    * Move with collision. `delta` is the desired translation this tick; `feet` is updated in place.
-   * Returns ground/ceiling/wall info.
+   * Returns ground/ceiling/wall info. `stepUp` (grounded walking only) adds a manual step-up when the
+   * KCC is blocked by a low step: Rapier's autostep only engages on vertical contact normals, so a
+   * capsule meeting a 0.15–0.35 m step edge with its bottom hemisphere just stops.
    */
-  move(feet: THREE.Vector3, delta: THREE.Vector3, opts: { autostep: boolean; snap: boolean; withCharacters: boolean }): MoveResult {
+  move(feet: THREE.Vector3, delta: THREE.Vector3, opts: { autostep: boolean; snap: boolean; withCharacters: boolean; stepUp?: boolean }): MoveResult {
     const kcc = getSharedController(this.physics);
     if (opts.autostep) kcc.enableAutostep(KCC.autostepHeight, KCC.autostepMinWidth, false);
     else kcc.disableAutostep();
     if (opts.snap) kcc.enableSnapToGround(KCC.snapToGround);
     else kcc.disableSnapToGround();
+    _start.copy(feet);
+    let res = this.kccMove(kcc, feet, delta, opts.withCharacters);
+    const hx = delta.x, hz = delta.z;
+    const hl = Math.hypot(hx, hz);
+    let stepped: MoveResult | null = null;
+    if (opts.stepUp && hl > 1e-4) {
+      const along = ((feet.x - _start.x) * hx + (feet.z - _start.z) * hz) / hl;
+      if (along < hl * 0.6) stepped = this.tryStepUp(kcc, feet, _start, hx / hl, hz / hl, hl, opts.withCharacters);
+    }
+    if (stepped) {
+      res = stepped;
+      this.stepHoldDist = this.dims.radius + 0.12;
+      this.stepHoldTime = 0.5;
+    } else if (this.stepHoldDist > 0) {
+      // After a step-up the capsule briefly hovers over the step edge until its centre is above the
+      // tread; keep it grounded (no gravity, snap stays on) for that short distance.
+      this.stepHoldDist -= Math.hypot(feet.x - _start.x, feet.z - _start.z);
+      this.stepHoldTime -= 1 / 60;
+      if (res.grounded || this.stepHoldTime <= 0 || delta.y > 0) this.stepHoldDist = 0;
+      else if (opts.stepUp) res.grounded = true;
+    }
+    return res;
+  }
+
+  private stepHoldDist = 0;
+  private stepHoldTime = 0;
+
+  private kccMove(kcc: RAPIER.KinematicCharacterController, feet: THREE.Vector3, delta: { x: number; y: number; z: number }, withCharacters: boolean): MoveResult {
     this.syncTo(feet);
     _desired.x = delta.x;
     _desired.y = delta.y;
@@ -162,7 +199,7 @@ export class CharacterBody {
       this.collider,
       _desired,
       RAPIER.QueryFilterFlags.EXCLUDE_SENSORS,
-      opts.withCharacters ? CHAR_MOVE_GROUPS : WORLD_MOVE_GROUPS,
+      withCharacters ? CHAR_MOVE_GROUPS : WORLD_MOVE_GROUPS,
     );
     kcc.computedMovement(_moved);
     feet.x += _moved.x;
@@ -178,9 +215,75 @@ export class CharacterBody {
       if (!c) continue;
       const ny = c.normal1.y;
       if (ny < -0.5 && delta.y > 0) hitCeiling = true;
-      else if (Math.abs(ny) < 0.6) wall = _wall.set(c.normal1.x, c.normal1.y, c.normal1.z);
+      else if (Math.abs(ny) < 0.3) wall = _wall.set(c.normal1.x, c.normal1.y, c.normal1.z);
     }
     return { grounded, hitCeiling, wallNormal: wall };
+  }
+
+  /**
+   * Step-up: find a walkable tread ≤ autostep height just ahead, lift the capsule onto it (if there is
+   * headroom) and redo the horizontal move from there. Reverts and returns null when it does not help.
+   */
+  private tryStepUp(
+    kcc: RAPIER.KinematicCharacterController,
+    feet: THREE.Vector3,
+    start: THREE.Vector3,
+    dx: number,
+    dz: number,
+    len: number,
+    withCharacters: boolean,
+  ): MoveResult | null {
+    const r = this.dims.radius;
+    const maxH = KCC.autostepHeight;
+    let top = -Infinity;
+    // Probe ahead of the capsule front (two distances so diagonal approaches also find the tread).
+    for (const dist of STEP_PROBES) {
+      const ox = feet.x + dx * (r + dist);
+      const oz = feet.z + dz * (r + dist);
+      _ray.origin = { x: ox, y: feet.y + maxH + 0.05, z: oz };
+      _ray.dir = { x: 0, y: -1, z: 0 };
+      const hit = this.physics.world.castRayAndGetNormal(_ray, maxH + 0.1, true, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, WORLD_MOVE_GROUPS, this.collider);
+      if (!hit) continue;
+      const rise = maxH + 0.05 - hit.timeOfImpact;
+      // toi 0 = origin inside something taller than a step; tiny rises are handled by the KCC itself.
+      if (hit.timeOfImpact <= 1e-4 || rise > maxH || rise < 0.03) continue;
+      if (hit.normal.y < STEP_MIN_NORMAL_Y) continue;
+      top = feet.y + rise;
+      break;
+    }
+    if (top === -Infinity) return null;
+    _save.copy(feet);
+    kcc.disableAutostep();
+    kcc.disableSnapToGround();
+    // Raise (stops at ceilings).
+    const lift = top - feet.y + KCC.offset;
+    _lift.x = 0;
+    _lift.y = lift;
+    _lift.z = 0;
+    this.kccMove(kcc, feet, _lift, withCharacters);
+    if (feet.y - _save.y < lift - 0.01) {
+      feet.copy(_save);
+      this.syncTo(feet);
+      return null;
+    }
+    // Horizontal remainder from the raised position.
+    const doneX = _save.x - start.x;
+    const doneZ = _save.z - start.z;
+    _lift.x = dx * len - doneX;
+    _lift.y = 0;
+    _lift.z = dz * len - doneZ;
+    const remain = Math.hypot(_lift.x, _lift.z);
+    const raisedX = feet.x, raisedZ = feet.z;
+    const res = this.kccMove(kcc, feet, _lift, withCharacters);
+    const gained = ((feet.x - raisedX) * dx + (feet.z - raisedZ) * dz);
+    if (gained < remain * 0.4) {
+      feet.copy(_save);
+      this.syncTo(feet);
+      return null;
+    }
+    res.grounded = true;
+    res.wallNormal = null;
+    return res;
   }
 
   /** True if the given (vertical) shape placed at `feet` does not overlap the world/other characters. */

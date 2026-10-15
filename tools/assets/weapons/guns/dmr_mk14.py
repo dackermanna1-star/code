@@ -29,7 +29,7 @@ def build(g):
     g.side('rail_mount', [(240, 276), (420, 276), (420, RAIL), (240, RAIL)], 30, 'anod', bevel=2)
     g.side('hg_upper', [(420, 262), (620, 262), (620, RAIL), (420, RAIL)], 44, 'anod', bevel=3)
     for i in range(6):
-        g.box(f'hg_slot{i}', 470 + i * 24, 488 + i * 24, 268, 276, 45, 'park', r=3, bevel=0.5)
+        g.box(f'hg_slot{i}', 470 + i * 24, 488 + i * 24, 268, 276, 45, 'park!', r=3, bevel=0.5)
     g.rail('rail_r', 540, 618, BORE + 22, 'anod', ang=90, u_c=BORE)
     g.rail('rail_l', 540, 618, BORE + 22, 'anod', ang=-90, u_c=BORE)
     g.rail('rail_b', 540, 618, BORE + 28, 'anod', ang=180, u_c=BORE)
@@ -45,7 +45,7 @@ def build(g):
     g.side('fsight', [(856, 244), (878, 244), (876, 292, 3), (858, 292, 3)], 10, 'park', bevel=1.5)
     g.lathe('flash', [(874, 4.5), (874, 11), (878, 12), (954, 12), (960, 11), (960, 4.5)], 'park', u=BORE, closed=True, segs=24)
     for i in range(5):
-        g.side(f'fslot{i}', [(894, -1.3), (958, -1.3), (958, 1.3), (894, 1.3)], 2.6, 'park', bevel=0.2,
+        g.side(f'fslot{i}', [(894, -1.3), (958, -1.3), (958, 1.3), (894, 1.3)], 2.6, 'park!', bevel=0.2,
                M=rot_f(36 + 72 * i, BORE, 0) @ T(0, BORE + 11, 0))
     # op-rod handle (right) + flip sights on rail
     g.side('oprod', [(330, 252), (470, 252), (470, 262), (330, 262)], 6, 'park', group='bolt', s=17, bevel=1)

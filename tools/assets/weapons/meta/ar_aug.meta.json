@@ -1,0 +1,31 @@
+{
+ "tris": 18124,
+ "bounds_min": [
+  -0.027,
+  -0.0964,
+  -0.3519
+ ],
+ "bounds_max": [
+  0.046,
+  0.224,
+  0.438
+ ],
+ "length_m": 0.7899,
+ "nodes": [
+  "ar_aug",
+  "body",
+  "charging_handle",
+  "mag",
+  "charging_handle_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "AUG A3",
+ "real_length_m": 0.79,
+ "cycle_node": "charging_handle",
+ "mag_kind": "box",
+ "id": "ar_aug"
+}

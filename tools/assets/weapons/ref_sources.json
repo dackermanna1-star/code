@@ -1,0 +1,122 @@
+{
+ "smg_ump45": {
+  "image": "https://commons.wikimedia.org/wiki/File:HKUMP45.JPG",
+  "use": "traced side silhouette"
+ },
+ "ar_scarl": {
+  "image": "https://commons.wikimedia.org/wiki/File:ScarSandiaPix.png",
+  "use": "traced side silhouette"
+ },
+ "ar_groza": {
+  "image": "https://commons.wikimedia.org/wiki/File:GrozaOC14_noBG.png",
+  "use": "traced side silhouette"
+ },
+ "ar_beryl": {
+  "image": "https://commons.wikimedia.org/wiki/File:Beryl_M762.png",
+  "use": "traced side silhouette"
+ },
+ "sr_m24": {
+  "image": "https://commons.wikimedia.org/wiki/File:M24-Sniper-Weapon-System.png",
+  "use": "traced side silhouette"
+ },
+ "sr_awm": {
+  "image": "https://commons.wikimedia.org/wiki/File:G22_Bundeswehr_Technik_02_(RaBoe)_noBG.png",
+  "use": "traced side silhouette (G22/AWM)"
+ },
+ "dmr_mk14": {
+  "image": "https://commons.wikimedia.org/wiki/File:PEO_M14_EBR-rbg.png",
+  "use": "traced side silhouette"
+ },
+ "ar_akm": {
+  "image": "https://commons.wikimedia.org/wiki/File:AKM_automatkarbin_Ryssland_-_7,62x39mm_-_Arm%C3%A9museum_bothsides_noBG.png",
+  "use": "traced side silhouette"
+ },
+ "sr_kar98k": {
+  "image": "https://commons.wikimedia.org/wiki/File:Kar_98K_AM021488_noBG.png",
+  "use": "traced side silhouette"
+ },
+ "smg_vector": {
+  "image": "https://commons.wikimedia.org/wiki/File:Kriss_Vector_SMG_Realistic.png",
+  "use": "traced side silhouette"
+ },
+ "dmr_sks": {
+  "image": "https://commons.wikimedia.org/wiki/File:Simonow_SKS_45_noBG.jpg",
+  "use": "proportions (hand-drawn outline)"
+ },
+ "dmr_mini14": {
+  "image": "https://commons.wikimedia.org/wiki/File:Mini14GB_noBG.jpg",
+  "use": "proportions (hand-drawn outline)"
+ },
+ "dmr_slr": {
+  "image": "https://commons.wikimedia.org/wiki/File:SLRL1A1.jpg",
+  "use": "proportions (hand-drawn outline)"
+ },
+ "ar_m16a4": {
+  "image": "https://commons.wikimedia.org/wiki/File:M16A2_noBG.jpg",
+  "use": "proportions (hand-drawn outline, A4 flat-top)"
+ },
+ "pistol_p18c": {
+  "image": "https://commons.wikimedia.org/wiki/File:Glock_17_(6825676904)_%D0%B1%D0%B5%D0%B7_%D1%84%D0%BE%D0%BD%D0%B0.jpg",
+  "use": "traced side silhouette"
+ },
+ "sg_s12k": {
+  "image": "https://commons.wikimedia.org/wiki/File:%D0%A1%D0%B0%D0%B9%D0%B3%D0%B0_12%D0%9A_%D0%B8%D1%81%D0%BF.030.jpg",
+  "use": "traced side silhouette"
+ },
+ "pistol_r1895": {
+  "image": "https://commons.wikimedia.org/wiki/File:Nagant_Revolver.jpg",
+  "use": "traced side silhouette"
+ },
+ "ar_aug": {
+  "image": "https://commons.wikimedia.org/wiki/File:Steyr-AUG-A3-SF.webp",
+  "use": "traced side silhouette"
+ },
+ "smg_uzi": {
+  "image": "https://commons.wikimedia.org/wiki/File:Uzimicro.jpg",
+  "use": "traced side silhouette"
+ },
+ "smg_tommy": {
+  "image": "https://commons.wikimedia.org/wiki/File:ThompsonM1A1VWM.jpg",
+  "use": "proportions (hand-drawn outline)"
+ },
+ "smg_mp5k": {
+  "image": "https://commons.wikimedia.org/wiki/File:Hkmp5k.jpg",
+  "use": "traced side silhouette"
+ },
+ "lmg_m249": {
+  "image": "https://commons.wikimedia.org/wiki/File:M249_Automatic_Rifle.jpg",
+  "use": "traced side silhouette"
+ },
+ "sr_win94": {
+  "image": "https://commons.wikimedia.org/wiki/File:Winchester-94-32spl_noBG.png",
+  "use": "traced side silhouette"
+ },
+ "sg_s1897": {
+  "image": "https://commons.wikimedia.org/wiki/File:WncsterCatMod97trench.jpg",
+  "use": "proportions (authored from published dimensions)"
+ },
+ "ar_m416": {
+  "image": "https://commons.wikimedia.org/wiki/File:HK416N.png",
+  "use": "traced side silhouette"
+ },
+ "lmg_dp28": {
+  "image": "https://commons.wikimedia.org/wiki/File:Chinese_Type_53.jpg",
+  "use": "proportions (authored from published dimensions)"
+ },
+ "pistol_p92": {
+  "image": "https://commons.wikimedia.org/wiki/File:Beretta-92FS.jpg",
+  "use": "traced side silhouette"
+ },
+ "pistol_p1911": {
+  "image": "https://commons.wikimedia.org/wiki/File:M1911_and_M1911A1_pistols.JPG",
+  "use": "traced side silhouette (trigger guard / grip panels drawn by hand)"
+ },
+ "sg_s686": {
+  "image": null,
+  "use": "authored from published dimensions (Beretta 686-style O/U, 28in barrels)"
+ },
+ "pistol_sawedoff": {
+  "image": null,
+  "use": "authored from typical dimensions (cut-down SxS 12 ga)"
+ }
+}

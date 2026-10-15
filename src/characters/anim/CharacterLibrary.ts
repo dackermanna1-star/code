@@ -80,6 +80,27 @@ export class CharacterLibrary {
   hipsName = 'Hips';
   private readyPromise: Promise<void> | null = null;
   private readonly listeners = new Set<() => void>();
+  private readonly modelListeners = new Set<(slot: number) => void>();
+  /** Manifest variants (slots fill in as their GLBs load). */
+  variantCount = 0;
+  private slots: (ModelTemplate | null)[] = [];
+
+  /** Called (after ready) whenever another variant model finished loading. */
+  onModelAdded(fn: (slot: number) => void): () => void {
+    this.modelListeners.add(fn);
+    return () => this.modelListeners.delete(fn);
+  }
+
+  /** True if the exact model for this variant is loaded. */
+  hasVariant(variant: number): boolean {
+    if (this.variantCount === 0) return this.models.length > 0;
+    return !!this.slots[Math.abs(variant) % this.variantCount];
+  }
+
+  /** Slot index a variant maps to. */
+  slotOf(variant: number): number {
+    return this.variantCount ? Math.abs(variant) % this.variantCount : 0;
+  }
 
   onReady(fn: () => void): void {
     if (this.status === 'ready') fn();
@@ -140,12 +161,30 @@ export class CharacterLibrary {
     if (am) for (const e of collectGlbEntries(am)) animFiles.add(resolveRel(ANIM_MANIFEST, String(e.file ?? e.glb ?? e.path ?? e.url)));
     if (models.length === 0) return false;
 
-    const loaded = await Promise.all(models.map(async (m) => ({ m, g: await assets.tryGltf(m.file), l1: m.lod1 ? await assets.tryGltf(m.lod1) : null })));
-    for (const { m, g, l1 } of loaded) if (g) this.addModel(m.id, g, l1, m.tags);
-    if (this.models.length === 0) return false;
+    // Progressive: ready once the first model that loads + all clips are in; the other variants stream in
+    // and characters re-build when their variant arrives (see onModelAdded).
+    this.variantCount = models.length;
+    this.slots = new Array(models.length).fill(null);
+    const loads = models.map((m, i) =>
+      assets.tryGltf(m.file).then(async (g) => {
+        if (!g) return null;
+        const l1 = m.lod1 ? await assets.tryGltf(m.lod1) : null;
+        const t = this.addModel(m.id, g, l1, m.tags);
+        if (t) {
+          this.slots[i] = t;
+          if (this.status === 'ready') for (const fn of this.modelListeners) fn(i);
+        }
+        return t;
+      }),
+    );
+    const first = await Promise.race([
+      Promise.any(loads.map((p) => p.then((t) => t ?? Promise.reject(new Error('missing'))))).catch(() => null),
+      Promise.all(loads).then((all) => all.find((t) => t) ?? null),
+    ]);
+    if (!first) return false;
     const animGltfs = await Promise.all([...animFiles].map((f) => assets.tryGltf(f)));
     const clips: THREE.AnimationClip[] = [];
-    for (const g of [...loaded.map((x) => x.g), ...animGltfs]) if (g) clips.push(...g.animations);
+    for (const g of animGltfs) if (g) clips.push(...g.animations);
     this.addClips(clips, meta);
     this.source = 'manifest';
     return true;
@@ -159,7 +198,7 @@ export class CharacterLibrary {
     this.source = 'fallback';
   }
 
-  private addModel(id: string, g: GLTF, lod1: GLTF | null, tags: string[]): void {
+  private addModel(id: string, g: GLTF, lod1: GLTF | null, tags: string[]): ModelTemplate | null {
     const scene = g.scene;
     // Measure facing & scale on a temporary wrapper.
     const wrap = new THREE.Group();
@@ -168,13 +207,15 @@ export class CharacterLibrary {
     const rig = new Rig(probe);
     if (!rig.ok) {
       console.warn(`[characters] model ${id}: skeleton not recognised`);
-      return;
+      return null;
     }
     rig.measure(wrap);
     const facing = detectFacing(rig);
     const scale = rig.height > 1.3 && rig.height < 2.3 ? 1 : 1.8 / Math.max(0.01, rig.height);
     if (rig.bones.hips) this.hipsName = rig.bones.hips.name;
-    this.models.push({ id, scene, lod1: lod1?.scene ?? null, facing, scale, tags });
+    const t: ModelTemplate = { id, scene, lod1: lod1?.scene ?? null, facing, scale, tags };
+    this.models.push(t);
+    return t;
   }
 
   private addClips(clips: THREE.AnimationClip[], meta: Map<string, ClipMeta>): void {
@@ -209,7 +250,7 @@ export class CharacterLibrary {
   /** Create a model instance (skeleton clone) for a character variant. */
   instantiate(variant: number): ModelInstance | null {
     if (this.models.length === 0) return null;
-    const template = this.models[Math.abs(variant) % this.models.length];
+    const template = (this.variantCount ? this.slots[this.slotOf(variant)] : null) ?? this.models[Math.abs(variant) % this.models.length];
     const container = new THREE.Group();
     container.name = 'characterModel';
     const model = Assets.cloneScene(template.scene);

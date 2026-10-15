@@ -12,7 +12,7 @@ def build(g):
     S = Sil(REF)
     g.side_geom('slide', S.clip((12, 107.5, 206, 140)), 25.5, 'blued', group='slide', bevel=2.4, bres=2)
     for i in range(6):
-        g.box(f'serr{i}', 22 + i * 6.2, 24.6 + i * 6.2, 110, 133, 26.2, 'blued', group='slide', bevel=0.3)
+        g.box(f'serr{i}', 22 + i * 6.2, 24.6 + i * 6.2, 110, 133, 26.2, 'blued!', group='slide', bevel=0.3)
     for i in range(2):
         g.box(f'comp{i}', 166 + i * 14, 176 + i * 14, 134.5, 135.7, 8, 'rubber', group='slide', bevel=0.2)
     g.side('selector', [(18, 112), (30, 112, 1), (30, 122, 2), (18, 122, 2)], 2.5, 'poly', group='slide', s=-13.2, bevel=0.6)
@@ -32,3 +32,4 @@ def build(g):
     g.empty('muzzle', 204, BORE)
     g.empty('grip_support', 38, 40, -18)
     g.empty('sight_eye', -260, SIGHT)
+    g.empty('rail_top', 60, 137.5, parent='slide')

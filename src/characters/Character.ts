@@ -753,6 +753,10 @@ export class Character implements ICharacter {
     }
   }
 
+  setTeamMarker(color: number | null): void {
+    this.visual?.setMarker?.(color);
+  }
+
   /** Request a stance from code (bots/tests); performs the same clearance checks as the intent path. */
   requestStance(s: Stance): boolean {
     return requestStance(this, s);

@@ -31,7 +31,7 @@ def build(g):
     g.side('heatshield', [(800, BORE + 9), (960, BORE + 9), (960, BORE + 15, 3), (800, BORE + 15, 3)], 22, 'park', bevel=1.5)
     g.lathe('flash', [(998, 4.5), (998, 11), (1002, 12.4), (1036, 12.4), (1041, 11.2), (1041, 4.5)], 'park', u=BORE, closed=True, segs=24)
     for i in range(5):
-        g.side(f'fslot{i}', [(1012, -1.3), (1040, -1.3), (1040, 1.3), (1012, 1.3)], 2.6, 'park', bevel=0.2,
+        g.side(f'fslot{i}', [(1012, -1.3), (1040, -1.3), (1040, 1.3), (1012, 1.3)], 2.6, 'park!', bevel=0.2,
                M=rot_f(36 + 72 * i, BORE, 0) @ T(0, BORE + 11.6, 0))
     g.side('handle_arm', [(818, BORE + 8), (830, BORE + 8), (830, 352), (818, 352)], 8, 'park', s=-16, bevel=2)
     g.tube('handle_grip', 760, 830, 7, 'poly', u=350, s=-16, segs=14)
@@ -45,7 +45,7 @@ def build(g):
         g.lathe(f'bipod_foot{sgn}', [(640, 0), (640, 7), (652, 7), (652, 0)], 'rubber', u=252, s=13 * sgn, segs=10)
     g.side('bipod_yoke', [(860, 244), (880, 244), (880, 262), (860, 262)], 34, 'park', bevel=2)
     # charging handle (right) and 200-rd ammo box (left, under feed)
-    g.box('ch_slot', 560, 760, 262, 272, 2, 'park', s=26.6, r=4, bevel=0.5)
+    g.box('ch_slot', 560, 760, 262, 272, 2, 'park!', s=26.6, r=4, bevel=0.5)
     g.side('ch', [(736, 260), (752, 260), (752, 274), (736, 274)], 8, 'park', group='charging_handle', s=30, bevel=1.5)
     g.lathe('ch_knob', [(0, 0), (0, 6), (14, 6), (18, 4.5), (18, 0)], 'park', group='charging_handle', f=744, u=267, s=32, axis='s', segs=12)
     g.pivot('charging_handle', 744, 267, 30)

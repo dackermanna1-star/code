@@ -1,0 +1,31 @@
+{
+ "tris": 5672,
+ "bounds_min": [
+  -0.0176,
+  -0.0577,
+  -0.0354
+ ],
+ "bounds_max": [
+  0.0165,
+  0.088,
+  0.181
+ ],
+ "length_m": 0.2164,
+ "nodes": [
+  "pistol_p92",
+  "body",
+  "mag",
+  "slide",
+  "mag_mesh",
+  "slide_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "P92",
+ "real_length_m": 0.217,
+ "cycle_node": "slide",
+ "mag_kind": "box",
+ "id": "pistol_p92"
+}

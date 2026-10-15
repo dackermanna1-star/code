@@ -1,0 +1,31 @@
+{
+ "tris": 7976,
+ "bounds_min": [
+  -0.044,
+  -0.155,
+  -0.2749
+ ],
+ "bounds_max": [
+  0.0249,
+  0.1415,
+  0.724
+ ],
+ "length_m": 0.9989,
+ "nodes": [
+  "sg_s12k",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "S12K",
+ "real_length_m": 1.0,
+ "cycle_node": "bolt",
+ "mag_kind": "box",
+ "id": "sg_s12k"
+}

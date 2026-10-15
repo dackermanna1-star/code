@@ -24,7 +24,7 @@ def build(g):
     # barrel nut + barrel
     g.lathe('nut', [(222, 0), (222, 18), (224, 20), (236, 20), (238, 18), (238, 0)], 'park', u=BORE, segs=28)
     for i in range(14):
-        g.box(f'knurl{i}', 224, 236, BORE + 19, BORE + 21, 2.5, 'park', bevel=0.3, M=rot_f(i * 360 / 14, BORE, 0))
+        g.box(f'knurl{i}', 224, 236, BORE + 19, BORE + 21, 2.5, 'park!', bevel=0.3, M=rot_f(i * 360 / 14, BORE, 0))
     g.tube('barrel', 236, 270, 9.5, 'park', u=BORE, bore=4.5)
     # top cocking knob
     g.side_geom('knob', S.clip((164, 190, 184, 213)), 10, 'park', group='bolt', bevel=2)

@@ -38,7 +38,7 @@ def build(g):
     g.side('rs_block', [(236, 350), (276, 350), (276, SIGHT - 4), (236, SIGHT - 4)], 14, 'park', bevel=1.5)
     g.front('rs_plate', [(-6, -6, 2), (6, -6, 2), (6, 6, 2), (-6, 6, 2)], 252, 256, 'park', bevel=0.5, u=SIGHT, holes=[circle(0, 0, 1.5, 10)])
     # cocking knob (right side) + slot
-    g.box('ch_slot', 380, 475, BORE - 5, BORE + 5, 2, 'park', s=18.6, r=4, bevel=0.5)
+    g.box('ch_slot', 380, 475, BORE - 5, BORE + 5, 2, 'park!', s=18.6, r=4, bevel=0.5)
     g.lathe('ch_knob', [(0, 0), (0, 7), (8, 7), (12, 6), (12, 0)], 'park', group='bolt', f=446, u=BORE, s=18, axis='s', segs=14)
     g.pivot('bolt', 446, BORE, 18)
     # selector / safety levers (left)

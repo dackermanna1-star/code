@@ -18,7 +18,7 @@ def build(g):
     # receiver (case-hardened/blued steel)
     g.side_geom('recv', S.clip((318, 104, 482, 180), minus=[(240, 40, 345, 104)]), 30, 'blued', bevel=3, bres=2)
     g.side('hammer', [(312, 166), (326, 160), (334, 168), (322, 182, 2), (316, 184, 2)], 8, 'blued', bevel=1.2)
-    g.box('eject', 360, 452, 176, 180, 14, 'bright', bevel=0.8)
+    g.box('eject', 360, 452, 176, 180, 14, 'bright!', bevel=0.8)
     # lever ('bolt') + trigger
     lever = S.clip([(240, 40), (345, 40), (370, 106), (300, 116), (240, 90)])
     g.side_geom('lever', lever, 11, 'blued', group='bolt', bevel=2, bres=2)

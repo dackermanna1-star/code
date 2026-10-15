@@ -43,3 +43,4 @@ def build(g):
     g.empty('muzzle', 235, BORE)
     g.empty('grip_support', 24, 36, -18)
     g.empty('sight_eye', -260, SIGHT)
+    g.empty('rail_top', 100, 136)

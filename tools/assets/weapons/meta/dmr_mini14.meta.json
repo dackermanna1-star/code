@@ -1,0 +1,31 @@
+{
+ "tris": 5808,
+ "bounds_min": [
+  -0.028,
+  -0.081,
+  -0.262
+ ],
+ "bounds_max": [
+  0.021,
+  0.096,
+  0.684
+ ],
+ "length_m": 0.946,
+ "nodes": [
+  "dmr_mini14",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "Mini 14",
+ "real_length_m": 0.946,
+ "cycle_node": "bolt",
+ "mag_kind": "box",
+ "id": "dmr_mini14"
+}

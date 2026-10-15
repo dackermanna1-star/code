@@ -16,7 +16,7 @@ def build(g):
     recv = [(330, 76), (512, 80, 6), (520, 90), (520, 150, 6), (380, 150, 12), (346, 140, 8), (330, 118)]
     g.side('recv', recv, 36, 'blued', bevel=4, bres=2)
     g.side('hammer', [(326, 128), (342, 124), (346, 138), (336, 160, 3), (326, 158, 3)], 8, 'blued', bevel=1.2)
-    g.box('port', 410, 500, 112, 140, 1.5, 'park', s=18.4, r=3, bevel=0.4)
+    g.box('port', 410, 500, 112, 140, 1.5, 'park!', s=18.4, r=3, bevel=0.4)
     # bolt / slide block
     g.side('bolt_block', [(380, 140), (500, 140), (500, 152, 3), (380, 152, 3)], 26, 'bright', group='bolt', bevel=1.8)
     g.pivot('bolt', 440, 146)

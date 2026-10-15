@@ -57,7 +57,6 @@ export class SpecialPoses {
 
   /** Main pass (before the weapon layer). */
   apply(fs: AnimFrameState, kind: ClipKind, covered: boolean): void {
-    const pc = this.pc;
     this.swayT += fs.dt;
     switch (kind) {
       case 'fall':
@@ -68,30 +67,85 @@ export class SpecialPoses {
       case 'climb':
         this.proc.applyGround({ ...fs, near: false });
         return;
+      case 'knocked':
+        if (covered) this.proc.applyAim(fs, 0.5, [0.1, 0.1, 0.1, 0.3, 0.4]);
+        else this.proc.applyGround(fs);
+        return;
       case 'seated':
         if (!covered) this.seated();
+        else this.seatedClipFit();
         this.proc.applyAim(fs, 0, [0.15, 0.2, 0.25, 0.15, 0.25]);
         return;
       case 'swim':
       case 'swimIdle':
         if (!covered) this.swim(fs, kind === 'swimIdle');
+        else this.swimClipFit(fs);
         return;
       case 'freefall':
         if (!covered) this.freefall(fs);
+        else this.freefallClipFit();
         return;
       case 'parachute':
         if (!covered) this.parachute(fs);
+        else this.parachuteClipFit(fs);
         return;
       default:
         this.proc.applyGround(fs);
     }
-    void pc;
+  }
+
+  /** Swim clip: keep the head out of the water at the surface; underwater, pitch with the view. */
+  private swimClipFit(fs: AnimFrameState): void {
+    const c = this.c;
+    const pc = this.pc;
+    if (!c.underwater) {
+      const head = pc.pos('head', _a);
+      const dy = c.waterSurface + 0.06 * pc.scale - head.y;
+      const hips = pc.pos('hips', _b);
+      hips.y += dy;
+      pc.setWorldPos('hips', hips, true);
+    } else {
+      const tilt = clamp(fs.aimPitch, -1.0, 0.8);
+      pc.rotate('hips', pc.right, tilt * 0.8, true);
+    }
+  }
+
+  /** Seated clip: hips onto the seat point (root = seat hips - 0.5 m along the seat up). */
+  private seatedClipFit(): void {
+    const pc = this.pc;
+    this.seatFrame();
+    const hips = pc.pos('hips', _a);
+    _b.copy(pc.origin).addScaledVector(_upS, 0.5);
+    // Keep the clip's horizontal hips offset, correct the height along the seat up axis.
+    const d = _t.copy(_b).sub(hips).dot(_upS);
+    hips.addScaledVector(_upS, d);
+    pc.setWorldPos('hips', hips, true);
+  }
+
+  /** Freefall clip: steeper head-down tilt when diving. */
+  private freefallClipFit(): void {
+    const c = this.c;
+    const dive = clamp((-c.velocity.y - 47) / 16, 0, 1);
+    if (dive > 0.01) this.pc.rotate('hips', this.pc.right, -dive * 0.7, true);
+  }
+
+  /** Parachute clip: lean with forward/brake input and gentle sway. */
+  private parachuteClipFit(fs: AnimFrameState): void {
+    const c = this.c;
+    const pc = this.pc;
+    const lean = clamp(c.intent.moveY, -1, 1) * 0.15;
+    const sway = Math.sin(this.swayT * 1.3) * 0.05;
+    pc.rotate('hips', pc.right, -lean, false);
+    pc.rotate('hips', pc.fwd, sway - clamp(c.intent.moveX, -1, 1) * 0.08, false);
+    pc.refresh();
+    this.proc.applyAim(fs, 0, [0.0, 0.0, 0.05, 0.3, 0.4]);
   }
 
   /** Pass after the weapon layer (hand plants / steering override the arms). */
-  applyPostWeapon(fs: AnimFrameState, kind: ClipKind | null, armed: boolean): void {
+  applyPostWeapon(fs: AnimFrameState, kind: ClipKind | null, armed: boolean, covered: boolean): void {
     if (kind === 'vault' || kind === 'climb') this.traversalHands();
-    else if (kind === 'seated' && !armed) this.seatedHands();
+    else if (kind === 'seated' && !armed && (!covered || this.c.seatIndex === 0)) this.seatedHands();
+    else if (covered) return;
     else if (kind === 'swim' || kind === 'swimIdle') this.swimArms(fs, kind === 'swimIdle');
     else if (kind === 'freefall') this.freefallLimbs(fs);
     else if (kind === 'parachute') this.parachuteLimbs(fs);

@@ -1,0 +1,31 @@
+{
+ "tris": 7540,
+ "bounds_min": [
+  -0.03,
+  -0.0888,
+  -0.29
+ ],
+ "bounds_max": [
+  0.03,
+  0.166,
+  0.713
+ ],
+ "length_m": 1.003,
+ "nodes": [
+  "ar_m16a4",
+  "body",
+  "charging_handle",
+  "mag",
+  "charging_handle_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "M16A4",
+ "real_length_m": 1.003,
+ "cycle_node": "charging_handle",
+ "mag_kind": "box",
+ "id": "ar_m16a4"
+}

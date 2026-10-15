@@ -1,0 +1,31 @@
+{
+ "tris": 5304,
+ "bounds_min": [
+  -0.0195,
+  -0.0605,
+  -0.0233
+ ],
+ "bounds_max": [
+  0.0195,
+  0.09,
+  0.211
+ ],
+ "length_m": 0.2343,
+ "nodes": [
+  "pistol_r1895",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "R1895",
+ "real_length_m": 0.235,
+ "cycle_node": "bolt",
+ "mag_kind": "cylinder",
+ "id": "pistol_r1895"
+}

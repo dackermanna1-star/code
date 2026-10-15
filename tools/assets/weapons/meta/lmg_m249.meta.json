@@ -1,0 +1,31 @@
+{
+ "tris": 8956,
+ "bounds_min": [
+  -0.05,
+  -0.0514,
+  -0.356
+ ],
+ "bounds_max": [
+  0.055,
+  0.207,
+  0.689
+ ],
+ "length_m": 1.045,
+ "nodes": [
+  "lmg_m249",
+  "body",
+  "charging_handle",
+  "mag",
+  "charging_handle_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "M249",
+ "real_length_m": 1.041,
+ "cycle_node": "charging_handle",
+ "mag_kind": "box",
+ "id": "lmg_m249"
+}

@@ -1,0 +1,31 @@
+{
+ "tris": 3652,
+ "bounds_min": [
+  -0.0145,
+  -0.0575,
+  -0.0395
+ ],
+ "bounds_max": [
+  0.0156,
+  0.084,
+  0.164
+ ],
+ "length_m": 0.2035,
+ "nodes": [
+  "pistol_p18c",
+  "body",
+  "mag",
+  "slide",
+  "mag_mesh",
+  "slide_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "P18C",
+ "real_length_m": 0.202,
+ "cycle_node": "slide",
+ "mag_kind": "box",
+ "id": "pistol_p18c"
+}

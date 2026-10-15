@@ -28,6 +28,14 @@ const _qh = new THREE.Quaternion();
 const _m = new THREE.Matrix4();
 const _s = new THREE.Vector3();
 const _up = new THREE.Vector3(0, 1, 0);
+const _wu = new THREE.Vector3();
+const _tf = new THREE.Vector3();
+const _tu = new THREE.Vector3();
+const _tr = new THREE.Vector3();
+const _tp = new THREE.Vector3();
+const _tm = new THREE.Matrix4();
+const _tq = new THREE.Quaternion();
+const _tq2 = new THREE.Quaternion();
 
 /** A weapon placement: grip position + orientation (world). */
 interface Placement {
@@ -65,6 +73,26 @@ export class WeaponPose {
     private readonly pc: PoseContext,
   ) {}
 
+  /** Current torso axes (forward, up, right) from the upper chest bone, via its rest orientation. */
+  private torsoFrame(fwd: THREE.Vector3, up: THREE.Vector3, right: THREE.Vector3): void {
+    const key = this.rig.bones.upperChest ? 'upperChest' : 'spine';
+    const bone = this.rig.bones[key];
+    const rest = this.rig.restMatrix[key];
+    if (!bone || !rest) {
+      fwd.copy(this.pc.fwd);
+      up.set(0, 1, 0);
+      right.copy(this.pc.right);
+      return;
+    }
+    // world = boneWorld * inv(restBoneRoot) maps root-space axes to the current torso axes.
+    _tm.extractRotation(rest);
+    _tq.setFromRotationMatrix(_tm).invert();
+    worldQuat(bone, _tq2).multiply(_tq);
+    fwd.set(0, 0, 1).applyQuaternion(_tq2);
+    up.set(0, 1, 0).applyQuaternion(_tq2);
+    right.set(-1, 0, 0).applyQuaternion(_tq2);
+  }
+
   /** Eye point from the head bone (also used for the FPP camera). */
   eye(out: THREE.Vector3): THREE.Vector3 {
     const pc = this.pc;
@@ -80,10 +108,15 @@ export class WeaponPose {
     return out;
   }
 
-  update(dt: number, wv: WeaponVisual | null, root: THREE.Object3D): void {
+  update(dt: number, wv: WeaponVisual | null, root: THREE.Object3D, mode: 'ik' | 'hidden' | 'hand' = 'ik'): void {
     const c = this.c;
     const pc = this.pc;
-    const target = wv ? 1 : 0;
+    if (wv && mode === 'hand') {
+      this.armsW = 0;
+      this.followHand(wv, root);
+      return;
+    }
+    const target = wv && mode === 'ik' ? 1 : 0;
     this.armsW += (target - this.armsW) * Math.min(1, dt * 10);
     if (!wv) return;
     const style = wv.style;
@@ -150,12 +183,14 @@ export class WeaponPose {
         lowOffset(0.26, 0.02, -0.12, 0.6, 0, 0, this.aim);
         break;
     }
-    // Sprint: rifle across the chest (port arms), muzzle up-left.
+    // Sprint: rifle carried diagonally across the body (muzzle down-left), anchored to the chest frame so it
+    // follows the sprint lean.
     {
-      const fw = pc.fwd, rt = pc.right;
-      this.sprint.pos.copy(_eye).addScaledVector(rt, 0.08 * pc.scale).addScaledVector(_up, -0.55 * pc.scale).addScaledVector(fw, 0.24 * pc.scale);
-      _f.copy(fw).multiplyScalar(0.35).addScaledVector(_up, 0.55).addScaledVector(rt, -0.75).normalize();
-      _u.copy(fw).multiplyScalar(0.85).addScaledVector(_up, 0.3).normalize();
+      this.torsoFrame(_tf, _tu, _tr);
+      const chest = this.pc.pos(this.rig.bones.upperChest ? 'upperChest' : 'spine', _tp);
+      this.sprint.pos.copy(chest).addScaledVector(_tr, 0.13 * pc.scale).addScaledVector(_tu, -0.3 * pc.scale).addScaledVector(_tf, 0.24 * pc.scale);
+      _f.copy(_tf).multiplyScalar(0.62).addScaledVector(_tr, -0.6).addScaledVector(_tu, -0.42).normalize();
+      _u.copy(_tu).multiplyScalar(0.75).addScaledVector(_tr, 0.35).addScaledVector(_tf, 0.2).normalize();
       quatFromBasis(_f, _u, this.sprint.quat);
     }
 
@@ -192,6 +227,26 @@ export class WeaponPose {
 
     // ── arms ──
     this.solveArms(wv);
+  }
+
+  /** Weapon held by the animated right hand (throw / melee overlays). */
+  private followHand(wv: WeaponVisual, root: THREE.Object3D): void {
+    const hand = this.rig.bones.handR;
+    const hr = this.rig.hand.R;
+    if (!hand || !hr) return;
+    const hq = worldQuat(hand, _q2);
+    const finger = _f.copy(hr.fingerLocal).applyQuaternion(hq);
+    const palm = _u.copy(hr.palmLocal).applyQuaternion(hq);
+    // Grip in the palm: handle along the thumb side (palm × finger), weapon up along the fingers.
+    const along = _r.crossVectors(palm, finger).normalize();
+    worldPos(hand, _p).addScaledVector(finger, 0.08 * this.pc.scale).addScaledVector(palm, 0.03 * this.pc.scale);
+    quatFromBasis(along, finger, _q);
+    const obj = wv.object;
+    root.worldToLocal(_p);
+    obj.position.copy(_p);
+    worldQuat(root, _qa).invert();
+    obj.quaternion.copy(_qa).multiply(_q);
+    obj.updateMatrixWorld(true);
   }
 
   private applyGestures(g: Placement, wv: WeaponVisual, now: number): void {
@@ -242,8 +297,10 @@ export class WeaponPose {
     const a = c.action;
     const busyLeft = a.kind === 'useItem' || c.mode === 'traversal' || a.kind === 'interact' || a.kind === 'revive';
 
-    // Right hand on the grip: metacarpals up the grip, palm toward the weapon's left side.
-    this.solveHand('R', obj.getWorldPosition(_p), _a.copy(top).multiplyScalar(0.9).addScaledVector(barrel, 0.45), _b.copy(wRight).negate(), w, style === 'melee' || style === 'throwable' ? 'fist' : 'trigger');
+    // Right hand on the grip: metacarpals up the grip, palm toward the weapon's left side; the palm centre
+    // sits on the right flank of the grip (the grip origin is the middle of the grip).
+    obj.getWorldPosition(_p).addScaledVector(wRight, 0.022 * this.pc.scale);
+    this.solveHand('R', _p, _a.copy(top).multiplyScalar(0.9).addScaledVector(barrel, 0.45), _b.copy(wRight).negate(), w, style === 'melee' || style === 'throwable' ? 'fist' : 'trigger');
 
     // Left hand: support grip (rifle / pistol), or gesture targets.
     const handL = R.handL;
@@ -280,7 +337,12 @@ export class WeaponPose {
   }
 
   private supportPoint(wv: WeaponVisual, out: THREE.Vector3): THREE.Vector3 {
-    if (wv.support) return wv.support.getWorldPosition(out);
+    if (wv.support) {
+      // The node is on the handguard axis: the supporting palm sits just under it.
+      wv.support.getWorldPosition(out);
+      if (wv.style === 'rifle') out.addScaledVector(_wu.set(0, 1, 0).applyQuaternion(worldQuat(wv.object, _q)), -0.035 * this.pc.scale);
+      return out;
+    }
     const obj = wv.object;
     out.set(0, 0, wv.style === 'pistol' ? 0 : 0.35).applyMatrix4(obj.matrixWorld);
     return out;
@@ -314,11 +376,33 @@ export class WeaponPose {
     this.curlFingers(side, grip, weight);
   }
 
+  /** Cached finger local rotations per (side, grip): the curl is relative to the hand, so it is constant. */
+  private readonly fingerCache = new Map<string, { bone: THREE.Bone; rest: THREE.Quaternion; q: THREE.Quaternion }[]>();
+
   private curlFingers(side: Side, grip: 'trigger' | 'support' | 'fist', weight: number): void {
     const R = this.rig.bones;
     const hand = R[`hand${side}`];
+    if (!hand) return;
+    const key = side + grip;
+    let entries = this.fingerCache.get(key);
+    if (!entries) {
+      entries = this.computeCurl(side, grip);
+      this.fingerCache.set(key, entries);
+    }
+    for (const e of entries) {
+      if (weight >= 0.999) e.bone.quaternion.copy(e.q);
+      else e.bone.quaternion.copy(e.rest).slerp(e.q, weight);
+    }
+    hand.updateMatrixWorld(true);
+  }
+
+  /** World-space curl toward the palm, recorded as local rotations (done once per grip). */
+  private computeCurl(side: Side, grip: 'trigger' | 'support' | 'fist'): { bone: THREE.Bone; rest: THREE.Quaternion; q: THREE.Quaternion }[] {
+    const R = this.rig.bones;
+    const hand = R[`hand${side}`]!;
     const hr = this.rig.hand[side];
-    if (!hand || !hr) return;
+    const out: { bone: THREE.Bone; rest: THREE.Quaternion; q: THREE.Quaternion }[] = [];
+    if (!hr) return out;
     const hq = worldQuat(hand, _qb);
     const palmW = _u.copy(hr.palmLocal).applyQuaternion(hq);
     for (const f of FINGERS) {
@@ -331,28 +415,28 @@ export class WeaponPose {
               ? [0.7, 0.8, 0.5]
               : [1.15, 1.3, 0.7];
       for (let k = 1; k <= 3; k++) {
-        const key = `${f}${k}${side}` as BoneKey;
-        const b = R[key];
+        const b = R[`${f}${k}${side}` as BoneKey];
         if (!b) continue;
-        // Start from rest (straight) fingers, then curl toward the palm.
-        const restQ = this.rig.restLocal.get(b);
-        if (restQ) {
-          b.quaternion.copy(restQ);
-          b.updateMatrixWorld(true);
-        }
+        const restQ = this.rig.restLocal.get(b) ?? b.quaternion;
+        b.quaternion.copy(restQ);
+        b.updateMatrixWorld(true);
         const child = b.children.find((ch) => (ch as THREE.Bone).isBone);
         worldPos(b, _a);
         if (child) worldPos(child, _b).sub(_a);
         else _b.copy(hr.fingerLocal).applyQuaternion(hq);
-        if (_b.lengthSq() < 1e-10) continue;
-        _b.normalize();
-        const axis = _s.crossVectors(_b, f === 'thumb' ? _p.copy(palmW).lerp(_b, 0.3) : palmW);
-        if (axis.lengthSq() < 1e-8) continue;
-        axis.normalize();
-        _q.setFromAxisAngle(axis, angles[k - 1] * weight);
-        rotateWorld(b, _q, true);
+        if (_b.lengthSq() > 1e-10) {
+          _b.normalize();
+          const axis = _s.crossVectors(_b, f === 'thumb' ? _p.copy(palmW).lerp(_b, 0.3) : palmW);
+          if (axis.lengthSq() > 1e-8) {
+            axis.normalize();
+            _q.setFromAxisAngle(axis, angles[k - 1]);
+            rotateWorld(b, _q, true);
+          }
+        }
+        out.push({ bone: b, rest: restQ.clone(), q: b.quaternion.clone() });
       }
     }
+    return out;
   }
 
   /** Blend helpers for other systems. */

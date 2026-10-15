@@ -11,10 +11,15 @@ const logs = [];
 page.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
 page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}`));
 await page.goto(`http://127.0.0.1:${port}/repo/tools/assets/characters/preview.html?cfg=${encodeURIComponent(cfgPath)}`, { waitUntil: 'load', timeout: 120000 });
-try { await page.waitForFunction(() => window.__done === true, null, { timeout: 600000 }); } catch (e) { logs.push('TIMEOUT'); }
+let failed = false; page.on('pageerror', () => { failed = true; });
+const t0 = Date.now();
+while (!failed && Date.now() - t0 < 600000) { if (await page.evaluate(() => window.__done === true)) break; await new Promise((r) => setTimeout(r, 500)); }
+if (failed) logs.push('PAGE ERROR - aborted'); else if (Date.now() - t0 >= 600000) logs.push('TIMEOUT');
 const info = await page.evaluate(() => window.__info);
-const el = await page.$('body > canvas:last-of-type');
-await el.screenshot({ path: out });
+// read the labelled canvas directly (element screenshots time out on very tall sheets)
+const dataUrl = await page.evaluate(() => { const c = document.querySelector('body > canvas:last-of-type'); return c && c.width ? c.toDataURL('image/png') : null; });
+if (dataUrl) (await import('fs')).writeFileSync(out, Buffer.from(dataUrl.split(',')[1], 'base64'));
+else logs.push('no canvas');
 if (process.argv.includes('--info')) console.log(JSON.stringify(info));
 if (logs.length) console.log(logs.join('\n'));
 await browser.close();

@@ -1,0 +1,31 @@
+{
+ "tris": 15944,
+ "bounds_min": [
+  -0.043,
+  -0.1244,
+  -0.25
+ ],
+ "bounds_max": [
+  0.0324,
+  0.168,
+  0.693
+ ],
+ "length_m": 0.943,
+ "nodes": [
+  "ar_beryl",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "Beryl M762",
+ "real_length_m": 0.943,
+ "cycle_node": "bolt",
+ "mag_kind": "box",
+ "id": "ar_beryl"
+}

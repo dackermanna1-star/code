@@ -1,6 +1,6 @@
 // Derive hand sockets from retargeted clips and report how well the support hand meets the weapon.
 //
-// usage: node compute_sockets.mjs <character.glb> <anims.glb> <out.json> --rifle clipA,clipB --pistol clipC [--check clip1,clip2,...]
+// usage: node compute_sockets.mjs <character.glb> <anims.glb> <out.json> --rifle clipA,clipB --pistol clipC [--pistolLevel] [--check clip1,clip2,...]
 //
 // socket_weapon_r : child of RightHand. Weapon GLBs (origin at firing-hand grip, barrel +Z, up +Y)
 //                   attached here sit in the right hand. Derived from rifle aim poses:
@@ -93,6 +93,9 @@ if (pistolClips.length) {
       const eye = new THREE.Vector3(0, 0.10, 0.10).applyQuaternion(H.q).add(H.p);
       const sights = R.grip.clone().add(new THREE.Vector3(0, 0.055, 0));
       const fwd = sights.sub(eye).normalize();
+      // --pistolLevel: assume the source pose aims level (keep only the heading of the eye->sights line);
+      // use it with a pistol_aim retargeted WITHOUT aimFix
+      if (process.argv.includes('--pistolLevel')) { fwd.y = 0; fwd.normalize(); }
       const up = new THREE.Vector3(0, 1, 0); up.sub(fwd.clone().multiplyScalar(up.dot(fwd))).normalize();
       const x = new THREE.Vector3().crossVectors(up, fwd);
       const wq = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, up, fwd));

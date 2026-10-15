@@ -15,6 +15,8 @@ import { SpecialPoses } from './SpecialPoses';
 import { Equipment } from './Equipment';
 import { Ragdoll } from './Ragdoll';
 import { ParachuteVisual } from './Parachute';
+import { Overlay } from './Overlay';
+import type { OverlayRole } from './ClipSet';
 import { PlaceholderVisual } from './PlaceholderVisual';
 import { installFirstPersonClip, makeClipUniforms, type ClipUniforms } from './FirstPersonClip';
 import type { HitReaction, ICharacterVisual, PosePoints, PoseJoint } from './types';
@@ -62,6 +64,26 @@ let frustumFrame = -1;
 
 /** Debug switches (window.__game.animDebug) to isolate animation layers. */
 export const animDebug = { noProc: false, noWeaponIK: false, noLegs: false, noAim: false };
+/** Per-phase animation timings (ms accumulated; reset by the reader). */
+export const animProfile = { mixer: 0, proc: 0, weapon: 0, post: 0, capture: 0, count: 0 };
+
+let markerTex: THREE.Texture | null = null;
+function markerTexture(): THREE.Texture {
+  if (markerTex) return markerTex;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 64;
+  const g = cv.getContext('2d')!;
+  g.translate(32, 32);
+  g.rotate(Math.PI / 4);
+  g.fillStyle = '#ffffff';
+  g.strokeStyle = 'rgba(0,0,0,0.8)';
+  g.lineWidth = 6;
+  g.strokeRect(-16, -16, 32, 32);
+  g.fillRect(-16, -16, 32, 32);
+  markerTex = new THREE.CanvasTexture(cv);
+  markerTex.colorSpace = THREE.SRGBColorSpace;
+  return markerTex;
+}
 
 function cameraFrustum(): THREE.Frustum {
   if (frustumFrame !== ctx.engine.frame) {
@@ -88,6 +110,8 @@ export class CharacterVisual implements ICharacterVisual {
   private equipment: Equipment | null = null;
   private ragdoll: Ragdoll | null = null;
   private chute: ParachuteVisual | null = null;
+  private overlay: Overlay | null = null;
+  private readonly offEvents: (() => void)[] = [];
   private held: WeaponVisual | null = null;
   private heldUid = -1;
   private readonly points = new Float32Array(JOINT_COUNT * 3);
@@ -101,9 +125,11 @@ export class CharacterVisual implements ICharacterVisual {
   private dead = false;
   private lodLevel = 0;
   private readonly frameState: AnimFrameState;
-  private readonly locoIn: LocoInput = { stance: 'stand', style: 'unarmed', localVel: new THREE.Vector2(), special: null, sprinting: false };
-  /** Visual body yaw (turn-in-place smoothing for the player). */
+  private readonly locoIn: LocoInput = { stance: 'stand', style: 'unarmed', localVel: new THREE.Vector2(), special: null, sprinting: false, aiming: false, driver: false, sinceJump: 99 };
+  /** Visual body yaw (turn-in-place smoothing). */
   private visYaw = 0;
+  private turning = true;
+  private lastPlace = 0;
 
   constructor(c: Character, lib: CharacterLibrary) {
     this.c = c;
@@ -114,12 +140,50 @@ export class CharacterVisual implements ICharacterVisual {
     this.visYaw = c.bodyYaw;
     this.frameState = { dt: 0, bodyYaw: 0, aimYaw: 0, aimPitch: 0, loco: null!, near: false };
     lib.onReady(() => this.build());
+    // One-shot overlays from gameplay events.
+    this.offEvents.push(
+      ctx.events.on('item:pickup', (e) => {
+        if (e.character === c) this.overlay?.trigger('pickup', 0.9);
+      }),
+      ctx.events.on('door:toggle', (e) => {
+        if (e.by === c) this.overlay?.trigger('door', 0.8);
+      }),
+    );
+    this.offModel = lib.onModelAdded((slot) => {
+      if (!this.exact && slot === lib.slotOf(c.variant) && !this.dead) this.rebuild();
+    });
+  }
+
+  private exact = false;
+  private offModel: (() => void) | null = null;
+
+  /** Swap to the exact variant model once it streamed in. */
+  private rebuild(): void {
+    if (!this.inst) return;
+    this.inst.container.removeFromParent();
+    this.loco?.dispose();
+    this.equipment?.dispose();
+    if (this.held) {
+      this.held.object.removeFromParent();
+      this.held = null;
+    }
+    this.heldUid = -1;
+    this.clip = null;
+    this.fppPatched = false;
+    this.inst = null;
+    this.hasPose = false;
+    this.build();
+    if (this.fpp) {
+      this.fpp = false;
+      this.setFirstPerson(true);
+    }
   }
 
   private build(): void {
     if (this.inst || this.dead) return;
     const inst = this.lib.instantiate(this.c.variant);
     if (!inst || !inst.rig.ok) return;
+    this.exact = this.lib.hasVariant(this.c.variant);
     this.inst = inst;
     // Measure the rig at identity, then attach under the root.
     const tmp = new THREE.Group();
@@ -133,6 +197,7 @@ export class CharacterVisual implements ICharacterVisual {
       this.placeholder = null;
     }
     this.loco = new Locomotion(inst.model, this.lib, (this.c.id * 0.137) % 1);
+    this.overlay = new Overlay(inst.model, this.loco.set);
     this.proc = new ProceduralAnimator(this.c, inst.rig);
     this.weaponPose = new WeaponPose(this.c, inst.rig, this.proc.pc);
     this.special = new SpecialPoses(this.c, inst.rig, this.proc, this.proc.pc);
@@ -146,6 +211,7 @@ export class CharacterVisual implements ICharacterVisual {
   update(dt: number, alpha: number): void {
     const c = this.c;
     this.placeTransform(alpha);
+    this.updateMarker();
     if (!this.inst) {
       this.placeholder?.update(dt, alpha);
       this.detailed = true;
@@ -163,7 +229,7 @@ export class CharacterVisual implements ICharacterVisual {
     let interval: number;
     if (c.isPlayer || this.dead) interval = 0;
     else if (!inView) interval = 0.25;
-    else if (d < 30) interval = 0;
+    else if (d < 40) interval = 0;
     else if (d < 60) interval = 1 / 30;
     else if (d < 120) interval = 1 / 15;
     else if (d < 300) interval = 1 / 8;
@@ -172,6 +238,7 @@ export class CharacterVisual implements ICharacterVisual {
     if (c.stanceProgress < 1 || c.mode === 'traversal') interval = Math.min(interval, 1 / 15);
     this.detailed = inView && d < 40;
     this.setLod(d > 50 && !c.isPlayer ? 1 : 0);
+    this.setShadows(d < 70 || c.isPlayer);
 
     this.animAccum += dt;
     this.sinceAnim += dt;
@@ -199,8 +266,27 @@ export class CharacterVisual implements ICharacterVisual {
       return;
     }
     let yaw: number;
-    if (c.isPlayer && c.mode === 'ground' && c.stance !== 'prone' && c.lifeState === 'alive') yaw = wrapAngle(c.intent.yaw);
-    else yaw = lerpAngle(c.prevBodyYaw, c.bodyYaw, alpha);
+    const aimYaw = c.isPlayer && c.mode === 'ground' && c.stance !== 'prone' && c.lifeState === 'alive' ? wrapAngle(c.intent.yaw) : lerpAngle(c.prevBodyYaw, c.bodyYaw, alpha);
+    if (c.mode === 'ground' && c.stance !== 'prone' && c.lifeState === 'alive') {
+      // Turn in place: standing still, the lower body lags the aim up to ~50° (the spine/head take the rest),
+      // then turns to catch up. Moving or aiming keeps the body aligned.
+      const moving = Math.hypot(c.velocity.x, c.velocity.z) > 0.3;
+      const diff = wrapAngle(aimYaw - this.visYaw);
+      const dt = Math.max(0, ctx.engine.realTime - this.lastPlace);
+      if (moving || c.isAiming || c.isADS) this.turning = true;
+      if (Math.abs(diff) > 0.85) this.turning = true;
+      if (this.turning) {
+        const rate = (moving || c.isAiming ? 14 : 7) * dt;
+        const step = Math.sign(diff) * Math.min(Math.abs(diff), Math.max(rate, Math.abs(diff) * Math.min(1, dt * 10)));
+        this.visYaw = wrapAngle(this.visYaw + step);
+        if (Math.abs(wrapAngle(aimYaw - this.visYaw)) < 0.05 && !moving) this.turning = false;
+      }
+      yaw = this.visYaw;
+    } else {
+      yaw = aimYaw;
+      this.turning = true;
+    }
+    this.lastPlace = ctx.engine.realTime;
     this.visYaw = yaw;
     this.root.quaternion.setFromAxisAngle(_yAxis, yaw + Math.PI);
   }
@@ -224,12 +310,21 @@ export class CharacterVisual implements ICharacterVisual {
     const hs = holdStyleFor(cls);
     li.style = hs === 'rifle' ? 'rifle' : hs === 'pistol' ? 'pistol' : 'unarmed';
     li.sprinting = c.isSprinting;
+    li.aiming = c.isAiming || c.isADS || ctx.engine.simTime - c.lastShotTime < 0.45;
+    li.driver = c.seatIndex === 0;
+    li.sinceJump = ctx.engine.simTime - c.lastJumpTime;
     li.special = this.specialKind();
-    if (li.special === 'loco' as ClipKind) li.special = null;
+    let t0 = performance.now();
     inst.rig.restorePostMixer();
     this.loco!.update(dt, li);
     inst.rig.savePostMixer();
+    const [orole, ot] = this.overlayFromAction();
+    this.overlay?.update(dt, orole, ot);
     inst.container.updateMatrixWorld(true);
+    let t1 = performance.now();
+    animProfile.mixer += t1 - t0;
+    animProfile.count++;
+    t0 = t1;
 
     // ── procedural ──
     const fs = this.frameState;
@@ -249,14 +344,28 @@ export class CharacterVisual implements ICharacterVisual {
       if (li.special) sp.apply(fs, li.special, this.loco!.out.specialCovered);
       else proc.applyGround(fs);
     }
+    t1 = performance.now();
+    animProfile.proc += t1 - t0;
+    t0 = t1;
     // Weapon + arms (not while swimming/skydiving: holstered).
     this.weaponPose!.firstPerson = this.fpp && this.c.isPlayer && ctx.cameraRig?.perspective === 'fpp';
-    if (!animDebug.noWeaponIK) this.weaponPose!.update(dt, this.held, this.root);
-    if (!animDebug.noProc && !this.loco!.forceClip) sp.applyPostWeapon(fs, li.special, !!this.held);
+    const ov = this.overlay?.current ?? null;
+    const handsBusy = ov === 'useItem' || ov === 'drink' || ov === 'revive' || ov === 'pickup' || ov === 'door';
+    if (this.held) this.held.object.visible = !handsBusy;
+    const wmode = handsBusy ? 'hidden' : ov === 'throw' || ov === 'melee' ? 'hand' : 'ik';
+    if (!animDebug.noWeaponIK) this.weaponPose!.update(dt, this.held, this.root, wmode);
+    t1 = performance.now();
+    animProfile.weapon += t1 - t0;
+    t0 = t1;
+    if (!animDebug.noProc && !this.loco!.forceClip) sp.applyPostWeapon(fs, li.special, !!this.held, this.loco!.out.specialCovered);
     this.equipment?.update();
     this.updateChute(dt);
+    t1 = performance.now();
+    animProfile.post += t1 - t0;
+    t0 = t1;
     this.capturePose();
     this.applyFirstPerson();
+    animProfile.capture += performance.now() - t0;
   }
 
   private updateChute(dt: number): void {
@@ -273,6 +382,26 @@ export class CharacterVisual implements ICharacterVisual {
     this.chute.update(dt, deployed, c.sky.chuteOpen, this.root, sl, sr, c.intent.moveX, c.intent.moveY);
   }
 
+  /** Upper-body overlay synced to the current action (healing, revive, throw, melee). */
+  private overlayFromAction(): [OverlayRole | null, number] {
+    const a = this.c.action;
+    switch (a.kind) {
+      case 'useItem':
+        return [/drink|energy|painkill|soda/i.test(a.itemId) ? 'drink' : 'useItem', a.progress / Math.max(0.01, a.duration)];
+      case 'revive':
+        return ['revive', a.progress / Math.max(0.01, a.duration)];
+      case 'interact':
+        return /reviv/i.test(a.label) ? ['revive', a.progress / Math.max(0.01, a.duration)] : [null, 0];
+      case 'throw':
+        // Wind-up while cooking; the release plays when the action ends (combat clears it).
+        return ['throw', Math.min(0.42, 0.2 + a.progress * 0.3)];
+      case 'melee':
+        return ['melee', a.progress / Math.max(0.01, a.duration)];
+      default:
+        return [null, 0];
+    }
+  }
+
   private specialKind(): ClipKind | null {
     const c = this.c;
     switch (c.mode) {
@@ -285,8 +414,8 @@ export class CharacterVisual implements ICharacterVisual {
       case 'traversal':
         return c.traversal?.kind === 'climb' ? 'climb' : 'vault';
       case 'ground':
-        if (c.lifeState === 'knocked') return null;
-        if (!c.isGrounded && c.airTime > 0.15) return 'fall';
+        if (c.lifeState === 'knocked') return 'knocked';
+        if (!c.isGrounded && (c.airTime > 0.15 || ctx.engine.simTime - c.lastJumpTime < 0.2)) return 'fall';
         return null;
       default:
         return null;
@@ -336,6 +465,17 @@ export class CharacterVisual implements ICharacterVisual {
     } else if (this.clip) {
       this.clip.uClipRadius.value = 0;
     }
+  }
+
+  private shadows = true;
+
+  /** Distant characters don't cast shadows (saves a shadow-pass draw per mesh). */
+  private setShadows(on: boolean): void {
+    if (on === this.shadows || !this.inst) return;
+    this.shadows = on;
+    this.root.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = on;
+    });
   }
 
   private setLod(level: number): void {
@@ -447,12 +587,42 @@ export class CharacterVisual implements ICharacterVisual {
     return this.fpp;
   }
 
+  private marker: THREE.Sprite | null = null;
+
+  setMarker(color: number | null): void {
+    if (color === null) {
+      if (this.marker) this.marker.visible = false;
+      return;
+    }
+    if (!this.marker) {
+      this.marker = new THREE.Sprite(new THREE.SpriteMaterial({ map: markerTexture(), depthTest: false, depthWrite: false, sizeAttenuation: false, transparent: true }));
+      this.marker.scale.set(0.022, 0.022, 1);
+      this.marker.renderOrder = 1000;
+      this.root.add(this.marker);
+    }
+    (this.marker.material as THREE.SpriteMaterial).color.setHex(color);
+    this.marker.visible = true;
+  }
+
+  private updateMarker(): void {
+    const m = this.marker;
+    if (!m || !m.visible) return;
+    const head = this.inst?.rig.bones.head;
+    if (head) {
+      head.getWorldPosition(_v);
+      this.root.worldToLocal(_v);
+      m.position.set(_v.x, _v.y + 0.45, _v.z);
+    } else m.position.set(0, this.c.height + 0.4, 0);
+  }
+
   setVisible(on: boolean): void {
     this.visible = on;
     this.root.visible = on;
   }
 
   dispose(): void {
+    this.offModel?.();
+    for (const off of this.offEvents) off();
     this.chute?.dispose();
     this.ragdoll?.dispose();
     this.loco?.dispose();

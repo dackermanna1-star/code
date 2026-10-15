@@ -19,7 +19,7 @@ def build(g):
     g.side('rsight', [(282, 250), (306, 250), (304, SIGHT + 7, 3), (284, SIGHT + 7, 3)], 18, 'park', bevel=1.5)
     g.front('rsight_ring', [(-5, -5, 2), (5, -5, 2), (5, 5, 2), (-5, 5, 2)], 292, 297, 'park', bevel=0.6, u=SIGHT, holes=[circle(0, 0, 1.4, 10)])
     # pistol grip, trigger guard, trigger
-    g.side('grip', [(268, 98, 8), (318, 82, 6), (352, 180), (300, 196)], 32, 'poly', bevel=8, bres=3)
+    g.side('grip', [(268, 98, 8), (318, 82, 6), (354, 186), (356, 198), (300, 198)], 32, 'poly', bevel=8, bres=3)
     g.side('guard', [(342, 192), (346, 148, 8), (392, 146, 8), (396, 192)], 12, 'park', bevel=1.5, holes=[[(354, 192), (356, 158, 6), (384, 158, 6), (386, 192)]])
     g.side('trigger', [(362, 194), (368, 194), (370, 180, 3), (375, 170, 2), (371, 169), (363, 179, 3)], 6, 'park', bevel=1)
     # 20-rd magazine
@@ -29,7 +29,7 @@ def build(g):
     # handguard with vent slots
     g.side('hguard', [(556, 210, 4), (818, 212, 6), (820, 232), (818, 260, 4), (556, 262, 4)], 46, 'poly', bevel=7, bres=2)
     for i in range(3):
-        g.box(f'hg_slot{i}', 640 + i * 52, 680 + i * 52, 238, 246, 47, 'park', r=3.5, bevel=0.5)
+        g.box(f'hg_slot{i}', 640 + i * 52, 680 + i * 52, 238, 246, 47, 'park!', r=3.5, bevel=0.5)
     # gas block + front sight, barrel, flash hider
     g.side('gasblock', [(818, 206), (858, 206), (858, 246, 4), (818, 250, 4)], 28, 'park', bevel=2.5)
     for sgn in (1, -1):
@@ -38,10 +38,10 @@ def build(g):
     g.tube('barrel', 856, 1052, 9.6, 'park', u=BORE, r1=8.8, bore=3.8)
     g.lathe('flash', [(1048, 5), (1048, 11.5), (1052, 12.5), (1134, 12.5), (1140, 11.2), (1140, 5)], 'park', u=BORE, closed=True, segs=24)
     for i in range(3):
-        g.side(f'fslot{i}', [(1080, -1.4), (1138, -1.4), (1138, 1.4), (1080, 1.4)], 2.8, 'park', bevel=0.2,
+        g.side(f'fslot{i}', [(1080, -1.4), (1138, -1.4), (1138, 1.4), (1080, 1.4)], 2.8, 'park!', bevel=0.2,
                M=rot_f(60 + 120 * i, BORE, 0) @ T(0, BORE + 11.4, 0))
     # folding charging handle (left side) + slot
-    g.box('ch_slot', 450, 562, 230, 238, 2, 'park', s=-16.6, r=3, bevel=0.5)
+    g.box('ch_slot', 450, 562, 230, 238, 2, 'park!', s=-16.6, r=3, bevel=0.5)
     g.side('ch', [(540, 228), (554, 228), (556, 240, 2), (538, 240, 2)], 8, 'park', group='charging_handle', s=-20, bevel=1.2)
     g.side('ch_lever', [(544, 230), (552, 230), (552, 238), (544, 238)], 24, 'park', group='charging_handle', s=-30, bevel=1.5)
     g.pivot('charging_handle', 547, 234, -20)

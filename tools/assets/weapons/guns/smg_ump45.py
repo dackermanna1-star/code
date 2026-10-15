@@ -39,12 +39,12 @@ def build(g):
     g.lathe('flash', [(640, 5.8), (640, 10.5), (643, 11.2), (683, 11.2), (690, 10.4), (690, 6.0), (650, 6.0)], 'park', u=BORE, closed=True, segs=24)
     # flash hider slots
     for i in range(4):
-        g.side(f'slot{i}', [(658, -1.2), (688, -1.2), (688, 1.2), (658, 1.2)], 2.6, 'park', bevel=0.2,
+        g.side(f'slot{i}', [(658, -1.2), (688, -1.2), (688, 1.2), (658, 1.2)], 2.6, 'park!', bevel=0.2,
                M=rot_f(45 + 90 * i, BORE, 0) @ T(0, BORE + 10.3, 0))
     # --- details ---
     g.box('ch_handle', 572, 590, 258, 268, 8, 'park', group='charging_handle', s=-27, r=2, bevel=1.5)
-    g.box('ch_slot', 515, 595, 259, 267, 2, 'park', s=-24.2, r=3, bevel=0.5)
-    g.box('eject', 350, 402, 246, 268, 2, 'park', s=24.4, r=2, bevel=0.6)
+    g.box('ch_slot', 515, 595, 259, 267, 2, 'park!', s=-24.2, r=3, bevel=0.5)
+    g.box('eject', 350, 402, 246, 268, 2, 'park!', s=24.4, r=2, bevel=0.6)
     g.side('selector', [(298, 216), (322, 220, 2), (322, 226, 2), (296, 224, 3)], 3, 'park', s=-21.2, bevel=0.8)
     g.side('selector_r', [(298, 216), (322, 220, 2), (322, 226, 2), (296, 224, 3)], 3, 'park', s=21.2, bevel=0.8)
     g.lathe('pin1', [(0, 0), (0, 3.5), (2, 3.5), (2, 0)], 'park', f=440, u=248, s=-24, axis='s', segs=12)

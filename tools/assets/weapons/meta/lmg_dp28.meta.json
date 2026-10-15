@@ -1,0 +1,30 @@
+{
+ "tris": 8700,
+ "bounds_min": [
+  -0.132,
+  -0.1,
+  -0.29
+ ],
+ "bounds_max": [
+  0.132,
+  0.11,
+  0.98
+ ],
+ "length_m": 1.27,
+ "nodes": [
+  "lmg_dp28",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "sight_eye"
+ ],
+ "name": "DP-28",
+ "real_length_m": 1.266,
+ "cycle_node": "bolt",
+ "mag_kind": "pan",
+ "id": "lmg_dp28"
+}

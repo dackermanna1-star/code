@@ -28,13 +28,13 @@ def build(g):
     g.tube('barrel', 670, 712, 8.0, 'park', u=BORE, bore=3.0)
     g.lathe('flash', [(706, 4.5), (706, 10.8), (710, 12.2), (784, 12.2), (790, 11), (790, 4.5)], 'park', u=BORE, closed=True, segs=24)
     for i in range(6):
-        g.box(f'fport{i}', 740 + (i % 3) * 14, 748 + (i % 3) * 14, BORE - 3, BORE + 3, 26, 'park', r=2.5, bevel=0.5,
+        g.box(f'fport{i}', 740 + (i % 3) * 14, 748 + (i % 3) * 14, BORE - 3, BORE + 3, 26, 'park!', r=2.5, bevel=0.5,
               M=rot_f(90 * (i // 3), BORE, 0))
     # magazine (translucent-look smoke polymer)
     g.side_geom('mag', S.clip(MAG_R), 26, 'poly', group='mag', bevel=2.5)
     g.pivot('mag', 236, 152)
     # charging handle on the left side
-    g.box('ch_slot', 420, 560, 210, 220, 2, 'poly', s=-24.8, r=4, bevel=0.6)
+    g.box('ch_slot', 420, 560, 210, 220, 2, 'poly!', s=-24.8, r=4, bevel=0.6)
     g.side('ch', [(468, 209), (482, 209), (484, 221, 2), (466, 221, 2)], 10, 'park', group='charging_handle', s=-29, bevel=1.5)
     g.lathe('ch_knob', [(0, 0), (0, 5), (-10, 5), (-13, 3.5), (-13, 0)], 'park', group='charging_handle', f=475, u=215, s=-33, axis='s', segs=12)
     g.pivot('charging_handle', 475, 215, -29)

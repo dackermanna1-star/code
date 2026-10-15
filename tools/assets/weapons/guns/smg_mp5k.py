@@ -28,7 +28,7 @@ def build(g):
     g.pivot('mag', 200, 102)
     g.tube('barrel', 318, 328, 7.5, 'park', u=BORE, bore=4.5)
     # cocking lever (left, front) + slot
-    g.box('ch_slot', 200, 300, 172, 180, 2, 'park', s=-17.2, r=3, bevel=0.5)
+    g.box('ch_slot', 200, 300, 172, 180, 2, 'park!', s=-17.2, r=3, bevel=0.5)
     g.side('ch', [(272, 172), (284, 172), (284, 181), (272, 181)], 10, 'park', group='charging_handle', s=-21, bevel=1.2)
     g.lathe('ch_knob', [(0, 0), (0, 4.5), (-12, 4.5), (-15, 3.5), (-15, 0)], 'park', group='charging_handle', f=278, u=176.5, s=-25, axis='s', segs=12)
     g.pivot('charging_handle', 278, 176.5, -21)

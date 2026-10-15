@@ -198,8 +198,9 @@ const aoFragment = /* glsl */ `
   // moving cloud shadows on the direct light
   {
     vec2 cp = ( vTerrainPos.xz + uSunDirW.xz / max( uSunDirW.y, 0.15 ) * 1500.0 ) / 9000.0 + uCloudOffset;
-    float cn = texture2D( tMacro, cp ).r * 0.55 + texture2D( tMacro, cp * 2.7 + 0.31 ).g * 0.3 + texture2D( tMacro, cp * 7.3 - 0.17 ).b * 0.15;
-    float cd = smoothstep( 1.0 - uCloudCover * 0.92 - 0.06, 1.0 - uCloudCover * 0.92 + 0.32, cn );
+    float cn = texture2D( tMacro, cp ).r * 0.6 + texture2D( tMacro, cp * 2.7 + 0.31 ).g * 0.28 + texture2D( tMacro, cp * 7.3 - 0.17 ).b * 0.12;
+    float ct = mix( 0.66, 0.22, clamp( uCloudCover, 0.0, 1.0 ) );
+    float cd = smoothstep( ct, ct + 0.16, cn );
     float cs = 1.0 - cd * uCloudShadow;
     reflectedLight.directDiffuse *= cs;
     reflectedLight.directSpecular *= cs;
@@ -240,6 +241,14 @@ export function createTerrainMaterial(uniforms: TerrainUniforms): { material: TH
           gl_FragColor = vec4( diffuseColor.rgb, 1.0 );
         #elif defined( TERRAIN_DEBUG ) && TERRAIN_DEBUG == 9
           gl_FragColor = vec4( vec3( tRough, tAO, tWS ), 1.0 );
+        #elif defined( TERRAIN_DEBUG ) && TERRAIN_DEBUG == 10
+          gl_FragColor = vec4( tNXY * 0.5 + 0.5, 0.5, 1.0 );
+        #elif defined( TERRAIN_DEBUG ) && TERRAIN_DEBUG == 12
+          gl_FragColor = vec4( tN * 0.5 + 0.5, 1.0 );
+        #elif defined( TERRAIN_DEBUG ) && TERRAIN_DEBUG == 13
+          gl_FragColor = vec4( tSA.b, tSB.r, tRock, 1.0 );
+        #elif defined( TERRAIN_DEBUG ) && TERRAIN_DEBUG == 11
+          gl_FragColor = vec4( tSrgbToLinear( tLA[ 3 ].rgb ) * 3.0, 1.0 );
         #endif`,
       );
   };

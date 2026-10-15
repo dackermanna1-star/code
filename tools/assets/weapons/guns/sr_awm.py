@@ -42,7 +42,7 @@ def build(g):
     g.tube('barrel', 680, 985, 12.5, 'park', u=BORE, r1=10.0, bore=4.4)
     g.lathe('brake', [(980, 5), (980, 13.5), (984, 14.8), (1052, 14.8), (1058, 13.5), (1058, 5)], 'park', u=BORE, closed=True, segs=24)
     for i in range(3):
-        g.box(f'port{i}', 994 + i * 18, 1006 + i * 18, BORE - 5, BORE + 5, 32, 'park', r=3.5, bevel=0.5)
+        g.box(f'port{i}', 994 + i * 18, 1006 + i * 18, BORE - 5, BORE + 5, 32, 'park!', r=3.5, bevel=0.5)
     # irons (emergency) + cheek piece knob, sling studs
     g.side('rsight', [(290, RAIL + 9.4), (310, RAIL + 9.4), (310, SIGHT + 5, 3), (290, SIGHT + 5, 3)], 16, 'park', bevel=1.2)
     g.front('raperture', [(-5, -5, 2), (5, -5, 2), (5, 5, 2), (-5, 5, 2)], 298, 303, 'park', bevel=0.6, u=SIGHT, holes=[circle(0, 0, 1.3, 10)])

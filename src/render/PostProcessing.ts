@@ -96,6 +96,8 @@ export class PostProcessing {
     c.denoiseRadius = 10;
     c.halfRes = true;
     c.gammaCorrection = false;
+    // Water/roads are transparent but write or sit on depth; skip N8AO's extra transparency scene pass.
+    c.transparencyAware = false;
     this.composer.addPass(this.aoPass);
     this.dof = new DepthOfFieldEffect(camera, { worldFocusDistance: 50, worldFocusRange: 30, bokehScale: 2.5, resolutionScale: 0.5 });
     this.dofPass = new EffectPass(camera, this.dof);

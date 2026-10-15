@@ -117,7 +117,7 @@ def _shrink(loops, bevel):
             r = min(0.8, b * 0.5)
             sh2 = sh.buffer(-r, join_style=1, quad_segs=3).buffer(r, join_style=1, quad_segs=3)
             if not sh2.is_empty and sh2.area > 0.8 * sh.area:
-                sh = sh2
+                sh = sh2.simplify(0.12, preserve_topology=True)
             nc = 1 if sh.geom_type == 'Polygon' else len([g for g in sh.geoms if g.area > 0.5])
             if nc == ncomp and sh.area > 0.25 * poly.area:
                 out = []
@@ -331,7 +331,9 @@ class NB:
 
 
 def make_kind_material(kind, mask_img):
-    k = dict(KINDS[kind])
+    k = dict(KINDS[kind.rstrip('!')])
+    if kind.endswith('!'):          # thin inset details (ports, slots, serrations): little edge wear
+        k['wear_amt'] *= 0.15
     mat = bpy.data.materials.new('K_' + kind)
     mat.use_nodes = True
     nb = NB(mat)
@@ -349,8 +351,8 @@ def make_kind_material(kind, mask_img):
     nb.link(bev.outputs['Normal'], dot.inputs[0]); nb.link(geo.outputs['Normal'], dot.inputs[1])
     edge_bev = nb.ramp(nb.math('SUBTRACT', 1.0, dot.outputs['Value']), 0.004, 0.08)
     aoi = nb.n('ShaderNodeAmbientOcclusion'); aoi.samples = 16; aoi.inside = True; aoi.only_local = True
-    aoi.inputs['Distance'].default_value = 0.0045
-    edge_ao = nb.ramp(nb.math('SUBTRACT', 1.0, aoi.outputs['AO']), 0.16, 0.55)
+    aoi.inputs['Distance'].default_value = 0.0035
+    edge_ao = nb.ramp(nb.math('SUBTRACT', 1.0, aoi.outputs['AO']), 0.1, 0.42)
     edge_live = nb.math('MAXIMUM', edge_bev, edge_ao)
     ao = nb.n('ShaderNodeAmbientOcclusion'); ao.samples = 16; ao.inputs['Distance'].default_value = 0.025
     comb = nb.n('ShaderNodeCombineColor'); comb.name = 'MASK_LIVE'
@@ -398,8 +400,8 @@ def make_kind_material(kind, mask_img):
     # wear on convex edges, broken up by noise
     convex = nb.math('MULTIPLY', edge, nb.ramp(aom, 0.55, 0.95))
     brk = nb.ramp(nb.noise(obj, 140.0, 4.0, 0.65), 0.38, 0.62)
-    wear = nb.math('MULTIPLY', nb.math('MULTIPLY', convex, nb.math('ADD', nb.math('MULTIPLY', brk, 0.8), 0.2)), k['wear_amt'], clamp=True)
-    wear = nb.math('MULTIPLY', nb.ramp(wear, 0.15, 0.6), 0.8)
+    wear = nb.math('MULTIPLY', convex, nb.math('ADD', nb.math('MULTIPLY', brk, 0.65), 0.35))
+    wear = nb.math('MULTIPLY', nb.ramp(wear, 0.1, 0.45), k['wear_amt'] * 0.85)
     col = nb.mix(wear, col, wearc)
     # cavity grime
     cav = nb.math('SUBTRACT', 1.0, aom)
@@ -516,8 +518,10 @@ class Gun:
         r1 = r if r1 is None else r1
         c = min(chamfer, r * 0.3, abs(f1 - f0) * 0.3)
         if bore > 0:
-            prof = [(f0, bore), (f0, r - c), (f0 + c, r), (f1 - c, r1), (f1, r1 - c), (f1, bore)]
-            return self.lathe(name, prof, kind, group, 0, u, s, 'f', segs, closed=True, M=M)
+            # solid barrel with a muzzle recess only (a full-length thin wall would bake as worn-through edge)
+            depth = min(max(bore * 4.0, 12.0), (f1 - f0) * 0.8)
+            prof = [(f0, 0), (f0, r - c), (f0 + c, r), (f1 - c, r1), (f1, r1 - c), (f1, bore), (f1 - depth, bore), (f1 - depth, 0)]
+            return self.lathe(name, prof, kind, group, 0, u, s, 'f', segs, M=M)
         prof = [(f0, 0), (f0, r - c), (f0 + c, r), (f1 - c, r1), (f1, r1 - c), (f1, 0)]
         return self.lathe(name, prof, kind, group, 0, u, s, 'f', segs, M=M)
 
@@ -541,8 +545,10 @@ class Gun:
         self.front(name + '_web', [(-7.6, 3.0), (7.6, 3.0), (10.0, 5.4), (10.0, 6.0), (-10.0, 6.0), (-10.0, 5.4)], f0 + 1, f1 - 1, kind, group, bevel=0.2, u=u_base, s=s, M=M)
         return teeth
 
-    def empty(self, name, f, u, s=0.0):
+    def empty(self, name, f, u, s=0.0, parent=None):
         self.empties[name] = self._gp(f, u, s)
+        if parent:
+            self.empty_parent = getattr(self, 'empty_parent', {}); self.empty_parent[name] = parent
 
     def pivot(self, group, f, u, s=0.0):
         self.pivots[group] = self._gp(f, u, s)
@@ -606,12 +612,26 @@ class Gun:
         grip_b = gun2b(self.grip[0], self.grip[1], 0)
         root = bpy.data.objects.new(self.id, None)
         scene.collection.objects.link(root)
+        pivot_objs = {}
         for g, o in gobs.items():
             pv = self.pivots.get(g)
             pb = gun2b(*pv) if pv else grip_b
             o.data.transform(Matrix.Translation(-pb))
-            o.location = pb - grip_b
-            o.parent = root
+            if g == 'body':
+                o.location = pb - grip_b
+                o.parent = root
+            else:
+                # animatable part: an empty named <group> sits exactly at the pivot; the mesh is its child.
+                # (mesh quantization rewrites mesh-node transforms, so the pivot must live on a separate node)
+                o.name = g + '_mesh'; o.data.name = g + '_mesh'
+                piv = bpy.data.objects.new(g, None)
+                piv.empty_display_type = 'ARROWS'; piv.empty_display_size = 0.02
+                scene.collection.objects.link(piv)
+                piv.location = pb - grip_b
+                piv.parent = root
+                pivot_objs[g] = piv
+                o.location = (0, 0, 0)
+                o.parent = piv
         bounds_min = Vector((1e9,) * 3); bounds_max = Vector((-1e9,) * 3)
         dg = bpy.context.evaluated_depsgraph_get()
         for o in objs:
@@ -622,13 +642,18 @@ class Gun:
             e = bpy.data.objects.new(name, None)
             e.empty_display_type = 'PLAIN_AXES'; e.empty_display_size = 0.02
             scene.collection.objects.link(e)
-            e.location = gun2b(f, u, s) - grip_b
-            e.parent = root
+            par = getattr(self, 'empty_parent', {}).get(name)
+            if par and par in pivot_objs:
+                e.location = gun2b(f, u, s) - grip_b - pivot_objs[par].location
+                e.parent = pivot_objs[par]
+            else:
+                e.location = gun2b(f, u, s) - grip_b
+                e.parent = root
         # glTF bounds (x, y, z) = (x_b, z_b, -y_b)
         self.meta['bounds_min'] = [round(bounds_min.x, 4), round(bounds_min.z, 4), round(-bounds_max.y, 4)]
         self.meta['bounds_max'] = [round(bounds_max.x, 4), round(bounds_max.z, 4), round(-bounds_min.y, 4)]
         self.meta['length_m'] = round(bounds_max.y - bounds_min.y, 4)
-        self.meta['nodes'] = [self.id] + sorted(gobs.keys()) + sorted(self.empties.keys())
+        self.meta['nodes'] = [self.id] + sorted(gobs.keys()) + [g + '_mesh' for g in sorted(gobs) if g != 'body'] + sorted(self.empties.keys())
         if keep_blend:
             bpy.ops.wm.save_as_mainfile(filepath=keep_blend)
         for o in bpy.context.view_layer.objects: o.select_set(False)
@@ -639,7 +664,6 @@ class Gun:
         return self.meta
 
     def _uv_classes(self, objs):
-        DARK = {'park', 'blued', 'steel', 'bright', 'anod', 'poly', 'rubber', 'glass', 'park_light'}
         cls_of = lambda kind: 'all'
         for o in bpy.context.view_layer.objects: o.select_set(False)
         for o in objs:
@@ -820,12 +844,12 @@ def apply_mirror_s(g, fn):
 # traced silhouettes (ref/<id>.json produced by trace.py), clipped into parts with shapely
 # ----------------------------------------------------------------------------------------------
 class Sil:
-    def __init__(self, path, bore_u=0.0, f_shift=0.0, scale=1.0, smooth=1):
+    def __init__(self, path, bore_u=0.0, f_shift=0.0, scale=1.0, smooth=1, holes=True):
         from shapely.geometry import Polygon
         d = json.load(open(path))
         self.d = d
         tr = lambda L: [((p[0] * scale) + f_shift, (p[1] * scale) - bore_u) for p in L]
-        outer = tr(d['outer']); holes = [tr(h) for h in d['holes']]
+        outer = tr(d['outer']); holes = [tr(h) for h in d['holes']] if holes else []
         for _ in range(smooth):
             outer = chaikin(outer); holes = [chaikin(h) for h in holes]
         self.poly = Polygon(outer, holes).buffer(0)
@@ -837,6 +861,7 @@ class Sil:
         def G(r):
             if hasattr(r, 'geom_type'): return r
             if len(r) == 4 and not isinstance(r[0], (tuple, list)): return box(*r)
+            if any(len(q) > 2 for q in r): r = fillet(r)
             return Polygon(r)
         g = self.poly.intersection(G(region))
         for m in minus: g = g.difference(G(m))
@@ -899,3 +924,21 @@ def _side_loops(self, name, geom, width, kind, group='body', s=0.0, bevel=None, 
 
 
 Gun.side_geom = _side_loops
+
+
+def _offset_ribs(self, name, geom, offsets, rib_w, width, kind, group='body', keep=None, bevel=0.7):
+    """Pressed ribs that follow the outline of `geom` (e.g. AK magazine ribs): bands between inward offsets d and d+rib_w,
+    optionally intersected with `keep` (shapely geom or (f0,u0,f1,u1) box) to drop the bands along the top/bottom edges."""
+    from shapely.geometry import box as _box
+    if keep is not None and not hasattr(keep, 'geom_type'):
+        keep = _box(*keep)
+    out = []
+    for i, d in enumerate(offsets):
+        band = geom.buffer(-d, join_style=1).difference(geom.buffer(-(d + rib_w), join_style=1))
+        if keep is not None:
+            band = band.intersection(keep)
+        out += self.side_geom(f'{name}{i}_', band, width, kind, group=group, bevel=bevel, bres=1, min_area=6.0, tol=0.2)
+    return out
+
+
+Gun.offset_ribs = _offset_ribs

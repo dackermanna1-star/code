@@ -44,11 +44,12 @@ export function samplePronePitch(c: Character, yaw: number): number {
   const fx = -Math.sin(yaw) * half;
   const fz = -Math.cos(yaw) * half;
   const p = c.position;
-  const top = p.y + 1.0;
-  const a = groundHit(ctx.physics, c.body.collider, p.x + fx, top, p.z + fz, 2.2);
-  const b = groundHit(ctx.physics, c.body.collider, p.x - fx, top, p.z - fz, 2.2);
-  const ha = a ? a.point.y : p.y;
-  const hb = b ? b.point.y : p.y;
+  // Start low (prone bodies fit under 0.6 m ceilings) and ignore hits on the underside of overhangs.
+  const top = p.y + 0.55;
+  const a = groundHit(ctx.physics, c.body.collider, p.x + fx, top, p.z + fz, 1.6);
+  const b = groundHit(ctx.physics, c.body.collider, p.x - fx, top, p.z - fz, 1.6);
+  const ha = a && a.normal.y > 0.5 ? a.point.y : p.y;
+  const hb = b && b.normal.y > 0.5 ? b.point.y : p.y;
   return clamp(Math.atan2(ha - hb, half * 2), -40 * DEG, 40 * DEG);
 }
 
@@ -216,7 +217,12 @@ export function updateGround(c: Character, dt: number): void {
   // While grounded, move horizontally only and let snap-to-ground follow slopes/steps down: a small
   // downward component makes Rapier's KCC intermittently report zero movement on cuboid/trimesh floors.
   if (wasGrounded && c.velocity.y <= 0) _delta.y = 0;
-  const res = c.body.move(c.position, _delta, { autostep: wasGrounded && c.stance !== 'prone', snap: wasGrounded && c.velocity.y <= 0, withCharacters: true });
+  const res = c.body.move(c.position, _delta, {
+    autostep: wasGrounded && c.stance !== 'prone',
+    snap: wasGrounded && c.velocity.y <= 0,
+    withCharacters: true,
+    stepUp: wasGrounded && c.stance !== 'prone' && c.velocity.y <= 0,
+  });
 
   // Prone: the long body must fit after the move, else revert horizontally.
   if (c.stance === 'prone' && !knocked && (Math.abs(c.position.x - _prev.x) + Math.abs(c.position.z - _prev.z) > 1e-4)) {
@@ -231,13 +237,18 @@ export function updateGround(c: Character, dt: number): void {
     }
   }
 
-  // Actual horizontal velocity (wall slides reduce it).
-  if (dt > 0) {
-    const ax = (c.position.x - _prev.x) / dt;
-    const az = (c.position.z - _prev.z) / dt;
-    if (Math.hypot(ax, az) < Math.hypot(c.velocity.x, c.velocity.z) - 0.05) {
-      c.velocity.x = ax;
-      c.velocity.z = az;
+  // Walls remove the velocity component pushing into them (slides keep the tangential part). Slopes and
+  // steps are not walls: their shorter horizontal displacement must not feed back into the velocity.
+  if (res.wallNormal) {
+    const n = res.wallNormal;
+    const nl = Math.hypot(n.x, n.z);
+    if (nl > 1e-4) {
+      const nx = n.x / nl, nz = n.z / nl;
+      const into = c.velocity.x * nx + c.velocity.z * nz;
+      if (into < 0) {
+        c.velocity.x -= nx * into;
+        c.velocity.z -= nz * into;
+      }
     }
   }
   if (res.hitCeiling && c.velocity.y > 0) c.velocity.y = 0;

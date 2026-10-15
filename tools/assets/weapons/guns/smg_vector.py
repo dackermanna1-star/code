@@ -38,7 +38,7 @@ def build(g):
     g.tube('barrel', 612, 618, 9.0, 'park', u=BORE, bore=4.6)
     g.lathe('thread', [(616, 4.6), (616, 7.4), (624, 7.4), (626, 6.6), (626, 4.6)], 'park', u=BORE, closed=True, segs=20)
     # charging handle (left, front) + slot
-    g.box('ch_slot', 520, 600, 268, 277, 2, 'anod', s=-23.4, r=3, bevel=0.6)
+    g.box('ch_slot', 520, 600, 268, 277, 2, 'anod!', s=-23.4, r=3, bevel=0.6)
     g.side('ch_handle', [(582, 267), (596, 267), (598, 278, 2), (580, 278, 2)], 8, 'park', group='charging_handle', s=-27, bevel=1.5)
     g.pivot('charging_handle', 589, 272, -27)
     # details: hex screws, selector, mag release, ejection port
@@ -49,7 +49,7 @@ def build(g):
         for sgn in (1, -1):
             g.lathe(f'pin{f}{u}{sgn}', [(0, 0), (0, 3.6), (1.6 * sgn, 3.6), (1.6 * sgn, 0)], 'park', f=f, u=u, s=25 * sgn, axis='s', segs=10)
     g.side('selector', [(268, 262), (290, 264, 2), (290, 272, 2), (266, 270, 3)], 3, 'park', s=-24.6, bevel=0.8)
-    g.box('eject', 420, 470, 252, 270, 1.6, 'park', s=23.4, r=2, bevel=0.5)
+    g.box('eject', 420, 470, 252, 270, 1.6, 'park!', s=23.4, r=2, bevel=0.5)
     # named points
     g.grip = (282, 200)
     g.empty('muzzle', 626, BORE)

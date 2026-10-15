@@ -1,0 +1,30 @@
+{
+ "tris": 6692,
+ "bounds_min": [
+  -0.021,
+  -0.136,
+  -0.304
+ ],
+ "bounds_max": [
+  0.021,
+  0.0675,
+  0.7
+ ],
+ "length_m": 1.004,
+ "nodes": [
+  "sg_s1897",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "sight_eye"
+ ],
+ "name": "S1897",
+ "real_length_m": 1.0,
+ "cycle_node": "bolt",
+ "mag_kind": "tube",
+ "id": "sg_s1897"
+}

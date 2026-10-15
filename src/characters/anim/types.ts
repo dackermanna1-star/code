@@ -69,5 +69,7 @@ export interface ICharacterVisual {
   /** Hide head/helmet for the first-person camera. */
   setFirstPerson(on: boolean): void;
   setVisible(on: boolean): void;
+  /** Team marker above the head (null hides). */
+  setMarker?(color: number | null): void;
   dispose(): void;
 }

@@ -9,7 +9,7 @@ import { SkyDome } from './SkyDome';
 import { cloneWeather, fogVisibilityDistance, lerpWeather, WEATHER_PRESETS, type WeatherParams } from './weather';
 
 const SUN_INTENSITY = 4.2;
-const MOON_INTENSITY = 0.42;
+const MOON_INTENSITY = 0.85;
 
 const _c = new THREE.Color();
 const _c2 = new THREE.Color();
@@ -127,7 +127,7 @@ export class Environment implements IEnvironment {
     sunColor(sunY, _d);
     const sunCol = _c.setRGB(_d.x, _d.y, _d.z);
     const sunUp = THREE.MathUtils.smoothstep(sunY, -0.035, 0.1);
-    const sunI = SUN_INTENSITY * sunUp * (0.35 + 0.65 * THREE.MathUtils.smoothstep(sunY, 0.0, 0.35)) * p.sunIntensity;
+    const sunI = SUN_INTENSITY * sunUp * (0.55 + 0.45 * THREE.MathUtils.smoothstep(sunY, 0.0, 0.3)) * p.sunIntensity;
     const moonI = MOON_INTENSITY * night * (1 - p.cloudCover * 0.7);
     if (sunI >= moonI) {
       this.lighting.setKeyLight(this.sunDirection, sunCol, sunI, p.shadowStrength * Math.min(1, 0.4 + sunUp));
@@ -174,10 +174,13 @@ export class Environment implements IEnvironment {
     u.uFogFalloff.value = p.fogFalloff;
 
     // weak hemisphere fill (mainly so moonlit nights are readable)
-    this.lighting.setFill(_c.setRGB(0.4, 0.5, 0.75), _c2.setRGB(0.12, 0.13, 0.1), 0.06 * night + 0.02);
+    this.lighting.setFill(_c.setRGB(0.4, 0.5, 0.75), _c2.setRGB(0.12, 0.13, 0.1), 0.22 * night + 0.02);
 
-    // eye adaptation: brighten nights and gloomy weather a little
-    this.exposure = THREE.MathUtils.lerp(1, 3.2, night) * (1 + (1 - p.skyIntensity) * 0.6);
+    // eye adaptation: the scattering sky dims ~10x toward sunset; compensate partially (sqrt), plus nights and
+    // gloomy weather
+    const sunE = 1000 * Math.max(0, 1 - Math.exp(-(1.6110731556870734 - Math.acos(THREE.MathUtils.clamp(sunY, -1, 1))) / 1.5));
+    const dayAdapt = THREE.MathUtils.clamp(Math.pow(560 / Math.max(sunE, 1), 0.36), 1, 2.6);
+    this.exposure = Math.max(dayAdapt, THREE.MathUtils.lerp(1, 4.0, night)) * (1 + (1 - p.skyIntensity) * 0.6);
 
     // AI visibility & fog distance
     this._fogDistance = fogVisibilityDistance(p);

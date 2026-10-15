@@ -37,7 +37,7 @@ def build(g):
     g.tube('barrel', 724, 842, 7.2, 'park', u=BORE, r1=6.8, bore=3.0)
     g.lathe('flash', [(838, 4.6), (838, 9.4), (841, 10.2), (884, 10.2), (889, 9.4), (889, 4.6)], 'park', u=BORE, closed=True, segs=24)
     for i in range(3):
-        g.side(f'fslot{i}', [(860, -1.2), (888, -1.2), (888, 1.2), (860, 1.2)], 2.4, 'park', bevel=0.2,
+        g.side(f'fslot{i}', [(860, -1.2), (888, -1.2), (888, 1.2), (860, 1.2)], 2.4, 'park!', bevel=0.2,
                M=rot_f(60 + 120 * i, BORE, 0) @ T(0, BORE + 9.6, 0))
     # flip-up iron sights
     rt = RAIL + 9.4
@@ -50,12 +50,12 @@ def build(g):
         g.side(f'fsight_ear{sgn}', [(688, rt + 6), (708, rt + 6), (705, SIGHT + 16, 3), (692, SIGHT + 16, 3)], 3, 'anod', s=9 * sgn, bevel=0.8)
     g.side('fsight_post', [(696, rt + 6), (700, rt + 6), (699.5, SIGHT), (696.5, SIGHT)], 2.6, 'anod', bevel=0.4)
     # charging handle (left side) + slot
-    g.box('ch_slot', 470, 600, 201, 211, 2, 'anod', s=-26.5, r=4, bevel=0.6)
+    g.box('ch_slot', 470, 600, 201, 211, 2, 'anod!', s=-26.5, r=4, bevel=0.6)
     g.side('ch_handle', [(514, 201), (528, 201), (530, 211, 2), (512, 211, 2)], 8, 'park', group='charging_handle', s=-30, bevel=1.5)
     g.lathe('ch_knob', [(0, 0), (0, 5.5), (-12, 5.5), (-16, 4), (-16, 0)], 'park', group='charging_handle', f=521, u=206, s=-32, axis='s', segs=14)
     g.pivot('charging_handle', 521, 206, -30)
     # ejection port, controls, pins
-    g.box('eject', 330, 400, 188, 210, 1.6, 'park', s=26.4, r=2, bevel=0.5)
+    g.box('eject', 330, 400, 188, 210, 1.6, 'park!', s=26.4, r=2, bevel=0.5)
     g.box('fwd_assist', 404, 420, 190, 206, 3, 'anod', s=26.5, r=3, bevel=0.8)
     g.side('selector', [(296, 150), (320, 152, 2), (320, 160, 2), (294, 158, 3)], 3, 'park', s=-23.6, bevel=0.8)
     g.side('mag_release', [(378, 136), (388, 136), (388, 148), (378, 148)], 3, 'park', s=23.6, bevel=0.8)

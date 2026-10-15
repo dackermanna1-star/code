@@ -7,7 +7,7 @@ import { Assets } from '../../core/Assets';
 import type { EquipmentSlot, WeaponSlot } from '../../core/types';
 import type { Character } from '../Character';
 import type { Rig, BoneKey } from './Rig';
-import { createWeaponVisual, type WeaponVisual } from './WeaponModels';
+import { createWeaponVisual, mergeStatic, type WeaponVisual } from './WeaponModels';
 import { quatFromBasis } from './IK';
 
 const _m = new THREE.Matrix4();
@@ -74,10 +74,8 @@ function proceduralGear(slot: EquipmentSlot, level: number, s: number): THREE.Ob
     top.position.y = h / 2;
     g.add(top);
   }
-  g.traverse((o) => {
-    if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
-  });
-  return g;
+  const merged = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: slot === 'helmet' && level === 3 ? 0.5 : 0.85, metalness: 0.05 });
+  return mergeStatic(g, merged);
 }
 
 /** Fit a loaded model inside the bounding box of a proxy (unknown authoring conventions). */

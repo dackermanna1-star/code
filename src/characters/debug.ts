@@ -8,8 +8,9 @@ import type { Character } from './Character';
 import type { PlayerController } from './player/PlayerController';
 import type { CameraRig } from './camera/CameraRig';
 import { HitboxDebug } from './hitbox/HitboxDebug';
-import { animDebug } from './anim/CharacterVisual';
+import { animDebug, animProfile } from './anim/CharacterVisual';
 import { characterLibrary } from './anim/CharacterLibrary';
+import { characterPerf } from './index';
 
 /** Ground height at x,z from physics (buildings/props) or terrain. */
 export function groundY(ctx: GameContext, x: number, z: number): number {
@@ -56,6 +57,8 @@ export function installCharacterDebug(ctx: GameContext, registry: CharacterRegis
     return true;
   });
   registerDebug('animDebug', animDebug);
+  registerDebug('charPerf', characterPerf);
+  registerDebug('animProfile', animProfile);
   registerDebug('playerController', controller);
   registerDebug('characterLibrary', characterLibrary);
   registerDebug('showHitboxes', (on = true) => hitboxDebug.setEnabled(on));
@@ -65,6 +68,41 @@ export function installCharacterDebug(ctx: GameContext, registry: CharacterRegis
     return describe(p, controller);
   });
   registerDebug('characters', () => registry.list.map((c) => describe(c, controller)));
+  // Fraction of skinned-mesh vertices inside the hitboxes (overall + per nearest-zone), and how far
+  // outside the misses are — used to tune hitbox radii against the real character meshes.
+  registerDebug('hitboxCoverage', (id: number, stride = 7) => {
+    const c = registry.byId(id) as Character | undefined;
+    if (!c?.visual) return null;
+    const boxes = c.getHitboxes();
+    const v = new THREE.Vector3();
+    const tmp = new THREE.Vector3();
+    let total = 0, inside = 0, far = 0;
+    const missesByZone: Record<string, number> = {};
+    c.visual.root.updateMatrixWorld(true);
+    c.visual.root.traverse((o) => {
+      const sm = o as THREE.SkinnedMesh;
+      if (!sm.isSkinnedMesh || !sm.visible || !sm.parent?.visible) return;
+      const pos = sm.geometry.attributes.position;
+      for (let i = 0; i < pos.count; i += stride) {
+        sm.getVertexPosition(i, v);
+        v.applyMatrix4(sm.matrixWorld);
+        total++;
+        let best = Infinity, bestZone = '';
+        for (const h of boxes) {
+          const ab = tmp.subVectors(h.b, h.a);
+          const t = Math.max(0, Math.min(1, v.clone().sub(h.a).dot(ab) / Math.max(1e-9, ab.lengthSq())));
+          const d = v.distanceTo(h.a.clone().addScaledVector(ab, t)) - h.radius;
+          if (d < best) { best = d; bestZone = h.zone; }
+        }
+        if (best <= 0.015) inside++;
+        else {
+          missesByZone[bestZone] = (missesByZone[bestZone] ?? 0) + 1;
+          if (best > 0.05) far++;
+        }
+      }
+    });
+    return { total, coverage: +(inside / Math.max(1, total)).toFixed(3), farMisses: far, missesByZone };
+  });
   registerDebug('charById', (id: number) => registry.byId(id));
   registerDebug('cameraState', () => ({
     mode: rig.mode,

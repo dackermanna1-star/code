@@ -19,7 +19,7 @@ page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}\n${e.stack}`));
 await page.goto(`${base}/sandbox/characters.html?nobots=1${extra}`, { waitUntil: 'load', timeout: 120000 });
 await page.waitForFunction(() => window.__sandboxReady === true, null, { timeout: 120000 });
 await page.waitForTimeout(3000);
-if (dbg) await page.evaluate((d) => Object.assign(window.__game.animDebug, JSON.parse(d)), dbg);
+if (dbg) await page.evaluate((d) => { const o = JSON.parse(d); if (o.hitboxes) window.__game.showHitboxes(true); delete o.hitboxes; Object.assign(window.__game.animDebug, o); }, dbg);
 
 await page.evaluate(() => {
   const g = window.__game;
@@ -58,6 +58,9 @@ await page.evaluate(() => {
     if (c.mode !== 'ground') c.setMoveState('idle');
     if (c.stance !== 'stand') { c.body.setShape('stand', c.position); c.stance = 'stand'; c.stanceHeight = 1.8; c.stanceProgress = 1; }
     c.equipSlot(null);
+    for (const k of Object.keys(c.inventory.weapons)) c.inventory.weapons[k] = null;
+    for (const k of Object.keys(c.inventory.equipment)) c.inventory.equipment[k] = null;
+    c.refreshEquipmentVisuals();
     c.setAction({ kind: 'none' });
     g.charById(id).teleport(new T.Vector3(x, 0.02, z), 0);
     i.yaw = 0;
@@ -108,6 +111,12 @@ const scenarios = [
   S('seated_passenger_rifle', `const vi=g.spawnMockVehicle(c.position.x+3, c.position.z-6, 0); g.giveWeapon(c.id,'ar_m416'); g.enterVehicle(c.id, vi, 3); c.intent.aim=true; await __wait(1);`, { yaw: 1.3, height: 1.4, target: 1.0, dist: 3 }),
   S('vault_mid', `const b=g.arena.SPOTS.boxes; c.teleport(new THREE.Vector3(b.x+12, 0.02, b.z),0); c.intent.moveY=1; while(c.position.z-(b.z-3.7)>1.0) await __wait(0.016); c.intent.jump=true; while(!c.traversal) await __wait(0.016); while(c.traversal && c.traversal.t<0.42) await __wait(0.008);`, { yaw: 1.57, height: 1.2, target: 0.9, dist: 3.4 }),
   S('climb_mid', `const b=g.arena.SPOTS.boxes; c.teleport(new THREE.Vector3(b.x+24, 0.02, b.z),0); c.intent.moveY=1; while(c.position.z-(b.z-3.7)>1.0) await __wait(0.016); c.intent.jump=true; while(!c.traversal) await __wait(0.016); while(c.traversal && c.traversal.t<0.45) await __wait(0.008);`, { yaw: 1.57, height: 1.6, target: 1.3, dist: 3.6 }),
+  S('heal_bandage_unarmed', `c.setAction({kind:'useItem',itemId:'item_bandage',progress:0,duration:4}); const t0=g.ctx.engine.simTime; while(g.ctx.engine.simTime<t0+1.5){ c.action.progress=g.ctx.engine.simTime-t0; await __wait(0.016);} `, { yaw: 0.7 }),
+  S('heal_drink_rifle_walk', `g.giveWeapon(c.id,'ar_m416'); c.intent.moveY=1; c.intent.walk=true; c.setAction({kind:'useItem',itemId:'item_energy_drink',progress:0,duration:4}); const t0=g.ctx.engine.simTime; while(g.ctx.engine.simTime<t0+1.6){ c.action.progress=g.ctx.engine.simTime-t0; await __wait(0.016);} `, { yaw: 0.9 }),
+  S('revive_hold', `c.intent.stance='crouch'; await __wait(0.5); c.setAction({kind:'revive',targetId:0,progress:0,duration:10}); const t0=g.ctx.engine.simTime; while(g.ctx.engine.simTime<t0+2){ c.action.progress=g.ctx.engine.simTime-t0; await __wait(0.016);} `, { yaw: 1.0 }),
+  S('throw_cook', `g.giveWeapon(c.id,'throw_frag'); await __wait(0.4); c.setAction({kind:'throw',progress:0,cookTime:0}); const t0=g.ctx.engine.simTime; while(g.ctx.engine.simTime<t0+1){ c.action.progress=g.ctx.engine.simTime-t0; await __wait(0.016);} `, { yaw: 1.2 }),
+  S('melee_swing', `g.giveWeapon(c.id,'melee_pan'); await __wait(0.4); c.setAction({kind:'melee',progress:0,duration:1.2}); const t0=g.ctx.engine.simTime; while(g.ctx.engine.simTime<t0+0.55){ c.action.progress=g.ctx.engine.simTime-t0; await __wait(0.016);} `, { yaw: 1.2 }),
+  S('pickup_event', `g.ctx.events.emit('item:pickup',{character:c,itemId:'x',count:1}); await __wait(0.45);`, { yaw: 1.2 }),
 ];
 
 const results = [];

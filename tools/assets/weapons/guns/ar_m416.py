@@ -26,7 +26,7 @@ def build(g):
     g.side('upper', [(246, 194), (440, 194), (440, RAIL), (262, RAIL), (248, 218, 4)], 30, 'anod', bevel=2.4)
     g.rail('rail_top', 250, 438, RAIL, 'anod')
     g.lathe('fwd_assist', [(0, 0), (0, 7.5), (12, 7.5), (14, 6), (14, 0)], 'anod', f=420, u=210, s=15, axis='s', segs=14)
-    g.box('eject', 334, 400, 196, 216, 1.6, 'park', s=15.4, r=1.5, bevel=0.5)
+    g.box('eject', 334, 400, 196, 216, 1.6, 'park!', s=15.4, r=1.5, bevel=0.5)
     # quad rail handguard (QRS)
     g.side_geom('hguard', S.clip((440, 176, 684, 232)), 52, 'anod', bevel=3, bres=2)
     g.rail('rail_hg_top', 442, 680, RAIL, 'anod')
@@ -38,7 +38,7 @@ def build(g):
     g.tube('barrel', 748, 852, 8.0, 'park', u=BORE, r1=7.5, bore=3.0)
     g.lathe('flash', [(848, 4.5), (848, 9.5), (852, 10.8), (893, 10.8), (900, 9.6), (900, 4.5)], 'park', u=BORE, closed=True, segs=24)
     for i in range(4):
-        g.side(f'fslot{i}', [(866, -1.2), (898, -1.2), (898, 1.2), (866, 1.2)], 2.4, 'park', bevel=0.2,
+        g.side(f'fslot{i}', [(866, -1.2), (898, -1.2), (898, 1.2), (866, 1.2)], 2.4, 'park!', bevel=0.2,
                M=rot_f(45 + 90 * i, BORE, 0) @ T(0, BORE + 10, 0))
     # magazine (steel STANAG, slight curve)
     g.side_geom('mag', S.clip(MAG_R), 23, 'anod', group='mag', bevel=2.2, bres=2)

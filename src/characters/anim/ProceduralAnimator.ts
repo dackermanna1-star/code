@@ -119,7 +119,7 @@ export class ProceduralAnimator {
     const moving = 1 - st.loco.idleWeight;
 
     // ── lower-body orientation (forward-only clip sets) ──
-    const wantHip = st.loco.forwardOnly && !st.loco.synthProne && !knocked ? st.loco.hipYaw * moving : 0;
+    const wantHip = !st.loco.synthProne && !knocked ? st.loco.hipYaw * moving : 0;
     this.hipYaw += (wantHip - this.hipYaw) * Math.min(1, dt * 10);
 
     // ── pelvis: landing dip spring ──

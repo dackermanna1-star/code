@@ -93,9 +93,9 @@ float stars( vec3 d ) {
 }
 
 float cloudDensity( vec2 uv ) {
-  float n = texture2D( tNoise, uv ).r * 0.55 + texture2D( tNoise, uv * 2.7 + 0.31 ).g * 0.3 + texture2D( tNoise, uv * 7.3 - 0.17 ).b * 0.15;
-  float cover = clamp( uCloudCover, 0.0, 1.0 );
-  return smoothstep( 1.0 - cover * 0.92 - 0.06, 1.0 - cover * 0.92 + 0.32, n );
+  float n = texture2D( tNoise, uv ).r * 0.6 + texture2D( tNoise, uv * 2.7 + 0.31 ).g * 0.28 + texture2D( tNoise, uv * 7.3 - 0.17 ).b * 0.12;
+  float t = mix( 0.66, 0.22, clamp( uCloudCover, 0.0, 1.0 ) );
+  return smoothstep( t, t + 0.16, n );
 }
 
 void main() {
@@ -103,7 +103,8 @@ void main() {
   vec3 sd = normalize( uSunDir );
   // daylight scattering (evaluate above the horizon; mirror below for a plausible lower hemisphere)
   vec3 dUp = vec3( dir.x, max( dir.y, 0.0 ), dir.z );
-  vec3 day = preetham( normalize( dUp + vec3( 0.0, 0.0001, 0.0 ) ), sd ) * uSkyScale;
+  // three's Sky addon output curve (pow 1/2.4) keeps sunsets/zenith hues natural; scaled into scene radiance
+  vec3 day = pow( max( preetham( normalize( dUp + vec3( 0.0, 0.0001, 0.0 ) ), sd ), 0.0 ), vec3( 1.0 / 2.4 ) ) * uSkyScale;
   // night sky
   float horizonGlow = pow( 1.0 - max( dir.y, 0.0 ), 3.0 );
   vec3 night = mix( vec3( 0.0012, 0.0022, 0.0055 ), vec3( 0.006, 0.009, 0.016 ), horizonGlow );
@@ -144,7 +145,7 @@ void main() {
   // horizon fog consistent with the scene's height fog (ray to ~6 km)
   vec3 rel = dir * 6000.0;
   float fogF = heightFogFactor( rel, uCamPos.y, uFogDensity, uFogFalloff );
-  fogF = max( fogF, smoothstep( 0.25, -0.05, dir.y ) * min( 1.0, uFogDensity * 2500.0 ) );
+  fogF = max( fogF, smoothstep( 0.32, -0.06, dir.y ) * min( 1.0, uFogDensity * 1800.0 ) );
   col = mix( col, uFogColor, fogF * 0.97 );
 
   gl_FragColor = vec4( min( col, vec3( 2000.0 ) ), 1.0 );

@@ -11,8 +11,20 @@
 //                               mode: "loco"|"oneshot"|"keep"|"static", mirror?: bool, ground?: bool,
 //                               hold?: seconds (for static poses), speed?: number (playback rate),
 //                               fixLoop?: bool, notes?, source?, license? } ] },
-//   meta: "<out json with per clip metadata>"
+//   meta: "<out json with per clip metadata>",
+//   sockets: "<json from compute_sockets.mjs>"   (weapon socket used by aimFix / gripFix / pickFrame)
 // }
+// Optional per-clip processing (applied in this order):
+//   timeScale, alignYaw {mode:'motion'|'hips', offset}, mirror        - while sampling the source
+//   upper {rig, src, anim, roots:[..], frame} | {root, ...}           - upper-body layering from another clip
+//   pose {Bone: {aim:[x,y,z]} | {relEuler:[deg..]} | {euler}}          - character-space pose overrides
+//   gripFix {frames:[a,b]}                                            - align weapon socket with the support hand
+//   reverse, rootRot [deg x,y,z]
+//   autoLoop {min, maxStart}                                           - best loop window search
+//   static: holdFrame | pickFrame 'maxPitch'|'minPitch', hold seconds
+//   aimFix {dir:[x,y,z], pitch:false, yawFromLevel, yawChain, pitchChain} - weapon barrel exactly along dir
+//   mode loco (measure speed, strip root motion) | oneshot (keep motion from the start pose) | inplace | static
+//   hipsOffset, ground (groundPct | groundFrame), osc [{bones, axis, deg, period, phase}], loop fix
 //
 // Method (per bone, per frame):
 //   T_world(t) = S_world(t) * inverse(S_rest_world) * F_s * inverse(F_t)
@@ -247,6 +259,13 @@ function toLocal(frames) {
 function toWorld(frames) {
   for (const f of frames) { const { rot } = fk(f); f.world = rot; }
 }
+function handGrip(pos, S) {
+  // centre of the closed fist (same definition as compute_sockets.mjs)
+  const h = pos[`${S}Hand`], m1 = pos[`${S}HandMiddle1`], m3 = pos[`${S}HandMiddle3`];
+  const d = m1.clone().sub(h); const len = d.length(); d.normalize();
+  const curl = m3.clone().sub(m1); const palm = curl.sub(d.clone().multiplyScalar(curl.dot(d))).normalize();
+  return h.clone().addScaledVector(d, len * 0.55).addScaledVector(palm, 0.028);
+}
 const angle = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a.dot(b))));
 const MAJOR = ['Hips', 'Spine1', 'Spine2', 'Head', 'LeftArm', 'LeftForeArm', 'RightArm', 'RightForeArm', 'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'RightUpLeg', 'RightLeg', 'RightFoot'];
 
@@ -402,6 +421,33 @@ async function retargetClip(spec) {
     }
     toLocal(frames);
   }
+  // ---- grip fix: rotate the right hand (constant local offset) so the weapon socket's barrel axis
+  // passes through the support-hand grip. Lets clips from other packs share one weapon socket. ----
+  if (spec.gripFix && SOCKET) {
+    const N = frames.length;
+    let [ga, gb] = spec.gripFix.frames || [0, Math.max(0, Math.round((N - 1) * 0.2))];
+    if (ga < 0) ga += N; if (gb < 0) gb += N; // negative = from the end
+    let total = new THREE.Quaternion();
+    for (let iter = 0; iter < 2; iter++) {
+      let acc = null;
+      for (let i = ga; i <= Math.min(gb, N - 1); i++) {
+        const { pos, rot } = fk(frames[i]);
+        const Lg = handGrip(pos, 'Left');
+        const origin = SOCKET.p.clone().applyQuaternion(rot.RightHand).add(pos.RightHand);
+        const cur = new THREE.Vector3(0, 0, 1).applyQuaternion(rot.RightHand.clone().multiply(SOCKET.q));
+        const want = Lg.sub(origin).normalize();
+        const dq = new THREE.Quaternion().setFromUnitVectors(cur, want);
+        const lf = rot.RightHand.clone().invert().multiply(dq).multiply(rot.RightHand);
+        if (!acc) acc = lf; else { if (lf.dot(acc) < 0) lf.set(-lf.x, -lf.y, -lf.z, -lf.w); acc.set(acc.x + lf.x, acc.y + lf.y, acc.z + lf.z, acc.w + lf.w); }
+      }
+      acc.normalize();
+      for (const f of frames) f.local.RightHand = f.local.RightHand.clone().multiply(acc).normalize();
+      total.multiply(acc);
+    }
+    toWorld(frames);
+    spec._gripFixDeg = +(2 * Math.acos(Math.min(1, Math.abs(total.w))) * 180 / Math.PI).toFixed(1);
+  }
+  if (spec.reverse) { frames.reverse(); }
   if (spec.rootRot) {
     const R = new THREE.Quaternion().setFromEuler(new THREE.Euler(...spec.rootRot.map((d) => d * Math.PI / 180), 'XYZ'));
     for (const f of frames) f.local.Hips = R.clone().multiply(f.local.Hips);
@@ -409,6 +455,7 @@ async function retargetClip(spec) {
 
   const meta = { name: spec.name, loop: !!spec.loop, mode: spec.mode || 'keep', source: spec.source, license: spec.license, src_clip: anim, src_file: path.basename(spec.src) };
   if (spec.notes) meta.notes = spec.notes;
+  if (spec._gripFixDeg != null) meta.grip_fix_deg = spec._gripFixDeg;
   // ---- auto loop: find the [start,end] window whose end pose best matches its start pose ----
   if (spec.autoLoop && frames.length > 10) {
     const N = frames.length;
@@ -488,7 +535,11 @@ async function retargetClip(spec) {
       for (const f of frames) {
         toWorld([f]);
         const ry = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -yaw / yawChain.length);
-        const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(f.world.Spine2); fwd.y = 0; fwd.normalize();
+        // pitch about the horizontal axis perpendicular to the BARREL (a bladed rifle stance has the
+        // chest turned ~60 deg away from the barrel, so the chest's own lateral axis would mostly roll the weapon)
+        const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(f.world.RightHand.clone().multiply(SOCK.q)); fwd.y = 0;
+        if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, 1);
+        fwd.normalize().applyAxisAngle(new THREE.Vector3(0, 1, 0), -yaw); // barrel heading after this iteration's yaw fix
         const lat = new THREE.Vector3(0, 1, 0).cross(fwd).normalize();
         const rp = new THREE.Quaternion().setFromAxisAngle(lat, pitch / pitchChain.length);
         const nw = {};
@@ -521,7 +572,7 @@ async function retargetClip(spec) {
       meta.move_dir = [+(-fsd.dir[0] / fsd.speed).toFixed(3) || 0, +(fsd.dir[1] / fsd.speed).toFixed(3) || 0]; // [right, forward]
       meta.speed_source = 'planted_foot';
     }
-    if (spec.speedOverride) { meta.speed_mps = spec.speedOverride; meta.speed_source = 'manual'; }
+    if (spec.speedOverride) { meta.speed_mps = spec.speedOverride; meta.speed_source = 'manual'; meta.move_dir = spec.moveDir || [0, 1]; }
     const res = frames.map((f, i) => { const tt = times[i]; return new THREE.Vector3(f.hips.x - p0.x - D.x * tt / T, 0, f.hips.z - p0.z - D.z * tt / T); });
     const mean = res.reduce((a, v) => a.add(v), new THREE.Vector3()).multiplyScalar(1 / res.length);
     frames.forEach((f, i) => { f.hips.x = TPOS.Hips.x + res[i].x - mean.x; f.hips.z = TPOS.Hips.z + res[i].z - mean.z; });
@@ -540,7 +591,8 @@ async function retargetClip(spec) {
       return Math.min(pos.LeftToeBase.y - toeH, pos.RightToeBase.y - toeH, pos.LeftFoot.y - heel, pos.RightFoot.y - heel);
     };
     const ys = frames.map(footY).sort((a, b) => a - b);
-    const low = ys[Math.floor(ys.length * (spec.groundPct ?? 0.1))];
+    let low = ys[Math.floor(ys.length * (spec.groundPct ?? 0.1))];
+    if (spec.groundFrame != null) low = footY(frames[spec.groundFrame === 'last' ? frames.length - 1 : spec.groundFrame]); // e.g. climbs: feet on the floor at the start
     const off = -low;
     meta.ground_offset = +off.toFixed(3);
     if (Math.abs(off) > 0.003) frames.forEach((f) => { f.hips.y += off; });
@@ -598,7 +650,23 @@ async function retargetClip(spec) {
     let hy = 0, hd = 0;
     for (const f of frames) { const { pos } = fk(f); hy += pos.Hips.y; hd += pos.Head.y; }
     meta.hips_y_mean = +(hy / frames.length).toFixed(3); meta.head_y_mean = +(hd / frames.length).toFixed(3);
-    if (spec.mode === 'oneshot') { const a = frames[0].hips, b = frames[frames.length - 1].hips; meta.root_displacement = { right: +(a.x - b.x).toFixed(3) || 0, up: +(b.y - a.y).toFixed(3) || 0, forward: +(b.z - a.z).toFixed(3) || 0 }; }
+    // average body facing from joint positions (deg, 0 = +Z, + = toward +X / character's left)
+    let pv = new THREE.Vector2(), sv = new THREE.Vector2();
+    for (const f of frames) {
+      const { pos } = fk(f);
+      const fy = (l, r) => { const d = l.clone().sub(r); return new THREE.Vector2(-d.z, d.x).normalize(); }; // left x up = forward (x,z)
+      pv.add(fy(pos.LeftUpLeg, pos.RightUpLeg)); sv.add(fy(pos.LeftArm, pos.RightArm));
+    }
+    meta.facing_deg = { pelvis: Math.round(Math.atan2(pv.x, pv.y) * 180 / Math.PI), shoulders: Math.round(Math.atan2(sv.x, sv.y) * 180 / Math.PI) };
+    if (spec.mode === 'oneshot' || spec.mode === 'keep') {
+      const a = frames[0].hips, b = frames[frames.length - 1].hips;
+      meta.root_displacement = { right: +(a.x - b.x).toFixed(3) || 0, up: +(b.y - a.y).toFixed(3) || 0, forward: +(b.z - a.z).toFixed(3) || 0 };
+      // body yaw change over the clip (+ = turned to the character's left / counter-clockwise seen from above)
+      const yawOf = (f) => { const { rot } = fk(f); const d = new THREE.Vector3(0, 0, 1).applyQuaternion(rot.Hips); return Math.atan2(d.x, d.z); };
+      let dy = (yawOf(frames[frames.length - 1]) - yawOf(frames[0])) * 180 / Math.PI;
+      while (dy > 180) dy -= 360; while (dy < -180) dy += 360;
+      if (Math.abs(dy) > 10) meta.yaw_change_deg = +dy.toFixed(1);
+    }
   }
   return { meta, times, frames };
 }
@@ -641,8 +709,9 @@ for (const [out, specs] of Object.entries(job.outputs)) {
     const hs = doc.createAnimationSampler().setInput(input).setOutput(hout).setInterpolation('LINEAR');
     anim.addSampler(hs).addChannel(doc.createAnimationChannel().setTargetNode(nodes.Hips).setTargetPath('translation').setSampler(hs));
     meta.file = path.basename(out);
-    const ex = { loop: meta.loop, mode: meta.mode, duration: meta.duration };
-    for (const k of ['speed_mps', 'move_dir', 'root_displacement', 'hips_y_mean', 'head_y_mean', 'aim_fix_deg', 'notes']) if (meta[k] != null) ex[k] = meta[k];
+    if (spec.metaExtra) Object.assign(meta, spec.metaExtra);
+    const ex = { loop: meta.loop, mode: meta.mode, duration: meta.duration, ...(spec.metaExtra || {}) };
+    for (const k of ['speed_mps', 'move_dir', 'root_displacement', 'yaw_change_deg', 'facing_deg', 'hips_y_mean', 'head_y_mean', 'aim_fix_deg', 'notes']) if (meta[k] != null) ex[k] = meta[k];
     anim.setExtras(ex);
     metas[spec.name] = meta;
     console.log(`  ${spec.name.padEnd(22)} dur=${meta.duration.toFixed(2)} ${meta.speed_mps != null ? 'v=' + meta.speed_mps + ' dir=' + meta.move_dir : ''} ${meta.loop_fix_deg != null ? 'loopfix=' + meta.loop_fix_deg + '(' + meta.loop_fix_bone + ')' : ''} ${meta.ground_offset != null ? 'ground=' + meta.ground_offset : ''}`);

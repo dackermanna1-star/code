@@ -61,7 +61,9 @@ for (let i = 0; i < cfg.tiles.length; i++) {
     // proxy weapon on the right-hand socket (origin = grip, +Z = barrel, +Y = up)
     let hand = null; model.traverse((o) => { if (o.name === (t.weaponBone || 'RightHand')) hand = o; });
     let sock = null; model.traverse((o) => { if (o.name === (t.socketName || 'socket_weapon_r')) sock = o; });
-    if (!sock && cfg.socket) { sock = new THREE.Object3D(); sock.position.fromArray(cfg.socket.t); sock.quaternion.fromArray(cfg.socket.r); hand.add(sock); }
+    const sk = t.socket || cfg.socket;
+    if (sk) { if (sock) sock = null; sock = new THREE.Object3D(); sock.position.fromArray(sk.t); sock.quaternion.fromArray(sk.r); hand.add(sock); }
+    if (!sock) { sock = new THREE.Object3D(); hand.add(sock); }
     const mat = new THREE.MeshStandardMaterial({ color: 0x2a2c2e, roughness: 0.5, metalness: 0.4 });
     const g = new THREE.Group();
     const box = (w, h, d, x, y, z, rx = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.rotation.x = rx; m.castShadow = true; g.add(m); };

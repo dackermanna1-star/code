@@ -34,7 +34,7 @@ if (cmd === 'optimize') {
       mat.getOcclusionTextureInfo().setTexCoord(src.getTexCoord());
     }
   }
-  await doc.transform(dedup(), prune(), weld(), reorder({ encoder: MeshoptEncoder }), quantize({ quantizePosition: 14, quantizeNormal: 10, quantizeTexcoord: 12 }), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
+  await doc.transform(dedup(), prune({ keepLeaves: true }), weld(), reorder({ encoder: MeshoptEncoder }), quantize({ quantizePosition: 14, quantizeNormal: 10, quantizeTexcoord: 12 }), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
   await io.write(out, doc);
   const sz = fs.statSync(out).size;
   console.log(JSON.stringify({ out, bytes: sz, tris: triCount(doc) }));

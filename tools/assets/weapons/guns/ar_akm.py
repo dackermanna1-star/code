@@ -35,7 +35,11 @@ def build(g):
     g.side_geom('guard', S.clip((296, 126, 366, 162)), 10, 'park', bevel=1.3, bres=1)
     g.side('trigger', [(322, 160), (328, 160), (330, 148, 3), (335, 140, 2), (331, 139), (323, 147, 3)], 6, 'park', bevel=1)
     # curved 30-rd steel magazine
-    g.side_geom('mag', S.clip(MAG_R), 27, 'park', group='mag', bevel=2.5, bres=2)
+    mag = S.clip(MAG_R)
+    g.side_geom('mag', mag, 27, 'park', group='mag', bevel=2.5, bres=2)
+    from shapely.geometry import LineString, box
+    keep = mag.difference(LineString([(474, -8), (528, 52)]).buffer(24)).intersection(box(300, 0, 560, 146))
+    g.offset_ribs('mag_rib', mag, [9, 22], 3.2, 29, 'park', group='mag', keep=keep)
     g.pivot('mag', 394, 160)
     # bolt carrier + charging handle (right) + safety lever (right)
     g.side('bolt_carrier', [(380, 202), (452, 202), (452, 214), (380, 214)], 5, 'steel', group='bolt', s=15.5, bevel=1)

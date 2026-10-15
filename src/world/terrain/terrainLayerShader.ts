@@ -112,16 +112,18 @@ vec4 layerSample( vec2 uv, out float h ) {
     h = clamp( n * 0.5 + needles * 0.25 + twig * 0.3 + moss * 0.15, 0.0, 1.0 );
     rough = 0.86;
   } else if ( uLayer == 3 ) {
-    // dirt with pebbles and small cracks
-    float n = pfbm( uv, 6.0, 5, 0.55 );
-    vec3 pb = pvoronoi( uv, 34.0 );
-    float pebble = step( 0.72, pb.y ) * smoothstep( 0.35, 0.15, pb.x );
-    float crack = smoothstep( 0.03, 0.0, pvoronoi( uv + 0.21, 7.0 ).z ) * smoothstep( 0.45, 0.6, n );
-    col = mix( vec3( 0.13, 0.095, 0.06 ), vec3( 0.27, 0.205, 0.13 ), n );
-    col = mix( col, vec3( 0.30, 0.27, 0.22 ) * ( 0.7 + 0.5 * pb.y ), pebble );
-    col *= 1.0 - crack * 0.45;
-    h = clamp( n * 0.6 + pebble * ( 0.35 - pb.x ) * 1.5 - crack * 0.3, 0.0, 1.0 );
-    rough = 0.9;
+    // dirt: compacted soil, soft tonal variation, sparse small pebbles, faint fine cracks
+    vec2 w = vec2( pfbm( uv + 2.3, 4.0, 2, 0.5 ), pfbm( uv + 8.1, 4.0, 2, 0.5 ) ) - 0.5;
+    float n = pfbm( uv + w * 0.1, 5.0, 5, 0.55 );
+    float fine = pfbm( uv, 48.0, 2, 0.5 );
+    vec3 pb = pvoronoi( uv, 40.0 );
+    float pebble = step( 0.86, pb.y ) * smoothstep( 0.3, 0.12, pb.x );
+    float crack = smoothstep( 0.012, 0.0, abs( pnoise( uv * 14.0 + w * 3.0, 14.0 ) - 0.5 ) ) * smoothstep( 0.55, 0.7, n ) * 0.6;
+    col = mix( vec3( 0.105, 0.078, 0.05 ), vec3( 0.215, 0.165, 0.105 ), n * 0.8 + fine * 0.2 );
+    col = mix( col, vec3( 0.22, 0.20, 0.17 ) * ( 0.75 + 0.4 * pb.y ), pebble * 0.8 );
+    col *= 1.0 - crack * 0.35;
+    h = clamp( n * 0.55 + fine * 0.2 + pebble * ( 0.3 - pb.x ) * 1.2 - crack * 0.2, 0.0, 1.0 );
+    rough = 0.92;
   } else if ( uLayer == 4 ) {
     // mud: dark, wet, with glossy puddles
     float n = pfbm( uv, 5.0, 5, 0.55 );
@@ -131,29 +133,29 @@ vec4 layerSample( vec2 uv, out float h ) {
     h = n * ( 1.0 - puddle );
     rough = mix( 0.55, 0.08, puddle );
   } else if ( uLayer == 5 ) {
-    // rock: warped strata, irregular multi-scale cracks, lichen; low regularity so it does not read as tiles
+    // rock: warped multi-octave tone, soft strata bands, sparse thin cracks, grain and lichen
     vec2 w = vec2( pfbm( uv + 1.3, 3.0, 3, 0.5 ), pfbm( uv + 5.1, 3.0, 3, 0.5 ) ) - 0.5;
-    vec2 wu = uv + w * 0.18;
-    float n = pfbm( wu, 4.0, 6, 0.55 );
-    float strata = ridge( pnoise( vec2( wu.x * 2.0, wu.y * 10.0 + n * 4.0 ), 10.0 ) );
-    vec3 cr = pvoronoi( wu, 5.0 );
-    vec3 cr2 = pvoronoi( wu + 0.37, 13.0 );
-    float crack = smoothstep( 0.035, 0.0, cr.z ) * smoothstep( 0.35, 0.65, pnoise( wu * 9.0, 9.0 ) );
-    crack = max( crack, smoothstep( 0.02, 0.0, cr2.z ) * 0.5 * smoothstep( 0.5, 0.7, n ) );
-    float lichen = smoothstep( 0.6, 0.72, pfbm( uv + 7.7, 10.0, 3, 0.5 ) );
-    col = mix( vec3( 0.085, 0.082, 0.075 ), vec3( 0.24, 0.23, 0.21 ), n * 0.75 + strata * 0.25 );
-    col = mix( col, col * vec3( 1.06, 1.0, 0.92 ), cr.y * 0.4 );
-    col *= 1.0 - crack * 0.45;
-    col = mix( col, vec3( 0.22, 0.23, 0.12 ), lichen * 0.5 );
-    h = clamp( n * 0.65 + strata * 0.3 - crack * 0.3 + 0.05, 0.0, 1.0 );
-    rough = 0.82 - lichen * 0.05;
+    vec2 wu = uv + w * 0.25;
+    float n = pfbm( wu, 3.0, 6, 0.58 );
+    float grain = pfbm( uv, 64.0, 2, 0.5 );
+    float bands = sin( ( wu.y * 7.0 + n * 2.5 ) * 6.2831853 ) * 0.5 + 0.5;
+    vec3 cr = pvoronoi( wu, 3.0 );
+    float crack = smoothstep( 0.018, 0.0, cr.z ) * smoothstep( 0.45, 0.62, pfbm( wu + 9.3, 4.0, 2, 0.5 ) );
+    float lichen = smoothstep( 0.62, 0.74, pfbm( uv + 7.7, 8.0, 3, 0.5 ) );
+    col = mix( vec3( 0.075, 0.073, 0.068 ), vec3( 0.21, 0.20, 0.185 ), n * 0.8 + bands * 0.12 + grain * 0.08 );
+    col *= mix( 0.92, 1.06, cr.y );
+    col *= 1.0 - crack * 0.4;
+    col = mix( col, vec3( 0.19, 0.20, 0.11 ), lichen * 0.45 );
+    h = clamp( n * 0.7 + bands * 0.1 + grain * 0.1 - crack * 0.25 + 0.05, 0.0, 1.0 );
+    rough = 0.84 - lichen * 0.04;
   } else if ( uLayer == 6 ) {
     // sand: fine grain + wind ripples
     float n = pfbm( uv, 4.0, 3, 0.5 );
     float grain = pnoise( uv * 256.0, 256.0 );
-    float rip = sin( ( uv.y * 18.0 + pfbm( uv, 3.0, 2, 0.5 ) * 2.0 ) * 6.2831853 ) * 0.5 + 0.5;
-    col = mix( vec3( 0.27, 0.23, 0.155 ), vec3( 0.43, 0.37, 0.26 ), n * 0.6 + grain * 0.25 + rip * 0.15 );
-    h = clamp( rip * 0.6 + n * 0.3 + grain * 0.1, 0.0, 1.0 );
+    float ripMask = smoothstep( 0.4, 0.7, pfbm( uv + 4.4, 2.0, 2, 0.5 ) );
+    float rip = ( sin( ( uv.y * 14.0 + uv.x * 3.0 + pfbm( uv, 3.0, 3, 0.5 ) * 4.0 ) * 6.2831853 ) * 0.5 + 0.5 ) * ripMask;
+    col = mix( vec3( 0.27, 0.23, 0.155 ), vec3( 0.42, 0.36, 0.255 ), n * 0.7 + grain * 0.25 + rip * 0.05 );
+    h = clamp( rip * 0.22 + n * 0.55 + grain * 0.23, 0.0, 1.0 );
     rough = 0.95;
   } else if ( uLayer == 7 ) {
     // gravel: packed stones

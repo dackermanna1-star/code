@@ -1,0 +1,31 @@
+{
+ "tris": 11404,
+ "bounds_min": [
+  -0.0354,
+  -0.08,
+  -0.287
+ ],
+ "bounds_max": [
+  0.048,
+  0.198,
+  0.602
+ ],
+ "length_m": 0.889,
+ "nodes": [
+  "ar_scarl",
+  "body",
+  "charging_handle",
+  "mag",
+  "charging_handle_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "SCAR-L",
+ "real_length_m": 0.889,
+ "cycle_node": "charging_handle",
+ "mag_kind": "box",
+ "id": "ar_scarl"
+}
