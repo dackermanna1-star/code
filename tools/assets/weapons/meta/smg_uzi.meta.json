@@ -1,0 +1,30 @@
+{
+ "tris": 7624,
+ "bounds_min": [
+  -0.026,
+  -0.082,
+  -0.311
+ ],
+ "bounds_max": [
+  0.026,
+  0.1308,
+  0.175
+ ],
+ "length_m": 0.486,
+ "nodes": [
+  "smg_uzi",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "sight_eye"
+ ],
+ "name": "Micro UZI",
+ "real_length_m": 0.486,
+ "cycle_node": "bolt",
+ "mag_kind": "box",
+ "id": "smg_uzi"
+}

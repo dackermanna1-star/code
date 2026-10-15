@@ -1,0 +1,33 @@
+{
+ "tris": 12160,
+ "bounds_min": [
+  -0.0242,
+  -0.062,
+  -0.0242
+ ],
+ "bounds_max": [
+  0.0348,
+  0.0863,
+  0.0255
+ ],
+ "size_m": [
+  0.059,
+  0.1483,
+  0.0497
+ ],
+ "nodes": [
+  "throw_stun",
+  "body",
+  "pin",
+  "pin_mesh",
+  "spoon",
+  "spoon_mesh",
+  "pin_ring"
+ ],
+ "materials": [
+  "M_throw_stun"
+ ],
+ "kind": "throwable",
+ "type": "stun",
+ "id": "throw_stun"
+}

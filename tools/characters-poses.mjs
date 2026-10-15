@@ -70,6 +70,14 @@ await page.evaluate(() => {
   };
 });
 
+// Wait until the subject's model is loaded and posed (variants stream in after boot).
+await page.waitForFunction(() => {
+  const v = window.__subject.visual;
+  const lib = window.__game.characterLibrary;
+  return !!v && !!v.getPosePoints() && lib.hasVariant(window.__subject.variant ?? 2) && !!lib.clips.length;
+}, null, { timeout: 120000 });
+await page.waitForTimeout(500);
+
 const S = (name, body, cam) => ({ name, body, cam });
 const scenarios = [
   S('stand_idle', `await __wait(1);`),

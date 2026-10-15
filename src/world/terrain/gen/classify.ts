@@ -250,7 +250,7 @@ export function classify(inp: ClassifyInput): ClassifyOutput {
       if (pad[sc]) over(yard === 2 ? 7 : 3, 0.9);
       // road shoulders
       if (roadKind === 2) over(3, sstep(2.2, -0.5, roadEdge));
-      else if (roadKind === 1) over(7, 0.55 * sstep(2.5, 0.2, roadEdge) * sstep(-1.5, 0.5, roadEdge));
+      // (asphalt shoulders are drawn by the road ribbon itself: a 1-2 m strip aliases into spots on the 4 m splat)
       // ground patches
       for (const p of bucket.patches) {
         const sd = rectSd(x, z, p.x, p.z, p.w / 2, p.d / 2, p.cos, p.sin);

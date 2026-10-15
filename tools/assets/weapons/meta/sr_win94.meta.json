@@ -1,0 +1,31 @@
+{
+ "tris": 6380,
+ "bounds_min": [
+  -0.02,
+  -0.112,
+  -0.3039
+ ],
+ "bounds_max": [
+  0.02,
+  0.073,
+  0.665
+ ],
+ "length_m": 0.9689,
+ "nodes": [
+  "sr_win94",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "Win94",
+ "real_length_m": 0.965,
+ "cycle_node": "bolt",
+ "mag_kind": "tube",
+ "id": "sr_win94"
+}

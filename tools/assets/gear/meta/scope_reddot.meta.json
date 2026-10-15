@@ -1,0 +1,38 @@
+{
+ "tris": 7912,
+ "bounds_min": [
+  -0.027,
+  -0.0103,
+  -0.0605
+ ],
+ "bounds_max": [
+  0.034,
+  0.066,
+  0.061
+ ],
+ "size_m": [
+  0.061,
+  0.0763,
+  0.1215
+ ],
+ "nodes": [
+  "scope_reddot",
+  "body",
+  "lens",
+  "lens_front",
+  "eye"
+ ],
+ "materials": [
+  "M_scope_reddot",
+  "lens",
+  "lens_amber"
+ ],
+ "kind": "reddot",
+ "zoom": 1.0,
+ "optical_axis_height_m": 0.039,
+ "eye_relief_m": 0.14,
+ "lens_radius_m": 0.0136,
+ "reticle": "reticles/reddot.png",
+ "notes": "unlimited eye relief; eye placed 140 mm behind the rear lens",
+ "id": "scope_reddot"
+}

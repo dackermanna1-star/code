@@ -1,0 +1,31 @@
+{
+ "tris": 5576,
+ "bounds_min": [
+  -0.023,
+  -0.023,
+  -0.0
+ ],
+ "bounds_max": [
+  0.023,
+  0.023,
+  0.231
+ ],
+ "size_m": [
+  0.046,
+  0.046,
+  0.231
+ ],
+ "nodes": [
+  "muzzle_suppressor_sr",
+  "body",
+  "muzzle"
+ ],
+ "materials": [
+  "M_muzzle_suppressor_sr"
+ ],
+ "kind": "muzzle",
+ "type": "suppressor",
+ "fits": "SR/DMR",
+ "length_m": 0.231,
+ "id": "muzzle_suppressor_sr"
+}

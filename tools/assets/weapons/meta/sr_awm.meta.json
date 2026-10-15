@@ -1,0 +1,31 @@
+{
+ "tris": 8504,
+ "bounds_min": [
+  -0.0539,
+  -0.093,
+  -0.2977
+ ],
+ "bounds_max": [
+  0.0302,
+  0.1128,
+  0.9397
+ ],
+ "length_m": 1.2374,
+ "nodes": [
+  "sr_awm",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "AWM",
+ "real_length_m": 1.23,
+ "cycle_node": "bolt",
+ "mag_kind": "box",
+ "id": "sr_awm"
+}

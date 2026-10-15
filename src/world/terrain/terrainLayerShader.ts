@@ -158,17 +158,21 @@ vec4 layerSample( vec2 uv, out float h ) {
     h = clamp( rip * 0.22 + n * 0.55 + grain * 0.23, 0.0, 1.0 );
     rough = 0.95;
   } else if ( uLayer == 7 ) {
-    // gravel: packed stones
-    vec3 v = pvoronoi( uv, 30.0 );
-    vec3 v2 = pvoronoi( uv + 0.5, 64.0 );
-    float stone = smoothstep( 0.0, 0.18, v.z );
-    float small = smoothstep( 0.0, 0.2, v2.z ) * 0.5;
-    vec3 sc = mix( vec3( 0.16, 0.15, 0.135 ), vec3( 0.38, 0.36, 0.32 ), v.y );
-    sc = mix( sc, vec3( 0.30, 0.24, 0.17 ), step( 0.8, v.y ) * 0.6 );
-    col = mix( vec3( 0.07, 0.06, 0.05 ), sc, stone );
-    col = mix( col, col * ( 0.85 + 0.3 * v2.y ), small );
-    h = clamp( stone * ( 1.0 - v.x * 0.6 ) * 0.8 + small * 0.2, 0.0, 1.0 );
-    rough = 0.85;
+    // gravel: loose mixed-size stones in a dusty fill (not paving: irregular sizes, many gaps)
+    vec2 wuv = uv + vec2( pnoise( uv * 24.0, 24.0 ), pnoise( uv * 24.0 + 3.7, 24.0 ) ) * 0.012;
+    vec3 v = pvoronoi( wuv, 26.0 );
+    vec3 v2 = pvoronoi( wuv + 0.5, 70.0 );
+    float dust = pfbm( uv, 6.0, 3, 0.5 );
+    float big = step( 0.45, v.y ) * smoothstep( 0.0, 0.16, v.z ) * smoothstep( 0.62, 0.3, v.x );
+    float small = smoothstep( 0.0, 0.22, v2.z ) * step( 0.2, v2.y ) * ( 1.0 - big );
+    vec3 fill = mix( vec3( 0.19, 0.175, 0.15 ), vec3( 0.29, 0.27, 0.235 ), dust );
+    vec3 sc = mix( vec3( 0.17, 0.16, 0.145 ), vec3( 0.40, 0.385, 0.35 ), fract( v.y * 7.13 ) );
+    sc = mix( sc, vec3( 0.33, 0.27, 0.2 ), step( 0.88, v.y ) * 0.6 );
+    vec3 sc2 = mix( vec3( 0.16, 0.15, 0.135 ), vec3( 0.36, 0.34, 0.30 ), v2.y );
+    col = mix( fill, sc2, small * 0.85 );
+    col = mix( col, sc * ( 0.8 + 0.25 * ( 1.0 - v.x ) ), big );
+    h = clamp( big * ( 1.0 - v.x * 0.7 ) * 0.85 + small * ( 1.0 - v2.x * 0.6 ) * 0.4 + dust * 0.1, 0.0, 1.0 );
+    rough = 0.88;
   } else {
     // plowed field: furrows + clods
     float n = pfbm( uv, 6.0, 4, 0.55 );

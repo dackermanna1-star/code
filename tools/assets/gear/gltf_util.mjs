@@ -3,10 +3,11 @@
 //   node tools/assets/gear/gltf_util.mjs optimize <in.glb> <out.glb>        -> dedup, prune, weld, reorder, quantize,
 //        EXT_meshopt_compression; sets occlusionTexture = metallicRoughnessTexture (packed ORM) when missing.
 //        Nodes listed with --keep a,b,c (and every node that has children) keep their exact transforms.
+//   node tools/assets/gear/gltf_util.mjs plain <in.glb> <out.glb>         -> decode meshopt/quantization (for Blender import)
 //   node tools/assets/gear/gltf_util.mjs info <file.glb>
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { dedup, prune, weld, quantize, reorder, meshopt } from '@gltf-transform/functions';
+import { dedup, prune, weld, quantize, reorder, meshopt, dequantize } from '@gltf-transform/functions';
 import { MeshoptEncoder, MeshoptDecoder } from 'meshoptimizer';
 import fs from 'fs';
 
@@ -22,7 +23,16 @@ function triCount(doc) {
   return t;
 }
 
-if (cmd === 'pack') {
+if (cmd === 'plain') {
+  // decode meshopt + quantization so Blender can import the file
+  const doc = await io.read(args[0]);
+  await doc.transform(dequantize());
+  for (const e of doc.getRoot().listExtensionsUsed()) {
+    if (['EXT_meshopt_compression', 'KHR_mesh_quantization'].includes(e.extensionName)) e.dispose();
+  }
+  await io.write(args[1], doc);
+  console.log(JSON.stringify({ out: args[1], bytes: fs.statSync(args[1]).size }));
+} else if (cmd === 'pack') {
   const doc = await io.read(args[0]);
   await io.write(args[1], doc);
   console.log(JSON.stringify({ out: args[1], bytes: fs.statSync(args[1]).size, tris: triCount(doc) }));

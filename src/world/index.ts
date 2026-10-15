@@ -136,6 +136,8 @@ export async function installWorld(ctx: GameContext): Promise<void> {
   applyQuality();
   ctx.events.on('settings:changed', applyQuality);
   const cloudOffset = new THREE.Vector2();
+  let baseNear = ctx.camera.near;
+  let lastNear = baseNear;
   ctx.engine.addSystem({
     name: 'world',
     priority: Priority.World,
@@ -166,8 +168,14 @@ export async function installWorld(ctx: GameContext): Promise<void> {
         // far plane follows the view distance setting (wider from altitude so the island stays visible from the plane)
         const vd = ctx.settings.data.graphics.viewDistance;
         const far = Math.min(9000, Math.max(800, vd * (1 + Math.max(0, cam.position.y - 50) / 350)));
-        if (Math.abs(cam.far - far) > 1) {
+        // near plane grows with height above ground (plane / freefall views: 8x the depth precision at range, so
+        // low land and the sea plane don't z-fight); another module changing camera.near becomes the new base.
+        if (cam.near !== lastNear) baseNear = cam.near;
+        const agl = cam.position.y - Math.max(0, world.getHeight(cam.position.x, cam.position.z));
+        const near = baseNear + Math.max(0, 0.4 - baseNear) * THREE.MathUtils.smoothstep(agl, 60, 400);
+        if (Math.abs(cam.far - far) > 1 || Math.abs(cam.near - near) > 0.002) {
           cam.far = far;
+          cam.near = lastNear = near;
           cam.updateProjectionMatrix();
         }
         terrainR.update(cam);

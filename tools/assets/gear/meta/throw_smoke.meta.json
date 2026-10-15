@@ -1,0 +1,33 @@
+{
+ "tris": 2934,
+ "bounds_min": [
+  -0.0323,
+  -0.0575,
+  -0.0323
+ ],
+ "bounds_max": [
+  0.0348,
+  0.0828,
+  0.0341
+ ],
+ "size_m": [
+  0.0671,
+  0.1403,
+  0.0664
+ ],
+ "nodes": [
+  "throw_smoke",
+  "body",
+  "pin",
+  "pin_mesh",
+  "spoon",
+  "spoon_mesh",
+  "pin_ring"
+ ],
+ "materials": [
+  "M_throw_smoke"
+ ],
+ "kind": "throwable",
+ "type": "smoke",
+ "id": "throw_smoke"
+}

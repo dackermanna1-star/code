@@ -519,7 +519,7 @@ class Gun:
         c = min(chamfer, r * 0.3, abs(f1 - f0) * 0.3)
         if bore > 0:
             # solid barrel with a muzzle recess only (a full-length thin wall would bake as worn-through edge)
-            depth = min(max(bore * 4.0, 12.0), (f1 - f0) * 0.8)
+            depth = min(max(bore * 1.2, 5.0) if (r1 - bore) < 4.0 else max(bore * 4.0, 12.0), (f1 - f0) * 0.8)
             prof = [(f0, 0), (f0, r - c), (f0 + c, r), (f1 - c, r1), (f1, r1 - c), (f1, bore), (f1 - depth, bore), (f1 - depth, 0)]
             return self.lathe(name, prof, kind, group, 0, u, s, 'f', segs, M=M)
         prof = [(f0, 0), (f0, r - c), (f0 + c, r), (f1 - c, r1), (f1, r1 - c), (f1, 0)]

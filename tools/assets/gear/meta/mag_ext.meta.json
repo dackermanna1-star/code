@@ -1,0 +1,29 @@
+{
+ "tris": 2700,
+ "bounds_min": [
+  -0.0143,
+  -0.248,
+  -0.031
+ ],
+ "bounds_max": [
+  0.0143,
+  0.0113,
+  0.0398
+ ],
+ "size_m": [
+  0.0285,
+  0.2593,
+  0.0708
+ ],
+ "nodes": [
+  "mag_ext",
+  "body"
+ ],
+ "materials": [
+  "M_mag_ext"
+ ],
+ "kind": "mag",
+ "type": "extended",
+ "capacity_note": "generic 40-rd box magazine; pickup model / swap-in for 5.56 rifles",
+ "id": "mag_ext"
+}

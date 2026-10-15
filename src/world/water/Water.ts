@@ -40,6 +40,11 @@ const vertBegin = /* glsl */ `
 vec4 wpBase = modelMatrix * vec4( position, 1.0 );
 vec2 wuv = clamp( wpBase.xz / ${WORLD_SIZE.toFixed(1)}, 0.0, 1.0 );
 vec4 wd = uUseData > 0.5 ? texture2D( tWaterData, wuv ) : vec4( -50.0, 2000.0, 0.0, 0.0 );
+// beyond the map square the clamped edge texels would smear into bands: keep the sea floor sloping down
+// (absorption saturates within ~250 m) and the shore receding
+float wOutV = max( 0.0, max( max( - wpBase.x, wpBase.x - ${WORLD_SIZE.toFixed(1)} ), max( - wpBase.z, wpBase.z - ${WORLD_SIZE.toFixed(1)} ) ) );
+wd.rg += vec2( - 0.1, 1.0 ) * wOutV;
+wd.ba *= 1.0 - step( 0.01, wOutV );
 // open water gets full waves, rivers/near-shore calm down
 float shoreAtt = smoothstep( 4.0, 140.0, wd.g ) * uWaveAmp;
 vShoreDist = wd.g;
@@ -79,6 +84,13 @@ vec3 sampleDetail( vec2 p, vec2 flow, float t ) {
 const fragMap = /* glsl */ `
 vec2 wuvF = clamp( vWPos.xz / ${WORLD_SIZE.toFixed(1)}, 0.0, 1.0 );
 vec4 wdF = uUseData > 0.5 ? texture2D( tWaterData, wuvF ) : vec4( uWaterLevel - 3.0, 50.0, 0.0, 0.0 );
+float wOutF = max( 0.0, max( max( - vWPos.x, vWPos.x - ${WORLD_SIZE.toFixed(1)} ), max( - vWPos.z, vWPos.z - ${WORLD_SIZE.toFixed(1)} ) ) ) * uUseData;
+wdF.rg += vec2( - 0.1, 1.0 ) * wOutF;
+wdF.ba *= 1.0 - step( 0.01, wOutF );
+// The sea plane runs under the whole island; far away the depth buffer cannot separate it from low land
+// (z-fighting), so drop water fragments where the terrain is clearly above the water surface. The margin
+// shrinks with distance (bed is a 4 m bilinear height, exact enough once a pixel covers metres).
+if ( uUseData > 0.5 && wdF.r > vWPos.y + mix( 6.0, 0.25, smoothstep( 250.0, 1000.0, length( vWPos - cameraPosition ) ) ) ) discard;
 float wDepth = max( uWaterLevel - wdF.r, 0.0 );
 vec2 wFlow = wdF.ba;
 // absorption: shallow water shows the bed, deep water turns dark blue-green

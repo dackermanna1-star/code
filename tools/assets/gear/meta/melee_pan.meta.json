@@ -1,0 +1,30 @@
+{
+ "tris": 3272,
+ "bounds_min": [
+  -0.1288,
+  -0.0486,
+  -0.093
+ ],
+ "bounds_max": [
+  0.1288,
+  0.0174,
+  0.3719
+ ],
+ "size_m": [
+  0.2576,
+  0.066,
+  0.4649
+ ],
+ "nodes": [
+  "melee_pan",
+  "body",
+  "tip"
+ ],
+ "materials": [
+  "M_melee_pan"
+ ],
+ "kind": "melee",
+ "type": "pan",
+ "notes": "cooking surface faces +Y; roll 90 deg about Z to hold it like a bat",
+ "id": "melee_pan"
+}

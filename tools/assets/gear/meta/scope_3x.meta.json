@@ -1,0 +1,37 @@
+{
+ "tris": 10300,
+ "bounds_min": [
+  -0.028,
+  -0.0081,
+  -0.065
+ ],
+ "bounds_max": [
+  0.029,
+  0.067,
+  0.05
+ ],
+ "size_m": [
+  0.057,
+  0.0751,
+  0.115
+ ],
+ "nodes": [
+  "scope_3x",
+  "body",
+  "lens",
+  "lens_front",
+  "eye"
+ ],
+ "materials": [
+  "M_scope_3x",
+  "lens"
+ ],
+ "kind": "scope",
+ "zoom": 3.0,
+ "optical_axis_height_m": 0.04,
+ "eye_relief_m": 0.065,
+ "lens_radius_m": 0.0125,
+ "reticle": "reticles/scope_3x.png",
+ "field_of_view_deg": 13.0,
+ "id": "scope_3x"
+}

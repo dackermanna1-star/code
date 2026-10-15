@@ -1,0 +1,30 @@
+{
+ "tris": 1748,
+ "bounds_min": [
+  -0.0181,
+  -0.1178,
+  -0.0251
+ ],
+ "bounds_max": [
+  0.0205,
+  0.0096,
+  0.022
+ ],
+ "size_m": [
+  0.0386,
+  0.1274,
+  0.0471
+ ],
+ "nodes": [
+  "grip_vertical",
+  "body",
+  "grip_support"
+ ],
+ "materials": [
+  "M_grip_vertical"
+ ],
+ "kind": "grip",
+ "type": "vertical",
+ "mount": "bottom rail",
+ "id": "grip_vertical"
+}

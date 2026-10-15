@@ -13,11 +13,13 @@ interface Builder {
   nrm: number[];
   uv: number[];
   info: number[];
+  /** 1 = draw the gravel shoulder here, 0 = not (bridge decks, junctions with other roads, pads). */
+  sh: number[];
   idx: number[];
 }
 
 function newBuilder(): Builder {
-  return { pos: [], nrm: [], uv: [], info: [], idx: [] };
+  return { pos: [], nrm: [], uv: [], info: [], sh: [], idx: [] };
 }
 
 function toGeometry(b: Builder): THREE.BufferGeometry {
@@ -26,6 +28,7 @@ function toGeometry(b: Builder): THREE.BufferGeometry {
   g.setAttribute('normal', new THREE.Float32BufferAttribute(b.nrm, 3));
   g.setAttribute('roadUv', new THREE.Float32BufferAttribute(b.uv, 2));
   g.setAttribute('roadInfo', new THREE.Float32BufferAttribute(b.info, 4));
+  g.setAttribute('roadShoulder', new THREE.Float32BufferAttribute(b.sh, 1));
   g.setIndex(b.idx);
   g.computeBoundingSphere();
   return g;
@@ -82,8 +85,8 @@ function addRoad(b: Builder, world: World, road: RoadDef, bridges: BridgeDef[], 
   if (pts.length < 2) return;
   const asphalt = road.kind === 'asphalt';
   const hw = road.width / 2;
-  const ext = asphalt ? 0.5 : 0.8;
-  const offs = asphalt ? [-(hw + ext), -hw * 0.55, 0, hw * 0.55, hw + ext] : [-(hw + ext), -0.9, 0, 0.9, hw + ext];
+  const ext = asphalt ? 1.6 : 0.8; // asphalt ribbons carry a gravel shoulder
+  const offs = asphalt ? [-(hw + ext), -hw, -hw * 0.5, 0, hw * 0.5, hw, hw + ext] : [-(hw + ext), -0.9, 0, 0.9, hw + ext];
   const cols = offs.length;
   const markings = asphalt && road.width >= 7.9 ? 1 : 0;
   const base = b.pos.length / 3;
@@ -99,7 +102,8 @@ function addRoad(b: Builder, world: World, road: RoadDef, bridges: BridgeDef[], 
     const deck = bridgeDeckAt(bridges, road, p.x, p.z);
     const mask = markings ? THREE.MathUtils.smoothstep(index.otherClearance(p.x, p.z, road.id), 2, 8) : 0;
     for (let ci = 0; ci < cols; ci++) {
-      const o = offs[ci];
+      // on bridge decks the asphalt stops at the kerb (no gravel shoulder hanging past the parapets)
+      const o = deck !== null && asphalt ? Math.sign(offs[ci]) * Math.min(Math.abs(offs[ci]), hw + 0.45) : offs[ci];
       const x = p.x + nx * o, z = p.z + nz * o;
       let y: number;
       if (deck !== null) {
@@ -113,6 +117,7 @@ function addRoad(b: Builder, world: World, road: RoadDef, bridges: BridgeDef[], 
       b.nrm.push(_n.x, _n.y, _n.z);
       b.uv.push(o, p.s);
       b.info.push(hw, mask, asphalt ? 0 : 1, markings);
+      b.sh.push(asphalt && deck === null ? THREE.MathUtils.smoothstep(index.otherClearance(x, z, road.id), -0.5, 2.0) : 0);
     }
   }
   for (let k = 0; k < pts.length - 1; k++)
@@ -139,6 +144,7 @@ function addPad(b: Builder, world: World, p: GroundPatchDef): void {
       b.nrm.push(_n.x, _n.y, _n.z);
       b.uv.push(rectSd(x, z, p.x, p.z, p.w / 2, p.d / 2, c, s), 0);
       b.info.push(0, 0, 2, 0);
+      b.sh.push(0);
     }
   for (let j = 0; j < nz; j++)
     for (let i = 0; i < nx; i++) {

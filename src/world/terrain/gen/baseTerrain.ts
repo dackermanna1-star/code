@@ -250,8 +250,11 @@ export function buildBaseTerrain(layout: WorldLayout, noise: Noise2D): BaseTerra
           const hc = cl.height * Math.pow(sstep(0, cl.width, d + jag), 0.6) + noise.fbm(x, z, 60, 2) * 2;
           h[idx] = mix(h[idx], Math.max(h[idx], hc), taper);
         } else {
+          // deep water at the cliff foot, blending back into the normal shelf with distance and toward the cliff
+          // ends (a hard-edged deep slab reads as a dark rectangular band from the air)
           const hc = -4 - -d * 0.22;
-          h[idx] = mix(h[idx], Math.min(h[idx], hc), taper);
+          const seaT = sstep(0, 0.3, u) * sstep(1, 0.7, u) * sstep(R * 0.85, 15, dl);
+          h[idx] = mix(h[idx], Math.min(h[idx], hc), seaT);
         }
       }
   }

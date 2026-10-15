@@ -1,0 +1,37 @@
+{
+ "tris": 10840,
+ "bounds_min": [
+  -0.026,
+  -0.0081,
+  -0.08
+ ],
+ "bounds_max": [
+  0.023,
+  0.064,
+  0.072
+ ],
+ "size_m": [
+  0.049,
+  0.0721,
+  0.152
+ ],
+ "nodes": [
+  "scope_2x",
+  "body",
+  "lens",
+  "lens_front",
+  "eye"
+ ],
+ "materials": [
+  "M_scope_2x",
+  "lens"
+ ],
+ "kind": "scope",
+ "zoom": 2.0,
+ "optical_axis_height_m": 0.038,
+ "eye_relief_m": 0.08,
+ "lens_radius_m": 0.0135,
+ "reticle": "reticles/scope_2x.png",
+ "field_of_view_deg": 21.0,
+ "id": "scope_2x"
+}

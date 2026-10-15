@@ -1,0 +1,34 @@
+{
+ "tris": 5068,
+ "bounds_min": [
+  -0.0325,
+  -0.0322,
+  -0.0325
+ ],
+ "bounds_max": [
+  0.0348,
+  0.0548,
+  0.034
+ ],
+ "size_m": [
+  0.0673,
+  0.087,
+  0.0665
+ ],
+ "nodes": [
+  "throw_frag",
+  "body",
+  "pin",
+  "pin_mesh",
+  "spoon",
+  "spoon_mesh",
+  "pin_ring"
+ ],
+ "materials": [
+  "M_throw_frag"
+ ],
+ "kind": "throwable",
+ "type": "frag",
+ "nodes_note": "'pin' (pivot: pull ring + pin) and 'spoon' (pivot at the lever hinge) can be animated off",
+ "id": "throw_frag"
+}

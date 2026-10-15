@@ -1,0 +1,30 @@
+{
+ "tris": 3044,
+ "bounds_min": [
+  -0.0245,
+  -0.0622,
+  -0.22
+ ],
+ "bounds_max": [
+  0.025,
+  0.0237,
+  0.0005
+ ],
+ "size_m": [
+  0.0495,
+  0.0859,
+  0.2205
+ ],
+ "nodes": [
+  "stock_tactical",
+  "body",
+  "buttpad",
+  "cheek"
+ ],
+ "materials": [
+  "M_stock_tactical"
+ ],
+ "kind": "stock",
+ "type": "tactical",
+ "id": "stock_tactical"
+}

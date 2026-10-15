@@ -1,0 +1,29 @@
+{
+ "tris": 1520,
+ "bounds_min": [
+  -0.0155,
+  -0.0348,
+  -0.072
+ ],
+ "bounds_max": [
+  0.0155,
+  0.2204,
+  0.2676
+ ],
+ "size_m": [
+  0.031,
+  0.2552,
+  0.3396
+ ],
+ "nodes": [
+  "melee_sickle",
+  "body",
+  "tip"
+ ],
+ "materials": [
+  "M_melee_sickle"
+ ],
+ "kind": "melee",
+ "type": "sickle",
+ "id": "melee_sickle"
+}

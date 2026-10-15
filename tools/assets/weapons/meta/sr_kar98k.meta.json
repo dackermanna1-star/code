@@ -1,0 +1,31 @@
+{
+ "tris": 6228,
+ "bounds_min": [
+  -0.0467,
+  -0.1115,
+  -0.302
+ ],
+ "bounds_max": [
+  0.0213,
+  0.08,
+  0.81
+ ],
+ "length_m": 1.112,
+ "nodes": [
+  "sr_kar98k",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "Kar98k",
+ "real_length_m": 1.11,
+ "cycle_node": "bolt",
+ "mag_kind": "internal",
+ "id": "sr_kar98k"
+}

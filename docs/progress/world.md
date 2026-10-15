@@ -25,7 +25,8 @@ spatial queries, debug helpers, sandbox. See "Known issues" for gaps.
   `isReserved(x,z,margin)` (distance field to roads, bridges, lot footprints and prop footprints; margins ≤ 25 m).
 - `World.reservedDistance(x,z)`, `World.surfaceClass`, `World.waterLevelAt`, `World.layout` (full authored data:
   fields, forests, ponds, river, ridges, bridges with `deckY`, ground patches…).
-- `lots[]`: BuildingLot with `groundY` = flattened pad height (terrain is flat at groundY over footprint + 1.5 m).
+- `lots[]`: BuildingLot with `groundY` = flattened pad height (terrain is flat at groundY over footprint + 2.9 m;
+  lots whose padded footprints overlap are clustered and share one groundY, so neighbouring pads never fight).
   Front door faces local +Z rotated by rotationY (lots along streets face the street).
 - `props[]`: kinds + nominal footprints in `PROP_FOOTPRINTS` (src/world/layout/props.ts, exported data):
   fence_wood, fence_metal, wall_concrete, wall_ruin, guard_rail (linear: `length` along local X, origin = center),
@@ -61,11 +62,13 @@ spatial queries, debug helpers, sandbox. See "Known issues" for gaps.
 `teleport(x,z[,y])`, `debugCam(x,y|null,z,yawDeg,pitchDeg)` (sets debugState.freeCam), `debugCamOff()`,
 `flycam(on)`, `setTime(h)`, `setWeather(w[,seconds])`, `screenshotTour()` (viewpoints for towns/bridges/coast),
 `worldInfo([x,z])`, `renderStats()`, `terrainDebug(mode)` (1 flat albedo, 2 weights, 4 normals, 12 terrain normal…),
-`showTerrainLayers(on,'albedo'|'normal')`.
+`showTerrainLayers(on,'albedo'|'normal')`. Note: in the full game the characters module registers its own
+`teleport` after the world, which wins; `debugCam`/`flycam` are world-only and work in both.
 Sandbox: `/sandbox/world.html?time=19.5&weather=fog&preset=low&nopost=1&texres=512&modules=buildings,vegetation`.
 Tools: `tools/world-shot.mjs` (multi-view screenshots, `--views "name:x,y,z,yaw,pitch;..."`, `--tour`, `--map out.png`),
 `tools/world-preview.ts` (node map preview, `npx vite-node tools/world-preview.ts out.png`),
-`tools/world-vite.config.ts` (HMR-free dev server for long headless runs).
+`tools/world-vite.config.ts` (HMR-free dev server for long headless runs), `tools/world-perf.mjs` (draws/tris per
+view & config), `tools/world-functional.mjs` (end-to-end checks: queries, collider agreement, weather/time, map).
 
 ## Design decisions
 - Layout is authored data (src/world/layout): coast polygons, river, ridges/hills, quarry, forests, fields, flat
@@ -78,7 +81,7 @@ Tools: `tools/world-shot.mjs` (multi-view screenshots, `--views "name:x,y,z,yaw,
   diagonal) so there are no cracks and the near field (<~135 m) is exactly the physics surface. One instanced draw
   per pass; nodes sorted by distance so each shadow cascade draws only its prefix.
 - Terrain material: 9 layers in two texture arrays baked on the GPU (procedural recipes or asset sets), height-
-  blended, IQ anti-tiling, triplanar rock, per-pixel terrain normals + detail normals, macro variation, wetness, cloud
+  blended, hex-tiling anti-tiling (Mikkelsen) + world-space breakup, triplanar rock, per-pixel terrain normals + detail normals, macro variation, wetness, cloud
   shadows.
 - Why not CSM.js: it needs `setupMaterial` on every material (unregistered materials get lit N times). r186 SunLight
   path is global; CascadedSunShadow extends it to 4 cascades.
@@ -89,8 +92,19 @@ Tools: `tools/world-shot.mjs` (multi-view screenshots, `--views "name:x,y,z,yaw,
 - getSurface for forest floor and fields returns 'dirt' (no dedicated SurfaceType).
 - Water depth color uses the 4 m terrain height texture (no screen-space depth); objects in water don't get foam.
 
+## Performance (tools/world-perf.mjs, headless Chromium + SwiftShader, 640x360, preset high)
+- Town at ground level, full world: 55 draws / 0.91 M tris (102 terrain nodes in one instanced draw + shadow prefixes).
+- Terrain + water + sky + post only: 43 draws / 0.63 M tris; no shadows: 43 / 0.56 M; no post: 21 / 0.70 M.
+- Plane view at 600 m: 51 draws / 0.49 M tris (camera.far grows with altitude, LOD ranges keep node count ~50).
+- Draw/triangle counts are resolution-independent; the box has no real GPU (SwiftShader fps is meaningless), so the
+  60 fps @1080p GTX 1660 target is unverified here — draw/tri budget (≤150 draws, ~1.5 M tris) is met.
+
 ## Log
 - Layout: 12 locations, ~265 lots, 58 roads, 5 bridges (2 channel, 3 river), ~620 props, 41+9 vehicle spawns.
-- Worker generation ~2.5-4 s on a loaded 4-core box (base relief ~1.2 s, classify ~0.8 s, map raster ~0.4 s).
+- Worker generation ~3.3 s warm / 4-6 s cold on a loaded 4-core box (base relief ~1.2 s, classify ~0.8 s, map raster ~0.4 s).
 - Pitfalls found: sun disc HDR overflowed half floats (Inf → NaN black frames) → disc capped; road winding;
   vite HMR reloads from other agents' edits interrupt headless runs → tools/world-vite.config.ts (hmr off).
+- Final validation: tsc clean (whole project), 27 vitest tests (tests/world*.test.ts), tools/world-functional.mjs (end-to-end in-browser checks) all
+  PASS (getHeight vs Rapier collider max err ~2e-4 m over 400 rays), 38-view screenshot tour (towns aerial+street,
+  bridges, beach, quarry, summit, forest edge, river valley, island overview) reviewed; gravel recipe reworked from
+  "paving" look to loose mixed-size gravel after the tour.

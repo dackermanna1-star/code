@@ -1,0 +1,31 @@
+{
+ "tris": 4576,
+ "bounds_min": [
+  -0.019,
+  -0.019,
+  -0.0
+ ],
+ "bounds_max": [
+  0.019,
+  0.019,
+  0.174
+ ],
+ "size_m": [
+  0.038,
+  0.038,
+  0.174
+ ],
+ "nodes": [
+  "muzzle_suppressor_ar",
+  "body",
+  "muzzle"
+ ],
+ "materials": [
+  "M_muzzle_suppressor_ar"
+ ],
+ "kind": "muzzle",
+ "type": "suppressor",
+ "fits": "AR",
+ "length_m": 0.174,
+ "id": "muzzle_suppressor_ar"
+}

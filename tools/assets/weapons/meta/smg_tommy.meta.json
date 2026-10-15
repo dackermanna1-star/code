@@ -1,0 +1,30 @@
+{
+ "tris": 5384,
+ "bounds_min": [
+  -0.0311,
+  -0.0901,
+  -0.345
+ ],
+ "bounds_max": [
+  0.0218,
+  0.1419,
+  0.4683
+ ],
+ "length_m": 0.8133,
+ "nodes": [
+  "smg_tommy",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "sight_eye"
+ ],
+ "name": "Tommy Gun",
+ "real_length_m": 0.813,
+ "cycle_node": "bolt",
+ "mag_kind": "box",
+ "id": "smg_tommy"
+}

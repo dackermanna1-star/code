@@ -1,0 +1,30 @@
+{
+ "tris": 2332,
+ "bounds_min": [
+  -0.0335,
+  -0.044,
+  -0.07
+ ],
+ "bounds_max": [
+  0.0305,
+  0.0276,
+  0.07
+ ],
+ "size_m": [
+  0.064,
+  0.0716,
+  0.14
+ ],
+ "nodes": [
+  "stock_cheekpad",
+  "body",
+  "cheek"
+ ],
+ "materials": [
+  "M_stock_cheekpad"
+ ],
+ "kind": "stock",
+ "type": "cheekpad",
+ "inner_width_m": 0.042,
+ "id": "stock_cheekpad"
+}

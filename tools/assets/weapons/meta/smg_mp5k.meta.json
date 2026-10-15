@@ -1,0 +1,31 @@
+{
+ "tris": 7240,
+ "bounds_min": [
+  -0.021,
+  -0.0562,
+  -0.323
+ ],
+ "bounds_max": [
+  0.04,
+  0.154,
+  0.273
+ ],
+ "length_m": 0.596,
+ "nodes": [
+  "smg_mp5k",
+  "body",
+  "charging_handle",
+  "mag",
+  "charging_handle_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "MP5K",
+ "real_length_m": 0.603,
+ "cycle_node": "charging_handle",
+ "mag_kind": "box",
+ "id": "smg_mp5k"
+}

@@ -10,7 +10,7 @@ import type { CharacterLibrary, ModelInstance } from './CharacterLibrary';
 import { Locomotion, type LocoInput } from './Locomotion';
 import { ProceduralAnimator, type AnimFrameState } from './ProceduralAnimator';
 import { WeaponPose } from './WeaponPose';
-import { createWeaponVisual, holdStyleFor, type WeaponVisual } from './WeaponModels';
+import { createWeaponVisual, holdStyleFor, sightLift, type WeaponVisual } from './WeaponModels';
 import { SpecialPoses } from './SpecialPoses';
 import { Equipment } from './Equipment';
 import { Ragdoll } from './Ragdoll';
@@ -56,6 +56,8 @@ const _v2 = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 const _inv = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
+const _sl = new THREE.Vector3();
+const _slq = new THREE.Quaternion();
 const _one = new THREE.Vector3(1, 1, 1);
 const _sphere = new THREE.Sphere();
 const _frustum = new THREE.Frustum();
@@ -562,9 +564,13 @@ export class CharacterVisual implements ICharacterVisual {
   }
 
   getSightEyeWorld(out: THREE.Vector3): boolean {
-    const s = this.held?.sightEye;
-    if (!s || !this.weaponPose) return false;
+    const h = this.held;
+    const s = h?.sightEye;
+    if (!h || !s || !this.weaponPose) return false;
     s.getWorldPosition(out);
+    // Clear solid iron sights: look over the rear sight (lift along the weapon's up axis).
+    const lift = sightLift(h);
+    if (lift > 0) out.add(_sl.set(0, lift, 0).applyQuaternion(h.object.getWorldQuaternion(_slq)));
     return true;
   }
 

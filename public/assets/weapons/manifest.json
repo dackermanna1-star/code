@@ -1,0 +1,3373 @@
+{
+ "category": "weapons",
+ "conventions": "Node positions are local to the listed parent (mesh-node positions include the meshopt dequantization offset; do not rely on them). glTF +Y up, barrel along +Z, meters. Root node = weapon id; origin at the firing-hand pistol grip. Children of the root: body (static mesh), plus pivot nodes mag and <cycle_node> (bolt | charging_handle | slide); each pivot node holds its mesh as child <name>_mesh. Animate the pivot node (mag: top of the mag well; bolt/charging_handle/slide: the handle; break-action bolt: hinge pin; Win94 bolt: lever pivot; R1895 bolt: hammer pivot, mag: cylinder axis). Empties: muzzle, grip_support (support hand), sight_eye (eye point on the iron-sight line), rail_top (optic mount point, top of rail/receiver; omitted where nothing can mount).",
+ "firearms_total_bytes": 13126096,
+ "weapons": [
+  {
+   "id": "ar_m416",
+   "file": "ar_m416.glb",
+   "name": "M416",
+   "length_m": 0.9,
+   "real_length_m": 0.9,
+   "bounds_m": {
+    "min": [
+     -0.0354,
+     -0.1093,
+     -0.258
+    ],
+    "max": [
+     0.0354,
+     0.166,
+     0.642
+    ]
+   },
+   "tris": 11420,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 617660,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:HK416N.png",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "ar_m416",
+     "mesh": true,
+     "position": [
+      0,
+      0.0513,
+      0.192
+     ]
+    },
+    "charging_handle_mesh": {
+     "parent": "charging_handle",
+     "mesh": true,
+     "position": [
+      0,
+      0.0006,
+      0.012
+     ]
+    },
+    "charging_handle": {
+     "parent": "ar_m416",
+     "mesh": false,
+     "position": [
+      0,
+      0.113,
+      -0.02
+     ]
+    },
+    "grip_support": {
+     "parent": "ar_m416",
+     "mesh": false,
+     "position": [
+      0,
+      0.062,
+      0.302
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0607,
+      0.0126
+     ]
+    },
+    "mag": {
+     "parent": "ar_m416",
+     "mesh": false,
+     "position": [
+      0,
+      0.012,
+      0.138
+     ]
+    },
+    "muzzle": {
+     "parent": "ar_m416",
+     "mesh": false,
+     "position": [
+      0,
+      0.09,
+      0.642
+     ]
+    },
+    "rail_top": {
+     "parent": "ar_m416",
+     "mesh": false,
+     "position": [
+      0,
+      0.1284,
+      0.087
+     ]
+    },
+    "sight_eye": {
+     "parent": "ar_m416",
+     "mesh": false,
+     "position": [
+      0,
+      0.152,
+      -0.083
+     ]
+    }
+   },
+   "cycle_node": "charging_handle",
+   "mag_kind": "box"
+  },
+  {
+   "id": "ar_akm",
+   "file": "ar_akm.glb",
+   "name": "AKM",
+   "length_m": 0.88,
+   "real_length_m": 0.88,
+   "bounds_m": {
+    "min": [
+     -0.041,
+     -0.1061,
+     -0.262
+    ],
+    "max": [
+     0.0227,
+     0.1339,
+     0.618
+    ]
+   },
+   "tris": 8204,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 437380,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:AKM_automatkarbin_Ryssland_-_7,62x39mm_-_Arm%C3%A9museum_bothsides_noBG.png",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "ar_akm",
+     "mesh": true,
+     "position": [
+      0,
+      0.0418,
+      0.178
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      -0.011,
+      0,
+      -0.03
+     ]
+    },
+    "bolt": {
+     "parent": "ar_akm",
+     "mesh": false,
+     "position": [
+      -0.016,
+      0.096,
+      0.184
+     ]
+    },
+    "grip_support": {
+     "parent": "ar_akm",
+     "mesh": false,
+     "position": [
+      0,
+      0.07,
+      0.318
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0771,
+      0.0464
+     ]
+    },
+    "mag": {
+     "parent": "ar_akm",
+     "mesh": false,
+     "position": [
+      0,
+      0.048,
+      0.132
+     ]
+    },
+    "muzzle": {
+     "parent": "ar_akm",
+     "mesh": false,
+     "position": [
+      0,
+      0.08,
+      0.618
+     ]
+    },
+    "rail_top": {
+     "parent": "ar_akm",
+     "mesh": false,
+     "position": [
+      0,
+      0.12,
+      0.118
+     ]
+    },
+    "sight_eye": {
+     "parent": "ar_akm",
+     "mesh": false,
+     "position": [
+      0,
+      0.123,
+      -0.102
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "box"
+  },
+  {
+   "id": "ar_scarl",
+   "file": "ar_scarl.glb",
+   "name": "SCAR-L",
+   "length_m": 0.889,
+   "real_length_m": 0.889,
+   "bounds_m": {
+    "min": [
+     -0.0354,
+     -0.08,
+     -0.287
+    ],
+    "max": [
+     0.048,
+     0.198,
+     0.602
+    ]
+   },
+   "tris": 11404,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 598712,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:ScarSandiaPix.png",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "ar_scarl",
+     "mesh": true,
+     "position": [
+      0,
+      0.0723,
+      0.1575
+     ]
+    },
+    "charging_handle_mesh": {
+     "parent": "charging_handle",
+     "mesh": true,
+     "position": [
+      0.007,
+      0,
+      0
+     ]
+    },
+    "charging_handle": {
+     "parent": "ar_scarl",
+     "mesh": false,
+     "position": [
+      0.03,
+      0.116,
+      0.234
+     ]
+    },
+    "grip_support": {
+     "parent": "ar_scarl",
+     "mesh": false,
+     "position": [
+      0,
+      0.104,
+      0.313
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.06,
+      0.0023
+     ]
+    },
+    "mag": {
+     "parent": "ar_scarl",
+     "mesh": false,
+     "position": [
+      0,
+      0.04,
+      0.145
+     ]
+    },
+    "muzzle": {
+     "parent": "ar_scarl",
+     "mesh": false,
+     "position": [
+      0,
+      0.107,
+      0.602
+     ]
+    },
+    "rail_top": {
+     "parent": "ar_scarl",
+     "mesh": false,
+     "position": [
+      0,
+      0.155,
+      0.063
+     ]
+    },
+    "sight_eye": {
+     "parent": "ar_scarl",
+     "mesh": false,
+     "position": [
+      0,
+      0.182,
+      -0.102
+     ]
+    }
+   },
+   "cycle_node": "charging_handle",
+   "mag_kind": "box"
+  },
+  {
+   "id": "ar_m16a4",
+   "file": "ar_m16a4.glb",
+   "name": "M16A4",
+   "length_m": 1.003,
+   "real_length_m": 1.003,
+   "bounds_m": {
+    "min": [
+     -0.03,
+     -0.0888,
+     -0.29
+    ],
+    "max": [
+     0.03,
+     0.166,
+     0.713
+    ]
+   },
+   "tris": 7540,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 448424,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:M16A2_noBG.jpg",
+    "use": "proportions (hand-drawn outline, A4 flat-top)"
+   },
+   "nodes": {
+    "body": {
+     "parent": "ar_m16a4",
+     "mesh": true,
+     "position": [
+      0,
+      0.0558,
+      0.2115
+     ]
+    },
+    "charging_handle_mesh": {
+     "parent": "charging_handle",
+     "mesh": true,
+     "position": [
+      0,
+      0.0005,
+      0.012
+     ]
+    },
+    "charging_handle": {
+     "parent": "ar_m16a4",
+     "mesh": false,
+     "position": [
+      0,
+      0.112,
+      -0.024
+     ]
+    },
+    "grip_support": {
+     "parent": "ar_m16a4",
+     "mesh": false,
+     "position": [
+      0,
+      0.095,
+      0.35
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0674,
+      0.0097
+     ]
+    },
+    "mag": {
+     "parent": "ar_m16a4",
+     "mesh": false,
+     "position": [
+      0,
+      0.046,
+      0.134
+     ]
+    },
+    "muzzle": {
+     "parent": "ar_m16a4",
+     "mesh": false,
+     "position": [
+      0,
+      0.095,
+      0.713
+     ]
+    },
+    "rail_top": {
+     "parent": "ar_m16a4",
+     "mesh": false,
+     "position": [
+      0,
+      0.1284,
+      0.09
+     ]
+    },
+    "sight_eye": {
+     "parent": "ar_m16a4",
+     "mesh": false,
+     "position": [
+      0,
+      0.157,
+      -0.075
+     ]
+    }
+   },
+   "cycle_node": "charging_handle",
+   "mag_kind": "box"
+  },
+  {
+   "id": "ar_beryl",
+   "file": "ar_beryl.glb",
+   "name": "Beryl M762",
+   "length_m": 0.943,
+   "real_length_m": 0.943,
+   "bounds_m": {
+    "min": [
+     -0.043,
+     -0.1245,
+     -0.25
+    ],
+    "max": [
+     0.0324,
+     0.168,
+     0.693
+    ]
+   },
+   "tris": 13240,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 632020,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:Beryl_M762.png",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "ar_beryl",
+     "mesh": true,
+     "position": [
+      0,
+      0.0596,
+      0.2215
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      -0.011,
+      0,
+      -0.037
+     ]
+    },
+    "bolt": {
+     "parent": "ar_beryl",
+     "mesh": false,
+     "position": [
+      -0.018,
+      0.095,
+      0.212
+     ]
+    },
+    "grip_support": {
+     "parent": "ar_beryl",
+     "mesh": false,
+     "position": [
+      0,
+      0.107,
+      0.35
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0887,
+      0.0366
+     ]
+    },
+    "mag": {
+     "parent": "ar_beryl",
+     "mesh": false,
+     "position": [
+      0,
+      0.057,
+      0.156
+     ]
+    },
+    "muzzle": {
+     "parent": "ar_beryl",
+     "mesh": false,
+     "position": [
+      0,
+      0.097,
+      0.693
+     ]
+    },
+    "rail_top": {
+     "parent": "ar_beryl",
+     "mesh": false,
+     "position": [
+      0,
+      0.1604,
+      0.17
+     ]
+    },
+    "sight_eye": {
+     "parent": "ar_beryl",
+     "mesh": false,
+     "position": [
+      0,
+      0.163,
+      -0.09
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "box"
+  },
+  {
+   "id": "ar_aug",
+   "file": "ar_aug.glb",
+   "name": "AUG A3",
+   "length_m": 0.7899,
+   "real_length_m": 0.79,
+   "bounds_m": {
+    "min": [
+     -0.027,
+     -0.0964,
+     -0.3519
+    ],
+    "max": [
+     0.046,
+     0.224,
+     0.438
+    ]
+   },
+   "tris": 13568,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 548020,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:Steyr-AUG-A3-SF.webp",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "ar_aug",
+     "mesh": true,
+     "position": [
+      0,
+      0.0862,
+      0.0431
+     ]
+    },
+    "charging_handle_mesh": {
+     "parent": "charging_handle",
+     "mesh": true,
+     "position": [
+      0.006,
+      0,
+      0
+     ]
+    },
+    "charging_handle": {
+     "parent": "ar_aug",
+     "mesh": false,
+     "position": [
+      0.029,
+      0.117,
+      0.123
+     ]
+    },
+    "grip_support": {
+     "parent": "ar_aug",
+     "mesh": false,
+     "position": [
+      0,
+      0.074,
+      0.233
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0752,
+      0.0013
+     ]
+    },
+    "mag": {
+     "parent": "ar_aug",
+     "mesh": false,
+     "position": [
+      0,
+      0.054,
+      -0.116
+     ]
+    },
+    "muzzle": {
+     "parent": "ar_aug",
+     "mesh": false,
+     "position": [
+      0,
+      0.099,
+      0.438
+     ]
+    },
+    "rail_top": {
+     "parent": "ar_aug",
+     "mesh": false,
+     "position": [
+      0,
+      0.1854,
+      0.043
+     ]
+    },
+    "sight_eye": {
+     "parent": "ar_aug",
+     "mesh": false,
+     "position": [
+      0,
+      0.21,
+      -0.202
+     ]
+    }
+   },
+   "cycle_node": "charging_handle",
+   "mag_kind": "box"
+  },
+  {
+   "id": "ar_groza",
+   "file": "ar_groza.glb",
+   "name": "Groza",
+   "length_m": 0.614,
+   "real_length_m": 0.61,
+   "bounds_m": {
+    "min": [
+     -0.045,
+     -0.0894,
+     -0.366
+    ],
+    "max": [
+     0.021,
+     0.1719,
+     0.248
+    ]
+   },
+   "tris": 8584,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 464604,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:GrozaOC14_noBG.png",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "ar_groza",
+     "mesh": true,
+     "position": [
+      0.0005,
+      0.0609,
+      -0.059
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      -0.0095,
+      0,
+      -0.032
+     ]
+    },
+    "bolt": {
+     "parent": "ar_groza",
+     "mesh": false,
+     "position": [
+      -0.021,
+      0.099,
+      -0.044
+     ]
+    },
+    "grip_support": {
+     "parent": "ar_groza",
+     "mesh": false,
+     "position": [
+      0,
+      0.005,
+      0.174
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0637,
+      -0.0018
+     ]
+    },
+    "mag": {
+     "parent": "ar_groza",
+     "mesh": false,
+     "position": [
+      0,
+      0.038,
+      -0.128
+     ]
+    },
+    "muzzle": {
+     "parent": "ar_groza",
+     "mesh": false,
+     "position": [
+      0,
+      0.082,
+      0.248
+     ]
+    },
+    "rail_top": {
+     "parent": "ar_groza",
+     "mesh": false,
+     "position": [
+      0,
+      0.1719,
+      0.014
+     ]
+    },
+    "sight_eye": {
+     "parent": "ar_groza",
+     "mesh": false,
+     "position": [
+      0,
+      0.159,
+      -0.166
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "box"
+  },
+  {
+   "id": "smg_ump45",
+   "file": "smg_ump45.glb",
+   "name": "UMP45",
+   "length_m": 0.69,
+   "real_length_m": 0.69,
+   "bounds_m": {
+    "min": [
+     -0.0254,
+     -0.166,
+     -0.29
+    ],
+    "max": [
+     0.031,
+     0.141,
+     0.4
+    ]
+   },
+   "tris": 8476,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 475652,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:HKUMP45.JPG",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "smg_ump45",
+     "mesh": true,
+     "position": [
+      -0.0001,
+      0.0411,
+      0.055
+     ]
+    },
+    "charging_handle_mesh": {
+     "parent": "charging_handle",
+     "mesh": true,
+     "position": [
+      0,
+      0,
+      0
+     ]
+    },
+    "charging_handle": {
+     "parent": "smg_ump45",
+     "mesh": false,
+     "position": [
+      0.027,
+      0.097,
+      0.291
+     ]
+    },
+    "grip_support": {
+     "parent": "smg_ump45",
+     "mesh": false,
+     "position": [
+      0,
+      0.07,
+      0.255
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.107,
+      0.0115
+     ]
+    },
+    "mag": {
+     "parent": "smg_ump45",
+     "mesh": false,
+     "position": [
+      0,
+      0.039,
+      0.155
+     ]
+    },
+    "muzzle": {
+     "parent": "smg_ump45",
+     "mesh": false,
+     "position": [
+      0,
+      0.085,
+      0.4
+     ]
+    },
+    "rail_top": {
+     "parent": "smg_ump45",
+     "mesh": false,
+     "position": [
+      0,
+      0.1274,
+      0.08
+     ]
+    },
+    "sight_eye": {
+     "parent": "smg_ump45",
+     "mesh": false,
+     "position": [
+      0,
+      0.1315,
+      -0.09
+     ]
+    }
+   },
+   "cycle_node": "charging_handle",
+   "mag_kind": "box"
+  },
+  {
+   "id": "smg_vector",
+   "file": "smg_vector.glb",
+   "name": "Vector",
+   "length_m": 0.6259,
+   "real_length_m": 0.622,
+   "bounds_m": {
+    "min": [
+     -0.0266,
+     -0.1991,
+     -0.2819
+    ],
+    "max": [
+     0.031,
+     0.138,
+     0.344
+    ]
+   },
+   "tris": 9356,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 513528,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:Kriss_Vector_SMG_Realistic.png",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "smg_vector",
+     "mesh": true,
+     "position": [
+      0,
+      0.0232,
+      0.0311
+     ]
+    },
+    "charging_handle_mesh": {
+     "parent": "charging_handle",
+     "mesh": true,
+     "position": [
+      0,
+      0.0005,
+      0
+     ]
+    },
+    "charging_handle": {
+     "parent": "smg_vector",
+     "mesh": false,
+     "position": [
+      0.027,
+      0.072,
+      0.307
+     ]
+    },
+    "grip_support": {
+     "parent": "smg_vector",
+     "mesh": false,
+     "position": [
+      0,
+      0.032,
+      0.293
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0636,
+      0.0063
+     ]
+    },
+    "mag": {
+     "parent": "smg_vector",
+     "mesh": false,
+     "position": [
+      0,
+      -0.072,
+      0.138
+     ]
+    },
+    "muzzle": {
+     "parent": "smg_vector",
+     "mesh": false,
+     "position": [
+      0,
+      0.04,
+      0.344
+     ]
+    },
+    "rail_top": {
+     "parent": "smg_vector",
+     "mesh": false,
+     "position": [
+      0,
+      0.092,
+      0.118
+     ]
+    },
+    "sight_eye": {
+     "parent": "smg_vector",
+     "mesh": false,
+     "position": [
+      0,
+      0.124,
+      -0.077
+     ]
+    }
+   },
+   "cycle_node": "charging_handle",
+   "mag_kind": "box"
+  },
+  {
+   "id": "smg_uzi",
+   "file": "smg_uzi.glb",
+   "name": "Micro UZI",
+   "length_m": 0.486,
+   "real_length_m": 0.486,
+   "bounds_m": {
+    "min": [
+     -0.026,
+     -0.082,
+     -0.311
+    ],
+    "max": [
+     0.026,
+     0.1308,
+     0.175
+    ]
+   },
+   "tris": 7624,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 428572,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:Uzimicro.jpg",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "smg_uzi",
+     "mesh": true,
+     "position": [
+      0,
+      0.0331,
+      -0.068
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      0,
+      0.0054,
+      -0.0013
+     ]
+    },
+    "bolt": {
+     "parent": "smg_uzi",
+     "mesh": false,
+     "position": [
+      0,
+      0.114,
+      0.079
+     ]
+    },
+    "grip_support": {
+     "parent": "smg_uzi",
+     "mesh": false,
+     "position": [
+      0,
+      0.064,
+      0.101
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.066,
+      0
+     ]
+    },
+    "mag": {
+     "parent": "smg_uzi",
+     "mesh": false,
+     "position": [
+      0,
+      0.05,
+      0.012
+     ]
+    },
+    "muzzle": {
+     "parent": "smg_uzi",
+     "mesh": false,
+     "position": [
+      0,
+      0.078,
+      0.175
+     ]
+    },
+    "sight_eye": {
+     "parent": "smg_uzi",
+     "mesh": false,
+     "position": [
+      0,
+      0.121,
+      -0.205
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "box"
+  },
+  {
+   "id": "smg_tommy",
+   "file": "smg_tommy.glb",
+   "name": "Tommy Gun",
+   "length_m": 0.8133,
+   "real_length_m": 0.813,
+   "bounds_m": {
+    "min": [
+     -0.0311,
+     -0.0901,
+     -0.345
+    ],
+    "max": [
+     0.0218,
+     0.1419,
+     0.4683
+    ]
+   },
+   "tris": 5384,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 346632,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:ThompsonM1A1VWM.jpg",
+    "use": "proportions (hand-drawn outline)"
+   },
+   "nodes": {
+    "body": {
+     "parent": "smg_tommy",
+     "mesh": true,
+     "position": [
+      0,
+      0.0282,
+      0.0616
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      -0.0062,
+      0,
+      0
+     ]
+    },
+    "bolt": {
+     "parent": "smg_tommy",
+     "mesh": false,
+     "position": [
+      -0.0186,
+      0.1046,
+      0.1015
+     ]
+    },
+    "grip_support": {
+     "parent": "smg_tommy",
+     "mesh": false,
+     "position": [
+      0,
+      0.086,
+      0.2922
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0787,
+      0
+     ]
+    },
+    "mag": {
+     "parent": "smg_tommy",
+     "mesh": false,
+     "position": [
+      0,
+      0.0673,
+      0.1316
+     ]
+    },
+    "muzzle": {
+     "parent": "smg_tommy",
+     "mesh": false,
+     "position": [
+      0,
+      0.1046,
+      0.4683
+     ]
+    },
+    "sight_eye": {
+     "parent": "smg_tommy",
+     "mesh": false,
+     "position": [
+      0,
+      0.1336,
+      -0.2258
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "box"
+  },
+  {
+   "id": "smg_mp5k",
+   "file": "smg_mp5k.glb",
+   "name": "MP5K",
+   "length_m": 0.596,
+   "real_length_m": 0.603,
+   "bounds_m": {
+    "min": [
+     -0.021,
+     -0.0562,
+     -0.323
+    ],
+    "max": [
+     0.04,
+     0.154,
+     0.273
+    ]
+   },
+   "tris": 7240,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 383148,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:Hkmp5k.jpg",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "smg_mp5k",
+     "mesh": true,
+     "position": [
+      0,
+      0.0489,
+      -0.025
+     ]
+    },
+    "charging_handle_mesh": {
+     "parent": "charging_handle",
+     "mesh": true,
+     "position": [
+      0.007,
+      0,
+      0
+     ]
+    },
+    "charging_handle": {
+     "parent": "smg_mp5k",
+     "mesh": false,
+     "position": [
+      0.021,
+      0.1165,
+      0.223
+     ]
+    },
+    "grip_support": {
+     "parent": "smg_mp5k",
+     "mesh": false,
+     "position": [
+      0,
+      0.025,
+      0.212
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0427,
+      -0.0014
+     ]
+    },
+    "mag": {
+     "parent": "smg_mp5k",
+     "mesh": false,
+     "position": [
+      0,
+      0.042,
+      0.145
+     ]
+    },
+    "muzzle": {
+     "parent": "smg_mp5k",
+     "mesh": false,
+     "position": [
+      0,
+      0.1,
+      0.273
+     ]
+    },
+    "rail_top": {
+     "parent": "smg_mp5k",
+     "mesh": false,
+     "position": [
+      0,
+      0.129,
+      0.075
+     ]
+    },
+    "sight_eye": {
+     "parent": "smg_mp5k",
+     "mesh": false,
+     "position": [
+      0,
+      0.14,
+      -0.115
+     ]
+    }
+   },
+   "cycle_node": "charging_handle",
+   "mag_kind": "box"
+  },
+  {
+   "id": "dmr_sks",
+   "file": "dmr_sks.glb",
+   "name": "SKS",
+   "length_m": 1.02,
+   "real_length_m": 1.02,
+   "bounds_m": {
+    "min": [
+     -0.042,
+     -0.072,
+     -0.255
+    ],
+    "max": [
+     0.02,
+     0.1,
+     0.765
+    ]
+   },
+   "tris": 4584,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 331932,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:Simonow_SKS_45_noBG.jpg",
+    "use": "proportions (hand-drawn outline)"
+   },
+   "nodes": {
+    "body": {
+     "parent": "dmr_sks",
+     "mesh": true,
+     "position": [
+      0,
+      0.014,
+      0.255
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      -0.011,
+      0,
+      -0.044
+     ]
+    },
+    "bolt": {
+     "parent": "dmr_sks",
+     "mesh": false,
+     "position": [
+      -0.014,
+      0.064,
+      0.239
+     ]
+    },
+    "grip_support": {
+     "parent": "dmr_sks",
+     "mesh": false,
+     "position": [
+      0,
+      0.03,
+      0.345
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0319,
+      -0.002
+     ]
+    },
+    "mag": {
+     "parent": "dmr_sks",
+     "mesh": false,
+     "position": [
+      0,
+      0.008,
+      0.207
+     ]
+    },
+    "muzzle": {
+     "parent": "dmr_sks",
+     "mesh": false,
+     "position": [
+      0,
+      0.048,
+      0.765
+     ]
+    },
+    "rail_top": {
+     "parent": "dmr_sks",
+     "mesh": false,
+     "position": [
+      0,
+      0.086,
+      0.135
+     ]
+    },
+    "sight_eye": {
+     "parent": "dmr_sks",
+     "mesh": false,
+     "position": [
+      0,
+      0.09,
+      -0.025
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "box"
+  },
+  {
+   "id": "dmr_mini14",
+   "file": "dmr_mini14.glb",
+   "name": "Mini 14",
+   "length_m": 0.946,
+   "real_length_m": 0.946,
+   "bounds_m": {
+    "min": [
+     -0.028,
+     -0.081,
+     -0.262
+    ],
+    "max": [
+     0.021,
+     0.096,
+     0.684
+    ]
+   },
+   "tris": 5808,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 402948,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:Mini14GB_noBG.jpg",
+    "use": "proportions (hand-drawn outline)"
+   },
+   "nodes": {
+    "body": {
+     "parent": "dmr_mini14",
+     "mesh": true,
+     "position": [
+      0,
+      0.0075,
+      0.211
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      -0.0028,
+      0,
+      0.076
+     ]
+    },
+    "bolt": {
+     "parent": "dmr_mini14",
+     "mesh": false,
+     "position": [
+      -0.018,
+      0.063,
+      0.214
+     ]
+    },
+    "grip_support": {
+     "parent": "dmr_mini14",
+     "mesh": false,
+     "position": [
+      0,
+      0.04,
+      0.298
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.045,
+      0.0021
+     ]
+    },
+    "mag": {
+     "parent": "dmr_mini14",
+     "mesh": false,
+     "position": [
+      0,
+      0.017,
+      0.174
+     ]
+    },
+    "muzzle": {
+     "parent": "dmr_mini14",
+     "mesh": false,
+     "position": [
+      0,
+      0.072,
+      0.684
+     ]
+    },
+    "rail_top": {
+     "parent": "dmr_mini14",
+     "mesh": false,
+     "position": [
+      0,
+      0.086,
+      0.158
+     ]
+    },
+    "sight_eye": {
+     "parent": "dmr_mini14",
+     "mesh": false,
+     "position": [
+      0,
+      0.088,
+      -0.062
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "box"
+  },
+  {
+   "id": "dmr_slr",
+   "file": "dmr_slr.glb",
+   "name": "SLR",
+   "length_m": 1.143,
+   "real_length_m": 1.143,
+   "bounds_m": {
+    "min": [
+     -0.0239,
+     -0.0771,
+     -0.2946
+    ],
+    "max": [
+     0.0427,
+     0.1463,
+     0.8484
+    ]
+   },
+   "tris": 6136,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 349060,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:SLRL1A1.jpg",
+    "use": "proportions (hand-drawn outline)"
+   },
+   "nodes": {
+    "body": {
+     "parent": "dmr_slr",
+     "mesh": true,
+     "position": [
+      0,
+      0.0447,
+      0.2769
+     ]
+    },
+    "charging_handle_mesh": {
+     "parent": "charging_handle",
+     "mesh": true,
+     "position": [
+      0.0091,
+      0,
+      0
+     ]
+    },
+    "charging_handle": {
+     "parent": "dmr_slr",
+     "mesh": false,
+     "position": [
+      0.0203,
+      0.0955,
+      0.2459
+     ]
+    },
+    "grip_support": {
+     "parent": "dmr_slr",
+     "mesh": false,
+     "position": [
+      0,
+      0.0975,
+      0.4013
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.064,
+      0
+     ]
+    },
+    "mag": {
+     "parent": "dmr_slr",
+     "mesh": false,
+     "position": [
+      0,
+      0.0508,
+      0.1676
+     ]
+    },
+    "muzzle": {
+     "parent": "dmr_slr",
+     "mesh": false,
+     "position": [
+      0,
+      0.0894,
+      0.8484
+     ]
+    },
+    "rail_top": {
+     "parent": "dmr_slr",
+     "mesh": false,
+     "position": [
+      0,
+      0.1158,
+      0.1168
+     ]
+    },
+    "sight_eye": {
+     "parent": "dmr_slr",
+     "mesh": false,
+     "position": [
+      0,
+      0.1341,
+      -0.1067
+     ]
+    }
+   },
+   "cycle_node": "charging_handle",
+   "mag_kind": "box"
+  },
+  {
+   "id": "dmr_mk14",
+   "file": "dmr_mk14.glb",
+   "name": "Mk14",
+   "length_m": 0.96,
+   "real_length_m": 0.96,
+   "bounds_m": {
+    "min": [
+     -0.0314,
+     -0.0559,
+     -0.196
+    ],
+    "max": [
+     0.0314,
+     0.156,
+     0.764
+    ]
+   },
+   "tris": 11144,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 583356,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:PEO_M14_EBR-rbg.png",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "dmr_mk14",
+     "mesh": true,
+     "position": [
+      0,
+      0.0568,
+      0.284
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      -0.002,
+      0,
+      0.062
+     ]
+    },
+    "bolt": {
+     "parent": "dmr_mk14",
+     "mesh": false,
+     "position": [
+      -0.02,
+      0.082,
+      0.138
+     ]
+    },
+    "grip_support": {
+     "parent": "dmr_mk14",
+     "mesh": false,
+     "position": [
+      0,
+      0.062,
+      0.324
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0509,
+      0.0051
+     ]
+    },
+    "mag": {
+     "parent": "dmr_mk14",
+     "mesh": false,
+     "position": [
+      0,
+      0.046,
+      0.152
+     ]
+    },
+    "muzzle": {
+     "parent": "dmr_mk14",
+     "mesh": false,
+     "position": [
+      0,
+      0.086,
+      0.764
+     ]
+    },
+    "rail_top": {
+     "parent": "dmr_mk14",
+     "mesh": false,
+     "position": [
+      0,
+      0.1224,
+      0.134
+     ]
+    },
+    "sight_eye": {
+     "parent": "dmr_mk14",
+     "mesh": false,
+     "position": [
+      0,
+      0.142,
+      -0.056
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "box"
+  },
+  {
+   "id": "sr_kar98k",
+   "file": "sr_kar98k.glb",
+   "name": "Kar98k",
+   "length_m": 1.112,
+   "real_length_m": 1.11,
+   "bounds_m": {
+    "min": [
+     -0.0467,
+     -0.1115,
+     -0.302
+    ],
+    "max": [
+     0.0213,
+     0.08,
+     0.81
+    ]
+   },
+   "tris": 6228,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 395780,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:Kar_98K_AM021488_noBG.png",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "sr_kar98k",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0157,
+      0.254
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      -0.0174,
+      -0.0061,
+      -0.049
+     ]
+    },
+    "bolt": {
+     "parent": "sr_kar98k",
+     "mesh": false,
+     "position": [
+      0,
+      0.051,
+      0.088
+     ]
+    },
+    "grip_support": {
+     "parent": "sr_kar98k",
+     "mesh": false,
+     "position": [
+      0,
+      0.03,
+      0.42
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      0,
+      0.002
+     ]
+    },
+    "mag": {
+     "parent": "sr_kar98k",
+     "mesh": false,
+     "position": [
+      0,
+      0,
+      0.14
+     ]
+    },
+    "muzzle": {
+     "parent": "sr_kar98k",
+     "mesh": false,
+     "position": [
+      0,
+      0.051,
+      0.81
+     ]
+    },
+    "rail_top": {
+     "parent": "sr_kar98k",
+     "mesh": false,
+     "position": [
+      0,
+      0.066,
+      0.15
+     ]
+    },
+    "sight_eye": {
+     "parent": "sr_kar98k",
+     "mesh": false,
+     "position": [
+      0,
+      0.075,
+      -0.14
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "internal"
+  },
+  {
+   "id": "sr_m24",
+   "file": "sr_m24.glb",
+   "name": "M24",
+   "length_m": 1.106,
+   "real_length_m": 1.092,
+   "bounds_m": {
+    "min": [
+     -0.0533,
+     -0.079,
+     -0.314
+    ],
+    "max": [
+     0.024,
+     0.102,
+     0.792
+    ]
+   },
+   "tris": 9168,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 453408,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:M24-Sniper-Weapon-System.png",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "sr_m24",
+     "mesh": true,
+     "position": [
+      0,
+      0.0115,
+      0.239
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      -0.0202,
+      -0.0108,
+      -0.0232
+     ]
+    },
+    "bolt": {
+     "parent": "sr_m24",
+     "mesh": false,
+     "position": [
+      0,
+      0.056,
+      0.056
+     ]
+    },
+    "grip_support": {
+     "parent": "sr_m24",
+     "mesh": false,
+     "position": [
+      0,
+      0.032,
+      0.34
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.032,
+      0
+     ]
+    },
+    "mag": {
+     "parent": "sr_m24",
+     "mesh": false,
+     "position": [
+      0,
+      0.04,
+      0.152
+     ]
+    },
+    "muzzle": {
+     "parent": "sr_m24",
+     "mesh": false,
+     "position": [
+      0,
+      0.056,
+      0.792
+     ]
+    },
+    "rail_top": {
+     "parent": "sr_m24",
+     "mesh": false,
+     "position": [
+      0,
+      0.0814,
+      0.15
+     ]
+    },
+    "sight_eye": {
+     "parent": "sr_m24",
+     "mesh": false,
+     "position": [
+      0,
+      0.096,
+      -0.07
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "box"
+  },
+  {
+   "id": "sr_awm",
+   "file": "sr_awm.glb",
+   "name": "AWM",
+   "length_m": 1.2374,
+   "real_length_m": 1.23,
+   "bounds_m": {
+    "min": [
+     -0.0539,
+     -0.093,
+     -0.2977
+    ],
+    "max": [
+     0.0302,
+     0.1128,
+     0.9397
+    ]
+   },
+   "tris": 8504,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 456564,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:G22_Bundeswehr_Technik_02_(RaBoe)_noBG.png",
+    "use": "traced side silhouette (G22/AWM)"
+   },
+   "nodes": {
+    "body": {
+     "parent": "sr_awm",
+     "mesh": true,
+     "position": [
+      -0.0047,
+      0.0099,
+      0.321
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      -0.0191,
+      -0.0108,
+      -0.025
+     ]
+    },
+    "bolt": {
+     "parent": "sr_awm",
+     "mesh": false,
+     "position": [
+      0,
+      0.0651,
+      0.0582
+     ]
+    },
+    "grip_support": {
+     "parent": "sr_awm",
+     "mesh": false,
+     "position": [
+      0,
+      0.0326,
+      0.3605
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0349,
+      0
+     ]
+    },
+    "mag": {
+     "parent": "sr_awm",
+     "mesh": false,
+     "position": [
+      0,
+      0.0116,
+      0.1419
+     ]
+    },
+    "muzzle": {
+     "parent": "sr_awm",
+     "mesh": false,
+     "position": [
+      0,
+      0.0651,
+      0.9397
+     ]
+    },
+    "rail_top": {
+     "parent": "sr_awm",
+     "mesh": false,
+     "position": [
+      0,
+      0.097,
+      0.1512
+     ]
+    },
+    "sight_eye": {
+     "parent": "sr_awm",
+     "mesh": false,
+     "position": [
+      0,
+      0.107,
+      -0.0814
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "box"
+  },
+  {
+   "id": "sr_win94",
+   "file": "sr_win94.glb",
+   "name": "Win94",
+   "length_m": 0.9689,
+   "real_length_m": 0.965,
+   "bounds_m": {
+    "min": [
+     -0.02,
+     -0.112,
+     -0.3039
+    ],
+    "max": [
+     0.02,
+     0.073,
+     0.665
+    ]
+   },
+   "tris": 6380,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 364728,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:Winchester-94-32spl_noBG.png",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "sr_win94",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0195,
+      0.1806
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0251,
+      -0.05
+     ]
+    },
+    "bolt": {
+     "parent": "sr_win94",
+     "mesh": false,
+     "position": [
+      0,
+      -0.004,
+      0.05
+     ]
+    },
+    "grip_support": {
+     "parent": "sr_win94",
+     "mesh": false,
+     "position": [
+      0,
+      0.028,
+      0.26
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      0,
+      -0.021
+     ]
+    },
+    "mag": {
+     "parent": "sr_win94",
+     "mesh": false,
+     "position": [
+      -0.0154,
+      0.01,
+      0.146
+     ]
+    },
+    "muzzle": {
+     "parent": "sr_win94",
+     "mesh": false,
+     "position": [
+      0,
+      0.049,
+      0.665
+     ]
+    },
+    "rail_top": {
+     "parent": "sr_win94",
+     "mesh": false,
+     "position": [
+      0,
+      0.068,
+      0.1
+     ]
+    },
+    "sight_eye": {
+     "parent": "sr_win94",
+     "mesh": false,
+     "position": [
+      0,
+      0.07,
+      -0.1
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "tube"
+  },
+  {
+   "id": "sg_s1897",
+   "file": "sg_s1897.glb",
+   "name": "S1897",
+   "length_m": 1.004,
+   "real_length_m": 1,
+   "bounds_m": {
+    "min": [
+     -0.021,
+     -0.136,
+     -0.304
+    ],
+    "max": [
+     0.021,
+     0.0675,
+     0.7
+    ]
+   },
+   "tris": 6692,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 338988,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:WncsterCatMod97trench.jpg",
+    "use": "proportions (authored from published dimensions)"
+   },
+   "nodes": {
+    "body": {
+     "parent": "sg_s1897",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0342,
+      0.198
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      0,
+      0,
+      0
+     ]
+    },
+    "bolt": {
+     "parent": "sg_s1897",
+     "mesh": false,
+     "position": [
+      0,
+      0.054,
+      0.14
+     ]
+    },
+    "grip_support": {
+     "parent": "sg_s1897",
+     "mesh": false,
+     "position": [
+      0,
+      0.011,
+      0.4
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      0,
+      0
+     ]
+    },
+    "mag": {
+     "parent": "sg_s1897",
+     "mesh": false,
+     "position": [
+      0,
+      0.011,
+      0.147
+     ]
+    },
+    "muzzle": {
+     "parent": "sg_s1897",
+     "mesh": false,
+     "position": [
+      0,
+      0.036,
+      0.7
+     ]
+    },
+    "sight_eye": {
+     "parent": "sg_s1897",
+     "mesh": false,
+     "position": [
+      0,
+      0.05,
+      -0.14
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "tube"
+  },
+  {
+   "id": "sg_s686",
+   "file": "sg_s686.glb",
+   "name": "S686",
+   "length_m": 1.144,
+   "real_length_m": 1.13,
+   "bounds_m": {
+    "min": [
+     -0.021,
+     -0.116,
+     -0.344
+    ],
+    "max": [
+     0.021,
+     0.046,
+     0.8
+    ]
+   },
+   "tris": 3560,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 315576,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": null,
+    "use": "authored from published dimensions (Beretta 686-style O/U, 28in barrels)"
+   },
+   "nodes": {
+    "body": {
+     "parent": "sg_s686",
+     "mesh": true,
+     "position": [
+      0,
+      -0.035,
+      -0.119
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      0,
+      0.0171,
+      0.353
+     ]
+    },
+    "bolt": {
+     "parent": "sg_s686",
+     "mesh": false,
+     "position": [
+      0,
+      -0.006,
+      0.1
+     ]
+    },
+    "grip_support": {
+     "parent": "sg_s686",
+     "mesh": false,
+     "position": [
+      0,
+      -0.004,
+      0.29
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      0,
+      0.009
+     ]
+    },
+    "mag": {
+     "parent": "sg_s686",
+     "mesh": false,
+     "position": [
+      0,
+      0.015,
+      0.14
+     ]
+    },
+    "muzzle": {
+     "parent": "sg_s686",
+     "mesh": false,
+     "position": [
+      0,
+      0.026,
+      0.8
+     ]
+    },
+    "sight_eye": {
+     "parent": "sg_s686",
+     "mesh": false,
+     "position": [
+      0,
+      0.042,
+      -0.16
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "break"
+  },
+  {
+   "id": "sg_s12k",
+   "file": "sg_s12k.glb",
+   "name": "S12K",
+   "length_m": 0.9989,
+   "real_length_m": 1,
+   "bounds_m": {
+    "min": [
+     -0.044,
+     -0.155,
+     -0.2749
+    ],
+    "max": [
+     0.0249,
+     0.1415,
+     0.724
+    ]
+   },
+   "tris": 7976,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 425052,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:%D0%A1%D0%B0%D0%B9%D0%B3%D0%B0_12%D0%9A_%D0%B8%D1%81%D0%BF.030.jpg",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "sg_s12k",
+     "mesh": true,
+     "position": [
+      0,
+      0.0427,
+      0.2245
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      -0.0115,
+      0,
+      -0.037
+     ]
+    },
+    "bolt": {
+     "parent": "sg_s12k",
+     "mesh": false,
+     "position": [
+      -0.018,
+      0.1,
+      0.276
+     ]
+    },
+    "grip_support": {
+     "parent": "sg_s12k",
+     "mesh": false,
+     "position": [
+      0,
+      0.062,
+      0.364
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      -0.1006,
+      0.0343
+     ]
+    },
+    "mag": {
+     "parent": "sg_s12k",
+     "mesh": false,
+     "position": [
+      0,
+      0.05,
+      0.186
+     ]
+    },
+    "muzzle": {
+     "parent": "sg_s12k",
+     "mesh": false,
+     "position": [
+      0,
+      0.08,
+      0.724
+     ]
+    },
+    "rail_top": {
+     "parent": "sg_s12k",
+     "mesh": false,
+     "position": [
+      0,
+      0.138,
+      0.164
+     ]
+    },
+    "sight_eye": {
+     "parent": "sg_s12k",
+     "mesh": false,
+     "position": [
+      0,
+      0.14,
+      -0.096
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "box"
+  },
+  {
+   "id": "lmg_m249",
+   "file": "lmg_m249.glb",
+   "name": "M249",
+   "length_m": 1.045,
+   "real_length_m": 1.041,
+   "bounds_m": {
+    "min": [
+     -0.05,
+     -0.0514,
+     -0.356
+    ],
+    "max": [
+     0.055,
+     0.207,
+     0.689
+    ]
+   },
+   "tris": 8956,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 469884,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:M249_Automatic_Rifle.jpg",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "lmg_m249",
+     "mesh": true,
+     "position": [
+      0,
+      0.0778,
+      0.1665
+     ]
+    },
+    "charging_handle_mesh": {
+     "parent": "charging_handle",
+     "mesh": true,
+     "position": [
+      -0.008,
+      0.0001,
+      0
+     ]
+    },
+    "charging_handle": {
+     "parent": "lmg_m249",
+     "mesh": false,
+     "position": [
+      -0.03,
+      0.117,
+      0.392
+     ]
+    },
+    "grip_support": {
+     "parent": "lmg_m249",
+     "mesh": false,
+     "position": [
+      0,
+      0.072,
+      0.288
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0.02,
+      -0.044,
+      0
+     ]
+    },
+    "mag": {
+     "parent": "lmg_m249",
+     "mesh": false,
+     "position": [
+      0,
+      0.064,
+      0.188
+     ]
+    },
+    "muzzle": {
+     "parent": "lmg_m249",
+     "mesh": false,
+     "position": [
+      0,
+      0.147,
+      0.689
+     ]
+    },
+    "rail_top": {
+     "parent": "lmg_m249",
+     "mesh": false,
+     "position": [
+      0,
+      0.1814,
+      0.258
+     ]
+    },
+    "sight_eye": {
+     "parent": "lmg_m249",
+     "mesh": false,
+     "position": [
+      0,
+      0.192,
+      -0.152
+     ]
+    }
+   },
+   "cycle_node": "charging_handle",
+   "mag_kind": "box"
+  },
+  {
+   "id": "lmg_dp28",
+   "file": "lmg_dp28.glb",
+   "name": "DP-28",
+   "length_m": 1.27,
+   "real_length_m": 1.266,
+   "bounds_m": {
+    "min": [
+     -0.132,
+     -0.1,
+     -0.29
+    ],
+    "max": [
+     0.132,
+     0.11,
+     0.98
+    ]
+   },
+   "tris": 9420,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 517452,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:Chinese_Type_53.jpg",
+    "use": "proportions (authored from published dimensions)"
+   },
+   "nodes": {
+    "body": {
+     "parent": "lmg_dp28",
+     "mesh": true,
+     "position": [
+      0,
+      0.005,
+      0.345
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      -0.009,
+      0.0001,
+      0
+     ]
+    },
+    "bolt": {
+     "parent": "lmg_dp28",
+     "mesh": false,
+     "position": [
+      -0.024,
+      0.027,
+      0.282
+     ]
+    },
+    "grip_support": {
+     "parent": "lmg_dp28",
+     "mesh": false,
+     "position": [
+      0,
+      0.008,
+      0.474
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      0.023,
+      0
+     ]
+    },
+    "mag": {
+     "parent": "lmg_dp28",
+     "mesh": false,
+     "position": [
+      0,
+      0.058,
+      0.164
+     ]
+    },
+    "muzzle": {
+     "parent": "lmg_dp28",
+     "mesh": false,
+     "position": [
+      0,
+      0.032,
+      0.98
+     ]
+    },
+    "sight_eye": {
+     "parent": "lmg_dp28",
+     "mesh": false,
+     "position": [
+      0,
+      0.1,
+      -0.106
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "pan"
+  },
+  {
+   "id": "pistol_p92",
+   "file": "pistol_p92.glb",
+   "name": "P92",
+   "length_m": 0.2164,
+   "real_length_m": 0.217,
+   "bounds_m": {
+    "min": [
+     -0.0176,
+     -0.0577,
+     -0.0354
+    ],
+    "max": [
+     0.0165,
+     0.088,
+     0.181
+    ]
+   },
+   "tris": 5672,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 390180,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:Beretta-92FS.jpg",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "pistol_p92",
+     "mesh": true,
+     "position": [
+      -0.0005,
+      0.0132,
+      0.0728
+     ]
+    },
+    "grip_support": {
+     "parent": "pistol_p92",
+     "mesh": false,
+     "position": [
+      0.018,
+      -0.018,
+      0
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      0.0441,
+      0.0021
+     ]
+    },
+    "mag": {
+     "parent": "pistol_p92",
+     "mesh": false,
+     "position": [
+      0,
+      -0.052,
+      -0.002
+     ]
+    },
+    "muzzle": {
+     "parent": "pistol_p92",
+     "mesh": false,
+     "position": [
+      0,
+      0.07,
+      0.181
+     ]
+    },
+    "sight_eye": {
+     "parent": "pistol_p92",
+     "mesh": false,
+     "position": [
+      0,
+      0.087,
+      -0.296
+     ]
+    },
+    "rail_top": {
+     "parent": "slide",
+     "mesh": false,
+     "position": [
+      0,
+      0.015,
+      -0.04
+     ]
+    },
+    "slide_mesh": {
+     "parent": "slide",
+     "mesh": true,
+     "position": [
+      0.0011,
+      -0.005,
+      0.004
+     ]
+    },
+    "slide": {
+     "parent": "pistol_p92",
+     "mesh": false,
+     "position": [
+      0,
+      0.07,
+      0.074
+     ]
+    }
+   },
+   "cycle_node": "slide",
+   "mag_kind": "box"
+  },
+  {
+   "id": "pistol_p1911",
+   "file": "pistol_p1911.glb",
+   "name": "P1911",
+   "length_m": 0.2158,
+   "real_length_m": 0.216,
+   "bounds_m": {
+    "min": [
+     -0.0165,
+     -0.0554,
+     -0.0373
+    ],
+    "max": [
+     0.015,
+     0.082,
+     0.1785
+    ]
+   },
+   "tris": 4928,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 377732,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:M1911_and_M1911A1_pistols.JPG",
+    "use": "traced side silhouette (trigger guard / grip panels drawn by hand)"
+   },
+   "nodes": {
+    "body": {
+     "parent": "pistol_p1911",
+     "mesh": true,
+     "position": [
+      -0.0007,
+      0.0097,
+      0.0706
+     ]
+    },
+    "grip_support": {
+     "parent": "pistol_p1911",
+     "mesh": false,
+     "position": [
+      0.018,
+      -0.016,
+      0
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      0.0442,
+      0.006
+     ]
+    },
+    "mag": {
+     "parent": "pistol_p1911",
+     "mesh": false,
+     "position": [
+      0,
+      -0.05,
+      -0.005
+     ]
+    },
+    "muzzle": {
+     "parent": "pistol_p1911",
+     "mesh": false,
+     "position": [
+      0,
+      0.06,
+      0.1785
+     ]
+    },
+    "sight_eye": {
+     "parent": "pistol_p1911",
+     "mesh": false,
+     "position": [
+      0,
+      0.081,
+      -0.298
+     ]
+    },
+    "rail_top": {
+     "parent": "slide",
+     "mesh": false,
+     "position": [
+      0,
+      0.016,
+      -0.04
+     ]
+    },
+    "slide_mesh": {
+     "parent": "slide",
+     "mesh": true,
+     "position": [
+      0,
+      -0.0023,
+      0.0077
+     ]
+    },
+    "slide": {
+     "parent": "pistol_p1911",
+     "mesh": false,
+     "position": [
+      0,
+      0.062,
+      0.072
+     ]
+    }
+   },
+   "cycle_node": "slide",
+   "mag_kind": "box"
+  },
+  {
+   "id": "pistol_r1895",
+   "file": "pistol_r1895.glb",
+   "name": "R1895",
+   "length_m": 0.2343,
+   "real_length_m": 0.235,
+   "bounds_m": {
+    "min": [
+     -0.0195,
+     -0.0605,
+     -0.0233
+    ],
+    "max": [
+     0.0195,
+     0.09,
+     0.211
+    ]
+   },
+   "tris": 5304,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 401488,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:Nagant_Revolver.jpg",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "pistol_r1895",
+     "mesh": true,
+     "position": [
+      0,
+      0.0148,
+      0.0939
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      0,
+      0.0098,
+      -0.0009
+     ]
+    },
+    "bolt": {
+     "parent": "pistol_r1895",
+     "mesh": false,
+     "position": [
+      0,
+      0.066,
+      0.032
+     ]
+    },
+    "grip_support": {
+     "parent": "pistol_r1895",
+     "mesh": false,
+     "position": [
+      0.018,
+      -0.014,
+      0
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      0,
+      0.0006
+     ]
+    },
+    "mag": {
+     "parent": "pistol_r1895",
+     "mesh": false,
+     "position": [
+      0,
+      0.061,
+      0.076
+     ]
+    },
+    "muzzle": {
+     "parent": "pistol_r1895",
+     "mesh": false,
+     "position": [
+      0,
+      0.076,
+      0.211
+     ]
+    },
+    "rail_top": {
+     "parent": "pistol_r1895",
+     "mesh": false,
+     "position": [
+      0,
+      0.086,
+      0.076
+     ]
+    },
+    "sight_eye": {
+     "parent": "pistol_r1895",
+     "mesh": false,
+     "position": [
+      0,
+      0.09,
+      -0.284
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "cylinder"
+  },
+  {
+   "id": "pistol_p18c",
+   "file": "pistol_p18c.glb",
+   "name": "P18C",
+   "length_m": 0.2035,
+   "real_length_m": 0.202,
+   "bounds_m": {
+    "min": [
+     -0.0145,
+     -0.0575,
+     -0.0395
+    ],
+    "max": [
+     0.0156,
+     0.084,
+     0.164
+    ]
+   },
+   "tris": 3652,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 324456,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": "https://commons.wikimedia.org/wiki/File:Glock_17_(6825676904)_%D0%B1%D0%B5%D0%B7_%D1%84%D0%BE%D0%BD%D0%B0.jpg",
+    "use": "traced side silhouette"
+   },
+   "nodes": {
+    "body": {
+     "parent": "pistol_p18c",
+     "mesh": true,
+     "position": [
+      0.0005,
+      0.0099,
+      0.0622
+     ]
+    },
+    "grip_support": {
+     "parent": "pistol_p18c",
+     "mesh": false,
+     "position": [
+      0.018,
+      -0.018,
+      -0.002
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      0.0422,
+      0.0028
+     ]
+    },
+    "mag": {
+     "parent": "pistol_p18c",
+     "mesh": false,
+     "position": [
+      0,
+      -0.049,
+      -0.004
+     ]
+    },
+    "muzzle": {
+     "parent": "pistol_p18c",
+     "mesh": false,
+     "position": [
+      0,
+      0.063,
+      0.164
+     ]
+    },
+    "sight_eye": {
+     "parent": "pistol_p18c",
+     "mesh": false,
+     "position": [
+      0,
+      0.083,
+      -0.3
+     ]
+    },
+    "rail_top": {
+     "parent": "slide",
+     "mesh": false,
+     "position": [
+      0,
+      0.0155,
+      -0.05
+     ]
+    },
+    "slide_mesh": {
+     "parent": "slide",
+     "mesh": true,
+     "position": [
+      0.0007,
+      0.0028,
+      -0.0008
+     ]
+    },
+    "slide": {
+     "parent": "pistol_p18c",
+     "mesh": false,
+     "position": [
+      0,
+      0.064,
+      0.07
+     ]
+    }
+   },
+   "cycle_node": "slide",
+   "mag_kind": "box"
+  },
+  {
+   "id": "pistol_sawedoff",
+   "file": "pistol_sawedoff.glb",
+   "name": "Sawed-off",
+   "length_m": 0.4978,
+   "real_length_m": 0.5,
+   "bounds_m": {
+    "min": [
+     -0.022,
+     -0.0613,
+     -0.0698
+    ],
+    "max": [
+     0.022,
+     0.0574,
+     0.428
+    ]
+   },
+   "tris": 3956,
+   "materials": 1,
+   "texture_px": 1024,
+   "bytes": 333160,
+   "source": "authored",
+   "license": "CC0 (authored for this project with tools/assets/weapons)",
+   "reference": {
+    "image": null,
+    "use": "authored from typical dimensions (cut-down SxS 12 ga)"
+   },
+   "nodes": {
+    "body": {
+     "parent": "pistol_sawedoff",
+     "mesh": true,
+     "position": [
+      0,
+      -0.002,
+      0.0251
+     ]
+    },
+    "bolt_mesh": {
+     "parent": "bolt",
+     "mesh": true,
+     "position": [
+      0,
+      0.0121,
+      0.16
+     ]
+    },
+    "bolt": {
+     "parent": "pistol_sawedoff",
+     "mesh": false,
+     "position": [
+      0,
+      0.012,
+      0.114
+     ]
+    },
+    "grip_support": {
+     "parent": "pistol_sawedoff",
+     "mesh": false,
+     "position": [
+      0,
+      0.012,
+      0.228
+     ]
+    },
+    "mag_mesh": {
+     "parent": "mag",
+     "mesh": true,
+     "position": [
+      0,
+      0,
+      0
+     ]
+    },
+    "mag": {
+     "parent": "pistol_sawedoff",
+     "mesh": false,
+     "position": [
+      0,
+      0.032,
+      0.154
+     ]
+    },
+    "muzzle": {
+     "parent": "pistol_sawedoff",
+     "mesh": false,
+     "position": [
+      0,
+      0.032,
+      0.428
+     ]
+    },
+    "sight_eye": {
+     "parent": "pistol_sawedoff",
+     "mesh": false,
+     "position": [
+      0,
+      0.05,
+      -0.192
+     ]
+    }
+   },
+   "cycle_node": "bolt",
+   "mag_kind": "break"
+  }
+ ]
+}

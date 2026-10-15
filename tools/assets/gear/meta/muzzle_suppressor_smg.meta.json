@@ -1,0 +1,31 @@
+{
+ "tris": 6424,
+ "bounds_min": [
+  -0.0187,
+  -0.0187,
+  -0.0
+ ],
+ "bounds_max": [
+  0.0187,
+  0.0187,
+  0.184
+ ],
+ "size_m": [
+  0.0374,
+  0.0374,
+  0.184
+ ],
+ "nodes": [
+  "muzzle_suppressor_smg",
+  "body",
+  "muzzle"
+ ],
+ "materials": [
+  "M_muzzle_suppressor_smg"
+ ],
+ "kind": "muzzle",
+ "type": "suppressor",
+ "fits": "SMG",
+ "length_m": 0.184,
+ "id": "muzzle_suppressor_smg"
+}

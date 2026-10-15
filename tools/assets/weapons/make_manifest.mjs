@@ -49,14 +49,19 @@ for (const id of ORDER) {
     cycle_node: meta.cycle_node, mag_kind: meta.mag_kind,
   });
 }
+// keep entries / keys written by other tools (e.g. melee or throwables placed in this folder by the gear pipeline)
+let prev = {};
+try { prev = JSON.parse(fs.readFileSync(path.join(OUT, 'manifest.json'), 'utf8')); } catch { /* first run */ }
+const others = (prev.weapons || []).filter(w => !ORDER.includes(w.id));
 const manifest = {
+  ...prev,
   category: 'weapons',
   conventions: 'Node positions are local to the listed parent (mesh-node positions include the meshopt dequantization offset; do not rely on them). glTF +Y up, barrel along +Z, meters. Root node = weapon id; origin at the firing-hand pistol grip. ' +
     'Children of the root: body (static mesh), plus pivot nodes mag and <cycle_node> (bolt | charging_handle | slide); each pivot node holds its mesh as child <name>_mesh. ' +
     'Animate the pivot node (mag: top of the mag well; bolt/charging_handle/slide: the handle; break-action bolt: hinge pin; Win94 bolt: lever pivot; R1895 bolt: hammer pivot, mag: cylinder axis). ' +
     'Empties: muzzle, grip_support (support hand), sight_eye (eye point on the iron-sight line), rail_top (optic mount point, top of rail/receiver; omitted where nothing can mount).',
-  total_bytes: total,
-  weapons,
+  firearms_total_bytes: total,
+  weapons: [...weapons, ...others],
 };
 fs.writeFileSync(path.join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1));
 console.log('manifest:', weapons.length, 'weapons,', (total / 1048576).toFixed(2), 'MB');

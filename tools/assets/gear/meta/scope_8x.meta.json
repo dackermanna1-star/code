@@ -1,0 +1,38 @@
+{
+ "tris": 21376,
+ "bounds_min": [
+  -0.038,
+  -0.0081,
+  -0.176
+ ],
+ "bounds_max": [
+  0.038,
+  0.087,
+  0.1705
+ ],
+ "size_m": [
+  0.076,
+  0.0951,
+  0.3465
+ ],
+ "nodes": [
+  "scope_8x",
+  "body",
+  "lens",
+  "lens_front",
+  "eye"
+ ],
+ "materials": [
+  "M_scope_8x",
+  "lens"
+ ],
+ "kind": "scope",
+ "zoom": 8.0,
+ "zoom_min": 4.0,
+ "optical_axis_height_m": 0.047,
+ "eye_relief_m": 0.095,
+ "lens_radius_m": 0.0165,
+ "reticle": "reticles/scope_8x.png",
+ "field_of_view_deg": 4.8,
+ "id": "scope_8x"
+}

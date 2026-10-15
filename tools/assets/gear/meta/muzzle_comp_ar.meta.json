@@ -1,0 +1,31 @@
+{
+ "tris": 1992,
+ "bounds_min": [
+  -0.0115,
+  -0.0115,
+  -0.0
+ ],
+ "bounds_max": [
+  0.0115,
+  0.0115,
+  0.062
+ ],
+ "size_m": [
+  0.023,
+  0.023,
+  0.062
+ ],
+ "nodes": [
+  "muzzle_comp_ar",
+  "body",
+  "muzzle"
+ ],
+ "materials": [
+  "M_muzzle_comp_ar"
+ ],
+ "kind": "muzzle",
+ "type": "compensator",
+ "fits": "AR",
+ "length_m": 0.062,
+ "id": "muzzle_comp_ar"
+}

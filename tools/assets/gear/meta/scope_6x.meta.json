@@ -1,0 +1,38 @@
+{
+ "tris": 16816,
+ "bounds_min": [
+  -0.032,
+  -0.0081,
+  -0.138
+ ],
+ "bounds_max": [
+  0.027,
+  0.069,
+  0.1305
+ ],
+ "size_m": [
+  0.059,
+  0.0771,
+  0.2685
+ ],
+ "nodes": [
+  "scope_6x",
+  "body",
+  "lens",
+  "lens_front",
+  "eye"
+ ],
+ "materials": [
+  "M_scope_6x",
+  "lens"
+ ],
+ "kind": "scope",
+ "zoom": 6.0,
+ "zoom_min": 3.0,
+ "optical_axis_height_m": 0.039,
+ "eye_relief_m": 0.09,
+ "lens_radius_m": 0.0155,
+ "reticle": "reticles/scope_6x.png",
+ "field_of_view_deg": 6.5,
+ "id": "scope_6x"
+}

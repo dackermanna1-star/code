@@ -167,7 +167,7 @@ export class WeaponPose {
     switch (style) {
       case 'rifle':
         // First-person hip pose is raised so the weapon stays in the lower right of the view.
-        if (this.firstPerson) lowOffset(0.11, -0.2, 0.3, 0.14, 0.06, -0.08, this.low);
+        if (this.firstPerson) lowOffset(0.1, -0.21, 0.17, 0.14, 0.07, -0.08, this.low);
         else lowOffset(0.13, -0.36, 0.22, 0.5, 0.2, -0.15, this.low);
         break;
       case 'pistol':

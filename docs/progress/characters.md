@@ -46,22 +46,48 @@ src/characters/
   `setMoveState('freefall')` starts skydiving ('jump' event), auto chute at 120 m AGL, F deploys.
 - Player spawn: `characters.spawn({isPlayer:true})` sets `ctx.player` and switches the camera to 'player'.
 
-## Status (2026-10-15)
+## Status (2026-10-15, end of wave)
 Done + tested:
-- Movement: speeds within 0.2 % of DESIGN (tools/characters-movement.mjs speed), vault 0.5/0.8/1.1 m, climb 1.6/2.0 m,
-  2.5 m refused; fall damage 5/10/15/20 m (20 m lethal); swim 2.8/4.2 m/s, dive, breath 15 s, surface, exit via beach;
-  freefall 45 m/s, dive 65 m/s, auto-deploy ~120 m AGL, chute 5.5/7 m/s, landing.
+- Movement: speeds within 0.2 % of DESIGN for 10 cases (tools/characters-movement.mjs), vault 0.5/0.8/1.1 m, climb
+  1.6/2.0 m, 2.5 m refused; fall damage 5/10/15/20 m (20 m lethal); swim 2.8/4.2 m/s, dive, breath 15 s, surface,
+  exit via beach; freefall 45 m/s, dive 65 m/s, auto-deploy ~120 m AGL, chute 5.5/7 m/s, landing.
+- State rules (tools/characters-states.mjs, 12/12 pass): tunnel crouch/prone clearance, prone slope limit (20° ok,
+  40° refused), ramps 20–45° climbed / 55° refused, stairs 0.18 m and 0.25 m risers at full run speed (≤ 0.9 s to the
+  top), lean blocked by walls (head stays out of the wall), jump apex 0.55 m, drowning (100 HP at 14 s, ~67 at 18 s),
+  knocked crawl 0.9 m/s, vehicle seat/exit/bail-out, plane hide + exit to skydive, hold-to-interact (hold, cancel,
+  instant), healing (walk cap 1.9 m/s, items.applyUse at completion).
+- Step-up: Rapier's autostep only engages on vertical contact normals, so a capsule meeting a 0.15–0.37 m step edge
+  with its bottom hemisphere stopped dead. CharacterBody.move(..., { stepUp }) adds a manual step-up when the KCC
+  result is blocked (tread probe ahead ≤ 0.45 m, walkable normal, headroom check, horizontal remainder from the raised
+  position, short grounded hold while the capsule passes the edge). tests/characters.body.test.ts covers 0.18/0.25/
+  0.35/0.44 m stairs, a 0.6 m ledge (no step), a step without headroom, and walking down stairs with snap.
 - Camera: TPP, aim-hold, ADS click (hybrid), FPP (clip-sphere head hiding), FPP hip pose, free look, collision,
-  crouch/prone, lean, vehicle (driver/passenger), freefall/dive, parachute, swim, deathcam, spectate (tools/characters-camera.mjs).
-- Visuals with delivered Rocketbox characters + 125 clips: 8-way rifle locomotion, crouch/prone groups, aim idles,
-  swim, freefall, parachute (+ procedural canopy), drive/passenger sit (+ steering IK), knocked idle/crawl,
-  procedural vault/climb hand plants, weapon IK (rifle/pistol/melee/throwable), gear + slung weapons, ragdoll.
+  crouch/prone, lean, vehicle (driver/passenger), freefall/dive, parachute, swim, deathcam, spectate
+  (tools/characters-camera.mjs). Iron-sight ADS: when a weapon's rear sight is modelled solid on the sight line, the
+  eye is lifted (raycast once per sight node, ≤ 24 mm) so the view passes over the rear sight to the front post.
+- Visuals with the delivered survivor/soldier variants and the 148-clip library (re-delivered 15:10): 8-way rifle
+  locomotion incl. sprint fl/fr, crouch/prone groups, aim idles, swim, freefall, parachute (hang clip + procedural
+  canopy), drive/passenger sit (+ steering IK), knocked idle/crawl, procedural vault/climb hand plants, weapon IK
+  (rifle/pistol/melee/throwable), gear + slung weapons, ragdoll. A crouch idle much lower than its crouch walk (the new
+  deep-squat clip) is replaced by the procedural crouch over the stand idle. Upper-body overlays play each clip's
+  active window (5–95 % of its rotation) and long actions (bandage, drink, revive) ping-pong at natural speed.
 - Hitboxes: 19 capsules, 91–94 % mesh-vertex coverage (`__game.hitboxCoverage(id)`), correct in all stances.
+- Unit/integration tests: tests/characters.test.ts (20) + tests/characters.body.test.ts (7) pass.
+- Full game (`/?quick=1`, real terrain): player spawns grounded and runs at 4.7 m/s; no console errors.
+
+Evidence tools (all write PNGs to `$TMPDIR/characters-shots` unless an out dir is given):
+`tools/characters-movement.mjs`, `tools/characters-states.mjs`, `tools/characters-camera.mjs [base] [out] [filter]`,
+`tools/characters-poses.mjs [base] [out] [regex] [{"hitboxes":true}]`, `tools/characters-clips.mjs [base] [out] [regex]`.
 
 ## Known issues / notes
 - Rapier KCC sinks into / sticks on very large cuboids and trimeshes: GroundMotor moves with zero vertical
-  delta while grounded (snap-to-ground follows slopes); the sandbox ground is tiled ≤ 256 m. The stub world's single
-  3 km cuboid would still sink (World agent replaces it with a heightfield, which is robust).
+  delta while grounded (snap-to-ground follows slopes); the sandbox ground is tiled ≤ 256 m. The World heightfield
+  is robust.
 - three.js PropertyMixer skips unchanged writes → Rig.savePostMixer/restorePostMixer around procedural edits.
+- The delivered `use_item` clip is "searching pockets" (the earlier bandage clip was replaced in the 15:10 asset
+  drop); healing therefore reads as a pocket/hand gesture. `parachute_idle` is a standing idle in the new set, so
+  `parachute_hang` is preferred.
+- Perf (headless SwiftShader on a shared 4-core box under load from Blender jobs): 87 characters ≈ 2.7 ms/tick sim,
+  ≈ 13 ms/frame animation; earlier unloaded runs measured 1.8–2.1 ms/tick sim, 733 draw calls.
 - Vite dev server only serves public/assets files known at startup when public/assets is ignored by the watcher
   (main vite.config): restart the dev server after asset deliveries.

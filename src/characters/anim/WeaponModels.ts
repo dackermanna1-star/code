@@ -27,6 +27,9 @@ export interface WeaponVisual {
   support: THREE.Object3D | null;
   sightEye: THREE.Object3D | null;
   mag: THREE.Object3D | null;
+  /** Upward offset (weapon space, m) that clears the rear sight for the ADS eye; computed per sight node. */
+  sightLift?: number;
+  sightLiftFor?: THREE.Object3D | null;
 }
 
 const procCache = new Map<string, THREE.Object3D>();
@@ -173,6 +176,46 @@ export function refreshNodes(v: WeaponVisual): void {
   v.support = findNode(v.object, 'grip_support', 'support', 'handguard');
   v.sightEye = findNode(v.object, 'sight_eye', 'eye');
   v.mag = findNode(v.object, 'mag', 'magazine');
+}
+
+const _ray = new THREE.Raycaster();
+const _so = new THREE.Vector3();
+const _su = new THREE.Vector3();
+const _sf = new THREE.Vector3();
+const _sq = new THREE.Quaternion();
+const SIGHT_LIFTS = [0, 0.002, 0.004, 0.007, 0.01, 0.014, 0.018, 0.024];
+
+function visibleUnder(o: THREE.Object3D, root: THREE.Object3D): boolean {
+  for (let p: THREE.Object3D | null = o; p && p !== root; p = p.parent) if (!p.visible) return false;
+  return true;
+}
+
+/**
+ * Iron sights modelled solid (rear sight block / ears on the sight line) would fill the ADS view: find the
+ * smallest lift above `sight_eye` (weapon up axis) whose line of sight passes the rear sight (first hit
+ * beyond 0.22 m, i.e. the front sight or nothing). Raycasts once per sight node.
+ */
+export function sightLift(v: WeaponVisual): number {
+  const se = v.sightEye;
+  if (!se) return 0;
+  if (v.sightLiftFor === se && v.sightLift !== undefined) return v.sightLift;
+  v.object.updateWorldMatrix(true, true);
+  se.getWorldPosition(_so);
+  v.object.getWorldQuaternion(_sq);
+  _su.set(0, 1, 0).applyQuaternion(_sq);
+  _sf.set(0, 0, 1).applyQuaternion(_sq);
+  let lift = 0;
+  for (const dy of SIGHT_LIFTS) {
+    _ray.set(_sf.clone().multiplyScalar(-0.02).add(_so).addScaledVector(_su, dy), _sf);
+    _ray.near = 0;
+    _ray.far = 0.6;
+    const hit = _ray.intersectObject(v.object, true).find((h) => visibleUnder(h.object, v.object));
+    lift = dy;
+    if (!hit || hit.distance > 0.24) break;
+  }
+  v.sightLift = lift;
+  v.sightLiftFor = se;
+  return lift;
 }
 
 /** Build a weapon visual for a weapon instance (returns immediately; real meshes may stream in). */

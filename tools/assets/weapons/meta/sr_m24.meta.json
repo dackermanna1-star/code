@@ -1,0 +1,31 @@
+{
+ "tris": 9168,
+ "bounds_min": [
+  -0.0533,
+  -0.079,
+  -0.314
+ ],
+ "bounds_max": [
+  0.024,
+  0.102,
+  0.792
+ ],
+ "length_m": 1.106,
+ "nodes": [
+  "sr_m24",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "rail_top",
+  "sight_eye"
+ ],
+ "name": "M24",
+ "real_length_m": 1.092,
+ "cycle_node": "bolt",
+ "mag_kind": "box",
+ "id": "sr_m24"
+}

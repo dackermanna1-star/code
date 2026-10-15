@@ -1,0 +1,30 @@
+{
+ "tris": 3560,
+ "bounds_min": [
+  -0.021,
+  -0.116,
+  -0.344
+ ],
+ "bounds_max": [
+  0.021,
+  0.046,
+  0.8
+ ],
+ "length_m": 1.144,
+ "nodes": [
+  "sg_s686",
+  "body",
+  "bolt",
+  "mag",
+  "bolt_mesh",
+  "mag_mesh",
+  "grip_support",
+  "muzzle",
+  "sight_eye"
+ ],
+ "name": "S686",
+ "real_length_m": 1.13,
+ "cycle_node": "bolt",
+ "mag_kind": "break",
+ "id": "sg_s686"
+}

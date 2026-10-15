@@ -13,6 +13,8 @@ export interface RoadUniforms {
 const vertPars = /* glsl */ `
 attribute vec4 roadInfo; // x: half width, y: marking mask (0..1), z: kind, w: lane markings enabled
 attribute vec2 roadUv;   // x: meters across from the centerline (pads: signed distance to the edge), y: meters along
+attribute float roadShoulder; // 1 = gravel shoulder outside the asphalt, 0 = none (decks, junctions)
+varying float vShoulder;
 varying vec4 vRoad;
 varying vec2 vRoadUv;
 varying vec3 vRoadW;
@@ -21,6 +23,7 @@ varying vec3 vRoadW;
 const fragPars = /* glsl */ `
 uniform sampler2D tNoise;
 uniform float uWetness;
+varying float vShoulder;
 varying vec4 vRoad;
 varying vec2 vRoadUv;
 varying vec3 vRoadW;
@@ -57,8 +60,17 @@ if ( kind < 0.5 ) {
   }
   rc = mix( rc, vec3( 0.55, 0.55, 0.5 ), mk );
   rRough = mix( rRough, 0.6, mk );
-  rEdge = 1.0 - smoothstep( hw - 0.15, hw + 0.45, ax + ( nB.r - 0.5 ) * 0.5 );
   rPuddle = smoothstep( 0.68, 0.75, nA.b ) * ( 1.0 - mk );
+  // compacted gravel shoulder just outside the asphalt (too narrow for the 4 m terrain splat to draw)
+  float shOn = clamp( vShoulder, 0.0, 1.0 ); // 0 on bridge decks and where other roads join
+  float sh = smoothstep( hw - 0.1, hw + 0.25, ax + ( nB.r - 0.5 ) * 0.5 ) * shOn;
+  float grit = rHash( floor( vRoadW.xz * 14.0 ) );
+  vec3 shCol = mix( vec3( 0.12, 0.105, 0.085 ), vec3( 0.23, 0.205, 0.165 ), nC.g * 0.65 + grit * 0.35 );
+  rc = mix( rc, shCol, sh );
+  rRough = mix( rRough, 0.95, sh );
+  rPuddle *= 1.0 - sh;
+  rEdge = mix( 1.0 - smoothstep( hw + 0.35, hw + 1.45, ax + ( nB.g - 0.5 ) * 0.9 + ( nC.b - 0.5 ) * 0.3 ),
+               1.0 - smoothstep( hw - 0.15, hw + 0.45, ax + ( nB.r - 0.5 ) * 0.5 ), 1.0 - shOn );
 } else if ( kind < 1.5 ) {
   // dirt track: compacted soil, two tire ruts, grassy crown
   float n = nB.r * 0.6 + nC.g * 0.4;
@@ -102,7 +114,7 @@ export function createRoadMaterial(u: RoadUniforms): THREE.MeshStandardMaterial 
     Object.assign(shader.uniforms, u);
     shader.vertexShader = shader.vertexShader
       .replace('#include <common>', '#include <common>\n' + vertPars)
-      .replace('#include <uv_vertex>', '#include <uv_vertex>\nvRoad = roadInfo;\nvRoadUv = roadUv;\nvRoadW = ( modelMatrix * vec4( position, 1.0 ) ).xyz;');
+      .replace('#include <uv_vertex>', '#include <uv_vertex>\nvShoulder = roadShoulder;\nvRoad = roadInfo;\nvRoadUv = roadUv;\nvRoadW = ( modelMatrix * vec4( position, 1.0 ) ).xyz;');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', '#include <common>\n' + fragPars)
       .replace('#include <map_fragment>', fragMap)
