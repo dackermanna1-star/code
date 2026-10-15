@@ -522,7 +522,7 @@ class Charger extends Special {
   constructor(world) {
     super(world, 'charger', SPECIAL.charger.hp, { speed: SPECIAL.charger.speed, radius: 0.5, height: 1.95, name: 'Charger' });
     this.pinPose = 'carried'; this.controlsVictim = true;
-    this.chargeCd = rand(1, 3); this.chargeT = 0; this.warm = 0; this.poundT = 0; this.heavy = true;
+    this.chargeCd = rand(0, 0.5); this.chargeT = 0; this.warm = 0; this.poundT = 0; this.heavy = true;
     this.chargeDir = new THREE.Vector3(); this.bodyRadius = 0.24; this.armRadiusMul = 2;
     this.hitSet = new Set();
   }
@@ -546,13 +546,16 @@ class Charger extends Special {
     const t = this.target;
     if (t && this.chargeCd <= 0) {
       const d = t.body.pos.distanceTo(this.position);
-      if (d < 14 && d > 2.5 && Math.abs(t.body.pos.y - this.position.y) < 1 && this.hasLOS(t, 15) && w.nav.walkable(this.position.x, this.position.y, this.position.z, t.body.pos.x, t.body.pos.y, t.body.pos.z)) {
+      const knee = _v.set(this.position.x, this.position.y + 0.6, this.position.z), tk = _v2.set(t.body.pos.x, t.body.pos.y + 0.6, t.body.pos.z);
+      if (d < 14 && d > 1.8 && Math.abs(t.body.pos.y - this.position.y) < 1 && this.hasLOS(t, 15) && !w.collision.blocked(knee, tk, { move: true, dynamic: false })) {
         this.reaction += dt;
+        this.lining = true;
         if (this.reaction > this.diff.specialDelay * 0.6) { this.warm = C.warmup; this.reaction = 0; w.sound('charger_charge', this.position, { volume: 1 }); }
-      }
-    }
+      } else this.lining = false;
+    } else this.lining = false;
     if (t && t.body.pos.distanceTo(this.position) < 1.6) this.claw(dt, this.diff.chargerPunch);
-    this.approach(dt, 1);
+    if (this.lining && t) { this.vel.multiplyScalar(0.8); this.faceTo(t.body.pos.x - this.position.x, t.body.pos.z - this.position.z, dt, 8); }
+    else this.approach(dt, 1);
     this.integrate(dt);
     this.animate(dt);
   }

@@ -92,8 +92,15 @@ export class Game {
     ld.set(0.02, 'Building ' + chapter.name);
     await new Promise((r) => setTimeout(r, 30));
     const L = new LevelBuilder(level.builderOpts || {});
-    level.build(L);
-    await L.build((p, m) => ld.set(0.05 + p * 0.75, m));
+    try {
+      level.build(L);
+      await L.build((p, m) => ld.set(0.05 + p * 0.75, m));
+    } catch (e) {
+      console.error('Level build failed', e);
+      ld.set(0, 'ERROR: ' + e.message);
+      this.loadError = e;
+      return;
+    }
     ld.set(0.85, 'Generating navigation');
     await new Promise((r) => setTimeout(r, 10));
     const world = new World(this, level, L, { difficulty: this.settings.get('difficulty'), chapter });

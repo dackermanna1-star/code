@@ -26,6 +26,14 @@ export default {
   music: 'explore_hotel',
   director: { variant: 'hotel', hazmatChance: 0.15, wanderers: 12, bosses: [], specials: ['boomer', 'hunter', 'smoker', 'charger', 'jockey', 'spitter'] },
   virtualLinks: [{ from: [35.5, Y7, 9.3], to: [35.5, Y0, 9.3], cost: 5 }],
+  routeCheck: [
+    ['roof start', 27, YR, -20], ['roof west', 9, YR, 19.7], ['S1 top landing', 4.5, YR, 20.4], ['S1 mid landing', 3, (YR + Y8) / 2, 14.5],
+    ['S1 bottom', 3, Y8, 20.4], ['corridor A', 10, Y8, 19.7], ['junction', 31, Y8, 19.7], ['corridor B north', 29.1, Y8, 8], ['laundry', 32, Y8, 7.3],
+    ['ledge', 34.5, Y8, 5], ['ledge south', 34.5, Y8, -7.3], ['room 816', 33.3, Y8, -9.6], ['corridor B south', 29.1, Y8, -15], ['S2 top', 28.5, Y8, -21],
+    ['S2 mid', 23.5, (Y8 + Y7) / 2, -23], ['S2 bottom', 28.5, Y7, -24.5], ['corridor C', 29.1, Y7, -10], ['lounge', 28, Y7, 11], ['car up', 35.5, Y7, 9.3],
+    ['car down', 35.5, Y0, 9.3], ['service corridor', 28, Y0, 9.2], ['kitchen east', 17, Y0, 7], ['kitchen west', 10, Y0, 7], ['restaurant', -3, Y0, 4],
+    ['lobby', 3, Y0, -18], ['hallway', 24, Y0, -25.8], ['saferoom', 33, Y0, -25.5],
+  ],
   intro: [
     { who: 0, text: 'Hey! HEY! Down here! We\'re right here!', delay: 1.2 },
     { who: 1, text: 'They\'re not turning around.', delay: 4.2 },
@@ -53,6 +61,7 @@ export default {
     L.defMat('steelDoor', { tex: ['metal', { color: 0xa8acb0 }], scale: 1.5, surf: SURF.METAL });
     L.defMat('elevWall', { tex: ['metal', { color: 0x8a7a5a }], scale: 1.2, surf: SURF.METAL });
     L.defMat('helipad', { tex: ['concrete', { color: 0x5a5a58 }], scale: 4, surf: SURF.CONCRETE });
+    L.defMat('lobbyWall', { tex: ['wallpaper', { color: 0xc8b08a, stripe: 0xa08a60 }], scale: 2.4, surf: SURF.CONCRETE });
 
     // ================================================================= ROOF (YR)
     // roof slab over the whole building (north wing + east wing)
@@ -322,12 +331,11 @@ export default {
     L.marker('item', [6.8, G0, -5], { id: ['medkit', 'pills'], chance: 0.5 });
     L.marker('smoke', [-3, G0 + 3.6, 6], { ceiling: true }); L.marker('smoke', [-9, G0 + 3.6, 12], { ceiling: true });
     // lobby (x -14..20, z -30..-6), 7m tall
-    L.defMat('lobbyWall', { tex: ['wallpaper', { color: 0xc8b08a, stripe: 0xa08a60 }], scale: 2.4, surf: SURF.CONCRETE });
     L.floor(-14, -30, 20, -6, G0, 'lobbyFloor');
     L.ceiling(-14, -30, 20, -6, G0 + 7, 'ceiling', { holes: [[-2, -22, 8, -14]] });
     L.box([-2, G0 + 7, -22], [8, G0 + 7.6, -14], 'glass', { faces: { ny: false }, collide: false });
     wallSeg(L, -14, -30, -14, -6, G0, 7, 'facade', 'lobbyWall', [], { exterior: true });
-    wallSeg(L, 20, -6, 20, -30, G0, 7, 'whitePlaster', 'lobbyWall', [{ at: 4.6, w: 3.0, h: 3 }]);
+    wallSeg(L, 20, -6, 20, -30, G0, 7, 'whitePlaster', 'lobbyWall', [{ at: 19.8, w: 3.0, h: 3 }]);
     wallSeg(L, -14, -30, 20, -30, G0, 7, 'lobbyWall', 'facade', [{ at: 17, w: 6, h: 3.4 }], { exterior: true });
     for (const x of [1, 4]) P(L, 'plywood_board', x, G0, -29.95, 0, { w: 3, h: 3.4 });
     L.box([0, G0, -30.3], [6, G0 + 3.4, -30.1], 'clip');

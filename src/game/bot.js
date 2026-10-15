@@ -49,6 +49,13 @@ export class BotController {
   decide() {
     const s = this.s, w = this.w;
     if (s.state !== 'alive' || s.pinnedBy) { this.mode = 'idle'; return; }
+    // hopelessly separated from the leader for a while: regroup out of sight
+    const Lg = this.leader;
+    if (Lg && Lg !== s && !this.autopilot) {
+      const far = Lg.body.pos.distanceTo(s.body.pos) > 22 || Math.abs(Lg.body.pos.y - s.body.pos.y) > 3;
+      this.farT = far ? (this.farT || 0) + 0.3 : 0;
+      if (this.farT > 9 && !this.visibleToPlayer() && this.mode !== 'revive' && this.mode !== 'rescue') { this.teleportNear(Lg); this.farT = 0; this.itemTarget = null; }
+    }
     const threats = this.nearThreats(6);
     // 1. pinned teammates (after a reaction delay)
     let pinned = null, pd = Infinity;
@@ -89,8 +96,12 @@ export class BotController {
       for (const o of w.survivors) if (o !== s && o.state === 'alive' && !o.inv.pills && o.total <= 50 && o.body.pos.distanceTo(s.body.pos) < 2.2) { this.mode = 'givepills'; this.healTarget = o; return; }
     }
     // 4. items worth grabbing nearby
+    if (this.itemTarget && this.mode === 'item') {
+      this.itemTime = (this.itemTime || 0) + 0.3;
+      if (this.itemTime > 7) { (this.badItems || (this.badItems = new Set())).add(this.itemTarget); this.itemTarget = null; this.itemTime = 0; }
+    } else this.itemTime = 0;
     const item = this.findItem();
-    if (item && threats < 3) { this.mode = 'item'; this.itemTarget = item; this.setGoal(item.pos, 0.7); return; }
+    if (item && threats < 3) { this.mode = 'item'; this.itemTarget = item; this.setGoal(_v3.copy(item.pos).setY(item.pos.y - 1.0), 0.9); return; }
     // 5. follow the leader
     this.mode = 'follow';
     const L = this.leader;
@@ -153,7 +164,7 @@ export class BotController {
     const s = this.s, w = this.w;
     let best = null, bs = 0;
     for (const p of w.pickups) {
-      if (p.taken) continue;
+      if (p.taken || (this.badItems && this.badItems.has(p))) continue;
       const d = p.pos.distanceTo(s.body.pos);
       if (d > 10 || Math.abs(p.pos.y - s.body.pos.y) > 2.5) continue;
       let score = 0;
@@ -265,6 +276,9 @@ export class BotController {
       }
       const n = this.path[ai];
       tx = nav.x[n]; tz = nav.z[n];
+      // jump up onto ledges / counters along the path
+      const nn = this.path[Math.min(this.path.length - 1, this.pathI + 1)];
+      if (nav.y[nn] - s.body.pos.y > 0.4 && Math.hypot(nav.x[nn] - s.body.pos.x, nav.z[nn] - s.body.pos.z) < 1.3 && s.body.grounded) it.jump = true;
       if (this.pathI >= this.path.length - 1) { tx = this.goal.x; tz = this.goal.z; }
     }
     // doors in the way
@@ -350,8 +364,20 @@ export class BotController {
     it.attack = false;
     if (s.state === 'dead' || s.pinnedBy || s.state === 'ledge') return;
     if (s.action && s.action.type !== 'revive') return;
+    if (w.noBotCombat) { this.target = null; return; }
     this.targetT -= dt;
-    if (this.targetT <= 0 || (this.target && !this.target.alive)) { this.targetT = 0.2; this.target = this.pickTarget(); if (this.target !== this.lastTarget) { this.lastTarget = this.target; this.aimErr.set((Math.random() - 0.5) * 0.06, (Math.random() - 0.5) * 0.05); this.headAim = Math.random() < 0.35; } }
+    if (this.targetT <= 0 || (this.target && !this.target.alive)) {
+      this.targetT = 0.2; this.target = this.pickTarget();
+      if (this.target !== this.lastTarget) {
+        this.lastTarget = this.target;
+        this.aimErr.set((Math.random() - 0.5) * 0.07, (Math.random() - 0.5) * 0.06);
+        this.headAim = Math.random() < 0.3;
+        // reaction time before engaging a newly noticed threat
+        const base = { easy: 0.7, normal: 0.45, advanced: 0.3, expert: 0.2 }[w.difficulty] || 0.45;
+        this.acquireT = this.target ? (this.target.type === 'common' ? base * 0.6 : base) * (0.7 + Math.random() * 0.6) : 0;
+      }
+    }
+    if (this.acquireT > 0) { this.acquireT -= dt; if (this.target) this.lookAt(this.target.center(_v), dt, 3); return; }
     const z = this.target;
     // weapon management
     const ws = s.activeWeapon;

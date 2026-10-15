@@ -193,7 +193,7 @@ export class World {
     this.updateTriggers();
     this.cullCorpses();
     if (this.level.update) this.level.update(this, dt);
-    this.effects.update(dt);
+    this.effects.update(dt, this.camPos);
     this.updateLights(dt);
     if (this.sky && this.camPos) this.sky.position.copy(this.camPos);
     this.updateMessages(dt);
@@ -274,9 +274,13 @@ export class World {
         const d2 = dx * dx + dz * dz;
         if (d2 < r * r && d2 > 1e-6 && Math.abs(p.y - z.position.y) < 1.4) {
           const d = Math.sqrt(d2), pen = r - d;
-          const massS = z.heavy ? 0.9 : 0.35;
-          p.x += dx / d * pen * massS; p.z += dz / d * pen * massS;
-          if (!z.heavy) { z.position.x -= dx / d * pen * (1 - massS) * 0.5; z.position.z -= dz / d * pen * (1 - massS) * 0.5; }
+          let massS = z.heavy ? 0.9 : 0.3;
+          // never shove a survivor off a ledge: only displace them if there is floor there
+          const nx = p.x + dx / d * pen * massS, nz = p.z + dz / d * pen * massS;
+          const g = this.collision.groundAt(nx, p.y + 0.4, nz, 1.2);
+          if (!g) massS = 0;
+          else { p.x = nx; p.z = nz; }
+          z.position.x -= dx / d * pen * (1 - massS) * 0.6; z.position.z -= dz / d * pen * (1 - massS) * 0.6;
         }
       });
     }

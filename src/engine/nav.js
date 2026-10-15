@@ -223,7 +223,7 @@ export class NavGrid {
   traversable(u, d, infected, maxDrop = 2.6) {
     const t = this.ltype[u * 8 + d];
     if (t === LINK.WALK) return true;
-    if (t === LINK.CLIMB) return infected;
+    if (t === LINK.CLIMB) return infected || (this.y[this.link[u * 8 + d]] - this.y[u]) <= 1.05; // survivors can jump ~1m
     if (t === LINK.DROP) return infected || (this.y[u] - this.y[this.link[u * 8 + d]]) <= maxDrop;
     return false;
   }

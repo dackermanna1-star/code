@@ -124,6 +124,7 @@ export class LevelBuilder {
   // opts: collide (default true unless material invisible-only), uv: [[u,v]x4] explicit, bullet (default true), subdivide
   quad(a, b, c, d, mat, opts = {}) {
     const def = this.matDefs[mat];
+    if (!def) throw new Error('Unknown material "' + mat + '"');
     const collide = opts.collide !== undefined ? opts.collide : true;
     const visible = !def.invisible && opts.visible !== false;
     const A = a.isVector3 ? a : V(...a), B = b.isVector3 ? b : V(...b), C = c.isVector3 ? c : V(...c), D = d.isVector3 ? d : V(...d);

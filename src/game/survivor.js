@@ -472,6 +472,15 @@ export class Survivor {
     } else if (!this.fling) {
       accelerate(b.vel, wish, Math.min(wishSpeed, 0.76), S.airAccelerate, dt);
     }
+    // bots never walk off drops on their own (humans can)
+    if (b.grounded && !this.fling && (this.isBot || (this.controller && this.controller.autopilot))) {
+      const hs = Math.hypot(b.vel.x, b.vel.z);
+      if (hs > 0.1) {
+        const la = 0.45 / hs;
+        const g = w.collision.groundAt(b.pos.x + b.vel.x * la, b.pos.y + 0.4, b.pos.z + b.vel.z * la, 1.6);
+        if (!g) { b.vel.x = 0; b.vel.z = 0; }
+      }
+    }
     // stay on moving platforms
     if (b.grounded && b.groundDynamic && b.groundDynamic.velocity) b.pos.addScaledVector(b.groundDynamic.velocity, dt);
     b.vel.y -= S.gravity * dt;

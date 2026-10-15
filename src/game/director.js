@@ -171,8 +171,8 @@ export class Director {
   spawnMob(size, opts = {}) {
     const w = this.world;
     const alive = w.infected.filter((z) => z.alive && z.type === 'common').length;
-    const cap = this.panic ? (this.panic.limit || 40) : this.commonLimit + 10;
-    size = Math.min(size, Math.max(0, cap - alive + 10));
+    const cap = this.panic ? (this.panic.limit || 40) : this.commonLimit;
+    size = Math.min(size, Math.max(0, cap - alive));
     if (size <= 0) return;
     const behind = opts.behind !== undefined ? opts.behind : Math.random() < DIRECTOR.mobBehindChance;
     const nodes = this.findSpawnNodes(Math.min(4, Math.ceil(size / 6)), { min: DIRECTOR.spawnMin, max: DIRECTOR.spawnMax, behind, near: opts.near, above: opts.above });
@@ -248,7 +248,9 @@ export class Director {
     if (!this.wanderersAllowed || this.panic) return;
     const relaxedOK = this.phase !== 'relax' || this.maxIntensity() < (w.difficulty === 'expert' ? 0.8 : w.difficulty === 'advanced' ? 0.5 : 0.3);
     if (!relaxedOK) return;
-    const idle = w.infected.filter((z) => z.alive && z.type === 'common' && (z.state === 'idle' || z.state === 'wander')).length;
+    const commons = w.infected.filter((z) => z.alive && z.type === 'common');
+    if (commons.length >= this.commonLimit - 6) return;
+    const idle = commons.filter((z) => z.state === 'idle' || z.state === 'wander').length;
     const target = Math.round((this.cfg.wanderers || 14) * this.wanderDensity);
     if (idle >= target) return;
     // populate ahead, out of sight

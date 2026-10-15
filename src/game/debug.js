@@ -5,6 +5,7 @@ import { AutoPilot } from './bot.js';
 export function installDebug(game) {
   const W = () => game.world;
   game.debug = {
+    passive(on = true) { W().noBotCombat = on; },
     god(on = true) { for (const s of W().survivors) s.invuln = on ? 1e9 : 0; },
     spawnMob(n = 20, near = false) { const w = W(); w.director.enabled = true; w.director.spawnMob(n, near ? { near: w.player.body.pos } : { reason: 'debug' }); },
     spawnSpecial(type, dist = 10) {

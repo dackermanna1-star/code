@@ -424,7 +424,8 @@ export class Effects {
     this.particles.onFloorHit = (x, y, z) => { if (Math.random() < 0.5) this.decals.add(new THREE.Vector3(x, y, z), new THREE.Vector3(0, 1, 0), 0.15 + Math.random() * 0.25, 'blood'); };
     this.lights = null; // set by world: (pos, color, range, life) => void
   }
-  update(dt) {
+  update(dt, camPos) {
+    this.camPos = camPos;
     this.particles.update(dt);
     this.bb.update(dt);
     this.bbAdd.update(dt);
@@ -445,8 +446,8 @@ export class Effects {
       const dark = 0.3 + rnd() * 0.3;
       this.particles.spawn(p.x, p.y, p.z, vx, vy, vz, dark, 0.01, 0.01, 1, 2 + rnd() * 3, 0.5 + rnd() * 0.8, 9.8, 0.8, fy, 1);
     }
-    // mist puff
-    this.bb.add({ x: p.x, y: p.y, z: p.z, vx: dir.x * 0.5, vy: 0.2, vz: dir.z * 0.5, w: 0.3 * amount + 0.2, h: 0.3 * amount + 0.2, grow: 1.2, life: 0.35, r: 0.6, g: 0.05, b: 0.04, a: 0.8, uv: this.bbAtlas.blood, rot: rnd() * 6 });
+    // mist puff (not right in the camera's face)
+    if (!this.camPos || this.camPos.distanceToSquared(p) > 2.5) this.bb.add({ x: p.x, y: p.y, z: p.z, vx: dir.x * 0.5, vy: 0.2, vz: dir.z * 0.5, w: 0.3 * amount + 0.2, h: 0.3 * amount + 0.2, grow: 1.2, life: 0.35, r: 0.6, g: 0.05, b: 0.04, a: 0.8, uv: this.bbAtlas.blood, rot: rnd() * 6 });
     // wall splatter behind the hit
     if (opts.wall !== false && amount >= 0.5) {
       const hit = this.collision.raycast(p, dir, 2.5, {});
