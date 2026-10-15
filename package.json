@@ -9,7 +9,11 @@
     "test": "node tools/smoke-test.mjs",
     "check": "node tools/check-info.mjs",
     "music": "node tools/render-music.mjs assets/wads/doom1.wad D_E1M1 30 e1m1.wav",
-    "build:html": "node tools/build-standalone.mjs"
+    "build:html": "node tools/build-standalone.mjs",
+    "ct:assets": "python3 tools/ct/textures.py && python3 tools/ct/audio.py && python3 tools/ct/render_zombies.py && python3 tools/ct/render_props.py",
+    "ct:map": "node tools/ct/unpack.mjs --if-missing && node tools/ct/build-map.mjs --no-preview && node tools/ct/pack.mjs && node tools/ct/lib/validate.mjs assets/wads/chinatown.wad CHINATWN && node tools/ct/check-map.mjs assets/wads/chinatown.wad",
+    "ct:pack": "node tools/ct/pack.mjs",
+    "ct:test": "node tools/ct/test-engine.mjs && node tools/ct/test-ct.mjs && node tools/ct/test-ct.mjs assets/wads/chinatown.wad"
   },
   "license": "UNLICENSED",
   "devDependencies": {

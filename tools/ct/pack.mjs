@@ -14,13 +14,13 @@
 //
 // TEXTURES.json: { "CTBRK1": { "width": 128, "height": 128,
 //   "patches": [{ "patch": "CTBRK1A", "x": 0, "y": 0 }, ...] }, ... }
-// Usage: node tools/ct/pack.mjs [out.wad]
+// Usage: [CT_LUMPS=dir] node tools/ct/pack.mjs [out.wad]
 
 import fs from 'node:fs';
 import path from 'node:path';
 
 const root = new URL('../..', import.meta.url).pathname;
-const lumpsDir = path.join(root, 'build/ct/lumps');
+const lumpsDir = process.env.CT_LUMPS ? path.resolve(process.env.CT_LUMPS) : path.join(root, 'build/ct/lumps');
 const out = process.argv[2] || path.join(root, 'assets/wads/chinatown.wad');
 
 function listLumps(ns) {
