@@ -562,7 +562,7 @@ export class LevelBuilder {
       const d = Math.sqrt(d2);
       const ndl = (lx * nx + ly * ny + lz * nz) / Math.max(d, 1e-4);
       if (ndl <= -0.2) continue;
-      let att = 1 - d / l.range; att *= att;
+      const x = 1 - d / l.range; let att = x * x * (3 - 2 * x); // smooth falloff (brighter mid-range than quadratic)
       const lam = Math.max(ndl, 0) * 0.85 + 0.15;
       if (l.shadows && d > 0.3) {
         _ray.origin.copy(P); _ray.direction.set(lx / d, ly / d, lz / d);

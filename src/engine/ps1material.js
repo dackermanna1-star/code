@@ -111,8 +111,8 @@ void main() {
     for (int i = 0; i < ${MAX_POINT_LIGHTS}; i++) {
       vec3 L = uPointPos[i] - worldPos.xyz;
       float d = length(L);
-      float att = clamp(1.0 - d / uPointRange[i], 0.0, 1.0);
-      att *= att;
+      float x = clamp(1.0 - d / uPointRange[i], 0.0, 1.0);
+      float att = x * x * (3.0 - 2.0 * x);
       float ndl = max(dot(wn, L / max(d, 0.001)) * 0.75 + 0.25, 0.0);
       dyn += uPointColor[i] * att * ndl;
     }

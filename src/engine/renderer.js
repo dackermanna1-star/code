@@ -28,6 +28,7 @@ uniform float uAcid;
 uniform float uFire;
 uniform float uAdrenaline;
 uniform float uBrightness;
+uniform float uGamma;
 varying vec2 vUv;
 
 float bayer4(vec2 p) {
@@ -52,7 +53,7 @@ void main() {
     uv.y += cos(uv.x * 14.0 + uTime * 2.3) * 0.004 * uBile;
   }
   vec3 col = texture2D(tDiffuse, uv).rgb;
-  col *= uBrightness;
+  col = pow(max(col, vec3(0.0)), vec3(uGamma)) * uBrightness;
   vec2 px = floor(uv * uRes);
 
   // bile overlay
@@ -134,6 +135,7 @@ export class PS1Renderer {
       uFire: { value: 0 },
       uAdrenaline: { value: 0 },
       uBrightness: { value: 1 },
+      uGamma: { value: 0.8 },
     };
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));

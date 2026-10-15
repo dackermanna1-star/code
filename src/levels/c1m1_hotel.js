@@ -19,13 +19,22 @@ export default {
   id: 'c1m1_hotel', name: 'Hotel', chapter: 1, tagline: 'The last chopper just left without you.',
   env: { fog: 0x5a4a3c, fogNear: 18, fogFar: 110, clear: 0x8a6a4a, sky: { top: 0x2a2c3a, horizon: 0xc0844c, bottom: 0x4a3a2c } },
   builderOpts: {
-    ambientSky: 0x2c2a2c, ambientGround: 0x161412, minLight: 0x0c0b0b,
+    ambientSky: 0x34302c, ambientGround: 0x1c1a16, minLight: 0x221e1a,
     sun: { dir: [-0.62, 0.42, 0.3], color: new THREE.Color(1.0, 0.72, 0.42) },
-    skyRays: 6, skyColor: 0x8a7a6a,
+    skyRays: 6, skyColor: 0xb8a088,
   },
   music: 'explore_hotel',
   director: { variant: 'hotel', hazmatChance: 0.15, wanderers: 12, bosses: [], specials: ['boomer', 'hunter', 'smoker', 'charger', 'jockey', 'spitter'] },
   virtualLinks: [{ from: [35.5, Y7, 9.3], to: [35.5, Y0, 9.3], cost: 5 }],
+  // camera viewpoints for automated screenshot tours: [name, x, y, z, yaw, pitch]
+  tour: [
+    ['roof_start', 27, YR, -21, Math.PI, 0.05], ['roof_west', 12, YR, 18.5, Math.PI / 2, 0], ['stair_s1', 4.6, YR, 20.3, Math.PI, -0.5],
+    ['corridor_a', 7.5, Y8, 19.7, -Math.PI / 2, 0], ['ceda_suite', 15.5, Y8, 25.3, 0, -0.05], ['junction', 29, Y8, 24, -Math.PI / 2 - 0.4, 0],
+    ['corridor_b_fire', 29.1, Y8, 11, 0, 0], ['laundry', 31.2, Y8, 9.6, -Math.PI / 2 - 0.5, 0], ['ledge', 34.6, Y8, 7.5, 0, -0.1],
+    ['corridor_c', 29.1, Y7, -18.5, Math.PI, 0], ['lounge', 23.5, Y7, 9, -Math.PI / 2, 0], ['elevator', 36.3, Y7, 9.3, Math.PI / 2, 0],
+    ['ground_service', 33.4, Y0, 9.3, Math.PI / 2, 0], ['security', 32.3, Y0, 5.8, Math.PI / 2 + 0.3, -0.1], ['kitchen', 19.5, Y0, 9.3, Math.PI / 2, 0],
+    ['restaurant', 7, Y0, 5, Math.PI / 2 + 0.3, 0], ['lobby', 4, Y0, -7.5, 0.2, 0.05], ['hallway', 20.5, Y0, -25.8, -Math.PI / 2, 0], ['saferoom', 29.6, Y0, -25.6, -Math.PI / 2, 0],
+  ],
   routeCheck: [
     ['roof start', 27, YR, -20], ['roof west', 9, YR, 19.7], ['S1 top landing', 4.5, YR, 20.4], ['S1 mid landing', 3, (YR + Y8) / 2, 14.5],
     ['S1 bottom', 3, Y8, 20.4], ['corridor A', 10, Y8, 19.7], ['junction', 31, Y8, 19.7], ['corridor B north', 29.1, Y8, 8], ['laundry', 32, Y8, 7.3],
@@ -102,7 +111,8 @@ export default {
     // ---------------------------------------------------------------- stairwell S1 (roof -> 8th)
     stairCore(L, { x0: 0, z0: 13.5, yTop: YR, yBot: Y8, variant: 'east', housing: true, wall: 'concreteWarm' });
     L.doors.push({ pos: [6, YR, 19.7 - 0.6], width: 1.2, height: 2.2, rotY: -Math.PI / 2, type: 'metal', name: 'roofDoor' });
-    L.light([4.5, YR + 2.6, 17], 0xb0c0ff, 7, 0.5);
+    L.light([4.5, YR + 2.6, 17], 0xb0c0ff, 8, 0.9);
+    L.light([3, (YR + Y8) / 2 + 2.4, 14.5], 0xb0c0ff, 7, 0.8, { flicker: 0.4 });
     L.light([3, Y8 + 2.6, 19], 0xb0c0ff, 6, 0.6, { flicker: 0.5 });
     L.sign([5.88, Y8 + 2.5, 19.7], -Math.PI / 2, 0.9, 0.3, 'sign', { text: 'EXIT', bg: 'rgb(20,60,20)', fg: 'rgb(120,255,120)', w: 32, h: 12, size: 9 }, { unlit: true });
     L.sign([5.88, Y8 + 1.6, 18.2], -Math.PI / 2, 0.6, 0.6, 'sign', { text: '8', bg: 'rgb(30,30,30)', fg: 'rgb(230,230,230)', w: 16, h: 16, size: 13 });
@@ -138,7 +148,7 @@ export default {
     for (let i = 0; i < 3; i++) { P(L, 'office_chair', 14.2, F8, 22.2 + i * 0.9, Math.PI / 2 + 0.2 * i); P(L, 'office_chair', 16.8, F8, 22.4 + i * 0.9, -Math.PI / 2 - 0.15 * i); }
     L.sign([15.5, F8 + 1.65, 21.12], 0, 3.2, 1.6, 'wallmap', {}, {});
     L.sign([11.12, F8 + 1.5, 23.5], Math.PI / 2, 2.2, 1.4, 'whiteboard', {}, {});
-    L.sign([19.88, F8 + 1.6, 24.5], -Math.PI / 2, 0.7, 1.0, 'poster', { text: 'CEDA' }, {});
+    L.sign([19.88, F8 + 1.6, 24.5], -Math.PI / 2, 0.7, 1.0, 'poster', { text: 'NERA' }, {});
     P(L, 'cardboard_boxes', 12, F8, 25, 0.2); P(L, 'crate', 19, F8, 25.2, 0.1);
     P(L, 'lamp_floor', 11.6, F8, 21.6, 0);
     L.light([15.5, F8 + 2.7, 23.5], 0xfff0c8, 8, 1.0);
@@ -156,7 +166,8 @@ export default {
     P(L, 'potted_plant', 28.6, F8, 25.2, 0); P(L, 'luggage_cart', 32, F8, 24.5, 0.6);
     P(L, 'vending_machine', 28.3, F8, 14.2, Math.PI / 2, { kind: 'soda' });
     P(L, 'body', 31, F8, 19, 2.1, { pose: 'back' }); P(L, 'blood_pool', 31, F8, 19, 0);
-    L.light([31, F8 + 2.7, 19.7], 0xffd8a0, 8, 0.8, { flicker: 0.3 });
+    L.light([31, F8 + 2.7, 19.7], 0xffd8a0, 9, 1.0, { flicker: 0.3 });
+    L.light([31, F8 + 2.7, 24.5], 0xffd8a0, 6, 0.8);
     L.light([16, F8 + 2.7, 19.7], 0xffd8a0, 8, 0.7);
     L.light([9, F8 + 2.7, 19.7], 0xffd8a0, 7, 0.5, { flicker: 1 });
     L.light([23, F8 + 2.7, 19.7], 0xffd8a0, 7, 0.6);
@@ -177,7 +188,7 @@ export default {
     P(L, 'washing_machine', 31, F8, 9.9, Math.PI); P(L, 'washing_machine', 31.9, F8, 9.9, Math.PI); P(L, 'laundry_cart', 32.6, F8, 4.8, 0.3);
     P(L, 'ironing_board', 33.2, F8, 9.2, 0.4);
     L.marker('item', [32.6, F8 + 0.6, 4.8], { id: ['pills', 'adrenaline', 'pipebomb'], chance: 0.7 });
-    L.light([32.2, F8 + 2.7, 7.3], 0xd8e8ff, 6, 0.6, { flicker: 1 });
+    L.light([32.2, F8 + 2.7, 7.3], 0xd8e8ff, 7, 1.0, { flicker: 1 });
     // rooms past the fire, entered from the ledge
     for (const [z0, z1, num, win] of [[-3.5, 4, 814, false], [-11, -3.5, 816, true], [-20, -11, 818, false]]) {
       L.floor(30.4, z0, 34, z1, F8, 'carpetGreen'); L.ceiling(30.4, z0, 34, z1, F8 + H, 'ceiling');
@@ -262,7 +273,8 @@ export default {
     P(L, 'sofa', 25, F7, 15.8, Math.PI); P(L, 'armchair', 23, F7, 7.6, 0.6); P(L, 'coffee_table', 25.2, F7, 14.6, 0);
     P(L, 'cardboard_boxes', 27, F7, 7, 0); P(L, 'potted_plant', 32.8, F7, 16.2, 0);
     L.sign([33.88, F7 + 2.5, 9.3], -Math.PI / 2, 1.0, 0.3, 'sign', { text: '▼ ▲', bg: 'rgb(30,30,30)', fg: 'rgb(255,190,60)', w: 32, h: 10, size: 8 }, { unlit: true });
-    L.light([28, F7 + 2.7, 11.5], 0xffd8a0, 10, 0.8, { flicker: 0.4 });
+    L.light([28, F7 + 2.7, 11.5], 0xffd8a0, 11, 1.0, { flicker: 0.4 });
+    L.light([24, F7 + 2.0, 14], 0xff8040, 6, 0.7, { flicker: 1 });
     L.marker('smoke', [26, F7 + 2.6, 10], { ceiling: true });
     // the working elevator car (7th floor)
     elevatorCar(L, F7);
@@ -289,7 +301,7 @@ export default {
     for (let i = 0; i < 3; i++) L.marker('weapon', [26.5 + i * 0.4, G0 + 0.9, 6.1], { id: 'chrome_shotgun', yaw: Math.PI / 2 });
     L.marker('item', [32.4, G0, 6.4], { id: 'medkit' });
     L.marker('ammo', [32.4, G0, 2.8]);
-    L.light([29.5, G0 + 3, 4.5], 0xc8e0ff, 6, 0.7);
+    L.light([29.5, G0 + 3, 4.5], 0xc8e0ff, 8, 1.1);
     // burning storage on the other side (x 26..33, z 11.5..16)
     L.floor(26, 11.5, 33, 16, G0, 'concreteDark'); L.ceiling(26, 11.5, 33, 16, G0 + 3.2, 'ceiling');
     wallSeg(L, 26, 16, 33, 16, G0, 3.2, 'sootPaper', 'sootPaper', []); wallSeg(L, 26, 11.5, 26, 16, G0, 3.2, 'sootPaper', 'sootPaper', []); wallSeg(L, 33, 16, 33, 11.5, G0, 3.2, 'sootPaper', 'sootPaper', []);
@@ -361,7 +373,8 @@ export default {
     L.floor(20, -27.4, 29, -24.2, G0, 'tileWhite'); L.ceiling(20, -27.4, 29, -24.2, G0 + 3, 'ceiling');
     wallSeg(L, 20, -27.4, 29, -27.4, G0, 3, 'whitePlaster', 'whitePlaster', []);
     wallSeg(L, 29, -24.2, 20, -24.2, G0, 3, 'whitePlaster', 'whitePlaster', []);
-    L.light([24.5, G0 + 2.8, -25.8], 0xe8f0ff, 7, 0.9, { flicker: 0.2 });
+    L.light([22, G0 + 2.8, -25.8], 0xe8f0ff, 7, 1.1, { flicker: 0.2 });
+    L.light([27, G0 + 2.8, -25.8], 0xe8f0ff, 6, 1.0);
     L.sign([28.88, G0 + 1.4, -24.9], -Math.PI / 2, 0.9, 0.5, 'graffiti', { text: 'SAFE', color: 'rgb(200,30,20)', arrow: false, w: 32, h: 16 }, { alpha: true });
     // safe room (x 29..36, z -30..-21)
     L.floor(29, -30, 36, -21, G0, 'concrete'); L.ceiling(29, -30, 36, -21, G0 + 3, 'ceiling');
@@ -375,8 +388,8 @@ export default {
     for (let i = 0; i < 4; i++) L.marker('item', [31.3 + i * 0.6, G0 + 0.85, -29.3], { id: 'medkit' });
     L.marker('ammo', [35.2, G0, -25.5]);
     L.marker('weapon', [32.2, G0, -22], { id: ['smg', 'pump_shotgun', 'chrome_shotgun', 'smg_silenced'], count: 2, yaw: 1.4 });
-    L.sign([35.88, G0 + 1.6, -25.5], -Math.PI / 2, 1.2, 1.6, 'poster', { text: 'CEDA' }, {});
-    L.light([32.5, G0 + 2.8, -25.5], 0xfff0d0, 8, 1.3);
+    L.sign([35.88, G0 + 1.6, -25.5], -Math.PI / 2, 1.2, 1.6, 'poster', { text: 'NERA' }, {});
+    L.light([32.5, G0 + 2.8, -25.5], 0xfff0d0, 10, 1.6);
 
     // ---------------------------------------------------------------- exterior: facades, street far below, city ring
     // hotel facade from street level up to the roof (outside faces only)
@@ -484,7 +497,8 @@ function elevatorCar(L, y) {
   L.wall(34, z0 - 0.1, 34, z1 + 0.1, y, y + 2.6, 'steelDoor', { thick: 0.15, mat2: 'elevWall', openings: [{ at: 1.4, w: 1.8, h: 2.3 }] });
   // button panel
   L.box([x1 - 0.1, y + 1.0, z1 - 0.5], [x1 - 0.04, y + 1.5, z1 - 0.25], 'steel');
-  L.box([x0, y + 2.55, z0], [x1, y + 2.6, z1], 'emissiveWarm', { collide: false });
+  L.box([x0 + 0.8, y + 2.56, z0 + 0.8], [x1 - 0.8, y + 2.6, z1 - 0.8], 'emissiveWarm', { collide: false });
+  L.light([(x0 + x1) / 2, y + 2.3, (z0 + z1) / 2], 0xfff0c8, 4.5, 1.1);
   // the shaft beyond the car is solid
   L.box([x1, y - 0.5, z0 - 0.3], [x1 + 0.4, y + 3.2, z1 + 0.3], 'concreteDark');
 }

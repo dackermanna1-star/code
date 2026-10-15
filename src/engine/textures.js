@@ -458,7 +458,7 @@ const GEN = {
     ctx.fillStyle = rgb(220, 215, 200); ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = rgb(...hcol); ctx.fillRect(2, 2, w - 4, 22);
     ctx.fillStyle = rgb(240, 230, 210); ctx.beginPath(); ctx.arc(16, 13, 6, 0, Math.PI * 2); ctx.fill();
-    pixelText(ctx, o.text || 'CEDA', 16, 30, 7, 'rgb(30,30,30)');
+    pixelText(ctx, o.text || 'NERA', 16, 30, 7, 'rgb(30,30,30)');
     for (let i = 0; i < 4; i++) { ctx.fillStyle = 'rgb(90,90,90)'; ctx.fillRect(5, 36 + i * 3, 22 - (rnd() * 8 | 0), 1); }
     noise(ctx, w, h, 16, rnd);
     return c;

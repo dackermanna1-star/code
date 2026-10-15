@@ -114,7 +114,11 @@ export class Director {
     // intensity decay (paused while engaged)
     for (const s of w.survivors) {
       let engaged = false;
-      for (const z of w.infected) if (z.alive && (z.state === 'chase' || z.state === 'attack' || z.pinTarget) && z.position.distanceToSquared(s.body.pos) < 19 * 19) { engaged = true; break; }
+      for (const z of w.infected) {
+        if (!z.alive) continue;
+        const d2 = z.position.distanceToSquared(s.body.pos);
+        if (z.pinTarget === s || (z.state === 'attack' && d2 < 9) || ((z.state === 'chase' || z.type !== 'common') && d2 < 19 * 19 && (z.seesTarget || d2 < 36 || z.type !== 'common'))) { engaged = true; break; }
+      }
       if (!engaged) s.intensity = Math.max(0, s.intensity - dt / DIRECTOR.intensityDecayTime);
     }
     this.flushSpawns();

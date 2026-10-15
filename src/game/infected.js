@@ -519,6 +519,11 @@ export class Common extends Infected {
       this.attackT = 0;
       return;
     }
+    // can't reach anybody for a while: give up and mill about (unreachable infected flail, then calm down)
+    if (this.node >= 0 && w.fieldAll[this.node] === Infinity && dist > 3) { this.unreachT = (this.unreachT || 0) + dt; if (this.unreachT > 6) { this.unreachT = 0; this.target = null; this.idleKind = 'wander'; this.setState('idle'); return; } } else this.unreachT = 0;
+    // remember whether we can actually see our target (used by the Director's intensity model)
+    this.seeT = (this.seeT || 0) - dt;
+    if (this.seeT <= 0) { this.seeT = 0.5; this.seesTarget = dist < 25 && this.canSee(tgt, 25); }
     const spd = this.speed * (this.burning > 0 ? 1.05 : 1) * this.speedMul;
     // direct approach when close with clear line
     if (dist < 4 && Math.abs(dy) < 0.8 && (this.world.frame + this.id) % 4 !== 0 ? this.directOk : (this.directOk = dist < 4 && Math.abs(dy) < 0.8 && w.nav.walkable(this.position.x, this.position.y, this.position.z, tp.x, tp.y, tp.z))) {

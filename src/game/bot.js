@@ -97,9 +97,11 @@ export class BotController {
     }
     // 4. items worth grabbing nearby
     if (this.itemTarget && this.mode === 'item') {
-      this.itemTime = (this.itemTime || 0) + 0.3;
-      if (this.itemTime > 7) { (this.badItems || (this.badItems = new Set())).add(this.itemTarget); this.itemTarget = null; this.itemTime = 0; }
-    } else this.itemTime = 0;
+      const tries = this.itemTries || (this.itemTries = new Map());
+      const tt = (tries.get(this.itemTarget) || 0) + 0.3;
+      tries.set(this.itemTarget, tt);
+      if (tt > 6) { (this.badItems || (this.badItems = new Set())).add(this.itemTarget); this.itemTarget = null; }
+    }
     const item = this.findItem();
     if (item && threats < 3) { this.mode = 'item'; this.itemTarget = item; this.setGoal(_v3.copy(item.pos).setY(item.pos.y - 1.0), 0.9); return; }
     // 5. follow the leader
@@ -185,9 +187,32 @@ export class BotController {
       else if (id.endsWith('_deployed') && p.usable(s)) score = 3;
       if (!score) continue;
       score -= d * 0.3;
-      if (score > bs) { bs = score; best = p; }
+      if (score > bs && this.itemReachable(p)) { bs = score; best = p; }
     }
     return best;
+  }
+
+  /** Cached check: a walkable path to the floor beside the item, and a clear line to it. */
+  itemReachable(p) {
+    const w = this.w, s = this.s, nav = w.nav;
+    const cache = this.reachCache || (this.reachCache = new Map());
+    const c = cache.get(p);
+    if (c && w.time - c.t < 10) return c.ok;
+    let ok = false;
+    const gn = nav.nearest(p.pos.x, p.pos.y - 0.7, p.pos.z, 3);
+    const sn = nav.nearest(s.body.pos.x, s.body.pos.y + 0.3, s.body.pos.z, 3);
+    if (gn >= 0 && sn >= 0 && Math.hypot(nav.x[gn] - p.pos.x, nav.z[gn] - p.pos.z) < 1.6 && Math.abs(nav.y[gn] - (p.pos.y - 0.2)) < 1.6) {
+      const path = nav.path(sn, gn, false, 2.6, 6000);
+      if (path) {
+        const eye = new THREE.Vector3(nav.x[gn], nav.y[gn] + 1.5, nav.z[gn]);
+        const tgt = p.focusPos();
+        const dir = tgt.clone().sub(eye); const len = dir.length();
+        const hit = w.collision.raycast(eye, dir.normalize(), Math.max(0, len - 0.35), { dynamic: false });
+        ok = !hit;
+      }
+    }
+    cache.set(p, { t: w.time, ok });
+    return ok;
   }
 
   setGoal(pos, radius) {

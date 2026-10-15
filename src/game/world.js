@@ -498,7 +498,9 @@ export class World {
       const ang = Math.acos(Math.min(1, dot));
       const tol = Math.atan2(radius + 0.25, d);
       if (ang > tol + 0.15 && d > 0.9) return;
-      if (this.collision.blocked(eye, _v3.copy(pos), { dynamic: false })) return;
+      // line of sight to the target, ignoring geometry it rests on / in (last 35cm)
+      const to = _v3.copy(pos).sub(eye); const tl = to.length();
+      if (tl > 0.4 && this.collision.raycast(eye, to.multiplyScalar(1 / tl), tl - 0.35, { dynamic: false })) return;
       const score = -ang - d * 0.05 + (kind === 'revive' || kind === 'ledge' ? 1 : 0);
       if (score > bestScore) { bestScore = score; best = { kind, target }; }
     };
