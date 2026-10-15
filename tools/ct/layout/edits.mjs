@@ -818,12 +818,30 @@ const SIGNTEX = {
   subway_sign01: ['CTNSG5', 128, 32], sign_gun_shop_side: ['CTNSG3', 128, 32], sign_gun_shop_front: ['CTNSG3', 128, 32],
   sign_market_lg_01: ['CTNSG4', 128, 32],
 };
+// A sign band over an opening: the opening (ceiling z0) is behind the edge
+// `seg`; a one-cell header strip on the `face` side gets ceiling z0 + the
+// sign's height, so the sign shows exactly once as the upper texture between.
+function signHeader(layer, seg, face, tex, z0) {
+  const [x0, y0, x1, y1] = seg;
+  const [dx, dy] = DIR[face];
+  const r = dx ? [x0, y0, x0 + dx * 8, y1] : [x0, y0, x1, y0 + dy * 8];
+  A.set(layer, r, { ceil: z0 + texHeight(tex), cflat: 'CFCEIL2', group: A.newGroup() });
+  const len = dx ? Math.abs(y1 - y0) : Math.abs(x1 - x0);
+  A.line(layer, seg, { top: tex, xoff: Math.max(0, (texWidth(tex) - len) / 2) });
+  for (const k of A.cellsOf(layer, [r[0] - 96, r[1] - 96, r[2] + 96, r[3] + 96])) {
+    if (A.KIND[k] === 1 && !A.SPEC[k] && !A.TAG[k] && !A.GROUP[k]) A.LIGHT[k] = Math.min(200, Math.max(A.LIGHT[k], 160));
+  }
+}
+
 function placeSigns(ref) {
-  const list = ref.signs.filter((s) => SIGNTEX[s.m]).map((s) => ({ ...s }));
-  list.push({ m: 'subway_sign01', x: -2040, y: -4700, z: 136 });
-  list.push({ m: 'laundromat', x: -1500, y: -640, z: 120 });
+  // signs over openings hang on a header: the SUBWAY sign over the exit
+  // mouth (reference (-1984,-4880), 160 up) and the laundromat's over its
+  // west window
+  signHeader('street', [-1992, -4944, -1992, -4816], 'e', 'CTNSG5', 128);
+  signHeader('street', [-1568, -648, -1472, -648], 'n', 'CTNSG8', floorNear('street', -1520, -700) + 128);
+  const list = ref.signs.filter((s) => SIGNTEX[s.m] && s.m !== 'subway_sign01').map((s) => ({ ...s }));
   for (const s of list) {
-    const [tex, w, hgt] = s.m === 'laundromat' ? ['CTNSG8', 128, 32] : SIGNTEX[s.m];
+    const [tex, w, hgt] = SIGNTEX[s.m];
     // the wall the sign faces away from (model yaw), else the nearest wall
     let best = null;
     const yf = s.yaw === undefined ? null : ['e', 'n', 'w', 's'][Math.round(s.yaw / 90) % 4];

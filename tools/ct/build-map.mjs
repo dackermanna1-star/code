@@ -684,6 +684,7 @@ style();
 // the skyline varies.
 const FAC = new Uint8Array(N);
 let facadeCells = 0;
+const facadeTops = {};
 if (design.FACADE) {
   const F = design.FACADE;
   const street = (q) => KIND[q] === 1 && isOutdoor(q) && !GROUP[q] && !TAG[q] && LAY[q] === 1;
@@ -740,6 +741,7 @@ if (design.FACADE) {
     LIGHT[k] = zone.light; zoneCache[k] = zone;
     STEPTEX[k] = texId(design.facadeLower(RC.wall[WCLS[k]] || null, zone, k));
     facadeCells++;
+    facadeTops[cz] = (facadeTops[cz] || 0) + 1;
   }
 }
 
@@ -1042,7 +1044,7 @@ const stats = {
   ssectors: nodes.ssectors.length, nodes: nodes.nodes.length, things: things.length,
   zombies: things.filter((t) => t.type >= 9000 && t.type <= 9005).length,
   zombiesBySkill: [1, 2, 4].map((b) => things.filter((t) => t.type >= 9000 && t.type <= 9005 && (t.flags & b)).length),
-  bbox: minmax, lowCeilFixes: lowfix, ceilSmoothed: smoothed, cleaned, lowBlocks, facadeCells, thingsOutside: outside,
+  bbox: minmax, lowCeilFixes: lowfix, ceilSmoothed: smoothed, cleaned, lowBlocks, facadeCells, facadeTops, obstacles: obstStats, thingsOutside: outside,
   sizeHist: [1, 2, 4, 8, 16, 64, 256, 1e9].map((m, i, a) => sectors.filter((s) => s.cells <= m && (i === 0 || s.cells > a[i - 1])).length),
   textures: [...new Set(sides.flatMap((s) => [s.top, s.bot, s.mid]))].filter((n) => n !== '-').sort(),
   flats: [...new Set(sectors.flatMap((s) => [s.fflat, s.cflat]))].sort(),

@@ -101,7 +101,8 @@ export const CT_MARKERS = [
 ];
 
 // --- Sounds (SPEC section 3.4) -----------------------------------------------
-// 'radio' is already DOOM II's sfx_radio, so it is not repeated here.
+// The radio burst is 'ctradi' (DSCTRADI): DSRADIO would replace DOOM II's
+// chat beep (sfx_radio).
 const sfx = (name, priority) => ({ name, singularity: false, priority, link: null, pitch: -1, volume: -1 });
 export const CT_SFX_DEFS = [
   sfx('zsgrn1', 98), sfx('zsgrn2', 98), sfx('zsgrn3', 98),
@@ -110,6 +111,7 @@ export const CT_SFX_DEFS = [
   sfx('genstr', 60), sfx('genrun', 60), sfx('rollgt', 60), sfx('weld', 60),
   sfx('crank', 60), sfx('heli', 60), sfx('glasbk', 60), sfx('woodbk', 60),
   sfx('chainb', 60), sfx('splash', 60), sfx('ladder', 60), sfx('plugin', 60),
+  sfx('ctradi', 60),
 ];
 
 // Actions the Chinatown states use beyond the original ACTION_NAMES.

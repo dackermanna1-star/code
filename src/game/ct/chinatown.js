@@ -451,7 +451,7 @@ export class ChinatownScript {
     this.complete(6);
     s.stage = STAGE.HOLDOUT;
     s.holdout = HOLDOUT_TICS;
-    w.sound(this.lineOrigin(line), 'radio');
+    w.sound(this.lineOrigin(line), 'ctradi');
     this.say(RADIO_TEXT, 5 * T);
     const music = w.game && w.game.firstLump ? w.game.firstLump(['D_CTEVAC']) : null;
     if (music) {

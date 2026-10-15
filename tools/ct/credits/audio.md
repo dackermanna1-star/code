@@ -34,7 +34,7 @@ so it is about as loud as the IWAD music; nothing else is changed.
 | DSROLLGT | pagdev elevator door rumble (re-looped) + synthesized motor hum/whine and slat clatter (seamless) |
 | DSWELD | synthesized torch roar/hiss/crackle (periodic noise, seamless) + bmaczero continuousspark |
 | DSCRANK | bart chain winch "Marker #7" ratchet clicks |
-| DSRADIO | kresiek radio noise + zisongbr radio news voice (band-passed, crushed, dropouts) + synthesized squelch clicks/beep |
+| DSCTRADI | kresiek radio noise + zisongbr radio news voice (band-passed, crushed, dropouts) + synthesized squelch clicks/beep |
 | DSHELI | aquinn helicopter take 4, looped on whole rotor-blade passes (seamless) |
 | DSGLASBK | tinyworlds glass_breaking + rubberduck bfh1_glass_breaking_06 + qubodup ImpactStone thump |
 | DSWOODBK | rubberduck wood_breaking_01 + qubodup/Independent.nu crack03 |

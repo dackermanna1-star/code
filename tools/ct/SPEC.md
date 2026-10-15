@@ -232,7 +232,7 @@ Zombies: `ZSGRN1`, `ZSGRN2`, `ZSGRN3` (idle/see groans), `ZSATK` (swing),
 scream), `ZKSCRM` (kid scream).
 World: `GENSTR` (generator start), `GENRUN` (generator running, loopable),
 `ROLLGT` (roll-up gate motor), `WELD` (torch hiss, loopable), `CRANK`
-(ratchet), `RADIO` (radio static + voice-like burst), `HELI` (helicopter,
+(ratchet), `CTRADI` (radio static + voice-like burst; not `RADIO`, which is DOOM II's chat beep), `HELI` (helicopter,
 loopable), `GLASBK`, `WOODBK`, `CHAINB`, `SPLASH`, `LADDER`, `PLUGIN`.
 8-bit DMX, 11025 Hz (22050 allowed for long ones), peak-normalized.
 Music (MIDI): `D_CHINAT` (map music), `D_CTEVAC` (hold-out / extraction).
