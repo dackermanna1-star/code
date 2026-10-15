@@ -99,8 +99,9 @@ export class Pickup {
       const oldId = old.id || old;
       if (oldId !== 'pistol' || this.isWeapon) {
         const data = old.id ? { clip: old.clip, reserve: old.reserve, fuel: old.fuel } : {};
-        if (oldId === 'dual_pistols') { w.spawnPickup('pistol', this.pos, {}); }
-        else w.spawnPickup(oldId, this.pos.clone().add(_v.set((Math.random() - 0.5) * 0.3, 0, (Math.random() - 0.5) * 0.3)), data);
+        const dropped = oldId === 'dual_pistols' ? w.spawnPickup('pistol', this.pos, {})
+          : w.spawnPickup(oldId, this.pos.clone().add(_v.set((Math.random() - 0.5) * 0.3, 0, (Math.random() - 0.5) * 0.3)), data);
+        dropped.droppedBy = s; dropped.droppedAt = w.time;
       }
     }
     if (!this.infinite) { this.count--; if (this.count <= 0) this.consume(); }

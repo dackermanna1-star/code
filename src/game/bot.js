@@ -149,24 +149,45 @@ export class BotController {
     if (to.clone().normalize().dot(dir) < 0.5) return false;
     return !this.w.collision.blocked(e, _v2.copy(this.s.body.pos).add(_v3.set(0, 1, 0)), { dynamic: false });
   }
+  /**
+   * Regroup: move this bot to a spot the leader can walk to in a few metres,
+   * out of the human's sight (the original game warps lost bots the same way).
+   * Breadth-first search outward from the leader along survivor-walkable links,
+   * so the destination is never on the far side of a wall.
+   */
   teleportNear(L) {
     const w = this.w, nav = w.nav;
     const ln = nav.nearest(L.body.pos.x, L.body.pos.y + 0.3, L.body.pos.z, 2);
-    if (ln < 0) return;
-    for (let i = 0; i < 12; i++) {
-      const a = Math.random() * Math.PI * 2;
-      const n = nav.nearest(L.body.pos.x + Math.cos(a) * 3, L.body.pos.y + 0.3, L.body.pos.z + Math.sin(a) * 3, 2);
-      if (n >= 0 && Math.abs(nav.y[n] - L.body.pos.y) < 1 && nav.comp[n] === nav.comp[ln]) {
-        // must be a short walk from the leader (never the far side of a wall)
-        const path = nav.path(ln, n, false, 2.6, 4000);
-        if (!path || path.length > 16) continue;
-        const p = _v.set(w.nav.x[n], w.nav.y[n] + 0.05, w.nav.z[n]);
-        const e = w.player ? w.player.eyePos(_v2) : null;
-        if (e && !w.collision.blocked(e, _v3.copy(p).setY(p.y + 1), { dynamic: false })) continue;
-        this.s.body.pos.copy(p); this.s.body.vel.set(0, 0, 0); this.path = null;
-        return;
+    if (ln < 0) return false;
+    const seen = new Set([ln]);
+    let frontier = [ln];
+    const cands = [];
+    for (let depth = 0; depth < 30 && frontier.length; depth++) {
+      const next = [];
+      for (const u of frontier) {
+        for (let k = 0; k < 8; k++) {
+          const v = nav.link[u * 8 + k];
+          if (v < 0 || seen.has(v) || !nav.traversable(u, k, false)) continue;
+          seen.add(v); next.push(v);
+          if (depth >= 4) cands.push(v);
+        }
       }
+      frontier = next;
     }
+    const p = w.player;
+    const e = p && p.state !== 'dead' && p !== this.s ? p.eyePos(_v2) : null;
+    let checks = 0;
+    const stride = Math.max(1, Math.floor(cands.length / 80));
+    for (let i = 0; i < cands.length && checks < 80; i += stride, checks++) {
+      const n = cands[i];
+      const q = _v.set(nav.x[n], nav.y[n] + 0.05, nav.z[n]);
+      // keep clear of other survivors
+      if (w.survivors.some((o) => o !== this.s && Math.hypot(o.body.pos.x - q.x, o.body.pos.z - q.z) < 0.7)) continue;
+      if (e && !w.collision.blocked(e, _v3.copy(q).setY(q.y + 1), { dynamic: false })) continue;
+      this.s.body.pos.copy(q); this.s.body.vel.set(0, 0, 0); this.path = null;
+      return true;
+    }
+    return false;
   }
 
   findItem() {
@@ -174,6 +195,7 @@ export class BotController {
     let best = null, bs = 0;
     for (const p of w.pickups) {
       if (p.taken || (this.badItems && this.badItems.has(p))) continue;
+      if (p.droppedBy === s && w.time - p.droppedAt < 60) continue; // never re-take what we just swapped out
       const d = p.pos.distanceTo(s.body.pos);
       if (d > 10 || Math.abs(p.pos.y - s.body.pos.y) > 2.5) continue;
       let score = 0;
@@ -184,7 +206,12 @@ export class BotController {
         if (this.pref.some((k) => WEAPONS[id].kind === k)) val += 3;
         if (s.inv.primary && this.pref.some((k) => s.inv.primary.def.kind === k)) val -= 0;
         if (val > cur + 2) score = val - cur;
-        if (s.inv.primary && s.inv.primary.id === id && s.inv.primary.reserve < s.inv.primary.def.reserve * 0.5) score = 5;
+        if (s.inv.primary && s.inv.primary.id === id) {
+          // same gun: only worth it as an ammo top-up if the floor copy actually holds more
+          const mine = s.inv.primary, def = mine.def;
+          const theirs = (p.data.reserve !== undefined ? p.data.reserve : def.reserve) + (p.data.clip !== undefined ? p.data.clip : def.clip);
+          score = mine.reserve < def.reserve * 0.5 && theirs > mine.reserve + mine.clip + def.reserve * 0.25 ? 5 : 0;
+        }
       } else if (id === 'pistol' && s.inv.secondary.id === 'pistol') score = 3;
       else if (id === 'magnum' && (s.inv.secondary.id === 'pistol' || s.inv.secondary.id === 'dual_pistols')) score = 4;
       else if (id === 'ammo_pile') { const pr = s.inv.primary; if (pr && pr.def.reserve !== Infinity && pr.reserve < pr.def.reserve * 0.6 && pr.id !== 'grenade_launcher') score = 8; }
