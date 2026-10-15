@@ -97,12 +97,31 @@ export interface RunRecord {
   date: number;
 }
 
+const finiteNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/**
+ * The stored Best Nights. Every record is validated field by field: entries
+ * from an older build, a manual edit or a partial write are dropped when a
+ * number is missing or not finite (kills, money, chapter, timeSec), and
+ * `victory` / `date` are normalised, so the table never shows 'NaN:NaN'.
+ */
 export function loadRuns(): RunRecord[] {
-  const raw = storageGet<RunRecord[]>(RUNS_KEY);
+  const raw = storageGet<unknown>(RUNS_KEY);
   if (!Array.isArray(raw)) return [];
-  return raw.filter(
-    (r) => r && typeof r.kills === 'number' && typeof r.money === 'number' && typeof r.chapter === 'number' && isFinite(r.kills),
-  );
+  const out: RunRecord[] = [];
+  for (const r of raw as Array<Partial<Record<keyof RunRecord, unknown>> | null>) {
+    if (!r || typeof r !== 'object') continue;
+    if (!finiteNum(r.kills) || !finiteNum(r.money) || !finiteNum(r.chapter) || !finiteNum(r.timeSec)) continue;
+    out.push({
+      kills: Math.max(0, Math.round(r.kills)),
+      money: Math.max(0, Math.round(r.money)),
+      chapter: Math.max(1, Math.min(3, Math.round(r.chapter))),
+      timeSec: Math.max(0, r.timeSec),
+      victory: r.victory === true,
+      date: finiteNum(r.date) ? r.date : 0,
+    });
+  }
+  return out;
 }
 
 export const byRun = (a: RunRecord, b: RunRecord) =>

@@ -72,6 +72,18 @@ export class GameView {
   }
 
   /**
+   * Graphics quality, live (no reload): effect lights, particle density, the
+   * ragdoll budget, which bodies cast real shadows (low: blob shadows for the
+   * horde, corpse shadows on high only). Call together with
+   * Environment.setQuality (reflection, shadow map, lamp lights) and the
+   * stage's post quality / pixel ratio. The blood decal map keeps the
+   * resolution it was created with.
+   */
+  setQuality(q: 'low' | 'medium' | 'high'): void {
+    this.core.setQuality(q);
+  }
+
+  /**
    * Spread expensive first-use work (zombie rig geometry, shader programs)
    * over frames: call each frame on the loading / title screen with a CPU
    * budget; returns true when everything is warm.

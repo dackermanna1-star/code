@@ -91,6 +91,8 @@ describe('the crane', () => {
 
   it('the bot never wastes it: every drop it makes lands on a crowd, and it does drop it', () => {
     let drops = 0;
+    // Collected and checked after the runs (an expect thrown inside a handler is caught by the EventBus).
+    const crowdAtDrop: number[] = [];
     for (const seed of [1001, 1002, 1003, 1004]) {
       const w = new World({ seed });
       const bot = new Bot(w.player, { skill: 0.95 });
@@ -98,7 +100,7 @@ describe('the crane', () => {
       w.events.on('crane', (e) => {
         if (e.state !== 'falling') return;
         drops++;
-        expect(under).toBeGreaterThanOrEqual(CRANE.crowd);
+        crowdAtDrop.push(under);
       });
       for (let i = 0; i < 50 * 140 && !w.gameEnded; i++) {
         bot.think(w);
@@ -107,6 +109,7 @@ describe('the crane', () => {
       }
     }
     expect(drops).toBeGreaterThan(0);
+    for (const n of crowdAtDrop) expect(n).toBeGreaterThanOrEqual(CRANE.crowd);
   }, 60000);
 
   it('the hook lane follows the gun height (a jump changes it) and the muzzle offset of the weapon', () => {

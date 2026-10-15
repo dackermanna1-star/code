@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { PLATE_CHEST, PLATE_HELMET, PLATE_SHIELD, type ZombieKind } from '../../../config/ids';
 import { RigBuilder, animator } from '../common';
-import { MATERIALS, applyCharred, charredMaterial } from '../kit';
+import { MATERIALS, applyCharred, charredLevel, charredMaterial } from '../kit';
 import type { AnimInput, BoneSpec, ZombieRig } from '../types';
 import { createZombiePose } from './anim';
 import { DIMS, HEAD, buildBody, humanSpec, makeSkeleton, type BodyType } from './body';
@@ -122,10 +122,14 @@ export function createZombie(kind: ZombieKind, lookSeed: number): ZombieRigExt {
   });
   const run = animator(rb.bones, pose, 0.22);
   let charred = 0;
-  const setCharred = (t: number) => {
+  /** Quantised level last applied (charredMaterial has 8 levels): re-traverse only when it changes. */
+  let appliedLevel = 0;
+  const setCharred = (t: number, force = false) => {
     const v = Math.max(0, Math.min(1, t));
-    if (Math.abs(v - charred) < 1e-3) return;
     charred = v;
+    const lvl = charredLevel(v);
+    if (lvl === appliedLevel && !force) return;
+    appliedLevel = lvl;
     applyCharred(rb.root, v);
   };
   const animate = (a: AnimInput) => {

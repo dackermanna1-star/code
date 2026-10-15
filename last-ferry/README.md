@@ -10,32 +10,35 @@ coat, holding the line with whatever the ferry's stores could spare. **If a sing
 reaches the gangway, it's over.**
 
 Everything is procedural: models, animation, the pier, the sea, the sky, every sound effect
-and the music. The game ships as **one HTML file** (`release/LastFerry.html`, about 1.3 MB)
+and the music. The game ships as **one HTML file** (`release/LastFerry.html`, about 1.4 MB)
 that runs offline. Double-click it to play.
 
 ## What's new compared to Seal Hunter
 
-- **Not dead till the head's gone.** An ordinary kill leaves a body with glowing eyes. A
-  few seconds later it twitches, then gets back up as a crawler. Headshots, fire,
-  explosions, the harpoon, three nails, or a stomp from the Bosun's boot (E) keep it down
-  for good.
+- **Not dead till the head's gone.** An ordinary kill leaves a body with pale green eyes
+  and a sickly green glow that swells as it gets ready. A few seconds later it twitches,
+  then gets back up as a crawler, tinted green. Headshots, fire, explosions, the harpoon,
+  three nails, or a stomp from the Bosun's boot (E) keep it down for good, and a body that
+  is dead for good goes dark.
 - **The dead are terrain.** Bodies pile up and slow the horde, and joggers trip over them.
   Fire burns the pile away and explosions scatter it.
 - **The pier fights back.**
   - **H** blows the ferry's horn, once per chapter: everything staggers.
   - Line up with the crane's hook (it lights up) and shoot it to drop a pallet of fish
-    crates on whatever crowds under it. Stray shots from other lanes never cut the rope.
+    crates on whatever crowds in the yellow drop square painted under it (it pulses when
+    there's a crowd). Stray shots from other lanes never cut the rope.
   - Fill **Captain's Favour** and press **F**: the ferry's deck gun shells your lane.
-- **Fire and gas.** A flare sets a whole crowd alight and leaves the deck burning; it
-  reloads itself in your belt. Bloaters burst into green gas, and gas plus fire makes an
-  explosion.
+- **Fire and gas.** A flare sets a whole crowd alight, and one that lands on the planks
+  leaves the deck burning; it reloads itself in your belt. Bloaters burst into green gas,
+  and gas plus fire makes an explosion.
 - **Mop up.** Killing the boss isn't the end: the pier is held only once the stragglers
   are down too (the boss bar counts them). Lost a chapter? *Retry chapter* starts it again
   with the money and guns you had.
 - **Three chapters, three times of night.**
   - *Last Light* (sunset): boss Big Dave, a 3 m bloater chef.
-  - *Blue Hour*: boss The Marathon, 40 joggers in race bibs.
-  - *Lights Out* (night, fog, the lighthouse beam sweeping the deck): boss The Riot Squad.
+  - *Blue Hour* (cold dusk): boss The Marathon, 40 joggers in race bibs.
+  - *Lights Out* (night, fog, the lighthouse beam sweeping the deck): boss The Riot Squad,
+    in police blue with reflective hi-vis tape.
   - Then the ferry sails, and it's *to be continued*.
 
 ## Controls
@@ -46,13 +49,20 @@ that runs offline. Double-click it to play.
 | Fire | Space / J / K / left mouse (not Ctrl: Ctrl+W would close the tab) |
 | Reload | R |
 | Buy best weapon / select or buy | B or Enter / 1–6 or click a tile |
-| Cycle weapons | Q / Tab / mouse wheel |
-| Stomp (jump) | E / Shift / right mouse (walk into a crawler to kick it) |
+| Cycle weapons | Q / Tab / mouse wheel (Shift+Q / Shift+Tab go back) |
+| Stomp (jump) | E / right mouse, or tap Shift (walk into a crawler to kick it) |
 | Ferry horn | H (once per chapter) |
 | Cannon strike | F (when Captain's Favour is full) |
 | Pause | P / Esc |
 
-Gamepads work too.
+Gamepads work too. Keys and buttons held through the pause menu still count when you
+resume, and letting go of the mouse anywhere (over the weapon bar, a menu, outside the
+window) stops firing.
+
+Options (sound, graphics quality, blood, screen shake, FPS counter) apply immediately,
+graphics quality included: no reload. Low / Medium / High trade the wet-deck reflection,
+shadows, real lights, particles and the number of ragdolls for speed (the table is in
+`DESIGN.md` §12), and the resolution steps down a little on its own when the GPU can't keep up.
 
 ## Weapons
 
@@ -75,6 +85,7 @@ Gamepads work too.
   npm run ferry            # dev server at http://127.0.0.1:5180
   npm run ferry:test       # unit tests (logic)
   npm run ferry:sim -- 40 0.9   # headless bot balance runs (skill 0..1; MAXCH=1 stops after chapter 1)
+  npx vite-node last-ferry/tools/humansim.ts   # a human-like player instead (RUNS=40, CH=3 …, seeded)
   npm run ferry:single     # build release/LastFerry.html
   node last-ferry/tools/e2e.mjs --file release/LastFerry.html [--mode full]
   ```
@@ -98,8 +109,8 @@ Gamepads work too.
 | `src/render/models` | Procedural characters (7 zombie kinds with about 210 looks), the Bosun, 6 weapons, props and ragdoll specs. |
 | `src/render/GameView.ts`, `src/render/view` | Turns logic events into visuals: ragdolls aimed at the logic's body positions, the twitch-and-rise lifecycle, gore, fire, gas, explosions, the cannon, the horn shockwave, screen shake and a shared light pool. |
 | `src/ui` | HUD, callouts, world overlay and screens (dark-glass nautical style). |
-| `src/audio` | 98 synthesised sound recipes, ambience and adaptive music, all made with the Web Audio API (no audio files). |
-| `src/game`, `src/main.ts` | Boot, the title screen with a live demo game, the state machine, input, hit-stop and slow motion. |
+| `src/audio` | 98 synthesised sound recipes, ambience and adaptive music, all made with the Web Audio API (no audio files). The recipes are baked in a Worker while the game loads. |
+| `src/game`, `src/main.ts` | Boot (only the essentials before the title; the rest warms up behind it), the title screen with a live demo game, the state machine, input, hit-stop and slow motion, and the frame gate that holds the picture behind the pause menu. |
 
 The engine (ragdolls, GPU blood decals, batched corpses, particles) comes from the Seal
 Hunter 3D remake in the parent folder. `DESIGN.md` is the design bible and holds every rule

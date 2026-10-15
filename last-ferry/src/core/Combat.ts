@@ -10,7 +10,7 @@ import { FLARE, HARPOON, OUTBOARD, WEAPONS, chapterDamage, spreadToYaw, type Wea
 import { CAMERA_POS, viewHeightAt } from '../config/view';
 import { CANNON, FEEL, KNOCKBACK_STAGGER, REANIMATION } from '../config/rules';
 import type { ProjectileView } from './api';
-import type { BulletPath, NiceSource, V3 } from './events';
+import type { BulletPath, NiceSource, ProjectileEndReason, V3 } from './events';
 import type { Corpse } from './Corpses';
 import { explode } from './Hazards';
 import type { Player } from './Player';
@@ -343,7 +343,7 @@ export class Combat {
           p.x = t.x;
           p.y = 0;
           p.z = t.z;
-          this.end(p);
+          this.end(p, 'deck');
           explode(w, t.x, 0.3, t.z, CANNON.radius, CANNON.damage, 'cannon', p.owner, { kills: p.kills });
         }
         continue;
@@ -353,9 +353,9 @@ export class Combat {
     this.projectiles = this.projectiles.filter((p) => !p.done);
   }
 
-  private end(p: Projectile): void {
+  private end(p: Projectile, reason: ProjectileEndReason): void {
     p.done = true;
-    this.world.events.emit('projectileEnd', { id: p.id, x: p.x, y: p.y, z: p.z });
+    this.world.events.emit('projectileEnd', { id: p.id, x: p.x, y: p.y, z: p.z, kind: p.kind, reason });
   }
 
   private flareTick(p: Projectile): void {
@@ -387,7 +387,7 @@ export class Combat {
     // The crane's hook block (only a flare fired lined up with it).
     if (hookShot && x0 >= CRANE.hookX - CRANE.hookHalfX && p.x <= CRANE.hookX + CRANE.hookHalfX && CRANE.hookX + CRANE.hookHalfX > hx) {
       p.x = CRANE.hookX + CRANE.hookHalfX;
-      this.end(p);
+      this.end(p, 'hook');
       w.pier.cutRope(p.owner);
       return;
     }
@@ -414,7 +414,7 @@ export class Combat {
         if (o !== hitZb && Math.hypot(o.x - zx, o.z - zz) <= FLARE.splash) o.ignite(owner);
       });
       w.bodies.forEachNear(zx, zz, FLARE.splash, (c) => w.bodies.ignite(c, owner));
-      this.end(p);
+      this.end(p, 'target');
       const kills = w.resolveDeaths();
       if (owner) this.reward(owner, kills);
       return;
@@ -423,7 +423,7 @@ export class Combat {
     if (p.y < 2.5) {
       const g = w.hazards.gasAt(p.x, p.z, 0);
       if (g) {
-        this.end(p);
+        this.end(p, 'gas');
         w.hazards.igniteAndReward(g, p.owner);
         return;
       }
@@ -431,11 +431,11 @@ export class Combat {
     // The deck: a burning patch.
     if (p.y <= 0.02) {
       p.y = 0;
-      this.end(p);
+      this.end(p, 'deck');
       w.hazards.addFire(p.x, p.z, p.owner);
       return;
     }
-    if (p.x < leftEdgeX(p.z) - 3) this.end(p);
+    if (p.x < leftEdgeX(p.z) - 3) this.end(p, 'gone');
   }
 
   // ------------------------------------------------------------------ queries (bot, laser, HUD)

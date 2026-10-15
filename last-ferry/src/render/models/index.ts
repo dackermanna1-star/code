@@ -63,29 +63,52 @@ export function createWeaponModel(id: WeaponId): LFWeaponModel {
   return createWeapon(id);
 }
 
+/**
+ * Props are built once and cloned (geometry and materials shared): a nail per
+ * nail-gun hit, a stretcher per medic team and a flare stick per fire used to
+ * rebuild (and re-hash) every primitive each time.
+ */
+const TEMPLATES = new Map<string, THREE.Group>();
+function fromTemplate(key: string, build: () => THREE.Group): THREE.Group {
+  let t = TEMPLATES.get(key);
+  if (!t) {
+    t = build();
+    TEMPLATES.set(key, t);
+  }
+  // userData is deep-copied as JSON by clone(): keep object references out of it.
+  const tip = t.userData.tip as THREE.Object3D | undefined;
+  if (tip) delete t.userData.tip;
+  const c = t.clone(true);
+  if (tip) {
+    t.userData.tip = tip;
+    c.userData.tip = c.getObjectByName(tip.name) ?? c;
+  }
+  return c;
+}
+
 /** Origin at its centre on the deck, long axis X (head end +X). See STRETCHER_MODEL. */
 export function createStretcher(): THREE.Group {
-  return createStretcherModel();
+  return fromTemplate('stretcher', createStretcherModel);
 }
 /** Origin at the pallet's bottom centre; the net's lifting ring at PALLET_MODEL.ringY. */
 export function createCratePallet(): THREE.Group {
-  return createPallet();
+  return fromTemplate('pallet', createPallet);
 }
 /** A single fish crate, origin at its centre (CRATE_MODEL half extents). `seed` varies the wood. */
 export function createCrate(seed = 1): THREE.Group {
-  return createCrateModel(seed);
+  return fromTemplate(`crate:${seed}`, () => createCrateModel(seed));
 }
 /** Origin at the tail, tip toward -X (HARPOON_BOLT_LENGTH long). */
 export function createHarpoonBolt(): THREE.Group {
-  return createBolt();
+  return fromTemplate('bolt', createBolt);
 }
 /** Origin at the head, point toward -X. */
 export function createNail(): THREE.Group {
-  return createNailModel();
+  return fromTemplate('nail', createNailModel);
 }
 /** Burning flare stick lying on the deck; userData.tip = the burning end. */
 export function createFlareCartridge(): THREE.Group {
-  return createFlare();
+  return fromTemplate('flare', createFlare);
 }
 
 export { CRATE_MODEL, HARPOON_BOLT_LENGTH, PALLET_MODEL, STRETCHER_MODEL, holdMuzzleOffset, kickCurve, muzzleRest };
@@ -93,4 +116,4 @@ export type { BosunRig, LFWeaponModel, WeaponModel, ZombieRigExt };
 export { CARRY } from './zombie/anim';
 export { decodeLook, type Look, type Outfit } from './zombie/looks';
 export { BIG_DAVE_SCALE, BLOATER_SCALE, RIOT_SCALE } from './zombie/rig';
-export { charredTint, applyCharred, risenMaterial, setHivisLevel, MATERIALS } from './kit';
+export { charredTint, applyCharred, risenMaterial, slimeMaterial, setHivisLevel, MATERIALS } from './kit';

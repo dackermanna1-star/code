@@ -8,7 +8,9 @@
 //  - several bodies paid in the same frame merge into one cluster pop-up at
 //    their centre;
 //  - while many pop-ups are already on screen, small ordinary payments are
-//    folded into the next one instead of spawning their own;
+//    folded into the next one instead of spawning their own (or, when no
+//    next one comes, pop up on their own where the last one was earned once
+//    the screen has calmed down: every dollar paid is shown);
 //  - a nice-shot bonus always gets its own (big) pop-up.
 // Pure (no DOM).
 
@@ -42,6 +44,8 @@ export class MoneyPops {
   private shown: number[] = [];
   /** Folded payments waiting to ride along with the next pop-up. */
   private carry = 0;
+  /** Where the last folded payment was earned (its own pop-up goes there if nothing else comes). */
+  private carryAt = { x: 0, y: 0, z: 0 };
   /** Debug counters. */
   readonly stats = { events: 0, pops: 0, folded: 0 };
 
@@ -62,7 +66,13 @@ export class MoneyPops {
     this.shown = this.shown.filter((t) => now - t < BUSY_WINDOW_S);
     if (!this.pending.length) {
       // Folded money with nothing to ride on goes out on its own once things calm down.
-      if (this.carry > 0 && this.shown.length === 0) this.carry = 0;
+      if (this.carry > 0 && this.shown.length === 0) {
+        const p: MoneyPop = { ...this.carryAt, amount: this.carry, reason: 'bounty' };
+        this.carry = 0;
+        this.shown.push(now);
+        this.stats.pops++;
+        emit(p);
+      }
       return;
     }
     const nice: MoneyPop[] = [];
@@ -89,6 +99,9 @@ export class MoneyPops {
       const small = (p.reason === 'bounty' || p.reason === 'tidy') && p.amount < SMALL_AMOUNT;
       if ((busy && small) || this.shown.length + result.length >= MAX_IN_WINDOW) {
         this.carry += p.amount;
+        this.carryAt.x = p.x;
+        this.carryAt.y = p.y;
+        this.carryAt.z = p.z;
         this.stats.folded++;
         continue;
       }

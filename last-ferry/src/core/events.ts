@@ -23,6 +23,7 @@ export type ExplosionKind = 'cannon' | 'gas' | 'crates';
 export type NiceSource = 'shot' | 'crane' | 'cannon' | 'gas';
 export type CraneState = 'hanging' | 'falling' | 'down' | 'gone';
 export type CorpseEndReason = 'ash' | 'gib' | 'stomp' | 'sea' | 'harpoon';
+export type ProjectileEndReason = 'target' | 'deck' | 'gas' | 'hook' | 'gone';
 
 export interface GameEvents {
   // --- flow -----------------------------------------------------------------
@@ -121,7 +122,12 @@ export interface GameEvents {
   /** Harpoon: the bolt flew from → to and skewered these zombies (in order), reeling them `reel` m. */
   harpoon: { playerId: number; from: V3; to: V3; skewered: number[]; reel: number };
   projectile: { id: number; kind: 'flare' | 'shell'; x: number; y: number; z: number; vx: number; vy: number; vz: number };
-  projectileEnd: { id: number; x: number; y: number; z: number };
+  /**
+   * A flare or shell is spent. `kind`: which one; `reason`: what it ended on —
+   * a zombie ('target'), the deck (a fire patch / the shell's impact), a gas
+   * cloud it set off, the crane's hook, or out of play ('gone').
+   */
+  projectileEnd: { id: number; x: number; y: number; z: number; kind?: 'flare' | 'shell'; reason?: ProjectileEndReason };
   reloadStart: { playerId: number; weapon: WeaponId };
   reloadEnd: { playerId: number; weapon: WeaponId };
   emptyClick: { playerId: number; weapon: WeaponId };
@@ -156,21 +162,45 @@ export interface GameEvents {
 export type EventName = keyof GameEvents;
 type Handler<K extends EventName> = (e: GameEvents[K]) => void;
 
+/**
+ * Synchronous publish/subscribe, emitted from inside World.step.
+ *
+ * Handler isolation: subscribers are presentation (view, audio, HUD), and a
+ * bug in one must never abort the logic tick halfway (a zombie dead but not
+ * removed, a bounty never paid). Each handler runs in its own try/catch; an
+ * error is logged once per event name (with the count kept in `errors`) and
+ * the other handlers and the tick carry on. Handler lists are copy-on-write,
+ * so subscribing or unsubscribing during an emit neither skips nor adds a
+ * handler for that emit (and emit allocates nothing).
+ */
 export class EventBus {
   private handlers: { [K in EventName]?: Handler<K>[] } = {};
+  /** Handler exceptions caught so far, per event name (debug / tests). */
+  readonly errors: Partial<Record<EventName, number>> = {};
 
   on<K extends EventName>(name: K, fn: Handler<K>): () => void {
-    const list = (this.handlers[name] ??= []) as Handler<K>[];
-    list.push(fn);
+    const list = (this.handlers[name] ?? []) as Handler<K>[];
+    (this.handlers as Record<K, Handler<K>[]>)[name] = [...list, fn];
+    let on = true;
     return () => {
-      const i = list.indexOf(fn);
-      if (i >= 0) list.splice(i, 1);
+      if (!on) return;
+      on = false;
+      const cur = (this.handlers[name] ?? []) as Handler<K>[];
+      const i = cur.indexOf(fn);
+      if (i >= 0) (this.handlers as Record<K, Handler<K>[]>)[name] = [...cur.slice(0, i), ...cur.slice(i + 1)];
     };
   }
 
   emit<K extends EventName>(name: K, e: GameEvents[K]): void {
     const list = this.handlers[name] as Handler<K>[] | undefined;
     if (!list) return;
-    for (const fn of list) fn(e);
+    for (let i = 0; i < list.length; i++) {
+      try {
+        list[i](e);
+      } catch (err) {
+        const n = (this.errors[name] = (this.errors[name] ?? 0) + 1);
+        if (n === 1) console.error(`[Last Ferry] a '${name}' handler threw (logged once; the game carries on):`, err);
+      }
+    }
   }
 }

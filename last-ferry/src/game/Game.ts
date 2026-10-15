@@ -9,7 +9,7 @@
 //   (bot or input → view.beforeStep → world.step) → view.update (also drives
 //   the environment) → sequences → HUD / overlay / pop-ups → audio.update
 import * as THREE from 'three';
-import { CHAPTERS, CHAPTER_START_MONEY } from '../config/chapters';
+import { CHAPTERS, CHAPTER_START_MONEY, SPLASH_SECONDS } from '../config/chapters';
 import { WEAPON_ORDER, type WeaponId, type ZombieKind } from '../config/ids';
 import { CRANE } from '../config/world';
 import { WEAPONS } from '../config/weapons';
@@ -35,6 +35,12 @@ export { CHAPTER_START_MONEY };
 /** Post-processing per quality option. */
 const POST: Record<Quality, PostQuality> = { low: 'low', medium: 'medium', high: 'high' };
 const PIXEL_RATIO: Record<Quality, number> = { low: 1, medium: 1.5, high: 2 };
+
+/**
+ * Frames per second the scene is redrawn behind the results screens (the
+ * pause menu holds its picture and redraws nothing; see shouldRender).
+ */
+const RESULTS_FPS = { over: 12, victory: 30 } as const;
 
 /** Victory: horn, then the ferry pulls away (s), the results appear at… */
 const VICTORY = { hornAt: 0.2, departAt: 1.4, departSeconds: 12, hudOffAt: 1.0, screenAt: 7.5 };
@@ -70,6 +76,13 @@ export class Game {
   /** ?quality=…: overrides the saved graphics quality for this session. */
   qualityOverride: Quality | null = null;
   private lastQuality: Quality | null = null;
+  /** The quality the environment and the view run at now (built at boot, switched live by applyOptions). */
+  private appliedQuality: Quality;
+  /** Frames still to draw while a static screen holds its picture (see shouldRender). */
+  private redraw = 0;
+  private resultsAcc = 0;
+  /** This frame draws the scene (set by shouldRender; true when no gate is installed). */
+  private drawing = true;
   /** Options for new games (?chapter, ?money, ?god, ?seed). */
   worldOptions: { startChapter?: number; money?: number; god?: boolean; seed?: number } = {};
 
@@ -95,7 +108,10 @@ export class Game {
   private kick = 0;
   private dangerCool = 0;
   private tidy = 0;
+  /** Passengers of the chapters already won (PIER HELD) this game. */
   private savedPassengers = 0;
+  /** The current chapter's passengers are already in savedPassengers (the 'between' beat after PIER HELD). */
+  private chapterCounted = false;
   private chapterMoney = 0;
   private told = new Set<string>();
   private bestAffordable: WeaponId | null = null;
@@ -117,7 +133,10 @@ export class Game {
     readonly env: Environment,
     readonly audio: AudioSystem,
     screens?: Screens,
+    opts: { quality?: Quality | null } = {},
   ) {
+    this.qualityOverride = opts.quality ?? null;
+    this.appliedQuality = env.quality;
     this.view = new GameView(stage, env);
     this.overlay = new WorldOverlay(stage.view);
     this.hud = new Hud(stage.view);
@@ -133,7 +152,17 @@ export class Game {
       if (this.mode === 'playing' && !this.autoplay) this.pause();
     };
     this.applyOptions(this.screens.options);
+    // Game drives UI time (splash, callouts) from its frame from now on.
+    this.screens.tick(0, 1);
+    this.hud.callouts.tick(0, 1);
     stage.onUpdate((dt) => this.frame(dt));
+    // A held picture is lost when the canvas is resized (or may be stale after the tab comes back).
+    stage.onResize(() => this.invalidateFrame());
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) this.invalidateFrame();
+      });
+    }
   }
 
   // ------------------------------------------------------------------ options
@@ -145,6 +174,14 @@ export class Game {
     this.audio.setVolumes(o.masterVolume, o.sfxVolume, o.musicVolume);
     this.view.setOptions({ blood: o.blood, shake: o.shake });
     const q = this.qualityOverride ?? o.quality;
+    // Everything the quality picks applies live, no reload: the environment (reflection, shadow map,
+    // lamp lights, env map, backdrop detail) and the view (effect lights, particle density, ragdoll
+    // budget, shadow casters), then post-processing and resolution here.
+    if (q !== this.appliedQuality) {
+      this.env.setQuality(q);
+      this.view.setQuality(q);
+      this.appliedQuality = q;
+    }
     const post = POST[q];
     const pr = PIXEL_RATIO[q];
     if (this.stage.postQualityLevel !== post) this.stage.setPostQuality(post);
@@ -152,7 +189,49 @@ export class Game {
       this.stage.maxPixelRatio = pr;
       this.stage.resize();
     }
+    this.overlay.setMaxPixelRatio(pr);
     this.screens.setFps(o.showFps ? this.fps : null);
+    this.invalidateFrame();
+  }
+
+  /** The graphics quality in effect (environment and view). */
+  get quality(): Quality {
+    return this.appliedQuality;
+  }
+
+  // ------------------------------------------------------------------ frame gate
+
+  /** Redraw a held picture (resize, an option changed, the tab came back). */
+  invalidateFrame(): void {
+    this.redraw = Math.max(this.redraw, 1);
+  }
+
+  /**
+   * Whether this frame draws the 3D scene (main.ts gates Stage.frame with it).
+   * The pause menu holds the last picture under its blurred scrim and draws
+   * nothing (the world is frozen anyway); the game-over and victory results
+   * redraw the scene behind them at RESULTS_FPS; everything else draws every
+   * frame. Called before the frame's update.
+   */
+  shouldRender(dt: number): boolean {
+    let draw = true;
+    if (this.mode === 'paused') {
+      draw = this.redraw > 0;
+      if (draw) this.redraw--;
+    } else if ((this.mode === 'over' || this.mode === 'victory') && this.seqShown) {
+      this.resultsAcc += dt;
+      const step = 1 / RESULTS_FPS[this.mode];
+      draw = this.resultsAcc >= step || this.redraw > 0;
+      if (draw) {
+        this.redraw = 0;
+        this.resultsAcc = this.resultsAcc >= step ? this.resultsAcc % step : this.resultsAcc;
+      }
+    } else {
+      this.redraw = 0;
+      this.resultsAcc = 0;
+    }
+    this.drawing = draw;
+    return draw;
   }
 
   // ------------------------------------------------------------------ flow
@@ -235,6 +314,7 @@ export class Game {
     this.kick = 0;
     this.tidy = 0;
     this.savedPassengers = 0;
+    this.chapterCounted = false;
     this.chapterMoney = 0;
     this.told.clear();
     this.hornTaught = false;
@@ -245,7 +325,7 @@ export class Game {
     const world = new World(o);
     this.world = world;
     this.view.attach(world);
-    this.unbindAudio = this.audio.bind(world.events, { world: () => world });
+    this.unbindAudio = this.audio.bind(world.events, { world: () => world }, { attract });
     const on = <K extends keyof GameEvents>(name: K, fn: (e: GameEvents[K]) => void) => this.offs.push(world.events.on(name, fn));
 
     // Feel (attract mode too).
@@ -257,12 +337,15 @@ export class Game {
 
     // Flow.
     on('chapterSplash', (e) => {
-      this.screens.showChapterSplash(e.num, e.name, e.clock, 2600);
+      this.chapterCounted = false;
+      // As long as the logic's splash phase (UI time: it holds through a pause); chapterStart ends it.
+      this.screens.showChapterSplash(e.num, e.name, e.clock, SPLASH_SECONDS * 1000 + 100);
       this.chapterMoney = world.player.stats.earned;
       const p = world.player;
       this.chapterStart = { chapter: e.num, money: p.money, weapons: WEAPON_ORDER.filter((id) => p.has(id)), weapon: p.weapon.id };
     });
     on('chapterStart', (e) => {
+      this.screens.hideSplash(0.2);
       if (e.num > 1) this.after(0.4, () => this.hud.callout('The crane is rehung · the horn is ready', 'info'));
       else if (this.firstNight && !this.bot) {
         // First night on the pier: the two things you need before the first one arrives.
@@ -283,6 +366,7 @@ export class Game {
     });
     on('chapterComplete', (e) => {
       this.savedPassengers += world.passengers;
+      this.chapterCounted = true;
       const earned = world.player.stats.earned - this.chapterMoney;
       this.after(0.8, () => {
         this.hud.callout(e.num >= CHAPTERS.length ? 'THE LAST FERRY IS BOARDED' : 'PIER HELD', 'nice');
@@ -368,8 +452,11 @@ export class Game {
   pause(): void {
     if (this.mode !== 'playing') return;
     this.mode = 'paused';
+    // One more frame under the menu, then the picture is held.
+    this.redraw = 1;
     this.input.enabled = false;
-    this.input.clear();
+    // Queued presses only: a key or button held through the menu still counts after Resume.
+    this.input.clearPending();
     this.audio.setPaused(true);
     this.screens.showPause({
       onResume: () => this.resume(),
@@ -384,7 +471,7 @@ export class Game {
     if (this.mode !== 'paused') return;
     this.screens.close();
     this.mode = 'playing';
-    this.input.clear();
+    this.input.clearPending();
     this.input.enabled = !this.autoplay;
     this.audio.setPaused(false);
   }
@@ -399,7 +486,9 @@ export class Game {
     this.time.slowmo(GAMEOVER.slowScale, GAMEOVER.slowSeconds);
     this.env.flashScreen(0.45, 0xff2a18);
     const info = w.gameOverInfo;
-    this.endStats = runStats(w, w.player.stats, w.tick * TICK, { passengersSaved: this.savedPassengers + w.boarded });
+    // Lost during the beat after PIER HELD: that chapter's passengers are counted already.
+    const aboard = this.chapterCounted ? 0 : w.boarded;
+    this.endStats = runStats(w, w.player.stats, w.tick * TICK, { passengersSaved: this.savedPassengers + aboard });
     if (info?.reason === 'gangway') this.hud.callout('One of them made it up the gangway!', 'danger');
   }
 
@@ -566,6 +655,11 @@ export class Game {
     const alpha = Math.max(0, Math.min(1, this.acc / TICK));
     this.view.update(gdt, alpha);
     this.sequences(dt);
+    // UI time (splash, callouts): frozen while paused, real time otherwise (× ?speed). Slow motion and
+    // hit-stop are the world's; the HUD stays readable at its own pace.
+    const uiRate = this.mode === 'paused' ? 0 : this.speed;
+    this.screens.tick(dt * uiRate, uiRate);
+    this.hud.callouts.tick(dt * uiRate, uiRate);
 
     // HUD, overlay, pop-ups.
     if (w && this.mode !== 'title' && this.mode !== 'boot') {
@@ -588,7 +682,8 @@ export class Game {
         f.damage = 0;
         f.twitches = [];
       }
-      this.overlay.render(f, this.mode === 'paused' ? 0 : dt);
+      // Paused and held: the overlay canvas keeps its picture too.
+      if (this.drawing || this.mode !== 'paused') this.overlay.render(f, this.mode === 'paused' ? 0 : dt);
       if (this.mode === 'victory') this.pops.clear();
       else this.pops.flush(this.clock, (p) => this.overlay.popMoneyAt(p.x, p.y, p.z, p.amount, p.reason));
     } else {

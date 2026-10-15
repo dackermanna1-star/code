@@ -2,6 +2,7 @@
 import type * as THREE from 'three';
 import type { World } from '../../core/World';
 import type { BloodSystem } from '../BloodSystem';
+import type { Blobs } from './Blobs';
 import type { Corpses } from '../Corpses';
 import type { Debris } from '../Debris';
 import type { Effects } from '../Effects';
@@ -12,6 +13,9 @@ import type { Gore } from './Gore';
 import type { Halos } from './Halos';
 import type { LightPool } from './LightPool';
 import type { Shake } from './Shake';
+
+/** Graphics quality (Options → Graphics; see GameView.setQuality / Environment.setQuality). */
+export type Quality = 'low' | 'medium' | 'high';
 
 export interface ViewOptions {
   blood: 'low' | 'normal' | 'max';
@@ -34,6 +38,8 @@ export interface Ctx {
   readonly lights: LightPool;
   /** Per-frame glow sprites (undead eyes and glow, crane hook). */
   readonly halos: Halos;
+  /** Per-frame blob shadows (low quality: the horde casts no real shadows). */
+  readonly blobs: Blobs;
   readonly shake: Shake;
   world: World | null;
   /** Presentation time (s), advances with update dt. */
@@ -46,6 +52,8 @@ export interface Ctx {
   bloodK: number;
   /** env.lightRig.darkness (0 sunset … 1 night). */
   darkness: number;
+  /** Current graphics quality. */
+  quality: Quality;
 }
 
 export const BLOOD_K: Record<ViewOptions['blood'], number> = { low: 0.4, normal: 1, max: 1.8 };

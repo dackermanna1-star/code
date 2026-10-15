@@ -80,8 +80,8 @@ export interface ZombieRig extends CreatureRig {
   setPlates?(mask: number): void;
   /** Riot brute armour piece meshes by PLATE_* flag (for debris clones). */
   plates?: Record<number, THREE.Object3D>;
-  /** Charred look 0..1 (burning / burned bodies). */
-  setCharred(t: number): void;
+  /** Charred look 0..1 (burning / burned bodies). `force`: re-apply the materials (meshes were swapped). */
+  setCharred(t: number, force?: boolean): void;
   /** Hand-held prop that drops on death (waiter's tray, granny's handbag …), if any. */
   prop?: THREE.Object3D;
   /** Big Dave's apron (hidden when he enrages). */

@@ -7,13 +7,13 @@ import { PLATE_HELMET, type ZombieKind } from '../../config/ids';
 import { TICK } from '../../config/world';
 import type { GameEvents } from '../../core/events';
 import type { Zombie } from '../../core/Zombie';
-import { createNail, createStretcher, createZombieRig, risenMaterial, STRETCHER_MODEL, type ZombieRigExt } from '../models/index';
+import { createNail, createStretcher, createZombieRig, risenMaterial, slimeMaterial, STRETCHER_MODEL, type ZombieRigExt } from '../models/index';
 import type { MatClass } from '../models/kit';
 import type { AnimInput, BoneSpec, CreatureRig } from '../models/types';
 import { Ragdoll } from '../Ragdoll';
 import { REFLECT_LAYER } from '../Stage';
 import { clamp, rand, type Ctx } from './ctx';
-import { skinify, unskin, type SkinState } from './skin';
+import { setSkinCastShadow, setSkinLook, skinify, unskin, type SkinState } from './skin';
 
 /** Merge live zombies into skinned meshes (fewer draw calls). */
 let SKIN = true;
@@ -108,8 +108,8 @@ export class Horde {
 
   // ------------------------------------------------------------------ lifecycle
 
-  /** A new zombie appeared (or a risen corpse whose rig was handed over). */
-  spawn(z: Zombie, rig?: ZombieRigExt, blend = 0): ZRec {
+  /** A new zombie appeared (or a risen corpse whose rig was handed over, with its skin if it had one). */
+  spawn(z: Zombie, rig?: ZombieRigExt, blend = 0, skin: SkinState | null = null): ZRec {
     const existing = this.recs.get(z.id);
     if (existing) return existing;
     const r = rig ?? createZombieRig(z.kind, z.look);
@@ -140,29 +140,44 @@ export class Horde {
       nails: 0,
       plates: -1,
       groan: 0,
-      skin: SKIN ? skinify(r) : null,
+      skin: skin ?? (SKIN ? skinify(r) : null),
       params: { facing: 1, burning: false, enraged: false, charred: 0, front: true, blend: false },
     };
     // Crawlers spilling out of a bloater appear in view: pop them in.
     if (!rig && z.risen && this.onScreen(z.x, z.z)) rec.pop = 0;
-    // The risen are tinted (greyed green, faintly self-lit) while they crawl.
-    if (z.risen && rec.skin) for (const m of rec.skin.meshes) m.material = risenMaterial(m.userData.matClass as MatClass);
+    if (skin) for (const m of skin.meshes) m.frustumCulled = true;
+    // The risen are tinted (greyed green, faintly self-lit) while they crawl;
+    // the ones that spilled out of a bloater / Big Dave come out slimed (wet, bile green).
+    if (z.risen && rec.skin) {
+      setSkinLook(rec.skin, { tint: z.spilled ? 'slime' : 'risen', eyes: true });
+      const mat = z.spilled ? slimeMaterial : risenMaterial;
+      for (const m of rec.skin.meshes) if (!m.userData.uber) m.material = mat(m.userData.matClass as MatClass);
+    }
     this.recs.set(z.id, rec);
     if (z.stretcher && z.kind === 'medic') this.ensureStretcher(z.stretcher.id, z.x, z.z);
     return rec;
   }
 
-  /** Remove a zombie's record (it died: the rig is handed to the bodies). */
-  take(id: number): ZRec | undefined {
+  /**
+   * Remove a zombie's record (it died: the rig is handed to the bodies).
+   * `keepSkin`: the skinned stand-ins go with it (the bodies keep the rig
+   * skinned while it ragdolls); otherwise back to per-bone meshes.
+   */
+  take(id: number, keepSkin = false): ZRec | undefined {
     const r = this.recs.get(id);
     if (r) {
       this.recs.delete(id);
-      if (r.skin) {
+      if (r.skin && !keepSkin) {
         unskin(r.skin);
         r.skin = null;
       }
     }
     return r;
+  }
+
+  /** Shadow casting of every live zombie (quality switch; low quality uses blob shadows). */
+  setShadows(on: boolean): void {
+    for (const r of this.recs.values()) if (r.skin) setSkinCastShadow(r.skin, on);
   }
 
   get(id: number): ZRec | undefined {
@@ -389,6 +404,12 @@ export class Horde {
         this.pieces.push(piece);
       }
 
+      // Blob shadow (low quality: the horde casts no real shadows).
+      if (ctx.blobs.enabled) {
+        const big = z.kind === 'bigdave' ? 2 : z.kind === 'bloater' ? 1.35 : z.kind === 'riot' ? 1.1 : 1;
+        const low = z.state === 'crawl' || z.state === 'rise' || z.state === 'trip';
+        ctx.blobs.push(x + (low ? 0.25 * z.facing : 0.05), zz, (low ? 0.75 : 0.42) * big, 0.3 * big, Math.max(0.3, 1 - y * 0.4));
+      }
       // Eyes in the dark and the undead tell of risen crawlers.
       this.tells(r, x, zz);
       // Fire on the body.
@@ -403,12 +424,19 @@ export class Horde {
       }
     }
     this.updateStretchers(dt);
-    // Settling pieces.
+    // Settling pieces (baked once they lie on the planks; gone once in the sea).
     let w = 0;
     for (const pc of this.pieces) {
       pc.rag.sync(dt);
       if (pc.rag.frozen) {
         ctx.corpses.bake(pc.holder);
+        continue;
+      }
+      const b = pc.rag.parts[0]?.body;
+      if (!b || b.position.y < -3.2 || pc.rag.age > 12) {
+        pc.rag.dispose();
+        if (b && b.position.y > -1 && pc.rag.age > 12) ctx.corpses.bake(pc.holder);
+        else pc.holder.removeFromParent();
         continue;
       }
       this.pieces[w++] = pc;

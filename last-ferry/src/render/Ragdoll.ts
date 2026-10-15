@@ -57,9 +57,13 @@ const _a = new CANNON.Vec3();
 
 const _v = new THREE.Vector3();
 const _q = new THREE.Quaternion();
+const _q2 = new THREE.Quaternion();
 const _s = new THREE.Vector3();
+const _ps = new THREE.Vector3();
 const _m = new THREE.Matrix4();
 const _pm = new THREE.Matrix4();
+const _c = new CANNON.Vec3();
+const _o = new CANNON.Vec3();
 
 export class Ragdoll {
   readonly parts: Part[] = [];
@@ -82,6 +86,8 @@ export class Ragdoll {
   private sampleT = 0;
   private samples: CANNON.Vec3[] = [];
   private calmSamples = 0;
+  /** Body size relative to a 70 kg shambler (cube root of the mass ratio): scales the 'lying' heights. */
+  readonly sizeK: number;
   /** Called once when the ragdoll settles. */
   onFrozen: ((r: Ragdoll) => void) | null = null;
   /** Called when a body falls into the sea. */
@@ -112,7 +118,9 @@ export class Ragdoll {
         // ragdoll freezes as a whole in sync() instead.
         allowSleep: false,
       });
-      addShape(body, spec, _s.x);
+      // A collapsed (hidden) bone keeps a sane collider: a tiny one with the
+      // full mass has almost no inertia and blows the joints up.
+      addShape(body, spec, Math.max(0.4, _s.x));
       body.collisionFilterGroup = bit;
       // Ragdolls collide with the deck and loose debris, not with each other
       // (bodies piling up mid-air are rare; the contacts are what costs).
@@ -156,11 +164,17 @@ export class Ragdoll {
         collideConnected: false,
         maxForce: 1e6,
       });
+      // Twist is free (twistAngle = π): its equation never pushes, so leave it out of the solver.
+      c.twistEquation.enabled = false;
       physics.world.addConstraint(c);
       this.constraints.push(c);
       this.joints.push(c);
     }
     this.guide = opts.guide ? { ...opts.guide } : null;
+    let mass = 0;
+    for (const p of this.parts) mass += p.spec.mass;
+    this.sizeK = Math.min(2, Math.max(0.6, Math.cbrt(mass / 70)));
+    for (let i = 0; i < this.parts.length; i++) this.samples.push(new CANNON.Vec3(NaN, 0, 0));
 
     // Order parts parent-first so local transforms can be rebuilt top-down.
     const depth = (o: THREE.Object3D) => {
@@ -228,7 +242,13 @@ export class Ragdoll {
     return best;
   }
 
-  /** Copy body transforms to bones. */
+  /**
+   * Copy body transforms to bones (interpolated between the last two physics
+   * steps, so bodies move smoothly at any refresh rate), steer toward the
+   * guide, keep the deck collision in step with the pier's edges and freeze
+   * the ragdoll once it lies still ON THE DECK. A body in the air is never
+   * frozen (it would be baked hanging there).
+   */
   sync(dt: number): void {
     if (this.frozen) return;
     this.age += dt;
@@ -272,8 +292,10 @@ export class Ragdoll {
         if (err > 0.12) moving = true;
       }
     }
+    const alpha = this.physics.alpha;
     for (const p of this.order) {
       const b = p.body;
+      Physics.groundMask(b);
       if (b.position.y < this.waterY) {
         // In the sea: heavy drag, slow sinking.
         b.velocity.scale(Math.exp(-dt * 4), b.velocity);
@@ -302,19 +324,36 @@ export class Ragdoll {
         this.onSink?.(p);
       }
 
-      _m.compose(
-        _v.set(b.position.x, b.position.y, b.position.z),
-        _q.set(b.quaternion.x, b.quaternion.y, b.quaternion.z, b.quaternion.w),
-        p.bone.getWorldScale(_s),
-      );
-      const parent = p.bone.parent;
+      // Render state: between the previous and the current physics step.
+      const pp = b.previousPosition;
+      const cp = b.position;
+      _v.set(pp.x + (cp.x - pp.x) * alpha, pp.y + (cp.y - pp.y) * alpha, pp.z + (cp.z - pp.z) * alpha);
+      const pq = b.previousQuaternion;
+      const cq = b.quaternion;
+      _q.set(pq.x, pq.y, pq.z, pq.w).slerp(_q2.set(cq.x, cq.y, cq.z, cq.w), alpha).normalize();
+      // Position and rotation come from the body; the scale is the bone's own
+      // (1, or collapsed when hidden) times its parent's, never read back from
+      // the matrices (that feedback lets rounding grow into huge scales).
+      const bone = p.bone;
+      const parent = bone.parent;
+      _s.copy(bone.scale);
       if (parent) {
         parent.updateWorldMatrix(true, false);
+        _s.multiply(_ps.setFromMatrixScale(parent.matrixWorld));
+      }
+      _m.compose(_v, _q, _s);
+      // Local transform from the parent's (already updated) world matrix. Only
+      // this bone is touched: children and meshes follow at the next scene
+      // matrix update.
+      if (parent) {
         _pm.copy(parent.matrixWorld).invert();
         _m.premultiply(_pm);
       }
-      _m.decompose(p.bone.position, p.bone.quaternion, p.bone.scale);
-      p.bone.updateMatrixWorld(true);
+      _m.decompose(bone.position, bone.quaternion, _s);
+      bone.quaternion.normalize();
+      bone.updateMatrix();
+      if (parent) bone.matrixWorld.multiplyMatrices(parent.matrixWorld, bone.matrix);
+      else bone.matrixWorld.copy(bone.matrix);
     }
     this.stillTime = moving ? 0 : this.stillTime + dt;
     // Positional settle test (robust against joint twitching in place):
@@ -326,15 +365,50 @@ export class Ragdoll {
       for (let i = 0; i < this.parts.length; i++) {
         const b = this.parts[i].body;
         const o = this.parts[i].spec.offset;
-        const c = b.pointToWorldFrame(new CANNON.Vec3(o[0], o[1], o[2]));
+        const c = b.pointToWorldFrame(_o.set(o[0], o[1], o[2]), _c);
         const prev = this.samples[i];
-        if (prev) maxMove = Math.max(maxMove, prev.distanceTo(c));
-        this.samples[i] = c;
+        if (!Number.isNaN(prev.x)) maxMove = Math.max(maxMove, prev.distanceTo(c));
+        prev.copy(c);
       }
       this.calmSamples = this.age > 0.8 && maxMove < 0.035 ? this.calmSamples + 1 : 0;
     }
     if (this.pins.length) return;
-    if ((this.stillTime > 0.5 && this.age > 1.0) || this.calmSamples >= 2 || this.age > 5) this.freeze();
+    const still = (this.stillTime > 0.5 && this.age > 1.0) || this.calmSamples >= 2;
+    // A body still twitching after 5 s on the planks is frozen as it lies; one
+    // in the air is never frozen (it would be baked hanging there).
+    if ((still || this.age > 5) && this.grounded()) this.freeze();
+  }
+
+  /**
+   * Lying on the planks: the centre of mass is low, some part touches the deck
+   * and the body is over the pier (bodies in or over the sea are not
+   * 'grounded'; they sink and are removed).
+   */
+  grounded(): boolean {
+    let lo = Infinity;
+    let cy = 0;
+    let cx = 0;
+    let cz = 0;
+    let m = 0;
+    for (const p of this.parts) {
+      const q = p.body.position;
+      if (q.y < lo) lo = q.y;
+      cx += q.x * p.body.mass;
+      cy += q.y * p.body.mass;
+      cz += q.z * p.body.mass;
+      m += p.body.mass;
+    }
+    if (!m) return true;
+    cx /= m;
+    cy /= m;
+    cz /= m;
+    const k = this.sizeK;
+    return cy < 0.55 * k && lo < 0.3 * k && lo > -0.3 && Physics.onDeck(cx, cz);
+  }
+
+  /** Grounded and (nearly) at rest: safe to freeze and bake where it lies. */
+  settled(maxSpeed = 1.5): boolean {
+    return this.grounded() && this.speed < maxSpeed;
   }
 
   /** Remove from the simulation; meshes stay put. */
@@ -372,6 +446,8 @@ export class Ragdoll {
       p.bone.matrixWorld.decompose(_v, _q, _s);
       p.body.position.set(_v.x, _v.y, _v.z);
       p.body.quaternion.set(_q.x, _q.y, _q.z, _q.w);
+      p.body.previousPosition.copy(p.body.position);
+      p.body.previousQuaternion.copy(p.body.quaternion);
       p.body.velocity.setZero();
       p.body.angularVelocity.setZero();
       this.physics.world.addBody(p.body);
@@ -385,7 +461,7 @@ export class Ragdoll {
     this.stillTime = 0;
     this.calmSamples = 0;
     this.sampleT = 0;
-    this.samples.length = 0;
+    for (const v of this.samples) v.x = NaN;
   }
 
   /** Add a velocity change to one part (by bone name) or, without a name, to every part. */

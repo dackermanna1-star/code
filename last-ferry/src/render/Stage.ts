@@ -64,7 +64,8 @@ export interface PostSettings {
 }
 
 const POST_QUALITY: Record<Exclude<PostQuality, 'off'>, { msaa: number; levels: number; bloomScale: number }> = {
-  low: { msaa: 2, levels: 4, bloomScale: 0.5 },
+  // Low: no multisampling (the HDR target is the biggest per-pixel cost), a short bloom chain.
+  low: { msaa: 0, levels: 4, bloomScale: 0.5 },
   medium: { msaa: 4, levels: 5, bloomScale: 0.5 },
   high: { msaa: 4, levels: 6, bloomScale: 0.5 },
 };
@@ -83,6 +84,17 @@ export class Stage {
   scale = 1;
   pixelRatio = 1;
   maxPixelRatio = 2;
+  /**
+   * Dynamic resolution: while frames come too slowly and the CPU is not the
+   * reason, the render scale (fraction of the pixel ratio) steps down to
+   * `minRenderScale`; with headroom it climbs back. See start().
+   */
+  autoResolution = true;
+  minRenderScale = 0.6;
+  /** Current render scale (1 = full pixel ratio). */
+  renderScale = 1;
+  /** True between webglcontextlost and webglcontextrestored (nothing is rendered). */
+  contextLost = false;
   /** Camera offset for screen shake / punches (world units, applied every frame). */
   readonly shakeOffset = new THREE.Vector3();
   /**
@@ -117,6 +129,13 @@ export class Stage {
   private afterMain: FrameHook[] = [];
   private update: FrameHook[] = [];
   private resizeHooks: Array<(w: number, h: number) => void> = [];
+  private lostHooks: Array<() => void> = [];
+  private restoredHooks: Array<() => void> = [];
+  private resizeTimer = 0;
+  private lostNote: HTMLDivElement | null = null;
+  private lostTimer = 0;
+  /** Adaptive resolution state (see adapt). */
+  private ad = { ema: 1 / 60, cpu: 0, slow: 0, fast: 0, sinceUp: 99, lockUp: 0 };
   private last = 0;
   private time = 0;
   private running = false;
@@ -145,8 +164,76 @@ export class Stage {
     this.camera.updateMatrixWorld();
 
     this.setPostQuality(opts.post ?? 'high');
-    window.addEventListener('resize', () => this.resize());
+    // Window resizes are coalesced (a drag would otherwise reallocate every
+    // render target on every event); a device-pixel-ratio change (window moved
+    // to another monitor) resizes too.
+    window.addEventListener('resize', () => {
+      clearTimeout(this.resizeTimer);
+      this.resizeTimer = window.setTimeout(() => this.resize(), 120);
+    });
+    this.watchPixelRatio();
+    // Context loss (GPU reset, driver update, too much VRAM): no rendering
+    // until it is back, a note on screen, and three restores its state.
+    this.canvas.addEventListener('webglcontextlost', (e) => {
+      e.preventDefault();
+      this.contextLost = true;
+      this.showLostNote(true);
+      for (const h of this.lostHooks) h();
+    });
+    this.canvas.addEventListener('webglcontextrestored', () => {
+      this.contextLost = false;
+      this.showLostNote(false);
+      this.resize();
+      for (const h of this.restoredHooks) h();
+    });
     this.resize();
+  }
+
+  private watchPixelRatio(): void {
+    if (typeof matchMedia !== 'function') return;
+    const mq = matchMedia(`(resolution: ${window.devicePixelRatio || 1}dppx)`);
+    const on = () => {
+      mq.removeEventListener?.('change', on);
+      this.resize();
+      this.watchPixelRatio();
+    };
+    mq.addEventListener?.('change', on);
+  }
+
+  /** Called when the WebGL context is lost (pause the game, show a note). */
+  onContextLost(fn: () => void): void {
+    this.lostHooks.push(fn);
+  }
+  /** Called when the WebGL context is back (GPU contents such as the blood decals were lost). */
+  onContextRestored(fn: () => void): void {
+    this.restoredHooks.push(fn);
+  }
+
+  /** The default 'graphics reset' note (with a reload button if the context does not come back). */
+  private showLostNote(on: boolean): void {
+    clearTimeout(this.lostTimer);
+    if (!on) {
+      this.lostNote?.remove();
+      this.lostNote = null;
+      return;
+    }
+    if (this.lostNote) return;
+    const d = document.createElement('div');
+    d.className = 'lf-context-lost';
+    d.style.cssText =
+      'position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:14px 22px;background:rgba(8,10,14,.86);color:#f0d9b5;font:600 15px/1.4 system-ui,sans-serif;border:1px solid rgba(240,217,181,.3);border-radius:6px;z-index:50;text-align:center';
+    d.textContent = 'Graphics reset… waiting for the GPU';
+    this.view.appendChild(d);
+    this.lostNote = d;
+    this.lostTimer = window.setTimeout(() => {
+      if (!this.contextLost || !this.lostNote) return;
+      d.textContent = 'The browser reset the graphics and did not give them back. ';
+      const b = document.createElement('button');
+      b.textContent = 'Reload';
+      b.style.cssText = 'margin-left:8px;font:inherit;padding:2px 12px;cursor:pointer';
+      b.onclick = () => location.reload();
+      d.appendChild(b);
+    }, 5000);
   }
 
   /**
@@ -192,7 +279,8 @@ export class Stage {
       left: `${Math.floor((ww - this.viewW) / 2)}px`,
       top: `${Math.floor((wh - this.viewH) / 2)}px`,
     });
-    this.pixelRatio = Math.min(window.devicePixelRatio || 1, this.maxPixelRatio);
+    clearTimeout(this.resizeTimer);
+    this.pixelRatio = Math.min(window.devicePixelRatio || 1, this.maxPixelRatio) * this.renderScale;
     this.renderer.setPixelRatio(this.pixelRatio);
     this.renderer.setSize(this.viewW, this.viewH);
     const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
@@ -248,9 +336,12 @@ export class Stage {
     const loop = (now: number) => {
       if (!this.running) return;
       requestAnimationFrame(loop);
-      const dt = Math.min(0.1, Math.max(0, (now - this.last) / 1000));
+      const raw = Math.max(0, (now - this.last) / 1000);
+      const dt = Math.min(0.1, raw);
       this.last = now;
+      const t0 = performance.now();
       this.frame(dt);
+      if (this.autoResolution) this.adapt(raw, (performance.now() - t0) / 1000);
     };
     requestAnimationFrame(loop);
   }
@@ -259,16 +350,76 @@ export class Stage {
     this.running = false;
   }
 
+  /**
+   * Dynamic resolution. `interval`: seconds since the previous frame, `cpu`:
+   * seconds this frame's JS took. Frames slower than ~45 fps for over a second
+   * while the JS leaves most of the frame idle (so the GPU is the limit) step
+   * the render scale down by 0.1; well above 55 fps for 4 s step it back up by
+   * 0.05. A step up that has to be undone within 8 s locks further steps up
+   * for 20 s (no see-sawing).
+   */
+  private adapt(interval: number, cpu: number): void {
+    const a = this.ad;
+    if (interval > 0.25 || interval <= 0 || this.contextLost) return; // stalls, hidden tab
+    a.ema += (interval - a.ema) * 0.08;
+    a.cpu += (cpu - a.cpu) * 0.08;
+    a.sinceUp += interval;
+    a.lockUp = Math.max(0, a.lockUp - interval);
+    const gpuBound = a.cpu < a.ema * 0.6;
+    if (a.ema > 1 / 45 && gpuBound) {
+      a.slow += interval;
+      a.fast = 0;
+    } else if (a.ema < 1 / 55) {
+      a.fast += interval;
+      a.slow = 0;
+    } else {
+      a.slow = Math.max(0, a.slow - interval);
+      a.fast = 0;
+    }
+    let next = this.renderScale;
+    if (a.slow > 1.2 && this.renderScale > this.minRenderScale) {
+      next = Math.max(this.minRenderScale, Math.round((this.renderScale - 0.1) * 100) / 100);
+      if (a.sinceUp < 8) a.lockUp = 20;
+    } else if (a.fast > 4 && this.renderScale < 1 && a.lockUp <= 0) {
+      next = Math.min(1, Math.round((this.renderScale + 0.05) * 100) / 100);
+      a.sinceUp = 0;
+    }
+    if (next !== this.renderScale) {
+      this.renderScale = next;
+      a.slow = 0;
+      a.fast = 0;
+      a.ema = 1 / 60;
+      this.resize();
+    }
+  }
+
+  /** True while frame() runs (update hooks can tell they are inside a frame). */
+  get inFrame(): boolean {
+    return this.frameDepth > 0;
+  }
+  private frameDepth = 0;
+
   /** Advance one frame (tests step this deterministically). */
   frame(dt: number, render = true): void {
-    this.time += dt;
-    for (const f of this.update) f(dt, this.time);
-    if (!render) return;
-    this.camera.position.copy(this.basePos).add(this.shakeOffset);
-    this.camera.updateMatrixWorld();
-    for (const f of this.preRender) f(dt, this.time);
-    this.renderMain(dt);
-    for (const f of this.postRender) f(dt, this.time);
+    this.frameDepth++;
+    try {
+      this.time += dt;
+      for (const f of this.update) f(dt, this.time);
+      if (!render || this.contextLost) return;
+      this.camera.position.copy(this.basePos).add(this.shakeOffset);
+      this.camera.updateMatrixWorld();
+      // One scene matrix update per frame: the reflection and main passes
+      // (and the shadow pass inside them) all draw the same poses.
+      this.scene.matrixWorldAutoUpdate = true;
+      this.scene.updateMatrixWorld();
+      this.scene.matrixWorldAutoUpdate = false;
+      for (const f of this.preRender) f(dt, this.time);
+      this.renderMain(dt);
+      for (const f of this.postRender) f(dt, this.time);
+    } finally {
+      this.scene.matrixWorldAutoUpdate = true;
+      this.frameDepth--;
+    }
   }
 
   /** Advance `seconds` without drawing (tests). */

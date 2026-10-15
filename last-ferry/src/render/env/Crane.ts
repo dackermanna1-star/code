@@ -49,7 +49,7 @@ export class Crane {
   private synced = false;
   private warnGlow: number;
   private workGlow: number;
-  /** Work light under the jib (null on low quality). */
+  /** Work light under the jib (switched off on low quality: see Environment.setQuality). */
   readonly workLight: THREE.PointLight | null;
   /** Cut wire end swinging after the drop. */
   private whip = 0;
@@ -71,7 +71,8 @@ export class Crane {
     // Work lamp under the jib, lighting the pallet and the deck around it.
     const wl = TIP.clone().add(new THREE.Vector3(-0.6, -0.35, -0.9));
     this.workGlow = glows.add(wl, new THREE.Color(2.4, 2.1, 1.6), 1.1);
-    this.workLight = quality === 'low' ? null : new THREE.PointLight(0xffe2b8, 0, 13, 2);
+    this.workLight = new THREE.PointLight(0xffe2b8, 0, 13, 2);
+    this.workLight.visible = quality !== 'low';
     if (this.workLight) {
       this.workLight.position.copy(wl);
       this.group.add(this.workLight);
@@ -460,6 +461,6 @@ export class Crane {
     const blink = Math.sin(time * 3.2) > 0.3 ? 1 : 0.08;
     this.glows.set(this.warnGlow, blink * (0.25 + 0.75 * lamps));
     this.glows.set(this.workGlow, lamps);
-    if (this.workLight) this.workLight.intensity = 30 * lamps;
+    if (this.workLight) this.workLight.intensity = this.workLight.visible ? 30 * lamps : 0;
   }
 }

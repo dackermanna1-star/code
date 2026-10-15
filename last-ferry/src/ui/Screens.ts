@@ -4,7 +4,9 @@
 //
 // Keyboard: ↑/↓ (W/S, Tab) choose, ←/→ (A/D) change a value, Enter/Space
 // select, Esc/Backspace back. Mouse: hover selects, click activates, sliders
-// drag. Menus swallow their own input so the game never sees it.
+// drag. Menus swallow their own input so the game never sees it. A key that
+// was already held when a menu opened (W held to walk, then Esc) does not
+// drive the menu with its auto-repeat.
 import type { WeaponId } from '../config/ids';
 import { MONEY, REANIMATION } from '../config/rules';
 import { ZOMBIES } from '../config/zombies';
@@ -134,11 +136,19 @@ export class Screens {
   private loadingLabel: HTMLDivElement | null = null;
   private cur: ScreenState | null = null;
   private readonly selected = new Map<string, number>();
-  private splashTimer = 0;
+  /** UI time (s, advanced by tick: frozen while paused) and when the splash goes. */
+  private uiClock = 0;
+  private uiRate = 1;
+  private splashUntil = -1;
+  /** tick() drives UI time (a host that never calls it — a preview page — gets a wall-clock timeout). */
+  private uiDriven = false;
+  private splashTimeout = 0;
   private fpsShown: number | null = null;
   private navigating = false;
   private readonly recorded = new WeakMap<RunStats, number>();
   private victoryTimer = 0;
+  /** Keys whose press a menu saw (their auto-repeat may move the selection; others' may not). */
+  private readonly pressed = new Set<string>();
 
   constructor(view: HTMLElement) {
     this.options = loadOptions();
@@ -148,6 +158,8 @@ export class Screens {
     this.fps.style.display = 'none';
     this.root.append(this.splash, this.fps);
     window.addEventListener('keydown', this.onKey, true);
+    window.addEventListener('keyup', (e) => this.pressed.delete(e.code), true);
+    window.addEventListener('blur', () => this.pressed.clear());
   }
 
   /** A menu screen is open (the game should not read input). */
@@ -227,9 +239,11 @@ export class Screens {
 
   // ------------------------------------------------------------ splash
 
-  /** "CHAPTER 1 · LAST LIGHT · 18:40" — non-blocking, fades in and out. */
+  /**
+   * "CHAPTER 1 · LAST LIGHT · 18:40" — non-blocking, fades in and out over
+   * `ms` of UI time (see tick: it holds while the game is paused).
+   */
   showChapterSplash(num: number, name: string, clock: string, ms = 2600): void {
-    window.clearTimeout(this.splashTimer);
     this.splash.replaceChildren();
     const el = h('div', 'lf-splash-in');
     el.style.setProperty('--ms', `${Math.max(600, ms)}ms`);
@@ -242,13 +256,43 @@ export class Screens {
     el.append(eyebrow, title, row);
     this.splash.appendChild(el);
     this.splash.style.display = '';
-    this.splashTimer = window.setTimeout(() => this.hideSplash(), Math.max(600, ms) + 60);
+    window.clearTimeout(this.splashTimeout);
+    if (this.uiDriven) this.splashUntil = this.uiClock + (Math.max(600, ms) + 60) / 1000;
+    else this.splashTimeout = window.setTimeout(() => this.hideSplash(), Math.max(600, ms) + 60);
+    if (this.uiRate !== 1) this.follow(el);
   }
 
-  hideSplash(): void {
-    window.clearTimeout(this.splashTimer);
+  /** Hide the splash now, or within `withinSec` of UI time (it finishes its fade). */
+  hideSplash(withinSec = 0): void {
+    if (withinSec > 0) {
+      if (this.splashUntil >= 0) this.splashUntil = Math.min(this.splashUntil, this.uiClock + withinSec);
+      return;
+    }
+    this.splashUntil = -1;
+    window.clearTimeout(this.splashTimeout);
     this.splash.replaceChildren();
     this.splash.style.display = 'none';
+  }
+
+  /**
+   * Advance UI time (call every frame): `dt` seconds, 0 while the game is
+   * paused; `rate` the speed of the splash animation (0 paused, 1 normal, the
+   * ?speed factor in tests).
+   */
+  tick(dt: number, rate = 1): void {
+    this.uiDriven = true;
+    this.uiClock += Math.max(0, dt);
+    if (rate !== this.uiRate) {
+      this.uiRate = rate;
+      this.follow(this.splash);
+    }
+    if (this.splashUntil >= 0 && this.uiClock >= this.splashUntil) this.hideSplash();
+  }
+
+  /** The element's CSS animations play at the UI rate. */
+  private follow(el: Element): void {
+    if (typeof el.getAnimations !== 'function') return;
+    for (const a of el.getAnimations({ subtree: true })) a.playbackRate = this.uiRate;
   }
 
   // ------------------------------------------------------------- pause
@@ -413,8 +457,8 @@ export class Screens {
     krow('Reload', '[R]');
     krow('Buy / select', '[1] – [6] or click a weapon');
     krow('Buy best', '[B] [Enter]');
-    krow('Cycle weapons', '[Q] [Tab] or the wheel');
-    krow('Stomp', '[E] [Shift] jump, land on it');
+    krow('Cycle weapons', '[Q] [Tab] or the wheel ([Shift] goes back)');
+    krow('Stomp', '[E] or tap [Shift]: jump, land on it');
     krow('Kick', 'walk into a crawler');
     krow('Ferry horn', '[H] once per chapter');
     krow('Cannon strike', '[F] when the wheel is full');
@@ -839,6 +883,12 @@ export class Screens {
     const fresh = e.timeStamp > 0 && e.timeStamp < st.openedAt;
     e.stopImmediatePropagation();
     if (fresh) return;
+    // Auto-repeat of a key held since before the menu opened (walking up, then Esc): not for the menu.
+    if (!e.repeat) this.pressed.add(e.code);
+    else if (!this.pressed.has(e.code)) {
+      e.preventDefault();
+      return;
+    }
     const ctl = st.ctls[st.index];
     const settled = performance.now() >= st.activateAfter;
     let handled = true;

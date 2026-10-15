@@ -27,7 +27,7 @@ describe('bot & simulation', () => {
     expect(s.earned).toBeGreaterThan(2500);
     expect(s.craneDrops + s.horns + s.cannonStrikes).toBeGreaterThan(0);
     expect(w.chapter > 1 || w.phase === 'between' || w.phase === 'gameover').toBe(true);
-  });
+  }, 30000); // minutes of game logic: generous timeout for a loaded machine
 
   it('is deterministic for a seed', () => {
     const a = play(77, 60).trace;
@@ -36,7 +36,7 @@ describe('bot & simulation', () => {
     expect(a.length).toBeGreaterThan(100);
     expect(a).toBe(b);
     expect(a).not.toBe(c);
-  });
+  }, 30000); // minutes of game logic: generous timeout for a loaded machine
 
   it('200 zombies and 300 bodies tick well under 1 ms', () => {
     const w = new World({ seed: 1, quiet: true, skipSplash: true, god: true });

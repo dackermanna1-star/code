@@ -10,8 +10,9 @@ import { Effects } from '../Effects';
 import type { Environment } from '../env/Environment';
 import { Physics } from '../Physics';
 import type { Stage } from '../Stage';
+import { Blobs } from './Blobs';
 import { Bodies } from './Bodies';
-import { BLOOD_K, type Ctx, type ViewOptions } from './ctx';
+import { BLOOD_K, type Ctx, type Quality, type ViewOptions } from './ctx';
 import { Gore } from './Gore';
 import { Halos } from './Halos';
 import { HazardFx } from './HazardFx';
@@ -21,7 +22,8 @@ import { LightPool } from './LightPool';
 import { Shake } from './Shake';
 import { F, metalHit, splinters } from './fx';
 import { createZombieRig, setHivisLevel } from '../models/index';
-import { skinify } from './skin';
+import type { BakeHandle } from '../Corpses';
+import { setSkinLook, setSkinShadows, skinify, unskin, type SkinState } from './skin';
 
 export type { ViewOptions };
 
@@ -29,6 +31,13 @@ const _m = new THREE.Vector3();
 /** Where the shader warm-up set is put: behind the gameplay camera, out of every view. */
 const WARM_AT = new THREE.Vector3(CAMERA_POS.x, CAMERA_POS.y + 12, CAMERA_POS.z + 16);
 const LIGHT_TINT = new THREE.Color();
+
+/** Per-quality view settings (see setQuality). */
+const VIEW_QUALITY: Record<Quality, { lights: number; density: number; zombieShadows: boolean; corpseShadows: boolean }> = {
+  low: { lights: 3, density: 0.55, zombieShadows: false, corpseShadows: false },
+  medium: { lights: 6, density: 0.85, zombieShadows: true, corpseShadows: false },
+  high: { lights: 8, density: 1, zombieShadows: true, corpseShadows: true },
+};
 
 export class ViewCore {
   readonly ctx: Ctx;
@@ -47,9 +56,9 @@ export class ViewCore {
     const root = new THREE.Group();
     root.name = 'GameView';
     scene.add(root);
-    const lights = new LightPool(scene, env.quality === 'high' ? 8 : env.quality === 'medium' ? 6 : 4);
+    const q0 = env.quality;
+    const lights = new LightPool(scene, VIEW_QUALITY[q0].lights);
     effects.flashSink = (x, y, z, color, intensity, life, distance) => lights.flash(x, y, z, color, intensity, life, distance);
-    effects.density = env.quality === 'low' ? 0.6 : 1;
     const debris = new Debris(scene);
     debris.isOnFloe = (x, z) => env.isOnDeck(x, z);
     const corpses = new Corpses(scene);
@@ -69,6 +78,7 @@ export class ViewCore {
       gore,
       lights,
       halos: new Halos(scene, 320, CAMERA_POS),
+      blobs: new Blobs(scene),
       shake: new Shake(stage.shakeOffset),
       world: null,
       time: 0,
@@ -76,6 +86,7 @@ export class ViewCore {
       dt: 0,
       bloodK: 1,
       darkness: 0,
+      quality: q0,
     };
     // Count draw calls over whole frames (shadow, reflection, backdrop, scene, post).
     const info = stage.renderer.info;
@@ -83,6 +94,7 @@ export class ViewCore {
     stage.onUpdate(() => info.reset());
     stage.onPostRender(() => {
       this.lastCalls = info.render.calls;
+      this.rendered = true;
     });
     stage.onResize(() => {
       const size = stage.renderer.getDrawingBufferSize(new THREE.Vector2());
@@ -92,6 +104,28 @@ export class ViewCore {
     this.bodies = new Bodies(this.ctx, this.horde);
     this.hunters = new Hunters(this.ctx);
     this.hazards = new HazardFx(this.ctx);
+    this.setQuality(q0);
+  }
+
+  /**
+   * Graphics quality, live: effect lights (every lit shader recompiles once
+   * when their number changes), particle density, ragdoll budget, which
+   * bodies cast real shadows (low: blob shadows for the horde) and corpse
+   * shadows (high only: they lie flat).
+   */
+  setQuality(q: Quality): void {
+    const ctx = this.ctx;
+    const s = VIEW_QUALITY[q];
+    ctx.quality = q;
+    ctx.lights.resize(s.lights);
+    ctx.effects.density = s.density;
+    this.bodies.setQuality(q);
+    setSkinShadows(s.zombieShadows);
+    this.horde.setShadows(s.zombieShadows);
+    this.bodies.setShadows(s.zombieShadows);
+    ctx.corpses.setShadows(s.corpseShadows);
+    ctx.blobs.enabled = !s.zombieShadows;
+    if (!ctx.blobs.enabled) ctx.blobs.clear();
   }
 
   get options(): ViewOptions {
@@ -216,6 +250,7 @@ export class ViewCore {
     ctx.gore.clear();
     ctx.lights.clear();
     ctx.halos.clear();
+    ctx.blobs.clear();
     ctx.shake.reset();
     ctx.world = null;
   }
@@ -279,6 +314,14 @@ export class ViewCore {
     ctx.blood.lightTint.setRGB(1 - 0.45 * dk, 1 - 0.45 * dk, 1 - 0.4 * dk);
     const w = ctx.world;
     ctx.halos.begin();
+    ctx.blobs.begin();
+    if (this.warm) {
+      // Keep the blob-shadow program in the warm-up frame (it is off above low quality).
+      const on = ctx.blobs.enabled;
+      ctx.blobs.enabled = true;
+      ctx.blobs.push(WARM_AT.x + 4, WARM_AT.z + 2, 0.4, 0.3);
+      ctx.blobs.enabled = on;
+    }
     if (w) {
       env.setTimeOfDay(w.timeOfDay);
       env.setCrane(w.crane.state, w.crane.stateTime);
@@ -287,6 +330,11 @@ export class ViewCore {
       this.hunters.update(dt);
       this.horde.update(dt);
       this.hazards.update(dt, w);
+      // Game over: a cold key light picks out the one that reached the gangway
+      // (the overlay draws the marker; this makes the body itself stand out).
+      const go = w.gameOverInfo;
+      const culprit = go && go.zombieId !== undefined ? this.horde.get(go.zombieId) : undefined;
+      if (culprit) ctx.lights.add(culprit.x + 0.6, 2.4, culprit.zz + 1.4, 0xdfe8ff, 22, 5.5, 50);
     }
     ctx.physics.update(dt);
     this.bodies.update(dt, (id) => this.hunters.muzzle(id, _m));
@@ -297,19 +345,24 @@ export class ViewCore {
     ctx.debris.update(dt);
     ctx.lights.commit(dt);
     ctx.halos.end();
+    ctx.blobs.end();
     ctx.shake.update(dt);
     env.update(dt, ctx.time);
   }
 
   /**
    * Shader / pipeline warm-up: put one of everything the view can draw in the
-   * scene (a charred rig, a baked body, every particle layer, beams, rings,
-   * gore, casings), compile, let the app render a frame or two with them, then
-   * take them away. Returns true when done.
+   * scene (charred, risen and armoured rigs, skinned and per-bone, baked
+   * bodies of every common material class, every particle layer, beams,
+   * rings, gore, casings, blob shadows), compile, let one frame render them
+   * (shadow and reflection passes compile too, the corpse batches upload),
+   * then take them away. Returns true when done.
    *
    * The warm-up set sits behind the camera (frustum culling off, so it is
    * still drawn and every pass compiles) and is never seen; attach() ends a
-   * warm-up that was interrupted, so it can never leak into a game.
+   * warm-up that was interrupted, so it can never leak into a game. Called
+   * from inside a frame (the title screen) it never renders a nested frame:
+   * it waits for the next real one.
    */
   prewarm(budgetMs: number): boolean {
     void budgetMs;
@@ -325,24 +378,45 @@ export class ViewCore {
       const b = createZombieRig('bloater', 11);
       b.root.position.set(6, 0, 2);
       g.add(b.root);
-      // Live zombies are drawn skinned (plain and charred variants).
+      // Live zombies are drawn skinned (plain, charred, risen and armoured variants).
       const d = createZombieRig('shambler', 9);
       d.root.position.set(2, 0, 2);
       g.add(d.root);
-      skinify(d);
+      const skins: Array<SkinState | null> = [skinify(d)];
       const e = createZombieRig('jogger', 5);
       e.root.position.set(0, 0, 2);
       g.add(e.root);
-      skinify(e);
+      skins.push(skinify(e));
       e.setCharred(0.6);
+      const r = createZombieRig('riot', 4);
+      r.root.position.set(-2, 0, 2);
+      g.add(r.root);
+      skins.push(skinify(r));
+      r.setPlates?.(0xff);
+      const k = createZombieRig('shambler', 13);
+      k.root.position.set(-4, 0, 2);
+      g.add(k.root);
+      const ks = skinify(k);
+      if (ks) setSkinLook(ks, { tint: 'risen', eyes: false });
+      skins.push(ks);
       for (const o of this.hazards.prewarmObjects()) g.add(o);
-      const c = createZombieRig('riot', 3);
-      c.root.position.copy(WARM_AT).add(_m.set(8, 0, 2));
       ctx.scene.add(g);
-      ctx.scene.add(c.root);
       g.traverse((o) => (o.frustumCulled = false));
-      c.root.updateMatrixWorld(true);
-      this.warm = { group: g, bake: ctx.corpses.bake(c.root) };
+      // Baked bodies: every common material class gets its batch (uploaded by the warm frame).
+      const bakes: BakeHandle[] = [];
+      for (const [kind, look, dx] of [
+        ['riot', 3, 8],
+        ['shambler', 21, 10],
+        ['bloater', 5, 12],
+        ['medic', 2, 14],
+      ] as const) {
+        const c = createZombieRig(kind, look);
+        c.root.position.copy(WARM_AT).add(_m.set(dx, 0, 2));
+        ctx.scene.add(c.root);
+        c.root.updateMatrixWorld(true);
+        bakes.push(ctx.corpses.bake(c.root));
+      }
+      this.warm = { group: g, bakes, skins };
       const fx = ctx.effects;
       const W = WARM_AT;
       fx.emit(true, W.x + 4, W.y + 1, W.z + 2, { life: 0.3, frame: 2 });
@@ -355,6 +429,14 @@ export class ViewCore {
       ctx.gore.burst({ x: W.x + 4, y: W.y + 0.5, z: W.z + 2 }, 2, { speed: 0.5 });
       ctx.debris.shell('shotgun', _m.set(W.x + 4, W.y + 1, W.z + 2), new THREE.Vector3(), 0.2);
       ctx.debris.shell('minigun', _m.set(W.x + 4, W.y + 1, W.z + 2), new THREE.Vector3(), 0.2);
+      // Things that only show up later in the night, and the blob-shadow program (low quality).
+      ctx.env.prewarm(true);
+      const blobs = ctx.blobs.enabled;
+      ctx.blobs.enabled = true;
+      ctx.blobs.begin();
+      ctx.blobs.push(W.x + 4, W.z + 2, 0.4, 0.3);
+      ctx.blobs.end();
+      ctx.blobs.enabled = blobs;
       try {
         ctx.stage.renderer.compile(ctx.scene, ctx.stage.camera);
       } catch {
@@ -364,8 +446,13 @@ export class ViewCore {
       return false;
     }
     if (this.warmStep === 1) {
-      // Render one frame with everything in the scene (shadow and reflection passes compile too).
+      // One frame with everything in the scene (shadow and reflection passes compile too).
       this.warmStep = 2;
+      if (ctx.stage.inFrame) {
+        // Called from a frame's update (title screen): wait for that frame's own render.
+        this.rendered = false;
+        return false;
+      }
       try {
         ctx.stage.frame(0, true);
       } catch {
@@ -373,6 +460,7 @@ export class ViewCore {
       }
       return false;
     }
+    if (!this.rendered) return false;
     this.endPrewarm();
     return true;
   }
@@ -382,15 +470,24 @@ export class ViewCore {
     const ctx = this.ctx;
     if (!this.warm) return;
     this.hazards.endPrewarm();
+    ctx.env.prewarm(false);
     this.warm.group.removeFromParent();
-    ctx.corpses.unbake(this.warm.bake);
+    for (const h of this.warm.bakes) ctx.corpses.unbake(h);
+    for (const sk of this.warm.skins) if (sk) unskin(sk);
     this.warm = null;
-    ctx.effects.clear();
-    ctx.gore.clear();
-    ctx.debris.clear();
-    if (this.warmStep < 2) this.warmStep = 0;
+    ctx.blobs.clear();
+    // The warm particles sit behind the camera and die out by themselves; only
+    // wipe them when no world is showing (never the attract game's effects).
+    if (!ctx.world) {
+      ctx.effects.clear();
+      ctx.gore.clear();
+      ctx.debris.clear();
+    }
+    if (this.warmStep < 2 || !this.rendered) this.warmStep = 0;
   }
-  private warm: { group: THREE.Group; bake: import('../Corpses').BakeHandle } | null = null;
+  private warm: { group: THREE.Group; bakes: BakeHandle[]; skins: Array<SkinState | null> } | null = null;
+  /** A frame was rendered since the warm-up set went in. */
+  private rendered = true;
 
   stats(): { zombies: number; corpses: number; ragdolls: number; drops: number; drawCalls: number } {
     const ctx = this.ctx;

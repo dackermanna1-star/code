@@ -8,7 +8,14 @@
 //   music → duck → music volume ───────────────────────────────────────────────────────── master → comp → soft clip → out
 //
 // One-shot sounds are baked on demand from recipes (sounds.ts → bake.ts) into
-// AudioBuffers and cached; prewarm() bakes them ahead of time in idle slices.
+// AudioBuffers and cached; prewarm() bakes them ahead of time off the main
+// thread (a Worker running the same recipes, bakeWorker.ts; idle slices on the
+// main thread where Workers are unavailable), most urgent first: the menu and
+// title sounds (essentials()), then what a game needs in its first seconds,
+// then the rest. While that runs, a title / ambience / music-bed sound that
+// is not baked yet is skipped and moved to the front of the queue instead of
+// being baked on the spot (no frame ever waits for the DSP); a game sound is
+// still baked on the spot.
 // Continuous sounds (outboard engine, fire bed, gas hiss), the ambience and
 // the adaptive music are live node graphs driven by update(dt).
 import type { WeaponId, ZombieKind } from '../config/ids';
@@ -16,6 +23,7 @@ import type { WorldView } from '../core/api';
 import type { EventBus } from '../core/events';
 import { Ambience } from './Ambience';
 import { bake } from './bake';
+import BakeWorker from './bakeWorker?worker&inline';
 import { FireBed, GasHiss, OutboardEngine, panOf, type EngineState } from './loops';
 import { Music, type MusicCue, type MusicState } from './Music';
 import { GROUP_LIMITS, SOUNDS, SOUND_NAMES, type Bus, type SoundDef } from './sounds';
@@ -50,6 +58,10 @@ export interface AudioGetters {
   playerX?: (id: number) => number | undefined;
 }
 
+type WorkerMsg =
+  | { allDone: true }
+  | { name: string; variant: number; channels: Float32Array[] | null; sr?: number; ms?: number };
+
 interface Voice {
   name: string;
   group: string;
@@ -68,6 +80,17 @@ export const MAX_VOICES = 40;
 const DEFAULT_LIMIT = 4;
 /** Music sits under the effects: its bus is trimmed by this at full volume. */
 const MUSIC_TRIM = 0.42;
+/** Baked first (the title waits for these): menu sounds, the title's ambience and music-bed hits. */
+const ESSENTIAL = ['ui_move', 'ui_select', 'ui_back', 'ui_toggle', 'ui_open', 'ui_deny', 'mus_heart', 'mus_heart2', 'wave_slap', 'creak', 'gull', 'bell_buoy'];
+/** Then what a game uses in its first seconds. */
+const URGENT = ['bell', 'mus_swell', 'revolver_fire', 'revolver_cock', 'revolver_reload_start', 'revolver_reload_end', 'hit_flesh', 'hit_head', 'bodyfall', 'groan', 'coin', 'splat', 'jump', 'stomp', 'weapon_switch', 'empty_click'];
+/** Music cues are one-offs: never skipped (the repeating bed hits may be). */
+const MUSIC_CUES = new Set(['mus_brass', 'mus_gameover', 'mus_victory', 'mus_swell']);
+
+/** The title's attract game plays under the menu at this level (game sounds; ambience and music unchanged). */
+const ATTRACT_LEVEL = 0.4;
+/** …with at most one gunshot per this many seconds. */
+const ATTRACT_SHOT_GAP = 0.45;
 /** Peak level the master soft-clipper allows. */
 const CEILING = 0.97;
 
@@ -177,6 +200,15 @@ export class AudioSystem {
   private unbind: (() => void) | null = null;
   private getters: AudioGetters = {};
   private prewarmPromise: Promise<void> | null = null;
+  /** Background bake: jobs not finished yet (most urgent first) and the Worker baking them. */
+  private bakeQueue: Array<[string, number]> = [];
+  private bakeWorker: Worker | null = null;
+  private bakeDone = 0;
+  private bakeTotal = 0;
+  private bakeProgress: ((done: number, total: number) => void) | undefined;
+  private bakeFinish: (() => void) | null = null;
+  private essentialPending: Array<[string, number]> = [];
+  private essentialWaiters: Array<() => void> = [];
   private lastUpdate = 0;
   private autoTimer: ReturnType<typeof setInterval> | null = null;
   private crackleAcc = 0;
@@ -188,6 +220,10 @@ export class AudioSystem {
   private musicManualUntil = 0;
   private wantAmbience = false;
   private wantMusic = false;
+  /** The bound world is the title's attract game (see bind). */
+  private attract = false;
+  /** The context was suspended because the tab went hidden (resume it when it comes back). */
+  private hiddenSuspend = false;
   /** A realtime AudioContext (not an OfflineAudioContext). */
   private readonly realtime: boolean;
 
@@ -262,6 +298,26 @@ export class AudioSystem {
     self.engine = new OutboardEngine(ctx, this.gameBus);
     self.fire = new FireBed(ctx, this.gameBus);
     self.gasHiss = new GasHiss(ctx, this.gameBus);
+
+    // A hidden tab: the browser throttles the timers that schedule the music and ambience, so they
+    // would stutter in fragments. Suspend the whole context instead, and pick up where it was on return.
+    if (this.realtime && typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => this.setHidden(document.hidden));
+    }
+  }
+
+  /** Tab hidden / shown (see the constructor): suspends and resumes the context. */
+  setHidden(hidden: boolean): void {
+    const ctx = this.ctx as AudioContext | null;
+    if (!ctx || !this.realtime || typeof ctx.suspend !== 'function') return;
+    if (hidden) {
+      if (ctx.state !== 'running') return;
+      this.hiddenSuspend = true;
+      ctx.suspend().catch(() => undefined);
+    } else if (this.hiddenSuspend) {
+      this.hiddenSuspend = false;
+      ctx.resume().catch(() => undefined);
+    }
   }
 
   // ------------------------------------------------------------- control
@@ -359,15 +415,16 @@ export class AudioSystem {
   }
 
   /**
-   * Bake every sound ahead of time in idle slices (call during loading or on
-   * the title). Resolves when done; `onProgress(done, total)` reports.
+   * Bake every sound ahead of time, off the main thread (a Worker; idle
+   * slices of `sliceMs` on the main thread where Workers are unavailable).
+   * Most urgent first (see essentials()). Resolves when everything is baked;
+   * `onProgress(done, total)` reports.
    */
   prewarm(onProgress?: (done: number, total: number) => void, sliceMs = 10): Promise<void> {
     if (this.prewarmPromise) return this.prewarmPromise;
     const ctx = this.ctx;
     const jobs: Array<[string, number]> = [];
-    // Most urgent first: weapons and the commonest gore/voices, then the rest.
-    const first = ['revolver_fire', 'revolver_cock', 'hit_flesh', 'bodyfall', 'groan', 'coin', 'ui_move', 'ui_select', 'ui_back', 'mus_heart', 'mus_heart2'];
+    const first = [...ESSENTIAL, ...URGENT].filter((n) => SOUNDS[n]);
     const order = [...first, ...SOUND_NAMES.filter((n) => !first.includes(n))];
     for (const name of order) {
       const v = SOUNDS[name].variants ?? 1;
@@ -376,23 +433,51 @@ export class AudioSystem {
     const total = jobs.length;
     if (!ctx) {
       onProgress?.(total, total);
+      this.releaseEssentialWaiters();
       return (this.prewarmPromise = Promise.resolve());
     }
-    let done = 0;
-    this.prewarmPromise = new Promise<void>((resolve) => {
-      const run = () => {
-        const t0 = performance.now();
-        while (done < total && performance.now() - t0 < sliceMs) {
-          const [n, v] = jobs[done++];
-          this.buffer(n, v);
-        }
-        onProgress?.(done, total);
-        if (done >= total) resolve();
-        else setTimeout(run, 0);
+    this.bakeQueue = jobs;
+    this.bakeTotal = total;
+    this.bakeDone = 0;
+    this.bakeProgress = onProgress;
+    this.essentialPending = jobs.filter(([n]) => ESSENTIAL.includes(n));
+    this.prewarmPromise = new Promise<void>((resolve) => (this.bakeFinish = resolve));
+    let w: Worker | null = null;
+    if (this.realtime && typeof Worker !== 'undefined') {
+      try {
+        w = new BakeWorker({ name: 'last-ferry-bake' });
+      } catch {
+        w = null;
+      }
+    }
+    if (w && ctx) {
+      this.bakeWorker = w;
+      w.onmessage = (e: MessageEvent) => this.onWorkerMessage(e.data as WorkerMsg);
+      w.onerror = (e) => {
+        e.preventDefault?.();
+        this.workerFailed();
       };
-      run();
-    });
+      w.onmessageerror = () => this.workerFailed();
+      // The worker keeps the whole queue (it never waits for this thread between jobs).
+      w.postMessage({ jobs: jobs, sr: ctx.sampleRate });
+    } else this.bakeOnMainThread(sliceMs);
     return this.prewarmPromise;
+  }
+
+  /**
+   * Resolves once the essential sounds (menus, the title's ambience and music
+   * bed) are baked; starts prewarm() if nobody has. The loading screen waits
+   * for this, not for everything.
+   */
+  essentials(): Promise<void> {
+    if (!this.prewarmPromise) void this.prewarm();
+    if (!this.essentialPending.length) return Promise.resolve();
+    return new Promise<void>((resolve) => this.essentialWaiters.push(resolve));
+  }
+
+  /** Sounds baked so far / in all (prewarm progress). */
+  get bakeState(): { done: number; total: number; worker: boolean } {
+    return { done: this.bakeDone, total: this.bakeTotal, worker: !!this.bakeWorker };
   }
 
   /** Bake (and cache) one variant now. */
@@ -400,23 +485,116 @@ export class AudioSystem {
     const ctx = this.ctx;
     const def = SOUNDS[name];
     if (!ctx || !def) return null;
-    const n = Math.max(1, def.variants ?? 1);
-    const v = ((variant % n) + n) % n;
-    let list = this.cache.get(name);
-    if (!list) {
-      list = new Array(n);
-      this.cache.set(name, list);
-    }
-    const hit = list[v];
+    const v = this.variantOf(def, variant);
+    const hit = this.cached(name, v);
     if (hit) return hit;
     const b = bake(name, v, ctx.sampleRate);
     if (!b) return null;
-    const ab = ctx.createBuffer(b.channels.length, b.channels[0].length, b.sr);
-    b.channels.forEach((c, i) => ab.copyToChannel(c, i));
+    return this.store(name, v, b.channels, b.sr, b.ms);
+  }
+
+  private variantOf(def: SoundDef, variant: number): number {
+    const n = Math.max(1, def.variants ?? 1);
+    return ((variant % n) + n) % n;
+  }
+
+  private cached(name: string, v: number): AudioBuffer | undefined {
+    return this.cache.get(name)?.[v];
+  }
+
+  private store(name: string, v: number, channels: Float32Array[], sr: number, ms: number): AudioBuffer | null {
+    const ctx = this.ctx;
+    if (!ctx || !channels.length || !channels[0].length) return null;
+    let list = this.cache.get(name);
+    if (!list) {
+      list = new Array(Math.max(1, SOUNDS[name]?.variants ?? 1));
+      this.cache.set(name, list);
+    }
+    const ab = ctx.createBuffer(channels.length, channels[0].length, sr);
+    channels.forEach((c, i) => ab.copyToChannel(c as Float32Array<ArrayBuffer>, i));
     list[v] = ab;
     this.stats.baked++;
-    this.stats.bakeMs += b.ms;
+    this.stats.bakeMs += ms;
     return ab;
+  }
+
+  /** A background bake is still running. */
+  private get warming(): boolean {
+    return this.bakeFinish !== null;
+  }
+
+  /** Move a sound to the front of the background queue (it was asked for before its turn). */
+  private hurry(name: string, v: number): void {
+    const i = this.bakeQueue.findIndex(([n, x]) => n === name && x === v);
+    if (i > 0) this.bakeQueue.unshift(...this.bakeQueue.splice(i, 1));
+    this.bakeWorker?.postMessage({ hurry: [name, v] });
+  }
+
+  private jobDone(): void {
+    this.bakeDone++;
+    this.bakeProgress?.(this.bakeDone, this.bakeTotal);
+    if (this.essentialPending.length) {
+      this.essentialPending = this.essentialPending.filter(([n, v]) => !this.cached(n, v));
+      if (!this.essentialPending.length) this.releaseEssentialWaiters();
+    }
+  }
+
+  private releaseEssentialWaiters(): void {
+    this.essentialPending = [];
+    const w = this.essentialWaiters;
+    this.essentialWaiters = [];
+    for (const f of w) f();
+  }
+
+  private finishBake(): void {
+    this.bakeWorker?.terminate();
+    this.bakeWorker = null;
+    this.bakeQueue = [];
+    this.releaseEssentialWaiters();
+    const f = this.bakeFinish;
+    this.bakeFinish = null;
+    f?.();
+  }
+
+  private onWorkerMessage(m: WorkerMsg): void {
+    if ('allDone' in m) {
+      // Anything left was baked on the spot meanwhile (or the worker could not bake it): count it in.
+      for (const [n, v] of this.bakeQueue) {
+        this.buffer(n, v);
+        this.jobDone();
+      }
+      this.finishBake();
+      return;
+    }
+    const k = this.bakeQueue.findIndex(([n, v]) => n === m.name && v === m.variant);
+    if (k < 0) return;
+    this.bakeQueue.splice(k, 1);
+    // Baked on the spot meanwhile (a game sound asked for early): keep that one.
+    if (m.channels && !this.cached(m.name, m.variant)) this.store(m.name, m.variant, m.channels, m.sr ?? this.ctx?.sampleRate ?? 48000, m.ms ?? 0);
+    this.jobDone();
+  }
+
+  /** The Worker could not run (blocked, crashed): finish on the main thread, in idle slices. */
+  private workerFailed(): void {
+    const w = this.bakeWorker;
+    if (!w) return;
+    w.terminate();
+    this.bakeWorker = null;
+    this.bakeOnMainThread(6);
+  }
+
+  private bakeOnMainThread(sliceMs: number): void {
+    const run = () => {
+      const t0 = performance.now();
+      while (this.bakeQueue.length && performance.now() - t0 < sliceMs) {
+        const [n, v] = this.bakeQueue.shift()!;
+        this.buffer(n, v);
+        this.jobDone();
+      }
+      if (this.bakeQueue.length) setTimeout(run, 0);
+      else this.finishBake();
+    };
+    run();
   }
 
   // ------------------------------------------------------------- playback
@@ -438,7 +616,16 @@ export class AudioSystem {
       if (n > 1 && v === this.lastVariant.get(name)) v = (v + 1 + Math.floor(Math.random() * (n - 1))) % n;
     }
     this.lastVariant.set(name, v);
-    const buf = this.buffer(name, v);
+    let buf = this.cached(name, v) ?? null;
+    if (!buf) {
+      // Still warming up: a title / ambience / music-bed sound is skipped this once and baked next,
+      // rather than stalling this frame on the DSP. A game sound is baked on the spot.
+      if (this.warming && (this.attract || bus === 'amb' || (bus === 'music' && !MUSIC_CUES.has(name)))) {
+        this.hurry(name, v);
+        return null;
+      }
+      buf = this.buffer(name, v);
+    }
     if (!buf) return null;
 
     const now = ctx.currentTime;
@@ -571,7 +758,8 @@ export class AudioSystem {
   /** Duck the ambience (and optionally music) under a loud event. */
   private duck(amount: number, seconds: number, music = false): void {
     const ctx = this.ctx;
-    if (!ctx) return;
+    // The title's attract game never pushes the ambience or the title music around.
+    if (!ctx || this.attract) return;
     const t = ctx.currentTime;
     const a = this.ambDuck.gain;
     a.cancelScheduledValues(t);
@@ -701,10 +889,26 @@ export class AudioSystem {
   /**
    * Map every relevant game event to sound. Returns an unsubscribe function
    * (a previous binding is removed first).
+   *
+   * `attract`: the world is the title's attract game. It stays a backdrop
+   * under the menu: the game sounds play at ATTRACT_LEVEL with gunfire thinned
+   * out, and nothing meant for a player plays — no coins, stings, purchases,
+   * Favour bell or crowd milestones — and its events never cue or duck the
+   * title music.
    */
-  bind(events: EventBus, getters: AudioGetters = {}): () => void {
+  bind(events: EventBus, getters: AudioGetters = {}, opts: { attract?: boolean } = {}): () => void {
     this.unbind?.();
     this.getters = getters;
+    const attract = !!opts.attract;
+    this.attract = attract;
+    if (this.ctx) this.gameBus.gain.setTargetAtTime(attract ? ATTRACT_LEVEL : 1, this.ctx.currentTime, 0.05);
+    /** Music cues and state from the world's events (the title music ignores the attract game). */
+    const cue = (c: MusicCue) => {
+      if (!attract) this.musicCue(c);
+    };
+    const mstate = (st: Partial<MusicState>) => {
+      if (!attract) this.music?.setState(st);
+    };
     // A new world: silence anything continuous left over from the last one.
     this.engine?.setState('off');
     this.fire?.set(0, 0);
@@ -737,14 +941,14 @@ export class AudioSystem {
 
     // ---- flow
     on('chapterSplash', (e) => {
-      this.play('bell', { x: 18, volume: 0.9 });
-      this.music?.setState({ chapter: e.num, boss: false });
-      this.musicCue('chapter');
-      this.musicCue('play');
+      if (!attract) this.play('bell', { x: 18, volume: 0.9 });
+      mstate({ chapter: e.num, boss: false });
+      cue('chapter');
+      cue('play');
     });
-    on('chapterStart', (e) => this.music?.setState({ chapter: e.num, boss: false }));
+    on('chapterStart', (e) => mstate({ chapter: e.num, boss: false }));
     on('bossSpawn', (e) => {
-      this.musicCue('boss');
+      cue('boss');
       this.duck(0.5, 2.5);
       if (e.num === 1) {
         this.play('groan_dave', { x: -20, volume: 1.2, pitch: 0.95, delay: 0.5 });
@@ -761,20 +965,20 @@ export class AudioSystem {
     // The boss is down: the queue cheers a little and the music leaves its boss state for the mop-up.
     on('mopUp', () => {
       this.play('cheer', { x: 21, volume: 0.45, delay: 0.2 });
-      this.music?.setState({ boss: false });
+      mstate({ boss: false });
     });
     on('chapterComplete', () => {
       this.play('cheer', { x: 21, volume: 0.9, delay: 0.3 });
-      this.music?.setState({ boss: false });
+      mstate({ boss: false });
     });
     on('boarding', (e) => {
       if (this.cool('board', 0.2)) this.play('boarding_step', { x: 22.5, volume: 0.7 });
       const m = e.total > 0 ? Math.floor((e.boarded / e.total) * 4) : 0;
-      if (m > this.boardMilestone && m < 4) this.play('cheer', { x: 22, volume: 0.25 });
+      if (m > this.boardMilestone && m < 4 && !attract) this.play('cheer', { x: 22, volume: 0.25 });
       this.boardMilestone = m;
     });
     on('gameOver', (e) => {
-      this.musicCue('gameover');
+      cue('gameover');
       this.engine?.setState('stop');
       if (e.reason === 'gangway') {
         this.play('distant_scream', { x: 21, volume: 4, pitch: 1.1, bus: 'sfx' });
@@ -785,7 +989,7 @@ export class AudioSystem {
       this.play('horn', { x: 18, volume: 1 });
       this.play('cheer', { x: 20, volume: 1, delay: 0.8 });
       this.play('gulls_flee', { x: 0, delay: 0.4 });
-      this.musicCue('victory');
+      cue('victory');
       this.engine?.setState('stop');
     });
 
@@ -933,8 +1137,9 @@ export class AudioSystem {
 
     // ---- hunter
     on('shot', (e) => {
-      const x = e.muzzle.x;
-      this.fireShot(e.weapon, x);
+      // Under the title menu a shot now and then (the outboard's engine drone carries on by itself).
+      if (attract && e.weapon !== 'outboard' && !this.cool('attract-shot', ATTRACT_SHOT_GAP)) return;
+      this.fireShot(e.weapon, e.muzzle.x);
     });
     on('harpoon', (e) => {
       this.play('harpoon_reel', { x: e.from.x, delay: 0.12, volume: clamp(0.5 + e.reel * 0.25, 0.4, 1), pitch: 1 + e.skewered.length * 0.03 });
@@ -944,6 +1149,9 @@ export class AudioSystem {
       if (e.kind === 'shell') this.play('shell_whistle', { x: e.x });
     });
     on('projectileEnd', (e) => {
+      // A flare burning into a zombie or the hook. Not shells (cannon_explosion covers them), not flares
+      // that hit the deck (the fireZone sizzle), set off gas (the explosion) or flew off the pier.
+      if (e.kind !== 'flare' || (e.reason !== 'target' && e.reason !== 'hook')) return;
       if (this.cool('flareend', 0.2)) this.play('flare_burn', { x: e.x });
     });
     on('reloadStart', (e) => {
@@ -967,7 +1175,9 @@ export class AudioSystem {
       if (this.cool('empty', 0.12)) this.play('empty_click', { x: px(e.playerId) });
     });
     on('weaponSwitch', (e) => this.play('weapon_switch', { x: px(e.playerId) }));
-    on('buy', (e) => this.play('buy', { x: px(e.playerId) }));
+    on('buy', (e) => {
+      if (!attract) this.play('buy', { x: px(e.playerId) });
+    });
     on('engine', (e) => {
       const st: EngineState = e.state;
       if (st === 'pull') this.play('outboard_pull', { x: px(e.playerId) });
@@ -993,13 +1203,16 @@ export class AudioSystem {
       this.play('player_death', { x: px(e.playerId) });
       this.engine?.setState('stop');
     });
-    on('money', (e) => {
-      if (e.reason === 'nice') this.play('coin_big', { x: e.x });
-      else if (e.reason === 'tidy') this.play('tidy', { x: e.x });
-      else if (this.cool(`coin-${e.reason}`, 0.06)) this.play('coin', { x: e.x, volume: e.reason === 'headshot' ? 0.9 : 0.7, pitch: e.reason === 'headshot' ? 1.19 : 1 });
-    });
-    on('niceShot', (e) => this.play(e.n >= 6 ? 'sting_massacre' : 'sting_nice', { pitch: e.n >= 6 ? 1 : 1 + Math.min(3, e.n - 3) * 0.06 }));
-    on('headshotStreak', (e) => this.play('sting_headshot', { pitch: 1 + Math.min(8, Math.max(0, e.n - 1)) * 0.0595 }));
+    // Player feedback: not for the attract game.
+    if (!attract) {
+      on('money', (e) => {
+        if (e.reason === 'nice') this.play('coin_big', { x: e.x });
+        else if (e.reason === 'tidy') this.play('tidy', { x: e.x });
+        else if (this.cool(`coin-${e.reason}`, 0.06)) this.play('coin', { x: e.x, volume: e.reason === 'headshot' ? 0.9 : 0.7, pitch: e.reason === 'headshot' ? 1.19 : 1 });
+      });
+      on('niceShot', (e) => this.play(e.n >= 6 ? 'sting_massacre' : 'sting_nice', { pitch: e.n >= 6 ? 1 : 1 + Math.min(3, e.n - 3) * 0.06 }));
+      on('headshotStreak', (e) => this.play('sting_headshot', { pitch: 1 + Math.min(8, Math.max(0, e.n - 1)) * 0.0595 }));
+    }
 
     // ---- the pier
     on('horn', () => {
@@ -1013,7 +1226,7 @@ export class AudioSystem {
       else if (e.state === 'down' && this.cool('crates', 0.8)) this.play('crate_crash', { x: e.x });
     });
     on('favour', (e) => {
-      if (e.ready && !this.favourReady) this.play('bell', { x: 20, volume: 0.8 });
+      if (e.ready && !this.favourReady && !attract) this.play('bell', { x: 20, volume: 0.8 });
       this.favourReady = e.ready;
     });
     on('cannonStrike', (e) => {

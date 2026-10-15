@@ -61,6 +61,8 @@ export class LighthouseBeam {
   private baseYaw: number;
   /** 0..1 how much the beam is on the pier now (for audio / effects). */
   sweep = 0;
+  /** Shader warm-up: the shaft is drawn (invisibly) so its program compiles before it is needed. */
+  warming = false;
 
   constructor(quality: 'low' | 'medium' | 'high') {
     this.group.name = 'LighthouseBeam';
@@ -109,18 +111,22 @@ export class LighthouseBeam {
     }
     // Sweep across the pier (slower than the true angular speed: the pier is closer).
     const yaw = this.baseYaw - best * 0.75;
-    const toC = CENTRE.clone().sub(ORIGIN);
+    const toC = _toC.copy(CENTRE).sub(ORIGIN);
     const horiz = Math.hypot(toC.x, toC.z);
-    const dir = new THREE.Vector3(Math.sin(yaw) * horiz, toC.y, Math.cos(yaw) * horiz).normalize();
+    const dir = _dir.set(Math.sin(yaw) * horiz, toC.y, Math.cos(yaw) * horiz).normalize();
     this.spot.target.position.copy(ORIGIN).addScaledVector(dir, 100);
     this.spot.target.updateMatrixWorld();
     const on = Math.max(0, 1 - Math.abs(best) / 0.75);
     this.sweep = on;
     this.spot.intensity = 3.5 * level * night * on;
-    this.shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), dir);
+    this.shaft.quaternion.setFromUnitVectors(_fwd, dir);
     this.shaftMat.uniforms.uLevel.value = 0.085 * level * night * Math.pow(on, 0.8);
     this.shaftMat.uniforms.uTime.value = time;
-    this.shaft.visible = this.shaftMat.uniforms.uLevel.value > 0.001;
+    this.shaft.visible = this.warming || this.shaftMat.uniforms.uLevel.value > 0.001;
     void dt;
   }
 }
+
+const _toC = new THREE.Vector3();
+const _dir = new THREE.Vector3();
+const _fwd = new THREE.Vector3(0, 0, 1);

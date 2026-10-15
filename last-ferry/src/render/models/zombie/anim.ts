@@ -778,12 +778,15 @@ export function createZombiePose(o: ZombieAnimOpts): (a: AnimInput) => void {
     o.root.getWorldQuaternion(_rq);
     // pendulum driven by the hand's sideways acceleration
     pr.obj.getWorldPosition(_v);
-    const dt = Math.max(1e-3, Math.min(0.05, a.dt || 0.016));
-    const hx = _v.x;
-    const acc = (hx - lastHandX) / dt;
-    lastHandX = hx;
-    swingV += (-swingA * 40 - swingV * 3 - clamp(acc, -6, 6) * 0.5) * dt;
-    swingA = clamp(swingA + swingV * dt, -0.7, 0.7);
+    // Frozen time (pause, hit-stop: dt 0): the pendulum holds still too.
+    if (a.dt > 0) {
+      const dt = Math.max(1e-3, Math.min(0.05, a.dt));
+      const hx = _v.x;
+      const acc = (hx - lastHandX) / dt;
+      lastHandX = hx;
+      swingV += (-swingA * 40 - swingV * 3 - clamp(acc, -6, 6) * 0.5) * dt;
+      swingA = clamp(swingA + swingV * dt, -0.7, 0.7);
+    }
     const lying = a.state === 'crawl' || a.state === 'rise' || a.state === 'trip' || a.state === 'carried';
     if (pr.kind === 'tray') {
       _q.setFromEuler(_e3.set(0.05 * Math.sin(a.time * 2 + seed), 0, swingA * 0.15));

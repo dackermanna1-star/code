@@ -692,6 +692,8 @@ export class Effects {
       mesh = new THREE.Mesh(this.ringGeo(Frame.Ring), m);
       mesh.rotation.x = -Math.PI / 2;
       mesh.renderOrder = 5;
+      // A handful at most: never culled (the shader warm-up draws one off screen).
+      mesh.frustumCulled = false;
     }
     const normal = o.blend === 'normal';
     mesh.geometry = this.ringGeo(o.frame ?? Frame.Ring);

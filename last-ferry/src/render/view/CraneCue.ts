@@ -51,6 +51,13 @@ export class CraneCue {
   private glintT = 1.5;
   private readonly _v = new THREE.Vector3();
 
+  /** Shader warm-up: drawn (fully transparent) so its program compiles before the first game. */
+  private warming = false;
+  warm(on: boolean): void {
+    this.warming = on;
+    this.mesh.visible = on || this.on > 0.01;
+  }
+
   constructor(private ctx: Ctx) {
     const R = CRANE.radius;
     this.mat = new THREE.ShaderMaterial({
@@ -78,7 +85,7 @@ export class CraneCue {
     this.on += ((hanging ? 1 : 0) - this.on) * Math.min(1, dt * (hanging ? 2 : 8));
     const crowd = w.pier.under >= CRANE.crowd;
     this.armed += ((hanging && crowd ? 1 : 0) - this.armed) * Math.min(1, dt * 5);
-    this.mesh.visible = this.on > 0.01;
+    this.mesh.visible = this.warming || this.on > 0.01;
     const u = this.mat.uniforms;
     u.uOn.value = this.on;
     u.uArmed.value = this.armed;

@@ -16,8 +16,8 @@ back**.
 ## 1. Setting & tone
 
 Dusk on a rotting seaside pier. The town behind it is burning. The **last ferry** is moored
-at the right end of the pier; survivors are boarding up the gangway one by one — the level
-bar *is* the boarding queue. Our hero is **the Bosun**: a stocky ferry bosun in a bright
+at the right end of the pier; survivors (in life vests over their coats) are boarding up the
+gangway one by one — the level bar *is* the boarding queue. Our hero is **the Bosun**: a stocky ferry bosun in a bright
 yellow oilskin coat and sou'wester hat, rubber boots, pipe. Gallows humour, never
 grimdark: zombies in Hawaiian shirts, joggers with race bibs, a waiter still carrying a
 tray, seagulls that flee every gunshot.
@@ -33,7 +33,9 @@ horn and pulls away — "TO BE CONTINUED".
   visible across the frame centre. Never moves (except screen shake / punches).
 - Pier deck: x −30 … 23.5, z −6 … 6, deck top y = 0, sea at y = −2.6. Weathered planks
   running across x, pilings, a broken railing on the far edge (−z) and a low railing with
-  gaps on the near edge (+z), lamp posts every ~8 m, fish crates, rope coils, a bait shop
+  gaps on the near edge (+z), tall lamp posts every ~8 m along the far edge and low bollard
+  lanterns along the near edge (their pools of light stay, and nothing tall stands between
+  the camera and the Bosun's lanes), fish crates, rope coils, a bait shop
   shack (far side, x≈−14), the **cargo crane** (far side, x≈−6) with a pallet of fish crates
   hanging over the deck, life rings.
 - Left: the pier meets the promenade; the burning town (silhouettes, fire glow, smoke
@@ -52,8 +54,8 @@ horn and pulls away — "TO BE CONTINUED".
 | Fire (hold) | Space / J / K / left mouse |
 | Reload | R |
 | Buy best affordable / select or buy | B or Enter / 1–6 or click |
-| Cycle weapons | Q / Tab / mouse wheel |
-| **Stomp** (jump + land on whatever is under you) | E / Shift / right mouse |
+| Cycle weapons | Q / Tab / mouse wheel; Shift+Q / Shift+Tab cycle back |
+| **Stomp** (jump + land on whatever is under you) | E / right mouse (on press); Shift (on release, so Shift+Q / Shift+Tab never stomps) |
 | **Ferry horn** (once per chapter) | H |
 | **Cannon strike** (when Captain's Favour is full) | F |
 | Pause | P / Esc |
@@ -62,6 +64,12 @@ Ctrl is deliberately **not** a fire key (Seal Hunter's was): with W A S D under 
 hand, Ctrl+W closes the browser tab and Ctrl+S / D / A open dialogs. Pressing Ctrl in game
 shows a one-time hint; every game key and every Ctrl / ⌘ combination has its browser default
 suppressed while playing (pages can't stop Ctrl+W itself).
+
+Held input follows the hands: a key or mouse button held through the pause menu still counts
+after Resume; after the window loses focus everything is dropped (the keyups are lost) and a
+key still held comes back with its auto-repeat. Releasing the mouse anywhere — over a weapon
+tile, a menu, or outside the window — stops firing, and a key already held when a menu opens
+never drives the menu with its auto-repeat.
 
 Walking into a crawler kicks it (like Seal Hunter's wounded seals). Stomping a downed body
 or a crawler finishes it for good ("tidy": +$15 and +5 Favour). The stomp reaches ±1.15 m
@@ -76,8 +84,11 @@ along the lane and ±0.8 m across it.
   `risen = true`, same `kind` and `look` seed, state `rise` → `crawl`).
 - Rise delay by chapter: ch.1 9–15 s, ch.2 7–13 s, ch.3 5–9 s (random per body). The
   timers hold during the break between chapters (and the next chapter's title).
-- Tells: 4 s before the twitch a quiet grey ring fills over the body ("not dead yet"), then
-  the red '!' countdown of the twitch.
+- Tells: from the moment it falls, a body that will rise has pale green eyes and a sickly
+  green glow with a little mist that swells as the rise nears; 4 s before the twitch a quiet
+  grey ring fills over it ("not dead yet"), then the red '!' countdown of the twitch. A body
+  that is dead for good goes dark (no glow, no eyes). Risen crawlers are tinted green with
+  glowing eyes, and their glow draws over gas.
 - A body stays dead for good (`risesAt = null`) if: killed by a **headshot**, **burned**,
   **gibbed** (explosion/cannon/crates), **popped** (bloater), **harpooned**, **stomped**,
   **drowned**, or later: burned while down, stomped while down, hit by an explosion while
@@ -114,7 +125,8 @@ along the lane and ±0.8 m across it.
   still takes the round. The rope cut, the pallet drops 0.6 s later onto (x −6 ± 2.5, z −1.5
   ± 2.5): zombies inside are **gibbed** (bounty paid; 3+ is a nice shot, "CRUSHED"), and a
   **crate barricade** remains for 20 s that slows zombies like 4 corpses. Rehung each chapter.
-  Affordance: the drop square is painted on the deck and glows when 3+ zombies stand in it
+  Affordance: the drop square is painted on the deck (worn yellow) and pulses, with a glint
+  on the hook, when 3+ zombies stand in it
   (the HUD crane chip glows too and a one-time hint says so); brackets mark the hook with the
   count under it; near its lane with a crowd under it an arrow by the crosshair points the
   way, and lined up the hook reads DROP and the crosshair ON THE HOOK.
@@ -157,12 +169,32 @@ harpoon cable pins downed bodies it passes over; nails pin only bodies already d
 - **Retry chapter**: after a game over in a chapter the Bosun began with money or guns, the
   results offer "Retry chapter N" (the chapter from its start, with the money and guns he
   had then; a fresh pier) and "Restart night" (chapter 1). Retries skip the Best Nights table.
+  The results count each chapter's passengers once (a game lost in the break after PIER HELD
+  does not count that chapter twice). Best Nights records are validated field by field when
+  loaded (a record from an older build or a partial write is dropped, never shown as NaN).
 - Balance (bot sims, `npm run ferry:sim -- 40 <skill>`; skill 1 = flawless, 0.9 = a good
-  player, 0.8 = a casual one — see §12; 40 runs per seed set): skill 0.9 clears ch.1 ≈ 89%,
-  ch.2 ≈ 70%, wins ≈ 26% (two seed sets, 80 runs); skill 0.8 ≈ 35% / 10% / 3%; skill 1.0 ≈
-  98% / 95% / 75%. Losses spread over the chapters — runners in the late crescendos most,
+  player, 0.8 = a casual one — see §12; seeds 1000–1079): skill 0.9 clears ch.1 ≈ 86%,
+  ch.2 ≈ 66%, wins ≈ 21% (80 runs); skill 0.8 ≈ 35% / 10% / 3%; skill 1.0 ≈ 98% / 95% / 60%
+  (40 runs each; round 2's busier chapter-3 boss fight, below, took wins from 34% and 75%). Losses spread over the chapters — runners in the late crescendos most,
   then the Marathon and the Riot Squad — rather than one boss spike. A run averages about
   2 deck-gun strikes and 3–5 slow-motion beats per chapter.
+- **Chapter 3 and the outboard** (round 2; `tools/humansim.ts`, a human-like player: aims at
+  the visual lane with noise, reacts in 0.35 s, holds fire, buys the best gun it can afford
+  but never the flare — so it saves for the outboard — and calls the deck gun on 4+; seeded
+  per run, so two tuning variants are paired). In full games it won about half its runs and
+  converted chapter 3 at ≈87% (19/22, 20/23 over two seed sets) — higher than chapter 2
+  (64–81%): rushing the outboard looked like it made the finale easy. But from a chapter-3
+  start (nail gun, shotgun, harpoon, $8,400; 60 runs) it wins 44/60 and **0/60 without the
+  outboard**: the $12,000 outboard is the chapter-3 weapon by design, not a cheese, and nerfing
+  it changes nothing (price $13,500: 44/60; overheat after ≈5.3 s instead of 6: 40/60). What
+  helped the finale was its carry-over (corpse barricade, a full Favour, the horn), so the lever
+  is the finale itself: the Riot Squad's escorts come **×1.25 as often** (shambler 1.7 → 1.35 s,
+  jogger 2.3 → 1.85 s, bloater 15 → 12 s). Chapter 3 for the human-like player: 44 → 34/60 from
+  a chapter-3 start, 19 → 16/22 and 20 → 19/23 in full games — the same direction every time,
+  so chapter 3 is no longer easier than chapter 2. The bot loses chapter 3 mostly to the
+  joggers of the spawn phase, but a busier boss fight costs it too: skill 0.9 over 80 runs
+  (seeds 1000–1079) wins 27 → 17 (34% → 21%, the round-1 target was ≈20%), skill 1.0 30 → 24
+  of 40, skill 0.8 unchanged (1/40); chapters 1 and 2 are untouched.
 
 ## 7. Weapons (lane hitscan unless noted; dmg per bullet/pellet; times in s)
 
@@ -184,9 +216,9 @@ harpoon, outboard).
 |---|---|---|---|---|---|
 | shambler | 70 (+15/ch) | 1.1–1.6 | 20 | 3 | random "looks": fisherman, tourist (Hawaiian shirt), waiter (tray), granny (handbag), office worker, lifeguard |
 | jogger | 50 (+10/ch) | 4.5–5.5 | 40 | 3 | race bib + headband; zig-zags lanes; trips over corpses |
-| bloater | 160 (+30/ch) | 0.55–0.7 | 90 | 2 | swollen belly; **pops** on death: gas cloud + 2 crawlers spill out; never rises |
+| bloater | 160 (+30/ch) | 0.55–0.7 | 90 | 2 | big, with a swollen, sickly yellow-green gut; **pops** on death: gas cloud + 2 crawlers spill out; never rises |
 | medic ×2 + patient | 60 each / 70 | 1.3 | 50 / 30 | 3 | two medics carry a stretcher with a patient; kill a medic → stretcher drops, the patient gets up after 1.5 s as a shambler, the other medic walks on as a shambler. Hitting the stretcher (part 'stretcher') does nothing |
-| riot (ch.3) | 400 | 0.8 | 200 | 3 | riot gear: **helmet** (120 hp; head immune until gone), **shield** (300 hp; blocks body hits from the front until gone), **chest plate** (150 hp; halves body damage). Harpoon ignores plates; shotgun deals ×2 to plates. Plates fly off as debris |
+| riot (ch.3) | 400 | 0.8 | 200 | 3 | police-blue riot gear with reflective hi-vis tape (readable at night) and a hi-vis shield trim: **helmet** (120 hp; head immune until gone), **shield** (300 hp; blocks body hits from the front until gone), **chest plate** (150 hp; halves body damage). Harpoon ignores plates; shotgun deals ×2 to plates. Plates fly off as debris |
 | crawler | see 4.1 | 0.55–0.75 | 8 | 3 | risen corpse; low profile |
 
 Bounties above are chapter 1's; ordinary bounties are ×1.25 in chapter 2 and ×1.5 in chapter 3.
@@ -204,8 +236,8 @@ Bounties above are chapter 1's; ordinary bounties are ×1.25 in chapter 2 and ×
   and shotgun knock-back. The 40th wears a gold medal (bounty $500). Boss alone (the field
   must be clear first, or 25 s pass).
 - Ch.3 **The Riot Squad** — 3 riot brutes in formation (z −3, 0, +3), shields up (life 2000,
-  plates ×2, 1.15 m/s), escorted by a shambler every 1.7 s, a jogger every 2.3 s and a bloater
-  every 15 s. Bounty $800 each.
+  plates ×2, 1.15 m/s), escorted by a shambler every 1.35 s, a jogger every 1.85 s and a
+  bloater every 12 s (the busiest boss fight; ×1.25 in round 2, see §6). Bounty $800 each.
 - **Mop-up**: when the bosses are down, the escorts stop and the boss bar becomes **MOP UP ·
   N LEFT** (brass) while any zombie that could still reach the gangway is alive; each one gets
   a chevron over its head (through gas too). Crawlers further back than x = 2 don't count:
@@ -236,7 +268,10 @@ Corpses and blood carry over between chapters (the pier keeps its history); cran
 are restored; downed bodies keep their timers.
 
 Time of day: `timeOfDay` runs 0 → 1 over the whole game (ch.1 0.00–0.30, ch.2 0.33–0.62,
-ch.3 0.66–1.00), advancing with spawn-phase progress.
+ch.3 0.66–1.00), advancing with spawn-phase progress. The palette (`render/env/tod.ts`,
+unit-tested in `tests/tod.test.ts`): chapter 1 opens on a sunset (warm key light, sun glow),
+chapter 2 on blue hour (a key at 0.33: cool key light, the sun gone, a dim horizon),
+chapter 3 is deep night (lamps fully on, stars out by the end).
 
 ## 10. Feel ("juice")
 - **Hit-stop**: 45 ms freeze on a headshot kill, 70 ms on a harpoon kebab ≥3.
@@ -263,7 +298,23 @@ ch.3 0.66–1.00), advancing with spawn-phase progress.
 - Lessons at the moment they help: the horn (the first time one of them nears the gangway
   while it's ready: "· H blows the ferry horn" and the H chip flashes), the crane (the first
   crowd under the pallet), the stomp (a body twitching within reach), the fire keys (Ctrl).
-- Title: "LAST FERRY" — *No one boards dead.* Live attract mode behind it.
+- Title: "LAST FERRY" — *No one boards dead.* Live attract mode behind it. The attract game
+  stays a backdrop under the menu: its sounds play at 40% with a gunshot at most every
+  0.45 s, and nothing meant for a player plays (no coins, stings, purchases, Favour bell or
+  crowd cheers), nor does it cue or duck the title music.
+- The chapter splash lasts exactly as long as the logic's splash phase (it ends on
+  `chapterStart`), and the splash, callouts and info lines run on UI time: frozen while
+  paused (their CSS animations too), real time otherwise (× `?speed`). A one-time lesson shown
+  just before a pause is still there after Resume.
+- Money pop-ups (`game/MoneyPops.ts`): payments to one body merge, many bodies in one frame
+  become a cluster, small ones fold into the next pop-up while the screen is busy — and when
+  no next one comes, the folded money pops up on its own where it was earned once the screen
+  calms down (every dollar paid is shown).
+- Options apply live, Graphics quality included: Low / Medium / High switch the wet-deck
+  reflection, the shadow map, which lamps are real lights, effect lights and particle
+  density, the ragdoll budget, the shadow casters, post-processing and resolution without a
+  reload (the lit shaders recompile once when the light count changes). The blood decal map
+  keeps the resolution it was created with.
 - Audio: everything synthesised with Web Audio (no files), so the game is one HTML file:
   revolver crack, nail-gun pneumatic thunk, shotgun boom + pump, flare whoosh + crackle,
   harpoon thunk + cable whine, outboard pull-start + engine rattle, reloads, zombie groans
@@ -278,6 +329,62 @@ corpses, instanced particles), all in this folder. Logic in `src/core` (pure, 50
 deterministic with a seeded RNG, unit-tested, bot-simulated); presentation in
 `src/render`; UI in `src/ui`; audio in `src/audio`; app in `src/game`. Single-file build:
 `npm run ferry:single` → `release/LastFerry.html`.
+
+**Boot** (`src/main.ts`): the loading screen stays up only for the essentials — the pier's
+first frame, the shader / pipeline warm-up (one of everything the view can draw, compiled
+and drawn once out of sight) and the menu / title sounds. Sound baking runs in a Worker
+from the first moment (`audio/bakeWorker.ts`: the same recipes, the samples handed back as
+transferable buffers; main-thread idle slices where Workers are unavailable), most urgent
+first; the rest of it, and the ~210 zombie looks, finish behind the title (a few ms per
+frame). Until a sound is baked, a title / ambience / music-bed play of it is skipped and the
+sound jumps the queue; a game sound is baked on the spot. Boot milestones are User Timing
+marks (`lf:env`, `lf:game`, `lf:first-frame`, `lf:shaders`, `lf:sounds`, `lf:title`).
+
+**Frames** (`Game.shouldRender`, installed by `main.ts` as a gate on `Stage.frame`): the
+pause menu holds the last picture under its blurred scrim and draws nothing (a resize, an
+option change or the tab coming back redraws it once); behind the game-over results the
+scene redraws at 12 fps and behind the victory results (the ferry pulling away) at 30 fps;
+everything else draws every frame. A hidden tab suspends the AudioContext (the browser would
+otherwise throttle the timers that schedule music and ambience into fragments) and resumes
+it when the tab comes back.
+
+**Graphics quality** (Options, live; `Environment.setQuality` + `GameView.setQuality` +
+the stage's post chain and pixel ratio):
+
+| | Low | Medium | High |
+|---|---|---|---|
+| Wet-deck reflection | off | 0.35 scale, every other frame | 0.5 scale |
+| Shadow map | 1024, every other frame | 2048 | 2048 |
+| Shadow casters | the Bosun and the pier's set pieces (zombies and bodies get blob shadows) | + zombies and bodies | + corpses on the deck |
+| Real lamp lights / effect lights | every other far lamp / 3 | far row / 6 | all / 8 |
+| MSAA / pixel ratio cap | none / 1 | 4× / 1.5 | 4× / 2 |
+| Particles / ragdolls at once | 0.55 / 10 | 0.85 / 14 | 1 / 18 |
+
+**Bodies** (`render/view/Bodies.ts`): at most 10 / 14 / 18 ragdolls simulate at once and
+4 / 5 / 6 new ones start per frame (a blast that kills dozens staggers them over a few
+frames). Room is made by retiring the oldest ragdoll that already lies still on the deck;
+a body in the air is never frozen or baked (one found frozen in the air is woken to fall
+first). A death over the budget gets a scripted collapse to its corpse spot, and limbs torn
+off over the budget fly as single-body pieces (40 / 70 / 100 at once, gore beyond that).
+Bodies stay one skinned mesh while they fly, lie, twitch and burn; a body that is dead for
+good is baked into the corpse batches (which persist across games and grow on demand).
+
+**Stage**: dynamic resolution — when the GPU is the bottleneck (frames slower than ~45 fps
+for over a second while the JS leaves most of the frame idle) the render scale steps down
+by 0.1 to at least 0.6, and climbs back by 0.05 after 4 s well above 55 fps (with a 20 s
+lock against see-sawing). Resizes are debounced (120 ms) and a device-pixel-ratio change
+counts as one. If the WebGL context is lost, rendering stops and a "Graphics reset…" note
+shows (with a Reload button after 5 s); on restore the stage resizes and the environment
+map is rebuilt (the blood on the deck is gone).
+
+**Events** (`core/events.ts`): the logic emits synchronously inside `World.step`, and every
+subscriber is presentation. Each handler runs isolated: a throwing view / audio / UI
+handler is logged once per event name (counted in `events.errors`) and the tick carries on,
+so a presentation bug can never leave the logic half-updated (a zombie dead but not
+removed, a bounty unpaid). Handler lists are copy-on-write, so subscribing or unsubscribing
+during an emit is safe. `projectileEnd` says what ended (`kind` flare / shell) and on what
+(`reason` target / deck / gas / hook / gone): the flare-burn sound plays only for a flare
+burning into a zombie or the hook.
 
 **The bot** (`src/core/Bot.ts`; attract mode and `npm run ferry:sim`) plays with the real
 rules: it lines up with the most urgent zombie through the exact inverse of the

@@ -7,8 +7,10 @@
 //   Reload         R / pad X
 //   Buy best       B or Enter / pad Y
 //   Select or buy  1–6 / click a weapon tile
-//   Cycle          Q / Tab / mouse wheel (both ways) / pad LB, RB
-//   Stomp          E / Shift / right mouse / pad B
+//   Cycle          Q / Tab / mouse wheel (both ways) / pad LB, RB;
+//                  Shift+Q / Shift+Tab cycle back
+//   Stomp          E / right mouse / pad B (on press); Shift (on release, and
+//                  not when it was the Shift of a Shift+Q / Shift+Tab)
 //   Ferry horn     H / pad L3 or Back
 //   Cannon strike  F / pad LT or R3
 //   Pause          P / Esc / pad Start
@@ -19,6 +21,14 @@
 // Screens) swallow their own keydowns; while a menu is open the gamepad
 // drives it through synthetic key events. While playing, every game key and
 // every Ctrl / ⌘ combination has its browser default suppressed.
+//
+// Held keys and buttons follow the physical state: a key held through the
+// pause menu still counts after Resume (keyups always arrive), and after a
+// focus loss (where keyups are lost, so everything is dropped) the key's
+// auto-repeat brings it back. Mouse releases are caught in the capture phase
+// on window, so a release over a HUD tile or a menu (which stop mouseup from
+// bubbling) or outside the window always ends firing; a press on the deck
+// also captures the pointer, and any mouse move with the button up clears it.
 import { WEAPON_ORDER, type WeaponId } from '../config/ids';
 
 export type Action =
@@ -58,13 +68,13 @@ const MOVE: Record<string, 'left' | 'right' | 'up' | 'down'> = {
 const FIRE = new Set(['Space', 'KeyJ', 'KeyK']);
 const VERBS: Record<string, Verb> = {
   KeyE: 'jump',
-  ShiftLeft: 'jump',
-  ShiftRight: 'jump',
   KeyH: 'horn',
   KeyF: 'cannon',
 };
+/** Shift stomps on release, unless it was used as the modifier of a reverse cycle (Shift+Q / Shift+Tab). */
+const SHIFT = new Set(['ShiftLeft', 'ShiftRight']);
 /** Other keys the game reads (their browser default is suppressed while playing). */
-const KEYS = new Set(['Tab', 'KeyQ', 'KeyR', 'KeyB', 'Enter', 'NumpadEnter', 'Slash', 'Quote', 'Backspace']);
+const KEYS = new Set(['Tab', 'KeyQ', 'KeyR', 'KeyB', 'Enter', 'NumpadEnter', 'Slash', 'Quote', 'Backspace', 'ShiftLeft', 'ShiftRight']);
 /** Game keys: scrolling, focus moves, quick-find and the like are suppressed while playing. */
 const isGameKey = (code: string) => code in MOVE || FIRE.has(code) || code in VERBS || KEYS.has(code) || /^(?:Digit|Numpad)[1-6]$/.test(code);
 
@@ -88,6 +98,8 @@ export class Input {
   private keys = new Set<string>();
   private mouseFire = false;
   private mouseStomp = false;
+  /** Shift went down alone: it stomps when released (cancelled by Shift+Q / Shift+Tab). */
+  private shiftStomp = false;
   private actions: Action[] = [];
   private latched: Record<Verb, boolean> = { jump: false, horn: false, cannon: false };
   private padPrev: boolean[] = [];
@@ -99,6 +111,7 @@ export class Input {
   constructor(private readonly target: HTMLElement) {
     window.addEventListener('keydown', (e) => this.onKey(e, true));
     window.addEventListener('keyup', (e) => this.onKey(e, false));
+    // Keyups are lost while the window is unfocused: drop everything (a key still held comes back with its auto-repeat).
     window.addEventListener('blur', () => {
       this.clear();
       this.onFocusLost?.();
@@ -109,23 +122,45 @@ export class Input {
         this.onFocusLost?.();
       }
     });
-    const down = (e: MouseEvent) => {
+    /** Presses on HUD tiles and menu screens are theirs; anything else on the view is the deck. */
+    const onDeck = (e: Event) => !(e.target as HTMLElement | null)?.closest?.('.lf-tile, .lf-screen, .screen');
+    // Mouse events (not pointer events): a second button pressed while the first is held only gets a
+    // mousedown (pointer events report it as a pointermove), and fire + right-click stomp is a real move.
+    target.addEventListener('mousedown', (e) => {
       this.onActivity?.();
       this.device = 'keyboard';
-      if (!this.enabled) return;
-      // HUD tiles and menu screens stop their own events; anything else on the view is the deck.
-      if ((e.target as HTMLElement | null)?.closest?.('.lf-tile, .lf-screen, .screen')) return;
+      if (!this.enabled || !onDeck(e)) return;
       if (e.button === 0) this.mouseFire = true;
       else if (e.button === 2) {
         this.mouseStomp = true;
         this.latched.jump = true;
       }
-    };
-    target.addEventListener('mousedown', down);
-    window.addEventListener('mouseup', (e) => {
-      if (e.button === 0) this.mouseFire = false;
-      else if (e.button === 2) this.mouseStomp = false;
     });
+    // Releases: capture phase on window, ahead of the HUD tiles and menus that stop mouseup from bubbling.
+    const release = (button: number) => {
+      if (button === 0) this.mouseFire = false;
+      else if (button === 2) this.mouseStomp = false;
+    };
+    window.addEventListener('mouseup', (e) => release(e.button), true);
+    window.addEventListener('pointerup', (e) => e.pointerType === 'mouse' && release(e.button), true);
+    window.addEventListener(
+      'pointercancel',
+      () => {
+        this.mouseFire = false;
+        this.mouseStomp = false;
+      },
+      true,
+    );
+    // Backstop: any move with the button up ends it (a release the page never saw, e.g. over browser UI).
+    window.addEventListener(
+      'mousemove',
+      (e) => {
+        if (typeof e.buttons !== 'number') return;
+        if (!(e.buttons & 1)) this.mouseFire = false;
+        if (!(e.buttons & 2)) this.mouseStomp = false;
+      },
+      true,
+    );
     target.addEventListener('contextmenu', (e) => e.preventDefault());
     target.addEventListener(
       'wheel',
@@ -136,7 +171,17 @@ export class Input {
       },
       { passive: false },
     );
-    target.addEventListener('pointerdown', () => this.onActivity?.());
+    target.addEventListener('pointerdown', (e) => {
+      this.onActivity?.();
+      // The release of a press that started on the deck comes back here, wherever it happens.
+      if (this.enabled && e.pointerType === 'mouse' && onDeck(e)) {
+        try {
+          target.setPointerCapture(e.pointerId);
+        } catch {
+          /* capture is a nicety (the capture-phase listeners above already see the release) */
+        }
+      }
+    });
     target.addEventListener('touchstart', () => this.onActivity?.(), { passive: true });
   }
 
@@ -148,16 +193,23 @@ export class Input {
     if (this.enabled && (isGameKey(e.code) || e.ctrlKey || e.metaKey)) e.preventDefault();
     if (!down) {
       this.keys.delete(e.code);
+      if (SHIFT.has(e.code)) {
+        if (this.shiftStomp && this.enabled) this.latched.jump = true;
+        this.shiftStomp = false;
+      }
       return;
     }
-    if (e.repeat) return;
+    // Held state follows auto-repeat too, so a key still held after a focus loss comes back;
+    // only the one-shot actions below skip repeats.
     this.keys.add(e.code);
+    if (e.repeat) return;
     if (e.code === 'KeyP' || e.code === 'Escape') {
       this.actions.push({ kind: 'pause' });
       return;
     }
     if (!this.enabled) return;
     if (e.code === 'ControlLeft' || e.code === 'ControlRight') this.actions.push({ kind: 'ctrlHint' });
+    if (SHIFT.has(e.code)) this.shiftStomp = true;
     const verb = VERBS[e.code];
     if (verb) {
       this.latched[verb] = true;
@@ -165,8 +217,11 @@ export class Input {
     }
     if (e.code === 'KeyR') this.actions.push({ kind: 'reload' });
     else if (e.code === 'KeyB' || e.code === 'Enter' || e.code === 'NumpadEnter') this.actions.push({ kind: 'buyBest' });
-    else if (e.code === 'KeyQ' || e.code === 'Tab') this.actions.push({ kind: 'cycle', dir: 1 });
-    else {
+    else if (e.code === 'KeyQ' || e.code === 'Tab') {
+      // Shift+Q / Shift+Tab: cycle back, and that Shift is a modifier, not a stomp.
+      if (e.shiftKey) this.shiftStomp = false;
+      this.actions.push({ kind: 'cycle', dir: e.shiftKey ? -1 : 1 });
+    } else {
       const m = /^(?:Digit|Numpad)([1-6])$/.exec(e.code);
       if (m) this.actions.push({ kind: 'slot', id: WEAPON_ORDER[Number(m[1]) - 1] });
     }
@@ -297,12 +352,22 @@ export class Input {
     return a;
   }
 
-  /** Forget everything held or queued (new game, menus, focus loss). */
+  /** Forget everything held or queued (new game, focus loss). */
   clear(): void {
     this.keys.clear();
     this.mouseFire = false;
     this.mouseStomp = false;
+    this.clearPending();
+  }
+
+  /**
+   * Forget queued presses only (pause / resume): keys and buttons still held
+   * keep counting after the menu closes (their keyups and mouseups always
+   * reach Input, so nothing can stick).
+   */
+  clearPending(): void {
     this.actions.length = 0;
+    this.shiftStomp = false;
     this.latched.jump = this.latched.horn = this.latched.cannon = false;
   }
 

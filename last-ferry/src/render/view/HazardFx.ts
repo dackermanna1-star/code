@@ -62,6 +62,7 @@ interface Wave {
 }
 
 const _v = new THREE.Vector3();
+const FIRE_GLOW = new THREE.Color(1.0, 0.42, 0.12);
 
 let flareGeo: THREE.SphereGeometry | null = null;
 let shellGeo: THREE.CapsuleGeometry | null = null;
@@ -93,11 +94,13 @@ export class HazardFx {
     s.castShadow = true;
     this.hornWave ??= new HornWave(this.ctx.scene);
     this.hornWave.warm(true);
+    this.craneCue.warm(true);
     return [f, s];
   }
 
   endPrewarm(): void {
     this.hornWave?.warm(false);
+    this.craneCue.warm(false);
   }
 
   clear(): void {
@@ -143,8 +146,14 @@ export class HazardFx {
     this.fires.set(e.id, { id: e.id, x: e.x, z: e.z, r: e.radius, stick, tip, out: -1, acc: 0 });
     ctx.blood.splat('scorch', e.x, e.z, e.radius * 0.7);
     ctx.blood.splat('soot', e.x, e.z, e.radius * 1.1);
-    for (let i = 0; i < 12; i++) flame(ctx.effects, e.x + rand(-0.3, 0.3), 0.05, e.z + rand(-0.3, 0.3), 1.4, true);
-    ctx.lights.flash(e.x, 0.8, e.z + 0.3, 0xff6a3a, 25, 0.35, 10);
+    // The whole patch catches at once (flames over its area, not a point).
+    const n = Math.round(12 * clamp(e.radius * e.radius, 0.6, 3));
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const d = Math.sqrt(Math.random()) * e.radius * 0.8;
+      flame(ctx.effects, e.x + Math.cos(a) * d, 0.05, e.z + Math.sin(a) * d * 0.8, 1.4, true);
+    }
+    ctx.lights.flash(e.x, 0.8, e.z + 0.3, 0xff6a3a, 25, 0.35, 6 + 3 * e.radius);
   }
 
   onGas(e: GameEvents['gas']): void {
@@ -189,7 +198,8 @@ export class HazardFx {
     if (!r) return;
     r.obj.removeFromParent();
     this.projs.delete(e.id);
-    if (r.kind === 'flare') {
+    // A flare that flew out of play just goes; one that hit something sputters.
+    if (r.kind === 'flare' && e.reason !== 'gone') {
       for (let i = 0; i < 14; i++) ctx.effects.emit(true, e.x, Math.max(0.05, e.y), e.z, { vel: [rand(-3, 4), rand(0.5, 4), rand(-2, 2)], g: 12, size: [0.05, 0.02], life: rand(0.2, 0.5), color: 0xffc090, color1: 0xff3010, alpha: [1, 0], frame: F.Spark, streak: 1, ground: true });
       ctx.lights.flash(e.x, Math.max(0.4, e.y + 0.3), e.z + 0.3, 0xff5030, 22, 0.25, 8);
     }
@@ -303,11 +313,14 @@ export class HazardFx {
       }
       const life = live ? clamp(live.ttl / live.max, 0, 1) : 0;
       const k = 0.5 + 0.5 * Math.sqrt(life);
-      f.acc += dt * 40 * fx.density * k;
+      if (live) f.r = live.radius;
+      // Flames over the whole patch (rate by area), denser toward its rim so its extent reads.
+      const area = clamp(f.r * f.r, 0.6, 3);
+      f.acc += dt * 40 * fx.density * k * area;
       while (f.acc >= 1) {
         f.acc -= 1;
         const a = Math.random() * Math.PI * 2;
-        const d = Math.sqrt(Math.random()) * f.r * 0.75;
+        const d = (0.25 + 0.7 * Math.sqrt(Math.random())) * f.r * 0.85;
         flame(fx, f.x + Math.cos(a) * d, 0.04, f.z + Math.sin(a) * d * 0.8, rand(0.8, 1.6) * k);
       }
       // The flare itself: a fierce red-pink sputter.
@@ -315,7 +328,10 @@ export class HazardFx {
       if (Math.random() < dt * 5) smoke(fx, f.x + rand(-0.3, 0.3), 0.6, f.z + rand(-0.3, 0.3), 1, 0x3a3230, 0.4);
       if (Math.random() < dt * 8) ember(fx, f.x + rand(-0.4, 0.4), 0.1, f.z + rand(-0.3, 0.3));
       const fl = 0.8 + 0.2 * Math.sin(ctx.time * 21 + id) + 0.12 * Math.sin(ctx.time * 47.1 + id * 3);
-      ctx.lights.add(f.x, 0.9, f.z + 0.35, 0xff6a2a, 16 * fl * k, 8.5, 1.4);
+      // Its light reaches as far as the patch is wide (and reads at night: the pool boosts with the dark).
+      ctx.lights.add(f.x, 0.9, f.z + 0.35, 0xff6a2a, (12 + 4 * f.r) * fl * k, 4.5 + 2.6 * f.r, 1.4 + 0.3 * f.r);
+      // A warm glow over the burning planks, strongest at night.
+      ctx.halos.push(f.x, 0.2, f.z, FIRE_GLOW, (0.06 + 0.16 * ctx.darkness) * k * fl, f.r * 3.2, 0.6);
     }
     // Gas clouds.
     for (const [id, g] of this.gas) {

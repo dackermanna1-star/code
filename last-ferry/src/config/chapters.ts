@@ -47,7 +47,8 @@ export const CHAPTERS: ChapterDef[] = [
     num: 3, name: 'Lights Out', clock: '21:10', spawnSeconds: 100,
     spawns: [['shambler', 64], ['jogger', 40], ['bloater', 6], ['medics', 3], ['riot', 6]],
     boss: 'riotsquad', bossName: 'The Riot Squad', bossAlone: false, passengers: 72,
-    riseDelay: [5, 9], timeOfDay: [0.66, 1], bossEscort: [['shambler', 1.7], ['jogger', 2.3], ['bloater', 15]],
+    // The finale is the busiest boss fight (escorts ×1.25 in round 2: see DESIGN §6, "Chapter 3 and the outboard").
+    riseDelay: [5, 9], timeOfDay: [0.66, 1], bossEscort: [['shambler', 1.35], ['jogger', 1.85], ['bloater', 12]],
   },
 ];
 

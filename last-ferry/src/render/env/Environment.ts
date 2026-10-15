@@ -17,7 +17,8 @@
 //           explosion → env.scareGulls(x, z, 3), env.flashScreen(0.15); victory → ramp env.setDeparture(0→1).
 //   Scale effect lights with env.lightRig.darkness (muzzle flashes / flares read stronger at night).
 // The backdrop is drawn through stage.onBeforeMainRender; the wet-deck reflection
-// through stage.onPreRender (high/medium quality).
+// through stage.onPreRender (high/medium quality). setQuality() switches every
+// quality-dependent part live (reflection, shadow map, lamp lights, env map).
 import * as THREE from 'three';
 import { DECAL_RECT, FERRY, PIER } from '../../config/world';
 import { CAMERA_FOV } from '../../config/view';
@@ -68,6 +69,10 @@ export interface LightRig {
 interface QualitySettings {
   /** Planar reflection of characters in wet planks: render scale (0 = off). */
   reflection: number;
+  /** Re-render the reflection every n frames (the deck blurs it anyway). */
+  reflectEvery: number;
+  /** Re-render the key light's shadow map every n frames. */
+  shadowEvery: number;
   shadowMapSize: number;
   shadowRadius: number;
   envSize: number;
@@ -76,9 +81,9 @@ interface QualitySettings {
 }
 
 const QUALITY: Record<EnvQuality, QualitySettings> = {
-  low: { reflection: 0, shadowMapSize: 1024, shadowRadius: 2, envSize: 64, gulls: 8, embers: 120 },
-  medium: { reflection: 0.35, shadowMapSize: 2048, shadowRadius: 3, envSize: 128, gulls: 12, embers: 260 },
-  high: { reflection: 0.5, shadowMapSize: 2048, shadowRadius: 3, envSize: 128, gulls: 16, embers: 420 },
+  low: { reflection: 0, reflectEvery: 1, shadowEvery: 2, shadowMapSize: 1024, shadowRadius: 2, envSize: 64, gulls: 8, embers: 120 },
+  medium: { reflection: 0.35, reflectEvery: 2, shadowEvery: 1, shadowMapSize: 2048, shadowRadius: 3, envSize: 128, gulls: 12, embers: 260 },
+  high: { reflection: 0.5, reflectEvery: 1, shadowEvery: 1, shadowMapSize: 2048, shadowRadius: 3, envSize: 128, gulls: 16, embers: 420 },
 };
 
 /** Region the key light's shadow map covers (world) incl. the water in front of the pier. */
@@ -103,7 +108,7 @@ const ENV_SKY_FRAG = /* glsl */ `
 `;
 
 export class Environment {
-  readonly quality: EnvQuality;
+  private q: EnvQuality;
   readonly waterLevel = PIER.waterY;
   /** Everything this class adds to the stage scene. */
   readonly group = new THREE.Group();
@@ -126,7 +131,10 @@ export class Environment {
   readonly beam: LighthouseBeam;
   readonly atmosphere: Atmosphere;
   /** Wet-deck reflection pass (null on low quality). */
-  readonly reflection: PlanarReflection | null;
+  private refl: PlanarReflection | null = null;
+  /** Deck materials with and without the reflection (created on demand). */
+  private deckMats: { plain?: THREE.Material; refl?: THREE.Material } = {};
+  private frameNo = 0;
   /** Town fire glow on the left of the deck. */
   readonly fireLight: THREE.PointLight;
   /** Current palette. */
@@ -153,8 +161,8 @@ export class Environment {
     private stage: Stage,
     opts: { quality?: EnvQuality } = {},
   ) {
-    this.quality = opts.quality ?? 'high';
-    this.settings = QUALITY[this.quality];
+    this.q = opts.quality ?? 'high';
+    this.settings = QUALITY[this.q];
     const { renderer, scene } = stage;
     this.group.name = 'Environment';
     scene.add(this.group);
@@ -197,7 +205,7 @@ export class Environment {
     this.sky.uMoonDir.value.copy(new THREE.Vector3((MOON_U - 0.5) * 2 * Math.tan((CAMERA_FOV / 2) * (Math.PI / 180)) * (16 / 9), MOON_TAN, -1).normalize());
 
     // ---- backdrop -------------------------------------------------------------------
-    this.backdrop = new Backdrop(this.sky, this.seaU, this.quality);
+    this.backdrop = new Backdrop(this.sky, this.seaU, this.q);
     stage.onBeforeMainRender(() => {
       if (!this.disposed) this.backdrop.render(renderer, stage.mainTarget);
     });
@@ -208,17 +216,18 @@ export class Environment {
     this.emptyDecal.needsUpdate = true;
     this.deckUniforms = createDeckUniforms();
     this.deckUniforms.uDecalMap.value = this.emptyDecal;
-    this.reflection = this.settings.reflection > 0 ? new PlanarReflection(this.settings.reflection) : null;
-    if (this.reflection) {
-      this.deckUniforms.uReflMap.value = this.reflection.target.texture;
-      this.deckUniforms.uReflMatrix.value = this.reflection.textureMatrix;
-      let frames = 0;
-      stage.onPreRender(() => {
-        // Skip the very first frame: the key light's shadow map does not exist yet.
-        if (!this.disposed && this.reflection && frames++ > 0) this.reflection.render(renderer, scene, stage.camera);
-      });
-    }
-    this.deck = new THREE.Mesh(deckBuild.geo, createDeckMaterial(this.deckUniforms, { reflections: !!this.reflection }));
+    this.deck = new THREE.Mesh(deckBuild.geo, this.deckMaterial(this.settings.reflection > 0));
+    this.setReflection(this.settings.reflection);
+    stage.onPreRender(() => {
+      if (this.disposed) return;
+      const n = this.frameNo++;
+      // The key light's shadow map: every frame, or every other one on low.
+      const sm = renderer.shadowMap;
+      sm.autoUpdate = false;
+      sm.needsUpdate = this.warming || n % this.settings.shadowEvery === 0 || !this.sun.shadow.map;
+      // Skip the very first frame: the key light's shadow map does not exist yet.
+      if (this.refl && n > 0 && n % this.settings.reflectEvery === 0) this.refl.render(renderer, scene, stage.camera);
+    });
     this.deck.name = 'Deck';
     this.deck.receiveShadow = true;
     this.deck.castShadow = false;
@@ -240,7 +249,7 @@ export class Environment {
     this.pier = buildPier(this.mats, deckBuild.holes);
     this.group.add(this.pier.group);
     for (const g of this.pier.glows) this.glows.add(g.p, g.color, g.size);
-    this.lamps = new Lamps(this.mats, this.glows, this.quality);
+    this.lamps = new Lamps(this.mats, this.glows, this.q);
     this.group.add(this.lamps.group);
 
     // ---- sea ------------------------------------------------------------------------------------
@@ -251,11 +260,11 @@ export class Environment {
     this.group.add(this.sea);
 
     // ---- set pieces --------------------------------------------------------------------------------
-    this.crane = new Crane(this.mats, this.glows, this.quality);
+    this.crane = new Crane(this.mats, this.glows, this.q);
     this.group.add(this.crane.group);
-    this.ferry = new Ferry(this.mats, this.glows, this.quality);
+    this.ferry = new Ferry(this.mats, this.glows, this.q);
     this.group.add(this.ferry.group);
-    this.beam = new LighthouseBeam(this.quality);
+    this.beam = new LighthouseBeam(this.q);
     this.group.add(this.beam.group);
     this.atmosphere = new Atmosphere(this.settings.embers);
     this.group.add(this.atmosphere.group);
@@ -279,11 +288,58 @@ export class Environment {
     this.envScene.add(new THREE.Mesh(new THREE.SphereGeometry(50, 32, 16), envMat));
 
     stage.onResize(() => this.resize());
+    // A lost context took the environment map with it.
+    stage.onContextRestored(() => this.refreshEnvMap(this.appliedT < 0 ? this.timeOfDay : this.appliedT));
     this.applyTimeOfDay(true);
   }
 
   // =================================================================== public API
 
+  /**
+   * Shader warm-up (the game view's prewarm): draw the things that only show
+   * up later in the night (the lighthouse shaft) so their programs compile now.
+   */
+  prewarm(on: boolean): void {
+    this.beam.warming = on;
+    // The warm-up frame must render the shadow map (its depth programs compile there too).
+    this.warming = on;
+  }
+  private warming = false;
+
+  /** Current graphics quality. */
+  get quality(): EnvQuality {
+    return this.q;
+  }
+
+  /** Wet-deck reflection pass (null on low quality). */
+  get reflection(): PlanarReflection | null {
+    return this.refl;
+  }
+
+  /**
+   * Graphics quality, live (no reload): the wet-deck reflection (on/off, its
+   * resolution and refresh rate), the key light's shadow map size and refresh,
+   * which lamps are real lights (the lit shaders recompile once when the count
+   * changes), the crane's work light, the environment map size and the
+   * backdrop's detail.
+   */
+  setQuality(q: EnvQuality): void {
+    if (q === this.q) return;
+    this.q = q;
+    this.settings = QUALITY[q];
+    const st = this.settings;
+    this.setReflection(st.reflection);
+    // three resizes the shadow map itself when mapSize changes (keeping its
+    // depth texture: never null it, the reflection pass would sample nothing).
+    const sh = this.sun.shadow;
+    sh.mapSize.set(st.shadowMapSize, st.shadowMapSize);
+    sh.radius = st.shadowRadius;
+    this.stage.renderer.shadowMap.needsUpdate = true;
+    this.lamps.setQuality(q);
+    if (this.crane.workLight) this.crane.workLight.visible = q !== 'low';
+    this.backdrop.setQuality(q);
+    this.refreshEnvMap(this.appliedT < 0 ? this.timeOfDay : this.appliedT);
+  }
   /**
    * Time of day 0 (sunset, ch.1) → 1 (deep night, end of ch.3). Applied in
    * update(), easing over ~1 s when it jumps; `immediate` snaps to it.
@@ -417,10 +473,46 @@ export class Environment {
     this.sun.shadow.map?.dispose();
     this.backdrop.dispose();
     this.envTarget?.dispose();
+    this.envCube?.dispose();
     this.pmrem.dispose();
-    this.reflection?.dispose();
+    this.refl?.dispose();
     this.emptyDecal.dispose();
   }
+
+  /** Deck material with or without the reflection (each compiled once, kept). */
+  private deckMaterial(refl: boolean): THREE.Material {
+    const k = refl ? 'refl' : 'plain';
+    return (this.deckMats[k] ??= createDeckMaterial(this.deckUniforms, { reflections: refl }));
+  }
+
+  /** Create / resize / drop the wet-deck reflection (scale 0 = off). */
+  private setReflection(scale: number): void {
+    if (scale <= 0) {
+      if (this.refl) {
+        this.refl.dispose();
+        this.refl = null;
+      }
+    } else if (!this.refl) {
+      this.refl = new PlanarReflection(scale);
+    } else {
+      this.refl.setScale(scale);
+    }
+    const r = this.refl;
+    if (r) {
+      this.deckUniforms.uReflMap.value = r.target.texture;
+      this.deckUniforms.uReflMatrix.value = r.textureMatrix;
+    }
+    this.deck.material = this.deckMaterial(!!r);
+    this.resizeReflection();
+  }
+
+  private resizeReflection(): void {
+    if (!this.refl) return;
+    const size = this.stage.renderer.getDrawingBufferSize(this._size);
+    this.refl.setSize(size.x, size.y);
+    this.deckUniforms.uReflTexel.value.set(1 / this.refl.target.width, 1 / this.refl.target.height);
+  }
+  private readonly _size = new THREE.Vector2();
 
   // =================================================================== internals
 
@@ -529,21 +621,32 @@ export class Environment {
     if (force || Math.abs(t - this.envT) > 0.025) this.refreshEnvMap(t);
   }
 
+  /**
+   * Re-render the sky into the environment map. The cube target and the
+   * PMREM target are kept and reused (fromScene would allocate a new PMREM
+   * target every time the time of day moved on).
+   */
   private refreshEnvMap(t: number): void {
     this.envT = t;
-    const old = this.envTarget;
-    this.envTarget = this.pmrem.fromScene(this.envScene, 0, 0.1, 100, { size: this.settings.envSize });
+    const size = this.settings.envSize;
+    if (!this.envCube || this.envCube.width !== size) {
+      this.envCube?.dispose();
+      this.envCube = new THREE.WebGLCubeRenderTarget(size, { type: THREE.HalfFloatType, generateMipmaps: false });
+      this.envCam = new THREE.CubeCamera(0.1, 100, this.envCube);
+      this.envTarget?.dispose();
+      this.envTarget = null;
+    }
+    this.envCam!.update(this.stage.renderer, this.envScene);
+    this.envTarget = this.pmrem.fromCubemap(this.envCube.texture, this.envTarget);
     this.stage.scene.environment = this.envTarget.texture;
-    old?.dispose();
   }
+  private envCube: THREE.WebGLCubeRenderTarget | null = null;
+  private envCam: THREE.CubeCamera | null = null;
 
   private resize(): void {
     const size = this.stage.renderer.getDrawingBufferSize(new THREE.Vector2());
     this.seaUniforms.uRes.value.set(size.x, size.y);
-    if (this.reflection) {
-      this.reflection.setSize(size.x, size.y);
-      this.deckUniforms.uReflTexel.value.set(1 / this.reflection.target.width, 1 / this.reflection.target.height);
-    }
+    this.resizeReflection();
     this.glows.setViewport(size.y, CAMERA_FOV);
     this.atmosphere.setViewport(size.y, CAMERA_FOV);
   }

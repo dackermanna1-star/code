@@ -37,6 +37,11 @@ export class PlanarReflection {
     this.camera.layers.set(REFLECT_LAYER);
   }
 
+  /** Render scale (quality); call setSize afterwards. */
+  setScale(scale: number): void {
+    this.scale = scale;
+  }
+
   setSize(w: number, h: number): void {
     const s = Math.min(this.scale, 720 / Math.max(1, h));
     this.target.setSize(Math.max(4, Math.round(w * s)), Math.max(4, Math.round(h * s)));
@@ -80,7 +85,11 @@ export class PlanarReflection {
     vc.projectionMatrixInverse.copy(vc.projectionMatrix).invert();
 
     const prevTarget = renderer.getRenderTarget();
+    // The shadow map must not be rendered from this pass: it would only hold
+    // the reflected layer's casters (three tests casters against the view
+    // camera's layers). Keep a pending update for the main pass.
     const prevShadow = renderer.shadowMap.autoUpdate;
+    const prevNeeds = renderer.shadowMap.needsUpdate;
     const prevAutoClear = renderer.autoClear;
     const prevBg = scene.background;
     renderer.getClearColor(this.clearColor);
@@ -88,6 +97,7 @@ export class PlanarReflection {
 
     scene.background = null;
     renderer.shadowMap.autoUpdate = false;
+    renderer.shadowMap.needsUpdate = false;
     renderer.autoClear = true;
     renderer.setClearColor(0x000000, 0);
     renderer.setRenderTarget(this.target);
@@ -97,6 +107,7 @@ export class PlanarReflection {
     renderer.setClearColor(this.clearColor, prevAlpha);
     renderer.autoClear = prevAutoClear;
     renderer.shadowMap.autoUpdate = prevShadow;
+    renderer.shadowMap.needsUpdate = prevNeeds;
     scene.background = prevBg;
   }
 

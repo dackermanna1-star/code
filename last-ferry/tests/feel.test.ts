@@ -149,6 +149,24 @@ describe('MoneyPops', () => {
     expect(mp.stats.folded).toBeGreaterThan(0);
   });
 
+  it('folded money with nothing to ride on still pops up once the screen calms down (every dollar is shown)', () => {
+    const mp = new MoneyPops();
+    const shown: MoneyPop[] = [];
+    for (let i = 0; i < BUSY_AT; i++) {
+      mp.add(60, 'bounty', -10 + i * 5, 2, 0);
+      mp.flush(i * 0.05, (p) => shown.push(p));
+    }
+    // A cheap crawler while busy: folded…
+    mp.add(15, 'bounty', 6, 1, 2);
+    mp.flush(0.25, (p) => shown.push(p));
+    expect(mp.stats.folded).toBe(1);
+    expect(shown.reduce((a, p) => a + p.amount, 0)).toBe(4 * 60);
+    // …and nothing follows: it goes out on its own where it was earned.
+    for (let t = 0.3; t < 2.5; t += DT) mp.flush(t, (p) => shown.push(p));
+    expect(shown.reduce((a, p) => a + p.amount, 0)).toBe(4 * 60 + 15);
+    expect(shown[shown.length - 1]).toMatchObject({ amount: 15, x: 6, z: 2 });
+  });
+
   it('big payments still show while busy', () => {
     const mp = new MoneyPops();
     for (let i = 0; i < BUSY_AT; i++) {

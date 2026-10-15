@@ -132,6 +132,8 @@ export class WorldOverlay {
   private spinAngle = 0;
   /** Night vignette strength set by options/chapter; combined with frame.night. */
   nightBase = 0;
+  /** Resolution cap (device pixels per CSS px): follows the graphics quality, like the 3D view's. */
+  private maxDpr = 2.5;
   /** Debug: last frame's drawn item counts. */
   readonly stats = { popups: 0, twitches: 0, crosshair: false, marks: 0, crane: '' };
 
@@ -210,9 +212,22 @@ export class WorldOverlay {
     this.dirty = true;
   }
 
+  /**
+   * Cap the overlay's resolution (device pixels per CSS px), e.g. the stage's
+   * pixel ratio for the graphics quality: full-screen washes (night, gas,
+   * damage) cost per pixel. Applies on the next frame.
+   */
+  setMaxPixelRatio(v: number): void {
+    const m = Math.max(1, Math.min(2.5, v));
+    if (m === this.maxDpr) return;
+    this.maxDpr = m;
+    this.resize();
+  }
+
   /** Draw one frame. `dt` (s) ages the pop-ups (pass 0 while paused). */
   render(f: OverlayFrame, dt = 1 / 60): void {
-    if (this.view.clientWidth !== this.cssW || this.view.clientHeight !== this.cssH) this.resize();
+    // Size and device-pixel-ratio changes (another monitor, browser zoom) are picked up here.
+    if (this.view.clientWidth !== this.cssW || this.view.clientHeight !== this.cssH || this.wantDpr() !== this.dpr) this.resize();
     this.time += dt;
     this.spinAngle += dt * (2 + 30 * clamp01(f.crosshair?.spin ?? 0));
     for (const p of this.popups) p.age += dt;
@@ -272,10 +287,14 @@ export class WorldOverlay {
     this.dirty = true;
   }
 
+  private wantDpr(): number {
+    return Math.min(window.devicePixelRatio || 1, this.maxDpr);
+  }
+
   private resize(): void {
     const w = this.view.clientWidth;
     const h = this.view.clientHeight;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const dpr = this.wantDpr();
     if (w === this.cssW && h === this.cssH && dpr === this.dpr) return;
     this.cssW = w;
     this.cssH = h;

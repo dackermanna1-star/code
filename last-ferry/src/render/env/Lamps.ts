@@ -240,17 +240,15 @@ export class Lamps {
         head = new THREE.Vector3(p.x, HN + 0.03, p.z);
         this.perches.push({ x: p.x, y: HN + 0.42, z: p.z, yaw: i * 1.7 });
       }
-      // Real lights: all on high, far side only on medium, every other far lamp on low.
-      const real = quality === 'high' || (quality === 'medium' && p.side < 0) || (quality === 'low' && p.side < 0 && i % 2 === 0);
-      let light: THREE.PointLight | null = null;
-      if (real) {
-        light = new THREE.PointLight(SODIUM, 0, quality === 'low' ? 16 : 11.5, 2);
-        // The near lanterns light the deck from a little above and inboard of the glass
-        // (a pool of light on the near lanes, not a hot spot at the railing).
-        if (near) light.position.set(p.x, HN + 0.9, p.z - 0.8);
-        else light.position.copy(head).add(new THREE.Vector3(0, -0.1, -p.side * 0.3));
-        this.group.add(light);
-      }
+      // Real lights (see setQuality): all on high, far side only on medium, every other far lamp on low.
+      const light = new THREE.PointLight(SODIUM, 0, 11.5, 2);
+      // The near lanterns light the deck from a little above and inboard of the glass
+      // (a pool of light on the near lanes, not a hot spot at the railing).
+      if (near) light.position.set(p.x, HN + 0.9, p.z - 0.8);
+      else light.position.copy(head).add(new THREE.Vector3(0, -0.1, -p.side * 0.3));
+      light.userData.lampIndex = i;
+      light.userData.far = !near;
+      this.group.add(light);
       const glow = this.glows.add(head, SODIUM.clone().multiplyScalar(near ? 1.6 : 2.2), near ? 0.95 : 2.2);
       const quirk: Lamp['quirk'] = p.x === -17.5 ? 'dying' : p.x === 3 ? 'buzz' : 'none';
       this.lamps.push({ x: p.x, z: p.z, head, light, glow, onAt: 0.08 + ((i * 0.37) % 1) * 0.4, level: 0, warm: 99, on: false, quirk, near, glowK: near ? 0.75 : 1, lightK: near ? 0.7 : 1 });
@@ -296,6 +294,22 @@ export class Lamps {
     this.cones.renderOrder = 15;
     this.cones.frustumCulled = false;
     this.group.add(this.glass, this.cones);
+    this.setQuality(quality);
+  }
+
+  /**
+   * Which lamps are real point lights (the rest keep their glass, halo and
+   * cone). Changing the count recompiles the lit shaders once.
+   */
+  setQuality(quality: LampQuality): void {
+    this.lamps.forEach((l, i) => {
+      if (!l.light) return;
+      const real = quality === 'high' || (quality === 'medium' && !l.near) || (quality === 'low' && !l.near && i % 2 === 0);
+      l.light.visible = real;
+      // Fewer lamps on low: each one reaches further.
+      l.light.distance = quality === 'low' ? 16 : 11.5;
+      if (!real) l.light.intensity = 0;
+    });
   }
 
   /**
@@ -329,7 +343,7 @@ export class Lamps {
       const b = l.level * flick;
       const warmK = Math.min(1, l.warm / 6);
       _c.copy(SODIUM_COLD).lerp(SODIUM, warmK);
-      if (l.light) {
+      if (l.light && l.light.visible) {
         l.light.color.copy(_c);
         l.light.intensity = this.intensity * b * l.lightK;
       }

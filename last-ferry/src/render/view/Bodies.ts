@@ -8,12 +8,21 @@
 //   permanent           eyes out, baked (charred bodies keep their charred tint)
 //   shoved / burning    un-baked, pushed / burned, baked again
 //   gone                ash pile / slides into the sea / torn apart
+//
+// Budget: only so many ragdolls are simulated at once (by quality) and only a
+// few new ones start per frame. When the budget is full the oldest ragdolls
+// that already LIE STILL ON THE DECK are retired (frozen and baked); a body in
+// the air is never frozen. Deaths beyond the budget get a canned fall instead
+// (the rig collapses into the lying pose on its way to the corpse's spot), and
+// torn-off limbs beyond it become flying gore. While a body is live (ragdoll,
+// fall, twitch, fire) it stays skinned (~5 draw calls, not ~20 per-bone meshes).
 import * as THREE from 'three';
 import type { ZombieKind } from '../../config/ids';
 import { TICK } from '../../config/world';
 import type { GameEvents, V3 } from '../../core/events';
 import type { Zombie } from '../../core/Zombie';
 import type { BakeHandle } from '../Corpses';
+import type { BoneSpec } from '../models/types';
 import { charredTint, createHarpoonBolt, createZombieRig, HARPOON_BOLT_LENGTH, MATERIALS, type ZombieRigExt } from '../models/index';
 import type { CorpseView } from '../../core/api';
 import { Ragdoll, type RagdollOptions } from '../Ragdoll';
@@ -21,6 +30,8 @@ import { REFLECT_LAYER } from '../Stage';
 import { clamp, rand, type Ctx } from './ctx';
 import { ember, flame, shockDust, smoke, F } from './fx';
 import { attachNail, dropPiece, type Horde, type ZRec } from './Horde';
+import { setSkinCastShadow, setSkinLook, skinify, unskin, type SkinState } from './skin';
+import type { Quality } from './ctx';
 
 type Mode = 'live' | 'baked' | 'gone';
 
@@ -59,6 +70,44 @@ export interface Body {
   headAt: THREE.Vector3 | null;
   /** Ticks from death to rising (for the growing tell), 0 = unknown. */
   riseSpan: number;
+  /** Skinned stand-ins while live (null while baked, or for bloater pops). */
+  skin: SkinState | null;
+  /** Never re-skin (bloater pop: parts of bones are hidden). */
+  noSkin: boolean;
+  /** Canned motion instead of a ragdoll (budget full): collapse / slide / drop. */
+  fall: Fall | null;
+  /** Canned twitch (no ragdoll): bones jerk around their pose. */
+  jitter: Jitter | null;
+  /** Bones hidden (collapsed) for good: head destroyed, limbs torn off. */
+  hidden: THREE.Object3D[];
+  /** Waiting (a frame or two) for its ragdoll: the blast staggers new ragdolls. */
+  pending: RagdollOptions | null;
+  /** Frames spent waiting in the queue. */
+  waited: number;
+}
+
+/** A canned fall or slide of the whole rig (no physics). */
+interface Fall {
+  t: number;
+  dur: number;
+  /** 'collapse': the rig blends into the lying pose; 'move': rigid slide of the rig as it lies. */
+  kind: 'collapse' | 'move';
+  x0: number;
+  y0: number;
+  z0: number;
+  x1: number;
+  y1: number;
+  z1: number;
+  hop: number;
+  yaw0: number;
+  yaw1: number;
+}
+
+/** Canned twitch: rest rotations of the jerking bones, current kick and its decay. */
+interface Jitter {
+  bones: THREE.Object3D[];
+  base: THREE.Quaternion[];
+  kick: THREE.Vector3[];
 }
 
 interface Kebab {
@@ -85,8 +134,16 @@ const WEAPON_K: Record<string, number> = { revolver: 1, nailgun: 0.7, shotgun: 1
 const AIM_K = 2.3;
 /** In the lying pose the pelvis sits this far ahead (+x) of the rig root. */
 const PELVIS_X = 0.08;
-/** Ragdolls simulated at once (older ones freeze where they are). */
-const MAX_RAGDOLLS = 14;
+/** Ragdolls simulated at once, by quality (older SETTLED ones are retired; airborne ones never). */
+const RAGDOLL_CAP: Record<Quality, number> = { low: 10, medium: 14, high: 18 };
+/** New ragdolls started per frame (a blast killing dozens staggers them over a few frames). */
+const NEW_PER_FRAME: Record<Quality, number> = { low: 4, medium: 5, high: 6 };
+/** Single-body flying limbs (cheap: no joints) allowed at once, by quality. */
+const PIECE_CAP: Record<Quality, number> = { low: 40, medium: 70, high: 100 };
+/** Limbs (with everything below them) torn off a body over the ragdoll budget. */
+const FLING = ['head', 'upperArmL', 'upperArmR', 'thighL', 'thighR'];
+/** Limbs that jerk in a twitch. */
+const TWITCH_LIMBS = ['foreArmL', 'foreArmR', 'shinL', 'shinR', 'upperArmL', 'upperArmR', 'thighL', 'thighR'];
 
 const _v = new THREE.Vector3();
 const _v2 = new THREE.Vector3();
@@ -97,7 +154,11 @@ const UNDEAD_GLOW = new THREE.Color(0.22, 0.62, 0.06);
 const UNDEAD_EYE = new THREE.Color(0.75, 1.0, 0.3);
 const UNDEAD_MIST = 0x7aa832;
 const _m = new THREE.Matrix4();
+const _m2 = new THREE.Matrix4();
 const _s = new THREE.Vector3();
+const _q = new THREE.Quaternion();
+const _e = new THREE.Euler();
+const _anim = { state: 'down', stateTime: 1, time: 0, distance: 0, speed: 0, dt: 0, params: {} as Record<string, number | boolean> };
 
 let ashGeo: THREE.BufferGeometry | null = null;
 function ashGeometry(): THREE.BufferGeometry {
@@ -140,17 +201,114 @@ export class Bodies {
   made = 0;
   /** Highest logic corpse id seen (bodies laid without a death event are picked up). */
   private seenCorpse = 0;
+  /** Ragdoll budget (quality). */
+  private cap = RAGDOLL_CAP.high;
+  private newPerFrame = NEW_PER_FRAME.high;
+  private pieceCap = PIECE_CAP.high;
+  /** New ragdolls started since the last update. */
+  private madeThisFrame = 0;
+  /** Bodies whose ragdoll starts in a later frame (see admit). */
+  private queue: Body[] = [];
+  /** Canned falls / slides started instead of ragdolls (stats). */
+  canned = 0;
 
   constructor(
     private ctx: Ctx,
     private horde: Horde,
   ) {}
 
+  setQuality(q: Quality): void {
+    this.cap = RAGDOLL_CAP[q];
+    this.newPerFrame = NEW_PER_FRAME[q];
+    this.pieceCap = PIECE_CAP[q];
+  }
+
+  /**
+   * Tear a limb (and everything below it) off a body as a one-body flying
+   * piece (cheap: no joints; it bakes where it lands). False when the piece
+   * budget is full or the limb is already gone.
+   */
+  private fling(b: Body, name: string, vel: THREE.Vector3): boolean {
+    const ctx = this.ctx;
+    const bone = b.rig.bones.get(name);
+    const spec = b.rig.spec[name];
+    if (!bone || !spec || !bone.visible || this.horde.pieces.length >= this.pieceCap) return false;
+    b.rig.root.updateMatrixWorld(true);
+    const limb = new THREE.Group();
+    limb.name = `limb_${name}`;
+    bone.matrixWorld.decompose(limb.position, limb.quaternion, limb.scale);
+    const inv = _m.copy(bone.matrixWorld).invert();
+    const add = (mesh: THREE.Mesh, parent: THREE.Object3D) => {
+      const c = mesh.clone(false);
+      mesh.updateMatrix();
+      _m2.multiplyMatrices(parent.matrixWorld, mesh.matrix).premultiply(inv).decompose(c.position, c.quaternion, c.scale);
+      c.frustumCulled = false;
+      limb.add(c);
+    };
+    if (b.skin) {
+      // The per-bone meshes are out of the hierarchy while skinned.
+      const sk = b.skin;
+      for (let i = 0; i < sk.hidden.length; i++) if (isUnder(sk.parents[i], bone)) add(sk.hidden[i], sk.parents[i]);
+    }
+    bone.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (!m.isMesh || (m as THREE.SkinnedMesh).isSkinnedMesh || !m.parent) return;
+      for (let p: THREE.Object3D | null = m; p && p !== bone.parent; p = p.parent) if (!p.visible) return;
+      add(m, m.parent);
+    });
+    if (!limb.children.length) return false;
+    // One collider for the whole limb (upper + lower + hand / foot), so it lies
+    // down instead of balancing on a short stub.
+    let reach = 0;
+    bone.traverse((o) => {
+      if (o === bone || !b.rig.spec[o.name]) return;
+      _v.setFromMatrixPosition(o.matrixWorld).applyMatrix4(inv);
+      reach = Math.max(reach, _v.length() + 0.12);
+    });
+    const pspec: BoneSpec = reach > 0 && spec.shape === 'capsule' ? { ...spec, size: [spec.size[0], reach / 2], offset: [0, -reach / 2, 0] } : spec;
+    ctx.root.add(limb);
+    const piece = dropPiece(ctx, limb, pspec, vel, 12);
+    this.horde.pieces.push(piece);
+    hideBone(bone, b.hidden);
+    return true;
+  }
+
+  /** Over the ragdoll budget: the limbs fly as pieces (or gore once those run out). */
+  private flingLimbs(b: Body, from: THREE.Vector3, speed: number): void {
+    const ctx = this.ctx;
+    for (const name of FLING) {
+      const bone = b.rig.bones.get(name);
+      if (!bone || !bone.visible) continue;
+      bone.getWorldPosition(_v);
+      const dx = _v.x - from.x;
+      const dz = _v.z - from.z;
+      const l = Math.hypot(dx, dz) || 1;
+      const sp = speed * rand(0.7, 1.3);
+      // As high as a ragdoll's torn-off limbs go (blast + tear-off speed).
+      const vel = _v2.set((dx / l) * sp + rand(-1.5, 1.5), speed * rand(0.6, 1.2) + 2 + rand(0, 4.5), (dz / l) * sp * 0.8 + rand(-1.2, 1.2));
+      bone.getWorldPosition(_v);
+      if (!this.fling(b, name, vel)) {
+        ctx.gore.burst(_v, 4, { dirX: dx / l, speed: sp, up: 5, size: 0.1 });
+        hideBone(bone, b.hidden);
+      }
+    }
+  }
+
+  /** Shadow casting of the live (skinned) bodies (quality switch). */
+  setShadows(on: boolean): void {
+    for (const b of this.active) if (b.skin) setSkinCastShadow(b.skin, on);
+  }
+
   clear(): void {
-    for (const b of this.active) b.rag?.dispose();
+    for (const b of this.active) {
+      b.rag?.dispose();
+      b.rig.root.removeFromParent();
+      this.dropSkin(b);
+    }
     for (const b of this.byId.values()) {
       b.rag?.dispose();
       b.rig.root.removeFromParent();
+      this.dropSkin(b);
     }
     for (const k of this.kebabs) {
       k.bolt.removeFromParent();
@@ -162,6 +320,8 @@ export class Bodies {
     this.harpoonHit = null;
     this.lastExplosion = null;
     this.seenCorpse = 0;
+    this.madeThisFrame = 0;
+    this.queue.length = 0;
   }
 
   /**
@@ -185,7 +345,8 @@ export class Bodies {
     const rig = createZombieRig(c.kind, c.look);
     rig.root.position.set(c.x - PELVIS_X, 0, c.z);
     rig.root.rotation.y = rand(-0.4, 0.4);
-    rig.animate({ state: 'down', stateTime: 1, time: 0, distance: 0, speed: 0, dt: 0, params: {} });
+    // Straight into the lying pose (blend 0: no cross-fade from the build pose).
+    rig.animate({ state: 'down', stateTime: 1, time: 0, distance: 0, speed: 0, dt: 0, params: { blend: 0 } });
     ctx.root.add(rig.root);
     rig.root.updateMatrixWorld(true);
     const body: Body = {
@@ -212,26 +373,101 @@ export class Bodies {
       massK: MASS[c.kind] / 70,
       headAt: null,
       riseSpan: c.risesAt !== null && ctx.world ? Math.max(1, c.risesAt - ctx.world.tick) : 0,
+      skin: null,
+      noSkin: false,
+      fall: null,
+      jitter: null,
+      hidden: [],
+      pending: null,
+      waited: 0,
     };
     if (c.deathKind === 'headshot' || c.deathKind === 'stomp') {
       const head = rig.bones.get(rig.head);
-      if (head) head.visible = false;
+      if (head) hideBone(head, body.hidden);
     }
-    if (body.permanent) rig.setEyeGlow(false);
-    const rag = new Ragdoll(ctx.physics, rig, { guide: { x: c.x, z: c.z }, velocity: new THREE.Vector3(0, 0, 0) });
-    rag.onFrozen = () => this.onSettled(body);
-    body.rag = rag;
+    if (body.permanent) this.eyes(body, false);
+    // Already lying where the logic put it: no physics, settle (blood pool) and bake.
     this.byId.set(c.id, body);
-    this.active.push(body);
+    this.made++;
     if (c.burning > 0) this.onIgnite(c.id);
     if (c.twitching) this.onTwitch(c.id);
-    this.made++;
+    if (body.mode === 'live' && !body.burning && body.twitch <= 0) this.onSettled(body);
+    else this.activate(body);
   }
 
   get ragdolls(): number {
     let n = 0;
     for (const b of this.active) if (b.rag && !b.rag.frozen) n++;
     return n;
+  }
+
+  /**
+   * May a new ragdoll start? Retires settled ragdolls to make room. 'now';
+   * 'later' when this frame already started its share (it starts in a frame
+   * or two: see the queue); 'no' when the budget is full of bodies still in
+   * the air (the caller falls back to a canned motion). `force`: always
+   * (harpoon kebabs, drowning).
+   */
+  private admitAs(force = false, canRetire = true): 'now' | 'later' | 'no' {
+    if (force) {
+      this.madeThisFrame++;
+      return 'now';
+    }
+    let n = this.ragdolls + this.queue.length;
+    if (n >= this.cap && canRetire) {
+      this.retire(n - this.cap + 1);
+      n = this.ragdolls + this.queue.length;
+    }
+    if (n >= this.cap) return 'no';
+    // First come, first served: bodies already waiting start first.
+    if (this.madeThisFrame >= this.newPerFrame || this.queue.length) return 'later';
+    this.madeThisFrame++;
+    return 'now';
+  }
+
+  /** admitAs without the queue: a ragdoll now, or none. `canRetire` false inside the update loop. */
+  private admit(force = false, canRetire = true): boolean {
+    if (!force && this.madeThisFrame >= this.newPerFrame) return false;
+    return this.admitAs(force, canRetire) === 'now';
+  }
+
+  /**
+   * Freeze (and bake) up to `k` of the oldest ragdolls that lie on the deck
+   * and have (nearly) stopped. Never one in the air, pinned, twitching or sinking.
+   */
+  private retire(k: number): void {
+    if (k <= 0) return;
+    const cands: Body[] = [];
+    for (const b of this.active) {
+      const r = b.rag;
+      if (!r || r.frozen || r.pinned || b.twitch > 0 || b.sinking || b.kebab) continue;
+      if (r.age < 0.4) continue;
+      if (r.settled(r.age > 2.5 ? 3 : 1.5)) cands.push(b);
+    }
+    cands.sort((a, b) => b.rag!.age - a.rag!.age);
+    for (let i = 0; i < cands.length && i < k; i++) cands[i].rag!.freeze();
+  }
+
+  // ================================================================== skins
+
+  /** Keep the body skinned while it is live (the rig must be in the scene). */
+  private ensureSkin(b: Body): void {
+    if (b.skin || b.noSkin || b.mode !== 'live') return;
+    b.skin = skinify(b.rig, { cull: false });
+    if (b.skin && b.charred > 0) b.rig.setCharred(b.charred, true);
+  }
+
+  /** Eyes lit (bodies that will rise, risen crawlers) or put out (dead for good), skinned or not. */
+  private eyes(b: Body, on: boolean): void {
+    b.rig.setEyeGlow(on);
+    if (b.skin) setSkinLook(b.skin, { eyes: on });
+  }
+
+  /** Back to per-bone meshes (baking, pops). */
+  private dropSkin(b: Body): void {
+    if (!b.skin) return;
+    unskin(b.skin);
+    b.skin = null;
   }
 
   get liveCount(): number {
@@ -245,7 +481,7 @@ export class Bodies {
   onDeath(e: GameEvents['zombieDeath']): void {
     const ctx = this.ctx;
     const w = ctx.world;
-    const rec = this.horde.take(e.zombieId);
+    const rec = this.horde.take(e.zombieId, true);
     if (!rec || !w) return;
     const z = rec.z;
     const rig = rec.rig;
@@ -288,7 +524,17 @@ export class Bodies {
       massK: mass / 70,
       headAt: null,
       riseSpan: corpse && corpse.risesAt !== null ? Math.max(1, corpse.risesAt - w.tick) : 0,
+      skin: rec.skin,
+      noSkin: false,
+      fall: null,
+      jitter: null,
+      hidden: [],
+      pending: null,
+      waited: 0,
     };
+    rec.skin = null;
+    // Bones travel far from the root as a ragdoll: no culling on the fixed bounds.
+    if (body.skin) for (const m of body.skin.meshes) m.frustumCulled = false;
     this.made++;
 
     // The carried prop drops.
@@ -327,7 +573,7 @@ export class Bodies {
         opts.impulse = { point: pt, dir: new THREE.Vector3(e.dirX, 0.4, e.dirZ).normalize(), speed: dv * 1.1, bone: rig.head };
         // The head is destroyed: gone in a red mist.
         const hp = head ? head.getWorldPosition(new THREE.Vector3()) : pt.clone();
-        if (head) head.visible = false;
+        if (head) hideBone(head, body.hidden);
         this.headBurst(hp, e.dirX, e.dirZ, 1);
         body.fountain = 1.1;
         break;
@@ -350,6 +596,7 @@ export class Bodies {
           blood.pool(z.x, z.z, 0.9 * Math.sqrt(body.massK));
           body.mode = 'gone';
           rig.root.removeFromParent();
+          this.dropSkin(body);
           return;
         }
         opts.detach = gibBones;
@@ -364,7 +611,9 @@ export class Bodies {
       }
       case 'pop': {
         this.pop(rec, pelvisPos);
-        // Only the legs are left: they stand for a moment, then topple.
+        // Only the legs are left: they stand for a moment, then topple (per-bone meshes: parts of bones go).
+        this.dropSkin(body);
+        body.noSkin = true;
         const chest = rig.bones.get('chest');
         if (chest) chest.visible = false;
         const pel = rig.bones.get('pelvis');
@@ -395,7 +644,7 @@ export class Bodies {
       case 'stomp': {
         opts.impulse = { point: pt, dir: new THREE.Vector3(0, -1, 0), speed: 3, bone: rig.head };
         const hp = head ? head.getWorldPosition(new THREE.Vector3()) : pt.clone();
-        if (head) head.visible = false;
+        if (head) hideBone(head, body.hidden);
         this.headBurst(hp, 0, 0, 0.7, true);
         blood.pool(hp.x, hp.z, 0.45);
         break;
@@ -419,7 +668,54 @@ export class Bodies {
       ctx.effects.bloodPuff(pt, e.dirX, 1.2);
     }
 
-    const rag = new Ragdoll(ctx.physics, rig, opts);
+    if (corpse) {
+      this.byId.set(corpse.id, body);
+      this.seenCorpse = Math.max(this.seenCorpse, corpse.id);
+    }
+    this.active.push(body);
+    // Bodies that will never rise have their eyes put out.
+    if (body.permanent) this.eyes(body, false);
+
+    const adm = this.admitAs(kind === 'harpoon' || kind === 'drown');
+    if (adm === 'later') {
+      // Its ragdoll starts in a frame or two (a blast staggers them).
+      body.pending = opts;
+      this.queue.push(body);
+      return;
+    }
+    if (adm === 'no') {
+      // Over the ragdoll budget: a canned fall (and gore for the torn-off limbs).
+      this.canned++;
+      if (kind === 'gib') {
+        const bp = opts.blast?.point ?? pelvisPos;
+        this.flingLimbs(body, bp, opts.blast?.speed ?? 4);
+        const dx = pelvisPos.x - bp.x;
+        const dz = pelvisPos.z - bp.z;
+        const l = Math.hypot(dx, dz) || 1;
+        const d = rand(1.2, 3.2);
+        let tx = clamp(pelvisPos.x + (dx / l) * d, -28, 21);
+        let tz = clamp(pelvisPos.z + (dz / l) * d, -5.4, 5.4);
+        if (!ctx.env.isOnDeck(tx, tz)) {
+          tx = pelvisPos.x;
+          tz = clamp(pelvisPos.z, -5.4, 5.4);
+        }
+        this.startFall(body, tx, tz, 'collapse', rand(1.2, 2.4), rand(0.8, 1.05), rec.yaw + rand(-1.2, 1.2));
+      } else {
+        const tx = target ? target.x : pelvisPos.x + e.dirX * dv * 0.3;
+        const tz = target ? target.z : pelvisPos.z;
+        const hop = kind === 'pop' ? 0.05 : clamp(dv * 0.07, 0.04, 0.35);
+        this.startFall(body, tx, tz, 'collapse', hop, rand(0.5, 0.65), rec.yaw + rand(-0.35, 0.35));
+      }
+      return;
+    }
+
+    this.startRagdoll(body, opts);
+  }
+
+  /** The death ragdoll (aimed, with its splash callback). */
+  private startRagdoll(body: Body, opts: RagdollOptions): void {
+    const ctx = this.ctx;
+    const rag = new Ragdoll(ctx.physics, body.rig, opts);
     body.rag = rag;
     rag.onSink = (part) => {
       const p = part.body.position;
@@ -434,13 +730,60 @@ export class Bodies {
       body.sinking = true;
     };
     rag.onFrozen = () => this.onSettled(body);
-    if (corpse) {
-      this.byId.set(corpse.id, body);
-      this.seenCorpse = Math.max(this.seenCorpse, corpse.id);
+  }
+
+  /**
+   * Canned motion (no physics). 'collapse': from the rig's current pose (a
+   * zombie that just died) into the lying pose, on the way to (px, pz) where
+   * the pelvis comes to rest; 'move': the body slides / is thrown rigidly as
+   * it lies so its pelvis ends at (px, pz). `py` < 0: into the sea.
+   */
+  private startFall(b: Body, px: number, pz: number, kind: Fall['kind'], hop: number, dur: number, yaw = b.rig.root.rotation.y, py = 0): void {
+    const root = b.rig.root;
+    let x1: number;
+    let z1: number;
+    if (kind === 'collapse') {
+      // Root such that the lying pelvis lands at (px, pz).
+      x1 = px - PELVIS_X * Math.cos(yaw);
+      z1 = pz + PELVIS_X * Math.sin(yaw);
+      _anim.state = 'down';
+      _anim.time = this.ctx.time;
+      _anim.dt = 0;
+      _anim.params = { blend: dur * 0.8, twitch: false, facing: 1 };
+      b.rig.animate(_anim);
+      for (const h of b.hidden) h.scale.setScalar(1e-3);
+    } else {
+      const pel = b.rig.bones.get('pelvis');
+      const pp = pel ? pel.getWorldPosition(_v) : _v.set(root.position.x, 0, root.position.z);
+      x1 = root.position.x + (px - pp.x);
+      z1 = root.position.z + (pz - pp.z);
+      yaw = root.rotation.y;
     }
-    this.active.push(body);
-    // Bodies that will never rise have their eyes put out.
-    if (body.permanent) rig.setEyeGlow(false);
+    b.fall = { t: 0, dur, kind, x0: root.position.x, y0: root.position.y, z0: root.position.z, x1, y1: py, z1, hop, yaw0: root.rotation.y, yaw1: yaw };
+    b.jitter = null;
+    b.pending = null;
+    this.activate(b);
+  }
+
+  /** Advance a canned fall; true when it has landed. */
+  private stepFall(b: Body, f: Fall, dt: number): boolean {
+    f.t += dt;
+    const u = Math.min(1, f.t / f.dur);
+    const e = 1 - (1 - u) * (1 - u);
+    const root = b.rig.root;
+    root.position.set(f.x0 + (f.x1 - f.x0) * e, f.y0 + (f.y1 - f.y0) * (f.y1 < 0 ? u * u : e) + f.hop * 4 * u * (1 - u), f.z0 + (f.z1 - f.z0) * e);
+    root.rotation.y = f.yaw0 + (f.yaw1 - f.yaw0) * e;
+    if (f.kind === 'collapse') {
+      _anim.state = 'down';
+      _anim.time = this.ctx.time;
+      _anim.dt = dt;
+      _anim.params = { twitch: false, facing: 1 };
+      b.rig.animate(_anim);
+      for (const h of b.hidden) h.scale.setScalar(1e-3);
+    }
+    // Sliding bodies smear blood.
+    if (f.kind === 'move' && f.y1 >= 0 && Math.random() < 0.4) this.ctx.blood.splat('smear', root.position.x, root.position.z, 0.16, { angle: Math.atan2(f.z1 - f.z0, f.x1 - f.x0), stretch: 2 });
+    return u >= 1;
   }
 
   /** Head destroyed: red mist, chunks, a spray. */
@@ -617,7 +960,20 @@ export class Bodies {
     this.ensureLive(b);
     b.twitch = 2.2;
     b.jolt = 0;
+    // Real jolts need the ragdoll; over budget the bones jerk in place (see update).
+    if (!b.rag && !b.fall && this.admit()) this.makeRagdoll(b);
     this.activate(b);
+  }
+
+  /** A ragdoll for a body lying as it is (canned bodies that need physics after all). */
+  private makeRagdoll(b: Body, opts: RagdollOptions = {}): Ragdoll {
+    const rag = new Ragdoll(this.ctx.physics, b.rig, opts);
+    rag.onFrozen = () => this.onSettled(b);
+    b.rag = rag;
+    b.fall = null;
+    b.jitter = null;
+    b.pending = null;
+    return rag;
   }
 
   /** The SAME rig gets up as the new crawler. Returns true when handed over. */
@@ -630,6 +986,8 @@ export class Bodies {
     b.rag?.dispose();
     b.rag = null;
     b.twitch = 0;
+    b.fall = null;
+    this.endJitter(b);
     const rig = b.rig;
     const pelvis = rig.bones.get('pelvis');
     rig.root.updateMatrixWorld(true);
@@ -643,11 +1001,13 @@ export class Bodies {
       _m.copy(pelvis.parent.matrixWorld).invert().multiply(pw);
       _m.decompose(pelvis.position, pelvis.quaternion, _s);
     }
-    rig.setEyeGlow(true);
+    this.eyes(b, true);
     b.mode = 'gone';
     this.byId.delete(id);
     this.removeActive(b);
-    const rec = this.horde.spawn(zb as Zombie, rig, 0.45);
+    const skin = b.skin;
+    b.skin = null;
+    const rec = this.horde.spawn(zb as Zombie, rig, 0.45, skin);
     rec.nails = b.nails;
     // A gasp of blood as it lifts its head.
     this.ctx.blood.spray({ x: zb.x + 0.6, y: 0.3, z: zb.z }, 18, { dirX: 1, speed: [0.5, 2.5], up: [0.5, 2], spread: 1.2 });
@@ -665,12 +1025,12 @@ export class Bodies {
       const head = b.rig.bones.get(b.rig.head);
       if (head && head.visible) {
         const hp = head.getWorldPosition(new THREE.Vector3());
-        head.visible = false;
+        hideBone(head, b.hidden);
         this.headBurst(hp, 0, 0, 0.8, true);
         this.ctx.blood.pool(hp.x, hp.z, 0.5);
       }
     }
-    b.rig.setEyeGlow(false);
+    this.eyes(b, false);
     if (b.mode === 'baked') this.rebake(b);
     else this.activate(b);
   }
@@ -679,7 +1039,23 @@ export class Bodies {
     const b = this.byId.get(id);
     if (!b || b.mode === 'gone') return;
     this.ensureLive(b);
-    if (!b.rag) return;
+    if (b.fall) {
+      // Still falling: it lands at the new spot.
+      if (b.fall.kind === 'collapse') {
+        b.fall.x1 = x - PELVIS_X * Math.cos(b.fall.yaw1);
+        b.fall.z1 = z + PELVIS_X * Math.sin(b.fall.yaw1);
+      } else this.startFall(b, x + PELVIS_X, z, 'move', rand(0.3, 0.6), 0.5);
+      return;
+    }
+    if (!b.rag && this.admit()) this.makeRagdoll(b);
+    if (!b.rag || (b.rag.frozen && !this.admit())) {
+      // Over budget: thrown as it lies.
+      this.endJitter(b);
+      b.rag?.dispose();
+      b.rag = null;
+      this.startFall(b, x + PELVIS_X, z, 'move', rand(0.35, 0.7), rand(0.45, 0.6));
+      return;
+    }
     const pel = b.rag.part('pelvis')?.body.position;
     const dx = pel ? x - pel.x : 0;
     const dz = pel ? z - pel.z : 0;
@@ -696,7 +1072,7 @@ export class Bodies {
     this.ensureLive(b);
     b.burning = true;
     b.permanent = true;
-    b.rig.setEyeGlow(false);
+    this.eyes(b, false);
     this.activate(b);
   }
 
@@ -725,11 +1101,15 @@ export class Bodies {
       }
       case 'sea': {
         b.id = null;
+        const sz = Math.sign(c?.z ?? p.z) || 1;
+        if (!b.rag && !b.fall) this.makeRagdoll(b);
         if (b.rag) {
           b.rag.wake();
           b.rag.guide = null;
-          const sz = Math.sign(c?.z ?? p.z) || 1;
           b.rag.kick(rand(-0.5, 0.5), 2.2, sz * 3.2, undefined, 5);
+        } else {
+          // Mid canned fall: over the edge and down.
+          this.startFall(b, p.x, sz * 7.5, 'move', 0.6, 0.9, undefined, -3.2);
         }
         this.activate(b);
         break;
@@ -744,16 +1124,25 @@ export class Bodies {
         }
         // Torn apart where it lies.
         b.rag?.dispose();
+        b.rag = null;
+        b.fall = null;
+        this.endJitter(b);
         b.rig.root.updateMatrixWorld(true);
         const gibBones = new Set(Object.entries(b.rig.spec).filter(([, s]) => s.gib).map(([k]) => k));
         const bp = ex ? new THREE.Vector3(ex.x, 0, ex.z) : p.clone().setY(0);
-        b.rag = new Ragdoll(ctx.physics, b.rig, { detach: gibBones, detachSpeed: 4, blast: { point: bp, speed: 4.5 }, velocity: new THREE.Vector3(0, 1, 0) });
-        b.rag.onFrozen = () => this.onSettled(b);
         b.id = null;
         b.permanent = true;
         b.burning = false;
-        b.rig.setEyeGlow(false);
+        this.eyes(b, false);
         this.gore(p, b.kind, 0.8, Math.sign(p.x - bp.x) || 1);
+        if (this.admit()) {
+          this.makeRagdoll(b, { detach: gibBones, detachSpeed: 4, blast: { point: bp, speed: 4.5 }, velocity: new THREE.Vector3(0, 1, 0) });
+        } else {
+          // Over budget: the limbs fly as pieces, the rest stays where it lies.
+          this.canned++;
+          this.flingLimbs(b, bp, 4.5);
+          this.startFall(b, p.x + rand(-0.4, 0.4), p.z + rand(-0.3, 0.3), 'move', rand(0.3, 0.6), 0.45);
+        }
         this.activate(b);
         break;
       }
@@ -791,6 +1180,7 @@ export class Bodies {
     b.mode = 'live';
     this.ctx.root.add(b.rig.root);
     if (b.charred > 0) b.rig.setCharred(b.charred);
+    this.ensureSkin(b);
   }
 
   private bake(b: Body): void {
@@ -798,6 +1188,8 @@ export class Bodies {
     // Dead for good: the body goes dark and drab (it recedes into the deck);
     // a body that will rise keeps its colours (and its glowing eyes).
     const tint = b.charred > 0 ? charredTint(b.charred) : b.permanent ? DEAD_TINT : undefined;
+    this.endJitter(b);
+    this.dropSkin(b);
     const head = b.rig.bones.get(b.rig.head);
     b.headAt = head && head.visible ? head.getWorldPosition(b.headAt ?? new THREE.Vector3()) : null;
     if (b.charred > 0) b.rig.setCharred(0);
@@ -818,16 +1210,23 @@ export class Bodies {
 
   private maybeBake(b: Body): void {
     if (b.mode !== 'live') return;
-    if (b.burning || b.twitch > 0 || b.kebab || b.sinking) return;
+    if (b.burning || b.twitch > 0 || b.kebab || b.sinking || b.fall) return;
     if (b.rag && (!b.rag.frozen || b.rag.pinned)) return;
+    if (b.rag && !b.rag.grounded()) {
+      // Never bake a body hanging in the air: let it drop to the planks first.
+      b.rag.wake();
+      this.activate(b);
+      return;
+    }
     this.bake(b);
   }
 
   private onSettled(b: Body): void {
     const ctx = this.ctx;
-    if (!b.pooled && b.rag && !b.sinking) {
+    if (!b.pooled && !b.sinking) {
       b.pooled = true;
-      const c = b.rag.centre(_v);
+      const pel = b.rig.bones.get('pelvis');
+      const c = b.rag ? b.rag.centre(_v) : pel ? pel.getWorldPosition(_v) : _v.copy(b.rig.root.position);
       if (c.y > -1 && ctx.env.isOnDeck(c.x, c.z)) {
         const r = Math.min(1.6, 0.4 + 0.25 * b.massK);
         ctx.blood.pool(c.x, c.z, r);
@@ -847,6 +1246,10 @@ export class Bodies {
     b.bake = null;
     b.rag?.dispose();
     b.rag = null;
+    b.fall = null;
+    b.jitter = null;
+    b.pending = null;
+    this.dropSkin(b);
     b.rig.root.removeFromParent();
     b.mode = 'gone';
     this.removeActive(b);
@@ -879,7 +1282,33 @@ export class Bodies {
       this.pendingKebab.clear();
     }
     this.updateKebabs(dt, muzzleOf);
-    this.capRagdolls();
+    // Ragdolls held back by last frame's share start now (the oldest first;
+    // one kept waiting too long falls the canned way instead).
+    for (let i = 0; i < this.queue.length; i++) {
+      const b = this.queue[i];
+      const opts = b.pending;
+      if (!opts || b.rag || b.fall || b.mode !== 'live') {
+        b.pending = null;
+        this.queue.splice(i--, 1);
+        continue;
+      }
+      if (this.madeThisFrame < this.newPerFrame) {
+        this.madeThisFrame++;
+        b.pending = null;
+        this.queue.splice(i--, 1);
+        this.startRagdoll(b, opts);
+      } else if (++b.waited > 4) {
+        b.pending = null;
+        this.queue.splice(i--, 1);
+        this.canned++;
+        const pel = b.rig.bones.get('pelvis');
+        const pp = pel ? pel.getWorldPosition(_v) : _v.copy(b.rig.root.position);
+        this.startFall(b, opts.guide?.x ?? pp.x, opts.guide?.z ?? pp.z, 'collapse', 0.15, 0.55);
+      }
+    }
+    // Over budget (woken bodies): retire the oldest that already lie still.
+    const n = this.ragdolls;
+    if (n > this.cap) this.retire(n - this.cap);
     this.undeadTells(dt);
     const list = this.active;
     for (let i = list.length - 1; i >= 0; i--) {
@@ -888,6 +1317,7 @@ export class Bodies {
         list.splice(i, 1);
         continue;
       }
+      if (b.pending) continue;
       const rag = b.rag;
       if (rag && !rag.frozen) {
         rag.sync(dt);
@@ -897,30 +1327,52 @@ export class Bodies {
           if (c.y < 1 && c.y > -0.3 && ctx.env.isOnDeck(c.x, c.z)) ctx.blood.splat('smear', c.x, c.z, 0.16, { angle: Math.atan2(rag.parts[0].body.velocity.z, rag.parts[0].body.velocity.x), stretch: 2 });
         }
       }
+      // Canned falls (over the ragdoll budget).
+      const f = b.fall;
+      if (f && dt > 0 && this.stepFall(b, f, dt)) {
+        b.fall = null;
+        if (f.y1 < 0) {
+          // Into the sea.
+          const r = b.rig.root.position;
+          ctx.effects.splash({ x: r.x, y: -2.5, z: r.z }, Math.min(1.4, 0.35 + b.massK * 0.5));
+          this.kill(b);
+          continue;
+        }
+        this.onSettled(b);
+      }
+      // Blob shadow (low quality) under a body that is still moving.
+      if (ctx.blobs.enabled && b.mode === 'live' && !b.sinking) {
+        const pel = rag && !rag.frozen ? rag.centre(_v2) : b.fall ? b.rig.root.position : null;
+        if (pel && pel.y > -0.5) ctx.blobs.push(pel.x, pel.z, 0.55 * b.massK ** 0.33, 0.35 * b.massK ** 0.33, clamp(1 - pel.y * 0.5, 0.2, 1));
+      }
       // Twitching: the dead jerk before they rise.
-      if (b.twitch > 0 && rag) {
+      if (b.twitch > 0) {
         b.twitch -= dt;
         b.jolt -= dt;
-        if (b.jolt <= 0) {
+        if (b.jolt <= 0 && dt > 0) {
           const prog = 1 - b.twitch / 2.2;
           b.jolt = rand(0.1, 0.3) * (1 - 0.35 * prog);
-          rag.wake(true);
-          const limbs = ['foreArmL', 'foreArmR', 'shinL', 'shinR', 'upperArmL', 'upperArmR', 'thighL', 'thighR'];
-          const s = 2.2 + 2 * prog;
-          for (let j = 0; j < 2; j++) {
-            const limb = limbs[(Math.random() * limbs.length) | 0];
-            rag.kick(rand(-1, 1) * s * 0.5, rand(1.4, 2.6) * s, rand(-1, 1) * s * 0.45, limb, 12);
-          }
-          // The back arches, the head snaps.
-          if (Math.random() < 0.45 + 0.3 * prog) rag.kick(0, rand(1.8, 3.2), 0, 'chest', 4);
-          if (Math.random() < 0.4) rag.kick(rand(-1, 1), rand(1.5, 3), rand(-1, 1), b.rig.head, 14);
+          const physical = rag && !rag.pinned && (!rag.frozen || this.admit(false, false));
+          if (physical && rag) {
+            rag.wake(true);
+            const s = 2.2 + 2 * prog;
+            for (let j = 0; j < 2; j++) {
+              const limb = TWITCH_LIMBS[(Math.random() * TWITCH_LIMBS.length) | 0];
+              rag.kick(rand(-1, 1) * s * 0.5, rand(1.4, 2.6) * s, rand(-1, 1) * s * 0.45, limb, 12);
+            }
+            // The back arches, the head snaps.
+            if (Math.random() < 0.45 + 0.3 * prog) rag.kick(0, rand(1.8, 3.2), 0, 'chest', 4);
+            if (Math.random() < 0.4) rag.kick(rand(-1, 1), rand(1.5, 3), rand(-1, 1), b.rig.head, 14);
+          } else if (!b.fall) this.jolt(b, 0.5 + 0.6 * prog);
           if (Math.random() < 0.3) {
             const ch = b.rig.bones.get('chest');
             if (ch) ctx.blood.spray(ch.getWorldPosition(_v), 6, { dirX: 0, speed: [0.3, 1.4], up: [1, 2.8], spread: Math.PI });
           }
         }
+        if (b.jitter && dt > 0) this.stepJitter(b, dt);
         if (b.twitch <= 0) {
           b.twitch = 0;
+          this.endJitter(b);
           this.maybeBake(b);
         }
       }
@@ -945,8 +1397,48 @@ export class Bodies {
         }
       }
       if (b.mode === 'live' && rag && rag.frozen) this.maybeBake(b);
-      else if (b.mode === 'live' && !rag && !b.burning) this.bakeOrphanless(b);
+      else if (b.mode === 'live' && !rag && !b.burning && !b.fall) this.bakeOrphanless(b);
     }
+    this.madeThisFrame = 0;
+  }
+
+  // ================================================================== canned twitch
+
+  /** One canned jolt: the limbs, chest and head jerk around their lying pose. */
+  private jolt(b: Body, k: number): void {
+    let j = b.jitter;
+    if (!j) {
+      j = { bones: [], base: [], kick: [] };
+      for (const name of [...TWITCH_LIMBS, 'chest', b.rig.head]) {
+        const bone = b.rig.bones.get(name);
+        if (!bone) continue;
+        j.bones.push(bone);
+        j.base.push(bone.quaternion.clone());
+        j.kick.push(new THREE.Vector3());
+      }
+      b.jitter = j;
+    }
+    for (let i = 0; i < j.bones.length; i++) {
+      if (Math.random() < 0.45) j.kick[i].set(rand(-1, 1), rand(-1, 1), rand(-1, 1)).multiplyScalar(0.55 * k);
+    }
+  }
+
+  private stepJitter(b: Body, dt: number): void {
+    const j = b.jitter!;
+    const decay = Math.exp(-dt * 7);
+    for (let i = 0; i < j.bones.length; i++) {
+      const kk = j.kick[i];
+      kk.multiplyScalar(decay);
+      j.bones[i].quaternion.copy(j.base[i]).multiply(_q.setFromEuler(_e.set(kk.x, kk.y, kk.z)));
+    }
+  }
+
+  /** Put the jerking bones back where they were. */
+  private endJitter(b: Body): void {
+    const j = b.jitter;
+    if (!j) return;
+    for (let i = 0; i < j.bones.length; i++) j.bones[i].quaternion.copy(j.base[i]);
+    b.jitter = null;
   }
 
   /**
@@ -996,21 +1488,6 @@ export class Bodies {
     }
   }
 
-  /** Too many bodies in the simulation at once: the oldest calm ones stop where they are. */
-  private capRagdolls(): void {
-    let n = 0;
-    for (const b of this.active) if (b.rag && !b.rag.frozen) n++;
-    if (n <= MAX_RAGDOLLS) return;
-    const cands = this.active.filter((b) => b.rag && !b.rag.frozen && !b.rag.pinned && b.twitch <= 0 && !b.sinking);
-    cands.sort((a, b) => b.rag!.age - a.rag!.age);
-    for (let i = 0; i < cands.length && n > MAX_RAGDOLLS; i++) {
-      const r = cands[i].rag!;
-      if (r.age < 0.6) break;
-      r.freeze();
-      n--;
-    }
-  }
-
   private bakeOrphanless(b: Body): void {
     if (b.twitch > 0) return;
     this.bake(b);
@@ -1053,4 +1530,20 @@ export class Bodies {
       ctx.lights.add(_v.x, 0.8, _v.z + 0.3, 0xff7020, 9 * fl, 6.5, 0.9);
     }
   }
+}
+
+/**
+ * Hide a bone and everything under it (head destroyed, limb torn off as gore):
+ * collapsed for the skinned stand-in, invisible for the per-bone meshes and
+ * the corpse bake.
+ */
+function hideBone(bone: THREE.Object3D, list: THREE.Object3D[]): void {
+  bone.visible = false;
+  bone.scale.setScalar(1e-3);
+  if (!list.includes(bone)) list.push(bone);
+}
+
+function isUnder(o: THREE.Object3D, ancestor: THREE.Object3D): boolean {
+  for (let p: THREE.Object3D | null = o; p; p = p.parent) if (p === ancestor) return true;
+  return false;
 }

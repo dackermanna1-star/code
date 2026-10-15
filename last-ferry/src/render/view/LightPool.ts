@@ -42,24 +42,38 @@ export class LightPool {
   private reqs: Req[] = [];
   private n = 0;
   private flashes: Flash[] = [];
+  private spare: Flash[] = [];
   private order: number[] = [];
   /** Night boost: effect lights read stronger in the dark (set from env darkness each frame). */
   boost = 1;
 
-  constructor(scene: THREE.Scene, count: number) {
-    for (let i = 0; i < count; i++) {
-      const l = new THREE.PointLight(0xffffff, 0, 8, 2);
-      l.castShadow = false;
-      l.layers.enable(REFLECT_LAYER);
-      l.name = `fxLight${i}`;
-      scene.add(l);
-      this.lights.push(l);
-    }
+  constructor(
+    private scene: THREE.Scene,
+    count: number,
+  ) {
+    this.resize(count);
     for (let i = 0; i < MAX_REQ; i++) this.reqs.push({ x: 0, y: 0, z: 0, r: 0, g: 0, b: 0, intensity: 0, distance: 1, key: 0 });
   }
 
   get size(): number {
     return this.lights.length;
+  }
+
+  /**
+   * Number of real lights (quality). Every lit material recompiles once when
+   * this changes (three bakes the light count into the shaders), so only call
+   * it from a quality switch.
+   */
+  resize(count: number): void {
+    while (this.lights.length > count) this.lights.pop()!.removeFromParent();
+    while (this.lights.length < count) {
+      const l = new THREE.PointLight(0xffffff, 0, 8, 2);
+      l.castShadow = false;
+      l.layers.enable(REFLECT_LAYER);
+      l.name = `fxLight${this.lights.length}`;
+      this.scene.add(l);
+      this.lights.push(l);
+    }
   }
 
   /** Request a light for this frame only. `priority` scales its claim on a real light. */
@@ -83,8 +97,18 @@ export class LightPool {
    * night boost (big blasts would otherwise light the whole pier like day).
    */
   flash(x: number, y: number, z: number, color: THREE.ColorRepresentation, intensity: number, life: number, distance = 9, flat = false): void {
-    if (this.flashes.length > 24) this.flashes.shift();
-    this.flashes.push({ x, y, z, color: new THREE.Color(color), peak: intensity, life, max: life, distance, flat });
+    // Recycle the oldest flash record (no garbage per muzzle flash).
+    const f = this.flashes.length > 24 ? this.flashes.shift()! : (this.spare.pop() ?? { x: 0, y: 0, z: 0, color: new THREE.Color(), peak: 0, life: 0, max: 0, distance: 0, flat: false });
+    f.x = x;
+    f.y = y;
+    f.z = z;
+    f.color.set(color);
+    f.peak = intensity;
+    f.life = life;
+    f.max = life;
+    f.distance = distance;
+    f.flat = flat;
+    this.flashes.push(f);
   }
 
   /** Assign the real lights (call once per frame after every system has made its requests). */
@@ -92,7 +116,10 @@ export class LightPool {
     let w = 0;
     for (const f of this.flashes) {
       f.life -= dt;
-      if (f.life <= 0) continue;
+      if (f.life <= 0) {
+        this.spare.push(f);
+        continue;
+      }
       const t = f.life / f.max;
       this.add(f.x, f.y, f.z, f.color, (f.peak * t * t) / (f.flat ? this.boost : 1), f.distance, 2.5);
       this.flashes[w++] = f;

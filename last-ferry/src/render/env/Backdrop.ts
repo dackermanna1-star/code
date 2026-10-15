@@ -460,6 +460,11 @@ export class Backdrop {
   /** Debug multiplier on the sky beams. */
   beamBoost = 1;
 
+  /** Sky detail (low: cheaper clouds), live. */
+  setQuality(quality: 'low' | 'medium' | 'high'): void {
+    this.skyMat.uniforms.uQuality.value = quality === 'low' ? 0 : 1;
+  }
+
   constructor(
     private sky: SkyUniforms,
     seaU: { uSeaDeep: { value: THREE.Vector3 }; uSeaShallow: { value: THREE.Vector3 }; uGlitter: { value: number } },

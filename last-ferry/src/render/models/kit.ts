@@ -72,7 +72,12 @@ function makeGlow(o: THREE.MeshStandardMaterialParameters = {}, key = 'lf-glow-v
 /** Colour a fully charred body is multiplied by. */
 const CHAR = new THREE.Color(0x1d1714);
 const CHAR_LEVELS = 8;
-const CHAR_CACHE = new Map<string, THREE.MeshStandardMaterial>();
+const CHAR_CACHE = new Map<MatClass, Array<THREE.MeshStandardMaterial | undefined>>();
+
+/** Quantised charring level (0..8) of t: materials only change when it does. */
+export function charredLevel(t: number): number {
+  return Math.max(0, Math.min(CHAR_LEVELS, Math.round(t * CHAR_LEVELS)));
+}
 
 /**
  * Shared charred variant of a material class (t 0..1, quantised to 8 levels).
@@ -81,10 +86,11 @@ const CHAR_CACHE = new Map<string, THREE.MeshStandardMaterial>();
  * toward soot black.
  */
 export function charredMaterial(cls: MatClass, t: number): THREE.MeshStandardMaterial {
-  const level = Math.max(0, Math.min(CHAR_LEVELS, Math.round(t * CHAR_LEVELS)));
+  const level = charredLevel(t);
   if (level === 0 || cls === 'glow') return MATERIALS[cls];
-  const key = `${cls}:${level}`;
-  let m = CHAR_CACHE.get(key);
+  let list = CHAR_CACHE.get(cls);
+  if (!list) CHAR_CACHE.set(cls, (list = []));
+  let m = list[level];
   if (!m) {
     const k = level / CHAR_LEVELS;
     // Burnt tape no longer reflects: char it like plastic.
@@ -92,7 +98,7 @@ export function charredMaterial(cls: MatClass, t: number): THREE.MeshStandardMat
     m.color.copy(new THREE.Color(1, 1, 1).lerp(CHAR, Math.min(1, k * 1.04)));
     m.roughness = THREE.MathUtils.lerp(m.roughness, 0.95, k);
     m.metalness = THREE.MathUtils.lerp(m.metalness, 0.05, k);
-    CHAR_CACHE.set(key, m);
+    list[level] = m;
   }
   return m;
 }
@@ -111,7 +117,30 @@ export function risenMaterial(cls: MatClass): THREE.MeshStandardMaterial {
     m.color.setRGB(0.72, 0.9, 0.6);
     m.emissive.setRGB(0.05, 0.11, 0.02);
     m.userData.lfCharred = true;
+    m.userData.lfRisen = true;
     RISEN_CACHE.set(cls, m);
+  }
+  return m;
+}
+
+const SLIME_CACHE = new Map<MatClass, THREE.MeshStandardMaterial>();
+/**
+ * Shared "slimed" variant: crawlers that spilled out of a bloater or Big Dave
+ * come out wet — glossy, bile yellow-green, faintly self-lit (same programs as
+ * the base materials: only uniforms differ). Marked like the risen variant.
+ */
+export function slimeMaterial(cls: MatClass): THREE.MeshStandardMaterial {
+  if (cls === 'glow' || cls === 'glass' || cls === 'eye') return MATERIALS[cls];
+  let m = SLIME_CACHE.get(cls);
+  if (!m) {
+    m = MATERIALS[cls].clone();
+    m.color.setRGB(0.78, 0.92, 0.42);
+    m.emissive.setRGB(0.05, 0.09, 0.0);
+    m.roughness = Math.min(m.roughness, 0.22);
+    m.metalness = Math.min(m.metalness, 0.1);
+    m.userData.lfCharred = true;
+    m.userData.lfRisen = true;
+    SLIME_CACHE.set(cls, m);
   }
   return m;
 }
@@ -126,11 +155,79 @@ export function charredTint(t: number, out = new THREE.Color()): THREE.Color {
   return out.setRGB(1, 0.94, 0.94).lerp(CHAR, Math.min(1, k * 1.04));
 }
 
+// ---------------------------------------------------------------- the 'uber' material
+/**
+ * Classes a skinned zombie merges into ONE mesh with the 'uber' material: the
+ * class's roughness / metalness and whether it glows (eyes) ride along per
+ * vertex (attribute `lfMat`), so a walking zombie (or a falling body) is one
+ * draw call per pass instead of one per class. Glass and hi-vis tape keep
+ * their own meshes (transparency, their own emissive).
+ */
+export const UBER_CLASSES: ReadonlySet<MatClass> = new Set<MatClass>(['fur', 'skin', 'cloth', 'rubber', 'metal', 'darkmetal', 'wood', 'plastic', 'eye', 'shell', 'glow']);
+
+/** Per-vertex [roughness, metalness, glow] of a class in the uber material. */
+export function uberParams(cls: MatClass): [number, number, number] {
+  if (cls === 'glow' || cls === 'eye') return [0.08, 0, 1];
+  const m = MATERIALS[cls];
+  return [m.roughness, m.metalness, 0];
+}
+
+/** Look of an uber mesh: tint (risen / slimed crawlers), charring level (0..8), eyes lit. */
+export interface UberState {
+  tint: 'base' | 'risen' | 'slime';
+  char: number;
+  eyes: boolean;
+}
+
+const UBER_CACHE = new Map<string, THREE.MeshStandardMaterial>();
+/** Shared uber material for a state (one program for all of them: only uniforms differ). */
+export function uberMaterial(st: UberState): THREE.MeshStandardMaterial {
+  const char = Math.max(0, Math.min(CHAR_LEVELS, Math.round(st.char)));
+  // Charring wins over the risen / slimed tint (as with the per-class variants).
+  const tint = char > 0 ? 'base' : st.tint;
+  const key = `${tint}:${char}:${st.eyes ? 1 : 0}`;
+  let m = UBER_CACHE.get(key);
+  if (m) return m;
+  m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, metalness: 1 });
+  const k = char / CHAR_LEVELS;
+  if (tint === 'risen') {
+    m.color.setRGB(0.72, 0.9, 0.6);
+    m.emissive.setRGB(0.05, 0.11, 0.02);
+  } else if (tint === 'slime') {
+    m.color.setRGB(0.78, 0.92, 0.42);
+    m.emissive.setRGB(0.05, 0.09, 0.0);
+  }
+  if (k > 0) m.color.copy(new THREE.Color(1, 1, 1).lerp(CHAR, Math.min(1, k * 1.04)));
+  const uniforms = { uCharK: { value: k }, uGlow: { value: st.eyes ? 1.4 : 0 }, uSlime: { value: tint === 'slime' ? 1 : 0 } };
+  m.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, uniforms);
+    sh.vertexShader = sh.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec3 lfMat;\nvarying vec3 vLfMat;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvLfMat = lfMat;');
+    sh.fragmentShader = sh.fragmentShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vLfMat;\nuniform float uCharK, uGlow, uSlime;')
+      .replace('#include <color_fragment>', '#include <color_fragment>\n\tfloat lfGlow = vLfMat.z * step(0.001, uGlow);\n\tdiffuseColor.rgb *= 1.0 - lfGlow;')
+      .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix(mix(vLfMat.x, min(vLfMat.x, 0.22), uSlime), 0.95, uCharK);')
+      .replace('#include <metalnessmap_fragment>', 'float metalnessFactor = mix(vLfMat.y, 0.05, uCharK);')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += vColor.rgb * lfGlow * uGlow;');
+  };
+  m.customProgramCacheKey = () => 'lf-uber';
+  m.userData.lfUber = true;
+  UBER_CACHE.set(key, m);
+  return m;
+}
+
 /** Swap every mesh under `root` to the charred variant of its material class. */
 export function applyCharred(root: THREE.Object3D, t: number): void {
   root.traverse((o) => {
     const m = o as THREE.Mesh;
     if (!m.isMesh) return;
+    const uber = m.userData.uber as UberState | undefined;
+    if (uber) {
+      uber.char = charredLevel(t);
+      m.material = uberMaterial(uber);
+      return;
+    }
     const cls = m.userData.matClass as MatClass | undefined;
     if (!cls) return;
     // Meshes with their own (non-shared) material, e.g. hot barrels, are left alone.
