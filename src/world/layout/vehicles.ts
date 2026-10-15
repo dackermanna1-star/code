@@ -61,19 +61,22 @@ export function addVehicleSpawns(b: LayoutBuilder, bridges: BridgeDef[]): void {
       }
     }
     if (best > 60) continue;
-    let placed = false;
-    for (const side of [1, -1]) {
-      const off = (bw / 2 + 2.4) * side;
-      const x = bx - btz * off, z = bz + btx * off;
-      let nearBridge = false;
-      for (const br of bridges) if (Math.hypot(x - (br.a.x + br.b.x) / 2, z - (br.a.z + br.b.z) / 2) < Math.hypot(br.b.x - br.a.x, br.b.z - br.a.z) / 2 + 25) nearBridge = true;
-      if (nearBridge) continue;
-      if (b.overlapsLots({ x, z, hw: 2.6, hd: 2.6, rot: 0 }, 0.5)) continue;
-      b.vehicle(x, z, Math.atan2(btx, btz) + (b.rng.chance(0.5) ? Math.PI : 0), 'land', prefer);
-      placed = true;
-      break;
+    // try both shoulders, sliding along the road if the first spot is blocked
+    search: for (const shift of [0, 8, -8, 16, -16, 26, -26]) {
+      for (const side of [1, -1]) {
+        const off = (bw / 2 + 2.4) * side;
+        const x = bx + btx * shift - btz * off, z = bz + btz * shift + btx * off;
+        let nearBridge = false;
+        for (const br of bridges) if (Math.hypot(x - (br.a.x + br.b.x) / 2, z - (br.a.z + br.b.z) / 2) < Math.hypot(br.b.x - br.a.x, br.b.z - br.a.z) / 2 + 25) nearBridge = true;
+        if (nearBridge) continue;
+        if (b.roadClearance(x, z) < 0.6) continue; // a crossing street right there
+        if (b.overlapsLots({ x, z, hw: 2.6, hd: 2.6, rot: 0 }, 0.5)) continue;
+        if (b.overlapsProps(x, z, 2.6)) continue; // fences, poles, wrecks, hay bales...
+        if (b.riverClearance(x, z) < 6 || b.coastDistance(x, z) < 8) continue;
+        b.vehicle(x, z, Math.atan2(btx, btz) + (b.rng.chance(0.5) ? Math.PI : 0), 'land', prefer);
+        break search;
+      }
     }
-    void placed;
   }
   for (const [x, z, r] of WATER) b.vehicle(x, z, r, 'water', ['vehicle_boat']);
 }

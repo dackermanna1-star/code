@@ -143,12 +143,8 @@ export async function installWorld(ctx: GameContext): Promise<void> {
     priority: Priority.World,
     update: (dt) => {
       try {
-        env.underwater = water.isUnderwater(ctx.camera.position);
         env.update(dt);
         const p = env.params;
-        water.update(dt, ctx.camera, p.rain, p.wind);
-        rain.quality = [0.35, 0.7, 1][ctx.settings.data.graphics.effectsQuality] ?? 1;
-        rain.update(dt, ctx.camera, p.rain, p.wind, 1 - env.night * 0.85, env.underwater);
         uniforms.uWetness.value = p.wetness;
         roadUniforms.uWetness.value = p.wetness;
         uniforms.uCloudCover.value = p.cloudCover;
@@ -165,6 +161,12 @@ export async function installWorld(ctx: GameContext): Promise<void> {
       try {
         if (debugState.freeCam) fly.update(dt);
         const cam = ctx.camera;
+        // camera-dependent pieces run after the camera rig moved the camera this frame (no 1-frame lag)
+        env.setUnderwater(water.isUnderwater(cam.position));
+        const p = env.params;
+        water.update(dt, cam, p.rain, p.wind);
+        rain.quality = [0.35, 0.7, 1][ctx.settings.data.graphics.effectsQuality] ?? 1;
+        rain.update(dt, cam, p.rain, p.wind, 1 - env.night * 0.85, env.underwater, ctx.buildings?.buildings);
         // far plane follows the view distance setting (wider from altitude so the island stays visible from the plane)
         const vd = ctx.settings.data.graphics.viewDistance;
         const far = Math.min(9000, Math.max(800, vd * (1 + Math.max(0, cam.position.y - 50) / 350)));

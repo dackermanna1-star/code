@@ -21,6 +21,8 @@ import { N8AOPostPass } from 'n8ao';
 import type { GameContext } from '../core/GameContext';
 import type { GraphicsSettings } from '../core/Settings';
 
+const _dir = new THREE.Vector3();
+
 const gradeFragment = /* glsl */ `
 uniform float saturation;
 uniform float contrast;
@@ -155,7 +157,7 @@ export class PostProcessing {
     if (this.manualFocus !== null) this.focusDist = this.manualFocus;
     else if (this.focusTimer <= 0 && this.ctx.physics?.ready) {
       this.focusTimer = 0.1;
-      const dir = camera.getWorldDirection(new THREE.Vector3());
+      const dir = camera.getWorldDirection(_dir);
       const hit = this.ctx.physics.raycast(camera.position, dir, 1500);
       this.focusDist = hit ? Math.max(2, hit.distance) : 400;
     }

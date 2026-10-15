@@ -47,10 +47,15 @@ KINDS.update({
     'cotton_wht':   dict(_F, base='#e4e1d8', var='#d6d2c6', rough=0.92, wear='#c8c2b2', wear_amt=0.2, bump=0.6),
     'gauze':        dict(_F, base='#ece9e1', var='#dedad0', rough=0.95, wear='#d2ccbe', wear_amt=0.15, pat='gauze', bump=0.9),
     'rag':          dict(_F, base='#b9ab8c', var='#9a8b6c', rough=0.95, wear='#5a4a36', wear_amt=0.6, bump=0.8),
-    'camo_wood':    dict(_F, base='#727550', var='#6a6d48', rough=0.85, wear='#8a8a6a', wear_amt=0.2, pat='camo', bump=0.45,
-                         camo=['#727550', '#5a4632', '#384329', '#1e1e1b']),
+    'camo_wood':    dict(_F, base='#5d6140', var='#565a3b', rough=0.85, wear='#77785e', wear_amt=0.2, pat='camo', bump=0.45,
+                         camo=['#5d6140', '#4a3a28', '#2e3821', '#191917']),
     'nylon_chute':  dict(_F, base='#4b5a3a', var='#45533a', rough=0.6, wear='#5a6a48', wear_amt=0.0, pat='ripstop', bump=0.25),
     'nylon_chute2': dict(_F, base='#c8c6bc', var='#bdbab0', rough=0.6, wear='#d8d6cc', wear_amt=0.0, pat='ripstop', bump=0.25),
+    'nylon_navy':   dict(_F, base='#26324f', var='#222d48', rough=0.55, wear='#3a4868', wear_amt=0.0, pat='ripstop', bump=0.2),
+    'nylon_white':  dict(_F, base='#cfcfc6', var='#c4c4ba', rough=0.55, wear='#dcdcd4', wear_amt=0.0, pat='ripstop', bump=0.2),
+    'nylon_orange': dict(_F, base='#b8521c', var='#a84a18', rough=0.55, wear='#c86a38', wear_amt=0.0, pat='ripstop', bump=0.2),
+    'nylon_od':     dict(_F, base='#4a5236', var='#434a30', rough=0.6, wear='#5a6244', wear_amt=0.0, pat='ripstop', bump=0.2),
+    'nylon_sand':   dict(_F, base='#a8987a', var='#9c8c6e', rough=0.6, wear='#b8a88a', wear_amt=0.0, pat='ripstop', bump=0.2),
     'cord':         dict(_F, base='#3c3b34', var='#33322c', rough=0.75, wear='#55544c', wear_amt=0.0, pat='rib', bump=0.4),
     # foams, rubber, leather
     'foam':         dict(base='#2a2b2c', var='#242526', metal=0.0, rough=0.96, rvar=0.03, wear='#333435', wear_amt=0.0, wear_rough=0.95, pat='stipple', bump=0.7),
@@ -104,6 +109,7 @@ RAW = {
     'liquid_fuel': dict(base='#7a4a10', rough=0.08, metal=0.0, alpha=0.9, spec=0.6),
     'liquid_yel':  dict(base='#c8a020', rough=0.1, metal=0.0, alpha=0.9, spec=0.6),
     'emit_red':    dict(base='#ff2010', rough=0.4, metal=0.0, alpha=1.0, emit='#ff2010', emit_k=6.0),
+    'line':        dict(base='#2e2d29', rough=0.75, metal=0.0, alpha=1.0, spec=0.3),
     'reflector':   dict(base='#d0d0c8', rough=0.25, metal=0.9, alpha=1.0, spec=0.5),
 }
 
@@ -556,6 +562,10 @@ class Kit(wkit.Gun):
         self.work = work or '/tmp/gear_build'
         self.export_tangents = True
         self.node_mode = {}           # group -> 'mesh' (default) | 'pivot'
+        self.uv_pack = 'AABB'         # uv.pack_islands shape_method (CONCAVE/CONVEX can hang on tiny islands)
+        self.double_sided = False     # export the baked material double-sided (canopies, cloth)
+        self.decimate = 1.0           # collapse-decimate ratio for parts with more than decimate_min triangles
+        self.decimate_min = 1500
         self.root_name = aid
 
     # ---------- materials ----------
@@ -657,7 +667,7 @@ class Kit(wkit.Gun):
         return target
 
     # ---------- decal UVs ----------
-    def decal_uv(self, ob, plane, rect, img_rect=(0, 0, 1, 1), facing=None, min_dot=0.25, flip_u=False):
+    def decal_uv(self, ob, plane, rect, img_rect=(0, 0, 1, 1), facing=None, min_dot=0.25, flip_u=False, flip_v=False):
         """Project DECAL UVs onto object `ob` (already registered). Coordinates in gun mm.
         plane: 'fu' (side view, looking from +s toward -s: a = f, b = u), 'fu-' (seen from -s side: a = -f),
                'su' (front, looking from +f: a = -s ... ), 'su-' (back), 'fs' (top: a = -s, b = f), 'fs-'(bottom)
@@ -691,6 +701,9 @@ class Kit(wkit.Gun):
                     _, fc, sc = plane
                     ang = math.degrees(math.atan2(-(s - sc), f - fc))   # 0 = facing +f, +90 = toward -s (left)
                     a, b = ang, u
+                elif isinstance(plane, tuple) and plane[0] == 'cylf':
+                    _, uc, sc = plane                                   # cylinder along f: a = f, b = angle (0 = top, +90 = -s)
+                    a, b = f, math.degrees(math.atan2(-(s - sc), u - uc))
                 elif plane == 'fu': a, b = f, u
                 elif plane == 'fu-': a, b = -f, u
                 elif plane == 'su': a, b = -s, u
@@ -700,7 +713,26 @@ class Kit(wkit.Gun):
                 else: raise ValueError(plane)
                 x = (a - a0) / (a1 - a0); y = (b - b0) / (b1 - b0)
                 if flip_u: x = 1 - x
+                if flip_v: y = 1 - y
                 lay.data[li].uv = (ix0 + x * (ix1 - ix0), iy0 + y * (iy1 - iy0))
+
+    # ---------- UV ----------
+    def _uv_classes(self, objs):
+        """smart-project every part, then pack all islands into one atlas (CONVEX packing: CONCAVE can hang)."""
+        for o in bpy.context.view_layer.objects: o.select_set(False)
+        for o in objs:
+            o.select_set(True)
+            if not o.data.uv_layers: o.data.uv_layers.new(name='UVMap')
+        bpy.context.view_layer.objects.active = objs[0]
+        bpy.context.scene.tool_settings.use_uv_select_sync = True
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.0, area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
+        try:
+            bpy.ops.uv.pack_islands(udim_source='CLOSEST_UDIM', rotate=True, margin_method='FRACTION', margin=0.008, shape_method=self.uv_pack)
+        except Exception as e:
+            print('pack fail', e)
+        bpy.ops.object.mode_set(mode='OBJECT')
 
     # ---------- finishing ----------
     def finish(self, out_path, bake=True, samples=12, keep_blend=None):
@@ -708,6 +740,18 @@ class Kit(wkit.Gun):
         bpy.context.view_layer.update()
         allparts = [ob for ob, g in self.parts]
         rawparts = [ob for ob, g in self.raw_parts]
+        if self.decimate < 0.999:
+            for ob in allparts:
+                ob.data.calc_loop_triangles()
+                nt = len(ob.data.loop_triangles)
+                if nt > self.decimate_min:
+                    m = ob.modifiers.new('dec', 'DECIMATE'); m.ratio = max(self.decimate, self.decimate_min / nt)
+                    m.use_collapse_triangulate = False
+                    dg = bpy.context.evaluated_depsgraph_get()
+                    me2 = bpy.data.meshes.new_from_object(ob.evaluated_get(dg))
+                    ob.modifiers.remove(m)
+                    old = ob.data; ob.data = me2
+                    me2.materials.clear(); me2.materials.append(old.materials[0])
         for ob in allparts + rawparts:
             bm = bmesh.new(); bm.from_mesh(ob.data)
             bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=2e-6)
@@ -764,6 +808,8 @@ class Kit(wkit.Gun):
             for what in ('bsdf', 'col', 'rough', 'metal'):
                 self._bake_pass(baked_objs, what, samples)
             final = self._bake_finish()
+            if self.double_sided:
+                final.use_backface_culling = False
             for o in baked_objs:
                 o.data.materials.clear(); o.data.materials.append(final)
         for o in objs:

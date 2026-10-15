@@ -71,6 +71,8 @@ export class Locomotion {
   };
   /** Debug: play exactly this clip (by name) and nothing else. */
   forceClip: string | null = null;
+  /** Scratch clip weights for the ground blend (≤ 2 directions × 2 speeds), reused every frame. */
+  private readonly blend: BlendEntry[] = [0, 1, 2, 3].map(() => ({ c: null, w: 0 }));
   private forceTime = 0;
 
   constructor(root: THREE.Object3D, private readonly lib: CharacterLibrary, phaseOffset = 0) {
@@ -267,22 +269,24 @@ export class Locomotion {
 
     // Direction: angle of movement in body space (0 = forward, + = right).
     const ang = Math.atan2(inp.localVel.x, inp.localVel.y);
-    const dirs = uniqueAngles(loco);
+    const idx = directionIndex(loco);
+    const dirs = idx.dirs;
     o.forwardOnly = dirs.length === 1;
-    let clipsForBlend: { c: ClipInfo; w: number }[];
+    const blend = this.blend;
+    let n: number;
     if (o.forwardOnly) {
       // Forward clips only: play them forward (reversed when moving backward) and twist the hips.
       const back = Math.abs(ang) > Math.PI * 0.6;
       o.reversed = back;
       const legAng = back ? wrap(ang + Math.PI) : ang;
       o.hipYaw = Math.max(-1.25, Math.min(1.25, legAng));
-      clipsForBlend = speedBlend(loco, speed);
+      n = speedBlendInto(idx.all, speed, 1, blend, 0);
     } else {
       // Blend the two nearest direction sets by angle, each with its own speed blend.
-      const [a0, a1, t] = bracket(dirs, ang);
-      const s0 = speedBlend(loco.filter((c) => Math.abs(wrap(c.angle - a0)) < 0.2), speed);
-      const s1 = speedBlend(loco.filter((c) => Math.abs(wrap(c.angle - a1)) < 0.2), speed);
-      clipsForBlend = [...s0.map((x) => ({ c: x.c, w: x.w * (1 - t) })), ...s1.map((x) => ({ c: x.c, w: x.w * t }))];
+      const br = bracketInto(dirs, ang, _bracket);
+      const a0 = dirs[br[0]], a1 = dirs[br[1]], t = br[2];
+      n = speedBlendInto(idx.byDir[br[0]], speed, 1 - t, blend, 0);
+      n = speedBlendInto(idx.byDir[br[1]], speed, t, blend, n);
       // Residual angle between sparse directions (e.g. 4-way sets): small hip twist.
       const span = Math.abs(wrap(a1 - a0));
       if (span > 1.0) o.hipYaw = Math.max(-0.5, Math.min(0.5, wrap(ang - (t < 0.5 ? a0 : a1)) * 0.6));
@@ -290,10 +294,11 @@ export class Locomotion {
 
     // Distance-synced phase: metres per cycle blended over the participating clips.
     let cycleDist = 0, wsum = 0, slowest = Infinity;
-    for (const { c, w } of clipsForBlend) {
-      cycleDist += c.speed * c.clip.duration * w;
+    for (let i = 0; i < n; i++) {
+      const { c, w } = blend[i];
+      cycleDist += c!.speed * c!.clip.duration * w;
       wsum += w;
-      slowest = Math.min(slowest, c.speed);
+      slowest = Math.min(slowest, c!.speed);
     }
     cycleDist = wsum > 0 ? cycleDist / wsum : 1;
     const dPhase = (speed * dt) / Math.max(0.05, cycleDist);
@@ -306,7 +311,8 @@ export class Locomotion {
     o.idleWeight = 1 - moveW;
     if (idle && moveW < 1) this.target.set(idle, 1 - moveW);
     if (crouchFromStand) o.synthCrouchIdle = 1 - moveW;
-    for (const { c, w } of clipsForBlend) {
+    for (let i = 0; i < n; i++) {
+      const c = blend[i].c!, w = blend[i].w;
       if (w <= 1e-4) continue;
       this.target.set(c, (this.target.get(c) ?? 0) + w * moveW);
       this.setTime(c, this.phase * c.clip.duration);
@@ -319,6 +325,83 @@ export class Locomotion {
     this.mixer.stopAllAction();
     this.mixer.uncacheRoot(this.mixer.getRoot());
   }
+}
+
+interface BlendEntry {
+  c: ClipInfo | null;
+  w: number;
+}
+
+/** Per-loco-list precomputation: distinct directions (sorted) and each direction's clips sorted by speed. */
+interface DirectionIndex {
+  dirs: number[];
+  byDir: ClipInfo[][];
+  all: ClipInfo[];
+}
+const dirIndexCache = new WeakMap<ClipInfo[], DirectionIndex>();
+const _bracket: [number, number, number] = [0, 0, 0];
+
+export function directionIndex(loco: ClipInfo[]): DirectionIndex {
+  let idx = dirIndexCache.get(loco);
+  if (idx && idx.all.length === loco.length) return idx;
+  const dirs = uniqueAngles(loco);
+  const bySpeed = (a: ClipInfo, b: ClipInfo) => a.speed - b.speed;
+  idx = {
+    dirs,
+    byDir: dirs.map((d) => loco.filter((c) => Math.abs(wrap(c.angle - d)) < 0.2).sort(bySpeed)),
+    all: [...loco].sort(bySpeed),
+  };
+  dirIndexCache.set(loco, idx);
+  return idx;
+}
+
+/** Allocation-free bracket(): writes [index0, index1, t] into `out`. */
+export function bracketInto(dirs: number[], ang: number, out: [number, number, number]): [number, number, number] {
+  let i0 = 0, i1 = 0, d0 = Infinity, d1 = Infinity;
+  for (let i = 0; i < dirs.length; i++) {
+    const d = wrap(ang - dirs[i]);
+    if (d >= 0 && d < d0) {
+      d0 = d;
+      i0 = i;
+    }
+    if (d <= 0 && -d < d1) {
+      d1 = -d;
+      i1 = i;
+    }
+  }
+  if (!isFinite(d0)) i0 = i1;
+  if (!isFinite(d1)) i1 = i0;
+  const span = isFinite(d0) && isFinite(d1) ? d0 + d1 : 0;
+  out[0] = i0;
+  out[1] = i1;
+  out[2] = span > 1e-4 ? d0 / span : 0;
+  return out;
+}
+
+/** Allocation-free speedBlend() over clips already sorted by speed, scaled by `scale`; returns the new count. */
+export function speedBlendInto(sorted: ClipInfo[], speed: number, scale: number, out: BlendEntry[], n: number): number {
+  const m = sorted.length;
+  if (m === 0) return n;
+  let ia = m - 1, ib = -1, t = 0;
+  if (speed <= sorted[0].speed) ia = 0;
+  else
+    for (let i = 0; i < m - 1; i++) {
+      if (speed <= sorted[i + 1].speed) {
+        ia = i;
+        ib = i + 1;
+        t = (speed - sorted[i].speed) / Math.max(1e-4, sorted[i + 1].speed - sorted[i].speed);
+        break;
+      }
+    }
+  out[n].c = sorted[ia];
+  out[n].w = (ib >= 0 ? 1 - t : 1) * scale;
+  n++;
+  if (ib >= 0) {
+    out[n].c = sorted[ib];
+    out[n].w = t * scale;
+    n++;
+  }
+  return n;
 }
 
 function wrap(a: number): number {

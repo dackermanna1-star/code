@@ -1,0 +1,28 @@
+{
+ "tris": 2592,
+ "bounds_min": [
+  -0.1014,
+  -0.0003,
+  -0.051
+ ],
+ "bounds_max": [
+  0.038,
+  0.076,
+  0.149
+ ],
+ "size_m": [
+  0.1394,
+  0.0763,
+  0.2
+ ],
+ "nodes": [
+  "item_bandage",
+  "body"
+ ],
+ "materials": [
+  "M_item_bandage"
+ ],
+ "kind": "heal",
+ "type": "bandage",
+ "id": "item_bandage"
+}

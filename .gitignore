@@ -4,3 +4,5 @@ dist/
 .DS_Store
 /tmp/
 test-results/
+__pycache__/
+*.pyc

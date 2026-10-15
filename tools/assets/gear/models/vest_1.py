@@ -6,6 +6,8 @@ from _vest import Body
 OUT = 'gear'
 TEX = 1024
 MS = 2.5
+DECIMATE = 0.5
+DECIMATE_MIN = 300
 OY, OZ = 1.30, 0.0
 META = dict(kind='vest', level=1, attach_bone='Spine2', attach_offset_m=[0.0, -0.021, 0.020], origin_root_space_m=[0.0, OY, OZ])
 K = 'cordura_navy'
@@ -13,15 +15,15 @@ K = 'cordura_navy'
 
 def ytop_front(th):
     a = abs(th)
-    if a < 16: return 1.395 + (a / 16) ** 2 * 0.04
-    if a < 32: return 1.435
-    return 1.435 - 0.165 * ((a - 32) / 36) ** 1.5
+    if a < 22: return 1.395 + (a / 22) ** 2 * 0.04
+    if a < 40: return 1.435
+    return 1.435 - 0.165 * ((a - 40) / 28) ** 1.4
 
 
 def ytop_back(th):
     a = abs(180 - (th % 360))
-    if a < 34: return 1.45
-    return 1.45 - 0.17 * ((a - 34) / 34) ** 1.5
+    if a < 40: return 1.45
+    return 1.45 - 0.17 * ((a - 40) / 28) ** 1.4
 
 
 def build(g):
@@ -39,8 +41,8 @@ def build(g):
             b.surface_strip(f'tab{side}{k}', 'velcro_blk', lambda th, yy: b.wrap(th, yy, o2 + 0.0012), t0, t1, y - 0.03, y + 0.03, 0.003, nu=3, nv=2)
     # shoulder straps
     for side in (1, -1):
-        fp = b.wrap(side * 24, 1.425, OFF + TH * 0.5); bp = b.wrap(180 - side * 24, 1.44, OFF + TH * 0.5)
-        x = (fp[0] + bp[0]) / 2
+        fp = b.wrap(side * 31, 1.425, OFF + TH * 0.5); bp = b.wrap(180 - side * 31, 1.44, OFF + TH * 0.5)
+        x = side * 0.116
         b.shoulder_strap(f'strap{side}', 'elastic_blk', x, fp, bp, width=0.05, thick=0.006, off=0.006)
     # POLICE patches
     patch = g.decal_kind('cordura_navy', 'pol', g.work + '/labels/police_navy.png', rough=0.8)

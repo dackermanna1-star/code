@@ -1,0 +1,28 @@
+{
+ "tris": 1080,
+ "bounds_min": [
+  -0.0692,
+  -0.0,
+  -0.035
+ ],
+ "bounds_max": [
+  0.0607,
+  0.0683,
+  0.0856
+ ],
+ "size_m": [
+  0.1299,
+  0.0683,
+  0.1206
+ ],
+ "nodes": [
+  "ammo_12g",
+  "body"
+ ],
+ "materials": [
+  "M_ammo_12g"
+ ],
+ "kind": "ammo",
+ "caliber": "12g",
+ "id": "ammo_12g"
+}

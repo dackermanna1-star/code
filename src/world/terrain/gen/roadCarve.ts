@@ -22,6 +22,10 @@ export function sampleBilinear(h: Float32Array, x: number, z: number): number {
 }
 
 const MIN_DECK = { channel: 10, river: 6.5 };
+/** Deck samples (2 m) at each span end that are filled as an embankment (covers the abutment). */
+const DECK_END_SAMPLES = 2;
+/** The end embankment stays this far below the deck top (the deck slab covers it). */
+const DECK_END_SINK = 0.1;
 
 export function carveRoads(layout: WorldLayout, h: Float32Array): { field: RoadField; deck: Float32Array } {
   const NN = N * N;
@@ -30,10 +34,75 @@ export function carveRoads(layout: WorldLayout, h: Float32Array): { field: RoadF
   const coreH = new Float32Array(NN).fill(NaN);
   const deck = new Float32Array(layout.bridges.length);
 
+  const bridgeRoads: BridgeRoad[] = [];
   for (const road of layout.roadDefs) {
-    carveOne(road, layout.bridges, h, edge, kind, coreH, deck);
+    const br = carveOne(road, layout.bridges, h, edge, kind, coreH, deck);
+    if (br) bridgeRoads.push(br);
   }
+  // Roads carved later (junctions, farm tracks) can overwrite part of a bridge road's ramp near the deck ends;
+  // re-assert the bridge road surface there so the ramp always meets the deck without a step.
+  for (const br of bridgeRoads) reassertBridgeRamps(br, h, edge, kind, coreH);
   return { field: { edge, kind, coreH }, deck };
+}
+
+/** Profile data of a road that carries bridges (for the ramp re-assertion pass). */
+interface BridgeRoad {
+  pts: { x: number; z: number }[];
+  prof: Float32Array;
+  deckEnd: Uint8Array;
+  spans: [number, number][];
+  hw: number;
+}
+
+/** Samples (2 m) on each side of a deck end whose road core is re-asserted after all roads are carved. */
+const RAMP_WINDOW = 12;
+
+function reassertBridgeRamps(br: BridgeRoad, h: Float32Array, edge: Float32Array, kind: Uint8Array, coreH: Float32Array): void {
+  const core = br.hw + 0.75, blendW = 3;
+  const R = core + blendW;
+  for (const [ka, kb] of br.spans) {
+    for (const [k0, k1] of [
+      [Math.max(0, ka - RAMP_WINDOW), Math.min(kb, ka + DECK_END_SAMPLES)],
+      [Math.max(ka, kb - DECK_END_SAMPLES), Math.min(br.pts.length - 1, kb + RAMP_WINDOW)],
+    ]) {
+      let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
+      for (let k = k0; k <= k1; k++) {
+        minX = Math.min(minX, br.pts[k].x);
+        minZ = Math.min(minZ, br.pts[k].z);
+        maxX = Math.max(maxX, br.pts[k].x);
+        maxZ = Math.max(maxZ, br.pts[k].z);
+      }
+      const i0 = Math.max(0, Math.floor((minX - R) / CELL)), i1 = Math.min(N - 1, Math.ceil((maxX + R) / CELL));
+      const j0 = Math.max(0, Math.floor((minZ - R) / CELL)), j1 = Math.min(N - 1, Math.ceil((maxZ + R) / CELL));
+      for (let j = j0; j <= j1; j++)
+        for (let i = i0; i <= i1; i++) {
+          const x = i * CELL, z = j * CELL;
+          let best = Infinity, bk = -1;
+          for (let k = k0; k <= k1; k++) {
+            const d2 = (br.pts[k].x - x) ** 2 + (br.pts[k].z - z) ** 2;
+            if (d2 < best) {
+              best = d2;
+              bk = k;
+            }
+          }
+          // only cells whose nearest point on the whole window is interior (not past the window ends)
+          if (bk <= k0 && k0 > 0 && bk !== ka) continue;
+          if (bk >= k1 && k1 < br.pts.length - 1 && bk !== kb) continue;
+          const d = Math.sqrt(best);
+          if (d >= R) continue;
+          const target = br.deckEnd[bk] ? br.prof[bk] - DECK_END_SINK : br.prof[bk];
+          const idx = j * N + i;
+          if (d <= core) {
+            h[idx] = target;
+            coreH[idx] = target;
+            if (d - br.hw < edge[idx]) {
+              edge[idx] = d - br.hw;
+              kind[idx] = 1;
+            }
+          } else h[idx] = mix(target, h[idx], sstep(core, R, d));
+        }
+    }
+  }
 }
 
 function carveOne(
@@ -44,10 +113,10 @@ function carveOne(
   kind: Uint8Array,
   coreH: Float32Array,
   deck: Float32Array,
-): void {
+): BridgeRoad | null {
   const pts = densify(road.points, 2);
   const n = pts.length;
-  if (n < 2) return;
+  if (n < 2) return null;
   const asphalt = road.kind === 'asphalt';
   const hw = road.width / 2;
   // 1) raw profile + pins where we cross/join an already carved road
@@ -75,6 +144,8 @@ function carveOne(
 
   // 3) bridges: fixed deck spans
   const fixed = new Uint8Array(n);
+  /** Deck samples at the span ends (abutment zone): always filled up to the deck so the ramp meets the deck. */
+  const deckEnd = new Uint8Array(n);
   const spans: [number, number][] = [];
   for (const br of bridges) {
     if (br.roadId !== road.id) continue;
@@ -99,6 +170,7 @@ function carveOne(
     for (let k = ka; k <= kb; k++) {
       prof[k] = y;
       fixed[k] = 1;
+      if (k - ka <= DECK_END_SAMPLES || kb - k <= DECK_END_SAMPLES) deckEnd[k] = 1;
     }
     spans.push([ka, kb]);
   }
@@ -170,10 +242,12 @@ function carveOne(
       if (k < 0) continue;
       const d = Math.sqrt(ld[li]);
       const idx = j * N + i;
-      const target = prof[k];
       const onDeck = fixed[k] === 1;
-      // Under a bridge span: leave the valley/water alone (only abutments get filled).
-      if (onDeck && h[idx] < target - 2.5) {
+      // embankment under the deck ends sits just below the slab top (hidden by it, no z-fight, no gap/dip
+      // between the end of the deck and the ramp)
+      const target = deckEnd[k] ? prof[k] - DECK_END_SINK : prof[k];
+      // Under a bridge span: leave the valley/water alone (only the abutment zones at the ends get filled).
+      if (onDeck && !deckEnd[k] && h[idx] < target - 2.5) {
         const e = d - hw;
         if (e < edge[idx]) {
           edge[idx] = e;
@@ -182,6 +256,16 @@ function carveOne(
         continue;
       }
       const core = hw + 0.75;
+      // never re-carve the core of a road carved earlier (highways first): this road was pinned to it at the
+      // junction, and overwriting it put steps into the main road / bridge ramps where side roads join
+      if (!Number.isNaN(coreH[idx])) {
+        const e = d - hw;
+        if (e < edge[idx]) {
+          edge[idx] = e;
+          kind[idx] = kindId;
+        }
+        continue;
+      }
       if (d <= core) {
         h[idx] = target;
         coreH[idx] = target;
@@ -197,4 +281,5 @@ function carveOne(
         kind[idx] = kindId;
       }
     }
+  return spans.length ? { pts, prof, deckEnd, spans, hw } : null;
 }

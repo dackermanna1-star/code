@@ -1,0 +1,30 @@
+{
+ "tris": 1432,
+ "bounds_min": [
+  -0.0181,
+  -0.094,
+  -0.02
+ ],
+ "bounds_max": [
+  0.0205,
+  0.0096,
+  0.0239
+ ],
+ "size_m": [
+  0.0386,
+  0.1036,
+  0.0439
+ ],
+ "nodes": [
+  "grip_light",
+  "body",
+  "grip_support"
+ ],
+ "materials": [
+  "M_grip_light"
+ ],
+ "kind": "grip",
+ "type": "lightweight",
+ "mount": "bottom rail",
+ "id": "grip_light"
+}

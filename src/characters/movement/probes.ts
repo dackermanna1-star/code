@@ -34,14 +34,20 @@ function rayFn(physics: Physics, self: RAPIER.Collider): Ray {
   };
 }
 
-/** Accept colliders that block movement (not characters, water, sensors, foliage). */
+let predPhysics: Physics | null = null;
+let predFn: ((c: RAPIER.Collider) => boolean) | null = null;
+
+/** Accept colliders that block movement (not characters, water, sensors, foliage). One closure per physics. */
 function worldOnlyPredicate(physics: Physics): (c: RAPIER.Collider) => boolean {
-  return (c) => {
+  if (predFn && predPhysics === physics) return predFn;
+  predPhysics = physics;
+  predFn = (c) => {
     if (c.isSensor()) return false;
     const info = physics.getInfo(c);
     if (!info) return true;
     return info.kind !== 'character' && info.kind !== 'water' && info.kind !== 'dynamic';
   };
+  return predFn;
 }
 
 /** Is a vertical capsule (radius r, from feetY to feetY+height) free at (x, feetY, z)? */

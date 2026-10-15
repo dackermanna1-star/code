@@ -1,0 +1,28 @@
+{
+ "tris": 1288,
+ "bounds_min": [
+  -0.075,
+  -0.0,
+  -0.041
+ ],
+ "bounds_max": [
+  0.0839,
+  0.0483,
+  0.0764
+ ],
+ "size_m": [
+  0.1589,
+  0.0483,
+  0.1174
+ ],
+ "nodes": [
+  "ammo_300mag",
+  "body"
+ ],
+ "materials": [
+  "M_ammo_300mag"
+ ],
+ "kind": "ammo",
+ "caliber": "300mag",
+ "id": "ammo_300mag"
+}

@@ -8,6 +8,8 @@ from gkit import sweep, catmull
 OUT = 'gear'
 TEX = 1024
 MS = 2.5
+DECIMATE = 0.5
+DECIMATE_MIN = 300
 OY, OZ = 1.30, 0.0
 META = dict(kind='vest', level=2, attach_bone='Spine2', attach_offset_m=[0.0, -0.021, 0.020], origin_root_space_m=[0.0, OY, OZ])
 K = 'cordura_blk'
@@ -16,15 +18,15 @@ W = 'webbing_blk'
 
 def ytop_front(th):
     a = abs(th)
-    if a < 14: return 1.405 + (a / 14) ** 2 * 0.035
-    if a < 34: return 1.44 + 0.006 * math.sin((a - 14) / 20 * math.pi)
-    return 1.44 - 0.16 * ((a - 34) / 30) ** 1.4
+    if a < 22: return 1.40 + (a / 22) ** 2 * 0.04
+    if a < 42: return 1.44 + 0.006 * math.sin((a - 22) / 20 * math.pi)
+    return 1.44 - 0.15 * ((a - 42) / 22) ** 1.3
 
 
 def ytop_back(th):
     a = abs(180 - (th % 360))
-    if a < 36: return 1.455
-    return 1.455 - 0.165 * ((a - 36) / 28) ** 1.4
+    if a < 42: return 1.455
+    return 1.455 - 0.16 * ((a - 42) / 22) ** 1.3
 
 
 def build(g):
@@ -60,9 +62,9 @@ def build(g):
     g.decal_uv(pb, 'su-', (-75, 0, 75, 70), facing=(-1, 0, 0), min_dot=0.2)
     # shoulder straps
     for side in (1, -1):
-        th_f = side * 24; th_b = 180 - side * 26
+        th_f = side * 32; th_b = 180 - side * 32
         fp = b.wrap(th_f, 1.43, OFF + TH * 0.5); bp = b.wrap(th_b, 1.44, OFF + TH * 0.5)
-        x = (fp[0] + bp[0]) / 2
+        x = side * 0.118
         b.shoulder_strap(f'strap{side}', K, x, fp, bp, width=0.06, thick=0.013, off=0.008)
     # drag handle
     pts = [b.L(*b.wrap(171, 1.41, o2)), b.L(*b.wrap(172, 1.44, o2 + 0.012)), b.L(*b.wrap(180, 1.45, o2 + 0.016)),

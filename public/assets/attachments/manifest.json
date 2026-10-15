@@ -1,0 +1,1301 @@
+{
+ "category": "attachments",
+ "version": 1,
+ "generated_by": "tools/assets/gear/make_manifest.mjs",
+ "conventions": {
+  "units": "meters",
+  "up": "+Y",
+  "forward": "+Z (the right-hand side of an asset is -X)",
+  "compression": "EXT_meshopt_compression + KHR_mesh_quantization (load with GLTFLoader.setMeshoptDecoder); no Draco/KTX2",
+  "materials": "authored assets: one baked PBR material 'M_<id>' (JPEG baseColor, normal, packed ORM = occlusion/roughness/metalness) plus plain untextured materials for glass/lenses/lines ('lens', 'lens_amber', 'window', 'glass_*', 'liquid_*', 'line')"
+ },
+ "reticles": [
+  {
+   "file": "/assets/attachments/reticles/holo.png",
+   "bytes": 82117
+  },
+  {
+   "file": "/assets/attachments/reticles/reddot.png",
+   "bytes": 11122
+  },
+  {
+   "file": "/assets/attachments/reticles/scope_2x.png",
+   "bytes": 9916
+  },
+  {
+   "file": "/assets/attachments/reticles/scope_3x.png",
+   "bytes": 36358
+  },
+  {
+   "file": "/assets/attachments/reticles/scope_4x.png",
+   "bytes": 13542
+  },
+  {
+   "file": "/assets/attachments/reticles/scope_6x.png",
+   "bytes": 8805
+  },
+  {
+   "file": "/assets/attachments/reticles/scope_8x.png",
+   "bytes": 7394
+  }
+ ],
+ "total_bytes": 4206402,
+ "assets": [
+  {
+   "id": "grip_angled",
+   "file": "/assets/attachments/grip_angled.glb",
+   "kind": "grip",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 848,
+   "bytes": 80324,
+   "bounds_min_m": [
+    -0.0181,
+    -0.0418,
+    -0.04
+   ],
+   "bounds_max_m": [
+    0.0205,
+    0.0096,
+    0.0613
+   ],
+   "size_m": [
+    0.0386,
+    0.0514,
+    0.1013
+   ],
+   "nodes": [
+    "body",
+    "grip_support",
+    "grip_angled"
+   ],
+   "materials": [
+    "M_grip_angled"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rail contact on the clamp top (mounts under a bottom rail); grip hangs toward -Y",
+   "type": "angled"
+  },
+  {
+   "id": "grip_half",
+   "file": "/assets/attachments/grip_half.glb",
+   "kind": "grip",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 1348,
+   "bytes": 96644,
+   "bounds_min_m": [
+    -0.0181,
+    -0.0656,
+    -0.0293
+   ],
+   "bounds_max_m": [
+    0.0205,
+    0.0096,
+    0.0391
+   ],
+   "size_m": [
+    0.0386,
+    0.0752,
+    0.0684
+   ],
+   "nodes": [
+    "body",
+    "grip_support",
+    "grip_half"
+   ],
+   "materials": [
+    "M_grip_half"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rail contact on the clamp top (mounts under a bottom rail); grip hangs toward -Y",
+   "type": "half"
+  },
+  {
+   "id": "grip_light",
+   "file": "/assets/attachments/grip_light.glb",
+   "kind": "grip",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 1432,
+   "bytes": 86204,
+   "bounds_min_m": [
+    -0.0181,
+    -0.094,
+    -0.02
+   ],
+   "bounds_max_m": [
+    0.0205,
+    0.0096,
+    0.0239
+   ],
+   "size_m": [
+    0.0386,
+    0.1036,
+    0.0439
+   ],
+   "nodes": [
+    "body",
+    "grip_support",
+    "grip_light"
+   ],
+   "materials": [
+    "M_grip_light"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rail contact on the clamp top (mounts under a bottom rail); grip hangs toward -Y",
+   "type": "lightweight"
+  },
+  {
+   "id": "grip_thumb",
+   "file": "/assets/attachments/grip_thumb.glb",
+   "kind": "grip",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 708,
+   "bytes": 75380,
+   "bounds_min_m": [
+    -0.0181,
+    -0.0336,
+    -0.0342
+   ],
+   "bounds_max_m": [
+    0.0205,
+    0.0096,
+    0.0337
+   ],
+   "size_m": [
+    0.0386,
+    0.0432,
+    0.0679
+   ],
+   "nodes": [
+    "body",
+    "grip_support",
+    "grip_thumb"
+   ],
+   "materials": [
+    "M_grip_thumb"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rail contact on the clamp top (mounts under a bottom rail); grip hangs toward -Y",
+   "type": "thumb"
+  },
+  {
+   "id": "grip_vertical",
+   "file": "/assets/attachments/grip_vertical.glb",
+   "kind": "grip",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 1748,
+   "bytes": 90140,
+   "bounds_min_m": [
+    -0.0181,
+    -0.1178,
+    -0.0251
+   ],
+   "bounds_max_m": [
+    0.0205,
+    0.0096,
+    0.022
+   ],
+   "size_m": [
+    0.0386,
+    0.1274,
+    0.0471
+   ],
+   "nodes": [
+    "body",
+    "grip_support",
+    "grip_vertical"
+   ],
+   "materials": [
+    "M_grip_vertical"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rail contact on the clamp top (mounts under a bottom rail); grip hangs toward -Y",
+   "type": "vertical"
+  },
+  {
+   "id": "mag_ext",
+   "file": "/assets/attachments/mag_ext.glb",
+   "kind": "mag",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 2700,
+   "bytes": 118736,
+   "bounds_min_m": [
+    -0.0142,
+    -0.248,
+    -0.031
+   ],
+   "bounds_max_m": [
+    0.0142,
+    0.0113,
+    0.0398
+   ],
+   "size_m": [
+    0.0285,
+    0.2593,
+    0.0708
+   ],
+   "nodes": [
+    "body",
+    "mag_ext"
+   ],
+   "materials": [
+    "M_mag_ext"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "top of the magazine body (mag-well top, like the weapon mag pivots); hangs toward -Y",
+   "type": "extended",
+   "capacity_note": "generic 40-rd box magazine; pickup model / swap-in for 5.56 rifles"
+  },
+  {
+   "id": "muzzle_comp_ar",
+   "file": "/assets/attachments/muzzle_comp_ar.glb",
+   "kind": "muzzle",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 1992,
+   "bytes": 96072,
+   "bounds_min_m": [
+    -0.0115,
+    -0.0115,
+    0
+   ],
+   "bounds_max_m": [
+    0.0115,
+    0.0115,
+    0.062
+   ],
+   "size_m": [
+    0.023,
+    0.023,
+    0.062
+   ],
+   "nodes": [
+    "body",
+    "muzzle",
+    "muzzle_comp_ar"
+   ],
+   "materials": [
+    "M_muzzle_comp_ar"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rear (thread shoulder) face on the bore axis; device extends along +Z",
+   "type": "compensator",
+   "fits": "AR",
+   "length_m": 0.062
+  },
+  {
+   "id": "muzzle_flash_ar",
+   "file": "/assets/attachments/muzzle_flash_ar.glb",
+   "kind": "muzzle",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 1516,
+   "bytes": 84844,
+   "bounds_min_m": [
+    -0.011,
+    -0.011,
+    0
+   ],
+   "bounds_max_m": [
+    0.011,
+    0.011,
+    0.056
+   ],
+   "size_m": [
+    0.022,
+    0.022,
+    0.056
+   ],
+   "nodes": [
+    "body",
+    "muzzle",
+    "muzzle_flash_ar"
+   ],
+   "materials": [
+    "M_muzzle_flash_ar"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rear (thread shoulder) face on the bore axis; device extends along +Z",
+   "type": "flash_hider",
+   "fits": "AR",
+   "length_m": 0.056
+  },
+  {
+   "id": "muzzle_suppressor_ar",
+   "file": "/assets/attachments/muzzle_suppressor_ar.glb",
+   "kind": "muzzle",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 4576,
+   "bytes": 166688,
+   "bounds_min_m": [
+    -0.019,
+    -0.019,
+    0
+   ],
+   "bounds_max_m": [
+    0.019,
+    0.019,
+    0.174
+   ],
+   "size_m": [
+    0.038,
+    0.038,
+    0.174
+   ],
+   "nodes": [
+    "body",
+    "muzzle",
+    "muzzle_suppressor_ar"
+   ],
+   "materials": [
+    "M_muzzle_suppressor_ar"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rear (thread shoulder) face on the bore axis; device extends along +Z",
+   "type": "suppressor",
+   "fits": "AR",
+   "length_m": 0.174
+  },
+  {
+   "id": "muzzle_suppressor_smg",
+   "file": "/assets/attachments/muzzle_suppressor_smg.glb",
+   "kind": "muzzle",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 6424,
+   "bytes": 200600,
+   "bounds_min_m": [
+    -0.0187,
+    -0.0187,
+    0
+   ],
+   "bounds_max_m": [
+    0.0187,
+    0.0187,
+    0.184
+   ],
+   "size_m": [
+    0.0374,
+    0.0374,
+    0.184
+   ],
+   "nodes": [
+    "body",
+    "muzzle",
+    "muzzle_suppressor_smg"
+   ],
+   "materials": [
+    "M_muzzle_suppressor_smg"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rear (thread shoulder) face on the bore axis; device extends along +Z",
+   "type": "suppressor",
+   "fits": "SMG",
+   "length_m": 0.184
+  },
+  {
+   "id": "muzzle_suppressor_sr",
+   "file": "/assets/attachments/muzzle_suppressor_sr.glb",
+   "kind": "muzzle",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 5576,
+   "bytes": 180440,
+   "bounds_min_m": [
+    -0.023,
+    -0.023,
+    0
+   ],
+   "bounds_max_m": [
+    0.023,
+    0.023,
+    0.231
+   ],
+   "size_m": [
+    0.046,
+    0.046,
+    0.231
+   ],
+   "nodes": [
+    "body",
+    "muzzle",
+    "muzzle_suppressor_sr"
+   ],
+   "materials": [
+    "M_muzzle_suppressor_sr"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rear (thread shoulder) face on the bore axis; device extends along +Z",
+   "type": "suppressor",
+   "fits": "SR/DMR",
+   "length_m": 0.231
+  },
+  {
+   "id": "scope_2x",
+   "file": "/assets/attachments/scope_2x.glb",
+   "kind": "scope",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 10840,
+   "bytes": 301900,
+   "bounds_min_m": [
+    -0.026,
+    -0.0081,
+    -0.08
+   ],
+   "bounds_max_m": [
+    0.023,
+    0.064,
+    0.072
+   ],
+   "size_m": [
+    0.049,
+    0.0721,
+    0.152
+   ],
+   "nodes": [
+    "body",
+    "eye",
+    "lens",
+    "lens_front",
+    "scope_2x"
+   ],
+   "materials": [
+    "M_scope_2x",
+    "lens"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rail-mount base: bottom of the clamp on the Picatinny rail top, centred on the clamp; optical axis along +Z",
+   "zoom": 2,
+   "optical_axis_height_m": 0.038,
+   "eye_relief_m": 0.08,
+   "lens_radius_m": 0.0135,
+   "reticle": "reticles/scope_2x.png",
+   "field_of_view_deg": 21
+  },
+  {
+   "id": "scope_3x",
+   "file": "/assets/attachments/scope_3x.glb",
+   "kind": "scope",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 10300,
+   "bytes": 297452,
+   "bounds_min_m": [
+    -0.028,
+    -0.0081,
+    -0.065
+   ],
+   "bounds_max_m": [
+    0.029,
+    0.067,
+    0.05
+   ],
+   "size_m": [
+    0.057,
+    0.0751,
+    0.115
+   ],
+   "nodes": [
+    "body",
+    "eye",
+    "lens",
+    "lens_front",
+    "scope_3x"
+   ],
+   "materials": [
+    "M_scope_3x",
+    "lens"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rail-mount base: bottom of the clamp on the Picatinny rail top, centred on the clamp; optical axis along +Z",
+   "zoom": 3,
+   "optical_axis_height_m": 0.04,
+   "eye_relief_m": 0.065,
+   "lens_radius_m": 0.0125,
+   "reticle": "reticles/scope_3x.png",
+   "field_of_view_deg": 13
+  },
+  {
+   "id": "scope_4x",
+   "file": "/assets/attachments/scope_4x.glb",
+   "kind": "scope",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 9416,
+   "bytes": 267796,
+   "bounds_min_m": [
+    -0.028,
+    -0.0109,
+    -0.0745
+   ],
+   "bounds_max_m": [
+    0.0263,
+    0.0705,
+    0.0785
+   ],
+   "size_m": [
+    0.0543,
+    0.0814,
+    0.153
+   ],
+   "nodes": [
+    "body",
+    "eye",
+    "lens",
+    "lens_front",
+    "scope_4x"
+   ],
+   "materials": [
+    "M_scope_4x",
+    "lens",
+    "lens_amber"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rail-mount base: bottom of the clamp on the Picatinny rail top, centred on the clamp; optical axis along +Z",
+   "zoom": 4,
+   "optical_axis_height_m": 0.044,
+   "eye_relief_m": 0.038,
+   "lens_radius_m": 0.012,
+   "reticle": "reticles/scope_4x.png",
+   "field_of_view_deg": 7,
+   "notes": "short (38 mm) eye relief like the real ACOG"
+  },
+  {
+   "id": "scope_6x",
+   "file": "/assets/attachments/scope_6x.glb",
+   "kind": "scope",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 16816,
+   "bytes": 405800,
+   "bounds_min_m": [
+    -0.032,
+    -0.0081,
+    -0.138
+   ],
+   "bounds_max_m": [
+    0.027,
+    0.069,
+    0.1305
+   ],
+   "size_m": [
+    0.059,
+    0.0771,
+    0.2685
+   ],
+   "nodes": [
+    "body",
+    "eye",
+    "lens",
+    "lens_front",
+    "scope_6x"
+   ],
+   "materials": [
+    "M_scope_6x",
+    "lens"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rail-mount base: bottom of the clamp on the Picatinny rail top, centred on the clamp; optical axis along +Z",
+   "zoom": 6,
+   "zoom_min": 3,
+   "optical_axis_height_m": 0.039,
+   "eye_relief_m": 0.09,
+   "lens_radius_m": 0.0155,
+   "reticle": "reticles/scope_6x.png",
+   "field_of_view_deg": 6.5
+  },
+  {
+   "id": "scope_8x",
+   "file": "/assets/attachments/scope_8x.glb",
+   "kind": "scope",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 21376,
+   "bytes": 839708,
+   "bounds_min_m": [
+    -0.038,
+    -0.0081,
+    -0.176
+   ],
+   "bounds_max_m": [
+    0.038,
+    0.087,
+    0.1705
+   ],
+   "size_m": [
+    0.076,
+    0.0951,
+    0.3465
+   ],
+   "nodes": [
+    "body",
+    "eye",
+    "lens",
+    "lens_front",
+    "scope_8x"
+   ],
+   "materials": [
+    "M_scope_8x",
+    "lens"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "rail-mount base: bottom of the clamp on the Picatinny rail top, centred on the clamp; optical axis along +Z",
+   "zoom": 8,
+   "zoom_min": 4,
+   "optical_axis_height_m": 0.047,
+   "eye_relief_m": 0.095,
+   "lens_radius_m": 0.0165,
+   "reticle": "reticles/scope_8x.png",
+   "field_of_view_deg": 4.8
+  },
+  {
+   "id": "scope_holo",
+   "file": "/assets/attachments/scope_holo.glb",
+   "kind": "holo",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 4276,
+   "bytes": 160068,
+   "bounds_min_m": [
+    -0.0244,
+    -0.0065,
+    -0.048
+   ],
+   "bounds_max_m": [
+    0.022,
+    0.062,
+    0.046
+   ],
+   "size_m": [
+    0.0464,
+    0.0685,
+    0.094
+   ],
+   "nodes": [
+    "body",
+    "eye",
+    "lens",
+    "lens_front",
+    "scope_holo"
+   ],
+   "materials": [
+    "M_scope_holo",
+    "window"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rail-mount base: bottom of the clamp on the Picatinny rail top, centred on the clamp; optical axis along +Z",
+   "zoom": 1,
+   "optical_axis_height_m": 0.042,
+   "eye_relief_m": 0.15,
+   "window_size_m": [
+    0.031,
+    0.024
+   ],
+   "reticle": "reticles/holo.png",
+   "notes": "'lens' is the rear window pane (semi-transparent); unlimited eye relief, eye placed 150 mm behind it"
+  },
+  {
+   "id": "scope_reddot",
+   "file": "/assets/attachments/scope_reddot.glb",
+   "kind": "reddot",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 7912,
+   "bytes": 247468,
+   "bounds_min_m": [
+    -0.027,
+    -0.0103,
+    -0.0605
+   ],
+   "bounds_max_m": [
+    0.034,
+    0.066,
+    0.061
+   ],
+   "size_m": [
+    0.061,
+    0.0763,
+    0.1215
+   ],
+   "nodes": [
+    "body",
+    "eye",
+    "lens",
+    "lens_front",
+    "scope_reddot"
+   ],
+   "materials": [
+    "M_scope_reddot",
+    "lens",
+    "lens_amber"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "rail-mount base: bottom of the clamp on the Picatinny rail top, centred on the clamp; optical axis along +Z",
+   "zoom": 1,
+   "optical_axis_height_m": 0.039,
+   "eye_relief_m": 0.14,
+   "lens_radius_m": 0.0136,
+   "reticle": "reticles/reddot.png",
+   "notes": "unlimited eye relief; eye placed 140 mm behind the rear lens"
+  },
+  {
+   "id": "stock_cheekpad",
+   "file": "/assets/attachments/stock_cheekpad.glb",
+   "kind": "stock",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 2332,
+   "bytes": 116140,
+   "bounds_min_m": [
+    -0.0335,
+    -0.044,
+    -0.07
+   ],
+   "bounds_max_m": [
+    0.0305,
+    0.0276,
+    0.07
+   ],
+   "size_m": [
+    0.064,
+    0.0716,
+    0.14
+   ],
+   "nodes": [
+    "body",
+    "cheek",
+    "stock_cheekpad"
+   ],
+   "materials": [
+    "M_stock_cheekpad"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "stock_tactical: receiver end plate on the buffer-tube axis, stock extends toward -Z; stock_cheekpad: top of the stock comb",
+   "type": "cheekpad",
+   "inner_width_m": 0.042
+  },
+  {
+   "id": "stock_tactical",
+   "file": "/assets/attachments/stock_tactical.glb",
+   "kind": "stock",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 3044,
+   "bytes": 124744,
+   "bounds_min_m": [
+    -0.0245,
+    -0.0622,
+    -0.22
+   ],
+   "bounds_max_m": [
+    0.025,
+    0.0237,
+    0.0005
+   ],
+   "size_m": [
+    0.0495,
+    0.0859,
+    0.2205
+   ],
+   "nodes": [
+    "body",
+    "buttpad",
+    "cheek",
+    "stock_tactical"
+   ],
+   "materials": [
+    "M_stock_tactical"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "stock_tactical: receiver end plate on the buffer-tube axis, stock extends toward -Z; stock_cheekpad: top of the stock comb",
+   "type": "tactical"
+  }
+ ]
+}

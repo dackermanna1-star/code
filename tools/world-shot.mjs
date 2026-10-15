@@ -1,6 +1,6 @@
 // World screenshot driver: loads the world sandbox (or any page exposing __game.debugCam) and captures a list
 // of viewpoints. Usage:
-//   node tools/world-shot.mjs <url> <outDir> [--views "name:x,y,z,yaw,pitch;..."] [--tour] [--frames 3]
+//   node tools/world-shot.mjs <url> <outDir> [--views "name:x,y,z,yaw,pitch[@time[@weather]];..."] [--tour] [--frames 3]
 //        [--eval "js"] [--width 1280 --height 720] [--time 18.5] [--weather fog] [--wait 60000]
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
@@ -57,14 +57,18 @@ if (has('tour')) views = await page.evaluate(() => window.__game.screenshotTour(
 const vs = opt('views', null);
 if (vs)
   for (const part of vs.split(';').filter(Boolean)) {
-    const [name, nums] = part.split(':');
+    // name:x,y,z,yaw,pitch[@time[@weather]]  (y = g → ground + 1.7 m)
+    const [name, rest] = part.split(':');
+    const [nums, time, weather] = rest.split('@');
     const [x, y, z, yaw, pitch] = nums.split(',').map((v) => (v === '' || v === 'g' ? null : Number(v)));
-    views.push({ name, x, y, z, yaw, pitch });
+    views.push({ name, x, y, z, yaw, pitch, time: time ? Number(time) : undefined, weather: weather || undefined });
   }
 if (!views.length) views.push({ name: 'default' });
 const only = opt('only', null);
 for (const v of views) {
   if (only && !v.name.toLowerCase().includes(only.toLowerCase())) continue;
+  if (v.time !== undefined) await page.evaluate((h) => window.__game.setTime(h), v.time);
+  if (v.weather !== undefined) await page.evaluate((w) => window.__game.setWeather(w), v.weather);
   if (v.x !== undefined) await page.evaluate((v) => window.__game.debugCam(v.x, v.y, v.z, v.yaw, v.pitch), v);
   await waitFrames(frames);
   const file = `${outDir}/${v.name.replace(/[^a-z0-9]+/gi, '_').toLowerCase()}.png`;

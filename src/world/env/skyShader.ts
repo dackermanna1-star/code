@@ -34,6 +34,8 @@ uniform vec3 uCamPos;
 uniform vec3 uGround;
 uniform float uStars;
 uniform float uSunDisc;
+uniform float uFarSea;   // 1 = visible dome (sea below the horizon), 0 = IBL bake dome (ground below)
+uniform vec3 uSeaColor;  // open-sea body colour (linear)
 uniform sampler2D tNoise;
 varying vec3 vDir;
 
@@ -98,10 +100,9 @@ float cloudDensity( vec2 uv ) {
   return smoothstep( t, t + 0.16, n );
 }
 
-void main() {
-  vec3 dir = normalize( vDir );
-  vec3 sd = normalize( uSunDir );
-  // daylight scattering (evaluate above the horizon; mirror below for a plausible lower hemisphere)
+// Sky radiance (scattering, night sky, overcast grey, clouds) for a direction at or above the horizon.
+vec3 skyRadiance( vec3 dir, vec3 sd ) {
+  // daylight scattering (evaluated above the horizon)
   vec3 dUp = vec3( dir.x, max( dir.y, 0.0 ), dir.z );
   // three's Sky addon output curve (pow 1/2.4) keeps sunsets/zenith hues natural; scaled into scene radiance
   vec3 day = pow( max( preetham( normalize( dUp + vec3( 0.0, 0.0001, 0.0 ) ), sd ), 0.0 ), vec3( 1.0 / 2.4 ) ) * uSkyScale;
@@ -135,17 +136,37 @@ void main() {
     float fade = smoothstep( 0.0, 0.18, dir.y );
     col = mix( col, cloudCol, dens * fade * mix( 0.9, 0.98, uCloudCover ) );
   }
+  return col;
+}
 
-  // below the horizon: ground/sea albedo lit by the sky (used by the IBL; normally hidden by terrain/ocean)
-  if ( dir.y < 0.0 ) {
+void main() {
+  vec3 dir = normalize( vDir );
+  vec3 sd = normalize( uSunDir );
+  vec3 col;
+  float fogDist = 6000.0;
+  if ( dir.y >= 0.0 ) {
+    col = skyRadiance( dir, sd );
+  } else if ( uFarSea > 0.5 ) {
+    // Below the horizon on the visible dome: the open sea continues past the ocean mesh / far plane to the true
+    // horizon (otherwise a grey band appears between the clipped ocean and the sky from the plane / high up).
+    vec3 refl = skyRadiance( vec3( dir.x, -dir.y, dir.z ), sd );
+    float cosI = clamp( -dir.y, 0.0, 1.0 );
+    float fres = 0.02 + 0.98 * pow( 1.0 - cosI, 5.0 );
+    vec3 body = uSeaColor * ( uSkyIntensity * ( 1.0 - uNight ) * 0.8 + 0.01 );
+    col = mix( body, refl, fres );
+    fogDist = min( max( uCamPos.y, 1.0 ) / max( cosI, 1e-4 ), 60000.0 );
+  } else {
+    // IBL bake: ground/sea albedo lit by the sky (normally hidden by terrain/ocean)
+    vec3 day = pow( max( preetham( vec3( 0.0, 1.0, 0.0 ), sd ), 0.0 ), vec3( 1.0 / 2.4 ) ) * uSkyScale;
+    vec3 horizon = skyRadiance( normalize( vec3( dir.x, 0.0, dir.z ) + vec3( 0.0, 1e-3, 0.0 ) ), sd );
     vec3 groundCol = uGround * ( dot( day, vec3( 0.33 ) ) * ( 1.0 - uNight ) + 0.01 ) * uSkyIntensity;
-    col = mix( col, groundCol, smoothstep( 0.0, -0.08, dir.y ) );
+    col = mix( horizon, groundCol, smoothstep( 0.0, -0.08, dir.y ) );
   }
 
-  // horizon fog consistent with the scene's height fog (ray to ~6 km)
-  vec3 rel = dir * 6000.0;
+  // horizon fog consistent with the scene's height fog
+  vec3 rel = dir * fogDist;
   float fogF = heightFogFactor( rel, uCamPos.y, uFogDensity, uFogFalloff );
-  fogF = max( fogF, smoothstep( 0.2, -0.06, dir.y ) * min( 1.0, uFogDensity * 900.0 ) );
+  if ( uFarSea < 0.5 ) fogF = max( fogF, smoothstep( 0.2, -0.06, dir.y ) * min( 1.0, uFogDensity * 900.0 ) );
   col = mix( col, uFogColor, fogF * 0.97 );
 
   gl_FragColor = vec4( min( col, vec3( 2000.0 ) ), 1.0 );

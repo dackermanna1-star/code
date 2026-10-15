@@ -1,0 +1,1525 @@
+{
+ "category": "gear",
+ "version": 1,
+ "generated_by": "tools/assets/gear/make_manifest.mjs",
+ "conventions": {
+  "units": "meters",
+  "up": "+Y",
+  "forward": "+Z (the right-hand side of an asset is -X)",
+  "compression": "EXT_meshopt_compression + KHR_mesh_quantization (load with GLTFLoader.setMeshoptDecoder); no Draco/KTX2",
+  "materials": "authored assets: one baked PBR material 'M_<id>' (JPEG baseColor, normal, packed ORM = occlusion/roughness/metalness) plus plain untextured materials for glass/lenses/lines ('lens', 'lens_amber', 'window', 'glass_*', 'liquid_*', 'line')"
+ },
+ "fit": {
+  "characters": "fitted to the max body envelope of survivor_m_shirt / _leather / _vest / _hoodie_blue (rest A-pose, tools/assets/gear/fit)",
+  "skeleton": "pubg_m55 (joint rest rotations are identity, so bone-local offsets equal root-space offsets in the rest pose)"
+ },
+ "total_bytes": 7725848,
+ "assets": [
+  {
+   "id": "backpack_1",
+   "file": "/assets/gear/backpack_1.glb",
+   "kind": "backpack",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 7172,
+   "bytes": 380160,
+   "bounds_min_m": [
+    -0.2091,
+    -0.3761,
+    -0.1972
+   ],
+   "bounds_max_m": [
+    0.2091,
+    0.1581,
+    0.3617
+   ],
+   "size_m": [
+    0.4182,
+    0.5342,
+    0.5589
+   ],
+   "nodes": [
+    "body",
+    "backpack_1"
+   ],
+   "materials": [
+    "M_backpack_1"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "upper-back attach point = root-space (0, 1.40, -0.185) (Spine2 + (0, 0.079, -0.165)); the pack front sits behind the thickest vest",
+   "level": 1,
+   "attach_bone": "Spine2",
+   "attach_offset_m": [
+    0,
+    0.079,
+    -0.165
+   ],
+   "origin_root_space_m": [
+    0,
+    1.4,
+    -0.185
+   ],
+   "capacity_l": 20,
+   "notes": "pack front face at z = -0.185 so it clears the thickest vest (vest_3)",
+   "lod1": {
+    "file": "/assets/gear/backpack_1_lod1.glb",
+    "tris": 2012,
+    "bytes": 193316,
+    "textures": [
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     }
+    ],
+    "switch_distance_m": 25
+   }
+  },
+  {
+   "id": "backpack_2",
+   "file": "/assets/gear/backpack_2.glb",
+   "kind": "backpack",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 9212,
+   "bytes": 487880,
+   "bounds_min_m": [
+    -0.2087,
+    -0.4032,
+    -0.2397
+   ],
+   "bounds_max_m": [
+    0.2087,
+    0.1594,
+    0.3617
+   ],
+   "size_m": [
+    0.4174,
+    0.5626,
+    0.6014
+   ],
+   "nodes": [
+    "body",
+    "backpack_2"
+   ],
+   "materials": [
+    "M_backpack_2"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "upper-back attach point = root-space (0, 1.40, -0.185) (Spine2 + (0, 0.079, -0.165)); the pack front sits behind the thickest vest",
+   "level": 2,
+   "attach_bone": "Spine2",
+   "attach_offset_m": [
+    0,
+    0.079,
+    -0.165
+   ],
+   "origin_root_space_m": [
+    0,
+    1.4,
+    -0.185
+   ],
+   "capacity_l": 35,
+   "lod1": {
+    "file": "/assets/gear/backpack_2_lod1.glb",
+    "tris": 2578,
+    "bytes": 246884,
+    "textures": [
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     }
+    ],
+    "switch_distance_m": 25
+   }
+  },
+  {
+   "id": "backpack_3",
+   "file": "/assets/gear/backpack_3.glb",
+   "kind": "backpack",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 11732,
+   "bytes": 537416,
+   "bounds_min_m": [
+    -0.2346,
+    -0.5613,
+    -0.2928
+   ],
+   "bounds_max_m": [
+    0.2349,
+    0.3325,
+    0.3617
+   ],
+   "size_m": [
+    0.4695,
+    0.8938,
+    0.6545
+   ],
+   "nodes": [
+    "body",
+    "backpack_3"
+   ],
+   "materials": [
+    "M_backpack_3"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "upper-back attach point = root-space (0, 1.40, -0.185) (Spine2 + (0, 0.079, -0.165)); the pack front sits behind the thickest vest",
+   "level": 3,
+   "attach_bone": "Spine2",
+   "attach_offset_m": [
+    0,
+    0.079,
+    -0.165
+   ],
+   "origin_root_space_m": [
+    0,
+    1.4,
+    -0.185
+   ],
+   "capacity_l": 65,
+   "lod1": {
+    "file": "/assets/gear/backpack_3_lod1.glb",
+    "tris": 3284,
+    "bytes": 268800,
+    "textures": [
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     }
+    ],
+    "switch_distance_m": 25
+   }
+  },
+  {
+   "id": "helmet_1",
+   "file": "/assets/gear/helmet_1.glb",
+   "kind": "helmet",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 18708,
+   "bytes": 517400,
+   "bounds_min_m": [
+    -0.134,
+    -0.1523,
+    -0.138
+   ],
+   "bounds_max_m": [
+    0.134,
+    0.1556,
+    0.1566
+   ],
+   "size_m": [
+    0.268,
+    0.3079,
+    0.2946
+   ],
+   "nodes": [
+    "body",
+    "helmet_1"
+   ],
+   "materials": [
+    "M_helmet_1"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "head centre = Head bone + (0, 0.100, 0.008) in the rest pose; +Z = face forward",
+   "level": 1,
+   "attach_bone": "Head",
+   "attach_offset_m": [
+    0,
+    0.1,
+    0.008
+   ],
+   "notes": "origin = head centre (rest pose root-space (0, 1.687, 0.008)); +Z = face forward",
+   "lod1": {
+    "file": "/assets/gear/helmet_1_lod1.glb",
+    "tris": 5238,
+    "bytes": 248184,
+    "textures": [
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     }
+    ],
+    "switch_distance_m": 25
+   }
+  },
+  {
+   "id": "helmet_2",
+   "file": "/assets/gear/helmet_2.glb",
+   "kind": "helmet",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 10606,
+   "bytes": 445656,
+   "bounds_min_m": [
+    -0.1299,
+    -0.1369,
+    -0.1414
+   ],
+   "bounds_max_m": [
+    0.1299,
+    0.1523,
+    0.151
+   ],
+   "size_m": [
+    0.2599,
+    0.2893,
+    0.2924
+   ],
+   "nodes": [
+    "body",
+    "helmet_2"
+   ],
+   "materials": [
+    "M_helmet_2"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "head centre = Head bone + (0, 0.100, 0.008) in the rest pose; +Z = face forward",
+   "level": 2,
+   "attach_bone": "Head",
+   "attach_offset_m": [
+    0,
+    0.1,
+    0.008
+   ],
+   "notes": "origin = head centre (rest pose root-space (0, 1.687, 0.008)); +Z = face forward",
+   "lod1": {
+    "file": "/assets/gear/helmet_2_lod1.glb",
+    "tris": 2968,
+    "bytes": 222324,
+    "textures": [
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     }
+    ],
+    "switch_distance_m": 25
+   }
+  },
+  {
+   "id": "helmet_3",
+   "file": "/assets/gear/helmet_3.glb",
+   "kind": "helmet",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 15098,
+   "bytes": 517004,
+   "bounds_min_m": [
+    -0.137,
+    -0.1389,
+    -0.1302
+   ],
+   "bounds_max_m": [
+    0.137,
+    0.1556,
+    0.1484
+   ],
+   "size_m": [
+    0.274,
+    0.2945,
+    0.2787
+   ],
+   "nodes": [
+    "body",
+    "helmet_3"
+   ],
+   "materials": [
+    "M_helmet_3"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "head centre = Head bone + (0, 0.100, 0.008) in the rest pose; +Z = face forward",
+   "level": 3,
+   "attach_bone": "Head",
+   "attach_offset_m": [
+    0,
+    0.1,
+    0.008
+   ],
+   "notes": "origin = head centre (rest pose root-space (0, 1.687, 0.008)); +Z = face forward",
+   "lod1": {
+    "file": "/assets/gear/helmet_3_lod1.glb",
+    "tris": 4226,
+    "bytes": 253044,
+    "textures": [
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     }
+    ],
+    "switch_distance_m": 25
+   }
+  },
+  {
+   "id": "parachute",
+   "file": "/assets/gear/parachute.glb",
+   "kind": "parachute",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 9394,
+   "bytes": 294600,
+   "bounds_min_m": [
+    -3.2747,
+    -0.0004,
+    -0.752
+   ],
+   "bounds_max_m": [
+    3.2747,
+    4.6279,
+    1.9501
+   ],
+   "size_m": [
+    6.5495,
+    4.6283,
+    2.7021
+   ],
+   "nodes": [
+    "canopy",
+    "canopy_center",
+    "lines",
+    "riser_l",
+    "riser_r",
+    "risers",
+    "parachute"
+   ],
+   "materials": [
+    "M_parachute",
+    "line"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "between the shoulder riser attachments, root-space about (0, 1.47, -0.05) (Spine2 + (0, 0.15, -0.03))",
+   "attach_bone": "Spine2",
+   "attach_offset_m": [
+    0,
+    0.15,
+    -0.03
+   ],
+   "span_m": 7.2,
+   "chord_m": 2.7,
+   "notes": "canopy bottom centre ~4.3 m above the origin and 0.6 m ahead; the canopy node can be scaled for the opening animation"
+  },
+  {
+   "id": "vest_1",
+   "file": "/assets/gear/vest_1.glb",
+   "kind": "vest",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 9136,
+   "bytes": 440284,
+   "bounds_min_m": [
+    -0.2218,
+    -0.2505,
+    -0.1709
+   ],
+   "bounds_max_m": [
+    0.2227,
+    0.2381,
+    0.2018
+   ],
+   "size_m": [
+    0.4445,
+    0.4886,
+    0.3727
+   ],
+   "nodes": [
+    "body",
+    "vest_1"
+   ],
+   "materials": [
+    "M_vest_1"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "chest centre = root-space (0, 1.30, 0.0) in the rest pose (Spine2 + (0, -0.021, +0.020))",
+   "level": 1,
+   "attach_bone": "Spine2",
+   "attach_offset_m": [
+    0,
+    -0.021,
+    0.02
+   ],
+   "origin_root_space_m": [
+    0,
+    1.3,
+    0
+   ],
+   "lod1": {
+    "file": "/assets/gear/vest_1_lod1.glb",
+    "tris": 2558,
+    "bytes": 224352,
+    "textures": [
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     }
+    ],
+    "switch_distance_m": 25
+   }
+  },
+  {
+   "id": "vest_2",
+   "file": "/assets/gear/vest_2.glb",
+   "kind": "vest",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 22952,
+   "bytes": 765284,
+   "bounds_min_m": [
+    -0.234,
+    -0.2308,
+    -0.1894
+   ],
+   "bounds_max_m": [
+    0.2347,
+    0.2461,
+    0.2342
+   ],
+   "size_m": [
+    0.4687,
+    0.4769,
+    0.4236
+   ],
+   "nodes": [
+    "body",
+    "vest_2"
+   ],
+   "materials": [
+    "M_vest_2"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "chest centre = root-space (0, 1.30, 0.0) in the rest pose (Spine2 + (0, -0.021, +0.020))",
+   "level": 2,
+   "attach_bone": "Spine2",
+   "attach_offset_m": [
+    0,
+    -0.021,
+    0.02
+   ],
+   "origin_root_space_m": [
+    0,
+    1.3,
+    0
+   ],
+   "lod1": {
+    "file": "/assets/gear/vest_2_lod1.glb",
+    "tris": 6426,
+    "bytes": 382324,
+    "textures": [
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     }
+    ],
+    "switch_distance_m": 25
+   }
+  },
+  {
+   "id": "vest_3",
+   "file": "/assets/gear/vest_3.glb",
+   "kind": "vest",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 24444,
+   "bytes": 861396,
+   "bounds_min_m": [
+    -0.2805,
+    -0.2205,
+    -0.2169
+   ],
+   "bounds_max_m": [
+    0.2697,
+    0.2499,
+    0.2754
+   ],
+   "size_m": [
+    0.5502,
+    0.4704,
+    0.4923
+   ],
+   "nodes": [
+    "body",
+    "vest_3"
+   ],
+   "materials": [
+    "M_vest_3"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "chest centre = root-space (0, 1.30, 0.0) in the rest pose (Spine2 + (0, -0.021, +0.020))",
+   "level": 3,
+   "attach_bone": "Spine2",
+   "attach_offset_m": [
+    0,
+    -0.021,
+    0.02
+   ],
+   "origin_root_space_m": [
+    0,
+    1.3,
+    0
+   ],
+   "notes": "fitted to the male characters (max envelope of 4 variants) in the A-pose rest pose; skin to Spine1/Spine2 or parent to Spine2",
+   "lod1": {
+    "file": "/assets/gear/vest_3_lod1.glb",
+    "tris": 6844,
+    "bytes": 439540,
+    "textures": [
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     },
+     {
+      "mime": "image/jpeg",
+      "size": [
+       512,
+       512
+      ]
+     }
+    ],
+    "switch_distance_m": 25
+   }
+  }
+ ],
+ "index": {
+  "note": "every asset of the attachments/melee/throwables/gear/items category; melee_* and throw_* live in public/assets/weapons",
+  "attachments": [
+   "/assets/attachments/grip_angled.glb",
+   "/assets/attachments/grip_half.glb",
+   "/assets/attachments/grip_light.glb",
+   "/assets/attachments/grip_thumb.glb",
+   "/assets/attachments/grip_vertical.glb",
+   "/assets/attachments/mag_ext.glb",
+   "/assets/attachments/muzzle_comp_ar.glb",
+   "/assets/attachments/muzzle_flash_ar.glb",
+   "/assets/attachments/muzzle_suppressor_ar.glb",
+   "/assets/attachments/muzzle_suppressor_smg.glb",
+   "/assets/attachments/muzzle_suppressor_sr.glb",
+   "/assets/attachments/scope_2x.glb",
+   "/assets/attachments/scope_3x.glb",
+   "/assets/attachments/scope_4x.glb",
+   "/assets/attachments/scope_6x.glb",
+   "/assets/attachments/scope_8x.glb",
+   "/assets/attachments/scope_holo.glb",
+   "/assets/attachments/scope_reddot.glb",
+   "/assets/attachments/stock_cheekpad.glb",
+   "/assets/attachments/stock_tactical.glb"
+  ],
+  "items": [
+   "/assets/items/airdrop_crate.glb",
+   "/assets/items/airdrop_crate_chute.glb",
+   "/assets/items/ammo_12g.glb",
+   "/assets/items/ammo_300mag.glb",
+   "/assets/items/ammo_45acp.glb",
+   "/assets/items/ammo_556.glb",
+   "/assets/items/ammo_762.glb",
+   "/assets/items/ammo_9mm.glb",
+   "/assets/items/deathbox.glb",
+   "/assets/items/item_adrenaline.glb",
+   "/assets/items/item_bandage.glb",
+   "/assets/items/item_energydrink.glb",
+   "/assets/items/item_firstaid.glb",
+   "/assets/items/item_fuelcan.glb",
+   "/assets/items/item_medkit.glb",
+   "/assets/items/item_painkiller.glb"
+  ],
+  "gear": [
+   "/assets/gear/backpack_1.glb",
+   "/assets/gear/backpack_2.glb",
+   "/assets/gear/backpack_3.glb",
+   "/assets/gear/helmet_1.glb",
+   "/assets/gear/helmet_2.glb",
+   "/assets/gear/helmet_3.glb",
+   "/assets/gear/parachute.glb",
+   "/assets/gear/vest_1.glb",
+   "/assets/gear/vest_2.glb",
+   "/assets/gear/vest_3.glb"
+  ],
+  "weapons": [
+   "/assets/weapons/melee_crowbar.glb",
+   "/assets/weapons/melee_machete.glb",
+   "/assets/weapons/melee_pan.glb",
+   "/assets/weapons/melee_sickle.glb",
+   "/assets/weapons/throw_frag.glb",
+   "/assets/weapons/throw_molotov.glb",
+   "/assets/weapons/throw_smoke.glb",
+   "/assets/weapons/throw_stun.glb"
+  ],
+  "total_bytes": 17776986
+ },
+ "weapons_extra": [
+  {
+   "id": "melee_crowbar",
+   "file": "/assets/weapons/melee_crowbar.glb",
+   "kind": "weapons",
+   "source": "Poly Haven \"crowbar_01\"",
+   "source_url": "https://polyhaven.com/a/crowbar_01",
+   "license": "CC0-1.0",
+   "author": "Alexander Otterbeck",
+   "converted_by": "tools/assets/gear/ph_prop.py",
+   "tris": 2300,
+   "bytes": 359332,
+   "bounds_min_m": [
+    -0.0155,
+    -0.0947,
+    -0.0959
+   ],
+   "bounds_max_m": [
+    0.0249,
+    0.0329,
+    0.4595
+   ],
+   "size_m": [
+    0.0404,
+    0.1276,
+    0.5554
+   ],
+   "nodes": [
+    "body",
+    "tip",
+    "melee_crowbar"
+   ],
+   "materials": [
+    "crowbar_01"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z"
+  },
+  {
+   "id": "melee_machete",
+   "file": "/assets/weapons/melee_machete.glb",
+   "kind": "weapons",
+   "source": "Poly Haven \"machete\"",
+   "source_url": "https://polyhaven.com/a/machete",
+   "license": "CC0-1.0",
+   "author": "Ulan Cabanilla",
+   "converted_by": "tools/assets/gear/ph_prop.py",
+   "tris": 3032,
+   "bytes": 527872,
+   "bounds_min_m": [
+    -0.0222,
+    -0.0417,
+    -0.1086
+   ],
+   "bounds_max_m": [
+    0.0222,
+    0.0194,
+    0.6462
+   ],
+   "size_m": [
+    0.0444,
+    0.0611,
+    0.7548
+   ],
+   "nodes": [
+    "body",
+    "tip",
+    "melee_machete"
+   ],
+   "materials": [
+    "machete"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z"
+  },
+  {
+   "id": "melee_pan",
+   "file": "/assets/weapons/melee_pan.glb",
+   "kind": "melee",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 3272,
+   "bytes": 273200,
+   "bounds_min_m": [
+    -0.1288,
+    -0.0486,
+    -0.093
+   ],
+   "bounds_max_m": [
+    0.1288,
+    0.0175,
+    0.3719
+   ],
+   "size_m": [
+    0.2576,
+    0.0661,
+    0.4649
+   ],
+   "nodes": [
+    "body",
+    "tip",
+    "melee_pan"
+   ],
+   "materials": [
+    "M_melee_pan"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "hand grip; +Z = toward the tip/head, +Y = spine/up",
+   "type": "pan",
+   "notes": "cooking surface faces +Y; roll 90 deg about Z to hold it like a bat"
+  },
+  {
+   "id": "melee_sickle",
+   "file": "/assets/weapons/melee_sickle.glb",
+   "kind": "melee",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 1520,
+   "bytes": 91188,
+   "bounds_min_m": [
+    -0.0155,
+    -0.0348,
+    -0.072
+   ],
+   "bounds_max_m": [
+    0.0155,
+    0.2204,
+    0.2676
+   ],
+   "size_m": [
+    0.031,
+    0.2552,
+    0.3396
+   ],
+   "nodes": [
+    "body",
+    "tip",
+    "melee_sickle"
+   ],
+   "materials": [
+    "M_melee_sickle"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "hand grip; +Z = toward the tip/head, +Y = spine/up",
+   "type": "sickle"
+  },
+  {
+   "id": "throw_frag",
+   "file": "/assets/weapons/throw_frag.glb",
+   "kind": "throwable",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 5068,
+   "bytes": 158260,
+   "bounds_min_m": [
+    -0.0325,
+    -0.0322,
+    -0.0325
+   ],
+   "bounds_max_m": [
+    0.0348,
+    0.0548,
+    0.034
+   ],
+   "size_m": [
+    0.0673,
+    0.087,
+    0.0665
+   ],
+   "nodes": [
+    "body",
+    "pin_mesh",
+    "pin.001",
+    "pin_ring",
+    "spoon_mesh",
+    "spoon.001",
+    "throw_frag"
+   ],
+   "materials": [
+    "M_throw_frag"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "hand grip at the body centre; +Y = fuze/neck up",
+   "type": "frag",
+   "nodes_note": "'pin' (pivot: pull ring + pin) and 'spoon' (pivot at the lever hinge) can be animated off"
+  },
+  {
+   "id": "throw_molotov",
+   "file": "/assets/weapons/throw_molotov.glb",
+   "kind": "throwable",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 7918,
+   "bytes": 189860,
+   "bounds_min_m": [
+    -0.04,
+    -0.11,
+    -0.04
+   ],
+   "bounds_max_m": [
+    0.04,
+    0.2163,
+    0.0403
+   ],
+   "size_m": [
+    0.08,
+    0.3263,
+    0.0804
+   ],
+   "nodes": [
+    "body",
+    "fuel",
+    "glass",
+    "wick",
+    "throw_molotov"
+   ],
+   "materials": [
+    "M_throw_molotov",
+    "liquid_fuel",
+    "glass_green"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "hand grip at the body centre; +Y = fuze/neck up",
+   "type": "molotov",
+   "nodes_note": "'glass' (alpha-blended), 'fuel' (liquid), 'wick' empty at the rag tip"
+  },
+  {
+   "id": "throw_smoke",
+   "file": "/assets/weapons/throw_smoke.glb",
+   "kind": "throwable",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 2934,
+   "bytes": 136484,
+   "bounds_min_m": [
+    -0.0323,
+    -0.0575,
+    -0.0323
+   ],
+   "bounds_max_m": [
+    0.0348,
+    0.0828,
+    0.0341
+   ],
+   "size_m": [
+    0.0671,
+    0.1403,
+    0.0663
+   ],
+   "nodes": [
+    "body",
+    "pin_mesh",
+    "pin.001",
+    "pin_ring",
+    "spoon_mesh",
+    "spoon.001",
+    "throw_smoke"
+   ],
+   "materials": [
+    "M_throw_smoke"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "hand grip at the body centre; +Y = fuze/neck up",
+   "type": "smoke"
+  },
+  {
+   "id": "throw_stun",
+   "file": "/assets/weapons/throw_stun.glb",
+   "kind": "throwable",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 12160,
+   "bytes": 335512,
+   "bounds_min_m": [
+    -0.0242,
+    -0.062,
+    -0.0242
+   ],
+   "bounds_max_m": [
+    0.0348,
+    0.0863,
+    0.0255
+   ],
+   "size_m": [
+    0.059,
+    0.1483,
+    0.0497
+   ],
+   "nodes": [
+    "body",
+    "pin_mesh",
+    "pin.001",
+    "pin_ring",
+    "spoon_mesh",
+    "spoon.001",
+    "throw_stun"
+   ],
+   "materials": [
+    "M_throw_stun"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "hand grip at the body centre; +Y = fuze/neck up",
+   "type": "stun"
+  }
+ ]
+}

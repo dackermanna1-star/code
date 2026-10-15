@@ -5,6 +5,7 @@ Decals are written to <out_dir>/<name>.png. Reticles (if --reticles is given) go
 Only fictional brands / generic wording are used.
 """
 import os, sys, math, random
+sys.dont_write_bytecode = True
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 
 FONTS = '/usr/share/fonts/truetype'

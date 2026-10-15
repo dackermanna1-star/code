@@ -23,6 +23,8 @@ const _q2 = new THREE.Quaternion();
 const _axis = new THREE.Vector3();
 const _down = new THREE.Vector3(0, -1, 0);
 const _up = new THREE.Vector3(0, 1, 0);
+/** Crouched head-joint height cap (m, 1.8 m reference rig): eye ≈ 1.16 m, head hitbox top ≈ 1.35 m. */
+const CROUCH_HEAD_MAX = 1.08;
 
 export interface AnimFrameState {
   dt: number;
@@ -152,6 +154,28 @@ export class ProceduralAnimator {
       this.captureFeet();
       let drop = this.pelvisDip;
       if (synthCrouch) drop -= this.rig.hipHeight * 0.36 * crouch * synthW;
+      let lean = synthCrouch ? 16 * DEG * crouch * synthW : 0;
+      // Crouch height governor: whatever the clip (upright pistol crouch-walk, procedural crouch over the stand
+      // idle), the crouched head must not stand much taller than the crouch collider / eye height, or the
+      // head hitbox would poke over cover the player believes they are hidden behind. The excess is taken
+      // by a deeper knee bend (hips) and a forward spine lean (solved from the actual spine→head vector).
+      if (crouch > 0.01) {
+        const head = pc.pos('head', _c);
+        const spine = pc.pos('spine', _a);
+        const du = head.y - spine.y;
+        const df = (head.x - spine.x) * pc.fwd.x + (head.z - spine.z) * pc.fwd.z;
+        const R = Math.hypot(du, df);
+        const alpha = Math.atan2(df, du);
+        const leanDrop = (l: number) => du - R * Math.cos(l + alpha);
+        const excess = head.y - pc.origin.y + drop - leanDrop(lean) - CROUCH_HEAD_MAX * pc.scale;
+        if (excess > 0.005 && R > 0.05) {
+          const hipPart = Math.min(excess * 0.55, 0.16 * pc.scale) * crouch;
+          drop -= hipPart;
+          const need = leanDrop(lean) + (excess * crouch - hipPart);
+          const theta = Math.acos(clamp((du - need) / R, -1, 1)) - alpha;
+          lean = clamp(theta, lean, lean + 30 * DEG);
+        }
+      }
       const needLegs = synthCrouch || Math.abs(drop) > 0.004 || (st.near && c.isGrounded) || Math.abs(this.pelvisOffset) > 0.004;
       if (Math.abs(drop) > 1e-4 || synthCrouch) {
         const hipsPos = pc.pos('hips', _p);
@@ -159,7 +183,7 @@ export class ProceduralAnimator {
         if (synthCrouch) hipsPos.addScaledVector(pc.fwd, -0.06 * crouch * synthW);
         pc.setWorldPos('hips', hipsPos, true);
       }
-      if (synthCrouch) pc.rotate('spine', pc.right, -16 * DEG * crouch * synthW, true);
+      if (lean > 1e-4) pc.rotate('spine', pc.right, -lean, true);
       // Legs back onto the clip's foot positions (plus terrain offsets).
       if (needLegs) this.solveLegs(st, synthCrouch ? crouch * synthW : 0);
     }

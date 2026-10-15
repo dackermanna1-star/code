@@ -16,6 +16,7 @@ import {
   LEAN_TIME,
   PRONE_LENGTH,
   PRONE_MAX_SLOPE_DEG,
+  STEEP_SLOPE_DEG,
   SWIM,
 } from '../constants';
 import { approachVelocity2, computeTargetSpeed, fallDamage } from './speed';
@@ -32,6 +33,7 @@ const _neck = new THREE.Vector3();
 const _prev = new THREE.Vector3();
 const _v2: [number, number] = [0, 0];
 const PRONE_TURN_RATE = 100 * DEG;
+const STEEP_NORMAL_Y = Math.cos(STEEP_SLOPE_DEG * DEG);
 
 /** Ground slope (deg) from the last ground normal. */
 function slopeDeg(c: Character): number {
@@ -253,15 +255,30 @@ export function updateGround(c: Character, dt: number): void {
   }
   if (res.hitCeiling && c.velocity.y > 0) c.velocity.y = 0;
 
-  if (res.grounded) {
+  // Ground steeper than the walkable limit is not a floor: the KCC can still report "grounded" on it (snap /
+  // resting contact), which let characters stand on 55°+ slopes, cliff faces and steep roofs. Treat it as
+  // airborne so gravity slides the capsule down along it.
+  let onGround = res.grounded;
+  if (onGround) {
+    updateGroundInfo(c);
+    if (c.groundNormal.y < STEEP_NORMAL_Y && !res.stepped) onGround = false;
+  }
+
+  if (onGround) {
     if (!wasGrounded) onLand(c, Math.max(0, -c.velocity.y));
     c.velocity.y = 0;
     c.isGrounded = true;
     c.airTime = 0;
     c.coyoteTimer = COYOTE_TIME;
     c.fallStartY = c.position.y;
-    updateGroundInfo(c);
   } else {
+    // The KCC blocked part of the fall (sliding down a steep slope, resting on an edge): carry the
+    // displacement it allowed as the new velocity. The in-plane velocity is kept, so a slide accelerates with
+    // g·sinθ, and the landing impact (fall damage) reflects the real vertical speed.
+    if (dt > 0 && c.velocity.y < 0) {
+      const vy = (c.position.y - _prev.y) / dt;
+      if (vy > c.velocity.y + 1e-3) c.velocity.set((c.position.x - _prev.x) / dt, Math.min(0, vy), (c.position.z - _prev.z) / dt);
+    }
     c.isGrounded = false;
     c.airTime += dt;
     c.coyoteTimer = Math.max(0, c.coyoteTimer - dt);

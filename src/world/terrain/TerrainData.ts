@@ -63,7 +63,7 @@ export interface TerrainResult {
   cover: Uint8Array; // CLS*CLS
   /** Distance to the nearest reserved feature in 0.1 m units (255 = >= 25.5 m), 2 m cells. */
   reserved: Uint8Array; // M*M
-  /** Road surface per 2 m cell: 0 none, 1 asphalt, 2 dirt, 3 bridge deck. */
+  /** Road surface per 2 m cell (cell centre): 0 none, 1 asphalt, 2 dirt, 3 bridge deck, 4 asphalt gravel shoulder. */
   roadMask: Uint8Array; // M*M
   /** Water data (WATER_RES^2 x 4 half floats): [terrain height, distance to land (m), flow x, flow z]. */
   water: Uint16Array;

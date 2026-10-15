@@ -12,7 +12,7 @@ import { ProceduralAnimator, type AnimFrameState } from './ProceduralAnimator';
 import { WeaponPose } from './WeaponPose';
 import { createWeaponVisual, holdStyleFor, sightLift, type WeaponVisual } from './WeaponModels';
 import { SpecialPoses } from './SpecialPoses';
-import { Equipment } from './Equipment';
+import { Equipment, GEAR_LOD_DISTANCE } from './Equipment';
 import { Ragdoll } from './Ragdoll';
 import { ParachuteVisual } from './Parachute';
 import { Overlay } from './Overlay';
@@ -59,6 +59,8 @@ const _q = new THREE.Quaternion();
 const _sl = new THREE.Vector3();
 const _slq = new THREE.Quaternion();
 const _one = new THREE.Vector3(1, 1, 1);
+const _vp = new THREE.Vector3();
+const _vq = new THREE.Quaternion();
 const _sphere = new THREE.Sphere();
 const _frustum = new THREE.Frustum();
 const _pv = new THREE.Matrix4();
@@ -204,6 +206,7 @@ export class CharacterVisual implements ICharacterVisual {
     this.weaponPose = new WeaponPose(this.c, inst.rig, this.proc.pc);
     this.special = new SpecialPoses(this.c, inst.rig, this.proc, this.proc.pc);
     this.equipment = new Equipment(this.c, inst.rig, this.root);
+    this.equipment.onGearChanged = () => this.onGearChanged();
     this.equipment.refresh();
     this.onWeaponChanged();
     this.setVisible(this.visible);
@@ -213,6 +216,7 @@ export class CharacterVisual implements ICharacterVisual {
   update(dt: number, alpha: number): void {
     const c = this.c;
     this.placeTransform(alpha);
+    this.chute?.follow(this.root, c.mode === 'skydive' && c.sky.phase === 'parachute');
     this.updateMarker();
     if (!this.inst) {
       this.placeholder?.update(dt, alpha);
@@ -224,7 +228,9 @@ export class CharacterVisual implements ICharacterVisual {
     // ── LOD / culling ──
     const cam = ctx.camera.position;
     const d = cam.distanceTo(this.root.position);
-    _sphere.center.copy(this.root.position).setY(this.root.position.y + 0.9);
+    // A ragdoll can end up far from where the root stopped (killed mid-air / on a slope): cull around the body.
+    if (this.dead && this.ragdoll && this.inst.rig.bones.hips) this.inst.rig.bones.hips.getWorldPosition(_sphere.center);
+    else _sphere.center.copy(this.root.position).setY(this.root.position.y + 0.9);
     _sphere.radius = 1.4;
     const inView = c.isPlayer || cameraFrustum().intersectsSphere(_sphere);
     this.inst.container.visible = inView;
@@ -240,6 +246,7 @@ export class CharacterVisual implements ICharacterVisual {
     if (c.stanceProgress < 1 || c.mode === 'traversal') interval = Math.min(interval, 1 / 15);
     this.detailed = inView && d < 40;
     this.setLod(d > 50 && !c.isPlayer ? 1 : 0);
+    this.equipment?.setGearLod(d > GEAR_LOD_DISTANCE && !c.isPlayer ? 1 : 0);
     this.setShadows(d < 70 || c.isPlayer);
 
     this.animAccum += dt;
@@ -252,6 +259,8 @@ export class CharacterVisual implements ICharacterVisual {
     if (this.ragdoll) {
       this.ragdoll.update(adt);
       this.capturePose();
+      // Killed under canopy: the released chute still collapses and disappears.
+      if (this.chute) this.updateChute(adt);
       return;
     }
     this.animate(adt, d < 25 && inView);
@@ -265,6 +274,7 @@ export class CharacterVisual implements ICharacterVisual {
       _q.slerpQuaternions(c.prevSeatQuat, c.seatQuat, alpha);
       this.root.quaternion.copy(_q);
       this.visYaw = c.bodyYaw;
+      this.placeOnVehicleRoot();
       return;
     }
     let yaw: number;
@@ -291,6 +301,28 @@ export class CharacterVisual implements ICharacterVisual {
     this.lastPlace = ctx.engine.realTime;
     this.visYaw = yaw;
     this.root.quaternion.setFromAxisAngle(_yAxis, yaw + Math.PI);
+  }
+
+  /**
+   * Seated: place the body from the vehicle's rendered root (whatever interpolation the vehicle visual uses)
+   * and the seat pose relative to the vehicle, so the body never lags or jitters against the car. Falls back
+   * to the interpolated seat transform when the root does not track the vehicle's simulation transform.
+   */
+  private placeOnVehicleRoot(): void {
+    const c = this.c;
+    const v = c.vehicle;
+    const vr = v?.root;
+    if (!v || !vr) return;
+    if (vr.parent && vr.parent !== ctx.scene) {
+      vr.getWorldPosition(_vp);
+      vr.getWorldQuaternion(_vq);
+    } else {
+      _vp.copy(vr.position);
+      _vq.copy(vr.quaternion);
+    }
+    if (_vp.distanceToSquared(v.position) > 9) return; // root is not the body transform
+    this.root.position.copy(c.seatLocalFeet).applyQuaternion(_vq).add(_vp);
+    this.root.quaternion.copy(_vq).multiply(c.seatLocalQuat);
   }
 
   private animate(dt: number, near: boolean): void {
@@ -323,6 +355,11 @@ export class CharacterVisual implements ICharacterVisual {
     const [orole, ot] = this.overlayFromAction();
     // Long actions (healing, drinking, reviving) loop their gesture at natural speed.
     this.overlay?.update(dt, orole, ot, orole === 'useItem' || orole === 'drink' || orole === 'revive');
+    // The root was just moved (placeTransform) but its matrixWorld is still last frame's (the renderer updates
+    // it later): refresh it first, else every world-space edit below (seat hips, weapon placement, IK targets,
+    // pose capture for hitboxes) mixes this frame's root with last frame's bones — an offset of one frame of
+    // travel (≈0.1 m running, ≈0.5 m in a fast vehicle).
+    this.root.updateWorldMatrix(true, false);
     inst.container.updateMatrixWorld(true);
     let t1 = performance.now();
     animProfile.mixer += t1 - t0;
@@ -353,7 +390,8 @@ export class CharacterVisual implements ICharacterVisual {
     // Weapon + arms (not while swimming/skydiving: holstered).
     this.weaponPose!.firstPerson = this.fpp && this.c.isPlayer && ctx.cameraRig?.perspective === 'fpp';
     const ov = this.overlay?.current ?? null;
-    const handsBusy = ov === 'useItem' || ov === 'drink' || ov === 'revive' || ov === 'pickup' || ov === 'door';
+    const heal = this.healGestureKind();
+    const handsBusy = !!heal || ov === 'useItem' || ov === 'drink' || ov === 'revive' || ov === 'pickup' || ov === 'door';
     if (this.held) this.held.object.visible = !handsBusy;
     const wmode = handsBusy ? 'hidden' : ov === 'throw' || ov === 'melee' ? 'hand' : 'ik';
     if (!animDebug.noWeaponIK) this.weaponPose!.update(dt, this.held, this.root, wmode);
@@ -361,6 +399,11 @@ export class CharacterVisual implements ICharacterVisual {
     animProfile.weapon += t1 - t0;
     t0 = t1;
     if (!animDebug.noProc && !this.loco!.forceClip) sp.applyPostWeapon(fs, li.special, !!this.held, this.loco!.out.specialCovered);
+    // Healing items without a usable clip: procedural bandage wrap / kit gesture (faded at the action ends).
+    if (heal && !li.special && !animDebug.noProc) {
+      const a = c.action as { progress: number; duration: number };
+      sp.healGesture(fs, heal, Math.min(1, a.progress / 0.25, (a.duration - a.progress) / 0.2));
+    }
     this.equipment?.update();
     this.updateChute(dt);
     t1 = performance.now();
@@ -385,11 +428,22 @@ export class CharacterVisual implements ICharacterVisual {
     this.chute.update(dt, deployed, c.sky.chuteOpen, this.root, sl, sr, c.intent.moveX, c.intent.moveY);
   }
 
+  /** Procedural heal gesture for the current action (null: none / handled by a clip). */
+  private healGestureKind(): 'wrap' | 'kit' | null {
+    const a = this.c.action;
+    if (a.kind !== 'useItem') return null;
+    if (/bandage/i.test(a.itemId)) return 'wrap';
+    if (/first|med|kit|adrenal|syringe/i.test(a.itemId)) return 'kit';
+    return null;
+  }
+
   /** Upper-body overlay synced to the current action (healing, revive, throw, melee). */
   private overlayFromAction(): [OverlayRole | null, number] {
     const a = this.c.action;
     switch (a.kind) {
       case 'useItem':
+        // Bandages / kits / syringes use the procedural gesture (healGesture); drinks and pills the drink clip.
+        if (this.healGestureKind()) return [null, 0];
         return [/drink|energy|painkill|soda/i.test(a.itemId) ? 'drink' : 'useItem', a.progress / Math.max(0.01, a.duration)];
       case 'revive':
         return ['revive', a.progress / Math.max(0.01, a.duration)];
@@ -430,7 +484,8 @@ export class CharacterVisual implements ICharacterVisual {
   private capturePose(): void {
     const c = this.c;
     const rig = this.inst!.rig;
-    if (c.mode === 'vehicle') _q.copy(c.seatQuat);
+    // Seated: pose relative to the drawn seat frame (hitboxes re-apply it with the sim seat transform).
+    if (c.mode === 'vehicle') _q.copy(this.root.quaternion);
     else _q.setFromAxisAngle(_yAxis, c.bodyYaw + Math.PI);
     // Use the visual root position (interpolated) so the captured offsets are pose-only.
     _m.compose(this.root.position, _q, _one);
@@ -488,7 +543,26 @@ export class CharacterVisual implements ICharacterVisual {
     const inst = this.inst;
     if (!inst.lod1 || inst.lod1Meshes.length === 0) return;
     inst.lod1.visible = level === 1;
-    for (const m of inst.meshes) m.visible = level === 0;
+    this.applyMeshHiding();
+  }
+
+  /** Hair and the model's own headgear (soldier helmet) are hidden while a helmet item is worn. */
+  private applyMeshHiding(): void {
+    const inst = this.inst;
+    if (!inst) return;
+    const helmet = this.equipment?.wearsHelmet ?? false;
+    const lod0On = !inst.lod1 || inst.lod1Meshes.length === 0 || this.lodLevel === 0;
+    for (const m of inst.meshes) m.visible = lod0On && !(helmet && isHeadgearMesh(m));
+    for (const m of inst.lod1Meshes) m.visible = !(helmet && isHeadgearMesh(m));
+  }
+
+  /** Gear changed or a gear model streamed in: hide hair under helmets, extend the FPP head clip to it. */
+  private onGearChanged(): void {
+    this.applyMeshHiding();
+    if (this.clip && this.inst) installFirstPersonClip(this.inst.container, this.clip);
+    if (!this.shadows) this.root.traverse((o) => {
+      if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = false;
+    });
   }
 
   // ── ICharacterVisual ───────────────────────────────────────────────────────
@@ -574,6 +648,14 @@ export class CharacterVisual implements ICharacterVisual {
     return true;
   }
 
+  /** World position of the body centre (hips bone; follows the ragdoll), false before the model exists. */
+  getBodyCenter(out: THREE.Vector3): boolean {
+    const hips = this.inst?.rig.bones.hips;
+    if (!hips) return false;
+    hips.getWorldPosition(out);
+    return true;
+  }
+
   getEyeWorld(out: THREE.Vector3): boolean {
     if (!this.weaponPose || !this.inst) return false;
     // Eye from the head joint (head scale in FPP doesn't move the joint itself).
@@ -638,6 +720,12 @@ export class CharacterVisual implements ICharacterVisual {
     this.root.removeFromParent();
     this.placeholder?.dispose();
   }
+}
+
+/** Skinned parts of a character model that a worn helmet replaces (hair cards, built-in helmets). */
+function isHeadgearMesh(m: THREE.Mesh): boolean {
+  const mats = Array.isArray(m.material) ? m.material : [m.material];
+  return mats.some((mt) => /hair|helmet/i.test(mt.name));
 }
 
 export { clamp };

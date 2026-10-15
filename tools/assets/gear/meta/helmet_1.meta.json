@@ -1,0 +1,35 @@
+{
+ "tris": 18708,
+ "bounds_min": [
+  -0.134,
+  -0.1523,
+  -0.138
+ ],
+ "bounds_max": [
+  0.134,
+  0.1556,
+  0.1566
+ ],
+ "size_m": [
+  0.268,
+  0.3079,
+  0.2946
+ ],
+ "nodes": [
+  "helmet_1",
+  "body"
+ ],
+ "materials": [
+  "M_helmet_1"
+ ],
+ "kind": "helmet",
+ "level": 1,
+ "attach_bone": "Head",
+ "attach_offset_m": [
+  0.0,
+  0.1,
+  0.008
+ ],
+ "notes": "origin = head centre (rest pose root-space (0, 1.687, 0.008)); +Z = face forward",
+ "id": "helmet_1"
+}

@@ -154,7 +154,8 @@ vec4 layerSample( vec2 uv, out float h ) {
     float grain = pnoise( uv * 256.0, 256.0 );
     float ripMask = smoothstep( 0.4, 0.7, pfbm( uv + 4.4, 2.0, 2, 0.5 ) );
     float rip = ( sin( ( uv.y * 14.0 + uv.x * 3.0 + pfbm( uv, 3.0, 3, 0.5 ) * 4.0 ) * 6.2831853 ) * 0.5 + 0.5 ) * ripMask;
-    col = mix( vec3( 0.27, 0.23, 0.155 ), vec3( 0.42, 0.36, 0.255 ), n * 0.7 + grain * 0.25 + rip * 0.05 );
+    // greyish northern beach sand (a bright tropical tone read as a glowing white ring from the plane)
+    col = mix( vec3( 0.24, 0.21, 0.15 ), vec3( 0.37, 0.33, 0.25 ), n * 0.7 + grain * 0.25 + rip * 0.05 );
     h = clamp( rip * 0.22 + n * 0.55 + grain * 0.23, 0.0, 1.0 );
     rough = 0.95;
   } else if ( uLayer == 7 ) {

@@ -84,6 +84,8 @@ export interface MoveResult {
   hitCeiling: boolean;
   /** Horizontal blocking normal (last wall contact) or null. */
   wallNormal: THREE.Vector3 | null;
+  /** The manual step-up lifted the capsule this tick (or it is still passing the step edge). */
+  stepped?: boolean;
 }
 
 const _desired = { x: 0, y: 0, z: 0 };
@@ -182,7 +184,10 @@ export class CharacterBody {
       this.stepHoldDist -= Math.hypot(feet.x - _start.x, feet.z - _start.z);
       this.stepHoldTime -= 1 / 60;
       if (res.grounded || this.stepHoldTime <= 0 || delta.y > 0) this.stepHoldDist = 0;
-      else if (opts.stepUp) res.grounded = true;
+      else if (opts.stepUp) {
+        res.grounded = true;
+        res.stepped = true;
+      }
     }
     return res;
   }
@@ -283,6 +288,7 @@ export class CharacterBody {
     }
     res.grounded = true;
     res.wallNormal = null;
+    res.stepped = true;
     return res;
   }
 

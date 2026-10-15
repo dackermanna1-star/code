@@ -1,6 +1,7 @@
 // PUBG-style top-down map base raster: hillshaded relief, land colors blended from the splat weights,
 // forest tint, water depth and contour lines. Roads and building footprints are drawn on top with Canvas2D at
 // runtime (world/map/MapImage.ts).
+import { pondReach } from '../../layout/pondShape';
 import { CLS, CLS_CELL, MAP_RES, WORLD_SIZE } from '../TerrainData';
 import { sampleBilinear } from './roadCarve';
 
@@ -49,7 +50,7 @@ export function buildMapRaster(inp: MapRasterInput): Uint8ClampedArray {
       let water = hh < 0;
       let depth = -hh;
       for (let p = 0; p < ponds.length; p++) {
-        const dxp = wx - ponds[p].x, dzp = z - ponds[p].z, rr = ponds[p].radius + 4;
+        const dxp = wx - ponds[p].x, dzp = z - ponds[p].z, rr = pondReach(ponds[p]);
         if (dxp * dxp + dzp * dzp < rr * rr && hh < pondLevels[p]) {
           water = true;
           depth = pondLevels[p] - hh;

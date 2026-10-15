@@ -1,0 +1,42 @@
+{
+ "tris": 9394,
+ "bounds_min": [
+  -3.2747,
+  -0.0004,
+  -0.7521
+ ],
+ "bounds_max": [
+  3.2747,
+  4.6281,
+  1.95
+ ],
+ "size_m": [
+  6.5495,
+  4.6285,
+  2.7021
+ ],
+ "nodes": [
+  "parachute",
+  "canopy",
+  "lines",
+  "risers",
+  "canopy_center",
+  "riser_l",
+  "riser_r"
+ ],
+ "materials": [
+  "M_parachute",
+  "line"
+ ],
+ "kind": "parachute",
+ "span_m": 7.2,
+ "chord_m": 2.7,
+ "attach_bone": "Spine2",
+ "attach_offset_m": [
+  0.0,
+  0.15,
+  -0.03
+ ],
+ "notes": "canopy bottom centre ~4.3 m above the origin and 0.6 m ahead; the canopy node can be scaled for the opening animation",
+ "id": "parachute"
+}

@@ -1,0 +1,30 @@
+{
+ "tris": 708,
+ "bounds_min": [
+  -0.0181,
+  -0.0336,
+  -0.0342
+ ],
+ "bounds_max": [
+  0.0205,
+  0.0096,
+  0.0337
+ ],
+ "size_m": [
+  0.0386,
+  0.0432,
+  0.0679
+ ],
+ "nodes": [
+  "grip_thumb",
+  "body",
+  "grip_support"
+ ],
+ "materials": [
+  "M_grip_thumb"
+ ],
+ "kind": "grip",
+ "type": "thumb",
+ "mount": "bottom rail",
+ "id": "grip_thumb"
+}

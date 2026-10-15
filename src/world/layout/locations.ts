@@ -373,9 +373,17 @@ function ruins(b: LayoutBuilder): void {
     [760, 1150, 0.15],
   ];
   for (const [x, z, r] of spots) b.tryLot('ruin', x, z, r, { location: loc, margin: 2 });
-  for (let i = 0; i < 10; i++) {
+  // broken wall fragments scattered around the ruins (never across the road or inside a ruin lot)
+  for (let i = 0, tries = 0; i < 10 && tries < 80; tries++) {
     const a = b.rng.range(0, Math.PI * 2), r = b.rng.range(35, 70);
-    b.prop('wall_ruin', 715 + Math.cos(a) * r, 1150 + Math.sin(a) * r, b.rng.range(-Math.PI, Math.PI), { length: b.rng.range(4, 9) });
+    const rot = b.rng.range(-Math.PI, Math.PI), len = b.rng.range(4, 9);
+    const x = 715 + Math.cos(a) * r, z = 1150 + Math.sin(a) * r;
+    const c = Math.cos(rot), sn = Math.sin(rot);
+    const pts = [[x, z], [x + (c * len) / 2, z - (sn * len) / 2], [x - (c * len) / 2, z + (sn * len) / 2]];
+    if (pts.some(([px, pz]) => b.roadClearance(px, pz) < 1.5)) continue;
+    if (b.overlapsLots({ x, z, hw: len / 2, hd: 0.6, rot }, 1)) continue;
+    b.prop('wall_ruin', x, z, rot, { length: len });
+    i++;
   }
 }
 
@@ -451,7 +459,15 @@ function farmsteads(b: LayoutBuilder): void {
       b.rng.chance(0.6) ? b.tryLot('garage', w(-14, -2).x - 0, w(-14, -2).z, rot + Math.PI / 2, { location: loc, margin: 1.5, roadMargin: 1 }) : null,
     ];
     if (placed.filter(Boolean).length >= 2) b.fenceAround(yard, 'fence_wood', 6);
-    if (b.rng.chance(0.4)) b.prop('water_tower', w(24, 20).x, w(24, 20).z, 0);
+    if (b.rng.chance(0.4)) {
+      // first free yard corner (never in the river, on a road or on top of a building/fence)
+      for (const [lx, lz] of [[24, 20], [-24, 20], [24, -20], [-24, -20]]) {
+        const p = w(lx, lz);
+        if (!b.spotClear(p.x, p.z, 2.6)) continue;
+        b.prop('water_tower', p.x, p.z, 0);
+        break;
+      }
+    }
   }
 }
 

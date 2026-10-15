@@ -1,6 +1,8 @@
 // Rain: GPU-animated streaks in a box that wraps around the camera (no per-frame CPU work), slanted by wind.
 // Drops are velocity-aligned camera-facing quads; count scales with the rain amount and effects quality.
 import * as THREE from 'three';
+import type { BuildingInfo } from '../../core/contracts';
+import { RainOcclusion } from './RainOcclusion';
 
 const MAX_DROPS = 9000;
 const BOX = new THREE.Vector3(46, 26, 46);
@@ -13,6 +15,8 @@ uniform vec3 uBox;
 uniform vec3 uVel;
 uniform float uLen;
 uniform float uPixel; // world size of one pixel at 1 m distance
+uniform sampler2D tRoof; // roof heights around the camera (RainOcclusion)
+uniform vec3 uRoof;      // x0, z0, size of the roof map square
 varying float vA;
 varying vec2 vUv;
 void main() {
@@ -30,6 +34,12 @@ void main() {
   vUv = position.xy;
   vA = ( 1.0 - smoothstep( uBox.x * 0.25, uBox.x * 0.5, d ) ) * smoothstep( 1.2, 3.5, d ) * ( wWorld / w );
   gl_Position = projectionMatrix * viewMatrix * vec4( pos, 1.0 );
+  // no rain under roofs (inside buildings): cull the drop
+  vec2 ruv = ( wp.xz - uRoof.xy ) / uRoof.z;
+  if ( all( greaterThan( ruv, vec2( 0.0 ) ) ) && all( lessThan( ruv, vec2( 1.0 ) ) ) && wp.y < texture2D( tRoof, ruv ).r ) {
+    vA = 0.0;
+    gl_Position = vec4( 2.0, 2.0, 2.0, 1.0 );
+  }
 }
 `;
 
@@ -58,11 +68,17 @@ export class Rain {
     uColor: { value: new THREE.Color(0.55, 0.6, 0.65) },
     uOpacity: { value: 0.32 },
     uPixel: { value: 0.001 },
+    tRoof: { value: null as THREE.Texture | null },
+    uRoof: { value: new THREE.Vector3(0, 0, 64) },
   };
+  /** Roof-height map so rain does not fall inside buildings. */
+  readonly occlusion = new RainOcclusion();
   /** 0..1 fraction of MAX_DROPS allowed by the effects quality setting. */
   quality = 1;
 
   constructor() {
+    this.uniforms.tRoof.value = this.occlusion.texture;
+    this.uniforms.uRoof.value = this.occlusion.origin;
     this.geo = new THREE.InstancedBufferGeometry();
     this.geo.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0], 3));
     this.geo.setIndex([0, 1, 2, 0, 2, 3]);
@@ -85,11 +101,20 @@ export class Rain {
     this.mesh.visible = false;
   }
 
-  update(dt: number, camera: THREE.Camera, amount: number, wind: number, light: number, underwater: boolean): void {
+  update(
+    dt: number,
+    camera: THREE.Camera,
+    amount: number,
+    wind: number,
+    light: number,
+    underwater: boolean,
+    buildings?: readonly BuildingInfo[],
+  ): void {
     const n = Math.floor(MAX_DROPS * this.quality * Math.min(1, amount));
     this.mesh.visible = n > 50 && !underwater;
     this.geo.instanceCount = n;
     if (!this.mesh.visible) return;
+    this.occlusion.update(camera.position.x, camera.position.z, buildings);
     const u = this.uniforms;
     u.uTime.value += dt;
     u.uCam.value.copy(camera.position);

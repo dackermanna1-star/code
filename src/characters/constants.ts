@@ -57,7 +57,15 @@ export const SWIM_ACCEL = 4;
 
 /** Jump: 0.55 m apex. */
 export const JUMP_HEIGHT = 0.55;
-export const JUMP_VELOCITY = Math.sqrt(2 * GRAVITY * JUMP_HEIGHT);
+/**
+ * Take-off speed reaching `h` with the fixed-tick integration GroundMotor uses (v -= g·dt, then y += v·dt), whose
+ * apex is v²/2g − v·dt/2 + g·dt²/8 — the continuous √(2gh) peaks ~2.7 cm short at 60 Hz.
+ */
+export function jumpVelocityFor(h: number, dt = 1 / 60, g = GRAVITY): number {
+  const a = 1 / (2 * g), b = -dt / 2, c = -(h - (g * dt * dt) / 8);
+  return (-b + Math.sqrt(b * b - 4 * a * c)) / (2 * a);
+}
+export const JUMP_VELOCITY = jumpVelocityFor(JUMP_HEIGHT);
 /** Grace windows for jump input. */
 export const COYOTE_TIME = 0.12;
 export const JUMP_BUFFER = 0.12;
@@ -70,6 +78,14 @@ export const STANCE_TIME = {
 } as const;
 /** Max ground slope (deg) where prone is allowed. */
 export const PRONE_MAX_SLOPE_DEG = 35;
+/**
+ * Prone: max view yaw away from the body (rad). The body turns toward the view at a limited rate and can be
+ * blocked by walls; the view (and so the shot direction) may lead it by at most this much, which keeps
+ * bullets inside the arc the animated weapon can actually point (the spine aim offset is clamped at 1.4).
+ */
+export const PRONE_VIEW_YAW_LIMIT = 70 * (Math.PI / 180);
+/** Ground steeper than this (deg) is not standable: characters slide off it (KCC climb limit is 50°). */
+export const STEEP_SLOPE_DEG = 52;
 
 /** KCC tuning. */
 export const KCC = {

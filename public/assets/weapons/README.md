@@ -2,8 +2,15 @@
 
 30 first-person/third-person firearm models for the PUBG-style roster, one GLB per weapon id
 (`ar_m416.glb`, `sr_kar98k.glb`, ...). Per-weapon data (length, bounds, triangle count, node list, reference
-image) is in `manifest.json`. A contact sheet of every weapon (side and 3/4 views) can be rendered with
-`node tools/assets/weapons/preview/contact_sheet.mjs out.png`.
+image) is in `manifest.json`. A contact sheet of every weapon (side and 3/4 views) is at
+`tools/assets/weapons/preview/contact_sheet.jpg`. To re-render it, run
+`node tools/assets/weapons/preview/contact_sheet.mjs out.png [--markers 1]`.
+
+Totals: 30 files, 12.5 MB (0.30-0.60 MB each), 3.5k-13.6k triangles each, 1 material and 3 x 1024 px JPEG
+textures per weapon.
+
+The `melee_*` and `throw_*` files in this folder belong to the gear pipeline (`tools/assets/gear`), not to this
+document. `make_manifest.mjs` keeps any manifest entries it does not own.
 
 ## Source and license
 
@@ -71,7 +78,7 @@ consistent scale, materials, node layout and texel density.
 
 - Silhouettes are traced from real photos at real scale, so proportions, grip angles, magazine curves and
   stock shapes match the real weapons. Every part has rounded bevels and weighted normals, so nothing looks
-  faceted. Triangle counts are about 4.5k-17k.
+  faceted.
 - Textures are procedural: edge wear on convex edges (from a per-part baked thickness mask), cavity grime and
   AO, roughness variation, stipple on polymer, real wood grain and figure. There are **no stamped markings,
   serial numbers or text**.
@@ -89,7 +96,7 @@ consistent scale, materials, node layout and texel density.
   silhouette. Pistol slide details (Beretta open-top cut, 1911 grip safety) are simplified.
 - The textures look like well-kept service weapons. For extra realism, add a world-space dirt/scratch detail
   map in the shader at close range (first person).
-- No LODs are included. At 4.5k-17k triangles one LOD is fine for first person. For third-person/world pickups
+- No LODs are included. At 3.5k-13.6k triangles one LOD is fine for first person. For third-person/world pickups
   at distance, `gltf-transform simplify` to about 30% works well because there are no thin shells to collapse.
 - To change a gun, edit `tools/assets/weapons/guns/<id>.py` and run
   `BLENDER=<blender> tools/assets/weapons/build_all.sh <work_dir> <id>`. That rebuilds, bakes, optimizes,

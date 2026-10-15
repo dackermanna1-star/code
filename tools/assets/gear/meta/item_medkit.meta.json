@@ -1,0 +1,28 @@
+{
+ "tris": 6388,
+ "bounds_min": [
+  -0.2579,
+  -0.003,
+  -0.1111
+ ],
+ "bounds_max": [
+  0.2576,
+  0.271,
+  0.116
+ ],
+ "size_m": [
+  0.5155,
+  0.274,
+  0.2271
+ ],
+ "nodes": [
+  "item_medkit",
+  "body"
+ ],
+ "materials": [
+  "M_item_medkit"
+ ],
+ "kind": "heal",
+ "type": "med_kit",
+ "id": "item_medkit"
+}

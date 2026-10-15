@@ -14,7 +14,7 @@ import type {
 } from '../core/contracts';
 import type { DamageInfo, EntityId, Hitbox, LifeState, MoveState, Stance, SurfaceType, TeamId, WeaponSlot } from '../core/types';
 import { newEntityId } from '../core/types';
-import { clamp, dirFromYawPitch, wrapAngle } from '../core/math';
+import { angleDiff, clamp, dirFromYawPitch, wrapAngle } from '../core/math';
 import { CharacterBody } from './movement/CharacterBody';
 import {
   CAPSULE_RADIUS,
@@ -23,6 +23,8 @@ import {
   KNOCKED_HEIGHT,
   LEAN_OFFSET,
   PRONE_EYE_FORWARD,
+  PRONE_VIEW_YAW_LIMIT,
+  SEATED_HIP_HEIGHT,
   SPEED,
   STANCE_HEIGHT,
   STANCE_TIME,
@@ -67,6 +69,7 @@ const _v = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _yAxis = new THREE.Vector3(0, 1, 0);
+const _fwdZ = new THREE.Vector3();
 
 let warnedFixed = false;
 
@@ -158,6 +161,15 @@ export class Character implements ICharacter {
   readonly seatPos = new THREE.Vector3();
   readonly seatQuat = new THREE.Quaternion();
   readonly prevSeatQuat = new THREE.Quaternion();
+  /**
+   * Feet position / body orientation relative to the vehicle's simulation transform (refreshed with the
+   * seat). The visual places the body from the vehicle's *rendered* root with these, so a seated character
+   * never lags or jitters against an interpolated vehicle.
+   */
+  readonly seatLocalFeet = new THREE.Vector3();
+  readonly seatLocalQuat = new THREE.Quaternion();
+  /** Seat heading at the last seat update: the player's view turns with the vehicle (PUBG vehicle camera). */
+  private seatYawRef: number | null = null;
   /** Body orientation used for hitboxes (sim) — yaw-only except in vehicles. */
   readonly simQuat = new THREE.Quaternion();
   private interactTarget: Interactable | null = null;
@@ -227,6 +239,18 @@ export class Character implements ICharacter {
     this.yaw = wrapAngle(intent.yaw);
     this.pitch = clamp(intent.pitch, -1.5, 1.5);
     if (this.mode === 'ground' && this.stance === 'prone') this.pitch = clamp(this.pitch, -0.6, 1.0);
+    // Prone: the view may only lead the (rate-limited, wall-blocked) body by a bounded angle.
+    const lim = this.viewYawLimit();
+    if (lim !== null) {
+      const d = angleDiff(this.bodyYaw, this.yaw);
+      if (Math.abs(d) > lim) {
+        const clamped = Math.sign(d) * lim;
+        this.yaw = wrapAngle(this.bodyYaw + clamped);
+        // The player's camera reads intent.yaw: pull it back by the same amount (PlayerController also clamps
+        // at render rate). Bots keep their requested yaw; the body keeps turning toward it.
+        if (this.isPlayer) intent.yaw += clamped - d;
+      }
+    }
 
     this.updateWeaponBlock();
     this.updateAction(dt);
@@ -624,7 +648,15 @@ export class Character implements ICharacter {
       }
       this.stance = 'crouch';
       this.stanceProgress = 1;
-      if (this.mode === 'ground') this.body.setShape('crouch', this.position);
+      if (this.mode === 'ground') {
+        // Revived under something lower than a crouch (knocked bodies fit under tables): stay prone.
+        if (this.body.fits('crouch', this.position)) this.body.setShape('crouch', this.position);
+        else {
+          this.stance = 'prone';
+          this.stanceHeight = Math.min(this.stanceHeight, STANCE_HEIGHT.crouch);
+          this.body.setShape('prone', this.position, this.bodyYaw);
+        }
+      }
       this.moveState = 'idle';
       this.knockHealth = 100;
     } else if (state === 'dead') {
@@ -662,6 +694,20 @@ export class Character implements ICharacter {
     this.body.syncTo(this.position);
     this.traversal = null;
     if (this.mode === 'traversal') this.mode = 'ground';
+    // Teleported under something lower than the current stance (spawn/revive spots under low ceilings): the
+    // KCC's penetration recovery would pop the capsule on top of the obstacle — duck instead.
+    if (this.mode === 'ground' && this.lifeState === 'alive' && this.stance !== 'prone' && !this.body.fits(this.stance, this.position, false)) {
+      if (this.stance === 'stand' && this.body.fits('crouch', this.position, false)) {
+        this.stance = 'crouch';
+        this.body.setShape('crouch', this.position);
+      } else if (this.body.proneBodyFits(this.position, this.bodyYaw, 0, false)) {
+        this.stance = 'prone';
+        this.pronePitch = 0;
+        this.body.setShape('prone', this.position, this.bodyYaw);
+      }
+      this.stanceProgress = 1;
+      this.stanceHeight = STANCE_HEIGHT[this.stance];
+    }
     this.airTime = 0;
     this.fallStartY = this.position.y;
     this.updateSimQuat();
@@ -685,13 +731,24 @@ export class Character implements ICharacter {
         this.body.setShape('stand', this.position);
       }
       vehicle.getSeatTransform(seatIndex, this.seatPos, this.seatQuat);
-      if (!wasIn) this.prevSeatQuat.copy(this.seatQuat);
+      if (!wasIn) {
+        this.prevSeatQuat.copy(this.seatQuat);
+        this.seatYawRef = null;
+      }
       this.updateSeatFeet();
-      if (!wasIn) this.prevPosition.copy(this.position);
+      if (!wasIn) {
+        this.prevPosition.copy(this.position);
+        // Getting in: the player's view faces the vehicle's forward (then turns with it).
+        if (this.isPlayer) {
+          this.intent.yaw = this.yaw = this.prevYaw = this.bodyYaw;
+          this.intent.pitch = this.pitch = -0.08;
+        }
+      }
     } else if (this.vehicle) {
       const v = this.vehicle;
       this.vehicle = null;
       this.seatIndex = -1;
+      this.seatYawRef = null;
       this.mode = this.lifeState === 'dead' ? 'dead' : 'ground';
       if (this.lifeState !== 'dead') {
         this.moveState = this.lifeState === 'knocked' ? 'knocked' : 'idle';
@@ -701,13 +758,49 @@ export class Character implements ICharacter {
     }
   }
 
-  /** Feet position from the seat hips transform. */
+  /** Feet position from the seat hips transform (+ the same pose relative to the vehicle). */
   updateSeatFeet(): void {
-    _v.set(0, -0.5, 0).applyQuaternion(this.seatQuat);
+    _v.set(0, -SEATED_HIP_HEIGHT, 0).applyQuaternion(this.seatQuat);
     this.position.copy(this.seatPos).add(_v);
-    _q.copy(this.seatQuat);
-    const e = new THREE.Euler().setFromQuaternion(_q, 'YXZ');
-    this.bodyYaw = wrapAngle(e.y + Math.PI);
+    // Body yaw = heading of the seat's forward (+Z, assets face +Z) projected on the ground.
+    _fwdZ.set(0, 0, 1).applyQuaternion(this.seatQuat);
+    if (_fwdZ.x * _fwdZ.x + _fwdZ.z * _fwdZ.z > 1e-8) this.bodyYaw = wrapAngle(Math.atan2(_fwdZ.x, _fwdZ.z) + Math.PI);
+    const v = this.vehicle;
+    if (v) {
+      _q.copy(v.quaternion).invert();
+      this.seatLocalFeet.copy(this.position).sub(v.position).applyQuaternion(_q);
+      this.seatLocalQuat.copy(_q).multiply(this.seatQuat);
+      // The player's view is relative to the vehicle: when it turns, the view turns with it (looking out of
+      // the side window keeps looking out of the side window). Bots aim with absolute yaw from their AI.
+      if (this.isPlayer) {
+        if (this.seatYawRef !== null) {
+          const d = angleDiff(this.seatYawRef, this.bodyYaw);
+          if (d !== 0) {
+            this.intent.yaw += d;
+            this.yaw = wrapAngle(this.yaw + d);
+          }
+        }
+        this.seatYawRef = this.bodyYaw;
+      }
+    }
+  }
+
+  /**
+   * Re-read the seat after the vehicles moved this tick (called post-physics by the characters module) so the
+   * seated body, eye and hitboxes match the vehicle that combat ray-tests and the renderer draws.
+   */
+  syncSeat(): void {
+    const v = this.vehicle;
+    if (!v || this.mode !== 'vehicle' || this.lifeState === 'dead') return;
+    try {
+      v.getSeatTransform(this.seatIndex, this.seatPos, this.seatQuat);
+    } catch {
+      return;
+    }
+    this.updateSeatFeet();
+    this.velocity.copy(v.velocity);
+    this.updateSimQuat();
+    this.hitboxes.update();
   }
 
   setMoveState(state: MoveState): void {
@@ -755,6 +848,11 @@ export class Character implements ICharacter {
 
   setTeamMarker(color: number | null): void {
     this.visual?.setMarker?.(color);
+  }
+
+  /** Max view yaw offset from the body (rad) in the current state, or null when the view is free. */
+  viewYawLimit(): number | null {
+    return this.mode === 'ground' && this.stance === 'prone' && this.lifeState === 'alive' ? PRONE_VIEW_YAW_LIMIT : null;
   }
 
   /** Request a stance from code (bots/tests); performs the same clearance checks as the intent path. */

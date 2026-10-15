@@ -1,0 +1,959 @@
+{
+ "category": "items",
+ "version": 1,
+ "generated_by": "tools/assets/gear/make_manifest.mjs",
+ "conventions": {
+  "units": "meters",
+  "up": "+Y",
+  "forward": "+Z (the right-hand side of an asset is -X)",
+  "compression": "EXT_meshopt_compression + KHR_mesh_quantization (load with GLTFLoader.setMeshoptDecoder); no Draco/KTX2",
+  "materials": "authored assets: one baked PBR material 'M_<id>' (JPEG baseColor, normal, packed ORM = occlusion/roughness/metalness) plus plain untextured materials for glass/lenses/lines ('lens', 'lens_amber', 'window', 'glass_*', 'liquid_*', 'line')"
+ },
+ "total_bytes": 3773028,
+ "assets": [
+  {
+   "id": "airdrop_crate",
+   "file": "/assets/items/airdrop_crate.glb",
+   "kind": "airdrop",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 13812,
+   "bytes": 524716,
+   "bounds_min_m": [
+    -0.64,
+    0,
+    -0.64
+   ],
+   "bounds_max_m": [
+    0.65,
+    1.254,
+    0.65
+   ],
+   "size_m": [
+    1.29,
+    1.2539,
+    1.29
+   ],
+   "nodes": [
+    "chute_attach",
+    "crate",
+    "smoke",
+    "airdrop_crate"
+   ],
+   "materials": [
+    "M_airdrop_crate"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z",
+   "nodes_note": "'crate' mesh, empties 'chute_attach', 'smoke'"
+  },
+  {
+   "id": "airdrop_crate_chute",
+   "file": "/assets/items/airdrop_crate_chute.glb",
+   "kind": "airdrop",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 19412,
+   "bytes": 623088,
+   "bounds_min_m": [
+    -3.9241,
+    0,
+    -3.9241
+   ],
+   "bounds_max_m": [
+    3.9241,
+    8.1847,
+    3.9241
+   ],
+   "size_m": [
+    7.8482,
+    8.1847,
+    7.8482
+   ],
+   "nodes": [
+    "canopy",
+    "canopy_center",
+    "chute_attach",
+    "crate",
+    "lines",
+    "smoke",
+    "airdrop_crate_chute"
+   ],
+   "materials": [
+    "M_airdrop_crate_chute",
+    "line"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z",
+   "canopy_diameter_m": 7.5,
+   "variant": "parachute"
+  },
+  {
+   "id": "ammo_12g",
+   "file": "/assets/items/ammo_12g.glb",
+   "kind": "ammo",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 1080,
+   "bytes": 93268,
+   "bounds_min_m": [
+    -0.0692,
+    0,
+    -0.035
+   ],
+   "bounds_max_m": [
+    0.0607,
+    0.0683,
+    0.0857
+   ],
+   "size_m": [
+    0.1299,
+    0.0683,
+    0.1207
+   ],
+   "nodes": [
+    "body",
+    "ammo_12g"
+   ],
+   "materials": [
+    "M_ammo_12g"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z",
+   "caliber": "12g"
+  },
+  {
+   "id": "ammo_300mag",
+   "file": "/assets/items/ammo_300mag.glb",
+   "kind": "ammo",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 1288,
+   "bytes": 88768,
+   "bounds_min_m": [
+    -0.075,
+    0,
+    -0.041
+   ],
+   "bounds_max_m": [
+    0.0839,
+    0.0483,
+    0.0764
+   ],
+   "size_m": [
+    0.1589,
+    0.0483,
+    0.1174
+   ],
+   "nodes": [
+    "body",
+    "ammo_300mag"
+   ],
+   "materials": [
+    "M_ammo_300mag"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z",
+   "caliber": "300mag"
+  },
+  {
+   "id": "ammo_45acp",
+   "file": "/assets/items/ammo_45acp.glb",
+   "kind": "ammo",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 1296,
+   "bytes": 96216,
+   "bounds_min_m": [
+    -0.0572,
+    0,
+    -0.037
+   ],
+   "bounds_max_m": [
+    0.056,
+    0.0443,
+    0.0779
+   ],
+   "size_m": [
+    0.1132,
+    0.0443,
+    0.1149
+   ],
+   "nodes": [
+    "body",
+    "ammo_45acp"
+   ],
+   "materials": [
+    "M_ammo_45acp"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z",
+   "caliber": "45acp"
+  },
+  {
+   "id": "ammo_556",
+   "file": "/assets/items/ammo_556.glb",
+   "kind": "ammo",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 1626,
+   "bytes": 95848,
+   "bounds_min_m": [
+    -0.0725,
+    0,
+    -0.039
+   ],
+   "bounds_max_m": [
+    0.0628,
+    0.0423,
+    0.0827
+   ],
+   "size_m": [
+    0.1353,
+    0.0423,
+    0.1217
+   ],
+   "nodes": [
+    "body",
+    "ammo_556"
+   ],
+   "materials": [
+    "M_ammo_556"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z",
+   "caliber": "556"
+  },
+  {
+   "id": "ammo_762",
+   "file": "/assets/items/ammo_762.glb",
+   "kind": "item",
+   "source": "Poly Haven \"ammo_box\"",
+   "source_url": "https://polyhaven.com/a/ammo_box",
+   "license": "CC0-1.0",
+   "author": "DanKit",
+   "converted_by": "tools/assets/gear/ph_prop.py",
+   "tris": 4382,
+   "bytes": 256412,
+   "bounds_min_m": [
+    -0.1289,
+    0,
+    -0.0433
+   ],
+   "bounds_max_m": [
+    0.1289,
+    0.1775,
+    0.0433
+   ],
+   "size_m": [
+    0.2579,
+    0.1775,
+    0.0866
+   ],
+   "nodes": [
+    "body",
+    "ammo_762"
+   ],
+   "materials": [
+    "ammo_box"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z"
+  },
+  {
+   "id": "ammo_9mm",
+   "file": "/assets/items/ammo_9mm.glb",
+   "kind": "ammo",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 1296,
+   "bytes": 102184,
+   "bounds_min_m": [
+    -0.0513,
+    0,
+    -0.034
+   ],
+   "bounds_max_m": [
+    0.049,
+    0.0383,
+    0.0735
+   ],
+   "size_m": [
+    0.1004,
+    0.0383,
+    0.1075
+   ],
+   "nodes": [
+    "body",
+    "ammo_9mm"
+   ],
+   "materials": [
+    "M_ammo_9mm"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z",
+   "caliber": "9mm"
+  },
+  {
+   "id": "deathbox",
+   "file": "/assets/items/deathbox.glb",
+   "kind": "item",
+   "source": "Poly Haven \"wooden_crate_02\"",
+   "source_url": "https://polyhaven.com/a/wooden_crate_02",
+   "license": "CC0-1.0",
+   "author": "James Ray Cock, Jurita Burger",
+   "converted_by": "tools/assets/gear/ph_prop.py",
+   "tris": 5176,
+   "bytes": 450884,
+   "bounds_min_m": [
+    -0.2646,
+    0,
+    -0.5832
+   ],
+   "bounds_max_m": [
+    0.2646,
+    0.464,
+    0.5832
+   ],
+   "size_m": [
+    0.5291,
+    0.464,
+    1.1663
+   ],
+   "nodes": [
+    "body",
+    "lid",
+    "deathbox"
+   ],
+   "materials": [
+    "wooden_crate_02"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z"
+  },
+  {
+   "id": "item_adrenaline",
+   "file": "/assets/items/item_adrenaline.glb",
+   "kind": "boost",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 1732,
+   "bytes": 106704,
+   "bounds_min_m": [
+    -0.024,
+    -0.0015,
+    -0.118
+   ],
+   "bounds_max_m": [
+    0.024,
+    0.0255,
+    0.106
+   ],
+   "size_m": [
+    0.048,
+    0.027,
+    0.224
+   ],
+   "nodes": [
+    "body",
+    "glass",
+    "liquid",
+    "item_adrenaline"
+   ],
+   "materials": [
+    "M_item_adrenaline",
+    "glass_clear",
+    "liquid_yel"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z",
+   "type": "adrenaline",
+   "notes": "'glass' (alpha) and 'liquid' nodes are separate plain materials"
+  },
+  {
+   "id": "item_bandage",
+   "file": "/assets/items/item_bandage.glb",
+   "kind": "heal",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 2592,
+   "bytes": 113600,
+   "bounds_min_m": [
+    -0.1014,
+    -0.0003,
+    -0.051
+   ],
+   "bounds_max_m": [
+    0.038,
+    0.076,
+    0.149
+   ],
+   "size_m": [
+    0.1394,
+    0.0763,
+    0.2
+   ],
+   "nodes": [
+    "body",
+    "item_bandage"
+   ],
+   "materials": [
+    "M_item_bandage"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z",
+   "type": "bandage"
+  },
+  {
+   "id": "item_energydrink",
+   "file": "/assets/items/item_energydrink.glb",
+   "kind": "boost",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 1728,
+   "bytes": 81252,
+   "bounds_min_m": [
+    -0.033,
+    0,
+    -0.033
+   ],
+   "bounds_max_m": [
+    0.033,
+    0.1684,
+    0.033
+   ],
+   "size_m": [
+    0.066,
+    0.1684,
+    0.066
+   ],
+   "nodes": [
+    "body",
+    "item_energydrink"
+   ],
+   "materials": [
+    "M_item_energydrink"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z",
+   "type": "energy_drink"
+  },
+  {
+   "id": "item_firstaid",
+   "file": "/assets/items/item_firstaid.glb",
+   "kind": "heal",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 2928,
+   "bytes": 112080,
+   "bounds_min_m": [
+    -0.116,
+    0,
+    -0.0825
+   ],
+   "bounds_max_m": [
+    0.116,
+    0.078,
+    0.084
+   ],
+   "size_m": [
+    0.232,
+    0.078,
+    0.1665
+   ],
+   "nodes": [
+    "body",
+    "item_firstaid"
+   ],
+   "materials": [
+    "M_item_firstaid"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z",
+   "type": "first_aid"
+  },
+  {
+   "id": "item_fuelcan",
+   "file": "/assets/items/item_fuelcan.glb",
+   "kind": "item",
+   "source": "Poly Haven \"metal_jerrycan\"",
+   "source_url": "https://polyhaven.com/a/metal_jerrycan",
+   "license": "CC0-1.0",
+   "author": "Sean Buckley",
+   "converted_by": "tools/assets/gear/ph_prop.py",
+   "tris": 8008,
+   "bytes": 554088,
+   "bounds_min_m": [
+    -0.1752,
+    0,
+    -0.0859
+   ],
+   "bounds_max_m": [
+    0.1752,
+    0.4552,
+    0.0859
+   ],
+   "size_m": [
+    0.3505,
+    0.4552,
+    0.1719
+   ],
+   "nodes": [
+    "body",
+    "spout",
+    "item_fuelcan"
+   ],
+   "materials": [
+    "metal_jerrycan"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z"
+  },
+  {
+   "id": "item_medkit",
+   "file": "/assets/items/item_medkit.glb",
+   "kind": "heal",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 6388,
+   "bytes": 292756,
+   "bounds_min_m": [
+    -0.2579,
+    -0.0031,
+    -0.1111
+   ],
+   "bounds_max_m": [
+    0.2576,
+    0.271,
+    0.116
+   ],
+   "size_m": [
+    0.5155,
+    0.2741,
+    0.2271
+   ],
+   "nodes": [
+    "body",
+    "item_medkit"
+   ],
+   "materials": [
+    "M_item_medkit"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      1024,
+      1024
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z",
+   "type": "med_kit"
+  },
+  {
+   "id": "item_painkiller",
+   "file": "/assets/items/item_painkiller.glb",
+   "kind": "boost",
+   "source": "authored for this project (scripted Blender, tools/assets/gear)",
+   "source_url": null,
+   "license": "CC0-1.0",
+   "author": "project",
+   "tris": 4464,
+   "bytes": 181164,
+   "bounds_min_m": [
+    -0.0267,
+    0,
+    -0.0267
+   ],
+   "bounds_max_m": [
+    0.0267,
+    0.0985,
+    0.0267
+   ],
+   "size_m": [
+    0.0534,
+    0.0985,
+    0.0534
+   ],
+   "nodes": [
+    "body",
+    "item_painkiller"
+   ],
+   "materials": [
+    "M_item_painkiller"
+   ],
+   "textures": [
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    },
+    {
+     "mime": "image/jpeg",
+     "size": [
+      512,
+      512
+     ]
+    }
+   ],
+   "origin": "bottom centre resting on the ground (y = 0); printed/front side faces +Z",
+   "type": "painkiller"
+  }
+ ]
+}

@@ -1,0 +1,40 @@
+{
+ "tris": 24444,
+ "bounds_min": [
+  -0.2805,
+  -0.2204,
+  -0.2169
+ ],
+ "bounds_max": [
+  0.2697,
+  0.2499,
+  0.2754
+ ],
+ "size_m": [
+  0.5502,
+  0.4704,
+  0.4923
+ ],
+ "nodes": [
+  "vest_3",
+  "body"
+ ],
+ "materials": [
+  "M_vest_3"
+ ],
+ "kind": "vest",
+ "level": 3,
+ "attach_bone": "Spine2",
+ "attach_offset_m": [
+  0.0,
+  -0.021,
+  0.02
+ ],
+ "origin_root_space_m": [
+  0.0,
+  1.3,
+  0.0
+ ],
+ "notes": "fitted to the male characters (max envelope of 4 variants) in the A-pose rest pose; skin to Spine1/Spine2 or parent to Spine2",
+ "id": "vest_3"
+}

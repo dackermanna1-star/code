@@ -1,0 +1,40 @@
+{
+ "tris": 11732,
+ "bounds_min": [
+  -0.2346,
+  -0.5613,
+  -0.2928
+ ],
+ "bounds_max": [
+  0.2349,
+  0.3325,
+  0.3617
+ ],
+ "size_m": [
+  0.4695,
+  0.8938,
+  0.6545
+ ],
+ "nodes": [
+  "backpack_3",
+  "body"
+ ],
+ "materials": [
+  "M_backpack_3"
+ ],
+ "kind": "backpack",
+ "level": 3,
+ "attach_bone": "Spine2",
+ "attach_offset_m": [
+  0.0,
+  0.079,
+  -0.165
+ ],
+ "origin_root_space_m": [
+  0.0,
+  1.4,
+  -0.185
+ ],
+ "capacity_l": 65,
+ "id": "backpack_3"
+}

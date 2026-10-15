@@ -33,8 +33,9 @@ export class TerrainRenderer {
   lodCounts = [0, 0, 0, 0, 0];
   private savedCount = 0;
   private nodeDist = new Float32Array(MAX_NODES);
-  private order: number[] = [];
+  private order = new Int32Array(MAX_NODES);
   private sorted = new Float32Array(MAX_NODES * 4);
+  private sortedDist = new Float32Array(MAX_NODES);
   /** Cascade cameras and their far split distances, provided by the world (see setShadowCascades). */
   private cascadeCams: THREE.Camera[] = [];
   private cascadeFar: number[] = [];
@@ -171,22 +172,29 @@ export class TerrainRenderer {
     const n = Math.ceil(WORLD_SIZE / rootSize);
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) this.select(i, j, ROOT_LOD);
     // sort nodes by distance (nearest first) so shadow cascades can draw a prefix
+    // (allocation-free: insertion sort of an index list; ~50-150 nodes, already nearly sorted by the quadtree walk)
     const order = this.order;
-    order.length = this.nodeCount;
-    for (let k = 0; k < this.nodeCount; k++) order[k] = k;
     const dist = this.nodeDist;
-    order.sort((a, b) => dist[a] - dist[b]);
-    const src = this.nodeData, dst = this.sorted;
-    for (let k = 0; k < this.nodeCount; k++) {
+    const count = this.nodeCount;
+    for (let k = 0; k < count; k++) {
+      let q = k;
+      while (q > 0 && dist[order[q - 1]] > dist[k]) {
+        order[q] = order[q - 1];
+        q--;
+      }
+      order[q] = k;
+    }
+    const src = this.nodeData, dst = this.sorted, sd = this.sortedDist;
+    for (let k = 0; k < count; k++) {
       const o = order[k] * 4;
       dst[k * 4] = src[o];
       dst[k * 4 + 1] = src[o + 1];
       dst[k * 4 + 2] = src[o + 2];
       dst[k * 4 + 3] = src[o + 3];
+      sd[k] = dist[order[k]];
     }
-    const sortedDist = order.map((k) => dist[k]);
-    for (let k = 0; k < this.nodeCount; k++) dist[k] = sortedDist[k];
-    src.set(dst.subarray(0, this.nodeCount * 4));
+    dist.set(sd.subarray(0, count));
+    src.set(dst.subarray(0, count * 4));
     this.geometry.instanceCount = this.nodeCount;
     this.nodeAttr.clearUpdateRanges();
     this.nodeAttr.addUpdateRange(0, this.nodeCount * 4);

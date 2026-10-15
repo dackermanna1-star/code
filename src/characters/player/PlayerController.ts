@@ -6,7 +6,7 @@ import { Priority } from '../../core/Engine';
 import type { Action } from '../../core/Input';
 import type { Interactable } from '../../core/contracts';
 import type { WeaponSlot } from '../../core/types';
-import { DEG, clamp, damp } from '../../core/math';
+import { DEG, angleDiff, clamp, damp } from '../../core/math';
 import type { Character } from '../Character';
 
 /** Base mouse sensitivity: degrees per pixel at settings.controls.sensitivity = 1. */
@@ -92,6 +92,13 @@ export class PlayerController {
     } else {
       c.intent.yaw -= dx * rad;
       c.intent.pitch = clamp(c.intent.pitch - dy * rad * inv, -1.5, 1.5);
+      // Prone: the view may lead the body by a bounded angle (the same clamp the character applies per
+      // tick); clamping here too keeps the camera from overshooting for a frame and snapping back.
+      const lim = c.viewYawLimit();
+      if (lim !== null) {
+        const d = angleDiff(c.bodyYaw, c.intent.yaw);
+        if (Math.abs(d) > lim) c.intent.yaw += Math.sign(d) * lim - d;
+      }
       // Free look snaps back smoothly.
       const k = damp(14, dt);
       this.freeLookYaw -= this.freeLookYaw * k;

@@ -36,6 +36,9 @@ export async function installCharacters(ctx: GameContext): Promise<void> {
   };
   registry.onRemove = (c) => {
     if (ctx.player === c) ctx.player = null;
+    // A removed character can no longer be spectated (its visual is disposed): fall back until the match
+    // picks another target.
+    if (rig.mode === 'spectate' && rig.followed === c) rig.spectate(null);
   };
 
   ctx.characters = registry;
@@ -58,6 +61,22 @@ export async function installCharacters(ctx: GameContext): Promise<void> {
       characterPerf.ticks++;
     },
   });
+
+  // Seated characters follow their vehicle *after* it moved this tick (vehicles run after characters, physics
+  // later): without this, seat, eye and hitboxes lag one tick (≈0.5 m at 110 km/h). Synced right after the
+  // vehicles system (before combat ray-tests hitboxes) and again post-physics (vehicles driven by rigid bodies
+  // publish their new transform after the step).
+  const syncSeats = () => {
+    const list = registry.list;
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      if (c.mode !== 'vehicle') continue;
+      c.syncSeat();
+      registry.reindex(c);
+    }
+  };
+  ctx.engine.addSystem({ name: 'characterSeats', priority: Priority.Vehicles + 1, fixedUpdate: syncSeats });
+  ctx.engine.addSystem({ name: 'characterSeatsPost', priority: Priority.PostPhysics + 1, fixedUpdate: syncSeats });
 
   ctx.engine.addSystem({
     name: 'characterAnimation',

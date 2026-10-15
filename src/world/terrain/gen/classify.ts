@@ -1,4 +1,5 @@
 // Surface classification, splat weights, tree density, ground cover, reserved-distance field and normals.
+import { pondReach, pondShapeDistance } from '../../layout/pondShape';
 import { BUILDING_FOOTPRINTS } from '../../../core/contracts';
 import type { WorldLayout } from '../../layout/types';
 import { PROP_FOOTPRINTS } from '../../layout/props';
@@ -40,10 +41,12 @@ export function computeReserved(layout: WorldLayout, roads: RoadField): { reserv
       if (roads.edge[s0 + 1] < e) (e = roads.edge[s0 + 1]), (k = roads.kind[s0 + 1]);
       if (roads.edge[s0 + N] < e) (e = roads.edge[s0 + N]), (k = roads.kind[s0 + N]);
       if (roads.edge[s0 + N + 1] < e) (e = roads.edge[s0 + N + 1]), (k = roads.kind[s0 + N + 1]);
-      if (e < 0) {
-        src[j * M + i] = 1;
-        roadMask[j * M + i] = k;
-      }
+      if (e < 0) src[j * M + i] = 1;
+      // surface mask from the (approximate) edge distance at the cell centre, so footsteps/impacts just off
+      // the road are not reported as asphalt; asphalt roads carry a 1.4 m gravel shoulder (as rendered)
+      const ec = 0.25 * (roads.edge[s0] + roads.edge[s0 + 1] + roads.edge[s0 + N] + roads.edge[s0 + N + 1]);
+      if (ec < 0) roadMask[j * M + i] = k;
+      else if (ec < 1.4 && k === 1) roadMask[j * M + i] = 4;
     }
   const markRect = (cx: number, cz: number, hw: number, hd: number, rot: number) => {
     const cos = Math.cos(rot), sin = Math.sin(rot);
@@ -117,7 +120,7 @@ export function classify(inp: ClassifyInput): ClassifyOutput {
   const fields = layout.fields.map((f) => ({ ...f, cos: Math.cos(f.rotation), sin: Math.sin(f.rotation), r: hyp(f.w, f.d) / 2 + 8 }));
   const patches = layout.groundPatches.map((p) => ({ ...p, cos: Math.cos(p.rotation), sin: Math.sin(p.rotation), r: hyp(p.w, p.d) / 2 + 6 }));
   const forests = layout.forests.map((f) => ({ ...f, cos: Math.cos(f.rotation ?? 0), sin: Math.sin(f.rotation ?? 0), st: f.stretch ?? 1, r: f.radius * (f.stretch ?? 1) * 1.3 }));
-  const ponds = layout.ponds.map((p, i) => ({ ...p, i, r: p.radius + 14 }));
+  const ponds = layout.ponds.map((p, i) => ({ ...p, i, r: pondReach(p) + 10 }));
   const TILE = 128, TN = Math.ceil((CLS * CLS_CELL) / TILE);
   type Bucket = { fields: typeof fields; patches: typeof patches; forests: typeof forests; ponds: typeof ponds };
   const buckets: Bucket[] = [];
@@ -278,7 +281,7 @@ export function classify(inp: ClassifyInput): ClassifyOutput {
       }
       // ponds
       for (const p of bucket.ponds) {
-        const d = hyp(x - p.x, z - p.z);
+        const d = pondShapeDistance(p, p.i, x, z);
         if (d < p.radius + 12) over(4, sstep(p.radius + 10, p.radius + 2, d) * 0.85);
       }
       // beaches / seabed: sandy stretches alternate with grassy/rocky shores
@@ -330,7 +333,7 @@ export function classify(inp: ClassifyInput): ClassifyOutput {
       if (roadEdge < 0 && roadKind === 1) s = Surf.Asphalt;
       else if (roadEdge < 0 && roadKind === 2) s = Surf.Dirt;
       let water = hh < -0.05 && (cd < 30 || redge < 2);
-      for (const p of bucket.ponds) if (hyp(x - p.x, z - p.z) < p.radius + 3 && hh < inp.pondLevels[p.i]) water = true;
+      for (const p of bucket.ponds) if (hyp(x - p.x, z - p.z) < pondReach(p) && hh < inp.pondLevels[p.i]) water = true;
       if (water) s = Surf.Water;
       surface[c] = s;
 

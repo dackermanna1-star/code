@@ -15,6 +15,15 @@ const _ma = new THREE.Matrix4();
 const _q = new THREE.Quaternion();
 const _v = new THREE.Vector3();
 const _one = new THREE.Vector3(1, 1, 1);
+const _s = new THREE.Vector3();
+
+/** Shadow casting on for every mesh of a loaded gear model. */
+function prepGear(o: THREE.Object3D): THREE.Object3D {
+  o.traverse((m) => {
+    if ((m as THREE.Mesh).isMesh) (m as THREE.Mesh).castShadow = true;
+  });
+  return o;
+}
 
 const HELMET_COLORS = [0x6b6a4a, 0x4a5233, 0x2c2e2b];
 const VEST_COLORS = [0x6e6650, 0x4b5435, 0x262826];
@@ -78,22 +87,34 @@ function proceduralGear(slot: EquipmentSlot, level: number, s: number): THREE.Ob
   return mergeStatic(g, merged);
 }
 
-/** Fit a loaded model inside the bounding box of a proxy (unknown authoring conventions). */
-function fitTo(model: THREE.Object3D, proxy: THREE.Object3D): THREE.Object3D {
-  const pb = new THREE.Box3().setFromObject(proxy);
-  const mb = new THREE.Box3().setFromObject(model);
-  const ps = pb.getSize(new THREE.Vector3()), ms = mb.getSize(new THREE.Vector3());
-  const k = Math.min(ps.x / Math.max(1e-4, ms.x), ps.y / Math.max(1e-4, ms.y), ps.z / Math.max(1e-4, ms.z)) * 1.05;
-  const wrap = new THREE.Group();
-  model.scale.multiplyScalar(k);
-  const c = mb.getCenter(new THREE.Vector3()).multiplyScalar(k);
-  model.position.sub(c).add(pb.getCenter(new THREE.Vector3()));
-  wrap.add(model);
-  return wrap;
+/**
+ * Authored gear attachment (public/assets/gear/README.md): each GLB is attached rigidly to a bone with a bone-local
+ * offset and identity rotation, fitted to the male survivor rig (rest height GEAR_REF_RIG_HEIGHT). Other rigs (the
+ * shorter female variants) scale offset + model by their rest height ratio (≈0.94, as the README recommends).
+ */
+const GEAR_ATTACH: Record<EquipmentSlot, { bone: BoneKey; fallback: BoneKey; offset: [number, number, number] }> = {
+  helmet: { bone: 'head', fallback: 'head', offset: [0, 0.1, 0.008] },
+  vest: { bone: 'upperChest', fallback: 'spine', offset: [0, -0.021, 0.02] },
+  backpack: { bone: 'upperChest', fallback: 'spine', offset: [0, 0.079, -0.165] },
+};
+const GEAR_REF_RIG_HEIGHT = 1.765;
+/** Gear switches to its `_lod1` GLB beyond this camera distance (README: ~25 m). */
+export const GEAR_LOD_DISTANCE = 25;
+
+interface GearEntry {
+  id: string;
+  /** Holder parented to the bone (proxy placement first, authored placement once the GLB loads). */
+  obj: THREE.Group;
+  lod0: THREE.Object3D | null;
+  lod1: THREE.Object3D | null;
+  lod1Requested: boolean;
 }
 
 export class Equipment {
-  private readonly gear: Partial<Record<EquipmentSlot, { id: string; obj: THREE.Object3D }>> = {};
+  private readonly gear: Partial<Record<EquipmentSlot, GearEntry>> = {};
+  private gearLod = 0;
+  /** Called after gear changed (the visual hides hair / built-in helmets under a worn helmet). */
+  onGearChanged: (() => void) | null = null;
   private readonly slung: Partial<Record<WeaponSlot, { uid: number; v: WeaponVisual }>> = {};
 
   constructor(
@@ -157,18 +178,63 @@ export class Equipment {
       }
       _m.compose(p, _q.identity(), _one);
       if (!this.attach(bone, holder, _m)) continue;
-      this.gear[slot] = { id, obj: holder };
-      // Upgrade to a real model when available.
+      const entry: GearEntry = { id, obj: holder, lod0: null, lod1: null, lod1Requested: false };
+      this.gear[slot] = entry;
+      // Upgrade to the authored model when available (stays on the proxy if the asset is missing).
       void ctx.assets.tryGltf(`assets/gear/${id}.glb`).then((g) => {
-        if (!g || this.gear[slot]?.obj !== holder) return;
-        const model = fitTo(Assets.cloneScene(g.scene), proxy);
-        model.traverse((o) => {
-          if ((o as THREE.Mesh).isMesh) (o as THREE.Mesh).castShadow = true;
-        });
+        if (!g || this.gear[slot] !== entry) return;
+        if (!this.placeAuthored(slot, holder)) return;
         holder.remove(proxy);
-        holder.add(model);
+        entry.lod0 = prepGear(Assets.cloneScene(g.scene));
+        holder.add(entry.lod0);
+        this.applyGearLod(entry);
+        this.onGearChanged?.();
       });
     }
+    this.onGearChanged?.();
+  }
+
+  /** Re-parent a gear holder at the README attachment (bone + offset, identity rotation, rig-height scale). */
+  private placeAuthored(slot: EquipmentSlot, holder: THREE.Object3D): boolean {
+    const a = GEAR_ATTACH[slot];
+    const bone: BoneKey = this.rig.bones[a.bone] ? a.bone : a.fallback;
+    const base = this.rig.restPos[bone];
+    if (!base || !this.rig.bones[bone] || !this.rig.restMatrix[bone]) return false;
+    const k = THREE.MathUtils.clamp(this.rig.height / GEAR_REF_RIG_HEIGHT, 0.85, 1.15);
+    _v.set(a.offset[0], a.offset[1], a.offset[2]).multiplyScalar(k).add(base);
+    _m.compose(_v, _q.identity(), _s.setScalar(k));
+    holder.removeFromParent();
+    return this.attach(bone, holder, _m);
+  }
+
+  /** Gear LOD (0 near, 1 far): swaps to `<id>_lod1.glb` (loaded on first use) when it exists. */
+  setGearLod(level: number): void {
+    if (level === this.gearLod) return;
+    this.gearLod = level;
+    for (const e of Object.values(this.gear)) if (e) this.applyGearLod(e);
+  }
+
+  private applyGearLod(e: GearEntry): void {
+    if (!e.lod0) return;
+    const far = this.gearLod === 1;
+    if (far && !e.lod1 && !e.lod1Requested) {
+      e.lod1Requested = true;
+      void ctx.assets.tryGltf(`assets/gear/${e.id}_lod1.glb`).then((g) => {
+        if (!g || !e.obj.parent) return;
+        e.lod1 = prepGear(Assets.cloneScene(g.scene));
+        e.obj.add(e.lod1);
+        this.applyGearLod(e);
+        this.onGearChanged?.();
+      });
+    }
+    const useLod1 = far && !!e.lod1;
+    e.lod0.visible = !useLod1;
+    if (e.lod1) e.lod1.visible = useLod1;
+  }
+
+  /** True when a helmet is worn (hair and built-in headgear of the character model get hidden). */
+  get wearsHelmet(): boolean {
+    return !!this.gear.helmet;
   }
 
   refreshWeapons(): void {
@@ -235,6 +301,7 @@ export class Equipment {
   dispose(): void {
     this.clearWeapons();
     for (const k of Object.keys(this.gear) as EquipmentSlot[]) this.gear[k]!.obj.removeFromParent();
+    this.onGearChanged = null;
     void this.root;
   }
 }

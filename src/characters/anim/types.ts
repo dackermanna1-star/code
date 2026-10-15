@@ -66,6 +66,8 @@ export interface ICharacterVisual {
   getSightEyeWorld(out: THREE.Vector3): boolean;
   /** World position between the eyes (FPP camera), if the model is loaded. */
   getEyeWorld(out: THREE.Vector3): boolean;
+  /** World position of the body centre (hips; follows a ragdoll). Optional. */
+  getBodyCenter?(out: THREE.Vector3): boolean;
   /** Hide head/helmet for the first-person camera. */
   setFirstPerson(on: boolean): void;
   setVisible(on: boolean): void;

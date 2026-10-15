@@ -2,17 +2,18 @@
 //   node tools/assets/gear/gltf_util.mjs pack <in.gltf> <out.glb>          -> plain repack (no compression)
 //   node tools/assets/gear/gltf_util.mjs optimize <in.glb> <out.glb>        -> dedup, prune, weld, reorder, quantize,
 //        EXT_meshopt_compression; sets occlusionTexture = metallicRoughnessTexture (packed ORM) when missing.
-//        Nodes listed with --keep a,b,c (and every node that has children) keep their exact transforms.
 //   node tools/assets/gear/gltf_util.mjs plain <in.glb> <out.glb>         -> decode meshopt/quantization (for Blender import)
+//   node tools/assets/gear/gltf_util.mjs lod <in.glb> <out.glb> [--ratio 0.3] [--error 0.002] [--tex 512] -> simplified LOD copy
 //   node tools/assets/gear/gltf_util.mjs info <file.glb>
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { dedup, prune, weld, quantize, reorder, meshopt, dequantize } from '@gltf-transform/functions';
-import { MeshoptEncoder, MeshoptDecoder } from 'meshoptimizer';
+import { dedup, prune, weld, quantize, reorder, meshopt, dequantize, simplify } from '@gltf-transform/functions';
+import { MeshoptEncoder, MeshoptDecoder, MeshoptSimplifier } from 'meshoptimizer';
+import { spawnSync } from 'child_process';
 import fs from 'fs';
 
 const [cmd, ...args] = process.argv.slice(2);
-await MeshoptDecoder.ready; await MeshoptEncoder.ready;
+await MeshoptDecoder.ready; await MeshoptEncoder.ready; await MeshoptSimplifier.ready;
 const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder, 'meshopt.encoder': MeshoptEncoder });
 
 function triCount(doc) {
@@ -50,6 +51,21 @@ if (cmd === 'plain') {
   await doc.transform(dedup(), prune({ keepLeaves: true, keepAttributes: false }), weld(), reorder({ encoder: MeshoptEncoder }),
     quantize({ quantizePosition: 14, quantizeNormal: 10, quantizeTexcoord: 12, quantizationVolume: 'mesh' }),
     meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
+  await io.write(out, doc);
+  console.log(JSON.stringify({ out, bytes: fs.statSync(out).size, tris: triCount(doc) }));
+} else if (cmd === 'lod') {
+  // simplified copy with downsized textures: lod <in.glb> <out.glb> [--ratio 0.3] [--error 0.002] [--tex 512]
+  const [inp, out] = args;
+  const opt = (n, d) => { const i = args.indexOf('--' + n); return i >= 0 ? +args[i + 1] : d; };
+  const doc = await io.read(inp);
+  await doc.transform(dequantize(), weld(), simplify({ simplifier: MeshoptSimplifier, ratio: opt('ratio', 0.3), error: opt('error', 0.002), lockBorder: false }));
+  const tex = opt('tex', 512);
+  for (const t of doc.getRoot().listTextures()) {
+    const r = spawnSync('python3', ['-c', `import sys,io\nfrom PIL import Image\nim=Image.open(io.BytesIO(sys.stdin.buffer.read()))\nim.thumbnail((${tex},${tex}),Image.LANCZOS)\nb=io.BytesIO()\nfmt='PNG' if im.mode in ('RGBA','LA') else 'JPEG'\nim.save(b,fmt,quality=88)\nsys.stdout.buffer.write(b.getvalue())`], { input: Buffer.from(t.getImage()), maxBuffer: 64 << 20 });
+    if (r.status === 0 && r.stdout.length) { t.setImage(new Uint8Array(r.stdout)); }
+  }
+  await doc.transform(prune({ keepLeaves: true }), reorder({ encoder: MeshoptEncoder }),
+    quantize({ quantizePosition: 14, quantizeNormal: 10, quantizeTexcoord: 12, quantizationVolume: 'mesh' }), meshopt({ encoder: MeshoptEncoder, level: 'medium' }));
   await io.write(out, doc);
   console.log(JSON.stringify({ out, bytes: fs.statSync(out).size, tris: triCount(doc) }));
 } else if (cmd === 'info') {

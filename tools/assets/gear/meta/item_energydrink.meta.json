@@ -1,0 +1,28 @@
+{
+ "tris": 1728,
+ "bounds_min": [
+  -0.033,
+  0.0,
+  -0.033
+ ],
+ "bounds_max": [
+  0.033,
+  0.1684,
+  0.033
+ ],
+ "size_m": [
+  0.066,
+  0.1684,
+  0.066
+ ],
+ "nodes": [
+  "item_energydrink",
+  "body"
+ ],
+ "materials": [
+  "M_item_energydrink"
+ ],
+ "kind": "boost",
+ "type": "energy_drink",
+ "id": "item_energydrink"
+}

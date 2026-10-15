@@ -12,7 +12,10 @@ import type { RoadField } from './roadCarve';
  * (the surface is triangle-interpolated between 2 m samples). Lots whose pads overlap are levelled together.
  */
 export const LOT_PAD = 2.9;
+/** Skirt width (m): base, plus 2.6 m per meter of height difference (≈ 21° max), capped. */
 const SKIRT = 9;
+const SKIRT_PER_M = 2.6;
+const SKIRT_MAX = 22;
 
 export function flattenLots(layout: WorldLayout, h: Float32Array, roads: RoadField): { ground: Float32Array; pad: Uint8Array } {
   const lots = layout.lots;
@@ -62,7 +65,7 @@ export function flattenLots(layout: WorldLayout, h: Float32Array, roads: RoadFie
     ground[li] = gy;
     lots[li].groundY = gy;
     const cos = Math.cos(b.rot), sin = Math.sin(b.rot);
-    const R = hyp(b.hw, b.hd) + SKIRT + 2;
+    const R = hyp(b.hw, b.hd) + SKIRT_MAX + 2;
     const i0 = Math.max(0, Math.floor((b.x - R) / CELL)), i1 = Math.min(N - 1, Math.ceil((b.x + R) / CELL));
     const j0 = Math.max(0, Math.floor((b.z - R) / CELL)), j1 = Math.min(N - 1, Math.ceil((b.z + R) / CELL));
     for (let j = j0; j <= j1; j++)
@@ -72,10 +75,14 @@ export function flattenLots(layout: WorldLayout, h: Float32Array, roads: RoadFie
         if (sd <= 0) {
           h[idx] = gy;
           pad[idx] = 1;
-        } else if (sd < SKIRT) {
+        } else if (sd < SKIRT_MAX) {
           if (pad[idx]) continue;
           if (roads.edge[idx] < 0.75) continue; // keep road cores intact
-          const t = sstep(0, SKIRT, sd);
+          // wider skirts where the pad sits far above/below the surrounding ground, so the slope around a
+          // building stays walkable (a fixed 9 m skirt gave 35°+ banks in front of doors on hillsides)
+          const skirt = Math.min(SKIRT_MAX, SKIRT + SKIRT_PER_M * Math.max(0, Math.abs(h[idx] - gy) - 1));
+          if (sd >= skirt) continue;
+          const t = sstep(0, skirt, sd);
           h[idx] = mix(gy, h[idx], t);
         }
       }

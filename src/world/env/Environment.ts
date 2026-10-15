@@ -73,6 +73,7 @@ export class Environment implements IEnvironment {
   }
 
   setTimeOfDay(h: number): void {
+    if (!Number.isFinite(h)) return; // e.g. a malformed ?time= flag: keep the current time instead of NaN lighting
     this.timeOfDay = ((h % 24) + 24) % 24;
     this.envDirty = true;
     this.apply(false);
@@ -92,7 +93,15 @@ export class Environment implements IEnvironment {
     for (const f of this.onChange) f();
   }
 
+  /** Switch the underwater look (fog) immediately, e.g. when the camera crosses the water surface. */
+  setUnderwater(on: boolean): void {
+    if (on === this.underwater) return;
+    this.underwater = on;
+    this.apply(false);
+  }
+
   update(dt: number): void {
+    if (!Number.isFinite(this.timeSpeed)) this.timeSpeed = 0;
     if (this.timeSpeed !== 0) {
       this.timeOfDay = (this.timeOfDay + this.timeSpeed * dt + 24) % 24;
       this.envDirty = true;

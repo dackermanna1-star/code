@@ -1,0 +1,30 @@
+{
+ "tris": 1348,
+ "bounds_min": [
+  -0.0181,
+  -0.0656,
+  -0.0293
+ ],
+ "bounds_max": [
+  0.0205,
+  0.0096,
+  0.0391
+ ],
+ "size_m": [
+  0.0386,
+  0.0752,
+  0.0684
+ ],
+ "nodes": [
+  "grip_half",
+  "body",
+  "grip_support"
+ ],
+ "materials": [
+  "M_grip_half"
+ ],
+ "kind": "grip",
+ "type": "half",
+ "mount": "bottom rail",
+ "id": "grip_half"
+}

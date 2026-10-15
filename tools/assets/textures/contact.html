@@ -1,0 +1,153 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Texture contact sheet</title>
+<style>body { margin: 0; background: #222; color: #ddd; font: 12px sans-serif; } canvas#sheet { display: block; }</style>
+<script type="importmap">
+{ "imports": { "three": "/repo/node_modules/three/build/three.module.js", "three/addons/": "/repo/node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<canvas id="sheet"></canvas>
+<script type="module">
+// Contact sheet for public/assets/textures + hdri. Each cell: a 1 m sphere at real-world texel scale (left) and a
+// 2x2-repeat tile plane (right) lit by the chosen HDRI + a sun. ?group=terrain|building|bark|veg|decal|hdri
+import * as THREE from 'three';
+import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+
+const q = new URLSearchParams(location.search);
+const group = q.get('group') || 'terrain';
+const hdriName = q.get('hdri') || 'partly_cloudy_1k';
+const CELL = Number(q.get('cell') || 360);
+const COLS = Number(q.get('cols') || 4);
+const BASE = '/repo/public/';
+
+try {
+  const manifest = await (await fetch(BASE + 'assets/textures/manifest.json')).json();
+  const hdriMan = await (await fetch(BASE + 'assets/hdri/manifest.json')).json();
+  const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+  renderer.setSize(CELL, CELL);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const hdrLoader = new HDRLoader();
+  const loadEnv = async (name) => {
+    const t = await hdrLoader.loadAsync(BASE + `assets/hdri/${name}.hdr`);
+    t.mapping = THREE.EquirectangularReflectionMapping;
+    return { equi: t, env: pmrem.fromEquirectangular(t).texture };
+  };
+  const env = await loadEnv(hdriName);
+  const texLoader = new THREE.TextureLoader();
+  const cache = new Map();
+  const tex = (url, srgb) => {
+    if (!cache.has(url)) cache.set(url, texLoader.loadAsync(url).then((t) => {
+      t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+      t.wrapS = t.wrapT = THREE.RepeatWrapping;
+      t.anisotropy = 8;
+      return t;
+    }).catch(() => null));
+    return cache.get(url);
+  };
+  const rep = (t, rx, ry) => { if (!t) return null; const c = t.clone(); c.repeat.set(rx, ry); c.needsUpdate = true; return c; };
+
+  let items = [];
+  if (group === 'hdri') items = hdriMan.hdris.map((h) => ({ id: h.id, hdri: h }));
+  else if (group === 'veg') items = manifest.vegetation;
+  else if (group === 'decal') items = manifest.decals;
+  else if (group === 'ground') items = manifest.sets.filter((s) => s.kind === 'terrain');
+  else items = manifest.sets.filter((s) => s.kind === group);
+
+  const rows = Math.ceil(items.length / COLS);
+  const sheet = document.getElementById('sheet');
+  sheet.width = CELL * COLS; sheet.height = (CELL + 18) * rows;
+  const ctx = sheet.getContext('2d');
+  ctx.fillStyle = '#1b1b1b'; ctx.fillRect(0, 0, sheet.width, sheet.height);
+
+  const camera = new THREE.PerspectiveCamera(32, 1, 0.05, 100);
+  const sun = new THREE.DirectionalLight(0xfff2e0, 2.2);
+  sun.position.set(-2.0, 2.4, 2.2);
+
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    const scene = new THREE.Scene();
+    scene.environment = env.env;
+    scene.background = new THREE.Color(0x30343a);
+    scene.add(sun.clone());
+    if (group === 'hdri') {
+      const e = await loadEnv(it.hdri.file.split('/').pop().replace('.hdr', ''));
+      scene.environment = e.env; scene.background = e.equi; scene.backgroundBlurriness = 0.0;
+      const chrome = new THREE.Mesh(new THREE.SphereGeometry(0.42, 64, 32), new THREE.MeshStandardMaterial({ metalness: 1, roughness: 0.05 }));
+      chrome.position.set(-0.5, 0, 0);
+      const diffuse = new THREE.Mesh(new THREE.SphereGeometry(0.42, 64, 32), new THREE.MeshStandardMaterial({ color: 0xbbbbbb, roughness: 0.9 }));
+      diffuse.position.set(0.5, 0, 0);
+      scene.add(chrome, diffuse);
+      camera.position.set(0, 0.25, 3.0); camera.lookAt(0, 0, 0);
+    } else if (group === 'veg' || group === 'decal') {
+      const p = BASE + it.path;
+      const isDecal = group === 'decal';
+      const albedo = await tex(p + (isDecal ? 'albedo.png' : 'albedo.jpg'), true);
+      const alpha = isDecal ? null : await tex(p + 'opacity.jpg', false);
+      const normal = await tex(p + 'normal.jpg', false);
+      const arm = await tex(p + 'arm.jpg', false);
+      const img = albedo.image;
+      const aspect = img.width / img.height;
+      const w = 1.7, h = w / aspect;
+      if (isDecal) {
+        const wall = await Promise.all(['albedo.jpg', 'normal.jpg', 'arm.jpg'].map((f, k) => tex(BASE + 'assets/textures/' + (it.id === 'decal_tire_tracks' ? 'road_dirt/' : it.id === 'decal_asphalt_damage' ? 'road_asphalt/' : 'concrete_wall/') + f, k === 0)));
+        const wm = new THREE.MeshStandardMaterial({ map: wall[0], normalMap: wall[1], aoMap: wall[2], roughnessMap: wall[2], metalnessMap: wall[2], metalness: 1 });
+        const wallMesh = new THREE.Mesh(new THREE.PlaneGeometry(w * 1.04, h * 1.04), wm);
+        scene.add(wallMesh);
+      }
+      const mat = new THREE.MeshStandardMaterial({ map: albedo, normalMap: normal, aoMap: arm, roughnessMap: arm, metalnessMap: arm, metalness: 1,
+        alphaMap: alpha, alphaTest: isDecal ? 0 : 0.5, transparent: isDecal, depthWrite: !isDecal, side: THREE.DoubleSide,
+        polygonOffset: isDecal, polygonOffsetFactor: -2 });
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(w, h), mat);
+      mesh.position.z = 0.001;
+      scene.add(mesh);
+      camera.position.set(0, -0.15, 3.1); camera.lookAt(0, 0, 0);
+    } else if (group === 'ground') {
+      // eye-height view over a 60 m patch to judge tiling/repetition at distance
+      const p = BASE + it.path;
+      const [albedo, normal, arm] = await Promise.all([tex(p + 'albedo.jpg', true), tex(p + 'normal.jpg', false), tex(p + 'arm.jpg', false)]);
+      const t = it.tile_m || [2, 2];
+      const S = 60;
+      const m = new THREE.MeshStandardMaterial({ map: rep(albedo, S / t[0], S / t[1]), normalMap: rep(normal, S / t[0], S / t[1]),
+        aoMap: rep(arm, S / t[0], S / t[1]), roughnessMap: rep(arm, S / t[0], S / t[1]), metalnessMap: rep(arm, S / t[0], S / t[1]), metalness: 1 });
+      const g = new THREE.Mesh(new THREE.PlaneGeometry(S, S), m);
+      g.rotation.x = -Math.PI / 2;
+      g.position.z = -S / 2 + 2;
+      scene.add(g);
+      scene.background = env.equi;
+      camera.fov = 60; camera.updateProjectionMatrix();
+      camera.position.set(0, 1.75, 0); camera.lookAt(0, 0.2, -8);
+    } else {
+      const p = BASE + it.path;
+      const [albedo, normal, arm] = await Promise.all([tex(p + 'albedo.jpg', true), tex(p + 'normal.jpg', false), tex(p + 'arm.jpg', false)]);
+      const t = it.tile_m || [2, 2];
+      // sphere: 1 m diameter at real texel scale
+      const sr = [Math.PI / t[0], (Math.PI / 2) / t[1]];
+      const mk = (rx, ry) => new THREE.MeshStandardMaterial({ map: rep(albedo, rx, ry), normalMap: rep(normal, rx, ry), aoMap: rep(arm, rx, ry), roughnessMap: rep(arm, rx, ry), metalnessMap: rep(arm, rx, ry), metalness: 1, roughness: 1 });
+      const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.5, 96, 48), mk(sr[0], sr[1]));
+      sphere.position.set(-0.6, 0.05, 0);
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 1.1), mk(2, 2));
+      plane.rotation.x = -0.9;
+      plane.position.set(0.62, -0.05, 0);
+      scene.add(sphere, plane);
+      camera.position.set(0, 0.45, 4.1); camera.lookAt(0, 0, 0);
+    }
+    renderer.render(scene, camera);
+    const x = (i % COLS) * CELL, y = Math.floor(i / COLS) * (CELL + 18);
+    ctx.drawImage(renderer.domElement, x, y);
+    ctx.fillStyle = '#ffd24a';
+    const tl = it.tile_m ? ` ${it.tile_m[0]}m${it.tile_estimated ? '~' : ''}` : '';
+    ctx.fillText(`${it.id}${tl}  ${it.source ? it.source.provider + ':' + it.source.id : ''}`, x + 4, y + CELL + 13);
+  }
+  window.__done = true;
+} catch (e) {
+  window.__error = String(e && e.stack || e);
+}
+</script>
+</body>
+</html>

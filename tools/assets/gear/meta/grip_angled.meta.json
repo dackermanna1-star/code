@@ -1,0 +1,30 @@
+{
+ "tris": 848,
+ "bounds_min": [
+  -0.0181,
+  -0.0418,
+  -0.04
+ ],
+ "bounds_max": [
+  0.0205,
+  0.0096,
+  0.0613
+ ],
+ "size_m": [
+  0.0386,
+  0.0514,
+  0.1013
+ ],
+ "nodes": [
+  "grip_angled",
+  "body",
+  "grip_support"
+ ],
+ "materials": [
+  "M_grip_angled"
+ ],
+ "kind": "grip",
+ "type": "angled",
+ "mount": "bottom rail",
+ "id": "grip_angled"
+}

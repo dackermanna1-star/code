@@ -1,0 +1,41 @@
+{
+ "tris": 7172,
+ "bounds_min": [
+  -0.2091,
+  -0.3761,
+  -0.1972
+ ],
+ "bounds_max": [
+  0.2091,
+  0.1581,
+  0.3617
+ ],
+ "size_m": [
+  0.4182,
+  0.5342,
+  0.5589
+ ],
+ "nodes": [
+  "backpack_1",
+  "body"
+ ],
+ "materials": [
+  "M_backpack_1"
+ ],
+ "kind": "backpack",
+ "level": 1,
+ "attach_bone": "Spine2",
+ "attach_offset_m": [
+  0.0,
+  0.079,
+  -0.165
+ ],
+ "origin_root_space_m": [
+  0.0,
+  1.4,
+  -0.185
+ ],
+ "capacity_l": 20,
+ "notes": "pack front face at z = -0.185 so it clears the thickest vest (vest_3)",
+ "id": "backpack_1"
+}

@@ -91,8 +91,14 @@ describe('damage helpers', () => {
     expect(vehicleExitDamage(5)).toBe(0);
     expect(vehicleExitDamage(27.8)).toBeGreaterThan(80);
   });
-  it('jump apex 0.55 m', () => {
-    expect((JUMP_VELOCITY * JUMP_VELOCITY) / (2 * 9.81)).toBeCloseTo(0.55);
+  it('jump apex 0.55 m with the 60 Hz tick integration', () => {
+    let v = JUMP_VELOCITY, y = 0, apex = 0;
+    for (let i = 0; i < 120; i++) {
+      v -= 9.81 / 60;
+      y += v / 60;
+      apex = Math.max(apex, y);
+    }
+    expect(apex).toBeCloseTo(0.55, 3);
   });
 });
 

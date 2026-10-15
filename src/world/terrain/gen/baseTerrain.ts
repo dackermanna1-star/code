@@ -235,6 +235,11 @@ export function buildBaseTerrain(layout: WorldLayout, noise: Noise2D): BaseTerra
     const R = 170;
     const i0 = Math.max(0, Math.floor((minX - R) / CELL)), i1 = Math.min(N - 1, Math.ceil((maxX + R) / CELL));
     const j0 = Math.max(0, Math.floor((minZ - R) / CELL)), j1 = Math.min(N - 1, Math.ceil((maxZ + R) / CELL));
+    // The coast field is an EDT on a 4 m raster: its staircase error (±2 m, periodic along the shore) is invisible on
+    // gentle beaches but turned steep cliff faces into a regular comb of grooves. Cliffs use the exact distance to
+    // the island outline segments nearby (+ the same coastline noise as the coast field).
+    const segs = coastSegmentsNear(layout, minX - R - 80, minZ - R - 80, maxX + R + 80, maxZ + R + 80);
+    const face = Math.max(9, cl.width * 0.34);
     for (let j = j0; j <= j1; j++)
       for (let i = i0; i <= i1; i++) {
         const x = i * CELL, z = j * CELL;
@@ -244,10 +249,15 @@ export function buildBaseTerrain(layout: WorldLayout, noise: Noise2D): BaseTerra
         const taper = sstep(0, 0.15, u) * sstep(1, 0.85, u) * (1 - sstep(R * 0.6, R, dl));
         if (taper <= 0) continue;
         const idx = j * N + i;
-        const d = coast[idx];
+        const dEdt = coast[idx];
+        const dEx = segmentDistance(segs, x, z);
+        const d = dEx < 1e8 ? Math.sign(dEdt) * dEx + noise.fbm(x, z, 190, 3) * 15 * (1 - sstep(140, 230, dEx)) : dEdt;
         if (d > 0) {
-          const jag = noise.fbm(x, z, 23, 2) * 3;
-          const hc = cl.height * Math.pow(sstep(0, cl.width, d + jag), 0.6) + noise.fbm(x, z, 60, 2) * 2;
+          // narrow rocky foot, a steep (~60°) craggy face, then a short rounded brow up to the cliff top
+          // (broad undulation: short-wavelength jag cut regular V-notches whose sunlit walls read as white teeth)
+          const jag = noise.fbm(x, z, 70, 2) * 3.0 + noise.fbm(x + 71, z - 13, 17, 2) * 0.8;
+          const dd = d + jag;
+          const hc = cl.height * (0.82 * sstep(2.5, 2.5 + face, dd) + 0.18 * sstep(2.5, cl.width * 1.2, dd)) + noise.fbm(x, z, 60, 2) * 2;
           h[idx] = mix(h[idx], Math.max(h[idx], hc), taper);
         } else {
           // deep water at the cliff foot, blending back into the normal shelf with distance and toward the cliff
@@ -294,4 +304,32 @@ export function buildBaseTerrain(layout: WorldLayout, noise: Noise2D): BaseTerra
       }
   }
   return { h, coast, flat };
+}
+
+/** Island outline segments (x0, z0, x1, z1) with at least one end inside the box. */
+function coastSegmentsNear(layout: WorldLayout, x0: number, z0: number, x1: number, z1: number): Float64Array {
+  const out: number[] = [];
+  const inBox = (p: { x: number; z: number }) => p.x >= x0 && p.x <= x1 && p.z >= z0 && p.z <= z1;
+  for (const poly of layout.islands)
+    for (let k = 0; k < poly.length; k++) {
+      const a = poly[k], b = poly[(k + 1) % poly.length];
+      if (inBox(a) || inBox(b)) out.push(a.x, a.z, b.x, b.z);
+    }
+  return new Float64Array(out);
+}
+
+/** Exact distance to the nearest segment (1e9 if none). */
+function segmentDistance(segs: Float64Array, x: number, z: number): number {
+  let best = 1e18;
+  for (let k = 0; k < segs.length; k += 4) {
+    const ax = segs[k], az = segs[k + 1];
+    const dx = segs[k + 2] - ax, dz = segs[k + 3] - az;
+    const L2 = dx * dx + dz * dz || 1e-9;
+    let t = ((x - ax) * dx + (z - az) * dz) / L2;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const cx = ax + dx * t - x, cz = az + dz * t - z;
+    const d2 = cx * cx + cz * cz;
+    if (d2 < best) best = d2;
+  }
+  return best < 1e17 ? Math.sqrt(best) : 1e9;
 }

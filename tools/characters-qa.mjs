@@ -10,7 +10,8 @@ const filter = process.argv[3] || '';
 // against the prepared harness instead of the scenario list (debugging aid).
 const fileIdx = process.argv.indexOf('--file');
 const snippet = fileIdx > 0 ? (await import('node:fs')).readFileSync(process.argv[fileIdx + 1], 'utf8') : null;
-const extraQuery = process.argv.includes('--bots') ? '' : '?nobots=1';
+const qIdx = process.argv.indexOf('--query');
+const extraQuery = qIdx > 0 ? process.argv[qIdx + 1] : process.argv.includes('--bots') ? '' : '?nobots=1';
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-webgl'] });
 const page = await browser.newPage({ viewport: { width: 480, height: 270 } });
 const logs = [];
@@ -127,11 +128,41 @@ S.stanceSpam = () => page.evaluate(async () => {
   return { bad, badDetail, stance: p.stance, shape: p.body.shape, ok: bad === 0 };
 });
 
+// Teleporting a standing character under a 0.85 m ceiling: it ducks (prone) instead of popping on top.
+S.teleportLowCeiling = () => page.evaluate(async () => {
+  const g = window.__game, t = window.__t, p = g.ctx.player, s = g.arena.SPOTS.tunnel;
+  await t.reset(s.x, s.z + 1.5, 0);
+  p.teleport(new window.THREE.Vector3(s.x, 0.02, s.z - 9));
+  await t.wait(0.5);
+  const a = { stance: p.stance, y: +p.position.y.toFixed(2) };
+  p.teleport(new window.THREE.Vector3(s.x, 0.02, s.z + 1.5));
+  await t.wait(0.2);
+  p.requestStance('stand');
+  await t.wait(0.5);
+  p.teleport(new window.THREE.Vector3(s.x, 0.02, s.z - 3));
+  await t.wait(0.5);
+  const b = { stance: p.stance, y: +p.position.y.toFixed(2) };
+  return { a, b, ok: a.stance === 'prone' && a.y < 0.1 && b.stance === 'crouch' && b.y < 0.1 };
+});
+
+// Prone view clamp: turning the view 180° while prone keeps it within the body lead limit.
+S.proneViewClamp = () => page.evaluate(async () => {
+  const g = window.__game, t = window.__t, p = g.ctx.player, tw = g.arena.SPOTS.tower;
+  await t.reset(tw.x + 2 + 0.7, tw.z, 0);
+  p.requestStance('prone');
+  await t.wait(1.2);
+  g.ctx.input.simulateMouse(-1800, 0); // big flick toward the wall (left)
+  await t.wait(1.5);
+  const off = Math.abs(Math.atan2(Math.sin(p.yaw - p.bodyYaw), Math.cos(p.yaw - p.bodyYaw)));
+  const camOff = Math.abs(Math.atan2(Math.sin(p.intent.yaw - p.bodyYaw), Math.cos(p.intent.yaw - p.bodyYaw)));
+  return { bodyYaw: +p.bodyYaw.toFixed(2), yaw: +p.yaw.toFixed(2), off: +off.toFixed(2), camOff: +camOff.toFixed(2), ok: off <= 1.23 && camOff <= 1.23 };
+});
+
 // Lying prone along a wall and turning into it: the body must not rotate into the wall.
 S.proneTurnWall = () => page.evaluate(async () => {
   const g = window.__game, t = window.__t, p = g.ctx.player, tw = g.arena.SPOTS.tower;
   // Tower is 4x4 centred on tw; stand 0.7 m east of its east face, facing north (along the wall).
-  await t.reset(tw.x + 2 + 0.7, tw.z + 4, 0);
+  await t.reset(tw.x + 2 + 0.7, tw.z, 0);
   p.requestStance('prone');
   await t.wait(1.2);
   // Look west (into the wall): yaw +90° turns left (west).
@@ -193,12 +224,14 @@ S.coyote = () => page.evaluate(async () => {
   return { leftAt: leftAt > 0, jumped, ok: jumped };
 });
 
-// Jumping under a low ceiling: head stops, no tunnelling, lands.
+// Space while crouched under a low ceiling: stand-up blocked, no jump/climb through the ceiling.
 S.jumpCeiling = () => page.evaluate(async () => {
   const g = window.__game, t = window.__t, p = g.ctx.player, s = g.arena.SPOTS.tunnel;
-  await t.reset(s.x, s.z - 1.5, 0);
+  await t.reset(s.x, s.z + 1.5, 0);
   p.requestStance('crouch');
   await t.wait(0.5);
+  p.teleport(new window.THREE.Vector3(s.x, 0.02, s.z - 1.5));
+  await t.wait(0.3);
   // stand up blocked under the 1.5 m ceiling → crouch stays; Space from crouch tries to stand (blocked).
   await t.tap('Space');
   await t.wait(1.0);
@@ -275,11 +308,12 @@ S.vehicleSync = () => page.evaluate(async () => {
   ctx.engine.addSystem(sys);
   await t.wait(1.0);
   ctx.engine.removeSystem(sys);
+  const speed = v.speedKmh;
   v.driving = false;
   await t.wait(0.1);
   v.exit(p);
   await t.wait(0.3);
-  return { speed: v.speedKmh, maxSeatErr: +maxErr.toFixed(3), maxPelvisToSeat: +maxHb.toFixed(3), ok: maxErr < 0.02 && maxHb < 0.35 };
+  return { speed, maxSeatErr: +maxErr.toFixed(3), maxPelvisToSeat: +maxHb.toFixed(3), ok: maxErr < 0.02 && maxHb < 0.35 };
 });
 
 // Spectated character removed: camera survives (no exception), falls back.
@@ -295,7 +329,7 @@ S.removeSpectated = () => page.evaluate(async () => {
   const mode1 = ctx.cameraRig.mode;
   ctx.cameraRig.spectate(null);
   await t.wait(0.1);
-  return { modeAfterRemove: mode1, modeAfter: ctx.cameraRig.mode, ok: ctx.cameraRig.mode === 'player' };
+  return { modeAfterRemove: mode1, modeAfter: ctx.cameraRig.mode, ok: mode1 === 'player' && ctx.cameraRig.mode === 'player' };
 });
 
 // Death in every state: no exceptions, no hitboxes, collider disabled; revive restores.
@@ -438,6 +472,78 @@ if (snippet) {
   await browser.close();
   process.exit(0);
 }
+// Movement events: footstep cadence/surface + AI noise radii per gait (DESIGN §8), stance/jump/land events.
+S.events = () => page.evaluate(async () => {
+  const g = window.__game, t = window.__t, p = g.ctx.player, s = g.arena.SPOTS.speedTrack, ev = g.ctx.events;
+  const out = {};
+  const rec = { steps: 0, surfaces: new Set(), noise: [], stance: 0, jump: 0, land: 0 };
+  const offs = [
+    ev.on('character:footstep', (e) => { if (e.character === p) { rec.steps++; rec.surfaces.add(e.surface); } }),
+    ev.on('noise', (e) => { if (e.sourceId === p.id) rec.noise.push(e.radius); }),
+    ev.on('character:stance', (e) => { if (e.character === p) rec.stance++; }),
+    ev.on('character:jump', (e) => { if (e.character === p) rec.jump++; }),
+    ev.on('character:land', (e) => { if (e.character === p) rec.land++; }),
+  ];
+  for (const [name, keys, pre] of [['sprint', ['KeyW', 'ShiftLeft'], []], ['run', ['KeyW'], []], ['walk', ['KeyW', 'ControlLeft'], []], ['crouch', ['KeyW'], ['KeyC']]]) {
+    await t.reset(s.x, s.z, -Math.PI / 2);
+    for (const k of pre) await t.tap(k);
+    await t.wait(0.5);
+    rec.steps = 0; rec.noise.length = 0;
+    for (const k of keys) t.key(k, true);
+    await t.wait(3);
+    t.releaseAll();
+    out[name] = { steps: rec.steps, radius: Math.max(0, ...rec.noise), stepsPerSec: +(rec.steps / 3).toFixed(2) };
+  }
+  await t.reset(s.x, s.z, 0);
+  rec.jump = rec.land = 0;
+  await t.tap('Space');
+  await t.wait(1.2);
+  out.jumpLand = { jump: rec.jump, land: rec.land };
+  out.surfaces = [...rec.surfaces];
+  out.stanceEvents = rec.stance;
+  offs.forEach((f) => f());
+  const ok = out.sprint.radius === 35 && out.run.radius === 22 && out.walk.radius === 8 && out.crouch.radius === 6 && out.run.steps >= 6 && out.jumpLand.jump === 1 && out.stanceEvents >= 1;
+  return { ...out, ok };
+});
+
+// Pose capture while moving fast: the captured hips (root space) must stay over the root — a stale root matrix
+// shifts the whole captured pose (hitboxes) by one frame of travel.
+S.poseCaptureMoving = () => page.evaluate(async () => {
+  const g = window.__game, t = window.__t, p = g.ctx.player, s = g.arena.SPOTS.speedTrack;
+  while (!p.visual.inst) await t.wait(0.3);
+  await t.reset(s.x, s.z, -Math.PI / 2);
+  g.giveWeapon(p.id, 'ar_m416');
+  t.key('KeyW', true);
+  t.key('ShiftLeft', true);
+  await t.wait(1.0);
+  let maxOff = 0, n = 0;
+  const t0 = t.sim();
+  while (t.sim() - t0 < 1.0) {
+    await t.wait(0.05);
+    const pts = p.visual.getPosePoints();
+    maxOff = Math.max(maxOff, Math.hypot(pts[0], pts[2]));
+    n++;
+  }
+  t.releaseAll();
+  return { samples: n, maxHipsOffset: +maxOff.toFixed(3), ok: maxOff < 0.09 };
+});
+
+// Killed mid-air: the ragdoll falls away from the death point; deathcam + culling must follow the body.
+S.ragdollFall = () => page.evaluate(async () => {
+  const g = window.__game, t = window.__t, p = g.ctx.player, ctx = g.ctx, s = g.arena.SPOTS.start;
+  while (!p.visual.inst) await t.wait(0.3);
+  await t.reset(s.x, s.z, 0);
+  g.skydive(60);
+  await t.wait(0.5);
+  p.setLifeState('dead', { type: 'fall', amount: 200 });
+  await t.wait(6);
+  const hips = new window.THREE.Vector3();
+  p.visual.getBodyCenter(hips);
+  const r = { rootY: +p.visual.root.position.y.toFixed(2), hipsY: +hips.y.toFixed(2), camMode: ctx.cameraRig.mode, camY: +ctx.camera.position.y.toFixed(2), visible: p.visual.inst.container.visible };
+  p.setLifeState('alive');
+  return { ...r, ok: r.hipsY < 1 && r.camY < 8 && r.visible && r.camMode === 'deathcam' };
+});
+
 const results = {};
 for (const [name, fn] of Object.entries(S)) {
   if (filter && !new RegExp(filter).test(name)) continue;

@@ -2,7 +2,7 @@
 // Usage: node tools/world-functional.mjs [url]   → prints PASS/FAIL lines, exits 1 on failure.
 import { chromium } from 'playwright';
 
-const url = process.argv[2] || 'http://localhost:5201/sandbox/world.html?texres=256';
+const url = process.argv[2] || 'http://localhost:5301/sandbox/world.html?texres=256';
 const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: 480, height: 270 } });
 const errors = [];
@@ -12,6 +12,8 @@ page.on('console', (m) => {
 page.on('pageerror', (e) => errors.push(`[pageerror] ${e.message}`));
 await page.goto(url, { waitUntil: 'load', timeout: 180000 });
 await page.waitForFunction(() => window.__game && window.__game.ready, null, { timeout: 240000, polling: 500 });
+// Rapier only registers new colliders in its query structures during a step: wait for a few frames
+await page.waitForFunction(() => window.__game.ctx.engine.frame > 5 && window.__game.ctx.physics.steps > 0, null, { timeout: 240000, polling: 200 });
 
 let failed = 0;
 const check = (name, ok, info = '') => {
@@ -133,6 +135,65 @@ const presets = await page.evaluate(async () => {
 check('presets apply live', presets.low.cascades === 2 && presets.medium.cascades === 3 && presets.ultra.cascades === 4 && presets.low.scale === 0.75, JSON.stringify(presets));
 check('no console errors while switching presets', errors.length === errBefore, errors.slice(errBefore).join(' | '));
 
+// 6) QA additions: robustness, underwater, near plane, surfaces next to roads, env-map rebakes without leaks
+const qa = await page.evaluate(async () => {
+  const g = window.__game, c = g.ctx, e = c.environment, w = c.world, cam = c.camera;
+  const frames = (n) => new Promise((res) => { const f0 = c.engine.frame; const t = () => (c.engine.frame >= f0 + n ? res() : setTimeout(t, 50)); t(); });
+  const out = {};
+  g.setTime(15);
+  g.setTime(NaN);
+  out.timeAfterNaN = e.timeOfDay;
+  // underwater: camera 4 m below the sea surface far offshore, then back above
+  g.debugCam(1536, -4, 3040, 0, 0);
+  await frames(2);
+  out.underwater = e.underwater;
+  out.underwaterFog = c.scene.fog.near;
+  g.debugCam(1536, 8, 3040, 0, 0);
+  await frames(2);
+  out.aboveWater = e.underwater;
+  out.aboveFog = c.scene.fog.near;
+  // near plane grows at altitude (plane view) and returns on the ground
+  g.debugCam(1500, 600, 1500, 0, -30);
+  await frames(2);
+  out.nearHigh = cam.near;
+  g.debugCam(1500, null, 1500, 0, 0);
+  await frames(2);
+  out.nearLow = cam.near;
+  // surfaces across a highway: centre, shoulder, verge
+  const r = w.layout.roadDefs.find((x) => x.kind === 'asphalt' && x.width >= 8);
+  const p = r.points[40], q = r.points[41];
+  const L = Math.hypot(q.x - p.x, q.z - p.z), nx = -(q.z - p.z) / L, nz = (q.x - p.x) / L;
+  out.surf = [0, r.width / 2 + 0.7, r.width / 2 + 4].map((o) => w.getSurface(p.x + nx * o, p.z + nz * o));
+  // time lapse: many IBL rebakes must not leak GPU textures/render targets
+  const info = c.engine.renderer.info.memory;
+  e.timeSpeed = 3;
+  await frames(4);
+  const tex0 = info.textures;
+  const t0 = c.engine.realTime;
+  await new Promise((res) => { const t = () => (c.engine.realTime > t0 + 8 ? res() : setTimeout(t, 200)); t(); });
+  out.tex = [tex0, info.textures];
+  out.timeAdvanced = e.timeOfDay;
+  e.timeSpeed = 0;
+  // rain shows above water, hides below
+  g.setWeather('rain');
+  g.debugCam(1500, null, 1500, 0, 0);
+  await frames(2);
+  const rain = c.scene.getObjectByName('rain');
+  out.rainVisible = rain.visible;
+  g.setWeather('clear');
+  // graphics toggles: shadows off/on, post off/on, AA modes
+  for (const patch of [{ shadowQuality: 0 }, { postProcessing: false }, { antialias: 'none' }, { antialias: 'fxaa' }, { postProcessing: true, shadowQuality: 3, antialias: 'smaa' }]) {
+    c.settings.update('graphics', patch);
+    await frames(2);
+  }
+  return out;
+});
+check('setTime(NaN) is ignored', qa.timeAfterNaN === 15, String(qa.timeAfterNaN));
+check('underwater view switches fog on and off', qa.underwater === true && qa.aboveWater === false && qa.underwaterFog > 0.05 && qa.aboveFog < 0.01, JSON.stringify([qa.underwaterFog, qa.aboveFog]));
+check('camera near plane grows at altitude, base on the ground', qa.nearHigh > 0.3 && qa.nearLow < 0.06, `${qa.nearHigh.toFixed(3)} / ${qa.nearLow.toFixed(3)}`);
+check('surface: asphalt / gravel shoulder / natural verge', qa.surf[0] === 'asphalt' && qa.surf[1] === 'gravel' && !['asphalt', 'gravel'].includes(qa.surf[2]), qa.surf.join(','));
+check('time lapse rebakes the IBL without leaking textures', qa.tex[1] <= qa.tex[0] + 2 && Math.abs(qa.timeAdvanced - 15) > 1, `textures ${qa.tex.join(' -> ')}, time ${qa.timeAdvanced.toFixed(2)}`);
+check('rain particles visible in rain weather', qa.rainVisible === true);
 check('no console errors/warnings overall', errors.length === 0, errors.slice(0, 5).join(' | '));
 await browser.close();
 console.log(failed ? `${failed} check(s) FAILED` : 'ALL PASSED');

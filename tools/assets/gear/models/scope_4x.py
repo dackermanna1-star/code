@@ -8,7 +8,7 @@ TEX = 512
 WEAR = 0.5
 AX = 44.0
 EYE_RELIEF = 38.0
-META = dict(kind='scope', zoom=4.0, optical_axis_height_m=AX / 1000, eye_relief_m=EYE_RELIEF / 1000, lens_radius_m=0.0115,
+META = dict(kind='scope', zoom=4.0, optical_axis_height_m=AX / 1000, eye_relief_m=EYE_RELIEF / 1000, lens_radius_m=0.012,
             reticle='reticles/scope_4x.png', field_of_view_deg=7.0, notes='short (38 mm) eye relief like the real ACOG')
 gkit.KINDS['fibre'] = dict(base='#3a8a2a', var='#2f7a22', metal=0.0, rough=0.25, rvar=0.04, wear='#60b050', wear_amt=0.0,
                            wear_rough=0.3, pat='none', bump=0.0)

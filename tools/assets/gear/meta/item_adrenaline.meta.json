@@ -1,0 +1,33 @@
+{
+ "tris": 1732,
+ "bounds_min": [
+  -0.024,
+  -0.0015,
+  -0.118
+ ],
+ "bounds_max": [
+  0.024,
+  0.0255,
+  0.106
+ ],
+ "size_m": [
+  0.048,
+  0.027,
+  0.224
+ ],
+ "nodes": [
+  "item_adrenaline",
+  "body",
+  "glass",
+  "liquid"
+ ],
+ "materials": [
+  "M_item_adrenaline",
+  "glass_clear",
+  "liquid_yel"
+ ],
+ "kind": "boost",
+ "type": "adrenaline",
+ "notes": "'glass' (alpha) and 'liquid' nodes are separate plain materials",
+ "id": "item_adrenaline"
+}

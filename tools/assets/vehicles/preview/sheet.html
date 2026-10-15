@@ -1,0 +1,104 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>vehicle sheet</title>
+<style>html,body{margin:0;background:#888}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+const q = new URLSearchParams(location.search);
+const files = (q.get('files') || '').split(',').filter(Boolean);
+const base = q.get('base') || '/public/assets/vehicles/';
+const cellW = +(q.get('w') || 640), cellH = +(q.get('h') || 400);
+const views = (q.get('views') || 'q34,rear34').split(',');
+const markers = q.get('markers') === '1';
+const hdri = q.get('hdri') || '/__hdri/sky.hdr';
+const perRow = +(q.get('cols') || 1);
+const cols = views.length * perRow;
+const rows = Math.ceil(files.length / perRow);
+const W = cellW * cols, H = cellH * rows;
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(W, H);
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = +(q.get('exposure') || 0.9);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.setScissorTest(true);
+document.body.appendChild(renderer.domElement);
+const pmrem = new THREE.PMREMGenerator(renderer);
+const hdr = await new RGBELoader().loadAsync(hdri);
+hdr.mapping = THREE.EquirectangularReflectionMapping;
+const env = pmrem.fromEquirectangular(hdr).texture;
+const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+const info = [];
+const mcol = { seat: 0x20ff40, light: 0xffee20, exhaust: 0xff3020, steering_wheel: 0x30a0ff, handlebar: 0x30a0ff, prop: 0xff40ff, ramp: 0xff8000, door: 0x00ffff };
+async function run() {
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    let gltf;
+    try { gltf = await loader.loadAsync(base + f); } catch (e) { info.push({ f, err: String(e) }); continue; }
+    const scene = new THREE.Scene();
+    scene.environment = env; scene.environmentIntensity = +(q.get('envi') || 0.8);
+    scene.background = new THREE.Color(0xb8c4cc);
+    const root = gltf.scene; scene.add(root);
+    root.updateMatrixWorld(true);
+    let tris = 0, draws = 0; const names = [];
+    root.traverse(o => { names.push(o.name); if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; draws++; tris += (o.geometry.index ? o.geometry.index.count : o.geometry.attributes.position.count) / 3; } });
+    const box = new THREE.Box3().setFromObject(root);
+    const size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
+    const rad = size.length() / 2;
+    const ground = new THREE.Mesh(new THREE.CircleGeometry(rad * 6, 64), new THREE.MeshStandardMaterial({ color: 0x77736c, roughness: 0.95 }));
+    ground.rotation.x = -Math.PI / 2; ground.position.y = +(q.get('ground') || 0); ground.receiveShadow = true; scene.add(ground);
+    const sun = new THREE.DirectionalLight(0xfff1e0, 2.6);
+    sun.position.set(ctr.x + rad * 1.2, ctr.y + rad * 2.0, ctr.z + rad * 0.9); sun.target.position.copy(ctr);
+    sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+    const sc = sun.shadow.camera; sc.left = -rad * 1.3; sc.right = rad * 1.3; sc.top = rad * 1.3; sc.bottom = -rad * 1.3; sc.near = 0.1; sc.far = rad * 8;
+    sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.01;
+    scene.add(sun); scene.add(sun.target);
+    if (markers) {
+      root.traverse(o => {
+        const key = Object.keys(mcol).find(k => o.name.startsWith(k));
+        if (key && !o.isMesh) {
+          const s = new THREE.Mesh(new THREE.SphereGeometry(rad * 0.012), new THREE.MeshBasicMaterial({ color: mcol[key], depthTest: false }));
+          s.renderOrder = 10; o.add(s);
+          const ax = new THREE.AxesHelper(rad * 0.08); ax.material.depthTest = false; ax.renderOrder = 11; o.add(ax);
+        }
+        if (o.name.startsWith('wheel_') && !o.isMesh) { const ax = new THREE.AxesHelper(rad * 0.15); ax.material.depthTest = false; ax.renderOrder = 11; o.add(ax); }
+      });
+    }
+    info.push({ f, tris, draws, size: size.toArray().map(v => +v.toFixed(3)), min: box.min.toArray().map(v => +v.toFixed(3)), max: box.max.toArray().map(v => +v.toFixed(3)), names });
+    const r = Math.floor(i / perRow), cc = i % perRow;
+    for (let j = 0; j < views.length; j++) {
+      const v = views[j];
+      const x = (cc * views.length + j) * cellW, y = H - (r + 1) * cellH;
+      renderer.setViewport(x, y, cellW, cellH); renderer.setScissor(x, y, cellW, cellH);
+      const aspect = cellW / cellH;
+      const cam = new THREE.PerspectiveCamera(30, aspect, 0.05, rad * 40);
+      const d = rad / Math.tan(THREE.MathUtils.degToRad(15)) * (+(q.get('zoom') || 1.0));
+      const dirs = { q34: [0.75, 0.38, 0.85], rear34: [-0.8, 0.42, -0.85], side: [1, 0.06, 0], sider: [-1, 0.06, 0], front: [0, 0.12, 1], rear: [0, 0.15, -1],
+                     top: [0.001, 1, 0.0005], under: [0.3, -0.9, 0.35], q34r: [-0.75, 0.38, 0.85], low: [0.8, 0.08, 0.9] };
+      if (v === 'interior') {
+        // look into the cabin over the driver's door
+        cam.fov = 50; cam.updateProjectionMatrix();
+        cam.position.set(ctr.x + size.x * 0.75, ctr.y + size.y * 0.45, ctr.z + size.z * 0.05);
+        cam.lookAt(ctr.x - size.x * 0.1, ctr.y + size.y * 0.05, ctr.z + size.z * 0.05);
+      } else if (v === 'cockpit') {
+        const s0 = root.getObjectByName('seat_0');
+        const p = new THREE.Vector3(); s0.getWorldPosition(p);
+        cam.fov = 75; cam.updateProjectionMatrix();
+        cam.position.set(p.x, p.y + 0.62, p.z - 0.05); cam.lookAt(p.x - 0.1, p.y + 0.45, p.z + 2.0);
+      } else {
+        const dv = new THREE.Vector3(...dirs[v]).normalize();
+        cam.position.copy(ctr).addScaledVector(dv, d);
+        cam.lookAt(ctr);
+      }
+      renderer.render(scene, cam);
+    }
+    scene.remove(root);
+  }
+  window.__done = info;
+}
+run().catch(e => { window.__done = [{ err: String(e) }]; });
+</script></body></html>

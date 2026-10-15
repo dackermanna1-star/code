@@ -31,7 +31,7 @@
  "zoom": 4.0,
  "optical_axis_height_m": 0.044,
  "eye_relief_m": 0.038,
- "lens_radius_m": 0.0115,
+ "lens_radius_m": 0.012,
  "reticle": "reticles/scope_4x.png",
  "field_of_view_deg": 7.0,
  "notes": "short (38 mm) eye relief like the real ACOG",

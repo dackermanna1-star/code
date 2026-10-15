@@ -3,6 +3,10 @@
 import * as THREE from 'three';
 import { debugState } from '../../core/Debug';
 
+const _fwd = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _v = new THREE.Vector3();
+
 export class FlyCamera {
   enabled = false;
   yaw = 0;
@@ -41,9 +45,9 @@ export class FlyCamera {
 
   update(dt: number): void {
     if (!this.enabled || !debugState.freeCam) return;
-    const fwd = new THREE.Vector3(-Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.cos(this.yaw) * Math.cos(this.pitch));
-    const right = new THREE.Vector3(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
-    const v = new THREE.Vector3();
+    const fwd = _fwd.set(-Math.sin(this.yaw) * Math.cos(this.pitch), Math.sin(this.pitch), -Math.cos(this.yaw) * Math.cos(this.pitch));
+    const right = _right.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+    const v = _v.set(0, 0, 0);
     if (this.keys.has('KeyW')) v.add(fwd);
     if (this.keys.has('KeyS')) v.sub(fwd);
     if (this.keys.has('KeyD')) v.add(right);

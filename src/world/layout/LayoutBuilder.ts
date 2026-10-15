@@ -19,6 +19,7 @@ import {
 } from './geometry';
 import type { Polygon, RiverDef, RoadDef, XZ } from './types';
 import { interpolateAlong } from './geometry';
+import { PROP_FOOTPRINTS } from './propFootprints';
 
 export interface LotOptions {
   /** Extra clearance to other lots (m). */
@@ -306,11 +307,62 @@ export class LayoutBuilder {
     return p;
   }
 
-  /** Linear prop (fence/wall) from a to b. Origin at the segment center, local X along the segment. */
-  linearProp(kind: string, a: XZ, b: XZ): PropPlacement {
+  /**
+   * Linear prop (fence/wall) from a to b. Origin at the segment center, local X along the segment.
+   * The line is split wherever it would cross a road (gap = road edge + `roadGap` m on both sides) or the river,
+   * so fences/walls never block a drivable road or stand in water. Pieces shorter than 1.5 m are dropped.
+   */
+  linearProp(kind: string, a: XZ, b: XZ, roadGap = 1.5): PropPlacement[] {
+    const L = Math.hypot(b.x - a.x, b.z - a.z);
+    if (L < 0.01) return [];
+    const n = Math.max(1, Math.ceil(L / 0.5));
+    const at = (t: number): XZ => ({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t });
+    const out: PropPlacement[] = [];
+    let start = -1;
+    for (let k = 0; k <= n; k++) {
+      const t = k / n;
+      const p = at(t);
+      const blocked = this.roadClearance(p.x, p.z) < roadGap || this.riverClearance(p.x, p.z) < 1;
+      if (!blocked && start < 0) start = t;
+      if (start >= 0 && (blocked || k === n)) {
+        const end = blocked ? (k - 1) / n : t;
+        if ((end - start) * L >= 1.5) out.push(this.straightProp(kind, at(start), at(end)));
+        start = -1;
+      }
+    }
+    return out;
+  }
+
+  /** One straight linear prop piece (no road/water checks). */
+  private straightProp(kind: string, a: XZ, b: XZ): PropPlacement {
     const dx = b.x - a.x, dz = b.z - a.z;
     // local +X must point along (dx, dz): rotation.y = atan2(-dz, dx)
     return this.prop(kind, (a.x + b.x) / 2, (a.z + b.z) / 2, Math.atan2(-dz, dx), { length: Math.hypot(dx, dz) });
+  }
+
+  /** True if a circle of radius r at (x, z) overlaps the nominal footprint of any placed prop. */
+  overlapsProps(x: number, z: number, r: number): boolean {
+    for (const p of this.props) {
+      const f = PROP_FOOTPRINTS[p.kind];
+      if (!f) continue;
+      const hx = f.linear ? (p.length ?? 0) / 2 : f.hx;
+      if (Math.abs(p.x - x) > hx + f.hz + r + 1 || Math.abs(p.z - z) > hx + f.hz + r + 1) continue;
+      const c = Math.cos(p.rotationY), s = Math.sin(p.rotationY);
+      const dx = x - p.x, dz = z - p.z;
+      // world → prop local (inverse of the Y rotation)
+      const lx = dx * c - dz * s, lz = dx * s + dz * c;
+      const ex = Math.max(0, Math.abs(lx) - hx), ez = Math.max(0, Math.abs(lz) - f.hz);
+      if (ex * ex + ez * ez < r * r) return true;
+    }
+    return false;
+  }
+
+  /** True if a free-standing prop of radius r fits at (x, z): on land, off roads, clear of the river, lots and props. */
+  spotClear(x: number, z: number, r: number, roadGap = 2): boolean {
+    if (this.roadClearance(x, z) < r + roadGap) return false;
+    if (this.riverClearance(x, z) < r + 4 || this.coastDistance(x, z) < r + 8) return false;
+    if (this.overlapsLots({ x, z, hw: r, hd: r, rot: 0 }, 1)) return false;
+    return !this.overlapsProps(x, z, r + 0.5);
   }
 
   /** Fence/wall around an OBB with a gate gap on the +Z (front) side. */

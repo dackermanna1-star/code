@@ -28,6 +28,8 @@ export class SkyDome {
     uStars: { value: 1 },
     uSunDisc: { value: 1 },
     tNoise: { value: null as THREE.Texture | null },
+    uFarSea: { value: 1 },
+    uSeaColor: { value: new THREE.Color(0.004, 0.026, 0.042) },
   };
   readonly mesh: THREE.Mesh;
   readonly envScene = new THREE.Scene();
@@ -35,9 +37,10 @@ export class SkyDome {
 
   constructor(noise: THREE.Texture) {
     this.uniforms.tNoise.value = noise;
-    const make = () =>
+    // the IBL bake dome shares every uniform except uFarSea (ground-coloured lower hemisphere for lighting)
+    const make = (farSea: boolean) =>
       new THREE.ShaderMaterial({
-        uniforms: this.uniforms,
+        uniforms: farSea ? this.uniforms : { ...this.uniforms, uFarSea: { value: 0 } },
         vertexShader: skyVertex,
         fragmentShader: skyFragment,
         side: THREE.BackSide,
@@ -46,12 +49,14 @@ export class SkyDome {
         fog: false,
       });
     const geo = new THREE.SphereGeometry(1, 48, 24);
-    this.mesh = new THREE.Mesh(geo, make());
+    this.mesh = new THREE.Mesh(geo, make(true));
     this.mesh.name = 'sky';
     this.mesh.frustumCulled = false;
-    this.mesh.renderOrder = -1000;
+    // drawn after the opaque scene (but before transparents): it sits on the far plane without depth writes, so
+    // early-z skips every pixel already covered by terrain/buildings (the scattering + cloud shader is not cheap)
+    this.mesh.renderOrder = 1000;
     this.mesh.matrixAutoUpdate = false;
-    this.envMesh = new THREE.Mesh(geo, make());
+    this.envMesh = new THREE.Mesh(geo, make(false));
     this.envMesh.scale.setScalar(50);
     this.envScene.add(this.envMesh);
   }

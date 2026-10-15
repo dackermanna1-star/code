@@ -1,0 +1,35 @@
+{
+ "tris": 19412,
+ "bounds_min": [
+  -3.9241,
+  -0.0,
+  -3.9241
+ ],
+ "bounds_max": [
+  3.9241,
+  8.1849,
+  3.9241
+ ],
+ "size_m": [
+  7.8482,
+  8.1849,
+  7.8482
+ ],
+ "nodes": [
+  "airdrop_crate_chute",
+  "canopy",
+  "crate",
+  "lines",
+  "canopy_center",
+  "chute_attach",
+  "smoke"
+ ],
+ "materials": [
+  "M_airdrop_crate_chute",
+  "line"
+ ],
+ "kind": "airdrop",
+ "variant": "parachute",
+ "canopy_diameter_m": 7.5,
+ "id": "airdrop_crate_chute"
+}

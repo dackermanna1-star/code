@@ -1,4 +1,5 @@
 // River and pond carving.
+import { POND_SHAPE_MAX, pondRadiusAt, pondShapeDistance } from '../../layout/pondShape';
 import type { WorldLayout } from '../../layout/types';
 import type { Noise2D } from '../noise';
 import { CELL, N } from '../TerrainData';
@@ -75,21 +76,22 @@ export function carvePonds(layout: WorldLayout, h: Float32Array): Float32Array {
     const ci = Math.round(p.x / CELL), cj = Math.round(p.z / CELL);
     // level = minimum terrain on the rim - 0.5 so the water never spills
     let rimMin = Infinity;
-    for (let a = 0; a < 32; a++) {
-      const ang = (a / 32) * Math.PI * 2;
-      const x = p.x + Math.cos(ang) * (p.radius + 6), z = p.z + Math.sin(ang) * (p.radius + 6);
+    for (let a = 0; a < 48; a++) {
+      const ang = (a / 48) * Math.PI * 2;
+      const rr = pondRadiusAt(p, pi, p.x + Math.cos(ang), p.z + Math.sin(ang)) + 6;
+      const x = p.x + Math.cos(ang) * rr, z = p.z + Math.sin(ang) * rr;
       const i = Math.round(x / CELL), j = Math.round(z / CELL);
       if (i >= 0 && j >= 0 && i < N && j < N) rimMin = Math.min(rimMin, h[j * N + i]);
     }
     const center = h[cj * N + ci];
     const level = Number.isFinite(p.level) ? p.level : Math.min(center - 1.0, rimMin - 0.6);
     levels[pi] = level;
-    const R = p.radius + 30;
+    const R = p.radius * POND_SHAPE_MAX + 30;
     const i0 = Math.max(0, Math.floor((p.x - R) / CELL)), i1 = Math.min(N - 1, Math.ceil((p.x + R) / CELL));
     const j0 = Math.max(0, Math.floor((p.z - R) / CELL)), j1 = Math.min(N - 1, Math.ceil((p.z + R) / CELL));
     for (let j = j0; j <= j1; j++)
       for (let i = i0; i <= i1; i++) {
-        const d = hyp(i * CELL - p.x, j * CELL - p.z);
+        const d = pondShapeDistance(p, pi, i * CELL, j * CELL); // organic outline at d = p.radius
         const idx = j * N + i;
         let target: number;
         if (d < p.radius) {

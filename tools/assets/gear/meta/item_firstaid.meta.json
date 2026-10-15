@@ -1,0 +1,28 @@
+{
+ "tris": 2928,
+ "bounds_min": [
+  -0.116,
+  0.0,
+  -0.0825
+ ],
+ "bounds_max": [
+  0.116,
+  0.078,
+  0.084
+ ],
+ "size_m": [
+  0.232,
+  0.078,
+  0.1665
+ ],
+ "nodes": [
+  "item_firstaid",
+  "body"
+ ],
+ "materials": [
+  "M_item_firstaid"
+ ],
+ "kind": "heal",
+ "type": "first_aid",
+ "id": "item_firstaid"
+}

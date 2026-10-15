@@ -6,7 +6,7 @@ import { Priority } from '../../core/Engine';
 import { debugState } from '../../core/Debug';
 import type { CameraMode, ICameraRig, ICharacter } from '../../core/contracts';
 import type { Perspective } from '../../core/types';
-import { DEG, clamp, damp, lerp, lerpAngle, dirFromYawPitch } from '../../core/math';
+import { DEG, angleDiff, clamp, damp, lerp, lerpAngle, dirFromYawPitch } from '../../core/math';
 import type { Character } from '../Character';
 import type { PlayerController } from '../player/PlayerController';
 import { CameraCollider } from './CameraCollider';
@@ -147,7 +147,10 @@ export class CameraRig implements ICameraRig {
     }
     if (c.mode === 'plane') return this.updatePlane(dt, cam);
     const fl = this.controller;
-    const yaw = c.intent.yaw + (fl?.freeLookYaw ?? 0) + c.recoilYaw;
+    let yaw = c.intent.yaw + (fl?.freeLookYaw ?? 0) + c.recoilYaw;
+    // Seated: the view turns with the vehicle per tick (Character); add the sub-tick part from the drawn
+    // (interpolated) vehicle so the camera rotates smoothly with it at any frame rate.
+    if (c.mode === 'vehicle' && c.visual) yaw += angleDiff(c.bodyYaw, headingOf(c.visual.root.quaternion));
     const pitch = clamp(c.intent.pitch + (fl?.freeLookPitch ?? 0) + c.recoilPitch, -1.52, 1.52);
     if (c.mode === 'skydive') return this.updateSkydive(dt, cam, c, yaw, pitch);
     if (c.mode === 'vehicle' && !c.isAiming) return this.updateVehicle(dt, cam, c, yaw, pitch);
@@ -263,9 +266,13 @@ export class CameraRig implements ICameraRig {
     this.applyFov(cam, this.fovH);
     this.setFirstPersonVisual(this.perspective === 'fpp' ? c : null);
     if (this.perspective === 'fpp') {
-      c.getEyePosition(cam.position);
+      // Eye from the drawn head (placed on the vehicle's rendered root) — the sim seat eye would jitter
+      // against an interpolated vehicle.
+      if (!c.visual?.getEyeWorld(cam.position)) c.getEyePosition(cam.position);
       _euler.set(pitch, yaw, 0, 'YXZ');
       cam.quaternion.setFromEuler(_euler);
+      dirFromYawPitch(yaw, pitch, _dir);
+      cam.position.addScaledVector(_dir, 0.08);
     }
   }
 
@@ -344,8 +351,12 @@ export class CameraRig implements ICameraRig {
 
   private orbit(dt: number, cam: THREE.PerspectiveCamera, c: Character, dist: number): void {
     this.menuAngle += dt * 0.25;
-    _pivot.copy(c.visual?.root.position ?? c.position);
-    _pivot.y += 0.6;
+    // Orbit the body itself (a ragdoll can come to rest away from where the character died).
+    if (c.visual?.getBodyCenter?.(_pivot)) _pivot.y += 0.3;
+    else {
+      _pivot.copy(c.visual?.root.position ?? c.position);
+      _pivot.y += 0.6;
+    }
     _want.set(Math.sin(this.menuAngle) * dist, 1.6 + dist * 0.35, Math.cos(this.menuAngle) * dist).add(_pivot);
     const k = this.collider.cast(_pivot, _want, 0.2, c.body.collider, null);
     cam.position.lerpVectors(_pivot, _want, k);
@@ -370,6 +381,13 @@ export class CameraRig implements ICameraRig {
     this.applyFov(cam, this.fovH);
   }
 }
+
+/** Body yaw (character convention: 0 = north, + = left) of an object facing +Z with quaternion q. */
+function headingOf(q: THREE.Quaternion): number {
+  _hd.set(0, 0, 1).applyQuaternion(q);
+  return Math.atan2(_hd.x, _hd.z) + Math.PI;
+}
+const _hd = new THREE.Vector3();
 
 function smooth(t: number): number {
   return t * t * (3 - 2 * t);

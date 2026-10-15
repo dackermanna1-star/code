@@ -1,5 +1,5 @@
 # Level-3 military plate carrier (ranger green): rigid front/back plate bags with MOLLE, cummerbund, padded shoulder
-# straps, triple rifle-mag pouch, admin pouch, velcro ID panel, radio pouch, back zip pouch and drag handle.
+# straps, triple rifle-mag pouch, admin pouch, velcro ID panel, radio pouch and drag handle.
 # Origin = chest centre, root-space (0, 1.30, 0.0) in the rest pose (= Spine2 + (0, -0.021, +0.020)).
 import math
 from mathutils import Vector
@@ -9,6 +9,8 @@ from _wear import front_z, back_z
 OUT = 'gear'
 TEX = 1024
 MS = 2.5
+DECIMATE = 0.5
+DECIMATE_MIN = 300
 OY, OZ = 1.30, 0.0
 META = dict(kind='vest', level=3, attach_bone='Spine2', attach_offset_m=[0.0, -0.021, 0.020], origin_root_space_m=[0.0, OY, OZ],
             notes='fitted to the male characters (max envelope of 4 variants) in the A-pose rest pose; skin to Spine1/Spine2 or parent to Spine2')
@@ -59,8 +61,7 @@ def build(g):
             axis='u', segs=10)
     p = b.wrap(-80, 1.17, 0.028); n = b.normal_wrap(-80, 1.17, 0.028)
     b.pouch('gp', K, p, n, 0.11, 0.12, 0.05, seed=9)
-    # back: zip pouch + drag handle
-    b.pouch('backpouch', K, bpt(0.0, 1.22), (0, 0, -1), 0.2, 0.17, 0.045, flap=False, seed=11, puff=0.004)
+    # back: drag handle (the back stays flat so backpacks sit on it)
     from gkit import sweep, catmull, MM
     pts = [b.L(-0.045, 1.44, zo_b(-0.045, 1.44) - 0.001), b.L(-0.04, 1.47, zo_b(-0.04, 1.44) - 0.012), b.L(0, 1.48, zo_b(0, 1.44) - 0.016),
            b.L(0.04, 1.47, zo_b(0.04, 1.44) - 0.012), b.L(0.045, 1.44, zo_b(0.045, 1.44) - 0.001)]

@@ -1,0 +1,2649 @@
+{
+ "category": "textures",
+ "version": 1,
+ "conventions": {
+  "albedo": "sRGB",
+  "normal": "OpenGL tangent space (+Y = +V, green up)",
+  "arm": "R=AO G=roughness B=metalness (linear)",
+  "height": "linear 0..1 normalized (terrain sets)",
+  "tile_m": "real-world meters covered by one UV repeat [u, v]"
+ },
+ "sets": [
+  {
+   "id": "terrain_grass",
+   "kind": "terrain",
+   "description": "Lush dense meadow/lawn grass, mixed green with yellowish tips (European plains).",
+   "path": "assets/textures/terrain_grass/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 1329741
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 621760
+    },
+    "height": {
+     "file": "height.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 540350
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 2448640
+    }
+   },
+   "tile_m": [
+    1.4,
+    1.4
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "ambientCG",
+    "id": "Grass004",
+    "url": "https://ambientcg.com/a/Grass004",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.334,
+     0.374,
+     0.176
+    ],
+    "rough_mean": 0.704,
+    "metal_mean": 0.0
+   },
+   "processing": "roughness remapped to [0.55, 0.92] albedo adjust {'gain': 0.88, 'sat': 0.95}"
+  },
+  {
+   "id": "terrain_grass_dry",
+   "kind": "terrain",
+   "description": "Dry olive/straw grass over soil with green patches (late-summer field).",
+   "path": "assets/textures/terrain_grass_dry/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 1101285
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 336919
+    },
+    "height": {
+     "file": "height.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 434712
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 2225293
+    }
+   },
+   "tile_m": [
+    2.51,
+    2.51
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "grass_ground",
+    "url": "https://polyhaven.com/a/grass_ground",
+    "license": "CC0-1.0",
+    "authors": [
+     "Charlotte Baglioni"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.431,
+     0.378,
+     0.243
+    ],
+    "rough_mean": 0.937,
+    "metal_mean": 0.007
+   }
+  },
+  {
+   "id": "terrain_forest_floor",
+   "kind": "terrain",
+   "description": "Conifer forest floor: needles, small leaves, twigs, dry grass.",
+   "path": "assets/textures/terrain_forest_floor/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 1380919
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 545161
+    },
+    "height": {
+     "file": "height.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 196016
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 2035887
+    }
+   },
+   "tile_m": [
+    1.5,
+    1.5
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "forest_leaves_04",
+    "url": "https://polyhaven.com/a/forest_leaves_04",
+    "license": "CC0-1.0",
+    "authors": [
+     "Rob Tuytel"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.424,
+     0.331,
+     0.234
+    ],
+    "rough_mean": 0.759,
+    "metal_mean": 0.01
+   },
+   "processing": "albedo adjust {'sat': 0.78, 'gain': 0.88}"
+  },
+  {
+   "id": "terrain_dirt",
+   "kind": "terrain",
+   "description": "Dry crumbly brown soil with clods and small stones.",
+   "path": "assets/textures/terrain_dirt/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 1677506
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 434501
+    },
+    "height": {
+     "file": "height.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 168940
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 1772975
+    }
+   },
+   "tile_m": [
+    1.3,
+    1.3
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "brown_mud_dry",
+    "url": "https://polyhaven.com/a/brown_mud_dry",
+    "license": "CC0-1.0",
+    "authors": [
+     "Rob Tuytel"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.452,
+     0.355,
+     0.242
+    ],
+    "rough_mean": 0.774,
+    "metal_mean": 0.008
+   },
+   "processing": "roughness remapped to [0.68, 0.96]"
+  },
+  {
+   "id": "terrain_mud",
+   "kind": "terrain",
+   "description": "Dark wet mud with puddle-smoothed areas and footprints.",
+   "path": "assets/textures/terrain_mud/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 1153656
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 420657
+    },
+    "height": {
+     "file": "height.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 152224
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 1478288
+    }
+   },
+   "tile_m": [
+    1.3,
+    1.3
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "brown_mud_02",
+    "url": "https://polyhaven.com/a/brown_mud_02",
+    "license": "CC0-1.0",
+    "authors": [
+     "Rob Tuytel"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.302,
+     0.268,
+     0.216
+    ],
+    "rough_mean": 0.951,
+    "metal_mean": 0.01
+   }
+  },
+  {
+   "id": "terrain_rock",
+   "kind": "terrain",
+   "description": "Grey stratified/layered cliff rock (slate-like ledges). Use triplanar on steep slopes.",
+   "path": "assets/textures/terrain_rock/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 1026496
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 314361
+    },
+    "height": {
+     "file": "height.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 101945
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      2048,
+      2048
+     ],
+     "bytes": 1327666
+    }
+   },
+   "tile_m": [
+    3.0,
+    3.0
+   ],
+   "tile_estimated": true,
+   "source": {
+    "provider": "ambientCG",
+    "id": "Rock022",
+    "url": "https://ambientcg.com/a/Rock022",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.39,
+     0.388,
+     0.381
+    ],
+    "rough_mean": 0.654,
+    "metal_mean": 0.0
+   },
+   "processing": "roughness remapped to [0.55, 0.92]"
+  },
+  {
+   "id": "terrain_sand",
+   "kind": "terrain",
+   "description": "Fine beige beach sand, lightly trampled.",
+   "path": "assets/textures/terrain_sand/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 287861
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 279131
+    },
+    "height": {
+     "file": "height.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 131193
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 710010
+    }
+   },
+   "tile_m": [
+    3.5,
+    3.5
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "ambientCG",
+    "id": "Ground054",
+    "url": "https://ambientcg.com/a/Ground054",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.611,
+     0.544,
+     0.43
+    ],
+    "rough_mean": 0.857,
+    "metal_mean": 0.0
+   },
+   "processing": "roughness remapped to [0.72, 0.96]"
+  },
+  {
+   "id": "terrain_gravel",
+   "kind": "terrain",
+   "description": "Grey mixed gravel with sandy fines (parking lots, rail beds, road shoulders).",
+   "path": "assets/textures/terrain_gravel/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 406907
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 419829
+    },
+    "height": {
+     "file": "height.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 368131
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 1088803
+    }
+   },
+   "tile_m": [
+    2.0,
+    2.0
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "ambientCG",
+    "id": "Gravel033",
+    "url": "https://ambientcg.com/a/Gravel033",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.529,
+     0.515,
+     0.463
+    ],
+    "rough_mean": 0.749,
+    "metal_mean": 0.0
+   },
+   "processing": "roughness remapped to [0.6, 0.93]"
+  },
+  {
+   "id": "road_asphalt",
+   "kind": "terrain",
+   "description": "Worn grey asphalt with fine hairline cracks and stains (no lane markings).",
+   "path": "assets/textures/road_asphalt/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 270801
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 438891
+    },
+    "height": {
+     "file": "height.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 372963
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 859852
+    }
+   },
+   "tile_m": [
+    1.9,
+    1.9
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "ambientCG",
+    "id": "Asphalt022",
+    "url": "https://ambientcg.com/a/Asphalt022",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.389,
+     0.391,
+     0.375
+    ],
+    "rough_mean": 0.7,
+    "metal_mean": 0.0
+   }
+  },
+  {
+   "id": "road_dirt",
+   "kind": "terrain",
+   "description": "Packed brown dirt track with embedded gravel. Pair with decal_tire_tracks for ruts.",
+   "path": "assets/textures/road_dirt/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 257223
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 425814
+    },
+    "height": {
+     "file": "height.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 269530
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 991174
+    }
+   },
+   "tile_m": [
+    2.0,
+    2.0
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "rocky_trail_02",
+    "url": "https://polyhaven.com/a/rocky_trail_02",
+    "license": "CC0-1.0",
+    "authors": [
+     "Amal Kumar"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.489,
+     0.403,
+     0.325
+    ],
+    "rough_mean": 0.79,
+    "metal_mean": 0.007
+   },
+   "processing": "albedo adjust {'sat': 0.82, 'gain': 0.95}"
+  },
+  {
+   "id": "terrain_field",
+   "kind": "terrain",
+   "description": "Plowed field furrows with seedling rows; furrows run along texture U (x), ~30 cm apart. Headland border of the scan cropped and the strip cross-faded so it tiles along U.",
+   "path": "assets/textures/terrain_field/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 205039
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 269031
+    },
+    "height": {
+     "file": "height.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 127886
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 719134
+    }
+   },
+   "tile_m": [
+    1.33,
+    2.1
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "farm_furrows",
+    "url": "https://polyhaven.com/a/farm_furrows",
+    "license": "CC0-1.0",
+    "authors": [
+     "Amal Kumar"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.361,
+     0.297,
+     0.196
+    ],
+    "rough_mean": 0.912,
+    "metal_mean": 0.004
+   }
+  },
+  {
+   "id": "brick_red",
+   "kind": "building",
+   "description": "Classic red clay brick, running bond.",
+   "path": "assets/textures/brick_red/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 212126
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 221259
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 550869
+    }
+   },
+   "tile_m": [
+    1.4,
+    1.4
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "red_brick",
+    "url": "https://polyhaven.com/a/red_brick",
+    "license": "CC0-1.0",
+    "authors": [
+     "Rob Tuytel"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.557,
+     0.403,
+     0.315
+    ],
+    "rough_mean": 0.923,
+    "metal_mean": 0.004
+   }
+  },
+  {
+   "id": "brick_white",
+   "kind": "building",
+   "description": "White-painted brick wall.",
+   "path": "assets/textures/brick_white/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 223902
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 310555
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 485131
+    }
+   },
+   "tile_m": [
+    1.05,
+    1.05
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "ambientCG",
+    "id": "Bricks060",
+    "url": "https://ambientcg.com/a/Bricks060",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.865,
+     0.842,
+     0.827
+    ],
+    "rough_mean": 0.586,
+    "metal_mean": 0.0
+   }
+  },
+  {
+   "id": "plaster_white",
+   "kind": "building",
+   "description": "Clean white rough exterior plaster.",
+   "path": "assets/textures/plaster_white/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 246157
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 319927
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 655584
+    }
+   },
+   "tile_m": [
+    1.5,
+    1.5
+   ],
+   "tile_estimated": true,
+   "source": {
+    "provider": "ambientCG",
+    "id": "Plaster002",
+    "url": "https://ambientcg.com/a/Plaster002",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.851,
+     0.837,
+     0.823
+    ],
+    "rough_mean": 0.548,
+    "metal_mean": 0.0
+   }
+  },
+  {
+   "id": "plaster_painted",
+   "kind": "building",
+   "description": "Weathered painted plaster, desaturated so material.color can tint it.",
+   "path": "assets/textures/plaster_painted/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 204664
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 94424
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 407613
+    }
+   },
+   "tile_m": [
+    2.0,
+    2.0
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "painted_plaster_wall",
+    "url": "https://polyhaven.com/a/painted_plaster_wall",
+    "license": "CC0-1.0",
+    "authors": [
+     "Amal Kumar"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.659,
+     0.64,
+     0.634
+    ],
+    "rough_mean": 0.919,
+    "metal_mean": 0.002
+   },
+   "processing": "albedo adjust {'sat': 0.55}"
+  },
+  {
+   "id": "concrete_wall",
+   "kind": "building",
+   "description": "Cast concrete wall with patching and form lines.",
+   "path": "assets/textures/concrete_wall/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 180765
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 177290
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 186455
+    }
+   },
+   "tile_m": [
+    2.16,
+    2.16
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "concrete_wall_007",
+    "url": "https://polyhaven.com/a/concrete_wall_007",
+    "license": "CC0-1.0",
+    "authors": [
+     "Dario Barresi",
+     "Rico Cilliers",
+     "Charlotte Baglioni"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.544,
+     0.51,
+     0.431
+    ],
+    "rough_mean": 0.774,
+    "metal_mean": 0.004
+   }
+  },
+  {
+   "id": "concrete_floor",
+   "kind": "building",
+   "description": "Smooth worn grey concrete floor.",
+   "path": "assets/textures/concrete_floor/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 136435
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 205247
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 190120
+    }
+   },
+   "tile_m": [
+    3.0,
+    3.0
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "concrete_floor_worn_001",
+    "url": "https://polyhaven.com/a/concrete_floor_worn_001",
+    "license": "CC0-1.0",
+    "authors": [
+     "Dimitrios Savva",
+     "Rico Cilliers"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.337,
+     0.34,
+     0.33
+    ],
+    "rough_mean": 0.541,
+    "metal_mean": 0.006
+   }
+  },
+  {
+   "id": "concrete_dirty",
+   "kind": "building",
+   "description": "Light concrete with dark grime stains.",
+   "path": "assets/textures/concrete_dirty/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 326159
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 169912
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 672939
+    }
+   },
+   "tile_m": [
+    3.0,
+    3.0
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "dirty_concrete",
+    "url": "https://polyhaven.com/a/dirty_concrete",
+    "license": "CC0-1.0",
+    "authors": [
+     "Rob Tuytel"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.536,
+     0.513,
+     0.468
+    ],
+    "rough_mean": 0.863,
+    "metal_mean": 0.004
+   }
+  },
+  {
+   "id": "wood_planks_floor",
+   "kind": "building",
+   "description": "Worn varnished plank floor; planks run along U.",
+   "path": "assets/textures/wood_planks_floor/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 162772
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 195172
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 232092
+    }
+   },
+   "tile_m": [
+    2.0,
+    2.0
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "wood_floor_worn",
+    "url": "https://polyhaven.com/a/wood_floor_worn",
+    "license": "CC0-1.0",
+    "authors": [
+     "Dimitrios Savva"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.538,
+     0.346,
+     0.183
+    ],
+    "rough_mean": 0.47,
+    "metal_mean": 0.005
+   }
+  },
+  {
+   "id": "wood_siding",
+   "kind": "building",
+   "description": "Weathered horizontal plank siding (exterior).",
+   "path": "assets/textures/wood_siding/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 156780
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 134763
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 238883
+    }
+   },
+   "tile_m": [
+    1.57,
+    1.57
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "weathered_plank_siding",
+    "url": "https://polyhaven.com/a/weathered_plank_siding",
+    "license": "CC0-1.0",
+    "authors": [
+     "Dimitrios Savva"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.297,
+     0.239,
+     0.195
+    ],
+    "rough_mean": 0.897,
+    "metal_mean": 0.003
+   }
+  },
+  {
+   "id": "wood_painted",
+   "kind": "building",
+   "description": "Rough horizontal planks with peeling green paint.",
+   "path": "assets/textures/wood_painted/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 277303
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 212224
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 297372
+    }
+   },
+   "tile_m": [
+    1.5,
+    1.5
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "green_rough_planks",
+    "url": "https://polyhaven.com/a/green_rough_planks",
+    "license": "CC0-1.0",
+    "authors": [
+     "Rob Tuytel"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.356,
+     0.423,
+     0.377
+    ],
+    "rough_mean": 0.518,
+    "metal_mean": 0.005
+   }
+  },
+  {
+   "id": "roof_tiles",
+   "kind": "building",
+   "description": "Weathered terracotta roof tiles; rows along U, downslope = -V.",
+   "path": "assets/textures/roof_tiles/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 287423
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 415943
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 229647
+    }
+   },
+   "tile_m": [
+    4.0,
+    4.0
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "roof_09",
+    "url": "https://polyhaven.com/a/roof_09",
+    "license": "CC0-1.0",
+    "authors": [
+     "Rob Tuytel"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.527,
+     0.455,
+     0.38
+    ],
+    "rough_mean": 0.752,
+    "metal_mean": 0.012
+   }
+  },
+  {
+   "id": "roof_corrugated_metal",
+   "kind": "building",
+   "description": "Corrugated iron with worn grey/red paint; corrugations run along V.",
+   "path": "assets/textures/roof_corrugated_metal/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 266660
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 229101
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 559799
+    }
+   },
+   "tile_m": [
+    1.8,
+    1.8
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "worn_corrugated_iron",
+    "url": "https://polyhaven.com/a/worn_corrugated_iron",
+    "license": "CC0-1.0",
+    "authors": [
+     "Jenelle van Heerden",
+     "Dimitrios Savva"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.472,
+     0.465,
+     0.456
+    ],
+    "rough_mean": 0.617,
+    "metal_mean": 0.004
+   }
+  },
+  {
+   "id": "metal_rusty",
+   "kind": "building",
+   "description": "Heavily rusted sheet steel with bare patches.",
+   "path": "assets/textures/metal_rusty/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 305170
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 297783
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 410236
+    }
+   },
+   "tile_m": [
+    2.0,
+    2.0
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "rusty_metal_04",
+    "url": "https://polyhaven.com/a/rusty_metal_04",
+    "license": "CC0-1.0",
+    "authors": [
+     "Amal Kumar"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.341,
+     0.26,
+     0.207
+    ],
+    "rough_mean": 0.703,
+    "metal_mean": 0.213
+   }
+  },
+  {
+   "id": "metal_painted",
+   "kind": "building",
+   "description": "Olive-green painted steel with light wear.",
+   "path": "assets/textures/metal_painted/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 92286
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 170183
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 67392
+    }
+   },
+   "tile_m": [
+    1.0,
+    1.0
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "green_metal_rust",
+    "url": "https://polyhaven.com/a/green_metal_rust",
+    "license": "CC0-1.0",
+    "authors": [
+     "Rob Tuytel"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.247,
+     0.301,
+     0.203
+    ],
+    "rough_mean": 0.504,
+    "metal_mean": 0.004
+   }
+  },
+  {
+   "id": "floor_tiles",
+   "kind": "building",
+   "description": "Beige stone/ceramic floor tiles, worn.",
+   "path": "assets/textures/floor_tiles/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 190202
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 107629
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 128411
+    }
+   },
+   "tile_m": [
+    1.5,
+    1.5
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "floor_tiles_08",
+    "url": "https://polyhaven.com/a/floor_tiles_08",
+    "license": "CC0-1.0",
+    "authors": [
+     "Rob Tuytel"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.531,
+     0.461,
+     0.391
+    ],
+    "rough_mean": 0.512,
+    "metal_mean": 0.004
+   }
+  },
+  {
+   "id": "wall_tiles",
+   "kind": "building",
+   "description": "White square ceramic wall tiles (~20 cm) with grey grout.",
+   "path": "assets/textures/wall_tiles/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 303870
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 144104
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 626525
+    }
+   },
+   "tile_m": [
+    1.0,
+    1.0
+   ],
+   "tile_estimated": true,
+   "source": {
+    "provider": "ambientCG",
+    "id": "Tiles039",
+    "url": "https://ambientcg.com/a/Tiles039",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.733,
+     0.734,
+     0.725
+    ],
+    "rough_mean": 0.598,
+    "metal_mean": 0.0
+   }
+  },
+  {
+   "id": "wallpaper_old",
+   "kind": "building",
+   "description": "Aged brown wallpaper with stains.",
+   "path": "assets/textures/wallpaper_old/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 249770
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 99641
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 253664
+    }
+   },
+   "tile_m": [
+    2.5,
+    2.5
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "decrepit_wallpaper",
+    "url": "https://polyhaven.com/a/decrepit_wallpaper",
+    "license": "CC0-1.0",
+    "authors": [
+     "Rob Tuytel"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.466,
+     0.419,
+     0.368
+    ],
+    "rough_mean": 0.927,
+    "metal_mean": 0.002
+   }
+  },
+  {
+   "id": "wallpaper_pattern",
+   "kind": "building",
+   "description": "Faded striped floral wallpaper (generated print over ambientCG woodchip paper).",
+   "path": "assets/textures/wallpaper_pattern/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 89781
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 446003
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 294265
+    }
+   },
+   "tile_m": [
+    1.06,
+    1.06
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "generated",
+    "id": "wallpaper_pattern",
+    "url": "tools/assets/textures/generate.py",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "base_source": {
+    "provider": "ambientCG",
+    "id": "Wallpaper001A",
+    "url": "https://ambientcg.com/a/Wallpaper001A",
+    "license": "CC0-1.0"
+   },
+   "stats": {
+    "albedo_mean_srgb": [
+     0.794,
+     0.762,
+     0.648
+    ],
+    "rough_mean": 0.78,
+    "metal_mean": 0.0
+   }
+  },
+  {
+   "id": "carpet",
+   "kind": "building",
+   "description": "Beige wool carpet (tintable).",
+   "path": "assets/textures/carpet/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 220507
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 245232
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 821323
+    }
+   },
+   "tile_m": [
+    1.7,
+    1.7
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "ambientCG",
+    "id": "Carpet016",
+    "url": "https://ambientcg.com/a/Carpet016",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.736,
+     0.69,
+     0.578
+    ],
+    "rough_mean": 0.648,
+    "metal_mean": 0.0
+   }
+  },
+  {
+   "id": "fabric",
+   "kind": "building",
+   "description": "Plain grey woven cloth (tintable).",
+   "path": "assets/textures/fabric/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 396623
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 602840
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 1229114
+    }
+   },
+   "tile_m": [
+    0.5,
+    0.5
+   ],
+   "tile_estimated": true,
+   "source": {
+    "provider": "ambientCG",
+    "id": "Fabric030",
+    "url": "https://ambientcg.com/a/Fabric030",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.358,
+     0.356,
+     0.359
+    ],
+    "rough_mean": 0.728,
+    "metal_mean": 0.0
+   }
+  },
+  {
+   "id": "sidewalk_pavers",
+   "kind": "building",
+   "description": "Grey interlocking concrete pavers.",
+   "path": "assets/textures/sidewalk_pavers/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 230647
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 223367
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 437363
+    }
+   },
+   "tile_m": [
+    1.92,
+    1.92
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "concrete_pavers",
+    "url": "https://polyhaven.com/a/concrete_pavers",
+    "license": "CC0-1.0",
+    "authors": [
+     "Amal Kumar"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.405,
+     0.369,
+     0.325
+    ],
+    "rough_mean": 0.89,
+    "metal_mean": 0.003
+   }
+  },
+  {
+   "id": "container_metal",
+   "kind": "building",
+   "description": "Green shipping-container corrugated side.",
+   "path": "assets/textures/container_metal/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 62111
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 76689
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 151384
+    }
+   },
+   "tile_m": [
+    1.94,
+    1.94
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "container_side",
+    "url": "https://polyhaven.com/a/container_side",
+    "license": "CC0-1.0",
+    "authors": [
+     "Dimitrios Savva"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.365,
+     0.535,
+     0.316
+    ],
+    "rough_mean": 0.666,
+    "metal_mean": 0.002
+   }
+  },
+  {
+   "id": "bark_pine",
+   "kind": "bark",
+   "description": "Scots-pine-like plated bark (reddish plates).",
+   "path": "assets/textures/bark_pine/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 254941
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 291529
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 685219
+    }
+   },
+   "tile_m": [
+    2.0,
+    2.0
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "pine_bark",
+    "url": "https://polyhaven.com/a/pine_bark",
+    "license": "CC0-1.0",
+    "authors": [
+     "Dimitrios Savva"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.402,
+     0.325,
+     0.252
+    ],
+    "rough_mean": 0.707,
+    "metal_mean": 0.005
+   }
+  },
+  {
+   "id": "bark_birch",
+   "kind": "bark",
+   "description": "White birch bark with lenticels and dark knots.",
+   "path": "assets/textures/bark_birch/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 290892
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 612048
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 943947
+    }
+   },
+   "tile_m": [
+    1.0,
+    1.0
+   ],
+   "tile_estimated": true,
+   "source": {
+    "provider": "TextureCan",
+    "id": "wood_0027",
+    "url": "https://texturecan.com/details/221/",
+    "license": "CC0-1.0",
+    "note": "TextureCan terms: all textures CC0 1.0 (https://texturecan.com/terms/)"
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.58,
+     0.576,
+     0.578
+    ],
+    "rough_mean": 0.528,
+    "metal_mean": 0.0
+   }
+  },
+  {
+   "id": "bark_oak",
+   "kind": "bark",
+   "description": "Deeply fissured grey oak bark.",
+   "path": "assets/textures/bark_oak/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 389567
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 539409
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 1223304
+    }
+   },
+   "tile_m": [
+    1.0,
+    1.0
+   ],
+   "tile_estimated": true,
+   "source": {
+    "provider": "ambientCG",
+    "id": "Bark001",
+    "url": "https://ambientcg.com/a/Bark001",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.484,
+     0.476,
+     0.449
+    ],
+    "rough_mean": 0.725,
+    "metal_mean": 0.0
+   }
+  },
+  {
+   "id": "military_camo_fabric",
+   "kind": "building",
+   "description": "Woodland-pattern camouflage cotton canvas (generated print over ambientCG Fabric061 weave).",
+   "path": "assets/textures/military_camo_fabric/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 213029
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 154548
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 548669
+    }
+   },
+   "tile_m": [
+    0.8,
+    0.8
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "generated",
+    "id": "camo",
+    "url": "tools/assets/textures/generate.py",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "base_source": {
+    "provider": "ambientCG",
+    "id": "Fabric061",
+    "url": "https://ambientcg.com/a/Fabric061",
+    "license": "CC0-1.0"
+   },
+   "stats": {
+    "albedo_mean_srgb": [
+     0.315,
+     0.317,
+     0.221
+    ],
+    "rough_mean": 0.846,
+    "metal_mean": 0.0
+   }
+  },
+  {
+   "id": "plaster_damaged",
+   "kind": "building",
+   "description": "Weathered plaster broken off in patches, exposing red brick (war-torn / abandoned buildings).",
+   "path": "assets/textures/plaster_damaged/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 262019
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 171894
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 484439
+    }
+   },
+   "tile_m": [
+    1.85,
+    1.85
+   ],
+   "tile_estimated": false,
+   "source": {
+    "provider": "Poly Haven",
+    "id": "damaged_plaster",
+    "url": "https://polyhaven.com/a/damaged_plaster",
+    "license": "CC0-1.0",
+    "authors": [
+     "Amal Kumar"
+    ]
+   },
+   "license": "CC0-1.0",
+   "stats": {
+    "albedo_mean_srgb": [
+     0.579,
+     0.509,
+     0.442
+    ],
+    "rough_mean": 0.907,
+    "metal_mean": 0.002
+   }
+  }
+ ],
+ "vegetation": [
+  {
+   "id": "veg_grass_blades",
+   "description": "Individual green grass blades on black, for grass cards.",
+   "path": "assets/textures/veg_grass_blades/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 123411
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 68176
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 123655
+    },
+    "opacity": {
+     "file": "opacity.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 64579
+    }
+   },
+   "source": {
+    "provider": "ambientCG",
+    "id": "Foliage001",
+    "url": "https://ambientcg.com/a/Foliage001",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "usage": "alpha-tested cards: map=albedo.jpg, alphaMap=opacity.jpg (alphaTest\u22480.5), side=DoubleSide"
+  },
+  {
+   "id": "veg_grass_seedheads",
+   "description": "Wild grass stems with seed heads.",
+   "path": "assets/textures/veg_grass_seedheads/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 84326
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 63386
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 92071
+    },
+    "opacity": {
+     "file": "opacity.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 67480
+    }
+   },
+   "source": {
+    "provider": "ambientCG",
+    "id": "Foliage002",
+    "url": "https://ambientcg.com/a/Foliage002",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "usage": "alpha-tested cards: map=albedo.jpg, alphaMap=opacity.jpg (alphaTest\u22480.5), side=DoubleSide"
+  },
+  {
+   "id": "veg_leaves_broadleaf",
+   "description": "Nine green broadleaf (beech-like) leaves.",
+   "path": "assets/textures/veg_leaves_broadleaf/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 174854
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 79858
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 162880
+    },
+    "opacity": {
+     "file": "opacity.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 54768
+    }
+   },
+   "source": {
+    "provider": "ambientCG",
+    "id": "LeafSet024",
+    "url": "https://ambientcg.com/a/LeafSet024",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "usage": "alpha-tested cards: map=albedo.jpg, alphaMap=opacity.jpg (alphaTest\u22480.5), side=DoubleSide"
+  },
+  {
+   "id": "veg_pine_needles",
+   "description": "Pine needle clusters, recoloured from the dry scan to living-needle green.",
+   "path": "assets/textures/veg_pine_needles/",
+   "files": {
+    "albedo": {
+     "file": "albedo.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 75857
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 77029
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 151723
+    },
+    "opacity": {
+     "file": "opacity.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 67391
+    }
+   },
+   "source": {
+    "provider": "ambientCG",
+    "id": "PineNeedles001",
+    "url": "https://ambientcg.com/a/PineNeedles001",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "usage": "alpha-tested cards: map=albedo.jpg, alphaMap=opacity.jpg (alphaTest\u22480.5), side=DoubleSide"
+  }
+ ],
+ "decals": [
+  {
+   "id": "decal_bullet_holes",
+   "description": "4x4 atlas: row0 concrete/plaster, row1 metal, row2 wood, row3 glass-crack/generic.",
+   "path": "assets/textures/decal_bullet_holes/",
+   "files": {
+    "albedo": {
+     "file": "albedo.png",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 433436
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 35394
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 41693
+    }
+   },
+   "source": {
+    "provider": "generated",
+    "id": "bullet_holes",
+    "url": "tools/assets/textures/generate.py",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "usage": "albedo.png RGBA (alpha = coverage); DecalGeometry or projected quad, depthWrite=false, polygonOffset",
+   "atlas": {
+    "cols": 4,
+    "rows": 4
+   }
+  },
+  {
+   "id": "decal_cracks",
+   "description": "2x2 atlas of wall/ground crack decals.",
+   "path": "assets/textures/decal_cracks/",
+   "files": {
+    "albedo": {
+     "file": "albedo.png",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 88136
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 28231
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 32206
+    }
+   },
+   "source": {
+    "provider": "generated",
+    "id": "cracks",
+    "url": "tools/assets/textures/generate.py",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "usage": "albedo.png RGBA (alpha = coverage); DecalGeometry or projected quad, depthWrite=false, polygonOffset",
+   "atlas": {
+    "cols": 2,
+    "rows": 2
+   }
+  },
+  {
+   "id": "decal_dirt_leak",
+   "description": "Grime/water streaks running down a wall (top = +V).",
+   "path": "assets/textures/decal_dirt_leak/",
+   "files": {
+    "albedo": {
+     "file": "albedo.png",
+     "px": [
+      1024,
+      512
+     ],
+     "bytes": 685422
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      512
+     ],
+     "bytes": 116681
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      512
+     ],
+     "bytes": 114564
+    }
+   },
+   "source": {
+    "provider": "ambientCG",
+    "id": "Leaking003",
+    "url": "https://ambientcg.com/a/Leaking003",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "usage": "albedo.png RGBA (alpha = coverage); DecalGeometry or projected quad, depthWrite=false, polygonOffset"
+  },
+  {
+   "id": "decal_tire_tracks",
+   "description": "Tire tread rut strip (tiles along U; alpha fades at the long edges). Darkens/compacts the dirt under it; normal+height carry the tread.",
+   "path": "assets/textures/decal_tire_tracks/",
+   "files": {
+    "albedo": {
+     "file": "albedo.png",
+     "px": [
+      1024,
+      256
+     ],
+     "bytes": 253973
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      256
+     ],
+     "bytes": 53415
+    },
+    "height": {
+     "file": "height.jpg",
+     "px": [
+      1024,
+      256
+     ],
+     "bytes": 38960
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      256
+     ],
+     "bytes": 61097
+    }
+   },
+   "source": {
+    "provider": "ambientCG",
+    "id": "TireTracks001",
+    "url": "https://ambientcg.com/a/TireTracks001",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "usage": "albedo.png RGBA (alpha = coverage); DecalGeometry or projected quad, depthWrite=false, polygonOffset",
+   "size_m": [
+    1.8,
+    0.45
+   ]
+  },
+  {
+   "id": "decal_asphalt_damage",
+   "description": "Atlas of asphalt patches/potholes.",
+   "path": "assets/textures/decal_asphalt_damage/",
+   "files": {
+    "albedo": {
+     "file": "albedo.png",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 1383291
+    },
+    "arm": {
+     "file": "arm.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 122481
+    },
+    "normal": {
+     "file": "normal.jpg",
+     "px": [
+      1024,
+      1024
+     ],
+     "bytes": 256550
+    }
+   },
+   "source": {
+    "provider": "ambientCG",
+    "id": "AsphaltDamageSet001",
+    "url": "https://ambientcg.com/a/AsphaltDamageSet001",
+    "license": "CC0-1.0"
+   },
+   "license": "CC0-1.0",
+   "usage": "albedo.png RGBA (alpha = coverage); DecalGeometry or projected quad, depthWrite=false, polygonOffset"
+  }
+ ],
+ "noise": [
+  {
+   "id": "blue_noise_64",
+   "file": "assets/textures/noise/blue_noise_64.png",
+   "px": [
+    64,
+    64
+   ],
+   "description": "Void-and-cluster blue noise (tileable). Use NearestFilter, RepeatWrapping, NoColorSpace.",
+   "source": {
+    "provider": "generated",
+    "url": "tools/assets/textures/generate.py"
+   },
+   "license": "CC0-1.0"
+  },
+  {
+   "id": "blue_noise_64_rgba",
+   "file": "assets/textures/noise/blue_noise_64_rgba.png",
+   "px": [
+    64,
+    64
+   ],
+   "description": "Void-and-cluster blue noise (tileable). Use NearestFilter, RepeatWrapping, NoColorSpace. 4 independent channels.",
+   "source": {
+    "provider": "generated",
+    "url": "tools/assets/textures/generate.py"
+   },
+   "license": "CC0-1.0"
+  }
+ ]
+}

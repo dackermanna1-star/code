@@ -3,6 +3,7 @@ from gkit import rot_f
 
 OUT = 'attachments'
 TEX = 512
+WEAR = 0.25
 META = dict(kind='muzzle', type='compensator', fits='AR', length_m=0.062)
 
 

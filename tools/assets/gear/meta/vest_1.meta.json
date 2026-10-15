@@ -1,0 +1,39 @@
+{
+ "tris": 9136,
+ "bounds_min": [
+  -0.2218,
+  -0.2505,
+  -0.1709
+ ],
+ "bounds_max": [
+  0.2227,
+  0.2381,
+  0.2017
+ ],
+ "size_m": [
+  0.4445,
+  0.4886,
+  0.3727
+ ],
+ "nodes": [
+  "vest_1",
+  "body"
+ ],
+ "materials": [
+  "M_vest_1"
+ ],
+ "kind": "vest",
+ "level": 1,
+ "attach_bone": "Spine2",
+ "attach_offset_m": [
+  0.0,
+  -0.021,
+  0.02
+ ],
+ "origin_root_space_m": [
+  0.0,
+  1.3,
+  0.0
+ ],
+ "id": "vest_1"
+}

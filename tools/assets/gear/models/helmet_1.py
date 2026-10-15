@@ -8,6 +8,7 @@ from _wear import Shell, solidify, orient_out, chin_strap, periodic_interp
 OUT = 'gear'
 TEX = 1024
 MS = 2.0
+DECIMATE = 0.55
 META = dict(kind='helmet', level=1, attach_bone='Head', attach_offset_m=[0.0, 0.1, 0.008],
             notes='origin = head centre (rest pose root-space (0, 1.687, 0.008)); +Z = face forward')
 KINDS['gloss_steel'] = dict(base='#2d3540', var='#29303a', metal=0.0, rough=0.16, rvar=0.04, wear='#7a7e84', wear_amt=0.35,
@@ -39,12 +40,12 @@ def build(g):
     def peak(a, b):
         th = -58 + 116 * a
         c = math.cos(math.radians(th * 90 / 58))
-        e0 = rim(th) + 9.0
+        e0 = rim(th) + 11.0
         p0 = Vector(sh.point(th, e0, 1.5))
         n = Vector(sh.point(th, e0, 10.0)) - p0
         n.normalize()
-        fwd = Vector((1, -0.75, 0)).normalized()
-        out = 52.0 * max(0.0, c) ** 0.7 * b
+        fwd = Vector((1, -0.55, 0)).normalized()
+        out = 40.0 * max(0.0, c) ** 0.7 * b
         p = p0 + (fwd * out) + n * (2.0 * b)
         return (p.x * MM, p.y * MM, p.z * MM)
     pk = orient_out(grid_surface(peak, 40, 6), center=(0, 0.2, 0))

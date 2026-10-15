@@ -1,0 +1,28 @@
+{
+ "tris": 1296,
+ "bounds_min": [
+  -0.0572,
+  -0.0,
+  -0.037
+ ],
+ "bounds_max": [
+  0.056,
+  0.0443,
+  0.0779
+ ],
+ "size_m": [
+  0.1132,
+  0.0443,
+  0.1149
+ ],
+ "nodes": [
+  "ammo_45acp",
+  "body"
+ ],
+ "materials": [
+  "M_ammo_45acp"
+ ],
+ "kind": "ammo",
+ "caliber": "45acp",
+ "id": "ammo_45acp"
+}

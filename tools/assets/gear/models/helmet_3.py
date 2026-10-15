@@ -8,6 +8,7 @@ from _wear import Shell, solidify, orient_out, chin_strap, periodic_interp
 OUT = 'gear'
 TEX = 1024
 MS = 2.0
+DECIMATE = 0.55
 META = dict(kind='helmet', level=3, attach_bone='Head', attach_offset_m=[0.0, 0.1, 0.008],
             notes='origin = head centre (rest pose root-space (0, 1.687, 0.008)); +Z = face forward')
 T3 = {0: 7, 30: 3, 55: -20, 70: -38, 82: -30, 92: -12, 106: -12, 117: -30, 130: -46, 155: -50, 180: -47}

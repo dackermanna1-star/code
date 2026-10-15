@@ -1,7 +1,7 @@
 {
  "category": "weapons",
  "conventions": "Node positions are local to the listed parent (mesh-node positions include the meshopt dequantization offset; do not rely on them). glTF +Y up, barrel along +Z, meters. Root node = weapon id; origin at the firing-hand pistol grip. Children of the root: body (static mesh), plus pivot nodes mag and <cycle_node> (bolt | charging_handle | slide); each pivot node holds its mesh as child <name>_mesh. Animate the pivot node (mag: top of the mag well; bolt/charging_handle/slide: the handle; break-action bolt: hinge pin; Win94 bolt: lever pivot; R1895 bolt: hammer pivot, mag: cylinder axis). Empties: muzzle, grip_support (support hand), sight_eye (eye point on the iron-sight line), rail_top (optic mount point, top of rail/receiver; omitted where nothing can mount).",
- "firearms_total_bytes": 13126096,
+ "firearms_total_bytes": 13118708,
  "weapons": [
   {
    "id": "ar_m416",
@@ -2286,7 +2286,7 @@
    "tris": 6692,
    "materials": 1,
    "texture_px": 1024,
-   "bytes": 338988,
+   "bytes": 338124,
    "source": "authored",
    "license": "CC0 (authored for this project with tools/assets/weapons)",
    "reference": {
@@ -2391,7 +2391,7 @@
    "tris": 3560,
    "materials": 1,
    "texture_px": 1024,
-   "bytes": 315576,
+   "bytes": 314392,
    "source": "authored",
    "license": "CC0 (authored for this project with tools/assets/weapons)",
    "reference": {
@@ -3285,7 +3285,7 @@
    "tris": 3956,
    "materials": 1,
    "texture_px": 1024,
-   "bytes": 333160,
+   "bytes": 327820,
    "source": "authored",
    "license": "CC0 (authored for this project with tools/assets/weapons)",
    "reference": {

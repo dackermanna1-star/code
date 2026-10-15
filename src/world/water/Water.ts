@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import type { World } from '../World';
 import { WATER_RES, WORLD_SIZE } from '../terrain/TerrainData';
 import { waveHeight, wavesGlsl } from './waves';
+import { pondReach } from '../layout/pondShape';
 
 export interface WaterUniforms {
   uTime: { value: number };
@@ -83,28 +84,34 @@ vec3 sampleDetail( vec2 p, vec2 flow, float t ) {
 
 const fragMap = /* glsl */ `
 vec2 wuvF = clamp( vWPos.xz / ${WORLD_SIZE.toFixed(1)}, 0.0, 1.0 );
-vec4 wdF = uUseData > 0.5 ? texture2D( tWaterData, wuvF ) : vec4( uWaterLevel - 3.0, 50.0, 0.0, 0.0 );
+// ponds (uUseData = 0) only use the terrain height (depth); shore distance / flow are sea + river data
+vec4 wdF = texture2D( tWaterData, wuvF );
+if ( uUseData < 0.5 ) wdF.gba = vec3( 50.0, 0.0, 0.0 );
 float wOutF = max( 0.0, max( max( - vWPos.x, vWPos.x - ${WORLD_SIZE.toFixed(1)} ), max( - vWPos.z, vWPos.z - ${WORLD_SIZE.toFixed(1)} ) ) ) * uUseData;
 wdF.rg += vec2( - 0.1, 1.0 ) * wOutF;
 wdF.ba *= 1.0 - step( 0.01, wOutF );
 // The sea plane runs under the whole island; far away the depth buffer cannot separate it from low land
 // (z-fighting), so drop water fragments where the terrain is clearly above the water surface. The margin
 // shrinks with distance (bed is a 4 m bilinear height, exact enough once a pixel covers metres).
-if ( uUseData > 0.5 && wdF.r > vWPos.y + mix( 6.0, 0.25, smoothstep( 250.0, 1000.0, length( vWPos - cameraPosition ) ) ) ) discard;
+if ( wdF.r > vWPos.y + mix( 6.0, 0.25, smoothstep( 250.0, 1000.0, length( vWPos - cameraPosition ) ) ) ) discard;
 float wDepth = max( uWaterLevel - wdF.r, 0.0 );
 vec2 wFlow = wdF.ba;
+// fresh water (river with flow, ponds) is darker and greener than the sea
+float wIsRiver = step( 0.05, length( wFlow ) ) + ( 1.0 - step( 0.5, uUseData ) );
+float wFresh = clamp( smoothstep( 0.02, 0.2, length( wFlow ) ) + 1.0 - step( 0.5, uUseData ), 0.0, 1.0 );
 // absorption: shallow water shows the bed, deep water turns dark blue-green
-float wAbs = 1.0 - exp( - wDepth * 0.22 );
-vec3 wCol = mix( uShallow, uDeep, wAbs );
+float wAbs = 1.0 - exp( - wDepth * 0.3 );
+vec3 wCol = mix( mix( uShallow, vec3( 0.035, 0.068, 0.05 ), wFresh ), mix( uDeep, vec3( 0.006, 0.02, 0.018 ), wFresh ), wAbs );
 float wAlpha = clamp( 1.0 - exp( - wDepth * 0.9 ), 0.0, 1.0 );
 // shoreline foam and wave-crest foam
 float wFoamN = texture2D( tNoise, vWPos.xz / 9.0 + vec2( uTime * 0.03, uTime * 0.02 ) ).a;
 // surf foam on sea coasts (stronger with wind), only a faint lap line on rivers/ponds
-float wIsRiver = step( 0.05, length( wFlow ) ) + ( 1.0 - step( 0.5, uUseData ) );
 float wSurf = mix( clamp( 0.3 + uWind * 0.06, 0.0, 0.85 ), 0.12, clamp( wIsRiver, 0.0, 1.0 ) );
 float wShore = smoothstep( 0.45, 0.04, wDepth ) * smoothstep( 0.35, 0.7, wFoamN + 0.25 * sin( uTime * 1.6 - wDepth * 9.0 ) ) * wSurf;
-float wCrest = smoothstep( 0.18, 0.4, vWPos.y - uWaterLevel ) * smoothstep( 0.55, 0.75, wFoamN );
-float wFoam = clamp( wShore + wCrest * 0.7, 0.0, 1.0 );
+// whitecaps: small broken patches on the highest crests, only with real wind (none in calm/clear weather)
+float wCrestN = texture2D( tNoise, vWPos.xz / 3.7 + vec2( uTime * 0.05, - uTime * 0.03 ) ).a;
+float wCrest = smoothstep( 0.22, 0.45, vWPos.y - uWaterLevel ) * smoothstep( 0.62, 0.8, wCrestN ) * smoothstep( 3.5, 9.0, uWind );
+float wFoam = clamp( wShore + wCrest * 0.6, 0.0, 1.0 ) * mix( 1.0, 0.35, smoothstep( 150.0, 900.0, length( vWPos - cameraPosition ) ) );
 diffuseColor.rgb = mix( wCol, vec3( 0.75, 0.78, 0.78 ), wFoam );
 diffuseColor.a = max( wAlpha, wFoam * 0.9 );
 `;
@@ -205,8 +212,9 @@ export class Water {
       tWaterNormal: { value: normalTex },
       tNoise: { value: noise },
       uWaterLevel: { value: world.seaLevel },
-      uShallow: { value: new THREE.Color(0.09, 0.26, 0.24) },
-      uDeep: { value: new THREE.Color(0.006, 0.04, 0.06) },
+      // cold northern sea: dark blue-green, a muted teal only over shallow sand
+      uShallow: { value: new THREE.Color(0.05, 0.14, 0.135) },
+      uDeep: { value: new THREE.Color(0.004, 0.026, 0.042) },
       uRain: { value: 0 },
       uWind: { value: 3 },
       uUseData: { value: 1 },
@@ -224,7 +232,7 @@ export class Water {
     world.layout.ponds.forEach((p) => {
       const u: WaterUniforms = { ...this.uniforms, uWaterLevel: { value: p.level }, uWaveAmp: { value: 0 }, uUseData: { value: 0 } };
       this.pondUniforms.push(u);
-      const geo = new THREE.CircleGeometry(p.radius + 6, 48).rotateX(-Math.PI / 2);
+      const geo = new THREE.CircleGeometry(pondReach(p) + 2, 64).rotateX(-Math.PI / 2);
       const mesh = new THREE.Mesh(geo, createWaterMaterial(u));
       mesh.position.set(p.x, p.level, p.z);
       mesh.name = 'pond';

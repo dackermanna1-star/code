@@ -1,0 +1,30 @@
+{
+ "tris": 13812,
+ "bounds_min": [
+  -0.64,
+  -0.0,
+  -0.64
+ ],
+ "bounds_max": [
+  0.65,
+  1.254,
+  0.65
+ ],
+ "size_m": [
+  1.29,
+  1.254,
+  1.29
+ ],
+ "nodes": [
+  "airdrop_crate",
+  "crate",
+  "chute_attach",
+  "smoke"
+ ],
+ "materials": [
+  "M_airdrop_crate"
+ ],
+ "kind": "airdrop",
+ "nodes_note": "'crate' mesh, empties 'chute_attach', 'smoke'",
+ "id": "airdrop_crate"
+}

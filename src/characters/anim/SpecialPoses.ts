@@ -151,6 +151,40 @@ export class SpecialPoses {
     else if (kind === 'parachute') this.parachuteLimbs(fs);
   }
 
+  // ── healing ────────────────────────────────────────────────────────────────
+  /**
+   * Procedural heal gesture (the delivered "use item" clip is a hand-to-pocket search): the left forearm is held
+   * across the belly and the right hand wraps a bandage around it (`wrap`), or presses/works on it more slowly
+   * for first-aid kits, med kits and syringes (`kit`). `w` fades it in/out at the start/end of the action.
+   */
+  healGesture(fs: AnimFrameState, kind: 'wrap' | 'kit', w: number): void {
+    const pc = this.pc;
+    if (w < 0.01) return;
+    this.healT += fs.dt;
+    const s = pc.scale;
+    const chest = pc.pos(this.rig.bones.upperChest ? 'upperChest' : 'chest', _a);
+    // Left hand: in front of the belly, slightly right of centre; the forearm lies roughly along the body's right.
+    const lowY = kind === 'kit' ? 0.26 : 0.18;
+    _t.copy(chest).addScaledVector(pc.fwd, 0.24 * s).addScaledVector(_up, -lowY * s).addScaledVector(pc.right, 0.06 * s);
+    _t.y += Math.sin(this.healT * 2.1) * 0.01 * s;
+    _pole.copy(chest).addScaledVector(pc.right, -0.6).addScaledVector(_up, -0.6).addScaledVector(pc.fwd, 0.1);
+    this.arm('L', _t, _pole, w);
+    // Right hand: circles around the left forearm a little behind the wrist (wrap), or dabs on it (kit).
+    const lh = this.rig.bones.handL ? worldPos(this.rig.bones.handL, _b) : _b.copy(_t);
+    const rate = kind === 'wrap' ? 1.5 : 0.8;
+    const ph = this.healT * Math.PI * 2 * rate;
+    const r = (kind === 'wrap' ? 0.075 : 0.035) * s;
+    _t.copy(lh).addScaledVector(pc.right, -0.07 * s);
+    _t.addScaledVector(pc.fwd, Math.cos(ph) * r).addScaledVector(_up, Math.sin(ph) * r + 0.02 * s);
+    _pole.copy(chest).addScaledVector(pc.right, 0.6).addScaledVector(_up, -0.6).addScaledVector(pc.fwd, 0.1);
+    this.arm('R', _t, _pole, w);
+    // Look down at the hands.
+    pc.rotate('head', pc.right, -0.35 * w, false);
+    pc.rotate('neck', pc.right, -0.15 * w, true);
+  }
+
+  private healT = 0;
+
   // ── air ────────────────────────────────────────────────────────────────────
   private airTuck(): void {
     const pc = this.pc;

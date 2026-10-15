@@ -28,12 +28,22 @@ varying vec4 vRoad;
 varying vec2 vRoadUv;
 varying vec3 vRoadW;
 float rHash( vec2 p ) { vec3 p3 = fract( vec3( p.xyx ) * 0.1031 ); p3 += dot( p3, p3.yzx + 33.33 ); return fract( ( p3.x + p3.y ) * p3.z ); }
+// Box-filtered coverage of the stripe [-w, w] by a pixel of footprint fw centred at x (anti-aliased paint lines:
+// thin lines fade to their average coverage instead of breaking into dotted aliasing at distance).
+float rLine( float x, float w, float fw ) {
+  fw = max( fw, 1e-4 );
+  return max( 0.0, min( x + 0.5 * fw, w ) - max( x - 0.5 * fw, - w ) ) / fw;
+}
 `;
 
 const fragMap = /* glsl */ `
 float hw = vRoad.x;
 float ax = abs( vRoadUv.x );
 float kind = vRoad.z;
+// pixel footprint in meters (across / along the road): fades sub-pixel detail (grit, pebbles, joints)
+float rFw = max( fwidth( vRoadUv.x ), 1e-4 );
+float rFwY = max( fwidth( vRoadUv.y ), 1e-4 );
+float rFine = 1.0 - smoothstep( 0.015, 0.06, max( rFw, rFwY ) );
 vec4 nA = texture2D( tNoise, vRoadW.xz / 37.0 );
 vec4 nB = texture2D( tNoise, vRoadW.xz / 5.3 );
 vec4 nC = texture2D( tNoise, vRoadW.xz / 0.9 );
@@ -43,7 +53,7 @@ float rEdge;
 float rPuddle = 0.0;
 if ( kind < 0.5 ) {
   // asphalt: aggregate speckle, patches, wheel tracks, cracks
-  float tone = 0.055 + 0.03 * nA.r + 0.02 * ( nC.b - 0.5 ) + 0.012 * ( rHash( floor( vRoadW.xz * 30.0 ) ) - 0.5 );
+  float tone = 0.055 + 0.03 * nA.r + 0.02 * ( nC.b - 0.5 ) + 0.012 * ( rHash( floor( vRoadW.xz * 30.0 ) ) - 0.5 ) * rFine;
   float patchy = smoothstep( 0.62, 0.66, nB.g ) * 0.012;
   float wheel = exp( -pow( ( ax - hw * 0.5 ) / ( hw * 0.18 ), 2.0 ) ) * 0.012;
   float crack = smoothstep( 0.9, 0.97, nB.a ) * smoothstep( 0.58, 0.75, nA.g );
@@ -54,9 +64,13 @@ if ( kind < 0.5 ) {
   float mk = 0.0;
   if ( vRoad.w > 0.5 ) {
     float wear = smoothstep( 0.25, 0.55, nC.r + nB.r * 0.4 );
-    float centre = step( ax, 0.075 ) * step( fract( vRoadUv.y / 9.0 ), 0.45 );
-    float edgeL = step( abs( ax - ( hw - 0.35 ) ), 0.07 );
-    mk = max( centre, edgeL ) * wear * vRoad.y;
+    // dashes: 4 m paint every 9 m, filtered along the road (average 45 % once a pixel spans several meters)
+    float dw = rFwY / 9.0, df = fract( vRoadUv.y / 9.0 );
+    float dash = clamp( ( min( df, 0.45 ) - max( df - dw, 0.0 ) ) / dw, 0.0, 1.0 );
+    dash = mix( dash, 0.45, smoothstep( 0.15, 0.5, dw ) );
+    float centre = rLine( vRoadUv.x, 0.075, rFw ) * dash;
+    float edgeL = rLine( ax - ( hw - 0.35 ), 0.07, rFw );
+    mk = max( centre, edgeL ) * mix( wear, 0.75, 1.0 - rFine ) * vRoad.y;
   }
   rc = mix( rc, vec3( 0.55, 0.55, 0.5 ), mk );
   rRough = mix( rRough, 0.6, mk );
@@ -64,7 +78,7 @@ if ( kind < 0.5 ) {
   // compacted gravel shoulder just outside the asphalt (too narrow for the 4 m terrain splat to draw)
   float shOn = clamp( vShoulder, 0.0, 1.0 ); // 0 on bridge decks and where other roads join
   float sh = smoothstep( hw - 0.1, hw + 0.25, ax + ( nB.r - 0.5 ) * 0.5 ) * shOn;
-  float grit = rHash( floor( vRoadW.xz * 14.0 ) );
+  float grit = mix( 0.5, rHash( floor( vRoadW.xz * 14.0 ) ), rFine );
   vec3 shCol = mix( vec3( 0.12, 0.105, 0.085 ), vec3( 0.23, 0.205, 0.165 ), nC.g * 0.65 + grit * 0.35 );
   rc = mix( rc, shCol, sh );
   rRough = mix( rRough, 0.95, sh );
@@ -77,7 +91,7 @@ if ( kind < 0.5 ) {
   vec3 soil = mix( vec3( 0.10, 0.075, 0.045 ), vec3( 0.21, 0.16, 0.10 ), n );
   float rut = exp( -pow( ( ax - 0.9 ) / 0.35, 2.0 ) );
   float crown = exp( -pow( ax / 0.35, 2.0 ) ) * smoothstep( 0.3, 0.6, nC.r );
-  float pebble = step( 0.86, rHash( floor( vRoadW.xz * 18.0 ) ) ) * 0.06;
+  float pebble = step( 0.86, rHash( floor( vRoadW.xz * 18.0 ) ) ) * 0.06 * rFine + 0.0084 * ( 1.0 - rFine );
   rc = soil * ( 1.0 - rut * 0.18 ) + pebble;
   rc = mix( rc, vec3( 0.08, 0.11, 0.035 ), crown * 0.7 );
   rRough = 0.95 - rut * 0.15;
@@ -87,7 +101,9 @@ if ( kind < 0.5 ) {
   // concrete pads: slabs with joints and stains
   vec2 slab = vRoadW.xz / 4.0;
   vec2 f = abs( fract( slab ) - 0.5 );
-  float joint = smoothstep( 0.485, 0.495, max( f.x, f.y ) );
+  // 8 cm joints, filtered by the pixel footprint (fade to a faint average instead of moire at distance)
+  vec2 jw = max( fwidth( slab ), vec2( 1e-4 ) );
+  float joint = max( rLine( 0.5 - f.x, 0.01, jw.x ), rLine( 0.5 - f.y, 0.01, jw.y ) );
   float tone = 0.12 + 0.045 * nA.r + 0.03 * ( rHash( floor( slab ) ) - 0.5 ) + 0.015 * ( nC.g - 0.5 );
   float stain = smoothstep( 0.6, 0.8, nB.b ) * 0.06;
   rc = vec3( tone - stain ) * vec3( 1.0, 0.99, 0.96 );
