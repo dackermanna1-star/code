@@ -6,3 +6,6 @@ dist/
 test-results/
 __pycache__/
 *.pyc
+dist-single/
+tools/singlefile/.gen/
+battlegrounds-quicktest.html

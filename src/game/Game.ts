@@ -28,7 +28,8 @@ import { installUI } from '../ui';
 
 export async function bootGame(): Promise<void> {
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
-  ctx.flags = new URLSearchParams(location.search);
+  // __BOOT_FLAGS__ lets special builds (e.g. the single-file quick test) preset URL flags.
+  ctx.flags = new URLSearchParams((window as any).__BOOT_FLAGS__ ?? location.search);
   ctx.events = new EventBus();
   ctx.settings = new Settings();
   ctx.settings.attach(ctx.events);
