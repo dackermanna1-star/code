@@ -96,14 +96,16 @@ export class BotController {
       for (const o of w.survivors) if (o !== s && o.state === 'alive' && !o.inv.pills && o.total <= 50 && o.body.pos.distanceTo(s.body.pos) < 2.2) { this.mode = 'givepills'; this.healTarget = o; return; }
     }
     // 4. items worth grabbing nearby
-    if (this.itemTarget && this.mode === 'item') {
+    const item = threats < 3 ? this.findItem() : null;
+    if (item) {
+      // time budget per item: counts every think spent on it (including failed
+      // use presses), so an item that can't actually be picked up is dropped
       const tries = this.itemTries || (this.itemTries = new Map());
-      const tt = (tries.get(this.itemTarget) || 0) + 0.3;
-      tries.set(this.itemTarget, tt);
-      if (tt > 6) { (this.badItems || (this.badItems = new Set())).add(this.itemTarget); this.itemTarget = null; }
+      const tt = (tries.get(item) || 0) + 0.3;
+      tries.set(item, tt);
+      if (tt > 6) { (this.badItems || (this.badItems = new Set())).add(item); this.itemTarget = null; }
+      else { this.mode = 'item'; this.itemTarget = item; this.setGoal(_v3.copy(item.pos).setY(item.pos.y - 1.0), 0.9); return; }
     }
-    const item = this.findItem();
-    if (item && threats < 3) { this.mode = 'item'; this.itemTarget = item; this.setGoal(_v3.copy(item.pos).setY(item.pos.y - 1.0), 0.9); return; }
     // 5. follow the leader
     this.mode = 'follow';
     const L = this.leader;
@@ -384,6 +386,24 @@ export class BotController {
     }
     return best;
   }
+  /** True if no teammate stands between our eye and the aim point. */
+  lineOfFireClear(aimPt) {
+    const s = this.s, w = this.w;
+    const e = s.eyePos(_v2);
+    const dx = aimPt.x - e.x, dy = aimPt.y - e.y, dz = aimPt.z - e.z;
+    const len = Math.hypot(dx, dy, dz);
+    if (len < 0.01) return true;
+    for (const o of w.survivors) {
+      if (o === s || o.state === 'dead') continue;
+      const c = o.center(_v3);
+      const t = ((c.x - e.x) * dx + (c.y - e.y) * dy + (c.z - e.z) * dz) / len;
+      if (t < 0.2 || t > len - 0.3) continue;
+      const px = e.x + dx / len * t - c.x, py = e.y + dy / len * t - c.y, pz = e.z + dz / len * t - c.z;
+      const r = o.state === 'alive' ? 0.5 : 0.6;
+      if (Math.abs(py) < 1.0 && Math.hypot(px, pz) < r) return false;
+    }
+    return true;
+  }
   combat(dt, it) {
     const s = this.s, w = this.w;
     it.attack = false;
@@ -421,7 +441,7 @@ export class BotController {
     // shove close commons / pinners
     if (d < 1.7 && (z.type === 'common' || z.victim && z.type !== 'charger' && z.type !== 'tank') && s.shoveCd <= 0 && Math.random() < 0.15) { it.attack2Pressed = true; return; }
     if (this.mode === 'rescue' && this.rescueTarget && this.rescueTarget.body.pos.distanceTo(s.body.pos) < 1.6 && s.shoveCd <= 0 && this.rescueTarget.pinnedBy && this.rescueTarget.pinnedBy.type !== 'charger') { this.lookAt(this.rescueTarget.center(_v2), dt, 12); it.attack2Pressed = true; }
-    if (err < 0.08 || (d < 3 && err < 0.25)) {
+    if ((err < 0.08 || (d < 3 && err < 0.25)) && this.lineOfFireClear(aimPt)) {
       const w2 = s.activeWeapon;
       if (w2 && (w2.def.semi || w2.def.burst)) { this.fireHold -= dt; if (this.fireHold <= 0) { it.attackPressed = true; it.attack = true; this.fireHold = w2.def.cycle + 0.05 + Math.random() * 0.12; } }
       else it.attack = true;
