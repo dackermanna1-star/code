@@ -15,9 +15,21 @@
 // tools/ct/lib/bsp.mjs; BLOCKMAP and REJECT are written empty (the engine
 // builds them).
 //
+// Obstacles: vehicles get impassable floor footprints with their sprite on
+// top; prop things block with their own radius; every other blocked area the
+// reference has (props the nav mesh went round, player clips) becomes a
+// visible raised block styled after the reference prop standing there, or
+// stays an invisible wall where NMRiH has a bare player clip. Nothing blocked
+// ever reaches into the 32x32 player box around an NMRiH nav sample, and
+// things (zombies, wave markers, pickups) are placed only where a 32x32 box
+// fits by DOOM's rules in an area the player can roam (api.boxFree,
+// api.boxRegion), so tools/ct/check-map.mjs can hold the map to that.
+//
 // Usage: node tools/ct/build-map.mjs [--no-preview] [--dump]
 //   --dump also writes build/ct/map-grid.{json,bin} (cell grid, lines, things)
 //   for debugging tools; previews go to build/ct/previews/map/.
+//   CT_LAYOUT=dir reads raster.json/ref.json from dir instead of layout/;
+//   CT_DEBUG_CLIP=1 lists the raised and invisible obstacle groups.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -150,6 +162,7 @@ const hFeat = new Map(); // horizontal edge at grid line j between cells (i,j-1)
 const vFeat = new Map(); // vertical edge at grid line i between cells (i-1,j),(i,j): key j*(W+1)+i
 const ekey = (i, j) => j * (W + 1) + i;
 let featSeq = 1;
+const featById = new Map();
 const log = [];
 
 function gridX(layer, x) { return Math.round((x + OFFSET[layer] - GX0) / C); }
@@ -264,7 +277,8 @@ const api = {
   // Feature line along a grid-aligned segment. p: {special, tag, flags, mid, top, bottom, front:'n'|'s'|'e'|'w', xoff, yoff, dontpeg}
   line(layer, seg, p = {}) {
     const [x0, y0, x1, y1] = seg;
-    const f = { ...p, id: featSeq++ };
+    const f = { ...p, id: featSeq++, seg: [x0 + OFFSET[layer], y0, x1 + OFFSET[layer], y1] };
+    featById.set(f.id, f);
     let n = 0;
     const want = (ka, kb) => {
       const sa = ka >= 0 && KIND[ka], sb = kb >= 0 && KIND[kb];
@@ -490,7 +504,7 @@ function cleanIslands(arr, maxSize, ok, accept) {
     while (stack.length) {
       const k = stack.pop(); comp.push(k);
       if (comp.length > maxSize + 1) { while (stack.length) { const q = stack.pop(); comp.push(q); } }
-      const i = k % W, j = (k / W) | 0;
+      const i = k % W;
       for (const q of [k + 1, k - 1, k + W, k - W]) {
         if (q < 0 || q >= N || (q === k + 1 && i === W - 1) || (q === k - 1 && i === 0)) continue;
         if (!seen[q] && KIND[q] === 1 && arr[q] === v) { seen[q] = 1; stack.push(q); }
@@ -593,6 +607,7 @@ design.decorate(api, { zoneOfXY: (layer, x, y) => zoneCache[idx(gridX(layer, x -
 // prop things block with their own radius, so their cells are freed; what is
 // left becomes a visible raised block styled after the reference prop there.
 const obstStats = { groups: 0, vehicle: 0, freed: 0, raised: 0, raisedCells: 0, fenced: 0 };
+const clipDebug = [];
 {
   const R = design.PROP_RADIUS || {};
   const thingAt = new Map();
@@ -649,8 +664,6 @@ const obstStats = { groups: 0, vehicle: 0, freed: 0, raised: 0, raisedCells: 0, 
     const ts = comp.flatMap((k) => thingAt.get(k) || []);
     if (ts.some((t) => (t.type >= 9100 && t.type <= 9110) || t.type === 9123) || comp.some(fenceEdge)) continue;
     const clip = comp.filter((k) => BLOCK[k] === CLIPBLOCK).length;
-    if (clip * 2 > comp.length && clip > 6) { obstStats.clip = (obstStats.clip || 0) + 1; obstStats.clipCells = (obstStats.clipCells || 0) + comp.length; continue; }
-    if (comp.length <= 6 && !clip) { for (const k of comp) BLOCK[k] = 0; obstStats.freed += comp.length; continue; }
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, fmax = -Infinity, cmin = Infinity;
     for (const k of comp) {
       const x = cellX(k % W) + C / 2, y = cellY((k / W) | 0) + C / 2;
@@ -659,21 +672,45 @@ const obstStats = { groups: 0, vehicle: 0, freed: 0, raised: 0, raisedCells: 0, 
     }
     const L = LAYER_NAME[LAY[comp[0]]];
     const off = OFFSET[L];
-    let best = null, bd = Infinity;
-    for (const o of ref.obst || []) {
-      const ox = o.x + off;
-      if (ox < x0 - 32 || ox > x1 + 32 || o.y < y0 - 32 || o.y > y1 + 32) continue;
-      const d = Math.hypot(ox - (x0 + x1) / 2, o.y - (y0 + y1) / 2);
-      if (d < bd) { bd = d; best = o; }
+    // the reference props standing in the group: the most common kind wins
+    let best = null;
+    {
+      const votes = new Map();
+      for (const o of ref.obst || []) {
+        const ox = o.x + off;
+        if (ox < x0 - 32 || ox > x1 + 32 || o.y < y0 - 32 || o.y > y1 + 32) continue;
+        const d = Math.hypot(ox - (x0 + x1) / 2, o.y - (y0 + y1) / 2);
+        const v = votes.get(o.c) || { n: 0, d: Infinity, o };
+        v.n++; if (d < v.d) { v.d = d; v.o = o; }
+        votes.set(o.c, v);
+      }
+      let bv = null;
+      for (const v of votes.values()) if (!bv || v.n > bv.n || (v.n === bv.n && v.d < bv.d)) bv = v;
+      if (bv) best = bv.o;
     }
+    // a player clip with no prop under it stays an invisible wall, as in NMRiH
+    if (clip * 2 > comp.length && clip > 6 && !best) {
+      obstStats.clip = (obstStats.clip || 0) + 1; obstStats.clipCells = (obstStats.clipCells || 0) + comp.length;
+      if (process.env.CT_DEBUG_CLIP) {
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (const k of comp) { const x = cellX(k % W), y = cellY((k / W) | 0); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + C); y1 = Math.max(y1, y + C); }
+        const ob = (ref.obst || []).filter((o) => o.x >= x0 - 16 && o.x <= x1 + 16 && o.y >= y0 - 16 && o.y <= y1 + 16).map((o) => o.m);
+        clipDebug.push([comp.length, [x0, y0, x1, y1], ob.slice(0, 6).join(',')]);
+      }
+      continue;
+    }
+    if (comp.length <= 6 && !clip) { for (const k of comp) BLOCK[k] = 0; obstStats.freed += comp.length; continue; }
     const st = design.obstacleStyle(best ? best.c : null, zoneCache[comp[0]], isOutdoor(comp[0]), comp.length);
-    const h = Math.max(16, Math.min(st.h, cmin - fmax - 24));
+    // big blocks read as barriers, not as something to step on
+    const h = Math.max(16, Math.min(comp.length > 200 ? Math.max(st.h, 96) : st.h, cmin - fmax - 24));
     for (const k of comp) {
       KIND[k] = 2; BLOCK[k] = 0; FZ[k] = Math.round((fmax + h) / 8) * 8; STEPTEX[k] = texId(st.tex); FFLAT[k] = flatId(st.flat);
     }
     obstStats.raised++; obstStats.raisedCells += comp.length;
+    if (process.env.CT_DEBUG_CLIP) clipDebug.push([comp.length, [x0 - 4, y0 - 4, x1 + 4, y1 + 4], 'RAISED ' + (best ? best.c + ':' + best.m : '-') + ' h' + h + (clip ? ' clip' : '')]);
   }
   log.push(`obstacles: ${JSON.stringify(obstStats)}`);
+  if (process.env.CT_DEBUG_CLIP) for (const c of clipDebug.sort((p, q) => q[0] - p[0])) console.log('clip group', JSON.stringify(c));
 }
 style();
 
@@ -972,6 +1009,17 @@ function alignX(v1, v2, name) {
   return mod(y2 > y1 ? y1 : -y1, w);
 }
 const Z0 = 1024;
+// A feature's explicit x offset counts from the feature's own start, so a
+// feature line split into several linedefs keeps one continuous texture.
+function featX(D, v1, v2) {
+  const f = featById.get(D.fid);
+  const base = D.xoff;
+  if (!f || !f.seg) return base;
+  const [ax, ay] = verts[v1], [bx, by] = verts[v2];
+  const [sx0, sy0, sx1, sy1] = f.seg;
+  if (ay === by) return base + (bx > ax ? ax - Math.min(sx0, sx1) : Math.max(sx0, sx1) - ax);
+  return base + (by > ay ? ay - Math.min(sy0, sy1) : Math.max(sy0, sy1) - ay);
+}
 for (const L of linedefs) {
   const D = descs[L.d];
   L.flags = D.flags; L.special = D.special; L.tag = D.tag;
@@ -980,7 +1028,7 @@ for (const L of linedefs) {
     const h = texH(D.mid);
     const yoff = D.yoff !== undefined && D.yoff !== null ? D.yoff : mod(Z0 - sec.ceil, h);
     if (D.peg === 'bottom') L.flags |= ML_DONTPEGBOTTOM;
-    L.f = sides.length; sides.push({ x: D.xoff !== undefined && D.xoff !== null ? D.xoff : alignX(L.v1, L.v2, D.mid), y: D.peg === 'bottom' ? (D.yoff || 0) : yoff, top: '-', bot: '-', mid: D.mid, s: D.front });
+    L.f = sides.length; sides.push({ x: D.xoff !== undefined && D.xoff !== null ? featX(D, L.v1, L.v2) : alignX(L.v1, L.v2, D.mid), y: D.peg === 'bottom' ? (D.yoff || 0) : yoff, top: '-', bot: '-', mid: D.mid, s: D.front });
     L.b = 0xffff;
   } else {
     const F = sectors[D.front], B = sectors[D.back];
@@ -991,7 +1039,7 @@ for (const L of linedefs) {
     if (D.peg === 'bottom') L.flags |= ML_DONTPEGBOTTOM;
     if (D.peg === 'top') L.flags |= ML_DONTPEGTOP;
     const ft = pick(D.ftop, D.fbot, D.fmid), bt = pick(D.btop, D.bbot, D.bmid);
-    L.f = sides.length; sides.push({ x: D.xoff !== undefined && D.xoff !== null ? D.xoff : ft !== '-' ? alignX(L.v1, L.v2, ft) : 0, y: D.fmid !== '-' || D.peg ? (D.yoff || 0) : fy, top: D.ftop, bot: D.fbot, mid: D.fmid, s: D.front });
+    L.f = sides.length; sides.push({ x: D.xoff !== undefined && D.xoff !== null ? featX(D, L.v1, L.v2) : ft !== '-' ? alignX(L.v1, L.v2, ft) : 0, y: D.fmid !== '-' || D.peg ? (D.yoff || 0) : fy, top: D.ftop, bot: D.fbot, mid: D.fmid, s: D.front });
     L.b = sides.length; sides.push({ x: bt !== '-' ? alignX(L.v2, L.v1, bt) : 0, y: D.bmid !== '-' || D.peg ? (D.yoff || 0) : by, top: D.btop, bot: D.bbot, mid: D.bmid, s: D.back });
   }
 }

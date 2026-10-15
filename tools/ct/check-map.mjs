@@ -14,7 +14,8 @@
 //
 // Usage: node tools/ct/check-map.mjs [map.wad] [--verbose]
 //   (default: build/ct/lumps/map/*.lmp). --verbose prints leak paths and
-//   lists every unreachable pickup / lost area.
+//   lists every unreachable pickup / lost area. CT_PROBE="x,y;x,y" reports
+//   box validity, reach and the path for those spots at the final stage.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -62,7 +63,6 @@ const NX = Math.ceil((maxx - X0) / C) + 4, NY = Math.ceil((maxy - Y0) / C) + 4; 
 const VE = new Int32Array((NX + 1) * NY).fill(-1); // vertical edge at x=X0+8i between cells (i-1,j),(i,j)
 const HE = new Int32Array(NX * (NY + 1)).fill(-1); // horizontal edge at y=Y0+8j between (i,j-1),(i,j)
 const CS = new Int32Array(NX * NY).fill(-2); // sector per cell (-1 void, -2 unknown)
-const lineIndex = new Map(lines.map((l, i) => [l, i]));
 let offGrid = 0, conflicts = 0;
 const setCell = (i, j, s) => { const k = i + j * NX; if (CS[k] === -2) CS[k] = s; else if (CS[k] !== s) conflicts++; };
 lines.forEach((l, li) => {

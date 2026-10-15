@@ -485,7 +485,7 @@ export function decorate(api, h) {
     1: [[S, -2400, -4400], [S, -2700, -3950], [S, -3000, -4300], [S, -2950, -4850], [S, -2300, -5300]],
     2: [[T, -880, -3500], [T, -700, -3700], [T, -300, -4250], [T, 200, -4250], [T, -820, -3100], [T, 150, -3800]],
     3: [[T, 200, -2900], [T, -50, -3300], [T, 1300, -2450], [T, 900, -2400], [T, 1900, -2450], [T, 300, -2600]],
-    4: [[T, -1100, -1700], [T, -700, -1600], [T, 300, -1800], [T, -1500, -900], [T, -1800, -1300], [T, -900, -2300]],
+    4: [[T, -1100, -1700], [T, -700, -1600], [T, 300, -1800], [T, -1500, -900], [T, -2100, -1300], [T, -900, -2300]],
     5: [[T, -2800, -200], [T, -2300, 100], [T, -2200, -400], [T, -2900, -1100], [T, -2650, -600], [T, -1700, -350]],
     // hold-out: on the quay and at the pier base, so waves walk in along the pier
     6: [[T, -1700, 1100], [T, -1200, 1700], [T, -2000, 2300], [T, -900, 2250], [T, -2900, 2300], [T, -1450, 2550], [T, -560, 2600], [T, -3500, 2200], [T, -2400, 2250], [T, -1150, 2500]],
@@ -536,6 +536,7 @@ function freeSpot(layer, x, y, rad = 64, r = 16, o = {}) {
     // in a region the player can roam (not a pocket behind props or rails)
     if (A.boxRegion(layer, px, py) < (o.region || 600)) return false;
     if (!A.boxFree(layer, px, py, r, o)) return false;
+    if (o.avoid && o.avoid.some((p) => p[0] === layer && Math.abs(p[1] - px) < 24 && Math.abs(p[2] - py) < 24)) return false;
     return !(o.solid && overlapsSolid(layer, px, py, r));
   };
   for (let d = 0; d <= rad; d += 8) {
@@ -677,10 +678,11 @@ function placeItems(ref) {
   const shotgunOK = (x, y) => (x < -2900 && y > -3950 && y < -3650) || (x > -1120 && x < -980 && y > -3500 && y < -3380) || (x < -2900 && y > -1300 && y < -1000) || (x > -2700 && x < -2180 && y > -2800 && y < -2100);
   // pickups go where the player's own box fits (so they can always be
   // touched), as near the reference spawner as possible
+  const placed = [];
   const put = (x, y, z, type) => {
     const L = layerOfPoint(x, y, z);
-    const s = freeSpot(L, x, y, 96, 16, { solid: true, step: 0 });
-    if (s) A.thing(L, s[0], s[1], type, 0);
+    const s = freeSpot(L, x, y, 96, 16, { solid: true, step: 0, avoid: placed });
+    if (s) { A.thing(L, s[0], s[1], type, 0); placed.push([L, s[0], s[1]]); }
     else A.log(`pickup ${type} near (${x},${y}) has no free spot`);
   };
   for (const c of clusters) {
@@ -809,6 +811,7 @@ function placeSecrets() {
       if (comp.length > best.length) best = comp;
     }
     for (const k of best) { A.SPEC[k] = 9; A.GROUP[k] = 99 + n; }
+    A.log(`secret ${n + 1}: ${best.length} of ${cells.length} cells`);
   });
 }
 
@@ -821,13 +824,17 @@ const SIGNTEX = {
 // A sign band over an opening: the opening (ceiling z0) is behind the edge
 // `seg`; a one-cell header strip on the `face` side gets ceiling z0 + the
 // sign's height, so the sign shows exactly once as the upper texture between.
-function signHeader(layer, seg, face, tex, z0) {
+function signHeader(layer, seg, face, tex) {
   const [x0, y0, x1, y1] = seg;
   const [dx, dy] = DIR[face];
   const r = dx ? [x0, y0, x0 + dx * 8, y1] : [x0, y0, x1, y0 + dy * 8];
+  // the opening's own ceiling (cells just behind the edge)
+  const inner = dx ? [x0 - dx * 8, y0, x0, y1] : [x0, y0 - dy * 8, x1, y0];
+  let z0 = Infinity;
+  for (const k of A.cellsOf(layer, inner)) if (A.KIND[k] === 1) z0 = Math.min(z0, A.CZ[k]);
   A.set(layer, r, { ceil: z0 + texHeight(tex), cflat: 'CFCEIL2', group: A.newGroup() });
   const len = dx ? Math.abs(y1 - y0) : Math.abs(x1 - x0);
-  A.line(layer, seg, { top: tex, xoff: Math.max(0, (texWidth(tex) - len) / 2) });
+  A.line(layer, seg, { top: tex, front: face, xoff: Math.max(0, (texWidth(tex) - len) / 2) });
   for (const k of A.cellsOf(layer, [r[0] - 96, r[1] - 96, r[2] + 96, r[3] + 96])) {
     if (A.KIND[k] === 1 && !A.SPEC[k] && !A.TAG[k] && !A.GROUP[k]) A.LIGHT[k] = Math.min(200, Math.max(A.LIGHT[k], 160));
   }
@@ -835,10 +842,10 @@ function signHeader(layer, seg, face, tex, z0) {
 
 function placeSigns(ref) {
   // signs over openings hang on a header: the SUBWAY sign over the exit
-  // mouth (reference (-1984,-4880), 160 up) and the laundromat's over its
-  // west window
-  signHeader('street', [-1992, -4944, -1992, -4816], 'e', 'CTNSG5', 128);
-  signHeader('street', [-1568, -648, -1472, -648], 'n', 'CTNSG8', floorNear('street', -1520, -700) + 128);
+  // mouth (reference (-1984,-4880), 160 up) and the laundromat's
+  signHeader('street', [-1992, -4944, -1992, -4816], 'e', 'CTNSG5');
+  // (the laundromat's sign: on the front of the arcade before its windows)
+  signHeader('street', [-1568, -576, -1440, -576], 'n', 'CTNSG8');
   const list = ref.signs.filter((s) => SIGNTEX[s.m] && s.m !== 'subway_sign01').map((s) => ({ ...s }));
   for (const s of list) {
     const [tex, w, hgt] = SIGNTEX[s.m];

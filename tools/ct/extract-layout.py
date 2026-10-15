@@ -871,7 +871,7 @@ OBST = [('shelf', 'shelf'), ('rack', 'shelf'), ('p_street_dump', 'dumpster'), ('
         ('matress', 'bed'), ('mattress', 'bed'), ('bed', 'bed'), ('couch', 'bed'), ('sofa', 'bed'), ('wirespool', 'spool'),
         ('spool', 'spool'), ('scaffold', 'scaffold'), ('container', 'container'), ('wheeliebin', 'dumpster'), ('bin', 'dumpster'),
         ('bumper', 'concrete'), ('barricade', 'wood'), ('plank', 'wood'), ('chair', 'table'), ('stove', 'machine'),
-        ('oven', 'machine'), ('pipe', 'metal'), ('tank', 'metal'), ('cart', 'metal')]
+        ('oven', 'machine'), ('tank', 'metal'), ('cart', 'metal')]
 FENCES = {'fence_set1_128': 128, 'fence_set1_256': 256, 'fence_set1_512': 512, 'urban/fence.mdl': 128,
           'exterior_fence002b': 128, 'exterior_fence002c': 128, 'exterior_fence002d': 128, 'exterior_fence002a': 128,
           'exterior_fence003a': 128, 'exterior_fence003b': 128, 'fence01a': 128, 'fence01b': 128, 'fence02a': 128}
