@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Audio Test Bench</title>
+<style>
+  :root { --bg: #111; --fg: #ddd; --mut: #888; --btn: #262626; --btnh: #3a3a3a; --acc: #c33; }
+  body { margin: 0; padding: 12px 16px; background: var(--bg); color: var(--fg); font: 13px/1.4 ui-monospace, "Courier New", monospace; }
+  h1 { font-size: 16px; margin: 0 0 8px; }
+  h2 { font-size: 13px; margin: 14px 0 6px; color: var(--mut); text-transform: uppercase; letter-spacing: 1px; }
+  .row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  button { background: var(--btn); color: var(--fg); border: 1px solid #333; padding: 3px 7px; font: inherit; cursor: pointer; border-radius: 3px; }
+  button:hover { background: var(--btnh); }
+  button.music { border-color: #355; }
+  button.on { background: var(--acc); }
+  label { display: inline-flex; gap: 4px; align-items: center; margin-right: 10px; }
+  #status { color: var(--mut); margin: 6px 0; }
+  #viz canvas { display: block; margin: 6px 0; background: #000; }
+</style>
+</head>
+<body>
+<h1>Dead Center PS1 - procedural audio bench</h1>
+<div class="row">
+  <button id="init">Init audio</button>
+  <label><input type="checkbox" id="pos3d" /> 3D (play at 8 m, random side)</label>
+  <label>dist <input type="range" id="dist" min="1" max="120" value="8" /> <span id="distv">8</span> m</label>
+  <label>occl <input type="range" id="occ" min="0" max="1" step="0.05" value="0" /></label>
+  <label>muffle <input type="range" id="muffle" min="0" max="1" step="0.05" value="0" /></label>
+  <label><input type="checkbox" id="pause" /> pause</label>
+  <button id="stopall">stop all</button>
+</div>
+<div class="row">
+  <label>master <input type="range" data-k="masterVolume" min="0" max="1" step="0.01" value="0.8" /></label>
+  <label>sfx <input type="range" data-k="sfxVolume" min="0" max="1" step="0.01" value="0.9" /></label>
+  <label>music <input type="range" data-k="musicVolume" min="0" max="1" step="0.01" value="0.7" /></label>
+</div>
+<div id="status">click "Init audio" (or call window.__initAudio())</div>
+<h2>Music cues (click = play / stop)</h2>
+<div class="row" id="music"></div>
+<h2>Sounds</h2>
+<div id="sounds"></div>
+<h2>Visualisation</h2>
+<div id="viz"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { AudioEngine, SOUND_NAMES, MUSIC_CUES } from '/src/engine/audio.js';
+
+// minimal settings store matching src/engine/settings.js
+const settings = {
+  values: { masterVolume: 0.8, sfxVolume: 0.9, musicVolume: 0.7 },
+  listeners: [],
+  get(k) { return this.values[k]; },
+  set(k, v) { this.values[k] = v; for (const l of this.listeners) l(k, v); },
+  onChange(fn) { this.listeners.push(fn); },
+};
+const engine = new AudioEngine(settings);
+window.__engine = engine;
+window.__SOUND_NAMES = SOUND_NAMES;
+window.__MUSIC_CUES = MUSIC_CUES;
+
+const $ = (id) => document.getElementById(id);
+const status = (t) => { $('status').textContent = t; };
+
+window.__initAudio = async () => {
+  const t0 = performance.now();
+  await engine.init();
+  const wall = performance.now() - t0;
+  engine.setListener(new THREE.Vector3(0, 1.6, 0), new THREE.Vector3(0, 0, -1), new THREE.Vector3(0, 1, 0));
+  status(`ready=${engine.ready} init ${wall.toFixed(0)} ms, workers ${engine.timings.workers}`);
+  return { wallMs: wall, ...engine.timings, gen: undefined };
+};
+$('init').onclick = () => window.__initAudio();
+
+// ---- UI
+let last = null;
+function play(name) {
+  if (!engine.ready) { status('init first'); return; }
+  const opts = { occlusion: +$('occ').value };
+  if ($('pos3d').checked) {
+    const d = +$('dist').value, a = Math.random() * Math.PI * 2;
+    opts.pos = new THREE.Vector3(Math.cos(a) * d, 1.6, Math.sin(a) * d);
+  }
+  const info = engine.soundInfo(name);
+  if (info.loop) {
+    if (last && last.name === name && last.playing) { last.stop(0.2); last = null; return; }
+    opts.loop = true;
+  }
+  const h = engine.play(name, opts);
+  if (info.loop) last = h;
+  status(`${name}: ${h ? 'playing' : 'culled/null'} (variants ${info.variants}, voices ${engine.activeVoices})`);
+}
+const groups = {};
+for (const n of SOUND_NAMES) { const g = engine.soundInfo(n).group || 'misc'; (groups[g] ||= []).push(n); }
+for (const [g, names] of Object.entries(groups)) {
+  const h = document.createElement('h2'); h.textContent = g; $('sounds').appendChild(h);
+  const row = document.createElement('div'); row.className = 'row';
+  for (const n of names) { const b = document.createElement('button'); b.textContent = n + (engine.soundInfo(n).loop ? ' (loop)' : ''); b.onclick = () => play(n); row.appendChild(b); }
+  $('sounds').appendChild(row);
+}
+for (const c of MUSIC_CUES) {
+  const b = document.createElement('button'); b.className = 'music'; b.textContent = c + (engine.musicInfo(c).loop ? ' (loop)' : '');
+  b.onclick = () => {
+    if (engine.isMusicPlaying(c)) { engine.stopMusic(c, 1); b.classList.remove('on'); }
+    else { engine.playMusic(c, { fade: engine.musicInfo(c).loop ? 1 : 0 }); b.classList.add('on'); }
+  };
+  $('music').appendChild(b);
+}
+$('dist').oninput = () => { $('distv').textContent = $('dist').value; };
+$('muffle').oninput = () => engine.setMuffled(+$('muffle').value);
+$('pause').onchange = () => engine.pauseAll($('pause').checked);
+$('stopall').onclick = () => { engine.stopAll(0.1); engine.stopAllMusic(0.5); document.querySelectorAll('button.on').forEach((b) => b.classList.remove('on')); };
+document.querySelectorAll('input[data-k]').forEach((el) => { el.oninput = () => settings.set(el.dataset.k, +el.value); });
+setInterval(() => engine.update(0.05), 50);
+
+// ---- stats
+function bufStats(buf, loop) {
+  const sr = buf.sampleRate, n = buf.length, chs = [];
+  for (let c = 0; c < buf.numberOfChannels; c++) chs.push(buf.getChannelData(c));
+  let peak = 0, ss = 0, nan = 0, head5 = 0, tail5 = 0, edgeStart = 0, edgeEnd = 0, seam = 0;
+  const w5 = Math.min(n, Math.round(sr * 0.005));
+  const deltas = [];
+  for (const x of chs) {
+    for (let i = 0; i < n; i++) {
+      const v = x[i];
+      if (!Number.isFinite(v)) { nan++; continue; }
+      const a = Math.abs(v);
+      if (a > peak) peak = a;
+      ss += v * v;
+    }
+    for (let i = 0; i < w5; i++) { head5 = Math.max(head5, Math.abs(x[i])); tail5 = Math.max(tail5, Math.abs(x[n - 1 - i])); }
+    edgeStart = Math.max(edgeStart, Math.abs(x[0]));
+    edgeEnd = Math.max(edgeEnd, Math.abs(x[n - 1]));
+    if (loop) {
+      seam = Math.max(seam, Math.abs(x[n - 1] - x[0]));
+      for (let i = 1; i < n; i += 7) deltas.push(Math.abs(x[i] - x[i - 1]));
+    }
+  }
+  let seamRatio = 0;
+  if (loop) { deltas.sort((a, b) => a - b); const p99 = deltas[Math.floor(deltas.length * 0.99)] || 1e-9; seamRatio = seam / Math.max(p99, 1e-6); }
+  const rms = Math.sqrt(ss / (n * chs.length));
+  return { duration: n / sr, sampleRate: sr, channels: chs.length, peak, rms, rmsDb: 20 * Math.log10(rms + 1e-12), nan, head5, tail5, edgeStart, edgeEnd, seam, seamRatio };
+}
+
+window.__audioTest = async () => {
+  if (!engine.ready) await window.__initAudio();
+  const t0 = performance.now();
+  await engine.ensureAll();
+  const lazyMs = performance.now() - t0;
+  const sounds = [];
+  for (const name of SOUND_NAMES) {
+    const info = engine.soundInfo(name);
+    const bufs = engine.getBuffers(name);
+    const vs = bufs.map((b) => bufStats(b, info.loop));
+    sounds.push({ name, loop: info.loop, variants: info.variants, generated: bufs.length, stats: vs });
+  }
+  const music = [];
+  for (const cue of MUSIC_CUES) {
+    const info = engine.musicInfo(cue);
+    const b = engine.getMusicBuffer(cue);
+    music.push({ name: cue, loop: info.loop, generated: b ? 1 : 0, stats: b ? [bufStats(b, info.loop)] : [], genMs: engine.timings.gen['music:' + cue + ':0'] });
+  }
+  return { sounds, music, memoryMB: engine.memoryBytes() / 1048576, timings: { ...engine.timings, gen: undefined, lazyWaitMs: lazyMs }, musicGenMs: Object.fromEntries(MUSIC_CUES.map((c) => [c, engine.timings.gen['music:' + c + ':0']])) };
+};
+
+// ---- API behaviour probe (voice limiting, unknown names, music control, pause)
+window.__apiTest = async () => {
+  const out = {};
+  const warns = [];
+  const ow = console.warn;
+  console.warn = (...a) => { warns.push(a.join(' ')); ow.apply(console, a); };
+  out.unknown1 = engine.play('definitely_not_a_sound');
+  out.unknown2 = engine.play('definitely_not_a_sound');
+  out.unknownWarns = warns.filter((w) => w.includes('definitely_not_a_sound')).length;
+  out.unknownMusic = engine.playMusic('nope_cue');
+  console.warn = ow;
+  // 30 zombie deaths in one frame
+  let made = 0;
+  for (let i = 0; i < 30; i++) if (engine.play('zombie_death', { pos: new THREE.Vector3(i * 0.3, 0, -5) })) made++;
+  out.zombieDeathVoices = made;
+  // flood: 80 gunshots across 10 frames -> capped
+  for (let f = 0; f < 10; f++) {
+    for (let i = 0; i < 8; i++) engine.play(['m16_fire', 'ak47_fire', 'pistol_fire', 'smg_fire', 'scar_fire', 'm60_fire', 'magnum_fire', 'sniper_fire'][i], { pos: new THREE.Vector3(i, 0, -10) });
+    for (let i = 0; i < 8; i++) engine.play('step_concrete', { pos: new THREE.Vector3(i, 0, -3) });
+    await new Promise((r) => setTimeout(r, 45));
+    engine.update(0.045);
+  }
+  out.activeAfterFlood = engine.activeVoices;
+  // far away one-shot is culled
+  out.farCulled = engine.play('step_concrete', { pos: new THREE.Vector3(0, 0, -500) }) === null;
+  // handle API
+  const follow = { position: new THREE.Vector3(5, 0, 0) };
+  const h = engine.play('witch_cry', { follow, loop: true, occlusion: 0.5 });
+  out.handlePlaying = !!(h && h.playing);
+  follow.position.set(2, 0, -2); engine.update(0.016);
+  out.followed = h ? h.pos.distanceTo(follow.position) < 1e-6 : false;
+  h && h.setVolume(0.5, 0.2); h && h.setPitch(1.1); h && h.setOcclusion(1); h && h.setPos(new THREE.Vector3(1, 0, 1));
+  // music
+  engine.playMusic('tank', { volume: 0.8, fade: 0.5 });
+  engine.setMusicLayer('tank', 0.3, 0.5);
+  engine.playMusic('stinger_hunter');
+  await new Promise((r) => setTimeout(r, 300));
+  out.tankPlaying = engine.isMusicPlaying('tank');
+  engine.pauseAll(true);
+  out.pausedVoice = h ? h.state : null;
+  out.uiDuringPause = !!engine.play('ui_click');
+  out.sfxDuringPause = engine.play('pistol_fire') === null;
+  await new Promise((r) => setTimeout(r, 100));
+  engine.pauseAll(false);
+  out.resumedVoice = h ? h.state : null;
+  engine.setMuffled(1); engine.setMuffled(0);
+  h && h.stop(0.1);
+  engine.stopMusic('tank', 0.2);
+  engine.stopAllMusic(0.2);
+  await new Promise((r) => setTimeout(r, 400));
+  engine.update(0.016);
+  out.handleStopped = h ? !h.playing : true;
+  out.tankStopped = !engine.isMusicPlaying('tank');
+  engine.stopAll(0);
+  // ---- end-to-end output level (analyser tapped after the limiter)
+  out.ctxState = engine.ctx.state;
+  const an = engine.ctx.createAnalyser(); an.fftSize = 2048; engine.limiter.connect(an);
+  const tbuf = new Float32Array(2048);
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function level(fn, ms = 260) {
+    engine.stopAll(0); engine.stopAllMusic(0); await sleep(180);
+    fn();
+    let mx = 0; const t0 = performance.now();
+    while (performance.now() - t0 < ms) { an.getFloatTimeDomainData(tbuf); for (let i = 0; i < tbuf.length; i++) mx = Math.max(mx, Math.abs(tbuf[i])); await sleep(8); }
+    return +mx.toFixed(4);
+  }
+  const P = (z) => new THREE.Vector3(0, 1.6, -z);
+  out.lvlGun2D = await level(() => engine.play('pistol_fire'));
+  out.lvlGun5m = await level(() => engine.play('pistol_fire', { pos: P(5) }));
+  out.lvlGun60m = await level(() => engine.play('pistol_fire', { pos: P(60) }));
+  out.lvlGun5mOccluded = await level(() => engine.play('pistol_fire', { pos: P(5), occlusion: 1 }));
+  out.lvlStep2D = await level(() => engine.play('step_concrete'));
+  out.lvlStep12m = await level(() => engine.play('step_concrete', { pos: P(12) }));
+  out.lvlMusic = await level(() => engine.playMusic('horde_incoming'), 600);
+  engine.setMuffled(1); await sleep(300);
+  out.lvlGun2DMuffled = await level(() => engine.play('pistol_fire'));
+  engine.setMuffled(0); await sleep(300);
+  engine.stopAll(0); engine.stopAllMusic(0);
+  an.disconnect();
+  return out;
+};
+
+// ---- visualisation (waveform + spectrogram)
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]]; }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < len / 2; k++) {
+        const ur = re[i + k], ui = im[i + k];
+        const vr = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci, vi = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr;
+        re[i + k] = ur + vr; im[i + k] = ui + vi; re[i + k + len / 2] = ur - vr; im[i + k + len / 2] = ui - vi;
+        const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+      }
+    }
+  }
+}
+function colormap(v) { // 0..1 -> inferno-ish
+  const r = Math.min(255, Math.max(0, 255 * Math.min(1, v * 1.6)));
+  const g = Math.min(255, Math.max(0, 255 * Math.max(0, v * 1.4 - 0.45)));
+  const b = Math.min(255, Math.max(0, 255 * (v < 0.4 ? v * 1.5 : Math.max(0, 1.6 - v * 2) + Math.max(0, v - 0.85) * 4)));
+  return [r, g, b];
+}
+function drawBuffer(title, buf, maxSec = 0) {
+  const W = 900, WH = 70, SH = 170, H = WH + SH + 18;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+  const sr = buf.sampleRate;
+  const n = maxSec ? Math.min(buf.length, Math.round(maxSec * sr)) : buf.length;
+  const mono = new Float32Array(n);
+  for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < n; i++) mono[i] += d[i] / buf.numberOfChannels; }
+  g.fillStyle = '#ddd'; g.font = '11px monospace';
+  g.fillText(`${title}  ${(n / sr).toFixed(2)}s  ${sr}Hz  ch${buf.numberOfChannels}`, 4, 12);
+  // waveform
+  g.strokeStyle = '#6c6'; g.beginPath();
+  for (let x = 0; x < W; x++) {
+    const a = Math.floor(x * n / W), b = Math.max(a + 1, Math.floor((x + 1) * n / W));
+    let mn = 1, mx = -1; for (let i = a; i < b; i++) { const v = mono[i]; if (v < mn) mn = v; if (v > mx) mx = v; }
+    g.moveTo(x + 0.5, 18 + WH / 2 - mx * WH / 2); g.lineTo(x + 0.5, 18 + WH / 2 - mn * WH / 2 + 1);
+  }
+  g.stroke();
+  // spectrogram (log frequency)
+  const N = 1024, cols = W, img = g.createImageData(W, SH);
+  const re = new Float32Array(N), im = new Float32Array(N);
+  const fMin = 30, fMax = sr / 2;
+  for (let x = 0; x < cols; x++) {
+    const center = Math.floor(x * n / cols);
+    for (let i = 0; i < N; i++) { const k = center - N / 2 + i; const w = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N); re[i] = (k >= 0 && k < n ? mono[k] : 0) * w; im[i] = 0; }
+    fft(re, im);
+    for (let y = 0; y < SH; y++) {
+      const f = fMin * Math.pow(fMax / fMin, 1 - y / (SH - 1));
+      const bin = Math.min(N / 2 - 1, Math.round(f / sr * N));
+      const mag = Math.sqrt(re[bin] * re[bin] + im[bin] * im[bin]) / (N / 4);
+      const db = 20 * Math.log10(mag + 1e-9);
+      const v = Math.max(0, Math.min(1, (db + 80) / 80));
+      const [r, gg, b] = colormap(v);
+      const o = (y * W + x) * 4; img.data[o] = r; img.data[o + 1] = gg; img.data[o + 2] = b; img.data[o + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, WH + 18);
+  g.fillStyle = '#aaa';
+  for (const f of [100, 1000, 5000]) { if (f > fMax) continue; const y = WH + 18 + (1 - Math.log(f / fMin) / Math.log(fMax / fMin)) * (SH - 1); g.fillText(f >= 1000 ? f / 1000 + 'k' : String(f), 2, y); }
+  $('viz').appendChild(cv);
+  return cv;
+}
+window.__renderViz = async (items) => {
+  $('viz').innerHTML = '';
+  for (const it of items) {
+    const [kind, name, sec] = it;
+    const buf = kind === 'music' ? engine.getMusicBuffer(name) : engine.getBuffer(name, 0);
+    if (buf) drawBuffer(`${kind}:${name}`, buf, sec || 0);
+  }
+  return $('viz').children.length;
+};
+</script>
+</body>
+</html>

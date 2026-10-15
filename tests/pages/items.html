@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Item / weapon model gallery</title>
+  <link rel="icon" href="data:," />
+  <style>
+    html, body { margin: 0; padding: 0; background: #000; overflow: hidden; height: 100%; }
+    canvas { position: fixed; inset: 0; display: block; image-rendering: pixelated; }
+    #labels { pointer-events: none; }
+  </style>
+</head>
+<body>
+  <canvas id="gl"></canvas>
+  <canvas id="labels"></canvas>
+  <script type="module">
+    // Gallery for src/game/itemmodels.js
+    //  ?set=weapons|melee|items   grid of models (weapons = firearms + chainsaw)
+    //  ?vm=1                      viewmodel versions
+    //  ?id=xyz&rot=deg            single large close-up (rot = extra yaw in degrees, tilt=deg)
+    //  ?id=xyz&view=fp            first-person style camera behind/above the grip (res=240 default)
+    //  ?real=1                    grid at true relative scale
+    import * as THREE from 'three';
+    import { PS1Renderer } from '/src/engine/renderer.js';
+    import { G } from '/src/engine/ps1material.js';
+    import { WEAPON_IDS, ITEM_IDS, MELEE_IDS, FIREARM_IDS, buildWeaponModel, buildItemModel, itemMaterial } from '/src/game/itemmodels.js';
+
+    const q = new URLSearchParams(location.search);
+    const vm = q.get('vm') === '1';
+    const id = q.get('id');
+    const view = q.get('view') || 'side';
+    const set = q.get('set') || 'weapons';
+    const real = q.get('real') === '1';
+    const res = +(q.get('res') || (view === 'fp' ? 240 : 480));
+    const conf = { resolution: res, jitter: q.get('jitter') !== '0', dither: true, affine: true, brightness: 1 };
+    const settings = { get: (k) => conf[k], onChange() {} };
+    const canvas = document.getElementById('gl');
+    const labels = document.getElementById('labels');
+    const renderer = new PS1Renderer(canvas, settings);
+    renderer.applySettings();
+    renderer.postUniforms.uVignette.value = view === 'fp' ? 0.55 : 0.15;
+    renderer.postUniforms.uGrain.value = view === 'fp' ? 0.035 : 0.012;
+
+    const scene = new THREE.Scene();
+    scene.userData.clearColor = view === 'fp' ? 0x2a2e34 : 0x3a3e46;
+    G.uHemiSky.value.setRGB(0.72, 0.72, 0.78);
+    G.uHemiGround.value.setRGB(0.26, 0.24, 0.22);
+    G.uSunDir.value.set(0.45, 0.8, 0.55).normalize();
+    G.uSunColor.value.setRGB(0.55, 0.5, 0.45);
+    G.uFogNear.value = 500; G.uFogFar.value = 1000;
+
+    const isItem = (x) => ITEM_IDS.includes(x);
+    const build = (x) => (isItem(x) ? buildItemModel(x, { viewmodel: vm }) : buildWeaponModel(x, { viewmodel: vm }));
+    const aspect = () => window.innerWidth / window.innerHeight;
+    let camera;
+    const cells = [];
+
+    function orient(obj, x, extraYaw = 0, tilt = 0.35) {
+      // weapons: barrel to screen-right, right side toward camera; items: front toward camera
+      const inner = new THREE.Group(); inner.add(obj);
+      inner.rotation.y = (isItem(x) ? -0.5 : -Math.PI / 2 + 0.3) + extraYaw;
+      const outer = new THREE.Group(); outer.add(inner); outer.rotation.x = tilt;
+      return { outer, inner };
+    }
+    function centreOn(outer) {
+      outer.updateMatrixWorld(true);
+      const b = new THREE.Box3();
+      outer.traverse((o) => { if (o.isMesh && o.visible) { o.geometry.computeBoundingBox(); b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)); } });
+      return b;
+    }
+
+    if (id && view === 'fp') {
+      const m = build(id);
+      scene.add(m);
+      camera = new THREE.PerspectiveCamera(+(q.get('fov') || 62), aspect(), 0.01, 50);
+      // typical first-person placement: camera at the origin looking down -Z, weapon held low-right
+      const ud = m.userData;
+      const place = { pistol: [0.1, -0.12, -0.3, 0.06, 0.02], melee: [0.2, -0.24, -0.28, 0.25, 0.85], chainsaw: [0.12, -0.19, -0.2, 0.05, 0.08] }[ud.kind] || [0.11, -0.13, -0.2, 0.05, 0.02];
+      m.position.set(place[0], place[1], place[2]);
+      m.rotation.set(place[4], place[3], 0, 'YXZ');
+      camera.position.set(0, 0, 0); camera.lookAt(0, 0, -1);
+      G.uPointPos.value[0].set(-0.4, 0.5, 0.4); G.uPointColor.value[0].setRGB(0.5, 0.48, 0.42); G.uPointRange.value[0] = 3;
+      cells.push({ id, obj: m, anchor: null });
+    } else {
+      const ids = id ? [id] : set === 'items' ? ITEM_IDS : set === 'melee' ? MELEE_IDS : set === 'all' ? [...WEAPON_IDS, ...ITEM_IDS] : FIREARM_IDS;
+      const cols = id ? 1 : set === 'melee' ? 5 : 4;
+      const rows = Math.ceil(ids.length / cols);
+      const cw = id ? aspect() : 1.0, ch = id ? 1.0 : 0.62;
+      const models = ids.map((x) => build(x));
+      const maxLen = Math.max(...models.map((m) => m.userData.length));
+      ids.forEach((x, i) => {
+        const m = models[i];
+        const { outer } = orient(m, x, id ? (+(q.get('rot') || 0)) * Math.PI / 180 : 0, id ? (+(q.get('tilt') || 20)) * Math.PI / 180 : set === 'melee' ? 0.8 : 0.35);
+        const b = centreOn(outer);
+        const size = b.getSize(new THREE.Vector3()), ctr = b.getCenter(new THREE.Vector3());
+        const s = real ? (0.88 * cw) / maxLen : Math.min((0.88 * cw) / size.x, (0.78 * ch) / size.y);
+        const holder = new THREE.Group(); holder.add(outer);
+        outer.position.sub(ctr);
+        holder.scale.setScalar(s);
+        const cx = (i % cols) - (cols - 1) / 2, cy = (rows - 1) / 2 - Math.floor(i / cols);
+        holder.position.set(cx * cw, cy * ch + 0.04, 0);
+        scene.add(holder);
+        cells.push({ id: x, obj: m, anchor: new THREE.Vector3(cx * cw, cy * ch - ch * 0.42, 0) });
+      });
+      const W = cols * cw, H = rows * ch;
+      const fov = 18;
+      camera = new THREE.PerspectiveCamera(fov, aspect(), 0.1, 200);
+      const dist = Math.max(H / 2 / Math.tan((fov * Math.PI) / 360), W / 2 / Math.tan((fov * Math.PI) / 360) / aspect()) * 1.04;
+      camera.position.set(0, 0, dist);
+      camera.lookAt(0, 0, 0);
+      G.uPointPos.value[0].set(-W * 0.3, H * 0.5, 3); G.uPointColor.value[0].setRGB(0.25, 0.25, 0.28); G.uPointRange.value[0] = dist * 3;
+    }
+    renderer.onResize = (a) => { camera.aspect = a; camera.updateProjectionMatrix(); drawLabels(); };
+
+    function drawLabels() {
+      labels.width = window.innerWidth; labels.height = window.innerHeight;
+      const ctx = labels.getContext('2d');
+      ctx.clearRect(0, 0, labels.width, labels.height);
+      ctx.font = 'bold 13px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      for (const c of cells) {
+        const ud = c.obj.userData;
+        const text = `${c.id}  ${ud.tris}t  ${ud.length.toFixed(2)}m`;
+        let x = 8, y = 8;
+        if (c.anchor) { const p = c.anchor.clone().project(camera); x = (p.x * 0.5 + 0.5) * labels.width; y = (-p.y * 0.5 + 0.5) * labels.height; }
+        else ctx.textAlign = 'left';
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'; const w = ctx.measureText(text).width + 8;
+        ctx.fillRect(c.anchor ? x - w / 2 : x - 4, y - 2, w, 17);
+        ctx.fillStyle = '#e8e0c8'; ctx.fillText(text, x, y);
+      }
+    }
+
+    // contract summary for automated checks
+    window.__summary = (opts = {}) => {
+      const out = [];
+      for (const x of [...WEAPON_IDS, ...ITEM_IDS]) for (const v of [false, true]) {
+        const m = isItem(x) ? buildItemModel(x, { viewmodel: v }) : buildWeaponModel(x, { viewmodel: v });
+        const ud = m.userData;
+        const mats = new Set(); let meshes = 0, badMat = 0, noColor = 0;
+        m.traverse((o) => { if (o.isMesh) { meshes++; mats.add(o.material.uuid); if (o.material !== itemMaterial()) badMat++; if (!o.geometry.getAttribute('color')) noColor++; } });
+        const vec = (p) => (p && p.isVector3 ? [+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3)] : null);
+        const inRoot = (o) => { let p = o; while (p) { if (p === m) return true; p = p.parent; } return false; };
+        const obj = (o) => (o && o.isObject3D ? { name: o.name, isChild: inRoot(o) && o !== m, meshes: (() => { let n = 0; o.traverse((c) => { if (c.isMesh) n++; }); return n; })() } : null);
+        const b = ud.bounds;
+        out.push({ id: x, item: isItem(x), vm: v, kind: ud.kind, category: ud.category || null, tris: ud.tris, length: +ud.length.toFixed(3),
+          size: vec(ud.size), min: vec(b.min), max: vec(b.max), muzzle: vec(ud.muzzle), leftHand: vec(ud.leftHand), tip: vec(ud.tip),
+          mag: obj(ud.mag), pump: obj(ud.pump), slide: obj(ud.slide), barrel: obj(ud.barrel), light: obj(ud.light), wick: vec(ud.wick),
+          materials: mats.size, badMat, noColor, meshes });
+      }
+      // two instances must not share movable parts
+      const a = buildWeaponModel('pump_shotgun'), b2 = buildWeaponModel('pump_shotgun');
+      out.sharedParts = a.userData.pump === b2.userData.pump || a.userData.mag === b2.userData.mag;
+      out.sharedGeometry = a.children[0].geometry === b2.children[0].geometry;
+      return out;
+    };
+
+    let frames = 0;
+    function loop() {
+      G.uTime.value += 1 / 60;
+      renderer.render(scene, camera);
+      if (++frames === 3) { drawLabels(); window.__ready = true; }
+      requestAnimationFrame(loop);
+    }
+    loop();
+  </script>
+</body>
+</html>

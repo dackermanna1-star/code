@@ -1,0 +1,52 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Rig gallery</title>
+<style>html,body{margin:0;background:#000;overflow:hidden}canvas{position:fixed;inset:0}</style></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { PS1Renderer } from '/src/engine/renderer.js';
+import { G } from '/src/engine/ps1material.js';
+import { PoseAnimator } from '/src/game/rig.js';
+import { SURVIVORS, buildSurvivorModel, buildCommonModel, buildSpecialModel } from '/src/game/characters.js';
+import * as A from '/src/game/anim.js';
+const q = new URLSearchParams(location.search);
+const settings = { get: (k) => ({ resolution: +(q.get('res') || 360), jitter: true, dither: true, affine: true, brightness: 1 }[k]), onChange() {} };
+const r = new PS1Renderer(document.getElementById('c'), settings); r.applySettings();
+const scene = new THREE.Scene(); scene.userData.clearColor = 0x30343a;
+G.uHemiSky.value.set(0.75, 0.75, 0.8); G.uHemiGround.value.set(0.3, 0.28, 0.25);
+G.uSunColor.value.set(0.5, 0.45, 0.4); G.uFogNear.value = 50; G.uFogFar.value = 100;
+const cam = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 100);
+const set = q.get('set') || 'survivors';
+const items = [];
+function add(rig, x, z, poseFn) { rig.mesh.position.set(x, 0, z); scene.add(rig.mesh); const an = new PoseAnimator(rig); items.push({ rig, an, poseFn }); }
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshBasicMaterial({ color: 0x444444 })); floor.rotation.x = -Math.PI / 2; scene.add(floor);
+const pose = q.get('pose') || 'idle';
+const P = {
+  idle: (a, t) => A.poseSurvivor(a, { t, kind: 'rifle' }),
+  run: (a, t) => A.poseSurvivor(a, { t, phase: t * 9, speed: 5.5, kind: 'rifle' }),
+  pistol: (a, t) => A.poseSurvivor(a, { t, kind: 'pistol' }),
+  melee: (a, t) => A.poseSurvivor(a, { t, kind: 'melee', swing: (t % 1) }),
+  incap: (a, t) => A.poseIncap(a, t),
+  ledge: (a, t) => A.poseLedge(a, t),
+  pinned: (a, t) => A.posePinnedBack(a, t),
+  choked: (a, t) => A.poseChoked(a, t, false),
+  kneel: (a, t) => A.poseKneel(a, t),
+  zrun: (a, t, i) => A.poseZombie(a, { t, phase: t * 10, speed: 6.3, style: i % 3 }),
+  zidle: (a, t, i) => A.poseZombie(a, { t, idle: ['stand', 'sit', 'lie', 'lean', 'vomit'][i % 5] }),
+  zattack: (a, t, i) => A.poseZombie(a, { t, attack: (t * 1.2) % 1, attackSide: i % 2 ? 1 : -1 }),
+  zstagger: (a, t) => A.poseZombie(a, { t, stagger: 0.5 }),
+  death: (a, t, i) => A.poseDeath(a, i % 2 ? 1 : -1, 1, i % 3),
+  climb: (a, t) => A.poseClimb(a, 0.3, t),
+};
+if (set === 'survivors') SURVIVORS.forEach((d, i) => add(buildSurvivorModel(d), (i - 1.5) * 1.2, 0, P[pose]));
+if (set === 'commons') for (let i = 0; i < 10; i++) add(buildCommonModel(1000 + i * 7, i === 9 ? 'hazmat' : i > 6 ? 'hotel' : 'civilian'), ((i % 5) - 2) * 1.2, (i / 5 | 0) * -2, P[pose]);
+if (set === 'specials') ['boomer', 'hunter', 'smoker', 'charger', 'jockey', 'spitter', 'tank', 'witch'].forEach((s, i) => add(buildSpecialModel(s), ((i % 4) - 1.5) * 1.6, (i / 4 | 0) * -2.5, P[pose]));
+const dist = +(q.get('dist') || 6.5), ang = +(q.get('ang') || 0), h = +(q.get('h') || 1.4);
+cam.position.set(Math.sin(ang) * dist, h, Math.cos(ang) * dist - (set === 'survivors' ? 0 : 1));
+cam.lookAt(0, h * 0.55, set === 'survivors' ? 0 : -1);
+r.onResize = (a) => { cam.aspect = a; cam.updateProjectionMatrix(); }; r.resize();
+let t = +(q.get('t') || 0.5);
+items.forEach((it, i) => { it.poseFn(it.an, t, i); it.an.snap(); it.an.apply(0.016); });
+r.render(scene, cam);
+window.__ready = true;
+</script></body></html>

@@ -236,3 +236,11 @@ export function ensureColor(geo, r = 1, g = 1, b = 1) {
   }
   return geo;
 }
+
+/** Clone a PS1 material keeping the global (shared) uniforms linked. */
+export function clonePS1(m) {
+  const c = m.clone();
+  for (const k in G) if (c.uniforms[k]) c.uniforms[k] = G[k];
+  c.isPS1 = true;
+  return c;
+}

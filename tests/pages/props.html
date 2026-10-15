@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Prop Showroom</title>
+<link rel="icon" href="data:," />
+<style>
+  html, body { margin: 0; padding: 0; background: #000; overflow: hidden; height: 100%; }
+  #c { position: fixed; inset: 0; display: block; image-rendering: pixelated; }
+  #labels { position: fixed; inset: 0; pointer-events: none; font: bold 11px monospace; color: #fff; }
+  .lb { position: absolute; transform: translate(-50%, -100%); background: rgba(0, 0, 0, 0.6); padding: 1px 4px; white-space: nowrap; border: 1px solid rgba(255, 255, 255, 0.25); }
+  .lb i { color: #9cf; font-style: normal; font-weight: normal; }
+  vite-error-overlay { display: none !important; }
+  #hud { position: fixed; left: 6px; top: 6px; font: 12px monospace; color: #ff0; background: rgba(0, 0, 0, 0.6); padding: 3px 6px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="labels"></div>
+<div id="hud">loading…</div>
+<script type="module">
+import * as THREE from 'three';
+import { PS1Renderer } from '/src/engine/renderer.js';
+import { Settings } from '/src/engine/settings.js';
+import { G } from '/src/engine/ps1material.js';
+import { LevelBuilder } from '/src/engine/levelbuilder.js';
+import { PROPS, PROP_CATEGORIES, PROP_MOUNT, prop } from '/src/levels/props.js';
+
+const q = new URLSearchParams(location.search);
+const hud = document.getElementById('hud');
+window.__ready = false;
+
+// Extra variants shown next to the defaults (label -> opts).
+const VARIANTS = {
+  vehicles: [['car', { wrecked: true, seed: 3 }, 'car wrecked'], ['car', { burned: true, seed: 5 }, 'car burned'], ['police_car', { wrecked: true, seed: 9 }, 'police wrecked'], ['stock_car', { stand: true }, 'stock_car stand']],
+  street: [['dumpster', { ladder: true }, 'dumpster ladder'], ['body', { pose: 'front' }, 'body front'], ['body', { pose: 'sitting' }, 'body sitting'], ['tent', { open: true }, 'tent open'], ['streetlight', { light: false }, 'streetlight off']],
+  hotel: [['vending_machine', { kind: 'snack' }, 'vending snack'], ['elevator_doors', { open: 0.7 }, 'elevator open'], ['toilet_stall', { open: true }, 'stall open']],
+  mall: [['security_gate', { open: 0.5 }, 'gate 50%'], ['store_shelf', { empty: true }, 'shelf empty'], ['store_front', { shutter: 0.6, name: 'TOY TOWN', color: 0x2a6ae0 }, 'store_front shutter']],
+  signs: [['exit_sign', { color: 'red', arrow: 'left' }, 'exit red'], ['safe_room_sign', { arrow: 'left', text: 'SAFE\nROOM' }, 'graffiti left']],
+};
+
+function entriesFor(filter) {
+  const cats = filter === 'all' ? Object.keys(PROP_CATEGORIES) : [filter];
+  const out = [];
+  for (const c of cats) {
+    for (const n of PROP_CATEGORIES[c] || []) out.push({ name: n, opts: {}, label: n, cat: c });
+    for (const [n, o, l] of VARIANTS[c] || []) if (PROPS[n]) out.push({ name: n, opts: o, label: l, cat: c });
+  }
+  return out;
+}
+
+const sum = (L) => { let t = 0; for (const b of L.buckets.values()) t += b.pos.length / 9; return t; };
+const mountOf = (n) => (PROP_MOUNT && PROP_MOUNT[n]) || 'floor';
+
+// Measure every entry in a scratch builder: triangles, collision triangles, bounds.
+function measure(e) {
+  const L = new LevelBuilder({});
+  const r = { name: e.name, label: e.label, tris: 0, colTris: 0, error: null, box: new THREE.Box3(), mats: 0 };
+  try {
+    const t0 = sum(L);
+    e.result = prop(L, e.name, 0, 0, 0, 0, e.opts);
+    r.tris = sum(L) - t0;
+    r.colTris = L.colPos.length / 9;
+    r.mats = L.buckets.size;
+    r.nan = 0;
+    for (const b of L.buckets.values()) for (const arr of [b.pos, b.nrm, b.uv, b.col]) for (const v of arr) if (!Number.isFinite(v)) r.nan++;
+    for (const v of L.colPos) if (!Number.isFinite(v)) r.nan++;
+    for (const b of L.buckets.values()) for (let i = 0; i < b.pos.length; i += 3) r.box.expandByPoint(new THREE.Vector3(b.pos[i], b.pos[i + 1], b.pos[i + 2]));
+    for (let i = 0; i < L.colPos.length; i += 3) r.box.expandByPoint(new THREE.Vector3(L.colPos[i], L.colPos[i + 1], L.colPos[i + 2]));
+    if (r.box.isEmpty()) r.box.set(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5));
+  } catch (err) { r.error = String(err && err.stack || err); r.box.set(new THREE.Vector3(-0.5, 0, -0.5), new THREE.Vector3(0.5, 1, 0.5)); }
+  return r;
+}
+
+async function checkMode() {
+  const stats = [];
+  for (const name of Object.keys(PROPS)) {
+    const s = measure({ name, opts: {}, label: name });
+    stats.push({ name, tris: s.tris, colTris: s.colTris, mats: s.mats, nan: s.nan || 0, error: s.error, size: s.box.getSize(new THREE.Vector3()).toArray().map((v) => +v.toFixed(2)) });
+  }
+  const variants = [];
+  for (const c of Object.keys(VARIANTS)) for (const [n, o, l] of VARIANTS[c]) if (PROPS[n]) { const s = measure({ name: n, opts: o, label: l }); variants.push({ name: l, tris: s.tris, colTris: s.colTris, nan: s.nan || 0, error: s.error }); }
+  // escalator walkability: build a tiny level and raycast the collision ramp
+  const esc = {};
+  try {
+    const L = new LevelBuilder({ skyRays: 0 });
+    L.floor(-6, -14, 6, 6, 0, 'concrete');
+    const a = prop(L, 'escalator', 0, 0, 0, 0, { rise: 4.5 });
+    await L.build();
+    const bot = new THREE.Vector3(...a.bottom), top = new THREE.Vector3(...a.top);
+    const ray = new THREE.Ray();
+    esc.samples = [];
+    for (const t of [0.25, 0.5, 0.75]) {
+      const p = bot.clone().lerp(top, t);
+      ray.origin.set(p.x, p.y + 3, p.z); ray.direction.set(0, -1, 0);
+      const hit = L.moveBVH.raycastFirst(ray, THREE.DoubleSide, 0, 10);
+      esc.samples.push(hit ? { y: +hit.point.y.toFixed(3), ny: +Math.abs(hit.face.normal.y).toFixed(3) } : null);
+    }
+    esc.bottom = a.bottom.map((v) => +v.toFixed(2)); esc.top = a.top.map((v) => +v.toFixed(2));
+    esc.ok = esc.samples.every((s) => s && s.ny > 0.64);
+  } catch (err) { esc.error = String(err && err.stack || err); }
+  // stock car anchors
+  let stock = null;
+  try { const L = new LevelBuilder({}); stock = prop(L, 'stock_car', 10, 0, 5, Math.PI / 2, {}); } catch (err) { stock = { error: String(err) }; }
+  window.__stats = { props: stats, variants, escalator: esc, stockCar: stock, categories: PROP_CATEGORIES };
+  hud.textContent = 'check done';
+  window.__ready = true;
+}
+
+async function showroom() {
+  const filter = q.get('filter') || (q.get('prop') ? null : 'vehicles');
+  let entries;
+  if (q.get('prop')) {
+    let opts = {};
+    try { opts = JSON.parse(q.get('opts') || '{}'); } catch (e) { /* ignore */ }
+    entries = [{ name: q.get('prop'), opts, label: q.get('prop'), cat: 'single' }];
+  } else entries = entriesFor(filter);
+  for (const e of entries) e.m = measure(e);
+
+  // ---- layout: shelf rows along +x, rows stacked toward -z
+  const isVeh = filter === 'vehicles';
+  const rowW = Number(q.get('rowW')) || (isVeh ? 34 : 22);
+  const gap = isVeh ? 2.2 : 1.4;
+  const rows = [];
+  let row = null;
+  for (const e of entries) {
+    const b = e.m.box; const w = b.max.x - b.min.x; const d = b.max.z - b.min.z;
+    if (!row || row.w + w > rowW) { row = { items: [], w: 0, d: 0 }; rows.push(row); }
+    e.x = row.w - b.min.x; row.w += w + gap; row.d = Math.max(row.d, d + (mountOf(e.name) === 'wall' ? 0.4 : 0));
+    row.items.push(e);
+  }
+  let z = 0;
+  for (const r of rows) {
+    r.w -= gap;
+    const off = -r.w / 2;
+    for (const e of r.items) { e.x += off; e.z = z - e.m.box.max.z; }
+    r.z0 = z; r.z1 = z - r.d; r.cx = 0;
+    z -= r.d + (isVeh ? 4 : 3.2);
+  }
+  const zMin = z, maxW = Math.max(...rows.map((r) => r.w));
+
+  // cameras: 0 = overview, 1..N = per row, then closeups for single prop
+  const cams = [];
+  const midRows = rows;
+  const midZ = (rows[0].z0 + rows[rows.length - 1].z1) / 2;
+  cams.push({ pos: [0, Math.max(9, maxW * 0.36), rows[0].z0 + Math.max(10, maxW * 0.42)], look: [0, 0, midZ * 0.85] });
+  if (entries.length === 1) {
+    const b = entries[0].m.box; const c = b.getCenter(new THREE.Vector3()); const s = b.getSize(new THREE.Vector3()); const R = Math.max(s.x, s.y, s.z) * 1.15 + 1;
+    const e = entries[0];
+    const mnt = mountOf(e.name);
+    if (mnt === 'ceiling') c.y += Math.max(3.0, -b.min.y + 0.6);
+    cams.length = 0;
+    for (const [ax, ay, az] of [[0.8, 0.45, 1], [-1, 0.3, 0.6], [0.2, 0.25, -1], [1, 0.9, 0.2], [0.05, 0.12, 1.1]]) {
+      const v = new THREE.Vector3(ax, ay, az).normalize().multiplyScalar(R);
+      if (mnt === 'wall' && v.z < 0.3) v.z = Math.abs(v.z) + 0.6;
+      cams.push({ pos: [e.x + c.x + v.x, Math.max(0.4, c.y + (mnt === 'ceiling' ? -Math.abs(v.y) - 1 : v.y)), e.z + c.z + v.z], look: [e.x + c.x, mnt === 'ceiling' ? c.y : c.y * 0.8, e.z + c.z] });
+    }
+  } else {
+    for (const r of rows) {
+      const h = Math.max(...r.items.map((e) => e.m.box.max.y));
+      const dist = Math.max(r.w * 0.46, h * 1.5, 4);
+      cams.push({ pos: [r.w * 0.06, Math.max(1.6, h * 0.5 + dist * 0.2), r.z0 + dist], look: [0, Math.min(h * 0.42, 3.5), (r.z0 + r.z1) / 2] });
+    }
+  }
+  if (q.get('campos')) { const p = q.get('campos').split(',').map(Number); cams.push({ pos: p.slice(0, 3), look: p.slice(3, 6) }); }
+  window.__camCount = cams.length;
+  const ci = Math.min(Number(q.get('cam') || 0), cams.length - 1);
+
+  const L = new LevelBuilder({
+    ambientSky: 0x50546a, ambientGround: 0x2a2622, skyColor: 0x8890a4,
+    sun: { dir: [0.45, 0.78, 0.55], color: new THREE.Color(0.95, 0.8, 0.62) }, skyRays: 6,
+  });
+  L.floor(-maxW / 2 - 12, zMin - 10, maxW / 2 + 12, 14, 0, q.get('floor') || 'concrete', { maxQuad: entries.length === 1 ? 2 : 4 });
+  const labels = [];
+  const built = (entries.length > 1 && ci >= 1 && ci <= rows.length) ? rows[ci - 1].items : entries;
+  for (const e of built) {
+    const mount = mountOf(e.name);
+    const b = e.m.box;
+    let y = 0;
+    if (mount === 'wall') {
+      const h = Math.max(3.2, b.max.y + 0.6);
+      L.box([e.x + b.min.x - 0.4, 0, e.z - 0.25], [e.x + b.max.x + 0.4, h, e.z], 'plaster');
+    } else if (mount === 'ceiling') {
+      y = Math.max(3.0, -b.min.y + 0.6);
+      L.box([e.x + b.min.x - 0.6, y, e.z + b.min.z - 0.6], [e.x + b.max.x + 0.6, y + 0.25, e.z + b.max.z + 0.6], 'ceiling');
+    }
+    try { prop(L, e.name, e.x, y, e.z, 0, e.opts); } catch (err) { console.error('prop failed', e.name, err); }
+    labels.push({ text: e.label, tris: e.m.tris, pos: new THREE.Vector3(e.x + (b.min.x + b.max.x) / 2, y + Math.max(b.max.y, 0.2) + 0.25, e.z + b.max.z) });
+  }
+  hud.textContent = 'baking…';
+  const group = await L.build((p, m) => { hud.textContent = `${m} ${(p * 100) | 0}%`; });
+
+  // ---- render
+  const settings = new Settings();
+  settings.values.resolution = Number(q.get('res')) || 480;
+  settings.values.jitter = q.get('jitter') !== '0';
+  const renderer = new PS1Renderer(document.getElementById('c'), settings);
+  renderer.applySettings();
+  const scene = new THREE.Scene();
+  scene.add(group);
+  scene.userData.clearColor = 0x3a4250;
+  G.uFogColor.value.set(0x3a4250); G.uFogNear.value = 40; G.uFogFar.value = 140;
+  const camera = new THREE.PerspectiveCamera(Number(q.get('fov')) || 60, window.innerWidth / window.innerHeight, 0.05, 400);
+  camera.position.set(...cams[ci].pos); camera.lookAt(new THREE.Vector3(...cams[ci].look));
+  camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+
+  const lbEl = document.getElementById('labels');
+  const showLabels = q.get('labels') !== '0';
+  function placeLabels() {
+    lbEl.innerHTML = '';
+    if (!showLabels) return;
+    for (const l of labels) {
+      const p = l.pos.clone().project(camera);
+      if (p.z > 1 || p.z < -1 || Math.abs(p.x) > 1.1 || Math.abs(p.y) > 1.1) continue;
+      if (l.pos.distanceTo(camera.position) > 60) continue;
+      const d = document.createElement('div'); d.className = 'lb';
+      d.innerHTML = `${l.text} <i>${l.tris}</i>`;
+      d.style.left = ((p.x * 0.5 + 0.5) * window.innerWidth) + 'px';
+      d.style.top = ((-p.y * 0.5 + 0.5) * window.innerHeight) + 'px';
+      lbEl.appendChild(d);
+    }
+  }
+  let frames = 0;
+  function loop() {
+    G.uTime.value += 1 / 60;
+    renderer.render(scene, camera);
+    if (++frames === 3) { placeLabels(); window.__ready = true; }
+    if (frames < 4 || q.get('live')) requestAnimationFrame(loop);
+  }
+  const totalTris = entries.reduce((a, e) => a + e.m.tris, 0);
+  hud.textContent = `${filter || entries[0].name} · cam ${ci}/${cams.length - 1} · ${entries.length} props · ${totalTris} tris · ${L.buckets.size} materials`;
+  window.__info = { entries: entries.map((e) => ({ name: e.label, tris: e.m.tris, colTris: e.m.colTris, error: e.m.error })), cams: cams.length, rows: rows.length };
+  loop();
+}
+
+(q.get('mode') === 'check' ? checkMode() : showroom()).catch((err) => { console.error(err); hud.textContent = 'ERROR ' + err; window.__error = String(err); window.__ready = true; });
+</script>
+</body>
+</html>

@@ -6,5 +6,6 @@ export default defineConfig({
     target: 'es2022',
     chunkSizeWarningLimit: 4000,
   },
-  server: { port: 5173 },
+  server: { port: 5173, hmr: { overlay: false } },
+  worker: { format: 'es' },
 });

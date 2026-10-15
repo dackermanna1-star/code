@@ -121,6 +121,7 @@ export class NavGrid {
     }
     this.dist = new Float32Array(n);
     this.heap = new Heap(Math.max(1024, n));
+    this.vOut = new Map(); this.vIn = new Map();
     this.labelComponents();
     return this;
   }
@@ -178,6 +179,13 @@ export class NavGrid {
     this.comp = comp;
   }
 
+  /** Virtual one-way link (elevators, teleports). Used by flow fields/paths when opts.virtual is set. */
+  addVirtualLink(u, v, cost = 1) {
+    if (u < 0 || v < 0) return;
+    (this.vOut.get(u) || this.vOut.set(u, []).get(u)).push({ v, cost });
+    (this.vIn.get(v) || this.vIn.set(v, []).get(v)).push({ u, cost });
+  }
+
   /** Find nearest node to a world point. maxR in cells. */
   nearest(x, y, z, maxR = 3) {
     const cs = this.cs;
@@ -224,7 +232,7 @@ export class NavGrid {
    * Multi-source Dijkstra computing distance-to-sources for every node, walking links backwards.
    * Writes into out (Float32Array). maxDist stops expansion.
    */
-  flowField(sources, out, infected = true, maxDist = 90, maxDrop = 2.6) {
+  flowField(sources, out, infected = true, maxDist = 90, maxDrop = 2.6, virtual = false) {
     out.fill(Infinity);
     const h = this.heap; h.clear();
     for (const s of sources) { if (s >= 0) { out[s] = 0; h.push(s, 0); } }
@@ -242,12 +250,16 @@ export class NavGrid {
         const nd = du + this.linkCost(v, u, this.ltype[v * 8 + back]);
         if (nd < out[v]) { out[v] = nd; h.push(v, nd); }
       }
+      if (virtual) {
+        const inc = this.vIn.get(u);
+        if (inc) for (const e of inc) { const nd = du + e.cost; if (nd < out[e.u]) { out[e.u] = nd; h.push(e.u, nd); } }
+      }
     }
     return out;
   }
 
   /** A* path from node a to node b. Returns array of node indices or null. */
-  path(a, b, infected = false, maxDrop = 2.6, maxIter = 40000) {
+  path(a, b, infected = false, maxDrop = 2.6, maxIter = 40000, virtual = true) {
     if (a < 0 || b < 0) return null;
     if (a === b) return [a];
     if (!this._g) { this._g = new Float32Array(this.count); this._from = new Int32Array(this.count); this._stamp = new Int32Array(this.count); this._st = 0; }
@@ -268,6 +280,10 @@ export class NavGrid {
         if (v < 0 || !this.traversable(u, d, infected, maxDrop)) continue;
         const ng = gu + this.linkCost(u, v, this.ltype[u * 8 + d]);
         if (stamp[v] !== st || ng < g[v]) { stamp[v] = st; g[v] = ng; from[v] = u; h.push(v, ng + heur(v)); }
+      }
+      if (virtual && !infected) {
+        const outs = this.vOut.get(u);
+        if (outs) for (const e of outs) { const ng = gu + e.cost; if (stamp[e.v] !== st || ng < g[e.v]) { stamp[e.v] = st; g[e.v] = ng; from[e.v] = u; h.push(e.v, ng + heur(e.v)); } }
       }
     }
     return null;

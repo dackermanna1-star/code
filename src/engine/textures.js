@@ -469,7 +469,7 @@ const GEN = {
     const skin = hexToRgb(o.skin || 0xc89a78);
     ctx.fillStyle = rgb(...skin); ctx.fillRect(0, 0, w, h);
     noise(ctx, w, h, 10, rnd);
-    const hair = o.hair !== undefined ? hexToRgb(o.hair) : null;
+    const hair = o.hair !== undefined && o.hair !== null ? hexToRgb(o.hair) : null;
     if (hair) { ctx.fillStyle = rgb(...hair); ctx.fillRect(0, 0, w, 3); ctx.fillRect(0, 0, 2, 6); ctx.fillRect(14, 0, 2, 6); }
     if (o.zombie) {
       ctx.fillStyle = 'rgb(40,20,20)'; ctx.fillRect(3, 6, 4, 3); ctx.fillRect(9, 6, 4, 3);
@@ -493,6 +493,61 @@ const GEN = {
     ctx.fillStyle = rgb(...base); ctx.fillRect(0, 0, w, h);
     if (o.plaid) { ctx.fillStyle = 'rgba(0,0,0,0.25)'; for (let i = 0; i < w; i += 8) { ctx.fillRect(i, 0, 3, h); ctx.fillRect(0, i, w, 3); } }
     noise(ctx, w, h, 16, rnd);
+    return c;
+  },
+  facade(rnd, o) {
+    // building exterior with a grid of windows; o.cols/rows per tile
+    const w = 64, h = 64; const { c, ctx } = mk(w, h);
+    const base = hexToRgb(o.color || 0x9a8a72);
+    ctx.fillStyle = rgb(...base); ctx.fillRect(0, 0, w, h);
+    noise(ctx, w, h, 14, rnd);
+    const cols = o.cols || 2, rows = o.rows || 2;
+    const cw = w / cols, rh = h / rows;
+    for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+      const x = i * cw + cw * 0.22, y = j * rh + rh * 0.2, ww = cw * 0.56, hh = rh * 0.55;
+      ctx.fillStyle = rgb(base[0] * 0.6, base[1] * 0.6, base[2] * 0.6); ctx.fillRect(x - 1, y - 1, ww + 2, hh + 3);
+      const lit = rnd() < (o.lit !== undefined ? o.lit : 0.12);
+      const burnt = rnd() < (o.burnt || 0);
+      ctx.fillStyle = burnt ? 'rgb(20,14,10)' : lit ? 'rgb(220,170,90)' : `rgb(${30 + rnd() * 30},${38 + rnd() * 30},${48 + rnd() * 30})`;
+      ctx.fillRect(x, y, ww, hh);
+      ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.fillRect(x, y, ww, 1);
+      if (burnt) { ctx.fillStyle = 'rgba(10,8,6,0.6)'; ctx.fillRect(x - 2, y - 6, ww + 4, 6); }
+    }
+    stains(ctx, w, h, 6, '#000', 0.12, rnd, 10);
+    return c;
+  },
+  wallmap(rnd, o) {
+    // CEDA evacuation status map: abstract region with red "lost" zones
+    const w = 128, h = 64; const { c, ctx } = mk(w, h);
+    ctx.fillStyle = 'rgb(200,196,176)'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = 'rgb(120,150,170)'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = 'rgb(206,198,160)';
+    ctx.beginPath(); ctx.moveTo(10, 14); ctx.lineTo(60, 8); ctx.lineTo(112, 10); ctx.lineTo(118, 20); ctx.lineTo(108, 34); ctx.lineTo(96, 40); ctx.lineTo(92, 56); ctx.lineTo(84, 48); ctx.lineTo(70, 46); ctx.lineTo(52, 50); ctx.lineTo(40, 44); ctx.lineTo(20, 40); ctx.lineTo(8, 28); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(190,20,14,0.75)';
+    ctx.beginPath(); ctx.moveTo(84, 10); ctx.lineTo(112, 10); ctx.lineTo(118, 20); ctx.lineTo(108, 34); ctx.lineTo(96, 40); ctx.lineTo(92, 56); ctx.lineTo(84, 48); ctx.lineTo(78, 30); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.arc(66, 22, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(230,150,30,0.7)'; ctx.beginPath(); ctx.arc(46, 30, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgb(20,140,40)'; ctx.fillRect(60, 44, 4, 4);
+    pixelText(ctx, 'EVACUATION STATUS', 64, 4, 6, 'rgb(20,20,20)');
+    ctx.strokeStyle = 'rgb(60,50,40)'; ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+    noise(ctx, w, h, 10, rnd);
+    return c;
+  },
+  whiteboard(rnd, o) {
+    const w = 96, h = 64; const { c, ctx } = mk(w, h);
+    ctx.fillStyle = 'rgb(226,226,218)'; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgb(40,60,140)'; ctx.lineWidth = 1;
+    // a bloated figure sketch with arrows (infected carrier)
+    ctx.beginPath(); ctx.arc(24, 14, 5, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(24, 32, 11, 13, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(18, 44); ctx.lineTo(16, 58); ctx.moveTo(30, 44); ctx.lineTo(32, 58); ctx.stroke();
+    ctx.strokeStyle = 'rgb(170,30,30)'; ctx.beginPath(); ctx.moveTo(38, 30); ctx.lineTo(52, 24); ctx.stroke();
+    pixelText(ctx, 'CARRIER', 70, 20, 7, 'rgb(170,30,30)');
+    pixelText(ctx, 'DO NOT ENGAGE', 70, 30, 6, 'rgb(40,60,140)');
+    pixelText(ctx, 'AT CLOSE RANGE', 70, 38, 6, 'rgb(40,60,140)');
+    for (let i = 0; i < 4; i++) { ctx.fillStyle = 'rgb(60,60,60)'; ctx.fillRect(52, 46 + i * 4, 30 - (rnd() * 10 | 0), 1); }
+    ctx.strokeStyle = 'rgb(140,140,140)'; ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+    noise(ctx, w, h, 6, rnd);
     return c;
   },
   water(rnd) {

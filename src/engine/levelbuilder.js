@@ -480,6 +480,25 @@ export class LevelBuilder {
     return group;
   }
 
+  /** Synchronous build for small dynamic set pieces: no collision, flat light, tint-mode materials. */
+  buildSimple(light = 1) {
+    const group = new THREE.Group();
+    for (const b of this.buckets.values()) {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(b.pos, 3));
+      geo.setAttribute('normal', new THREE.Float32BufferAttribute(b.nrm, 3));
+      geo.setAttribute('uv', new THREE.Float32BufferAttribute(b.uv, 2));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(b.col.map((c) => c * light), 3));
+      geo.computeBoundingSphere();
+      const def = b.def;
+      const map = def.texObj || (def.tex ? tex(def.tex[0], def.tex[1]) : null);
+      const mat = createPS1Material({ map, color: def.color !== undefined ? def.color : 0xffffff, tint: !def.unlit, unlit: def.unlit, transparent: def.transparent, opacity: def.opacity, alphaTest: def.alphaTest, emissive: def.emissive, side: def.doubleSide ? THREE.DoubleSide : THREE.FrontSide });
+      const mesh = new THREE.Mesh(geo, mat);
+      group.add(mesh);
+    }
+    return group;
+  }
+
   makeMaterial(def) {
     // def.texObj: a ready THREE.Texture (custom canvas textures), def.tex: [generatorName, opts]
     const map = def.texObj || (def.tex ? tex(def.tex[0], def.tex[1]) : null);
