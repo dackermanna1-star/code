@@ -58,6 +58,8 @@ declare module './EventBus' {
     'character:stance': { character: ICharacter; from: string; to: string };
     'character:swim': { character: ICharacter; position: THREE.Vector3 };
     'character:parachute': { character: ICharacter; phase: 'jump' | 'open' | 'land' };
+    /** Vault over / climb onto an obstacle started (audio: cloth + effort). */
+    'character:vault': { character: ICharacter; kind: 'vault' | 'climb'; height: number };
     'door:toggle': { door: IDoor; open: boolean; by?: ICharacter };
     'glass:break': { position: THREE.Vector3 };
     explosion: { position: THREE.Vector3; radius: number; kind: 'frag' | 'vehicle' | 'redzone' | 'molotov' };

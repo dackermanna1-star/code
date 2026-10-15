@@ -306,6 +306,10 @@ export interface CharacterIntent {
   vehicle: VehicleControls;
   /** Switch to vehicle seat index — edge. */
   switchSeat: number | null;
+  /** Held: swim down / dive (C or Ctrl while swimming). Optional (Characters, additive). */
+  dive?: boolean;
+  /** Held: swim up toward the surface (Space while swimming). Optional (Characters, additive). */
+  ascend?: boolean;
 }
 
 export interface VehicleControls {
@@ -421,6 +425,18 @@ export interface ICharacter {
   /** Called when stats/equipment change so visuals (helmet, vest, backpack, weapons on back) refresh. */
   refreshEquipmentVisuals(): void;
   dispose(): void;
+
+  // Optional extras provided by the Characters module (additive):
+  /** Best interactable in front of the character (refreshed every tick for the player), for the UI prompt. */
+  readonly focusedInteractable?: Interactable | null;
+  /** Remaining breath 0..1 while underwater (1 = full). */
+  readonly breath?: number;
+  readonly isSprinting?: boolean;
+  readonly isGrounded?: boolean;
+  /** Stance transition progress 0..1 (1 = settled). Combat must not fire while transitioning into prone. */
+  readonly stanceProgress?: number;
+  /** True when weapons cannot be used (swimming, skydiving, knocked, driving, vaulting). */
+  readonly weaponsBlocked?: boolean;
 }
 
 export interface CharacterSpawnOptions {
@@ -836,8 +852,12 @@ export interface ICameraRig {
   setPerspective(p: Perspective): void;
   /** Add camera shake (e.g. explosions): intensity 0..1, duration seconds. */
   shake(intensity: number, duration: number): void;
-  /** Current horizontal FOV in degrees after zoom (for UI scope overlay). */
+  /** Current optic magnification (1 = no zoom, 4 with a 4x scope); see fovH for the actual FOV. */
   readonly zoom: number;
+  /** Current horizontal FOV in degrees after zoom (for the UI scope overlay). Optional (Characters, additive). */
+  readonly fovH?: number;
+  /** 0..1 blend into aim-down-sights (1 = looking through the sight). Optional (Characters, additive). */
+  readonly adsBlend?: number;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

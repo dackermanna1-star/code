@@ -1,0 +1,100 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Character preview</title>
+<style>body{margin:0;background:#222;color:#ddd;font:12px sans-serif}#c{display:block}</style>
+<script type="importmap">{"imports":{"three":"/repo/node_modules/three/build/three.module.js","three/addons/":"/repo/node_modules/three/examples/jsm/"}}</script>
+</head><body>
+<canvas id="c"></canvas>
+<script type="module">
+// Renders a grid of tiles. URL: preview.html?cfg=<url of json>
+// cfg = { cols, tile:[w,h], tiles:[{char, anim, clip, t, view, label, dist, target, ground}] }
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+
+const params = new URLSearchParams(location.search);
+const cfg = await (await fetch(params.get('cfg'))).json();
+const [TW, TH] = cfg.tile || [320, 480];
+const cols = cfg.cols || 4;
+const rows = Math.ceil(cfg.tiles.length / cols);
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(TW * cols, TH * rows);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.setScissorTest(true);
+const pmrem = new THREE.PMREMGenerator(renderer);
+const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+const cache = new Map();
+const load = (u) => { if (!cache.has(u)) cache.set(u, loader.loadAsync(u)); return cache.get(u); };
+const info = [];
+window.__info = info;
+
+for (let i = 0; i < cfg.tiles.length; i++) {
+  const t = cfg.tiles[i];
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(t.bg || 0x6a6f75);
+  scene.environment = envTex;
+  scene.environmentIntensity = 0.55;
+  const sun = new THREE.DirectionalLight(0xfff2e0, 2.2); sun.position.set(2, 4, 3); sun.castShadow = true;
+  sun.shadow.mapSize.set(1024, 1024); sun.shadow.camera.left = -2; sun.shadow.camera.right = 2; sun.shadow.camera.top = 3; sun.shadow.camera.bottom = -1;
+  scene.add(sun, new THREE.HemisphereLight(0xbfd8ff, 0x4a4030, 0.6));
+  if (t.ground !== false) {
+    const g = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0x8a8578, roughness: 0.95 }));
+    g.rotation.x = -Math.PI / 2; g.receiveShadow = true; scene.add(g);
+    const grid = new THREE.GridHelper(20, 40, 0x444444, 0x5a5a5a); grid.position.y = 0.001; scene.add(grid);
+  }
+  const gltf = await load(t.char);
+  const model = SkeletonUtils.clone(gltf.scene);
+  model.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+  if (t.pos) model.position.fromArray(t.pos);
+  if (t.rotY) model.rotation.y = t.rotY;
+  scene.add(model);
+  if (t.skeleton) { const h = new THREE.SkeletonHelper(model); scene.add(h); }
+  let clipInfo = null;
+  if (t.anim && t.clip) {
+    const ag = await load(t.anim);
+    const clip = ag.animations.find((c) => c.name === t.clip);
+    if (!clip) { info.push({ i, error: 'no clip ' + t.clip }); }
+    else {
+      const mixer = new THREE.AnimationMixer(model);
+      const act = mixer.clipAction(clip); act.play();
+      const tt = t.t != null ? (t.t <= 1 && !t.abs ? t.t * clip.duration : t.t) : 0;
+      mixer.setTime(tt);
+      clipInfo = { clip: t.clip, dur: clip.duration, time: tt };
+    }
+  }
+  model.updateMatrixWorld(true);
+  // camera
+  const box = new THREE.Box3().setFromObject(model, true);
+  const center = t.target ? new THREE.Vector3().fromArray(t.target) : box.getCenter(new THREE.Vector3());
+  const cam = new THREE.PerspectiveCamera(t.fov || 30, TW / TH, 0.05, 100);
+  const view = t.view || 'front';
+  const dist = t.dist || 4.2;
+  const dirs = { front: [0, 0, 1], back: [0, 0, -1], left: [1, 0, 0], right: [-1, 0, 0], '34': [0.6, 0, 0.8], '34b': [-0.6, 0, -0.8], top: [0, 1, 0.001], face: [0, 0, 1], '34l': [0.8, 0.1, 0.6] };
+  const d = new THREE.Vector3().fromArray(dirs[view] || dirs.front).normalize();
+  const elev = t.elev != null ? t.elev : 0.12;
+  cam.position.copy(center).addScaledVector(d, dist).add(new THREE.Vector3(0, elev * dist, 0));
+  cam.lookAt(center);
+  const col = i % cols, row = Math.floor(i / cols);
+  const x = col * TW, y = (rows - 1 - row) * TH;
+  renderer.setViewport(x, y, TW, TH); renderer.setScissor(x, y, TW, TH);
+  renderer.render(scene, cam);
+  const size = box.getSize(new THREE.Vector3());
+  info.push({ i, label: t.label, clipInfo, bbox: { min: box.min.toArray().map((v) => +v.toFixed(3)), max: box.max.toArray().map((v) => +v.toFixed(3)) }, size: size.toArray().map((v) => +v.toFixed(3)) });
+}
+// labels
+const lab = document.createElement('canvas'); lab.width = TW * cols; lab.height = TH * rows;
+const ctx2 = lab.getContext('2d');
+ctx2.drawImage(canvas, 0, 0);
+ctx2.font = '14px sans-serif'; ctx2.fillStyle = '#ff0';
+cfg.tiles.forEach((t, i) => { if (t.label) ctx2.fillText(t.label, (i % cols) * TW + 6, Math.floor(i / cols) * TH + 18); });
+document.body.appendChild(lab); canvas.style.display = 'none';
+window.__done = true;
+</script></body></html>

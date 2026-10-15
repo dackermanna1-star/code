@@ -88,3 +88,9 @@ that module's `index.ts` exports.
 
 ## Contract changelog
 (append entries: date, module, change)
+- 2026-10-15, Characters: `CharacterIntent` += optional `dive`, `ascend` (held swim down/up).
+- 2026-10-15, Characters: `ICharacter` += optional readonly `focusedInteractable`, `breath`, `isSprinting`, `isGrounded`,
+  `stanceProgress` (combat: no firing while transitioning into prone), `weaponsBlocked`.
+- 2026-10-15, Characters: `ICameraRig.zoom` doc clarified as optic magnification (the stub already used 1); added optional
+  `fovH` (horizontal FOV, degrees) and `adsBlend` (0..1).
+- 2026-10-15, Characters: event `'character:vault'` { character, kind: 'vault' | 'climb', height }.
