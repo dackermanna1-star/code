@@ -150,11 +150,16 @@ export class BotController {
     return !this.w.collision.blocked(e, _v2.copy(this.s.body.pos).add(_v3.set(0, 1, 0)), { dynamic: false });
   }
   teleportNear(L) {
-    const w = this.w;
+    const w = this.w, nav = w.nav;
+    const ln = nav.nearest(L.body.pos.x, L.body.pos.y + 0.3, L.body.pos.z, 2);
+    if (ln < 0) return;
     for (let i = 0; i < 12; i++) {
       const a = Math.random() * Math.PI * 2;
-      const n = w.nav.nearest(L.body.pos.x + Math.cos(a) * 3, L.body.pos.y + 0.3, L.body.pos.z + Math.sin(a) * 3, 2);
-      if (n >= 0 && Math.abs(w.nav.y[n] - L.body.pos.y) < 1) {
+      const n = nav.nearest(L.body.pos.x + Math.cos(a) * 3, L.body.pos.y + 0.3, L.body.pos.z + Math.sin(a) * 3, 2);
+      if (n >= 0 && Math.abs(nav.y[n] - L.body.pos.y) < 1 && nav.comp[n] === nav.comp[ln]) {
+        // must be a short walk from the leader (never the far side of a wall)
+        const path = nav.path(ln, n, false, 2.6, 4000);
+        if (!path || path.length > 16) continue;
         const p = _v.set(w.nav.x[n], w.nav.y[n] + 0.05, w.nav.z[n]);
         const e = w.player ? w.player.eyePos(_v2) : null;
         if (e && !w.collision.blocked(e, _v3.copy(p).setY(p.y + 1), { dynamic: false })) continue;

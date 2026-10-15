@@ -153,12 +153,56 @@ export class World {
 
   carryOverState() {
     return this.survivors.map((s) => ({
-      dead: s.state === 'dead',
+      dead: s.state === 'dead' || !!s.leftBehind,
       health: s.state === 'alive' ? s.health : 50, temp: s.state === 'alive' ? s.temp : 0, incapCount: s.state === 'alive' ? s.incapCount : 0,
       primary: s.inv.primary ? { id: s.inv.primary.id, clip: s.inv.primary.clip, reserve: s.inv.primary.reserve, laser: s.inv.primary.laser } : null,
       secondary: s.inv.secondary ? { id: s.inv.secondary.id } : null,
       throwable: s.inv.throwable, kit: s.inv.kit, pills: s.inv.pills,
     }));
+  }
+
+  /**
+   * Safety net: a survivor who ends up somewhere the escape route can't be
+   * reached from (pushed through a wall, fell outside the playable area) is
+   * returned to the team after a few seconds.
+   */
+  checkOutOfBounds(dt) {
+    this.oobT = (this.oobT || 0) - dt;
+    if (this.oobT > 0) return;
+    this.oobT = 0.5;
+    const nav = this.nav, esc = this.director && this.director.escape;
+    if (!nav || !esc) return;
+    const good = (x, y, z) => { const n = nav.nearest(x, y + 0.3, z, 2.5); return n >= 0 && esc[n] < Infinity ? n : -1; };
+    for (const s of this.survivors) {
+      if (s.state === 'dead' || s.pinnedBy) { s.oob = 0; continue; }
+      const p = s.state === 'ledge' && s.ledgePos ? s.ledgePos.top : s.body.pos;
+      const n = good(p.x, p.y, p.z);
+      if (n >= 0) {
+        s.oob = 0;
+        if (s.state === 'alive' && s.body.grounded) (s.lastSafe || (s.lastSafe = new THREE.Vector3())).set(nav.x[n], nav.y[n], nav.z[n]);
+        continue;
+      }
+      s.oob = (s.oob || 0) + 0.5;
+      if (s.oob < 3 && p.y > -20) continue;
+      s.oob = 0;
+      // nearest teammate standing on the route, else our last safe spot
+      let dest = null, bd = Infinity;
+      for (const o of this.survivors) {
+        if (o === s || o.state !== 'alive' || o.pinnedBy) continue;
+        const on = good(o.body.pos.x, o.body.pos.y, o.body.pos.z);
+        if (on < 0) continue;
+        const d = o.body.pos.distanceTo(s.body.pos);
+        if (d < bd) { bd = d; dest = _v.set(nav.x[on], nav.y[on], nav.z[on]); }
+      }
+      if (!dest && s.lastSafe) dest = _v.copy(s.lastSafe);
+      if (!dest) continue;
+      if (s.state === 'ledge') { s.state = 'alive'; s.ledgePos = null; s.noLedgeGrab = 1; }
+      (this.oobLog || (this.oobLog = [])).push({ who: s.name, t: +this.time.toFixed(1), from: p.toArray().map((v) => +v.toFixed(2)), mode: s.controller && s.controller.mode });
+      s.body.pos.set(dest.x, dest.y + 0.05, dest.z); s.body.vel.set(0, 0, 0);
+      if (s.lastGrounded) s.lastGrounded.copy(s.body.pos);
+      if (s.controller) s.controller.path = null;
+      this.oobRescues = (this.oobRescues || 0) + 1;
+    }
   }
 
   // ------------------------------------------------------------------ main update
@@ -173,6 +217,7 @@ export class World {
       if (s.controller) s.controller.think(dt, s.intent);
       s.update(dt, s.intent);
     }
+    this.checkOutOfBounds(dt);
     this.updateFlowFields(dt);
     this.director.update(dt);
     // infected

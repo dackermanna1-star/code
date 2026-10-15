@@ -532,7 +532,23 @@ function setupElevator(w) {
       const zone = w.builder.zones.find((z) => z.name === 'carUp');
       const alive = w.survivors.filter((o) => o.state !== 'dead');
       const v = new THREE.Vector3();
-      const outside = alive.filter((o) => !zone.box.containsPoint(v.set(o.body.pos.x, o.body.pos.y + 0.5, o.body.pos.z)) || o.state !== 'alive');
+      const isOut = (o) => !zone.box.containsPoint(v.set(o.body.pos.x, o.body.pos.y + 0.5, o.body.pos.z)) || o.state !== 'alive';
+      // bots that are right outside but blocked by bodies in the doorway get herded in
+      const gz = (w.gatherZones || []).find((g) => g.box === zone.box);
+      if (gz) {
+        let i = 0;
+        for (const o of alive) {
+          if (!o.isBot || o.state !== 'alive' || o.pinnedBy || !isOut(o)) continue;
+          if (o.body.pos.distanceTo(gz.points[0]) > 8 || Math.abs(o.body.pos.y - Y7) > 1.5) continue;
+          for (; i < gz.points.length; i++) {
+            const p = gz.points[i];
+            if (alive.some((q) => q !== o && Math.hypot(q.body.pos.x - p.x, q.body.pos.z - p.z) < 0.5)) continue;
+            o.body.pos.set(p.x, p.y + 0.05, p.z); o.body.vel.set(0, 0, 0); if (o.controller) o.controller.path = null;
+            i++; break;
+          }
+        }
+      }
+      const outside = alive.filter(isOut);
       w.sound('button_press', btn.focusPos());
       if (outside.length) { w.message(`Everyone needs to be in the elevator (${outside.map((o) => o.name).join(', ')})`, 'warn'); return; }
       E.state = 'closing'; E.t = 0;

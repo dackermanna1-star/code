@@ -196,6 +196,8 @@ export class PlayerController {
     m.traverse((o) => { if (o.isMesh && o.material && o.material.isShaderMaterial) { o.material = clonePS1(o.material); this.vmMats.push(o.material); } });
     this.vm = m;
     this.vmKind = kind === 'weapon' ? (m.userData.kind || 'rifle') : 'item';
+    // hand-held items (kits, pills, throwables) are modelled at world size; shrink them in hand
+    if (kind === 'item' && !this.s.inv.carry && /medkit|defib|upgrade/.test(id)) m.scale.setScalar(0.6);
     this.vmId = id;
     this.viewGroup.add(m);
     if (m.userData.mag) this.magHome = m.userData.mag.position.clone();
@@ -241,10 +243,10 @@ export class PlayerController {
     const base = _v.set(0, 0, 0); const rot = _e.set(0, 0, 0);
     if (s.inv.carry) { base.set(0.02, -0.32, -0.45); rot.set(0.2, 0, 0); }
     else if (isLong) { base.set(0.15, -0.17, -0.3); rot.set(0, 0, 0); }
-    else if (kind === 'pistol') { base.set(0.14, -0.16, -0.34); }
+    else if (kind === 'pistol') { base.set(0.13, -0.155, -0.4); }
     else if (kind === 'melee') { base.set(0.2, -0.22, -0.38); rot.set(0.55, 0.15, -0.25); }
     else if (kind === 'chainsaw') { base.set(0.15, -0.3, -0.35); rot.set(0.1, 0, 0); }
-    else { base.set(0.16, -0.2, -0.36); rot.set(0.1, -0.3, 0); }
+    else { base.set(0.13, -0.18, -0.4); rot.set(0.15, -0.35, 0); }
     // dual pistols: offset one, mirrored arm handled below
     // movement bob & sway
     base.x += bx - this.sway.x * 0.6; base.y += by + this.sway.y * 0.6;

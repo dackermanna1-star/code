@@ -16,8 +16,8 @@ let last = -1, i = 0;
 const start = Date.now();
 while ((Date.now() - start) / 1000 < maxS) {
   await page.waitForTimeout(every * 1000);
-  const info = await page.evaluate(() => { const i = window.__game.debug.info(); i.state = window.__game.state; return i; });
-  console.log(JSON.stringify({ t: info.t, fps: info.fps, phase: info.phase, panic: info.panic, inf: info.infected, prog: info.progress + '/' + info.total, surv: info.surv.map((s) => `${s.n}:${s.st}:${s.hp}@${s.pos.join(',')}:${s.mode}`).join(' '), msgs: info.msgs.slice(-2), ended: info.ended, state: info.state }));
+  const info = await page.evaluate(() => { const i = window.__game.debug.info(); i.state = window.__game.state; i.oob = JSON.stringify(window.__game.world.oobLog || []); return i; });
+  console.log(JSON.stringify({ t: info.t, fps: info.fps, phase: info.phase, panic: info.panic, inf: info.infected, prog: info.progress + '/' + info.total, surv: info.surv.map((s) => `${s.n}:${s.st}:${s.hp}@${s.pos.join(',')}:${s.mode}`).join(' '), msgs: info.msgs.slice(-2), ended: info.ended, state: info.state, oob: info.oob }));
   await shot(page, `ch${ch}_${String(i++).padStart(2, '0')}`);
   if (info.ended || info.state === 'stats') break;
   if (info.progress === last && info.progress < info.total - 2) console.log('  (no progress)');

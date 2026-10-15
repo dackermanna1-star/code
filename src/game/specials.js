@@ -9,7 +9,7 @@ import { B } from './rig.js';
 import { Projectile, AcidPool, spawnFire } from './items.js';
 import { createPS1Material } from '../engine/ps1material.js';
 
-const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3();
+const _v = new THREE.Vector3(), _v2 = new THREE.Vector3(), _v3 = new THREE.Vector3(), _vo = new THREE.Vector3(), _vd = new THREE.Vector3();
 const sin = Math.sin, cos = Math.cos;
 const rand = (a, b) => a + Math.random() * (b - a);
 
@@ -586,7 +586,8 @@ class Charger extends Special {
     const moved = before.distanceTo(this.position);
     if (this.victim) {
       const s = this.victim;
-      s.body.pos.set(this.position.x + this.chargeDir.x * 0.7, this.position.y + 0.25, this.position.z + this.chargeDir.z * 0.7);
+      const off = this.victimOffset(this.chargeDir.x, this.chargeDir.z, 0.7);
+      s.body.pos.set(this.position.x + this.chargeDir.x * off, this.position.y + 0.25, this.position.z + this.chargeDir.z * off);
       s.body.vel.set(0, 0, 0);
       this.victimYaw = this.yaw;
     }
@@ -603,7 +604,8 @@ class Charger extends Special {
     const w = this.world, s = this.victim, C = SPECIAL.charger;
     if (!s || s.state === 'dead') { this.releaseVictim(); this.setState('approach'); this.chargeCd = C.cooldown; return; }
     this.vel.set(0, 0, 0);
-    s.body.pos.set(this.position.x + sin(this.yaw) * 0.9, this.position.y, this.position.z + cos(this.yaw) * 0.9);
+    const off = this.victimOffset(sin(this.yaw), cos(this.yaw), 0.9);
+    s.body.pos.set(this.position.x + sin(this.yaw) * off, this.position.y, this.position.z + cos(this.yaw) * off);
     // keep the victim on the floor
     const g = w.collision.groundAt(s.body.pos.x, s.body.pos.y + 0.6, s.body.pos.z, 2);
     if (g) s.body.pos.y = g.y;
@@ -618,6 +620,12 @@ class Charger extends Special {
       w.effects.blood(_v.set(s.body.pos.x, s.body.pos.y + 0.2, s.body.pos.z), _v2.set(0, 1, 0), 0.4, { wall: false });
     }
     if (this.poundAnim > 0) { this.poundAnim += dt * 2.5; if (this.poundAnim > 1) this.poundAnim = 0; }
+  }
+  /** How far ahead (up to `want`) the victim can be held without being pushed through a wall. */
+  victimOffset(dx, dz, want) {
+    const o = _vo.set(this.position.x, this.position.y + 0.9, this.position.z);
+    const hit = this.world.collision.raycast(o, _vd.set(dx, 0, dz).normalize(), want + 0.4, { move: true, dynamic: true });
+    return hit ? Math.max(0, hit.distance - 0.4) : want;
   }
   releaseVictim(byDeath) { this.pinPose = 'carried'; super.releaseVictim(byDeath); }
   takeShove() { return false; } // immune

@@ -320,11 +320,16 @@ export class Game {
     if (endZ && !w.level.finale) {
       const door = w.doors.find((d) => d.name === 'endDoor');
       const alive = w.survivors.filter((s) => s.state !== 'dead');
-      const allIn = alive.length > 0 && alive.every((s) => s.inEndRoom && s.state === 'alive');
+      // every standing survivor must be inside; incapped / pinned ones left outside are abandoned
+      const standing = alive.filter((s) => s.state === 'alive' && !s.pinnedBy);
+      const allIn = alive.some((s) => s.inEndRoom) && standing.every((s) => s.inEndRoom);
       const humanIn = w.player.state === 'dead' || w.player.inEndRoom;
       if (door && door.closed && allIn && humanIn) {
         const infectedInside = w.infected.some((z) => z.alive && endZ.box.containsPoint(v.set(z.position.x, z.position.y + 0.5, z.position.z)));
-        if (!infectedInside) { w.saferoomLocked = true; this.chapterComplete(); }
+        if (!infectedInside) {
+          for (const s of alive) if (!s.inEndRoom) s.leftBehind = true;
+          w.saferoomLocked = true; this.chapterComplete();
+        }
       }
       if (w.player.inEndRoom && this.audio.ready && !this.endRoomMusic) { this.endRoomMusic = true; this.audio.playMusic('saferoom', { volume: 0.5, fade: 2 }); }
     }
