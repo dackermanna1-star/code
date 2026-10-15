@@ -8,6 +8,8 @@ import type { Character } from './Character';
 import type { PlayerController } from './player/PlayerController';
 import type { CameraRig } from './camera/CameraRig';
 import { HitboxDebug } from './hitbox/HitboxDebug';
+import { animDebug } from './anim/CharacterVisual';
+import { characterLibrary } from './anim/CharacterLibrary';
 
 /** Ground height at x,z from physics (buildings/props) or terrain. */
 export function groundY(ctx: GameContext, x: number, z: number): number {
@@ -53,6 +55,9 @@ export function installCharacterDebug(ctx: GameContext, registry: CharacterRegis
     p.setMoveState('freefall');
     return true;
   });
+  registerDebug('animDebug', animDebug);
+  registerDebug('playerController', controller);
+  registerDebug('characterLibrary', characterLibrary);
   registerDebug('showHitboxes', (on = true) => hitboxDebug.setEnabled(on));
   registerDebug('playerState', () => {
     const p = player();

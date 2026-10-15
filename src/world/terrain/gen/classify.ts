@@ -220,7 +220,7 @@ export function classify(inp: ClassifyInput): ClassifyOutput {
 
       // ── layer weights ─────────────────────────────────────────────────
       // base meadow: lush vs dry grass; other layers are composited "over" it (resolved top-down below)
-      const dry = Math.min(1, sstep(-0.05, 0.45, sampleG(nDry, x, z)) * 0.75 + sstep(45, 95, hh) * 0.45 + (1 - ny) * 0.8);
+      const dry = Math.min(1, sstep(0.05, 0.55, sampleG(nDry, x, z)) * 0.65 + sstep(50, 100, hh) * 0.35 + (1 - ny) * 0.6);
       ns = 0;
       // forest floor
       over(2, sstep(0.32, 0.6, f));
@@ -245,8 +245,8 @@ export function classify(inp: ClassifyInput): ClassifyOutput {
       over(3, 0.5 * sstep(0.55, 0.85, sampleG(nWorn, x, z)) * (1 - flatS * 0.5));
       // lot yards
       const yard = lotYard[c];
-      if (yard === 1) over(3, 0.75);
-      else if (yard === 2) over(7, 0.85);
+      if (yard === 1) over(3, 0.45);
+      else if (yard === 2) over(7, 0.6);
       if (pad[sc]) over(yard === 2 ? 7 : 3, 0.9);
       // road shoulders
       if (roadKind === 2) over(3, sstep(2.2, -0.5, roadEdge));

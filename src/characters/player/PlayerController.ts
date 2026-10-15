@@ -57,6 +57,15 @@ export class PlayerController {
     return (ctx.player as Character | null) ?? null;
   }
 
+  /** Clear hold/toggle states (ADS toggle, sprint/walk toggles) — e.g. after respawn or teleport. */
+  resetToggles(): void {
+    this.adsToggled = false;
+    this.sprintToggled = false;
+    this.walkToggled = false;
+    this.rmbHeld = false;
+    this.freeLookYaw = this.freeLookPitch = 0;
+  }
+
   /** Interactable under the crosshair (for the UI prompt). */
   getFocusedInteractable(): Interactable | null {
     return this.player?.focusedInteractable ?? null;

@@ -1,0 +1,1961 @@
+{
+ "category": "anims",
+ "version": 1,
+ "skeleton": "pubg_m55 (see /assets/characters/manifest.json)",
+ "conventions": {
+  "units": "meters",
+  "up": "+Y",
+  "forward": "+Z (character faces +Z; its LEFT is +X, its RIGHT is -X)",
+  "rest_pose": "A-pose (arms ~45 deg below horizontal), standing, feet on y=0",
+  "joint_rest_rotation": "IDENTITY for every joint (and unit scale): joint local axes == character axes in bind pose. Animation tracks are therefore plain character-space rotations; procedural offsets (aim pitch, lean, look-at) can be applied as rotations about +X (pitch, positive = nose down), +Y (yaw, positive = turn left), +Z (roll).",
+  "animation_tracks": "quaternion rotation tracks for joints + ONE position track on Hips (absolute, meters, in Armature space). No scale tracks. 30 fps, linear.",
+  "binding": "clips bind by node name: new AnimationMixer(characterScene).clipAction(clip) works for every variant (anims GLBs contain only the skeleton nodes)."
+ },
+ "files": [
+  {
+   "file": "locomotion.glb",
+   "clips": 28,
+   "bytes": 968688
+  },
+  {
+   "file": "rifle.glb",
+   "clips": 46,
+   "bytes": 1050956
+  },
+  {
+   "file": "pistol.glb",
+   "clips": 16,
+   "bytes": 372216
+  },
+  {
+   "file": "actions.glb",
+   "clips": 35,
+   "bytes": 1122852
+  }
+ ],
+ "clips": {
+  "idle": {
+   "file": "locomotion.glb",
+   "duration": 6.6667,
+   "loop": true,
+   "mode": "inplace",
+   "hips_y_mean": 0.888,
+   "head_y_mean": 1.579,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_Standing_Idle_001"
+  },
+  "walk_f": {
+   "file": "locomotion.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.49,
+   "move_dir": [
+    -0.007,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.876,
+   "head_y_mean": 1.555,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_Walk_001"
+  },
+  "walk_b": {
+   "file": "locomotion.glb",
+   "duration": 2.8,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.27,
+   "move_dir": [
+    0,
+    -1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.873,
+   "head_y_mean": 1.56,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_Walk_Backwards_001"
+  },
+  "walk_l": {
+   "file": "locomotion.glb",
+   "duration": 1.0333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.35,
+   "move_dir": [
+    -1,
+    0.001
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.872,
+   "head_y_mean": 1.548,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_Walk_Strafe_Left_002"
+  },
+  "walk_r": {
+   "file": "locomotion.glb",
+   "duration": 2.0333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.322,
+   "move_dir": [
+    1,
+    0
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.879,
+   "head_y_mean": 1.559,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_Walk_Strafe_Right_002"
+  },
+  "jog_f": {
+   "file": "locomotion.glb",
+   "duration": 0.7333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 3.201,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.867,
+   "head_y_mean": 1.528,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_Jog_001"
+  },
+  "jog_b": {
+   "file": "locomotion.glb",
+   "duration": 0.6333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 2.81,
+   "move_dir": [
+    0.001,
+    -1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.854,
+   "head_y_mean": 1.541,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_Jog_Backwards_001"
+  },
+  "jog_l": {
+   "file": "locomotion.glb",
+   "duration": 0.7,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 3.627,
+   "move_dir": [
+    -1,
+    0
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.821,
+   "head_y_mean": 1.448,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_Jog_Strafe_Left_001"
+  },
+  "jog_r": {
+   "file": "locomotion.glb",
+   "duration": 0.7,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 3.697,
+   "move_dir": [
+    1,
+    0
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.814,
+   "head_y_mean": 1.445,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_Jog_Strafe_Right_001"
+  },
+  "sprint_f": {
+   "file": "locomotion.glb",
+   "duration": 0.6,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 5.153,
+   "move_dir": [
+    0.001,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.81,
+   "head_y_mean": 1.376,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_Run_001"
+  },
+  "run_f": {
+   "file": "locomotion.glb",
+   "duration": 0.6333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 4.966,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.762,
+   "head_y_mean": 1.423,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Run__Run_Fwd"
+  },
+  "crouch_idle": {
+   "file": "locomotion.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "inplace",
+   "hips_y_mean": 0.567,
+   "head_y_mean": 1.039,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Crouch__Crouch_Idle"
+  },
+  "crouch_walk_f": {
+   "file": "locomotion.glb",
+   "duration": 1.6667,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.611,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.685,
+   "head_y_mean": 1.083,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_Crouch_Walk_003"
+  },
+  "crouch_walk_b": {
+   "file": "locomotion.glb",
+   "duration": 1.8,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.395,
+   "move_dir": [
+    0.001,
+    -1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.669,
+   "head_y_mean": 1.093,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_CrouchedWalk_Backwards_002"
+  },
+  "crouch_walk_l": {
+   "file": "locomotion.glb",
+   "duration": 1.6667,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.739,
+   "move_dir": [
+    -1,
+    0
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.652,
+   "head_y_mean": 0.958,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_Crouch_Strafe_Left_002"
+  },
+  "crouch_walk_r": {
+   "file": "locomotion.glb",
+   "duration": 1.7,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.7,
+   "move_dir": [
+    1,
+    -0.001
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.635,
+   "head_y_mean": 0.977,
+   "source": "Ready Player Me Animation Library (github.com/readyplayerme/animation-library)",
+   "license": "RPM Animation Library License: free, but licensed for use with Ready Player Me avatars only; no redistribution",
+   "source_clip": "M_Crouch_Strafe_Right_002"
+  },
+  "prone_idle": {
+   "file": "locomotion.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "inplace",
+   "hips_y_mean": 0.176,
+   "head_y_mean": 0.31,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Crawling__Crawling_Idle"
+  },
+  "prone_crawl_f": {
+   "file": "locomotion.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.112,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.153,
+   "head_y_mean": 0.256,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Crawling__Crawling_Fwd"
+  },
+  "prone_crawl_b": {
+   "file": "locomotion.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.112,
+   "move_dir": [
+    0,
+    -1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.153,
+   "head_y_mean": 0.256,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Crawling__Crawling_Bwd"
+  },
+  "prone_to_crouch": {
+   "file": "locomotion.glb",
+   "duration": 1,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.012,
+    "up": 0.367,
+    "forward": -0.087
+   },
+   "hips_y_mean": 0.479,
+   "head_y_mean": 0.775,
+   "notes": "play reversed for crouch_to_prone",
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Crawling__Crawling_Crouch"
+  },
+  "jump_start": {
+   "file": "locomotion.glb",
+   "duration": 0.4333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.008,
+    "up": -0.002,
+    "forward": -0.023
+   },
+   "hips_y_mean": 0.872,
+   "head_y_mean": 1.518,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Jump__Jump_Enter"
+  },
+  "fall_loop": {
+   "file": "locomotion.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "inplace",
+   "hips_y_mean": 0.82,
+   "head_y_mean": 1.478,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Jump__Jump_Loop"
+  },
+  "land": {
+   "file": "locomotion.glb",
+   "duration": 0.5,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.003,
+    "up": 0.002,
+    "forward": 0.026
+   },
+   "hips_y_mean": 0.755,
+   "head_y_mean": 1.411,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Jump__Jump_Exit"
+  },
+  "swim_idle": {
+   "file": "locomotion.glb",
+   "duration": 1.8333,
+   "loop": true,
+   "mode": "inplace",
+   "hips_y_mean": 0.823,
+   "head_y_mean": 1.497,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Swim__Swim_idle"
+  },
+  "swim_f": {
+   "file": "locomotion.glb",
+   "duration": 1.3333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.4,
+   "speed_source": "manual",
+   "hips_y_mean": 0.922,
+   "head_y_mean": 0.949,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Swim__Swim_fwd"
+  },
+  "swim_b": {
+   "file": "locomotion.glb",
+   "duration": 1.1667,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 0.8,
+   "move_dir": [
+    -0.793,
+    0.609
+   ],
+   "speed_source": "manual",
+   "hips_y_mean": 0.841,
+   "head_y_mean": 1.505,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Swim__Swim_Bwd"
+  },
+  "swim_l": {
+   "file": "locomotion.glb",
+   "duration": 1.3333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 0.8,
+   "move_dir": [
+    0.999,
+    -0.043
+   ],
+   "speed_source": "manual",
+   "hips_y_mean": 0.921,
+   "head_y_mean": 0.949,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Swim__Swim_L"
+  },
+  "swim_r": {
+   "file": "locomotion.glb",
+   "duration": 1.3333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 0.8,
+   "speed_source": "manual",
+   "hips_y_mean": 0.924,
+   "head_y_mean": 0.951,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Swim__Swim_R"
+  },
+  "rifle_idle": {
+   "file": "rifle.glb",
+   "duration": 10,
+   "loop": true,
+   "mode": "inplace",
+   "hips_y_mean": 0.852,
+   "head_y_mean": 1.542,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Idle__Idle"
+  },
+  "rifle_aim": {
+   "file": "rifle.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "inplace",
+   "hips_y_mean": 0.756,
+   "head_y_mean": 1.392,
+   "aim_corrected": true,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Aim_Idle"
+  },
+  "rifle_aim_up": {
+   "file": "rifle.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "static",
+   "hips_y_mean": 0.769,
+   "head_y_mean": 1.451,
+   "aim_corrected": true,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Aim_Sweep_V"
+  },
+  "rifle_aim_down": {
+   "file": "rifle.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "static",
+   "hips_y_mean": 0.764,
+   "head_y_mean": 1.352,
+   "aim_corrected": true,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Aim_Sweep_V"
+  },
+  "rifle_hip_aim": {
+   "file": "rifle.glb",
+   "duration": 3,
+   "loop": true,
+   "mode": "static",
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.543,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_HipAim_Pose"
+  },
+  "rifle_walk_f": {
+   "file": "rifle.glb",
+   "duration": 0.9333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.911,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.846,
+   "head_y_mean": 1.525,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Walk_Fwd"
+  },
+  "rifle_walk_b": {
+   "file": "rifle.glb",
+   "duration": 0.9333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.911,
+   "move_dir": [
+    0,
+    -1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.847,
+   "head_y_mean": 1.537,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Walk_Bwd"
+  },
+  "rifle_walk_l": {
+   "file": "rifle.glb",
+   "duration": 0.9333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.911,
+   "move_dir": [
+    -1,
+    0
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.846,
+   "head_y_mean": 1.531,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Walk_LF"
+  },
+  "rifle_walk_r": {
+   "file": "rifle.glb",
+   "duration": 0.9333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.911,
+   "move_dir": [
+    1,
+    0
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.846,
+   "head_y_mean": 1.532,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Walk_RF"
+  },
+  "rifle_walk_fl": {
+   "file": "rifle.glb",
+   "duration": 0.9333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.911,
+   "move_dir": [
+    -0.707,
+    0.707
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.847,
+   "head_y_mean": 1.525,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Walk_Fwd_L"
+  },
+  "rifle_walk_fr": {
+   "file": "rifle.glb",
+   "duration": 0.9333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.911,
+   "move_dir": [
+    0.707,
+    0.707
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.847,
+   "head_y_mean": 1.525,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Walk_Fwd_R"
+  },
+  "rifle_walk_bl": {
+   "file": "rifle.glb",
+   "duration": 0.9333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.922,
+   "move_dir": [
+    -0.707,
+    -0.707
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.845,
+   "head_y_mean": 1.536,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Walk_Bwd_L"
+  },
+  "rifle_walk_br": {
+   "file": "rifle.glb",
+   "duration": 0.9333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.922,
+   "move_dir": [
+    0.707,
+    -0.707
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.845,
+   "head_y_mean": 1.536,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Walk_Bwd_R"
+  },
+  "rifle_jog_f": {
+   "file": "rifle.glb",
+   "duration": 0.8667,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 2.551,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.745,
+   "head_y_mean": 1.369,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_strafe_fwd"
+  },
+  "rifle_jog_b": {
+   "file": "rifle.glb",
+   "duration": 0.8667,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 2.551,
+   "move_dir": [
+    0,
+    -1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.787,
+   "head_y_mean": 1.473,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_bwd"
+  },
+  "rifle_jog_l": {
+   "file": "rifle.glb",
+   "duration": 0.8667,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 2.551,
+   "move_dir": [
+    -1,
+    0
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.796,
+   "head_y_mean": 1.457,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_LF"
+  },
+  "rifle_jog_r": {
+   "file": "rifle.glb",
+   "duration": 0.8667,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 2.551,
+   "move_dir": [
+    1,
+    0
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.796,
+   "head_y_mean": 1.458,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_RF"
+  },
+  "rifle_jog_fl": {
+   "file": "rifle.glb",
+   "duration": 0.8667,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 2.551,
+   "move_dir": [
+    -0.707,
+    0.707
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.744,
+   "head_y_mean": 1.365,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Fwd_L_45"
+  },
+  "rifle_jog_fr": {
+   "file": "rifle.glb",
+   "duration": 0.8667,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 2.551,
+   "move_dir": [
+    0.707,
+    0.707
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.744,
+   "head_y_mean": 1.365,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Fwd_R_45"
+  },
+  "rifle_jog_bl": {
+   "file": "rifle.glb",
+   "duration": 0.8667,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 2.551,
+   "move_dir": [
+    -0.707,
+    -0.707
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.797,
+   "head_y_mean": 1.48,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Bwd_L_45"
+  },
+  "rifle_jog_br": {
+   "file": "rifle.glb",
+   "duration": 0.8667,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 2.551,
+   "move_dir": [
+    0.707,
+    -0.707
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.795,
+   "head_y_mean": 1.478,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Bwd_R_45"
+  },
+  "rifle_run_f": {
+   "file": "rifle.glb",
+   "duration": 0.6333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 4.966,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.762,
+   "head_y_mean": 1.424,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Run_Fwd"
+  },
+  "rifle_sprint": {
+   "file": "rifle.glb",
+   "duration": 0.6,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 6.085,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.782,
+   "head_y_mean": 1.228,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Sprint_Fwd"
+  },
+  "rifle_crouch_idle": {
+   "file": "rifle.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "inplace",
+   "hips_y_mean": 0.567,
+   "head_y_mean": 1.039,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Crouch__Crouch_Idle"
+  },
+  "rifle_crouch_aim": {
+   "file": "rifle.glb",
+   "duration": 3,
+   "loop": true,
+   "mode": "static",
+   "hips_y_mean": 0.531,
+   "head_y_mean": 1.092,
+   "aim_corrected": true,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Aim_Crouch_Pose"
+  },
+  "rifle_crouch_walk_f": {
+   "file": "rifle.glb",
+   "duration": 0.7333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 3.018,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.703,
+   "head_y_mean": 1.187,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Crouch_Fwd"
+  },
+  "rifle_crouch_walk_b": {
+   "file": "rifle.glb",
+   "duration": 0.7333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 3.018,
+   "move_dir": [
+    0,
+    -1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.697,
+   "head_y_mean": 1.253,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Crouch_Bwd"
+  },
+  "rifle_crouch_walk_l": {
+   "file": "rifle.glb",
+   "duration": 0.7333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 3.018,
+   "move_dir": [
+    -1,
+    0
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.699,
+   "head_y_mean": 1.172,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Crouch_L"
+  },
+  "rifle_crouch_walk_r": {
+   "file": "rifle.glb",
+   "duration": 0.7333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 3.018,
+   "move_dir": [
+    1,
+    0
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.698,
+   "head_y_mean": 1.198,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Crouch_R"
+  },
+  "rifle_crouch_walk_fl": {
+   "file": "rifle.glb",
+   "duration": 0.7333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 3.06,
+   "move_dir": [
+    -0.707,
+    0.707
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.703,
+   "head_y_mean": 1.157,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Crouch_Fwd_L"
+  },
+  "rifle_crouch_walk_fr": {
+   "file": "rifle.glb",
+   "duration": 0.7333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 3.076,
+   "move_dir": [
+    0.707,
+    0.707
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.703,
+   "head_y_mean": 1.206,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Crouch_Fwd_R"
+  },
+  "rifle_crouch_walk_bl": {
+   "file": "rifle.glb",
+   "duration": 0.7333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 3.012,
+   "move_dir": [
+    -0.707,
+    -0.707
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.694,
+   "head_y_mean": 1.168,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Crouch_Bwd_L"
+  },
+  "rifle_crouch_walk_br": {
+   "file": "rifle.glb",
+   "duration": 0.7333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 3.012,
+   "move_dir": [
+    0.707,
+    -0.707
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.694,
+   "head_y_mean": 1.207,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Strf_Crouch_Bwd_R"
+  },
+  "rifle_reload": {
+   "file": "rifle.glb",
+   "duration": 1.4,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.541,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Reloading"
+  },
+  "rifle_fire": {
+   "file": "rifle.glb",
+   "duration": 0.4667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.758,
+   "head_y_mean": 1.395,
+   "aim_corrected": true,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Aim_Shooting"
+  },
+  "rifle_hip_fire": {
+   "file": "rifle.glb",
+   "duration": 0.4667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.543,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_HipAim_Shooting"
+  },
+  "rifle_prone_idle": {
+   "file": "rifle.glb",
+   "duration": 3,
+   "loop": true,
+   "mode": "static",
+   "hips_y_mean": 0.117,
+   "head_y_mean": 0.243,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Crawling_Idle_Pose"
+  },
+  "rifle_prone_aim": {
+   "file": "rifle.glb",
+   "duration": 3,
+   "loop": true,
+   "mode": "static",
+   "hips_y_mean": 0.117,
+   "head_y_mean": 0.193,
+   "aim_corrected": true,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Crawling_Aim_Pose"
+  },
+  "rifle_prone_crawl_f": {
+   "file": "rifle.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.112,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.153,
+   "head_y_mean": 0.256,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Crawling_Fwd"
+  },
+  "rifle_prone_crawl_b": {
+   "file": "rifle.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.112,
+   "move_dir": [
+    0,
+    -1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.153,
+   "head_y_mean": 0.256,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Crawling_Bwd"
+  },
+  "rifle_prone_fire": {
+   "file": "rifle.glb",
+   "duration": 0.4667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.117,
+   "head_y_mean": 0.192,
+   "aim_corrected": true,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Crawling_Shooting"
+  },
+  "rifle_prone_reload": {
+   "file": "rifle.glb",
+   "duration": 1.6667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.117,
+   "head_y_mean": 0.285,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Crawling_Reload"
+  },
+  "rifle_equip": {
+   "file": "rifle.glb",
+   "duration": 0.9333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.54,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Equiping"
+  },
+  "rifle_unequip": {
+   "file": "rifle.glb",
+   "duration": 0.9333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.535,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Unequiping"
+  },
+  "rifle_fall_loop": {
+   "file": "rifle.glb",
+   "duration": 0.5333,
+   "loop": true,
+   "mode": "inplace",
+   "hips_y_mean": 0.897,
+   "head_y_mean": 1.535,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Fall"
+  },
+  "rifle_vault": {
+   "file": "rifle.glb",
+   "duration": 0.8333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.036,
+    "up": 0.019,
+    "forward": 3.212
+   },
+   "hips_y_mean": 1.113,
+   "head_y_mean": 1.663,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Assault_Rifle__AR_Obstacle_Vault"
+  },
+  "pistol_idle": {
+   "file": "pistol.glb",
+   "duration": 10,
+   "loop": true,
+   "mode": "inplace",
+   "hips_y_mean": 0.852,
+   "head_y_mean": 1.542,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Idle__Idle"
+  },
+  "pistol_aim": {
+   "file": "pistol.glb",
+   "duration": 3,
+   "loop": true,
+   "mode": "static",
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.533,
+   "aim_corrected": true,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Aim_Pose"
+  },
+  "pistol_aim_up": {
+   "file": "pistol.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "static",
+   "hips_y_mean": 0.861,
+   "head_y_mean": 1.543,
+   "aim_corrected": true,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Aim_Sweep_V"
+  },
+  "pistol_aim_down": {
+   "file": "pistol.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "static",
+   "hips_y_mean": 0.862,
+   "head_y_mean": 1.492,
+   "aim_corrected": true,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Aim_Sweep_V"
+  },
+  "pistol_fire": {
+   "file": "pistol.glb",
+   "duration": 0.2333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.531,
+   "aim_corrected": true,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Aim_Shooting"
+  },
+  "pistol_reload": {
+   "file": "pistol.glb",
+   "duration": 2.0667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.542,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Reload"
+  },
+  "pistol_walk_f": {
+   "file": "pistol.glb",
+   "duration": 0.9333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.911,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.846,
+   "head_y_mean": 1.525,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Strf_Walk_Fwd"
+  },
+  "pistol_walk_b": {
+   "file": "pistol.glb",
+   "duration": 0.9333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.911,
+   "move_dir": [
+    0,
+    -1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.847,
+   "head_y_mean": 1.537,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Strf_Walk_Bwd"
+  },
+  "pistol_walk_l": {
+   "file": "pistol.glb",
+   "duration": 0.9333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.911,
+   "move_dir": [
+    -1,
+    0
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.846,
+   "head_y_mean": 1.531,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Strf_Walk_LF"
+  },
+  "pistol_walk_r": {
+   "file": "pistol.glb",
+   "duration": 0.9333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 1.911,
+   "move_dir": [
+    1,
+    0
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.846,
+   "head_y_mean": 1.532,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Strf_Walk_RF"
+  },
+  "pistol_run_f": {
+   "file": "pistol.glb",
+   "duration": 0.6333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 4.969,
+   "move_dir": [
+    0.005,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.762,
+   "head_y_mean": 1.423,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Run_Fwd"
+  },
+  "pistol_sprint": {
+   "file": "pistol.glb",
+   "duration": 0.6,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 6.085,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.782,
+   "head_y_mean": 1.228,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Sprint_Fwd"
+  },
+  "pistol_crouch_walk_f": {
+   "file": "pistol.glb",
+   "duration": 0.7333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 3.018,
+   "move_dir": [
+    0,
+    1
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.703,
+   "head_y_mean": 1.147,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Crouch_Walk_Fwd"
+  },
+  "pistol_crouch_aim": {
+   "file": "pistol.glb",
+   "duration": 3,
+   "loop": true,
+   "mode": "static",
+   "hips_y_mean": 0.531,
+   "head_y_mean": 1.108,
+   "aim_corrected": true,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Aim_Crouch_Pose"
+  },
+  "pistol_equip": {
+   "file": "pistol.glb",
+   "duration": 0.9333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.543,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Equip"
+  },
+  "pistol_unequip": {
+   "file": "pistol.glb",
+   "duration": 0.9333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.543,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Handgun__HG_Unequip"
+  },
+  "death_f": {
+   "file": "actions.glb",
+   "duration": 1.1667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.423,
+    "up": -0.727,
+    "forward": 0.736
+   },
+   "hips_y_mean": 0.357,
+   "head_y_mean": 0.682,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Death__Death_Fwd"
+  },
+  "death_b": {
+   "file": "actions.glb",
+   "duration": 2.4,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.007,
+    "up": -0.795,
+    "forward": -0.449
+   },
+   "hips_y_mean": 0.366,
+   "head_y_mean": 0.67,
+   "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
+   "license": "CC0 1.0",
+   "source_clip": "Death01"
+  },
+  "death_l": {
+   "file": "actions.glb",
+   "duration": 1.2,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -1.115,
+    "up": -0.631,
+    "forward": -0.211
+   },
+   "hips_y_mean": 0.371,
+   "head_y_mean": 0.378,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Death__Death_L"
+  },
+  "death_r": {
+   "file": "actions.glb",
+   "duration": 0.9,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.658,
+    "up": -0.644,
+    "forward": 0.111
+   },
+   "hips_y_mean": 0.395,
+   "head_y_mean": 0.691,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Death__Death_R"
+  },
+  "death_b_alt": {
+   "file": "actions.glb",
+   "duration": 1.1667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.073,
+    "up": -0.699,
+    "forward": -0.8
+   },
+   "hips_y_mean": 0.23,
+   "head_y_mean": 0.342,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Death__Death_Bwd"
+  },
+  "knocked_crawl": {
+   "file": "actions.glb",
+   "duration": 3.2333,
+   "loop": true,
+   "mode": "loco",
+   "speed_mps": 0.137,
+   "move_dir": [
+    0.194,
+    0.981
+   ],
+   "speed_source": "root_motion",
+   "hips_y_mean": 0.494,
+   "head_y_mean": 0.67,
+   "notes": "CMU source crawl is slow (~0.15 m/s); play at 2-3x for gameplay speeds",
+   "source": "CMU Graphics Lab Motion Capture Database (mocap.cs.cmu.edu), BVH conversion by B. Hahn / EcstasyMotion (archive.org/details/cmu-ecstasy-motion-bvh-poser-friendly-2012)",
+   "license": "CMU mocap: free for all uses (no restrictions)",
+   "source_clip": "111_03"
+  },
+  "knocked_idle": {
+   "file": "actions.glb",
+   "duration": 3,
+   "loop": true,
+   "mode": "static",
+   "hips_y_mean": 0.346,
+   "head_y_mean": 0.667,
+   "source": "CMU Graphics Lab Motion Capture Database (mocap.cs.cmu.edu), BVH conversion by B. Hahn / EcstasyMotion (archive.org/details/cmu-ecstasy-motion-bvh-poser-friendly-2012)",
+   "license": "CMU mocap: free for all uses (no restrictions)",
+   "source_clip": "111_03"
+  },
+  "hit_react_f": {
+   "file": "actions.glb",
+   "duration": 1,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.007,
+    "up": 0.004,
+    "forward": -0.052
+   },
+   "hips_y_mean": 0.816,
+   "head_y_mean": 1.484,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Hits__Hit_Fwd"
+  },
+  "hit_react_b": {
+   "file": "actions.glb",
+   "duration": 1,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.002,
+    "up": -0.014,
+    "forward": 0.08
+   },
+   "hips_y_mean": 0.848,
+   "head_y_mean": 1.417,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Hits__Hit_Bwd"
+  },
+  "hit_react_l": {
+   "file": "actions.glb",
+   "duration": 0.6333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.019,
+    "up": -0.001,
+    "forward": 0.006
+   },
+   "hips_y_mean": 0.837,
+   "head_y_mean": 1.507,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Hits__Hit_L"
+  },
+  "hit_react_r": {
+   "file": "actions.glb",
+   "duration": 0.5667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.077,
+    "up": 0.001,
+    "forward": -0.036
+   },
+   "hips_y_mean": 0.851,
+   "head_y_mean": 1.524,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Hits__Hit_R"
+  },
+  "throw_grenade": {
+   "file": "actions.glb",
+   "duration": 1.3333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.833,
+   "head_y_mean": 1.489,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Combat__ThrowObject"
+  },
+  "melee_swing": {
+   "file": "actions.glb",
+   "duration": 1.5333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.698,
+   "head_y_mean": 1.315,
+   "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
+   "license": "CC0 1.0",
+   "source_clip": "Sword_Attack"
+  },
+  "punch_r": {
+   "file": "actions.glb",
+   "duration": 1,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.844,
+   "head_y_mean": 1.472,
+   "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
+   "license": "CC0 1.0",
+   "source_clip": "Punch_Cross"
+  },
+  "punch_l": {
+   "file": "actions.glb",
+   "duration": 0.8667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.829,
+   "head_y_mean": 1.471,
+   "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
+   "license": "CC0 1.0",
+   "source_clip": "Punch_Jab"
+  },
+  "use_item": {
+   "file": "actions.glb",
+   "duration": 3.3667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.811,
+   "head_y_mean": 1.461,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Interactions__Heal_bandages"
+  },
+  "drink": {
+   "file": "actions.glb",
+   "duration": 2.4667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.859,
+   "head_y_mean": 1.551,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Interactions__Drink"
+  },
+  "pickup": {
+   "file": "actions.glb",
+   "duration": 1.7333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.764,
+   "head_y_mean": 1.287,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Interactions__Pick_Fwd"
+  },
+  "pickup_high": {
+   "file": "actions.glb",
+   "duration": 1.5,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.531,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Interactions__Grab_item"
+  },
+  "interact_door": {
+   "file": "actions.glb",
+   "duration": 1.0667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.853,
+   "head_y_mean": 1.543,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Interactions__Open_Door"
+  },
+  "vault": {
+   "file": "actions.glb",
+   "duration": 0.8333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 3.228
+   },
+   "hips_y_mean": 1.099,
+   "head_y_mean": 1.642,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "ObstaclesWallpoints__Obstacle_Vault"
+  },
+  "climb": {
+   "file": "actions.glb",
+   "duration": 1.3333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0.975,
+    "forward": 1.1
+   },
+   "hips_y_mean": 1.482,
+   "head_y_mean": 1.874,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "ObstaclesWallpoints__Obstacle_ClimbM"
+  },
+  "climb_low": {
+   "file": "actions.glb",
+   "duration": 0.6667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0.976,
+    "forward": 1.636
+   },
+   "hips_y_mean": 1.284,
+   "head_y_mean": 1.675,
+   "source": "Quaternius Universal Animation Library 2 (quaternius.itch.io/universal-animation-library-2)",
+   "license": "CC0 1.0",
+   "source_clip": "ClimbUp_1m"
+  },
+  "ladder_idle": {
+   "file": "actions.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "inplace",
+   "hips_y_mean": 0.744,
+   "head_y_mean": 1.421,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Ladder__Ladder_Idle"
+  },
+  "ladder_up": {
+   "file": "actions.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "keep",
+   "hips_y_mean": 0.855,
+   "head_y_mean": 1.542,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Ladder__Ladder_Ascend_Loop"
+  },
+  "ladder_down": {
+   "file": "actions.glb",
+   "duration": 1,
+   "loop": true,
+   "mode": "keep",
+   "hips_y_mean": 0.862,
+   "head_y_mean": 1.527,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Ladder__Ladder_Descend_Loop"
+  },
+  "revive_teammate": {
+   "file": "actions.glb",
+   "duration": 5.2,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0,
+    "up": 0,
+    "forward": 0
+   },
+   "hips_y_mean": 0.575,
+   "head_y_mean": 1.047,
+   "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
+   "license": "CC0 1.0",
+   "source_clip": "Fixing_Kneeling"
+  },
+  "drive_sit": {
+   "file": "actions.glb",
+   "duration": 1.6667,
+   "loop": true,
+   "mode": "inplace",
+   "hips_y_mean": 0.527,
+   "head_y_mean": 1.201,
+   "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
+   "license": "CC0 1.0",
+   "source_clip": "Driving_Loop"
+  },
+  "passenger_sit": {
+   "file": "actions.glb",
+   "duration": 1.6667,
+   "loop": true,
+   "mode": "inplace",
+   "hips_y_mean": 0.529,
+   "head_y_mean": 1.196,
+   "source": "Quaternius Universal Animation Library (quaternius.itch.io/universal-animation-library)",
+   "license": "CC0 1.0",
+   "source_clip": "Sitting_Idle_Loop"
+  },
+  "car_enter_l": {
+   "file": "actions.glb",
+   "duration": 2.5667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.398,
+    "up": -0.371,
+    "forward": 0.978
+   },
+   "hips_y_mean": 0.641,
+   "head_y_mean": 1.289,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Car__Car_Enter_L"
+  },
+  "car_enter_r": {
+   "file": "actions.glb",
+   "duration": 2.5667,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.511,
+    "up": -0.371,
+    "forward": 0.978
+   },
+   "hips_y_mean": 0.641,
+   "head_y_mean": 1.289,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Car__Car_Enter_R"
+  },
+  "car_exit_l": {
+   "file": "actions.glb",
+   "duration": 2.8333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": 0.978,
+    "up": 0.371,
+    "forward": -0.398
+   },
+   "hips_y_mean": 0.621,
+   "head_y_mean": 1.281,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Car__Car_Exit_L"
+  },
+  "car_exit_r": {
+   "file": "actions.glb",
+   "duration": 2.8333,
+   "loop": false,
+   "mode": "oneshot",
+   "root_displacement": {
+    "right": -0.978,
+    "up": 0.373,
+    "forward": -0.511
+   },
+   "hips_y_mean": 0.622,
+   "head_y_mean": 1.284,
+   "source": "Amplify Animation Pack, Amplify Creations (u3d.as/2HjE) - files from public GitHub repo CapnCoben/Columbus",
+   "license": "Unity Asset Store EULA (commercial pack, redistribution not allowed) - private-use only, must be licensed/replaced before release",
+   "source_clip": "Car__Car_Exit_R"
+  },
+  "freefall": {
+   "file": "actions.glb",
+   "duration": 2,
+   "loop": true,
+   "mode": "static",
+   "hips_y_mean": 0.827,
+   "head_y_mean": 0.862,
+   "source": "authored (procedural pose on the shared skeleton, tools/assets/characters)",
+   "license": "project-authored",
+   "source_clip": "Idle__Idle"
+  },
+  "parachute_idle": {
+   "file": "actions.glb",
+   "duration": 4,
+   "loop": true,
+   "mode": "static",
+   "hips_y_mean": 0.827,
+   "head_y_mean": 1.516,
+   "source": "authored (procedural pose on the shared skeleton, tools/assets/characters)",
+   "license": "project-authored",
+   "source_clip": "Idle__Idle"
+  }
+ },
+ "canonical_missing": []
+}

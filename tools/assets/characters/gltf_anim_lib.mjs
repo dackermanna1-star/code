@@ -17,7 +17,7 @@ export async function loadRig(file) {
   const byName = new Map(nodes.map((n, i) => [n.name, i]));
   const anims = {};
   for (const a of root.listAnimations()) {
-    let dur = 0;
+    let dur = 0, start = Infinity;
     const channels = [];
     for (const c of a.listChannels()) {
       const s = c.getSampler();
@@ -27,10 +27,10 @@ export async function loadRig(file) {
       // denormalize if normalized ints
       let values = vals;
       if (out.getNormalized()) { values = []; for (let i = 0; i < out.getCount(); i++) { const e = []; out.getElement(i, e); values.push(...e); } }
-      dur = Math.max(dur, times[times.length - 1]);
+      dur = Math.max(dur, times[times.length - 1]); start = Math.min(start, times[0]);
       channels.push({ node: idx.get(c.getTargetNode()), path: c.getTargetPath(), times, values, interp: s.getInterpolation() });
     }
-    anims[a.getName()] = { duration: dur, channels };
+    anims[a.getName()] = { duration: dur, start: Number.isFinite(start) ? start : 0, channels };
   }
   return { file, nodes, byName, anims };
 }

@@ -102,7 +102,6 @@ export interface HandRest {
   palmLocal: THREE.Vector3;
 }
 
-const _p = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _inv = new THREE.Matrix4();
 const _m = new THREE.Matrix4();
@@ -114,6 +113,8 @@ export class Rig {
   readonly restLocalPos = new Map<THREE.Object3D, THREE.Vector3>();
   /** Rest joint positions in root space. */
   readonly restPos: Partial<Record<BoneKey, THREE.Vector3>> = {};
+  /** Rest bone matrices in root space (for attachments defined relative to the rest pose). */
+  readonly restMatrix: Partial<Record<BoneKey, THREE.Matrix4>> = {};
   readonly hand: Partial<Record<Side, HandRest>> = {};
   /** Distance from the ground to the hips joint in rest pose. */
   hipHeight = 0.95;
@@ -143,7 +144,9 @@ export class Rig {
     root.updateMatrixWorld(true);
     _inv.copy(root.matrixWorld).invert();
     for (const [key, bone] of Object.entries(this.bones) as [BoneKey, THREE.Bone][]) {
-      this.restPos[key] = new THREE.Vector3().setFromMatrixPosition(_m.multiplyMatrices(_inv, bone.matrixWorld));
+      _m.multiplyMatrices(_inv, bone.matrixWorld);
+      this.restMatrix[key] = _m.clone();
+      this.restPos[key] = new THREE.Vector3().setFromMatrixPosition(_m);
     }
     const rp = this.restPos;
     if (!rp.headTop && rp.head && rp.neck) {
@@ -214,4 +217,3 @@ export function detectFacing(rig: Rig): number {
   return toe.z - foot.z >= 0 ? 1 : -1;
 }
 
-export { _p as _rigTmp };

@@ -15,7 +15,7 @@ REFS = {
     'ar_beryl':    ('Beryl_M762.png', 2526, '--len 943'),
     'sr_m24':      ('M24-Sniper-Weapon-System.png', 1280, '--len 1092 --crop 0,0,1280,375 --flip'),
     'sr_awm':      ('G22_Bundeswehr_Technik_02_(RaBoe)_noBG.png', 850, '--len 1200'),
-    'dmr_mk14':    ('PEO_M14_EBR-rbg.png', 1280, '--len 940'),
+    'dmr_mk14':    ('PEO_M14_EBR-rbg.png', 1280, '--len 960 --rot -9.6'),
     'ar_akm':      ('AKM_automatkarbin_Ryssland_-_7,62x39mm_-_Armémuseum_bothsides_noBG.png', 1280, '--len 880 --crop 0,0,1280,400'),
     'sr_kar98k':   ('Kar_98K_AM021488_noBG.png', 2200, '--len 1110 --crop 0,0,2200,480'),
     'smg_vector':  ('Kriss_Vector_SMG_Realistic.png', 1707, '--len 958 --flip --both --thr 150'),
@@ -30,10 +30,12 @@ REFS = {
     'smg_uzi':     ('Uzimicro.jpg', 1280, '--len 270 --thr 235'),
     'smg_tommy':   ('ThompsonM1A1VWM.jpg', 1146, '--len 813 --thr 170'),
     'smg_mp5k':    ('Hkmp5k.jpg', 480, '--len 325 --flip --thr 235'),
-    'lmg_m249':    ('M249_Automatic_Rifle.jpg', 1280, '--len 1041 --thr 235'),
+    'lmg_m249':    ('M249_Automatic_Rifle.jpg', 1280, '--len 1041 --thr 235 --rot -10.8'),
     'sr_win94':    ('Winchester-94-32spl_noBG.png', 1280, '--len 965'),
     'sg_s1897':    ('WncsterCatMod97trench.jpg', 1280, '--len 1000 --thr 200 --crop 0,0,1280,260'),
     'ar_m416':     ('HK416N.png', 2143, '--len 900'),
+    'pistol_p92':  ('Beretta-92FS.jpg', 1024, '--len 217 --thr 70 --close 5'),
+    'pistol_p1911': ('M1911_and_M1911A1_pistols.JPG', 1024, '--len 216 --flip --crop 0,0,1024,640 --thr 200'),
     'lmg_dp28':    ('Chinese_Type_53.jpg', 1280, '--len 1270 --thr 60'),
 }
 

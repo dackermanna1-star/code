@@ -25,6 +25,7 @@ import { installAI } from '../ai';
 import { installUI } from '../ui';
 import { installArenaWorld, ARENA, SPOTS, POOL } from './charactersArena';
 import { installScriptedBots } from './charactersBots';
+import { installSandboxMocks } from './charactersMocks';
 import type { Character } from '../characters/Character';
 
 async function boot(): Promise<void> {
@@ -66,6 +67,7 @@ async function boot(): Promise<void> {
     start.y = ctx.world.getHeight(start.x, start.z);
   }
   const player = ctx.characters.spawn({ name: 'Player', teamId: 0, isPlayer: true, position: start.clone().setY(start.y + 0.05), yaw: 0 }) as Character;
+  installSandboxMocks(ctx);
   if (!ctx.flags.has('nobots')) installScriptedBots(ctx, start);
 
   // Pointer lock on click (manual play).

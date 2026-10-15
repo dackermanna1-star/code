@@ -57,11 +57,11 @@ export function buildMapRaster(inp: MapRasterInput): Uint8ClampedArray {
       }
       const o = k * 4;
       if (water) {
-        const t = Math.min(1, Math.max(0, depth / 7));
+        const t = Math.min(1, Math.max(0, depth / 9));
         const tt = t * t * (3 - 2 * t);
-        out[o] = 118 + (66 - 118) * tt;
-        out[o + 1] = 160 + (110 - 160) * tt;
-        out[o + 2] = 178 + (142 - 178) * tt;
+        out[o] = 104 + (78 - 104) * tt;
+        out[o + 1] = 148 + (122 - 148) * tt;
+        out[o + 2] = 170 + (152 - 170) * tt;
         out[o + 3] = 255;
         continue;
       }

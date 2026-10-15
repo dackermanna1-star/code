@@ -1,0 +1,17 @@
+<!doctype html><html><head><meta charset="utf-8">
+<script type="importmap">{"imports":{"three":"/repo/node_modules/three/build/three.module.js","three/addons/":"/repo/node_modules/three/examples/jsm/"}}</script>
+</head><body><script type="module">
+// Converts an (ASCII or binary) FBX animation into GLB in the browser (three.js FBXLoader + GLTFExporter).
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+window.convert = async (url) => {
+  const obj = await new FBXLoader().loadAsync(url);
+  obj.traverse((o) => { if (o.isMesh) o.visible = false; });
+  const anims = obj.animations;
+  const glb = await new GLTFExporter().parseAsync(obj, { binary: true, animations: anims, onlyVisible: false });
+  const b = new Uint8Array(glb); let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+  return { b64: btoa(s), names: anims.map((a) => a.name + ':' + a.duration.toFixed(2)) };
+};
+window.ready = true;
+</script></body></html>

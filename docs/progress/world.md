@@ -15,3 +15,13 @@ Owner dirs: `src/world/`, `src/render/`, `sandbox/world*.html`, `src/sandbox/wor
 7. Water, roads, bridges. 8. Post-processing. 9. Map image. 10. Debug + sandbox + validation.
 
 ## Log
+- Layout authored (src/world/layout): 12 named locations, ~265 lots, 58 roads, 5 bridges (2 channel, 3 river),
+  ~620 props, 41 land + 9 water vehicle spawns. Tests: tests/world.layout.test.ts.
+- Terrain generation (src/world/terrain/gen/*) runs in a Web Worker: ~2.5-4 s on a loaded 4-core box
+  (base relief 1.0-1.3 s, classify 0.5-1 s at 4 m, map raster 0.35-0.5 s). Splat/surface/tree/cover grids are 4 m;
+  heights/normals/reserved/roadMask are 2 m.
+- Exactness: tests/world.heightfield.test.ts proves heightAt() == Rapier heightfield raycasts (diagonal (x0,z1)-(x1,z0)).
+- Rendering: CDLOD instanced terrain (1 draw call/pass), procedural layer arrays baked on GPU (asset sets auto-used
+  when public/assets/textures/manifest.json lists them), water (MeshStandardMaterial ext.), roads (one merged ribbon
+  mesh), bridges (merged + colliders), sky dome + PMREM IBL, SunLight with 1-4 cascades (CascadedSunShadow).
+- Pitfalls found: sun disc HDR overflowed half-float (Inf -> NaN black frames) → disc capped; road winding.

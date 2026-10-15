@@ -89,6 +89,11 @@ function nameMap(type) {
     }
     return m;
   }
+  if (type === 'poser') {
+    Object.assign(m, { Hips: 'hip', Spine: 'abdomen', Spine2: 'chest', Neck: 'neck', Head: 'head' });
+    for (const [S, s] of [['Left', 'l'], ['Right', 'r']]) Object.assign(m, { [`${S}Shoulder`]: `${s}Collar`, [`${S}Arm`]: `${s}Shldr`, [`${S}ForeArm`]: `${s}ForeArm`, [`${S}Hand`]: `${s}Hand`, [`${S}UpLeg`]: `${s}Thigh`, [`${S}Leg`]: `${s}Shin`, [`${S}Foot`]: `${s}Foot` });
+    return m;
+  }
   throw new Error('unknown rig type ' + type);
 }
 
@@ -163,7 +168,13 @@ async function getRig(id) {
     const qft = new THREE.Quaternion().setFromRotationMatrix(ft);
     C[n] = SR[n].clone().invert().multiply(qfs).multiply(qft.invert());
   }
-  const hipK = TPOS.Hips.y / SP.Hips.y;
+  // scale = ratio of hip-to-ankle heights (robust to rests whose root is not on the ground)
+  let hipK = (TPOS.Hips.y - TPOS.LeftFoot.y) / (SP.Hips.y - SP.LeftFoot.y);
+  if (def.groundRest) {
+    // rest skeleton floats (e.g. BVH with root at 0): put its ground at y=0 like its animation data
+    const dy = -(SP.LeftFoot.y - TPOS.LeftFoot.y / hipK);
+    for (const k of Object.keys(SP)) SP[k].y += dy;
+  }
   const r = { def, rest, map, restPose, SP, SR, C, hipK, srcCache: new Map() };
   rigCache.set(id, r);
   console.log(`rig ${id}: mapped ${Object.keys(SR).length}/${TN.length - 3} hipsY src=${SP.Hips.y.toFixed(3)} k=${hipK.toFixed(3)}`);
@@ -177,65 +188,44 @@ async function srcFile(rig, file) {
   return s;
 }
 
-// pose of the source at time t: rest TRS overridden by the clip's channels (matched by node name)
+// pose of the source at time t, evaluated in the SOURCE FILE's own hierarchy (its node TRS
+// overridden by its channels). The rig's rest file only supplies the T/A-pose reference.
 function sourceWorld(rig, src, animName, t) {
-  const pose = rig.rest.nodes.map((n) => ({ t: n.t.slice(), r: n.r.slice(), s: n.s.slice() }));
-  // apply rest-anim baseline first (if the rest comes from a clip)
-  if (rig.def.restAnim) rig.restPose.forEach((p, i) => { pose[i] = { t: p.t.slice(), r: p.r.slice(), s: p.s.slice() }; });
+  const pose = src.nodes.map((n) => ({ t: n.t.slice(), r: n.r.slice(), s: n.s.slice() }));
   const a = src.anims[animName];
   for (const ch of a.channels) {
-    const nm = src.nodes[ch.node].name;
-    const i = rig.rest.byName.get(nm);
-    if (i == null) continue;
     const v = sampleCh(ch, t);
-    if (ch.path === 'rotation') pose[i].r = v;
-    else if (ch.path === 'translation') pose[i].t = v;
-    else if (ch.path === 'scale') pose[i].s = v;
+    if (ch.path === 'rotation') pose[ch.node].r = v;
+    else if (ch.path === 'translation') pose[ch.node].t = v;
+    else if (ch.path === 'scale') pose[ch.node].s = v;
   }
-  return worldMats(rig.rest, pose);
+  return worldMats(src, pose);
 }
 import { sampleChannel as sampleCh } from './gltf_anim_lib.mjs';
 
+const SOCKETS = job.sockets ? Object.fromEntries(JSON.parse(fs.readFileSync(job.sockets, 'utf8')).sockets.map((sk) => [sk.name, { p: V(sk.t), q: new THREE.Quaternion().fromArray(sk.r) }])) : {};
+const SOCKET = SOCKETS.socket_weapon_r || null;
 const MIRROR = (n) => n.startsWith('Left') ? 'Right' + n.slice(4) : n.startsWith('Right') ? 'Left' + n.slice(5) : n;
 
 // ---------------- retarget one clip ----------------
-async function retargetClip(spec) {
-  const rig = await getRig(spec.rig);
-  const src = await srcFile(rig, spec.src);
-  const anim = spec.anim || Object.keys(src.anims)[0];
-  if (!src.anims[anim]) throw new Error(`clip ${anim} not in ${spec.src}: ${Object.keys(src.anims).join(',')}`);
-  const dur0 = src.anims[anim].duration;
-  const start = spec.start ?? 0, end = Math.min(spec.end ?? dur0, dur0);
-  let n = Math.max(2, Math.round((end - start) * FPS) + 1);
-  const times = [];
-  for (let i = 0; i < n; i++) times.push(Math.min(end, start + i / FPS));
-  // world rotations + hips pos for each frame (target space)
-  const frames = [];
-  for (const t of times) {
-    const W = sourceWorld(rig, src, anim, t);
-    const world = {};
-    let hips = null;
-    for (const nm of TN) {
-      const sn = rig.map[nm];
-      const i = sn != null ? rig.rest.byName.get(sn) : null;
-      if (i == null || !rig.C[nm]) { world[nm] = null; continue; }
-      const p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
-      W[i].decompose(p, q, s);
-      world[nm] = q.multiply(rig.C[nm]);
-      if (nm === 'Hips') hips = p;
-    }
-    const hp = hips.clone().sub(rig.SP.Hips).multiplyScalar(rig.hipK).add(TPOS.Hips);
-    frames.push({ world, hips: hp });
+const TDIR = Object.fromEntries(TN.map((n) => {
+  // rest direction of each bone (towards its main child), used by pose overrides
+  const kid = { Hips: 'Spine', Spine2: 'Neck', LeftHand: 'LeftHandMiddle1', RightHand: 'RightHandMiddle1', Head: 'HeadTop_End' }[n] || TN.find((c) => TPARENT[c] === n);
+  const d = kid ? TPOS[kid].clone().sub(TPOS[n]).normalize() : new THREE.Vector3(0, 1, 0);
+  return [n, d];
+}));
+const UPPER = new Set(); // Spine1 and everything below it except legs
+function fk(f) {
+  const pos = {}, rot = {};
+  for (const nm of TN) {
+    const par = TPARENT[nm];
+    if (!par) { pos[nm] = f.hips.clone(); rot[nm] = f.local[nm].clone(); continue; }
+    rot[nm] = rot[par].clone().multiply(f.local[nm]);
+    pos[nm] = V(TLOCAL[nm]).applyQuaternion(rot[par]).add(pos[par]);
   }
-  // mirror (swap L/R, reflect across X)
-  if (spec.mirror) {
-    for (const f of frames) {
-      const w2 = {};
-      for (const nm of TN) { const q = f.world[MIRROR(nm)]; w2[nm] = q ? new THREE.Quaternion(q.x, -q.y, -q.z, q.w) : null; }
-      f.world = w2; f.hips.x = -f.hips.x;
-    }
-  }
-  // world -> local (unmapped joints keep identity local)
+  return { pos, rot };
+}
+function toLocal(frames) {
   for (const f of frames) {
     const fullW = {}; f.local = {};
     for (const nm of TN) {
@@ -245,75 +235,367 @@ async function retargetClip(spec) {
       fullW[nm] = w;
       f.local[nm] = pw.clone().invert().multiply(w).normalize();
     }
-    f.fullW = fullW;
+    f.world = fullW;
   }
-  // continuity of quaternion sign
   for (const nm of TN) for (let i = 1; i < frames.length; i++) { const a = frames[i - 1].local[nm], b = frames[i].local[nm]; if (a.dot(b) < 0) b.set(-b.x, -b.y, -b.z, -b.w); }
+}
+function toWorld(frames) {
+  for (const f of frames) { const { rot } = fk(f); f.world = rot; }
+}
+const angle = (a, b) => 2 * Math.acos(Math.min(1, Math.abs(a.dot(b))));
+const MAJOR = ['Hips', 'Spine1', 'Spine2', 'Head', 'LeftArm', 'LeftForeArm', 'RightArm', 'RightForeArm', 'LeftUpLeg', 'LeftLeg', 'LeftFoot', 'RightUpLeg', 'RightLeg', 'RightFoot'];
 
-  const meta = { name: spec.name, duration: +(times[times.length - 1] - times[0]).toFixed(4), loop: !!spec.loop, mode: spec.mode || 'keep', source: spec.source, license: spec.license, src_clip: anim, src_file: path.basename(spec.src) };
-  // ---- root motion measure / strip (in target meters) ----
-  const T = meta.duration;
+// sample the source and return target-space frames {world:{bone:quat}, hips:Vector3}
+async function sampleFrames(spec) {
+  const rig = await getRig(spec.rig);
+  const src = await srcFile(rig, spec.src);
+  const anim = spec.anim || Object.keys(src.anims)[0];
+  if (!src.anims[anim]) throw new Error(`clip ${anim} not in ${spec.src}: ${Object.keys(src.anims).join(',')}`);
+  const dur0 = src.anims[anim].duration;
+  const ts = spec.timeScale || 1;
+  const start = spec.start ?? src.anims[anim].start, end = Math.min(spec.end ?? dur0, dur0);
+  const n = Math.max(2, Math.round((end - start) / ts * FPS) + 1);
+  const times = [];
+  for (let i = 0; i < n; i++) times.push(i / FPS);
+  const frames = [];
+  for (const t of times) {
+    const W = sourceWorld(rig, src, anim, Math.min(end, start + t * ts));
+    const world = {};
+    let hips = null;
+    for (const nm of TN) {
+      const sn = rig.map[nm];
+      const i = sn != null ? src.byName.get(sn) : null;
+      if (i == null || !rig.C[nm]) { world[nm] = null; continue; }
+      const p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
+      W[i].decompose(p, q, s);
+      world[nm] = q.multiply(rig.C[nm]);
+      if (nm === 'Hips') hips = p.multiplyScalar(rig.def.posScale || 1);
+    }
+    const hp = hips.clone().sub(rig.SP.Hips).multiplyScalar(rig.hipK).add(TPOS.Hips);
+    frames.push({ world, hips: hp });
+  }
+  if (spec.mirror) {
+    for (const f of frames) {
+      const w2 = {};
+      for (const nm of TN) { const q = f.world[MIRROR(nm)]; w2[nm] = q ? new THREE.Quaternion(q.x, -q.y, -q.z, q.w) : null; }
+      f.world = w2; f.hips.x = -f.hips.x;
+    }
+  }
+  if (spec.alignYaw) {
+    // rotate the whole clip about Y so the hips face +Z (at frame `alignYaw.frame`, default 0)
+    const f0 = frames[spec.alignYaw.frame ?? 0];
+    let yaw;
+    if (spec.alignYaw.mode === 'motion') { const d = frames[frames.length - 1].hips.clone().sub(f0.hips); yaw = Math.atan2(d.x, d.z); }
+    else { const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(f0.world.Hips); yaw = Math.atan2(fwd.x, fwd.z); }
+    yaw += (spec.alignYaw.offset || 0) * Math.PI / 180;
+    const R = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -yaw);
+    const c = f0.hips.clone();
+    for (const f of frames) {
+      for (const nm of TN) if (f.world[nm]) f.world[nm] = R.clone().multiply(f.world[nm]);
+      const d = f.hips.clone().sub(c); d.y = 0; d.applyQuaternion(R);
+      f.hips.x = c.x + d.x; f.hips.z = c.z + d.z;
+    }
+  }
+  toLocal(frames);
+  return { frames, times, anim, rig };
+}
+
+// estimate ground speed from the planted foot (works for in-place sources)
+function footSpeed(frames) {
+  const P = frames.map((f) => fk(f).pos);
+  const feet = ['LeftFoot', 'RightFoot', 'LeftToeBase', 'RightToeBase'];
+  let minY = Infinity; for (const p of P) for (const k of feet) minY = Math.min(minY, p[k].y);
+  const vx = [], vz = [];
+  for (let i = 1; i < P.length; i++) {
+    // planted joint = lowest of the 4 in this frame (and the previous)
+    let best = null, by = Infinity;
+    for (const k of feet) { const y = Math.max(P[i][k].y, P[i - 1][k].y); if (y < by) { by = y; best = k; } }
+    if (by - minY > 0.035) continue;
+    const dy = Math.abs(P[i][best].y - P[i - 1][best].y);
+    if (dy > 0.01) continue;
+    vx.push((P[i][best].x - P[i - 1][best].x) * FPS); vz.push((P[i][best].z - P[i - 1][best].z) * FPS);
+  }
+  if (vx.length < 3) return null;
+  const med = (a) => { const b = a.slice().sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
+  const x = -med(vx), z = -med(vz);
+  return { speed: Math.hypot(x, z), dir: [x, z], samples: vx.length };
+}
+
+async function retargetClip(spec) {
+  const { frames, times, anim } = await sampleFrames(spec);
+  // ---- layering: upper body (from `upper.root` down, excluding legs) from another clip ----
+  if (spec.upper && spec.upper.roots) {
+    // local override: descendants of each root (inclusive) take LOCAL rotations from the other clip
+    const up = await sampleFrames({ ...spec.upper });
+    const under = (nm) => { for (let n = nm; n; n = TPARENT[n]) if (spec.upper.roots.includes(n)) return true; return false; };
+    const w = spec.upper.weight ?? 1;
+    for (let i = 0; i < frames.length; i++) {
+      const u = up.frames[Math.min(up.frames.length - 1, spec.upper.frame != null ? spec.upper.frame : i % up.frames.length)];
+      for (const nm of TN) if (under(nm)) frames[i].local[nm] = w >= 1 ? u.local[nm].clone() : frames[i].local[nm].clone().slerp(u.local[nm], w);
+    }
+    toWorld(frames); toLocal(frames);
+  } else if (spec.upper) {
+    const up = await sampleFrames({ ...spec.upper, mirror: spec.upper.mirror });
+    const root = spec.upper.root || 'Spine1';
+    const isUpper = (nm) => { for (let n = nm; n; n = TPARENT[n]) if (n === root) return true; return false; };
+    const blendSpine = spec.upper.spineBlend ?? true;
+    for (let i = 0; i < frames.length; i++) {
+      const f = frames[i], u = up.frames[Math.min(up.frames.length - 1, spec.upper.loop === false ? i : i % up.frames.length)];
+      // world-stabilised: the upper root keeps the upper clip's WORLD rotation (aim stays level);
+      // the correction is spread over the spine chain below it
+      const wantRoot = u.world[root].clone();
+      if (spec.upper.yawFromBase) {
+        // keep base pelvis yaw
+      }
+      const curRoot = f.world[root].clone();
+      const corr = wantRoot.clone().multiply(curRoot.clone().invert());
+      const chain = []; for (let n = TPARENT[root]; n && n !== 'Hips'; n = TPARENT[n]) chain.unshift(n);
+      chain.push(root);
+      // apply fractions of corr cumulatively along the chain (in world space)
+      const k = chain.length;
+      for (let c = 0; c < k; c++) {
+        const frac = blendSpine ? (c + 1) / k : (c === k - 1 ? 1 : 0);
+        const q = new THREE.Quaternion().slerp(corr, frac);
+        f.world[chain[c]] = q.multiply(f.world[chain[c]]);
+      }
+      // descendants of root: take upper-clip local rotations
+      const nw = { ...f.world };
+      for (const nm of TN) {
+        if (nm === root || !isUpper(nm)) continue;
+        nw[nm] = nw[TPARENT[nm]].clone().multiply(u.local[nm]);
+      }
+      // re-derive world for non-upper bones below modified spine (none: legs hang off Hips)
+      f.world = nw;
+    }
+    toLocal(frames);
+  }
+  // ---- pose overrides (character-space) ----
+  if (spec.pose) {
+    for (const f of frames) {
+      for (const [bone, o] of Object.entries(spec.pose)) {
+        let q;
+        if (o.aim) {
+          q = new THREE.Quaternion().setFromUnitVectors(TDIR[bone], V(o.aim).normalize());
+          if (o.twist) q = new THREE.Quaternion().setFromAxisAngle(V(o.aim).normalize(), o.twist * Math.PI / 180).multiply(q);
+        } else if (o.euler) q = new THREE.Quaternion().setFromEuler(new THREE.Euler(...o.euler.map((d) => d * Math.PI / 180), 'XYZ'));
+        else if (o.relEuler) { q = new THREE.Quaternion().setFromEuler(new THREE.Euler(...o.relEuler.map((d) => d * Math.PI / 180), 'XYZ')).multiply(f.world[bone]); }
+        if (o.weight != null && o.weight < 1) q = f.world[bone].clone().slerp(q, o.weight);
+        f.world[bone] = q;
+        if (o.keepChildren) { /* children keep their world rotation: handled by toLocal */ }
+      }
+    }
+    // pose overrides are world rotations for listed bones; unlisted children keep their LOCAL rotation
+    for (const f of frames) {
+      const listed = new Set(Object.keys(spec.pose));
+      const nw = {};
+      for (const nm of TN) {
+        const par = TPARENT[nm];
+        if (listed.has(nm) || !par) nw[nm] = f.world[nm];
+        else nw[nm] = nw[par].clone().multiply(f.local[nm]);
+      }
+      f.world = nw;
+    }
+    toLocal(frames);
+  }
+  if (spec.rootRot) {
+    const R = new THREE.Quaternion().setFromEuler(new THREE.Euler(...spec.rootRot.map((d) => d * Math.PI / 180), 'XYZ'));
+    for (const f of frames) f.local.Hips = R.clone().multiply(f.local.Hips);
+  }
+
+  const meta = { name: spec.name, loop: !!spec.loop, mode: spec.mode || 'keep', source: spec.source, license: spec.license, src_clip: anim, src_file: path.basename(spec.src) };
+  if (spec.notes) meta.notes = spec.notes;
+  // ---- auto loop: find the [start,end] window whose end pose best matches its start pose ----
+  if (spec.autoLoop && frames.length > 10) {
+    const N = frames.length;
+    const minLen = Math.floor(N * (spec.autoLoop.min ?? 0.4));
+    const maxStart = Math.floor(N * (spec.autoLoop.maxStart ?? 0.35));
+    const err = (a, b) => {
+      let e = 0;
+      for (const nm of MAJOR) e += angle(frames[a].local[nm], frames[b].local[nm]);
+      e += Math.abs(frames[a].hips.y - frames[b].hips.y) * 10;
+      // velocity match (next-frame deltas)
+      if (a + 1 < N && b + 1 < N) for (const nm of ['LeftUpLeg', 'RightUpLeg', 'LeftLeg', 'RightLeg']) e += 0.5 * Math.abs(angle(frames[a].local[nm], frames[a + 1].local[nm]) - angle(frames[b].local[nm], frames[b + 1].local[nm])) * 10;
+      return e;
+    };
+    let best = [0, N - 1], bestErr = err(0, N - 1);
+    for (let a = 0; a <= maxStart; a++) for (let b = a + minLen; b < N; b++) {
+      const e = err(a, b) - (b - a) / N * 0.02; // tiny preference for longer windows
+      if (e < bestErr) { bestErr = e; best = [a, b]; }
+    }
+    const [a, b] = best;
+    frames.splice(b + 1); frames.splice(0, a);
+    times.length = frames.length; for (let i = 0; i < times.length; i++) times[i] = i / FPS;
+    meta.auto_loop = { start_frame: a, end_frame: b, err: +bestErr.toFixed(3) };
+  }
+  // ---- loop closure: sources that omit the closing frame (end pose == pose one frame before start) ----
+  if (spec.loop && frames.length > 4 && spec.mode !== 'static') {
+    const N = frames.length - 1;
+    const d = (a, b) => MAJOR.reduce((acc, nm) => acc + angle(frames[a].local[nm], frames[b].local[nm]), 0);
+    let step = 0; for (let i = 0; i < N; i++) step += d(i, i + 1); step /= N;
+    const gap = d(N, 0);
+    if (gap > 0.35 * step && gap < 2.0 * step) {
+      // append a copy of frame 0 one frame later (hips continue at the clip's mean velocity)
+      const v = frames[N].hips.clone().sub(frames[0].hips).multiplyScalar(1 / N);
+      const f0 = frames[0];
+      const nf = { hips: f0.hips.clone(), local: Object.fromEntries(TN.map((n) => [n, f0.local[n].clone()])) };
+      nf.hips.copy(frames[N].hips.clone().add(v)).setY(f0.hips.y);
+      frames.push(nf); times.push(times[N] + 1 / FPS);
+      meta.loop_closed = true;
+    }
+  }
+  // ---- aim fix: rotate the spine so the weapon (socket_weapon_r +Z) points exactly forward & level ----
+  // ---- static pose: pick the frame now (before aim fix / ground) ----
+  const SOCK = SOCKETS[spec.socket || 'socket_weapon_r'];
+  if (spec.mode === 'static') {
+    let hf = spec.holdFrame ?? 0;
+    if (typeof hf === 'string' && hf.endsWith('%')) hf = Math.round(parseFloat(hf) / 100 * (frames.length - 1));
+    if (spec.pickFrame && SOCK) {
+      let best = -Infinity;
+      frames.forEach((f, i) => { const { rot } = fk(f); const d = new THREE.Vector3(0, 0, 1).applyQuaternion(rot.RightHand.clone().multiply(SOCK.q)); const v = spec.pickFrame === 'maxPitch' ? d.y : -d.y; if (v > best) { best = v; hf = i; } });
+      meta.picked_frame = hf;
+    }
+    if (spec.aimFix && spec.aimFix.yawFromLevel && SOCK) {
+      // yaw correction measured on the most level frame of the source (barrel yaw is ill-defined near vertical)
+      let bi = 0, bp = Infinity;
+      frames.forEach((f, i) => { const { rot } = fk(f); const d = new THREE.Vector3(0, 0, 1).applyQuaternion(rot.RightHand.clone().multiply(SOCK.q)); if (Math.abs(d.y) < bp) { bp = Math.abs(d.y); bi = i; } });
+      const { rot } = fk(frames[bi]); const d = new THREE.Vector3(0, 0, 1).applyQuaternion(rot.RightHand.clone().multiply(SOCK.q));
+      spec = { ...spec, aimFix: { ...spec.aimFix, fixedYaw: Math.atan2(d.x, d.z) } };
+    }
+    const keep = frames[Math.min(frames.length - 1, hf)];
+    frames.length = 0; frames.push(keep); times.length = 0; times.push(0);
+  }
+  if (spec.aimFix && SOCK) {
+    const target = spec.aimFix.dir ? V(spec.aimFix.dir).normalize() : new THREE.Vector3(0, 0, 1);
+    for (let iter = 0; iter < 3; iter++) {
+      let yaw = 0, pitch = 0;
+      for (const f of frames) {
+        const { rot } = fk(f);
+        const d = new THREE.Vector3(0, 0, 1).applyQuaternion(rot.RightHand.clone().multiply(SOCK.q));
+        yaw += Math.atan2(d.x, d.z) - Math.atan2(target.x, target.z);
+        pitch += Math.asin(Math.max(-1, Math.min(1, d.y))) - Math.asin(target.y);
+      }
+      yaw /= frames.length; pitch /= frames.length;
+      if (spec.aimFix.pitch === false) pitch = 0;
+      if (spec.aimFix.fixedYaw != null) yaw = iter === 0 ? spec.aimFix.fixedYaw : 0;
+      if (iter === 0) meta.aim_fix_deg = { yaw: +(-yaw * 180 / Math.PI).toFixed(1), pitch: +(-pitch * 180 / Math.PI).toFixed(1) };
+      const yawChain = spec.aimFix.yawChain || ['Hips'];
+      const pitchChain = spec.aimFix.pitchChain || ['Spine', 'Spine1', 'Spine2'];
+      for (const f of frames) {
+        toWorld([f]);
+        const ry = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -yaw / yawChain.length);
+        const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(f.world.Spine2); fwd.y = 0; fwd.normalize();
+        const lat = new THREE.Vector3(0, 1, 0).cross(fwd).normalize();
+        const rp = new THREE.Quaternion().setFromAxisAngle(lat, pitch / pitchChain.length);
+        const nw = {};
+        for (const nm of TN) {
+          const par = TPARENT[nm];
+          nw[nm] = par ? nw[par].clone().multiply(f.local[nm]) : f.world[nm].clone();
+          if (yawChain.includes(nm)) nw[nm] = ry.clone().multiply(nw[nm]);
+          if (pitchChain.includes(nm)) nw[nm] = rp.clone().multiply(nw[nm]);
+        }
+        f.world = nw; toLocal([f]);
+      }
+    }
+    for (const nm of TN) for (let i = 1; i < frames.length; i++) { const a = frames[i - 1].local[nm], b = frames[i].local[nm]; if (a.dot(b) < 0) b.set(-b.x, -b.y, -b.z, -b.w); }
+  }
+  const T = times[times.length - 1];
+  meta.duration = +T.toFixed(4);
+  // ---- root motion measure / strip ----
   const p0 = frames[0].hips.clone(), p1 = frames[frames.length - 1].hips.clone();
   const D = new THREE.Vector3(p1.x - p0.x, 0, p1.z - p0.z);
   if (spec.mode === 'loco') {
-    meta.speed_mps = +(D.length() / T).toFixed(3);
-    meta.move_dir = [+(D.x / (D.length() || 1)).toFixed(3), +(D.z / (D.length() || 1)).toFixed(3)];
-    const res = frames.map((f, i) => { const tt = i / FPS; return new THREE.Vector3(f.hips.x - p0.x - D.x * tt / T, 0, f.hips.z - p0.z - D.z * tt / T); });
+    const fsd = footSpeed(frames);
+    const rootSpeed = D.length() / T;
+    if (rootSpeed > 0.05) {
+      meta.speed_mps = +rootSpeed.toFixed(3);
+      meta.move_dir = [+(-D.x / D.length()).toFixed(3) || 0, +(D.z / D.length()).toFixed(3) || 0]; // [right, forward]
+      meta.speed_source = 'root_motion';
+      if (fsd) meta.foot_speed_mps = +fsd.speed.toFixed(3);
+    } else if (fsd) {
+      meta.speed_mps = +fsd.speed.toFixed(3);
+      meta.move_dir = [+(-fsd.dir[0] / fsd.speed).toFixed(3) || 0, +(fsd.dir[1] / fsd.speed).toFixed(3) || 0]; // [right, forward]
+      meta.speed_source = 'planted_foot';
+    }
+    if (spec.speedOverride) { meta.speed_mps = spec.speedOverride; meta.speed_source = 'manual'; }
+    const res = frames.map((f, i) => { const tt = times[i]; return new THREE.Vector3(f.hips.x - p0.x - D.x * tt / T, 0, f.hips.z - p0.z - D.z * tt / T); });
     const mean = res.reduce((a, v) => a.add(v), new THREE.Vector3()).multiplyScalar(1 / res.length);
     frames.forEach((f, i) => { f.hips.x = TPOS.Hips.x + res[i].x - mean.x; f.hips.z = TPOS.Hips.z + res[i].z - mean.z; });
   } else if (spec.mode === 'oneshot') {
-    meta.root_displacement = [+D.x.toFixed(3), +D.z.toFixed(3)];
     frames.forEach((f) => { f.hips.x = TPOS.Hips.x + f.hips.x - p0.x; f.hips.z = TPOS.Hips.z + f.hips.z - p0.z; });
-  } else if (spec.mode === 'inplace') {
-    // remove all horizontal hips motion except the oscillation around the mean
+  } else if (spec.mode === 'inplace' || spec.mode === 'static') {
     const mx = frames.reduce((a, f) => a + f.hips.x, 0) / frames.length, mz = frames.reduce((a, f) => a + f.hips.z, 0) / frames.length;
     frames.forEach((f) => { f.hips.x = TPOS.Hips.x + f.hips.x - mx; f.hips.z = TPOS.Hips.z + f.hips.z - mz; });
   }
   if (spec.hipsOffset) frames.forEach((f) => { f.hips.add(V(spec.hipsOffset)); });
-  // ---- ground correction: keep the lowest foot at the rest foot height ----
+  // ---- ground correction: put the lowest foot contact at the rest toe height ----
   if (spec.ground) {
     const footY = (f) => {
-      // compute joint world positions by FK from locals
-      const pos = {}; const rot = {};
-      for (const nm of TN) {
-        const par = TPARENT[nm];
-        if (!par) { pos[nm] = f.hips.clone(); rot[nm] = f.local[nm].clone(); continue; }
-        rot[nm] = rot[par].clone().multiply(f.local[nm]);
-        pos[nm] = V(TLOCAL[nm]).applyQuaternion(rot[par]).add(pos[par]);
-      }
-      return Math.min(pos.LeftToeBase.y, pos.RightToeBase.y, pos.LeftFoot.y - (TPOS.LeftFoot.y - TPOS.LeftToeBase.y), pos.RightFoot.y - (TPOS.RightFoot.y - TPOS.LeftToeBase.y));
+      const { pos } = fk(f);
+      const toeH = TPOS.LeftToeBase.y, heel = TPOS.LeftFoot.y;
+      return Math.min(pos.LeftToeBase.y - toeH, pos.RightToeBase.y - toeH, pos.LeftFoot.y - heel, pos.RightFoot.y - heel);
     };
     const ys = frames.map(footY).sort((a, b) => a - b);
-    const low = ys[Math.floor(ys.length * 0.1)];
-    const off = TPOS.LeftToeBase.y - low;
+    const low = ys[Math.floor(ys.length * (spec.groundPct ?? 0.1))];
+    const off = -low;
     meta.ground_offset = +off.toFixed(3);
     if (Math.abs(off) > 0.003) frames.forEach((f) => { f.hips.y += off; });
   }
-  // ---- static pose: hold a single frame ----
-  if (spec.mode === 'static' || spec.hold) {
-    const f = frames[spec.holdFrame ?? 0];
+  // ---- static pose ----
+  if (spec.mode === 'static') {
+    const f = frames[0];
     const hold = spec.hold || 1;
-    frames.length = 0; frames.push(f, f);
-    times.length = 0; times.push(0, hold);
+    frames.length = 0; times.length = 0;
+    const nf = spec.osc ? Math.round(hold * FPS) + 1 : 2;
+    for (let i = 0; i < nf; i++) { frames.push({ hips: f.hips.clone(), local: Object.fromEntries(TN.map((n) => [n, f.local[n].clone()])) }); times.push(i * hold / (nf - 1)); }
     meta.duration = hold;
   }
-  // ---- loop fix: distribute end->start mismatch over the clip ----
+  // ---- procedural oscillation (breathing / sway / flutter) ----
+  if (spec.osc) {
+    const T0 = times[times.length - 1];
+    for (let i = 0; i < frames.length; i++) {
+      const f = frames[i]; toWorld([f]);
+      const listed = {};
+      for (const o of spec.osc) {
+        const per = o.period || T0;
+        const ang = (o.deg * Math.PI / 180) * Math.sin(2 * Math.PI * (times[i] / per + (o.phase || 0)));
+        const q = new THREE.Quaternion().setFromAxisAngle(V(o.axis).normalize(), ang);
+        for (const b of o.bones) listed[b] = listed[b] ? q.clone().multiply(listed[b]) : q.clone();
+      }
+      const nw = {};
+      for (const nm of TN) {
+        const par = TPARENT[nm];
+        nw[nm] = par ? nw[par].clone().multiply(f.local[nm]) : f.world[nm].clone();
+        if (listed[nm]) nw[nm] = listed[nm].clone().multiply(nw[nm]);
+      }
+      if (spec.oscHips) f.hips.y += spec.oscHips * Math.sin(2 * Math.PI * times[i] / (spec.osc[0].period || T0));
+      f.world = nw; toLocal([f]);
+    }
+    for (const nm of TN) for (let i = 1; i < frames.length; i++) { const a = frames[i - 1].local[nm], b = frames[i].local[nm]; if (a.dot(b) < 0) b.set(-b.x, -b.y, -b.z, -b.w); }
+  }
+  // ---- loop fix ----
   if (spec.loop && spec.fixLoop !== false && frames.length > 2) {
     const N = frames.length - 1;
     let maxAng = 0;
     for (const nm of TN) {
       const a = frames[0].local[nm], b = frames[N].local[nm];
       const diff = a.clone().multiply(b.clone().invert());
-      const ang = 2 * Math.acos(Math.min(1, Math.abs(diff.w)));
-      maxAng = Math.max(maxAng, ang);
+      const ang = angle(a, b);
+      if (ang > maxAng) { maxAng = ang; meta.loop_fix_bone = nm; }
       if (ang < 1e-4) continue;
-      for (let i = 0; i <= N; i++) { const q = new THREE.Quaternion().slerp(diff, i / N); frames[i].local[nm] = q.multiply(frames[i].local[nm]).normalize(); }
+      for (let i = 0; i <= N; i++) { const q = new THREE.Quaternion().slerp(diff, times[i] / times[N]); frames[i].local[nm] = q.multiply(frames[i].local[nm]).normalize(); }
     }
     const dh = frames[0].hips.clone().sub(frames[N].hips);
-    for (let i = 0; i <= N; i++) frames[i].hips.addScaledVector(dh, i / N);
+    for (let i = 0; i <= N; i++) frames[i].hips.addScaledVector(dh, times[i] / times[N]);
     meta.loop_fix_deg = +(maxAng * 180 / Math.PI).toFixed(2);
   }
-  return { meta, times: times.map((t) => t - times[0]), frames };
+  // ---- summary heights (useful for seats / water line) ----
+  {
+    let hy = 0, hd = 0;
+    for (const f of frames) { const { pos } = fk(f); hy += pos.Hips.y; hd += pos.Head.y; }
+    meta.hips_y_mean = +(hy / frames.length).toFixed(3); meta.head_y_mean = +(hd / frames.length).toFixed(3);
+    if (spec.mode === 'oneshot') { const a = frames[0].hips, b = frames[frames.length - 1].hips; meta.root_displacement = { right: +(a.x - b.x).toFixed(3) || 0, up: +(b.y - a.y).toFixed(3) || 0, forward: +(b.z - a.z).toFixed(3) || 0 }; }
+  }
+  return { meta, times, frames };
 }
 
 // ---------------- write output ----------------
@@ -354,9 +636,11 @@ for (const [out, specs] of Object.entries(job.outputs)) {
     const hs = doc.createAnimationSampler().setInput(input).setOutput(hout).setInterpolation('LINEAR');
     anim.addSampler(hs).addChannel(doc.createAnimationChannel().setTargetNode(nodes.Hips).setTargetPath('translation').setSampler(hs));
     meta.file = path.basename(out);
-    anim.setExtras({ loop: meta.loop, speed_mps: meta.speed_mps ?? null, mode: meta.mode });
+    const ex = { loop: meta.loop, mode: meta.mode, duration: meta.duration };
+    for (const k of ['speed_mps', 'move_dir', 'root_displacement', 'hips_y_mean', 'head_y_mean', 'aim_fix_deg', 'notes']) if (meta[k] != null) ex[k] = meta[k];
+    anim.setExtras(ex);
     metas[spec.name] = meta;
-    console.log(`  ${spec.name.padEnd(22)} dur=${meta.duration.toFixed(2)} ${meta.speed_mps != null ? 'v=' + meta.speed_mps + ' dir=' + meta.move_dir : ''} ${meta.loop_fix_deg != null ? 'loopfix=' + meta.loop_fix_deg : ''} ${meta.ground_offset != null ? 'ground=' + meta.ground_offset : ''}`);
+    console.log(`  ${spec.name.padEnd(22)} dur=${meta.duration.toFixed(2)} ${meta.speed_mps != null ? 'v=' + meta.speed_mps + ' dir=' + meta.move_dir : ''} ${meta.loop_fix_deg != null ? 'loopfix=' + meta.loop_fix_deg + '(' + meta.loop_fix_bone + ')' : ''} ${meta.ground_offset != null ? 'ground=' + meta.ground_offset : ''}`);
   }
   await doc.transform(resample({ tolerance: job.tolerance ?? 1e-4 }), dedup(), prune({ keepLeaves: true }));
   if (!job.noMeshopt) await doc.transform(meshopt({ encoder: MeshoptEncoder, level: 'medium' }));

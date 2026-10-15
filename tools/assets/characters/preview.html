@@ -57,6 +57,27 @@ for (let i = 0; i < cfg.tiles.length; i++) {
   if (t.rotY) model.rotation.y = t.rotY;
   scene.add(model);
   if (t.skeleton) { const h = new THREE.SkeletonHelper(model); scene.add(h); }
+  if (t.weapon) {
+    // proxy weapon on the right-hand socket (origin = grip, +Z = barrel, +Y = up)
+    let hand = null; model.traverse((o) => { if (o.name === (t.weaponBone || 'RightHand')) hand = o; });
+    let sock = null; model.traverse((o) => { if (o.name === (t.socketName || 'socket_weapon_r')) sock = o; });
+    if (!sock && cfg.socket) { sock = new THREE.Object3D(); sock.position.fromArray(cfg.socket.t); sock.quaternion.fromArray(cfg.socket.r); hand.add(sock); }
+    const mat = new THREE.MeshStandardMaterial({ color: 0x2a2c2e, roughness: 0.5, metalness: 0.4 });
+    const g = new THREE.Group();
+    const box = (w, h, d, x, y, z, rx = 0) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); m.rotation.x = rx; m.castShadow = true; g.add(m); };
+    if (t.weapon === 'pistol') {
+      box(0.03, 0.11, 0.04, 0, -0.01, 0, -0.3); box(0.03, 0.035, 0.19, 0, 0.06, 0.05);
+    } else {
+      box(0.03, 0.11, 0.045, 0, -0.01, 0, -0.35);            // pistol grip
+      box(0.05, 0.08, 0.42, 0, 0.07, 0.13);                   // receiver
+      box(0.05, 0.06, 0.28, 0, 0.06, 0.48);                   // handguard
+      box(0.02, 0.02, 0.3, 0, 0.08, 0.76);                    // barrel
+      box(0.04, 0.12, 0.26, 0, 0.03, -0.21);                  // stock
+      box(0.03, 0.14, 0.06, 0, -0.04, 0.2, 0.25);             // magazine
+      const s = new THREE.Mesh(new THREE.SphereGeometry(0.015), new THREE.MeshBasicMaterial({ color: 0xff2020 })); s.position.set(0, 0.0, cfg.supportZ || 0.35); g.add(s);
+    }
+    sock.add(g);
+  }
   let clipInfo = null;
   if (t.anim && t.clip) {
     const ag = await load(t.anim);

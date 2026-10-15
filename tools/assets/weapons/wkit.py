@@ -113,6 +113,11 @@ def _shrink(loops, bevel):
     while b > 0.08:
         sh = poly.buffer(-b, join_style=2, mitre_limit=2.5)
         if not sh.is_empty:
+            # round off acute convex corners: curve bevels spike at very sharp angles
+            r = min(0.8, b * 0.5)
+            sh2 = sh.buffer(-r, join_style=1, quad_segs=3).buffer(r, join_style=1, quad_segs=3)
+            if not sh2.is_empty and sh2.area > 0.8 * sh.area:
+                sh = sh2
             nc = 1 if sh.geom_type == 'Polygon' else len([g for g in sh.geoms if g.area > 0.5])
             if nc == ncomp and sh.area > 0.25 * poly.area:
                 out = []
@@ -239,19 +244,19 @@ def srgb(h):
 
 KINDS = {
     # base colour, variation colour, metal, rough, rough var, wear colour, wear amount, pattern, bump
-    'park':     dict(base='#2e2f30', var='#3a3a38', metal=0.55, rough=0.62, rvar=0.12, wear='#8d8f92', wear_amt=0.8, wear_rough=0.32, pat='fine', bump=0.25),
-    'blued':    dict(base='#1d2024', var='#2a2b2e', metal=0.85, rough=0.36, rvar=0.10, wear='#a7a9ac', wear_amt=1.0, wear_rough=0.25, pat='fine', bump=0.15),
+    'park':     dict(base='#37383a', var='#2b2c2e', metal=0.55, rough=0.62, rvar=0.12, wear='#8d8f92', wear_amt=0.8, wear_rough=0.32, pat='fine', bump=0.25),
+    'blued':    dict(base='#22262b', var='#30333a', metal=0.85, rough=0.36, rvar=0.10, wear='#a7a9ac', wear_amt=1.0, wear_rough=0.25, pat='fine', bump=0.15),
     'steel':    dict(base='#5c5e61', var='#4c4d4f', metal=1.0, rough=0.38, rvar=0.10, wear='#a2a4a7', wear_amt=0.5, wear_rough=0.25, pat='brushed', bump=0.15),
     'bright':   dict(base='#9a9b9c', var='#86888a', metal=1.0, rough=0.28, rvar=0.08, wear='#c4c5c6', wear_amt=0.3, wear_rough=0.2, pat='brushed', bump=0.1),
-    'anod':     dict(base='#1b1c1d', var='#242526', metal=0.6, rough=0.48, rvar=0.10, wear='#9fa2a6', wear_amt=0.7, wear_rough=0.3, pat='fine', bump=0.15),
+    'anod':     dict(base='#232426', var='#2c2d30', metal=0.6, rough=0.48, rvar=0.10, wear='#9fa2a6', wear_amt=0.7, wear_rough=0.3, pat='fine', bump=0.15),
     'anod_tan': dict(base='#7b6a50', var='#6c5c44', metal=0.3, rough=0.55, rvar=0.10, wear='#9fa2a6', wear_amt=0.6, wear_rough=0.3, pat='fine', bump=0.15),
-    'poly':     dict(base='#1d1d1e', var='#262627', metal=0.0, rough=0.62, rvar=0.10, wear='#3c3c3d', wear_amt=0.5, wear_rough=0.5, pat='stipple', bump=0.35),
+    'poly':     dict(base='#232324', var='#2c2c2d', metal=0.0, rough=0.62, rvar=0.10, wear='#3c3c3d', wear_amt=0.5, wear_rough=0.5, pat='stipple', bump=0.35),
     'poly_tan': dict(base='#8a7556', var='#7a6649', metal=0.0, rough=0.66, rvar=0.10, wear='#a99678', wear_amt=0.5, wear_rough=0.55, pat='stipple', bump=0.35),
     'poly_od':  dict(base='#4d5139', var='#434631', metal=0.0, rough=0.66, rvar=0.10, wear='#6d7158', wear_amt=0.5, wear_rough=0.55, pat='stipple', bump=0.35),
     'rubber':   dict(base='#161616', var='#1e1e1e', metal=0.0, rough=0.85, rvar=0.06, wear='#262626', wear_amt=0.3, wear_rough=0.8, pat='stipple', bump=0.5),
-    'wood':     dict(base='#5a2f17', var='#7a4523', metal=0.0, rough=0.5, rvar=0.12, wear='#8a5a33', wear_amt=0.6, wear_rough=0.6, pat='wood', bump=0.3),
-    'wood_red': dict(base='#5e2312', var='#86381c', metal=0.0, rough=0.38, rvar=0.10, wear='#a0603a', wear_amt=0.6, wear_rough=0.55, pat='wood', bump=0.25),
-    'wood_light': dict(base='#7a4a26', var='#a06a3a', metal=0.0, rough=0.5, rvar=0.12, wear='#b58757', wear_amt=0.5, wear_rough=0.6, pat='wood', bump=0.3),
+    'wood':     dict(base='#4a2b17', var='#6b4325', metal=0.0, rough=0.5, rvar=0.12, wear='#8a5a33', wear_amt=0.6, wear_rough=0.6, pat='wood', bump=0.3),
+    'wood_red': dict(base='#4f2213', var='#70331c', metal=0.0, rough=0.38, rvar=0.10, wear='#a0603a', wear_amt=0.6, wear_rough=0.55, pat='wood', bump=0.25),
+    'wood_light': dict(base='#6e4626', var='#8e6136', metal=0.0, rough=0.5, rvar=0.12, wear='#b58757', wear_amt=0.5, wear_rough=0.6, pat='wood', bump=0.3),
     'bakelite': dict(base='#4a1d12', var='#5e2a18', metal=0.0, rough=0.42, rvar=0.10, wear='#6a3a28', wear_amt=0.5, wear_rough=0.5, pat='fine', bump=0.15),
     'park_light': dict(base='#45474a', var='#3c3e40', metal=0.6, rough=0.55, rvar=0.12, wear='#9a9ca0', wear_amt=0.8, wear_rough=0.3, pat='fine', bump=0.2),
     'brass':    dict(base='#b08a45', var='#9a7535', metal=1.0, rough=0.3, rvar=0.10, wear='#d0b070', wear_amt=0.3, wear_rough=0.2, pat='none', bump=0.05),
@@ -342,7 +347,11 @@ def make_kind_material(kind, mask_img):
     geo = nb.n('ShaderNodeNewGeometry')
     dot = nb.n('ShaderNodeVectorMath', operation='DOT_PRODUCT')
     nb.link(bev.outputs['Normal'], dot.inputs[0]); nb.link(geo.outputs['Normal'], dot.inputs[1])
-    edge_live = nb.ramp(nb.math('SUBTRACT', 1.0, dot.outputs['Value']), 0.004, 0.08)
+    edge_bev = nb.ramp(nb.math('SUBTRACT', 1.0, dot.outputs['Value']), 0.004, 0.08)
+    aoi = nb.n('ShaderNodeAmbientOcclusion'); aoi.samples = 16; aoi.inside = True; aoi.only_local = True
+    aoi.inputs['Distance'].default_value = 0.003
+    edge_ao = nb.ramp(nb.math('SUBTRACT', 1.0, aoi.outputs['AO']), 0.22, 0.65)
+    edge_live = nb.math('MAXIMUM', edge_bev, edge_ao)
     ao = nb.n('ShaderNodeAmbientOcclusion'); ao.samples = 16; ao.inputs['Distance'].default_value = 0.025
     comb = nb.n('ShaderNodeCombineColor'); comb.name = 'MASK_LIVE'
     nb.link(edge_live, comb.inputs[0]); nb.link(ao.outputs['AO'], comb.inputs[1])
@@ -357,19 +366,27 @@ def make_kind_material(kind, mask_img):
     n3 = nb.noise(obj, 220.0, 3.0, 0.5)
     pat = k['pat']
     if pat == 'wood':
-        wv = nb.n('ShaderNodeTexWave', wave_type='BANDS', bands_direction='Z', wave_profile='SIN')
-        nb.link(nb.mapscale(obj, 1.0, 0.08, 1.0), wv.inputs['Vector'])
-        wv.inputs['Scale'].default_value = 28.0; wv.inputs['Distortion'].default_value = 9.0
-        wv.inputs['Detail'].default_value = 4.0; wv.inputs['Detail Scale'].default_value = 1.6
-        grain = nb.ramp(wv.outputs['Fac'], 0.15, 1.0)
-        fine = nb.noise(nb.mapscale(obj, 1.0, 0.05, 1.0), 260.0, 2.0, 0.5)
-        g2 = nb.math('MULTIPLY', nb.math('ADD', nb.math('MULTIPLY', grain, 0.75), nb.math('MULTIPLY', fine, 0.45)), 1.0)
-        col = nb.mix(nb.ramp(g2, 0.25, 1.0), base, var)
-        col = nb.mix(nb.math('MULTIPLY', nb.ramp(n1, 0.35, 0.7), 0.35), col, srgb('#3a1d0e'))
-        bump_h = nb.math('ADD', nb.math('MULTIPLY', grain, 0.6), nb.math('MULTIPLY', fine, 0.4))
+        pw = nb.mapscale(obj, 1.0, 0.045, 1.0)          # grain runs along the length (object Y = -f)
+        dist = nb.n('ShaderNodeTexNoise', noise_dimensions='3D'); nb.link(obj, dist.inputs['Vector'])
+        dist.inputs['Scale'].default_value = 14.0; dist.inputs['Detail'].default_value = 3.0
+        pwd = nb.n('ShaderNodeVectorMath', operation='ADD'); nb.link(pw, pwd.inputs[0])
+        sc = nb.n('ShaderNodeVectorMath', operation='SCALE'); nb.link(dist.outputs['Color'], sc.inputs[0]); sc.inputs['Scale'].default_value = 0.006
+        nb.link(sc.outputs[0], pwd.inputs[1])
+        wv = nb.n('ShaderNodeTexWave', wave_type='RINGS', rings_direction='Y', wave_profile='SAW')
+        nb.link(pwd.outputs[0], wv.inputs['Vector'])
+        wv.inputs['Scale'].default_value = 95.0; wv.inputs['Distortion'].default_value = 2.5
+        wv.inputs['Detail'].default_value = 2.0; wv.inputs['Detail Scale'].default_value = 1.2
+        lines = nb.ramp(wv.outputs['Fac'], 0.72, 1.0)                 # thin latewood lines
+        figure = nb.noise(nb.mapscale(obj, 1.0, 0.25, 1.0), 18.0, 4.0, 0.6)
+        pores = nb.noise(nb.mapscale(obj, 1.0, 0.04, 1.0), 900.0, 1.0, 0.5)
+        col = nb.mix(nb.ramp(figure, 0.3, 0.75), base, var)
+        col = nb.mix(nb.math('MULTIPLY', lines, 0.45), col, nb.mul_rgb(col, srgb('#6a5040')))
+        col = nb.mix(nb.math('MULTIPLY', nb.ramp(pores, 0.55, 0.8), 0.25), col, nb.mul_rgb(col, srgb('#80705f')))
+        bump_h = nb.math('ADD', nb.math('MULTIPLY', lines, 0.5), nb.math('MULTIPLY', pores, 0.5))
     else:
-        col = nb.mix(nb.ramp(n1, 0.3, 0.75), base, var)
-        col = nb.mix(nb.math('MULTIPLY', nb.ramp(n2, 0.45, 0.75), 0.4), col, var)
+        col = nb.mix(nb.ramp(n1, 0.25, 0.75), base, var)
+        col = nb.mix(nb.math('MULTIPLY', nb.ramp(n2, 0.4, 0.75), 0.5), col, var)
+        col = nb.mix(nb.math('MULTIPLY', nb.ramp(n3, 0.55, 0.8), 0.25), col, nb.mul_rgb(col, srgb('#b8b0a4')))
         if pat == 'stipple':
             bump_h = nb.noise(obj, 1400.0, 1.0, 0.5)
         elif pat == 'brushed':
@@ -381,8 +398,8 @@ def make_kind_material(kind, mask_img):
     # wear on convex edges, broken up by noise
     convex = nb.math('MULTIPLY', edge, nb.ramp(aom, 0.55, 0.95))
     brk = nb.ramp(nb.noise(obj, 140.0, 4.0, 0.65), 0.38, 0.62)
-    wear = nb.math('MULTIPLY', nb.math('MULTIPLY', convex, nb.math('ADD', brk, 0.25)), k['wear_amt'], clamp=True)
-    wear = nb.ramp(wear, 0.12, 0.6)
+    wear = nb.math('MULTIPLY', nb.math('MULTIPLY', convex, nb.math('ADD', nb.math('MULTIPLY', brk, 0.8), 0.2)), k['wear_amt'], clamp=True)
+    wear = nb.math('MULTIPLY', nb.ramp(wear, 0.15, 0.6), 0.8)
     col = nb.mix(wear, col, wearc)
     # cavity grime
     cav = nb.math('SUBTRACT', 1.0, aom)
@@ -544,6 +561,17 @@ class Gun:
             key = ''.join(c for c in ob.name if not c.isdigit())
             rep[key] = rep.get(key, 0) + len(ob.data.loop_triangles)
         print('PARTTRIS', sorted(rep.items(), key=lambda kv: -kv[1])[:25])
+        allparts = [ob for ob, g in self.parts]
+        for ob in allparts:
+            bm = bmesh.new(); bm.from_mesh(ob.data)
+            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=2e-6)
+            bm.to_mesh(ob.data); bm.free()
+            ob.data.shade_smooth()
+        # ---- UV on the separate parts, then bake the edge/AO mask per part (inside-AO is per object) ----
+        self._uv_classes(allparts)
+        if bake:
+            self._bake_setup()
+            self._bake_pass(allparts, 'mask', samples)
         gobs = {}
         for g, obs in groups.items():
             for o in bpy.context.view_layer.objects: o.select_set(False)
@@ -554,12 +582,10 @@ class Gun:
                     bpy.ops.object.join()
             ob = obs[0]; ob.name = g; ob.data.name = g
             me = ob.data
-            bm = bmesh.new(); bm.from_mesh(me)
-            bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=2e-6)
-            bm.to_mesh(me); bm.free()
             me.shade_smooth()
             me.set_sharp_from_angle(angle=math.radians(38))
             wn = ob.modifiers.new('wn', 'WEIGHTED_NORMAL'); wn.keep_sharp = True; wn.weight = 50
+            tri = ob.modifiers.new('tri', 'TRIANGULATE'); tri.keep_custom_normals = True; tri.quad_method = 'SHORTEST_DIAGONAL'
             gobs[g] = ob
         objs = list(gobs.values())
         # ---- stats ----
@@ -569,10 +595,11 @@ class Gun:
             m2 = o.evaluated_get(dg).to_mesh(); m2.calc_loop_triangles(); tris += len(m2.loop_triangles); o.evaluated_get(dg).to_mesh_clear()
         self.meta['tris'] = tris
         print('TRIS', self.id, tris)
-        # ---- UV: unwrap per colour class, shelf-pack the class squares (prevents colour bleeding) ----
-        self._uv_classes(objs)
-        final = self._bake(objs, samples) if bake else None
-        if final:
+        final = None
+        if bake:
+            for what in ('bsdf', 'col', 'rough', 'metal'):
+                self._bake_pass(objs, what, samples)
+            final = self._bake_finish()
             for o in objs:
                 o.data.materials.clear(); o.data.materials.append(final)
         # ---- pivots / origin ----
@@ -613,7 +640,7 @@ class Gun:
 
     def _uv_classes(self, objs):
         DARK = {'park', 'blued', 'steel', 'bright', 'anod', 'poly', 'rubber', 'glass', 'park_light'}
-        cls_of = lambda kind: 'dark' if kind in DARK else kind
+        cls_of = lambda kind: 'all'
         for o in bpy.context.view_layer.objects: o.select_set(False)
         for o in objs:
             o.select_set(True)
@@ -638,7 +665,7 @@ class Gun:
                 bmesh.update_edit_mesh(o.data)
             bpy.ops.uv.smart_project(angle_limit=math.radians(60), island_margin=0.0, area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
             try:
-                bpy.ops.uv.pack_islands(udim_source='CLOSEST_UDIM', rotate=True, margin_method='FRACTION', margin=0.012, shape_method='CONCAVE')
+                bpy.ops.uv.pack_islands(udim_source='CLOSEST_UDIM', rotate=True, margin_method='FRACTION', margin=0.008, shape_method='CONCAVE')
             except Exception as e:
                 print('pack fail', e)
         bpy.ops.object.mode_set(mode='OBJECT')
@@ -671,12 +698,12 @@ class Gun:
                     u, v = uv[li].uv
                     uv[li].uv = (x0 + u * w, y0 + v * w)
 
-    def _bake(self, objs, samples):
+    def _bake_setup(self):
         scene = bpy.context.scene
         scene.render.engine = 'CYCLES'
         scene.cycles.device = 'CPU'
         scene.cycles.use_denoising = False
-        scene.render.bake.margin = 6
+        scene.render.bake.margin = 12
         scene.render.bake.margin_type = 'EXTEND'
         if scene.world is None:
             scene.world = bpy.data.worlds.new('W')
@@ -715,22 +742,34 @@ class Gun:
                 sock = cc.outputs[0]
             nt.links.new(sock, em.inputs['Color'])
             nt.links.new(em.outputs[0], out.inputs['Surface'])
+        self._wire = wire; self._set_target = set_target; self.imgs = imgs
+
+    def _bake_pass(self, objs, what, samples):
+        import time
+        scene = bpy.context.scene
+        img, btype, spp = {'mask': (self.imgs['mask'], 'EMIT', samples), 'bsdf': (self.imgs['nrm'], 'NORMAL', samples),
+                           'col': (self.imgs['col'], 'EMIT', 4), 'rough': (self.imgs['rough'], 'EMIT', 2),
+                           'metal': (self.imgs['metal'], 'EMIT', 1)}[what]
         for o in bpy.context.view_layer.objects: o.select_set(False)
         for o in objs: o.select_set(True)
         bpy.context.view_layer.objects.active = objs[0]
-        import time
-        for what, img, btype, spp in (('mask', imgs['mask'], 'EMIT', samples), ('bsdf', imgs['nrm'], 'NORMAL', samples),
-                                      ('col', imgs['col'], 'EMIT', 4), ('rough', imgs['rough'], 'EMIT', 2), ('metal', imgs['metal'], 'EMIT', 1)):
-            t0 = time.time()
-            for kind in self.kind_mats: wire(kind, what)
-            set_target(img)
-            scene.cycles.samples = spp
-            if btype == 'NORMAL':
-                bpy.ops.object.bake(type='NORMAL', normal_space='TANGENT', margin=6, use_clear=True)
-            else:
-                bpy.ops.object.bake(type='EMIT', margin=6, use_clear=True)
-            print('BAKE', what, round(time.time() - t0, 1), 's')
-        for kind in self.kind_mats: wire(kind, 'bsdf')
+        t0 = time.time()
+        for kind in self.kind_mats: self._wire(kind, what)
+        self._set_target(img)
+        scene.cycles.samples = spp
+        if btype == 'NORMAL':
+            bpy.ops.object.bake(type='NORMAL', normal_space='TANGENT', margin=12, use_clear=True)
+        else:
+            bpy.ops.object.bake(type='EMIT', margin=12, use_clear=True)
+        print('BAKE', what, round(time.time() - t0, 1), 's')
+
+    def _bake_finish(self):
+        imgs = self.imgs; tex = self.tex
+        def newimg(name, noncolor=True):
+            im = bpy.data.images.new(f'{self.id}_{name}', tex, tex, alpha=False)
+            if noncolor: im.colorspace_settings.name = 'Non-Color'
+            return im
+        for kind in self.kind_mats: self._wire(kind, 'bsdf')
         # ---- pack ORM ----
         import numpy as np
         n = tex * tex * 4
@@ -843,10 +882,10 @@ def geom_loops(geom, min_area=4.0, tol=0.35):
     return res
 
 
-def _side_loops(self, name, geom, width, kind, group='body', s=0.0, bevel=None, bres=2, taper=None, M=None, min_area=4.0):
+def _side_loops(self, name, geom, width, kind, group='body', s=0.0, bevel=None, bres=2, taper=None, M=None, min_area=4.0, tol=None):
     """extrude shapely geometry (side profile) -> one object per polygon"""
     obs = []
-    for i, loops in enumerate(geom_loops(geom, min_area)):
+    for i, loops in enumerate(geom_loops(geom, min_area, tol if tol is not None else getattr(self, 'tol', 0.35))):
         b = bevel if bevel is not None else min(width * 0.18, 1.6)
         me = _curve_mesh(loops, width / 2.0, b, bres)
         Mx = T(0, 0, s)

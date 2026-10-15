@@ -22,9 +22,11 @@ FBX = arg('--fbx'); OUT = arg('--out')
 SUBDIV = int(arg('--subdiv', '0'))
 DECIMATE = float(arg('--decimate', '0'))
 DECIMATE_HAIR = float(arg('--decimate-hair', '1'))
+MAX_TRIS = int(arg('--max-tris', '0'))
 JOINTS_OUT = arg('--joints')
 CONFORM = arg('--conform')
 SCALE = float(arg('--scale', '1'))
+BAKE_SCALE = float(arg('--bake-scale', '1'))  # uniform scale baked into joints + vertices
 
 # Rocketbox (3ds Max Biped) -> Mixamo-style names
 FINGERS = ['Thumb', 'Index', 'Middle', 'Ring', 'Pinky']
@@ -74,9 +76,8 @@ J = {}
 for sname, tname in MAP.items():
     J[tname] = SRC[sname].copy()
 # leaf end joints
-allv = [m.matrix_world @ v.co for m in meshes for v in m.data.vertices]
-top = max(v.z for v in allv)
-J['HeadTop_End'] = Vector((J['Head'].x, J['Head'].y, J['Head'].z + (top - J['Head'].z) * 0.92))
+# fixed offset so every variant gets an identical skeleton (top of skull, ignoring hair/hats)
+J['HeadTop_End'] = Vector((J['Head'].x, J['Head'].y, J['Head'].z + 0.20))
 for S in ('Left', 'Right'):
     t = J[f'{S}ToeBase']
     J[f'{S}Toe_End'] = Vector((t.x, t.y - 0.075, t.z))
@@ -102,6 +103,11 @@ mesh.name = 'Body'
 for o in list(bpy.data.objects):
     if o is not mesh:
         bpy.data.objects.remove(o)
+
+if BAKE_SCALE != 1.0:
+    mesh.data.transform(Matrix.Scale(BAKE_SCALE, 4))
+    for k in J:
+        J[k] = J[k] * BAKE_SCALE
 
 # ---- remap vertex groups (sum weights of merged groups) ----
 def target_of(src):
@@ -262,6 +268,13 @@ if SUBDIV > 0:
     bpy.data.objects.remove(simple)
     mod = mesh.modifiers.new('Armature', 'ARMATURE'); mod.object = arm
     bpy.context.view_layer.objects.active = mesh; mesh.select_set(True)
+if MAX_TRIS > 0:
+    hair_idx0 = {i for i, sl in enumerate(mesh.material_slots) if sl.material and sl.material.name.startswith('hair')}
+    tot = sum(len(p.vertices) - 2 for p in mesh.data.polygons)
+    hair_t = sum(len(p.vertices) - 2 for p in mesh.data.polygons if p.material_index in hair_idx0)
+    if tot > MAX_TRIS:
+        DECIMATE = max(0.1, (MAX_TRIS - hair_t) / max(1, tot - hair_t))
+        print('MAX_TRIS decimate ratio', DECIMATE)
 if DECIMATE > 0:
     # decimate everything except the hair cards (alpha-tested strips break when collapsed)
     hair_idx = [i for i, s in enumerate(mesh.material_slots) if s.material and s.material.name.startswith('hair')]
@@ -279,6 +292,22 @@ if DECIMATE > 0:
     bpy.ops.object.modifier_apply(modifier='dec')
     mesh.vertex_groups.remove(mesh.vertex_groups['_dec'])
 
+# give unweighted vertices the weights of their nearest weighted neighbour
+# (otherwise the glTF exporter adds a 'neutral_bone' joint and the skeleton differs)
+from mathutils import kdtree
+weighted = [v for v in mesh.data.vertices if any(g.weight > 0 for g in v.groups)]
+unweighted = [v for v in mesh.data.vertices if not any(g.weight > 0 for g in v.groups)]
+if unweighted:
+    kd = kdtree.KDTree(len(weighted))
+    for i, v in enumerate(weighted):
+        kd.insert(v.co, i)
+    kd.balance()
+    for v in unweighted:
+        co, i, dist = kd.find(v.co)
+        for g in weighted[i].groups:
+            if g.weight > 0:
+                mesh.vertex_groups[g.group].add([v.index], g.weight, 'REPLACE')
+    print('fixed unweighted verts', len(unweighted))
 # clean weights: max 4 influences, normalized
 bpy.ops.object.mode_set(mode='OBJECT')
 bpy.ops.object.vertex_group_limit_total(group_select_mode='ALL', limit=4)
