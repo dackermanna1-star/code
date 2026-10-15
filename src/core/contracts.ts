@@ -118,8 +118,12 @@ export interface IWorld {
   getWaterHeight(x: number, z: number): number | null;
   /** True if the point is on land and inside the playable island. */
   isLand(x: number, z: number): boolean;
-  /** 0..1, how dense ground cover (grass/crops) is here: used for prone concealment by AI. */
+  /** 0..1, how dense ground cover (grass/crops) is here: used for prone concealment by AI and grass rendering. */
   getGroundCover(x: number, z: number): number;
+  /** 0..1 desired tree density (forests ~0.6-1, meadows ~0.02, 0 on roads/lots/water/fields/beaches). */
+  getTreeDensity(x: number, z: number): number;
+  /** True if a road, building lot, bridge or placed prop occupies the point (+margin m): no vegetation/rocks here. */
+  isReserved(x: number, z: number, margin?: number): boolean;
   /** Nearest named location to the point. */
   nearestLocation(x: number, z: number): MapLocation | null;
   /** Top-down map image (canvas) for the UI map/minimap. Generated once at load. */
@@ -602,6 +606,12 @@ export interface ICombat {
   getSpread(c: ICharacter): number;
   /** Throw the currently cooked throwable. */
   throwGrenade(c: ICharacter, itemId: string, cookTime: number, power: number): void;
+  /**
+   * Build the visual model of a weapon instance including its attachments (origin at grip, barrel +Z).
+   * Returns immediately; meshes are filled in asynchronously. Child empties 'muzzle', 'grip_support',
+   * 'sight_eye' (active optic eye point) are guaranteed to exist once loaded (userData.loaded = true).
+   */
+  createWeaponModel?(w: IWeaponInstance): THREE.Object3D;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

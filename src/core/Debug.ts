@@ -7,7 +7,10 @@ export interface DebugApi {
   [key: string]: unknown;
 }
 
-const api: DebugApi = { ctx };
+/** Shared debug state. When freeCam is true, gameplay camera controllers must not touch ctx.camera. */
+export const debugState = { freeCam: false };
+
+const api: DebugApi = { ctx, debugState };
 (window as any).__game = api;
 
 /** Modules register test/debug helpers here, e.g. registerDebug('giveItem', (id, n) => ...). */

@@ -37,6 +37,8 @@ export async function installWorld(ctx: GameContext): Promise<void> {
     getWaterHeight: () => null,
     isLand: (x, z) => x > 0 && z > 0 && x < size && z < size,
     getGroundCover: () => 0.3,
+    getTreeDensity: () => 0,
+    isReserved: () => false,
     nearestLocation: () => locations[0],
     getMapImage: () => null,
   };
