@@ -33,6 +33,7 @@ const MAX_DIST = 2400;
 const SPAWN_GAP = 3; // tics between two spawns of a wave
 const HOLDOUT_GAP = 105; // tics between hold-out reinforcements
 const SHAMBLERS = ['CT_ZCV1', 'CT_ZCV2', 'CT_ZCV3', 'CT_ZCV4'];
+const ZOMBIE_HEIGHT = 56; // the tallest kind (adults; kids are 40)
 
 export class Director {
   constructor(script) {
@@ -98,6 +99,7 @@ export class Director {
       return;
     }
     if (this.spawnAt(marker, job.kind)) job.n--;
+    else if (++job.tries > 60) job.n = 0; // markers keep failing: drop the rest
     if (job.n <= 0) d.queue.shift();
   }
 
@@ -110,7 +112,10 @@ export class Director {
     const usable = (m) => {
       const dist = aproxDistance(m.x - p.x, m.y - p.y);
       if (dist <= MIN_DIST || dist > MAX_DIST) return false;
-      return !w.checkSight(m, p);
+      // Out of sight means a whole zombie standing there, not just the
+      // marker's 16 units above the floor (a curb or a low wall hides that).
+      const body = { x: m.x, y: m.y, z: m.subsector.sector.floorheight, height: ZOMBIE_HEIGHT, subsector: m.subsector };
+      return !w.checkSight(p, body) && !w.checkSight(body, p);
     };
     const all = this.markers();
     let list = all.filter((m) => m.spawnpoint && m.spawnpoint.angle === group && usable(m));
@@ -145,10 +150,16 @@ export class Director {
     const p = w.player.mo;
     mo.angle = pointToAngle(mo.x, mo.y, p.x, p.y);
     mo.saveInterp();
-    if (mo.flags & MF.COUNTKILL) w.totalkills++;
     // They come for the player straight away.
     mo.target = p;
     w.setMobjState(mo, mo.info.seestate);
+    // That ran its first step (A_Chase): if it took it round a corner into
+    // the player's view, it never was.
+    if (mo.removed || w.checkSight(p, mo) || w.checkSight(mo, p)) {
+      if (!mo.removed) w.removeMobj(mo);
+      return false;
+    }
+    if (mo.flags & MF.COUNTKILL) w.totalkills++;
     this.d.alive.push(mo);
     this.d.spawned++;
     return true;

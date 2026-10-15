@@ -148,7 +148,8 @@ function scratch(n) {
 
 // Chinatown's maps have thousands of sectors and portals: A* over a binary
 // heap, the estimate allowing for one portal hop (ct/portal.js edges carry
-// where they come out). Same graph, costs and passability as findPath.
+// where they come out). Same graph, costs and passability as findPath; a
+// bounded search, and none at all for a target more than 3072 units away.
 function findPathCT(w, actor, fromSec, toSec) {
   const n = w.level.sectors.length;
   const goal = actor.target;
@@ -185,12 +186,14 @@ function findPathCT(w, actor, fromSec, toSec) {
     }
     return top;
   };
+  // Too far to matter (even through a portal): head straight for it.
+  if (est(actor) > 3072) return null;
   const start = fromSec.index, goalIdx = toSec.index;
   s.stamp[start] = gen; s.dist[start] = 0; s.px[start] = actor.x; s.py[start] = actor.y; s.from[start] = -1;
   push(est(actor), start);
   let expanded = 0;
   let found = false;
-  while (heapK.length && expanded < 4000) {
+  while (heapK.length && expanded < 1500) {
     const cur = pop();
     if (s.closed[cur] === gen) continue;
     s.closed[cur] = gen;
@@ -231,7 +234,9 @@ export function chaseGoal(w, actor) {
   const sec = actor.subsector.sector;
   const tsec = target.subsector.sector;
   if (hasLOS(w, actor)) {
-    e.path = null;
+    // In sight: no route needed. On Chinatown's maps this is told apart
+    // from a failed search (null), so losing sight re-plans straight away.
+    e.path = w.ct ? undefined : null;
     if (e.flank && !(actor.flags & MF.FLOAT)) {
       const dist = aproxDistance(target.x - actor.x, target.y - actor.y);
       if (dist > 160) {
@@ -247,10 +252,12 @@ export function chaseGoal(w, actor) {
   let stale;
   if (w.ct) {
     // Chinatown's crowds on a big map: a moving target is re-planned for at
-    // most every 20 tics, and a failed search is retried after a second.
+    // most every 20 tics, and a failed search is retried after two seconds.
+    // No route yet (or the target was in sight until now): plan at once,
+    // unless this one searched a moment ago (sight flickering at a corner).
     const age = w.leveltime - (e.pathTic ?? -1000);
-    if (e.path === undefined) stale = true;
-    else if (!e.path) stale = age > 35;
+    if (e.path === undefined) stale = age > 8;
+    else if (!e.path) stale = age > 70;
     else stale = age > 70 || (e.pathTo !== tsec && age > 20) || offPath(e.path);
   } else {
     stale = !e.path || e.pathTo !== tsec || w.leveltime - (e.pathTic || 0) > 70 || offPath(e.path);

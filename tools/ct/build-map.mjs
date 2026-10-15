@@ -15,7 +15,9 @@
 // tools/ct/lib/bsp.mjs; BLOCKMAP and REJECT are written empty (the engine
 // builds them).
 //
-// Usage: node tools/ct/build-map.mjs [--no-preview]
+// Usage: node tools/ct/build-map.mjs [--no-preview] [--dump]
+//   --dump also writes build/ct/map-grid.{json,bin} (cell grid, lines, things)
+//   for debugging tools; previews go to build/ct/previews/map/.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -29,8 +31,10 @@ const OUT = path.join(ROOT, 'build/ct/lumps/map');
 const PREV = path.join(ROOT, 'build/ct/previews/map');
 const NOPREVIEW = process.argv.includes('--no-preview');
 
-const raster = JSON.parse(fs.readFileSync(path.join(HERE, 'layout/raster.json'), 'utf8'));
-const ref = JSON.parse(fs.readFileSync(path.join(HERE, 'layout/ref.json'), 'utf8'));
+// CT_LAYOUT overrides the folder holding raster.json/ref.json (experiments)
+const LAYOUT = process.env.CT_LAYOUT || path.join(HERE, 'layout');
+const raster = JSON.parse(fs.readFileSync(path.join(LAYOUT, 'raster.json'), 'utf8'));
+const ref = JSON.parse(fs.readFileSync(path.join(LAYOUT, 'ref.json'), 'utf8'));
 const C = raster.cell;
 
 // ---------------------------------------------------------------------------
@@ -51,6 +55,8 @@ const CCLS = new Uint8Array(N);
 const WCLS = new Uint8Array(N); // raster wall class (void cells)
 const VFL = new Uint8Array(N); // raster void flags: 1 glass 2 grate 4 blocked
 const NAV = new Uint8Array(N); // 1 = came from the raster (walkable in NMRiH)
+const NAVP = new Uint8Array(N); // 1 = inside an NMRiH nav area (a valid player centre there)
+const HALO = new Uint8Array(N); // 1 = within a player hull (16 units) of a nav-area cell at about this height
 const FFLAT = new Uint8Array(N); // flat index (0 = auto)
 const CFLAT = new Uint8Array(N);
 const LIGHT = new Uint8Array(N); // 0 = auto
@@ -61,9 +67,11 @@ const WTEX = new Uint8Array(N); // forced wall texture of void cells (0 = auto)
 const STEPTEX = new Uint8Array(N); // forced lower texture for edges facing this (higher) cell
 const UPTEX = new Uint8Array(N); // forced upper texture for edges facing this (lower-ceiling) cell
 const BLOCK = new Uint16Array(N); // impassable footprint id (vehicles, objects)
+const CLIPBLOCK = 65534; // BLOCK id of cells under NMRiH player clips (invisible walls there too)
 const NOFIX = new Uint8Array(N); // cells whose heights edits set exactly (skip auto fixes)
 const WSURF = new Int16Array(N).fill(-32768); // open water surface height over void cells (bay)
 const TOPZ = new Int16Array(N).fill(-32768); // top of the solid column on void cells (NMRiH brushes)
+const WTOP = new Int16Array(N).fill(-32768); // top of the reference wall faces on void cells (building heights)
 
 const idx = (i, j) => j * W + i;
 const inGrid = (i, j) => i >= 0 && j >= 0 && i < W && j < H;
@@ -93,6 +101,7 @@ for (const [name, L] of Object.entries(raster.layers)) {
   const water = decode(L.water, Int16Array);
   const hbar = decode(L.hbar, Uint8Array), vbar = decode(L.vbar, Uint8Array);
   const top = L.top ? decode(L.top, Int16Array) : null;
+  const wtop = L.wtop ? decode(L.wtop, Int16Array) : null;
   const gi0 = (L.x0 + OFFSET[name] - GX0) / C, gj0 = (L.y0 - GY0) / C;
   if (!Number.isInteger(gi0) || !Number.isInteger(gj0)) throw new Error('layer not grid aligned: ' + name);
   for (let lj = 0; lj < L.h; lj++) {
@@ -103,15 +112,35 @@ for (const [name, L] of Object.entries(raster.layers)) {
         KIND[k] = 1; NAV[k] = 1; LAY[k] = LAYER_ID[name];
         FZ[k] = floor[s]; CZ[k] = ceil[s] >= SKY ? SKY : ceil[s];
         FCLS[k] = fcls[s]; CCLS[k] = ccls[s];
-        if (flags[s] & 8) BLOCK[k] = 65535; // barrier (prop obstacle in NMRiH)
+        if (flags[s] & 8) BLOCK[k] = flags[s] & 32 ? CLIPBLOCK : 65535; // barrier: prop obstacle / player clip in NMRiH
+        if (flags[s] & 16) NAVP[k] = 1;
       } else {
         LAY[k] = LAYER_ID[name];
-        WCLS[k] = wcls[s]; VFL[k] = flags[s]; WSURF[k] = water[s]; if (top) TOPZ[k] = top[s];
+        WCLS[k] = wcls[s]; VFL[k] = flags[s]; WSURF[k] = water[s]; if (top) TOPZ[k] = top[s]; if (wtop) WTOP[k] = wtop[s];
       }
     }
   }
   for (let lj = 0; lj <= L.h; lj++) for (let li = 0; li < L.w; li++) if (hbar[lj * L.w + li]) BARRIER_EDGES.push(['h', gi0 + li, gj0 + lj]);
   for (let lj = 0; lj < L.h; lj++) for (let li = 0; li <= L.w; li++) if (vbar[lj * (L.w + 1) + li]) BARRIER_EDGES.push(['v', gi0 + li, gj0 + lj]);
+}
+
+// The extractor's 'no height' sentinel once leaked into floors (int16 wrap to
+// 31072, sky-high columns): refuse such data outright.
+{
+  let bad = 0;
+  for (let k = 0; k < N; k++) if (KIND[k] === 1 && (FZ[k] < -1024 || FZ[k] > 1024)) bad++;
+  if (bad) throw new Error(`raster: ${bad} walkable cells with floor heights outside -1024..1024`);
+}
+// Nav halo: cells a player standing on an NMRiH nav sample would overlap
+// (2 cells each way, similar floor). Obstacle footprints never take these.
+for (let k = 0; k < N; k++) {
+  if (!NAVP[k]) continue;
+  const i = k % W, j = (k / W) | 0;
+  for (let dj = -2; dj <= 2; dj++) for (let di = -2; di <= 2; di++) {
+    if (!inGrid(i + di, j + dj)) continue;
+    const q = idx(i + di, j + dj);
+    if (KIND[q] === 1 && LAY[q] === LAY[k] && Math.abs(FZ[q] - FZ[k]) <= 24) HALO[q] = 1;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -151,8 +180,43 @@ function applyProps(k, p, layer) {
   if (p.block !== undefined) BLOCK[k] = p.block;
 }
 let groupSeq = 1;
+let BOXREG = null;
+function boxRegions() {
+  // lattice point (I,J) = grid vertex; box = cells I-2..I+1 x J-2..J+1
+  const free = new Uint8Array(N);
+  for (let k = 0; k < N; k++) free[k] = KIND[k] === 1 && !BLOCK[k] && SPEC[k] !== 65 ? 1 : 0;
+  const edgeBlocked = (f) => f && f.special !== 903 && ((f.flags & 1) || f.special === 906);
+  const LW = W + 1, LH = H + 1;
+  // prefix sums: non-free cells, blocked vertical edges, blocked horizontal edges
+  const P = new Int32Array((W + 1) * (H + 1)), PV = new Int32Array((W + 2) * (H + 1)), PH = new Int32Array((W + 1) * (H + 2));
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) P[(j + 1) * (W + 1) + i + 1] = P[j * (W + 1) + i + 1] + P[(j + 1) * (W + 1) + i] - P[j * (W + 1) + i] + (free[idx(i, j)] ? 0 : 1);
+  for (let j = 0; j < H; j++) for (let i = 0; i <= W; i++) PV[(j + 1) * (W + 2) + i + 1] = PV[j * (W + 2) + i + 1] + PV[(j + 1) * (W + 2) + i] - PV[j * (W + 2) + i] + (edgeBlocked(vFeat.get(ekey(i, j))) ? 1 : 0);
+  for (let j = 0; j <= H; j++) for (let i = 0; i < W; i++) PH[(j + 1) * (W + 1) + i + 1] = PH[j * (W + 1) + i + 1] + PH[(j + 1) * (W + 1) + i] - PH[j * (W + 1) + i] + (edgeBlocked(hFeat.get(ekey(i, j))) ? 1 : 0);
+  const rect = (A, w, i0, j0, i1, j1) => A[j1 * w + i1] - A[j0 * w + i1] - A[j1 * w + i0] + A[j0 * w + i0]; // sum over [i0,i1) x [j0,j1)
+  const ok = new Uint8Array(LW * LH), fz = new Int16Array(LW * LH);
+  for (let J = 2; J < LH - 2; J++) for (let I = 2; I < LW - 2; I++) {
+    if (rect(P, W + 1, I - 2, J - 2, I + 2, J + 2)) continue;
+    if (rect(PV, W + 2, I - 1, J - 2, I + 2, J + 2)) continue; // vertical edges x = I-1..I+1
+    if (rect(PH, W + 1, I - 2, J - 1, I + 2, J + 2)) continue; // horizontal edges y = J-1..J+1
+    const k = J * LW + I;
+    ok[k] = 1;
+    fz[k] = Math.max(FZ[idx(I - 1, J - 1)], FZ[idx(I, J - 1)], FZ[idx(I - 1, J)], FZ[idx(I, J)]);
+  }
+  const lab = new Int32Array(LW * LH).fill(-1), size = [];
+  for (let k0 = 0; k0 < ok.length; k0++) {
+    if (!ok[k0] || lab[k0] >= 0) continue;
+    const id = size.length, st = [k0]; lab[k0] = id; let n = 0;
+    while (st.length) {
+      const k = st.pop(); n++;
+      for (const q of [k + 1, k - 1, k + LW, k - LW]) if (ok[q] && lab[q] < 0 && Math.abs(fz[q] - fz[k]) <= 24) { lab[q] = id; st.push(q); }
+    }
+    size.push(n);
+  }
+  return { lab, size };
+}
 const api = {
-  C, OFFSET, SKY, KIND, FZ, CZ, BLOCK, LIGHT, SPEC, TAG, GROUP, WSURF, LAY, NAV, idx, W, H, gridX, gridY, cellX, cellY, inGrid, cellsOf,
+  C, OFFSET, SKY, KIND, FZ, CZ, BLOCK, LIGHT, SPEC, TAG, GROUP, WSURF, LAY, NAV, NAVP, HALO, WCLS, WTEX, NOFIX, FFLAT, CFLAT, FCLS, idx, W, H, gridX, gridY, cellX, cellY, inGrid, cellsOf,
+  flatId: (n) => flatId(n), texId: (n) => texId(n), floorClass: (n) => RC.floor.indexOf(n),
   newGroup: () => groupSeq++,
   // Make cells sector cells with the given properties (walkable unless kind given).
   carve(layer, r, p = {}) {
@@ -224,19 +288,110 @@ const api = {
   thing(layer, x, y, type, angle = 0, flags = 7) {
     things.push({ x: Math.round(x + OFFSET[layer]), y: Math.round(y), type, angle: Math.round(angle), flags, layer });
   },
-  // Rotated-rectangle impassable footprint (vehicles) in a layer; returns the id.
-  footprint(layer, x, y, yaw, len, wid, id) {
+  // Cells of a rotated rectangle (centre x,y; yaw degrees; len along yaw).
+  rectCells(layer, x, y, yaw, len, wid) {
     const c = Math.cos(yaw * Math.PI / 180), s = Math.sin(yaw * Math.PI / 180);
     const hx = len / 2, hy = wid / 2;
     const ext = Math.abs(hx * c) + Math.abs(hy * s) + 8, eyt = Math.abs(hx * s) + Math.abs(hy * c) + 8;
-    let n = 0;
+    const out = [];
     for (const k of cellsOf(layer, [x - ext, y - eyt, x + ext, y + eyt])) {
       const i = k % W, j = (k / W) | 0;
       const px = cellX(i) + C / 2 - OFFSET[layer] - x, py = cellY(j) + C / 2 - y;
       const u = px * c + py * s, v = -px * s + py * c;
-      if (Math.abs(u) <= hx && Math.abs(v) <= hy && KIND[k] === 1) { BLOCK[k] = id; n++; }
+      if (Math.abs(u) <= hx && Math.abs(v) <= hy && LAY[k] === LAYER_ID[layer]) out.push(k);
     }
+    return out;
+  },
+  // Rotated-rectangle impassable footprint (vehicles) in a layer; returns the
+  // number of cells. Cells a nav-area player hull overlaps (HALO) stay free.
+  // o.carve = {floor, ceil}: solid cells under the footprint become floor
+  // first (vehicles the reference clipped into the building line), except
+  // where that would open onto a different space (indoors/other height).
+  footprint(layer, x, y, yaw, len, wid, id, o = {}) {
+    const cells = api.rectCells(layer, x, y, yaw, len, wid);
+    const inRect = new Set(cells);
+    let n = 0;
+    if (o.carve) {
+      const sky = o.carve.ceil === 'sky';
+      for (const k of cells) {
+        if (KIND[k] || WTEX[k]) continue;
+        let ok = true;
+        for (const q of [k + 1, k - 1, k + W, k - W]) {
+          if (inRect.has(q) || KIND[q] !== 1) continue;
+          if (Math.abs(FZ[q] - o.carve.floor) > 24 || (CZ[q] === SKY) !== sky) ok = false;
+        }
+        if (!ok) continue;
+        KIND[k] = 1; FZ[k] = o.carve.floor; CZ[k] = sky ? SKY : o.carve.ceil; FCLS[k] = RC.floor.indexOf('road');
+        CCLS[k] = 0; NOFIX[k] = 1; BLOCK[k] = id; n++;
+      }
+    }
+    n = 0;
+    for (const k of cells) if (KIND[k] === 1 && (!HALO[k] || BLOCK[k])) { BLOCK[k] = id; n++; }
     return n;
+  },
+  // Size (lattice points) of the region a 32x32 player box at (x,y) can roam
+  // with doors open and breakables broken (0 = the box does not fit there).
+  // Computed once, on first use (after the geometry and barrier lines).
+  boxRegion(layer, x, y) {
+    if (!BOXREG) BOXREG = boxRegions();
+    const I = Math.round((x + OFFSET[layer] - GX0) / C), J = Math.round((y - GY0) / C);
+    if (I < 0 || J < 0 || I > W || J > H) return 0;
+    const lab = BOXREG.lab[J * (W + 1) + I];
+    return lab < 0 ? 0 : BOXREG.size[lab];
+  },
+  // Copy cells (geometry, flats, light; void stays void) of rectangle r from
+  // layer `src` into layer `dst` at the same real coordinates: what a portal
+  // seam shows beyond itself. o.kind forces the kind of copied sector cells
+  // (2 = not walkable), o.only = ['light'] copies just the light.
+  copyFrom(dst, src, r, o = {}) {
+    const a = cellsOf(src, r), b = cellsOf(dst, r);
+    const g = o.group || groupSeq++;
+    if (!o.only) {
+      // feature lines of the destination inside the copied block go away
+      const inB = new Set(b);
+      for (const k of b) {
+        const i = k % W, j = (k / W) | 0;
+        if (inB.has(k + 1)) vFeat.delete(ekey(i + 1, j));
+        if (inB.has(k + W)) hFeat.delete(ekey(i, j + 1));
+      }
+    }
+    for (let n = 0; n < a.length && n < b.length; n++) {
+      const ks = a[n], kd = b[n];
+      if (o.only) { if (o.only.includes('light') && KIND[ks] && KIND[kd]) LIGHT[kd] = LIGHT[ks]; continue; }
+      if (!KIND[ks]) { KIND[kd] = 0; BLOCK[kd] = 0; WTEX[kd] = WTEX[ks] || (o.wtex ? texId(o.wtex) : 0); WCLS[kd] = WCLS[ks]; continue; }
+      KIND[kd] = o.kind || KIND[ks]; FZ[kd] = FZ[ks]; CZ[kd] = CZ[ks]; FFLAT[kd] = FFLAT[ks]; CFLAT[kd] = CFLAT[ks]; LIGHT[kd] = LIGHT[ks];
+      FCLS[kd] = FCLS[ks]; CCLS[kd] = CCLS[ks]; SPEC[kd] = 0; TAG[kd] = 0; BLOCK[kd] = 0; GROUP[kd] = g; NOFIX[kd] = 1;
+      STEPTEX[kd] = STEPTEX[ks]; UPTEX[kd] = UPTEX[ks]; zoneCache[kd] = zoneCache[ks];
+    }
+  },
+  // Can a thing step from cell k to its 4-neighbour q (both walkable and
+  // unblocked, no blocking feature line on the shared edge)?
+  passable(k, q) {
+    if (KIND[k] !== 1 || KIND[q] !== 1 || BLOCK[k] || BLOCK[q] || Math.abs(FZ[k] - FZ[q]) > 24) return false;
+    const i = k % W, j = (k / W) | 0;
+    const f = q === k + 1 ? vFeat.get(ekey(i + 1, j)) : q === k - 1 ? vFeat.get(ekey(i, j)) : q === k + W ? hFeat.get(ekey(i, j + 1)) : hFeat.get(ekey(i, j));
+    return !(f && ((f.flags & 1) || f.special === 906));
+  },
+  // Is a box of half-size r at (x,y) free for a thing (DOOM rules: every
+  // overlapped cell walkable and unblocked, no blocking feature edge inside,
+  // floor spread <= 24, room >= o.height)? o.block: allow BLOCK cells.
+  boxFree(layer, x, y, r, o = {}) {
+    const ax = x - r + OFFSET[layer] - GX0, bx = x + r + OFFSET[layer] - GX0, ay = y - r - GY0, by = y + r - GY0;
+    const i0 = Math.floor(ax / C), i1 = Math.ceil(bx / C) - 1, j0 = Math.floor(ay / C), j1 = Math.ceil(by / C) - 1;
+    let fmin = Infinity, fmax = -Infinity, cmin = Infinity;
+    const L = LAYER_ID[layer];
+    for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+      if (!inGrid(i, j)) return false;
+      const k = idx(i, j);
+      if (KIND[k] !== 1 || LAY[k] !== L || (BLOCK[k] && !o.block) || SPEC[k] === 65 || (TAG[k] && !o.tag)) return false;
+      fmin = Math.min(fmin, FZ[k]); fmax = Math.max(fmax, FZ[k]); cmin = Math.min(cmin, CZ[k]);
+      // blocking feature edges strictly inside the box
+      if (i > i0) { const f = vFeat.get(ekey(i, j)); if (f && ((f.flags & 1) || f.special === 900 || f.special === 906)) return false; }
+      if (j > j0) { const f = hFeat.get(ekey(i, j)); if (f && ((f.flags & 1) || f.special === 900 || f.special === 906)) return false; }
+    }
+    if (fmax - fmin > (o.step === undefined ? 24 : o.step)) return false;
+    if (cmin !== SKY && cmin - fmax < (o.height || 56)) return false;
+    return true;
   },
   log: (m) => log.push(m),
   ref,
@@ -266,12 +421,12 @@ design.geometry(api);
     if (o === 'h') {
       if (!inGrid(i, j) || !inGrid(i, j - 1)) continue;
       const a = idx(i, j), b = idx(i, j - 1);
-      if (KIND[a] !== 1 || KIND[b] !== 1 || BLOCK[a] || BLOCK[b] || hFeat.has(ekey(i, j))) continue;
+      if (KIND[a] !== 1 || KIND[b] !== 1 || BLOCK[a] || BLOCK[b] || GROUP[a] || GROUP[b] || hFeat.has(ekey(i, j))) continue;
       hFeat.set(ekey(i, j), bf); n++;
     } else {
       if (!inGrid(i, j) || !inGrid(i - 1, j)) continue;
       const a = idx(i, j), b = idx(i - 1, j);
-      if (KIND[a] !== 1 || KIND[b] !== 1 || BLOCK[a] || BLOCK[b] || vFeat.has(ekey(i, j))) continue;
+      if (KIND[a] !== 1 || KIND[b] !== 1 || BLOCK[a] || BLOCK[b] || GROUP[a] || GROUP[b] || vFeat.has(ekey(i, j))) continue;
       vFeat.set(ekey(i, j), bf); n++;
     }
   }
@@ -431,6 +586,95 @@ if (design.LOWBLOCK) {
 
 // Pass 2: lights, things, objective lines (needs final heights/zones).
 design.decorate(api, { zoneOfXY: (layer, x, y) => zoneCache[idx(gridX(layer, x - 4), gridY(y - 4))], isOutdoorXY: (layer, x, y) => isOutdoor(idx(gridX(layer, x - 4), gridY(y - 4))) });
+
+// Obstacles: blocked cells (props the nav mesh went round, player clips,
+// vehicle footprints) must never be invisible walls in open space. A group
+// holding a vehicle keeps its invisible outline (the sprite shows it); solid
+// prop things block with their own radius, so their cells are freed; what is
+// left becomes a visible raised block styled after the reference prop there.
+const obstStats = { groups: 0, vehicle: 0, freed: 0, raised: 0, raisedCells: 0, fenced: 0 };
+{
+  const R = design.PROP_RADIUS || {};
+  const thingAt = new Map();
+  for (const t of things) {
+    const solidProp = R[t.type];
+    if (!(t.type >= 9100 && t.type <= 9110) && t.type !== 9123 && !solidProp) continue;
+    const i = Math.floor((t.x - GX0) / C), j = Math.floor((t.y - GY0) / C);
+    if (inGrid(i, j)) { const k = idx(i, j); (thingAt.get(k) || thingAt.set(k, []).get(k)).push(t); }
+  }
+  const fenceEdge = (k) => {
+    const i = k % W, j = (k / W) | 0;
+    for (const f of [vFeat.get(ekey(i, j)), vFeat.get(ekey(i + 1, j)), hFeat.get(ekey(i, j)), hFeat.get(ekey(i, j + 1))]) if (f && f.mid && (f.flags & 1)) return true;
+    return false;
+  };
+  const comps = (pred) => {
+    const seen = new Uint8Array(N), out = [];
+    for (let k0 = 0; k0 < N; k0++) {
+      if (seen[k0] || !pred(k0)) continue;
+      const comp = [k0]; seen[k0] = 1;
+      for (let n = 0; n < comp.length; n++) {
+        const k = comp[n], i = k % W;
+        for (const q of [k + 1, k - 1, k + W, k - W]) {
+          if (q < 0 || q >= N || (q === k + 1 && i === W - 1) || (q === k - 1 && i === 0)) continue;
+          if (!seen[q] && pred(q)) { seen[q] = 1; comp.push(q); }
+        }
+      }
+      out.push(comp);
+    }
+    return out;
+  };
+  const isBlk = (k) => KIND[k] === 1 && BLOCK[k] !== 0;
+  for (const comp of comps(isBlk)) {
+    obstStats.groups++;
+    const ts = comp.flatMap((k) => thingAt.get(k) || []);
+    if (ts.some((t) => (t.type >= 9100 && t.type <= 9110) || t.type === 9123)) { obstStats.vehicle++; continue; }
+    if (comp.some(fenceEdge)) { obstStats.fenced++; continue; }
+    // solid prop things near the group block with their radius: free the
+    // cells they explain (their hull plus a little)
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const k of comp) { const x = cellX(k % W), y = cellY((k / W) | 0); x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x + C); y1 = Math.max(y1, y + C); }
+    const near = [];
+    for (let j = gridY(y0 - 40); j <= gridY(y1 + 40); j++) for (let i = Math.floor((x0 - 40 - GX0) / C); i <= Math.floor((x1 + 40 - GX0) / C); i++) if (inGrid(i, j)) for (const t of thingAt.get(idx(i, j)) || []) if (R[t.type]) near.push(t);
+    for (const t of near) {
+      const r = R[t.type] + 12;
+      for (const k of comp) {
+        const cx = cellX(k % W) + C / 2, cy = cellY((k / W) | 0) + C / 2;
+        if (BLOCK[k] && BLOCK[k] !== CLIPBLOCK && Math.abs(cx - t.x) <= r && Math.abs(cy - t.y) <= r) { BLOCK[k] = 0; obstStats.freed++; }
+      }
+    }
+  }
+  // what is left with no vehicle or fence: small bits are dropped, the rest
+  // become raised blocks
+  for (const comp of comps(isBlk)) {
+    const ts = comp.flatMap((k) => thingAt.get(k) || []);
+    if (ts.some((t) => (t.type >= 9100 && t.type <= 9110) || t.type === 9123) || comp.some(fenceEdge)) continue;
+    const clip = comp.filter((k) => BLOCK[k] === CLIPBLOCK).length;
+    if (clip * 2 > comp.length && clip > 6) { obstStats.clip = (obstStats.clip || 0) + 1; obstStats.clipCells = (obstStats.clipCells || 0) + comp.length; continue; }
+    if (comp.length <= 6 && !clip) { for (const k of comp) BLOCK[k] = 0; obstStats.freed += comp.length; continue; }
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, fmax = -Infinity, cmin = Infinity;
+    for (const k of comp) {
+      const x = cellX(k % W) + C / 2, y = cellY((k / W) | 0) + C / 2;
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+      fmax = Math.max(fmax, FZ[k]); cmin = Math.min(cmin, CZ[k]);
+    }
+    const L = LAYER_NAME[LAY[comp[0]]];
+    const off = OFFSET[L];
+    let best = null, bd = Infinity;
+    for (const o of ref.obst || []) {
+      const ox = o.x + off;
+      if (ox < x0 - 32 || ox > x1 + 32 || o.y < y0 - 32 || o.y > y1 + 32) continue;
+      const d = Math.hypot(ox - (x0 + x1) / 2, o.y - (y0 + y1) / 2);
+      if (d < bd) { bd = d; best = o; }
+    }
+    const st = design.obstacleStyle(best ? best.c : null, zoneCache[comp[0]], isOutdoor(comp[0]), comp.length);
+    const h = Math.max(16, Math.min(st.h, cmin - fmax - 24));
+    for (const k of comp) {
+      KIND[k] = 2; BLOCK[k] = 0; FZ[k] = Math.round((fmax + h) / 8) * 8; STEPTEX[k] = texId(st.tex); FFLAT[k] = flatId(st.flat);
+    }
+    obstStats.raised++; obstStats.raisedCells += comp.length;
+  }
+  log.push(`obstacles: ${JSON.stringify(obstStats)}`);
+}
 style();
 
 // Facades: street-facing faces of thick building blocks get a 1-cell strip
@@ -467,9 +711,29 @@ if (design.FACADE) {
     if (!F.zones.includes(zone.name)) continue;
     cand.push([k, maxF, zone]);
   }
+  // void block sizes (small blocks are not buildings: no 832 fallback)
+  const vsize = new Map();
+  {
+    const seen = new Uint8Array(N);
+    for (const [k0] of cand) {
+      if (seen[k0]) continue;
+      const comp = [k0]; seen[k0] = 1;
+      for (let n = 0; n < comp.length && comp.length <= F.bigBlock; n++) {
+        const k = comp[n], i = k % W;
+        for (const q of [k + 1, k - 1, k + W, k - W]) {
+          if (q < 0 || q >= N || (q === k + 1 && i === W - 1) || (q === k - 1 && i === 0)) continue;
+          if (!KIND[q] && !seen[q]) { seen[q] = 1; comp.push(q); }
+        }
+      }
+      for (const k of comp) vsize.set(k, comp.length);
+    }
+  }
   for (const [k, maxF, zone] of cand) {
     const fl = Math.ceil((maxF + F.band - 16) / 128) * 128;
-    const top = TOPZ[k] === -32768 ? F.maxTop : TOPZ[k];
+    // building height: the higher of the stacked-brush top and the reference
+    // wall faces' top; unknown tops of real (big) blocks use maxTop
+    let top = Math.max(TOPZ[k], WTOP[k]);
+    if (top < fl + 48) top = (vsize.get(k) || 0) > F.bigBlock ? F.maxTop : fl + 48;
     const cz = Math.max(fl + 48, Math.min(F.maxTop, Math.round(top / 64) * 64));
     KIND[k] = 2; FZ[k] = fl; CZ[k] = cz; NOFIX[k] = 1; FAC[k] = 1;
     CFLAT[k] = flatId('F_SKY1'); FFLAT[k] = flatId('CFROOF1');
@@ -504,6 +768,13 @@ const sectors = [];
   }
 }
 if (sectors.length > 32767) throw new Error('too many sectors: ' + sectors.length);
+// The subway and sewers are underground: no sky ceilings there.
+{
+  const bad = sectors.filter((S) => (S.layer === 2 || S.layer === 3) && S.cflat === 'F_SKY1');
+  if (bad.length) throw new Error(`${bad.length} subway/sewer sectors with sky ceilings, e.g. ${bad.slice(0, 3).map((S) => `(${cellX(S.k0 % W)},${cellY((S.k0 / W) | 0)})`).join(' ')}`);
+  const inv = sectors.filter((S) => S.kind !== 3 && S.ceil < S.floor);
+  if (inv.length) throw new Error(`${inv.length} sectors with ceiling below floor`);
+}
 
 // ---------------------------------------------------------------------------
 // Wall texture context: nearest void cell's texture for every sector cell
@@ -567,6 +838,7 @@ function contextTex(k, other) {
 // ---------------------------------------------------------------------------
 // Edges -> line descriptors.
 const ML_BLOCKING = 1, ML_BLOCKMONSTERS = 2, ML_TWOSIDED = 4, ML_DONTPEGTOP = 8, ML_DONTPEGBOTTOM = 16, ML_SECRET = 32, ML_DONTDRAW = 128;
+const MASKED = new Set(design.MASKED_TEX || []);
 const descs = []; const descIdx = new Map();
 function descId(d) {
   const key = JSON.stringify(d);
@@ -585,6 +857,7 @@ function describe(a, b, feat) {
     const s = sa < 0 ? b : a, v = sa < 0 ? a : b;
     let tex = wallTexFor(v, s);
     let flags = ML_BLOCKING;
+    if (MASKED.has(tex)) tex = design.opaqueFor(tex, 'wall'); // no holes on one-sided walls
     if (feat && feat.mid) tex = feat.mid;
     if (feat && feat.flags) flags |= feat.flags;
     return descId({ one: 1, front: SEC[s], fk: s === a ? 'a' : 'b', mid: tex, flags, special: feat ? feat.special || 0 : 0, tag: feat ? feat.tag || 0 : 0, fid: feat ? feat.id : 0, yoff: feat && feat.yoff, xoff: feat && feat.xoff, peg: feat && feat.peg });
@@ -612,10 +885,13 @@ function describe(a, b, feat) {
     if (B.ceil > F.ceil) tex.btop = UPTEX[f] ? TEX[UPTEX[f]] : contextTex(bk, f);
   }
   if (feat) {
-    if (feat.mid) { if (feat.midSide === 'back') tex.bmid = feat.mid; else tex.fmid = feat.mid; }
+    // masked midtextures (fences, gates, boards, glass) show from both sides
+    if (feat.mid) { if (feat.midSide === 'back') tex.bmid = feat.mid; else if (feat.midSide === 'front') tex.fmid = feat.mid; else { tex.fmid = feat.mid; tex.bmid = feat.mid; } }
     if (feat.top) { tex.ftop = feat.top; tex.btop = feat.top; }
     if (feat.bottom) { if (tex.fbot !== '-') tex.fbot = feat.bottom; if (tex.bbot !== '-') tex.bbot = feat.bottom; }
   }
+  // the engine draws holes in masked textures only as midtextures
+  for (const kk of ['ftop', 'fbot', 'btop', 'bbot']) if (MASKED.has(tex[kk]) && !(feat && feat.keepMasked)) tex[kk] = design.opaqueFor(tex[kk]);
   return descId({ one: 0, front: SEC[f], back: SEC[bk], fk, flags, special: feat ? feat.special || 0 : 0, tag: feat ? feat.tag || 0 : 0, fid: feat ? feat.id : 0, ...tex, peg: feat && feat.peg, yoff: feat && feat.yoff, xoff: feat && feat.xoff });
 }
 

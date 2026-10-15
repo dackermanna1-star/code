@@ -15,9 +15,11 @@
 //     904/9, radio 904/10), hold out 60 s, then reach the helicopter over
 //     the pier's north end (sector 160) within 30 s
 // Random rolls (which gas can, which blowtorch, whether the welder garage is
-// shut) use w.rng at level start. Everything the script knows is in `s`
-// (CtLevel state), plain numbers, arrays and object references, so saves
-// keep it; looping sounds are cosmetic and restarted after a load.
+// shut) use w.rng at level start, mixed with the game's roll seed (Game
+// newGame, kept by saves) so that every game and every restart differs.
+// Everything the script knows is in `s` (CtLevel state), plain numbers,
+// arrays and object references, so saves keep it; looping sounds are
+// cosmetic and restarted after a load.
 
 import { MT } from '../tables.js';
 import { normAngle, pointToAngle } from '../defs.js';
@@ -63,10 +65,19 @@ const CRANK_OPEN_TICS = 8 * T;
 const CRANK_CLOSE_TICS = 16 * T;
 const HOLDOUT_TICS = 60 * T;
 const EXTRACT_TICS = 30 * T;
-const BOARD_TICS = T; // standing in the zone this long gets you aboard
+const BOARD_TICS = 1; // aboard the moment the player reaches the zone, as in NMRiH
+const ZONE_REACH = 160; // a map without a zone sector: this near the hover point
 const CENTER_TICS = 3 * T;
 const GARAGE_TAG = 8; // optional: the welder garage doorway the 50% roll may shut
 const LADDER_ROADBLOCK = 80;
+
+// Byte k of the game's roll seed, well mixed (each roll gets its own).
+function seedByte(seed, k) {
+  let h = Math.imul((seed ^ Math.imul(k + 1, 0x9e3779b1)) >>> 0, 0x85ebca6b) >>> 0;
+  h ^= h >>> 15;
+  h = Math.imul(h, 0xc2b2ae35) >>> 0;
+  return (h ^ (h >>> 13)) & 255;
+}
 
 export class ChinatownScript {
   constructor(ct) {
@@ -74,8 +85,9 @@ export class ChinatownScript {
     this.w = ct.w;
     this.director = new Director(this);
     this.cache = new Map();
-    // Cosmetic sound loop origin and HUD memo (not saved).
+    // Cosmetic sound loop origins and HUD memo (not saved).
     this.weldSound = null;
+    this.genSound = null;
     this.hudCache = null;
     this.hudTic = -1;
   }
@@ -137,9 +149,21 @@ export class ChinatownScript {
     return { x: (line.v1.x + line.v2.x) / 2, y: (line.v1.y + line.v2.y) / 2 };
   }
 
-  zoneCentre() {
-    const zone = this.w.level.sectors.filter((s) => s.tag === 160 || s.special === 66);
-    return this.centre(zone);
+  zoneSectors() {
+    const key = 'zone';
+    if (!this.cache.has(key)) this.cache.set(key, this.w.level.sectors.filter((s) => s.tag === 160 || s.special === 66));
+    return this.cache.get(key);
+  }
+
+  zoneCentre() { return this.centre(this.zoneSectors()); }
+
+  // Is the player where the helicopter picks him up? The zone sector, or
+  // on a map without one, close under the hovering helicopter.
+  inZone(mo) {
+    if (this.zoneSectors().length) return this.ct.inExtractionZone(mo);
+    const h = this.s.heli;
+    const p = h && h.path[h.path.length - 1];
+    return !!p && Math.hypot(mo.x - p.x, mo.y - p.y) < ZONE_REACH;
   }
 
   things(type) {
@@ -236,23 +260,25 @@ export class ChinatownScript {
     const w = this.w;
     const s = this.s;
     // One gas can of the candidate spots, one blowtorch, and maybe a shut
-    // welder garage (never when the blowtorch is in there).
-    const keepOne = (type) => {
+    // welder garage (never when the blowtorch is in there). A roll is a
+    // w.rng draw plus a byte of the game's seed.
+    const roll = (k) => (w.rng.P() + seedByte(w.rollSeed, k)) & 255;
+    const keepOne = (type, k) => {
       const list = this.things(type);
       if (list.length < 2) return list[0] || null;
-      const keep = list[w.rng.P() % list.length];
+      const keep = list[roll(k) % list.length];
       for (const m of list) if (m !== keep) w.removeMobj(m);
       return keep;
     };
-    keepOne(MT.CT_IGAS);
+    keepOne(MT.CT_IGAS, 0);
     const torches = this.things(MT.CT_ITOR);
-    const torch = keepOne(MT.CT_ITOR);
+    const torch = keepOne(MT.CT_ITOR, 1);
     const garage = this.sectors(GARAGE_TAG);
     if (garage.length) {
       const c = this.centre(garage);
       const near = torches.slice().sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0];
-      const roll = w.rng.P() & 1;
-      if (roll && torch && torch !== near) {
+      const roll2 = roll(2) & 1;
+      if (roll2 && torch && torch !== near) {
         s.garageSealed = true;
         for (const sec of garage) {
           sec.ceilingheight = sec.floorheight;
@@ -460,8 +486,12 @@ export class ChinatownScript {
     if (s.stage === STAGE.HOLDOUT && s.result === 0) {
       if (--s.holdout <= 0) {
         s.stage = STAGE.EXTRACT;
-        s.heli = spawnHeli(w, heliPath(w, this.zoneCentre()));
-        this.say('The helicopter is coming in!');
+        // It hovers above the zone's floor (the pier deck).
+        const zone = this.zoneSectors();
+        const floor = zone.length ? Math.max(...zone.map((sec) => sec.floorheight)) : null;
+        s.heli = spawnHeli(w, heliPath(w, this.zoneCentre(), floor));
+        if (s.heli) this.say('The helicopter is coming in!');
+        else this.rescued(); // a map with neither path nodes nor a zone: nothing to wait for
       }
     }
     if (s.heli) this.tickExtraction(p);
@@ -476,7 +506,28 @@ export class ChinatownScript {
     const line = this.lines(904, 2)[0];
     if (!line) return;
     const gen = this.nearest(MT.CT_PGEN, this.lineMid(line), 512);
-    this.w.sound(gen || this.lineOrigin(line), 'genrun', { loop: true, channel: 'gen' });
+    this.genSound = gen || this.lineOrigin(line);
+    this.w.sound(this.genSound, 'genrun', { loop: true, channel: 'gen' });
+  }
+
+  // The level is over: the generator, the rotor and the torch fall silent.
+  stopLoops() {
+    const w = this.w;
+    const s = this.s;
+    if (this.genSound) w.stopLoop(this.genSound, 'gen');
+    this.genSound = null;
+    if (s.heli && s.heli.mo) w.stopLoop(s.heli.mo, 'heli');
+    this.stopWeldSound();
+  }
+
+  // Aboard: SPEC, rescued -> the finale text, then the title.
+  rescued() {
+    const s = this.s;
+    s.result = 1;
+    s.stage = STAGE.OVER;
+    this.say('You made it out!');
+    this.stopLoops();
+    this.w.exitLevel(false, { finale: true });
   }
 
   // The crank winds gate 6 open while held and lets it sink back when not.
@@ -522,13 +573,9 @@ export class ChinatownScript {
       this.say('Get to the helicopter! 30 seconds!');
     }
     if (!s.extract) return;
-    if (p && p.mo && p.playerstate === 'live' && this.ct.inExtractionZone(p.mo)) {
+    if (p && p.mo && p.playerstate === 'live' && this.inZone(p.mo)) {
       if (++s.boarding >= BOARD_TICS) {
-        s.result = 1;
-        s.stage = STAGE.OVER;
-        this.say('You made it out!');
-        // SPEC: rescued -> the finale text, then the title.
-        w.exitLevel(false, { finale: true });
+        this.rescued();
         return;
       }
     } else {
@@ -559,6 +606,22 @@ export class ChinatownScript {
       if (d < bd) { bd = d; best = m; }
     }
     return best;
+  }
+
+  // Standing in front of one of these lines, close and facing it (no
+  // tracing: the HUD asks every frame).
+  facing(mo, lines, reach = 96) {
+    for (const line of lines) {
+      const len = line.length || 1;
+      const ux = line.dx / len, uy = line.dy / len;
+      const rx = mo.x - line.v1.x, ry = mo.y - line.v1.y;
+      const along = rx * ux + ry * uy;
+      const out = rx * uy - ry * ux; // distance in front (right of v1->v2)
+      if (along < -16 || along > len + 16 || out <= 0 || out > reach) continue;
+      // Looking into the line: against its front normal.
+      if (Math.cos(mo.angle) * -uy + Math.sin(mo.angle) * ux > 0.7) return true;
+    }
+    return false;
   }
 
   button(line) {
@@ -631,6 +694,10 @@ export class ChinatownScript {
     const holding = this.ct.s.holdLine >= 0 ? w.level.lines[this.ct.s.holdLine] : null;
     if (holding && holding.tag === 7 && !s.welded && p && p.keyItems[KEY_ITEM.TORCH]) progress = { label: 'WELDING', frac: s.weld / WELD_TICS };
     else if (s.welded && s.gateOpen > 0 && !s.done[5]) progress = { label: holding && holding.tag === 8 ? 'CRANKING' : 'GATE', frac: s.gateOpen };
+    else if (s.weld > 0 && !s.welded && p && p.mo && this.facing(p.mo, this.lines(904, 7))) {
+      // Welding let go part way: the kept progress shows, dimmed.
+      progress = { label: 'WELDED', frac: s.weld / WELD_TICS, idle: true };
+    }
     let countdown = null;
     if (s.stage === STAGE.HOLDOUT && s.result === 0) countdown = { label: 'RESCUE IN', tics: s.holdout };
     else if (s.extract > 0 && s.result === 0) countdown = { label: 'EXTRACTION', tics: s.extract };

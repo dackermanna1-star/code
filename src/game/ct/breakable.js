@@ -5,7 +5,11 @@
 // down their hit points; at zero the line stops blocking, its texture turns
 // into the broken variant (or nothing), debris flies and the map script is
 // told. Hit points and material come from the map script's table, keyed by
-// the line's tag; per-line damage is kept in CtLevel state (saved).
+// the line's tag. A map draws one opening (a gate, a boarded doorway, a
+// window) as several segments: lines of one tag in a straight run, end to
+// end or across a post (a gap of at most POST_GAP), are one breakable, with
+// one pool of hit points (kept in CtLevel state under the run's first line,
+// saved) that breaks as a whole.
 
 import { ML } from '../mapdata.js';
 import { lineOpening, opening } from '../maputl.js';
@@ -30,12 +34,70 @@ function midSide(line) {
   return line.front;
 }
 
+const POST_GAP = 16;
+
+// Distance of point p from the infinite line through `l`.
+function offLine(l, p) {
+  const len = l.length || Math.hypot(l.dx, l.dy) || 1;
+  return Math.abs((p.x - l.v1.x) * l.dy - (p.y - l.v1.y) * l.dx) / len;
+}
+
+// Runs of one opening: 903 lines with the same tag along one straight line,
+// touching or a post's width apart. Two windows with one tag, a wall apart,
+// stay two.
+function groupLines(lines) {
+  const parent = new Map(lines.map((l) => [l, l]));
+  const find = (l) => {
+    while (parent.get(l) !== l) l = parent.get(l);
+    return l;
+  };
+  const dir = (l) => {
+    const len = l.length || Math.hypot(l.dx, l.dy) || 1;
+    return [l.dx / len, l.dy / len];
+  };
+  for (let i = 0; i < lines.length; i++) {
+    for (let j = i + 1; j < lines.length; j++) {
+      const a = lines[i], b = lines[j];
+      if (a.tag !== b.tag) continue;
+      const [ax, ay] = dir(a), [bx, by] = dir(b);
+      if (Math.abs(ax * by - ay * bx) > 0.02 || offLine(a, b.v1) > 0.5 || offLine(a, b.v2) > 0.5) continue;
+      const gap = Math.min(...[[a.v1, b.v1], [a.v1, b.v2], [a.v2, b.v1], [a.v2, b.v2]].map(([p, q]) => Math.hypot(p.x - q.x, p.y - q.y)));
+      if (gap > POST_GAP) continue;
+      const ra = find(a), rb = find(b);
+      // The run's first line (lowest index) holds its hit points.
+      if (ra !== rb) {
+        if (ra.index < rb.index) parent.set(rb, ra);
+        else parent.set(ra, rb);
+      }
+    }
+  }
+  const leader = new Map();
+  const members = new Map();
+  for (const l of lines) {
+    const r = find(l);
+    leader.set(l, r);
+    if (!members.has(r)) members.set(r, []);
+    members.get(r).push(l);
+  }
+  return { leader, members };
+}
+
 export class Breakables {
   constructor(ct) {
     this.ct = ct;
     this.w = ct.w;
     this.lines = this.w.level.lines.filter((l) => l.special === BREAKABLE);
+    // Static map data, rebuilt on load like the portal pairs.
+    const { leader, members } = groupLines(this.lines);
+    this.leader = leader;
+    this.members = members;
   }
+
+  // The line holding the hit points of `line`'s opening.
+  head(line) { return this.leader.get(line) || line; }
+
+  // Every segment of `line`'s opening.
+  group(line) { return this.members.get(this.head(line)) || [line]; }
 
   // { hp, material } for a line: the script's table entry, else a default
   // with the material guessed from the texture.
@@ -49,8 +111,9 @@ export class Breakables {
   }
 
   hp(line) {
-    const v = this.ct.s.lineHp[line.index];
-    return v === undefined ? this.info(line).hp : v;
+    const head = this.head(line);
+    const v = this.ct.s.lineHp[head.index];
+    return v === undefined ? this.info(head).hp : v;
   }
 
   intact(line) {
@@ -80,41 +143,54 @@ export class Breakables {
   damage(line, amount, source, at = null) {
     if (!this.intact(line) || !(amount > 0)) return;
     const hp = this.hp(line) - amount;
-    this.ct.s.lineHp[line.index] = Math.max(0, hp);
+    this.ct.s.lineHp[this.head(line).index] = Math.max(0, hp);
     if (hp <= 0) this.break(line, source, at);
   }
 
   // Explosion at `spot` (a thing): every intact breakable within reach takes
-  // damage falling off with distance, like things in radiusAttack.
+  // damage falling off with distance, like things in radiusAttack; an
+  // opening drawn in segments is hit once, at its nearest one.
   radius(spot, source, damage) {
-    for (const line of this.lines) {
-      if (!this.intact(line)) continue;
-      const len = line.length || 1;
-      let t = ((spot.x - line.v1.x) * line.dx + (spot.y - line.v1.y) * line.dy) / (len * len);
-      t = Math.max(0, Math.min(1, t));
-      const px = line.v1.x + line.dx * t, py = line.v1.y + line.dy * t;
-      const d = Math.floor(Math.hypot(spot.x - px, spot.y - py));
-      if (d >= damage) continue;
-      const [b, top] = this.span(line);
-      if (spot.z + (spot.height || 0) < b - damage || spot.z > top + damage) continue;
-      this.damage(line, damage - d, source, { x: px, y: py, z: Math.max(b, Math.min(top, spot.z)) });
+    for (const [head, group] of this.members) {
+      if (!this.intact(head)) continue;
+      let best = null;
+      for (const line of group) {
+        const len = line.length || 1;
+        let t = ((spot.x - line.v1.x) * line.dx + (spot.y - line.v1.y) * line.dy) / (len * len);
+        t = Math.max(0, Math.min(1, t));
+        const px = line.v1.x + line.dx * t, py = line.v1.y + line.dy * t;
+        const d = Math.floor(Math.hypot(spot.x - px, spot.y - py));
+        if (d >= damage) continue;
+        const [b, top] = this.span(line);
+        if (spot.z + (spot.height || 0) < b - damage || spot.z > top + damage) continue;
+        if (!best || d < best.d) best = { line, d, at: { x: px, y: py, z: Math.max(b, Math.min(top, spot.z)) } };
+      }
+      if (best) this.damage(best.line, damage - best.d, source, best.at);
     }
   }
 
+  // Breaks `line`'s whole opening: every segment stops blocking and turns
+  // to its broken look; one sound, debris along each segment.
   break(line, source, at) {
     const w = this.w;
-    const { material } = this.info(line);
-    const [b, t] = this.span(line);
-    line.flags &= ~(ML.BLOCKING | ML.BLOCKMONSTERS);
-    for (const side of [line.front, line.back]) {
-      if (!side || !side.midtexture) continue;
-      const name = w.res.textures[side.midtexture] ? w.res.textures[side.midtexture].name : '';
-      side.midtexture = BROKEN_TEXTURE[name] ? w.res.textureNum(BROKEN_TEXTURE[name]) : 0;
-      w.sideChanged(side);
+    const head = this.head(line);
+    const group = this.group(line);
+    const { material } = this.info(head);
+    const [lb, lt] = this.span(line);
+    this.ct.s.lineHp[head.index] = 0;
+    for (const seg of group) {
+      const [b, t] = this.span(seg);
+      seg.flags &= ~(ML.BLOCKING | ML.BLOCKMONSTERS);
+      for (const side of [seg.front, seg.back]) {
+        if (!side || !side.midtexture) continue;
+        const name = w.res.textures[side.midtexture] ? w.res.textures[side.midtexture].name : '';
+        side.midtexture = BROKEN_TEXTURE[name] ? w.res.textureNum(BROKEN_TEXTURE[name]) : 0;
+        w.sideChanged(side);
+      }
+      if (w.fx && w.fx.breakLine) w.fx.breakLine(seg, material, b, t);
     }
-    const mid = { x: (line.v1.x + line.v2.x) / 2, y: (line.v1.y + line.v2.y) / 2, z: (b + t) / 2 };
+    const mid = { x: (line.v1.x + line.v2.x) / 2, y: (line.v1.y + line.v2.y) / 2, z: (lb + lt) / 2 };
     w.sound(at || mid, BREAK_SOUND[material] || 'woodbk');
-    if (w.fx && w.fx.breakLine) w.fx.breakLine(line, material, b, t);
-    if (this.ct.script && this.ct.script.broken) this.ct.script.broken(line, source);
+    if (this.ct.script && this.ct.script.broken) this.ct.script.broken(head, source);
   }
 }

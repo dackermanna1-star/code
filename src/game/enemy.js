@@ -59,6 +59,9 @@ export function checkMeleeRange(w, actor) {
   if (dist >= (reach ? reach - 16 : MELEERANGE - 20) + pl.info.radius) return false;
   // Can't bite what's far above or below (relevant once players can jump).
   if (pl.z > actor.z + actor.height + 24 || pl.z + pl.height < actor.z - 24) return false;
+  // Nor through Chinatown's intact gates, boards and glass (see-through,
+  // but they stop the player's shots too).
+  if (w.ct && w.ct.meleeBlocked(actor, pl)) return false;
   return w.checkSight(actor, pl);
 }
 

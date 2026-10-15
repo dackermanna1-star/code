@@ -25,6 +25,7 @@
 //     glass 903/57, triggers 905/132/140 (905/131 is on the deck), the
 //     welder garage (tag 8) with a blowtorch spot, director markers of
 //     every group
+//   portal 900/102 (3200..3656 x -128..256): a seam turned 90 degrees
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -395,9 +396,15 @@ room('dock warehouse', 2688, 672, 2944, 928, Z);
 room('side room', 2688, 928, 2944, 1056, Z);
 room('garage doorway', 2208, 656, 2272, 672, { ceil: 128, tag: 8 });
 room('welder garage', 2144, 672, 2400, 800, { ceil: 128, light: 120 });
+// A portal seam turning a corner (900/102): north out of the first room
+// comes out heading east in the second (shallow closets behind both lines).
+const Q1 = room('portal north', 3200, 0, 3328, 192, { wall: 'CTTILE1' });
+room('portal closet north', 3200, 192, 3328, 256, { wall: 'CTTILE1' });
+const Q4 = room('portal closet east', 3336, 0, 3400, 128, { wall: 'CTTILE1' });
+room('portal east', 3400, -128, 3656, 256, { wall: 'CTTILE1' });
 
 // Extra vertices that split walls (use lines, ladder, breakables).
-const splits = [[896, 1536], [960, 1536], [1024, 896], [2496, 400], [2560, 400], [2752, 928], [2880, 928]];
+const splits = [[896, 1536], [960, 1536], [1024, 896], [2496, 400], [2560, 400], [2752, 928], [2880, 928], [224, 384], [288, 384]];
 for (let y = 32; y <= 320; y += 32) splits.push([0, y]);
 
 const verts = [];
@@ -464,10 +471,13 @@ const PANELS = { 2: 'CTGEN1', 7: 'CTPADL1', 8: 'CTCRNK1', 9: 'CTSOCK1', 10: 'CTR
 for (let t = 2; t <= 10; t++) line(0, 16 + 32 * (t - 1), { special: 904, tag: t, tex: { mid: PANELS[t] || 'CTBUT1' } });
 line(736, 1536, { special: 904, tag: 1, tex: { mid: 'CTBUT1' } });
 line(0, 16, { tex: { mid: 'CTNSG1' } }); // neon by the start
-// Chained gate (breakable), portal pair, objective triggers.
-line(256, 384, { special: 903, tag: 50, flags: ML.BLOCKING, tex: { mid: 'CTGATE1' } });
+// Chained gate (breakable, drawn in three segments like the real map's),
+// portal pairs, objective triggers.
+for (const x of [208, 256, 304]) line(x, 384, { special: 903, tag: 50, flags: ML.BLOCKING, tex: { mid: 'CTGATE1' } });
 line(256, 448, { front: C1, special: 900, tag: 100 });
 line(2176, 128, { front: A1, special: 900, tag: 100 });
+line(3264, 192, { front: Q1, special: 900, tag: 102 });
+line(3400, 64, { front: Q4, special: 900, tag: 102 });
 line(256, 512, { special: 905, tag: 130 });
 line(600, 1536, { special: 905, tag: 133 });
 line(-384, 1536, { front: ST, special: 906 });
@@ -498,6 +508,8 @@ inner(car[0] - 90, car[1] + 40, car[0] - 90, car[1] - 40, ST);
 inner(2000, 420, 2000, 480, G1, { special: 903, tag: 52, tex: { mid: 'CTBORD1' } });
 inner(2050, 420, 2050, 480, G1, { special: 903, tag: 53, tex: { mid: 'CTBORD1' } });
 inner(2600, 600, 2660, 600, G5, { special: 903, tag: 54, tex: { mid: 'CTBORD1' } });
+// A second window with the laundromat windows' tag, apart from the first.
+inner(960, 560, 960, 620, ST, { special: 903, tag: 56, tex: { mid: 'CTGLAS1' } });
 inner(1060, 1300, 1060, 1500, DK, { flags: ML.TWOSIDED, special: 905, tag: 131 });
 inner(2440, 250, 2650, 250, L81, { flags: ML.TWOSIDED, special: 905, tag: 132 });
 inner(1700, 410, 1700, 646, G0, { flags: ML.TWOSIDED, special: 905, tag: 140 });

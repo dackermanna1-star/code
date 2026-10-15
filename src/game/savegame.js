@@ -294,8 +294,8 @@ export function loadGame(game, data) {
   game.episode = data.episode;
   game.map = data.map;
   game.customMap = data.customMap || (isEpisodeMapName(data.mapName) ? null : data.mapName);
+  game.rollSeed = w.rollSeed >>> 0;
   game.player = player;
-  if (w.ct) w.ct.loaded();
   return w;
 }
 

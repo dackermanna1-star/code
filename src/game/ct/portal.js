@@ -11,9 +11,8 @@
 // (enemy.js), so zombies follow the player across.
 
 import { MF, normAngle } from '../defs.js';
-import { pointOnLineSide } from '../maputl.js';
+import { pointOnLineSide, setThingPosition, unsetThingPosition } from '../maputl.js';
 import { checkPosition, mapState, STEPHEIGHT } from '../map.js';
-import { setThingPosition, unsetThingPosition } from '../maputl.js';
 
 export const PORTAL = 900;
 

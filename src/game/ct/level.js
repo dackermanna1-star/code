@@ -18,7 +18,7 @@ import { MT } from '../tables.js';
 import { pathTraverse, PT_ADDLINES, lineOpening, opening, pointOnLineSide } from '../maputl.js';
 import { CT_MAP } from './info.js';
 import { buildPortals, portalCrossed, portalMove, portalExitSector, portalEdges, PORTAL } from './portal.js';
-import { Breakables } from './breakable.js';
+import { Breakables, BREAKABLE } from './breakable.js';
 import { startClimb, LADDER } from './ladder.js';
 import { ChinatownScript } from './chinatown.js';
 
@@ -119,8 +119,9 @@ export class CtLevel {
       if (li && li.special === OBJECTIVE_USE && script.holdable(li)) line = li;
     }
     const lines = this.w.level.lines;
-    if (s.holdLine >= 0 && (!line || line.index !== s.holdLine)) {
-      const old = lines[s.holdLine];
+    // Lines of one tag are one target (a padlock drawn as a niche).
+    const old = s.holdLine >= 0 ? lines[s.holdLine] : null;
+    if (old && (!line || line.tag !== old.tag)) {
       s.holdLine = -1;
       s.holdTics = 0;
       script.holdEnd(old, p);
@@ -161,6 +162,25 @@ export class CtLevel {
   // --- Breakables (map.js lineAttack / radiusAttack) ----------------------------
 
   blocksShot(line, z) { return this.breakables.blocksShot(line, z); }
+
+  // Does an intact breakable stand between a melee attacker and its target
+  // at the height they share (enemy.js checkMeleeRange)?
+  meleeBlocked(actor, target) {
+    if (!this.breakables.lines.length) return false;
+    let lo = Math.max(actor.z, target.z), hi = Math.min(actor.z + actor.height, target.z + target.height);
+    if (lo > hi) [lo, hi] = [hi, lo];
+    let blocked = false;
+    pathTraverse(this.w, actor.x, actor.y, target.x, target.y, PT_ADDLINES, (ic) => {
+      const li = ic.line;
+      if (li.special !== BREAKABLE || !this.breakables.intact(li)) return true;
+      const [b, t] = this.breakables.span(li);
+      if (b > hi + 1 || t < lo - 1) return true;
+      blocked = true;
+      return false;
+    });
+    return blocked;
+  }
+
   damageLine(line, damage, source, at) { this.breakables.damage(line, damage, source, at); }
   radiusDamage(spot, source, damage) { if (this.breakables.lines.length) this.breakables.radius(spot, source, damage); }
 

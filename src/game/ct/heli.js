@@ -9,14 +9,21 @@ import { normAngle, angleDiff } from '../defs.js';
 import { setThingPosition, unsetThingPosition } from '../maputl.js';
 
 const CRUISE_ALT = 448; // above the floor along the path
-const HOVER_ALT = 176; // above the floor at the last node
+const HOVER_ALT = 176; // above the extraction zone's floor at the last node
+const HEIGHT = 96; // the VHEL thing's height
 const MAX_SPEED = 12; // units per tic (420 units/s)
 const ACCEL = 0.45;
 const TURN = 0.05; // radians per tic
 const LEAVE_TICS = 8 * 35;
 
-// The path: node positions with flying heights under the ceiling.
-export function heliPath(w, zoneCentre) {
+// Highest the helicopter may be in a sector (place() keeps it there).
+const ceilingTop = (sec) => sec.ceilingheight - HEIGHT - 4;
+
+// The path: node positions with flying heights under the ceiling. The
+// hover over the last node is measured from the extraction zone's floor
+// (`zoneFloor`), not from whatever is under the node (the bay off the end
+// of the pier), so it hangs above the deck where the player can see it.
+export function heliPath(w, zoneCentre, zoneFloor = null) {
   const nodes = [...w.mobjs].filter((m) => m.type === MT.CT_HELINODE)
     .sort((a, b) => (a.spawnpoint.angle - b.spawnpoint.angle) || (a.id - b.id));
   const pts = nodes.map((m) => ({ x: m.x, y: m.y }));
@@ -25,9 +32,12 @@ export function heliPath(w, zoneCentre) {
   }
   return pts.map((p, i) => {
     const sec = w.pointInSubsector(p.x, p.y).sector;
-    const alt = i === pts.length - 1 ? HOVER_ALT : CRUISE_ALT;
-    const top = sec.ceilingheight - 96 - 8;
-    return { x: p.x, y: p.y, z: Math.max(sec.floorheight + 64, Math.min(sec.floorheight + alt, top)) };
+    const last = i === pts.length - 1;
+    const floor = last && zoneFloor !== null ? Math.max(sec.floorheight, zoneFloor) : sec.floorheight;
+    const alt = last ? HOVER_ALT : CRUISE_ALT;
+    const z = Math.max(floor + 64, Math.min(floor + alt, sec.ceilingheight - HEIGHT - 8));
+    // Never aim above where it can actually fly (a low roof over the node).
+    return { x: p.x, y: p.y, z: Math.min(z, ceilingTop(sec)) };
   });
 }
 
@@ -37,7 +47,7 @@ function place(w, mo, x, y, z) {
   mo.y = y;
   setThingPosition(w, mo);
   const sec = mo.subsector.sector;
-  mo.z = Math.min(z, sec.ceilingheight - mo.height - 4);
+  mo.z = Math.min(z, ceilingTop(sec));
   mo.floorz = sec.floorheight;
   mo.ceilingz = sec.ceilingheight;
 }
@@ -64,13 +74,15 @@ export function tickHeli(w, h) {
     const p = h.path[h.i];
     tx = p.x; ty = p.y; tz = p.z;
     const last = h.i === h.path.length - 1;
-    const dist = Math.hypot(tx - mo.x, ty - mo.y, tz - mo.z);
+    // A ceiling it is pressed against counts as reached in height.
+    const dz = mo.z >= ceilingTop(mo.subsector.sector) - 0.5 && tz > mo.z ? 0 : tz - mo.z;
+    const dist = Math.hypot(tx - mo.x, ty - mo.y, dz);
     if (last) speed = Math.min(MAX_SPEED, Math.max(0.6, dist / 24));
     else if (dist < 96) h.i++;
-    if (last && dist < 6 && Math.hypot(h.vx, h.vy, h.vz) < 1.2) {
+    if (last && dist < 6 && Math.hypot(h.vx, h.vy) < 1.2) {
       h.phase = 'hover';
       h.t = 0;
-      h.hz = tz;
+      h.hz = Math.min(tz, mo.z + 6);
       h.vx = h.vy = h.vz = 0;
     }
   }

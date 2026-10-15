@@ -125,6 +125,12 @@ export function xyMovement(w, mo) {
     if (!tryMove(w, mo, ptryx, ptryy)) {
       if (mo.player) {
         slideMove(w, mo);
+        if (mapState.portal) {
+          // The slide went through a Chinatown portal: so does the rest.
+          const c = Math.cos(mapState.portal.rot), s = Math.sin(mapState.portal.rot);
+          [xmove, ymove] = [xmove * c - ymove * s, xmove * s + ymove * c];
+          mapState.portal = null;
+        }
       } else if (mo.flags & MF.MISSILE) {
         const cl = mapState.ceilingline;
         if (cl && cl.backsector && w.isSkyFlat(cl.backsector.ceilingpic)) {

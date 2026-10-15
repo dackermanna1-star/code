@@ -140,10 +140,12 @@ export const STEPHEIGHT = 24;
 export function tryMove(world, thing, x, y) {
   const tm = mapState;
   tm.floatok = false;
+  // Set only by a move through a Chinatown portal; never left over from an
+  // earlier move (or level).
+  tm.portal = null;
   if (world.ct) {
     // Chinatown's portals (special 900): crossing one moves the thing to the
     // partner line instead (ct/portal.js). tm.portal tells xyMovement.
-    tm.portal = null;
     const moved = world.ct.portalTry(thing, x, y);
     if (moved !== null) return moved;
   }
@@ -199,6 +201,9 @@ export function slideMove(world, mo) {
   const stairstep = () => {
     if (!tryMove(world, mo, mo.x, mo.y + mo.momy)) tryMove(world, mo, mo.x + mo.momx, mo.y);
   };
+  // A slide through a Chinatown portal ends there: the momentum has turned
+  // with it and the wall found in the old frame means nothing in the new.
+  const through = () => mapState.portal !== null;
   for (;;) {
     if (++hitcount === 3) { stairstep(); return; }
     let leadx, leady, trailx, traily;
@@ -231,6 +236,7 @@ export function slideMove(world, mo) {
     if (bestslidefrac > 0) {
       const nx = mo.momx * bestslidefrac, ny = mo.momy * bestslidefrac;
       if (!tryMove(world, mo, mo.x + nx, mo.y + ny)) { stairstep(); return; }
+      if (through()) return;
     }
     bestslidefrac = 1 - (bestslidefrac + 0.03125);
     if (bestslidefrac > 1) bestslidefrac = 1;

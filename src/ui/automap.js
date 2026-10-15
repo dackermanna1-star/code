@@ -465,7 +465,9 @@ export class Automap {
       ['TIME', time],
     ];
     const right = 320 + r.vLeft / r.vScaleX - 2;
-    const top = rect.y / r.vScaleY + 1;
+    // Below Chinatown's objective line and the message row under it.
+    const ct = this.app.hud && this.app.hud.ct.info();
+    const top = rect.y / r.vScaleY + (ct && ct.objective ? 21 : 1);
     rows.forEach(([label, value], i) => {
       const y = top + i * 9;
       const vx = right - huWidth(this.font, value);

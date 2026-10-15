@@ -18,7 +18,7 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 REF = sys.argv[1] if len(sys.argv) > 1 else os.environ.get(
     'CT_REF', '/tmp/claude-0/-home-user-code/2139ba89-9871-5bc9-a1b9-3df0ca0d94e2/scratchpad/out')
-OUT = os.path.join(HERE, 'layout')
+OUT = os.environ.get('CT_LAYOUT_OUT') or os.path.join(HERE, 'layout')
 PREV = os.path.join(HERE, '..', '..', 'build', 'ct', 'previews', 'map')
 C = 8  # cell size (map units)
 
@@ -451,16 +451,32 @@ def build_layer(name):
         return res
     solid_any = blocked & ~nav
     connset = set()
+    adj = {}
     for a in NAV:
         for lst in a['conn']:
             for b in lst:
                 connset.add((a['id'], b)); connset.add((b, a['id']))
+                adj.setdefault(a['id'], set()).add(b); adj.setdefault(b, set()).add(a['id'])
+
+    def linked(a, b, y, x, r=3):
+        # a and b are linked if connected directly, or through a connector
+        # area lying within r cells of (y,x) (narrow doorway / passage-mouth
+        # areas: the cells beside them are not a barrier)
+        if (a, b) in connset:
+            return True
+        win = navid[max(0, y - r):y + r + 1, max(0, x - r):x + r + 1]
+        sa, sb = adj.get(a, ()), adj.get(b, ())
+        for X in np.unique(win):
+            X = int(X)
+            if X and X in sa and X in sb:
+                return True
+        return False
     for (d1, d2) in (((0, 1), (0, -1)), ((1, 0), (-1, 0))):
         A = scan(*d1); B = scan(*d2)
         both = (~nav) & (A > 0) & (B > 0) & (A != B)
         ys, xs = np.nonzero(both)
         for y, x in zip(ys, xs):
-            if (int(A[y, x]), int(B[y, x])) not in connset:
+            if not linked(int(A[y, x]), int(B[y, x]), y, x):
                 gap[y, x] = True
     print(f'[{name}] gap cells {gap.sum()}')
 
@@ -503,13 +519,55 @@ def build_layer(name):
             else:
                 barrier |= m
             filled += sizes[k]
-    barrier |= gap & ~walk & ~solidm & ~np.isnan(fz)
+    gapb = gap & ~walk & ~solidm & ~np.isnan(fz) & ~barrier
+    barrier |= gapb
+    # cells under player clips only (no solid brush: vehicles, fenced-off
+    # pens, barricades the mapper clipped) are invisible walls in NMRiH: keep
+    # their floor as barrier cells (impassable, see-through) instead of solid
+    # wall, flooding in from walkable space
+    clipc = blocked & ~solidm & ~walk & ~barrier & ~np.isnan(fz) & has & (np.abs(fz - zr) < 40)
+    seed = clipc & (np.roll(walk, 1, 0) | np.roll(walk, -1, 0) | np.roll(walk, 1, 1) | np.roll(walk, -1, 1))
+    q = deque(zip(*np.nonzero(seed)))
+    clipb = seed.copy()
+    while q:
+        y, x = q.popleft()
+        for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            yy, xx = y + dy, x + dx
+            if 0 <= yy < G.H and 0 <= xx < G.W and clipc[yy, xx] and not clipb[yy, xx] and abs(fz[yy, xx] - fz[y, x]) <= 24:
+                clipb[yy, xx] = True
+                q.append((yy, xx))
+    barrier |= clipb
+    print(f'[{name}] clip barrier cells {clipb.sum()}')
     print(f'[{name}] filled {filled} hole cells, barrier cells {barrier.sum()}')
     walk |= barrier
-    # fill floor heights where missing
-    fz = np.where(walk & np.isnan(fz), zr, fz)
-    fz = np.where(walk & np.isnan(fz), propagate(np.where(walk, fz, np.nan), 30), fz)
+    # fill floor heights where missing (cells with no floor face and no nav
+    # height nearby take the propagated floor of their walkable neighbours;
+    # never the 'no reference' sentinel)
+    fz = np.where(walk & np.isnan(fz), np.where(has, zref, np.nan), fz)
+    for steps in (30, 200):
+        if not (walk & np.isnan(fz)).any():
+            break
+        fz = np.where(walk & np.isnan(fz), propagate(np.where(walk, fz, np.nan), steps), fz)
     walk &= ~np.isnan(fz)
+    bad = walk & ((fz < -2000) | (fz > 2000))
+    assert not bad.any(), f'{name}: {bad.sum()} walkable cells with out-of-range floors'
+    # hole barriers (props the nav mesh went round) never reach into the
+    # player hull around nav: a nav sample is a valid player centre in NMRiH,
+    # so its 32x32 box (2 cells each way) must stay free. Gap barriers (thin
+    # obstacles between unconnected nav areas) are kept whole.
+    hole = barrier & ~gapb
+    halo = np.zeros_like(hole)
+    navf = np.where(nav, navz, np.nan)
+    for dj in range(-2, 3):
+        for di in range(-2, 3):
+            sh = np.full_like(navf, np.nan)
+            ys0, ys1 = max(0, dj), G.H + min(0, dj)
+            xs0, xs1 = max(0, di), G.W + min(0, di)
+            sh[ys0:ys1, xs0:xs1] = navf[ys0 - dj:ys1 - dj, xs0 - di:xs1 - di]
+            halo |= hole & ~np.isnan(sh) & (np.abs(sh - np.where(np.isnan(fz), 0, fz)) <= 24)
+    barrier &= ~halo
+    cleared = halo  # former obstacle cells: never the site of a barrier edge
+    print(f'[{name}] hole barrier cells cleared round nav: {halo.sum()}')
 
     # drop tiny walkable islands
     lab, sizes = components(walk & ~barrier)
@@ -555,6 +613,7 @@ def build_layer(name):
     # wall surface classes for non-walkable cells next to walkable ones
     wcls = np.zeros((G.H, G.W), np.uint8)
     wscore = np.zeros((G.H, G.W), np.float32)
+    wtop = np.full((G.H, G.W), -32768, np.int32)  # highest wall face top on a solid cell next to walkable space
     for P, n, t, cls in walls:
         wc = wall_class(t)
         if wc is None:
@@ -587,6 +646,8 @@ def build_layer(name):
             ref = final[fj, fi] if walk[fj, fi] else (zr[bj, bi] if has[bj, bi] else None)
             if ref is None:
                 continue
+            if z1 > ref + 8 and z0 < ref + 2048 and cls == 'worldspawn':
+                wtop[bj, bi] = max(wtop[bj, bi], int(round(z1)))
             ov = min(z1, ref + 128) - max(z0, ref)
             if ov <= 0:
                 continue
@@ -627,7 +688,7 @@ def build_layer(name):
     # connected (thin obstacles the nav mesh saw: fences, barricades, rails)
     hbar = np.zeros((G.H + 1, G.W), bool)
     vbar = np.zeros((G.H, G.W + 1), bool)
-    free = walk & ~barrier
+    free = walk & ~barrier & ~cleared
     # propagate owners into cells without one (hole fills, stubs)
     for _ in range(4):
         miss = free & (owner == 0)
@@ -644,16 +705,16 @@ def build_layer(name):
     a = owner[:-1, :]; b = owner[1:, :]
     m = free[:-1, :] & free[1:, :] & (a > 0) & (b > 0) & (a != b) & (np.abs(final[:-1, :].astype(np.int32) - final[1:, :]) < 40)
     for y, x in zip(*np.nonzero(m)):
-        if (int(a[y, x]), int(b[y, x])) not in connset:
+        if not linked(int(a[y, x]), int(b[y, x]), y, x):
             hbar[y + 1, x] = True
     a = owner[:, :-1]; b = owner[:, 1:]
     m = free[:, :-1] & free[:, 1:] & (a > 0) & (b > 0) & (a != b) & (np.abs(final[:, :-1].astype(np.int32) - final[:, 1:]) < 40)
     for y, x in zip(*np.nonzero(m)):
-        if (int(a[y, x]), int(b[y, x])) not in connset:
+        if not linked(int(a[y, x]), int(b[y, x]), y, x):
             vbar[y, x + 1] = True
     print(f'[{name}] barrier edges h {hbar.sum()} v {vbar.sum()}')
 
-    return dict(G=G, walk=walk, barrier=barrier, wsurf=wsurf, topz=topz, floor=final, ceil=cz, fcls=fcls, ccls=ccls, wcls=wcls, hbar=hbar, vbar=vbar,
+    return dict(G=G, walk=walk, barrier=barrier, clip=clipb & barrier, wsurf=wsurf, topz=topz, wtop=wtop, floor=final, ceil=cz, fcls=fcls, ccls=ccls, wcls=wcls, hbar=hbar, vbar=vbar,
                 nav=nav, blocked=blocked, glass=glassm, grate=gratem, water=water)
 
 
@@ -725,7 +786,8 @@ def save_layers(res):
         ccls = np.where(r['walk'], r['ccls'], 0).astype('u1')
         wcls = np.where(r['walk'], 0, r['wcls']).astype('u1')
         flags = (r['glass'].astype('u1') * 1 | r['grate'].astype('u1') * 2 | r['blocked'].astype('u1') * 4)
-        flags = np.where(r['walk'], r['barrier'].astype('u1') * 8, flags).astype('u1')
+        # walkable cells: 8 barrier (impassable), 16 inside a nav area, 32 barrier under a player clip
+        flags = np.where(r['walk'], r['barrier'].astype('u1') * 8 | (r['nav'] & ~r['barrier']).astype('u1') * 16 | r['clip'].astype('u1') * 32, flags).astype('u1')
         water = np.where(r['walk'], np.where(r['water'] > -32768, r['water'], -32768), r['wsurf']).astype('<i2')
         out['layers'][name] = {
             'x0': G.x0, 'y0': G.y0, 'w': G.W, 'h': G.H,
@@ -733,6 +795,7 @@ def save_layers(res):
             'wcls': enc(wcls), 'flags': enc(flags), 'water': enc(water),
             'hbar': enc(r['hbar'].astype('u1')), 'vbar': enc(r['vbar'].astype('u1')),
             'top': enc(np.where(r['walk'], -32768, np.clip(np.round(r['topz']), -32768, 32767)).astype('<i2')),
+            'wtop': enc(np.where(r['walk'], -32768, np.clip(r['wtop'], -32768, 32767)).astype('<i2')),
         }
     os.makedirs(OUT, exist_ok=True)
     with open(os.path.join(OUT, 'raster.json'), 'w') as f:
@@ -798,6 +861,17 @@ PROPMAP = [
 ]
 SIGNS = ['sign_chinatown_01', 'sign_chinatown_02', 'sign_chinatown_03', 'sign_drugs', 'sign_garage_01', 'fallout_motel_sign',
          'subway_sign01', 'sign_gun_shop_side', 'sign_gun_shop_front', 'sign_market_lg_01', 'sign_store_blank_160']
+# other solid props (shelves, dumpsters, tables...): category -> how the map
+# draws the obstacle the nav mesh went round (textured raised block)
+OBST = [('shelf', 'shelf'), ('rack', 'shelf'), ('p_street_dump', 'dumpster'), ('dumpster', 'dumpster'), ('pallet', 'pallet'),
+        ('crate', 'crate'), ('boxes', 'crate'), ('cardboard', 'crate'), ('table', 'table'), ('desk', 'table'), ('counter', 'table'),
+        ('workbench', 'table'), ('barrel', 'barrel'), ('drum', 'barrel'), ('sandbag', 'sandbag'), ('tire', 'tire'),
+        ('vending', 'machine'), ('washer', 'machine'), ('dryer', 'machine'), ('fridge', 'machine'), ('locker', 'machine'),
+        ('cabinet', 'machine'), ('generator', 'machine'), ('garbage', 'garbage'), ('trash', 'garbage'), ('cot', 'bed'),
+        ('matress', 'bed'), ('mattress', 'bed'), ('bed', 'bed'), ('couch', 'bed'), ('sofa', 'bed'), ('wirespool', 'spool'),
+        ('spool', 'spool'), ('scaffold', 'scaffold'), ('container', 'container'), ('wheeliebin', 'dumpster'), ('bin', 'dumpster'),
+        ('bumper', 'concrete'), ('barricade', 'wood'), ('plank', 'wood'), ('chair', 'table'), ('stove', 'machine'),
+        ('oven', 'machine'), ('pipe', 'metal'), ('tank', 'metal'), ('cart', 'metal')]
 FENCES = {'fence_set1_128': 128, 'fence_set1_256': 256, 'fence_set1_512': 512, 'urban/fence.mdl': 128,
           'exterior_fence002b': 128, 'exterior_fence002c': 128, 'exterior_fence002d': 128, 'exterior_fence002a': 128,
           'exterior_fence003a': 128, 'exterior_fence003b': 128, 'fence01a': 128, 'fence01b': 128, 'fence02a': 128}
@@ -812,6 +886,24 @@ def collect_ref(res):
         i = int((x - G.x0) // C); j = int((y - G.y0) // C)
         return 0 <= i < G.W and 0 <= j < G.H and navm[j, i]
 
+    def best_fit(x, y, yaw, L, Wd):
+        # the model origin is not always the footprint centre (Bradley, semi
+        # trailers): slide the footprint (and try the other axis) to the
+        # position that best matches the nav hole; small moves only
+        f0 = hole_fit(x, y, yaw, L, Wd)
+        best = (f0, x, y, yaw)
+        if f0 >= 0.9:
+            return best
+        for a in (yaw, yaw + 90):
+            c, s = math.cos(math.radians(a)), math.sin(math.radians(a))
+            for du in range(-int(L / 4) // 8 * 8, int(L / 4) + 1, 8):
+                for dv in range(-int(Wd / 4) // 8 * 8, int(Wd / 4) + 1, 8):
+                    px, py = x + du * c - dv * s, y + du * s + dv * c
+                    f = hole_fit(px, py, a, L, Wd) - 0.0004 * math.hypot(du, dv) - (0.02 if a != yaw else 0)
+                    if f > best[0] + 1e-9:
+                        best = (f, px, py, a)
+        return best if best[0] > f0 + 0.1 else (f0, x, y, yaw)
+
     def hole_fit(x, y, yaw, L, Wd):
         # fraction of the footprint that is NOT nav (vehicles cut holes in the nav mesh)
         c, s = math.cos(math.radians(yaw)), math.sin(math.radians(yaw))
@@ -823,7 +915,7 @@ def collect_ref(res):
                 hit += 0 if nav_at(px, py) else 1
         return hit / tot
 
-    out = {'vehicles': [], 'props': [], 'signs': [], 'fences': [], 'lights': [], 'zspawn': [], 'spawners': [], 'items': []}
+    out = {'vehicles': [], 'props': [], 'obst': [], 'signs': [], 'fences': [], 'lights': [], 'zspawn': [], 'spawners': [], 'items': []}
     for p in PROPS:
         m = p['model'].lower()
         short = m.split('/')[-1].replace('.mdl', '')
@@ -849,7 +941,14 @@ def collect_ref(res):
             continue
         t = next((v for k, v in PROPMAP if k in m), None)
         if t:
-            out['props'].append({'t': t, 'm': short, 'x': round(x), 'y': round(y), 'z': round(z), 'yaw': round(yaw % 360)})
+            q = {'t': t, 'm': short, 'x': round(x), 'y': round(y), 'z': round(z), 'yaw': round(yaw % 360)}
+            if any(o['t'] == t and abs(o['x'] - q['x']) <= 8 and abs(o['y'] - q['y']) <= 8 and abs(o['z'] - q['z']) <= 16 for o in out['props']):
+                continue  # duplicate placement in the reference (same model stacked on itself)
+            out['props'].append(q)
+            continue
+        cat = next((v for k, v in OBST if k in short), None)
+        if cat:
+            out['obst'].append({'c': cat, 'm': short, 'x': round(x), 'y': round(y), 'z': round(z), 'yaw': round(yaw % 360)})
     # vehicle models here have their long axis along model y (yaw + 90): settle by majority vote
     votes = sum(1 if v['f1'] > v['f0'] + 0.05 else -1 if v['f0'] > v['f1'] + 0.05 else 0 for v in out['vehicles'])
     rot = 90 if votes > 0 else 0
@@ -862,6 +961,11 @@ def collect_ref(res):
             a = 90
         v['yaw'] = (v['yaw'] + a) % 360
         v['fit'] = max(v.pop('f0'), v.pop('f1'))
+        f, cx, cy, yw = best_fit(v['x'], v['y'], v['yaw'], v['len'], v['wid'])
+        if (round(cx), round(cy), round(yw) % 360) != (v['x'], v['y'], v['yaw']):
+            print(f"  vehicle {v['m']} ({v['x']},{v['y']}) yaw {v['yaw']} fit {v['fit']} -> centre ({round(cx)},{round(cy)}) yaw {round(yw) % 360} fit {round(f, 2)}")
+            v['ox'], v['oy'] = v['x'], v['y']
+            v['x'], v['y'], v['yaw'], v['fit'] = round(cx), round(cy), round(yw) % 360, round(f, 2)
     for e in ENTS:
         cl = e.get('classname')
         if cl in ('light', 'light_spot'):

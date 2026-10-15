@@ -298,6 +298,12 @@ export class AudioSystem {
     for (const v of this.voices.slice()) this.stopVoice(v, fade, true);
   }
 
+  // Ends every looping sound (a level's generator or helicopter) when the
+  // game leaves the level without an intermission (a finale, the title).
+  stopLoops(fade = 0.05) {
+    for (const v of this.voices.slice()) if (v.src && v.src.loop) this.stopVoice(v, fade, true);
+  }
+
   // --- Listener / environment ------------------------------------------------
 
   setListener(cam, player) {

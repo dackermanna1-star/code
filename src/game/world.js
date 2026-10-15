@@ -33,6 +33,8 @@ export class World {
     this.nomonsters = !!opts.nomonsters;
     this.rng = new Random();
     this.modSeed = 0; // state of modRandom() (defs.js), separate from P_Random
+    // Mixed into a map script's level-start rolls (see Game newGame).
+    this.rollSeed = opts.rollSeed >>> 0;
     this.leveltime = 0;
     this.gametic = 0;
     this.validcount = 1;

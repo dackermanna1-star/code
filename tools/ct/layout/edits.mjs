@@ -11,19 +11,28 @@
 
 // ---------------------------------------------------------------------------
 // Zones: first match wins (box = [x0,y0,x1,y1] real coords; no box = layer default).
+const Z_DOCKS = { layer: 'street', sky: 640, light: 120, lightIn: 128, style: 'docks' };
+const Z_WEST = { layer: 'street', sky: 576, light: 120, lightIn: 136, style: 'west' };
+const Z_EAST = { layer: 'street', sky: 576, light: 128, lightIn: 144, style: 'chinatown' };
 export const ZONES = [
+  // interiors with their own wall finish (wallIn / floorIn override the style indoors)
+  { name: 'tickethall', layer: 'subway', box: [-3120, -4960, -2680, -4590], sky: 512, light: 112, lightIn: 112, style: 'subway', wallIn: 'CTTILE3' },
+  { ...Z_WEST, name: 'laundromat', box: [-1660, -1236, -1200, -630], lightIn: 152, wallIn: 'CTTILE3', floorIn: 'CFTILE2' },
+  { ...Z_EAST, name: 'loading', box: [1330, -3440, 1760, -2880], wallIn: 'CTWARE1' },
+  { ...Z_DOCKS, name: 'dockwarehouse', box: [-3072, 1280, -2184, 2064], wallIn: 'CTWARE1' },
   { name: 'subway', layer: 'subway', sky: 512, light: 104, lightIn: 104, style: 'subway' },
   { name: 'sewer', layer: 'sewer', sky: 512, light: 88, lightIn: 88, style: 'sewer' },
-  { name: 'docks', layer: 'street', box: [-3800, 880, 2600, 4400], sky: 640, light: 120, lightIn: 128, style: 'docks' },
-  { name: 'west', layer: 'street', box: [-3800, -1800, -1180, 880], sky: 576, light: 120, lightIn: 136, style: 'west' },
+  { ...Z_DOCKS, name: 'docks', box: [-3800, 880, 2600, 4400] },
+  { ...Z_WEST, name: 'west', box: [-3800, -1800, -1180, 880] },
   { name: 'north', layer: 'street', box: [-1700, -2720, 640, -1180], sky: 576, light: 120, lightIn: 136, style: 'chinatown' },
-  { name: 'east', layer: 'street', box: [-1000, -4320, 2600, -1180], sky: 576, light: 128, lightIn: 144, style: 'chinatown' },
+  { ...Z_EAST, name: 'east', box: [-1000, -4320, 2600, -1180] },
   { name: 'passage', layer: 'street', box: [-2700, -5000, -2048, -4760], sky: 512, light: 96, lightIn: 96, style: 'subway' },
   { name: 'start', layer: 'street', sky: 512, light: 120, lightIn: 136, style: 'downtown' },
 ];
 export const LETHAL_WATER = true;
 // Facade strips on street faces of building blocks (see build-map.mjs).
-export const FACADE = { band: 128, maxTop: 832, zones: ['start', 'east', 'north', 'west', 'docks'] };
+// bigBlock: void blocks of more cells than this are buildings (unknown tops use maxTop)
+export const FACADE = { band: 128, maxTop: 832, bigBlock: 2000, zones: ['start', 'east', 'north', 'west', 'docks'] };
 const SHOPBAND = { downtown: ['CTSHOP4', 'CTSHUT1', 'CTSHOP6', 'CTBRK1', 'CTSHUT2', 'CTSHOP5'], chinatown: ['CTSHOP1', 'CTSHOP2', 'CTSHOP3', 'CTSHUT2', 'CTSHOP5', 'CTSHUT1'],
   west: ['CTSHOP3', 'CTSHUT1', 'CTSHOP1', 'CTBRK2', 'CTSHUT2'], docks: ['CTSHUT1', 'CTMETL2', 'CTSHUT2', 'CTCONC2'] };
 const UPPER = { downtown: ['CTAPT1', 'CTBRK1', 'CTAPT2', 'CTSTUC1', 'CTBRK2'], chinatown: ['CTAPT2', 'CTAPT1', 'CTSTUC2', 'CTBRK1', 'CTSTUC1'],
@@ -42,6 +51,30 @@ export function facadeUpper(cls, zone, block) {
   if (cls === 'container') return 'CTCONT' + (1 + (hash(block) % 3));
   const list = UPPER[zone.style] || UPPER.downtown;
   return list[hash(block + 3) % list.length];
+}
+
+// Masked textures (holes): only ever used as two-sided midtextures; anywhere
+// else (one-sided walls, upper/lower pieces) the builder swaps in an opaque one.
+export const MASKED_TEX = ['CTFENC1', 'CTGATE1', 'CTGATE2', 'CTGATE3', 'CTBORD1', 'CTBORD2', 'CTBORD3', 'CTGLAS1', 'CTGLAS2', 'CTRAIL1', 'CTSCAF1'];
+export const opaqueFor = (t, ctx) => (ctx === 'wall' && (t === 'CTFENC1' || t === 'CTGATE1' || t === 'CTGATE2') ? 'CTSHUT1' : null) || ({ CTFENC1: 'CTMETL2', CTGATE1: 'CTMETL2', CTGATE2: 'CTMETL2', CTGATE3: 'CTMETL2', CTSCAF1: 'CTMETL2', CTRAIL1: 'CTMETL2', CTGLAS1: 'CTPLAS1', CTGLAS2: 'CTPLAS1' })[t] || 'CTWOOD1';
+// Solid prop things block with this radius (SPEC section 4).
+export const PROP_RADIUS = { 9120: 24, 9121: 20, 9122: 8, 9124: 16, 9125: 16, 9126: 12, 9127: 8, 9128: 12, 9129: 16, 9130: 8, 9132: 20, 9133: 24 };
+// Obstacles without a prop sprite (shelves, dumpsters, tables, clipped
+// areas...) are drawn as raised blocks: texture, height, top flat.
+const OBST_STYLE = {
+  shelf: { tex: 'CTMETL2', h: 96, flat: 'CFMETL1' }, dumpster: { tex: 'CTCONT3', h: 56, flat: 'CFMETL1' }, pallet: { tex: 'CTWOOD1', h: 40, flat: 'CFWOOD1' },
+  crate: { tex: 'CTWOOD1', h: 48, flat: 'CFWOOD1' }, table: { tex: 'CTWOOD1', h: 40, flat: 'CFWOOD1' }, barrel: { tex: 'CTMETL2', h: 48, flat: 'CFMETL1' },
+  sandbag: { tex: 'CTCONC2', h: 40, flat: 'CFDIRT1' }, tire: { tex: 'CTDARK1', h: 32, flat: 'CFDIRT1' }, machine: { tex: 'CTMETL2', h: 64, flat: 'CFMETL1' },
+  garbage: { tex: 'CTCONC2', h: 32, flat: 'CFDIRT1' }, bed: { tex: 'CTWOOD1', h: 24, flat: 'CFWOOD1' }, spool: { tex: 'CTWOOD1', h: 48, flat: 'CFWOOD1' },
+  scaffold: { tex: 'CTMETL2', h: 64, flat: 'CFMETL1' }, container: { tex: 'CTCONT1', h: 96, flat: 'CFMETL1' }, concrete: { tex: 'CTCONC1', h: 40, flat: 'CFCONC1' },
+  wood: { tex: 'CTWOOD1', h: 48, flat: 'CFWOOD1' }, metal: { tex: 'CTMETL2', h: 48, flat: 'CFMETL1' },
+};
+export function obstacleStyle(cat, zone, outdoor, cells) {
+  if (cat && OBST_STYLE[cat]) return OBST_STYLE[cat];
+  if (zone.style === 'sewer') return { tex: 'CTSEWR2', h: 40, flat: 'CFCONC2' };
+  if (zone.style === 'subway') return { tex: 'CTCONC1', h: 40, flat: 'CFCONC1' };
+  if (!outdoor) return cells > 60 ? OBST_STYLE.shelf : OBST_STYLE.crate;
+  return cells > 200 ? OBST_STYLE.concrete : OBST_STYLE.crate;
 }
 
 // Solid blocks at most this tall become raised sectors (see build-map.mjs).
@@ -89,6 +122,7 @@ const SEWER = {
 const hash = (n) => { let x = (n | 0) * 2654435761; x ^= x >>> 15; x = Math.imul(x, 2246822519); x ^= x >>> 13; return x >>> 0; };
 
 export function wallTex(cls, zone, outdoor, ctx) {
+  if (zone.wallIn && (!outdoor || zone.style === 'subway') && cls !== 'glass' && cls !== 'fence') return zone.wallIn;
   if (zone.style === 'subway') return SUBWAY[cls] || 'CTTILE1';
   if (zone.style === 'sewer') return SEWER[cls] || 'CTSEWR1';
   if (!outdoor) return INTERIOR[cls] || 'CTPLAS1';
@@ -113,6 +147,7 @@ export function lowerTex(diff, zone, ctxTex, kind) {
 
 export function floorFlat(cls, zone, outdoor) {
   const s = zone.style;
+  if (zone.floorIn && !outdoor) return zone.floorIn;
   switch (cls) {
     case 'road': return 'CFASPH1';
     case 'roadline': return 'CFASPH2';
@@ -158,6 +193,7 @@ const floorNear = (layer, x, y) => {
 // Door sector across a doorway. r = door strip [x0,y0,x1,y1]; axis = travel axis ('x' or 'y');
 // header = opening height above the floor; tex = door face; frame = depth of the header strips.
 function door(layer, r, o) {
+  o = { light: 120, ...o }; // one explicit light: a door must stay a single sector
   const fl = o.floor !== undefined ? o.floor : floorNear(layer, (r[0] + r[2]) / 2, (r[1] + r[3]) / 2);
   const hdr = fl + (o.header || 112);
   const g = A.newGroup();
@@ -218,6 +254,35 @@ export function geometry(api) {
   A = api;
   const S = 'subway', T = 'street', W = 'sewer';
 
+  // === VEHICLES ============================================================
+  // Every vehicle seen from the playable area gets an impassable floor
+  // footprint (its sprite stands on it); solid cells under it (clipped into
+  // the building line in the reference) become floor first, so vehicles are
+  // never drawn as walls or facades.
+  vehicleFootprints(A.ref);
+  placeFences(A.ref);
+
+  // === UNDERGROUND CEILINGS ==================================================
+  // Subway and sewer cells where the reference has no ceiling face (walkway
+  // strips beside the tunnel walls, light shafts) take the neighbouring
+  // ceiling: there is no sky underground.
+  {
+    let todo = [];
+    for (let k = 0; k < A.KIND.length; k++) if (A.KIND[k] === 1 && (A.LAY[k] === 2 || A.LAY[k] === 3) && A.CZ[k] === A.SKY) todo.push(k);
+    for (let pass = 0; pass < 64 && todo.length; pass++) {
+      const set = [];
+      for (const k of todo) {
+        let best = -Infinity;
+        for (const q of [k + 1, k - 1, k + A.W, k - A.W]) if (A.KIND[q] === 1 && A.LAY[q] === A.LAY[k] && A.CZ[q] !== A.SKY) best = Math.max(best, A.CZ[q]);
+        if (best > -Infinity) set.push([k, Math.max(best, A.FZ[k] + 72)]);
+      }
+      if (!set.length) break;
+      for (const [k, c] of set) A.CZ[k] = c;
+      todo = todo.filter((k) => A.CZ[k] === A.SKY);
+    }
+    for (const k of todo) A.CZ[k] = A.FZ[k] + 128;
+  }
+
   // === SUBWAY =============================================================
   // Trackbed west of the platform (not walkable: blocking edge), 64 lower.
   A.carve(S, [-2832, -6920, -2560, -5000], { onlyVoid: true, kind: 2, floor: -640, ceil: -400, fflat: 'CFTRAK1', cflat: 'CFCEIL2', light: 88 });
@@ -252,6 +317,12 @@ export function geometry(api) {
   A.carve(T, [-992, -4248, -936, -4032], { ceil: 352, cflat: 'F_SKY1', group: 9001, light: 136 }); // local sky band at the roofline
   A.carve(T, [-984, -4248, -944, -4032], { ceil: 288, cflat: 'CFROOF1', uptex: 'CTROOF1', group: 9002, light: 136 }); // eave
   A.carve(T, [-976, -4248, -952, -4032], { ceil: 224, cflat: 'CFWOOD1', uptex: 'CTNPAI1', group: 9003, light: 144 }); // name board
+
+  // === ROADBLOCK ==============================================================
+  // Plywood wall 128 high across the street with chain-link panels on top;
+  // the ladder (902/80, placed in decorate) hangs on its south face.
+  A.carve(T, [-160, -2296, 504, -2272], { kind: 2, floor: 128, ceil: 'sky', steptex: 'CTWOOD1', fflat: 'CFWOOD1', group: A.newGroup(), light: 120 });
+  barrierLine(T, [-160, -2280, 504, -2280], 'CTFENC1');
 
   // === MARKET: switch room window (unbreakable glass, north wall) ==========
   // (window strip carved where the glass brush was)
@@ -290,6 +361,9 @@ export function geometry(api) {
 
   // === WELD GATE (sector tag 6) ============================================
   door(T, [-2816, 880, -2600, 896], { axis: 'y', header: 112, tag: 6, tex: 'CTGATE3', frame: 8, jamb: 'CTMETL2', skyFrame: true });
+  // the rest of the E-W fence the gate sits in: chain-link instead of a solid wall
+  A.carve(T, [-3040, 880, -2824, 896], { floor: 0, ceil: 'sky', onlyVoid: true, fflat: 'CFASPH1' });
+  barrierLine(T, [-3040, 888, -2824, 888], 'CTFENC1', { front: 's' });
 
   // === DOCKS ===============================================================
   // one roof height in the dock warehouse (trusses made lots of tiny ceiling steps)
@@ -344,9 +418,12 @@ export function decorate(api, h) {
   box(T, [-968, 2952, -944, 2976], { h: 48, tex: 'CTRADI1', use: ['s', 'w', 'e', 'n'], special: 904, tag: 10 }); // radio console
 
   // --- ladders ------------------------------------------------------------
-  const lad80 = niche(T, 368, -2300, 's', { tex: 'CTLADR3', special: 902, tag: 80, z0: 0, z1: 128, w: 64, depth: 8 });
+  // roadblock ladder: on the plywood's south face (lower texture of the
+  // street -> plywood line; the script swaps CTLADR3 -> CTLADR2)
+  A.line(T, [336, -2296, 400, -2296], { special: 902, tag: 80, front: 's', bottom: 'CTLADR3', xoff: 0 });
   A.set(T, [320, -2272, 416, -2224], { tag: 80, group: 80 });
   A.thing(T, 368, -2248, 9061, 90);
+  A.set(T, [-176, -2272, 520, -2192], { steptex: 'CTMETL2' }, (k) => A.FZ[k] >= 120);
   A.line(T, [-200, -2216, 560, -2216], { special: 905, tag: 131, optional: true });
   // the exit-room ladder stands on a free-standing frame in the room (its brush is the void strip at y -1472..-1464)
   A.line(W, [-1392, -1464, -1328, -1464], { onWall: true, mid: 'CTLADR1', special: 902, tag: 81, xoff: 0 });
@@ -370,16 +447,22 @@ export function decorate(api, h) {
   ];
   for (const [tag, seg] of amb) A.line(T, seg, { special: 905, tag, optional: true });
 
-  // --- secrets (DOOM secret sectors) -----------------------------------------------
-  for (const r of [[-3128, -3928, -2944, -3688], [-1104, -3480, -992, -3392], [2248, -1736, 2376, -1616]]) A.set(T, r, { special: 9, group: 99 }, (k) => A.KIND[k] === 1 && !A.SPEC[k]);
-
   // --- extraction zone ---------------------------------------------------------
-  A.set(T, [-704, 3840, -512, 4000], { special: 66, tag: 160, group: 160 }, (k) => A.KIND[k] === 1);
+  // NMRiH's volume is (-704,3840)-(-512,4000); the deck ends at y 3872, so the
+  // zone reaches back onto the deck (the script tests the player's centre)
+  // and is marked with platform-edge paint and its own light.
+  A.set(T, [-704, 3744, -512, 3872], { special: 66, tag: 160, group: 160, light: 176, fflat: 'CFPLAT1' }, (k) => A.KIND[k] === 1);
   // --- sewer water ------------------------------------------------------------------
+  // the channel (below -276) and the shallow water-textured runs beside it
+  // burn; the dry walkway keeps a concrete floor
+  const waterCls = A.floorClass('water');
   for (let k = 0; k < A.KIND.length; k++) {
-    if (A.KIND[k] === 1 && A.LAY[k] === 3 && A.FZ[k] <= -276) { A.SPEC[k] = 64; }
+    if (A.KIND[k] !== 1 || A.LAY[k] !== 3 || A.SPEC[k] || A.TAG[k]) continue;
+    if (A.FZ[k] <= -276 || (A.FZ[k] <= -264 && A.FCLS[k] === waterCls)) A.SPEC[k] = 64;
   }
   A.set(W, [-2700, -2600, -500, -100], { fflat: 'CFSEW1' }, (k) => A.SPEC[k] === 64);
+  const sew = A.flatId('CFSEW1'), conc = A.flatId('CFCONC2');
+  for (let k = 0; k < A.KIND.length; k++) if (A.KIND[k] && A.LAY[k] === 3 && A.FFLAT[k] === sew && A.SPEC[k] !== 64) A.FFLAT[k] = conc;
 
   // --- things from the reference -----------------------------------------------
   placeVehicles(ref);
@@ -388,6 +471,7 @@ export function decorate(api, h) {
   placeZombies(ref);
   placeLights(ref, h);
   placeSigns(ref);
+  placeSecrets();
 
   // objective items
   A.thing(S, -2304, -6816, 1, 90);
@@ -403,7 +487,8 @@ export function decorate(api, h) {
     3: [[T, 200, -2900], [T, -50, -3300], [T, 1300, -2450], [T, 900, -2400], [T, 1900, -2450], [T, 300, -2600]],
     4: [[T, -1100, -1700], [T, -700, -1600], [T, 300, -1800], [T, -1500, -900], [T, -1800, -1300], [T, -900, -2300]],
     5: [[T, -2800, -200], [T, -2300, 100], [T, -2200, -400], [T, -2900, -1100], [T, -2650, -600], [T, -1700, -350]],
-    6: [[T, -1700, 1100], [T, -1200, 1700], [T, -2000, 2300], [T, -900, 2300], [T, -2900, 2300], [T, -700, 3300], [T, -1200, 3400], [T, -3500, 2200]],
+    // hold-out: on the quay and at the pier base, so waves walk in along the pier
+    6: [[T, -1700, 1100], [T, -1200, 1700], [T, -2000, 2300], [T, -900, 2250], [T, -2900, 2300], [T, -1450, 2550], [T, -560, 2600], [T, -3500, 2200], [T, -2400, 2250], [T, -1150, 2500]],
   };
   for (const [g, list] of Object.entries(waves)) for (const [L, x, y] of list) snapThing(L, x, y, 9010, +g);
 
@@ -423,6 +508,15 @@ export function decorate(api, h) {
   }
   A.line(T, [-1664, -2048, -1496, -2048], { special: 900, tag: 101, front: 's' });
   A.line(W, [-1664, -2048, -1496, -2048], { special: 900, tag: 101, front: 's' });
+  // What each side shows beyond its seam is a copy of the other side: the
+  // subway stub gets the first steps of the exit stairs (not walkable there:
+  // the platform's north end lies under them) and a dark end wall, sealing
+  // it from the platform; both stubs of portal 101 take the other side's light.
+  A.copyFrom(S, T, [-2584, -5000, -2520, -4760], { kind: 2, wtex: 'CTDARK1' });
+  A.copyFrom(W, T, [-1672, -2120, -1496, -2080], { only: ['light'] });
+  A.copyFrom(T, W, [-1672, -2016, -1496, -1976], { only: ['light'] });
+  // one wall finish round the stairwell in both layers (zone styles differ)
+  for (const L of [T, W]) A.wallTex(L, [-1696, -2136, -1464, -1960], 'CTCONC2');
 }
 
 // ---------------------------------------------------------------------------
@@ -431,75 +525,128 @@ function layerOfPoint(x, y, z) {
   if (x > -2700 && x < -600 && y > -2450 && y < -150 && z < -150 && !(x < -1250 && y < -2048)) return 'sewer';
   return 'street';
 }
-// size of the connected open (walkable, unblocked) area around each cell
-let AREA = null;
-function areaSize(k) {
-  if (!AREA) {
-    AREA = new Int32Array(A.KIND.length);
-    const lab = new Int32Array(A.KIND.length).fill(-1);
-    const sizes = [];
-    for (let k0 = 0; k0 < A.KIND.length; k0++) {
-      if (A.KIND[k0] !== 1 || A.BLOCK[k0] || lab[k0] >= 0) continue;
-      const id = sizes.length, st = [k0]; lab[k0] = id; let n = 0;
-      while (st.length) {
-        const q = st.pop(); n++;
-        for (const r of [q + 1, q - 1, q + A.W, q - A.W]) if (r >= 0 && r < A.KIND.length && lab[r] < 0 && A.KIND[r] === 1 && !A.BLOCK[r]) { lab[r] = id; st.push(r); }
-      }
-      sizes.push(n);
-    }
-    for (let k1 = 0; k1 < A.KIND.length; k1++) AREA[k1] = lab[k1] >= 0 ? sizes[lab[k1]] : 0;
-  }
-  return AREA[k];
-}
-function freeSpot(layer, x, y, rad = 64, clear = 1) {
-  // nearest walkable, non-blocked cell centre with `clear` cells of clearance
-  // inside a reasonably large open area (not a sliver behind props)
+// Solid things placed so far (props, zombies): [layer, x, y, radius]
+const SOLIDS = [];
+const overlapsSolid = (L, x, y, r) => SOLIDS.some((s) => s[0] === L && Math.abs(s[1] - x) < s[3] + r && Math.abs(s[2] - y) < s[3] + r);
+// Nearest position (8-unit lattice) to (x,y) within rad where a box of
+// half-size `r` fits by DOOM rules (A.boxFree) inside a reasonably large open
+// area (not a sliver behind props) and clear of solid things.
+function freeSpot(layer, x, y, rad = 64, r = 16, o = {}) {
   const ok = (px, py) => {
-    const kc = A.idx(A.gridX(layer, px - 4), A.gridY(py - 4));
-    if (areaSize(kc) < 300) return false;
-    for (let dy = -clear; dy <= clear; dy++) for (let dx = -clear; dx <= clear; dx++) {
-      const c = A.cell(layer, px + dx * 8, py + dy * 8);
-      if (!c || c.kind !== 1 || c.block) return false;
-    }
-    return true;
+    // in a region the player can roam (not a pocket behind props or rails)
+    if (A.boxRegion(layer, px, py) < (o.region || 600)) return false;
+    if (!A.boxFree(layer, px, py, r, o)) return false;
+    return !(o.solid && overlapsSolid(layer, px, py, r));
   };
-  for (let r = 0; r <= rad; r += 8) {
-    for (let a = 0; a < 16; a++) {
-      const px = Math.round((x + r * Math.cos(a * Math.PI / 8)) / 8) * 8 + 4, py = Math.round((y + r * Math.sin(a * Math.PI / 8)) / 8) * 8 + 4;
-      if (ok(px, py)) return [px, py];
-      if (r === 0) break;
+  for (let d = 0; d <= rad; d += 8) {
+    const n = d ? Math.max(8, Math.round(d * Math.PI / 4)) : 1;
+    let best = null, bd = Infinity;
+    for (let a = 0; a < n; a++) {
+      const px = Math.round((x + d * Math.cos(a * 2 * Math.PI / n)) / 8) * 8, py = Math.round((y + d * Math.sin(a * 2 * Math.PI / n)) / 8) * 8;
+      if (!ok(px, py)) continue;
+      const dd = Math.hypot(px - x, py - y);
+      if (dd < bd) { bd = dd; best = [px, py]; }
     }
+    if (best) return best;
   }
   return null;
 }
 
-function snapThing(L, x, y, type, angle, flags = 7) {
-  const s = freeSpot(L, x, y, 128, 1) || freeSpot(L, x, y, 160, 0);
+function snapThing(L, x, y, type, angle, flags = 7, r = 16) {
+  const s = freeSpot(L, x, y, 160, r, { solid: true });
   if (s) A.thing(L, s[0], s[1], type, angle, flags);
   else A.log(`no free spot for thing ${type} near ${L} (${x},${y})`);
+  return s;
 }
 
-function placeVehicles(ref) {
+// Hanging lanterns spawn at the ceiling: under open sky they get a small
+// 'hook' sector whose sky ceiling sits at the lantern's height (invisible:
+// both sides are sky), so they hang over the street instead of at the roofline.
+let hookGroup = 7000;
+function lantern(L, x, y, z) {
+  const c = A.cell(L, x, y);
+  if (!c || c.kind !== 1) return;
+  const outdoor = c.ceil >= 500;
+  if (outdoor) {
+    const h = Math.max(c.floor + 152, Math.min(z !== null ? Math.round(z / 8) * 8 + 24 : c.floor + 232, c.floor + 320));
+    const gx = Math.floor(x / 16) * 16, gy = Math.floor(y / 16) * 16;
+    const r = [gx, gy, gx + 16, gy + 16];
+    let ok = true;
+    for (const k of A.cellsOf(L, r)) if (A.KIND[k] !== 1 || A.GROUP[k] || A.TAG[k] || A.SPEC[k] || A.FZ[k] !== c.floor) ok = false;
+    if (!ok) return;
+    A.set(L, r, { ceil: h, group: hookGroup++ });
+    A.thing(L, gx + 8, gy + 8, 9131, 0);
+  } else A.thing(L, x, y, 9131, 0);
+}
+
+// Vehicles seen from the playable area (walkable cells round the footprint):
+// footprint cells (carving solid cells under it), recorded for decorate.
+const VEHICLES = [];
+function vehicleFootprints(ref) {
   for (const v of ref.vehicles) {
     const L = layerOfPoint(v.x, v.y, v.z);
-    const c = A.cell(L, v.x, v.y);
-    if (!c || !c.kind) continue;
-    A.footprint(L, v.x, v.y, v.yaw, v.len, v.wid, 65535);
-    A.thing(L, v.x, v.y, v.t, v.yaw);
+    const inner = new Set(A.rectCells(L, v.x, v.y, v.yaw, v.len, v.wid));
+    const ring = A.rectCells(L, v.x, v.y, v.yaw, v.len + 96, v.wid + 96).filter((k) => !inner.has(k) && A.KIND[k] === 1);
+    if (ring.length < 12) continue; // out of bounds: nobody sees it
+    const fl = ring.map((k) => A.FZ[k]).sort((a, b) => a - b)[ring.length >> 1];
+    const sky = ring.filter((k) => A.CZ[k] === A.SKY).length * 2 >= ring.length;
+    const cs = ring.filter((k) => A.CZ[k] !== A.SKY).map((k) => A.CZ[k]).sort((a, b) => a - b);
+    const n = A.footprint(L, v.x, v.y, v.yaw, v.len, v.wid, 65535, { carve: { floor: fl, ceil: sky || !cs.length ? 'sky' : cs[cs.length >> 1] } });
+    if (n) VEHICLES.push({ ...v, L });
   }
 }
 
+// Chain-link fence props (their long side is the model's y axis): masked
+// blocking lines along the ones that run with the grid. Where the reference
+// clipped a pen shut, the fence is what shows the invisible wall.
+function placeFences(ref) {
+  let n = 0;
+  for (const f of ref.fences || []) {
+    const L = layerOfPoint(f.x, f.y, f.z);
+    if (Math.abs(f.z - floorNear(L, f.x, f.y)) > 32) continue; // on a roof or balcony, not across the floor here
+    const dir = ((f.yaw + 90) % 180 + 180) % 180; // 0 = along x, 90 = along y
+    const h = f.len / 2;
+    let seg = null;
+    // ends rounded outward so panels in a row leave no slits between them
+    if (dir <= 12 || dir >= 168) { const y = Math.round(f.y / 8) * 8; seg = [Math.floor((f.x - h) / 8) * 8, y, Math.ceil((f.x + h) / 8) * 8, y]; }
+    else if (Math.abs(dir - 90) <= 12) { const x = Math.round(f.x / 8) * 8; seg = [x, Math.floor((f.y - h) / 8) * 8, x, Math.ceil((f.y + h) / 8) * 8]; }
+    if (!seg) continue;
+    const ln = barrierLine(L, seg, 'CTFENC1', { optional: true });
+    if (ln.n) n++;
+  }
+  A.log(`fences: ${n} of ${(ref.fences || []).length} drawn`);
+}
+
+function placeVehicles() {
+  const placed = [];
+  for (const v of VEHICLES) {
+    // tractor + trailer pairs share an origin in the reference: one sprite
+    if (placed.some((p) => p.L === v.L && Math.hypot(p.x - v.x, p.y - v.y) < 64)) continue;
+    A.thing(v.L, v.x, v.y, v.t, v.yaw);
+    placed.push(v);
+  }
+  A.log(`vehicles: ${placed.length} sprites, ${VEHICLES.length} footprints of ${A.ref.vehicles.length} in the reference`);
+}
+
 function placeProps(ref) {
+  let n = 0, skipped = 0;
   for (const p of ref.props) {
     if (!p.t) continue;
     const L = layerOfPoint(p.x, p.y, p.z);
     const c = A.cell(L, p.x, p.y);
-    if (!c || !c.kind) continue;
-    if (p.t === 9131) { A.thing(L, p.x, p.y, 9131, 0); continue; }
+    if (!c || !c.kind) { skipped++; continue; }
+    if (p.t === 9131) { lantern(L, p.x, p.y, p.z); continue; }
     if (p.t === 9123) { A.footprint(L, p.x, p.y, p.yaw, 112, 64, 65535); A.thing(L, p.x, p.y, 9123, p.yaw); continue; }
-    const s = freeSpot(L, p.x, p.y, 24, 0);
-    if (s) A.thing(L, s[0], s[1], p.t, p.yaw);
+    // solid props stand exactly where the reference has them (their own
+    // radius blocks; the build frees the nav-hole cells round them)
+    const r = PROP_RADIUS[p.t] || 16;
+    if (c.kind !== 1 || overlapsSolid(L, p.x, p.y, r)) { skipped++; continue; }
+    if (Math.abs(c.floor - floorNear(L, p.x, p.y)) > 24) { skipped++; continue; }
+    A.thing(L, p.x, p.y, p.t, p.yaw);
+    SOLIDS.push([L, p.x, p.y, r]);
+    n++;
   }
+  A.log(`props: ${n} placed, ${skipped} skipped (outside the map)`);
   // extra lantern strings along the Chinatown streets
   const strings = [
     [-900, -4060, 400, -4060, 128], [80, -3900, 80, -2500, 128], [-1000, -2000, 400, -2000, 160],
@@ -510,7 +657,7 @@ function placeProps(ref) {
     for (let i = 0; i <= n; i++) {
       const x = x0 + (x1 - x0) * i / n, y = y0 + (y1 - y0) * i / n;
       const c = A.cell('street', x, y);
-      if (c && c.kind === 1) A.thing('street', x, y, 9131, 0);
+      if (c && c.kind === 1) lantern('street', x, y, null);
     }
   }
 }
@@ -528,10 +675,13 @@ function placeItems(ref) {
   const cgDone = { gun: false, base: false };
   // shotguns only where NMRiH rolls them most (gun shop, secret 1 storage, secret 2 alley, boarded medical room)
   const shotgunOK = (x, y) => (x < -2900 && y > -3950 && y < -3650) || (x > -1120 && x < -980 && y > -3500 && y < -3380) || (x < -2900 && y > -1300 && y < -1000) || (x > -2700 && x < -2180 && y > -2800 && y < -2100);
+  // pickups go where the player's own box fits (so they can always be
+  // touched), as near the reference spawner as possible
   const put = (x, y, z, type) => {
     const L = layerOfPoint(x, y, z);
-    const s = freeSpot(L, x, y, 64, 1) || freeSpot(L, x, y, 96, 0);
+    const s = freeSpot(L, x, y, 96, 16, { solid: true, step: 0 });
     if (s) A.thing(L, s[0], s[1], type, 0);
+    else A.log(`pickup ${type} near (${x},${y}) has no free spot`);
   };
   for (const c of clusters) {
     const x = Math.round(c.reduce((a, s) => a + s.x, 0) / c.length), y = Math.round(c.reduce((a, s) => a + s.y, 0) / c.length), z = c[0].z;
@@ -562,31 +712,44 @@ function placeItems(ref) {
 
 function placeZombies(ref) {
   const boxes = ref.zspawn.map((b) => ({ b, L: layerOfPoint((b[0] + b[3]) / 2, (b[1] + b[4]) / 2, b[2] + 8), area: (b[3] - b[0]) * (b[4] - b[1]) }));
-  // a few extra boxes where NMRiH spawns come from just off-screen (subway corridors)
-  boxes.push({ b: [-2560, -4840, -576, -2304, -4400, -560], L: 'subway', area: 110000 });
-  boxes.push({ b: [-2800, -4096, -384, -2300, -3840, -380], L: 'subway', area: 128000 });
-  const total = 222;
-  const wsum = boxes.reduce((a, b) => a + Math.sqrt(b.area), 0);
+  // a few extra boxes where NMRiH spawns come from just off-screen (subway
+  // corridors); kept small so the subway stays a light opening act
+  boxes.push({ b: [-2560, -4840, -576, -2304, -4400, -560], L: 'subway', area: 30000, cap: 4 });
+  boxes.push({ b: [-2800, -4096, -384, -2300, -3840, -380], L: 'subway', area: 30000, cap: 4 });
+  const total = 220;
+  // population follows the reference spawn volumes' area (like NMRiH's
+  // func_zombie_spawn coverage); every volume gets at least one
+  const wsum = boxes.reduce((a, b) => a + b.area, 0);
+  for (const bx of boxes) { bx.want = Math.max(1, Math.round(total * bx.area / wsum)); if (bx.cap) bx.want = Math.min(bx.want, bx.cap); bx.got = 0; }
   const placed = [];
   const types = () => { const r = rnd(); if (r < 0.08) return 9004; if (r < 0.13) return 9005; return 9000 + Math.floor(rnd() * 4); };
   let n = 0;
-  for (const bx of boxes) {
-    const want = Math.max(1, Math.round(total * Math.sqrt(bx.area) / wsum));
+  const fill = (bx, want, tries0) => {
     const [x0, y0, , x1, y1] = bx.b;
-    let got = 0;
-    for (let tries = 0; tries < 400 && got < want; tries++) {
+    for (let tries = 0; tries < tries0 && bx.got < want; tries++) {
       const x = x0 + 16 + rnd() * Math.max(1, x1 - x0 - 32), y = y0 + 16 + rnd() * Math.max(1, y1 - y0 - 32);
-      const s = freeSpot(bx.L, x, y, 16, 2);
+      const s = freeSpot(bx.L, x, y, 16, 16, { solid: true });
       if (!s) continue;
       if (placed.some((p) => p.L === bx.L && Math.hypot(p.x - s[0], p.y - s[1]) < 40)) continue;
       // keep the start area quiet
       if (bx.L === 'subway' && s[1] < -5600) continue;
+      const type = types();
       const r = rnd();
       const flags = r < 0.7 ? 7 : r < 0.88 ? 6 : 4;
-      A.thing(bx.L, s[0], s[1], types(), Math.floor(rnd() * 8) * 45, flags);
+      A.thing(bx.L, s[0], s[1], type, Math.floor(rnd() * 8) * 45, flags);
+      SOLIDS.push([bx.L, s[0], s[1], 16]);
       placed.push({ L: bx.L, x: s[0], y: s[1] });
-      got++; n++;
+      bx.got++; n++;
     }
+  };
+  for (const bx of boxes) fill(bx, bx.want, 400);
+  // volumes that could not take their share (mostly blocked) pass it on to
+  // the others, by area
+  let deficit = total - n;
+  for (let pass = 0; pass < 3 && deficit > 0; pass++) {
+    const open = boxes.filter((b) => !b.cap && b.got >= b.want);
+    const osum = open.reduce((a, b) => a + b.area, 0);
+    for (const bx of open) { if (deficit <= 0) break; const before = bx.got; fill(bx, bx.got + Math.max(1, Math.round(deficit * bx.area / osum)), 200); deficit -= bx.got - before; }
   }
   A.log(`zombies placed: ${n}`);
 }
@@ -619,6 +782,36 @@ function placeLights(ref, h) {
   }
 }
 
+// One secret sector per secret area: special 9 on the main walkable part
+// (the largest run of cells sharing floor, ceiling and flats), with uniform
+// light and ceiling flat across the area so light pools and ceiling panels
+// don't split it into many tiny secrets.
+const SECRETS = [[-3128, -3928, -2944, -3688], [-1104, -3480, -992, -3392], [2248, -1736, 2376, -1616]];
+function placeSecrets() {
+  const nlit = A.flatId('CFNLIT1');
+  SECRETS.forEach((r, n) => {
+    const cells = A.cellsOf('street', r).filter((k) => A.KIND[k] === 1 && !A.TAG[k] && !A.BLOCK[k] && (!A.GROUP[k] || A.GROUP[k] >= 7000));
+    const cnt = new Map();
+    for (const k of cells) if (A.CFLAT[k] !== nlit) cnt.set(A.CFLAT[k], (cnt.get(A.CFLAT[k]) || 0) + 1);
+    const cf = [...cnt].sort((a, b) => b[1] - a[1])[0][0];
+    for (const k of cells) {
+      A.LIGHT[k] = 144;
+      if (A.CFLAT[k] === nlit) A.CFLAT[k] = cf;
+      if (A.SPEC[k] === 1 || A.SPEC[k] === 17) A.SPEC[k] = 0;
+    }
+    const inBox = new Set(cells), seen = new Set();
+    let best = [];
+    for (const k0 of cells) {
+      if (seen.has(k0) || A.SPEC[k0]) continue;
+      const key = (k) => `${A.FZ[k]},${A.CZ[k]},${A.FFLAT[k]},${A.CFLAT[k]}`;
+      const kk = key(k0), comp = [k0]; seen.add(k0);
+      for (let i = 0; i < comp.length; i++) for (const q of [comp[i] + 1, comp[i] - 1, comp[i] + A.W, comp[i] - A.W]) if (inBox.has(q) && !seen.has(q) && !A.SPEC[q] && key(q) === kk) { seen.add(q); comp.push(q); }
+      if (comp.length > best.length) best = comp;
+    }
+    for (const k of best) { A.SPEC[k] = 9; A.GROUP[k] = 99 + n; }
+  });
+}
+
 const SIGNTEX = {
   sign_chinatown_01: ['CTNSG2', 128, 32], sign_chinatown_02: ['CTNSG1', 32, 128], sign_chinatown_03: ['CTNSG1', 32, 128],
   sign_drugs: ['CTNSG9', 64, 64], sign_garage_01: ['CTNSG6', 128, 32], fallout_motel_sign: ['CTNSG7', 64, 128],
@@ -631,24 +824,27 @@ function placeSigns(ref) {
   list.push({ m: 'laundromat', x: -1500, y: -640, z: 120 });
   for (const s of list) {
     const [tex, w, hgt] = s.m === 'laundromat' ? ['CTNSG8', 128, 32] : SIGNTEX[s.m];
-    // nearest wall from the sign position
+    // the wall the sign faces away from (model yaw), else the nearest wall
     let best = null;
-    for (const f of ['n', 's', 'e', 'w']) {
+    const yf = s.yaw === undefined ? null : ['e', 'n', 'w', 's'][Math.round(s.yaw / 90) % 4];
+    for (const f of yf ? [yf, 'n', 's', 'e', 'w'] : ['n', 's', 'e', 'w']) {
+      if (best && best.yaw) break;
       const [dx, dy] = DIR[f];
       // look for a walkable cell next to the sign on side f, then the wall behind
-      for (let r = 0; r <= 96; r += 8) {
+      for (let r = 0; r <= (f === yf ? 160 : 96); r += 8) {
         const c = A.cell('street', s.x + dx * r, s.y + dy * r);
         if (c && c.kind === 1) {
           const wall = A.findWall('street', s.x + dx * r, s.y + dy * r, -dx, -dy, 160);
           if (wall !== null) {
             const dist = Math.abs((dx ? s.x : s.y) - wall) + r;
-            if (!best || dist < best.dist) best = { f, dist };
+            if (f === yf && dist <= 192) best = { f, dist, yaw: true };
+            else if (!best || dist < best.dist) best = { f, dist };
           }
           break;
         }
       }
     }
-    if (!best) continue;
+    if (!best) { A.log(`sign ${s.m} at (${s.x},${s.y}) found no wall`); continue; }
     const fl = floorNear('street', s.x, s.y);
     const z0 = Math.max(72, Math.min(s.z - fl - hgt / 2, 320));
     const [dx, dy] = DIR[best.f];

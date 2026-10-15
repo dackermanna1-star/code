@@ -223,11 +223,12 @@ function build() {
     mobjs.push(mobj({ name: `MT_CT_${d.spr}`, doomednum: d.doomednum, spawnstate: `S_CT_${d.spr}`, radius: d.radius, height: d.height, flags }));
   }
   // The rescue helicopter: spawned and flown by the map script (no
-  // doomednum); frames A and B alternate the rotor blur.
+  // doomednum); frames A and B alternate the rotor blur. Drawn fullbright
+  // (its lights on), so it reads as the way out over the dark bay.
   sprnames.push('VHEL');
   states.push(
-    ['S_CT_VHEL', 'VHEL', A, 2, null, 'S_CT_VHEL2', 0, 0],
-    ['S_CT_VHEL2', 'VHEL', B, 2, null, 'S_CT_VHEL', 0, 0],
+    ['S_CT_VHEL', 'VHEL', A | FF_FULLBRIGHT, 2, null, 'S_CT_VHEL2', 0, 0],
+    ['S_CT_VHEL2', 'VHEL', B | FF_FULLBRIGHT, 2, null, 'S_CT_VHEL', 0, 0],
   );
   mobjs.push(mobj({ name: 'MT_CT_VHEL', spawnstate: 'S_CT_VHEL', radius: 64, height: 96, flags: ['MF_NOBLOCKMAP', 'MF_NOGRAVITY'] }));
   return { sprnames, states, mobjs };

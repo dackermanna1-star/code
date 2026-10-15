@@ -89,7 +89,7 @@ check(zf.length === 12 && zf[0].rotate && zf[6].rotate && !zf[7].rotate && !zf[1
 
 section('level start');
 const g = makeGame();
-g.newGame(1, 2, CT_MAP);
+g.newGame(1, 2, CT_MAP, 1); // a fixed seed for the map script's rolls: repeatable runs
 let w = g.world;
 check(g.customMap === CT_MAP && g.mapName() === CT_MAP && w.mapName === CT_MAP, 'custom map name');
 check(g.mapName(1, 3) === 'E1M3', 'mapName(e, m) still gives ExMy');
@@ -176,7 +176,7 @@ check(g2.state === 'title', 'then the title');
 
 section('death restart and vanilla maps');
 const g3 = makeGame();
-g3.newGame(1, 2, CT_MAP);
+g3.newGame(1, 2, CT_MAP, 1);
 g3.player.keyItems[KEY_ITEM.PLUG] = true;
 g3.player.playerstate = 'reborn';
 g3.tick(idle());

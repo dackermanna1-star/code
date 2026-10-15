@@ -14,6 +14,14 @@ import { isEpisodeMapName } from '../wad/wad.js';
 
 const E4_MUSIC = ['e3m4', 'e3m2', 'e3m3', 'e1m5', 'e2m7', 'e2m4', 'e2m6', 'e2m5', 'e1m9'];
 
+// Seed of a map script's level-start rolls (Chinatown's gas can, blowtorch
+// and garage door, ct/chinatown.js). Chosen when a game starts, outside the
+// simulation like a demo header's settings, and stepped on every restart
+// of the level, so attempts differ; the World and its saves keep it, so a
+// loaded game rolls the same as the one that was saved.
+const newRollSeed = () => (Math.random() * 0x100000000) >>> 0;
+const nextRollSeed = (seed) => (Math.imul(seed >>> 0, 1103515245) + 12345) >>> 0;
+
 export class Game {
   constructor({ stack, res, settings, gamemode, audio }) {
     this.stack = stack;
@@ -30,6 +38,7 @@ export class Game {
     this.map = 1;
     // Name of the stand-alone map being played (e.g. 'CHINATWN'), else null.
     this.customMap = null;
+    this.rollSeed = 0;
     this.secretExit = false;
     this.listeners = {};
     this.fxFactory = null;
@@ -93,9 +102,11 @@ export class Game {
   }
 
   // `map` may also be a map name outside ExMy / MAPxx (e.g. 'CHINATWN'):
-  // that map is played on its own, from a pistol start.
-  newGame(episode, skill, map = 1) {
+  // that map is played on its own, from a pistol start. `seed` fixes the
+  // map script's random rolls (tests, ?seed=); by default each game differs.
+  newGame(episode, skill, map = 1, seed = null) {
     const custom = typeof map === 'string' && !isEpisodeMapName(map.toUpperCase()) ? map.toUpperCase() : null;
+    this.rollSeed = seed !== null && seed !== undefined ? seed >>> 0 : newRollSeed();
     this.skill = skill;
     this.customMap = custom;
     // A custom map is map 0 of episode 1, so no ExMy rule (E1M8's boss
@@ -131,6 +142,7 @@ export class Game {
       player: this.player,
       lumps,
       audio: this.audio,
+      rollSeed: this.rollSeed,
     });
     w.compat = MAP_COMPAT[mapName] || null;
     if (this.fxFactory) w.fx = this.fxFactory(w);
@@ -165,6 +177,8 @@ export class Game {
 
   restartLevelAfterDeath() {
     this.emit('wipe');
+    // A fresh attempt rolls afresh (still the same for a loaded game).
+    this.rollSeed = nextRollSeed(this.rollSeed);
     this.startLevel();
   }
 
@@ -308,6 +322,9 @@ export class Game {
     this.state = 'level';
     this.paused = false;
     this.emit('levelStart', w);
+    // Looping sounds (Chinatown's generator, the helicopter) come back once
+    // the level's sounds belong to this world.
+    if (w.ct) w.ct.loaded();
     const music = this.levelMusic();
     if (music) this.emit('music', music);
   }

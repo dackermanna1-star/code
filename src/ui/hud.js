@@ -289,6 +289,7 @@ export class Hud {
     if (!p) return;
     const mode = this.app.settings.get('hud');
     this.ctInfo = this.ct.info();
+    if (this.ctInfo) this.ct.drawFade(r, rect, this.ctInfo);
     if (mode === 'classic') this.drawClassic(r, p);
     else if (mode === 'minimal') this.drawMinimal(r, p);
     else this.drawFullscreen(r, p);

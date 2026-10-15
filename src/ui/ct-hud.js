@@ -9,6 +9,8 @@
 import { drawText, keyName } from './menu-util.js';
 
 const TICRATE = 35;
+const MSG_Y = 11; // hud.js: the message line under the objective
+const ROW = 9; // one line of the HUD font and a pixel
 const ITEM_NAMES = ['GAS', 'PLUG', 'TORCH'];
 const ICONS = ['CTIGAS', 'CTIPLG', 'CTITOR'];
 const GOLD = 2;
@@ -32,9 +34,35 @@ export class CtHud {
     if (!this.colors) {
       const res = this.app.res;
       const n = (r, g, b) => (res.nearest ? res.nearest(r, g, b) : 0);
-      this.colors = { frame: n(24, 24, 24), back: n(60, 52, 40), fill: n(240, 190, 40), full: n(80, 220, 60), red: n(200, 30, 20) };
+      this.colors = {
+        frame: n(24, 24, 24), back: n(60, 52, 40), fill: n(240, 190, 40), full: n(80, 220, 60), red: n(200, 30, 20), idle: n(150, 130, 90),
+      };
     }
     return this.colors[name];
+  }
+
+  // Ladder top out of reach: the view fades out before coming up there.
+  // Drawn before any of the HUD, so all of it stays readable over the dark.
+  drawFade(r, rect, info) {
+    if (info.fade >= 0) r.shadeRect(rect.x, rect.y, rect.w, rect.h, Math.min(31, Math.round(info.fade * 3)));
+  }
+
+  // `text` laid out to fit `avail` virtual pixels: on one line if it fits,
+  // else split at the word that balances two lines; shrunk (not below 0.6)
+  // only if a line still doesn't fit. Returns { text, scale, lines }.
+  fit(text, avail) {
+    const font = this.hud.font;
+    const full = font.width(text);
+    if (full <= avail) return { text, scale: 1, lines: 1 };
+    const words = text.split(' ');
+    let best = null;
+    for (let i = 1; i < words.length; i++) {
+      const a = words.slice(0, i).join(' '), b = words.slice(i).join(' ');
+      const wid = Math.max(font.width(a), font.width(b));
+      if (!best || wid < best.wid) best = { text: `${a}\n${b}`, wid };
+    }
+    if (!best) return { text, scale: Math.max(0.6, avail / full), lines: 1 };
+    return { text: best.text, scale: Math.max(0.6, Math.min(1, avail / best.wid)), lines: 2 };
   }
 
   // Everything but the key items (those go where each HUD style keeps keys).
@@ -43,12 +71,10 @@ export class CtHud {
     const font = hud.font;
     const { left, right } = hud.edges(r);
     const viewBottom = rect.h / r.vScaleY;
-    if (info.fade >= 0) {
-      // Ladder top out of reach: the view fades out before coming up there.
-      r.shadeRect(rect.x, rect.y, rect.w, rect.h, Math.min(31, Math.round(info.fade * 3)));
-    }
-    // Countdown top right: on the objective's line when both fit, else
-    // under it (or under the automap's stats).
+    const am = !!(this.app.automap && this.app.automap.active);
+    // Countdown top right: on the objective's line when both fit, else on
+    // the next row, or below the message there if the two would meet. On
+    // the automap (its stats are top right) it goes left, under the message.
     let countdown = null;
     if (info.countdown) {
       const secs = Math.ceil(info.countdown.tics / TICRATE);
@@ -70,10 +96,16 @@ export class CtHud {
       drawText(r, font, text, x + lw, 2, { scale });
     }
     if (countdown) {
-      const am = this.app.automap && this.app.automap.active;
-      const y = am ? 42 : oneLine ? 2 : 12;
-      const w = drawText(r, font, countdown.time, right - 3, y, { align: 'right', trans: countdown.warn ? 8 : 0 });
-      drawText(r, font, countdown.label, right - 3 - w, y, { align: 'right', trans: GOLD });
+      if (am) {
+        const y = MSG_Y + ROW + 1;
+        const lw = drawText(r, font, countdown.label, left + 3, y, { trans: GOLD });
+        drawText(r, font, countdown.time, left + 3 + lw, y, { trans: countdown.warn ? 8 : 0 });
+      } else {
+        const msg = hud.msg ? font.width(hud.msg.text) : 0;
+        const y = oneLine ? 2 : msg && msg + countdown.width + 12 > avail ? MSG_Y + ROW + 1 : MSG_Y + 1;
+        const w = drawText(r, font, countdown.time, right - 3, y, { align: 'right', trans: countdown.warn ? 8 : 0 });
+        drawText(r, font, countdown.label, right - 3 - w, y, { align: 'right', trans: GOLD });
+      }
     }
     // Hold-use progress, under the crosshair.
     if (info.progress) {
@@ -82,15 +114,21 @@ export class CtHud {
       const vx = 160 - bw / 2, vy = Math.round(viewBottom * 0.62);
       const sx = r.vScaleX, sy = r.vScaleY;
       const bx = r.vLeft + vx * sx, by = vy * sy;
+      // Progress kept but not being added to (welding let go): dimmed.
+      const idle = !!info.progress.idle;
       r.fillRect(bx - sx, by - sy, (bw + 2) * sx, (bh + 2) * sy, this.color('frame'));
       r.fillRect(bx, by, bw * sx, bh * sy, this.color('back'));
-      if (frac > 0) r.fillRect(bx, by, Math.max(1, bw * frac * sx), bh * sy, this.color(frac >= 1 ? 'full' : 'fill'));
-      drawText(r, font, `${info.progress.label} ${Math.floor(frac * 100)}%`, 160, vy - 10, { align: 'center', trans: GOLD });
+      if (frac > 0) r.fillRect(bx, by, Math.max(1, bw * frac * sx), bh * sy, this.color(idle ? 'idle' : frac >= 1 ? 'full' : 'fill'));
+      drawText(r, font, `${info.progress.label} ${Math.floor(frac * 100)}%`, 160, vy - 10, { align: 'center', trans: idle ? GRAY : GOLD, alpha: idle ? 0.75 : 1 });
     }
-    // Centred message (objective changes, "the generator is out of fuel").
+    // Centred message (objective changes, "the generator is out of fuel"):
+    // wrapped onto two lines on a narrow screen; on the automap below its
+    // stats.
     if (info.center) {
       const a = Math.min(1, info.center.tics / 12, (info.center.total - info.center.tics + 1) / 4);
-      drawText(r, font, info.center.text, 160, Math.round(viewBottom * 0.22), { align: 'center', trans: GOLD, alpha: a });
+      const t = this.fit(info.center.text, avail);
+      const y = Math.round(Math.max(viewBottom * 0.22, am ? 21 + 4 * ROW + 4 : 0));
+      drawText(r, font, t.text, 160, y, { align: 'center', trans: GOLD, alpha: a, scale: t.scale });
     }
     // Rescue missed.
     if (info.failed && p.playerstate === 'live') {

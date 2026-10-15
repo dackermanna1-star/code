@@ -63,8 +63,10 @@ export class App {
       this.audio.setWorld(null);
       this.intermission.start(stats);
     });
-    g.on('finale', (f) => { this.wipe(); this.finale.start(f); });
-    g.on('title', () => { this.wipe(); this.title.start(); });
+    // Straight from a level (E1M8, Chinatown's rescue) no intermission has
+    // silenced its looping sounds (the helicopter, the generator).
+    g.on('finale', (f) => { this.wipe(); this.audio.stopLoops(); this.finale.start(f); });
+    g.on('title', () => { this.wipe(); this.audio.stopLoops(); this.title.start(); });
     this.input.onPress = (code, e) => this.onPress(code, e);
     this.input.onLockChange = (locked) => {
       if (!locked && this.game.state === 'level' && !this.menu.active && !this.input.captureNext) this.menu.open();
@@ -86,7 +88,9 @@ export class App {
       // Any other map name in the loaded WADs (e.g. CHINATWN) plays that map on its own.
       else if (this.stack.customMapNames().includes(m)) map = m;
       else console.warn(`?map=${m}: no such map in the loaded WADs`);
-      this.game.newGame(ep, skill, map);
+      // &seed=N repeats a game's random level-start rolls (Chinatown's items).
+      const seed = p.has('seed') ? Number(p.get('seed')) : null;
+      this.game.newGame(ep, skill, map, Number.isFinite(seed) ? seed : null);
       if (p.has('god')) this.game.player.cheats |= 2;
       this.input.wantLock = true; // like startNewGame: the first click grabs the mouse
     } else {

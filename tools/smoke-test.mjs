@@ -15,6 +15,7 @@ import { DEFAULTS } from '../src/settings.js';
 import { createEffects } from '../src/fx/effects.js';
 import { missingActions } from '../src/game/tables.js';
 import { VoxelLibrary } from '../src/vox/library.js';
+import { STAGE } from '../src/game/ct/chinatown.js';
 import '../src/game/enemy.js';
 import '../src/game/weapons.js';
 import '../src/game/ct/zombies.js';
@@ -44,6 +45,9 @@ if (missing.length) {
 const settings = { values: structuredClone(DEFAULTS), get(k) { return this.values[k]; } };
 const gamemode = detectGameMode(stack);
 const silent = { start() {}, stopOrigin() {} };
+// A custom map script's level-start rolls (Chinatown's items) are seeded
+// per game: a fixed seed keeps the runs repeatable.
+const SEED = 1;
 
 function makeGame(withFx) {
   const g = new Game({ stack, res, settings, gamemode, audio: silent });
@@ -90,28 +94,40 @@ function signature(g) {
   return `${g.player.mo.x.toFixed(3)},${g.player.mo.y.toFixed(3)},${g.player.health},${w.mobjs.size},${h.toFixed(3)},${w.rng.prndindex}${ct}`;
 }
 
+// The scripted player standing his ground: turning and shooting, but not
+// walking (Chinatown's radio is on a pier, a step from the bay).
+function holdCmd(i) {
+  return { ...cmd(i), forwardmove: 0, sidemove: 0, use: false, jump: false, crouch: false, sprint: false };
+}
+
 // Chinatown: a second lock-step run through the radio hold-out (zombie
-// director waves) and the helicopter's flight, saved half way.
+// director waves) and the helicopter's flight, saved half way. It has to
+// really get there: the same level throughout, waves spawned, the
+// helicopter in the air.
 function scriptLockstep(episode, map) {
   const a = makeGame(false);
-  a.newGame(episode, 3, map);
+  a.newGame(episode, 3, map, SEED);
   if (!a.world.ct || !a.world.ct.script) return null;
   a.player.cheats |= 2;
   a.world.ct.script.goto(7);
-  for (let i = 0; i < 1750; i++) { a.player.mo.angle += 0.013; a.tick(cmd(i)); }
+  const level = a.world;
+  for (let i = 0; i < 1750; i++) { a.player.mo.angle += 0.013; a.tick(holdCmd(i)); }
+  const heldOut = a.world === level && a.state === 'level' && a.world.ct.script.s.stage === STAGE.HOLDOUT;
   const data = JSON.parse(JSON.stringify(a.save('smoke')));
   const b = makeGame(false);
   b.restore(data);
   for (let i = 1750; i < 3150; i++) {
-    const c = cmd(i);
+    const c = holdCmd(i);
     a.player.mo.angle += 0.013;
     b.player.mo.angle += 0.013;
     a.tick({ ...c });
     b.tick({ ...c });
   }
   const s = a.world.ct.script.s;
-  const same = a.state !== 'level' || b.state !== 'level' || signature(a) === signature(b);
-  return { same, info: `hold-out waves ${s.dir.spawned}, helicopter ${s.heli ? s.heli.phase : 'none'}` };
+  const reached = heldOut && a.world === level && s.stage >= STAGE.EXTRACT && s.dir.spawned > 0 && (!!s.heli || s.result === 1);
+  const same = reached && a.state === b.state && signature(a) === signature(b);
+  const info = `hold-out waves ${s.dir.spawned}, helicopter ${s.heli ? s.heli.phase : 'none'}`;
+  return { same, info: reached ? info : `${info}; NOT REACHED (stage ${s.stage}, ${a.world === level ? 'same level' : 'level restarted'})` };
 }
 
 let failures = 0;
@@ -125,7 +141,7 @@ for (const name of maps) {
   const t0 = Date.now();
   try {
     const g = makeGame(true);
-    g.newGame(episode, 3, map);
+    g.newGame(episode, 3, map, SEED);
     const customInfo = g.customMap ? `  ${customSummary(g)}` : '';
     const p = g.player;
     p.cheats |= 2;
@@ -140,7 +156,7 @@ for (const name of maps) {
     }
     // Save / restore determinism (without the cosmetic fx layer).
     const a = makeGame(false);
-    a.newGame(episode, 3, map);
+    a.newGame(episode, 3, map, SEED);
     a.player.cheats |= 2;
     for (let i = 0; i < 700; i++) { a.player.mo.angle += 0.013; a.tick(cmd(i)); }
     const data = JSON.parse(JSON.stringify(a.save('smoke')));
