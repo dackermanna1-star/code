@@ -1,0 +1,10 @@
+import { launch, shot } from './harness.mjs';
+const { browser, page, errors, logs } = await launch();
+await page.waitForFunction(() => window.__game && window.__game.ready, null, { timeout: 120000 });
+await page.waitForTimeout(1500);
+const info = await page.evaluate(() => ({ nav: window.__game.nav.count, navTime: window.__game.navTime, pos: window.__game.body.pos.toArray(), grounded: window.__game.body.grounded }));
+console.log(JSON.stringify(info));
+await shot(page, 'smoke');
+console.log(errors.join('\n') || 'no errors');
+console.log(logs.slice(-10).join('\n'));
+await browser.close();

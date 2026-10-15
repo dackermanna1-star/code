@@ -1,0 +1,21 @@
+{
+  "name": "dead-center-ps1",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A PS1-style recreation of Left 4 Dead 2's Dead Center campaign (fan project, not for distribution).",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "test": "node tests/run-all.mjs"
+  },
+  "dependencies": {
+    "three": "0.180.0",
+    "three-mesh-bvh": "0.9.1"
+  },
+  "devDependencies": {
+    "vite": "7.1.5",
+    "playwright-core": "1.55.0"
+  }
+}
