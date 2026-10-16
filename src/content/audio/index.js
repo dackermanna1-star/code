@@ -10,6 +10,7 @@ import { installFootsteps } from './footsteps.js'
 import { Director } from './director.js'
 import { bank } from './bank.js'
 import * as api from './api.js'
+import { shared } from './state.js'
 
 let director = null
 let warmed1 = false
@@ -20,6 +21,7 @@ export default {
   name: 'audio',
   order: 5,
   build(ctx) {
+    shared.game = ctx.game
     registerSounds(ctx.audio)
     api._bind(ctx.audio, null)
     // interactive + spawn-area sounds first, rendered off the main thread while the city builds

@@ -9,6 +9,7 @@ import { makeRng } from './dsp.js'
 import { CAR_SPEEDS } from './recipes/transport.js'
 import { CASHIER_PHRASES, KIOSK_PHRASES, PA_PHRASES } from './recipes/people.js'
 import { RINGTONES } from './recipes/ui.js'
+import { zoneAt, posHash } from './state.js'
 
 const rnd = makeRng(20080114)
 const lastVariant = new Map()
@@ -138,7 +139,7 @@ one('door_magnet_lock', -7, NEAR)
 one('door_wood', -7, NEAR, { rate: [0.92, 1.08] })
 one('intercom_beep', -13, NEAR, { rate: [1, 1], pick: o => ['intercom_beep', { ok: 3, accept: 3, open: 4, unlock: 4, error: 5, wrong: 5 }[o.kind] ?? Math.floor(rnd() * 3)] })
 loop('intercom_call', -14, NEAR)
-one('doorbell', -10, { ...NEAR, refDistance: 2 }, { rate: [1, 1], pick: o => ['doorbell', o.kind ? ({ trill: 0, bell: 1, chime: 2 }[o.kind] ?? 0) : o.seed !== undefined ? Math.floor(Math.abs(+o.seed) * 997) % 3 : 0] })
+one('doorbell', -10, { ...NEAR, refDistance: 2 }, { rate: [1, 1], pick: o => ['doorbell', o.kind ? ({ trill: 0, bell: 1, chime: 2 }[o.kind] ?? 0) : o.seed !== undefined ? Math.floor(Math.abs(+o.seed) * 997) % 3 : o.pos ? [0, 0, 1, 2, 0][posHash(o.pos) % 5] : 0] })
 one('elevator_call', -6, NEAR, { prefetch: ['elevator_doors', 'elevator_motor', 'elevator_stop'] })
 one('elevator_doors', -7, NEAR, { pick: o => ['elevator_doors', (o.dir === 'close' || o.close ? 1 : 0) + (rnd() < 0.5 ? 2 : 0)] })
 loop('elevator_motor', -9, MACHINE)
@@ -148,8 +149,8 @@ one('radiator_knock', -11, { ...MACHINE, refDistance: 4 }, { pick: o => ['radiat
 loop('water_pipe', -14, ROOM)
 
 // ambient emitters (loops)
-loop('tv_muffled', -12, ROOM, { pick: o => ['tv_muffled', o.variant === 'show' || o.variant === 1 ? 1 : o.variant === 'news' || o.variant === 0 ? 0 : Math.floor(rnd() * 2), true] })
-loop('voices_muffled', -12, ROOM)
+loop('tv_muffled', -12, ROOM, { pick: o => ['tv_muffled', o.variant === 'show' || o.variant === 1 ? 1 : o.variant === 'news' || o.variant === 0 ? 0 : o.pos ? posHash(o.pos) % 2 : Math.floor(rnd() * 2), true] })
+loop('voices_muffled', -12, ROOM, { pick: o => ['voices_muffled', o.variant !== undefined ? +o.variant % 2 : o.pos ? (posHash(o.pos) >> 3) % 2 : Math.floor(rnd() * 2), true] })
 loop('fridge_hum', -17, { ...ROOM, refDistance: 1.2 })
 loop('fluorescent_buzz', -19, { ...ROOM, refDistance: 1.5 }, { pick: o => ['fluorescent_buzz', o.failing || o.flicker ? 1 : 0, true] })
 loop('transformer_hum', -13, MACHINE)
@@ -158,7 +159,7 @@ loop('ventilation', -11, { ...MACHINE, refDistance: 4 })
 loop('escalator_loop', -11, { ...MACHINE, refDistance: 5 })
 loop('car_idle', -11, { ...MACHINE, refDistance: 2.5 }, { pick: o => ['car_idle', o.variant ?? Math.floor(rnd() * 2), true] })
 loop('radio_distant', -12, { ...MACHINE, refDistance: 3 }, { fragment: true })
-loop('swing_creak', -14, { ...MACHINE, refDistance: 3 }, { rateLoop: [0.92, 1.08] })
+loop('swing_creak', -14, { ...MACHINE, refDistance: 3 }, { rateLoop: [0.94, 1.06], pick: o => { if (o.period) o._rate = Math.min(2, Math.max(0.5, 2.8 / o.period)) * (o.pitch ?? 1); else if (o.pitch) o._rate = o.pitch; return null } })
 loop('shop_ambience', -9, { ...MACHINE, refDistance: 5 })
 loop('wires_hum', -18, { ...MACHINE, refDistance: 6 })
 
@@ -186,7 +187,7 @@ one('snow_shovel', -6, { ...FAR, refDistance: 15 }, { rate: [0.92, 1.08] })
 one('snow_fall_branch', -9, { ...NEAR, refDistance: 4, reverb: 0.4 })
 one('car_alarm', -6, { ...FAR, refDistance: 35 }, { rate: [0.99, 1.01] })
 one('distant_door_slam', -4, { ...FAR, refDistance: 25 })
-one('footsteps_phantom', -6, { ...NEAR, refDistance: 5, reverb: 0.6 }, { pick: o => (o.indoor || o.surface === 'indoor' ? ['footsteps_phantom_indoor', Math.floor(rnd() * 2)] : null) })
+one('footsteps_phantom', -6, { ...NEAR, refDistance: 5, reverb: 0.6 }, { pick: o => (o.indoor || o.surface === 'indoor' || (o.surface === undefined && o.indoor === undefined && zoneAt(o.pos)?.indoor) ? ['footsteps_phantom_indoor', Math.floor(rnd() * 2)] : null) })
 one('cashier_voice', -7, { ...NEAR, refDistance: 2.5 }, { rate: [1, 1], pick: o => ['cashier_voice', o.random ? Math.floor(rnd() * CASHIER_PHRASES.length) : (+(o.phrase ?? 0) % CASHIER_PHRASES.length)] })
 one('kiosk_voice', -8, { ...NEAR, refDistance: 2.5 }, { rate: [1, 1], pick: o => ['kiosk_voice', o.phrase !== undefined ? (+o.phrase % KIOSK_PHRASES.length) : Math.floor(rnd() * KIOSK_PHRASES.length)] })
 one('shop_bell', -10, NEAR, { key: 'metro_chime', rate: [1.18, 1.22] }) // IR door chime «дин-дон» (E5→C5) a little higher
