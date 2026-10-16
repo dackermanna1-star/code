@@ -20,7 +20,8 @@ defineMaterial('street_plastic_blue', { color: 0x3c5a7e, gloss: 0.3, surface: SU
 defineMaterial('street_mail_blue', { color: 0x2d4e78, gloss: 0.25, surface: SURF.METAL })
 defineMaterial('street_fabric_beige', { color: 0x9c8664, surface: SURF.CARPET, variation: 1.3 })
 defineMaterial('street_tinsel', { color: 0xbfa95e, gloss: 0.85, surface: SURF.WOOD, solid: false })
-defineMaterial('street_lens_off', { color: 0x26292a, gloss: 0.7, surface: SURF.METAL })
+defineMaterial('street_po2_face', { color: 0x83817b, surface: SURF.CONCRETE, variation: 0.45 })
+defineMaterial('street_po2_rib', { color: 0xb3b0a7, surface: SURF.CONCRETE, variation: 0.35 })
 
 // emissive
 defineMaterial('street_lamp_mercury', { color: 0xdce8e8, emit: EMIT_STREET, emitColor: 0xcfe6e8, emitIntensity: 7.0 })

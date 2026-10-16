@@ -44,7 +44,7 @@ export function buildTestScene(ctx) {
   addGraffiti(ctx, { x: cx - 1.7, y: y0 + 0.75, z: fz, id: 'gr_lenasasha', seed: 2 })
   addGraffiti(ctx, { x: cx - 0.6, y: y0 + 0.75, z: fz, id: 'gr_tag_zubr', seed: 3, h: 0.4 })
   addGraffiti(ctx, { x: cx + 1.4, y: y0 + 0.62, z: fz, id: 'gr_locks_stencil', seed: 4 })
-  addGraffiti(ctx, { x: cx - 2.7, y: y0 + 2.5, z: fz, id: 'gr_anarchy', seed: 5 })
+  addGraffiti(ctx, { x: cx - 4.6, y: y0 + 2.45, z: fz, id: 'gr_anarchy', seed: 5, h: 0.22 })
   addGraffiti(ctx, { x: cx + 3.6, y: y0 + 2.7, z: fz, id: 'gr_dasha', seed: 6 })
   addGraffiti(ctx, { x: cx + 1.4, y: y0 + 1.0, z: fz, id: 'gr_vasya', seed: 7 })
   addGraffiti(ctx, { x: cx - 5.4, y: y0 + 0.75, z: fz, id: 'gr_nezabudu', seed: 8 })

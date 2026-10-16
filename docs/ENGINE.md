@@ -113,7 +113,8 @@ Indoor spaces must use `domain:'indoor'` lights; outdoor lights never light indo
 
 ## Zones — `src/core/Zones.js`
 `zones.add({ name, min:[x,y,z], max:[x,y,z], type, indoor, priority, reverb, wind, traffic, snow,
-conveyor:[vx,vy,vz], silence, surface, data })`. Reverbs: `outdoor courtyard park stairwell
+conveyor:[vx,vy,vz], silence, surface, exposure, data })`. Indoor zones use exposure 0.8 by default
+(eye adaptation; outdoor night exposure is ~1.6) — override with `exposure` per zone. Reverbs: `outdoor courtyard park stairwell
 underpass metro tunnel shop room elevator hall`. The current zone is `game.zone`; the
 `'zone'` event fires on change. `snow:false` hides snowfall.
 

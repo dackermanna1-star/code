@@ -315,7 +315,12 @@ export class Game {
     this._updateWorld(this.paused ? 0 : dt)
     this.audio.update(this.paused ? 0 : dt, this.camera, this)
     this.ui.update(dt)
-    this.post.uniforms.uExposure.value = this.atmos.exposure
+    // eye adaptation: indoor spaces lit by bulbs/tubes need far less exposure than a dark street
+    const indoor = this.zone && this.zone.indoor
+    const target = indoor ? (this.zone.exposure ?? 0.8) : this.atmos.exposure
+    const k = target < this._exposure ? 1.6 : 0.55 // adapt to bright quickly, to dark slowly
+    this._exposure = this._exposure === undefined ? target : this._exposure + (target - this._exposure) * Math.min(1, dt * k)
+    this.post.uniforms.uExposure.value = this._exposure
     this.post.render(dt, this.time)
     if (this.settings.showStats || this.params.stats) this._stats(dt)
     input.endFrame()

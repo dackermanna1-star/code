@@ -45,7 +45,7 @@ function buildBench(type, snow) {
     m.fill(1, 1, 0, 1, 2, 1, M('metal_dark')); m.fill(L - 2, 1, 0, 1, 2, 1, M('metal_dark'))
     m.fill(0, 2, 0, L, 1, 1, M('wood_painted_green'))
     m.fill(0, 3, 0, L, 1, 1, M('wood_painted_green'))
-    m.set(5, 3, 0, 0); m.set(6, 3, 0, 0) // missing slat end
+    m.set(6, 3, 0, 0); m.set(7, 3, 0, 0) // broken-off slat end
     speckle(m, rng, [M('wood_painted_green')], M('wood'), 0.2)
     speckle(m, rng, [M('concrete')], M('concrete_dark'), 0.4)
   } else if (type === 'entrance') {

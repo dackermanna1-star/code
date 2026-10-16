@@ -62,7 +62,7 @@ void main() {
   a *= smoothstep(0.25, 1.6, d);
   vec3 spec = vec3(0.0);
   vec3 dl = evalLights(p, vec3(0.0, 1.0, 0.0), 1.0, vec3(0.0, 1.0, 0.0), 0.0, 1000.0, spec);
-  vec3 col = aColor.rgb * (uSkyAmb * 1.5 + uGroundAmb + dl * 0.85 + uSunCol * 0.6);
+  vec3 col = aColor.rgb * (uSkyAmb * 2.0 + uGroundAmb * 1.5 + dl * 0.85 + uSunCol * 0.6);
   vec3 rd = p - cameraPosition;
   float dist = length(rd);
   rd /= max(dist, 1e-3);

@@ -3,7 +3,7 @@
 import { defineModel } from '../../core/models.js'
 import { RNG, hash2 } from '../../core/rng.js'
 import { MAT } from './materials.js'
-import { Skeleton, rasterize, branchSnow, useThinLods, fromVertical, deviate, add, norm, PRIO } from './voxutil.js'
+import { Skeleton, rasterize, branchSnow, useThinLods, fineScale, fromVertical, deviate, add, norm, PRIO } from './voxutil.js'
 import { VOXEL } from '../../core/constants.js'
 
 export const PLANTS = {} // kind → [model names]
@@ -125,84 +125,96 @@ function hedge(seed, o = {}) {
 }
 
 // ---- dry weeds -----------------------------------------------------------------------------------
+/** Well-spaced stalk bases (voxel units) in a disc: thin stalks need air between them. */
+function bases(rng, n, R, minD = 2) {
+  const out = []
+  for (let t = 0; t < n * 12 && out.length < n; t++) {
+    const a = rng.float(0, TAU), d = R * Math.sqrt(rng.next())
+    const p = [Math.round(Math.cos(a) * d) + 0.5, -1, Math.round(Math.sin(a) * d) + 0.5]
+    if (out.some(q => Math.abs(q[0] - p[0]) + Math.abs(q[2] - p[2]) < minD)) continue
+    out.push(p)
+  }
+  return out
+}
+
+// Weeds and reeds are built from fine 12.5 cm voxels (half the world voxel): a dry stalk is a
+// few centimetres thick, and at full 25 cm voxels a stand of them reads as a fence of posts.
+const FINE = 0.5
+
 function grassTuft(seed) {
   const rng = new RNG(seed)
   const sk = new Skeleton()
-  const n = rng.int(10, 22)
-  for (let i = 0; i < n; i++) {
-    const a = rng.float(0, TAU), d = rng.float(0, 2.4)
-    const base = [Math.cos(a) * d, -1, Math.sin(a) * d]
+  for (const base of bases(rng, rng.int(10, 16), 9, 2)) {
     const bent = rng.chance(0.25)
-    const len = rng.float(2, 4)
-    sk.grow({ p: base, dir: fromVertical(bent ? rng.float(0.7, 1.3) : rng.float(0, 0.35), rng.float(0, TAU)), length: len, step: 1.2, r0: 0.3, r1: 0.3, gnarl: 0.1, trop: bent ? DOWN : UP, tropK: 0.1, rng, mat: rng.chance(0.75) ? MAT.straw : MAT.stalk, prio: PRIO.twig, conn: 26 })
+    sk.grow({ p: base, dir: fromVertical(bent ? rng.float(0.7, 1.3) : rng.float(0, 0.4), rng.float(0, TAU)), length: rng.float(2.5, 7), step: 2, r0: 0.3, r1: 0.3, gnarl: 0.1, trop: bent ? DOWN : UP, tropK: 0.1, rng, mat: rng.chance(0.75) ? MAT.straw : MAT.stalk, prio: PRIO.twig, conn: 18 })
   }
-  return rasterize(sk, { below: 1, pad: 1 }).model
+  return fineScale(rasterize(sk, { below: 2, pad: 1 }).model)
 }
 
 function burdock(seed) {
   const rng = new RNG(seed)
   const sk = new Skeleton()
-  for (let i = 0; i < rng.int(3, 6); i++) {
-    const a = rng.float(0, TAU), d = rng.float(0, 1.5)
-    const pts = sk.grow({ p: [Math.cos(a) * d, -1, Math.sin(a) * d], dir: fromVertical(rng.float(0, 0.3), a), length: rng.float(4, 6.5), step: 1.5, r0: 0.35, r1: 0.35, gnarl: 0.12, trop: UP, tropK: 0.03, rng, mat: MAT.stalk, prio: PRIO.branch, conn: 6 })
+  for (const b of bases(rng, rng.int(3, 5), 6.5, 4)) {
+    const a = Math.atan2(b[2], b[0])
+    const pts = sk.grow({ p: b, dir: fromVertical(rng.float(0, 0.3), a), length: rng.float(8, 13), step: 2.5, r0: 0.35, r1: 0.35, gnarl: 0.1, trop: UP, tropK: 0.03, rng, mat: MAT.stalk, prio: PRIO.branch, conn: 6 })
     const top = pts[pts.length - 1]
-    sk.point(add(top.p, [0, 0.5, 0]), MAT.seeds, PRIO.fruit)
-    for (let k = 0; k < rng.int(1, 3); k++) {
+    sk.blob(add(top.p, [0, 0.6, 0]), 0.9, 0.9, 0.9, MAT.seeds, PRIO.fruit, 1, seed + 1)
+    for (let k = 0; k < rng.int(2, 3); k++) {
       const j = Math.max(1, pts.length - 1 - rng.int(0, 2))
-      const sp = sk.grow({ p: pts[j].p, dir: deviate(pts[j].dir, rng.float(0.5, 0.9), rng.float(0, TAU)), length: rng.float(1.2, 2.5), step: 1.2, r0: 0.3, r1: 0.3, gnarl: 0.1, rng, mat: MAT.stalk, prio: PRIO.twig })
-      sk.point(add(sp[sp.length - 1].p, [0, 0.3, 0]), MAT.seeds, PRIO.fruit)
+      const sp = sk.grow({ p: pts[j].p, dir: deviate(pts[j].dir, rng.float(0.5, 0.9), rng.float(0, TAU)), length: rng.float(2.5, 5), step: 2, r0: 0.3, r1: 0.3, gnarl: 0.1, rng, mat: MAT.stalk, prio: PRIO.twig, conn: 18 })
+      sk.blob(add(sp[sp.length - 1].p, [0, 0.4, 0]), 0.8, 0.8, 0.8, MAT.seeds, PRIO.fruit, 1, seed + k)
     }
   }
-  return rasterize(sk, { below: 1, pad: 1 }).model
+  return fineScale(rasterize(sk, { below: 2, pad: 1 }).model)
 }
 
 function tansy(seed) {
   const rng = new RNG(seed)
   const sk = new Skeleton()
-  for (let i = 0; i < rng.int(5, 9); i++) {
-    const a = rng.float(0, TAU), d = rng.float(0, 1.8)
-    const pts = sk.grow({ p: [Math.cos(a) * d, -1, Math.sin(a) * d], dir: fromVertical(rng.float(0, 0.25), a), length: rng.float(3.5, 5.5), step: 1.5, r0: 0.3, r1: 0.3, gnarl: 0.06, rng, mat: MAT.stalk, prio: PRIO.branch })
+  let i = 0
+  for (const b of bases(rng, rng.int(5, 8), 7.5, 3)) {
+    i++
+    const a = Math.atan2(b[2], b[0])
+    const pts = sk.grow({ p: b, dir: fromVertical(rng.float(0, 0.25), a), length: rng.float(6.5, 10.5), step: 2.5, r0: 0.3, r1: 0.3, gnarl: 0.06, rng, mat: MAT.stalk, prio: PRIO.branch, conn: 18 })
     const t = pts[pts.length - 1].p
-    sk.blob(add(t, [0, 0.5, 0]), 1.0, 0.5, 1.0, MAT.seeds, PRIO.fruit, 0.85, hash2(seed, i))
+    sk.blob(add(t, [0, 0.5, 0]), 1.7, 0.6, 1.7, MAT.seeds, PRIO.fruit, 0.85, hash2(seed, i))
   }
-  return rasterize(sk, { below: 1, pad: 1 }).model
+  return fineScale(rasterize(sk, { below: 2, pad: 1 }).model)
 }
 
 function reeds(seed, cattail) {
   const rng = new RNG(seed)
   const sk = new Skeleton()
-  const n = cattail ? rng.int(6, 12) : rng.int(14, 28)
+  const n = cattail ? rng.int(6, 10) : rng.int(12, 18)
   const lean = rng.float(0, TAU)
-  for (let i = 0; i < n; i++) {
-    const a = rng.float(0, TAU), d = rng.float(0, 2.6)
-    const base = [Math.cos(a) * d, -1, Math.sin(a) * d]
-    const L = cattail ? rng.float(5, 7) : rng.float(6, 10)
+  for (const base of bases(rng, n, cattail ? 9 : 12, 3)) {
+    const L = cattail ? rng.float(10, 14) : rng.float(12, 20)
     const broken = !cattail && rng.chance(0.18)
-    const dir = fromVertical(rng.float(0.02, 0.2), lean + rng.float(-0.6, 0.6))
+    const dir = fromVertical(rng.float(0.02, 0.18), lean + rng.float(-0.6, 0.6))
     if (broken) {
       const k = L * rng.float(0.4, 0.7)
-      const pts = sk.grow({ p: base, dir, length: k, step: 1.5, r0: 0.3, r1: 0.3, gnarl: 0.03, rng, mat: MAT.straw, prio: PRIO.twig, conn: 26 })
+      const pts = sk.grow({ p: base, dir, length: k, step: 2.5, r0: 0.3, r1: 0.3, gnarl: 0.03, rng, mat: MAT.straw, prio: PRIO.twig, conn: 26 })
       const e = pts[pts.length - 1]
-      sk.grow({ p: e.p, dir: norm(add(fromVertical(rng.float(1.6, 2.4), rng.float(0, TAU)), [0, -0.2, 0])), length: L - k, step: 1.5, r0: 0.3, r1: 0.3, gnarl: 0.05, rng, mat: MAT.straw, prio: PRIO.twig, conn: 26 })
+      sk.grow({ p: e.p, dir: norm(add(fromVertical(rng.float(1.6, 2.4), rng.float(0, TAU)), [0, -0.2, 0])), length: L - k, step: 2.5, r0: 0.3, r1: 0.3, gnarl: 0.05, rng, mat: MAT.straw, prio: PRIO.twig, conn: 26 })
       continue
     }
-    const pts = sk.grow({ p: base, dir, length: L, step: 1.5, r0: 0.3, r1: 0.3, gnarl: 0.03, trop: DOWN, tropK: 0.01, rng, mat: rng.chance(0.8) ? MAT.straw : MAT.stalk, prio: PRIO.twig, conn: 26 })
+    const pts = sk.grow({ p: base, dir, length: L, step: 2.5, r0: 0.3, r1: 0.3, gnarl: 0.03, trop: DOWN, tropK: 0.01, rng, mat: rng.chance(0.8) ? MAT.straw : MAT.stalk, prio: PRIO.twig, conn: 26 })
     const top = pts[pts.length - 1]
     if (cattail) {
       // brown cylindrical head under a thin spike
       const hp = pts[Math.max(1, pts.length - 2)].p
-      sk.seg(add(hp, [0, -1.2, 0]), add(hp, [0, 0.4, 0]), 0.45, 0.45, MAT.seeds, PRIO.fruit, 6)
+      sk.seg(add(hp, [0, -2.2, 0]), add(hp, [0, 0.4, 0]), 0.7, 0.7, MAT.seeds, PRIO.fruit, 6)
     } else if (rng.chance(0.75)) {
       // feathery plume nodding away from the wind
-      const off = [Math.cos(lean) * 0.6, 0, Math.sin(lean) * 0.6]
-      sk.seg(top.p, add(add(top.p, off), [0, -1.3, 0]), 0.45, 0.35, rng.chance(0.5) ? MAT.seeds : MAT.straw, PRIO.fruit, 18)
+      const off = [Math.cos(lean) * 1.2, 0, Math.sin(lean) * 1.2]
+      sk.seg(top.p, add(add(top.p, off), [0, -2.6, 0]), 0.7, 0.45, rng.chance(0.5) ? MAT.seeds : MAT.straw, PRIO.fruit, 18)
     }
   }
-  return rasterize(sk, { below: 1, pad: 1 }).model
+  return fineScale(rasterize(sk, { below: 2, pad: 1 }).model)
 }
 
 const BUSH = { lods: [1, 2], lodDistances: [32], maxDistance: 140 }
-const WEED = { lods: [1], maxDistance: 75, contact: false }
+const WEED = { lods: [FINE], lodDistances: [], maxDistance: 75, contact: false, collide: false }
 
 ;[0, 1, 2].forEach(i => reg('lilac', `nature_lilac_${i}`, () => lilac(9100 + i * 13), BUSH))
 ;[0, 1].forEach(i => reg('currant', `nature_currant_${i}`, () => currant(9200 + i * 17), BUSH))
@@ -213,7 +225,7 @@ reg('hedge', 'nature_hedge_gap', () => hedge(9402, { gap: true }), { lods: [1, 2
 ;[0, 1, 2].forEach(i => reg('grass', `nature_weeds_grass_${i}`, () => grassTuft(9500 + i * 7), WEED))
 ;[0, 1].forEach(i => reg('burdock', `nature_weeds_burdock_${i}`, () => burdock(9600 + i * 7), WEED))
 ;[0, 1].forEach(i => reg('tansy', `nature_weeds_tansy_${i}`, () => tansy(9700 + i * 7), WEED))
-;[0, 1, 2].forEach(i => reg('reeds', `nature_reeds_${i}`, () => reeds(9800 + i * 11, false), { lods: [1], maxDistance: 110, contact: false }))
-;[0, 1].forEach(i => reg('cattail', `nature_cattail_${i}`, () => reeds(9900 + i * 11, true), { lods: [1], maxDistance: 100, contact: false }))
+;[0, 1, 2].forEach(i => reg('reeds', `nature_reeds_${i}`, () => reeds(9800 + i * 11, false), { ...WEED, maxDistance: 110 }))
+;[0, 1].forEach(i => reg('cattail', `nature_cattail_${i}`, () => reeds(9900 + i * 11, true), { ...WEED, maxDistance: 100 }))
 
 export const HEDGE_LEN = 8 * VOXEL // 2 m

@@ -172,7 +172,7 @@ Steps play non-spatially on the **foley path**, which keeps its own zone reverb 
 **Beds** follow zone, weather, time and place:
 - **City hum:** very low and constant, quieter at night and indoors.
 - **Distant traffic:** panned toward проспект Строителей. It grows strongly near z 520–560, swells randomly (busier 17–19.5 h, sparse at night), and is low-passed indoors. On top of it, `traffic_far` pass-bys play at avenue positions.
-- **Wind:** brown-noise bed driven by `atmos.windSpeed`/`gust`, a gust LFO (6–20 s), and *openness* from 8 horizontal raycasts.
+- **Wind:** brown-noise bed driven by `atmos.windSpeed`/`gust`, a gust LFO (6–20 s), and *openness* from 8 horizontal raycasts. An airy mid band (450–1500 Hz) opens with each gust.
   - Aeolian whistles with f ∝ wind speed, louder near corners and only in strong gusts, panned from upwind.
   - Corner howl and blowing-snow hiss in gusts.
   - Indoors it is muffled by `zone.wind`.

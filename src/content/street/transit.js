@@ -43,7 +43,7 @@ function buildPavilion(tube) {
   // tube light under the roof
   m.fill(5, 7, 1, 10, 1, 1, tube ? M('street_tube') : M('plastic_white'))
   m.fill(4, 7, 1, 1, 1, 1, M('metal_gray')); m.fill(15, 7, 1, 1, 1, 1, M('metal_gray'))
-  rustify(m, rngFor('pavilion'), [f], 0.07, { bottomBias: 3 })
+  rustify(m, rngFor('pavilion'), [f], 0.025, { bottomBias: 5 })
   snowTop(m, { chance: 0.97, seed: 12, vary: 1 })
   return m
 }

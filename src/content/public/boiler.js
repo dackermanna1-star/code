@@ -30,7 +30,7 @@ function industrialWindow(m, face, u, y, w, h, rng, litChance) {
       if (fu || fy) { fset(m, face, uu, yy, 1, M('metal_dark')); continue }
       let mat = M('pub_glass_dark')
       const r = rng.next()
-      if (lit && yy > litTop && yy < litBot && r < 0.75) mat = M('pub_win_lit_cold')
+      if (lit && yy > litTop && yy < litBot && r < 0.6) mat = M('pub_win_lit_cold')
       else if (r < 0.06) mat = M('wood')
       else if (r < 0.1) mat = M('brick_red')
       else if (r < 0.13) mat = M('metal_dark')
@@ -61,7 +61,7 @@ defineModel('pub_boiler', () => {
   for (const u of [4, 32, 60, 88, 116]) for (let y = 3; y < HTOP - 2; y++) { m.set(u, y, 0, brick); m.set(u + 1, y, 0, brick) }
   // big windows: front ×4, back ×4, left ×1
   for (const u of [8, 36, 64, 92]) {
-    industrialWindow(m, 'front', u, 8, 19, 28, rng, 0.75)
+    industrialWindow(m, 'front', u, 8, 19, 28, rng, 0.6)
     for (let y = 8; y < 36; y++) { fset(m, 'front', u - 1, y, 0, brick) }
   }
   for (const u of [8, 36, 64, 92]) {

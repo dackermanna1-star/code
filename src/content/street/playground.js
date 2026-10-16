@@ -73,8 +73,8 @@ function buildRocket() {
   }
   for (let y = 0; y < 6; y++) { m.set(17, y, 5, rod); m.set(17, y, 7, rod) }
   const rng = rngFor('rocket')
-  rustify(m, rng, [rod, ring, fin, M('street_paint_white')], 0.14)
-  snowTop(m, { chance: 0.75, seed: 21 })
+  rustify(m, rng, [rod, ring, fin, M('street_paint_white')], 0.1)
+  snowTop(m, { chance: 0.6, seed: 21 })
   m.setPivot(6.5, 0, 6.5)
   return m
 }
@@ -85,7 +85,7 @@ function buildDome() {
   const m = new VoxelModel(13, 8, 13)
   const rx = 6, ry = 7.2, c = 6.5
   const paints = PAINTS()
-  const step = Math.PI / 6
+  const step = Math.PI / 4
   for (let y = 0; y < 8; y++)
     for (let z = 0; z < 13; z++)
       for (let x = 0; x < 13; x++) {
@@ -101,8 +101,8 @@ function buildDome() {
         m.set(x, y, z, onRing && !onMeridian ? M('metal_yellow') : paints[((k % 4) + 4) % 4])
       }
   m.set(6, 7, 6, M('metal_red'))
-  rustify(m, rngFor('dome'), PAINTS(), 0.16)
-  snowTop(m, { chance: 0.6, seed: 4 })
+  rustify(m, rngFor('dome'), PAINTS(), 0.1)
+  snowTop(m, { chance: 0.4, seed: 4 })
   return m
 }
 defineModel('street_pg_dome', buildDome, pgOpts)
@@ -124,7 +124,7 @@ function buildSwingFrame(len) {
   m.fill(0, 9, 4, len, 1, 1, M('metal_dark'))
   // hinge lugs above each seat position
   rustify(m, rngFor('swingframe' + len), [leg], 0.2)
-  snowTop(m, { chance: 0.7, seed: len })
+  snowTop(m, { chance: 0.85, seed: len, onlyAbove: 9 })
   return m
 }
 defineModel('street_pg_swing_frame', () => buildSwingFrame(9), { ...pgOpts })

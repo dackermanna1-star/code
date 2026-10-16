@@ -10,7 +10,7 @@ import { fineScale } from './voxutil.js'
 import { natureState } from './state.js'
 
 const FINE = 0.25 // crow voxels are 6.25 cm
-const GREY = M('concrete'), BLACK = M('rubber'), DARK = M('metal_dark')
+const GREY = M('concrete_light'), BLACK = M('rubber'), DARK = M('metal_dark')
 const CROW_OPTS = { lods: [FINE], lodDistances: [], maxDistance: 150, collide: false, contact: false, dynamic: true }
 
 function body(m, o) {
@@ -80,7 +80,7 @@ function flying(frame) {
       prevY = y
     }
   }
-  m.setPivot(8, 8, 11.5)
+  m.setPivot(8, 4, 11.5)
   return fineScale(m)
 }
 

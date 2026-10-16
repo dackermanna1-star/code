@@ -5,7 +5,9 @@ import { bank } from './bank.js'
 import { SOUND_NAMES, keysOf, bufferVoice } from './sounds.js'
 import { STEP_SOUNDS } from './footsteps.js'
 import { CASHIER_PHRASES, KIOSK_PHRASES, PA_PHRASES } from './recipes/people.js'
-import { hashStr } from './dsp.js'
+import { hashStr, makeRng } from './dsp.js'
+
+const rnd = makeRng(0x2008)
 import { SURF } from '../../core/materials.js'
 
 let ENGINE = null
@@ -59,7 +61,7 @@ export function playRadioFragment(pos, opts = {}) {
       g.gain.linearRampToValueAtTime(0.05, t + 0.05)
       g.gain.setTargetAtTime(0, t + 0.35, 0.15)
       n.connect(bp); bp.connect(g); g.connect(em.gain)
-      n.start(t, Math.random() * 1.5)
+      n.start(t, rnd() * 1.5)
       n.stop(t + 1.4)
       n.onended = () => { try { g.disconnect() } catch { /* ignore */ } }
     } catch { /* static is optional */ }

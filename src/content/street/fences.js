@@ -15,7 +15,7 @@ const fenceOpts = { lods: [1, 2], lodDistances: [50], maxDistance: 200 }
 // ПО-2: rhombus relief rendered as raised ridges (lighter) on the panel face
 function buildPO2(variant) {
   const m = new VoxelModel(10, 9, 1)
-  const face = M('concrete'), ridge = M('concrete_light'), dark = M('concrete_dark')
+  const face = M('street_po2_face'), ridge = M('street_po2_rib'), dark = M('concrete_dark')
   for (let y = 0; y < 8; y++)
     for (let x = 0; x < 10; x++) {
       // rhombus lattice: two families of diagonal ribs
@@ -53,7 +53,7 @@ defineModel('street_fence_bars', () => {
   m.fill(0, 1, 0, 10, 1, 1, p)
   m.fill(0, 5, 0, 10, 1, 1, p)
   for (let x = 2; x < 10; x += 2) m.fill(x, 0, 0, 1, 7, 1, p)
-  rustify(m, rngFor('barsfence'), [p], 0.12)
+  rustify(m, rngFor('barsfence'), [p], 0.05, { bottomBias: 3 })
   snowTop(m, { chance: 0.55, seed: 7 })
   return m
 }, fenceOpts)

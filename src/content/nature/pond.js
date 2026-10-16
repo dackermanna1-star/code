@@ -129,9 +129,16 @@ export function placePond(ctx, o) {
     t.apply(cx - w / 2 - 0.6, cz - d / 2 - 0.6, cx + w / 2 + 0.6, cz + d / 2 + 0.6, (px, pz, hv, mat) => {
       if (shape(px, pz) > 0.85) return null
       const ix = Math.abs(px - cx) - w / 2, iz = Math.abs(pz - cz) - d / 2
-      const out = Math.max(ix, iz)
-      if (out < 0) return { h: iceV, mat: valueNoise2(px * 0.8, pz * 0.8, seed + 7) < 0.55 ? MAT.iceDark : MAT.icePond }
-      if (out < 0.6) return { h: iceV + (valueNoise2(px * 3, pz * 3, seed) < 0.75 ? 1 : 0), mat: MAT.snow }
+      // shovelled by hand: wobbly edges, snow thrown into a low broken ridge
+      const out = Math.max(ix, iz) + (valueNoise2(px * 0.9, pz * 0.9, seed + 11) - 0.5) * 0.9
+      if (out < 0) {
+        const n = valueNoise2(px * 0.8, pz * 0.8, seed + 7)
+        return { h: iceV, mat: n < 0.5 ? MAT.iceDark : n < 0.88 ? MAT.icePond : MAT.snowPacked }
+      }
+      if (out < 0.7) {
+        const n = valueNoise2(px * 2.2, pz * 2.2, seed)
+        return { h: iceV + (n < 0.6 ? 1 : 0), mat: n < 0.8 ? MAT.snow : MAT.snowFresh }
+      }
       return null
     })
   }

@@ -66,7 +66,28 @@ try {
       window.__an = an
       window.__buf = new Float32Array(an.fftSize)
     })
+    if (opt.zone) {
+      // wrap the player in a test zone: --zone stairwell | underpass | metro | silence | shop
+      await page.evaluate(kind => {
+        const g = window.game, p = g.player.pos
+        const silence = kind === 'silence'
+        g.zones.add({ name: 'audio-test-' + kind, min: [p.x - 6, p.y - 4, p.z - 6], max: [p.x + 6, p.y + 6, p.z + 6], priority: 50,
+          reverb: silence ? 'courtyard' : kind, indoor: !silence, silence, type: kind })
+      }, String(opt.zone))
+    }
     if (opt.step) await page.evaluate(s => { window.__stepSurface = { snow: 1, snow_packed: 2, ice: 3, slush: 4, concrete: 5, asphalt: 6, metal: 7, tile: 8 }[s] ?? 1 }, String(opt.step))
+    if (opt.fire) {
+      // fast-forward the director's far-event timers once (exercises every event path)
+      await page.waitForTimeout(3000)
+      const fired = await page.evaluate(h => {
+        const d = window.__audioDirector, g = window.game
+        if (h) g.atmos.setTime(parseFloat(h) * 60)
+        d._env(0.1, d.engine, g)
+        for (let k = 0; k < 6; k++) d._events(400, d.engine, g, d.env)
+        return d.debug.events.slice()
+      }, opt.firehour ?? null)
+      console.log('fired:', fired.join(' | '))
+    }
     const secs = +(opt.seconds ?? 30)
     const rows = []
     for (let s = 0; s < secs; s++) {
@@ -81,7 +102,7 @@ try {
         return { state: a.ctx.state, time: a.ctx.currentTime.toFixed(1), peak: (20 * Math.log10(p + 1e-9)).toFixed(1), rms: (20 * Math.log10(Math.sqrt(sum / b.length) + 1e-9)).toFixed(1), stats: d ? d.stats() : null }
       })
       const d = st.stats
-      rows.push(`${String(s + 1).padStart(3)}s ctx ${st.state} t=${st.time} out peak ${st.peak} rms ${st.rms} | ${d ? `sil ${d.silence.state} music ${d.music.playing} emit ${d.emitters} beds ${JSON.stringify(d.beds)} bank w${d.bank.worker}/s${d.bank.sync} pend ${d.bank.pending} ${(d.bank.bytes / 1e6).toFixed(1)}MB` : 'no director'}`)
+      rows.push(`${String(s + 1).padStart(3)}s g${d?.time ?? "-"} ctx ${st.state} t=${st.time} out peak ${st.peak} rms ${st.rms} | ${d ? `sil ${d.silence.state} music ${d.music.playing} emit ${d.emitters} beds ${JSON.stringify(d.beds)} bank w${d.bank.worker}/s${d.bank.sync} pend ${d.bank.pending} ${(d.bank.bytes / 1e6).toFixed(1)}MB` : 'no director'}`)
       if (opt.verbose && d) rows.push('     events: ' + d.events.join(' | '))
     }
     console.log(rows.join('\n'))

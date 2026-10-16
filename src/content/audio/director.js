@@ -70,6 +70,11 @@ export class Director {
     B.howl = { out: gain(0) }
     for (const f of [180, 410, 620]) { const b = mk('bandpass', f, 15); white.output.connect(b); b.connect(B.howl.out) }
     B.howl.out.connect(amb)
+    // the airy «whoosh» of gusts between the blocks: a broad band that opens with the gust
+    B.airF = mk('bandpass', 700, 0.55)
+    B.airPan = pan()
+    B.air = { out: gain(0) }
+    white.output.connect(B.airF); B.airF.connect(B.air.out); B.air.out.connect(B.airPan); B.airPan.connect(amb)
     const hs = mk('highpass', 4200, 0.7)
     B.hiss = { out: gain(0) }
     white.output.connect(hs); hs.connect(B.hiss.out); B.hiss.out.connect(amb)
@@ -77,6 +82,11 @@ export class Director {
     bed('under', 'bed_underground', [mk('lowpass', 3000)])
     B.wiresPan = pan()
     bed('wires', 'wires_hum', [B.wiresPan])
+    // beds that are often silent are disconnected while silent (nodes off the graph cost no CPU)
+    const sleepy = (out, tail) => { out._tail = tail; out._dest = amb; out._zeroT = 0; out._asleep = false; this.sleepers.push(out) }
+    this.sleepers = []
+    sleepy(B.room.out, B.room.out); sleepy(B.under.out, B.under.out); sleepy(B.wires.out, B.wires.out)
+    sleepy(B.whistle.out, B.whistlePan); sleepy(B.howl.out, B.howl.out); sleepy(B.hiss.out, B.hiss.out); sleepy(B.air.out, B.airPan)
 
     // listen for interactions (they end a silence event) and zone changes
     try {
@@ -104,6 +114,7 @@ export class Director {
     const env = this._env(step, engine, game)
     this._silence(step, engine, game, env)
     this._beds(step, engine, game, env)
+    this._sleep(step)
     this._events(step, engine, game, env)
     this._music(step, engine, game, env)
   }
@@ -171,7 +182,22 @@ export class Director {
   }
 
   // ---- beds ------------------------------------------------------------------------------
-  _set(node, v, tc = 0.8) { this._param(node.gain, v, tc) }
+  _set(node, v, tc = 0.8) {
+    if (node._asleep && v > 1e-5) {
+      try { node._tail.connect(node._dest) } catch { /* ignore */ }
+      node._asleep = false
+      node._zeroT = 0
+    }
+    this._param(node.gain, v, tc)
+  }
+
+  _sleep(dt) {
+    for (const n of this.sleepers || []) {
+      if (n._asleep) continue
+      if ((n.gain._lv ?? 1) < 1e-5) n._zeroT += dt; else n._zeroT = 0
+      if (n._zeroT > 5) { try { n._tail.disconnect(n._dest) } catch { /* ignore */ } n._asleep = true }
+    }
+  }
   /** setTargetAtTime only when the value really changes (keeps the automation timelines short). */
   _param(param, v, tc = 0.8, rel = 0.01) {
     if (!param) return
@@ -227,10 +253,14 @@ export class Director {
     const whistle = db(-27) * clamp((ws * gust - 0.45) * 2, 0, 1) * (0.4 + E.corner) * E.outdoor * windLive
     this._set(B.whistle.out, whistle, 0.7)
     this._param(B.whistlePan.pan, clamp(E.windPan * 0.7, -0.8, 0.8), 1.5)
+    // airy band: centre 450→1500 Hz and level with the gust (quiet in light wind)
+    this._set(B.air.out, db(-35) * ws * (0.15 + gust * gust) * open * (E.outdoor + 0.25 * E.indoor * Math.min(1, E.zoneWind * 3) * (1 - E.under)) * windLive, 0.5)
+    this._param(B.airF.frequency, E.outdoor > 0.5 ? 450 + 1050 * clamp(gust * ws, 0, 1.2) : 300, 0.7)
+    this._param(B.airPan.pan, clamp(E.windPan * 0.5, -0.6, 0.6), 1.5)
     this._set(B.howl.out, db(-38) * clamp(ws * gust - 0.3, 0, 1) * E.corner * E.outdoor * windLive, 0.8)
     this._set(B.hiss.out, db(-40) * Math.pow(clamp(gust * ws, 0, 1.4), 3) * (0.3 + E.snow) * E.outdoor * windLive, 0.4)
     // indoor building presence (stairwells, flats, shops) and the underground room tone
-    this._set(B.room.out, db(-42) * E.indoor * (1 - E.under) * (E.reverb === 'stairwell' ? 1.3 : 1) * live, 1)
+    this._set(B.room.out, db(-42) * E.indoor * (1 - E.under) * (E.reverb === 'stairwell' ? 1.6 : 1) * live, 1)
     this._set(B.under.out, db(-33) * E.under * live, 1)
     // trolleybus wires singing near the avenue
     const wires = db(-40) * clamp(1 - (E.avenueDist - 6) / 30, 0, 1) * E.outdoor * (0.6 + 0.4 * ws) * windLive
@@ -493,10 +523,11 @@ export class Director {
 
   stats() {
     const B = this.beds || {}
-    const lv = {}
+    const lv = { asleep: (this.sleepers || []).filter(n => n._asleep).length }
     for (const k of ['city', 'traffic', 'wind', 'room', 'under', 'wires']) if (B[k]) lv[k] = +(20 * Math.log10(B[k].out.gain.value + 1e-9)).toFixed(1)
-    for (const k of ['whistle', 'howl', 'hiss']) if (B[k]) lv[k] = +(20 * Math.log10(B[k].out.gain.value + 1e-9)).toFixed(1)
+    for (const k of ['whistle', 'howl', 'hiss', 'air']) if (B[k]) lv[k] = +(20 * Math.log10(B[k].out.gain.value + 1e-9)).toFixed(1)
     return {
+      time: +this.time.toFixed(1),
       env: { ...this.env },
       silence: { ...this.silence },
       music: { playing: !!this.music.piece, next: this.music.next },
