@@ -103,6 +103,7 @@ export class SteamSystem {
     }
     this.attrs = { aSpawn: mk(), aParam: mk(), aColor: mk(), aMove: mk() }
     for (const [k, a] of Object.entries(this.attrs)) g.setAttribute(k, a)
+    this.attrList = Object.values(this.attrs)
     g.instanceCount = 0 // grows to the highest slot in use
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e6)
     this.uniforms = { ...ctx.game.uniforms, uWind: { value: new THREE.Vector3() } }
@@ -218,7 +219,7 @@ export class SteamSystem {
       if (em.acc > 4) em.acc = 0
     }
     if (this.dirty1 >= this.dirty0) {
-      for (const a of Object.values(this.attrs)) {
+      for (const a of this.attrList) {
         a.clearUpdateRanges()
         a.addUpdateRange(this.dirty0 * 4, (this.dirty1 - this.dirty0 + 1) * 4)
         a.needsUpdate = true

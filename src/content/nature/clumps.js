@@ -2,7 +2,7 @@
 // trailing powder, and lands with a soft "плюх" and a puff.
 
 import { RNG } from '../../core/rng.js'
-import { treesNear } from './state.js'
+import { treesNear, placeModel } from './state.js'
 
 const POOL = 3
 const near = []
@@ -11,7 +11,7 @@ export function createClumps(ctx, s) {
   if (s.clumps) return s.clumps
   const pool = []
   for (let i = 0; i < POOL; i++) {
-    const p = ctx.world.place('nature_snow_clump', { x: 0, y: -50, z: 0, dynamic: true, collide: false, visible: false, tag: 'clump' })
+    const p = placeModel(ctx, 'nature_snow_clump', { x: 0, y: -50, z: 0, dynamic: true, collide: false, visible: false, tag: 'clump' })
     if (p) pool.push({ p, active: false, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, trail: 0, ground: 0 })
   }
   s.clumps = { pool, timer: 18, rng: new RNG(2008) }

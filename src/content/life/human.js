@@ -201,8 +201,8 @@ export function drawPerson(m, spec, c, frame, o) {
   const hair = c.hair ?? M('branch')
   ellip(m, H[0], H[1], H[2], spec.headRx, spec.headRy, spec.headRz, skin)
   // hair on the back of the head and the crown
-  ellip(m, H[0], H[1] + 0.2, H[2] - 0.35, spec.headRx + 0.05, spec.headRy + 0.05, spec.headRz, hair,
-    (x, y, z) => z + 0.5 < H[2] - 0.3 || y + 0.5 > H[1] + spec.headRy - 0.8)
+  ellip(m, H[0], H[1] + 0.2, H[2] - 0.2, spec.headRx + 0.1, spec.headRy + 0.05, spec.headRz + 0.1, hair,
+    (x, y, z) => z + 0.5 < H[2] + 0.25 || y + 0.5 > H[1] + spec.headRy - 0.8)
   const top = H[1] + spec.headRy
 
   // ---- collar / scarf
@@ -236,7 +236,8 @@ export function drawPerson(m, spec, c, frame, o) {
     rowEllipse(m, Math.floor(H[1] + 0.3), H[0], H[2] - 0.05, spec.headRx + 0.6, spec.headRz + 0.55, hatMat)
     if (c.pompom) ellip(m, H[0], top + 0.9, H[2] - 0.2, 0.85, 0.85, 0.85, c.pompom)
   } else if (hat === 'furhat') {
-    for (let y = Math.floor(top - 1.3); y + 0.5 <= top + 1.4; y++) rowEllipse(m, y, H[0], H[2] - 0.15, 1.95, 1.9, hatMat)
+    // round fur hat sitting low on the head
+    ellip(m, H[0], top + 0.05, H[2] - 0.15, 2.05, 1.6, 2.0, hatMat, (x, y, z) => y + 0.5 > H[1] + 0.5)
   } else if (hat === 'cap') {
     // кепка: flat crown with a short peak
     for (let y = Math.floor(top - 0.9); y + 0.5 <= top + 0.5; y++) rowEllipse(m, y, H[0], H[2] - 0.05, 1.7, 1.7, hatMat)

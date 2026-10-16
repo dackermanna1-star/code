@@ -95,6 +95,11 @@ function buildStair(covered) {
   b.fill(0, 0.75, STAIR_LEN - V, 4, 1.0, STAIR_LEN, rail)
   b.fill(1.375, 0.5, STAIR_LEN - V, 1.625, RAIL_TOP, STAIR_LEN, rail)
   b.fill(2.375, 0.5, STAIR_LEN - V, 2.625, RAIL_TOP, STAIR_LEN, rail)
+  if (!covered) {
+    // lamp mast at the middle of the far railing with a short arm out over the lower flight
+    b.fill(1.875, 0.5, STAIR_LEN - V, 2.125, 2.75, STAIR_LEN, MAT.metalGray)
+    b.fill(1.875, 2.5, STAIR_LEN - 1.0, 2.125, 2.75, STAIR_LEN - V, MAT.metalGray)
+  }
   // snow on everything exposed above the sidewalk (parapets, rails)
   if (!covered) m.addSnow({ mat: MAT.snow, depth: 1, onlyAbove: b.iy(0.5), seed: 5 })
   else {
@@ -112,7 +117,8 @@ defineModel('metro_canopy', () => {
   const b = new WB(-0.25, 0.5, -0.5, 4.25, 4.0, STAIR_LEN)
   const steel = MAT.metalGray
   // posts on the parapet corners and halfway
-  for (const x of [0, 3.75]) for (const z of [0, 4.75, STAIR_LEN - V]) b.fill(x, 0.5, z, x + V, 2.75, z + V, steel)
+  // posts on the inner half of the parapets (the railing posts take the outer half)
+  for (const x of [0.25, 3.5]) for (const z of [0, 4.75, STAIR_LEN - 0.5]) b.fill(x, 0.5, z, x + V, 2.75, z + V, steel)
   // perimeter beams and rafters
   b.fill(-0.25, 2.75, -0.5, 4.25, 3.0, -0.25, steel)
   b.fill(-0.25, 2.75, STAIR_LEN - V, 4.25, 3.0, STAIR_LEN, steel)
@@ -138,12 +144,11 @@ defineModel('metro_m_pylon', () => {
   const b = new WB(-0.5, 0, -0.5, 0.5, 4.5, 0.5)
   b.fill(-0.125, 0, -0.125, 0.125, 3.0, 0.125, MAT.metalGray)
   b.fill(-0.25, 0, -0.25, 0.25, 0.25, 0.25, MAT.concrete) // footing
-  b.fill(-0.5, 3.0, -0.5, 0.5, 4.25, 0.5, MAT.plasticWhite) // lightbox body (faces carry signs)
+  b.fill(-0.5, 3.0, -0.5, 0.5, 4.0, 0.5, MAT.plasticWhite) // lightbox body (faces carry signs)
   b.fill(-0.5, 4.0, -0.5, 0.5, 4.25, 0.5, MAT.metalDark) // cap
-  b.fill(-0.5, 3.0, -0.5, 0.5, 3.25, 0.5, MAT.metalDark)
   b.fill(-0.375, 2.5, -0.125, 0.375, 2.875, 0.125, MAT.metalDark) // name plate holder
   b.m.addSnow({ mat: MAT.snow, depth: 1, seed: 3 })
-  return b.m
+  return b.pivot(0, 0, 0)
 }, { maxDistance: 320 })
 
 /** Thin sign post (road sign 5.17.2 / text plate). */
@@ -151,7 +156,7 @@ defineModel('metro_sign_post', () => {
   const b = new WB(-0.125, 0, -0.125, 0.125, 3.0, 0.125)
   b.fill(-0.125, 0, -0.125, 0.125, 2.75, 0.125, MAT.metalGray)
   b.fill(-0.125, 2.75, -0.125, 0.125, 3.0, 0.125, MAT.snow)
-  return b.m
+  return b.pivot(0, 0, 0)
 }, { maxDistance: 200 })
 
 /** A small wall/canopy lamp over the stair (outdoor fitting). */
@@ -159,7 +164,7 @@ defineModel('metro_stair_lamp', () => {
   const b = new WB(-0.25, 0, -0.25, 0.25, 0.5, 0.25)
   b.fill(-0.25, 0.25, -0.25, 0.25, 0.5, 0.25, MAT.metalDark)
   b.fill(-0.125, 0, -0.125, 0.125, 0.25, 0.125, MAT.lampBulb)
-  return b.m
+  return b.pivot(0, 0, 0)
 }, { maxDistance: 160 })
 
 // ---------------------------------------------------------------------------------------------
@@ -191,14 +196,14 @@ export function paintSurface(ctx) {
   paintSidewalk(ctx, F.x0, 508, F.x1, 524, 31)
   paintRoad(ctx, { axis: 'x', x0: F.x0, x1: F.x1, z0: 524, z1: 538, lanes: [527.5, 531, 534.5], banks: false, seed: 41 })
   paintRoad(ctx, { axis: 'x', x0: F.x0, x1: F.x1, z0: 542, z1: 556, lanes: [545.5, 549, 552.5], banks: false, seed: 43 })
-  terrain.apply(F.x0, 538.25, F.x1, 541.75, (x, z) => ({ h: 2, mat: h3(Math.floor(x * 2), 0, Math.floor(z * 2), 7) > 0.4 ? MAT.snowBank : MAT.snowDirty }))
+  terrain.apply(F.x0, 538.25, F.x1, 541.75, (x, z) => ({ h: 1, mat: h3(Math.floor(x * 2), 0, Math.floor(z * 2), 7) > 0.4 ? MAT.snowBank : MAT.snowDirty }))
   terrain.paintRect(F.x0, 538, F.x1, 538.25, MAT.curb)
   terrain.paintRect(F.x0, 541.75, F.x1, 542, MAT.curb)
   paintSidewalk(ctx, F.x0, 556, F.x1, 572, 33)
   // trodden grey slush where everybody turns into the stairs; footpaths north into the district
   for (const st of STAIRS) {
-    const zE = st.zTop, dz = st.rot === 0 ? -1 : 1
-    terrain.apply(st.x0 - 0.5, Math.min(zE, zE + dz * 2.5), st.x1 + 0.5, Math.max(zE, zE + dz * 2.5), (x, z) => {
+    const za = st.rot === 0 ? 508 : 571, zb = za + 1
+    terrain.apply(st.x0 - 1, za, st.x1 + 1, zb, (x, z) => {
       const n = h3(Math.floor(x * 4), 1, Math.floor(z * 4), 9)
       return { mat: n > 0.55 ? MAT.snowDirty : n > 0.25 ? MAT.slush : MAT.snowPacked }
     })
@@ -264,10 +269,10 @@ export function buildSurface(ctx, out) {
         lights.add({ x: lx2, y: 2.2, z: lz2, color: 0xffd8a0, intensity: int, range: 9, type: 'spot', dir: [0, -1, 0], cone: 75, inner: 40, schedule: 'night', placement: lp, halo: true, haloSize: 0.5, tag: 'metro_stair_light', domain: 'outdoor' })
       }
     } else {
-      // open stairs: a lamp on a bracket over the landing, fixed to the far railing
-      const [lx2, lz2] = stairToWorld(st, 2, STAIR_LEN - 0.4)
-      const lp = world.place('metro_stair_lamp', { x: lx2, z: lz2, y: 1.6, tag: 'lamp' })
-      lights.add({ x: lx2, y: 1.5, z: lz2, color: 0xffd09a, intensity: 8, range: 11, type: 'spot', dir: [0, -0.8, st.rot === 0 ? -0.6 : 0.6], cone: 70, inner: 35, schedule: 'night', placement: lp, halo: true, haloSize: 0.5, tag: 'metro_stair_light', domain: 'outdoor' })
+      // open stairs: a lamp hanging from the mast arm over the lower flight
+      const [lx2, lz2] = stairToWorld(st, 2, STAIR_LEN - 0.875)
+      const lp = world.place('metro_stair_lamp', { x: lx2, z: lz2, y: 2.0, tag: 'lamp' })
+      lights.add({ x: lx2, y: 1.95, z: lz2, color: 0xffd09a, intensity: 8, range: 11, type: 'spot', dir: [0, -0.8, st.rot === 0 ? -0.6 : 0.6], cone: 70, inner: 35, schedule: 'night', placement: lp, halo: true, haloSize: 0.5, tag: 'metro_stair_light', domain: 'outdoor' })
     }
     // the red М pylon at the outer corner of the entrance
     const outer = st.id.endsWith('W') ? -0.6 : 4.6
@@ -276,10 +281,10 @@ export function buildSurface(ctx, out) {
     out.surface.push(py)
     for (const [nx, nz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
       const a = Math.atan2(nx, nz)
-      signs.add({ x: px + nx * 0.51, y: Y.SIDEWALK + 3.625, z: pz + nz * 0.51, angle: a, w: 0.98, h: 0.98, ppm: 72, draw: drawMBox, emissive: 1.6, schedule: 'always' })
-      if (nz !== 0 || true) signs.add({ x: px + nx * 0.135, y: Y.SIDEWALK + 2.69, z: pz + nz * 0.135, angle: a, w: 0.74, h: 0.36, ppm: 72, draw: (c2, W, H) => drawNamePlate(c2, W, H), emissive: 0.5, schedule: 'night', aged: 0.15, seed: 3 })
+      signs.add({ x: px + nx * 0.51, y: Y.SIDEWALK + 3.5, z: pz + nz * 0.51, angle: a, w: 0.98, h: 0.98, ppm: 72, draw: drawMBox, emissive: 1.6, schedule: 'always' })
+      if (nz !== 0) signs.add({ x: px + nx * 0.135, y: Y.SIDEWALK + 2.69, z: pz + nz * 0.135, angle: a, w: 0.74, h: 0.36, ppm: 72, draw: (c2, W, H) => drawNamePlate(c2, W, H), emissive: 0.5, schedule: 'night', aged: 0.15, seed: 3 })
     }
-    lights.add({ x: px, y: Y.SIDEWALK + 3.6, z: pz, color: 0xff4630, intensity: 1.2, range: 4.5, schedule: 'night', placement: py, halo: true, haloSize: 0.9, domain: 'outdoor', tag: 'metro_m' })
+    lights.add({ x: px, y: Y.SIDEWALK + 3.5, z: pz, color: 0xff4630, intensity: 1.2, range: 4.5, schedule: 'night', placement: py, halo: true, haloSize: 0.9, domain: 'outdoor', tag: 'metro_m' })
     // stair zone (outdoor, but the underpass acoustics already start to swallow the street)
     const [ax, az] = stairToWorld(st, 0.5, 0), [bx, bz] = stairToWorld(st, 3.5, STAIR_LEN)
     zones.add({ name: 'underpass_stairs', type: 'underpass', min: [Math.min(ax, bx), -4.6, Math.min(az, bz)], max: [Math.max(ax, bx), 2.6, Math.max(az, bz)],

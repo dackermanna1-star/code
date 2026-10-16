@@ -6,7 +6,7 @@ import { M } from '../../core/materials.js'
 import { RNG } from '../../core/rng.js'
 import { fineScale } from './voxutil.js'
 import { MAT } from './materials.js'
-import { natureState } from './state.js'
+import { natureState, placeModel } from './state.js'
 
 const FINE = 0.5 // 12.5 cm voxels
 const PAINT = M('paint_matte'), TWIG = MAT.twigGrey
@@ -28,7 +28,7 @@ function bag(frame) {
     m.set(2, 4, 1, PAINT)
   }
   m.setPivot(3.5, 6, 2)
-  return fineScale(m)
+  return fineScale(m, FINE)
 }
 
 const OPTS = { lods: [FINE], lodDistances: [], maxDistance: 110, collide: false, contact: false, dynamic: true }
@@ -52,8 +52,8 @@ export function addBag(ctx, o) {
     x = q.x; y = q.y; z = q.z
   }
   const tint = o.color ?? rng.pick(COLORS)
-  const a = ctx.world.place('nature_bag_hang', { x, y, z, dynamic: true, collide: false, tint, tag: 'bag' })
-  const b = ctx.world.place('nature_bag_blown', { x, y, z, dynamic: true, collide: false, visible: false, tint, tag: 'bag' })
+  const a = placeModel(ctx, 'nature_bag_hang', { x, y, z, dynamic: true, collide: false, tint, tag: 'bag' })
+  const b = placeModel(ctx, 'nature_bag_blown', { x, y, z, dynamic: true, collide: false, visible: false, tint, tag: 'bag' })
   if (!a || !b) return null
   const bagRec = { a, b, x, y, z, t: rng.next() * 5, blown: false, r: rng.int(1, 1e9) }
   ;(s.bags ||= []).push(bagRec)

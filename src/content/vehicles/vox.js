@@ -8,7 +8,7 @@
 import { defineModel } from '../../core/models.js'
 import { VoxelModel } from '../../core/VoxelModel.js'
 import { M, SOLID } from '../../core/materials.js'
-import { RNG, hashString } from '../../core/rng.js'
+import { RNG, hashString, valueNoise2 } from '../../core/rng.js'
 
 export { VoxelModel, M, RNG }
 
@@ -104,7 +104,7 @@ export function grime(m, rng, mats, yTop, amount = 0.6) {
   const set = new Set(mats)
   const g = M('veh_grime'), s = M('veh_salt')
   for (let y = 0; y < Math.min(yTop, m.sy); y++) {
-    const k = amount * Math.pow(1 - y / yTop, 1.6)
+    const k = amount * Math.pow(1 - y / yTop, 2.2)
     for (let z = 0; z < m.sz; z++)
       for (let x = 0; x < m.sx; x++) {
         const i = m.idx(x, y, z)
@@ -163,15 +163,44 @@ export function snowCap(m, o = {}) {
     }
   }
   const prof = o.profile ?? [1, 2, 3, 3, 4, 4, 4]
+  // desired snow surface per column
+  const T = new Int16Array(sx * sz).fill(-1)
   for (let z = 0; z < sz; z++)
     for (let x = 0; x < sx; x++) {
       const t = top[x + z * sx]
       if (t < 0 || t < (o.minY ?? 1)) continue
       if (o.skip && o.skip(x, t, z)) continue
-      if (rng.next() > chance) continue
+      if (o.patchy) { if (valueNoise2(x * o.patchy, z * o.patchy, o.seed ?? 5) > chance) continue }
+      else if (rng.next() > chance) continue
       let d = Math.min(maxD, prof[Math.min(prof.length - 1, dist[x + z * sx])])
       if (o.vary && rng.next() < o.vary) d = Math.max(1, d - 1)
-      for (let k = 1; k <= d && t + k < m.sy; k++) m.set(x, t + k, z, mat)
+      T[x + z * sx] = t + d
+    }
+  // smooth: snow bridges the voxel steps of sloped glass (a blanket, not a staircase)
+  const S = T
+  if (o.smooth) {
+    const S2 = new Int16Array(sx * sz)
+    for (let z = 0; z < sz; z++)
+      for (let x = 0; x < sx; x++) {
+        const i = x + z * sx
+        let b = T[i]
+        if (b < 0) { S2[i] = -1; continue }
+        for (let dz = -3; dz <= 3; dz++) {
+          const zz = z + dz
+          if (zz < 0 || zz >= sz || !dz) continue
+          const tn = T[x + zz * sx]
+          if (tn >= 0 && top[x + zz * sx] > top[i]) b = Math.max(b, tn - Math.abs(dz))
+        }
+        S2[i] = b
+      }
+    S.set(S2)
+  }
+  for (let z = 0; z < sz; z++)
+    for (let x = 0; x < sx; x++) {
+      const i = x + z * sx
+      const t = top[i]
+      if (S[i] < 0) continue
+      for (let y = t + 1; y <= S[i] && y < m.sy; y++) if (!m.get(x, y, z)) m.set(x, y, z, mat)
     }
   return m
 }

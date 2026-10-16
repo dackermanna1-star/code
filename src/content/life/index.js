@@ -18,6 +18,14 @@ import { createDog, updateDog } from './stray.js'
 import { placeStory } from './story.js'
 import { lifeStats, spawnWalker, placePerson, setPeopleDensity } from './api.js'
 
+const SYSTEMS = [
+  function view(ctx) { life.view.update(ctx) },
+  function queue() { tickQueue() },
+  function doors(ctx, dt) { tickDoors(dt) },
+  function walkers(ctx, dt) { updateWalkers(ctx, dt) },
+  function dog(ctx, dt) { updateDog(ctx, dt) },
+]
+
 const TEST = typeof location !== 'undefined' && /[?&]lifetest=1/.test(location.search)
 
 export default {
@@ -40,6 +48,7 @@ export default {
     life.ctx = ctx
     life.graph = buildNavGraph(ctx.navPaths, ctx.registry.entrances || [])
     if (typeof window !== 'undefined') window.__life = { stats: lifeStats, spawn: o => spawnWalker(ctx, o), life }
+    if (TEST && /[?&]lifedog=1/.test(location.search) && life.dog) life.dog.timer = 1
     if (TEST && /[?&]lifewalk=1/.test(location.search)) {
       // test: put two walkers in plain view right away
       life.view.update(ctx)
@@ -50,10 +59,11 @@ export default {
   update(dt, ctx) {
     life.ctx = ctx
     life.t += dt
-    life.view.update(ctx)
-    tickQueue()
-    tickDoors(dt)
-    updateWalkers(ctx, dt)
-    updateDog(ctx, dt)
+    // each system guarded on its own: a failure in one never stops the others (or the game)
+    for (const fn of SYSTEMS) {
+      try { fn(ctx, dt) } catch (e) {
+        if (!fn._failed) { fn._failed = true; console.error('[content:life]', fn.name, e) }
+      }
+    }
   },
 }

@@ -174,8 +174,10 @@ guarded: silently skipped if not registered).
 - Adjacent buildings at a corner: leave ≥ 1 m between bounds or butt them gable to gable.
 - Stairwell lights are indoor; each enterable section adds ~10–28 lights (only the nearest 24
   are evaluated, so this is fine) — keep enterable sections to the few the plan asks for.
-- Cost: a 9-storey section ≈ 19k quads (LOD1 ≈ 8k beyond 75 m, LOD2 ≈ 1.4k beyond 190 m);
-  a 17-storey ≈ 36–42k. Every distinct (series, floors, variant, mode) is one model built at
-  load (~0.1–0.5 s each) — reuse a few variants rather than many.
+- Cost (quads at LOD0 / LOD1 beyond 75 m / LOD2 beyond 190 m): 9-storey II-49 ≈ 20k / 8k / 1.4k,
+  1-515 ≈ 24k / 8k / 1.6k, 17-storey P-44 ≈ 38k / 14k / 1.8k, P-44T ≈ 43k / 16k / 2.6k, K-7 and
+  II-32 ≈ 13k / 5k / 0.8k. Every distinct (series, floors, variant, mode) is one model built and
+  meshed at load (~0.1–0.5 s each): reuse 2–3 variants rather than many different floor counts.
+- House-number plates and the painted gable number appear only when `address` is given.
 - Dev showcase: `?resdemo=1&only=base,residential&x=245&z=392` (test district around x 170–400,
   z 340–480; never active in the real game).

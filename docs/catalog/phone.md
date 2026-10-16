@@ -281,11 +281,11 @@ addPoster(ctx, { x: 412, y: 2.5, z: 557.02, id: 'ad_megalink', w: 1.2, h: 1.68, 
 
 **`addGraffiti(ctx, o)`** — text on a wall in one of these looks:
 
-- `spray`: paint with dithered overspray and drips
-- `marker`: wobbly hand
-- `scratch`: scratched into paint
-- `stencil`
-- `tag`: outlined italic with a swoosh
+- `spray`: hand-sprayed capitals (each letter slightly off), dithered overspray and drips
+- `marker`: felt-tip hand, slightly wobbly
+- `scratch`: scratched into paint, pale
+- `stencil`: typographic stencil advert
+- `tag`: one-colour italic signature with a thin dark outline and an underline flick
 - `chalk`: dropout texture
 - `dust`: a finger in the dirt
 

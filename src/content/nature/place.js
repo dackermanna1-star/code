@@ -3,7 +3,7 @@
 import { getModelDef } from '../../core/models.js'
 import { RNG, hash2 } from '../../core/rng.js'
 import { SPECIES } from './trees.js'
-import { natureState, addTreeRecord, treesNear } from './state.js'
+import { natureState, addTreeRecord, treesNear, placeModel } from './state.js'
 
 const TAU = Math.PI * 2
 const SIZE_WORDS = { tiny: 0.05, small: 0.2, young: 0.2, medium: 0.5, large: 0.8, old: 0.95, huge: 1 }
@@ -54,7 +54,8 @@ export function pickVariant(species, o, rng) {
  *      (optionally 'poplar:pollarded', 'spruce:blue', 'maple:negundo', 'birch:clump'),
  *      size (m | 'small'|'medium'|'large'), variant (index | model name), kind,
  *      rot (quarter turns) | angle (radians), seed, tag }
- * Returns a tree handle { placement, species, name, x, y, z, height, crownR, perches(), snowSpots() }.
+ * Places the trunk model and, for deciduous species, its fine-voxel crown model (`<name>_crown`).
+ * Returns a tree handle { placement, crown, species, name, x, y, z, height, crownR, perches(), snowSpots() }.
  */
 export function placeTree(ctx, o) {
   const s = natureState(ctx)
@@ -64,14 +65,18 @@ export function placeTree(ctx, o) {
   const v = pickVariant(SPECIES[species] ? species : 'birch', { ...o, kind: o.kind ?? kind }, rng)
   if (!v) return null
   const angle = o.angle ?? ((o.rot ?? rng.int(0, 3)) * Math.PI / 2)
-  const p = ctx.world.place(v.name, {
+  const p = placeModel(ctx, v.name, {
     x: o.x, z: o.z, y: o.y, yOffset: o.yOffset, angle, seed: rng.next(), tag: o.tag ?? 'tree',
     userData: { species, kind: v.kind, nature: true },
   })
   if (!p) return null
+  // the fine-voxel crown (branches and twigs) shares the trunk's transform
+  const crown = v.crown ? placeModel(ctx, v.crown, {
+    x: o.x, z: o.z, y: p.y, angle, seed: p.seed, tag: 'tree_crown', userData: { species, kind: v.kind, nature: true, trunk: p },
+  }) : null
   const nat = getModelDef(v.name).model.nature || { height: v.height, crownR: 3, perches: [], snowSpots: [] }
   const t = {
-    placement: p, species, kind: v.kind, name: v.name, x: o.x, z: o.z, y: p.y,
+    placement: p, crown, species, kind: v.kind, name: v.name, x: o.x, z: o.z, y: p.y,
     height: nat.height, crownR: nat.crownR, meta: nat,
     perches() { return nat.perches.map(q => p.toWorld(q[0], q[1], q[2])) },
     snowSpots() { return nat.snowSpots.map(q => p.toWorld(q[0], q[1], q[2])) },

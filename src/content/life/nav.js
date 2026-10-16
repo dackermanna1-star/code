@@ -132,8 +132,9 @@ export class NavGraph {
     this.cum = new Float64Array(this.edges.length)
     let acc = 0
     for (let i = 0; i < this.edges.length; i++) {
-      // entrance stubs are not spawn spots on their own
-      acc += this.edges[i].kind === 'entrance' ? 0 : this.edges[i].len
+      // entrance stubs and islands are not spawn spots
+      const k = this.edges[i].kind
+      acc += k === 'entrance' || k === 'island' ? 0 : this.edges[i].len
       this.cum[i] = acc
     }
     this.total = acc
@@ -300,16 +301,7 @@ export function buildNavGraph(navPaths, entrances = [], opts = {}) {
     c++
   }
   for (const E of g.edges) if (!keep.has(E.a)) E.kind = 'island'
-  g.edges.forEach(E => { if (E.kind === 'island') E.len = E.len })
   g.finalize()
-  // islands are never sampled
-  let acc = 0
-  for (let i = 0; i < g.edges.length; i++) {
-    const E = g.edges[i]
-    acc += E.kind === 'entrance' || E.kind === 'island' ? 0 : E.len
-    g.cum[i] = acc
-  }
-  g.total = acc
-  g.doors = g.nodes.filter(n => n.door && keep.has(n.id))
+  g.doors = g.doors.filter(n => keep.has(n.id))
   return g
 }

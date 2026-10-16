@@ -186,10 +186,13 @@ function chooseNext(w, n, ctx) {
   const dl = Math.hypot(dirx, dirz) || 1
   let total = 0
   const cands = []
+  // someone leaving a подъезд follows the entrance stub (and its trodden link) out to the paths
+  const leaving = cur.kind === 'entrance' || cur.kind === 'trodden'
   for (const e of n.adj) {
     if (e === w.e) continue
     const E = g.edges[e]
-    const kw = KIND_W[E.kind] ?? 0.8
+    let kw = KIND_W[E.kind] ?? 0.8
+    if (leaving && (E.kind === 'entrance' || E.kind === 'trodden')) kw = 1
     if (kw <= 0) continue
     const m = g.other(e, n.id)
     if (g.nodes[m].door) continue
@@ -199,7 +202,6 @@ function chooseNext(w, n, ctx) {
     const wt = kw * (0.25 + Math.max(0, c) ** 2 * 1.6)
     cands.push([e, wt]); total += wt
   }
-  void cur
   if (!cands.length) return -1
   let r = rng.next() * total
   for (const [e, wt] of cands) { r -= wt; if (r <= 0) return e }
@@ -211,6 +213,8 @@ function arrive(w, ctx) {
   const g = life.graph, rng = life.rng
   const n = g.nodes[w.to]
   const pl = ctx.player.pos
+  // whoever walks up to a door goes in
+  if (n.door && w.state === 'walk') { w.s = g.edges[w.e].len - 0.5; beginEnter(w); return false }
   let next = -1
   if (w.route && w.route.length) next = w.route.shift()
   else {
@@ -424,7 +428,8 @@ export function updateWalkers(ctx, dt) {
     const T = peopleTarget(ctx.atmos?.minutes ?? 1000, ctx.atmos?.cur?.snow ?? 0.3) * (life.density ?? 1)
     const n = life.walkers.length
     const p = clamp(T - n, 0, 1) * interval / 16
-    if (life.rng.chance(p)) trySpawn(ctx)
+    life.stats.target = Math.round(T * 100) / 100
+    if (life.rng.chance(p)) { life.stats.tries = (life.stats.tries || 0) + 1; if (!trySpawn(ctx)) life.stats.failed = (life.stats.failed || 0) + 1 }
   }
   for (let i = life.walkers.length - 1; i >= 0; i--) {
     const w = life.walkers[i]

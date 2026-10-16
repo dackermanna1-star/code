@@ -3,8 +3,9 @@
 import { defineModel } from '../../core/models.js'
 import { RNG, hash2 } from '../../core/rng.js'
 import { MAT } from './materials.js'
-import { Skeleton, rasterize, branchSnow, useThinLods, fineScale, fromVertical, deviate, add, norm, PRIO } from './voxutil.js'
+import { Skeleton, rasterize, branchSnow, fineScale, scaleSkeleton, fromVertical, deviate, add, norm, PRIO } from './voxutil.js'
 import { VOXEL } from '../../core/constants.js'
+import { VoxelModel } from '../../core/VoxelModel.js'
 
 export const PLANTS = {} // kind → [model names]
 const TAU = Math.PI * 2
@@ -13,11 +14,6 @@ const UP = [0, 1, 0], DOWN = [0, -1, 0]
 function reg(kind, name, build, opts) {
   ;(PLANTS[kind] ||= []).push(name)
   defineModel(name, build, opts)
-}
-
-function snowy(r, mats, seed, chance = 0.6, minHoriz = 0.4) {
-  branchSnow(r, { mats: new Set(mats), minHoriz, chance, shelter: 0.6, seed, minY: 2 })
-  return useThinLods(r.model, f => (f <= 2 ? 2 : 6))
 }
 
 // Bushes are built from fine 12.5 cm voxels (like weeds): at 25 cm a shrub of thin stems turns into
@@ -96,36 +92,66 @@ function snowberry(seed) {
   return snowyFine(rasterize(sk, { below: 2 }), [MAT.twigGrey], seed, 0.45)
 }
 
-// ---- trimmed hedge (живая изгородь) — 2 m segments along local X, snow cap on the flat top -----
-function hedge(seed, o = {}) {
+// ---- trimmed hedge (живая изгородь) — 2 m segments along local X ----------------------------------
+// Two models per segment: solid 25 cm stems every 0.5 m (they keep the player out) and the clipped
+// twig mass in fine 12.5 cm voxels (non-solid), airy at the foot, dense at the clipped faces, with a
+// snow cap on the flat top and a few shoots the shears missed.
+const HL = 8, HW = 3 // 2 m × 0.75 m (25 cm voxels)
+
+function hedgeStems(o = {}) {
+  const H = o.low ? 3 : 4
+  const m = new VoxelModel(HL, H, HW)
+  for (let x = 0; x < HL; x += 2) m.fill(x, 0, 1, 1, H - 1, 1, MAT.branchSolid)
+  m.setPivot(HL / 2, 1, HW / 2)
+  return m
+}
+
+function hedgeTwigs(seed, o = {}) {
   const rng = new RNG(seed)
-  const L = 8, W = 3, H = o.low ? 3 : 4
-  const sk = new Skeleton()
-  // a few solid stems keep the player out
-  for (let x = 0; x < L; x += 2) sk.seg([x - 3.5, -1, 0.5], [x - 3.5, H - 1.2, 0.5], 0.35, 0.35, MAT.branchSolid, PRIO.trunk, 6)
-  const r = rasterize(sk, { below: 1, pad: 1 })
-  const m = r.model
-  // dense clipped twig mass, denser at the surface, ragged where the shears missed
-  const ox = Math.floor(m.pivot.x - L / 2), oz = Math.floor(m.pivot.z - W / 2 + 0.5), oy = m.pivot.y
-  for (let y = 0; y < H; y++)
+  const L = HL * 2, W = HW * 2, H = (o.low ? 3 : 4) * 2 // fine voxels above the ground
+  const below = 2
+  const m = new VoxelModel(L, below + H + 4, W)
+  m.setPivot(L / 2, below, W / 2)
+  const top = new Int16Array(L * W).fill(-1)
+  for (let y = 0; y < below + H; y++)
     for (let z = 0; z < W; z++)
       for (let x = 0; x < L; x++) {
-        if (o.gap && x >= 3 && x <= 5 && y >= H - 2 - (x === 4 ? 1 : 0)) continue
-        const surf = y === H - 1 || z === 0 || z === W - 1
-        const p = surf ? 0.86 : 0.5
-        if (rng.next() < p) {
-          const i = m.idx(ox + x, oy + y, oz + z)
-          if (!m.data[i]) m.data[i] = rng.chance(0.25) ? MAT.branch : MAT.twigGrey
+        const yy = y - below
+        let hTop = H - 1
+        if (o.gap) {
+          // a trampled dip where people push through
+          const d = Math.abs(x + 0.5 - L / 2)
+          if (d < 4.5) hTop -= Math.round(4 - d * 0.6)
         }
+        if (yy > hTop) continue
+        const side = z === 0 || z === W - 1
+        const crest = yy === hTop
+        if (crest && side && rng.chance(0.55)) continue // clipped edges round off
+        let p = crest ? 0.9 : side ? 0.6 : 0.38
+        if (yy < 2) p *= 0.55 // bare stems at the foot
+        if (rng.next() > p) continue
+        const r = rng.next()
+        m.data[m.idx(x, y, z)] = r < 0.62 ? MAT.twigGrey : r < 0.86 ? MAT.branch : MAT.twigBirch
+        if (y > top[x + z * L]) top[x + z * L] = y
       }
-  // stray shoots on top
-  for (let k = 0; k < 4; k++) {
-    const x = ox + rng.int(0, L - 1), z = oz + rng.int(0, W - 1)
-    for (let y = 0; y < rng.int(1, 2); y++) m.set(x, oy + H + y, z, MAT.twigGrey)
+  // snow cap on the clipped top, thicker in the middle
+  for (let z = 0; z < W; z++)
+    for (let x = 0; x < L; x++) {
+      const t = top[x + z * L]
+      if (t < below + 2) continue
+      const side = z === 0 || z === W - 1
+      if (rng.chance(side ? 0.7 : 0.95)) m.set(x, t + 1, z, MAT.snowBranch)
+      if (!side && rng.chance(0.45)) m.set(x, t + 2, z, MAT.snowBranch)
+    }
+  // a few long shoots the shears missed, poking out of the snow
+  for (let k = 0; k < rng.int(3, 7); k++) {
+    const x = rng.int(0, L - 1), z = rng.int(1, W - 2)
+    const t = top[x + z * L]
+    if (t < 0) continue
+    const n = rng.int(2, 4)
+    for (let y = 1; y <= n; y++) m.set(x + (y > 2 && rng.chance(0.5) ? (rng.chance(0.5) ? 1 : -1) : 0), t + 1 + y, z, MAT.twigGrey)
   }
-  r.horiz.fill(255)
-  branchSnow(r, { mats: new Set([MAT.twigGrey, MAT.branch]), minHoriz: 0, chance: 0.92, shelter: 0.2, seed, minY: oy + 1 })
-  return useThinLods(m, f => (f <= 2 ? 3 : 10))
+  return fineScale(m, 0.5, k => (k <= 2 ? 3 : 12))
 }
 
 // ---- dry weeds -----------------------------------------------------------------------------------
@@ -141,9 +167,15 @@ function bases(rng, n, R, minD = 2) {
   return out
 }
 
-// Weeds and reeds are built from fine 12.5 cm voxels (half the world voxel): a dry stalk is a
-// few centimetres thick, and at full 25 cm voxels a stand of them reads as a fence of posts.
-const FINE = 0.5
+// Weeds and reeds are designed in 12.5 cm units and rasterized at 6.25 cm (a quarter of the world
+// voxel): a dry stalk is a centimetre or two thick, and even at 12.5 cm a stand of them reads as a
+// fence of boards.
+const FINE = 0.25
+
+/** Rasterize a weed skeleton (12.5 cm design units) into a 6.25 cm model. */
+function weedModel(sk) {
+  return fineScale(rasterize(scaleSkeleton(sk, 2, 0.7), { below: 4, pad: 1 }).model, FINE)
+}
 
 function grassTuft(seed) {
   const rng = new RNG(seed)
@@ -152,7 +184,7 @@ function grassTuft(seed) {
     const bent = rng.chance(0.25)
     sk.grow({ p: base, dir: fromVertical(bent ? rng.float(0.7, 1.3) : rng.float(0, 0.4), rng.float(0, TAU)), length: rng.float(2.5, 7), step: 2, r0: 0.3, r1: 0.3, gnarl: 0.1, trop: bent ? DOWN : UP, tropK: 0.1, rng, mat: rng.chance(0.75) ? MAT.straw : MAT.stalk, prio: PRIO.twig, conn: 18 })
   }
-  return fineScale(rasterize(sk, { below: 2, pad: 1 }).model)
+  return weedModel(sk)
 }
 
 function burdock(seed) {
@@ -169,7 +201,7 @@ function burdock(seed) {
       sk.blob(add(sp[sp.length - 1].p, [0, 0.4, 0]), 0.8, 0.8, 0.8, MAT.seeds, PRIO.fruit, 1, seed + k)
     }
   }
-  return fineScale(rasterize(sk, { below: 2, pad: 1 }).model)
+  return weedModel(sk)
 }
 
 function tansy(seed) {
@@ -183,7 +215,7 @@ function tansy(seed) {
     const t = pts[pts.length - 1].p
     sk.blob(add(t, [0, 0.5, 0]), 1.7, 0.6, 1.7, MAT.seeds, PRIO.fruit, 0.85, hash2(seed, i))
   }
-  return fineScale(rasterize(sk, { below: 2, pad: 1 }).model)
+  return weedModel(sk)
 }
 
 function reeds(seed, cattail) {
@@ -214,7 +246,7 @@ function reeds(seed, cattail) {
       sk.seg(top.p, add(add(top.p, off), [0, -2.6, 0]), 0.7, 0.45, rng.chance(0.5) ? MAT.seeds : MAT.straw, PRIO.fruit, 18)
     }
   }
-  return fineScale(rasterize(sk, { below: 2, pad: 1 }).model)
+  return weedModel(sk)
 }
 
 const BUSH = { lods: [BFINE], lodDistances: [], maxDistance: 140, collide: false, contact: false }
@@ -223,9 +255,12 @@ const WEED = { lods: [FINE], lodDistances: [], maxDistance: 75, contact: false, 
 ;[0, 1, 2].forEach(i => reg('lilac', `nature_lilac_${i}`, () => lilac(9100 + i * 13), BUSH))
 ;[0, 1].forEach(i => reg('currant', `nature_currant_${i}`, () => currant(9200 + i * 17), BUSH))
 ;[0, 1].forEach(i => reg('snowberry', `nature_snowberry_${i}`, () => snowberry(9300 + i * 19), BUSH))
-reg('hedge', 'nature_hedge', () => hedge(9400), { lods: [1, 2], lodDistances: [40], maxDistance: 160 })
-reg('hedge', 'nature_hedge_low', () => hedge(9401, { low: true }), { lods: [1, 2], lodDistances: [40], maxDistance: 160 })
-reg('hedge', 'nature_hedge_gap', () => hedge(9402, { gap: true }), { lods: [1, 2], lodDistances: [40], maxDistance: 160 })
+const STEMS = { lods: [1], maxDistance: 120, contact: false }
+const TWIGS = { lods: [0.5, 0.999], lodDistances: [40], maxDistance: 160, collide: false, contact: false }
+for (const [name, seed, o] of [['nature_hedge', 9400, {}], ['nature_hedge_low', 9401, { low: true }], ['nature_hedge_gap', 9402, { gap: true }]]) {
+  reg('hedge', name, () => hedgeStems(o), STEMS)
+  defineModel(`${name}_twigs`, () => hedgeTwigs(seed, o), TWIGS)
+}
 ;[0, 1, 2].forEach(i => reg('grass', `nature_weeds_grass_${i}`, () => grassTuft(9500 + i * 7), WEED))
 ;[0, 1].forEach(i => reg('burdock', `nature_weeds_burdock_${i}`, () => burdock(9600 + i * 7), WEED))
 ;[0, 1].forEach(i => reg('tansy', `nature_weeds_tansy_${i}`, () => tansy(9700 + i * 7), WEED))

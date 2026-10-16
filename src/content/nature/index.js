@@ -46,10 +46,11 @@ export default {
   name: 'nature',
   order: 28,
 
-  build(ctx) {
+  async build(ctx) {
     const s = natureState(ctx)
     steamSystem(ctx)
     createClumps(ctx, s)
+    if (typeof location !== 'undefined' && /[?&]naturetest=1/.test(location.search)) (await import('./_test.js')).buildTest(ctx)
   },
 
   init(ctx) {

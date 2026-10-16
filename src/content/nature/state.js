@@ -1,6 +1,29 @@
 // Per-game runtime state of the nature package (trees for clumps/crows, steam, crows, ponds).
 // Keyed by the Game so API calls made before or after our own build() share one state.
 
+import { getModelDef } from '../../core/models.js'
+
+/**
+ * Model definition with correct bounds for fine-voxel models (m.voxelScale < 1): the engine
+ * computes a model's AABB with 0.25 m voxels, which makes a 12.5 cm model 2× (6.25 cm: 4×) too
+ * big for culling and LOD distances. Scale it once, before the first placement.
+ */
+export function fineDef(name) {
+  const d = getModelDef(name)
+  if (d && !d._natBounds) {
+    d._natBounds = true
+    const s = d.model?.voxelScale
+    if (s && s !== 1) for (let k = 0; k < 3; k++) { d.min[k] *= s; d.max[k] *= s }
+  }
+  return d
+}
+
+/** world.place() for nature models (fixes fine-voxel bounds first). */
+export function placeModel(ctx, name, o) {
+  fineDef(name)
+  return ctx.world.place(name, o)
+}
+
 const states = new WeakMap()
 const CELL = 16
 const key = (gx, gz) => (gx + 1024) * 4096 + (gz + 1024)

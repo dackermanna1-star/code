@@ -14,7 +14,7 @@ defineMaterial('veh_beacon', { color: 0xa85c14, emit: EMIT_CONST, emitColor: 0xf
 // running gear, trim, dirt
 defineMaterial('veh_rim', { color: 0x5d5f60, gloss: 0.3, surface: SURF.METAL, variation: 0.8 })
 defineMaterial('veh_under', { color: 0x1c1b1a, surface: SURF.METAL, variation: 0.6 })
-defineMaterial('veh_grime', { color: 0x5b5449, surface: SURF.METAL, variation: 1.5 })
+defineMaterial('veh_grime', { color: 0x6e675c, surface: SURF.METAL, variation: 1.5 })
 defineMaterial('veh_salt', { color: 0x8d897f, surface: SURF.METAL, variation: 1.4 })
 
 // glass: see-through for buses/trolleybuses/trains (lit interiors behind it), far LOD = lit pane

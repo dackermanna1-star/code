@@ -12,7 +12,7 @@ import { placePond, POND_SIGN } from './pond.js'
 import { snowBank, snowDrift, plowedPile } from './snowfx.js'
 import { SteamSystem, STEAM_PRESETS } from './steam.js'
 import { addCrows } from './crows.js'
-import { natureState, treesNear as _treesNear } from './state.js'
+import { natureState, treesNear as _treesNear, placeModel } from './state.js'
 import { createClumps, dropClump as _dropClump } from './clumps.js'
 import { addBag } from './bag.js'
 
@@ -54,7 +54,7 @@ export function placeBush(ctx, o) {
   const list = PLANTS[o.kind ?? 'lilac'] || PLANTS.lilac
   const rng = new RNG(o.seed ?? seedAt(o.x, o.z, 5))
   const name = o.variant !== undefined ? list[o.variant % list.length] : rng.pick(list)
-  return ctx.world.place(name, { x: o.x, z: o.z, y: o.y, angle: o.angle ?? rng.int(0, 3) * Math.PI / 2, seed: rng.next(), tag: 'bush' })
+  return placeModel(ctx, name, { x: o.x, z: o.z, y: o.y, angle: o.angle ?? rng.int(0, 3) * Math.PI / 2, seed: rng.next(), tag: 'bush' })
 }
 
 /**
@@ -72,7 +72,12 @@ export function placeHedge(ctx, o) {
   for (let i = 0; i < n; i++) {
     const f = (i + 0.5) / n
     const name = o.low ? 'nature_hedge_low' : rng.chance(o.damaged ?? 0.08) ? 'nature_hedge_gap' : 'nature_hedge'
-    out.push(ctx.world.place(name, { x: o.x0 + dx * f, z: o.z0 + dz * f, angle: ang + (rng.chance(0.5) ? Math.PI : 0), tag: 'hedge' }))
+    const x = o.x0 + dx * f, z = o.z0 + dz * f, angle = ang + (rng.chance(0.5) ? Math.PI : 0)
+    const p = placeModel(ctx, name, { x, z, angle, tag: 'hedge' })
+    if (!p) continue
+    // the fine twig mass rides on the same transform as the solid stems
+    placeModel(ctx, `${name}_twigs`, { x, z, y: p.y, angle, tag: 'hedge_twigs' })
+    out.push(p)
   }
   return out
 }
@@ -85,7 +90,7 @@ export function placeWeeds(ctx, o) {
   const list = PLANTS[o.kind ?? 'grass'] || PLANTS.grass
   const rng = new RNG(o.seed ?? seedAt(o.x, o.z, 13))
   const name = o.variant !== undefined ? list[o.variant % list.length] : rng.pick(list)
-  return ctx.world.place(name, { x: o.x, z: o.z, y: o.y, angle: o.angle ?? rng.float(0, TAU), tag: 'weeds' })
+  return placeModel(ctx, name, { x: o.x, z: o.z, y: o.y, angle: o.angle ?? rng.float(0, TAU), tag: 'weeds' })
 }
 
 /**
@@ -122,9 +127,7 @@ export function steamSystem(ctx) {
  */
 export function addSteam(ctx, o) {
   const h = steamSystem(ctx).add(o)
-  const s = natureState(ctx)
-  ;(ctx.registry.steam ||= []).push({ x: o.x, y: o.y, z: o.z, kind: o.kind ?? 'manhole', handle: h })
-  void s
+  if (ctx.registry) (ctx.registry.steam ||= []).push({ x: o.x, y: o.y, z: o.z, kind: o.kind ?? 'manhole', handle: h })
   return h
 }
 

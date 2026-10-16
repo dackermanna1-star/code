@@ -177,7 +177,7 @@ defPerson('parent_sled', {
   draw(m, f) {
     const J = drawPerson(m, PARENT, {
       coat: 'long', hem: 6.0, flare: 0.8, collar: M('life_fur'), trousers: M('rubber'), boots: M('rubber'), bootTop: 3.5,
-      hat: 'furhat', hatMat: M('life_fur_light'), hands: M('rubber'), hair: M('bark'), armR: 'pull',
+      hat: 'furhat', hatMat: M('life_fur'), hands: M('rubber'), hair: M('bark'), armR: 'pull',
     }, f, [8, 0, 36])
     const h = J.arms.R.H
     // sled ~0.9 m behind the hand

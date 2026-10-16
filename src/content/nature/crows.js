@@ -7,9 +7,9 @@ import { VoxelModel } from '../../core/VoxelModel.js'
 import { M } from '../../core/materials.js'
 import { RNG } from '../../core/rng.js'
 import { fineScale } from './voxutil.js'
-import { natureState } from './state.js'
+import { natureState, placeModel } from './state.js'
 
-const FINE = 0.25 // crow voxels are 6.25 cm
+const FINE = 0.17 // crow voxels are ~4.3 cm: a hooded crow is ~48 cm long, ~95 cm across the wings
 const GREY = M('concrete_light'), BLACK = M('rubber'), DARK = M('metal_dark')
 const CROW_OPTS = { lods: [FINE], lodDistances: [], maxDistance: 150, collide: false, contact: false, dynamic: true }
 
@@ -47,7 +47,7 @@ function perched(variant) {
     body(m, { cx: 6.5, cy: 3.8, cz })
   }
   m.setPivot(7.5, 0, 3.5)
-  return fineScale(m)
+  return fineScale(m, FINE)
 }
 
 function flying(frame) {
@@ -81,7 +81,7 @@ function flying(frame) {
     }
   }
   m.setPivot(8, 4, 11.5)
-  return fineScale(m)
+  return fineScale(m, FINE)
 }
 
 defineModel('nature_crow_perch', () => perched('perch'), CROW_OPTS)
@@ -162,7 +162,7 @@ export function addCrows(ctx, o) {
   for (const hm of homes) {
     const pl = {}
     for (const f of FRAMES) {
-      pl[f] = ctx.world.place(MODEL_OF[f], { x: hm.x, y: hm.y, z: hm.z, angle: hm.h, dynamic: true, collide: false, visible: false, tag: 'crow' })
+      pl[f] = placeModel(ctx, MODEL_OF[f], { x: hm.x, y: hm.y, z: hm.z, angle: hm.h, dynamic: true, collide: false, visible: false, tag: 'crow' })
     }
     const crow = {
       home: hm, pl, frame: null, state: 'perched', x: hm.x, y: hm.y, z: hm.z, heading: hm.h,

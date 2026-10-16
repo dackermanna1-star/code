@@ -5,6 +5,7 @@ import { defineModel } from '../../core/models.js'
 import { VoxelModel } from '../../core/VoxelModel.js'
 import { RNG } from '../../core/rng.js'
 import { MAT } from './materials.js'
+import { fineScale } from './voxutil.js'
 
 // ---- snow chunks: lumps of packed, dirty snow at the foot of plough piles -----------------------
 function chunk(seed, size) {
@@ -30,13 +31,15 @@ function chunk(seed, size) {
 ;[[1, 2], [2, 3], [3, 4], [4, 5]].forEach(([i, s]) => defineModel(`nature_snow_chunk_${i - 1}`, () => chunk(700 + i, s), { lods: [1], maxDistance: 120 }))
 
 // ---- the falling clump (dynamic, non-colliding) ---------------------------------------------------
+// 12.5 cm voxels: a lump of ~30 cm, not a 75 cm block
 defineModel('nature_snow_clump', () => {
   const m = new VoxelModel(3, 2, 3)
   m.fill(0, 0, 1, 3, 1, 1, MAT.snowBranch)
   m.fill(1, 0, 0, 1, 2, 3, MAT.snowBranch)
   m.set(1, 1, 1, MAT.snowBranch)
-  return m
-}, { lods: [1], maxDistance: 80, collide: false, contact: false, dynamic: true })
+  m.setPivot(1.5, 0, 1.5)
+  return fineScale(m, 0.5)
+}, { lods: [0.5], maxDistance: 80, collide: false, contact: false, dynamic: true })
 
 // ---- things that end up in a plough pile ------------------------------------------------------------
 // Each is modelled already tilted/half-sunk; place it on the pile surface (pivot = its base).

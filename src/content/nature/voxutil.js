@@ -321,13 +321,51 @@ export function useThinLods(m, thinMin, snowMin) {
 
 /**
  * Fine-scale model: rendered with voxels of VOXEL * scale (e.g. 0.5 → 12.5 cm) by declaring
- * `lods: [scale]` in defineModel. The engine asks the model for a "downsample" by that factor
- * and meshes it at VOXEL * factor; we hand back the model unchanged.
+ * `lods: [scale, ...]` in defineModel. The engine asks the model for a "downsample" by each factor
+ * and meshes it at VOXEL * factor: the first level hands back the model unchanged, coarser levels
+ * (factor 2·scale, 4·scale) are twig-thinned reductions of it.
+ * Placement bounds are fixed with fineDef() before the first placement (see place.js).
  * (Engine request: a first-class `voxelScale` option.)
  */
-export function fineScale(m) {
-  m.downsample = function () { return this }
+export function fineScale(m, scale = 0.5, thinMin, snowMin) {
+  m.voxelScale = scale
+  m.downsample = function (f, minFill, lodRemap) {
+    const k = Math.round(f / scale)
+    if (k <= 1) return this
+    const tm = typeof thinMin === 'function' ? thinMin(k) : thinMin ?? (k <= 2 ? 3 : 10)
+    const sm = typeof snowMin === 'function' ? snowMin(k) : snowMin ?? (k <= 2 ? 3 : 12)
+    return thinDownsample(this, k, lodRemap, tm, sm)
+  }
   return m
+}
+
+/** Copy of a skeleton scaled by k (positions and blob sizes; segment radii × k × slim). */
+export function scaleSkeleton(sk, k, slim = 1) {
+  const out = new Skeleton()
+  for (const s of sk.segs) out.segs.push({ ...s, a: mul(s.a, k), b: mul(s.b, k), ra: s.ra * k * slim, rb: s.rb * k * slim })
+  for (const b of sk.blobs) out.blobs.push({ ...b, c: mul(b.c, k), rx: b.rx * k, ry: b.ry * k, rz: b.rz * k })
+  for (const q of sk.points) out.points.push({ ...q, p: mul(q.p, k) })
+  return out
+}
+
+/**
+ * Split a tree skeleton in two: the stout parts that rasterize as capsules (trunk, thick limbs,
+ * pollard knuckles) stay in 25 cm voxels and collide; everything thin (branches, twigs, fruit)
+ * is scaled by k into a fine-voxel crown model, so twigs are 12.5 cm instead of 25 cm thick.
+ * Fine radii are slimmed by `slim` (a branch should not keep its 25 cm girth).
+ */
+export function splitSkeleton(sk, k = 2, slim = 0.8) {
+  const base = new Skeleton(), fine = new Skeleton()
+  for (const s of sk.segs) {
+    if (Math.max(s.ra, s.rb) >= 0.62) base.segs.push(s)
+    else fine.segs.push({ ...s, a: mul(s.a, k), b: mul(s.b, k), ra: s.ra * k * slim, rb: s.rb * k * slim })
+  }
+  for (const b of sk.blobs) {
+    if (b.prio >= PRIO.limb) base.blobs.push(b)
+    else fine.blobs.push({ ...b, c: mul(b.c, k), rx: b.rx * k, ry: b.ry * k, rz: b.rz * k })
+  }
+  for (const q of sk.points) fine.points.push({ ...q, p: mul(q.p, k) })
+  return { base, fine }
 }
 
 /** Does a material id count as non-air wood/plant (for perch search)? */

@@ -6,7 +6,7 @@ import { RNG, fbm2, valueNoise2, smoothstep, hash2 } from '../../core/rng.js'
 import { VOXEL } from '../../core/constants.js'
 import { MAT } from './materials.js'
 import { PLANTS } from './plants.js'
-import { natureState } from './state.js'
+import { natureState, placeModel } from './state.js'
 import { SIGN_FONT } from '../../render/Signs.js'
 
 const TAU = Math.PI * 2
@@ -34,18 +34,26 @@ function drawPondSign(c, W, H) {
   c.lineWidth = r * 0.16
   c.beginPath(); c.arc(cx, cy, r, 0, TAU); c.stroke()
   c.beginPath(); c.moveTo(cx - r * 0.7, cy - r * 0.7); c.lineTo(cx + r * 0.7, cy + r * 0.7); c.stroke()
-  // text
+  // text, fitted into the column right of the pictogram
+  const x0 = W * 0.43, x1 = W * 0.95, tx = (x0 + x1) / 2, tw = x1 - x0
+  const fit = (text, size, weight) => {
+    let px = size
+    for (let k = 0; k < 12; k++) {
+      c.font = `${weight} ${Math.round(px)}px ${SIGN_FONT}`
+      if (c.measureText(text).width <= tw) break
+      px *= 0.92
+    }
+  }
   c.fillStyle = '#a3241c'
   c.textAlign = 'center'
   c.textBaseline = 'middle'
-  const tx = W * 0.64
-  c.font = `bold ${Math.round(H * 0.2)}px ${SIGN_FONT}`
+  fit('ЗАПРЕЩЁН!', H * 0.2, 'bold')
   c.fillText('ВЫХОД', tx, H * 0.22)
-  c.fillText('НА ЛЁД', tx, H * 0.44)
-  c.fillText('ЗАПРЕЩЁН!', tx, H * 0.66)
+  c.fillText('НА ЛЁД', tx, H * 0.43)
+  c.fillText('ЗАПРЕЩЁН!', tx, H * 0.64)
   c.fillStyle = '#333'
-  c.font = `${Math.round(H * 0.085)}px ${SIGN_FONT}`
-  c.fillText('Управа района «Восточный»', tx, H * 0.86)
+  fit('Управа района «Восточный»', H * 0.075, 'normal')
+  c.fillText('Управа района «Восточный»', tx, H * 0.85)
 }
 
 /**
@@ -148,18 +156,18 @@ export function placePond(ctx, o) {
   // reeds and cattails in clumps along the shore, thicker on one side
   if (o.reeds ?? true) {
     const side = rng.float(0, TAU)
-    const nC = Math.round(4 + (rx + rz) / 4)
+    const nC = Math.round(3 + (rx + rz) / 6)
     for (let c = 0; c < nC; c++) {
-      const a = side + rng.normal(0, 1.1)
-      for (let k = 0; k < rng.int(1, 4); k++) {
-        const aa = a + rng.float(-0.12, 0.12)
+      const a = side + rng.normal(0, 1.3)
+      for (let k = 0; k < rng.int(1, 3); k++) {
+        const aa = a + rng.float(-0.16, 0.16)
         const rr = rng.float(0.86, 1.04)
         const px = x + Math.cos(aa) * rx * rr * (1 + 0.1 * Math.sin(2 * Math.atan2(Math.sin(aa) * rz, Math.cos(aa) * rx) + ph[0]))
         const pz = z + Math.sin(aa) * rz * rr
         if (avoid(px, pz)) continue
         const cat = rng.chance(0.3)
         const list = cat ? PLANTS.cattail : PLANTS.reeds
-        ctx.world.place(rng.pick(list), { x: px, z: pz, angle: rng.float(0, TAU), tag: 'reeds' })
+        placeModel(ctx, rng.pick(list), { x: px, z: pz, angle: rng.float(0, TAU), tag: 'reeds' })
       }
     }
     // dry grass on the slope
@@ -167,7 +175,7 @@ export function placePond(ctx, o) {
       const a = rng.float(0, TAU), rr = rng.float(1.02, 1.25)
       const px = x + Math.cos(a) * rx * rr, pz = z + Math.sin(a) * rz * rr
       if (avoid(px, pz)) continue
-      ctx.world.place(rng.pick(PLANTS.grass), { x: px, z: pz, angle: rng.float(0, TAU), tag: 'weeds' })
+      placeModel(ctx, rng.pick(PLANTS.grass), { x: px, z: pz, angle: rng.float(0, TAU), tag: 'weeds' })
     }
   }
   // the trodden path around the pond
@@ -214,10 +222,10 @@ export function placePond(ctx, o) {
     const nx = Math.cos(out), nz = Math.sin(out)
     // model front is local −Z; local −Z → world (−sinθ, −cosθ) = (nx, nz)
     const theta = Math.atan2(-nx, -nz)
-    const p = ctx.world.place('nature_sign_post', { x: px, z: pz, angle: theta, tag: 'sign' })
+    const p = placeModel(ctx, 'nature_sign_post', { x: px, z: pz, angle: theta, tag: 'sign' })
     if (p) {
       const front = p.toWorld(0, 2.0, -0.14)
-      ctx.signs?.add({ x: front.x, y: front.y, z: front.z, angle: theta + Math.PI, w: 1.42, h: 0.92, ppm: 64, draw: drawPondSign, aged: 0.45, seed })
+      ctx.signs?.add({ x: front.x, y: front.y, z: front.z, angle: theta + Math.PI, w: 1.42, h: 0.92, ppm: 150, draw: drawPondSign, aged: 0.45, seed })
       ctx.interactions?.add({
         x: front.x, y: front.y, z: front.z, size: [1.4, 1.0, 0.4], reach: 3,
         prompt: { ru: 'Читать', en: 'Read' }, tag: 'notice',
