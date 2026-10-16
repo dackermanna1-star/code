@@ -20,6 +20,8 @@ export class WB {
     this.m = new VoxelModel(r4(x1 - x0), r4(y1 - y0), r4(z1 - z0))
     this.m.setPivot(0, 0, 0)
   }
+  /** Put the pivot (the point that lands on the placement position) at local meters (x, y, z). */
+  pivot(x = 0, y = 0, z = 0) { this.m.setPivot((x - this.ox) / V, (y - this.oy) / V, (z - this.oz) / V); return this.m }
   ix(x) { return r4(x - this.ox) }
   iy(y) { return r4(y - this.oy) }
   iz(z) { return r4(z - this.oz) }
