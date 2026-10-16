@@ -91,12 +91,13 @@ function buildDome() {
       for (let x = 0; x < 13; x++) {
         const dx = x + 0.5 - c, dz = z + 0.5 - c, dy = y + 0.5
         const r = Math.sqrt((dx / rx) ** 2 + (dz / rx) ** 2 + (dy / ry) ** 2)
-        if (Math.abs(r - 1) * rx > 0.62) continue
+        if (Math.abs(r - 1) * rx > 0.55) continue
         const h = Math.hypot(dx, dz)
         const phi = Math.atan2(dz, dx)
         const k = Math.round(phi / step)
-        const onMeridian = Math.abs(phi - k * step) * h < 0.62
-        const onRing = y % 2 === 0
+        const onMeridian = Math.abs(phi - k * step) * h < 0.55
+        // open lattice: a ring every 0.75 m, so the dome reads as bars, not a heap
+        const onRing = y % 3 === 0
         if (!onMeridian && !onRing && h > 1.2) continue
         m.set(x, y, z, onRing && !onMeridian ? M('metal_yellow') : paints[((k % 4) + 4) % 4])
       }
