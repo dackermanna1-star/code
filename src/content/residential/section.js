@@ -8,7 +8,7 @@
 //       'loop'  — like 'ent' but the stair well is walled up (the never-ending stairwell).
 
 import { VoxelModel } from '../../core/VoxelModel.js'
-import { RNG, hash2, hashString } from '../../core/rng.js'
+import { RNG, hash2, hashString, valueNoise2 } from '../../core/rng.js'
 import { sectionLayout, G, FH } from './series.js'
 import { MAT, Face, drawWindow, snowPass } from './vox.js'
 
@@ -22,6 +22,12 @@ export const APT_DOOR_COLORS = ['#4a2c1f', '#5a1e24', '#1f1d1c', '#5a3e2e', '#7a
 
 function doorMat(T, style) {
   return [T.leatherette, T.res_leather_red, T.plastic_dark, T.metal_brown, T.wood, T.metal_gray][style]
+}
+
+/** Floor index used for per-floor details: periodic in the endless stairwell (identical floors). */
+export function perFloor(L, mode, k) {
+  if (mode === 'loop' && L.N >= 9 && k >= 2) return ((k - 2) % 3) + 32
+  return k
 }
 
 /** Painted lower-wall colour of a stairwell (by section variant). */
@@ -56,12 +62,18 @@ export function buildSection(seriesKey, floors, variant, mode) {
   seamsAndWeather(c)
   roof(c)
   stairPaint(c)
+  const sseed = seed % 1000
   snowPass(m, {
-    rng: new RNG(seed + 5),
-    skip: new Set([T.window, T.glass_clear, T.lamp_bulb, T.lamp_warm, T.res_cloth]),
+    skip: new Set([T.window, T.glass_clear, T.glass_frosted, T.lamp_bulb, T.lamp_warm, T.res_cloth, T.metal_dark]),
     exclude: (x, y, z) => x >= L.door.x0 - 1 && x < L.door.x1 + 1 && z >= L.F - 1 && z <= L.F + 2 && y < L.G + 12,
-    roofDepth: (x, y, z) => (y >= L.R0 ? (rng.next() < 0.3 ? 3 : 2) : 1),
-    ledgeChance: 0.6,
+    depthAt: (x, y, z, open) => {
+      if (open) {
+        if (y < L.R0) return 1 + (valueNoise2(x * 0.3, z * 0.3, sseed) > 0.55 ? 1 : 0)
+        const edge = Math.min(x, L.SX - 1 - x, z - L.F, L.F + L.D - 1 - z)
+        return 2 + (edge < 4 ? 1 : 0) + (valueNoise2(x * 0.12, z * 0.12, sseed + 1) > 0.62 ? 1 : 0)
+      }
+      return valueNoise2(x * 0.45 + y * 3.1, z * 0.45 + y * 1.7, sseed + 2) > 0.38 ? 1 : 0
+    },
   })
   icicles(c)
   return m
@@ -89,7 +101,7 @@ function accentAt(c, fc, b, k, y, u) {
   } else if (st === 'mosaic') {
     const key = fc.side + b.u
     if (!c.carpet.has(key)) c.carpet.set(key, c.rng.next() < 0.6)
-    if (c.carpet.get(key) && y >= y0 && y < y0 + 3 && (b.type === 'room' || b.type === 'kit')) return (u + y) & 1 ? T.paint_matte : T.res_tile_white
+    if (c.carpet.get(key) && y >= y0 && y < y0 + 3 && (b.type === 'room' || b.type === 'kit')) return y & 1 ? T.paint_matte : T.res_tile_white
   } else if (st === 'p44t') {
     if (b.type === 'end' || b.type === 'erker' || b.type === 'transit') return (y % 3 === 0) ? T.res_seam : T.paint_matte
     if (y >= y0 && y < y0 + 3) return T.paint_matte
@@ -148,7 +160,6 @@ function bay(c, fc, b, k, isFront) {
     const gw = t === 'kit' ? kw : rw
     const u0 = b.u + Math.floor((b.w - gw) / 2)
     drawWindow(fc, u0, y0 + 4, gw, rh, { frame: frameFor(c), sillMat: S.style === 'brick' || S.style === 'k7' ? T.concrete_light : T.metal_gray })
-    if (S.style === 'brick') fc.fill(u0 - 1, y0 + 9, 0, gw + 2, 1, 1, T.concrete_light) // lintel
     if (k === 1 && rng.chance(0.3)) grille(c, fc, u0, y0 + 4, gw, rh)
     return
   }
@@ -176,7 +187,7 @@ function parapetMat(c, u, y, kind) {
   if (kind === 'lining') return T.wood
   if (kind === 'white') return T.plastic_white
   if (S.style === 'p44' || S.style === 'p44t') return T.paint_matte
-  if (S.style === 'mosaic') return (u + y) & 1 ? T.paint_matte : T.res_tile_white
+  if (S.style === 'mosaic') return y & 1 ? T.paint_matte : T.res_tile_white
   if (S.style === 'gray') return u & 1 ? T.panel_gray : T.concrete_dark
   if (S.style === 'brick') return c.wall
   return T.concrete_light
@@ -234,7 +245,7 @@ function loggia(c, fc, b, k) {
   const doorU = b.mirror ? ui + wi - 3 : ui + 1
   const winU = b.mirror ? ui + 1 : ui + 5
   drawWindow(fc, doorU, y0 + 1, 2, 7, { wb: LD, frame: fr, id, sill: false })
-  drawWindow(fc, winU, y0 + 4, Math.min(4, wi - 6), 4, { wb: LD, frame: fr, id })
+  drawWindow(fc, winU, y0 + 4, Math.min(5, wi - 6), 5, { wb: LD, frame: fr, id })
   balconyJunk(c, fc, ui, wi, y0, 1, LD - 1)
 }
 
@@ -273,7 +284,7 @@ function balcony(c, fc, b, k) {
   const doorU = b.mirror ? ui + wi - 3 : ui + 1
   const winU = b.mirror ? ui + 1 : ui + 5
   drawWindow(fc, doorU, y0 + 1, 2, 7, { frame: fr, id, sill: false })
-  drawWindow(fc, winU, y0 + 4, Math.min(4, wi - 6), 4, { frame: fr, id })
+  drawWindow(fc, winU, y0 + 4, Math.min(5, wi - 6), 5, { frame: fr, id })
   // slab
   fc.fill(ui, y0 - 1, -BD, wi, 1, BD, T.concrete)
   const style = S.style === 'brick' ? 'bars' : S.style === 'gray' ? (rng.chance(0.7) ? 'ribbed' : 'bars') : rng.pick(['bars', 'panel'])
@@ -321,15 +332,15 @@ function erker(c, fc, b, k) {
   for (let y = y0 - 1; y < y0 + FH - 1; y++) if (y % 3 === 0) fc.fill(ui, y, -E, wi, 1, 1, T.res_seam)
   fc.fill(ui, y0 - 1, -E, wi, 2, E, T.res_panel_cream)
   const gw = wi - 4
-  drawWindow(fc, ui + 2, y0 + 4, gw, 4, { wb: -E, frame: T.window_frame_white, sillMat: T.res_panel_cream })
+  drawWindow(fc, ui + 2, y0 + 4, gw, 5, { wb: -E, frame: T.window_frame_white, sillMat: T.res_panel_cream })
   // narrow side panes on the bay's flanks
   const id = c.m.nextWindowId()
   for (const u of [ui, ui + wi - 1]) {
     const side = u === ui ? -1 : 1
     void side
-    fc.fill(u, y0 + 4, -E + 1, 1, 4, 1, T.window, id)
+    fc.fill(u, y0 + 4, -E + 1, 1, 5, 1, T.window, id)
     fc.fill(u, y0 + 3, -E + 1, 1, 1, 1, T.window_frame_white)
-    fc.fill(u, y0 + 8, -E + 1, 1, 1, 1, T.window_frame_white)
+    fc.fill(u, y0 + 9, -E + 1, 1, 1, 1, T.window_frame_white)
   }
 }
 
@@ -365,12 +376,12 @@ function gables(c) {
         let mat = 0
         if (S.style === 'p44' && u > 4 && u < L.D - 5 && y > L.FL(2) && (Math.floor((u - 5) / 3) % 4 === 0)) mat = T.paint_matte
         if (S.style === 'p44t' && (u < 8 || u >= L.D - 8)) mat = y % 3 === 0 ? T.res_seam : T.paint_matte
-        if (S.style === 'mosaic' && u > 6 && u < L.D - 7 && y > L.topCeil - 22 && y < L.topCeil - 4) mat = (u + y) & 1 ? T.paint_matte : T.res_tile_white
+        if (S.style === 'mosaic' && u > 6 && u < L.D - 7 && y > L.topCeil - 22 && y < L.topCeil - 4) mat = (y >> 1) & 1 ? T.paint_matte : T.res_tile_white
         if (mat) fc.set(u, y, 0, mat)
       }
     // a single small window per floor on some gables (stair to the end flat's kitchen)
     if (S.style === 'brick') {
-      for (let k = 1; k <= L.N; k++) if (rng.chance(0.5)) drawWindow(fc, Math.floor(L.D / 2) - 1, L.FL(k) + 4, 3, 4, { frame: frameFor(c), sillMat: T.concrete_light })
+      for (let k = 1; k <= L.N; k++) if (rng.chance(0.5)) drawWindow(fc, Math.floor(L.D / 2) - 1, L.FL(k) + 4, 3, 5, { frame: frameFor(c), sillMat: T.concrete_light })
     }
   }
 }
@@ -602,7 +613,8 @@ function stairCore(c) {
       m.fill(X(5), HLk + 3, Z(4), 2, 1, 1, T.wood_dark)
     }
     // half-landing window (staggered half a floor above the flats' windows)
-    drawWindow(c.front, X(3), HLk + 4, 6, 5, { glass: T.glass_clear, extra: k, plug: 1, frame: T.window_frame_wood, sillMat: T.metal_gray })
+    const frosted = mode === 'loop' && N >= 9 && k >= N - 7 && k <= N - 1
+    drawWindow(c.front, X(3), HLk + 4, 6, 5, { glass: frosted ? T.glass_frosted : T.glass_clear, extra: k, plug: 1, frame: T.window_frame_wood, sillMat: T.metal_gray })
     // radiator under it
     m.fill(X(4), HLk + 1, Z(0), 4, 2, 1, T.metal_gray)
     // apartment doors on the landing
@@ -658,7 +670,7 @@ function FL(c, k) { return c.L.FL(k) }
 function aptDoor(c, d, k, i) {
   const { L, T, m } = c
   const FLk = L.FL(k)
-  const mat = doorMat(T, aptDoorStyle(k, i, c.L.key.length))
+  const mat = doorMat(T, aptDoorStyle(perFloor(L, c.mode, k), i, c.L.key.length))
   if (d.side === 'L' || d.side === 'R') {
     const x = d.plane
     m.fill(x, FLk, d.z0 - 1, 1, 9, d.z1 - d.z0 + 2, T.wood_dark)
@@ -681,7 +693,7 @@ function stairPaint(c) {
   const repaint = new Set([c.wall, T.concrete, T.concrete_dark, T.res_seam, T.paint_matte])
   const floorBelow = (x, y, z) => { let yy = y; while (yy > 0 && m.get(x, yy - 1, z) === 0) yy--; return yy }
   const x0 = L.SX0 - 6, x1 = L.SX0 + 18, z0 = L.ZI - 1, z1 = L.ZI + 31
-  const checker = c.rng.chance(0.6)
+  const checker = mode !== 'plain' && c.rng.chance(0.6)
   const band = y => {
     const k = Math.floor((y - L.FL1 + 2) / FH) + 1
     return Math.max(0, Math.min(L.N + 1, k))
@@ -696,7 +708,7 @@ function stairPaint(c) {
         if (isAir(x, y + 1, z)) {
           // floor: landings tiled, flights terrazzo (already)
           mat = checker ? (((x + z) & 1) ? T.floor_tile : T.wall_tile_beige) : T.floor_tile_red
-          if (((x * 7 + z * 13 + y) % 23) === 0) mat = T.concrete
+          if (mode !== 'plain' && ((x * 7 + z * 13 + y) % 23) === 0) mat = T.concrete
         } else if (isAir(x, y - 1, z)) {
           mat = mode === 'plain' && c.lit[band(y)] ? T.res_stair_glow : T.whitewash
         } else {

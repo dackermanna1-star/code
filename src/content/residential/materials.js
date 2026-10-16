@@ -6,7 +6,7 @@ import { defineMaterial, EMIT_CONST, SURF } from '../../core/materials.js'
 // Facade shells
 defineMaterial('res_tile_white', { color: 0xc6c4bc, surface: SURF.CONCRETE, variation: 0.9 }) // P-44 "signal white" tile
 defineMaterial('res_panel_cream', { color: 0xbfb5a2, surface: SURF.CONCRETE, variation: 0.8 }) // P-44T cream / II-49 base
-defineMaterial('res_seam', { color: 0x8d8a82, surface: SURF.CONCRETE, variation: 0.6 }) // fresh panel joint (subtle)
+defineMaterial('res_seam', { color: 0x9e9a90, surface: SURF.CONCRETE, variation: 0.6 }) // fresh panel joint (subtle)
 defineMaterial('res_mastic', { color: 0x4f4c47, surface: SURF.CONCRETE, variation: 0.8 }) // re-sealed joint, dark streak
 defineMaterial('res_plinth', { color: 0x564c45, surface: SURF.CONCRETE, variation: 1.2 }) // цоколь, painted grey-brown
 defineMaterial('res_rust_stain', { color: 0x8a7462, surface: SURF.CONCRETE, variation: 1.5 }) // rusty run-off below balconies

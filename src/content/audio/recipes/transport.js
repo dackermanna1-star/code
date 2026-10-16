@@ -138,11 +138,11 @@ def('bus_drive', {
 /** ZiU traction whine: gear-mesh saw + 2nd harmonic + ×4.3 partial through a 300–3000 Hz band. */
 function whine(sr, r) {
   const o1 = new Osc(sr, r()), o2 = new Osc(sr, r()), o3 = new Osc(sr, r())
-  const bp = new Biquad(sr, 'bp', 1000, 0.45), hum = new Osc(sr)
+  const bp = new Biquad(sr, 'bp', 1000, 0.45), hum = new Osc(sr), o4 = new Osc(sr, r()), sawLp = new Biquad(sr, 'lp', 1800, 0.7)
   return (f, dop = 1) => {
     const ff = Math.max(1, f * dop)
-    const s = o1.saw(ff) * 0.1 + o2.sine(ff * 2) * 0.05 + o3.sine(ff * 4.3) * 0.025
-    return bp.process(s) * 2 + hum.sine(Math.max(1, ff * 0.25)) * 0.03
+    const s = o1.sine(ff) * 0.1 + o2.sine(ff * 2) * 0.05 + o3.sine(ff * 4.3) * 0.025
+    return bp.process(s + sawLp.process(o4.saw(ff)) * 0.035) * 2 + hum.sine(Math.max(1, ff * 0.25)) * 0.03
   }
 }
 function contactor(d, sr, at, r, g = 1) {

@@ -124,13 +124,13 @@ function makeScatterShader(shared) {
 }
 
 export class PostFX {
-  constructor(renderer, scene, camera, shared) {
+  constructor(renderer, scene, camera, shared, opts = {}) {
     this.renderer = renderer
     this.camera = camera
     const size = renderer.getSize(new THREE.Vector2())
     const rt = new THREE.WebGLRenderTarget(size.x, size.y, {
       type: THREE.HalfFloatType,
-      samples: 4,
+      samples: opts.samples ?? 4,
     })
     rt.depthTexture = new THREE.DepthTexture(size.x, size.y)
     rt.depthTexture.type = THREE.UnsignedIntType
@@ -144,11 +144,27 @@ export class PostFX {
     this.final = new ShaderPass(FinalShader)
     this.composer.addPass(this.final)
     this.scale = 1
+    this._separateDepth()
+  }
+
+  // EffectComposer clones its render target; cloned textures share a GPU source, so both
+  // buffers would share one depth texture (a feedback loop when the scatter pass reads depth).
+  _separateDepth() {
+    const a = this.composer.renderTarget1, b = this.composer.renderTarget2
+    for (const t of [a, b]) {
+      if (t.depthTexture && t.depthTexture.source === (t === a ? b : a).depthTexture?.source) {
+        const d = new THREE.DepthTexture(t.width, t.height)
+        d.type = THREE.UnsignedIntType
+        t.depthTexture.dispose()
+        t.depthTexture = d
+      }
+    }
   }
 
   setSize(w, h, pixelRatio) {
     this.composer.setPixelRatio(pixelRatio)
     this.composer.setSize(w, h)
+    this._separateDepth()
     this.final.uniforms.uResolution.value.set(w * pixelRatio, h * pixelRatio)
   }
 

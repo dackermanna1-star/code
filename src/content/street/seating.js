@@ -105,7 +105,7 @@ export function addSeat(ctx, o) {
   const state = getState(ctx)
   const seatTop = o.seatY
   const it = ctx.interactions.add({
-    x: o.x + ox * 0, y: seatTop, z: o.z, size: [bw, 0.55, bd], reach: 2.2, tag: o.tag ?? 'bench',
+    x: sx, y: seatTop, z: sz, size: [bw, 0.55, bd], reach: 2.2, tag: o.tag ?? 'bench',
     prompt: { ru: 'Сесть', en: 'Sit' },
     enabled: game => game.player?.mode === 'walk',
     onUse(game) {
@@ -118,8 +118,6 @@ export function addSeat(ctx, o) {
   })
   return it
 }
-
-const BENCH_TINT = { park: undefined }
 
 /**
  * Place a bench. opts: { x, z, y?, angle=0 (sitter faces (sin a, cos a)),
@@ -138,12 +136,12 @@ export function placeBench(ctx, opts = {}) {
   const model = `street_bench_${type}${snow === 'snow' ? '' : '_' + snow}`
   const angle = opts.angle ?? 0
   const t = TYPES[type]
-  const placement = put(ctx, model, { x: opts.x, z: opts.z, y: opts.y, angle, seed, tag: opts.tag ?? 'bench', tint: BENCH_TINT[type] })
+  const placement = put(ctx, model, { x: opts.x, z: opts.z, y: opts.y, angle, seed, tag: opts.tag ?? 'bench' })
   const baseY = placement ? placement.y : groundY(ctx, opts.x, opts.z)
   const seatTop = baseY + 0.5
   // seat centre in local metres (pivot = centre of footprint)
   const seatZc = ((t.seatZ[0] + t.seatZ[1] + 1) / 2 - t.depth / 2) * 0.25
-  const sitLx = snow === 'brushed' ? 0 : 0
+  const sitLx = 0
   let interaction = null
   if (opts.sittable !== false) interaction = addSeat(ctx, { x: opts.x, z: opts.z, angle, seatY: seatTop, lx: sitLx, lz: seatZc, width: t.len * 0.25, depth: t.depth * 0.25 + 0.1 })
   if (opts.mittens) {

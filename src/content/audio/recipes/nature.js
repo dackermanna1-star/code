@@ -83,15 +83,17 @@ function cawInto(d, sr, off, r, { f0 = 550, len = 0.42, gain = 1, rough = 1 } = 
   const osc = new Osc(sr, r())
   const b1 = new Biquad(sr, 'bp', 1200 * r.range(0.92, 1.08), 4), b2 = new Biquad(sr, 'bp', 2300 * r.range(0.92, 1.08), 4), b0 = new Biquad(sr, 'bp', 700, 2)
   const fmRate = r.range(80, 150)
+  const raspF = r.range(32, 55)
   let fm = 0, fmT = 0
   for (let i = 0; i < n; i++) {
     const t = i / sr, u = Math.min(1, t / len)
     fmT += fmRate / sr
-    if (fmT >= 1) { fmT -= 1; fm = r.bi() * 30 * rough }
+    if (fmT >= 1) { fmT -= 1; fm = r.bi() * 55 * rough }
     const f = f0 * (1.09 - 0.22 * u) + fm
     const env = Math.min(1, t / 0.025) * (t > len ? Math.max(0, 1 - (t - len) / 0.08) : 1) * (0.8 + 0.2 * Math.sin(Math.PI * u))
-    let s = osc.saw(f) + r.bi() * 0.35 * rough * (osc.ph < 0.3 ? 1 : 0.3)
-    s = Math.tanh(s * 2.2)
+    const rasp = 0.55 + 0.45 * Math.sin(TAU * raspF * t) // the pulsing «рр» of the hoarse caw
+    let s = (osc.saw(f) + r.bi() * 0.7 * rough * (osc.ph < 0.3 ? 1 : 0.35)) * rasp
+    s = Math.tanh(s * 2.6)
     const y = b1.process(s) * 1.2 + b2.process(s) * 0.8 + b0.process(s) * 0.3
     d[off + i] += y * env * gain
   }

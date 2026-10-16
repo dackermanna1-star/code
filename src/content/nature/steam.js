@@ -103,7 +103,7 @@ export class SteamSystem {
     }
     this.attrs = { aSpawn: mk(), aParam: mk(), aColor: mk(), aMove: mk() }
     for (const [k, a] of Object.entries(this.attrs)) g.setAttribute(k, a)
-    g.instanceCount = MAX
+    g.instanceCount = 0 // grows to the highest slot in use
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e6)
     this.uniforms = { ...ctx.game.uniforms, uWind: { value: new THREE.Vector3() } }
     this.material = new THREE.ShaderMaterial({
@@ -178,6 +178,7 @@ export class SteamSystem {
   _spawn(em, t0, salt) {
     const i = this.cursor
     this.cursor = (this.cursor + 1) % MAX
+    if (i >= this.mesh.geometry.instanceCount) this.mesh.geometry.instanceCount = i + 1
     if (i < this.dirty0) this.dirty0 = i
     if (i > this.dirty1) this.dirty1 = i
     const j = em.jitter

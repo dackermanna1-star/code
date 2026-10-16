@@ -139,7 +139,7 @@ export class Game {
     this.sky = new Sky(this.uniforms)
     scene.add(this.sky.mesh)
     const q = QUALITY[this.settings.quality] || QUALITY.high
-    this.snow = new Snowfall(this.uniforms, q.snow)
+    this.snow = new Snowfall(this.uniforms, p.shot ? Math.min(q.snow, 30000) : q.snow)
     this.snow.uniforms.uRoof.value = this.world.roofTexture
     scene.add(this.snow.points)
     this.halos = new LampHalos(this.uniforms)
@@ -149,7 +149,7 @@ export class Game {
     this.breath = new Breath(this.uniforms)
     scene.add(this.breath.points)
 
-    this.post = new PostFX(renderer, scene, camera, this.uniforms)
+    this.post = new PostFX(renderer, scene, camera, this.uniforms, { samples: p.shot && !p.msaa ? 0 : q.samples })
     this.resize()
     window.addEventListener('resize', () => this.resize())
     this.applySettings(this.settings)

@@ -90,13 +90,13 @@ def('metro_rumble_loop', {
 
 def('metro_train_arrive', {
   // 81-717 from the tunnel: roar building, piston wind, rheostatic brake whine falling, squeal, «пшш»
-  sr: 16000, variants: 2, prio: 4, norm: { peak: 0.9 }, maxDur: 17,
+  sr: 16000, variants: 2, prio: 4, norm: { peak: 0.9 }, maxDur: 18,
   gen(r, sr) {
-    const L = 17
+    const L = 18
     const d = buf(L, sr)
-    const tIn = r.range(5.5, 7) // head enters the platform
-    const v0 = 16 // m/s at the platform entrance
-    const decel = 1.1
+    const tIn = r.range(5, 6) // head enters the platform
+    const v0 = 12.5 // m/s at the platform entrance
+    const decel = 1.3
     const tStop = tIn + v0 / decel
     const speedAt = t => (t < tIn ? v0 + 0.3 * (tIn - t) : Math.max(0, v0 - decel * (t - tIn)))
     const levelAt = t => (t < tIn ? Math.pow(smooth(t / tIn), 1.6) * 0.8 : 0.8 + 0.2 * smooth((t - tIn) / 2))
@@ -127,7 +127,7 @@ def('metro_train_arrive', {
         const s = r.bi()
         squeal = (sq.process(s) * 3 + sq2.process(s) * 1.5) * (0.6 + 0.4 * sqw.next()) * smooth((2.3 - v) / 1.2) * Math.min(1, (tStop + 0.1 - t) / 0.1)
       }
-      d[i] = roar * lev + piston * 0.6 + whine * 0.5 * lev + grind + squeal * 0.5
+      d[i] = roar * lev * 0.8 + piston * 0.6 + whine * 0.75 * lev + grind + squeal * 0.6
     }
     joints(d, sr, r, 0.5, tStop, speedAt, t => levelAt(t) * Math.min(1, speedAt(t) / 4) * 0.7)
     // the final pneumatic «пшш»

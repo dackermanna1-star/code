@@ -56,9 +56,9 @@ function steelSlam(d, sr, r, at, gain = 1) {
   addBurst(d, sr, at, 0.006, r, { type: 'lp', f: 6000, gain: 1.2 * gain, tau: 0.0015 })
   const k = r.range(0.94, 1.06)
   addModes(d, sr, at, [
-    [70 * k, 0.9, 1.1], [71.3 * k, 0.4, 1.0], [140 * k, 0.6, 0.9], [230 * k, 0.5, 0.75], [232.5 * k, 0.25, 0.7],
-    [390 * k, 0.4, 0.6], [620 * k, 0.32, 0.5], [1040 * k, 0.25, 0.42], [1043 * k, 0.12, 0.4], [1530 * k, 0.15, 0.3],
-    [2210 * k, 0.09, 0.22], [3120 * k, 0.05, 0.14], [4400 * k, 0.03, 0.08],
+    [70 * k, 0.9, 0.32], [71.3 * k, 0.4, 0.3], [140 * k, 0.6, 0.28], [230 * k, 0.5, 0.26], [232.5 * k, 0.25, 0.24],
+    [390 * k, 0.4, 0.24], [620 * k, 0.32, 0.22], [1040 * k, 0.25, 0.2], [1043 * k, 0.12, 0.19], [1530 * k, 0.15, 0.15],
+    [2210 * k, 0.09, 0.12], [3120 * k, 0.05, 0.09], [4400 * k, 0.03, 0.06],
   ], 0.55 * gain, r)
   thump(d, sr, at, { f: 52, dur: 0.12, gain: 0.9 * gain, drop: 1.8, attack: 0.002 })
   // latch tongue hitting the strike plate
@@ -73,12 +73,12 @@ function steelSlam(d, sr, r, at, gain = 1) {
 }
 
 def('door_metal_slam', {
-  sr: 32000, variants: 3, prio: 1, norm: { peak: 0.9 },
+  sr: 32000, variants: 3, prio: 1, norm: { peak: 0.9 }, fadeOut: 200,
   gen(r, sr) {
-    const d = buf(2.8, sr)
+    const d = buf(2.6, sr)
     steelSlam(d, sr, r, Math.floor(0.01 * sr))
     // tambour / stairwell body: a little baked diffuse reverb (the engine adds the zone reverb)
-    diffuse(d, sr, 1.4, 2200, 0.28)
+    diffuse(d, sr, 1.2, 2200, 0.32)
     return filt(d, sr, [['hp', 35, 0.7]])
   },
 })

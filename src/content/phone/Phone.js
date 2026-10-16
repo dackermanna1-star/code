@@ -287,7 +287,7 @@ export class Phone {
       let en = ''
       try { en = this.screen.en?.(this) ?? '' } catch { en = '' }
       html = en ? `<div class="t">${esc(en)}</div>` : ''
-      if (this._hintKeys < 8) html += '<div class="h">↑↓←→ / WASD · E select · Backspace back · Q put away</div>'
+      if (this._hintKeys < 8) html += '<div class="h">arrows / WASD · E select · Backspace back · Q put away</div>'
     }
     if (html !== this._trHtml) { this._trHtml = html; this.elTr.innerHTML = html }
     this.elTr.classList.toggle('on', showTr && !!html && k > 0.6)

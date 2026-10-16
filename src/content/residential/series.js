@@ -33,7 +33,7 @@ export const SERIES = {
     front: { center: 'stair', half: ['transit', 'kit', 'log', 'room'] },
     back: { center: 'room', half: ['log', 'room', 'kit', 'log'] },
     flats: 4, lift: true, chute: 'landing', machine: true,
-    win: { room: [5, 4], kit: [4, 4] }, frames: 'mixed',
+    win: { room: [6, 5], kit: [5, 5] }, frames: 'mixed',
   },
   ii49: {
     key: 'ii49', label: 'II-49', floors: [5, 9, 12], defaultFloors: 9,
@@ -42,7 +42,7 @@ export const SERIES = {
     front: { center: 'stair', half: ['kit', 'log', 'kit', 'room'] },
     back: { center: 'room', half: ['log', 'room', 'kit', 'log'] },
     flats: 4, lift: true, chute: 'half', machine: true,
-    win: { room: [5, 4], kit: [4, 4] }, frames: 'old',
+    win: { room: [6, 5], kit: [5, 5] }, frames: 'old',
   },
   1515: {
     key: '1515', label: '1-515/9Ш', floors: [5, 9], defaultFloors: 9,
@@ -51,7 +51,7 @@ export const SERIES = {
     front: { center: 'stair', half: ['kit', 'bal', 'room', 'kit'] },
     back: { center: 'room', half: ['bal', 'room', 'room', 'bal'] },
     flats: 4, lift: true, chute: 'half', machine: true,
-    win: { room: [5, 4], kit: [4, 4] }, frames: 'old',
+    win: { room: [6, 5], kit: [5, 5] }, frames: 'old',
   },
   p44t: {
     key: 'p44t', label: 'П-44Т', floors: [9, 12, 14, 16, 17], defaultFloors: 17,
@@ -60,7 +60,7 @@ export const SERIES = {
     front: { center: 'stair', half: ['transit', 'kit', 'erker', 'log'] },
     back: { center: 'erker', half: ['log', 'room', 'erker', 'kit'] },
     flats: 4, lift: true, chute: 'landing', machine: true,
-    win: { room: [5, 4], kit: [4, 4] }, frames: 'pvc',
+    win: { room: [6, 5], kit: [5, 5] }, frames: 'pvc',
   },
   k7: {
     key: 'k7', label: 'К-7', floors: [5], defaultFloors: 5,
@@ -69,7 +69,7 @@ export const SERIES = {
     front: { center: 'stair', half: ['kit', 'room', 'room'] },
     back: { center: 'room', half: ['room', 'kit', 'room'] },
     flats: 3, lift: false, chute: null, machine: false,
-    win: { room: [4, 4], kit: [3, 4] }, frames: 'old',
+    win: { room: [5, 5], kit: [4, 5] }, frames: 'old',
   },
   ii32: {
     key: 'ii32', label: 'II-32', floors: [5], defaultFloors: 5,
@@ -78,7 +78,7 @@ export const SERIES = {
     front: { center: 'stair', half: ['kit', 'bal', 'room'] },
     back: { center: 'room', half: ['bal', 'room', 'kit'] },
     flats: 4, lift: false, chute: null, machine: false,
-    win: { room: [4, 4], kit: [3, 4] }, frames: 'old',
+    win: { room: [5, 5], kit: [4, 5] }, frames: 'old',
   },
 }
 

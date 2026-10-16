@@ -67,7 +67,7 @@ export function drawWindow(fc, u0, y0, gw, gh, o = {}) {
   fc.fill(u0 - 1, y0 - 1, wb, gw + 2, gh + 2, 1, 0)
   fc.fill(u0 - 1, y0 - 1, wb + 1, gw + 2, gh + 2, 1, frame)
   fc.fill(u0, y0, wb + 1, gw, gh, o.plug ?? 3, glass, id)
-  if (o.sill !== false) fc.fill(u0 - 1, y0 - 2, wb - 1, gw + 2, 1, 1, o.sillMat ?? T.metal_gray)
+  if (o.sill !== false) fc.fill(u0 - 1, y0 - 1, wb - 1, gw + 2, 1, 1, o.sillMat ?? T.metal_gray)
   return id
 }
 
@@ -110,7 +110,6 @@ export function outdoorMask(m) {
  */
 export function snowPass(m, opts) {
   const T = MAT()
-  const rng = opts.rng
   const out = outdoorMask(m)
   const { sx, sy, sz } = m
   const sxz = sx * sz
@@ -125,12 +124,8 @@ export function snowPass(m, opts) {
         if (!mat) continue
         const above = i + sxz
         if (out[above] && !(skip && skip.has(mat)) && !(opts.exclude && opts.exclude(x, y, z))) {
-          if (open) {
-            let d = opts.roofDepth ? opts.roofDepth(x, y, z) : 1
-            for (let k = 1; k <= d && y + k < sy; k++) if (!m.data[i + k * sxz]) m.data[i + k * sxz] = snowMat
-          } else if (rng.next() < (opts.ledgeChance ?? 0.6)) {
-            m.data[above] = snowMat
-          }
+          const d = opts.depthAt(x, y, z, open, mat)
+          for (let k = 1; k <= d && y + k < sy; k++) if (!m.data[i + k * sxz]) m.data[i + k * sxz] = snowMat
         }
         open = false
       }

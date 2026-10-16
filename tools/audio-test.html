@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audio test harness</title>
+<style>
+  :root { --bg: #111317; --fg: #d8dce2; }
+  body { background: var(--bg); color: var(--fg); font: 13px/1.4 monospace; margin: 16px; }
+  canvas { display: block; margin: 8px 0; }
+</style>
+</head>
+<body>
+<div id="log">loading…</div>
+<script type="module">
+// Offline renderer for the audio package: renders every registered sound through an
+// OfflineAudioContext with the real AudioEngine wiring, measures it, and draws spectrograms.
+// Driven by tools/audio-check.mjs (Playwright).
+import { AudioEngine } from '/src/audio/AudioEngine.js'
+import { registerSounds, SOUND_NAMES } from '/src/content/audio/sounds.js'
+import { bank } from '/src/content/audio/bank.js'
+import { RECIPES } from '/src/content/audio/registry.js'
+import { footstep } from '/src/content/audio/footsteps.js'
+import { buildPiece } from '/src/content/audio/music.js'
+import { SURF } from '/src/core/materials.js'
+
+const SR = 48000
+const engine = new AudioEngine()
+registerSounds(engine)
+
+function bindOffline(off) {
+  engine.ctx = off
+  engine.sampleRate = off.sampleRate
+  engine.ready = true
+  engine.bus = { ambience: off.destination, sfx: off.destination, music: off.destination, ui: off.destination }
+  engine.reverbIn = off.createGain()
+  engine.master = null
+  engine.muffleFilter = null
+  engine._noiseCache = new Map()
+}
+
+function analyze(buf) {
+  const chs = [], n = buf.length, sr = buf.sampleRate
+  for (let c = 0; c < buf.numberOfChannels; c++) chs.push(buf.getChannelData(c))
+  let peak = 0, nan = 0, sum = 0, dc = 0, first = -1, last = -1
+  const mono = new Float32Array(n)
+  for (let i = 0; i < n; i++) {
+    let m = 0
+    for (const d of chs) { const v = d[i]; if (v !== v) { nan++; continue } m += v; const a = Math.abs(v); if (a > peak) peak = a }
+    m /= chs.length
+    mono[i] = m
+    sum += m * m; dc += m
+    if (Math.abs(m) > 1e-4) { if (first < 0) first = i; last = i }
+  }
+  // short-term loudness: max RMS over 400 ms windows (hop 100 ms)
+  const W = Math.floor(0.4 * sr), H = Math.floor(0.1 * sr)
+  let stMax = 0
+  for (let i = 0; i + W <= n; i += H) {
+    let s = 0
+    for (let k = i; k < i + W; k += 4) s += mono[k] * mono[k]
+    stMax = Math.max(stMax, Math.sqrt(s / (W / 4)))
+  }
+  // clicks: abrupt jumps much larger than the local slope
+  let clicks = 0
+  let slope = 1e-4
+  for (let i = 2; i < n; i++) {
+    const d1 = Math.abs(mono[i] - mono[i - 1])
+    if (d1 > 0.25 && d1 > slope * 40) clicks++
+    slope = slope * 0.995 + d1 * 0.005
+  }
+  const active = first >= 0 ? (last - first) / sr : 0
+  let asum = 0
+  for (let i = Math.max(0, first); i <= last; i++) asum += mono[i] * mono[i]
+  const toDb = v => (v > 0 ? 20 * Math.log10(v) : -200)
+  return {
+    peakDb: +toDb(peak).toFixed(1), rmsDb: +toDb(Math.sqrt(asum / Math.max(1, last - first + 1))).toFixed(1),
+    stDb: +toDb(stMax).toFixed(1), active: +active.toFixed(2), start: +(first / sr).toFixed(3),
+    nan, dc: +(dc / n).toFixed(5), clicks, silent: peak < 1e-4, mono, sr,
+  }
+}
+
+/** Render one registered sound offline. */
+async function render(name, opts = {}, seconds = null) {
+  // make sure every variant is ready (no async starts inside the offline render)
+  const f = engine.sounds.get(name)
+  if (!f) throw new Error('no sound ' + name)
+  const probe = new OfflineAudioContext(2, 128, SR)
+  bindOffline(probe)
+  const o1 = { ...opts }
+  let src = f(engine, o1)
+  const len = seconds ?? Math.min(40, (src.duration ?? 14) + 0.5)
+  const off = new OfflineAudioContext(2, Math.ceil(len * SR), SR)
+  bindOffline(off)
+  const em = engine.play(name, { ...opts })
+  const buf = await off.startRendering()
+  return { ...analyze(buf), duration: src.duration ?? null, loop: src.duration == null, len }
+}
+
+/** A footstep series through the real footstep function (foley path falls back to the sfx bus). */
+async function renderSteps(surface, speed = 1.38, count = 6) {
+  const off = new OfflineAudioContext(2, Math.ceil((count * 0.55 + 1.2) * SR), SR)
+  bindOffline(off)
+  const surf = typeof surface === 'number' ? surface : SURF[surface.toUpperCase()]
+  // schedule steps by suspending the offline context
+  for (let k = 0; k < count; k++) {
+    off.suspend(0.05 + k * 0.55).then(() => { footstep(engine, surf, { speed, side: k % 2 ? 1 : -1, zone: { indoor: false } }); off.resume() })
+  }
+  const buf = await off.startRendering()
+  return analyze(buf)
+}
+
+async function renderMusic(seed, seconds = 90) {
+  const off = new OfflineAudioContext(2, Math.ceil(seconds * SR), SR)
+  const g = off.createGain(); g.gain.value = 0.7 // default music volume
+  g.connect(off.destination)
+  const p = buildPiece(off, g, seed, 0.05, { level: 0.9, duration: seconds - 1 })
+  const buf = await off.startRendering()
+  return { ...analyze(buf), pieceDur: p.duration }
+}
+
+/** Raw bank buffer checks: loop seam continuity for loops. */
+function seams() {
+  const out = []
+  for (const [key, spec] of RECIPES) {
+    if (!spec.loop) continue
+    for (let v = 0; v < spec.variants; v++) {
+      const b = bank.get(key, v, null, true)
+      if (!b) continue
+      const d = b.getChannelData(0)
+      let mean = 0
+      for (let i = 1; i < d.length; i++) mean += Math.abs(d[i] - d[i - 1])
+      mean /= d.length
+      const jump = Math.abs(d[0] - d[d.length - 1])
+      out.push({ key, v, ratio: +(jump / (mean + 1e-9)).toFixed(2) })
+    }
+  }
+  return out
+}
+
+// ---- spectrogram -----------------------------------------------------------------------------
+function fft(re, im) {
+  const n = re.length
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1
+    for (; j & bit; bit >>= 1) j ^= bit
+    j ^= bit
+    if (i < j) { [re[i], re[j]] = [re[j], re[i]]; [im[i], im[j]] = [im[j], im[i]] }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const a = -2 * Math.PI / len, wr = Math.cos(a), wi = Math.sin(a)
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0
+      for (let k = 0; k < len / 2; k++) {
+        const ur = re[i + k], ui = im[i + k]
+        const vr = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci
+        const vi = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr
+        re[i + k] = ur + vr; im[i + k] = ui + vi
+        re[i + k + len / 2] = ur - vr; im[i + k + len / 2] = ui - vi
+        const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr
+      }
+    }
+  }
+}
+function color(t) {
+  t = Math.max(0, Math.min(1, t))
+  const r = Math.round(255 * Math.min(1, Math.max(0, 1.6 * t - 0.4)))
+  const g = Math.round(255 * Math.min(1, Math.max(0, 1.5 * t * t)))
+  const b = Math.round(255 * Math.min(1, Math.max(0, 0.35 + 0.9 * t - 1.2 * t * t)))
+  return [r, g, b]
+}
+function spectrogram(mono, sr, title, W = 1000, H = 420) {
+  const cv = document.createElement('canvas')
+  cv.width = W; cv.height = H
+  const g = cv.getContext('2d')
+  g.fillStyle = '#0b0c10'; g.fillRect(0, 0, W, H)
+  const top = 20, waveH = 90, specTop = top + waveH + 6, specH = H - specTop - 4
+  g.fillStyle = '#cfd5dc'; g.font = '12px monospace'; g.fillText(title, 6, 14)
+  // waveform (min/max per column)
+  const per = mono.length / W
+  g.strokeStyle = '#7fb0e0'
+  g.beginPath()
+  for (let x = 0; x < W; x++) {
+    let mn = 1, mx = -1
+    for (let i = Math.floor(x * per); i < Math.floor((x + 1) * per); i++) { const v = mono[i]; if (v < mn) mn = v; if (v > mx) mx = v }
+    g.moveTo(x + 0.5, top + waveH / 2 - mx * waveH / 2); g.lineTo(x + 0.5, top + waveH / 2 - mn * waveH / 2)
+  }
+  g.stroke()
+  // spectrogram, log frequency 30 Hz .. 12 kHz
+  const N = 2048
+  const img = g.createImageData(W, specH)
+  const re = new Float32Array(N), im = new Float32Array(N)
+  const fLo = 30, fHi = Math.min(12000, sr / 2)
+  for (let x = 0; x < W; x++) {
+    const c = Math.floor((x / W) * mono.length)
+    for (let i = 0; i < N; i++) { const w = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N); re[i] = (mono[c + i - N / 2] ?? 0) * w; im[i] = 0 }
+    fft(re, im)
+    for (let y = 0; y < specH; y++) {
+      const f = fLo * Math.pow(fHi / fLo, 1 - y / specH)
+      const k = Math.min(N / 2 - 1, Math.round(f / sr * N))
+      const mag = Math.hypot(re[k], im[k]) / (N / 4)
+      const dbv = 20 * Math.log10(mag + 1e-9)
+      const [r, gg, b] = color((dbv + 100) / 90)
+      const o = (y * W + x) * 4
+      img.data[o] = r; img.data[o + 1] = gg; img.data[o + 2] = b; img.data[o + 3] = 255
+    }
+  }
+  g.putImageData(img, 0, specTop)
+  g.fillStyle = '#cfd5dc'
+  for (const f of [50, 100, 200, 500, 1000, 2000, 5000, 10000]) {
+    if (f > fHi) continue
+    const y = specTop + (1 - Math.log(f / fLo) / Math.log(fHi / fLo)) * specH
+    g.fillRect(0, y, 6, 1)
+    g.fillText(f >= 1000 ? f / 1000 + 'k' : String(f), 8, y + 4)
+  }
+  for (let s = 0; s < mono.length / sr; s += 1) { const x = s / (mono.length / sr) * W; g.fillRect(x, specTop + specH - 4, 1, 4) }
+  return cv.toDataURL('image/png')
+}
+
+window.__audio = {
+  names: SOUND_NAMES,
+  async warm() { await bank.warmAll(); await Promise.all([...RECIPES].filter(([, s]) => !s.param).map(([k]) => bank.requestAll(k))); return bank.stats },
+  async render(name, opts, seconds) { const r = await render(name, opts, seconds); delete r.mono; return r },
+  async spectro(name, opts, seconds) { const r = await render(name, opts, seconds); return spectrogram(r.mono, r.sr, `${name} ${JSON.stringify(opts || {})}  peak ${r.peakDb} dB  st ${r.stDb} dB`) },
+  async steps(surface, speed) { const r = await renderSteps(surface, speed); const png = spectrogram(r.mono, r.sr, `steps ${surface} v=${speed}  peak ${r.peakDb} st ${r.stDb}`); delete r.mono; return { ...r, png } },
+  async music(seed, seconds) { const r = await renderMusic(seed, seconds); const png = spectrogram(r.mono, r.sr, `music seed ${seed}  peak ${r.peakDb} st ${r.stDb} rms ${r.rmsDb}`); delete r.mono; return { ...r, png } },
+  seams,
+  bankStats: () => bank.stats,
+}
+document.getElementById('log').textContent = 'ready'
+window.__ready = true
+</script>
+</body>
+</html>

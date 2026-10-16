@@ -1,5 +1,5 @@
 // Footstep recipes per surface class. Each variant = heel strike + toe-off (60–120 ms later,
-// about −6 dB). Rendered at 32 kHz, 10–12 variants each; the player picks randomly, alternates
+// about −6 dB). Rendered at 24 kHz, 8–10 variants each; the player picks randomly, alternates
 // feet and adds pitch/level jitter at play time.
 
 import { def } from '../registry.js'
@@ -24,11 +24,11 @@ def('step_snow', {
     const d = buf(0.5, sr)
     const heel = Math.floor(0.004 * sr)
     const dur = r.range(0.2, 0.29)
-    thump(d, sr, heel, { f: r.range(70, 95), dur: 0.035, gain: 0.5, drop: 1.4, attack: 0.008 })
-    lowSnow(d, sr, heel, r, 0.55)
-    crunch(d, sr, heel + Math.floor(0.006 * sr), r, { dur, count: r.int(36, 58), fLo: 1100, fHi: 2700, q: 1.6, gain: 0.9, gl: [0.0008, 0.0028] })
-    crunch(d, sr, heel, r, { dur: dur * 0.8, count: r.int(10, 18), fLo: 500, fHi: 1100, q: 1.2, gain: 0.5, gl: [0.002, 0.005] })
-    if (r.chance(0.55)) squeak(d, sr, heel + Math.floor(r.range(0.03, 0.09) * sr), r, { dur: r.range(0.02, 0.04), rate: r.range(220, 380), f: r.range(1500, 2300), q: 10, gain: 0.12 })
+    thump(d, sr, heel, { f: r.range(70, 95), dur: 0.035, gain: 0.2, drop: 1.4, attack: 0.008 })
+    lowSnow(d, sr, heel, r, 0.28)
+    crunch(d, sr, heel + Math.floor(0.006 * sr), r, { dur, count: r.int(40, 62), fLo: 1000, fHi: 2900, q: 1.6, gain: 1.0, gl: [0.0008, 0.0028] })
+    crunch(d, sr, heel, r, { dur: dur * 0.8, count: r.int(12, 20), fLo: 450, fHi: 1100, q: 1.2, gain: 0.6, gl: [0.002, 0.005] })
+    if (r.chance(0.55)) squeak(d, sr, heel + Math.floor(r.range(0.03, 0.09) * sr), r, { dur: r.range(0.02, 0.04), rate: r.range(220, 380), f: r.range(1500, 2300), q: 10, gain: 0.2 })
     // toe-off
     const toe = heel + Math.floor(r.range(0.11, 0.17) * sr)
     crunch(d, sr, toe, r, { dur: 0.09, count: r.int(8, 15), fLo: 1300, fHi: 3000, q: 1.6, gain: 0.45 })
@@ -41,14 +41,14 @@ def('step_snow_packed', {
   gen(r, sr) {
     const d = buf(0.42, sr)
     const heel = Math.floor(0.004 * sr)
-    thump(d, sr, heel, { f: r.range(85, 110), dur: 0.025, gain: 0.35 })
-    crunch(d, sr, heel, r, { dur: r.range(0.11, 0.15), count: r.int(16, 26), fLo: 2000, fHi: 3600, q: 2, gain: 0.7, gl: [0.0006, 0.002], skew: 0.2 })
+    thump(d, sr, heel, { f: r.range(85, 110), dur: 0.025, gain: 0.14 })
+    crunch(d, sr, heel, r, { dur: r.range(0.11, 0.15), count: r.int(18, 28), fLo: 1800, fHi: 3600, q: 2, gain: 0.8, gl: [0.0006, 0.002], skew: 0.2 })
     // the cold-snow squeak («скрип»): 2–4 resonant stick-slip bursts
     let t = heel + Math.floor(0.008 * sr)
     const nsq = r.int(2, 4)
     for (let k = 0; k < nsq; k++) {
       const len = r.range(0.028, 0.06)
-      squeak(d, sr, t, r, { dur: len, rate: r.range(260, 520), rateEnd: r.range(200, 480), f: r.range(1500, 3000), q: r.range(9, 14), gain: r.range(0.35, 0.6) })
+      squeak(d, sr, t, r, { dur: len, rate: r.range(260, 520), rateEnd: r.range(200, 480), f: r.range(1500, 3000), q: r.range(9, 14), gain: r.range(0.55, 0.85) })
       t += Math.floor(len * sr * r.range(0.6, 1.0))
     }
     const toe = heel + Math.floor(r.range(0.1, 0.14) * sr)
@@ -84,7 +84,7 @@ def('step_slush', {
   gen(r, sr) {
     const d = buf(0.5, sr)
     const heel = Math.floor(0.004 * sr)
-    thump(d, sr, heel, { f: 80, dur: 0.03, gain: 0.35 })
+    thump(d, sr, heel, { f: 80, dur: 0.03, gain: 0.14 })
     // wet splat: lowpassed noise
     const lp = new Biquad(sr, 'lp', 1500, 0.8)
     const n = Math.floor(0.2 * sr)

@@ -262,10 +262,11 @@ export function drawGlow(g, pressed, p = 1) {
     drawLabels(g, k, k.lab, 'rgba(170,255,120,0.85)', 'rgba(150,240,110,0.7)')
   }
   g.restore()
-  // light leaking around the soft keys and the ring
-  g.fillStyle = 'rgba(120,230,90,0.10)'
-  for (const id of ['softL', 'softR', 'call', 'end']) { keyPath(g, KEYS[id], 0.8); g.fill() }
-  g.beginPath(); g.arc(DPAD.x, DPAD.y, DPAD.r + 0.9, 0, Math.PI * 2); g.arc(DPAD.x, DPAD.y, DPAD.r - 0.2, 0, Math.PI * 2, true); g.fill()
+  // light leaking out around the edges of the keys
+  g.strokeStyle = 'rgba(130,240,95,0.22)'
+  g.lineWidth = 0.6
+  for (const id of ['softL', 'softR', 'call', 'end']) { keyPath(g, KEYS[id], 0.5); g.stroke() }
+  g.beginPath(); g.arc(DPAD.x, DPAD.y, DPAD.r + 0.5, 0, Math.PI * 2); g.stroke()
   for (const id of pressed.keys()) {
     const k = KEYS[id]
     if (!k) continue

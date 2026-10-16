@@ -233,7 +233,7 @@ def('distant_door_slam', {
     const at = Math.floor(0.02 * sr)
     const k = r.range(0.9, 1.1)
     addBurst(d, sr, at, 0.006, r, { type: 'lp', f: 3000, gain: 0.9, tau: 0.002 })
-    addModes(d, sr, at, [[70 * k, 0.9, 0.9], [140 * k, 0.5, 0.7], [230 * k, 0.4, 0.55], [390 * k, 0.3, 0.45], [620 * k, 0.2, 0.35], [1040 * k, 0.12, 0.25]], 0.6, r)
+    addModes(d, sr, at, [[70 * k, 0.9, 0.35], [140 * k, 0.5, 0.3], [230 * k, 0.4, 0.26], [390 * k, 0.3, 0.22], [620 * k, 0.2, 0.2], [1040 * k, 0.12, 0.16]], 0.6, r)
     thump(d, sr, at, { f: 55, dur: 0.12, gain: 0.9 })
     addModes(d, sr, at + Math.floor(0.015 * sr), [[r.range(1700, 2100), 0.15, 0.04]], 1, r)
     // across the courtyard: dull, with the slapback between the slabs

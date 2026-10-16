@@ -12,7 +12,7 @@ const MIX = new WeakMap()
 
 export function getMix(engine) {
   if (!engine?.ctx) return null
-  let m = MIX.get(engine)
+  let m = MIX.get(engine.ctx)
   if (m) return m
   const ctx = engine.ctx
   m = { engine, ok: false, revName: null, revActive: 'A', foleyVol: -1 }
@@ -51,7 +51,7 @@ export function getMix(engine) {
     setFoleyReverb(m, engine.reverbName || 'outdoor', true)
   } else if (engine.reverbIn) m.foleySend.connect(engine.reverbIn)
   if (engine.bus && !engine.bus.foley) engine.bus.foley = m.foley
-  MIX.set(engine, m)
+  MIX.set(engine.ctx, m)
   return m
 }
 

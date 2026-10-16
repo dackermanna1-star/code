@@ -13,7 +13,7 @@
 // Prints the output file paths. Errors from the page are printed and exit code is 1.
 
 import { createRequire } from 'node:module'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, openSync, closeSync, unlinkSync, readFileSync, writeSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -32,7 +32,7 @@ for (let i = 0; i < args.length; i++) {
   opt[k] = v
 }
 
-const W = parseInt(opt.w ?? 960, 10), H = parseInt(opt.h ?? 540, 10)
+const W = parseInt(opt.w ?? 640, 10), H = parseInt(opt.h ?? 360, 10)
 const outDir = path.join(root, 'tools', 'out')
 mkdirSync(outDir, { recursive: true })
 
@@ -51,7 +51,7 @@ const common = []
 if (opt.t) common.push(`t=${opt.t}`)
 if (opt.weather) common.push(`weather=${opt.weather}`)
 if (opt.only) common.push(`only=${opt.only}`)
-if (opt.frames) common.push(`frames=${opt.frames}`)
+common.push(`frames=${opt.frames ?? 6}`)
 if (opt.quality) common.push(`quality=${opt.quality}`)
 common.push(`timescale=${opt.timescale ?? 0}`)
 if (opt.viewer) {
@@ -80,6 +80,36 @@ if (opt.viewer) {
 } else {
   jobs.push({ q: ['shot=1', ...common].join('&'), out: opt.out ?? path.join(outDir, 'spawn.png') })
 }
+
+// Machine-wide semaphore: at most SHOT_SLOTS concurrent headless renders (software WebGL is
+// CPU-bound; many parallel renders thrash and are slower in total than a queue).
+const SLOTS = parseInt(process.env.SHOT_SLOTS ?? '2', 10)
+let lockPath = null
+function alive(pid) { try { process.kill(pid, 0); return true } catch { return false } }
+async function acquire() {
+  const t0 = Date.now()
+  for (;;) {
+    for (let i = 0; i < SLOTS; i++) {
+      const p = `/tmp/liminal-shot-slot-${i}.lock`
+      try {
+        const fd = openSync(p, 'wx')
+        writeSync(fd, String(process.pid))
+        closeSync(fd)
+        lockPath = p
+        return
+      } catch {
+        try { const pid = parseInt(readFileSync(p, 'utf8'), 10); if (pid && !alive(pid)) unlinkSync(p) } catch { /* race */ }
+      }
+    }
+    if (Date.now() - t0 > 20 * 60 * 1000) return // give up waiting after 20 min, run anyway
+    await new Promise(r => setTimeout(r, 700 + Math.random() * 600))
+  }
+}
+function release() { if (lockPath) { try { unlinkSync(lockPath) } catch { /* ignore */ } lockPath = null } }
+process.on('exit', release)
+process.on('SIGINT', () => { release(); process.exit(130) })
+process.on('SIGTERM', () => { release(); process.exit(143) })
+await acquire()
 
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
@@ -115,5 +145,6 @@ for (const job of jobs) {
   await page.close()
 }
 await browser.close()
+release()
 if (server) await server.close()
 process.exit(failed ? 1 : 0)

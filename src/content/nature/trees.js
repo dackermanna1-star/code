@@ -62,7 +62,7 @@ function finish(r, o) {
         const id = m.data[m.idx(x, y, z)]
         if (!id || !perchMats.has(id)) continue
         if (m.data[m.idx(x, y + 1, z)] || m.data[m.idx(x, y + 2, z)]) continue
-        if (r.horiz[m.idx(x, y, z)] < 140) continue
+        if (r.horiz[m.idx(x, y, z)] < (o.perchHoriz ?? 140)) continue
         cand.push([x, y, z])
       }
   const rng = new RNG(o.seed * 31 + 7)
@@ -271,7 +271,7 @@ function buildPoplar(seed, Hm) {
   poplarBark(r.model, rng)
   return finish(r, {
     seed, snowMats: new Set([MAT.twigGrey, MAT.barkPoplar]), minHoriz: 0.42, snowChance: 0.5,
-    perchMats: new Set([MAT.twigGrey]), thinMin: f => (f <= 2 ? 2 : 7),
+    perchMats: new Set([MAT.twigGrey]), perchHoriz: 0, perchMinFrac: 0.55, thinMin: f => (f <= 2 ? 2 : 7),
   })
 }
 
@@ -466,11 +466,12 @@ function buildLinden(seed, Hm, o = {}) {
     }
     y += rng.float(2.4, 4.2)
   }
-  // suckers around the foot
-  for (let k = 0; k < rng.int(5, 12); k++) {
+  // a few suckers around the foot (lindens throw them up every spring)
+  for (let k = 0; k < (rng.chance(0.6) ? rng.int(2, 6) : 0); k++) {
     const az = rng.float(0, TAU)
-    const p = [Math.cos(az) * (r0 + 0.3), rng.float(-1, 1.5), Math.sin(az) * (r0 + 0.3)]
-    sk.grow({ p, dir: fromVertical(rng.float(0.05, 0.4), az), length: rng.float(2, 7), step: 1.6, r0: 0.3, r1: 0.3, gnarl: 0.1, trop: UP, tropK: 0.06, rng, mat: MAT.twigGrey, prio: PRIO.twig })
+    const d = r0 + rng.float(0.4, 1.4)
+    const p = [Math.cos(az) * d, -1, Math.sin(az) * d]
+    sk.grow({ p, dir: fromVertical(rng.float(0.05, 0.35), az), length: rng.float(2, 6), step: 1.6, r0: 0.3, r1: 0.3, gnarl: 0.1, trop: UP, tropK: 0.06, rng, mat: MAT.twigGrey, prio: PRIO.twig })
   }
   const r = rasterize(sk)
   if (o.lime) lowerTrunk(r.model, MAT.bark, MAT.lime, Math.round(rng.float(4, 5.5)), 1, rng)

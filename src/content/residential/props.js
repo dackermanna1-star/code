@@ -86,7 +86,7 @@ export function buildEntranceDoor() {
   m.fill(0, 0, 1, 4, 8, 1, T.paint)
   m.fill(1, 7, 0, 2, 1, 1, T.metal_dark) // door closer
   m.set(3, 3, 0, T.metal_gray) // handle
-  m.setPivot(0, 0, 2)
+  m.setPivot(0, 0, 1) // hinge corner on the leaf's outer face
   return m
 }
 

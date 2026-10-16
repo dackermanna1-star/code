@@ -34,7 +34,7 @@ function concretePole(m, x, z, h) {
   // weathering: a darker damp band at the foot, soot near the top, a clamp with rust under it
   m.fill(x, 0, z, 1, 2, 1, M('concrete_dark'))
   m.set(x, h - 4, z, M('metal_dark'))
-  m.set(x, h - 5, z, M('street_rust_light'))
+  m.set(x, h - 5, z, M('concrete_dark'))
 }
 
 // Concrete СВ-95 pole, 9.25 m, curved steel bracket to a cobra head.

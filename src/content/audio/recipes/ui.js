@@ -124,20 +124,20 @@ function lineTone(r, sr, len, on) {
 const ramp = (t, a, b, edge = 0.008) => (t < a || t > b ? 0 : Math.min(1, (t - a) / edge, (b - t) / edge))
 
 def('phone_ring_out', {
-  sr: 8000, prio: 2, norm: { peak: 0.6 }, loop: 0.02, dc: 0,
+  sr: 16000, prio: 2, norm: { peak: 0.6 }, loop: 0.02, dc: 0,
   gen(r, sr) { return lineTone(r, sr, 5.02, t => ramp(t, 0.05, 1.05)) },
 })
 def('phone_busy', {
-  sr: 8000, prio: 3, norm: { peak: 0.6 }, loop: 0.004, dc: 0,
+  sr: 16000, prio: 3, norm: { peak: 0.6 }, loop: 0.004, dc: 0,
   gen(r, sr) { return lineTone(r, sr, 0.804, t => ramp(t, 0.0, 0.4, 0.006)) },
 })
 def('payphone_dial', {
-  sr: 8000, prio: 3, norm: { peak: 0.55 }, loop: 0.02, dc: 0,
+  sr: 16000, prio: 3, norm: { peak: 0.55 }, loop: 0.02, dc: 0,
   gen(r, sr) { return lineTone(r, sr, 2.02, () => 1) },
 })
 
 def('phone_unavailable', {
-  sr: 8000, prio: 3, maxDur: 7.5, norm: { peak: 0.7 },
+  sr: 16000, prio: 3, maxDur: 7.5, norm: { peak: 0.7 },
   gen(r, sr) {
     // SIT: 950 / 1400 / 1800 Hz, 330 ms each — then the operator's recorded voice
     const voice = speak('Аппара+т абоне+нта вы+ключен, и+ли нахо+дится вне зо+ны де+йствия се+ти.', sr, 'female', r, { rate: 5.6, range: 0.8, pitchJitter: 0.3 })
