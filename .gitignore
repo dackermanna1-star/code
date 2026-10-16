@@ -4,3 +4,4 @@ dist/
 .DS_Store
 tools/out/
 dist-single/
+src/content/zz_leadtest/
