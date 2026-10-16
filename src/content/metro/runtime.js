@@ -267,7 +267,7 @@ export class MetroRuntime {
       const xd = cx - DOORS_MID[door] // mid cars run rot 2 on the S track
       const path = []
       if (fromStreet) {
-        path.push(pt(391.5, 0.5, 503.5), ...stairDown(ne), pt(386.0, F0, 523.5), pt(385.4, F0, 538.5))
+        path.push(pt(391.5, this.groundY(391.5, 503.5), 503.5), ...stairDown(ne), pt(386.0, F0, 523.5), pt(385.4, F0, 538.5))
       }
       path.push(pt(391.8, F0, 540.0), pt(396.0, F0, 539.4), pt(400.3, F0, 538.125), pt(403.3, F0, 538.125), pt(408.5, F0, 541.5),
         pt(411.8, F0, 541.5), pt(435.2, Y.PLAT, 541.5, true), pt(437.6, Y.PLAT, 541.5), pt(442.0, Y.PLAT, 544.0), pt(xd + this.rng.float(-0.5, 0.5), Y.PLAT, 544.1))
@@ -279,6 +279,31 @@ export class MetroRuntime {
       this.boarders.push(w)
       void tr
     }
+  }
+
+  /** Terrain height at (x, z) on the surface (sidewalk level if unknown). */
+  groundY(x, z) {
+    const h = this.ctx.terrain?.heightAt?.(x, z)
+    return Number.isFinite(h) && h > -1 ? h : Y.SIDEWALK
+  }
+
+  /**
+   * A passenger who reached the street: disappear only once the player is not close enough to
+   * see it happen; otherwise keep walking the same way a while longer.
+   */
+  walkOff(wk) {
+    const p = this.ctx.player.pos
+    const near = p.y > -1.5 && Math.hypot(p.x - wk.x, p.z - wk.z) < 32
+    const n = wk.path.length
+    if (near && (wk.extra = (wk.extra || 0) + 1) <= 4 && n >= 2) {
+      const a = wk.path[n - 2], b = wk.path[n - 1]
+      const dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz) || 1
+      const x = b.x + dx / L * 14, z = b.z + dz / L * 14
+      wk.path.push(pt(x, this.groundY(x, z), z))
+      wk.done = false
+      return
+    }
+    wk.p.release()
   }
 
   turnstileClick(x, z) {
@@ -301,10 +326,11 @@ export class MetroRuntime {
       const path = [pt(x, Y.PLAT, z), pt(x, Y.PLAT, TRACK.N.z1 + 0.15), pt(x - 0.6, Y.PLAT, aisle), pt(446.5, Y.PLAT, aisle + 0.2), pt(442.5, Y.PLAT, 538.5),
         pt(435.4, Y.PLAT, 538.5), pt(412.0, F0, 538.5, true), pt(410.3, F0, 538.5), pt(404.0, F0, 541.875), pt(399.6, F0, 541.875),
         pt(395.0, F0, 540.0), pt(390.6, F0, 540.0), pt(386.0, F0, 540.0)]
-      if (exit === 'NE') path.push(pt(385.6, F0, 524.0), pt(390.6, F0, 520.6), ...stairUp(st).slice(1), pt(391.6, Y.SIDEWALK, 506.5), pt(392.6, 0.5, 503.0))
-      else path.push(pt(385.6, F0, 556.0), pt(390.6, F0, 559.6), ...stairUp(st).slice(1), pt(391.6, Y.SIDEWALK, 573.0), pt(396.5, Y.SIDEWALK, 574.5))
+      const gy = (x, z) => this.groundY(x, z)
+      if (exit === 'NE') path.push(pt(385.6, F0, 524.0), pt(390.6, F0, 520.6), ...stairUp(st).slice(1), pt(391.6, gy(391.6, 506.5), 506.5), pt(392.6, gy(392.6, 503), 503.0), pt(393.6, gy(393.6, 494), 494.0))
+      else path.push(pt(385.6, F0, 556.0), pt(390.6, F0, 559.6), ...stairUp(st).slice(1), pt(393.0, gy(393, 572.6), 572.6), pt(397.0, gy(397, 572.2), 572.2), pt(412.0, gy(412, 571.6), 571.6))
       const w = new Walker(P, path, { delay: 0.6 + k * this.rng.float(0.6, 1.8), speed: this.rng.float(1.15, 1.45) })
-      w.onDone = wk => wk.p.release()
+      w.onDone = wk => this.walkOff(wk)
       this.walkers.push(w)
       k++
     }
@@ -467,6 +493,9 @@ export class MetroRuntime {
     }
     const f = this.out.flaps[lane.i]
     if (f.t > 0) return
+    // already level with the flaps (stood in the lane a long time): let them through rather
+    // than closing the flaps inside the player's body (which would lift them on top)
+    if (p.x > TURN.x0 + 0.875 - 0.125 - 0.3) return
     f.t = 2.4; f.p.visible = true; f.p.collide = true
     this.play('turnstile', { pos: [TURN.x0 + 0.9, F0 + 0.8, (lane.z0 + lane.z1) / 2], kind: 'slam' })
     if (this.timers.slamSay <= 0) {
