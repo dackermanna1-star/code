@@ -1,0 +1,27 @@
+{
+  "name": "liminal-moscow",
+  "version": "0.1.0",
+  "description": "A first-person voxel walking simulator set in a Moscow residential district, winter 2008.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dackermanna1-star/code.git"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dackermanna1-star/code/issues"
+  },
+  "homepage": "https://github.com/dackermanna1-star/code#readme",
+  "dependencies": {
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "vite": "6.0.7"
+  },
+  "private": true,
+  "type": "module"
+}
