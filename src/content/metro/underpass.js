@@ -349,11 +349,11 @@ export function buildUnderpass(ctx, out) {
 
   // ---- zones
   zones.add({ name: 'underpass', type: 'underpass', min: [UNDERPASS.x0, Y.SLAB, UNDERPASS.z0], max: [390, Y.CEIL + 0.1, UNDERPASS.z1],
-    indoor: true, reverb: 'underpass', snow: false, wind: 0.2, traffic: 0.35, exposure: 0.85, data: { pkg: 'metro' } })
+    indoor: true, reverb: 'underpass', snow: false, wind: 0.2, traffic: 0.35, exposure: 1.05, data: { pkg: 'metro' } })
   zones.add({ name: 'underpass', type: 'underpass', min: [390, Y.SLAB, UNDERPASS.z0], max: [UNDERPASS.x1, Y.CEIL + 0.1, 530.5],
-    indoor: true, reverb: 'underpass', snow: false, wind: 0.2, traffic: 0.35, exposure: 0.85, data: { pkg: 'metro' } })
+    indoor: true, reverb: 'underpass', snow: false, wind: 0.2, traffic: 0.35, exposure: 1.05, data: { pkg: 'metro' } })
   zones.add({ name: 'underpass', type: 'underpass', min: [390, Y.SLAB, 549.5], max: [UNDERPASS.x1, Y.CEIL + 0.1, UNDERPASS.z1],
-    indoor: true, reverb: 'underpass', snow: false, wind: 0.2, traffic: 0.35, exposure: 0.85, data: { pkg: 'metro' } })
+    indoor: true, reverb: 'underpass', snow: false, wind: 0.2, traffic: 0.35, exposure: 1.05, data: { pkg: 'metro' } })
 
   // ---- walkers' routes (documented; the life package ignores kind 'underpass')
   ctx.navPaths.push({ points: [[379, 509], [379, 519.5], [385, 522], [385, 558], [391, 560.5], [391, 571]], kind: 'underpass', y: F0 })

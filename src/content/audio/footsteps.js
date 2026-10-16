@@ -4,28 +4,14 @@
 // wet: the next steps on indoor tile/linoleum sometimes squeak.
 
 import { SURF } from '../../core/materials.js'
-import { bufferVoice } from './sounds.js'
+import { bufferVoice, STEP_DB } from './sounds.js'
 import { playFoley } from './mix.js'
 import { makeRng, clamp } from './dsp.js'
 import { bank } from './bank.js'
 
-/** surface → [recipe key, level dB] */
-export const STEP_SOUNDS = {
-  [SURF.NONE]: ['step_concrete', -16],
-  [SURF.SNOW]: ['step_snow', -14],
-  [SURF.SNOW_PACKED]: ['step_snow_packed', -15],
-  [SURF.ICE]: ['step_ice', -17],
-  [SURF.SLUSH]: ['step_slush', -15],
-  [SURF.CONCRETE]: ['step_concrete', -16],
-  [SURF.ASPHALT]: ['step_asphalt', -16],
-  [SURF.METAL]: ['step_metal', -14],
-  [SURF.TILE]: ['step_tile', -16],
-  [SURF.WOOD]: ['step_wood', -15],
-  [SURF.LINOLEUM]: ['step_linoleum', -17],
-  [SURF.GRAVEL]: ['step_gravel', -15],
-  [SURF.CARPET]: ['step_carpet', -19],
-  [SURF.METAL_GRATE]: ['step_metal_grate', -14],
-}
+/** surface → [recipe key, level dB] (levels: STEP_DB in sounds.js, loudness-matched) */
+const surfKey = { NONE: 'concrete', SNOW: 'snow', SNOW_PACKED: 'snow_packed', ICE: 'ice', SLUSH: 'slush', CONCRETE: 'concrete', ASPHALT: 'asphalt', METAL: 'metal', TILE: 'tile', WOOD: 'wood', LINOLEUM: 'linoleum', GRAVEL: 'gravel', CARPET: 'carpet', METAL_GRATE: 'metal_grate' }
+export const STEP_SOUNDS = Object.fromEntries(Object.entries(surfKey).map(([k, s]) => [SURF[k], ['step_' + s, STEP_DB[s]]]))
 
 const r = makeRng(1801)
 const last = new Map()

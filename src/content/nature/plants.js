@@ -175,7 +175,7 @@ const FINE = 0.25
 /** Rasterize a weed skeleton (12.5 cm design units) into a 6.25 cm model; seed heads hold a little snow. */
 function weedModel(sk, seed, snowHeads = false) {
   const r = rasterize(scaleSkeleton(sk, 2, 0.7), { below: 4, pad: 1 })
-  if (snowHeads) branchSnow(r, { mats: new Set([MAT.seeds]), minHoriz: 0, chance: 0.75, shelter: 0.5, seed, minY: r.model.pivot.y + 6 })
+  if (snowHeads) branchSnow(r, { mats: new Set([MAT.seeds]), minHoriz: 0, chance: 0.55, shelter: 0.5, seed, minY: r.model.pivot.y + 6 })
   return fineScale(r.model, FINE)
 }
 
@@ -196,11 +196,11 @@ function burdock(seed) {
     const a = Math.atan2(b[2], b[0])
     const pts = sk.grow({ p: b, dir: fromVertical(rng.float(0, 0.3), a), length: rng.float(8, 13), step: 2.5, r0: 0.35, r1: 0.35, gnarl: 0.1, trop: UP, tropK: 0.03, rng, mat: MAT.stalk, prio: PRIO.branch, conn: 6 })
     const top = pts[pts.length - 1]
-    sk.blob(add(top.p, [0, 0.6, 0]), 0.9, 0.9, 0.9, MAT.seeds, PRIO.fruit, 1, seed + 1)
+    sk.blob(add(top.p, [0, 0.4, 0]), 0.62, 0.62, 0.62, MAT.seeds, PRIO.fruit, 1, seed + 1)
     for (let k = 0; k < rng.int(2, 3); k++) {
       const j = Math.max(1, pts.length - 1 - rng.int(0, 2))
       const sp = sk.grow({ p: pts[j].p, dir: deviate(pts[j].dir, rng.float(0.5, 0.9), rng.float(0, TAU)), length: rng.float(2.5, 5), step: 2, r0: 0.3, r1: 0.3, gnarl: 0.1, rng, mat: MAT.stalk, prio: PRIO.twig, conn: 18 })
-      sk.blob(add(sp[sp.length - 1].p, [0, 0.4, 0]), 0.8, 0.8, 0.8, MAT.seeds, PRIO.fruit, 1, seed + k)
+      sk.blob(add(sp[sp.length - 1].p, [0, 0.3, 0]), 0.55, 0.55, 0.55, MAT.seeds, PRIO.fruit, 1, seed + k)
     }
   }
   return weedModel(sk, seed, true)
@@ -215,7 +215,7 @@ function tansy(seed) {
     const a = Math.atan2(b[2], b[0])
     const pts = sk.grow({ p: b, dir: fromVertical(rng.float(0, 0.25), a), length: rng.float(6.5, 10.5), step: 2.5, r0: 0.3, r1: 0.3, gnarl: 0.06, rng, mat: MAT.stalk, prio: PRIO.branch, conn: 18 })
     const t = pts[pts.length - 1].p
-    sk.blob(add(t, [0, 0.5, 0]), 1.7, 0.6, 1.7, MAT.seeds, PRIO.fruit, 0.85, hash2(seed, i))
+    sk.blob(add(t, [0, 0.35, 0]), 0.85, 0.4, 0.85, MAT.seeds, PRIO.fruit, 0.85, hash2(seed, i))
   }
   return weedModel(sk, seed, true)
 }

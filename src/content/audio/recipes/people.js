@@ -90,7 +90,7 @@ def('footsteps_phantom', {
 
 def('footsteps_phantom_indoor', {
   // slippers shuffling towards a flat door from inside, then stopping (heard through the door)
-  sr: 11025, variants: 2, prio: 6, norm: { peak: 0.8 }, maxDur: 6,
+  sr: 11025, variants: 2, prio: 6, norm: { peak: 0.8 }, maxDur: 6.3,
   gen(r, sr) {
     const steps = r.int(5, 8)
     const d = buf(steps * 0.62 + 1.2, sr)

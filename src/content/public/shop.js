@@ -27,7 +27,7 @@ const ly = vy => vy * V
 // goods palettes
 const CANS = ['chrome', 'metal_gray', 'metal_red', 'metal_blue', 'metal_yellow', 'metal_green', 'chrome']
 const BOXES = ['pub_cardboard', 'metal_yellow', 'metal_red', 'plastic_white', 'metal_blue', 'pub_cardboard', 'metal_green']
-const BOTTLES = ['needles', 'metal_brown', 'glass_clear', 'metal_green', 'glass_clear', 'metal_brown']
+const BOTTLES = ['needles', 'metal_brown', 'pub_glass_goods', 'metal_green', 'pub_glass_goods', 'metal_brown']
 const DAIRY = ['plastic_white', 'plastic_white', 'metal_blue', 'metal_yellow', 'plastic_white']
 
 /** Fill one shelf row (along x or z) with runs of products. */
@@ -119,6 +119,9 @@ defineModel('pub_shop', () => {
   m.set(3, 1, 1, M('metal_dark')); m.set(3, 2, 1, M('metal_dark')); m.set(3, 3, 1, M('metal_dark'))
   // small tambour window left of the door
   win(m, 'front', 4, 4, 3, 6, { d0: z0, depth: 1, glass: M('glass_clear'), frame: M('plastic_white') })
+  // cigarette-butt urn on the porch right of the door (squat cast-iron pot, rusty rim)
+  m.fill(13, 1, 3, 2, 2, 2, M('metal_dark'))
+  m.set(13, 3, 3, M('metal_rust')); m.set(14, 3, 4, M('metal_rust')); m.set(14, 3, 3, M('metal_dark'))
 
   // ---- back: service door, crates, AC unit --------------------------------------------
   m.clear(30, 1, z1 - 1, 4, 9, 2)
@@ -203,7 +206,7 @@ defineModel('pub_shop', () => {
   }
   // promo stack of mineral water six-packs in the dead-end corner (x 6..10, z 36..41)
   for (let y = 1; y <= 3; y++) for (let z = 37; z <= 40; z++) for (let x = 6; x <= 9; x++)
-    if (y < 3 || rng.chance(0.6)) m.set(x, y, z, M(y === 1 ? 'wood' : 'glass_clear'))
+    if (y < 3 || rng.chance(0.6)) m.set(x, y, z, M(y === 1 ? 'wood' : 'pub_glass_goods'))
   // staff partition at x = 13 with a closed door to the back
   for (let y = 1; y <= 12; y++) m.fill(13, y, 34, 1, 1, IZ1 - 34 + 1, y <= 5 ? tileW : white)
   m.fill(13, 1, 38, 1, 9, 3, M('wood_painted_blue'))
@@ -237,14 +240,14 @@ defineModel('pub_shop', () => {
     // display: a white front lip, a low glass guard on top, goods on trays clearly visible
     if (glassFace === 'z') {
       m.fill(xa, 3, za, xb - xa + 1, 1, 1, M('plastic_white'))
-      m.fill(xa, 5, za, xb - xa + 1, 1, 1, M('glass_clear'))
+      m.fill(xa, 5, za, xb - xa + 1, 1, 1, M('pub_glass_goods'))
       m.fill(xa, 5, zb, xb - xa + 1, 1, 1, M('wood'))
       m.fill(xa, 3, za + 1, xb - xa + 1, 1, zb - za, M('metal_gray'))
       goodsRow(m, rng, 'x', xa, xb, 4, [za + 1, za + 2], goods, { gap: 0.15 })
       for (let x = xa; x <= xb; x += 6) for (let y = 3; y <= 5; y++) m.set(x, y, za, M('metal_gray'))
     } else {
       m.fill(xa, 3, za, 1, 1, zb - za + 1, M('plastic_white'))
-      m.fill(xa, 5, za, 1, 1, zb - za + 1, M('glass_clear'))
+      m.fill(xa, 5, za, 1, 1, zb - za + 1, M('pub_glass_goods'))
       m.fill(xb, 5, za, 1, 1, zb - za + 1, M('wood'))
       m.fill(xa + 1, 3, za, xb - xa, 1, zb - za + 1, M('metal_gray'))
       goodsRow(m, rng, 'z', za, zb, 4, [xa + 1, xa + 2], goods, { gap: 0.15 })
@@ -254,7 +257,7 @@ defineModel('pub_shop', () => {
   counter(14, 24, 34, 37, 'z', ['pub_sausage', 'pub_sausage', 'pub_cheese', 'pub_sausage', 'fabric_red'])
   counter(25, 30, 34, 37, 'z', null, 'desk')
   counter(31, 45, 34, 37, 'z', DAIRY.concat(['pub_cheese']))
-  counter(46, 49, 20, 37, 'x', ['glass_clear', 'metal_brown', 'needles', 'metal_red', 'metal_blue', 'plastic_white'])
+  counter(46, 49, 20, 37, 'x', ['pub_glass_goods', 'metal_brown', 'needles', 'metal_red', 'metal_blue', 'plastic_white'])
   // cash desk: register (dark body, green display), electronic scales with red LED, money tray
   m.fill(29, 5, 35, 2, 1, 2, M('plastic_dark'))
   m.fill(29, 6, 36, 2, 1, 1, M('plastic_dark'))
@@ -262,14 +265,14 @@ defineModel('pub_shop', () => {
   m.set(25, 6, 36, M('plastic_white'))
   m.set(27, 5, 34, M('plastic_white')) // tray «на тарелочку»
   // goods on top of the glass: a jar of sweets, a calculator box
-  m.set(22, 6, 35, M('glass_clear')); m.set(40, 6, 36, M('metal_yellow'))
+  m.set(22, 6, 35, M('pub_glass_goods')); m.set(40, 6, 36, M('metal_yellow'))
 
   // back shelves (z 42..43) with a gap at the service door, and right-wall shelves (x 53)
   const shelves = (xa, xb) => {
     for (let y = 1; y <= 10; y++) { m.set(xa, y, 42, M('wood_dark')); m.set(xb, y, 42, M('wood_dark')) }
     for (const y of [1, 3, 5, 7, 9]) m.fill(xa, y, 42, xb - xa + 1, 1, 2, M('wood_dark'))
     for (const y of [2, 4, 6, 8]) {
-      const pal = y === 2 ? BOXES : y === 4 ? CANS : y === 6 ? BOTTLES : ['glass_clear', 'glass_clear', 'needles', 'metal_brown']
+      const pal = y === 2 ? BOXES : y === 4 ? CANS : y === 6 ? BOTTLES : ['pub_glass_goods', 'pub_glass_goods', 'needles', 'metal_brown']
       goodsRow(m, rng, 'x', xa + 1, xb - 1, y, [42], pal, { tall: y >= 6 ? 0.6 : 0, gap: 0.12 })
     }
   }
@@ -278,7 +281,7 @@ defineModel('pub_shop', () => {
   for (let y = 1; y <= 10; y++) m.fill(53, y, 20, 1, 1, 22, M('wood_dark'))
   for (const y of [2, 4, 6, 8]) {
     m.fill(52, y - 1, 20, 1, 1, 22, M('wood_dark'))
-    goodsRow(m, rng, 'z', 20, 41, y, [52], y === 8 ? BOXES : y === 6 ? ['glass_clear', 'needles', 'glass_clear'] : CANS, { tall: 0.4, gap: 0.15 })
+    goodsRow(m, rng, 'z', 20, 41, y, [52], y === 8 ? BOXES : y === 6 ? ['pub_glass_goods', 'needles', 'pub_glass_goods'] : CANS, { tall: 0.4, gap: 0.15 })
   }
   // wall clock above the back shelves and a fire extinguisher by the staff door
   m.set(32, 11, 43, M('plastic_white'))
@@ -397,6 +400,10 @@ export function placeShop(ctx, o) {
     flatten(ctx, F, -7.25, -6.75, 7.25, 5.25, F.y, M('snow_packed'))
     flatten(ctx, F, lx(DOOR_X - 3), lz(-2), lx(DOOR_X + 7), lz(1), F.y, M('snow_packed'))
     paint(ctx, F, lx(DOOR_X - 1), lz(-4), lx(DOOR_X + 5), lz(1), M('snow_dirty'))
+    // the snow shovelled off the porch, heaped against the far end of the facade
+    const [hx, , hz] = F.p(lx(52), 0, lz(2))
+    const hs = F.size(1.3, 0, 0.8)
+    ctx.terrain.mound(hx, hz, hs[0], hs[2], 0.5, M('snow_bank'), 0.5, seedInt(o.seed, 9) % 1000)
   }
   const shop = put(ctx, F, 'pub_shop', 0, 0, { tint, seed: seed01(o.seed, 3), tag: 'shop', userData: { kind: 'shop' } })
 

@@ -221,6 +221,6 @@ export function buildVestibule(ctx, out) {
 
   // ---- zone
   zones.add({ name: 'metro_vestibule', type: 'metro', min: [VEST.x0, Y.SLAB, VEST.z0], max: [VEST.x1, C0 + 0.1, VEST.z1], indoor: true,
-    reverb: 'hall', snow: false, wind: 0.05, traffic: 0.12, priority: 1, exposure: 0.8, data: { pkg: 'metro' } })
+    reverb: 'hall', snow: false, wind: 0.05, traffic: 0.12, priority: 1, exposure: 1.1, data: { pkg: 'metro' } })
   ctx.navPaths.push({ points: [[386, 540], [392, 540], [400, 538.1], [404, 540], [412, 540]], kind: 'metro', y: F0 })
 }

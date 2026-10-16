@@ -80,10 +80,20 @@ export function playSpeech(text, opts = {}) {
   if (!e?.ready || !text) return null
   const chain = opts.chain ?? 'none'
   const voice = opts.voice ?? 'male'
-  const params = { id: (hashStr(text + '|' + voice + '|' + chain) >>> 0).toString(36), text, voice, chain, rate: opts.rate, f0: opts.f0 }
-  const src = bufferVoice(e, 'speech', 0, { params, sync: false, gain: Math.pow(10, -6 / 20), maxLate: 6 })
-  src.duration = text.length * 0.075 + 2.5
-  return e.connectSource(src, { bus: chain === 'phone' ? 'ui' : 'sfx', refDistance: 3, reverb: chain === 'phone' ? 0 : 0.7, ...opts })
+  const params = { id: (hashStr(text + '|' + voice + '|' + chain + '|' + (opts.rate ?? '') + '|' + (opts.f0 ?? '')) >>> 0).toString(36), text, voice, chain, rate: opts.rate, f0: opts.f0 }
+  let em = null
+  // the length is only known once the worker delivered the buffer: stop the emitter from there
+  // (and right away if it never starts), instead of guessing a duration up front
+  const src = bufferVoice(e, 'speech', 0, {
+    params, sync: false, gain: Math.pow(10, -6 / 20), maxLate: 6,
+    onBegin: (b, start) => {
+      const left = b ? (start - e.ctx.currentTime) + b.duration + 2.5 : 0
+      setTimeout(() => em?.stop(0.05), Math.max(0, left) * 1000 + 50)
+    },
+  })
+  const { loop: _l, ...rest } = opts
+  em = e.connectSource(src, { bus: chain === 'phone' ? 'ui' : 'sfx', refDistance: 3, reverb: chain === 'phone' ? 0 : 0.7, ...rest })
+  return em
 }
 
 /** Ask the worker to render the buffers of these sounds now (e.g. before a scripted moment). */

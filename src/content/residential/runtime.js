@@ -2,6 +2,7 @@
 // lift), the endless stairwell anomaly, muffled life behind doors. All state lives here; the
 // package's update() (or a fallback runtime module) calls tick().
 
+import * as THREE from 'three'
 import { VOXEL } from '../../core/constants.js'
 import { RNG, hash2, hashf } from '../../core/rng.js'
 import { FH } from './series.js'
@@ -355,6 +356,13 @@ function setupLift(ctx, sec, sw, broken) {
   lift.light = lights.add({ x: lc.x, y: lc.y, z: lc.z, color: 0xe8f2ff, intensity: 1.6, range: 3.2, domain: 'indoor', schedule: 'always', flicker: 'buzz', placement: lift.cab, halo: false, tag: 'lift_light' })
   // button panel rides with the cab
   lift.panel = new DynPlate(ctx.game, { w: 0.42, h: 1.2, ppm: 150, indoor: true, draw: drawCabPanel(N, sec.seed * 1000 | 0) })
+  lift.panelAngle = faceAngle(p, -1, 0)
+  // landing doorway boxes (player standing in the doors keeps them open), one per floor
+  lift.doorway = []
+  for (let k = 1; k <= N; k++) {
+    const b = worldBox(p, sh.door0 - 0.3, L.FL(k), L.ZI + 21.2, sh.door1 + 0.3, L.FL(k) + 8, L.ZI + 25.2)
+    lift.doorway[k] = [b.min, b.max]
+  }
   const rows = Math.ceil(N / 2)
   for (let k = 1; k <= N; k++) {
     const col = (k - 1) % 2, row = Math.floor((k - 1) / 2)
@@ -376,17 +384,19 @@ function placeCab(lift) {
   const { p, L } = lift.sec
   const sh = L.shaft
   const yv = L.FL(1) - 1 + (lift.pos - 1) * FH
-  const c = p.voxelToWorld(sh.x0, yv, sh.z0)
-  lift.cab.set(c.x, c.y, c.z, p.angle)
-  const lc = p.voxelToWorld(sh.x0 + 4, yv + 9.6, sh.z0 + 3)
-  lift.light.pos.set(lc.x, lc.y, lc.z)
-  const pc = p.voxelToWorld(sh.x0 + 6.97, yv + 5.6, sh.z0 + 2)
-  lift.panel.setTransform(pc.x, pc.y, pc.z, faceAngle(p, -1, 0))
+  const v = _v3
+  p.voxelToWorld(sh.x0, yv, sh.z0, v)
+  lift.cab.set(v.x, v.y, v.z, p.angle)
+  p.voxelToWorld(sh.x0 + 4, yv + 9.6, sh.z0 + 3, v)
+  lift.light.pos.set(v.x, v.y, v.z)
+  p.voxelToWorld(sh.x0 + 6.97, yv + 5.6, sh.z0 + 2, v)
+  lift.panel.setTransform(v.x, v.y, v.z, lift.panelAngle)
   for (const b of lift.buttons) {
-    const v = p.voxelToWorld(sh.x0 + b.lx, yv + b.ly, sh.z0 + b.lz)
+    p.voxelToWorld(sh.x0 + b.lx, yv + b.ly, sh.z0 + b.lz, v)
     RT.ctx.interactions.move(b.it, v.x, v.y, v.z)
   }
 }
+const _v3 = new THREE.Vector3()
 
 function callLift(lift, k) {
   const { p, L } = lift.sec
@@ -412,10 +422,8 @@ function pressCab(lift, k) {
 }
 
 function liftDoorway(lift) {
-  const { p, L } = lift.sec
-  const sh = L.shaft
-  const b = worldBox(p, sh.door0 - 0.3, L.FL(lift.floor), L.ZI + 21.2, sh.door1 + 0.3, L.FL(lift.floor) + 8, L.ZI + 25.2)
-  return playerIn(b.min, b.max)
+  const b = lift.doorway[lift.floor]
+  return b ? playerIn(b[0], b[1]) : false
 }
 
 function setLeaves(lift, k, f) {

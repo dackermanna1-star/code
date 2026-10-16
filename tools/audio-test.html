@@ -39,6 +39,30 @@ function bindOffline(off) {
   engine._noiseCache = new Map()
 }
 
+// A-weighting (IEC 61672) as a 6th-order IIR, bilinear transform — perceived loudness at low levels
+const AW = {
+  48000: [[0.234301792299513, -0.468603584599026, -0.234301792299513, 0.937207168598053, -0.234301792299513, -0.468603584599026, 0.234301792299513],
+    [1, -4.113043408775871, 6.553121752655047, -4.990849294163381, 1.785737302937573, -0.246190595319487, 0.011224250033231]],
+  44100: [[0.255741125204258, -0.511482250408516, -0.255741125204258, 1.022964500817033, -0.255741125204258, -0.511482250408516, 0.255741125204258],
+    [1, -4.019576181115832, 6.189406442920693, -4.453198903544116, 1.420842949621876, -0.141825473830305, 0.004351177233495]],
+}
+window.__AW = AW
+function aWeight(x, sr) {
+  const [b, a] = AW[sr] || AW[48000]
+  const y = new Float32Array(x.length)
+  const xs = new Float64Array(7), ys = new Float64Array(7)
+  for (let i = 0; i < x.length; i++) {
+    for (let k = 6; k > 0; k--) { xs[k] = xs[k - 1]; ys[k] = ys[k - 1] }
+    xs[0] = x[i]
+    let v = 0
+    for (let k = 0; k < 7; k++) v += b[k] * xs[k]
+    for (let k = 1; k < 7; k++) v -= a[k] * ys[k]
+    ys[0] = v
+    y[i] = v
+  }
+  return y
+}
+
 function analyze(buf) {
   const chs = [], n = buf.length, sr = buf.sampleRate
   for (let c = 0; c < buf.numberOfChannels; c++) chs.push(buf.getChannelData(c))
@@ -68,13 +92,21 @@ function analyze(buf) {
     if (d1 > 0.25 && d1 > slope * 40) clicks++
     slope = slope * 0.995 + d1 * 0.005
   }
+  // the same short-term maximum, A-weighted (how loud it is to the ear, not to the meter)
+  const ma = aWeight(mono, sr)
+  let stA = 0
+  for (let i = 0; i + W <= n; i += H) {
+    let s = 0
+    for (let k = i; k < i + W; k += 4) s += ma[k] * ma[k]
+    stA = Math.max(stA, Math.sqrt(s / (W / 4)))
+  }
   const active = first >= 0 ? (last - first) / sr : 0
   let asum = 0
   for (let i = Math.max(0, first); i <= last; i++) asum += mono[i] * mono[i]
   const toDb = v => (v > 0 ? 20 * Math.log10(v) : -200)
   return {
     peakDb: +toDb(peak).toFixed(1), rmsDb: +toDb(Math.sqrt(asum / Math.max(1, last - first + 1))).toFixed(1),
-    stDb: +toDb(stMax).toFixed(1), active: +active.toFixed(2), start: +(first / sr).toFixed(3),
+    stDb: +toDb(stMax).toFixed(1), stA: +toDb(stA).toFixed(1), active: +active.toFixed(2), start: +(first / sr).toFixed(3),
     nan, dc: +(dc / n).toFixed(5), clicks, silent: peak < 1e-4, mono, sr,
   }
 }
@@ -113,9 +145,11 @@ async function renderMusic(seed, seconds = 90) {
   const off = new OfflineAudioContext(2, Math.ceil(seconds * SR), SR)
   const g = off.createGain(); g.gain.value = 0.7 // default music volume
   g.connect(off.destination)
+  const t0 = performance.now()
   const p = buildPiece(off, g, seed, 0.05, { level: 0.6, duration: seconds - 1 })
+  const buildMs = performance.now() - t0
   const buf = await off.startRendering()
-  return { ...analyze(buf), pieceDur: p.duration }
+  return { ...analyze(buf), pieceDur: p.duration, buildMs: +buildMs.toFixed(1) }
 }
 
 /** Raw bank buffer checks: loop seam continuity for loops. */
@@ -222,7 +256,7 @@ window.__audio = {
   async render(name, opts, seconds) { const r = await render(name, opts, seconds); delete r.mono; return r },
   async spectro(name, opts, seconds) { const r = await render(name, opts, seconds); return spectrogram(r.mono, r.sr, `${name} ${JSON.stringify(opts || {})}  peak ${r.peakDb} dB  st ${r.stDb} dB`) },
   async steps(surface, speed) { const r = await renderSteps(surface, speed); const png = spectrogram(r.mono, r.sr, `steps ${surface} v=${speed}  peak ${r.peakDb} st ${r.stDb}`); delete r.mono; return { ...r, png } },
-  async music(seed, seconds) { const r = await renderMusic(seed, seconds); const png = spectrogram(r.mono, r.sr, `music seed ${seed}  peak ${r.peakDb} st ${r.stDb} rms ${r.rmsDb}`); delete r.mono; return { ...r, png } },
+  async music(seed, seconds) { const r = await renderMusic(seed, seconds); const png = spectrogram(r.mono, r.sr, `music seed ${seed}  peak ${r.peakDb} st ${r.stDb} stA ${r.stA} rms ${r.rmsDb}`); delete r.mono; return { ...r, png } },
   seams,
   bankStats: () => bank.stats,
 }

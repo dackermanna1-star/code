@@ -49,16 +49,43 @@ function tapeCurve() {
   return c
 }
 
+// Per-context caches: the reverb IR (≈ 0.5 M samples) and the tape-hiss buffer are the expensive
+// parts of a piece; they are made once (prewarmMusic during idle time) and shared by every piece.
+const CACHE = new WeakMap()
+function cacheFor(ctx) {
+  let c = CACHE.get(ctx)
+  if (!c) {
+    const r = makeRng(0x7a9e)
+    const nb = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate)
+    const nd = nb.getChannelData(0)
+    for (let i = 0; i < nd.length; i++) nd[i] = r() * 2 - 1
+    c = { ir: makeIR(ctx, 5.5, r), hiss: nb, curves: new Map() }
+    CACHE.set(ctx, c)
+  }
+  return c
+}
+/** Make the shared buffers ahead of the first piece (call in idle time). */
+export function prewarmMusic(ctx) { try { cacheFor(ctx) } catch { /* optional */ } }
+
 /**
- * Build and schedule a piece on ctx into dest starting at t0. Returns
- * { duration, output (GainNode), stop(fade) }.
+ * Build a piece on ctx into dest starting at t0. Returns
+ * { duration, output (GainNode), pump(horizon), stop(fade), dispose() }.
+ * Only the constant part of the graph (drone, buses, LFOs) is created here; the chords and melody
+ * notes are created just in time by pump(horizon) — call it every ~0.1 s with
+ * ctx.currentTime + a few seconds (opts.lazy = true), so starting a piece costs a few ms instead
+ * of building hundreds of nodes in one frame. Without opts.lazy everything is scheduled at once
+ * (offline rendering).
  */
 export function buildPiece(ctx, dest, seed, t0 = ctx.currentTime + 0.1, opts = {}) {
   const r = makeRng(seed)
+  const C = cacheFor(ctx)
   const dur = opts.duration ?? r.range(65, 175)
   const end = t0 + dur
   const nodes = []
   const reg = n => { nodes.push(n); return n }
+  // nodes of finished notes are released as the piece goes (keeps the graph small on long pieces)
+  const transient = []
+  const regT = (n, until) => { transient.push([until, n]); return n }
 
   const out = reg(ctx.createGain())
   out.gain.value = 0
@@ -74,8 +101,10 @@ export function buildPiece(ctx, dest, seed, t0 = ctx.currentTime + 0.1, opts = {
 
   // reverb with a bit-crushed, darkened tail
   const revIn = reg(ctx.createGain())
-  const conv = reg(ctx.createConvolver()); conv.normalize = true; conv.buffer = makeIR(ctx, r.range(4.5, 6.5), r)
-  const crush = reg(ctx.createWaveShaper()); crush.curve = crushCurve(r.int(4, 6))
+  const conv = reg(ctx.createConvolver()); conv.normalize = true; conv.buffer = C.ir
+  const bits = r.int(4, 6)
+  if (!C.curves.has(bits)) C.curves.set(bits, crushCurve(bits))
+  const crush = reg(ctx.createWaveShaper()); crush.curve = C.curves.get(bits)
   const revLP = reg(ctx.createBiquadFilter()); revLP.type = 'lowpass'; revLP.frequency.value = 2400
   const revOut = reg(ctx.createGain()); revOut.gain.value = 0.55
   revIn.connect(conv); conv.connect(crush); crush.connect(revLP); revLP.connect(revOut); revOut.connect(pre)
@@ -86,13 +115,11 @@ export function buildPiece(ctx, dest, seed, t0 = ctx.currentTime + 0.1, opts = {
   const flu = reg(ctx.createOscillator()); flu.frequency.value = r.range(4.5, 7)
   const fluG = reg(ctx.createGain()); fluG.gain.value = r.range(1, 2.5)
   wob.connect(wobG); flu.connect(fluG)
-  const detuneTargets = []
-  const addOsc = (type, freq, start, stop) => {
-    const o = reg(ctx.createOscillator())
+  const addOsc = (type, freq, start, stop, transientNode = false) => {
+    const o = transientNode ? regT(ctx.createOscillator(), stop) : reg(ctx.createOscillator())
     o.type = type
     o.frequency.value = freq
     wobG.connect(o.detune); fluG.connect(o.detune)
-    detuneTargets.push(o)
     o.start(start); o.stop(stop)
     return o
   }
@@ -116,6 +143,9 @@ export function buildPiece(ctx, dest, seed, t0 = ctx.currentTime + 0.1, opts = {
   const fG = reg(ctx.createGain()); fG.gain.setValueAtTime(0, t0 + dur * 0.3); fG.gain.linearRampToValueAtTime(0.5, t0 + dur * 0.3 + 12)
   fifth.connect(fG); fG.connect(dLP)
 
+  // the timed events (chords, melody notes), created by pump() shortly before they sound
+  const events = [] // [startTime, fn]
+
   // pads: chord changes every 8–14 s, slow swells, overlapping
   const cd = r.range(8, 14)
   const padLP = reg(ctx.createBiquadFilter()); padLP.type = 'lowpass'; padLP.frequency.value = r.range(900, 1400); padLP.Q.value = 0.6
@@ -127,23 +157,26 @@ export function buildPiece(ctx, dest, seed, t0 = ctx.currentTime + 0.1, opts = {
   for (let t = padStart; t < end - 6; t += cd) {
     const ch = prog[ci++ % prog.length]
     const a = r.range(3, 5), rel = 6
-    const g = reg(ctx.createGain())
-    g.gain.setValueAtTime(0, t)
-    g.gain.linearRampToValueAtTime(1, t + a)
-    g.gain.setValueAtTime(1, t + cd)
-    g.gain.linearRampToValueAtTime(0, t + cd + rel)
-    g.connect(padLP)
-    for (const iv of ch) {
-      const m = root + 12 + iv + (iv > 12 ? -12 : 0)
-      for (const det of [-7, 7]) {
-        const o = addOsc('sawtooth', mtof(m), t, Math.min(end, t + cd + rel + 0.1))
-        o.detune.value = det
-        let tail = o
-        if (ctx.createStereoPanner) { const p = reg(ctx.createStereoPanner()); p.pan.value = det < 0 ? -0.5 : 0.5; o.connect(p); tail = p }
-        const og = reg(ctx.createGain()); og.gain.value = 0.25
-        tail.connect(og); og.connect(g)
+    events.push([t, () => {
+      const stopAt = Math.min(end, t + cd + rel + 0.1)
+      const g = regT(ctx.createGain(), stopAt)
+      g.gain.setValueAtTime(0, t)
+      g.gain.linearRampToValueAtTime(1, t + a)
+      g.gain.setValueAtTime(1, t + cd)
+      g.gain.linearRampToValueAtTime(0, t + cd + rel)
+      g.connect(padLP)
+      for (const iv of ch) {
+        const m = root + 12 + iv + (iv > 12 ? -12 : 0)
+        for (const det of [-7, 7]) {
+          const o = addOsc('sawtooth', mtof(m), t, stopAt, true)
+          o.detune.value = det
+          let tail = o
+          if (ctx.createStereoPanner) { const p = regT(ctx.createStereoPanner(), stopAt); p.pan.value = det < 0 ? -0.5 : 0.5; o.connect(p); tail = p }
+          const og = regT(ctx.createGain(), stopAt); og.gain.value = 0.25
+          tail.connect(og); og.connect(g)
+        }
       }
-    }
+    }])
   }
 
   // melody fragment: a few pentatonic notes, repeated with variations, degraded
@@ -166,45 +199,68 @@ export function buildPiece(ctx, dest, seed, t0 = ctx.currentTime + 0.1, opts = {
     for (const nt of motif) {
       if (rep > 0 && r.chance(0.2)) { mt += nt.len * beat; continue } // a note missing, as if remembered wrongly
       const len = nt.len * beat
-      const o = addOsc(leadType, mtof(nt.m + (rep === 2 && r.chance(0.3) ? -12 : 0)), mt, mt + len + 0.6)
-      if (r.chance(0.15)) o.detune.setTargetAtTime(-35, mt + len * 0.5, 0.3) // tape sag
-      const g = reg(ctx.createGain())
-      g.gain.setValueAtTime(0, mt)
-      g.gain.linearRampToValueAtTime(leadType === 'square' ? 0.5 : 0.9, mt + 0.04)
-      g.gain.setTargetAtTime(0.3, mt + 0.05, len * 0.5)
-      g.gain.setTargetAtTime(0, mt + len, 0.15)
-      o.connect(g); g.connect(lead)
+      const freq = mtof(nt.m + (rep === 2 && r.chance(0.3) ? -12 : 0))
+      const sag = r.chance(0.15)
+      const at = mt
+      events.push([at, () => {
+        const o = addOsc(leadType, freq, at, at + len + 0.6, true)
+        if (sag) o.detune.setTargetAtTime(-35, at + len * 0.5, 0.3) // tape sag
+        const g = regT(ctx.createGain(), at + len + 0.6)
+        g.gain.setValueAtTime(0, at)
+        g.gain.linearRampToValueAtTime(leadType === 'square' ? 0.5 : 0.9, at + 0.04)
+        g.gain.setTargetAtTime(0.3, at + 0.05, len * 0.5)
+        g.gain.setTargetAtTime(0, at + len, 0.15)
+        o.connect(g); g.connect(lead)
+      }])
       mt += len
     }
     mt += r.range(8, 20)
   }
+  events.sort((x, y) => x[0] - y[0])
 
   // tape hiss
-  const nb = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate)
-  const nd = nb.getChannelData(0)
-  for (let i = 0; i < nd.length; i++) nd[i] = r() * 2 - 1
-  const hiss = reg(ctx.createBufferSource()); hiss.buffer = nb; hiss.loop = true
+  const hiss = reg(ctx.createBufferSource()); hiss.buffer = C.hiss; hiss.loop = true
   const hHP = reg(ctx.createBiquadFilter()); hHP.type = 'highpass'; hHP.frequency.value = 3500
   const hG = reg(ctx.createGain()); hG.gain.value = 0.006
   hiss.connect(hHP); hHP.connect(hG); hG.connect(out)
-  hiss.start(t0); hiss.stop(end + 0.1)
+  hiss.start(t0, r() * 1.5); hiss.stop(end + 0.1)
 
   let stopped = false
-  return {
+  let ei = 0
+  const piece = {
     duration: dur,
     output: out,
+    /** Create the events that start before `horizon` (s, context time); release finished notes. */
+    pump(horizon) {
+      if (stopped) return
+      const now = ctx.currentTime
+      while (ei < events.length && events[ei][0] < horizon) {
+        // a note whose start already passed (the game was paused) is dropped: starting it late
+        // would jump its envelope (a click)
+        if (events[ei][0] >= now - 0.05) { try { events[ei][1]() } catch { /* skip a note */ } }
+        ei++
+      }
+      for (let i = transient.length - 1; i >= 0; i--) {
+        if (transient[i][0] + 0.5 < now) { try { transient[i][1].disconnect() } catch { /* ignore */ } transient.splice(i, 1) }
+      }
+    },
     stop(fade = 4) {
       if (stopped) return
-      stopped = true
       const t = ctx.currentTime
       out.gain.cancelScheduledValues(t)
       out.gain.setValueAtTime(out.gain.value, t)
       out.gain.linearRampToValueAtTime(0, t + fade)
-      setTimeout(() => this.dispose(), (fade + 0.5) * 1000)
+      stopped = true
+      setTimeout(() => piece.dispose(), (fade + 0.5) * 1000)
     },
     dispose() {
+      stopped = true
       for (const n of nodes) { try { n.stop?.() } catch { /* not started / already stopped */ } try { n.disconnect() } catch { /* ignore */ } }
+      for (const [, n] of transient) { try { n.stop?.() } catch { /* ignore */ } try { n.disconnect() } catch { /* ignore */ } }
       nodes.length = 0
+      transient.length = 0
     },
   }
+  if (!opts.lazy) piece.pump(Infinity)
+  return piece
 }

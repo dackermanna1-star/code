@@ -235,7 +235,7 @@ function buildBirch(seed, Hm, o = {}) {
       const ang = lerp(0.9, 0.3, t) + rng.float(-0.15, 0.15)
       const r = Math.max(0.42, q.r * 0.62)
       junctions.push(q.p)
-      birchLimb(sk, rng, q.p, deviate(q.dir, ang, roll), L, r, t)
+      birchLimb(sk, rng, q.p, deviate(q.dir, ang, roll), L, r, t, stems > 1 ? 0.56 : 0.42)
       y += rng.float(2.2, 4.2) * (stems > 1 ? 1.35 : 1)
     }
     // leader tip twigs
@@ -251,7 +251,7 @@ function buildBirch(seed, Hm, o = {}) {
   })
 }
 
-function birchLimb(sk, rng, p, dir, L, r, tCrown) {
+function birchLimb(sk, rng, p, dir, L, r, tCrown, skip = 0.42) {
   const pts = sk.grow({
     p, dir, length: L, step: 2.4, r0: r, r1: 0.4, gnarl: 0.1, trop: DOWN,
     tropK: t => 0.015 + 0.1 * t, rng,
@@ -260,7 +260,7 @@ function birchLimb(sk, rng, p, dir, L, r, tCrown) {
   let side = rng.chance(0.5) ? 1 : -1
   for (let i = 1; i < pts.length; i++) {
     const q = pts[i]
-    if (q.t < 0.2 || rng.chance(0.42)) continue
+    if (q.t < 0.2 || rng.chance(skip)) continue
     side = -side
     const sd = norm(add(deviate(q.dir, rng.float(0.55, 0.95), side * rng.float(1.2, 1.9)), mul(DOWN, 0.2)))
     const sl = L * rng.float(0.2, 0.38) * (1 - 0.4 * q.t) + 1.5
@@ -316,7 +316,7 @@ function buildPoplar(seed, Hm) {
       const d = fromVertical(rng.float(0.32, 0.62), roll)
       const pts = sk.grow({ p: q.p, dir: d, length: L, step: 2.5, r0: 0.55, r1: 0.4, gnarl: 0.08, trop: UP, tropK: 0.07, rng, mat: MAT.twigGrey, prio: PRIO.limb })
       for (let i = 1; i < pts.length; i++) {
-        if (rng.chance(0.3)) continue
+        if (rng.chance(0.45)) continue
         const sd = norm(add(deviate(pts[i].dir, rng.float(0.4, 0.8), rng.float(0, TAU)), [0, 0.5, 0]))
         sk.grow({ p: pts[i].p, dir: sd, length: rng.float(2, 6), step: 2, r0: 0.35, r1: 0.35, gnarl: 0.08, trop: UP, tropK: 0.08, rng, mat: MAT.twigGrey, prio: PRIO.twig })
       }
@@ -479,7 +479,7 @@ function buildNegundo(seed, Hm) {
     const len = rng.int(2, 4)
     for (let k = 1; k <= len; k++) sk.point(add(t, [rng.float(-0.4, 0.4), -k, rng.float(-0.4, 0.4)]), MAT.seeds, PRIO.fruit)
   }
-  return finishTree(sk, { seed, snowMats: new Set([MAT.branch, MAT.twigGrey, MAT.bark]), minHoriz: 0.45, snowChance: 0.5, perchMats: new Set([MAT.branch, MAT.twigGrey]) })
+  return finishTree(sk, { seed, snowMats: new Set([MAT.branch, MAT.twigGrey, MAT.bark]), minHoriz: 0.45, snowChance: 0.5, perchMats: new Set([MAT.branch, MAT.twigGrey]), crownThin: k => (k <= 2 ? 3 : 8) })
 }
 
 function twigs(sk, rng, p, dir, n, lmin, lmax, mat, tipsOut) {
@@ -654,9 +654,10 @@ function buildRowan(seed, Hm) {
       y += rng.float(2, 3.5)
     }
   }
+  // drooping clusters of berries (≈15–25 cm), the birds have had some of them
   for (const t of tips) {
-    if (!rng.chance(0.38)) continue
-    sk.blob(add(t, [0, -0.9, 0]), rng.float(0.8, 1.2), 0.8, rng.float(0.8, 1.2), MAT.berryRed, PRIO.fruit, 0.75, hash2(Math.floor(t[0] * 10), Math.floor(t[1] * 10 + t[2])))
+    if (!rng.chance(0.32)) continue
+    sk.blob(add(t, [0, -0.6, 0]), rng.float(0.42, 0.62), 0.45, rng.float(0.42, 0.62), MAT.berryRed, PRIO.fruit, 0.8, hash2(Math.floor(t[0] * 10), Math.floor(t[1] * 10 + t[2])))
   }
   return finishTree(sk, { seed, snowMats: new Set([MAT.branch, MAT.berryRed]), minHoriz: 0.4, snowChance: 0.55, perchMats: new Set([MAT.branch]) })
 }
@@ -719,9 +720,9 @@ const SMALL = { lods: [1, 2], lodDistances: [40], maxDistance: 200 }
 // (the engine meshes a factor of exactly 1 straight from the model, so the 25 cm crown level is
 // asked for as 0.999: thinned by 2 in fineScale's reducer, meshed at 0.1 % under 25 cm)
 const LOD1 = 0.999
-const CROWN_BIG = { lods: [0.5, LOD1, 2], lodDistances: [38, 110], maxDistance: 400, collide: false, contact: false }
-const CROWN_MID = { lods: [0.5, LOD1, 2], lodDistances: [34, 95], maxDistance: 320, collide: false, contact: false }
-const CROWN_SMALL = { lods: [0.5, LOD1], lodDistances: [32], maxDistance: 200, collide: false, contact: false }
+const CROWN_BIG = { lods: [0.5, LOD1, 2], lodDistances: [46, 120], maxDistance: 400, collide: false, contact: false }
+const CROWN_MID = { lods: [0.5, LOD1, 2], lodDistances: [40, 100], maxDistance: 320, collide: false, contact: false }
+const CROWN_SMALL = { lods: [0.5, LOD1], lodDistances: [36], maxDistance: 200, collide: false, contact: false }
 
 function reg(species, kind, idx, heightM, build, opts, crownOpts) {
   if (!SPECIES[species]) SPECIES[species] = { variants: [] }

@@ -188,12 +188,12 @@ export function buildEscalators(ctx, out) {
   signs.add({ x: 410.62, y: Y.FLOOR + 0.62, z: 540.75, angle: -Math.PI / 2, w: 0.44, h: 0.3, ppm: 96, indoor: true, draw: (c, W, H) => drawText(c, W, H, { lines: ['СТОЙТЕ СПРАВА', 'ПРОХОДИТЕ СЛЕВА'], bg: '#e9e6dc', color: '#1b1b1b', font: SIGN_FONT }) })
   // zones: the inclined hall, and the two conveyors (priority over everything around)
   zones.add({ name: 'metro_escalator', type: 'metro', min: [ESC.xTop, -16.5, ESC.wallN[0]], max: [X1, -1.4, ESC.wallS[1]], indoor: true,
-    reverb: 'hall', snow: false, wind: 0.05, traffic: 0, priority: 2, exposure: 0.8, data: { pkg: 'metro' } })
+    reverb: 'hall', snow: false, wind: 0.05, traffic: 0, priority: 2, exposure: 1.15, data: { pkg: 'metro' } })
   const vx = ESC.speed * Math.cos(Math.atan2(ESC.rise, ESC.run))
   out.escalators[0].zone = zones.add({ name: 'metro_escalator_up', type: 'metro', min: [ESC.xTop, -17, ESC.laneN[0]], max: [ESC.xBot, -2, ESC.laneN[1]], indoor: true,
-    reverb: 'hall', snow: false, wind: 0.05, traffic: 0, priority: 5, exposure: 0.8, conveyor: [-vx, 0, 0], data: { pkg: 'metro', escalator: 'up' } })
+    reverb: 'hall', snow: false, wind: 0.05, traffic: 0, priority: 5, exposure: 1.15, conveyor: [-vx, 0, 0], data: { pkg: 'metro', escalator: 'up' } })
   out.escalators[1].zone = zones.add({ name: 'metro_escalator_down', type: 'metro', min: [ESC.xTop, -17, ESC.laneS[0]], max: [ESC.xBot, -2, ESC.laneS[1]], indoor: true,
-    reverb: 'hall', snow: false, wind: 0.05, traffic: 0, priority: 5, exposure: 0.8, conveyor: [vx, 0, 0], data: { pkg: 'metro', escalator: 'down' } })
+    reverb: 'hall', snow: false, wind: 0.05, traffic: 0, priority: 5, exposure: 1.15, conveyor: [vx, 0, 0], data: { pkg: 'metro', escalator: 'down' } })
   out.escSpeedX = vx
   ctx.navPaths.push({ points: [[412, 538.5], [435, 538.5]], kind: 'metro', y: Y.PLAT })
   void T

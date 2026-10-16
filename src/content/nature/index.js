@@ -30,9 +30,9 @@ function updateIce(ctx, s, dt) {
   if (speed < 0.3 && (s.iceStill = (s.iceStill ?? 0) + 1) < 8) return
   s.iceStill = 0
   const g = ctx.game
-  if (g.time - (s.lastCrack ?? -1e9) < 14) return
+  if (g.time - (s.lastCrack ?? -1e9) < 25) return
   const h = Math.sin(g.time * 12.9898) * 43758.5453
-  if (h - Math.floor(h) > 0.22) return
+  if (h - Math.floor(h) > 0.15) return
   s.lastCrack = g.time
   const a = g.time * 2.39
   const pos = [p.pos.x + Math.cos(a) * 5, p.pos.y - 0.2, p.pos.z + Math.sin(a) * 5]

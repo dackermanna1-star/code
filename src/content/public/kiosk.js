@@ -61,7 +61,7 @@ function buildKiosk(type) {
   const pal = {
     tabak: ['plastic_white', 'metal_red', 'metal_blue', 'chrome', 'metal_yellow', 'plastic_dark', 'plastic_white'],
     pechat: ['paper', 'paper', 'plastic_white', 'metal_blue', 'metal_red', 'metal_yellow'],
-    produkty: ['metal_brown', 'needles', 'chrome', 'metal_red', 'metal_yellow', 'glass_clear', 'metal_blue'],
+    produkty: ['metal_brown', 'needles', 'chrome', 'metal_red', 'metal_yellow', 'pub_glass_goods', 'metal_blue'],
     shawarma: ['pub_bread', 'plastic_white', 'chrome'],
     flowers: ['needles'],
     closed: ['pub_cardboard'],

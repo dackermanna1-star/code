@@ -186,7 +186,14 @@ export function placeWarehouse(ctx, o) {
   const p = put(ctx, F, 'pub_warehouse', 0, 0, { seed: seed01(o.seed, 1), tag: 'building', userData: { kind: 'warehouse' } })
   // yard in front: packed, rutted snow
   paint(ctx, F, -16, lzW(0) - 14, 16, lzW(0), M('snow_packed'))
-  ctx.terrain.paintLine(F.wx(8, lzW(0) - 26), F.wz(8, lzW(0) - 26), F.wx(4, lzW(0) - 2), F.wz(4, lzW(0) - 2), 3, { mat: M('snow_dirty') })
+  // truck ruts from the gate to the dock: two dirty tracks in the packed yard snow
+  {
+    const ax = 8, az = lzW(0) - 26, bx = 4, bz = lzW(0) - 2
+    const len = Math.hypot(bx - ax, bz - az), px = (bz - az) / len, pz = -(bx - ax) / len
+    for (const s of [-0.85, 0.85]) {
+      ctx.terrain.paintLine(F.wx(ax + px * s, az + pz * s), F.wz(ax + px * s, az + pz * s), F.wx(bx + px * s, bz + pz * s), F.wz(bx + px * s, bz + pz * s), 0.5, { mat: M('snow_dirty') })
+    }
+  }
   // signs on the shed
   const name = o.name ?? 'СКЛАД № 2'
   sign(ctx, F, lxW(64), 5.6, lzW(DOCK), 0, -1, { w: 4.2, h: 0.75, ppm: 50, aged: 0.5, seed: 3, draw: (c, W, H) => { c.clearRect(0, 0, W, H); drawText(c, W, H, { lines: [name], color: 'rgba(225,222,210,0.9)', font: SIGN_FONT }) } })

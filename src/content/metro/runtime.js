@@ -641,10 +641,12 @@ export class MetroRuntime {
       this.phase = track === 'N' ? 'dwellN' : 'dwellS'
       this.t = 5; this.dwell = 1e9
       this.said = { station: true, open: true, alight: s !== 'people', pa: true }
-      if (s === 'people') { this.t = 3.3; this.alight(); for (const w of this.walkers) { w.delay = 0; for (let k = 0; k < 160; k++) w.update(0.05) } }
-    } else if (s === 'arrive' || s === 'arriveS') {
-      this.startArrival(s === 'arrive' ? 'N' : 'S')
-      this.t = ARRIVE_T - 7
+      if (s === 'people') { this.t = 3.3; this.alight(); for (const w of this.walkers) { w.delay = 0; for (let k = 0; k < 60; k++) w.update(0.05) } }
+    } else if (s.startsWith('arrive')) {
+      // arrive[S][:seconds before the stop]
+      const [name, sec] = s.split(':')
+      this.startArrival(name === 'arriveS' ? 'S' : 'N')
+      this.t = ARRIVE_T - (sec ? parseFloat(sec) : 7)
       this.updateTrain(0.0001)
     } else if (s === 'depart') {
       this.startArrival('N')

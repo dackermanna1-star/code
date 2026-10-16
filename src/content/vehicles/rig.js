@@ -194,11 +194,11 @@ export class Rig {
     }
     if (this.tailLight) {
       const l = this.tailLight
-      l.enabled = lit && d < 70
+      l.enabled = lit && d < 45
       if (l.enabled) this.w(this._lTail, l.pos)
     }
     if (this.inLight) {
-      const near = lit && d < 90
+      const near = lit && d < (this.o.interior.near ?? 80)
       this.inLight.enabled = near
       if (near) this.w(info.lightInterior || [0, 2.3, 0], this.inLight.pos)
     }

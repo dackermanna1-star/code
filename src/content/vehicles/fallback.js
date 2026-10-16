@@ -26,6 +26,16 @@ export function buildFallback(ctx) {
     }
     terrain.setHeightRect(0, 538, 640, 542, 0.5, M('snow'))
     terrain.setHeightRect(0, 524, 640, 524.25, 0.25, M('curb'))
+    // contact wire pairs at 5.8 m over the curb lanes (the street/avenue packages own the real line)
+    if (ctx.wires) {
+      for (const zc of [AVENUE.west.lanes[0], AVENUE.east.lanes[0]]) {
+        for (const dz of [-0.3, 0.3]) {
+          const pts = []
+          for (let x = 0; x <= 640; x += 32) pts.push([x, 5.8, zc + dz])
+          ctx.wires.add(pts, { sag: 0.12 })
+        }
+      }
+    }
   }
   if (!has(ctx, 'north')) {
     terrain.setHeightRect(0, 40, 640, 56, 0.75, M('snow'))
@@ -55,5 +65,14 @@ export function buildShowcase(ctx) {
   ;(ctx.registry.driveways ||= []).push([[282, 318], [378, 318]])
   // stand-in sodium lamps over the strip (the street package owns the real ones)
   for (const x of [298, 326, 354]) ctx.lights.add({ x, y: 7.5, z: 317, type: 'spot', dir: [0, -1, 0], cone: 62, inner: 30, intensity: 55, range: 24, color: 0xffa040, schedule: 'street' })
+  // a stand-in bus terminal loop south of the avenue (the avenue package registers the real one)
+  if (!has(ctx, 'avenue')) {
+    terrain.setHeightRect(526, 572, 604, 610, 0.0, M('snow_packed'))
+    terrain.setHeightRect(540, 582, 590, 600, 0.5, M('snow'))
+    ctx.registry.busTerminal = {
+      loop: [[532, 576], [596, 576], [600, 580], [600, 602], [596, 606], [534, 606], [530, 602], [530, 584]],
+      stops: [[566, 604]], exit: 'west',
+    }
+  }
   ctx.registry._vehTest = true
 }

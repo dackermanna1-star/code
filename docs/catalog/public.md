@@ -53,16 +53,20 @@ const shop = placeShop(ctx, { x: 460, z: 584, rot: 0, seed: 3 })     // entrance
 - **Footprint 14 × 10 m** centred on (x, z), 4.25 m high; porch + canopy + sign box stick out
   **1.5 m** in front (local −Z). Door at local x ≈ −4.5 m (the right-hand end of the facade as seen
   by someone standing in front of it).
+- Outside: granite porch with a ribbed plate, handrail, cigarette-butt urn, steel canopy, and the
+  snow shovelled off the porch heaped against the far end of the facade (terrain mound).
 - Inside: tambour (outer heavy steel door + inner opening, rubber mat, wet cardboard, air curtain),
   tiled floor with muddy tracks, L-shaped counters (Гастрономия with sausages & cheese, Молочные
   продукты, Вино-водка · Табак), cash desk with register, scales (red LED) and money tray, back
-  shelves of tins/bottles/boxes, gondola shelf (Бакалея), bread rack with the hand-written
+  shelves of tins/bottles/boxes, gondola shelf (Бакалея), steel bread rack (rye «кирпичики» below,
+  batons above, gaps where it sold out, printed price strips, bread crates on top) with the hand-written
   «Хлеб — 18 руб.» notice, three drink coolers (Колокольчик / Пиво / Живая вода), ice-cream chest,
   payment terminal «МОМЕНТ-ПЛАТЁЖ», «Уголок покупателя» with the complaints book, staff door.
 - **Cashier** = separate model `pub_cashier` (tag `'person'`, `userData.role = 'cashier'`) standing
   behind the cash desk facing the customer — the life package may swap/animate her.
 - Fluorescent tubes (one flickering `'buzz'` = separate `pub_tube_fixture` placement), warm window
-  spill onto the snow, entrance bulb under the canopy, lit light-box sign (emissive, always).
+  spill onto the snow, a soft downlight from the light box onto the facade (night), entrance bulb
+  under the canopy, lit light-box sign (emissive, always).
 - **Interactions:** door (open/close — opens outward just past 90°, solid when closed or open,
   passable only while swinging; auto-closes after ~7 s once you're ≥ 3 m clear), «Купить хлеб —
   18 руб.» / «Купить батон — 16 руб.» on the bread rack, «Обратиться к продавщице», «Смотреть
@@ -324,11 +328,13 @@ Sizes W × H × D in meters (1 voxel = 0.25 m). Pivot = bottom centre of the foo
 | `pub_hockey_lamp` | 1.75 × 8.5 × 1 | floodlights toward −Z |
 | `pub_hockey_bench` | 3 × 0.75 × 0.5 | |
 
-## Materials added (17)
+## Materials added (18)
 `pub_glass_dark` (non-emissive dark window glass), `pub_glass_cold` / `pub_glass_warm` (clear glass
 whose far LOD is a lit pane following the placement `flag`), `pub_win_lit_cold` / `pub_win_lit_warm`
 (EMIT_CONST lit panes), `pub_win_lit_dirty` (dim greenish lit industrial glazing — the boiler hall,
-whose lit panes follow a night-weighted light so they read as dark glass by day), `pub_lamp_green`, `pub_screen`, `pub_sausage`, `pub_cheese`, `pub_bread`,
+whose lit panes follow a night-weighted light so they read as dark glass by day), `pub_glass_goods`
+(opaque glossy "glass" for bottles, jars and thin counter guards — the engine's transparent glass
+frosts and glows on small indoor panes), `pub_lamp_green`, `pub_screen`, `pub_sausage`, `pub_cheese`, `pub_bread`,
 `pub_bread_dark`, `pub_cardboard`, `pub_skin`, `pub_fabric_blue`, `pub_paint_white`, `pub_net` (non-solid).
 
 ## Sounds used (names from the audio package; fallbacks are synthesized here only if missing)

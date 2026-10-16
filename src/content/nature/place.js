@@ -80,6 +80,8 @@ export function placeTree(ctx, o) {
     height: nat.height, crownR: nat.crownR, meta: nat,
     perches() { return nat.perches.map(q => p.toWorld(q[0], q[1], q[2])) },
     snowSpots() { return nat.snowSpots.map(q => p.toWorld(q[0], q[1], q[2])) },
+    /** Remove the tree (trunk and crown) from the world. */
+    remove() { t.removed = true; ctx.world.remove(p); if (crown) ctx.world.remove(crown) },
     lastClump: -1e9,
   }
   addTreeRecord(s, t)

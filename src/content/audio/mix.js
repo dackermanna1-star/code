@@ -1,12 +1,13 @@
 // Mix inserts on top of the engine's master chain (no engine edits; rewired at runtime):
 //
-//   buses + zone reverb → master → [duck] → [snow shelf] → muffle → compressor → out
-//   foley (own footsteps, breath) ──────────────────────→ muffle   (bypasses the duck)
+//   world buses + zone reverb → master → [duck] → [snow shelf] → muffle → compressor → out
+//   ui bus (phone in hand, menu) → [ui out: master volume] ──────→ muffle   (bypasses duck + shelf)
+//   foley (own footsteps, breath) ───────────────────────────────→ muffle   (bypasses duck + shelf)
 //   foley reverb send → two private convolvers (engine IRs, crossfaded on zone change) → foley
 //
 // The duck lets silence events and silence zones pull the whole world down to near-silence
-// while the player's own footsteps and breathing stay. The shelf is the snow-absorption rule
-// (fresh snow eats everything above ~3 kHz outdoors).
+// while the player's own footsteps, breathing and the phone in their hand stay. The shelf is the
+// snow-absorption rule (fresh snow eats everything above ~3 kHz outdoors).
 
 const MIX = new WeakMap()
 
@@ -24,6 +25,8 @@ export function getMix(engine) {
   m.foley = ctx.createGain()
   m.foley.gain.value = (engine.volumes?.master ?? 0.9) * (engine.volumes?.sfx ?? 1)
   m.foleySend = ctx.createGain()
+  m.uiOut = ctx.createGain()
+  m.uiOut.gain.value = engine.volumes?.master ?? 0.9
   try {
     if (engine.master && engine.muffleFilter) {
       engine.master.disconnect()
@@ -32,6 +35,14 @@ export function getMix(engine) {
       m.shelf.connect(engine.muffleFilter)
       m.foley.connect(engine.muffleFilter)
       m.ok = true
+      // the phone in the player's hand is not part of the world: a silence event must not mute
+      // its key beeps, and the snow does not muffle it
+      if (engine.bus?.ui) {
+        engine.bus.ui.disconnect()
+        engine.bus.ui.connect(m.uiOut)
+        m.uiOut.connect(engine.muffleFilter)
+        m.uiBypass = true
+      }
     }
   } catch (e) {
     console.warn('[audio] mix insert failed', e)
@@ -80,10 +91,15 @@ export function updateMix(m) {
   if (!m) return
   const e = m.engine
   setFoleyReverb(m, e.reverbName || 'outdoor')
-  const vol = (e.volumes?.master ?? 0.9) * (e.volumes?.sfx ?? 1)
+  const master = e.volumes?.master ?? 0.9
+  const vol = master * (e.volumes?.sfx ?? 1)
   if (Math.abs(vol - m.foleyVol) > 1e-3) {
     m.foleyVol = vol
     m.foley.gain.setTargetAtTime(m.ok ? vol : 1, e.ctx.currentTime, 0.05)
+  }
+  if (m.uiBypass && Math.abs(master - (m.uiVol ?? -1)) > 1e-3) {
+    m.uiVol = master
+    m.uiOut.gain.setTargetAtTime(master, e.ctx.currentTime, 0.05)
   }
 }
 

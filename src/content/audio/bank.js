@@ -6,6 +6,8 @@
 
 import { RECIPES, renderRecipe } from './registry.js'
 import './recipes/index.js'
+// inlined like the engine's mesh worker, so the single-file build keeps its render worker
+import RenderWorker from './worker.js?worker&inline'
 
 const raw = new Map() // id → { sr, chs }
 const bufs = new Map() // id → AudioBuffer
@@ -26,7 +28,7 @@ function ensureWorker() {
   if (worker || workerFailed) return worker
   if (typeof Worker === 'undefined') { workerFailed = true; return null }
   try {
-    worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' })
+    worker = new RenderWorker()
     worker.onmessage = e => {
       const { id, sr, chs, ms, error } = e.data
       busy = Math.max(0, busy - 1)
@@ -64,7 +66,8 @@ function store(id, res) {
 
 function evict() {
   const t = now()
-  const cands = [...meta.entries()].filter(([, m]) => m.prio >= 2 && t - m.used > 45000).sort((a, b) => a[1].used - b[1].used)
+  // never a buffer that is playing right now (a TV loop can run for minutes after its last get)
+  const cands = [...meta.entries()].filter(([, m]) => m.prio >= 2 && !(m.refs > 0) && t - m.used > 45000).sort((a, b) => a[1].used - b[1].used)
   for (const [id, m] of cands) {
     if (stats.bytes <= CAP_BYTES * 0.85) break
     bufs.delete(id); raw.delete(id); meta.delete(id)
@@ -155,6 +158,14 @@ export const bank = {
     return toAudioBuffer(id, ctx)
   },
   has(key, v, p = null) { const id = idOf(key, v, p?.id); return bufs.has(id) || raw.has(id) },
+  /** Mark a buffer as playing (not evictable); returns the release function. */
+  retain(key, v, p = null) {
+    const m = meta.get(idOf(key, v, p?.id))
+    if (!m) return () => {}
+    m.refs = (m.refs || 0) + 1
+    let done = false
+    return () => { if (done) return; done = true; m.refs = Math.max(0, m.refs - 1); m.used = now() }
+  },
   /** Ask for a buffer; urgent requests jump the queue. Resolves when ready (or failed). */
   request(key, v = 0, urgent = false, p = null) {
     if (!RECIPES.has(key)) return Promise.resolve()

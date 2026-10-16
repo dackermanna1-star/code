@@ -111,11 +111,11 @@ def('step_slush', {
   },
 })
 
-function hardStep(d, sr, r, { thumpF = 120, thumpG = 0.7, gritG = 0.4, gritF = 4200, gritN = 14, click = null, scuff = 0.25, toeG = 0.5 }) {
+function hardStep(d, sr, r, { thumpF = 120, thumpG = 0.7, gritG = 0.4, gritF = 4200, gritN = 14, click = null, clickG = 0.7, scuff = 0.25, toeG = 0.5 }) {
   const heel = Math.floor(0.003 * sr)
   thump(d, sr, heel, { f: thumpF * r.range(0.9, 1.1), dur: 0.035, gain: thumpG, drop: 1.5, attack: 0.002 })
   addBurst(d, sr, heel, 0.012, r, { type: 'lp', f: 1800, gain: 0.35, tau: 0.004 })
-  if (click) addBurst(d, sr, heel, 0.015, r, { f: click * r.range(0.9, 1.1), q: 2.5, gain: 0.7, tau: 0.004 })
+  if (click) addBurst(d, sr, heel, 0.015, r, { f: click * r.range(0.9, 1.1), q: 2.5, gain: clickG, tau: 0.004 })
   grit(d, sr, heel, r, { dur: 0.04, count: gritN, f: gritF, gain: gritG })
   // scuff: short bandpass sweep of the sole sliding
   const toe = heel + Math.floor(r.range(0.07, 0.11) * sr)
@@ -129,7 +129,7 @@ function hardStep(d, sr, r, { thumpF = 120, thumpG = 0.7, gritG = 0.4, gritF = 4
     }
   }
   thump(d, sr, toe, { f: thumpF * 1.2, dur: 0.02, gain: thumpG * toeG })
-  if (click) addBurst(d, sr, toe, 0.01, r, { f: click * 1.1, q: 2.5, gain: 0.3 * toeG, tau: 0.003 })
+  if (click) addBurst(d, sr, toe, 0.01, r, { f: click * 1.1, q: 2.5, gain: clickG * 0.43 * toeG, tau: 0.003 })
   grit(d, sr, toe, r, { dur: 0.03, count: Math.floor(gritN / 2), f: gritF, gain: gritG * 0.6 })
   return toe
 }
@@ -138,7 +138,7 @@ def('step_concrete', {
   sr: SR, variants: 8, prio: 0, norm: { peak: 0.85 },
   gen(r, sr) {
     const d = buf(0.3, sr)
-    hardStep(d, sr, r, { thumpF: 120, thumpG: 0.75, gritG: 0.5, gritF: 4200, gritN: 16, click: 1600, scuff: 0.2 })
+    hardStep(d, sr, r, { thumpF: 120, thumpG: 0.42, gritG: 0.7, gritF: 4200, gritN: 18, click: 1600, clickG: 0.8, scuff: 0.22 })
     return filt(d, sr, [['peak', 600, 1.5, 2]])
   },
 })
@@ -146,7 +146,7 @@ def('step_asphalt', {
   sr: SR, variants: 8, prio: 0, norm: { peak: 0.85 },
   gen(r, sr) {
     const d = buf(0.3, sr)
-    hardStep(d, sr, r, { thumpF: 105, thumpG: 0.7, gritG: 0.65, gritF: 3600, gritN: 24, click: 1200, scuff: 0.3 })
+    hardStep(d, sr, r, { thumpF: 105, thumpG: 0.42, gritG: 0.9, gritF: 3600, gritN: 28, click: 1200, scuff: 0.32 })
     return filt(d, sr, [['lp', 7000, 0.7]])
   },
 })
@@ -154,8 +154,9 @@ def('step_tile', {
   sr: SR, variants: 8, prio: 0, norm: { peak: 0.85 },
   gen(r, sr, v) {
     const d = buf(0.3, sr)
-    const toe = hardStep(d, sr, r, { thumpF: 125, thumpG: 0.55, gritG: 0.6, gritF: 5000, gritN: 18, click: 2500, scuff: 0.12 })
-    addModes(d, sr, Math.floor(0.003 * sr), [[r.range(2300, 2700), 0.2, 0.012], [r.range(3600, 4200), 0.08, 0.008]], 1, r)
+    // hard, echoing click of a heel on 150×150 ceramic tile (the stairwell reverb does the rest)
+    const toe = hardStep(d, sr, r, { thumpF: 125, thumpG: 0.3, gritG: 0.7, gritF: 5000, gritN: 18, click: 2500, clickG: 1.0, scuff: 0.12 })
+    addModes(d, sr, Math.floor(0.003 * sr), [[r.range(2300, 2700), 0.32, 0.014], [r.range(3600, 4200), 0.12, 0.009]], 1, r)
     if (v % 3 === 0) squeak(d, sr, toe + Math.floor(0.01 * sr), r, { dur: 0.04, rate: 420, f: 4000, q: 20, gain: 0.2 })
     return d
   },
@@ -165,8 +166,8 @@ def('step_linoleum', {
   gen(r, sr, v) {
     const d = buf(0.3, sr)
     const heel = Math.floor(0.003 * sr)
-    thump(d, sr, heel, { f: r.range(90, 110), dur: 0.04, gain: 0.7 })
-    addBurst(d, sr, heel, 0.03, r, { type: 'lp', f: 1300, gain: 0.5, tau: 0.008 })
+    thump(d, sr, heel, { f: r.range(90, 110), dur: 0.04, gain: 0.42 })
+    addBurst(d, sr, heel, 0.03, r, { type: 'lp', f: 1300, gain: 0.6, tau: 0.008 })
     const toe = heel + Math.floor(r.range(0.08, 0.11) * sr)
     addBurst(d, sr, toe, 0.02, r, { type: 'lp', f: 1500, gain: 0.25, tau: 0.006 })
     if (v % 3 === 1) squeak(d, sr, toe, r, { dur: 0.035, rate: 380, f: r.range(1800, 2600), q: 14, gain: 0.18 })

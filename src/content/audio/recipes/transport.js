@@ -188,7 +188,7 @@ def('trolleybus_drive', {
 
 def('trolleybus_depart', {
   // at the stop: doors fold shut, line contactor, rheostat ratchet, whine rising as it pulls away
-  sr: 16000, variants: 1, prio: 0, norm: { peak: 0.9 },
+  sr: 16000, variants: 1, prio: 0, norm: { peak: 0.9 }, maxDur: 15.2,
   gen(r, sr) {
     const L = 15
     const d = buf(L, sr)
@@ -371,7 +371,7 @@ def('snowplow_pass', {
 // ---- distant traffic swell (for the ambience director) --------------------------------------------
 
 def('traffic_far', {
-  sr: 8000, variants: 3, prio: 3, norm: { peak: 0.85 },
+  sr: 8000, variants: 3, prio: 3, norm: { peak: 0.85 }, maxDur: 13.6,
   gen(r, sr, v) {
     const kmh = r.range(40, 70), speed = kmh / 3.6
     const tyre = tyres(sr, r, kmh, v === 2)

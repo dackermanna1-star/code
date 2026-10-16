@@ -385,3 +385,61 @@ def('water_pipe', {
 })
 
 export { smooth, noiseFill, distant }
+
+// ---- neighbours -----------------------------------------------------------------------------
+
+def('neighbour_drill', {
+  // a перфоратор somewhere in the building (allowed 9:00–21:00, and everybody knows it):
+  // rotary-hammer impacts at ~40–50 per second with the motor whine spinning up and down, in
+  // 2–4 bursts, carried through floors of reinforced concrete
+  sr: 11025, variants: 2, prio: 7, lazy: true, norm: { peak: 0.85 }, maxDur: 10.8,
+  gen(r, sr) {
+    const len = r.range(7, 10)
+    const d = buf(len + 0.6, sr)
+    const fImp = r.range(38, 50)
+    const fWhine = r.range(1050, 1350)
+    let t = r.range(0.1, 0.4)
+    while (t < len - 1) {
+      const L = Math.min(len - 0.4 - t, r.range(1.4, 4))
+      const n = Math.floor(L * fImp)
+      for (let k = 0; k < n; k++) {
+        const u = k / fImp
+        const env = Math.min(1, u / 0.15, (L - u) / 0.1) * r.range(0.8, 1)
+        const at = Math.floor((t + u + r.range(-0.002, 0.002)) * sr)
+        thump(d, sr, at, { f: r.range(90, 130), dur: 0.008, gain: 0.5 * env, drop: 1.3, attack: 0.0005 })
+        addBurst(d, sr, at, 0.004, r, { f: 900, q: 1, gain: 0.22 * env, tau: 0.0015 })
+      }
+      // the motor: a saw whine that spins up, holds, spins down
+      const o = new Osc(sr)
+      const i0 = Math.floor(t * sr), i1 = Math.min(d.length, Math.floor((t + L) * sr))
+      for (let i = i0; i < i1; i++) {
+        const spin = Math.min(1, (i - i0) / sr / 0.25) * Math.min(1, (i1 - i) / sr / 0.2)
+        d[i] += o.saw(fWhine * (0.6 + 0.4 * spin)) * 0.035 * spin
+      }
+      t += L + r.range(0.6, 2.2)
+    }
+    return filt(d, sr, [['lp', 1400, 0.7], ['peak', 120, 1.2, 6], ['peak', 260, 1.5, 3], ['hp', 50, 0.7]])
+  },
+})
+
+def('wind_rattle', {
+  // a loose sheet of roof tin / balcony cladding banging in a strong gust: clusters of hits on a
+  // thin metal plate (inharmonic plate modes), heard across a courtyard with its flutter echo
+  sr: 16000, variants: 4, prio: 6, norm: { peak: 0.85 }, maxDur: 4,
+  gen(r, sr) {
+    const len = r.range(1.0, 2.2)
+    const d = buf(len + 1.4, sr)
+    const base = r.range(150, 260)
+    // thin, loosely fixed tin: heavily damped modes (a rattle, not a bell)
+    const modes = [[base, 0.45, 0.07], [base * 2.31, 0.35, 0.055], [base * 3.93, 0.25, 0.04], [base * 6.17, 0.14, 0.03], [base * 9.1, 0.08, 0.02]]
+    let t = 0.02
+    for (let k = 0, n = r.int(3, 9); k < n && t < len; k++) {
+      const g = r.range(0.4, 1)
+      const at = Math.floor(t * sr)
+      addBurst(d, sr, at, 0.02, r, { f: r.range(500, 1600), q: 0.8, gain: g * 0.75, tau: 0.005 })
+      addModes(d, sr, at, modes.map(([f, a, dc]) => [f * r.range(0.97, 1.03), a * g, dc]), 0.5, r)
+      t += r.chance(0.6) ? r.range(0.05, 0.14) : r.range(0.2, 0.45) // flapping clusters
+    }
+    return distant(d, sr, 30)
+  },
+})

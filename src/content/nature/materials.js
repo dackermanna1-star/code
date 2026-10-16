@@ -55,7 +55,7 @@ export const MAT = {
   needles: def('nature_needles', { color: 0x27362c, surface: SURF.WOOD, variation: 1.5, solid: false }, 'needles'),
   needlesBlue: def('nature_needles_blue', { color: 0x4a5b5c, surface: SURF.WOOD, variation: 1.3, solid: false }, 'needles'),
   seeds: def('nature_seeds', { color: 0x6f5a45, surface: SURF.WOOD, variation: 1.4, solid: false }, 'twig'),
-  berryRed: def('nature_berry_red', { color: 0x8c2a21, surface: SURF.WOOD, variation: 1.2, solid: false }, 'twig'),
+  berryRed: def('nature_berry_red', { color: 0x7e2a22, surface: SURF.WOOD, variation: 1.2, solid: false }, 'twig'),
   berryWhite: def('nature_berry_white', { color: 0xd3d1c6, surface: SURF.WOOD, variation: 0.6, solid: false }, 'snow'),
   straw: def('nature_straw', { color: 0xa39a80, surface: SURF.WOOD, variation: 1.5, solid: false }, 'twig'),
   stalk: def('nature_stalk', { color: 0x67594a, surface: SURF.WOOD, variation: 1.4, solid: false }, 'twig'),

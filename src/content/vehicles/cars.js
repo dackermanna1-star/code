@@ -349,7 +349,7 @@ export function applySnow(m, variant, g, rng) {
   if (variant === '_s1') {
     snowCap(m, { mat: SF, maxD: 1, chance: 0.8, patchy: 0.35, profile: [1], rng, minY: 2, ledges: true })
   } else if (variant === '_s2') {
-    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, vary: 0.1, minY: 2, smooth: true, ledges: true })
+    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, vary: 0.03, minY: 2, smooth: true, ledges: true })
   } else if (variant === '_s3') {
     // drift: fill air around/below the body; deeper on the windward (left, x small) side
     for (let z = 0; z < m.sz; z++)
@@ -360,9 +360,9 @@ export function applySnow(m, variant, g, rng) {
         const h = Math.round((2 + side * side * (g.beltV - 3)) * endK + (n < 0.3 ? 1 : 0))
         for (let y = 0; y < h; y++) if (!m.get(x, y, z)) m.set(x, y, z, y < 2 && rng.next() < 0.2 ? SD : S)
       }
-    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, vary: 0.12, minY: 4, smooth: true, ledges: true })
+    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, vary: 0.05, minY: 4, smooth: true, ledges: true })
   } else if (variant === '_br') {
-    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, vary: 0.1, minY: 2, smooth: true, ledges: true })
+    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, vary: 0.03, minY: 2, smooth: true, ledges: true })
     // brushed windshield + rear half of the hood; the brushed snow piles up at the edges
     const zb0 = g.hoodEndV - 3, zb1 = g.wsTopV
     for (let z = zb0; z <= zb1; z++)
@@ -569,6 +569,8 @@ function vanInfo(type, s) {
     plateRear: [0, (s.uaz ? v(0.62) : v(0.36) + 2) * FV + FV / 2, (Lv / 2 - 1) * FV + 0.012],
     exhaust: [-(Wv / 2 - 3) * FV, 0.3, Lv / 2 * FV + 0.1],
     hood: [0, s.uaz ? 1.0 : 1.2, -Lv / 2 * FV + 0.6],
+    // marshrutka route card propped behind the windshield (just in front of the sloped glass)
+    boardFront: s.uaz ? null : [0.42, 1.36, -Lv / 2 * FV + 1.04],
   }
 }
 

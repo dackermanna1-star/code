@@ -102,7 +102,7 @@ defineModel('pub_garage_interior', () => {
   // shelves on the left wall
   for (let z = 6; z <= 22; z += 8) for (let y = 1; y <= 8; y++) m.set(1, y, z, M('wood_dark'))
   for (const y of [2, 5, 8]) m.fill(1, y, 6, 2, 1, 17, M('wood'))
-  for (const y of [3, 6]) for (let z = 6; z <= 22; z++) if (rng.chance(0.55)) m.set(1, y, z, M(rng.pick(['glass_clear', 'glass_clear', 'metal_red', 'chrome', 'pub_cardboard', 'metal_yellow'])))
+  for (const y of [3, 6]) for (let z = 6; z <= 22; z++) if (rng.chance(0.55)) m.set(1, y, z, M(rng.pick(['pub_glass_goods', 'pub_glass_goods', 'metal_red', 'chrome', 'pub_cardboard', 'metal_yellow'])))
   // tyres stacked at the back right
   for (let k = 0; k < 4; k++) m.fill(10, 1 + k, 22, 2, 1, 3, M('rubber'))
   // workbench with a vice at the back
@@ -169,7 +169,7 @@ export function placeGarageRow(ctx, o) {
       light(ctx, F, cx, 2.2, front + 0.6, { type: 'spot', dir: [0, -0.7, -1], cone: 60, inner: 30, color: 0xffd49a, intensity: 4.5, range: 12, halo: false, scatter: 0.5 })
       addEmitter({ name: 'radio_distant', pos: F.p(cx, 1.4, 1.5), gain: 0.22, radius: 26, refDistance: 1.5, cutoff: 3000 })
       // tyre tracks out of the open garage, cleared snow
-      paint(ctx, F, cx - 1.2, front - 8, cx + 1.4, front, M('snow_dirty'))
+      for (const sx of [-0.7, 0.75]) paint(ctx, F, cx + sx - 0.2, front - 7.5, cx + sx + 0.2, front, M('snow_dirty'))
       reg(ctx, 'storySpots', { kind: 'open_garage', x: F.wx(cx, front - 1), z: F.wz(cx, front - 1) })
       zone(ctx, F, cx - UNIT_W / 2 + 0.25, 0.1, front + 0.25, cx + UNIT_W / 2 - 0.25, 2.6, UNIT_D / 2 - 0.25, {
         name: 'garage', type: 'room', indoor: false, reverb: 'room', wind: 0.3, traffic: 0.5, snow: false, priority: 1,

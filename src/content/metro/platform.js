@@ -83,7 +83,7 @@ function hallSection(variant) {
   const ceilAt = (i, j, k) => {
     const z = b.wz(k)
     const n = h3(i, j, k, 3)
-    if (z < PLAT.edgeN || z > PLAT.edgeS) return n > 0.88 ? MAT.concreteDark : MAT.concrete // sooty over the tracks
+    if (z < PLAT.edgeN || z > PLAT.edgeS) return n > 0.975 ? MAT.concreteDark : MAT.concrete // sooty over the tracks
     return n > 0.93 ? MAT.concreteLight : MAT.whitewash
   }
   b.skin(0, -18, 530.5, 20, -11.75, 549.5, { floor: floorAt, wall: wallAt, ceil: ceilAt })
@@ -334,9 +334,9 @@ export function buildPlatform(ctx, out) {
 
   // ---- zones
   zones.add({ name: 'metro_platform', type: 'metro', min: [LOWER.x0, -18, PLAT.wallN], max: [PLAT.x1 + 1, -11.5, PLAT.wallS], indoor: true,
-    reverb: 'metro', snow: false, wind: 0.08, traffic: 0, priority: 1, exposure: 0.8, data: { pkg: 'metro' } })
+    reverb: 'metro', snow: false, wind: 0.08, traffic: 0, priority: 1, exposure: 1.2, data: { pkg: 'metro' } })
   for (const [x0, x1] of [TUNNEL.west, TUNNEL.east]) {
-    zones.add({ name: 'metro_tunnel', type: 'tunnel', min: [x0, -18, 530.5], max: [x1, -12, 549.5], indoor: true, reverb: 'tunnel', snow: false, wind: 0.2, traffic: 0, priority: 0, data: { pkg: 'metro' } })
+    zones.add({ name: 'metro_tunnel', type: 'tunnel', min: [x0, -18, 530.5], max: [x1, -12, 549.5], indoor: true, reverb: 'tunnel', snow: false, wind: 0.2, traffic: 0, priority: 0, exposure: 1.2, data: { pkg: 'metro' } })
   }
   ctx.navPaths.push({ points: [[437, 540], [544, 540]], kind: 'platform', y: P0 })
 }

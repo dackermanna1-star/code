@@ -53,9 +53,10 @@ export function buildTest(ctx) {
   addCrows(ctx, { perch: 'ground', x: 236, z: 431, count: 3, seed: 4, scareRadius: 2 })
   addCrows(ctx, { perch: 'tree', tree: trees.poplar6 || trees.poplar4, count: 3, seed: 9 })
   addBag(ctx, { tree: trees.birch1, seed: 3 })
+  addCrows(ctx, { perch: 'ground', x: 272, z: 452, count: 4, seed: 12 })
   const gy = ctx.terrain.heightAt(241, 433)
   addCrows(ctx, { points: [[241, gy, 433], [242, gy, 433.4], [240.2, gy, 433.6]], count: 3, seed: 2, scareRadius: 0.5, perch: 'ground' })
-  for (const [x, z] of [[214, 431], [246, 431], [278, 431], [240, 451]]) {
+  for (const [x, z] of [[214, 431], [246, 431], [278, 431], [240, 451], [253, 411]]) {
     L.add({ x, y: 9, z, color: 0xffa040, intensity: 55, range: 24, type: 'spot', dir: [0, -1, 0], cone: 58, inner: 28, schedule: 'street' })
   }
 }

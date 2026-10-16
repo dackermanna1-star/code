@@ -263,9 +263,10 @@ function buildKamaz(variant) {
     for (let y = 1; y < v(1.15); y++) {
       const curve = y > v(0.8) ? -1 : y < v(0.3) ? 1 : 0 // concave moldboard: lip and top roll forward
       const z = zf + 1 + curve + (y > v(0.95) ? -1 : 0)
-      const stripe = ((x + y * 0.8) % 8) < 3.5
+      const stripe = ((x + y + 40) % 10) < 3
       m.set(x, y, Math.max(0, z), stripe ? MD : O)
-      m.set(x, y, Math.max(0, z) + 1, MD)
+      m.set(x, y, Math.max(0, z) + 1, O)
+      m.set(x, y, Math.max(0, z) + 2, MD)
     }
     m.set(x, 0, zf + 2, MD) // cutting edge
   }
@@ -321,7 +322,7 @@ function buildKamaz(variant) {
   }
   speckle(m, rng, O, M('metal_rust'), 0.03, v(1.6))
   grime(m, rng, [O], v(1.4), 0.45)
-  snowCap(m, { mat: M('snow_dirty'), maxD: 1, chance: 0.5, profile: [1], rng, minY: v(2.6) })
+  snowCap(m, { mat: M('snow'), maxD: 1, chance: 0.55, patchy: 0.3, profile: [1], rng, minY: v(2.9) })
   return m
 }
 

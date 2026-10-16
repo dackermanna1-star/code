@@ -257,6 +257,7 @@ All of these are guarded: they play only when `audio.ready` and the sound is reg
   `node tools/shot.mjs --query "shot=1&only=base,life&lifetest=1&x=330&z=425.8&yaw=0&pitch=-0.22&t=17:30&weather=light&timescale=0&frames=6"`
   - It shows a wall with a door, a cat vent, a leaning sled and butts; two benches with mittens, bread and a frozen bag; a key, a ticket, a glove post, a snowman, a bicycle, a yolka and a second sled; a line-up of all people types at z 437.5 (look south from z 431); the stray standing about; and a loop of nav paths.
   - Two dev URL switches work in any scene, not only the test one: `&lifewalk=1` puts two walkers in view at once (one comes out of a door within 40 m if there is one), and `&lifedog=1` calls the stray at once.
+  - `&lifeprops=1` puts story props (`placeStoryAtEntrance`) beside the residential entrances within 70 m of the URL `x,z`.
   - Example with real buildings: `--query "shot=1&only=base,residential,life&resdemo=1&lifewalk=1&x=284&z=364&yaw=0.05&t=17:20&weather=light&timescale=0&frames=12"`.
 - **Studio for fine models** (the stock viewer cannot frame them):
   `--query "shot=1&only=base,life&lifetest=1&studio=life_man_coat_0,life_man_coat_1&sview=0..4&sdist=0.5&sface=1.5708&stint=2a3040&slamp=1&t=21:00&weather=still&timescale=0&frames=6"`

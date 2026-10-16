@@ -111,10 +111,10 @@ function buildCar(head, doorSide) {
   // grab poles at the door edges and the overhead rails
   for (const c of doors) for (const x of [c - 1.0, c + 0.75]) for (const z of [-0.5, 0.25]) b.fill(x, FLOOR, z, x + V, ROOF, z + V, MAT.chrome)
   for (const z of [-0.875, 0.625]) b.fill(-HL + 0.5, 2.75, z, cabX - 0.5, 3.0, z + V, MAT.chrome)
-  return m
+  return b.pivot(0, 0, 0)
 }
 
-const CAR_OPTS = { indoor: true, contact: false, dynamic: true, lods: [1, 2], lodDistances: [70], maxDistance: 260 }
+const CAR_OPTS = { indoor: true, contact: false, dynamic: true, lods: [1], maxDistance: 260 }
 defineModel('metro_car_head_a', () => buildCar(true, 1), CAR_OPTS)
 defineModel('metro_car_head_b', () => buildCar(true, -1), CAR_OPTS)
 defineModel('metro_car_mid', () => buildCar(false, 1), CAR_OPTS)
@@ -167,7 +167,7 @@ export class Train {
     }
     this.headlamps = world.place('metro_car_headlamps', { x: 0, y: -60, z: 0, dynamic: true, visible: false, collide: false, tag: 'metro_car', userData: ud })
     this.markers = world.place('metro_car_markers', { x: 0, y: -60, z: 0, dynamic: true, visible: false, collide: false, tag: 'metro_car', userData: ud })
-    this.lightsIn = [0, 1].map(() => lights.add({ x: 0, y: -60, z: 0, color: 0xeef3ee, intensity: 1.5, range: 13, domain: 'indoor', halo: false, enabled: false, tag: 'metro_train' }))
+    this.lightsIn = Array.from({ length: CAR.n }, () => lights.add({ x: 0, y: -60, z: 0, color: 0xeef3ee, intensity: 0.75, range: 9, domain: 'indoor', halo: false, enabled: false, tag: 'metro_train' }))
     this.headLight = lights.add({ x: 0, y: -60, z: 0, color: 0xffd08a, intensity: 7, range: 34, type: 'spot', dir: [1, -0.05, 0], cone: 22, inner: 10, domain: 'indoor', halo: true, haloSize: 0.6, scatter: 0.8, enabled: false, tag: 'metro_train' })
     this.track = 'N'
     this.dir = 1
@@ -247,8 +247,7 @@ export class Train {
     this.headlamps.set(front, y + 1.25, z, this.dir > 0 ? 0 : Math.PI)
     this.markers.set(rear, y + 1.25, z, this.dir > 0 ? Math.PI : 0)
     // lights
-    this.lightsIn[0].pos.set(this.carX(1), y + 2.9, z)
-    this.lightsIn[1].pos.set(this.carX(3), y + 2.9, z)
+    this.lightsIn.forEach((l, i) => l.pos.set(this.carX(i), y + 2.85, z))
     this.headLight.pos.set(this.head + this.dir * 0.6, y + 1.4, z)
     this.headLight.dir.set(this.dir, -0.06, 0).normalize()
     for (const r of this.riders) r.person.place(this.carX(r.car) + r.dx, y + FLOOR, z + r.dz, r.angle)

@@ -332,7 +332,7 @@ export function fineScale(m, scale = 0.5, thinMin, snowMin) {
   m.downsample = function (f, minFill, lodRemap) {
     const k = Math.round(f / scale)
     if (k <= 1) return this
-    const tm = typeof thinMin === 'function' ? thinMin(k) : thinMin ?? (k <= 2 ? 3 : 10)
+    const tm = typeof thinMin === 'function' ? thinMin(k) : thinMin ?? (k <= 2 ? 4 : 10)
     const sm = typeof snowMin === 'function' ? snowMin(k) : snowMin ?? (k <= 2 ? 3 : 12)
     return thinDownsample(this, k, lodRemap, tm, sm)
   }

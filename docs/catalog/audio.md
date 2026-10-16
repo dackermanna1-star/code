@@ -1,7 +1,7 @@
 # audio — catalog
 
 Every sound in the game is synthesized: no audio files. The package has three parts:
-- **Named sounds** (91 of them) are registered with `ctx.audio` at build time. Most are pre-rendered by pure-JS DSP in a **Web Worker**, then played as `AudioBufferSourceNode → Gain` voices.
+- **Named sounds** (93 of them) are registered with `ctx.audio` at build time. Most are pre-rendered by pure-JS DSP in a **Web Worker**, then played as `AudioBufferSourceNode → Gain` voices.
 - **Footsteps** are synthesized per surface class.
 - The **ambience director** is an `AudioEngine` controller. It runs the beds, far-away one-shots, silence events and sparse ambient music.
 
@@ -29,9 +29,11 @@ Always guard with `ctx.audio.ready`. The audio context starts on the first click
 
 Sounds that are not rendered yet start asynchronously, about 0.1–0.4 s late. This happens only for rare or long sounds; interactive ones are pre-rendered during loading.
 
-Distances are in metres. Levels are relative: footsteps peak around −18 dBFS, a door slam near you around −6 dBFS, and the outdoor beds sit around −40 dBFS RMS.
+Distances are in metres. Levels are relative: footsteps peak around −14 to −22 dBFS (loudness-matched across surfaces), a door slam near you around −6 dBFS, and the outdoor beds sit around −40 dBFS RMS. The beds are mostly low frequency, so on the A-weighted scale they sit about 14 dB under a snow footstep in a courtyard.
 
 ### UI / phone (bus `ui`, non-spatial, no reverb)
+
+The `ui` bus is the phone in the player's hand, so it **bypasses the silence duck and the snow shelf**: key beeps and an SMS stay audible during a silence event. Do not use `bus: 'ui'` for sounds that are part of the world.
 
 All of these accept `muffled: true`, which applies a 1.1 kHz lowpass at −3 dB for a phone still in the pocket.
 
@@ -70,6 +72,7 @@ The phone package registers its own `phone_beep`, `phone_gsm`, `phone_pocket` an
 | `radiator_knock` | (ambience) neighbour tapping the riser with a key, 3–5 ringing hits | `kind:'tick'` gives thermal expansion ticks |
 | `water_pipe` | *loop* (ambience), riser rush with air gurgles, through a wall | — |
 | `stamp_snow` | (extra) 2–3 heavy stamps knocking snow off boots | — |
+| `neighbour_drill` | (extra, bus ambience, refDistance 4) a перфоратор somewhere in the building: rotary-hammer impacts and motor whine in 2–4 bursts, through concrete floors, 7–10 s. The director plays it rarely in stairwells, 9:00–21:00 | — |
 
 ### Ambient emitters (loops, bus `ambience`; place them at the source)
 
@@ -126,6 +129,7 @@ Each loop starts at a random offset with a short fade-in, so two copies never ph
 | `ice_crack` | crust or puddle crack, or a frozen-pond dispersive «пиу» | 5 m |
 | `breath` | a single soft exhale (normally played by the director on its own foley path) | — |
 | `drip` | (extra) water drop into a puddle | 2 m |
+| `wind_rattle` | (extra) a loose sheet of roof tin or balcony cladding banging in a strong gust, across a courtyard. The director plays it high on the blocks in strong gusts only | 10 m |
 | `kids_sledding` | (extra) kids on the hill: «А-а-а!», «Мама, смотри!», plastic sled scrape, far away | 20 m |
 | `snowplow_pass` | (extra) KAMAZ diesel with the blade scraping asphalt | 8 m |
 | `traffic_far` | (extra) a distant pass-by on wet asphalt (used by the director) | 40 m |
@@ -142,7 +146,7 @@ Without `loop`, the `*_pass` sounds are about 6–11 s fire-and-forget pass-bys 
 
 ### Single footsteps for NPCs
 
-`step_snow`, `step_snow_packed`, `step_ice`, `step_slush`, `step_concrete`, `step_asphalt`, `step_tile`, `step_linoleum`, `step_wood`, `step_gravel`, `step_carpet`, `step_metal`, `step_metal_grate` are positional one-shots with refDistance 2. Or use `playStep()` below.
+`step_snow`, `step_snow_packed`, `step_ice`, `step_slush`, `step_concrete`, `step_asphalt`, `step_tile`, `step_linoleum`, `step_wood`, `step_gravel`, `step_carpet`, `step_metal`, `step_metal_grate` are positional one-shots with refDistance 2. Or use `playStep()` below. They use the same loudness-matched levels as the player's steps (`STEP_DB` in `sounds.js`), 2 dB up.
 
 ## The player's footsteps
 
@@ -151,14 +155,16 @@ Without `loop`, the `*_pass` sounds are about 6–11 s fire-and-forget pass-bys 
 - SNOW_PACKED: dominant «скрип» squeak bursts.
 - ICE: hard click with a 2 kHz ring; sometimes a thin-ice crack.
 - SLUSH: wet splat, squelch chirps from 900 to 300 Hz, suction.
-- CONCRETE / ASPHALT: rubber thump and grit crackle.
+- CONCRETE / ASPHALT: rubber sole click and grit/salt crackle over a light thump.
 - METAL: modal clang at 310/742/1290/2110 Hz plus rattle.
-- TILE: sharp click; sometimes a wet squeak.
+- TILE: hard 2.5 kHz heel click with a short ceramic ring; sometimes a wet squeak.
 - WOOD: hollow body modes.
 - LINOLEUM: soft, sometimes squeaky.
 - GRAVEL: coarse crunch.
 - CARPET: muffled.
 - METAL_GRATE: rattly multi-impact.
+
+**Levels are matched by A-weighted loudness, not peak** (`STEP_DB` in `sounds.js`). A hard-floor step's peak is its heel thump, but the ear hears the click and grit. Fresh snow is the reference: tile and concrete stairwells sit level with it or slightly above, linoleum is softer, carpet is quiet, and metal stairs are the loudest.
 
 Variation per step:
 - alternating feet (±0.07 pan, ±0.7 dB)
@@ -191,15 +197,19 @@ Steps play non-spatially on the **foley path**, which keeps its own zone reverb 
 - a train horn from the railway to the north
 - someone unseen walking away behind you: rare, at night
 - a radio fragment from an open форточка: very rare
-- underground: other trains rumbling below y −8; drips in `underpass` zones; faint metro rumble through manholes near the avenue
-- stairwells: radiator knocks, the garbage chute, a door far below, an elevator running somewhere
+- underground: other trains rumbling below y −8; one fixed leak dripping at an almost regular rhythm in `underpass` zones; faint metro rumble through manholes near the avenue
+- distant metro announcements drifting up into the vestibule or underpass when `registry.metro.platform` exists, about every 3 min (metro speaks on the platform itself)
+- stairwells, about every 45 s by day and 90 s at night: mostly a door slamming far below (or upstairs when you are low) and a lift running somewhere, with some radiator knocks and the chute. Residential adds its own knocks
+- a neighbour's перфоратор in stairwells or flats, 9:00–21:00, rare (about every 7 min)
+- strong gusts near buildings (steady or heavy weather): loose tin rattling high on the blocks
 
 **Silence events:** every 8–20 min, with none in the first 8–15 min and never during music or underground.
 - Everything except your footsteps fades over ~8 s to near-silence (−29 dB duck; the wind stops) for 20–60 s.
 - While you stand still you hear a soft breath every 4–6 s.
 - The world then returns over ~15 s.
 - An interaction (`events 'interact'`) ends the silence early.
-- Zones with `silence: true` are always nearly silent: −20 dB duck, no wind, breathing when still.
+- Zones with `silence: true` are always nearly silent. The beds drop by about 28 dB and the wind stops. Everything else in the world is ducked by −12 dB, so a door the player opens there is still heard, as if through cotton wool. You hear a breath when you stand still.
+- Your footsteps, your breath and the phone (`ui` bus) are never ducked.
 
 **Music** (bus `music`): the first piece comes after 4–7 min, then one every 6–15 min after the previous ends. Each piece is 65–175 s and generated from a seed:
 - soft drone and detuned saw pads with tape wobble and flutter
@@ -234,15 +244,16 @@ import { playAt, playStep, playRadioFragment, playSpeech, preload, requestSilenc
 - `ctx.registry.audio = { sounds, director, playAt, playStep, playRadioFragment, playSpeech, preload, requestSilence, isSilent }`.
 - `game.state.audioSilence` (bool) is true while a silence event or a silence zone mutes the world.
 - `engine.bus.foley` is added: a bus that bypasses the silence duck. Use it only for sounds that must stay audible in silence.
+- `engine.bus.ui` is rerouted around the duck and the snow shelf, through its own master-volume gain. It is the phone in the player's hand.
 - `window.__audioDirector` is the director instance (debug).
 
-**Reads:** `game.zone` (reverb, indoor, wind, traffic, silence), `game.atmos` (minutes, cur.snow, windSpeed, gust, windDir), `game.player` (pos, yaw, idleTime), `game.world.raycast`, `registry.manholes` (optional `[{x,z}]`), and the `'interact'` event.
+**Reads:** `game.zone` (reverb, indoor, wind, traffic, silence), `game.atmos` (minutes, cur.snow, windSpeed, gust, windDir), `game.player` (pos, yaw, idleTime), `game.world.raycast`, `registry.manholes` (optional `[{x,z}]`), `registry.metro.platform` (optional, for distant announcements), and the `'interact'` event.
 
 **Dev URL parameter:** `?audio=silence` or `?audio=music` forces a silence event or a music piece about 3 s into play.
 
 ## Sounds the package calls itself
 
-From the director: `dog_bark`, `crow_caw`, `crows_takeoff`, `car_alarm`, `distant_door_slam`, `snow_shovel`, `kids_sledding`, `traffic_far`, `train_horn`, `footsteps_phantom`, `radio_distant` (fragment), `metro_rumble`, `drip`, `radiator_knock`, `garbage_chute`, `door_metal_slam`, `elevator_motor`, `elevator_stop`. The footsteps call `step_*` and `step_wet_squeak`, and the breath calls `breath`.
+From the director: `dog_bark`, `crow_caw`, `crows_takeoff`, `car_alarm`, `distant_door_slam`, `snow_shovel`, `kids_sledding`, `traffic_far`, `train_horn`, `footsteps_phantom`, `radio_distant` (fragment), `metro_rumble`, `drip`, `radiator_knock`, `garbage_chute`, `door_metal_slam`, `elevator_motor`, `elevator_stop`, `announcement` (distant, from the platform), `neighbour_drill`, `wind_rattle`. The footsteps call `step_*` and `step_wet_squeak`, and the breath calls `breath`.
 
 ## Notes for layout and other agents
 
@@ -267,17 +278,19 @@ From the director: `dog_bark`, `crow_caw`, `crows_takeoff`, `car_alarm`, `distan
 - **Vehicles:** for a vehicle you move, use `play('car_pass'|'bus_pass'|'trolleybus_pass', { pos, loop: true, speed })`, `setPosition` each frame, `setRate(sqrt(kmh/50))`, and `stop()` on despawn. Use `trolleybus_depart` once at the spawn stop.
 - **Metro:** the usual sequence is `metro_train_arrive`, then `metro_doors` about 15 s later, then `metro_train_depart`. During the ride, play `metro_rumble` with `loop:true`, and `metro_station_announce` (with `terminus:true` on the impossible return to «Заречная»).
 - **Memory and CPU:**
-  - Buffers are rendered in a worker: about 24 MB at load (interactive sounds), more tiers after 8 s and 45 s, capped near 48 MB with LRU eviction.
+  - Buffers are rendered in a worker (inlined with `?worker&inline`, so the single-file build keeps it): about 24 MB at load (interactive sounds), more tiers after 8 s and 45 s, capped near 48 MB with LRU eviction. A buffer that is still playing (a TV loop running for minutes) is never evicted.
+  - `playSpeech()` renders each new text once (about 0.1–0.3 s in the worker), caches it, and stops its emitter from the real rendered length.
   - Each playing sound is about 5–6 nodes; the director's beds are about 30 persistent nodes.
   - Steady state is 4 convolvers: the engine's 2 and 2 for the foley path, and the faded one is released after a crossfade.
 
 ## Testing
 
 ```
-node tools/audio-check.mjs                 # renders every sound offline: NaN / silence / clipping / clicks / DC / loop seams / levels
+node tools/audio-check.mjs                 # renders every sound offline: NaN / silence / clipping / clicks / DC / loop seams / levels (st = short-term max, stA = A-weighted)
 node tools/audio-check.mjs --spectro dog_bark,metro_doors     # spectrogram PNGs → tools/out/audio/
 node tools/audio-check.mjs --steps         # footstep series per surface (+ PNGs)
 node tools/audio-check.mjs --music 3       # three ambient pieces offline (+ PNGs)
 node tools/audio-check.mjs --live --seconds 30 --t 21:30 [--force silence|music] [--step snow]
-                                           # the real game (only=base,audio): master-output levels + director state per second
+                                           # the real game (only=base,audio): master-output levels (rms and A-weighted rmsA) + director state per second
+       [--at x,z] [--zone stairwell|underpass|metro|silence|shop] [--fire] [--onlypk base,audio,…]
 ```

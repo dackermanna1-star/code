@@ -65,6 +65,19 @@ try {
       a.comp.connect(an)
       window.__an = an
       window.__buf = new Float32Array(an.fftSize)
+      // A-weighted tap (perceived loudness)
+      const AW = {
+        48000: [[0.234301792299513, -0.468603584599026, -0.234301792299513, 0.937207168598053, -0.234301792299513, -0.468603584599026, 0.234301792299513],
+          [1, -4.113043408775871, 6.553121752655047, -4.990849294163381, 1.785737302937573, -0.246190595319487, 0.011224250033231]],
+        44100: [[0.255741125204258, -0.511482250408516, -0.255741125204258, 1.022964500817033, -0.255741125204258, -0.511482250408516, 0.255741125204258],
+          [1, -4.019576181115832, 6.189406442920693, -4.453198903544116, 1.420842949621876, -0.141825473830305, 0.004351177233495]],
+      }
+      const [b, aa] = AW[a.ctx.sampleRate] || AW[48000]
+      const iir = a.ctx.createIIRFilter(b, aa)
+      const anA = a.ctx.createAnalyser()
+      anA.fftSize = 8192
+      a.comp.connect(iir); iir.connect(anA)
+      window.__anA = anA
     })
     if (opt.zone) {
       // wrap the player in a test zone: --zone stairwell | underpass | metro | silence | shop
@@ -97,12 +110,15 @@ try {
         an.getFloatTimeDomainData(b)
         let p = 0, sum = 0
         for (let i = 0; i < b.length; i++) { p = Math.max(p, Math.abs(b[i])); sum += b[i] * b[i] }
+        window.__anA.getFloatTimeDomainData(b)
+        let sumA = 0
+        for (let i = 0; i < b.length; i++) sumA += b[i] * b[i]
         const d = window.__audioDirector
         if (window.__stepSurface !== undefined && d) a.footstep(window.__stepSurface, { speed: 1.4, side: 1, zone: window.game.zone })
-        return { state: a.ctx.state, time: a.ctx.currentTime.toFixed(1), peak: (20 * Math.log10(p + 1e-9)).toFixed(1), rms: (20 * Math.log10(Math.sqrt(sum / b.length) + 1e-9)).toFixed(1), stats: d ? d.stats() : null }
+        return { state: a.ctx.state, time: a.ctx.currentTime.toFixed(1), peak: (20 * Math.log10(p + 1e-9)).toFixed(1), rms: (20 * Math.log10(Math.sqrt(sum / b.length) + 1e-9)).toFixed(1), rmsA: (20 * Math.log10(Math.sqrt(sumA / b.length) + 1e-9)).toFixed(1), stats: d ? d.stats() : null }
       })
       const d = st.stats
-      rows.push(`${String(s + 1).padStart(3)}s g${d?.time ?? "-"} ctx ${st.state} t=${st.time} out peak ${st.peak} rms ${st.rms} | ${d ? `sil ${d.silence.state} music ${d.music.playing} emit ${d.emitters} beds ${JSON.stringify(d.beds)} bank w${d.bank.worker}/s${d.bank.sync} pend ${d.bank.pending} ${(d.bank.bytes / 1e6).toFixed(1)}MB` : 'no director'}`)
+      rows.push(`${String(s + 1).padStart(3)}s g${d?.time ?? "-"} ctx ${st.state} t=${st.time} out peak ${st.peak} rms ${st.rms} rmsA ${st.rmsA} | ${d ? `sil ${d.silence.state} music ${d.music.playing} emit ${d.emitters} beds ${JSON.stringify(d.beds)} bank w${d.bank.worker}/s${d.bank.sync} pend ${d.bank.pending} ${(d.bank.bytes / 1e6).toFixed(1)}MB` : 'no director'}`)
       if (opt.verbose && d) rows.push('     events: ' + d.events.join(' | '))
     }
     console.log(rows.join('\n'))
@@ -118,7 +134,7 @@ try {
       for (const s of ['snow', 'snow_packed', 'ice', 'slush', 'concrete', 'asphalt', 'metal', 'tile', 'wood', 'linoleum', 'gravel', 'carpet', 'metal_grate']) {
         const r = await page.evaluate(([s, v]) => window.__audio.steps(s, v), [s, +(opt.speed ?? 1.38)])
         const f = savePng('steps_' + s, r.png)
-        console.log(`steps ${s.padEnd(12)} peak ${r.peakDb} st ${r.stDb} nan ${r.nan} clicks ${r.clicks} → ${path.relative(root, f)}`)
+        console.log(`steps ${s.padEnd(12)} peak ${r.peakDb} st ${r.stDb} stA ${r.stA} nan ${r.nan} clicks ${r.clicks} → ${path.relative(root, f)}`)
       }
     } else if (opt.music) {
       const n = +opt.music || 1
@@ -126,7 +142,7 @@ try {
         const seed = 2008 + k * 7919
         const r = await page.evaluate(([seed, s]) => window.__audio.music(seed, s), [seed, +(opt.seconds ?? 80)])
         const f = savePng('music_' + seed, r.png)
-        console.log(`music ${seed} peak ${r.peakDb} rms ${r.rmsDb} st ${r.stDb} nan ${r.nan} clicks ${r.clicks} → ${path.relative(root, f)}`)
+        console.log(`music ${seed} build ${r.buildMs} ms peak ${r.peakDb} rms ${r.rmsDb} st ${r.stDb} stA ${r.stA} nan ${r.nan} clicks ${r.clicks} → ${path.relative(root, f)}`)
       }
     } else if (opt.spectro) {
       for (const spec of String(opt.spectro).split(',')) {
@@ -149,7 +165,7 @@ try {
         if (Math.abs(r.dc) > 0.01) flags.push('DC')
         if (r.stDb > -6) flags.push('LOUD')
         if (flags.some(f => f === 'NaN' || f === 'SILENT' || f === 'CLIP')) failed = true
-        rows.push(`${name.padEnd(26)} ${r.loop ? 'loop' : 'once'} ${String(r.duration?.toFixed?.(1) ?? '-').padStart(5)}s act ${String(r.active).padStart(6)}s peak ${String(r.peakDb).padStart(6)} st ${String(r.stDb).padStart(6)} rms ${String(r.rmsDb).padStart(6)}  ${flags.join(' ')}`)
+        rows.push(`${name.padEnd(26)} ${r.loop ? 'loop' : 'once'} ${String(r.duration?.toFixed?.(1) ?? '-').padStart(5)}s act ${String(r.active).padStart(6)}s peak ${String(r.peakDb).padStart(6)} st ${String(r.stDb).padStart(6)} stA ${String(r.stA).padStart(6)} rms ${String(r.rmsDb).padStart(6)}  ${flags.join(' ')}`)
       }
       console.log(rows.join('\n'))
       if (!opt.only) {

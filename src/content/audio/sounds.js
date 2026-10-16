@@ -28,7 +28,8 @@ function pickVariant(key) {
 /**
  * Buffer voice: plays bank buffer (key, v). Starts immediately when the buffer is ready;
  * otherwise renders it synchronously (sync=true) or starts as soon as the worker delivers it.
- * o: { loop, rate, gain, offset, delay, sync, maxLate, stopAfter, fadeIn, fadeOut, params }
+ * o: { loop, rate, gain, offset, delay, sync, maxLate, stopAfter, fadeIn, fadeOut, params,
+ *      onBegin(buffer|null, startTime) — called when playback starts, or with null if it never will }
  */
 export function bufferVoice(engine, key, v, o = {}) {
   const ctx = engine.ctx
@@ -46,9 +47,10 @@ export function bufferVoice(engine, key, v, o = {}) {
   const spec = bank.spec(key)
   const loop = !!o.loop
   const begin = buffer => {
-    if (stopped || !buffer) return
+    if (stopped) return
     const now = ctx.currentTime
-    if (!loop && now - t0 > (o.maxLate ?? 4)) return // too late to be meaningful
+    // missing (render failed) or too late to be meaningful: never starts
+    if (!buffer || (!loop && now - t0 > (o.maxLate ?? 4))) { try { o.onBegin?.(null) } catch { /* ignore */ } return }
     src = ctx.createBufferSource()
     src.buffer = buffer
     src.loop = loop
@@ -68,7 +70,10 @@ export function bufferVoice(engine, key, v, o = {}) {
       out.gain.linearRampToValueAtTime(0, end)
       src.stop(end + 0.02)
     }
-    src.onended = () => { try { src.disconnect() } catch { /* ignore */ } }
+    const release = bank.retain(key, v, o.params)
+    const me = src
+    me.onended = () => { release(); try { me.disconnect() } catch { /* ignore */ } }
+    try { o.onBegin?.(buffer, start) } catch { /* ignore */ }
   }
   out.gain.value = 0
   const ready = bank.has(key, v, o.params)
@@ -205,14 +210,27 @@ one('kids_sledding', -6, { ...FAR, refDistance: 20 })
 one('snowplow_pass', -3, VEHICLE)
 one('traffic_far', -4, { ...FAR, refDistance: 40, reverb: 0.3 }, { rate: [0.95, 1.05] })
 one('stamp_snow', -10, NEAR)
+one('neighbour_drill', -12, { ...MACHINE, refDistance: 4 }, { rate: [0.95, 1.05] })
+one('wind_rattle', -8, { ...FAR, refDistance: 10 }, { rate: [0.9, 1.1] })
 one('metro_station_announce_terminus', -4, { ...NEAR, refDistance: 6, reverb: 0.5 }, { key: 'metro_station_announce', rate: [1, 1], pick: () => ['metro_station_announce', 1] })
 loop('car_drive', -6, VEHICLE, { rateLoop: [0.97, 1.03] })
 loop('bus_drive', -4, VEHICLE)
 loop('trolleybus_drive', -4, VEHICLE)
 loop('metro_rumble_loop', -6, { ...NEAR, refDistance: 3, reverb: 0.4 })
 loop('phone_vibrate_loop', -12, UI)
-for (const s of ['snow', 'snow_packed', 'ice', 'slush', 'concrete', 'asphalt', 'tile', 'linoleum', 'wood', 'gravel', 'carpet', 'metal', 'metal_grate']) {
-  one('step_' + s, -12, { ...NEAR, refDistance: 2, rolloff: 1.4, reverb: 0.8 }, { rate: [0.92, 1.08] })
+/**
+ * Footstep level per surface (dB on the peak-normalized buffers), set from measured A-weighted
+ * loudness rather than peak: a hard-surface step's peak is its heel thump, but what the ear hears
+ * is the click and grit. Fresh snow is the reference; tile and concrete stairwells are a little
+ * more present than snow, linoleum softer, carpet quiet, metal stairs loudest.
+ */
+export const STEP_DB = {
+  snow: -14, snow_packed: -15, ice: -15, slush: -17, concrete: -10, asphalt: -12, tile: -11.5,
+  linoleum: -11, wood: -12, gravel: -15, carpet: -14.5, metal: -15.5, metal_grate: -12,
+}
+// NPC steps: same balance, 2 dB up (heard from a few metres, not from your own boots)
+for (const s of Object.keys(STEP_DB)) {
+  one('step_' + s, STEP_DB[s] + 2, { ...NEAR, refDistance: 2, rolloff: 1.4, reverb: 0.8 }, { rate: [0.92, 1.08] })
 }
 
 /** Moving-vehicle loops: playback rate follows opts.speed (km/h) around the nominal speed. */
@@ -242,7 +260,9 @@ function factory(name, e) {
     let p = null
     try { p = e.pick ? e.pick(opts) : null } catch { p = null }
     if (p) { key = p[0]; v = p[1]; if (p[2] !== undefined) isLoop = p[2] }
-    if (v === null) v = opts.variant !== undefined && typeof opts.variant === 'number' ? opts.variant % (bank.spec(key)?.variants ?? 1) : pickVariant(key)
+    const nv = bank.spec(key)?.variants ?? 1
+    if (v === null || v === undefined) v = typeof opts.variant === 'number' && Number.isFinite(opts.variant) ? opts.variant : pickVariant(key)
+    v = (((Math.floor(+v) || 0) % nv) + nv) % nv // callers may pass any number: stay inside the rendered set
     if (e.loop && opts.loop === false && !e.fragment && !e.cycles) isLoop = false
     const rr = isLoop ? e.rateLoop || [1, 1] : e.rate
     let rate = (opts._rate ?? 1) * (opts.rate ?? (rr[0] + (rr[1] - rr[0]) * rnd()))

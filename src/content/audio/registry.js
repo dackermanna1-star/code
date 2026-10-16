@@ -17,12 +17,16 @@ export function def(key, spec) {
   RECIPES.set(key, { variants: 1, prio: 5, ...spec })
 }
 
-/** Render one variant. Returns { sr, chs: Float32Array[] }. */
-export function renderRecipe(key, v = 0) {
+/**
+ * Render one variant. Returns { sr, chs: Float32Array[] }. `params` (parametric recipes such as
+ * 'speech') is passed to gen as its 4th argument and seeds the RNG with its id.
+ */
+export function renderRecipe(key, v = 0, params = null) {
   const spec = RECIPES.get(key)
   if (!spec) throw new Error('unknown recipe ' + key)
-  const r = makeRng(hashStr(key) ^ Math.imul(v + 1, 0x9e3779b1))
-  let out = spec.gen(r, spec.sr, v)
+  const pseed = params?.id !== undefined ? hashStr(String(params.id)) : 0
+  const r = makeRng((hashStr(key) ^ Math.imul(v + 1, 0x9e3779b1) ^ pseed) >>> 0)
+  let out = spec.gen(r, spec.sr, v, params)
   let chs = Array.isArray(out) ? out : [out]
   const dc = spec.dc ?? 20
   if (dc) chs.forEach(d => dcBlock(d, spec.sr, dc))

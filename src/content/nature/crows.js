@@ -111,7 +111,8 @@ function play(ctx, name, pos, o = {}) {
  */
 export function addCrows(ctx, o) {
   const s = natureState(ctx)
-  const rng = new RNG(o.seed ?? Math.floor((o.x * 31 + o.z * 17) * 16))
+  const sx = o.x ?? o.tree?.x ?? o.points?.[0]?.[0] ?? 0, sz = o.z ?? o.tree?.z ?? o.points?.[0]?.[2] ?? 0
+  const rng = new RNG(o.seed ?? Math.floor((sx * 31 + sz * 17) * 16))
   const count = Math.max(1, Math.min(10, o.count ?? 3))
   const kind = o.perch ?? 'tree'
   const homes = []

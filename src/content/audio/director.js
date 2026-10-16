@@ -6,7 +6,7 @@
 import { bank } from './bank.js'
 import { bufferVoice } from './sounds.js'
 import { getMix, updateMix, setDuck, setShelf, playFoley } from './mix.js'
-import { buildPiece } from './music.js'
+import { buildPiece, prewarmMusic } from './music.js'
 import { makeRng, clamp, smooth } from './dsp.js'
 
 const AVENUE_Z = 540 // проспект Строителей centre line
@@ -94,6 +94,11 @@ export class Director {
     } catch { /* events optional */ }
     // ask the worker for the far one-shots we will schedule
     for (const k of ['dog_bark', 'crow_caw', 'distant_door_slam', 'traffic_far', 'metro_rumble', 'drip', 'breath']) bank.requestAll(k)
+    // the music's shared reverb IR / hiss buffers: made once, in idle time, well before the first piece
+    setTimeout(() => {
+      const idle = typeof requestIdleCallback === 'function' ? requestIdleCallback : f => setTimeout(f, 0)
+      idle(() => prewarmMusic(engine.ctx), { timeout: 5000 })
+    }, 20000)
     window.__audioDirector = this
   }
 
@@ -213,7 +218,8 @@ export class Director {
     // in a silence event the duck pulls the world down; the wind itself stops
     const st = this.silence.state
     const calm = st === 'normal' ? 1 : st === 'returning' ? smooth(this.silence.t / 15) : st === 'fading' ? 1 - smooth(this.silence.t / 6) : 0
-    const live = 1 - E.silenceZone * 0.7
+    // silence zones: the beds all but vanish (the duck below keeps nearby sounds audible)
+    const live = 1 - E.silenceZone * 0.85
     const windLive = (1 - E.silenceZone) * calm
     // city hum: very low and constant, the millions of lives beyond view
     const city = db(-30) * (1 - 0.45 * E.night) * (E.outdoor + 0.35 * E.indoor * (1 - E.under) + 0.15 * E.under) * live
@@ -242,6 +248,7 @@ export class Director {
     const sub = 1 + 0.25 * Math.sin(G.sub)
     const ws = clamp(E.windSpeed / 3.2, 0.05, 1.5)
     const gust = clamp(G.v * sub + E.gust * 0.35, 0, 1.6)
+    this.windNow = ws * gust * windLive // gust strength for the rattles
     const open = 0.35 + 0.65 * E.open
     const windOut = (E.outdoor * open + E.indoor * 0.18 * (1 - E.under) * Math.min(1, E.zoneWind * 3)) * windLive
     const windLvl = db(-25) * (0.35 + ws) * (0.45 + 0.75 * gust) * windOut
@@ -293,7 +300,9 @@ export class Director {
     if (S.state === 'fading') duck = 1 - 0.965 * smooth(S.t / 8)
     else if (S.state === 'silent') duck = 0.035
     else if (S.state === 'returning') duck = 0.035 + 0.965 * smooth(S.t / 15)
-    duck = Math.min(duck, 1 - 0.9 * E.silenceZone)
+    // a silence zone mutes the world by −12 dB (its beds go much further down via `live`), so a
+    // door the player opens there is still heard, as if through cotton wool
+    duck = Math.min(duck, 1 - 0.75 * E.silenceZone)
     if (Math.abs(duck - (this._duck ?? -1)) > 0.002) { this._duck = duck; setDuck(this.mix, duck, 0.35) }
     if (game?.state) game.state.audioSilence = S.state === 'fading' || S.state === 'silent' || E.silenceZone > 0.5
     // breathing when the player stands still in the silence
@@ -412,6 +421,15 @@ export class Director {
       const d = this.r.range(14, 26)
       this._play('footsteps_phantom', { pos: [E.x - Math.sin(yaw) * d, 0.5, E.z - Math.cos(yaw) * d], gain: 0.7 })
     }
+    // a loose sheet of tin banging somewhere up on the blocks — only in strong gusts, near buildings
+    if (out > 0.5 && (this.windNow ?? 0) > 0.75 && E.open < 0.92 && this._timer('rattle', dt, () => 22)) {
+      this._play('wind_rattle', { pos: this._farPos(E, 15, 60, 8, 28), gain: clamp(this.windNow - 0.45, 0.3, 1) })
+    }
+    // a neighbour's перфоратор somewhere in the building (allowed 9:00–21:00): rare, never at night
+    if ((E.reverb === 'stairwell' || E.reverb === 'room' || E.reverb === 'elevator') && h >= 9 && h < 21 && this._timer('drill', dt, () => 420)) {
+      const y = Math.max(1, E.y + (this.r.chance(0.6) ? 1 : -1) * this.r.range(3, 14))
+      this._play('neighbour_drill', { pos: [E.x + this.r.range(-6, 6), y, E.z + this.r.range(-6, 6)], gain: this.r.range(0.4, 0.8) })
+    }
     // a radio fragment from an open форточка (very rare)
     if (out > 0.8 && h >= 8 && h < 23.5 && this._timer('radio', dt, () => 1300)) {
       this._play('radio_distant', { pos: this._farPos(E, 25, 60, 6, 20), fragment: true, duration: this.r.range(10, 20), gain: 0.5 })
@@ -420,10 +438,30 @@ export class Director {
     if (E.y < -8 && this._timer('metroRumble', dt, () => 120)) {
       this._play('metro_rumble', { gain: this.r.range(0.35, 0.6) })
     }
-    if (E.reverb === 'underpass' && this._timer('drip', dt, () => 4.5)) {
-      const pos = this._farPos(E, 2, 9, 0, 0.3)
-      pos[1] = E.y + 0.05
-      this._play('drip', { pos, gain: this.r.range(0.4, 1) })
+    // a leak in the underpass ceiling: one fixed spot, an almost regular «кап… кап…», chosen
+    // anew only when you have walked away from it (metro adds its own leak at a known spot)
+    if (E.reverb === 'underpass') {
+      let L = this.leak
+      if (!L || Math.hypot(L.pos[0] - E.x, L.pos[2] - E.z) > 22 || Math.abs(L.pos[1] - E.y) > 3) {
+        const p = this._farPos(E, 3, 9, 0, 0)
+        p[1] = E.y + 0.05
+        L = this.leak = { pos: p, period: this.r.range(2.6, 5.5), t: this.r.range(0.5, 2.5), gain: this.r.range(0.5, 0.9) }
+      }
+      L.t -= dt
+      if (L.t <= 0) {
+        L.t = L.period * this.r.range(0.85, 1.15)
+        this._play('drip', { pos: L.pos, gain: L.gain * this.r.range(0.75, 1) })
+      }
+    }
+    // distant metro announcements drifting up the escalator shaft into the vestibule / underpass
+    // (the metro package speaks on the platform itself; this is what you hear from above)
+    const metro = game?.registry?.metro
+    if (metro?.platform && E.under > 0.5 && E.y > metro.platform.y + 4 && this._timer('paFar', dt, () => 170)) {
+      const P = metro.platform
+      const x = clamp(E.x, P.x0 + 5, P.x1 - 5)
+      if (Math.hypot(x - E.x, P.y - E.y) < 110) {
+        this._play('announcement', { pos: [x, P.y + 3.5, (P.z0 + P.z1) / 2], phrase: this.r.pick([2, 5, 0, 2]), gain: 0.5, refDistance: 14 })
+      }
     }
     // faint metro under the avenue, through manholes and the underpass stair pits
     if (out > 0.5 && E.avenueDist < 45 && this._timer('manhole', dt, () => 170)) {
@@ -431,13 +469,19 @@ export class Director {
       if (mh) this._play('metro_rumble', { pos: [mh[0], -1, mh[1]], gain: 0.35, refDistance: 4, rolloff: 1.4 })
     }
     // stairwells: the building lives around you
-    if (E.reverb === 'stairwell' && this._timer('stair', dt, () => 30)) {
+    // (residential adds its own radiator knocks / chute while you are in its stairwells, so this
+    // leans on what it does not do: doors far below or above, a lift running somewhere)
+    if (E.reverb === 'stairwell' && this._timer('stair', dt, () => (E.night > 0.5 ? 90 : 45))) {
       const roll = this.r()
       const pos = [E.x + this.r.range(-3, 3), E.y + (this.r.chance(0.5) ? 1 : -1) * this.r.range(4, 18), E.z + this.r.range(-3, 3)]
-      if (roll < 0.35) this._play('radiator_knock', { pos, gain: 0.7 })
-      else if (roll < 0.55) this._play('garbage_chute', { pos, gain: 0.6 })
-      else if (roll < 0.8) this._play('door_metal_slam', { pos: [E.x, E.y - this.r.range(8, 20), E.z], gain: 0.35 })
-      else this._elevatorSomewhere(pos)
+      if (pos[1] < -2) pos[1] = E.y + this.r.range(4, 18) // nothing below the ground floor
+      if (roll < 0.15) this._play('radiator_knock', { pos, gain: 0.7 })
+      else if (roll < 0.3) this._play('garbage_chute', { pos, gain: 0.6 })
+      else if (roll < 0.65) {
+        // the entrance door far below, or a flat door upstairs when you are near the bottom
+        const y = E.y > 8 ? 1 : E.y + this.r.range(5, 20)
+        this._play('door_metal_slam', { pos: [E.x + this.r.range(-2, 2), y, E.z + this.r.range(-2, 2)], gain: 0.35 })
+      } else this._elevatorSomewhere(pos)
     }
   }
 
@@ -483,6 +527,7 @@ export class Director {
   _music(dt, engine, game, E) {
     const M = this.music
     if (M.piece) {
+      M.piece.pump?.(engine.ctx.currentTime + 3) // create the next chords / notes just in time
       if (this.time > M.endAt) { M.piece = null; M.next = this.r.range(360, 900); this._log('music ends') } else if (E.silenceZone > 0.5) { M.piece.stop(4); M.piece = null; M.next = 120 }
       return
     }
@@ -500,7 +545,8 @@ export class Director {
     try {
       const s = seed ?? (2008 + M.count * 7919 + Math.floor(this.r() * 1e6))
       M.count++
-      const piece = buildPiece(ctx, this.engine.bus.music, s, ctx.currentTime + 0.2, { level: 0.6 })
+      const piece = buildPiece(ctx, this.engine.bus.music, s, ctx.currentTime + 0.2, { level: 0.6, lazy: true })
+      piece.pump(ctx.currentTime + 3)
       M.piece = piece
       M.endAt = this.time + piece.duration + 1
       setTimeout(() => piece.dispose(), (piece.duration + 3) * 1000)

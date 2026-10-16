@@ -68,7 +68,6 @@ export class Traffic {
         sound: 'bus_pass', soundNominal: 40, beacon: true, exhaust: true, glowHead: 50,
       }))
     }
-    this.byKind = k => this.rigs.filter(g => g.kind === k)
     this.timer = { west: 4, east: 7 }
     this.plowTimer = r.float(120, 300)
     this.started = false
@@ -144,9 +143,9 @@ export class Traffic {
       const ex = pa.exit
       g.side = ex; g.lane = 0; g.toLane = 0; g.laneT = 1
       g.path = null; g.terminal = false
-      g.stops = []
       const S = AVENUE[ex]
       const last = pa.pts[pa.pts.length - 1]
+      g.stops = this._stops(ex).filter(s => (s.x - last[0]) * S.dir > 8).sort((a, b) => (a.x - b.x) * S.dir)
       g.set(last[0], AVENUE.roadY, S.lanes[0], S.angle)
       return
     }
@@ -225,9 +224,6 @@ export class Traffic {
     g.beaconOn = kind === 'plow'
     g.stuck = 0
     g.departSnd = false
-    if (kind !== 'car' || g.type !== 'gazelle') {
-      if (g.o.tintFrom) g.p.tint.setHex(r.pick(g.o.tintFrom))
-    }
     if (kind === 'car') g.p.tint.setHex(r.pick(TYPE_PALETTE[g.type] ?? CAR_PALETTE))
     g.path = null
     g.scrape = null
@@ -245,8 +241,10 @@ export class Traffic {
     const h = this.sys.hour()
     const rate = RATE[Math.floor(h) % 24]
     const px = cam.x
-    // the trolleybus that just dropped the player off
-    const stop = this._stops('west')[0]
+    // the trolleybus that just dropped the player off: at the westbound stop nearest the player
+    // (the spawn stop, x ≈ 248, in the real game)
+    const ref = cam.z > 470 && cam.z < 610 ? px : SPAWN_STOP.x
+    const stop = this._stops('west').reduce((a, b) => (Math.abs(b.x - ref) < Math.abs(a.x - ref) ? b : a))
     const tb = this._spawn('west', 'trolleybus', stop.x, { force: true, speed: 0, state: 'dwell', dwell: 1.9, atStop: true })
     if (tb) { tb.stops = tb.stops.filter(s => Math.abs(s.x - stop.x) > 1); tb.departSnd = 'pending'; tb.opening = true }
     // dev: ?traffictest=x,side,kind,lane;... spawns vehicles at fixed spots (screenshots)
@@ -379,8 +377,14 @@ export class Traffic {
         yawOff = Math.atan2(dzdt, Math.max(2, g.speed)) * S.dir
         if (g.laneT >= 1) { g.lane = g.toLane; zz = b }
       }
+      // a bus standing at a stop is solid (unless the player is right there); moving ones are not
+      const standing = g.state === 'dwell' && g.speed < 0.05
+      if (standing !== g.p.collide) {
+        if (!standing) g.p.collide = false
+        else if (!pl || Math.abs(pl.x - g.x) > g.info.L / 2 + 0.8 || Math.abs(pl.z - g.z) > g.info.W / 2 + 0.8) g.p.collide = true
+      }
       const nx = g.x + S.dir * g.speed * dt
-      if (nx < AVENUE.xMin - 10 || nx > AVENUE.xMax + 10) { g.hide(); continue }
+      if (nx < AVENUE.xMin - 10 || nx > AVENUE.xMax + 10) { g.p.collide = false; g.hide(); continue }
       g.set(nx, AVENUE.roadY, zz, S.angle + yawOff)
       // the opening trolleybus: door hiss, contactors, whine as it pulls away
       if (g.departSnd === 'pending' && ctx.audio?.ready && g.state === 'dwell' && g.dwell < 2.0) {

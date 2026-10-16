@@ -29,7 +29,7 @@ export function dropClump(ctx, s, tree) {
   const C = s.clumps
   if (!C) return false
   const c = C.pool.find(q => !q.active)
-  if (!c || !tree) return false
+  if (!c || !tree || tree.removed) return false
   const spots = tree.meta.snowSpots
   if (!spots.length) return false
   const q = spots[C.rng.int(0, spots.length - 1)]
@@ -81,7 +81,7 @@ export function updateClumps(ctx, s, dt) {
   const fx = -Math.sin(ctx.player?.yaw ?? 0), fz = -Math.cos(ctx.player?.yaw ?? 0)
   let best = null, bestScore = -1
   for (const t of near) {
-    if (!t.meta.snowSpots.length || game.time - t.lastClump < 150) continue
+    if (t.removed || !t.meta.snowSpots.length || game.time - t.lastClump < 150) continue
     const dx = t.x - px, dz = t.z - pz
     const d = Math.hypot(dx, dz)
     if (d < 3) continue

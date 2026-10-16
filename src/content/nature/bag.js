@@ -43,7 +43,7 @@ const COLORS = [0xd9d7cf, 0xcfd2cc, 0x9fb2c0, 0xc9c0a8]
  */
 export function addBag(ctx, o) {
   const s = natureState(ctx)
-  const rng = new RNG(o.seed ?? 77)
+  const rng = new RNG(o.seed ?? Math.floor(((o.tree?.x ?? o.x ?? 0) * 13 + (o.tree?.z ?? o.z ?? 0) * 7) * 16) + 77)
   let x = o.x, y = o.y, z = o.z
   if (o.tree) {
     const pts = o.tree.perches().filter(p => p.y - o.tree.y > 2.5 && p.y - o.tree.y < 7)

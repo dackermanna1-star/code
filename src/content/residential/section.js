@@ -42,7 +42,7 @@ export function buildSection(seriesKey, floors, variant, mode) {
   const m = new VoxelModel(L.SX, L.sy, L.sz)
   m.setPivot(0, G, L.F)
   const wall = T[S.wall]
-  const c = { m, L, S, T, rng, mode, wall, seed, variant, ent: mode !== 'plain' }
+  const c = { m, L, S, T, rng, mode, wall, seed, variant, ent: mode !== 'plain', noSnow: new Set() }
   // body
   m.fill(0, 0, L.F, L.SX, L.R0, L.D, wall)
   m.fill(0, 0, L.F, L.SX, G, L.D, T.concrete_dark)
@@ -65,7 +65,8 @@ export function buildSection(seriesKey, floors, variant, mode) {
   const sseed = seed % 1000
   snowPass(m, {
     skip: new Set([T.window, T.glass_clear, T.glass_frosted, T.lamp_bulb, T.lamp_warm, T.res_cloth, T.metal_dark]),
-    exclude: (x, y, z) => x >= L.door.x0 - 1 && x < L.door.x1 + 1 && z >= L.F - 1 && z <= L.F + 2 && y < L.G + 12,
+    exclude: (x, y, z) => (x >= L.door.x0 - 1 && x < L.door.x1 + 1 && z >= L.F - 1 && z <= L.F + 2 && y < L.G + 12) ||
+      c.noSnow.has(x + L.SX * (z + L.sz * y)),
     depthAt: (x, y, z, open) => {
       if (open) {
         if (y < L.R0) return 1 + (valueNoise2(x * 0.3, z * 0.3, sseed) > 0.55 ? 1 : 0)
@@ -386,8 +387,14 @@ function gables(c) {
   }
 }
 
+/** Keep snow off the top of the voxel at facade coords (u, y, w). */
+function noSnowFace(c, fc, u, y, w) {
+  const { L } = c
+  c.noSnow.add(fc._x(u, w) + L.SX * (fc._z(u, w) + L.sz * y))
+}
+
 function plinth(c) {
-  const { L, T, rng } = c
+  const { L, T, rng, m } = c
   const top = L.FL1 - 1
   const doorC = (L.door.x0 + L.door.x1) >> 1
   for (const fc of [c.front, c.back, c.left, c.right]) {
@@ -397,14 +404,18 @@ function plinth(c) {
       fc.fill(u, G, -1, 1, top - G - 1, 1, T.res_plinth)
       fc.set(u, top - 1, -1, T.concrete)
     }
-    // basement vents (продухи), some with a cat-sized dark hole
+    // basement vents (продухи): dark holes (no snow sill inside them)
     for (let u = 4 + rng.int(0, 3); u < fc.len - 3; u += rng.int(9, 14)) {
       if (fc === c.front && u >= doorC - 10 && u < doorC + 10) continue
       fc.set(u, G + 1, -1, 0)
       fc.set(u, G + 1, 0, 0)
       fc.set(u, G + 1, 1, T.rubber)
+      noSnowFace(c, fc, u, G, -1)
+      noSnowFace(c, fc, u, G, 0)
     }
   }
+  // the plinth band must not block the entrance (the porch platform meets the tambour floor)
+  m.fill(L.door.x0, L.tambourY, L.F, L.door.x1 - L.door.x0, L.door.h, 2, 0)
   // refuse-room door next to the stairwell (series with a chute)
   if (c.S.chute === 'half') {
     const x0 = L.SX0 - 4
@@ -423,6 +434,7 @@ function attic(c) {
       if (fc === c.front && u > L.SX0 - 2 && u < L.SX0 + 13) continue
       fc.fill(u, y0 + 2, 0, 2, 1, 1, 0)
       fc.fill(u, y0 + 2, 1, 2, 1, 1, T.rubber)
+      noSnowFace(c, fc, u, y0 + 1, 0); noSnowFace(c, fc, u + 1, y0 + 1, 0)
     }
   }
 }
@@ -483,9 +495,11 @@ function seamsAndWeather(c) {
 function roof(c) {
   const { L, T, S, rng, m } = c
   const RS = L.RS, P = S.parapet
-  // parapet on all four sides, flashing with a drip overhang (icicles hang from it)
+  // parapet on all four sides (the roof slab's edge belongs to it, not a tar stripe on the
+  // facade), flashing with a drip overhang (icicles hang from it)
+  const parMat = c.wall === T.brick_silicate || c.wall === T.brick_red ? c.wall : T.concrete_light
   for (const fc of [c.front, c.back, c.left, c.right]) {
-    fc.fill(0, RS, 0, fc.len, P - 1, 2, c.wall === T.brick_silicate || c.wall === T.brick_red ? c.wall : T.concrete_light)
+    fc.fill(0, L.R0, 0, fc.len, P, 2, parMat)
     fc.fill(0, RS + P - 1, -1, fc.len, 1, 3, T.metal_gray)
   }
   // a cable draped over the front parapet
