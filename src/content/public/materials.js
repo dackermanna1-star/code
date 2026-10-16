@@ -23,3 +23,7 @@ defineMaterial('pub_lamp_green', { color: 0x3fc070, emit: EMIT_CONST, emitColor:
 defineMaterial('pub_screen', { color: 0x8aa6c2, emit: EMIT_CONST, emitColor: 0x9cc2ff, emitIntensity: 1.3, gloss: 0.5 })
 defineMaterial('pub_win_lit_cold', { color: 0x7e939a, emit: EMIT_CONST, emitColor: 0xb4d2da, emitIntensity: 0.9, gloss: 0.4 })
 defineMaterial('pub_win_lit_warm', { color: 0xb08a5a, emit: EMIT_CONST, emitColor: 0xffbe6e, emitIntensity: 1.1, gloss: 0.4 })
+// clear glass whose far-LOD stand-in is a lit pane following the placement flag (rooms that are
+// lit only at certain hours, shops lit round the clock). Near: real see-through glass.
+defineMaterial('pub_glass_cold', { color: 0x9fb4bf, transparent: true, gloss: 0.9, surface: SURF.CONCRETE, lod: 'pub_win_lit_cold' })
+defineMaterial('pub_glass_warm', { color: 0x9fb4bf, transparent: true, gloss: 0.9, surface: SURF.CONCRETE, lod: 'pub_win_lit_warm' })

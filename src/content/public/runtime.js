@@ -8,6 +8,7 @@ export const RT = {
   emitters: [],
   doors: [],
   ticks: [],
+  later: [],
   pendingSteam: [],
   fallbacks: false,
   checkT: 0,
@@ -27,6 +28,9 @@ export function addEmitter(o) {
 /** Per-frame callback fn(dt, ctx) (kept tiny; guarded). */
 export function addTick(fn) { RT.ticks.push(fn) }
 
+/** Run fn(game) after `seconds` of game time. */
+export function later(seconds, fn) { RT.later.push({ t: seconds, fn }) }
+
 /**
  * Working door. The door model is a dynamic placement whose pivot is the hinge.
  * o: { placement, closed (angle), swing (+1 = rotate positive), open (radians, default 1.45),
@@ -45,9 +49,9 @@ export function addDoor(ctx, o) {
     size: d.size ?? [1.1, 2.2, 1.1],
     reach: 2.6,
     tag: 'door',
-    prompt: () => d.locked ? (d.label ?? { ru: 'Дверь', en: 'Door' }) : d.target > 0.5 ? { ru: 'Закрыть дверь', en: 'Close the door' } : (d.label ?? { ru: 'Открыть дверь', en: 'Open the door' }),
+    prompt: game => (d.target < 0.5 && isLocked(d, game)) ? (d.lockedLabel ?? d.label ?? { ru: 'Дверь', en: 'Door' }) : d.target > 0.5 ? { ru: 'Закрыть дверь', en: 'Close the door' } : (d.label ?? { ru: 'Открыть дверь', en: 'Open the door' }),
     onUse(game) {
-      if (d.locked) {
+      if (d.target < 0.5 && isLocked(d, game)) {
         game.audio?.play?.('door_metal_open', { pos: c, gain: 0.25, rate: 1.4 })
         if (d.lockedNote) game.ui.say(d.lockedNote, 3.5)
         return
@@ -61,6 +65,11 @@ export function addDoor(ctx, o) {
   })
   RT.doors.push(d)
   return d
+}
+
+function isLocked(d, game) {
+  if (typeof d.isLocked === 'function') { try { return !!d.isLocked(game) } catch { return false } }
+  return !!d.locked
 }
 
 function updateDoors(dt, ctx) {
@@ -119,6 +128,16 @@ function updateEmitters(dt, ctx) {
 }
 
 export function updateRuntime(dt, ctx) {
+  if (RT.later.length) {
+    for (let i = RT.later.length - 1; i >= 0; i--) {
+      const l = RT.later[i]
+      l.t -= dt
+      if (l.t <= 0) {
+        RT.later.splice(i, 1)
+        try { l.fn(ctx.game) } catch (e) { void e }
+      }
+    }
+  }
   try { updateDoors(dt, ctx) } catch (e) { if (!RT._e1) { RT._e1 = true; console.error('[public] doors', e) } }
   try { updateEmitters(dt, ctx) } catch (e) { if (!RT._e2) { RT._e2 = true; console.error('[public] emitters', e) } }
   for (let i = 0; i < RT.ticks.length; i++) {

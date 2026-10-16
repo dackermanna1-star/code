@@ -5,7 +5,7 @@
 import { def } from '../registry.js'
 import { thump, grit, crunch, squeak, chirp, addBurst, addModes, filt, buf, Biquad, TAU } from './lib.js'
 
-const SR = 32000
+const SR = 24000
 
 function lowSnow(d, sr, off, r, gain = 1, dur = 0.07) {
   // compression whump of powder: lowpassed noise swell
@@ -19,7 +19,7 @@ function lowSnow(d, sr, off, r, gain = 1, dur = 0.07) {
 }
 
 def('step_snow', {
-  sr: SR, variants: 12, prio: 0, norm: { peak: 0.85 },
+  sr: SR, variants: 10, prio: 0, norm: { peak: 0.85 },
   gen(r, sr) {
     const d = buf(0.5, sr)
     const heel = Math.floor(0.004 * sr)
@@ -37,7 +37,7 @@ def('step_snow', {
 })
 
 def('step_snow_packed', {
-  sr: SR, variants: 12, prio: 0, norm: { peak: 0.85 },
+  sr: SR, variants: 10, prio: 0, norm: { peak: 0.85 },
   gen(r, sr) {
     const d = buf(0.42, sr)
     const heel = Math.floor(0.004 * sr)
@@ -59,7 +59,7 @@ def('step_snow_packed', {
 })
 
 def('step_ice', {
-  sr: SR, variants: 10, prio: 0, norm: { peak: 0.85 },
+  sr: SR, variants: 8, prio: 0, norm: { peak: 0.85 },
   gen(r, sr, v) {
     const d = buf(0.32, sr)
     const heel = Math.floor(0.003 * sr)
@@ -80,7 +80,7 @@ def('step_ice', {
 })
 
 def('step_slush', {
-  sr: SR, variants: 10, prio: 0, norm: { peak: 0.85 },
+  sr: SR, variants: 8, prio: 0, norm: { peak: 0.85 },
   gen(r, sr) {
     const d = buf(0.5, sr)
     const heel = Math.floor(0.004 * sr)
@@ -135,7 +135,7 @@ function hardStep(d, sr, r, { thumpF = 120, thumpG = 0.7, gritG = 0.4, gritF = 4
 }
 
 def('step_concrete', {
-  sr: SR, variants: 10, prio: 0, norm: { peak: 0.85 },
+  sr: SR, variants: 8, prio: 0, norm: { peak: 0.85 },
   gen(r, sr) {
     const d = buf(0.3, sr)
     hardStep(d, sr, r, { thumpF: 120, thumpG: 0.75, gritG: 0.5, gritF: 4200, gritN: 16, click: 1600, scuff: 0.2 })
@@ -143,7 +143,7 @@ def('step_concrete', {
   },
 })
 def('step_asphalt', {
-  sr: SR, variants: 10, prio: 0, norm: { peak: 0.85 },
+  sr: SR, variants: 8, prio: 0, norm: { peak: 0.85 },
   gen(r, sr) {
     const d = buf(0.3, sr)
     hardStep(d, sr, r, { thumpF: 105, thumpG: 0.7, gritG: 0.65, gritF: 3600, gritN: 24, click: 1200, scuff: 0.3 })
@@ -151,7 +151,7 @@ def('step_asphalt', {
   },
 })
 def('step_tile', {
-  sr: SR, variants: 10, prio: 0, norm: { peak: 0.85 },
+  sr: SR, variants: 8, prio: 0, norm: { peak: 0.85 },
   gen(r, sr, v) {
     const d = buf(0.3, sr)
     const toe = hardStep(d, sr, r, { thumpF: 125, thumpG: 0.55, gritG: 0.6, gritF: 5000, gritN: 18, click: 2500, scuff: 0.12 })
@@ -161,7 +161,7 @@ def('step_tile', {
   },
 })
 def('step_linoleum', {
-  sr: SR, variants: 10, prio: 1, norm: { peak: 0.85 },
+  sr: SR, variants: 8, prio: 1, norm: { peak: 0.85 },
   gen(r, sr, v) {
     const d = buf(0.3, sr)
     const heel = Math.floor(0.003 * sr)
@@ -174,7 +174,7 @@ def('step_linoleum', {
   },
 })
 def('step_wood', {
-  sr: SR, variants: 10, prio: 1, norm: { peak: 0.85 },
+  sr: SR, variants: 8, prio: 1, norm: { peak: 0.85 },
   gen(r, sr, v) {
     const d = buf(0.4, sr)
     const heel = Math.floor(0.003 * sr)
@@ -189,7 +189,7 @@ def('step_wood', {
   },
 })
 def('step_gravel', {
-  sr: SR, variants: 10, prio: 1, norm: { peak: 0.85 },
+  sr: SR, variants: 8, prio: 1, norm: { peak: 0.85 },
   gen(r, sr) {
     const d = buf(0.42, sr)
     const heel = Math.floor(0.004 * sr)
@@ -214,9 +214,9 @@ def('step_carpet', {
   },
 })
 def('step_metal', {
-  sr: SR, variants: 10, prio: 1, norm: { peak: 0.85 },
+  sr: SR, variants: 8, prio: 1, norm: { peak: 0.85 },
   gen(r, sr) {
-    const d = buf(1.0, sr)
+    const d = buf(0.75, sr)
     const heel = Math.floor(0.003 * sr)
     thump(d, sr, heel, { f: r.range(140, 170), dur: 0.03, gain: 0.6 })
     addBurst(d, sr, heel, 0.006, r, { f: 2500, q: 0.8, gain: 0.5, tau: 0.002 })
@@ -237,7 +237,7 @@ def('step_metal', {
   },
 })
 def('step_metal_grate', {
-  sr: SR, variants: 10, prio: 1, norm: { peak: 0.85 },
+  sr: SR, variants: 8, prio: 1, norm: { peak: 0.85 },
   gen(r, sr) {
     const d = buf(0.6, sr)
     const heel = Math.floor(0.003 * sr)

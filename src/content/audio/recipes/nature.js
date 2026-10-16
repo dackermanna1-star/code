@@ -45,7 +45,7 @@ export function barkInto(d, sr, off, r, dog, gain = 1) {
 
 def('dog_bark', {
   // v0-4: different dogs, a run of barks; v5: a distant howl
-  sr: 22050, variants: 6, prio: 3, norm: { peak: 0.85 },
+  sr: 16000, variants: 6, prio: 3, norm: { peak: 0.85 },
   gen(r, sr, v) {
     if (v === 5) {
       const d = buf(3.6, sr)
@@ -99,7 +99,7 @@ function cawInto(d, sr, off, r, { f0 = 550, len = 0.42, gain = 1, rough = 1 } = 
 
 def('crow_caw', {
   // hooded crow (серая ворона): 2–6 hoarse caws; v4: a jackdaw flock «кья»
-  sr: 22050, variants: 5, prio: 3, norm: { peak: 0.85 },
+  sr: 16000, variants: 5, prio: 3, norm: { peak: 0.85 },
   gen(r, sr, v) {
     if (v === 4) {
       const d = buf(3, sr)
@@ -120,7 +120,7 @@ def('crow_caw', {
 })
 
 def('crows_takeoff', {
-  sr: 22050, variants: 3, prio: 4, norm: { peak: 0.85 },
+  sr: 16000, variants: 3, prio: 4, norm: { peak: 0.85 },
   gen(r, sr) {
     const d = buf(3.6, sr)
     const birds = r.int(2, 5)

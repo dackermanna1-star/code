@@ -90,7 +90,7 @@ defineModel('pub_shop', () => {
   // ---- front facade -------------------------------------------------------------------
   // shop windows: three big panes with white aluminium frames and a mullion
   for (const wx of [18, 30, 42]) {
-    win(m, 'front', wx, 3, 11, 9, { d0: z0, depth: 1, glass: M('glass_clear'), frame: M('plastic_white'), cols: 2, snow: 0.8, rng })
+    win(m, 'front', wx, 3, 11, 9, { d0: z0, depth: 1, glass: M('pub_glass_warm'), frame: M('plastic_white'), cols: 2, snow: 0.8, rng })
     for (let x = wx; x < wx + 11; x++) m.set(x, 2, z0, M('metal_gray')) // sill flashing
   }
   // the right side wall: one window near the front
@@ -160,7 +160,7 @@ defineModel('pub_shop', () => {
   m.fill(17, 1, IZ0, 2, 7, 2, M('metal_dark'))
   m.fill(17, 1, IZ0, 2, 2, 2, M('metal_gray'))
   m.fill(17, 5, IZ0 + 1, 2, 2, 1, M('pub_screen'))
-  m.set(18, 3, IZ0 + 1, M('pub_lamp_green')) // bill acceptor
+  m.set(18, 3, IZ0 + 1, M('taillight')) // bill acceptor
   m.fill(17, 7, IZ0, 2, 1, 2, M('metal_yellow')) // brand header
 
   // ice-cream chest freezer under the right window
@@ -201,17 +201,19 @@ defineModel('pub_shop', () => {
   m.fill(13, 1, 38, 1, 9, 3, M('wood_painted_blue'))
   m.set(13, 5, 38, M('metal_gray'))
 
-  // gondola shelf (double-sided) in the middle of the hall
-  m.fill(20, 1, 22, 17, 1, 3, M('metal_gray'))
-  m.fill(20, 1, 23, 17, 6, 1, M('metal_gray'))
-  for (const y of [3, 5]) m.fill(20, y, 22, 17, 1, 3, M('metal_gray'))
-  m.fill(20, 6, 22, 17, 1, 3, M('metal_gray'))
-  for (const y of [2, 4]) {
-    goodsRow(m, rng, 'x', 20, 36, y, [22], y === 2 ? BOXES : CANS)
-    goodsRow(m, rng, 'x', 20, 36, y, [24], y === 2 ? CANS : BOXES)
+  // gondola shelf (double-sided) in the middle of the hall: boards with lips, goods recessed
+  m.fill(20, 1, 21, 17, 1, 5, M('metal_gray'))
+  m.fill(20, 1, 23, 17, 7, 1, M('metal_gray'))
+  for (const y of [3, 5]) m.fill(20, y, 21, 17, 1, 5, M('metal_gray'))
+  for (const y of [2, 4, 6]) {
+    goodsRow(m, rng, 'x', 21, 35, y, [22], y === 2 ? BOXES : y === 4 ? CANS : BOXES, { gap: 0.12 })
+    goodsRow(m, rng, 'x', 21, 35, y, [24], y === 2 ? CANS : y === 4 ? BOXES : CANS, { gap: 0.12 })
   }
-  goodsRow(m, rng, 'x', 21, 35, 7, [22, 23, 24], BOXES, { gap: 0.3 })
-  for (let y = 1; y <= 6; y++) { m.set(20, y, 22, M('metal_red')); m.set(20, y, 24, M('metal_red')) } // end cap
+  for (let y = 1; y <= 7; y++) { m.fill(20, y, 21, 1, 1, 5, M('metal_gray')); m.fill(36, y, 21, 1, 1, 5, M('metal_gray')) }
+  m.fill(20, 7, 21, 17, 1, 5, M('metal_gray'))
+  goodsRow(m, rng, 'x', 22, 34, 8, [22, 23, 24], ['pub_cardboard', 'pub_cardboard', 'plastic_white'], { gap: 0.45 })
+  m.fill(20, 5, 21, 1, 2, 5, M('metal_red')) // end-cap promo panels
+  m.fill(36, 5, 21, 1, 2, 5, M('metal_red'))
 
   // ---- counters -----------------------------------------------------------------------
   // back counter x 14..45, z 34..37; right counter x 46..49, z 20..37
@@ -226,15 +228,13 @@ defineModel('pub_shop', () => {
     }
     // display: goods on the cabinet top, glass front + glass top, open staff side
     if (glassFace === 'z') {
-      for (const y of [3, 4]) m.fill(xa, y, za, xb - xa + 1, 1, 1, M('glass_clear'))
-      m.fill(xa, 5, za, xb - xa + 1, 1, zb - za, M('glass_clear'))
+      for (const y of [3, 4, 5]) m.fill(xa, y, za, xb - xa + 1, 1, 1, M('glass_clear'))
       m.fill(xa, 5, zb, xb - xa + 1, 1, 1, M('wood'))
       m.fill(xa, 3, za + 1, xb - xa + 1, 1, zb - za, M('metal_gray'))
       goodsRow(m, rng, 'x', xa, xb, 3, [za + 1, za + 2], goods, { gap: 0.15 })
       for (let x = xa; x <= xb; x += 6) for (let y = 3; y <= 5; y++) m.set(x, y, za, M('metal_gray'))
     } else {
-      for (const y of [3, 4]) m.fill(xa, y, za, 1, 1, zb - za + 1, M('glass_clear'))
-      m.fill(xa, 5, za, xb - xa, 1, zb - za + 1, M('glass_clear'))
+      for (const y of [3, 4, 5]) m.fill(xa, y, za, 1, 1, zb - za + 1, M('glass_clear'))
       m.fill(xb, 5, za, 1, 1, zb - za + 1, M('wood'))
       m.fill(xa + 1, 3, za, xb - xa, 1, zb - za + 1, M('metal_gray'))
       goodsRow(m, rng, 'z', za, zb, 3, [xa + 1, xa + 2], goods, { gap: 0.15, tall: 0.5 })
@@ -248,9 +248,9 @@ defineModel('pub_shop', () => {
   // cash desk: register (dark body, green display), electronic scales with red LED, money tray
   m.fill(26, 5, 35, 3, 1, 2, M('plastic_dark'))
   m.fill(26, 6, 36, 3, 1, 1, M('plastic_dark'))
-  m.set(27, 6, 35, M('pub_lamp_green'))
+  m.set(27, 6, 35, M('pub_screen'))
   m.fill(29, 5, 35, 2, 1, 2, M('plastic_white'))
-  m.set(30, 6, 35, M('lamp_red'))
+  m.set(30, 6, 35, M('taillight'))
   m.set(25, 5, 34, M('plastic_white')) // tray «на тарелочку»
   // goods on top of the glass: a jar of sweets, a calculator box
   m.set(22, 6, 35, M('glass_clear')); m.set(40, 6, 36, M('metal_yellow'))
@@ -286,8 +286,13 @@ defineModel('pub_shop', () => {
 
   // ---- snow ---------------------------------------------------------------------------
   m.addSnow({ mat: M('snow'), depth: 1, seed: 11 })
-  // a second, uneven layer on the roof
-  for (let z = z0 + 1; z < z1; z++) for (let x = 1; x < X - 1; x++) if (m.get(x, 15, z) === M('snow') && rng.chance(0.55)) m.set(x, 16, z, M('snow'))
+  // a second, drifted layer on the roof (smooth low-frequency drifts, deeper by the parapet)
+  for (let z = z0 + 1; z < z1; z++) for (let x = 1; x < X - 1; x++) {
+    if (m.get(x, 15, z) !== M('snow')) continue
+    const edge = Math.min(x - 1, X - 2 - x, z - z0 - 1, z1 - 1 - z)
+    const n = Math.sin(x * 0.21 + z * 0.07) + Math.sin(z * 0.17 - x * 0.05 + 1.3)
+    if (n > 0.6 || edge < 2) m.set(x, 16, z, M('snow'))
+  }
   return m
 }, { occludesSnow: true, lods: [1, 2, 4], lodDistances: [60, 160] })
 
@@ -383,20 +388,20 @@ export function placeShop(ctx, o) {
   })
 
   // ---- cashier ------------------------------------------------------------------------
-  const cashier = put(ctx, F, 'pub_cashier', lx(27.5), lz(40), { ly: V, tag: 'person', userData: { kind: 'cashier', role: 'cashier' } })
+  const cashier = put(ctx, F, 'pub_cashier', lx(27.5), lz(40), { ly: V, indoor: true, tag: 'person', userData: { kind: 'cashier', role: 'cashier' } })
 
   // ---- flickering tube ----------------------------------------------------------------
-  const tube = put(ctx, F, 'pub_tube_fixture', lx(37), lz(29), { ly: 12 * V })
+  const tube = put(ctx, F, 'pub_tube_fixture', lx(37), lz(29), { ly: 12 * V, indoor: true })
 
   // ---- lights -------------------------------------------------------------------------
   const tubeCol = 0xf4f0dc
   const ceil = 2.95
   for (const [vx, vz] of [[14, 17], [40, 15], [15, 31]]) {
-    light(ctx, F, lx(vx), ceil, lz(vz), { color: tubeCol, intensity: 9, range: 11, domain: 'indoor', halo: false, tag: 'shop_light' })
+    light(ctx, F, lx(vx), ceil, lz(vz), { color: tubeCol, intensity: 2.4, range: 10, domain: 'indoor', halo: false, tag: 'shop_light' })
   }
-  light(ctx, F, lx(37), ceil, lz(29), { color: tubeCol, intensity: 8, range: 10, domain: 'indoor', flicker: 'buzz', placement: tube, halo: false, tag: 'shop_light' })
-  light(ctx, F, lx(30), ceil, lz(39), { color: tubeCol, intensity: 7, range: 10, domain: 'indoor', halo: false, tag: 'shop_light' })
-  light(ctx, F, lx(10), 2.6, lz(10.5), { color: 0xffe2b0, intensity: 2.5, range: 4.5, domain: 'indoor', halo: false })
+  light(ctx, F, lx(37), ceil, lz(29), { color: tubeCol, intensity: 2.2, range: 9, domain: 'indoor', flicker: 'buzz', placement: tube, halo: false, tag: 'shop_light' })
+  light(ctx, F, lx(30), ceil, lz(39), { color: tubeCol, intensity: 2.0, range: 8, domain: 'indoor', halo: false, tag: 'shop_light' })
+  light(ctx, F, lx(10), 2.6, lz(10.5), { color: 0xffe2b0, intensity: 1.0, range: 4.5, domain: 'indoor', halo: false })
   // warm light spilling from the windows onto the snow
   light(ctx, F, lx(36), 2.4, lz(FW - 1.5), { type: 'spot', dir: [0, -0.62, -1], cone: 72, inner: 30, color: 0xffd9a6, intensity: 16, range: 13, schedule: 'night', halo: false, scatter: 0.5, tag: 'shop_spill' })
   // entrance bulb under the canopy
@@ -438,7 +443,7 @@ export function placeShop(ctx, o) {
   dept(19.5, 44, 0, -1, 'ГАСТРОНОМИЯ')
   dept(38, 44, 0, -1, 'МОЛОЧНЫЕ ПРОДУКТЫ', 3.2)
   dept(54, 30, -1, 0, 'ВИНО-ВОДКА · ТАБАК', 3.2)
-  dept(28.5, 22, 0, -1, 'БАКАЛЕЯ', 1.8, 2.55)
+  dept(28.5, 21, 0, -1, 'БАКАЛЕЯ', 1.8, 2.6)
   // price-tag rows along the counter glass (decorative) + readable lists
   const tagRow = (xa, xb, vz, items) => {
     const n = items.length
@@ -460,8 +465,8 @@ export function placeShop(ctx, o) {
   readable(ctx, F, lx(19.5), 0.9, lz(33.6), [2.8, 1.0, 0.5], { ...PRICE_DEPTS.gastro, style: 'ticket' }, { prompt: { ru: 'Смотреть ценники', en: 'Look at the price tags' } })
   readable(ctx, F, lx(38.5), 0.9, lz(33.6), [3.8, 1.0, 0.5], { ...PRICE_DEPTS.dairy, style: 'ticket' }, { prompt: { ru: 'Смотреть ценники', en: 'Look at the price tags' } })
   readable(ctx, F, lx(45.6), 0.9, lz(28.5), [0.5, 1.0, 4.2], { ...PRICE_DEPTS.wine, style: 'ticket' }, { prompt: { ru: 'Смотреть ценники', en: 'Look at the price tags' } })
-  readable(ctx, F, lx(28.5), 0.9, lz(21.5), [4.2, 1.2, 0.4], { ...PRICE_DEPTS.grocery, style: 'ticket' }, { prompt: { ru: 'Смотреть ценники', en: 'Look at the price tags' } })
-  readable(ctx, F, lx(28.5), 0.9, lz(25.5), [4.2, 1.2, 0.4], { ...PRICE_DEPTS.grocery, style: 'ticket' }, { prompt: { ru: 'Смотреть ценники', en: 'Look at the price tags' } })
+  readable(ctx, F, lx(28.5), 0.9, lz(20.6), [4.2, 1.2, 0.4], { ...PRICE_DEPTS.grocery, style: 'ticket' }, { prompt: { ru: 'Смотреть ценники', en: 'Look at the price tags' } })
+  readable(ctx, F, lx(28.5), 0.9, lz(26.4), [4.2, 1.2, 0.4], { ...PRICE_DEPTS.grocery, style: 'ticket' }, { prompt: { ru: 'Смотреть ценники', en: 'Look at the price tags' } })
   // money tray note
   sign(ctx, F, lx(25.5), 1.42, lz(34) - 0.01, 0, -1, { w: 0.3, h: 0.12, ppm: 250, indoor: true, draw: (c, W, H) => handText(c, W, H, { lines: ['Деньги кладите', 'на тарелочку'], bg: '#ece8da', color: '#223', seed: 5 }) })
   readable(ctx, F, lx(25.6), 1.35, lz(33.8), [0.4, 0.3, 0.3], { ru: 'Деньги кладите на тарелочку', en: 'Please put the money on the tray', style: 'hand' })

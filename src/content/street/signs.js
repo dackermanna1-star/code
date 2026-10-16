@@ -372,14 +372,13 @@ export function drawGraffiti(text, seed, color = '#2a2a2e') {
     c.translate(W * 0.05, H * 0.5)
     c.rotate((rng.next() - 0.5) * 0.18)
     const size = H * 0.6
-    c.font = `bold ${size}px ${rng.chance(0.5) ? HAND_FONT : SERIF_FONT}`
-    let w = c.measureText(text).width
+    const font = rng.chance(0.5) ? HAND_FONT : SERIF_FONT
+    c.font = `bold ${size}px ${font}`
+    const w = c.measureText(text).width
     const k = Math.min(1, (W * 0.9) / w)
     c.scale(k, 1)
-    c.fillStyle = color
     c.globalAlpha = 0.85
-    c.textBaseline = 'middle'
-    wobbleText(c, text, 0, -size * 0.5, size, c.font.split('px ')[1], color, rng, 'bold')
+    wobbleText(c, text, 0, -size * 0.5, size, font, color, rng, 'bold')
     c.restore()
   }
 }

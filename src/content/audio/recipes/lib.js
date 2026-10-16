@@ -3,7 +3,7 @@
 
 import { Biquad, SVF, Osc, OnePole, TAU, addBurst, addModes, echoes, softClip, filt, smooth, buf, Brown, Pink } from '../dsp.js'
 
-export { TAU }
+export * from '../dsp.js'
 
 /** Low thump (sine with a quick pitch drop) — heel strikes, door booms. */
 export function thump(d, sr, off, { f = 90, dur = 0.05, gain = 1, drop = 1.6, attack = 0.004 } = {}) {
@@ -137,4 +137,3 @@ export function noiseFill(d, r, color = 'brown', gain = 1) {
   return d
 }
 
-export { Biquad, SVF, Osc, OnePole, addBurst, addModes, echoes, softClip, filt, smooth, buf, Brown, Pink }

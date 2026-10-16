@@ -6,4 +6,7 @@
 // See docs/catalog/public.md for sizes, pivots and examples.
 
 export { placeShop, SHOP_DIMS } from './shop.js'
+export { placeKiosk, KIOSK_TYPES, KIOSK_DIMS } from './kiosk.js'
+export { placePharmacy, PHARMACY_DIMS } from './pharmacy.js'
+export { placeSchool, SCHOOL_DIMS } from './school.js'
 export { Frame } from './lib.js'

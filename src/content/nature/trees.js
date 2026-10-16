@@ -181,7 +181,7 @@ function buildBirch(seed, Hm, o = {}) {
       const r = Math.max(0.42, q.r * 0.62)
       junctions.push(q.p)
       birchLimb(sk, rng, q.p, deviate(q.dir, ang, roll), L, r, t)
-      y += rng.float(1.6, 3.4) * (stems > 1 ? 1.4 : 1)
+      y += rng.float(2.2, 4.2) * (stems > 1 ? 1.35 : 1)
     }
     // leader tip twigs
     const tip = tp[tp.length - 1]
@@ -204,17 +204,17 @@ function birchLimb(sk, rng, p, dir, L, r, tCrown) {
   let side = rng.chance(0.5) ? 1 : -1
   for (let i = 1; i < pts.length; i++) {
     const q = pts[i]
-    if (q.t < 0.2 || rng.chance(0.3)) continue
+    if (q.t < 0.2 || rng.chance(0.42)) continue
     side = -side
     const sd = norm(add(deviate(q.dir, rng.float(0.55, 0.95), side * rng.float(1.2, 1.9)), mul(DOWN, 0.2)))
     const sl = L * rng.float(0.2, 0.38) * (1 - 0.4 * q.t) + 1.5
     const sp = sk.grow({ p: q.p, dir: sd, length: sl, step: 2, r0: 0.4, r1: 0.4, gnarl: 0.14, trop: DOWN, tropK: 0.14, rng, mat: MAT.branch, prio: PRIO.branch, conn: 18 })
     const e = sp[sp.length - 1]
-    hangTwig(sk, rng, e.p, e.dir, rng.float(2.5, 6) * (0.7 + 0.5 * tCrown), 0.45)
-    if (sp.length > 2 && rng.chance(0.45)) hangTwig(sk, rng, sp[1].p, sp[1].dir, rng.float(2, 5), 0.4)
+    hangTwig(sk, rng, e.p, e.dir, rng.float(2.5, 6) * (1.1 - 0.5 * tCrown), 0.45)
+    if (sp.length > 2 && rng.chance(0.3)) hangTwig(sk, rng, sp[1].p, sp[1].dir, rng.float(2, 4), 0.4)
   }
   const tip = pts[pts.length - 1]
-  for (let k = 0; k < 2; k++) hangTwig(sk, rng, tip.p, tip.dir, rng.float(3, 8), 0.4)
+  for (let k = 0; k < 2; k++) hangTwig(sk, rng, tip.p, tip.dir, rng.float(3, 8) * (1.1 - 0.5 * tCrown), 0.4)
 }
 
 /** A thin pendulous twig: a short reach outward, then hanging down. */
@@ -326,12 +326,12 @@ function buildPollard(seed, Hm, o = {}) {
   }
   // bristles of straight shoots from every knuckle
   for (const k of knuckles) {
-    const n = rng.int(7, 15)
+    const n = rng.int(4, 9)
     for (let s = 0; s < n; s++) {
       const az = rng.float(0, TAU)
       const rr = k.r * rng.float(0.4, 1.0)
       const p = add(k.p, [Math.cos(az) * rr, rng.float(0, 0.8), Math.sin(az) * rr])
-      sprout(sk, rng, p, rng.float(5, 14) * (o.short ? 0.6 : 1))
+      sprout(sk, rng, p, rng.float(4, 12) * (o.short ? 0.6 : 1))
     }
   }
   if (o.regrown) {
@@ -383,11 +383,11 @@ function buildMaple(seed, Hm) {
       if (q.t < 0.15) continue
       roll += Math.PI / 2
       for (const s of [0, Math.PI]) {
-        if (rng.chance(0.25)) continue
+        if (rng.chance(0.4)) continue
         const sd = norm(add(deviate(q.dir, rng.float(0.6, 0.95), roll + s), [0, 0.15, 0]))
         const sl = L * (1 - q.t) * rng.float(0.35, 0.6) + 2
         const sp = sk.grow({ p: q.p, dir: sd, length: sl, step: 2, r0: 0.4, r1: 0.4, gnarl: 0.13, trop: DOWN, tropK: 0.03, rng, mat: MAT.branch, prio: PRIO.branch })
-        for (let j = 1; j < sp.length; j++) twigs(sk, rng, sp[j].p, sp[j].dir, rng.int(1, 2), 1.5, 3.5, MAT.twig)
+        for (let j = 1; j < sp.length; j++) if (rng.chance(0.5)) twigs(sk, rng, sp[j].p, sp[j].dir, 1, 1.5, 3.5, MAT.twigGrey)
       }
     }
   }
@@ -457,19 +457,20 @@ function buildLinden(seed, Hm, o = {}) {
     let side = 1
     for (let i = 1; i < pts.length; i++) {
       const qq = pts[i]
+      if (rng.chance(0.3)) continue
       side = -side
       const sd = deviate(qq.dir, rng.float(0.6, 1.0), roll + side * rng.float(1.2, 1.9))
       const sl = L * (1 - qq.t) * 0.45 + rng.float(1.5, 3)
       const sp = sk.grow({ p: qq.p, dir: sd, length: sl, step: 1.8, r0: 0.38, r1: 0.38, gnarl: 0.16, trop: UP, tropK: 0.05, rng, mat: MAT.branch, prio: PRIO.branch })
-      for (let j = 1; j < sp.length; j++) twigs(sk, rng, sp[j].p, sp[j].dir, 2, 1.5, 3, MAT.twig)
+      for (let j = 1; j < sp.length; j++) if (rng.chance(0.45)) twigs(sk, rng, sp[j].p, sp[j].dir, 1, 1.5, 3, MAT.twigGrey)
     }
-    y += rng.float(1.3, 2.8)
+    y += rng.float(2.4, 4.2)
   }
   // suckers around the foot
   for (let k = 0; k < rng.int(5, 12); k++) {
     const az = rng.float(0, TAU)
     const p = [Math.cos(az) * (r0 + 0.3), rng.float(-1, 1.5), Math.sin(az) * (r0 + 0.3)]
-    sk.grow({ p, dir: fromVertical(rng.float(0.05, 0.4), az), length: rng.float(2, 7), step: 1.6, r0: 0.3, r1: 0.3, gnarl: 0.1, trop: UP, tropK: 0.06, rng, mat: MAT.twig, prio: PRIO.twig })
+    sk.grow({ p, dir: fromVertical(rng.float(0.05, 0.4), az), length: rng.float(2, 7), step: 1.6, r0: 0.3, r1: 0.3, gnarl: 0.1, trop: UP, tropK: 0.06, rng, mat: MAT.twigGrey, prio: PRIO.twig })
   }
   const r = rasterize(sk)
   if (o.lime) lowerTrunk(r.model, MAT.bark, MAT.lime, Math.round(rng.float(4, 5.5)), 1, rng)
@@ -496,9 +497,9 @@ function buildApple(seed, Hm, o = {}) {
       if (rng.chance(0.25)) continue
       const sp = sk.grow({ p: q.p, dir: deviate(q.dir, rng.float(0.5, 1.0), rng.float(0, TAU)), length: rng.float(3, 7), step: 1.6, r0: 0.38, r1: 0.38, gnarl: 0.25, trop: UP, tropK: 0.06, rng, mat: MAT.branch, prio: PRIO.branch })
       tips.push(sp[sp.length - 1].p)
-      for (let j = 1; j < sp.length; j++) if (rng.chance(0.6)) twigs(sk, rng, sp[j].p, sp[j].dir, 1, 1, 2, MAT.twig)
+      for (let j = 1; j < sp.length; j++) if (rng.chance(0.6)) twigs(sk, rng, sp[j].p, sp[j].dir, 1, 1, 2, MAT.twigGrey)
       // water sprouts
-      if (rng.chance(0.3)) sk.grow({ p: add(q.p, [0, 0.6, 0]), dir: fromVertical(rng.float(0, 0.15), rng.float(0, TAU)), length: rng.float(3, 7), step: 2, r0: 0.3, r1: 0.3, gnarl: 0.03, rng, mat: MAT.twig, prio: PRIO.twig })
+      if (rng.chance(0.3)) sk.grow({ p: add(q.p, [0, 0.6, 0]), dir: fromVertical(rng.float(0, 0.15), rng.float(0, TAU)), length: rng.float(3, 7), step: 2, r0: 0.3, r1: 0.3, gnarl: 0.03, rng, mat: MAT.twigGrey, prio: PRIO.twig })
     }
   }
   // a few dried apples still hanging
@@ -525,29 +526,21 @@ function buildSpruce(seed, Hm, o = {}) {
       for (let k = 0; k < 3; k++) sk.grow({ p: q.p, dir: fromVertical(rng.float(1.5, 1.9), rng.float(0, TAU)), length: rng.float(2, 5), step: 1.5, r0: 0.3, r1: 0.3, gnarl: 0.2, trop: DOWN, tropK: 0.05, rng, mat: MAT.twig, prio: PRIO.twig })
     }
   }
-  let y = skirt, whorl = 0
+  let y = skirt
   while (y < H - 2.5) {
     const hrel = y / H
     const q = atY(tp, y)
-    const nB = rng.int(5, 7)
+    const nB = rng.int(6, 8)
     const roll0 = rng.float(0, TAU)
-    const Lw = (H - y) * 0.31 * (y < skirt + 3 ? 0.9 : 1) + 1.5
+    const Lw = (H - y) * 0.3 * (y < skirt + 3 ? 0.92 : 1) + 1.5
     for (let b = 0; b < nB; b++) {
-      const az = roll0 + b * TAU / nB + rng.float(-0.3, 0.3) * jit
-      const L = Lw * rng.float(1 - 0.18 * jit, 1 + 0.1 * jit)
-      const ang = lerp(1.85, 1.15, hrel) + rng.float(-0.08, 0.08)
+      const az = roll0 + b * TAU / nB + rng.float(-0.25, 0.25) * jit
+      const L = Lw * rng.float(1 - 0.16 * jit, 1 + 0.08 * jit)
+      const ang = lerp(1.78, 1.25, hrel) + rng.float(-0.06, 0.06)
       spruceBranch(sk, rng, q.p, fromVertical(ang, az), L, needles, hrel)
     }
-    // short in-between branches fill the gaps of the tier
-    const gap = rng.float(2, 3.2)
-    if (H - y > 6) {
-      for (let b = 0; b < rng.int(2, 4); b++) {
-        const q2 = atY(tp, y + gap * 0.5)
-        spruceBranch(sk, rng, q2.p, fromVertical(lerp(1.75, 1.2, hrel), rng.float(0, TAU)), Lw * rng.float(0.35, 0.6), needles, hrel)
-      }
-    }
-    y += gap
-    whorl++
+    // tiers get closer toward the top
+    y += lerp(4.6, 2.6, hrel) * rng.float(0.88, 1.12)
   }
   // leader spire
   const tip = tp[tp.length - 1].p
@@ -555,19 +548,19 @@ function buildSpruce(seed, Hm, o = {}) {
   sk.blob(add(tip, [0, -2, 0]), 1.1, 1.5, 1.1, needles, PRIO.needle, 0.9, seed + 99)
   const r = rasterize(sk)
   return finish(r, {
-    seed, snowMats: new Set([needles, MAT.branch]), minHoriz: 0, snowChance: 0.82, shelter: 0.42,
+    seed, snowMats: new Set([needles, MAT.branch]), minHoriz: 0, snowChance: 0.9, shelter: 0.5,
     perchMats: new Set([needles]), perchMinFrac: 0.35, thinMin: f => (f <= 2 ? 2 : 5), snowMin: f => (f <= 2 ? 2 : 6),
   })
 }
 
 function spruceBranch(sk, rng, p, dir, L, needles, hrel) {
-  const pts = sk.grow({ p, dir, length: L, step: 1.6, r0: 0.35, r1: 0.35, gnarl: 0.05, trop: UP, tropK: t => (t > 0.65 ? 0.14 : -0.05), rng, mat: MAT.branch, prio: PRIO.branch })
+  const pts = sk.grow({ p, dir, length: L, step: 1.5, r0: 0.35, r1: 0.35, gnarl: 0.04, trop: UP, tropK: t => (t > 0.7 ? 0.16 : -0.06), rng, mat: MAT.branch, prio: PRIO.branch })
   for (let i = 1; i < pts.length; i++) {
     const q = pts[i]
-    const w = lerp(1.7, 0.75, q.t) * (0.85 + 0.3 * (1 - hrel))
-    sk.blob(add(q.p, [0, -0.45, 0]), w, 0.85, w, needles, PRIO.needle, 0.82, hash2(i, Math.floor(q.p[0] * 13 + q.p[2] * 7 + q.p[1] * 31)))
-    // drooping branchlets under the branch
-    if (rng.chance(0.35)) sk.seg(q.p, add(q.p, [rng.float(-0.8, 0.8), -rng.float(1.5, 2.8), rng.float(-0.8, 0.8)]), 0.3, 0.3, needles, PRIO.needle, 18)
+    const w = lerp(1.5, 0.7, q.t)
+    // a flat sagging layer of needles with a fringe hanging under its outer half
+    sk.blob(add(q.p, [0, -0.2, 0]), w, 0.62, w, needles, PRIO.needle, 0.9, hash2(i, Math.floor(q.p[0] * 13 + q.p[2] * 7 + q.p[1] * 31)))
+    if (q.t > 0.35 && rng.chance(0.5)) sk.seg(q.p, add(q.p, [rng.float(-0.6, 0.6), -rng.float(1.2, 2.2), rng.float(-0.6, 0.6)]), 0.3, 0.3, needles, PRIO.needle, 18)
   }
 }
 
@@ -620,7 +613,7 @@ function buildSapling(seed, Hm, o = {}) {
   const top = tp[tp.length - 1].p[1]
   for (let k = 0; k < rng.int(4, 8); k++) {
     const q = atY(tp, rng.float(top * 0.55, top - 0.5))
-    const pts = sk.grow({ p: q.p, dir: fromVertical(rng.float(0.4, 0.8), rng.float(0, TAU)), length: rng.float(2, 5), step: 1.5, r0: 0.3, r1: 0.3, gnarl: 0.12, trop: o.birch ? DOWN : UP, tropK: o.birch ? 0.1 : 0.05, rng, mat: o.birch ? MAT.twigBirch : MAT.twig, prio: PRIO.twig })
+    const pts = sk.grow({ p: q.p, dir: fromVertical(rng.float(0.4, 0.8), rng.float(0, TAU)), length: rng.float(2, 5), step: 1.5, r0: 0.3, r1: 0.3, gnarl: 0.12, trop: o.birch ? DOWN : UP, tropK: o.birch ? 0.1 : 0.05, rng, mat: o.birch ? MAT.twigBirch : MAT.twigGrey, prio: PRIO.twig })
     if (o.birch) hangTwig(sk, rng, pts[pts.length - 1].p, pts[pts.length - 1].dir, rng.float(2, 4), 0.2)
   }
   const stakeH = rng.float(7, 8.5)
@@ -654,8 +647,8 @@ function buildSapling(seed, Hm, o = {}) {
   if (o.lime) lowerTrunk(r.model, bark, MAT.lime, 4, 1, rng)
   if (o.birch) birchBark(r.model, rng, 0, [])
   return finish(r, {
-    seed, snowMats: new Set([MAT.wood, MAT.woodDark, MAT.twig, MAT.twigBirch]), minHoriz: mat => (mat === MAT.wood ? 0 : 0.5),
-    snowChance: 0.8, perchMats: new Set([MAT.twig, MAT.woodDark]), perchMinFrac: 0.3,
+    seed, snowMats: new Set([MAT.wood, MAT.woodDark, MAT.twigGrey, MAT.twigBirch]), minHoriz: mat => (mat === MAT.wood ? 0 : 0.5),
+    snowChance: 0.8, perchMats: new Set([MAT.twigGrey, MAT.woodDark]), perchMinFrac: 0.3,
   })
 }
 

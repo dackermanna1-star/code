@@ -24,13 +24,13 @@ function fillSpeech(d, sr, r, t, until, makeClip, gap = [0.4, 1.2]) {
 
 def('tv_muffled', {
   // v0: evening news (anchor, field report, music sting); v1: entertainment (dialogue, laugh track, jingle)
-  sr: 11025, variants: 2, prio: 3, norm: { rms: 0.12, ceiling: 0.9 }, loop: 1.0,
+  sr: 8000, variants: 2, prio: 4, norm: { rms: 0.12, ceiling: 0.9 }, loop: 1.0,
   gen(r, sr, v) {
-    const len = 42, x = 1.0
+    const len = 34, x = 1.0
     const d = buf(len + x, sr)
     if (v === 0) {
       let t = 0.3
-      t = fillSpeech(d, sr, r, t, 15, () => speak(babbleText(r, r.int(10, 18), 'news'), sr, 'anchor', r), [0.35, 0.7])
+      t = fillSpeech(d, sr, r, t, 12, () => speak(babbleText(r, r.int(10, 18), 'news'), sr, 'anchor', r), [0.35, 0.7])
       // music sting under the cut to a report
       const sting = buf(3.2, sr)
       tones(sting, sr, [48, 55, 60, 63].map(m => ({ t: 0, dur: 3, f: 440 * Math.pow(2, (m - 69) / 12), gain: 0.25, attack: 0.05, release: 1.2 })), { wave: 'saw' })
@@ -39,7 +39,7 @@ def('tv_muffled', {
       t += 2.4
       // field report: female voice over street noise
       const repStart = t
-      t = fillSpeech(d, sr, r, t, 31, () => speak(babbleText(r, r.int(8, 14), 'news'), sr, 'female', r, { rate: 5.0 }), [0.3, 0.8])
+      t = fillSpeech(d, sr, r, t, 25, () => speak(babbleText(r, r.int(8, 14), 'news'), sr, 'female', r, { rate: 5.0 }), [0.3, 0.8])
       const street = new Brown()
       for (let i = Math.floor(repStart * sr); i < Math.min(d.length, Math.floor(t * sr)); i++) d[i] += street.next(r.bi()) * 0.12
       t += 0.4
@@ -88,9 +88,9 @@ def('tv_muffled', {
 
 def('voices_muffled', {
   // two people in another room / behind a flat door
-  sr: 11025, variants: 2, prio: 3, norm: { rms: 0.12, ceiling: 0.9 }, loop: 1.0,
+  sr: 8000, variants: 2, prio: 4, norm: { rms: 0.12, ceiling: 0.9 }, loop: 1.0,
   gen(r, sr) {
-    const len = 38, x = 1.0
+    const len = 32, x = 1.0
     const d = buf(len + x, sr)
     let t = 0.4
     let who = r.int(0, 1)
@@ -138,7 +138,7 @@ def('fridge_hum', {
 
 def('fluorescent_buzz', {
   // v0: healthy tube (buzz + ballast hiss + rare ticks); v1: failing tube (starter tik-tik, pings, dropouts)
-  sr: 22050, variants: 2, prio: 3, norm: { rms: 0.12 }, loop: 0.2,
+  sr: 16000, variants: 2, prio: 3, norm: { rms: 0.12 }, loop: 0.2,
   gen(r, sr, v) {
     const len = 10, x = 0.2
     const d = buf(len + x, sr)
@@ -290,7 +290,7 @@ def('car_idle', {
 
 def('swing_creak', {
   // a rusty swing moved by the wind: a squeak each half-swing, intensity breathing with gusts
-  sr: 22050, variants: 2, prio: 4, norm: { peak: 0.8 }, loop: 0.2,
+  sr: 16000, variants: 1, prio: 4, norm: { peak: 0.8 }, loop: 0.2,
   gen(r, sr, v) {
     const period = v ? 2.6 : 2.8
     const len = period * 6, x = 0.2
@@ -310,9 +310,9 @@ def('swing_creak', {
 
 def('shop_ambience', {
   // inside a 2008 «Продукты»: fridges, tubes, a murmur at the counter, scale beeps, the till, a printer
-  sr: 16000, prio: 4, norm: { rms: 0.1, ceiling: 0.9 }, loop: 1.0,
+  sr: 11025, prio: 5, norm: { rms: 0.1, ceiling: 0.9 }, loop: 1.0,
   gen(r, sr) {
-    const len = 40, x = 1.0
+    const len = 30, x = 1.0
     const d = buf(len + x, sr)
     const rat = new Biquad(sr, 'bp', 900, 2)
     const o = new Osc(sr)
@@ -337,13 +337,13 @@ def('shop_ambience', {
     mixInto(d, talk, 0, 0.55)
     // scale beeps, till drawer, coins, receipt printer, a plastic bag
     for (let k = 0; k < 3; k++) tones(d, sr, [{ t: r.range(2, len - 2), dur: 0.12, f: 2600, gain: 0.08 }], { wave: 'square' })
-    const till = r.range(10, 30)
+    const till = r.range(8, 22)
     addModes(d, sr, Math.floor(till * sr), [[2100, 0.12, 0.6], [2950, 0.06, 0.4]], 1, r) // drawer bell
     addModes(d, sr, Math.floor((till + 0.25) * sr), [[180, 0.2, 0.12], [520, 0.12, 0.08], [1300, 0.08, 0.04]], 1, r)
     for (let k = 0; k < 6; k++) addModes(d, sr, Math.floor((till + 1.2 + k * r.range(0.04, 0.12)) * sr), [[r.range(3500, 5500), 0.05, 0.05], [r.range(6000, 7500), 0.03, 0.03]], 1, r)
     const pr = till + 3
     for (let i = Math.floor(pr * sr); i < Math.floor((pr + 1.1) * sr); i++) d[i] += ((i % Math.floor(sr / 420)) < 6 ? 1 : 0) * 0.05 * (0.6 + 0.4 * Math.sin(TAU * 7 * i / sr))
-    const bag = Math.floor(r.range(5, 35) * sr)
+    const bag = Math.floor(r.range(4, 26) * sr)
     for (let c = 0; c < 40; c++) addBurst(d, sr, bag + Math.floor(r() * 0.8 * sr), 0.001, r, { f: r.range(2500, 6500), q: 1, gain: 0.08 * r(), tau: 0.0004 })
     return d
   },
@@ -394,7 +394,7 @@ def('bed_city', {
   // the city beyond view: a very low broadband drone (MKAD, millions of flats), stereo
   sr: 8000, prio: 0, norm: { rms: 0.2 }, loop: 2,
   gen(r, sr) {
-    return stereoNoise(r, sr, 24, 2, d => {
+    return stereoNoise(r, sr, 16, 2, d => {
       const br = new Brown(), pk = new Pink()
       const lp = new Biquad(sr, 'lp', 140, 0.7), bp = new Biquad(sr, 'bp', 380, 0.6)
       const w = new Wander(r, sr, 0.08)
@@ -404,9 +404,9 @@ def('bed_city', {
 })
 def('bed_traffic', {
   // distant traffic on wet, salted roads: drone + tyre band + spray, stereo
-  sr: 16000, prio: 0, norm: { rms: 0.2 }, loop: 2,
+  sr: 11025, prio: 0, norm: { rms: 0.2 }, loop: 2,
   gen(r, sr) {
-    return stereoNoise(r, sr, 20, 2, d => {
+    return stereoNoise(r, sr, 15, 2, d => {
       const br = new Brown(), pk = new Pink()
       const lp = new Biquad(sr, 'lp', 300, 0.7), bp = new Biquad(sr, 'bp', 900, 0.6), hp = new Biquad(sr, 'hp', 2200, 0.7), lp2 = new Biquad(sr, 'lp', 6000, 0.7)
       const w = new Wander(r, sr, 0.15)
@@ -419,7 +419,7 @@ def('bed_traffic', {
 })
 def('bed_brown', {
   sr: 8000, prio: 0, norm: { rms: 0.2 }, loop: 1,
-  gen(r, sr) { return stereoNoise(r, sr, 16, 1, d => { const b = new Brown(); for (let i = 0; i < d.length; i++) d[i] = b.next(r.bi()) }) },
+  gen(r, sr) { return stereoNoise(r, sr, 12, 1, d => { const b = new Brown(); for (let i = 0; i < d.length; i++) d[i] = b.next(r.bi()) }) },
 })
 def('bed_white', {
   sr: 22050, prio: 0, norm: { rms: 0.2 }, loop: 0.5,
@@ -442,9 +442,9 @@ def('bed_room', {
 })
 def('bed_underground', {
   // underpass / vestibule / platform room tone: low rumble, ventilation hiss, mains
-  sr: 11025, prio: 2, norm: { rms: 0.2 }, loop: 1,
+  sr: 8000, prio: 2, norm: { rms: 0.2 }, loop: 1,
   gen(r, sr) {
-    return stereoNoise(r, sr, 15, 1, d => {
+    return stereoNoise(r, sr, 12, 1, d => {
       const br = new Brown(), pk = new Pink()
       const lp = new Biquad(sr, 'lp', 110, 0.7), bp = new Biquad(sr, 'bp', 1100, 0.7)
       const w = new Wander(r, sr, 0.15)

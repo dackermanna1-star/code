@@ -12,7 +12,7 @@ const peakNorm = d => { let p = 0; for (let i = 0; i < d.length; i++) p = Math.m
 
 def('snow_shovel', {
   // v0-2: steel scraper / pusher on asphalt; v3: plywood shovel + knocking it clean
-  sr: 22050, variants: 4, prio: 4, norm: { peak: 0.85 },
+  sr: 16000, variants: 4, prio: 5, norm: { peak: 0.85 }, maxDur: 5,
   gen(r, sr, v) {
     const push = r.range(1.5, 2.8)
     const d = buf(push + 1.6, sr)
@@ -64,7 +64,7 @@ function snowStep(d, sr, off, r, g) {
 
 def('footsteps_phantom', {
   // someone else's steps in snow, receding into the dark (≈ 8–10 s)
-  sr: 22050, variants: 3, prio: 4, norm: { peak: 0.85 },
+  sr: 16000, variants: 2, prio: 5, norm: { peak: 0.85 }, maxDur: 11,
   gen(r, sr, v) {
     const steps = r.int(12, 18)
     const cad = r.range(0.5, 0.6)
@@ -74,7 +74,7 @@ def('footsteps_phantom', {
     const gains = []
     for (let k = 0; k < steps; k++) {
       const u = k / steps
-      const g = (v === 2 ? Math.min(1, 0.4 + u * 2) * Math.pow(1 - u, 1.2) : Math.pow(1 - u, 1.6)) * (k % 2 ? 0.9 : 1)
+      const g = (v === 1 ? Math.min(1, 0.4 + u * 2) * Math.pow(1 - u, 1.2) : Math.pow(1 - u, 1.6)) * (k % 2 ? 0.9 : 1)
       gains.push(g)
       snowStep(tmp, sr, Math.floor((0.03 + k * cad + r.range(-0.015, 0.015)) * sr), r, g)
     }
@@ -89,7 +89,7 @@ def('footsteps_phantom', {
 
 def('footsteps_phantom_indoor', {
   // slippers shuffling towards a flat door from inside, then stopping (heard through the door)
-  sr: 22050, variants: 2, prio: 5, norm: { peak: 0.8 },
+  sr: 11025, variants: 2, prio: 6, norm: { peak: 0.8 }, maxDur: 6,
   gen(r, sr) {
     const steps = r.int(5, 8)
     const d = buf(steps * 0.62 + 1.2, sr)
@@ -129,7 +129,7 @@ export const KIOSK_PHRASES = [
 ]
 
 def('cashier_voice', {
-  sr: 16000, variants: CASHIER_PHRASES.length, prio: 4, norm: { peak: 0.8 },
+  sr: 11025, variants: CASHIER_PHRASES.length, prio: 5, norm: { peak: 0.8 }, maxDur: 3.5,
   gen(r, sr, v) {
     const s = peakNorm(speak(CASHIER_PHRASES[v].text, sr, { f0: 190, fs: 1.13, bw: 1.2, breath: 0.12, rate: 5.6, range: 1.15 }, r))
     const d = buf(s.length / sr + 0.6, sr)
@@ -141,10 +141,10 @@ def('cashier_voice', {
 
 def('kiosk_voice', {
   // through the little hatch of a ларёк: boxy, glassy, muffled
-  sr: 16000, variants: KIOSK_PHRASES.length * 2, prio: 4, norm: { peak: 0.8 },
+  sr: 11025, variants: KIOSK_PHRASES.length, prio: 5, norm: { peak: 0.8 }, maxDur: 3,
   gen(r, sr, v) {
-    const ph = KIOSK_PHRASES[v % KIOSK_PHRASES.length]
-    const male = v >= KIOSK_PHRASES.length
+    const ph = KIOSK_PHRASES[v]
+    const male = v % 3 === 1
     const s = peakNorm(speak(ph.text, sr, male ? { f0: 105, fs: 0.98, bw: 1.1, breath: 0.08, rate: 5.0, range: 0.9 } : { f0: 200, fs: 1.15, bw: 1.2, breath: 0.1, rate: 5.4, range: 1 }, r))
     const d = buf(s.length / sr + 0.5, sr)
     mixInto(d, s, Math.floor(0.03 * sr), 1)
@@ -173,7 +173,7 @@ export function renderPA(text, sr, r, voice = 'female', { reverb = 0.3 } = {}) {
 }
 
 def('announcement', {
-  sr: 16000, variants: PA_PHRASES.length, prio: 5, norm: { peak: 0.85 },
+  sr: 11025, variants: PA_PHRASES.length, prio: 7, lazy: true, norm: { peak: 0.85 }, maxDur: 12,
   gen(r, sr, v) { return renderPA(PA_PHRASES[v].text, sr, r, PA_PHRASES[v].voice) },
 })
 
@@ -203,7 +203,7 @@ def('breath', {
 
 const KIDS = ['А-а-а-а!', 'Ма+ма, смотри+!', 'Моя+ о+чередь!', 'Ещё+ разо+к!', 'Дава+й быстре+й!', 'Ура+-а-а!']
 def('kids_sledding', {
-  sr: 22050, variants: 4, prio: 5, norm: { peak: 0.85 },
+  sr: 16000, variants: 4, prio: 8, lazy: true, norm: { peak: 0.85 }, maxDur: 6,
   gen(r, sr, v) {
     const d = buf(5.5, sr)
     // plastic ледянка scraping down the hill
@@ -227,7 +227,7 @@ def('kids_sledding', {
 // ---- a far entrance door ------------------------------------------------------------------------
 
 def('distant_door_slam', {
-  sr: 22050, variants: 3, prio: 4, norm: { peak: 0.85 },
+  sr: 16000, variants: 3, prio: 4, norm: { peak: 0.85 },
   gen(r, sr) {
     const d = buf(2.6, sr)
     const at = Math.floor(0.02 * sr)
@@ -238,5 +238,24 @@ def('distant_door_slam', {
     addModes(d, sr, at + Math.floor(0.015 * sr), [[r.range(1700, 2100), 0.15, 0.04]], 1, r)
     // across the courtyard: dull, with the slapback between the slabs
     return distant(d, sr, r.range(70, 140), { taps: [[r.range(0.24, 0.33), 0.45], [r.range(0.5, 0.66), 0.25], [r.range(0.8, 0.95), 0.12]] })
+  },
+})
+
+// ---- parametric speech (api.playSpeech): any Russian text through a chosen transmission chain ----
+import { wall, phoneBand, cheapSpeaker } from './lib.js'
+def('speech', {
+  sr: 16000, param: true, lazy: true, prio: 9, norm: { peak: 0.85 },
+  gen(r, sr, v, p) {
+    const text = p?.text || 'Алло?'
+    const chain = p?.chain || 'none'
+    if (chain === 'pa') return renderPA(text, sr, r, p.voice === 'male' ? 'male' : 'female', { reverb: p.reverb ?? 0.3 })
+    const s = peakNorm(speak(text, sr, p?.voice || 'male', r, { rate: p?.rate, f0: p?.f0 }))
+    const d = buf(s.length / sr + 0.5, sr)
+    mixInto(d, s, Math.floor(0.03 * sr), 1)
+    if (chain === 'wall') { diffuse(d, sr, 0.5, 2500, 0.25); wall(d, sr, 420) } else if (chain === 'phone') phoneBand(d, sr, r, 0.003)
+    else if (chain === 'radio') cheapSpeaker(d, sr, r, 1.6)
+    else if (chain === 'muffled') filt(d, sr, [['lp', 1800, 0.7]])
+    else diffuse(d, sr, 0.4, 4000, 0.15)
+    return d
   },
 })

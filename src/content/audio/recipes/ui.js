@@ -137,7 +137,7 @@ def('payphone_dial', {
 })
 
 def('phone_unavailable', {
-  sr: 8000, prio: 2, norm: { peak: 0.7 },
+  sr: 8000, prio: 3, maxDur: 7.5, norm: { peak: 0.7 },
   gen(r, sr) {
     // SIT: 950 / 1400 / 1800 Hz, 330 ms each — then the operator's recorded voice
     const voice = speak('Аппара+т абоне+нта вы+ключен, и+ли нахо+дится вне зо+ны де+йствия се+ти.', sr, 'female', r, { rate: 5.6, range: 0.8, pitchJitter: 0.3 })
@@ -170,7 +170,7 @@ def('dial_pulse', {
 
 // GSM interference (217 Hz TDMA bursts) leaking into a nearby speaker: «дрр-дрр-тр-тр»
 def('gsm_interference', {
-  sr: 16000, variants: 3, prio: 6, norm: { peak: 0.6 },
+  sr: 16000, variants: 3, prio: 7, lazy: true, norm: { peak: 0.6 }, maxDur: 2.7,
   gen(r, sr) {
     const len = r.range(1.3, 2.6)
     const d = buf(len, sr)
@@ -205,7 +205,7 @@ export const RINGTONES = [
   { name: 'Звонок', bpm: 240, notes: [[93, 1], [89, 1], [93, 1], [89, 1], [93, 1], [89, 1], [93, 1], [89, 1], [0, 4], [93, 1], [89, 1], [93, 1], [89, 1], [93, 1], [89, 1], [93, 1], [89, 1], [0, 8]] },
 ]
 def('phone_ringtone', {
-  sr: 22050, variants: RINGTONES.length, prio: 6, norm: { peak: 0.6 }, loop: 0.002, dc: 0,
+  sr: 16000, variants: RINGTONES.length, prio: 8, lazy: true, norm: { peak: 0.6 }, loop: 0.002, dc: 0,
   gen(r, sr, v) {
     const m = RINGTONES[v]
     const beat = 60 / m.bpm / 2
