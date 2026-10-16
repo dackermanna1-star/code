@@ -15,7 +15,7 @@ export {
   TYRE_TINTS, RACK_TINTS,
 } from './playground.js'
 export {
-  placeGarbageArea, placeContainer, placeLitterBin, placeTrashBag, placeTrashBox, placeDiscardedTree, placeBrokenChair,
+  placeGarbageArea, placeContainer, placeLitterBin, placeTrashBag, placeTrashBox, placeDiscardedTree, placeBrokenChair, placeDiscardedTV,
   CONTAINER_TINTS,
 } from './waste.js'
 export { placeRakushka, placeRakushkaRow, RAKUSHKA_TINTS } from './garages.js'

@@ -98,7 +98,7 @@ function sedanBody(s, rng) {
   const { sx, sy, sz, X0, X1, Wv } = f
   const m = new VoxelModel(sx, sy, sz)
   m.setPivot(sx / 2, 0, sz / 2)
-  const P = M('paint'), G = M('glass_car')
+  const P = M('paint'), G = M('metal_blue') /*DEBUG*/
   const sill = v(s.sill)
   const beltV = v(s.belt), roofV = v(s.H)
   const round = s.round ?? 1

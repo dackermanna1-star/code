@@ -222,8 +222,8 @@ vec3 shadeWindow(float wid, float seed, vec2 uvC, vec2 sizeVox, float dir, vec3 
   // interior lighting
   vec3 lpos = vec3((bmin.x + bmax.x) * 0.5, bmax.y - 0.4, depth * 0.45);
   vec3 dl = p - lpos;
-  float li = 0.22 + 1.5 / (1.0 + dot(dl, dl) * 0.35);
-  if (face == 3.0) li += 1.4 * exp(-dot(p.xz - lpos.xz, p.xz - lpos.xz) * 2.5);
+  float li = 0.38 + 1.3 / (1.0 + dot(dl, dl) * 0.35);
+  if (face == 3.0) li += 0.6 * exp(-dot(p.xz - lpos.xz, p.xz - lpos.xz) * 2.5);
   if (tv > 0.5) {
     vec3 tpos = vec3(bmin.x + 0.5 + hr, bmin.y + 0.75, depth * 0.8);
     vec3 dt = p - tpos;

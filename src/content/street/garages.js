@@ -41,7 +41,7 @@ function buildRakushka(variant) {
   m.set(5, 1, L - 1, M('metal_dark'))
   m.set(5, 2, L - 1, M('chrome'))
   // rust: bottom edges, around the seam, random blooms
-  rustify(m, rng, [p, M('paint_matte')], 0.025 + variant * 0.03, { bottomBias: 5 })
+  rustify(m, rng, [p, M('paint_matte')], 0.018 + variant * 0.02, { bottomBias: 6 })
   for (let i = 0; i < 3; i++) { const x = rng.int(1, W - 2), z = rng.int(0, L - 1); streak(m, x, prof(x, z >= 11) - 1, z, rng.int(1, 2), M('metal_rust')) }
   if (variant === 2) { m.clear(0, 1, 17, 2, 2, 3); m.set(0, 1, 17, M('metal_rust')) } // a rusted-through corner
   snowTop(m, { chance: 0.97, seed: 5 + variant, depth: 1, vary: 1 })

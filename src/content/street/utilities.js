@@ -27,7 +27,7 @@ function buildPayphone(offhook) {
   m.fill(0, 8, 0, 4, 1, 3, blue)
   if (!offhook) m.set(1, 6, 2, M('plastic_dark'))
   m.set(2, 4, 2, M('metal_dark')) // coin/card tray
-  rustify(m, rngFor('payphone'), [grey], 0.08)
+  rustify(m, rngFor('payphone'), [grey], 0.03)
   snowTop(m, { chance: 1, seed: 2 })
   return m
 }
@@ -184,7 +184,7 @@ defineModel('street_vending_coffee', () => {
   m.clear(1, 1, 2, 1, 1, 1)
   m.set(1, 1, 1, M('metal_dark'))
   m.set(2, 2, 2, M('metal_gray'))
-  rustify(m, rngFor('coffee'), [body], 0.06, { bottomBias: 3 })
+  rustify(m, rngFor('coffee'), [body], 0.03, { bottomBias: 3 })
   snowTop(m, { chance: 1, seed: 4 })
   return m
 }, small)
@@ -201,7 +201,7 @@ defineModel('street_vending_snack', () => {
   m.fill(3, 3, 2, 1, 2, 1, M('metal_gray'))
   m.set(3, 5, 2, M('street_screen'))
   m.fill(0, 1, 2, 3, 1, 1, M('metal_dark'))
-  rustify(m, rng, [body], 0.05, { bottomBias: 3 })
+  rustify(m, rng, [body], 0.025, { bottomBias: 3 })
   snowTop(m, { chance: 1, seed: 5 })
   return m
 }, small)

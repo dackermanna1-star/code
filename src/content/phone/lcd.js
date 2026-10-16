@@ -6,6 +6,8 @@ import { glyph, CELL_H, ICONS } from './font.js'
 
 export const LCD_W = 96
 export const LCD_H = 68
+/** Backlit glass around the pixel matrix, in LCD pixels per side (real LCDs never draw to the edge). */
+export const LCD_MARGIN = 2
 
 export class LCD {
   constructor(w = LCD_W, h = LCD_H) {
@@ -177,7 +179,9 @@ const rgb = (c, a = 1) => a >= 1 ? `rgb(${c[0]},${c[1]},${c[2]})` : `rgba(${c[0]
  * light: 0 (backlight off) .. 1 (on). contrast: 1..7.
  */
 export function presentLCD(lcd, g, px, light, contrast) {
-  const W = lcd.w * px, H = lcd.h * px
+  const m = LCD_MARGIN * px
+  const W = lcd.w * px + m * 2, H = lcd.h * px + m * 2
+  g.setTransform(1, 0, 0, 1, 0, 0)
   const P = PALETTE
   const bg0 = mix(P.dim.bg0, P.lit.bg0, light), bg1 = mix(P.dim.bg1, P.lit.bg1, light)
   const ink = mix(P.dim.ink, P.lit.ink, light), sh = mix(P.dim.shadow, P.lit.shadow, light)
@@ -192,6 +196,7 @@ export function presentLCD(lcd, g, px, light, contrast) {
   const off = Math.max(1, Math.round(px * 0.35))
   const cAlpha = 0.5 + Math.max(1, Math.min(7, contrast)) * 0.07
   const buf = lcd.buf, w = lcd.w, h = lcd.h
+  g.translate(m, m)
   // pixel shadow on the backplane (the classic STN "ghost" offset)
   g.fillStyle = rgb(sh, 0.55 * cAlpha)
   for (let y = 0; y < h; y++) {
@@ -222,7 +227,8 @@ export function presentLCD(lcd, g, px, light, contrast) {
   // faint pixel grid when the pixels are big enough to show it
   if (px >= 3) {
     g.fillStyle = `rgba(0,0,0,${0.035 + 0.02 * light})`
-    for (let x = 1; x < w; x++) g.fillRect(x * px - 1, 0, 1, H)
-    for (let y = 1; y < h; y++) g.fillRect(0, y * px - 1, W, 1)
+    for (let x = 1; x < w; x++) g.fillRect(x * px - 1, 0, 1, h * px)
+    for (let y = 1; y < h; y++) g.fillRect(0, y * px - 1, w * px, 1)
   }
+  g.setTransform(1, 0, 0, 1, 0, 0)
 }

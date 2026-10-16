@@ -69,7 +69,7 @@ export const SERIES = {
     front: { center: 'stair', half: ['kit', 'room', 'room'] },
     back: { center: 'room', half: ['room', 'kit', 'room'] },
     flats: 3, lift: false, chute: null, machine: false,
-    win: { room: [5, 5], kit: [4, 5] }, frames: 'old',
+    win: { room: [6, 5], kit: [5, 5] }, frames: 'old',
   },
   ii32: {
     key: 'ii32', label: 'II-32', floors: [5], defaultFloors: 5,

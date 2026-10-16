@@ -3,7 +3,7 @@
 // with messages, contacts, call log, Snake, flashlight and settings. Calls never get through.
 // New SMS arrive very rarely, tied to what the player does.
 
-import { LCD, presentLCD, LCD_W, LCD_H } from './lcd.js'
+import { LCD, presentLCD, LCD_W, LCD_H, LCD_MARGIN } from './lcd.js'
 import { Snake, SNAKE_EN, loadBest } from './snake.js'
 import { RINGTONES, UNAVAILABLE_RU, UNAVAILABLE_EN, registerPhoneSounds } from './sounds.js'
 import { drawBody, drawGlow, drawHand, HAND_PAD, BODY_W, BODY_H, LCD_X, LCD_Y, VISIBLE_U, KEYS } from './body.js'
@@ -14,6 +14,7 @@ const DAY = '14.01'
 const OPERATOR = { ru: 'МегаЛинк', en: 'MegaLink' }
 const SETTINGS_KEY = 'liminal-moscow-phone'
 const MAX_SMS_PER_SESSION = 3
+const MIN_VISIBLE_U = 208 // LCD, d-pad and the tip of the thumb
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v)
@@ -245,7 +246,10 @@ export class Phone {
     const u = p / dpr
     this.p = p; this.u = u
     const left = Math.round(W - BODY_W * u - Math.max(18, W * 0.075))
-    const top = Math.round(H - VISIBLE_U * u)
+    // never let the phone cover more than ~62% of the window height: on small windows more of
+    // it (keypad, glove) stays below the edge of the screen, but the LCD and d-pad always show
+    this.visU = Math.max(MIN_VISIBLE_U, Math.min(VISIBLE_U, (H * 0.62) / u))
+    const top = Math.round(H - this.visU * u)
     this.baseX = left; this.baseY = top
     for (const c of [this.cBody, this.cGlow]) {
       c.width = BODY_W * p; c.height = BODY_H * p
@@ -253,12 +257,16 @@ export class Phone {
     }
     this.cHand.width = (BODY_W + HAND_PAD * 2) * p; this.cHand.height = BODY_H * p
     Object.assign(this.cHand.style, { left: `${-HAND_PAD * u}px`, width: `${(BODY_W + HAND_PAD * 2) * u}px`, height: `${BODY_H * u}px` })
-    this.cLcd.width = LCD_W * p; this.cLcd.height = LCD_H * p
-    Object.assign(this.cLcd.style, { left: `${LCD_X * u}px`, top: `${LCD_Y * u}px`, width: `${LCD_W * u}px`, height: `${LCD_H * u}px` })
-    Object.assign(this.elGlare.style, { left: `${LCD_X * u}px`, top: `${LCD_Y * u}px`, width: `${LCD_W * u}px`, height: `${LCD_H * u}px` })
+    // the lit glass is a little larger than the pixel matrix (LCD_MARGIN pixels on each side)
+    const M = LCD_MARGIN
+    this.cLcd.width = (LCD_W + M * 2) * p; this.cLcd.height = (LCD_H + M * 2) * p
+    const lcdBox = { left: `${(LCD_X - M) * u}px`, top: `${(LCD_Y - M) * u}px`, width: `${(LCD_W + M * 2) * u}px`, height: `${(LCD_H + M * 2) * u}px` }
+    Object.assign(this.cLcd.style, lcdBox)
+    Object.assign(this.elGlare.style, lcdBox)
     Object.assign(this.elHalo.style, { left: `${(LCD_X - 40) * u}px`, top: `${(LCD_Y - 40) * u}px`, width: `${(LCD_W + 80) * u}px`, height: `${(LCD_H + 80) * u}px` })
     Object.assign(this.el.style, { width: `${BODY_W * u}px`, height: `${BODY_H * u}px` })
     this.elTr.style.right = `${Math.round(W - left + 18)}px`
+    this.elTr.style.fontSize = `${clamp(Math.round(11 + u), 12, 16)}px` // grows with the phone
     this.elTr.style.top = `${Math.round(top + (LCD_Y + 4) * u)}px`
     const g = this.cBody.getContext('2d')
     g.setTransform(p, 0, 0, p, 0, 0)
@@ -272,8 +280,10 @@ export class Phone {
 
   _present(dt) {
     // LCD
+    let redrew = false
     if (this.dirty) {
       this.dirty = false
+      redrew = true
       this.lcd.clear()
       try { this.screen.draw(this.lcd, this) } catch (e) { console.error('[phone] draw', e) }
       const g = this.cLcd.getContext('2d')
@@ -304,20 +314,25 @@ export class Phone {
     const k = this.anim * this.anim * (3 - 2 * this.anim)
     const u = this.u
     const sx = Math.sin(t * 0.71) * 1.4 + Math.sin(t * 1.93 + 0.4) * 0.45 + this._lagX
-    const sy = Math.sin(t * 1.13 + 1.0) * 1.2 + Math.sin(t * 0.37) * 0.8 + this._lagY + (1 - k) * (VISIBLE_U * u + 60)
+    const sy = Math.sin(t * 1.13 + 1.0) * 1.2 + Math.sin(t * 0.37) * 0.8 + this._lagY + (1 - k) * (this.visU * u + 60)
     const rot = -2.4 + Math.sin(t * 0.57) * 0.35 + this._lagX * 0.05
     this.el.style.transform = `translate3d(${(this.baseX + sx).toFixed(1)}px, ${(this.baseY + sy).toFixed(1)}px, 0) rotate(${rot.toFixed(2)}deg)`
-    // translation (outside the LCD)
+    // translation (outside the LCD); rebuilt only when the LCD changed or every half second
     const showTr = this.open && this.game.ui?.translations !== false
-    let html = ''
-    if (showTr) {
-      let en = ''
-      try { en = this.screen.en?.(this) ?? '' } catch { en = '' }
-      html = en ? `<div class="t">${esc(en)}</div>` : ''
-      if (this._hintKeys < 8) html += '<div class="h">arrows / WASD · E select<br>Backspace back · Q put away</div>'
+    if (redrew || showTr !== this._trShown || this.t - (this._trT ?? -1) > 0.5) {
+      this._trT = this.t
+      this._trShown = showTr
+      let html = ''
+      if (showTr) {
+        let en = ''
+        try { en = this.screen.en?.(this) ?? '' } catch { en = '' }
+        html = en ? `<div class="t">${esc(en)}</div>` : ''
+        if (this._hintKeys < 8) html += '<div class="h">arrows / WASD · E select<br>Backspace / Esc back · Q put away</div>'
+      }
+      if (html !== this._trHtml) { this._trHtml = html; this.elTr.innerHTML = html }
     }
-    if (html !== this._trHtml) { this._trHtml = html; this.elTr.innerHTML = html }
-    this.elTr.classList.toggle('on', showTr && !!html && k > 0.6)
+    const trOn = showTr && !!this._trHtml && k > 0.6
+    if (trOn !== this._trOn) { this._trOn = trOn; this.elTr.classList.toggle('on', trOn) }
   }
 
   // ---------------------------------------------------------------- public API
@@ -344,7 +359,9 @@ export class Phone {
   close(o = {}) {
     if (!this.open) return
     if (!o.force && this.game.input?.hit?.('Escape') && this.stack.length > 1) {
-      this.press('back')
+      // Escape steps back one screen (in the dialler it drops the number instead of one digit)
+      if (this.screen?.name === 'dial') { this._flashKey('back'); this.wake(); this.pop() }
+      else this.press('back')
       return
     }
     this.open = false
@@ -728,6 +745,7 @@ export class Phone {
       onSelect: (it, ph) => {
         const c = it.e.contact ? byId(it.e.contact) : null
         if (c) ph._call(c)
+        else if (/^[+\d]/.test(it.e.who)) ph._call({ ru: it.e.who, en: it.e.who, num: it.e.who }, true)
         else ph.push(ph._popup({ lines: ['Номер', 'не определён'], timeout: 2, en: 'Number withheld' }))
       },
     })
@@ -1034,7 +1052,7 @@ export class Phone {
     const target = this.open ? 1 : 0
     if (this.anim !== target) {
       this.anim = clamp(this.anim + (target ? dt / 0.28 : -dt / 0.22), 0, 1)
-      if (this.anim === 0) { this.el.classList.remove('on'); this.elTr.classList.remove('on') }
+      if (this.anim === 0) { this.el.classList.remove('on'); this.elTr.classList.remove('on'); this._trOn = false }
     }
     if (!this.open && this.anim === 0) return
     // backlight: 10 s after the last key press it goes out

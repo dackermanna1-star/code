@@ -65,7 +65,7 @@ export function placeResidential(ctx, opts = {}) {
   const S = SERIES[series]
   const floors = Math.max(2, Math.min(18, Math.round(opts.floors ?? S.defaultFloors)))
   const n = Math.max(1, Math.round(opts.sections ?? 1))
-  let angle = opts.angle ?? (opts.rot ?? 0) * Math.PI / 2
+  const angle = opts.angle ?? (opts.rot ?? 0) * Math.PI / 2
   const seed = opts.seed ?? 1
   const L = sectionLayout(series, floors)
   const W = L.SX * VOXEL
@@ -198,6 +198,5 @@ export function placeResidential(ctx, opts = {}) {
   }
   out.bounds = { minX, minZ, maxX, maxZ }
   reg.buildings.push({ id: bId, series, floors, sections: n, address: addr, bounds: out.bounds, height: out.height, entrances: out.entrances.map(e => e.number), x: opts.x, z: opts.z, angle })
-  void s
   return out
 }

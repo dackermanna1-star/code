@@ -26,7 +26,8 @@ function buildPO2(variant) {
   const rng = rngFor('po2' + variant)
   speckle(m, rng, [face, ridge], dark, 0.06)
   // rust streaks from the embedded mounting loops at the top corners
-  for (const x of [1, 8]) { m.set(x, 7, 0, M('metal_rust')); m.set(x, 6, 0, M('street_rust_light')) }
+  // (dark, not orange: a row of identical panels would otherwise read as a dotted red line)
+  m.set(variant ? 8 : 1, 7, 0, M('metal_rust')); m.set(variant ? 8 : 1, 6, 0, M('concrete_dark'))
   if (variant === 1) { m.set(4, 7, 0, 0); m.set(5, 7, 0, 0); m.set(5, 6, 0, M('concrete_dark')) } // chipped top
   snowTop(m, { chance: 0.92, seed: 3 + variant })
   return m
@@ -77,7 +78,7 @@ defineModel('street_fence_construction', () => {
   for (let x = 0; x < 10; x++) m.fill(x, 0, 0, 1, 8, 1, x % 2 ? M('metal_green') : M('street_paint_green_dark'))
   m.fill(0, 0, 0, 1, 9, 1, M('metal_dark'))
   m.fill(0, 0, 0, 10, 1, 1, M('concrete_dark'))
-  rustify(m, rngFor('constr'), [M('metal_green'), M('street_paint_green_dark')], 0.08)
+  rustify(m, rngFor('constr'), [M('metal_green'), M('street_paint_green_dark')], 0.035, { bottomBias: 3 })
   snowTop(m, { chance: 0.85, seed: 11 })
   return m
 }, fenceOpts)

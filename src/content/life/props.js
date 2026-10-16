@@ -3,66 +3,69 @@
 // placeStory() in story.js, which also adds the quiet inspect interaction.
 
 import { M } from '../../core/materials.js'
-import { VoxelModel, defineFine, F4, F8, capsule, ellip, obox, boxF, line, rope, rowEllipse, speckle, snowTop, rngFor } from './vox.js'
+import { VoxelModel, defineFine, F4, F8, F16, capsule, ellip, obox, boxF, line, rope, rowEllipse, speckle, snowTop, rngFor } from './vox.js'
 import { drawSledBody } from './people.js'
 import { valueNoise2 } from '../../core/rng.js'
 
 const STATIC = { maxDistance: 70 }
 
 // ---- children's mittens on an elastic cord (lying on a snowy bench) ----------------------------
-function mitten(m, x, z, ang, mat, flip) {
+function mitten(m, x, z, ang, flip) {
+  const red = M('fabric_red'), cuff = M('whitewash')
   const c = Math.cos(ang), s = Math.sin(ang)
-  const P = (u, v) => [x + u * c - v * s, z + u * s + v * c]
-  // palm + fingers (5 long × 3 wide), thumb sticking out, white cuff with a snowflake row
-  for (let u = 0; u < 5; u++)
+  const P = (u, v) => [Math.round(x + u * c - v * s), Math.round(z + u * s + v * c)]
+  // knitted mitten lying flat: 2 voxels thick, 6 long (cuff + hand), 3 wide, a thumb on one side
+  for (let u = 0; u < 6; u++)
     for (let v = -1; v <= 1; v++) {
-      if (u === 4 && Math.abs(v) === 1) continue
+      if (u === 5 && v !== 0) continue
       const [px, pz] = P(u, v)
-      m.set(Math.round(px), 0, Math.round(pz), u === 0 ? M('whitewash') : mat)
-      if (u > 0 && u < 4 && v === 0) m.set(Math.round(px), 1, Math.round(pz), (u === 2) ? M('whitewash') : mat)
+      const mat = u === 0 ? cuff : red
+      m.set(px, 0, pz, mat)
+      if (u > 0 && u < 5 && v === 0) m.set(px, 1, pz, u === 2 ? cuff : red)
+      else if (u > 0 && u < 5) m.set(px, 1, pz, red)
     }
-  const [tx, tz] = P(2.4, flip ? -2 : 2)
-  m.set(Math.round(tx), 0, Math.round(tz), mat)
-  return P(-0.6, 0)
+  const [tx, tz] = P(2, flip ? -2 : 2)
+  m.set(tx, 0, tz, red)
+  const [ux, uz] = P(3, flip ? -2 : 2)
+  m.set(ux, 0, uz, red)
+  return P(-0.5, 0)
 }
 defineFine('life_mittens', F8, () => {
-  const m = new VoxelModel(16, 3, 10)
-  const a = mitten(m, 3, 4, 0.35, M('fabric_red'), false)
-  const b = mitten(m, 12, 6, Math.PI - 0.2, M('fabric_red'), true)
+  const m = new VoxelModel(17, 3, 11)
+  const a = mitten(m, 2, 4, 0.3, false)
+  const b = mitten(m, 14, 7, Math.PI - 0.25, true)
   // the elastic cord looping between the cuffs
-  rope(m, [a[0], 0.2, a[1]], [b[0], 0.2, b[1]], -2.5, M('plastic_white'))
-  snowTop(m, { chance: 0.12, seed: 3 })
+  rope(m, [a[0] + 0.5, 0.3, a[1] + 0.5], [b[0] + 0.5, 0.3, b[1] + 0.5], -2.5, M('plastic_white'))
   return m
 }, { maxDistance: 45 })
 
-// ---- a lost glove pulled onto a fence post --------------------------------------------------------
+// ---- a lost glove pulled onto a fence post (1.56 cm voxels) ------------------------------------
 function glove(m, cx, y0, cz, mat) {
-  // cuff and palm wrapped round the post top, fingers pointing up, thumb to the side
-  boxF(m, cx - 1.6, y0, cz - 1.1, cx + 1.6, y0 + 3.0, cz + 1.1, mat)
-  for (let i = 0; i < 4; i++) {
-    const fx = cx - 1.5 + i
-    const h = [2.6, 3.4, 3.2, 2.4][i]
-    boxF(m, fx - 0.5 + 0.5, y0 + 3.0, cz - 0.5, fx + 0.5 + 0.5, y0 + 3.0 + h, cz + 0.5, mat)
+  // palm and back wrapped round the post top, four fingers pointing up, the thumb to the side
+  boxF(m, cx - 3.5, y0, cz - 2.0, cx + 3.5, y0 + 6.5, cz + 2.0, mat)
+  const fingers = [[-3.0, 4.5], [-1.0, 6.0], [1.0, 5.5], [3.0, 3.8]]
+  for (const [fx, h] of fingers) {
+    capsule(m, [cx + fx, y0 + 6.0, cz], [cx + fx + fx * 0.12, y0 + 6.0 + h, cz - 0.3], 0.95, 0.85, mat)
   }
-  capsule(m, [cx + 1.8, y0 + 1.5, cz], [cx + 2.8, y0 + 3.0, cz + 0.3], 0.55, 0.5, mat)
-  // ribbed cuff
-  rowEllipse(m, Math.floor(y0), cx, cz, 1.9, 1.4, M('life_knit'))
+  capsule(m, [cx + 3.4, y0 + 2.5, cz], [cx + 5.6, y0 + 5.8, cz + 0.4], 1.0, 0.85, mat)
+  // ribbed cuff, slightly darker
+  for (let y = 0; y < 2; y++) rowEllipse(m, Math.floor(y0) + y, cx, cz, 3.9, 2.4, y ? M('life_knit') : mat)
 }
-defineFine('life_glove', F8, () => {
-  const m = new VoxelModel(8, 10, 4)
-  glove(m, 4, 0, 2, M('life_knit_dark'))
+defineFine('life_glove', F16, () => {
+  const m = new VoxelModel(14, 15, 7)
+  glove(m, 7, 0, 3.5, M('life_knit_dark'))
   snowTop(m, { chance: 0.5, seed: 5 })
   return m
 }, { maxDistance: 50 })
-defineFine('life_glove_post', F8, () => {
-  const m = new VoxelModel(8, 42, 4)
+defineFine('life_glove_post', F16, () => {
+  const m = new VoxelModel(14, 80, 7)
   // a lone square steel post left from an old fence, rust at the foot
-  boxF(m, 3, 0, 1, 5, 32, 3, M('metal_green'))
-  boxF(m, 3, 0, 1, 5, 6, 3, M('metal_rust'))
-  speckle(m, rngFor('glovepost'), M('metal_green'), M('metal_rust'), 0.12)
-  boxF(m, 2.6, 32, 0.6, 5.4, 33, 3.4, M('metal_dark'))
-  glove(m, 4, 31.5, 2, M('life_knit_dark'))
-  snowTop(m, { chance: 0.6, seed: 6, onlyAbove: 30 })
+  boxF(m, 5, 0, 1.5, 9, 64, 5.5, M('metal_green'))
+  boxF(m, 5, 0, 1.5, 9, 12, 5.5, M('metal_rust'))
+  speckle(m, rngFor('glovepost'), M('metal_green'), M('metal_rust'), 0.1)
+  boxF(m, 4.5, 64, 1, 9.5, 66, 6, M('metal_dark'))
+  glove(m, 7, 62, 3.5, M('life_knit_dark'))
+  snowTop(m, { chance: 0.6, seed: 6, onlyAbove: 60, depth: 2 })
   return m
 }, { maxDistance: 70 })
 
@@ -73,7 +76,7 @@ defineFine('life_sled', F4, () => {
   // rope loop from the front, lying in the snow
   rope(m, [4, 2.2, 15.5], [5.5, 0.2, 17.5], 0.0, M('life_knit'))
   line(m, [5.5, 0.2, 17.5], [2.5, 0.2, 17.2], M('life_knit'))
-  snowTop(m, { chance: 0.75, seed: 9, depth: 1 })
+  snowTop(m, { chance: 0.28, seed: 9, depth: 1 })
   m.setPivot(4, 0, 9)
   return m
 }, STATIC)
@@ -86,8 +89,8 @@ defineFine('life_sled_lean', F4, () => {
   // sled space: along = z (from the back end), up = y; world: y up, z out from the wall
   const T = p => [p[0], 0.6 + (p[2] - 1.4) * ca + p[1] * sa, 3.4 - (p[2] - 1.4) * sa + p[1] * ca]
   const R = v => [v[0], v[2] * ca + v[1] * sa, -v[2] * sa + v[1] * ca]
-  drawSledBody(m, 4, 15, 2, M('paint'), { T, R })
-  snowTop(m, { chance: 0.35, seed: 10 })
+  drawSledBody(m, 4, 15, 2, M('paint'), { T, R }, false)
+  snowTop(m, { chance: 0.3, seed: 10 })
   m.setPivot(4, 0, 0)
   return m
 }, STATIC)
@@ -106,7 +109,7 @@ function snowman(variant) {
         for (let x = Math.floor(cx + ox - r - 1); x <= Math.ceil(cx + ox + r + 1); x++) {
           const dx = x + 0.5 - cx - ox, dy = (y + 0.5 - cy) / squash, dz = z + 0.5 - cz
           const d = Math.hypot(dx, dy, dz)
-          if (d <= r + lump(x, y, z) * 1.8) m.set(x, y, z, mat)
+          if (d <= r + lump(x, y, z) * 1.1) m.set(x, y, z, mat)
         }
     return [cx + ox, cy, cz]
   }
@@ -115,10 +118,14 @@ function snowman(variant) {
   const b0 = ball(5.2, 5.3, M('snow_packed'), 0.9)
   const b1 = ball(12.6, 3.9, M('snow'), 0.92)
   const b2 = ball(18.4, 2.8, M('snow'), 1.0)
-  // grit, leaves and the grey of a week of thaw and frost
-  speckle(m, rng, M('snow_packed'), M('snow_dirty'), 0.22)
-  speckle(m, rng, M('snow'), M('snow_packed'), 0.25)
-  speckle(m, rng, M('snow_dirty'), M('bark'), 0.04)
+  // grit and a few leaves rolled into the bottom ball, a greyer crust after a thaw
+  for (let y = 0; y < 9; y++) for (let z = 0; z < m.sz; z++) for (let x = 0; x < m.sx; x++) {
+    if (m.get(x, y, z) !== M('snow_packed')) continue
+    const r = rng.next()
+    if (r < 0.05) m.set(x, y, z, M('snow_dirty'))
+    else if (r < 0.058 && y > 1) m.set(x, y, z, M('bark'))
+  }
+  speckle(m, rng, M('snow'), M('snow_packed'), 0.06)
   // coal eyes, carrot nose (drooping), coal buttons
   const hx = b2[0], hy = b2[1], hz = b2[2]
   for (const sx of [-1, 1]) m.set(Math.floor(hx + sx * 1.1), Math.floor(hy + 0.7), Math.floor(hz + 2.5), M('rubber'))
@@ -201,24 +208,28 @@ defineFine('life_key', F8, () => {
   return m
 }, { maxDistance: 25 })
 
-// ---- cigarette ends round a tin-can ashtray --------------------------------------------------------
-defineFine('life_butts', F8, () => {
+// ---- cigarette ends round a tin-can ashtray (1.56 cm voxels) ------------------------------------
+defineFine('life_butts', F16, () => {
   const rng = rngFor('butts')
-  const m = new VoxelModel(16, 6, 14)
-  // pea tin: cylinder r 1.3, 4 high, faded green label, rusty rim
-  for (let y = 0; y < 4; y++)
-    rowEllipse(m, y, 8, 7, 1.45, 1.45, y === 0 || y === 3 ? M('metal_gray') : (y === 1 ? M('metal_green') : M('metal_gray')))
-  for (let z = 6; z <= 7; z++) for (let x = 7; x <= 8; x++) m.set(x, 3, z, M('rubber'))
-  m.set(9, 3, 7, M('metal_rust'))
+  const m = new VoxelModel(30, 10, 26)
+  const cx = 15, cz = 13
+  // pea tin (7.5 cm × 11 cm): faded green label, bare tin top and bottom, a rusty rim
+  for (let y = 0; y < 7; y++)
+    rowEllipse(m, y, cx, cz, 2.6, 2.6, y === 0 || y === 6 ? M('metal_gray') : (y === 3 ? M('plaster_yellow') : M('metal_green')))
+  rowEllipse(m, 6, cx, cz, 1.7, 1.7, M('rubber'))
+  m.set(cx + 2, 6, cz, M('metal_rust')); m.set(cx - 1, 6, cz + 2, M('metal_rust'))
   // ends sticking out of the tin
-  m.set(7, 4, 7, M('plaster_yellow')); m.set(8, 4, 6, M('paper')); m.set(8, 5, 6, M('paper'))
-  // scattered ends in the snow around the tin
-  for (let i = 0; i < 16; i++) {
-    const a = rng.float(0, Math.PI * 2), r = rng.float(2.5, 6.5)
-    const x = Math.floor(8 + Math.cos(a) * r), z = Math.floor(7 + Math.sin(a) * r * 0.85)
+  for (const [dx, dz, h] of [[0, 0, 2], [-1, 1, 1], [1, -1, 2], [0, -1, 1]]) {
+    for (let k = 0; k < h; k++) m.set(cx + dx, 7 + k, cz + dz, k === h - 1 ? M('paper') : M('plaster_yellow'))
+  }
+  // scattered ends in the snow: filter (tan) + a little paper, lying in random directions
+  for (let i = 0; i < 22; i++) {
+    const a = rng.float(0, Math.PI * 2), r = rng.float(4, 13)
+    const x = Math.floor(cx + Math.cos(a) * r), z = Math.floor(cz + Math.sin(a) * r * 0.9)
+    const ax = rng.chance(0.5)
     m.set(x, 0, z, M('plaster_yellow'))
-    const dx = rng.chance(0.5) ? 1 : 0
-    m.set(x + dx, 0, z + 1 - dx, rng.chance(0.75) ? M('paper') : M('plaster_yellow'))
+    m.set(x + (ax ? 1 : 0), 0, z + (ax ? 0 : 1), M('plaster_yellow'))
+    if (rng.chance(0.6)) m.set(x + (ax ? 2 : 0), 0, z + (ax ? 0 : 2), M('paper'))
   }
   return m
 }, { maxDistance: 30 })
@@ -226,25 +237,27 @@ defineFine('life_butts', F8, () => {
 // ---- a cat in a basement vent (продух), eyes catching the light at night ---------------------------
 // Wall-mounted: pivot = bottom centre of the BACK plane (put it against the plinth), front = +Z.
 defineFine('life_cat', F8, () => {
-  const m = new VoxelModel(14, 12, 5)
-  // concrete frame round the dark opening
-  boxF(m, 0, 0, 0, 14, 12, 2, M('concrete'))
-  boxF(m, 2, 2, 0, 12, 10, 2, M('rubber'))
-  boxF(m, 0, 0, 2, 14, 1, 4, M('concrete'))
-  // the cat: tabby head with ears, white chest, front paws on the sill
-  const cat = M('life_cat')
-  ellip(m, 7, 5.3, 2.2, 2.3, 1.9, 1.6, cat)
-  m.set(5, 7, 2, cat); m.set(5, 8, 2, cat); m.set(9, 7, 2, cat); m.set(9, 8, 2, cat)
-  m.set(6, 7, 2, cat); m.set(8, 7, 2, cat)
-  boxF(m, 5.5, 1, 2, 8.5, 3.6, 3, M('whitewash'))
-  m.set(5, 1, 3, M('whitewash')); m.set(8, 1, 3, M('whitewash'))
-  m.set(7, 4, 3, M('whitewash')); m.set(7, 5, 3, M('life_dog_pale'))
-  // stripes
-  m.set(7, 7, 2, M('branch')); m.set(6, 6, 3, M('branch')); m.set(8, 6, 3, M('branch'))
-  // eyes
-  m.set(6, 5, 3, M('life_eye')); m.set(8, 5, 3, M('life_eye'))
-  snowTop(m, { chance: 0.7, seed: 18, onlyAbove: 0 })
-  m.setPivot(7, 0, 0)
+  const m = new VoxelModel(16, 13, 7)
+  const cat = M('life_cat'), dark = M('branch'), white = M('whitewash')
+  // concrete frame round the dark opening, a sill below
+  boxF(m, 0, 0, 0, 16, 13, 2, M('concrete'))
+  boxF(m, 2, 2, 0, 14, 11, 2, M('rubber'))
+  boxF(m, 0, 0, 2, 16, 1, 3, M('concrete'))
+  // the cat peeking out: head poking past the frame, chest and paws on the sill
+  ellip(m, 8.5, 2.6, 2.4, 2.6, 1.8, 1.6, cat)
+  boxF(m, 6, 1, 2, 11, 3.5, 4.2, white)
+  m.set(6, 1, 4, white); m.set(10, 1, 4, white)
+  ellip(m, 8.5, 5.4, 3.3, 2.5, 2.0, 1.8, cat)
+  // ears
+  for (const [ex, ix] of [[6, 7], [10, 9]]) { m.set(ex, 7, 3, cat); m.set(ex, 8, 3, cat); m.set(ix, 7, 3, cat); m.set(ex, 7, 2, cat) }
+  // tabby stripes, pale muzzle, pink nose
+  m.set(8, 6, 4, dark); m.set(6, 6, 3, dark); m.set(10, 6, 3, dark)
+  m.set(7, 4, 4, white); m.set(8, 4, 4, white); m.set(9, 4, 4, white)
+  m.set(8, 4, 5, M('life_skin'))
+  // eyes (eyeshine at night)
+  m.set(7, 5, 4, M('life_eye')); m.set(9, 5, 4, M('life_eye'))
+  snowTop(m, { chance: 0.7, seed: 18, skip: new Set([cat, dark, white, M('life_eye'), M('life_skin')]) })
+  m.setPivot(8, 0, 0)
   return m
 }, { maxDistance: 60 })
 // a lid with soggy bread and kasha below the vent
@@ -294,14 +307,13 @@ defineFine('life_bicycle', F4, () => {
     const t = a / 14 * Math.PI * 2
     m.set(Math.floor(x + 2.2 + Math.cos(t) * 1.6), Math.floor(wy + 2.6 + Math.sin(t) * 0.6), Math.floor(9.6 + Math.sin(t) * 1.4), M('metal_dark'))
   }
-  // the drift that has swallowed the wheels
-  for (let y = 0; y < 4; y++) {
-    for (let z = 0; z < 20; z++) for (let xx = 0; xx < 10; xx++) {
-      const n = valueNoise2(xx * 0.5, z * 0.35, 4) * 1.6
-      const h = 3.2 - Math.abs(z - 10) * 0.12 - Math.abs(xx - 4.5) * 0.3 + n
-      if (y < h && !m.get(xx, y, z)) m.set(xx, y, z, M('snow'))
-      else if (y < h && m.get(xx, y, z) !== M('metal_gray')) m.set(xx, y, z, M('snow'))
-    }
+  // the drift that has swallowed the bottom of the wheels: a long low mound along the bike
+  for (let z = 0; z < 20; z++) for (let xx = 0; xx < 10; xx++) {
+    const ez = (z + 0.5 - 10) / 10.5, ex = (xx + 0.5 - 4.6) / 4.2
+    const e = 1 - ez * ez - ex * ex
+    if (e <= 0) continue
+    const h = Math.round(e * 3.4 + (valueNoise2(xx * 0.6, z * 0.4, 4) - 0.5) * 1.4)
+    for (let y = 0; y < h; y++) if (m.get(xx, y, z) !== M('metal_gray')) m.set(xx, y, z, y === h - 1 ? M('snow_fresh') : M('snow'))
   }
   snowTop(m, { chance: 0.85, seed: 21, onlyAbove: 3 })
   return m

@@ -19,11 +19,11 @@
 }
 .phone-tr {
   position: fixed; z-index: 9; pointer-events: none; text-align: right;
-  max-width: min(32vw, 260px); font-family: var(--ui-font, Tahoma, Verdana, sans-serif);
-  font-size: 11px; line-height: 1.5; color: rgba(214, 214, 204, 0.74);
-  text-shadow: 0 1px 2px #000, 0 0 6px rgba(0,0,0,.6); opacity: 0; transition: opacity .35s;
+  max-width: min(32vw, 22em); font-family: var(--ui-font, Tahoma, Verdana, sans-serif);
+  font-size: 12px; line-height: 1.5; color: rgba(225, 225, 215, 0.86);
+  text-shadow: 0 1px 2px #000, 0 0 3px #000, 0 0 10px rgba(0,0,0,.75); opacity: 0; transition: opacity .35s;
   letter-spacing: .01em;
 }
 .phone-tr.on { opacity: 1; }
 .phone-tr .t { white-space: pre-line; }
-.phone-tr .h { margin-top: 8px; font-size: 10px; color: rgba(190, 190, 182, 0.45); letter-spacing: .04em; }
+.phone-tr .h { margin-top: 8px; font-size: 0.82em; color: rgba(200, 200, 192, 0.55); letter-spacing: .04em; }

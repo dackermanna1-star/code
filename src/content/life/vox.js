@@ -18,8 +18,10 @@ export { VoxelModel, M, RNG }
 
 /** 6.25 cm voxels (people, dogs, sled, snowman, bicycle, tree). */
 export const F4 = 0.25
-/** 3.125 cm voxels (mittens, keys, ticket, cigarette ends, the cat). */
+/** 3.125 cm voxels (mittens, keys, ticket, the cat). */
 export const F8 = 0.125
+/** 1.5625 cm voxels (a glove's fingers, cigarette ends). */
+export const F16 = 0.0625
 
 const FINE = new Map()
 export const FINE_MODELS = FINE

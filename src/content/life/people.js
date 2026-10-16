@@ -192,11 +192,11 @@ defPerson('parent_sled', {
  * Child sled (санки): two steel runners curling up at the front, slats, a low backrest.
  * xf (optional) = { T(p) → p, R(v) → v } transforms points / directions (e.g. a sled leaning on a wall).
  */
-export function drawSledBody(m, cx, zFront, zBack, frameMat = M('metal_red'), xf = null) {
+export function drawSledBody(m, cx, zFront, zBack, frameMat = M('metal_red'), xf = null, back = true) {
   const T = xf ? xf.T : p => p
   const R = xf ? xf.R : v => v
   const wood = M('wood')
-  const cap = (a, b, r) => capsule(m, T(a), T(b), r, r, frameMat)
+  const cap = (a, b, r) => capsule(m, T(a), T(b), r + 0.12, r + 0.12, frameMat)
   for (const sx of [-2.6, 2.6]) {
     cap([cx + sx, 0.5, zBack], [cx + sx, 0.5, zFront - 1.2], 0.45)
     cap([cx + sx, 0.5, zFront - 1.2], [cx + sx, 2.4, zFront + 0.6], 0.45)
@@ -205,6 +205,7 @@ export function drawSledBody(m, cx, zFront, zBack, frameMat = M('metal_red'), xf
   }
   for (let z = Math.ceil(zBack + 0.5); z <= zFront - 1.5; z += 2) obox(m, T([cx, 2.95, z]), R([1, 0, 0]), R([0, 1, 0]), R([0, 0, 1]), 3.1, 0.45, 0.5, wood)
   // backrest
+  if (!back) return
   for (const sx of [-2.4, 2.4]) cap([cx + sx, 3.0, zBack + 0.4], [cx + sx, 5.8, zBack - 0.6], 0.4)
   cap([cx - 2.4, 5.8, zBack - 0.6], [cx + 2.4, 5.8, zBack - 0.6], 0.4)
 }

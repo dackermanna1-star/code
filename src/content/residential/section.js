@@ -723,8 +723,10 @@ function stairPaint(c) {
           else if (isAir(x, y, z + 1)) { ax = x; az = z + 1 } else if (isAir(x, y, z - 1)) { ax = x; az = z - 1 }
           if (ax < 0) continue
           const h = y - floorBelow(ax, y, az)
-          if (h < 6) mat = paint
-          else if (h === 6) mat = T.plastic_dark
+          // plain stairwells are only seen through the windows: low dado so the lit walls show
+          const dado = mode === 'plain' ? 2 : 6
+          if (h < dado) mat = paint
+          else if (h === dado) mat = T.plastic_dark
           else mat = mode === 'plain' && c.lit[band(y)] ? T.res_stair_glow : T.whitewash
         }
         out.push(x, y, z, mat)

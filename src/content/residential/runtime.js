@@ -183,14 +183,14 @@ export function setupStairwell(ctx, sec) {
     sw.lamps.push(lamp)
     if (cfg === 'dead') return
     const l = lights.add({
-      x: lp0.x, y: lp0.y - 0.4, z: lp0.z, color: 0xffcf8f, intensity: 2.6, range: 7, domain: 'indoor', schedule: 'always',
+      x: lp0.x, y: lp0.y - 0.4, z: lp0.z, color: 0xffcf8f, intensity: 1.6, range: 6.5, domain: 'indoor', schedule: 'always',
       flicker: cfg === 'buzz' ? 'buzz' : cfg === 'dying' ? 'dying' : 'none', placement: lamp, halo: true, haloSize: 0.3, tag,
     })
     sw.lights.push(l)
   }
   addBulb(X(9) + 0.5, L.HL(1) - 1, Z(2) + 0.5, 'ok', 'stair_light') // tambour: always works
   for (let k = 1; k <= N; k++) {
-    addBulb(X(6) + 0.5, L.FL(k) + FH - 2, Z(19) + 0.5, lightCfg(k), 'stair_light')
+    addBulb(X(6) + 0.5, L.FL(k) + FH - 2, Z(17.5) + 0.5, lightCfg(k), 'stair_light')
     if (k < N && hashf(per(k), sec.seed * 1000 | 0, 77) < 0.45) addBulb(X(2) + 0.5, L.HL(k) + FH - 2, Z(2) + 0.5, lightCfg(k + 100), 'stair_light')
   }
 
@@ -352,7 +352,7 @@ function setupLift(ctx, sec, sw, broken) {
   const c0 = p.voxelToWorld(sh.x0, L.FL(1) - 1, sh.z0)
   lift.cab = world.place('res_lift_cab', { x: c0.x, y: c0.y, z: c0.z, angle: p.angle, dynamic: true, tag: 'lift_cab' })
   const lc = p.voxelToWorld(sh.x0 + 4, L.FL(1) + 8.6, sh.z0 + 3)
-  lift.light = lights.add({ x: lc.x, y: lc.y, z: lc.z, color: 0xe8f2ff, intensity: 3.2, range: 3.6, domain: 'indoor', schedule: 'always', flicker: 'buzz', placement: lift.cab, halo: false, tag: 'lift_light' })
+  lift.light = lights.add({ x: lc.x, y: lc.y, z: lc.z, color: 0xe8f2ff, intensity: 1.6, range: 3.2, domain: 'indoor', schedule: 'always', flicker: 'buzz', placement: lift.cab, halo: false, tag: 'lift_light' })
   // button panel rides with the cab
   lift.panel = new DynPlate(ctx.game, { w: 0.42, h: 1.2, ppm: 150, indoor: true, draw: drawCabPanel(N, sec.seed * 1000 | 0) })
   const rows = Math.ceil(N / 2)
@@ -405,7 +405,7 @@ function callLift(lift, k) {
 function pressCab(lift, k) {
   const cab = lift.cab
   play('elevator_call', { pos: [cab.x, cab.y + 1.2, cab.z], gain: 0.5 })
-  if (lift.state === 'moving') return
+  if (lift.state === 'moving') { if (k !== lift.target && !lift.queue.includes(k)) lift.queue.push(k); return }
   if (k === lift.floor) { if (lift.state !== 'open') { lift.state = 'opening'; lift.t = 0 } return }
   lift.queue = [k]
   if (lift.state === 'open' || lift.state === 'opening') { lift.state = 'closing'; play('elevator_doors', { pos: [cab.x, cab.y + 1, cab.z], gain: 0.7 }) }

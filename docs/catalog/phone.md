@@ -18,6 +18,7 @@ Files:
 | `sounds.js` | Synthesized phone sounds, monophonic ringtones and a crude formant voice. |
 | `texts.js` | The text library: `NOTICES, ADS, GRAFFITI, SHOP, METRO, STREET, SMS`. |
 | `draw.js` | Canvas renderers for every `look` (paper, poster, spray paint, plates…). |
+| `fonts.js`, `fonts/` | Two bundled handwriting fonts (SIL OFL 1.1, licences in `fonts/OFL-*.txt`): «LM Script» = Bad Script (Russian ballpoint cursive) and «LM Marker» = Neucha (felt-tip / spray-can letters), Latin + Cyrillic woff2 subsets, ~105 KB. |
 | `api.js` | **Public helpers**: `addNotice`, `addPoster`, `addGraffiti`, `addPriceTag`, `addPlate`, `addText`, `addNoticeCluster`, … |
 | `testScene.js` | Development wall, built only with `?phonetest=1`. |
 
@@ -30,7 +31,7 @@ Files:
 - Q/Tab → `toggle()`.
 - While the phone is open, Game calls `handleInput(input, dt)` every frame, and `update(dt)` always.
 - Game reads `phone.open`.
-- Game calls `close()` on Escape. Inside a sub-screen, Escape steps back one screen. At the top level it closes the phone. `close({force:true})` always closes.
+- Game calls `close()` on Escape. Inside a sub-screen, Escape steps back one screen (in the dialler it drops the whole number). At standby it closes the phone. `close({force:true})` always closes.
 
 **Controls while open:**
 
@@ -38,7 +39,7 @@ Files:
 |---|---|
 | arrows / WASD | navigate |
 | E / Enter / Space | select |
-| Backspace | back (closes the phone at standby) |
+| Backspace / Esc | back (closes the phone at standby); in the dialler Backspace deletes one digit, Esc leaves |
 | Q / Tab | put the phone away |
 | F | flashlight |
 | 0–9 | number keys, for dialling from standby |
@@ -86,6 +87,8 @@ Files:
 - The backlight dims after 10 s without a key press.
 - The phone sways gently with breathing, lags slightly behind head turns, and slides up and down when taken out or put away.
 - The plastic darkens at night; the backlight halo then shows more.
+- Size: the LCD is scaled by whole device pixels (at least 2×) so the bitmap font stays crisp. The phone never covers more than about 62% of the window height: on small windows more of the keypad and glove stay below the screen edge (the LCD and d-pad always show).
+- The lit LCD glass has a 2-pixel margin around the 96×68 pixel matrix, as on the real thing.
 - English translations appear to the left of the phone and never on the LCD. They follow `ui.translations`.
 - A short controls hint shows for the first few key presses.
 
@@ -119,7 +122,7 @@ Files:
 
 **Events** (`ctx.events`):
 
-- `'phone'` with `{action: 'open' | 'close' | 'sms' | 'call', msg?, who?}`. The anomaly director may use 'open' as the moment the player is looking down at the phone and away from the world.
+- `'phone'` with `{action: 'open' | 'close' | 'sms' | 'call', msg?, who?}`. 'open' marks the moments the player looks down at the phone instead of the world (useful for ambience, e.g. a sound that only plays while nobody watches).
 - `'read'` with `{item, x, y, z}` when a library text is read in the world.
 
 **Registry:**
@@ -136,7 +139,7 @@ Files:
 - Instead of `open`, you can pass one of these screen names: `menu`, `inbox`, `msg`, `contacts`, `call`, `unavailable`, `log`, `games`, `snake`, `settings`, `ringtones`, `contrast`, `dial`, `sms`.
 - `?phonetest=1` builds the test wall north of the spawn stop, at x 236–260, z 505. View it from `--at 244.2,507.2,0` and `--at 249.2,508.5,0`.
 
-**Sounds.** The package calls these names. If the `audio` package has not registered a name, the phone registers its own synthesized version.
+**Sounds.** The package calls these names. If the `audio` package has not registered a name, the phone registers its own synthesized version. In the full game the `audio` package provides `phone_key`, `phone_sms`, `phone_vibrate`, `phone_ring_out` and `phone_unavailable` (its versions win); the phone's own `phone_beep`, `phone_gsm`, `phone_pocket` and `phone_ringtone` are always used. `muffled: true` (phone still in the pocket) is understood by both.
 
 | sound | what it is |
 |---|---|
@@ -227,7 +230,8 @@ import { addNotice, addPoster, addGraffiti, addPriceTag, addPlate, addText, addN
 
 **Common rules:**
 
-- **Timing.** Call the helpers in `build(ctx)`. Signs are built after all packages' `build`.
+- **Timing.** Call the helpers in `build(ctx)`. Signs are packed into the atlas after all packages' `build`.
+- **Fonts.** Handwritten notes, shop cards, painted signs and graffiti use the bundled handwriting fonts (`HAND_STACK` = «LM Script», `MARKER_STACK` = «LM Marker», exported from `api.js` for your own `signs.add({draw})`). They start loading when `api.js` is imported. Anything drawn before they arrive is redrawn automatically by the phone package's `build` (order 60), which waits up to 6 s for them; if they fail to load, system fonts are used. `await handFontsReady()` if you draw with them yourself.
 - **Position.** `(x, y, z)` is the centre of the item **on the wall surface**. The helper pushes it 1 cm out along the facing normal (`offset`).
 - **Angle.** `angle` follows `signs.add`. 0 faces south (+z), π/2 faces east (+x), π faces north, −π/2 faces west. So for a wall whose outward normal is +z, use `angle: 0`.
 - **Choosing the text.** Pass an item object, an `id`, or `kind` (+ `sub`). In the last case the text is picked deterministically by `seed`. Without `seed`, a seed is derived from the position.
@@ -250,12 +254,12 @@ import { addNotice, addPoster, addGraffiti, addPriceTag, addPlate, addText, addN
 
 **`addNotice(ctx, o)`** — a paper notice.
 
-- Looks: `printed`, `handwritten` (ballpoint on a grid notebook sheet) or `tearoff`.
+- Looks: `printed`, `handwritten` (blue ballpoint Russian cursive on a squared exercise-book sheet, in the bundled «LM Script» font) or `tearoff`.
 - Tear-off notices have strips with the phone number written sideways. Some strips are torn off, by seed.
 - Tape sits at the corners. Lost-pet notices have a photocopied photo.
 - Paper colours: white, yellow, blue, pink, notebook, newsprint.
 - Ageing comes from `aged` (default 0.35).
-- `tornTabs: 'allButOne'` leaves one strip on the «Пропала собака» notice, which is the classic tiny anomaly.
+- `tornTabs: 'allButOne'` leaves only one strip on the «Пропала собака» notice: many people called (an environmental-storytelling detail from the mood research).
 - Other options: `paper`, `ink`, `tape: false`, `flat: true` (no tilt).
 
 ```js
@@ -349,6 +353,8 @@ addNoticeCluster(ctx, { x: 245, y: 1.6, z: 512.2, w: 0.25, h: 1.0, count: 4, kin
 **Lower-level helpers:**
 
 - `addReadable(ctx, {x, y, z, angle, w, h, item | note, prompt, reach})`: makes any custom sign readable.
+- `handFontsReady(timeoutMs = 5000)` → Promise<bool>; `redrawHandTexts()` (called by the phone package; returns how many signs were redrawn).
+- `HAND_STACK`, `MARKER_STACK`: CSS font stacks of the bundled handwriting fonts.
 - `noteFor(item)`: returns the `showNote` payload for an item.
 - The renderers, for your own `signs.add({draw})`:
   - `drawNotice(g, W, H, item, opts)`
@@ -372,7 +378,7 @@ addNoticeCluster(ctx, { x: 245, y: 1.6, z: 512.2, w: 0.25, h: 1.0, count: 4, kin
 - **Entrance doors (подъезды).**
   - Put 1–4 items on or beside every entrance with `addNoticeCluster` and a different `seed` per entrance, so repetition reads as real life.
   - Good fixed picks: `notice_door`, `notice_vigilance`, `notice_phones`, `notice_intercom`, `notice_debtors`, `notice_lift` (the entrance with a broken lift), `notice_mitten`, and `notice_lostdog` with `tornTabs: 'allButOne'`.
-  - For the doppelgänger courtyard (Block F): use the same ids as in Block D, but change one, or the seed, to create a tiny difference.
+  - Block F repeats Block D's layout: reuse the same ids there but change the seeds, so the repetition feels familiar rather than copied.
 - **Stops and poles.** Use flyers (`kinds: ['notice','ad'], subs: ['tearoff']`), `street_stop` and `street_timetable`. For the poster box at the stop, use `addPoster` with `w: 1.2, h: 1.8, emissive: 0.4, schedule: 'street'`.
 - **Shops.** In the shop interior, pass `indoor: true` to every helper.
   - Use `label_*` above the counters, `price_*` on the shelves, `shop_hours` on the door, and `shop_push` / `shop_pull` on the door glass.

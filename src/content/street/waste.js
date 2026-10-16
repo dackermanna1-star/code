@@ -31,7 +31,7 @@ function buildContainer(open) {
   } else {
     m.fill(0, 4, 1, 5, 1, 3, p)
   }
-  rustify(m, rngFor('container' + open), [p, M('paint_matte')], 0.18, { bottomBias: 2 })
+  rustify(m, rngFor('container' + open), [p, M('paint_matte')], 0.1, { bottomBias: 3 })
   snowTop(m, { chance: 0.95, seed: open ? 3 : 4, vary: open ? 0 : 1 })
   m.setPivot(2.5, 0, 2.5)
   return m
@@ -137,11 +137,25 @@ defineModel('street_chair_broken', () => {
   return m
 }, { lods: [1], maxDistance: 70 })
 
+// a CRT television carried out to the bins (2008: the flat screens are arriving), screen +Z
+defineModel('street_discarded_tv', () => {
+  const m = new VoxelModel(3, 4, 3)
+  const body = M('plastic_dark')
+  m.fill(0, 0, 0, 3, 3, 3, body)
+  m.clear(0, 2, 0, 1, 1, 1); m.clear(2, 2, 0, 1, 1, 1) // the tube's tapered back
+  m.fill(0, 1, 2, 2, 2, 1, M('glass_car')) // screen
+  m.set(2, 1, 2, M('metal_gray')) // knobs
+  m.set(1, 0, 0, M('street_cardboard')) // a scrap of the box it came in
+  snowTop(m, { chance: 0.9, seed: 8 })
+  return m
+}, { lods: [1], maxDistance: 80 })
+
 const S = (name, tag = 'litter') => (ctx, o = {}) => put(ctx, name, { ...o, tag: o.tag ?? tag, seed: seedInt(o.seed, 5) })
 export const placeTrashBag = S('street_trash_bag')
 export const placeTrashBox = S('street_trash_box')
 export const placeDiscardedTree = S('street_discarded_tree')
 export const placeBrokenChair = S('street_chair_broken')
+export const placeDiscardedTV = S('street_discarded_tv')
 
 /** Litter bin (урна). opts: { x, z, angle, type: 'concrete'|'metal', tint, seed } */
 export function placeLitterBin(ctx, o = {}) {
@@ -158,7 +172,8 @@ export function placeContainer(ctx, o = {}) {
 
 /**
  * Garbage container area. The open side faces local +Z (front, `angle`).
- * opts: { x, z, angle, seed, enclosure: 'brick'|'metal'|'none', count: 3..4, tree: auto, litter: auto }
+ * opts: { x, z, angle, seed, enclosure: 'brick'|'metal'|'none', count: 3..4, tree: auto, litter: auto,
+ *   tv: auto (20 %: a CRT television carried out to the bins) }
  * Footprint ≈ 6.5 × 2 m (+1.5 m of litter in front).
  */
 export function placeGarbageArea(ctx, opts) {
@@ -189,6 +204,9 @@ export function placeGarbageArea(ctx, opts) {
     if (rng.chance(0.6)) { const [x, z] = localToWorld(o, rng.float(-3, 3), rng.float(1.2, 2)); out.push(placeTrashBox(ctx, { x, z, angle: rng.float(0, 6.28) })) }
     if (opts.tree ?? rng.chance(0.65)) { const [x, z] = localToWorld(o, rng.float(-2.5, 2.5), rng.float(1.6, 2.6)); out.push(placeDiscardedTree(ctx, { x, z, angle: rng.float(0, 6.28) })) }
     if (rng.chance(0.25)) { const [x, z] = localToWorld(o, rng.chance(0.5) ? -3.9 : 3.9, rng.float(0.5, 1.5)); out.push(placeBrokenChair(ctx, { x, z, angle: rng.float(0, 6.28) })) }
+    // (own RNG so the rest of the layout does not shift)
+    const r2 = new RNG(seed + 77)
+    if (opts.tv ?? r2.chance(0.2)) { const [x, z] = localToWorld(o, r2.float(-2.6, 2.6), r2.float(1.2, 1.8)); out.push(placeDiscardedTV(ctx, { x, z, angle: angle + r2.float(-0.6, 0.6) })) }
   }
   // stencil plate on the back wall
   if (ctx.signs && encl) {

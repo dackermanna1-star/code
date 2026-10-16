@@ -82,13 +82,14 @@ defineModel('street_pg_rocket', buildRocket, { lods: [1, 2], lodDistances: [60],
 
 // ---- climbing dome «паутинка» ---------------------------------------------------------
 function buildDome() {
-  const m = new VoxelModel(13, 9, 13)
-  const rx = 6, ry = 7.2, c = 6.5
+  // 3.75 m across, 2.5 m tall: big enough that 0.25 m bars read as a lattice
+  const m = new VoxelModel(15, 11, 15)
+  const rx = 7, ry = 9.4, c = 7.5
   const paints = PAINTS()
   const step = Math.PI / 4
-  for (let y = 0; y < 8; y++)
-    for (let z = 0; z < 13; z++)
-      for (let x = 0; x < 13; x++) {
+  for (let y = 0; y < 10; y++)
+    for (let z = 0; z < 15; z++)
+      for (let x = 0; x < 15; x++) {
         const dx = x + 0.5 - c, dz = z + 0.5 - c, dy = y + 0.5
         const r = Math.sqrt((dx / rx) ** 2 + (dz / rx) ** 2 + (dy / ry) ** 2)
         if (Math.abs(r - 1) * rx > 0.55) continue
@@ -101,9 +102,8 @@ function buildDome() {
         if (!onMeridian && !onRing && h > 1.2) continue
         m.set(x, y, z, onRing && !onMeridian ? M('metal_yellow') : paints[((k % 4) + 4) % 4])
       }
-  m.set(6, 7, 6, M('metal_red'))
-  rustify(m, rngFor('dome'), PAINTS(), 0.1)
-  snowTop(m, { chance: 0.4, seed: 4 })
+  rustify(m, rngFor('dome'), PAINTS(), 0.06)
+  snowTop(m, { chance: 0.45, seed: 4 })
   return m
 }
 defineModel('street_pg_dome', buildDome, pgOpts)

@@ -32,7 +32,7 @@ const b = placeResidential(ctx, {
 })
 // b = { placements, sections, entrances, bounds:{minX,minZ,maxX,maxZ}, height, length, depth, y, series, floors }
 // b.entrances[i] = { index, number, building, x, y, z (door centre, outer face, porch level), angle (Signs convention,
-//   facing out), outside: [x,z] (3 m in front of the porch), doorPlacement, sectionPlacement, enterable, loop,
+//   facing out), outside: [x,z] (3 m in front of the facade, just past the porch steps), doorPlacement, sectionPlacement, enterable, loop,
 //   flats: [first,last], address, lamp (Light|null), noticeSpot: {x,y,z,angle} (wall left of the door for notices) }
 ```
 
@@ -137,6 +137,7 @@ porch, door, lamp, lights, signs, interactions and runtime.
   texts, roof-hatch notice on the top. Bulbs: tambour always works; ~38% dead, some `buzz`,
   some `dying`. Muffled `tv_muffled` / `voices_muffled` behind ~16% of doors (created lazily
   near the player once audio runs). Zone `stairwell_<n>`: reverb 'stairwell', indoor, no snow.
+- Ceiling height in stairwells is 2.25 m (2-voxel slabs: whitewashed underside, tiled top).
 - **Lift** (series p44, ii49, 1515, p44t): call button on every landing («Вызвать лифт»),
   working cab with wood-grain laminate, fluorescent light (buzzing), burnt buttons, 400 kg
   plate; floor buttons inside («Этаж N»). Sounds `elevator_call`, `elevator_doors`,

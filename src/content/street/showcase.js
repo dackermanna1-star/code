@@ -51,7 +51,7 @@ export function buildShowcase(ctx) {
   // the courtyard
   S.placePlayground(ctx, { x: 320, z: 311, angle: 0, set: 'full', seed: 7, mittens: true })
   S.placePlayground(ctx, { x: 290, z: 309, angle: Math.PI / 2, set: 'small', seed: 3 })
-  S.placeGarbageArea(ctx, { x: 356, z: 318, angle: 0, enclosure: 'brick', seed: 5 })
+  S.placeGarbageArea(ctx, { x: 356, z: 318, angle: 0, enclosure: 'brick', seed: 5, tv: true })
   S.placeGarbageArea(ctx, { x: 356, z: 304, angle: 0, enclosure: 'metal', seed: 6 })
   S.placeRakushkaRow(ctx, { x0: 330, z0: 293, x1: 352, z1: 293, seed: 9 })
   S.placeFence(ctx, { points: [[262, 287], [380, 287]], type: 'po2', seed: 2, outside: 'left', graffiti: 0.3 })

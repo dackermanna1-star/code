@@ -23,11 +23,15 @@ const TEST = typeof location !== 'undefined' && /[?&]streettest=1/.test(location
 // Steam markers (manholes, heat-pipe leaks) become real plumes through the nature package's
 // shared particle system when that package is loaded. Each marker gets `plume` (the handle) so
 // nobody adds a second plume for it; markers with `auto: false` are left to the layouts.
+const NATURE_API = import.meta.glob('../nature/api.js')
 async function spawnSteam(ctx) {
   const vents = ctx.registry?.steamVents
   if (!vents?.length || !ctx.game?.modules?.some?.(m => m.name === 'nature')) return
+  // glob import: resolves to nothing (instead of breaking the build) if the package is absent
+  const load = NATURE_API['../nature/api.js']
+  if (!load) return
   let addSteam
-  try { ({ addSteam } = await import('../nature/api.js')) } catch { return }
+  try { ({ addSteam } = await load()) } catch { return }
   if (typeof addSteam !== 'function') return
   for (const v of vents) {
     if (v.plume || v.auto === false) continue

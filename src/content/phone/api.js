@@ -182,8 +182,8 @@ export function addNoticeCluster(ctx, o) {
   const picks = [...(o.include ?? [])]
   for (let i = 0; picks.length < count && i < count * 8; i++) {
     const kind = kinds[Math.floor(rnd() * kinds.length)]
-    let list = textsOf(kind, { sub: o.subs })
-    if (kind === 'ad') list = list.filter(t => t.look === 'flyer')
+    // only photocopied flyers make sense pasted among paper notices (subs apply to notices)
+    let list = kind === 'ad' ? textsOf('ad', { look: 'flyer' }) : textsOf(kind, { sub: o.subs })
     list = list.filter(t => !used.has(t.id))
     if (!list.length) continue
     const it = list[Math.floor(rnd() * list.length)]

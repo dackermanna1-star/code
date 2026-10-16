@@ -99,7 +99,10 @@ function buildCourtyard(pole, bulb) {
   else {
     m.fill(0, 0, 0, 1, h, 1, M('paint_matte'))
     m.fill(0, 0, 0, 1, 2, 1, M('street_paint_black'))
-    rustify(m, rng, [M('paint_matte')], 0.05, { bottomBias: 5 })
+    // rust only where it really goes on a 1-voxel pipe: just above the black foot band and
+    // under the bracket clamp (a random speckle reads as candy stripes at this resolution)
+    m.set(0, 2, 0, M('metal_rust'))
+    if (rng.chance(0.5)) m.set(0, h - 2, 0, M('street_rust_light'))
   }
   const arm = M(pole === 'concrete' ? 'metal_dark' : 'paint_matte')
   m.set(0, h, 0, arm); m.set(0, h, 1, arm); m.set(0, h + 1, 2, arm); m.set(0, h + 1, 3, arm)
@@ -141,26 +144,27 @@ function buildPark(broken) {
     m.set(0, 16, 1, g); m.set(1, 16, 0, g); m.set(2, 16, 1, g)
     m.set(1, 17, 0, g)
   }
-  rustify(m, rngFor('park' + broken), [ci], 0.12)
+  rustify(m, rngFor('park' + broken), [ci], 0.05)
   snowTop(m, { chance: 0.9, seed: 5 })
   return m
 }
 
-// Wall bracket lamp: back plate on the wall (local z=0), arm out, round frosted fixture.
+// Wall bracket lamp: a small fixture over an entrance door. Back plate on the wall (local z=0),
+// a short arm, and either a frosted glass globe under a grey cap (the common НББ «tablet») or a
+// bare bulb in a dark wire cage. Kept to one voxel wide: a real one is ~25 cm.
 function buildWall(kind) {
-  const m = new VoxelModel(3, 4, 3)
+  const m = new VoxelModel(1, 4, 2)
   const md = M('metal_dark')
-  m.fill(1, 1, 0, 1, 2, 1, md)
-  m.set(1, 2, 1, md)
+  m.fill(0, 1, 0, 1, 2, 1, md) // back plate
   if (kind === 'cage') {
-    m.fill(0, 2, 2, 3, 1, 1, md)
-    m.set(1, 1, 2, M('street_lamp_incandescent'))
-    m.set(0, 1, 2, md); m.set(2, 1, 2, md)
+    m.set(0, 2, 1, md) // cage top
+    m.set(0, 1, 1, M('street_lamp_incandescent'))
+    m.set(0, 0, 0, M('street_cast_iron')) // the junction box under the plate
   } else {
-    m.fill(0, 2, 1, 3, 1, 2, M('metal_gray'))
-    m.fill(1, 1, 1, 1, 1, 2, M('street_lamp_incandescent'))
+    m.set(0, 2, 1, M('metal_gray')) // cap
+    m.set(0, 1, 1, M('street_lamp_incandescent')) // frosted globe
   }
-  m.setPivot(1.5, 0, 0)
+  m.setPivot(0.5, 0, 0)
   snowTop(m, { chance: 0.8, seed: 2 })
   return m
 }
@@ -227,7 +231,7 @@ export function placeStreetLamp(ctx, opts = {}) {
     }
     case 'wall': {
       model = rng.chance(0.3) ? 'street_lamp_wall_cage' : 'street_lamp_wall'
-      headY = 0.2; headF = 0.5; intensity = 8; range = 9; cone = 72; inner = 35; color = INCAND
+      headY = 0.2; headF = 0.38; intensity = 8; range = 9; cone = 72; inner = 35; color = INCAND
       schedule = 'night'; flickerKind = 'dying'; haloSize = 0.5
       break
     }

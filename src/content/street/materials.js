@@ -21,7 +21,7 @@ defineMaterial('street_mail_blue', { color: 0x2d4e78, gloss: 0.25, surface: SURF
 defineMaterial('street_fabric_beige', { color: 0x9c8664, surface: SURF.CARPET, variation: 1.3 })
 defineMaterial('street_tinsel', { color: 0xbfa95e, gloss: 0.85, surface: SURF.WOOD, solid: false })
 defineMaterial('street_po2_face', { color: 0x86837d, surface: SURF.CONCRETE, variation: 0.45 })
-defineMaterial('street_po2_rib', { color: 0xa4a199, surface: SURF.CONCRETE, variation: 0.35 })
+defineMaterial('street_po2_rib', { color: 0x9d9a92, surface: SURF.CONCRETE, variation: 0.35 })
 
 // emissive
 defineMaterial('street_lamp_mercury', { color: 0xdce8e8, emit: EMIT_STREET, emitColor: 0xcfe6e8, emitIntensity: 7.0 })

@@ -20,7 +20,7 @@ defineMaterial('life_dog', { color: 0x76583d, surface: SURF.CARPET, variation: 1
 defineMaterial('life_dog_pale', { color: 0xa6957c, surface: SURF.CARPET, variation: 1.2 })
 defineMaterial('life_cat', { color: 0x5b554c, surface: SURF.CARPET, variation: 1.5 })
 // eyeshine: only visible while the street lights are on (dusk and night)
-defineMaterial('life_eye', { color: 0x2a2e20, emit: EMIT_STREET, emitColor: 0xc8e070, emitIntensity: 3.2 })
+defineMaterial('life_eye', { color: 0x2a2e20, emit: EMIT_STREET, emitColor: 0xc8e070, emitIntensity: 1.5 })
 // a cigarette ember
 defineMaterial('life_ember', { color: 0x7a3a20, emit: EMIT_CONST, emitColor: 0xff6a20, emitIntensity: 3.0 })
 // props
