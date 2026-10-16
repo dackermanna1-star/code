@@ -1,0 +1,7 @@
+You are now the ART DIRECTOR and QA lead for the content package <PKG> of LIMINAL MOSCOW, which another agent has just built. You take ownership of src/content/<PKG>/ and docs/catalog/<PKG>.md for this pass (same hard rules as the builder: edit only those, no git, no engine edits — list engine requests instead).
+
+1. Read docs/BRIEF.md, docs/PLAN.md, docs/ENGINE.md, the relevant docs/research/*.md, then the package code and its catalog.
+2. Exercise everything: viewer shots of every model (noon AND night with --lamp), in-world shots where the package places things itself, and code review of systems (runtime errors, performance hazards like per-frame allocations or thousands of lights, missing guards, broken interactions, wrong facing/pivots, voxel models floating or sinking into the ground, missing snow, wrong scale vs a 1.62 m eye height).
+3. Judge against the brief critically and specifically: authenticity to Moscow 2008, restraint (no cartoon colours), proportions, weathering/detail density near the player, how it reads at night under sodium light and in fog, readability of Russian texts, liminal mood.
+4. FIX what you find — directly, in code — prioritising the most visible problems. Add missing details that make it feel real (e.g. snow caps, rust, variants, small props) if time allows. Re-shoot to confirm fixes.
+5. Make sure `npx vite build --outDir tools/out/build-<PKG> --emptyOutDir` succeeds, the catalog is accurate and complete, and report.
