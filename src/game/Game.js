@@ -18,6 +18,7 @@ import { LampHalos } from '../render/Halos.js'
 import { Footprints } from '../render/Footprints.js'
 import { Signs } from '../render/Signs.js'
 import { PostFX } from '../render/PostFX.js'
+import { Wires } from '../render/Wires.js'
 import { Atmosphere } from './Atmosphere.js'
 import { Events } from './Events.js'
 import { Player } from '../player/Player.js'
@@ -90,6 +91,7 @@ export class Game {
     this.interactions = new Interactions()
     this.signs = new Signs(this.uniforms)
     this.footprints = new Footprints(this.uniforms)
+    this.wires = new Wires(this.uniforms)
     this.atmos = new Atmosphere(this.uniforms, {
       startMinutes: p.t ? parseClock(p.t) : 16 * 60 + 38,
       weather: p.weather ?? 'light',
@@ -100,7 +102,7 @@ export class Game {
 
     const ctx = this.ctx = {
       game: this, THREE, world: this.world, terrain: this.terrain, lights: this.lights, zones: this.zones,
-      interactions: this.interactions, signs: this.signs, footprints: this.footprints, audio: this.audio,
+      interactions: this.interactions, signs: this.signs, footprints: this.footprints, wires: this.wires, audio: this.audio,
       ui: this.ui, scene, camera, player: this.player, atmos: this.atmos, events: this.events,
       M, defineMaterial, defineModel, VoxelModel, VOXEL, RNG, rng: seed => new RNG(seed),
       /** Pedestrian polylines [{points:[[x,z],...], kind:'sidewalk'|'path'|'courtyard'|'indoor', y?}] for NPCs */
@@ -129,6 +131,7 @@ export class Game {
     scene.add(this._farGround())
     onProgress(0.9, 'signs')
     this.signs.build(scene)
+    this.wires.build(scene)
 
     // effects
     this.sky = new Sky(this.uniforms)

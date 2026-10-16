@@ -30,7 +30,7 @@ place every other package's models. Export helper functions from your package (e
 `src/content/street/api.js`) for others to import. A package that throws is skipped and logged;
 do not let errors escape `update`.
 
-`ctx` contains: `game, THREE, world, terrain, lights, zones, interactions, signs, footprints, audio,
+`ctx` contains: `game, THREE, world, terrain, lights, zones, interactions, signs, footprints, wires, audio,
 ui, scene, camera, player, atmos, events, navPaths, registry, M, defineMaterial, defineModel,
 VoxelModel, VOXEL, RNG, rng(seed)`.
 
@@ -135,6 +135,10 @@ interactions.add({ x, y, z, size: [sx,sy,sz], prompt: { ru: 'Читать', en: 
 `ui.say({ru, en}, seconds)` (rare quiet caption), `ui.setFade(v, color)`.
 Player: `player.sit({x, y, z, standPos: Vector3})`, `player.teleport(x,y,z,yaw)`, `player.mode = 'locked'`.
 `game.phone` is provided by the phone package; `game.toggleFlashlight()`.
+
+## Wires
+`wires.add([[x,y,z], [x,y,z], ...], { sag, color })` — thin fogged lines for trolleybus overhead
+wires, power lines, cables between buildings. Built once at load (static).
 
 ## Footprints
 `footprints.addTrail([[x,z],...], terrain, age0to1)` — pre-existing trails in the snow.

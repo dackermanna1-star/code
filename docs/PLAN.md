@@ -5,8 +5,9 @@ evening in 2008. No objectives, no HUD. The city is the protagonist. The feeling
 alone at dusk with an old phone in your pocket, snow falling under orange street lamps. Quiet,
 melancholic, nostalgic, subtly uncanny — never horror, no jump scares, no monsters.
 
-Read `docs/ENGINE.md` (API) and `docs/ATMOSPHERE.md` (reference bible: dimensions, colours, texts,
-sound recipes) before building anything.
+Read `docs/ENGINE.md` (API) and the research in `docs/research/*.md` (architecture, streets, metro,
+soundscape, mood: real dimensions, hex colours, Russian texts with translations, sound synthesis
+recipes, anomaly ideas). `docs/ATMOSPHERE.md`, if present, is a merged digest of the same.
 
 ## Art direction rules (apply to everything)
 - Restrained, realistic, low-res voxel look. Not cartoonish, not colourful. Palette: dirty whites,
