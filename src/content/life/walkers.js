@@ -427,7 +427,7 @@ export function updateWalkers(ctx, dt) {
     life.spawnT = interval
     const T = peopleTarget(ctx.atmos?.minutes ?? 1000, ctx.atmos?.cur?.snow ?? 0.3) * (life.density ?? 1)
     const n = life.walkers.length
-    const p = clamp(T - n, 0, 1) * interval / 16
+    const p = clamp(T - n, 0, 1) * interval / 12
     life.stats.target = Math.round(T * 100) / 100
     if (life.rng.chance(p)) { life.stats.tries = (life.stats.tries || 0) + 1; if (!trySpawn(ctx)) life.stats.failed = (life.stats.failed || 0) + 1 }
   }
