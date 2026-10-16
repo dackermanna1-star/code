@@ -59,6 +59,8 @@ flat varying float vDomain;
 flat varying vec4 vInst;
 flat varying float vFlag;
 flat varying vec2 vSize;
+flat varying float vDir;
+varying vec3 vViewL;
 
 vec3 dirNormal(float d) {
   if (d < 0.5) return vec3(1,0,0);
@@ -81,6 +83,7 @@ void main() {
 #ifdef USE_INSTANCING
   vec4 wp = modelMatrix * instanceMatrix * lp;
   vN = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * n);
+  vViewL = transpose(mat3(instanceMatrix)) * (cameraPosition - wp.xyz);
   vInst = aInst;
   vFlag = aInst2.x;
   indoor = max(indoor, aInst2.y);
@@ -88,6 +91,7 @@ void main() {
 #else
   vec4 wp = modelMatrix * lp;
   vN = normalize(mat3(modelMatrix) * n);
+  vViewL = cameraPosition - wp.xyz;
   vInst = vec4(0.5, 1.0, 1.0, 1.0);
   vFlag = 1.0;
 #endif
@@ -99,6 +103,7 @@ void main() {
   vec2 cuv = vec2((corner == 1.0 || corner == 2.0) ? 1.0 : 0.0, corner >= 2.0 ? 1.0 : 0.0);
   vUV = cuv;
   vSize = aSize;
+  vDir = dir;
   gl_Position = projectionMatrix * viewMatrix * wp;
 }
 `
@@ -124,6 +129,8 @@ flat varying float vDomain;
 flat varying vec4 vInst;
 flat varying float vFlag;
 flat varying vec2 vSize;
+flat varying float vDir;
+varying vec3 vViewL;
 
 void main() {
   vec2 pu = vec2((vMat + 0.5) / 256.0, 0.25);
@@ -205,7 +212,7 @@ void main() {
   if (emitKind > 0.5) {
     if (emitKind < 1.5) {
       float litO;
-      vec3 w = shadeWindow(vExtra, vInst.x, vUV, N, V, vWorld, length(emis) * 0.55, litO);
+      vec3 w = shadeWindow(vExtra, vInst.x, vUV, vSize, vDir, vViewL, uVoxelScale, N, V, length(emis) * 0.55, litO);
       col = w + col * 0.15;
     } else if (emitKind < 2.5) {
       col += emis * flag;

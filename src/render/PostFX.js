@@ -22,7 +22,7 @@ const FinalShader = {
     uFade: { value: 0 },
     uFadeColor: { value: new THREE.Color(0, 0, 0) },
     uResolution: { value: new THREE.Vector2(1, 1) },
-    uChroma: { value: 0.0015 },
+    uChroma: { value: 0.0004 },
   },
   vertexShader: /* glsl */ `
     varying vec2 vUv;

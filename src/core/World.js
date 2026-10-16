@@ -5,9 +5,10 @@
 
 import * as THREE from 'three'
 import { VOXEL, WORLD_SIZE } from './constants.js'
-import { SOLID, LOD_REMAP } from './materials.js'
+import { SOLID, LOD_REMAP, TRANSPARENT } from './materials.js'
 import { getModelDef } from './models.js'
-import { meshModel } from './mesher.js'
+import { meshModel, setTransparentTable } from './mesher.js'
+import { MeshPool } from './MeshPool.js'
 import { HOLE } from './Terrain.js'
 import { hashf } from './rng.js'
 
@@ -174,11 +175,11 @@ export class World {
   }
 
   // ---- finalize: geometry + instancing ------------------------------------------------
-  finalize(scene, mats, onProgress) {
+  async finalize(scene, mats, onProgress) {
+    setTransparentTable(TRANSPARENT)
     for (const p of this.statics) this._insertGrid(p)
     // terrain contact occupancy
     for (const p of this.statics) if (p.def.contact && p.visible) this._rasterizeContact(p)
-    // render sets
     const byDef = new Map()
     for (const p of this.placements) {
       if (!byDef.has(p.def)) byDef.set(p.def, [])
@@ -186,12 +187,26 @@ export class World {
     }
     this.scene = scene
     this.mats = mats
-    let k = 0
-    for (const [def, list] of byDef) {
-      const rs = this._ensureRenderSet(def)
-      rs.placements.push(...list)
-      onProgress?.(++k / byDef.size, def.name)
+    // mesh every LOD of every used model in parallel workers
+    const pool = new MeshPool()
+    const t0 = performance.now()
+    let done = 0
+    const total = [...byDef.keys()].reduce((n, d) => n + d.lods.length, 0)
+    const jobs = []
+    for (const def of byDef.keys()) {
+      def._meshes = []
+      def.lods.forEach((f, li) => {
+        const vm = f === 1 ? def.model : def.model.downsample(f, 1, LOD_REMAP)
+        jobs.push(pool.mesh(vm, { scale: VOXEL * f, cullBottom: def.cullBottom, transparent: TRANSPARENT }).then(res => {
+          def._meshes[li] = res
+          onProgress?.(++done / total, def.name)
+        }))
+      })
     }
+    await Promise.all(jobs)
+    pool.dispose()
+    this.stats.meshMs = performance.now() - t0
+    for (const [def, list] of byDef) this._ensureRenderSet(def).placements.push(...list)
     this._buildRoofTexture()
     this.finalized = true
     this.stats.models = this.renderSets.size
@@ -203,13 +218,17 @@ export class World {
     rs = { def, levels: [], placements: [], capacity: 0 }
     for (let li = 0; li < def.lods.length; li++) {
       const f = def.lods[li]
-      const vm = f === 1 ? def.model : def.model.downsample(f, 1, LOD_REMAP)
-      const res = meshModel(vm, { scale: VOXEL * f, cullBottom: def.cullBottom })
+      let res = def._meshes?.[li]
+      if (!res) {
+        const vm = f === 1 ? def.model : def.model.downsample(f, 1, LOD_REMAP)
+        res = meshModel(vm, { scale: VOXEL * f, cullBottom: def.cullBottom, transparent: TRANSPARENT })
+      }
       const level = { f, opaque: null, glass: null }
       if (res.opaque) level.opaque = this._makeInstanced(res.opaque, this.mats.voxel[Math.min(li, this.mats.voxel.length - 1)], def.name + '_L' + li)
       if (res.transparent && li === 0) level.glass = this._makeInstanced(res.transparent, this.mats.glass, def.name + '_glass')
       rs.levels.push(level)
     }
+    def._meshes = null
     this.renderSets.set(def.name, rs)
     return rs
   }

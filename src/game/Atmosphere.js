@@ -5,8 +5,8 @@ import * as THREE from 'three'
 import { RNG, smoothstep, clamp } from '../core/rng.js'
 
 // Linear-space colors. Minutes from midnight. Moscow in deep winter: sunrise ~9:00, sunset ~16:00.
-const N_SKY = [0.030, 0.028, 0.038], N_GND = [0.022, 0.016, 0.013], N_FOG = [0.022, 0.019, 0.026]
-const N_HOR = [0.070, 0.046, 0.046], N_GLOW = [0.060, 0.026, 0.009]
+const N_SKY = [0.026, 0.026, 0.037], N_GND = [0.020, 0.015, 0.012], N_FOG = [0.015, 0.0135, 0.019]
+const N_HOR = [0.050, 0.034, 0.035], N_GLOW = [0.048, 0.021, 0.007]
 const KEYS = [
   { t: 0, sky: N_SKY, gnd: N_GND, fog: N_FOG, hor: N_HOR, glow: N_GLOW, sun: 0, street: 1, night: 1, lit: 0.24, exp: 1.65 },
   { t: 180, sky: N_SKY, gnd: N_GND, fog: N_FOG, hor: N_HOR, glow: N_GLOW, sun: 0, street: 1, night: 1, lit: 0.06, exp: 1.7 },

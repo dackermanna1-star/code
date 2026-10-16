@@ -58,6 +58,7 @@ export class Game {
     renderer.outputColorSpace = THREE.LinearSRGBColorSpace
     renderer.toneMapping = THREE.NoToneMapping
     renderer.setClearColor(0x000000, 1)
+    renderer.info.autoReset = false
     this.renderer = renderer
     const scene = new THREE.Scene()
     scene.matrixWorldAutoUpdate = true
@@ -124,7 +125,7 @@ export class Game {
 
     onProgress(0.6, 'meshing world')
     await nextFrame()
-    this.world.finalize(scene, this.mats, (f, name) => onProgress(0.6 + 0.25 * f, name))
+    await this.world.finalize(scene, this.mats, (f, name) => onProgress(0.6 + 0.25 * f, name))
     onProgress(0.86, 'terrain')
     await nextFrame()
     for (const m of this.terrain.buildMeshes(this.mats.terrain)) scene.add(m)
@@ -294,6 +295,7 @@ export class Game {
 
   tick(dt) {
     this.frame++
+    this.renderer.info.reset()
     const input = this.input
     if (input.hit('Escape')) {
       if (this.ui.noteOpen) this.ui.closeNote()

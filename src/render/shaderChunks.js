@@ -155,46 +155,102 @@ vec3 applyFog(vec3 col, vec3 P) {
 }
 `
 
-// Window shading: procedural lit apartments. wid = window id (extra byte), seed = instance seed.
+// Window shading: procedural lit apartments with parallax "interior mapping" — each pane opens
+// onto a fake room (wallpaper, ceiling lamp, wall carpet, wardrobe, TV glow) that shifts with
+// the viewing angle. wid = window id (extra byte), seed = instance seed, uvC = pane uv (0..1),
+// sizeVox = pane size in voxels (mesher u,v), dir = face direction, viewL = model-space vector
+// from the fragment to the camera.
 export const windowGLSL = /* glsl */ `
-vec3 shadeWindow(float wid, float seed, vec2 uv, vec3 N, vec3 V, vec3 P, float emisScale, out float litOut) {
+vec3 shadeWindow(float wid, float seed, vec2 uvC, vec2 sizeVox, float dir, vec3 viewL, float vs, vec3 N, vec3 V, float emisScale, out float litOut) {
   float h1 = hash12(vec2(seed * 917.13, wid * 13.17));
   float epoch = floor(uGameMinutes / 11.0 + h1 * 37.0);
   float h2 = hash12(vec2(seed * 311.7 + epoch * 1.37, wid * 7.71));
   float lit = step(h2, uLitFraction);
   litOut = lit;
   float t = hash12(vec2(seed * 53.3, wid * 3.31 + 0.5));
-  vec3 wc;
-  float tv = 0.0;
-  if (t < 0.46) wc = vec3(1.0, 0.60, 0.26);           // incandescent
-  else if (t < 0.60) wc = vec3(1.0, 0.44, 0.16);      // orange curtains
-  else if (t < 0.70) wc = vec3(0.92, 0.80, 0.55);     // pale yellow
-  else if (t < 0.79) wc = vec3(0.70, 0.86, 0.95);     // cold fluorescent kitchen
-  else if (t < 0.88) { wc = vec3(0.45, 0.60, 1.0); tv = 1.0; } // only a TV on
-  else if (t < 0.94) wc = vec3(0.85, 0.42, 0.30);     // red curtains
-  else wc = vec3(0.55, 0.75, 0.45);                   // green curtains
-  // interior hint: ceiling lamp hot spot, curtains at the sides, sill shadow at the bottom
-  vec2 c = uv - vec2(0.5, 0.62);
-  float spot = exp(-dot(c, c) * 5.0);
-  float curtain = smoothstep(0.0, 0.22, uv.x) * smoothstep(0.0, 0.22, 1.0 - uv.x);
-  float tulle = 0.85 + 0.15 * sin(uv.x * 60.0 + h1 * 6.0);
-  float inten = (0.45 + 0.75 * spot) * mix(0.55, 1.0, curtain) * tulle;
-  inten *= mix(0.6, 1.25, hash12(vec2(wid, seed * 7.0)));
+  vec3 lc; float tv = 0.0; float kitchen = 0.0;
+  if (t < 0.48) lc = vec3(1.0, 0.60, 0.28);                   // incandescent
+  else if (t < 0.62) lc = vec3(1.0, 0.70, 0.42);              // warm shade
+  else if (t < 0.74) { lc = vec3(0.80, 0.93, 1.0); kitchen = 1.0; } // fluorescent kitchen
+  else if (t < 0.85) { lc = vec3(0.48, 0.60, 1.0); tv = 1.0; } // only the TV is on
+  else lc = vec3(1.0, 0.52, 0.22);                            // dim lamp, orange shade
+
+  // pane frame in model space
+  vec3 hA; vec2 hv; vec2 sz;
+  if (dir < 1.5) { hA = vec3(0.0, 0.0, 1.0); hv = vec2(uvC.y, uvC.x); sz = vec2(sizeVox.y, sizeVox.x) * vs; }
+  else { hA = vec3(1.0, 0.0, 0.0); hv = uvC; sz = sizeVox * vs; }
+  vec3 nL = dir < 0.5 ? vec3(1.0, 0.0, 0.0) : dir < 1.5 ? vec3(-1.0, 0.0, 0.0) : dir < 4.5 ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 0.0, -1.0);
+  vec3 rdL = -normalize(viewL);
+  vec3 rd = vec3(dot(rdL, hA), rdL.y, -dot(rdL, nL));
+  rd = sign(rd + 1e-6) * max(abs(rd), vec3(1e-4));
+  vec3 ro = vec3(hv * sz, 0.0);
+  float hr = hash12(vec2(seed * 19.0 + 3.0, wid));
+  float depth = 3.0 + hr * 1.8;
+  vec3 bmin = vec3(-0.9 - hr * 0.9, -0.85, 0.0);
+  vec3 bmax = vec3(sz.x + 0.9 + fract(hr * 7.3) * 0.9, sz.y + 0.32, depth);
+  vec3 tt = (mix(bmin, bmax, step(0.0, rd)) - ro) / rd;
+  float tm = min(min(tt.x, tt.y), tt.z);
+  vec3 p = ro + rd * tm;
+
+  float hw = hash12(vec2(seed * 7.0, wid * 1.7));
+  vec3 paper = hw < 0.3 ? vec3(0.56, 0.47, 0.32) : hw < 0.55 ? vec3(0.42, 0.48, 0.37) : hw < 0.78 ? vec3(0.54, 0.43, 0.40) : vec3(0.42, 0.45, 0.53);
+  if (kitchen > 0.5) paper = vec3(0.64, 0.64, 0.6);
+  vec3 base;
+  float face;
+  if (tm == tt.z) { base = paper; face = 0.0; }
+  else if (tm == tt.y) {
+    if (rd.y > 0.0) { base = vec3(0.78, 0.76, 0.71); face = 3.0; }
+    else { base = vec3(0.30, 0.20, 0.13); face = 2.0; }
+  } else { base = paper * 0.88; face = 1.0; }
+  if (face < 1.5) {
+    vec2 w2 = face < 0.5 ? p.xy : p.zy;
+    base *= 0.93 + 0.07 * step(0.5, fract(w2.x * 4.0 + step(0.5, fract(w2.y * 3.0)) * 0.5));
+  }
+  // a carpet hanging on one side wall
+  float carpetRight = step(0.5, hash12(vec2(seed + 0.3, wid * 5.1)));
+  if (face == 1.0 && kitchen < 0.5 && (rd.x > 0.0 ? 1.0 : 0.0) == carpetRight && p.y > 0.1 && p.y < sz.y + 0.05 && p.z > 0.5 && p.z < depth - 0.5) {
+    vec2 q = vec2(p.z, p.y) * 5.0;
+    vec2 f = fract(q * 0.5) - 0.5;
+    float pat = 0.8 + 0.2 * step(0.18, abs(f.x) + abs(f.y)) - 0.15 * step(0.42, max(abs(f.x), abs(f.y)));
+    base = vec3(0.46, 0.13, 0.10) * pat;
+  }
+  // wardrobe / shelf silhouette on the back wall
+  if (face == 0.0) {
+    float wx = bmin.x + 0.2 + hr * max(0.1, bmax.x - bmin.x - 1.6);
+    if (p.x > wx && p.x < wx + 1.2 && p.y < bmin.y + 2.05) base = kitchen > 0.5 ? vec3(0.62, 0.6, 0.55) : vec3(0.22, 0.14, 0.09);
+  }
+  // interior lighting
+  vec3 lpos = vec3((bmin.x + bmax.x) * 0.5, bmax.y - 0.4, depth * 0.45);
+  vec3 dl = p - lpos;
+  float li = 0.22 + 1.5 / (1.0 + dot(dl, dl) * 0.35);
+  if (face == 3.0) li += 1.4 * exp(-dot(p.xz - lpos.xz, p.xz - lpos.xz) * 2.5);
   if (tv > 0.5) {
-    float fl = 0.55 + 0.45 * vnoise2(vec2(uTime * 6.0 + wid, seed * 50.0));
-    inten = (0.25 + 0.5 * fl) * (0.6 + 0.4 * spot);
+    vec3 tpos = vec3(bmin.x + 0.5 + hr, bmin.y + 0.75, depth * 0.8);
+    vec3 dt = p - tpos;
+    float fl = 0.5 + 0.5 * vnoise2(vec2(uTime * 6.0 + wid, seed * 50.0));
+    li = (0.1 + 1.1 / (1.0 + dot(dt, dt) * 0.7)) * (0.45 + 0.8 * fl);
   }
-  // silhouette passing (very rare)
-  float sil = step(0.985, hash12(vec2(floor(uTime / 23.0 + h1 * 9.0), wid + seed * 101.0)));
-  if (sil > 0.5) {
-    float sx = fract(uTime / 23.0 + h1 * 9.0) * 1.6 - 0.3;
-    float body = smoothstep(0.16, 0.10, abs(uv.x - sx)) * step(uv.y, 0.85);
-    inten *= 1.0 - 0.75 * body;
+  li *= mix(0.6, 1.2, hash12(vec2(wid, seed * 7.0)));
+  // someone crossing the room (rare)
+  float cross = step(0.985, hash12(vec2(floor(uTime / 23.0 + h1 * 9.0), wid + seed * 101.0)));
+  if (cross > 0.5 && face == 0.0) {
+    float sx = mix(bmin.x, bmax.x, fract(uTime / 23.0 + h1 * 9.0) * 1.4 - 0.2);
+    li *= 1.0 - 0.8 * smoothstep(0.35, 0.2, abs(p.x - sx)) * step(p.y, bmin.y + 1.75);
   }
-  vec3 litCol = wc * inten * emisScale;
-  // dark glass: faint reflection of the sky and street glow
+  vec3 room = base * lc * li * emisScale;
+  // curtains at the sides and tulle across the glass
+  float hcur = hash12(vec2(wid * 3.0, seed));
+  float cw = 0.08 + 0.2 * hcur;
+  float curtain = max(smoothstep(cw, cw - 0.06, hv.x), smoothstep(1.0 - cw, 1.0 - cw + 0.06, hv.x));
+  vec3 curtCol = (hcur < 0.4 ? vec3(0.8, 0.5, 0.25) : hcur < 0.7 ? vec3(0.65, 0.25, 0.2) : vec3(0.5, 0.55, 0.35)) * lc * 0.55 * emisScale;
+  float tulle = (0.25 + 0.1 * sin(hv.x * 70.0 + hcur * 9.0)) * step(0.35, hw);
+  room = mix(room, lc * 0.45 * emisScale, tulle);
+  room = mix(room, curtCol, curtain * 0.9);
+  // unlit: barely visible furniture lit by the street, mostly reflection
+  vec3 dark = base * (uSkyAmb + uGroundAmb) * 0.5 + curtain * 0.005;
+  vec3 interior = mix(dark, room, lit);
   float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
-  vec3 refl = fogSky(reflect(-V, N)) * (0.10 + 0.5 * fres);
-  return mix(refl, litCol + refl * 0.25, lit);
+  vec3 refl = fogSky(reflect(-V, N)) * (0.07 + 0.5 * fres);
+  return interior + refl * mix(1.0, 0.25, lit);
 }
 `

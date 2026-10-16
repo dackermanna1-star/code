@@ -11,7 +11,6 @@
 // does not vary along the merge direction, so interpolation stays correct.
 
 import { VOXEL } from './constants.js'
-import { TRANSPARENT } from './materials.js'
 
 class Growable {
   constructor(Type, initial = 4096) { this.Type = Type; this.a = new Type(initial); this.n = 0 }
@@ -75,20 +74,27 @@ class MeshBuffers {
 
 export { MeshBuffers }
 
+let DEFAULT_TRANSPARENT = new Uint8Array(256)
+/** Main thread registers the material transparency table (workers receive it per job). */
+export function setTransparentTable(t) { DEFAULT_TRANSPARENT = t }
+
 /**
  * Mesh a VoxelModel.
  * @param {import('./VoxelModel.js').VoxelModel} model
  * @param {object} [opts]
  * @param {number} [opts.scale=VOXEL] meters per voxel (LOD models use 2x/4x)
  * @param {boolean} [opts.cullBottom=true] skip downward faces on the bottom layer
+ * @param {Uint8Array} opts.transparent material id → 1 if transparent (materials.TRANSPARENT)
+ * @param {Uint8Array|null} [opts.interior] per-voxel interior mask (defaults to model.interiorMask())
  * @returns {{opaque: object|null, transparent: object|null}}
  */
 export function meshModel(model, opts = {}) {
   const scale = opts.scale ?? VOXEL
   const cullBottom = opts.cullBottom ?? true
+  const TRANSPARENT = opts.transparent ?? DEFAULT_TRANSPARENT
   const { sx, sy, sz, data } = model
   const extra = model.extra
-  const interior = model.interiorMask()
+  const interior = opts.interior !== undefined ? opts.interior : (model.interiorMask ? model.interiorMask() : null)
   const dims = [sx, sy, sz]
   const stride = [1, sx * sz, sx]
   const px = model.pivot.x, py = model.pivot.y, pz = model.pivot.z

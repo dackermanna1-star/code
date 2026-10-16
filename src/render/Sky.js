@@ -33,8 +33,10 @@ export class Sky {
           vec2 cp = rd.xz / (y + 0.08) * 1.4 + uCloudShift;
           float cl = fbm(cp * 0.6);
           float dens = smoothstep(0.25, 0.75, cl + uCloudCover - 0.55);
-          vec3 lit = uFogHorizon * 1.15 + uFogGlow * 0.6;
-          vec3 cloud = mix(base * 0.85, lit, 0.5 + 0.5 * cl);
+          // cloud undersides catch the city glow: bright near the horizon, dim overhead
+          float low = pow(1.0 - y, 2.5);
+          vec3 lit = mix(uFogColor * 1.25, uFogHorizon * 0.95 + uFogGlow * 0.45, low);
+          vec3 cloud = mix(base * 0.8, lit, 0.45 + 0.55 * cl);
           vec3 col = mix(base, cloud, dens * smoothstep(0.0, 0.25, y));
           // gaps in the clouds at night show a darker sky and rare stars
           if (uStars > 0.0) {
