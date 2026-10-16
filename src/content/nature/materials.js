@@ -48,8 +48,8 @@ export const MAT = {
 
   // --- branches & twigs (non-solid: the player never snags or climbs on them)
   limbBirch: def('nature_limb_birch', { color: 0xb3ada2, surface: SURF.WOOD, variation: 1.6, solid: false }, 'twig'),
-  branch: def('nature_branch', { color: 0x3d342d, surface: SURF.WOOD, variation: 1.3, solid: false }, 'twig'),
-  twigBirch: def('nature_twig_birch', { color: 0x4b3630, surface: SURF.WOOD, variation: 1.2, solid: false }, 'twig'),
+  branch: def('nature_branch', { color: 0x463d35, surface: SURF.WOOD, variation: 1.3, solid: false }, 'twig'),
+  twigBirch: def('nature_twig_birch', { color: 0x5a463f, surface: SURF.WOOD, variation: 1.2, solid: false }, 'twig'),
   twigGrey: def('nature_twig_grey', { color: 0x5e5c51, surface: SURF.WOOD, variation: 1.3, solid: false }, 'twig'),
   snowBranch: def('nature_snow_branch', { color: 0xe2e6ec, snow: true, surface: SURF.SNOW, variation: 0.5, solid: false }, 'snow'),
   needles: def('nature_needles', { color: 0x27362c, surface: SURF.WOOD, variation: 1.5, solid: false }, 'needles'),

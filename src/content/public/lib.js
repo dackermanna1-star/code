@@ -187,32 +187,34 @@ export function ffill(m, face, u, y, d, w, h, t, mat, extra) {
  * Window in a facade. Clears a recess of `depth` voxels, then puts frame + glass at d = depth.
  * o: { depth=1, glass (mat id), frame (mat id | 0 for none), cols (panes across), transom (row from top, 0 = none),
  *      windowId (bool: allocate EMIT_WINDOW id), snow (sill snow chance), rng, sill (mat for a 1-voxel sill under the
- *      recess bottom), extra }
+ *      recess bottom), extra, d0 (depth of the outer wall face from the model edge) }
  */
 export function win(m, face, u, y, w, h, o = {}) {
   const depth = o.depth ?? 1
+  const d0 = o.d0 ?? 0
   const glass = o.glass ?? M('pub_glass_dark')
   const frame = o.frame ?? M('window_frame_white')
   const extra = o.windowId ? m.nextWindowId() : o.extra
-  ffill(m, face, u, y, 0, w, h, depth, 0)
-  ffill(m, face, u, y, depth, w, h, 1, glass, extra)
+  ffill(m, face, u, y, d0, w, h, depth, 0)
+  ffill(m, face, u, y, d0 + depth, w, h, 1, glass, extra)
   if (frame) {
-    for (let uu = u; uu < u + w; uu++) { fset(m, face, uu, y, depth, frame); fset(m, face, uu, y + h - 1, depth, frame) }
-    for (let yy = y; yy < y + h; yy++) { fset(m, face, u, yy, depth, frame); fset(m, face, u + w - 1, yy, depth, frame) }
+    const d = d0 + depth
+    for (let uu = u; uu < u + w; uu++) { fset(m, face, uu, y, d, frame); fset(m, face, uu, y + h - 1, d, frame) }
+    for (let yy = y; yy < y + h; yy++) { fset(m, face, u, yy, d, frame); fset(m, face, u + w - 1, yy, d, frame) }
     const cols = o.cols ?? 1
     for (let k = 1; k < cols; k++) {
       const uu = u + Math.round((w - 1) * k / cols)
-      for (let yy = y; yy < y + h; yy++) fset(m, face, uu, yy, depth, frame)
+      for (let yy = y; yy < y + h; yy++) fset(m, face, uu, yy, d, frame)
     }
     if (o.transom) {
       const yy = y + h - 1 - o.transom
-      for (let uu = u; uu < u + w; uu++) fset(m, face, uu, yy, depth, frame)
+      for (let uu = u; uu < u + w; uu++) fset(m, face, uu, yy, d, frame)
     }
   }
-  if (o.sill) for (let uu = u - 1; uu <= u + w; uu++) fset(m, face, uu, y - 1, 0, o.sill)
+  if (o.sill) for (let uu = u - 1; uu <= u + w; uu++) fset(m, face, uu, y - 1, d0, o.sill)
   if (o.snow && o.rng) {
     for (let uu = u; uu < u + w; uu++)
-      if (o.rng.next() < o.snow) for (let dd = 0; dd < depth; dd++) fset(m, face, uu, y, dd, M('snow'))
+      if (o.rng.next() < o.snow) for (let dd = 0; dd < depth; dd++) fset(m, face, uu, y, d0 + dd, M('snow'))
   }
   return extra
 }

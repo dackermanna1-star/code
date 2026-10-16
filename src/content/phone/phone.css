@@ -1,0 +1,29 @@
+/* The phone in hand: a candybar phone drawn on canvases, lower right of the screen. */
+.phone-root {
+  position: fixed; left: 0; top: 0; z-index: 9; pointer-events: none;
+  transform-origin: 50% 100%; will-change: transform; display: none;
+}
+.phone-root.on { display: block; }
+.phone-root canvas { position: absolute; left: 0; top: 0; }
+.phone-root .lcd { image-rendering: pixelated; }
+.phone-root .glow { transition: opacity .35s linear; }
+.phone-root .glare {
+  position: absolute; pointer-events: none;
+  background:
+    linear-gradient(118deg, rgba(255,255,255,0.10) 0%, rgba(255,255,255,0.035) 34%, rgba(255,255,255,0) 35%, rgba(255,255,255,0) 100%),
+    radial-gradient(ellipse at 50% 120%, rgba(0,0,0,0.0) 40%, rgba(0,0,0,0.18) 100%);
+}
+.phone-root .halo {
+  position: absolute; pointer-events: none; mix-blend-mode: screen; opacity: 0;
+  background: radial-gradient(ellipse at 50% 50%, rgba(150,200,90,0.32) 0%, rgba(120,170,70,0.12) 45%, rgba(0,0,0,0) 72%);
+}
+.phone-tr {
+  position: fixed; z-index: 9; pointer-events: none; text-align: right;
+  max-width: min(32vw, 260px); font-family: var(--ui-font, Tahoma, Verdana, sans-serif);
+  font-size: 11px; line-height: 1.5; color: rgba(214, 214, 204, 0.74);
+  text-shadow: 0 1px 2px #000, 0 0 6px rgba(0,0,0,.6); opacity: 0; transition: opacity .35s;
+  letter-spacing: .01em;
+}
+.phone-tr.on { opacity: 1; }
+.phone-tr .t { white-space: pre-line; }
+.phone-tr .h { margin-top: 8px; font-size: 10px; color: rgba(190, 190, 182, 0.45); letter-spacing: .04em; }

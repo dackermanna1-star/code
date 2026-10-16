@@ -176,12 +176,12 @@ function buildBirch(seed, Hm, o = {}) {
       const q = atY(tp, y)
       roll += 2.4 + rng.float(-0.5, 0.5)
       const env = Math.pow(Math.sin(Math.PI * (0.1 + 0.9 * t)), 0.7) * (1 - 0.3 * t)
-      const L = H * 0.33 * env * rng.float(0.7, 1.15) + 2
-      const ang = lerp(0.95, 0.35, t) + rng.float(-0.15, 0.15)
-      const r = Math.max(0.42, q.r * 0.58)
+      const L = H * 0.4 * env * rng.float(0.75, 1.15) + 2
+      const ang = lerp(0.9, 0.3, t) + rng.float(-0.15, 0.15)
+      const r = Math.max(0.42, q.r * 0.62)
       junctions.push(q.p)
       birchLimb(sk, rng, q.p, deviate(q.dir, ang, roll), L, r, t)
-      y += rng.float(1.4, 3.2) * (stems > 1 ? 1.4 : 1)
+      y += rng.float(1.6, 3.4) * (stems > 1 ? 1.4 : 1)
     }
     // leader tip twigs
     const tip = tp[tp.length - 1]
@@ -198,26 +198,23 @@ function buildBirch(seed, Hm, o = {}) {
 function birchLimb(sk, rng, p, dir, L, r, tCrown) {
   const pts = sk.grow({
     p, dir, length: L, step: 2.4, r0: r, r1: 0.4, gnarl: 0.1, trop: DOWN,
-    tropK: t => 0.015 + 0.11 * t, rng,
-    matFn: (t, rr) => (t < 0.45 && r > 0.5 ? MAT.limbBirch : MAT.branch), prio: PRIO.limb,
+    tropK: t => 0.015 + 0.1 * t, rng,
+    matFn: (t, rr) => (t < 0.7 ? MAT.limbBirch : MAT.branch), prio: PRIO.limb,
   })
   let side = rng.chance(0.5) ? 1 : -1
   for (let i = 1; i < pts.length; i++) {
     const q = pts[i]
-    if (q.t < 0.18 || rng.chance(0.15)) continue
+    if (q.t < 0.2 || rng.chance(0.3)) continue
     side = -side
-    const sd = norm(add(deviate(q.dir, rng.float(0.55, 0.95), side * rng.float(1.2, 1.9)), mul(DOWN, 0.15)))
-    const sl = L * rng.float(0.22, 0.42) * (1 - 0.45 * q.t) + 2
-    const sp = sk.grow({ p: q.p, dir: sd, length: sl, step: 2, r0: 0.4, r1: 0.4, gnarl: 0.14, trop: DOWN, tropK: 0.12, rng, mat: MAT.branch, prio: PRIO.branch })
-    for (let j = 1; j < sp.length; j++) {
-      const n = rng.int(1, 2)
-      for (let k = 0; k < n; k++) hangTwig(sk, rng, sp[j].p, sp[j].dir, rng.float(3, 10) * (0.7 + 0.5 * tCrown), 0.45)
-    }
-    // a few short spreading twigs
-    if (rng.chance(0.6)) sk.grow({ p: q.p, dir: deviate(q.dir, rng.float(0.4, 0.9), rng.float(0, TAU)), length: rng.float(1.5, 3), step: 1.5, r0: 0.3, r1: 0.3, gnarl: 0.2, rng, mat: MAT.twigBirch, prio: PRIO.twig })
+    const sd = norm(add(deviate(q.dir, rng.float(0.55, 0.95), side * rng.float(1.2, 1.9)), mul(DOWN, 0.2)))
+    const sl = L * rng.float(0.2, 0.38) * (1 - 0.4 * q.t) + 1.5
+    const sp = sk.grow({ p: q.p, dir: sd, length: sl, step: 2, r0: 0.4, r1: 0.4, gnarl: 0.14, trop: DOWN, tropK: 0.14, rng, mat: MAT.branch, prio: PRIO.branch, conn: 18 })
+    const e = sp[sp.length - 1]
+    hangTwig(sk, rng, e.p, e.dir, rng.float(2.5, 6) * (0.7 + 0.5 * tCrown), 0.45)
+    if (sp.length > 2 && rng.chance(0.45)) hangTwig(sk, rng, sp[1].p, sp[1].dir, rng.float(2, 5), 0.4)
   }
   const tip = pts[pts.length - 1]
-  for (let k = 0; k < 3; k++) hangTwig(sk, rng, tip.p, tip.dir, rng.float(4, 11), 0.4)
+  for (let k = 0; k < 2; k++) hangTwig(sk, rng, tip.p, tip.dir, rng.float(3, 8), 0.4)
 }
 
 /** A thin pendulous twig: a short reach outward, then hanging down. */
@@ -225,7 +222,7 @@ function hangTwig(sk, rng, p, dir, length, reach) {
   const d0 = norm(add(mul(norm([dir[0], 0, dir[2]]), reach + rng.float(0, 0.4)), [0, rng.float(-0.1, 0.4), 0]))
   sk.grow({
     p, dir: d0, length, step: 1.6, r0: 0.3, r1: 0.3, gnarl: 0.12, trop: DOWN, tropK: 0.45, rng,
-    mat: MAT.twigBirch, prio: PRIO.twig, conn: 18,
+    mat: MAT.twigBirch, prio: PRIO.twig, conn: 26,
   })
 }
 
