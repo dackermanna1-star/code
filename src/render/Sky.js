@@ -44,9 +44,6 @@ export class Sky {
             float st = step(0.9965, hash12(floor(sp))) * (1.0 - dens) * uStars * smoothstep(0.1, 0.4, y);
             col += vec3(0.7, 0.75, 0.9) * st * 0.35;
           }
-          vec3 ro = cameraPosition;
-          vec3 sc = lampScatter(ro, rd, 400.0) * uScatter;
-          col += sc * 0.6;
           col = mix(col, uFogHorizon * 1.15 + vec3(0.02), clamp(uWhiteout, 0.0, 1.0) * 0.85);
           gl_FragColor = vec4(col, 1.0);
         }`,

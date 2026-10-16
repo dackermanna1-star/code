@@ -194,15 +194,16 @@ void main() {
     col += fogSky(reflect(-V, N)) * fres * gloss * 0.6;
   }
 
-  // snow glitter in light
+  // snow glitter in light: tiny view-dependent sparkles, never larger than ~2 pixels
   if (snowy > 0.5 && dist < 30.0) {
-    vec3 g = floor(vWorld * 22.0);
+    float pxw = length(fwidth(vWorld));
+    vec3 g = floor(vWorld * 60.0);
     float sh = hash13(g);
-    if (sh > 0.93) {
+    if (sh > 0.97 && pxw > 0.008) {
       vec3 rnd = normalize(hash33(g) - 0.5);
-      float tw = pow(max(dot(reflect(-V, N), rnd), 0.0), 40.0);
+      float tw = pow(max(dot(reflect(-V, N), rnd), 0.0), 60.0);
       float lum = dot(direct, vec3(0.33));
-      col += vec3(1.0, 0.95, 0.85) * tw * lum * 6.0 * (1.0 - dist / 30.0);
+      col += vec3(1.0, 0.95, 0.85) * min(1.6, tw * lum * 5.0) * (1.0 - dist / 30.0);
     }
   }
 

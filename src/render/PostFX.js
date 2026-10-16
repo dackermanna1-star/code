@@ -7,6 +7,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
+import { commonUniformsGLSL, hashGLSL, fogGLSL } from './shaderChunks.js'
 
 const FinalShader = {
   uniforms: {
@@ -78,17 +79,66 @@ const FinalShader = {
     }`,
 }
 
+// Analytic single scattering of the nearest lamps through the fog, computed once per pixel
+// from the depth buffer (glows around street lamps, light cones in falling snow).
+function makeScatterShader(shared) {
+  return {
+    uniforms: {
+      ...shared,
+      tDiffuse: { value: null },
+      tDepth: { value: null },
+      uInvProj: { value: new THREE.Matrix4() },
+      uCamWorld: { value: new THREE.Matrix4() },
+      uCamPos: { value: new THREE.Vector3() },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D tDiffuse;
+      uniform sampler2D tDepth;
+      uniform mat4 uInvProj;
+      uniform mat4 uCamWorld;
+      uniform vec3 uCamPos;
+      ${commonUniformsGLSL}
+      ${hashGLSL}
+      ${fogGLSL.replace(/cameraPosition/g, 'uCamPos')}
+      varying vec2 vUv;
+      void main() {
+        vec4 c = texture2D(tDiffuse, vUv);
+        float d = texture2D(tDepth, vUv).x;
+        vec4 ndc = vec4(vUv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
+        vec4 vp = uInvProj * ndc;
+        vp /= vp.w;
+        vec3 wp = (uCamWorld * vec4(vp.xyz, 1.0)).xyz;
+        vec3 ro = uCamPos;
+        vec3 rd = wp - ro;
+        float dist = length(rd);
+        rd /= max(dist, 1e-4);
+        if (d >= 0.99999) dist = 400.0;
+        float tr = exp(-fogAmount(ro, rd, dist) - uWhiteout * dist * 0.06);
+        vec3 sc = lampScatter(ro, rd, dist) * uScatter;
+        gl_FragColor = vec4(c.rgb + sc * (0.35 + 0.65 * (1.0 - tr)), c.a);
+      }`,
+  }
+}
+
 export class PostFX {
-  constructor(renderer, scene, camera) {
+  constructor(renderer, scene, camera, shared) {
     this.renderer = renderer
+    this.camera = camera
     const size = renderer.getSize(new THREE.Vector2())
     const rt = new THREE.WebGLRenderTarget(size.x, size.y, {
       type: THREE.HalfFloatType,
       samples: 4,
     })
+    rt.depthTexture = new THREE.DepthTexture(size.x, size.y)
+    rt.depthTexture.type = THREE.UnsignedIntType
     this.composer = new EffectComposer(renderer, rt)
     this.renderPass = new RenderPass(scene, camera)
     this.composer.addPass(this.renderPass)
+    this.scatter = new ShaderPass(makeScatterShader(shared))
+    this.composer.addPass(this.scatter)
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x, size.y), 0.42, 0.75, 0.82)
     this.composer.addPass(this.bloom)
     this.final = new ShaderPass(FinalShader)
@@ -106,6 +156,13 @@ export class PostFX {
 
   render(dt, time) {
     this.final.uniforms.uTime.value = time
+    const cam = this.renderPass.camera
+    const su = this.scatter.uniforms
+    su.uInvProj.value.copy(cam.projectionMatrixInverse)
+    su.uCamWorld.value.copy(cam.matrixWorld)
+    su.uCamPos.value.copy(cam.position)
+    // the scatter pass must read the scene's depth from the buffer the RenderPass drew into
+    su.tDepth.value = this.composer.readBuffer.depthTexture
     this.composer.render(dt)
   }
 

@@ -19,6 +19,7 @@ import { Footprints } from '../render/Footprints.js'
 import { Signs } from '../render/Signs.js'
 import { PostFX } from '../render/PostFX.js'
 import { Wires } from '../render/Wires.js'
+import { Breath } from '../render/Breath.js'
 import { Atmosphere } from './Atmosphere.js'
 import { Events } from './Events.js'
 import { Player } from '../player/Player.js'
@@ -145,8 +146,10 @@ export class Game {
     this.lights.halos = this.halos
     scene.add(this.halos.points)
     scene.add(this.footprints.mesh)
+    this.breath = new Breath(this.uniforms)
+    scene.add(this.breath.points)
 
-    this.post = new PostFX(renderer, scene, camera)
+    this.post = new PostFX(renderer, scene, camera, this.uniforms)
     this.resize()
     window.addEventListener('resize', () => this.resize())
     this.applySettings(this.settings)
@@ -218,6 +221,7 @@ export class Game {
     const hp = h * pr
     this.snow?.setPixelScale(hp, this.camera.fov)
     this.halos?.setPixelScale(hp, this.camera.fov)
+    this.breath?.setPixelScale(hp, this.camera.fov)
   }
 
   applySettings(s) {
@@ -408,6 +412,8 @@ export class Game {
     this.sky.uniforms.uCloudCover.value = a.cur.cover
     this.sky.uniforms.uStars.value = (1 - a.cur.cover) * u.uNight.value
     this.footprints.update(dt, a.cur.snow)
+    const cold = !zone || !zone.indoor || zone.reverb === 'underpass' || zone.reverb === 'stairwell'
+    this.breath.update(dt, cam, { active: cold && !this.cameraOverride, exertion: Math.min(1, this.player.speedNow / 2.25), wind: a.wind })
   }
 
   _stats(dt) {

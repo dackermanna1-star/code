@@ -150,8 +150,8 @@ vec3 applyFog(vec3 col, vec3 P) {
   float tr = exp(-fa);
   vec3 fc = fogSky(rd);
   fc = mix(fc, uFogHorizon * 1.15 + vec3(0.02), clamp(uWhiteout, 0.0, 1.0) * 0.6);
-  vec3 sc = lampScatter(ro, rd, dist) * uScatter;
-  return col * tr + fc * (1.0 - tr) + sc * (0.35 + 0.65 * (1.0 - tr));
+  // lamp in-scattering is added once per pixel by the ScatterPass (post), not per surface
+  return col * tr + fc * (1.0 - tr);
 }
 `
 
