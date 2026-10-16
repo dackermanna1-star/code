@@ -198,8 +198,11 @@ export function drawSledBody(m, cx, zFront, zBack, frameMat = M('metal_red'), xf
   const wood = M('wood')
   const cap = (a, b, r) => capsule(m, T(a), T(b), r + 0.12, r + 0.12, frameMat)
   for (const sx of [-2.6, 2.6]) {
-    cap([cx + sx, 0.5, zBack], [cx + sx, 0.5, zFront - 1.2], 0.45)
-    cap([cx + sx, 0.5, zFront - 1.2], [cx + sx, 2.4, zFront + 0.6], 0.45)
+    // runner: flat along the snow, then the front curls up and hooks back to the seat
+    cap([cx + sx, 0.5, zBack], [cx + sx, 0.5, zFront - 1.6], 0.45)
+    cap([cx + sx, 0.5, zFront - 1.6], [cx + sx, 1.6, zFront + 0.5], 0.45)
+    cap([cx + sx, 1.6, zFront + 0.5], [cx + sx, 3.0, zFront + 0.3], 0.45)
+    cap([cx + sx, 3.0, zFront + 0.3], [cx + sx, 3.2, zFront - 0.9], 0.45)
     // uprights under the seat
     for (const z of [zBack + 2, zFront - 3.5]) cap([cx + sx, 0.6, z], [cx + sx, 2.6, z], 0.4)
   }

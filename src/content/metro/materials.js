@@ -78,6 +78,8 @@ export const MAT = {
   tileYellow: def('metro_tile_yellow', { color: 0xcdbb88, gloss: 0.4, surface: SURF.TILE, variation: 0.8 }, 'tile_cream'),
   /** black gabbro bands in the granite floor */
   gabbro: def('metro_gabbro', { color: 0x2a292a, gloss: 0.55, surface: SURF.TILE, variation: 0.6 }, 'granite'),
+  /** a second, slightly lighter grey granite: alternating floor slabs */
+  graniteGrey: def('metro_granite_grey', { color: 0x6b6966, gloss: 0.35, surface: SURF.TILE, variation: 1.2 }, 'granite'),
   /** light grey granite: platform edge stones, the limit line, salt-whitened floor */
   graniteLight: def('metro_granite_light', { color: 0x9a968e, gloss: 0.35, surface: SURF.TILE, variation: 1.0 }, 'concrete_light'),
   /** meltwater puddle, flush with the floor */
@@ -97,7 +99,7 @@ export const MAT = {
   /** sooty tunnel concrete */
   soot: def('metro_soot', { color: 0x37342f, surface: SURF.CONCRETE, variation: 1.3 }, 'concrete_dark'),
   /** green signal / turnstile arrow */
-  signalGreen: def('metro_signal_green', { color: 0x1d6a3a, emit: EMIT_CONST, emitColor: 0x30ff80, emitIntensity: 3.5 }, 'lamp_cold'),
+  signalGreen: def('metro_signal_green', { color: 0x1d6a3a, emit: EMIT_CONST, emitColor: 0x30ff80, emitIntensity: 1.6 }, 'lamp_cold'),
   /** faces and hands of the passenger silhouettes */
   skin: def('metro_skin', { color: 0xb09482, surface: SURF.CARPET, variation: 0.3 }, 'plastic_white'),
   /** dark-blue metro staff uniform */

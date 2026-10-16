@@ -158,5 +158,5 @@ export const TRAIN_INFO = {
   headlamp: [0, v(3.3) * FV + 1.5 * FV, -half - 0.05],
   buffers: [[-1.35, 1.4, -half - 0.05], [1.35, 1.4, -half - 0.05]],
   tailMarkers: [[-1.2, 1.4, -half - 0.05], [1.2, 1.4, -half - 0.05]],
-  numberFront: [0, 1.6, -half - 0.012],
+  numberFront: [0, 1.6, -v(TRAIN.carL) / 2 * FV - 0.012],
 }

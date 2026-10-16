@@ -7,10 +7,13 @@
 import { clamp, smoothstep } from '../../core/rng.js'
 import { PEOPLE } from './people.js'
 import { fixFine } from './vox.js'
-import { life, sound, groundInfo, swingDoor } from './rt.js'
+import { life, sound, groundInfo, swingDoor, doorVisual } from './rt.js'
+import { doorOpenAt } from './nav.js'
 
 /** How many actors (sets of frame placements) exist per type. */
 const POOL = { man_coat: 2, woman_coat: 2, man_puffer: 1, man_jacket: 1, woman_puffer: 1, babushka_cart: 1, man_dog: 1, parent_sled: 1 }
+// door timeline (seconds after stopping at the door): stamp, intercom fob, door opens, step in
+const DOOR_T = { home: { stamp: 0.2, beep: 1.1, open: 1.45, step: 1.75 }, other: { stamp: 0.2, beep: 99, open: 0.7, step: 0.95 } }
 const MAX_ACTIVE = 3
 const MAX_VISIBLE = 2
 const R_MIN = 35, R_MAX = 120
@@ -30,6 +33,24 @@ export function peopleTarget(minutes, snow = 0.3) {
   }
   // heavy snow keeps people indoors
   return v * (1 - 0.35 * clamp((snow - 0.5) * 2, 0, 1))
+}
+
+function hourOf(ctx) { return (((ctx.atmos?.minutes ?? 1000) / 60) % 24 + 24) % 24 }
+
+/**
+ * May someone go in or come out of door node n now? 0 = no; 1 = yes, even in view (the door
+ * visibly opens, or it is too far off to tell); 2 = only out of the player's sight (a door life
+ * cannot animate). Never outside opening hours, never under the player's nose at a stairwell
+ * they can walk into.
+ */
+function doorOk(ctx, n) {
+  if (!n?.door || !doorOpenAt(n, hourOf(ctx))) return 0
+  const e = n.door, pl = ctx.player.pos
+  const d = Math.hypot(e.x - pl.x, e.z - pl.z)
+  // (a shop door life cannot open: never while the player is inside, looking out through the glass)
+  if (!doorVisual(e)) return d > 45 ? 1 : ctx.game?.zone?.indoor ? 0 : 2
+  if (e.enterable && (d < 9 || (ctx.game?.zone?.indoor && d < 40))) return 0
+  return 1
 }
 
 function typeOk(type, hour) {
@@ -83,6 +104,17 @@ function hideActor(actor) {
 
 // ---- spawning --------------------------------------------------------------------------------------
 
+/** Is another walker within r metres? (two strangers never appear on the same spot) */
+function crowded(x, z, r) {
+  for (const w of life.walkers) if (Math.abs(w.x - x) < r && Math.abs(w.z - z) < r && Math.hypot(w.x - x, w.z - z) < r) return true
+  return false
+}
+/** Is someone already going in or coming out of this entrance? */
+function doorBusy(e) {
+  for (const w of life.walkers) if (w.door === e && w.state !== 'walk') return true
+  return false
+}
+
 export function trySpawn(ctx, force = null) {
   const g = life.graph
   if (!g || !g.total) return null
@@ -108,15 +140,16 @@ export function trySpawn(ctx, force = null) {
       const n = rng.pick(g.doors)
       const d = Math.hypot(n.x - pl.x, n.z - pl.z)
       if (d < rMin || d > Math.min(rMax, 110) || !n.adj.length) continue
+      const ok = doorOk(ctx, n)
+      if (!ok || crowded(n.x, n.z, 8) || doorBusy(n.door)) continue
       // a door that really swings open may be in view (someone simply comes out); otherwise the
       // spot one metre in front of it must be out of sight
       const e = n.door
-      const swings = e?.doorPlacement && !e.enterable && !e.doorPlacement.dynamic
       const m = g.nodes[g.other(n.adj[0], n.id)]
       const k = 1 / (Math.hypot(m.x - n.x, m.z - n.z) || 1)
       const fx = n.x + (m.x - n.x) * k, fz = n.z + (m.z - n.z) * k
       const y = Number.isFinite(e?.y) ? e.y : terrain.heightAt(fx, fz)
-      if (!force?.visible && !(swings && d > 30) && view.seen(world, fx, y, fz, 1.7)) continue
+      if (!force?.visible && !(ok === 1 && d > 30) && view.seen(world, fx, y, fz, 1.7)) continue
       return startWalker(ctx, actor, { door: n })
     }
     const s = g.sample(rng)
@@ -124,7 +157,7 @@ export function trySpawn(ctx, force = null) {
     const d = Math.hypot(s.x - pl.x, s.z - pl.z)
     if (d < rMin || d > rMax) continue
     const y = terrain.heightAt(s.x, s.z)
-    if (!Number.isFinite(y)) continue
+    if (!Number.isFinite(y) || crowded(s.x, s.z, 6)) continue
     if (!force?.visible && view.seen(world, s.x, y, s.z, 1.7)) continue
     return startWalker(ctx, actor, { sample: s })
   }
@@ -148,10 +181,11 @@ function startWalker(ctx, actor, o) {
     // someone comes out of a подъезд: the door opens, then the figure steps out
     const n = o.door
     const e = n.adj[0]
-    w.e = e; w.from = n.id; w.to = g.other(e, n.id); w.s = -0.8
-    w.state = 'exit'; w.wait = 0; w.door = n.door
+    // start in the dark of the doorway, step out once the leaf is open
+    w.e = e; w.from = n.id; w.to = g.other(e, n.id); w.s = -1.3
+    w.state = 'exit'; w.wait = 0; w.door = n.door; w.doorKind = n.doorKind ?? 'home'
     w.triedDoor = true // nobody comes out only to turn straight back in
-    swingDoor(n.door, 1.8)
+    swingDoor(n.door, 2.0, { kind: w.doorKind })
     life.stats.exited++
   } else {
     const s = o.sample
@@ -162,7 +196,8 @@ function startWalker(ctx, actor, o) {
     // a third of people are on their way home: route them to a door some way off
     if (g.doors.length && rng.chance(0.3)) {
       const res = g.dijkstra(w.to, 230)
-      const homes = [...res.keys()].filter(id => g.nodes[id].door && res.get(id).d > 30)
+      const hour = hourOf(ctx)
+      const homes = [...res.keys()].filter(id => g.nodes[id].door && res.get(id).d > 30 && doorOpenAt(g.nodes[id], hour))
       if (homes.length) {
         w.target = rng.pick(homes)
         w.route = g.route(res, w.target)
@@ -221,8 +256,8 @@ function arrive(w, ctx) {
   const g = life.graph, rng = life.rng
   const n = g.nodes[w.to]
   const pl = ctx.player.pos
-  // whoever walks up to a door goes in
-  if (n.door && w.state === 'walk') { w.s = g.edges[w.e].len - 0.5; beginEnter(w); return false }
+  // whoever walks up to a door goes in (or, if they cannot now, turns away)
+  if (n.door && w.state === 'walk') { w.s = g.edges[w.e].len - 0.5; tryEnter(ctx, w); return false }
   let next = -1
   if (w.route && w.route.length) next = w.route.shift()
   else {
@@ -234,7 +269,8 @@ function arrive(w, ctx) {
       if (rng.chance(0.4)) {
         const res = g.dijkstra(n.id, 26)
         let best = -1, bd = Infinity
-        for (const [id, r] of res) if (g.nodes[id].door && r.d < bd) { bd = r.d; best = id }
+        // only a door the player will see open (never a figure melting into a closed door)
+        for (const [id, r] of res) if (g.nodes[id].door && r.d < bd && doorOk(ctx, g.nodes[id]) === 1) { bd = r.d; best = id }
         if (best >= 0) {
           w.intent = 'home'; w.target = best
           w.route = g.route(res, best)
@@ -262,10 +298,33 @@ function beginEnter(w) {
   w.state = 'door_wait'
   w.wait = 0
   w.door = n.door
+  w.doorKind = n.doorKind ?? 'home'
+  w._stamped = w._beeped = w._opened = false
   const E = g.edges[w.e]
   // direction into the building = along the edge toward the door
   const A = g.nodes[w.from]
   w.enterDir = [(n.x - A.x) / E.len, (n.z - A.z) / E.len]
+}
+
+/**
+ * At a door (0.5 m before it): go in if this door may be used now; otherwise a moment's pause
+ * (nobody answered the intercom, forgot something) and back the way they came. If nobody is
+ * looking they are simply gone. Returns true if the walker goes in.
+ */
+function tryEnter(ctx, w) {
+  const g = life.graph
+  const n = g.nodes[w.to]
+  const ok = doorOk(ctx, n)
+  // someone else is just going in or coming out: wait a moment behind them
+  if (ok && doorBusy(n.door) && (w.doorWaits = (w.doorWaits || 0) + 1) < 6) { w.pause = 1.5; return false }
+  if (ok === 1 || (ok === 2 && !w.visible)) { beginEnter(w); return true }
+  if (!w.visible) { despawn(w); return false }
+  w.intent = 'pass'; w.target = -1; w.route = null; w.triedDoor = true
+  w.pause = life.rng.float(1.2, 2.6)
+  const E = g.edges[w.e]
+  const t = w.from; w.from = w.to; w.to = t
+  w.s = Math.max(0, E.len - w.s)
+  return false
 }
 
 function terrainY(ctx, x, z, fallback) {
@@ -347,26 +406,34 @@ function stepWalker(ctx, w, dt) {
     w.state = 'walk'
   }
   if (w.state === 'door_wait') {
+    // home: stamp the snow off, the fob beeps, the steel door opens; shop / school: no intercom
+    const home = w.doorKind === 'home'
+    const T = home ? DOOR_T.home : DOOR_T.other
     w.wait += dt
     const pos = [w.x, w.y + 0.3, w.z]
     const near = Math.hypot(w.x - pl.x, w.z - pl.z) < 45
-    if (!w._stamped && w.wait > 0.2) { w._stamped = true; if (near) sound('stamp_snow', pos, { gain: 0.7 }) }
-    if (!w._beeped && w.wait > 1.1) { w._beeped = true; if (near) sound('intercom_beep', pos, { kind: 'ok', gain: 0.5 }) }
-    if (!w._opened && w.wait > 1.45) { w._opened = true; swingDoor(w.door, 1.2) }
-    if (w.wait > 1.75) {
+    if (!w._stamped && w.wait > T.stamp) { w._stamped = true; if (near) sound('stamp_snow', pos, { gain: 0.7 }) }
+    if (home && !w._beeped && w.wait > T.beep) {
+      w._beeped = true
+      if (near) sound('intercom_beep', [w.door.x, (Number.isFinite(w.door.y) ? w.door.y : w.y) + 1.3, w.door.z], { kind: 'ok', gain: 0.5 })
+    }
+    if (!w._opened && w.wait > T.open) { w._opened = true; swingDoor(w.door, 1.6, { kind: w.doorKind }) }
+    if (w.wait > T.step) {
       // step in through the doorway
       w.state = 'enter'
       w.wait = 0
+      w.enterTo = g.edges[w.e].len + 1.3
     }
     placeWalker(ctx, w, dt)
     return
   }
   if (w.state === 'enter') {
+    // into the dark of the doorway; gone once well inside (the door falls shut behind them)
     w.wait += dt
     const v = w.speed * 0.7 * dt
     w.s += v; w.odo += v
     placeWalker(ctx, w, dt)
-    if (w.wait > 0.95) { life.stats.entered++; despawn(w) }
+    if (w.s >= w.enterTo || w.wait > 3) { life.stats.entered++; despawn(w) }
     return
   }
   // ---- walking
@@ -383,7 +450,8 @@ function stepWalker(ctx, w, dt) {
       // stop at the door of the target entrance
       if (w.intent === 'home' && w.to === w.target && g.nodes[w.to].door && w.s >= E.len - 0.5) {
         w.s = E.len - 0.5
-        beginEnter(w)
+        tryEnter(ctx, w)
+        if (w.dead) return
         break
       }
       if (w.s < E.len) break
@@ -423,7 +491,9 @@ function checkWalker(ctx, w, dt) {
   const d = Math.hypot(w.x - pl.x, w.z - pl.z)
   if (d > 165) { despawn(w); return }
   if (w.visible) return
-  if (d > 125 || (w.hiddenFor > 22 && d > 45) || (w.life > w.maxLife && d > 35)) despawn(w)
+  // gone into the fog; gone round a corner (someone never seen yet gets a minute to walk into
+  // view first); or simply done for the day
+  if (d > 125 || (w.hiddenFor > (w.seenEver ? 22 : 60) && d > 45) || (w.life > w.maxLife && d > 35)) despawn(w)
 }
 
 export function updateWalkers(ctx, dt) {

@@ -65,6 +65,11 @@ export class Rig {
         domain: 'all', scatter: 0.12, halo: false, tag: 'vehicle' })
       this.inLight.enabled = false
     }
+    if (o.spark) {
+      // trolley-pole arc flash (driven by the traffic system)
+      this.sparkLight = L.add({ x: 0, y: PARK, z: 0, color: 0xc6dcff, intensity: 0, range: 15, scatter: 1.6, halo: false, tag: 'vehicle' })
+      this.sparkLight.enabled = false
+    }
     if (o.beacon) {
       this.beaconLight = L.add({ x: 0, y: PARK, z: 0, color: 0xff9a10, intensity: 0, range: 16, scatter: 0.8, halo: false, tag: 'vehicle' })
       this.beaconLight.enabled = false
@@ -76,6 +81,7 @@ export class Rig {
     this.glowsHead = (info.head || []).map(() => glows.add({ color: o.glowColor ?? 0xfff2dc, intensity: o.glowHead ?? 80, size: o.glowSize ?? 0.7, dir: 'front', cone: 0.35 }))
     this.glowsTail = (info.tail || []).map(() => glows.add({ color: 0xff2a14, intensity: 30, size: 0.4, dir: 'back', cone: 0.2 }))
     if (o.beacon) this.glowBeacon = glows.add({ color: 0xffa020, intensity: 70, size: 1.0, dir: 'omni' })
+    if (o.spark) this.glowSpark = glows.add({ color: 0xdce8ff, intensity: 80, size: 0.8, dir: 'omni' })
     // decals
     if (atlas) this._decals()
     // exhaust
@@ -152,10 +158,12 @@ export class Rig {
     this.p.set(320, PARK, 320, 0)
     if (this.beacon) { this.beacon.visible = false; this.beacon.set(320, PARK, 320, 0) }
     if (this.decals) this.decals.visible = false
-    for (const l of [this.headLight, this.tailLight, this.inLight, this.beaconLight]) if (l) { l.enabled = false; l.pos.y = PARK }
+    for (const l of [this.headLight, this.tailLight, this.inLight, this.beaconLight, this.sparkLight]) if (l) { l.enabled = false; l.pos.y = PARK }
     for (const g of this.glowsHead || []) g.on = 0
     for (const g of this.glowsTail || []) g.on = 0
     if (this.glowBeacon) this.glowBeacon.on = 0
+    if (this.glowSpark) this.glowSpark.on = 0
+    this.spark = 0
     if (this.steam) try { this.steam.stop?.() } catch { /* optional */ }
     this.stopSound()
   }
@@ -202,10 +210,12 @@ export class Rig {
       this.inLight.enabled = near
       if (near) this.w(info.lightInterior || [0, 2.3, 0], this.inLight.pos)
     }
+    // lamp glows are a dusk/night thing: in daylight a lit lamp is only a faint spark
+    const on = lit ? 0.25 + 0.75 * Math.min(1, this.sys.night() * 1.6) : 0
     const gh = this.glowsHead
-    for (let i = 0; i < gh.length; i++) { gh[i].on = lit ? 1 : 0; this.w(info.head[i], gh[i].pos); gh[i].fwd.set(fx, 0, fz) }
+    for (let i = 0; i < gh.length; i++) { gh[i].on = on; this.w(info.head[i], gh[i].pos); gh[i].fwd.set(fx, 0, fz) }
     const gt = this.glowsTail
-    for (let i = 0; i < gt.length; i++) { gt[i].on = lit ? 1 : 0; this.w(info.tail[i], gt[i].pos); gt[i].fwd.set(fx, 0, fz) }
+    for (let i = 0; i < gt.length; i++) { gt[i].on = on; this.w(info.tail[i], gt[i].pos); gt[i].fwd.set(fx, 0, fz) }
     if (this.beacon) {
       const bl = info.beacon
       const v = this._tmp || (this._tmp = new THREE.Vector3())

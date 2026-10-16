@@ -14,10 +14,10 @@ import { placeStory, placeStoryAtEntrance, placePerson, STORY_KINDS, PERSON_TYPE
 ## Scale and conventions (read first)
 
 - People, dogs and props use **fine voxels**, as the nature package's crows do: 6.25 cm (`F4`), 3.125 cm (`F8`) or 1.56 cm (`F16`).
-  - A model is registered with `lods: [f]`.
-  - The engine still computes the bounding box with 0.25 m voxels, so the stock `--viewer` frames these models 4–16× too far away.
+  - A model is registered with `lods: [2f, f]` and `lodDistances: [-1e6]`: LOD 0 is an empty stand-in that is never drawn, LOD 1 is the model at its fine scale. Drawing through the engine's second LOD material keeps the 0.25 m voxel edge-darkening grid off the 6 cm voxels.
+  - The engine still computes the bounding box with 0.25 m voxels, so the stock `--viewer` frames these models 4–16× too far away (`--dist 0.3` helps, the spacing stays wide).
   - To look at them, use the life studio instead (see Testing).
-  - In the game the box is rescaled (`fixFine`), which matters only for culling.
+  - In the game the box is rescaled (`fixFine`), which matters only for culling. If you `world.place()` a life model yourself, call `fixFine(name)` from `vox.js` first, or use the helpers.
 - **Front is local +Z.** The `angle` you pass makes the front face **(sin a, cos a)**. This is the same convention as `signs.add` and the street package: 0 is south, π/2 is east, π is north, −π/2 is west.
 - The **pivot** is the bottom centre unless noted. Wall-mounted props are the exception: their pivot is the bottom centre of the **back plane**.
 - No life model collides with anything (`collide: false`), and none casts a terrain contact shadow.
@@ -47,7 +47,7 @@ placeStoryAtEntrance(ctx, ctx.registry.entrances[3], 'butts', { side: -1 })     
 | `x`, `z`, `angle` | position; `angle` defaults to 0 |
 | `y` | defaults to the terrain height (the cat: terrain + 0.25) |
 | `seed` | picks the variant, the caption and the tint |
-| `bench` | a street bench record from `registry.benches` or `placeBench()`. The prop goes on the seat, 0.45 m off-centre (`along` overrides this), at `seat.y + benchSnow` (default 0.25, the bench's snow). |
+| `bench` | a street bench record from `registry.benches` or `placeBench()`. The prop goes on the seat, 0.45 m off-centre (`along` overrides this), at `seat.y + benchSnow`. `benchSnow` defaults to 0.25 (the bench's snow), or 0 on a bare `street_bench_*_none` bench. |
 | `inspect` | default true. Adds a «Осмотреть / Look» interaction (reach 2.6 m) that shows a quiet caption with `ui.say` for 6 s. The ticket also opens a ticket note. |
 | `text` | `{ru, en}`: your own caption |
 | `tint` | overrides the paint colour |
@@ -67,7 +67,7 @@ Inspecting a prop emits `events.emit('story', { kind, x, z })`.
 |---|---|---|---|---|
 | `mittens` | `life_mittens` (F8) | 0.53 × 0.09 × 0.34 | bottom centre | Red knitted children's mittens on an elastic cord. Put them on a bench seat, a ledge or a fence top. «Детские варежки. Кто-то положил их повыше, чтобы нашли.» (Children's mittens. Someone put them up high so they'd be found.) |
 | `glove` | `life_glove` (F16), `life_glove_post` (F16) | 0.22 × 0.23 × 0.11; with post 0.22 × 1.25 × 0.11 | bottom centre of the glove (post: of the post) | A dark knit glove pulled onto a post top. **Without `y`** it comes with its own lone 1 m rusty-green post. **With `y`** you get just the glove, sitting at that height (the top of your post). |
-| `sled` | `life_sled`, `life_sled_lean` (F4, `paint` tint: red/blue/green/yellow/purple by seed) | lying: 0.5 × 0.5 × 1.13; leaning: 0.5 × 1.19 × 0.69 | Lying: centre, curled front +Z. Leaning: **pivot at the wall plane**, seat faces +Z (out). | A children's sled with slats and a rope. «Санки у подъезда. Значит, кто-то уже дома.» (A sled by the entrance. So someone is already home.) |
+| `sled` | `life_sled`, `life_sled_lean` (F4, `paint` tint: red/blue/green/yellow/purple by seed) | lying: 0.5 × 0.5 × 1.13; leaning: 0.5 × 1.19 × 0.69 | Lying: centre, curled front +Z. Leaning: **pivot at the wall plane**, seat faces +Z (out). | A children's sled: steel runners whose fronts curl up and hook back, wooden slats, a rope. «Санки у подъезда. Значит, кто-то уже дома.» (A sled by the entrance. So someone is already home.) |
 | `snowman` | `life_snowman_a`, `life_snowman_b` (F4) | 1.13 × 1.63 × 1.13 (figure about 1.4 m) | bottom centre, carrot faces +Z | Three lumpy balls, slightly slumped (half-melted), coal eyes and buttons, a drooping carrot, twig arms (one broken), a zinc bucket for a hat. Put it by a playground or a courtyard hill. |
 | `ticket` | `life_ticket` (F8) | 0.09 × 0.03 × 0.06 | bottom centre | A used bus ticket on the snow: white with a blue stripe. Inspecting it shows a «ГОРТРАНС · ЕДИНЫЙ БИЛЕТ» ticket note with a seeded number and date. Put it at bus stops. |
 | `bread` | `life_bread` (F4) | 0.5 × 0.31 × 0.5 | bottom centre | A white «маечка» carrier bag with a батон sticking out. «Батон в пакете. Кто-то тоже шёл за хлебом.» (A loaf in a carrier bag. Someone else went out for bread, too.) |
@@ -75,8 +75,8 @@ Inspecting a prop emits `events.emit('story', { kind, x, z })`.
 | `key` | `life_key` (F8) | 0.28 × 0.06 × 0.19 | bottom centre | Two keys on a ring with a blue «таблетка» intercom fob. «…Кто-то сегодня будет звонить соседям.» (Someone will be ringing the neighbours tonight.) |
 | `butts` | `life_butts` (F16) | 0.47 × 0.16 × 0.41 | bottom centre | A pea tin used as an ashtray, ends sticking out of it, more scattered in the snow. Put it by a подъезд, a bench or a garage. |
 | `cat` | `life_cat` (F8), plus `life_cat_bowl` | 0.5 × 0.41 × 0.22 | **pivot at the back plane** (against the plinth), faces +Z | A продух vent frame with a tabby cat peeking out. Its eyes catch the light (`EMIT_STREET`: only while the street lights are on). A lid of soggy bread sits on the ground 0.42 m in front. |
-| `bicycle` | `life_bicycle` (F4, frame `paint` tint by seed) | 0.63 × 1.25 × 1.25 | bottom centre; front wheel toward +Z, the post on local +X | A bicycle chained to a pipe post since autumn, wheels sunk in a drift. Put it by a fence, a garage or a подъезд. |
-| `yolka` | `life_yolka` (F4) | 1.25 × 0.81 × 2.13 | bottom centre; trunk butt at −Z, top toward +Z | A thrown-out New Year spruce with tinsel (дождик) and one forgotten red bauble, lightly snowed on. Put it by the garbage containers (it is mid-January). |
+| `bicycle` | `life_bicycle` (F4, frame `paint` tint by seed) | 0.63 × 1.25 × 1.25 | bottom centre; front wheel toward +Z, the post on local +X | A bicycle chained to a pipe post since autumn, wheels (tyre, steel rim, hub; no spokes) sunk in a drift. Put it by a fence, a garage or a подъезд. |
+| `yolka` | `life_yolka` (F4) | 1.38 × 0.88 × 2.13 | bottom centre; butt and its cross stand at −Z, top toward +Z | A thrown-out New Year spruce (needles drying grey-green) lying on its side, still nailed to its green wooden cross stand (крестовина), the lower branches pressed into the snow, silver tinsel (дождик) strands along the top and one forgotten red bauble, lightly snowed on. Put it by the garbage containers (it is mid-January). |
 
 `STORY` (the table of kinds) and `STORY_KINDS` are exported.
 
@@ -101,10 +101,11 @@ Inspecting a prop emits `events.emit('story', { kind, x, z })`.
 
 **Spawning**
 - People spawn only **35–120 m** from the player, at a point the player cannot see: outside the view cone, behind something solid, or lost in fog.
-- About 28 % of them **come out of a подъезд**: the door swings open and they step out.
+- Nobody spawns within 6 m of another walker, and only one person at a time goes in or out of a given door.
+- About 28 % of them **come out of a door** (a подъезд, or a shop or school in its opening hours): the door swings open and they step out of the dark doorway.
   - This may happen in view, but only more than 30 m away and only at a door that really swings (see Doors).
   - Otherwise the spot in front of the door must be out of sight.
-- About 30 % head **home**, routed along the graph to an entrance up to about 230 m away.
+- About 30 % head **home**, routed along the graph to a door (open at that hour) up to about 230 m away.
 
 **Walking**
 - They follow the nav graph and keep to the right of the path line: 0.55 m on sidewalks, 0.8 m on driveways, about 0.25 m on paths.
@@ -114,20 +115,27 @@ Inspecting a prop emits `events.emit('story', { kind, x, z })`.
 - Footsteps are audible within 14 m.
 
 **Leaving**
-- A walker disappears when it is unseen and more than 125 m away (fog), or unseen for more than 22 s at more than 45 m away ("around a corner"), or at an unseen dead end.
-- A walker who reaches a door goes in:
+- A walker disappears when it is unseen and more than 125 m away (fog), or unseen for more than 22 s at more than 45 m away ("around a corner"; someone the player has never seen gets 60 s to walk into view first), or after its 80–240 s life when unseen and more than 35 m away, or at an unseen dead end.
+- A walker who reaches a door goes in. At a подъезд (`home` door):
   - They stamp the snow off (`stamp_snow`).
   - The fob beeps (`intercom_beep` `ok`).
-  - The door opens (`door_metal_open`); they step through and are gone.
-  - The door slams (`door_metal_slam` + `door_magnet_lock`).
-- When the player comes within about 30 m, a figure sometimes (40 %) turns off toward the nearest entrance within 26 m of path and goes in just as you arrive.
+  - The door opens (`door_metal_open`); they walk 1.3 m into the dark doorway and are gone.
+  - The door falls shut behind them (`door_metal_slam` + `door_magnet_lock`).
+- At a shop / pharmacy door: stamp, door, `shop_bell` chime, slam; at a school / kindergarten: stamp, door, slam (no intercom, no magnetic lock).
+- If a walker cannot go in now (the player stands within 9 m of an enterable подъезд or is indoors near it, the door is closed for the night, or a door life cannot animate is in view), they pause for a moment at the door and walk back the way they came; unseen, they are simply gone.
+- When the player comes within about 30 m, a figure sometimes (40 %) turns off toward the nearest entrance within 26 m of path whose door visibly opens, and goes in just as you arrive.
 
 **Doors**
-- Only doors that the residential runtime does not animate swing visibly: non-enterable, static ones, moved with `world.relocate` and restored exactly.
-- Enterable doors get the sounds only.
+- Door kinds come from the entrance stub: residential stubs (no `to`) are `home` doors, used at any hour. Public stubs with `to: 'shop'` (24 h), `'pharmacy'` (8–22 h), `'school'` / `'kindergarten'` (7–19 h) are used in those hours. Any other `to` (`boiler_house`, `dispatcher`, …) is staff only and never used.
+- Residential doors swing visibly:
+  - Non-enterable (static) doors are moved with `world.relocate` and restored exactly.
+  - Enterable doors (dynamic placements run by the residential runtime) are borrowed only while they stand closed, swung with `p.set` and put back exactly. If the player opens the door meanwhile, the residential runtime takes over at once.
+  - A door never swings shut while the player stands within 1.7 m of it.
+- Shop, pharmacy and school doors cannot be animated from life. Walkers use them only out of the player's sight (or more than 45 m away), never while the player is indoors near them.
 
 **Fallback**
-- If `navPaths` holds no walkable path, the system walks straight routes along the streets of PLAN.md (`FALLBACK_ROUTES` in `nav.js`).
+- While `navPaths` holds less than 300 m of walkable path (the public buildings' short stubs do not count as a district), the system also walks straight routes along the streets of PLAN.md (`FALLBACK_ROUTES` in `nav.js`).
+- The fallback routes are tested in 1.5 m pieces with knee- and chest-height rays and cut wherever something stands on them.
 
 ### Person models
 
@@ -198,6 +206,7 @@ The dog is ginger-brown with pale socks and muzzle and a curled tail.
 All of these are guarded: they play only when `audio.ready` and the sound is registered.
 
 - `dog_bark` (`{dog: 2}` for the stray, `{dog: 4}` for a leashed dog that grumbles at a passer-by)
+- `shop_bell` (a walker going in or out of a shop or pharmacy)
 - `step_snow`, `step_snow_packed`, `step_ice`, `step_slush`, `step_asphalt`, `step_concrete`, … (`step_<surface>` of the terrain under an NPC's foot, within 14 m)
 - `stamp_snow`
 - `intercom_beep` (`kind: 'ok'`)
@@ -214,8 +223,12 @@ All of these are guarded: they play only when `audio.ready` and the sound is reg
 
 **Reads**
 - `ctx.navPaths` (in `init`)
-- `registry.entrances` (residential: `x, y, z, angle, doorPlacement, enterable`)
-- `ctx.footprints`, `ctx.camera`, `ctx.player`, `ctx.atmos` (`minutes`, `cur.snow`), `game.uniforms.uFogDensity`
+- `registry.entrances` (residential: `x, y, z, angle, doorPlacement, sectionPlacement, enterable`; public: `kind`)
+- `ctx.navPaths` entrance stubs' `to` (public buildings)
+- `ctx.footprints`, `ctx.camera`, `ctx.player`, `ctx.atmos` (`minutes`, `cur.snow`), `game.uniforms.uFogDensity`, `game.zone` (indoor or not)
+
+**Moves (runtime, restored exactly)**
+- Residential entrance door placements (`doorPlacement`) while a walker goes in or out: static ones with `world.relocate`, enterable (dynamic) ones with `p.set`, only while closed.
 
 ## Notes for the layout agents
 
@@ -227,7 +240,7 @@ All of these are guarded: they play only when `audio.ready` and the sound is reg
 - **Connect them**: shared end points, or crossings (split automatically), or loose ends within 2.6 m of another path (snapped).
   - Islands shorter than 25 m are ignored.
 - **Keep paths clear**: walkers do not collide. Path lines need about 0.6 m clearance on their right from cars, benches, lamp posts and fences.
-- **Entrances**: residential pushes a short `entrance` stub per подъезд. If its outer end touches no path, life joins it to the nearest path within 32 m with a straight trodden link.
+- **Entrances**: residential pushes a short `entrance` stub per подъезд; public buildings push theirs with a `to` (see Doors for which ones are used, and when). If a stub's outer end touches no path, life joins it to the nearest path within 32 m with a straight trodden link.
   - Links are tested with knee- and chest-height rays and never pass through buildings, fences or cars.
   - An entrance with no clear link is not used.
   - It is better to run a courtyard path to each entrance's outer point, about 6.5 m in front of the door.
@@ -259,6 +272,7 @@ All of these are guarded: they play only when `audio.ready` and the sound is reg
   - Two dev URL switches work in any scene, not only the test one: `&lifewalk=1` puts two walkers in view at once (one comes out of a door within 40 m if there is one), and `&lifedog=1` calls the stray at once.
   - `&lifeprops=1` puts story props (`placeStoryAtEntrance`) beside the residential entrances within 70 m of the URL `x,z`.
   - Example with real buildings: `--query "shot=1&only=base,residential,life&resdemo=1&lifewalk=1&x=284&z=364&yaw=0.05&t=17:20&weather=light&timescale=0&frames=12"`.
+- **Shooting against a production build** avoids the dev server's full reloads when other packages change files: `npx vite build --outDir tools/out/build-life --emptyOutDir`, then `npx vite preview --outDir tools/out/build-life --port 4791 --host 127.0.0.1`, then `node tools/shot.mjs --base http://127.0.0.1:4791 --query "…"`.
 - **Studio for fine models** (the stock viewer cannot frame them):
   `--query "shot=1&only=base,life&lifetest=1&studio=life_man_coat_0,life_man_coat_1&sview=0..4&sdist=0.5&sface=1.5708&stint=2a3040&slamp=1&t=21:00&weather=still&timescale=0&frames=6"`
   - `sview`: 0 front-left, 1 front-right, 2 back, 3 front, 4 side.

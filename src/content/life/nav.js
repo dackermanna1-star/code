@@ -2,13 +2,47 @@
 // Polylines are merged at shared vertices, split where they cross, and loose ends are snapped
 // onto nearby paths, so walkers can turn at junctions. Entrance stubs ({kind:'entrance'}, first
 // point at the door) become door nodes; if a stub's outer end touches nothing, a short trodden
-// link joins it to the nearest path (people cut across the snow to their door).
-// If the layouts provided no walkable paths yet, fallback routes follow the streets of PLAN.md.
+// link joins it to the nearest path (people cut across the snow to their door). Public buildings'
+// stubs (`to: 'shop'`, 'school', …) become shop / public doors with opening hours; staff-only
+// stubs (boiler house, dispatcher booth) are never used.
+// If the layouts provide (almost) no walkways yet, fallback routes follow the streets of PLAN.md,
+// cut wherever something stands on them.
 
 const WALK_KINDS_DENY = new Set(['indoor', 'metro', 'platform', 'underpass', 'stairwell', 'interior', 'road', 'vehicle', 'rail', 'tunnel', 'lift', 'elevator'])
 const MERGE = 0.9 // m: vertices closer than this become one node
 const SNAP = 2.6 // m: loose ends this close to another path get joined to it
 const DOOR_LINK = 32 // m: entrance stubs are linked to paths this close
+const FALLBACK_BELOW = 300 // m: with less walkway than this from the layouts, add the fallback routes
+
+/**
+ * What kind of door an entrance stub leads to. Residential stubs carry no `to`; public buildings
+ * tag theirs (`to: 'shop'`, …) and register records with a `kind`. Returns null for doors that
+ * ordinary passers-by never use (boiler house, dispatcher booth, warehouse gate…).
+ *   home:   подъезд — stamp, intercom fob, steel door with a magnetic lock; any hour
+ *   shop:   shop / pharmacy — door chime, opening hours
+ *   public: school / kindergarten — opening hours (parents, children, staff)
+ */
+export const DOOR_KINDS = {
+  home: { hours: null },
+  shop: { hours: [8, 22] },
+  shop24: { hours: null },
+  public: { hours: [7, 19] },
+}
+function doorKindOf(to, rec) {
+  const k = String(to ?? rec?.kind ?? '')
+  if (!k || k === 'residential' || k === 'home' || k === 'entrance') return 'home'
+  if (k === 'shop') return 'shop24' // the «Продукты» pavilion is open round the clock
+  if (k === 'pharmacy' || k === 'kiosk' || k === 'post' || k === 'shop_door') return 'shop'
+  if (k === 'school' || k === 'kindergarten' || k === 'clinic' || k === 'polyclinic') return 'public'
+  return null
+}
+
+/** Is a door node in use at this hour (0..24)? */
+export function doorOpenAt(n, hour) {
+  const h = n.hours
+  if (!h) return true
+  return h[0] <= h[1] ? hour >= h[0] && hour < h[1] : hour >= h[0] || hour < h[1]
+}
 
 /** Straight fallback routes along the streets of docs/PLAN.md (used when navPaths is empty). */
 export const FALLBACK_ROUTES = [
@@ -163,6 +197,34 @@ function intersect(s, u) {
 }
 
 /**
+ * Split a fallback polyline into the runs that are clear to walk (nothing standing on the line),
+ * testing it in ~1.5 m pieces with `clear(ax, az, bx, bz)`. Without a test it is kept whole.
+ */
+function clearRuns(points, clear) {
+  if (!clear) return [points]
+  const runs = []
+  let cur = null
+  for (let i = 0; i < points.length - 1; i++) {
+    const [ax, az] = points[i], [bx, bz] = points[i + 1]
+    const len = Math.hypot(bx - ax, bz - az)
+    const n = Math.max(1, Math.ceil(len / 1.5))
+    for (let k = 0; k < n; k++) {
+      const x0 = ax + (bx - ax) * k / n, z0 = az + (bz - az) * k / n
+      const x1 = ax + (bx - ax) * (k + 1) / n, z1 = az + (bz - az) * (k + 1) / n
+      if (clear(x0, z0, x1, z1)) {
+        if (!cur) { cur = [[x0, z0]]; runs.push(cur) }
+        // keep only corners and run ends as vertices
+        if (k === n - 1) cur.push([x1, z1])
+      } else {
+        if (cur && k > 0) cur.push([x0, z0])
+        cur = null
+      }
+    }
+  }
+  return runs.filter(r => r.length >= 2)
+}
+
+/**
  * Build the walk graph. entrances: registry.entrances (optional) to attach door records.
  * Returns a NavGraph (possibly empty).
  */
@@ -174,12 +236,18 @@ export function buildNavGraph(navPaths, entrances = [], opts = {}) {
     const kind = p.kind ?? 'path'
     if (WALK_KINDS_DENY.has(kind)) continue
     if (p.y !== undefined && (p.y < -1 || p.y > 4)) continue
-    polys.push({ points: p.points.filter(q => Array.isArray(q) && Number.isFinite(q[0]) && Number.isFinite(q[1])), kind, y: p.y })
+    polys.push({ points: p.points.filter(q => Array.isArray(q) && Number.isFinite(q[0]) && Number.isFinite(q[1])), kind, y: p.y, to: p.to })
   }
-  const walkable = polys.filter(p => p.kind !== 'entrance')
-  if (!walkable.length && opts.fallback !== false) {
+  // a few short stubs round public buildings do not make a walkable district: until the layouts
+  // provide real walkways, also walk the streets of PLAN.md (cut wherever something stands on them)
+  let walkLen = 0
+  for (const p of polys) {
+    if (p.kind === 'entrance') continue
+    for (let i = 0; i < p.points.length - 1; i++) walkLen += Math.hypot(p.points[i + 1][0] - p.points[i][0], p.points[i + 1][1] - p.points[i][1])
+  }
+  if (walkLen < FALLBACK_BELOW && opts.fallback !== false) {
     g.fallback = true
-    for (const r of FALLBACK_ROUTES) polys.push({ points: r.points, kind: r.kind })
+    for (const r of FALLBACK_ROUTES) for (const pts of clearRuns(r.points, opts.clear)) polys.push({ points: pts, kind: r.kind })
   }
 
   // ---- segments
@@ -283,7 +351,11 @@ export function buildNavGraph(navPaths, entrances = [], opts = {}) {
       const d = Math.hypot(e.x - x, e.z - z)
       if (d < bd) { bd = d; rec = e }
     }
+    const dk = doorKindOf(p.to, rec)
+    if (!dk) continue // staff-only door: the stub stays a dead end nobody walks
     n.door = rec || { x, z, y: p.y ?? null, angle: null }
+    n.doorKind = dk === 'shop24' ? 'shop' : dk
+    n.hours = DOOR_KINDS[dk].hours
     n.kind = 'door'
   }
   // drop tiny islands (< 25 m of walkway): nobody walks there

@@ -274,16 +274,16 @@ defineFine('life_bicycle', F4, () => {
   const x = 4, frame = M('paint')
   const R = 4.7
   const wr = 5.0, wf = 15.4, wy = R + 0.5
-  // wheels: tyre rings, a few spokes, hubs
+  // wheels: black tyre, a steel rim just inside it, the hub (spokes are far thinner than a
+  // 6 cm voxel: leaving them out reads as a wheel, drawing them reads as a cartwheel)
   for (const wz of [wr, wf]) {
-    for (let a = 0; a < 48; a++) {
-      const t = a / 48 * Math.PI * 2
+    for (let a = 0; a < 64; a++) {
+      const t = a / 64 * Math.PI * 2
       m.set(x, Math.floor(wy + Math.sin(t) * R), Math.floor(wz + Math.cos(t) * R), M('rubber'))
+      const rx = Math.floor(wy + Math.sin(t) * (R - 0.95)), rz = Math.floor(wz + Math.cos(t) * (R - 0.95))
+      if (!m.get(x, rx, rz)) m.set(x, rx, rz, M('metal_gray'))
     }
-    for (let a = 0; a < 6; a++) {
-      const t = a / 6 * Math.PI * 2 + 0.3
-      line(m, [x + 0.5, wy, wz], [x + 0.5, wy + Math.sin(t) * (R - 0.8), wz + Math.cos(t) * (R - 0.8)], M('metal_gray'))
-    }
+    boxF(m, x - 0.5, wy - 0.5, wz - 0.5, x + 1.5, wy + 0.5, wz + 0.5, M('metal_dark'))
   }
   // diamond frame: seat tube, top tube, down tube, stays, fork
   const bb = [x + 0.5, wy - 0.4, 9.2], seat = [x + 0.5, wy + 6.4, 7.8], head = [x + 0.5, wy + 6.2, 13.6]
@@ -320,45 +320,77 @@ defineFine('life_bicycle', F4, () => {
 }, { maxDistance: 110 })
 
 // ---- a thrown-out New Year tree with tinsel still on it (mid-January) --------------------------------
+// A 1.7 m spruce lying on its side, still nailed to its wooden cross stand (крестовина): whorls of
+// thin branches with side twigs (a lacy, triangular silhouette rather than a heap), the lower
+// branches pressed flat on the snow, silver дождик strands along the top and one forgotten bauble.
 defineFine('life_yolka', F4, () => {
   const rng = rngFor('yolka')
-  const L = 28
-  const m = new VoxelModel(20, 13, 34)
-  const cx = 10, cy = 5.2, z0 = 2
-  // trunk lying along +Z (butt at the back), a little stump of cut wood showing
-  capsule(m, [cx, cy, z0], [cx, cy + 0.6, z0 + L], 0.9, 0.35, M('bark'))
-  m.set(cx, Math.floor(cy), z0, M('wood')); m.set(cx - 1, Math.floor(cy), z0, M('wood'))
-  // whorls of branches radiating round the trunk; the lower side is squashed into the snow
-  for (let k = 3; k < L; k += 2.4) {
-    const t = k / L
-    const len = (1 - t) * 8.5 + 1.2
-    const n = 5 + Math.floor(rng.next() * 2)
+  const L = 26
+  const m = new VoxelModel(22, 14, 34)
+  const cx = 11, cy = 5.6, z0 = 4
+  const ndl = M('life_needles_dry')
+  const put = (x, y, z) => {
+    const ix = Math.floor(x), iy = Math.max(0, Math.floor(y)), iz = Math.floor(z)
+    if (ix < 0 || iz < 0 || ix >= m.sx || iy >= m.sy || iz >= m.sz) return
+    if (!m.get(ix, iy, iz)) m.set(ix, iy, iz, ndl)
+  }
+  const twig = (a, b) => {
+    const n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]) * 1.6) + 1
+    for (let i = 0; i <= n; i++) { const t = i / n; put(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t) }
+  }
+  // trunk: butt with a pale saw cut, tapering to the leader
+  capsule(m, [cx, cy, z0], [cx, cy + 0.4, z0 + L], 0.95, 0.4, M('bark'))
+  for (const [dx, dy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) m.set(cx + dx, Math.floor(cy) + dy, z0, M('wood'))
+  // whorls of branches
+  for (let zk = z0 + 2.5; zk < z0 + L - 1; zk += 2.3 + rng.next() * 0.6) {
+    const t = (zk - z0) / L
+    const len = (1 - t) * 8.8 + 1.4
+    const n = 7 + (rng.next() < 0.5 ? 1 : 0)
+    const ph = rng.next() * Math.PI * 2
     for (let i = 0; i < n; i++) {
-      const a = (i / n) * Math.PI * 2 + k * 0.7 + rng.float(-0.3, 0.3)
-      let dx = Math.cos(a), dy = Math.sin(a)
-      let ex = cx + dx * len, ey = cy + 0.6 * t + dy * len * 0.85
-      if (ey < 0.6) { ey = 0.6 + rng.float(0, 0.6); ex = cx + dx * len * 1.15 }
-      const ez = z0 + k + len * 0.45
-      capsule(m, [cx, cy + 0.6 * t, z0 + k], [ex, ey, ez], 0.75, 0.55, M('needles'), true)
-      // side twigs
-      const mx = (cx + ex) / 2, my = (cy + ey) / 2, mz = (z0 + k + ez) / 2
-      capsule(m, [mx, my, mz], [mx + dy * 1.4, my - dx * 1.2, mz + 1.4], 0.6, 0.5, M('needles'), true)
+      const a = ph + (i / n) * Math.PI * 2 + (rng.next() - 0.5) * 0.4
+      const dx = Math.cos(a), dy = Math.sin(a)
+      const base = [cx + 0.5, cy + 0.5 + 0.4 * t, zk]
+      let end = [base[0] + dx * len, base[1] + dy * len * 0.9 - len * 0.12, zk + len * 0.42]
+      // branches under the trunk are pressed flat into the snow, splaying outward
+      if (end[1] < 0.6) { end = [base[0] + dx * len * 1.15, 0.4 + rng.next() * 0.6, end[2]]; }
+      twig(base, end)
+      // side twigs in the branch plane, shorter toward the tip
+      const px = -dy, py = dx
+      for (let s2 = 0.3; s2 < 0.95; s2 += 0.22) {
+        const q = [base[0] + (end[0] - base[0]) * s2, base[1] + (end[1] - base[1]) * s2, base[2] + (end[2] - base[2]) * s2]
+        const tl = (1 - s2) * len * 0.32 + 0.7
+        for (const sg of [-1, 1]) twig(q, [q[0] + px * tl * sg + dx * tl * 0.35, q[1] + py * tl * sg * 0.8 + dy * tl * 0.3, q[2] + tl * 0.55])
+      }
     }
   }
-  // the top (leader)
-  capsule(m, [cx, cy + 0.6, z0 + L], [cx, cy + 0.7, z0 + L + 3], 0.5, 0.4, M('needles'))
-  speckle(m, rng, M('needles'), M('branch'), 0.08)
-  // tinsel (дождик) strands draped over the top side, and one forgotten red bauble
-  for (let s = 0; s < 6; s++) {
-    const z = z0 + 5 + s * 3.6 + rng.float(-1, 1)
-    const w = (1 - (z - z0) / L) * 7 + 1
-    for (let i = 0; i < 9; i++) {
-      const a = Math.PI * (0.15 + 0.7 * i / 8)
-      const x = Math.floor(cx + Math.cos(a) * w), y = Math.floor(cy + Math.sin(a) * w * 0.85 + 0.6)
-      for (let yy = y + 1; yy >= 0; yy--) { if (m.get(x, yy, Math.floor(z)) && m.get(x, yy, Math.floor(z)) !== M('chrome')) { m.set(x, yy + 1, Math.floor(z), M('chrome')); break } }
+  // the leader
+  twig([cx + 0.5, cy + 0.9, z0 + L - 1], [cx + 0.5, cy + 1.0, z0 + L + 3])
+  speckle(m, rng, ndl, M('branch'), 0.07)
+  // the wooden cross stand nailed to the butt
+  const st = M('wood_painted_green')
+  boxF(m, cx - 5.5, cy - 0.1, z0 - 2, cx + 6.5, cy + 1.1, z0 - 0.4, st)
+  boxF(m, cx - 0.1, 0, z0 - 3.4, cx + 1.1, cy + 6.2, z0 - 1.9, st)
+  // дождик: silver strands lying along the top of the tree, a few hanging down the side
+  for (let k = 0; k < 5; k++) {
+    const a = Math.PI * (0.18 + 0.64 * rng.next())
+    const za = z0 + 3 + rng.next() * (L * 0.55), zb = Math.min(z0 + L - 2, za + 6 + rng.next() * 6)
+    for (let z = Math.floor(za); z <= zb; z++) {
+      const aa = a + Math.sin(z * 0.9 + k) * 0.12
+      // outermost needle voxel along the ray from the trunk at this angle
+      for (let r = 11; r > 0.5; r -= 0.5) {
+        const x = Math.floor(cx + 0.5 + Math.cos(aa) * r), y = Math.floor(cy + 0.5 + Math.sin(aa) * r)
+        if (x < 0 || y < 0 || x >= m.sx || y >= m.sy) continue
+        const v = m.get(x, y, z)
+        if (v && v !== M('chrome')) {
+          const ox = Math.floor(cx + 0.5 + Math.cos(aa) * (r + 1)), oy = Math.floor(cy + 0.5 + Math.sin(aa) * (r + 1))
+          if (oy < m.sy && ox >= 0 && ox < m.sx) m.set(ox, oy, z, M('chrome'))
+          break
+        }
+      }
     }
   }
-  ellip(m, cx + 3.2, cy + 3.4, z0 + 12, 0.9, 0.9, 0.9, M('metal_red'))
-  snowTop(m, { chance: 0.42, seed: 23, mat: M('snow_fresh') })
+  ellip(m, cx + 3.6, cy + 2.6, z0 + 11, 0.95, 0.95, 0.95, M('metal_red'))
+  snowTop(m, { chance: 0.35, seed: 23, mat: M('snow_fresh'), skip: new Set([M('chrome'), M('metal_red')]) })
   return m
 }, { maxDistance: 120 })

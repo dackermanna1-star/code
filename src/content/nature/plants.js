@@ -260,7 +260,7 @@ const WEED = { lods: [FINE], lodDistances: [], maxDistance: 75, contact: false, 
 const STEMS = { lods: [1], maxDistance: 120, contact: false }
 const TWIGS = { lods: [0.5, 0.999], lodDistances: [40], maxDistance: 160, collide: false, contact: false }
 for (const [name, seed, o] of [['nature_hedge', 9400, {}], ['nature_hedge_low', 9401, { low: true }], ['nature_hedge_gap', 9402, { gap: true }]]) {
-  reg('hedge', name, () => hedgeStems(o), STEMS)
+  defineModel(name, () => hedgeStems(o), STEMS)
   defineModel(`${name}_twigs`, () => hedgeTwigs(seed, o), TWIGS)
 }
 ;[0, 1, 2].forEach(i => reg('grass', `nature_weeds_grass_${i}`, () => grassTuft(9500 + i * 7), WEED))

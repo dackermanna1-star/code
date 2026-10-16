@@ -12,13 +12,13 @@ import { placePond, POND_SIGN } from './pond.js'
 import { snowBank, snowDrift, plowedPile } from './snowfx.js'
 import { SteamSystem, STEAM_PRESETS } from './steam.js'
 import { addCrows } from './crows.js'
-import { natureState, treesNear as _treesNear, placeModel } from './state.js'
+import { natureState, treesNear as _treesNear, placeModel, fineDef } from './state.js'
 import { createClumps, dropClump as _dropClump } from './clumps.js'
 import { addBag } from './bag.js'
 
 export { SPECIES, SPECIES_NAMES, PLANTS, BURIED, STEAM_PRESETS, POND_SIGN }
 export { placeTree, scatterTrees, samplePoints, pickVariant, areaOf, inPolygon }
-export { placePond, snowBank, snowDrift, plowedPile, addCrows, addBag }
+export { placePond, snowBank, snowDrift, plowedPile, addCrows, addBag, placeModel, fineDef }
 
 const TAU = Math.PI * 2
 

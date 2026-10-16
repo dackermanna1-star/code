@@ -12,6 +12,7 @@
 
 import { M } from '../../core/materials.js'
 import { VoxelModel, FV, v, defineVehicle, rngFor, boxF, discX, archX, speckle, grime, snowCap, topAt } from './vox.js'
+import { valueNoise2 } from '../../core/rng.js'
 import './materials.js'
 
 /** Metadata per body type (local metres relative to the pivot; front = −Z). */
@@ -345,24 +346,30 @@ function sedanInfo(type, s) {
  * Apply a snow variant to a finished car. g = { hoodEndV, wsTopV, rwBaseV, beltV, X0, X1, frontV }
  */
 export function applySnow(m, variant, g, rng) {
-  const S = M('snow'), SF = M('snow_fresh'), SD = M('snow_dirty')
+  const S = M('snow'), SF = M('snow_fresh')
+  // the bumper rows (first/last z) stay bare: snow there would sit right in front of the lamps
+  // and the plates on the vertical end faces
+  const ends = (x, y, z) => z === 0 || z === m.sz - 1
   if (variant === '_s1') {
-    snowCap(m, { mat: SF, maxD: 1, chance: 0.8, patchy: 0.35, profile: [1], rng, minY: 2, ledges: true })
+    snowCap(m, { mat: SF, maxD: 1, chance: 0.8, patchy: 0.35, profile: [1], rng, minY: 2, ledges: true, skip: ends })
   } else if (variant === '_s2') {
-    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, vary: 0.03, minY: 2, smooth: true, ledges: true })
+    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, bumps: 0.3, minY: 2, smooth: 0.5, ledges: true, skip: ends })
   } else if (variant === '_s3') {
-    // drift: fill air around/below the body; deeper on the windward (left, x small) side
+    // drift: fill air around/below the body; deeper on the windward (left, x small) side,
+    // with a soft wavy crest (placeParkedCar continues it outward as a terrain bank)
+    const ns = rng.int(1, 9999)
     for (let z = 0; z < m.sz; z++)
       for (let x = 0; x < m.sx; x++) {
         const side = 1 - x / (m.sx - 1)
-        const endK = Math.min(z, m.sz - 1 - z) < 2 ? 0.7 : 1
-        const n = rng.next()
-        const h = Math.round((2 + side * side * (g.beltV - 3)) * endK + (n < 0.3 ? 1 : 0))
-        for (let y = 0; y < h; y++) if (!m.get(x, y, z)) m.set(x, y, z, y < 2 && rng.next() < 0.2 ? SD : S)
+        const endD = Math.min(z, m.sz - 1 - z)
+        const endK = endD < 3 ? 0.6 + 0.13 * endD : 1
+        const n = valueNoise2(x * 0.3, z * 0.22, ns) - 0.5
+        const h = Math.round((2 + side * side * (g.beltV - 3)) * endK + n * 2)
+        for (let y = 0; y < h; y++) if (!m.get(x, y, z)) m.set(x, y, z, S)
       }
-    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, vary: 0.05, minY: 4, smooth: true, ledges: true })
+    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, bumps: 0.3, minY: 4, smooth: 0.5, ledges: true })
   } else if (variant === '_br') {
-    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, vary: 0.03, minY: 2, smooth: true, ledges: true })
+    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, bumps: 0.3, minY: 2, smooth: 0.5, ledges: true, skip: ends })
     // brushed windshield + rear half of the hood; the brushed snow piles up at the edges
     const zb0 = g.hoodEndV - 3, zb1 = g.wsTopV
     for (let z = zb0; z <= zb1; z++)
@@ -384,7 +391,7 @@ export function applySnow(m, variant, g, rng) {
   } else if (variant === '_warm') {
     // fogged glass; snow only on roof and trunk: the hood is bare and wet from the engine heat
     m.replace(M('glass_car'), M('glass_frosted'))
-    snowCap(m, { mat: S, maxD: 2, profile: [1, 2], rng, vary: 0.2, minY: g.beltV - 2, smooth: true, ledges: true, skip: (x, y, z) => z < g.wsTopV })
+    snowCap(m, { mat: S, maxD: 2, profile: [1, 2], rng, bumps: 0.35, minY: g.beltV - 2, smooth: 0.5, ledges: true, skip: (x, y, z) => z < g.wsTopV || ends(x, y, z) })
   }
   return m
 }

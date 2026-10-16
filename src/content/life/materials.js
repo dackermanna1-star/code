@@ -26,3 +26,5 @@ defineMaterial('life_ember', { color: 0x7a3a20, emit: EMIT_CONST, emitColor: 0xf
 // props
 defineMaterial('life_bread', { color: 0xa87a48, surface: SURF.CARPET, variation: 0.9 })
 defineMaterial('life_carrot', { color: 0xb5582a, surface: SURF.WOOD, variation: 0.6 })
+// a New Year spruce three weeks after the holidays: needles drying to a dusty grey-green
+defineMaterial('life_needles_dry', { color: 0x3f4d3b, surface: SURF.WOOD, variation: 1.5 })

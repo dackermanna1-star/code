@@ -6,7 +6,7 @@ import { defineModel } from '../../core/models.js'
 import { MAT } from './materials.js'
 import { WB, V, h3 } from './vox.js'
 import { Y, VEST, VEST_DOOR, TURN, ESC } from './layout.js'
-import { drawMetroEntrance, drawLightbox, drawFares, drawLineMap, drawNotice, drawText, SIGN_FONT, PLAIN_FONT } from './drawings.js'
+import { drawMetroEntrance, drawLightbox, drawFares, drawLineMap, drawNotice, drawText, SIGN_FONT } from './drawings.js'
 import { T } from './texts.js'
 
 const F0 = Y.FLOOR, C0 = Y.CEIL
@@ -32,7 +32,8 @@ defineModel('metro_vestibule', () => {
   b.fill(K.x0, F0, K.z1 - V, K.x1, C0, K.z1, MAT.marbleGray)
   b.fill(K.x1 - V, F0, K.z0, K.x1, C0, K.z1, MAT.marbleGray)
   for (const [w0, w1] of [K.win1, K.win2]) {
-    b.fill(w0, F0 + 1.0, K.z1 - V, w1, F0 + 2.0, K.z1, MAT.glass)
+    b.fill(w0, F0 + 1.0, K.z1 - V, w1, F0 + 2.0, K.z1, MAT.air) // the hatch (see glass note in underpass.js)
+    b.fill(w0, F0 + 1.75, K.z1 - V, w1, F0 + 2.0, K.z1, MAT.chrome)
     b.fill(w0, F0 + 0.75, K.z1, w1, F0 + 1.0, K.z1 + V, MAT.metalGray) // counter ledge / coin tray
   }
   b.fill(K.x1 - V, F0, K.z0 + 0.5, K.x1, F0 + 2.0, K.z0 + 1.5, MAT.woodDark) // staff door
@@ -46,13 +47,13 @@ defineModel('metro_vestibule', () => {
   for (const z of [D.z0, 538.875, 540.875, D.z1 - V]) b.fill(390, F0, z, 390.5, C0, z + V, bronze)
   b.fill(390, F0 + 2.25, D.z0, 390.5, C0, D.z1, bronze)
   for (const [z0, z1] of [[D.z0 + V, 538.875], [541.125, D.z1 - V]]) {
-    b.fill(390.125, F0, z0, 390.375, F0 + 2.25, z1, MAT.glass)
+    b.fill(390.125, F0, z0, 390.375, F0 + 2.25, z1, MAT.glassFrosted)
     b.fill(390.125, F0, z0, 390.375, F0 + 0.25, z1, bronze)
     b.fill(390.125, F0 + 2.0, z0, 390.375, F0 + 2.25, z1, bronze)
     b.fill(390.125, F0 + 1.0, z0, 390.375, F0 + 1.25, z1, MAT.chrome) // push plates
   }
   for (const z of [539.125, 540.625]) { // open leaves swung inwards
-    b.fill(390.5, F0, z, 391.5, F0 + 2.25, z + V, MAT.glass)
+    b.fill(390.5, F0, z, 391.5, F0 + 2.25, z + V, MAT.glassFrosted)
     b.fill(390.5, F0, z, 391.5, F0 + 0.25, z + V, bronze)
     b.fill(390.5, F0 + 2.0, z, 391.5, F0 + 2.25, z + V, bronze)
     b.fill(391.25, F0, z, 391.5, F0 + 2.25, z + V, bronze)
@@ -82,7 +83,7 @@ defineModel('metro_vestibule', () => {
       if (edge) return MAT.gabbro
       if (Math.abs(x - 401.75) < 0.5) return MAT.gabbro
       const slab = h3(Math.floor(i / 2), 2, Math.floor(k / 2), 9)
-      let mat = slab < 0.82 ? MAT.granite : MAT.graniteLight
+      let mat = slab < 0.65 ? MAT.granite : slab < 0.985 ? MAT.graniteGrey : MAT.graniteLight
       if (Math.abs(z - 540) < 0.13) mat = MAT.floorTileRed
       if (x < 400 && h3(i, 1, k, 5) > 0.93) mat = MAT.wet // tracked-in meltwater
       if (x < 397 && h3(i, 1, k, 6) > 0.9) mat = MAT.graniteLight // salt rims
@@ -92,7 +93,7 @@ defineModel('metro_vestibule', () => {
     wall: (i, j, k) => {
       const x = b.wx(i), z = b.wz(k), y = b.wy(j) - F0
       const id = m.get(i, j, k)
-      if (id === MAT.glass || id === bronze || id === MAT.chrome || id === MAT.woodDark || id === MAT.metalGray) return 0
+      if (id === MAT.glass || id === MAT.glassFrosted || id === bronze || id === MAT.chrome || id === MAT.woodDark || id === MAT.metalGray) return 0
       if (x > K.x0 && x < K.x1 && z < K.z1 - V) return MAT.whitewash // inside the kassa
       if (y < 0.25) return MAT.gabbro
       if (y < 1.5) return MAT.marbleGray
@@ -109,11 +110,11 @@ function turnstile(exit) {
   b.fill(0, 0.75, -0.25, 1.5, 1.0, 0.25, MAT.metalDark) // top cover
   b.fill(0.25, 0, -0.25, 1.25, 0.25, 0.25, MAT.concreteDark) // kick plate
   if (!exit) {
-    b.fill(0, 1.0, -0.125, 0.25, 1.0 + V, 0.125, MAT.lampWarm) // the yellow «метка» target
+    b.fill(0, 1.0, -0.125, 0.25, 1.0 + V, 0.125, MAT.kioskWarm) // the yellow «метка» target
     b.fill(0.25, 1.0, -0.125, 0.5, 1.0 + V, 0.125, MAT.plasticDark) // trips-left display
     b.fill(0, 0.5, -0.125, 0.0 + V, 0.75, 0.125, MAT.signalGreen) // green arrow (west face)
   } else {
-    b.fill(0, 0.5, -0.125, V, 0.75, 0.125, MAT.lampRed) // red cross
+    b.fill(0, 0.5, -0.125, V, 0.75, 0.125, MAT.taillight) // red cross
     b.fill(1.25, 0.5, -0.125, 1.5, 0.75, 0.125, MAT.signalGreen) // exit allowed (east face)
   }
   return b.pivot(0, 0, 0)
@@ -134,8 +135,7 @@ defineModel('metro_control_booth', () => {
   const b = new WB(0, 0, 0, 2, 2.5, 2)
   b.fill(0, 0, 0, 2, 1.0, 2, MAT.metalGray)
   b.fill(0.25, V, 0.25, 1.75, 1.0, 1.75, MAT.air)
-  b.fill(0, 1.0, 0, 2, 2.0, 2, MAT.glass)
-  b.fill(0.25, 1.0, 0.25, 1.75, 2.0, 1.75, MAT.air)
+  b.fill(0, 1.75, 0, 2, 2.0, 2, MAT.metalGray) // glazing bars (the panes themselves are left out)
   for (const [x, z] of [[0, 0], [1.75, 0], [0, 1.75], [1.75, 1.75]]) b.fill(x, 0, z, x + V, 2.25, z + V, MAT.metalGray)
   b.fill(0, 2.0, 0, 2, 2.25, 2, MAT.plasticWhite)
   b.fill(1.75, 0, 0.5, 2, 2.0, 1.25, MAT.metalGray) // door (east)
@@ -151,7 +151,7 @@ defineModel('metro_lightbox', () => {
   b.fill(-0.125, -0.75, -1.125, 0.125, -0.25, 1.125, MAT.plasticWhite)
   for (const z of [-0.75, 0.5]) b.fill(-0.125, -0.25, z, 0.125, 0, z + V, MAT.metalGray) // hangers
   return b.pivot(0, 0, 0)
-}, { indoor: true, contact: false, collide: false, lods: [1], maxDistance: 120 })
+}, { indoor: true, contact: false, collide: false, cullBottom: false, lods: [1], maxDistance: 120 })
 
 export function buildVestibule(ctx, out) {
   const { world, lights, signs, zones, interactions } = ctx

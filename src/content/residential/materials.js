@@ -16,6 +16,7 @@ defineMaterial('res_terrazzo', { color: 0x868379, gloss: 0.12, surface: SURF.CON
 // self-lit whitewash of the lit stairwells seen from outside: follows the street-light schedule
 // (dark by day like a real stairwell behind glass, glowing from dusk to dawn)
 defineMaterial('res_stair_glow', { color: 0xc4bfb0, emit: EMIT_STREET, emitColor: 0xffc27a, emitIntensity: 1.25, surface: SURF.CONCRETE, variation: 0.6 })
+defineMaterial('res_stair_glow_lo', { color: 0xc7c5bc, emit: EMIT_STREET, emitColor: 0xffc684, emitIntensity: 0.55, surface: SURF.CONCRETE, variation: 0.8 }) // whitewash near a working bulb (explorable stairwells)
 defineMaterial('res_stair_glow_hi', { color: 0xd0cabb, emit: EMIT_STREET, emitColor: 0xffcf90, emitIntensity: 2.2, surface: SURF.CONCRETE, variation: 0.4 })
 defineMaterial('res_laminate', { color: 0x9a7350, gloss: 0.15, surface: SURF.WOOD, variation: 1.8 }) // lift cab, wood-grain chipboard
 defineMaterial('res_leather_red', { color: 0x561f23, surface: SURF.WOOD, variation: 1.1 }) // burgundy dermatin door

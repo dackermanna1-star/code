@@ -1,6 +1,6 @@
 // Residential package: Soviet panel/brick blocks (P-44, II-49, 1-515/9Ш, P-44T, K-7, II-32).
 // build() places nothing in the real game — layout packages call placeResidential() from ./api.js.
-// The runtime (entrance doors, lifts, doorbells, the endless stairwell) is ticked from update().
+// The runtime (entrance doors, lifts, doorbells, muffled life behind doors) is ticked from update().
 //
 // Dev showcase: ?resdemo=1 places a small test district (see docs/catalog/residential.md).
 

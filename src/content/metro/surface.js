@@ -18,7 +18,7 @@ import { drawMBox, drawNamePlate, drawUnderpassPictogram, drawUnderpassBand } fr
 const RAIL_TOP = 1.5 // world y of the railing top rail (parapet top is 0.5)
 
 function buildStair(covered) {
-  const b = new WB(0, Y.SLAB, 0, 4, RAIL_TOP + 0.5, STAIR_LEN)
+  const b = new WB(0, Y.SLAB, 0, 4, 3.0, STAIR_LEN)
   const m = b.m
   // treads: solid concrete under each tread, surface voxel on top
   for (let d = 0; d < STAIR_LEN; d += V) {
@@ -71,8 +71,8 @@ function buildStair(covered) {
     if (above < 0.75) mat = MAT.tileBeige
     else if (above < 1.0) mat = MAT.tileBrown
     const n = h3(i, j, k, 21)
-    if (n > 0.93) mat = MAT.tileCream
-    else if (n > 0.9 && above > 1) mat = MAT.concreteLight // missing tiles, cement patch
+    if (n > 0.975) mat = MAT.tileCream
+    else if (n > 0.96 && above > 1) mat = MAT.concreteLight // missing tiles, cement patch
     if (above < 0.3 && h3(i, j, k, 4) > 0.5) mat = MAT.concreteDark // splash grime
     m.set(i, j, k, mat)
   })
@@ -166,7 +166,7 @@ defineModel('metro_stair_lamp', () => {
   b.fill(-0.25, 0.25, -0.25, 0.25, 0.5, 0.25, MAT.metalDark)
   b.fill(-0.125, 0, -0.125, 0.125, 0.25, 0.125, MAT.lampBulb)
   return b.pivot(0, 0, 0)
-}, { maxDistance: 160 })
+}, { maxDistance: 160, cullBottom: false })
 
 // ---------------------------------------------------------------------------------------------
 // Placement helpers
@@ -300,8 +300,8 @@ export function buildSurface(ctx, out) {
       lights.add({ x: lx2, y: 1.95, z: lz2, color: 0xffd09a, intensity: 8, range: 11, type: 'spot', dir: [0, -0.8, st.rot === 0 ? -0.6 : 0.6], cone: 70, inner: 35, schedule: 'night', placement: lp, halo: true, haloSize: 0.5, tag: 'metro_stair_light', domain: 'outdoor' })
     }
     // the red М pylon at the outer corner of the entrance
-    const px = st.id.endsWith('W') ? st.x0 - 0.6 : st.x1 + 0.6
-    const pz = st.zTop + (st.rot === 0 ? 0.6 : -0.6)
+    const px = st.id.endsWith('W') ? st.x0 - 1.5 : st.x1 + 1.5
+    const pz = st.zTop + (st.rot === 0 ? -0.4 : 0.4)
     out.surface.push(addPylon(ctx, px, pz, Y.SIDEWALK))
     // stair zone (outdoor, but the underpass acoustics already start to swallow the street)
     const [ax, az] = stairToWorld(st, 0.5, 0), [bx, bz] = stairToWorld(st, 3.5, STAIR_LEN)

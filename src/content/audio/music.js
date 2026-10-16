@@ -49,8 +49,10 @@ function tapeCurve() {
   return c
 }
 
-// Per-context caches: the reverb IR (≈ 0.5 M samples) and the tape-hiss buffer are the expensive
-// parts of a piece; they are made once (prewarmMusic during idle time) and shared by every piece.
+// Per-context caches. The expensive parts of a piece are the reverb (generating a 5.5 s stereo IR
+// and, worse, assigning it to a ConvolverNode, which FFT-partitions it on the main thread) and the
+// tape-hiss buffer. They are made once (prewarmMusic, in idle time) and shared by every piece; the
+// reverb chain is only connected to the output while a piece plays (otherwise it is not processed).
 const CACHE = new WeakMap()
 function cacheFor(ctx) {
   let c = CACHE.get(ctx)
@@ -59,7 +61,13 @@ function cacheFor(ctx) {
     const nb = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate)
     const nd = nb.getChannelData(0)
     for (let i = 0; i < nd.length; i++) nd[i] = r() * 2 - 1
-    c = { ir: makeIR(ctx, 5.5, r), hiss: nb, curves: new Map() }
+    const rev = { in: ctx.createGain(), conv: ctx.createConvolver(), crush: ctx.createWaveShaper(), lp: ctx.createBiquadFilter(), out: ctx.createGain() }
+    rev.conv.normalize = true
+    rev.conv.buffer = makeIR(ctx, 5.5, r)
+    rev.lp.type = 'lowpass'; rev.lp.frequency.value = 2400
+    rev.out.gain.value = 0.55
+    rev.in.connect(rev.conv); rev.conv.connect(rev.crush); rev.crush.connect(rev.lp); rev.lp.connect(rev.out)
+    c = { rev, hiss: nb, curves: new Map() }
     CACHE.set(ctx, c)
   }
   return c
@@ -99,15 +107,14 @@ export function buildPiece(ctx, dest, seed, t0 = ctx.currentTime + 0.1, opts = {
   const pre = reg(ctx.createGain()); pre.gain.value = 0.5
   pre.connect(tape); tape.connect(master); master.connect(out); out.connect(dest)
 
-  // reverb with a bit-crushed, darkened tail
+  // reverb with a bit-crushed, darkened tail (the shared chain; this piece's own send bus feeds it)
   const revIn = reg(ctx.createGain())
-  const conv = reg(ctx.createConvolver()); conv.normalize = true; conv.buffer = C.ir
   const bits = r.int(4, 6)
   if (!C.curves.has(bits)) C.curves.set(bits, crushCurve(bits))
-  const crush = reg(ctx.createWaveShaper()); crush.curve = C.curves.get(bits)
-  const revLP = reg(ctx.createBiquadFilter()); revLP.type = 'lowpass'; revLP.frequency.value = 2400
-  const revOut = reg(ctx.createGain()); revOut.gain.value = 0.55
-  revIn.connect(conv); conv.connect(crush); crush.connect(revLP); revLP.connect(revOut); revOut.connect(pre)
+  C.rev.crush.curve = C.curves.get(bits)
+  revIn.connect(C.rev.in)
+  try { C.rev.out.disconnect() } catch { /* not connected */ }
+  C.rev.out.connect(pre)
 
   // tape wobble (slow) + flutter (fast) → detune of every oscillator (cents)
   const wob = reg(ctx.createOscillator()); wob.frequency.value = r.range(0.25, 0.5)
@@ -255,12 +262,15 @@ export function buildPiece(ctx, dest, seed, t0 = ctx.currentTime + 0.1, opts = {
     },
     dispose() {
       stopped = true
+      // detach the shared reverb (unless a newer piece already took it over)
+      if (C.owner === piece) { try { C.rev.out.disconnect() } catch { /* ignore */ } C.owner = null }
       for (const n of nodes) { try { n.stop?.() } catch { /* not started / already stopped */ } try { n.disconnect() } catch { /* ignore */ } }
       for (const [, n] of transient) { try { n.stop?.() } catch { /* ignore */ } try { n.disconnect() } catch { /* ignore */ } }
       nodes.length = 0
       transient.length = 0
     },
   }
+  C.owner = piece
   if (!opts.lazy) piece.pump(Infinity)
   return piece
 }

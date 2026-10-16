@@ -114,10 +114,10 @@ const MACHINE = { bus: 'ambience', refDistance: 3, rolloff: 1.1, reverb: 0.6, ma
 const FAR = { bus: 'ambience', refDistance: 30, rolloff: 1, reverb: 0.4, maxDistance: 900 }
 const VEHICLE = { bus: 'sfx', refDistance: 8, rolloff: 1, reverb: 0.5, maxDistance: 600 }
 
-function defaults(opts, d) {
+function defaults(opts, d, injected) {
   if (!opts || typeof opts !== 'object') return
   try {
-    for (const k in d) if (opts[k] === undefined) opts[k] = d[k]
+    for (const k in d) if (opts[k] === undefined) { opts[k] = d[k]; injected.push(k) }
   } catch { /* frozen opts: fine */ }
 }
 
@@ -255,7 +255,12 @@ function factory(name, e) {
     // the engine passes the same opts object on to connectSource: filling defaults here gives
     // every sound sensible spatial behaviour (a frozen opts object is copied instead)
     const opts = opts0 && Object.isFrozen(opts0) ? { ...opts0 } : (opts0 || {})
-    defaults(opts, e.sp)
+    const injected = []
+    defaults(opts, e.sp, injected)
+    // the engine reads opts synchronously right after this factory returns; afterwards the
+    // caller gets its object back untouched (a reused options object must not carry a dog's
+    // refDistance into the next click)
+    queueMicrotask(() => { try { for (const k of injected) delete opts[k]; delete opts._rate } catch { /* ignore */ } })
     let key = e.key, v = null, isLoop = e.loop
     let p = null
     try { p = e.pick ? e.pick(opts) : null } catch { p = null }

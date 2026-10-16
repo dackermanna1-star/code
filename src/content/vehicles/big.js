@@ -161,7 +161,7 @@ function buildLiaz(variant) {
   // amber clearance markers on the roof corners
   for (const x of [X0 + 1, X1 - 2]) { m.set(x, Hv - 1, zFront, M('veh_marker')); m.set(x, Hv - 1, zRear, M('veh_taillamp')) }
   grime(m, rng, [P, stripe], v(0.9), 0.4)
-  if (variant === '_snow') snowCap(m, { mat: M('snow'), maxD: 2, profile: [1, 2], rng, vary: 0.3, minY: Hv - 2, smooth: true })
+  if (variant === '_snow') snowCap(m, { mat: M('snow'), maxD: 2, profile: [1, 2], rng, bumps: 0.2, minY: Hv - 2 })
   return m
 }
 
@@ -349,34 +349,45 @@ defineVehicle('veh_kamaz_plow', () => buildKamaz(''), { maxDistance: 420 })
 defineVehicle('veh_beacon', () => buildBeacon(), { maxDistance: 300, collide: false, contact: false, dynamic: true, lods: [0.5], lodDistances: [] })
 
 const hw = 1.25
-BIG_INFO.liaz = {
-  type: 'liaz', title: 'ЛиАЗ-5256', L: 11.4, W: 2.5, H: 3.0,
-  head: [[-hw + 0.25, 0.75, -5.7], [hw - 0.25, 0.75, -5.7]],
-  tail: [[-hw + 0.15, 0.7, 5.7], [hw - 0.15, 0.7, 5.7]],
-  plateFront: [0, v(0.38) * FV + 2.5 * FV, -5.7 - 0.012],
-  plateRear: [0, 0.62, 5.7 - FV + 0.012],
-  boardFront: [0, 2.68, -5.7 + FV - 0.012], boardRear: [0, 2.7, 5.7 - 2 * FV + 0.012],
-  boardSide: [hw + 0.012, 2.3, -4.7],
-  exhaust: [-0.9, 0.35, 5.8],
-  lightInterior: [0, 2.4, 0],
+// face positions (local metres) of voxel slab k along z, from the model's pivot (Lv / 2)
+const faceZ = (L, k) => (k - v(L) / 2) * FV
+const E = 0.012 // decals float 1.2 cm off the surface
+{
+  const Lf = faceZ(LIAZ.L, 1), Lb = faceZ(LIAZ.L, 0), Rf = faceZ(LIAZ.L, v(LIAZ.L) - 1), Rb = faceZ(LIAZ.L, v(LIAZ.L))
+  BIG_INFO.liaz = {
+    type: 'liaz', title: 'ЛиАЗ-5256', L: 11.4, W: 2.5, H: 3.0,
+    head: [[-hw + 0.25, 0.75, Lf - 0.05], [hw - 0.25, 0.75, Lf - 0.05]],
+    tail: [[-hw + 0.15, 0.7, Rf + 0.05], [hw - 0.15, 0.7, Rf + 0.05]],
+    plateFront: [0, (v(LIAZ.sill) + 2.5) * FV, Lb - E], // on the ochre blank above the bumper
+    plateRear: [0, (v(0.55) + 0.5) * FV, Rb + E],
+    boardFront: [0, 2.68, Lf - E], boardRear: [0, 2.7, Rf + E],
+    boardSide: [hw + E, 2.3, -3.55], // first window behind the front door
+    placard: [-0.55, 1.5, Lf + FV + 0.03], // card standing on the dashboard behind the windshield
+    exhaust: [-0.9, 0.35, 5.8],
+    lightInterior: [0, 2.62, 1.6],
+  }
 }
-BIG_INFO.ziu = {
-  type: 'ziu', title: 'ЗиУ-682', L: 11.7, W: 2.5, H: 3.35,
-  head: [[-hw + 0.5, 0.75, -5.85], [hw - 0.5, 0.75, -5.85]],
-  tail: [[-hw + 0.15, 0.68, 5.85], [hw - 0.15, 0.68, 5.85]],
-  plateFront: [0, v(0.36) * FV + 2.5 * FV, -5.85 - 0.012],
-  plateRear: [0, 1.1, 5.85 - FV + 0.012],
-  boardFront: [0, 2.7, -5.85 + FV - 0.012], boardRear: [0, 2.7, 5.85 - 2 * FV + 0.012],
-  boardSide: [hw + 0.012, 2.35, -4.9],
-  fleetSide: [hw + 0.012, 0.9, -3.4], fleetFront: [0.75, 1.0, -5.85 + FV - 0.012],
-  poleTip: [[-ZIU.poleX, ZIU.wireY, -5.85 + ZIU.poleBaseZ + 5.5], [ZIU.poleX, ZIU.wireY, -5.85 + ZIU.poleBaseZ + 5.5]],
-  lightInterior: [0, 2.6, 0],
+{
+  const Lf = faceZ(ZIU.L, 1), Lb = faceZ(ZIU.L, 0), Rf = faceZ(ZIU.L, v(ZIU.L) - 1)
+  BIG_INFO.ziu = {
+    type: 'ziu', title: 'ЗиУ-682', L: 11.7, W: 2.5, H: 3.35,
+    head: [[-hw + 0.5, 0.75, Lf - 0.05], [hw - 0.5, 0.75, Lf - 0.05]],
+    tail: [[-hw + 0.15, 0.68, Rf + 0.05], [hw - 0.15, 0.68, Rf + 0.05]],
+    plateFront: [0, (v(ZIU.sill) + 1) * FV, Lb - E], // on the bumper
+    plateRear: [0, 1.1, Rf + E],
+    boardFront: [0, 2.69, Lf - E], boardRear: [0, 2.7, Rf + E],
+    boardSide: [hw + E, 2.35, -3.7], // first window behind the front door
+    placard: [-0.55, 1.5, Lf + FV + 0.03],
+    fleetSide: [hw + E, 0.9, -3.4], fleetFront: [0.75, 1.0, Lf - E],
+    poleTip: [[-ZIU.poleX, ZIU.wireY, -5.85 + ZIU.poleBaseZ + 5.5], [ZIU.poleX, ZIU.wireY, -5.85 + ZIU.poleBaseZ + 5.5]],
+    lightInterior: [0, 2.92, 1.4],
+  }
 }
 BIG_INFO.kamaz = {
   type: 'kamaz', title: 'КамАЗ КДМ', L: KAMAZ.L, W: KAMAZ.blade, H: KAMAZ.H,
   head: [[-1.0, v(0.85) * FV + 1.5 * FV, -KAMAZ.L / 2 + 1.25], [1.0, v(0.85) * FV + 1.5 * FV, -KAMAZ.L / 2 + 1.25]],
   tail: [[-1.2, 0.85, KAMAZ.L / 2 - 0.25], [1.2, 0.85, KAMAZ.L / 2 - 0.25]],
-  plateRear: [0, v(0.75) * FV + 0.5 * FV, KAMAZ.L / 2 + 0.012 - FV],
+  plateRear: [0, v(0.75) * FV + 0.5 * FV, faceZ(KAMAZ.L, v(KAMAZ.L)) + E],
   beacon: [0, (v(3.0) + 1) * FV, (v(1.15) + 2 + 4 - v(KAMAZ.L) / 2) * FV],
   doorLeft: [-1.25 - 0.012, 1.55, -KAMAZ.L / 2 + 1.75], doorRight: [1.25 + 0.012, 1.55, -KAMAZ.L / 2 + 1.75],
   exhaust: [-1.0, 3.1, -KAMAZ.L / 2 + 3.6],

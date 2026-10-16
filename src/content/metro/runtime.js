@@ -4,7 +4,7 @@
 // interval clock, escalator step bands and conveyors, turnstiles with their slamming flaps,
 // the ticket office, platform-edge safety, sound emitters, and light/visibility culling.
 
-import { Y, ESC, PLAT, TRACK, CAR, TUNNEL, TURN, STAIRS, LOWER, VEST, UNDERPASS, stairTreadY, escStepY } from './layout.js'
+import { Y, ESC, PLAT, TRACK, CAR, TUNNEL, TURN, STAIRS, LOWER, UNDERPASS, stairTreadY, escStepY } from './layout.js'
 import { Train, approach, approachDuration, DOORS_HEAD, DOORS_MID } from './train.js'
 import { LANES } from './vestibule.js'
 import { COATS, faceAngle } from './people.js'
@@ -14,6 +14,8 @@ import { ticketText } from './texts.js'
 const F0 = Y.FLOOR
 const ARRIVE_D = 200, ARRIVE_V = 15, BRAKE_A = 0.9, DEPART_A = 1.0
 const ARRIVE_T = approachDuration(ARRIVE_D, ARRIVE_V, BRAKE_A)
+/** Fog density underground relative to clear weather above (underpass / vestibule and deeper). */
+const FOG_SHALLOW = 0.35, FOG_DEEP = 0.16
 const pt = (x, y, z, ride = false) => ({ x, y, z, ride })
 
 // ---------------------------------------------------------------------------------------------
@@ -141,13 +143,13 @@ export class MetroRuntime {
     this.timers = { pa: this.rng.float(90, 200), drip: 2, freeRide: 0, slamSay: 0 }
     this._closingSaid = true
     this.passLane = -1; this.passT = 0
-    this.fogK = 1
     this.groupsOn = {}
     this.visShallow = true; this.visDeep = true
     this.debug = null
   }
 
   init(ctx) {
+    this.wrapAtmosphere(ctx.atmos)
     const st = ctx.game.state
     if (st.metroTrips === undefined) st.metroTrips = 0
     registerDoorSounds(ctx.audio)
@@ -156,9 +158,11 @@ export class MetroRuntime {
       { x: PLAT.x1 - 0.26, y: -12.5, z: TRACK.N.axis, angle: -Math.PI / 2 },
     ])
     this.clock.set(ctx.atmos.minutes, this.time - this.lastDeparture, true)
+    // spawning underground (dev URLs, a loaded save): start fully adapted
+    for (let k = 0; k < 40; k++) this.updateFog(0.1)
     // dev / screenshot states: ?metro=docked|dockedS|arrive|arriveS|depart|people
     const dbg = ctx.game.params?.metro
-    if (dbg) this._debugState(dbg)
+    if (dbg) { this._debugState(dbg); window.__metroRt = this }
   }
 
   // ---- helpers ------------------------------------------------------------------------------
@@ -237,7 +241,7 @@ export class MetroRuntime {
         const dz = TRACK.N.platSide * this.rng.float(0.35, 0.7)
         P.setPose(0)
         tr.riders.push({ person: P, car, dx, dz, angle: faceAngle(0, TRACK.N.platSide), alight: true, door })
-        P.setVisible(true)
+        P.setVisible(!tr.culled)
       }
     } else {
       this.spawnBoarders()
@@ -338,6 +342,8 @@ export class MetroRuntime {
     const playerNear = this.inMetro() && this.ctx.player.pos.x > 400
     if (ph === 'idle' || ph === 'turnaround') {
       tr.visible && tr.show(false)
+      // the empty train reversing somewhere beyond the end of the line
+      if (ph === 'turnaround' && !this.rumbled && this.t > 8 && this.inMetro()) { this.rumbled = true; this.play('metro_rumble', { pos: [TUNNEL.east[1] + 20, -15, 540], gain: 0.8 }) }
       if (this.serviceClosed()) { this.t = 0; return }
       if (this.t >= this.wait) this.startArrival(ph === 'idle' ? 'N' : 'S')
       return
@@ -411,6 +417,7 @@ export class MetroRuntime {
         this.boarders = this.boarders.filter(w => !w.boarded) // whoever missed it waits for the next one
         this.phase = ph === 'departN' ? 'turnaround' : 'idle'
         this.t = 0
+        this.rumbled = false
         this.wait = ph === 'departN' ? this.rng.float(55, 140) : this.nextInterval()
       }
     }
@@ -431,13 +438,19 @@ export class MetroRuntime {
 
   updateTurnstiles(dt) {
     const out = this.out
-    for (const f of out.flaps) {
-      if (f.t > 0) { f.t -= dt; if (f.t <= 0) { f.p.visible = false; f.p.collide = false } }
-    }
-    if (this.passT > 0) this.passT -= dt
     const P = this.ctx.player
     const p = P.pos
-    if (p.y > F0 + 0.8 || p.y < F0 - 0.6 || p.x < TURN.x0 - 0.7 || p.x > TURN.x0 + 0.5) return
+    for (const f of out.flaps) {
+      if (f.t <= 0) continue
+      f.t -= dt
+      if (f.t > 0) continue
+      // stay shut while someone is still pressing against them from the entry side
+      const pressing = p.z >= f.lane.z0 - 0.1 && p.z <= f.lane.z1 + 0.1 && p.x > TURN.x0 + 0.1 && p.x < TURN.x0 + 0.75 && Math.abs(p.y - F0) < 0.6
+      if (pressing) f.t = 0.3
+      else { f.p.visible = false; f.p.collide = false }
+    }
+    if (this.passT > 0) this.passT -= dt
+    if (p.y > F0 + 0.8 || p.y < F0 - 0.6 || p.x < TURN.x0 - 0.7 || p.x > TURN.x0 + 0.72) return
     const lane = LANES.find(L => p.z >= L.z0 && p.z <= L.z1)
     if (!lane) return
     if (P.vel.x <= 0.05) return
@@ -470,12 +483,12 @@ export class MetroRuntime {
     const p = P.pos
     if (p.y < -16.7 || p.y > -15.2 || p.x < LOWER.x0 || p.x > PLAT.x1) return
     const tr = this.train
-    const open = (track) => tr.visible && tr.track === track && tr.doorF > 0.6 && (this.phase.startsWith('dwell') || this.phase.startsWith('closing'))
+    const docked = tr.visible && tr.doorF > 0.6 && (this.phase.startsWith('dwell') || this.phase.startsWith('closing'))
     if (p.z < PLAT.edgeN + 0.25 && p.z > TRACK.N.z1 - 0.45) {
-      if (!(open('N') && this.nearDoor(p.x, 0.5))) { p.z = PLAT.edgeN + 0.25; if (P.vel.z < 0) P.vel.z = 0 }
+      if (!(docked && tr.track === 'N' && this.nearDoor(p.x, 0.5))) { p.z = PLAT.edgeN + 0.25; if (P.vel.z < 0) P.vel.z = 0 }
     }
     if (p.z > PLAT.edgeS - 0.25 && p.z < TRACK.S.z0 + 0.45) {
-      if (!(open('S') && this.nearDoor(p.x, 0.5))) { p.z = PLAT.edgeS - 0.25; if (P.vel.z > 0) P.vel.z = 0 }
+      if (!(docked && tr.track === 'S' && this.nearDoor(p.x, 0.5))) { p.z = PLAT.edgeS - 0.25; if (P.vel.z > 0) P.vel.z = 0 }
     }
   }
 
@@ -516,6 +529,10 @@ export class MetroRuntime {
   }
 
   updateAudio(dt) {
+    this._audioT = (this._audioT || 0) + dt
+    if (this._audioT < 0.2) return
+    dt = this._audioT
+    this._audioT = 0
     if (!this.audioOk()) return
     const p = this.ctx.player.pos
     const d = (x, y, z) => Math.hypot(p.x - x, (p.y - y) * 1.5, p.z - z)
@@ -531,7 +548,7 @@ export class MetroRuntime {
     near.sort((a, b) => a[0] - b[0])
     const want = new Set(near.slice(0, 2).map(n => n[1]))
     tubes.forEach((t, i) => { if (t.state === 'dying' && d(t.x, t.y, t.z) < 16) want.add(i) })
-    tubes.forEach((t, i) => this.loop('tube' + i, want.has(i), 'fluorescent_buzz', [t.x, t.y, t.z], { gain: t.state === 'dying' ? 0.9 : 0.55, failing: t.state === 'dying' }))
+    tubes.forEach((t, i) => this.loop(t.key || (t.key = 'tube' + i), want.has(i), 'fluorescent_buzz', [t.x, t.y, t.z], { gain: t.state === 'dying' ? 0.9 : 0.55, failing: t.state === 'dying' }))
     // escalator machinery
     for (const e of this.out.escalators) {
       const zc = e.base[2] + 0.5, xm = (ESC.xTop + ESC.xBot) / 2
@@ -559,6 +576,7 @@ export class MetroRuntime {
       if (m < 52 || m >= 60) this._closingSaid = false
       else if (!this._closingSaid) {
         this._closingSaid = true
+        const pos = p.y < -10 ? [494, -12.6, 540] : [403, F0 + 2.4, 540]
         this.speak('Уважа+емые пассажи+ры. Ста+нция закрыва+ется. Про+сьба поки+нуть ста+нцию.', { chain: 'pa', voice: 'female', pos })
         this.ctx.ui.say({ ru: '«Уважаемые пассажиры, станция закрывается».', en: '"Dear passengers, the station is closing."' }, 5)
       }
@@ -570,36 +588,75 @@ export class MetroRuntime {
     const p = this.ctx.player.pos
     const nearUnderpass = p.x > UNDERPASS.x0 - 22 && p.x < UNDERPASS.x1 + 22 && p.z > 498 && p.z < 582 && p.y < 6
     const under = p.y < -1.6
-    const groups = {
-      underpass: nearUnderpass,
-      vestibule: (under && p.x > 380 && p.x < 445) || (nearUnderpass && p.y < 0),
-      deep: under && p.x > 388,
-      tunnel: under && p.x > 425,
-    }
-    for (const [k, on] of Object.entries(groups)) {
-      if (this.groupsOn[k] === on) continue
-      this.groupsOn[k] = on
-      for (const l of this.out.lightGroups[k] || []) l.enabled = on
-    }
+    this.setGroup('underpass', nearUnderpass)
+    this.setGroup('vestibule', (under && p.x > 380 && p.x < 445) || (nearUnderpass && p.y < 0))
+    this.setGroup('deep', under && p.x > 388)
+    this.setGroup('tunnel', under && p.x > 425)
     const shallow = nearUnderpass || under
     if (shallow !== this.visShallow) { this.visShallow = shallow; for (const q of this.out.underground) q.visible = shallow && !q.userData.hidden }
-    const deep = under && p.x > 386
+    const deep = under && p.x > UNDERPASS.x0
+    this.train.setCulled(!deep)
     if (deep !== this.visDeep) {
       this.visDeep = deep
       for (const q of this.out.deep) q.visible = deep
-      if (!deep) for (const q of this.out.deep) void q
     }
+  }
+
+  /**
+   * Deep underground nothing of the sky can be seen, but the shared sky/fog uniforms still carry
+   * daylight: glass would reflect a white sky and distance fog would turn grey at noon. While the
+   * player is past the vestibule doors (or deeper) we darken those uniforms right after the
+   * atmosphere computes them each frame. Instance-level wrapper; see engineRequests.
+   */
+  wrapAtmosphere(a) {
+    if (!a || a.__metroUnder || typeof a.update !== 'function') return
+    a.__metroUnder = true
+    a.metroUnderground = 0
+    a.metroFog = 1
+    const orig = a.update
+    const dark = new (this.ctx.THREE.Color)(0.006, 0.006, 0.007)
+    a.update = function (dt) {
+      orig.call(this, dt)
+      const u = this.u
+      // underground the weather's fog and the snow's lamp scatter do not apply: thin it to a
+      // little dust haze (metroFog is the density factor, chosen per weather in updateFog)
+      const fm = this.metroFog ?? 1
+      if (fm < 0.999 && u.uFogDensity) {
+        u.uFogDensity.value *= fm
+        if (u.uScatter) u.uScatter.value = Math.min(u.uScatter.value, 0.0012 + (u.uScatter.value - 0.0012) * fm)
+      }
+      const k = this.metroUnderground || 0
+      if (k <= 0.001) return
+      const f = 1 - 0.94 * k
+      u.uSkyAmb.value.multiplyScalar(f)
+      u.uGroundAmb.value.multiplyScalar(f)
+      u.uSunCol.value.multiplyScalar(1 - k)
+      u.uFogColor.value.lerp(dark, k)
+      u.uFogHorizon.value.lerp(dark, k)
+      u.uFogGlow.value.lerp(dark, k)
+    }
+  }
+
+  setGroup(k, on) {
+    if (this.groupsOn[k] === on) return
+    this.groupsOn[k] = on
+    for (const l of this.out.lightGroups[k] || []) l.enabled = on
   }
 
   updateFog(dt) {
     const a = this.ctx.atmos
-    if (!a || !(a.fogMul > 0)) return
+    if (!a) return
     const p = this.ctx.player.pos
-    const target = p.y < -1.8 && p.x > UNDERPASS.x0 - 1 ? 0.3 : 1
-    const k = this.fogK + (target - this.fogK) * Math.min(1, dt * 1.5)
-    if (Math.abs(k - this.fogK) < 1e-5) return
-    a.fogMul = a.fogMul / this.fogK * k
-    this.fogK = k
+    const deep = p.y < -5 || (p.x > 392.5 && p.y < -2 && p.x < 620)
+    a.metroUnderground = (a.metroUnderground || 0) + ((deep ? 1 : 0) - (a.metroUnderground || 0)) * Math.min(1, dt * 2)
+    if (deep && this.debug) a.metroUnderground = 1
+    // fog density underground: the same faint haze whatever the weather above (the deep hall
+    // gets less, since the height falloff of the fog thickens it below the street)
+    const under = p.y < -1.8 && p.x > UNDERPASS.x0 - 1
+    const wf = Math.max(0.3, a.cur?.fog ?? 1)
+    const want = under ? Math.min(1, (deep ? FOG_DEEP : FOG_SHALLOW) / wf) : 1
+    const cur = a.metroFog ?? 1
+    a.metroFog = cur + (want - cur) * Math.min(1, dt * 1.5)
   }
 
   update(dt, ctx) {
@@ -641,6 +698,7 @@ export class MetroRuntime {
       this.phase = track === 'N' ? 'dwellN' : 'dwellS'
       this.t = 5; this.dwell = 1e9
       this.said = { station: true, open: true, alight: s !== 'people', pa: true }
+      tr.update()
       if (s === 'people') { this.t = 3.3; this.alight(); for (const w of this.walkers) { w.delay = 0; for (let k = 0; k < 60; k++) w.update(0.05) } }
     } else if (s.startsWith('arrive')) {
       // arrive[S][:seconds before the stop]

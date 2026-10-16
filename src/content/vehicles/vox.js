@@ -140,6 +140,7 @@ export function snowCap(m, o = {}) {
   const maxD = o.maxD ?? 3
   const chance = o.chance ?? 1
   const rng = o.rng ?? new RNG(o.seed ?? 99)
+  const nseed = o.seed ?? (o.bumps ? rng.int(1, 9999) : 5)
   const sx = m.sx, sz = m.sz
   const top = new Int16Array(sx * sz)
   for (let z = 0; z < sz; z++) for (let x = 0; x < sx; x++) top[x + z * sx] = topAt(m, x, z)
@@ -170,7 +171,7 @@ export function snowCap(m, o = {}) {
     }
   }
   const prof = o.profile ?? [1, 2, 3, 3, 4, 4, 4]
-  if (o.ledges) glassIds()
+  if (o.ledges || o.smooth) glassIds()
   // desired snow surface per column
   const T = new Int16Array(sx * sz).fill(-1)
   for (let z = 0; z < sz; z++)
@@ -187,24 +188,37 @@ export function snowCap(m, o = {}) {
       else if (rng.next() > chance) continue
       let d = Math.min(maxD, prof[Math.min(prof.length - 1, dist[x + z * sx])])
       if (o.vary && rng.next() < o.vary) d = Math.max(1, d - 1)
+      // broad soft swells on the inside of a thick cap (never single-voxel pits)
+      if (o.bumps && dist[x + z * sx] >= 2 && valueNoise2(x * o.bumps, z * o.bumps, nseed + 17) > 0.6) d += 1
       T[x + z * sx] = t + d
     }
-  // smooth: snow bridges the voxel steps of sloped glass (a blanket, not a staircase)
+  // smooth: snow bridges the voxel steps of sloped glass (a blanket, not a staircase). Only
+  // gentle steps up onto a GLASS column are bridged: a bumper below a vertical tail panel or
+  // a nose must not grow a wall of snow over the lamps and the plate.
   const S = T
+  // `smooth` is the blanket's slope in voxels of height per column (1 = 45°, 0.5 ≈ 27°: snow
+  // banks up at the foot of a windshield and reads as a ramp instead of a staircase).
   if (o.smooth) {
+    const k = typeof o.smooth === 'number' ? o.smooth : 1
+    const R = Math.ceil(4 / k)
     const S2 = new Int16Array(sx * sz)
     for (let z = 0; z < sz; z++)
       for (let x = 0; x < sx; x++) {
         const i = x + z * sx
         let b = T[i]
         if (b < 0) { S2[i] = -1; continue }
-        for (let dz = -3; dz <= 3; dz++) {
+        for (let dz = -R; dz <= R; dz++) {
           const zz = z + dz
           if (zz < 0 || zz >= sz || !dz) continue
-          const tn = T[x + zz * sx]
-          if (tn >= 0 && top[x + zz * sx] > top[i]) b = Math.max(b, tn - Math.abs(dz))
+          const n = x + zz * sx
+          const tn = T[n]
+          const rise = top[n] - top[i]
+          if (tn < 0 || rise <= 0 || rise > 2 * Math.abs(dz)) continue
+          if (!GLASSY.has(m.data[m.idx(x, top[n], zz)])) continue
+          b = Math.max(b, Math.floor(tn - k * Math.abs(dz)))
         }
-        S2[i] = b
+        // the bank fades out toward the cap's edge: no wall of snow at the end of a deck
+        S2[i] = Math.min(b, T[i] + 2 * dist[i])
       }
     S.set(S2)
   }

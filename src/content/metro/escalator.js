@@ -10,7 +10,6 @@ import { WB, V, h3, fineModel } from './vox.js'
 import { VoxelModel } from '../../core/VoxelModel.js'
 import { Y, ESC, escStepY } from './layout.js'
 import { drawPoster, drawText, SIGN_FONT } from './drawings.js'
-import { T } from './texts.js'
 
 const X0 = 410, X1 = 437
 export const TORSHERY_X = [415, 419.5, 424, 428.5, 433]
@@ -28,7 +27,6 @@ defineModel('metro_escalator', () => {
   const m = b.m
   const bals = [ESC.balN, ESC.balA, ESC.balB, ESC.balS]
   for (let i = 0; i < m.sx; i++) {
-    const x = b.wx(i) // voxel centre
     const xl = X0 + i * V // voxel left edge
     const ys = escStepY(xl + 1e-6)
     const tunnel = xl >= ESC.xTop + 1
@@ -134,8 +132,8 @@ defineModel('metro_esc_booth', () => {
   const b = new WB(0, 0, 0, 1.5, 2.5, 1.75)
   b.fill(0, 0, 0, 1.5, 1.0, 1.75, MAT.metalGray)
   b.fill(V, V, V, 1.5 - V, 1.0, 1.75 - V, MAT.air)
-  b.fill(0, 1.0, 0, 1.5, 2.0, 1.75, MAT.glass)
-  b.fill(V, 1.0, V, 1.5 - V, 2.0, 1.75 - V, MAT.air)
+  b.fill(0, 1.75, 0, 1.5, 2.0, 1.75, MAT.metalGray)
+  b.fill(V, 1.75, V, 1.5 - V, 2.0, 1.75 - V, MAT.air)
   for (const [x, z] of [[0, 0], [1.25, 0], [0, 1.5], [1.25, 1.5]]) b.fill(x, 0, z, x + V, 2.25, z + V, MAT.metalGray)
   b.fill(0, 2.0, 0, 1.5, 2.25, 1.75, MAT.plasticWhite)
   b.fill(V, V, V, 0.75, 0.75, 1.5, MAT.wood) // console under the west window
@@ -196,5 +194,4 @@ export function buildEscalators(ctx, out) {
     reverb: 'hall', snow: false, wind: 0.05, traffic: 0, priority: 5, exposure: 1.15, conveyor: [vx, 0, 0], data: { pkg: 'metro', escalator: 'down' } })
   out.escSpeedX = vx
   ctx.navPaths.push({ points: [[412, 538.5], [435, 538.5]], kind: 'metro', y: Y.PLAT })
-  void T
 }

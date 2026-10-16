@@ -3,7 +3,7 @@
 // running, fogged glass, exhaust, idle sound), and the parked bus / trolleybus at a terminal
 // (interior lights at night, heater idling, exhaust steam).
 
-import { RNG, hashf } from '../../core/rng.js'
+import { RNG, hashf, valueNoise2 } from '../../core/rng.js'
 import { CAR_INFO, carModelName } from './cars.js'
 import { BIG_INFO } from './big.js'
 import { makePlate, drawPlate, drawRouteBoard, drawPainted, ROUTES, plateString } from './plates.js'
@@ -25,7 +25,7 @@ function seedRng(o, x, z) {
 
 /** Shared per-game state of this module (warm cars, idling buses). */
 export function parkedState(ctx) {
-  return ctx.registry._vehParked || (ctx.registry._vehParked = { warm: [], idling: [] })
+  return ctx.registry._vehParked || (ctx.registry._vehParked = { warm: [], idling: [], drift: new Map() })
 }
 
 function signsBuilt(ctx) { return !!(ctx.signs && ctx.signs.meshes && ctx.signs.meshes.length) }
@@ -57,12 +57,14 @@ export function placeParkedCar(ctx, a, b, c, d) {
   if (!o || !Number.isFinite(o.x) || !Number.isFinite(o.z)) return null
   const rng = seedRng(o, o.x, o.z)
   const type = CAR_INFO[o.type] ? o.type : rng.weighted(PARK_MIX)
-  const snow = o.snow ?? rng.weighted(SNOW_MIX)
   const warm = !!o.warm
+  const snow0 = o.snow ?? rng.weighted(SNOW_MIX)
+  const snow = warm ? 'heavy' : snow0 // the warm car has its own model; never a buried drift
   const model = carModelName(type, snow, warm)
   const info = CAR_INFO[type]
   const angle = o.angle ?? 0
   const tint = o.tint ?? rng.pick(TYPE_PALETTE[type] ?? CAR_PALETTE)
+  if (!ctx.world.finalized && o.y === undefined) { try { clearDrift(ctx, o.x, o.z, angle, info) } catch { /* best effort */ } }
   const p = ctx.world.place(model, { x: o.x, z: o.z, y: o.y, angle, tint, seed: rng.next(), tag: 'car', userData: { type, snow, warm } })
   if (!p) return null
   p.flag = 0
@@ -98,35 +100,70 @@ export function placeParkedCar(ctx, a, b, c, d) {
   return rec
 }
 
-/** Terrain drift: a mound hugging the windward side of a buried car, lower around the rest. */
+/** Is world point (px, pz) inside a parked car's footprint grown by `pad` metres? */
+function inCar(r, px, pz, pad) {
+  const c = Math.cos(r.angle), s = Math.sin(r.angle)
+  const dx = px - r.x, dz = pz - r.z
+  const lx = dx * c - dz * s, lz = dx * s + dz * c
+  return Math.abs(lx) < r.info.W / 2 + pad && Math.abs(lz) < r.info.L / 2 + pad
+}
+
+/**
+ * Terrain drift around a half-buried car: a long bank against the windward flank (the car's
+ * left) that wraps a little round the nose and the tail and dies out on the lee side. Never
+ * raises the ground under another parked car (cells are remembered so a car parked later
+ * flattens the drift under itself again).
+ */
 function buriedDrift(ctx, x, z, angle, info, rng) {
   const t = ctx.terrain
   const c = Math.cos(angle), s = Math.sin(angle)
-  const hl = info.L / 2 + 1.6, hw = info.W / 2 + 1.8
+  const hw = info.W / 2, hl = info.L / 2
+  const H0 = 0.72, reachW = 3.4, reachL = 1.3
+  const R = Math.hypot(hl + reachW, hw + reachW) + 0.5
   const base = t.heightAt(x, z)
+  if (!Number.isFinite(base)) return
   const M = ctx.M
   const snow = M('snow'), fresh = M('snow_fresh')
-  const R = Math.hypot(hl, hw) + 0.5
   const seed = rng.int(1, 9999)
-  t.apply(x - R, z - R, x + R, z + R, (px, pz, hVox) => {
+  const st = parkedState(ctx)
+  const near = (ctx.registry.parkedCars || []).filter(r => Math.hypot(r.x - x, r.z - z) < R + 4)
+  t.apply(x - R, z - R, x + R, z + R, (px, pz, hVox, mat) => {
     if (hVox < -1000) return null
     const dx = px - x, dz = pz - z
     // to car-local: lx along +X (right), lz along +Z (back)
     const lx = dx * c - dz * s, lz = dx * s + dz * c
-    const ex = Math.max(0, Math.abs(lx) - info.W / 2), ez = Math.max(0, Math.abs(lz) - info.L / 2)
+    const ex = Math.max(0, Math.abs(lx) - hw), ez = Math.max(0, Math.abs(lz) - hl)
+    if (ex <= 0 && ez <= 0) return null // under the car: the model carries its own drift
+    // windwardness: 1 along the left flank, fading to 0 across the ends toward the right
+    const w = Math.min(1, Math.max(0, 0.5 - lx / (2 * hw)))
+    if (w <= 0.02) return null
+    const reach = reachL + (reachW - reachL) * w * w
     const e = Math.hypot(ex, ez)
-    if (e <= 0) return null // under the car: the model carries its own drift
-    // only the windward flank (the car's left) carries a terrain drift; the ends taper off fast
-    if (lx > 0 || ez > 0.6) return null
-    const windward = 1 - ez / 0.6
-    const reach = 2.4
-    if (e > reach) return null
+    if (e >= reach) return null
     const k = 1 - e / reach
-    const n = 0.85 + 0.3 * Math.sin(px * 3.1 + seed) * Math.cos(pz * 2.7 - seed)
-    const hTop = (0.22 + 0.42 * windward) * Math.pow(k, 1.6) * n
+    const n = 0.8 + 0.4 * valueNoise2(px * 0.9, pz * 0.9, seed)
+    const hTop = H0 * Math.pow(w, 1.5) * k * k * (3 - 2 * k) * n
     const target = Math.round((base + hTop) / 0.25)
     if (target <= hVox) return null
-    return { h: target, mat: k > 0.6 ? fresh : snow }
+    for (const r of near) if (inCar(r, px, pz, 0.35)) return null
+    const key = Math.floor(px / 0.25) * 65536 + Math.floor(pz / 0.25)
+    if (!st.drift.has(key)) st.drift.set(key, [hVox, mat])
+    return { h: target, mat: k > 0.55 ? fresh : snow }
+  })
+}
+
+/** Flatten any buried-car drift under a car about to be parked at (x, z, angle). */
+function clearDrift(ctx, x, z, angle, info) {
+  const st = parkedState(ctx)
+  if (!st.drift.size) return
+  const r = { x, z, angle, info }
+  const R = Math.hypot(info.L, info.W) / 2 + 0.6
+  ctx.terrain.apply(x - R, z - R, x + R, z + R, (px, pz) => {
+    const key = Math.floor(px / 0.25) * 65536 + Math.floor(pz / 0.25)
+    const o = st.drift.get(key)
+    if (!o || !inCar(r, px, pz, 0.35)) return null
+    st.drift.delete(key)
+    return { h: o[0], mat: o[1] }
   })
 }
 
@@ -187,7 +224,7 @@ export function placeParkedBus(ctx, o) {
   if (lit) {
     const wp = worldOf(o.x, p.y, o.z, angle, info.lightInterior)
     // the light drives the placement flag: ceiling tubes and far windows glow from dusk to dawn
-    ctx.lights.add({ x: wp[0], y: wp[1], z: wp[2], color: 0xe6eedc, intensity: 9, range: 10, domain: 'all', schedule: 'night', placement: p, halo: false, scatter: 0.12, tag: 'bus_interior' })
+    ctx.lights.add({ x: wp[0], y: wp[1], z: wp[2], color: 0xe6eedc, intensity: 6, range: 9, domain: 'all', schedule: 'night', placement: p, halo: false, scatter: 0.12, tag: 'bus_interior' })
   }
   const routes = ROUTES[kind]
   const route = typeof o.route === 'object' && o.route ? o.route : routes[(o.route ?? rng.int(0, routes.length - 1)) % routes.length]
@@ -202,7 +239,7 @@ export function placeParkedBus(ctx, o) {
       draw: (c, W, H) => drawRouteBoard(c, W, H, { num: route.num, from: route.from, to: route.to, led }) })
     if (placard) {
       // «В ПАРК» (to the depot) card propped behind the windshield
-      const pc = worldOf(o.x, p.y, o.z, angle, [-0.55, 1.25, -info.L / 2 + 0.14])
+      const pc = worldOf(o.x, p.y, o.z, angle, info.placard)
       ctx.signs.add({ x: pc[0], y: pc[1], z: pc[2], angle: angle + Math.PI, w: 0.62, h: 0.2, ppm: 120, lines: [placard], bg: '#e6e2cf', color: '#b0221c', aged: 0.3 })
     }
     if (kind === 'trolleybus') {

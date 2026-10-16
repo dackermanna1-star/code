@@ -142,7 +142,7 @@ try {
         const seed = 2008 + k * 7919
         const r = await page.evaluate(([seed, s]) => window.__audio.music(seed, s), [seed, +(opt.seconds ?? 80)])
         const f = savePng('music_' + seed, r.png)
-        console.log(`music ${seed} build ${r.buildMs} ms peak ${r.peakDb} rms ${r.rmsDb} st ${r.stDb} stA ${r.stA} nan ${r.nan} clicks ${r.clicks} → ${path.relative(root, f)}`)
+        console.log(`music ${seed} build ${r.buildMs} ms (in game: prewarm ${r.warmMs} ms once, start ${r.lazyMs} ms) peak ${r.peakDb} rms ${r.rmsDb} st ${r.stDb} stA ${r.stA} nan ${r.nan} clicks ${r.clicks} → ${path.relative(root, f)}`)
       }
     } else if (opt.spectro) {
       for (const spec of String(opt.spectro).split(',')) {

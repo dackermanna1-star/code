@@ -7,7 +7,7 @@ import { VOXEL } from '../../core/constants.js'
 import { RNG, hash2, hashf } from '../../core/rng.js'
 import { FH } from './series.js'
 import { CAB } from './props.js'
-import { aptDoorStyle, APT_DOOR_COLORS, perFloor } from './section.js'
+import { aptDoorStyle, APT_DOOR_COLORS, perFloor, halfLandingPlan } from './section.js'
 import { DynPlate } from './plates.js'
 import {
   drawAptDoor, drawBell, drawFloorNumber, drawMailboxes, drawCabinet, drawLiftCall, drawCabPanel,
@@ -178,21 +178,28 @@ export function setupStairwell(ctx, sec) {
     if (!loop && h < 0.6) return 'dying'
     return 'ok'
   }
-  const addBulb = (vx, vy, vz, cfg, tag) => {
+  const addBulb = (vx, vy, vz, cfg, tag, intensity = 1.6) => {
     const lp0 = p.voxelToWorld(vx, vy, vz)
     const lamp = world.place('res_lamp_ceiling', { x: lp0.x, y: lp0.y, z: lp0.z, angle: p.angle, flag: cfg === 'dead' ? 0 : 1, tag: 'stair_lamp' })
     sw.lamps.push(lamp)
     if (cfg === 'dead') return
+    // low scatter: the ceilings are 2.25 m, so the player's eye passes ~0.3 m from every bulb
+    // and full fog in-scattering would fill the whole stairwell with haze
     const l = lights.add({
-      x: lp0.x, y: lp0.y - 0.4, z: lp0.z, color: 0xffcf8f, intensity: 1.6, range: 6.5, domain: 'indoor', schedule: 'always',
-      flicker: cfg === 'buzz' ? 'buzz' : cfg === 'dying' ? 'dying' : 'none', placement: lamp, halo: true, haloSize: 0.3, tag,
+      x: lp0.x, y: lp0.y - 0.32, z: lp0.z, color: 0xffcf8f, intensity, range: 6.5, domain: 'indoor', schedule: 'always',
+      flicker: cfg === 'buzz' ? 'buzz' : cfg === 'dying' ? 'dying' : 'none', placement: lamp, halo: true, haloSize: 0.3, scatter: 0.3, tag,
     })
     sw.lights.push(l)
   }
-  addBulb(X(9) + 0.5, L.HL(1) - 1, Z(2) + 0.5, 'ok', 'stair_light') // tambour: always works
+  // tambour (2.0 m ceiling): always works; hung in the corner by the notice, off the walking line
+  addBulb(X(5) + 0.5, L.HL(1) - 1, Z(0) + 0.5, 'ok', 'stair_light', 1.1)
+  // half-landing bulbs follow the model's plan (the model paints a faint glow around the working
+  // ones so the stair column reads lit from outside); landing bulbs vary per building
+  const half = loop ? null : halfLandingPlan(L.key, N, sec.variantIndex ?? 0)
   for (let k = 1; k <= N; k++) {
     addBulb(X(6) + 0.5, L.FL(k) + FH - 2, Z(17.5) + 0.5, lightCfg(k), 'stair_light')
-    if (k < N && hashf(per(k), sec.seed * 1000 | 0, 77) < 0.45) addBulb(X(2) + 0.5, L.HL(k) + FH - 2, Z(2) + 0.5, lightCfg(k + 100), 'stair_light')
+    const hc = half ? half[k] : (k < N && hashf(per(k), sec.seed * 1000 | 0, 77) < 0.45 ? lightCfg(k + 100) : null)
+    if (k < N && hc) addBulb(X(2) + 0.5, L.HL(k) + FH - 2, Z(2) + 0.5, hc, 'stair_light')
   }
 
   // entrance interior: propped-open tambour door, mailboxes, notices
@@ -205,6 +212,7 @@ export function setupStairwell(ctx, sec) {
     signs.add({ x: c0.x, y: c0.y, z: c0.z, angle: faceAngle(p, -1, 0), w: 1.5, h: 1.25, ppm: 72, indoor: true, draw: drawMailboxes(sec.flats[0], sec.flats[1], mbCol, sec.seed | 0), aged: 0.35, seed: 3 })
     const n0 = p.voxelToWorld(X(5), L.tambourY + 5, Z(2))
     signs.add({ x: n0.x - 0.0, y: n0.y, z: n0.z, angle: faceAngle(p, 1, 0), w: 0.42, h: 0.3, ppm: 90, indoor: true, draw: drawNotice(NOTICES.closeDoor.ru.split('\n')), aged: 0.5, seed: 5 })
+    readable(ctx, boxOf(p, X(5), L.tambourY + 4.4, Z(1.2), X(5.5), L.tambourY + 5.6, Z(2.8)), NOTICES.closeDoor, 'notice')
     interactions.add({ ...boxOf(p, X(10.6), L.FL1 + 2, Z(9), X(11.2), L.FL1 + 7, Z(15)), reach: 2.2, tag: 'mailboxes',
       prompt: { ru: 'Почтовые ящики', en: 'Mailboxes' },
       onUse: g => g.ui.showNote({ style: 'paper', title: 'Пицца «Мамма Миа»', ru: 'Бесплатная доставка от 500 руб.\nТел. 8-495-...\nКаждая 3-я пицца — в подарок!', en: '"Mamma Mia" pizza\nFree delivery over 500 rub.\nEvery 3rd pizza free!' }),
@@ -272,6 +280,7 @@ export function setupStairwell(ctx, sec) {
       const gx = onSide ? X(0) : X(12)
       const g = p.voxelToWorld(gx, yy, Z(zz))
       signs.add({ x: g.x, y: g.y, z: g.z, angle: faceAngle(p, onSide ? 1 : -1, 0), w: 0.9, h: 0.3, ppm: 80, indoor: true, draw: drawGraffiti(it, i + pk * 5, gr.pick(['#202020', '#3a3a8a', '#7a1a1a', '#2a5a2a'])) })
+      readable(ctx, boxOf(p, gx - (onSide ? 0 : 0.4), yy - 0.6, Z(zz) - 1.8, gx + (onSide ? 0.4 : 0), yy + 0.6, Z(zz) + 1.8), it, 'hand', { ru: 'Надпись', en: 'Scrawl' })
     }
     // chute hatch interaction
     if (S.chute === 'half' && k < N) {
@@ -288,6 +297,7 @@ export function setupStairwell(ctx, sec) {
   {
     const rn = p.voxelToWorld(X(12), L.HL(N) + 6, Z(3.5))
     signs.add({ x: rn.x, y: rn.y, z: rn.z, angle: faceAngle(p, -1, 0), w: 0.42, h: 0.26, ppm: 100, indoor: true, draw: drawNotice(NOTICES.roof.ru.split('\n'), { hand: true }), aged: 0.6, seed: 11 })
+    readable(ctx, boxOf(p, X(11.5), L.HL(N) + 5.4, Z(2.6), X(12), L.HL(N) + 6.6, Z(4.4)), NOTICES.roof, 'hand')
   }
   // lift
   if (L.shaft) setupLift(ctx, sec, sw, loop)
@@ -298,6 +308,11 @@ export function setupStairwell(ctx, sec) {
     RT.loops.push(sw)
   }
   return sw
+}
+
+/** A readable text on a wall: E shows it with its translation. item: { ru, en } */
+export function readable(ctx, box, item, style = 'notice', prompt = { ru: 'Читать', en: 'Read' }) {
+  ctx.interactions.add({ ...box, reach: 2.2, tag: 'notice', prompt, onUse: g => g.ui?.showNote?.({ ru: item.ru, en: item.en, style }) })
 }
 
 function boxOf(p, x0, y0, z0, x1, y1, z1) {
@@ -353,7 +368,7 @@ function setupLift(ctx, sec, sw, broken) {
   const c0 = p.voxelToWorld(sh.x0, L.FL(1) - 1, sh.z0)
   lift.cab = world.place('res_lift_cab', { x: c0.x, y: c0.y, z: c0.z, angle: p.angle, dynamic: true, tag: 'lift_cab' })
   const lc = p.voxelToWorld(sh.x0 + 4, L.FL(1) + 8.6, sh.z0 + 3)
-  lift.light = lights.add({ x: lc.x, y: lc.y, z: lc.z, color: 0xe8f2ff, intensity: 1.6, range: 3.2, domain: 'indoor', schedule: 'always', flicker: 'buzz', placement: lift.cab, halo: false, tag: 'lift_light' })
+  lift.light = lights.add({ x: lc.x, y: lc.y, z: lc.z, color: 0xe8f2ff, intensity: 1.6, range: 3.2, domain: 'indoor', schedule: 'always', flicker: 'buzz', placement: lift.cab, halo: false, scatter: 0.2, tag: 'lift_light' })
   // button panel rides with the cab
   lift.panel = new DynPlate(ctx.game, { w: 0.42, h: 1.2, ppm: 150, indoor: true, draw: drawCabPanel(N, sec.seed * 1000 | 0) })
   lift.panelAngle = faceAngle(p, -1, 0)

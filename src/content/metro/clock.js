@@ -54,7 +54,7 @@ export class IntervalClock {
     this.tex.minFilter = THREE.LinearFilter
     this.tex.generateMipmaps = false
     this.meshes = []
-    this.key = ''
+    this.key = -1
     this.material = null
   }
 
@@ -99,14 +99,15 @@ export class IntervalClock {
 
   /** Redraw if the shown values changed. minutes: game clock; interval: seconds. */
   set(minutes, interval, blink) {
-    const m = Math.floor(minutes) % 1440
-    const hh = String(Math.floor(m / 60)).padStart(2, '0'), mm = String(m % 60).padStart(2, '0')
-    const iv = Math.max(0, Math.floor(interval))
-    const im = Math.min(99, Math.floor(iv / 60)), is = iv % 60
-    const left = hh + mm, right = (im < 10 ? ' ' + im : String(im)) + String(is).padStart(2, '0')
-    const key = left + right + (blink ? 1 : 0)
+    const m = ((Math.floor(minutes) % 1440) + 1440) % 1440
+    // the display tops out at 99:59 (it stays there until the next train leaves)
+    const iv = Math.min(5999, Math.max(0, Math.floor(interval)))
+    const key = (m * 6000 + iv) * 2 + (blink ? 1 : 0) // numeric: no strings unless it changed
     if (key === this.key) return
     this.key = key
+    const hh = String(Math.floor(m / 60)).padStart(2, '0'), mm = String(m % 60).padStart(2, '0')
+    const im = Math.floor(iv / 60), is = iv % 60
+    const left = hh + mm, right = (im < 10 ? ' ' + im : String(im)) + String(is).padStart(2, '0')
     const g = this.g, W = this.canvas.width, H = this.canvas.height
     g.fillStyle = '#060606'; g.fillRect(0, 0, W, H)
     g.fillStyle = '#121212'; g.fillRect(W / 2 - 3, 6, 6, H - 12) // divider

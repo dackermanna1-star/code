@@ -363,3 +363,11 @@ Everything is guarded by `audio.ready` and is optional.
   - `?vehtest=1`: the showcase strip at (280–380, 300–336).
   - `?traintest=X,dir`: a train already at head x = X; dir ±1.
   - `?traffictest=x,side,kind,lane;...`: forced avenue vehicles. kind is `car|bus|trolleybus|plow`, side is `west|east`.
+
+## Known limitations
+
+- Moving vehicles do not collide with the player. They brake and stop for a player standing in their lane. A bus or trolleybus becomes solid while it stands at a stop, and the courtyard car once it has parked.
+- Wheels do not turn.
+- At 0.125 m voxels, snow on sloped glass still shows small terraces.
+- Bus and trolleybus windows use the engine's shared glass shader, so they look frosted at the edges. In daylight they are whitish; at night they glow from the saloon light.
+- A placement has one emissive `flag`. To get parked buses with unlit head lamps and a train tail with dark white lamps, those exist as separate model variants (`_parked`, `veh_er2_tail`).

@@ -19,7 +19,6 @@ const FLOOR = 1.0, ROOF = 3.25, WIN0 = 1.75, WIN1 = 3.0
 
 function buildCar(head, doorSide) {
   const b = new WB(-HL, 0, -HZ, HL, 3.75, HZ)
-  const m = b.m
   const doors = head ? DOORS_HEAD : DOORS_MID
   const cabX = head ? 7.75 : HL
   const inDoor = x => doors.some(c => x >= c - 0.75 && x < c + 0.75)
@@ -44,19 +43,22 @@ function buildCar(head, doorSide) {
         if (dc !== undefined && yc >= FLOOR) {
           if (openSide) continue
           const rel = Math.abs(xc - dc)
-          if (yc >= WIN0 && yc < WIN1 && rel < 0.5) mat = MAT.glass
+          if (yc >= WIN0 && yc < WIN1 && rel < 0.5) mat = MAT.air
         }
         b.fill(x, y, z0, x + V, y + V, z0 + V, mat)
       }
     }
-    if (head) b.fill(8.25, WIN0, z0, 9.0, WIN1, z0 + V, MAT.glass) // cab side window
+    if (head) b.fill(8.25, WIN0, z0, 9.0, WIN1, z0 + V, MAT.air) // cab side window
   }
-  // windows between the doors: shrink each run to leave pockets of 0.75 m beside the doors
+  // windows between the doors: shrink each run to leave pockets of 0.75 m beside the doors.
+  // Glazing is left open (the engine's glass frosts at the edges and catches the sky even
+  // underground), with the aluminium transom of the sliding top vent (форточка).
   for (const zs of [-1, 1]) {
     const z0 = zs < 0 ? -HZ : HZ - V
     for (let x = -HL + 0.5; x < cabX - 0.5; x += V) {
       if (inDoor(x + 0.01) || nearDoor(x + 0.01)) continue
-      b.fill(x, WIN0, z0, x + V, WIN1, z0 + V, MAT.glass)
+      b.fill(x, WIN0, z0, x + V, WIN1, z0 + V, MAT.air)
+      b.fill(x, WIN1 - 2 * V, z0, x + V, WIN1 - V, z0 + V, MAT.metalGray)
     }
   }
   // ends: intermediate end walls with a closed gangway door; the head car's cab
@@ -64,7 +66,7 @@ function buildCar(head, doorSide) {
     b.fill(xe, 0.75, -HZ, xe + V, ROOF, HZ, MAT.carUpper)
     b.fill(xe, 0.75, -HZ, xe + V, WIN0, HZ, MAT.carLower)
     b.fill(xe, FLOOR, -0.5, xe + V, 3.0, 0.5, MAT.metalGray)
-    b.fill(xe, 2.0, -0.25, xe + V, 2.75, 0.25, MAT.glass)
+    b.fill(xe, 2.0, -0.25, xe + V, 2.75, 0.25, MAT.air)
   }
   if (head) {
     b.fill(cabX - V, FLOOR, -HZ, cabX, ROOF, HZ, MAT.carWall) // cab partition
@@ -72,7 +74,7 @@ function buildCar(head, doorSide) {
     const xf = HL - V
     b.fill(xf, 0.75, -HZ, HL, ROOF, HZ, MAT.carUpper)
     b.fill(xf, 0.75, -HZ, HL, 1.75, HZ, MAT.carLower)
-    b.fill(xf, 2.0, -0.875, HL, 3.0, 0.875, MAT.glass) // windshield
+    b.fill(xf, 2.0, -0.875, HL, 3.0, 0.875, MAT.air) // windshield (open, see the glass note above)
     b.fill(xf, 2.0, -0.125, HL, 3.0, 0.125, MAT.carUpper) // centre post
     b.fill(xf, 3.0, -0.375, HL, 3.25, 0.375, MAT.plasticDark) // route box
     b.fill(xf, 1.25, -1.0, HL, 1.5, -0.5, MAT.chrome) // headlamp housings
@@ -109,7 +111,7 @@ function buildCar(head, doorSide) {
     }
   }
   // grab poles at the door edges and the overhead rails
-  for (const c of doors) for (const x of [c - 1.0, c + 0.75]) for (const z of [-0.5, 0.25]) b.fill(x, FLOOR, z, x + V, ROOF, z + V, MAT.chrome)
+  for (const c of doors) for (const x of [c - 1.0, c + 0.75]) for (const z of [-0.625, 0.375]) b.fill(x, FLOOR, z, x + V, ROOF, z + V, MAT.chrome)
   for (const z of [-0.875, 0.625]) b.fill(-HL + 0.5, 2.75, z, cabX - 0.5, 3.0, z + V, MAT.chrome)
   return b.pivot(0, 0, 0)
 }
@@ -124,7 +126,7 @@ function leaf(glassLo) {
   const b = new WB(0, 0, 0, 0.75, 2.25, V)
   b.fill(0, 0, 0, 0.75, 0.75, V, MAT.carLower)
   b.fill(0, 0.75, 0, 0.75, 2.25, V, MAT.carUpper)
-  b.fill(glassLo, 0.75, 0, glassLo + 0.5, 1.75, V, MAT.glass)
+  b.fill(glassLo, 0.75, 0, glassLo + 0.5, 1.75, V, MAT.air)
   return b.m
 }
 const LEAF_OPTS = { indoor: true, contact: false, dynamic: true, lods: [1], maxDistance: 120 }
@@ -137,13 +139,13 @@ defineModel('metro_car_headlamps', () => {
   b.fill(0, 0, -1.0, V, V, -0.5, MAT.lampWarm)
   b.fill(0, 0, 0.5, V, V, 1.0, MAT.lampWarm)
   return b.pivot(0, 0, 0)
-}, { indoor: true, contact: false, collide: false, dynamic: true, lods: [1], maxDistance: 300 })
+}, { indoor: true, contact: false, collide: false, cullBottom: false, dynamic: true, lods: [1], maxDistance: 300 })
 defineModel('metro_car_markers', () => {
   const b = new WB(0, 0, -HZ, V, 0.5, HZ)
   b.fill(0, 0, -HZ, V, V, -1.125, MAT.taillight)
   b.fill(0, 0, 1.125, V, V, HZ, MAT.taillight)
   return b.pivot(0, 0, 0)
-}, { indoor: true, contact: false, collide: false, dynamic: true, lods: [1], maxDistance: 300 })
+}, { indoor: true, contact: false, collide: false, cullBottom: false, dynamic: true, lods: [1], maxDistance: 300 })
 
 // ---------------------------------------------------------------------------------------------
 // Train: placements + kinematics helpers
@@ -174,6 +176,7 @@ export class Train {
     this.head = 0
     this.doorF = 0 // 0 closed .. 1 open
     this.visible = false
+    this.culled = false
     this.riders = [] // { person, car, dx, dz (world offsets from the car centre), angle }
   }
 
@@ -219,8 +222,22 @@ export class Train {
 
   show(on) {
     this.visible = on
-    for (const s of this.slots) { s.cur.visible = on; s.cur.collide = on }
-    for (const L of this.leaves) { L.l.visible = on; L.r.visible = on; L.l.collide = on; L.r.collide = on }
+    for (const s of this.slots) s.cur.collide = on
+    for (const L of this.leaves) { L.l.collide = on; L.r.collide = on }
+    this._applyVis()
+  }
+
+  /** Hide the train from rendering (logic and collision go on) while the player is far above. */
+  setCulled(c) {
+    if (this.culled === c) return
+    this.culled = c
+    this._applyVis()
+  }
+
+  _applyVis() {
+    const on = this.visible && !this.culled
+    for (const s of this.slots) s.cur.visible = on
+    for (const L of this.leaves) { L.l.visible = on; L.r.visible = on }
     this.headlamps.visible = on; this.markers.visible = on
     for (const l of this.lightsIn) l.enabled = on
     this.headLight.enabled = on

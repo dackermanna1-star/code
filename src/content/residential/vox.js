@@ -16,7 +16,7 @@ export function MAT() {
     'wall_paint_green', 'wall_paint_blue', 'wall_paint_brown', 'whitewash', 'wall_tile_white', 'wall_tile_beige',
     'leatherette', 'fabric_red', 'plastic_white', 'plastic_dark', 'paper',
     'res_tile_white', 'res_panel_cream', 'res_seam', 'res_mastic', 'res_plinth', 'res_rust_stain', 'res_siding',
-    'res_terrazzo', 'res_stair_glow', 'res_stair_glow_hi', 'res_laminate', 'res_leather_red', 'res_cloth',
+    'res_terrazzo', 'res_stair_glow', 'res_stair_glow_lo', 'res_stair_glow_hi', 'res_laminate', 'res_leather_red', 'res_cloth',
   ]
   _mat = {}
   for (const k of n) _mat[k] = M(k)

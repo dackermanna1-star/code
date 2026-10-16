@@ -3,7 +3,8 @@
 //   world buses + zone reverb → master → [duck] → [snow shelf] → muffle → compressor → out
 //   ui bus (phone in hand, menu) → [ui out: master volume] ──────→ muffle   (bypasses duck + shelf)
 //   foley (own footsteps, breath) ───────────────────────────────→ muffle   (bypasses duck + shelf)
-//   foley reverb send → two private convolvers (engine IRs, crossfaded on zone change) → foley
+//   foley reverb send → private convolvers, one per reverb kind (engine IRs, crossfaded on zone
+//                       change; prepared once each, unused ones are taken off the graph) → foley
 //
 // The duck lets silence events and silence zones pull the whole world down to near-silence
 // while the player's own footsteps, breathing and the phone in their hand stay. The shelf is the
@@ -16,7 +17,7 @@ export function getMix(engine) {
   let m = MIX.get(engine.ctx)
   if (m) return m
   const ctx = engine.ctx
-  m = { engine, ok: false, revName: null, revActive: 'A', foleyVol: -1 }
+  m = { engine, ok: false, revName: null, convs: new Map(), foleyVol: -1 }
   m.duck = ctx.createGain()
   m.shelf = ctx.createBiquadFilter()
   m.shelf.type = 'highshelf'
@@ -53,12 +54,7 @@ export function getMix(engine) {
   }
   // foley reverb: own convolvers fed with the engine's IRs
   if (typeof engine._ir === 'function') {
-    m.convA = ctx.createConvolver(); m.convB = ctx.createConvolver()
-    m.gA = ctx.createGain(); m.gB = ctx.createGain()
-    m.gA.gain.value = 0; m.gB.gain.value = 0
-    m.foleySend.connect(m.convA); m.foleySend.connect(m.convB)
-    m.convA.connect(m.gA); m.convB.connect(m.gB)
-    m.gA.connect(m.foley); m.gB.connect(m.foley)
+    m.hasIR = true
     setFoleyReverb(m, engine.reverbName || 'outdoor', true)
   } else if (engine.reverbIn) m.foleySend.connect(engine.reverbIn)
   if (engine.bus && !engine.bus.foley) engine.bus.foley = m.foley
@@ -69,21 +65,38 @@ export function getMix(engine) {
 const WET = { outdoor: 0.16, courtyard: 0.26, park: 0.08, stairwell: 0.42, underpass: 0.45, metro: 0.45, tunnel: 0.5, shop: 0.14, room: 0.2, elevator: 0.25, hall: 0.3 }
 
 export function setFoleyReverb(m, name, instant = false) {
-  if (!m?.convA || name === m.revName) return
+  if (!m?.hasIR || name === m.revName) return
   const e = m.engine
-  let ir
-  try { ir = e._ir(name) } catch { return }
+  const ctx = e.ctx
+  // one convolver per reverb kind: assigning an IR to a ConvolverNode FFT-partitions it on the
+  // main thread, so each kind is prepared once and then only (re)connected
+  let c = m.convs.get(name)
+  if (!c) {
+    let ir
+    try { ir = e._ir(name) } catch { return }
+    c = { conv: ctx.createConvolver(), g: ctx.createGain(), on: false, timer: 0 }
+    c.conv.buffer = ir
+    c.g.gain.value = 0
+    c.conv.connect(c.g)
+    m.convs.set(name, c)
+  }
   m.revName = name
-  const t = e.ctx.currentTime
-  const wet = (WET[name] ?? 0.2) * 1.1
+  const t = ctx.currentTime
   const tc = instant ? 0.01 : 0.25
-  const [on, onG, off, offG] = m.revActive === 'A' ? [m.convB, m.gB, m.convA, m.gA] : [m.convA, m.gA, m.convB, m.gB]
-  try { on.buffer = ir } catch { /* older engines: buffer set once */ }
-  onG.gain.setTargetAtTime(wet, t, tc); offG.gain.setTargetAtTime(0, t, tc)
-  m.revActive = m.revActive === 'A' ? 'B' : 'A'
-  // free the faded-out convolver's CPU once the crossfade is over
-  clearTimeout(m._revTimer)
-  m._revTimer = setTimeout(() => { if (offG.gain.value < 0.01) { try { off.buffer = null } catch { /* keep */ } } }, 2500)
+  clearTimeout(c.timer)
+  if (!c.on) { m.foleySend.connect(c.conv); c.g.connect(m.foley); c.on = true }
+  c.g.gain.setTargetAtTime((WET[name] ?? 0.2) * 1.1, t, tc)
+  for (const [k, o] of m.convs) {
+    if (k === name || !o.on) continue
+    o.g.gain.setTargetAtTime(0, t, tc)
+    // once faded, take it off the graph (a disconnected convolver costs no CPU)
+    clearTimeout(o.timer)
+    o.timer = setTimeout(() => {
+      if (m.revName === k || !o.on) return
+      try { m.foleySend.disconnect(o.conv); o.g.disconnect(m.foley) } catch { /* ignore */ }
+      o.on = false
+    }, 2500)
+  }
 }
 
 /** Per-frame upkeep: follow the zone reverb and the user's volume settings. */

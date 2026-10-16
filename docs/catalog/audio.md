@@ -281,7 +281,8 @@ From the director: `dog_bark`, `crow_caw`, `crows_takeoff`, `car_alarm`, `distan
   - Buffers are rendered in a worker (inlined with `?worker&inline`, so the single-file build keeps it): about 24 MB at load (interactive sounds), more tiers after 8 s and 45 s, capped near 48 MB with LRU eviction. A buffer that is still playing (a TV loop running for minutes) is never evicted.
   - `playSpeech()` renders each new text once (about 0.1–0.3 s in the worker), caches it, and stops its emitter from the real rendered length.
   - Each playing sound is about 5–6 nodes; the director's beds are about 30 persistent nodes.
-  - Steady state is 4 convolvers: the engine's 2 and 2 for the foley path, and the faded one is released after a crossfade.
+  - Convolvers: the engine's 2, plus one foley convolver per reverb kind visited. Each is prepared once, because assigning an IR FFT-partitions it on the main thread, and only the current one stays connected. The music has one shared reverb chain, prepared in idle time about 20 s after audio starts and connected only while a piece plays.
+  - A music piece builds only its constant graph when it starts (about 1 ms). Its chords and notes are created just in time, 3 s ahead, and released when they finish.
 
 ## Testing
 
@@ -289,7 +290,7 @@ From the director: `dog_bark`, `crow_caw`, `crows_takeoff`, `car_alarm`, `distan
 node tools/audio-check.mjs                 # renders every sound offline: NaN / silence / clipping / clicks / DC / loop seams / levels (st = short-term max, stA = A-weighted)
 node tools/audio-check.mjs --spectro dog_bark,metro_doors     # spectrogram PNGs → tools/out/audio/
 node tools/audio-check.mjs --steps         # footstep series per surface (+ PNGs)
-node tools/audio-check.mjs --music 3       # three ambient pieces offline (+ PNGs)
+node tools/audio-check.mjs --music 3       # three ambient pieces offline (+ PNGs, start cost in game)
 node tools/audio-check.mjs --live --seconds 30 --t 21:30 [--force silence|music] [--step snow]
                                            # the real game (only=base,audio): master-output levels (rms and A-weighted rmsA) + director state per second
        [--at x,z] [--zone stairwell|underpass|metro|silence|shop] [--fire] [--onlypk base,audio,…]

@@ -59,13 +59,13 @@ function hallSection(variant) {
     if ((z >= PLAT.colN - 0.25 && z < PLAT.colN + 0.25) || (z >= PLAT.colS - 0.25 && z < PLAT.colS + 0.25)) return MAT.gabbro
     for (const c of COLS) if (Math.abs(x - c) < 0.25 && z > PLAT.colN && z < PLAT.colS) return MAT.gabbro
     const slab = h3(Math.floor(i / 2), 1, Math.floor(k / 2), 5 + variant)
-    let mat = slab < 0.9 ? MAT.granite : MAT.graniteLight
+    let mat = slab < 0.65 ? MAT.granite : slab < 0.985 ? MAT.graniteGrey : MAT.graniteLight
     if (z > 539.75 && z < 540.25) mat = MAT.floorTileRed // a red granite line down the nave
     if (z > 538.0 && z < 538.25 || z > 541.75 && z < 542.0) mat = MAT.graniteLight
     if (variant === 1 && Math.hypot(x - 11, (z - 539.7) * 0.7) < 1.1 && h3(i, 3, k, 4) > 0.2) mat = MAT.wet // drip puddle
     return mat
   }
-  const wallAt = (i, j, k, info) => {
+  const wallAt = (i, j, k) => {
     const y = b.wy(j), z = b.wz(k)
     const trackWall = z < PLAT.wallN + 0.01 || z > PLAT.wallS - 0.01
     if (trackWall) {
@@ -134,7 +134,7 @@ defineModel('metro_lower_hall', () => {
     floor: (i, j, k) => {
       const z = b.wz(k)
       if (Math.abs(z - 540) < 0.25 || Math.abs(z - zi0 - 0.375) < 0.13 || Math.abs(z - zi1 + 0.375) < 0.13) return MAT.gabbro
-      return h3(Math.floor(i / 2), 0, Math.floor(k / 2), 2) < 0.6 ? MAT.granite : MAT.graniteLight
+      return h3(Math.floor(i / 2), 0, Math.floor(k / 2), 2) < 0.65 ? MAT.granite : MAT.graniteGrey
     },
     wall: (i, j, k) => {
       const y = b.wy(j) - P0
@@ -236,7 +236,7 @@ defineModel('metro_clock_box', () => {
   const b = new WB(-0.25, -0.25, -0.875, 0, 0.25, 0.875)
   b.fill(-0.25, -0.25, -0.875, 0, 0.25, 0.875, MAT.plasticDark)
   return b.pivot(0, 0, 0)
-}, { indoor: true, contact: false, collide: false, lods: [1], maxDistance: 160 })
+}, { indoor: true, contact: false, collide: false, cullBottom: false, lods: [1], maxDistance: 160 })
 
 /** Driver's convex mirror on a pole (pivot: base). */
 defineModel('metro_mirror', () => {

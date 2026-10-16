@@ -2,9 +2,10 @@
 //
 // People, dogs and small props would be shapeless blobs at the world's 0.25 m grain, so they are
 // built from finer voxels (like the nature package's crows): a model is registered with
-// `lods: [f]` so the mesher scales it by VOXEL·f, and its downsample() returns itself (the only
-// LOD is the fine one). The engine still computes the bounding box with 0.25 m voxels; fixFine()
-// rescales it once the def exists (only matters for culling).
+// `lods: [2f, f]` so the mesher scales its second LOD by VOXEL·f (downsample(f) returns the model
+// itself, downsample(2f) an empty stand-in that is never drawn: lodDistances [-1e6] always pick
+// LOD 1, whose material has no 0.25 m edge-darkening grid). The engine still computes the bounding
+// box with 0.25 m voxels; fixFine() rescales it once the def exists (only matters for culling).
 //
 // All rasterizers below work in voxel units with float coordinates; a voxel (i,j,k) is filled
 // when its centre (i+.5, j+.5, k+.5) lies inside the shape.
@@ -34,10 +35,15 @@ export function defineFine(name, factor, builder, opts = {}) {
   FINE.set(name, factor)
   defineModel(name, () => {
     const m = builder()
-    m.downsample = function () { return this }
+    // LOD 0 (factor 2f) is an empty stand-in and is never drawn; LOD 1 is the model itself at
+    // its fine scale. Drawing through the engine's second LOD material keeps the 0.25 m voxel
+    // edge-darkening grid of LOD 0 off these 6 cm / 3 cm voxels (see engineRequests).
+    m.downsample = function (f) { return f === factor ? this : EMPTY() }
     return m
-  }, { lods: [factor], lodDistances: [], collide: false, contact: false, ...opts })
+  }, { lods: [factor * 2, factor], lodDistances: [-1e6], collide: false, contact: false, ...opts })
 }
+let _empty = null
+const EMPTY = () => (_empty ??= new VoxelModel(1, 1, 1))
 
 /** Rescale the engine's bounding box of a fine model (idempotent). Returns the def. */
 export function fixFine(name) {

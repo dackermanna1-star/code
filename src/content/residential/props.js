@@ -140,7 +140,8 @@ export function buildLiftCab() {
 export function buildLiftLeaf() {
   const T = MAT()
   const m = new VoxelModel(2, 8, 1)
-  m.fill(0, 0, 0, 2, 8, 1, T.metal_gray)
+  // matte grey paint (glossy metal threw a big bulb highlight across the closed doors)
+  m.fill(0, 0, 0, 2, 8, 1, T.panel_gray)
   m.setPivot(0, 0, 0)
   return m
 }

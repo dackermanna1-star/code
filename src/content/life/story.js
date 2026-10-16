@@ -128,7 +128,9 @@ function benchSpot(o, rng) {
   const a = b.angle ?? o.angle ?? 0
   // along the bench: local +X of a front-(sin a, cos a) model is (cos a, −sin a)
   const along = o.along ?? (rng % 2 ? 0.45 : -0.45)
-  return { x: seat.x + Math.cos(a) * along, z: seat.z - Math.sin(a) * along, y: seat.y + (o.benchSnow ?? 0.25), angle: a + ((rng % 7) - 3) * 0.08 }
+  // street benches: `street_bench_<type>_none` has a bare seat, every other variant 1 voxel of snow
+  const bare = /_none$/.test(b.placement?.name ?? '')
+  return { x: seat.x + Math.cos(a) * along, z: seat.z - Math.sin(a) * along, y: seat.y + (o.benchSnow ?? (bare ? 0 : 0.25)), angle: a + ((rng % 7) - 3) * 0.08 }
 }
 
 /**

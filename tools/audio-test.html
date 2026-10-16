@@ -21,7 +21,7 @@ import { registerSounds, SOUND_NAMES } from '/src/content/audio/sounds.js'
 import { bank } from '/src/content/audio/bank.js'
 import { RECIPES } from '/src/content/audio/registry.js'
 import { footstep } from '/src/content/audio/footsteps.js'
-import { buildPiece } from '/src/content/audio/music.js'
+import { buildPiece, prewarmMusic } from '/src/content/audio/music.js'
 import { SURF } from '/src/core/materials.js'
 
 const SR = 48000
@@ -149,7 +149,20 @@ async function renderMusic(seed, seconds = 90) {
   const p = buildPiece(off, g, seed, 0.05, { level: 0.6, duration: seconds - 1 })
   const buildMs = performance.now() - t0
   const buf = await off.startRendering()
-  return { ...analyze(buf), pieceDur: p.duration, buildMs: +buildMs.toFixed(1) }
+  // the in-game path: shared buffers pre-warmed in idle time, then a lazy build + the first pump
+  const probe = new OfflineAudioContext(2, 128, SR)
+  const tw = performance.now(); prewarmMusic(probe); const warmMs = performance.now() - tw
+  const runs = []
+  for (let k = 0; k < 9; k++) {
+    const tl = performance.now()
+    const lp = buildPiece(probe, probe.destination, seed + k, 0.2, { level: 0.6, duration: seconds - 1, lazy: true })
+    lp.pump(3.2)
+    runs.push(performance.now() - tl)
+    lp.dispose()
+  }
+  runs.sort((x, y) => x - y)
+  const lazyMs = runs[4] // median
+  return { ...analyze(buf), pieceDur: p.duration, buildMs: +buildMs.toFixed(1), warmMs: +warmMs.toFixed(1), lazyMs: +lazyMs.toFixed(1) }
 }
 
 /** Raw bank buffer checks: loop seam continuity for loops. */

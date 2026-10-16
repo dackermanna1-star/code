@@ -8,7 +8,7 @@
 //       'loop'  — like 'ent' but the stair well is walled up (the never-ending stairwell).
 
 import { VoxelModel } from '../../core/VoxelModel.js'
-import { RNG, hash2, hashString, valueNoise2 } from '../../core/rng.js'
+import { RNG, hash2, hashf, hashString, valueNoise2 } from '../../core/rng.js'
 import { sectionLayout, G, FH } from './series.js'
 import { MAT, Face, drawWindow, snowPass } from './vox.js'
 
@@ -29,6 +29,27 @@ export function perFloor(L, mode, k) {
   if (mode === 'loop' && L.N >= 9 && k >= 2) return ((k - 2) % 3) + 32
   return k
 }
+
+/**
+ * Half-landing bulbs of an explorable stairwell, shared by the model (which paints a faint glow
+ * around the working ones so the stair column reads lit from the courtyard at night) and the
+ * runtime (which hangs the real bulbs and lights). Per model: (series, floors, variant).
+ * → array indexed by floor k (1..N-1): null (no fixture) | 'ok' | 'buzz' | 'dying' | 'dead'.
+ */
+export function halfLandingPlan(seriesKey, floors, variant) {
+  const key = seriesKey + ':' + floors + ':' + variant
+  if (_halfPlans.has(key)) return _halfPlans.get(key)
+  const salt = (hashString(seriesKey) + floors * 131 + variant * 7919) | 0
+  const plan = [null]
+  for (let k = 1; k < floors; k++) {
+    if (hashf(k, salt, 77) >= 0.62) { plan.push(null); continue }
+    const h = hashf(k, salt, 41)
+    plan.push(h < 0.3 ? 'dead' : h < 0.42 ? 'buzz' : h < 0.5 ? 'dying' : 'ok')
+  }
+  _halfPlans.set(key, plan)
+  return plan
+}
+const _halfPlans = new Map()
 
 /** Painted lower-wall colour of a stairwell (by section variant). */
 export function stairPaintIndex(seed) { return seed % 3 }
@@ -70,8 +91,9 @@ export function buildSection(seriesKey, floors, variant, mode) {
     depthAt: (x, y, z, open) => {
       if (open) {
         if (y < L.R0) return 1 + (valueNoise2(x * 0.3, z * 0.3, sseed) > 0.55 ? 1 : 0)
-        const edge = Math.min(x, L.SX - 1 - x, z - L.F, L.F + L.D - 1 - z)
-        return 2 + (edge < 4 ? 1 : 0) + (valueNoise2(x * 0.12, z * 0.12, sseed + 1) > 0.62 ? 1 : 0)
+        // parapet flashing: a 0.25–0.5 m cornice, not a cap as thick as the parapet itself
+        if (y === L.RS + S.parapet - 1) return 1 + (valueNoise2(x * 0.21, z * 0.21, sseed + 3) > 0.45 ? 1 : 0)
+        return 2 + (valueNoise2(x * 0.12, z * 0.12, sseed + 1) > 0.62 ? 1 : 0)
       }
       return valueNoise2(x * 0.45 + y * 3.1, z * 0.45 + y * 1.7, sseed + 2) > 0.38 ? 1 : 0
     },
@@ -356,13 +378,16 @@ function transit(c, fc, b, k) {
     fc.set(u, y0 + 3, 0, T.metal_dark)
     if ((u - ui) % 2 === 0) fc.fill(u, y0, 0, 1, 3, 1, T.metal_dark)
   }
-  // ceiling glow + bulb, steel door to the smoke-proof stair at the back
-  fc.fill(ui, y0 + FH - 1, 1, wi, 1, LD - 1, T.res_stair_glow)
-  fc.set(ui + (wi >> 1), y0 + FH - 2, 3, T.lamp_bulb)
+  // ceiling glow + bulb (about a third of the bulbs are dead), steel door to the smoke-proof
+  // stair at the back
+  const lit = c.rng.chance(0.68)
+  const glow = lit ? T.res_stair_glow : T.whitewash
+  fc.fill(ui, y0 + FH - 1, 1, wi, 1, LD - 1, glow)
+  fc.set(ui + (wi >> 1), y0 + FH - 2, 3, lit ? T.lamp_bulb : T.metal_dark)
   fc.fill(ui + 1, y0, LD, 3, 8, 1, T.metal_gray)
-  fc.fill(ui + 1, y0 + 8, LD, wi - 2, 2, 1, T.res_stair_glow)
-  for (let w = 1; w < LD; w++) fc.fill(ui, y0 + 4, w, 1, 6, 1, T.res_stair_glow)
-  for (let w = 1; w < LD; w++) fc.fill(ui + wi - 1, y0 + 4, w, 1, 6, 1, T.res_stair_glow)
+  fc.fill(ui + 1, y0 + 8, LD, wi - 2, 2, 1, glow)
+  for (let w = 1; w < LD; w++) fc.fill(ui, y0 + 4, w, 1, 6, 1, glow)
+  for (let w = 1; w < LD; w++) fc.fill(ui + wi - 1, y0 + 4, w, 1, 6, 1, glow)
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -502,10 +527,10 @@ function roof(c) {
     fc.fill(0, L.R0, 0, fc.len, P, 2, parMat)
     fc.fill(0, RS + P - 1, -1, fc.len, 1, 3, T.metal_gray)
   }
-  // a cable draped over the front parapet
-  for (let i = 0; i < 2; i++) {
+  // a cable draped over the front parapet (short: at 0.25 m thick a long one reads as a drainpipe)
+  for (let i = 0, n = rng.chance(0.6) ? 1 : 0; i < n; i++) {
     const u = rng.int(4, L.SX - 4)
-    const len = rng.int(3, 12)
+    const len = rng.int(2, 5)
     c.front.fill(u, RS + P - 1 - len, -2, 1, len, 1, T.metal_dark)
     c.front.set(u, RS + P - 1, -2, T.metal_dark)
   }
@@ -717,6 +742,20 @@ function stairPaint(c) {
     const k = Math.floor((y - L.FL1 + 2) / FH) + 1
     return Math.max(0, Math.min(L.N + 1, k))
   }
+  // explorable stairwells: faint glow on the upper walls/ceiling of half-landings whose bulb works
+  const halfLit = new Uint8Array(L.N + 2)
+  if (mode === 'ent') {
+    const plan = halfLandingPlan(L.key, L.N, c.variant)
+    for (let k = 1; k < L.N; k++) if (plan[k] === 'ok' || plan[k] === 'buzz') halfLit[k] = 1
+  }
+  const halfGlow = (x, y, z) => {
+    const zp = z - L.ZI, xp = x - L.SX0
+    if (zp < -1 || zp > 5 || xp < -1 || xp > 12) return 0
+    const k = Math.floor((y - L.HL(1)) / FH) + 1
+    if (k < 1 || k >= L.N || !halfLit[k]) return 0
+    const dy = y - L.HL(k)
+    return dy >= 3 && dy <= FH - 2 ? (Math.abs(xp - 2) <= 2 && zp <= 4 && dy >= FH - 3 ? 2 : 1) : 0
+  }
   const out = []
   for (let y = L.G + 1; y < L.R0 + 1; y++)
     for (let z = z0; z < z1; z++)
@@ -731,6 +770,7 @@ function stairPaint(c) {
           if (mode !== 'plain' && ((x * 7 + z * 13 + y) % 23) === 0) mat = T.concrete
         } else if (isAir(x, y - 1, z)) {
           mat = mode === 'plain' && c.lit[band(y)] ? T.res_stair_glow : T.whitewash
+          if (mat === T.whitewash) { const g = halfGlow(x, y, z); if (g) mat = g === 2 ? T.res_stair_glow : T.res_stair_glow_lo }
         } else {
           let ax = -1, az = -1
           if (isAir(x + 1, y, z)) { ax = x + 1; az = z } else if (isAir(x - 1, y, z)) { ax = x - 1; az = z }
@@ -739,9 +779,11 @@ function stairPaint(c) {
           const h = y - floorBelow(ax, y, az)
           // plain stairwells are only seen through the windows: low dado so the lit walls show
           const dado = mode === 'plain' ? 2 : 6
+          // (no dark dividing stripe: at 0.25 m it read as a heavy black zigzag band, the real
+          // one is 1–2 cm; the paint/whitewash edge alone follows the stairs)
           if (h < dado) mat = paint
-          else if (h === dado) mat = T.plastic_dark
           else mat = mode === 'plain' && c.lit[band(y)] ? T.res_stair_glow : T.whitewash
+          if (mat === T.whitewash && halfGlow(x, y, z)) mat = T.res_stair_glow_lo
         }
         out.push(x, y, z, mat)
       }

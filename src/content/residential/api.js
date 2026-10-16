@@ -16,7 +16,7 @@ import { RNG, hash2 } from '../../core/rng.js'
 import { SERIES, sectionLayout, G } from './series.js'
 import { ensureSectionModel, sectionModelName, VARIANTS } from './models.js'
 import { PORCH } from './props.js'
-import { RT, tick, addEntranceDoor, setupStairwell, faceAngle } from './runtime.js'
+import { RT, tick, addEntranceDoor, setupStairwell, faceAngle, readable } from './runtime.js'
 import { drawEntrancePlate, drawHousePlate, drawGableNumber, drawIntercom, drawNotice, NOTICES } from './draw.js'
 
 export { SERIES, sectionLayout, sectionModelName, ensureSectionModel, VARIANTS, RT }
@@ -31,7 +31,7 @@ export function residentialSize(series, floors, sections = 1) {
   return {
     length: L.SX * VOXEL * sections,
     depth: L.D * VOXEL,
-    frontMargin: L.F * VOXEL + PORCH.D * VOXEL, // porch + balconies in front of the entrance facade
+    frontMargin: Math.max(L.F, PORCH.D) * VOXEL, // porch (2.5 m) / balconies sticking out in front of the entrance facade
     backMargin: L.B * VOXEL,
     height: L.heightM,
     sectionLength: L.SX * VOXEL,
@@ -52,7 +52,7 @@ function ensureRuntime(ctx) {
 /**
  * Place a residential building made of `sections` entrances.
  * opts: { series: 'p44'|'ii49'|'1515'|'p44t'|'k7'|'ii32', floors, sections, x, z, rot | angle, y?,
- *   seed, enterable: [sectionIdx], loopStairs: [sectionIdx], address: {street, house, korpus},
+ *   seed, enterable: [sectionIdx], address: {street, house, korpus},
  *   firstEntrance (1), firstApartment (1), tint (accent hex), variants: ['a','b',...],
  *   porch: false (skip porches), lampsBroken: 0..1 (share of dead entrance lamps, default 0.2),
  *   homeLight: [sectionIdx] (that stairwell's 1st-floor bulb always works) }
@@ -114,7 +114,7 @@ export function placeResidential(ctx, opts = {}) {
     const flats = [firstApartment + i * perEnt, firstApartment + (i + 1) * perEnt - 1]
     const p = world.place(name, { x: px, y, z: pz, angle, seed: secSeed, tint, tag: 'building', userData: { residential: true, series, floors, entrance: number, building: bId } })
     out.placements.push(p)
-    const sec = { p, L, number, flats, seed: secSeed, mode, address: addr, homeLight: homeLight.has(i) }
+    const sec = { p, L, number, flats, seed: secSeed, mode, address: addr, homeLight: homeLight.has(i), variant, variantIndex: Math.max(0, VARIANTS.indexOf(variant)) }
     out.sections.push(sec)
     // porch with canopy, entrance door, lamp
     const er = new RNG(hash2((seed * 1000) | 0, number * 131 + bId))
@@ -125,19 +125,24 @@ export function placeResidential(ctx, opts = {}) {
     const dv = p.voxelToWorld(L.door.x0, L.tambourY, L.F)
     const door = world.place('res_door_entrance', { x: dv.x, y: dv.y, z: dv.z, angle, dynamic: ent, tint: er.pick(DOOR_TINTS), tag: 'entrance', userData: { entrance: number, building: bId } })
     out.placements.push(door)
-    const lampV = p.voxelToWorld(L.door.x0 - 0.5, G + 10.5, L.F)
+    // bulb fixture above the middle of the door, under the canopy
+    const lampV = p.voxelToWorld(doorC, G + 10.5, L.F)
     const broken = er.next() < (opts.lampsBroken ?? 0.2)
     const lamp = world.place('res_lamp_entrance', { x: lampV.x, y: lampV.y, z: lampV.z, angle, flag: broken ? 0 : 1, tag: 'lamp' })
     out.placements.push(lamp)
     let light = null
     if (!broken) {
-      const lv = p.voxelToWorld(L.door.x0 - 0.5, G + 10.1, L.F - 1.8)
+      // the light point sits ~0.8 m out from the wall: right at the lamp it would burn the door,
+      // the plate and the canopy underside to white (att = 1/(d²+1))
+      const lv = p.voxelToWorld(doorC, G + 9.8, L.F - 3.2)
       const r = er.next()
-      light = lights.add({ x: lv.x, y: lv.y, z: lv.z, color: 0xffd29a, intensity: 7.5, range: 9.5, type: 'point', schedule: 'night', domain: 'outdoor',
-        flicker: r < 0.12 ? 'buzz' : r < 0.2 ? 'dying' : 'none', placement: lamp, halo: true, haloSize: 0.8, tag: 'entrance_lamp' })
+      light = lights.add({ x: lv.x, y: lv.y, z: lv.z, color: 0xffd29a, intensity: 4.4, range: 8.5, type: 'point', schedule: 'night', domain: 'outdoor',
+        flicker: r < 0.12 ? 'buzz' : r < 0.2 ? 'dying' : 'none', placement: lamp, halo: true, haloSize: 0.6, tag: 'entrance_lamp' })
     }
     // plate «Подъезд N · кв. a–b», intercom face
-    const pl = p.voxelToWorld(doorC, G + 10.5, L.F)
+    // plate on the wall beside the door (hinge side) at ~2.1 m: above the door it sat right
+    // next to the bulb and burnt out to white at night
+    const pl = p.voxelToWorld(L.door.x0 - 1.6, G + 8.5, L.F)
     const fa = faceAngle(p, 0, -1)
     signs.add({ x: pl.x, y: pl.y, z: pl.z, angle: fa, w: 0.5, h: 0.23, ppm: 160, draw: drawEntrancePlate(number, flats[0], flats[1]), aged: 0.25, seed: number })
     const ic = p.voxelToWorld(doorC + 3.5, G + 8, L.F - 1)
@@ -145,6 +150,7 @@ export function placeResidential(ctx, opts = {}) {
     if (S.chute === 'half') {
       const rf = p.voxelToWorld(L.SX0 - 2.5, G + 9.5, L.F)
       signs.add({ x: rf.x, y: rf.y, z: rf.z, angle: fa, w: 0.6, h: 0.2, ppm: 120, draw: drawNotice([NOTICES.refuse.ru], { paper: '#c8c4b4' }), aged: 0.6, seed: number + 3 })
+      readable(ctx, { x: rf.x, y: rf.y, z: rf.z, size: [0.7, 0.4, 0.7] }, NOTICES.refuse, 'sign')
     }
     const doorRec = addEntranceDoor(ctx, sec, door, { enterable: ent, number, flats })
     sec.door = doorRec
@@ -161,7 +167,7 @@ export function placeResidential(ctx, opts = {}) {
     reg.entrances.push(e)
     const far = p.voxelToWorld(doorC, G, L.F - PORCH.D - 16)
     navPaths.push({ points: [[doorPos.x, doorPos.z], [front.x, front.z], [far.x, far.z]], kind: 'entrance', y })
-    // stair window column (world positions) for anomaly directors
+    // stair window column (world positions): where the stairwell glows on the facade
     const wins = []
     for (let k = 1; k <= floors; k++) {
       const wv = p.voxelToWorld(L.SX0 + 6, L.HL(k) + 6.5, L.F + 1)
