@@ -241,8 +241,37 @@ export class Game {
     this.resize()
   }
 
+  /** Title-screen preview: the city renders behind the title (clock paused, no input, no audio). */
+  preview() {
+    if (this.running || this._previewing) return
+    this._previewing = true
+    this.atmos.paused = true
+    let last = performance.now()
+    const baseYaw = this.player.yaw
+    const loop = () => {
+      if (!this._previewing) return
+      requestAnimationFrame(loop)
+      const now = performance.now()
+      const dt = Math.min(0.1, (now - last) / 1000)
+      last = now
+      this.time += dt
+      this.uniforms.uTime.value = this.time
+      this.player.yaw = baseYaw + Math.sin(this.time * 0.05) * 0.06
+      this.renderer.info.reset()
+      this._updateWorld(dt)
+      this.post.uniforms.uExposure.value = this.atmos.exposure
+      this.post.render(dt, this.time)
+    }
+    requestAnimationFrame(loop)
+  }
+
   start() {
     if (this.running) return
+    if (this._previewing) {
+      this._previewing = false
+      this.atmos.paused = false
+      this.player.yaw = this.spawn.yaw ?? this.player.yaw
+    }
     this.running = true
     this.audio.init()
     this.audio.resume()

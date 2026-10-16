@@ -94,6 +94,8 @@ canvas#game {
   background: #050506; color: var(--ui-fg); transition: opacity 1.4s; gap: 18px; text-align: center; padding: 16px; box-sizing: border-box;
 }
 .boot.gone { opacity: 0; pointer-events: none; }
+.boot.ready .bar, .boot.ready .status { opacity: 0; transition: opacity 1s; }
+.boot.ready { background: radial-gradient(ellipse at center, rgba(5,5,6,0.25), rgba(5,5,6,0.78) 70%); }
 .boot .t1 { font-size: 13px; letter-spacing: .5em; color: #9a9a94; margin-right: -.5em; }
 .boot .t2 { font-size: 11px; letter-spacing: .3em; color: #5d5d58; margin-right: -.3em; }
 .boot .bar { width: 220px; height: 2px; background: #1a1a1b; overflow: hidden; }

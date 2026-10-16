@@ -69,6 +69,8 @@ async function main() {
     }
     requestAnimationFrame(wait)
   } else {
+    game.preview()
+    boot.el.classList.add('ready')
     boot.ready(() => game.start())
   }
 }
