@@ -26,10 +26,11 @@ export function ensureSectionModel(series, floors, variant = 'a', mode = 'plain'
   return name
 }
 
+// standard set ('loop' models of the optional endless stairwell are defined on demand)
 for (const S of Object.values(SERIES))
   for (const f of S.floors)
     for (const v of VARIANTS)
-      for (const mode of MODES) ensureSectionModel(S.key, f, v, mode)
+      for (const mode of ['plain', 'ent']) ensureSectionModel(S.key, f, v, mode)
 
 for (let v = 0; v < 3; v++) defineModel(`res_porch_${VARIANTS[v]}`, () => buildPorch(v), { lods: [1, 2], maxDistance: 260, occludesSnow: true })
 defineModel('res_door_entrance', buildEntranceDoor, { lods: [1], maxDistance: 160, dynamic: true, contact: false })

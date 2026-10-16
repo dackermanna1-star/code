@@ -227,7 +227,7 @@ snow at night.
 | `placePayphone(ctx, {x,z,angle,offhook})` | `street_payphone`, `_offhook`, `street_payphone_handset` | 1.0 × 2.25 × 0.75 | МГТС-like grey body under a blue hood, «ТАКСОФОН», keypad panel with «Экстренные службы 01, 02, 03 — бесплатно». **E: 'Снять трубку'** → `payphone_dial` dial tone → 'Набрать номер' → key beeps + `phone_unavailable` («Абонент недоступен…») → 'Повесить трубку'. Walking away hangs up. `offhook: true` = the handset hangs on its cord and sways slightly (nobody there) |
 | `placePaymentTerminal(ctx, {x,z,angle})` | `street_terminal` | 0.5 × 1.75 × 0.5 | «МОМЕНТ-ПЛАТЁЖ» (QIWI parody), lit tile screen, readable; faint blue light at night |
 | `placeVendingMachine(ctx, {x,z,angle,type:'coffee'|'snack',tint})` | `street_vending_coffee`, `street_vending_snack` | 0.75 / 1.0 × 1.75 × 0.75 | *tint*; lit panels; 'Купить кофе — 20 р.' (it swallows the coin / «НЕТ СТАКАНЧИКОВ») |
-| `placeMailbox(ctx, {x,z,angle,wall,y})` | `street_mailbox` (on a post), `street_mailbox_wall` (pivot back plane) | 0.75 × 2.0 × 0.5 / 0.75 × 1.0 × 0.5 | blue «ПОЧТА», collection times |
+| `placeMailbox(ctx, {x,z,angle,wall,y})` | `street_mailbox` (on a post), `street_mailbox_wall` (pivot back plane) | 0.5 × 1.75 × 0.5 (box 0.5 × 0.5 at 1.0–1.5 m) / 0.5 × 0.75 × 0.25 | blue «ПОЧТА» front with letter slot and collection times (readable) |
 | `placeHeatPipe(ctx, {points,type:'raised'|'low',seed,melt=true,steam=0.15})` | `street_heatpipe` (pipes 0.5–1.0 m up), `street_heatpipe_low` | 5.0 × 1.25 × 1.25 per segment, along X | two tin-clad pipes on concrete supports, torn insulation, **no snow on top**; `melt` paints a thawed strip (snow_dirty/earth, only over snow) under the line; steam markers at some joints |
 | `placeHeatPipeGate(ctx, {x,z,angle})` | `street_heatpipe_gate` | 5.0 × 4.75 × 1.25 | П-shaped loop over a path, 4 m clearance; ends meet raised segments at local ±2.5 m |
 | `placeManhole(ctx, {x,z,wet=true,steam})` → `{placement, steam}` | `street_manhole` (thawed wet ring), `street_manhole_plain` | 1.25 × 0.25 × 1.25 | set 0.2 m into the ground (top 5 cm proud). **`steam: true|0..1` pushes a steam marker** to `registry.steamVents` |
@@ -261,3 +261,134 @@ parody brands: МобиТел, Луч, МегаСвязь, ЕвроСвязь, �
   `type:'raised'` and a `placeHeatPipeGate` where a path crosses.
 - Steam: `registry.steamVents` is filled during build; consume it in `init`.
 - Signs/notice boards on walls: pass the wall surface point and `wall: true`.
+
+## Runtime behaviour (package `update()`)
+
+- **Swings**: each seat is 13 pre-built frames (−24°…+24° in 4° steps); the visible frame is chosen
+  from a wind-driven pendulum (period ≈ 3 s, amplitude from `atmos.windSpeed`, up to ~18° in a
+  storm) and offset by the residual so the seat moves smoothly. Animated within 140 m; the
+  `swing_creak` loop exists only within ~32 m.
+- **Carousel**: every 70–260 s it gets a small push from nobody and slowly runs down; the player
+  can push it. Creaks while turning.
+- **Traffic lights**: lens placements' `flag` driven per frame; the light's colour follows.
+- **Payphones**: dangling handsets sway; the receiver goes back when the player walks away.
+- **Benches**: on sitting, the view eases round to face out from the seat for ~1 s.
+- The dynamics run in the street package's `update()`; if a layout is loaded with `?only=` that
+  excludes `street`, the props are still placed but stay still (lenses dark).
+
+## Testing
+
+- Showcase scene: `node tools/shot.mjs --query "only=base,street&streettest=1&x=300&z=333&yaw=-1.45&t=21:00&weather=light"`
+  (road with trolleybus line, stop, payphone, terminal, vending, mailbox, traffic lights, signs,
+  billboard, ad column, two playgrounds, garbage areas, rakushka row, every fence type, heat main
+  with gate, lamps of every type, a test wall with a wall lamp, wall mailbox and notice board).
+  The scene lives in `src/content/street/showcase.js` and is only imported with `?streettest=1`.
+
+## Full model list (exact names; size W × H × D in metres = local X × Y × Z; pivot in voxels)
+
+| model | size (m) | voxels | pivot (voxels) |
+|---|---|---|---|
+| `street_lamp_cobra` | 0.50 x 10.25 x 3.00 | 2x41x12 | 0.5,0,0.5 |
+| `street_lamp_cobra_steel` | 0.50 x 11.25 x 3.00 | 2x45x12 | 0.5,0,0.5 |
+| `street_lamp_cobra_double` | 0.50 x 11.25 x 5.75 | 2x45x23 | 0.5,0,11.5 |
+| `street_lamp_courtyard_metal_sodium` | 0.50 x 7.25 x 2.00 | 2x29x8 | 0.5,0,0.5 |
+| `street_lamp_courtyard_metal_mercury` | 0.50 x 7.25 x 2.00 | 2x29x8 | 0.5,0,0.5 |
+| `street_lamp_courtyard_concrete_sodium` | 0.50 x 7.25 x 2.00 | 2x29x8 | 0.5,0,0.5 |
+| `street_lamp_courtyard_concrete_mercury` | 0.50 x 7.25 x 2.00 | 2x29x8 | 0.5,0,0.5 |
+| `street_lamp_park` | 0.75 x 5.00 x 0.75 | 3x20x3 | 1.5,0,1.5 |
+| `street_lamp_park_broken` | 0.75 x 5.00 x 0.75 | 3x20x3 | 1.5,0,1.5 |
+| `street_lamp_wall` | 0.75 x 0.75 x 0.75 | 3x3x3 | 1.5,0,0 |
+| `street_lamp_wall_cage` | 0.75 x 0.75 x 0.75 | 3x3x3 | 1.5,0,0 |
+| `street_bench_park` | 2.00 x 1.25 x 0.75 | 8x5x3 | 4,0,1.5 |
+| `street_bench_park_brushed` | 2.00 x 1.25 x 0.75 | 8x5x3 | 4,0,1.5 |
+| `street_bench_park_none` | 2.00 x 1.25 x 0.75 | 8x5x3 | 4,0,1.5 |
+| `street_bench_courtyard` | 2.00 x 1.25 x 0.75 | 8x5x3 | 4,0,1.5 |
+| `street_bench_courtyard_brushed` | 2.00 x 1.25 x 0.75 | 8x5x3 | 4,0,1.5 |
+| `street_bench_courtyard_none` | 2.00 x 1.25 x 0.75 | 8x5x3 | 4,0,1.5 |
+| `street_bench_entrance` | 1.75 x 1.25 x 0.50 | 7x5x2 | 3.5,0,1 |
+| `street_bench_entrance_brushed` | 1.75 x 1.25 x 0.50 | 7x5x2 | 3.5,0,1 |
+| `street_bench_entrance_none` | 1.75 x 1.25 x 0.50 | 7x5x2 | 3.5,0,1 |
+| `street_bench_stop` | 1.50 x 1.25 x 0.50 | 6x5x2 | 3,0,1 |
+| `street_bench_stop_brushed` | 1.50 x 1.25 x 0.50 | 6x5x2 | 3,0,1 |
+| `street_bench_stop_none` | 1.50 x 1.25 x 0.50 | 6x5x2 | 3,0,1 |
+| `street_mittens` | 0.50 x 0.25 x 0.25 | 2x1x1 | 1,0,0.5 |
+| `street_fence_po2` | 2.50 x 2.25 x 0.25 | 10x9x1 | 5,0,0.5 |
+| `street_fence_po2_chipped` | 2.50 x 2.25 x 0.25 | 10x9x1 | 5,0,0.5 |
+| `street_fence_lawn` | 2.00 x 0.75 x 0.25 | 8x3x1 | 4,0,0.5 |
+| `street_fence_bars` | 2.50 x 2.00 x 0.25 | 10x8x1 | 5,0,0.5 |
+| `street_fence_chainlink` | 2.50 x 1.75 x 0.25 | 10x7x1 | 5,0,0.5 |
+| `street_fence_chainlink_torn` | 2.50 x 1.75 x 0.25 | 10x7x1 | 5,0,0.5 |
+| `street_fence_construction` | 2.50 x 2.25 x 0.25 | 10x9x1 | 5,0,0.5 |
+| `street_pg_rocket` | 6.50 x 7.50 x 3.25 | 26x30x13 | 6.5,0,6.5 |
+| `street_pg_dome` | 3.25 x 2.00 x 3.25 | 13x8x13 | 6.5,0,6.5 |
+| `street_pg_swing_frame` | 2.25 x 2.75 x 2.25 | 9x11x9 | 4.5,0,4.5 |
+| `street_pg_swing_frame_double` | 3.75 x 2.75 x 2.25 | 15x11x9 | 7.5,0,4.5 |
+| `street_pg_swing_seat_0` | 0.75 x 2.50 x 2.25 | 3x10x9 | 1.5,0,4.5 |
+| `street_pg_swing_seat_1` | 0.75 x 2.50 x 2.25 | 3x10x9 | 1.5,0,4.5 |
+| `street_pg_swing_seat_2` | 0.75 x 2.50 x 2.25 | 3x10x9 | 1.5,0,4.5 |
+| `street_pg_swing_seat_3` | 0.75 x 2.50 x 2.25 | 3x10x9 | 1.5,0,4.5 |
+| `street_pg_swing_seat_4` | 0.75 x 2.50 x 2.25 | 3x10x9 | 1.5,0,4.5 |
+| `street_pg_swing_seat_5` | 0.75 x 2.50 x 2.25 | 3x10x9 | 1.5,0,4.5 |
+| `street_pg_swing_seat_6` | 0.75 x 2.50 x 2.25 | 3x10x9 | 1.5,0,4.5 |
+| `street_pg_swing_seat_7` | 0.75 x 2.50 x 2.25 | 3x10x9 | 1.5,0,4.5 |
+| `street_pg_swing_seat_8` | 0.75 x 2.50 x 2.25 | 3x10x9 | 1.5,0,4.5 |
+| `street_pg_swing_seat_9` | 0.75 x 2.50 x 2.25 | 3x10x9 | 1.5,0,4.5 |
+| `street_pg_swing_seat_10` | 0.75 x 2.50 x 2.25 | 3x10x9 | 1.5,0,4.5 |
+| `street_pg_swing_seat_11` | 0.75 x 2.50 x 2.25 | 3x10x9 | 1.5,0,4.5 |
+| `street_pg_swing_seat_12` | 0.75 x 2.50 x 2.25 | 3x10x9 | 1.5,0,4.5 |
+| `street_pg_carousel_base` | 0.75 x 0.25 x 0.75 | 3x1x3 | 1.5,0,1.5 |
+| `street_pg_carousel_disc` | 2.25 x 1.50 x 2.25 | 9x6x9 | 4.5,0,4.5 |
+| `street_pg_bars` | 3.25 x 2.75 x 0.25 | 13x11x1 | 6.5,0,0.5 |
+| `street_pg_ladder` | 1.75 x 2.50 x 0.25 | 7x10x1 | 3.5,0,0.5 |
+| `street_pg_monkeybars` | 3.25 x 2.75 x 1.25 | 13x11x5 | 6.5,0,2.5 |
+| `street_pg_seesaw` | 3.25 x 1.50 x 0.75 | 13x6x3 | 6.5,0,1.5 |
+| `street_pg_sandbox` | 2.25 x 0.75 x 2.25 | 9x3x9 | 4.5,0,4.5 |
+| `street_pg_sandbox_mushroom` | 2.25 x 3.25 x 2.25 | 9x13x9 | 4.5,0,4.5 |
+| `street_pg_house` | 2.00 x 2.75 x 2.00 | 8x11x8 | 4,0,4 |
+| `street_tyre_planter` | 0.75 x 0.50 x 0.75 | 3x2x3 | 1.5,0,1.5 |
+| `street_tyre_half` | 0.75 x 0.50 x 0.25 | 3x2x1 | 1.5,0,0.5 |
+| `street_tyre_swan` | 0.75 x 1.50 x 1.75 | 3x6x7 | 1.5,0,3.5 |
+| `street_carpet_rack` | 3.25 x 2.50 x 0.25 | 13x10x1 | 6.5,0,0.5 |
+| `street_carpet_draped` | 2.75 x 2.75 x 0.75 | 11x11x3 | 5.5,0,1.5 |
+| `street_container` | 1.25 x 1.75 x 1.25 | 5x7x5 | 2.5,0,2.5 |
+| `street_container_open` | 1.25 x 1.75 x 1.25 | 5x7x5 | 2.5,0,2.5 |
+| `street_garbage_enclosure_brick` | 6.50 x 2.00 x 2.00 | 26x8x8 | 13,0,4 |
+| `street_garbage_enclosure_metal` | 6.50 x 2.00 x 2.00 | 26x8x8 | 13,0,4 |
+| `street_trash_bag` | 0.50 x 0.75 x 0.50 | 2x3x2 | 1,0,1 |
+| `street_trash_box` | 0.75 x 0.75 x 0.50 | 3x3x2 | 1.5,0,1 |
+| `street_discarded_tree` | 2.25 x 1.00 x 1.25 | 9x4x5 | 4.5,0,2.5 |
+| `street_bin_concrete` | 0.75 x 1.00 x 0.75 | 3x4x3 | 1.5,0,1.5 |
+| `street_bin_metal` | 1.00 x 1.00 x 0.50 | 4x4x2 | 2,0,0.5 |
+| `street_chair_broken` | 0.50 x 1.00 x 0.50 | 2x4x2 | 1,0,1 |
+| `street_rakushka` | 2.75 x 2.50 x 5.00 | 11x10x20 | 5.5,0,10 |
+| `street_rakushka_1` | 2.75 x 2.50 x 5.00 | 11x10x20 | 5.5,0,10 |
+| `street_rakushka_2` | 2.75 x 2.50 x 5.00 | 11x10x20 | 5.5,0,10 |
+| `street_stop_pavilion` | 5.00 x 2.75 x 1.75 | 20x11x7 | 10,0,3.5 |
+| `street_stop_pavilion_dark` | 5.00 x 2.75 x 1.75 | 20x11x7 | 10,0,3.5 |
+| `street_stop_pole` | 0.75 x 3.00 x 0.75 | 3x12x3 | 1.5,0,1.5 |
+| `street_trolley_pole` | 0.25 x 9.25 x 0.75 | 1x37x3 | 0.5,0,1.5 |
+| `street_sign_pole` | 0.25 x 2.75 x 0.25 | 1x11x1 | 0.5,0,0.5 |
+| `street_traffic_light` | 0.25 x 4.00 x 0.75 | 1x16x3 | 0.5,0,0.5 |
+| `street_tl_red` | 0.25 x 0.25 x 0.25 | 1x1x1 | 0.5,0,0.5 |
+| `street_tl_yellow` | 0.25 x 0.25 x 0.25 | 1x1x1 | 0.5,0,0.5 |
+| `street_tl_green` | 0.25 x 0.25 x 0.25 | 1x1x1 | 0.5,0,0.5 |
+| `street_payphone` | 1.00 x 2.25 x 0.75 | 4x9x3 | 2,0,1.5 |
+| `street_payphone_offhook` | 1.00 x 2.25 x 0.75 | 4x9x3 | 2,0,1.5 |
+| `street_payphone_handset` | 0.25 x 0.25 x 0.25 | 1x1x1 | 0.5,0,0.5 |
+| `street_terminal` | 0.50 x 1.75 x 0.50 | 2x7x2 | 1,0,1 |
+| `street_vending_coffee` | 0.75 x 1.75 x 0.75 | 3x7x3 | 1.5,0,1.5 |
+| `street_vending_snack` | 1.00 x 1.75 x 0.75 | 4x7x3 | 2,0,1.5 |
+| `street_mailbox` | 0.50 x 1.75 x 0.50 | 2x7x2 | 1,0,1 |
+| `street_mailbox_wall` | 0.50 x 0.75 x 0.25 | 2x3x1 | 1,0,0 |
+| `street_heatpipe` | 5.00 x 1.25 x 1.25 | 20x5x5 | 10,0,2.5 |
+| `street_heatpipe_low` | 5.00 x 1.00 x 1.25 | 20x4x5 | 10,0,2.5 |
+| `street_heatpipe_gate` | 5.00 x 4.75 x 1.25 | 20x19x5 | 10,0,2.5 |
+| `street_manhole` | 1.25 x 0.25 x 1.25 | 5x1x5 | 2.5,0,2.5 |
+| `street_manhole_plain` | 1.25 x 0.25 x 1.25 | 5x1x5 | 2.5,0,2.5 |
+| `street_elec_cabinet` | 1.00 x 1.75 x 0.50 | 4x7x2 | 2,0,1 |
+| `street_bollard` | 0.25 x 0.75 x 0.25 | 1x3x1 | 0.5,0,0.5 |
+| `street_bollard_concrete` | 0.50 x 0.75 x 0.50 | 2x3x2 | 1,0,1 |
+| `street_billboard` | 6.00 x 9.00 x 1.75 | 24x36x7 | 12,0,3 |
+| `street_ad_column` | 1.25 x 3.00 x 1.25 | 5x12x5 | 2.5,0,2.5 |
+| `street_notice_board` | 1.75 x 2.25 x 0.50 | 7x9x2 | 3.5,0,1 |
+| `street_notice_board_wall` | 1.50 x 1.25 x 0.25 | 6x5x1 | 3,0,0 |

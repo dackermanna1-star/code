@@ -8,10 +8,40 @@
 // (the same convention as signs.add). Items are picked from texts.js deterministically by seed.
 
 import { TEXTS, ALL_TEXTS, getText, textsOf, pickText } from './texts.js'
-import { drawItem, drawNotice, drawPoster, drawGraffiti, drawPriceTag, drawPlate, defaultSize, defaultPpm, graffitiAspect, HAND_STACK } from './draw.js'
+import { drawItem, drawNotice, drawPoster, drawGraffiti, drawPriceTag, drawPlate, defaultSize, defaultPpm, graffitiAspect, usesHandFont, HAND_STACK, MARKER_STACK } from './draw.js'
+import { handFontsLoaded, handFontsReady } from './fonts.js'
+import { ageCanvas } from '../../render/Signs.js'
 
 export { TEXTS, ALL_TEXTS, getText, textsOf, pickText }
-export { drawItem, drawNotice, drawPoster, drawGraffiti, drawPriceTag, drawPlate, defaultSize, graffitiAspect, HAND_STACK }
+export { drawItem, drawNotice, drawPoster, drawGraffiti, drawPriceTag, drawPlate, defaultSize, graffitiAspect, HAND_STACK, MARKER_STACK }
+export { handFontsReady }
+
+// signs drawn with a fallback font because the bundled handwriting fonts had not loaded yet
+const pendingHand = []
+
+/**
+ * Redraw every placed text that was drawn before the handwriting fonts were ready.
+ * The phone package calls this from build() (after awaiting the fonts); signs are packed into
+ * the atlas only after every package has built, so the redraw lands in the final textures.
+ */
+export function redrawHandTexts() {
+  if (!handFontsLoaded()) return 0
+  let n = 0
+  for (const sign of pendingHand.splice(0)) {
+    try {
+      const c = sign.canvas
+      const g = c.getContext('2d')
+      if (g.reset) g.reset()
+      else { g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over' }
+      g.clearRect(0, 0, c.width, c.height)
+      g.imageSmoothingEnabled = false
+      sign.draw(g, c.width, c.height)
+      if (sign.aged) ageCanvas(g, c.width, c.height, sign.aged, sign.seed ?? 1)
+      n++
+    } catch (e) { console.error('[phone] redraw', e) }
+  }
+  return n
+}
 
 const PROMPT_READ = { ru: 'Читать', en: 'Read' }
 const PROMPT_LOOK = { ru: 'Рассмотреть', en: 'Look closer' }
@@ -102,6 +132,7 @@ export function addText(ctx, o) {
     seed: seedInt(seed) % 9973,
     indoor: o.indoor, emissive: o.emissive, schedule: o.schedule, double: o.double,
   })
+  if (!handFontsLoaded() && usesHandFont(item, look) && sign?.canvas) pendingHand.push(sign)
   let interaction = null
   if (o.readable !== false) {
     interaction = addReadable(ctx, {

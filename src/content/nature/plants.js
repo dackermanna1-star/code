@@ -20,76 +20,80 @@ function snowy(r, mats, seed, chance = 0.6, minHoriz = 0.4) {
   return useThinLods(r.model, f => (f <= 2 ? 2 : 6))
 }
 
-// ---- lilac (сирень): many upright grey stems, dry brown panicles at the tips --------------------
+// Bushes are built from fine 12.5 cm voxels (like weeds): at 25 cm a shrub of thin stems turns into
+// a dark heap. Fine-scale models do not collide (the player can push into a bush).
+const BFINE = 0.5
+
+function snowyFine(r, mats, seed, chance = 0.6, minHoriz = 0.4) {
+  branchSnow(r, { mats: new Set(mats), minHoriz, chance, shelter: 0.55, seed, minY: 3 })
+  return fineScale(r.model)
+}
+
+// ---- lilac (сирень): upright grey stems fanning out, dry brown panicles at the tips -------------
 function lilac(seed) {
   const rng = new RNG(seed)
   const sk = new Skeleton()
-  const n = rng.int(8, 14)
-  const H = rng.float(9, 13)
+  const n = rng.int(7, 11)
+  const H = rng.float(18, 26)
   const tips = []
   for (let i = 0; i < n; i++) {
-    const a = rng.float(0, TAU), d = rng.float(0, 2.2)
-    const base = [Math.cos(a) * d, -1, Math.sin(a) * d]
-    const lean = rng.float(0.05, 0.4)
+    const a = rng.float(0, TAU), d = rng.float(0.5, 5)
+    const base = [Math.cos(a) * d, -2, Math.sin(a) * d]
+    const lean = rng.float(0.08, 0.42)
     const L = H * rng.float(0.65, 1.05)
-    const thick = i < 3
-    const pts = sk.grow({
-      p: base, dir: fromVertical(lean, a + rng.float(-0.5, 0.5)), length: L, step: 2, r0: 0.4, r1: 0.4, gnarl: 0.08, trop: UP, tropK: 0.02, rng,
-      matFn: (t) => (thick && t < 0.45 ? MAT.branchSolid : MAT.branch), prio: thick ? PRIO.trunk : PRIO.branch, conn: 6,
-    })
-    // opposite side shoots near the top
-    for (let j = Math.floor(pts.length * 0.55); j < pts.length; j++) {
-      if (!rng.chance(0.4)) continue
+    const pts = sk.grow({ p: base, dir: fromVertical(lean, a + rng.float(-0.5, 0.5)), length: L, step: 3, r0: 0.4, r1: 0.4, gnarl: 0.07, trop: UP, tropK: 0.02, rng, mat: MAT.twigGrey, prio: PRIO.branch, conn: 6 })
+    // opposite side shoots in the upper half
+    for (let j = Math.floor(pts.length * 0.5); j < pts.length; j++) {
+      if (!rng.chance(0.45)) continue
       for (const s of [0, Math.PI]) {
-        const sp = sk.grow({ p: pts[j].p, dir: deviate(pts[j].dir, rng.float(0.45, 0.8), s + rng.float(0, 1)), length: rng.float(1.5, 3.5), step: 1.5, r0: 0.3, r1: 0.3, gnarl: 0.15, trop: UP, tropK: 0.06, rng, mat: MAT.twigGrey, prio: PRIO.twig })
+        if (rng.chance(0.3)) continue
+        const sp = sk.grow({ p: pts[j].p, dir: deviate(pts[j].dir, rng.float(0.45, 0.8), s + rng.float(0, 1)), length: rng.float(3, 7), step: 2, r0: 0.3, r1: 0.3, gnarl: 0.12, trop: UP, tropK: 0.06, rng, mat: MAT.twigGrey, prio: PRIO.twig })
         tips.push(sp[sp.length - 1].p)
       }
     }
     tips.push(pts[pts.length - 1].p)
   }
   for (const t of tips) {
-    if (!rng.chance(0.5)) continue
-    sk.blob(add(t, [0, 0.4, 0]), 0.75, 1.3, 0.75, MAT.seeds, PRIO.fruit, 0.8, hash2(seed, Math.floor(t[0] * 9 + t[2] * 5)))
+    if (!rng.chance(0.45)) continue
+    sk.blob(add(t, [0, 1, 0]), 1.1, 2.2, 1.1, MAT.seeds, PRIO.fruit, 0.7, hash2(seed, Math.floor(t[0] * 9 + t[2] * 5)))
   }
-  const r = rasterize(sk, { below: 1 })
-  return snowy(r, [MAT.seeds, MAT.branch, MAT.twigGrey], seed, 0.55)
+  return snowyFine(rasterize(sk, { below: 2 }), [MAT.seeds, MAT.twigGrey], seed, 0.5)
 }
 
 // ---- currant / generic low bush: arching stems fanning out -------------------------------------
 function currant(seed) {
   const rng = new RNG(seed)
   const sk = new Skeleton()
-  const n = rng.int(12, 20)
+  const n = rng.int(10, 15)
   for (let i = 0; i < n; i++) {
     const a = rng.float(0, TAU)
-    const base = [Math.cos(a) * rng.float(0, 1), -1, Math.sin(a) * rng.float(0, 1)]
-    const pts = sk.grow({ p: base, dir: fromVertical(rng.float(0.25, 0.8), a), length: rng.float(4, 7), step: 1.5, r0: 0.35, r1: 0.35, gnarl: 0.12, trop: DOWN, tropK: 0.09, rng, mat: i < 2 ? MAT.branchSolid : MAT.branch, prio: i < 2 ? PRIO.trunk : PRIO.branch })
-    for (let j = 2; j < pts.length; j++) if (rng.chance(0.35)) sk.grow({ p: pts[j].p, dir: deviate(pts[j].dir, 0.6, rng.float(0, TAU)), length: rng.float(1, 2.5), step: 1.2, r0: 0.3, r1: 0.3, gnarl: 0.2, rng, mat: MAT.twigGrey, prio: PRIO.twig })
+    const base = [Math.cos(a) * rng.float(0, 2.5), -2, Math.sin(a) * rng.float(0, 2.5)]
+    const pts = sk.grow({ p: base, dir: fromVertical(rng.float(0.25, 0.75), a), length: rng.float(8, 14), step: 2.5, r0: 0.35, r1: 0.35, gnarl: 0.1, trop: DOWN, tropK: 0.08, rng, mat: MAT.branch, prio: PRIO.branch, conn: 18 })
+    for (let j = 2; j < pts.length; j++) if (rng.chance(0.4)) sk.grow({ p: pts[j].p, dir: deviate(pts[j].dir, 0.6, rng.float(0, TAU)), length: rng.float(2, 4.5), step: 2, r0: 0.3, r1: 0.3, gnarl: 0.18, rng, mat: MAT.twigGrey, prio: PRIO.twig })
   }
-  return snowy(rasterize(sk, { below: 1 }), [MAT.branch, MAT.twigGrey], seed, 0.6)
+  return snowyFine(rasterize(sk, { below: 2 }), [MAT.branch, MAT.twigGrey], seed, 0.55)
 }
 
-// ---- snowberry (снежноягодник): dense fine twigs, white berries all winter ---------------------
+// ---- snowberry (снежноягодник): fine twigs, white berries all winter ----------------------------
 function snowberry(seed) {
   const rng = new RNG(seed)
   const sk = new Skeleton()
-  const n = rng.int(14, 22)
+  const n = rng.int(11, 16)
   const tips = []
   for (let i = 0; i < n; i++) {
     const a = rng.float(0, TAU)
-    const base = [Math.cos(a) * rng.float(0, 1.4), -1, Math.sin(a) * rng.float(0, 1.4)]
-    const pts = sk.grow({ p: base, dir: fromVertical(rng.float(0.1, 0.6), a), length: rng.float(4.5, 7.5), step: 1.5, r0: 0.3, r1: 0.3, gnarl: 0.15, trop: DOWN, tropK: 0.06, rng, mat: i < 2 ? MAT.branchSolid : MAT.twigGrey, prio: i < 2 ? PRIO.trunk : PRIO.twig })
+    const base = [Math.cos(a) * rng.float(0, 3), -2, Math.sin(a) * rng.float(0, 3)]
+    const pts = sk.grow({ p: base, dir: fromVertical(rng.float(0.1, 0.55), a), length: rng.float(9, 15), step: 2.5, r0: 0.3, r1: 0.3, gnarl: 0.13, trop: DOWN, tropK: 0.06, rng, mat: MAT.twigGrey, prio: PRIO.twig, conn: 18 })
     tips.push(pts[pts.length - 1].p)
-    for (let j = 2; j < pts.length; j++) if (rng.chance(0.3)) {
-      const sp = sk.grow({ p: pts[j].p, dir: deviate(pts[j].dir, 0.7, rng.float(0, TAU)), length: rng.float(1, 2.5), step: 1.2, r0: 0.3, r1: 0.3, gnarl: 0.2, rng, mat: MAT.twigGrey, prio: PRIO.twig })
+    for (let j = 2; j < pts.length; j++) if (rng.chance(0.35)) {
+      const sp = sk.grow({ p: pts[j].p, dir: deviate(pts[j].dir, 0.7, rng.float(0, TAU)), length: rng.float(2, 4.5), step: 2, r0: 0.3, r1: 0.3, gnarl: 0.2, rng, mat: MAT.twigGrey, prio: PRIO.twig })
       tips.push(sp[sp.length - 1].p)
     }
   }
-  for (const t of tips) if (rng.chance(0.35)) {
-    sk.point(add(t, [0, -1, 0]), MAT.berryWhite, PRIO.fruit)
-    if (rng.chance(0.5)) sk.point(add(t, [1, -1, 0]), MAT.berryWhite, PRIO.fruit)
+  for (const t of tips) if (rng.chance(0.45)) {
+    sk.blob(add(t, [0, -1, 0]), 0.8, 0.8, 0.8, MAT.berryWhite, PRIO.fruit, 0.9, hash2(seed, Math.floor(t[0] * 7 + t[2] * 3)))
   }
-  return snowy(rasterize(sk, { below: 1 }), [MAT.twigGrey], seed, 0.5)
+  return snowyFine(rasterize(sk, { below: 2 }), [MAT.twigGrey], seed, 0.45)
 }
 
 // ---- trimmed hedge (живая изгородь) — 2 m segments along local X, snow cap on the flat top -----
@@ -213,7 +217,7 @@ function reeds(seed, cattail) {
   return fineScale(rasterize(sk, { below: 2, pad: 1 }).model)
 }
 
-const BUSH = { lods: [1, 2], lodDistances: [32], maxDistance: 140 }
+const BUSH = { lods: [BFINE], lodDistances: [], maxDistance: 140, collide: false, contact: false }
 const WEED = { lods: [FINE], lodDistances: [], maxDistance: 75, contact: false, collide: false }
 
 ;[0, 1, 2].forEach(i => reg('lilac', `nature_lilac_${i}`, () => lilac(9100 + i * 13), BUSH))

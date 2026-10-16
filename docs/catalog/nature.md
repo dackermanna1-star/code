@@ -7,7 +7,7 @@ helpers in **`src/content/nature/api.js`**:
 ```js
 import {
   placeTree, scatterTrees, placeTreeRow, placeBush, placeHedge, placeWeeds, scatterWeeds,
-  placePond, snowBank, snowDrift, plowedPile, addSteam, steamPuff, addCrows, treesNear, dropClump,
+  placePond, snowBank, snowDrift, plowedPile, addSteam, steamPuff, addCrows, addBag, treesNear, dropClump,
 } from '../nature/api.js'
 ```
 
@@ -55,10 +55,12 @@ cull 320–400 m for big trees.
 | `nature_spruce_2` | spruce, `green` | 11.5 | 3.2 | courtyard spruce with a bare dry skirt (lower branches dead) |
 | `nature_spruce_4,5` | spruce, `blue` | 8 / 12 | 2.6–3.4 | blue spruce (by the school), more regular |
 | `nature_rowan_0..3` | rowan | 5–8 | 1.4–3.6 | slender, ascending; clusters of red berries (the only saturated red — use sparingly) |
-| `nature_sapling_0` | sapling | 2.2 | 0.6 | young tree tied to one wooden stake |
-| `nature_sapling_1` | sapling | 2.6 | 1.6 | young birch with stake |
-| `nature_sapling_2` | sapling | 3.0 | 0.9 | three stakes with crossbars (typical municipal planting) |
+| `nature_sapling_0` | sapling | 2.2 | 0.7 | young tree tied to one wooden stake |
+| `nature_sapling_1` | sapling | 2.6 | 1.7 | young birch with stake |
+| `nature_sapling_2` | sapling | 3.0 | 0.7 | three stakes with crossbars (typical municipal planting) |
 | `nature_sapling_3` | sapling | 3.4 | 0.6 | two slanted stakes, whitewashed stem |
+
+Saplings are built from fine 12.5 cm voxels (stem and stakes a few cm thick) and do not collide.
 
 Species names for the API: `birch`, `poplar`, `maple`, `linden`, `apple`, `spruce`, `rowan`,
 `sapling`. Kinds can be selected with `species: 'poplar:pollarded'`, `'poplar:natural'`,
@@ -106,14 +108,17 @@ placeTreeRow(ctx, { x0: 30, z0: 520, x1: 600, z1: 520, spacing: 8, species: { li
 
 ## 2. Bushes, hedges, weeds, reeds
 
-All plant voxels are non-solid except a few thick stems in bushes/hedges (so the player is held
-back by a bush but never climbs it). Weeds/reeds: no collision at all, cull 75–110 m.
+Bushes (lilac, currant, snowberry), weeds, reeds and cattails are built from **fine 12.5 cm
+voxels** (a stem is a few cm thick; at 25 cm voxels a shrub reads as a dark heap and a reed stand
+as a fence of posts) and **do not collide** — the player can push into a bush. Hedges use normal
+25 cm voxels and have solid stems inside: the player cannot walk through a hedge. Weeds/reeds cull
+at 75–110 m, bushes at 140 m.
 
 | model | size w×h×d m (bbox) | notes |
 |---|---|---|
-| `nature_lilac_0..2` | ≈4.5 × 3–3.5 × 4.5 | сирень: 8–14 upright grey stems, dry brown panicles, snow on tops |
-| `nature_currant_0..1` | ≈4 × 1.5–2 × 4.5 | low arching bush |
-| `nature_snowberry_0..1` | ≈3.5 × 1.8 × 4 | снежноягодник: fine twigs with white berries |
+| `nature_lilac_0..2` | ≈3 × 3–3.5 × 3.5 | сирень: 7–11 upright grey stems fanning out, dry brown panicles, snow on tops |
+| `nature_currant_0..1` | ≈3 × 1.3–1.8 × 3 | low arching bush |
+| `nature_snowberry_0..1` | ≈2.8 × 1.5–2 × 2.8 | снежноягодник: fine twigs with clusters of white berries |
 | `nature_hedge` | 2 m long (local X) × 1.0 m high × 0.75 m | clipped hedge segment, flat snow cap, solid stems inside |
 | `nature_hedge_low` | 2 × 0.75 × 0.75 | |
 | `nature_hedge_gap` | 2 × 1.0 × 0.75 | trampled dip in the middle |
@@ -268,7 +273,19 @@ Models (dynamic, non-colliding, fine-scale): `nature_crow_perch`, `nature_crow_c
 
 ---
 
-## 7. Falling snow clumps (automatic)
+## 7. Plastic bag in a tree — `addBag(ctx, o)`
+
+A white/pale plastic bag (пакет) snagged on a branch, fluttering in gusts and hanging limp in the
+lulls (two fine-voxel frames, `nature_bag_hang` / `nature_bag_blown`, tint = bag colour).
+`o: { tree (handle) | x, y, z, color, seed }` — with a tree it hangs from one of its branches 2.5–7 m
+up. Use one or two in the whole city (a birch by the garages, the park).
+```js
+addBag(ctx, { tree: placeTree(ctx, { x: 120, z: 160, species: 'birch' }) })
+```
+
+---
+
+## 8. Falling snow clumps (automatic)
 
 While the player is outdoors, every ~0.5–1.5 min a clump of snow (`nature_snow_clump`, dynamic)
 slides off a snowy branch of a package tree within ~22 m — preferably one the player is facing —
@@ -283,7 +300,7 @@ happens if audio is not ready or the sound is missing).
 
 ## Tags & registry
 - Placement tags: `tree`, `bush`, `hedge`, `weeds`, `reeds`, `snow` (chunks), `buried`, `sign`,
-  `crow`, `clump`.
+  `crow`, `clump`, `bag`.
 - `ctx.registry.trees` — tree handles (see `placeTree`), `ctx.registry.ponds`,
   `ctx.registry.steam`, `ctx.registry.crows`.
 

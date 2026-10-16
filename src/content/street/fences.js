@@ -59,7 +59,7 @@ defineModel('street_fence_bars', () => {
 }, fenceOpts)
 
 function buildChain(torn) {
-  const m = new VoxelModel(10, 7, 1)
+  const m = new VoxelModel(10, 8, 1)
   const net = M('street_galvanized'), post = M('metal_gray')
   m.fill(0, 0, 0, 1, 7, 1, post)
   m.fill(0, 6, 0, 10, 1, 1, post)
@@ -73,7 +73,7 @@ defineModel('street_fence_chainlink', () => buildChain(false), fenceOpts)
 defineModel('street_fence_chainlink_torn', () => buildChain(true), fenceOpts)
 
 defineModel('street_fence_construction', () => {
-  const m = new VoxelModel(10, 9, 1)
+  const m = new VoxelModel(10, 10, 1)
   for (let x = 0; x < 10; x++) m.fill(x, 0, 0, 1, 8, 1, x % 2 ? M('metal_green') : M('street_paint_green_dark'))
   m.fill(0, 0, 0, 1, 9, 1, M('metal_dark'))
   m.fill(0, 0, 0, 10, 1, 1, M('concrete_dark'))

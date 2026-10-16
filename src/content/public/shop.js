@@ -9,8 +9,8 @@ import { VoxelModel } from '../../core/VoxelModel.js'
 import { M } from '../../core/materials.js'
 import { RNG } from '../../core/rng.js'
 import {
-  V, Frame, frameFor, put, sign, readable, interact, light, zone, flatten, paint, navPath, reg, seed01, seedInt,
-  win, figureModel, lightBox, priceTag, handText, drawText, SIGN_FONT, PLAIN_FONT, HAND_FONT,
+  V, frameFor, put, sign, readable, interact, light, zone, flatten, paint, navPath, reg, seed01,
+  seedInt, win, figureModel, lightBox, priceTag, handText, drawText, SIGN_FONT, PLAIN_FONT,
 } from './lib.js'
 import { addEmitter, addDoor } from './runtime.js'
 
@@ -226,18 +226,20 @@ defineModel('pub_shop', () => {
       m.fill(xa, 3, za, xb - xa + 1, 2, zb - za + 1, M('wood'))
       return
     }
-    // display: goods on the cabinet top, glass front + glass top, open staff side
+    // display: a white front lip, a low glass guard on top, goods on trays clearly visible
     if (glassFace === 'z') {
-      for (const y of [3, 4, 5]) m.fill(xa, y, za, xb - xa + 1, 1, 1, M('glass_clear'))
+      m.fill(xa, 3, za, xb - xa + 1, 1, 1, M('plastic_white'))
+      m.fill(xa, 5, za, xb - xa + 1, 1, 1, M('glass_clear'))
       m.fill(xa, 5, zb, xb - xa + 1, 1, 1, M('wood'))
       m.fill(xa, 3, za + 1, xb - xa + 1, 1, zb - za, M('metal_gray'))
-      goodsRow(m, rng, 'x', xa, xb, 3, [za + 1, za + 2], goods, { gap: 0.15 })
+      goodsRow(m, rng, 'x', xa, xb, 4, [za + 1, za + 2], goods, { gap: 0.15 })
       for (let x = xa; x <= xb; x += 6) for (let y = 3; y <= 5; y++) m.set(x, y, za, M('metal_gray'))
     } else {
-      for (const y of [3, 4, 5]) m.fill(xa, y, za, 1, 1, zb - za + 1, M('glass_clear'))
+      m.fill(xa, 3, za, 1, 1, zb - za + 1, M('plastic_white'))
+      m.fill(xa, 5, za, 1, 1, zb - za + 1, M('glass_clear'))
       m.fill(xb, 5, za, 1, 1, zb - za + 1, M('wood'))
       m.fill(xa + 1, 3, za, xb - xa, 1, zb - za + 1, M('metal_gray'))
-      goodsRow(m, rng, 'z', za, zb, 3, [xa + 1, xa + 2], goods, { gap: 0.15, tall: 0.5 })
+      goodsRow(m, rng, 'z', za, zb, 4, [xa + 1, xa + 2], goods, { gap: 0.15 })
       for (let z = za; z <= zb; z += 6) for (let y = 3; y <= 5; y++) m.set(xa, y, z, M('metal_gray'))
     }
   }
@@ -246,12 +248,11 @@ defineModel('pub_shop', () => {
   counter(31, 45, 34, 37, 'z', DAIRY.concat(['pub_cheese']))
   counter(46, 49, 20, 37, 'x', ['glass_clear', 'metal_brown', 'needles', 'metal_red', 'metal_blue', 'plastic_white'])
   // cash desk: register (dark body, green display), electronic scales with red LED, money tray
-  m.fill(26, 5, 35, 3, 1, 2, M('plastic_dark'))
-  m.fill(26, 6, 36, 3, 1, 1, M('plastic_dark'))
-  m.set(27, 6, 35, M('pub_screen'))
-  m.fill(29, 5, 35, 2, 1, 2, M('plastic_white'))
-  m.set(30, 6, 35, M('taillight'))
-  m.set(25, 5, 34, M('plastic_white')) // tray «на тарелочку»
+  m.fill(29, 5, 35, 2, 1, 2, M('plastic_dark'))
+  m.fill(29, 6, 36, 2, 1, 1, M('plastic_dark'))
+  m.fill(25, 5, 35, 2, 1, 2, M('plastic_white'))
+  m.set(25, 6, 36, M('plastic_white'))
+  m.set(27, 5, 34, M('plastic_white')) // tray «на тарелочку»
   // goods on top of the glass: a jar of sweets, a calculator box
   m.set(22, 6, 35, M('glass_clear')); m.set(40, 6, 36, M('metal_yellow'))
 
@@ -467,9 +468,12 @@ export function placeShop(ctx, o) {
   readable(ctx, F, lx(45.6), 0.9, lz(28.5), [0.5, 1.0, 4.2], { ...PRICE_DEPTS.wine, style: 'ticket' }, { prompt: { ru: 'Смотреть ценники', en: 'Look at the price tags' } })
   readable(ctx, F, lx(28.5), 0.9, lz(20.6), [4.2, 1.2, 0.4], { ...PRICE_DEPTS.grocery, style: 'ticket' }, { prompt: { ru: 'Смотреть ценники', en: 'Look at the price tags' } })
   readable(ctx, F, lx(28.5), 0.9, lz(26.4), [4.2, 1.2, 0.4], { ...PRICE_DEPTS.grocery, style: 'ticket' }, { prompt: { ru: 'Смотреть ценники', en: 'Look at the price tags' } })
+  // tiny displays: scales (red LED digits, facing the customer) and the cash register (green VFD)
+  sign(ctx, F, lx(25.5), 1.61, lz(36), 0, -1, { w: 0.2, h: 0.07, ppm: 300, indoor: true, emissive: 1.4, draw: (c, W, H) => { c.fillStyle = '#140404'; c.fillRect(0, 0, W, H); drawText(c, W, H, { lines: ['0.485  139.8'], color: '#ff3a20', font: PLAIN_FONT, pad: 1 }) } })
+  sign(ctx, F, lx(30), 1.66, lz(36), 0, -1, { w: 0.24, h: 0.07, ppm: 300, indoor: true, emissive: 1.2, draw: (c, W, H) => { c.fillStyle = '#04100a'; c.fillRect(0, 0, W, H); drawText(c, W, H, { lines: ['ИТОГ  18.00'], color: '#40ffa0', font: PLAIN_FONT, pad: 1 }) } })
   // money tray note
-  sign(ctx, F, lx(25.5), 1.42, lz(34) - 0.01, 0, -1, { w: 0.3, h: 0.12, ppm: 250, indoor: true, draw: (c, W, H) => handText(c, W, H, { lines: ['Деньги кладите', 'на тарелочку'], bg: '#ece8da', color: '#223', seed: 5 }) })
-  readable(ctx, F, lx(25.6), 1.35, lz(33.8), [0.4, 0.3, 0.3], { ru: 'Деньги кладите на тарелочку', en: 'Please put the money on the tray', style: 'hand' })
+  sign(ctx, F, lx(27.5), 1.12, lz(34), 0, -1, { w: 0.3, h: 0.12, ppm: 250, indoor: true, draw: (c, W, H) => handText(c, W, H, { lines: ['Деньги кладите', 'на тарелочку'], bg: '#ece8da', color: '#223', seed: 5 }) })
+  readable(ctx, F, lx(27.5), 1.12, lz(33.8), [0.4, 0.3, 0.3], { ru: 'Деньги кладите на тарелочку', en: 'Please put the money on the tray', style: 'hand' })
 
   // the hand-written bread notice above the rack
   sign(ctx, F, lx(2), 2.55, lz(22.5), 1, 0, {
@@ -584,5 +588,3 @@ export function placeShop(ctx, o) {
 }
 
 export const SHOP_DIMS = { w: 14, d: 10, porch: 1.5, h: 4.25 }
-void Frame
-void HAND_FONT

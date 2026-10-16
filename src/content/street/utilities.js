@@ -18,7 +18,7 @@ const small = { lods: [1], maxDistance: 120 }
 
 // ---- payphone -----------------------------------------------------------------------------
 function buildPayphone(offhook) {
-  const m = new VoxelModel(4, 9, 3)
+  const m = new VoxelModel(4, 10, 3)
   const blue = M('street_plastic_blue'), grey = M('metal_gray')
   m.fill(1, 0, 0, 1, 4, 1, grey)
   m.fill(1, 4, 0, 2, 3, 2, grey)
@@ -93,8 +93,9 @@ export function placePayphone(ctx, opts) {
           st.stage = 1; st.timer = 0
         } else if (st.stage === 1) {
           st.emitter?.stop?.(0.02); st.emitter = null
-          for (let i = 0; i < 7; i++) setTimeout(() => play('phone_key', { gain: 0.3, bus: 'sfx' }), 140 + i * 210)
-          setTimeout(() => { if (st.stage === 2) st.emitter = play('phone_unavailable', { gain: 0.4, bus: 'sfx' }) }, 1900)
+          const call = st.call = (st.call ?? 0) + 1 // hanging up cancels the pending beeps
+          for (let i = 0; i < 7; i++) setTimeout(() => { if (st.stage === 2 && st.call === call) play('phone_key', { gain: 0.3, bus: 'sfx' }) }, 140 + i * 210)
+          setTimeout(() => { if (st.stage === 2 && st.call === call) st.emitter = play('phone_unavailable', { gain: 0.4, bus: 'sfx' }) }, 1900)
           game.ui?.say?.({ ru: '«Абонент недоступен или находится вне зоны действия сети».', en: '"The subscriber is unavailable or out of network coverage."' }, 5)
           st.stage = 2; st.timer = 0
         } else {
@@ -114,8 +115,9 @@ export function updatePayphones(ctx, dt, state, cam) {
   for (const st of state.payphones) {
     if (st.handset) {
       const sw = Math.sin(t * 1.9 + st.hx) * 0.025 + Math.sin(t * 0.7) * 0.012
-      const [dx, dz] = rotXZ(sw, 0, st.o.angle)
-      st.handset.set(st.hx + dx, st.hy, st.hz + dz, st.o.angle + sw * 3)
+      // local (sw, 0) rotated by the payphone angle (no per-frame allocation)
+      const a = st.o.angle
+      st.handset.set(st.hx + sw * Math.cos(a), st.hy, st.hz - sw * Math.sin(a), a + sw * 3)
     }
     if (st.stage !== 0) {
       st.timer += dt
@@ -128,13 +130,13 @@ export function updatePayphones(ctx, dt, state, cam) {
 
 // ---- payment terminal ---------------------------------------------------------------------
 defineModel('street_terminal', () => {
-  const m = new VoxelModel(2, 7, 2)
+  const m = new VoxelModel(2, 8, 2)
   const o = M('street_paint_orange'), g = M('metal_gray')
   m.fill(0, 0, 0, 2, 1, 2, M('metal_dark'))
   m.fill(0, 1, 0, 2, 3, 2, g)
   m.fill(0, 4, 0, 2, 3, 2, o)
   m.fill(0, 4, 1, 2, 2, 1, M('street_screen'))
-  m.set(1, 3, 1, M('street_signal_green')) // bill acceptor glow
+  m.set(1, 3, 1, M('street_led_green')) // bill acceptor glow
   m.set(0, 3, 1, M('metal_dark')) // receipt slot
   rustify(m, rngFor('terminal'), [g], 0.06)
   snowTop(m, { chance: 1, seed: 3 })
@@ -175,10 +177,10 @@ export function placePaymentTerminal(ctx, opts) {
 
 // ---- vending machines -----------------------------------------------------------------------
 defineModel('street_vending_coffee', () => {
-  const m = new VoxelModel(3, 7, 3)
+  const m = new VoxelModel(3, 8, 3)
   const body = M('paint')
   m.fill(0, 0, 0, 3, 7, 3, body)
-  m.fill(0, 3, 2, 3, 3, 1, M('street_lightbox'))
+  m.fill(0, 3, 2, 3, 3, 1, M('plastic_dark')) // behind the lit front panel (the sign glows)
   m.clear(1, 1, 2, 1, 1, 1)
   m.set(1, 1, 1, M('metal_dark'))
   m.set(2, 2, 2, M('metal_gray'))
@@ -188,11 +190,12 @@ defineModel('street_vending_coffee', () => {
 }, small)
 
 defineModel('street_vending_snack', () => {
-  const m = new VoxelModel(4, 7, 3)
+  const m = new VoxelModel(4, 8, 3)
   const body = M('paint')
   m.fill(0, 0, 0, 4, 7, 3, body)
   m.fill(0, 2, 2, 3, 4, 1, M('glass_clear'))
-  const goods = [M('metal_red'), M('metal_yellow'), M('metal_blue'), M('plastic_white'), M('street_paint_orange'), M('metal_green')]
+  // spiral rows of faded wrappers behind the glass, some spirals already empty
+  const goods = [M('brick_red'), M('plaster_yellow'), M('tile_blue'), M('plastic_white'), M('wood'), M('tile_teal'), M('metal_dark'), M('metal_dark')]
   const rng = rngFor('snack')
   for (let y = 2; y < 6; y++) for (let x = 0; x < 3; x++) m.set(x, y, 1, rng.pick(goods))
   m.fill(3, 3, 2, 1, 2, 1, M('metal_gray'))
@@ -223,7 +226,7 @@ export function placeVendingMachine(ctx, opts) {
   const angle = opts.angle ?? 0
   const type = opts.type === 'snack' ? 'snack' : 'coffee'
   const r = new RNG(seedInt(opts.seed, 9))
-  const tint = opts.tint ?? (type === 'coffee' ? r.pick([0x5a2a22, 0x3a3a3e, 0x6a5a48]) : r.pick([0x2a4a7a, 0x8a2a24, 0x3a3a3e]))
+  const tint = opts.tint ?? (type === 'coffee' ? r.pick([0x5a2a22, 0x3a3a3e, 0x6a5a48]) : r.pick([0x34465e, 0x6e3330, 0x3a3a3e]))
   const p = put(ctx, `street_vending_${type}`, { x: opts.x, z: opts.z, y: opts.y, angle, tint, tag: 'vending' })
   const y = p ? p.y : groundY(ctx, opts.x, opts.z)
   const o = { x: opts.x, z: opts.z, y, angle }
@@ -254,7 +257,7 @@ export function placeVendingMachine(ctx, opts) {
 
 // ---- mailbox --------------------------------------------------------------------------------
 defineModel('street_mailbox', () => {
-  const m = new VoxelModel(2, 7, 2)
+  const m = new VoxelModel(2, 8, 2)
   const b = M('street_mail_blue')
   m.fill(0, 0, 0, 1, 6, 1, M('street_galvanized'))
   m.fill(0, 4, 1, 2, 2, 1, b)
@@ -412,7 +415,7 @@ export function placeManhole(ctx, opts) {
 
 // ---- electrical cabinet ------------------------------------------------------------------------
 defineModel('street_elec_cabinet', () => {
-  const m = new VoxelModel(4, 7, 2)
+  const m = new VoxelModel(4, 8, 2)
   const g = M('metal_gray')
   m.fill(0, 0, 0, 4, 1, 2, M('concrete_dark'))
   m.fill(0, 1, 0, 4, 5, 2, g)
@@ -455,7 +458,7 @@ export function placeElectricalCabinet(ctx, opts) {
 
 // ---- bollards ------------------------------------------------------------------------------------
 defineModel('street_bollard', () => {
-  const m = new VoxelModel(1, 3, 1)
+  const m = new VoxelModel(1, 4, 1)
   m.set(0, 0, 0, M('street_paint_black')); m.set(0, 1, 0, M('street_paint_white')); m.set(0, 2, 0, M('street_paint_black'))
   snowTop(m, { chance: 1, seed: 1 })
   return m
@@ -528,7 +531,7 @@ export function placeBillboard(ctx, opts) {
 
 // ---- advertising column (афишная тумба) ---------------------------------------------------------
 defineModel('street_ad_column', () => {
-  const m = new VoxelModel(5, 12, 5)
+  const m = new VoxelModel(5, 13, 5)
   const corners = (x, z) => (x === 0 || x === 4) && (z === 0 || z === 4)
   for (let z = 0; z < 5; z++) for (let x = 0; x < 5; x++) {
     m.set(x, 0, z, M('concrete_dark'))
@@ -548,20 +551,24 @@ export function placeAdColumn(ctx, opts) {
   const rng = new RNG(seed)
   const p = put(ctx, 'street_ad_column', { x: opts.x, z: opts.z, y: opts.y, angle, tag: 'billboard', seed })
   const y = p ? p.y : groundY(ctx, opts.x, opts.z)
-  const pool = ['disco', 'vetrov', 'family', 'newyear', 'credit', 'flats', 'evrosvyaz']
+  const pool = ['disco', 'vetrov', 'family', 'newyear', 'election', 'credit', 'flats', 'evrosvyaz']
   for (let k = 0; k < 4 && ctx.signs; k++) {
     const a = angle + k * Math.PI / 2
     const [dx, dz] = rotXZ(0, 0.637, a)
     const id = pool[(rng.int(0, 99) + k) % pool.length]
     const item = POSTERS.find(q => q.id === id)
-    ctx.signs.add({ x: opts.x + dx, y: y + 1.35, z: opts.z + dz, angle: a, w: 0.7, h: 1.05, ppm: 110, draw: drawPoster({ ...item, ru: item.ru }, seed + k), aged: 0.35 + rng.next() * 0.4, seed: seed + k })
+    ctx.signs.add({ x: opts.x + dx, y: y + 1.35, z: opts.z + dz, angle: a, w: 0.7, h: 1.05, ppm: 110, draw: drawPoster(item, seed + k), aged: 0.35 + rng.next() * 0.4, seed: seed + k })
+    if (ctx.interactions) {
+      const [ix, iz] = rotXZ(0, 0.75, a)
+      ctx.interactions.add({ x: opts.x + ix, y: y + 1.35, z: opts.z + iz, size: [0.5, 1.0, 0.5], reach: 2, tag: 'readable', prompt: { ru: 'Смотреть афишу', en: 'Look at the poster' }, onUse(game) { game.ui.showNote({ ru: item.ru, en: item.en, style: 'sign' }) } })
+    }
   }
   return p
 }
 
 // ---- notice boards -------------------------------------------------------------------------------
 defineModel('street_notice_board', () => {
-  const m = new VoxelModel(7, 9, 2)
+  const m = new VoxelModel(7, 10, 2)
   m.fill(0, 0, 0, 1, 8, 1, M('metal_dark')); m.fill(6, 0, 0, 1, 8, 1, M('metal_dark'))
   m.fill(1, 3, 0, 5, 5, 1, M('wood'))
   m.fill(0, 8, 0, 7, 1, 2, M('metal_green'))
@@ -570,7 +577,7 @@ defineModel('street_notice_board', () => {
   return m
 }, small)
 defineModel('street_notice_board_wall', () => {
-  const m = new VoxelModel(6, 5, 1)
+  const m = new VoxelModel(6, 6, 1)
   m.fill(0, 0, 0, 6, 5, 1, M('metal_dark'))
   m.fill(1, 1, 0, 4, 3, 1, M('wood'))
   snowTop(m, { chance: 1, seed: 12 })

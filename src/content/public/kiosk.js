@@ -38,7 +38,7 @@ function buildKiosk(type) {
   m.fill(0, 1, Z - 1, X, 10, 1, body)
   // front: lower panel, glass band, frame posts
   m.fill(0, 1, 1, X, 3, 1, body)
-  m.fill(1, 4, 1, X - 2, 6, 1, M('glass_clear'))
+  m.fill(1, 4, 1, X - 2, 6, 1, M('pub_glass_warm'))
   for (const x of [0, 4, 7, X - 1]) m.fill(x, 4, 1, 1, 6, 1, frame)
   m.fill(0, 10, 1, X, 1, 1, frame)
   m.fill(0, 3, 1, X, 1, 1, frame)
@@ -53,7 +53,7 @@ function buildKiosk(type) {
   m.fill(0, 13, 0, X, 1, Z, M('metal_gray'))
   m.fill(0, 11, 2, X, 2, Z - 2, body)
   // side window on the right flank (most kiosks have one)
-  m.fill(X - 1, 5, 3, 1, 4, 3, M('glass_clear'))
+  m.fill(X - 1, 5, 3, 1, 4, 3, M('pub_glass_warm'))
   // fluorescent tube on the ceiling
   m.fill(2, 9, 5, 8, 1, 1, M('plastic_white'))
   m.fill(3, 9, 5, 6, 1, 1, M('fluorescent'))
@@ -70,10 +70,14 @@ function buildKiosk(type) {
   for (const y of [3, 5, 7]) goods(m, rng, 1, X - 2, y, y, 9, pal, 0.15)
   for (const y of [3, 5, 7]) goods(m, rng, 1, X - 2, y, y, 8, pal, 0.35)
   if (type !== 'flowers' && type !== 'shawarma' && type !== 'closed') {
-    // goods packed behind the glass on stepped shelves
+    // goods packed behind the glass on stepped shelves, many pressed right into the window
     m.fill(1, 3, 2, X - 2, 1, 2, M('wood'))
     goods(m, rng, 1, 4, 4, 8, 2, pal, 0.25)
     goods(m, rng, 7, X - 2, 4, 8, 2, pal, 0.25)
+    for (let y = 4; y <= 8; y++) for (let x = 1; x <= X - 2; x++) {
+      if (m.get(x, y, 1) !== M('pub_glass_warm')) continue
+      if (rng.chance(y <= 6 ? 0.55 : 0.35)) m.set(x, y, 1, M(rng.pick(pal)))
+    }
   }
   // vendor (seated, fur hat, dark coat) behind the hatch, and a small heater
   if (type !== 'closed') {
@@ -120,8 +124,9 @@ function buildKiosk(type) {
     for (let y = 3; y <= 10; y++) m.fill(0, y, 0, X, 1, 1, M(y % 2 ? 'metal_gray' : 'concrete_light'))
     m.fill(0, 10, 0, X, 1, 1, M('metal_dark'))
     m.set(6, 3, 0, M('chrome'))
-    // dark inside: the tube is dead
+    // dark inside: the tube is dead, the glass behind the shutter is plain dark glass
     m.replace(M('fluorescent'), M('plastic_white'))
+    m.replace(M('pub_glass_warm'), M('pub_glass_dark'))
   }
   m.addSnow({ mat: M('snow'), depth: 1, seed: 3 })
   return m
@@ -180,7 +185,8 @@ export function placeKiosk(ctx, o) {
   let L = null
   if (lit) {
     const warm = type === 'flowers' || type === 'shawarma'
-    L = light(ctx, F, 0, 2.15, lz(4.5), { color: warm ? 0xffd29a : 0xeef0dc, intensity: warm ? 2.6 : 2.2, range: 6.5, haloSize: 0.5, tag: 'kiosk_light' })
+    // the lamp under the sign box lights the window display, the hatch and the snow in front
+    L = light(ctx, F, 0, 2.55, lz(-0.4), { color: warm ? 0xffd29a : 0xeef0dc, intensity: warm ? 2.6 : 2.3, range: 7, haloSize: 0.45, tag: 'kiosk_light' })
     // LED ticker / promo strip behind the glass
     if (type === 'tabak' || type === 'produkty') {
       sign(ctx, F, 0, 9.5 * V, lz(2) - 0.01, 0, -1, {
@@ -222,7 +228,7 @@ export function placeKiosk(ctx, o) {
     addEmitter({ name: type === 'shawarma' ? 'ventilation' : 'radio_distant', pos: F.p(0, 1.6, lz(5)), gain: type === 'shawarma' ? 0.15 : 0.1, radius: 14, refDistance: 1, cutoff: 2500 })
     if (type === 'shawarma') {
       const [sx, sy, sz] = F.p(lx(9.5), 14 * V, lz(8.5))
-      RT.pendingSteam.push({ x: sx, y: sy, z: sz, rate: 0.5, size: 0.5 })
+      RT.pendingSteam.push({ x: sx, y: sy, z: sz, kind: 'vent', rate: 2.5, size: 0.4, tag: 'shawarma_vent' })
     }
   } else {
     // closed: a sheet of paper taped to the shutter

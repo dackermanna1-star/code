@@ -52,7 +52,7 @@ defineModel('street_stop_pavilion_dark', () => buildPavilion(false), { lods: [1,
 
 // ---- poles ----------------------------------------------------------------------------------
 defineModel('street_stop_pole', () => {
-  const m = new VoxelModel(3, 12, 3)
+  const m = new VoxelModel(3, 13, 3)
   m.fill(1, 0, 1, 1, 12, 1, M('street_galvanized'))
   m.fill(0, 4, 2, 3, 3, 1, M('metal_gray')) // timetable box
   m.set(1, 0, 1, M('concrete_dark'))
@@ -61,7 +61,7 @@ defineModel('street_stop_pole', () => {
 }, { lods: [1], maxDistance: 140 })
 
 defineModel('street_trolley_pole', () => {
-  const m = new VoxelModel(1, 37, 3)
+  const m = new VoxelModel(1, 38, 3)
   m.fill(0, 0, 1, 1, 36, 1, M('street_galvanized'))
   m.set(0, 0, 1, M('metal_dark'))
   m.set(0, 29, 2, M('metal_dark')) // span-wire eye
@@ -69,12 +69,13 @@ defineModel('street_trolley_pole', () => {
   m.set(0, 36, 1, M('metal_dark')) // cap
   m.set(0, 6, 1, M('street_paint_white')) // stencilled pole number band
   rustify(m, rngFor('trolleypole'), [M('street_galvanized')], 0.05)
+  snowTop(m, { chance: 1, seed: 6 })
   m.setPivot(0.5, 0, 1.5)
   return m
 }, { lods: [1], maxDistance: 400 })
 
 defineModel('street_sign_pole', () => {
-  const m = new VoxelModel(1, 11, 1)
+  const m = new VoxelModel(1, 12, 1)
   m.fill(0, 0, 0, 1, 11, 1, M('street_galvanized'))
   m.set(0, 10, 0, M('metal_dark'))
   m.set(0, 0, 0, M('concrete_dark'))
@@ -84,7 +85,7 @@ defineModel('street_sign_pole', () => {
 
 // ---- traffic light ------------------------------------------------------------------------
 defineModel('street_traffic_light', () => {
-  const m = new VoxelModel(1, 16, 3)
+  const m = new VoxelModel(1, 17, 3)
   m.fill(0, 0, 0, 1, 15, 1, M('street_galvanized'))
   m.fill(0, 11, 1, 1, 5, 1, M('street_paint_black'))
   m.set(0, 15, 2, M('street_paint_black')); m.set(0, 11, 2, M('street_paint_black'))
@@ -242,7 +243,8 @@ export function placeBusStop(ctx, opts) {
     }
     if (ctx.signs) {
       // fascia: ОСТАНОВКА + name
-      signLocal(ctx, o, 0, 2.25, 0.885, { w: 2.6, h: 0.42, ppm: 100, draw: drawStopPlate(name), aged: 0.25, seed: seed + 1 })
+      // (backlit by the same tube when the pavilion is lit, so the stop name reads at night)
+      signLocal(ctx, o, 0, 2.25, 0.885, { w: 2.6, h: 0.42, ppm: 100, draw: drawStopPlate(name), aged: 0.25, seed: seed + 1, emissive: lit ? 0.42 : 0, schedule: 'street' })
       // light box posters, both faces
       const ad = opts.ad ?? posterBySeed(seed)
       const adBack = posterBySeed(seed + 7)

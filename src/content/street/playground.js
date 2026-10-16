@@ -21,7 +21,7 @@ export const RACK_TINTS = [0x55705c, 0x5e7180, 0x7b6a4a, 0x6b6e6a, 0x7d4f42]
 
 // ---- rocket slide (ракета) ------------------------------------------------------------
 function buildRocket() {
-  const m = new VoxelModel(26, 30, 13)
+  const m = new VoxelModel(26, 31, 13)
   const cx = 6.5, cz = 6.5, R = 3.5
   const rod = M('metal_blue'), ring = M('metal_yellow'), fin = M('metal_red')
   const inRing = (x, z, r0, r1) => { const d = Math.hypot(x + 0.5 - cx, z + 0.5 - cz); return d >= r0 && d < r1 }
@@ -82,7 +82,7 @@ defineModel('street_pg_rocket', buildRocket, { lods: [1, 2], lodDistances: [60],
 
 // ---- climbing dome «паутинка» ---------------------------------------------------------
 function buildDome() {
-  const m = new VoxelModel(13, 8, 13)
+  const m = new VoxelModel(13, 9, 13)
   const rx = 6, ry = 7.2, c = 6.5
   const paints = PAINTS()
   const step = Math.PI / 4
@@ -172,7 +172,7 @@ export function placeSwing(ctx, opts) {
     const sx = opts.x + dx, sz = opts.z + dz
     const frames = []
     for (let i = 0; i < SWING_FRAMES; i++) frames.push(put(ctx, `street_pg_swing_seat_${i}`, { x: sx, z: sz, y, angle, seed, collide: false, visible: i === (SWING_FRAMES - 1) / 2, tag: 'swing' }))
-    const sw = { x: sx, y, z: sz, angle, frames, cur: (SWING_FRAMES - 1) / 2, phase: rng.float(0, 6.28), period: rng.float(2.8, 3.3), amp: 0, still: !!opts.still, emitter: null, bias: rng.float(0.6, 1.4) }
+    const sw = { x: sx, y, z: sz, angle, sa: Math.sin(angle), ca: Math.cos(angle), frames, cur: (SWING_FRAMES - 1) / 2, phase: rng.float(0, 6.28), period: rng.float(2.8, 3.3), amp: 0, still: !!opts.still, emitter: null, bias: rng.float(0.6, 1.4) }
     state.swings.push(sw)
     out.push(sw)
   }
@@ -199,8 +199,8 @@ export function updateSwings(ctx, dt, state, cam) {
     if (p) {
       const fz = (SWING_R * Math.sin((i - (SWING_FRAMES - 1) / 2) * SWING_STEP))
       const rz = (SWING_R * Math.sin(th) - fz) * 0.25
-      const [ox, oz] = rotXZ(0, rz, sw.angle)
-      p.set(sw.x + ox, sw.y, sw.z + oz, sw.angle)
+      // local (0, rz) rotated by the swing angle (no per-frame allocation)
+      p.set(sw.x + rz * sw.sa, sw.y, sw.z + rz * sw.ca, sw.angle)
     }
     // creak loop near the player, louder with the swing amplitude
     if (audio?.ready && audio.has?.('swing_creak')) {
@@ -221,7 +221,7 @@ defineModel('street_pg_carousel_base', () => {
 }, { lods: [1], maxDistance: 120 })
 
 defineModel('street_pg_carousel_disc', () => {
-  const m = new VoxelModel(9, 6, 9)
+  const m = new VoxelModel(9, 7, 9)
   const c = 4.5
   const paints = [M('metal_red'), M('metal_yellow'), M('metal_blue'), M('metal_green')]
   for (let z = 0; z < 9; z++)
@@ -310,7 +310,7 @@ defineModel('street_pg_bars', () => {
 }, pgOpts)
 
 defineModel('street_pg_ladder', () => {
-  const m = new VoxelModel(7, 10, 1)
+  const m = new VoxelModel(7, 11, 1)
   const p = M('metal_green')
   m.fill(0, 0, 0, 1, 10, 1, p); m.fill(6, 0, 0, 1, 10, 1, p)
   for (let y = 1; y < 10; y += 2) m.fill(1, y, 0, 5, 1, 1, y % 4 === 1 ? M('metal_yellow') : M('street_galvanized'))
@@ -381,7 +381,7 @@ defineModel('street_pg_sandbox_mushroom', () => buildSandbox(true), pgOpts)
 
 // ---- wooden play-house --------------------------------------------------------------------
 defineModel('street_pg_house', () => {
-  const m = new VoxelModel(8, 11, 8)
+  const m = new VoxelModel(8, 12, 8)
   const w = M('wood'), wd = M('wood_dark')
   for (let y = 0; y < 6; y++) {
     const mat = y % 2 ? wd : w
@@ -405,19 +405,21 @@ defineModel('street_pg_house', () => {
 
 // ---- tyres ----------------------------------------------------------------------------------
 defineModel('street_tyre_planter', () => {
-  const m = new VoxelModel(3, 2, 3)
+  const m = new VoxelModel(3, 3, 3)
   const p = M('paint_matte')
   for (let z = 0; z < 3; z++) for (let x = 0; x < 3; x++) if (x !== 1 || z !== 1) m.set(x, 0, z, p)
   m.set(1, 0, 1, M('earth'))
   for (const [x, z] of [[0, 0], [2, 0], [0, 2], [2, 2]]) m.set(x, 1, z, p)
   m.set(1, 1, 1, M('snow'))
+  snowTop(m, { chance: 0.6, seed: 43 })
   return m
 }, { lods: [1], maxDistance: 90 })
 
 defineModel('street_tyre_half', () => {
-  const m = new VoxelModel(3, 2, 1)
+  const m = new VoxelModel(3, 3, 1)
   const p = M('paint_matte')
   m.set(0, 0, 0, p); m.set(0, 1, 0, p); m.set(1, 1, 0, p); m.set(2, 1, 0, p); m.set(2, 0, 0, p)
+  snowTop(m, { chance: 0.7, seed: 44 })
   return m
 }, { lods: [1], maxDistance: 90 })
 
@@ -531,7 +533,8 @@ export function placePlayground(ctx, opts) {
     for (let i = 0; i < 4; i++) add(placeTyrePlanter(ctx, { ...at(-10 + i * 0.85, 7.3), seed: seed + 20 + i }))
     for (let i = 0; i < 3; i++) add(placeTyrePlanter(ctx, { ...at(10.2, -7.2 + i * 0.85), seed: seed + 30 + i }))
     if (opts.lamp !== false) {
-      const [lx, lz] = P(-10.6, 7.6)
+      // one courtyard lamp at the front edge, just past the benches, leaning over the set
+      const [lx, lz] = P(-6.2, 7.7)
       const [tx, tz] = P(0, 0)
       out.lamp = placeStreetLamp(ctx, { x: lx, z: lz, type: 'courtyard', angle: angleFacing(tx - lx, tz - lz), seed: seed + 40 })
     }

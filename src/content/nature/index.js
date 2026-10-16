@@ -7,12 +7,13 @@ import './trees.js'
 import './plants.js'
 import './props.js'
 import './crows.js'
+import './bag.js'
 import { natureState } from './state.js'
 import { steamSystem } from './api.js'
 import { updateCrows } from './crows.js'
 import { createClumps, updateClumps } from './clumps.js'
+import { updateBags } from './bag.js'
 import { MAT } from './materials.js'
-import { showcase } from './showcase.js'
 
 const ICE = new Set([MAT.icePond, MAT.iceDark, MAT.iceCrack])
 
@@ -49,7 +50,6 @@ export default {
     const s = natureState(ctx)
     steamSystem(ctx)
     createClumps(ctx, s)
-    if (ctx.game.params?.naturetest) showcase(ctx)
   },
 
   init(ctx) {
@@ -57,14 +57,19 @@ export default {
   },
 
   update(dt, ctx) {
-    const s = natureState(ctx)
-    const cam = ctx.camera.position
-    if (s.steam) s.steam.update(dt, ctx.game.time, cam, ctx.atmos.wind)
-    if (s.crowGroups.length) {
-      const p = ctx.player?.pos || cam
-      updateCrows(ctx, s, dt, p.x, p.y, p.z)
+    try {
+      const s = natureState(ctx)
+      const cam = ctx.camera.position
+      if (s.steam && ctx.atmos) s.steam.update(dt, ctx.game.time, cam, ctx.atmos.wind)
+      if (s.crowGroups.length) {
+        const p = ctx.player?.pos || cam
+        updateCrows(ctx, s, dt, p.x, p.y, p.z)
+      }
+      updateClumps(ctx, s, dt)
+      if (ctx.atmos) updateBags(ctx, s, dt)
+      updateIce(ctx, s, dt)
+    } catch (e) {
+      if (!this._warned) { this._warned = true; console.warn('[nature] update', e) }
     }
-    updateClumps(ctx, s, dt)
-    updateIce(ctx, s, dt)
   },
 }

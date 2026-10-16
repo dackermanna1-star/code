@@ -20,6 +20,26 @@ import { updatePayphones } from './utilities.js'
 
 const TEST = typeof location !== 'undefined' && /[?&]streettest=1/.test(location.search)
 
+// Steam markers (manholes, heat-pipe leaks) become real plumes through the nature package's
+// shared particle system when that package is loaded. Each marker gets `plume` (the handle) so
+// nobody adds a second plume for it; markers with `auto: false` are left to the layouts.
+async function spawnSteam(ctx) {
+  const vents = ctx.registry?.steamVents
+  if (!vents?.length || !ctx.game?.modules?.some?.(m => m.name === 'nature')) return
+  let addSteam
+  try { ({ addSteam } = await import('../nature/api.js')) } catch { return }
+  if (typeof addSteam !== 'function') return
+  for (const v of vents) {
+    if (v.plume || v.auto === false) continue
+    const k = Math.max(0.15, Math.min(1, v.strength ?? 0.6))
+    try {
+      v.plume = addSteam(ctx, v.kind === 'heatpipe'
+        ? { x: v.x, y: v.y, z: v.z, kind: 'pipe', rate: 2 + 5 * k, opacity: 0.1 + 0.12 * k, tag: 'street_steam' }
+        : { x: v.x, y: v.y, z: v.z, kind: 'manhole', rate: 2 + 4 * k, opacity: 0.08 + 0.16 * k, tag: 'street_steam' })
+    } catch { /* nature not ready: leave the marker for the layouts */ }
+  }
+}
+
 export default {
   name: 'street',
   order: 27,
@@ -28,8 +48,9 @@ export default {
     const { buildShowcase } = await import('./showcase.js')
     buildShowcase(ctx)
   },
-  init(ctx) {
+  async init(ctx) {
     getState(ctx)
+    await spawnSteam(ctx)
   },
   update(dt, ctx) {
     const st = getState(ctx)

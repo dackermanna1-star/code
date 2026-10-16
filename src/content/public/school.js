@@ -9,8 +9,9 @@ import { VoxelModel } from '../../core/VoxelModel.js'
 import { M } from '../../core/materials.js'
 import { RNG } from '../../core/rng.js'
 import {
-  V, HALF_PI, frameFor, put, sign, readable, interact, light, flatten, paint, navPath, reg, seed01, seedInt,
-  win, ffill, fset, streak, pasteFigure, drawText, ageCanvas, handText, SIGN_FONT, PLAIN_FONT, SERIF_FONT,
+  V, HALF_PI, frameFor, put, sign, readable, interact, light, flatten, paint, navPath, reg, seed01,
+  seedInt, win, ffill, fset, streak, pasteFigure, drawText, ageCanvas, SIGN_FONT, PLAIN_FONT,
+  SERIF_FONT,
 } from './lib.js'
 import { addEmitter } from './runtime.js'
 
@@ -63,7 +64,7 @@ function buildWing(floors) {
         }
       } else if (!(f < 2 && b >= 6 && b <= 9)) {
         const inClass = f === CLASS.f && b >= CLASS.b0 && b <= CLASS.b1
-        win(m, 'front', u + 2, fy + 4, 10, 8, { cols: 3, transom: 2, snow: 0.75, rng, glass: inClass ? M('pub_glass_cold') : undefined })
+        win(m, 'front', u + 2, fy + 4, 10, 8, inClass ? { cols: 2, snow: 0.75, rng, glass: M('pub_glass_cold') } : { cols: 3, transom: 2, snow: 0.75, rng })
         ffill(m, 'front', u + 1, fy + 12, 0, 12, 1, 1, lintel)
       }
       // back (corridor side): smaller windows
@@ -184,7 +185,7 @@ defineModel('pub_school_entry', () => {
   m.fill(25, BASE + 5, EF + 1, 2, 4, 1, M('pub_glass_dark')); m.fill(29, BASE + 5, EF + 1, 2, 4, 1, M('pub_glass_dark'))
   m.set(27, BASE + 4, EF + 1, M('chrome')); m.set(28, BASE + 4, EF + 1, M('chrome'))
   m.fill(23, BASE, EF, 1, 11, 1, lintel); m.fill(32, BASE, EF, 1, 11, 1, lintel); m.fill(23, BASE + 10, EF, 10, 1, 1, lintel)
-  win(m, 'front', 8, BASE + 4, 10, 8, { d0: EF, cols: 3, transom: 2, snow: 0.6, rng, glass: M('pub_glass_warm') })
+  win(m, 'front', 8, BASE + 4, 10, 8, { d0: EF, cols: 2, snow: 0.6, rng, glass: M('pub_glass_warm') })
   win(m, 'front', 38, BASE + 4, 10, 8, { d0: EF, cols: 3, transom: 2, snow: 0.6, rng })
   // caretaker's room behind the left window
   {
@@ -397,9 +398,9 @@ export function placeSchool(ctx, o) {
   flatten(ctx, F, -28.25, -24.25, 28.25, -10.75, y, M('snow_packed'))
   flatten(ctx, F, -7.25, -32.25, 7.25, -23.75, y, M('snow_packed'))
   flatten(ctx, F, 15.75, -11.25, 28.25, 13.25, y, M('snow_packed'))
-  const wing = put(ctx, F, floors === 3 ? 'pub_school_wing3' : 'pub_school_wing', 0, -17.5, { seed: seed01(o.seed, 1), tag: 'school', userData: { kind: 'school_wing' } })
-  const entry = put(ctx, F, 'pub_school_entry', 0, -27, { seed: seed01(o.seed, 2), tag: 'school', userData: { kind: 'school_entry' } })
-  const gym = put(ctx, F, 'pub_school_gym', 22, 1, { seed: seed01(o.seed, 3), tag: 'school', userData: { kind: 'school_gym' } })
+  const wing = put(ctx, F, floors === 3 ? 'pub_school_wing3' : 'pub_school_wing', 0, -17.5, { seed: seed01(o.seed, 1), tag: 'building', userData: { kind: 'school_wing' } })
+  const entry = put(ctx, F, 'pub_school_entry', 0, -27, { seed: seed01(o.seed, 2), tag: 'building', userData: { kind: 'school_entry' } })
+  const gym = put(ctx, F, 'pub_school_gym', 22, 1, { seed: seed01(o.seed, 3), tag: 'building', userData: { kind: 'school_gym' } })
   // forecourt path from the gate to the porch, and a trodden path round to the gym
   flatten(ctx, F, -2, -37, 2, -32, y, M('snow_packed'))
   paint(ctx, F, -3, -33.5, 3, -32, M('asphalt'))
@@ -424,7 +425,7 @@ export function placeSchool(ctx, o) {
   // big letters on the entry block above the canopy
   sign(ctx, F, 0, (BASE + FH + 1.6) * V, -30, 0, -1, {
     w: 7.5, h: 0.7, ppm: 50,
-    draw: (c, W, H) => { c.clearRect(0, 0, W, H); drawText(c, W, H, { lines: [`ШКОЛА № ${number}`], color: '#e9e6dc', font: SIGN_FONT, weight: 'bold', shadow: 'rgba(40,40,40,0.6)' }) },
+    draw: (c, W, H) => { c.clearRect(0, 0, W, H); drawText(c, W, H, { lines: [`ШКОЛА № ${number}`], color: '#24365e', font: SIGN_FONT, weight: 'bold', shadow: 'rgba(20,20,20,0.35)' }) },
   })
   // official plaque by the door
   sign(ctx, F, 1.85, 1.65, -30, 0, -1, {
@@ -457,7 +458,7 @@ export function placeSchool(ctx, o) {
   const SX = 42.5, SZ = 36.25
   const site = F.box(-SX, 0, -SZ, SX, 3, SZ)
   if (o.fence !== false) {
-    const tint = o.fenceTint ?? 0x2e4436
+    const tint = o.fenceTint ?? 0x46624e
     const run = (ax, az, bx, bz, skip) => {
       const len = Math.hypot(bx - ax, bz - az), n = Math.floor(len / 2.5 + 1e-6)
       const dx = (bx - ax) / len, dz = (bz - az) / len
@@ -505,4 +506,3 @@ export function placeSchool(ctx, o) {
 }
 
 export const SCHOOL_DIMS = { site: [84, 72], wing: [56, 13], entry: [14, 6], gym: [12, 24] }
-void handText

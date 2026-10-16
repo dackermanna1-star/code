@@ -7,7 +7,10 @@ import { defineModel } from '../../core/models.js'
 import { VoxelModel } from '../../core/VoxelModel.js'
 import { M } from '../../core/materials.js'
 import { RNG } from '../../core/rng.js'
-import { V, frameFor, put, sign, readable, light, flatten, paint, navPath, reg, seed01, seedInt, drawText, handText, SIGN_FONT, PLAIN_FONT } from './lib.js'
+import {
+  V, frameFor, put, sign, readable, light, zone, flatten, paint, navPath, reg, seedInt, drawText,
+  handText, SIGN_FONT,
+} from './lib.js'
 import { addEmitter } from './runtime.js'
 
 const GX = 13, GZ = 27, GY = 14
@@ -162,11 +165,15 @@ export function placeGarageRow(ctx, o) {
       doors.push(put(ctx, F, 'pub_garage_doors_open', dlx, front + 0.25, { ly: V, tint }))
       const inner = put(ctx, F, 'pub_garage_interior', cx, 0, { ly: 0 })
       put(ctx, F, 'pub_car_classic', cx, 0, { ly: V, tint: rng.pick([0x5a1a24, 0xc2ae84, 0x23304f, 0x8c2a22, 0xd8d6cc]), tag: 'car', userData: { kind: 'car', parked: 'garage' } })
-      light(ctx, F, cx - 0.125, 2.3, -0.25, { color: 0xffcf8a, intensity: 2.6, range: 9, placement: inner, haloSize: 0.5, tag: 'garage_bulb' })
+      light(ctx, F, cx - 0.125, 2.3, -0.25, { color: 0xffd49a, intensity: 2.2, range: 7, placement: inner, haloSize: 0.5, tag: 'garage_bulb' })
+      light(ctx, F, cx, 2.2, front + 0.6, { type: 'spot', dir: [0, -0.7, -1], cone: 60, inner: 30, color: 0xffd49a, intensity: 4.5, range: 12, halo: false, scatter: 0.5 })
       addEmitter({ name: 'radio_distant', pos: F.p(cx, 1.4, 1.5), gain: 0.22, radius: 26, refDistance: 1.5, cutoff: 3000 })
       // tyre tracks out of the open garage, cleared snow
       paint(ctx, F, cx - 1.2, front - 8, cx + 1.4, front, M('snow_dirty'))
       reg(ctx, 'storySpots', { kind: 'open_garage', x: F.wx(cx, front - 1), z: F.wz(cx, front - 1) })
+      zone(ctx, F, cx - UNIT_W / 2 + 0.25, 0.1, front + 0.25, cx + UNIT_W / 2 - 0.25, 2.6, UNIT_D / 2 - 0.25, {
+        name: 'garage', type: 'room', indoor: false, reverb: 'room', wind: 0.3, traffic: 0.5, snow: false, priority: 1,
+      })
     } else {
       const variant = rng.int(0, 2)
       doors.push(put(ctx, F, 'pub_garage_door' + (variant ? '_' + 'abc'[variant] : ''), dlx, front + 0.375, { ly: V, tint, tag: 'garage_door' }))
@@ -199,4 +206,3 @@ export function placeGarageRow(ctx, o) {
 }
 
 export const GARAGE_DIMS = { unit: [UNIT_W, UNIT_D], height: 3.0 }
-void seed01; void PLAIN_FONT

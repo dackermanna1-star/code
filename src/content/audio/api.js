@@ -6,9 +6,9 @@ import { SOUND_NAMES, keysOf, bufferVoice } from './sounds.js'
 import { STEP_SOUNDS } from './footsteps.js'
 import { CASHIER_PHRASES, KIOSK_PHRASES, PA_PHRASES } from './recipes/people.js'
 import { hashStr, makeRng } from './dsp.js'
+import { SURF } from '../../core/materials.js'
 
 const rnd = makeRng(0x2008)
-import { SURF } from '../../core/materials.js'
 
 let ENGINE = null
 let DIRECTOR = null

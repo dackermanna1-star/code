@@ -21,4 +21,7 @@ export function buildTestScene(ctx, api) {
   if (want('substation')) api.placeSubstation(ctx, { x: 360, z: 360, rot: 0, seed: 8 })
   if (want('dispatcher')) api.placeDispatcherBooth(ctx, { x: 280, z: 360, rot: 0, seed: 9 })
   if (want('hockey')) api.placeHockeyBox(ctx, { x: 520, z: 330, rot: 0, seed: 10 })
+  // rotation checks (only when asked for explicitly)
+  if (q && q.includes('shoprot')) api.placeShop(ctx, { x: 150, z: 300, rot: 1, seed: 11 })
+  if (q && q.includes('kioskrot')) api.placeKiosk(ctx, { x: 150, z: 330, angle: 0.4, type: 'flowers', seed: 12 })
 }

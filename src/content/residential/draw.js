@@ -26,10 +26,10 @@ export function drawHousePlate(street, house, korpus, lit = false) {
     c.fillStyle = lit ? '#2a5cab' : PLATE_BLUE; c.fillRect(0, 0, W, H)
     c.strokeStyle = '#e8ebef'; c.lineWidth = H * 0.035; c.strokeRect(H * 0.05, H * 0.05, W - H * 0.1, H - H * 0.1)
     c.fillStyle = '#f2f3f4'; c.textAlign = 'center'; c.textBaseline = 'middle'
-    c.font = `bold ${Math.round(H * 0.2)}px ${SIGN_FONT}`
-    let s = street
-    while (c.measureText(s).width > W * 0.86 && s.length > 3) { c.font = `bold ${Math.round(parseFloat(c.font) * 0.92)}px ${SIGN_FONT}` }
-    c.fillText(s, W / 2, H * 0.24)
+    let fs = H * 0.2
+    c.font = `bold ${Math.round(fs)}px ${SIGN_FONT}`
+    for (let i = 0; i < 12 && c.measureText(street).width > W * 0.86; i++) { fs *= 0.9; c.font = `bold ${Math.max(4, Math.round(fs))}px ${SIGN_FONT}` }
+    c.fillText(street, W / 2, H * 0.24)
     c.fillRect(W * 0.08, H * 0.4, W * 0.84, Math.max(1, H * 0.02))
     c.font = `bold ${Math.round(H * 0.46)}px ${SIGN_FONT}`
     const num = String(house)
@@ -141,11 +141,13 @@ export function drawBell(number) {
 export function drawFloorNumber(n, color = '#8e2a22') {
   return (c, W, H) => {
     c.clearRect(0, 0, W, H)
-    c.fillStyle = color; c.textAlign = 'center'; c.textBaseline = 'middle'
-    c.font = `bold ${Math.round(H * 0.66)}px ${SIGN_FONT}`
-    c.fillText(String(n), W / 2, H * 0.38)
-    c.font = `bold ${Math.round(H * 0.2)}px ${SIGN_FONT}`
-    c.fillText('ЭТАЖ', W / 2, H * 0.86)
+    c.fillStyle = color; c.textBaseline = 'middle'
+    c.font = `bold ${Math.round(H * 0.86)}px ${SIGN_FONT}`
+    c.textAlign = 'right'
+    c.fillText(String(n), W * 0.42, H * 0.54)
+    c.font = `bold ${Math.round(H * 0.5)}px ${SIGN_FONT}`
+    c.textAlign = 'left'
+    c.fillText('ЭТАЖ', W * 0.47, H * 0.6)
   }
 }
 

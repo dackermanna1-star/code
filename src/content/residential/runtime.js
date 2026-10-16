@@ -183,15 +183,15 @@ export function setupStairwell(ctx, sec) {
     sw.lamps.push(lamp)
     if (cfg === 'dead') return
     const l = lights.add({
-      x: lp0.x, y: lp0.y - 0.45, z: lp0.z, color: 0xffcf8f, intensity: 5.2, range: 7.5, domain: 'indoor', schedule: 'always',
-      flicker: cfg === 'buzz' ? 'buzz' : cfg === 'dying' ? 'dying' : 'none', placement: lamp, halo: true, haloSize: 0.5, tag,
+      x: lp0.x, y: lp0.y - 0.4, z: lp0.z, color: 0xffcf8f, intensity: 2.6, range: 7, domain: 'indoor', schedule: 'always',
+      flicker: cfg === 'buzz' ? 'buzz' : cfg === 'dying' ? 'dying' : 'none', placement: lamp, halo: true, haloSize: 0.3, tag,
     })
     sw.lights.push(l)
   }
   addBulb(X(9) + 0.5, L.HL(1) - 1, Z(2) + 0.5, 'ok', 'stair_light') // tambour: always works
   for (let k = 1; k <= N; k++) {
-    addBulb(X(6) + 0.5, L.FL(k) + FH - 1, Z(19) + 0.5, lightCfg(k), 'stair_light')
-    if (k < N && hashf(per(k), sec.seed * 1000 | 0, 77) < 0.45) addBulb(X(2) + 0.5, L.HL(k) + FH - 1, Z(2) + 0.5, lightCfg(k + 100), 'stair_light')
+    addBulb(X(6) + 0.5, L.FL(k) + FH - 2, Z(19) + 0.5, lightCfg(k), 'stair_light')
+    if (k < N && hashf(per(k), sec.seed * 1000 | 0, 77) < 0.45) addBulb(X(2) + 0.5, L.HL(k) + FH - 2, Z(2) + 0.5, lightCfg(k + 100), 'stair_light')
   }
 
   // entrance interior: propped-open tambour door, mailboxes, notices
@@ -244,17 +244,17 @@ export function setupStairwell(ctx, sec) {
       }
     })
     // floor number painted near the lift / back door
-    const fn = p.voxelToWorld(X(6), L.FL(k) + 9.1, Z(23))
+    const fn = p.voxelToWorld(X(6), L.FL(k) + 8.5, Z(23))
     const color = ['#8e2a22', '#2a3e6e', '#1f1f1f'][sec.seed * 7 % 3 | 0]
     const fnAngle = faceAngle(p, 0, -1)
     if (loop) {
-      const plate = new DynPlate(ctx.game, { w: 0.5, h: 0.4, ppm: 120, indoor: true, draw: drawFloorNumber(k, color) })
+      const plate = new DynPlate(ctx.game, { w: 0.95, h: 0.22, ppm: 140, indoor: true, draw: drawFloorNumber(k, color) })
       plate.setTransform(fn.x, fn.y, fn.z, fnAngle)
       plate.mesh.position.addScaledVector({ x: Math.sin(fnAngle), y: 0, z: Math.cos(fnAngle) }, 0.012)
       plate.mesh.updateMatrix(); plate.mesh.updateMatrixWorld(true)
       sw.labels = sw.labels || []
       sw.labels[k] = { plate, value: k, color }
-    } else signs.add({ x: fn.x, y: fn.y, z: fn.z, angle: fnAngle, w: 0.5, h: 0.4, ppm: 120, indoor: true, draw: drawFloorNumber(k, color), aged: 0.2, seed: k })
+    } else signs.add({ x: fn.x, y: fn.y, z: fn.z, angle: fnAngle, w: 0.95, h: 0.22, ppm: 140, indoor: true, draw: drawFloorNumber(k, color), aged: 0.2, seed: k })
     // cabinet face
     const cb = p.voxelToWorld(X(14), L.FL(k) + 5.5, Z(16))
     signs.add({ x: cb.x, y: cb.y, z: cb.z, angle: faceAngle(p, 0, 1), w: 0.5, h: 1.25, ppm: 80, indoor: true, draw: drawCabinet(pk * 31 + 1), aged: 0.3, seed: pk })

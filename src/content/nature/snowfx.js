@@ -168,11 +168,11 @@ export function plowedPile(ctx, x, z, opts = {}) {
       if (prof > best) best = prof
     }
     if (best <= 0) return null
-    const lump = 0.82 + 0.36 * fbm2(px * 0.9, pz * 0.9, 3, seed)
+    const lump = 0.7 + 0.42 * fbm2(px * 0.9, pz * 0.9, 3, seed) + 0.2 * (valueNoise2(px * 2.6, pz * 2.6, seed + 9) - 0.5)
     const dv = Math.round((H * best * lump) / VOXEL)
     if (dv <= 0) return null
     const n = valueNoise2(px * 1.8, pz * 1.8, seed + 2)
-    const hRel = best
+    const hRel = best + (valueNoise2(px * 1.1, pz * 1.1, seed + 4) - 0.5) * 0.35
     let m
     if (hRel > 0.7) m = n < 0.6 ? MAT.snow : MAT.snowBank
     else if (hRel > 0.3) m = n < 0.3 ? MAT.snowGrime : n < 0.7 ? MAT.snowDirty : MAT.snowBank

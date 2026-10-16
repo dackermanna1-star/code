@@ -14,7 +14,7 @@ import './materials.js'
 export const CONTAINER_TINTS = [0x3e6648, 0x4a6a50, 0x56705e, 0x5a6a6e, 0x6a6a5e, 0x4e5f73]
 
 function buildContainer(open) {
-  const m = new VoxelModel(5, 7, 5)
+  const m = new VoxelModel(5, 8, 5)
   const p = M('paint')
   // body z 1..3 (0.75 m deep), 1.0 m tall; skids underneath
   m.fill(0, 0, 1, 5, 1, 3, M('metal_dark'))
@@ -66,7 +66,7 @@ defineModel('street_garbage_enclosure_brick', () => buildEnclosure('brick'), { l
 defineModel('street_garbage_enclosure_metal', () => buildEnclosure('metal'), { lods: [1, 2], lodDistances: [60], maxDistance: 220 })
 
 defineModel('street_trash_bag', () => {
-  const m = new VoxelModel(2, 3, 2)
+  const m = new VoxelModel(2, 4, 2)
   m.fill(0, 0, 0, 2, 2, 2, M('plastic_dark'))
   m.set(1, 0, 1, M('plastic_dark')); m.set(0, 1, 1, 0)
   m.set(1, 2, 0, M('plastic_dark'))
@@ -75,7 +75,7 @@ defineModel('street_trash_bag', () => {
 }, { lods: [1], maxDistance: 80 })
 
 defineModel('street_trash_box', () => {
-  const m = new VoxelModel(3, 3, 2)
+  const m = new VoxelModel(3, 4, 2)
   const c = M('street_cardboard')
   m.fill(0, 0, 0, 3, 2, 2, c)
   m.set(0, 2, 0, c); m.set(2, 2, 1, c) // open flaps
@@ -104,19 +104,19 @@ defineModel('street_discarded_tree', () => {
 }, { lods: [1], maxDistance: 90, collide: false })
 
 defineModel('street_bin_concrete', () => {
-  const m = new VoxelModel(3, 4, 3)
+  const m = new VoxelModel(3, 5, 3)
   const c = M('concrete')
   m.set(1, 0, 1, c); m.set(1, 1, 1, c)
   m.fill(0, 2, 0, 3, 2, 3, c)
   m.set(1, 3, 1, M('plastic_dark'))
   m.set(0, 3, 0, M('concrete_dark')); m.set(2, 2, 2, M('concrete_dark'))
   snowTop(m, { chance: 1, seed: 5 })
-  m.set(1, 3, 1, M('street_cardboard'))
+  m.set(1, 4, 1, M('street_cardboard')) // a paper cup sticking out of the snow
   return m
 }, { lods: [1], maxDistance: 90 })
 
 defineModel('street_bin_metal', () => {
-  const m = new VoxelModel(4, 4, 2)
+  const m = new VoxelModel(4, 5, 2)
   const g = M('metal_dark')
   m.fill(0, 0, 0, 1, 4, 1, g); m.fill(3, 0, 0, 1, 4, 1, g)
   m.fill(1, 1, 0, 2, 2, 2, M('paint'))
@@ -128,7 +128,7 @@ defineModel('street_bin_metal', () => {
 }, { lods: [1], maxDistance: 90 })
 
 defineModel('street_chair_broken', () => {
-  const m = new VoxelModel(2, 4, 2)
+  const m = new VoxelModel(2, 5, 2)
   const w = M('wood_dark')
   m.set(0, 0, 0, w); m.set(1, 0, 1, w); m.set(0, 0, 1, w) // one leg gone
   m.fill(0, 1, 0, 2, 1, 2, M('leatherette'))

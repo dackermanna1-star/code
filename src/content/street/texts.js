@@ -53,6 +53,7 @@ export const POSTERS = [
   { id: 'vetrov', ru: 'Владимир Ветров\nновая программа «Дожди»', en: 'Vladimir Vetrov: new show "Rains"', bg: '#2a2f38', fg: '#e8d8b0' },
   { id: 'beer', ru: 'Кто пьёт «Клёвское»?', en: 'Who drinks "Klyovskoye"? (beer ad with the mandatory health warning)', bg: '#7c1f22', fg: '#f2d48a', warning: true },
   { id: 'newyear', ru: 'С Новым годом,\nмосквичи!', en: 'Happy New Year, Muscovites!', bg: '#1b3a6e', fg: '#f2f2ee' },
+  { id: 'election', ru: '2 марта 2008 года\nВЫБОРЫ ПРЕЗИДЕНТА\nРОССИЙСКОЙ ФЕДЕРАЦИИ', en: '2 March 2008: election of the President of the Russian Federation', bg: '#e9ebe6', fg: '#1f3a7a' },
 ]
 
 export const BEER_WARNING = 'ЧРЕЗМЕРНОЕ УПОТРЕБЛЕНИЕ ПИВА ВРЕДИТ ВАШЕМУ ЗДОРОВЬЮ'

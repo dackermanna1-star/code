@@ -274,6 +274,11 @@ export function drawPoster(p, seed = 1) {
     } else if (item.id === 'vetrov') {
       c.fillStyle = '#4a4f5a'; c.beginPath(); c.arc(W * 0.8, H * 0.45, H * 0.25, 0, Math.PI * 2); c.fill()
       c.fillRect(W * 0.68, H * 0.68, W * 0.24, H * 0.32)
+    } else if (item.id === 'election') {
+      // the tricolour ribbon down the right edge
+      const cols = ['#f2f2ee', '#2a4f9a', '#b8302a']
+      cols.forEach((col, i) => { c.fillStyle = col; c.fillRect(W * (0.74 + i * 0.07), 0, W * 0.07, H) })
+      c.strokeStyle = 'rgba(0,0,0,0.15)'; c.lineWidth = 1; c.strokeRect(W * 0.74, 0, W * 0.21, H)
     } else if (item.id === 'beer') {
       c.fillStyle = '#c8962a'; c.fillRect(W * 0.78, H * 0.12, W * 0.08, H * 0.58)
       c.fillStyle = '#f2ead0'; c.fillRect(W * 0.78, H * 0.12, W * 0.08, H * 0.1)

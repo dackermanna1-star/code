@@ -563,9 +563,9 @@ function stairCore(c) {
   const slab = T.concrete
   // void
   m.fill(X(0), ty, Z(0), 12, top - ty + 1, 15, 0)
-  for (let k = 1; k <= N; k++) m.fill(X(-4), L.FL(k), Z(15), 20, FH - 1, 8, 0)
+  for (let k = 1; k <= N; k++) m.fill(X(-4), L.FL(k), Z(15), 20, FH - 2, 8, 0)
   m.addInterior(X(0), ty, Z(0), 12, top - ty + 1, 15)
-  m.addInterior(X(-4), L.FL1, Z(15), 20, L.FL(N) + FH - 1 - L.FL1, 8)
+  m.addInterior(X(-4), L.FL1, Z(15), 20, L.FL(N) + FH - 2 - L.FL1, 8)
   // ground: closet under strip A, tambour, entrance flight
   m.fill(X(0), ty, Z(0), 5, L.HL(1) - 1 - ty, 5, T.concrete_dark)
   m.fill(X(5), ty, Z(4), 3, 8, 1, c.wall) // tambour partition
@@ -578,20 +578,20 @@ function stairCore(c) {
   // per floor
   for (let k = 1; k <= N; k++) {
     const FLk = L.FL(k), HLk = L.HL(k)
-    // half-landing slab
-    m.fill(X(0), HLk - 1, Z(0), 12, 1, 5, slab)
+    // half-landing slab (2 voxels: tiled/terrazzo top, whitewashed underside; 1 over the tambour)
+    if (k === 1) m.fill(X(0), HLk - 1, Z(0), 12, 1, 5, slab)
+    else m.fill(X(0), HLk - 2, Z(0), 12, 2, 5, slab)
     // flight A: floor k (back) up to the half-landing (front)
     for (let i = 1; i <= 5; i++) {
       const zz = 15 - 2 * i
-      if (k === 1) m.fill(X(0), ty, Z(zz), 5, FLk + i - ty, 2, stairMat)
-      else m.fill(X(0), FLk + i - 1, Z(zz), 5, 1, 2, stairMat)
+      if (k === 1) m.fill(X(0), ty, Z(zz), 5, FLk + i - 1 - ty, 2, T.concrete_dark)
+      m.fill(X(0), FLk + i - 1, Z(zz), 5, 1, 2, stairMat)
     }
     // flight B: half-landing up to floor k+1
     if (k < N) {
       for (let j = 1; j <= 4; j++) m.fill(X(7), HLk + j - 1, Z(3 + 2 * j), 5, 1, 2, stairMat)
-      m.fill(X(5), L.FL(k + 1) - 1, Z(13), 7, 1, 2, slab)
+      m.fill(X(5), L.FL(k + 1) - 2, Z(13), 7, 2, 2, slab)
     }
-    if (k > 1) m.fill(X(5), FLk - 1, Z(13), 2, 1, 2, slab)
     // well railing (or a solid wall for the loop stairwell)
     if (mode === 'loop') {
       if (k < N && k > 1) m.fill(X(5), FLk, Z(5), 2, FH, 8, c.wall)
@@ -633,10 +633,10 @@ function stairCore(c) {
     m.fill(X(13), FLk + 3, Z(15), 2, 5, 1, T.metal_gray)
     // garbage chute
     if (S.chute === 'half') {
-      m.fill(X(0), HLk - 1, Z(0), 2, FH, 2, T.metal_gray)
+      m.fill(X(0), HLk - 2, Z(0), 2, FH, 2, T.metal_gray)
       m.fill(X(0), HLk + 3, Z(2), 2, 2, 1, T.metal_dark)
     } else if (S.chute === 'landing') {
-      m.fill(X(-4), FLk - 1, Z(15), 2, FH, 2, T.metal_gray)
+      m.fill(X(-4), FLk - 2, Z(15), 2, FH, 2, T.metal_gray)
       m.fill(X(-2), FLk + 3, Z(15), 1, 2, 2, T.metal_dark)
     }
   }
@@ -662,9 +662,9 @@ function stairCore(c) {
     for (let k = 1; k <= N; k++) {
       if (c.lit[k]) {
         // bulb on a cord, low enough to be seen through the half-landing window
-        m.set(X(6), L.HL(k) + 9, Z(3), T.metal_dark)
-        m.set(X(6), L.HL(k) + 8, Z(3), T.lamp_bulb)
-        m.set(X(6), L.FL(k) + 9, Z(19), T.lamp_bulb)
+        m.set(X(6), L.HL(k) + 8, Z(3), T.metal_dark)
+        m.set(X(6), L.HL(k) + 7, Z(3), T.lamp_bulb)
+        m.set(X(6), L.FL(k) + 8, Z(19), T.lamp_bulb)
       }
     }
   }
@@ -710,7 +710,8 @@ function stairPaint(c) {
         const v = m.get(x, y, z)
         if (!v || !repaint.has(v)) continue
         let mat = 0
-        if (isAir(x, y + 1, z)) {
+        if (isAir(x, y + 1, z) && isAir(x, y - 1, z)) mat = T.res_terrazzo // thin slab: same both sides
+        else if (isAir(x, y + 1, z)) {
           // floor: landings tiled, flights terrazzo (already)
           mat = checker ? (((x + z) & 1) ? T.floor_tile : T.wall_tile_beige) : T.floor_tile_red
           if (mode !== 'plain' && ((x * 7 + z * 13 + y) % 23) === 0) mat = T.concrete
@@ -732,7 +733,7 @@ function stairPaint(c) {
   // bright patch around the bulbs
   if (mode === 'plain') {
     for (let k = 1; k <= L.N; k++) if (c.lit[k]) {
-      const y = L.HL(k) + 10
+      const y = L.HL(k) + 9
       for (let dz = -1; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) if (m.get(L.SX0 + 6 + dx, y, L.ZI + 2 + dz) === T.res_stair_glow) m.set(L.SX0 + 6 + dx, y, L.ZI + 2 + dz, T.res_stair_glow_hi)
     }
   }

@@ -68,7 +68,9 @@ export function put(ctx, F, name, lx, lz, o = {}) {
     x, z,
     angle: F.a + (o.q ?? 0) * HALF_PI + (o.da ?? 0),
     seed: o.seed, tint: o.tint, tag: o.tag, flag: o.flag, dynamic: o.dynamic, collide: o.collide, indoor: o.indoor,
-    userData: { pkg: 'public', ...(o.userData || {}) },
+    // every placement of this package carries static signs/lights or belongs to a composite:
+    // anomaly code must not relocate it (see docs/catalog/public.md)
+    userData: { pkg: 'public', noRelocate: true, ...(o.userData || {}) },
   }
   if (o.ground) {
     const h = ctx.terrain.heightAt(x, z)

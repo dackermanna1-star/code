@@ -6,6 +6,7 @@ import { Phone } from './Phone.js'
 import { registerPhoneSounds } from './sounds.js'
 import { TEXTS, ALL_TEXTS } from './texts.js'
 import { buildTestScene } from './testScene.js'
+import { handFontsReady, redrawHandTexts } from './api.js'
 
 const params = typeof location !== 'undefined' ? new URLSearchParams(location.search) : new URLSearchParams()
 
@@ -13,11 +14,15 @@ export default {
   name: 'phone',
   order: 60,
 
-  build(ctx) {
+  async build(ctx) {
     // the text library is reachable without importing this package
     ctx.registry.texts = TEXTS
     ctx.registry.allTexts = ALL_TEXTS
     ctx.registry.notices = ctx.registry.notices || []
+    // texts placed by earlier packages may have been drawn before the handwriting fonts
+    // arrived: wait for them (briefly) and redraw those before the sign atlas is built
+    await handFontsReady(6000)
+    redrawHandTexts()
     if (params.get('phonetest') === '1') buildTestScene(ctx)
   },
 

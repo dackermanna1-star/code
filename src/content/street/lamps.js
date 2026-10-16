@@ -122,7 +122,7 @@ function buildCourtyard(pole, bulb) {
 
 // Park lantern: 4 m cast-iron post with a frosted globe; broken variant has a smashed globe.
 function buildPark(broken) {
-  const m = new VoxelModel(3, 20, 3)
+  const m = new VoxelModel(3, 21, 3)
   const ci = M('street_cast_iron')
   m.fill(0, 0, 0, 3, 1, 3, ci)
   m.fill(1, 1, 1, 1, 15, 1, ci)
@@ -148,7 +148,7 @@ function buildPark(broken) {
 
 // Wall bracket lamp: back plate on the wall (local z=0), arm out, round frosted fixture.
 function buildWall(kind) {
-  const m = new VoxelModel(3, 3, 3)
+  const m = new VoxelModel(3, 4, 3)
   const md = M('metal_dark')
   m.fill(1, 1, 0, 1, 2, 1, md)
   m.set(1, 2, 1, md)
@@ -158,8 +158,7 @@ function buildWall(kind) {
     m.set(0, 1, 2, md); m.set(2, 1, 2, md)
   } else {
     m.fill(0, 2, 1, 3, 1, 2, M('metal_gray'))
-    m.fill(0, 1, 1, 3, 1, 2, M('street_lamp_incandescent'))
-    m.set(0, 1, 1, 0); m.set(2, 1, 1, 0)
+    m.fill(1, 1, 1, 1, 1, 2, M('street_lamp_incandescent'))
   }
   m.setPivot(1.5, 0, 0)
   snowTop(m, { chance: 0.8, seed: 2 })
@@ -217,7 +216,7 @@ export function placeStreetLamp(ctx, opts = {}) {
       bulb = bulb ?? (rng.chance(0.3) ? 'mercury' : 'sodium')
       model = `street_lamp_courtyard_${pole}_${bulb}`
       tint = POLE_TINTS[rng.int(0, POLE_TINTS.length - 1)]
-      headY = bulb === 'mercury' ? 6.2 : 6.45; headF = 1.4; intensity = 30; range = 18; cone = 62; inner = 26
+      headY = bulb === 'mercury' ? 6.2 : 6.45; headF = 1.25; intensity = 30; range = 18; cone = 62; inner = 26
       if (bulb === 'mercury') { color = MERCURY; flickerKind = 'buzz'; intensity = 26 }
       break
     }
@@ -228,7 +227,7 @@ export function placeStreetLamp(ctx, opts = {}) {
     }
     case 'wall': {
       model = rng.chance(0.3) ? 'street_lamp_wall_cage' : 'street_lamp_wall'
-      headY = 0.3; headF = 0.5; intensity = 8; range = 9; cone = 72; inner = 35; color = INCAND
+      headY = 0.2; headF = 0.5; intensity = 8; range = 9; cone = 72; inner = 35; color = INCAND
       schedule = 'night'; flickerKind = 'dying'; haloSize = 0.5
       break
     }
@@ -281,9 +280,11 @@ export function placeLampRow(ctx, opts) {
   const n = Math.max(1, Math.floor(len / spacing) + 1)
   const out = []
   const base = seedInt(opts.seed, 7)
+  // default head direction: perpendicular, to the LEFT of the walking direction x0→x1
+  const angle = opts.angle ?? Math.atan2(dz / (len || 1), -dx / (len || 1))
   for (let i = 0; i < n; i++) {
     const t = n === 1 ? 0.5 : i / (n - 1)
-    out.push(placeStreetLamp(ctx, { ...opts, x: opts.x0 + dx * t, z: opts.z0 + dz * t, seed: base + i * 131 }))
+    out.push(placeStreetLamp(ctx, { ...opts, angle, x: opts.x0 + dx * t, z: opts.z0 + dz * t, seed: base + i * 131 }))
   }
   return out
 }

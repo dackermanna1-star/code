@@ -52,7 +52,7 @@ export default {
   },
   update(dt) {
     clock += dt
-    // after a minute of walking, render the second tier (shop, metro, people) in the background
+    // later tiers render in the background: far one-shots at 8 s, the rest (shop, metro, people) at 45 s
     if (!warmed1 && clock > 8) { warmed1 = true; bank.warmAll((key, spec) => spec.prio === 3) }
     if (!warmed2 && clock > 45) { warmed2 = true; bank.warmAll((key, spec) => spec.prio >= 4 && spec.prio <= 6) }
     if (director?.debug.force && director.started && clock > 3) {

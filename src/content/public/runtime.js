@@ -2,7 +2,7 @@
 // player), working doors (dynamic placements that swing), and fallback synth sounds for the
 // few names this package needs if the audio package has not registered them.
 
-import { V } from './lib.js'
+
 
 export const RT = {
   emitters: [],

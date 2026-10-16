@@ -8,7 +8,7 @@ import { M } from '../../core/materials.js'
 import { RNG } from '../../core/rng.js'
 import {
   V, frameFor, put, sign, readable, interact, light, zone, flatten, navPath, reg, seed01, seedInt,
-  win, figureModel, pasteFigure, lightBox, handText, drawText, SIGN_FONT, PLAIN_FONT,
+  win, pasteFigure, lightBox, drawText, PLAIN_FONT,
 } from './lib.js'
 import { addEmitter, addDoor, later } from './runtime.js'
 
@@ -39,7 +39,7 @@ defineModel('pub_pharmacy', () => {
   m.fill(0, 12, z0, X, 1, 1, paintM); m.fill(0, 12, z1, X, 1, 1, paintM)
   m.walls(0, 14, z0, X, 1, Z - z0, M('metal_gray'), 1)
   // storefront: green-framed glazing
-  win(m, 'front', 9, 3, 17, 8, { d0: z0, depth: 1, glass: M('glass_clear'), frame: M('metal_green'), cols: 3, snow: 0.7, rng })
+  win(m, 'front', 9, 3, 17, 8, { d0: z0, depth: 1, glass: M('pub_glass_cold'), frame: M('metal_green'), cols: 3, snow: 0.7, rng })
   // door opening + green frame
   m.clear(DOOR_X, 1, z0, 4, 9, 2)
   for (let y = 1; y <= 10; y++) { m.set(DOOR_X - 1, y, z0, M('metal_green')); m.set(DOOR_X + 4, y, z0, M('metal_green')) }
@@ -50,7 +50,7 @@ defineModel('pub_pharmacy', () => {
   m.fill(2, 11, 0, 24, 3, 2, M('plastic_white'))
   m.fill(2, 11, 0, 24, 1, 1, M('metal_green'))
   // side window
-  win(m, 'right', z0 + 4, 3, 8, 8, { depth: 1, glass: M('glass_clear'), frame: M('metal_green'), cols: 2, snow: 0.7, rng })
+  win(m, 'right', z0 + 4, 3, 8, 8, { depth: 1, glass: M('pub_glass_cold'), frame: M('metal_green'), cols: 2, snow: 0.7, rng })
   // porch step
   m.fill(1, 0, 0, 9, 1, 2, M('granite'))
   // interior
@@ -161,7 +161,8 @@ export function placePharmacy(ctx, o) {
   const cross = put(ctx, F, 'pub_pharmacy_cross', lx(1.5), lz(FW), { ly: 10.5 * V, tag: 'lamp', userData: { kind: 'pharmacy_cross' } })
   light(ctx, F, lx(1.5), 3.2, lz(FW - 3), { color: 0x3cff7a, intensity: 2.2, range: 7, placement: cross, haloSize: 0.7, tag: 'pharmacy_cross' })
   light(ctx, F, lx(12), 2.7, lz(9), { color: 0xf2f4e6, intensity: 2.2, range: 8, domain: 'indoor', halo: false })
-  light(ctx, F, lx(17), 2.7, lz(16), { color: 0xf2f4e6, intensity: 2.0, range: 8, domain: 'indoor', halo: false,
+  // after 22:00 only the night light burns; the tube voxels and far glass follow (placement flag)
+  light(ctx, F, lx(17), 2.7, lz(16), { color: 0xf2f4e6, intensity: 2.0, range: 8, domain: 'indoor', halo: false, placement: p,
     schedule: env => isDay(env.game) ? 1 : 0.35 })
   light(ctx, F, lx(17), 2.3, lz(FW - 1.5), { type: 'spot', dir: [0, -0.65, -1], cone: 70, inner: 30, color: 0xe8f4ee, intensity: 9, range: 10, schedule: 'night', halo: false, scatter: 0.4 })
   // signs
@@ -220,4 +221,3 @@ export function placePharmacy(ctx, o) {
 }
 
 export const PHARMACY_DIMS = { w: 7, d: 5, h: 3.75 }
-void figureModel; void handText; void SIGN_FONT

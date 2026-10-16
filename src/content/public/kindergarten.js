@@ -8,10 +8,10 @@ import { VoxelModel } from '../../core/VoxelModel.js'
 import { M } from '../../core/materials.js'
 import { RNG } from '../../core/rng.js'
 import {
-  V, HALF_PI, frameFor, put, sign, readable, light, flatten, navPath, reg, seed01, seedInt,
-  win, ffill, fset, streak, muralPainter, drawText, PLAIN_FONT, SERIF_FONT,
+  V, HALF_PI, frameFor, put, sign, readable, light, flatten, navPath, reg, seed01, seedInt, win,
+  ffill, fset, streak, muralPainter, drawText, PLAIN_FONT, SERIF_FONT,
 } from './lib.js'
-import { addEmitter } from './runtime.js'
+
 
 const KX = 160, KZ = 52, FH = 13, BASE = 3
 const KTOP = BASE + 2 * FH
@@ -42,9 +42,10 @@ defineModel('pub_kg_main', () => {
       const nearDoor = ENTR.some(e => u + 7 > e - 1 && u < e + 5)
       if (!(f === 0 && nearDoor)) {
         const lit = f === 0 && b === WATCH_BAY
-        win(m, 'front', u, fy + 4, 7, 6, { cols: 2, transom: 1, snow: 0.7, rng, glass: lit ? M('pub_glass_warm') : undefined })
+        win(m, 'front', u, fy + 4, 7, 6, lit ? { cols: 1, snow: 0.7, rng, glass: M('pub_glass_warm') } : { cols: 2, transom: 1, snow: 0.7, rng })
         ffill(m, 'front', u - 1, fy + 10, 0, 9, 1, 1, lintel)
-        if (!lit && rng.chance(0.3)) { fset(m, 'front', u + 2, fy + 6, 0, M('plastic_white')); if (rng.chance(0.5)) fset(m, 'front', u + 5, fy + 7, 0, M('plastic_white')) }
+        // paper snowflakes stuck on the inside of the glass (New Year)
+        if (!lit && rng.chance(0.35)) { fset(m, 'front', u + 2, fy + 6, 1, M('plastic_white')); if (rng.chance(0.5)) fset(m, 'front', u + 5, fy + 8, 1, M('plastic_white')) }
       }
       win(m, 'back', u, fy + 4, 7, 6, { cols: 2, transom: 1, snow: 0.6, rng })
       ffill(m, 'back', u - 1, fy + 10, 0, 9, 1, 1, lintel)

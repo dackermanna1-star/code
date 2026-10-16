@@ -6,7 +6,10 @@ import { defineModel } from '../../core/models.js'
 import { VoxelModel } from '../../core/VoxelModel.js'
 import { M } from '../../core/materials.js'
 import { RNG } from '../../core/rng.js'
-import { V, frameFor, put, sign, readable, interact, light, flatten, navPath, reg, seed01, seedInt, win, pasteFigure, drawText, dangerPlate, handText, SIGN_FONT, PLAIN_FONT } from './lib.js'
+import {
+  V, frameFor, put, sign, readable, interact, light, flatten, navPath, reg, seed01, seedInt, win,
+  pasteFigure, drawText, dangerPlate, SIGN_FONT, PLAIN_FONT,
+} from './lib.js'
 import { addEmitter, RT } from './runtime.js'
 
 // ---- transformer substation (6 × 4.5 m) -------------------------------------------------------
@@ -26,7 +29,8 @@ defineModel('pub_substation', () => {
   for (const dx of [3, 15]) {
     m.fill(dx, 0, 1, 8, 10, 1, M('metal_gray'))
     for (let y = 0; y < 10; y++) m.set(dx + 4, y, 1, M('metal_dark'))
-    for (const y of [6, 8]) for (let x = dx + 1; x < dx + 7; x++) if (x !== dx + 4) m.set(x, y, 1, M('metal_dark'))
+    // louvre panels in the upper part of each leaf (slats)
+    for (const lx0 of [dx + 1, dx + 5]) for (const y of [6, 8]) for (let x = lx0; x < lx0 + 2; x++) m.set(x, y, 1, M('metal_dark'))
     m.fill(dx - 1, 10, 1, 10, 1, 1, M('concrete_light'))
     for (let k = 0; k < 10; k++) m.set(dx + rng.int(0, 7), rng.int(0, 4), 1, M('metal_rust'))
     m.set(dx + 3, 4, 1, M('chrome'))
@@ -146,10 +150,9 @@ export function placeDispatcherBooth(ctx, o) {
   })
   addEmitter({ name: 'radio_distant', pos: F.p(0.6, 1.2, front + 0.8), gain: 0.14, radius: 16, refDistance: 1, cutoff: 2500 })
   const [sx, sy, sz] = F.p((DX - 4 - DX / 2 + 0.5) * V, 15 * V, (DZ - 3 - 1 - (DZ - 1) / 2 + 0.5) * V)
-  RT.pendingSteam.push({ x: sx, y: sy, z: sz, rate: 0.6, size: 0.6, kind: 'stovepipe' })
+  RT.pendingSteam.push({ x: sx, y: sy, z: sz, kind: 'vent', rate: 2, size: 0.35, tag: 'stovepipe' })
   reg(ctx, 'dispatchers', { x: F.x, z: F.z, route })
   navPath(ctx, F, [[(19 - DX / 2) * V, front - 1], [(19 - DX / 2) * V, front - 8]], 'path', { to: 'dispatcher' })
-  void handText; void SIGN_FONT
   return { placement: p, frame: F }
 }
 

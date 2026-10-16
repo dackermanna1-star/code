@@ -6,8 +6,11 @@ import { defineModel } from '../../core/models.js'
 import { VoxelModel } from '../../core/VoxelModel.js'
 import { M } from '../../core/materials.js'
 import { RNG } from '../../core/rng.js'
-import { V, HALF_PI, frameFor, put, sign, readable, light, flatten, navPath, reg, seed01, seedInt, drawText, handText, PLAIN_FONT } from './lib.js'
-import { addEmitter } from './runtime.js'
+import {
+  V, HALF_PI, frameFor, put, sign, readable, light, flatten, navPath, reg, seedInt, drawText,
+  handText, PLAIN_FONT,
+} from './lib.js'
+
 
 const R = 8 // corner radius in voxels (2 m)
 
@@ -127,7 +130,7 @@ export function placeHockeyBox(ctx, o) {
     const lx = side === 0 ? -w / 2 - 2.2 : side === 1 ? w / 2 + 2.2 : t * w
     const lz = side === 2 ? -d / 2 - 2.2 : side === 3 ? d / 2 + 2.2 : t * d
     const [wx, , wz] = F.p(lx, 0, lz)
-    ctx.terrain.mound(wx, wz, rng.float(1.2, 2.6), rng.float(1.2, 2.6), rng.float(0.5, 1.1), M('snow_bank'), 0.5, rng.int(0, 1e6))
+    ctx.terrain.mound(wx, wz, rng.float(1.2, 2.4), rng.float(1.2, 2.4), rng.float(0.35, 0.8), M(k % 3 ? 'snow' : 'snow_bank'), 0.35, rng.int(0, 1e6))
   }
   // a little scraped snow left on the ice in the corners
   for (const [sx, sz] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
@@ -186,7 +189,6 @@ export function placeHockeyBox(ctx, o) {
   sign(ctx, F, w / 2 + 0.27, 0.7, 6, 1, 0, { w: 1.1, h: 0.4, ppm: 70, draw: (c, W, H) => { c.clearRect(0, 0, W, H); handText(c, W, H, { lines: ['ЦСКА — чемпион'], color: '#7a1a1a', seed: 4 }) } })
   navPath(ctx, F, [[-w / 2 - 3, gz], [-w / 2 + 3, gz], [0, 0]], 'path', { to: 'hockey' })
   reg(ctx, 'hockeyBoxes', { x: F.x, z: F.z, w, d, angle: F.a })
-  void addEmitter; void seed01
   return { boards, lamps, goals, frame: F, ice: iceB }
 }
 

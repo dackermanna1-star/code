@@ -124,6 +124,14 @@ export function addCrows(ctx, o) {
     const pts = o.tree.perches()
     rng.shuffle(pts)
     for (let i = 0; i < count && i < pts.length; i++) homes.push({ x: pts[i].x, y: pts[i].y, z: pts[i].z, h: rng.float(0, Math.PI * 2) })
+    if (!homes.length) {
+      // no usable branch tops: sit up in the crown anyway
+      const R = (o.tree.crownR ?? 2) * 0.4
+      for (let i = 0; i < count; i++) {
+        const a = rng.float(0, Math.PI * 2)
+        homes.push({ x: o.tree.x + Math.cos(a) * R, y: o.tree.y + (o.tree.height ?? 8) * rng.float(0.55, 0.75), z: o.tree.z + Math.sin(a) * R, h: rng.float(0, Math.PI * 2) })
+      }
+    }
   } else if (kind === 'wire' || kind === 'roof') {
     const a = o.angle ?? 0
     const dx = Math.cos(a), dz = -Math.sin(a)
@@ -148,6 +156,7 @@ export function addCrows(ctx, o) {
       homes.push({ x: o.x + Math.cos(a) * d, y: (o.y ?? 6) + rng.float(-0.5, 0.5), z: o.z + Math.sin(a) * d, h: rng.float(0, Math.PI * 2) })
     }
   }
+  if (!homes.length) return null
   const crows = []
   let cx = 0, cy = 0, cz = 0
   for (const hm of homes) {

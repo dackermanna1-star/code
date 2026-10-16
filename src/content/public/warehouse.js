@@ -7,7 +7,10 @@ import { defineModel } from '../../core/models.js'
 import { VoxelModel } from '../../core/VoxelModel.js'
 import { M } from '../../core/materials.js'
 import { RNG } from '../../core/rng.js'
-import { V, HALF_PI, frameFor, put, sign, readable, interact, light, flatten, paint, navPath, reg, seed01, seedInt, ffill, fset, pasteFigure, drawText, handText, SIGN_FONT, PLAIN_FONT } from './lib.js'
+import {
+  V, HALF_PI, frameFor, put, sign, readable, interact, light, flatten, paint, navPath, reg, seed01,
+  seedInt, pasteFigure, drawText, SIGN_FONT, PLAIN_FONT,
+} from './lib.js'
 import { addEmitter } from './runtime.js'
 
 const WX = 144, WZ = 84, DOCK = 12, WTOP = 28, RIDGE = 6
@@ -204,7 +207,6 @@ export function placeWarehouse(ctx, o) {
   }
   reg(ctx, 'industrial', { kind: 'warehouse', x: F.x, z: F.z, y, angle: F.a, gate: [F.wx(5, gz), F.wz(5, gz)] })
   navPath(ctx, F, [[5, gz - 1], [5, gz - 12]], 'path', { to: 'warehouse_gate' })
-  void handText; void fset
   return { placement: p, gate, booth, frame: F, gatePos: [F.wx(5, gz), F.wz(5, gz)] }
 }
 

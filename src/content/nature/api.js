@@ -14,10 +14,11 @@ import { SteamSystem, STEAM_PRESETS } from './steam.js'
 import { addCrows } from './crows.js'
 import { natureState, treesNear as _treesNear } from './state.js'
 import { createClumps, dropClump as _dropClump } from './clumps.js'
+import { addBag } from './bag.js'
 
 export { SPECIES, SPECIES_NAMES, PLANTS, BURIED, STEAM_PRESETS, POND_SIGN }
 export { placeTree, scatterTrees, samplePoints, pickVariant, areaOf, inPolygon }
-export { placePond, snowBank, snowDrift, plowedPile, addCrows }
+export { placePond, snowBank, snowDrift, plowedPile, addCrows, addBag }
 
 const TAU = Math.PI * 2
 

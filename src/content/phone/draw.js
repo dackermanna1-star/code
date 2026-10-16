@@ -4,8 +4,12 @@
 
 import { mulberry32 } from '../../core/rng.js'
 import { SIGN_FONT, PLAIN_FONT, SERIF_FONT } from '../../render/Signs.js'
+import { SCRIPT_FAMILY, MARKER_FAMILY } from './fonts.js'
 
-export const HAND_STACK = '"Segoe Print", "Bradley Hand", "Comic Sans MS", "Marker Felt", "DejaVu Sans", cursive'
+/** Ballpoint cursive (bundled Bad Script, then system handwriting fonts). */
+export const HAND_STACK = `"${SCRIPT_FAMILY}", "Segoe Print", "Bradley Hand", "Comic Sans MS", "DejaVu Sans", cursive`
+/** Felt-tip / spray-can block letters (bundled Neucha, then system fallbacks). */
+export const MARKER_STACK = `"${MARKER_FAMILY}", "Comic Sans MS", "Segoe Print", "Marker Felt", "DejaVu Sans", cursive`
 const TYPE = '"Courier New", "Liberation Mono", "DejaVu Sans Mono", monospace'
 
 const PAPER = {
@@ -54,18 +58,21 @@ function rr(g, x, y, w, h, r) {
   g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath()
 }
 /** Text drawn letter by letter with seeded wobble (handwriting, marker). */
-function wobblyText(g, text, x, y, rnd, amt, align = 'left') {
+function wobblyText(g, text, x, y, rnd, amt, align = 'left', o = {}) {
   const w = g.measureText(text).width
   let cx = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x
   const save = g.textAlign
   g.textAlign = 'left'
   let drift = 0
+  const rot = o.rot ?? 0.12, grow = o.grow ?? 0
   for (const ch of text) {
     drift += (rnd() - 0.5) * amt * 0.5
     drift *= 0.85
     g.save()
     g.translate(cx, y + drift + (rnd() - 0.5) * amt)
-    g.rotate((rnd() - 0.5) * 0.12)
+    g.rotate((rnd() - 0.5) * rot)
+    if (grow) { const k = 1 + (rnd() - 0.5) * grow; g.scale(k, k) }
+    if (o.stroke) g.strokeText(ch, 0, 0)
     g.fillText(ch, 0, 0)
     g.restore()
     cx += g.measureText(ch).width * (0.96 + rnd() * 0.08)
@@ -219,8 +226,8 @@ export function drawNotice(g, W, H, item, o = {}) {
     y += ts * 1.45
   }
   // body
-  const bodyH = bottom - y - (item.footer ? p.h * 0.06 : 0)
-  const fit = fitWrap(g, item.ru, p.w - pad * 2, bodyH, family, '', p.h * (hand ? 0.1 : 0.05), 3, hand ? 1.3 : 1.22)
+  const bodyH = bottom - y - (item.footer ? p.h * 0.06 : 0) - (item.addendum ? p.h * 0.17 : 0)
+  const fit = fitWrap(g, item.ru, p.w - pad * 2, bodyH, family, '', (hand ? Math.max(p.h, p.w * 1.1) * 0.088 : p.h * 0.05), 3, hand ? 1.3 : 1.22)
   g.textAlign = item.sub === 'official' || hand ? 'left' : 'center'
   const bx = g.textAlign === 'left' ? p.x + pad : p.x + p.w / 2
   for (const line of fit.lines) {
@@ -232,9 +239,9 @@ export function drawNotice(g, W, H, item, o = {}) {
     // someone else has written underneath, in another pen
     g.save()
     g.fillStyle = '#151515'
-    g.font = `bold ${Math.max(4, fit.size * 1.15)}px ${HAND_STACK}`
+    g.font = `bold ${Math.max(4, fit.size * 1.15)}px ${MARKER_STACK}`
     g.textAlign = 'right'
-    g.translate(p.x + p.w - pad, Math.min(bottom - fit.size * 1.6, y + fit.size * 0.5))
+    g.translate(p.x + p.w - pad, Math.min(bottom - fit.size * 1.4, y + fit.size * 0.35))
     g.rotate(-0.12)
     wobblyText(g, item.addendum, 0, 0, rnd, fit.size * 0.1, 'right')
     g.restore()
@@ -449,12 +456,20 @@ function drawFlyer(g, W, H, item, rnd, o) {
 }
 
 // ---- graffiti ---------------------------------------------------------------------------------------
+/** Canvas font for a graffiti look at a pixel size (shared by measuring and drawing). */
+function graffitiFont(look, size) {
+  if (look === 'stencil') return `bold ${size}px ${SIGN_FONT}`
+  if (look === 'spray') return `${size}px ${MARKER_STACK}`
+  if (look === 'tag') return `italic ${size}px ${MARKER_STACK}`
+  return `${size}px ${MARKER_STACK}` // marker, chalk, dust, scratch
+}
+let measureCtx = null
 /** Measure a graffiti item's natural aspect ratio (w / h) for its look. */
 export function graffitiAspect(item) {
-  const c = document.createElement('canvas').getContext('2d')
+  const c = measureCtx ||= document.createElement('canvas').getContext('2d')
   const look = item.look ?? 'spray'
   const lines = String(item.ru).split('\n')
-  c.font = `${look === 'spray' || look === 'stencil' ? 'bold ' : ''}100px ${look === 'marker' || look === 'chalk' || look === 'dust' || look === 'scratch' ? HAND_STACK : SIGN_FONT}`
+  c.font = graffitiFont(look, 100)
   const w = Math.max(...lines.map(l => c.measureText(l).width))
   let a = (w + 40) / (lines.length * 115 + 30)
   if (item.heart) return 1.25
@@ -472,19 +487,16 @@ export function drawGraffiti(g, W, H, item, o = {}) {
   const color = o.color ?? item.color ?? (look === 'chalk' ? '#e8e4da' : look === 'scratch' ? '#cfcac0' : look === 'dust' ? '#a8a49a' : '#1b1b1b')
   const text = String(item.ru)
   const lines = item.heart ? text.replace(/ (=|\d)/, '\n$1').split('\n') : text.split('\n')
-  const handish = look === 'marker' || look === 'chalk' || look === 'dust' || look === 'scratch'
-  const family = handish ? HAND_STACK : SIGN_FONT
-  const weight = look === 'spray' || look === 'stencil' || look === 'tag' ? 'bold' : ''
   let left = W * 0.04
   let avail = W * 0.92
   if (item.anarchy) { avail -= H * 0.95; left += H * 0.95 }
   if (item.heart) { left = W * 0.24; avail = W * 0.52 }
   // size to fit
   let size = (item.heart ? H * 0.36 : H * 0.82) / lines.length
-  g.font = `${look === 'tag' ? 'italic ' : ''}${weight} ${size}px ${family}`
+  g.font = graffitiFont(look, size)
   const mw = Math.max(...lines.map(l => g.measureText(l).width))
   if (mw > avail) size *= avail / mw
-  g.font = `${look === 'tag' ? 'italic ' : ''}${weight} ${size}px ${family}`
+  g.font = graffitiFont(look, size)
   g.textBaseline = 'middle'
   g.textAlign = 'center'
   const cx = left + avail / 2
@@ -501,17 +513,22 @@ export function drawGraffiti(g, W, H, item, o = {}) {
     const y = cy0 + i * size * 1.1
     if (look === 'marker' || look === 'chalk' || look === 'dust') { wobblyText(s, l, cx, y, rnd, size * 0.06, 'center') }
     else if (look === 'scratch') {
-      s.lineWidth = Math.max(1, size * 0.04)
-      s.strokeText(l, cx + (rnd() - 0.5) * 2, y)
+      wobblyText(s, l, cx, y, rnd, size * 0.04, 'center', { rot: 0.06 })
     } else if (look === 'tag') {
-      s.lineWidth = size * 0.16
-      s.strokeStyle = '#121212'
+      // a quick one-colour signature with a thin dark outline and an underline flick
+      const lw = s.measureText(l).width
+      s.lineWidth = size * 0.07
+      s.strokeStyle = '#161616'
       s.strokeText(l, cx, y)
       s.fillText(l, cx, y)
-      s.lineWidth = size * 0.06
-      s.beginPath(); s.moveTo(cx - mw * 0.45 * size / (H * 0.82), y + size * 0.55); s.quadraticCurveTo(cx, y + size * 0.85, cx + mw * 0.5 * size / (H * 0.82), y + size * 0.4); s.strokeStyle = color; s.stroke()
+      s.lineWidth = size * 0.05
+      s.beginPath(); s.moveTo(cx - lw * 0.48, y + size * 0.42); s.quadraticCurveTo(cx, y + size * 0.62, cx + lw * 0.52, y + size * 0.3); s.strokeStyle = color; s.stroke()
+    } else if (look === 'spray') {
+      // hand-sprayed capitals: each letter a little off, can-width lines
+      s.lineWidth = size * 0.045
+      wobblyText(s, l, cx, y, rnd, size * 0.05, 'center', { stroke: true, rot: 0.1, grow: 0.08 })
     } else {
-      s.lineWidth = size * (look === 'stencil' ? 0.02 : 0.05)
+      s.lineWidth = size * 0.02
       s.fillText(l, cx, y); s.strokeText(l, cx, y)
     }
   })
@@ -683,7 +700,7 @@ export function drawPlate(g, W, H, item, o = {}) {
     for (let i = 0; i < W * H * 0.004; i++) g.fillRect(rnd() * W, rnd() * H, 1, 1)
     g.fillStyle = rnd() < 0.3 ? '#a3141a' : '#161616'
     g.textAlign = 'center'; g.textBaseline = 'top'
-    const f = fitWrap(g, item.ru, W * 0.84, H * 0.8, HAND_STACK, 'bold', H * 0.4, 3, 1.15)
+    const f = fitWrap(g, item.ru, W * 0.84, H * 0.8, MARKER_STACK, 'bold', H * 0.4, 3, 1.15)
     let y = (H - f.lines.length * f.size * 1.15) / 2
     for (const l of f.lines) { wobblyText(g, l, W / 2, y, rnd, f.size * 0.08, 'center'); y += f.size * 1.15 }
     tape(g, W * 0.03, H * 0.04, W * 0.94, H * 0.92, rnd, 'top')
@@ -741,7 +758,7 @@ export function drawPlate(g, W, H, item, o = {}) {
   lines.forEach((l, i) => {
     const big = look === 'house' && i === lines.length - 1
     const maxH = lh * (big ? 0.95 : 0.78)
-    const fam = look === 'painted' ? HAND_STACK : SIGN_FONT
+    const fam = look === 'painted' ? MARKER_STACK : SIGN_FONT
     const sz = fitLine(g, l, (x1 - x0) - pad * 2, maxH, fam, 'bold')
     const yy = pad + lh * (i + 0.5)
     if (look === 'painted') wobblyText(g, l, (x0 + x1) / 2, yy, rnd, sz * 0.06, 'center')
@@ -751,6 +768,13 @@ export function drawPlate(g, W, H, item, o = {}) {
 }
 
 // ---- dispatch -------------------------------------------------------------------------------------
+const HAND_LOOKS = new Set(['handwritten', 'handcard', 'painted', 'marker', 'chalk', 'dust', 'scratch', 'spray', 'tag'])
+/** True if drawing this item uses one of the bundled handwriting fonts. */
+export function usesHandFont(item, look = item?.look) {
+  if (!item) return false
+  return HAND_LOOKS.has(look) || item.style === 'hand' || !!item.addendum
+}
+
 const NOTICE_LOOKS = new Set(['printed', 'handwritten', 'tearoff', 'official'])
 const PLATE_LOOKS = new Set(['label', 'hours', 'handcard', 'sticker', 'plate', 'lightbox', 'rules', 'house', 'stop', 'painted', 'danger', 'hydrant', 'shopsign'])
 const GRAFFITI_LOOKS = new Set(['spray', 'marker', 'scratch', 'stencil', 'tag', 'chalk', 'dust'])

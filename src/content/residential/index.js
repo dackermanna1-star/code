@@ -32,7 +32,7 @@ function demo(ctx, which) {
   // home: II-49, entrances facing south into the yard; entrance 3 enterable
   placeResidential(ctx, { series: 'ii49', floors: 9, sections: 3, x: 300, z: 352, rot: 2, y: 0.25, seed: 3, enterable: [2], homeLight: [2], address: addr('12', '2') })
   if (which === 'home') return
-  placeResidential(ctx, { series: 'ii49', floors: 9, sections: 2, x: 170, z: 470, rot: 0, y: 0.25, seed: 5, loopStairs: [1], address: addr('12', '3'), firstEntrance: 1 })
+  placeResidential(ctx, { series: 'ii49', floors: 9, sections: 2, x: 170, z: 470, rot: 0, y: 0.25, seed: 5, address: addr('12', '3'), firstEntrance: 1 })
   placeResidential(ctx, { series: 'p44', floors: 17, sections: 1, x: 330, z: 360, rot: 0, y: 0.25, seed: 7, enterable: [0], tint: 0x4f6b8f, address: addr('14', '1') })
   placeResidential(ctx, { series: 'p44t', floors: 17, sections: 1, x: 370, z: 360, rot: 0, y: 0.25, seed: 8, address: addr('14', '2') })
   placeResidential(ctx, { series: '1515', floors: 9, sections: 2, x: 330, z: 420, rot: 0, y: 0.25, seed: 9, address: addr('16', '') })

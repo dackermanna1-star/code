@@ -8,7 +8,7 @@ import { RNG, hash2 } from '../../core/rng.js'
 import { VOXEL } from '../../core/constants.js'
 import { MAT } from './materials.js'
 import {
-  Skeleton, rasterize, branchSnow, useThinLods, deviate, fromVertical, add, mul, norm, lerp,
+  Skeleton, rasterize, branchSnow, useThinLods, fineScale, deviate, fromVertical, add, mul, norm, lerp,
   PRIO,
 } from './voxutil.js'
 
@@ -75,7 +75,8 @@ function finish(r, o) {
   }
   rng.shuffle(spots)
   const snowSpots = spots.filter(s => s[1] - m.pivot.y >= 12).slice(0, 32)
-  const toLocal = v => [(v[0] + 0.5 - m.pivot.x) * VOXEL, (v[1] - m.pivot.y) * VOXEL, (v[2] + 0.5 - m.pivot.z) * VOXEL]
+  const vs = VOXEL * (o.fine ?? 1)
+  const toLocal = v => [(v[0] + 0.5 - m.pivot.x) * vs, (v[1] - m.pivot.y) * vs, (v[2] + 0.5 - m.pivot.z) * vs]
   // crown radius (horizontal extent from the pivot)
   let crownR = 0
   for (let y = 0; y < m.sy; y++)
@@ -83,12 +84,13 @@ function finish(r, o) {
       for (let x = 0; x < m.sx; x++)
         if (m.data[m.idx(x, y, z)]) crownR = Math.max(crownR, Math.hypot(x + 0.5 - m.pivot.x, z + 0.5 - m.pivot.z))
   m.nature = {
-    height: (m.sy - m.pivot.y) * VOXEL,
-    crownR: crownR * VOXEL,
+    height: (m.sy - m.pivot.y) * vs,
+    crownR: crownR * vs,
     perches: perches.map(toLocal),
     snowSpots: snowSpots.map(toLocal),
   }
-  useThinLods(m, o.thinMin, o.snowMin)
+  if (o.fine) fineScale(m)
+  else useThinLods(m, o.thinMin, o.snowMin)
   return m
 }
 
@@ -606,49 +608,50 @@ function buildRowan(seed, Hm) {
 
 // ---- SAPLINGS: young trees tied to stakes -----------------------------------------------------------
 function buildSapling(seed, Hm, o = {}) {
+  // fine 12.5 cm voxels: a sapling stem and its stakes are only a few centimetres thick
   const rng = new RNG(seed)
-  const H = Hm * 4
+  const H = Hm * 8
   const sk = new Skeleton()
   const bark = o.birch ? MAT.barkBirch : MAT.bark
-  const tp = sk.grow({ p: [0, -2, 0], dir: fromVertical(rng.float(0, 0.05), rng.float(0, TAU)), length: H + 2, step: 2, r0: 0.4, r1: 0.4, gnarl: 0.05, trop: UP, tropK: 0.05, rng, mat: bark, prio: PRIO.trunk, conn: 6 })
+  const tp = sk.grow({ p: [0, -3, 0], dir: fromVertical(rng.float(0, 0.04), rng.float(0, TAU)), length: H + 3, step: 3, r0: 0.4, r1: 0.4, gnarl: 0.04, trop: UP, tropK: 0.05, rng, mat: bark, prio: PRIO.trunk, conn: 6 })
   const top = tp[tp.length - 1].p[1]
-  for (let k = 0; k < rng.int(4, 8); k++) {
-    const q = atY(tp, rng.float(top * 0.55, top - 0.5))
-    const pts = sk.grow({ p: q.p, dir: fromVertical(rng.float(0.4, 0.8), rng.float(0, TAU)), length: rng.float(2, 5), step: 1.5, r0: 0.3, r1: 0.3, gnarl: 0.12, trop: o.birch ? DOWN : UP, tropK: o.birch ? 0.1 : 0.05, rng, mat: o.birch ? MAT.twigBirch : MAT.twigGrey, prio: PRIO.twig })
-    if (o.birch) hangTwig(sk, rng, pts[pts.length - 1].p, pts[pts.length - 1].dir, rng.float(2, 4), 0.2)
+  for (let k = 0; k < rng.int(5, 9); k++) {
+    const q = atY(tp, rng.float(top * 0.55, top - 1))
+    const pts = sk.grow({ p: q.p, dir: fromVertical(rng.float(0.4, 0.8), rng.float(0, TAU)), length: rng.float(4, 10), step: 2, r0: 0.3, r1: 0.3, gnarl: 0.1, trop: o.birch ? DOWN : UP, tropK: o.birch ? 0.1 : 0.05, rng, mat: o.birch ? MAT.twigBirch : MAT.twigGrey, prio: PRIO.twig })
+    if (o.birch) hangTwig(sk, rng, pts[pts.length - 1].p, pts[pts.length - 1].dir, rng.float(4, 8), 0.2)
   }
-  const stakeH = rng.float(7, 8.5)
-  const tieY = 5
+  const stakeH = rng.float(14, 17)
+  const tieY = 10
   if (o.tripod) {
     const posts = []
     const az0 = rng.float(0, TAU)
     for (let k = 0; k < 3; k++) {
       const az = az0 + k * TAU / 3
-      const p = [Math.round(Math.cos(az) * 2.6) + 0.5, 0, Math.round(Math.sin(az) * 2.6) + 0.5]
-      sk.seg(add(p, [0, -2, 0]), add(p, [0, stakeH - 1, 0]), 0.4, 0.4, MAT.wood, PRIO.solid, 6)
+      const p = [Math.round(Math.cos(az) * 5) + 0.5, 0, Math.round(Math.sin(az) * 5) + 0.5]
+      sk.seg(add(p, [0, -3, 0]), add(p, [0, stakeH - 1, 0]), 0.4, 0.4, MAT.wood, PRIO.solid, 6)
       posts.push(p)
     }
     for (let k = 0; k < 3; k++) {
       const a = posts[k], b = posts[(k + 1) % 3]
-      sk.seg(add(a, [0, tieY + 1, 0]), add(b, [0, tieY + 1, 0]), 0.4, 0.4, MAT.woodDark, PRIO.solid, 6)
-      sk.seg(add(a, [0, tieY - 0.5, 0]), [0.5, tieY - 0.5, 0.5], 0.3, 0.3, MAT.rubber, PRIO.solid, 6)
+      sk.seg(add(a, [0, tieY + 2, 0]), add(b, [0, tieY + 2, 0]), 0.4, 0.4, MAT.woodDark, PRIO.solid, 6)
+      sk.seg(add(a, [0, tieY - 1, 0]), [0.5, tieY - 1, 0.5], 0.3, 0.3, MAT.rubber, PRIO.solid, 6)
     }
   } else {
     const nS = o.two ? 2 : 1
     const az0 = rng.float(0, TAU)
     for (let k = 0; k < nS; k++) {
       const az = az0 + k * Math.PI
-      const p = [Math.round(Math.cos(az) * 2) + 0.5, 0, Math.round(Math.sin(az) * 2) + 0.5]
-      const lean = o.slant ? [Math.cos(az) * -0.8, 0, Math.sin(az) * -0.8] : [0, 0, 0]
-      sk.seg(add(p, [0, -2, 0]), add(add(p, lean), [0, stakeH - 1, 0]), 0.4, 0.4, MAT.wood, PRIO.solid, 6)
+      const p = [Math.round(Math.cos(az) * 3) + 0.5, 0, Math.round(Math.sin(az) * 3) + 0.5]
+      const lean = o.slant ? [Math.cos(az) * -1.6, 0, Math.sin(az) * -1.6] : [0, 0, 0]
+      sk.seg(add(p, [0, -3, 0]), add(add(p, lean), [0, stakeH - 1, 0]), 0.4, 0.4, MAT.wood, PRIO.solid, 6)
       sk.seg(add(p, [0, tieY, 0]), [0.5, tieY, 0.5], 0.3, 0.3, MAT.rubber, PRIO.solid, 6)
     }
   }
-  const r = rasterize(sk)
-  if (o.lime) lowerTrunk(r.model, bark, MAT.lime, 4, 1, rng)
+  const r = rasterize(sk, { below: 3 })
+  if (o.lime) lowerTrunk(r.model, bark, MAT.lime, 8, 1, rng)
   if (o.birch) birchBark(r.model, rng, 0, [])
   return finish(r, {
-    seed, snowMats: new Set([MAT.wood, MAT.woodDark, MAT.twigGrey, MAT.twigBirch]), minHoriz: mat => (mat === MAT.wood ? 0 : 0.5),
+    seed, fine: 0.5, snowMats: new Set([MAT.wood, MAT.woodDark, MAT.twigGrey, MAT.twigBirch]), minHoriz: mat => (mat === MAT.wood ? 0 : 0.5),
     snowChance: 0.8, perchMats: new Set([MAT.twigGrey, MAT.woodDark]), perchMinFrac: 0.3,
   })
 }
@@ -686,6 +689,6 @@ function reg(species, kind, idx, heightM, build, opts) {
 ;[5, 6, 7, 8].forEach((h, i) => reg('rowan', 'single', i, h, () => buildRowan(7000 + i * 71, h), MID))
 // saplings: one stake / birch / tripod / two stakes slanted, whitewashed
 ;[[2.2, {}], [2.6, { birch: true }], [3.0, { tripod: true }], [3.4, { two: true, slant: true, lime: true }]].forEach(([h, o], i) =>
-  reg('sapling', 'young', i, h, () => buildSapling(8000 + i * 73, h, o), { lods: [1, 2], lodDistances: [35], maxDistance: 150 }))
+  reg('sapling', 'young', i, h, () => buildSapling(8000 + i * 73, h, o), { lods: [0.5], lodDistances: [], maxDistance: 150, collide: false, contact: false }))
 
 export const SPECIES_NAMES = Object.keys(SPECIES)

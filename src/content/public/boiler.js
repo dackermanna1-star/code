@@ -237,10 +237,15 @@ export function placeHeatPipe(ctx, o) {
     for (let t = 0; t < len - 0.01; t += 6) {
       const mid = t + 3
       if (myArches.some(at => Math.abs(at - mid) < 8)) continue
-      out.push(ctx.world.place('pub_heat_pipe', { x: ax + dx * t, z: az + dz * t, angle: ang, tag: 'heat_pipe', userData: { pkg: 'public' } }))
+      out.push(ctx.world.place('pub_heat_pipe', { x: ax + dx * t, z: az + dz * t, angle: ang, tag: 'heat_pipe', userData: { pkg: 'public', noRelocate: true } }))
     }
     for (const at of myArches) {
-      out.push(ctx.world.place('pub_heat_pipe_arch', { x: ax + dx * (at - 5), z: az + dz * (at - 5), angle: ang, tag: 'heat_pipe', userData: { pkg: 'public' } }))
+      out.push(ctx.world.place('pub_heat_pipe_arch', { x: ax + dx * (at - 5), z: az + dz * (at - 5), angle: ang, tag: 'heat_pipe', userData: { pkg: 'public', noRelocate: true } }))
+    }
+    // now and then a leaking joint steams (heating-main leak)
+    if (len > 12 && hashf(Math.round(ax * 7), Math.round(az * 13), 5) < 0.35) {
+      const t = 6 * Math.max(1, Math.floor(len / 12))
+      RT.pendingSteam.push({ x: ax + dx * t, y: 1.6, z: az + dz * t, kind: 'pipe', tag: 'heat_pipe_leak' })
     }
     // melted strip of snow under the pipe line
     ctx.terrain.paintLine(ax, az, bx, bz, 2.2, { mat: M('snow_dirty'), only: new Set([M('snow'), M('snow_fresh')]) })
@@ -263,12 +268,11 @@ export function placeBoilerHouse(ctx, o) {
   const num = o.number ?? 3
   const y = F.y
   flatten(ctx, F, -15.25, -8.25, 23.25, 12.25, y, M('snow_dirty'))
-  const hall = put(ctx, F, 'pub_boiler', 0, 0, { seed: seed01(o.seed, 1), tag: 'industrial', userData: { kind: 'boiler_house' } })
+  const hall = put(ctx, F, 'pub_boiler', 0, 0, { seed: seed01(o.seed, 1), tag: 'building', userData: { kind: 'boiler_house' } })
   const chx = (FLUE_X - BPX) * V, chz = (BZ - BPZ) * V + 2.4
   flatten(ctx, F, chx - 3, chz - 3, chx + 3, chz + 3, y, M('snow_dirty'))
   const chimney = put(ctx, F, 'pub_chimney', chx, chz, { seed: seed01(o.seed, 2), tag: 'landmark', userData: { kind: 'chimney' } })
   // aviation lights: top platform blinking (3), mid platform steady (one dead)
-  const c = CW / 2
   PLATFORMS.forEach((py, pi) => {
     const r = (chR(py) + 1.6) * V
     for (let k = 0; k < 3; k++) {
@@ -284,7 +288,6 @@ export function placeBoilerHouse(ctx, o) {
       light(ctx, F, lx, (py + 1.6) * V, lz, { color: 0xff2412, intensity: pi === 1 ? 16 : 7, range: pi === 1 ? 9 : 6, schedule: sched, placement: p, haloSize: pi === 1 ? 2.4 : 1.4, scatter: 0.6, tag: 'aviation_light' })
     }
   })
-  void c
   // door lamp, yard floodlight, a little cold spill from the big windows
   const DX = (135 - BPX) * V
   const lampP = put(ctx, F, 'pub_lamp_wall_bulb', DX, -BPZ * V, { ly: 2.45, tag: 'lamp' })
@@ -308,7 +311,7 @@ export function placeBoilerHouse(ctx, o) {
   addEmitter({ name: 'ventilation', pos: F.p(-2, HTOP * V + 1.5, 0), gain: 0.3, radius: 45, refDistance: 4 })
   // a plume of steam from the chimney top (nature package, if present)
   const top = F.p(chx, CH * V + 0.5, chz)
-  RT.pendingSteam.push({ x: top[0], y: top[1], z: top[2], rate: 2.0, size: 3.0, kind: 'chimney' })
+  RT.pendingSteam.push({ x: top[0], y: top[1], z: top[2], kind: 'chimney', tag: 'boiler_chimney' })
   // optional heat pipes from the hall
   if (o.pipes && o.pipes.length > 1) placeHeatPipe(ctx, { points: o.pipes, arches: o.arches })
   const cp = [F.wx(chx, chz), F.wz(chx, chz)]
@@ -319,4 +322,16 @@ export function placeBoilerHouse(ctx, o) {
 }
 
 export const BOILER_DIMS = { hall: [30, 16], annex: [8, 10], total: [38, 20], chimneyHeight: CH * V }
-void Frame; void navPath
+
+/** Chimney offset from the hall centre in local meters (local +X right, +Z back). */
+export const CHIMNEY_OFFSET = [(FLUE_X - BPX) * V, (BZ - BPZ) * V + 2.4]
+
+/**
+ * Where to put placeBoilerHouse's (x, z) so the chimney lands on (cx, cz) for a given rot.
+ * e.g. PLAN chimney at (262, 95), front facing the street (south, rot 2): boilerCenterForChimney(262, 95, 2)
+ */
+export function boilerCenterForChimney(cx, cz, rot = 0) {
+  const F = new Frame(0, 0, 0, rot * HALF_PI)
+  const [ox, oz] = CHIMNEY_OFFSET
+  return [cx - F.wx(ox, oz), cz - F.wz(ox, oz)]
+}

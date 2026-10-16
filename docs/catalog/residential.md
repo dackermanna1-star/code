@@ -3,7 +3,7 @@
 Soviet residential blocks of a Moscow microdistrict, winter 2008: panel series P-44, II-49,
 1-515/9Ш, P-44T, the K-7 khrushchyovka and the brick II-32. One model = one **section**
 (подъезд, one entrance); buildings are rows of sections. Explorable stairwells with a working
-lift, doorbells, the endless stairwell anomaly. Package order 25; `build()` places nothing.
+lift and doorbells. Package order 25; `build()` places nothing.
 
 ```js
 import { placeResidential, residentialSize } from '../residential/api.js'
@@ -21,7 +21,6 @@ const b = placeResidential(ctx, {
   y: 0.25,                 // optional; default = lowest terrain along both facades (0..0.5)
   seed: 3,                 // varies lit windows, glazing variants, lamps, door colours
   enterable: [2],          // section indexes with an explorable stairwell (+lift if the series has one)
-  loopStairs: [],          // section indexes whose stairwell never ends (needs floors >= 9)
   address: { street: 'ул. Берёзовая', house: '12', korpus: '2' },
   firstEntrance: 1,        // number on the first entrance plate («Подъезд N»)
   firstApartment: 1,       // first flat number of entrance 1 (flats per entrance = floors × flats/floor)
@@ -108,8 +107,8 @@ All sections: pivot = front-left corner of the entrance facade at grade (model v
 (0, 3, F)); front (entrance) = local −Z; sections tile along +X with no gap. LODs [1,2,4],
 `occludesSnow`. Name: `res_<series>_<floors>_<variant>[_ent|_loop]`, variants `a`, `b`, `c`
 (different glazing, frames, junk, dishes, lit stair floors; identical structure).
-`_ent` = explorable stairwell geometry (lift shaft, no self-lit walls); `_loop` = `_ent` with the
-well walled up (endless stairwell). Use the API rather than placing these directly — it adds the
+`_ent` = explorable stairwell geometry (lift shaft, no self-lit walls). (`_loop` exists for the
+optional, unused `loopStairs` experiment — ignore it.) Use the API rather than placing these directly — it adds the
 porch, door, lamp, lights, signs, interactions and runtime.
 
 | model | size (m) | pivot | notes |
@@ -143,13 +142,8 @@ porch, door, lamp, lights, signs, interactions and runtime.
   plate; floor buttons inside («Этаж N»). Sounds `elevator_call`, `elevator_doors`,
   `elevator_motor` (loop, follows the cab), `elevator_stop`. Zone `lift_<n>` reverb 'elevator'.
   Doors stay open while the player stands in the doorway.
-- **Endless stairwell** (`loopStairs`, floors ≥ 9): climbing past the middle of the flight above
-  floor N−3 drops the player seamlessly 3 floors (identical geometry, lights, doors, signs);
-  painted floor numbers keep counting up oddly (…7, 8, 9, 9, 10, 7, 12…). Going down is normal.
-  The lift there is out of order («ЛИФТ НЕ РАБОТАЕТ»); half-landing windows on the loop floors
-  are frosted over (from outside: a column of dull stair windows). Emits
-  `events.emit('anomaly', { kind: 'endless_stairs', entrance })` and counts
-  `game.state.endlessStairs`.
+- Optional, not used by the plan: `loopStairs: [i]` (floors ≥ 9) makes that stairwell repeat
+  three floors forever; experimental, leave it off.
 
 ## Registry / tags
 
