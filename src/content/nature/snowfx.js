@@ -3,9 +3,35 @@
 
 import { fbm2, valueNoise2, RNG, smoothstep, hash2 } from '../../core/rng.js'
 import { VOXEL } from '../../core/constants.js'
-import { M, hasMaterial } from '../../core/materials.js'
+import { M, hasMaterial, materialById } from '../../core/materials.js'
+import { HOLE } from '../../core/Terrain.js'
 import { MAT } from './materials.js'
 import { BURIED, BURIED_TINT } from './props.js'
+
+/**
+ * Limit the step between neighbouring terrain columns to `maxStep` voxels inside a rect by raising
+ * the lower column (a snow apron). The engine draws the part of any terrain drop deeper than two
+ * voxels in dark concrete, which made steep snow piles read as masonry terraces. Raised columns
+ * that were not snow become `fillMat`.
+ */
+export function relaxSlope(t, x0, z0, x1, z1, fillMat, maxStep = 2) {
+  const n = t.n, Hh = t.h, Mt = t.mat
+  const cx0 = Math.max(1, Math.floor(x0 / VOXEL)), cx1 = Math.min(n - 2, Math.floor(x1 / VOXEL))
+  const cz0 = Math.max(1, Math.floor(z0 / VOXEL)), cz1 = Math.min(n - 2, Math.floor(z1 / VOXEL))
+  if (cx1 < cx0 || cz1 < cz0) return
+  const lift = (i, j) => {
+    const hj = Hh[j]
+    if (hj === HOLE || Hh[i] === HOLE) return
+    if (hj - maxStep > Hh[i]) {
+      Hh[i] = hj - maxStep
+      if (fillMat && !materialById(Mt[i])?.snow) Mt[i] = fillMat
+    }
+  }
+  for (let cz = cz0; cz <= cz1; cz++)
+    for (let cx = cx0; cx <= cx1; cx++) { const i = cx + cz * n; lift(i, i - 1); lift(i, i - n) }
+  for (let cz = cz1; cz >= cz0; cz--)
+    for (let cx = cx1; cx >= cx0; cx--) { const i = cx + cz * n; lift(i, i + 1); lift(i, i + n) }
+}
 
 const ROADISH = new Set(['asphalt', 'asphalt_wet', 'slush', 'road_marking', 'curb'].filter(hasMaterial).map(n => M(n)))
 
@@ -75,6 +101,7 @@ export function snowBank(ctx, x0, z0, x1, z1, height = 1, opts = {}) {
     else m = n < 0.12 * dirtK + 0.06 ? MAT.snowDirty : n < 0.75 ? MAT.snowBank : MAT.snow
     return { h: hv + dv, mat: m }
   })
+  relaxSlope(t, ax - 0.5, az - 0.5, bx + 0.5, bz + 0.5, MAT.snowDirty)
   // a few loose lumps of packed snow along the crest
   if (opts.chunks ?? true) {
     const n = Math.floor(L / rng.float(3.5, 6))
@@ -131,6 +158,7 @@ export function snowDrift(ctx, x, z, opts = {}) {
     if (dv <= 0) return null
     return { h: hv + dv, mat: wd > 0.75 ? mat : MAT.snowFresh }
   })
+  relaxSlope(t, x - R, z - R, x + R, z + R, MAT.snowFresh)
   return { x, z, length: L, depth: D, height: H }
 }
 
@@ -172,13 +200,15 @@ export function plowedPile(ctx, x, z, opts = {}) {
     const dv = Math.round((H * best * lump) / VOXEL)
     if (dv <= 0) return null
     const n = valueNoise2(px * 1.8, pz * 1.8, seed + 2)
-    const hRel = best + (valueNoise2(px * 1.1, pz * 1.1, seed + 4) - 0.5) * 0.35
+    // layers broken up by noise so the pile does not read as horizontal masonry courses
+    const hRel = best + (valueNoise2(px * 1.1, pz * 1.1, seed + 4) - 0.5) * 0.6 + (valueNoise2(px * 3.1, pz * 3.1, seed + 8) - 0.5) * 0.25
     let m
-    if (hRel > 0.7) m = n < 0.6 ? MAT.snow : MAT.snowBank
-    else if (hRel > 0.3) m = n < 0.3 ? MAT.snowGrime : n < 0.7 ? MAT.snowDirty : MAT.snowBank
-    else m = n < 0.35 ? MAT.slush : n < 0.75 ? MAT.snowGrime : MAT.snowDirty
+    if (hRel > 0.62) m = n < 0.6 ? MAT.snow : MAT.snowBank
+    else if (hRel > 0.25) m = n < 0.25 ? MAT.snowGrime : n < 0.62 ? MAT.snowDirty : MAT.snowBank
+    else m = n < 0.18 ? MAT.slush : n < 0.6 ? MAT.snowDirty : MAT.snowGrime
     return { h: hv + dv, mat: m }
   })
+  relaxSlope(t, x - E, z - E, x + E, z + E, MAT.snowDirty)
   if (opts.chunks ?? true) {
     for (let k = 0; k < rng.int(4, 8); k++) {
       const a = rng.float(0, 6.28), d = R * rng.float(0.85, 1.25)

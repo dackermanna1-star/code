@@ -241,13 +241,19 @@ export function buildNavGraph(navPaths, entrances = [], opts = {}) {
       const [x, z] = p.points[ei]
       if ((degree.get(vkey(x, z)) || 0) > 1) continue
       const r = p.kind === 'entrance' ? DOOR_LINK : SNAP
-      let best = null
+      const cands = []
       for (const si of near(x, z, r)) {
         const s = segs[si]
         if (s.poly === pi) continue
         if (s.kind === 'entrance') continue
         const q = segPointT(x, z, s.ax, s.az, s.bx, s.bz)
-        if (q.d <= r && (!best || q.d < best.q.d)) best = { si, q }
+        if (q.d <= r) cands.push({ si, q })
+      }
+      cands.sort((a, b) => a.q.d - b.q.d)
+      // a long link across the snow must not pass through a building, a fence or a car
+      let best = null
+      for (const c of cands) {
+        if (c.q.d <= SNAP || !opts.clear || opts.clear(x, z, c.q.x, c.q.z)) { best = c; break }
       }
       if (best) {
         segs[best.si].ts.push(best.q.t)

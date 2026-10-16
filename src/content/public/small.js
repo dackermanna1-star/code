@@ -152,7 +152,7 @@ export function placeDispatcherBooth(ctx, o) {
   const [sx, sy, sz] = F.p((DX - 4 - DX / 2 + 0.5) * V, 15 * V, (DZ - 3 - 1 - (DZ - 1) / 2 + 0.5) * V)
   RT.pendingSteam.push({ x: sx, y: sy, z: sz, kind: 'vent', rate: 2, size: 0.35, tag: 'stovepipe' })
   reg(ctx, 'dispatchers', { x: F.x, z: F.z, route })
-  navPath(ctx, F, [[(19 - DX / 2) * V, front - 1], [(19 - DX / 2) * V, front - 8]], 'path', { to: 'dispatcher' })
+  navPath(ctx, F, [[(19 - DX / 2) * V, front - 1], [(19 - DX / 2) * V, front - 7]], 'entrance', { to: 'dispatcher' })
   return { placement: p, frame: F }
 }
 

@@ -22,7 +22,7 @@ const BFINE = 0.5
 
 function snowyFine(r, mats, seed, chance = 0.6, minHoriz = 0.4) {
   branchSnow(r, { mats: new Set(mats), minHoriz, chance, shelter: 0.55, seed, minY: 3 })
-  return fineScale(r.model)
+  return fineScale(r.model, BFINE, k => (k <= 2 ? 3 : 10))
 }
 
 // ---- lilac (сирень): upright grey stems fanning out, dry brown panicles at the tips -------------
@@ -172,9 +172,11 @@ function bases(rng, n, R, minD = 2) {
 // fence of boards.
 const FINE = 0.25
 
-/** Rasterize a weed skeleton (12.5 cm design units) into a 6.25 cm model. */
-function weedModel(sk) {
-  return fineScale(rasterize(scaleSkeleton(sk, 2, 0.7), { below: 4, pad: 1 }).model, FINE)
+/** Rasterize a weed skeleton (12.5 cm design units) into a 6.25 cm model; seed heads hold a little snow. */
+function weedModel(sk, seed, snowHeads = false) {
+  const r = rasterize(scaleSkeleton(sk, 2, 0.7), { below: 4, pad: 1 })
+  if (snowHeads) branchSnow(r, { mats: new Set([MAT.seeds]), minHoriz: 0, chance: 0.75, shelter: 0.5, seed, minY: r.model.pivot.y + 6 })
+  return fineScale(r.model, FINE)
 }
 
 function grassTuft(seed) {
@@ -184,7 +186,7 @@ function grassTuft(seed) {
     const bent = rng.chance(0.25)
     sk.grow({ p: base, dir: fromVertical(bent ? rng.float(0.7, 1.3) : rng.float(0, 0.4), rng.float(0, TAU)), length: rng.float(2.5, 7), step: 2, r0: 0.3, r1: 0.3, gnarl: 0.1, trop: bent ? DOWN : UP, tropK: 0.1, rng, mat: rng.chance(0.75) ? MAT.straw : MAT.stalk, prio: PRIO.twig, conn: 18 })
   }
-  return weedModel(sk)
+  return weedModel(sk, seed)
 }
 
 function burdock(seed) {
@@ -201,7 +203,7 @@ function burdock(seed) {
       sk.blob(add(sp[sp.length - 1].p, [0, 0.4, 0]), 0.8, 0.8, 0.8, MAT.seeds, PRIO.fruit, 1, seed + k)
     }
   }
-  return weedModel(sk)
+  return weedModel(sk, seed, true)
 }
 
 function tansy(seed) {
@@ -215,7 +217,7 @@ function tansy(seed) {
     const t = pts[pts.length - 1].p
     sk.blob(add(t, [0, 0.5, 0]), 1.7, 0.6, 1.7, MAT.seeds, PRIO.fruit, 0.85, hash2(seed, i))
   }
-  return weedModel(sk)
+  return weedModel(sk, seed, true)
 }
 
 function reeds(seed, cattail) {
@@ -246,10 +248,10 @@ function reeds(seed, cattail) {
       sk.seg(top.p, add(add(top.p, off), [0, -2.6, 0]), 0.7, 0.45, rng.chance(0.5) ? MAT.seeds : MAT.straw, PRIO.fruit, 18)
     }
   }
-  return weedModel(sk)
+  return weedModel(sk, seed, cattail)
 }
 
-const BUSH = { lods: [BFINE], lodDistances: [], maxDistance: 140, collide: false, contact: false }
+const BUSH = { lods: [BFINE, 0.999], lodDistances: [32], maxDistance: 140, collide: false, contact: false }
 const WEED = { lods: [FINE], lodDistances: [], maxDistance: 75, contact: false, collide: false }
 
 ;[0, 1, 2].forEach(i => reg('lilac', `nature_lilac_${i}`, () => lilac(9100 + i * 13), BUSH))

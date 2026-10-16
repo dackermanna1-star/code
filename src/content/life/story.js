@@ -9,7 +9,6 @@ import { fixFine } from './vox.js'
 import { life } from './rt.js'
 
 const PROMPT = { ru: 'Осмотреть', en: 'Look' }
-const TICKET_TINTS = null
 
 /**
  * Story kinds. box: interaction box [cx, cy, cz, sx, sy, sz] in local metres (model frame,
@@ -103,7 +102,6 @@ export const STORY = {
     ],
   },
 }
-void TICKET_TINTS
 
 export const STORY_KINDS = Object.keys(STORY)
 
@@ -156,7 +154,7 @@ export function placeStory(ctx, kind, o = {}) {
   if (kind === 'glove' && (o.post ?? y === undefined)) { model = def.post; box = def.boxPost }
   if (kind === 'sled' && o.lean) { model = def.lean; box = def.boxLean }
   const ground = terrain.heightAt(x, z)
-  if (y === undefined) y = Number.isFinite(ground) ? ground : 0
+  if (y === undefined) y = (Number.isFinite(ground) ? ground : 0) + (kind === 'cat' ? 0.25 : 0)
   fixFine(model)
   const tint = o.tint ?? (def.tints ? def.tints[seed % def.tints.length] : 0xffffff)
   const placement = world.place(model, { x, z, y, angle, seed: (seed % 100000) / 100000, tint, tag: 'story', collide: false, userData: { story: kind } })
@@ -206,4 +204,28 @@ export function placeStory(ctx, kind, o = {}) {
   if (reg) (reg.story || (reg.story = [])).push({ kind, x, y, z, angle, placement, interaction })
   life.story.push(rec)
   return rec
+}
+
+/**
+ * Put a story prop beside a подъезд, using a registry.entrances record (residential): next to
+ * the porch on the left (side −1) or right (side +1, seen from outside), against the facade.
+ * Kinds that suit an entrance: 'sled' (leaning on the wall), 'butts', 'cat' (in the plinth),
+ * 'key', 'glove'. opts: { side = ±1 (default by seed), along (m from the door centre, default
+ * 2.6), out (m from the wall, default per kind), seed, ...placeStory opts }.
+ */
+export function placeStoryAtEntrance(ctx, entrance, kind, opts = {}) {
+  if (!entrance) return null
+  const a = entrance.angle ?? 0
+  const seed = seedInt(opts.seed, hashString(`${kind}:${entrance.x}:${entrance.z}`))
+  const side = opts.side ?? (seed % 2 ? 1 : -1)
+  const along = (opts.along ?? 2.6) * side
+  const OUT = { sled: 0.04, cat: 0.02, butts: 0.55, key: 1.2, glove: 0.3, ticket: 1.4 }
+  const out = opts.out ?? OUT[kind] ?? 0.6
+  // facing (sin a, cos a) out of the building; along the facade = (cos a, −sin a)
+  const x = entrance.x + Math.cos(a) * along + Math.sin(a) * out
+  const z = entrance.z - Math.sin(a) * along + Math.cos(a) * out
+  const o = { ...opts, x, z, angle: a, seed }
+  delete o.side; delete o.along; delete o.out
+  if (kind === 'sled') o.lean = opts.lean ?? true
+  return placeStory(ctx, kind, o)
 }

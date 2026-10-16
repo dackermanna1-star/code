@@ -13,7 +13,7 @@ import {
 } from './lib.js'
 import { addEmitter, RT } from './runtime.js'
 
-const X = 12, Y = 14, Z = 11
+const X = 12, Y = 16, Z = 11 // Y leaves room for roof snow (+ a small drift)
 const lx = vx => (vx - X / 2) * V
 const lz = vz => (vz - Z / 2) * V
 
@@ -110,8 +110,8 @@ function buildKiosk(type) {
     m.fill(10, 4, 3, 1, 4, 1, M('taillight'))
     m.fill(1, 3, 2, 4, 1, 2, M('chrome'))
     m.set(2, 4, 2, M('pub_bread')); m.set(3, 4, 2, M('plastic_white'))
-    // stovepipe / vent on the roof
-    m.set(9, 13, 8, M('metal_dark'))
+    // stovepipe / vent through the roof
+    m.set(9, 14, 8, M('metal_dark')); m.set(9, 15, 8, M('metal_dark'))
   }
   if (type === 'pechat') {
     // white body band in blue at the top (fixed colours over the tint)
@@ -128,7 +128,21 @@ function buildKiosk(type) {
     m.replace(M('fluorescent'), M('plastic_white'))
     m.replace(M('pub_glass_warm'), M('pub_glass_dark'))
   }
+  // weathering: rust eating the bottom of the sheet panels (salt slush), streaks from the roof
+  // corners, a riveted patch sheet on the left flank
+  const rust = M('metal_rust')
+  const rustAt = (x, y, z, p) => { if (m.get(x, y, z) === body && rng.chance(p)) m.set(x, y, z, rust) }
+  for (let x = 0; x < X; x++) { rustAt(x, 1, 1, 0.3); rustAt(x, 2, 1, 0.08); rustAt(x, 1, Z - 1, 0.5); rustAt(x, 2, Z - 1, 0.15) }
+  for (let z = 1; z < Z; z++) { rustAt(0, 1, z, 0.5); rustAt(X - 1, 1, z, 0.5); rustAt(0, 2, z, 0.15); rustAt(X - 1, 2, z, 0.15) }
+  for (const [x, z] of [[0, 1], [X - 1, 1], [0, Z - 1], [X - 1, Z - 1]]) {
+    const n = rng.int(1, 5)
+    for (let y = 10; y > 10 - n; y--) rustAt(x, y, z, 0.8)
+  }
+  for (let y = 5; y <= 7; y++) for (let z = Z - 4; z <= Z - 3; z++) if (m.get(0, y, z) === body) m.set(0, y, z, M('metal_gray'))
   m.addSnow({ mat: M('snow'), depth: 1, seed: 3 })
+  // a soft drift on the roof, deeper toward the back
+  for (let z = 2; z < Z; z++) for (let x = 1; x < X - 1; x++)
+    if (m.get(x, 14, z) === M('snow') && m.get(x, 15, z) === 0 && ((x * 5 + z * 3) % 7 < 3 || z > Z - 4)) m.set(x, 15, z, M('snow'))
   return m
 }
 
@@ -161,7 +175,7 @@ const VENDOR = {
 /**
  * Place a kiosk. Footprint 3.0 × 2.5 m centred on (x, z), glazed front + hatch on local −Z.
  * opts: { x, z, rot | angle, y, type: 'tabak'|'pechat'|'flowers'|'shawarma'|'produkty'|'closed', seed, tint,
- *         sign (override sign text for 'closed'), light=true }
+ *         sign (override sign text for 'closed'), drifts=true (terrain snow mounds at the back and flanks) }
  * Returns { placement, light, frame }.
  */
 export function placeKiosk(ctx, o) {
@@ -174,6 +188,13 @@ export function placeKiosk(ctx, o) {
   }[type]
   const tint = o.tint ?? tints[rng.int(0, tints.length - 1)]
   const p = put(ctx, F, 'pub_kiosk_' + type, 0, 0, { tint, seed: seed01(o.seed, 5), tag: 'kiosk', userData: { kind: 'kiosk', type } })
+  // snow drifted against the back and the flanks (the front is trodden by customers)
+  if (o.drifts !== false) {
+    for (const [ax, az, rx, rz, h] of [[0, lz(Z) + 0.75, 1.5, 0.55, 0.4], [lx(0) - 0.6, 0.2, 0.45, 1.0, 0.25], [lx(X) + 0.6, 0.2, 0.45, 1.0, 0.25]]) {
+      const [wx, , wz] = F.p(ax, 0, az), s = F.size(rx, 0, rz)
+      ctx.terrain.mound(wx, wz, s[0], s[2], h * rng.float(0.6, 1.1), M('snow_fresh'), 0.5, rng.int(0, 1e6))
+    }
+  }
   const S = SIGNS[type]
   const lit = type !== 'closed'
   const text = o.sign ? [o.sign] : S.lines
@@ -227,7 +248,7 @@ export function placeKiosk(ctx, o) {
     })
     addEmitter({ name: type === 'shawarma' ? 'ventilation' : 'radio_distant', pos: F.p(0, 1.6, lz(5)), gain: type === 'shawarma' ? 0.15 : 0.1, radius: 14, refDistance: 1, cutoff: 2500 })
     if (type === 'shawarma') {
-      const [sx, sy, sz] = F.p(lx(9.5), 14 * V, lz(8.5))
+      const [sx, sy, sz] = F.p(lx(9.5), 16 * V, lz(8.5))
       RT.pendingSteam.push({ x: sx, y: sy, z: sz, kind: 'vent', rate: 2.5, size: 0.4, tag: 'shawarma_vent' })
     }
   } else {

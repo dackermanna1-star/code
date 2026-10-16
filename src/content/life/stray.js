@@ -7,7 +7,7 @@ import { DOG_MODELS } from './dog.js'
 import { fixFine } from './vox.js'
 import { life, sound } from './rt.js'
 
-const POSES = ['trot0', 'trot1', 'trot2', 'trot3', 'stand', 'sniff', 'bark']
+// frame index: 0–3 trot, 4 stand, 5 sniff, 6 bark (order of createDog's placements)
 const PREFER = { courtyard: 1, path: 1, park: 0.8, trodden: 0.7, sidewalk: 0.45, driveway: 0.5, crossing: 0.2, entrance: 0, island: 0 }
 
 export function createDog(ctx) {
@@ -176,4 +176,3 @@ export function updateDog(ctx, dt) {
   show(d, pose)
 }
 
-void POSES

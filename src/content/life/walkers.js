@@ -7,7 +7,7 @@
 import { clamp, smoothstep } from '../../core/rng.js'
 import { PEOPLE } from './people.js'
 import { fixFine } from './vox.js'
-import { life, later, sound, groundInfo, swingDoor } from './rt.js'
+import { life, sound, groundInfo, swingDoor } from './rt.js'
 
 /** How many actors (sets of frame placements) exist per type. */
 const POOL = { man_coat: 2, woman_coat: 2, man_puffer: 1, man_jacket: 1, woman_puffer: 1, babushka_cart: 1, man_dog: 1, parent_sled: 1 }
@@ -108,8 +108,15 @@ export function trySpawn(ctx, force = null) {
       const n = rng.pick(g.doors)
       const d = Math.hypot(n.x - pl.x, n.z - pl.z)
       if (d < rMin || d > Math.min(rMax, 110) || !n.adj.length) continue
-      const y = n.door?.y ?? terrain.heightAt(n.x, n.z)
-      if (!force?.visible && view.seen(world, n.x, y, n.z, 1.7)) continue
+      // a door that really swings open may be in view (someone simply comes out); otherwise the
+      // spot one metre in front of it must be out of sight
+      const e = n.door
+      const swings = e?.doorPlacement && !e.enterable && !e.doorPlacement.dynamic
+      const m = g.nodes[g.other(n.adj[0], n.id)]
+      const k = 1 / (Math.hypot(m.x - n.x, m.z - n.z) || 1)
+      const fx = n.x + (m.x - n.x) * k, fz = n.z + (m.z - n.z) * k
+      const y = Number.isFinite(e?.y) ? e.y : terrain.heightAt(fx, fz)
+      if (!force?.visible && !(swings && d > 30) && view.seen(world, fx, y, fz, 1.7)) continue
       return startWalker(ctx, actor, { door: n })
     }
     const s = g.sample(rng)
@@ -143,6 +150,7 @@ function startWalker(ctx, actor, o) {
     const e = n.adj[0]
     w.e = e; w.from = n.id; w.to = g.other(e, n.id); w.s = -0.8
     w.state = 'exit'; w.wait = 0; w.door = n.door
+    w.triedDoor = true // nobody comes out only to turn straight back in
     swingDoor(n.door, 1.8)
     life.stats.exited++
   } else {
@@ -441,4 +449,3 @@ export function updateWalkers(ctx, dt) {
 /** Debug / storytelling: spawn a walker now. opts { type, rMin, rMax, visible, door } */
 export function spawnWalker(ctx, opts = {}) { return trySpawn(ctx, { rMin: 8, rMax: 60, ...opts }) }
 
-void later

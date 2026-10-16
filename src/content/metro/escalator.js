@@ -6,7 +6,8 @@
 
 import { defineModel } from '../../core/models.js'
 import { MAT } from './materials.js'
-import { WB, V, h3 } from './vox.js'
+import { WB, V, h3, fineModel } from './vox.js'
+import { VoxelModel } from '../../core/VoxelModel.js'
 import { Y, ESC, escStepY } from './layout.js'
 import { drawPoster, drawText, SIGN_FONT } from './drawings.js'
 import { T } from './texts.js'
@@ -87,16 +88,21 @@ defineModel('metro_escalator', () => {
       }
     }
   }
-  // ---- torshery: bronze stalks on the middle balustrades with frosted globes
-  for (const tx of TORSHERY_X) {
-    const ys = escStepY(tx + 1e-6)
-    for (const r of [ESC.balA, ESC.balB]) {
-      b.fill(tx, ys + 1.0, r[0] + (r === ESC.balA ? V : 0), tx + V, ys + 2.0, r[0] + (r === ESC.balA ? 2 * V : V), MAT.metalBrown)
-      b.fill(tx - V, ys + 2.0, r[0], tx + 2 * V, ys + 2.5, r[1], MAT.lampWarm)
-    }
-  }
   return m
 }, { indoor: true, occludesSnow: false, contact: false, lods: [1, 2], lodDistances: [70], maxDistance: 160 })
+
+/** Торшер: bronze stalk with a frosted globe (fine voxels, 1/8 m). Pivot: foot of the stalk. */
+defineModel('metro_torsher', () => {
+  const m = new VoxelModel(3, 13, 3)
+  for (let y = 0; y < 10; y++) m.set(1, y, 1, MAT.metalBrown)
+  for (let y = 10; y < 13; y++) for (let x = 0; x < 3; x++) for (let z = 0; z < 3; z++) {
+    const edge = (x !== 1) + (z !== 1)
+    if ((y === 10 || y === 12) && edge === 2) continue
+    m.set(x, y, z, MAT.lampWarm)
+  }
+  m.setPivot(1.5, 0, 1.5)
+  return fineModel(m)
+}, { indoor: true, contact: false, collide: false, lods: [0.5], lodDistances: [], maxDistance: 90 })
 
 /** Invisible collision staircase of one moving lane (1 m wide; placed with visible:false). */
 defineModel('metro_esc_collide', () => {
@@ -132,11 +138,11 @@ defineModel('metro_esc_booth', () => {
   b.fill(V, 1.0, V, 1.5 - V, 2.0, 1.75 - V, MAT.air)
   for (const [x, z] of [[0, 0], [1.25, 0], [0, 1.5], [1.25, 1.5]]) b.fill(x, 0, z, x + V, 2.25, z + V, MAT.metalGray)
   b.fill(0, 2.0, 0, 1.5, 2.25, 1.75, MAT.plasticWhite)
-  b.fill(V, V, V, 1.5 - V, 0.75, 0.75, MAT.wood) // console under the west window
-  b.fill(0.5, 0.75, 0.25, 0.75, 1.0, 0.5, MAT.lampRed) // emergency stop buttons
-  b.fill(0.75, 0.75, 0.25, 1.0, 1.0, 0.5, MAT.lampRed)
-  b.fill(1.0, 0.75, 0.25, 1.25, 1.25, 0.5, MAT.metalDark) // gooseneck microphone
-  b.fill(0.25, 0.75, 0.5, 0.5, 1.0, 0.75, MAT.lampBulb) // desk lamp
+  b.fill(V, V, V, 0.75, 0.75, 1.5, MAT.wood) // console under the west window
+  b.fill(0.25, 0.75, 0.5, 0.5, 1.0, 0.75, MAT.lampRed) // emergency stop buttons
+  b.fill(0.25, 0.75, 0.75, 0.5, 1.0, 1.0, MAT.lampRed)
+  b.fill(0.5, 0.75, 1.0, 0.75, 1.25, 1.25, MAT.metalDark) // gooseneck microphone
+  b.fill(0.25, 0.75, 1.25, 0.5, 1.0, 1.5, MAT.lampBulb) // desk lamp
   b.fill(V, V, V, 1.5 - V, 2 * V, 1.75 - V, MAT.linoleum)
   return b.pivot(0, 0, 0)
 }, { indoor: true, contact: false, lods: [1], maxDistance: 80 })
@@ -163,10 +169,13 @@ export function buildEscalators(ctx, out) {
     { lane: 'N', dir: -1, band: up, base: [ESC.xTop - 0.5, -16.75 - 0.01, ESC.laneN[0]], phase: 0, running: true, zone: null },
     { lane: 'S', dir: +1, band: down, base: [ESC.xTop - 0.5, -16.75 - 0.01, ESC.laneS[0]], phase: 0, running: true, zone: null },
   ]
-  // torshery lights (warm), along the centre line
+  // torshery on the middle balustrades and their warm light along the centre line
   for (const tx of TORSHERY_X) {
     const ys = escStepY(tx + 1e-6)
-    out.lightGroups.deep.push(lights.add({ x: tx + 0.125, y: ys + 2.3, z: 540, color: 0xffd6a0, intensity: 1.5, range: 7.5, domain: 'indoor', halo: true, haloSize: 0.35, scatter: 0.4, tag: 'metro_torsher' }))
+    for (const zc of [(ESC.balA[0] + ESC.balA[1]) / 2, (ESC.balB[0] + ESC.balB[1]) / 2]) {
+      out.deep.push(world.place('metro_torsher', { x: tx + 0.25, y: ys + 1.0, z: zc, rot: 0, tag: 'metro_torsher', userData: ud }))
+    }
+    out.lightGroups.deep.push(lights.add({ x: tx + 0.25, y: ys + 2.75, z: 540, color: 0xffd6a0, intensity: 2.2, range: 8.5, domain: 'indoor', halo: false, scatter: 0.12, tag: 'metro_torsher' }))
   }
   // adverts on the tunnel walls between the torshery, and the escalator rules at the head
   ADS.forEach((ad, n) => {

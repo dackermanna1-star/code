@@ -20,7 +20,7 @@ export class Railway {
     this.rng = new RNG(0xe12)
     const mk = (model, info, extra = {}) => new Rig(sys, {
       model, info, kind: 'train', type: 'er2', tag: 'train', seed: this.rng.next(), rng: this.rng.fork(model.length + extra.k),
-      interior: { color: 0xffd7a0, intensity: 6, range: 12, spill: 3.5 }, tailLight: false, ...extra,
+      interior: { color: 0xffd7a0, intensity: 12, range: 13 }, tailLight: false, ...extra,
     })
     const headInfo = { L: TRAIN.carL, head: [TRAIN_INFO.headlamp, ...TRAIN_INFO.buffers], tail: [], lightInterior: [0, 3.0, 0], fleetFront: TRAIN_INFO.numberFront }
     const tailInfo = { L: TRAIN.carL, head: TRAIN_INFO.tailMarkers, tail: [], lightInterior: [0, 3.0, 0] }

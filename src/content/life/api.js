@@ -11,7 +11,7 @@ import { fixFine } from './vox.js'
 import { life } from './rt.js'
 import { spawnWalker as _spawn, peopleTarget } from './walkers.js'
 
-export { placeStory, STORY, STORY_KINDS } from './story.js'
+export { placeStory, placeStoryAtEntrance, STORY, STORY_KINDS } from './story.js'
 export { PEOPLE, PERSON_TYPES, DOG_MODELS, peopleTarget }
 
 /**
@@ -48,6 +48,7 @@ export function lifeStats() {
     dog: life.dog ? { state: life.dog.state, x: +life.dog.x.toFixed(1), z: +life.dog.z.toFixed(1), act: life.dog.act } : null,
     graph: life.graph ? { nodes: life.graph.nodes.length, edges: life.graph.edges.length, metres: Math.round(life.graph.total), doors: life.graph.doors.length, fallback: life.graph.fallback } : null,
     story: life.story.length,
+    doorsSwinging: life.doors.size,
     ...life.stats,
   }
 }

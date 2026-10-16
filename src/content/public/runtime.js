@@ -93,11 +93,13 @@ function updateDoors(dt, ctx) {
       const k = d.t * d.t * (3 - 2 * d.t)
       pl.set(pl.x, pl.y, pl.z, d.closed + d.swing * d.open * k)
     }
-    // never trap or shove the player: no collision while moving or while overlapping
+    // Never trap or shove the player: no collision while the leaf swings, or while the leaf
+    // actually intersects the player's body (it swung into someone standing in the doorway).
+    // A closed door touched from either side stays solid, so a locked door really is locked.
     let overlap = false
     if (p) {
-      const a = pl.aabb
-      overlap = p.x > a[0] - 0.3 && p.x < a[3] + 0.3 && p.z > a[2] - 0.3 && p.z < a[5] + 0.3 && p.y < a[4] && p.y + 1.8 > a[1]
+      const a = pl.aabb, hw = 0.2
+      overlap = p.x + hw > a[0] && p.x - hw < a[3] && p.z + hw > a[2] && p.z - hw < a[5] && p.y < a[4] && p.y + 1.7 > a[1]
     }
     pl.collide = !overlap && (d.t === 0 || d.t === 1)
   }

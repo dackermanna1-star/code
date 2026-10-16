@@ -68,7 +68,7 @@ export function escStepY(x) {
   return ESC.yTop - ESC.rise * j
 }
 
-export const LOWER = { x0: 437, x1: 444, z0: 535.5, z1: 544.5 }
+export const LOWER = { x0: 437, x1: 444, z0: 535.5, z1: 544.5 } // walls one voxel inside these
 
 export const PLAT = {
   x0: 444, x1: 544, sectionLen: 20, sections: 5,

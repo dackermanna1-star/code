@@ -31,49 +31,49 @@ const SPECS = {
   vaz2107: {
     title: 'ВАЗ-2107 «семёрка»', L: 4.145, W: 1.62, H: 1.44, fo: 0.80, wb: 2.424, wr: 0.29,
     sill: 0.24, bump: [0.26, 0.5], nose: 0.80, hood: 0.88, hoodEnd: 1.42, wsTop: 1.98, roofEnd: 3.02,
-    rwBase: 3.42, deck: 0.92, tail: 0.86, belt: 0.92, tumble: [1, 2], bpil: 2.5,
+    rwBase: 3.42, deck: 0.92, tail: 0.86, belt: 0.92, tumble: [1, 1], bpil: 2.5,
     bumper: 'chrome', hub: 'chrome', rust: 0.06, mold: 'dark', classic: true,
   },
   vaz2106: {
     title: 'ВАЗ-2106 «шестёрка»', L: 4.166, W: 1.611, H: 1.44, fo: 0.80, wb: 2.424, wr: 0.29,
     sill: 0.24, bump: [0.26, 0.5], nose: 0.80, hood: 0.88, hoodEnd: 1.42, wsTop: 1.98, roofEnd: 3.02,
-    rwBase: 3.42, deck: 0.92, tail: 0.86, belt: 0.92, tumble: [1, 2], bpil: 2.5,
+    rwBase: 3.42, deck: 0.92, tail: 0.86, belt: 0.92, tumble: [1, 1], bpil: 2.5,
     bumper: 'chrome', hub: 'chrome', rust: 0.12, mold: 'chrome', classic: true, rack: true,
   },
   vaz21099: {
     title: 'ВАЗ-21099', L: 4.205, W: 1.65, H: 1.40, fo: 0.74, wb: 2.46, wr: 0.28,
     sill: 0.24, bump: [0.24, 0.5], nose: 0.66, hood: 0.86, hoodEnd: 1.36, wsTop: 2.06, roofEnd: 3.08,
-    rwBase: 3.56, deck: 0.92, tail: 0.92, belt: 0.88, tumble: [1, 2], bpil: 2.42,
+    rwBase: 3.56, deck: 0.92, tail: 0.92, belt: 0.88, tumble: [1, 1], bpil: 2.42,
     bumper: 'black', hub: 'steel', rust: 0.03, mold: 'wide',
   },
   vaz2110: {
     title: 'ВАЗ-2110 «десятка»', L: 4.265, W: 1.68, H: 1.42, fo: 0.80, wb: 2.492, wr: 0.29,
     sill: 0.24, bump: [0.24, 0.52], nose: 0.70, hood: 0.88, hoodEnd: 1.36, wsTop: 2.08, roofEnd: 3.16,
-    rwBase: 3.66, deck: 0.98, tail: 0.95, belt: 0.92, tumble: [1, 2], bpil: 2.48,
+    rwBase: 3.66, deck: 0.98, tail: 0.95, belt: 0.92, tumble: [1, 1], bpil: 2.48,
     bumper: 'body', hub: 'plastic', rust: 0, mold: 'none', round: 2,
   },
   moskvich2141: {
     title: 'Москвич-2141', L: 4.35, W: 1.69, H: 1.40, fo: 0.86, wb: 2.58, wr: 0.29,
     sill: 0.25, bump: [0.24, 0.5], nose: 0.70, hood: 0.84, hoodEnd: 1.40, wsTop: 2.06, roofEnd: 3.08,
-    rwBase: 4.16, deck: 0.88, tail: 0.88, belt: 0.88, tumble: [1, 2], bpil: 2.52, hatch: true,
+    rwBase: 4.16, deck: 0.88, tail: 0.88, belt: 0.88, tumble: [1, 1], bpil: 2.52, hatch: true,
     bumper: 'black', hub: 'steel', rust: 0.08, mold: 'wide',
   },
   volga3110: {
     title: 'ГАЗ-3110 «Волга»', L: 4.88, W: 1.80, H: 1.48, fo: 0.92, wb: 2.80, wr: 0.33,
     sill: 0.26, bump: [0.26, 0.5], nose: 0.82, hood: 0.92, hoodEnd: 1.62, wsTop: 2.24, roofEnd: 3.44,
-    rwBase: 3.86, deck: 0.98, tail: 0.95, belt: 0.96, tumble: [1, 2], bpil: 2.82,
+    rwBase: 3.86, deck: 0.98, tail: 0.95, belt: 0.96, tumble: [1, 1], bpil: 2.82,
     bumper: 'volga', hub: 'chrome', rust: 0.03, mold: 'dark',
   },
   nexia: {
     title: 'Daewoo Nexia-like (иномарка)', L: 4.48, W: 1.66, H: 1.39, fo: 0.86, wb: 2.52, wr: 0.29,
     sill: 0.24, bump: [0.24, 0.52], nose: 0.70, hood: 0.86, hoodEnd: 1.42, wsTop: 2.14, roofEnd: 3.24,
-    rwBase: 3.72, deck: 0.96, tail: 0.95, belt: 0.90, tumble: [1, 2], bpil: 2.56,
+    rwBase: 3.72, deck: 0.96, tail: 0.95, belt: 0.90, tumble: [1, 1], bpil: 2.56,
     bumper: 'body', hub: 'plastic', rust: 0, mold: 'dark', round: 2,
   },
   focus: {
     title: 'Ford Focus II-like hatchback (иномарка)', L: 4.34, W: 1.84, H: 1.48, fo: 0.86, wb: 2.64, wr: 0.31,
     sill: 0.26, bump: [0.24, 0.54], nose: 0.74, hood: 0.92, hoodEnd: 1.28, wsTop: 2.06, roofEnd: 3.62,
-    rwBase: 4.18, deck: 1.0, tail: 1.0, belt: 0.98, tumble: [1, 2], bpil: 2.42, hatch: true,
+    rwBase: 4.18, deck: 1.0, tail: 1.0, belt: 0.98, tumble: [1, 1], bpil: 2.42, hatch: true,
     bumper: 'body', hub: 'alloy', rust: 0, mold: 'none', round: 2,
   },
 }
@@ -125,10 +125,10 @@ function sedanBody(s, rng) {
     const t = (y + 0.5 - beltV) / ghRows
     const zf = lerp(s.hoodEnd, s.wsTop, t)
     const zr = lerp(s.rwBase, s.roofEnd, t)
-    const ins = Math.round(lerp(s.tumble[0], s.tumble[1], t))
+    const top = y === roofV - 1
+    const ins = Math.round(lerp(s.tumble[0], s.tumble[1], t)) + (top ? 1 : 0)
     const z0 = Math.ceil(zf / FV - 0.5), z1 = Math.floor(zr / FV - 0.5)
     if (z1 < z0) continue
-    const top = y === roofV - 1
     m.fill(X0 + ins, y, z0, Wv - 2 * ins, 1, z1 - z0 + 1, top ? P : G)
     if (!top) {
       // pillars: A at the front corners, C at the rear, B at the door split; door-top frame
@@ -347,9 +347,9 @@ function sedanInfo(type, s) {
 export function applySnow(m, variant, g, rng) {
   const S = M('snow'), SF = M('snow_fresh'), SD = M('snow_dirty')
   if (variant === '_s1') {
-    snowCap(m, { mat: SF, maxD: 1, chance: 0.82, profile: [1], rng, minY: 2 })
+    snowCap(m, { mat: SF, maxD: 1, chance: 0.8, patchy: 0.35, profile: [1], rng, minY: 2, ledges: true })
   } else if (variant === '_s2') {
-    snowCap(m, { mat: S, maxD: 3, profile: [1, 2, 3], rng, vary: 0.12, minY: 2, smooth: true })
+    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, vary: 0.1, minY: 2, smooth: true, ledges: true })
   } else if (variant === '_s3') {
     // drift: fill air around/below the body; deeper on the windward (left, x small) side
     for (let z = 0; z < m.sz; z++)
@@ -360,9 +360,9 @@ export function applySnow(m, variant, g, rng) {
         const h = Math.round((2 + side * side * (g.beltV - 3)) * endK + (n < 0.3 ? 1 : 0))
         for (let y = 0; y < h; y++) if (!m.get(x, y, z)) m.set(x, y, z, y < 2 && rng.next() < 0.2 ? SD : S)
       }
-    snowCap(m, { mat: S, maxD: 3, profile: [1, 2, 3], rng, vary: 0.15, minY: 4, smooth: true })
+    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, vary: 0.12, minY: 4, smooth: true, ledges: true })
   } else if (variant === '_br') {
-    snowCap(m, { mat: S, maxD: 3, profile: [1, 2, 3], rng, vary: 0.12, minY: 2, smooth: true })
+    snowCap(m, { mat: S, maxD: 3, profile: [2, 3], rng, vary: 0.1, minY: 2, smooth: true, ledges: true })
     // brushed windshield + rear half of the hood; the brushed snow piles up at the edges
     const zb0 = g.hoodEndV - 3, zb1 = g.wsTopV
     for (let z = zb0; z <= zb1; z++)
@@ -384,7 +384,7 @@ export function applySnow(m, variant, g, rng) {
   } else if (variant === '_warm') {
     // fogged glass; snow only on roof and trunk: the hood is bare and wet from the engine heat
     m.replace(M('glass_car'), M('glass_frosted'))
-    snowCap(m, { mat: S, maxD: 2, profile: [1, 2], rng, vary: 0.3, minY: g.beltV - 2, smooth: true, skip: (x, y, z) => z < g.wsTopV })
+    snowCap(m, { mat: S, maxD: 2, profile: [1, 2], rng, vary: 0.2, minY: g.beltV - 2, smooth: true, ledges: true, skip: (x, y, z) => z < g.wsTopV })
   }
   return m
 }

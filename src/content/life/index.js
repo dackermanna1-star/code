@@ -40,20 +40,33 @@ export default {
       if (params.get('studio')) { buildStudio(ctx, params); life.density = 0; life.noDog = true }
       else buildTestScene(ctx)
     }
+    if (typeof location !== 'undefined' && /[?&]lifeprops=1/.test(location.search)) {
+      const { buildEntranceDemo } = await import('./testscene.js')
+      buildEntranceDemo(ctx, new URLSearchParams(location.search))
+    }
     createActors(ctx)
     createDog(ctx)
     ctx.registry.life = { placeStory: (kind, o) => placeStory(ctx, kind, o), placePerson: (type, o) => placePerson(ctx, type, o), spawnWalker: o => spawnWalker(ctx, o), setPeopleDensity, stats: lifeStats }
   },
   init(ctx) {
     life.ctx = ctx
-    life.graph = buildNavGraph(ctx.navPaths, ctx.registry.entrances || [])
+    // straight links across the snow (entrance stubs to the nearest path) must be walkable:
+    // test them with a ray at knee and chest height above the higher end
+    const clear = (ax, az, bx, bz) => {
+      const ya = ctx.terrain.heightAt(ax, az), yb = ctx.terrain.heightAt(bx, bz)
+      const y = Math.max(Number.isFinite(ya) ? ya : 0, Number.isFinite(yb) ? yb : 0)
+      return ctx.world.lineOfSight(ax, y + 0.6, az, bx, y + 0.6, bz, 0.3) && ctx.world.lineOfSight(ax, y + 1.3, az, bx, y + 1.3, bz, 0.3)
+    }
+    life.graph = buildNavGraph(ctx.navPaths, ctx.registry.entrances || [], { clear })
     if (typeof window !== 'undefined') window.__life = { stats: lifeStats, spawn: o => spawnWalker(ctx, o), life }
-    if (TEST && /[?&]lifedog=1/.test(location.search) && life.dog) life.dog.timer = 1
-    if (TEST && /[?&]lifewalk=1/.test(location.search)) {
-      // test: put two walkers in plain view right away
+    // dev URL switches (screenshots): ?lifedog=1 calls the stray now, ?lifewalk=1 puts two
+    // walkers in view at once (one coming out of a door if there is one within 40 m)
+    const q = typeof location !== 'undefined' ? location.search : ''
+    if (/[?&]lifedog=1/.test(q) && life.dog) life.dog.timer = 1
+    if (/[?&]lifewalk=1/.test(q)) {
       life.view.update(ctx)
       spawnWalker(ctx, { visible: true, rMin: 10, rMax: 30 })
-      spawnWalker(ctx, { visible: true, rMin: 10, rMax: 30, door: true })
+      spawnWalker(ctx, { visible: true, rMin: 6, rMax: 40, door: true })
     }
   },
   update(dt, ctx) {

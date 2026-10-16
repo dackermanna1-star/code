@@ -167,7 +167,7 @@ defineModel('pub_kg_mushroom', () => {
 
 // low fence panel 2.5 × 1.5 m: painted bars, top rail (tint)
 defineModel('pub_fence_kg', () => {
-  const m = new VoxelModel(10, 6, 1)
+  const m = new VoxelModel(10, 7, 1)
   const p = M('paint')
   for (let x = 0; x < 10; x += 2) m.fill(x, 0, 0, 1, 6, 1, p)
   m.fill(0, 1, 0, 10, 1, 1, p); m.fill(0, 5, 0, 10, 1, 1, p)
@@ -203,9 +203,12 @@ export function placeKindergarten(ctx, o) {
     put(ctx, F, 'pub_kg_porch', lx, front, { tag: 'porch' })
     const lamp = put(ctx, F, 'pub_lamp_wall_bulb', lx, front, { ly: 3.02, tag: 'lamp', flag: i === 1 ? 0 : 1 })
     if (i !== 1) light(ctx, F, lx, 2.95, front - 0.6, { type: 'spot', dir: [0, -1, -0.3], cone: 70, inner: 30, color: 0xffc47e, intensity: 6, range: 8, schedule: 'night', placement: lamp, haloSize: 0.55, flicker: i === 2 ? 'dying' : 'none', tag: 'lamp' })
-    navPath(ctx, F, [[lx, front - 2], [lx * 0.4, front - 8], [0, -SZ - 0.5], [0, -SZ - 8]], 'path', { to: 'kindergarten' })
+    // entrance stub from the porch to the yard path (life package: door node)
+    navPath(ctx, F, [[lx, front - 2], [lx * 0.4, front - 8]], 'entrance', { to: 'kindergarten' })
     reg(ctx, 'entrances', { x: F.wx(lx, front - 1.5), z: F.wz(lx, front - 1.5), y, angle: F.ang(0, -1), kind: 'kindergarten', enterable: false })
   })
+  // the yard path from the building to the gate and out
+  navPath(ctx, F, [[0, front - 8], [0, -SZ - 0.5], [0, -SZ - 8]], 'path', { to: 'kindergarten' })
   // the watchman's lit room
   const wlx = (WATCH_BAY * 12 + 6.5 - KX / 2) * V
   light(ctx, F, wlx, 2.6, front + 1.6, { color: 0xffc27a, intensity: 1.3, range: 5, domain: 'indoor', schedule: env => env.night > 0.4 ? 1 : 0, placement: main, halo: false })

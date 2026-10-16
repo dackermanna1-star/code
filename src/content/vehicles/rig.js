@@ -53,25 +53,28 @@ export class Rig {
       this.headLight.enabled = false
     }
     if (o.tailLight !== false) {
-      this.tailLight = L.add({ x: 0, y: PARK, z: 0, color: 0xff2412, intensity: o.tailIntensity ?? 2.2, range: 5, scatter: 0.25, halo: false, tag: 'vehicle' })
+      // red spill on the slush behind (kept off the body so it does not paint the rear red)
+      this.tailLight = L.add({ x: 0, y: PARK, z: 0, color: 0xff2412, intensity: o.tailIntensity ?? 1.4, range: 5, scatter: 0.2, halo: false, tag: 'vehicle' })
       this.tailLight.enabled = false
     }
     if (o.interior) {
+      // domain 'all': lights the saloon (indoor faces), the frosted glass (it glows), and spills
+      // onto the snow around the vehicle; the shell's outer faces face away from it
       const it = o.interior
-      this.inLight = L.add({ x: 0, y: PARK, z: 0, color: it.color ?? 0xe6eedc, intensity: it.intensity ?? 5, range: it.range ?? 9,
-        domain: 'indoor', scatter: 0, halo: false, tag: 'vehicle' })
+      this.inLight = L.add({ x: 0, y: PARK, z: 0, color: it.color ?? 0xe6eedc, intensity: it.intensity ?? 9, range: it.range ?? 10,
+        domain: 'all', scatter: 0.12, halo: false, tag: 'vehicle' })
       this.inLight.enabled = false
-      // the glow of the windows on the snow outside
-      this.spill = L.add({ x: 0, y: PARK, z: 0, color: it.color ?? 0xe6eedc, intensity: it.spill ?? 3, range: 7.5, scatter: 0.15, halo: false, tag: 'vehicle' })
-      this.spill.enabled = false
     }
     if (o.beacon) {
       this.beaconLight = L.add({ x: 0, y: PARK, z: 0, color: 0xff9a10, intensity: 0, range: 16, scatter: 0.8, halo: false, tag: 'vehicle' })
       this.beaconLight.enabled = false
     }
+    // local anchor points (precomputed: no allocation per frame)
+    this._lHead = [0, (info.head?.[0]?.[1] ?? 0.65) + 0.05, -info.L / 2 - 0.35]
+    this._lTail = [0, 0.3, info.L / 2 + 1.1]
     // glows
-    this.glowsHead = (info.head || []).map(() => glows.add({ color: o.glowColor ?? 0xfff2dc, intensity: o.glowHead ?? 55, size: o.glowSize ?? 0.55, dir: 'front', cone: 0.35 }))
-    this.glowsTail = (info.tail || []).map(() => glows.add({ color: 0xff2a14, intensity: 22, size: 0.32, dir: 'back', cone: 0.2 }))
+    this.glowsHead = (info.head || []).map(() => glows.add({ color: o.glowColor ?? 0xfff2dc, intensity: o.glowHead ?? 80, size: o.glowSize ?? 0.7, dir: 'front', cone: 0.35 }))
+    this.glowsTail = (info.tail || []).map(() => glows.add({ color: 0xff2a14, intensity: 30, size: 0.4, dir: 'back', cone: 0.2 }))
     if (o.beacon) this.glowBeacon = glows.add({ color: 0xffa020, intensity: 70, size: 1.0, dir: 'omni' })
     // decals
     if (atlas) this._decals()
@@ -149,7 +152,7 @@ export class Rig {
     this.p.set(320, PARK, 320, 0)
     if (this.beacon) { this.beacon.visible = false; this.beacon.set(320, PARK, 320, 0) }
     if (this.decals) this.decals.visible = false
-    for (const l of [this.headLight, this.tailLight, this.inLight, this.spill, this.beaconLight]) if (l) { l.enabled = false; l.pos.y = PARK }
+    for (const l of [this.headLight, this.tailLight, this.inLight, this.beaconLight]) if (l) { l.enabled = false; l.pos.y = PARK }
     for (const g of this.glowsHead || []) g.on = 0
     for (const g of this.glowsTail || []) g.on = 0
     if (this.glowBeacon) this.glowBeacon.on = 0
@@ -185,22 +188,19 @@ export class Rig {
       const l = this.headLight
       l.enabled = lit && d < 320
       if (l.enabled) {
-        const hl = info.head?.[0]
-        const hy = hl ? hl[1] : 0.65
-        this.w([0, hy + 0.05, -info.L / 2 - 0.35], l.pos)
+        this.w(this._lHead, l.pos)
         l.dir.set(fx, -0.11, fz).normalize()
       }
     }
     if (this.tailLight) {
       const l = this.tailLight
       l.enabled = lit && d < 70
-      if (l.enabled) this.w([0, (info.tail?.[0]?.[1] ?? 0.7), info.L / 2 + 0.35], l.pos)
+      if (l.enabled) this.w(this._lTail, l.pos)
     }
     if (this.inLight) {
-      const near = lit && d < 70
+      const near = lit && d < 90
       this.inLight.enabled = near
-      this.spill.enabled = near && this.sys.night() > 0.3
-      if (near) { this.w(info.lightInterior || [0, 2.3, 0], this.inLight.pos); this.w([0, 1.6, 0], this.spill.pos) }
+      if (near) this.w(info.lightInterior || [0, 2.3, 0], this.inLight.pos)
     }
     const gh = this.glowsHead
     for (let i = 0; i < gh.length; i++) { gh[i].on = lit ? 1 : 0; this.w(info.head[i], gh[i].pos); gh[i].fwd.set(fx, 0, fz) }

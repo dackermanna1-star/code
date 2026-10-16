@@ -82,9 +82,10 @@ defineModel('metro_vestibule', () => {
       if (edge) return MAT.gabbro
       if (Math.abs(x - 401.75) < 0.5) return MAT.gabbro
       const slab = h3(Math.floor(i / 2), 2, Math.floor(k / 2), 9)
-      let mat = slab < 0.55 ? MAT.granite : MAT.graniteLight
-      if (x < 400 && h3(i, 1, k, 5) > 0.88) mat = MAT.wet // tracked-in meltwater
-      if (x < 397 && h3(i, 1, k, 6) > 0.8) mat = MAT.graniteLight // salt rims
+      let mat = slab < 0.82 ? MAT.granite : MAT.graniteLight
+      if (Math.abs(z - 540) < 0.13) mat = MAT.floorTileRed
+      if (x < 400 && h3(i, 1, k, 5) > 0.93) mat = MAT.wet // tracked-in meltwater
+      if (x < 397 && h3(i, 1, k, 6) > 0.9) mat = MAT.graniteLight // salt rims
       return mat
     },
     ceil: (i, j, k) => (h3(i, 7, k, 2) > 0.94 ? MAT.concreteLight : MAT.whitewash),

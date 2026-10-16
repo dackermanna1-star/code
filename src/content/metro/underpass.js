@@ -47,7 +47,7 @@ defineModel('metro_underpass', () => {
     const n = h3(i, j, k, 31)
     // mismatched repairs come in small rectangular patches
     const p = h3(Math.floor(i / 3), Math.floor(j / 2), Math.floor(k / 3), 77)
-    if (p > 0.93 && y > 0.5) mat = p > 0.965 ? MAT.tileBlue : MAT.tileCream
+    if (p > 0.965 && y > 0.5) mat = p > 0.985 ? MAT.tileBlue : MAT.tileCream
     if (n > 0.985 && y > 1.3) mat = MAT.concreteLight // missing tile, grey cement
     if (y < 0.25 && n > 0.45) mat = MAT.concreteDark // splash grime at the skirting
     return mat
@@ -55,8 +55,8 @@ defineModel('metro_underpass', () => {
   const floorAt = (i, j, k) => {
     const n = h3(i, 0, k, 13)
     const slab = h3(Math.floor(i / 2), 1, Math.floor(k / 2), 17)
-    let mat = slab < 0.45 ? MAT.granite : slab < 0.8 ? MAT.floorTile : MAT.graniteLight
-    if (n > 0.97) mat = MAT.concreteDark // chipped
+    let mat = slab < 0.62 ? MAT.granite : slab < 0.93 ? MAT.floorTile : MAT.graniteLight
+    if (n > 0.985) mat = MAT.concreteDark // chipped
     // the worn middle strip is darker and wetter
     const x = b.wx(i), z = b.wz(k)
     if (Math.abs(x - 385) < 1.2 && h3(i, 2, k, 5) > 0.7) mat = MAT.floorTile
@@ -77,7 +77,7 @@ defineModel('metro_underpass', () => {
     const x = b.wx(i), z = b.wz(k)
     let mat = MAT.whitewash
     const n = h3(i, 9, k, 3)
-    if (n > 0.9) mat = MAT.concreteLight
+    if (n > 0.97) mat = MAT.concreteLight
     // the leaking seam: a long yellowish-grey stain
     const d = Math.hypot(x - 386.2, (z - 551.2) * 0.5)
     if (d < 1.4 && h3(i, 5, k, 8) < 1.2 - d * 0.6) mat = d < 0.5 ? MAT.concreteDark : MAT.concrete
@@ -112,7 +112,7 @@ function litKiosk(kind) {
   // front: panel, glass band with mullions, sign band
   b.fill(0, 0, 0, 2.5, 0.75, V, kind === 'dvd' ? MAT.metalBlue : MAT.metalGray)
   b.fill(0.25, 0.75, 0, 2.25, 2.0, V, MAT.glass)
-  for (const x of [0.25 + 0.75, 1.75]) b.fill(x - 0.0, 0.75, 0, x + V, 2.0, V, frame)
+  b.fill(1.25, 0.75, 0, 1.5, 2.0, V, frame) // one mullion
   b.fill(0, 2.0, 0, 2.5, 2.5, V, MAT.plasticWhite)
   // counter ledge with the little serving hatch frame
   b.fill(0.25, 0.75, -V, 2.25, 1.0, 0, MAT.metalGray)

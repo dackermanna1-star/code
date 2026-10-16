@@ -10,7 +10,7 @@ import { M } from '../../core/materials.js'
 import { PEOPLE } from './people.js'
 import { DOG_MODELS } from './dog.js'
 import { fixFine } from './vox.js'
-import { placeStory } from './story.js'
+import { placeStory, placeStoryAtEntrance } from './story.js'
 
 defineModel('life_test_wall', () => {
   // a plinth-and-wall stub, 6 m long, front = local +Z
@@ -59,7 +59,7 @@ export function buildTestScene(ctx) {
   placeStory(ctx, 'butts', { x: 333.2, z: 412.4, y: Y, angle: 0, seed: 6 })
   placeStory(ctx, 'key', { x: 330.8, z: 419.4, y: Y, angle: 0.6, seed: 7 })
   placeStory(ctx, 'ticket', { x: 329.4, z: 418.3, y: Y, angle: 0.3, seed: 8 })
-  placeStory(ctx, 'glove', { x: 335.6, z: 417.2, y: Y, seed: 9 })
+  placeStory(ctx, 'glove', { x: 335.6, z: 417.2, y: Y, post: true, seed: 9 })
   placeStory(ctx, 'snowman', { x: 323.2, z: 414.6, y: 0.5, angle: 0.5, seed: 10 })
   placeStory(ctx, 'bicycle', { x: 337.6, z: 413.6, y: 0.5, angle: Math.PI / 2, seed: 11 })
   placeStory(ctx, 'yolka', { x: 321.5, z: 421.6, y: 0.5, angle: 1.2, seed: 12 })
@@ -123,4 +123,26 @@ export function buildStudio(ctx, params) {
   game.cameraOverride = { pos, target: new THREE.Vector3(cx, cy, cz) }
   game.spawn = { x: pos.x, z: pos.z, yaw: 0 }
   if (params.get('slamp')) lights.add({ x: cx + 1.5, y: Y + 6, z: cz + 2, type: 'spot', dir: [-0.2, -1, -0.3], cone: 70, intensity: 50, range: 20, color: 0xffa040 })
+}
+
+/**
+ * Dev switch ?lifeprops=1 (any scene with residential buildings, e.g. &resdemo=1): put story props
+ * beside the entrances near the URL spawn point, to check placeStoryAtEntrance in context.
+ */
+export function buildEntranceDemo(ctx, params) {
+  const x = parseFloat(params.get('x') ?? '0'), z = parseFloat(params.get('z') ?? '0')
+  const ents = (ctx.registry.entrances || []).filter(e => Math.hypot(e.x - x, e.z - z) < 70)
+  const kinds = ['sled', 'butts', 'cat', 'glove', 'key']
+  ents.forEach((e, i) => {
+    placeStoryAtEntrance(ctx, e, kinds[i % kinds.length], { side: i % 2 ? 1 : -1, seed: 31 + i, note: i === 2 })
+    if (i % 2 === 0) placeStoryAtEntrance(ctx, e, 'butts', { side: i % 2 ? -1 : 1, seed: 47 + i })
+  })
+  const e0 = ents[0]
+  if (e0) {
+    const a = e0.angle ?? 0
+    const sx = e0.x + Math.sin(a) * 9 + Math.cos(a) * 4, sz = e0.z + Math.cos(a) * 9 - Math.sin(a) * 4
+    placeStory(ctx, 'snowman', { x: sx, z: sz, angle: a + 0.3, seed: 5 })
+    placeStory(ctx, 'yolka', { x: sx + Math.cos(a) * 6, z: sz - Math.sin(a) * 6, angle: a + 1.2, seed: 6 })
+    placeStory(ctx, 'bicycle', { x: e0.x + Math.cos(a) * -5 + Math.sin(a) * 1.0, z: e0.z - Math.sin(a) * -5 + Math.cos(a) * 1.0, angle: a + Math.PI / 2, seed: 7 })
+  }
 }

@@ -85,7 +85,7 @@ for (let v = 0; v < 3; v++) defineModel('pub_garage_door' + (v ? '_' + 'abc'[v] 
 
 // both door leaves swung open to 90° (outward); pivot at the middle of the opening, facade plane
 defineModel('pub_garage_doors_open', () => {
-  const m = new VoxelModel(10, 9, 6)
+  const m = new VoxelModel(10, 10, 6)
   const p = M('paint')
   m.fill(0, 0, 0, 1, 9, 5, p); m.fill(9, 0, 0, 1, 9, 5, p)
   m.fill(0, 0, 0, 1, 1, 5, M('metal_rust')); m.fill(9, 0, 0, 1, 1, 5, M('metal_rust'))
@@ -178,8 +178,10 @@ export function placeGarageRow(ctx, o) {
       const variant = rng.int(0, 2)
       doors.push(put(ctx, F, 'pub_garage_door' + (variant ? '_' + 'abc'[variant] : ''), dlx, front + 0.375, { ly: V, tint, tag: 'garage_door' }))
       // snow drifted against the closed door
-      const [wx, , wz] = F.p(dlx, 0, front - 0.7)
-      ctx.terrain.mound(wx, wz, 1.35, 0.8, rng.float(0.25, 0.55), M('snow_fresh'), 0.5, rng.int(0, 1e6))
+      // (centred just in front of the leaves so it banks up against them and tapers out)
+      const [wx, , wz] = F.p(dlx + rng.float(-0.3, 0.3), 0, front - 0.35)
+      const s = F.size(rng.float(1.2, 1.6), 0, rng.float(0.9, 1.3))
+      ctx.terrain.mound(wx, wz, s[0], s[2], rng.float(0.3, 0.6), M('snow'), 0.6, rng.int(0, 1e6))
     }
     // stencilled number on the door / lintel
     const isOpen = i === openIndex

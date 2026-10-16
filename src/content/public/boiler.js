@@ -30,7 +30,8 @@ function industrialWindow(m, face, u, y, w, h, rng, litChance) {
       if (fu || fy) { fset(m, face, uu, yy, 1, M('metal_dark')); continue }
       let mat = M('pub_glass_dark')
       const r = rng.next()
-      if (lit && yy > litTop && yy < litBot && r < 0.6) mat = M('pub_win_lit_cold')
+      // a lit window glows as a whole (the hall lamps are behind it), with a few dead panes
+      if (lit && yy > litTop && yy < litBot && r > 0.2) mat = M('pub_win_lit_dirty')
       else if (r < 0.06) mat = M('wood')
       else if (r < 0.1) mat = M('brick_red')
       else if (r < 0.13) mat = M('metal_dark')
@@ -69,7 +70,7 @@ defineModel('pub_boiler', () => {
     for (let yy = 8; yy < 36; yy++) for (let uu = u; uu < u + 19; uu++) {
       const fu = (uu - u) % 3 === 0 || uu === u + 18, fy = (yy - 8) % 3 === 0 || yy === 35
       const r = rng.next()
-      m.set(uu, yy, HALLZ - 1, fu || fy ? M('metal_dark') : r < 0.25 ? M('pub_win_lit_cold') : r < 0.3 ? M('wood') : M('pub_glass_dark'))
+      m.set(uu, yy, HALLZ - 1, fu || fy ? M('metal_dark') : (u === 36 || u === 92) && yy > 14 && yy < 30 && r > 0.2 ? M('pub_win_lit_dirty') : r < 0.06 ? M('wood') : M('pub_glass_dark'))
     }
   }
   // left side: the coal/equipment gate (two steel leaves + wicket), «посторонним» door
@@ -83,8 +84,8 @@ defineModel('pub_boiler', () => {
   m.fill(10, HTOP + 1, 24, 100, 7, 16, M('concrete'))
   for (let x = 10; x < 110; x++) for (let y = HTOP + 2; y < HTOP + 6; y++) {
     const pane = (x % 4 !== 0)
-    m.set(x, y, 24, pane ? (hashf(x, y, 1) < 0.35 ? M('pub_win_lit_cold') : M('pub_glass_dark')) : M('metal_dark'))
-    m.set(x, y, 39, pane ? (hashf(x, y, 2) < 0.35 ? M('pub_win_lit_cold') : M('pub_glass_dark')) : M('metal_dark'))
+    m.set(x, y, 24, pane ? (hashf(x >> 3, 1, 1) < 0.45 ? M('pub_win_lit_dirty') : M('pub_glass_dark')) : M('metal_dark'))
+    m.set(x, y, 39, pane ? (hashf(x >> 3, 2, 2) < 0.45 ? M('pub_win_lit_dirty') : M('pub_glass_dark')) : M('metal_dark'))
   }
   m.fill(9, HTOP + 7, 23, 102, 1, 18, M('metal_gray'))
   // roof vents and a ventilation stack
@@ -191,6 +192,18 @@ defineModel('pub_heat_pipe', () => {
   for (const z0 of [1, 4]) for (let x = 0; x < 24; x++) for (let y = 5; y <= 6; y++) for (let z = z0; z <= z0 + 1; z++) m.set(x, y, z, pipeInsulation(rng))
   // icicles under the pipes where meltwater drips
   for (let k = 0; k < 5; k++) m.set(rng.int(0, 23), 4, rng.pick([2, 5]), M('ice'))
+  // the mains leak heat: snow only in patches on the insulation, more on the cold supports
+  m.addSnow({ mat: M('snow'), depth: 1, chance: 0.35, seed: 9 })
+  m.setPivot(0, 0, 4)
+  return m
+}, { lods: [1, 2], lodDistances: [50], maxDistance: 260 })
+
+// 1 m filler piece (pipes only) so runs end exactly at corners, arches and run ends
+defineModel('pub_heat_pipe_short', () => {
+  const m = new VoxelModel(4, 8, 8)
+  const rng = new RNG(5)
+  for (const z0 of [1, 4]) for (let x = 0; x < 4; x++) for (let y = 5; y <= 6; y++) for (let z = z0; z <= z0 + 1; z++) m.set(x, y, z, pipeInsulation(rng))
+  m.addSnow({ mat: M('snow'), depth: 1, chance: 0.35, seed: 10 })
   m.setPivot(0, 0, 4)
   return m
 }, { lods: [1, 2], lodDistances: [50], maxDistance: 260 })
@@ -234,18 +247,29 @@ export function placeHeatPipe(ctx, o) {
       const d = Math.abs(-(px - ax) * dz + (pz - az) * dx)
       return t > 0 && t < len && d < 3
     }).map(([px, pz]) => (px - ax) * dx + (pz - az) * dz)
-    for (let t = 0; t < len - 0.01; t += 6) {
-      const mid = t + 3
-      if (myArches.some(at => Math.abs(at - mid) < 8)) continue
-      out.push(ctx.world.place('pub_heat_pipe', { x: ax + dx * t, z: az + dz * t, angle: ang, tag: 'heat_pipe', userData: { pkg: 'public', noRelocate: true } }))
+    const ud = { pkg: 'public', noRelocate: true }
+    const at = t => ({ x: ax + dx * t, z: az + dz * t, angle: ang, tag: 'heat_pipe', userData: ud })
+    // straight stretches between arches: 6 m segments, then 1 m fillers so nothing overshoots
+    const stretch = (t0, t1) => {
+      let t = t0
+      while (t1 - t >= 5.99) { out.push(ctx.world.place('pub_heat_pipe', at(t))); t += 6 }
+      while (t1 - t > 0.3) { out.push(ctx.world.place('pub_heat_pipe_short', at(t))); t += 1 }
     }
-    for (const at of myArches) {
-      out.push(ctx.world.place('pub_heat_pipe_arch', { x: ax + dx * (at - 5), z: az + dz * (at - 5), angle: ang, tag: 'heat_pipe', userData: { pkg: 'public', noRelocate: true } }))
+    let t0 = 0
+    for (const a of myArches.sort((p, q) => p - q)) {
+      const s0 = Math.max(t0, a - 5)
+      stretch(t0, s0)
+      out.push(ctx.world.place('pub_heat_pipe_arch', at(s0)))
+      t0 = s0 + 10
     }
+    stretch(t0, len)
     // now and then a leaking joint steams (heating-main leak)
     if (len > 12 && hashf(Math.round(ax * 7), Math.round(az * 13), 5) < 0.35) {
       const t = 6 * Math.max(1, Math.floor(len / 12))
-      RT.pendingSteam.push({ x: ax + dx * t, y: 1.6, z: az + dz * t, kind: 'pipe', tag: 'heat_pipe_leak' })
+      if (!myArches.some(a => Math.abs(a - t) < 6)) {
+        const gy = ctx.terrain.heightAt(ax + dx * t, az + dz * t)
+        RT.pendingSteam.push({ x: ax + dx * t, y: (Number.isFinite(gy) ? gy : 0.25) + 1.5, z: az + dz * t, kind: 'pipe', tag: 'heat_pipe_leak' })
+      }
     }
     // melted strip of snow under the pipe line
     ctx.terrain.paintLine(ax, az, bx, bz, 2.2, { mat: M('snow_dirty'), only: new Set([M('snow'), M('snow_fresh')]) })
@@ -294,7 +318,9 @@ export function placeBoilerHouse(ctx, o) {
   light(ctx, F, DX, 2.4, -BPZ * V - 0.6, { type: 'spot', dir: [0, -1, -0.35], cone: 70, inner: 30, color: 0xffc47e, intensity: 6, range: 8, schedule: 'night', placement: lampP, haloSize: 0.6, tag: 'lamp' })
   const floodP = put(ctx, F, 'pub_lamp_wall_bulb', (-BPX + 1) * V, -BPZ * V, { ly: 7.5, tag: 'lamp' })
   light(ctx, F, (-BPX + 1) * V - 0.5, 7.4, -BPZ * V - 0.7, { type: 'spot', dir: [-0.45, -1, -0.6], cone: 62, inner: 28, color: 0xd6ecea, intensity: 30, range: 26, schedule: 'street', placement: floodP, flicker: rng.chance(0.4) ? 'dying' : 'none', tag: 'lamp' })
-  light(ctx, F, -4, 5, -BPZ * V - 1.2, { type: 'spot', dir: [0, -0.4, -1], cone: 80, inner: 40, color: 0xc8dce0, intensity: 5, range: 12, schedule: 'night', halo: false, scatter: 0.3 })
+  // cold spill from the big windows; also drives the hall's lit panes (placement flag), which
+  // fade to near-dark glass in daylight
+  light(ctx, F, -4, 5, -BPZ * V - 1.2, { type: 'spot', dir: [0, -0.4, -1], cone: 80, inner: 40, color: 0xc8dce0, intensity: 5, range: 12, schedule: env => 0.15 + 0.85 * env.night, placement: hall, halo: false, scatter: 0.3 })
   // signs
   sign(ctx, F, (131.5 - BPX) * V, 1.5, -BPZ * V, 0, -1, {
     w: 0.62, h: 0.42, ppm: 150, aged: 0.4, seed: 21,
@@ -317,7 +343,7 @@ export function placeBoilerHouse(ctx, o) {
   const cp = [F.wx(chx, chz), F.wz(chx, chz)]
   reg(ctx, 'landmarks', { kind: 'chimney', name: 'Труба котельной', x: cp[0], z: cp[1], height: CH * V })
   reg(ctx, 'industrial', { kind: 'boiler_house', x: F.x, z: F.z, y, angle: F.a, chimney: cp })
-  navPath(ctx, F, [[DX, -BPZ * V - 1], [DX, -BPZ * V - 12]], 'path', { to: 'boiler_house' })
+  navPath(ctx, F, [[DX, -BPZ * V - 1], [DX, -BPZ * V - 8]], 'entrance', { to: 'boiler_house' })
   return { hall, chimney, frame: F, chimneyPos: cp }
 }
 

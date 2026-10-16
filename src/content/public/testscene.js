@@ -24,4 +24,16 @@ export function buildTestScene(ctx, api) {
   // rotation checks (only when asked for explicitly)
   if (q && q.includes('shoprot')) api.placeShop(ctx, { x: 150, z: 300, rot: 1, seed: 11 })
   if (q && q.includes('kioskrot')) api.placeKiosk(ctx, { x: 150, z: 330, angle: 0.4, type: 'flowers', seed: 12 })
+  // rotated composites on the west strip (pubonly=rot): every helper at a non-zero rotation
+  if (q && q.split(',').includes('rot')) {
+    api.placeBoilerHouse(ctx, { x: 100, z: 110, rot: 2, seed: 21, pipes: [[118, 96], [118, 70], [60, 70]], arches: [[90, 70]] })
+    api.placeGarageRow(ctx, { x: 100, z: 160, rot: 2, count: 8, seed: 22, brick: 'red' })
+    api.placeSchool(ctx, { x: 95, z: 245, rot: 1, seed: 23, number: 7, floors: 3 })
+    api.placePharmacy(ctx, { x: 60, z: 315, rot: 3, seed: 24 })
+    api.placeKindergarten(ctx, { x: 95, z: 380, rot: 2, seed: 25, number: 112 })
+    api.placeHockeyBox(ctx, { x: 95, z: 470, rot: 1, w: 20, d: 36, seed: 26 })
+    api.placeWarehouse(ctx, { x: 230, z: 540, rot: 3, seed: 27 })
+    api.placeDispatcherBooth(ctx, { x: 290, z: 520, rot: 2, seed: 28 })
+    api.placeSubstation(ctx, { x: 310, z: 520, rot: 1, seed: 29 })
+  }
 }

@@ -115,7 +115,7 @@ function snowman(variant) {
   }
   // a little trampled mound at the foot
   for (let y = 0; y < 2; y++) rowEllipse(m, y, cx, cz, 7.5 - y * 1.5, 7.0 - y * 1.5, M('snow_packed'))
-  const b0 = ball(5.2, 5.3, M('snow_packed'), 0.9)
+  ball(5.2, 5.3, M('snow_packed'), 0.9)
   const b1 = ball(12.6, 3.9, M('snow'), 0.92)
   const b2 = ball(18.4, 2.8, M('snow'), 1.0)
   // grit and a few leaves rolled into the bottom ball, a greyer crust after a thaw

@@ -116,12 +116,14 @@ function buriedDrift(ctx, x, z, angle, info, rng) {
     const ex = Math.max(0, Math.abs(lx) - info.W / 2), ez = Math.max(0, Math.abs(lz) - info.L / 2)
     const e = Math.hypot(ex, ez)
     if (e <= 0) return null // under the car: the model carries its own drift
-    const windward = lx < 0 ? 1 : 0.45
-    const reach = lx < 0 ? 1.9 : 1.1
+    // only the windward flank (the car's left) carries a terrain drift; the ends taper off fast
+    if (lx > 0 || ez > 0.6) return null
+    const windward = 1 - ez / 0.6
+    const reach = 2.4
     if (e > reach) return null
     const k = 1 - e / reach
     const n = 0.85 + 0.3 * Math.sin(px * 3.1 + seed) * Math.cos(pz * 2.7 - seed)
-    const hTop = (0.42 + 0.5 * windward) * k * k * (3 - 2 * k) * n
+    const hTop = (0.22 + 0.42 * windward) * Math.pow(k, 1.6) * n
     const target = Math.round((base + hTop) / 0.25)
     if (target <= hVox) return null
     return { h: target, mat: k > 0.6 ? fresh : snow }
@@ -177,7 +179,7 @@ export function placeParkedBus(ctx, o) {
   const rng = seedRng(o, o.x, o.z)
   const kind = o.kind === 'trolleybus' ? 'trolleybus' : 'bus'
   const info = kind === 'bus' ? BIG_INFO.liaz : BIG_INFO.ziu
-  const model = kind === 'bus' ? (o.snow ? 'veh_liaz5256_snow' : 'veh_liaz5256') : (o.poles === 'down' ? 'veh_ziu682_down' : 'veh_ziu682')
+  const model = kind === 'bus' ? (o.snow ? 'veh_liaz5256_snow' : 'veh_liaz5256_parked') : (o.poles === 'down' ? 'veh_ziu682_down' : 'veh_ziu682_parked')
   const angle = o.angle ?? 0
   const p = ctx.world.place(model, { x: o.x, z: o.z, y: o.y, angle, seed: rng.next(), tint: o.tint ?? rng.pick([0xe4e2d8, 0xe4e2d8, 0xd9cfae]), tag: kind, flag: 0 })
   if (!p) return null
@@ -185,9 +187,7 @@ export function placeParkedBus(ctx, o) {
   if (lit) {
     const wp = worldOf(o.x, p.y, o.z, angle, info.lightInterior)
     // the light drives the placement flag: ceiling tubes and far windows glow from dusk to dawn
-    ctx.lights.add({ x: wp[0], y: wp[1], z: wp[2], color: 0xe6eedc, intensity: 5, range: 9, domain: 'indoor', schedule: 'night', placement: p, halo: false, tag: 'bus_interior' })
-    const sp = worldOf(o.x, p.y, o.z, angle, [0, 1.6, 0])
-    ctx.lights.add({ x: sp[0], y: sp[1], z: sp[2], color: 0xe6eedc, intensity: 2.5, range: 7, schedule: 'night', halo: false, scatter: 0.15, tag: 'bus_interior' })
+    ctx.lights.add({ x: wp[0], y: wp[1], z: wp[2], color: 0xe6eedc, intensity: 9, range: 10, domain: 'all', schedule: 'night', placement: p, halo: false, scatter: 0.12, tag: 'bus_interior' })
   }
   const routes = ROUTES[kind]
   const route = typeof o.route === 'object' && o.route ? o.route : routes[(o.route ?? rng.int(0, routes.length - 1)) % routes.length]

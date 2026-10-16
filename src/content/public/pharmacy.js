@@ -150,7 +150,7 @@ export function placePharmacy(ctx, o) {
     return pp && pp.x > inner.min[0] && pp.x < inner.max[0] && pp.z > inner.min[2] && pp.z < inner.max[2]
   }
   const door = addDoor(ctx, {
-    placement: doorP, closed: F.a, swing: 1, open: 1.5, width: 1, center: F.p(lx(DOOR_X + 2), 1.3, lz(FW + 0.5)),
+    placement: doorP, closed: F.a, swing: 1, open: 1.65, width: 1, center: F.p(lx(DOOR_X + 2), 1.3, lz(FW + 0.5)),
     size: F.size(1.1, 2.3, 0.7), autoClose: 6,
     sounds: { open: 'door_metal_open', close: 'door_metal_slam', chime: 'shop_bell' },
     isLocked: game => !isDay(game) && !inside(game),
@@ -159,7 +159,7 @@ export function placePharmacy(ctx, o) {
   })
   // the cross on its bracket above the door, and the lights
   const cross = put(ctx, F, 'pub_pharmacy_cross', lx(1.5), lz(FW), { ly: 10.5 * V, tag: 'lamp', userData: { kind: 'pharmacy_cross' } })
-  light(ctx, F, lx(1.5), 3.2, lz(FW - 3), { color: 0x3cff7a, intensity: 2.2, range: 7, placement: cross, haloSize: 0.7, tag: 'pharmacy_cross' })
+  light(ctx, F, lx(1.5), 3.2, lz(FW - 3), { color: 0x3cff7a, intensity: 1.6, range: 6.5, placement: cross, haloSize: 0.7, tag: 'pharmacy_cross' })
   light(ctx, F, lx(12), 2.7, lz(9), { color: 0xf2f4e6, intensity: 2.2, range: 8, domain: 'indoor', halo: false })
   // after 22:00 only the night light burns; the tube voxels and far glass follow (placement flag)
   light(ctx, F, lx(17), 2.7, lz(16), { color: 0xf2f4e6, intensity: 2.0, range: 8, domain: 'indoor', halo: false, placement: p,
@@ -173,11 +173,12 @@ export function placePharmacy(ctx, o) {
   })
   readable(ctx, F, lx(14), 3.1, lz(0) - 0.2, [5.8, 0.7, 0.4], { ru: name, en: 'PHARMACY', style: 'sign' })
   sign(ctx, F, lx(8), 1.95, lz(FW), 0, -1, { w: 0.48, h: 0.2, ppm: 160, lines: ['НОЧНОЕ ОКНО', 'звоните'], bg: '#e8ecdf', color: '#1c5a30', font: PLAIN_FONT })
-  sign(ctx, F, lx(DOOR_X + 2), 1.25, lz(FW + 0.6) - 0.02, 0, -1, {
-    w: 0.36, h: 0.3, ppm: 160, aged: 0.2, seed: 9,
+  // opening-hours plate on the narrow pier beside the door (not on the moving leaf)
+  sign(ctx, F, lx(1), 1.4, lz(FW), 0, -1, {
+    w: 0.34, h: 0.3, ppm: 160, aged: 0.2, seed: 9,
     draw: (c, W, H) => drawText(c, W, H, { lines: ['АПТЕКА', 'Режим работы:', 'с 8.00 до 22.00', 'ночью — через окно'], bg: '#f0f0e8', color: '#1c3a28', font: PLAIN_FONT }),
   })
-  readable(ctx, F, lx(DOOR_X + 2), 1.25, lz(FW) - 0.2, [0.5, 0.4, 0.3], { ru: 'АПТЕКА\nРежим работы: с 8.00 до 22.00\nНочью обслуживание через окно', en: 'PHARMACY\nOpen 8:00 to 22:00\nAt night, service through the window', style: 'sign' })
+  readable(ctx, F, lx(1), 1.4, lz(FW) - 0.15, [0.4, 0.4, 0.3], { ru: 'АПТЕКА\nРежим работы: с 8.00 до 22.00\nНочью обслуживание через окно', en: 'PHARMACY\nOpen 8:00 to 22:00\nAt night, service through the window', style: 'sign' })
   // posters inside
   sign(ctx, F, lx(2), 1.8, lz(17), 1, 0, {
     w: 0.7, h: 0.95, ppm: 90, indoor: true, aged: 0.2, seed: 4,
@@ -214,7 +215,7 @@ export function placePharmacy(ctx, o) {
   })
   addEmitter({ name: 'fluorescent_buzz', pos: F.p(lx(17), 2.8, lz(9)), gain: 0.14, radius: 12, refDistance: 1 })
   const entrance = [F.wx(lx(DOOR_X + 2), lz(-3)), F.wz(lx(DOOR_X + 2), lz(-3))]
-  navPath(ctx, F, [[lx(DOOR_X + 2), lz(-1)], [lx(DOOR_X + 2), lz(-24)]], 'path', { to: 'pharmacy' })
+  navPath(ctx, F, [[lx(DOOR_X + 2), lz(-3)], [lx(DOOR_X + 2), lz(-24)]], 'entrance', { to: 'pharmacy' })
   reg(ctx, 'shops', { kind: 'pharmacy', name, x: F.x, z: F.z, y: F.y, angle: F.a, entrance, door, interior: inner, placement: p, hours: [8, 22] })
   reg(ctx, 'entrances', { x: entrance[0], y: F.y, z: entrance[1], angle: F.ang(0, -1), kind: 'pharmacy', enterable: true })
   return { placement: p, door, cross, frame: F, interior: inner }

@@ -376,7 +376,7 @@ export function priceTag(o) {
     ctx.font = `${H * 0.13}px ${PLAIN_FONT}`
     ctx.fillStyle = '#444'
     ctx.fillText(o.unit ?? 'за 1 шт.', W * 0.04, H * 0.5)
-    ctx.fillText(o.small ?? 'Россия  12.12.08', W * 0.04, H * 0.8)
+    ctx.fillText(o.small ?? 'Россия  11.01.08', W * 0.04, H * 0.8)
   }
 }
 

@@ -26,7 +26,7 @@ const CLASS = { f: 2, b0: 11, b1: 13, depth: 24 }
 
 function buildWing(floors) {
   const top = floorY(floors) // roof slab layer
-  const Y = top + 4
+  const Y = top + 7 // parapet, roof-exit box (4) + its cap + snow
   const m = new VoxelModel(WX, Y, WZ)
   const rng = new RNG(1970 + floors)
   const brick = M('brick_silicate'), plinth = M('concrete_dark'), lintel = M('concrete_light')
@@ -497,7 +497,7 @@ export function placeSchool(ctx, o) {
   }
   // ---- navigation & registry ---------------------------------------------------------------
   const ent = [F.wx(0, -33), F.wz(0, -33)]
-  navPath(ctx, F, [[0, -33], [0, -SZ - 0.5], [0, -SZ - 8]], 'path', { to: 'school' })
+  navPath(ctx, F, [[0, -33], [0, -SZ - 0.5], [0, -SZ - 6]], 'entrance', { to: 'school' })
   reg(ctx, 'entrances', { x: ent[0], y, z: ent[1], angle: F.ang(0, -1), kind: 'school', enterable: false })
   reg(ctx, 'schools', { number, x: F.x, z: F.z, y, angle: F.a, entrance: ent, site })
   reg(ctx, 'landmarks', { kind: 'school', name: `Школа № ${number}`, x: F.wx(0, -17.5), z: F.wz(0, -17.5), height: wingTop })

@@ -68,7 +68,7 @@ defineModel('pub_hockey_corner', () => {
 
 // hockey goal 1.8 × 1.2 m: red frame, net (non-solid), mouth toward local −Z
 defineModel('pub_hockey_goal', () => {
-  const m = new VoxelModel(8, 5, 4)
+  const m = new VoxelModel(8, 6, 4)
   const red = M('metal_red'), net = M('pub_net')
   for (let y = 0; y < 5; y++) { m.set(0, y, 0, red); m.set(7, y, 0, red) }
   m.fill(0, 4, 0, 8, 1, 1, red)

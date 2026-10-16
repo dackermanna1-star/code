@@ -123,6 +123,13 @@ export function topAt(m, x, z) {
   return -1
 }
 
+const GLASSY = new Set()
+/** Lazily resolved set of glass material ids (materials are defined at import time). */
+function glassIds() {
+  if (!GLASSY.size) for (const n of ['glass_car', 'glass_frosted', 'veh_glass_clear']) { try { GLASSY.add(M(n)) } catch { /* not defined */ } }
+  return GLASSY
+}
+
 /**
  * Snow cap: every exposed top gets snow; depth grows with the distance from the cap's edge so
  * roofs carry rounded pillows (edge 1 voxel, centre `maxD`). `skip(x, y, z)` vetoes a column
@@ -163,6 +170,7 @@ export function snowCap(m, o = {}) {
     }
   }
   const prof = o.profile ?? [1, 2, 3, 3, 4, 4, 4]
+  if (o.ledges) glassIds()
   // desired snow surface per column
   const T = new Int16Array(sx * sz).fill(-1)
   for (let z = 0; z < sz; z++)
@@ -170,6 +178,11 @@ export function snowCap(m, o = {}) {
       const t = top[x + z * sx]
       if (t < 0 || t < (o.minY ?? 1)) continue
       if (o.skip && o.skip(x, t, z)) continue
+      // snow does not stay on narrow glass ledges at the side of a greenhouse
+      if (o.ledges && GLASSY.has(m.data[m.idx(x, t, z)])) {
+        const tl = x > 0 ? top[x - 1 + z * sx] : -1, tr = x < sx - 1 ? top[x + 1 + z * sx] : -1
+        if (tl > t || tr > t) continue
+      }
       if (o.patchy) { if (valueNoise2(x * o.patchy, z * o.patchy, o.seed ?? 5) > chance) continue }
       else if (rng.next() > chance) continue
       let d = Math.min(maxD, prof[Math.min(prof.length - 1, dist[x + z * sx])])

@@ -33,6 +33,11 @@ import {
   **Anomaly code:** most of these carry static signs/lights or are parts of a composite — please
   respect `userData.noRelocate` (relocating a school wing would leave its gym and signs behind).
 - Interiors are lit with `domain:'indoor'` lights; facades use outdoor lights that spill onto snow.
+- **navPaths:** door approaches are `kind:'entrance'` stubs (first point at the door, 6–12 m out) for
+  the shop, pharmacy, school (through the gate), kindergarten (3 porches → a yard `'path'` to the
+  gate), boiler house and dispatcher booth; kiosks, garage rows, the warehouse gate and the hockey
+  box push short `'path'` spurs. The life package links entrance stubs to any walkable path within
+  32 m and loose path ends within 2.6 m — run your sidewalks/paths past them.
 - All signage is Cyrillic with an `{ru, en}` readable interaction (prompt «Читать»).
 
 ---
@@ -58,7 +63,8 @@ const shop = placeShop(ctx, { x: 460, z: 584, rot: 0, seed: 3 })     // entrance
   behind the cash desk facing the customer — the life package may swap/animate her.
 - Fluorescent tubes (one flickering `'buzz'` = separate `pub_tube_fixture` placement), warm window
   spill onto the snow, entrance bulb under the canopy, lit light-box sign (emissive, always).
-- **Interactions:** door (open/close, auto-closes after ~7 s once you're clear), «Купить хлеб —
+- **Interactions:** door (open/close — opens outward just past 90°, solid when closed or open,
+  passable only while swinging; auto-closes after ~7 s once you're ≥ 3 m clear), «Купить хлеб —
   18 руб.» / «Купить батон — 16 руб.» on the bread rack, «Обратиться к продавщице», «Смотреть
   ценники» on each department, terminal screen, hours plate, posters, notices.
 - **Game state:** buying sets `game.state.boughtBread = true`, pushes `'hleb' | 'baton'` to
@@ -69,8 +75,9 @@ const shop = placeShop(ctx, { x: 460, z: 584, rot: 0, seed: 3 })     // entrance
   `shop_ambience`, `radio_distant` (cashier's radio, low), `ventilation` ×2 (air curtain, roof unit).
 - Registry: `registry.shops.push({ kind:'produkty', name, x, z, y, angle, entrance:[x,z], door,
   interior:{min,max}, open24:true, placement, cashier })`, `registry.entrances.push({x,y,z,angle,
-  kind:'shop', enterable:true})`. navPaths: an outdoor `'path'` from the door outward (16 m) and an
-  `'indoor'` path (with `y`) from the door to the counter.
+  kind:'shop', enterable:true})`. navPaths: an `'entrance'` stub (first point at the door, 7 m
+  outward — the life package turns it into a door node and links its outer end to the nearest path)
+  and an `'indoor'` path (with `y`) from the door to the counter.
 
 ## 2. `placeKiosk(ctx, o)` — ларёк
 
@@ -80,9 +87,9 @@ placeKiosk(ctx, { x: 400, z: 578, rot: 0, type: 'tabak', seed: 1 })
   placeKiosk(ctx, { x: 396 + i * 4, z: 578, rot: 0, type, seed: i }))
 // → { placement, light, frame }
 ```
-`o: { x, z, rot | angle, y, type, seed, tint (body colour), sign (text override, e.g. for 'closed') }`
+`o: { x, z, rot | angle, y, type, seed, tint (body colour), sign (text override, e.g. for 'closed'), drifts=true }`
 
-- **Footprint 3.0 × 2.75 m**, 3.5 m high (sign band at 2.75–3.25 m). Glazed front + serving hatch
+- **Footprint 3.0 × 2.75 m**, 3.5 m high + roof snow (sign band at 2.75–3.25 m). Glazed front + serving hatch
   with a coin ledge on local −Z; side window on local +X.
 - `tabak` «ТАБАК» (cigarette packs, red LED ticker), `pechat` «ПЕЧАТЬ» (white/blue, «Мос-Пресса»,
   magazines on wires), `flowers` «ЦВЕТЫ 24» (glazed flanks, warm lamp, buckets of roses and
@@ -91,6 +98,9 @@ placeKiosk(ctx, { x: 400, z: 578, rot: 0, type: 'tabak', seed: 1 })
   padlock, «СДАЁТСЯ В АРЕНДУ» note, graffiti, unlit sign — default text «ПЕЧАТЬ»).
 - A seated vendor in a fur hat inside (not in `closed`), fluorescent tube, heater glow.
 - One light per lit kiosk (under the sign box, lights the display and the snow in front).
+- Weathered sheet steel (rust along the bottom and from the roof corners, a patch sheet), snow on
+  the roof, and terrain snow drifts against the back and flanks (`drifts:false` to skip; place the
+  kiosk after painting the sidewalk).
 - Interactions: read sign (with translation), «Постучать в окошко» → a short vendor line + `kiosk_voice`.
 - Emitters: `radio_distant` (quiet) or `ventilation` (shawarma). Tag `'kiosk'`; `registry.kiosks`.
 
@@ -176,10 +186,16 @@ placeBoilerHouse(ctx, { x: bx, z: bz, rot: 2, seed: 5,
 - Registry: `landmarks` (`kind:'chimney', height: 55`), `industrial`.
 
 ### `placeHeatPipe(ctx, { points, arches, seed })`
-Insulated twin heat pipes on concrete П-supports in **6 m segments** along a world polyline;
-`arches` (world points on the line) become 10 m **П-shaped arches** lifting the pipes 6.25 m over a
-driveway. Paints a melted dirty strip below; occasionally a leaking joint steams (nature `kind:'pipe'`).
-Registry `heatPipes`.
+Insulated twin heat pipes on concrete П-supports in **6 m segments** along a world polyline,
+topped up with 1 m fillers (`pub_heat_pipe_short`) so every leg ends exactly at its corner / end
+point (nothing overshoots); `arches` (world points within 3 m of a leg) become 10 m **П-shaped
+arches** centred on that point, lifting the pipes 6.25 m over a driveway. Patchy snow on the
+insulation (the mains leak heat). Paints a melted dirty strip below; occasionally a leaking joint
+steams (nature `kind:'pipe'`). Returns the placements. Registry `heatPipes`.
+
+```js
+placeHeatPipe(ctx, { points: [[250, 128], [250, 146], [330, 146]], arches: [[250, 138]] })
+```
 
 ## 7. `placeGarageRow(ctx, o)` — ГСК brick garages
 
@@ -192,7 +208,8 @@ placeGarageRow(ctx, { x: 120, z: 70, rot: 2, count: 14, seed: 9, numberStart: 41
 - Row of `count` boxes, each **3.25 m wide × 6.5 m deep × 3.0 m** (total width `count × 3.25`),
   centred on (x, z); doors on local −Z. Flat felt roofs with uneven snow; a 5 m packed apron in front.
 - Steel swing doors in faded colours (tinted, 3 variants: wicket + lock, ribs + padlock, patched),
-  rust, stencilled numbers, occasional «ПРОДАМ 8-916-…»; snow drifts mounded against closed doors.
+  rust, stencilled numbers, occasional «ПРОДАМ 8-916-…»; terrain snow drifts banked up against the
+  closed doors (taper ~1 m out onto the apron).
 - **One open garage** (seeded or `openIndex`): leaves swung open, bulb on a cord (warm light spilling
   out on the snow), shelves of jars, tyres, workbench, canisters, an old **classic Lada**
   (`pub_car_classic`, tinted), `radio_distant` playing; zone `name:'garage', reverb:'room'`.
@@ -264,11 +281,11 @@ Sizes W × H × D in meters (1 voxel = 0.25 m). Pivot = bottom centre of the foo
 | `pub_tube_fixture` | 1.5 × 0.25 × 0.5 | ceiling fluorescent (link to a light via `placement` to flicker) |
 | `pub_lamp_wall_bulb` | 0.25 × 0.25 × 0.5 | pivot at the wall face (back), bulb toward −Z; `lamp_bulb` emissive |
 | `pub_cashier` | 0.75 × 1.75 × 0.75 | woman, white blouse, blue apron, burgundy bun; faces −Z |
-| `pub_kiosk_tabak` / `_pechat` / `_flowers` / `_shawarma` / `_produkty` / `_closed` | 3.0 × 3.5 × 2.75 | front −Z; tint = body |
+| `pub_kiosk_tabak` / `_pechat` / `_flowers` / `_shawarma` / `_produkty` / `_closed` | 3.0 × 4.0 × 2.75 | 3.5 m body + roof snow; front −Z; tint = body |
 | `pub_pharmacy` | 7 × 4 × 5.5 | pivot = centre of the 7 × 5 building (step 0.5 m at −Z); tint = facade |
 | `pub_glass_door` | 1.0 × 2.25 × 0.25 | **dynamic**; hinge pivot like `pub_shop_door` |
 | `pub_pharmacy_cross` | 0.25 × 1.25 × 1.75 | pivot = wall end of the bracket; cross sticks out toward −Z; `pub_lamp_green` |
-| `pub_school_wing` / `pub_school_wing3` | 56 × 14.75 × 13 / 56 × 11.5 × 13 | 4 / 3 storeys; front −Z |
+| `pub_school_wing` / `pub_school_wing3` | 56 × 15.5 × 13 / 56 × 12.25 × 13 | 4 / 3 storeys (roof 13.5 / 10.25 m + parapet, roof-exit box); front −Z |
 | `pub_school_entry` | 14 × 8.75 × 8 | pivot = centre of the 14 × 6 block; porch 2 m at −Z |
 | `pub_school_gym` | 12 × 9.25 × 24 | doors on +X and +Z sides |
 | `pub_fence_school` | 2.5 × 2.0 × 0.25 | pivot = panel start; runs along +X; tint |
@@ -281,16 +298,17 @@ Sizes W × H × D in meters (1 voxel = 0.25 m). Pivot = bottom centre of the foo
 | `pub_kg_porch` | 2.5 × 3.75 × 1.75 | pivot = back edge centre (against the wall); steps toward −Z |
 | `pub_kg_veranda` | 6 × 3 × 3.25 | pivot (centre of floor); open front −Z; tint |
 | `pub_kg_house` / `pub_kg_boat` / `pub_kg_mushroom` | 1.5 × 2.25 × 1.5 / 3.5 × 3 × 1.5 / 2.25 × 2.5 × 2.25 | play equipment; house & boat tinted |
-| `pub_fence_kg` | 2.5 × 1.5 × 0.25 | pivot = panel start; runs along +X; tint |
+| `pub_fence_kg` | 2.5 × 1.75 × 0.25 | 1.5 m panel + snow; pivot = panel start; runs along +X; tint |
 | `pub_boiler` | 38 × 14.5 × 20 | pivot = centre of the 30 × 16 hall; annex to +X, flue duct to +Z |
 | `pub_chimney` | 5.25 × 56 × 5.25 | 55 m tall; maxDistance 1400 |
 | `pub_aviation_light` | 0.25 × 0.5 × 0.25 | `lamp_red`; link to a blinking light |
 | `pub_heat_pipe` | 6 × 2 × 2 | pivot = segment start (centre line); runs along +X |
+| `pub_heat_pipe_short` | 1 × 2 × 2 | 1 m filler (pipes only); pivot = start; runs along +X |
 | `pub_heat_pipe_arch` | 10 × 7.5 × 2 | pivot = start; runs along +X; 6.25 m clearance |
 | `pub_garage_box` / `pub_garage_box_red` | 3.25 × 3.5 × 6.75 | one unit (left wall included); doors −Z |
 | `pub_garage_end` / `_red` | 0.25 × 3.5 × 6.75 | closes the +X end of a row |
 | `pub_garage_door` / `_b` / `_c` | 2.5 × 2.25 × 0.25 | closed swing doors; tint |
-| `pub_garage_doors_open` | 2.5 × 2.25 × 1.5 | leaves swung open; pivot at the opening (facade plane) |
+| `pub_garage_doors_open` | 2.5 × 2.5 × 1.5 | leaves swung open (+ snow on their edges); pivot at the opening (facade plane) |
 | `pub_garage_interior` | 3.25 × 2.75 × 6.75 | shelves, tyres, bench, bulb; same pivot as the box |
 | `pub_car_classic` | 1.75 × 1.5 × 4.0 | classic Lada, no snow (for garages); nose −Z; tint |
 | `pub_warehouse` | 36 × 9.25 × 21 | pivot = centre of the 36 × 18 shed; dock 3 m at −Z |
@@ -302,14 +320,15 @@ Sizes W × H × D in meters (1 voxel = 0.25 m). Pivot = bottom centre of the foo
 | `pub_dispatcher` | 6.5 × 3.75 × 3.75 | pivot = centre of the 6.5 × 3.5 hut; window/door −Z |
 | `pub_hockey_board` / `_gate` | 4 × 1.75 × 0.75 | pivot = start; runs along +X; ice side −Z; tint |
 | `pub_hockey_corner` | 2.5 × 1.75 × 2.5 | 2 m radius quarter turn |
-| `pub_hockey_goal` | 2 × 1.25 × 1 | mouth −Z, non-solid net |
+| `pub_hockey_goal` | 2 × 1.5 × 1 | 1.25 m frame + snow; mouth −Z, non-solid net |
 | `pub_hockey_lamp` | 1.75 × 8.5 × 1 | floodlights toward −Z |
 | `pub_hockey_bench` | 3 × 0.75 × 0.5 | |
 
-## Materials added (16)
+## Materials added (17)
 `pub_glass_dark` (non-emissive dark window glass), `pub_glass_cold` / `pub_glass_warm` (clear glass
 whose far LOD is a lit pane following the placement `flag`), `pub_win_lit_cold` / `pub_win_lit_warm`
-(EMIT_CONST lit panes), `pub_lamp_green`, `pub_screen`, `pub_sausage`, `pub_cheese`, `pub_bread`,
+(EMIT_CONST lit panes), `pub_win_lit_dirty` (dim greenish lit industrial glazing — the boiler hall,
+whose lit panes follow a night-weighted light so they read as dark glass by day), `pub_lamp_green`, `pub_screen`, `pub_sausage`, `pub_cheese`, `pub_bread`,
 `pub_bread_dark`, `pub_cardboard`, `pub_skin`, `pub_fabric_blue`, `pub_paint_white`, `pub_net` (non-solid).
 
 ## Sounds used (names from the audio package; fallbacks are synthesized here only if missing)
@@ -357,3 +376,7 @@ school,kindergarten,boiler,garages,warehouse,substation,dispatcher,hockey` limit
 Locations: shop (320,300) · kiosks z 281 · pharmacy (345,300) · school (200,200) · kindergarten
 (420,200) · boiler (200,420) · garages (300,420) · warehouse (430,440) · substation (360,360) ·
 dispatcher (280,360) · hockey (520,330).
+`&pubonly=rot` adds every composite at a non-zero rotation on the west strip (boiler rot 2 with a
+pipe run and arch, garages rot 2, school rot 1, pharmacy rot 3, kindergarten rot 2, hockey rot 1,
+warehouse rot 3, dispatcher rot 2, substation rot 1); `shoprot` / `kioskrot` add a rot-1 shop at
+(150, 300) and a kiosk at angle 0.4.

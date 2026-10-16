@@ -15,7 +15,7 @@ import { Y, TRACK, CAR } from './layout.js'
 const HL = 9.5, HZ = 1.375
 export const DOORS_MID = [-7.0, -2.5, 2.5, 7.0]
 export const DOORS_HEAD = [-7.0, -2.5, 2.5, 6.5]
-const FLOOR = 1.0, ROOF = 3.25, WIN0 = 1.75, WIN1 = 2.75
+const FLOOR = 1.0, ROOF = 3.25, WIN0 = 1.75, WIN1 = 3.0
 
 function buildCar(head, doorSide) {
   const b = new WB(-HL, 0, -HZ, HL, 3.75, HZ)
@@ -56,9 +56,7 @@ function buildCar(head, doorSide) {
     const z0 = zs < 0 ? -HZ : HZ - V
     for (let x = -HL + 0.5; x < cabX - 0.5; x += V) {
       if (inDoor(x + 0.01) || nearDoor(x + 0.01)) continue
-      const post = Math.abs(((x + HL) % 1.5)) < 0.01
-      b.fill(x, WIN0, z0, x + V, WIN1, z0 + V, post ? MAT.carUpper : MAT.glass)
-      b.fill(x, WIN1 - V, z0, x + V, WIN1, z0 + V, post ? MAT.carUpper : (Math.abs(((x + HL) % 0.75)) < 0.01 ? MAT.plasticDark : MAT.glass)) // vents
+      b.fill(x, WIN0, z0, x + V, WIN1, z0 + V, MAT.glass)
     }
   }
   // ends: intermediate end walls with a closed gangway door; the head car's cab

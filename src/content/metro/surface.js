@@ -6,6 +6,7 @@ import { defineModel } from '../../core/models.js'
 import { CRUST } from '../../core/Terrain.js'
 import { MAT } from './materials.js'
 import { WB, V, h3 } from './vox.js'
+import { valueNoise2 } from '../../core/rng.js'
 import { Y, STAIRS, STAIR_LEN, stairTreadY, FOOTPRINT } from './layout.js'
 import { paintSidewalk, paintRoad, paintPath } from '../base/api.js'
 import { drawMBox, drawNamePlate, drawUnderpassPictogram, drawUnderpassBand } from './drawings.js'
@@ -204,8 +205,8 @@ export function paintSurface(ctx) {
   for (const st of STAIRS) {
     const za = st.rot === 0 ? 508 : 571, zb = za + 1
     terrain.apply(st.x0 - 1, za, st.x1 + 1, zb, (x, z) => {
-      const n = h3(Math.floor(x * 4), 1, Math.floor(z * 4), 9)
-      return { mat: n > 0.55 ? MAT.snowDirty : n > 0.25 ? MAT.slush : MAT.snowPacked }
+      const n = valueNoise2(x * 0.9, z * 0.9, 9)
+      return { mat: n > 0.6 ? MAT.snowDirty : n > 0.4 ? MAT.slush : MAT.snowPacked }
     })
   }
   paintPath(ctx, { points: [[379, 508.2], [378.4, 504]], width: 1.6, seed: 61 })
@@ -248,6 +249,30 @@ export function guardTerrain(ctx) {
   }
 }
 
+/** A red «М» pylon with its lit faces, the station-name plates and a faint red night glow. */
+export function addPylon(ctx, px, pz, py = Y.SIDEWALK, name = 'ЗАРЕЧНАЯ') {
+  const { world, signs, lights } = ctx
+  const p = world.place('metro_m_pylon', { x: px, z: pz, y: py, tag: 'metro_sign', userData: { pkg: 'metro', noRelocate: true } })
+  for (const [nx, nz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const a = Math.atan2(nx, nz)
+    signs.add({ x: px + nx * 0.51, y: py + 3.5, z: pz + nz * 0.51, angle: a, w: 0.98, h: 0.98, ppm: 72, draw: drawMBox, emissive: 1.6, schedule: 'always' })
+    if (nz !== 0) signs.add({ x: px + nx * 0.135, y: py + 2.69, z: pz + nz * 0.135, angle: a, w: 0.74, h: 0.36, ppm: 72, draw: (c2, W, H) => drawNamePlate(c2, W, H, name), emissive: 0.5, schedule: 'night', aged: 0.15, seed: 3 })
+  }
+  lights.add({ x: px, y: py + 3.5, z: pz, color: 0xff4630, intensity: 1.2, range: 4.5, schedule: 'night', placement: p, halo: true, haloSize: 0.9, domain: 'outdoor', tag: 'metro_m' })
+  return p
+}
+
+/** Blue road sign 5.17.2 «подземный пешеходный переход» on a post, with a text plate under it. */
+export function addUnderpassSign(ctx, x, z, a, py = Y.SIDEWALK) {
+  const { world, signs } = ctx
+  const p = world.place('metro_sign_post', { x, z, y: py, tag: 'sign' })
+  const nx = Math.sin(a) * 0.14, nz = Math.cos(a) * 0.14
+  signs.add({ x: x + nx, y: py + 2.35, z: z + nz, angle: a, w: 0.62, h: 0.62, ppm: 80, draw: drawUnderpassPictogram, aged: 0.2, seed: 5 })
+  signs.add({ x: x - nx, y: py + 2.35, z: z - nz, angle: a + Math.PI, w: 0.62, h: 0.62, ppm: 40, draw: (c2, W, H) => { c2.fillStyle = '#8d9092'; c2.fillRect(0, 0, W, H) } })
+  signs.add({ x: x + nx, y: py + 1.8, z: z + nz, angle: a, w: 1.2, h: 0.32, ppm: 64, draw: (c2, W, H) => drawUnderpassBand(c2, W, H, ['ПОДЗЕМНЫЙ ПЕРЕХОД']), aged: 0.3, seed: 6 })
+  return p
+}
+
 /** Place the stairs, canopies, pylons, signs, stair lamps and stair zones. */
 export function buildSurface(ctx, out) {
   const { world, signs, lights, zones } = ctx
@@ -275,26 +300,15 @@ export function buildSurface(ctx, out) {
       lights.add({ x: lx2, y: 1.95, z: lz2, color: 0xffd09a, intensity: 8, range: 11, type: 'spot', dir: [0, -0.8, st.rot === 0 ? -0.6 : 0.6], cone: 70, inner: 35, schedule: 'night', placement: lp, halo: true, haloSize: 0.5, tag: 'metro_stair_light', domain: 'outdoor' })
     }
     // the red М pylon at the outer corner of the entrance
-    const outer = st.id.endsWith('W') ? -0.6 : 4.6
-    const [px, pz] = stairToWorld(st, outer, 0.6)
-    const py = world.place('metro_m_pylon', { x: px, z: pz, y: Y.SIDEWALK, tag: 'metro_sign', userData: { pkg: 'metro', noRelocate: true } })
-    out.surface.push(py)
-    for (const [nx, nz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const a = Math.atan2(nx, nz)
-      signs.add({ x: px + nx * 0.51, y: Y.SIDEWALK + 3.5, z: pz + nz * 0.51, angle: a, w: 0.98, h: 0.98, ppm: 72, draw: drawMBox, emissive: 1.6, schedule: 'always' })
-      if (nz !== 0) signs.add({ x: px + nx * 0.135, y: Y.SIDEWALK + 2.69, z: pz + nz * 0.135, angle: a, w: 0.74, h: 0.36, ppm: 72, draw: (c2, W, H) => drawNamePlate(c2, W, H), emissive: 0.5, schedule: 'night', aged: 0.15, seed: 3 })
-    }
-    lights.add({ x: px, y: Y.SIDEWALK + 3.5, z: pz, color: 0xff4630, intensity: 1.2, range: 4.5, schedule: 'night', placement: py, halo: true, haloSize: 0.9, domain: 'outdoor', tag: 'metro_m' })
+    const px = st.id.endsWith('W') ? st.x0 - 0.6 : st.x1 + 0.6
+    const pz = st.zTop + (st.rot === 0 ? 0.6 : -0.6)
+    out.surface.push(addPylon(ctx, px, pz, Y.SIDEWALK))
     // stair zone (outdoor, but the underpass acoustics already start to swallow the street)
     const [ax, az] = stairToWorld(st, 0.5, 0), [bx, bz] = stairToWorld(st, 3.5, STAIR_LEN)
     zones.add({ name: 'underpass_stairs', type: 'underpass', min: [Math.min(ax, bx), -4.6, Math.min(az, bz)], max: [Math.max(ax, bx), 2.6, Math.max(az, bz)],
       reverb: 'underpass', indoor: false, snow: true, wind: 0.45, traffic: 0.75, priority: 1, data: { pkg: 'metro', stair: st.id } })
   }
-  // blue road signs 5.17.2 by the open south stairs and on the north sidewalk between the pits
-  for (const [x, z, a] of [[385, 509.6, Math.PI], [385, 570.4, 0]]) {
-    world.place('metro_sign_post', { x, z, y: Y.SIDEWALK, tag: 'sign' })
-    signs.add({ x, y: Y.SIDEWALK + 2.35, z: z + Math.cos(a) * 0.14, angle: a, w: 0.62, h: 0.62, ppm: 80, draw: drawUnderpassPictogram, aged: 0.2, seed: 5 })
-    signs.add({ x, y: Y.SIDEWALK + 2.35, z: z - Math.cos(a) * 0.14, angle: a + Math.PI, w: 0.62, h: 0.62, ppm: 40, draw: (c2, W, H) => { c2.fillStyle = '#8d9092'; c2.fillRect(0, 0, W, H) } })
-    signs.add({ x, y: Y.SIDEWALK + 1.8, z: z + Math.cos(a) * 0.14, angle: a, w: 1.2, h: 0.32, ppm: 64, draw: (c2, W, H) => drawUnderpassBand(c2, W, H, ['ПОДЗЕМНЫЙ ПЕРЕХОД']), aged: 0.3, seed: 6 })
-  }
+  // blue road signs 5.17.2 between each pair of entrances
+  addUnderpassSign(ctx, 385, 509.6, Math.PI)
+  addUnderpassSign(ctx, 385, 570.4, 0)
 }

@@ -43,28 +43,28 @@ export class Traffic {
       this.rigs.push(new Rig(sys, {
         model: 'veh_' + type + snow, info: CAR_INFO[type], kind: 'car', type, tint, seed: r.next(), rng: r.fork(i + 1),
         plate: marsh ? 'route' : 'civil', boardText: rt ? `${rt.num}  ${rt.to}` : null,
-        head: { intensity: 64, range: 34, cone: 33, inner: 14 }, sound: 'car_pass', soundNominal: 50, exhaust: true,
+        head: { intensity: 120, range: 42, cone: 30, inner: 12 }, sound: 'car_pass', soundNominal: 50, exhaust: true,
       }))
     })
     for (let i = 0; i < 3; i++) {
       this.rigs.push(new Rig(sys, {
         model: 'veh_liaz5256', info: BIG_INFO.liaz, kind: 'bus', type: 'liaz', tint: r.pick([0xe4e2d8, 0xe4e2d8, 0xd9cfae]), seed: r.next(), rng: r.fork(100 + i),
-        plate: 'route', route: ROUTES.bus[i % ROUTES.bus.length], head: { intensity: 72, range: 36, cone: 34, inner: 15 },
-        interior: { color: 0xe4eedc, intensity: 6, range: 9, spill: 3 }, sound: 'bus_pass', soundNominal: 40, exhaust: true, glowHead: 50,
+        plate: 'route', route: ROUTES.bus[i % ROUTES.bus.length], head: { intensity: 130, range: 44, cone: 32, inner: 13 },
+        interior: { color: 0xe4eedc, intensity: 10, range: 10 }, sound: 'bus_pass', soundNominal: 40, exhaust: true, glowHead: 50,
       }))
     }
     for (let i = 0; i < 3; i++) {
       this.rigs.push(new Rig(sys, {
         model: 'veh_ziu682', info: BIG_INFO.ziu, kind: 'trolleybus', type: 'ziu', seed: r.next(), rng: r.fork(200 + i),
         plate: 'route', route: ROUTES.trolleybus[i % ROUTES.trolleybus.length], fleet: String(r.int(3, 9)) + String(r.int(100, 999)),
-        head: { intensity: 66, range: 34, cone: 34, inner: 15 }, interior: { color: 0xe8efdc, intensity: 6, range: 9, spill: 3 },
+        head: { intensity: 120, range: 42, cone: 32, inner: 13 }, interior: { color: 0xe8efdc, intensity: 10, range: 10 },
         sound: 'trolleybus_pass', soundNominal: 40, glowHead: 45,
       }))
     }
     for (let i = 0; i < 2; i++) {
       this.rigs.push(new Rig(sys, {
         model: 'veh_kamaz_plow', info: BIG_INFO.kamaz, kind: 'plow', type: 'kamaz', seed: r.next(), rng: r.fork(300 + i),
-        plate: 'civil', doorText: 'ГУП «ДОРСЕРВИС» ВАО', head: { intensity: 70, range: 34, cone: 36, inner: 16 },
+        plate: 'civil', doorText: 'ГУП «ДОРСЕРВИС» ВАО', head: { intensity: 125, range: 40, cone: 34, inner: 14 },
         sound: 'bus_pass', soundNominal: 40, beacon: true, exhaust: true, glowHead: 50,
       }))
     }
@@ -249,10 +249,19 @@ export class Traffic {
     const stop = this._stops('west')[0]
     const tb = this._spawn('west', 'trolleybus', stop.x, { force: true, speed: 0, state: 'dwell', dwell: 1.9, atStop: true })
     if (tb) { tb.stops = tb.stops.filter(s => Math.abs(s.x - stop.x) > 1); tb.departSnd = 'pending'; tb.opening = true }
+    // dev: ?traffictest=x,side,kind,lane;... spawns vehicles at fixed spots (screenshots)
+    const tt = this.sys.ctx.game?.params?.traffictest
+    if (tt) {
+      for (const spec of String(tt).split(';')) {
+        const [x, side, kind, lane] = spec.split(',')
+        this._spawn(side === 'east' ? 'east' : 'west', kind || 'car', parseFloat(x), { force: true, lane: lane !== undefined ? parseInt(lane, 10) : undefined })
+      }
+      return
+    }
     // a few vehicles already under way
     const nearAvenue = cam.z > 470 && cam.z < 610
     if (rate > 0.3 && nearAvenue) {
-      this._spawn('west', 'car', px + r.float(55, 95), { lane: 1 })
+      this._spawn('west', 'car', px + r.float(32, 52), { lane: 1 })
       if (rate > 0.6) this._spawn('east', 'car', px + r.float(12, 36), { lane: r.pick([1, 2]) })
     }
     const n = Math.round(rate * 1.2)

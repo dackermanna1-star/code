@@ -491,6 +491,8 @@ export function drawGraffiti(g, W, H, item, o = {}) {
   let avail = W * 0.92
   if (item.anarchy) { avail -= H * 0.95; left += H * 0.95 }
   if (item.heart) { left = W * 0.24; avail = W * 0.52 }
+  // hand-sprayed letters wobble and grow, tags lean and carry an outline: keep them off the edges
+  if (!item.heart && (look === 'spray' || look === 'tag')) { const m = W * (look === 'tag' ? 0.07 : 0.04); left += m; avail -= m * 2 }
   // size to fit
   let size = (item.heart ? H * 0.36 : H * 0.82) / lines.length
   g.font = graffitiFont(look, size)
@@ -583,7 +585,7 @@ export function drawGraffiti(g, W, H, item, o = {}) {
         let y0 = -1
         for (let y = H - 1; y >= 0; y--) if (src[y * W + x]) { y0 = y; break }
         if (y0 < 0) continue
-        const len = Math.floor(size * (0.15 + rnd() * 0.5))
+        const len = Math.floor(size * (0.08 + rnd() * 0.32))
         for (let y = y0; y < Math.min(H, y0 + len); y++) {
           const j = (y * W + x) * 4
           d[j] = rgb[0]; d[j + 1] = rgb[1]; d[j + 2] = rgb[2]; d[j + 3] = 255

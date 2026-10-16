@@ -10,7 +10,7 @@ import { M } from '../../core/materials.js'
 import { RNG } from '../../core/rng.js'
 import {
   V, frameFor, put, sign, readable, interact, light, zone, flatten, paint, navPath, reg, seed01,
-  seedInt, win, figureModel, lightBox, priceTag, handText, drawText, SIGN_FONT, PLAIN_FONT,
+  seedInt, win, lightBox, priceTag, handText, drawText, SIGN_FONT, PLAIN_FONT,
 } from './lib.js'
 import { addEmitter, addDoor } from './runtime.js'
 
@@ -170,18 +170,26 @@ defineModel('pub_shop', () => {
   m.fill(44, 4, IZ0, 7, 1, 3, M('glass_clear'))
   m.fill(44, 1, IZ0 + 2, 7, 1, 1, M('metal_blue'))
 
-  // bread rack against the left wall
-  for (let y = 1; y <= 8; y++) { m.set(2, y, 17, M('wood')); m.set(2, y, 27, M('wood')); m.set(4, y, 17, M('wood')); m.set(4, y, 27, M('wood')) }
-  for (const y of [1, 3, 5, 7]) m.fill(2, y, 17, 3, 1, 11, M('wood'))
-  m.fill(2, 8, 17, 3, 1, 11, M('wood'))
+  // bread rack against the left wall: dark steel frame, grey wire shelves, loaves pushed to the
+  // front edge so they read from the hall (rye «кирпичики» below, batons above, a few in bags);
+  // evening — gaps where it has sold out
+  for (let y = 1; y <= 8; y++) for (const z of [17, 27]) { m.set(2, y, z, M('metal_dark')); m.set(4, y, z, M('metal_dark')) }
+  for (const y of [1, 3, 5, 7]) m.fill(2, y, 18, 3, 1, 9, M('metal_gray'))
+  m.fill(2, 8, 17, 3, 1, 11, M('metal_gray'))
   for (const y of [2, 4, 6]) {
     for (let z = 18; z <= 26; z++) {
-      if (rng.chance(0.18)) continue
-      const dark = y === 2 ? rng.chance(0.75) : y === 4 ? rng.chance(0.3) : rng.chance(0.1)
-      m.set(3, y, z, M(dark ? 'pub_bread_dark' : 'pub_bread'))
-      if (rng.chance(0.5)) m.set(2, y, z, M(dark ? 'pub_bread_dark' : 'pub_bread'))
+      if (rng.chance(y === 6 ? 0.3 : 0.16)) continue
+      const dark = y === 2 ? rng.chance(0.8) : y === 4 ? rng.chance(0.25) : false
+      const bag = y === 6 && rng.chance(0.35)
+      const mat = M(bag ? 'plastic_white' : dark ? 'pub_bread_dark' : 'pub_bread')
+      m.set(4, y, z, mat)
+      if (rng.chance(0.7)) m.set(3, y, z, mat)
+      if (rng.chance(0.4)) m.set(2, y, z, mat)
     }
   }
+  // two plastic trays of batons on top
+  m.fill(2, 9, 18, 3, 1, 3, M('metal_blue')); m.fill(3, 10, 19, 2, 1, 1, M('pub_bread'))
+  m.fill(2, 9, 24, 3, 1, 3, M('metal_blue')); m.set(3, 10, 25, M('pub_bread'))
   // drink coolers (3) against the left wall: glass doors facing the hall
   const coolerBody = ['metal_red', 'plastic_white', 'metal_blue']
   for (let i = 0; i < 3; i++) {
@@ -326,9 +334,22 @@ defineModel('pub_lamp_wall_bulb', () => {
 }, { contact: false, lods: [1], maxDistance: 200 })
 
 // cashier: a heavy-set woman in a white blouse and a blue apron, dyed burgundy hair in a bun
-defineModel('pub_cashier', () => figureModel({
-  top: M('plastic_white'), bottom: M('metal_dark'), apron: M('pub_fabric_blue'), hair: M('fabric_red'), bun: true, armsFront: true,
-}), { contact: false, lods: [1], maxDistance: 120 })
+// Built by hand (not figureModel) so the head reads above the counter: face at 1.25–1.5 m with
+// dyed hair on top and a bun behind — a 1-voxel skin cube alone looked like a cardboard box.
+defineModel('pub_cashier', () => {
+  const m = new VoxelModel(3, 7, 3)
+  const blouse = M('plastic_white'), apron = M('pub_fabric_blue'), legs = M('metal_dark'), hair = M('fabric_red'), skin = M('pub_skin')
+  m.set(0, 0, 1, M('rubber')); m.set(2, 0, 1, M('rubber'))
+  m.set(0, 1, 1, legs); m.set(2, 1, 1, legs)
+  m.fill(0, 2, 1, 3, 1, 2, apron) // skirt under the apron
+  m.fill(0, 3, 1, 3, 2, 2, blouse) // torso
+  m.fill(1, 2, 0, 1, 3, 1, apron) // apron front + bib
+  m.set(0, 3, 0, blouse); m.set(2, 3, 0, blouse) // forearms on the counter
+  m.set(0, 4, 0, apron); m.set(2, 4, 0, apron) // apron straps / shoulders forward
+  m.set(1, 5, 1, skin) // face
+  m.set(1, 5, 2, hair); m.set(1, 6, 1, hair); m.set(1, 6, 2, hair) // hair and bun
+  return m
+}, { contact: false, lods: [1], maxDistance: 120 })
 
 // ---------------------------------------------------------------------------------------
 const PRICE_DEPTS = {
@@ -383,7 +404,7 @@ export function placeShop(ctx, o) {
   const doorP = put(ctx, F, 'pub_shop_door', lx(DOOR_X), lz(FW), { ly: V, dynamic: true, tag: 'entrance', userData: { kind: 'shop_door' } })
   const center = F.p(lx(DOOR_X + 2), 1.3, lz(FW + 0.5))
   const door = addDoor(ctx, {
-    placement: doorP, closed: F.a, swing: 1, open: 1.5, width: 1, center,
+    placement: doorP, closed: F.a, swing: 1, open: 1.65, width: 1, center, // open just past 90°: the 0.25 m leaf then clears the 1 m doorway
     size: F.size(1.1, 2.3, 0.7), autoClose: 7,
     sounds: { open: 'door_metal_open', close: 'door_metal_slam', chime: 'shop_bell' },
   })
@@ -405,6 +426,8 @@ export function placeShop(ctx, o) {
   light(ctx, F, lx(10), 2.6, lz(10.5), { color: 0xffe2b0, intensity: 1.0, range: 4.5, domain: 'indoor', halo: false })
   // warm light spilling from the windows onto the snow
   light(ctx, F, lx(36), 2.4, lz(FW - 1.5), { type: 'spot', dir: [0, -0.62, -1], cone: 72, inner: 30, color: 0xffd9a6, intensity: 16, range: 13, schedule: 'night', halo: false, scatter: 0.5, tag: 'shop_spill' })
+  // the light box glows down onto the facade below it (otherwise the wall is a black slab at night)
+  light(ctx, F, lx(30), 2.6, lz(FW - 1.1), { type: 'spot', dir: [0, -1, 0.45], cone: 82, inner: 45, color: 0xf4ead8, intensity: 4, range: 6, schedule: 'night', halo: false, scatter: 0.2, tag: 'shop_spill' })
   // entrance bulb under the canopy
   const lampP = put(ctx, F, 'pub_lamp_wall_bulb', lx(DOOR_X + 2), lz(FW), { ly: 10 * V - 0.05, tag: 'lamp' })
   light(ctx, F, lx(DOOR_X + 2), 2.45, lz(FW - 0.5), { type: 'spot', dir: [0, -1, -0.25], cone: 75, inner: 35, color: 0xffc47e, intensity: 8, range: 9, schedule: 'night', placement: lampP, haloSize: 0.6, tag: 'lamp' })
@@ -412,7 +435,7 @@ export function placeShop(ctx, o) {
   // ---- signs --------------------------------------------------------------------------
   const signName = o.name ?? 'ПРОДУКТЫ'
   sign(ctx, F, lx(34), ly(13), lz(FW - 2), 0, -1, {
-    w: 8.6, h: 0.82, ppm: 48, emissive: 1.25, schedule: 'always',
+    w: 8.6, h: 0.82, ppm: 48, emissive: 1.0, schedule: 'always',
     draw: lightBox({ lines: [`${signName}  24 ЧАСА`], color: '#b5221d', bg: '#f1efe4', vignette: 0.3 }),
   })
   // opening hours plate by the door
@@ -425,7 +448,7 @@ export function placeShop(ctx, o) {
   })
   // door stickers «ОТ СЕБЯ» / «К СЕБЕ» on the frame
   sign(ctx, F, lx(DOOR_X + 4.5), 1.3, lz(FW), 0, -1, { w: 0.2, h: 0.08, ppm: 300, lines: ['К СЕБЕ'], bg: '#d8d4c4', color: '#222', font: PLAIN_FONT })
-  sign(ctx, F, lx(DOOR_X + 2), 1.3, lz(FW + 2), 0, 1, { w: 0.24, h: 0.08, ppm: 300, lines: ['ОТ СЕБЯ'], bg: '#d8d4c4', color: '#222', font: PLAIN_FONT, indoor: true })
+  sign(ctx, F, lx(DOOR_X + 4.5), 1.3, lz(FW + 2), 0, 1, { w: 0.24, h: 0.08, ppm: 300, lines: ['ОТ СЕБЯ'], bg: '#d8d4c4', color: '#222', font: PLAIN_FONT, indoor: true })
   // posters inside the windows, facing out
   const posters = [
     { x: 21, y: 1.75, w: 1.0, h: 1.3, draw: (c, W, H) => { drawText(c, W, H, { lines: ['СВЕЖИЙ', 'ХЛЕБ', 'КАЖДОЕ', 'УТРО'], bg: '#e8dcb0', color: '#7a3a12' }) } },
@@ -483,6 +506,13 @@ export function placeShop(ctx, o) {
   readable(ctx, F, lx(2.3), 2.55, lz(22.5), [0.3, 0.5, 0.7], {
     ru: 'Хлеб — 18 руб.\nБатон — 16 руб.\nсвежий!', en: 'Bread — 18 rub.\nWhite loaf — 16 rub.\nfresh!', style: 'hand',
   })
+  // printed price strips on the rack's shelf edges
+  const breadTags = [
+    [1, 19.5, { name: 'Хлеб «Дарницкий»', price: '18-00' }], [1, 24.5, { name: 'Хлеб «Бородинский»', price: '22-50' }],
+    [3, 19.5, { name: 'Батон «Нарезной»', price: '16-00' }], [3, 24.5, { name: 'Хлеб «Украинский»', price: '19-00' }],
+    [5, 19.5, { name: 'Батон «Подмосковный»', price: '15-50', promo: true }], [5, 24.5, { name: 'Хлеб нарезка в уп.', price: '24-90' }],
+  ]
+  for (const [vy, vz, t] of breadTags) sign(ctx, F, lx(5), ly(vy + 0.5), lz(vz), 1, 0, { w: 0.27, h: 0.17, ppm: 220, indoor: true, draw: priceTag(t) })
   // cooler brand headers
   const brands = [['КОЛОКОЛЬЧИК', '#a51c1c', '#f0e6d0'], ['ПИВО', '#e8e4d8', '#2a3a6a'], ['ЖИВАЯ ВОДА', '#2a4a8a', '#e8eef0']]
   for (let i = 0; i < 3; i++) {
@@ -503,8 +533,8 @@ export function placeShop(ctx, o) {
   })
   readable(ctx, F, lx(16.2), 1.75, lz(11), [0.3, 0.8, 1.1], {
     title: 'Уголок покупателя',
-    ru: 'Лицензия на розничную продажу алкогольной продукции № 1408\nЗакон «О защите прав потребителей»\nТелефоны: 01, 02, 03\nКнига жалоб и предложений выдаётся по первому требованию.\n\nВ книге последняя запись: «Продавщица нахамила. 14.11.08» и ниже другим почерком: «Спасибо за вежливое обслуживание!»',
-    en: 'Customer\'s corner\nLicence for retail sale of alcohol No. 1408\nConsumer Rights Protection Act\nPhones: 01, 02, 03\nThe complaints and suggestions book is given on first request.\n\nThe last entry in the book: "The saleswoman was rude. 14.11.08" and below, in another hand: "Thank you for the polite service!"',
+    ru: 'Лицензия на розничную продажу алкогольной продукции № 1408\nЗакон «О защите прав потребителей»\nТелефоны: 01, 02, 03\nКнига жалоб и предложений выдаётся по первому требованию.\n\nВ книге последняя запись: «Продавщица нахамила. 14.11.07» и ниже другим почерком: «Спасибо за вежливое обслуживание!»',
+    en: 'Customer\'s corner\nLicence for retail sale of alcohol No. 1408\nConsumer Rights Protection Act\nPhones: 01, 02, 03\nThe complaints and suggestions book is given on first request.\n\nThe last entry in the book: "The saleswoman was rude. 14.11.07" and below, in another hand: "Thank you for the polite service!"',
     style: 'paper',
   }, { prompt: { ru: 'Читать «Уголок покупателя»', en: 'Read the customer\'s corner' } })
   // payment terminal
@@ -579,7 +609,8 @@ export function placeShop(ctx, o) {
   addEmitter({ name: 'ventilation', pos: F.p(lx(42), 4.3, lz(37)), gain: 0.18, radius: 30, refDistance: 2 })
 
   const entrance = [F.wx(lx(DOOR_X + 2), lz(FW - 3)), F.wz(lx(DOOR_X + 2), lz(FW - 3))]
-  navPath(ctx, F, [[lx(DOOR_X + 2), lz(FW - 3)], [lx(DOOR_X + 2), lz(-6)], [lx(DOOR_X + 2), lz(-22)]], 'path', { to: 'shop' })
+  // entrance stub for the life package (first point at the door, 7 m outward; linked to the nearest path)
+  navPath(ctx, F, [[lx(DOOR_X + 2), lz(FW - 3)], [lx(DOOR_X + 2), lz(-22)]], 'entrance', { to: 'shop' })
   navPath(ctx, F, [[lx(DOOR_X + 2), lz(FW + 3)], [lx(DOOR_X + 2), lz(FW + 12)], [lx(24), lz(30)], [lx(28), lz(32.5)]], 'indoor', { y: F.y + V, to: 'shop_counter' })
   const rec = { kind: 'produkty', name: signName, x: F.x, z: F.z, y: F.y, angle: F.a, entrance, door, interior: { min: inner.min, max: inner.max }, open24: true, placement: shop, cashier }
   reg(ctx, 'shops', rec)

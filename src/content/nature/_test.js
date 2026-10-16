@@ -1,9 +1,27 @@
 // TEMPORARY review test scene (?naturetest=1). Remove before finishing.
+import { SPECIES, PLANTS } from './api.js'
 import { placeTree, placeBush, placeHedge, placeWeeds, placePond, snowBank, plowedPile, snowDrift, addSteam, addCrows, addBag } from './api.js'
 import { paintRoad } from '../base/api.js'
 
 export function buildTest(ctx) {
   const L = ctx.lights
+  // gallery rows (z = 200 + 30 i), 10 m apart, x from 200
+  const rows = [['birch'], ['poplar'], ['maple'], ['linden'], ['apple', 'rowan', 'sapling'], ['spruce']]
+  rows.forEach((sps, i) => {
+    let x = 200
+    const z = 200 + 30 * i
+    for (const sp of sps) for (let v = 0; v < SPECIES[sp].variants.length; v++) { placeTree(ctx, { x, z, species: sp, variant: v, rot: 0 }); x += sps.length > 1 ? 7 : 10 }
+    for (let k = 0; k < 3; k++) L.add({ x: 215 + k * 30, y: 9, z: z + 6, color: 0xffa040, intensity: 55, range: 24, type: 'spot', dir: [0, -1, 0], cone: 58, inner: 28, schedule: 'street' })
+  })
+  // plants row
+  let px = 200
+  for (const kind of ['lilac', 'currant', 'snowberry', 'grass', 'burdock', 'tansy', 'reeds', 'cattail']) for (let v = 0; v < PLANTS[kind].length; v++) {
+    const bush = kind === 'lilac' || kind === 'currant' || kind === 'snowberry'
+    if (bush) placeBush(ctx, { x: px, z: 380, kind, variant: v, angle: 0 }); else placeWeeds(ctx, { x: px, z: 380, kind, variant: v, angle: 0 })
+    px += bush ? 4 : 3
+  }
+  L.add({ x: 215, y: 7, z: 384, color: 0xffa040, intensity: 55, range: 24, type: 'spot', dir: [0, -1, 0], cone: 58, inner: 28, schedule: 'street' })
+  L.add({ x: 245, y: 7, z: 384, color: 0xffa040, intensity: 55, range: 24, type: 'spot', dir: [0, -1, 0], cone: 58, inner: 28, schedule: 'street' })
   paintRoad(ctx, { axis: 'x', x0: 196, z0: 400, x1: 296, z1: 406, lanes: [401.5, 404.5], banks: false, seed: 4 })
   snowBank(ctx, 196, 406.25, 296, 408.5, 1.0, { gaps: [[40, 44]] })
   snowBank(ctx, 196, 397.5, 296, 399.75, 0.9, {})

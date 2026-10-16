@@ -339,7 +339,11 @@ function buildBeacon() {
 defineVehicle('veh_liaz5256', () => buildLiaz(''), { maxDistance: 420 })
 defineVehicle('veh_liaz5256_snow', () => buildLiaz('_snow'), { maxDistance: 420 })
 defineVehicle('veh_ziu682', () => buildZiu(''), { maxDistance: 420 })
-defineVehicle('veh_ziu682_down', () => buildZiu('_down'), { maxDistance: 420 })
+// parked versions: head lamps are plain lenses (the placement flag only lights the saloon,
+// the far windows and the parking/marker lamps)
+defineVehicle('veh_liaz5256_parked', () => buildLiaz('').replace(M('veh_headlamp'), M('veh_rim')), { maxDistance: 420 })
+defineVehicle('veh_ziu682_parked', () => buildZiu('').replace(M('veh_headlamp'), M('veh_rim')), { maxDistance: 420 })
+defineVehicle('veh_ziu682_down', () => buildZiu('_down').replace(M('veh_headlamp'), M('veh_rim')), { maxDistance: 420 })
 defineVehicle('veh_kamaz_plow', () => buildKamaz(''), { maxDistance: 420 })
 defineVehicle('veh_beacon', () => buildBeacon(), { maxDistance: 300, collide: false, contact: false, dynamic: true, lods: [0.5], lodDistances: [] })
 

@@ -59,8 +59,9 @@ function hallSection(variant) {
     if ((z >= PLAT.colN - 0.25 && z < PLAT.colN + 0.25) || (z >= PLAT.colS - 0.25 && z < PLAT.colS + 0.25)) return MAT.gabbro
     for (const c of COLS) if (Math.abs(x - c) < 0.25 && z > PLAT.colN && z < PLAT.colS) return MAT.gabbro
     const slab = h3(Math.floor(i / 2), 1, Math.floor(k / 2), 5 + variant)
-    let mat = slab < 0.6 ? MAT.granite : MAT.graniteLight
-    if (z > 538.5 && z < 541.5 && slab > 0.85) mat = MAT.floorTileRed // red granite insets in the nave
+    let mat = slab < 0.9 ? MAT.granite : MAT.graniteLight
+    if (z > 539.75 && z < 540.25) mat = MAT.floorTileRed // a red granite line down the nave
+    if (z > 538.0 && z < 538.25 || z > 541.75 && z < 542.0) mat = MAT.graniteLight
     if (variant === 1 && Math.hypot(x - 11, (z - 539.7) * 0.7) < 1.1 && h3(i, 3, k, 4) > 0.2) mat = MAT.wet // drip puddle
     return mat
   }
@@ -82,7 +83,7 @@ function hallSection(variant) {
   const ceilAt = (i, j, k) => {
     const z = b.wz(k)
     const n = h3(i, j, k, 3)
-    if (z < PLAT.edgeN || z > PLAT.edgeS) return n > 0.5 ? MAT.concrete : MAT.whitewash // sooty over the tracks
+    if (z < PLAT.edgeN || z > PLAT.edgeS) return n > 0.88 ? MAT.concreteDark : MAT.concrete // sooty over the tracks
     return n > 0.93 ? MAT.concreteLight : MAT.whitewash
   }
   b.skin(0, -18, 530.5, 20, -11.75, 549.5, { floor: floorAt, wall: wallAt, ceil: ceilAt })
@@ -94,7 +95,7 @@ function hallSection(variant) {
       b.fill(c - 0.25, P0, zc - 0.25, c + 0.25, P0 + V, zc + 0.25, MAT.gabbro)
       b.fill(c - 0.5, HC - V, zc - 0.5, c + 0.5, HC, zc + 0.5, MAT.concreteLight)
       // grey veins in the marble
-      b.each(c - 0.25, P0 + V, zc - 0.25, c + 0.25, HC - V, zc + 0.25, (i, j, k) => { if (h3(i, j, k, 31) > 0.9) m.set(i, j, k, MAT.marbleGray) })
+      b.each(c - 0.25, P0 + V, zc - 0.25, c + 0.25, HC - V, zc + 0.25, (i, j, k) => { if (h3(i, j, k, 31) > 0.96) m.set(i, j, k, MAT.marbleGray) })
       if (variant === 1 && c === 10 && zc === PLAT.colS) b.fill(c - 0.25, P0 + 1.0, zc + V, c, P0 + 1.5, zc + 0.25, MAT.concrete) // chipped facing
     }
     // transverse ceiling beam over the whole hall
@@ -124,14 +125,15 @@ defineModel('metro_hall_b', () => hallSection(1), { indoor: true, occludesSnow: 
 // ---------------------------------------------------------------------------------------------
 defineModel('metro_lower_hall', () => {
   const L = LOWER
-  const b = new WB(L.x0, -16.75, L.z0 - V, L.x1, -11.75, L.z1 + V)
-  b.fill(L.x0, -16.75, L.z0 - V, L.x1, -11.75, L.z1 + V, MAT.concrete)
-  b.clear(L.x0, P0, L.z0, L.x1, HC, L.z1)
+  const zi0 = L.z0 + V, zi1 = L.z1 - V // interior (the tunnels' inner walls sit just outside)
+  const b = new WB(L.x0, -16.75, L.z0, L.x1, -11.75, L.z1)
+  b.fill(L.x0, -16.75, L.z0, L.x1, -11.75, L.z1, MAT.concrete)
+  b.clear(L.x0 + V, P0, zi0, L.x1, HC, zi1)
   b.clear(L.x0, P0, ESC.wallN[1], L.x0 + V, HC, ESC.wallS[0]) // opening to the escalators
-  b.skin(L.x0, -16.75, L.z0 - V, L.x1, -11.75, L.z1 + V, {
+  b.skin(L.x0, -16.75, L.z0, L.x1, -11.75, L.z1, {
     floor: (i, j, k) => {
       const z = b.wz(k)
-      if (Math.abs(z - 540) < 0.25 || Math.abs(z - L.z0 - 0.375) < 0.13 || Math.abs(z - L.z1 + 0.375) < 0.13) return MAT.gabbro
+      if (Math.abs(z - 540) < 0.25 || Math.abs(z - zi0 - 0.375) < 0.13 || Math.abs(z - zi1 + 0.375) < 0.13) return MAT.gabbro
       return h3(Math.floor(i / 2), 0, Math.floor(k / 2), 2) < 0.6 ? MAT.granite : MAT.graniteLight
     },
     wall: (i, j, k) => {
@@ -142,13 +144,13 @@ defineModel('metro_lower_hall', () => {
     },
     ceil: (i, j, k) => (Math.abs(((b.wx(i) - L.x0 - 0.125) % 2)) < 0.2 ? MAT.concreteLight : MAT.whitewash),
   })
-  for (const zt of [536.0, 544.0]) b.fill(L.x0 + 0.5, HC, zt, L.x1 - 0.5, HC + V, zt + V, MAT.fluorescent)
+  for (const zt of [536.25, 543.5]) b.fill(L.x0 + 0.75, HC, zt, L.x1 - 0.25, HC + V, zt + V, MAT.fluorescent)
   return b.m
 }, { indoor: true, contact: false, lods: [1], maxDistance: 160 })
 
 defineModel('metro_hall_end', () => {
-  const b = new WB(PLAT.x1, -17.75, PLAT.edgeN + V, PLAT.x1 + 1, -11.75, PLAT.edgeS - V)
-  b.fill(PLAT.x1, -17.75, PLAT.edgeN + V, PLAT.x1 + 1, -11.75, PLAT.edgeS - V, MAT.concrete)
+  const b = new WB(PLAT.x1, -17.75, PLAT.edgeN + 0.5, PLAT.x1 + 1, -11.75, PLAT.edgeS - 0.5)
+  b.fill(PLAT.x1, -17.75, PLAT.edgeN + 0.5, PLAT.x1 + 1, -11.75, PLAT.edgeS - 0.5, MAT.concrete)
   const face = (i, j, k) => {
     const y = b.wy(j) - P0, z = b.wz(k)
     if (y < 0) return MAT.soot
@@ -157,7 +159,7 @@ defineModel('metro_hall_end', () => {
     if (y < 1.5) return MAT.marbleGray
     return MAT.marbleWhite
   }
-  b.each(PLAT.x1, -17.75, PLAT.edgeN + V, PLAT.x1 + V, -11.75, PLAT.edgeS - V, (i, j, k) => b.m.set(i, j, k, face(i, j, k)))
+  b.each(PLAT.x1, -17.75, PLAT.edgeN + 0.5, PLAT.x1 + V, -11.75, PLAT.edgeS - 0.5, (i, j, k) => b.m.set(i, j, k, face(i, j, k)))
   return b.m
 }, { indoor: true, contact: false, lods: [1], maxDistance: 220 })
 
@@ -253,8 +255,11 @@ export function buildPlatform(ctx, out) {
   for (let s = 0; s < PLAT.sections; s++) {
     out.deep.push(world.place('metro_hall_' + variants[s], { x: PLAT.x0 + s * PLAT.sectionLen, y: -18, z: 530.5, rot: 0, tag: 'metro_hall', userData: ud }))
   }
-  out.deep.push(world.place('metro_lower_hall', { x: LOWER.x0, y: -16.75, z: LOWER.z0 - V, rot: 0, tag: 'metro_hall', userData: ud }))
-  out.deep.push(world.place('metro_hall_end', { x: PLAT.x1, y: -17.75, z: PLAT.edgeN + V, rot: 0, tag: 'metro_hall', userData: ud }))
+  out.deep.push(world.place('metro_lower_hall', { x: LOWER.x0, y: -16.75, z: LOWER.z0, rot: 0, tag: 'metro_hall', userData: ud }))
+  out.deep.push(world.place('metro_hall_end', { x: PLAT.x1, y: -17.75, z: PLAT.edgeN + 0.5, rot: 0, tag: 'metro_hall', userData: ud }))
+  // the attendant's booth beside the escalator foot
+  out.deep.push(world.place('metro_esc_booth', { x: 438.25, y: P0, z: 542.5, rot: 0, tag: 'metro_booth', userData: ud }))
+  out.lightGroups.deep.push(lights.add({ x: 438.9, y: P0 + 1.9, z: 543.3, color: 0xffd7a0, intensity: 0.6, range: 3, domain: 'indoor', halo: false }))
   // tunnels: west (from the city) open toward +x, east (turnaround) open toward −x
   const tw = TUNNEL.west[0], te = TUNNEL.east[1]
   out.tunnels.push(world.place('metro_tunnel_a', { x: tw, y: -17.75, z: 530.75, rot: 0, tag: 'metro_tunnel', userData: ud }))
@@ -287,8 +292,8 @@ export function buildPlatform(ctx, out) {
   // lights: nave centre every 10 m, track sides alternating
   for (let s = 0; s < PLAT.sections; s++) {
     const x0 = PLAT.x0 + s * PLAT.sectionLen
-    for (const lx of [5, 15]) out.lightGroups.deep.push(lights.add({ x: x0 + lx, y: HC - 0.4, z: 540, color: 0xe4efe8, intensity: 2.4, range: 12, domain: 'indoor', halo: false, tag: 'metro_platform_light' }))
-    out.lightGroups.deep.push(lights.add({ x: x0 + 10, y: HC - 0.4, z: s % 2 ? 534 : 546, color: 0xe4efe8, intensity: 1.6, range: 10, domain: 'indoor', halo: false, tag: 'metro_platform_light' }))
+    for (const lx of [5, 15]) out.lightGroups.deep.push(lights.add({ x: x0 + lx, y: HC - 0.4, z: 540, color: 0xe4efe8, intensity: 2.2, range: 12, domain: 'indoor', halo: false, tag: 'metro_platform_light' }))
+    for (const z of [PLAT.edgeN + 0.75, PLAT.edgeS - 0.75]) out.lightGroups.deep.push(lights.add({ x: x0 + 10, y: HC - 0.3, z, color: 0xe4efe8, intensity: 1.7, range: 11, domain: 'indoor', halo: false, tag: 'metro_platform_light' }))
   }
   for (const [x, z] of [[440.5, 538], [440.5, 542]]) out.lightGroups.deep.push(lights.add({ x, y: HC - 0.4, z, color: 0xeaf0ea, intensity: 1.8, range: 8, domain: 'indoor', halo: false, tag: 'metro_platform_light' }))
 
@@ -307,7 +312,9 @@ export function buildPlatform(ctx, out) {
     signs.add({ x: x - 0.135, y: HC - 0.5, z: 540, angle: -Math.PI / 2, w: 2.2, h: 0.48, ppm: 72, draw: (c, W, H) => drawLightbox(c, W, H, { lines: ['ЗАРЕЧНАЯ'], mark: '#c8261c' }), emissive: 1.0, indoor: true })
   }
   // over the escalator foot (seen from the platform) and the direction board
-  signs.add({ x: LOWER.x0 + 0.26, y: HC - 0.55, z: 540, angle: Math.PI / 2, w: 4.6, h: 0.5, ppm: 64, draw: (c, W, H) => drawLightbox(c, W, H, { lines: ['ВЫХОД В ГОРОД'], arrow: 'up', mark: '#c8261c' }), emissive: 1.0, indoor: true })
+  out.deep.push(world.place('metro_lightbox', { x: 441.0, y: HC, z: 540, rot: 0, tag: 'metro_sign', userData: ud }))
+  signs.add({ x: 441.0 + 0.135, y: HC - 0.5, z: 540, angle: Math.PI / 2, w: 2.2, h: 0.48, ppm: 72, draw: (c, W, H) => drawLightbox(c, W, H, { lines: ['ВЫХОД В ГОРОД'], arrow: 'up', mark: '#c8261c' }), emissive: 1.0, indoor: true })
+  signs.add({ x: 441.0 - 0.135, y: HC - 0.5, z: 540, angle: -Math.PI / 2, w: 2.2, h: 0.48, ppm: 72, draw: (c, W, H) => drawLightbox(c, W, H, { lines: ['К ПОЕЗДАМ', 'посадка — у правого края'], arrow: 'right', mark: '#c8261c' }), emissive: 1.0, indoor: true })
   signs.add({ x: 446.0 + 0.26, y: P0 + 1.9, z: PLAT.colS, angle: Math.PI / 2, w: 0.5 + 0.0, h: 1.6, ppm: 72, indoor: true, draw: (c, W, H) => {
     c.fillStyle = '#e8e6de'; c.fillRect(0, 0, W, H)
     c.fillStyle = '#c8261c'; c.fillRect(0, 0, W, H * 0.08)

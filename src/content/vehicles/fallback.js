@@ -53,5 +53,7 @@ export function buildShowcase(ctx) {
   placeParkedBus(ctx, { x: 352, z: 330.5, angle: Math.PI / 2, kind: 'bus', seed: 3, placard: 'В ПАРК' })
   placeParkedBus(ctx, { x: 352, z: 304.5, angle: -Math.PI / 2, kind: 'trolleybus', seed: 4 })
   ;(ctx.registry.driveways ||= []).push([[282, 318], [378, 318]])
+  // stand-in sodium lamps over the strip (the street package owns the real ones)
+  for (const x of [298, 326, 354]) ctx.lights.add({ x, y: 7.5, z: 317, type: 'spot', dir: [0, -1, 0], cone: 62, inner: 30, intensity: 55, range: 24, color: 0xffa040, schedule: 'street' })
   ctx.registry._vehTest = true
 }
