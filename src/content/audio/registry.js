@@ -2,7 +2,7 @@
 // The same modules are imported by the render worker and by the main thread (sync fallback),
 // so recipes must not touch Web Audio / DOM.
 
-import { makeRng, hashStr, normalizePeak, normalizeRms, fadeEdges, dcBlock, loopify } from './dsp.js'
+import { makeRng, hashStr, normalizePeak, normalizeRms, fadeEdges, dcBlock, loopify, filt } from './dsp.js'
 
 export const RECIPES = new Map()
 
@@ -26,6 +26,9 @@ export function renderRecipe(key, v = 0) {
   let chs = Array.isArray(out) ? out : [out]
   const dc = spec.dc ?? 20
   if (dc) chs.forEach(d => dcBlock(d, spec.sr, dc))
+  // anti-imaging: buffers below 44.1 kHz are resampled (linearly) on playback; keep energy away
+  // from their Nyquist so it does not mirror into the top octave
+  if (spec.sr < 44100 && spec.nyq !== false) chs.forEach(d => filt(d, spec.sr, [['lp', spec.sr * 0.4, 0.6]]))
   if (spec.loop) {
     const x = Math.floor(spec.loop * spec.sr)
     chs = chs.map(d => loopify(d, x))

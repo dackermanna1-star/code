@@ -184,7 +184,7 @@ export class Director {
     const q = this.silence.state === 'normal' ? 1 : this.silence.state === 'returning' ? 0.8 : 0
     const live = (1 - E.silenceZone) * q
     // city hum: very low and constant, the millions of lives beyond view
-    const city = db(-34) * (1 - 0.45 * E.night) * (E.outdoor + 0.35 * E.indoor * (1 - E.under) + 0.15 * E.under) * live
+    const city = db(-30) * (1 - 0.45 * E.night) * (E.outdoor + 0.35 * E.indoor * (1 - E.under) + 0.15 * E.under) * live
     this._set(B.city.out, city, 2)
     B.city.chain[0].frequency.setTargetAtTime(E.outdoor > 0.5 ? 420 : 200, t, 1)
     // distant traffic: from the avenue direction, swelling
@@ -196,7 +196,7 @@ export class Director {
     S.v += (S.target - S.v) * (1 - Math.exp(-dt / 1.6))
     S.target *= Math.exp(-dt / 4)
     const near = E.avenue
-    const traffic = (db(-38) + db(-24) * near * near) * (0.55 + 0.6 * S.v) * busy * E.zoneTraffic * (E.outdoor + 0.35 * E.indoor * (1 - E.under)) * live
+    const traffic = (db(-40) + db(-18) * near * near) * (0.55 + 0.6 * S.v) * busy * E.zoneTraffic * (E.outdoor + 0.35 * E.indoor * (1 - E.under)) * live
     this._set(B.traffic.out, traffic, 0.9)
     B.traffic.chain[0].frequency.setTargetAtTime(E.outdoor < 0.5 ? 350 : 700 + 4500 * near * near, t, 0.8)
     if (B.trafficPan.pan) B.trafficPan.pan.setTargetAtTime(E.trafficPan * (0.4 + 0.6 * (1 - near)), t, 0.3)
@@ -212,17 +212,17 @@ export class Director {
     const gust = clamp(G.v * sub + E.gust * 0.35, 0, 1.6)
     const open = 0.35 + 0.65 * E.open
     const windOut = (E.outdoor * open + E.indoor * 0.18 * (1 - E.under) * Math.min(1, E.zoneWind * 3)) * live
-    const windLvl = db(-34) * (0.35 + ws) * (0.45 + 0.75 * gust) * windOut
+    const windLvl = db(-25) * (0.35 + ws) * (0.45 + 0.75 * gust) * windOut
     this._set(B.wind.out, windLvl, 0.5)
     B.wind.chain[0].frequency.setTargetAtTime(E.outdoor > 0.5 ? 230 + 270 * gust * ws : 180, t, 0.6)
     const U = 2 + 7 * ws * gust // "m/s" for the aeolian whistle pitch f ≈ k·U
     B.whistle.f[0].frequency.setTargetAtTime(40 * U, t, 0.6)
     B.whistle.f[1].frequency.setTargetAtTime(29 * U, t, 0.6)
-    const whistle = db(-30) * clamp((ws * gust - 0.45) * 2, 0, 1) * (0.4 + E.corner) * E.outdoor * live
+    const whistle = db(-27) * clamp((ws * gust - 0.45) * 2, 0, 1) * (0.4 + E.corner) * E.outdoor * live
     this._set(B.whistle.out, whistle, 0.7)
     if (B.whistlePan.pan) B.whistlePan.pan.setTargetAtTime(clamp(E.windPan * 0.7, -0.8, 0.8), t, 1.5)
-    this._set(B.howl.out, db(-42) * clamp(ws * gust - 0.3, 0, 1) * E.corner * E.outdoor * live, 0.8)
-    this._set(B.hiss.out, db(-44) * Math.pow(clamp(gust * ws, 0, 1.4), 3) * (0.3 + E.snow) * E.outdoor * live, 0.4)
+    this._set(B.howl.out, db(-38) * clamp(ws * gust - 0.3, 0, 1) * E.corner * E.outdoor * live, 0.8)
+    this._set(B.hiss.out, db(-40) * Math.pow(clamp(gust * ws, 0, 1.4), 3) * (0.3 + E.snow) * E.outdoor * live, 0.4)
     // indoor building presence (stairwells, flats, shops) and the underground room tone
     this._set(B.room.out, db(-42) * E.indoor * (1 - E.under) * (E.reverb === 'stairwell' ? 1.3 : 1) * live, 1)
     this._set(B.under.out, db(-33) * E.under * live, 1)
@@ -455,7 +455,7 @@ export class Director {
     try {
       const s = seed ?? (2008 + M.count * 7919 + Math.floor(this.r() * 1e6))
       M.count++
-      const piece = buildPiece(ctx, this.engine.bus.music, s, ctx.currentTime + 0.2, { level: 0.9 })
+      const piece = buildPiece(ctx, this.engine.bus.music, s, ctx.currentTime + 0.2, { level: 0.6 })
       M.piece = piece
       M.endAt = this.time + piece.duration + 1
       setTimeout(() => piece.dispose(), (piece.duration + 3) * 1000)

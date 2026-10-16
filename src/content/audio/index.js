@@ -12,6 +12,7 @@ import { bank } from './bank.js'
 import * as api from './api.js'
 
 let director = null
+let warmed1 = false
 let warmed2 = false
 let clock = 0
 
@@ -22,7 +23,7 @@ export default {
     registerSounds(ctx.audio)
     api._bind(ctx.audio, null)
     // interactive + spawn-area sounds first, rendered off the main thread while the city builds
-    bank.warmAll((key, spec) => spec.prio <= 3)
+    bank.warmAll((key, spec) => spec.prio <= 2)
   },
   init(ctx) {
     const audio = ctx.audio
@@ -50,6 +51,7 @@ export default {
   update(dt) {
     clock += dt
     // after a minute of walking, render the second tier (shop, metro, people) in the background
+    if (!warmed1 && clock > 8) { warmed1 = true; bank.warmAll((key, spec) => spec.prio === 3) }
     if (!warmed2 && clock > 45) { warmed2 = true; bank.warmAll((key, spec) => spec.prio >= 4 && spec.prio <= 6) }
     if (director?.debug.force && director.started && clock > 3) {
       const f = director.debug.force

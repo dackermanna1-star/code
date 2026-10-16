@@ -364,6 +364,8 @@ function setupLift(ctx, sec, sw, broken) {
     const v = 0.88 - row * (0.76 / Math.max(1, rows - 0.5))
     const lz = 2 + (u - 0.5) * (0.42 / VOXEL)
     const ly = 5.6 + 2.4 - v * 4.8
+    const it = interactions.add({ x: 0, y: 0, z: 0, size: [0.14, 0.11, 0.14], reach: 1.8, tag: 'lift_button',
+      prompt: { ru: `Этаж ${kk}`, en: `Floor ${kk}` }, onUse: () => pressCab(lift, kk) })
     lift.buttons.push({ it, lx: 6.9, ly, lz })
   }
   placeCab(lift)

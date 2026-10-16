@@ -448,7 +448,10 @@ function seamsAndWeather(c) {
     }
     for (let k = 2; k <= L.N; k++) for (let u = 0; u < fc.len; u++) seamAt(fc, u, L.FL(k) - 1)
     for (let u = 0; u < fc.len; u++) seamAt(fc, u, L.topCeil)
-    for (const b of bays) {
+    for (let bi = 0; bi < bays.length; bi++) {
+      const b = bays[bi]
+      // one joint line between sections (at u = 0), none at the inner edges of the end bays
+      if (bi === 1 || bi === bays.length - 1) continue
       const mastic = rng.chance(0.3)
       const ky0 = rng.int(1, L.N), ky1 = Math.min(L.N, ky0 + rng.int(1, 5))
       for (let y = L.FL1 - 1; y <= L.topCeil; y++) {

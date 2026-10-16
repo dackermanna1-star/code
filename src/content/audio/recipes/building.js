@@ -31,7 +31,7 @@ export function creak(d, sr, off, r, { dur = 1, rate0 = 60, rate1 = 160, modes =
 // ---- doors -----------------------------------------------------------------------------------
 
 def('door_metal_open', {
-  sr: 32000, variants: 3, prio: 1, norm: { peak: 0.85 },
+  sr: 24000, variants: 3, prio: 1, norm: { peak: 0.85 },
   gen(r, sr) {
     const d = buf(1.6, sr)
     // lock release: soft «тук» + springing ajar
@@ -73,7 +73,7 @@ function steelSlam(d, sr, r, at, gain = 1) {
 }
 
 def('door_metal_slam', {
-  sr: 32000, variants: 3, prio: 1, norm: { peak: 0.9 }, fadeOut: 200,
+  sr: 24000, variants: 3, prio: 1, norm: { peak: 0.9 }, fadeOut: 200,
   gen(r, sr) {
     const d = buf(2.6, sr)
     steelSlam(d, sr, r, Math.floor(0.01 * sr))
@@ -102,7 +102,7 @@ def('door_magnet_lock', {
 })
 
 def('door_wood', {
-  sr: 32000, variants: 3, prio: 2, norm: { peak: 0.85 },
+  sr: 24000, variants: 3, prio: 2, norm: { peak: 0.85 },
   gen(r, sr, v) {
     const d = buf(1.9, sr)
     creak(d, sr, Math.floor(0.03 * sr), r, { dur: r.range(0.9, 1.5), rate0: r.range(30, 60), rate1: r.range(110, 240), modes: [[r.range(230, 280), 45], [r.range(500, 600), 60], [r.range(1000, 1250), 90], [r.range(2100, 2600), 160]], gain: 1, jitter: 0.5 })
@@ -147,7 +147,7 @@ def('intercom_call', {
 
 def('doorbell', {
   // v0 electronic bird trill, v1 electromechanical bell «дзынь», v2 two-tone chime
-  sr: 32000, variants: 3, prio: 2, norm: { peak: 0.8 },
+  sr: 24000, variants: 3, prio: 2, norm: { peak: 0.8 },
   gen(r, sr, v) {
     const d = buf(1.8, sr)
     if (v === 0) {

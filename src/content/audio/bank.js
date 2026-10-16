@@ -16,7 +16,7 @@ let worker = null
 let busy = 0
 let workerFailed = false
 const MAX_INFLIGHT = 2
-const CAP_BYTES = 44e6
+const CAP_BYTES = 48e6
 export const stats = { worker: 0, sync: 0, syncMs: 0, workerMs: 0, bytes: 0, evicted: 0 }
 
 const idOf = (key, v, p) => key + '#' + v + (p ? '#' + p : '')

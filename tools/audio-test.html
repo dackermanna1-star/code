@@ -113,7 +113,7 @@ async function renderMusic(seed, seconds = 90) {
   const off = new OfflineAudioContext(2, Math.ceil(seconds * SR), SR)
   const g = off.createGain(); g.gain.value = 0.7 // default music volume
   g.connect(off.destination)
-  const p = buildPiece(off, g, seed, 0.05, { level: 0.9, duration: seconds - 1 })
+  const p = buildPiece(off, g, seed, 0.05, { level: 0.6, duration: seconds - 1 })
   const buf = await off.startRendering()
   return { ...analyze(buf), pieceDur: p.duration }
 }

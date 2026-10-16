@@ -138,11 +138,11 @@ def('fridge_hum', {
 
 def('fluorescent_buzz', {
   // v0: healthy tube (buzz + ballast hiss + rare ticks); v1: failing tube (starter tik-tik, pings, dropouts)
-  sr: 16000, variants: 2, prio: 3, norm: { rms: 0.12 }, loop: 0.2,
+  sr: 11025, variants: 2, prio: 3, norm: { rms: 0.12 }, loop: 0.2,
   gen(r, sr, v) {
     const len = 10, x = 0.2
     const d = buf(len + x, sr)
-    const bp = new Biquad(sr, 'bp', 1200, 0.5), bp2 = new Biquad(sr, 'bp', 2600, 3), hs = new Biquad(sr, 'hp', 5000, 0.7)
+    const bp = new Biquad(sr, 'bp', 1200, 0.5), bp2 = new Biquad(sr, 'bp', 2600, 3), hs = new Biquad(sr, 'hp', 4200, 0.7)
     const o = new Osc(sr)
     // dropouts for the failing tube
     const gate = new Float32Array(d.length).fill(1)

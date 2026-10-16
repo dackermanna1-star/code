@@ -186,7 +186,7 @@ def('snow_fall_branch', {
 
 def('ice_crack', {
   // v0-2: crust / puddle cracks; v3-4: frozen pond «пиу» (dispersive ping)
-  sr: 32000, variants: 5, prio: 3, norm: { peak: 0.85 },
+  sr: 24000, variants: 5, prio: 3, norm: { peak: 0.85 },
   gen(r, sr, v) {
     const d = buf(1.4, sr)
     if (v < 3) {

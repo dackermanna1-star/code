@@ -106,12 +106,12 @@ export function buildPiece(ctx, dest, seed, t0 = ctx.currentTime + 0.1, opts = {
   const dLfo = reg(ctx.createOscillator()); dLfo.frequency.value = r.range(0.03, 0.07)
   const dLfoG = reg(ctx.createGain()); dLfoG.gain.value = 140
   dLfo.connect(dLfoG); dLfoG.connect(dLP.frequency); dLfo.start(t0); dLfo.stop(end + 0.1)
-  const dG = reg(ctx.createGain()); dG.gain.value = 0.16
+  const dG = reg(ctx.createGain()); dG.gain.value = 0.075
   dLP.connect(dG); dG.connect(pre)
   const dSend = reg(ctx.createGain()); dSend.gain.value = 0.15; dG.connect(dSend); dSend.connect(revIn)
-  addOsc('triangle', mtof(root), t0, end).connect(dLP)
+  addOsc('triangle', mtof(root + 12), t0, end).connect(dLP)
   const ds = addOsc('sawtooth', mtof(root) * 1.003, t0, end)
-  const dsG = reg(ctx.createGain()); dsG.gain.value = 0.35; ds.connect(dsG); dsG.connect(dLP)
+  const dsG = reg(ctx.createGain()); dsG.gain.value = 0.3; ds.connect(dsG); dsG.connect(dLP)
   const fifth = addOsc('triangle', mtof(root + 7), t0 + dur * 0.3, end)
   const fG = reg(ctx.createGain()); fG.gain.setValueAtTime(0, t0 + dur * 0.3); fG.gain.linearRampToValueAtTime(0.5, t0 + dur * 0.3 + 12)
   fifth.connect(fG); fG.connect(dLP)
@@ -119,7 +119,7 @@ export function buildPiece(ctx, dest, seed, t0 = ctx.currentTime + 0.1, opts = {
   // pads: chord changes every 8–14 s, slow swells, overlapping
   const cd = r.range(8, 14)
   const padLP = reg(ctx.createBiquadFilter()); padLP.type = 'lowpass'; padLP.frequency.value = r.range(900, 1400); padLP.Q.value = 0.6
-  const padG = reg(ctx.createGain()); padG.gain.value = 0.07
+  const padG = reg(ctx.createGain()); padG.gain.value = 0.1
   padLP.connect(padG); padG.connect(pre)
   const padSend = reg(ctx.createGain()); padSend.gain.value = 0.35; padG.connect(padSend); padSend.connect(revIn)
   let ci = 0
@@ -156,7 +156,7 @@ export function buildPiece(ctx, dest, seed, t0 = ctx.currentTime + 0.1, opts = {
     motif.push({ m: root + 24 + PENTA[deg % 5] + 12 * Math.floor(deg / 5), len: r.pick([1, 1, 1.5, 2, 0.5]) })
   }
   const lead = reg(ctx.createBiquadFilter()); lead.type = 'lowpass'; lead.frequency.value = r.range(1400, 2200); lead.Q.value = 1.2
-  const leadG = reg(ctx.createGain()); leadG.gain.value = 0.11
+  const leadG = reg(ctx.createGain()); leadG.gain.value = 0.14
   lead.connect(leadG); leadG.connect(pre)
   const leadSend = reg(ctx.createGain()); leadSend.gain.value = 0.7; leadG.connect(leadSend); leadSend.connect(revIn)
   const leadType = r.chance(0.55) ? 'square' : 'triangle'
