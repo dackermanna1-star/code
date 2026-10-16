@@ -20,6 +20,8 @@ export const EMIT_TV = 4
 export const EMIT_STAIRWIN = 5
 /** Street light head: on only when street lights are on. */
 export const EMIT_STREET = 6
+/** Constant emissive that only glows when it is dark (scaled by the night factor). */
+export const EMIT_NIGHT = 7
 
 /** Footstep surface classes. */
 export const SURF = {
@@ -74,6 +76,7 @@ export function defineMaterial(name, p) {
   TRANSPARENT[id] = m.transparent ? 1 : 0
   SURFACE[id] = m.surface
   LOD_REMAP[id] = id
+  WINDOWMAT[id] = m.emit === EMIT_WINDOW ? 1 : 0
   return id
 }
 
@@ -92,6 +95,8 @@ export const SOLID = new Uint8Array(256)
 export const TRANSPARENT = new Uint8Array(256)
 export const SURFACE = new Uint8Array(256)
 export const LOD_REMAP = new Uint8Array(256)
+/** 1 for procedurally lit window glass (EMIT_WINDOW): meshed as one quad per pane. */
+export const WINDOWMAT = new Uint8Array(256)
 
 function refreshTables() {
   for (let i = 0; i < 256; i++) {
@@ -100,6 +105,7 @@ function refreshTables() {
     TRANSPARENT[i] = m && m.transparent ? 1 : 0
     SURFACE[i] = m ? m.surface : 0
     LOD_REMAP[i] = i
+    WINDOWMAT[i] = m && m.emit === EMIT_WINDOW ? 1 : 0
   }
   for (let i = 1; i < materials.length; i++) {
     const m = materials[i]

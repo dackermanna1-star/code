@@ -46,6 +46,8 @@ tint), linoleum, floor_tile*, wall_paint_*, whitewash, wall_tile_*, marble_*, gr
 - `glass_clear` is see-through (stairwells, shop fronts). Far LODs turn it into a dim lit pane.
 - `paint` / `paint_matte` take the placement's `tint` colour (car bodies, painted fences, accent panels).
 - Emissive `lamp_sodium` (EMIT_STREET) is on only when street lights are on and follows the linked light's level.
+- `EMIT_NIGHT` (7): constant glow scaled by the night factor (lit stairwell walls, signs that should be dark by day).
+- Window glass (`EMIT_WINDOW`) is meshed without AO so each pane is a single quad (needed for the room-interior effect).
 - Surfaces choose footstep sounds (`SURF.*`).
 
 ## Voxel models — `src/core/VoxelModel.js`, `src/core/models.js`

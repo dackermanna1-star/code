@@ -92,6 +92,7 @@ export function meshModel(model, opts = {}) {
   const scale = opts.scale ?? VOXEL
   const cullBottom = opts.cullBottom ?? true
   const TRANSPARENT = opts.transparent ?? DEFAULT_TRANSPARENT
+  const WINDOWS = opts.windows ?? null
   const { sx, sy, sz, data } = model
   const extra = model.extra
   const interior = opts.interior !== undefined ? opts.interior : (model.interiorMask ? model.interiorMask() : null)
@@ -162,6 +163,7 @@ export function meshModel(model, opts = {}) {
               const val = (s1 && s2) ? 0 : 3 - (s1 + s2 + cc)
               aoBits |= val << (c * 2)
             }
+            if (WINDOWS && WINDOWS[a]) aoBits = 0xff // lit glass: no AO, one quad per pane
             const e = extra ? extra[ia] : 0
             maskKey[n] = a | (e << 8) | (ind << 16) | (aoBits << 17) | (aT << 25)
           }

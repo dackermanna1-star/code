@@ -5,7 +5,7 @@
 
 import * as THREE from 'three'
 import { VOXEL, WORLD_SIZE } from './constants.js'
-import { SOLID, LOD_REMAP, TRANSPARENT } from './materials.js'
+import { SOLID, LOD_REMAP, TRANSPARENT, WINDOWMAT } from './materials.js'
 import { getModelDef } from './models.js'
 import { meshModel, setTransparentTable } from './mesher.js'
 import { MeshPool } from './MeshPool.js'
@@ -197,7 +197,7 @@ export class World {
       def._meshes = []
       def.lods.forEach((f, li) => {
         const vm = f === 1 ? def.model : def.model.downsample(f, 1, LOD_REMAP)
-        jobs.push(pool.mesh(vm, { scale: VOXEL * f, cullBottom: def.cullBottom, transparent: TRANSPARENT }).then(res => {
+        jobs.push(pool.mesh(vm, { scale: VOXEL * f, cullBottom: def.cullBottom, transparent: TRANSPARENT, windows: WINDOWMAT }).then(res => {
           def._meshes[li] = res
           onProgress?.(++done / total, def.name)
         }))
@@ -221,7 +221,7 @@ export class World {
       let res = def._meshes?.[li]
       if (!res) {
         const vm = f === 1 ? def.model : def.model.downsample(f, 1, LOD_REMAP)
-        res = meshModel(vm, { scale: VOXEL * f, cullBottom: def.cullBottom, transparent: TRANSPARENT })
+        res = meshModel(vm, { scale: VOXEL * f, cullBottom: def.cullBottom, transparent: TRANSPARENT, windows: WINDOWMAT })
       }
       const level = { f, opaque: null, glass: null }
       if (res.opaque) level.opaque = this._makeInstanced(res.opaque, this.mats.voxel[Math.min(li, this.mats.voxel.length - 1)], def.name + '_L' + li)

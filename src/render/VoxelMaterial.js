@@ -229,6 +229,8 @@ void main() {
       col += emis * lit * mix(0.35, 1.0, uNight) * (0.6 + 0.4 * hash11(vExtra + vInst.x * 13.0));
     } else if (emitKind < 6.5) {
       col += emis * flag * uStreetOn;
+    } else {
+      col += emis * flag * uNight;
     }
   }
 
