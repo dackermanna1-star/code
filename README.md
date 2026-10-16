@@ -1,5 +1,7 @@
 # Лиминальная Москва · Liminal Moscow
 
+> **Development is paused mid-way** — see [`docs/RESUME.md`](docs/RESUME.md) for the current state and how to continue.
+
 A first-person voxel walking simulator set in a Moscow residential district (спальный район) in the
 winter of 2008. No objectives, no HUD, no enemies — just a long solitary walk through snow-covered
 courtyards, an empty avenue, a frozen park and stairwells that smell of whitewash, under orange
