@@ -57,7 +57,8 @@ export class Traffic {
     for (let i = 0; i < 3; i++) {
       this.rigs.push(new Rig(sys, {
         model: 'veh_ziu682', info: BIG_INFO.ziu, kind: 'trolleybus', type: 'ziu', seed: r.next(), rng: r.fork(200 + i),
-        plate: 'route', route: ROUTES.trolleybus[i % ROUTES.trolleybus.length], fleet: String(r.int(3, 9)) + String(r.int(100, 999)),
+        // trolleybuses carry no state plates in Russia, only the depot fleet number
+        plate: null, route: ROUTES.trolleybus[i % ROUTES.trolleybus.length], fleet: String(r.int(3, 9)) + String(r.int(100, 999)),
         head: { intensity: 120, range: 42, cone: 32, inner: 13 }, interior: { color: 0xe8efdc, intensity: 6.5, range: 9 },
         sound: 'trolleybus_pass', soundNominal: 40, glowHead: 45, spark: true,
       }))
@@ -456,7 +457,7 @@ export class Traffic {
       const tip = g.info.poleTip[g.sparkTip]
       g.w(tip, L.pos)
       L.enabled = true
-      L.intensity = 34 * f
+      L.intensity = 60 * f
       if (G) { G.pos.copy(L.pos); G.on = f * (0.35 + 0.65 * Math.min(1, this.sys.night() * 1.6)) }
     } else if (L.enabled) {
       L.enabled = false

@@ -10,6 +10,8 @@ import { drawPoster, drawNotice, drawCard, drawTearOff, drawText, SIGN_FONT, HAN
 import { T } from './texts.js'
 
 const F0 = Y.FLOOR, C0 = Y.CEIL // floor top / ceiling underside
+/** Emissive level of a working tube's diffuser (keeps the bloom of the ceiling fixtures low). */
+export const TUBE_GLOW = 0.7
 
 /** Kiosk bays along the corridor: [side, z0, kind]. side 'W' faces east, 'E' faces west. */
 export const KIOSKS = [
@@ -59,7 +61,7 @@ defineModel('metro_underpass', () => {
     const slab = h3(Math.floor(i / 2), 1, Math.floor(k / 2), 17)
     const patch = h3(Math.floor(i / 6), 4, Math.floor(k / 6), 29)
     let mat = slab < 0.62 ? MAT.granite : MAT.graniteGrey
-    if (patch > 0.9) mat = slab < 0.7 ? MAT.floorTile : MAT.granite
+    if (patch > 0.95) mat = slab < 0.7 ? MAT.floorTile : MAT.granite
     else if (slab > 0.985) mat = MAT.graniteLight
     if (n > 0.985) mat = MAT.concreteDark // chipped
     // the worn middle strip is darker and wetter
@@ -248,6 +250,7 @@ export const FIXTURES = [
   [385, 539.75, 1, 'ok'], [385, 543.25, 1, 'dying'], [385, 546.75, 1, 'ok'], [385, 550.25, 1, 'dead'],
   [385, 553.75, 1, 'ok'],
   [380.25, 521.75, 0, 'ok'], [389.75, 521.75, 0, 'ok'], [380.25, 558.25, 0, 'ok'], [389.75, 558.25, 0, 'dim'],
+  [385, 521.75, 0, 'ok'], [385, 558.25, 0, 'ok'],
 ]
 
 export function buildUnderpass(ctx, out) {
@@ -286,11 +289,11 @@ export function buildUnderpass(ctx, out) {
 
   // ---- fluorescent tubes
   for (const [x, z, rot, state] of FIXTURES) {
-    const p = world.place('metro_fixture', { x, y: C0, z, rot, flag: state === 'dead' ? 0 : state === 'dim' ? 0.55 : 1, tag: 'metro_tube', userData: ud })
+    const p = world.place('metro_fixture', { x, y: C0, z, rot, flag: state === 'dead' ? 0 : state === 'dim' ? 0.4 : TUBE_GLOW, tag: 'metro_tube', userData: ud })
     out.underground.push(p)
     out.tubes.push({ x, y: C0 - 0.2, z, state })
     if (state === 'dead') continue
-    const L = lights.add({ x, y: C0 - 0.35, z, color: 0xe4f2e6, intensity: state === 'dim' ? 1.0 : 1.7, range: 7.5, domain: 'indoor', halo: false,
+    const L = lights.add({ x, y: C0 - 0.35, z, color: 0xe4f2e6, intensity: state === 'dim' ? 0.8 : 1.35, range: 7, domain: 'indoor', halo: false,
       flicker: state === 'dying' ? 'dying' : 'none', placement: state === 'dying' ? p : null, tag: 'metro_tube' })
     out.lightGroups.underpass.push(L)
   }
@@ -355,11 +358,11 @@ export function buildUnderpass(ctx, out) {
 
   // ---- zones
   zones.add({ name: 'underpass', type: 'underpass', min: [UNDERPASS.x0, Y.SLAB, UNDERPASS.z0], max: [390, Y.CEIL + 0.1, UNDERPASS.z1],
-    indoor: true, reverb: 'underpass', snow: false, wind: 0.2, traffic: 0.35, exposure: 1.05, data: { pkg: 'metro' } })
+    indoor: true, reverb: 'underpass', snow: false, wind: 0.2, traffic: 0.35, exposure: 0.95, data: { pkg: 'metro' } })
   zones.add({ name: 'underpass', type: 'underpass', min: [390, Y.SLAB, UNDERPASS.z0], max: [UNDERPASS.x1, Y.CEIL + 0.1, 530.5],
-    indoor: true, reverb: 'underpass', snow: false, wind: 0.2, traffic: 0.35, exposure: 1.05, data: { pkg: 'metro' } })
+    indoor: true, reverb: 'underpass', snow: false, wind: 0.2, traffic: 0.35, exposure: 0.95, data: { pkg: 'metro' } })
   zones.add({ name: 'underpass', type: 'underpass', min: [390, Y.SLAB, 549.5], max: [UNDERPASS.x1, Y.CEIL + 0.1, UNDERPASS.z1],
-    indoor: true, reverb: 'underpass', snow: false, wind: 0.2, traffic: 0.35, exposure: 1.05, data: { pkg: 'metro' } })
+    indoor: true, reverb: 'underpass', snow: false, wind: 0.2, traffic: 0.35, exposure: 0.95, data: { pkg: 'metro' } })
 
   // ---- walkers' routes (documented; the life package ignores kind 'underpass')
   ctx.navPaths.push({ points: [[379, 509], [379, 519.5], [385, 522], [385, 558], [391, 560.5], [391, 571]], kind: 'underpass', y: F0 })

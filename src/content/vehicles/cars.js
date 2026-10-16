@@ -407,12 +407,32 @@ function buildSedan(type, variant) {
   const hub = s.hub === 'chrome' ? M('chrome') : s.hub === 'alloy' ? M('metal_gray') : s.hub === 'plastic' ? M('plastic_dark') : M('veh_rim')
   wheels(m, f, s, hub)
   trim(m, f, s, rng)
+  const hoodEndV = Math.round(s.hoodEnd / FV)
+  const hoodTop = topAt(m, f.X0 + 4, hoodEndV - 1)
   applySnow(m, variant, {
-    hoodEndV: Math.round(s.hoodEnd / FV), wsTopV: Math.round(s.wsTop / FV), rwBaseV: Math.round(s.rwBase / FV),
+    hoodEndV, wsTopV: Math.round(s.wsTop / FV), rwBaseV: Math.round(s.rwBase / FV),
     beltV, X0: f.X0, X1: f.X1,
   }, rng)
+  // a Moscow habit: wipers lifted off the glass for the night so they do not freeze to it
+  if ((variant === '_s2' || variant === '_s3') && WIPERS_UP.has(type)) {
+    const D = M('plastic_dark')
+    const SN = M('snow')
+    for (const k of [0.27, 0.62]) {
+      // the arm leans forward off its spindle at the foot of the windshield
+      const x = f.X0 + Math.round(f.Wv * k)
+      for (let i = 0; i < 9; i++) {
+        const y = hoodTop + 1 + i, z = hoodEndV - Math.floor(i * 0.6)
+        if (y >= m.sy || z < 1) break
+        const t = topAt(m, x, z)
+        if (y > t + 1 && i >= 3) break // one voxel proud of the snow, then stop
+        const id = m.get(x, y, z)
+        if (!id || id === SN) m.set(x, y, z, D)
+      }
+    }
+  }
   return m
 }
+const WIPERS_UP = new Set(['vaz2107', 'vaz2106', 'vaz21099', 'moskvich2141', 'volga3110', 'nexia'])
 
 for (const type of Object.keys(SPECS)) {
   CAR_INFO[type] = sedanInfo(type, SPECS[type])

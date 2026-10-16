@@ -19,7 +19,7 @@ import { METRO, placeMetroSign, placeUnderpassSign, isMetroArea, metroStatus } f
 | canopies | over NW and NE (steel + greenish polycarbonate, roof y ≈ 2.75–3.25, snow on top); SW/SE are open with a lamp mast over the lower flight |
 | «М» pylons (lit) | (375.5, 508.6), (394.5, 508.6), (375.5, 571.4), (394.5, 571.4) — 4.25 m, «ЗАРЕЧНАЯ» plates |
 | blue sign 5.17.2 posts | (385, 509.6) facing north, (385, 570.4) facing south |
-| underpass | floor y −4.25, ceiling underside y −1.5. North hall x 377.5–392.5 z 519.5–524, corridor (walkway x 382.5–387.5) z 524–556, south hall z 556–560.5 |
+| underpass | floor y −4.25, ceiling underside y −1.5. North hall x 377.5–392.5 z 519.5–524, corridor (walkway x 382.5–387.5) z 524–556, south hall z 556–560.5. 15 ceiling tubes (one dying, one dead, two dim), each hall has three |
 | kiosks | west wall (front x 382.5, facing east), east wall (front x 387.5, facing west); lit: ЦВЕТЫ, САЛОН СВЯЗИ, CD•DVD (radio playing), РЕМОНТ ОБУВИ•КЛЮЧИ; shuttered: МОС-ПРЕССА, ВЫПЕЧКА•КОФЕ («АРЕНДА»), ЧУЛКИ•КОЛГОТКИ, ОПТИКА•ЧАСЫ, ФОТО НА ДОКУМЕНТЫ |
 | payphone | west wall (382.5, −4.25, 538.75) |
 | leak + bucket | (386.3, −4.25, 551.3), puddles at every stair foot |
@@ -78,7 +78,7 @@ with the pivot at their minimum corner. "front" = local −Z unless noted. Fine 
 | `metro_underpass` | 18 × 3.25 × 42 | min corner (376, −4.5, 519) | halls, corridor, bays, tiles, worn floor, puddles, ceiling stain |
 | `metro_kiosk_flowers` / `_phones` / `_dvd` / `_shoes` | 2.5 × 2.75 × 2 | front centre, floor | open stall front (counter keeps people out), glowing shelves; rot 3 faces east, rot 1 west |
 | `metro_kiosk_closed_press` / `_rent` / `_tights` / `_optics` / `_photo` | 2.5 × 2.75 × 2 | front centre, floor | roller shutter, padlock, rust |
-| `metro_fixture` | 1.5 × 0.25 × 0.5 | top centre (hangs under the ceiling) | fluorescent tube; `flag` 0 = dead, 0.55 = dim; no collision |
+| `metro_fixture` | 1.5 × 0.25 × 0.5 | top centre (hangs under the ceiling) | fluorescent tube, long axis local x; `flag` = diffuser glow (the metro uses 0.7 = `TUBE_GLOW` from `underpass.js`, 0.4 = dim, 0 = dead); no collision |
 | `metro_payphone` | 1 × 2.5 × 0.75 | wall plane, floor | МГТС-style card phone under a blue hood |
 | `metro_bucket` | 0.6 × 0.5 × 0.6 (fine) | bottom centre | enamel bucket with water, no collision |
 | `metro_vestibule` | 23 × 3.25 × 19 | min corner (390, −4.5, 530.5) | doors, kassa, fences, police door |
@@ -91,23 +91,25 @@ with the pivot at their minimum corner. "front" = local −Z unless noted. Fine 
 | `metro_esc_band_up`, `metro_esc_band_down` | 24 × 12.5 × 1 | min corner | dynamic, no collision: the moving step bands (shifted ≤ 1 step and wrapped every frame) |
 | `metro_torsher` | 0.4 × 1.6 × 0.4 (fine) | stalk foot | bronze floor lamp with a globe |
 | `metro_esc_booth` | 1.5 × 2.5 × 1.75 | NW corner | attendant's booth with red stop buttons, microphone, desk lamp |
-| `metro_hall_a`, `metro_hall_b` | 20 × 6.25 × 19 | min corner (x0, −18, 530.5) | one platform section (5 columns per row); `_b` is shabbier (dead tubes, a fallen tile, a drip puddle) |
+| `metro_hall_a`, `metro_hall_b` | 20 × 6.25 × 19 | min corner (x0, −18, 530.5) | one platform section (5 columns per row); `_b` is shabbier (dead tubes, a fallen tile, a drip puddle); placed with `flag: 0.75` (tube glow) |
 | `metro_lower_hall` | 7 × 5 × 9 | min corner (437, −16.75, 535.5) | foot of the escalators |
 | `metro_hall_end` | 1 × 6 × 9 | min corner (544, −17.75, 535.5) | dead-end wall with the service door |
 | `metro_tunnel_a`, `metro_tunnel_b` | 64 × 6 × 4.75 | min corner | single-track box tunnel, open end at local +x (lintel), cables/lamps/third rail on the outer wall (a: local −z, b: local +z) |
 | `metro_bench` | 3 × 1 × 1.25 | bottom centre, long axis x | oak slats on marble blocks, back to back |
-| `metro_clock_box` | 0.25 × 0.5 × 1.75 | back centre | housing of the interval clock (digits are a canvas mesh) |
+| `metro_clock_box` | 0.25 × 0.5 × 1.75 | centre of its +x face (the display side) | black housing of the interval clock (digits are a canvas mesh 1 cm in front); placed on both tunnel lintels, no collision |
 | `metro_mirror` | 0.5 × 2.75 × 0.5 | bottom centre | driver's convex mirror |
-| `metro_car_head_a`, `metro_car_head_b`, `metro_car_mid` | 19 × 3.75 × 2.75 | centre at rail height (floor top +1.0) | 81-717/714-style cars, dynamic. Head: cab at local +x; doors open on local +z (`_a`, `_mid`) or −z (`_b`) |
-| `metro_car_leaf_l`, `metro_car_leaf_r` | 0.75 × 2.25 × 0.25 | lower −x corner | sliding door leaves (they hide inside the wall when open) |
+| `metro_car_head_a`, `metro_car_head_b`, `metro_car_mid` | 19 × 3.75 × 2.75 | centre at rail height (floor top +1.0) | 81-717/714-style cars, dynamic. Head: cab at local +x; doors open on local +z (`_a`, `_mid`) or −z (`_b`). Windows, windshield and door windows are open (no glass voxels: the engine glass frosts and reflects the sky underground); side windows carry the aluminium transom of the top vent |
+| `metro_car_leaf_l`, `metro_car_leaf_r` | 0.75 × 2.25 × 0.25 | lower −x corner | sliding door leaves with an open window (they hide inside the wall when open) |
 | `metro_car_headlamps`, `metro_car_markers` | 0.25 × 0.5 × 2.75 | back centre | amber headlamps / red markers overlaid on a head car's front |
 | `metro_man_stand` / `_walk1` / `_walk2`, `metro_woman_*` | ≈ 0.6 × 1.85 × 0.6 (fine) | feet centre, front −z | passenger silhouettes; coat = `tint`; face direction (dx,dz) with angle `atan2(-dx, -dz)` |
 | `metro_staff_seated`, `metro_cashier_seated` | ≈ 0.6 × 1.5 × 0.75 (fine) | seat centre | staff in a uniform (tint) / cardigan |
 
 Materials added (guarded, fall back if the palette is full): `metro_tile_yellow`, `metro_gabbro`,
-`metro_granite_light`, `metro_floor_wet`, `metro_esc_step`, `metro_car_lower`, `metro_car_upper`,
-`metro_car_wall`, `metro_kiosk_warm`, `metro_kiosk_cold`, `metro_soot`, `metro_signal_green`,
-`metro_skin`, `metro_uniform`, `metro_polycarb` (15).
+`metro_granite_grey`, `metro_granite_light`, `metro_floor_wet`, `metro_esc_step`, `metro_car_lower`,
+`metro_car_upper`, `metro_car_wall`, `metro_kiosk_warm`, `metro_kiosk_cold`, `metro_soot`,
+`metro_signal_green`, `metro_skin`, `metro_uniform`, `metro_polycarb` (16). Floors are granite in two
+close greys (`granite` / `metro_granite_grey`, 0.5 m slabs) with rare pale replacement slabs; the underpass
+has a few clustered brown ceramic repairs.
 
 ## What happens at runtime
 
@@ -122,20 +124,31 @@ Materials added (guarded, fall back if the palette is full): `metro_tile_yellow`
   city, interval resets. **No riding:** if the player is inside a car or in a doorway when the doors would
   close, they stay open and «Освободите вагоны» repeats every 9 s (chime + PA speech + caption) until the
   player steps out. The platform edge keeps the player off the tracks (only open doorways let them across).
+- **Passengers** who got off walk up a stair and away along the footpath (north) or the south sidewalk
+  (east); they only vanish once the player is not within ~32 m on the surface, otherwise they keep walking
+  (up to ~55 m more). Surface points follow `terrain.heightAt`.
 - **Service hours:** no trains 01:05–05:35 (game clock); escalators stop 01:30–05:20 (bands freeze,
   conveyors off); kassa closed and turnstiles free during the night; closing PA at 00:52–01:00.
 - **Tickets:** the КАССА window sells 1-trip «УЛЬТРА-М» tickets (19 р., `ui.showNote` style `ticket`).
   `game.state.metroTrips` counts trips (also `metroTicketsBought`). Walking into an entry lane with a trip
   validates it (`turnstile` pass); without one the flaps slam (`turnstile` slam), stay shut while pressed,
-  and a caption points to the kassa. Exit lanes slam for people walking in; leaving is always free.
+  and a caption points to the kassa. Exit lanes slam for people walking in; leaving is always free. The
+  flaps never close on a player already level with them (they would lift the player on top).
 - **Escalators:** moving step bands, conveyor zones (0.67 m/s horizontal), `escalator_step` at the comb,
   sometimes the attendant's «Держитесь за поручень» (`announcement` phrase 3).
 - **Interval clock:** left half the game clock HH:MM (colon blinking), right half minutes:seconds since the
-  last train left (real time; it climbs high at night and while the station is closed).
-- **Culling:** underground lights are enabled per area (underpass / vestibule / deep / tunnel) and the
-  underground placements are hidden while the player is far away on the surface.
-- **Underground atmosphere:** while the player is past the vestibule doors or deeper, the shared sky/fog
-  uniforms are darkened (no daylight reflections or grey noon fog underground) and fog density is halved.
+  last train left (real time; it climbs high at night and while the station is closed, topping out at 99:59).
+  The canvas is redrawn only when a shown digit changes.
+- **Culling:** underground lights are enabled per area (underpass / vestibule / deep / tunnel); the
+  underground placements are hidden while the player is far away on the surface, and the deep ones plus the
+  train (cars, leaves, lamps, riders, its lights) whenever the player is not underground.
+- **Underground atmosphere:** anywhere below y −1.8 in the complex the fog density is held at a faint haze
+  whatever the weather above (0.35 of clear-weather fog in the underpass, 0.16 from the vestibule down) and
+  the snow's lamp in-scatter is dropped; past the vestibule doors the shared sky/fog uniforms are also
+  darkened (no daylight reflections or grey noon fog). The post chain's bloom threshold is raised ×2.2 (and
+  its strength ×0.7) underground, so rows of tubes over white tiles stay crisp instead of fogging the view;
+  everything is restored on the surface.
+- **Exposure** (zone eye adaptation): underpass 0.95, vestibule 1.05, escalators 1.05, platform/tunnels 1.1.
 
 ## Sounds used (audio package; all guarded with `audio.ready && audio.has`)
 
@@ -150,7 +163,7 @@ suspicious objects), `escalator_loop`, `escalator_step`, `turnstile` (`kind:'pas
 ## Tags, zones, registry
 
 - Placement tags: `metro_stair`, `metro_canopy`, `metro_sign`, `sign`, `lamp`, `metro_underpass`, `kiosk`,
-  `metro_tube`, `payphone`, `metro_prop`, `metro_vestibule`, `turnstile`, `turnstile_flap`, `metro_booth`,
+  `metro_tube`, `payphone`, `metro_prop`, `metro_vestibule`, `turnstile`, `turnstile_flap`, `metro_booth`, `metro_clock`,
   `escalator`, `escalator_collide`, `metro_torsher`, `metro_hall`, `metro_tunnel`, `bench`, `metro_car`,
   `person`. All carry `userData.pkg = 'metro'`, structural ones `noRelocate: true`.
 - Light tags: `metro_stair_light`, `metro_m`, `metro_kiosk`, `metro_tube`, `metro_kassa`, `metro_torsher`,
@@ -177,11 +190,11 @@ the runtime is exposed as `window.__metroRt`. Example:
 
 ## Known limitations
 
-- Train windows show the engine glass shader's frost along their edges.
 - Riding an escalator, collision is a static staircase under the moving bands, so the view rises/sinks one
   voxel per step (smoothed by the camera).
 - The left half of the interval clock shows the accelerated game clock while the interval counts real
   seconds.
-- Three engine instance wrappers are installed at build/init (see the report's engine requests): terrain
+- Four engine instance tweaks are installed at build/init/update (see the report's engine requests): terrain
   hole side faces limited to the crust depth inside our footprint, hole re-carve before `world.finalize`,
-  and sky/fog uniform darkening while deep underground.
+  the fog/scatter/sky uniforms adjusted after `atmos.update` while underground, and the bloom pass's
+  threshold/strength while underground (restored to the captured originals on the surface).

@@ -378,7 +378,7 @@ const E = 0.012 // decals float 1.2 cm off the surface
     boardFront: [0, 2.69, Lf - E], boardRear: [0, 2.7, Rf + E],
     boardSide: [hw + E, 2.35, -3.7], // first window behind the front door
     placard: [-0.55, 1.5, Lf + FV + 0.03],
-    fleetSide: [hw + E, 0.9, -3.4], fleetFront: [0.75, 1.0, Lf - E],
+    fleetSide: [hw + E, 0.9, -3.4], fleetFront: [0.72, 0.9, Lf - E],
     poleTip: [[-ZIU.poleX, ZIU.wireY, -5.85 + ZIU.poleBaseZ + 5.5], [ZIU.poleX, ZIU.wireY, -5.85 + ZIU.poleBaseZ + 5.5]],
     lightInterior: [0, 2.92, 1.4],
   }

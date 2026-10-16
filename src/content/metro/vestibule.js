@@ -8,6 +8,7 @@ import { WB, V, h3 } from './vox.js'
 import { Y, VEST, VEST_DOOR, TURN, ESC } from './layout.js'
 import { drawMetroEntrance, drawLightbox, drawFares, drawLineMap, drawNotice, drawText, SIGN_FONT } from './drawings.js'
 import { T } from './texts.js'
+import { TUBE_GLOW } from './underpass.js'
 
 const F0 = Y.FLOOR, C0 = Y.CEIL
 
@@ -85,8 +86,10 @@ defineModel('metro_vestibule', () => {
       const slab = h3(Math.floor(i / 2), 2, Math.floor(k / 2), 9)
       let mat = slab < 0.65 ? MAT.granite : slab < 0.985 ? MAT.graniteGrey : MAT.graniteLight
       if (Math.abs(z - 540) < 0.13) mat = MAT.floorTileRed
-      if (x < 400 && h3(i, 1, k, 5) > 0.93) mat = MAT.wet // tracked-in meltwater
-      if (x < 397 && h3(i, 1, k, 6) > 0.9) mat = MAT.graniteLight // salt rims
+      // tracked-in meltwater and salt rims, thinning out from the doors toward the turnstiles
+      const tracked = Math.max(0, Math.min(1, (400 - x) / 7))
+      if (h3(i, 1, k, 5) > 1 - 0.09 * tracked) mat = MAT.wet
+      else if (h3(i, 1, k, 6) > 1 - 0.05 * tracked) mat = MAT.graniteLight
       return mat
     },
     ceil: (i, j, k) => (h3(i, 7, k, 2) > 0.94 ? MAT.concreteLight : MAT.whitewash),
@@ -209,18 +212,18 @@ export function buildVestibule(ctx, out) {
     onUse(game) { game.ui.say({ ru: 'За стеклом — табличка «Касса закрыта».', en: 'Behind the glass: a sign, "Window closed".' }, 3) } })
 
   // ---- lights (cool tubes in a grid; the kassa glows warm)
-  for (const [x, z] of [[396.5, 536], [396.5, 544], [403, 535], [403, 545], [408.5, 540]]) {
+  for (const [x, z] of [[396.5, 536], [396.5, 544], [403, 535], [403, 545], [401.5, 540], [408.5, 540]]) {
     out.lightGroups.vestibule.push(lights.add({ x, y: C0 - 0.35, z, color: 0xe8f0ea, intensity: 1.9, range: 8.5, domain: 'indoor', halo: false, tag: 'metro_tube' }))
   }
   out.lightGroups.vestibule.push(lights.add({ x: 395.5, y: F0 + 2.1, z: 532.2, color: 0xffcf96, intensity: 1.1, range: 4.5, domain: 'indoor', halo: false, tag: 'metro_kassa' }))
   for (let x = 395.5; x < 411; x += 3) for (const z of [534.25, 540, 545.75]) {
-    const p = world.place('metro_fixture', { x, y: C0, z, rot: 0, tag: 'metro_tube', flag: h3(Math.round(x), 0, Math.round(z), 3) > 0.9 ? 0 : 1, userData: ud })
+    const p = world.place('metro_fixture', { x, y: C0, z, rot: 0, tag: 'metro_tube', flag: h3(Math.round(x), 0, Math.round(z), 3) > 0.9 ? 0 : TUBE_GLOW, userData: ud })
     out.underground.push(p)
     out.tubes.push({ x, y: C0 - 0.2, z, state: p.flag ? 'ok' : 'dead' })
   }
 
   // ---- zone
   zones.add({ name: 'metro_vestibule', type: 'metro', min: [VEST.x0, Y.SLAB, VEST.z0], max: [VEST.x1, C0 + 0.1, VEST.z1], indoor: true,
-    reverb: 'hall', snow: false, wind: 0.05, traffic: 0.12, priority: 1, exposure: 1.1, data: { pkg: 'metro' } })
+    reverb: 'hall', snow: false, wind: 0.05, traffic: 0.12, priority: 1, exposure: 1.05, data: { pkg: 'metro' } })
   ctx.navPaths.push({ points: [[386, 540], [392, 540], [400, 538.1], [404, 540], [412, 540]], kind: 'metro', y: F0 })
 }

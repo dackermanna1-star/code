@@ -45,7 +45,7 @@ import { placeParkedCar, parkRow, placeParkedBus, carModelName, CAR_COLORS } fro
 - **Tint.**
   - Car bodies and the LiAZ body use the core `paint` (placement `tint`).
   - Trolleybus, plow and train colours are fixed liveries.
-- **Snow.** Every exposed top carries voxel snow according to the variant. The renderer adds its own fresh-snow dusting on up-facing surfaces on top of that.
+- **Snow.** Every exposed top carries voxel snow according to the variant. The bumper rows stay bare, so lamps and plates on the end faces are never hidden. The renderer adds its own fresh-snow dusting on up-facing surfaces on top of that.
 
 ## Parked cars and vans
 
@@ -55,8 +55,8 @@ Six model variants per body type, named `veh_<type><suffix>`:
 |---|---|---|
 | *(none)* | clean, no snow | moving traffic, garages |
 | `_s1` | light patchy dusting (12 cm) | recently driven |
-| `_s2` | thick cap (25–37 cm) on roof, hood and trunk; windshield and rear glass snowed over | the typical courtyard car |
-| `_s3` | half-buried: thick cap plus a drift filling the wheels and the left flank to the belt | parked for weeks. `placeParkedCar` adds a matching terrain drift on the car's left |
+| `_s2` | thick cap (25–37 cm, with soft swells) on roof, hood and trunk; windshield and rear glass snowed over, the snow banking up at the foot of the windshield. Classic types (2107, 2106, 21099, Moskvich, Volga, Nexia) have their **wipers lifted off the glass** for the night, sticking out of the snow | the typical courtyard car |
+| `_s3` | half-buried: thick cap plus a drift filling the wheels and the left flank to the belt (raised wipers as `_s2`) | parked for weeks. `placeParkedCar` adds a matching terrain drift on the car's left |
 | `_br` | thick cap, windshield and rear half of the hood brushed clean, brushed snow piled at the edges | someone is about to leave |
 | `_warm` | story car: **bare wet hood** (engine heat), **fogged windows**, cap on roof and trunk only | engine running; see `warm` below |
 
@@ -101,6 +101,8 @@ placeParkedCar(ctx, 230, 431, Math.PI / 2, { snow: 'buried' })           // shor
 - `drift: false`: no terrain drift.
 
 Each car gets a generated plate «А 123 ВС 77» with the RUS flag strip, front and rear. Buried cars lose the front plate in the drift. GAZelle marshrutkas get yellow route plates.
+
+A `warm` car always uses the `_warm` model, whatever `snow` says (it is never buried).
 
 The returned record is `{ placement, type, model, snow, warm, plate, info, x, y, z, angle }`. It is also pushed to `ctx.registry.parkedCars`. Placements are tagged `'car'`.
 
@@ -176,11 +178,11 @@ placeParkedBus(ctx, { x: 548, z: 598, angle: -Math.PI / 2, kind: 'trolleybus', p
 - `lit`: default true. Saloon lights from dusk to dawn, through a `schedule:'night'` light that also drives the placement flag.
 - `poles`: `'up' | 'down'`.
 - `route`: an index or `{num, from, to}`.
-- `placard`: e.g. «В ПАРК» ("To depot") or «ПОСАДКИ НЕТ» ("No boarding"). A card behind the windshield; 40% random if omitted.
+- `placard`: e.g. «В ПАРК» ("To depot") or «ПОСАДКИ НЕТ» ("No boarding"). A card standing on the dashboard behind the windshield, on the driver's side; 40% random if omitted.
 - `idle`: default true for buses. A diesel `car_idle` loop near the player, and exhaust steam if nature is loaded.
 - `seed`, `tint`, `snow`.
 
-It adds static signs: yellow route plates, the lit route board, and the fleet number on the trolleybus side. The record goes to `ctx.registry.parkedBuses`. Moving buses avoid layover stands that a parked bus occupies.
+It adds static signs: yellow route plates (buses only: trolleybuses carry no state plates in Russia), the lit route board, and the fleet number on the trolleybus side and front. The record goes to `ctx.registry.parkedBuses`. Moving buses avoid layover stands that a parked bus occupies.
 
 Routes are fictional, from `ROUTES` in `plates.js`:
 
@@ -231,17 +233,23 @@ Only one bus uses the terminal at a time.
 
 **Snowplows.** A KAMAZ snowplow passes every 3–7 min at night (22–06) and every 8–15 min by day. At night there is a 45% chance of a second machine staggered one lane over (уступом). The beacon flashes amber and washes the snow, and the plow plays `snowplow_pass` once as it approaches the player.
 
+**Lamps by time of day.** From dusk on (`uNight` > 0.2) every vehicle drives with its lamps lit. By day only some do (dipped beams in town were not yet compulsory in 2008): about 40% of cars and 70% of buses and trolleybuses; plows always. Lamp glows are faint sparks by day and full halos at dusk and night.
+
 **Each moving vehicle carries:**
 
 - a headlight **spot light**, updated every frame (cars: intensity 120, range 42, cone 30°), with fog scatter;
 - a red tail-lamp spill on the slush behind;
-- for buses and trolleybuses, a saloon light (domain `all`) that lights the interior and the frosted glass and spills onto the snow;
+- for buses and trolleybuses, a saloon light (domain `all`, intensity 6.5, placed under the ceiling between the 2nd and 3rd doors) that lights the interior and the glass and spills onto the snow;
 - glow sprites on the head and tail lamps (direction-aware: blazing head-on, a faint lens from the side);
-- decals: plates, route boards (LED on buses), fleet number, the marshrutka's hand-lettered card, the plow's door lettering;
+- decals: plates (none on trolleybuses), route boards (LED on buses), fleet number, the marshrutka's hand-lettered card, the plow's door lettering;
 - an exhaust plume, if nature is loaded;
 - a looping tyre/engine sound: `car_pass`, `bus_pass` or `trolleybus_pass` with `loop:true` (`*_drive`), rate set from speed. Plows use `bus_pass`.
 
 Sound loops are created only within 170 m once `audio.ready`.
+
+**Trolley-pole sparks.** Every 7–26 s a moving trolleybus within 160 m may arc at one of its pole tips (on the 5.8 m wire): a 0.1–0.45 s blue-white crackle (a point light that lights the wires and the snow, plus a glow) and `pantograph_spark` within 90 m.
+
+**A player on the carriageway.** Every vehicle in that lane (±2.2 m) brakes on a constant-deceleration curve (≈3.5 m/s², up to 7.5 m/s² if the player steps out late) and stops about 4 m short. It waits as long as the player stands there; cars behind pull out and overtake, buses queue.
 
 ### Elektrichka
 
@@ -310,6 +318,7 @@ Tags: parked cars `'car'`; parked buses `'bus'` / `'trolleybus'`; moving rigs `'
 | `snowplow_pass` | blade scrape as a plow approaches |
 | `train_pass` | elektrichka pass-by |
 | `train_horn` | approaching, and at the level crossing |
+| `pantograph_spark` | a trolleybus pole arcing on the wire |
 | `car_idle` | warm car; courtyard crawler; idling parked buses with `variant 1`, rate 0.82 |
 | `distant_door_slam` | the courtyard car's driver getting out |
 
@@ -321,7 +330,7 @@ Everything is guarded by `audio.ready` and is optional.
 |---|---|
 | `carModelName(type, snow, warm)` | model name, e.g. `carModelName('vaz2106', 'buried')` gives `'veh_vaz2106_s3'` |
 | `CAR_INFO[type]` | `{L, W, H, head:[[x,y,z]...], tail, plateFront, plateRear, exhaust, hood}`, local metres |
-| `BIG_INFO.liaz` / `ziu` / `kamaz` | lamp, plate, board, pole-tip and beacon anchors |
+| `BIG_INFO.liaz` / `ziu` / `kamaz` | lamp, plate, board, placard, fleet-number, pole-tip and beacon anchors (local metres, computed from the voxel faces) |
 | `CAR_TYPES` | all body types |
 | `CAR_COLORS` | named period paints, below |
 | `CAR_PALETTE` | weighted 2008 mix |
@@ -340,7 +349,7 @@ Everything is guarded by `audio.ready` and is optional.
   - Park along the driveways with `parkRow`: perpendicular bays off a driveway, or parallel along a kerb. Leave gaps at entrances and garbage areas.
   - Mix in `buried` and `brushed`, and put **one warm car** near the home entrance in Block D.
   - Cars stand on whatever terrain height is there. Driveway asphalt is y 0; a car on 0.5 m lawn snow sinks into it, which reads as "parked in the snow".
-- **Buried cars.** Their terrain drift extends about 2.4 m to the car's **left**. Do not put a path or a door there.
+- **Buried cars.** Their terrain drift is a bank up to about 0.7 m high that reaches about 3.4 m out from the car's **left** flank and wraps 1–2 m round the nose and the tail. Do not put a path or a door there. The drift never raises the ground under another car already in `registry.parkedCars` (0.35 m margin), and a car parked later with `placeParkedCar` flattens the drift under itself, so `parkRow` can mix buried cars into tight perpendicular rows.
 - **Avenue (avenue package).**
   - Keep the lanes clear; traffic drives straight through anything at those z.
   - Register the stops with street `placeBusStop`. The spawn stop at x 248 is the important one: the opening trolleybus halts there.
@@ -368,6 +377,6 @@ Everything is guarded by `audio.ready` and is optional.
 
 - Moving vehicles do not collide with the player. They brake and stop for a player standing in their lane. A bus or trolleybus becomes solid while it stands at a stop, and the courtyard car once it has parked.
 - Wheels do not turn.
-- At 0.125 m voxels, snow on sloped glass still shows small terraces.
-- Bus and trolleybus windows use the engine's shared glass shader, so they look frosted at the edges. In daylight they are whitish; at night they glow from the saloon light.
+- At 0.125 m voxels, snow on sloped glass still shows small terraces, and the buried car's terrain drift steps in the 0.25 m terrain grain.
+- Bus, trolleybus and train windows use the engine's shared glass shader (frosted at the edges, about 90% see-through). In daylight you see the bright sky through both sides of a bus, so the panes read whitish with dark seat silhouettes; at dusk and night they show the lit saloon.
 - A placement has one emissive `flag`. To get parked buses with unlit head lamps and a train tail with dark white lamps, those exist as separate model variants (`_parked`, `veh_er2_tail`).

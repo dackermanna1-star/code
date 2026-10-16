@@ -16,6 +16,8 @@ const ARRIVE_D = 200, ARRIVE_V = 15, BRAKE_A = 0.9, DEPART_A = 1.0
 const ARRIVE_T = approachDuration(ARRIVE_D, ARRIVE_V, BRAKE_A)
 /** Fog density underground relative to clear weather above (underpass / vestibule and deeper). */
 const FOG_SHALLOW = 0.35, FOG_DEEP = 0.16
+/** Extra bloom threshold underground (× the post chain's own threshold). */
+const BLOOM_UNDER = 1.2
 const pt = (x, y, z, ride = false) => ({ x, y, z, ride })
 
 // ---------------------------------------------------------------------------------------------
@@ -144,6 +146,7 @@ export class MetroRuntime {
     this._closingSaid = true
     this.passLane = -1; this.passT = 0
     this.groupsOn = {}
+    this.underK = 0
     this.visShallow = true; this.visDeep = true
     this.debug = null
   }
@@ -686,6 +689,18 @@ export class MetroRuntime {
     const want = under ? Math.min(1, (deep ? FOG_DEEP : FOG_SHALLOW) / wf) : 1
     const cur = a.metroFog ?? 1
     a.metroFog = cur + (want - cur) * Math.min(1, dt * 1.5)
+    // bloom: under rows of tubes the white tiles themselves pass the HDR bloom threshold and the
+    // glow fogs the whole view; raise the threshold while underground (instance tweak of the
+    // post chain, restored on the surface; see engineRequests)
+    const bl = this.ctx.game?.post?.bloom
+    if (bl && typeof bl.threshold === 'number') {
+      if (!this._bloom0) this._bloom0 = { th: bl.threshold, st: bl.strength }
+      this.underK += ((under ? 1 : 0) - this.underK) * Math.min(1, dt * 2)
+      if (under && this.debug) this.underK = 1
+      const u = this.underK < 0.002 ? 0 : this.underK
+      bl.threshold = this._bloom0.th * (1 + BLOOM_UNDER * u)
+      bl.strength = this._bloom0.st * (1 - 0.3 * u)
+    }
   }
 
   update(dt, ctx) {

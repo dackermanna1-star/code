@@ -236,7 +236,7 @@ export class Train {
 
   _applyVis() {
     const on = this.visible && !this.culled
-    for (const s of this.slots) s.cur.visible = on
+    for (const s of this.slots) if (s.cur) s.cur.visible = on
     for (const L of this.leaves) { L.l.visible = on; L.r.visible = on }
     this.headlamps.visible = on; this.markers.visible = on
     for (const l of this.lightsIn) l.enabled = on

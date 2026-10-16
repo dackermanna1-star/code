@@ -253,9 +253,9 @@ export function buildPlatform(ctx, out) {
   const ud = { pkg: 'metro', noRelocate: true }
   const variants = ['a', 'b', 'a', 'a', 'b']
   for (let s = 0; s < PLAT.sections; s++) {
-    out.deep.push(world.place('metro_hall_' + variants[s], { x: PLAT.x0 + s * PLAT.sectionLen, y: -18, z: 530.5, rot: 0, tag: 'metro_hall', userData: ud }))
+    out.deep.push(world.place('metro_hall_' + variants[s], { x: PLAT.x0 + s * PLAT.sectionLen, y: -18, z: 530.5, rot: 0, flag: 0.75, tag: 'metro_hall', userData: ud }))
   }
-  out.deep.push(world.place('metro_lower_hall', { x: LOWER.x0, y: -16.75, z: LOWER.z0, rot: 0, tag: 'metro_hall', userData: ud }))
+  out.deep.push(world.place('metro_lower_hall', { x: LOWER.x0, y: -16.75, z: LOWER.z0, rot: 0, flag: 0.75, tag: 'metro_hall', userData: ud }))
   out.deep.push(world.place('metro_hall_end', { x: PLAT.x1, y: -17.75, z: PLAT.edgeN + 0.5, rot: 0, tag: 'metro_hall', userData: ud }))
   // the attendant's booth beside the escalator foot
   out.deep.push(world.place('metro_esc_booth', { x: 438.25, y: P0, z: 542.5, rot: 0, tag: 'metro_booth', userData: ud }))
@@ -329,14 +329,17 @@ export function buildPlatform(ctx, out) {
   // fare notice taped to a column, convex mirrors for the drivers
   signs.add({ x: 470.0, y: P0 + 1.5, z: PLAT.colN - 0.26, angle: Math.PI, w: 0.42, h: 0.6, ppm: 96, draw: (c, W, H) => drawNotice(c, W, H, { title: 'ВНИМАНИЕ!', lines: ['С 1 ЯНВАРЯ', '2008 Г.', 'ИЗМЕНЯЕТСЯ', 'СТОИМОСТЬ', 'ПРОЕЗДА'] }), indoor: true, aged: 0.3, seed: 12 })
   interactions.add({ x: 470.0, y: P0 + 1.5, z: PLAT.colN - 0.4, size: [0.45, 0.6, 0.3], prompt: { ru: 'Читать', en: 'Read' }, tag: 'notice', onUse(game) { game.ui.showNote({ ...T.fareNotice, style: 'notice' }) } })
+  // housings of the interval clocks on the tunnel lintels (the digits are a canvas mesh in front)
+  out.deep.push(world.place('metro_clock_box', { x: PLAT.x0 + 0.25, y: -12.5, z: TRACK.S.axis, rot: 0, collide: false, tag: 'metro_clock', userData: ud }))
+  out.deep.push(world.place('metro_clock_box', { x: PLAT.x1 - 0.25, y: -12.5, z: TRACK.N.axis, rot: 2, collide: false, tag: 'metro_clock', userData: ud }))
   out.deep.push(world.place('metro_mirror', { x: PLAT.x1 - 1.0, y: P0, z: PLAT.edgeN + 0.9, rot: 0, tag: 'metro_prop', userData: ud }))
   out.deep.push(world.place('metro_mirror', { x: PLAT.x0 + 1.0, y: P0, z: PLAT.edgeS - 0.9, rot: 0, tag: 'metro_prop', userData: ud }))
 
   // ---- zones
   zones.add({ name: 'metro_platform', type: 'metro', min: [LOWER.x0, -18, PLAT.wallN], max: [PLAT.x1 + 1, -11.5, PLAT.wallS], indoor: true,
-    reverb: 'metro', snow: false, wind: 0.08, traffic: 0, priority: 1, exposure: 1.2, data: { pkg: 'metro' } })
+    reverb: 'metro', snow: false, wind: 0.08, traffic: 0, priority: 1, exposure: 1.1, data: { pkg: 'metro' } })
   for (const [x0, x1] of [TUNNEL.west, TUNNEL.east]) {
-    zones.add({ name: 'metro_tunnel', type: 'tunnel', min: [x0, -18, 530.5], max: [x1, -12, 549.5], indoor: true, reverb: 'tunnel', snow: false, wind: 0.2, traffic: 0, priority: 0, exposure: 1.2, data: { pkg: 'metro' } })
+    zones.add({ name: 'metro_tunnel', type: 'tunnel', min: [x0, -18, 530.5], max: [x1, -12, 549.5], indoor: true, reverb: 'tunnel', snow: false, wind: 0.2, traffic: 0, priority: 0, exposure: 1.1, data: { pkg: 'metro' } })
   }
   ctx.navPaths.push({ points: [[437, 540], [544, 540]], kind: 'platform', y: P0 })
 }

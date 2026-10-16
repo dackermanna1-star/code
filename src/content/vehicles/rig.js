@@ -67,7 +67,7 @@ export class Rig {
     }
     if (o.spark) {
       // trolley-pole arc flash (driven by the traffic system)
-      this.sparkLight = L.add({ x: 0, y: PARK, z: 0, color: 0xc6dcff, intensity: 0, range: 15, scatter: 1.6, halo: false, tag: 'vehicle' })
+      this.sparkLight = L.add({ x: 0, y: PARK, z: 0, color: 0xc6dcff, intensity: 0, range: 18, scatter: 1.8, halo: false, tag: 'vehicle' })
       this.sparkLight.enabled = false
     }
     if (o.beacon) {
@@ -81,7 +81,7 @@ export class Rig {
     this.glowsHead = (info.head || []).map(() => glows.add({ color: o.glowColor ?? 0xfff2dc, intensity: o.glowHead ?? 80, size: o.glowSize ?? 0.7, dir: 'front', cone: 0.35 }))
     this.glowsTail = (info.tail || []).map(() => glows.add({ color: 0xff2a14, intensity: 30, size: 0.4, dir: 'back', cone: 0.2 }))
     if (o.beacon) this.glowBeacon = glows.add({ color: 0xffa020, intensity: 70, size: 1.0, dir: 'omni' })
-    if (o.spark) this.glowSpark = glows.add({ color: 0xdce8ff, intensity: 80, size: 0.8, dir: 'omni' })
+    if (o.spark) this.glowSpark = glows.add({ color: 0xdce8ff, intensity: 80, size: 1.4, dir: 'omni' })
     // decals
     if (atlas) this._decals()
     // exhaust

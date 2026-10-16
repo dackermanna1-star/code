@@ -229,9 +229,12 @@ export function placeParkedBus(ctx, o) {
   const routes = ROUTES[kind]
   const route = typeof o.route === 'object' && o.route ? o.route : routes[(o.route ?? rng.int(0, routes.length - 1)) % routes.length]
   if (ctx.signs && !signsBuilt(ctx)) {
-    const plate = makePlate(rng, 'route')
-    plateSign(ctx, plate, worldOf(o.x, p.y, o.z, angle, info.plateFront), angle, 'front', 1)
-    plateSign(ctx, plate, worldOf(o.x, p.y, o.z, angle, info.plateRear), angle, 'rear', 2)
+    if (kind === 'bus') {
+      // (trolleybuses carry no state plates, only the fleet number)
+      const plate = makePlate(rng, 'route')
+      plateSign(ctx, plate, worldOf(o.x, p.y, o.z, angle, info.plateFront), angle, 'front', 1)
+      plateSign(ctx, plate, worldOf(o.x, p.y, o.z, angle, info.plateRear), angle, 'rear', 2)
+    }
     const bf = worldOf(o.x, p.y, o.z, angle, info.boardFront)
     const led = kind === 'bus'
     const placard = o.placard ?? (rng.chance(0.4) ? 'В ПАРК' : null)
@@ -240,12 +243,15 @@ export function placeParkedBus(ctx, o) {
     if (placard) {
       // «В ПАРК» (to the depot) card propped behind the windshield
       const pc = worldOf(o.x, p.y, o.z, angle, info.placard)
-      ctx.signs.add({ x: pc[0], y: pc[1], z: pc[2], angle: angle + Math.PI, w: 0.62, h: 0.2, ppm: 120, lines: [placard], bg: '#e6e2cf', color: '#b0221c', aged: 0.3 })
+      ctx.signs.add({ x: pc[0], y: pc[1], z: pc[2], angle: angle + Math.PI, w: 0.62, h: 0.2, ppm: 120, lines: [placard], bg: '#e6e2cf', color: '#b0221c', aged: 0.3, emissive: lit ? 0.45 : 0, schedule: 'night' }) // lit by the saloon tubes
     }
     if (kind === 'trolleybus') {
       const fl = String(rng.int(3, 9)) + String(rng.int(100, 999))
       const fs = worldOf(o.x, p.y, o.z, angle, info.fleetSide)
-      ctx.signs.add({ x: fs[0], y: fs[1], z: fs[2], angle: angle + Math.PI / 2, w: 0.55, h: 0.2, ppm: 160, draw: (c, W, H) => drawPainted(c, W, H, fl, { color: '#e8e6dc' }) })
+      const ff = worldOf(o.x, p.y, o.z, angle, info.fleetFront)
+      const draw = (c, W, H) => drawPainted(c, W, H, fl, { color: '#e8e6dc' })
+      ctx.signs.add({ x: fs[0], y: fs[1], z: fs[2], angle: angle + Math.PI / 2, w: 0.55, h: 0.2, ppm: 160, draw })
+      ctx.signs.add({ x: ff[0], y: ff[1], z: ff[2], angle: angle + Math.PI, w: 0.42, h: 0.15, ppm: 160, draw })
     }
   }
   const rec = { placement: p, kind, route, x: o.x, y: p.y, z: o.z, angle, info, idle: o.idle ?? kind === 'bus' }
