@@ -72,7 +72,7 @@ export class UI {
       ${this.translations && en ? `<div class="en">${en}</div>` : ''}
       <div class="hint">E / Esc</div>`
     this.noteOpen = true
-    this.game.audio?.play?.('paper', { gain: 0.5 })
+    if (this.game.audio?.has?.('paper')) this.game.audio.play('paper', { gain: 0.5 })
   }
   closeNote() {
     if (!this.noteOpen) return

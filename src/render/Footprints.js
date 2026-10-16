@@ -5,6 +5,7 @@
 import * as THREE from 'three'
 
 const MAX = 1400
+const UP = new THREE.Vector3(0, 1, 0)
 
 export class Footprints {
   constructor(shared) {
@@ -85,7 +86,7 @@ export class Footprints {
     this.total = Math.min(MAX, this.total + 1)
     const ox = Math.cos(heading) * 0.09 * side, oz = -Math.sin(heading) * 0.09 * side
     this._p.set(x + ox, y + 0.012, z + oz)
-    this._q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), heading + (side * 0.06))
+    this._q.setFromAxisAngle(UP, heading + (side * 0.06))
     this._m.compose(this._p, this._q, this._s)
     this.mesh.setMatrixAt(i, this._m)
     this.spawn[i * 2] = this.accum - ageOffset

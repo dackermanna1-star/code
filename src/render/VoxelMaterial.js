@@ -261,18 +261,20 @@ void main() {
   vec3 V = normalize(cameraPosition - vWorld);
   if (dot(N, V) < 0.0) N = -N;
   float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
+  bool indoor = vDomain > 1.5;
   vec3 spec = vec3(0.0);
-  vec3 direct = evalLights(vWorld, N, 3.0 - 0.0, V, 0.9, 0.0, spec);
-  // frost creeping in from the pane edges, and dirt
-  vec2 px = vUV * vSize;
-  vec2 ed = min(vUV, 1.0 - vUV) * vSize * 0.25; // meters to edge
+  vec3 direct = evalLights(vWorld, N, vDomain, V, 0.9, 0.0, spec);
+  vec3 amb = indoor ? uIndoorAmb : uSkyAmb;
+  // frost creeps in from the edges of outdoor panes only (a thin band), plus a little grime
+  vec2 ed = min(vUV, 1.0 - vUV) * vSize * 0.25; // meters to the pane edge
   float edge = min(ed.x, ed.y);
-  float frost = (1.0 - smoothstep(0.02, 0.22, edge + (vnoise2(vWorld.xz * 9.0 + vWorld.y * 7.0) - 0.5) * 0.12));
+  float frost = indoor ? 0.0 : (1.0 - smoothstep(0.01, 0.09, edge + (vnoise2(vWorld.xz * 9.0 + vWorld.y * 7.0) - 0.5) * 0.05));
   float dirt = vnoise2(vec2(vWorld.x + vWorld.z, vWorld.y) * 3.0) * 0.5;
   vec3 tint = p0.rgb * 0.25;
-  vec3 col = tint * (uSkyAmb + direct) + spec * 0.6 + fogSky(reflect(-V, N)) * fres * 0.5;
-  col += vec3(0.75, 0.8, 0.85) * frost * (uSkyAmb * 3.0 + direct * 0.8 + 0.02);
-  float alpha = clamp(0.10 + fres * 0.45 + frost * 0.6 + dirt * 0.12, 0.0, 0.92);
+  vec3 col = tint * (amb + direct) + spec * 0.6;
+  if (!indoor) col += fogSky(reflect(-V, N)) * fres * 0.5;
+  col += vec3(0.75, 0.8, 0.85) * frost * 0.45 * (amb * 2.0 + direct * 0.8 + 0.01);
+  float alpha = clamp(0.06 + fres * (indoor ? 0.2 : 0.4) + frost * 0.45 + dirt * 0.08, 0.0, 0.9);
   col = applyFog(col, vWorld);
   gl_FragColor = vec4(col, alpha);
 }

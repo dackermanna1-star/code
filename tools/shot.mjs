@@ -40,7 +40,7 @@ let server = null
 let base = opt.base || process.env.SHOT_BASE
 if (!base) {
   const { createServer } = await import('vite')
-  server = await createServer({ root, logLevel: 'error', server: { port: 0, host: '127.0.0.1' } })
+  server = await createServer({ root, logLevel: 'error', server: { port: 0, host: '127.0.0.1', hmr: false, watch: null } })
   await server.listen()
   const addr = server.httpServer.address()
   base = `http://127.0.0.1:${addr.port}`
@@ -128,7 +128,7 @@ for (const job of jobs) {
     await page.waitForFunction(() => window.__shotReady || window.__shotError, null, { timeout: parseInt(opt.timeout ?? 180000, 10), polling: 250 })
     const err = await page.evaluate(() => window.__shotError)
     if (err) { failed = true; console.log('PAGE ERROR', err) }
-    await page.screenshot({ path: job.out })
+    await page.screenshot({ path: job.out, timeout: 300000 })
     const info = await page.evaluate(() => {
       const g = window.game
       if (!g) return null

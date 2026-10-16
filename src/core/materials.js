@@ -69,6 +69,11 @@ export function defineMaterial(name, p) {
   }
   materials[id] = m
   byName.set(name, m)
+  // keep hot-path tables valid during content build (before the palette texture exists)
+  SOLID[id] = m.solid ? 1 : 0
+  TRANSPARENT[id] = m.transparent ? 1 : 0
+  SURFACE[id] = m.surface
+  LOD_REMAP[id] = id
   return id
 }
 
