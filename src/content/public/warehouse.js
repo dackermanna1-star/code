@@ -34,7 +34,6 @@ defineModel('pub_warehouse', () => {
   }
   // gable ends
   for (let z = DOCK; z < WZ; z++) for (let y = WTOP; y < roofY(z) - 1; y++) { m.set(0, y, z, rib(z)); m.set(WX - 1, y, z, rib(z)) }
-  for (const face of ['front', 'back', 'left', 'right']) { /* plinth */ }
   m.fill(0, 0, DOCK, WX, 5, 1, M('concrete')); m.fill(0, 0, WZ - 1, WX, 5, 1, M('concrete'))
   m.fill(0, 0, DOCK, 1, 5, WZ - DOCK, M('concrete')); m.fill(WX - 1, 0, DOCK, 1, 5, WZ - DOCK, M('concrete'))
   // loading dock
@@ -53,7 +52,6 @@ defineModel('pub_warehouse', () => {
     for (let y = 5; y < 19; y++) for (let x = dx; x < dx + 16; x++) m.set(x, y, DOCK, y % 2 ? M('metal_gray') : M('concrete_light'))
     m.fill(dx - 1, 19, DOCK, 18, 2, 1, M('metal_dark'))
     if (i === 1) m.fill(dx, 5, DOCK, 16, 4, 1, M('metal_dark'))
-    ffill(m, 'front', dx + 4, 1, DOCK, 8, 1, 1, M('metal_gray'))
   })
   // personnel door
   m.fill(48, 5, DOCK, 4, 9, 1, M('metal_brown')); m.set(51, 9, DOCK, M('chrome'))
