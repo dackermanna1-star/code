@@ -66,15 +66,13 @@ export function setFoleyReverb(m, name, instant = false) {
   const t = e.ctx.currentTime
   const wet = (WET[name] ?? 0.2) * 1.1
   const tc = instant ? 0.01 : 0.25
-  if (m.revActive === 'A') {
-    m.convB.buffer = ir
-    m.gB.gain.setTargetAtTime(wet, t, tc); m.gA.gain.setTargetAtTime(0, t, tc)
-    m.revActive = 'B'
-  } else {
-    m.convA.buffer = ir
-    m.gA.gain.setTargetAtTime(wet, t, tc); m.gB.gain.setTargetAtTime(0, t, tc)
-    m.revActive = 'A'
-  }
+  const [on, onG, off, offG] = m.revActive === 'A' ? [m.convB, m.gB, m.convA, m.gA] : [m.convA, m.gA, m.convB, m.gB]
+  try { on.buffer = ir } catch { /* older engines: buffer set once */ }
+  onG.gain.setTargetAtTime(wet, t, tc); offG.gain.setTargetAtTime(0, t, tc)
+  m.revActive = m.revActive === 'A' ? 'B' : 'A'
+  // free the faded-out convolver's CPU once the crossfade is over
+  clearTimeout(m._revTimer)
+  m._revTimer = setTimeout(() => { if (offG.gain.value < 0.01) { try { off.buffer = null } catch { /* keep */ } } }, 2500)
 }
 
 /** Per-frame upkeep: follow the zone reverb and the user's volume settings. */

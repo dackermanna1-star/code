@@ -56,6 +56,17 @@ def('phone_key', {
   },
 })
 
+def('phone_key_click', {
+  // the rubber key dome alone (keypad tones off)
+  sr: 32000, variants: 3, prio: 1, norm: { peak: 0.6 },
+  gen(r, sr) {
+    const d = buf(0.04, sr)
+    addBurst(d, sr, 0, 0.002, r, { f: r.range(3000, 4000), q: 1, gain: 0.6, tau: 0.0006 })
+    addBurst(d, sr, Math.floor(r.range(0.012, 0.02) * sr), 0.0015, r, { f: 2500, q: 1, gain: 0.25, tau: 0.0005 })
+    return phoneSpeaker(d, sr)
+  },
+})
+
 def('phone_sms', {
   sr: 32000, prio: 1, norm: { peak: 0.7 },
   gen(r, sr) {
@@ -91,16 +102,9 @@ function vibrateBurst(d, sr, r, off, len) {
     void u
   }
 }
-def('phone_vibrate', {
-  sr: 22050, prio: 1, norm: { peak: 0.6 },
-  gen(r, sr) {
-    const d = buf(1.65, sr)
-    vibrateBurst(d, sr, r, Math.floor(0.01 * sr), 0.78)
-    return d
-  },
-})
 def('phone_vibrate_loop', {
-  sr: 22050, prio: 6, norm: { peak: 0.6 }, loop: 0.01,
+  // the vibra motor: 0.8 s buzz / 0.8 s pause (phone_vibrate plays N pulses of it)
+  sr: 22050, prio: 1, norm: { peak: 0.6 }, loop: 0.01,
   gen(r, sr) {
     const d = buf(1.6 + 0.01, sr)
     vibrateBurst(d, sr, r, Math.floor(0.02 * sr), 0.8)
@@ -140,7 +144,7 @@ def('phone_unavailable', {
   sr: 16000, prio: 3, maxDur: 7.5, norm: { peak: 0.7 },
   gen(r, sr) {
     // SIT: 950 / 1400 / 1800 Hz, 330 ms each — then the operator's recorded voice
-    const voice = speak('Аппара+т абоне+нта вы+ключен, и+ли нахо+дится вне зо+ны де+йствия се+ти.', sr, 'female', r, { rate: 5.6, range: 0.8, pitchJitter: 0.3 })
+    const voice = speak('Абоне+нт недосту+пен, и+ли нахо+дится вне зо+ны де+йствия се+ти.', sr, 'female', r, { rate: 5.6, range: 0.8, pitchJitter: 0.3 })
     const sitLen = 0.03 + 3 * 0.36
     const d = buf(sitLen + 0.35 + voice.length / sr + 0.4, sr)
     tones(d, sr, [950, 1400, 1800].map((f, i) => ({ t: 0.03 + i * 0.36, dur: 0.33, f, gain: 0.32, wave: 'sine' })), { attack: 0.005, release: 0.005 })
@@ -195,26 +199,3 @@ def('gsm_interference', {
     return softClip(d, 1.5)
   },
 })
-
-// Original monophonic ringtones (not real melodies), square 25 % pulse through a phone speaker.
-const N = n => 440 * Math.pow(2, (n - 69) / 12)
-export const RINGTONES = [
-  { name: 'Утро', bpm: 150, notes: [[84, 1], [88, 1], [91, 1], [96, 2], [95, 1], [91, 1], [88, 1], [91, 2], [89, 1], [86, 1], [81, 1], [86, 1], [88, 3], [0, 1]] },
-  { name: 'Вальсок', bpm: 170, notes: [[81, 1], [84, 1], [88, 1], [93, 2], [88, 1], [79, 1], [83, 1], [86, 1], [91, 2], [86, 1], [77, 1], [81, 1], [84, 1], [89, 2], [84, 1], [76, 1], [80, 1], [83, 1], [88, 3], [0, 3]] },
-  { name: 'Дискотека', bpm: 132, notes: [[86, 0.5], [86, 0.5], [89, 0.5], [86, 0.5], [91, 0.5], [86, 0.5], [84, 0.5], [86, 0.5], [86, 0.5], [93, 0.5], [86, 0.5], [94, 0.5], [93, 0.5], [89, 0.5], [86, 0.5], [93, 0.5], [98, 0.5], [86, 0.5], [84, 0.5], [84, 0.5], [81, 0.5], [88, 0.5], [86, 1.5], [0, 2]] },
-  { name: 'Звонок', bpm: 240, notes: [[93, 1], [89, 1], [93, 1], [89, 1], [93, 1], [89, 1], [93, 1], [89, 1], [0, 4], [93, 1], [89, 1], [93, 1], [89, 1], [93, 1], [89, 1], [93, 1], [89, 1], [0, 8]] },
-]
-def('phone_ringtone', {
-  sr: 16000, variants: RINGTONES.length, prio: 8, lazy: true, norm: { peak: 0.6 }, loop: 0.002, dc: 0,
-  gen(r, sr, v) {
-    const m = RINGTONES[v]
-    const beat = 60 / m.bpm / 2
-    const notes = []
-    let t = 0
-    for (const [n, b] of m.notes) { if (n) notes.push({ t, dur: b * beat * 0.82, f: N(n), gain: 0.5 }); t += b * beat }
-    const d = buf(t + 0.002, sr)
-    tones(d, sr, notes, { attack: 0.002, release: 0.008, pw: 0.25 })
-    return phoneSpeaker(d, sr)
-  },
-})
-void Osc

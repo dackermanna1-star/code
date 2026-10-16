@@ -19,8 +19,11 @@ export function showcase(ctx) {
   // a road with a windrow and a manhole
   terrain.setHeightRect(190, 432, 270, 440, 0, M('asphalt_wet'))
   snowBank(ctx, 196, 429.5, 266, 432, 1.0, { gaps: [[30, 33]] })
-  addSteam(ctx, { x: 236, y: 0.05, z: 436, kind: 'manhole' })
-  addSteam(ctx, { x: 252, y: 1.2, z: 424.5, kind: 'vent', vel: [0, 0.6] })
+  const P = ctx.game.params
+  if (!P.nosteam) {
+    addSteam(ctx, { x: 236, y: 0.05, z: 436, kind: 'manhole' })
+    addSteam(ctx, { x: 252, y: 1.2, z: 424.5, kind: 'vent', vel: [0, 0.6] })
+  }
   plowedPile(ctx, 262, 425, { radius: 3, height: 2.3, buried: 'yolka' })
   const pond = placePond(ctx, { x: 228, z: 398, rx: 14, rz: 9, seed: 5, sign: { angle: Math.PI / 2 } })
   const avoid = (x, z) => pond.shapeAt(x, z) < 1.6 || (z > 412 && x > 220 && x < 240)
@@ -31,7 +34,9 @@ export function showcase(ctx) {
   snowDrift(ctx, 209, 426.5, { side: 's', length: 18, depth: 2.5, height: 0.6 })
   scatterWeeds(ctx, { rect: [196, 410, 266, 428], density: 1.2, avoid: (x, z) => z > 425 && x < 220, seed: 4 })
   const tr = trees.filter(t => t.species === 'birch').sort((a, b) => Math.hypot(a.x - 236, a.z - 412) - Math.hypot(b.x - 236, b.z - 412))[0]
-  if (tr) addCrows(ctx, { perch: 'tree', tree: tr, count: 4 })
-  addCrows(ctx, { perch: 'ground', x: 224, z: 420, count: 3, scareRadius: 4 })
+  if (!P.nocrows) {
+    if (tr) addCrows(ctx, { perch: 'tree', tree: tr, count: 4 })
+    addCrows(ctx, { perch: 'ground', x: 224, z: 420, count: 3, scareRadius: 4 })
+  }
   placeTreeRow(ctx, { x0: 196, z0: 444, x1: 266, z1: 444, spacing: 9, species: 'linden' })
 }

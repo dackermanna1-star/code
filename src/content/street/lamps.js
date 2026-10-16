@@ -44,6 +44,7 @@ function buildCobra(poleMat = 'concrete', h = 37) {
   else {
     m.fill(0, 0, 0, 1, h, 1, M('street_galvanized'))
     m.fill(0, 0, 0, 1, 1, 1, M('metal_dark')) // flange
+    m.set(0, 29, 1, M('metal_dark')) // span-wire eye (shared trolleybus/lighting pole)
   }
   const arm = M(poleMat === 'concrete' ? 'metal_dark' : 'street_galvanized')
   // bracket: clamp on the pole, curving up and out (≈12° rise toward the head)
@@ -98,7 +99,7 @@ function buildCourtyard(pole, bulb) {
   else {
     m.fill(0, 0, 0, 1, h, 1, M('paint_matte'))
     m.fill(0, 0, 0, 1, 2, 1, M('street_paint_black'))
-    rustify(m, rng, [M('paint_matte')], 0.18)
+    rustify(m, rng, [M('paint_matte')], 0.05, { bottomBias: 5 })
   }
   const arm = M(pole === 'concrete' ? 'metal_dark' : 'paint_matte')
   m.set(0, h, 0, arm); m.set(0, h, 1, arm); m.set(0, h + 1, 2, arm); m.set(0, h + 1, 3, arm)
@@ -234,7 +235,7 @@ export function placeStreetLamp(ctx, opts = {}) {
     default: {
       const steel = opts.pole === 'steel' || (opts.height !== undefined && opts.height > 10)
       model = steel ? 'street_lamp_cobra_steel' : 'street_lamp_cobra'
-      headY = steel ? 10.45 : 9.45; headF = 2.25; intensity = 55; range = 24
+      headY = steel ? 10.45 : 9.45; headF = 2.5; intensity = 55; range = 24
     }
   }
   if (typeof flicker === 'string') { flickerKind = flicker; flicker = true }

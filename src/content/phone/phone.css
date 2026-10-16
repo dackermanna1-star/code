@@ -26,4 +26,4 @@
 }
 .phone-tr.on { opacity: 1; }
 .phone-tr .t { white-space: pre-line; }
-.phone-tr .h { white-space: nowrap; margin-top: 8px; font-size: 10px; color: rgba(190, 190, 182, 0.45); letter-spacing: .04em; }
+.phone-tr .h { margin-top: 8px; font-size: 10px; color: rgba(190, 190, 182, 0.45); letter-spacing: .04em; }

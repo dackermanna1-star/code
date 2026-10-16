@@ -18,9 +18,9 @@ function buildPO2(variant) {
   const face = M('concrete'), ridge = M('concrete_light'), dark = M('concrete_dark')
   for (let y = 0; y < 8; y++)
     for (let x = 0; x < 10; x++) {
-      const u = (x + 0.5) % 2.5, v = (y + 0.5) % 2.5
-      const d = Math.abs(u - 1.25) + Math.abs(v - 1.25)
-      m.set(x, y, 0, d > 1.0 ? ridge : face)
+      // rhombus lattice: two families of diagonal ribs
+      const rib = (x + y) % 4 === 0 || ((x - y) % 4 + 4) % 4 === 0
+      m.set(x, y, 0, rib ? ridge : face)
     }
   m.fill(0, 0, 0, 10, 1, 1, dark)
   const rng = rngFor('po2' + variant)
@@ -42,7 +42,7 @@ defineModel('street_fence_lawn', () => {
     m.set(x0, 0, 0, p); m.set(x0, 1, 0, p); m.set(x0 + 1, 1, 0, p); m.set(x0 + 2, 1, 0, p); m.set(x0 + 3, 1, 0, p); m.set(x0 + 3, 0, 0, p)
   }
   rustify(m, rngFor('lawnfence'), [p], 0.15)
-  snowTop(m, { chance: 0.6, seed: 5 })
+  snowTop(m, { chance: 0.35, seed: 5 })
   return m
 }, { lods: [1], maxDistance: 110 })
 
@@ -85,12 +85,12 @@ defineModel('street_fence_construction', () => {
 const TYPES = {
   po2: { model: v => (v % 5 === 3 ? 'street_fence_po2_chipped' : 'street_fence_po2'), len: 2.5 },
   concrete: { model: v => (v % 5 === 3 ? 'street_fence_po2_chipped' : 'street_fence_po2'), len: 2.5 },
-  lawn: { model: () => 'street_fence_lawn', len: 2.0, tints: [0x5c7556, 0x8f8a4a, 0x4f6a5a, 0x7a7a42] },
+  lawn: { model: () => 'street_fence_lawn', len: 2.0, tints: [0x5c7556, 0x7a7748, 0x4f6a5a, 0x6e7046] },
   bars: { model: () => 'street_fence_bars', len: 2.5, tints: [0x2f4a36, 0x2a2b2c, 0x3d5568] },
   kindergarten: { model: () => 'street_fence_bars', len: 2.5, tints: [0x2f4a36, 0x2a2b2c, 0x3d5568] },
   chainlink: { model: v => (v % 7 === 4 ? 'street_fence_chainlink_torn' : 'street_fence_chainlink'), len: 2.5 },
   construction: { model: () => 'street_fence_construction', len: 2.5 },
-  tyres: { model: () => 'street_tyre_half', len: 0.8, tints: [0xb3b0a6, 0x9c4a3c, 0x5c7b8e, 0xb39a4e, 0x5f7a55] },
+  tyres: { model: () => 'street_tyre_half', len: 0.8, tints: [0xaaa79e, 0x8e4a3e, 0x5a7282, 0xa08e52, 0x5c7254] },
 }
 
 /**

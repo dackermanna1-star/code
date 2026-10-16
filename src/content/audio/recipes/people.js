@@ -48,7 +48,8 @@ def('snow_shovel', {
         addModes(d, sr, at, [[r.range(280, 340), 0.3, 0.1], [r.range(640, 720), 0.15, 0.06]], 1, r)
       }
     }
-    // heard across a courtyard
+    // heard across a courtyard (a scraper has little below ~250 Hz)
+    filt(d, sr, [['hp', 240, 0.7], ['hp', 200, 0.6]])
     return distant(d, sr, 60, { taps: [[r.range(0.25, 0.35), 0.3], [r.range(0.55, 0.7), 0.15]] })
   },
 })
@@ -56,8 +57,8 @@ def('snow_shovel', {
 // ---- unseen walkers ---------------------------------------------------------------------------
 
 function snowStep(d, sr, off, r, g) {
-  thump(d, sr, off, { f: r.range(70, 95), dur: 0.03, gain: 0.45 * g, attack: 0.008 })
-  crunch(d, sr, off, r, { dur: r.range(0.18, 0.26), count: r.int(25, 40), fLo: 1000, fHi: 2600, gain: 0.85 * g })
+  thump(d, sr, off, { f: r.range(70, 95), dur: 0.03, gain: 0.18 * g, attack: 0.008 })
+  crunch(d, sr, off, r, { dur: r.range(0.18, 0.26), count: r.int(30, 45), fLo: 900, fHi: 2700, gain: 0.95 * g })
   if (r.chance(0.5)) squeak(d, sr, off + Math.floor(0.04 * sr), r, { dur: 0.03, rate: 300, f: r.range(1600, 2400), q: 10, gain: 0.15 * g })
   crunch(d, sr, off + Math.floor(0.13 * sr), r, { dur: 0.08, count: 10, fLo: 1300, fHi: 2800, gain: 0.4 * g })
 }

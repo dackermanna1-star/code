@@ -11,9 +11,9 @@ const MAX = 4096
 
 /** Emitter presets (all overridable). Sizes in m, rates per second, rise in m/s, life in s. */
 export const STEAM_PRESETS = {
-  manhole: { rate: 5, size: 0.75, rise: 0.9, life: 5.5, opacity: 0.3, spread: 0.7, color: 0xe2e5e8, maxDist: 160 },
-  vent: { rate: 3, size: 0.45, rise: 0.55, life: 3.8, opacity: 0.24, spread: 0.4, color: 0xdcdfe2, maxDist: 110 },
-  pipe: { rate: 7, size: 0.55, rise: 1.2, life: 4.2, opacity: 0.3, spread: 0.6, color: 0xe4e6e8, maxDist: 160 },
+  manhole: { rate: 5, size: 0.7, rise: 0.9, life: 5.5, opacity: 0.2, spread: 0.7, color: 0xe2e5e8, maxDist: 160 },
+  vent: { rate: 3, size: 0.45, rise: 0.55, life: 3.8, opacity: 0.18, spread: 0.4, color: 0xdcdfe2, maxDist: 110 },
+  pipe: { rate: 7, size: 0.55, rise: 1.2, life: 4.2, opacity: 0.2, spread: 0.6, color: 0xe4e6e8, maxDist: 160 },
   chimney: { rate: 5, size: 3.2, rise: 2.4, life: 16, opacity: 0.4, spread: 3.5, color: 0xd5d6d6, maxDist: 900 },
   exhaust: { rate: 11, size: 0.22, rise: 0.22, life: 2.4, opacity: 0.3, spread: 0.25, color: 0xb6b5b0, maxDist: 90 },
   breath: { rate: 1.5, size: 0.18, rise: 0.15, life: 1.4, opacity: 0.18, spread: 0.1, color: 0xdfe2e4, maxDist: 40 },

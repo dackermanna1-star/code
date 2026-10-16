@@ -661,7 +661,9 @@ function stairCore(c) {
   if (mode === 'plain') {
     for (let k = 1; k <= N; k++) {
       if (c.lit[k]) {
-        m.set(X(6), L.HL(k) + 9, Z(2), T.lamp_bulb)
+        // bulb on a cord, low enough to be seen through the half-landing window
+        m.set(X(6), L.HL(k) + 9, Z(3), T.metal_dark)
+        m.set(X(6), L.HL(k) + 8, Z(3), T.lamp_bulb)
         m.set(X(6), L.FL(k) + 9, Z(19), T.lamp_bulb)
       }
     }
@@ -731,7 +733,7 @@ function stairPaint(c) {
   if (mode === 'plain') {
     for (let k = 1; k <= L.N; k++) if (c.lit[k]) {
       const y = L.HL(k) + 10
-      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) if (m.get(L.SX0 + 6 + dx, y, L.ZI + 2 + dz) === T.res_stair_glow) m.set(L.SX0 + 6 + dx, y, L.ZI + 2 + dz, T.res_stair_glow_hi)
+      for (let dz = -1; dz <= 2; dz++) for (let dx = -2; dx <= 2; dx++) if (m.get(L.SX0 + 6 + dx, y, L.ZI + 2 + dz) === T.res_stair_glow) m.set(L.SX0 + 6 + dx, y, L.ZI + 2 + dz, T.res_stair_glow_hi)
     }
   }
 }

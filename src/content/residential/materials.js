@@ -13,8 +13,8 @@ defineMaterial('res_rust_stain', { color: 0x8a7462, surface: SURF.CONCRETE, vari
 defineMaterial('res_siding', { color: 0xb3a88a, surface: SURF.METAL, variation: 0.6 }) // beige balcony siding
 // Stairwells
 defineMaterial('res_terrazzo', { color: 0x868379, gloss: 0.12, surface: SURF.CONCRETE, variation: 1.7 }) // precast flights
-defineMaterial('res_stair_glow', { color: 0xc4bfb0, emit: EMIT_CONST, emitColor: 0xffc27a, emitIntensity: 0.32, surface: SURF.CONCRETE, variation: 0.6 })
-defineMaterial('res_stair_glow_hi', { color: 0xd0cabb, emit: EMIT_CONST, emitColor: 0xffcf90, emitIntensity: 0.75, surface: SURF.CONCRETE, variation: 0.4 })
+defineMaterial('res_stair_glow', { color: 0xc4bfb0, emit: EMIT_CONST, emitColor: 0xffc27a, emitIntensity: 0.55, surface: SURF.CONCRETE, variation: 0.6 })
+defineMaterial('res_stair_glow_hi', { color: 0xd0cabb, emit: EMIT_CONST, emitColor: 0xffcf90, emitIntensity: 1.3, surface: SURF.CONCRETE, variation: 0.4 })
 defineMaterial('res_laminate', { color: 0x9a7350, gloss: 0.15, surface: SURF.WOOD, variation: 1.8 }) // lift cab, wood-grain chipboard
 defineMaterial('res_leather_red', { color: 0x561f23, surface: SURF.WOOD, variation: 1.1 }) // burgundy dermatin door
 defineMaterial('res_cloth', { color: 0xa9a08c, surface: SURF.CARPET, variation: 2.2 }) // laundry frozen on lines

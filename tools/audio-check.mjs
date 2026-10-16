@@ -33,7 +33,7 @@ const outDir = path.join(root, 'tools', 'out', 'audio')
 mkdirSync(outDir, { recursive: true })
 
 const { createServer } = await import('vite')
-const server = await createServer({ root, logLevel: 'error', server: { port: 0, host: '127.0.0.1' } })
+const server = await createServer({ root, logLevel: 'error', server: { port: 0, host: '127.0.0.1', hmr: false, watch: null } })
 await server.listen()
 const base = `http://127.0.0.1:${server.httpServer.address().port}`
 const browser = await chromium.launch({
@@ -66,6 +66,7 @@ try {
       window.__an = an
       window.__buf = new Float32Array(an.fftSize)
     })
+    if (opt.step) await page.evaluate(s => { window.__stepSurface = { snow: 1, snow_packed: 2, ice: 3, slush: 4, concrete: 5, asphalt: 6, metal: 7, tile: 8 }[s] ?? 1 }, String(opt.step))
     const secs = +(opt.seconds ?? 30)
     const rows = []
     for (let s = 0; s < secs; s++) {

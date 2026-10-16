@@ -66,12 +66,13 @@ export function snowBank(ctx, x0, z0, x1, z1, height = 1, opts = {}) {
     const dv = Math.round(add / VOXEL)
     if (dv <= 0) return null
     const dirtK = u < 0 ? dNeg : dPos
-    const n = valueNoise2(x * 2.3, z * 2.3, seed + 5)
+    // large soft patches (low frequency) so the bank reads as layered snow, not masonry
+    const n = valueNoise2(x * 0.7, z * 0.7, seed + 5) * 0.75 + valueNoise2(x * 2.1, z * 2.1, seed + 6) * 0.25
     let m
-    if (dirtK > 0.5 && au > 0.82) m = n < 0.55 ? MAT.slush : MAT.snowGrime
-    else if (dirtK > 0.5 && au > 0.35) m = n < 0.45 * dirtK ? MAT.snowGrime : n < 0.8 ? MAT.snowDirty : MAT.snowBank
-    else if (au < 0.4) m = n < 0.55 ? MAT.snow : MAT.snowBank
-    else m = n < 0.15 * dirtK + 0.08 ? MAT.snowDirty : n < 0.7 ? MAT.snowBank : MAT.snow
+    if (dirtK > 0.5 && au > 0.86) m = n < 0.5 ? MAT.snowGrime : MAT.snowDirty
+    else if (dirtK > 0.5 && au > 0.45) m = n < 0.3 * dirtK ? MAT.snowGrime : n < 0.7 ? MAT.snowDirty : MAT.snowBank
+    else if (au < 0.45) m = n < 0.6 ? MAT.snow : MAT.snowBank
+    else m = n < 0.12 * dirtK + 0.06 ? MAT.snowDirty : n < 0.75 ? MAT.snowBank : MAT.snow
     return { h: hv + dv, mat: m }
   })
   // a few loose lumps of packed snow along the crest

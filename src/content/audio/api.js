@@ -5,7 +5,6 @@ import { bank } from './bank.js'
 import { SOUND_NAMES, keysOf, bufferVoice } from './sounds.js'
 import { STEP_SOUNDS } from './footsteps.js'
 import { CASHIER_PHRASES, KIOSK_PHRASES, PA_PHRASES } from './recipes/people.js'
-import { RINGTONES } from './recipes/ui.js'
 import { hashStr } from './dsp.js'
 import { SURF } from '../../core/materials.js'
 
@@ -15,8 +14,6 @@ let DIRECTOR = null
 export function _bind(engine, director) { ENGINE = engine; if (director) DIRECTOR = director }
 
 export { SOUND_NAMES, CASHIER_PHRASES, KIOSK_PHRASES, PA_PHRASES }
-/** Names of the synthesized phone ringtones (index = opts.melody of 'phone_ringtone'). */
-export const RINGTONE_NAMES = RINGTONES.map(r => r.name)
 
 const eng = o => (o && o.engine) || ENGINE
 

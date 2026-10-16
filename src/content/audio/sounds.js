@@ -8,7 +8,6 @@ import { bank } from './bank.js'
 import { makeRng } from './dsp.js'
 import { CAR_SPEEDS } from './recipes/transport.js'
 import { CASHIER_PHRASES, KIOSK_PHRASES, PA_PHRASES } from './recipes/people.js'
-import { RINGTONES } from './recipes/ui.js'
 import { zoneAt, posHash } from './state.js'
 
 const rnd = makeRng(20080114)
@@ -34,6 +33,13 @@ function pickVariant(key) {
 export function bufferVoice(engine, key, v, o = {}) {
   const ctx = engine.ctx
   const out = ctx.createGain()
+  let into = out
+  if (o.lowpass) {
+    const f = ctx.createBiquadFilter()
+    f.type = 'lowpass'; f.frequency.value = o.lowpass; f.Q.value = 0.6
+    f.connect(out)
+    into = f
+  }
   const g = o.gain ?? 1
   const t0 = ctx.currentTime
   let src = null, stopped = false, rate = o.rate ?? 1
@@ -47,7 +53,7 @@ export function bufferVoice(engine, key, v, o = {}) {
     src.buffer = buffer
     src.loop = loop
     src.playbackRate.value = rate
-    src.connect(out)
+    src.connect(into)
     const start = Math.max(now, t0 + (o.delay ?? 0))
     let off = 0
     if (loop) off = ((o.offset ?? rnd() * buffer.duration) % buffer.duration + buffer.duration) % buffer.duration
@@ -75,9 +81,9 @@ export function bufferVoice(engine, key, v, o = {}) {
     bank.request(key, v, true, o.params).then(() => begin(bank.get(key, v, ctx, true, o.params)))
   }
   let duration
-  if (!loop) {
-    if (o.stopAfter) duration = o.stopAfter + (o.delay ?? 0)
-    else if (buffer) duration = buffer.duration / rate + (o.delay ?? 0)
+  if (o.stopAfter) duration = o.stopAfter + (o.delay ?? 0) // finite loop (fragment / cycles)
+  else if (!loop) {
+    if (buffer) duration = buffer.duration / rate + (o.delay ?? 0)
     else duration = (spec?.maxDur ?? 12) / rate + (o.delay ?? 0) + 0.5
   }
   return {
@@ -121,20 +127,19 @@ const loop = (name, db, sp, extra = {}) => { S[name] = { key: name, db, sp, loop
 // UI / phone
 one('click', -14, UI, { rate: [0.95, 1.05] })
 one('paper', -12, UI, { rate: [0.9, 1.1] })
-one('phone_key', -16, UI, { rate: [1, 1] })
+one('phone_key', -16, UI, { rate: [1, 1], pick: o => { if (o.freq) o._rate = Math.min(2, Math.max(0.4, +o.freq / 1870)); return o.tone === false ? ['phone_key_click', Math.floor(rnd() * 3)] : null } })
 one('phone_sms', -14, UI, { rate: [1, 1] })
-one('phone_vibrate', -12, UI, { rate: [0.98, 1.02], pick: o => (o.loop ? ['phone_vibrate_loop', 0, true] : null) })
-loop('phone_ring_out', -16, UI, { prefetch: ['phone_unavailable'] })
+one('phone_vibrate', -12, UI, { rate: [0.98, 1.02], pulses: true, pick: o => ['phone_vibrate_loop', 0, true] })
+loop('phone_ring_out', -16, UI, { prefetch: ['phone_unavailable'], finite: 6.15 })
 loop('phone_busy', -16, UI, { cycles: 0.8 })
 loop('payphone_dial', -18, UI)
 one('phone_unavailable', -13, UI, { rate: [1, 1] })
 one('dial_pulse', -12, UI, { rate: [1, 1], pick: o => ['dial_pulse', o.digit === undefined ? Math.floor(rnd() * 10) : ((+o.digit || 10) - 1 + 10) % 10] })
 one('gsm_interference', -16, { ...UI, bus: 'sfx' }, { rate: [1, 1] })
-loop('phone_ringtone', -12, UI, { pick: o => ['phone_ringtone', ((o.melody ?? 0) % RINGTONES.length + RINGTONES.length) % RINGTONES.length, o.loop !== false] })
 
 // doors & buildings
 one('door_metal_open', -6, NEAR)
-one('door_metal_slam', -2, { ...NEAR, refDistance: 4 })
+one('door_metal_slam', -4, { ...NEAR, refDistance: 4 })
 one('door_magnet_lock', -7, NEAR)
 one('door_wood', -7, NEAR, { rate: [0.92, 1.08] })
 one('intercom_beep', -13, NEAR, { rate: [1, 1], pick: o => ['intercom_beep', { ok: 3, accept: 3, open: 4, unlock: 4, error: 5, wrong: 5 }[o.kind] ?? Math.floor(rnd() * 3)] })
@@ -149,8 +154,8 @@ one('radiator_knock', -11, { ...MACHINE, refDistance: 4 }, { pick: o => ['radiat
 loop('water_pipe', -14, ROOM)
 
 // ambient emitters (loops)
-loop('tv_muffled', -12, ROOM, { pick: o => ['tv_muffled', o.variant === 'show' || o.variant === 1 ? 1 : o.variant === 'news' || o.variant === 0 ? 0 : o.pos ? posHash(o.pos) % 2 : Math.floor(rnd() * 2), true] })
-loop('voices_muffled', -12, ROOM, { pick: o => ['voices_muffled', o.variant !== undefined ? +o.variant % 2 : o.pos ? (posHash(o.pos) >> 3) % 2 : Math.floor(rnd() * 2), true] })
+loop('tv_muffled', -19, ROOM, { pick: o => ['tv_muffled', o.variant === 'show' || o.variant === 1 ? 1 : o.variant === 'news' || o.variant === 0 ? 0 : o.pos ? posHash(o.pos) % 2 : Math.floor(rnd() * 2), true] })
+loop('voices_muffled', -19, ROOM, { pick: o => ['voices_muffled', o.variant !== undefined ? +o.variant % 2 : o.pos ? (posHash(o.pos) >> 3) % 2 : Math.floor(rnd() * 2), true] })
 loop('fridge_hum', -17, { ...ROOM, refDistance: 1.2 })
 loop('fluorescent_buzz', -19, { ...ROOM, refDistance: 1.5 }, { pick: o => ['fluorescent_buzz', o.failing || o.flicker ? 1 : 0, true] })
 loop('transformer_hum', -13, MACHINE)
@@ -168,8 +173,8 @@ one('dog_bark', -4, FAR, { rate: [0.94, 1.06], pick: o => ['dog_bark', o.howl ? 
 one('crow_caw', -6, { ...FAR, refDistance: 20 }, { rate: [0.95, 1.05], pick: o => ['crow_caw', o.jackdaw ? 4 : Math.floor(rnd() * 4)] })
 one('crows_takeoff', -6, { ...FAR, refDistance: 12 })
 one('car_pass', -5, VEHICLE, { pick: carPick('car_pass', 'car_drive') })
-one('bus_pass', -3, VEHICLE, { pick: o => (o.loop ? ['bus_drive', 0, true] : null) })
-one('trolleybus_pass', -3, VEHICLE, { pick: o => (o.loop ? ['trolleybus_drive', 0, true] : null) })
+one('bus_pass', -3, VEHICLE, { pick: o => (o.loop ? (speedRate(o, 40), ['bus_drive', 0, true]) : null) })
+one('trolleybus_pass', -3, VEHICLE, { pick: o => (o.loop ? (speedRate(o, 40), ['trolleybus_drive', 0, true]) : null) })
 one('trolleybus_depart', -2, { ...VEHICLE, refDistance: 6 }, { rate: [0.98, 1.02] })
 one('pantograph_spark', -9, { ...VEHICLE, refDistance: 10 })
 one('train_pass', -2, { ...FAR, refDistance: 60 })
@@ -210,9 +215,14 @@ for (const s of ['snow', 'snow_packed', 'ice', 'slush', 'concrete', 'asphalt', '
   one('step_' + s, -12, { ...NEAR, refDistance: 2, rolloff: 1.4, reverb: 0.8 }, { rate: [0.92, 1.08] })
 }
 
+/** Moving-vehicle loops: playback rate follows opts.speed (km/h) around the nominal speed. */
+function speedRate(o, nominal) {
+  if (o.speed !== undefined) o._rate = Math.min(1.45, Math.max(0.55, Math.sqrt(Math.max(1, +o.speed) / nominal)))
+}
+
 function carPick(passKey, loopKey) {
   return o => {
-    if (o.loop) return [loopKey, Math.floor(rnd() * 2), true]
+    if (o.loop) { speedRate(o, 50); return [loopKey, Math.floor(rnd() * 2), true] }
     // opts.speed in km/h → nearest rendered class; playback rate covers the rest
     const kmh = +(o.speed ?? 50)
     const cls = kmh < 47 ? 0 : 1
@@ -223,10 +233,14 @@ function carPick(passKey, loopKey) {
 
 /** Factory for a sound-table entry. */
 function factory(name, e) {
-  return (engine, opts = {}) => {
+  return (engine, opts0 = {}) => {
+    // the engine passes the same opts object on to connectSource: filling defaults here gives
+    // every sound sensible spatial behaviour (a frozen opts object is copied instead)
+    const opts = opts0 && Object.isFrozen(opts0) ? { ...opts0 } : (opts0 || {})
     defaults(opts, e.sp)
     let key = e.key, v = null, isLoop = e.loop
-    const p = e.pick ? e.pick(opts) : null
+    let p = null
+    try { p = e.pick ? e.pick(opts) : null } catch { p = null }
     if (p) { key = p[0]; v = p[1]; if (p[2] !== undefined) isLoop = p[2] }
     if (v === null) v = opts.variant !== undefined && typeof opts.variant === 'number' ? opts.variant % (bank.spec(key)?.variants ?? 1) : pickVariant(key)
     if (e.loop && opts.loop === false && !e.fragment && !e.cycles) isLoop = false
@@ -235,13 +249,18 @@ function factory(name, e) {
     const gain = dbg(e.db)
     if (e.prefetch) for (const k of e.prefetch) bank.requestAll(k)
     const o = { loop: isLoop, rate, gain }
+    if (opts.muffled) { o.lowpass = 1100; o.gain *= 0.7 } // e.g. the phone still in a pocket
     // finite versions of looping sounds
-    if (e.cycles && opts.cycles) { o.stopAfter = e.cycles * opts.cycles; o.offset = 0; o.fadeIn = 0.005; o.fadeOut = 0.01 }
+    if (e.cycles && (opts.cycles || opts.loop === false)) { o.stopAfter = e.cycles * (opts.cycles || 6); o.offset = 0; o.fadeIn = 0.005; o.fadeOut = 0.01 }
     if (e.fragment && (opts.fragment || opts.loop === false)) {
       o.stopAfter = opts.duration ?? 8 + rnd() * 10
       o.fadeIn = 0.6; o.fadeOut = 2.0
       o.offset = rnd() * 15
     }
+    // the vibra motor: N pulses (0.8 s on / 0.8 s off), loops while opts.loop
+    if (e.pulses && !opts.loop) { o.stopAfter = 1.6 * Math.max(1, Math.round(opts.pulses ?? 2)) - 0.75; o.offset = 0; o.fadeIn = 0.005; o.fadeOut = 0.02 }
+    // ringback: two 425 Hz rings (≈ 6.1 s) unless the caller asks for a loop
+    if (e.finite && !opts.loop) { o.stopAfter = opts.duration ?? e.finite; o.offset = 0; o.fadeIn = 0.005; o.fadeOut = 0.05 }
     if (isLoop && opts.offset !== undefined) o.offset = opts.offset
     return bufferVoice(engine, key, v, o)
   }
@@ -265,6 +284,7 @@ export function keysOf(name) {
   if (name === 'trolleybus_pass') ks.add('trolleybus_drive')
   if (name === 'metro_rumble') ks.add('metro_rumble_loop')
   if (name === 'phone_vibrate') ks.add('phone_vibrate_loop')
+  if (name === 'phone_key') ks.add('phone_key_click')
   if (name === 'footsteps_phantom') ks.add('footsteps_phantom_indoor')
   return [...ks]
 }

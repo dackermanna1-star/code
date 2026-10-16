@@ -6,7 +6,7 @@
 import { LCD, presentLCD, LCD_W, LCD_H } from './lcd.js'
 import { Snake, SNAKE_EN, loadBest } from './snake.js'
 import { RINGTONES, UNAVAILABLE_RU, UNAVAILABLE_EN, registerPhoneSounds } from './sounds.js'
-import { drawBody, drawGlow, BODY_W, BODY_H, LCD_X, LCD_Y, VISIBLE_U, KEYS } from './body.js'
+import { drawBody, drawGlow, drawHand, HAND_PAD, BODY_W, BODY_H, LCD_X, LCD_Y, VISIBLE_U, KEYS } from './body.js'
 import './phone.css'
 
 export const PHONE_DATE = '14.01.2008'
@@ -71,6 +71,25 @@ const TEMPLATES = [
   { ru: 'Куплю.', en: "I'll buy it." },
   { ru: 'Я у подъезда.', en: "I'm at the entrance." },
 ]
+
+// ---- the few texts that may arrive during a walk (ordinary ones) ----------------------------
+const fmtMin = m => { m = Math.floor(((m % 1440) + 1440) % 1440); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` }
+const SCHEDULED = {
+  mum: () => ({ from: 'Мама', fromEn: 'Mum', contact: 'mum', ru: 'Ты скоро? Не забудь хлеб.', en: "Are you coming soon? Don't forget the bread." }),
+  promo: () => ({ from: 'МегаЛинк', fromEn: 'MegaLink (operator)', ru: 'Услуга «Любимый номер»: звонки на один номер — 0,90 р./мин. Подключение: *111*5#', en: 'The "Favourite Number" service: calls to one number for 0.90 rub a minute. To activate, dial *111*5#.' }),
+  friend: () => ({ from: 'Серёга', fromEn: 'Seryoga', contact: 'serega', ru: 'Zavtra v kino idem? Na 8 vechera, ya bilety voz\'mu', en: "Cinema tomorrow? At 8 pm, I'll get the tickets.  (typed in Latin letters)" }),
+  underground: ph => {
+    const m0 = ph._noSignalFrom ?? (ph.ctx.atmos?.minutes ?? 0)
+    const last = fmtMin(m0 + 4)
+    ph.addMissed({ who: 'Мама', en: 'Mum', time: fmtMin(m0 + 1), contact: 'mum' })
+    ph.addMissed({ who: 'Мама', en: 'Mum', time: last, contact: 'mum' })
+    return {
+      from: 'МегаЛинк', fromEn: 'MegaLink (operator)',
+      ru: `Вам звонили: +79164821730, 2 раз(а), посл. ${last} ${DAY}`,
+      en: `You were called: +79164821730 (Mum), 2 time(s), last at ${last} on ${DAY}. There was no signal underground.`,
+    }
+  },
+}
 
 // ---- key mapping --------------------------------------------------------------------------------
 const KEYMAP = {
@@ -183,7 +202,6 @@ export class Phone {
     this._lastYaw = null; this._lastPitch = null
     this._underground = 0
     this._noSignalFrom = null
-    this._inF = 0
     this.callState = null
     this.preview = null
     this.settings = { ringtone: 0, contrast: 4, keytones: true }
@@ -210,7 +228,8 @@ export class Phone {
     this.cLcd = document.createElement('canvas'); this.cLcd.className = 'lcd'
     this.elHalo = document.createElement('div'); this.elHalo.className = 'halo'
     this.elGlare = document.createElement('div'); this.elGlare.className = 'glare'
-    root.append(this.cBody, this.elHalo, this.cGlow, this.cLcd, this.elGlare)
+    this.cHand = document.createElement('canvas'); this.cHand.className = 'hand'
+    root.append(this.cBody, this.elHalo, this.cGlow, this.cLcd, this.elGlare, this.cHand)
     this.el = root
     this.elTr = document.createElement('div')
     this.elTr.className = 'phone-tr'
@@ -232,6 +251,8 @@ export class Phone {
       c.width = BODY_W * p; c.height = BODY_H * p
       c.style.width = `${BODY_W * u}px`; c.style.height = `${BODY_H * u}px`
     }
+    this.cHand.width = (BODY_W + HAND_PAD * 2) * p; this.cHand.height = BODY_H * p
+    Object.assign(this.cHand.style, { left: `${-HAND_PAD * u}px`, width: `${(BODY_W + HAND_PAD * 2) * u}px`, height: `${BODY_H * u}px` })
     this.cLcd.width = LCD_W * p; this.cLcd.height = LCD_H * p
     Object.assign(this.cLcd.style, { left: `${LCD_X * u}px`, top: `${LCD_Y * u}px`, width: `${LCD_W * u}px`, height: `${LCD_H * u}px` })
     Object.assign(this.elGlare.style, { left: `${LCD_X * u}px`, top: `${LCD_Y * u}px`, width: `${LCD_W * u}px`, height: `${LCD_H * u}px` })
@@ -242,6 +263,9 @@ export class Phone {
     const g = this.cBody.getContext('2d')
     g.setTransform(p, 0, 0, p, 0, 0)
     drawBody(g, p)
+    const gh = this.cHand.getContext('2d')
+    gh.setTransform(p, 0, 0, p, 0, 0)
+    drawHand(gh, p)
     this._glowDirty = true
     this.dirty = true
   }
@@ -264,14 +288,17 @@ export class Phone {
       g.setTransform(this.p, 0, 0, this.p, 0, 0)
       drawGlow(g, this._pressed, this.p)
     }
-    this.cGlow.style.opacity = String(this.light)
+    const glowOp = this.light.toFixed(2)
+    if (glowOp !== this._glowOp) { this._glowOp = glowOp; this.cGlow.style.opacity = glowOp }
     // ambient light on the plastic: dim at night, a little warmer indoors
     const night = this.game.uniforms?.uNight?.value ?? 0
     const z = this.game.zone
     const amb = z?.indoor ? 0.78 : 1 - 0.5 * night
     const flash = this.game.flashlight ? 0.08 : 0
-    this.cBody.style.filter = `brightness(${(amb + flash).toFixed(3)})`
-    this.elHalo.style.opacity = String((0.25 + 0.75 * night) * this.light)
+    const bright = `brightness(${(amb + flash).toFixed(3)})`
+    if (bright !== this._bright) { this._bright = bright; this.cBody.style.filter = bright; this.cHand.style.filter = `brightness(${(amb * 0.9 + flash).toFixed(3)})` }
+    const haloOp = ((0.25 + 0.75 * night) * this.light).toFixed(2)
+    if (haloOp !== this._haloOp) { this._haloOp = haloOp; this.elHalo.style.opacity = haloOp }
     // sway: breathing, hand tremor, lag behind the look direction, slide in/out
     const t = this.t
     const k = this.anim * this.anim * (3 - 2 * this.anim)
@@ -287,7 +314,7 @@ export class Phone {
       let en = ''
       try { en = this.screen.en?.(this) ?? '' } catch { en = '' }
       html = en ? `<div class="t">${esc(en)}</div>` : ''
-      if (this._hintKeys < 8) html += '<div class="h">arrows / WASD · E select · Backspace back · Q put away</div>'
+      if (this._hintKeys < 8) html += '<div class="h">arrows / WASD · E select<br>Backspace back · Q put away</div>'
     }
     if (html !== this._trHtml) { this._trHtml = html; this.elTr.innerHTML = html }
     this.elTr.classList.toggle('on', showTr && !!html && k > 0.6)
@@ -301,6 +328,7 @@ export class Phone {
     this.open = true
     this.openedAt = this.game.time
     this.el.classList.add('on')
+    this.game.ui?.setPrompt?.(null)
     this.reset()
     if (screenName) this.goto(screenName)
     else if (this.inbox.some(m => !m.read && !m.notified)) this.push(this._newSmsPopup())
@@ -354,7 +382,7 @@ export class Phone {
   /** Add a missed call to the log (e.g. while there was no signal). */
   addMissed(entry) { this.log.missed.unshift({ date: DAY, ...entry }); this.missedSeen = false; this.dirty = true }
 
-  /** Named story hooks other packages may call: 'doppelganger' | 'underground' | 'longwalk'. */
+  /** Fire one of the scheduled ordinary texts early: 'mum' | 'promo' | 'friend' | 'underground'. */
   trigger(id) { this._fire(id) }
 
   // ---------------------------------------------------------------- screens
@@ -855,7 +883,7 @@ export class Phone {
       if (!this.open) return
       if (this.screen === s) this.pop()
       if (this.signal <= 0) this.push(this._popup({ lines: ['Нет сети'], timeout: 2, en: 'No network' }))
-      else this.push(this._popup({ lines: ['Баланс:', '12.40 р.'], soft: 'OK', en: 'Balance: 12.40 rub (about 30 pence in 2008)' }))
+      else this.push(this._popup({ lines: ['Баланс:', '12.40 р.'], soft: 'OK', en: 'Balance: 12.40 rub (about 50 US cents in 2008)' }))
     })
   }
 
@@ -1037,7 +1065,7 @@ export class Phone {
         const dp = pl.pitch - this._lastPitch
         const k = Math.min(1, dt * 7)
         this._lagX += (clamp(dy / dt, -6, 6) * 9 - this._lagX) * k
-        this._lagY += (clamp(-dp / dt, -6, 6) * 7 - this._lagY) * k
+        this._lagY += (clamp(dp / dt, -6, 6) * 7 - this._lagY) * k
       }
       this._lastYaw = pl.yaw; this._lastPitch = pl.pitch
     }
@@ -1081,48 +1109,33 @@ export class Phone {
   }
 
   // ---------------------------------------------------------------- the rare messages
+  // Ordinary life going on elsewhere: a few plain texts over a long walk (never more than 3).
   _director(dt) {
     const g = this.game
-    const p = g.player?.pos
-    if (!p) return
-    // 1) back above ground after a long stretch without signal: the operator's missed-call notice
+    if (!g.player?.pos) return
+    // back above ground after a long stretch without signal: the operator's missed-call notice
     if (this.signal === 0) {
       this._underground += dt
       if (this._noSignalFrom === null) this._noSignalFrom = this.ctx.atmos?.minutes ?? 0
-    } else if (this.signal >= 2 && this._underground > 30) {
-      this._fire('underground')
+    } else if (this.signal >= 2) {
+      if (this._underground > 40) this._fire('underground')
       this._underground = 0
       this._noSignalFrom = null
-    } else if (this.signal >= 2) { this._underground = 0; this._noSignalFrom = null }
-    // 2) lingering in the courtyard that looks like home (Block F)
-    const f = this.ctx.registry?.doppelganger?.bounds ?? [462, 328, 600, 508]
-    if (p.x > f[0] && p.z > f[1] && p.x < f[2] && p.z < f[3] && p.y > -1 && !g.zone?.indoor) this._inF += dt
-    if (this._inF > 28) { this._inF = -1e9; this._fire('doppelganger') }
-    // 3) a long walk
-    if ((g.time ?? 0) > 22 * 60) this._fire('longwalk')
+    }
+    const t = g.time ?? 0
+    if (t > 20 * 60) this._fire('mum')
+    if (t > 34 * 60) this._fire('promo')
+    if (t > 48 * 60) this._fire('friend')
   }
 
   _fire(id) {
     if (this._fired.has(id)) return
     if (this.smsCount >= MAX_SMS_PER_SESSION) return
-    if ((this.game.time ?? 0) - this.lastSmsAt < 150 && id !== 'underground') return // keep them far apart
+    if ((this.game.time ?? 0) - this.lastSmsAt < 180) return // keep them far apart
+    const msg = SCHEDULED[id]?.(this)
+    if (!msg) return
     this._fired.add(id)
-    if (id === 'underground') {
-      const m0 = this._noSignalFrom ?? (this.ctx.atmos?.minutes ?? 0)
-      const fmt = m => { m = Math.floor(((m % 1440) + 1440) % 1440); return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}` }
-      const last = fmt(m0 + 4)
-      this.addMissed({ who: 'Мама', en: 'Mum', time: fmt(m0 + 1), contact: 'mum' })
-      this.addMissed({ who: 'Мама', en: 'Mum', time: last, contact: 'mum' })
-      this.receive({
-        from: 'МегаЛинк', fromEn: 'MegaLink (operator)',
-        ru: `Вам звонили: +79164821730, 2 раз(а), посл. ${last} ${DAY}`,
-        en: `You were called: +79164821730, 2 time(s), last at ${last} on ${DAY}.  (that is Mum's number; there was no signal underground)`,
-      })
-    } else if (id === 'doppelganger') {
-      this.receive({ from: 'Мама', fromEn: 'Mum', contact: 'mum', ru: 'Видела тебя в окно. Почему не заходишь?', en: "I saw you from the window. Why aren't you coming in?" })
-    } else if (id === 'longwalk') {
-      this.receive({ from: '???', fromEn: '??? (the contact saved without a name)', contact: 'q', ru: 'У вас там тоже снег?', en: 'Is it snowing where you are too?' })
-    }
+    this.receive(msg)
   }
 
   // ---------------------------------------------------------------- audio & helpers

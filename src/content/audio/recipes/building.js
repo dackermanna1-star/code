@@ -105,11 +105,11 @@ def('door_wood', {
   sr: 24000, variants: 3, prio: 2, norm: { peak: 0.85 },
   gen(r, sr, v) {
     const d = buf(1.9, sr)
-    creak(d, sr, Math.floor(0.03 * sr), r, { dur: r.range(0.9, 1.5), rate0: r.range(30, 60), rate1: r.range(110, 240), modes: [[r.range(230, 280), 45], [r.range(500, 600), 60], [r.range(1000, 1250), 90], [r.range(2100, 2600), 160]], gain: 1, jitter: 0.5 })
+    creak(d, sr, Math.floor(0.03 * sr), r, { dur: r.range(0.9, 1.5), rate0: r.range(30, 60), rate1: r.range(110, 240), modes: [[r.range(230, 280), 45], [r.range(500, 600), 60], [r.range(1000, 1250), 90], [r.range(2100, 2600), 160]], gain: 3.2, jitter: 0.5 })
     if (v !== 1) {
       const at = Math.floor(r.range(1.45, 1.75) * sr)
-      addBurst(d, sr, at, 0.005, r, { f: 1800, q: 1, gain: 0.35, tau: 0.0015 })
-      addModes(d, sr, at, [[r.range(180, 220), 0.25, 0.08], [r.range(420, 480), 0.12, 0.05], [r.range(1500, 1800), 0.08, 0.02]], 1, r)
+      addBurst(d, sr, at, 0.005, r, { f: 1800, q: 1, gain: 0.12, tau: 0.0015 })
+      addModes(d, sr, at, [[r.range(180, 220), 0.1, 0.08], [r.range(420, 480), 0.05, 0.05], [r.range(1500, 1800), 0.03, 0.02]], 1, r)
     }
     return filt(d, sr, [['hp', 70, 0.7]])
   },
@@ -346,8 +346,8 @@ def('radiator_knock', {
       const f = r.range(800, 1300)
       for (let k = 0; k < hits; k++) {
         const at = Math.floor((0.02 + k * r.range(0.22, 0.28)) * sr)
-        addBurst(d, sr, at, 0.002, r, { f: 3500, q: 1, gain: 0.6, tau: 0.0005 })
-        addModes(d, sr, at, [[f, 0.5, 0.9], [f * 1.003, 0.2, 0.8], [f * 2.76, 0.25, 0.4], [f * 5.4, 0.1, 0.15], [f * 0.42, 0.15, 0.3]], 1, r)
+        addBurst(d, sr, at, 0.003, r, { f: 3000, q: 0.8, gain: 0.8, tau: 0.0008 })
+        addModes(d, sr, at, [[f, 0.5, 0.42], [f * 1.004, 0.2, 0.38], [f * 2.76, 0.25, 0.22], [f * 5.4, 0.1, 0.09], [f * 0.42, 0.15, 0.2], [f * 1.63, 0.1, 0.15]], 1, r)
       }
       return filt(d, sr, [['lp', 3200, 0.7]])
     }

@@ -7,7 +7,7 @@ export const BODY_W = 152
 export const BODY_H = 352
 export const LCD_X = 28
 export const LCD_Y = 58
-export const VISIBLE_U = 224 // how much of the phone rises above the bottom of the screen
+export const VISIBLE_U = 236 // how much of the phone rises above the bottom of the screen
 
 const KX = [10, 56, 102], KY = [205, 230, 255, 280], KW = 40, KH = 21
 const LABELS = [
@@ -274,4 +274,74 @@ export function drawGlow(g, pressed, p = 1) {
     g.fillStyle = 'rgba(0,0,0,0.38)'
     g.fill()
   }
+}
+
+// ---- the hand: a dark knitted winter glove (fingertips around the left edge, thumb on the right)
+export const HAND_PAD = 22 // extra U on each side of the hand canvas
+
+function knit(g, x0, y0, w, h, rnd) {
+  // tiny V stitches in rows
+  g.strokeStyle = 'rgba(255,255,255,0.05)'
+  g.lineWidth = 0.45
+  for (let y = y0; y < y0 + h; y += 1.9) {
+    for (let x = x0 + ((y / 1.9) % 2) * 0.8; x < x0 + w; x += 1.6) {
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + 0.8, y + 1.1); g.lineTo(x + 1.6, y); g.stroke()
+    }
+  }
+  g.fillStyle = 'rgba(0,0,0,0.12)'
+  for (let i = 0; i < w * h * 0.08; i++) g.fillRect(x0 + rnd() * w, y0 + rnd() * h, 0.6, 0.6)
+}
+
+/** Draw the glove on a canvas offset by -HAND_PAD U horizontally (pre-scaled to U). */
+export function drawHand(g, p = 1) {
+  const W = BODY_W + HAND_PAD * 2
+  g.clearRect(0, 0, W, BODY_H)
+  const rnd = mulberry32(77)
+  g.save()
+  g.translate(HAND_PAD, 0)
+  const wool = (x0, y0, x1, y1) => {
+    const gr = g.createLinearGradient(x0, y0, x1, y1)
+    gr.addColorStop(0, '#45403b'); gr.addColorStop(0.45, '#2c2926'); gr.addColorStop(1, '#171514')
+    return gr
+  }
+  // fingers wrapping the left edge (index, middle, ring), seen as rounded pads over the side
+  const fingers = [[-3, 214, 10.5, 11.5], [-4.5, 238, 11, 12], [-4, 262, 10.5, 11.5], [-2, 284, 9.5, 10]]
+  g.save()
+  g.shadowColor = 'rgba(0,0,0,0.55)'; g.shadowBlur = 4 * p; g.shadowOffsetX = 1.5 * p; g.shadowOffsetY = 1.5 * p
+  for (const [cx, cy, rx, ry] of fingers) {
+    g.beginPath(); g.ellipse(cx, cy, rx, ry, -0.25, 0, Math.PI * 2)
+    g.fillStyle = wool(cx - rx, cy - ry, cx + rx, cy + ry); g.fill()
+  }
+  g.restore()
+  for (const [cx, cy, rx, ry] of fingers) {
+    g.save()
+    g.beginPath(); g.ellipse(cx, cy, rx, ry, -0.25, 0, Math.PI * 2); g.clip()
+    knit(g, cx - rx, cy - ry, rx * 2, ry * 2, rnd)
+    // the fold where the finger bends round the phone
+    g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 0.8
+    g.beginPath(); g.ellipse(cx - rx * 0.55, cy, rx * 0.5, ry * 0.85, 0, -1.2, 1.2); g.stroke()
+    g.restore()
+  }
+  // thumb resting along the right edge, pointing up
+  g.save()
+  g.shadowColor = 'rgba(0,0,0,0.55)'; g.shadowBlur = 5 * p; g.shadowOffsetX = -2 * p; g.shadowOffsetY = 2 * p
+  g.beginPath()
+  g.moveTo(BODY_W + 18, 330)
+  g.lineTo(BODY_W + 14, 236)
+  g.quadraticCurveTo(BODY_W + 12, 203, BODY_W - 2, 201)
+  g.quadraticCurveTo(BODY_W - 15, 202, BODY_W - 14, 226)
+  g.lineTo(BODY_W - 12, 330)
+  g.closePath()
+  g.fillStyle = wool(BODY_W - 15, 200, BODY_W + 18, 300)
+  g.fill()
+  g.restore()
+  g.save()
+  g.beginPath()
+  g.moveTo(BODY_W + 18, 330); g.lineTo(BODY_W + 14, 236); g.quadraticCurveTo(BODY_W + 12, 203, BODY_W - 2, 201)
+  g.quadraticCurveTo(BODY_W - 15, 202, BODY_W - 14, 226); g.lineTo(BODY_W - 12, 330); g.closePath(); g.clip()
+  knit(g, BODY_W - 16, 199, 36, 132, rnd)
+  g.strokeStyle = 'rgba(255,255,255,0.07)'; g.lineWidth = 1
+  g.beginPath(); g.moveTo(BODY_W - 11, 222); g.quadraticCurveTo(BODY_W - 9, 207, BODY_W - 1, 205); g.stroke()
+  g.restore()
+  g.restore()
 }

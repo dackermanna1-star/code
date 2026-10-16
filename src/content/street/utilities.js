@@ -228,11 +228,11 @@ export function placeVendingMachine(ctx, opts) {
   const y = p ? p.y : groundY(ctx, opts.x, opts.z)
   const o = { x: opts.x, z: opts.z, y, angle }
   if (ctx.signs) {
-    if (type === 'coffee') signLocal(ctx, o, 0, 1.12, 0.387, { w: 0.7, h: 0.72, ppm: 160, draw: drawCoffeePanel, emissive: 0.7, schedule: 'always', aged: 0.2, seed: 3 })
+    if (type === 'coffee') signLocal(ctx, o, 0, 1.12, 0.387, { w: 0.7, h: 0.72, ppm: 160, draw: drawCoffeePanel, emissive: 0.5, schedule: 'always', aged: 0.2, seed: 3 })
     else signLocal(ctx, o, 0, 1.62, 0.387, { w: 0.95, h: 0.16, ppm: 160, draw: drawPlate([PLATES.snacks.ru], { bg: '#d8d4c4', color: '#22305a' }), emissive: 0.4, schedule: 'always', aged: 0.3, seed: 4 })
   }
   const [lx, lz] = rotXZ(type === 'snack' ? -0.12 : 0, 0.6, angle)
-  ctx.lights?.add({ x: opts.x + lx, y: y + 1.2, z: opts.z + lz, color: type === 'coffee' ? 0xffd8a0 : 0xe8f2ff, intensity: 1.5, range: 3.5, type: 'point', schedule: 'night', haloSize: 0.3, tag: 'vending' })
+  ctx.lights?.add({ x: opts.x + lx, y: y + 1.2, z: opts.z + lz, color: type === 'coffee' ? 0xffd8a0 : 0xe8f2ff, intensity: 0.9, range: 3.2, type: 'point', schedule: 'night', haloSize: 0.3, tag: 'vending' })
   if (ctx.interactions) {
     const [ix, iz] = rotXZ(0, 0.4, angle)
     let uses = 0
@@ -254,24 +254,35 @@ export function placeVendingMachine(ctx, opts) {
 
 // ---- mailbox --------------------------------------------------------------------------------
 defineModel('street_mailbox', () => {
-  const m = new VoxelModel(3, 8, 2)
-  m.fill(1, 0, 0, 1, 4, 1, M('street_galvanized'))
-  m.fill(0, 4, 0, 3, 3, 2, M('street_mail_blue'))
-  m.set(1, 6, 1, M('metal_dark'))
-  m.fill(0, 7, 0, 3, 1, 2, M('street_mail_blue'))
-  rustify(m, rngFor('mailbox'), [M('street_mail_blue')], 0.06)
+  const m = new VoxelModel(2, 7, 2)
+  const b = M('street_mail_blue')
+  m.fill(0, 0, 0, 1, 6, 1, M('street_galvanized'))
+  m.fill(0, 4, 1, 2, 2, 1, b)
+  m.fill(0, 6, 1, 2, 1, 1, b)
+  m.set(0, 5, 0, M('metal_dark')) // clamp
+  rustify(m, rngFor('mailbox'), [b], 0.06)
   snowTop(m, { chance: 1, seed: 6 })
+  m.setPivot(1, 0, 1)
   return m
 }, small)
 defineModel('street_mailbox_wall', () => {
-  const m = new VoxelModel(3, 4, 2)
-  m.fill(0, 0, 0, 3, 3, 2, M('street_mail_blue'))
-  m.fill(0, 3, 0, 3, 1, 2, M('street_mail_blue'))
-  m.set(1, 2, 1, M('metal_dark'))
+  const m = new VoxelModel(2, 3, 1)
+  const b = M('street_mail_blue')
+  m.fill(0, 0, 0, 2, 2, 1, b)
   snowTop(m, { chance: 1, seed: 7 })
-  m.setPivot(1.5, 0, 0)
+  m.setPivot(1, 0, 0)
   return m
 }, small)
+
+function drawMailFront(c, W, H) {
+  c.fillStyle = '#2d4e78'; c.fillRect(0, 0, W, H)
+  c.fillStyle = '#16263c'; c.fillRect(W * 0.2, H * 0.08, W * 0.6, H * 0.07) // letter slot
+  c.fillStyle = '#e8e4d0'; c.font = `bold ${H * 0.2}px ${SIGN_FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle'
+  c.fillText(PLATES.mailbox.ru, W / 2, H * 0.34)
+  c.fillStyle = '#e2e0d8'; c.fillRect(W * 0.18, H * 0.56, W * 0.64, H * 0.3)
+  c.fillStyle = '#222'; c.font = `${H * 0.065}px ${PLAIN_FONT}`
+  c.fillText('Выемка писем:', W / 2, H * 0.62); c.fillText('9.00, 15.00', W / 2, H * 0.71); c.fillText('кроме воскресенья', W / 2, H * 0.8)
+}
 
 /** Blue «ПОЧТА» mailbox on a post (or wall: x,z on the wall surface, y = bottom, default ground+1.1). */
 export function placeMailbox(ctx, opts) {
@@ -281,10 +292,11 @@ export function placeMailbox(ctx, opts) {
   const p = put(ctx, wall ? 'street_mailbox_wall' : 'street_mailbox', { x: opts.x, z: opts.z, y: y0, angle, tag: 'mailbox' })
   const y = p ? p.y : groundY(ctx, opts.x, opts.z)
   const o = { x: opts.x, z: opts.z, y, angle }
-  const fz = wall ? 0.51 : 0.26, base = wall ? 0 : 1.0
-  if (ctx.signs) {
-    signLocal(ctx, o, 0, base + 0.48, fz, { w: 0.62, h: 0.16, ppm: 160, draw: drawPlate([PLATES.mailbox.ru], { bg: '#2d4e78', color: '#e8e4d0' }), aged: 0.2, seed: 1 })
-    signLocal(ctx, o, 0, base + 0.22, fz, { w: 0.4, h: 0.18, ppm: 200, draw: drawPlate(PLATES.mailboxTimes.ru.split('\n'), { bg: '#e2e0d8', color: '#222', font: PLAIN_FONT, weight: '' }), aged: 0.3, seed: 2 })
+  const base = wall ? 0 : 1.0
+  if (ctx.signs) signLocal(ctx, o, 0, base + 0.25, 0.262, { w: 0.46, h: 0.46, ppm: 200, draw: drawMailFront, aged: 0.25, seed: 1 })
+  if (ctx.interactions) {
+    const [ix, iz] = rotXZ(0, 0.3, angle)
+    ctx.interactions.add({ x: opts.x + ix, y: y + base + 0.3, z: opts.z + iz, size: [0.5, 0.5, 0.5], reach: 2, tag: 'mailbox', prompt: { ru: 'Читать', en: 'Read' }, onUse(game) { game.ui.showNote({ ru: `${PLATES.mailbox.ru}\n${PLATES.mailboxTimes.ru}`, en: `${PLATES.mailbox.en}. ${PLATES.mailboxTimes.en}`, style: 'sign' }) } })
   }
   return p
 }
@@ -582,7 +594,7 @@ export function placeNoticeBoard(ctx, opts) {
   const o = { x: opts.x, z: opts.z, y, angle }
   const fz = wall ? 0.262 : 0.012
   const boardY = wall ? 0.625 : 1.375, boardW = wall ? 1.0 : 1.25
-  if (ctx.signs) signLocal(ctx, o, 0, boardY + (wall ? 0.56 : 0.66), fz, { w: 0.9, h: 0.14, ppm: 160, draw: drawPlate(['ИНФОРМАЦИЯ'], { bg: '#2f4f6a', color: '#e8e6dc' }), aged: 0.3, seed: 1 })
+  if (ctx.signs) signLocal(ctx, o, 0, boardY + (wall ? 0.56 : 0.5), fz, { w: 0.9, h: 0.14, ppm: 160, draw: drawPlate(['ИНФОРМАЦИЯ'], { bg: '#2f4f6a', color: '#e8e6dc' }), aged: 0.3, seed: 1 })
   const items = opts.notices ?? rng.shuffle(NOTICES.slice()).slice(0, opts.count ?? rng.int(2, 4))
   const lostDog = opts.lostDog ?? rng.chance(0.25)
   const list = items.map(n => ({ ...n, kind: 'notice' }))
@@ -590,7 +602,7 @@ export function placeNoticeBoard(ctx, opts) {
   const n = list.length
   list.forEach((it, i) => {
     const lx = (n === 1 ? 0 : -boardW / 2 + 0.2 + (i * (boardW - 0.4)) / (n - 1)) + rng.float(-0.04, 0.04)
-    const ly = boardY + rng.float(-0.12, 0.1)
+    const ly = boardY - (wall ? 0 : 0.1) + rng.float(-0.1, 0.08)
     const lostdog = it.kind === 'lostdog'
     const w = lostdog ? 0.21 : 0.26, h = lostdog ? 0.3 : 0.34
     if (ctx.signs) signLocal(ctx, o, lx, ly, fz + i * 0.001, { w, h, ppm: 230, draw: lostdog ? drawFlyer(it, seed + i, 1) : drawNotice(it, seed + i), aged: 0.25 + rng.next() * 0.4, seed: seed + i })

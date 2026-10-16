@@ -171,22 +171,28 @@ export class Director {
   }
 
   // ---- beds ------------------------------------------------------------------------------
-  _set(node, v, tc = 0.8) {
-    const lv = node._lv ?? -1
-    if (Math.abs(v - lv) <= Math.max(1e-5, lv * 0.01)) return
-    node._lv = v
-    node.gain.setTargetAtTime(v, this.engine.ctx.currentTime, tc)
+  _set(node, v, tc = 0.8) { this._param(node.gain, v, tc) }
+  /** setTargetAtTime only when the value really changes (keeps the automation timelines short). */
+  _param(param, v, tc = 0.8, rel = 0.01) {
+    if (!param) return
+    const lv = param._lv
+    if (lv !== undefined && Math.abs(v - lv) <= Math.max(1e-5, Math.abs(lv) * rel)) return
+    param._lv = v
+    param.setTargetAtTime(v, this.engine.ctx.currentTime, tc)
   }
 
   _beds(dt, engine, game, E) {
     const B = this.beds
     const t = engine.ctx.currentTime
-    const q = this.silence.state === 'normal' ? 1 : this.silence.state === 'returning' ? 0.8 : 0
-    const live = (1 - E.silenceZone) * q
+    // in a silence event the duck pulls the world down; the wind itself stops
+    const st = this.silence.state
+    const calm = st === 'normal' ? 1 : st === 'returning' ? smooth(this.silence.t / 15) : st === 'fading' ? 1 - smooth(this.silence.t / 6) : 0
+    const live = 1 - E.silenceZone * 0.7
+    const windLive = (1 - E.silenceZone) * calm
     // city hum: very low and constant, the millions of lives beyond view
     const city = db(-30) * (1 - 0.45 * E.night) * (E.outdoor + 0.35 * E.indoor * (1 - E.under) + 0.15 * E.under) * live
     this._set(B.city.out, city, 2)
-    B.city.chain[0].frequency.setTargetAtTime(E.outdoor > 0.5 ? 420 : 200, t, 1)
+    this._param(B.city.chain[0].frequency, E.outdoor > 0.5 ? 420 : 200, 1)
     // distant traffic: from the avenue direction, swelling
     if (!this.swell) this.swell = { v: 0, target: 0, next: 2 }
     const S = this.swell
@@ -198,8 +204,8 @@ export class Director {
     const near = E.avenue
     const traffic = (db(-40) + db(-18) * near * near) * (0.55 + 0.6 * S.v) * busy * E.zoneTraffic * (E.outdoor + 0.35 * E.indoor * (1 - E.under)) * live
     this._set(B.traffic.out, traffic, 0.9)
-    B.traffic.chain[0].frequency.setTargetAtTime(E.outdoor < 0.5 ? 350 : 700 + 4500 * near * near, t, 0.8)
-    if (B.trafficPan.pan) B.trafficPan.pan.setTargetAtTime(E.trafficPan * (0.4 + 0.6 * (1 - near)), t, 0.3)
+    this._param(B.traffic.chain[0].frequency, E.outdoor < 0.5 ? 350 : 700 + 4500 * near * near, 0.8)
+    this._param(B.trafficPan.pan, E.trafficPan * (0.4 + 0.6 * (1 - near)), 0.3)
     // wind: strength × gusts × openness; whistles near corners in strong gusts
     if (!this.gust) this.gust = { v: 0.5, target: 0.5, next: 1, sub: 0 }
     const G = this.gust
@@ -211,25 +217,25 @@ export class Director {
     const ws = clamp(E.windSpeed / 3.2, 0.05, 1.5)
     const gust = clamp(G.v * sub + E.gust * 0.35, 0, 1.6)
     const open = 0.35 + 0.65 * E.open
-    const windOut = (E.outdoor * open + E.indoor * 0.18 * (1 - E.under) * Math.min(1, E.zoneWind * 3)) * live
+    const windOut = (E.outdoor * open + E.indoor * 0.18 * (1 - E.under) * Math.min(1, E.zoneWind * 3)) * windLive
     const windLvl = db(-25) * (0.35 + ws) * (0.45 + 0.75 * gust) * windOut
     this._set(B.wind.out, windLvl, 0.5)
-    B.wind.chain[0].frequency.setTargetAtTime(E.outdoor > 0.5 ? 230 + 270 * gust * ws : 180, t, 0.6)
+    this._param(B.wind.chain[0].frequency, E.outdoor > 0.5 ? 230 + 270 * gust * ws : 180, 0.6)
     const U = 2 + 7 * ws * gust // "m/s" for the aeolian whistle pitch f ≈ k·U
-    B.whistle.f[0].frequency.setTargetAtTime(40 * U, t, 0.6)
-    B.whistle.f[1].frequency.setTargetAtTime(29 * U, t, 0.6)
-    const whistle = db(-27) * clamp((ws * gust - 0.45) * 2, 0, 1) * (0.4 + E.corner) * E.outdoor * live
+    this._param(B.whistle.f[0].frequency, 40 * U, 0.6)
+    this._param(B.whistle.f[1].frequency, 29 * U, 0.6)
+    const whistle = db(-27) * clamp((ws * gust - 0.45) * 2, 0, 1) * (0.4 + E.corner) * E.outdoor * windLive
     this._set(B.whistle.out, whistle, 0.7)
-    if (B.whistlePan.pan) B.whistlePan.pan.setTargetAtTime(clamp(E.windPan * 0.7, -0.8, 0.8), t, 1.5)
-    this._set(B.howl.out, db(-38) * clamp(ws * gust - 0.3, 0, 1) * E.corner * E.outdoor * live, 0.8)
-    this._set(B.hiss.out, db(-40) * Math.pow(clamp(gust * ws, 0, 1.4), 3) * (0.3 + E.snow) * E.outdoor * live, 0.4)
+    this._param(B.whistlePan.pan, clamp(E.windPan * 0.7, -0.8, 0.8), 1.5)
+    this._set(B.howl.out, db(-38) * clamp(ws * gust - 0.3, 0, 1) * E.corner * E.outdoor * windLive, 0.8)
+    this._set(B.hiss.out, db(-40) * Math.pow(clamp(gust * ws, 0, 1.4), 3) * (0.3 + E.snow) * E.outdoor * windLive, 0.4)
     // indoor building presence (stairwells, flats, shops) and the underground room tone
     this._set(B.room.out, db(-42) * E.indoor * (1 - E.under) * (E.reverb === 'stairwell' ? 1.3 : 1) * live, 1)
     this._set(B.under.out, db(-33) * E.under * live, 1)
     // trolleybus wires singing near the avenue
-    const wires = db(-40) * clamp(1 - (E.avenueDist - 6) / 30, 0, 1) * E.outdoor * (0.6 + 0.4 * ws) * live
+    const wires = db(-40) * clamp(1 - (E.avenueDist - 6) / 30, 0, 1) * E.outdoor * (0.6 + 0.4 * ws) * windLive
     this._set(B.wires.out, wires, 1)
-    if (B.wiresPan.pan) B.wiresPan.pan.setTargetAtTime(E.trafficPan * 0.5, t, 0.5)
+    this._param(B.wiresPan.pan, E.trafficPan * 0.5, 0.5)
     // snow absorption shelf: fresh snow outdoors eats the highs
     setShelf(this.mix, -(2 + 4 * clamp(E.snow * 1.5, 0, 1)) * E.outdoor, 3)
   }
@@ -269,6 +275,7 @@ export class Director {
         S.breathT = this.r.range(3.8, 6.5)
         const v = bufferVoice(engine, 'breath', Math.floor(this.r() * 5), { rate: this.r.range(0.93, 1.05), sync: true })
         playFoley(engine, v, { gain: db(this.r.range(-26, -22)), pan: this.r.range(-0.05, 0.05), send: 0.5 })
+        this._log('breath')
       }
     } else S.breathT = Math.min(S.breathT, 1.5)
   }
@@ -404,18 +411,26 @@ export class Director {
     }
   }
 
+  /** Manhole positions near the avenue: registry.manholes, street's steam vents, 'manhole' tags. */
+  _collectManholes(game) {
+    const out = []
+    const add = (x, z) => { if (Number.isFinite(x) && Number.isFinite(z)) out.push([x, z]) }
+    try {
+      for (const m of game?.registry?.manholes || []) add(m.x ?? m.pos?.x ?? m[0], m.z ?? m.pos?.z ?? m[1])
+      for (const v of game?.registry?.steamVents || []) if (!v.kind || v.kind === 'manhole') add(v.x, v.z)
+      for (const p of game?.world?.byTag?.('manhole') || []) add(p.x ?? p.pos?.x ?? p.position?.x, p.z ?? p.pos?.z ?? p.position?.z)
+    } catch { /* optional */ }
+    return out
+  }
+
   _nearestManhole(game, E) {
-    const list = game?.registry?.manholes
+    if (!this.manholes || (this.manholes.length === 0 && this.time - (this._mhT ?? -99) > 60)) { this.manholes = this._collectManholes(game); this._mhT = this.time }
     let best = null, bd = 30
-    if (Array.isArray(list)) {
-      for (const m of list) {
-        const x = m.x ?? m.pos?.x ?? m[0], z = m.z ?? m.pos?.z ?? m[1]
-        if (x === undefined || z === undefined) continue
-        const d = Math.hypot(x - E.x, z - E.z)
-        if (d < bd) { bd = d; best = [x, z] }
-      }
-      if (best) return best
+    for (const [x, z] of this.manholes) {
+      const d = Math.hypot(x - E.x, z - E.z)
+      if (d < bd) { bd = d; best = [x, z] }
     }
+    if (best) return best
     // fallback: the underpass stair pits under the avenue (x 378–392)
     for (const z of [513, 564]) {
       const d = Math.hypot(385 - E.x, z - E.z)

@@ -16,7 +16,7 @@ import './materials.js'
 
 const PAINTS = () => [M('metal_red'), M('metal_yellow'), M('metal_blue'), M('metal_green'), M('street_paint_cyan')]
 const pgOpts = { lods: [1], maxDistance: 170 }
-export const TYRE_TINTS = [0xb3b0a6, 0x9c4a3c, 0x5c7b8e, 0xb39a4e, 0x5f7a55, 0xa8a49a]
+export const TYRE_TINTS = [0xaaa79e, 0x8e4a3e, 0x5a7282, 0xa08e52, 0x5c7254, 0xa09c94]
 export const RACK_TINTS = [0x55705c, 0x5e7180, 0x7b6a4a, 0x6b6e6a, 0x7d4f42]
 
 // ---- rocket slide (ракета) ------------------------------------------------------------
@@ -164,7 +164,7 @@ export function placeSwing(ctx, opts) {
   const tint = opts.tint ?? RACK_TINTS[rng.int(0, RACK_TINTS.length - 1)]
   const frame = put(ctx, seats === 2 ? 'street_pg_swing_frame_double' : 'street_pg_swing_frame', { x: opts.x, z: opts.z, y: opts.y, angle, seed, tint, tag: 'playground' })
   const y = frame ? frame.y : groundY(ctx, opts.x, opts.z)
-  const offs = seats === 2 ? [-1.5, 1.5] : [0]
+  const offs = seats === 2 ? [-0.85, 0.85] : [0]
   const state = getState(ctx)
   const out = []
   for (const ox of offs) {
@@ -418,7 +418,6 @@ defineModel('street_tyre_half', () => {
   const m = new VoxelModel(3, 2, 1)
   const p = M('paint_matte')
   m.set(0, 0, 0, p); m.set(0, 1, 0, p); m.set(1, 1, 0, p); m.set(2, 1, 0, p); m.set(2, 0, 0, p)
-  m.set(1, 0, 0, M('rubber'))
   return m
 }, { lods: [1], maxDistance: 90 })
 
@@ -550,7 +549,7 @@ export function placePlayground(ctx, opts) {
   if (opts.fence !== false) {
     const g = full ? 1.4 : 1.0
     const pts = [[g, D], [W, D], [W, -D], [-W, -D], [-W, D], [-g, D]].map(([lx, lz]) => P(lx, lz))
-    const f = placeFence(ctx, { points: pts, type: 'lawn', seed: seed + 50, tint: rng.chance(0.5) ? 0x5c7556 : 0x8f8a4a })
+    const f = placeFence(ctx, { points: pts, type: 'lawn', seed: seed + 50, tint: rng.chance(0.5) ? 0x5c7556 : 0x7a7748 })
     out.placements.push(...f)
   }
   reg(ctx, 'playgrounds', { x: opts.x, z: opts.z, angle, set: full ? 'full' : 'small', bounds: out.bounds })
