@@ -10,10 +10,12 @@
 //     `from_vault` at the SW tunnel mouth (exit back → vault/to_breaker). Trigger `breaker_enter`
 //     (→ ch8.breaker: the shift whistle) two steps in. At the foot of the breaker's front face two
 //     boys sit at the bottom chutes (lamps 1–2 bloom as soon as the whistle scene ends).
-//   THE BREAKER — four plank decks, each 3 rows (north row = picking benches, then a 2-wide lane),
-//     an iron railing on the drop side, and a 2-row tarred timber face under the next deck up. Coal
-//     chutes run down every face to a bench where a boy's husk sits facing up the chute, his back
-//     (split like a cicada shell) to the walkway. Stairs zig-zag at alternating ends:
+//   THE BREAKER — four plank decks (picking floors), each 3 rows: the north row holds the picking
+//     benches, then a clear 2-wide lane, then an iron railing; under every deck an open 2-row drop,
+//     red from the fire below (mine_fire lights in each drop), so the decks read as black bands over
+//     red. Coal chutes hang across every drop to a bench where a boy's husk sits facing up the chute,
+//     his back (split like a cicada shell) to the walkway. A timber head-house flanks the office and
+//     feeds L4's chutes. Stairs bridge the drops, zig-zagging at alternating ends:
 //       S1 floor → L1 at x 19–20 (anchor `stairs_1` at its top) · L1 walked east
 //       S2 L1 → L2 at x 46–47 (anchor `stairs_2`)                · L2 walked west
 //       S3 L2 → L3 at x 14–15                                     · L3 walked east
@@ -25,8 +27,9 @@
 //     high weigh desk with THE REGISTER `br_register` (default interaction → sys.register; anchor
 //     `register` in front of it), his split chair behind it (the hand comes from that side), payroll
 //     ledgers `br_ledgers` (doc ledger_colonel), the 1894 inquest papers `br_inquiry` (doc
-//     inquiry_1894) on a writing desk, the brass-check board, the whistle lever, one lit candle — the
-//     beacon at the top. Trigger `office_enter` (→ ch8.office, checkpoint), anchor `office`.
+//     inquiry_1894) on a writing desk, the brass-check board, the whistle lever, two lit candles either
+//     side of the book — the beacon at the top. Trigger `office_enter` (→ ch8.office, checkpoint),
+//     anchor `office`.
 //
 // LAMPS: 17 husks (`husk_seated`, variant 'boy') each with a map light { type: 'lamp_miner', group:
 // 'lamp_N', on: false }, numbered in climbing order along the route; `breaker.thresholds` makes each
@@ -65,7 +68,8 @@ const BOYS = [
   [39, 18, 'intact', '[n] A boy. Nine, maybe ten. His shell is so thin the lamp shows through it.'],
   // L4 (walked west to the office stair)
   [40, 12, 'intact', '[n] The last bench under the office. You could see this one from the desk.'],
-  [34, 12, 'intact', ['[n] He\'s right under the office. His face is tipped up at the railing.', '[worried] He\'s the only one not looking at the coal.'], 'nochute'],
+  [34, 12, 'intact', ['[n] He\'s right under the office. His face is tipped up at the railing.',
+    '[worried] He\'s the only one not looking at the coal.'], 'nochute'],
   [18, 12, 'turned', ['[n] Off on his own at the far end of the walk.', '[scared] He was facing the chute. I know he was.']],
 ];
 const BOY_AFTER = [
@@ -84,12 +88,13 @@ const boyProps = [];
 BOYS.forEach(([x, y, state, text, nochute], i) => {
   const n = i + 1;
   const chutes = nochute ? [] : [
-    { type: 'chute', x, y: y - 2, dir: 'down', variant: n, examine: n === 3 ? CHUTE_TEXT[0] : n === 11 ? CHUTE_TEXT[1] : undefined },
+    { type: 'chute', x, y: y - 2, dir: 'down', variant: n },
     { type: 'chute', x, y: y - 1, dir: 'down', variant: n + 1 },
   ];
   boyProps.push(
     { id: `br_bench_${n}`, type: 'picking_bench', x: x - 1, y,
-      examine: n === 4 ? '[n] A low bench, the plank polished where they sat. Somebody carved a name and gave up on the tally.' : undefined },
+      examine: n === 4 ? '[n] A low bench, the plank polished where they sat. Somebody carved a name and gave up on the tally.'
+        : undefined },
     { id: `br_boy_${n}`, type: 'husk_seated', x, y, dir: 'up', variant: 'boy', state, solid: false,
       examine: [...BOY_AFTER, { text }] },
     ...chutes,
@@ -104,7 +109,7 @@ const POSTS = [
   [11, 33], [30, 33], [48, 33],                           // L1 railing: ends + middle
   [13, 27], [31, 27],                                     // L2 railing
   [23, 21], [37, 21],                                     // L3 railing
-  [21, 15], [38, 15],                                     // L4 railing
+  [24, 15], [38, 15],                                     // L4 railing
   [9, 26], [11, 15], [50, 21], [52, 30], [48, 12], [6, 35], // legs standing up out of the voids
   [27, 37], [44, 36],                                     // floor
 ].map(([x, y], i) => ({ type: 'beam', x, y, variant: i % 2, ...(i === 0 || i === 15 ? { examine: POST_TEXT } : {}) }));
@@ -171,6 +176,12 @@ export default {
     // ================================================================ the seventeen
     ...boyProps,
     ...POSTS,
+    // two chutes with nobody at their foot (reachable to examine): one spills onto the cavern floor,
+    // one hangs from the head house over L4
+    { type: 'chute', x: 34, y: 34, dir: 'down', variant: 1 },
+    { type: 'chute', x: 34, y: 35, dir: 'down', variant: 2, examine: CHUTE_TEXT[0] },
+    { type: 'chute', x: 21, y: 10, dir: 'down', variant: 0 },
+    { type: 'chute', x: 21, y: 11, dir: 'down', variant: 1, examine: CHUTE_TEXT[1] },
     { type: 'pulley_wheel', x: 46, y: 6 },
     { type: 'pulley_wheel', x: 11, y: 10 },
 
@@ -184,7 +195,8 @@ export default {
     { type: 'steam_vent', x: 11, y: 40,
       examine: [
         { cond: AFTER, text: '[scared] Don\'t look down. Go.' },
-        { text: ['[n] The floor just stops. Red, a long way down. The heat comes up off it in a wall.', '[worried] It\'s burning under the whole town. It\'s been burning since 1962.'] },
+        { text: ['[n] The floor just stops. Red, a long way down. The heat comes up off it in a wall.',
+          '[worried] It\'s burning under the whole town. It\'s been burning since 1962.'] },
       ] },
     { type: 'steam_vent', x: 21, y: 39 },
     { type: 'steam_vent', x: 27, y: 40 },

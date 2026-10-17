@@ -15,11 +15,12 @@
 //     down round it; stepping on them → exit → `stair_bottom` (conceptually several storeys).
 //   IRON STAIR (rows 11–13, x 2–8): the spiral's foot in a brick niche, rising into the dark (walk back
 //     into the niche → `spiral_top`). Brass maker's plate (1911), a dead bulb cage, puddles, drips.
-//   THE DESCENT — no music, the floor changes under her feet:
-//     brick tunnel (rows 11–13, x 9–29; concrete floor, puddles; Walt's chalk JOEY) → stairs down
-//     (x 27–29) → rock passage west (rows 17–19; stone; mine timbers; Adair's trodden 1979 program) →
-//     stairs down (x 3–5) → gravel landing (Walt's chalk: TOO HOT, 10/62 — where he turned back) →
-//     stairs down (x 8–10) → the coal landing (rows 28–33): glowing fissures, steam, heat.
+//   THE DESCENT — no music, the floor changes under her feet (concrete → stone → gravel → coal):
+//     brick tunnel (rows 11–13, x 9–29; puddles, dead bulb cages; Walt's note to Joey, 10-21-62) →
+//     stairs down (x 27–29) → rock passage west (rows 17–19; stone; Adair's trodden 1979 program,
+//     CHARTER. STAMPS. BOOK.) → stairs down (x 3–5) → gravel landing (Walt's last note, 10-23-62: too
+//     hot — where he turned back) → stairs down (x 8–10) → the coal landing (rows 28–33): PRESENT
+//     scratched over and over into the rock face, an L-shaped crack glowing with the mine fire, steam.
 //   FOUNDER'S VAULT (x 13–26, rows 23–33; marble): entered through its west archway (trigger
 //     `vault_enter` → ch8.vault, checkpoint). North wall: name walls 1894 · 1911–1945 · 1962–1979, the
 //     regimental flag centred over the burst sarcophagus `v_sarcophagus` (→ ch8.sarcophagus), dead
@@ -30,8 +31,9 @@
 //     breaker/from_vault, LOCKED until Tess has `red_pen` (refusal script ch8.no_light). Anchor
 //     `to_breaker` = arrival back from the breaker.
 // Escape (WITHDRAWN) runs it all in reverse: passage → vault → landings → rock passage → tunnel →
-// spiral → crawl → steps → aud. No dead ends on that line; every leg is ≥ 3 tiles wide.
-// Past view `vault_1979` (optional, compact): Adair alive at the desk, head down, writing in the dark.
+// spiral → crawl → steps → aud. No dead ends on that line; nothing narrower than 2 tiles.
+// Past view `vault_1979` (optional, compact; not in CONTENT): Adair alive at the desk, head down, writing.
+// The 1979 view also shows the sarcophagus sealed and the 1979 panel not yet carved (the art's clean set).
 // Data extra `fx` (for an onEnter/system emitter): drip / ember / steam points in tile coords.
 const F = (s) => s.flags || {};
 const AFTER = (s) => !!F(s).register_done;
@@ -63,7 +65,7 @@ export default {
     ' B|vvv============================B ', //  7
     ' BBvvBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB ', //  8  crawl south wall = tunnel north wall: top
     ' BBvvBBBBBBBBBBBBBBBBBBBBBBBBBBRRRR ', //  9  face_high · spiral niche (x 3–4)
-    ' BBvvBBBBBBBBBBBBBBBBBBBBBBBBBBRRRR ', // 10  face_low  · maker's plate, bulb cages, chalk
+    ' BBvvBBBBBBBBBBBBBBBBBBBBBBBBBBRRRR ', // 10  face_low  · maker's plate, bulb cages
     ' B~:::::::::::::::::::::::::::BRRRR ', // 11  iron stair foot (x 2–8) · brick tunnel (x 9–29)
     ' B::::~~::::::::::::::~:::::::BRRRR ', // 12
     ' B:::::::::~::::::::~~::::::::BRRRR ', // 13
@@ -75,18 +77,18 @@ export default {
     ' RRs;;sssssssssssss~ssssssssssRRRRR ', // 19
     ' RRvvvRRRRRRMMMMMMMMMMMMMMMMRRRRRRR ', // 20  stairs down (x 3–5) · vault north wall: top
     ' RRvvvRRRRRRMMMMMMMMMMMMMMMMRRRRRRR ', // 21  face_high
-    ' RRvvvRRRRRRMMMMMMMMMMMMMMMMRRRRRRR ', // 22  face_low: name walls, flag, plaque · Walt's chalk
+    ' RRvvvRRRRRRMMMMMMMMMMMMMMMMRRRRRRR ', // 22  face_low: name walls, flag, plaque
     ' R;;;;;;;;;RMmmmmmmmmmmmmmmMRRRRRRR ', // 23  gravel landing | FOUNDER'S VAULT
     ' R;;;;;;;;;RMmmmmmmmmmmmmmmMRRRRRRR ', // 24
     ' R;;;%;;;;;RMmmmmmmmmmmmmmmMRRRRRRR ', // 25
-    ' RRRRRRRvvvRMmmmmmmmmmmmmmmMRRRRRRR ', // 26  ledge face · stairs down (x 8–10)
+    ' RRRRRRRvvvRMmmmmmmmmmmmmmmMRRRRRRR ', // 26  ledge face (PRESENT scratched, row 27) · stairs down (x 8–10)
     ' RRRRRRRvvvRMmmmmmmmmmmmmmmMRRRRRRR ', // 27
-    ' R%%%%%%%%%RMmmmmmmmmmmmmmmMRRRRRRR ', // 28  coal landing (embers)
-    ' R%%%Z%%%%%%mmmmmmmmmmmmmmmd%%%%%%R ', // 29  west archway (x 11–12) · east breach (x 27) · coal passage
-    ' R%%%%%%%%%%mmmmmmmmmmmmmmmd%%%%%%R ', // 30
+    ' R%%%%%%%%%RMmmmmmmmmmmmmmmMRRRRRRR ', // 28  coal landing (the crack: x 3 rows 30–32, row 32 x 3–6)
+    ' R%%%%%%%%%%mmmmmmmmmmmmmmmd%%%%%%R ', // 29  west archway (x 11–12) · east breach (x 27) · coal passage
+    ' R%Z%%%%%%%%mmmmmmmmmmmmmmmd%%%%%%R ', // 30
     ' R%Z%%%%%%%%mmmmmmmmmmmmmmmd%%%%%%R ', // 31
-    ' R%Z%%%%%%%RMmmmmmmmmmmmmmmMRRRvvvR ', // 32  stairs down into the dark (x 31–33)
-    ' R%%%%%%Z%%RMmmmmmmmmmmmmmmMRRRvvvR ', // 33
+    ' R%ZZZZ%%%%RMmmmmmmmmmmmmmmMRRRvvvR ', // 32  stairs down into the dark (x 31–33)
+    ' R%%%%%%%%%RMmmmmmmmmmmmmmmMRRRvvvR ', // 33
     ' RRRRRRRRRRRMMMMMMMMMMMMMMMMRRRvvvR ', // 34  exit → breaker (gated: red pen)
     '                                    ', // 35
   ],
@@ -126,9 +128,11 @@ export default {
     web(13, 4, 'left'),
     web(33, 4, 'right', '[n] Cobwebs, thick as gauze, strung between the joists and the brick.'),
     web(20, 7, 'left'),
-    web(6, 4, 'right', ['[n] A curtain of cobweb by the well, torn through at about my height.', '[worried] A long time ago. Somebody else came this way.']),
-    // the well: a web strung on the north railing is the examine spot (stepping on the treads goes down)
-    { id: 'v_well', type: 'cobweb', x: 4, y: 4, dir: 'right', verb: 'Look',
+    web(7, 4, 'right', ['[n] A curtain of cobweb by the well, torn through at about my height.',
+      '[worried] A long time ago. Somebody else came this way.']),
+    // the well: a web strung on the railing's corner post is the examine spot (from x 6 facing west;
+    // stepping on the treads goes down)
+    { id: 'v_well', type: 'cobweb', x: 5, y: 4, dir: 'right', verb: 'Look',
       examine: [
         { cond: AFTER, text: '[n] The well. Warm air pouring up it. Up is the way out.' },
         { text: ['[n] An iron spiral, going down round a black well. Warm air comes up it, and a smell like a struck match.',
@@ -186,11 +190,13 @@ export default {
       examine: ['[n] Scratched into the rock, small, over and over, like with a fingernail: PRESENT. PRESENT. PRESENT.',
         '[worried] Somebody down here kept answering.'] },
     { type: 'cobweb', x: 2, y: 23, dir: 'left' },
-    { type: 'steam_vent', x: 8, y: 32,
+    // the crack in the coal (pit cells x 3 rows 30–32, x 3–6 row 32): the fire showing through
+    { type: 'steam_vent', x: 4, y: 31,
       examine: ['[n] The coal\'s split open here. It glows down inside, orange, like an oven seen through a crack.',
         '[worried] The mine fire. It\'s right under me.'] },
-    { type: 'steam_vent', x: 5, y: 30 },
-    { type: 'coal_heap', x: 6, y: 31, state: 'flat', interact: false },
+    { type: 'steam_vent', x: 7, y: 32 },
+    { type: 'steam_vent', x: 5, y: 29 },
+    { type: 'coal_heap', x: 6, y: 29, state: 'flat', interact: false },
 
     // ================================================================ the Founder's Vault
     // north wall (face_low row 22): the rolls, the colour, the founder's plate
@@ -245,7 +251,7 @@ export default {
       examine: ['[n] A writing desk with a crust of dried ink in the well. Pages under her hands.',
         '[n] A flashlight lies by her knee, the switch still pushed forward. Dead.'] },
     { type: 'coal_heap', x: 24, y: 30, state: 'flat', interact: false },
-    { type: 'decal_tiles', x: 26, y: 32,
+    { type: 'decal_tiles', x: 26, y: 29,
       examine: ['[n] Chunks of marble, and the coal behind where the wall should be.',
         '[worried] It broke outward. From in here.'] },
     { type: 'decal_stain', x: 15, y: 31 },
@@ -306,14 +312,16 @@ export default {
   lights: [
     // light spilling down the trap-room steps from the open hatch (no fixture, no halo)
     { type: 'bulb', x: 32.5, y: 3.2, color: '#d8b57c', radius: 3.2, intensity: 0.34, cage: false, glow: null },
-    // the Assembly's light seeping down between the boards right under the lectern
-    { type: 'spot', x: 17, y: 5.6, color: '#e2cf9e', radius: 2.4, disc: 1.3, intensity: 0.3, shadows: false, glow: null },
+    // the Assembly's light seeping down between the boards right under the lectern. Group
+    // 'floorboards' (on by default): ch8.last_roll should fade it out when the roll moves on
+    // (g.lights('floorboards', false)) — the camera at the spiral foot can still see this row.
+    { type: 'spot', x: 17, y: 5.6, color: '#e2cf9e', radius: 2.4, disc: 1.3, intensity: 0.3, shadows: false, glow: null,
+      group: 'floorboards' },
     // the well: a red breath from very far below
     { type: 'mine_fire', x: 3.5, y: 5.5, radius: 2.4, intensity: 0.42 },
-    // coal landing fissures (fire preset for the glow in the crack; mine-fire red)
-    { type: 'fire', x: 3, y: 31.5, color: '#d03a12', radius: 3, intensity: 0.75 },
-    { type: 'fire', x: 5, y: 29, color: '#d03a12', radius: 2.2, intensity: 0.6 },
-    { type: 'fire', x: 8, y: 33, color: '#d03a12', radius: 2.4, intensity: 0.65 },
+    // the crack across the coal landing (fire preset: a hot glow in the crack; mine-fire red)
+    { type: 'fire', x: 3, y: 31, color: '#d03a12', radius: 3.2, intensity: 0.95 },
+    { type: 'fire', x: 5.5, y: 32, color: '#d03a12', radius: 3, intensity: 0.9 },
     // the vault's broken east wall and the stairs to the breaker: red from below, pulling east
     { type: 'mine_fire', x: 27.5, y: 30, radius: 3.4, intensity: 0.45 },
     { type: 'mine_fire', x: 32, y: 34, radius: 4.2, intensity: 0.75 },
@@ -321,7 +329,7 @@ export default {
 
   past: [
     {
-      id: 'vault_1979', rect: [19, 27, 7, 6], hint: 'She\'s still writing. Her light\'s almost gone.',
+      id: 'vault_1979', rect: [19, 27, 7, 6], hint: '1979. She got this far. She\'s still writing.',
       hide: ['v_adair_husk'],
       adair: { x: 22, y: 29, anim: 'heads_down', dir: 'down' },
       setFlag: 'saw_vault_past',
@@ -331,7 +339,7 @@ export default {
   // For an ambient emitter (onEnter script or system): HW.fx.emit(type, x*16+8, y*16+8, …) at intervals.
   fx: {
     drip: [[5, 12], [12, 13], [20, 12], [21, 13], [8, 18], [18, 19]],
-    ember: [[3, 31], [5, 29], [8, 33], [27, 30], [32, 33]],
-    steam: [[6, 18], [6, 24], [8, 32], [5, 30], [30, 31]],
+    ember: [[3, 30], [3, 32], [5, 32], [27, 30], [32, 33]],
+    steam: [[6, 18], [4, 24], [4, 31], [7, 32], [5, 29], [30, 31]],
   },
 };

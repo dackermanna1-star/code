@@ -9,7 +9,7 @@ prop's script id/examine) to DONE maps for their chapters and must list them in 
 | exterior, lobby, aud | maps-A | DONE |
 | east1, gym, basement | maps-C | DONE |
 | east2, longhall, west2 | maps-D | DONE |
-| vault, breaker | maps-E | IN PROGRESS (finishing) |
+| vault, breaker | maps-E | DONE |
 
 Systems: DONE (see docs/API_NOTES.md "Game systems" sections). Lore/docs: DONE.
 
