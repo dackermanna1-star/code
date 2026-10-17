@@ -2,7 +2,7 @@
 // One parametric rig per character (portraits_<char>.js) → every expression is the same face with different
 // muscle settings; lights are band remaps of the same drawing (portraits_core.js). Everything is cached.
 // 'colonel' is delegated to portraits_colonel.js (owned by the colonel agent).
-import { makeCanvas, ctxOf, tinyText } from './util.js';
+import { makeCanvas, ctxOf, tinyText, flipH } from './util.js';
 import { getColonelPortrait, initColonelPortraits } from './portraits_colonel.js';
 import { prepare, shade, edgeDistance, mixInto, bay, PW, PH, hexToRgb, PAL, clamp } from './portraits_core.js';
 import { mergeExpr } from './portraits_face.js';
@@ -98,6 +98,11 @@ function scheduleWarm() {
   idle(step);
 }
 
+/**
+ * Portrait canvas (96×120). opts: { light, grime, enrolled } per the contract, plus optional `mirror: true`
+ * (additive): every rig faces viewer-right (into a dialogue box drawn on the left); a speaker shown on the
+ * right can be mirrored so they face the text. Cached per combination.
+ */
 export function getPortrait(char, expr = 'neutral', opts = {}) {
   if (char === 'colonel') return getColonelPortrait(expr, opts);
   const light = PORTRAIT_LIGHTS.includes(opts.light) ? opts.light : 'normal';
@@ -106,6 +111,12 @@ export function getPortrait(char, expr = 'neutral', opts = {}) {
   if (!CAST[char]) return placeholder(char, expr);
   const ex = exprOf(char, expr);
   const key = `${char}|${ex.id}|${light}|${grime}|${enrolled ? 1 : 0}`;
+  if (opts.mirror) {
+    const mk = key + '|m';
+    let m = cache.get(mk);
+    if (!m) { m = flipH(getPortrait(char, ex.id, { light, grime, enrolled })); cache.set(mk, m); }
+    return m;
+  }
   let c = cache.get(key);
   if (c) return c;
   const rig = geometry(char, ex.id, grime, enrolled);

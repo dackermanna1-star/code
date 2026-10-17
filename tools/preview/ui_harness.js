@@ -184,6 +184,10 @@ const SCEN = {
   // hud
   async hud() { HW.periods.active = true; HW.periods.timeLeft = 50; HW.compact.hasPastHere = true; HW.state.battery = 64; adv(1.5); ui.prompt({ id: 'desk', type: 'desk_student', x: 18, y: 11, def: { w: 1, h: 1 } }, 'Sit'); adv(0.5); },
   async hud_lowbatt() { HW.state.battery = 14; ui.prompt({ id: 'locker', type: 'locker', x: 12, y: 8, def: { w: 1, h: 1 } }, 'Hide'); adv(0.6); },
+  async hud_seated() { HW.player.seated = { id: 'desk' }; adv(1); },
+  async locker_hidden() { HW.player.hidden = 'locker'; ui.setOverlay('locker', { phase: 0.2, faceIn: 0 }); adv(2.5); },
+  async confirm() { ui.open('pause'); adv(0.3); ui.open('confirm', { text: 'Quit to the title screen? Anything since your last save will be lost.', yes: 'Quit', no: 'Stay', danger: true }); adv(0.3); },
+  async pause_nosave() { HW.game.canSave = () => false; ui.open('pause'); adv(0.3); for (let i = 0; i < 4; i++) await tap('ArrowDown'); adv(0.2); },
   async toasts() { ui.toast('Got: D Batteries'); adv(0.3); ui.toast("Got: Danny's Flashlight"); adv(0.3); ui.objective('Get into the main office. The intercom.'); adv(1); },
   // cards
   async card_chapter() { ui.card('II — First Period'); adv(3.2); },
@@ -230,7 +234,6 @@ const SCEN = {
     adv(1.2);
   },
   async breath() { ui.setOverlay('locker', { phase: 1, faceIn: 1 }); ui.open('breath', { seconds: 6 }); adv(0.6); window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyZ' })); adv(3.2); },
-  async fonts() {},
 };
 
 // ---- boot -----------------------------------------------------------------------------------------------

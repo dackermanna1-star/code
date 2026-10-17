@@ -1,8 +1,8 @@
 // Tess Dolan — protagonist portrait rig.
 // Copper-red messy shoulder-length hair tucked behind her LEFT ear (the far side in this 3/4 view), loose
 // strands across her face, freckles, pale, gray-green eyes; oversized light-wash denim jacket over a black tee.
-import { PAL, mix, darken, lighten } from './palette.js';
-import { material, rampFrom } from './portraits_core.js';
+import { PAL, mix, darken } from './palette.js';
+import { material } from './portraits_core.js';
 import { stdMats, paleRamp } from './portraits_human.js';
 import { drawSmudges } from './portraits_face.js';
 import { L, strand, hairVol, denimDetails, enrolledSkin } from './portraits_parts.js';
@@ -10,7 +10,6 @@ import { L, strand, hairVol, denimDetails, enrolledSkin } from './portraits_part
 const SKIN = ['#4a1c22', mix(PAL.skin_dd, PAL.skin_d, 0.55), mix(mix(PAL.skin_d, PAL.skin, 0.5), '#c4605a', 0.18),
   mix(PAL.skin, PAL.skin_l, 0.4), mix(PAL.skin_l, PAL.white, 0.18), mix(PAL.skin_l, PAL.white, 0.55)];
 const HAIR = ['#260905', PAL.hair_r_dd, PAL.hair_r_d, mix(PAL.hair_r_d, PAL.hair_r, 0.5), PAL.hair_r, mix(PAL.hair_r_l, PAL.hair_r_ll, 0.25)];
-const HAIR_LIT = [PAL.hair_r_dd, PAL.hair_r_d, mix(PAL.hair_r_d, PAL.hair_r, 0.5), PAL.hair_r, mix(PAL.hair_r, PAL.hair_r_l, 0.6), PAL.hair_r_ll];
 
 export const TESS = {
   seed: 1611,
@@ -26,13 +25,13 @@ export const TESS = {
     if (o.enrolled) skin = enrolledSkin(skin, o.half ? 0.5 : 1);
     const hair = o.enrolled ? HAIR.map((c, i) => mix(c, '#8a6a5a', 0.18 + i * 0.02)) : HAIR;
     return [
-      material('skin', skin, { tone: [0.2, 0.38, 0.55, 1.06], dither: 0.012 }),
-      material('freckle', skin.map((c, i) => mix(c, i < 3 ? PAL.freckle : '#c47a58', 0.3)), { tone: [0.2, 0.38, 0.55, 1.06], dither: 0, line: false }),
-      material('blush', skin.map((c, i) => mix(c, '#e06a6a', i === 0 ? 0 : 0.2)), { tone: [0.2, 0.38, 0.55, 1.06], dither: 0, line: false }),
-      material('bruise', skin.map((c) => mix(c, '#6a4a6e', 0.35)), { tone: [0.2, 0.38, 0.55, 1.06], dither: 0, line: false }),
-      material('dirt', skin.map((c) => mix(c, '#5a4a3e', 0.42)), { tone: [0.2, 0.38, 0.55, 1.06], dither: 0, line: false }),
+      material('skin', skin, { tone: [0.2, 0.38, 0.47, 1.06], dither: 0.02, ditherT: [0.02, 0.035, 0.06, 0.008] }),
+      material('freckle', skin.map((c, i) => mix(c, i < 3 ? PAL.freckle : '#c47a58', 0.3)), { tone: [0.2, 0.38, 0.47, 1.06], dither: 0, line: false }),
+      material('blush', skin.map((c, i) => mix(c, '#e06a6a', i === 0 ? 0 : 0.2)), { tone: [0.2, 0.38, 0.47, 1.06], dither: 0, line: false }),
+      material('bruise', skin.map((c) => mix(c, '#6a4a6e', 0.35)), { tone: [0.2, 0.38, 0.47, 1.06], dither: 0, line: false }),
+      material('dirt', skin.map((c) => mix(c, '#5a4a3e', 0.42)), { tone: [0.2, 0.38, 0.47, 1.06], dither: 0, line: false }),
       material('scratch', ['#3a0c0e', '#5e1416', '#8a2a26', '#b04a40', '#c86a5a', '#da8a76'], { dither: 0, line: false }),
-      material('lip', ['#3e1418', '#5e2228', '#8a4044', '#b06a66', '#cc8a80', '#e0a898'], { tone: [0.2, 0.38, 0.55, 1.06], dither: 0, line: false }),
+      material('lip', ['#3e1418', '#5e2228', '#8a4044', '#b06a66', '#cc8a80', '#e0a898'], { tone: [0.2, 0.38, 0.47, 1.06], dither: 0, line: false }),
       material('lash', ['#120605', '#240e09', '#3e160d', '#5a2213', '#76321c', '#904428'], { tone: [0.6, 1.2, 1.6, 2], dither: 0, line: false, inner: false }),
       material('brow', ['#1c0806', '#34110a', '#4e190d', '#662312', '#7c2e17', '#92401f'], { tone: [0.25, 0.5, 0.8, 1.1], dither: 0, line: false, inner: false }),
       material('iris', o.enrolled ? ['#2a2a26', '#4a4a42', '#6e6c60', '#8e8a7c', '#aaa494', '#c4bcaa'] : ['#0e1612', '#1d2e26', '#33493d', '#4c6a58', '#6e8e78', '#9ab6a0'], { tone: [0.2, 0.45, 0.85, 1.2], dither: 0, line: false, inner: false, flat: 0.5 }),
@@ -47,7 +46,7 @@ export const TESS = {
     return {
       skinMat: 'skin',
       eye: {
-        uc: 0.43, y: 50, w: 10.6, irisShiftN: -0.9, hu: 3.9, hl: 2.6, ri: 3.6, rp: 1.45, irisW: 1.0, cIn: 0.8, cOut: -0.6, peak: -0.2, archPow: 2.6,
+        uc: 0.43, y: 50, w: 10.6, irisShiftN: -0.1, hu: 3.9, hl: 2.6, ri: 3.6, rp: 1.45, irisW: 1.0, cIn: 0.8, cOut: -0.6, peak: 0.05, archPow: 2.6,
         lash: [1, 2, 2.4], flick: 1.2, flickRise: 2.2, crease: true, creaseGap: 1.4, lowerLine: 0.55, irisDy: -0.4,
         skinMat: 'skin', lashMat: 'lash', irisMat: 'iris', irisGlassMat: 'irisGlass', scleraMat: 'sclera', pupilMat: 'pupil', glintMat: 'glint',
       },
@@ -111,11 +110,11 @@ export const TESS = {
 
 function denimMats() {
   return [
-    material('denim', ['#182036', '#2a3a58', mix(PAL.denim_d, PAL.denim, 0.45), mix(PAL.denim, PAL.denim_l, 0.45), mix(PAL.denim_l, PAL.denim_ll, 0.4), mix(PAL.denim_ll, PAL.white, 0.25)], { tone: [0.2, 0.45, 0.74, 1.04], dither: 0.006 }),
+    material('denim', ['#182036', '#2a3a58', mix(PAL.denim_d, PAL.denim, 0.45), mix(PAL.denim, PAL.denim_l, 0.4), mix(PAL.denim_l, PAL.denim_ll, 0.25), mix(PAL.denim_ll, PAL.white, 0.12)], { tone: [0.2, 0.45, 0.74, 1.04], dither: 0.006 }),
     material('denimDust', ['#2c2a30', mix(PAL.denim_d, PAL.g4, 0.4), mix(PAL.denim, PAL.g5, 0.45), mix(PAL.denim_l, PAL.paper_d, 0.45), mix(PAL.denim_ll, PAL.paper, 0.45), PAL.paper], { dither: 0, line: false }),
     material('stitch', ['#2e2a2a', mix(PAL.denim_d, PAL.mustard_d, 0.5), mix(PAL.denim, PAL.mustard, 0.45), mix(PAL.denim_l, '#b89a5a', 0.45), mix(PAL.denim_ll, '#cdb47a', 0.45), '#d8cca8'], { tone: [0.2, 0.45, 0.74, 1.04], dither: 0, line: false, inner: false }),
     material('button', ['#24120a', PAL.brown_d, PAL.rust, '#a8683a', '#c88a54', '#e6b07a'], { dither: 0 }),
-    material('tee', ['#050508', '#0c0c12', '#15151d', '#1f2029', '#2b2c38', '#3b3d4c'], { tone: [0.2, 0.42, 0.7, 1.0], dither: 0.05 }),
+    material('tee', ['#050508', '#0c0c12', '#15151d', '#1f2029', '#2b2c38', '#3b3d4c'], { tone: [0.2, 0.42, 0.7, 1.0], dither: 0.012 }),
   ];
 }
 
@@ -158,11 +157,17 @@ function tessHairFront({ rig, sids, E, o, face }) {
   L(rig, sids, [[55, 13], [45, 7.5], [31, 11], [22, 26]], 7, 9.5, 6, { z: zs, depth: 3.5, strands: 2 });
   L(rig, sids, [[54, 15.5], [42, 12], [29, 19], [21.5, 38]], 6.5, 8.5, 5, { z: zs, depth: 3.2, strands: 2 });
   // near curtain over temple & (hidden) right ear: three broad clumps, ends flipping out/in
-  L(rig, sids, [[27, 24], [17.5, 38], [15, 62], [12, 88]], 8, 9, 4, { z: hairVol(46, 44, 29, -9), depth: 2.2, strands: 1 });
-  L(rig, sids, [[30.5, 21], [21, 33], [18.6, 54], [17.5, 77]], 8, 8.5, 3.5, { z: zs, depth: 2.4, strands: 1 });
-  L(rig, sids, [[22, 64], [17.6, 79], [19.5, 91], [14, 99.5]], 6.5, 6, 2, { z: hairVol(46, 44, 29, 2), depth: 2.2, strands: 1 });
-  L(rig, sids, [[29.5, 35], [24, 50], [23.2, 66], [24.6, 82]], 5.2, 5.6, 1.8, { z: zf, depth: 2, strands: 1 });
+  L(rig, sids, [[27, 24], [17.5, 38], [15, 62], [12, 88]], 9, 10, 4, { z: hairVol(46, 44, 29, -9), depth: 1.8 });
+  L(rig, sids, [[30.5, 21], [21, 33], [18.6, 54], [17.5, 77]], 8.5, 9, 3.5, { z: zs, depth: 1.8 });
+  L(rig, sids, [[22, 64], [17.6, 79], [19.5, 91], [14, 99.5]], 7, 6.5, 2, { z: hairVol(46, 44, 29, 2), depth: 1.8 });
+  L(rig, sids, [[29.5, 35], [24, 50], [23.2, 66], [24.6, 82]], 5.4, 5.8, 1.8, { z: zf, depth: 1.8, strands: 1, strandDepth: 0.25 });
   L(rig, sids, [[25.5, 70], [24, 82], [27, 90.5], [25, 97]], 4.2, 4, 1.4, { z: hairVol(46, 44, 29, 3), depth: 1.8 });
+  // messy silhouette: crown tufts and uneven, flared ends
+  L(rig, sids, [[42, 11], [39, 7.5], [35.5, 6], [32, 6.8]], 4, 3, 0.8, { z: zs, depth: 1.6 });
+  L(rig, sids, [[33, 15], [28.5, 12], [24.5, 12.2], [21.5, 14.5]], 3.6, 2.6, 0.7, { z: zs, depth: 1.4 });
+  L(rig, sids, [[20, 74], [15, 84], [11.5, 90], [8, 94.5]], 4.2, 3, 0.6, { z: hairVol(46, 44, 29, -10), depth: 1.4 });
+  L(rig, sids, [[26.5, 80], [27.5, 88], [29.8, 93], [31.5, 96.5]], 3.4, 2.6, 0.6, { z: hairVol(46, 44, 29, 4), depth: 1.2 });
+  L(rig, sids, [[69, 64], [71.5, 74], [74, 81], [76.5, 85]], 4, 3, 0.6, { z: hairVol(46, 44, 29, -16), depth: 1.2 });
   // side-swept fringe from the part toward the near side
   L(rig, sids, [[54.5, 17], [46, 18.5], [36, 26], [31.5, 41]], 7, 8.5, 2.2, { z: zf, depth: 3, strands: 2 });
   L(rig, sids, [[55, 18.5], [50.5, 24], [44.5, 31], [40.5, 40.5]], 5.4, 6.2, 1.6, { z: zf, depth: 2.6, strands: 1 });
@@ -206,7 +211,7 @@ export const TESS_EXPR = {
   angry: { pitch: 0.5, hy: 1, brow: { y: -0.8, furrow: 1.3, inner: -0.9 }, eye: { open: 1, angry: 1, pupil: 0.75 }, mouth: { smile: -0.6, open: 0.36, shape: 'grimace', teeth: 1, width: 0.95 }, blush: 0.2, noseWrinkle: 0.5 },
   determined: { pitch: 0.3, brow: { y: -0.4, furrow: 0.6, inner: -0.4 }, eye: { open: 0.9, lower: 0.2, angry: 0.35 }, mouth: { smile: -0.1, smileF: 0.12, press: 1, width: 0.95 } },
   sad: { pitch: 0.45, tilt: 0.06, brow: { inner: 1.1, y: -0.1, furrow: 0.35 }, eye: { open: 0.72, innerUp: 0.45, outerDown: 0.6, gy: 0.8, gx: -0.2, wet: 0.4 }, mouth: { smile: -0.6, press: 1 } },
-  crying: { pitch: 0.5, tilt: -0.06, brow: { inner: 1.5, furrow: 0.7, y: 0.15 }, eye: { open: 0.45, lower: 0.4, innerUp: 0.5, wet: 1, gy: 0.45 }, mouth: { open: 0.55, shape: 'frown', smile: -0.9, tremble: 1, width: 1, teeth: 0.3 }, tears: 1, blush: 0.6 },
+  crying: { pitch: 0.5, tilt: -0.06, brow: { inner: 1.5, furrow: 0.7, y: 0.15 }, eye: { open: 0.45, lower: 0.4, innerUp: 0.5, wet: 1, gy: 0.45 }, mouth: { open: 0.55, shape: 'frown', smile: -0.8, tremble: 1, width: 1.05 }, tears: 1, blush: 0.6 },
   exhausted: { shoulder: -0.9, pitch: 0.3, tilt: 0.07, brow: { inner: 0.4, y: -0.25 }, eye: { open: 0.42, gy: 0.4, outerDown: 0.4 }, mouth: { open: 0.2, shape: 'talk', width: 0.55, smile: -0.15 }, darkCircles: 1, pale: 0.25 },
   dissociated: { brow: { y: -0.15 }, eye: { open: 0.92, gx: 0.05, gy: 0.15, pupil: 0.7, noHi: true, diverge: 0.22 }, mouth: { smile: -0.05, open: 0.08, shape: 'talk', width: 0.5 }, pale: 0.45, darkCircles: 0.45 },
   devastated: { shoulder: -0.6, pitch: 0.55, tilt: 0.09, brow: { inner: 1.6, furrow: 0.6 }, eye: { open: 0.6, innerUp: 0.7, outerDown: 0.6, wet: 1, gy: 0.6 }, mouth: { open: 0.45, shape: 'frown', smile: -1, tremble: 0.9, width: 0.95 }, tears: 0.7, pale: 0.35 },

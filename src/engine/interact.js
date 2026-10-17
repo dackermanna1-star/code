@@ -9,9 +9,13 @@ import { DIR_VEC } from './entities.js';
 
 const TILE = 16;
 const PROBE = 12;                 // px ahead of the feet
+const EYES_HOLD = 0.3;            // s of held confirm (seated) before Tess shuts her eyes
 const BUMP_REARM = 0.25;          // s without contact before the same door reacts to a bump again
 const SYS_KINDS = new Set(['terminal', 'pa', 'safe', 'register']);
 const METAL_DOORS = new Set(['door_metal', 'door_double', 'freezer_door']);
+// Classroom/office doors swing shut behind you (CONTENT §7) unless a script opened them.
+const AUTO_CLOSE = new Set(['door_class', 'door_glass', 'door_side']);
+const AUTO_CLOSE_DELAY = 1.5;
 const DEFAULT_LOCKED = {
   locked: '[n] Locked.',
   jammed: "[n] It won't budge. Something's wedged against it from the other side.",
@@ -25,13 +29,18 @@ export const interact = {
   verb: null,
   _lastBump: null,
   _lastBumpT: -10,
+  _closing: [],     // [{ prop, map, t }] doors waiting to swing shut
+  _seatPress: false,
 
   /** Called once per step after entities move. */
-  update() {
+  update(dt) {
+    this._tickDoors(dt);
     const p = HW.player;
     const input = HW.input;
     if (!p || !HW.map || !HW.game.controllable) {
       this._prompt(null, null);
+      if (p) p.eyesShut = false; // a scene took over: eyes open, normal time
+      this._seatPress = false;
       return;
     }
     // Inside a locker: confirm climbs out.
@@ -43,19 +52,21 @@ export const interact = {
       }
       return;
     }
-    // Seated: confirm shows the seat's examine text (if any), otherwise stands up.
+    // Seated: a tap of confirm shows the seat's examine text (if any), otherwise stands up;
+    // holding it shuts Tess's eyes (time runs ×4 during periods, DESIGN §4.1).
     if (p.seated) {
       this._prompt(null, null);
-      if (input.pressed('confirm')) {
-        input.consume('confirm');
-        const seat = p.seated;
-        const text = seat.inst.examine ?? seat.def.examine;
-        if (seat.inst.script) HW.scripts.run(seat.inst.script, { prop: seat, map: HW.map, seated: true });
-        else if (text) HW.scripts.runFn((g) => g.examine(text), { prop: seat }, { id: `examine:${seat.id}` });
-        else HW.hiding?.stand?.();
+      if (input.pressed('confirm')) { input.consume('confirm'); this._seatPress = true; }
+      if (this._seatPress && input.down('confirm') && input.holdTime('confirm') >= EYES_HOLD) p.eyesShut = true;
+      if (!input.down('confirm')) {
+        const tap = this._seatPress && !p.eyesShut;
+        this._seatPress = false;
+        p.eyesShut = false;
+        if (tap) this._seatAction(p.seated);
       }
       return;
     }
+    this._seatPress = false;
     const t = this.findTarget(p);
     const verb = t ? this.verbFor(t) : null;
     this._prompt(t, verb);
@@ -63,6 +74,13 @@ export const interact = {
       input.consume('confirm');
       this.activate(t);
     }
+  },
+
+  _seatAction(seat) {
+    const text = seat.inst.examine ?? seat.def.examine;
+    if (seat.inst.script) HW.scripts.run(seat.inst.script, { prop: seat, map: HW.map, seated: true });
+    else if (text) HW.scripts.runFn((g) => g.examine(text), { prop: seat }, { id: `examine:${seat.id}` });
+    else HW.hiding?.stand?.();
   },
 
   _prompt(t, verb) {
@@ -82,7 +100,7 @@ export const interact = {
     if (p.inst.script) return true;
     if (isDoorProp(p)) return p.state !== 'open' || !!p.inst.to;
     if (isHideSpot(p)) return true;
-    if (def.seat && p.state !== 'occupied' && !p.inst.noSit) return true;
+    if (def.seat && p.state !== 'occupied' && !p.inst.noSit && !p.seatedBy) return true;
     if (def.interact === 'pickup' && p.inst.item) return true;
     if (p.inst.to) return true;
     if (SYS_KINDS.has(def.interact)) return true;
@@ -94,7 +112,7 @@ export const interact = {
     if (p.inst.script) return 'script';
     if (isDoorProp(p)) return 'door';
     if (isHideSpot(p)) return 'hide';
-    if (p.def.seat && p.state !== 'occupied' && !p.inst.noSit) return 'seat';
+    if (p.def.seat && p.state !== 'occupied' && !p.inst.noSit && !p.seatedBy) return 'seat';
     if (p.def.interact === 'pickup' && p.inst.item) return 'pickup';
     if (p.inst.to) return 'transfer';
     if (SYS_KINDS.has(p.def.interact)) return 'sys';
@@ -128,13 +146,17 @@ export const interact = {
     const px = p.x + v[0] * PROBE;
     const py = p.y + v[1] * PROBE - 2;
     // NPCs with something to say.
-    for (const e of HW.entities.list) {
+    const ents = HW.entities.list;
+    for (let i = 0; i < ents.length; i++) {
+      const e = ents[i];
       if (e === p || !e.script || !e.visible) continue;
       if (Math.abs(e.x - px) <= 10 && py >= e.y - 18 && py <= e.y + 8) return e;
     }
     let best = null;
     let bestScore = -Infinity;
-    for (const q of map.props) {
+    const props = map.props;
+    for (let i = 0; i < props.length; i++) {
+      const q = props[i];
       if (!this.interactable(q)) continue;
       const x0 = q.x * TILE - 3;
       let y0 = q.y * TILE - 3;
@@ -208,26 +230,77 @@ export const interact = {
       const text = inst.lockedText || DEFAULT_LOCKED[p.state] || DEFAULT_LOCKED.locked;
       return HW.scripts.runFn((g) => g.examine(text), { prop: p }, { id: `locked:${p.id}` });
     }
-    if (lockedState || inst.lock) {
+    // A key turning: doors that were locked, or keyed (item) locks the first time. Condition gates
+    // (flags, functions) just open.
+    const keyed = typeof inst.lock === 'string' && inst.lock.startsWith('item:') && !p.pparams.unlocked;
+    if (lockedState || keyed) {
       HW.audio?.sfx?.(inst.unlockSfx || 'key_unlock', this._center(p));
       HW.debug?.record?.('unlock', null, null, p.id);
+      HW.map.setPropState(p.id, null, { unlocked: true });
     }
     this.openDoor(p);
     if (inst.to) return HW.scripts.runFn((g) => this.transferFlow(g, p), { prop: p }, { id: `door:${p.id}` });
     return null;
   },
 
-  /** Open a door now (persistent). Used by the player, NPC walks and scripts. */
-  openDoor(p, { by = 'player', silent = false } = {}) {
+  /**
+   * Open a door now (persistent). Used by bumps, NPC walks and the AI. Classroom/office doors
+   * opened this way swing shut 1.5 s after everyone has passed; `hold: true` (or a script's
+   * g.setProp) keeps a door open.
+   */
+  openDoor(p, { by = 'player', silent = false, hold = false } = {}) {
     if (!p || p.state === 'open') return;
     const c = this._center(p);
     if (!silent) {
       const id = p.type === 'gate_accordion' ? 'gate_rattle' : METAL_DOORS.has(p.type) ? 'door_open_metal' : 'door_open_wood';
       HW.audio?.sfx?.(id, c);
-      try { HW.noise?.emit?.(c.x, c.y, 80, 'door'); } catch (e) { console.error('[interact] noise failed', e); }
+      try { HW.noise?.emit?.(c.x, c.y, 5, 'door'); } catch (e) { console.error('[interact] noise failed', e); }
     }
     HW.map.setPropState(p.id, 'open');
+    HW.debug?.record?.('door', null, null, `${p.id}:open`);
     HW.game.emit('doorOpen', p, by);
+    const auto = p.inst.autoClose ?? AUTO_CLOSE.has(p.type);
+    if (auto && !hold && !this._closing.some((d) => d.prop === p)) this._closing.push({ prop: p, map: HW.map, t: 0 });
+  },
+
+  /** Close a door (persistent), with its sound. */
+  closeDoor(p, { silent = false } = {}) {
+    if (!p || p.state !== 'open') return;
+    if (!silent) HW.audio?.sfx?.(METAL_DOORS.has(p.type) ? 'door_close_metal' : 'door_close_wood', this._center(p));
+    HW.map.setPropState(p.id, 'closed');
+    HW.debug?.record?.('door', null, null, `${p.id}:close`);
+    HW.game.emit('doorClose', p);
+  },
+
+  /** Auto-closing doors: count down once nobody stands in or right beside the doorway. */
+  _tickDoors(dt) {
+    const list = this._closing;
+    for (let i = list.length - 1; i >= 0; i--) {
+      const d = list[i];
+      const p = d.prop;
+      if (d.map !== HW.map || p.state !== 'open') { list.splice(i, 1); continue; }
+      if (this._doorwayBusy(p)) { d.t = 0; continue; }
+      d.t += dt;
+      if (d.t >= AUTO_CLOSE_DELAY) {
+        list.splice(i, 1);
+        this.closeDoor(p);
+      }
+    }
+  },
+
+  /** Is any visible entity within the door's swing zone (footprint ± one tile across the wall)? */
+  _doorwayBusy(p) {
+    const side = p.type === 'door_side';
+    const x0 = (p.x - (side ? 1 : 0)) * TILE - 5;
+    const x1 = (p.x + p.w + (side ? 1 : 0)) * TILE + 5;
+    const y0 = (p.y - (side ? 0 : 2)) * TILE;
+    const y1 = (p.y + p.h + (side ? 0 : 1)) * TILE + 2;
+    const ents = HW.entities.list;
+    for (let i = 0; i < ents.length; i++) {
+      const e = ents[i];
+      if (e.x > x0 && e.x < x1 && e.y > y0 && e.y < y1) return true;
+    }
+    return false;
   },
 
   _center(p) {

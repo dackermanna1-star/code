@@ -3,7 +3,7 @@
 // Letting go early fails; never starting (within a few seconds) fails too.
 import { Screen, Z_SPECIAL } from '../screen.js';
 import { C, F, W, H } from '../theme.js';
-import { rect, frame, dither, vignette, keycap, AP, clamp, ease, snap } from '../gfx.js';
+import { rect, frame, dither, vignette, keycap, AP, clamp, snap, keycapWidth } from '../gfx.js';
 import { spaced } from '../widgets.js';
 import { hash2 } from '../../art/util.js';
 import * as svc from '../services.js';
@@ -66,11 +66,11 @@ export class BreathScreen extends Screen {
       const a = 0.5 + 0.5 * Math.abs(Math.sin(this.t * 4));
       const key = this.ui.input.keyLabel('confirm');
       const label = spaced('Hold your breath');
-      const lw = f.width(label), kw = Math.max(f.lineHeight, f.width(key) + 4 * AP);
+      const lw = f.width(label), kw = keycapWidth(key, f);
       const x0 = snap(W / 2 - (lw + kw + 16) / 2);
       keycap(ctx, x0, my - 40, key, f);
       f.draw(ctx, label, x0 + kw + 16, my - 40, '#e8e0c8', { alpha: a });
     } else f.draw(ctx, spaced(p > 0.8 ? "Don't breathe" : 'Hold it'), W / 2, my - 36, p > 0.8 ? C.red : '#a39c88', { align: 'center' });
-    if (this.flash > 0) rect(ctx, 0, 0, W, H, `rgba(120,10,16,${this.flash * 0.35})`);
+    if (this.flash > 0 && !svc.reduceFlashing()) rect(ctx, 0, 0, W, H, `rgba(120,10,16,${this.flash * 0.35})`);
   }
 }

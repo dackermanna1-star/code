@@ -86,7 +86,8 @@ export function drawHead(gb, P) {
   ff.tube(fx(0), fy(0.6), 1.0 * s, fx(0), fy(6.4), 1.7 * s, { z0: faceZ(0, 0.6) * s + 0.8 * s, z1: faceZ(0, 6.4) * s + 2.2 * s, mat: M.FACE, k: 1 });
   FB(0, 7.1, 2.1, 1.7, 3.9, 0.6);                               // nose tip
   FB(0, 16.4 + mh, 3.2, 1.2, 0.8, 0.6);                         // lower lip (barely)
-  FB(0, 19.4 + mh, 5.2, 3.4, 1.0, 0.7);                         // small clean chin
+  FB(0, 16.5 + mh * 0.7, 8.5, 6.5, 2.6, 0.5);                   // the clean-shaven lower face, turned to the light
+  FB(0, 19.6 + mh, 5.2, 3.4, 1.6, 0.7);                         // small clean chin
   ff.finalize();
   for (const sd of [-1, 1]) {
     ff.pit(fx(sd * 6), fy(0.2), 4.4 * s, 2.7 * s, 1.4 * s, 0.6); // sockets
@@ -110,8 +111,12 @@ export function drawHead(gb, P) {
   for (const sd of [-1, 1]) {
     const bx = fx(sd * 8.4), by = fy(8.2);
     for (let y = Math.floor(by - 1.6 * s); y <= by + 1.6 * s; y++) for (let x = Math.floor(bx - 2.2 * s); x <= bx + 2.2 * s; x++) {
-      if (gb.matAt(x, y) === M.FACE && ((x + 0.5 - bx) / (2.2 * s)) ** 2 + ((y + 0.5 - by) / (1.6 * s)) ** 2 < 1 && ((x + y) & 1)) gb.mat[y * gb.w + x] = M.BLUSH;
+      if (gb.matAt(x, y) === M.FACE && ((x + 0.5 - bx) / (2.2 * s)) ** 2 + ((y + 0.5 - by) / (1.6 * s)) ** 2 < (HI ? 0.6 : 1) && (HI ? ((x & 1) && (y & 1) && ((x + y) & 2)) : ((x + y) & 1))) gb.mat[y * gb.w + x] = M.BLUSH;
     }
+  }
+  for (let y = Math.floor(fy(15.6 + mh)); y <= fy(23.5 + mh); y++) for (let x = Math.floor(fx(-5)); x <= fx(5); x++) {
+    const m = gb.matAt(x, y);
+    if (m === M.FACE) { const i = y * gb.w + x; gb.lum[i] += 0.07; gb.ao[i] = Math.max(gb.ao[i], 0.85); }
   }
   const F = { X: fx, Y: fy, s };
   if (HI) hairStrands(gb, F, P, mh, r);
@@ -134,7 +139,7 @@ function drawFeatures(gb, F, P, mh, r) {
   for (const sd of [-1, 1]) {
     const L = sd < 0;
     const lid = P.blink ? P.blink[L ? 0 : 1] : (L ? P.lidL : P.lidR);
-    eye(gb, X(sd * 6), Y(0.2), s, lid, L ? P.gazeL : P.gazeR, Z(sd * 6, 0, 0.6), P.glint, sd, P.wet);
+    eye(gb, X(sd * 6), Y(0.2), s, lid, L ? P.gazeL : P.gazeR, Z(sd * 6, 0, 0.6), P.glint, sd, P.wet, P.eyeSmile || 0);
   }
   const HI = s >= 2;
   // ---- brows: thin, gray, groomed (inner ends lift with P.brow)
@@ -160,8 +165,8 @@ function drawFeatures(gb, F, P, mh, r) {
   const ml = mh * 0.18;
   if (!HI) for (const sd of [-1, 1]) {
     const o = { mat: M.HAIR, rzk: 0.65, mode: 'z' };
-    gb.cap(X(sd * 0.7), Y(10.4 - ml), 1.75 * s, X(sd * 5.2), Y(12.0 - ml), 1.7 * s, { ...o, z0: Z(0.7, 10.3, 3.4), z1: Z(5.2, 11.9, 2.6) });
-    gb.cap(X(sd * 5.2), Y(12.0 - ml), 1.7 * s, X(sd * 8.0), Y(14.8 - ml * 0.5), 0.9 * s, { ...o, z0: Z(5.2, 11.9, 2.6), z1: Z(8.2, 14.6, 2.2) });
+    gb.cap(X(sd * 0.7), Y(10.4 - ml), 1.75 * s, X(sd * 5.2), Y(12.0 - ml), 1.7 * s, { ...o, z0: Z(0.7, 10.3, 2.2), z1: Z(5.2, 11.9, 1.8) });
+    gb.cap(X(sd * 5.2), Y(12.0 - ml), 1.7 * s, X(sd * 8.0), Y(14.8 - ml * 0.5), 0.9 * s, { ...o, z0: Z(5.2, 11.9, 1.8), z1: Z(8.2, 14.6, 1.5) });
     for (let k = 0; k < 4; k++) gb.curve(X(sd * (0.5 + k * 0.7)), Y(9.4 - ml), X(sd * (4 + k)), Y(10.5 + k * 0.6 - ml), X(sd * (7 + k * 0.4)), Y(13.2 + k * 0.3 - ml), (x, y) => { if (gb.matAt(x, y) === M.HAIR) gb.dim(x, y, 0.84); });
   }
   if (!HI) gb.line(X(0), Y(9.2 - ml), X(0), Y(11.4 - ml), null, { k: 0.72 });
@@ -196,13 +201,15 @@ function faceGrooves(ff, fx, fy, s, P, mh) {
     const ex = sd * 6, ey = 0.2, hw = 3.45, hh = 2.1;
     const lidY = ey - hh + (1 - lid) * hh * 2, cy = Math.min(lidY - 1.1, ey - hh * 1.25);
     G([[ex - hw * 0.95, cy + 0.8], [ex - hw * 0.3, cy - 0.35], [ex + hw * 0.4, cy - 0.3], [ex + hw, cy + 0.7]], 0.85, 0.55);
-    G([[ex - hw * 0.8, ey + hh * 0.85], [ex, ey + hh * 1.45], [ex + hw * 0.8, ey + hh * 0.85]], 0.75, 0.28);
+    const es = P.eyeSmile || 0;
+    G([[ex - hw * 0.8, ey + hh * (0.85 - es * 0.5)], [ex, ey + hh * (1.45 - es * 0.75)], [ex + hw * 0.8, ey + hh * (0.85 - es * 0.5)]], 0.75, 0.28 + es * 0.3);
   }
   const my = 14.9, sm = P.smile ?? 1;
   if (mh < 0.3) {
-    G([[-5.4, my - 0.9 * sm], [-3.6, my + 0.3], [0, my + 0.9], [3.6, my + 0.3], [5.4, my - 0.9 * sm]], 0.55, 0.7);
-    G([[-2.6, my + 2.6], [0, my + 3.1], [2.6, my + 2.6]], 0.7, 0.3); // under the lower lip
+    G([[-6.6, my - 1.6 * sm], [-5.2, my - 0.4 * sm], [-3.6, my + 0.3], [0, my + 0.9], [3.6, my + 0.3], [5.2, my - 0.4 * sm], [6.6, my - 1.6 * sm]], 0.55, 0.75);
+    G([[-3.0, my + 2.5], [0, my + 3.2], [3.0, my + 2.5]], 0.75, 0.35); // under the lower lip
   }
+  if (sm > 0.5) for (const sd of [-1, 1]) G([[sd * 3.0, 7.2], [sd * 5.6, 9.4], [sd * 7.4, 12.4]], 0.85, 0.45 * sm); // smile lines past the whiskers
 }
 
 // close-up scale: whiskers as soft volumes combed with fine, irregular flow grooves
@@ -228,7 +235,8 @@ function hairStrands(gb, F, P, mh, r) {
       combs.push(quad([sd * (10.2 + t * 2.4 + jit()), -8 + jit() + t], [sd * (11.4 + t * 3.4 + jit()), 4 + jit()], [sd * (7.4 + t * 3.2 + jit()), 13.4 + t * 2 + mh * 0.25 + jit()]));
     }
     // mustache wing, drooping past the mouth corners
-    vol(quad([sd * 0.4, 10.1 - ml], [sd * 4.6, 10.9 - ml], [sd * 8.2, 14.8 - ml * 0.5]), (t) => 1.75 - t * 0.95, (t) => 3.6 - t * 1.2);
+    const lift = (P.smile ?? 1) > 0.5 ? 0.9 + (P.eyeSmile || 0) * 2.4 : 0;
+    vol(quad([sd * 0.4, 10.1 - ml], [sd * 4.6, 10.9 - ml - lift * 0.3], [sd * 7.8, 14.4 - ml * 0.5 - lift]), (t) => 1.75 - t * 0.95, (t) => 3.6 - t * 1.2);
     for (let j = 0; j < 20; j++) {
       const t = r(), jit = () => (r() - 0.5) * 0.45;
       combs.push(quad([sd * (0.3 + t * 1.2), 9.4 + t * 1.6 - ml + jit() * 0.4], [sd * (4.2 + jit()), 10.4 + t * 1.6 - ml + jit()], [sd * (7.6 + t * 0.9 + jit()), 13.6 + t * 1.6 - ml * 0.5 + jit()]));
@@ -249,17 +257,17 @@ function hairStrands(gb, F, P, mh, r) {
   }
 }
 
-function eye(gb, ex, ey, s, lid, gz, ez, glint, sd, wet) {
+function eye(gb, ex, ey, s, lid, gz, ez, glint, sd, wet, es = 0) {
   const hw = 3.45 * s, hh = 2.1 * s;
   const inAlmond = (x, y) => {
-    const u = (x + 0.5 - ex) / hw, v = (y + 0.5 - ey) / hh;
-    return Math.abs(v - sd * u * 0.14) < (1 - u * u) * 1.0;
+    const u = (x + 0.5 - ex) / hw, v = (y + 0.5 - ey) / hh, w = v - sd * u * 0.14, lim = 1 - u * u;
+    return w < 0 ? -w < lim : w < lim * (1 - 0.6 * es); // a smile pushes the lower lid up
   };
   gb.ell(ex, ey, hw, hh * 1.05, { mat: M.EYE, z: ez, rz: 1.5 * s, mode: 'any', clip: inAlmond, ao: 0.95 });
   const ix = ex + gz[0] * hw * 0.55, iy = ey + gz[1] * hh * 0.45;
   gb.ell(ix, iy, 1.5 * s, 1.65 * s, { mat: M.IRIS, z: ez + 0.5 * s, rz: 1.3 * s, mode: 'any', clip: inAlmond });
   gb.ell(ix, iy, 0.62 * s, 0.7 * s, { mat: M.DARK, z: ez + 0.6 * s, rz: 1 * s, mode: 'any', clip: inAlmond });
-  if (glint) gb.pix(ix - 0.6 * s, iy - 0.7 * s, M.EYE, { mode: 'any', lum: 1.0, n: [0, 0, 1] });
+  if (glint) { const gy = Math.max(iy - 0.7 * s, ey - hh + (1 - lid) * hh * 2 + 0.5 * s + 1); gb.ell(ix - 0.6 * s, gy, Math.max(0.5, 0.28 * s), Math.max(0.5, 0.24 * s), { mat: M.EYE, mode: 'any', z: ez + 1.5 * s, rz: 0.2 * s, lum: 1.0, clip: (x, y) => inAlmond(x, y) }); }
   if (wet) for (let k = -1; k <= 1; k++) gb.pix(ex + k * hw * 0.45, ey + hh * 0.82, M.EYE, { mode: 'any', lum: 0.55, n: [0, -0.3, 1] }); // watery old eyes
   // the heavy upper lid comes down to `lid`
   const lidY = ey - hh + (1 - lid) * hh * 2;
@@ -310,6 +318,17 @@ function drawCollar(gb, P, X, Y, s) {
   }
   // a silver eagle on each strap (a colonel's rank), just a glint at this size
   for (const sd of [-1, 1]) gb.ell(X(sd * 47), Y(yb + 3.5), 1.8 * s, 1.1 * s, { mat: M.SILVER, z: 37 * s, rz: 1 * s, mode: 'z' });
+}
+
+/** Repaint only the eyes (new lids) on a buffer that already holds this head — cheap blink states. */
+export function repaintEyes(gb, P) {
+  const s = P.s, sl = P.slide || [0, 0];
+  const X = (u) => P.cx + (u + sl[0]) * s, Y = (v) => P.cy + (v + sl[1]) * s, Z = (u, v, d) => (faceZ(u, v) + d) * s;
+  for (const sd of [-1, 1]) {
+    const L = sd < 0;
+    const lid = P.blink ? P.blink[L ? 0 : 1] : (L ? P.lidL : P.lidR);
+    eye(gb, X(sd * 6), Y(0.2), s, lid, L ? P.gazeL : P.gazeR, Z(sd * 6, 0, 0.6), P.glint, sd, P.wet, P.eyeSmile || 0);
+  }
 }
 
 /** Convenience: new GBuf with a head drawn into it. */

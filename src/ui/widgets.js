@@ -1,6 +1,6 @@
 // Shared bits for menu screens: header tabs, key hints, vertical option lists, canvas-bag texture.
 import { C, F, W, H } from './theme.js';
-import { rect, frame, dither, keycap, triangle, plate, AP, snap, canvas, ctx2d } from './gfx.js';
+import { rect, frame, dither, keycap, keycapWidth, triangle, plate, AP, snap, canvas, ctx2d } from './gfx.js';
 import { rng, hashStr } from '../art/util.js';
 
 /** Letter-spaced caps for small labels. */
@@ -24,7 +24,7 @@ export function hints(ctx, list, y = H - 30, right = W - 24, color = C.textMute)
     const lw = f.width(label);
     f.draw(ctx, label, x - lw, y, color);
     x -= lw + 8;
-    const kw = Math.max(f.lineHeight, f.width(key) + 4 * AP);
+    const kw = keycapWidth(key, f);
     keycap(ctx, x - kw, y, key, f);
     x -= kw + 22;
   }

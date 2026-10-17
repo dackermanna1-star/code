@@ -2,9 +2,9 @@
 // fullscreen and the controls list. Persisted via HW.settings (or localStorage) on close.
 import { HW } from '../../engine/hw.js';
 import { Screen } from '../screen.js';
-import { C, F, W, H } from '../theme.js';
+import { C, F, W } from '../theme.js';
 import { steelPanel, rect, frame, triangle, keycap, AP, clamp, ease, snap } from '../gfx.js';
-import { headerTab, hints, spaced } from '../widgets.js';
+import { headerTab, hints } from '../widgets.js';
 import { DEFAULT_KEYS, prettyKey } from '../input.js';
 import * as svc from '../services.js';
 
@@ -102,7 +102,7 @@ export class SettingsScreen extends Screen {
       } else if (row.key === 'controls' && on) triangle(ctx, vx, ry + 6, 5, C.textDim, 'right');
       if (on && (row.type === 'slider' || row.type === 'speed')) {
         triangle(ctx, vx - 22, ry + 6, 5, C.red, 'left');
-        triangle(ctx, vx + (row.type === 'slider' ? 252 : 168), ry + 6, 5, C.red, 'right');
+        triangle(ctx, vx + (row.type === 'slider' ? 214 : 168), ry + 6, 5, C.red, 'right');
       }
     });
     if (this.showControls) this._controls(ctx);
@@ -110,12 +110,12 @@ export class SettingsScreen extends Screen {
   }
   _slider(ctx, x, y, v, on) {
     // a fader on a slotted steel plate, ten notches
-    rect(ctx, x, y + 6, 230, 4, '#0c0c10');
-    for (let i = 0; i <= 10; i++) rect(ctx, x + i * 23, y + 12, AP, i % 5 === 0 ? 6 : 4, '#4b4c57');
-    const fx = snap(x + v * 230 - 6);
+    rect(ctx, x, y + 6, 200, 4, '#0c0c10');
+    for (let i = 0; i <= 10; i++) rect(ctx, x + i * 20, y + 12, AP, i % 5 === 0 ? 6 : 4, '#4b4c57');
+    const fx = snap(x + v * 200 - 6);
     rect(ctx, fx, y - 2, 12, 20, on ? '#d8cfb4' : '#8f897a');
     rect(ctx, fx, y - 2, 12, AP, '#f2ead2'); rect(ctx, fx + 4, y + 6, 4, 4, '#3a3a40');
-    F.small.draw(ctx, String(Math.round(v * 100)), x + 290, y - 2, on ? C.text : C.textMute, { align: 'right' });
+    F.small.draw(ctx, String(Math.round(v * 100)), x + 268, y - 2, on ? C.text : C.textMute, { align: 'right' });
   }
   _controls(ctx) {
     const x = 210, y = 80, w = 540, h = 380;

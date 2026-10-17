@@ -1,9 +1,10 @@
 // CG backdrops and persistent overlays (drawn under dialogue).
 //   cg(id | null, { fade })            480×270 art scaled 2×, cross-fades
 //   setOverlay(name, params | null)    'locker' | 'vhs' | 'heads_down' | 'compact' | 'black'
+
 import { HW } from '../engine/hw.js';
 import { C, F, W, H } from './theme.js';
-import { canvas, ctx2d, rect, dither, vignette, noiseFrame, triangle, AP, clamp, approach, ease } from './gfx.js';
+import { canvas, ctx2d, rect, dither, vignette, noiseFrame, triangle, keycap, AP, clamp, approach, ease } from './gfx.js';
 import { hash2, rng } from '../art/util.js';
 import * as svc from './services.js';
 
@@ -30,6 +31,8 @@ export class Backdrop {
   get active() { return this.layers.some((l) => l.target > 0); }
   set(id, o = {}) {
     const fade = o.fade ?? 0.6;
+    const top = this.layers[this.layers.length - 1];
+    if (id && top && top.id === id && top.target > 0) { Object.assign(top.params, o.params || {}); return Promise.resolve(); }
     for (const l of this.layers) { l.target = 0; l.rate = 1 / Math.max(0.01, fade); }
     if (!id) return this._wait(fade);
     const layer = { id, params: o.params || {}, alpha: fade > 0 ? 0 : 1, target: 1, rate: 1 / Math.max(0.01, fade), c: canvas(LW, LH), t0: this.t };
@@ -105,6 +108,18 @@ export class Overlays {
     ctx.drawImage(this.c480, 0, 0, W, H);
     const breath = 0.5 + 0.5 * Math.sin(this.t * 1.4);
     vignette(ctx, 0.75 + breath * 0.1, 0.62);
+    // in free play, a quiet reminder of how to get out
+    if (HW.game?.mode === 'play' && HW.player?.hidden) {
+      const a = clamp((o.t - 1.2) / 0.8) * 0.8;
+      if (a > 0) {
+        const f = F.small, key = HW.ui?.input?.keyLabel?.('confirm') || 'Z';
+        const label = 'C L I M B   O U T';
+        const a0 = ctx.globalAlpha; ctx.globalAlpha = a0 * a;
+        keycap(ctx, W - 40 - f.width(label) - 44, H - 40, key, f, { face: '#8a8270', hi: '#a89f88', lo: '#5d574a' });
+        f.draw(ctx, label, W - 40, H - 40, '#8a8478', { align: 'right' });
+        ctx.globalAlpha = a0;
+      }
+    }
   }
 
   // -- 'vhs': tape playback (frames from the colonel CG) with tracking noise, chroma bleed, jitter

@@ -1,7 +1,7 @@
 // Danny Kovach — stocky class clown. Backwards red snapback (hair poking through the strap hole, brim behind
 // the head), short brown hair, broad grin, thick neck; satin Eagles Starter jacket (midnight green / silver /
 // white) with a striped knit collar; backpack strap over the near shoulder.
-import { PAL, mix, darken } from './palette.js';
+import { PAL, mix } from './palette.js';
 import { material, spline } from './portraits_core.js';
 import { stdMats, paleRamp } from './portraits_human.js';
 import { drawSmudges } from './portraits_face.js';
@@ -27,7 +27,7 @@ export const DANNY = {
     if (o.enrolled) skin = enrolledSkin(skin, o.half ? 0.55 : 1);
     const hair = o.enrolled ? HAIR.map((c) => mix(c, '#6a6058', 0.2)) : HAIR;
     return [
-      material('skin', skin, { tone: SKIN_TONE, dither: 0.012 }),
+      material('skin', skin, { tone: SKIN_TONE, dither: 0.02, ditherT: [0.02, 0.035, 0.06, 0.008] }),
       material('blush', skin.map((c, i) => mix(c, '#d85a54', i === 0 ? 0 : 0.2)), { tone: SKIN_TONE, dither: 0, line: false }),
       material('bruise', skin.map((c) => mix(c, '#6a4a6e', 0.35)), { tone: SKIN_TONE, dither: 0, line: false }),
       material('dirt', skin.map((c) => mix(c, '#5a4a3e', 0.42)), { tone: SKIN_TONE, dither: 0, line: false }),
@@ -54,7 +54,7 @@ export const DANNY = {
     return {
       skinMat: 'skin',
       eye: {
-        uc: 0.42, y: 50.5, w: 10, hu: 3.5, hl: 2.4, ri: 3.2, rp: 1.35, irisW: 1, irisShiftN: -0.6, cIn: 0.5, cOut: 0.1, peak: -0.1, archPow: 2.2,
+        uc: 0.42, y: 50.5, w: 10, hu: 3.5, hl: 2.4, ri: 3.2, rp: 1.35, irisW: 1, irisShiftN: -0.1, cIn: 0.5, cOut: 0.1, peak: 0.05, archPow: 2.2,
         lash: [1, 1, 2], flick: 0, crease: true, creaseGap: 1.2, lowerLine: 0.45, irisDy: -0.3,
         skinMat: 'skin', lashMat: 'lash', irisMat: 'iris', irisGlassMat: 'irisGlass', scleraMat: 'sclera', pupilMat: 'pupil', glintMat: 'glint',
       },
@@ -62,7 +62,7 @@ export const DANNY = {
       nose: { y: 61.2, e: 4.9, tipW: 2.9, skinMat: 'skin' },
       mouth: { y: 68.8, hw: 0.31, farK: 1, h: 5.5, lipMat: 'lip', skinMat: 'skin', mouthMat: 'mouth', teethMat: 'teeth', tongueMat: 'tongue' },
       ear: { y: 54, h: 11.5, w: 6.4, back: 4, far: true, near: true, farPoke: 2 },
-      neck: { x: 47, yTop: 66, yBot: 96, wTop: 9, wBot: 10.5, lean: 1.5, z: 1 },
+      neck: { x: 47, yTop: 66, yBot: 96, wTop: 10, wBot: 12, lean: 1.5, z: 1 },
       blush: { u: 0.5, y: 60, rx: 3.8, ry: 1.8, mat: 'blush' },
       sweat: [[57, 34.5], [67, 60]],
       underMat: 'bruise',
@@ -188,11 +188,11 @@ export const DANNY_EXPR = {
   laugh: { tilt: -0.09, hy: -1.5, brow: { y: 0.55 }, eye: { shut: 'happy' }, mouth: { open: 1.1, shape: 'laugh', smile: 0.7, width: 1.25, teeth: 1 }, cheek: 1, blush: 0.35 },
   talk: { brow: { y: 0.25 }, eye: { open: 0.98, lower: 0.1 }, mouth: { open: 0.55, shape: 'talk', smile: 0.2, width: 0.85 } },
   smug: { tilt: -0.07, hy: -0.5, brow: { farY: 0.55, nearY: -0.1 }, eye: { open: 0.62, lower: 0.35, gx: -0.5 }, mouth: { smileF: 0.8, smileN: 0.05, dx: 0.03 } },
-  nervous: { shoulder: 0.45, brow: { inner: 0.95, furrow: 0.35, y: 0.2 }, eye: { open: 1.05, innerUp: 0.45, gx: 0.75 }, mouth: { open: 0.3, shape: 'grin', smile: 0.5, teeth: 1, width: 1.05, tremble: 0.45 }, sweat: 1 },
+  nervous: { shoulder: 0.45, brow: { inner: 0.95, furrow: 0.35, y: 0.2 }, eye: { open: 1.05, innerUp: 0.45, gx: 0.75 }, mouth: { open: 0.42, shape: 'grin', smile: 0.5, teeth: 1, width: 1.05, tremble: 0.4 }, sweat: 1 },
   scared: { shoulder: 0.8, brow: { inner: 1.2, y: 0.7, furrow: 0.3 }, eye: { open: 1.32, pupil: 0.6, iris: 0.9 }, mouth: { open: 0.68, shape: 'O', width: 0.65, smile: -0.2 }, sweat: 1, pale: 0.35 },
   sad: { pitch: 0.4, tilt: 0.05, brow: { inner: 1.05, furrow: 0.3 }, eye: { open: 0.68, outerDown: 0.5, gy: 0.7, wet: 0.3, innerUp: 0.3 }, mouth: { smile: -0.5, press: 1 } },
   serious: { pitch: 0.12, brow: { y: -0.3, furrow: 0.45, inner: -0.15 }, eye: { open: 0.88 }, mouth: { smile: -0.1, press: 1, width: 0.95 } },
   relieved: { shoulder: -0.4, tilt: -0.06, hy: -0.5, brow: { inner: 0.55, y: 0.3 }, eye: { shut: 'soft' }, mouth: { open: 0.3, shape: 'talk', smile: 0.5, width: 0.95 }, blush: 0.15 },
   entranced: { __enr: true, tilt: 0.05, brow: { y: -0.12 }, eye: { open: 0.78, glassy: 1, gx: 0, gy: 0.15, diverge: 0.12 }, mouth: { open: 0.16, shape: 'talk', width: 0.55, smile: -0.05 }, pale: 0.3 },
-  flicker: { __enr: 'half', tilt: 0.03, brow: { inner: 0.8, furrow: 0.45, farY: -0.1 }, eye: { open: 0.9, farGlassy: 1, farOpen: 0.82, gx: -0.2 }, mouth: { open: 0.26, shape: 'grin', smile: 0.45, smileF: -0.15, teeth: 1, width: 1, tremble: 0.6 }, sweat: 1, pale: 0.25 },
+  flicker: { __enr: 'half', tilt: 0.03, brow: { inner: 0.8, furrow: 0.45, farY: -0.1 }, eye: { open: 0.9, farGlassy: 1, farOpen: 0.82, gx: -0.2 }, mouth: { open: 0.4, shape: 'grin', smile: 0.45, smileF: -0.2, teeth: 1, width: 1, tremble: 0.55 }, sweat: 1, pale: 0.25 },
 };

@@ -3,7 +3,6 @@
 // lit by a fixed top-left rig and outlined, so proportions & shading stay consistent across all
 // animations and directions. Exports: initColonel(), getColonelSprite().
 import { GBuf, HField, M, rig, shade, outlineImg, imgToCanvas, fbm, hnoise } from './colonel_gbuf.js';
-import { makeCanvas, ctxOf } from './util.js';
 
 const FW = 64, FH = 64, AX = 32, AY = 62, GROUND = 62;
 const OUTLINE = '#06070c';
@@ -72,9 +71,9 @@ function buildFront(P, back) {
   hf.blob(X(32), Y(28.5 - b * 1.0) + ly * 0.8, (17.5 + b * 1.1) * s, 9.5 * hs, 16, { mat: NV, p: 0.5 });              // chest
   for (const sd of [-1, 1]) hf.blob(X(32 + sd * (16.5 + b * 0.5)), Y(24.5 - b * 1.2) + ly * 0.8, 8 * s, 6.5 * hs, 13, { mat: NV, p: 0.5 });
   // the head: a dough dome sitting straight on the shoulders, jowls hanging over the collar
-  const hx = X(32) + P.head[0] + (back ? -0.6 : 0.6), hy = Y(15 - b * 0.7) + ly + P.head[1];
+  const hx = X(32) + P.head[0] + (back ? -0.6 : 0.6), hy = Y(16 - b * 0.6) + ly + P.head[1];
   const hsx = Math.max(s, 0.6), hsy = Math.max(hs, 0.8);
-  hf.blob(hx, hy - 0.5 * hsy, (11 + b * 0.4) * hsx, 11.5 * hsy, 13, { mat: FL, p: 0.55 });
+  hf.blob(hx, hy - 0.3 * hsy, (11 + b * 0.4) * hsx, 11 * hsy, 13, { mat: FL, p: 0.55 });
   hf.blob(hx, hy + 9 * hsy, 8.5 * hsx, 3.8 * hsy, 14.5, { mat: FL, p: 0.6 });                     // wattle
   for (const sd of [-1, 1]) hf.blob(hx + sd * 7.5 * hsx, hy + 5.5 * hsy, 5 * hsx, 5.5 * hsy, 14, { mat: FL, p: 0.6 }); // jowls
   hf.finalize();
@@ -234,7 +233,7 @@ function boots(gb, P, back) {
 
 function faceFront(gb, P, hx, hy, hs) {
   // the small serene face, set too small in the middle of the head (it does not breathe)
-  const fx = Math.round(32 + P.lean[0] + P.head[0] + P.look * 2.2), fy = Math.round(GROUND - (GROUND - 16) * hs + P.lean[1] + P.head[1] + P.faceDY);
+  const fx = Math.round(32 + P.lean[0] + P.head[0] + P.look * 2.2), fy = Math.round(GROUND - (GROUND - 17) * hs + P.lean[1] + P.head[1] + P.faceDY);
   const vis = P.face;
   const put = (dx, dy, mat, o = {}) => { const x = fx + dx, y = fy + dy; if (gb.matAt(x, y)) gb.pix(x, y, mat, { mode: 'any', ...o }); };
   const rows = P.faceRows || (vis >= 0.99 ? [-3, 5] : [Math.round(-3 + (1 - vis) * 8), 5]);
@@ -299,7 +298,7 @@ function buildSide(P) {
   hf.blob(X(27 - b * 0.6), Y(41 - b * 0.3) + ly * 0.5, (17.5 + b * 1.2) * s, (14 + b * 0.6) * hs, 19 + b, { mat: NV, p: 0.5 }); // belly (forward)
   hf.blob(X(31), Y(28.5 - b * 0.6) + ly * 0.8, 14.5 * s, 9.5 * hs, 16, { mat: NV, p: 0.5 });
   hf.blob(X(34), Y(24 - b * 0.8) + ly * 0.8, 9 * s, 7 * hs, 15, { mat: NV, p: 0.5 });       // near shoulder
-  const hx = X(26.5) + P.head[0], hy = Y(15.5 - b * 0.7) + ly + P.head[1];
+  const hx = X(26.5) + P.head[0], hy = Y(16.3 - b * 0.6) + ly + P.head[1];
   hf.blob(hx, hy, 11.2 * s, 10.6 * hs, 13, { mat: FL, p: 0.55 });
   hf.blob(hx + 2 * s, hy - 1 * hs, 9 * s, 9 * hs, 14, { mat: FL, p: 0.55 });
   hf.blob(hx - 1 * s, hy + 8.5 * hs, 9 * s, 4.5 * hs, 15, { mat: FL, p: 0.6 });          // wattle
@@ -434,8 +433,8 @@ function buildGB(P) {
   if (P.paper) paperRoll(gb, P);
   if (P.crumble > 0) crumbleGB(gb, P);
   if (P.clipX != null) peekClip(gb, P);
-  if (P.seam > 0) seamGB(gb, P);
-  if (P.sinkY > 0) for (let y = Math.max(0, GROUND + 1 - Math.round(P.sinkY)); y < FH; y++) for (let x = 0; x < FW; x++) gb.mat[y * FW + x] = 0;
+  if (P.sinkY > 0) sinkShift(gb, Math.round(P.sinkY));
+  if (P.seam > 0) seamGB(gb, P); // after the floor clip: the seam he goes into stays visible
   return gb;
 }
 
@@ -484,13 +483,28 @@ function peekClip(gb, P) {
   }
 }
 
+// sink: the whole mass is pulled down through the floor line (everything below it is gone)
+function sinkShift(gb, dy) {
+  const src = gb.clone();
+  gb.clear();
+  for (let y = 0; y <= GROUND; y++) {
+    const sy = y - dy; if (sy < 0) continue;
+    for (let x = 0; x < FW; x++) {
+      const i = y * FW + x, j = sy * FW + x; if (!src.mat[j]) continue;
+      gb.mat[i] = src.mat[j]; gb.nx[i] = src.nx[j]; gb.ny[i] = src.ny[j]; gb.nz[i] = src.nz[j]; gb.z[i] = src.z[j]; gb.ao[i] = src.ao[j]; gb.lum[i] = src.lum[j];
+    }
+  }
+  for (let x = 0; x < FW; x++) if (gb.mat[GROUND * FW + x]) gb.ao[GROUND * FW + x] *= 0.5; // the lip where he meets the floor
+}
+
 // sink: a dark seam opens in the floor/wall and he is pulled into it
 function seamGB(gb, P) {
-  const h = Math.round(P.seam * 20);
+  const h = Math.round(P.seam * 20 * (P.sinkY > 20 ? 0.35 : 1));
   for (let y = GROUND - h; y <= GROUND; y++) {
     const x = 32 + ((y * 5) % 3 === 0 ? 1 : 0);
     if (P.seam > 0.85 || !gb.mat[y * FW + x]) gb.pix(x, y, M.DARK, { mode: 'any', n: [0, 0, 1], z: 99, ao: 1, lum: -0.2 });
   }
+  if (P.seam >= 1) for (const [dx, dy] of [[-3, 0], [2, -1], [4, 0], [-1, -3]]) gb.pix(32 + dx, GROUND + dy, M.COAL, { mode: 'any', n: [0, -0.5, 0.8], z: 99, ao: 1 });
 }
 
 // lectern: the long roll of names in his hands, draped over the lectern's edge
@@ -570,19 +584,6 @@ function buildCoatHeap(P) {
 // ------------------------------------------------------------------------------------------ anims
 const DIRS = ['down', 'up', 'left', 'right'];
 const isSide = (d) => d === 'left' || d === 'right';
-// hand rest positions per view (frame px, before squash/lean) for building reach/drag targets
-function hands(dir) {
-  if (isSide(dir)) {
-    const m = dir === 'right' ? (x) => 64 - x : (x) => x;
-    return { near: (x, y) => [m(x), y], far: (x, y) => [m(x), y], m };
-  }
-  return { m: (x) => x };
-}
-function sideHands(dir, near, far) {
-  // side views are authored facing left; buildSide mirrors geometry for 'right' itself
-  return { handR: near, handL: far };
-}
-
 function seq(dir, n, fn) { const out = []; for (let i = 0; i < n; i++) { const P = basePose(dir); fn(P, i, i / n); out.push(renderPose(P)); } return out; }
 
 function idleAnim(dir) {
@@ -595,7 +596,6 @@ function idleAnim(dir) {
 
 function dragAnim(dir) {
   // alternating arm pulls: reach, plant, haul (the body lurches), settle
-  const side = isSide(dir);
   return { frames: seq(dir, 6, (P, i) => {
     const ph = i % 3, A = i < 3;
     const lurch = [0.5, 1.5, 2.6][ph], trail = [-2.2, -1.4, 0][ph];
@@ -606,13 +606,13 @@ function dragAnim(dir) {
       const reach = [[9, 55], [10, 57.5], [13, 54]][ph];
       if (A) P.handL = [reach[0], reach[1]]; else P.handR = [64 - reach[0], reach[1]];
     } else if (dir === 'up') {
-      P.lean = [(A ? -1 : 1) * [0.5, 1, 0.5][ph], -lurch]; P.head = [0, -lurch * 0.3]; P.mass = [0, -trail * 0.6]; P.massW = 1 + ph * 0.03;
+      P.lean = [(A ? -1 : 1) * [0.5, 1, 0.5][ph], -lurch * 0.55]; P.head = [0, -lurch * 0.15]; P.mass = [0, -trail * 0.6]; P.massW = 1 + ph * 0.03;
       const reach = [[7, 40], [8, 37], [10, 44]][ph];
       if (A) P.handL = reach; else P.handR = [64 - reach[0], reach[1]];
     } else {
       const sg = 1; // authored facing left; mirrored for right
       P.lean = [-lurch * sg, [0.5, 1, 0][ph]]; P.head = [-lurch * 0.4, 0]; P.mass = [-trail * 1.4, 0]; P.massW = 1 - trail * 0.03;
-      if (A) P.handR = [[16, 53], [11, 55], [17, 54]][ph]; else P.handL = [[9, 49], [5, 52], [12, 51]][ph];
+      if (A) P.handR = [[16, 53], [12, 55], [17, 54]][ph]; else P.handL = [[10, 49], [8, 52], [12, 51]][ph];
     }
   }), fps: 6, loop: true };
 }
@@ -625,17 +625,16 @@ function lungeAnim(dir) {
       P.h = 0.92; P.w = 1.07; P.lean = [-fx * 2, -fy * 1.5]; P.b = 1;
       if (!isSide(dir)) { P.handL = [12, 46]; P.handR = [52, 46]; } else { P.handR = [30, 50]; P.handL = [22, 47]; }
     } else if (i === 1) { // the smear
-      P.h = isSide(dir) ? 0.94 : 1.1; P.w = isSide(dir) ? 1.18 : 0.94;
-      P.lean = [fx * 5, fy * 4]; P.head = [fx * 2, fy * 2]; P.smear = 4; P.mouth = 1;
+      P.h = isSide(dir) ? 0.94 : 1.02; P.w = isSide(dir) ? 1.18 : 0.94;
+      P.lean = [fx * 5, fy * (dir === 'up' ? 1.5 : 3)]; P.head = [fx * 2, fy * (dir === 'up' ? 0.5 : 2)]; P.smear = dir === 'down' ? 3 : 4; P.mouth = 1;
       if (dir === 'down') { P.handL = [14, 61]; P.handR = [50, 61]; P.openL = 1; P.openR = 1; }
       else if (dir === 'up') { P.handL = [10, 30]; P.handR = [54, 30]; }
-      else { P.handR = [4, 44]; P.handL = [2, 40]; P.openR = 1; }
-      if (dir === 'right') { P.handR = [4, 44]; P.handL = [2, 40]; }
+      else { P.handR = [7, 44]; P.handL = [6, 40]; P.openR = 1; }
     } else { // landing, arms out
-      P.lean = [fx * 3, fy * 2.5]; P.head = [fx, fy]; P.mouth = 0.6; P.smear = 1;
+      P.lean = [fx * 3, fy * (dir === 'up' ? 1 : 2.5)]; P.head = [fx, dir === 'up' ? 0 : fy]; P.mouth = 0.6; P.smear = 1;
       if (dir === 'down') { P.handL = [12, 59]; P.handR = [52, 59]; P.openL = 0.6; P.openR = 0.6; }
       else if (dir === 'up') { P.handL = [9, 36]; P.handR = [55, 36]; }
-      else { P.handR = [7, 48]; P.handL = [4, 45]; P.openR = 0.6; }
+      else { P.handR = [8, 48]; P.handL = [7, 45]; P.openR = 0.6; }
     }
   }), fps: 8, loop: true };
 }
@@ -647,8 +646,8 @@ function reachAnim(dir) {
     P.lean = [fx * [0, 1.5, 2.5, 2.5][i], fy * [0, 1, 2, 2][i]];
     const open = [0.3, 1, 0.7, 0][i];
     if (dir === 'down') { P.handR = [[52, 47], [44, 58], [40, 61], [41, 60]][i]; P.armZR = [2, 8, 10, 10][i]; P.openR = open; }
-    else if (dir === 'up') { P.handR = [[54, 40], [52, 26], [48, 20], [48, 21]][i]; P.openR = open; }
-    else { P.handR = [[22, 46], [10, 42], [5, 40], [6, 41]][i]; P.openR = open; P.armZR = 4; }
+    else if (dir === 'up') { P.handR = [[54, 40], [52, 28], [49, 23], [49, 24]][i]; P.openR = open; }
+    else { P.handR = [[22, 46], [11, 42], [8, 41], [9, 41]][i]; P.openR = open; P.armZR = 4; }
   }), fps: 6, loop: false };
 }
 
@@ -658,7 +657,7 @@ function peekAnim(dir) {
     const k = [0.2, 0.55, 0.85, 1][i];
     P.lids = i >= 2 ? [0.6, 0.55] : [0.45, 0.4]; P.b = 0.4;
     if (dir === 'down' || dir === 'up') {
-      P.lean = [-4 * k, (dir === 'down' ? 1.5 : -1.5) * k]; P.head = [-2 * k, 0]; P.look = dir === 'down' ? -0.6 * k : 0;
+      P.lean = [-1 * k, (dir === 'down' ? 1.5 : -1) * k]; P.head = [-2 * k, 0]; P.look = dir === 'down' ? -0.6 * k : 0;
       P.clipX = Math.round(30 + 8 * k); P.gripY = 30;
     } else {
       P.lean = [-5 * k, 1 * k]; P.head = [-2 * k, 0.5 * k];
@@ -695,7 +694,7 @@ function buildMound(P) {
   if (open) { put(-2, 0, M.IRIS); put(1, 0, M.IRIS); }
   if (lift > 0.5) { put(-1, 1, M.HAIR); put(0, 1, M.HAIR); put(1, 1, M.HAIR); put(-2, 1, M.HAIR); put(2, 1, M.HAIR); }
   // a hand limp on the floor, a boot tip, one brass glint, a tassel end — little else gives it away
-  const hl = [7 + plant * 2, 59 - plant * 1], hr = [57 - plant * 2, 59.5 - plant];
+  const hl = [10 + plant * 2, 59 - plant * 1], hr = [55 - plant * 2, 59.5 - plant];
   const af = new HField(FW, FH, 0.6);
   af.blob(hl[0], hl[1], 4.6, 3.2, 4, { base: 8, mat: FL, p: 0.6 });
   for (let f = 0; f < 3; f++) af.tube(hl[0] - 3 + f * 1.8, hl[1] + 1, 1.4, hl[0] - 5 + f * 1.8, hl[1] + 2.5, 1.2, { mat: FL, z0: 9, z1: 9 });
@@ -729,7 +728,7 @@ function riseAnim() {
   const steps = [
     { h: 0.66, w: 1.12, massW: 1.15, handL: [8, 59], handR: [56, 59], b: 1 },
     { h: 0.84, w: 1.05, massW: 1.08, handL: [9, 57], handR: [55, 57], b: 1 },
-    { h: 1.06, w: 0.97, b: 1 },
+    { h: 1.035, w: 0.97, b: 1 },
     { h: 1.0, b: 0.7 },
     { h: 1.0, b: 0.4 },
   ];

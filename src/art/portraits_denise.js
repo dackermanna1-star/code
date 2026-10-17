@@ -3,16 +3,16 @@
 // 'lure' glows warm and is a little too perfect; 'wrong' tilts too far with unfocused eyes and husk amber
 // showing at the edges; 'peace' is the real girl, eyes closed.
 import { PAL, mix } from './palette.js';
-import { material, spline, PW, PH, bay, clamp, lerp, hexToRgb } from './portraits_core.js';
+import { material, spline, PW, PH, bay, lerp, hexToRgb, rimLight } from './portraits_core.js';
 import { stdMats } from './portraits_human.js';
-import { L, strand, hairVol, valueNoise, enrolledDarkSkin } from './portraits_parts.js';
+import { hairVol, valueNoise, enrolledDarkSkin } from './portraits_parts.js';
 import { darkPale } from './portraits_marcus.js';
 
 const SKIN = ['#140806', '#2e1610', '#502c1e', mix(PAL.dskin_d, PAL.dskin, 0.7), mix(PAL.dskin, PAL.dskin_l, 0.85), mix(PAL.dskin_l, '#d49a64', 0.55)];
 const HAIR = ['#050303', '#0d0807', '#18110c', '#261b13', '#3a2a1c', '#584030'];
 const GREEN = ['#070e0a', '#0f1c14', '#182b1e', '#223c29', '#2e5036', '#46694a'];
 const GOLD = ['#2a1e08', PAL.brass_d, mix(PAL.brass_d, PAL.brass, 0.6), PAL.brass, PAL.gold, PAL.gold_l];
-const SKIN_TONE = [0.2, 0.36, 0.55, 1.06];
+const SKIN_TONE = [0.2, 0.36, 0.55, 1.1];
 
 export const DENISE = {
   seed: 1964,
@@ -30,7 +30,7 @@ export const DENISE = {
     let skin = darkPale(SKIN, (E.pale || 0) * 0.8);
     if (E.husk) skin = enrolledDarkSkin(skin, E.husk);
     return [
-      material('skin', skin, { tone: SKIN_TONE, dither: 0.012, flat: E.flatSkin || 0 }),
+      material('skin', skin, { tone: SKIN_TONE, dither: 0.02, ditherT: [0.02, 0.035, 0.06, 0.008], flat: E.flatSkin || 0 }),
       material('blush', skin.map((c, i) => mix(c, '#b04040', i === 0 ? 0 : 0.18)), { tone: SKIN_TONE, dither: 0, line: false }),
       material('bruise', skin.map((c) => mix(c, '#2a1a2a', 0.3)), { tone: SKIN_TONE, dither: 0, line: false }),
       material('lip', ['#140606', '#2a0e10', '#44181c', '#5c2828', '#763832', '#904a40'], { tone: SKIN_TONE, dither: 0, line: false }),
@@ -48,13 +48,13 @@ export const DENISE = {
     return {
       skinMat: 'skin',
       eye: {
-        uc: 0.43, y: 50, w: 10.6, hu: 3.6, hl: 2.4, ri: 3.4, rp: 1.4, irisW: 1, irisShiftN: -0.6, cIn: 0.4, cOut: 0.2, peak: -0.08, archPow: 2.3,
+        uc: 0.43, y: 50, w: 10.6, hu: 3.6, hl: 2.4, ri: 3.4, rp: 1.4, irisW: 1, irisShiftN: -0.1, cIn: 0.4, cOut: 0.2, peak: 0.05, archPow: 2.3,
         lash: [1, 2, 2], flick: 0.9, flickRise: 1.6, crease: true, creaseGap: 1.3, lowerLine: 0.5, irisDy: -0.2,
         skinMat: 'skin', lashMat: 'lash', irisMat: 'iris', irisGlassMat: 'iris', scleraMat: 'sclera', pupilMat: 'pupil', glintMat: 'glint',
       },
       brow: { y: 43.2, uIn: 0.13, uPk: 0.5, uOut: 0.84, pkY: -1.2, outY: 0.8, w: [2.1, 1.9, 0.9], mat: 'brow', skinMat: 'skin', farW: 0.9 },
       nose: { y: 60.6, e: 4.0, tipW: 3.0, skinMat: 'skin', nearNostril: -1 },
-      mouth: { y: 67.8, hw: 0.28, farK: 1, h: 4.8, lipMat: 'lip', skinMat: 'skin', mouthMat: 'mouth', teethMat: 'teeth', tongueMat: 'tongue' },
+      mouth: { y: 67.8, hw: 0.28, farK: 1, h: 4.8, fullLips: true, lipMat: 'lip', skinMat: 'skin', mouthMat: 'mouth', teethMat: 'teeth', tongueMat: 'tongue' },
       ear: null,
       neck: { x: 46.5, yTop: 62, yBot: 98, wTop: 6.4, wBot: 7.4, lean: 1.6, z: 1 },
       blush: { u: 0.5, y: 59.5, rx: 3.6, ry: 1.7, mat: 'blush' },
@@ -96,6 +96,7 @@ export const DENISE = {
     rig.strokeH(spline(pts, { seg: 3 }), (t) => ['crack', 0, t < 0.5 ? 4 : 3], { onlyMat: on });
   },
   post(d, rig, idx, light, lightName, exprId) {
+    if (lightName === 'normal' || lightName === 'dawn') rimLight(d, rig, ['skin'], '#9cb0cc', 0.26, 40);
     if (exprId === 'peace') return;
     // warm glow: an amber rim on the silhouette, strongest along the top & far edge ("faintly glowing")
     const A = hexToRgb(PAL.amber_l), B = hexToRgb(PAL.amber_ll);

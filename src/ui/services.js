@@ -116,6 +116,9 @@ function applySetting(k, v) {
   } catch (e) { warnOnce('applySetting', e); }
 }
 
+/** Accessibility: tone down flicker/strobe effects in the UI too. */
+export const reduceFlashing = () => !!settings.get('reduceFlashing');
+
 // ---- saves -------------------------------------------------------------------------------------
 export const SLOTS = ['auto', '1', '2', '3'];
 /** Summary for a slot, or null if empty: { chapter, chapterTitle, map, playtime, date }. */

@@ -4,7 +4,7 @@
 // Modes: 'boot' → 'title' | 'play' | 'cutscene' (blocking script) | 'menu' (engine-opened UI
 // screen; paused) | 'gameover' | 'ending'. HW.time advances only while not paused.
 import HW from './hw.js';
-import { MapRuntime } from './map.js';
+import { MapRuntime, lockSatisfied } from './map.js';
 import { createState, normalizeState, cloneState, saves, chapterTitle } from './state.js';
 import { resolvePoint } from './entities.js';
 import { ITEMS } from '../data/items.js';
@@ -14,6 +14,8 @@ const PAUSED_MODES = new Set(['boot', 'title', 'menu', 'gameover']);
 const MAX_FRAME = 0.25;           // s — longer gaps (tab switch, breakpoint) are dropped
 const FADE_TIME = 0.35;
 const NEW_GAME_FALLBACK = ['test', 'start'];
+// Engine defaults for items whose catalog entry has no `use` yet (DESIGN v2 §9.5).
+const DEFAULT_ITEM_USE = { danny_flashlight: 'engine:use_danny_flashlight' };
 
 const rectHas = (r, tx, ty) => tx >= r[0] && ty >= r[1] && tx < r[0] + r[2] && ty < r[1] + r[3];
 
@@ -54,6 +56,8 @@ export const game = {
   frame: 0,
   steps: 0,
   fps: 60,
+  /** Gameplay time multiplier set by systems (×4 while Tess shuts her eyes in a period). */
+  timeWarp: 1,
   _listeners: new Map(),
   _acc: 0,
   _last: 0,
@@ -165,7 +169,7 @@ export const game = {
     this._last = now;
     if (!(dt >= 0)) dt = 0;
     dt = Math.min(dt, MAX_FRAME);
-    const scale = HW.debug?.timeScale || 1;
+    const scale = (HW.debug?.timeScale || 1) * (this.timeWarp || 1);
     this._acc += dt * scale;
     const maxSteps = Math.max(8, Math.ceil(scale * 8));
     let n = 0;
@@ -289,6 +293,13 @@ export const game = {
     });
   },
 
+  /** Finish every running tween immediately (map loads: they animate entities of the old map). */
+  _cancelTweens() {
+    const tw = this._tweens;
+    this._tweens = [];
+    for (const t of tw) t.resolve();
+  },
+
   _updateTweens(dt) {
     const tw = this._tweens;
     for (let i = tw.length - 1; i >= 0; i--) {
@@ -309,13 +320,21 @@ export const game = {
     const data = HW.data?.maps?.[mapId];
     if (!data) throw new Error(`Unknown map: ${mapId}`);
     call(HW.compact, 'close', 'compact.close', true);
+    this._cancelTweens();
+    this.timeWarp = 1;
     const map = new MapRuntime(data, HW.state);
     HW.map = map;
     HW.state.map = mapId;
     let pos = null;
-    if (at !== null && at !== undefined) pos = resolvePoint(at);
-    if (!pos) {
-      if (at !== null && at !== undefined) console.warn(`[game] spawn point ${JSON.stringify(at)} not found on ${mapId}`);
+    if (at !== null && at !== undefined) {
+      pos = resolvePoint(at);
+      if (!pos) {
+        // Content bug: fall back to a sane spot on the new map rather than the old coordinates.
+        console.error(`[game] spawn point ${JSON.stringify(at)} not found on map '${mapId}'`);
+        const first = Object.keys(map.anchors)[0];
+        pos = map.anchor('start') || (first ? map.anchor(first) : null) || { x: map.pw / 2, y: map.ph / 2 };
+      }
+    } else {
       pos = { x: HW.state.px || map.pw / 2, y: HW.state.py || map.ph / 2, dir: HW.state.dir };
     }
     HW.entities.onMapLoad(map, pos.x, pos.y, dir || pos.dir || HW.state.dir || 'down');
@@ -378,6 +397,13 @@ export const game = {
       this._exitArmed = true;
     } else if (this._exitArmed && play) {
       this._exitArmed = false;
+      if (exit.lock && !lockSatisfied(exit.lock, HW.state)) {
+        // Gated exit: an in-voice refusal; it re-arms once the player steps back out.
+        if (exit.refuse) HW.scripts.run(exit.refuse, { exit, map });
+        else HW.scripts.runFn((g) => g.examine(exit.lockedText || "[n] I can't go that way."), { exit, map }, { id: `exit:${exit.id}` });
+        HW.debug?.record?.('refuse', null, null, `${map.id}:${exit.id}`);
+        return;
+      }
       this.transfer(exit.to, exit.anchor, { fade: exit.fade !== false, dir: exit.dir, auto: true });
       return;
     }
@@ -548,6 +574,7 @@ export const game = {
       playtime: Math.floor(s.playtime),
       date: new Date().toISOString(),
       objective: s.objective || '',
+      checkpoint: s.checkpoint || '',
     };
     saves.write(slot, cloneState(s), summary);
     this.emit('save', slot);
@@ -598,6 +625,14 @@ export const game = {
     return true;
   },
 
+  _deathKey(label) {
+    return `deaths_${String(label || 'auto').replace(/[^a-z0-9_]+/gi, '_')}`;
+  },
+
+  _deaths(label) {
+    return HW.state.flags[this._deathKey(label)] || 0;
+  },
+
   /** Saving allowed from the pause menu (TECH §7). */
   canSave() {
     return !!HW.map && (this.mode === 'play' || this.mode === 'menu') && !HW.scripts.blocking
@@ -608,8 +643,11 @@ export const game = {
     return !!HW.map && !HW.periods?.active && HW.colonel?.mode !== 'chase' && !HW.scripts.blocking;
   },
 
-  /** Autosave to slot 'auto'. */
+  /** Autosave to slot 'auto'. The label keys the death counter used by assist. */
   checkpoint(label = '') {
+    const s = HW.state;
+    s.checkpoint = String(label || 'auto');
+    s.assist = this._deaths(s.checkpoint) >= 2 ? 1.3 : 1;
     if (!this.save('auto')) return false;
     this.emit('checkpoint', label);
     HW.debug?.record?.('checkpoint', null, null, label);
@@ -637,7 +675,13 @@ export const game = {
     }
     if (this.mode !== 'gameover') return;
     if (r === 'title') { this.toTitle(); return; }
-    if (!this.loadSave('auto')) this.newGame();
+    if (!this.loadSave('auto')) { this.newGame(); return; }
+    // Assist (DESIGN §9.3): count deaths per checkpoint; from the 2nd, telegraphs/meters get +30 %.
+    const s = HW.state;
+    const key = this._deathKey(s.checkpoint);
+    s.flags[key] = (s.flags[key] || 0) + 1;
+    s.assist = s.flags[key] >= 2 ? 1.3 : 1;
+    this.save('auto');
   },
 
   /** Ending sequence: 'end.<id>' script, then credits, then the title. */
@@ -659,19 +703,21 @@ export const game = {
   // ---------------------------------------------------------------------------------- items
   /**
    * Use an item or an item action: item id ('battery') → ITEMS[id].use; or the action itself:
-   * 'engine:toggle_flashlight' | 'engine:use_battery' | 'engine:use_compact' |
-   * 'engine:open_sketchbook' | 'doc:<docId>' | a script id (run once menus are closed).
+   * 'engine:toggle_flashlight' (Maglite) | 'engine:use_danny_flashlight' | 'engine:use_battery' |
+   * 'engine:use_compact' | 'engine:open_sketchbook' | 'doc:<docId>' | a script id (run once menus
+   * are closed).
    */
   async useItem(id) {
     let action = id;
     let ctx = {};
     if (ITEMS[id]) {
-      action = ITEMS[id].use;
+      action = ITEMS[id].use || DEFAULT_ITEM_USE[id];
       ctx = { item: id };
       if (!action) return false;
     }
     switch (action) {
-      case 'engine:toggle_flashlight': return !!HW.flashlight?.toggle?.();
+      case 'engine:toggle_flashlight': return !!HW.flashlight?.useSource?.('maglite');
+      case 'engine:use_danny_flashlight': return !!HW.flashlight?.useSource?.('danny');
       case 'engine:use_battery': return !!HW.flashlight?.useBattery?.();
       case 'engine:use_compact':
         await this._whenPlayable();

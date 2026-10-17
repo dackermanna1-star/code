@@ -88,7 +88,7 @@ defMat(M.PAPER, { ramp: rampFrom([dk(PAL.paper_d, 0.85), dk(PAL.paper_d, 0.6), d
 defMat(M.COAL, { ramp: [dk(PAL.ink, 0.85), dk(PAL.ink, 0.5), PAL.ink, PAL.night, PAL.shadow, PAL.g1, PAL.g2, PAL.g4], spec: 1.2, shin: 26, dith: 0.8, bump: [1.3, 0.9, 81] });
 defMat(M.WOOL_WET, { ramp: rampFrom([dk(PAL.navy_dd, 0.7), PAL.navy_dd, PAL.navy_d, PAL.navy, mix(PAL.navy_l, PAL.blue_l, 0.5)], 8), spec: 0.8, shin: 18, bump: [2, 0.4, 91] });
 defMat(M.SILVER, { ramp: rampFrom([dk(PAL.g1, 0.5), PAL.g2, PAL.g4, PAL.g6, PAL.white], 7), spec: 1.0, shin: 18, dith: 0.5 });
-defMat(M.NAIL, { ramp: rampFrom([dk(PAL.flesh_dd, 0.5), PAL.flesh_dd, PAL.flesh_d, mix(PAL.flesh_l, PAL.cream_l, 0.4), lt(PAL.paper, 0.3)], 6), spec: 0.8, shin: 20, dith: 0.4 });
+defMat(M.NAIL, { ramp: rampFrom([dk(PAL.flesh_dd, 0.5), PAL.flesh_dd, mix(PAL.flesh_d, PAL.cream_d, 0.4), mix(PAL.flesh, PAL.cream_d, 0.4), mix(PAL.flesh_l, PAL.paper_d, 0.5)], 6), spec: 0.35, shin: 24, dith: 0.4 });
 
 // sprite-scale variants: no bump (at 64 px the dough texture reads as curls), quieter dither
 defMat(M.SFLESH, { ramp: rampFrom([dk(PAL.flesh_dd, 0.65), dk(PAL.flesh_dd, 0.3), mix(PAL.flesh_d, PAL.flesh_sick, 0.35), mix(PAL.flesh, PAL.flesh_sick, 0.35), mix(PAL.flesh_l, PAL.flesh_sick, 0.2), lt(PAL.flesh_l, 0.12)], 8), spec: 0.3, shin: 12, dith: 0.55, wrap: 0.1, tex: (x, y) => (h01(x, y, 93) < 0.04 ? -0.05 : 0) });
@@ -104,6 +104,12 @@ export class GBuf {
     this.ao = new Float32Array(n).fill(1);
     this.lum = new Float32Array(n);   // painted luminance bias (highlights, stains)
     this.tox = 0; this.toy = 0;       // texture origin (lets textures ride with a moving body)
+  }
+  clone() {
+    const o = new GBuf(this.w, this.h);
+    o.mat.set(this.mat); o.nx.set(this.nx); o.ny.set(this.ny); o.nz.set(this.nz); o.z.set(this.z); o.ao.set(this.ao); o.lum.set(this.lum);
+    o.tox = this.tox; o.toy = this.toy;
+    return o;
   }
   clear() { this.mat.fill(0); this.z.fill(-1e9); this.ao.fill(1); this.lum.fill(0); }
 
@@ -352,26 +358,33 @@ export class HField {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     for (const [x, y] of pts) { minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y); }
     const pad = kind === 'fold' ? r * 3 : r + 1;
+    // precompute segments once (this runs for every pixel in the box)
+    const n = pts.length - 1, seg = new Float64Array(n * 6);
+    let total = 0;
+    for (let k = 0; k < n; k++) {
+      const [ax, ay] = pts[k], [bx, by] = pts[k + 1], dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1e-6;
+      seg.set([ax, ay, dx, dy, L2, total], k * 6); total += Math.sqrt(L2);
+    }
+    total = total || 1;
+    const reach = kind === 'fold' ? r * 3 : r, reach2 = reach * reach;
     this.each(minX - pad, minY - pad, maxX + pad, maxY + pad, (x, y, z) => {
       const px = x + 0.5, py = y + 0.5;
-      let best = 1e9, side = 0, tAlong = 0, acc = 0, total = 0;
-      for (let k = 0; k + 1 < pts.length; k++) total += Math.hypot(pts[k + 1][0] - pts[k][0], pts[k + 1][1] - pts[k][1]);
-      for (let k = 0; k + 1 < pts.length; k++) {
-        const [ax, ay] = pts[k], [bx, by] = pts[k + 1], dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy || 1e-6, L = Math.sqrt(L2);
+      let best2 = 1e18, side = 0, tAlong = 0;
+      for (let k = 0; k < n; k++) {
+        const o = k * 6, ax = seg[o], ay = seg[o + 1], dx = seg[o + 2], dy = seg[o + 3], L2 = seg[o + 4];
         let t = ((px - ax) * dx + (py - ay) * dy) / L2; t = t < 0 ? 0 : t > 1 ? 1 : t;
-        const ex = px - ax - dx * t, ey = py - ay - dy * t, d = Math.hypot(ex, ey);
-        if (d < best) { best = d; side = Math.sign(dx * ey - dy * ex) || 1; tAlong = (acc + t * L) / (total || 1); }
-        acc += L;
+        const ex = px - ax - dx * t, ey = py - ay - dy * t, d2 = ex * ex + ey * ey;
+        if (d2 < best2) { best2 = d2; side = (dx * ey - dy * ex) >= 0 ? 1 : -1; tAlong = (seg[o + 5] + t * Math.sqrt(L2)) / total; }
       }
+      if (best2 >= reach2) return;
+      const best = Math.sqrt(best2);
       const taper = Math.min(1, Math.min(tAlong, 1 - tAlong) * 5 + 0.05);
       if (kind === 'groove') {
-        if (best >= r) return;
         const q = 1 - best / r;
         return z - depth * q * q * taper;
       }
       // fold: the surface on the + side (right of travel; "below" for a left→right stroke) drops by
       // depth and recovers over 2r; a small lip bulges on the - side — an overhanging roll of flesh.
-      if (best >= r * 3) return;
       const sd = side * best;
       const t = Math.max(0, Math.min(1, (sd + r * 0.3) / (r * 1.3)));
       let drop = depth * t * t * (3 - 2 * t);
@@ -465,7 +478,7 @@ export function shade(gb, lr, opts = {}) {
       }
       if (att <= 0) continue;
       if (L.sh) { // screen-space height-field shadow: march toward the light over the depth buffer
-        const l2 = Math.hypot(lx, ly) || 1e-6, sx = lx / l2, sy = ly / l2, sz = lz / l2;
+        const st = L.shStep || 1, l2 = (Math.hypot(lx, ly) || 1e-6) / st, sx = lx / l2, sy = ly / l2, sz = lz / l2;
         let cx = px3, cy = py3, cz = pz3 + (L.bias ?? 0.5);
         for (let k = 0; k < L.sh; k++) {
           cx += sx; cy += sy; cz += sz;

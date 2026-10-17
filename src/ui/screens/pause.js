@@ -2,8 +2,8 @@
 // card (chapter, where you are, objective in Tess's pencil, who's with you, time).
 import { HW } from '../../engine/hw.js';
 import { Screen } from '../screen.js';
-import { C, F, W, H, chapterTitle, CHAPTERS, handFont } from '../theme.js';
-import { steelPanel, rect, frame, dither, paperSheet, AP, clamp, ease, snap } from '../gfx.js';
+import { C, F, CHAPTERS, handFont } from '../theme.js';
+import { steelPanel, rect, dither, paperSheet, AP, clamp, ease, snap } from '../gfx.js';
 import { headerTab, hints, optionList, spaced } from '../widgets.js';
 import * as svc from '../services.js';
 

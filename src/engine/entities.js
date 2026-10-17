@@ -7,8 +7,8 @@ import HW from './hw.js';
 import { CHARS } from '../data/chars.js';
 
 export const TILE = 16;
-export const WALK_SPEED = 60;
-export const RUN_SPEED = 100;
+export const WALK_SPEED = 60;   // CONTENT §5.1
+export const RUN_SPEED = 112;
 export const DIRS = ['up', 'down', 'left', 'right'];
 export const DIR_VEC = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
 export const DIR_ANGLE = { right: 0, down: Math.PI / 2, left: Math.PI, up: -Math.PI / 2 };
@@ -20,8 +20,8 @@ const BOX_BOTTOM = 2;
 const NUDGE = 7;              // max sideways correction (px) when clipping a doorway corner
 const STRIDE_WALK = 18;       // px travelled per footstep
 const STRIDE_RUN = 26;
-const NOISE_WALK = 24;        // 1.5 tiles
-const NOISE_RUN = 112;        // 7 tiles
+const NOISE_WALK = 1.5;       // HW.noise.emit radius in tiles (CONTENT §5.4)
+const NOISE_RUN = 7;
 
 // Interned animation names so per-frame lookups never build strings.
 const ANIM = {};
@@ -87,6 +87,7 @@ export class Entity {
     this._cur = null;
     this._animCache = new Map();
     this._sheet = undefined;
+    this._shadowW = 14;
     this.tall = false;
     // Scripted path following.
     this.path = null;
@@ -99,6 +100,42 @@ export class Entity {
     this.sortKey = this.y;
     this.promptX = this.x;
     this.promptY = this.y - 30;
+    this.seat = null;          // seat prop while an NPC/follower sits (HW.hiding.seatNpc)
+    this.lightSpec = spec.light || null;   // attached light (e.g. Danny's flashlight), see syncLight()
+    this._light = null;
+  }
+
+  /** Attach / detach a light that travels with this entity (HW.lighting.addLight). */
+  setLight(spec) {
+    this.lightSpec = spec || null;
+    this.syncLight();
+  }
+
+  /** Create/update/remove the attached light. Coordinates: x/y tile units (centre = x*16+8), px/py world px. */
+  syncLight() {
+    const L = HW.lighting;
+    if (!this.lightSpec || !this.visible || !L?.addLight) {
+      if (this._light) { try { L?.removeLight?.(this._light); } catch (e) { console.error('[entities] removeLight failed', e); } }
+      this._light = null;
+      return;
+    }
+    if (!this._light) {
+      try {
+        this._light = L.addLight({ type: 'flashlight', ...this.lightSpec, entity: this.id }) || null;
+      } catch (e) {
+        console.error('[entities] addLight failed', e);
+        this.lightSpec = null;
+        return;
+      }
+      if (!this._light) return;
+    }
+    const l = this._light;
+    l.px = this.x;
+    l.py = this.y - 9;
+    l.x = l.px / TILE - 0.5;
+    l.y = l.py / TILE - 0.5;
+    l.angle = DIR_ANGLE[this.dir];
+    l.on = true;
   }
 
   get sheet() {
@@ -119,6 +156,8 @@ export class Entity {
       this._sheet = null;
     }
     this.tall = !!this._sheet && this._sheet.fh > 40;
+    // Shadow width follows the sprite (the Colonel casts a much bigger one than Tess).
+    this._shadowW = this._sheet ? Math.max(14, Math.round(this._sheet.fw * 0.6)) : 14;
   }
 
   face(dir) {
@@ -308,7 +347,10 @@ export class Entity {
       const h = Math.min(sheet.fh, clipY - dy);
       if (h > 0) ctx.drawImage(img, 0, 0, sheet.fw, h, dx, dy, sheet.fw, h);
     } else {
-      if (this.shadow && !this.sitDir) ctx.drawImage(shadow(), fx - 7, fy - 2);
+      if (this.shadow && !this.sitDir) {
+        const sw = this._shadowW;
+        ctx.drawImage(shadow(), fx - (sw >> 1), fy - 2, sw, 5);
+      }
       ctx.drawImage(img, dx, dy);
     }
     if (a < 1) ctx.globalAlpha = 1;
@@ -344,6 +386,13 @@ export class Player extends Entity {
     this.aimY = 1;
     this.speed = 0;
     this.blockedBy = null;   // solid prop bumped this step
+    this.sitTime = -10;      // HW.time when she last sat down (the Colonel notices sitting, DESIGN R2)
+    this.eyesShut = false;   // holding Confirm while seated (DESIGN §4.1)
+  }
+
+  animNameNow() {
+    if (this.eyesShut && this.seated && !this.animName && this.sheet?.anims?.heads_down) return 'heads_down';
+    return super.animNameNow();
   }
 
   face(dir) {
@@ -359,8 +408,10 @@ export class Player extends Entity {
     this.clearAnim();
     this.hidden = null;
     this.hideProp = null;
+    if (this.seated) this.seated.seatedBy = null;
     this.seated = null;
     this.sitDir = null;
+    this.eyesShut = false;
     this.busy = false;
     this.visible = true;
     this.alpha = 1;
@@ -447,7 +498,7 @@ export class Player extends Entity {
   /** Slide around a corner when only a few pixels short of a 1-tile opening. */
   _nudge(sx, sy, amount) {
     for (let k = 1; k <= NUDGE; k++) {
-      for (const s of [1, -1]) {
+      for (let s = 1; s >= -1; s -= 2) {
         const ox = sy ? s * k : 0;
         const oy = sx ? s * k : 0;
         if (this.free(this.x + ox + sx, this.y + oy + sy) && this.free(this.x + Math.sign(ox), this.y + Math.sign(oy))) {
@@ -509,7 +560,11 @@ export const entities = {
 
   /** Remove everything (new game / title). */
   reset() {
-    for (const e of this.list) { e.stopPath(false); e.clearAnim(); }
+    for (const e of this.list) {
+      e.stopPath(false);
+      e.clearAnim();
+      if (e._light) { e.lightSpec = null; e.syncLight(); }
+    }
     this.list.length = 0;
     this.byId.clear();
     this.followers.length = 0;
@@ -548,6 +603,7 @@ export const entities = {
     if (spec.id === 'tess' || spec.id === 'player') throw new Error('spawn: the player already exists');
     const pos = resolvePoint(spec.at ?? (spec.px !== undefined ? { x: spec.px, y: spec.py } : spec.x !== undefined ? [spec.x, spec.y] : null));
     const e = new Entity({ ...spec, x: pos?.x ?? this.player?.x ?? 0, y: pos?.y ?? this.player?.y ?? 0, dir: spec.dir || pos?.dir || 'down' });
+    if (!e.lightSpec && HW.state?.entityLights?.[e.id]) e.lightSpec = HW.state.entityLights[e.id];
     this._add(e);
     e.sortKey = e.y;
     if (spec.follow) {
@@ -562,6 +618,8 @@ export const entities = {
     if (!e || e === this.player) return false;
     e.stopPath(false);
     e.clearAnim();
+    if (e.seat) { e.seat.seatedBy = null; e.seat = null; }
+    if (e._light) { e.lightSpec = null; e.syncLight(); }
     this.byId.delete(id);
     const i = this.list.indexOf(e);
     if (i >= 0) this.list.splice(i, 1);
@@ -590,7 +648,7 @@ export const entities = {
       let e = this.byId.get(id);
       if (!e) {
         const p = this._trailPoint((this.followers.length + 1) * FOLLOW_GAP);
-        e = this._add(new Entity({ id, x: p.x, y: p.y, dir: this.player?.dir || 'down' }));
+        e = this._add(new Entity({ id, x: p.x, y: p.y, dir: this.player?.dir || 'down', light: HW.state?.entityLights?.[id] }));
       }
       this._makeFollower(e);
     }
@@ -608,7 +666,6 @@ export const entities = {
     p.y = y;
     p.face(dir || p.dir);
     p.sortKey = p.y;
-    this._resetTrail();
     this.syncParty();
     this.onPlayerMoved();
   },
@@ -684,7 +741,7 @@ export const entities = {
     const p = this.player;
     for (let i = 0; i < this.followers.length; i++) {
       const f = this.followers[i];
-      if (f.path || f.animHold) continue; // scripted moves/poses take over
+      if (f.path || f.animHold || f.seat) continue; // scripted moves, poses and seats take over
       const t = this._trailPoint((i + 1) * FOLLOW_GAP);
       const dx = t.x - f.x;
       const dy = t.y - f.y;
@@ -725,6 +782,7 @@ export const entities = {
       e.updateAnim(dt);
       e.sortKey = e.y + e.sortBias;
       e.updatePrompt();
+      if (e.lightSpec || e._light) e.syncLight();
     }
   },
 };

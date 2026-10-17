@@ -1,10 +1,9 @@
 // The Colonel's portraits (96×120): mostly the small face, the dough of the head around it, a hint of
 // collar and epaulette. One rig (colonel_face.js) lit six ways; expressions change lids/gaze/mouth only.
 // Exports: initColonelPortraits(), getColonelPortrait(expr, opts) → 96×120 canvas.
-import { GBuf, rig, shade, imgToCanvas, M } from './colonel_gbuf.js';
+import { GBuf, rig, shade, imgToCanvas, outlineImg, M, fbm } from './colonel_gbuf.js';
 import { drawHead, FACE_EXPR } from './colonel_face.js';
 import { makeCanvas, ctxOf } from './util.js';
-import { fbm } from './colonel_gbuf.js';
 
 const W = 96, H = 120;
 export const COLONEL_PORTRAIT_EXPRS = ['serene', 'speaking', 'looking', 'wrong', 'confused', 'dissolving'];
@@ -26,6 +25,7 @@ export const PORTRAIT_RIGS = {
     lights: [{ d: [-0.35, -0.25, 0.9], i: 0.6, sh: 10, shK: 0.6 }] }),
 };
 
+const OUTLINE = { normal: '#0a0a0f', dark: '#050508', under: '#060406', fluor: '#0c120e', red: '#120405', dawn: '#141018' };
 const gbCache = new Map();
 const cache = new Map();
 
@@ -83,7 +83,9 @@ export function getColonelPortrait(expr = 'serene', opts = {}) {
   let c = cache.get(key);
   if (c) return c;
   const gb = buildGB(expr);
-  const img = shade(gb, PORTRAIT_RIGS[light], { focus: focusFn(light, expr) });
+  // cleaner bands than the CGs (the cast's portraits are cel-shaded), same 1-px dark silhouette outline
+  const img = shade(gb, { ...PORTRAIT_RIGS[light], ditherScale: 0.55 }, { focus: focusFn(light, expr) });
+  outlineImg(img, OUTLINE[light] || '#0a0a0f');
   c = imgToCanvas(img);
   if (expr === 'dissolving') c = addMotes(c, light);
   cache.set(key, c);

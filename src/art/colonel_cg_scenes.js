@@ -145,8 +145,8 @@ export function paintNails(gb, nails) {
   for (const n of nails) {
     const ax = Math.cos(n.a), ay = Math.sin(n.a);
     // small nails sunk in puffed fingertips
-    for (let k = -n.r * 0.45; k <= n.r * 0.45; k += 0.5) for (let j = -n.r * 0.35; j <= n.r * 0.4; j += 0.5) {
-      const e = (k / (n.r * 0.45)) ** 2 + (j / (n.r * 0.4)) ** 2; if (e > 1) continue;
+    for (let k = -n.r * 0.36; k <= n.r * 0.36; k += 0.5) for (let j = -n.r * 0.3; j <= n.r * 0.32; j += 0.5) {
+      const e = (k / (n.r * 0.36)) ** 2 + (j / (n.r * 0.32)) ** 2; if (e > 1) continue;
       const x = Math.round(n.x - ay * k + ax * j), y = Math.round(n.y + ax * k + ay * j);
       if (!FLESHY.has(gb.matAt(x, y))) continue;
       const i = y * gb.w + x;
@@ -158,10 +158,10 @@ export function paintNails(gb, nails) {
 // ------------------------------------------------------------------------------------ desk scene
 const HAND_RIG = (dim) => rig({
   amb: dim ? 0.07 : 0.13, shadowTint: dim ? '#4a5260' : '#6e7684', keyTint: '#f2fff4', exposure: 1.02, gamma: 1.1,
-  lights: [{ d: [0.18, -0.55, 0.82], i: dim ? 0.4 : 0.86, sh: 70, shK: 0.42, bias: 1.5 }, { d: [-0.6, 0.3, 0.75], i: 0.08, spec: 0 }],
+  lights: [{ d: [0.18, -0.55, 0.82], i: dim ? 0.4 : 0.86, sh: 36, shStep: 2, shK: 0.42, bias: 1.5 }, { d: [-0.6, 0.3, 0.75], i: 0.08, spec: 0 }],
 });
 
-export function buildDeskScene({ swell = 0, dim = 0 } = {}) {
+export function buildDeskGB(swell = 0) {
   const gb = new GBuf(W, H);
   const r = rng(1018);
   // ---- desk top (flat, camera straight above), far edge with the dark floor beyond
@@ -258,6 +258,9 @@ export function buildDeskScene({ swell = 0, dim = 0 } = {}) {
   for (let k = 0; k < 14; k++) { const [x, y] = hand.P(10 + r() * 18, -40 + r() * 80); gb.line(x, y, x + 3, y + 2, null, { k: 0.8 }); }
   gb.folds(2.4, 0.72, 0.9);
   gb.ssao(6, 0.018, 0.35);
+  return gb;
+}
+export function shadeDesk(gb, dim) {
   const img = shade(gb, HAND_RIG(dim), {
     focus: (x, y) => { const d = Math.hypot((x - 230) / 330, (y - 150) / 230); return 1 - Math.min(1, d * d) * 0.75; },
   });

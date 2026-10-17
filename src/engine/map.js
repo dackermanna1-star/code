@@ -29,11 +29,14 @@ const PARAM_FIELDS = ['text', 'occupant', 'label', 'polaroids', 'tessFrame'];
 
 export const isDoorProp = (p) => p.def.interact === 'door';
 
-/** Evaluate a door/prop lock: 'item:<id>' | 'flag:<name>' | (state) => bool. */
+/**
+ * Is a lock open? 'item:<id>' (holding it) | 'flag:<name>' (set) | (state) => bool where the
+ * function returns TRUE WHILE LOCKED (CONTENT §1: gates are conditions with in-voice refusals).
+ */
 export function lockSatisfied(lock, state = HW.state) {
   if (!lock) return true;
   try {
-    if (typeof lock === 'function') return !!lock(state);
+    if (typeof lock === 'function') return !lock(state);
     if (typeof lock === 'string') {
       if (lock.startsWith('item:')) return (state.inv[lock.slice(5)] || 0) > 0;
       if (lock.startsWith('flag:')) return !!state.flags[lock.slice(5)];

@@ -35,6 +35,15 @@ export const scripts = {
   /** Number of scripts running (blocking or not). */
   active: 0,
   timers: [],
+  _replays: 0,
+
+  /**
+   * True while a running scene was already seen (g.seen) — the UI lets the player hold Cancel to
+   * fast-forward its dialogue (DESIGN §9.3). Dialogue calls also carry opts.seen.
+   */
+  get replaying() {
+    return this._replays > 0;
+  },
 
   get(id) {
     return HW.data?.scripts?.[id] || null;
@@ -68,6 +77,7 @@ export const scripts = {
     } finally {
       if (gen === this.gen) {
         this.active--;
+        if (g._replay) this._replays = Math.max(0, this._replays - 1);
         if (blocking) this._exitBlocking();
       }
     }
@@ -108,6 +118,7 @@ export const scripts = {
     this.gen++;
     this.blocking = 0;
     this.active = 0;
+    this._replays = 0;
     const ts = this.timers;
     this.timers = [];
     for (const tm of ts) tm.reject(new ScriptAbort());
@@ -138,6 +149,9 @@ function makeG(gen, ctx, scriptId) {
   const g = {
     ctx,
     id: scriptId,
+    _replay: false,
+    /** True once g.seen() found this scene already seen. */
+    get replaying() { return g._replay; },
     get alive() { return alive(); },
 
     // ------------------------------------------------------------------ dialogue / UI
@@ -145,22 +159,38 @@ function makeG(gen, ctx, scriptId) {
       check();
       record('say', who, expr, text);
       if (auto()) return;
-      const o = { light: HW.renderer?.portraitLight?.() ?? 'dark', grime: grimeFor(HW.state.chapter), ...opts };
+      const o = { light: HW.renderer?.portraitLight?.() ?? 'dark', grime: grimeFor(HW.state.chapter), seen: g._replay, ...opts };
       await after(ui().say?.(who, expr || 'neutral', text, o));
     },
 
-    async think(expr, text) {
+    async think(expr, text, opts = {}) {
       check();
       record('think', 'tess', expr, text);
       if (auto()) return;
-      await after(ui().think?.(expr || 'neutral', text));
+      await after(ui().think?.(expr || 'neutral', text, { seen: g._replay, ...opts }));
     },
 
-    async narrate(text) {
+    async narrate(text, opts = {}) {
       check();
       record('narrate', null, null, text);
       if (auto()) return;
-      await after(ui().narrate?.(text));
+      await after(ui().narrate?.(text, { seen: g._replay, ...opts }));
+    },
+
+    /**
+     * Scene bookkeeping (DESIGN §9.3): returns whether `seen_<scene>` was already set, sets it,
+     * and marks this run as a replay so its dialogue can be fast-forwarded.
+     */
+    seen(scene) {
+      check();
+      const key = `seen_${scene}`;
+      const was = !!HW.state.flags[key];
+      HW.state.flags[key] = true;
+      if (was && !g._replay) {
+        g._replay = true;
+        scripts._replays++;
+      }
+      return was;
     },
 
     /** → index into the ORIGINAL options array (hidden options keep their indices). */
@@ -311,6 +341,18 @@ function makeG(gen, ctx, scriptId) {
       if (!e) return Promise.resolve();
       if (!name) { e.clearAnim(); return Promise.resolve(); }
       return after(e.playAnim(name, opts));
+    },
+
+    /**
+     * Attach a light to an entity (e.g. Danny's red flashlight while he follows), persisted by id
+     * so it survives map loads; null removes it. spec: lighting def overrides { type, color, power, … }.
+     */
+    light(id, spec) {
+      check();
+      const lights = HW.state.entityLights || (HW.state.entityLights = {});
+      if (spec) lights[id] = spec;
+      else delete lights[id];
+      HW.entities.get(id)?.setLight(spec || null);
     },
 
     setPos(id, target) {

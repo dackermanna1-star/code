@@ -2,7 +2,7 @@
 // hair / clothing / accessory layers and expressions); this file assembles them in a fixed layer order so
 // every character follows identical proportions, outline weight and shading logic.
 import { Rig, Face3D, PW, PH, lerp, clamp, material } from './portraits_core.js';
-import { drawEye, drawBrow, drawNose, drawMouth, drawFreckles, drawBlush, drawTears, drawSweat, drawUnderEye, drawSmudges } from './portraits_face.js';
+import { drawEye, drawBrow, drawNose, drawMouth, drawFreckles, drawBlush, drawTears, drawSweat, drawUnderEye } from './portraits_face.js';
 import { rng } from './util.js';
 
 const G = (x, s) => Math.exp(-(x * x) / (s * s));

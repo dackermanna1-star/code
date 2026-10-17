@@ -87,7 +87,7 @@ async function dialogue(spec) {
   const bx = 24, by = 368, bw = W - 48, bh = 150;
   x.fillStyle = 'rgba(8,8,12,0.86)'; x.fillRect(bx, by, bw, bh);
   x.strokeStyle = '#3a3946'; x.lineWidth = 2; x.strokeRect(bx + 1, by + 1, bw - 2, bh - 2);
-  const p = getPortrait(char, expr, opts);
+  const p = getPortrait(char, expr, { ...opts, mirror: side === 'right' });
   const px = side === 'left' ? bx + 12 : bx + bw - 12 - 192, py = by + bh - 240;
   put(x, p, px, py, 2);
   const tx = side === 'left' ? px + 192 + 20 : bx + 28;
@@ -104,6 +104,7 @@ async function main() {
   const t0 = performance.now();
   await initPortraits();
   const tInit = performance.now() - t0;
+  try { await Promise.all(['600 20px "Pixelify Sans"', '22px "DotGothic16"'].map((f) => document.fonts.load(f))); } catch (e) { /* fonts optional */ }
   await document.fonts?.ready;
   const chars = (q.get('char') || '').split(',').filter(Boolean);
   const exs = (q.get('ex') || '').split(',').filter(Boolean);

@@ -2,7 +2,7 @@
 // with the selected item's name and her description, and Use / Examine actions.
 import { HW } from '../../engine/hw.js';
 import { Screen } from '../screen.js';
-import { C, F, W, H, handFont } from '../theme.js';
+import { C, F, handFont } from '../theme.js';
 import { rect, frame, dither, paperSheet, triangle, AP, clamp, ease, snap } from '../gfx.js';
 import { headerTab, hints, bagCanvas, spaced } from '../widgets.js';
 import { closeMenus } from './pause.js';

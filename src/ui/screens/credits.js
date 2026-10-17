@@ -1,6 +1,6 @@
 // Credits: slow scroll over black. Confirm/cancel leaves; holding confirm speeds it up.
 import { Screen } from '../screen.js';
-import { C, F, W, H } from '../theme.js';
+import { F, W, H } from '../theme.js';
 import { rect, vignette, snap } from '../gfx.js';
 import { logo } from '../logo.js';
 import { spaced } from '../widgets.js';

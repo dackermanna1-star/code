@@ -67,16 +67,17 @@ try {
     T.ok(await g.walkTo('in_a'), 'walkTo(in_a) succeeds via simulated input');
     const p = await g.player();
     T.ok(near(p, 7, 8), 'arrived at in_a', p);
-    T.eq((await g.prop('test_door_7_12')).state, 'open', 'Room A door opened on bump');
+    T.ok(await g.hw((H) => H.transcript.some((e) => e.type === 'door' && e.text === 'test_door_7_12:open')), 'Room A door opened on bump');
     const s = await g.state();
     T.ok(s.visited.test_a, 'room visit recorded');
-    T.eq(s.mapState.test?.test_door_7_12?.state, 'open', 'door state persisted in mapState');
+    T.ok(await g.hw((H) => H.HW.game.until(() => H.HW.map.prop('test_door_7_12').state === 'closed', 4)), 'classroom door swings shut behind us (1.5 s)');
+    T.eq((await g.state()).mapState.test?.test_door_7_12?.state, 'closed', 'door state persisted in mapState');
   });
 
   await T.step('side door', async () => {
     await g.teleport('test', 'in_b');
     T.ok(await g.walkTo('desk_a'), 'walk Room B → Room A');
-    T.eq((await g.prop('test_door_13_7')).state, 'open', 'side door opened');
+    T.ok(await g.hw((H) => H.transcript.some((e) => e.type === 'door' && e.text === 'test_door_13_7:open')), 'side door opened');
   });
 
   await T.step('locked door → key → open', async () => {
@@ -96,7 +97,7 @@ try {
     T.ok((await g.prop('test_keyring')).taken && s.mapState.test.test_keyring.taken, 'pickup removed and persisted');
     T.ok(await g.hw((H) => H.pathExists('test', 'start', 'in_c')), 'pathExists: reachable with the key');
     T.ok(await g.walkTo('in_c'), 'walk into Room C');
-    T.eq((await g.prop('test_door_c')).state, 'open', 'locked door unlocked and opened');
+    T.ok(await g.hw((H) => H.transcript.some((e) => e.type === 'door' && e.text === 'test_door_c:open')), 'locked door unlocked and opened');
     T.ok(await g.hw((H) => H.transcript.some((e) => e.type === 'unlock' && e.text === 'test_door_c')), 'unlock recorded');
   });
 
@@ -202,6 +203,13 @@ try {
     await g.press('compact', 50);
     T.ok(await g.hw((H) => H.HW.compact.active && H.HW.compact.current.id === 'test_room_a_1979'), 'past view open');
     T.ok((await g.state()).flags.test_saw_past, 'past setFlag');
+    const drawn = await g.hw(async (H) => {
+      await H.steps(2);
+      const R = H.HW.renderer;
+      const ids = [...R._ysort, ...R._wall].map((x) => x.id);
+      return { globe: ids.includes('test_past_globe'), pastBoard: ids.some((i) => /^test_room_a_1979_chalkboard/.test(i)), board: ids.includes('test_chalkboard'), hiddenDesk: ids.includes('test_desk_student_11_8'), inWorld: H.HW.map.props.some((p) => p.id === 'test_past_globe') };
+    });
+    T.ok(drawn.globe && drawn.pastBoard && !drawn.board && !drawn.hiddenDesk && !drawn.inWorld, 'past view draws pastOnly/past objects and hides `hide` props', drawn);
     await g.hw((H) => H.fullbright(false));
     await g.steps(3);
     await g.shot(`engine_${built ? 'built' : 'dev'}_past_view`);
@@ -262,6 +270,63 @@ try {
     T.eq(await g.mode(), 'play', 'back to play when the menu resolves');
   });
 
+  await T.step('input & display', async () => {
+    // Gamepad: a fake standard-mapping pad with the left stick pushed right.
+    const pad = await g.hw(async (H) => {
+      const x0 = H.HW.player.x;
+      const fake = { connected: true, id: 'test pad', buttons: Array.from({ length: 17 }, () => ({ pressed: false, value: 0 })), axes: [0.9, 0, 0, 0] };
+      const orig = navigator.getGamepads;
+      navigator.getGamepads = () => [fake];
+      await H.steps(30);
+      navigator.getGamepads = orig;
+      await H.steps(2);
+      return { moved: H.HW.player.x - x0, device: H.HW.input.lastDevice };
+    });
+    T.ok(pad.moved > 10 && pad.device === 'gamepad', 'gamepad left stick moves the player', pad);
+
+    // Text mode: typed keys are queued, not mapped to actions.
+    await g.hw((H) => H.HW.input.beginText());
+    await g.page.keyboard.type('Run 10');
+    await g.page.keyboard.press('Backspace');
+    await g.page.keyboard.press('Enter');
+    const typed = await g.hw((H) => {
+      const t = H.HW.input.typed.slice();
+      H.HW.input.endText();
+      return { t, confirm: H.HW.input.pressed('confirm') };
+    });
+    T.eq(typed.t.join('|'), 'R|u|n| |1|0|Backspace|Enter', 'text mode queues typed keys');
+
+    // Menu key repeat.
+    const rep = await g.hw((H) => {
+      // Step the simulation by hand for an exact count: 1 s held = press + repeats after 0.34 s.
+      const { game, input } = H.HW;
+      game.stop();
+      let n = 0;
+      input.setVirtual('down', true);
+      for (let i = 0; i < 60; i++) { game.step(1 / 60); if (input.repeat('down')) n++; }
+      input.setVirtual('down', false);
+      game.step(1 / 60);
+      game.start();
+      return n;
+    });
+    T.ok(rep >= 7 && rep <= 10, 'held direction auto-repeats for menus', rep);
+
+    // Integer scaling vs fit, letterboxed.
+    await g.page.setViewportSize({ width: 1000, height: 600 });
+    await g.steps(2);
+    const pp = await g.hw((H) => ({ ...H.HW.display.rect, s: H.HW.display.scale }));
+    await g.hw((H) => H.HW.settings.set('pixelPerfect', false));
+    const fit = await g.hw((H) => ({ ...H.HW.display.rect, s: H.HW.display.scale }));
+    await g.hw((H) => H.HW.settings.set('pixelPerfect', true));
+    await g.page.setViewportSize({ width: 960, height: 540 });
+    T.ok(pp.s === 2 && pp.w === 960 && pp.x === 20, 'pixel-perfect: integer scale, letterboxed', pp);
+    T.ok(fit.s > 2 && fit.w === 1000, 'fit mode fills the window', fit);
+    await g.page.keyboard.press('F11');
+    await g.page.keyboard.press('Alt+Enter');
+    await g.steps(2);
+    T.eq(await g.mode(), 'play', 'fullscreen keys are handled without side effects');
+  });
+
   await T.step('save / load roundtrip', async () => {
     await g.teleport('test', 'bench');
     await g.hw((H) => { H.setFlag('roundtrip', 42); H.HW.game.setProp('test_door_c', 'jammed'); });
@@ -317,6 +382,173 @@ try {
     T.eq(await g.mode(), 'play', 'retry reloads the checkpoint');
     const p = await g.player();
     T.ok(p.room !== 'test_office', 'back at the checkpoint position', p);
+  });
+
+  await T.step('DESIGN v2 behaviours', async () => {
+    // Gate as a condition: lock function returns true while locked.
+    await g.teleport('test', 'start');
+    await g.hw((H) => H.setFlag('test_storage_locked', true));
+    T.eq(await g.hw((H) => H.pathExists('test', 'start', 'storage')), false, 'function lock (true = locked) blocks the storage door');
+    T.ok(await g.walkTo([26, 16]), 'walk up to it');
+    await g.face('down');
+    await g.interact();
+    const lt = await g.hw((H) => ({ text: H.transcript.slice(-1)[0]?.text || '', chapter: H.HW.state.chapter }));
+    T.ok((lt.chapter >= 1 ? /Locked again/ : /leaning on it/).test(lt.text), 'lockedText may be a function of state', lt);
+    await g.hw((H) => H.setFlag('test_storage_locked', false));
+    T.ok(await g.walkTo('storage'), 'unlocked once the condition clears');
+
+    // Gated exit refuses in voice and doesn't transfer.
+    await g.teleport('test2', 'loop');
+    await g.hw((H) => H.setFlag('test_block_loop', true));
+    await g.walkTo([30, 12]);
+    await g.idle();
+    T.eq(await g.map(), 'test2', 'gated exit does not transfer');
+    T.ok(await g.hw((H) => H.transcript.some((e) => e.type === 'refuse')), 'gated exit refusal shown');
+    await g.hw((H) => H.setFlag('test_block_loop', false));
+
+    // Seats: occupied by a follower → not offered to Tess; followers can be seated.
+    await g.teleport('test', 'desk_a');
+    const seat = await g.hw(async (H) => {
+      const HW = H.HW;
+      const e = HW.entities.spawn({ id: 'leah', at: [5, 7] });
+      const ok = await HW.hiding.seatNpc(e, HW.map.prop('test_desk_student_3_6'));
+      HW.player.face('up');
+      await H.steps(2);
+      const r = { ok, by: HW.map.prop('test_desk_student_3_6').seatedBy?.id, verb: HW.interact.verb, sit: e.sitDir };
+      HW.hiding.unseatNpc(e);
+      HW.entities.despawn('leah');
+      return r;
+    });
+    T.ok(seat.ok && seat.by === 'leah' && seat.sit === 'up' && seat.verb !== 'Sit', 'seatNpc seats a follower; the taken seat is not offered', seat);
+
+    // Hold Confirm while seated: eyes shut, ×4 time during a period, no stand-up on release.
+    await g.face('up');
+    await g.interact();
+    const eyes = await g.hw(async (H) => {
+      const HW = H.HW;
+      const fakePeriods = !HW.periods;
+      if (fakePeriods) HW.periods = { active: true };
+      HW.input.setVirtual('confirm', true);
+      await H.steps(40);
+      const during = { shut: HW.player.eyesShut, warp: HW.game.timeWarp };
+      HW.input.setVirtual('confirm', false);
+      await H.steps(3);
+      const after = { shut: HW.player.eyesShut, seated: !!HW.player.seated, warp: HW.game.timeWarp };
+      if (fakePeriods) HW.periods = null;
+      return { during, after, sitTime: HW.player.sitTime };
+    });
+    T.ok(eyes.during.shut && eyes.during.warp === 4, 'holding Confirm while seated shuts her eyes (×4 time in a period)', eyes);
+    T.ok(!eyes.after.shut && eyes.after.seated && eyes.after.warp === 1, 'releasing opens them without standing up', eyes);
+    T.ok(eyes.sitTime > 0, 'sitTime recorded for the Colonel AI');
+    await g.press('down', 100);
+    await g.idle();
+
+    // g.seen(): first run false, replay true (dialogue becomes fast-forwardable).
+    await g.hw((H) => H.run('test.seen_demo'));
+    const first = (await g.state()).flags;
+    await g.hw((H) => H.run('test.seen_demo'));
+    const second = (await g.state()).flags;
+    T.ok(first.test_seen_was === false && second.test_seen_was === true && second.test_seen_replaying === true && second.seen_test_demo, 'g.seen marks replays', second);
+    T.eq(await g.hw((H) => H.HW.scripts.replaying), false, 'replay flag clears when the scene ends');
+
+    // Battery: dregs at 0 % (weak, never black); Danny's flashlight never drains.
+    const dregs = await g.hw(async (H) => {
+      const HW = H.HW;
+      HW.state.battery = 0;
+      HW.state.flashlightOn = true;
+      HW.state.lightSource = 'maglite';
+      let min = 1;
+      let max = 0;
+      for (let i = 0; i < 90; i++) { await H.steps(1); const p = HW.lighting.flashlight.power; min = Math.min(min, p); max = Math.max(max, p); }
+      return { on: HW.lighting.flashlight.on, min, max };
+    });
+    T.ok(dregs.on && dregs.min > 0 && dregs.max <= 0.15 + 1e-6, 'Maglite runs on the dregs at 0 % (never black)', dregs);
+    const danny = await g.hw(async (H) => {
+      const HW = H.HW;
+      H.give('danny_flashlight', 1);
+      HW.state.battery = 50;
+      const used = await HW.game.useItem('danny_flashlight');
+      HW.input.setVirtual('right', true);
+      await H.steps(30);
+      HW.input.setVirtual('right', false);
+      const L = HW.lighting.flashlight;
+      const r = { used, source: L.source, power: L.power, battery: HW.state.battery, cone: L.cone };
+      await HW.game.useItem('flashlight');
+      r.back = HW.state.lightSource;
+      return r;
+    });
+    T.ok(danny.used && danny.source === 'danny' && Math.abs(danny.power - 0.35) < 1e-6 && danny.battery === 50, "Danny's flashlight: weak, narrow, never drains", danny);
+    T.eq(danny.back, 'maglite', 'using the Maglite switches back');
+
+    // Entity-attached light (Danny's red flashlight while he follows).
+    const lit = await g.hw(async (H) => {
+      const HW = H.HW;
+      await H.run('test.sub'); // any script context
+      await HW.scripts.runFn((gg) => { gg.party.add('danny'); gg.light('danny', { type: 'flashlight', color: '#ff5040', power: 0.4 }); });
+      await H.steps(3);
+      const e = HW.entities.get('danny');
+      const r = { has: !!e._light, x: e._light?.px, ex: e.x, persisted: !!HW.state.entityLights.danny };
+      await HW.scripts.runFn((gg) => { gg.light('danny', null); gg.party.remove('danny'); gg.despawn('danny'); });
+      return r;
+    });
+    T.ok(lit.has && lit.x === lit.ex && lit.persisted, 'g.light attaches a light that follows the entity', lit);
+
+    // Assist: two deaths at the same checkpoint → +30 %.
+    const assist = await g.hw(async (H) => {
+      const HW = H.HW;
+      H.checkpoint('assist test');
+      await HW.game.gameOver('caught');
+      await H.steps(2);
+      await HW.game.gameOver('caught');
+      await H.steps(2);
+      return { deaths: HW.state.flags.deaths_assist_test, assist: HW.state.assist, mode: HW.game.mode };
+    });
+    T.ok(assist.deaths === 2 && assist.assist === 1.3 && assist.mode === 'play', 'assist after two deaths at one checkpoint', assist);
+
+    // The Colonel's shroud: near-black silhouette + emissive brass/crimson mask.
+    await g.teleport('test', 'start');
+    const shroud = await g.hw(async (H) => {
+      const HW = H.HW;
+      const prev = HW.colonel;
+      const e = HW.entities.spawn({ id: 'colonel', sprite: 'colonel', at: [24, 15], dir: 'down' });
+      HW.colonel = { shrouded: true, entity: e };
+      await H.steps(3);
+      const used = HW.renderer._shroud === e;
+      const s = HW.renderer._shroudOf(e.frameImage());
+      return { used, glow: !!s.glow, prevType: typeof prev };
+    });
+    T.ok(shroud.used && shroud.glow, 'shrouded Colonel renders as a silhouette with an emissive mask', shroud);
+    await g.hw((H) => H.fullbright(false));
+    await g.steps(2);
+    await g.shot(`engine_${built ? 'built' : 'dev'}_shroud`);
+    await g.hw((H) => { H.HW.colonel = null; H.HW.entities.despawn('colonel'); });
+  });
+
+  await T.step('special screens (g.screen)', async () => {
+    await g.hw((H) => H.screenAnswer('safe', true));
+    await g.hw((H) => H.run('test.screen'));
+    await g.idle();
+    const f = (await g.state()).flags;
+    const stubUI = await g.hw((H) => typeof H.HW.ui.get !== 'function');
+    T.ok(f.test_screen_done && (f.test_safe === true || stubUI), 'g.screen resolves with the screen result', f.test_safe);
+  });
+
+  await T.step('ending → credits → title', async () => {
+    await g.hw((H) => H.screenAnswer('credits', null));
+    const r = await g.hw(async (H) => {
+      const seen = [];
+      let flags = null;
+      const off = H.HW.game.on('mode', (m) => {
+        seen.push(m);
+        if (m === 'title' && !flags) flags = { ...H.HW.state.flags }; // before the title may start a new game
+      });
+      H.run('test.ending');
+      await H.HW.game.until(() => seen.includes('title'), 30);
+      off();
+      return { seen, flags };
+    });
+    T.ok(r.seen.includes('ending') && r.seen.includes('title'), 'ending mode, then the title', r.seen);
+    T.ok(r.flags?.test_ending_ran && r.flags?.ending === 'test', 'end.<id> ran and the ending flag is set', r.flags);
   });
 
   await T.step('no errors', async () => {

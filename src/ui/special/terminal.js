@@ -3,12 +3,12 @@
 // 64×16 upper-case screen in VT323, green-gray phosphor, blinking block cursor. Letters, digits,
 // space, comma and period may be typed. `EXIT` or Esc leaves.
 import { Screen, Z_SPECIAL } from '../screen.js';
-import { C, F, W, H } from '../theme.js';
+import { C, F, H } from '../theme.js';
 import { font } from '../text.js';
 import { FONT } from '../fonts.js';
-import { canvas, ctx2d, rect, frame, dither, vignette, AP, clamp, ease, snap } from '../gfx.js';
+import { canvas, ctx2d, rect, dither, AP, clamp, ease, snap } from '../gfx.js';
 import { hints } from '../widgets.js';
-import { tinyText, rng, hash2 } from '../../art/util.js';
+import { tinyText, rng } from '../../art/util.js';
 import * as svc from '../services.js';
 
 const COLS = 64, ROWS = 16;

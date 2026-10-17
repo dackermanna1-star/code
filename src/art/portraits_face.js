@@ -50,9 +50,10 @@ export function drawEye(rig, face, side, S, E, opt = {}) {
   const skin = S.skinMat, lashM = S.lashMat;
   const base = (t) => lerp(S.cIn, S.cOut, (t + 1) / 2) - (E.outerDown || 0) * 1.2 * Math.max(0, t) ** 1.5;
   const tp = S.peak ?? -0.15;
+  const pin = S.innerPow ?? 1.6; // inner corner tapers to a point (tear duct)
   const arch = (t, po = 2) => {
     const s = t < tp ? (t - tp) / (1 + tp) : (t - tp) / (1 - tp);
-    return Math.max(0, 1 - Math.abs(s) ** (t < tp ? 2 : po));
+    return Math.max(0, 1 - Math.abs(s) ** (t < tp ? pin : po));
   };
   const lashW = (t) => (t < -0.45 ? S.lash[0] : t < 0.15 ? S.lash[1] : S.lash[2]);
   const T = (hx) => (dir * (hx - ex)) / hw;
@@ -156,19 +157,22 @@ export function drawEye(rig, face, side, S, E, opt = {}) {
     if (t <= 1 && t > 1 - 2 * lowerLine && hy >= l && hy < l + 1 && l - u > 0.6) return [S.lowerMat || skin, S.lowerOff ?? -1];
     return null;
   });
-  // catchlights (fixed: they belong to the light source, not the surface)
+  // catchlights (fixed: they belong to the light source, not the surface) — only inside the opening
+  const inOpen = (hx, hy) => {
+    const [cx, cy] = rig.toC(hx, hy); const [qx, qy] = rig.toH(Math.floor(cx) + 0.5, Math.floor(cy) + 0.5);
+    const t = T(qx); if (t < -0.95 || t > 0.95) return false;
+    return qy > U(t) + ey && qy < Lw(t) + ey;
+  };
+  const glint = (hx, hy, k) => { if (inOpen(hx, hy)) rig.dotH(hx, hy, S.glintMat, 0, k); };
   if (!E.noHi && !glassy) {
     const ux = ix - irx * 0.42, uy = iy - iry * 0.42;
-    const cc = U(Math.max(-1, Math.min(1, T(ux)))) + ey;
-    if (uy > cc + 0.2) {
-      rig.dotH(ux, uy, S.glintMat, 0, 5);
-      if (S.ri > 2.6 && sc > 0.9) rig.dotH(ux + 1, uy, S.glintMat, 0, 5);
-    }
-    rig.dotH(ix + irx * 0.5, iy + iry * 0.5, S.glintMat, 0, wet > 0.3 ? 5 : 4);
-    if (wet > 0.5) rig.dotH(ix + irx * 0.1, iy + iry * 0.75, S.glintMat, 0, 4);
+    glint(ux, uy, 5);
+    if (S.ri > 2.6 && sc > 0.9) glint(ux + 1, uy, 5);
+    glint(ix + irx * 0.5, iy + iry * 0.5, wet > 0.3 ? 5 : 4);
+    if (wet > 0.5) glint(ix + irx * 0.1, iy + iry * 0.75, 4);
   } else if (glassy) {
     // dull, broad, low highlight: unfocused glass
-    rig.dotH(ix - irx * 0.2, iy + iry * 0.55, S.glintMat, 0, 3);
+    glint(ix - irx * 0.2, iy + iry * 0.55, 3);
   }
   return { ex, ey, hw, ix, iy, irx, iry, U: (t) => U(t) + ey, L: (t) => Lw(t) + ey, T };
 }
@@ -192,7 +196,7 @@ export function drawBrow(rig, face, side, S, B) {
   if (fur > 0.45) {
     // furrow crease between the brows
     const m = face.proj(sg * 0.07, yb + 1.2);
-    rig.strokeH([[m[0], m[1] - 1], [m[0] + sg * 0.4, m[1] + 1.4]], [S.skinMat, -1], { onlyMat: S.on });
+    if (near) rig.strokeH([[m[0] + 0.5, m[1] - 0.6], [m[0] + 0.7, m[1] + 1.2]], [S.skinMat, -1], { onlyMat: S.on });
   }
   return pts;
 }
@@ -232,27 +236,29 @@ export function drawMouth(rig, face, S, M, seed = 1) {
   const yL = pL[1], yR = pR[1];
   const avgS = (sN + sF) / 2;
   const centerDip = avgS > 0 ? avgS * 0.7 : avgS * 0.55; // smile: centre lower than corners
-  const r = rng(seed);
   const trem = M.tremble || 0;
   // baseline through corners & centre
   const base = (s) => { // s 0..1 from near corner to far corner
     const yl = lerp(yL, yR, s);
     const bow = 4 * s * (1 - s);
     let y = yl + (pC[1] + centerDip - (yL + yR) / 2) * bow;
-    if (trem) y += Math.sin(s * Math.PI * 5 + 0.7) * trem * 0.45 * bow;
+    if (trem) y += Math.sin(s * Math.PI * 4 + 0.7) * trem * (open > 0.2 ? 0.28 : 0.4) * bow;
     return y;
   };
   const sOf = (hx) => (hx - xL) / (xR - xL);
   const open = M.open || 0;
   const shape = M.shape;
-  if (open < 0.08 || shape === 'line') {
+  const K = { O: 0.8, scream: 1.25, grin: 0.9, laugh: 1.2, grimace: 0.55, frown: 0.85 }[shape] ?? 0.7;
+  const hmax = open * (S.h || 5) * K;
+  const parted = open >= 0.08 && shape !== 'line' && hmax < 1.6;
+  if (open < 0.08 || shape === 'line' || parted) {
     // closed mouth: lip line
     const pts = [];
     for (let k = 0; k <= 14; k++) { const s = k / 14; pts.push([lerp(xL, xR, s), base(s)]); }
     rig.strokeH(pts, (t) => {
       const e = Math.abs(t - 0.5) * 2; // 0 centre .. 1 corners
       if (e > 0.94 && avgS < 0.25) return null;
-      return [S.lipMat, e < 0.5 ? -3 : -2];
+      return [S.lipMat, e < (parted ? 0.6 : 0.5) ? -3 : -2];
     }, { onlyMat: S.on });
     // press: lips thinned, line darker and longer; pout: lower lip bulge
     // corners: smile creases / frown ticks
@@ -261,8 +267,23 @@ export function drawMouth(rig, face, S, M, seed = 1) {
       else if (s < -0.3) rig.dotH(x + sd * 0.7, y + 0.8, S.skinMat, -1, -1, { onlyMat: S.on });
     };
     tick(xL, yL, sN, -1); tick(xR, yR, sF, 1);
+    if (parted) {
+      // lips just parted: a short dark gap under the centre of the line
+      const w = Math.max(1.2, (xR - xL) * (shape === 'O' ? 0.18 : 0.26));
+      const c = [lerp(xL, xR, 0.5), base(0.5)];
+      rig.strokeH([[c[0] - w, c[1] + 1], [c[0] + w, c[1] + 1]], [S.mouthMat, 0], { onlyMat: S.on });
+    }
     // lower lip shading + highlight
-    if (S.lowerLip !== false) {
+    if (S.fullLips && !M.press) {
+      // fuller lips: a lower-lip mass (lip tone) with a highlight, a darker upper lip
+      rig.paint([xL - 1, Math.min(yL, yR) - 3, xR + 1, Math.max(yL, yR) + 5], (hx, hy) => {
+        const s = sOf(hx); if (s < 0.14 || s > 0.86) return null;
+        const b = base(s), bow = 4 * s * (1 - s);
+        if (hy > b && hy < b + 1 + 1.6 * bow) return [S.lipMat, hy < b + 1.4 ? -1 : (Math.abs(s - 0.45) < 0.12 && hy > b + 1.4 ? 1 : 0)];
+        if (hy < b && hy > b - 1 - 0.6 * bow && s > 0.25 && s < 0.75) return [S.lipMat, -1];
+        return null;
+      }, { onlyMat: S.on });
+    } else if (S.lowerLip !== false) {
       const c = [lerp(xL, xR, 0.5), base(0.5)];
       const ll = M.pout ? 2.4 : 1.6;
       const hw = M.press ? 1.2 : 2;
@@ -285,7 +306,7 @@ export function drawMouth(rig, face, S, M, seed = 1) {
     case 'grin': top = (s) => base(s) - 0.2 * prof(s, 1); bot = (s) => base(s) + open * H * 0.9 * prof(s, 0.7); break;
     case 'laugh': top = (s) => base(s) - 0.4 * prof(s, 1); bot = (s) => base(s) + open * H * 1.2 * prof(s, 0.55); break;
     case 'grimace': top = (s) => base(s) - open * 1.0 * prof(s, 0.2); bot = (s) => base(s) + open * H * 0.55 * prof(s, 0.18); break;
-    case 'frown': top = (s) => base(s) - open * 1.2 * prof(s, 0.9); bot = (s) => base(s) + open * H * 0.6 * prof(s, 0.6); break;
+    case 'frown': top = (s) => base(s) - open * 0.5 * prof(s, 0.8); bot = (s) => base(s) + open * H * 0.85 * prof(s, 0.45); break;
     default: top = (s) => base(s) - open * 0.6 * prof(s, 0.8); bot = (s) => base(s) + open * H * 0.7 * prof(s, 0.6); // talk
   }
   const teeth = M.teeth || (shape === 'talk' && open > 0.45 ? 0.6 : 0), lteeth = M.lowerTeeth || 0;
@@ -369,16 +390,17 @@ export function drawTears(rig, eye, S, amt, side) {
   const len = 4 + amt * 9;
   const pts = [];
   for (let k = 0; k <= 8; k++) { const t = k / 8; pts.push([x0 + dir * Math.sin(t * 1.4) * 1.6 - dir * t * 0.6, y0 + t * len]); }
-  rig.strokeH(pts, (t) => [S.mat, 0, t < 0.25 ? 4 : 3], { onlyMat: S.on });
+  rig.strokeH(pts, (t) => (t < 0.18 ? [S.mat, 0, 4] : [S.mat, t < 0.6 ? 1 : 0]), { onlyMat: S.on });
   const end = pts[pts.length - 1];
-  rig.dotH(end[0], end[1] + 1, S.mat, 0, 4, { onlyMat: S.on });
-  rig.dotH(end[0] + 1, end[1] + 1, S.mat, 0, 3, { onlyMat: S.on });
-  rig.dotH(end[0], end[1] + 2, S.mat, 0, 2, { onlyMat: S.on });
+  rig.dotH(end[0], end[1] + 1, S.mat, 1, -1, { onlyMat: S.on });
+  rig.dotH(end[0] + 1, end[1] + 1, S.mat, 0, -1, { onlyMat: S.on });
+  rig.dotH(end[0], end[1] + 2, S.mat, -1, -1, { onlyMat: S.on });
 }
 export function drawSweat(rig, x, y, S) {
-  // a translucent bead: soft rim, mid body, one bright point (fixed tones so it survives any light)
-  const P = [[0, 0, 3], [-1, 1, 2], [0, 1, 5], [1, 1, 3], [-1, 2, 2], [0, 2, 4], [1, 2, 3], [0, 3, 2]];
-  for (const [dx, dy, k] of P) rig.dotH(x + dx, y + dy, S.mat, 0, k, { onlyMat: S.on });
+  // a translucent bead: tones follow the light (no glowing in the dark), one small fixed glint
+  const P = [[0, 0, 0], [-1, 1, -1], [0, 1, 1], [1, 1, 0], [-1, 2, -1], [0, 2, 1], [1, 2, -1], [0, 3, -2]];
+  for (const [dx, dy, k] of P) rig.dotH(x + dx, y + dy, S.mat, k, -1, { onlyMat: S.on });
+  rig.dotH(x, y + 1, S.mat, 0, 4, { onlyMat: S.on });
 }
 export function drawUnderEye(rig, eye, S, amt, side) {
   if (amt <= 0 || !eye || !eye.L) return;

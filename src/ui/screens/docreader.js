@@ -8,8 +8,9 @@ import { Screen } from '../screen.js';
 import { C, F, W, H, handFont } from '../theme.js';
 import { font } from '../text.js';
 import { FONT } from '../fonts.js';
-import { canvas, ctx2d, rect, frame, dither, paperSheet, triangle, keycap, AP, clamp, ease, snap, vignette } from '../gfx.js';
+import { canvas, ctx2d, rect, frame, dither, paperSheet, triangle, AP, clamp, ease, snap, vignette } from '../gfx.js';
 import { rng, hashStr } from '../../art/util.js';
+import { hints } from '../widgets.js';
 import * as svc from '../services.js';
 
 const TOP = 52, BOTTOM = 492; // vertical band available for the material
@@ -407,16 +408,6 @@ export class DocReader extends Screen {
       if (this.page > 0) triangle(ctx, W / 2 - 60, H - 28, 5, C.textDim, 'left');
       if (this.page < n - 1) triangle(ctx, W / 2 + 50, H - 28, 5, C.text, 'right');
     }
-    let hx = W - 24;
-    const hint = (label, key) => {
-      const w = fs.width(label);
-      fs.draw(ctx, label, hx - w, H - 30, C.textMute);
-      hx -= w + 8;
-      const kw = Math.max(fs.lineHeight, fs.width(key) + 4 * AP);
-      keycap(ctx, hx - kw, H - 30, key, fs);
-      hx -= kw + 20;
-    };
-    hint('CLOSE', this.ui.input.keyLabel('cancel'));
-    if (n > 1) hint('TURN', '← →');
+    hints(ctx, n > 1 ? [['CLOSE', this.ui.input.keyLabel('cancel')], ['TURN', '← →']] : [['CLOSE', this.ui.input.keyLabel('cancel')]]);
   }
 }

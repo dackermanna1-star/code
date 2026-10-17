@@ -131,8 +131,14 @@ export class RegisterScreen extends Screen {
     const sx = this.shake > 0 ? ((hash2(Math.floor(this.t * 50), 2) % 3) - 1) * AP : 0;
     ctx.save(); ctx.translate(sx, snap((1 - k) * 30));
     const { x, y, w, h } = PAGE;
+    // the breaker's red seams light everything from below
+    dither(ctx, 0, H - 200, W, 200, 'rgba(150,30,10,1)', 0.12);
+    dither(ctx, 0, H - 120, W, 120, 'rgba(180,40,12,1)', 0.12);
     dither(ctx, x + 10, y + 10, w, h, 'rgba(0,0,0,1)', 0.6);
     ctx.drawImage(ledgerPage(this.model.title), x, y);
+    const flick = 0.06 + 0.04 * Math.sin(this.t * 5.3) + 0.03 * Math.sin(this.t * 13.1);
+    ctx.fillStyle = `rgba(120,24,6,${flick.toFixed(3)})`;
+    ctx.fillRect(x, y + h * 0.45, w, h * 0.55);
     const rows = this.rows;
     rows.forEach((r, i) => this._row(ctx, r, i));
     for (const a of this.anims) this._anim(ctx, a);

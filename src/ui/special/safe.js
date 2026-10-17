@@ -2,8 +2,8 @@
 // args { label, check: (a, b, c) => bool, onWrong: async (tries) => void } → true | false.
 // Left/right turn the dial (hold to spin), confirm sets each of three numbers, cancel backs up.
 import { Screen, Z_SPECIAL } from '../screen.js';
-import { C, F, W, H, handFont } from '../theme.js';
-import { canvas, ctx2d, rect, frame, dither, triangle, paperSheet, vignette, AP, clamp, ease, snap } from '../gfx.js';
+import { C, F, handFont } from '../theme.js';
+import { canvas, ctx2d, rect, frame, triangle, paperSheet, AP, clamp, ease, snap } from '../gfx.js';
 import { hints } from '../widgets.js';
 import { tinyText, rng, hash2 } from '../../art/util.js';
 import * as svc from '../services.js';

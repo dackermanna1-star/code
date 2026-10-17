@@ -30,6 +30,12 @@ export function createState() {
     visited: {},
     mapState: {},
     playtime: 0,
+    // Engine additions (DESIGN v2): last checkpoint label, assist multiplier (1 | 1.3),
+    // active light source ('maglite' | 'danny'), lights attached to entities by id.
+    checkpoint: '',
+    assist: 1,
+    lightSource: 'maglite',
+    entityLights: {},
   };
 }
 
@@ -37,7 +43,7 @@ export function createState() {
 export function normalizeState(s) {
   const base = createState();
   const out = { ...base, ...(s || {}) };
-  for (const k of ['flags', 'inv', 'docs', 'visited', 'mapState', 'bonds']) {
+  for (const k of ['flags', 'inv', 'docs', 'visited', 'mapState', 'bonds', 'entityLights']) {
     if (!out[k] || typeof out[k] !== 'object' || Array.isArray(out[k])) out[k] = base[k];
   }
   if (!Array.isArray(out.party)) out.party = [];

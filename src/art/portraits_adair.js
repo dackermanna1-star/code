@@ -25,7 +25,7 @@ export const ADAIR = {
   materials(E, o) {
     const skin = paleRamp(SKIN, (E.pale || 0) * 0.9, '#d0ccd0');
     return [
-      material('skin', skin, { tone: SKIN_TONE, dither: 0.012 }),
+      material('skin', skin, { tone: SKIN_TONE, dither: 0.02, ditherT: [0.02, 0.035, 0.06, 0.008] }),
       material('blush', skin.map((c, i) => mix(c, '#d06a6a', i === 0 ? 0 : 0.16)), { tone: SKIN_TONE, dither: 0, line: false }),
       material('bruise', skin.map((c) => mix(c, '#6a4a6e', 0.3)), { tone: SKIN_TONE, dither: 0, line: false }),
       material('lip', ['#3a1418', '#5a2226', '#844040', '#a85e5a', '#c27a70', '#d6968a'], { tone: SKIN_TONE, dither: 0, line: false }),
@@ -45,7 +45,7 @@ export const ADAIR = {
     return {
       skinMat: 'skin',
       eye: {
-        uc: 0.43, y: 49.5, w: 10.2, hu: 3.3, hl: 2.3, ri: 3.1, rp: 1.3, irisW: 1, irisShiftN: -0.6, cIn: 0.6, cOut: 0.1, peak: -0.1, archPow: 2.2,
+        uc: 0.43, y: 49.5, w: 10.2, hu: 3.3, hl: 2.3, ri: 3.1, rp: 1.3, irisW: 1, irisShiftN: -0.1, cIn: 0.6, cOut: 0.1, peak: 0.05, archPow: 2.2,
         lash: [1, 2, 2], flick: 1, flickRise: 1.8, crease: true, creaseGap: 1.5, lowerLine: 0.55, irisDy: -0.2,
         skinMat: 'skin', lashMat: 'lash', irisMat: 'iris', irisGlassMat: 'iris', scleraMat: 'sclera', pupilMat: 'pupil', glintMat: 'glint',
       },
@@ -66,6 +66,9 @@ export const ADAIR = {
     sids.hair.add(rig.poly([[30, 16], [22, 19], [16.5, 26], [16, 34], [19.5, 41], [26, 44], [30, 40]], { mat: 'hair', smooth: true, rim: 4, rimDepth: 4, z: zb }));
     rig.strokeH(spline([[27, 18.5], [21, 23], [19, 30], [21, 37], [26, 41]], { seg: 4 }), (t, x, y, i) => [rig.mat[i], -1], { onlyMat: ['hair'] });
     rig.strokeH(spline([[24, 22], [20.5, 29], [22.5, 36]], { seg: 4 }), (t, x, y, i) => [rig.mat[i], 1], { onlyMat: ['hair'] });
+    // bobby pins holding the twist
+    rig.strokeH([[22.5, 25], [25.5, 27]], ['chain', 1], { onlyMat: ['hair'] });
+    rig.strokeH([[20.5, 33], [23.5, 33.6]], ['chain', 0], { onlyMat: ['hair'] });
   },
   bodyBack({ rig }) {
     rig.poly([[33, 88], [37, 83], [46, 81.5], [56, 83], [61, 88], [60, 94], [34, 94]], { mat: 'cardigan', smooth: true, rim: 2, rimDepth: 2, z: 0, off: -1 });
@@ -165,9 +168,9 @@ function glassPost(d, rig) {
     const i = y * PW + x; if (!rig.mat[i]) continue;
     let r = src[i * 4], g = src[i * 4 + 1], b = src[i * 4 + 2];
     const lum = 0.3 * r + 0.59 * g + 0.11 * b;
-    r = lerp(lum, r, 0.6); g = lerp(lum, g, 0.6); b = lerp(lum, b, 0.6);
+    r = lerp(lum, r, 0.68); g = lerp(lum, g, 0.68); b = lerp(lum, b, 0.68);
     // cool cast + lifted blacks (glass never quite holds a true black)
-    r = lerp(r, COOL[0] * (lum / 200), 0.2); g = lerp(g, COOL[1] * (lum / 200), 0.2); b = lerp(b, COOL[2] * (lum / 200), 0.2);
+    r = lerp(r, COOL[0] * (lum / 200), 0.15); g = lerp(g, COOL[1] * (lum / 200), 0.15); b = lerp(b, COOL[2] * (lum / 200), 0.15);
     const lift = clamp(1 - lum / 90, 0, 1) * 0.3;
     r = lerp(r, DEEP[0] + 20, lift); g = lerp(g, DEEP[1] + 22, lift); b = lerp(b, DEEP[2] + 26, lift);
     // reflection streaks (diagonal, top-right → bottom-left): solid core, dithered shoulders
@@ -179,7 +182,7 @@ function glassPost(d, rig) {
     if (k) { r = lerp(r, 236, k); g = lerp(g, 242, k); b = lerp(b, 250, k); }
     d[i * 4] = r; d[i * 4 + 1] = g; d[i * 4 + 2] = b;
     // the reflection thins out toward the bottom of the glass
-    const fade = clamp((y - 108) / 12, 0, 1);
+    const fade = clamp((y - 110) / 10, 0, 1);
     if (fade > 0 && bay(x + 1, y + 2) < fade) d[i * 4 + 3] = 0;
   }
   // faint back-surface double: a cool contour offset from the silhouette

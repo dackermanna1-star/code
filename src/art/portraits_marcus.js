@@ -2,14 +2,14 @@
 // beanie, gentle eyes; olive M-65 field jacket (stand collar, epaulettes, snap storm flap) over a charcoal tee;
 // headphones resting around his neck, cord running into the jacket.
 import { PAL, mix } from './palette.js';
-import { material, spline } from './portraits_core.js';
+import { material, spline, rimLight } from './portraits_core.js';
 import { stdMats } from './portraits_human.js';
 import { drawSmudges } from './portraits_face.js';
-import { L, strand, hairVol, enrolledDarkSkin, stitch } from './portraits_parts.js';
+import { hairVol, enrolledDarkSkin, stitch } from './portraits_parts.js';
 import { hash2 } from './util.js';
 
 const SKIN = ['#120606', '#2a1210', '#4a2418', mix(PAL.dskin_d, PAL.dskin, 0.55), mix(PAL.dskin, PAL.dskin_l, 0.75), mix(PAL.dskin_l, '#d0945e', 0.55)];
-const SKIN_TONE = [0.2, 0.36, 0.55, 1.07];
+const SKIN_TONE = [0.2, 0.36, 0.55, 1.1];
 
 export function darkPale(ramp, k) {
   if (k <= 0) return ramp;
@@ -23,42 +23,42 @@ export const MARCUS = {
   face: {
     cx: 46, yaw: 0.3,
     rows: [[20, 13, 14, 0], [25, 18, 18.5, 0], [32, 20.4, 21, 0], [40, 21.2, 22, 0], [49, 21, 22, 0], [55, 20.6, 21.4, 0.6],
-      [61, 19.6, 20.4, 1.6], [66, 18, 18.8, 3], [70.5, 15.4, 16.6, 4.6], [74.5, 11.6, 14, 6.4], [77.6, 7.4, 11, 7.8], [79.8, 3, 8, 8.6]],
+      [61, 19.8, 20.4, 1.6], [66, 18.6, 18.8, 3], [70.5, 16.4, 16.6, 4.6], [74.5, 13, 14, 6.4], [77.4, 8.8, 11, 7.8], [79.4, 4, 8, 8.6]],
   },
   materials(E, o) {
     let skin = darkPale(SKIN, (E.pale || 0) * 0.8);
     if (o.enrolled) skin = enrolledDarkSkin(skin);
     return [
-      material('skin', skin, { tone: SKIN_TONE, dither: 0.012 }),
+      material('skin', skin, { tone: SKIN_TONE, dither: 0.02, ditherT: [0.02, 0.035, 0.06, 0.008] }),
       material('blush', skin.map((c, i) => mix(c, '#a03a3a', i === 0 ? 0 : 0.16)), { tone: SKIN_TONE, dither: 0, line: false }),
       material('bruise', skin.map((c) => mix(c, '#2a1a2a', 0.3)), { tone: SKIN_TONE, dither: 0, line: false }),
       material('dirt', skin.map((c) => mix(c, '#3a3430', 0.35)), { tone: SKIN_TONE, dither: 0, line: false }),
       material('crop', skin.map((c, i) => mix(c, '#0a0808', 0.72 - i * 0.04)), { tone: SKIN_TONE, dither: 0, line: false }),
-      material('lip', ['#120606', '#240e10', '#3a1a1c', '#4e2828', '#663632', '#7e4840'], { tone: SKIN_TONE, dither: 0, line: false }),
+      material('lip', ['#120606', '#2a1012', '#44201f', '#5c302c', '#764038', '#90564a'], { tone: SKIN_TONE, dither: 0, line: false }),
       material('lash', ['#050303', '#0a0706', '#120c0a', '#1a120e', '#241a14', '#30221a'], { tone: [0.6, 1.2, 1.6, 2], dither: 0, line: false, inner: false }),
       material('brow', ['#050303', '#0c0807', '#140e0b', '#1e1510', '#2a1d16', '#38281e'], { tone: [0.25, 0.5, 0.8, 1.1], dither: 0, line: false, inner: false }),
       material('iris', o.enrolled ? ['#2a2620', '#463e34', '#625a4c', '#7e7462', '#988e7a', '#b0a690'] : ['#080403', '#140a06', '#24140c', '#382012', '#50321e', '#6c4830'], { tone: [0.2, 0.45, 0.85, 1.2], dither: 0, line: false, inner: false, flat: 0.5 }),
       material('irisGlass', ['#3a3226', '#5c4e38', '#7e6c4e', '#9c8a66', '#b8a680', '#d0c09c'], { tone: [0.15, 0.3, 0.55, 0.95], dither: 0, line: false, inner: false, flat: 0.6 }),
       material('beanie', ['#040406', '#0a0a0e', '#121218', '#1c1c24', '#282832', '#3a3a48'], { tone: [0.18, 0.42, 0.72, 1.06], dither: 0.015 }),
       material('olive', ['#0b0b07', '#17180e', '#252616', '#36381f', '#4a4c2b', '#64663c'], { tone: [0.16, 0.38, 0.66, 1.02], dither: 0.015 }),
-      material('tee', ['#08080a', '#121216', '#1c1c22', '#26262e', '#32323c', '#42424e'], { tone: [0.2, 0.42, 0.7, 1.0], dither: 0.02 }),
+      material('tee', ['#08080a', '#121216', '#1c1c22', '#26262e', '#32323c', '#42424e'], { tone: [0.2, 0.42, 0.7, 1.0], dither: 0.01 }),
       material('phones', ['#050506', '#0c0c0e', '#16161a', '#222228', '#303038', '#4a4a56'], { tone: [0.16, 0.38, 0.66, 1.0], dither: 0, gloss: 0.35, glossAt: 0.97, glossW: 0.03 }),
       material('metal', ['#1e2024', '#3e4248', '#646a70', '#8c9298', '#b4b8bc', '#e2e4e4'], { tone: [0.16, 0.38, 0.66, 1.0], dither: 0, line: false }),
       material('snap', ['#1a1a14', '#34342a', '#56563e', '#767656', '#969672', '#b8b892'], { tone: [0.16, 0.38, 0.66, 1.0], dither: 0, line: false }),
-      ...stdMats({ sclera: ['#2e2422', '#5a4a46', '#8c807a', '#b8aea4', '#d4ccc0', '#ebe6dc'] }),
+      ...stdMats({ sclera: ['#2e2422', '#5a4a46', '#8c807a', '#b8aea4', '#d4ccc0', '#ebe6dc'], sweat: ['#140806', '#3a2016', '#6a4430', '#8e6448', '#b48a6a', '#e8d2c0'] }),
     ];
   },
   features() {
     return {
       skinMat: 'skin',
       eye: {
-        uc: 0.43, y: 49.5, w: 10.2, hu: 3.3, hl: 2.4, ri: 3.3, rp: 1.4, irisW: 1, irisShiftN: -0.6, cIn: 0.4, cOut: 0.5, peak: -0.05, archPow: 2.2,
-        lash: [1, 2, 2], flick: 0, crease: true, creaseGap: 1.2, lowerLine: 0.45, lowerOff: -1, irisDy: -0.2,
+        uc: 0.43, y: 49.5, w: 10.2, hu: 3.4, hl: 2.4, ri: 3.3, rp: 1.4, irisW: 1, irisShiftN: -0.1, cIn: 0.4, cOut: 0.5, peak: 0.05, archPow: 2.2,
+        lash: [1, 2, 2.4], flick: 0, crease: true, creaseGap: 1.3, lowerLine: 0.45, lowerOff: -1, irisDy: -0.1,
         skinMat: 'skin', lashMat: 'lash', irisMat: 'iris', irisGlassMat: 'irisGlass', scleraMat: 'sclera', pupilMat: 'pupil', glintMat: 'glint',
       },
       brow: { y: 42.8, uIn: 0.12, uPk: 0.46, uOut: 0.84, pkY: -0.8, outY: 1.1, w: [2.6, 2.3, 1.2], mat: 'brow', skinMat: 'skin', farW: 0.92 },
       nose: { y: 60.4, e: 4.3, tipW: 3.2, skinMat: 'skin', nearNostril: -1 },
-      mouth: { y: 68, hw: 0.3, farK: 1, h: 5, lipMat: 'lip', skinMat: 'skin', mouthMat: 'mouth', teethMat: 'teeth', tongueMat: 'tongue' },
+      mouth: { y: 68, hw: 0.3, farK: 1, h: 5, fullLips: true, lipMat: 'lip', skinMat: 'skin', mouthMat: 'mouth', teethMat: 'teeth', tongueMat: 'tongue' },
       ear: { y: 52.5, h: 11, w: 5.6, back: 4, far: true, near: true, farPoke: 2.2 },
       neck: { x: 47, yTop: 64, yBot: 98, wTop: 8, wBot: 9.4, lean: 1.6, z: 1 },
       blush: { u: 0.5, y: 59, rx: 3.6, ry: 1.7, mat: 'blush' },
@@ -78,6 +78,7 @@ export const MARCUS = {
   bodyFront(ctx) { marcusBody(ctx); },
   afterFace(ctx) { marcusCrop(ctx); },
   hairFront(ctx) { marcusBeanie(ctx); },
+  post(d, rig, idx, light, lightName) { if (lightName === 'normal' || lightName === 'dawn') rimLight(d, rig, ['skin', 'crop'], '#8fa6c8', 0.3, 40); },
   grimeFace({ rig, face }, g) {
     const on = ['skin', 'blush', 'bruise', 'crop'];
     const c1 = face.proj(-0.5, 64), c2 = face.proj(0.45, 40);
@@ -155,10 +156,13 @@ function marcusBody({ rig, E }) {
     rig.strokeH(spline([[a[0], a[1] + 2.4], [b[0], b[1] + 2.4]], { seg: 3 }), (t, x, y, i) => [rig.mat[i], -2], { onlyMat: ['olive'] });
     rig.strokeH(spline([[a[0], a[1] + 1.2], [b[0], b[1] + 1.2]], { seg: 3 }), (t, x, y, i) => [rig.mat[i], 1], { onlyMat: ['olive'] });
   }
-  // chest pocket flaps (cut off by the frame)
-  for (const f of [[[12, 112], [28, 112.5], [28, 116.5], [12, 116]], [[64, 111.5], [79, 111], [79, 115], [64, 115.5]]]) {
-    rig.strokeH([...f, f[0]], (t, x, y, i) => [rig.mat[i], -1], { onlyMat: ['olive'] });
-    rig.dotH((f[0][0] + f[1][0]) / 2, f[2][1] - 1, 'snap', 0);
+  // chest pocket flaps (cut off by the frame): seam, flap, shadowed lower edge, snap
+  for (const [x0, x1, y0] of [[12, 28, 111.5], [64, 79, 111]]) {
+    rig.strokeH([[x0, y0], [x1, y0 - 0.4]], (t, x, y, i) => [rig.mat[i], -1], { onlyMat: ['olive'] });
+    rig.strokeH([[x0 + 0.5, y0 + 4], [x1 - 0.5, y0 + 3.6]], (t, x, y, i) => [rig.mat[i], -2], { onlyMat: ['olive'] });
+    rig.strokeH([[x0 + 1, y0 + 5], [x1 - 1, y0 + 4.6]], (t, x, y, i) => [rig.mat[i], -1], { onlyMat: ['olive'] });
+    rig.strokeH([[x0 + 1, y0 + 1], [x1 - 1, y0 + 0.6]], (t, x, y, i) => [rig.mat[i], 1], { onlyMat: ['olive'] });
+    rig.dotH((x0 + x1) / 2, y0 + 3, 'snap', 0);
   }
   // headphones resting around the neck: band behind, cups on the collarbones, cord into the jacket
   rig.strokeH(spline([[35, s(84, 0.4)], [37, 82], [40, 81]], { seg: 3 }), ['metal', 0]);

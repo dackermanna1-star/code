@@ -2,14 +2,14 @@
 // them the fluorescent locker room, and the Colonel passing so close that only fragments show — wool,
 // a brass button sunk in a fold, the crimson sash, pale flesh, a ringed hand knocking on the doors one
 // by one. faceIn slides his small face in until one half-lidded eye fills the central slit.
-import { GBuf, HField, M, rig, shade, imgToCanvas, fbm, hnoise } from './colonel_gbuf.js';
+import { GBuf, HField, M, rig, shade, imgToCanvas } from './colonel_gbuf.js';
 import { drawHead, FACE_EXPR } from './colonel_face.js';
 import { SM, buildHand, sinkRings, paintRings, paintNails, carve } from './colonel_cg_scenes.js';
-import { makeCanvas, ctxOf, rng } from './util.js';
+import { rng } from './util.js';
 
 const W = 480, H = 270;
 const SLITS = 5, SX0 = 112, SX1 = 368, SY0 = 72, SH = 15, SP = 26;
-export const LOCKER = { eyeX: 240, eyeY: SY0 + 2 * SP + SH / 2, slits: Array.from({ length: SLITS }, (_, k) => [SX0, SY0 + k * SP, SX1 - SX0, SH]) };
+export const LOCKER = { eyeX: 236, eyeY: SY0 + 2 * SP + 2, slits: Array.from({ length: SLITS }, (_, k) => [SX0, SY0 + k * SP, SX1 - SX0, SH]) };
 
 const ROOM_RIG = rig({ amb: 0.22, shadowTint: '#6f8a7c', keyTint: '#e6fff0', lights: [{ d: [0.1, -0.85, 0.5], i: 0.85, sh: 20, shK: 0.5 }] });
 const NEAR_RIG = rig({ amb: 0.1, shadowTint: '#56645e', keyTint: '#eefff2', exposure: 1.0,
@@ -128,7 +128,6 @@ function buildBodyStrip() {
   gb.ell(862, 134, 11, 11, { mat: M.GOLD, z: 162, rz: 5, mode: 'any' });
   gb.ell(862, 134, 5, 5, { mat: M.GOLD, z: 166, rz: 3, mode: 'any' });
   gb.folds(3, 0.7, 0.9);
-  gb.ssao(8, 0.012, 0.35);
   return imgToCanvas(shade(gb, NEAR_RIG));
 }
 
@@ -149,11 +148,12 @@ function buildKnock() {
   return imgToCanvas(shade(gb, NEAR_RIG));
 }
 
-export function buildLockerOutside() {
+export function buildLockerOutside(later = (k, f) => f()) {
   const room = buildRoom(), strip = buildBodyStrip();
   let knock = null;
   return {
     draw(ctx, t, phase, faceIn) {
+      if (!knock && phase > 0.25) later('knock', () => { if (!knock) knock = buildKnock(); });
       ctx.drawImage(room, 0, 0);
       // he drags along the lockers: the strip enters from the right and slides past, slowing as he nears
       const e = 1 - (1 - phase) * (1 - phase);
@@ -175,13 +175,16 @@ export function buildLockerOutside() {
 // ---------------------------------------------------------------------------------- the face at the vents
 export function buildSlitFace() {
   // so close that one half-lidded eye fills the central vent; brow above, cheek & whisker below
-  const s = 14, w = 700, h = 440;
+  // only the band the vents can show is built (it slides in from the right)
+  const s = 14, w = 520, h = 176;
   const gb = new GBuf(w, h);
-  const ex = 350, ey = 200; // his left eye lands here
-  drawHead(gb, { ...FACE_EXPR.serene, lidL: 0.46, lidR: 0.4, gazeL: [0.02, 0.05], gazeR: [0.25, 0.2], glint: true, cx: ex + 6 * s, cy: ey - 0.2 * s, s, seed: 1841, chins: 1, collar: false });
+  const ex = 350, ey = 72; // his left eye lands here
+  const lid = 0.46, hh = 2.1 * s;
+  drawHead(gb, { ...FACE_EXPR.serene, lidL: lid, lidR: 0.4, gazeL: [0.02, 0.62], gazeR: [0.25, 0.5], glint: true, cx: ex + 6 * s, cy: ey - 0.2 * s, s, seed: 1841, chins: 1, collar: false });
   gb.folds(1.2 * s, 0.75, 0.9);
   gb.ssao(14, 0.008, 0.3);
   const img = shade(gb, rig({ amb: 0.06, shadowTint: '#56645e', keyTint: '#f0fff4',
-    lights: [{ d: [0.12, -0.9, 0.42], i: 0.9, sh: 50, shK: 0.45 }, { p: [ex, ey + 60, 420], r: 760, i: 0.4, spec: 0.6 }] }));
-  return { canvas: imgToCanvas(img), eyeX: ex, eyeY: ey };
+    lights: [{ d: [0.12, -0.9, 0.42], i: 0.75, sh: 25, shStep: 2, shK: 0.45 }, { p: [ex, ey + 60, 420], r: 760, i: 0.4, spec: 0.6 }] }));
+  // report the lash line (not the eye centre): the vent shows the band just under the heavy lid
+  return { canvas: imgToCanvas(img), eyeX: ex, eyeY: Math.round(ey + hh * (1 - 2 * lid)) };
 }

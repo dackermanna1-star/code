@@ -5,11 +5,11 @@
 //   Objective — the chapter and what she's trying to do, in her handwriting.
 import { HW } from '../../engine/hw.js';
 import { Screen } from '../screen.js';
-import { C, F, W, H, CHAPTERS, handFont } from '../theme.js';
+import { W, H, CHAPTERS, handFont } from '../theme.js';
 import { font } from '../text.js';
 import { FONT } from '../fonts.js';
-import { rect, frame, dither, paperSheet, triangle, canvas, ctx2d, AP, clamp, ease, snap } from '../gfx.js';
-import { hints, spaced } from '../widgets.js';
+import { rect, dither, paperSheet, triangle, canvas, ctx2d, AP, clamp, ease, snap } from '../gfx.js';
+import { hints } from '../widgets.js';
 import { rng, hashStr } from '../../art/util.js';
 import * as svc from '../services.js';
 

@@ -123,16 +123,42 @@ export function triangle(ctx, x, y, size, color, dir = 'right') {
   }
 }
 
-/** Keycap glyph with a label (e.g. 'Z', 'ESC'). Returns its width. */
+// Arrow keys are drawn as pixel triangles: the bundled latin subset of the UI face lacks ← →.
+const ARROWS = { '←': 'left', '→': 'right', '↑': 'up', '↓': 'down' };
+const ARROW_W = 12;
+function keyParts(label, f) {
+  const parts = [];
+  for (const tok of String(label).split(/([←→↑↓])/)) {
+    if (!tok) continue;
+    if (ARROWS[tok]) parts.push({ dir: ARROWS[tok], w: ARROW_W });
+    else parts.push({ text: tok, w: f.width(tok) });
+  }
+  return parts;
+}
+/** Width a keycap for `label` will take. */
+export function keycapWidth(label, f) {
+  const tw = keyParts(label, f).reduce((a, p) => a + p.w, 0);
+  return Math.max(f.lineHeight, snap(tw + 4 * AP));
+}
+/** Keycap glyph with a label (e.g. 'Z', 'ESC', '← →'). Returns its width. */
 export function keycap(ctx, x, y, label, f, o = {}) {
-  const tw = f.width(label);
-  const w = Math.max(f.lineHeight, tw + 4 * AP), h = f.lineHeight;
+  const parts = keyParts(label, f);
+  const tw = parts.reduce((a, p) => a + p.w, 0);
+  const w = keycapWidth(label, f), h = f.lineHeight;
   x = Math.round(x); y = Math.round(y);
   rect(ctx, x, y + AP, w, h, o.shadow ?? '#0b0b0f');
   rect(ctx, x, y, w, h - AP, o.face ?? '#c9c0a8');
   rect(ctx, x, y, w, AP, o.hi ?? '#ece4cc');
   rect(ctx, x, y + h - 2 * AP, w, AP, o.lo ?? '#8f8670');
-  f.draw(ctx, label, x + w / 2, y - AP, o.color ?? '#1d1c22', { align: 'center' });
+  const col = o.color ?? '#1d1c22';
+  let cx = Math.round(x + w / 2 - tw / 2);
+  for (const p of parts) {
+    if (p.dir) {
+      const vert = p.dir === 'up' || p.dir === 'down';
+      triangle(ctx, cx + (vert ? 0 : 2), y + (vert ? 6 : 3), vert ? 3 : 4, col, p.dir);
+    } else f.draw(ctx, p.text, cx, y - AP, col);
+    cx += p.w;
+  }
   return w;
 }
 

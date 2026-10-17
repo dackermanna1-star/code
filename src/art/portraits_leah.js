@@ -4,7 +4,7 @@ import { PAL, mix } from './palette.js';
 import { material, spline } from './portraits_core.js';
 import { stdMats, paleRamp } from './portraits_human.js';
 import { drawSmudges } from './portraits_face.js';
-import { L, strand, hairVol, enrolledSkin, stitch } from './portraits_parts.js';
+import { L, strand, hairVol, enrolledSkin } from './portraits_parts.js';
 import { hash2 } from './util.js';
 
 const SKIN = ['#46202a', mix(PAL.skin_dd, PAL.skin_d, 0.5), mix(mix(PAL.skin_d, PAL.skin, 0.55), '#b85a62', 0.12),
@@ -15,7 +15,7 @@ const SKIN_TONE = [0.2, 0.38, 0.55, 1.06];
 export const LEAH = {
   seed: 3301,
   shift: [1, 0],
-  exprBase: { eye: { gx: -0.35, open: 0.84 } },
+  exprBase: { eye: { gx: -0.35, open: 0.78 } },
   face: {
     cx: 46, yaw: 0.3,
     rows: [[21, 13, 14, 0], [26, 17.6, 18.5, 0], [33, 19.6, 21, 0], [41, 20.4, 22, 0], [50, 20.2, 22, 0], [56, 19.6, 21, 0.6],
@@ -26,7 +26,7 @@ export const LEAH = {
     if (o.enrolled) skin = enrolledSkin(skin);
     const hair = o.enrolled ? HAIR.map((c) => mix(c, '#3a342e', 0.25)) : HAIR;
     return [
-      material('skin', skin, { tone: SKIN_TONE, dither: 0.012, flat: E.flatSkin || 0 }),
+      material('skin', skin, { tone: SKIN_TONE, dither: 0.02, ditherT: [0.02, 0.035, 0.06, 0.008], flat: E.flatSkin || 0 }),
       material('blush', skin.map((c, i) => mix(c, '#d8606a', i === 0 ? 0 : 0.2)), { tone: SKIN_TONE, dither: 0, line: false }),
       material('bruise', skin.map((c) => mix(c, '#6a4a6e', 0.35)), { tone: SKIN_TONE, dither: 0, line: false }),
       material('dirt', skin.map((c) => mix(c, '#5a4a3e', 0.42)), { tone: SKIN_TONE, dither: 0, line: false }),
@@ -47,7 +47,7 @@ export const LEAH = {
     return {
       skinMat: 'skin',
       eye: {
-        uc: 0.43, y: 50.5, w: 10.4, hu: 3.6, hl: 2.4, ri: 3.4, rp: 1.4, irisW: 1, irisShiftN: -0.6, cIn: 0.7, cOut: -0.3, peak: -0.15, archPow: 2.4,
+        uc: 0.43, y: 50.5, w: 10.4, hu: 3.6, hl: 2.4, ri: 3.4, rp: 1.4, irisW: 1, irisShiftN: -0.1, cIn: 0.7, cOut: -0.3, peak: 0.05, archPow: 2.4,
         lash: [1, 2, 2], flick: 0.9, flickRise: 1.6, crease: true, creaseGap: 1.3, lowerLine: 0.5, irisDy: -0.2,
         skinMat: 'skin', lashMat: 'lash', irisMat: 'iris', irisGlassMat: 'irisGlass', scleraMat: 'sclera', pupilMat: 'pupil', glintMat: 'glint',
       },
@@ -147,7 +147,7 @@ function leahGlasses({ rig, face, E, o, eyes }) {
     const u = near ? -0.43 : 0.43;
     const [ex, ey] = face.proj(u, 50.5 + (E.pitch || 0) * 1.5);
     const sc = face.scaleAt(u, 50.5);
-    const rx = 5.9 * sc, ry = 5.2;
+    const rx = (near ? 5.9 : 5.3) * sc, ry = near ? 5.2 : 5.0;
     lens.push({ ex, ey, rx, ry, near });
     // ring
     const pts = [];

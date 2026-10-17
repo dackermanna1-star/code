@@ -2,7 +2,7 @@
 // Pennsylvania." / "October 18, 1996.") and ending codes stamped like an attendance code.
 import { Screen } from '../screen.js';
 import { C, F, W, H } from '../theme.js';
-import { rect, dither, AP, clamp, ease, snap, canvas, ctx2d } from '../gfx.js';
+import { rect, AP, clamp, ease, snap, canvas, ctx2d } from '../gfx.js';
 import { rng, hash2 } from '../../art/util.js';
 import * as svc from '../services.js';
 

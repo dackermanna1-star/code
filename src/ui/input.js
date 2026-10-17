@@ -116,13 +116,18 @@ export class UIInput {
   /** Escape was pressed this frame (seen by our own listener even when the engine owns input). */
   escPressed() { return !!this._esc; }
 
-  /** Human label for the first key bound to an action ('Z', 'ESC', '←'). */
+  /** Human label for the first key bound to an action ('Z', 'ESC', '←'; pad buttons on a gamepad). */
   keyLabel(a) {
     const e = this.engine;
+    if (e?.lastDevice === 'gamepad' && PAD_LABELS[a]) return PAD_LABELS[a];
     let code = e?.keyName?.(a) ?? e?.bindings?.[a]?.[0] ?? e?.keys?.[a]?.[0] ?? DEFAULT_KEYS[a]?.[0] ?? a;
     return prettyKey(code);
   }
 }
+
+// Standard-mapping pad buttons as engine/input.js binds them.
+const PAD_LABELS = { confirm: 'A', cancel: 'B', flashlight: 'X', inventory: 'Y', compact: 'LB', run: 'RB',
+  sketchbook: 'SELECT', pause: 'START', up: '↑', down: '↓', left: '←', right: '→' };
 
 export function prettyKey(code) {
   const s = String(code);

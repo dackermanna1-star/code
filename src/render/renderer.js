@@ -5,6 +5,10 @@
 // While the compact shows a past view, the scene is drawn from the clean (1979) layers with the
 // view's extra objects/figures, warm light instead of darkness, and the rest of the screen dimmed.
 //
+// The Colonel's shroud (DESIGN §4.1 "the light dies where he is"): while HW.colonel.shrouded his
+// sprite is drawn near-black and only its brass/gold/crimson pixels are drawn again after the
+// lighting pass, so a moving hole in the light winks with brass.
+//
 // Hot path: no per-frame allocation — bucket arrays are reused and art canvases cached per prop.
 import HW from '../engine/hw.js';
 import { Entity } from '../engine/entities.js';
@@ -17,6 +21,23 @@ const NONE = Object.freeze({ canvas: null, ox: 0, oy: 0 }); // cached "art faile
 const PAST_TEXT_COLORS = { chalk: '#e8e4d4', fog: '#c4d4e6', ink: '#2a2a33', red: '#c8423b', paper: '#3d342a' };
 
 const bySortKey = (a, b) => a.sortKey - b.sortKey;
+
+/** Brass/gold (warm, saturated) or crimson (saturated red) — the Colonel's emissive pixels. */
+function isEmissive(r, g, b) {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  if (max < 70) return false;
+  const sat = (max - min) / max;
+  if (sat < 0.38) return false;
+  let hue;
+  if (max === r) hue = ((g - b) / (max - min) + 6) % 6;
+  else if (max === g) hue = (b - r) / (max - min) + 2;
+  else hue = (r - g) / (max - min) + 4;
+  hue *= 60;
+  const brass = hue >= 32 && hue <= 58;
+  const crimson = (hue >= 340 || hue <= 8) && sat > 0.55;
+  return brass || crimson;
+}
 
 function blit(ctx, src, cam) {
   let sx = cam.x;
@@ -39,6 +60,8 @@ export const renderer = {
   _over: [],
   _tall: [],
   _errors: new Set(),
+  _shroud: null,                 // the shrouded Colonel entity this frame
+  _shroudCache: new WeakMap(),   // sprite frame → { dark, glow }
 
   render() {
     const ctx = HW.display.worldCtx;
@@ -65,24 +88,35 @@ export const renderer = {
     } catch (e) {
       this._once('animated tiles', e);
     }
-    for (const p of this._decals) this._drawProp(ctx, p, cam, clean);
+    const decals = this._decals;
+    for (let i = 0; i < decals.length; i++) this._drawProp(ctx, decals[i], cam, clean);
     blit(ctx, L.faces, cam);
-    for (const p of this._wall) this._drawProp(ctx, p, cam, clean);
+    const wall = this._wall;
+    for (let i = 0; i < wall.length; i++) this._drawProp(ctx, wall[i], cam, clean);
     if (past) this._drawPastText(ctx, past, cam);
 
     const ys = this._ysort;
     ys.sort(bySortKey);
     const ghost = past ? 0.55 : 1;
+    const shroud = this._shroud;
     for (let i = 0; i < ys.length; i++) {
       const it = ys[i];
-      if (it.kind === 'entity') it.draw(ctx, cam.x, cam.y, it === HW.player ? ghost : 1);
+      if (it === shroud) this._drawShroud(ctx, it, cam, 'dark', null);
+      else if (it.kind === 'entity') it.draw(ctx, cam.x, cam.y, it === HW.player ? ghost : 1);
       else this._drawProp(ctx, it, cam, clean);
     }
 
     blit(ctx, L.tops, cam);
     // Tall sprites (the Colonel) stand in front of north walls: redraw what rises above them.
-    for (const e of this._tall) e.draw(ctx, cam.x, cam.y, 1, (Math.floor(e.y / TILE) - 2) * TILE - cam.y);
-    for (const p of this._over) this._drawProp(ctx, p, cam, clean);
+    const tall = this._tall;
+    for (let i = 0; i < tall.length; i++) {
+      const e = tall[i];
+      const clipY = (Math.floor(e.y / TILE) - 2) * TILE - cam.y;
+      if (e === shroud) this._drawShroud(ctx, e, cam, 'dark', clipY);
+      else e.draw(ctx, cam.x, cam.y, 1, clipY);
+    }
+    const over = this._over;
+    for (let i = 0; i < over.length; i++) this._drawProp(ctx, over[i], cam, clean);
 
     const systems = HW.game.systems;
     for (let i = 0; i < systems.length; i++) {
@@ -105,6 +139,7 @@ export const renderer = {
       }
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
+      if (shroud) this._drawShroud(ctx, shroud, cam, 'glow', null);
       try {
         HW.fx?.renderWorld?.(ctx, cam);
       } catch (e) {
@@ -143,10 +178,11 @@ export const renderer = {
     const vx1 = cam.x + W + 32;
     const vy0 = cam.y - 16;
     const vy1 = cam.y + H + 80; // tall art extends upward from its footprint
-    const props = map.props;
+    // The past view also shows the map's own `pastOnly` objects (hidden from the present).
+    const props = past ? map.allProps : map.props;
     for (let i = 0; i < props.length; i++) {
       const p = props[i];
-      if (past && (p.hideInPast || past.hideSet.has(p.id))) continue;
+      if (past && (!p.present || p.hideInPast || past.hideSet.has(p.id))) continue;
       this._add(p, cam);
     }
     if (past) {
@@ -156,6 +192,8 @@ export const renderer = {
       if (pl && pl.visible) ys.push(pl);
       return;
     }
+    const col = HW.colonel;
+    this._shroud = col && col.shrouded ? (col.entity || HW.entities.get('colonel')) : null;
     const ents = HW.entities.list;
     for (let i = 0; i < ents.length; i++) {
       const e = ents[i];
@@ -224,6 +262,71 @@ export const renderer = {
   _cleanParams(p) {
     p._dparamsClean = { ...p.dparams, clean: true, base: p.dparams };
     return p._dparamsClean;
+  },
+
+  // ---------------------------------------------------------------------------------- shroud
+  /** Draw an entity's current frame as its shroud silhouette ('dark') or emissive mask ('glow'). */
+  _drawShroud(ctx, e, cam, layer, clipY) {
+    const sheet = e.sheet;
+    const img = sheet && e.visible ? e.frameImage() : null;
+    if (!img) return;
+    const s = this._shroudOf(img);
+    const canvas = layer === 'glow' ? s.glow : s.dark;
+    if (!canvas) return;
+    const dx = Math.round(e.x) - cam.x - sheet.ax;
+    const dy = Math.round(e.y) - cam.y - sheet.ay;
+    if (layer === 'glow') ctx.globalAlpha = 0.72 + 0.28 * Math.sin(HW.time * 2.3);
+    if (clipY !== null) {
+      const h = Math.min(img.height, clipY - dy);
+      if (h > 0) ctx.drawImage(canvas, 0, 0, img.width, h, dx, dy, img.width, h);
+    } else {
+      ctx.drawImage(canvas, dx, dy);
+    }
+    ctx.globalAlpha = 1;
+  },
+
+  /** Build (once per sprite frame) the near-black silhouette and the brass/gold/crimson mask. */
+  _shroudOf(img) {
+    let s = this._shroudCache.get(img);
+    if (s) return s;
+    const w = img.width;
+    const h = img.height;
+    const mk = () => {
+      const c = document.createElement('canvas');
+      c.width = w;
+      c.height = h;
+      return c;
+    };
+    const dark = mk();
+    const glow = mk();
+    const dctx = dark.getContext('2d');
+    const gctx = glow.getContext('2d');
+    dctx.drawImage(img, 0, 0);
+    const src = dctx.getImageData(0, 0, w, h);
+    const out = gctx.createImageData(w, h);
+    const d = src.data;
+    const o = out.data;
+    let any = false;
+    for (let i = 0; i < d.length; i += 4) {
+      const a = d[i + 3];
+      if (!a) continue;
+      if (isEmissive(d[i], d[i + 1], d[i + 2])) {
+        o[i] = Math.min(255, d[i] * 1.15);
+        o[i + 1] = Math.min(255, d[i + 1] * 1.15);
+        o[i + 2] = Math.min(255, d[i + 2] * 1.1);
+        o[i + 3] = a;
+        any = true;
+      }
+      d[i] = 7;
+      d[i + 1] = 7;
+      d[i + 2] = 11;
+      d[i + 3] = Math.round(a * 0.96);
+    }
+    dctx.putImageData(src, 0, 0);
+    gctx.putImageData(out, 0, 0);
+    s = { dark, glow: any ? glow : null };
+    this._shroudCache.set(img, s);
+    return s;
   },
 
   // ---------------------------------------------------------------------------------- past view

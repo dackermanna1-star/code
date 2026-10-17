@@ -1,10 +1,10 @@
 // Save / Load: four file-folder slots (AUTO, 1, 2, 3) with chapter, place, play time and date.
 // args { mode: 'save' | 'load', fromTitle } → resolves the slot loaded (or saved), else null.
-import { HW } from '../../engine/hw.js';
+
 import { Screen } from '../screen.js';
-import { C, F, W, H } from '../theme.js';
-import { steelPanel, rect, frame, dither, paperSheet, triangle, AP, clamp, ease, snap } from '../gfx.js';
-import { headerTab, hints, spaced } from '../widgets.js';
+import { C, F } from '../theme.js';
+import { steelPanel, rect, frame, dither, triangle, AP, clamp, ease, snap } from '../gfx.js';
+import { headerTab, hints } from '../widgets.js';
 import { closeMenus } from './pause.js';
 import * as svc from '../services.js';
 
@@ -67,19 +67,18 @@ export class SaveLoadScreen extends Screen {
       const en = this._enabled(s);
       // manila folder with a tab
       const fx = x + 40, fw = w - 80, fh = 84;
-      const tone = en ? '#c9b383' : '#6e6450';
+      const tone = en ? '#c9b383' : '#4e4638';
       rect(ctx, fx, sy + 10, fw, fh - 10, tone);
       rect(ctx, fx, sy, 120, 14, tone);
       rect(ctx, fx, sy + 10, fw, AP, 'rgba(255,255,255,0.25)');
       rect(ctx, fx, sy + fh - AP, fw, AP, 'rgba(0,0,0,0.3)');
-      if (!en) dither(ctx, fx, sy, fw, fh, 'rgba(10,10,12,1)', 0.25);
-      F.small.draw(ctx, s.slot === 'auto' ? 'AUTO' : `SLOT ${s.slot}`, fx + 12, sy - 2, '#3a3020');
+      F.small.draw(ctx, s.slot === 'auto' ? 'AUTO' : `SLOT ${s.slot}`, fx + 12, sy - 2, en ? '#3a3020' : '#2a251c');
       if (s.sum) {
         F.typed.draw(ctx, s.sum.chapterTitle || '', fx + 20, sy + 22, '#1e1b16');
         F.typedS.draw(ctx, s.sum.map || '', fx + 20, sy + 52, '#3e362a');
         F.typedS.draw(ctx, svc.fmtTime(s.sum.playtime), fx + fw - 20, sy + 22, '#3e362a', { align: 'right' });
         F.typedS.draw(ctx, svc.fmtDate(s.sum.date), fx + fw - 20, sy + 52, '#5a5040', { align: 'right' });
-      } else F.typedS.draw(ctx, s.slot === 'auto' ? '— no checkpoint yet —' : '— empty —', fx + 20, sy + 36, en ? '#5a5040' : '#3a3428');
+      } else F.typedS.draw(ctx, s.slot === 'auto' ? '— no checkpoint yet —' : '— empty —', fx + 20, sy + 36, en ? '#5a5040' : '#2c2820');
       if (on) {
         frame(ctx, fx - AP * 3, sy - AP * 3, fw + AP * 6, fh + AP * 6, en ? C.red : '#5a2a28');
         triangle(ctx, fx - 26 + (Math.floor(this.t * 3) % 2 ? AP : 0), sy + 34, 6, C.red, 'right');

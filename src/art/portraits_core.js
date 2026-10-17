@@ -28,6 +28,7 @@ export function material(name, ramp, o = {}) {
     name, ramp,
     tone: o.tone || [0.2, 0.42, 0.68, 0.95],
     dither: o.dither ?? 0.035,
+    ditherT: o.ditherT || null,        // optional per-threshold dither widths (soft terminator, crisp elsewhere)
     line: o.line ?? true, inner: o.inner ?? true,
     lineIdx: o.lineIdx ?? 0,           // index used for outlines in shadow (lit side uses +1)
     spec: o.spec || 0, specAt: o.specAt ?? 0.93, specW: o.specW ?? 0.07,
@@ -46,7 +47,6 @@ export function rampFrom(anchors) {
   }
   return out;
 }
-export const rampMap = (ramp, fn) => ramp.map(fn);
 
 // ---- geometry helpers --------------------------------------------------------------------------
 /** Catmull-Rom spline through pts (open or closed) → dense polyline. */
@@ -386,8 +386,10 @@ const norm3 = (v) => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0]
 export const LIGHTS = {
   normal: { L: norm3([-0.44, -0.56, 0.7]), amb: 0.34, key: 0.74, shadow: 0.75, spec: 1, grade: null },
   dark: {
-    L: norm3([-0.85, -0.08, 0.55]), amb: 0.05, key: 1.08, shadow: 0.9, spec: 1.1,
-    falloff: (x, y) => clamp(1.4 - x / 72 - Math.abs(y - 58) / 240, 0.1, 1.15),
+    // the default at night: a flashlight held low and to the left — the face sits in the beam's pool,
+    // hair, shoulders and the far edge fall away into darkness
+    L: norm3([-0.55, 0.08, 0.83]), amb: 0.06, key: 0.96, shadow: 0.85, spec: 1.1,
+    falloff: (x, y) => { const dx = (x - 44) / 50, dy = (y - 56) / 44; return clamp(1.2 - Math.sqrt(dx * dx + dy * dy) * 0.95, 0.06, 1.06); },
     grade: { lit: '#fff1d6', litGain: 1.06, dark: '#0d1220', darkGain: 0.55, desat: 0.15, crush: 0.5, abyss: '#07080d' },
   },
   under: {
@@ -396,7 +398,7 @@ export const LIGHTS = {
     grade: { lit: '#ffe9c8', litGain: 1.02, dark: '#10121c', darkGain: 0.55, desat: 0.2, crush: 0.45, abyss: '#07080d' },
   },
   fluor: {
-    L: norm3([-0.12, -0.95, 0.3]), amb: 0.24, key: 0.85, shadow: 0.8, spec: 0.8,
+    L: norm3([-0.1, -0.82, 0.56]), amb: 0.3, key: 0.82, shadow: 0.8, spec: 0.8,
     grade: { lit: '#e2f5d8', litGain: 1.04, dark: '#3a5a48', darkGain: 0.82, desat: 0.38, crush: 0.15, abyss: '#0f1a14' },
   },
   red: {
@@ -505,8 +507,9 @@ export function shade(rig, lightName = 'normal', post = null) {
     let k;
     if (fix[i] >= 0) k = fix[i];
     else {
-      const v = l + (bay(x, y) - 0.5) * 2 * M.dither;
-      const th = M.tone; k = 1; while (k < 5 && v >= th[k - 1]) k++;
+      const th = M.tone; const b = (bay(x, y) - 0.5) * 2;
+      if (M.ditherT) { k = 1; while (k < 5 && l + b * M.ditherT[k - 1] >= th[k - 1]) k++; }
+      else { const v = l + b * M.dither; k = 1; while (k < 5 && v >= th[k - 1]) k++; }
       k = Math.max(M.min, k);
       k = clamp(k + off[i], 0, 5);
     }
@@ -533,6 +536,18 @@ export function shade(rig, lightName = 'normal', post = null) {
       outIdx[i] = Math.min(idx[i], M.lineIdx + (lit ? 2 : 1));
     }
   }
+  // line cleanup: a silhouette pixel that only forms the inner corner of a stair step is redundant —
+  // demote it to an intermediate tone so curves read as thin 8-connected lines with soft (AA) steps
+  const isLine = (i) => outIdx[i] >= 0 && outIdx[i] < idx[i];
+  const corner = new Uint8Array(PN);
+  for (let y = 1; y < PH - 1; y++) for (let x = 1; x < PW - 1; x++) {
+    const i = y * PW + x; if (!isLine(i)) continue;
+    for (const [hx, vy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const h = i + hx, v = i + vy * PW, dgn = i + hx + vy * PW;
+      if (isLine(h) && isLine(v) && !mat[dgn]) { corner[i] = 1; break; }
+    }
+  }
+  for (let i = 0; i < PN; i++) if (corner[i]) outIdx[i] = Math.min(idx[i], outIdx[i] + 1);
   // colour LUT per material for this light
   const lut = rig.mats.map((M) => (M ? M.ramp.map((hex, k) => gradeColor(hex, k, light.grade)) : null));
   const c = makeCanvas(PW, PH); const ctx = ctxOf(c);
@@ -548,19 +563,37 @@ export function shade(rig, lightName = 'normal', post = null) {
 }
 
 // ---- post helpers ----------------------------------------------------------------------------------
-/** Distance (in px, up to max) from each opaque pixel to the nearest transparent pixel / top-side frame. */
+/** Distance (px, capped at max) from each opaque pixel to the nearest transparent pixel (frame cuts don't count). */
 export function edgeDistance(rig, max = 6) {
-  const out = new Float32Array(PN).fill(max);
+  // two-pass 8-neighbour chamfer transform (1, √2)
+  const D = new Float32Array(PN);
+  for (let i = 0; i < PN; i++) D[i] = rig.mat[i] ? 1e6 : 0;
+  const S2 = Math.SQRT2;
   for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) {
-    const i = y * PW + x; if (!rig.mat[i]) { out[i] = 0; continue; }
-    for (const [ox, oy, od] of OFFS) {
-      if (od > max) break;
-      const ax = x + ox, ay = y + oy;
-      if (ax < 0 || ax >= PW || ay < 0 || ay >= PH) continue;
-      if (!rig.mat[ay * PW + ax]) { out[i] = od; break; }
-    }
+    const i = y * PW + x; let v = D[i]; if (!v) continue;
+    if (x > 0) v = Math.min(v, D[i - 1] + 1);
+    if (y > 0) { v = Math.min(v, D[i - PW] + 1); if (x > 0) v = Math.min(v, D[i - PW - 1] + S2); if (x < PW - 1) v = Math.min(v, D[i - PW + 1] + S2); }
+    D[i] = v;
   }
-  return out;
+  for (let y = PH - 1; y >= 0; y--) for (let x = PW - 1; x >= 0; x--) {
+    const i = y * PW + x; let v = D[i]; if (!v) continue;
+    if (x < PW - 1) v = Math.min(v, D[i + 1] + 1);
+    if (y < PH - 1) { v = Math.min(v, D[i + PW] + 1); if (x < PW - 1) v = Math.min(v, D[i + PW + 1] + S2); if (x > 0) v = Math.min(v, D[i + PW - 1] + S2); }
+    D[i] = v;
+  }
+  for (let i = 0; i < PN; i++) if (D[i] > max) D[i] = max;
+  return D;
+}
+/** Cool reflected rim on the far (viewer-right) silhouette of the given materials. */
+export function rimLight(d, rig, mats, hex, k = 0.28, minX = 0) {
+  const ids = new Set(mats.map((n) => rig.mid[n]).filter(Boolean));
+  const C = hexToRgb(hex);
+  for (let y = 0; y < PH; y++) for (let x = minX; x < PW; x++) {
+    const i = y * PW + x; if (!ids.has(rig.mat[i])) continue;
+    if (rig.nx[i] < 0.35) continue; // only surfaces turning away to the right
+    const e = rig.edge[i];
+    if (e <= 1.2) mixInto(d, i, C, k);
+  }
 }
 export function mixInto(d, i, rgb, t) {
   d[i * 4] = lerp(d[i * 4], rgb[0], t); d[i * 4 + 1] = lerp(d[i * 4 + 1], rgb[1], t); d[i * 4 + 2] = lerp(d[i * 4 + 2], rgb[2], t);

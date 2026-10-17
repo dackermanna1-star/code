@@ -6,7 +6,7 @@
 // .setLevel(0..1 | null).
 import { HW } from '../../engine/hw.js';
 import { Screen, Z_SPECIAL } from '../screen.js';
-import { C, F, W, H } from '../theme.js';
+import { C, F } from '../theme.js';
 import { canvas, ctx2d, rect, frame, dither, triangle, AP, clamp, ease, snap } from '../gfx.js';
 import { hints } from '../widgets.js';
 import { rng, hash2, tinyText } from '../../art/util.js';
@@ -120,7 +120,21 @@ export class PAScreen extends Screen {
     rect(ctx, x - 4, y - 4, w + 8, h + 8, '#1b1b1f');
     rect(ctx, x, y, w, h, '#4a4a50');
     for (let j = 6; j < h - 4; j += 8) for (let i = 6 + ((j / 8) % 2) * 4; i < w - 4; i += 8) rect(ctx, x + i, y + j, 4, 4, '#121215');
+    // the cone behind the grille breathes with the signal
+    const live = this.listening || this.mode === 'allcall' || this.levelOverride != null;
+    if (live) {
+      const r = 26 + Math.round(this.needle * 10) * AP;
+      for (let j = -r; j <= r; j += 8) for (let i = -r; i <= r; i += 8) {
+        if (i * i + j * j > r * r) continue;
+        rect(ctx, snap(x + w / 2 + i), snap(y + h / 2 + j), 4, 4, 'rgba(255,220,170,0.08)');
+      }
+    }
     F.small.draw(ctx, 'MONITOR', x + w / 2, y + h + 8, '#2a2a30', { align: 'center' });
+    if (this.listening && this.active) {
+      const room = this.rooms.find((r2) => r2.id === this.active);
+      const blink = Math.floor(this.t * 2) % 2 === 0;
+      F.small.draw(ctx, `LISTENING — ${room?.label || this.active}`, 420, 182, blink ? '#8a1a14' : '#3a2a26');
+    }
   }
 
   _power(ctx) {
@@ -138,7 +152,7 @@ export class PAScreen extends Screen {
   }
 
   _switches(ctx) {
-    const cw = 88, rh = 84, top = 268, left = BODY.x + (BODY.w - PER_ROW * cw) / 2;
+    const cw = 88, rh = 84, top = 276, left = BODY.x + (BODY.w - PER_ROW * cw) / 2;
     this.rooms.forEach((r, i) => {
       const x = left + (i % PER_ROW) * cw, y = top + Math.floor(i / PER_ROW) * rh;
       const flip = ease.out(this.flips.get(r.id) || 0);
@@ -171,7 +185,7 @@ export class PAScreen extends Screen {
       const on = this.mode === id;
       rect(ctx, x, y, 120, 36, '#1a1a1e');
       rect(ctx, x + 2, y + 2, 116, 32, on ? (id === 'allcall' ? '#8a1a14' : '#3a3a42') : '#2a2a30');
-      if (on && id === 'allcall') dither(ctx, x - 8, y - 8, 136, 52, 'rgba(255,60,40,0.9)', 0.1 + 0.08 * Math.sin(this.t * 8));
+      if (on && id === 'allcall') dither(ctx, x - 8, y - 8, 136, 52, 'rgba(255,60,40,0.9)', 0.1 + (svc.reduceFlashing() ? 0 : 0.08 * Math.sin(this.t * 8)));
       F.small.draw(ctx, label, x + 60, y + 8, on ? (id === 'allcall' ? '#ffd8cc' : '#e8e4d8') : '#8a8890', { align: 'center' });
     });
   }

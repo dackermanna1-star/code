@@ -137,6 +137,7 @@ async function cgs() {
 (async () => {
   try {
     if (part === 'all' || part === 'sprite') await spriteSheet();
+    if (part === 'bench') { const { bench } = await import('./colonel_bench.js'); console.log('bench ' + JSON.stringify(await bench())); }
     if (part === 'zoom') await zoom();
     if (part === 'all' || part === 'dark') await darkTest();
     if (part === 'all' || part === 'portraits') await portraits();

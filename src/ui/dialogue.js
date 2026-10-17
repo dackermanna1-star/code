@@ -3,12 +3,12 @@
 // Lines are queued; consecutive lines form a "session" — portraits stay up (the inactive speaker
 // dims), the box doesn't flicker between lines, and a choice right after a line keeps that line on
 // screen. A session ends a few frames after the last line if nothing new arrives.
-import { HW } from '../engine/hw.js';
+
 import { C, F, W } from './theme.js';
 import { parseMarkup, layoutMarkup, S_EM, S_SHAKE, S_SLOW, S_RED, S_DIM } from './text.js';
 import { steelPanel, plate, triangle, rect, dither, frame, AP, ease, clamp, approach, canvas, ctx2d, snap } from './gfx.js';
 import { hashStr, hash2 } from '../art/util.js';
-import { mix, darken } from '../art/palette.js';
+import { mix } from '../art/palette.js';
 import * as svc from './services.js';
 
 export const BOX = { x: 20, y: 376, w: 920, h: 150 };
@@ -195,6 +195,7 @@ export class Dialogue {
     const page = line.pages[line.page];
     if (line.kind === 'colonel') svc.murmur(Math.max(0.6, page.total));
     if (line.kind === 'voice' && line.page === 0) svc.sfx('intercom_crackle', { vol: 0.5 });
+    if (line.who === 'adair' && line.page === 0) svc.sfx('glass_tone', { vol: 0.4 }); // she only speaks through glass
   }
 
   /** Put the speaker's portrait on stage (slide in on change; dim the other side). */
@@ -436,7 +437,7 @@ export class Dialogue {
     const el = live ? line.elapsed : 1e9;
     const tick = Math.floor(this.t * 20);
     const voice = line.kind === 'voice';
-    const flick = voice ? (hash2(Math.floor(this.t * 12), 7) % 9 === 0 ? 0.55 : 0.92) : 1;
+    const flick = voice ? (!svc.reduceFlashing() && hash2(Math.floor(this.t * 12), 7) % 9 === 0 ? 0.55 : 0.92) : 1;
     page.lines.forEach((ln, li) => {
       let x0 = line.tx;
       if (line.kind === 'narrate') x0 = snap(b.x + b.w / 2 - ln.w / 2);

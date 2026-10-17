@@ -65,7 +65,8 @@ class UIManager {
         if (s.alpha <= 0) this._remove(s);
       } else s.alpha = Math.min(1, s.alpha + dt / Math.max(0.01, s.fadeIn));
     }
-    this.hud.update(dt, this._hudVisible());
+    // toasts and notices wait behind full-screen cards / title / game over
+    this.hud.update(dt, this._hudVisible(), !this._fullscreenUp());
     this.frame++;
     this.input.endFrame();
   }
@@ -86,9 +87,11 @@ class UIManager {
       this._renderScreen(ctx, s);
     }
     if (!dialogueDrawn) this.dialogue.render(ctx);
-    this.hud.renderTop(ctx);
+    if (!this._fullscreenUp()) this.hud.renderTop(ctx);
     ctx.globalAlpha = 1;
   }
+
+  _fullscreenUp() { return this.screens.some((s) => s.z >= 25 && !s.closing); }
 
   _renderScreen(ctx, s) {
     if (s.alpha <= 0) return;
@@ -213,6 +216,8 @@ class UIManager {
     this.backdrop.clear();
     this.overlays.clear();
     this.hud.prompt = null;
+    this.hud.toasts = [];
+    this.hud.notices = [];
   }
 
   /** Automated tests (HW.debug.autoAdvance): resolve modal screens without waiting for a player. */

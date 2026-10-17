@@ -2,7 +2,7 @@
 // toasts and "Sketchbook updated" objective notices. Everything is diegetic-leaning and quiet.
 import { HW } from '../engine/hw.js';
 import { C, F, W } from './theme.js';
-import { rect, frame, dither, plate, keycap, paperSheet, triangle, AP, clamp, approach, ease, snap, canvas, ctx2d } from './gfx.js';
+import { rect, frame, dither, keycap, paperSheet, triangle, AP, clamp, approach, ease, snap, canvas, keycapWidth } from './gfx.js';
 import * as svc from './services.js';
 
 const TOAST_LIFE = 2.8, NOTICE_LIFE = 4.6;
@@ -12,7 +12,7 @@ export class Hud {
     this.ui = ui;
     this.t = 0;
     this.alpha = 0;                 // whole-HUD fade (hidden in cutscenes/menus)
-    this.battA = 0; this.compactA = 0; this.periodA = 0; this.periodT = 0;
+    this.battA = 0; this.compactA = 0; this.periodA = 0; this.periodT = 0; this.seatA = 0;
     this.prompt = null;             // { target, verb, a, key }
     this.toasts = [];
     this.notices = [];
@@ -31,7 +31,7 @@ export class Hud {
   }
   notice(text) { this.notices.push({ text: String(text || ''), t: 0 }); if (this.notices.length > 2) this.notices.shift(); }
 
-  update(dt, show) {
+  update(dt, show, notify = true) {
     this.t += dt;
     this.alpha = approach(this.alpha, show ? 1 : 0, dt / 0.25);
     const s = svc.state();
@@ -41,6 +41,7 @@ export class Hud {
     try { const c = HW.compact; past = !!(typeof c?.hasPastHere === 'function' ? c.hasPastHere() : c?.hasPastHere); } catch { past = false; }
     const hasCompact = !!(s.inv?.compact) && (s.flags?.compact_unlocked ?? true);
     this.compactA = approach(this.compactA, past && hasCompact ? 1 : 0, dt / 0.5);
+    this.seatA = approach(this.seatA, HW.player?.seated ? 1 : 0, dt / 0.3);
     const per = !!HW.periods?.active;
     if (per && this.periodA === 0) this.periodT = 0;
     this.periodT += dt;
@@ -49,6 +50,7 @@ export class Hud {
       this.prompt.a = approach(this.prompt.a, this.prompt.on ? 1 : 0, dt / 0.12);
       if (!this.prompt.on && this.prompt.a <= 0) this.prompt = null;
     }
+    if (!notify) return;
     for (const t of this.toasts) t.t += dt;
     this.toasts = this.toasts.filter((t) => t.t < TOAST_LIFE);
     for (const n of this.notices) n.t += dt;
@@ -64,6 +66,18 @@ export class Hud {
     if (this.battA > 0) this._battery(ctx);
     if (this.compactA > 0) this._compact(ctx);
     if (this.periodA > 0) this._period(ctx);
+    if (this.seatA > 0) this._seated(ctx);
+    ctx.globalAlpha = a0;
+  }
+
+  _seated(ctx) {
+    // a small chair glyph + SEATED, bottom centre (R2: seated and still is the only safe way to be)
+    const a0 = ctx.globalAlpha; ctx.globalAlpha = a0 * this.seatA * 0.85;
+    const f = F.small, label = 'S E A T E D';
+    const w = f.width(label) + 30, x = snap(W / 2 - w / 2), y = 500;
+    rect(ctx, x, y + 2, 4, 14, '#bdb59e'); rect(ctx, x, y + 10, 14, 4, '#bdb59e'); rect(ctx, x + 10, y + 12, 4, 6, '#bdb59e');
+    rect(ctx, x, y + 12, 4, 6, '#bdb59e');
+    f.draw(ctx, label, x + 26, y, '#bdb59e');
     ctx.globalAlpha = a0;
   }
 
@@ -101,7 +115,7 @@ export class Hud {
     const f = F.small;
     const verb = String(p.verb).toUpperCase();
     const key = this.ui.input.keyLabel('confirm');
-    const kw = Math.max(f.lineHeight, f.width(key) + 4 * AP);
+    const kw = keycapWidth(key, f);
     const w = kw + f.width(verb) + 22, h = 28;
     const bob = Math.floor(this.t * 2.4) % 2 ? 0 : -AP;
     let x = snap(pos.x - w / 2), y = snap(pos.y - h - 6 + bob - (1 - ease.out(p.a)) * 8);
