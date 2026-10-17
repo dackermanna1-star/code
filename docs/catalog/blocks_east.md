@@ -161,7 +161,7 @@ EAST.DRIVE.ns              // { x0: 456, x1: 462, z0: 144, z1: 524 }
 eastLandmarks()            // [{ name, x, z, height? }, …]
 isEastArea(470, 250)       // true (Block C)
 ```
-`EAST = { REGION, DRIVE, BUILDINGS, PUBLIC, SHOP_DOOR, SITE }` (frozen, world metres).
+`EAST = { REGION, DRIVE, BUILDINGS, PUBLIC, SHOP_DOOR, SITE, HILL, LONE_LAMP }` (frozen, world metres).
 
 ## Registry keys set
 

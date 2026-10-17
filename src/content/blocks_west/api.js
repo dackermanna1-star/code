@@ -23,7 +23,7 @@ export const BLOCK_D = {
       { b: 'W', i: 1, kind: 'butts', side: -1 },
       { b: 'S', i: 2, kind: 'bicycle', side: 1 },
     ],
-    spruce: [128, 46], trees: 22, wind: 0.55, crows: 3,
+    spruce: [128, 46], trees: 22, wind: 0.55, crows: 3, planters: true,
   },
 }
 
@@ -45,7 +45,7 @@ export const BLOCK_F = {
     ],
     extraCars: [{ u: 112, v: 140, angle: 0.4, type: 'moskvich2141', snow: 'buried' }],
     spruce: [52, 132], trees: 17, wind: 0.35, silence: true, crows: 2, benchShift: 1,
-    gate: { v: 165, u0: 76.2, u1: 80.2, open: 2.25 },
+    gate: { v: 165, u0: 76.2, u1: 80.2, open: 1.35 }, sport: [100, 128],
   },
 }
 

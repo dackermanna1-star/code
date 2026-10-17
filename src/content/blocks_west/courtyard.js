@@ -18,7 +18,7 @@ import { placeResidential } from '../residential/api.js'
 import { placeSubstation } from '../public/api.js'
 import {
   placeStreetLamp, placeBench, placePlayground, placeCarpetRack, placeGarbageArea, placeRakushka,
-  placeLitterBin, placeElectricalCabinet, placeFence, angleFacing, angleAlong,
+  placeLitterBin, placeElectricalCabinet, placeFence, placeBars, placeLadder, placeTyrePlanter, angleFacing, angleAlong,
 } from '../street/api.js'
 import { placeTree, placeTreeRow, scatterTrees, placeBush, plowedPile, snowDrift, snowBank, addCrows, scatterWeeds } from '../nature/api.js'
 import { parkRow, placeParkedCar, CAR_COLORS } from '../vehicles/api.js'
@@ -73,7 +73,7 @@ export function paintCourtyard(ctx, cfg, gaps) {
   // facade sidewalks (0.25)
   const nLen = C.N.sec * cfg.nN
   paveWalk(ctx, X(32.6), Z(24.5), X(cfg.eastDriveway ? W : Math.min(W - 4, C.N.u0 + nLen + 8)), Z(27.4), cfg.seed + 7)
-  paveWalk(ctx, X(24.5), Z(C.W.v0 - 1), X(27.4), Z(C.W.v0 + C.W.sec * 4 + 1), cfg.seed + 8)
+  paveWalk(ctx, X(24.5), Z(27.5), X(27.4), Z(C.W.v0 + C.W.sec * 4 + 1), cfg.seed + 8)
   paveWalk(ctx, X(C.passage[0]), Z(152.4), X(cfg.eastDriveway ? W : W - 4), Z(155.5), cfg.seed + 9)
   // passage paving out to the avenue's tree strip
   paveWalk(ctx, X(C.passage[0] + 3.5), Z(155.5), X(C.passage[1] - 3.5), cfg.zS, cfg.seed + 10)
@@ -183,8 +183,8 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
   paths.east = [[homeU, 41], [homeU + 14, 58], [120, 77], [136, 98], [cfg.eastDriveway ? W - 0.6 : W - 4, 108.5]]
   // SW corner → Берёзовая (D) / the mouth of the eastern N–S driveway by the avenue (F)
   paths.sw = cfg.westStreet
-    ? [[27.4, 137.6], [22, 143], [8, 146.5], [-0.2, 147]]
-    : [[27.4, 137.6], [20, 150], [6, 166], [1, 171.4]]
+    ? [[26, 138.7], [22, 143], [8, 146.5], [-0.2, 147]]
+    : [[26, 138.7], [20, 150], [6, 166], [1, 171.6]]
   for (const [k, pts] of Object.entries(paths)) {
     const world = pts.map(([a, b]) => P(a, b))
     keep.line(world, 2.3)
@@ -198,22 +198,21 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
   navLink([n2U, 38.6], [n2U, 25.9])
   for (const e of [w3, w2, w1, w0]) navLink([38.6, v(e.z)], [25.9, v(e.z)])
   for (const eu of nOther) navLink([eu, 38.6], [eu, 25.9])
-  navLink([C.driveW.u, C.driveW.v1], [27.4, 137.6])
   if (cfg.eastDriveway) navLink([W - 0.6, 108.5], [W + 8.5, 110])
-  if (!cfg.westStreet) navLink([1, 171.4], [-4.6, 171.4])
+  if (!cfg.westStreet) navLink([1, 171.6], [-3, 175.5])
   // sidewalks + driveways
   const eastEnd = cfg.eastDriveway ? W + 3 : W - 6
   ctx.navPaths.push({ points: [P(C.N.u0 - 1.5, 25.9), P(homeU, 25.9), P(cfg.eastDriveway ? W + 3 : W - 5, 25.9)], kind: 'sidewalk' })
-  ctx.navPaths.push({ points: [P(25.9, C.W.v0 - 0.5), P(25.9, C.W.v0 + C.W.sec * 4 + 0.5)], kind: 'sidewalk' })
+  ctx.navPaths.push({ points: [P(25.9, 28), P(25.9, C.W.v0 + C.W.sec * 4 + 0.5)], kind: 'sidewalk' })
   ctx.navPaths.push({ points: [P(C.passage[0], 154), P(79, 154), P(cfg.eastDriveway ? W + 3 : W - 5, 154)], kind: 'sidewalk' })
-  ctx.navPaths.push({ points: [P(C.driveW.u, -2), P(C.driveW.u, C.driveN.v), P(C.driveW.u, C.driveW.v1)], kind: 'driveway' })
-  ctx.navPaths.push({ points: [P(C.driveW.u, C.driveN.v), P(homeU, C.driveN.v), P(eastEnd, C.driveN.v)], kind: 'driveway' })
-  ctx.navPaths.push({ points: [P(25.9, C.W.v0 - 0.5), P(C.driveW.u, C.W.v0 - 3)], kind: 'crossing' })
+  ctx.navPaths.push({ points: [P(C.driveW.u, -2), P(C.driveW.u, C.driveN.v), P(C.driveW.u, C.driveW.v1 - 4)], kind: 'driveway' })
+  ctx.navPaths.push({ points: [P(C.driveW.u, C.driveN.v), P(homeU, C.driveN.v), P(cfg.eastDriveway ? eastEnd : W - 11, C.driveN.v)], kind: 'driveway' })
+  ctx.navPaths.push({ points: [P(25.9, 28), P(C.driveW.u - 1.6, 28)], kind: 'crossing' })
   ctx.navPaths.push({ points: [P(C.N.u0 - 1.5, 25.9), P(C.driveW.u, 25.9)], kind: 'crossing' })
   reg.driveways = reg.driveways || []
   reg.driveways.push({ name: `${cfg.name} courtyard`, points: cfg.eastDriveway
-    ? [P(W + 3, C.driveN.v), P(C.driveW.u, C.driveN.v), P(C.driveW.u, C.driveW.v1 - 2)]
-    : [P(C.driveW.u, -2), P(C.driveW.u, C.driveN.v), P(W - 8, C.driveN.v)] })
+    ? [P(W + 3, C.driveN.v), P(C.driveW.u, C.driveN.v), P(C.driveW.u, C.driveW.v1 - 6)]
+    : [P(C.driveW.u, -2), P(C.driveW.u, C.driveN.v), P(W - 13, C.driveN.v)] })
 
   // ---- playground, rack, garbage, ТП, rakushki -----------------------------------------------
   const pgX = X(PG[0]), pgZ = Z(PG[1])
@@ -324,11 +323,11 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
     const gapsN = N.entrances.map(e => [u(e.x) - 3.2, u(e.x) + 3.2])
     if (V.warmCar) gapsN.push([homeU + 6.6, homeU + 9.6])
     for (const [a, b] of segments(40.5, W - 17.5, gapsN)) {
-      parkRow(ctx, { x0: X(a), z0: Z(35.7), x1: X(b), z1: Z(35.7), angle: 0, density: V.density ?? 0.7, seed: cfg.seed + 300 + Math.round(a), snow: V.snowMix ?? [['heavy', 5], ['brushed', 1], ['light', 1], ['buried', 1]], warmChance: 0 })
+      parkRow(ctx, { x0: X(a), z0: Z(35.7), x1: X(b), z1: Z(35.7), angle: 0, density: V.density ?? 0.7, seed: cfg.seed + 300 + Math.round(a), snow: V.snowMix ?? [['heavy', 5], ['brushed', 1], ['light', 1]], warmChance: 0 })
     }
     const gapsW = [w3, w2, w1, w0].map(e => [v(e.z) - 3.2, v(e.z) + 3.2])
     for (const [a, b] of segments(43, 131, gapsW)) {
-      parkRow(ctx, { x0: X(35.7), z0: Z(a), x1: X(35.7), z1: Z(b), angle: Math.PI / 2, density: (V.density ?? 0.7) * 0.85, seed: cfg.seed + 400 + Math.round(a), snow: V.snowMixW ?? [['heavy', 4], ['buried', 2], ['light', 1]], warmChance: 0 })
+      parkRow(ctx, { x0: X(35.7), z0: Z(a), x1: X(35.7), z1: Z(b), angle: Math.PI / 2, density: (V.density ?? 0.7) * 0.85, seed: cfg.seed + 400 + Math.round(a), snow: V.snowMixW ?? [['heavy', 4], ['light', 1], ['brushed', 1]], warmChance: 0 })
     }
     if (V.warmCar) {
       // the story car: engine running, windows fogged, right by the home entrance
@@ -347,6 +346,23 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
     }
     keep.rect(X(40), Z(33), X(W - 17), Z(38.6), 0.3)
     keep.rect(X(33), Z(42), X(38.6), Z(132), 0.3)
+  })
+
+  // ---- small yard things: a pull-up bar corner, a bench where the paths meet, tyre flower beds --------
+  safe(`${cfg.name} yard extras`, () => {
+    const sp = V.sport ?? [62, 99]
+    const [bx, bz] = P(sp[0], sp[1])
+    placeBars(ctx, { x: bx, z: bz, angle: 0.3, seed: cfg.seed + 41 })
+    const [lx, lz] = P(sp[0] + 3.2, sp[1] - 1.6)
+    placeLadder(ctx, { x: lx, z: lz, angle: 0.3, seed: cfg.seed + 42 })
+    keep.circle(bx + 1.5, bz - 0.8, 4)
+    // a bench by the hub where the paths cross, facing the yard, a bin beside it
+    const [hx, hz] = P(hub[0] - 3.6, hub[1] + 4.4)
+    placeBench(ctx, { x: hx, z: hz, angle: 2.7, type: 'courtyard', seed: cfg.seed + 43 })
+    placeLitterBin(ctx, { x: hx - 1.5, z: hz + 0.3, angle: 2.7, type: 'concrete', seed: cfg.seed + 44 })
+    keep.circle(hx, hz, 2.5)
+    // old tyres painted and planted as a flower bed under the windows left of the home porch
+    if (V.planters) for (let k = 0; k < 3; k++) placeTyrePlanter(ctx, { x: home.x - 5.6 - k * 0.9, z: home.z + 1.3 + (k % 2) * 0.35, seed: cfg.seed + 45 + k })
   })
 
   // ---- story moments ------------------------------------------------------------------------------------

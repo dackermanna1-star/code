@@ -5,9 +5,9 @@
 // Everything is in world meters. At runtime the same data is in ctx.registry.blocksEast
 // ({ shop, enterable, buildings, landmarks }).
 
-import { REGION, DRIVE, BUILDINGS, PUBLIC, SHOP_DOOR, SITE, LANDMARKS } from './geo.js'
+import { REGION, DRIVE, BUILDINGS, PUBLIC, SHOP_DOOR, SITE, LANDMARKS, HILL, LONE_LAMP } from './geo.js'
 
-export const EAST = Object.freeze({ REGION, DRIVE, BUILDINGS, PUBLIC, SHOP_DOOR, SITE })
+export const EAST = Object.freeze({ REGION, DRIVE, BUILDINGS, PUBLIC, SHOP_DOOR, SITE, HILL, LONE_LAMP })
 
 /** Landmarks a player navigates by: [{ name, x, z, height? }]. */
 export function eastLandmarks() { return LANDMARKS.map(l => ({ ...l })) }

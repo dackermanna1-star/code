@@ -134,7 +134,7 @@ export function buildBlockA(ctx, keep) {
   safe('A cars', () => {
     // perpendicular on the snow north of the courtyard driveway
     for (const [a, b, k] of [[237.2, 254.8, 0], [258.7, 276.3, 1], [280.2, 288.5, 2]]) {
-      parkRow(ctx, { x0: a, z0: 266.6, x1: b, z1: 266.6, angle: 0, density: 0.65, seed: 801 + k * 7, snow: [['heavy', 4], ['light', 1], ['buried', 1], ['brushed', 1]] })
+      parkRow(ctx, { x0: a, z0: 266.6, x1: b, z1: 266.6, angle: 0, density: 0.65, seed: 801 + k * 7, snow: [['heavy', 4], ['light', 1], ['brushed', 1]] })
     }
     // the strip along the E–W driveway, nose to the driveway, the windrow behind them
     parkRow(ctx, { x0: 168, z0: 318.9, x1: 214, z1: 318.9, angle: Math.PI, density: 0.6, seed: 802, snow: [['heavy', 3], ['buried', 1], ['light', 1], ['brushed', 1]] })
@@ -152,12 +152,12 @@ export function buildBlockA(ctx, keep) {
     // trodden: courtyard → around the west end of корп. 1 → the school walk
     trodden(ctx, [[204, 255.6], [199.2, 247], [200.5, 238], [205.5, 231.2]], { seed: 11 })
     // from the school walk's east end down to the courtyard (round корп. 1's east end)
-    trodden(ctx, [[262, 230.5], [281, 235], [293, 246], [296.5, 255.6]], { seed: 12 })
+    trodden(ctx, [[262, 230.5], [280, 233.5], [292.6, 237.5], [293, 247], [296.5, 255.6]], { seed: 12 })
     // the two facade sidewalks
     ctx.navPaths.push({ points: [[204, 255.6], [256.75, 255.6], [301.5, 255.6], [NS_X, 255.6]], kind: 'sidewalk' })
     ctx.navPaths.push({ points: [[166, 288.25], [220.75, 288.25], [301.5, 288.25], [NS_X, 288.25]], kind: 'sidewalk' })
     // courtyard driveway
-    ctx.navPaths.push({ points: [[NS_X, A.drive.z], [A.drive.x0 + 1, A.drive.z]], kind: 'driveway' })
+    ctx.navPaths.push({ points: [[NS_X, A.drive.z], [A.drive.x0 + 3.5, A.drive.z]], kind: 'driveway' })
     // west: courtyard → Берёзовая
     trodden(ctx, [[166, 288.25], [159, 285.5], [150.2, 283]], { seed: 13 })
     // south: courtyard → E–W driveway between корп. 2 and the N–S driveway

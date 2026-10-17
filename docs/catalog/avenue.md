@@ -22,7 +22,7 @@ trails, added in `init`), `api.js`. Every helper call is wrapped in `safe()` (lo
 
 | z | what |
 |---|---|
-| 500–508 | tree strip: lawn snow, a loose row of birches / pollarded poplars / lindens at z ≈ 505 with lilac clumps, gaps at the passages and driveways; the bank of cleared walk snow (z 505.4–508.7, ≈0.4 m) along its south edge |
+| 500–508 | tree strip: lawn snow, a loose row of birches / pollarded poplars / lindens at z ≈ 505 with lilac clumps, gaps at the passages and driveways; the bank of cleared walk snow (z 505.4–508.7, ≈0.3 m) along its south edge |
 | 508–509 | lawn edge (behind the bank) |
 | 509–516.5 | **north walk** (packed snow, slush, ice patches; y 0.25). Nav line z 513.2 |
 | 516.5–523 | lawn strip with trolley poles, billboards, short trodden cuts to the kerb; paved where people wait (stop, metro, zebra) |
@@ -33,7 +33,7 @@ trails, added in `init`), `api.js`. Every helper call is wrapped in `safe()` (lo
 | 556 | kerb |
 | 557–563 | lawn strip (paved at the south stop, the lay-by, the plaza, the zebra and the terminal mouths) |
 | 563–570.5 | **south walk** (y 0.25). Nav line z 566.8 |
-| 570.8–573.9 | bank of cleared walk snow (gaps at the paths through the row, the plaza and the terminal) |
+| 570.8–573.9 | bank of cleared walk snow (≈0.3 m; gaps at the paths through the row, the plaza and the terminal) |
 | 572–600 | south strip: lawn snow, kiosk plaza, shop, pharmacy, the 9-storey row, the bus terminal |
 
 Everything along the avenue (roads, kerbs, median, walks, windrows, median lamps, trolley poles

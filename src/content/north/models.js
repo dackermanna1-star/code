@@ -7,7 +7,7 @@
 
 import { defineModel } from '../../core/models.js'
 import { VoxelModel } from '../../core/VoxelModel.js'
-import { M } from '../../core/materials.js'
+import { M, defineMaterial, EMIT_CONST } from '../../core/materials.js'
 import { RNG, valueNoise2 } from '../../core/rng.js'
 import { fineModel } from './lib.js'
 
@@ -125,10 +125,14 @@ defineModel('north_crossing_signal', () => {
   return m
 }, { lods: [1], maxDistance: 200 })
 
+// A dark maroon lens that glows red only while its light is on (the stock 'lamp_red' has a bright
+// red albedo, so under the crossing lamp an unlit signal read as lit).
+defineMaterial('north_signal_lens', { color: 0x3a0d0a, emit: EMIT_CONST, emitColor: 0xff2410, emitIntensity: 7.0, gloss: 0.5 })
+
 /** One red signal lamp (emissive, follows its linked light). Pivot = voxel centre-bottom. */
 defineModel('north_signal_lamp', () => {
   const m = new VoxelModel(1, 1, 1)
-  m.set(0, 0, 0, M('lamp_red'))
+  m.set(0, 0, 0, M('north_signal_lens'))
   return m
 }, { lods: [1], maxDistance: 400, collide: false, contact: false })
 
