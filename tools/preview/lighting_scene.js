@@ -383,7 +383,7 @@ export function corridorMap() {
   ];
   return new FakeMap({
     id: 'pv_corridor', tiles, objects, lights, data: { dark: 0.94, ambient: '#0b1020' },
-    doors: { '5,12': { state: 'open' }, '21,12': { state: 'closed' }, '32,12': { state: 'open' }, '14,7': { state: 'open', type: 'door_side' } },
+    doors: { '6,12': { state: 'open' }, '22,12': { state: 'closed' }, '33,12': { state: 'open' }, '15,7': { state: 'open', type: 'door_side' } },
   });
 }
 

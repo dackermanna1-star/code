@@ -103,8 +103,8 @@ const HEADS = {
 };
 
 const D = {
-  headY: 2, shY: 13, hipY: 19, hem: 19, ground: 29,
-  shW: 10, legW: 3, legGap: 2, armW: 2, armIn: 1, handY: 20, elbowDy: 4, swingDy: 1, swingIn: 0,
+  headY: 3, shY: 14, hipY: 20, hem: 20, ground: 29,
+  shW: 10, legW: 3, legGap: 2, armW: 2, armIn: 1, handY: 21, elbowDy: 4, swingDy: 1, swingIn: 0,
   sideCx: 0, shDx: 0, stride: 3, runStride: 5,
 };
 
@@ -216,10 +216,10 @@ function torchSide(P, g, which) {
   const [hx, hy] = a.hd;
   const t = which === 'far' ? 1 : 2;
   P.part('torch', { sep: 0, shade: { L: 0, T: 1, R: 0, B: -1 } }, () => {
-    P.hl(hx - 2, hy + 1, 2, t); P.hl(hx - 3, hy + 2, 3, t);
-    P.hl(hx - 4, hy + 2, 1, t); P.hl(hx - 4, hy + 3, 2, t);
+    P.hl(hx - 3, hy + 1, 3, t);
+    P.hl(hx - 4, hy + 1, 1, t + 1); P.hl(hx - 4, hy + 2, 1, t);
   });
-  P.px(hx - 4, hy + 3, 4, 'torch');
+  P.px(hx - 5, hy + 1, 3, 'lens'); P.px(hx - 5, hy + 2, 1, 'lens');
 }
 
 export const TESS = {
@@ -245,8 +245,8 @@ export function aimTorch(g) {
   if (g.noAim || g.seated) return g;
   if (g.view === 'front') {
     const a = g.arm('R');
-    if (!g.back) a.hd = [a.sh[0] - 1, 18 + g.bob];
-    else a.hd = [a.sh[0], 19 + g.bob];
+    if (!g.back) a.hd = [a.sh[0] - 1, 19 + g.bob - (g.breath || 0)];
+    else a.hd = [a.sh[0], 20 + g.bob - (g.breath || 0)];
   } else {
     const which = g.near === 'R' ? 'near' : 'far';
     const a = g.arms[which];
@@ -364,16 +364,17 @@ function tessSpecials(anims, X) {
   const lyingSrc = (() => {
     const g = X.sit('left', { headDy: 2 });
     g.noTorch = true;
+    for (const k of ['near', 'far']) { const L = g.legs[k]; L.knee[0] += 1; L.ankle = [L.knee[0] + 3, L.ankle[1] - 2]; }
     return renderFrame(TESS, g);
   })();
-  const lie = rotateFrame(lyingSrc, -1, 0, 6);
-  const lie2 = rotateFrame(lyingSrc, -1, 0, 7);
+  const lie = rotateFrame(lyingSrc, -1, 1, 6);
+  const lie2 = rotateFrame(lyingSrc, -1, 1, 7);
   const torchOnFloor = (src) => {
     const c = document.createElement('canvas'); c.width = 24; c.height = 32;
     const x = c.getContext('2d'); x.drawImage(src, 0, 0);
-    x.fillStyle = M.torch[0]; x.fillRect(17, 27, 5, 3);
-    x.fillStyle = M.torch[2]; x.fillRect(18, 28, 3, 1);
-    x.fillStyle = M.lens[3]; x.fillRect(21, 28, 1, 1);
+    x.fillStyle = M.torch[0]; x.fillRect(2, 18, 6, 3);
+    x.fillStyle = M.torch[2]; x.fillRect(3, 19, 4, 1);
+    x.fillStyle = M.lens[3]; x.fillRect(2, 19, 1, 1);
     return c;
   };
   anims.collapse = X.anim([R(c0), R(c1), R(c2), lie, torchOnFloor(lie2)], 5, false);

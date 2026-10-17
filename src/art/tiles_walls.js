@@ -651,12 +651,14 @@ export function genSpill(mat, clean) {
   const shadowRows = [0.62, 0.36, 0.14, 0];
   for (let y = 0; y < 4; y++) for (let x = 0; x < FW; x++) if (bay(x, y) < shadowRows[y]) pb.set(x, y, mixc('ink', 'night', 0.3));
   if (mat === 'wall_rubble' && !clean) {
+    // chunks that rolled off the heap: drawn in a taller buffer so nothing wraps vertically
     const r = R('spill_rubble');
+    const tmp = new PB(FW, 16);
     for (let i = 0; i < 70; i++) {
       const ramp = RUBBLE_RAMPS[Math.floor(r() * RUBBLE_RAMPS.length)];
-      lump(pb, r, Math.floor(r() * FW), Math.floor(r() * 2), 0.8 + r() * 1.3, 0.6 + r() * 0.8, ramp);
+      lump(tmp, r, Math.floor(r() * FW), 4 + Math.floor(r() * 2), 0.8 + r() * 1.3, 0.6 + r() * 0.8, ramp);
     }
-    // keep the spill within 4 rows: anything outside was clipped by the buffer height
+    pb.blit(tmp, 0, 4, FW, 4, 0, 0);
   }
   return pb;
 }
