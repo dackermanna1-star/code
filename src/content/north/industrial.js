@@ -49,7 +49,7 @@ export function buildGarages(ctx) {
       if (i === 0) out.row1 = row
     })
     // two bare bulbs under cages over the lanes, far apart (one dying)
-    for (const [x, z, a, fl] of [[98.5, 67.8, 0, false], [161.2, 88.3, 0, 'dying']]) {
+    for (const [x, z, a, fl] of [[98.5, 67.8, 0, false], [161.2, 88.55, 0, 'dying']]) {
       const l = placeStreetLamp(ctx, { x, z, y: 0.25 + 2.85, angle: a, type: 'wall', broken: false, flicker: fl, seed: Math.round(x) })
       if (l?.light) out.lights++
     }
