@@ -139,7 +139,9 @@ export class Dialogue {
     line.style = STYLE[line.kind];
     line.closeup = !!o.closeup && line.kind !== 'narrate' && line.kind !== 'voice';
     line.side = o.side || (line.who === 'tess' ? 'left' : 'right');
-    line.portrait = (line.kind === 'say' || line.kind === 'colonel' || line.kind === 'think') ? svc.portrait(line.who, line.expr, o) : null;
+    // Rigs face viewer-right; mirror right-side speakers so they face the text (Tess keeps her tucked ear on the left).
+    const po = line.side === 'right' && line.who !== 'tess' ? { ...o, mirror: true } : o;
+    line.portrait = (line.kind === 'say' || line.kind === 'colonel' || line.kind === 'think') ? svc.portrait(line.who, line.expr, po) : null;
     line.name = (line.kind === 'say' || line.kind === 'colonel' || line.kind === 'voice') ? svc.speakerName(line.who, o) : null;
     const def = svc.chars()[line.who];
     line.color = line.kind === 'colonel' ? '#7a0f1c' : def?.color || C.textDim;
@@ -417,7 +419,7 @@ export class Dialogue {
     rect(ctx, x - AP * 2, y - AP * 2, s + AP * 4, s + AP * 4, '#050607');
     ctx.save();
     ctx.beginPath(); ctx.rect(x, y, s, s); ctx.clip();
-    ctx.drawImage(line.portrait, 20, 10, 56, 56, x, y, s, s);
+    ctx.drawImage(line.portrait, 22, 24, 56, 56, x, y, s, s);
     ctx.globalAlpha *= 0.28; rect(ctx, x, y, s, s, '#1b2420');
     ctx.restore();
     frame(ctx, x - AP, y - AP, s + AP * 2, s + AP * 2, '#3e4541');

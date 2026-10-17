@@ -2,7 +2,7 @@
 // CG. ~20×31 px each (Marcus taller): small, but each reads by silhouette + one accent — Tess's copper
 // hair and light denim, Danny's backwards red cap and midnight-green jacket, Leah's black bob, round
 // glasses and cherry-red Docs, Marcus's height, beanie, olive field jacket and headphones.
-import { PAL, mix, U, Buf, rampStops, mixU } from './cg_kit.js';
+import { PAL, mix, U, Buf, mixU } from './cg_kit.js';
 import { CAST } from './cg_cast.js';
 
 const OUT = U('#0d0a0e');           // outline: the same warm near-black the sprites and props use

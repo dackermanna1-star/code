@@ -519,6 +519,8 @@ function autoLightning(t) {
 export function prepTitle() { layers(); }
 
 export const titleBg = {
+  /** The built-in flash level at time t (0..1), so a caller can sync thunder to the auto lightning. */
+  lightning: (t) => autoLightning(t),
   draw(ctx, t = 0, params = {}) {
     const L = layers();
     let flash = params.lightning;

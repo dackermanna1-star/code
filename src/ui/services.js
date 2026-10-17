@@ -54,7 +54,7 @@ export function portrait(who, expr, o = {}) {
       const base = HW.art?.portrait?.(who, e, { light: light || 'normal', grime, enrolled: false }) || null;
       return base && lvl > 0 ? tessEnrolled(base, lvl, e) : base;
     }
-    return HW.art?.portrait?.(who, e, { light: light || 'normal', grime, enrolled: !!o.enrolled }) || null;
+    return HW.art?.portrait?.(who, e, { light: light || 'normal', grime, enrolled: !!o.enrolled, mirror: !!o.mirror }) || null;
   } catch (err) { warnOnce('portrait:' + who, err); return null; }
 }
 

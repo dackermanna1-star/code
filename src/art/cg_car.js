@@ -5,8 +5,8 @@
 // intermittent wipers sweep it clear (animated); dashboard glow — teal gauges and the clock at 9:47.
 // Leah's eyes find Tess in the rear-view mirror.
 import {
-  W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, smooth, mixU,
-  makeVapor, makePlumes, once, seeds,
+  W, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, mixU, makeVapor, makePlumes, once,
+  seeds,
 } from './cg_kit.js';
 import { CAST } from './cg_cast.js';
 
@@ -150,15 +150,21 @@ function paintBack(b) {
   for (let x = 110; x < 380; x += 3) b.px(x, 128, shade(PLASTIC, 0.08, x, 128));          // defroster grille
   // instrument hood + gauges glowing teal
   b.poly([[74, 140], [80, 120], [96, 115], [180, 115], [196, 120], [202, 140]], (x, y) => shade(PLASTIC, y < 118 ? 0.3 : 0.12, x, y));
+  // the cluster: dark faces, glowing teal dials where they peek past Leah's headrest
   b.rect(86, 121, 106, 18, (x, y) => {
-    const d = Math.min(Math.hypot(x - 120, (y - 133) * 1.1), Math.hypot(x - 156, (y - 133) * 1.1));
-    return shade(TEAL, clamp01(0.22 - d * 0.022 + (vnoise(x / 2, y / 2, 4) - 0.5) * 0.06), x, y);
+    const d = Math.min(Math.hypot(x - 99, (y - 131) * 1.1), Math.hypot(x - 190, (y - 129) * 1.1));
+    return shade(TEAL, clamp01(0.12 - d * 0.008 + (vnoise(x / 2, y / 2, 4) - 0.5) * 0.04), x, y);
   });
-  for (const [gx, gr] of [[120, 9], [156, 9]]) {
-    for (let a = Math.PI * 1.05; a < Math.PI * 1.95; a += 0.12) b.px(gx + Math.cos(a) * gr, 133 + Math.sin(a) * gr * 0.9, shade(TEAL, 0.86, 0, 0));
-    b.line(gx, 133, gx - 6, 129, U(PAL.orange_l));                                            // needles at rest
+  for (const [gx, gy, gr] of [[99, 132, 8], [190, 130, 6]]) {
+    for (let a = Math.PI * 0.95; a < Math.PI * 2.05; a += 0.1) {
+      const tick = Math.round(a * 10) % 3 === 0;
+      b.px(gx + Math.cos(a) * gr, gy + Math.sin(a) * gr * 0.9, shade(TEAL, tick ? 0.95 : 0.6, 0, 0));
+      if (tick) b.px(gx + Math.cos(a) * (gr - 1.5), gy + Math.sin(a) * (gr - 1.5) * 0.9, shade(TEAL, 0.5, 0, 0));
+    }
+    b.line(gx, gy, gx - gr + 2, gy - 2, U(PAL.orange_l));                                      // needles at rest
+    b.px(gx, gy, shade(TEAL, 0.3, 0, 0));
   }
-  b.rect(176, 126, 10, 4, shade(TEAL, 0.7, 0, 0)); b.px(181, 125, shade(TEAL, 0.9, 0, 0));
+  b.px(88, 124, U(PAL.red_l)); b.px(90, 124, U(PAL.green_l));                                   // idiot lights
   // steering wheel rim (most of it hidden behind Leah's seat)
   for (let a = Math.PI * 1.05; a < Math.PI * 1.98; a += 0.008) {
     const x = 134 + Math.cos(a) * 60, y = 178 + Math.sin(a) * 50;

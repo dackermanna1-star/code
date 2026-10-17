@@ -121,7 +121,7 @@ export const PROPS = {
   yearbook_pile:{ solid: false, desc: 'stack of HALLOWELL COLLIER yearbooks on a table' },
 
   // ================================================================ computer lab / science
-  computer_desk:{ interact: 'terminal', reflective: true, states: ['off', 'on'],
+  computer_desk:{ interact: 'terminal', reflective: true, states: ['off', 'on'], frames: 2, fps: 2,
                   desc: 'desk with TRS-80 Model I: monitor, keyboard, cassette deck; on = green-gray glow' },
   printer:      { desc: 'dot-matrix printer, paper hanging out' },
   lab_bench:    { w: 2, desc: 'black epoxy lab bench, sink, gas taps' },
@@ -168,11 +168,11 @@ export const PROPS = {
   court_line_v: { solid: false, mount: 'decal', desc: 'painted court line segment (vertical)' },
 
   // ================================================================ basement
-  boiler:       { w: 4, h: 3, light: 'boiler', desc: 'huge riveted coal boiler, firebox door glowing, gauges, pipes' },
+  boiler:       { w: 4, h: 3, light: 'boiler', frames: 4, fps: 6, desc: 'huge riveted coal boiler, firebox door glowing, gauges, pipes' },
   pipe_h:       { solid: false, mount: 'over', desc: 'overhead pipe run (horizontal), drips' },
   pipe_v:       { solid: false, mount: 'over', desc: 'overhead pipe run (vertical)' },
   breaker_panel:{ mount: 'wall', interact: 'switch', desc: 'gray electrical panel, labeled switches' },
-  coal_heap:    { w: 4, h: 3, solid: false, mount: 'decal', states: ['occupied', 'hollow', 'flat'],
+  coal_heap:    { w: 4, h: 3, solid: false, mount: 'decal', states: ['occupied', 'hollow', 'flat'], frames: 8, fps: 2,
                   desc: 'great heap of anthracite; occupied = a vast motionless shape half-buried (breathing); hollow = a body-shaped dent' },
   janitor_desk: { w: 2, desc: 'scarred desk, transistor radio, coffee can of screws' },
   pegboard:     { w: 2, mount: 'wall', states: ['keys', 'empty'], desc: 'pegboard with labeled key hooks' },
@@ -205,7 +205,7 @@ export const PROPS = {
   flag_regimental:{ w: 2, mount: 'wall', desc: 'tattered Civil War regimental flag, PA coat of arms' },
   name_wall:    { w: 3, mount: 'wall', desc: 'marble panel carved with rows of names and years' },
   writing_desk: { w: 2, desc: 'Victorian writing desk, ink well' },
-  candle:       { solid: false, light: 'candle', states: ['lit', 'out'], desc: 'tall iron candle stand' },
+  candle:       { solid: false, light: 'candle', states: ['lit', 'out'], frames: 4, fps: 8, desc: 'tall iron candle stand' },
   husk_seated:  { states: ['intact', 'turned', 'crumbled'],
                   desc: 'translucent amber child-husk sitting upright (instance `variant` a–f for size/pose, `dir`); ' +
                         'turned = head rotated toward the player; crumbled = small pile of amber flakes' },
@@ -213,7 +213,7 @@ export const PROPS = {
   chute:        { solid: true, desc: 'slanted wooden coal chute section (breaker), worn smooth' },
   picking_bench:{ w: 3, desc: 'low plank bench along a chute where breaker boys sat' },
   beam:         { desc: 'massive tarred timber post' },
-  lamp_miner:   { solid: false, light: 'lamp_miner', desc: 'miner\'s oil cap-lamp glowing on a bench' },
+  lamp_miner:   { solid: false, light: 'lamp_miner', states: ['lit', 'out'], frames: 3, fps: 6, desc: 'miner\'s oil cap-lamp glowing on a bench' },
   weigh_desk:   { w: 2, desc: 'weigh-master\'s high desk' },
   register_book:{ solid: false, interact: 'register', desc: 'THE REGISTER: an enormous leather ledger, open (sits on the weigh desk cell)' },
   shelf_ledgers:{ w: 2, desc: 'shelves of black payroll ledgers' },
@@ -233,7 +233,7 @@ export const PROPS = {
   bush_dead:    { desc: 'dead hedge clump' },
 
   // ================================================================ items, notes, decals
-  pickup:       { solid: false, interact: 'pickup', desc: 'small item on floor/desk; instance `item` = item id; sparkles faintly' },
+  pickup:       { solid: false, interact: 'pickup', frames: 4, fps: 3, desc: 'small item on floor/desk; instance `item` = item id; sparkles faintly' },
   note_paper:   { solid: false, interact: 'examine', desc: 'loose paper / document; instance `doc` = doc id' },
   backpack:     { solid: false, interact: 'pickup', desc: 'Danny\'s black JanSport backpack' },
   decal_leaves: { solid: false, mount: 'decal', desc: 'drift of dead leaves' },

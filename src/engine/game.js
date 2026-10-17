@@ -636,7 +636,7 @@ export const game = {
   /** Saving allowed from the pause menu (TECH §7). */
   canSave() {
     return !!HW.map && (this.mode === 'play' || this.mode === 'menu') && !HW.scripts.blocking
-      && !this.transferring && !HW.periods?.active && HW.colonel?.mode !== 'chase';
+      && !this.transferring && !HW.periods?.active && HW.colonel?.mode !== 'chase' && HW.colonel?.mode !== 'escape';
   },
 
   canCheckpoint() {

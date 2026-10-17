@@ -25,7 +25,7 @@ const LIGHT_OFF_STATES = new Set(['off', 'dead', 'out']);
 // Non-door props that stop blocking movement and sight when their state is 'open'.
 const PASSABLE_WHEN_OPEN = new Set(['curtain']);
 // Instance fields copied into prop params (art reads them from params for dynamic/variant props).
-const PARAM_FIELDS = ['text', 'occupant', 'label', 'polaroids', 'tessFrame'];
+const PARAM_FIELDS = ['text', 'text1979', 'occupant', 'label', 'polaroids', 'tessFrame', 'item', 'sitDir', 'row'];
 
 export const isDoorProp = (p) => p.def.interact === 'door';
 
@@ -830,6 +830,8 @@ export class MapRuntime {
       ctx = L.facesCtx;
     } else {
       if (key === 'pit') o.mask = this.sameMask(tx, ty);
+      // Bit 16 marks a valid same-kind mask: water gets damp shorelines, stairs get side walls (art/tiles.js).
+      else if (key === 'floor_water' || key === 'floor_stairs_up' || key === 'floor_stairs_down') o.mask = this.sameMask(tx, ty) | 16;
       ctx = L.floorCtx;
     }
     try {
@@ -855,7 +857,7 @@ export class MapRuntime {
       const ty = (i - tx) / this.w;
       if (tx < x0 || tx > x1 || ty < y0 || ty > y1) continue;
       o.kind = undefined;
-      o.mask = 0;
+      o.mask = this.sameMask(tx, ty) | 16;
       o.variant = this.variantAt(tx, ty);
       o.clean = clean;
       o.t = t;

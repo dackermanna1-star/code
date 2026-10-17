@@ -4,8 +4,7 @@
 // glass, and her reflection in it looking back. In the deck, Leah's tape — FOR THE DRIVE — its reels
 // turning. Animated: the landscape scrolls at three depths, lane dashes, guardrail posts, the reels.
 import {
-  W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, mixU,
-  text35, text35Width, once, lazyGen, seeds,
+  W, H, PAL, mix, U, Buf, rampStops, shade, h01, fbm, vnoise, clamp01, text35, text35Width, lazyGen, seeds,
 } from './cg_kit.js';
 import { CAST } from './cg_cast.js';
 
@@ -218,19 +217,23 @@ function reflectionLayer() {
   const { x, y } = REFL;
   const put = (i, j, hex, a) => { if (a > 0) b.px(i, j, U(hex, Math.round(Math.min(1, a) * 255))); };
   for (let j = y - 26; j < y + 36; j++) for (let i = x - 24; i < x + 24; i++) {
-    const fx = (i - x) / 11.5, fy = (j - y) / 15;
+    // an egg of a face: narrower toward the chin
+    const fy = (j - y) / 15, fx = (i - x) / (10.5 * (1 - 0.32 * Math.max(0, fy)));
     const inFace = fx * fx + fy * fy <= 1;
-    const hx = (i - x - 1) / 18, hy = (j - y + 3) / 20;
-    const inHair = hx * hx + hy * hy <= 1 || (j > y - 2 && j < y + 30 && Math.abs(i - x) > 8 && Math.abs(i - x) < 18 - (j - y) * 0.15 + Math.sin(j * 0.9) * 1.5);
-    if (inFace && j > y - 11) {
+    const hx = (i - x - 1) / 17, hy = (j - y + 4) / 19;
+    // hair: a crown over the face, bangs swept across, long strands down both sides past the jaw
+    const side = Math.abs(i - x) > 7 && Math.abs(i - x) < 16 - (j - y) * 0.12 + Math.sin(j * 0.7 + (i > x ? 2 : 0)) * 1.5;
+    const inHair = (hx * hx + hy * hy <= 1 && (j < y - 8 || !inFace)) || (j > y - 6 && j < y + 28 && side && !inFace);
+    if (inFace && j > y - 9) {
       // the window light falls on the side of her face nearest it
-      const lit = 0.42 + 0.22 * clamp01(-fx) - 0.12 * clamp01(fy - 0.5);
+      const lit = 0.44 + 0.22 * clamp01(-fx) - 0.14 * clamp01(fy - 0.45);
       put(i, j, PAL.skin_l, lit);
     } else if (inHair) {
-      const strand = ((i - x + Math.round(j * 0.3)) % 3 === 0) ? 0.1 : 0;
-      put(i, j, PAL.hair_r_l, 0.3 - strand + (Math.abs(i - x) > 12 ? -0.06 : 0));
+      const strand = ((i - x + Math.round(j * 0.35)) % 3 === 0) ? 0.12 : 0;
+      put(i, j, (i + j) % 5 === 0 ? PAL.hair_r_ll : PAL.hair_r_l, 0.34 - strand + (Math.abs(i - x) > 12 ? -0.06 : 0));
     }
   }
+  for (let k = 0; k < 9; k++) put(x - 6 + k, y - 9 + Math.round(k * 0.35), PAL.hair_r_l, 0.42);       // bangs swept across
   // features: lowered lids, brows, the nose's shadow, a closed mouth; her collar below
   for (const ex of [x - 6, x + 3]) {
     put(ex, y - 2, PAL.ink, 0.6); put(ex + 1, y - 2, PAL.ink, 0.6); put(ex + 2, y - 2, PAL.ink, 0.35);

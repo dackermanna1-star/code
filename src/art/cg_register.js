@@ -5,7 +5,7 @@
 // UI writes the names. Animated: the lamp breathes, dust drifts through the light, the seams pulse.
 import {
   W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, mixU, text35, text35Width,
-  once, lazyGen, seeds, blitA, quant,
+  lazyGen, seeds, blitA, quant,
 } from './cg_kit.js';
 
 const PAPER = rampStops([PAL.ink, PAL.brown_dd, mix(PAL.brown_d, PAL.paper_d, 0.25), mix(PAL.tan, PAL.paper_d, 0.5), PAL.paper_d, mix(PAL.paper, PAL.cream_l, 0.4), mix(PAL.paper, PAL.white, 0.45)], 12);

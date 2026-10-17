@@ -5,7 +5,7 @@
 // one warm window at the top — the weigh-master's office, where the Register waits. Tess, tiny, on a
 // ledge below. Animated: embers rising, smoke drifting, the seams breathing, cap-lamps flickering.
 import {
-  W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, mixU, once, seeds, blitA, quant,
+  W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, mixU, seeds, blitA, quant,
   makeVapor, lazyGen,
 } from './cg_kit.js';
 import { CAST } from './cg_cast.js';
@@ -88,7 +88,9 @@ function paintCavern(b) {
     const up = Math.exp(-Math.max(0, FLOOR + 10 - y) / 120);
     // seams behind the breaker throw a great glow up the far wall: the breaker stands black against it
     const back = Math.exp(-Math.hypot((x - 300) / 1.6, (y - 200) * 1.1) / 120);
-    let v = 0.03 + up * (0.16 * haze + 0.2 * facesDown) + 0.42 * back * (0.55 + 0.6 * haze) + (hh - 0.5) * 0.06 * up;
+    // and smoke hangs lit behind the tower's upper storeys, so its black stair-step reads against it
+    const high = Math.exp(-Math.hypot((x - 300) / 1.5, (y - 90) * 1.2) / 110);
+    let v = 0.03 + up * (0.16 * haze + 0.2 * facesDown) + 0.42 * back * (0.55 + 0.6 * haze) + 0.2 * high * (0.5 + 0.7 * haze) + (hh - 0.5) * 0.06 * up;
     // strata lines
     if (Math.abs(((y + hh * 18) % 23) - 11) < 0.6) v -= 0.04;
     b.px(x, y, shade(ROCK, clamp01(v), x, y));
@@ -132,6 +134,15 @@ function paintBreaker(b) {
       b.px(x, y0 - 1 + slope, shade(TIMBER, clamp01(0.04 + 0.12 * under(y0)), x, y0));
       b.px(x, y0 + slope, shade(TIMBER, clamp01(0.1 + 0.55 * under(y0)), x, y0));
       b.px(x, y0 + 1 + slope, U(PAL.ink));
+    }
+  }
+  // rim: the outermost boards of every storey catch the glow behind the tower
+  for (let li = 0; li < LEVELS.length; li++) {
+    const [x0, x1, y0] = LEVELS[li], yb = LEVELS[li + 1]?.[2] ?? FLOOR;
+    for (let y = y0 + 2; y < yb + 2; y++) {
+      const g = 0.18 + 0.3 * under(y);
+      b.px(x1 - 1, y, shade(TIMBER, clamp01(g + 0.12), x1 - 1, y));
+      b.px(x0, y, shade(TIMBER, clamp01(g), x0, y));
     }
   }
   // the head-house gable + a lantern vent on its ridge

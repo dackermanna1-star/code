@@ -2,7 +2,7 @@
 // outline, values kept above the dark UI slots so every item reads at 1×, 2× and 4×.
 // Exports: initIcons(), getIcon(itemId) → 24×24 canvas (+ 'unknown'), getGlyph(name) → small canvas.
 import { PAL, mix } from './palette.js';
-import { U, Buf, rampStops, shade, bay, h01, clamp01, text35, text35Width } from './cg_kit.js';
+import { U, Buf, rampStops, shade, clamp01, text35 } from './cg_kit.js';
 import { ITEMS } from '../data/items.js';
 
 const S = 24;

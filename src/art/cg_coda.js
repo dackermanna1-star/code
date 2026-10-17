@@ -5,8 +5,8 @@
 // under a red LIVE. Animated: the handheld beam wobbles, the LIVE dot blinks, the viewer count ticks,
 // dust and one moth turn in the light, her breath smokes in the cold.
 import {
-  W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, mixU,
-  text35, text35Width, text57, text57Width, once, lazyGen, seeds, makeVapor,
+  W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, mixU, text35, text57,
+  text57Width, lazyGen, seeds, makeVapor,
 } from './cg_kit.js';
 import { makeCanvas, ctxOf } from './util.js';
 

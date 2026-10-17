@@ -569,3 +569,19 @@ The same API is documented in each file's header.
 **UI:** a non-blocking speech line for "Who is out of their seat?" (known_issues #2).
 
 **Art:** a Kevin belt-off frame.
+
+---
+
+## Art (integration notes from the art build)
+- Portraits: `opts.mirror` (bool) returns a mirrored copy; the dialogue mirrors right-side speakers except Tess.
+  Tess's think-inset crop is (22, 24, 56, 56). Colonel portraits ignore grime/enrolled.
+- Props: seat facing = instance `dir`/`sitDir` (desk_student/tiny_chair default 'up'); pickups read `params.item`;
+  chalkboard `params.text1979`; memorial polaroids true/'ink'|'pencil', `tessFrame` 0|1|2. exit_sign belongs on a wall
+  cell beside a door, not the door cell. lamp_banker/yearbook_pile sit on table cells. oak_canopy at (x-2, y-3) of oak_dead.
+  register_book on the weigh_desk's left cell. husk_kneeling north of a writing_desk (dir down). aud_seat occupant
+  'husk_a'..'husk_f'|'boy' + optional ':turned'/':crumbled'. hoop_stand dir right (west end) / left (east end).
+  car_wagon dir = nose direction. Animated catalog props: boiler, coal_heap (occupied), candle, computer_desk, lamp_miner, pickup.
+- Tiles: floors are world-space textures; water/stairs receive a same-kind mask with bit 16.
+- CGs: title_bg exposes `lightning(t)` for thunder sync; ending_dawn `params.who` (array) and `uniform`; colonel CGs warm
+  lazily (locker_slits ~0.5 s first draw at a late phase — start scenes at phase 0).
+- Sprites: Denise needs a faint warm attached light (#e8cf8a, r≈1.5 tiles) where spawned; husk frames carry their own alpha.

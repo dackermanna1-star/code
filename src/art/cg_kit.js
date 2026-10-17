@@ -21,8 +21,6 @@ export function U(hex, a = 255) {
   }
   return v;
 }
-/** Packed → css rgb string (for ctx fills of animated layers). */
-export function css(hex, a = 1) { const [r, g, b] = hexToRgb(hex); return a >= 1 ? hex : `rgba(${r},${g},${b},${a})`; }
 /** A ramp of packed colors, dark → light. Accepts hex strings. */
 export const ramp = (...hexes) => hexes.flat().map((h) => U(h));
 /** n evenly mixed steps through a list of hex stops (dark → light). */
@@ -67,7 +65,6 @@ export function fbm(x, y, seed, oct = 4) {
 }
 export const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 export const smooth = (a, b, v) => { const t = clamp01((v - a) / (b - a)); return t * t * (3 - 2 * t); };
-export const lerp = (a, b, t) => a + (b - a) * t;
 
 // ---- pixel buffer ----------------------------------------------------------------------------
 /** A paint target backed by ImageData. Colors are packed (U()); 0 = transparent / "skip". */
@@ -180,16 +177,12 @@ export class Buf {
   toCanvas() { const c = makeCanvas(this.w, this.h); ctxOf(c).putImageData(this.img, 0, 0); return c; }
 }
 
-/** Unpack to [r,g,b]. */
-export const rgbOfU = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255];
 /** Mix two packed colors (used sparingly — prefer ramps). */
 export function mixU(a, b, t) {
   const ar = a & 255, ag = (a >>> 8) & 255, ab = (a >>> 16) & 255;
   const r = (ar + ((b & 255) - ar) * t + 0.5) | 0, g = (ag + (((b >>> 8) & 255) - ag) * t + 0.5) | 0, bl = (ab + (((b >>> 16) & 255) - ab) * t + 0.5) | 0;
   return ((255 << 24) | (bl << 16) | (g << 8) | r) >>> 0;
 }
-/** Approximate luminance 0..1 of a packed color. */
-export function lumU(v) { const [r, g, b] = rgbOfU(v); return (0.3 * r + 0.59 * g + 0.11 * b) / 255; }
 
 // ---- bitmap fonts ----------------------------------------------------------------------------
 // 5×7 caps for chalk, signs and carved letters. '#' rows, 5 wide.
@@ -317,63 +310,6 @@ export function makeRain(layers, seed, area = { x: 0, y: 0, w: W, h: H }) {
         if (l.slant === 0) { ctx.fillRect(x0 | 0, y0 | 0, 1, l.len); continue; }
         const step = Math.max(1, Math.round(1 / l.slant));
         for (let d = 0; d < l.len; d += step) ctx.fillRect((x0 + d * l.slant) | 0, (y0 + d) | 0, 1, Math.min(step, l.len - d));
-      }
-    }
-  };
-}
-
-/**
- * Pre-rendered dithered puffs for steam/smoke/dust: puff(r, a) → small canvas.
- * Edges thin out with distance (density falloff), so puffs read as vapor, never as solid discs.
- */
-export function makePuffs(color, rMax = 14, levels = 6, seed = 7, edge = color) {
-  const cache = [];
-  const cu = U(color), eu = U(edge);
-  for (let r = 1; r <= rMax; r++) {
-    const row = [];
-    for (let a = 1; a <= levels; a++) {
-      const alpha = a / levels;
-      const s = r * 2 + 1;
-      const b = new Buf(s, s);
-      for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
-        const dx = (x - r) / (r + 0.5), dy = (y - r) / (r + 0.5);
-        const d = dx * dx + dy * dy;
-        if (d > 1) continue;
-        const n = vnoise(x * 0.45, y * 0.45, seed + r * 13);
-        const dens = (1 - d) * (0.65 + 0.7 * n) * alpha;
-        if (dens > bay(x, y)) b.px(x, y, d > 0.55 ? eu : cu);
-      }
-      row.push(b.toCanvas());
-    }
-    cache.push(row);
-  }
-  return function puff(ctx, x, y, r, a) {
-    const ri = Math.max(1, Math.min(rMax, Math.round(r)));
-    const ai = Math.max(0, Math.min(levels - 1, Math.round(a * levels) - 1));
-    if (a <= 0.5 / levels) return;
-    ctx.drawImage(cache[ri - 1][ai], Math.round(x) - ri, Math.round(y) - ri);
-  };
-}
-
-/**
- * Steam vents: plumes rising from points. vents: [{ x, y, rate, spread, rise, life, r0, r1 }].
- * Each plume has K puffs on staggered lifecycles; wind drifts them sideways.
- */
-export function makeSteam(vents, puff, seed, { wind = 6, k = 10 } = {}) {
-  const S = vents.map((v, i) => ({ ...v, s: seeds(k, seed + i * 31) }));
-  return function draw(ctx, t, { alpha = 1 } = {}) {
-    for (const v of S) {
-      const life = v.life || 6;
-      for (let i = 0; i < k; i++) {
-        const u0 = v.s[i * 4], u1 = v.s[i * 4 + 1], u2 = v.s[i * 4 + 2];
-        const age = ((t + u0 * life + i * (life / k)) % life) / life;   // 0..1
-        const rise = (v.rise || 40) * age;
-        const sway = Math.sin(t * 0.7 + u1 * 6.28 + age * 3) * (v.spread || 3) * age;
-        const x = v.x + (u2 - 0.5) * (v.w || 4) + sway + (v.wind ?? wind) * age * age * life * 0.5;
-        const y = v.y - rise;
-        const r = (v.r0 || 2) + ((v.r1 || 8) - (v.r0 || 2)) * Math.sqrt(age);
-        const a = (v.a || 0.6) * alpha * Math.min(1, age * 6) * (1 - age) * (1 - age * 0.3);
-        puff(ctx, x, y, r, a);
       }
     }
   };

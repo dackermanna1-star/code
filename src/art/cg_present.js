@@ -5,8 +5,8 @@
 // Built with a tiny raycast (floor / walls / ceiling / far wall) so the perspective and the light are
 // consistent; desks and Tess are projected boxes painted back to front.
 import {
-  W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, smooth, mixU,
-  text57, text57Width, once, lazyGen, seeds,
+  W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, mixU, text57, text57Width,
+  lazyGen, seeds,
 } from './cg_kit.js';
 import { LIGHT_COLORS } from './palette.js';
 import { CAST } from './cg_cast.js';

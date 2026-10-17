@@ -233,6 +233,7 @@ export const renderer = {
     try {
       const r = HW.art.prop(p.type, {
         state: p.state, dir: p.dir, variant: p.variant, clean, frame, occupant: p.params.occupant, params: p.params,
+        sitDir: p.inst?.sitDir || p.params.sitDir || p.def.sitDir, label: p.params.label,
       });
       if (r && r.canvas) {
         p.promptY = p.y * TILE + Math.min(0, r.oy || 0) - 2;

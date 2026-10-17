@@ -4,8 +4,8 @@
 // first light, the crimson sash across it — the last thing left behind. params.who picks who is
 // there; each friend keeps a fixed place on the steps, so a smaller group leaves the steps emptier.
 import {
-  W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, smooth, mixU,
-  text57, text57Width, makeVapor, makePlumes, once, lazyGen, seeds,
+  W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, mixU, text57, text57Width,
+  makeVapor, makePlumes, lazyGen, seeds,
 } from './cg_kit.js';
 import { LIGHT_COLORS } from './palette.js';
 import { CAST } from './cg_cast.js';
@@ -275,11 +275,11 @@ const base = lazyGen(function* () {
   grade(u); yield;
   return {
     plain: b.toCanvas(), uniform: u.toCanvas(),
-    vapor: makeVapor(0, 40, W, 230, [mix(PAL.g4, DAWN, 0.5), mix(PAL.g5, DAWN, 0.6)]),
+    vapor: makeVapor(0, 40, W, 230, [mix(PAL.g3, DAWN, 0.35), mix(PAL.g4, DAWN, 0.5), mix(PAL.g5, DAWN, 0.6)]),
     plumes: makePlumes([
-      { x: 430, y: 236, rise: 120, r0: 8, r1: 40, life: 16, a: 0.18, w: 24, wind: -90, spread: 10 },
-      { x: 70, y: 240, rise: 110, r0: 8, r1: 36, life: 17, a: 0.15, w: 20, wind: 70, spread: 10 },
-      { x: 380, y: 196, rise: 90, r0: 6, r1: 28, life: 14, a: 0.12, w: 16, wind: -60, spread: 8 },
+      { x: 430, y: 236, rise: 120, r0: 8, r1: 40, life: 16, a: 0.24, w: 24, wind: -90, spread: 10 },
+      { x: 70, y: 240, rise: 110, r0: 8, r1: 36, life: 17, a: 0.2, w: 20, wind: 70, spread: 10 },
+      { x: 380, y: 196, rise: 90, r0: 6, r1: 28, life: 14, a: 0.16, w: 16, wind: -60, spread: 8 },
     ], 7, 18),
     drips: seeds(8, 21),
   };
@@ -296,7 +296,8 @@ export const prepDawn = lazyGen(function* () { while (!base.step()) yield; yield
 export const endingDawn = {
   draw(ctx, t = 0, params = {}) {
     const B = base();
-    const who = Array.isArray(params.who) ? params.who : ['tess', 'danny', 'leah', 'marcus'];
+    const w = params.who;
+    const who = w == null ? ['tess', 'danny', 'leah', 'marcus'] : typeof w === 'string' ? [w] : [...w];
     ctx.drawImage(params.uniform ? B.uniform : B.plain, 0, 0);
     // water still dripping off the arch and the frieze
     const d = B.drips;

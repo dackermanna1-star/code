@@ -6,7 +6,7 @@ prop's script id/examine) to DONE maps for their chapters and must list them in 
 | Map | Owner | Status |
 |---|---|---|
 | west1, library | maps-B | DONE |
-| exterior, lobby, aud | maps-A | IN PROGRESS |
+| exterior, lobby, aud | maps-A | IN PROGRESS (nearly done) |
 | east1, gym, basement | maps-C | IN PROGRESS |
 | east2, longhall, west2 | maps-D | QUEUED |
 | vault, breaker | maps-E | QUEUED |

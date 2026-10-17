@@ -1039,6 +1039,8 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
       interact: "terminal",
       reflective: true,
       states: ["off", "on"],
+      frames: 2,
+      fps: 2,
       desc: "desk with TRS-80 Model I: monitor, keyboard, cassette deck; on = green-gray glow"
     },
     printer: { desc: "dot-matrix printer, paper hanging out" },
@@ -1092,7 +1094,7 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
     court_line_h: { solid: false, mount: "decal", desc: "painted court line segment (horizontal)" },
     court_line_v: { solid: false, mount: "decal", desc: "painted court line segment (vertical)" },
     // ================================================================ basement
-    boiler: { w: 4, h: 3, light: "boiler", desc: "huge riveted coal boiler, firebox door glowing, gauges, pipes" },
+    boiler: { w: 4, h: 3, light: "boiler", frames: 4, fps: 6, desc: "huge riveted coal boiler, firebox door glowing, gauges, pipes" },
     pipe_h: { solid: false, mount: "over", desc: "overhead pipe run (horizontal), drips" },
     pipe_v: { solid: false, mount: "over", desc: "overhead pipe run (vertical)" },
     breaker_panel: { mount: "wall", interact: "switch", desc: "gray electrical panel, labeled switches" },
@@ -1102,6 +1104,8 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
       solid: false,
       mount: "decal",
       states: ["occupied", "hollow", "flat"],
+      frames: 8,
+      fps: 2,
       desc: "great heap of anthracite; occupied = a vast motionless shape half-buried (breathing); hollow = a body-shaped dent"
     },
     janitor_desk: { w: 2, desc: "scarred desk, transistor radio, coffee can of screws" },
@@ -1136,7 +1140,7 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
     flag_regimental: { w: 2, mount: "wall", desc: "tattered Civil War regimental flag, PA coat of arms" },
     name_wall: { w: 3, mount: "wall", desc: "marble panel carved with rows of names and years" },
     writing_desk: { w: 2, desc: "Victorian writing desk, ink well" },
-    candle: { solid: false, light: "candle", states: ["lit", "out"], desc: "tall iron candle stand" },
+    candle: { solid: false, light: "candle", states: ["lit", "out"], frames: 4, fps: 8, desc: "tall iron candle stand" },
     husk_seated: {
       states: ["intact", "turned", "crumbled"],
       desc: "translucent amber child-husk sitting upright (instance `variant` a\u2013f for size/pose, `dir`); turned = head rotated toward the player; crumbled = small pile of amber flakes"
@@ -1145,7 +1149,7 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
     chute: { solid: true, desc: "slanted wooden coal chute section (breaker), worn smooth" },
     picking_bench: { w: 3, desc: "low plank bench along a chute where breaker boys sat" },
     beam: { desc: "massive tarred timber post" },
-    lamp_miner: { solid: false, light: "lamp_miner", desc: "miner's oil cap-lamp glowing on a bench" },
+    lamp_miner: { solid: false, light: "lamp_miner", states: ["lit", "out"], frames: 3, fps: 6, desc: "miner's oil cap-lamp glowing on a bench" },
     weigh_desk: { w: 2, desc: "weigh-master's high desk" },
     register_book: { solid: false, interact: "register", desc: "THE REGISTER: an enormous leather ledger, open (sits on the weigh desk cell)" },
     shelf_ledgers: { w: 2, desc: "shelves of black payroll ledgers" },
@@ -1163,7 +1167,7 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
     dumpster: { w: 2, desc: "rusted dumpster" },
     bush_dead: { desc: "dead hedge clump" },
     // ================================================================ items, notes, decals
-    pickup: { solid: false, interact: "pickup", desc: "small item on floor/desk; instance `item` = item id; sparkles faintly" },
+    pickup: { solid: false, interact: "pickup", frames: 4, fps: 3, desc: "small item on floor/desk; instance `item` = item id; sparkles faintly" },
     note_paper: { solid: false, interact: "examine", desc: "loose paper / document; instance `doc` = doc id" },
     backpack: { solid: false, interact: "pickup", desc: "Danny's black JanSport backpack" },
     decal_leaves: { solid: false, mount: "decal", desc: "drift of dead leaves" },
@@ -1335,7 +1339,7 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
   var LOCKED_STATES = /* @__PURE__ */ new Set(["locked", "jammed", "chained"]);
   var LIGHT_OFF_STATES = /* @__PURE__ */ new Set(["off", "dead", "out"]);
   var PASSABLE_WHEN_OPEN = /* @__PURE__ */ new Set(["curtain"]);
-  var PARAM_FIELDS = ["text", "occupant", "label", "polaroids", "tessFrame"];
+  var PARAM_FIELDS = ["text", "text1979", "occupant", "label", "polaroids", "tessFrame", "item", "sitDir", "row"];
   var isDoorProp = (p2) => p2.def.interact === "door";
   function lockSatisfied(lock, state2 = hw_default.state) {
     if (!lock) return true;
@@ -2098,6 +2102,7 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
         ctx2 = L2.facesCtx;
       } else {
         if (key === "pit") o.mask = this.sameMask(tx, ty);
+        else if (key === "floor_water" || key === "floor_stairs_up" || key === "floor_stairs_down") o.mask = this.sameMask(tx, ty) | 16;
         ctx2 = L2.floorCtx;
       }
       try {
@@ -2122,7 +2127,7 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
         const ty = (i - tx) / this.w;
         if (tx < x0 || tx > x1 || ty < y0 || ty > y1) continue;
         o.kind = void 0;
-        o.mask = 0;
+        o.mask = this.sameMask(tx, ty) | 16;
         o.variant = this.variantAt(tx, ty);
         o.clean = clean;
         o.t = t;
@@ -3755,7 +3760,7 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
     },
     /** Saving allowed from the pause menu (TECH §7). */
     canSave() {
-      return !!hw_default.map && (this.mode === "play" || this.mode === "menu") && !hw_default.scripts.blocking && !this.transferring && !hw_default.periods?.active && hw_default.colonel?.mode !== "chase";
+      return !!hw_default.map && (this.mode === "play" || this.mode === "menu") && !hw_default.scripts.blocking && !this.transferring && !hw_default.periods?.active && hw_default.colonel?.mode !== "chase" && hw_default.colonel?.mode !== "escape";
     },
     canCheckpoint() {
       return !!hw_default.map && !hw_default.periods?.active && hw_default.colonel?.mode !== "chase" && !hw_default.scripts.blocking;
@@ -5675,7 +5680,9 @@ ${e.error.stack}` : ""}`);
           clean,
           frame: frame5,
           occupant: p2.params.occupant,
-          params: p2.params
+          params: p2.params,
+          sitDir: p2.inst?.sitDir || p2.params.sitDir || p2.def.sitDir,
+          label: p2.params.label
         });
         if (r && r.canvas) {
           p2.promptY = p2.y * TILE4 + Math.min(0, r.oy || 0) - 2;
@@ -30100,7 +30107,7 @@ ${e.error.stack}` : ""}`);
     if (typeof window === "undefined" || warmQ) return;
     warmQ = [];
     for (const ch of Object.keys(CAST)) for (const e of Object.keys(CAST[ch].expr)) warmQ.push([ch, e]);
-    const idle2 = window.requestIdleCallback || ((fn) => setTimeout(() => fn({ timeRemaining: () => 8 }), 60));
+    const idle = window.requestIdleCallback || ((fn) => setTimeout(() => fn({ timeRemaining: () => 8 }), 60));
     const step = (dl) => {
       let n = 0;
       while (warmQ.length && (dl.timeRemaining() > 6 || n === 0) && n < 2) {
@@ -30108,9 +30115,9 @@ ${e.error.stack}` : ""}`);
         getPortrait(c3, e, {});
         n++;
       }
-      if (warmQ.length) idle2(step);
+      if (warmQ.length) idle(step);
     };
-    idle2(step);
+    idle(step);
   }
   function getPortrait(char, expr = "neutral", opts = {}) {
     if (char === "colonel") return getColonelPortrait(expr, opts);
@@ -31346,10 +31353,9 @@ ${e.error.stack}` : ""}`);
       return c3;
     }
   };
-  var rgbOfU = (v) => [v & 255, v >>> 8 & 255, v >>> 16 & 255];
   function mixU(a, b, t) {
-    const A3 = rgbOfU(a), B5 = rgbOfU(b);
-    const r = Math.round(A3[0] + (B5[0] - A3[0]) * t), g = Math.round(A3[1] + (B5[1] - A3[1]) * t), bl = Math.round(A3[2] + (B5[2] - A3[2]) * t);
+    const ar = a & 255, ag = a >>> 8 & 255, ab = a >>> 16 & 255;
+    const r = ar + ((b & 255) - ar) * t + 0.5 | 0, g = ag + ((b >>> 8 & 255) - ag) * t + 0.5 | 0, bl = ab + ((b >>> 16 & 255) - ab) * t + 0.5 | 0;
     return (255 << 24 | bl << 16 | g << 8 | r) >>> 0;
   }
   var F57 = {
@@ -31550,15 +31556,26 @@ ${e.error.stack}` : ""}`);
         const d2 = buf.d;
         d2.fill(0);
         const px0 = minX * 2, px1 = Math.min(w, maxX * 2 + 2), py0 = minY * 2, py1 = Math.min(h, maxY * 2 + 2);
-        for (let y = py0; y < py1; y++) {
-          const fy = y / 2, j = fy | 0, ty = fy - j, j1 = Math.min(ch - 1, j + 1);
-          for (let x = px0; x < px1; x++) {
-            const fx2 = x / 2, i = fx2 | 0, tx = fx2 - i, i1 = Math.min(cw - 1, i + 1);
+        for (let j = minY; j <= maxY; j++) {
+          const j1 = Math.min(ch - 1, j + 1);
+          for (let i = minX; i <= maxX; i++) {
+            const i1 = Math.min(cw - 1, i + 1);
             const a = dens[j * cw + i], b = dens[j * cw + i1], c3 = dens[j1 * cw + i], e = dens[j1 * cw + i1];
-            const v = (a + (b - a) * tx + (c3 - a) * ty + (a - b - c3 + e) * tx * ty) * gain;
-            if (v <= 0.01) continue;
-            const lv = Math.floor(Math.min(1, v) * n + bay5(x + x0, y + y0));
-            if (lv > 0) d2[y * w + x] = cols[Math.min(n - 1, lv - 1)];
+            if (a <= 0.01 && b <= 0.01 && c3 <= 0.01 && e <= 0.01) continue;
+            for (let sy = 0; sy < 2; sy++) {
+              const y = j * 2 + sy;
+              if (y >= h) break;
+              const ty = sy * 0.5;
+              for (let sx = 0; sx < 2; sx++) {
+                const x = i * 2 + sx;
+                if (x >= w) break;
+                const tx = sx * 0.5;
+                const v = (a + (b - a) * tx + (c3 - a) * ty + (a - b - c3 + e) * tx * ty) * gain;
+                if (v <= 0.01) continue;
+                const lv = Math.floor(Math.min(1, v) * n + bay5(x + x0, y + y0));
+                if (lv > 0) d2[y * w + x] = cols[Math.min(n - 1, lv - 1)];
+              }
+            }
           }
         }
         cx.putImageData(buf.img, 0, 0, px0, py0, px1 - px0, py1 - py0);
@@ -31585,28 +31602,6 @@ ${e.error.stack}` : ""}`);
       }
     };
   }
-  var jobs2 = [];
-  var pumping2 = false;
-  function idle(fn) {
-    jobs2.push(fn);
-    if (!pumping2) {
-      pumping2 = true;
-      setTimeout(pump2, 60);
-    }
-  }
-  function pump2() {
-    const fn = jobs2.shift();
-    if (!fn) {
-      pumping2 = false;
-      return;
-    }
-    try {
-      fn();
-    } catch (e) {
-      console.error("[cg] idle build failed", e);
-    }
-    setTimeout(pump2, 30);
-  }
   function once(fn) {
     let v, done = false;
     return () => {
@@ -31616,6 +31611,51 @@ ${e.error.stack}` : ""}`);
       }
       return v;
     };
+  }
+  function lazyGen(genFn) {
+    let it = null, done = false, value;
+    const f2 = () => {
+      if (!done) {
+        if (!it) it = genFn();
+        let r;
+        do {
+          r = it.next();
+        } while (!r.done);
+        value = r.value;
+        done = true;
+        it = null;
+      }
+      return value;
+    };
+    f2.step = () => {
+      if (done) return true;
+      if (!it) it = genFn();
+      const r = it.next();
+      if (r.done) {
+        value = r.value;
+        done = true;
+        it = null;
+      }
+      return done;
+    };
+    f2.done = () => done;
+    return f2;
+  }
+  function background(list, { delay = 1500 } = {}) {
+    const q = list.filter(Boolean);
+    const ric = typeof requestIdleCallback === "function" ? (fn) => requestIdleCallback(fn, { timeout: 400 }) : (fn) => setTimeout(fn, 40);
+    const tick = () => {
+      while (q.length && q[0].done()) q.shift();
+      if (!q.length) return;
+      try {
+        q[0].step();
+      } catch (e) {
+        console.error("[cg] background build failed", e);
+        q.shift();
+      }
+      ric(tick);
+    };
+    setTimeout(() => ric(tick), delay);
   }
   function blitA(ctx2, c3, a, x = 0, y = 0) {
     if (a <= 0) return;
@@ -31968,8 +32008,9 @@ ${e.error.stack}` : ""}`);
   }
   function paintMist(b, F5) {
     const fog = U(F5 ? PAL.moon_l : mix(PAL.g3, PAL.blue_l, 0.3));
-    for (let y = 160; y < 214; y++) for (let x = 0; x < W7; x++) {
-      const band = Math.exp(-(((y - 192) / 11) ** 2));
+    for (let y = 156; y < 216; y++) for (let x = 0; x < W7; x++) {
+      const mid = 192 + 7 * (vnoise3(x / 60, 3, 405) - 0.5) * 2, th = 7 + 6 * vnoise3(x / 45, 5, 406);
+      const band = Math.exp(-(((y - mid) / th) ** 2)) * (0.4 + 0.8 * vnoise3(x / 70, 9, 407));
       const n = smooth3(0.35, 0.75, fbm3(x / 46 + y / 60, y / 9, 404, 3));
       const a = band * n * (F5 ? 0.5 : 0.8);
       const lv = Math.floor(a * 3 + bay5(x, y) - 0.5);
@@ -32087,10 +32128,10 @@ ${e.error.stack}` : ""}`);
       vapor: makeVapor(0, 100, W7, 170, [mix(PAL.g1, PAL.blue_d, 0.55), mix(PAL.g2, PAL.blue_d, 0.45), mix(PAL.g3, PAL.blue_l, 0.25)]),
       vaporF: makeVapor(0, 100, W7, 170, [mix(PAL.g4, PAL.moon, 0.4), mix(PAL.g5, PAL.moon, 0.5), PAL.moon_l]),
       plumes: makePlumes([
-        { x: 304, y: 232, rise: 84, r0: 4, r1: 26, life: 10, a: 0.36, w: 16, wind: 22, spread: 5 },
-        { x: 250, y: 256, rise: 70, r0: 4, r1: 22, life: 9, a: 0.3, w: 12, wind: 18, spread: 4 },
-        { x: 72, y: 222, rise: 56, r0: 3, r1: 18, life: 9.5, a: 0.24, w: 10, wind: 16, spread: 4 },
-        { x: 436, y: 254, rise: 66, r0: 4, r1: 22, life: 10.5, a: 0.3, w: 14, wind: 14, spread: 5 }
+        { x: 300, y: 232, rise: 46, r0: 4, r1: 24, life: 8, a: 0.32, w: 18, wind: 46, spread: 6 },
+        { x: 246, y: 256, rise: 40, r0: 4, r1: 20, life: 7.5, a: 0.26, w: 14, wind: 40, spread: 5 },
+        { x: 66, y: 222, rise: 34, r0: 3, r1: 16, life: 8, a: 0.2, w: 10, wind: 34, spread: 4 },
+        { x: 430, y: 254, rise: 42, r0: 4, r1: 20, life: 8.5, a: 0.26, w: 16, wind: 38, spread: 6 }
       ], 61, 16),
       splash: splashTable()
     };
@@ -32132,6 +32173,8 @@ ${e.error.stack}` : ""}`);
     layers();
   }
   var titleBg = {
+    /** The built-in flash level at time t (0..1), so a caller can sync thunder to the auto lightning. */
+    lightning: (t) => autoLightning(t),
     draw(ctx2, t = 0, params = {}) {
       const L2 = layers();
       let flash = params.lightning;
@@ -32328,15 +32371,20 @@ ${e.error.stack}` : ""}`);
     for (let x = 110; x < 380; x += 3) b.px(x, 128, shade3(PLASTIC, 0.08, x, 128));
     b.poly([[74, 140], [80, 120], [96, 115], [180, 115], [196, 120], [202, 140]], (x, y) => shade3(PLASTIC, y < 118 ? 0.3 : 0.12, x, y));
     b.rect(86, 121, 106, 18, (x, y) => {
-      const d2 = Math.min(Math.hypot(x - 120, (y - 133) * 1.1), Math.hypot(x - 156, (y - 133) * 1.1));
-      return shade3(TEAL, clamp01(0.22 - d2 * 0.022 + (vnoise3(x / 2, y / 2, 4) - 0.5) * 0.06), x, y);
+      const d2 = Math.min(Math.hypot(x - 99, (y - 131) * 1.1), Math.hypot(x - 190, (y - 129) * 1.1));
+      return shade3(TEAL, clamp01(0.12 - d2 * 8e-3 + (vnoise3(x / 2, y / 2, 4) - 0.5) * 0.04), x, y);
     });
-    for (const [gx, gr] of [[120, 9], [156, 9]]) {
-      for (let a = Math.PI * 1.05; a < Math.PI * 1.95; a += 0.12) b.px(gx + Math.cos(a) * gr, 133 + Math.sin(a) * gr * 0.9, shade3(TEAL, 0.86, 0, 0));
-      b.line(gx, 133, gx - 6, 129, U(PAL.orange_l));
+    for (const [gx, gy, gr] of [[99, 132, 8], [190, 130, 6]]) {
+      for (let a = Math.PI * 0.95; a < Math.PI * 2.05; a += 0.1) {
+        const tick = Math.round(a * 10) % 3 === 0;
+        b.px(gx + Math.cos(a) * gr, gy + Math.sin(a) * gr * 0.9, shade3(TEAL, tick ? 0.95 : 0.6, 0, 0));
+        if (tick) b.px(gx + Math.cos(a) * (gr - 1.5), gy + Math.sin(a) * (gr - 1.5) * 0.9, shade3(TEAL, 0.5, 0, 0));
+      }
+      b.line(gx, gy, gx - gr + 2, gy - 2, U(PAL.orange_l));
+      b.px(gx, gy, shade3(TEAL, 0.3, 0, 0));
     }
-    b.rect(176, 126, 10, 4, shade3(TEAL, 0.7, 0, 0));
-    b.px(181, 125, shade3(TEAL, 0.9, 0, 0));
+    b.px(88, 124, U(PAL.red_l));
+    b.px(90, 124, U(PAL.green_l));
     for (let a = Math.PI * 1.05; a < Math.PI * 1.98; a += 8e-3) {
       const x = 134 + Math.cos(a) * 60, y = 178 + Math.sin(a) * 50;
       for (let k = 0; k < 5; k++) b.px(x, y + k, shade3(PLASTIC, k === 0 ? 0.42 : k < 2 ? 0.3 : 0.12, x, y));
@@ -32817,26 +32865,28 @@ ${e.error.stack}` : ""}`);
       b.px(px, py, mixU(b.get(px, py), U(PAL.ink), 0.5));
     }
   }
-  var layers3 = once(() => {
+  var layers3 = lazyGen(function* () {
     const b = new Buf();
     paintDesk(b);
+    yield;
     paintBook(b);
+    yield;
     paintThings(b);
+    yield;
     const glow = new Buf();
     for (let y = 0; y < H7; y++) for (let x = 0; x < W7; x++) {
       const d2 = Math.hypot((x - POOL2.x) * 0.9, (y - POOL2.y) * 1.15);
       const a = Math.exp(-d2 / 140);
       if (a * 0.9 > bay5(x, y)) glow.px(x, y, U(mix(PAL.amber_l, PAL.yellow_l, 0.4)));
     }
+    yield;
     const seam = new Buf();
     for (let y = 254; y < H7; y++) for (let x = 0; x < W7; x++) {
       if (isGap(x, y) && x < 380 && (y + x) % 2 === 0) seam.px(x, y, U(PAL.fire_l));
     }
     return { base: b.toCanvas(), glow: glow.toCanvas(), seam: seam.toCanvas(), motes: seeds(26, 44) };
   });
-  function prepRegister() {
-    layers3();
-  }
+  var prepRegister = layers3;
   var registerBook2 = {
     draw(ctx2, t = 0) {
       const L2 = layers3();
@@ -32894,12 +32944,22 @@ ${e.error.stack}` : ""}`);
     return seamDistRaw(x, y);
   }
   function buildSeamField() {
+    const hw = (W7 >> 1) + 1, hh = (H7 >> 1) + 1, g = new Float32Array(hw * hh);
+    for (let j = 60; j < hh; j++) for (let i = 0; i < hw; i++) g[j * hw + i] = segMin(i * 2, j * 2);
     SEAM_FIELD = new Float32Array(W7 * H7).fill(1e9);
-    for (let y = 120; y < H7; y++) for (let x = 0; x < W7; x++) SEAM_FIELD[y * W7 + x] = seamDistRaw(x, y);
+    for (let y = 120; y < H7; y++) for (let x = 0; x < W7; x++) {
+      const i = x >> 1, j = y >> 1, tx = (x & 1) * 0.5, ty = (y & 1) * 0.5;
+      const a = g[j * hw + i], b = g[j * hw + i + 1], c3 = g[(j + 1) * hw + i] ?? a, e = g[(j + 1) * hw + i + 1] ?? b;
+      SEAM_FIELD[y * W7 + x] = seamDistRaw(x, y, a + (b - a) * tx + (c3 - a) * ty + (a - b - c3 + e) * tx * ty);
+    }
   }
-  function seamDistRaw(x, y) {
+  function segMin(x, y) {
     let d2 = 1e9;
     for (const s of SEAMS) for (let i = 0; i + 1 < s.length; i++) d2 = Math.min(d2, segDist2(x, y, s[i], s[i + 1]));
+    return d2;
+  }
+  function seamDistRaw(x, y, geo2) {
+    let d2 = geo2 ?? segMin(x, y);
     d2 -= 0.9 * vnoise3(x / 5, y / 5, 71) + 0.5 * vnoise3(x / 2, y / 2, 72) - 0.4;
     for (const [px, py, r] of POOLS) d2 = Math.min(d2, Math.hypot((x - px) / 2.2, y - py) - r * 0.35);
     return d2;
@@ -32921,7 +32981,8 @@ ${e.error.stack}` : ""}`);
       const haze = 0.5 + 0.5 * fbm3(x / 60 + y / 100, y / 40, 8, 3);
       const up = Math.exp(-Math.max(0, FLOOR + 10 - y) / 120);
       const back = Math.exp(-Math.hypot((x - 300) / 1.6, (y - 200) * 1.1) / 120);
-      let v = 0.03 + up * (0.16 * haze + 0.2 * facesDown) + 0.42 * back * (0.55 + 0.6 * haze) + (hh - 0.5) * 0.06 * up;
+      const high = Math.exp(-Math.hypot((x - 300) / 1.5, (y - 90) * 1.2) / 110);
+      let v = 0.03 + up * (0.16 * haze + 0.2 * facesDown) + 0.42 * back * (0.55 + 0.6 * haze) + 0.2 * high * (0.5 + 0.7 * haze) + (hh - 0.5) * 0.06 * up;
       if (Math.abs((y + hh * 18) % 23 - 11) < 0.6) v -= 0.04;
       b.px(x, y, shade3(ROCK, clamp01(v), x, y));
     }
@@ -32961,6 +33022,14 @@ ${e.error.stack}` : ""}`);
         b.px(x2, y0 - 1 + slope, shade3(TIMBER, clamp01(0.04 + 0.12 * under(y0)), x2, y0));
         b.px(x2, y0 + slope, shade3(TIMBER, clamp01(0.1 + 0.55 * under(y0)), x2, y0));
         b.px(x2, y0 + 1 + slope, U(PAL.ink));
+      }
+    }
+    for (let li = 0; li < LEVELS.length; li++) {
+      const [x0, x1, y0] = LEVELS[li], yb = LEVELS[li + 1]?.[2] ?? FLOOR;
+      for (let y2 = y0 + 2; y2 < yb + 2; y2++) {
+        const g = 0.18 + 0.3 * under(y2);
+        b.px(x1 - 1, y2, shade3(TIMBER, clamp01(g + 0.12), x1 - 1, y2));
+        b.px(x0, y2, shade3(TIMBER, clamp01(g), x0, y2));
       }
     }
     b.poly([[234, 18], [269, 2], [304, 18]], (x2, y2) => shade3(TIMBER, clamp01(0.06 + 0.12 * under(y2) + (vnoise3(x2 / 2, y2 / 6, 5) - 0.5) * 0.06), x2, y2));
@@ -33130,17 +33199,23 @@ ${e.error.stack}` : ""}`);
     b.hline(x + 2, y - 7, 3, U(PAL.g1));
     b.px(x + 5, y - 8, U(PAL.white));
   }
-  var layers4 = once(() => {
+  var layers4 = lazyGen(function* () {
     buildSeamField();
+    yield;
     const b = new Buf();
     paintCavern(b);
+    yield;
     paintBreaker(b);
+    yield;
     paintBreach(b);
     const boys = boyPositions();
     paintBoys(b, boys);
+    yield;
     paintFloor(b);
+    yield;
     const fg = new Buf();
     paintForeground(b, fg);
+    yield;
     const glow = new Buf();
     for (let y = 150; y < H7; y++) for (let x = 0; x < W7; x++) {
       if (fg.get(x, y)) continue;
@@ -33163,9 +33238,7 @@ ${e.error.stack}` : ""}`);
       smoke: makeVapor(0, 0, W7, 170, [mix(PAL.ink, PAL.fire_dd, 0.45), mix(PAL.night, PAL.fire_dd, 0.6)])
     };
   });
-  function prepBreaker() {
-    layers4();
-  }
+  var prepBreaker = layers4;
   var EMBER = ["#ffb04a", "#f07a28", "#b83a17", "#fff0c8"];
   var breakerReveal = {
     draw(ctx2, t = 0) {
@@ -33697,25 +33770,31 @@ ${e.error.stack}` : ""}`);
       return o;
     });
   }
-  var base = once(() => {
+  var base = lazyGen(function* () {
     const b = new Buf();
     paintSkyAndWings(b);
+    yield;
     paintPavilion2(b);
+    yield;
     paintVestibule(b, false);
     paintBase(b);
+    yield;
     paintSteps(b);
+    yield;
     const u = b.clone();
     paintUniform(u);
     grade(b);
+    yield;
     grade(u);
+    yield;
     return {
       plain: b.toCanvas(),
       uniform: u.toCanvas(),
-      vapor: makeVapor(0, 40, W7, 230, [mix(PAL.g4, DAWN, 0.5), mix(PAL.g5, DAWN, 0.6)]),
+      vapor: makeVapor(0, 40, W7, 230, [mix(PAL.g3, DAWN, 0.35), mix(PAL.g4, DAWN, 0.5), mix(PAL.g5, DAWN, 0.6)]),
       plumes: makePlumes([
-        { x: 430, y: 236, rise: 120, r0: 8, r1: 40, life: 16, a: 0.18, w: 24, wind: -90, spread: 10 },
-        { x: 70, y: 240, rise: 110, r0: 8, r1: 36, life: 17, a: 0.15, w: 20, wind: 70, spread: 10 },
-        { x: 380, y: 196, rise: 90, r0: 6, r1: 28, life: 14, a: 0.12, w: 16, wind: -60, spread: 8 }
+        { x: 430, y: 236, rise: 120, r0: 8, r1: 40, life: 16, a: 0.24, w: 24, wind: -90, spread: 10 },
+        { x: 70, y: 240, rise: 110, r0: 8, r1: 36, life: 17, a: 0.2, w: 20, wind: 70, spread: 10 },
+        { x: 380, y: 196, rise: 90, r0: 6, r1: 28, life: 14, a: 0.16, w: 16, wind: -60, spread: 8 }
       ], 7, 18),
       drips: seeds(8, 21)
     };
@@ -33726,14 +33805,17 @@ ${e.error.stack}` : ""}`);
     if (!kidCache.has(key)) kidCache.set(key, kidLayer(who));
     return kidCache.get(key);
   }
-  function prepDawn() {
-    base();
+  var prepDawn = lazyGen(function* () {
+    while (!base.step()) yield;
+    yield;
     kids(["tess", "danny", "leah", "marcus"]);
-  }
+    return true;
+  });
   var endingDawn = {
     draw(ctx2, t = 0, params = {}) {
       const B5 = base();
-      const who = Array.isArray(params.who) ? params.who : ["tess", "danny", "leah", "marcus"];
+      const w = params.who;
+      const who = w == null ? ["tess", "danny", "leah", "marcus"] : typeof w === "string" ? [w] : [...w];
       ctx2.drawImage(params.uniform ? B5.uniform : B5.plain, 0, 0);
       const d2 = B5.drips;
       ctx2.fillStyle = "rgba(232,226,236,0.8)";
@@ -34048,14 +34130,18 @@ ${e.error.stack}` : ""}`);
     }
     return g;
   }
-  var layers5 = once(() => {
+  var layers5 = lazyGen(function* () {
     const b = new Buf();
     paintRoom(b);
+    yield;
     paintFurniture(b);
+    yield;
     const COOLC = U(mix(PAL.blue_d, PAL.velvet_d, 0.45));
     b.map((c3, x, y) => mixU(c3, COOLC, 0.12 + 0.12 * clamp01((x - 300) / 180) + 0.1 * clamp01((40 - y) / 40)));
     paintChalk(b);
+    yield;
     const g = shafts();
+    yield;
     const motes = [];
     for (let y = 0; y < 200; y++) for (let x = 0; x < W7; x++) {
       const a = clamp01(g[y * W7 + x] * 0.05);
@@ -34066,9 +34152,7 @@ ${e.error.stack}` : ""}`);
     }
     return { base: b.toCanvas(), motes: new Int16Array(motes), ms: seeds(motes.length / 2, 5) };
   });
-  function prepPresent() {
-    layers5();
-  }
+  var prepPresent = layers5;
   var endingPresent = {
     draw(ctx2, t = 0) {
       const L2 = layers5();
@@ -34288,18 +34372,20 @@ ${e.error.stack}` : ""}`);
       if (a > 0) b.px(i, j, U(hex, Math.round(Math.min(1, a) * 255)));
     };
     for (let j = y - 26; j < y + 36; j++) for (let i = x - 24; i < x + 24; i++) {
-      const fx2 = (i - x) / 11.5, fy = (j - y) / 15;
+      const fy = (j - y) / 15, fx2 = (i - x) / (10.5 * (1 - 0.32 * Math.max(0, fy)));
       const inFace = fx2 * fx2 + fy * fy <= 1;
-      const hx = (i - x - 1) / 18, hy = (j - y + 3) / 20;
-      const inHair = hx * hx + hy * hy <= 1 || j > y - 2 && j < y + 30 && Math.abs(i - x) > 8 && Math.abs(i - x) < 18 - (j - y) * 0.15 + Math.sin(j * 0.9) * 1.5;
-      if (inFace && j > y - 11) {
-        const lit = 0.42 + 0.22 * clamp01(-fx2) - 0.12 * clamp01(fy - 0.5);
+      const hx = (i - x - 1) / 17, hy = (j - y + 4) / 19;
+      const side = Math.abs(i - x) > 7 && Math.abs(i - x) < 16 - (j - y) * 0.12 + Math.sin(j * 0.7 + (i > x ? 2 : 0)) * 1.5;
+      const inHair = hx * hx + hy * hy <= 1 && (j < y - 8 || !inFace) || j > y - 6 && j < y + 28 && side && !inFace;
+      if (inFace && j > y - 9) {
+        const lit = 0.44 + 0.22 * clamp01(-fx2) - 0.14 * clamp01(fy - 0.45);
         put(i, j, PAL.skin_l, lit);
       } else if (inHair) {
-        const strand2 = (i - x + Math.round(j * 0.3)) % 3 === 0 ? 0.1 : 0;
-        put(i, j, PAL.hair_r_l, 0.3 - strand2 + (Math.abs(i - x) > 12 ? -0.06 : 0));
+        const strand2 = (i - x + Math.round(j * 0.35)) % 3 === 0 ? 0.12 : 0;
+        put(i, j, (i + j) % 5 === 0 ? PAL.hair_r_ll : PAL.hair_r_l, 0.34 - strand2 + (Math.abs(i - x) > 12 ? -0.06 : 0));
       }
     }
+    for (let k = 0; k < 9; k++) put(x - 6 + k, y - 9 + Math.round(k * 0.35), PAL.hair_r_l, 0.42);
     for (const ex of [x - 6, x + 3]) {
       put(ex, y - 2, PAL.ink, 0.6);
       put(ex + 1, y - 2, PAL.ink, 0.6);
@@ -34316,27 +34402,26 @@ ${e.error.stack}` : ""}`);
     for (let i = -14; i <= 14; i++) for (let j = 0; j < 6; j++) if (Math.abs(i) > 4 - j) put(x + i, y + 17 + j + Math.round(Math.abs(i) * 0.25), PAL.denim_ll, 0.22);
     return b.toCanvas();
   }
-  var layers6 = once(() => {
+  var layers6 = lazyGen(function* () {
     const b = new Buf();
     paintWindshield(b);
     paintInterior(b);
+    yield;
     paintTape(b);
     paintTess2(b);
+    yield;
     const sky = new Buf();
     for (let y = 20; y < 165; y++) for (let x = 150; x < 470; x++) sky.px(x, y, shade3(SKY4, clamp01(0.35 + (y - 20) / 160 + (fbm3(x / 60, y / 16, 6, 3) - 0.5) * 0.14), x, y));
-    return {
-      frame: b.toCanvas(),
-      sky: sky.toCanvas(),
-      ridges: stripRidges(),
-      fields: stripFields(),
-      near: stripNear(),
-      refl: reflectionLayer(),
-      dash: seeds(6, 4)
-    };
+    yield;
+    const ridges = stripRidges();
+    yield;
+    const fields = stripFields();
+    yield;
+    const near = stripNear();
+    yield;
+    return { frame: b.toCanvas(), sky: sky.toCanvas(), ridges, fields, near, refl: reflectionLayer(), dash: seeds(6, 4) };
   });
-  function prepTruant() {
-    layers6();
-  }
+  var prepTruant = layers6;
   function tile(ctx2, img, off, y) {
     const o = (Math.round(off) % STRIP_W2 + STRIP_W2) % STRIP_W2;
     ctx2.drawImage(img, -o + 150, y);
@@ -34390,7 +34475,7 @@ ${e.error.stack}` : ""}`);
     const half = (DOOR2.x1 - DOOR2.x0) / 2, u = (x + 0.5 - CX2) / half;
     return DOOR2.spring - Math.round((DOOR2.spring - DOOR2.apex) * Math.sqrt(Math.max(0, 1 - u * u)) ** 0.7);
   };
-  var REACH = { x0: 104, x1: 312, y0: 22, y1: 214 };
+  var REACH = { x0: 96, x1: 318, y0: 20, y1: 220 };
   function paintScene(b, I2, full = true) {
     const lift = (v) => clamp01(0.03 + v * I2);
     const R2 = full ? { x0: 0, x1: W7, y0: 0, y1: H7 } : REACH;
@@ -34499,12 +34584,13 @@ ${e.error.stack}` : ""}`);
     b.px(x + w / 2, y + h - 3, U(PAL.white));
     b.rect(x + w - 4, y + h - 10, 5, 7, (i, j) => shade3(KSKIN, 0.6 + (i === x + w - 4 ? 0.2 : 0), i, j));
   }
-  var layers7 = once(() => {
+  var layers7 = lazyGen(function* () {
     const lv = [];
     for (let k = 0; k < LEVELS2; k++) {
       const b = new Buf();
       paintScene(b, k === 0 ? 0.035 : 0.1 + 0.9 * (k / (LEVELS2 - 1)) ** 1.2, k === 0 || k === LEVELS2 - 1);
       lv.push(b.d);
+      yield;
     }
     const lit = new Buf();
     lit.d.set(lv[LEVELS2 - 1]);
@@ -34523,9 +34609,7 @@ ${e.error.stack}` : ""}`);
     }
     return { lv, km, kw, kh, prev: [0, 0, 0, 0], primed: false, fg: fg.toCanvas(), frame: frame5, cnv, cx: ctxOf(cnv), motes: seeds(18, 3), breath: makeVapor(300, 80, 120, 80, [mix(PAL.g2, PAL.blue_d, 0.4), mix(PAL.g3, PAL.moon, 0.3)]) };
   });
-  function prepCoda() {
-    layers7();
-  }
+  var prepCoda = layers7;
   var coda2013 = {
     draw(ctx2, t = 0) {
       const L2 = layers7();
@@ -34590,11 +34674,12 @@ ${e.error.stack}` : ""}`);
     ending_truant: endingTruant,
     coda_2013: coda2013
   };
-  var PREP = [prepCar, prepRegister, prepBreaker, prepDawn, prepPresent, prepTruant, prepCoda];
+  var LATE = [prepRegister, prepBreaker, prepDawn, prepPresent, prepTruant, prepCoda];
   async function initCg() {
     await initColonelCg();
     prepTitle();
-    for (const p2 of PREP) idle(p2);
+    prepCar();
+    background(LATE, { delay: 2500 });
   }
   var fallback3 = /* @__PURE__ */ new Map();
   function getCg(id) {
@@ -41584,7 +41669,7 @@ ${e.error.stack}` : ""}`);
         const base2 = HW.art?.portrait?.(who, e, { light: light2 || "normal", grime: grime2, enrolled: false }) || null;
         return base2 && lvl > 0 ? tessEnrolled2(base2, lvl, e) : base2;
       }
-      return HW.art?.portrait?.(who, e, { light: light2 || "normal", grime: grime2, enrolled: !!o.enrolled }) || null;
+      return HW.art?.portrait?.(who, e, { light: light2 || "normal", grime: grime2, enrolled: !!o.enrolled, mirror: !!o.mirror }) || null;
     } catch (err) {
       warnOnce3("portrait:" + who, err);
       return null;
@@ -42017,7 +42102,8 @@ ${e.error.stack}` : ""}`);
       line3.style = STYLE[line3.kind];
       line3.closeup = !!o.closeup && line3.kind !== "narrate" && line3.kind !== "voice";
       line3.side = o.side || (line3.who === "tess" ? "left" : "right");
-      line3.portrait = line3.kind === "say" || line3.kind === "colonel" || line3.kind === "think" ? portrait(line3.who, line3.expr, o) : null;
+      const po = line3.side === "right" && line3.who !== "tess" ? { ...o, mirror: true } : o;
+      line3.portrait = line3.kind === "say" || line3.kind === "colonel" || line3.kind === "think" ? portrait(line3.who, line3.expr, po) : null;
       line3.name = line3.kind === "say" || line3.kind === "colonel" || line3.kind === "voice" ? speakerName(line3.who, o) : null;
       const def = chars()[line3.who];
       line3.color = line3.kind === "colonel" ? "#7a0f1c" : def?.color || C.textDim;
@@ -42328,7 +42414,7 @@ ${e.error.stack}` : ""}`);
       ctx2.beginPath();
       ctx2.rect(x, y, s, s);
       ctx2.clip();
-      ctx2.drawImage(line3.portrait, 20, 10, 56, 56, x, y, s, s);
+      ctx2.drawImage(line3.portrait, 22, 24, 56, 56, x, y, s, s);
       ctx2.globalAlpha *= 0.28;
       rect(ctx2, x, y, s, s, "#1b2420");
       ctx2.restore();
@@ -54235,7 +54321,7 @@ ${e.error.stack}` : ""}`);
   };
 
   // src/data/maps/aud_seats.js
-  var HUSKS = (s) => !s.flags.husks_gone;
+  var HUSKS = (s) => (s.chapter || 0) >= 7 && !s.flags.husks_gone;
   var CHART = [
     [1, 16, ".hD1hh.hhL2h.", ".hhNM3hh.hhh."],
     [2, 18, "h.hhh.hhhh.hh", "hhh.hhhh.hh.h"],
