@@ -66,6 +66,8 @@ export default {
   music: null,
   dark: 0.94,
   ambient: '#0b1020',
+  // narrative-3: Danny in session at his desk (Ch5–6), his pencil; resumes the 205 period after a reload.
+  onEnter: 'ch5.enter_east2',
   tiles: [
     ' TTTTTTBBBBBBB##########################################', //  0  north exterior wall (top)
     ' TTTWTTBBBUBBBWW#########WW#WW#########WW#WW#########WW#', //  1  face_high · windows

@@ -839,6 +839,7 @@ async function safeHint(g) {
   await g.wait(0.6);
   await g.think('worried', 'The compact. {p} In 1979 this room looked different.');
   await ghost.despawn(0.6);
+  look(g, 'up');
 }
 
 /** Marcus on the bench's left cell (Tess takes the other; one sitter per prop, so his is by hand). */

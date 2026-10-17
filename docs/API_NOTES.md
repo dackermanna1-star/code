@@ -585,3 +585,142 @@ The same API is documented in each file's header.
 - CGs: title_bg exposes `lightning(t)` for thunder sync; ending_dawn `params.who` (array) and `uniform`; colonel CGs warm
   lazily (locker_slits ~0.5 s first draw at a late phase — start scenes at phase 0).
 - Sprites: Denise needs a faint warm attached light (#e8cf8a, r≈1.5 tiles) where spawned; husk frames carry their own alpha.
+
+---
+
+## Engine fixes v2.2
+
+All changes are additive and backwards-compatible: every existing call keeps its old behaviour unless noted.
+
+### 1. Lighting: moving shadowless lights
+- A dynamic light with `shadows: false` that moves (`px/py` or `x/y`) now redraws its lightmap sprite. Before, only its glow halo moved and the pool stayed where it was created.
+- Changing a live light's `cone` now also redraws it.
+- No API change.
+
+### 2. `g.light(id, spec)` on an entity that already has a light
+- A new spec that changes only `color`, `intensity`, `power`, `radius` or `cone` updates the live light in place. Its transition and flicker state are kept.
+- A spec that changes anything the lighting system bakes at creation rebuilds the light: `type`, `shape`, `shadows`, `glow`, `glowDx/glowDy`, `cage`, `twin`, `disc`, `jitter`, `flicker`, `group`, `fade` and so on.
+- The old `g.light(id, null); g.light(id, spec)` workaround still works but is no longer needed.
+- `entities.js` exports `lightNeedsRebuild(a, b)`.
+
+### 3. Map exits run their `script`
+Exit fields (all optional):
+- `script`: a script id.
+- `scriptWhen`:
+  - `'after'` (default): runs once the transfer has completed, after the new map loads and fades in.
+  - `'before'`: runs before the transfer. A blocking `'before'` script that returns `false` cancels the transfer. The exit re-arms once the player steps off it.
+- `blocking`: `true` by default, so the script runs as a cutscene and can use dialogue. `false` runs it alongside play, with the same meaning as for triggers.
+
+Other details:
+- Script context: `ctx = { exit, map (HW.map when the script starts), from (map id left), to }`.
+- Each run is recorded in `__HW.transcript` as type `exitScript`.
+- Example: the lobby's `front_loop` exit (`script: 'gen.front_loop'`) now plays Tess's line after the seamless cut.
+- Engine method: `HW.game._takeExit(exit, map)` (internal).
+
+### 4. `'heads_down'` overlay parameters
+`g.overlay('heads_down', { tight, cx, cy, ui, dim })`. All are optional:
+- `tight`: 0..1, where 0 is wide open and 1 is shut. If omitted you get the classic breathing tunnel, which is about 0.87. The tunnel always breathes slightly.
+- `cx`, `cy`: the tunnel's centre in **world px** (map coordinates, like `entity.x/y`).
+  - Add `ui: true` to give `cx`/`cy` in UI px (960×540) instead.
+  - **Default centre:** Tess's head on screen (player feet − 14 px), or the screen centre if there is no player.
+  - The centre is clamped to the screen.
+- `dim`: 0..1, the strength of the black veil (default 0.6).
+
+With no parameters (`{}` or `true`) the look is unchanged; only the centre now follows Tess.
+
+### 5. `'vhs'` screen: scripted, non-interactive viewing
+New args:
+- `locked: true`: the player's keys do nothing (including Eject) and the key hints are hidden.
+- `sequence: [{ frame, hold = 1.6, seek = 0.26 }]`:
+  - Plays the tape indices in order: it seeks to each `frame` (with tracking noise) and holds it for `hold` seconds after it settles.
+  - The OSD reads ▶ PLAY.
+  - `start` defaults to the first entry's frame.
+  - `min`/`max` limit only the player's scrubbing.
+- `end`: what happens after the last hold:
+  - `'close'` (default) resolves `{ frame, held: 0, done: true }`.
+  - `'unlock'` gives the controls to the player.
+  - `'stay'` leaves the screen up; a script closes it with `HW.ui.close('vhs', result)`.
+- `onStep(k, entry)` fires as sequence entry k begins. `onEnd()` fires after the last hold. `onFrame(i, def)` is unchanged.
+- `strip: false` hides the tape-position notches.
+
+Live control through `HW.ui.get('vhs')`:
+- `step(d)`, `goTo(i, { seek })`, `lock(on)`, `unlock()`, `play(sequence, { end })`, and the getter `frame`.
+
+Behaviour under autoAdvance:
+- A `sequence` resolves at once. `onStep`/`onFrame` fire for every entry in order, then it returns `{ frame: last, held: 0, done: true }`.
+- Without a sequence it still resolves `null`.
+
+Compatibility: Ch2's current approach still works and is covered by a test. It wraps `scr.update` to pass `null` input, sets `playing`/`hold`, calls `scr._step(1)` and closes with `HW.ui.close`.
+
+Example of a first viewing:
+`g.screen('vhs', { locked: true, sequence: [{ frame: 0, hold: 3 }, { frame: 1, hold: 2.5 }, …, { frame: 5, hold: 2.6 }], onFrame: (i) => { if (i === 5) g.sfx('stinger_hard'); } })`.
+
+### 6. The flashlight turns in cutscenes
+- In cutscenes the beam still holds its aim, until Tess turns. Then it swings smoothly (the same easing as free play) to her new aim and holds there. A turn can come from:
+  - `g.face('tess' | 'player', dir)`;
+  - `g.face('tess', entityId | anchor | point)`, which aims the beam exactly at the target from hand height (`Player.faceToward(x, y)`);
+  - the end of a scripted walk.
+- During scripted walks the beam follows the walking direction (the player's `aimX/aimY` now track the path).
+- **Manual overrides still work.** A script that writes `HW.flashlight.angle` directly sets an angle that holds until Tess's next turn. If a script turns her and sets the angle in the same tick, as `pro.js aim()`, `aimAt()` and Ch2–4 `look()` do, the manual angle wins.
+- New field: `Player.aimSeq`, which increments on every explicit `face()`.
+
+### 7. Intercom and voice text
+- `say('voice', …)` keeps its static flicker and jitter but **never substitutes letters**. This applies to roll calls and the Colonel's lines through the intercom.
+- Opt in with `g.say('voice', null, text, { glitch: true })` for a deliberately corrupted line.
+
+### 8. Light groups are saved
+- `HW.lighting.setGroup(group, on)` records explicit states in `HW.state.lightGroups` (`{ group: bool }`); `on = null` removes the entry. `'period'` is not persisted, because the periods system owns it and resets it on load.
+- A loaded save restores its groups. A new game, or any new `HW.state` object, starts with none. Lighting detects a state change by identity on map load, `setGroup` and `groupOn`.
+- `createState()` and `normalizeState()` now include `lightGroups: {}`.
+- This covers the `'bsmt'` bulbs, the gym banks `gymN` and the breaker `lamp_N` after a reload. `breaker.js` still re-asserts its lamps from flags.
+
+### 9. Weather: `HW.weather` (game system `src/game/weather.js`)
+- Applies `map.data.weather = { rain: 0..1.5 | true, steam: true, steamGap: [min, max] s }` on every map load.
+  - Rain goes through `HW.fx.rain`. Maps without `weather` have no rain.
+  - Steam wisps rise from `steam_vent` props near the camera.
+- **Defers to pro.js.** While a script-installed weather system is registered (detected because it handles `steam_vent` props), `HW.weather` does nothing, so the exterior is never doubled.
+  - pro.js's `installWeather()` always installs today, so the prologue behaves exactly as before.
+  - The engine system takes over for any map or build without it, for example if pro.js drops its copy.
+- API: `HW.weather.active`, `.deferred`, `.apply(map)`.
+
+### 10. Audio: car radio
+- `HW.audio.loop('car_radio', { vol, level })`: an AM station on low through the car's door speakers.
+  - Band-limited to about 260 Hz–2.7 kHz.
+  - An announcer, and now and then a co-host, as formant babble with no words.
+  - Stretches of a generic soft-rock bed (pad chords, bass pulse, hat). There is no melody and no real song.
+  - Hiss, crackle and slow night-time AM fading.
+  - It never repeats. `level` is in dB (default −14), and RMS is about −30 dBFS.
+- `HW.audio.sfx('radio_off')`: the knob's detent click, a speaker pop and the station cutting off.
+- Both are listed in `HW.audio.ids` (`loops` / `sfx`). Implemented in `src/audio/radio.js`.
+- Suggested wiring for the car scene:
+  - `const radio = g.loop('car_radio', { vol: 0.8 })` at the start;
+  - at the knob, `radio.stop(0.05); g.sfx('radio_off')`.
+
+### 11. `HW.art.warmCg(id)`
+- Pre-builds a CG before the scene that shows it, to avoid a first-draw hitch.
+- Colonel CGs (`colonel_hand`, `colonel_face`, `locker_slits`, `vhs_frames`) forward to `warmColonelCg(id)`. The CG agent's CGs run their staged build to completion (`prepX()`).
+- Unknown ids do nothing. It never throws.
+- `cg.js` exports `warmCg(id)`.
+
+### 12. Title thunder
+- The title screen follows `getCg('title_bg').lightning(t)`, the same clock the backdrop draws with.
+- On each strike's rising edge (≥ 0.5 after falling below 0.05) it plays `HW.audio.sfx('thunder', { vol: 0.6, delay: 0.45–1.05 s })`.
+- That is one roll per strike, heard only once audio is unlocked.
+
+### 13. Interior readability (global tuning in lighting; no map edits)
+Darkness stays deep, but room shapes, doorways and landmarks now read beyond the flashlight cone:
+- **Ambient lift** (`lighting_ambient.js` `ambientRGB` / `ambientLift`):
+  - The old linear ground level `(1 − dark) · 1.75`, in the map's tint, plus a lift of up to 0.08 through the interior range. The lift fades in from `dark` 0.8 to 0.9 and fades out from 0.968 to 0.99.
+  - Exteriors are unchanged. Deliberate blackouts (`setAmbient(null, 0.98+)`) still drop to near black.
+  - The lift is only softly tinted, so warm art (wood floors, red seats, brick) isn't crushed by a blue multiply.
+  - Effective ground level: halls (0.94) 0.105 → about 0.185; vault (0.975) 0.044 → about 0.10; a 0.98 blackout 0.035 → about 0.06.
+- **Wall-face catch light** (`CatchLayer`):
+  - South-facing vertical surfaces catch a little more ambient than the floor: wall faces, closed doors in wall rows, and the fronts of free-standing stacks. The effect is strongest where a face meets the floor.
+  - It scales with the ambient, using `CATCH_GAIN` and `CATCH_MAX` in `lighting.js`.
+  - Room outlines read as a dim band, wall tops stay black, and an open doorway reads as a dark gap.
+- **Flashlight bounce** (`Beam.drawBounce`): where the beam lands (its floor hotspot, or the first wall in the way) a soft, shadowed omni glow of radius about 92 px fills the surroundings.
+- **Moonlight** `LAYER` 0.55 → 0.68.
+- **Self-glow** radius 25 → 34 px, level 0.36 → 0.40.
+- The readability aids (catch light, bounce, self-glow) are **not** counted by `lightAt()`, so the Colonel's "lit" test (> 0.45) is unaffected; only the ambient term rises (about +0.05).
+- Fluorescents, exit signs, boiler and fire glows are unchanged in intensity and stay punchy.
+- Cost is within measurement noise: about 0.5–1.3 ms per lighting render headless, before and after.

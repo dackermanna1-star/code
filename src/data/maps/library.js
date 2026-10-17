@@ -42,6 +42,8 @@ export default {
   music: null,
   dark: 0.95,
   ambient: '#0b1020',
+  // narrative-3: Leah in session at her table under the lamp (Ch5–6), writing.
+  onEnter: 'ch5.enter_library',
   tiles: [
     'PPPPPPPPPPPPPPPPPPPPPPPPPPPP', //  0  mezzanine north wall (top)
     'PPPPPPWWPPPPPWWPPPPPWWPPPPPP', //  1  tall windows

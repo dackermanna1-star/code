@@ -292,7 +292,10 @@ export default {
     { id: 'lobby_east', rect: [27, 40, 2, 1], to: 'lobby', anchor: 'from_aud', lock: () => true,
       lockedText: '[n] The other pair of doors. Chained on the lobby side.' },
     { id: 'stage_door', rect: [42, 4, 1, 1], to: 'lobby', anchor: 'stage_door' },   // once it stands open
-    { id: 'trapdoor', rect: [37, 7, 2, 2], to: 'vault', anchor: 'from_aud', cond: trapOpen },
+    // the point of no return: in Chapter VII the step onto the open hatch runs ch7.trapdoor (confirm,
+    // checkpoint, → Chapter VIII); from Chapter VIII on it is a plain way down (narrative-4)
+    { id: 'trapdoor', rect: [37, 7, 2, 2], to: 'vault', anchor: 'from_aud', cond: trapOpen,
+      lock: (s) => (s.chapter || 0) < 8, refuse: 'ch7.trapdoor' },
   ],
   triggers: [
     { id: 'aud_enter', rect: [16, 33, 13, 1], script: 'ch7.aud_enter', once: true, cond: (s) => !!s.flags.ch7_started },

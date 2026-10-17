@@ -784,7 +784,7 @@ try {
       const peak = (x) => { let m = 0; for (let i = 0; i < x.length; i++) m = Math.max(m, Math.abs(x[i])); return m; };
       const loop = await A.renderOffline('loop', 'car_radio', 6);
       const off = await A.renderOffline('sfx', 'radio_off', 0.5);
-      return { ids: A.ids?.loops?.includes('car_radio'), loopRms: rms(loop), loopPeak: peak(loop), offPeak: peak(off), finite: [...loop.subarray(0, 4000)].every(Number.isFinite) };
+      return { ids: !!(A.ids?.loops?.includes('car_radio') && A.ids?.sfx?.includes('radio_off')), loopRms: rms(loop), loopPeak: peak(loop), offPeak: peak(off), finite: [...loop.subarray(0, 4000)].every(Number.isFinite) };
     });
     T.ok(au.ids && au.loopRms > 0.002 && au.loopPeak < 1 && au.offPeak > 0.02 && au.finite, "audio: loop 'car_radio' and sfx 'radio_off' render", au);
 

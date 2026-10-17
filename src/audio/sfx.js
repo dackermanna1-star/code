@@ -35,5 +35,7 @@ export const SFX_IDS = [
   'wind_gust', 'heartbeat', 'breath_hold', 'breath_release', 'tape_play', 'mixer_start', 'dumbwaiter',
   'crowd_murmur', 'applause_old', 'record_crackle', 'stinger_soft', 'stinger_hard', 'collapse_rumble',
   'dust_fall', 'footstep_heavy_above',
+  // v2.2 additions
+  'radio_off',
 ];
 export const EVENT_IDS = Object.keys(SFX).filter((k) => k.startsWith('amb_'));

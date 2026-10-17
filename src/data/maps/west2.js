@@ -57,6 +57,8 @@ export default {
   music: null,
   dark: 0.95,
   ambient: '#0b1020',
+  // narrative-3: the running tap until adair_met, the False Leah in 201 after it, the 201-threshold retry.
+  onEnter: 'ch5.enter_west2',
   tiles: [
     ' TTTTTTTTT################################################', //  0  north exterior wall (top)
     ' TTTTTTWTTWW#########WW#WW#########WW#WW########WW####W###', //  1  face_high · windows
