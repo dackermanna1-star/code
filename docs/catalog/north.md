@@ -169,3 +169,61 @@ No building in this district is enterable (the open garages are walk-in: two in 
   while within 60 m, and now and then from afar (more often at night).
 - Everything else comes from the helpers (boiler hum, transformer hum, radio in the open garage, TV in the guard
   booths, payphone, crows, ice cracks…). All calls are guarded by `audio.ready`.
+
+## Models (all defined in `models.js` at import time)
+
+Sizes W × H × D in metres (local X × Y × Z). "fine" = 12.5 cm voxels (non-solid, place with
+`placeFine` from `lib.js`, which also corrects the culling box).
+
+| model | size (m) | pivot / facing / notes |
+|---|---|---|
+| `north_rail` | 15 × 0.25 × 1.875, fine | one track's two rails (gauge 1.5), rusty web, polished head, clips at the 0.75 m sleepers; pivot = segment start on the track axis at sleeper-top level (rail top = pivot + 0.25); runs along +X; non-solid |
+| `north_crossing_deck` | 6 × 0.25 × 7.75 | rubber/timber decking for both tracks with slots for the four rails; pivot = centre of its north edge (place at z 44.125, y 1.0) |
+| `north_cat_pole` | 0.5 × 10.5 × 4.75 | square concrete catenary pole; cantilever, stay and registration arm reach 3.9 m toward local +Z (contact wire ≈ 6.2 m above the pivot) |
+| `north_relay_box` | 1 × 2 × 0.75 | railway relay cabinet, front −Z |
+| `north_crossing_signal` | 1.75 × 4 × 0.75 | striped post, black backboard with two lamp hoods (lamps are `north_signal_lamp` at local (±0.5, 2.25, −0.25)), bell dome; front −Z |
+| `north_signal_lamp` | 0.25 cube | `lamp_red`, follows its light (flag) |
+| `north_board_posts` | 3.5 × 3 × 0.25 | two posts and a blank board (3 × 0.75 at 1.75–2.5 m) for double-sided signs |
+| `north_platform`, `_b`, `_west` | 10 × 3.5 × 4 (deck top 2.25) | high platform section; pivot = min corner (x0, 0, z0); track edge with a painted line at local z 0, railing at the back; `_west` has the end railing |
+| `north_platform_stairs` | 2.75 × 3.5 × 4 | five 0.25 m steps down toward +X from 2.25 to 1.25 (2 m wide, handrails); pivot = min corner |
+| `north_platform_shelter` | 7 × 3.25 × 2.75 | blue corrugated shelter with a bench; open side −Z; occludes snow |
+| `north_ticket_booth` | 2.5 × 3.25 × 2.25 | boarded ticket window −Z, door +X; *tint* |
+| `north_pylon` | 4 × 28 × 10 | 110 kV lattice pylon; crossarms along local Z; conductor points exported as `PYLON_ATTACH` ([lz, y]), earth-wire peak `PYLON_PEAK` |
+| `north_fence_cast` | 2.5 × 0.75 × 0.25 | solid part of the cast-iron fence: granite plinth + iron band (0.5 m); along +X |
+| `north_fence_cast_bars` | 2.5 × 1.875 × 0.125, fine | bars every 0.5 m with spear tips, rails, scrolls; place at the band top (+0.5 m) |
+| `north_fence_pillar` | 0.75 × 2.5 × 0.75 | red-brick pillar with a concrete cap and snow |
+| `north_gate_cast` | 1.5 × 2.125 × 0.125, fine | gate leaf, pivot = hinge, drawn closed along +X; non-solid |
+| `north_memorial` | 3.5 × 7.5 × 3.5 | stepped granite base, pedestal, whitened obelisk with a red star on its front (−Z), two carnations |
+| `north_wreath` | 1.25 × 1.25 × 0.5 | fir wreath with a red ribbon; front −Z; non-solid |
+| `north_cafe` | 6 × 4 × 3.75 | summer café pavilion: roller shutter over the serving window (−Z), padlocked side door (+X), fascia band; *tint*; occludes snow |
+| `north_cafe_stack` | 1 × 1.75 × 1 | stacked plastic chairs under snow |
+| `north_bandstand` | 10 × 6 × 6 | concert shell: 1 m stage with side steps and a whitewashed quarter-dome opening toward −Z |
+| `north_chamber` | 3.5 × 2 × 3 | heating-main chamber where the pipes (arriving along −X) bend into the ground; pivot = pipe end |
+| `north_gate_leaf` | 3.25 × 2.25 × 0.25 | steel yard-gate leaf, pivot = hinge, along +X; *tint* |
+| `north_gate_post` | 0.5 × 2.75 × 0.5 | concrete gate post |
+| `north_doghouse` | 1.5 × 2 × 2 | doghouse with a chain and bowl; opening −Z |
+| `north_container` | 6 × 2.75 × 2.5 | shipping container, doors +X; *tint* |
+| `north_slabs` | 6.25 × 2 × 1.75 | three road slabs on timber spacers |
+| `north_drum` | 2.25 × 2.5 × 1.25 | wooden cable drum on its rim |
+
+## Helpers (`lib.js`, `park.js`)
+
+- `placeFine(ctx, name, opts)` — `world.place` for a fine-voxel model (fixes its culling box once).
+- `fineModel(m, scale)` — declare a model in voxels of `0.25 · scale` m (use with `lods: [scale, 0.999]`).
+- `alleyDist(x, z)` → metres from the nearest park alley edge (negative on it; 99 beyond 3 m) — for keeping
+  objects off the paths. `ALLEYS` holds the alley polylines and widths.
+- `nav`, `chaikin`, `alongPolyline`, `distToPolyline`, `resample`, `alongAngle`.
+
+## Notes for the integrator
+
+- **Railway geometry** matches the vehicles package exactly (tracks z 46/50, rail top 1.25, crossing x 300).
+  The embankment, rails, catenary and wires run x 0–640 (and a little beyond) so the line continues through
+  the wrap bands. Catenary poles are wrap-periodic (pitch 59.2 m = 592/10).
+- **Seams.** ул. Берёзовая belongs to blocks_west; this package lowers the kerb at the three east gates and
+  repaints the street's verge over Берёзовая's stub north of z 133. The south sidewalk (z 143–146.5) reaches
+  2.5 m into the blocks' strip (z 144–146.5); at the driveway mouths (x 302–308, 456–462) it drops to road level.
+  A neighbour's plough pile taller than 1 m is kept on the back metre of the sidewalk. The park's south path
+  crosses the avenue's tree strip at x 137–139.75 to the gap in its lawn fence and ends on its nav line.
+- **Not walkable on purpose:** the plough banks along both kerbs (gaps at every crossing listed above), the
+  shovelled ridges along the park alleys (patchy, with gaps), the fences.
+- The heating main is the public package's `placeHeatPipe` (6 m segments, П-arches with 6.25 m clearance).
