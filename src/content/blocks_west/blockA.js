@@ -133,14 +133,16 @@ export function buildBlockA(ctx, keep) {
   // ---- parking ---------------------------------------------------------------------------------
   safe('A cars', () => {
     // perpendicular on the snow north of the courtyard driveway
-    parkRow(ctx, { x0: 232, z0: 266.6, x1: 288, z1: 266.6, angle: 0, density: 0.6, seed: 801, snow: [['heavy', 4], ['light', 1], ['buried', 1], ['brushed', 1]] })
+    for (const [a, b, k] of [[237.2, 254.8, 0], [258.7, 276.3, 1], [280.2, 288.5, 2]]) {
+      parkRow(ctx, { x0: a, z0: 266.6, x1: b, z1: 266.6, angle: 0, density: 0.65, seed: 801 + k * 7, snow: [['heavy', 4], ['light', 1], ['buried', 1], ['brushed', 1]] })
+    }
     // the strip along the E–W driveway, nose to the driveway, the windrow behind them
     parkRow(ctx, { x0: 168, z0: 318.9, x1: 214, z1: 318.9, angle: Math.PI, density: 0.6, seed: 802, snow: [['heavy', 3], ['buried', 1], ['light', 1], ['brushed', 1]] })
     parkRow(ctx, { x0: 220, z0: 318.9, x1: 276, z1: 318.9, angle: Math.PI, density: 0.55, seed: 803, snow: [['heavy', 3], ['buried', 1], ['brushed', 1]] })
     windrow(ctx, 'x', A.lot.z0 - 1.7, A.lot.z0 - 0.2, A.lot.x0 + 1, A.lot.x1 - 1, 0.6, [], 806, 's')
     // a Gazelle van left on the courtyard driveway's south edge
-    placeParkedCar(ctx, { x: 258, z: 276.4, angle: -Math.PI / 2, type: 'gazelle_van', snow: 'heavy', seed: 804 })
-    keep.rect(230, 263.5, 290, 269.7, 0.3).rect(166, 313.4, 278, 322, 0.3).circle(258, 276.4, 3.2)
+    placeParkedCar(ctx, { x: 231.3, z: 266.7, angle: 0, type: 'gazelle_van', snow: 'heavy', seed: 804 })
+    keep.rect(230, 263.5, 290, 269.7, 0.3).rect(166, 313.4, 278, 322, 0.3).circle(231.3, 266.7, 3.2)
   })
 
   // ---- paths & nav -------------------------------------------------------------------------------
@@ -162,6 +164,9 @@ export function buildBlockA(ctx, keep) {
     trodden(ctx, [[286, 289.6], [287.5, 300], [288.5, 312], [288.2, 321.4]], { seed: 14 })
     ctx.navPaths.push({ points: [[288.2, 321.4], [288.2, EW_CZ]], kind: 'crossing' })
     ctx.navPaths.push({ points: [[286, 289.6], [286, 288.25]], kind: 'crossing' })
+    // short tracks from the parking bays and the courtyard driveway up to the facade sidewalks
+    for (const x of [278.25, 256.75, 235.25]) trodden(ctx, [[x + 0.4, 264.1], [x, 260.5], [x, 256.9]], { seed: 20 + x, width: 1.2 })
+    for (const x of [220.75, 242.25, 263.75]) trodden(ctx, [[x - 0.4, 274.4], [x, 280], [x, 286.9]], { seed: 30 + x, width: 1.2 })
     // the playground gate (east side) to корп. 1's sidewalk
     trodden(ctx, [[194.6, 272.5], [201, 266], [205, 257]], { seed: 15 })
     // old footprints from the stop «Школа» to the school gate

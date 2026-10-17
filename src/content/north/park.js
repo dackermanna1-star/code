@@ -119,7 +119,7 @@ function alleyEdges(ctx) {
     if (d > 1.3 || d < -0.01) return null
     if (d < 0.5) return { h: Math.min(h, 2), mat: h > 2 ? M('snow') : mat }
     // a low shovelled windrow along the edge, broken here and there where people step off the path
-    if (d < 1.05 && valueNoise2(x * 0.16, z * 0.16, 6250) > 0.42) return { h: 3, mat: valueNoise2(x * 1.1, z * 1.1, 6251) > 0.7 ? bank : M('snow') }
+    if (d < 0.95 && valueNoise2(x * 0.16, z * 0.16, 6250) > 0.46) return { h: 3, mat: valueNoise2(x * 1.1, z * 1.1, 6251) > 0.7 ? bank : M('snow') }
     return null
   })
 }
@@ -427,13 +427,13 @@ export function buildPark(ctx) {
     }
     // the birch grove: north-west and south-west, dense, in clumps
     out.grove = [
-      ...scatterTrees(ctx, { rect: [26, 151, 94, 300], density: 0.5, species: { 'birch:single': 0.62, 'birch:clump': 0.18, spruce: 0.08, linden: 0.06, rowan: 0.06 }, avoid: keep, minSpacing: 4.2, clump: 0.5, seed: 7301 }),
-      ...scatterTrees(ctx, { rect: [26, 360, 72, 497], density: 0.5, species: { 'birch:single': 0.65, 'birch:clump': 0.15, spruce: 0.1, maple: 0.1 }, avoid: keep, minSpacing: 4.2, clump: 0.5, seed: 7302 }),
+      ...scatterTrees(ctx, { rect: [26, 151, 94, 300], density: 0.72, species: { 'birch:single': 0.66, 'birch:clump': 0.14, spruce: 0.08, linden: 0.06, rowan: 0.06 }, avoid: keep, minSpacing: 3.6, clump: 0.65, seed: 7301 }),
+      ...scatterTrees(ctx, { rect: [26, 360, 72, 497], density: 0.68, species: { 'birch:single': 0.68, 'birch:clump': 0.12, spruce: 0.1, maple: 0.1 }, avoid: keep, minSpacing: 3.6, clump: 0.65, seed: 7302 }),
     ]
     // sparser mixed planting in the east half
     out.east = [
-      ...scatterTrees(ctx, { rect: [94, 151, 137, 300], density: 0.17, species: { birch: 0.5, linden: 0.25, maple: 0.15, spruce: 0.1 }, avoid: keep, minSpacing: 6, seed: 7303 }),
-      ...scatterTrees(ctx, { rect: [72, 362, 137, 497], density: 0.15, species: { birch: 0.55, linden: 0.25, rowan: 0.1, spruce: 0.1 }, avoid: keep, minSpacing: 6, seed: 7304 }),
+      ...scatterTrees(ctx, { rect: [94, 151, 137, 300], density: 0.11, species: { birch: 0.5, linden: 0.25, maple: 0.15, spruce: 0.1 }, avoid: keep, minSpacing: 6, seed: 7303 }),
+      ...scatterTrees(ctx, { rect: [72, 362, 137, 497], density: 0.11, species: { birch: 0.55, linden: 0.25, rowan: 0.1, spruce: 0.1 }, avoid: keep, minSpacing: 6, seed: 7304 }),
       ...scatterTrees(ctx, { rect: [26, 300, 44, 360], density: 0.3, species: { birch: 0.8, spruce: 0.2 }, avoid: keep, minSpacing: 5, seed: 7305 }),
     ]
     // old lindens and poplars along the fences

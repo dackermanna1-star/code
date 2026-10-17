@@ -52,12 +52,13 @@ function paintLawn(ctx, x0, z0, x1, z1, seed) {
 function paintTrampled(ctx, x0, z0, x1, z1, seed) {
   const packed = M('snow_packed'), dirty = M('snow_dirty'), slush = M('slush'), ice = M('ice')
   ctx.terrain.apply(x0, z0, x1, z1, (x, z) => {
-    const n = fbm2(x * 0.3, z * 0.3, 3, seed)
+    // finer grain than the walks, and less slush: big dark blotches read as puddles of tar
+    const n = fbm2(x * 0.45, z * 0.45, 3, seed)
     const g = valueNoise2(x * 1.4, z * 1.4, seed + 7)
     let mat = packed
-    if (n < 0.36) mat = dirty
-    if (n < 0.24) mat = slush
-    if (g > 0.94) mat = ice
+    if (n < 0.34) mat = dirty
+    if (n < 0.2) mat = slush
+    if (g > 0.95) mat = ice
     return { h: 1, mat }
   })
 }
@@ -323,11 +324,11 @@ export function raiseBanks(ctx) {
       [METRO.x0 - 2, METRO.x1 + 2], [STOP_N.x - 9, STOP_N.x - 5],
     ]
     for (const [a, b] of cut(40, 600, nGaps)) {
-      snowBank(ctx, a, Z.BANK_N[0], b, Z.BANK_N[1], 0.42, { dirtySide: 'none', chunks: false, seed: 13 + a })
+      snowBank(ctx, a, Z.BANK_N[0], b, Z.BANK_N[1], 0.32, { dirtySide: 'none', chunks: false, seed: 13 + a })
     }
     const sGaps = [[160, 166], [290, 297], [METRO.x0 - 24, 500], [520, 549], [585, 612]]
     for (const [a, b] of cut(40, 600, sGaps)) {
-      snowBank(ctx, a, Z.BANK_S[0], b, Z.BANK_S[1], 0.4, { dirtySide: 'none', chunks: false, seed: 15 + a })
+      snowBank(ctx, a, Z.BANK_S[0], b, Z.BANK_S[1], 0.32, { dirtySide: 'none', chunks: false, seed: 15 + a })
     }
   })
   // plough piles where the snow from the terminal and the lay-by ends up

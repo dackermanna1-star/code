@@ -99,8 +99,8 @@ export function finishStreets(ctx, keep, gaps = {}) {
   safe('berezovaya banks', () => {
     // plough windrows on both kerbs, in pieces (gaps: crossings, the stop, the driveway mouth)
     const cross = CROSSINGS.map(z => [z - 4, z + 4])
-    windrow(ctx, 'z', BER.x0 + 0.1, BER.x0 + 1.3, 147, BER.z1 - 1.5, 0.95, [...cross, ...(gaps.berW || [])], 9401, 'e')
-    windrow(ctx, 'z', BER.x1 - 1.2, BER.x1 - 0.05, 147, BER.z1 - 1.5, 0.8, [[207, 217], ...cross, [EW.z0 - 3, EW.z1 + 3], ...(gaps.berE || [])], 9402, 'w')
+    windrow(ctx, 'z', BER.x0 + 0.05, BER.x0 + 1.9, 147, BER.z1 - 1.5, 0.75, [...cross, ...(gaps.berW || [])], 9401, 'e')
+    windrow(ctx, 'z', BER.x1 - 1.7, BER.x1 - 0.05, 147, BER.z1 - 1.5, 0.65, [[207, 217], ...cross, [EW.z0 - 3, EW.z1 + 3], ...(gaps.berE || [])], 9402, 'w')
   })
   ctx.navPaths.push({ points: [[BER.navX, 144.5], [BER.navX, EW.cz], [BER.navX, 513.2]], kind: 'sidewalk' })
   // crossings over Берёзовая to the park gates (the north package continues them inside)
@@ -111,15 +111,15 @@ export function finishStreets(ctx, keep, gaps = {}) {
   // ---- N–S driveway x 302–308 -------------------------------------------------------------
   safe('ns driveway banks', () => {
     // west edge windrow (blocks A/D side), gaps at every mouth and path crossing
-    windrow(ctx, 'z', NS.x0 - 1.6, NS.x0 - 0.2, 150, NS.z1 - 2, 0.7, [[EW.z0 - 3, EW.z1 + 3], ...(gaps.ns || [])], 9601, 'e')
+    windrow(ctx, 'z', NS.x0 - 1.9, NS.x0 - 0.1, 150, NS.z1 - 2, 0.6, [[EW.z0 - 3, EW.z1 + 3], ...(gaps.ns || [])], 9601, 'e')
   })
   safe('ns pile', () => plowedPile(ctx, NS.x0 - 3.4, 149, { radius: 2.6, height: 2.0, seed: 9611, buried: 'tire' }))
   ctx.navPaths.push({ points: [[NS.cx, NS.z0 + 0.5], [NS.cx, 272], [NS.cx, EW.cz], [NS.cx, 358], [NS.cx, 513.2]], kind: 'driveway' })
 
   // ---- E–W driveway z 322–328 -------------------------------------------------------------
   safe('ew driveway banks', () => {
-    windrow(ctx, 'x', EW.z0 - 1.5, EW.z0 - 0.15, 156, 299, 0.65, gaps.ewN, 9801, 's')
-    windrow(ctx, 'x', EW.z1 + 0.15, EW.z1 + 1.5, 156, 299, 0.65, gaps.ewS, 9802, 'n')
+    windrow(ctx, 'x', EW.z0 - 1.8, EW.z0 - 0.1, 156, 299, 0.55, gaps.ewN, 9801, 's')
+    windrow(ctx, 'x', EW.z1 + 0.1, EW.z1 + 1.8, 156, 299, 0.55, gaps.ewS, 9802, 'n')
   })
   ctx.navPaths.push({ points: [[BER.navX, EW.cz], [180, EW.cz], [NS.cx, EW.cz], [310.5, EW.cz]], kind: 'driveway' })
 

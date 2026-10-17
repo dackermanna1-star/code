@@ -33,7 +33,6 @@ trails, added in `init`), `api.js`. Every helper call is wrapped in `safe()` (lo
 | 556 | kerb |
 | 557–563 | lawn strip (paved at the south stop, the lay-by, the plaza, the zebra and the terminal mouths) |
 | 563–570.5 | **south walk** (y 0.25). Nav line z 566.8 |
-| 570.62 | low arched lawn fence on the walk's edge (in front of the 9-storey row only: x 46–159, 167–289, 298–351) |
 | 570.8–573.9 | bank of cleared walk snow (gaps at the paths through the row, the plaza and the terminal) |
 | 572–600 | south strip: lawn snow, kiosk plaza, shop, pharmacy, the 9-storey row, the bus terminal |
 
@@ -82,7 +81,7 @@ the same pattern. The sidewalk lamps are every 74 m (also a divisor of 592).
 - `ctx.registry.busTerminal = { loop, stops: [[538, 583.5]], exit: 'east', name }` — the vehicles
   package diverts ~65 % of eastbound buses round the loop; they lay over 25–55 s at the stand
   (538, 583.5) by the platform and rejoin eastbound.
-- Boarding platform x 528–534.25, z 572–595 (y 0.25, railing behind) with a lit pavilion
+- Boarding platform x 528–534.25, z 572–595 (y 0.25) with a lit pavilion
   (530.6, 586.5) facing east (routes 648, 276; old «Дискотека 80-х» light box), a park bench, a bin.
 - Island x 541.75–583.5, z 572–587.5 (kerbed, deep snow): dispatcher's hut (public
   `placeDispatcherBooth`, (545.9, 580.5), rot 1, window toward the stand, «Постучать в окно»),

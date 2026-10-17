@@ -51,14 +51,15 @@ export function paintGround(ctx) {
   W(308, 328, 456, 330.5, 'n', 71)         // south side of the E–W driveway
   W(312, 352, 452, 357, 's', 72)           // tower fronts
   W(312, 364.5, 452, 366.5, 'n', 73)       // behind the parallel parking
-  W(308, 330.5, 310.5, 508, 'w', 74)       // along the western driveway (Block D side)
+  W(308, 330.5, 310.5, 357, 'w', 74)       // along the western driveway (Block D side) …
+  W(308, 362, 310.5, 508, 'w', 77)         // … (the inner driveway crosses it at road level)
   W(453.5, 330.5, 456, 357, 'e', 75)       // west side of the N–S driveway
   W(453.5, 362, 456, 444, 'e', 76)
   // Block C
   W(462, 319.5, 598, 322, 's', 81)         // north side of the E–W driveway
   W(464, 193, 594, 198, 's', 82)           // long building front (runs on into the gap between the wings)
   W(464, 205.5, 582.5, 207.5, 'n', 83)     // behind the parallel parking
-  W(579.5, 198, 585, 249, null, 85)        // in front of the east wing (entrances 6–7, porches stand on it)
+  W(579.5, 198, 585, 249, null, 85)        // in front of the east wing (подъезды 1–2, porches stand on it)
   W(483, 285, 575, 290, null, 84)          // 5-storey front
 
   // ---- forecourts --------------------------------------------------------------------------
@@ -112,13 +113,16 @@ function digPit(ctx) {
   keep(x0, z0, x1, z1, 0.5, 'pit')
 }
 
-/** A snow hill the dads shovelled together and the kids poured water on: a 2.2 m mound of packed
+/** A snow hill the dads shovelled together and the kids poured water on: a ~2 m heap of packed
  *  snow with an ice chute down its south side and trampled snow round its foot. */
 function snowHill(ctx, x, z) {
   const t = ctx.terrain
   t.paintCircle(x, z, 7.8, { mat: M('snow_packed'), only: new Set([M('snow'), M('snow_fresh')]) })   // trampled foot
-  t.mound(x, z, 6.5, 6.5, 2.3, M('snow_packed'), 0.12, 4711)
-  t.mound(x + 0.6, z - 1.2, 3.2, 3.0, 0.35, M('snow'), 0.3, 4712)          // the lumpy top
+  // three lumps shovelled together (one round mound reads as a stepped ziggurat in 25 cm terrain)
+  t.mound(x, z, 5.2, 6.8, 1.55, M('snow_packed'), 0.45, 4711)
+  t.mound(x + 2.2, z - 2.4, 3.6, 3.2, 0.55, M('snow_packed'), 0.5, 4713)
+  t.mound(x - 1.8, z + 1.5, 3.0, 4.2, 0.4, M('snow'), 0.5, 4714)
+  t.mound(x + 0.6, z - 1.2, 2.4, 2.2, 0.3, M('snow'), 0.6, 4712)           // the lumpy top
   const only = new Set([M('snow_packed'), M('snow'), M('snow_fresh')])
   t.paintLine(x, z + 0.4, x + 0.5, z + 8.2, 1.2, { mat: M('ice'), only })   // the chute
   t.paintLine(x + 0.5, z + 8.2, x + 1.2, z + 13, 1.4, { mat: M('ice'), only }) // its polished run-out
@@ -146,7 +150,7 @@ function thawStrip(ctx, pts) {
 export function paintPaths(ctx) {
   // ---- Block B ---------------------------------------------------------------------------
   // along the north side of the kindergarten fence, joining both towers to the gate
-  walkway(ctx, [[335.5, 250], [362, 255.5], [390, 256], [420, 255.5], [430.5, 244]], { kind: 'path', width: 2.0, seed: 101 })
+  walkway(ctx, [[333.2, 250.5], [362, 255.5], [390, 256], [420, 255.5], [432.8, 244.5]], { kind: 'path', width: 2.0, seed: 101 })
   walkway(ctx, [[390, 256], [390, 261.5]], { kind: 'path', width: 2.4, seed: 102 })
   // inside the kindergarten yard: gate to the three group porches
   walkway(ctx, [[390, 261.5], [390, 286.8]], { kind: 'path', width: 2.0, seed: 131, nav: false })
@@ -203,7 +207,7 @@ export function paintPaths(ctx) {
   walkway(ctx, [[516, 248], [519.5, 241.5], [523, 240.7], [530.4, 240.3]], { kind: 'trodden', width: 1.2, seed: 125, trail: 0.6, trailLen: 18 })
   // from the garage lane past the long building's east gable and through the narrow gap between
   // the two wings into the yard (the passage opens onto the dead end under the lone lamp)
-  walkway(ctx, [[590, 165], [596.6, 172], [597, 190], [593, 195.4], [583, 196.4]], { kind: 'trodden', width: 1.3, seed: 126, trail: 0.5, trailLen: 16 })
+  walkway(ctx, [[587.5, 165.2], [591, 166.8], [596.6, 172], [597, 190], [593, 195.4], [583, 196.4]], { kind: 'trodden', width: 1.3, seed: 126, trail: 0.5, trailLen: 16 })
 }
 
 export function gateGap() { return SITE.gate }

@@ -39,7 +39,7 @@ z 500  └──────────── avenue tree strip (avenue pkg) �
 | P-44 16 fl. «Молодёжный 3/2» | x 436–449, z 210.5–236 (entrance faces west) | Block B east tower, two blue spruces at its door |
 | 1-515 9 fl. «ул. Заводская 5», 5 sections | x 317–449.5, z 156–168 (entrances face south) | Block B's north wall along ул. Заводская |
 | **The long building** P-44 9 fl. «ул. Заводская 9», 7 sections in an L | E–W wing x 466.5–594, z 180–193 (entrances 1–5 face south); east wing x 585–598, z 197–248 (entrances 6–7 face west) | "repetition": 127 m of identical sections fading into fog, then the corner; a 2.5 m gap between the wings (x 585–594, z 194.5–197) is a passage from the garage lane |
-| Lone flickering lamp | (582.4, 200.5) | sodium courtyard lamp, `flicker: 'dying'`, at the dead end of Block C's inner driveway, under the corner of the long building, where the gap passage opens |
+| Lone flickering lamp | (582.4, 200.5) | sodium courtyard lamp, `flicker: 'dying'`, tear-off flyers on its pole, at the dead end of Block C's inner driveway under the corner of the long building, where the gap passage opens |
 | Abandoned construction site («долгострой») | fence x 522–574, z 214–268; pit x 531–565, z 223–259, floor y −1.5 | green corrugated fence, gate open on the west side (z 238–243.5), passport board «Окончание работ: IV кв. 2007 г.», strip foundation with rebar, ФБС blocks, rings, a site trailer, weeds, two ash-leaved maples, crows, a birch with a bag |
 | ГСК «Мотор-14» brick garages | x 475.75–586.25, z 151.75–158.25 (doors face south) | one garage open with a bulb and a Lada (public package) |
 | Kindergarten № 1543 | site x 357.5–422.5, z 260.75–313.25; gate (390, 260.75) facing north | public package: building, verandas, play equipment, fence |
@@ -60,9 +60,10 @@ z 500  └──────────── avenue tree strip (avenue pkg) �
 All other entrances are locked (intercom rings, nobody answers). Entrance positions (door centre,
 porch level): Block B 1-515 doors x 435.25 / 408.75 / 382.25 / 355.75 / 329.25 at z 168 (south);
 B tower 1 (330, 208) and (330, 234) (east); B tower 2 (436, 222.25) (west); E towers (329, 352),
-(381, 352), (433, 352) (south); long building wing 1 x 580.25 / 554.75 / 529.25 / 503.75 / 478.25
-at z 193 (south), wing 2 (585, 234.25) and (585, 208.75) (west); 5-storey x 497.75 / 519.25 /
-540.75 / 562.25 at z 290 (north).
+(381, 352), (433, 352) (south); the long building is numbered round the corner: подъезды 1–2 on
+the east wing at (585, 234.25) and (585, 208.75) (west), 3–7 on the main wing at x 580.25 /
+554.75 / 529.25 / 503.75 / 478.25, z 193 (south); 5-storey x 497.75 / 519.25 / 540.75 / 562.25 at
+z 290 (north); kindergarten porches x 376.5 / 390 / 403.5 at z 289 (locked).
 
 ## Routes (what a player walks)
 
@@ -85,12 +86,13 @@ at z 193 (south), wing 2 (585, 234.25) and (585, 208.75) (west); 5-storey x 497.
 
 - N–S driveway x 456–462 (y 0, z 144–524) with a sidewalk on its west side (x 453.5–456), plough
   windrows on both edges (gaps at every mouth and crossing), cars parked along its **east** kerb
-  (x ≈ 461, facing south). Cobra lamps on concrete poles on the west sidewalk every 34 m
-  (x 454.9, z 160–488; the one at z 352 is dead).
+  (x ≈ 461, facing south). Cobra lamps on concrete poles at the back edge of the west sidewalk
+  every 34 m (x 453.2, z 160–420, then x 454.9 at the shop lot's kerb, z 454 and 488; the one at
+  z 352 is dead), heads over the asphalt.
 - E–W driveway z 322–328 (x 308–598) with sidewalks on the north side (and the south side along
   Block E), cars along the **south** kerb (z ≈ 326.95, facing west; x 332–382 and 501–540 — Block
-  F's own driveway leaves at x 489.5–494.5 and is kept clear), courtyard lamps on the north
-  sidewalk (z 320.85) at x 323, 357, 391, 425, 494 (dead), 528, 562.
+  F's own driveway leaves at x 489.5–494.5 and is kept clear), courtyard lamps at the back edge
+  of the north sidewalk (z 319.2) at x 323, 357, 391, 425, 494 (dead), 528, 562.
 - Inner driveways (y 0): Block B z 173–178 (+ perpendicular bays z 178–183.5), Block E z 357–362
   (+ parallel parking z 362–364.5), Block C z 198–203 x 462–576 (dead end, plough pile at
   (578.6, 200.6)), Block C garage lane z 158.5–165 (dead end).
@@ -128,12 +130,14 @@ Public/residential add their own zones (shop, stairwell_*, lift_*, garage).
 
 - Mittens on the spine bench (378.4, 437.5); a frozen carrier bag on the bench at (378.4, 398.5).
 - A loaf in a carrier bag on the bench by the shop (414.5, 465.2) — someone else went for bread.
+- A payphone «ТАКСОФОН» on the shop forecourt (416.2, 461.4) facing west (dial tone, «Абонент
+  недоступен»), a blue «ПОЧТА» box on the shop's north wall (421.3, 463).
 - The warm car in the shop lot (437.6, 470.6).
 - A sled at the foot of the snow hill (358.4, 474.6); footprints up its back.
-- At entrances: a sled (B tower 1), butts (1-515 entr. 3, tower 8/3, long building entr. 4), a cat
+- At entrances: a sled (B tower 1), butts (1-515 entr. 3, tower 8/3, long building подъезд 6), a cat
   in the vent with the «Не закрывайте продухи» note (1-515 entr. 5), a cat and a chained bicycle
   (5-storey), a dropped key fob with an intercom «таблетка» outside the enterable tower 8/2.
-- «Пропала собака» with one tear-off tab left on the long building (entrance 3).
+- «Пропала собака» with one tear-off tab left on the long building (подъезд 5).
 - Notice clusters (2–3 notices, sometimes flyers) beside every entrance door; benches (75 %) and
   lilac/snowberry (45 %) at entrances.
 - Notice boards at (376.8, 368.4) (with the lost-dog flyer) and (371.5, 186.6); a carpet rack in
@@ -184,7 +188,7 @@ All carry snow on their tops; pivot = bottom centre of the footprint unless note
 | `be_rings` | 3.5 × 2.0 × 1.75 | two concrete well rings on their sides |
 | `be_passport` | 2.75 × 2.75 × 0.5 | object passport board on two posts (text = a sign added by the layout); board front −Z |
 | `be_post` | 0.25 × 1.25 × 0.25 | lone rusty post (the glove sits on it) |
-| `be_roof_sign` | 9.0 × 2.5 × 0.5 | angle-iron roof frame for shop letters; letters plane = local −Z row (a sign quad 0.27 m in front of the pivot) |
+| `be_roof_sign` | 9.0 × 2.5 × 0.5 | angle-iron roof frame for shop letters; letters plane = local −Z row (a sign quad 0.27 m in front of the pivot), placed with `rot: 1` on the shop roof (y 4.0) |
 
 ## Notes for the integrator / neighbours
 

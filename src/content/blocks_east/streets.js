@@ -78,7 +78,7 @@ export function buildDriveways(ctx) {
   safe('piles', () => {
     plowedPile(ctx, 595.5, 325, { radius: 2.6, height: 2.2, seed: 11, buried: 'yolka' })
     plowedPile(ctx, 578.6, 200.6, { radius: 2.2, height: 1.9, seed: 12 })       // dead end of Block C's inner driveway
-    plowedPile(ctx, 592.5, 161.8, { radius: 2.4, height: 2.0, seed: 13, buried: 'tire' })
+    plowedPile(ctx, 594.0, 160.0, { radius: 2.0, height: 1.9, seed: 13, buried: 'tire' })      // garage lane's dead end
     plowedPile(ctx, 452.0, 497.0, { radius: 2.5, height: 2.4, seed: 14 })
     plowedPile(ctx, 320.0, 180.8, { radius: 2.0, height: 1.6, seed: 15, buried: false })
     plowedPile(ctx, 452.5, 446.5, { radius: 1.8, height: 1.5, seed: 16, buried: 'sled' })
@@ -86,12 +86,13 @@ export function buildDriveways(ctx) {
 
   // ---- driveway lamps: one side, ~33 m apart ----------------------------------------------
   safe('driveway lamps', () => {
-    // N–S: concrete cobra poles on the west sidewalk, heads over the asphalt
+    // N–S: concrete cobra poles at the yard edge of the west sidewalk (out of the walkers' way),
+    // heads over the asphalt; along the shop's parking lot they stand at the lot's kerb
     const zs = [160, 194, 228, 262, 296, 352, 386, 420, 454, 488]
-    zs.forEach((z, i) => lamp(ctx, { x: 454.9, z, angle: H, type: 'cobra', seed: 500 + i, broken: i === 6 ? true : undefined }))
-    // E–W: lower courtyard poles on the north sidewalk, heads over the asphalt (some mercury)
+    zs.forEach((z, i) => lamp(ctx, { x: z > 444 ? 454.9 : 453.2, z, angle: H, type: 'cobra', seed: 500 + i, broken: i === 6 ? true : undefined }))
+    // E–W: lower courtyard poles at the back edge of the north sidewalk, heads over the asphalt
     const xs = [323, 357, 391, 425, 494, 528, 562]
-    xs.forEach((x, i) => lamp(ctx, { x, z: 320.85, angle: 0, type: 'courtyard', seed: 520 + i, broken: i === 4 ? true : undefined }))
+    xs.forEach((x, i) => lamp(ctx, { x, z: 319.2, angle: 0, type: 'courtyard', seed: 520 + i, broken: i === 4 ? true : undefined }))
   })
 
   // ---- parked cars on the driveway edges (snowed in; the buried drifts fall away from the lane) --
@@ -130,21 +131,23 @@ export function buildDriveways(ctx) {
     { points: [[cx, 200.5], [576, 200.5]], kind: 'driveway' },
     { points: [[cx, 161.8], [590, 161.8]], kind: 'driveway' },
   )
-  // sidewalks
+  // sidewalks (every line ends on another one, so the walkers' graph is one piece)
   ctx.navPaths.push(
-    { points: [[454.75, 148], [454.75, 320.75], [310, 320.75]], kind: 'sidewalk' },
+    { points: [[454.75, 144.5], [454.75, 320.75], [309.25, 320.75]], kind: 'sidewalk' },
+    { points: [[454.75, 320.75], [462, 320.75]], kind: 'crossing' },
     { points: [[462, 320.75], [597, 320.75]], kind: 'sidewalk' },
-    { points: [[310, 329.25], [454.75, 329.25], [454.75, 443]], kind: 'sidewalk' },
+    { points: [[309.25, 320.75], [309.25, 329.25]], kind: 'crossing' },
+    { points: [[309.25, 329.25], [454.75, 329.25], [454.75, 443]], kind: 'sidewalk' },
     { points: [[309.25, 329.25], [309.25, 508]], kind: 'sidewalk' },
-    { points: [[313, 170.5], [451, 170.5]], kind: 'sidewalk' },
-    { points: [[319, 184.5], [451, 184.5]], kind: 'sidewalk' },
-    { points: [[332.75, 185], [332.75, 251]], kind: 'sidewalk' },
-    { points: [[433.25, 185], [433.25, 245]], kind: 'sidewalk' },
-    { points: [[313, 354.5], [451, 354.5]], kind: 'sidewalk' },
-    { points: [[313, 365.5], [451, 365.5]], kind: 'sidewalk' },
-    { points: [[465, 195.5], [583, 195.5]], kind: 'sidewalk' },
-    { points: [[465, 206.5], [580.9, 206.5], [580.9, 248.5]], kind: 'sidewalk' },
-    { points: [[484, 287.5], [574, 287.5]], kind: 'sidewalk' },
+    { points: [[313, 170.5], [454.75, 170.5]], kind: 'sidewalk' },
+    { points: [[319, 184.5], [454.75, 184.5]], kind: 'sidewalk' },
+    { points: [[332.75, 184.5], [332.75, 251]], kind: 'sidewalk' },
+    { points: [[433.25, 184.5], [433.25, 245]], kind: 'sidewalk' },
+    { points: [[309.25, 354.5], [454.75, 354.5]], kind: 'sidewalk' },
+    { points: [[309.25, 365.5], [454.75, 365.5]], kind: 'sidewalk' },
+    { points: [[458.3, 197.2], [465, 195.5], [583, 195.5], [583, 196.4]], kind: 'sidewalk' },
+    { points: [[458.3, 205.0], [465, 206.5], [580.4, 206.5], [580.9, 248.5]], kind: 'sidewalk' },
+    { points: [[484, 286], [574, 286]], kind: 'sidewalk' },
   )
 }
 
@@ -225,7 +228,7 @@ export function buildCourtyards(ctx) {
     placeNoticeBoard(ctx, { x: 371.5, z: 186.6, angle: Math.PI, seed: 93 })
     keep(375.5, 367.5, 378.2, 369.4, 0.6); keep(370.4, 185.6, 372.6, 187.6, 0.6)
     placeElectricalCabinet(ctx, { x: 447.5, z: 331.6, angle: Math.PI, seed: 94 })
-    placeRoadSign(ctx, { x: 453.9, z: 149.5, angle: Math.PI, type: 'children' })
+    placeRoadSign(ctx, { x: 453.2, z: 149.5, angle: Math.PI, type: 'children' })
   })
 
   // ---- the heating main: steaming manholes on the thawed strip ------------------------------
@@ -259,7 +262,7 @@ export function buildParking(ctx) {
     parkRow(ctx, { x0: 451.6, z0: 476, x1: 451.6, z1: 494, angle: -H, density: 0.55, snow: [['buried', 3], ['heavy', 3]], seed: 824, warmChance: 0 })
   })
   safe('C strip', () => {
-    const rows = [[472, 485], [492, 527], [534, 590]]
+    const rows = [[472, 485], [492, 527], [534, 573]]          // the strip ends at the dead end (x 576)
     rows.forEach(([a, b], i) => parkRow(ctx, { x0: a, z0: 204.25, x1: b, z1: 204.25, angle: -H, density: 0.6, snow, seed: 831 + i, warmChance: 0 }))
     // in front of the garages
     placeParkedCar(ctx, { x: 503.5, z: 163.2, angle: -H, snow: 'heavy', seed: 841 })

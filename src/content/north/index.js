@@ -41,6 +41,7 @@ export default {
     safe('zones', () => {
       const z = ctx.zones
       z.add({ name: 'zavodskaya', min: [0, -2, 124.5], max: [640, 40, PARK.z0], reverb: 'outdoor', traffic: 0.55, wind: 1, data: { pkg: 'north' } })
+      z.add({ name: 'zavodskaya_stop', min: [STOP.x - 7, -2, PARK.z0 - 0.5], max: [STOP.x + 7, 40, PARK.z0 + 2], reverb: 'outdoor', traffic: 0.55, wind: 0.85, data: { pkg: 'north' } })
       z.add({ name: 'industrial', min: [0, -2, RAIL.fenceZ], max: [640, 60, 124.5], reverb: 'outdoor', traffic: 0.45, wind: 1.05, data: { pkg: 'north' } })
       z.add({ name: 'railway', min: [0, -2, 0], max: [640, 60, RAIL.fenceZ], reverb: 'outdoor', traffic: 0.3, wind: 1.15, data: { pkg: 'north' } })
       z.add({ name: 'platform_shelter', min: [265, 2, 53.1], max: [272, 5, 55.9], reverb: 'outdoor', wind: 0.5, priority: 1, data: { pkg: 'north' } })

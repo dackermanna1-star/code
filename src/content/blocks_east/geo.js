@@ -33,9 +33,10 @@ export const BUILDINGS = {
   et3: { series: 'p44t', floors: 17, sections: 1, x: 447, z: 352, rot: 2, seed: 53, address: { street: MOL, house: '8', korpus: '3' }, tint: 0x925f48 },
   // Block C: the very long 9-storey P-44 — 7 identical sections bent into an L: five along the
   // yard (x 466.5–594) and two more turning south along the east edge (x 585–598, z 197–248),
-  // entrances 1–7 in one numbering — and a brick 5-storey
-  c9: { series: 'p44', floors: 9, sections: 5, x: 594, z: 193, rot: 2, seed: 61, address: { street: ZAV, house: '9' }, tint: 0x4f6b8f, lampsBroken: 0.35, variants: ['a', 'b', 'a', 'a', 'b'] },
-  c9e: { series: 'p44', floors: 9, sections: 2, x: 585, z: 248, rot: 1, seed: 64, address: { street: ZAV, house: '9' }, tint: 0x4f6b8f, lampsBroken: 0.5, firstEntrance: 6, firstApartment: 181, variants: ['a', 'b'] },
+  // entrances numbered 1–7 from the south end of the east wing round the corner to the west end —
+  // and a brick 5-storey
+  c9: { series: 'p44', floors: 9, sections: 5, x: 594, z: 193, rot: 2, seed: 61, address: { street: ZAV, house: '9' }, tint: 0x4f6b8f, lampsBroken: 0.35, variants: ['a', 'b', 'a', 'a', 'b'], firstEntrance: 3, firstApartment: 73 },
+  c9e: { series: 'p44', floors: 9, sections: 2, x: 585, z: 248, rot: 1, seed: 64, address: { street: ZAV, house: '9' }, tint: 0x4f6b8f, lampsBroken: 0.5, firstEntrance: 1, firstApartment: 1, variants: ['a', 'b'] },
   c5: { series: 'ii32', floors: 5, sections: 4, x: 486, z: 290, rot: 0, seed: 62, address: { street: MOL, house: '5' } },
 }
 

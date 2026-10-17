@@ -8,7 +8,7 @@
 import { defineModel } from '../../core/models.js'
 import { VoxelModel } from '../../core/VoxelModel.js'
 import { M } from '../../core/materials.js'
-import { RNG } from '../../core/rng.js'
+import { RNG, valueNoise2 } from '../../core/rng.js'
 import { fineModel } from './lib.js'
 
 const snowOn = (m, o = {}) => m.addSnow({ mat: M('snow'), depth: 1, ...o })
@@ -163,13 +163,18 @@ function platformSeg(seed, end) {
     if (x % 8 === 0) for (let y = 3; y < 9; y++) m.set(x, y, 0, M('panel_seam'))
   }
   for (let x = 0; x < 40; x++) if (x % 10 === 0) for (let y = 0; y < 9; y++) m.set(x, y, 15, M('panel_seam'))
-  // deck surface
+  // deck surface: coherent patches (value noise), not per-voxel salt-and-pepper — a trodden band
+  // along the middle where people walk, packed snow where they stand by the edge, soft snow at the
+  // back, the worn edge slab with a broken safety line
+  const nz = seed * 7.31
   for (let z = 0; z < 16; z++) for (let x = 0; x < 40; x++) {
+    const n = valueNoise2(x * 0.22 + nz, z * 0.45, seed), n2 = valueNoise2(x * 0.6 + nz, z * 0.6, seed + 3)
     let mat
-    if (z === 0) mat = M('concrete_light')
-    else if (z === 1) mat = rng.chance(0.85) ? M('road_marking') : M('concrete_light')
-    else if (z >= 6 && z <= 9) mat = rng.chance(0.75) ? M('snow_packed') : (rng.chance(0.5) ? M('snow_dirty') : M('asphalt'))
-    else mat = rng.chance(0.85) ? M('snow') : M('snow_packed')
+    if (z === 0) mat = n2 > 0.8 ? M('snow_packed') : M('concrete_light')
+    else if (z === 1) mat = n > 0.82 || n2 > 0.86 ? M('snow_packed') : M('road_marking')
+    else if (z >= 5 && z <= 9) mat = n < 0.22 ? M('asphalt') : n > 0.74 ? M('snow_dirty') : M('snow_packed')
+    else if (z <= 4) mat = n > 0.55 ? M('snow_packed') : n2 > 0.7 ? M('snow_dirty') : M('snow')
+    else mat = n2 > 0.72 ? M('snow_packed') : M('snow')
     m.set(x, 8, z, mat)
   }
   // back railing

@@ -90,20 +90,21 @@ function updateDog(dt, ctx) {
   // bark timing: a burst when the player first comes within ~16 m, then now and then while near
   S.barkT -= dt
   const nearNow = dist < 16
-  const audio = ctx.audio
-  const bark = (gain) => {
-    S.barkShow = 1.4
-    S.lastBark = S.time
-    if (audio?.ready) { try { audio.play('dog_bark', { pos: [d.x, 0.8, d.z], dog: 1, gain }) } catch { /* optional */ } }
-  }
-  if (nearNow && !S.near && S.time - S.lastBark > 6) bark(1)
+  if (nearNow && !S.near && S.time - S.lastBark > 6) bark(ctx, d, 1)
   S.near = nearNow
   if (S.barkT <= 0) {
     const night = (ctx.atmos?.values?.night ?? 0.5) > 0.4
-    if (dist < 60) bark(0.9)
-    else if (dist < 220 && rng.chance(night ? 0.5 : 0.25)) bark(0.75)
+    if (dist < 60) bark(ctx, d, 0.9)
+    else if (dist < 220 && rng.chance(night ? 0.5 : 0.25)) bark(ctx, d, 0.75)
     S.barkT = dist < 60 ? rng.float(7, 18) : rng.float(20, 55)
   }
+}
+
+function bark(ctx, d, gain) {
+  S.barkShow = 1.4
+  S.lastBark = S.time
+  const audio = ctx.audio
+  if (audio?.ready) { try { audio.play('dog_bark', { pos: [d.x, 0.8, d.z], dog: 1, gain }) } catch { /* optional */ } }
 }
 
 export function updateRuntime(dt, ctx) {

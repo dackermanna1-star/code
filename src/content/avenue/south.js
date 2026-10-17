@@ -5,7 +5,7 @@
 import { RNG } from '../../core/rng.js'
 import {
   placeBusStop, placeLitterBin, placeBillboard, placeAdColumn, placeMailbox, placePaymentTerminal, placeVendingMachine,
-  placeNoticeBoard, placeTrafficLight, placeRoadSign, placeManhole, placeFence, placeBench, placeGarbageArea,
+  placeNoticeBoard, placeTrafficLight, placeRoadSign, placeManhole, placeBench, placeGarbageArea,
   placeRakushkaRow, placeElectricalCabinet,
 } from '../street/api.js'
 import { placeKiosk, placeShop, placePharmacy } from '../public/api.js'
@@ -13,12 +13,6 @@ import { placeResidential } from '../residential/api.js'
 import { placeTree, placeBush } from '../nature/api.js'
 import { placeParkedCar, CAR_COLORS } from '../vehicles/api.js'
 import { Z, STOP_S, ROW, ROW_Z, LAYBY, ZEBRA, METRO, safe, poster } from './layout.js'
-
-/** Low fence along the lawns in front of the 9-storey row — before the banks bury it. */
-export function placeSouthFence(ctx) {
-  const runs = [[46, 159], [167, 289], [298, 351]]
-  runs.forEach(([a, b], i) => safe('south fence', () => placeFence(ctx, { points: [[a, Z.FENCE_S], [b, Z.FENCE_S]], type: 'lawn', seed: 400 + i, tint: 0x55663f })))
-}
 
 export function placeSouthStop(ctx) {
   return safe('south stop', () => placeBusStop(ctx, {

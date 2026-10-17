@@ -9,7 +9,7 @@ import { paintGround, raiseBanks } from './ground.js'
 import { buildOverhead, buildWalkLamps } from './overhead.js'
 import { placeNorthTrees, placeSpawnStop, placeNorthFurniture } from './north.js'
 import {
-  placeSouthFence, placeSouthStop, placeForecourt, placeLaybyCars, placeRow, furnishRow, placeSouthTrees, placeSouthFurniture,
+  placeSouthStop, placeForecourt, placeLaybyCars, placeRow, furnishRow, placeSouthTrees, placeSouthFurniture,
 } from './south.js'
 import { buildTerminal } from './terminal.js'
 import { placeDetails } from './details.js'
@@ -25,32 +25,30 @@ export default {
     const lights0 = ctx.lights?.list?.length ?? 0
     // 1. ground: roads, kerbs, median, sidewalks, lawns, forecourts, terminal, paths
     paintGround(ctx)
-    // 2. low lawn fences (south walk only: on the north walk, the spawn view, the 25 cm hoops read
-    //    as a dark wall) go in before the banks so the cleared snow banks up behind them
-    safe('fences', () => placeSouthFence(ctx))
-    // 3. windrows, the median ridge, banks of cleared snow, plough piles
+    // 2. windrows, the median ridge, banks of cleared snow, plough piles (no low lawn fences along
+    //    the walks: at 25 cm voxels their hoops read as a dark wall)
     raiseBanks(ctx)
-    // 4. median lamps, trolley poles, span and contact wires (wrap-periodic)
+    // 3. median lamps, trolley poles, span and contact wires (wrap-periodic)
     parts.overhead = safe('overhead', () => buildOverhead(ctx))
     parts.walkLamps = safe('walk lamps', () => buildWalkLamps(ctx))
-    // 5. north side
+    // 4. north side
     parts.spawn = safe('spawn stop', () => placeSpawnStop(ctx))
     safe('north furniture', () => placeNorthFurniture(ctx))
-    // 6. south side
-    parts.southStop = placeSouthStop(ctx)
+    // 5. south side
+    parts.southStop = safe('south stop', () => placeSouthStop(ctx))
     parts.forecourt = safe('forecourt', () => placeForecourt(ctx))
     parts.cabs = safe('layby cars', () => placeLaybyCars(ctx))
     parts.row = safe('row', () => placeRow(ctx)) || []
     parts.benches = safe('row benches', () => furnishRow(ctx, parts.row))
     safe('south furniture', () => placeSouthFurniture(ctx))
-    // 7. bus terminal (registers ctx.registry.busTerminal)
+    // 6. bus terminal (registers ctx.registry.busTerminal)
     parts.terminal = safe('terminal', () => buildTerminal(ctx))
-    // 8. trees last, on the final ground
+    // 7. trees last, on the final ground
     parts.treesN = safe('north trees', () => placeNorthTrees(ctx)) || []
     parts.treesS = safe('south trees', () => placeSouthTrees(ctx)) || []
-    // 9. notices, graffiti, story props, crows
+    // 8. notices, graffiti, story props, crows
     safe('details', () => placeDetails(ctx, parts))
-    // 10. walkers, zones, registry
+    // 9. walkers, zones, registry
     registerNav(ctx)
     registerZones(ctx)
     safe('registry', () => registerAvenue(ctx, parts))

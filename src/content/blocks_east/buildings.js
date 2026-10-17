@@ -4,7 +4,7 @@
 
 import { placeResidential } from '../residential/api.js'
 import { placeKindergarten, placeHockeyBox, placeShop, placeSubstation, placeGarageRow } from '../public/api.js'
-import { placeBench, placeLitterBin } from '../street/api.js'
+import { placeBench, placeLitterBin, placePayphone, placeMailbox } from '../street/api.js'
 import { placeBush } from '../nature/api.js'
 import { addNoticeCluster, addNotice, addPoster, addGraffiti } from '../phone/api.js'
 import { placeStory, placeStoryAtEntrance } from '../life/api.js'
@@ -132,6 +132,13 @@ export function dressPublic(ctx, out) {
         c.restore()
       },
     })
+  })
+  // a payphone on the forecourt by the shop's north corner (its front toward the yard) and a
+  // blue «ПОЧТА» box on the north end wall
+  safe('shop payphone', () => {
+    placePayphone(ctx, { x: 416.2, z: 461.4, angle: -Math.PI / 2, seed: 81 })
+    placeMailbox(ctx, { x: 421.3, z: 462.99, angle: Math.PI, wall: true, y: 0.25 + 1.05 })
+    keep(415, 460.2, 417.4, 462.6, 0.6, 'payphone')
   })
   safe('shop flyers', () => {
     addPoster(ctx, { x: 425.6, y: 1.75, z: 462.99, angle: Math.PI, kind: 'ad', seed: 21, fade: 0.45 })

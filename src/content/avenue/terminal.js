@@ -6,7 +6,7 @@
 import { defineModel } from '../../core/models.js'
 import { VoxelModel } from '../../core/VoxelModel.js'
 import { M } from '../../core/materials.js'
-import { placeBusStop, placeStreetLamp, placeBench, placeLitterBin, placeFence } from '../street/api.js'
+import { placeBusStop, placeStreetLamp, placeBench, placeLitterBin } from '../street/api.js'
 import { placeDispatcherBooth } from '../public/api.js'
 import { placeParkedBus } from '../vehicles/api.js'
 import { placeTree } from '../nature/api.js'
@@ -45,11 +45,6 @@ export function buildTerminal(ctx) {
   })
   safe('platform bench', () => placeBench(ctx, { x: 529.4, z: 577.2, angle: Math.PI / 2, type: 'park', seed: 529 }))
   safe('platform bin', () => placeLitterBin(ctx, { x: 529.3, z: 574.2, angle: Math.PI / 2, type: 'concrete', seed: 533 }))
-  // railing along the back of the platform
-  safe('platform rail', () => {
-    placeFence(ctx, { points: [[527.9, 573], [527.9, 581.2]], type: 'bars', seed: 77, tint: 0x3d4a3e })
-    placeFence(ctx, { points: [[527.9, 584.2], [527.9, 594.5]], type: 'bars', seed: 78, tint: 0x3d4a3e })
-  })
 
   // ---- dispatcher's hut on the island, window facing the stand ---------------------------------
   safe('dispatcher', () => { out.booth = placeDispatcherBooth(ctx, { x: 545.9, z: 580.5, rot: 1, route: '648', seed: 5 }) })

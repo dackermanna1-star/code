@@ -23,10 +23,8 @@ export const Z = {
   S_WALK: [563, 570.5],
   S_SIDE: [556, 572],
   STRIP: [572, 600], // south strip: kiosks, shop, 9-storey row, terminal
-  // the cleared walk snow is heaped in banks on the lawn just behind each walk; on the south walk
-  // a low arched lawn fence stands on the walk's outer edge cells, at the bank's foot
+  // the cleared walk snow is heaped in banks on the lawn just behind each walk
   BANK_N: [505.4, 508.72],
-  FENCE_S: 570.62,
   BANK_S: [570.78, 573.9],
 }
 export const LANES_W = [527.5, 531, 534.5]

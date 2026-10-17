@@ -44,8 +44,6 @@ z 143–146.5 south sidewalk (0.25), plough bank on its kerb edge, lamps at its 
 z 147–499.5 PARK x 24–139 (cast-iron fence on the north, east and south sides; open to the west/whiteout)
 ```
 
-(The tables of landmarks, doors and story spots follow below.)
-
 ## Landmarks (x, z) — what a player should see
 
 | landmark | where | notes |
@@ -70,7 +68,7 @@ z 147–499.5 PARK x 24–139 (cast-iron fence on the north, east and south side
 | Park main gate | (131, 147) on Заводская | alley A runs SW to the pond |
 | Park north gate | (71, 147) | alley B through the birch grove, one leaf hanging nearly closed |
 | Park east gates | (139, 236), (139, 325), (139, 412) | meet blocks_west's crossings over Берёзовая (z 236, 412) and the E–W driveway axis (z 325) |
-| Park south gate | (133.5, 499.4) | path through the gap of the avenue's lawn fence to the avenue sidewalk at (139.1, 513.2) |
+| Park south gate | (133.5, 499.4) | path through the avenue's tree strip (x 137–139.75, by Берёзовая's mouth) to the avenue sidewalk at (139.1, 513.2) |
 | ГСК gate | x 118–124.5, z 124.5 | west leaf closed, east leaf open; guard booth (128.2, 120.4) |
 | Boiler yard gate | x 262–270, z 124.5 (both leaves open); wicket x 247.6–250.8 by the staff door | the boiler door is not enterable (public package) |
 | Warehouse base gate | x 386.75–393.25, z 124.5 | lit gate lamp (385.3, 123.5), guard booth inside |
@@ -98,7 +96,7 @@ No building in this district is enterable (the open garages are walk-in: two in 
 | Lonely buzzing mercury lamp over the transformer kiosk; a trodden trail through the weeds to a hole in the railway fence | (529.5, 120.4) |
 | A buried «шестёрка» and a rusted container in the wasteland | (566.5, 104.5), (590, 95) |
 | Lost glove on its own post by the park fence | (137.9, 415.6) |
-| Frozen carrier bag on a pond bench | bench at ring angle 150° (≈ (44, 348)) |
+| Frozen carrier bag on a pond bench | bench at ring angle 150° (≈ (46, 345)) |
 | Snowman by the playground; sled at the foot of the sledding hill | (99.5, 460.5); (65.5, 406.2) |
 | Steam from a manhole on the main alley (thawed ring round it) | alley A, ≈ (127, 173) |
 | Bag snagged in a birch near the playground; crows on a grove birch, on the café birch, on the ground by the café bin, on the garage roof, on the boiler parapet, in the warehouse yard | |
@@ -106,7 +104,7 @@ No building in this district is enterable (the open garages are walk-in: two in 
 | Memorial: a wreath with a faded ribbon, two frozen carnations, a readable plaque | (125, 325) |
 | Ski track (лыжня): two grooves winding through the western birch grove into the whiteout | x 28–56, z 158–494 |
 
-## Lights (57 in the region, 4 of them only while a train passes; pools far apart, dark gaps between)
+## Lights (58 in the region, 4 of them only while a train passes; pools far apart, dark gaps between)
 
 | group | count | notes |
 |---|---|---|
@@ -114,7 +112,7 @@ No building in this district is enterable (the open garages are walk-in: two in 
 | Park lanterns | 25 low cast-iron lanterns (`street` type `park`), 11 of them smashed | pools of warm light 30–60 m apart along the alleys, two at the memorial plaza (one dead), four round the pond (two dead) |
 | Playground lamp | 1 | from `placePlayground` |
 | Bus stop tube | 1 | pavilion light, the fascia is backlit |
-| Platform | 2 mercury poles, one dead | (259.5, 55.4) lit, (279.5, 55.4) dead |
+| Platform and crossing | 3 mercury poles, one dead | (259.5, 55.4) lit, (279.5, 55.4) dead, (303.2, 57.4) over the crossing approach |
 | Crossing signals | 4 red point lights | dark unless a train is within 280 m of x 300 (schedule follows `crossingSignal.active`) |
 | Garage cooperative | guard booth (2), two open garages (2 each), two caged wall bulbs over the lanes (one dying) | wall bulbs at (98.5, 67.8) and (161.2, 88.55) |
 | Boiler house | ≈ 8 (public package: aviation lights, door bulb, floodlight, window spill) | |
@@ -129,6 +127,7 @@ No building in this district is enterable (the open garages are walk-in: two in 
 | `park_grove` | x 14–94, z 151–300 (priority 1) | park / 0.6 / 0.45 |
 | `park_shell` | the concert shell's stage (priority 1) | courtyard / 0.2 |
 | `zavodskaya` | x 0–640, z 124.5–147 | outdoor / 1 / 0.55 |
+| `zavodskaya_stop` | x 280–294, z 146.5–149 (the trodden pocket behind the bus stop, so it does not read as park) | outdoor / 0.85 / 0.55 |
 | `industrial` | x 0–640, z 58.5–124.5 | outdoor / 1.05 / 0.45 |
 | `garages` | the lanes between the ГСК rows | courtyard / 0.7 / 0.6 |
 | `railway` | x 0–640, z 0–58.5 | outdoor / 1.15 / 0.3 |
@@ -157,6 +156,8 @@ No building in this district is enterable (the open garages are walk-in: two in 
 - `registry.railway = { y: 1.25, tracks: [46, 50], crossingX: 300, platform }` (read by vehicles' elektrichka).
 - `registry.north = { lights, railway, street, park, industrial }` (geometry summary).
 - `registry.streets` += `{ name: 'ул. Заводская', axis: 'x', x0, x1, z0, z1, lanes }`.
+- `registry.driveways` += three routes for the vehicles package's rare crawler: along Заводская into the
+  warehouse gate, along Заводская into the ГСК and down lane 2, and through both ГСК lanes (they end at dead ends).
 - `registry.landmarks` += memorial, pond, platform, crossing, garages (the public package adds the chimney).
 - `registry.storySpots` += `guard_dog`, `lonely_lamp`, `lost_glove`, `closed_cafe`, `empty_stage` (plus `open_garage` from public).
 - `registry.blocks` += `{ name: 'park', pkg: 'north', rect }`.
@@ -228,14 +229,15 @@ Sizes W × H × D in metres (local X × Y × Z). "fine" = 12.5 cm voxels (non-so
   repaints the street's verge over Берёзовая's stub north of z 133. The south sidewalk (z 143–146.5) reaches
   2.5 m into the blocks' strip (z 144–146.5); at the driveway mouths (x 302–308, 456–462) it drops to road level.
   A neighbour's plough pile taller than 1 m is kept on the back metre of the sidewalk. The park's south path
-  crosses the avenue's tree strip at x 137–139.75 to the gap in its lawn fence and ends on its nav line.
-- **Not walkable on purpose:** the plough banks along both kerbs (gaps at every crossing listed above), the
-  shovelled ridges along the park alleys (patchy, with gaps), the fences.
+  crosses the avenue's tree strip at x 137–139.75 (beside Берёзовая's mouth) and ends on its nav line.
+- **Not walkable on purpose:** the plough banks along both kerbs (gaps at every crossing listed above) and the
+  fences. The park alleys sit 0.25 m below the lawn with a low shovelled windrow along their edges (0.25 m
+  steps: you can step off a path anywhere into the snow).
 - The heating main is the public package's `placeHeatPipe` (6 m segments, П-arches with 6.25 m clearance).
 
 ## Vegetation and performance
 
-- ≈ 210 trees in the district (≈ 180 in the park): a dense birch grove (with clumps, a few spruces, rowans,
+- ≈ 236 trees in the district (≈ 205 in the park): a dense birch grove (with clumps, a few spruces, rowans,
   lindens) in the north-west (x 26–94, z 151–300) and south-west (x 26–72, z 360–497); sparser mixed planting
   in the east half; old lindens/poplars along the east and north fences; lindens (and a few Norway maples)
   lining both sides of the main alley A; two blue spruces at the memorial; birches leaning over the pond;
@@ -243,6 +245,6 @@ Sizes W × H × D in metres (local X × Y × Z). "fine" = 12.5 cm voxels (non-so
   wasteland; pollarded poplars on the verge in front of the ГСК fence.
 - Dry weeds (burdock, tansy, grass) along the fences, the embankment foot and over the wasteland; reeds and
   cattails at the pond (nature's `placePond`); lilac, snowberry and currant by the café, plaza and alleys.
-- Measured in a headless build: ≈ 2 830 placements (a third of them fence panels and their fine bars, rails,
-  garage boxes and doors — all instanced), 57 lights. In-world views at 800 × 450: 90–400 draw calls,
+- Measured in a headless build: ≈ 2 880 placements (a third of them fence panels and their fine bars, rails,
+  garage boxes and doors — all instanced), 58 lights. In-world views at 800 × 450: 90–400 draw calls,
   0.15–0.65 M triangles (the birch grove is the heaviest view).

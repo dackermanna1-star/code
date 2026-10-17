@@ -18,12 +18,12 @@ export const BLOCK_D = {
     mittens: true, snowman: true, glove: true, frozenBag: false, key: [92, 151], pocket: true, trail: true,
     homeNotices: ['notice_heating', 'notice_mitten'], tp: 1417, tpGraffiti: 'gr_tsoi', heart: 'gr_lenasasha', chalk: true,
     stories: [
-      { b: 'N', i: 2, kind: 'sled', side: -1 },
+      { b: 'N', i: 2, kind: 'sled', side: 1 },
       { b: 'N', i: 0, kind: 'cat', side: 1, note: true },
       { b: 'W', i: 1, kind: 'butts', side: -1 },
       { b: 'S', i: 2, kind: 'bicycle', side: 1 },
     ],
-    spruce: [128, 46], trees: 16, wind: 0.55, crows: 3,
+    spruce: [128, 46], trees: 22, wind: 0.55, crows: 3,
   },
 }
 
@@ -44,8 +44,8 @@ export const BLOCK_F = {
       { b: 'W', i: 0, kind: 'bicycle', side: 1 },
     ],
     extraCars: [{ u: 112, v: 140, angle: 0.4, type: 'moskvich2141', snow: 'buried' }],
-    spruce: [52, 132], trees: 13, wind: 0.35, silence: true, crows: 2, benchShift: 1,
-    gate: { v: 165, u0: 76.2, u1: 80.2, open: 1.75 },
+    spruce: [52, 132], trees: 17, wind: 0.35, silence: true, crows: 2, benchShift: 1,
+    gate: { v: 165, u0: 76.2, u1: 80.2, open: 2.25 },
   },
 }
 

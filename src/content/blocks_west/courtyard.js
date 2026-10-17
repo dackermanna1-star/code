@@ -17,7 +17,7 @@ import { paintDriveway } from '../base/api.js'
 import { placeResidential } from '../residential/api.js'
 import { placeSubstation } from '../public/api.js'
 import {
-  placeStreetLamp, placeBench, placePlayground, placeCarpetRack, placeGarbageArea, placeRakushkaRow,
+  placeStreetLamp, placeBench, placePlayground, placeCarpetRack, placeGarbageArea, placeRakushka,
   placeLitterBin, placeElectricalCabinet, placeFence, angleFacing, angleAlong,
 } from '../street/api.js'
 import { placeTree, placeTreeRow, scatterTrees, placeBush, plowedPile, snowDrift, snowBank, addCrows, scatterWeeds } from '../nature/api.js'
@@ -67,7 +67,7 @@ export function paintCourtyard(ctx, cfg, gaps) {
     const n = valueNoise2(x * 0.6, z * 0.6, s)
     return { h: 0, mat: n > 0.66 ? M('snow_dirty') : n < 0.1 ? M('slush') : M('snow_packed') }
   })
-  lot(38.4, 32.4, W - 16.6, 38.6, cfg.seed + 61)
+  lot(38.4, 32.4, W - 7, 38.6, cfg.seed + 61)
   lot(32.4, 41.4, 38.6, 132.4, cfg.seed + 62)
   if (cfg.eastDriveway && cfg.v?.pocket) lot(W - 5.7, 68.6, W, 101.4, cfg.seed + 63)
   // facade sidewalks (0.25)
@@ -163,10 +163,19 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
   const n2 = N.entrances.find(e => Math.abs(u(e.x) - (homeU + 27)) < 2) || N.entrances[0]
   const n2U = u(n2.x)
   paths.ne = [[hub[0], hub[1]], [96, 116.5], [111, 109], [114, 84], [n2U + 1.5, 60], [n2U, 41], [n2U, 38.6]]
+  // every other entrance of корп. 2 gets its own short track into the yard network
+  const nOther = N.entrances.map(e => u(e.x)).filter(eu => Math.abs(eu - homeU) > 3 && Math.abs(eu - n2U) > 3)
+  nOther.forEach((eu, k) => {
+    paths[`n${k}`] = eu < homeU
+      ? [[eu, 38.6], [eu + 0.3, 47], [55, 62], [58, v(Wb.entrances[1].z) + 6]]
+      : [[eu, 38.6], [eu - 0.5, 50], [eu - 5.5, 66], [120, 77]]
+  })
   // корп. 1 doors (west) → the hub and the passage
   const w3 = Wb.entrances[3], w2 = Wb.entrances[2], w1 = Wb.entrances[1]
   paths.w3 = [[38.6, v(w3.z)], [52, v(w3.z) + 6], [66, 146], [79, 155.5]]
   paths.w2 = [[38.6, v(w2.z)], [54, v(w2.z) + 10], [hub[0], hub[1]]]
+  const w0 = Wb.entrances[0]
+  paths.w0 = [[38.6, v(w0.z)], [46, v(w0.z) + 6], [53, 66]]
   paths.w1 = [[38.6, v(w1.z)], [58, v(w1.z) + 6], [PG[0] - 12.5, PG[1] - 9]]
   // toward the shop: from the north parking gap past the playground's north side, east to the
   // N–S driveway (D: Block E's desire line to «Продукты» starts across it at x 310.5, z 438).
@@ -187,7 +196,8 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
   const navLink = (a, b) => ctx.navPaths.push({ points: [P(...a), P(...b)], kind: 'crossing' })
   navLink([homeU, 38.6], [homeU, 25.9])
   navLink([n2U, 38.6], [n2U, 25.9])
-  for (const e of [w3, w2, w1]) navLink([38.6, v(e.z)], [25.9, v(e.z)])
+  for (const e of [w3, w2, w1, w0]) navLink([38.6, v(e.z)], [25.9, v(e.z)])
+  for (const eu of nOther) navLink([eu, 38.6], [eu, 25.9])
   navLink([C.driveW.u, C.driveW.v1], [27.4, 137.6])
   if (cfg.eastDriveway) navLink([W - 0.6, 108.5], [W + 8.5, 110])
   if (!cfg.westStreet) navLink([1, 171.4], [-4.6, 171.4])
@@ -230,7 +240,14 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
     placeSubstation(ctx, { x: tx, z: tz, rot: 0, seed: cfg.seed + 26, number: V.tp ?? 1417 })
     keep.rect(tx - 4, tz - 3.5, tx + 4, tz + 3, 1)
     addGraffiti(ctx, { x: tx - 3.26, y: 1.25, z: tz + 0.6, angle: -Math.PI / 2, id: V.tpGraffiti ?? 'gr_tsoi', h: 0.45 })
-    placeRakushkaRow(ctx, { x0: X(28), z0: Z(163.5), x1: X(59), z1: Z(163.5), angle: Math.PI, seed: cfg.seed + 27, missing: 0.12 })
+    // a row of rakushki facing the yard; a couple of them tagged (graffiti on the garages)
+    const rr = ctx.rng(cfg.seed + 27)
+    const tags = new Set(V.garageTags ?? [2, 6])
+    for (let i = 0; i < 10; i++) {
+      if (!tags.has(i) && rr.chance(0.12)) continue
+      const gx = X(29.4 + i * 3.05 + rr.float(-0.08, 0.08))
+      placeRakushka(ctx, { x: gx, z: Z(163.5 + rr.float(-0.15, 0.15)), angle: Math.PI + rr.float(-0.04, 0.04), seed: cfg.seed * 7 + i * 13, ...(tags.has(i) ? { sale: false, graffiti: true } : {}) })
+    }
     keep.rect(X(27), Z(160.5), X(60), Z(166.5), 0.5)
     placeElectricalCabinet(ctx, { x: X(C.passage[1] - 0.8), z: Z(157.8), angle: -Math.PI / 2 })
     keep.circle(X(C.passage[1] - 0.8), Z(157.8), 1.2)
@@ -304,12 +321,12 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
 
   // ---- parked cars ---------------------------------------------------------------------------------
   safe(`${cfg.name} cars`, () => {
-    const gapsN = [[homeU - 3.2, homeU + 3.2], [n2U - 3.2, n2U + 3.2]]
+    const gapsN = N.entrances.map(e => [u(e.x) - 3.2, u(e.x) + 3.2])
     if (V.warmCar) gapsN.push([homeU + 6.6, homeU + 9.6])
     for (const [a, b] of segments(40.5, W - 17.5, gapsN)) {
       parkRow(ctx, { x0: X(a), z0: Z(35.7), x1: X(b), z1: Z(35.7), angle: 0, density: V.density ?? 0.7, seed: cfg.seed + 300 + Math.round(a), snow: V.snowMix ?? [['heavy', 5], ['brushed', 1], ['light', 1], ['buried', 1]], warmChance: 0 })
     }
-    const gapsW = [w3, w2, w1].map(e => [v(e.z) - 3.2, v(e.z) + 3.2])
+    const gapsW = [w3, w2, w1, w0].map(e => [v(e.z) - 3.2, v(e.z) + 3.2])
     for (const [a, b] of segments(43, 131, gapsW)) {
       parkRow(ctx, { x0: X(35.7), z0: Z(a), x1: X(35.7), z1: Z(b), angle: Math.PI / 2, density: (V.density ?? 0.7) * 0.85, seed: cfg.seed + 400 + Math.round(a), snow: V.snowMixW ?? [['heavy', 4], ['buried', 2], ['light', 1]], warmChance: 0 })
     }
@@ -376,10 +393,10 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
   // ---- snow ----------------------------------------------------------------------------------------------
   safe(`${cfg.name} snow`, () => {
     // windrow behind the north parking and along the west parking, gaps at every path
-    const gN = [[homeU - 3, homeU + 3], [n2U - 3, n2U + 3]]
+    const gN = N.entrances.map(e => [u(e.x) - 3, u(e.x) + 3])
     const nLen = (W - 17.5) - 40.5
     snowBank(ctx, X(40.5), Z(38.9), X(W - 17.5), Z(40.5), 0.5, { seed: cfg.seed + 901, dirtySide: 'n', gaps: gN.map(([a, b]) => [a - 40.5, b - 40.5]).filter(([a]) => a < nLen) })
-    snowBank(ctx, X(38.9), Z(44), X(40.5), Z(131), 0.5, { seed: cfg.seed + 902, dirtySide: 'w', gaps: [w3, w2, w1].map(e => [v(e.z) - 3 - 44, v(e.z) + 3 - 44]) })
+    snowBank(ctx, X(38.9), Z(44), X(40.5), Z(131), 0.5, { seed: cfg.seed + 902, dirtySide: 'w', gaps: [w3, w2, w1, w0].map(e => [v(e.z) - 3 - 44, v(e.z) + 3 - 44]) })
     // dead end of the west driveway: the plough's pile
     plowedPile(ctx, X(C.driveW.u + 0.5), Z(C.driveW.v1 + 2.6), { radius: 3, height: 2.3, seed: cfg.seed + 903, buried: V.pileBuried ?? 'chair' })
     if (!cfg.eastDriveway) plowedPile(ctx, X(W - 3.5), Z(C.driveN.v), { radius: 3.2, height: 2.4, seed: cfg.seed + 904, buried: 'pallet' })

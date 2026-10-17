@@ -172,6 +172,9 @@ export function buildRailway(ctx) {
         out.signalLamps.push({ placement: lp, light: L })
       }
     }
+    // one lamp over the approach, so the crossing is not a black hole at night
+    const lx = placeStreetLamp(ctx, { x: CROSSING.x + 3.2, z: 57.4, angle: -HALF_PI, type: 'courtyard', pole: 'concrete', bulb: 'mercury', broken: false, flicker: false, flyers: true, seed: 8150 })
+    if (lx?.light) out.lights++
     world.place('north_relay_box', { x: CROSSING.x + 5.6, z: 54.4, y: RAIL.bed, rot: 2, tag: 'cabinet' })
     addGraffiti(ctx, { x: CROSSING.x + 5.6, y: RAIL.bed + 1.0, z: 54.4 + 0.39, angle: 0, id: 'gr_tag_zubr', h: 0.2, readable: false })
     nav(ctx, [[CROSS_PATH.x, 56.4], [CROSS_PATH.x, 52.2], [CROSS_PATH.x, 44.0], [CROSS_PATH.x + 0.2, 40.2]], 'crossing')

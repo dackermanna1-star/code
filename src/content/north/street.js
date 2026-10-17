@@ -143,6 +143,13 @@ export function buildStreet(ctx) {
   nav(ctx, [[CROSS.rail, W], [CROSS.rail, ROAD.z1 - 0.4], ...CROSSING_TRAIL], 'crossing')
   nav(ctx, [[CROSS.warehouse, W], [CROSS.warehouse, 136]], 'crossing')
   nav(ctx, [[CROSS.substation, W], [CROSS.substation, ROAD.z0 - 1.4], [SUBSTATION.x, 120.2]], 'crossing')
+  // the vehicles package's rare crawler may use these: a car creeping along Заводская at night,
+  // turning in at the warehouse gate, or into the garage cooperative and down its lanes
+  ;(ctx.registry.driveways ||= []).push(
+    { name: 'ул. Заводская → база', points: [[20, 140.4], [WAREHOUSE.x - 5, 140.4], [WAREHOUSE.x - 5, 132], [WAREHOUSE.x - 5, 126]] },
+    { name: 'ул. Заводская → ГСК', points: [[612, 136.7], [128, 136.7], [CROSS.gsk, 131], [CROSS.gsk, 112], [CROSS.gsk, 92.3], [64, 92.3]] },
+    { name: 'ГСК lanes', points: [[CROSS.gsk, 124], [CROSS.gsk, 92.3], [192.5, 92.3], [194.5, 82], [192.5, 71.4], [62, 71.4]] },
+  )
   ctx.registry.streets = ctx.registry.streets || []
   ctx.registry.streets.push({ name: 'ул. Заводская', en: 'Zavodskaya St.', axis: 'x', x0: ROAD.x0, x1: ROAD.x1, z0: ROAD.z0, z1: ROAD.z1, lanes: ROAD.lanes })
   return out

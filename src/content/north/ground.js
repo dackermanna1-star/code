@@ -71,6 +71,8 @@ export function paintStreet(ctx) {
   t.apply(STOP.x - 5.5, WALK.z1 - 0.25, STOP.x + 6.5, WALK.z1 + 2.1, (x, z) => ({ h: 1, mat: valueNoise2(x * 0.9, z * 0.9, 18) > 0.55 ? dirty : packed }))
   // the carriageway (curb rows: the verge shoulder on the north, the sidewalk's first row south)
   paintRoad(ctx, { axis: 'x', x0: ROAD.x0, z0: ROAD.z0, x1: ROAD.x1, z1: ROAD.z1, lanes: ROAD.lanes, laneWidth: 3.4, banks: false, seed: 1381 })
+  // Берёзовая's west kerb meets the sidewalk at kerb height (not the 0.5 m lawn) so it can be crossed
+  t.apply(BER.x0, WALK.z0, BER.x0 + 0.25, WALK.z1, () => ({ h: 1, mat: M('curb') }))
   // no kerb across Берёзовая's mouth or the driveway mouths
   t.apply(BER.x0, ROAD.z1, BER.x1, ROAD.z1 + 0.25, () => null)
   for (const [a, b] of DRIVES) t.paintRect(a, ROAD.z1, b, ROAD.z1 + 0.25, dirty)
