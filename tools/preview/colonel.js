@@ -134,8 +134,22 @@ async function cgs() {
   timings.cg = Math.round(performance.now() - t0);
 }
 
+// one CG frame, no chrome: ?part=one&cg=colonel_hand&t=0&p={"light":"red"}&scale=2
+async function one() {
+  await initColonelCg();
+  const cg = getColonelCg(q.get('cg') || 'colonel_hand');
+  const p = JSON.parse(q.get('p') || '{}'), t = Number(q.get('t') || 0);
+  const c = makeCanvas(480, 270), x = ctxOf(c);
+  const t1 = performance.now();
+  cg.draw(x, t, p);
+  timings.one = Math.round(performance.now() - t1);
+  root.style.padding = '0';
+  show(c, Number(q.get('scale') || 2));
+}
+
 (async () => {
   try {
+    if (part === 'one') await one();
     if (part === 'all' || part === 'sprite') await spriteSheet();
     if (part === 'bench') { const { bench } = await import('./colonel_bench.js'); console.log('bench ' + JSON.stringify(await bench())); }
     if (part === 'zoom') await zoom();

@@ -38666,7 +38666,9 @@ ${e.error.stack}` : ""}`);
     "stinger_hard",
     "collapse_rumble",
     "dust_fall",
-    "footstep_heavy_above"
+    "footstep_heavy_above",
+    // v2.2 additions
+    "radio_off"
   ];
   var EVENT_IDS = Object.keys(SFX).filter((k) => k.startsWith("amb_"));
 
@@ -54367,6 +54369,8 @@ ${e.error.stack}` : ""}`);
     music: null,
     dark: 0.95,
     ambient: "#0b1020",
+    // narrative-3: Leah in session at her table under the lamp (Ch5–6), writing.
+    onEnter: "ch5.enter_library",
     tiles: [
       "PPPPPPPPPPPPPPPPPPPPPPPPPPPP",
       //  0  mezzanine north wall (top)
@@ -56895,6 +56899,8 @@ ${e.error.stack}` : ""}`);
     music: null,
     dark: 0.94,
     ambient: "#0b1020",
+    // narrative-3: Danny in session at his desk (Ch5–6), his pencil; resumes the 205 period after a reload.
+    onEnter: "ch5.enter_east2",
     tiles: [
       " TTTTTTBBBBBBB##########################################",
       //  0  north exterior wall (top)
@@ -58283,6 +58289,8 @@ ${e.error.stack}` : ""}`);
     music: null,
     dark: 0.95,
     ambient: "#0b1020",
+    // narrative-3: the running tap until adair_met, the False Leah in 201 after it, the 201-threshold retry.
+    onEnter: "ch5.enter_west2",
     tiles: [
       " TTTTTTTTT################################################",
       //  0  north exterior wall (top)
@@ -64760,6 +64768,7 @@ ${e.error.stack}` : ""}`);
     await g.wait(0.6);
     await g.think("worried", "The compact. {p} In 1979 this room looked different.");
     await ghost.despawn(0.6);
+    look5(g, "up");
   }
   function sitMarcusOnBench(m) {
     if (!m) return;
