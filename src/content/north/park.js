@@ -42,6 +42,10 @@ export const TRODDEN = [
   [[118.8, 403.7], [100, 418], [82, 431], [77.5, 440]],
   [[130.2, 156], [117, 158.5], [96, 166], [72.2, 171]],
   [ringAt(160), [44, 352], [50, 368], [60.5, 372]],
+  // across the snowed-in audience square of the concert shell: alley I → between the bench rows →
+  // alley J (alley H ends in the same aisle), and a spur down the middle aisle to the stage
+  [[77.5, 440], [74.2, 438.6], [67.4, 438.6], [66, 441]],
+  [[72, 438.8], [72.3, 443], [72.1, 448.6]],
 ]
 const HILL = { x: 53, z: 401, rx: 9, rz: 10.5, h: 2.4 }
 const SKI_PTS = [[56, 158], [46, 176], [40, 205], [44, 238], [36, 268], [40, 292], [32, 318], [34, 352], [30, 380], [36, 412], [30, 440], [34, 470], [28, 494]]
@@ -321,7 +325,8 @@ export function buildPark(ctx) {
     world.place('north_bandstand', { x: BANDSTAND.x, z: BANDSTAND.z, y: 0.5, rot: 0, tag: 'building' })
     let k = 0
     for (const z of [444.5, 440.5, 436.5]) for (const x of [BANDSTAND.x - 3.2, BANDSTAND.x + 3.2]) {
-      placeBench(ctx, { x: x + (k % 3 === 1 ? 0.3 : 0), z, angle: 0, type: 'park', snow: 'snow', seed: 6800 + k, sittable: k % 2 === 0 })
+      // all six on the square's level (0.5): where a windrow crosses the back row it buries the seat a little
+      placeBench(ctx, { x: x + (k % 3 === 1 ? 0.3 : 0), z, y: 0.5, angle: 0, type: 'park', snow: 'snow', seed: 6800 + k, sittable: k % 2 === 0 })
       k++
     }
     addPoster(ctx, { x: BANDSTAND.x - 2.4, y: 0.5 + 0.5, z: BANDSTAND.z - 2.26, angle: PI, id: 'ad_concert', w: 0.42, h: 0.6, fade: 0.8, aged: 0.8 })

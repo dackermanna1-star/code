@@ -14,7 +14,7 @@ import { placeTree, placeTreeRow, scatterTrees, placeBush, plowedPile, snowDrift
 import { parkRow, placeParkedCar } from '../vehicles/api.js'
 import { placeStory, placeStoryAtEntrance } from '../life/api.js'
 import { addNoticeCluster, addGraffiti, addPlate } from '../phone/api.js'
-import { safe, pad, paveWalk, resBody, trodden, paintLawn, shoulderRect, windrow } from './util.js'
+import { safe, pad, paveWalk, resBody, trodden as troddenRaw, paintLawn, shoulderRect, windrow } from './util.js'
 import { valueNoise2 } from '../../core/rng.js'
 
 export const A = {
@@ -147,6 +147,8 @@ export function buildBlockA(ctx, keep) {
 
   // ---- paths & nav -------------------------------------------------------------------------------
   safe('A paths', () => {
+    // every track keeps the trees off it
+    const trodden = (c, pts, o) => { keep.line(pts, 2.2); return troddenRaw(c, pts, o) }
     // the school walk and the gate
     ctx.navPaths.push({ points: [[151.2, 230.5], [214, 230.5], [262, 230.5]], kind: 'sidewalk' })
     // trodden: courtyard → around the west end of корп. 1 → the school walk
