@@ -6,7 +6,7 @@
 // dust and one moth turn in the light, her breath smokes in the cold.
 import {
   W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, mixU,
-  text35, text35Width, text57, text57Width, once, seeds, makeVapor,
+  text35, text35Width, text57, text57Width, once, lazyGen, seeds, makeVapor,
 } from './cg_kit.js';
 import { makeCanvas, ctxOf } from './util.js';
 
@@ -157,10 +157,10 @@ function paintPhone(b, scene) {
   b.rect(x + w - 4, y + h - 10, 5, 7, (i, j) => shade(KSKIN, 0.6 + (i === x + w - 4 ? 0.2 : 0), i, j));
 }
 
-const layers = once(() => {
+const layers = lazyGen(function* () {
   // the doorway at LEVELS light levels; the beam picks between them per pixel per frame
   const lv = [];
-  for (let k = 0; k < LEVELS; k++) { const b = new Buf(); paintScene(b, k === 0 ? 0.035 : 0.1 + 0.9 * (k / (LEVELS - 1)) ** 1.2, k === 0 || k === LEVELS - 1); lv.push(b.d); }
+  for (let k = 0; k < LEVELS; k++) { const b = new Buf(); paintScene(b, k === 0 ? 0.035 : 0.1 + 0.9 * (k / (LEVELS - 1)) ** 1.2, k === 0 || k === LEVELS - 1); lv.push(b.d); yield; }
   const lit = new Buf(); lit.d.set(lv[LEVELS - 1]);
   const fg = new Buf();
   paintKaylee(fg);
@@ -179,7 +179,7 @@ const layers = once(() => {
   return { lv, km, kw, kh, prev: [0, 0, 0, 0], primed: false, fg: fg.toCanvas(), frame, cnv, cx: ctxOf(cnv), motes: seeds(18, 3), breath: makeVapor(300, 80, 120, 80, [mix(PAL.g2, PAL.blue_d, 0.4), mix(PAL.g3, PAL.moon, 0.3)]) };
 });
 
-export function prepCoda() { layers(); }
+export const prepCoda = layers;
 
 export const coda2013 = {
   draw(ctx, t = 0) {

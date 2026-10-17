@@ -6,7 +6,7 @@
 // ledge below. Animated: embers rising, smoke drifting, the seams breathing, cap-lamps flickering.
 import {
   W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, mixU, once, seeds, blitA, quant,
-  makeVapor,
+  makeVapor, lazyGen,
 } from './cg_kit.js';
 import { CAST } from './cg_cast.js';
 
@@ -305,17 +305,17 @@ function paintForeground(b, fg) {
   b.hline(x + 2, y - 7, 3, U(PAL.g1)); b.px(x + 5, y - 8, U(PAL.white));          // the Maglite
 }
 
-const layers = once(() => {
-  buildSeamField();
+const layers = lazyGen(function* () {
+  buildSeamField(); yield;
   const b = new Buf();
-  paintCavern(b);
-  paintBreaker(b);
+  paintCavern(b); yield;
+  paintBreaker(b); yield;
   paintBreach(b);
   const boys = boyPositions();
-  paintBoys(b, boys);
-  paintFloor(b);
+  paintBoys(b, boys); yield;
+  paintFloor(b); yield;
   const fg = new Buf();
-  paintForeground(b, fg);
+  paintForeground(b, fg); yield;
   const glow = new Buf();
   for (let y = 150; y < H; y++) for (let x = 0; x < W; x++) {
     if (fg.get(x, y)) continue;
@@ -334,7 +334,7 @@ const layers = once(() => {
   };
 });
 
-export function prepBreaker() { layers(); }
+export const prepBreaker = layers;
 
 const EMBER = ['#ffb04a', '#f07a28', '#b83a17', '#fff0c8'];
 export const breakerReveal = {

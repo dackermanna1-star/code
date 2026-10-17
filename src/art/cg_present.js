@@ -6,7 +6,7 @@
 // consistent; desks and Tess are projected boxes painted back to front.
 import {
   W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, smooth, mixU,
-  text57, text57Width, once, seeds,
+  text57, text57Width, once, lazyGen, seeds,
 } from './cg_kit.js';
 import { LIGHT_COLORS } from './palette.js';
 import { CAST } from './cg_cast.js';
@@ -302,16 +302,17 @@ function shafts() {
   return g;
 }
 
-const layers = once(() => {
+const layers = lazyGen(function* () {
   const b = new Buf();
-  paintRoom(b);
-  paintFurniture(b);
+  paintRoom(b); yield;
+  paintFurniture(b); yield;
   // dawn grade: the shade goes cool violet, the room's far corners sink
   const COOLC = U(mix(PAL.blue_d, PAL.velvet_d, 0.45));
   b.map((c, x, y) => mixU(c, COOLC, 0.12 + 0.12 * clamp01((x - 300) / 180) + 0.1 * clamp01((40 - y) / 40)));
   paintChalk(b);                                              // fresh chalk, bright on the cool board
+  yield;
   // shafts as a stepped value lift toward warm dust-light
-  const g = shafts();
+  const g = shafts(); yield;
   const motes = [];
   for (let y = 0; y < 200; y++) for (let x = 0; x < W; x++) {
     const a = clamp01(g[y * W + x] * 0.05);
@@ -323,7 +324,7 @@ const layers = once(() => {
   return { base: b.toCanvas(), motes: new Int16Array(motes), ms: seeds(motes.length / 2, 5) };
 });
 
-export function prepPresent() { layers(); }
+export const prepPresent = layers;
 
 export const endingPresent = {
   draw(ctx, t = 0) {

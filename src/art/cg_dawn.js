@@ -5,7 +5,7 @@
 // there; each friend keeps a fixed place on the steps, so a smaller group leaves the steps emptier.
 import {
   W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, smooth, mixU,
-  text57, text57Width, makeVapor, makePlumes, once, seeds,
+  text57, text57Width, makeVapor, makePlumes, once, lazyGen, seeds,
 } from './cg_kit.js';
 import { LIGHT_COLORS } from './palette.js';
 import { CAST } from './cg_cast.js';
@@ -263,12 +263,16 @@ function grade(b) {
     return o;
   });
 }
-const base = once(() => {
+const base = lazyGen(function* () {
   const b = new Buf();
-  paintSkyAndWings(b); paintPavilion(b); paintVestibule(b, false); paintBase(b); paintSteps(b);
+  paintSkyAndWings(b); yield;
+  paintPavilion(b); yield;
+  paintVestibule(b, false); paintBase(b); yield;
+  paintSteps(b); yield;
   const u = b.clone();
   paintUniform(u);
-  grade(b); grade(u);
+  grade(b); yield;
+  grade(u); yield;
   return {
     plain: b.toCanvas(), uniform: u.toCanvas(),
     vapor: makeVapor(0, 40, W, 230, [mix(PAL.g4, DAWN, 0.5), mix(PAL.g5, DAWN, 0.6)]),
@@ -287,7 +291,7 @@ function kids(who) {
   return kidCache.get(key);
 }
 
-export function prepDawn() { base(); kids(['tess', 'danny', 'leah', 'marcus']); }
+export const prepDawn = lazyGen(function* () { while (!base.step()) yield; yield; kids(['tess', 'danny', 'leah', 'marcus']); return true; });
 
 export const endingDawn = {
   draw(ctx, t = 0, params = {}) {

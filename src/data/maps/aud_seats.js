@@ -7,8 +7,9 @@
 //
 // Chart legend
 //   h  a husk (≈ 70% of the house): state 'occupied' with an `occupant` husk_a..f (little ones up
-//      front, older at the back), present while !husks_gone; an empty twin `<id>_e` replaces it
-//      after (DISMISSED: the ending script crumbles them, then sets husks_gone + g.refresh()).
+//      front, older at the back), present from Chapter 7 while !husks_gone; an empty twin `<id>_e`
+//      stands in otherwise (DISMISSED: the ending script crumbles them, then sets husks_gone +
+//      g.refresh()).
 //   t  a husk whose head has turned around toward the doors (occupant '...:turned'); examinable.
 //   .  an empty seat (hide spot) — every aisle/walkway tile is within 2 tiles of one.
 //   D L M  the friends' seats (empty; scripts seat Danny / Leah / Marcus on them):
@@ -18,7 +19,7 @@
 //          aud_seat_beside_danny / _leah / _marcus, with `front: '<friend>'` (→ ch7.front_<friend>).
 //   Ids otherwise: aud_seat_<row>_<x>.
 
-export const HUSKS = (s) => !s.flags.husks_gone;
+export const HUSKS = (s) => (s.chapter || 0) >= 7 && !s.flags.husks_gone;
 
 //   row  y    west bank x 8–20   east bank x 23–35
 const CHART = [

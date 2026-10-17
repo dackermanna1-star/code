@@ -368,8 +368,9 @@ function paintGround(b, F) {
 function paintMist(b, F) {
   // a value lift (two dithered steps) rather than a flat fog color, so the texture underneath survives
   const fog = U(F ? PAL.moon_l : mix(PAL.g3, PAL.blue_l, 0.3));
-  for (let y = 160; y < 214; y++) for (let x = 0; x < W; x++) {
-    const band = Math.exp(-(((y - 192) / 11) ** 2));
+  for (let y = 156; y < 216; y++) for (let x = 0; x < W; x++) {
+    const mid = 192 + 7 * (vnoise(x / 60, 3, 405) - 0.5) * 2, th = 7 + 6 * vnoise(x / 45, 5, 406);
+    const band = Math.exp(-(((y - mid) / th) ** 2)) * (0.4 + 0.8 * vnoise(x / 70, 9, 407));
     const n = smooth(0.35, 0.75, fbm(x / 46 + y / 60, y / 9, 404, 3));
     const a = band * n * (F ? 0.5 : 0.8);
     const lv = Math.floor(a * 3 + bay(x, y) - 0.5);
@@ -478,10 +479,10 @@ const layers = once(() => {
     vapor: makeVapor(0, 100, W, 170, [mix(PAL.g1, PAL.blue_d, 0.55), mix(PAL.g2, PAL.blue_d, 0.45), mix(PAL.g3, PAL.blue_l, 0.25)]),
     vaporF: makeVapor(0, 100, W, 170, [mix(PAL.g4, PAL.moon, 0.4), mix(PAL.g5, PAL.moon, 0.5), PAL.moon_l]),
     plumes: makePlumes([
-      { x: 304, y: 232, rise: 84, r0: 4, r1: 26, life: 10, a: 0.36, w: 16, wind: 22, spread: 5 },
-      { x: 250, y: 256, rise: 70, r0: 4, r1: 22, life: 9, a: 0.3, w: 12, wind: 18, spread: 4 },
-      { x: 72, y: 222, rise: 56, r0: 3, r1: 18, life: 9.5, a: 0.24, w: 10, wind: 16, spread: 4 },
-      { x: 436, y: 254, rise: 66, r0: 4, r1: 22, life: 10.5, a: 0.3, w: 14, wind: 14, spread: 5 },
+      { x: 300, y: 232, rise: 46, r0: 4, r1: 24, life: 8, a: 0.32, w: 18, wind: 46, spread: 6 },
+      { x: 246, y: 256, rise: 40, r0: 4, r1: 20, life: 7.5, a: 0.26, w: 14, wind: 40, spread: 5 },
+      { x: 66, y: 222, rise: 34, r0: 3, r1: 16, life: 8, a: 0.2, w: 10, wind: 34, spread: 4 },
+      { x: 430, y: 254, rise: 42, r0: 4, r1: 20, life: 8.5, a: 0.26, w: 16, wind: 38, spread: 6 },
     ], 61, 16),
     splash: splashTable(),
   };

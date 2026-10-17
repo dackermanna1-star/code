@@ -5,7 +5,7 @@
 // turning. Animated: the landscape scrolls at three depths, lane dashes, guardrail posts, the reels.
 import {
   W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, mixU,
-  text35, text35Width, once, seeds,
+  text35, text35Width, once, lazyGen, seeds,
 } from './cg_kit.js';
 import { CAST } from './cg_cast.js';
 
@@ -243,22 +243,23 @@ function reflectionLayer() {
   return b.toCanvas();
 }
 
-const layers = once(() => {
+const layers = lazyGen(function* () {
   const b = new Buf();
   paintWindshield(b);
-  paintInterior(b);
+  paintInterior(b); yield;
   paintTape(b);
-  paintTess(b);
+  paintTess(b); yield;
   // the glass: a mask canvas the moving world is clipped to (drawn under the frame)
   const sky = new Buf();
   for (let y = 20; y < 165; y++) for (let x = 150; x < 470; x++) sky.px(x, y, shade(SKY, clamp01(0.35 + (y - 20) / 160 + (fbm(x / 60, y / 16, 6, 3) - 0.5) * 0.14), x, y));
-  return {
-    frame: b.toCanvas(), sky: sky.toCanvas(), ridges: stripRidges(), fields: stripFields(), near: stripNear(),
-    refl: reflectionLayer(), dash: seeds(6, 4),
-  };
+  yield;
+  const ridges = stripRidges(); yield;
+  const fields = stripFields(); yield;
+  const near = stripNear(); yield;
+  return { frame: b.toCanvas(), sky: sky.toCanvas(), ridges, fields, near, refl: reflectionLayer(), dash: seeds(6, 4) };
 });
 
-export function prepTruant() { layers(); }
+export const prepTruant = layers;
 
 function tile(ctx, img, off, y) {
   const o = ((Math.round(off) % STRIP_W) + STRIP_W) % STRIP_W;

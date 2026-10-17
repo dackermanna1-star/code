@@ -5,7 +5,7 @@
 // UI writes the names. Animated: the lamp breathes, dust drifts through the light, the seams pulse.
 import {
   W, H, PAL, mix, U, Buf, rampStops, shade, bay, h01, fbm, vnoise, clamp01, mixU, text35, text35Width,
-  once, seeds, blitA, quant,
+  once, lazyGen, seeds, blitA, quant,
 } from './cg_kit.js';
 
 const PAPER = rampStops([PAL.ink, PAL.brown_dd, mix(PAL.brown_d, PAL.paper_d, 0.25), mix(PAL.tan, PAL.paper_d, 0.5), PAL.paper_d, mix(PAL.paper, PAL.cream_l, 0.4), mix(PAL.paper, PAL.white, 0.45)], 12);
@@ -196,9 +196,11 @@ function paintThings(b) {
   for (let k = 0; k < 40; k++) { const px = 404 + r() * 40, py = 220 + r() * 24; b.px(px, py, mixU(b.get(px, py), U(PAL.ink), 0.5)); }
 }
 
-const layers = once(() => {
+const layers = lazyGen(function* () {
   const b = new Buf();
-  paintDesk(b); paintBook(b); paintThings(b);
+  paintDesk(b); yield;
+  paintBook(b); yield;
+  paintThings(b); yield;
   // a warm overlay for the lamp's breathing (drawn with a quantized alpha)
   const glow = new Buf();
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -206,6 +208,7 @@ const layers = once(() => {
     const a = Math.exp(-d / 140);
     if (a * 0.9 > bay(x, y)) glow.px(x, y, U(mix(PAL.amber_l, PAL.yellow_l, 0.4)));
   }
+  yield;
   const seam = new Buf();
   for (let y = 254; y < H; y++) for (let x = 0; x < W; x++) {
     if (isGap(x, y) && x < 380 && (y + x) % 2 === 0) seam.px(x, y, U(PAL.fire_l));
@@ -213,7 +216,7 @@ const layers = once(() => {
   return { base: b.toCanvas(), glow: glow.toCanvas(), seam: seam.toCanvas(), motes: seeds(26, 44) };
 });
 
-export function prepRegister() { layers(); }
+export const prepRegister = layers;
 
 export const registerBook = {
   draw(ctx, t = 0) {

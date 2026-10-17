@@ -460,19 +460,6 @@ export function makePlumes(vents, seed, k = 12) {
 }
 
 // ---- lazy layer cache + idle prebuild -----------------------------------------------------------
-const jobs = [];
-let pumping = false;
-/** Queue fn to run in a later macrotask (one job per tick) so boot stays snappy. */
-export function idle(fn) {
-  jobs.push(fn);
-  if (!pumping) { pumping = true; setTimeout(pump, 60); }
-}
-function pump() {
-  const fn = jobs.shift();
-  if (!fn) { pumping = false; return; }
-  try { fn(); } catch (e) { console.error('[cg] idle build failed', e); }
-  setTimeout(pump, 30);
-}
 /** once(fn) → memoized thunk. */
 export function once(fn) { let v, done = false; return () => { if (!done) { v = fn(); done = true; } return v; }; }
 /**
