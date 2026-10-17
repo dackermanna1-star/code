@@ -166,7 +166,7 @@ class UIManager {
   gameOver(reason) { return this.open('gameover', { reason }); }
 
   /**
-   * Open a modal screen by name (§16): 'pa' | 'safe' | 'terminal' | 'register' | 'breath' |
+   * Open a modal screen by name (§16): 'pa' | 'safe' | 'terminal' | 'register' | 'breath' | 'write' | 'vhs' |
    * 'pause' | 'inventory' | 'sketchbook' | 'settings' | 'saveload' | 'credits' | 'doc' | 'card' |
    * 'title' | 'gameover' | 'confirm'. Resolves with the screen's result when it closes.
    */
@@ -232,6 +232,8 @@ class UIManager {
       case 'card': this._log({ kind: 'card', title: args.title, subtitle: args.subtitle }); return null;
       case 'gameover': return 'retry';
       case 'breath': return 'held';
+      case 'write': return 'done';
+      case 'vhs': return null;
       case 'title': return { action: 'new' };
       case 'pa': case 'terminal': case 'register': return null;
       case 'safe': {

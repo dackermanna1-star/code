@@ -3,7 +3,7 @@
 // lit red from below by the mine fire: every prop gets the same under-light pass (K.underlight),
 // tops sink to near-black, undersides and lower faces catch fire-red with a hot rim.
 // The Breaker ignores `clean` (it was buried in 1894; nobody has a cleaner memory of it).
-import { K, PAL, mix, lt, dk, BRASS, IRON, seedOf, woodSet, SHADOW, SHADOW_SOFT, COAL, paper } from './props_b_kit.js';
+import { K, PAL, mix, lt, dk, BRASS, IRON, seedOf, SHADOW, SHADOW_SOFT, COAL, OUT as OUTC } from './props_b_kit.js';
 
 const TAR = { hi: mix(PAL.g3, PAL.brown, 0.35), lt: mix(PAL.g2, PAL.brown_d, 0.45), md: mix(PAL.g1, PAL.brown_dd, 0.5), dk: mix(PAL.shadow, PAL.brown_dd, 0.4), dd: PAL.ink };
 const WORN = { hi: mix(PAL.tan, PAL.g4, 0.4), lt: mix(PAL.wood_l, PAL.g3, 0.45), md: mix(PAL.wood, PAL.g2, 0.5) };
@@ -40,13 +40,19 @@ function chute(o) {
     const lumps = [[5, -14], [8, -10], [6, -6], [9, -15], [5, -3], [9, -2]];
     for (let i = 0; i < lumps.length - (o.variant % 3); i++) { const [x, y] = lumps[i]; k.R(x, y, 2, 2, COAL[2]); k.P(x, y, COAL[4]); k.P(x + 1, y + 1, COAL[0]); k.P(x, y - 1, 'rgba(10,10,14,0.5)'); }
   } else {
+    // E–W runs tile seamlessly: no outline at the cell joins, trestles every other cell
     const s = o.dir === 'left' ? -1 : 1; // coal runs this way
-    for (const x of [2, 12]) plank(k, x, -2, 2, 16, { vertical: true });
+    if (o.variant % 2 === 0) { plank(k, 6, 0, 3, 14, { vertical: true }); k.L(7, 13, 5, 15, TAR.dk); }
     k.R(0, -10, 16, 8, WORN.md);
     for (let y = -9; y < -2; y += 2) k.H(0, y, 16, y % 4 ? WORN.lt : WORN.md);
     k.H(0, -6, 16, WORN.hi);
-    plank(k, 0, -12, 16, 3); plank(k, 0, -3, 16, 3);
-    for (const [x, y] of [[3, -8], [8, -6], [12, -8]]) { k.R(x + (s < 0 ? 1 : 0), y, 2, 2, COAL[2]); k.P(x, y, COAL[4]); }
+    k.R(0, -12, 16, 2, TAR.lt); k.H(0, -12, 16, TAR.hi);          // far side board (top edge)
+    k.R(0, -2, 16, 3, TAR.md); k.H(0, -2, 16, TAR.lt); k.H(0, 0, 16, TAR.dd); // near side board
+    k.V((o.variant * 5) % 16, -2, 3, IRON.dk);
+    for (const [x, y] of [[3, -8], [8, -6], [12, -8]]) { k.R(x + (s < 0 ? 1 : 0), y, 2, 2, COAL[2]); k.P(x, y, COAL[4]); k.P(x + 1, y + 1, COAL[0]); }
+    UL(k, 18);
+    k.H(0, -13, 16, OUTC); k.H(0, 1, 16, OUTC);
+    return k.done({ outline: false });
   }
   UL(k, 18);
   return k.done();
@@ -205,4 +211,3 @@ export const BREAKER = {
   shelf_ledgers: { build: shelfLedgers, noClean: true },
   pulley_wheel: { build: pulleyWheel, noClean: true },
 };
-export { woodSet, paper, lt, dk };

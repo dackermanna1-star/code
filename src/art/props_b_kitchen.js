@@ -1,7 +1,7 @@
 // Props B — cafeteria & kitchen: caf_table serving_line tray_rack stove mixer freezer_door dumbwaiter
 // sink_big shelf_pantry vending_machine milk_cooler. Stainless gone milky, Hobart gray, brown
 // fiberglass trays, rusted #10 cans; the walk-in is warm and full of cicada shells.
-import { K, PAL, mix, lt, dk, BRASS, CHROME, seedOf, woodSet, steelSet, stainless, SHADOW, SHADOW_SOFT } from './props_b_kit.js';
+import { K, PAL, mix, lt, dk, CHROME, seedOf, woodSet, steelSet, stainless, SHADOW, SHADOW_SOFT } from './props_b_kit.js';
 
 const TRAY = (clean) => clean ? { hi: PAL.tan_l, lt: PAL.tan, md: PAL.brown, dk: PAL.brown_d } : { hi: mix(PAL.tan, PAL.g4, 0.3), lt: mix(PAL.brown, PAL.tan, 0.4), md: PAL.brown, dk: PAL.brown_d };
 const FORMICA = (clean) => clean ? { hi: PAL.cream_l, md: PAL.cream, dk: PAL.cream_d, fleck: PAL.tan } : { hi: mix(PAL.cream_l, PAL.g5, 0.4), md: mix(PAL.cream, PAL.g4, 0.35), dk: mix(PAL.cream_d, PAL.g3, 0.4), fleck: PAL.brown };
@@ -104,23 +104,29 @@ function stove(o) {
 
 // ---------------------------------------------------------------------------- mixer (Hobart)
 function mixer(o) {
-  const k = new K(18, 44, -1, -30, seedOf('mixer', o.clean));
+  // Hobart floor mixer seen from the front: pedestal base, column behind, head reaching over a
+  // big stainless bowl on its arms, the beater down in the bowl.
+  const k = new K(20, 46, -2, -32, seedOf('mixer', o.clean));
   const G = o.clean ? { hi: mix(PAL.g6, PAL.mint, 0.3), lt: mix(PAL.g5, PAL.mint, 0.3), md: mix(PAL.g4, PAL.green_l, 0.25), dk: mix(PAL.g3, PAL.green_d, 0.3), dd: PAL.g2 }
     : { hi: mix(PAL.g5, PAL.mint, 0.2), lt: mix(PAL.g4, PAL.green_l, 0.2), md: mix(PAL.g3, PAL.green, 0.25), dk: mix(PAL.g2, PAL.green_d, 0.3), dd: PAL.g1 };
   const X = stainless(o.clean);
-  k.shadow(1, 12, 14, 3, SHADOW);
-  // base
-  k.R(1, 8, 14, 5, G.md); k.H(1, 8, 14, G.hi); k.H(1, 12, 14, G.dd);
-  // column at the back, head reaching forward over the bowl
-  k.R(9, -24, 6, 32, G.md); k.V(9, -24, 32, G.lt); k.V(14, -24, 32, G.dk);
-  k.R(1, -28, 14, 7, G.lt); k.H(1, -28, 14, G.hi); k.H(1, -22, 14, G.dk); k.V(1, -28, 7, G.hi);
-  k.R(3, -26, 3, 2, PAL.red_d); k.P(12, -26, PAL.ink); // badge + switch
-  // beater + stainless bowl on its arms
-  k.R(6, -21, 2, 6, X.md); k.V(6, -21, 6, X.hi);
-  k.R(1, -14, 10, 9, X.md); k.V(1, -14, 9, X.hi); k.V(2, -14, 9, X.lt); k.V(10, -14, 9, X.dk); k.H(1, -14, 10, X.hi); k.H(1, -6, 10, X.dd);
-  k.E(6, -14, 4, 1, X.dd);
-  k.R(9, -10, 3, 2, G.dk); // bowl arm
-  if (!o.clean) { k.S(1, -28, 14, 7, 'rgba(160,150,130,0.35)', 0.08); k.rust(1, 8, 14, 5, 2); k.drip(11, -4, 6, 'rgba(90,80,60,0.4)'); }
+  k.shadow(0, 12, 16, 3, SHADOW);
+  // pedestal base
+  k.R(0, 7, 16, 6, G.md); k.H(0, 7, 16, G.hi); k.V(0, 7, 6, G.lt); k.V(15, 7, 6, G.dk); k.H(0, 12, 16, G.dd);
+  // column (behind the bowl), slightly tapered
+  k.R(4, -22, 8, 30, G.md); k.V(4, -22, 30, G.lt); k.V(5, -22, 30, G.hi); k.V(11, -22, 30, G.dk);
+  // head: rounded housing over the bowl, speed lever, badge
+  k.R(2, -30, 12, 8, G.lt); k.H(3, -31, 10, G.hi); k.H(2, -23, 12, G.dk); k.V(2, -30, 8, G.hi); k.V(13, -30, 8, G.dk);
+  k.R(6, -28, 4, 2, PAL.red_d); k.P(6, -28, PAL.red); k.L(13, -27, 16, -30, G.dk); k.P(16, -31, PAL.ink);
+  // beater shaft + the bowl on its yoke arms
+  k.V(8, -22, 6, X.md); k.V(7, -22, 6, X.hi);
+  k.R(1, -13, 2, 6, G.dk); k.R(13, -13, 2, 6, G.dk);
+  k.E(8, -15, 6, 2, X.dd); k.E(8, -15, 5, 1, PAL.g1);
+  k.poly([[2, -15], [14, -15], [13, -6], [3, -6]], X.md);
+  k.V(3, -15, 9, X.hi); k.V(4, -15, 9, X.lt); k.V(12, -15, 9, X.dk); k.H(3, -6, 10, X.dd);
+  k.H(2, -15, 13, X.hi);
+  k.L(8, -16, 10, -14, X.lt); // the beater's wire in the bowl
+  if (!o.clean) { k.S(2, -31, 12, 9, 'rgba(160,150,130,0.35)', 0.08); k.rust(0, 7, 16, 6, 2); k.drip(9, -6, 6, 'rgba(90,80,60,0.4)'); k.P(6, -14, PAL.amber_d); }
   return k.done();
 }
 
@@ -234,14 +240,14 @@ function vending(o) {
   k.shadow(1, 12, 14, 3, SHADOW);
   k.R(0, -30, 16, 43, body.md); k.V(0, -30, 43, body.hi); k.V(15, -30, 43, body.dk); k.H(0, -30, 16, body.hi);
   // big front panel: TAB on pink, a lime FRESCA band
-  k.R(2, -28, 9, 22, o.clean ? mix(PAL.red_l, PAL.white, 0.45) : mix(PAL.red_l, PAL.paper_d, 0.55));
-  k.text(3, -25, 'TAB', o.clean ? PAL.crimson : mix(PAL.crimson, PAL.g3, 0.4));
-  k.R(2, -17, 9, 5, o.clean ? mix(PAL.yellow, PAL.green_l, 0.5) : mix(PAL.yellow, PAL.g4, 0.45)); k.H(3, -15, 7, o.clean ? PAL.green_d : PAL.g3);
-  k.R(3, -11, 7, 3, o.clean ? PAL.white : PAL.paper_d); k.H(4, -10, 5, PAL.g3);
+  k.R(1, -28, 12, 22, o.clean ? mix(PAL.red_l, PAL.white, 0.45) : mix(PAL.red_l, PAL.paper_d, 0.55));
+  k.text(2, -25, 'TAB', o.clean ? PAL.crimson : mix(PAL.crimson, PAL.g3, 0.4));
+  k.R(1, -17, 12, 5, o.clean ? mix(PAL.yellow, PAL.green_l, 0.5) : mix(PAL.yellow, PAL.g4, 0.45)); k.H(2, -15, 10, o.clean ? PAL.green_d : PAL.g3);
+  k.R(2, -11, 9, 3, o.clean ? PAL.white : PAL.paper_d); k.H(3, -10, 7, PAL.g3);
   // selection buttons, coin slot, coin return, delivery chute
   const sel = [PAL.red_l, PAL.yellow, PAL.orange, PAL.green_l, PAL.red_l, PAL.blue_l];
-  for (let i = 0; i < 6; i++) { k.R(12, -27 + i * 3, 3, 2, o.clean ? sel[i] : mix(sel[i], PAL.g3, 0.5)); k.P(12, -27 + i * 3, o.clean ? PAL.white : PAL.g5); }
-  k.R(12, -8, 3, 3, CHROME.md); k.P(13, -7, PAL.ink);
+  for (let i = 0; i < 6; i++) { k.R(13, -27 + i * 3, 2, 2, o.clean ? sel[i] : mix(sel[i], PAL.g3, 0.5)); k.P(13, -27 + i * 3, o.clean ? PAL.white : PAL.g5); }
+  k.R(13, -8, 2, 3, CHROME.md); k.P(13, -7, PAL.ink);
   k.R(3, 3, 10, 6, PAL.ink); k.H(3, 3, 10, CHROME.lt);
   k.R(0, 12, 16, 1, PAL.g1);
   if (!o.clean) {
@@ -282,4 +288,3 @@ export const KITCHEN = {
   vending_machine: { build: vending },
   milk_cooler: { build: milkCooler },
 };
-export { BRASS };

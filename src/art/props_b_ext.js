@@ -3,7 +3,7 @@
 // Everything is rain-slick: cold moonlight specular on top faces, beads on glass, dark wet bases.
 // Placement: oak_canopy (5×4, over) goes at (x-2, y-3) for an oak_dead at (x, y) — the canopy
 // carries the upper trunk and the fork so the two read as one tree.
-import { K, PAL, mix, lt, dk, BRASS, CHROME, IRON, seedOf, woodSet, steelSet, Blob, SHADOW, SHADOW_SOFT, bay } from './props_b_kit.js';
+import { K, PAL, mix, lt, dk, BRASS, CHROME, IRON, seedOf, Blob, SHADOW, SHADOW_SOFT } from './props_b_kit.js';
 
 const WET = 'rgba(196,212,230,0.55)', WET2 = 'rgba(151,175,203,0.4)';
 const BARK = { hi: mix(PAL.g4, PAL.tan, 0.25), lt: mix(PAL.g3, PAL.brown, 0.3), md: mix(PAL.g2, PAL.brown_d, 0.35), dk: mix(PAL.g1, PAL.brown_dd, 0.4), dd: PAL.night };
@@ -308,4 +308,3 @@ export const EXTERIOR = {
   dumpster: { build: dumpster, noClean: true },
   bush_dead: { build: bushDead, variants: 3, noClean: true },
 };
-export { woodSet, steelSet, bay, lt, dk };

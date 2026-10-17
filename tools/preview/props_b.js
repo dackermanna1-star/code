@@ -158,6 +158,25 @@ async function main() {
       show(c, Number(q.get('scale') || 2));
     }
   } else if (part === 'bench') await bench();
+  else if (part === 'facade') {
+    // integration: the real art facade → props.js dispatcher → props_b.js
+    const { art } = await import('../../src/art/index.js');
+    const t0 = performance.now();
+    await art.init();
+    const tInit = performance.now() - t0;
+    const bad = [];
+    const [c, x] = canvas(480, 270);
+    for (const type of PROP_B_TYPES) {
+      try {
+        const r = art.prop(type, { state: undefined, dir: 'down', variant: 7, clean: false, frame: 3, occupant: 'husk_c', params: {} });
+        if (!r || !r.canvas || r.canvas.width < 1) bad.push(type + ':empty');
+        art.drawPropDynamic(x, type, 100, 100, { state: undefined }, 1.3);
+      } catch (e) { bad.push(type + ':' + e.message); }
+    }
+    const pre = document.createElement('pre');
+    pre.textContent = `art.init ${tInit.toFixed(0)} ms (all art modules)\nprops B via facade: ${PROP_B_TYPES.length} types, problems: ${bad.length ? bad.join(', ') : 'none'}`;
+    root.appendChild(pre); console.log(pre.textContent.replace('\n', ' | '));
+  }
   window.__ready = true;
 }
 main().catch((e) => { console.error(e); window.__ready = true; });

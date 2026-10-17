@@ -3,7 +3,8 @@
 // label tape, a VU meter whose needle reacts while listening, LISTEN / TALK / ALL CALL switches and
 // a red power LED. Resolves when the player steps away (cancel) or a script calls HW.ui.close('pa').
 // Scripts can drive it: HW.ui.get('pa').setMode('allcall' | 'listen' | 'talk'), .setRoom(id | null),
-// .setLevel(0..1 | null).
+// .setLevel(0..1 | null), .setLamp(id, on) (a room's lamp stays lit, e.g. 205 / LIB answering the roll),
+// .setLocked(bool) (the console ignores the player while the school has it).
 import { HW } from '../../engine/hw.js';
 import { Screen, Z_SPECIAL } from '../screen.js';
 import { C, F } from '../theme.js';
@@ -27,6 +28,8 @@ export class PAScreen extends Screen {
     this.listening = false;
     this.needle = 0; this.needleV = 0; this.levelOverride = null;
     this.flips = new Map();   // id → 0..1 lever animation
+    this.lamps = new Set();   // rooms whose lamp a script lit (roll call answers)
+    this.locked = false;
   }
   onOpen() { svc.sfx('ui_open'); svc.sfx('intercom_crackle', { vol: 0.4 }); }
 
@@ -34,6 +37,8 @@ export class PAScreen extends Screen {
   setMode(m) { if (['listen', 'talk', 'allcall'].includes(m)) { this.mode = m; svc.sfx('ui_confirm'); } }
   setRoom(id) { this.active = id; }
   setLevel(v) { this.levelOverride = v == null ? null : clamp(v); }
+  setLamp(id, on = true) { if (on) this.lamps.add(id); else this.lamps.delete(id); }
+  setLocked(v) { this.locked = !!v; }
 
   async _listen(room) {
     this.active = room.id;
@@ -60,7 +65,7 @@ export class PAScreen extends Screen {
       const want = r.id === this.active ? 1 : 0;
       this.flips.set(r.id, clamp((this.flips.get(r.id) || 0) + (want ? dt : -dt) / 0.08));
     }
-    if (!input || this.listening) return;
+    if (!input || this.listening || this.locked) return;
     const n = this.rooms.length;
     if (n) {
       let s = this.sel;
@@ -169,9 +174,10 @@ export class PAScreen extends Screen {
       rect(ctx, x + 42 - lw / 2, y + 50, lw, 22, '#141417');
       F.small.draw(ctx, r.label, x + 42, y + 51, '#e8e4d8', { align: 'center' });
       // indicator lamp: amber while this room is open
-      const lit = this.active === r.id;
+      const lit = this.active === r.id || this.lamps.has(r.id);
       rect(ctx, x + 64, y + 4, 8, 8, lit ? (this.listening && Math.floor(this.t * 6) % 2 ? '#ffd27a' : '#e0a040') : '#3a2a14');
-      if (i === this.sel && !this.listening) {
+      if (this.lamps.has(r.id)) dither(ctx, x + 56, y - 4, 24, 24, 'rgba(255,190,90,0.9)', 0.18);
+      if (i === this.sel && !this.listening && !this.locked) {
         frame(ctx, x + 4, y - 8, 76, 86, C.red);
         triangle(ctx, x + 36, y - 22 + (Math.floor(this.t * 3) % 2 ? AP : 0), 6, C.red, 'down');
       }

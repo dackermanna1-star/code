@@ -3,7 +3,7 @@
 // pickup draws by item id when the engine passes one (opts.item / opts.params.item — see report);
 // otherwise a neutral small object by variant. Every pickup carries a faint glint (frame-driven).
 // Damage decals are empty in the clean (1979) view; graffiti too, except old carved initials.
-import { K, PAL, mix, lt, dk, BRASS, CHROME, seedOf, Blob, SHADOW_SOFT, paper, bay } from './props_b_kit.js';
+import { K, PAL, mix, lt, dk, BRASS, CHROME, seedOf, Blob, SHADOW_SOFT, paper } from './props_b_kit.js';
 
 const EMPTY = () => new K(1, 1, 0, 0).done({ outline: false });
 
@@ -175,31 +175,38 @@ function cicadaShells(o) {
 }
 
 // ---------------------------------------------------------------------------- graffiti (wall)
-/** Hand-sprayed letters: 3×5 glyphs drawn 2× tall with a ragged overspray and drips. */
-function spray(k, x, y, text, col, { tall = 2, drip = 0.35, seed = 1 } = {}) {
+/** Hand-sprayed letters: 3×5 glyphs drawn 2× tall, light fill with a dark outline (reads on
+ *  brick and on cream paint alike), jittered strokes, overspray and drips. */
+function spray(k, x, y, text, col, { tall = 2, drip = 0.35, seed = 1, outline = 'rgba(14,12,16,0.85)' } = {}) {
   const tmp = new K(text.length * 4 + 2, 6, 0, 0);
   tmp.text(0, 0, text, '#ffffff');
   const d = tmp.x.getImageData(0, 0, tmp.w, tmp.h).data;
+  const L = new K(k.w, k.h, k.ox, k.oy);
   let h = seed;
   for (let j = 0; j < 5; j++) for (let i = 0; i < tmp.w; i++) {
     if (!d[(j * tmp.w + i) * 4 + 3]) continue;
     h = (h * 1103515245 + 12345) >>> 0;
     const jit = (h >>> 16) % 7 === 0 ? 1 : 0;
-    for (let t = 0; t < tall; t++) k.P(x + i + (j > 2 ? jit : 0), y + j * tall + t, col);
-    if (j === 4 && ((h >>> 8) % 100) / 100 < drip) for (let t = 0; t < 2 + ((h >>> 4) % 4); t++) k.P(x + i, y + 10 + t, col);
+    for (let t = 0; t < tall; t++) L.P(x + i + (j > 2 ? jit : 0), y + j * tall + t, '#ffffff');
+    if (j === 4 && ((h >>> 8) % 100) / 100 < drip) for (let t = 0; t < 2 + ((h >>> 4) % 4); t++) L.P(x + i, y + 10 + t, '#ffffff');
   }
+  // colourise + outline on a scratch layer, then lay it on the wall
+  L.pixels(() => rgbaArr(col));
+  if (outline) L.outline(outline, outline);
+  k.blit(L, L.ox, L.oy);
 }
+const rgbaArr = (c) => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(',').map(Number); return [p[0], p[1], p[2], Math.round((p[3] ?? 1) * 255)]; };
 function graffiti(o) {
   const st = o.state;
   if (o.clean && st !== 'names') return EMPTY();
   const k = new K(52, 30, 0, -14, seedOf('graffiti', st, o.variant, o.clean));
   const black = 'rgba(14,12,16,0.82)', red = 'rgba(122,30,32,0.8)', white = 'rgba(214,208,192,0.7)';
   if (st === 'hollowhell') {
-    spray(k, 1, -12, 'HOLLOW', black, { seed: 3 });
-    spray(k, 9, 0, 'HELL', red, { seed: 7, drip: 0.5 });
-    k.L(1, 12, 30, 11, black); // underline swoosh
+    spray(k, 1, -12, 'HOLLOW', white, { seed: 3 });
+    spray(k, 9, 0, 'HELL', 'rgba(150,40,38,0.9)', { seed: 7, drip: 0.5 });
+    k.L(1, 13, 30, 12, black); // underline swoosh
   } else if (st === 'kr91') {
-    spray(k, 2, -6, "KR '91", white, { seed: 5 });
+    spray(k, 2, -6, "KR '91", 'rgba(196,183,140,0.85)', { seed: 5 });
     k.ring(13, 0, 13, 8, 'rgba(214,208,192,0.35)');
   } else if (st === 'pentagram') {
     const cx = 14, cy = 0, R = 11;
@@ -208,16 +215,16 @@ function graffiti(o) {
     k.ring(cx, cy, R + 1, R, red);  // badly drawn: the star misses the circle on one side
     k.drip(cx - 6, cy + 8, 4, red); k.drip(cx + 9, cy + 4, 3, red);
   } else if (st === 'names') {
-    // marker names and carved initials, layered over decades
-    const ink = o.clean ? 'rgba(40,40,60,0.6)' : black;
-    k.text(1, -12, 'DK+LB', 'rgba(40,40,70,0.75)');
-    k.text(24, -9, "MIKE C '88", ink);
-    k.text(4, -2, 'STACY', 'rgba(122,30,32,0.7)');
-    k.L(4, 4, 22, 3, 'rgba(122,30,32,0.5)');
-    k.text(28, 2, 'TJ', 'rgba(20,20,24,0.8)');
+    // marker names and carved initials, layered over decades (1979 shows only the old carving)
+    if (!o.clean) {
+      k.text(1, -12, 'DK+LB', 'rgba(40,40,70,0.75)');
+      k.text(24, -9, "MIKE C '88", black);
+      k.text(4, -2, 'STACY', 'rgba(122,30,32,0.7)');
+      k.L(4, 4, 22, 3, 'rgba(122,30,32,0.5)');
+      k.text(28, 2, 'TJ', 'rgba(20,20,24,0.8)');
+    }
     // carved into the paint (pale where the knife went through)
-    k.text(8, 7, 'RO 79', 'rgba(220,214,196,0.7)');
-    if (o.clean) { k.R(0, -14, 52, 18, 'rgba(0,0,0,0)'); k.clear(0, -14, 52, 18); k.text(8, 7, 'RO 79', 'rgba(220,214,196,0.5)'); }
+    k.text(8, 7, 'RO 79', o.clean ? 'rgba(220,214,196,0.5)' : 'rgba(220,214,196,0.7)');
   } else if (st === 'present') {
     // scratched into the paint, rows of it, as if by a fingernail — the school writing
     const scr = 'rgba(205,196,170,0.75)', scr2 = 'rgba(30,22,18,0.6)';
@@ -243,4 +250,3 @@ export const MISC = {
   graffiti: { build: graffiti },
   cicada_shells: { build: cicadaShells, variants: 4, showVariants: [0, 3] },
 };
-export { lt, dk, Blob };

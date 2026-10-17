@@ -1,6 +1,7 @@
 // Map registry: id → map data module (TECH §5). Story maps per docs/CONTENT.md §2; test maps for engine tests.
 import test from './test.js';
 import test2 from './test2.js';
+import testAi from './test_ai.js';
 import exterior from './exterior.js';
 import lobby from './lobby.js';
 import west1 from './west1.js';
@@ -15,7 +16,7 @@ import aud from './aud.js';
 import vault from './vault.js';
 import breaker from './breaker.js';
 
-const LIST = [test, test2, exterior, lobby, west1, library, east1, gym, basement, east2, longhall, west2, aud, vault, breaker];
+const LIST = [test, test2, testAi, exterior, lobby, west1, library, east1, gym, basement, east2, longhall, west2, aud, vault, breaker];
 
 export const MAPS = {};
 for (const m of LIST) {

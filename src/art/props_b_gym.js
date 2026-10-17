@@ -1,7 +1,7 @@
 // Props B — gym: bleachers hoop hoop_stand scoreboard mat_stack ball_cart locker_bench court_circle
 // court_line_h court_line_v. Yellowed maple, green-and-gold Colliers paint, scuffed steel.
 // The gym mats share the Colonel's navy (the coal heap / "...Just gym mats.") on purpose.
-import { K, PAL, mix, lt, dk, BRASS, CHROME, seedOf, woodSet, steelSet, Blob, SHADOW, SHADOW_SOFT, bay } from './props_b_kit.js';
+import { K, PAL, mix, lt, dk, seedOf, steelSet, Blob, SHADOW, SHADOW_SOFT, bay } from './props_b_kit.js';
 
 const MAT = [PAL.navy_dd, mix(PAL.navy_dd, PAL.navy_d, 0.6), PAL.navy_d, mix(PAL.navy_d, PAL.navy, 0.6), mix(PAL.navy, PAL.g3, 0.35), mix(PAL.navy_l, PAL.g5, 0.4)];
 const plankSet = (clean) => clean
@@ -24,7 +24,7 @@ function bleachers(o) {
       // closed riser below this tier's nose: horizontal boards, shadowed under the nose
       const ry = y + 6;
       for (let by = ry; by < next; by += 4) {
-        const tone = ((by - ry) / 4) % 2 ? P.dk : mix(P.dk, P.md, 0.5);
+        const tone = ((by - ry) / 4) % 2 ? mix(P.dk, P.md, 0.45) : mix(P.dk, P.md, 0.8);
         k.R(0, by, W, Math.min(4, next - by), tone);
         k.H(0, by, W, mix(tone, PAL.night, 0.35));
       }
@@ -277,4 +277,3 @@ export const GYM = {
   court_line_h: { build: (o) => courtLine(o, false), variants: 4 },
   court_line_v: { build: (o) => courtLine(o, true), variants: 4 },
 };
-export { BRASS, CHROME };

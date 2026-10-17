@@ -1,7 +1,7 @@
 // Props B — the Founder's Vault: sarcophagus wreath flag_regimental name_wall writing_desk candle
 // husk_seated husk_kneeling. Cold veined marble, dead flowers, a regimental colour gone to rags,
 // and the husks (props_b_husk.js). Clean = the vault as it stood sealed (no husks, no damage).
-import { K, PAL, mix, lt, dk, OUT, BRASS, IRON, seedOf, woodSet, Blob, SHADOW, SHADOW_SOFT, glowDot, bay } from './props_b_kit.js';
+import { K, PAL, mix, lt, dk, BRASS, IRON, seedOf, woodSet, Blob, SHADOW, SHADOW_SOFT } from './props_b_kit.js';
 import { drawHusk, drawKneeling, drawFlakes, huskVariant } from './props_b_husk.js';
 
 const MARBLE = { hi: '#ece8e0', lt: '#cfcac0', md: '#aaa59c', dk: '#7e7a74', dd: '#55524f', vein: '#8d8a86', vein2: '#6c6a6a' };
@@ -27,73 +27,64 @@ function marble(k, x, y, w, h, base, seed, { veins = 3, dirty = true } = {}) {
 // ---------------------------------------------------------------------------- sarcophagus (4×2)
 function sarcophagus(o) {
   const burst = o.state === 'burst' && !o.clean;
-  const k = new K(80, 52, -8, -14, seedOf('sarc', o.state, o.clean));
+  const k = new K(92, 60, -14, -22, seedOf('sarc', o.state, o.clean));
   const M = o.clean ? MARBLE : Object.fromEntries(Object.entries(MARBLE).map(([a, c]) => [a, marbleOld(c)]));
-  k.shadow(-2, 26, 68, 6, SHADOW);
-  k.shadow(-4, 30, 72, 3, SHADOW_SOFT);
-  // plinth
-  k.box(-1, 22, 66, 3, 6, { top: M.lt, front: M.dk, under: M.dd });
-  // body: front face y 8..24, top rim at y 2..8
+  const base = { hi: mix(M.md, PAL.g3, 0.3), md: mix(M.dk, PAL.g2, 0.45), dk: mix(M.dd, PAL.g1, 0.5) };
+  k.shadow(-6, 30, 76, 5, SHADOW);
+  // two-step plinth of darker stone (separates the tomb from the checkered floor)
+  k.R(-5, 24, 74, 7, base.md); k.H(-5, 24, 74, base.hi); k.H(-5, 30, 74, base.dk);
+  k.R(-2, 19, 68, 6, base.md); k.H(-2, 19, 68, base.hi); k.V(-2, 19, 6, base.hi); k.H(-2, 24, 68, base.dk);
+  // the chest: tall front face with a recessed inscription panel and wreath roundels
   const bx = 2, bw = 60;
-  marble(k, bx, 8, bw, 15, M.md, 1, { veins: 4, dirty: !o.clean });
-  k.H(bx, 8, bw, M.lt);
-  k.V(bx, 8, 15, M.lt); k.V(bx + bw - 1, 8, 15, M.dk);
-  k.H(bx, 22, bw, M.dk);
-  // carved front: recessed inscription panel flanked by wreath roundels
-  k.R(bx + 14, 11, 32, 9, mix(M.md, M.dk, 0.35));
-  k.H(bx + 14, 11, 32, M.dd); k.V(bx + 14, 11, 9, M.dd); k.H(bx + 14, 19, 32, M.lt); k.V(bx + 45, 11, 9, M.lt);
-  k.text(bx + 17, 13, 'HALLOWELL', M.dd);
-  k.H(bx + 17, 18, 26, mix(M.md, M.dd, 0.5));
-  for (const rx of [bx + 6, bx + bw - 7]) { k.ring(rx, 15, 3, 3, M.dd); k.P(rx - 2, 13, M.hi); k.P(rx, 15, M.dk); }
+  marble(k, bx, 2, bw, 17, M.md, 1, { veins: 4, dirty: !o.clean });
+  k.H(bx, 2, bw, M.lt); k.V(bx, 2, 17, M.lt); k.V(bx + bw - 1, 2, 17, M.dk); k.H(bx, 18, bw, M.dk);
+  k.R(bx + 14, 6, 32, 9, mix(M.md, M.dk, 0.35));
+  k.H(bx + 14, 6, 32, M.dd); k.V(bx + 14, 6, 9, M.dd); k.H(bx + 14, 14, 32, M.lt); k.V(bx + 45, 6, 9, M.lt);
+  k.text(bx + 17, 8, 'HALLOWELL', M.dd);
+  for (const rx of [bx + 7, bx + bw - 8]) { k.ring(rx, 10, 3, 3, M.dd); k.P(rx - 2, 8, M.hi); k.P(rx, 10, M.dk); }
   if (!burst) {
-    // gabled lid: back slope (lit), ridge, front slope, corner acroteria
-    k.R(bx - 1, -4, bw + 2, 13, M.lt);
-    marble(k, bx - 1, -4, bw + 2, 6, M.hi, 2, { veins: 3, dirty: !o.clean });
-    marble(k, bx - 1, 2, bw + 2, 6, M.lt, 3, { veins: 3, dirty: !o.clean });
-    k.H(bx - 1, 1, bw + 2, M.hi); k.H(bx - 1, 2, bw + 2, M.md);
-    k.H(bx - 1, 8, bw + 2, M.dk);
-    for (const ax of [bx - 1, bx + bw - 4]) { k.R(ax, -6, 5, 5, M.hi); k.R(ax, -1, 5, 2, M.md); k.P(ax + 4, -5, M.dk); k.P(ax, -6, '#f6f3ee'); }
-    // carved sword on the lid, point toward the feet
-    k.H(bx + 18, 3, 26, M.dd); k.H(bx + 18, 4, 24, M.lt); k.R(bx + 14, 2, 1, 4, M.dd); k.R(bx + 12, 3, 3, 2, M.dd);
-    if (!o.clean) { // hairline cracks and a dark seep at the seam
-      k.L(bx + 30, -3, bx + 34, 1, M.dk); k.L(bx + 34, 1, bx + 33, 6, M.dk);
-      k.H(bx + 8, 8, 10, 'rgba(10,8,12,0.6)');
-    }
-  } else {
-    // ---- burst: the lid broke OUTWARD; the cavity is far too large for any man ----
-    // rim of the box, jagged and splayed
-    k.R(bx, 1, bw, 8, M.lt);
-    // the cavity: a pit that keeps going (deeper than the box stands tall)
-    k.R(bx + 3, 3, bw - 6, 7, PAL.ink);
-    k.poly([[bx + 3, 3], [bx + bw - 3, 3], [bx + bw - 1, 9], [bx + 1, 9]], PAL.ink);
-    k.DV(bx + 3, 3, bw - 6, 4, mix(M.dd, PAL.ink, 0.5), 0.6, 0.0);
-    // inner back wall, scraped from inside (long claw-drags downward)
-    for (let i = 0; i < 9; i++) { const sx = bx + 8 + i * 5 + k.ri(-1, 1); k.V(sx, 3, k.ri(2, 4), mix(M.dk, PAL.ink, 0.3)); }
-    // bulged, cracked front: chunks pushed out and missing
-    k.poly([[bx + 20, 8], [bx + 27, 8], [bx + 29, 13], [bx + 24, 16], [bx + 19, 12]], PAL.ink);
-    k.L(bx + 24, 16, bx + 22, 22, M.dd); k.L(bx + 29, 13, bx + 36, 18, M.dd); k.L(bx + 19, 12, bx + 12, 17, M.dd);
-    k.L(bx + 36, 18, bx + 40, 22, M.dd); k.L(bx + 12, 17, bx + 9, 21, M.dd);
-    k.P(bx + 26, 9, M.hi); k.P(bx + 20, 9, M.hi);
-    // rim teeth
-    for (let x = bx; x < bx + bw; x += 3) k.P(x + k.ri(0, 1), 1 + k.ri(0, 1), PAL.ink);
-    // scraps of navy wool caught on the edges, a smear of coal, one brass button in the dust
-    k.R(bx + 40, 2, 3, 2, PAL.navy); k.P(bx + 43, 3, PAL.navy_d); k.P(bx + 41, 4, PAL.navy_d);
-    k.R(bx + 10, 8, 2, 3, PAL.navy_d); k.P(bx + 11, 11, PAL.navy);
-    k.S(bx + 4, 9, 20, 4, 'rgba(10,10,14,0.5)', 0.25);
-    // lid slab A: slid off to the front-left, tilted against the plinth
-    k.poly([[-6, 12], [22, 6], [26, 14], [-3, 22]], M.lt);
-    marble(k, -2, 10, 22, 8, M.lt, 7, { veins: 2 });
-    k.poly([[-6, 12], [22, 6], [22, 7], [-6, 13]], M.hi);
-    k.poly([[-3, 22], [26, 14], [26, 16], [-3, 24]], M.dk);
-    k.L(8, 9, 12, 19, M.dk); // crack through the slab
-    // lid slab B: flung right, broken in two on the floor
-    k.poly([[44, -6], [66, -2], [70, 6], [50, 4]], M.hi);
-    k.poly([[50, 4], [70, 6], [70, 8], [50, 6]], M.dk);
-    k.L(57, -4, 60, 5, M.dk);
-    k.R(66, 20, 5, 3, M.lt); k.R(66, 23, 5, 1, M.dk); k.R(-6, 25, 3, 2, M.lt); k.P(70, 27, M.md);
-    // chips scattered on the plinth/floor
-    for (const [cx, cy] of [[30, 26], [36, 27], [14, 27], [47, 25], [58, 27]]) { k.P(cx, cy, M.hi); k.P(cx + 1, cy, M.dk); }
+    // gabled lid: lit back slope, ridge, front slope; corner acroteria; carved sword
+    k.R(bx - 2, -12, bw + 4, 14, M.lt);
+    marble(k, bx - 2, -12, bw + 4, 7, M.hi, 2, { veins: 3, dirty: !o.clean });
+    marble(k, bx - 2, -5, bw + 4, 7, M.lt, 3, { veins: 3, dirty: !o.clean });
+    k.H(bx - 2, -6, bw + 4, M.hi); k.H(bx - 2, -5, bw + 4, M.md); k.H(bx - 2, 1, bw + 4, M.dk);
+    for (const ax of [bx - 2, bx + bw - 3]) { k.R(ax, -15, 5, 6, M.hi); k.R(ax, -9, 5, 2, M.md); k.P(ax + 4, -14, M.dk); k.P(ax, -15, '#f6f3ee'); }
+    k.H(bx + 18, -3, 26, M.dd); k.H(bx + 18, -2, 24, M.lt); k.R(bx + 14, -4, 1, 4, M.dd); k.R(bx + 12, -3, 3, 2, M.dd);
+    if (!o.clean) { k.L(bx + 30, -11, bx + 34, -6, M.dk); k.L(bx + 34, -6, bx + 33, 0, M.dk); k.H(bx + 8, 1, 10, 'rgba(10,8,12,0.6)'); }
+    return k.done();
   }
+  // ---- burst: broken OUTWARD from inside; the cavity is far too large for any man ----
+  // jagged rim, splayed outward
+  k.R(bx - 1, -6, bw + 2, 8, M.lt); k.H(bx - 1, -6, bw + 2, M.hi);
+  // the cavity: black that keeps going — deeper than the tomb stands tall
+  k.poly([[bx + 2, -4], [bx + bw - 2, -4], [bx + bw, 2], [bx + bw - 3, 4], [bx + 1, 4], [bx - 1, 1]], PAL.ink);
+  k.DV(bx + 3, -4, bw - 6, 3, mix(M.dk, PAL.ink, 0.6), 0.7, 0.0);
+  for (let i = 0; i < 10; i++) { const sx = bx + 7 + i * 5 + k.ri(-1, 1); k.V(sx, -4, k.ri(2, 3), mix(M.dk, PAL.ink, 0.45)); } // claw drags down the inside
+  for (let x = bx; x < bx + bw; x += 3) k.P(x + k.ri(0, 1), -6 + k.ri(0, 1), PAL.ink); // broken teeth of the rim
+  // the front blown out: a ragged hole into the same black, cracks radiating
+  k.poly([[bx + 22, 2], [bx + 30, 1], [bx + 33, 8], [bx + 28, 13], [bx + 21, 9]], PAL.ink);
+  k.L(bx + 28, 13, bx + 25, 18, M.dd); k.L(bx + 33, 8, bx + 42, 13, M.dd); k.L(bx + 21, 9, bx + 12, 14, M.dd);
+  k.L(bx + 42, 13, bx + 46, 18, M.dd); k.L(bx + 12, 14, bx + 9, 18, M.dd); k.L(bx + 30, 1, bx + 36, -3, M.dd);
+  k.P(bx + 29, 2, M.hi); k.P(bx + 22, 3, M.hi);
+  // something dragged itself out over the front: a coal-black smear down the face and off the plinth
+  k.poly([[bx + 27, 12], [bx + 33, 11], [bx + 38, 24], [bx + 46, 31], [bx + 36, 31], [bx + 30, 22]], 'rgba(8,8,12,0.55)');
+  k.S(bx + 28, 14, 18, 17, 'rgba(10,10,14,0.6)', 0.12);
+  // scraps of navy wool on the teeth, a smear of coal dust
+  k.R(bx + 41, -7, 3, 2, PAL.navy); k.P(bx + 44, -6, PAL.navy_d); k.P(bx + 42, -5, PAL.navy_d);
+  k.R(bx + 9, 1, 2, 3, PAL.navy_d); k.P(bx + 10, 4, PAL.navy);
+  // lid slab A: slid off the front-left, propped on the plinth at an angle
+  k.poly([[-12, 8], [22, -2], [27, 8], [-9, 20]], M.lt);
+  marble(k, -8, 3, 30, 10, M.lt, 7, { veins: 2 });
+  k.poly([[-12, 8], [22, -2], [22, -1], [-12, 9]], M.hi);
+  k.poly([[-9, 20], [27, 8], [27, 10], [-9, 22]], M.dk);
+  k.L(6, 3, 10, 16, M.dk); k.H(-2, 7, 14, M.dd); // its carved sword, upside down
+  // lid slab B: flung right and broken in two on the floor
+  k.poly([[56, -14], [76, -10], [78, -3], [60, -6]], M.hi);
+  k.poly([[60, -6], [78, -3], [78, -1], [60, -4]], M.dk);
+  k.L(66, -12, 69, -4, M.dk);
+  k.poly([[66, 18], [76, 20], [74, 26], [64, 24]], M.lt); k.H(64, 25, 10, M.dk);
+  // chips everywhere
+  for (const [cx, cy] of [[30, 33], [38, 34], [14, 33], [50, 32], [60, 34], [70, 29], [-10, 26], [-4, 32], [74, 33]]) { k.P(cx, cy, M.hi); k.P(cx + 1, cy, M.dk); }
   return k.done();
 }
 
@@ -130,41 +121,45 @@ function wreath(o) {
 
 // ---------------------------------------------------------------------------- flag_regimental (2×1 wall)
 function flagRegimental(o) {
-  const k = new K(36, 34, -2, -16, seedOf('flag', o.clean));
-  const field = o.clean ? PAL.navy : mix(PAL.navy, PAL.g2, 0.3), fieldD = dk(field, 0.35), fieldL = lt(field, 0.15);
-  // staff on two brackets, eagle-ish finial
-  k.R(-1, -12, 34, 2, o.clean ? PAL.wood_l : PAL.wood_d); k.H(-1, -12, 34, o.clean ? PAL.maple : PAL.wood);
-  k.R(2, -11, 2, 3, IRON.lt); k.R(28, -11, 2, 3, IRON.lt);
-  k.R(32, -14, 3, 3, BRASS.md); k.P(32, -14, BRASS.hi);
-  // the silk: hangs from the staff in soft vertical folds; tattered lower edge
-  const top = -10, bottom = o.clean ? 12 : 10;
+  const k = new K(40, 36, -4, -18, seedOf('flag', o.clean));
+  const field = o.clean ? PAL.navy : mix(PAL.navy, PAL.g2, 0.28);
+  const F = [dk(field, 0.45), dk(field, 0.22), field, lt(field, 0.12), lt(field, 0.25)];
+  // staff on two iron hooks, brass spear-point finial
+  k.R(-3, -14, 37, 2, o.clean ? PAL.wood_l : PAL.wood_d); k.H(-3, -14, 37, o.clean ? PAL.maple : PAL.wood);
+  k.P(1, -12, IRON.lt); k.P(28, -12, IRON.lt);
+  k.poly([[34, -16], [37, -13], [34, -11]], BRASS.md); k.P(34, -15, BRASS.hi);
+  // the silk: hangs in soft folds from the staff; one fly corner rotted away, a long tattered hem
+  const hem = (x) => {
+    if (o.clean) return 12 + Math.round(Math.sin(x * 0.4));
+    let b = 11 + Math.round(Math.sin(x * 1.3) * 1.5 + Math.sin(x * 0.45) * 2);
+    if (x > 22) b -= Math.round((x - 22) * 0.9);          // the fly end rotted back
+    if (x === 6 || x === 7 || x === 15) b += 4;           // strips hanging lower
+    if (x === 11 || x === 19) b -= 4;                     // rips
+    return b;
+  };
   for (let x = 0; x < 32; x++) {
-    const fold = Math.sin(x * 0.55) ;
-    const c = fold > 0.45 ? fieldL : fold < -0.45 ? fieldD : field;
-    let b = bottom + (o.clean ? 0 : Math.round(Math.sin(x * 1.7) * 2 + Math.sin(x * 0.6) * 2));
-    if (!o.clean && (x === 7 || x === 8 || x === 21)) b -= 5; // torn strips
-    k.V(x, top, b - top, c);
-    if (!o.clean && x % 5 === 2) k.P(x, b, c); // threads
+    const ph = (x + 2) % 6, c = F[[1, 2, 3, 4, 3, 2][ph]];
+    const b = hem(x);
+    if (b <= -11) continue;
+    k.V(x, -12, b + 12, c);
+    // the cloth sags lower in the middle: shade the lower third darker
+    k.DV(x, Math.max(-12, b - 6), 1, Math.min(6, b + 12), F[0], 0, 0.6);
+    if (!o.clean && x % 4 === 1 && b > 0) k.P(x, b, c);    // loose threads
   }
-  // gold fringe (what's left of it)
-  for (let x = 0; x < 32; x += 1) { if (!o.clean && (x % 4 === 1 || (x > 12 && x < 19))) continue; k.P(x, bottom + (o.clean ? 0 : 1), x % 2 ? BRASS.md : BRASS.lt); }
-  // PA arms: shield (ship / plough / sheaves), eagle crest, two horses, red scroll
-  const cx = 16, cy = -1;
-  k.R(cx - 4, cy - 3, 8, 7, o.clean ? PAL.gold : mix(PAL.gold, PAL.g4, 0.35));
-  k.H(cx - 3, cy - 2, 6, PAL.blue_l); k.P(cx - 1, cy - 2, PAL.white);      // ship band
-  k.H(cx - 3, cy, 6, PAL.brown); k.P(cx + 1, cy, PAL.g2);                  // plough
-  k.P(cx - 2, cy + 2, PAL.yellow); k.P(cx + 1, cy + 2, PAL.yellow); k.P(cx - 2, cy + 3, PAL.mustard); k.P(cx + 1, cy + 3, PAL.mustard);
-  k.R(cx - 2, cy + 4, 4, 1, o.clean ? PAL.gold : mix(PAL.gold, PAL.g4, 0.35));
-  k.R(cx - 2, cy - 6, 4, 2, PAL.g5); k.P(cx - 3, cy - 6, PAL.g5); k.P(cx + 2, cy - 6, PAL.g5); k.P(cx, cy - 7, PAL.g6); // eagle
-  for (const s of [-1, 1]) { const hx = cx + s * 7; k.R(hx - 1, cy - 3, 3, 4, PAL.g6); k.P(hx + s, cy - 4, PAL.g6); k.P(hx - s, cy + 1, PAL.g5); k.P(hx + s, cy + 1, PAL.g5); }
-  const scroll = o.clean ? PAL.red : mix(PAL.red_d, PAL.g2, 0.3);
-  k.R(cx - 9, cy + 6, 18, 6, scroll); k.H(cx - 9, cy + 6, 18, lt(scroll, 0.2));
-  k.text(cx - 7, cy + 7, '48 PA', o.clean ? PAL.gold_l : mix(PAL.gold, PAL.g4, 0.4));
+  // what's left of the gold fringe
+  for (let x = 0; x < 32; x++) { const b = hem(x); if (o.clean || (x < 18 && x % 5 !== 3)) { k.P(x, b, x % 2 ? BRASS.md : BRASS.lt); if (x % 2 === 0) k.P(x, b + 1, BRASS.dk); } }
+  // the state arms, faded into the silk: shield, eagle, rearing horses, red scroll "48 PA"
+  const cx = 14, cy = -3, gold = o.clean ? PAL.gold : mix(PAL.gold, PAL.g4, 0.4);
+  k.R(cx - 3, cy - 2, 6, 6, gold); k.P(cx - 3, cy + 3, F[2]); k.P(cx + 2, cy + 3, F[2]);
+  k.H(cx - 2, cy - 1, 4, mix(PAL.blue_l, gold, 0.4)); k.H(cx - 2, cy + 1, 4, mix(PAL.brown, gold, 0.4));
+  k.R(cx - 1, cy - 5, 2, 2, PAL.g5); k.P(cx - 2, cy - 5, PAL.g4); k.P(cx + 1, cy - 5, PAL.g4);
+  for (const sg of [-1, 1]) { const hx = cx + sg * 5; k.V(hx, cy - 2, 4, mix(PAL.g6, F[2], 0.35)); k.P(hx + sg, cy - 3, mix(PAL.g6, F[2], 0.35)); }
+  const scroll = o.clean ? PAL.red : mix(PAL.red_d, PAL.g2, 0.35);
+  k.R(cx - 8, cy + 5, 17, 6, scroll); k.H(cx - 8, cy + 5, 17, lt(scroll, 0.2)); k.P(cx - 9, cy + 6, scroll); k.P(cx + 9, cy + 6, scroll);
+  k.text(cx - 6, cy + 6, '48 PA', o.clean ? PAL.gold_l : mix(PAL.gold, PAL.g4, 0.4));
   if (!o.clean) {
-    // moth holes, shot holes, a long rip, dust
-    for (const [x, y] of [[4, -4], [5, -4], [25, 2], [26, 3], [10, 6], [28, -6], [20, 8]]) k.clear(x, y);
-    k.L(23, 4, 27, 10, fieldD);
-    k.S(0, -10, 32, 20, 'rgba(120,110,90,0.25)', 0.05);
+    for (const [x, y] of [[4, -6], [5, -6], [25, -2], [9, 7], [20, -9], [27, -8]]) k.clear(x, y);
+    k.S(0, -12, 32, 22, 'rgba(120,110,90,0.25)', 0.04);
   }
   return k.done();
 }
@@ -195,19 +190,17 @@ function nameWall(o) {
     }
   };
   if (v === 0) {
-    k.text(18, -10, '1894', groove); k.H(18, -5, 15, lit);
-    for (let i = 0; i < 17; i++) { const col = i < 9 ? 0 : 1, row = i < 9 ? i : i - 9; name(6 + col * 20, -3 + row * 2 - (row > 4 ? 0 : 0), 14 - ((i * 7) % 5)); }
+    k.text(18, -11, '1894', groove); k.H(18, -6, 15, lit);
+    for (let i = 0; i < 17; i++) { const col = i % 3, row = Math.floor(i / 3); name(5 + col * 13, -3 + row * 2 + (row > 2 ? 0 : 0), 10 - ((i * 7) % 4)); }
   } else if (v === 1) {
-    k.text(5, -10, '1911', groove); k.text(5, -4, 'HALLOWELL C', mix(PAL.red, M.dd, o.clean ? 0.2 : 0.4));
-    k.text(5, 2, '1928', groove); name(24, 3, 14); name(24, 6, 10);
-    k.text(5, 8, '1945', groove); name(24, 8, 12); name(24, 10, 9);
+    k.text(5, -11, '1911', groove); k.text(4, -5, 'HALLOWELL C', mix(PAL.red, M.dd, o.clean ? 0.2 : 0.4));
+    k.text(5, 0, '1928', groove); name(24, 0, 14); name(24, 3, 10);
+    k.text(5, 6, '1945', groove); name(24, 6, 12); name(24, 9, 9);
   } else {
-    k.text(5, -10, '1962', groove); name(24, -10, 14); name(24, -7, 12); name(5, -4, 16); name(24, -4, 11);
-    k.text(5, 1, '1979', groove);
-    for (let i = 0; i < 9; i++) name(o.clean ? 24 : 24, 1 + i * 1.2 | 0, 0); // placeholder spacing
-    for (let i = 0; i < 4; i++) name(24 - (i % 2) * 19, 1 + Math.floor(i / 2) * 4 + (i % 2 ? 6 : 0), 13 - i);
-    name(5, 7, 15); name(24, 7, 15); name(5, 10, 14); name(24, 10, 12);
-    if (o.clean) { k.R(4, 1, 40, 12, M.md); k.text(5, 1, '1979', mix(M.md, M.dd, 0.25)); } // 1979 not yet carved
+    k.text(5, -11, '1962', groove); name(24, -10, 14); name(24, -7, 12); name(5, -4, 16); name(24, -4, 11);
+    k.text(5, 0, '1979', groove);
+    name(24, 1, 15); name(24, 4, 13); name(5, 6, 15); name(24, 6, 15); name(5, 9, 14); name(24, 9, 12);
+    if (o.clean) { k.R(4, 0, 40, 11, M.md); k.text(5, 0, '1979', mix(M.md, M.dd, 0.25)); } // 1979 not yet carved
   }
   if (!o.clean) { k.drip(10, 13, 2, 'rgba(40,30,20,0.4)'); k.drip(37, 13, 3, 'rgba(40,30,20,0.4)'); k.L(40, -12, 44, -6, M.dk); }
   return k.done();
@@ -315,4 +308,3 @@ export const VAULT = {
   },
   husk_kneeling: { build: huskKneeling, facing: ['down', 'up', 'left', 'right'], showFacing: ['down', 'up', 'left', 'right'], noClean: true },
 };
-export { bay, OUT };

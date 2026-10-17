@@ -56,7 +56,8 @@ function cellsFor(type) {
   const dirs = e.facing || [null];
   const nv = e.variants || 1;
   const labs = LABELS[type] || [''];
-  for (const state of def.states) for (const dir of dirs) {
+  // every state; facings for the default state only (other states draw the same in any facing)
+  for (const state of def.states) for (const dir of state === def.states[0] ? dirs : [dirs[0]]) {
     out.push({ type, state, dir, variant: 0, label: labs[0] });
   }
   for (let v = 1; v < Math.min(nv, 6); v++) out.push({ type, state: def.states[0], dir: dirs[0], variant: v, label: labs[v % labs.length] });
@@ -181,7 +182,7 @@ function perf() {
   rows.unshift(`ALL: ${count} canvases in ${total.toFixed(0)} ms (avg ${(total / count).toFixed(2)} ms)`);
   const pre = document.createElement('pre'); pre.textContent = rows.join('\n');
   console.log(rows.slice(0, 1).join(''));
-  console.log(rows.slice().sort((a, b) => parseFloat(b.split('canvases')[1]) - parseFloat(a.split('canvases')[1])).slice(1, 8).join('\n'));
+  console.log(rows.slice(1).sort((a, b) => parseFloat(b.split('canvases')[1]) - parseFloat(a.split('canvases')[1])).slice(0, 6).join('\n'));
   return pre;
 }
 

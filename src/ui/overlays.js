@@ -4,9 +4,10 @@
 
 import { HW } from '../engine/hw.js';
 import { C, F, W, H } from './theme.js';
-import { canvas, ctx2d, rect, dither, vignette, noiseFrame, triangle, keycap, AP, clamp, approach, ease } from './gfx.js';
-import { hash2, rng } from '../art/util.js';
+import { canvas, ctx2d, rect, dither, vignette, keycap, AP, clamp, approach, ease } from './gfx.js';
+import { rng } from '../art/util.js';
 import * as svc from './services.js';
+import { vhsFilter, vhsBlue, vhsOSD } from './vhsfx.js';
 
 /** The compact mirror's glass circle, in WORLD px (the renderer draws the 1979 view inside it). */
 export const COMPACT_CIRCLE = { x: 240, y: 135, r: 100 };
@@ -122,62 +123,16 @@ export class Overlays {
     }
   }
 
-  // -- 'vhs': tape playback (frames from the colonel CG) with tracking noise, chroma bleed, jitter
+  // -- 'vhs': tape playback (frames from the colonel CG) with the shared camcorder look (vhsfx.js)
   vhs(ctx, o) {
     const p = o.params;
-    const src = this.c480, out = this.fx480, tmp = this.tmp480;
-    const sx = ctx2d(out);
-    sx.setTransform(1, 0, 0, 1, 0, 0); sx.globalAlpha = 1; sx.globalCompositeOperation = 'source-over';
-    if (p.blue) {
-      rect(sx, 0, 0, LW, LH, '#1a2fb0');
-      dither(sx, 0, 0, LW, LH, '#2438c8', 0.25, 1);
-    } else {
-      drawArt(src, 'vhs_frames', o.t, p);
-      const tick = Math.floor(this.t * 30);
-      sx.clearRect(0, 0, LW, LH);
-      // horizontal jitter in bands (head-switching wobble, stronger near the bottom)
-      const band = 6;
-      for (let y = 0; y < LH; y += band) {
-        let dx = (hash2(tick, y) % 3) - 1;
-        if (y > LH - 24) dx += (hash2(tick, y + 1) % 7) - 3;
-        sx.drawImage(src, 0, y, LW, band, dx, y, LW, band);
-      }
-      // chroma bleed: a red-only copy shifted right, a blue-only copy shifted left
-      const tx = ctx2d(tmp);
-      for (const [col, off] of [['#ff2020', 2], ['#2040ff', -1]]) {
-        tx.globalCompositeOperation = 'source-over'; tx.clearRect(0, 0, LW, LH); tx.drawImage(out, 0, 0);
-        tx.globalCompositeOperation = 'multiply'; tx.fillStyle = col; tx.fillRect(0, 0, LW, LH);
-        tx.globalCompositeOperation = 'destination-in'; tx.drawImage(out, 0, 0);
-        sx.globalCompositeOperation = 'lighter'; sx.globalAlpha = 0.32; sx.drawImage(tmp, off, 0);
-      }
-      sx.globalCompositeOperation = 'source-over'; sx.globalAlpha = 1;
-      // rolling tracking-noise band + bottom head-switch noise
-      const ny = Math.floor((this.t * 37) % (LH + 60)) - 30;
-      const nf = noiseFrame(tick);
-      sx.globalAlpha = 0.5; sx.drawImage(nf, 0, ny, LW, 10, (hash2(tick, 3) % 9) - 4, ny, LW, 10);
-      sx.globalAlpha = 0.75; sx.drawImage(nf, 0, LH - 8, LW, 8, 0, LH - 8, LW, 8);
-      sx.globalAlpha = 0.07; sx.drawImage(nf, 0, 0);
-      sx.globalAlpha = 1;
-      // scanline darkening
-      for (let y = 1; y < LH; y += 2) { sx.fillStyle = 'rgba(0,0,0,0.18)'; sx.fillRect(0, y, LW, 1); }
+    if (p.blue) vhsBlue(ctx2d(this.fx480));
+    else {
+      drawArt(this.c480, 'vhs_frames', o.t, p);
+      vhsFilter(this.c480, this.fx480, this.tmp480, this.t);
     }
-    ctx.drawImage(out, 0, 0, W, H);
-    // on-screen display (camcorder OSD): chunky white with a dark drop shadow
-    const f = F.monoL;
-    const osd = (s, x, y, align) => { f.draw(ctx, s, x + AP, y + AP, '#101010', { align }); f.draw(ctx, s, x, y, '#f4f4ec', { align }); };
-    const blink = Math.floor(this.t * 1.6) % 2 === 0;
-    if (p.blue) {
-      osd('PLAY', W / 2 + 18, H / 2 - 22, 'center');
-      triangle(ctx, W / 2 - 62, H / 2 - 14, 9, '#f4f4ec', 'right');
-    } else {
-      osd('PLAY', 56, 34);
-      if (blink) { triangle(ctx, 144 + AP, 42 + AP, 8, '#101010', 'right'); triangle(ctx, 144, 42, 8, '#f4f4ec', 'right'); }
-      const ts = p.timestamp || 'OCT 18 1996 10:41PM';
-      const [date, time] = splitStamp(ts);
-      osd(time, W - 56, H - 108, 'right');
-      osd(date, W - 56, H - 72, 'right');
-      osd('SP', 56, H - 72);
-    }
+    ctx.drawImage(this.fx480, 0, 0, W, H);
+    vhsOSD(ctx, this.t, { mode: p.blue ? 'blue' : 'play', timestamp: p.timestamp });
   }
 
   // -- 'heads_down': head on the desk, eyes shut — a dark tunnel that breathes
@@ -215,10 +170,6 @@ export class Overlays {
   black(ctx, o) { rect(ctx, 0, 0, W, H, `rgba(0,0,0,${clamp(o.params.alpha ?? 1)})`); }
 }
 
-function splitStamp(ts) {
-  const m = String(ts).match(/^(.*\d{4})\s+(.*)$/);
-  return m ? [m[1], m[2]] : [String(ts), ''];
-}
 
 let compactCanvas = null;
 /** Static compact frame at 480×270 (scaled ×2 when drawn): dark surround, metal rim, hinge, crack. */

@@ -15,6 +15,8 @@ import { SafeScreen } from '../special/safe.js';
 import { TerminalScreen } from '../special/terminal.js';
 import { RegisterScreen } from '../special/register.js';
 import { BreathScreen } from '../special/breath.js';
+import { WriteScreen } from '../special/write.js';
+import { VhsScreen } from '../special/vhs.js';
 
 export const SCREENS = {
   // modal menus & documents (above dialogue)
@@ -36,4 +38,6 @@ export const SCREENS = {
   terminal: TerminalScreen,
   register: RegisterScreen,
   breath: BreathScreen,
+  write: WriteScreen,   // generic hold-to-write meter (the expulsion)
+  vhs: VhsScreen,       // Leah's tape: frame scrubber
 };

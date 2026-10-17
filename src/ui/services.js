@@ -46,8 +46,78 @@ export function portrait(who, expr, o = {}) {
   let light = o.light;
   if (light == null) { try { light = HW.renderer?.portraitLight?.(); } catch { light = null; } }
   const grime = o.grime ?? grimeFor(state().chapter | 0);
-  try { return HW.art?.portrait?.(who, e, { light: light || 'normal', grime, enrolled: !!o.enrolled }) || null; }
-  catch (err) { warnOnce('portrait:' + who, err); return null; }
+  try {
+    // Tess's `enrolled` is a level (DESIGN §7, CONTENT §7): 0 / 1 (amber catchlight) / 2 (+ husk sheen), taken
+    // from her answers unless the caller passes one. `true` keeps the art's fully entranced look.
+    if (who === 'tess' && o.enrolled !== true) {
+      const lvl = o.enrolled == null ? tessEnrolledLevel() : Math.max(0, Math.min(2, Number(o.enrolled) || 0));
+      const base = HW.art?.portrait?.(who, e, { light: light || 'normal', grime, enrolled: false }) || null;
+      return base && lvl > 0 ? tessEnrolled(base, lvl, e) : base;
+    }
+    return HW.art?.portrait?.(who, e, { light: light || 'normal', grime, enrolled: !!o.enrolled }) || null;
+  } catch (err) { warnOnce('portrait:' + who, err); return null; }
+}
+
+/** Tess's enrolled level from the roll calls she answered: 0, 1 (pencil) or 2 (ink). */
+export function tessEnrolledLevel() {
+  const s = state();
+  const r = Number.isFinite(s.rollAnswered) ? s.rollAnswered
+    : ['roll1_answered', 'roll2_answered', 'roll3_answered'].filter((k) => s.flags?.[k]).length;
+  return Math.max(0, Math.min(2, r | 0));
+}
+
+// Tess's enrolled look, as a post pass over her normal portrait (the art rig only knows "entranced"):
+// level 1 turns the catchlight in each eye husk-amber; level 2 adds a faint amber sheen along her silhouette.
+const enrolledCache = new WeakMap();
+const AMBER = [255, 196, 92], AMBER_D = [214, 150, 60];
+const EYES = [[41, 47], [59, 47]];   // where her catchlights sit in the 96×120 rig (± a few px by expression)
+function tessEnrolled(base, level, expr) {
+  let per = enrolledCache.get(base);
+  if (!per) { per = {}; enrolledCache.set(base, per); }
+  if (per[level]) return per[level];
+  const w = base.width, h = base.height;
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(base, 0, 0);
+  const img = x.getImageData(0, 0, w, h); const d = img.data;
+  const lum = (i) => d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11;
+  const mixPx = (i, rgb, k) => { for (let ch = 0; ch < 3; ch++) d[i * 4 + ch] = Math.round(d[i * 4 + ch] + (rgb[ch] - d[i * 4 + ch]) * k); };
+  if (expr !== 'eyes_shut') {
+    // catchlight = a small local maximum near each eye, ringed by the much darker iris
+    for (const [ex, ey] of EYES) {
+      let best = -1, bl = 0;
+      for (let y = ey - 4; y <= ey + 4; y++) for (let xx = ex - 5; xx <= ex + 5; xx++) {
+        const i = y * w + xx; if (d[i * 4 + 3] < 200) continue;
+        const L = lum(i); if (L <= bl) continue;
+        let darker = 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && lum((y + dy) * w + xx + dx) < L * 0.62) darker++;
+        if (darker >= 4) { best = i; bl = L; }
+      }
+      if (best < 0) continue;
+      const bx = best % w, by = (best / w) | 0;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const i = (by + dy) * w + bx + dx;
+        if (lum(i) >= bl * 0.9) mixPx(i, AMBER, 0.85);
+      }
+    }
+  }
+  if (level >= 2) {
+    // husk sheen: amber at the silhouette edge, a broken second row just inside it
+    const a = (xx, y) => (xx < 0 || y < 0 || xx >= w || y >= h ? 0 : d[(y * w + xx) * 4 + 3]);
+    const edge = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++) for (let xx = 0; xx < w; xx++) {
+      if (a(xx, y) < 128) continue;
+      if (a(xx - 1, y) < 128 || a(xx + 1, y) < 128 || a(xx, y - 1) < 128 || a(xx, y + 1) < 128) edge[y * w + xx] = 1;
+      else if (a(xx - 2, y) < 128 || a(xx + 2, y) < 128 || a(xx, y - 2) < 128 || a(xx, y + 2) < 128) edge[y * w + xx] = 2;
+    }
+    for (let i = 0; i < w * h; i++) {
+      if (edge[i] === 1) mixPx(i, AMBER, 0.3);
+      else if (edge[i] === 2 && ((i % w) + ((i / w) | 0)) % 2 === 0) mixPx(i, AMBER_D, 0.18);
+    }
+  }
+  x.putImageData(img, 0, 0);
+  per[level] = c;
+  return c;
 }
 export function icon(id) { try { return HW.art?.icon?.(id) || null; } catch (e) { warnOnce('icon:' + id, e); return null; } }
 export function cgArt(id) { try { return HW.art?.cg?.(id) || null; } catch (e) { warnOnce('cg:' + id, e); return null; } }

@@ -3,7 +3,7 @@
 // Sweating concrete, rust, soot and anthracite; the boiler is lit (impossible) and the coal heap is
 // occupied: at first glance old gym mats or a tarp under the coal — navy wool, one glint of brass,
 // a pale fold of flesh — breathing very slowly (frames).
-import { K, PAL, mix, lt, dk, BRASS, IRON, CHROME, seedOf, woodSet, steelSet, Blob, SHADOW, SHADOW_SOFT, COAL, NAVY, rivets, glowDot, bay, paper } from './props_b_kit.js';
+import { K, PAL, mix, lt, dk, BRASS, CHROME, seedOf, woodSet, steelSet, Blob, SHADOW, SHADOW_SOFT, COAL, rivets } from './props_b_kit.js';
 
 const ironSet = (clean) => clean
   ? { hi: mix(PAL.g4, PAL.green_l, 0.2), lt: mix(PAL.g3, PAL.green, 0.25), md: mix(PAL.g2, PAL.green_d, 0.35), dk: mix(PAL.g1, PAL.green_dd, 0.4), dd: PAL.night }
@@ -28,7 +28,7 @@ function boiler(o) {
   rivets(k, 12, 42, 10, 4, { hi: I.hi, md: I.lt, dd: I.dd });
   // fire doors (left one ajar → the glow)
   const doors = [[15, 29], [35, 29]];
-  const flick = [0.75, 0.9, 0.65, 1][f % 4];
+  const flick = [0.6, 0.95, 0.45, 1][f % 4];
   for (let i = 0; i < 2; i++) {
     const [dx, dy] = doors[i];
     k.R(dx, dy, 14, 9, I.dk); k.frame(dx, dy, 14, 9, I.dd); k.H(dx + 1, dy, 12, I.lt);
@@ -83,19 +83,21 @@ function boiler(o) {
     k.DV(10, 24, 44, 6, 'rgba(10,8,8,0.5)', 0.5, 0); // soot over the doors
   } else { k.P(cx - 8, cy - 8, PAL.white); k.P(cx - 9, cy - 7, I.hi); }
   // firelight on the floor and the plate edge (crisp, dithered)
-  k.tint(28, 34, 22, 12, PAL.fire_l, 0.32 * flick);
+  k.tint(28, 36, 24, 13, PAL.fire_l, 0.42 * flick);
+  if (f % 2) k.P(gx + 1, gy + 3, PAL.white);
   return k.done();
 }
 
 // ---------------------------------------------------------------------------- pipes (over)
 function pipe(o, vertical) {
-  const k = new K(16, 16, 0, 0, seedOf('pipe', vertical, o.variant, o.clean));
+  const k = new K(16, 26, 0, -10, seedOf('pipe', vertical, o.variant, o.clean));
   const v = o.variant;
   const lag = v === 3; // asbestos-lagged steam line
   const I = lag ? { hi: PAL.cream_l, lt: PAL.cream, md: PAL.cream_d, dk: mix(PAL.cream_d, PAL.brown_d, 0.5), dd: PAL.brown_d } : ironSet(o.clean);
   const t = lag ? 5 : 4;
   if (!vertical) {
-    const y0 = 3;
+    const y0 = -4; // overhead: carried up toward the ceiling on hanger rods
+    for (const hx of [3, 12]) { if (v === 1 && hx === 12) continue; k.V(hx, y0 - 6, 6, I.dk); k.P(hx, y0 - 1, I.lt); }
     k.R(0, y0, 16, t, I.md); k.H(0, y0, 16, I.hi); k.H(0, y0 + 1, 16, I.lt); k.H(0, y0 + t - 1, 16, I.dk);
     k.A(0, y0 + t, 16, 1, 'rgba(0,0,0,0.25)');
     if (lag) { for (let x = 2; x < 16; x += 6) k.V(x, y0, t, I.dk); if (!o.clean) { k.R(9, y0 + 1, 3, 3, mix(PAL.cream_d, PAL.g2, 0.4)); k.P(10, y0 + 4, PAL.paper); } }
@@ -168,69 +170,65 @@ function coalLumps(k, x0, y0, w, h, inside, { density = 0.08, height = null } = 
   }
 }
 function coalHeap(o) {
-  const st = o.state;
-  const k = new K(72, 62, -4, -12, seedOf('coal', st, o.clean));
-  const W = 64, Hh = 48;
-  // heap outline (screen space): a mound against the back wall, toe spilling forward
-  const flat = st === 'flat' || o.clean;
-  const peakY = flat ? 8 : -4;
-  const inside = (x, y) => {
-    if (x < -2 || x > 65 || y > 46) return false;
-    const u = (x - 30) / 36, base = 46 - Math.round(4 * u * u * 3) - (x < 6 ? 2 : 0);
-    const top = peakY + Math.round(Math.abs(u) * (flat ? 18 : 26) + Math.sin(x * 0.7) * 1.2);
-    return y >= top && y <= base;
-  };
-  const height = (x, y) => { const u = Math.abs((x - 30) / 36); const v = (y - peakY) / (46 - peakY); return Math.max(0, Math.min(1, 1 - v * 0.9 - u * 0.3)); };
-  // soft dark bed under the heap
-  k.shadowE(31, 44, 34, 4, SHADOW);
-  coalLumps(k, -4, -12, 72, 62, inside, { density: 0.1, height });
-  // loose lumps rolled out onto the floor
-  for (let i = 0; i < 26; i++) { const x = k.ri(-2, 64), y = k.ri(42, 48); if (inside(x, y)) continue; k.R(x, y, 2, 1, COAL[2]); k.P(x, y, COAL[4]); }
-  // coal dust skirt
-  k.D(-2, 44, 68, 4, 'rgba(10,10,14,0.5)', 0.35);
+  const st = o.clean ? 'flat' : o.state;
+  // Kept inside its footprint (it is a floor decal and usually sits against the bin's north wall,
+  // whose face would hide anything drawn above y = 0).
+  const k = new K(72, 52, -4, -2, seedOf('coal', st));
+  const flat = st === 'flat';
+  const cx = 31, rx = 34, base = 46, crest = flat ? 18 : 3;
+  const topY = (x) => { const u = (x - cx) / rx; if (Math.abs(u) >= 1) return 99; return Math.round(base - (base - crest) * Math.sqrt(1 - u * u) * (1 - 0.18 * Math.max(0, u)) + Math.sin(x * 0.7) * 1.2 + Math.sin(x * 0.23) * 1.5); };
+  const botY = (x) => base - Math.round(Math.abs((x - cx) / rx) ** 2 * 3);
+  const inside = (x, y) => y >= topY(x) && y <= botY(x);
+  const height = (x, y) => { const t = topY(x), b = botY(x); return Math.max(0, Math.min(1, (b - y) / Math.max(1, b - t))); };
+  k.shadowE(cx, base - 1, rx + 1, 4, SHADOW);
+  coalLumps(k, -4, -2, 72, 52, inside, { density: 0.1, height });
+  // crest catches the light (a ragged lit ridge), the toe sinks into shadow
+  for (let x = cx - rx + 2; x < cx + rx - 1; x++) { const t = topY(x); if (t < 99) { k.P(x, t, COAL[3]); if (x % 3 === 0) k.P(x, t, COAL[4]); if (x % 2) k.P(x, t + 1, COAL[2]); } }
+  k.D(-2, base - 4, 68, 5, 'rgba(6,6,10,0.55)', 0.5);
+  for (let i = 0; i < 26; i++) { const x = k.ri(-2, 64), y = k.ri(base - 3, base + 2); if (inside(x, y)) continue; k.R(x, y, 2, 1, COAL[2]); k.P(x, y, COAL[4]); }
 
-  if (st === 'occupied' && !o.clean) {
+  if (st === 'occupied') {
     // ---- something enormous lies in it: at a glance, old gym mats under a tarp ----
     const sw = [0, 0, 1, 1, 2, 2, 1, 1][o.frame % 8];
     const b = new Blob(k.w, k.h, k.ox, k.oy);
     // three slab-like folds of wool, mat-straight edges, rounded corners; the middle one swells
-    b.poly([[4, 18], [10, 9 - sw], [30, 5 - sw], [33, 22], [8, 30]], 0, 1);
-    b.poly([[28, 4 - sw], [47, 3 - sw], [58, 12 - sw], [57, 27], [31, 24]], 0, 2);
-    b.poly([[14, -1 - sw], [30, -6 - sw], [44, -4 - sw], [40, 5 - sw], [18, 8 - sw]], 0, 3, 0.1);
+    b.poly([[3, 24], [9, 14 - sw], [30, 9 - sw], [33, 28], [8, 36]], 0, 1);
+    b.poly([[29, 8 - sw], [48, 7 - sw], [60, 17 - sw], [58, 31], [31, 29]], 0, 2);
+    b.poly([[13, 6 - sw], [30, 1 - sw], [45, 3 - sw], [41, 11 - sw], [17, 13 - sw]], 0, 3, 0.1);
     // the pale fold of flesh, pinched between two folds
-    b.poly([[25, 9 - sw], [31, 7 - sw], [37, 8 - sw], [35, 11 - sw], [28, 12 - sw]], 1, 4);
+    b.poly([[25, 14 - sw], [31, 12 - sw], [37, 13 - sw], [35, 16 - sw], [28, 17 - sw]], 1, 4);
     const WOOL = [PAL.navy_dd, mix(PAL.navy_dd, PAL.navy_d, 0.6), PAL.navy_d, mix(PAL.navy_d, PAL.navy, 0.6), mix(PAL.navy, PAL.g3, 0.35)];
-    const flesh = [PAL.flesh_dd, PAL.flesh_dd, PAL.flesh_d, PAL.flesh, PAL.flesh_l];
+    const flesh = [PAL.flesh_dd, PAL.flesh_dd, PAL.flesh_d, PAL.flesh_d, PAL.flesh];
     b.render(k, [WOOL, flesh], { reach: 8, vw: 0.75, edge: 0.35, rim: 0.55, dither: true });
     // mat-like seams and stitching along the slabs, worn nap, a mended tear
-    k.L(11, 11 - sw, 29, 7 - sw, PAL.navy_dd); for (let x = 12; x < 29; x += 3) k.P(x, 12 - sw - Math.round((x - 12) / 4.5), mix(PAL.navy, PAL.g4, 0.4));
-    k.L(33, 9 - sw, 55, 14 - sw, PAL.navy_dd); for (let x = 35; x < 55; x += 3) k.P(x, 11 - sw + Math.round((x - 35) / 4), mix(PAL.navy, PAL.g4, 0.4));
-    k.L(31, 23, 33, 12 - sw, PAL.ink); k.H(27, 12 - sw, 8, PAL.navy_dd);
-    k.S(6, -4 - sw, 50, 30, 'rgba(60,72,104,0.35)', 0.03);
+    k.L(11, 16 - sw, 29, 12 - sw, PAL.navy_dd); for (let x = 12; x < 29; x += 3) k.P(x, 17 - sw - Math.round((x - 12) / 4.5), mix(PAL.navy, PAL.g4, 0.4));
+    k.L(33, 14 - sw, 55, 19 - sw, PAL.navy_dd); for (let x = 35; x < 55; x += 3) k.P(x, 16 - sw + Math.round((x - 35) / 4), mix(PAL.navy, PAL.g4, 0.4));
+    k.L(31, 28, 33, 17 - sw, PAL.ink); k.H(27, 17 - sw, 8, PAL.navy_dd);
+    k.S(6, 1 - sw, 52, 30, 'rgba(60,72,104,0.35)', 0.03);
     // one glint of brass: a button sunk in a fold
-    k.P(46, 8 - sw, PAL.gold_l); k.P(47, 8 - sw, PAL.brass); k.P(46, 9 - sw, PAL.brass_d);
+    k.P(46, 13 - sw, PAL.gold_l); k.P(47, 13 - sw, PAL.brass); k.P(46, 14 - sw, PAL.brass_d);
     // coal heaped over it: drifts across the lower body and both ends, lumps resting on top
-    const over = (x, y) => inside(x, y) && ((y >= 22 + Math.round(Math.sin(x * 0.3) * 3)) || x < 8 || x > 56 || ((x - 22) ** 2 / 50 + (y - 1 + sw) ** 2 / 10 < 1));
-    coalLumps(k, -4, -12, 72, 62, over, { density: 0.16, height });
-    for (const [x, y] of [[18, 12], [40, 8], [50, 18], [36, 14], [12, 20], [26, 0]]) { k.R(x, y - sw, 3, 2, COAL[2]); k.H(x, y - sw, 2, COAL[3]); k.H(x + 1, y + 2 - sw, 3, COAL[0]); }
-  } else if (st === 'hollow' && !o.clean) {
+    const over = (x, y) => inside(x, y) && ((y >= 27 + Math.round(Math.sin(x * 0.3) * 3)) || x < 6 || x > 58 || ((x - 22) ** 2 / 50 + (y - 6 + sw) ** 2 / 10 < 1));
+    coalLumps(k, -4, -2, 72, 52, over, { density: 0.16, height });
+    for (const [x, y] of [[18, 17], [40, 13], [50, 23], [36, 19], [12, 25], [26, 5]]) { k.R(x, y - sw, 3, 2, COAL[2]); k.H(x, y - sw, 2, COAL[3]); k.H(x + 1, y + 2 - sw, 3, COAL[0]); }
+  } else if (st === 'hollow') {
     // ---- a body-shaped dent: something huge lay here and got up ----
-    const dent = (x, y) => ((x - 33) ** 2 / 360 + (y - 13) ** 2 / 100 < 1) || ((x - 11) ** 2 / 20 + (y - 7) ** 2 / 14 < 1) || ((x - 48) ** 2 / 90 + (y - 26) ** 2 / 10 < 1 && x > 40) || ((x - 22) ** 2 / 60 + (y - 25) ** 2 / 8 < 1);
-    // inner floor of the hollow: deeper coal shadow, crushed fine (fewer lumps)
-    for (let y = -6; y < 34; y++) for (let x = 4; x < 62; x++) {
+    const dent = (x, y) => ((x - 33) ** 2 / 360 + (y - 19) ** 2 / 100 < 1) || ((x - 11) ** 2 / 20 + (y - 13) ** 2 / 14 < 1) || ((x - 48) ** 2 / 90 + (y - 31) ** 2 / 10 < 1 && x > 40) || ((x - 22) ** 2 / 60 + (y - 30) ** 2 / 8 < 1);
+    for (let y = 0; y < 40; y++) for (let x = 4; x < 62; x++) {
       if (!dent(x, y)) continue;
-      const rim = !dent(x, y - 2) || !dent(x - 2, y);
-      const low = !dent(x, y + 2) || !dent(x + 2, y);
-      k.P(x, y, rim ? PAL.ink : low ? COAL[2] : COAL[0]);
-      if (low && ((x * 7 + y * 3) % 5 === 0)) k.P(x, y, COAL[3]);
-      if (!rim && !low && ((x * 13 + y * 7) % 23 === 0)) k.P(x, y, COAL[1]);
+      const far = !dent(x, y - 2) || !dent(x - 2, y);    // upper/left inner wall: in shadow
+      const near = !dent(x, y + 2) || !dent(x + 2, y);   // lower/right inner wall: catches the light
+      // pressed fines: smooth, a little glossy, with the weave of wool printed into them
+      let c = (x + y) % 4 === 0 || (x - y + 64) % 4 === 0 ? COAL[3] : COAL[2];
+      if (far) c = !dent(x, y - 1) || !dent(x - 1, y) ? PAL.ink : COAL[0];
+      else if (near) c = (x * 7 + y * 3) % 3 === 0 ? COAL[4] : COAL[3];
+      k.P(x, y, c);
     }
     // wool nap pressed into the coal, a lost brass button, drag marks toward the front
-    k.S(12, 6, 40, 20, 'rgba(35,46,82,0.6)', 0.03);
-    k.P(30, 17, PAL.gold); k.P(31, 17, PAL.brass_d); k.P(30, 16, PAL.gold_l);
-    for (let i = 0; i < 2; i++) { const x = 42 + i * 6; k.L(x, 31, x + 2, 44, COAL[0]); k.L(x + 1, 31, x + 3, 44, COAL[2]); }
-    // displaced coal heaped up around the rim
-    coalLumps(k, -4, -12, 72, 62, (x, y) => !dent(x, y) && inside(x, y) && (dent(x, y + 3) || dent(x + 3, y) || dent(x - 3, y) || dent(x, y - 3)), { density: 0.35, height: () => 0.9 });
+    k.S(12, 10, 40, 20, 'rgba(35,46,82,0.7)', 0.04);
+    k.P(30, 23, PAL.gold); k.P(31, 23, PAL.brass_d); k.P(30, 22, PAL.gold_l);
+    for (let i = 0; i < 2; i++) { const x = 42 + i * 6; k.L(x, 35, x + 2, 46, COAL[0]); k.L(x + 1, 35, x + 3, 46, COAL[2]); }
+    coalLumps(k, -4, -2, 72, 52, (x, y) => !dent(x, y) && inside(x, y) && (dent(x, y + 3) || dent(x + 3, y) || dent(x - 3, y) || dent(x, y - 3)), { density: 0.35, height: () => 0.9 });
   }
   return k.done({ outline: false });
 }
@@ -473,4 +471,3 @@ export const BASEMENT = {
   cage_bulb: { build: cageBulb },
   cobweb: { build: cobweb, facing: ['down', 'left', 'right'], variants: 6, noClean: true, showFacing: ['left', 'right'] },
 };
-export { glowDot, paper };

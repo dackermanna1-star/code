@@ -96,15 +96,14 @@ function labBench(o) {
 
 // ---------------------------------------------------------------------------- lab_stool
 function labStool(o) {
-  const k = new K(16, 24, 0, -8, seedOf('stool', o.variant, o.clean));
+  const k = new K(16, 26, 0, -10, seedOf('stool', o.variant, o.clean));
   const W = woodSet(o.clean, 'oak');
   k.shadowE(8, 13, 6, 2, SHADOW_SOFT);
-  // splayed legs + foot ring
-  k.L(3, 1, 2, 13, W.dk); k.L(12, 1, 13, 13, W.dk); k.L(5, 2, 5, 12, W.dd); k.L(10, 2, 10, 12, W.dd);
-  k.H(3, 8, 10, W.md); k.H(3, 9, 10, W.dd);
-  // round seat
-  k.E(8, 0, 6, 2, W.md); k.E(7, -1, 5, 1, W.lt); k.H(3, 2, 10, W.dd); k.P(5, -1, W.hi);
-  if (!o.clean && o.variant % 2) { k.P(9, 0, W.dd); k.P(10, 0, W.dd); }
+  // four splayed legs and a stretcher ring, then the round seat seen from above
+  k.L(4, 2, 2, 13, W.md); k.L(11, 2, 13, 13, W.dk); k.L(6, 3, 6, 12, W.dk); k.L(9, 3, 10, 12, W.dd);
+  k.H(3, 9, 10, W.md); k.H(4, 10, 8, W.dd);
+  k.E(8, -1, 6, 3, W.lt); k.E(7, -2, 4, 1, W.hi); k.H(3, 2, 10, W.dk); k.H(4, 3, 8, W.dd);
+  if (!o.clean && o.variant % 2) { k.P(9, -1, W.md); k.P(10, -1, W.md); k.P(10, 0, W.dk); } // carved
   return k.done();
 }
 
@@ -243,4 +242,3 @@ export const LAB = {
   chem_cabinet: { build: chemCabinet },
   skeleton: { build: skeleton },
 };
-export { paper };

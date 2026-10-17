@@ -2,7 +2,7 @@
 // stage_flat lever rope_rail. Red velvet worn to the weave, cast iron, oak gone gray with dust.
 // aud_seat 'occupied' seats a husk (props_b_husk.js): opts.occupant = 'husk_a'..'husk_f' | 'a'..'f'
 // | 'boy', optionally suffixed ':turned' / '_turned' / ':crumbled'.
-import { K, PAL, mix, lt, dk, BRASS, IRON, seedOf, woodSet, Blob, SHADOW, SHADOW_SOFT, VELVET, paper } from './props_b_kit.js';
+import { K, PAL, mix, lt, dk, BRASS, IRON, seedOf, woodSet, SHADOW, SHADOW_SOFT } from './props_b_kit.js';
 import { drawHusk, drawFlakes, huskVariant } from './props_b_husk.js';
 
 const velvetSet = (clean) => clean
@@ -36,7 +36,7 @@ function audSeat(o) {
   };
   if (o.dir === 'up') {
     // far edge of the seat cushion, just showing over the back
-    k.R(2, -5, 12, 2, V.dk); k.H(2, -5, 12, V.md);
+    k.R(2, -4, 12, 2, V.dk); k.H(2, -4, 12, V.md);
     standards(k);
     if (occ) {
       if (occ.state === 'crumbled') drawFlakes(husk, 8, -3, occ.size, seedOf('fl', o.variant));
@@ -44,21 +44,21 @@ function audSeat(o) {
     }
     // the back: velvet-upholstered rear in a dark wood frame, top roll
     const f = front;
-    f.R(1, -3, 14, 14, W.dk);
-    f.R(2, -2, 12, 11, V.md);
-    f.R(2, 6, 12, 3, V.dk); f.D(2, 5, 12, 1, V.dk, 0.5);
-    f.R(3, -2, 10, 2, V.lt);
-    f.H(1, -3, 14, W.lt); f.H(2, -3, 12, W.hi); f.P(1, -3, W.md);
-    f.V(2, -2, 11, V.lt);
-    f.H(2, 9, 12, V.dd); f.H(1, 10, 14, W.dd);
+    f.R(1, -2, 14, 11, W.dk);
+    f.R(2, -1, 12, 8, V.md);
+    f.R(2, 5, 12, 2, V.dk); f.D(2, 4, 12, 1, V.dk, 0.5);
+    f.R(3, -1, 10, 2, V.lt);
+    f.H(1, -2, 14, W.lt); f.H(2, -2, 12, W.hi); f.P(1, -2, W.md);
+    f.V(2, -1, 8, V.lt);
+    f.H(2, 7, 12, V.dd); f.H(1, 8, 14, W.dd);
     for (const bx of [4, 8, 12]) { f.P(bx, 2, V.dd); f.P(bx - 1, 1, V.lt); }
-    f.R(6, 7, 4, 2, o.clean ? BRASS.lt : BRASS.dk); f.P(6, 7, BRASS.hi);
+    f.R(6, 5, 4, 2, o.clean ? BRASS.lt : BRASS.dk); f.P(6, 5, BRASS.hi);
     if (wear >= 0) {
       // velvet worn to the weave where shoulders rubbed; a split seam; dust on the top rail
-      for (let i = 0; i < 14; i++) f.P(4 + ((i * 5 + o.variant * 3) % 8), -1 + ((i * 3) % 4), V.worn);
-      if (wear === 1) { f.L(11, 2, 12, 7, V.dd); f.P(12, 4, PAL.tan); }
-      if (wear === 3) { f.R(3, 5, 2, 2, mix(PAL.tan, PAL.cream_d, 0.4)); f.P(4, 6, PAL.paper_d); } // stuffing
-      f.S(1, -3, 14, 1, 'rgba(170,160,140,0.5)', 0.4);
+      for (let i = 0; i < 12; i++) f.P(4 + ((i * 5 + o.variant * 3) % 8), ((i * 3) % 4), V.worn);
+      if (wear === 1) { f.L(11, 1, 12, 5, V.dd); f.P(12, 3, PAL.tan); }
+      if (wear === 3) { f.R(3, 3, 2, 2, mix(PAL.tan, PAL.cream_d, 0.4)); f.P(4, 4, PAL.paper_d); } // stuffing
+      f.S(1, -2, 14, 1, 'rgba(170,160,140,0.5)', 0.4);
     }
   } else {
     // facing the viewer: back behind, then the seat (folded up when empty) and arms

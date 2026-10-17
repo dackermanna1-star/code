@@ -95,7 +95,7 @@ function officeChair(o) {
   if (o.dir === 'up') {
     k.R(3, -2, 10, 4, S.dk);
     k.R(2, -12, 12, 11, S.md); k.H(2, -12, 12, S.hi); k.V(2, -11, 10, mix(S.md, S.hi, 0.5)); k.V(13, -11, 10, S.dk); k.H(2, -2, 12, S.dk);
-    k.R(5, -9, 6, 5, S.dk); k.H(5, -9, 6, mix(S.md, S.dk, 0.5));
+    k.V(7, -11, 9, mix(S.md, S.dk, 0.5)); k.H(3, -4, 10, C.lt); k.H(3, -3, 10, C.dk); k.P(4, -4, C.hi); k.P(11, -4, C.hi);
     cracks(2, -12, 12, 11);
   } else {
     k.R(3, -12, 10, 8, S.md); k.H(3, -12, 10, S.hi); k.H(3, -5, 10, S.dk); k.V(3, -11, 6, mix(S.md, S.hi, 0.4));

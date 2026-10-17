@@ -9426,6 +9426,27 @@ ${e.error.stack}` : ""}`);
   var AMBER = ["#2a1a08", PAL.amber_dd, PAL.amber_d, "#8a5e24", PAL.amber, "#c08a3e", PAL.amber_l, PAL.amber_ll];
   var VELVET = [PAL.blood_d, PAL.velvet_d, PAL.velvet, mix(PAL.velvet, PAL.crimson, 0.5), mix(PAL.crimson, PAL.red_l, 0.25)];
   var NAVY = [PAL.navy_dd, PAL.navy_d, PAL.navy, mix(PAL.navy, PAL.navy_l, 0.5), PAL.navy_l];
+  function paper(k, x, y, w, h, { col = PAL.paper, lines = PAL.g4, curl = 0, clean = false, lineGap = 2, x0 = 1 } = {}) {
+    const c = clean ? col : mix(col, PAL.cream_d, 0.35);
+    k.R(x, y, w, h, c);
+    k.V(x + w - 1, y + 1, h - 1, dk2(c, 0.12));
+    k.H(x + 1, y + h - 1, w - 1, dk2(c, 0.15));
+    if (lines) for (let j = y + 2; j < y + h - 1; j += lineGap) {
+      const lw = Math.max(1, w - 2 - x0 - Math.floor(k.r() * 3));
+      k.H(x + x0, j, lw, mix(c, lines, 0.55));
+    }
+    if (curl === 1) {
+      k.clear(x + w - 1, y + h - 1);
+      k.P(x + w - 2, y + h - 2, lt2(c, 0.15));
+      k.P(x + w - 2, y + h - 1, dk2(c, 0.3));
+      k.P(x + w - 1, y + h - 2, dk2(c, 0.3));
+    }
+    if (curl === 2) {
+      k.clear(x + w - 1, y);
+      k.P(x + w - 2, y + 1, dk2(c, 0.25));
+    }
+    if (!clean) k.S(x, y, w, h, mix(c, PAL.brown, 0.3), 0.04);
+  }
   function rivets(k, x, y, n, step, { hi, md, dd }, vertical = false) {
     for (let i = 0; i < n; i++) {
       const px = vertical ? x : x + i * step, py = vertical ? y + i * step : y;
@@ -10714,13 +10735,18 @@ ${e.error.stack}` : ""}`);
     return k.done();
   }
   function pipe(o, vertical) {
-    const k = new K(16, 16, 0, 0, seedOf("pipe", vertical, o.variant, o.clean));
+    const k = new K(16, 26, 0, -10, seedOf("pipe", vertical, o.variant, o.clean));
     const v = o.variant;
     const lag = v === 3;
     const I2 = lag ? { hi: PAL.cream_l, lt: PAL.cream, md: PAL.cream_d, dk: mix(PAL.cream_d, PAL.brown_d, 0.5), dd: PAL.brown_d } : ironSet(o.clean);
     const t = lag ? 5 : 4;
     if (!vertical) {
-      const y0 = 3;
+      const y0 = -4;
+      for (const hx of [3, 12]) {
+        if (v === 1 && hx === 12) continue;
+        k.V(hx, y0 - 6, 6, I2.dk);
+        k.P(hx, y0 - 1, I2.lt);
+      }
       k.R(0, y0, 16, t, I2.md);
       k.H(0, y0, 16, I2.hi);
       k.H(0, y0 + 1, 16, I2.lt);
@@ -10834,61 +10860,68 @@ ${e.error.stack}` : ""}`);
     }
   }
   function coalHeap(o) {
-    const st = o.state;
-    const k = new K(72, 62, -4, -12, seedOf("coal", st, o.clean));
-    const W12 = 64, Hh = 48;
-    const flat = st === "flat" || o.clean;
-    const peakY = flat ? 8 : -4;
-    const inside = (x, y) => {
-      if (x < -2 || x > 65 || y > 46) return false;
-      const u = (x - 30) / 36, base = 46 - Math.round(4 * u * u * 3) - (x < 6 ? 2 : 0);
-      const top = peakY + Math.round(Math.abs(u) * (flat ? 18 : 26) + Math.sin(x * 0.7) * 1.2);
-      return y >= top && y <= base;
+    const st = o.clean ? "flat" : o.state;
+    const k = new K(72, 52, -4, -2, seedOf("coal", st));
+    const flat = st === "flat";
+    const cx = 31, rx = 34, base = 46, crest = flat ? 18 : 3;
+    const topY = (x) => {
+      const u = (x - cx) / rx;
+      if (Math.abs(u) >= 1) return 99;
+      return Math.round(base - (base - crest) * Math.sqrt(1 - u * u) * (1 - 0.18 * Math.max(0, u)) + Math.sin(x * 0.7) * 1.2 + Math.sin(x * 0.23) * 1.5);
     };
+    const botY = (x) => base - Math.round(Math.abs((x - cx) / rx) ** 2 * 3);
+    const inside = (x, y) => y >= topY(x) && y <= botY(x);
     const height = (x, y) => {
-      const u = Math.abs((x - 30) / 36);
-      const v = (y - peakY) / (46 - peakY);
-      return Math.max(0, Math.min(1, 1 - v * 0.9 - u * 0.3));
+      const t = topY(x), b = botY(x);
+      return Math.max(0, Math.min(1, (b - y) / Math.max(1, b - t)));
     };
-    k.shadowE(31, 44, 34, 4, SHADOW);
-    coalLumps(k, -4, -12, 72, 62, inside, { density: 0.1, height });
+    k.shadowE(cx, base - 1, rx + 1, 4, SHADOW);
+    coalLumps(k, -4, -2, 72, 52, inside, { density: 0.1, height });
+    for (let x = cx - rx + 2; x < cx + rx - 1; x++) {
+      const t = topY(x);
+      if (t < 99) {
+        k.P(x, t, COAL[3]);
+        if (x % 3 === 0) k.P(x, t, COAL[4]);
+        if (x % 2) k.P(x, t + 1, COAL[2]);
+      }
+    }
+    k.D(-2, base - 4, 68, 5, "rgba(6,6,10,0.55)", 0.5);
     for (let i = 0; i < 26; i++) {
-      const x = k.ri(-2, 64), y = k.ri(42, 48);
+      const x = k.ri(-2, 64), y = k.ri(base - 3, base + 2);
       if (inside(x, y)) continue;
       k.R(x, y, 2, 1, COAL[2]);
       k.P(x, y, COAL[4]);
     }
-    k.D(-2, 44, 68, 4, "rgba(10,10,14,0.5)", 0.35);
-    if (st === "occupied" && !o.clean) {
+    if (st === "occupied") {
       const sw = [0, 0, 1, 1, 2, 2, 1, 1][o.frame % 8];
       const b = new Blob(k.w, k.h, k.ox, k.oy);
-      b.poly([[4, 18], [10, 9 - sw], [30, 5 - sw], [33, 22], [8, 30]], 0, 1);
-      b.poly([[28, 4 - sw], [47, 3 - sw], [58, 12 - sw], [57, 27], [31, 24]], 0, 2);
-      b.poly([[14, -1 - sw], [30, -6 - sw], [44, -4 - sw], [40, 5 - sw], [18, 8 - sw]], 0, 3, 0.1);
-      b.poly([[25, 9 - sw], [31, 7 - sw], [37, 8 - sw], [35, 11 - sw], [28, 12 - sw]], 1, 4);
+      b.poly([[3, 24], [9, 14 - sw], [30, 9 - sw], [33, 28], [8, 36]], 0, 1);
+      b.poly([[29, 8 - sw], [48, 7 - sw], [60, 17 - sw], [58, 31], [31, 29]], 0, 2);
+      b.poly([[13, 6 - sw], [30, 1 - sw], [45, 3 - sw], [41, 11 - sw], [17, 13 - sw]], 0, 3, 0.1);
+      b.poly([[25, 14 - sw], [31, 12 - sw], [37, 13 - sw], [35, 16 - sw], [28, 17 - sw]], 1, 4);
       const WOOL = [PAL.navy_dd, mix(PAL.navy_dd, PAL.navy_d, 0.6), PAL.navy_d, mix(PAL.navy_d, PAL.navy, 0.6), mix(PAL.navy, PAL.g3, 0.35)];
       const flesh = [PAL.flesh_dd, PAL.flesh_dd, PAL.flesh_d, PAL.flesh, PAL.flesh_l];
       b.render(k, [WOOL, flesh], { reach: 8, vw: 0.75, edge: 0.35, rim: 0.55, dither: true });
-      k.L(11, 11 - sw, 29, 7 - sw, PAL.navy_dd);
-      for (let x = 12; x < 29; x += 3) k.P(x, 12 - sw - Math.round((x - 12) / 4.5), mix(PAL.navy, PAL.g4, 0.4));
-      k.L(33, 9 - sw, 55, 14 - sw, PAL.navy_dd);
-      for (let x = 35; x < 55; x += 3) k.P(x, 11 - sw + Math.round((x - 35) / 4), mix(PAL.navy, PAL.g4, 0.4));
-      k.L(31, 23, 33, 12 - sw, PAL.ink);
-      k.H(27, 12 - sw, 8, PAL.navy_dd);
-      k.S(6, -4 - sw, 50, 30, "rgba(60,72,104,0.35)", 0.03);
-      k.P(46, 8 - sw, PAL.gold_l);
-      k.P(47, 8 - sw, PAL.brass);
-      k.P(46, 9 - sw, PAL.brass_d);
-      const over = (x, y) => inside(x, y) && (y >= 22 + Math.round(Math.sin(x * 0.3) * 3) || x < 8 || x > 56 || (x - 22) ** 2 / 50 + (y - 1 + sw) ** 2 / 10 < 1);
-      coalLumps(k, -4, -12, 72, 62, over, { density: 0.16, height });
-      for (const [x, y] of [[18, 12], [40, 8], [50, 18], [36, 14], [12, 20], [26, 0]]) {
+      k.L(11, 16 - sw, 29, 12 - sw, PAL.navy_dd);
+      for (let x = 12; x < 29; x += 3) k.P(x, 17 - sw - Math.round((x - 12) / 4.5), mix(PAL.navy, PAL.g4, 0.4));
+      k.L(33, 14 - sw, 55, 19 - sw, PAL.navy_dd);
+      for (let x = 35; x < 55; x += 3) k.P(x, 16 - sw + Math.round((x - 35) / 4), mix(PAL.navy, PAL.g4, 0.4));
+      k.L(31, 28, 33, 17 - sw, PAL.ink);
+      k.H(27, 17 - sw, 8, PAL.navy_dd);
+      k.S(6, 1 - sw, 52, 30, "rgba(60,72,104,0.35)", 0.03);
+      k.P(46, 13 - sw, PAL.gold_l);
+      k.P(47, 13 - sw, PAL.brass);
+      k.P(46, 14 - sw, PAL.brass_d);
+      const over = (x, y) => inside(x, y) && (y >= 27 + Math.round(Math.sin(x * 0.3) * 3) || x < 6 || x > 58 || (x - 22) ** 2 / 50 + (y - 6 + sw) ** 2 / 10 < 1);
+      coalLumps(k, -4, -2, 72, 52, over, { density: 0.16, height });
+      for (const [x, y] of [[18, 17], [40, 13], [50, 23], [36, 19], [12, 25], [26, 5]]) {
         k.R(x, y - sw, 3, 2, COAL[2]);
         k.H(x, y - sw, 2, COAL[3]);
         k.H(x + 1, y + 2 - sw, 3, COAL[0]);
       }
-    } else if (st === "hollow" && !o.clean) {
-      const dent = (x, y) => (x - 33) ** 2 / 360 + (y - 13) ** 2 / 100 < 1 || (x - 11) ** 2 / 20 + (y - 7) ** 2 / 14 < 1 || (x - 48) ** 2 / 90 + (y - 26) ** 2 / 10 < 1 && x > 40 || (x - 22) ** 2 / 60 + (y - 25) ** 2 / 8 < 1;
-      for (let y = -6; y < 34; y++) for (let x = 4; x < 62; x++) {
+    } else if (st === "hollow") {
+      const dent = (x, y) => (x - 33) ** 2 / 360 + (y - 19) ** 2 / 100 < 1 || (x - 11) ** 2 / 20 + (y - 13) ** 2 / 14 < 1 || (x - 48) ** 2 / 90 + (y - 31) ** 2 / 10 < 1 && x > 40 || (x - 22) ** 2 / 60 + (y - 30) ** 2 / 8 < 1;
+      for (let y = 0; y < 40; y++) for (let x = 4; x < 62; x++) {
         if (!dent(x, y)) continue;
         const rim = !dent(x, y - 2) || !dent(x - 2, y);
         const low = !dent(x, y + 2) || !dent(x + 2, y);
@@ -10896,16 +10929,16 @@ ${e.error.stack}` : ""}`);
         if (low && (x * 7 + y * 3) % 5 === 0) k.P(x, y, COAL[3]);
         if (!rim && !low && (x * 13 + y * 7) % 23 === 0) k.P(x, y, COAL[1]);
       }
-      k.S(12, 6, 40, 20, "rgba(35,46,82,0.6)", 0.03);
-      k.P(30, 17, PAL.gold);
-      k.P(31, 17, PAL.brass_d);
-      k.P(30, 16, PAL.gold_l);
+      k.S(12, 10, 40, 20, "rgba(35,46,82,0.6)", 0.03);
+      k.P(30, 23, PAL.gold);
+      k.P(31, 23, PAL.brass_d);
+      k.P(30, 22, PAL.gold_l);
       for (let i = 0; i < 2; i++) {
         const x = 42 + i * 6;
-        k.L(x, 31, x + 2, 44, COAL[0]);
-        k.L(x + 1, 31, x + 3, 44, COAL[2]);
+        k.L(x, 35, x + 2, 46, COAL[0]);
+        k.L(x + 1, 35, x + 3, 46, COAL[2]);
       }
-      coalLumps(k, -4, -12, 72, 62, (x, y) => !dent(x, y) && inside(x, y) && (dent(x, y + 3) || dent(x + 3, y) || dent(x - 3, y) || dent(x, y - 3)), { density: 0.35, height: () => 0.9 });
+      coalLumps(k, -4, -2, 72, 52, (x, y) => !dent(x, y) && inside(x, y) && (dent(x, y + 3) || dent(x + 3, y) || dent(x - 3, y) || dent(x, y - 3)), { density: 0.35, height: () => 0.9 });
     }
     return k.done({ outline: false });
   }
@@ -11210,10 +11243,10 @@ ${e.error.stack}` : ""}`);
     k.V(7, -18, 6, I2.hi);
     k.R(5, -12, 6, 4, I2.dk);
     k.H(5, -12, 6, I2.lt);
-    const glass = on ? [PAL.white, PAL.yellow_l, PAL.ember] : [mix(PAL.g4, PAL.paper_d, 0.3), PAL.g3, PAL.g2];
-    k.E(8, -5, 3, 3, glass[1]);
-    k.E(7, -6, 1, 1, glass[0]);
-    k.P(9, -3, glass[2]);
+    const glass2 = on ? [PAL.white, PAL.yellow_l, PAL.ember] : [mix(PAL.g4, PAL.paper_d, 0.3), PAL.g3, PAL.g2];
+    k.E(8, -5, 3, 3, glass2[1]);
+    k.E(7, -6, 1, 1, glass2[0]);
+    k.P(9, -3, glass2[2]);
     if (on) {
       k.DE(8, -5, 6, 6, "rgba(255,213,154,0.35)", 1, 0.1);
       k.P(8, -5, PAL.white);
@@ -12077,91 +12110,97 @@ ${e.error.stack}` : ""}`);
   }
   function sarcophagus(o) {
     const burst2 = o.state === "burst" && !o.clean;
-    const k = new K(80, 52, -8, -14, seedOf("sarc", o.state, o.clean));
+    const k = new K(92, 60, -14, -22, seedOf("sarc", o.state, o.clean));
     const M3 = o.clean ? MARBLE : Object.fromEntries(Object.entries(MARBLE).map(([a, c]) => [a, marbleOld(c)]));
-    k.shadow(-2, 26, 68, 6, SHADOW);
-    k.shadow(-4, 30, 72, 3, SHADOW_SOFT);
-    k.box(-1, 22, 66, 3, 6, { top: M3.lt, front: M3.dk, under: M3.dd });
+    const base = { hi: mix(M3.md, PAL.g3, 0.3), md: mix(M3.dk, PAL.g2, 0.45), dk: mix(M3.dd, PAL.g1, 0.5) };
+    k.shadow(-6, 30, 76, 5, SHADOW);
+    k.R(-5, 24, 74, 7, base.md);
+    k.H(-5, 24, 74, base.hi);
+    k.H(-5, 30, 74, base.dk);
+    k.R(-2, 19, 68, 6, base.md);
+    k.H(-2, 19, 68, base.hi);
+    k.V(-2, 19, 6, base.hi);
+    k.H(-2, 24, 68, base.dk);
     const bx = 2, bw = 60;
-    marble2(k, bx, 8, bw, 15, M3.md, 1, { veins: 4, dirty: !o.clean });
-    k.H(bx, 8, bw, M3.lt);
-    k.V(bx, 8, 15, M3.lt);
-    k.V(bx + bw - 1, 8, 15, M3.dk);
-    k.H(bx, 22, bw, M3.dk);
-    k.R(bx + 14, 11, 32, 9, mix(M3.md, M3.dk, 0.35));
-    k.H(bx + 14, 11, 32, M3.dd);
-    k.V(bx + 14, 11, 9, M3.dd);
-    k.H(bx + 14, 19, 32, M3.lt);
-    k.V(bx + 45, 11, 9, M3.lt);
-    k.text(bx + 17, 13, "HALLOWELL", M3.dd);
-    k.H(bx + 17, 18, 26, mix(M3.md, M3.dd, 0.5));
-    for (const rx of [bx + 6, bx + bw - 7]) {
-      k.ring(rx, 15, 3, 3, M3.dd);
-      k.P(rx - 2, 13, M3.hi);
-      k.P(rx, 15, M3.dk);
+    marble2(k, bx, 2, bw, 17, M3.md, 1, { veins: 4, dirty: !o.clean });
+    k.H(bx, 2, bw, M3.lt);
+    k.V(bx, 2, 17, M3.lt);
+    k.V(bx + bw - 1, 2, 17, M3.dk);
+    k.H(bx, 18, bw, M3.dk);
+    k.R(bx + 14, 6, 32, 9, mix(M3.md, M3.dk, 0.35));
+    k.H(bx + 14, 6, 32, M3.dd);
+    k.V(bx + 14, 6, 9, M3.dd);
+    k.H(bx + 14, 14, 32, M3.lt);
+    k.V(bx + 45, 6, 9, M3.lt);
+    k.text(bx + 17, 8, "HALLOWELL", M3.dd);
+    for (const rx of [bx + 7, bx + bw - 8]) {
+      k.ring(rx, 10, 3, 3, M3.dd);
+      k.P(rx - 2, 8, M3.hi);
+      k.P(rx, 10, M3.dk);
     }
     if (!burst2) {
-      k.R(bx - 1, -4, bw + 2, 13, M3.lt);
-      marble2(k, bx - 1, -4, bw + 2, 6, M3.hi, 2, { veins: 3, dirty: !o.clean });
-      marble2(k, bx - 1, 2, bw + 2, 6, M3.lt, 3, { veins: 3, dirty: !o.clean });
-      k.H(bx - 1, 1, bw + 2, M3.hi);
-      k.H(bx - 1, 2, bw + 2, M3.md);
-      k.H(bx - 1, 8, bw + 2, M3.dk);
-      for (const ax of [bx - 1, bx + bw - 4]) {
-        k.R(ax, -6, 5, 5, M3.hi);
-        k.R(ax, -1, 5, 2, M3.md);
-        k.P(ax + 4, -5, M3.dk);
-        k.P(ax, -6, "#f6f3ee");
+      k.R(bx - 2, -12, bw + 4, 14, M3.lt);
+      marble2(k, bx - 2, -12, bw + 4, 7, M3.hi, 2, { veins: 3, dirty: !o.clean });
+      marble2(k, bx - 2, -5, bw + 4, 7, M3.lt, 3, { veins: 3, dirty: !o.clean });
+      k.H(bx - 2, -6, bw + 4, M3.hi);
+      k.H(bx - 2, -5, bw + 4, M3.md);
+      k.H(bx - 2, 1, bw + 4, M3.dk);
+      for (const ax of [bx - 2, bx + bw - 3]) {
+        k.R(ax, -15, 5, 6, M3.hi);
+        k.R(ax, -9, 5, 2, M3.md);
+        k.P(ax + 4, -14, M3.dk);
+        k.P(ax, -15, "#f6f3ee");
       }
-      k.H(bx + 18, 3, 26, M3.dd);
-      k.H(bx + 18, 4, 24, M3.lt);
-      k.R(bx + 14, 2, 1, 4, M3.dd);
-      k.R(bx + 12, 3, 3, 2, M3.dd);
+      k.H(bx + 18, -3, 26, M3.dd);
+      k.H(bx + 18, -2, 24, M3.lt);
+      k.R(bx + 14, -4, 1, 4, M3.dd);
+      k.R(bx + 12, -3, 3, 2, M3.dd);
       if (!o.clean) {
-        k.L(bx + 30, -3, bx + 34, 1, M3.dk);
-        k.L(bx + 34, 1, bx + 33, 6, M3.dk);
-        k.H(bx + 8, 8, 10, "rgba(10,8,12,0.6)");
+        k.L(bx + 30, -11, bx + 34, -6, M3.dk);
+        k.L(bx + 34, -6, bx + 33, 0, M3.dk);
+        k.H(bx + 8, 1, 10, "rgba(10,8,12,0.6)");
       }
-    } else {
-      k.R(bx, 1, bw, 8, M3.lt);
-      k.R(bx + 3, 3, bw - 6, 7, PAL.ink);
-      k.poly([[bx + 3, 3], [bx + bw - 3, 3], [bx + bw - 1, 9], [bx + 1, 9]], PAL.ink);
-      k.DV(bx + 3, 3, bw - 6, 4, mix(M3.dd, PAL.ink, 0.5), 0.6, 0);
-      for (let i = 0; i < 9; i++) {
-        const sx = bx + 8 + i * 5 + k.ri(-1, 1);
-        k.V(sx, 3, k.ri(2, 4), mix(M3.dk, PAL.ink, 0.3));
-      }
-      k.poly([[bx + 20, 8], [bx + 27, 8], [bx + 29, 13], [bx + 24, 16], [bx + 19, 12]], PAL.ink);
-      k.L(bx + 24, 16, bx + 22, 22, M3.dd);
-      k.L(bx + 29, 13, bx + 36, 18, M3.dd);
-      k.L(bx + 19, 12, bx + 12, 17, M3.dd);
-      k.L(bx + 36, 18, bx + 40, 22, M3.dd);
-      k.L(bx + 12, 17, bx + 9, 21, M3.dd);
-      k.P(bx + 26, 9, M3.hi);
-      k.P(bx + 20, 9, M3.hi);
-      for (let x = bx; x < bx + bw; x += 3) k.P(x + k.ri(0, 1), 1 + k.ri(0, 1), PAL.ink);
-      k.R(bx + 40, 2, 3, 2, PAL.navy);
-      k.P(bx + 43, 3, PAL.navy_d);
-      k.P(bx + 41, 4, PAL.navy_d);
-      k.R(bx + 10, 8, 2, 3, PAL.navy_d);
-      k.P(bx + 11, 11, PAL.navy);
-      k.S(bx + 4, 9, 20, 4, "rgba(10,10,14,0.5)", 0.25);
-      k.poly([[-6, 12], [22, 6], [26, 14], [-3, 22]], M3.lt);
-      marble2(k, -2, 10, 22, 8, M3.lt, 7, { veins: 2 });
-      k.poly([[-6, 12], [22, 6], [22, 7], [-6, 13]], M3.hi);
-      k.poly([[-3, 22], [26, 14], [26, 16], [-3, 24]], M3.dk);
-      k.L(8, 9, 12, 19, M3.dk);
-      k.poly([[44, -6], [66, -2], [70, 6], [50, 4]], M3.hi);
-      k.poly([[50, 4], [70, 6], [70, 8], [50, 6]], M3.dk);
-      k.L(57, -4, 60, 5, M3.dk);
-      k.R(66, 20, 5, 3, M3.lt);
-      k.R(66, 23, 5, 1, M3.dk);
-      k.R(-6, 25, 3, 2, M3.lt);
-      k.P(70, 27, M3.md);
-      for (const [cx, cy] of [[30, 26], [36, 27], [14, 27], [47, 25], [58, 27]]) {
-        k.P(cx, cy, M3.hi);
-        k.P(cx + 1, cy, M3.dk);
-      }
+      return k.done();
+    }
+    k.R(bx - 1, -6, bw + 2, 8, M3.lt);
+    k.H(bx - 1, -6, bw + 2, M3.hi);
+    k.poly([[bx + 2, -4], [bx + bw - 2, -4], [bx + bw, 2], [bx + bw - 3, 4], [bx + 1, 4], [bx - 1, 1]], PAL.ink);
+    k.DV(bx + 3, -4, bw - 6, 3, mix(M3.dk, PAL.ink, 0.6), 0.7, 0);
+    for (let i = 0; i < 10; i++) {
+      const sx = bx + 7 + i * 5 + k.ri(-1, 1);
+      k.V(sx, -4, k.ri(2, 3), mix(M3.dk, PAL.ink, 0.45));
+    }
+    for (let x = bx; x < bx + bw; x += 3) k.P(x + k.ri(0, 1), -6 + k.ri(0, 1), PAL.ink);
+    k.poly([[bx + 22, 2], [bx + 30, 1], [bx + 33, 8], [bx + 28, 13], [bx + 21, 9]], PAL.ink);
+    k.L(bx + 28, 13, bx + 25, 18, M3.dd);
+    k.L(bx + 33, 8, bx + 42, 13, M3.dd);
+    k.L(bx + 21, 9, bx + 12, 14, M3.dd);
+    k.L(bx + 42, 13, bx + 46, 18, M3.dd);
+    k.L(bx + 12, 14, bx + 9, 18, M3.dd);
+    k.L(bx + 30, 1, bx + 36, -3, M3.dd);
+    k.P(bx + 29, 2, M3.hi);
+    k.P(bx + 22, 3, M3.hi);
+    k.poly([[bx + 27, 12], [bx + 33, 11], [bx + 38, 24], [bx + 46, 31], [bx + 36, 31], [bx + 30, 22]], "rgba(8,8,12,0.55)");
+    k.S(bx + 28, 14, 18, 17, "rgba(10,10,14,0.6)", 0.12);
+    k.R(bx + 41, -7, 3, 2, PAL.navy);
+    k.P(bx + 44, -6, PAL.navy_d);
+    k.P(bx + 42, -5, PAL.navy_d);
+    k.R(bx + 9, 1, 2, 3, PAL.navy_d);
+    k.P(bx + 10, 4, PAL.navy);
+    k.poly([[-12, 8], [22, -2], [27, 8], [-9, 20]], M3.lt);
+    marble2(k, -8, 3, 30, 10, M3.lt, 7, { veins: 2 });
+    k.poly([[-12, 8], [22, -2], [22, -1], [-12, 9]], M3.hi);
+    k.poly([[-9, 20], [27, 8], [27, 10], [-9, 22]], M3.dk);
+    k.L(6, 3, 10, 16, M3.dk);
+    k.H(-2, 7, 14, M3.dd);
+    k.poly([[56, -14], [76, -10], [78, -3], [60, -6]], M3.hi);
+    k.poly([[60, -6], [78, -3], [78, -1], [60, -4]], M3.dk);
+    k.L(66, -12, 69, -4, M3.dk);
+    k.poly([[66, 18], [76, 20], [74, 26], [64, 24]], M3.lt);
+    k.H(64, 25, 10, M3.dk);
+    for (const [cx, cy] of [[30, 33], [38, 34], [14, 33], [50, 32], [60, 34], [70, 29], [-10, 26], [-4, 32], [74, 33]]) {
+      k.P(cx, cy, M3.hi);
+      k.P(cx + 1, cy, M3.dk);
     }
     return k.done();
   }
@@ -12175,14 +12214,14 @@ ${e.error.stack}` : ""}`);
     const b = new Blob(k.w, k.h, k.ox, k.oy);
     b.E(8, -8, 7, 7, 0, 1);
     for (let y = -11; y <= -5; y++) for (let x = 5; x <= 11; x++) if ((x - 8) ** 2 + (y + 8) ** 2 <= 9) b.erase(x, y);
-    const leaves = o.clean ? [PAL.green_dd, PAL.green_d, PAL.green, PAL.green_l, PAL.mint] : [PAL.brown_dd, PAL.brown_d, PAL.wood, mix(PAL.tan, PAL.mustard_d, 0.4), PAL.tan];
-    b.render(k, [leaves], { reach: 3, edge: 0.6, rim: 0.5 });
+    const leaves2 = o.clean ? [PAL.green_dd, PAL.green_d, PAL.green, PAL.green_l, PAL.mint] : [PAL.brown_dd, PAL.brown_d, PAL.wood, mix(PAL.tan, PAL.mustard_d, 0.4), PAL.tan];
+    b.render(k, [leaves2], { reach: 3, edge: 0.6, rim: 0.5 });
     const r = k.r;
     for (let a = 0; a < 18; a++) {
       const t = a / 18 * Math.PI * 2, rr = 6 + a % 2;
       const x = Math.round(8 + Math.cos(t) * rr), y = Math.round(-8 + Math.sin(t) * rr);
-      k.P(x, y, a % 3 ? leaves[2] : leaves[1]);
-      if (r() < 0.5) k.P(x + (Math.cos(t) > 0 ? 1 : -1), y, leaves[1]);
+      k.P(x, y, a % 3 ? leaves2[2] : leaves2[1]);
+      if (r() < 0.5) k.P(x + (Math.cos(t) > 0 ? 1 : -1), y, leaves2[1]);
     }
     if (o.clean) for (const [x, y] of [[3, -11], [12, -4], [5, -3], [13, -10]]) {
       k.P(x, y, PAL.white);
@@ -12869,7 +12908,7 @@ ${e.error.stack}` : ""}`);
     return k.done({ outline: false });
   }
   function signSchool(o) {
-    const k = new K(68, 44, -2, -30, seedOf("ssign", o.clean));
+    const k = new K(68, 52, -2, -38, seedOf("ssign", o.clean));
     k.shadow(0, 12, 64, 4, SHADOW);
     const brick2 = o.clean ? PAL.brick : mix(PAL.brick, PAL.g2, 0.25), brickL = o.clean ? PAL.brick_l : mix(PAL.brick_l, PAL.g3, 0.3), mort = PAL.mortar;
     const bricks = (x, y, w, h) => {
@@ -12882,30 +12921,30 @@ ${e.error.stack}` : ""}`);
       k.V(x, y, h, brickL);
     };
     bricks(0, 6, 64, 8);
-    bricks(0, -26, 6, 32);
-    bricks(58, -26, 6, 32);
+    bricks(0, -33, 6, 39);
+    bricks(58, -33, 6, 39);
     for (const x of [-1, 57]) {
-      k.R(x, -28, 8, 3, PAL.g5);
-      k.H(x, -28, 8, PAL.g6);
-      k.H(x, -26, 8, PAL.g3);
+      k.R(x, -35, 8, 3, PAL.g5);
+      k.H(x, -35, 8, PAL.g6);
+      k.H(x, -33, 8, PAL.g3);
     }
     k.R(-1, 5, 66, 2, PAL.g5);
     k.H(-1, 5, 66, PAL.g6);
     const board = o.clean ? PAL.white : mix(PAL.paper, PAL.g4, 0.4);
-    k.R(6, -25, 52, 30, board);
-    k.frame(6, -25, 52, 30, PAL.g3);
-    for (let y = -20; y < 4; y += 6) k.H(7, y + 5, 50, mix(board, PAL.g3, 0.35));
-    const lines = o.clean ? ["HALLOWELL", "CONS. SCHOOL", "FOUNDER'S DAY", "OCT 19", "GO COLLIERS"] : ["HALLOWE L", "CONS LIDATED", "SCH OL", "HOME OF THE", "COL IERS"];
+    k.R(6, -32, 52, 37, board);
+    k.frame(6, -32, 52, 37, PAL.g3);
+    for (let i = 0; i < 5; i++) k.H(7, -24 + i * 7, 50, mix(board, PAL.g3, 0.35));
+    const lines = o.clean ? ["HALLOWELL", "CONS. SCHOOL", "FOUNDERS DAY", "OCT 19", "GO COLLIERS"] : ["HALLOWE L", "CONS LIDATED", "SCH OL", "HOME OF THE", "COL IERS"];
     lines.forEach((t, i) => {
       const w = t.length * 4 - 1;
-      k.text(32 - (w >> 1), -23 + i * 6, t, i === 0 ? PAL.ink : PAL.g1);
+      k.text(32 - (w >> 1), -30 + i * 7, t, i === 0 ? PAL.ink : PAL.g1);
     });
     if (!o.clean) {
-      k.DV(7, -24, 50, 28, "rgba(60,50,30,0.35)", 0, 0.4);
+      k.DV(7, -31, 50, 35, "rgba(60,50,30,0.3)", 0, 0.35);
       k.R(20, 10, 3, 5, PAL.g1);
       k.P(21, 12, board);
       k.S(0, 6, 64, 8, "rgba(67,94,73,0.6)", 0.06);
-      for (let x = 8; x < 56; x += 7) k.P(x, -24, WET);
+      for (let x = 8; x < 56; x += 7) k.P(x, -31, WET);
     }
     return k.done();
   }
@@ -13103,7 +13142,360 @@ ${e.error.stack}` : ""}`);
   };
 
   // src/art/props_b_misc.js
-  var MISC = {};
+  var EMPTY = () => new K(1, 1, 0, 0).done({ outline: false });
+  function glint(k, x, y, f) {
+    const s = [1, 2, 1, 0][f % 4];
+    k.P(x, y, s ? PAL.white : PAL.paper);
+    if (s >= 1) {
+      k.P(x - 1, y, "rgba(255,248,230,0.6)");
+      k.P(x + 1, y, "rgba(255,248,230,0.6)");
+      k.P(x, y - 1, "rgba(255,248,230,0.6)");
+      k.P(x, y + 1, "rgba(255,248,230,0.6)");
+    }
+    if (s >= 2) {
+      k.P(x - 2, y, "rgba(255,248,230,0.3)");
+      k.P(x + 2, y, "rgba(255,248,230,0.3)");
+      k.P(x, y - 2, "rgba(255,248,230,0.3)");
+      k.P(x, y + 2, "rgba(255,248,230,0.3)");
+    }
+  }
+  var ITEM_SHAPE = {
+    battery: "battery",
+    keyring: "keyring",
+    hall_pass: "block",
+    red_pen: "pen",
+    case_key: "key",
+    aud_key: "key",
+    house_key: "key",
+    denise_photo: "photo",
+    diary_page: "page",
+    charter: "scroll",
+    withdrawn_stamp: "stamp",
+    bolt_cutters: "cutters",
+    danny_flashlight: "flashlight",
+    camcorder: "camcorder",
+    compact: "compact",
+    gum: "gum",
+    mixtape: "tape",
+    transfer_form: "page"
+  };
+  function pickup(o) {
+    const k = new K(20, 20, -2, -4, seedOf("pickup", o.item, o.variant, o.frame));
+    const shape = ITEM_SHAPE[o.item] || ["battery", "key", "page", "block"][o.variant % 4];
+    k.shadowE(8, 11, 4, 1, SHADOW_SOFT);
+    switch (shape) {
+      case "battery":
+        for (const [x, y] of [[3, 7], [7, 8]]) {
+          k.R(x, y, 6, 3, PAL.g1);
+          k.H(x, y, 6, PAL.g3);
+          k.R(x + 4, y, 2, 3, mix(PAL.orange_d, PAL.brass, 0.5));
+          k.P(x + 6, y + 1, PAL.g4);
+        }
+        break;
+      case "key":
+        k.ring(5, 8, 2, 2, BRASS.md);
+        k.H(7, 8, 6, BRASS.lt);
+        k.P(11, 9, BRASS.md);
+        k.P(12, 9, BRASS.dk);
+        k.P(4, 7, BRASS.hi);
+        break;
+      case "keyring":
+        k.ring(7, 7, 3, 2, CHROME.lt);
+        k.R(5, 9, 1, 4, BRASS.lt);
+        k.P(5, 9, BRASS.hi);
+        k.R(9, 9, 1, 4, CHROME.lt);
+        k.R(10, 10, 4, 3, PAL.paper);
+        k.P(11, 11, PAL.g3);
+        break;
+      case "block":
+        k.R(3, 6, 10, 5, PAL.wood_l);
+        k.H(3, 6, 10, PAL.maple);
+        k.H(3, 10, 10, PAL.wood);
+        k.H(4, 8, 7, PAL.wood_d);
+        k.clear(12, 6);
+        break;
+      case "pen":
+        k.L(4, 10, 11, 6, PAL.red_l);
+        k.L(4, 11, 11, 7, PAL.red);
+        k.P(12, 6, PAL.ink);
+        k.P(4, 10, PAL.g1);
+        break;
+      case "photo":
+        k.R(4, 5, 8, 7, PAL.white);
+        k.R(5, 6, 6, 4, mix(PAL.green_d, PAL.mustard, 0.3));
+        k.P(7, 7, PAL.dskin);
+        k.P(7, 8, PAL.green);
+        break;
+      case "page":
+        k.R(4, 5, 8, 7, PAL.paper);
+        k.V(11, 5, 7, PAL.paper_d);
+        for (let y = 6; y < 11; y += 2) k.H(5, y, 5, PAL.g4);
+        break;
+      case "scroll":
+        k.R(3, 7, 10, 4, PAL.paper);
+        k.V(3, 6, 6, PAL.paper_d);
+        k.V(12, 6, 6, PAL.paper_d);
+        k.H(4, 8, 8, PAL.g4);
+        k.P(8, 10, PAL.red);
+        break;
+      case "stamp":
+        k.R(5, 8, 6, 3, PAL.g2);
+        k.R(6, 5, 4, 3, PAL.wood);
+        k.P(6, 5, PAL.maple);
+        k.R(11, 8, 4, 3, PAL.ink);
+        k.H(11, 8, 4, PAL.g2);
+        break;
+      case "cutters":
+        k.L(2, 11, 12, 6, PAL.red_d);
+        k.L(2, 9, 12, 7, PAL.red_d);
+        k.R(12, 5, 3, 3, PAL.g4);
+        break;
+      case "flashlight":
+        k.R(3, 8, 9, 3, PAL.red);
+        k.H(3, 8, 9, PAL.red_l);
+        k.R(12, 7, 2, 5, PAL.g4);
+        k.P(13, 9, PAL.yellow_l);
+        k.R(5, 9, 4, 1, PAL.paper_d);
+        break;
+      case "camcorder":
+        k.R(3, 6, 10, 5, PAL.g1);
+        k.H(3, 6, 10, PAL.g3);
+        k.R(12, 7, 2, 3, PAL.g2);
+        k.P(13, 8, PAL.moon);
+        k.P(4, 7, PAL.red_l);
+        break;
+      case "compact":
+        k.E(8, 8, 3, 3, mix(PAL.gold, PAL.g4, 0.3));
+        k.E(8, 8, 2, 2, PAL.moon);
+        k.P(7, 7, PAL.white);
+        k.L(7, 9, 9, 7, PAL.g3);
+        break;
+      case "gum":
+        k.R(4, 7, 8, 3, PAL.red);
+        k.H(4, 7, 8, PAL.red_l);
+        k.P(6, 8, PAL.white);
+        break;
+      case "tape":
+        k.R(4, 6, 8, 5, PAL.g1);
+        k.R(5, 7, 6, 2, PAL.paper);
+        k.P(6, 8, PAL.g2);
+        k.P(9, 8, PAL.g2);
+        break;
+      default:
+        k.R(5, 6, 6, 5, PAL.g4);
+    }
+    glint(k, 12, 5, o.frame);
+    return k.done();
+  }
+  function notePaper(o) {
+    const k = new K(18, 18, -1, -1, seedOf("note", o.variant, o.clean));
+    const v = o.variant % 4;
+    k.shadow(4, 11, 10, 1, "rgba(6,5,10,0.25)");
+    if (v === 0) {
+      paper(k, 3, 3, 10, 9, { col: PAL.white, lines: PAL.blue_l, curl: o.clean ? 0 : 1, clean: o.clean });
+      k.V(5, 3, 9, mix(PAL.red_l, PAL.white, 0.5));
+      for (const y of [5, 9]) k.P(3, y, PAL.g2);
+    } else if (v === 1) {
+      paper(k, 2, 4, 11, 8, { col: PAL.paper, lines: PAL.g2, curl: o.clean ? 0 : 2, clean: o.clean });
+    } else if (v === 2) {
+      paper(k, 4, 2, 8, 11, { col: mix(PAL.yellow_l, PAL.paper, 0.3), lines: PAL.blue_l, clean: o.clean });
+      k.H(4, 2, 8, PAL.red_d);
+    } else {
+      paper(k, 4, 5, 9, 6, { col: PAL.paper, lines: PAL.g3, clean: o.clean, lineGap: 3 });
+      k.V(8, 5, 6, PAL.paper_d);
+      k.P(7, 5, PAL.white);
+    }
+    if (!o.clean && v !== 3) k.P(10, 8, "rgba(110,80,40,0.45)");
+    return k.done();
+  }
+  function backpack(o) {
+    const k = new K(20, 22, -2, -8, seedOf("pack", o.variant));
+    k.shadowE(8, 12, 7, 2, SHADOW_SOFT);
+    const b = new Blob(k.w, k.h, k.ox, k.oy);
+    b.E(8, 4, 7, 6, 0, 1);
+    b.R(3, 5, 10, 6, 0, 1);
+    b.E(8, 7, 4, 3, 0, 2);
+    const blk = [PAL.ink, PAL.night, PAL.shadow, PAL.g1, PAL.g2, PAL.g3];
+    b.render(k, [blk], { reach: 4, vw: 0.7, edge: 0.5, rim: 0.4, dither: false });
+    k.R(3, 9, 10, 2, mix(PAL.brown, PAL.tan, 0.3));
+    k.H(3, 9, 10, PAL.tan);
+    k.H(4, 1, 8, PAL.g3);
+    k.P(12, 1, CHROME.hi);
+    k.P(12, 2, CHROME.md);
+    k.H(6, 5, 5, PAL.g3);
+    k.P(11, 6, CHROME.hi);
+    k.L(1, 3, -1, 10, PAL.g2);
+    k.L(2, 3, 0, 10, PAL.g1);
+    k.R(9, -2, 3, 2, PAL.yellow);
+    k.P(9, -2, PAL.yellow_l);
+    k.P(11, -1, PAL.orange_d);
+    return k.done();
+  }
+  function leaves(o) {
+    if (o.clean) return EMPTY();
+    const k = new K(20, 20, -2, -2, seedOf("leaves", o.variant));
+    const r = k.r;
+    const cols = [PAL.brown, PAL.rust, mix(PAL.mustard, PAL.brown, 0.4), PAL.brown_d, mix(PAL.tan, PAL.g3, 0.3)];
+    const cx = 4 + o.variant % 3 * 4, cy = 6 + o.variant % 2 * 4;
+    for (let i = 0; i < 22; i++) {
+      const a = r() * Math.PI * 2, d = Math.pow(r(), 0.7) * 9;
+      const x = Math.round(cx + Math.cos(a) * d), y = Math.round(cy + Math.sin(a) * d * 0.7);
+      const c = cols[Math.floor(r() * cols.length)];
+      k.H(x, y, 3, c);
+      k.P(x + 1, y + 1, c);
+      k.P(x + 1, y, dk2(c, 0.35));
+      if (r() < 0.35) k.P(x, y - 1, lt2(c, 0.25));
+    }
+    return k.done({ outline: false });
+  }
+  function papers(o) {
+    if (o.clean) return EMPTY();
+    const k = new K(24, 22, -4, -3, seedOf("papers", o.variant));
+    const sheets = [[-2, 1, 9, 7, 0], [6, 4, 8, 10, 1], [2, 10, 10, 6, 2], [11, -1, 7, 8, 0]];
+    for (let i = 0; i < 3 + o.variant % 2; i++) {
+      const [x, y, w, h, c] = sheets[(i + o.variant) % 4];
+      paper(k, x, y, w, h, { col: [PAL.white, PAL.paper, mix(PAL.yellow_l, PAL.paper, 0.4)][c], lines: PAL.g3, curl: i % 3, clean: false });
+      k.H(x, y + h, w, "rgba(6,5,10,0.35)");
+    }
+    k.E(9, 9, 2, 3, "rgba(30,25,20,0.35)");
+    return k.done({ outline: false });
+  }
+  function glass(o) {
+    if (o.clean) return EMPTY();
+    const k = new K(18, 18, -1, -1, seedOf("glass", o.variant));
+    const r = k.r;
+    for (let i = 0; i < 9; i++) {
+      const x = 1 + Math.floor(r() * 13), y = 2 + Math.floor(r() * 11), s = 1 + Math.floor(r() * 3);
+      k.poly([[x, y], [x + s + 1, y + 1], [x + 1, y + s]], "rgba(151,175,203,0.35)");
+      k.P(x, y, "rgba(240,244,250,0.85)");
+      if (r() < 0.4) k.P(x + 1, y + 1, "rgba(196,212,230,0.6)");
+    }
+    return k.done({ outline: false });
+  }
+  function stain(o) {
+    if (o.clean) return EMPTY();
+    const k = new K(22, 20, -3, -2, seedOf("stain", o.variant));
+    const cx = 8, cy = 8;
+    for (let y = -2; y < 18; y++) for (let x = -3; x < 19; x++) {
+      const d = Math.sqrt((x - cx) ** 2 / 70 + (y - cy) ** 2 / 40) + Math.sin(x * 0.8 + o.variant) * 0.08 + Math.cos(y * 0.9) * 0.08;
+      if (d < 0.6) k.P(x, y, "rgba(18,14,10,0.3)");
+      else if (d < 0.88) k.P(x, y, "rgba(18,14,10,0.2)");
+      else if (d < 1) k.P(x, y, "rgba(60,45,25,0.4)");
+    }
+    for (const [x, y] of [[5, 6], [6, 7], [10, 9], [11, 8], [7, 11], [12, 5]]) k.P(x, y, "rgba(24,36,28,0.75)");
+    k.P(6, 6, "rgba(147,171,142,0.5)");
+    return k.done({ outline: false });
+  }
+  function tiles(o) {
+    if (o.clean) return EMPTY();
+    const k = new K(24, 20, -4, -2, seedOf("ctiles", o.variant));
+    const T = { lt: mix(PAL.cream_l, PAL.g5, 0.3), md: mix(PAL.cream, PAL.g4, 0.4), dk: mix(PAL.cream_d, PAL.g3, 0.4) };
+    const piece = (pts, stained) => {
+      k.poly(pts, T.md);
+      const [x0, y0] = pts[0];
+      k.L(x0, y0, pts[1][0], pts[1][1], T.lt);
+      for (let i = 0; i < 8; i++) {
+        const p2 = pts[i % pts.length];
+        k.P(Math.round((p2[0] + pts[2][0]) / 2) + i % 3, Math.round((p2[1] + pts[2][1]) / 2) + i % 2, T.dk);
+      }
+      if (stained) k.P(pts[2][0] - 2, pts[2][1] - 2, "rgba(110,80,40,0.6)");
+    };
+    piece([[-2, 2], [9, 0], [10, 9], [-1, 10]], true);
+    piece([[8, 6], [17, 7], [15, 14], [7, 13]], false);
+    if (o.variant % 2) piece([[12, -1], [18, 1], [16, 5]], false);
+    k.L(-3, 13, 12, 16, PAL.g4);
+    k.P(12, 16, PAL.g5);
+    k.S(-4, -2, 24, 20, "rgba(196,183,140,0.45)", 0.05);
+    return k.done({ outline: false });
+  }
+  function cicadaShells(o) {
+    const k = new K(20, 18, -2, -2, seedOf("cicada", o.variant));
+    const r = k.r;
+    const n = 4 + o.variant % 4;
+    for (let i = 0; i < n; i++) {
+      const x = 1 + Math.floor(r() * 12), y = 2 + Math.floor(r() * 9);
+      const flip = r() < 0.5;
+      k.R(x, y, 3, 2, PAL.amber);
+      k.P(x + (flip ? 2 : 0), y, PAL.amber_l);
+      k.P(x + 1, y, PAL.amber_d);
+      k.P(x + (flip ? -1 : 3), y, PAL.amber_d);
+      k.P(x, y + 2, "rgba(107,74,28,0.85)");
+      k.P(x + 2, y + 2, "rgba(107,74,28,0.85)");
+      k.P(x + 1, y - 1, "rgba(240,207,140,0.7)");
+    }
+    return k.done({ outline: false });
+  }
+  function spray(k, x, y, text, col, { tall = 2, drip = 0.35, seed = 1 } = {}) {
+    const tmp = new K(text.length * 4 + 2, 6, 0, 0);
+    tmp.text(0, 0, text, "#ffffff");
+    const d = tmp.x.getImageData(0, 0, tmp.w, tmp.h).data;
+    let h = seed;
+    for (let j = 0; j < 5; j++) for (let i = 0; i < tmp.w; i++) {
+      if (!d[(j * tmp.w + i) * 4 + 3]) continue;
+      h = h * 1103515245 + 12345 >>> 0;
+      const jit = (h >>> 16) % 7 === 0 ? 1 : 0;
+      for (let t = 0; t < tall; t++) k.P(x + i + (j > 2 ? jit : 0), y + j * tall + t, col);
+      if (j === 4 && (h >>> 8) % 100 / 100 < drip) for (let t = 0; t < 2 + (h >>> 4) % 4; t++) k.P(x + i, y + 10 + t, col);
+    }
+  }
+  function graffiti(o) {
+    const st = o.state;
+    if (o.clean && st !== "names") return EMPTY();
+    const k = new K(52, 30, 0, -14, seedOf("graffiti", st, o.variant, o.clean));
+    const black = "rgba(14,12,16,0.82)", red = "rgba(122,30,32,0.8)", white = "rgba(214,208,192,0.7)";
+    if (st === "hollowhell") {
+      spray(k, 1, -12, "HOLLOW", black, { seed: 3 });
+      spray(k, 9, 0, "HELL", red, { seed: 7, drip: 0.5 });
+      k.L(1, 12, 30, 11, black);
+    } else if (st === "kr91") {
+      spray(k, 2, -6, "KR '91", white, { seed: 5 });
+      k.ring(13, 0, 13, 8, "rgba(214,208,192,0.35)");
+    } else if (st === "pentagram") {
+      const cx = 14, cy = 0, R2 = 11;
+      const pts = [0, 1, 2, 3, 4].map((i) => [Math.round(cx + Math.sin(i * 4 * Math.PI / 5) * R2), Math.round(cy - Math.cos(i * 4 * Math.PI / 5) * R2 * 0.95)]);
+      for (let i = 0; i < 5; i++) {
+        const [a, b] = [pts[i], pts[(i + 1) % 5]];
+        k.L(a[0], a[1], b[0] + (i === 2 ? 2 : 0), b[1], red);
+      }
+      k.ring(cx, cy, R2 + 1, R2, red);
+      k.drip(cx - 6, cy + 8, 4, red);
+      k.drip(cx + 9, cy + 4, 3, red);
+    } else if (st === "names") {
+      const ink = o.clean ? "rgba(40,40,60,0.6)" : black;
+      k.text(1, -12, "DK+LB", "rgba(40,40,70,0.75)");
+      k.text(24, -9, "MIKE C '88", ink);
+      k.text(4, -2, "STACY", "rgba(122,30,32,0.7)");
+      k.L(4, 4, 22, 3, "rgba(122,30,32,0.5)");
+      k.text(28, 2, "TJ", "rgba(20,20,24,0.8)");
+      k.text(8, 7, "RO 79", "rgba(220,214,196,0.7)");
+      if (o.clean) {
+        k.R(0, -14, 52, 18, "rgba(0,0,0,0)");
+        k.clear(0, -14, 52, 18);
+        k.text(8, 7, "RO 79", "rgba(220,214,196,0.5)");
+      }
+    } else if (st === "present") {
+      const scr = "rgba(205,196,170,0.75)", scr2 = "rgba(30,22,18,0.6)";
+      for (let r = 0; r < 4; r++) {
+        const y = -12 + r * 6, x0 = 1 + r % 2 * 3;
+        k.text(x0, y, "PRESENT", scr);
+        k.text(x0 + 1, y + 1, "PRESENT", scr2);
+        k.text(x0, y, "PRESENT", scr);
+      }
+    }
+    return k.done({ outline: false });
+  }
+  var MISC = {
+    pickup: { build: pickup, variants: 4, item: true, frames: 4, fps: 3, noClean: true, showVariants: [0, 1, 2, 3] },
+    note_paper: { build: notePaper, variants: 4, showVariants: [0, 1, 2, 3] },
+    backpack: { build: backpack, noClean: true },
+    decal_leaves: { build: leaves, variants: 6, showVariants: [0, 1] },
+    decal_papers: { build: papers, variants: 4, showVariants: [0, 1] },
+    decal_glass: { build: glass, variants: 4 },
+    decal_stain: { build: stain, variants: 3, showVariants: [0, 1] },
+    decal_tiles: { build: tiles, variants: 2, showVariants: [0, 1] },
+    graffiti: { build: graffiti },
+    cicada_shells: { build: cicadaShells, variants: 4, showVariants: [0, 3] }
+  };
 
   // src/art/props_b.js
   var PROP_B_TYPES = [
@@ -13283,7 +13675,20 @@ ${e.error.stack}` : ""}`);
   }
 
   // src/art/props_a_kit.js
-  var GLYPH_FIX = { "'": "001010000000000", G: "111100101101111", N: "101111111111101", M: "101111111101101", Q: "111101101111011", W: "101101101111101", K: "101101110101101" };
+  var GLYPH_FIX = {
+    "'": ["001", "010", "000", "000", "000"],
+    G: ["111", "100", "101", "101", "111"],
+    Q: ["111", "101", "101", "111", "011"],
+    N: ["1001", "1101", "1011", "1001", "1001"],
+    M: ["1001", "1111", "1111", "1001", "1001"],
+    W: ["1001", "1001", "1111", "1111", "1001"]
+  };
+  var glyphW = (ch) => GLYPH_FIX[ch] ? GLYPH_FIX[ch][0].length : 3;
+  var textW = (text) => {
+    let w = 0;
+    for (const ch of String(text).toUpperCase()) w += glyphW(ch) + 1;
+    return Math.max(0, w - 1);
+  };
   var OUT2 = "#0d0a0e";
   var OUT_LIT2 = "#1e1719";
   var SHADOW2 = "rgba(6,5,10,0.42)";
@@ -13429,10 +13834,10 @@ ${e.error.stack}` : ""}`);
       for (const ch of String(text).toUpperCase()) {
         const g = GLYPH_FIX[ch];
         if (g) {
-          for (let j = 0; j < 5; j++) for (let i = 0; i < 3; i++) if (g[j * 3 + i] === "1") this.P(cx + i, y + j, c);
+          for (let j = 0; j < 5; j++) for (let i = 0; i < g[j].length; i++) if (g[j][i] === "1") this.P(cx + i, y + j, c);
         } else if (this.fw) {
         } else tinyText(this.x, cx - this.ox, y - this.oy, ch, c);
-        cx += 4;
+        cx += glyphW(ch) + 1;
       }
       return cx - x - 1;
     }
@@ -14945,7 +15350,8 @@ ${e.error.stack}` : ""}`);
   function poster(o) {
     const { state: state2, clean } = o;
     const k = new K2(16, 20, 0, -17, seedOf2("poster", state2, clean));
-    const x = 1, y = -15, w = 14, h = 16;
+    const wide = state2 === "read" || state2 === "band";
+    const x = wide ? 0 : 1, y = -15, w = wide ? 16 : 14, h = 16;
     const f = (c) => clean ? c : mix(c, PAL.paper_d, 0.42);
     const bgOf = {
       read: PAL.yellow_l,
@@ -14963,7 +15369,7 @@ ${e.error.stack}` : ""}`);
     switch (state2) {
       case "read":
         k.R(x, y, w, 7, f(PAL.red_d));
-        k.T(x, y + 1, "READ", f(PAL.yellow_l));
+        k.T(x + (w - textW("READ") >> 1), y + 1, "READ", f(PAL.yellow_l));
         k.R(x + 2, y + 8, 8, 5, f(PAL.white));
         k.V(x + 6, y + 8, 5, f(PAL.g4));
         k.H(x + 3, y + 10, 2, PAL.g4);
@@ -15045,7 +15451,7 @@ ${e.error.stack}` : ""}`);
         k.H(x + 2, y + 14, 8, f(PAL.green_l));
         break;
       case "band":
-        k.T(x, y + 1, "BAND", f(PAL.yellow_l));
+        k.T(x + (w - textW("BAND") >> 1), y + 1, "BAND", f(PAL.yellow_l));
         k.L(x + 2, y + 13, x + 8, y + 7, f(PAL.gold));
         k.R(x + 8, y + 6, 3, 3, f(PAL.gold));
         k.P(x + 8, y + 6, f(PAL.gold_l));
@@ -15117,7 +15523,7 @@ ${e.error.stack}` : ""}`);
     const k = new K2(32, 22, 0, -16, seedOf2("drawings", clean));
     const f = (c) => clean ? c : mix(c, PAL.paper_d, 0.45);
     k.R(2, -15, 28, 7, f(PAL.yellow));
-    k.T(4, -14, "GROW UP", f(PAL.red_d));
+    k.T(2 + (28 - textW("GROW UP") >> 1), -14, "GROW UP", f(PAL.red_d));
     k.H(2, -9, 28, dk3(f(PAL.yellow), 0.2));
     const sheet2 = (x, y, w, h, draw) => {
       k.R(x, y, w, h, f(PAL.white));
@@ -15970,15 +16376,6 @@ ${e.error.stack}` : ""}`);
     k.shadow(2, -2, 14, 1, "rgba(6,5,10,0.35)");
     return k.done({ outline: false });
   }
-  function bannerText(k, x, y, text, col, bold = false) {
-    let cx = x;
-    for (const ch of text) {
-      k.T(cx, y, ch, col);
-      if (bold) k.T(cx + 1, y, ch, col);
-      cx += bold ? 5 : 4;
-    }
-    return cx - x;
-  }
   function banner(o) {
     const { state: state2, clean } = o;
     const k = new K2(64, 16, 0, -16, seedOf2("banner", state2, clean));
@@ -15993,14 +16390,14 @@ ${e.error.stack}` : ""}`);
     k.H(0, y, 64, f(spec.edge));
     k.H(0, y + h - 1, 64, f(spec.edge));
     k.H(0, y + h - 2, 64, dk3(f(spec.bg), 0.2));
-    const tw = spec.text.length * (spec.bold ? 5 : 4) - 1;
-    bannerText(k, Math.max(1, 64 - tw >> 1), y + 3, spec.text, f(spec.fg), spec.bold);
+    const tw = textW(spec.text);
+    k.T(Math.max(1, 64 - tw >> 1), y + 3, spec.text, f(spec.fg));
     for (let i = 0; i < 4; i++) k.P(8 + i * 14, y + 9, dk3(f(spec.fg), 0.25));
     k.P(0, y, "rgba(230,220,180,0.75)");
     k.P(63, y, "rgba(230,220,180,0.75)");
     k.P(31, y, "rgba(230,220,180,0.75)");
     if (!clean) {
-      const tw2 = spec.text.length * 4 - 1, x0 = Math.max(1, 64 - tw2 >> 1);
+      const tw2 = textW(spec.text), x0 = Math.max(1, 64 - tw2 >> 1);
       if (x0 + tw2 < 56) {
         k.clear(56, y, 8, 4);
         k.clear(60, y + 4, 4, 3);
@@ -16035,8 +16432,8 @@ ${e.error.stack}` : ""}`);
       k.T(tx + 1, ty + 1, text, S[0]);
       k.T(tx, ty, text, S[3]);
     };
-    carve2(24, y + 2, "NEMO");
-    carve2(10, y + 8, "RELINQUATUR");
+    carve2(64 - textW("NEMO") >> 1, y + 2, "NEMO");
+    carve2(64 - textW("RELINQUATUR") >> 1, y + 8, "RELINQUATUR");
     k.H(4, y + 7, 56, S[2]);
     if (!clean) {
       for (const x of [6, 17, 38, 49, 58]) {
@@ -16217,8 +16614,11 @@ ${e.error.stack}` : ""}`);
       k.V(2, -11, 10, mix(S.md, S.hi, 0.5));
       k.V(13, -11, 10, S.dk);
       k.H(2, -2, 12, S.dk);
-      k.R(5, -9, 6, 5, S.dk);
-      k.H(5, -9, 6, mix(S.md, S.dk, 0.5));
+      k.V(7, -11, 9, mix(S.md, S.dk, 0.5));
+      k.H(3, -4, 10, C2.lt);
+      k.H(3, -3, 10, C2.dk);
+      k.P(4, -4, C2.hi);
+      k.P(11, -4, C2.hi);
       cracks(2, -12, 12, 11);
     } else {
       k.R(3, -12, 10, 8, S.md);
@@ -16870,8 +17270,9 @@ ${e.error.stack}` : ""}`);
     k.R(2, 1, 45, 8, W12.md);
     k.H(2, 1, 45, W12.dk);
     k.H(2, 8, 45, W12.hi);
-    k.T(4, 3, "CIRCULATION", W12.lt);
-    k.T(3, 2, "CIRCULATION", clean ? BRASS2.md : mix(W12.dd, PAL.ink, 0.3));
+    const cx0 = 2 + (45 - textW("CIRCULATION") >> 1);
+    k.T(cx0 + 1, 3, "CIRCULATION", W12.lt);
+    k.T(cx0, 2, "CIRCULATION", clean ? BRASS2.md : mix(W12.dd, PAL.ink, 0.3));
     k.R(4, -14, 5, 3, PAL.g2);
     k.H(4, -14, 5, PAL.g4);
     k.V(6, -17, 3, PAL.wood);
@@ -17381,22 +17782,29 @@ ${e.error.stack}` : ""}`);
     " ": "000000000000000"
   };
   var chalkNorm = (s) => String(s).toUpperCase().replace(/[—–]/g, "-").replace(/[‘’`]/g, "'").replace(/[“”]/g, '"');
+  var chW = (ch) => ch === " " ? 2 : glyphW(ch);
+  var lineW = (ln) => {
+    let w = 0;
+    for (const ch of ln) w += chW(ch) + 1;
+    return Math.max(0, w - 1);
+  };
   function chalkWrap(text, max) {
-    const per = Math.max(1, Math.floor((max + 1) / 4));
     const out = [];
     for (const para of chalkNorm(text).split("\n")) {
       let line3 = "";
       for (let word of para.split(/\s+/).filter(Boolean)) {
-        while (word.length > per) {
+        while (lineW(word) > max) {
+          let cut = word.length;
+          while (cut > 1 && lineW(word.slice(0, cut)) > max) cut--;
           if (line3) {
             out.push(line3);
             line3 = "";
           }
-          out.push(word.slice(0, per));
-          word = word.slice(per);
+          out.push(word.slice(0, cut));
+          word = word.slice(cut);
         }
         if (!line3) line3 = word;
-        else if (line3.length + 1 + word.length <= per) line3 += " " + word;
+        else if (lineW(line3 + " " + word) <= max) line3 += " " + word;
         else {
           out.push(line3);
           line3 = word;
@@ -17417,16 +17825,17 @@ ${e.error.stack}` : ""}`);
       if (ly - y + 5 > clipH) return;
       let cx = x + (li % 2 && !ghost ? 1 : 0);
       for (const ch of ln) {
-        const g = CH[ch] || CH[" "];
+        const fix = GLYPH_FIX[ch];
+        const rows = fix || (CH[ch] || CH[" "]).match(/.{3}/g);
         const wob = rnd() < 0.2 ? 1 : 0;
-        for (let j = 0; j < 5; j++) for (let i = 0; i < 3; i++) {
-          if (g[j * 3 + i] !== "1") continue;
+        for (let j = 0; j < 5; j++) for (let i = 0; i < rows[j].length; i++) {
+          if (rows[j][i] !== "1") continue;
           const r = rnd();
-          if (r < (ghost ? 0.25 : 0.05)) continue;
-          ctx2.fillStyle = r < 0.14 ? dim : color;
+          if (ghost && r < 0.25) continue;
+          ctx2.fillStyle = r < 0.16 ? dim : color;
           ctx2.fillRect(cx + i, ly + j + wob, 1, 1);
         }
-        cx += ch === " " ? 3 : 4;
+        cx += chW(ch) + 1;
       }
     });
   }
@@ -17680,7 +18089,7 @@ ${e.error.stack}` : ""}`);
       k.P(cx, cy, BRASS2.hi);
     }
     const gold = clean ? PAL.gold : mix(PAL.gold, PAL.g4, 0.35);
-    k.T(5, -12, "HOMECOMING", gold);
+    k.T(48 - textW("HOMECOMING") >> 1, -12, "HOMECOMING", gold);
     k.H(5, -6, 39, clean ? BRASS2.md : BRASS2.dk);
     for (let i = 0; i < 5; i++) schoolPhoto(k, 3 + i * 9, -4, NINE[i], clean, i);
     for (let i = 0; i < 4; i++) schoolPhoto(k, 7 + i * 9, 4, NINE[5 + i], clean, 5 + i);
@@ -17755,6 +18164,14 @@ ${e.error.stack}` : ""}`);
   var PROP_A_TYPES = Object.keys(PROPS_A);
   var cache2 = /* @__PURE__ */ new Map();
   var DIRS3 = ["up", "down", "left", "right"];
+  var B_SET = new Set(PROP_B_TYPES);
+  var warned = /* @__PURE__ */ new Set();
+  function warnOnce(key, e) {
+    if (!warned.has(key)) {
+      warned.add(key);
+      console.error(`[props] ${key}`, e);
+    }
+  }
   function safeDef(type) {
     try {
       return propDef(type);
@@ -17781,7 +18198,11 @@ ${e.error.stack}` : ""}`);
     return { type, state: state2, dir, variant, clean: !!opts.clean, label, frame: opts.frame | 0, occupant: opts.occupant || null, params: opts.params || {} };
   }
   async function initProps() {
-    await initPropsB();
+    try {
+      await initPropsB();
+    } catch (e) {
+      warnOnce("initPropsB failed", e);
+    }
     for (const t of ["door_class", "desk_student", "locker"]) {
       try {
         getProp(t, {});
@@ -17790,9 +18211,13 @@ ${e.error.stack}` : ""}`);
     }
   }
   function getProp(type, opts = {}) {
-    if (PROP_B_TYPES.includes(type)) {
-      const r2 = renderPropB(type, opts);
-      if (r2) return r2;
+    if (B_SET.has(type)) {
+      try {
+        const r2 = renderPropB(type, opts);
+        if (r2 && r2.canvas) return r2;
+      } catch (e) {
+        warnOnce(`renderPropB ${type}`, e);
+      }
     }
     const entry = PROPS_A[type];
     const def = safeDef(type);
@@ -17804,7 +18229,7 @@ ${e.error.stack}` : ""}`);
       try {
         r = entry.build(o);
       } catch (e) {
-        console.error(`[props] ${type} build failed`, e);
+        warnOnce(`${type} build failed`, e);
         r = fallback2(type, def, opts);
       }
       cache2.set(key, r);
@@ -17812,12 +18237,22 @@ ${e.error.stack}` : ""}`);
     return r;
   }
   function drawPropDynamic(ctx2, type, px, py, params = {}, t = 0) {
-    if (PROP_B_TYPES.includes(type)) return drawPropDynamicB(ctx2, type, px, py, params, t);
+    if (B_SET.has(type)) {
+      try {
+        return drawPropDynamicB(ctx2, type, px, py, params, t);
+      } catch (e) {
+        warnOnce(`drawPropDynamicB ${type}`, e);
+        return;
+      }
+    }
     const entry = PROPS_A[type];
     if (entry && entry.draw) {
-      const def = safeDef(type);
-      const o = norm2(type, entry, def, { ...params, params });
-      return entry.draw(ctx2, px, py, o, params, t);
+      try {
+        const o = norm2(type, entry, safeDef(type), { ...params, params });
+        return entry.draw(ctx2, px, py, o, params, t);
+      } catch (e) {
+        warnOnce(`${type} dynamic draw failed`, e);
+      }
     }
     const p2 = getProp(type, { ...params, params });
     ctx2.drawImage(p2.canvas, px + p2.ox, py + p2.oy);
@@ -22860,7 +23295,7 @@ ${e.error.stack}` : ""}`);
       gb.line(x0, y0, x1, y1, M.HAIR, { mode: "on", tol: 3 * s, z: (faceZ(u, v) + 1.8) * s, n: [sd * 0.3, -0.2, 0.9], lum: 0.04 });
     }
   }
-  function eye(gb, ex, ey, s, lid, gz, ez, glint, sd, wet, es = 0) {
+  function eye(gb, ex, ey, s, lid, gz, ez, glint2, sd, wet, es = 0) {
     const hw = 3.45 * s, hh = 2.1 * s;
     const inAlmond = (x, y) => {
       const u = (x + 0.5 - ex) / hw, v = (y + 0.5 - ey) / hh, w = v - sd * u * 0.14, lim = 1 - u * u;
@@ -22870,7 +23305,7 @@ ${e.error.stack}` : ""}`);
     const ix = ex + gz[0] * hw * 0.55, iy = ey + gz[1] * hh * 0.45;
     gb.ell(ix, iy, 1.5 * s, 1.65 * s, { mat: M.IRIS, z: ez + 0.5 * s, rz: 1.3 * s, mode: "any", clip: inAlmond });
     gb.ell(ix, iy, 0.62 * s, 0.7 * s, { mat: M.DARK, z: ez + 0.6 * s, rz: 1 * s, mode: "any", clip: inAlmond });
-    if (glint) {
+    if (glint2) {
       const gy = Math.max(iy - 0.7 * s, ey - hh + (1 - lid) * hh * 2 + 0.5 * s + 1);
       gb.ell(ix - 0.6 * s, gy, Math.max(0.5, 0.28 * s), Math.max(0.5, 0.24 * s), { mat: M.EYE, mode: "any", z: ez + 1.5 * s, rz: 0.2 * s, lum: 1, clip: (x, y) => inAlmond(x, y) });
     }
@@ -23990,17 +24425,17 @@ ${e.error.stack}` : ""}`);
       if (t < -0.95 || t > 0.95) return false;
       return qy > U(t) + ey && qy < Lw(t) + ey;
     };
-    const glint = (hx, hy, k) => {
+    const glint2 = (hx, hy, k) => {
       if (inOpen(hx, hy)) rig2.dotH(hx, hy, S.glintMat, 0, k);
     };
     if (!E.noHi && !glassy) {
       const ux = ix - irx * 0.42, uy = iy - iry * 0.42;
-      glint(ux, uy, 5);
-      if (S.ri > 2.6 && sc2 > 0.9) glint(ux + 1, uy, 5);
-      glint(ix + irx * 0.5, iy + iry * 0.5, wet > 0.3 ? 5 : 4);
-      if (wet > 0.5) glint(ix + irx * 0.1, iy + iry * 0.75, 4);
+      glint2(ux, uy, 5);
+      if (S.ri > 2.6 && sc2 > 0.9) glint2(ux + 1, uy, 5);
+      glint2(ix + irx * 0.5, iy + iry * 0.5, wet > 0.3 ? 5 : 4);
+      if (wet > 0.5) glint2(ix + irx * 0.1, iy + iry * 0.75, 4);
     } else if (glassy) {
-      glint(ix - irx * 0.2, iy + iry * 0.55, 3);
+      glint2(ix - irx * 0.2, iy + iry * 0.55, 3);
     }
     return { ex, ey, hw, ix, iy, irx, iry, U: (t) => U(t) + ey, L: (t) => Lw(t) + ey, T };
   }
@@ -31545,7 +31980,7 @@ ${e.error.stack}` : ""}`);
     play(id, o = {}) {
       const entry = SFX[id];
       if (!entry) {
-        warnOnce(`unknown sfx '${id}'`);
+        warnOnce2(`unknown sfx '${id}'`);
         return null;
       }
       const ctx2 = this.ctx;
@@ -31580,7 +32015,7 @@ ${e.error.stack}` : ""}`);
       if (!this.live || !id) return NULL_HANDLE2;
       const entry = SFX[id];
       if (!entry) {
-        warnOnce(`unknown sfx '${id}'`);
+        warnOnce2(`unknown sfx '${id}'`);
         return NULL_HANDLE2;
       }
       const max = entry.max ?? 4;
@@ -31606,7 +32041,7 @@ ${e.error.stack}` : ""}`);
       if (!id) return NULL_HANDLE2;
       const L2 = LOOPS[id], entry = SFX[id];
       if (!L2 && !entry) {
-        warnOnce(`unknown loop '${id}'`);
+        warnOnce2(`unknown loop '${id}'`);
         return NULL_HANDLE2;
       }
       const pos = Number.isFinite(opts.x) && Number.isFinite(opts.y) ? { x: opts.x, y: opts.y } : null;
@@ -31718,7 +32153,7 @@ ${e.error.stack}` : ""}`);
       this.stripLevel = 0;
       if (!id) return;
       if (!BEDS[id]) {
-        warnOnce(`unknown ambience '${id}'`);
+        warnOnce2(`unknown ambience '${id}'`);
         return;
       }
       this.bed = new Bed(this, id, BEDS[id], { fade, dest: this.mix.bus.ambience, send: this.mix.sends.ambience });
@@ -31731,7 +32166,7 @@ ${e.error.stack}` : ""}`);
       const cur = this.layers.get(id);
       if (on) {
         if (cur || !BEDS[id]) {
-          if (!BEDS[id]) warnOnce(`unknown layer '${id}'`);
+          if (!BEDS[id]) warnOnce2(`unknown layer '${id}'`);
           return;
         }
         this.layers.set(id, new Bed(this, id, BEDS[id], { fade, dest: this.mix.bus.ambience, send: this.mix.sends.ambience, layer: true }));
@@ -31758,7 +32193,7 @@ ${e.error.stack}` : ""}`);
       this.trackId = id;
       if (!id) return;
       if (!TRACKS[id]) {
-        warnOnce(`unknown music '${id}'`);
+        warnOnce2(`unknown music '${id}'`);
         return;
       }
       this.track = new Track(this, id, TRACKS[id], { fade, dest: this.mix.bus.music, send: this.mix.musicVerbIn });
@@ -31783,7 +32218,7 @@ ${e.error.stack}` : ""}`);
     setSpace(kind, fade = 0.8) {
       const name = spaceName(kind);
       if (!name) {
-        warnOnce(`unknown space '${kind}'`);
+        warnOnce2(`unknown space '${kind}'`);
         return this.mix.space;
       }
       this.manualSpace = name;
@@ -31826,10 +32261,10 @@ ${e.error.stack}` : ""}`);
       }
     };
   }
-  var warned = /* @__PURE__ */ new Set();
-  function warnOnce(msg) {
-    if (!warned.has(msg)) {
-      warned.add(msg);
+  var warned2 = /* @__PURE__ */ new Set();
+  function warnOnce2(msg) {
+    if (!warned2.has(msg)) {
+      warned2.add(msg);
       console.warn(`[audio] ${msg}`);
     }
   }
@@ -33466,7 +33901,7 @@ ${e.error.stack}` : ""}`);
     try {
       return HW.audio?.sfx?.(id, o);
     } catch (e) {
-      warnOnce2("sfx", e);
+      warnOnce3("sfx", e);
     }
     return null;
   }
@@ -33474,14 +33909,14 @@ ${e.error.stack}` : ""}`);
     try {
       HW.audio?.blip?.(who);
     } catch (e) {
-      warnOnce2("blip", e);
+      warnOnce3("blip", e);
     }
   }
   function murmur(sec) {
     try {
       HW.audio?.murmur?.(sec);
     } catch (e) {
-      warnOnce2("murmur", e);
+      warnOnce3("murmur", e);
     }
   }
   function auto() {
@@ -33516,7 +33951,7 @@ ${e.error.stack}` : ""}`);
     try {
       return HW.art?.portrait?.(who, e, { light: light || "normal", grime: grime2, enrolled: !!o.enrolled }) || null;
     } catch (err) {
-      warnOnce2("portrait:" + who, err);
+      warnOnce3("portrait:" + who, err);
       return null;
     }
   }
@@ -33524,7 +33959,7 @@ ${e.error.stack}` : ""}`);
     try {
       return HW.art?.icon?.(id) || null;
     } catch (e) {
-      warnOnce2("icon:" + id, e);
+      warnOnce3("icon:" + id, e);
       return null;
     }
   }
@@ -33532,7 +33967,7 @@ ${e.error.stack}` : ""}`);
     try {
       return HW.art?.cg?.(id) || null;
     } catch (e) {
-      warnOnce2("cg:" + id, e);
+      warnOnce3("cg:" + id, e);
       return null;
     }
   }
@@ -33596,7 +34031,7 @@ ${e.error.stack}` : ""}`);
         if (HW.settings && typeof HW.settings.save === "function") HW.settings.save();
         else localStorage.setItem(SETTINGS_KEY, JSON.stringify(local()));
       } catch (e) {
-        warnOnce2("settings.save", e);
+        warnOnce3("settings.save", e);
       }
     }
   };
@@ -33619,7 +34054,7 @@ ${e.error.stack}` : ""}`);
       }
       HW.settings?.apply?.(k, v);
     } catch (e) {
-      warnOnce2("applySetting", e);
+      warnOnce3("applySetting", e);
     }
   }
   var reduceFlashing = () => !!settings2.get("reduceFlashing");
@@ -33640,7 +34075,7 @@ ${e.error.stack}` : ""}`);
       const data = JSON.parse(raw);
       return normalizeSummary(data.summary || data, data);
     } catch (e) {
-      warnOnce2("saveSummary", e);
+      warnOnce3("saveSummary", e);
       return null;
     }
   }
@@ -33685,7 +34120,7 @@ ${e.error.stack}` : ""}`);
       if (g?.saveTo) return await g.saveTo(slot) !== false;
       if (g?.save) return await g.save(slot) !== false;
     } catch (e) {
-      warnOnce2("saveTo", e);
+      warnOnce3("saveTo", e);
     }
     return false;
   }
@@ -33693,7 +34128,7 @@ ${e.error.stack}` : ""}`);
     try {
       if (HW.game?.loadSave) return await HW.game.loadSave(slot) !== false;
     } catch (e) {
-      warnOnce2("loadSave", e);
+      warnOnce3("loadSave", e);
     }
     return false;
   }
@@ -33727,10 +34162,10 @@ ${e.error.stack}` : ""}`);
       return "";
     }
   }
-  var warned2 = /* @__PURE__ */ new Set();
-  function warnOnce2(key, err) {
-    if (warned2.has(key)) return;
-    warned2.add(key);
+  var warned3 = /* @__PURE__ */ new Set();
+  function warnOnce3(key, err) {
+    if (warned3.has(key)) return;
+    warned3.add(key);
     console.warn(`[ui] ${key}:`, err?.message || err);
   }
 
@@ -34540,7 +34975,7 @@ ${e.error.stack}` : ""}`);
     try {
       art2?.draw?.(x, t, params || {});
     } catch (e) {
-      warnOnce2("cg.draw:" + id, e);
+      warnOnce3("cg.draw:" + id, e);
       rect(x, 0, 0, LW, LH, "#06070a");
     }
   }
@@ -34612,7 +35047,7 @@ ${e.error.stack}` : ""}`);
     }
     set(name, params) {
       if (!ORDER2.includes(name)) {
-        warnOnce2("overlay:" + name, "unknown overlay");
+        warnOnce3("overlay:" + name, "unknown overlay");
         return;
       }
       let o = this.items.get(name);
@@ -35827,7 +36262,7 @@ ${e.error.stack}` : ""}`);
             HW.audio?.unlock?.();
             HW.audio?.music?.("title");
           } catch (e) {
-            warnOnce2("title.unlock", e);
+            warnOnce3("title.unlock", e);
           }
           sfx("ui_confirm");
           this.phase = "menu";
@@ -35860,7 +36295,7 @@ ${e.error.stack}` : ""}`);
       try {
         cgArt("title_bg")?.draw?.(bx, this.t, {});
       } catch (e) {
-        warnOnce2("title_bg", e);
+        warnOnce3("title_bg", e);
       }
       ctx2.drawImage(this.bg, 0, 0, W7, H7);
       vignette(ctx2, 0.7, 0.7);
@@ -38383,7 +38818,7 @@ ${e.error.stack}` : ""}`);
     open(name, args, parent) {
       const Ctor = SCREENS[name];
       if (!Ctor) {
-        warnOnce2("open:" + name, "unknown screen");
+        warnOnce3("open:" + name, "unknown screen");
         return Promise.resolve(null);
       }
       const quick = this._autoResult(name, args || {});
@@ -38459,7 +38894,7 @@ ${e.error.stack}` : ""}`);
         const forced = HW.debug?.screenAnswer?.(name, args);
         if (forced !== void 0) return forced;
       } catch (e) {
-        warnOnce2("screenAnswer", e);
+        warnOnce3("screenAnswer", e);
       }
       switch (name) {
         case "doc":
@@ -40915,7 +41350,7 @@ ${e.error.stack}` : ""}`);
     }
   };
   function makeGrainTiles(rand, n = 3, size = 96) {
-    const tiles = [];
+    const tiles2 = [];
     for (let k = 0; k < n; k++) {
       const c = makeCanvas3(size, size);
       const x = c.getContext("2d");
@@ -40928,9 +41363,9 @@ ${e.error.stack}` : ""}`);
         d[i + 3] = 255;
       }
       x.putImageData(img, 0, 0);
-      tiles.push(c);
+      tiles2.push(c);
     }
-    return tiles;
+    return tiles2;
   }
   function makeVignette(inner, outer, maxAlpha = 1, color = "0,0,0") {
     const c = makeCanvas3(W10, H10);

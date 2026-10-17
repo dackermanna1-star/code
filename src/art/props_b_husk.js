@@ -7,7 +7,7 @@
 //   head (view the head faces; ≠ view when 'turned'), pose 0|1, boy (breaker cap), clip }
 // drawKneeling(k, spec) — Miss Adair: adult woman kneeling, bun, cat-eye glasses, red pen.
 // drawFlakes(k, cx, floorY, size, seed) — a crumbled husk: a small pile of amber flakes.
-import { PAL, mix, Blob, bay } from './props_b_kit.js';
+import { PAL, mix, Blob } from './props_b_kit.js';
 
 export const HUSK_ALPHA = 0.76;
 export const SHELL = ['#4a3214', '#6e4c1e', '#946a2c', '#b88234', PAL.amber_l, PAL.amber_ll];
@@ -239,9 +239,9 @@ export function drawFlakes(k, cx, floorY, size, seed = 0) {
 export function drawKneeling(k, { cx, groundY, view = 'down' }) {
   const b = new Blob(k.w, k.h, k.ox, k.oy);
   const rx = 4, ry = 5;
-  const shY = groundY - 15;          // kneeling: shoulders ~15 px above the knees' ground line
+  const shY = groundY - (view === 'down' || view === 'up' ? 17 : 15); // kneeling: shoulders well above the knees
   const hcy = shY - 5 + (view === 'down' ? 1 : 0); // head bowed forward
-  const sw = 5;
+  const sw = 6;
   const P = { head: 1, torso: 2, armL: 3, armR: 4, legs: 5, bun: 6, hand: 7 };
   if (view === 'down' || view === 'up') {
     // cardigan torso (slightly hunched), hips, folded legs
@@ -290,13 +290,17 @@ export function drawKneeling(k, { cx, groundY, view = 'down' }) {
   const hol = 'rgba(20,12,4,0.9)';
   const frame = 'rgba(62,42,16,0.95)';
   if (view === 'down') {
-    // cat-eye glasses on the bowed face: lenses hollow, upswept outer corners
+    // cat-eye glasses on the bowed face: two hollow lenses, a thin bridge, upswept outer wings
     const gy = hcy + 1;
     k.R(cx - 4, gy, 3, 2, hol); k.R(cx + 2, gy, 3, 2, hol);
     k.H(cx - 4, gy - 1, 3, frame); k.H(cx + 2, gy - 1, 3, frame);
-    k.P(cx - 5, gy - 2, frame); k.P(cx + 5, gy - 2, frame); // the wings
+    k.P(cx - 5, gy - 2, frame); k.P(cx + 5, gy - 2, frame); k.P(cx - 6, gy - 3, frame); k.P(cx + 6, gy - 3, frame); // the wings
     k.P(cx - 5, gy - 1, frame); k.P(cx + 5, gy - 1, frame);
-    k.P(cx - 1, gy, frame); k.P(cx + 1, gy, frame); k.P(cx, gy, frame);
+    k.P(cx, gy - 1, frame);
+    k.P(cx - 3, gy, 'rgba(240,207,140,0.55)'); k.P(cx + 3, gy, 'rgba(240,207,140,0.55)'); // glints in the empty lenses
+    // cardigan: the V of the collar and a row of buttons
+    k.P(cx - 1, shY + 1, 'rgba(240,207,140,0.7)'); k.P(cx + 1, shY + 1, 'rgba(240,207,140,0.7)'); k.P(cx, shY + 2, 'rgba(62,42,16,0.7)');
+    for (let y = shY + 4; y < shY + 9; y += 2) k.P(cx, y, 'rgba(62,42,16,0.6)');
     // the red pen in the right hand, nib toward the page
     pen(k, cx + 3, shY + 7, 1);
     backFold(k, cx, shY);
@@ -329,4 +333,3 @@ function pen(k, x, y, o) {
   else { k.P(x, y, dkc); k.P(x - 1, y + 1, body); k.P(x - 2, y + 2, body); k.P(x - 3, y + 3, tip); }
 }
 
-export { bay };
