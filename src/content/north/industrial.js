@@ -42,7 +42,7 @@ export function buildGarages(ctx) {
     })
     // painted on the fence east of the gate, the way garages were sold
     addGraffiti(ctx, {
-      x: g1 + 3.7, y: 1.3, z: FZ + 0.15, angle: 0, h: 0.24,
+      x: g1 + 3.7, y: 1.5, z: FZ + 0.15, angle: 0, h: 0.62, // two lines of ≈ 0.25 m letters, above the plough bank
       item: { id: 'north_garage_sale', kind: 'graffiti', look: 'spray', color: '#e8e2d2', style: 'sign', ru: 'ПРОДАЁТСЯ ГАРАЖ\nспросить у сторожа', en: 'GARAGE FOR SALE\nask the watchman' },
     })
   })

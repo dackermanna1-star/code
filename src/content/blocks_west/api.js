@@ -5,7 +5,7 @@
 // Coordinates are world metres (x east, z south). See docs/catalog/blocks_west.md.
 
 export { COURTYARD, buildCourtyard, paintCourtyard } from './courtyard.js'
-export { BER, NS, EW } from './streets.js'
+export { BER, NS, EW, LAMPS, CROSSINGS } from './streets.js'
 export { A as BLOCK_A } from './blockA.js'
 
 /** Block D — home. ул. Берёзовая, д. 12, корп. 1/2/3. */

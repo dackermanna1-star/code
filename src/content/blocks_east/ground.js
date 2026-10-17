@@ -81,8 +81,8 @@ export function paintGround(ctx) {
   // ---- the courtyard snow hill (горка) in Block E's vast yard -------------------------------
   safe('hill', () => snowHill(ctx, HILL[0], HILL[1]))
 
-  // ---- construction pit (Block C) ----------------------------------------------------------
-  safe('pit', () => digPit(ctx))
+  // (the construction pit is dug at the end of paintPaths: its slopes start from the final ground,
+  //  so the kids' path enters it without a step)
 
   // ---- the heating main under Block E: a thawed strip with steaming manholes --------------
   safe('heatmain', () => thawStrip(ctx, [[311, 412], [370, 404], [454, 398]]))
@@ -206,10 +206,13 @@ export function paintPaths(ctx) {
   // round the east gable
   walkway(ctx, [[575, 288], [580, 304], [583, 319.5]], { kind: 'trodden', seed: 124 })
   // kids' trodden way into the abandoned construction site through the open gate
-  walkway(ctx, [[516, 248], [519.5, 241.5], [523, 240.7], [530.4, 240.3]], { kind: 'trodden', width: 1.2, seed: 125, trail: 0.6, trailLen: 18 })
+  walkway(ctx, [[516, 248], [519.5, 241.5], [523, 240.7], [531.2, 240.3]], { kind: 'trodden', width: 1.2, seed: 125, trail: 0.6, trailLen: 18 })
   // from the garage lane past the long building's east gable and through the narrow gap between
   // the two wings into the yard (the passage opens onto the dead end under the lone lamp)
   walkway(ctx, [[586.5, 163.6], [591, 166.8], [596.6, 172], [597, 190], [593, 195.4], [583, 196.4]], { kind: 'trodden', width: 1.3, seed: 126, trail: 0.5, trailLen: 16 })
+
+  // ---- construction pit (Block C), dug last so its slopes start from the painted ground --------
+  safe('pit', () => digPit(ctx))
 }
 
 export function gateGap() { return SITE.gate }

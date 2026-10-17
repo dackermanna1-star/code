@@ -20,7 +20,7 @@ The avenue's tree strip z 500–508 is the avenue package's; the passages of D a
 z 500 where its footpaths (x 227.7 and 539.7) continue to the north sidewalk.
 
 ```js
-import { BLOCK_A, BLOCK_D, BLOCK_F, COURTYARD, HOME, BER, NS, EW, LAMPS, buildCourtyard, paintCourtyard } from '../blocks_west/api.js'
+import { BLOCK_A, BLOCK_D, BLOCK_F, COURTYARD, HOME, BER, NS, EW, LAMPS, CROSSINGS, buildCourtyard, paintCourtyard } from '../blocks_west/api.js'
 ```
 
 Files: `index.js` (build order, registry), `streets.js` (Берёзовая and both driveways: ground,
