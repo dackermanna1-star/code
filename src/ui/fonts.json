@@ -1,0 +1,10 @@
+[
+  { "family": "Pixelify Sans", "file": "@fontsource/pixelify-sans/files/pixelify-sans-latin-400-normal.woff2", "weight": 400 },
+  { "family": "Pixelify Sans", "file": "@fontsource/pixelify-sans/files/pixelify-sans-latin-600-normal.woff2", "weight": 600 },
+  { "family": "DotGothic16", "file": "@fontsource/dotgothic16/files/dotgothic16-latin-400-normal.woff2", "weight": 400 },
+  { "family": "VT323", "file": "@fontsource/vt323/files/vt323-latin-400-normal.woff2", "weight": 400 },
+  { "family": "Special Elite", "file": "@fontsource/special-elite/files/special-elite-latin-400-normal.woff2", "weight": 400 },
+  { "family": "Patrick Hand", "file": "@fontsource/patrick-hand/files/patrick-hand-latin-400-normal.woff2", "weight": 400 },
+  { "family": "Caveat", "file": "@fontsource/caveat/files/caveat-latin-400-normal.woff2", "weight": 400 },
+  { "family": "Caveat", "file": "@fontsource/caveat/files/caveat-latin-700-normal.woff2", "weight": 700 }
+]
