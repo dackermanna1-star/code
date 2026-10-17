@@ -113,16 +113,16 @@ function digPit(ctx) {
   keep(x0, z0, x1, z1, 0.5, 'pit')
 }
 
-/** A snow hill the dads shovelled together and the kids poured water on: a ~2 m heap of packed
+/** A snow hill the dads shovelled together and the kids poured water on: a ~1.5 m heap of packed
  *  snow with an ice chute down its south side and trampled snow round its foot. */
 function snowHill(ctx, x, z) {
   const t = ctx.terrain
   t.paintCircle(x, z, 7.8, { mat: M('snow_packed'), only: new Set([M('snow'), M('snow_fresh')]) })   // trampled foot
-  // three lumps shovelled together (one round mound reads as a stepped ziggurat in 25 cm terrain)
-  t.mound(x, z, 5.2, 6.8, 1.55, M('snow_packed'), 0.45, 4711)
-  t.mound(x + 2.2, z - 2.4, 3.6, 3.2, 0.55, M('snow_packed'), 0.5, 4713)
-  t.mound(x - 1.8, z + 1.5, 3.0, 4.2, 0.4, M('snow'), 0.5, 4714)
-  t.mound(x + 0.6, z - 1.2, 2.4, 2.2, 0.3, M('snow'), 0.6, 4712)           // the lumpy top
+  // a few lumps shovelled together, kept low and long (a tall round heap reads as a stepped
+  // ziggurat in 25 cm terrain)
+  t.mound(x, z + 1, 4.2, 8.0, 1.2, M('snow_packed'), 0.4, 4711)
+  t.mound(x + 2.0, z - 2.2, 3.0, 2.8, 0.4, M('snow_packed'), 0.5, 4713)
+  t.mound(x + 0.6, z - 1.2, 2.2, 2.0, 0.3, M('snow'), 0.6, 4712)           // the lumpy top
   const only = new Set([M('snow_packed'), M('snow'), M('snow_fresh')])
   t.paintLine(x, z + 0.4, x + 0.5, z + 8.2, 1.2, { mat: M('ice'), only })   // the chute
   t.paintLine(x + 0.5, z + 8.2, x + 1.2, z + 13, 1.4, { mat: M('ice'), only }) // its polished run-out

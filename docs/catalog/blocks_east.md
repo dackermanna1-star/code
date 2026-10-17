@@ -45,7 +45,7 @@ z 500  └──────────── avenue tree strip (avenue pkg) �
 | Kindergarten № 1543 | site x 357.5–422.5, z 260.75–313.25; gate (390, 260.75) facing north | public package: building, verandas, play equipment, fence |
 | Hockey box | rink x 360–400, z 212–232 (gate on the south side, x 380) | two floodlights lit dusk–22:30 |
 | Shop «ПРОДУКТЫ 24 ЧАСА» | footprint x 420–430, z 463–477; **door (420, 474.5) facing west** | ENTERABLE (public `placeShop`, rot 1); warm window spill; **roof letters «ПРОДУКТЫ»** (model `be_roof_sign`, lit red from dusk) on the roof at x 421.75, z 465–474, facing west toward Block D |
-| Snow hill (горка) | top (356, 462), 2.3 m, ice chute to the south (to z 475) | walkable; a sled at its foot |
+| Snow hill (горка) | top (356, 462), ~1.5 m, long and low, ice chute to the south (to z 475) | walkable; a sled at its foot |
 | Transformer substation ТП-2208 | (327, 486), doors face east | graffiti «Цой жив», a tear-off notice |
 | Brick II-32 5-storey «Молодёжный 5» | x 486–572, z 290–301 (entrances face north) | apple trees behind it |
 
