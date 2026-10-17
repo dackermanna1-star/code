@@ -49,9 +49,9 @@ export function buildGarages(ctx) {
       if (i === 0) out.row1 = row
     })
     // tags on the end walls facing the gate lane
-    addGraffiti(ctx, { x: 190.75 + 0.02, y: 1.4, z: 64.5, angle: HALF_PI, id: 'gr_spartak', h: 0.45 })
+    addGraffiti(ctx, { x: 190.64, y: 1.4, z: 64.5, angle: HALF_PI, id: 'gr_spartak', h: 0.45 })
     addGraffiti(ctx, { x: 189.0 + 0.02, y: 1.2, z: 85.5, angle: HALF_PI, kind: 'graffiti', seed: 7011, look: 'tag', h: 0.4 })
-    addGraffiti(ctx, { x: 57.35 - 0.02, y: 1.3, z: 78.5, angle: -HALF_PI, id: 'gr_koni', h: 0.4 })
+    addGraffiti(ctx, { x: 57.36, y: 1.3, z: 78.5, angle: -HALF_PI, id: 'gr_koni', h: 0.4 })
   })
   safe('gsk booth', () => {
     placeGuardBooth(ctx, { x: 128.2, z: 120.4, rot: 1, y: 0.25, seed: 7020, label: 'ОХРАНА ГСК' })
@@ -78,7 +78,7 @@ export function buildGarages(ctx) {
     placeParkedCar(ctx, { x: 146, z: 104.5, angle: 0.05, type: 'vaz2106', snow: 'buried', seed: 7031 })
     placeParkedCar(ctx, { x: 152.6, z: 103.8, angle: -0.03, type: 'gazelle_van', snow: 'heavy', seed: 7032 })
     placeParkedCar(ctx, { x: 61.5, z: 114, angle: HALF_PI, type: 'uaz452', snow: 'buried', seed: 7033 })
-    placeParkedCar(ctx, { x: 139.5, z: 92.6, angle: PI, type: 'vaz2107', snow: 'brushed', seed: 7034 })
+    placeParkedCar(ctx, { x: 141.5, z: 94.9, angle: HALF_PI, type: 'vaz2107', snow: 'brushed', seed: 7034 })
     plowedPile(ctx, 165, 118.5, { radius: 2.8, height: 2.0, seed: 7035, buried: 'pallet' })
     scatterWeeds(ctx, { rect: [GSK.x0 + 0.6, 96, GSK.x0 + 6, FZ - 0.8], density: 4, kinds: { grass: 0.5, burdock: 0.3, tansy: 0.2 }, seed: 7036 })
     scatterWeeds(ctx, { rect: [GSK.x1 - 7, 92, GSK.x1 - 0.6, FZ - 0.8], density: 3, kinds: { grass: 0.5, burdock: 0.5 }, seed: 7037 })

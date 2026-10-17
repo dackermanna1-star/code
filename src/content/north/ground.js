@@ -56,8 +56,9 @@ export function paintStreet(ctx) {
     return { h: 2, mat: fbm2(x * 0.3, z * 0.3, 2, 13) > 0.6 ? M('snow_fresh') : snow }
   })
   // south sidewalk (0.25) except across ул. Берёзовая and at the driveway mouths (road level)
-  t.apply(ROAD.x0, WALK.z0, ROAD.x1, WALK.z1, (x, z) => {
+  t.apply(ROAD.x0, WALK.z0, ROAD.x1, WALK.z1, (x, z, h) => {
     if (x >= BER.x0 && x < BER.x1) return null
+    if (h >= 4 && z > WALK.z1 - 1.2) return null // a neighbour's plough pile spilling onto the back of the walk
     const n = fbm2(x * 0.35, z * 0.35, 3, 17)
     for (const [a, b] of DRIVES) if (x >= a && x < b) return { h: 0, mat: n > 0.55 ? dirty : packed }
     let mat = packed

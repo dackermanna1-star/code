@@ -126,9 +126,9 @@ export function buildRailway(ctx) {
     // a bench at the open west end, a bin, notices on the shelter post
     placeBench(ctx, { x: 249.5, z: PLATFORM.z1 - 1.1, y: top, angle: PI, type: 'park', snow: true, seed: 8110 })
     placeLitterBin(ctx, { x: 274.2, z: PLATFORM.z1 - 0.6, y: top, angle: PI, type: 'metal' })
-    addNotice(ctx, { x: shX + 3.52, y: top + 1.5, z: PLATFORM.z1 - 1.2, angle: HALF_PI, id: 'notice_vigilance', w: 0.21 })
+    addNotice(ctx, { x: shX + 3.51, y: top + 1.5, z: PLATFORM.z1 - 0.375, angle: HALF_PI, id: 'notice_vigilance', w: 0.2 })
     // «Выход к ул. Заводской» plate by the stairs
-    signs?.add({ x: PLATFORM.stairsX - 0.2, y: top + 2.3, z: PLATFORM.z1 - 0.15, angle: PI, w: 0.9, h: 0.3, ppm: 100, lines: ['Выход к ул. Заводской →'], bg: '#1d3a66', color: '#eee', font: PLAIN_FONT, aged: 0.4, seed: 63 })
+    signs?.add({ x: PLATFORM.stairsX - 3.5, y: top + 0.62, z: PLATFORM.z1 - 0.27, angle: PI, w: 0.9, h: 0.3, ppm: 100, lines: ['Выход к ул. Заводской →'], bg: '#1d3a66', color: '#eee', font: PLAIN_FONT, aged: 0.4, seed: 63 })
     nav(ctx, [[PLATFORM.x0 + 3, 53.6], [PLATFORM.stairsX - 0.5, 53.6]], 'platform')
   })
 

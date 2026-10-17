@@ -14,13 +14,15 @@ import { placeTree, placeTreeRow, scatterTrees, placeBush, plowedPile, snowDrift
 import { parkRow, placeParkedCar } from '../vehicles/api.js'
 import { placeStory, placeStoryAtEntrance } from '../life/api.js'
 import { addNoticeCluster, addGraffiti, addPlate } from '../phone/api.js'
-import { safe, pad, paveWalk, resBody, trodden, paintLawn, shoulderRect } from './util.js'
+import { safe, pad, paveWalk, resBody, trodden, paintLawn, shoulderRect, windrow } from './util.js'
+import { valueNoise2 } from '../../core/rng.js'
 
 export const A = {
   school: { x: 214, z: 190, rot: 2, number: 1048 },   // site x 171.5–256.5, z 153.75–226.25, gate (214, 226.25) facing south
   k1: { series: 'k7', floors: 5, sections: 4, x: 290, z: 252, rot: 2 },  // x 204–290, entrances face south
   k2: { series: 'k7', floors: 5, sections: 5, x: 166, z: 292, rot: 0 },  // x 166–273.5, entrances face north
   drive: { z: 272, x0: 213, x1: 305, w: 4.5 },
+  lot: { x0: 166, x1: 278, z0: 315.6 },
   schoolWalk: { z0: 229.25, z1: 231.75, x0: 151.5, x1: 262 },
 }
 
@@ -41,8 +43,13 @@ export function paintBlockA(ctx, gaps) {
   }
   gaps.ns.push([252, 292])          // courtyard mouth: both sidewalks + driveway
   gaps.ns.push([194, 250])          // rakushki facing the driveway
-  gaps.ewN.push([280, 296])         // path from the courtyard to the E–W driveway
-  gaps.ewN.push([196, 204])
+  // the parking strip along the E–W driveway (cars stand at road level, the windrow behind them)
+  ctx.terrain.apply(A.lot.x0, A.lot.z0, A.lot.x1, 322, (x, z) => {
+    const n = valueNoise2(x * 0.7, z * 0.7, 177)
+    return { h: 0, mat: n > 0.62 ? M('snow_dirty') : n < 0.12 ? M('slush') : M('snow_packed') }
+  })
+  gaps.ewN.push([A.lot.x0 - 1, A.lot.x1 + 1])  // no windrow in front of the parked cars
+  gaps.ewN.push([282, 294])                     // path from the courtyard to the E–W driveway
   gaps.berE.push([280, 286])        // path from the courtyard to Берёзовая
 }
 
@@ -122,12 +129,13 @@ export function buildBlockA(ctx, keep) {
   safe('A cars', () => {
     // perpendicular on the snow north of the courtyard driveway
     parkRow(ctx, { x0: 232, z0: 266.6, x1: 288, z1: 266.6, angle: 0, density: 0.6, seed: 801, snow: [['heavy', 4], ['light', 1], ['buried', 1], ['brushed', 1]] })
-    // along the E–W driveway, nose to the driveway
-    parkRow(ctx, { x0: 168, z0: 317.6, x1: 214, z1: 317.6, angle: Math.PI, density: 0.55, seed: 802, snow: [['heavy', 3], ['buried', 2], ['light', 1]] })
-    parkRow(ctx, { x0: 220, z0: 317.6, x1: 276, z1: 317.6, angle: Math.PI, density: 0.5, seed: 803, snow: [['heavy', 3], ['buried', 1], ['brushed', 1]] })
+    // the strip along the E–W driveway, nose to the driveway, the windrow behind them
+    parkRow(ctx, { x0: 168, z0: 318.9, x1: 214, z1: 318.9, angle: Math.PI, density: 0.6, seed: 802, snow: [['heavy', 3], ['buried', 1], ['light', 1], ['brushed', 1]] })
+    parkRow(ctx, { x0: 220, z0: 318.9, x1: 276, z1: 318.9, angle: Math.PI, density: 0.55, seed: 803, snow: [['heavy', 3], ['buried', 1], ['brushed', 1]] })
+    windrow(ctx, 'x', A.lot.z0 - 1.7, A.lot.z0 - 0.2, A.lot.x0 + 1, A.lot.x1 - 1, 0.6, [], 806, 's')
     // a Gazelle van left on the courtyard driveway's south edge
     placeParkedCar(ctx, { x: 258, z: 276.4, angle: -Math.PI / 2, type: 'gazelle_van', snow: 'heavy', seed: 804 })
-    keep.rect(230, 263.5, 290, 269.7, 0.3).rect(166, 314.5, 278, 320.7, 0.3).circle(258, 276.4, 3.2)
+    keep.rect(230, 263.5, 290, 269.7, 0.3).rect(166, 313.4, 278, 322, 0.3).circle(258, 276.4, 3.2)
   })
 
   // ---- paths & nav -------------------------------------------------------------------------------
@@ -146,9 +154,11 @@ export function buildBlockA(ctx, keep) {
     // west: courtyard → Берёзовая
     trodden(ctx, [[166, 288.25], [159, 285.5], [150.2, 283]], { seed: 13 })
     // south: courtyard → E–W driveway between корп. 2 and the N–S driveway
-    trodden(ctx, [[286, 288.25], [287.5, 300], [288.5, 312], [288.2, 324.6]], { seed: 14 })
-    // link the playground to the sidewalks
-    trodden(ctx, [[196.5, 272.5], [206, 271], [213.5, 272]], { seed: 15, nav: false })
+    trodden(ctx, [[286, 289.6], [287.5, 300], [288.5, 312], [288.2, 321.4]], { seed: 14 })
+    ctx.navPaths.push({ points: [[288.2, 321.4], [288.2, EW_CZ]], kind: 'crossing' })
+    ctx.navPaths.push({ points: [[286, 289.6], [286, 288.25]], kind: 'crossing' })
+    // the playground gate (east side) to корп. 1's sidewalk
+    trodden(ctx, [[194.6, 272.5], [201, 266], [205, 257]], { seed: 15 })
     // old footprints from the stop «Школа» to the school gate
     trodden(ctx, [[150.2, 213], [160, 222], [172, 229.6]], { seed: 16, trail: [[150.6, 214], [160, 222], [172, 229.6], [205, 230.6], [214, 228]], age: 0.6 })
   })
@@ -186,3 +196,4 @@ export function buildBlockA(ctx, keep) {
 }
 
 const NS_X = 305
+const EW_CZ = 325

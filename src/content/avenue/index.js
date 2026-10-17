@@ -7,7 +7,7 @@
 import { safe } from './layout.js'
 import { paintGround, raiseBanks } from './ground.js'
 import { buildOverhead, buildWalkLamps } from './overhead.js'
-import { placeNorthFence, placeNorthTrees, placeSpawnStop, placeNorthFurniture } from './north.js'
+import { placeNorthTrees, placeSpawnStop, placeNorthFurniture } from './north.js'
 import {
   placeSouthFence, placeSouthStop, placeForecourt, placeLaybyCars, placeRow, furnishRow, placeSouthTrees, placeSouthFurniture,
 } from './south.js'
@@ -25,8 +25,9 @@ export default {
     const lights0 = ctx.lights?.list?.length ?? 0
     // 1. ground: roads, kerbs, median, sidewalks, lawns, forecourts, terminal, paths
     paintGround(ctx)
-    // 2. low lawn fences go in before the banks so the cleared snow half-buries them
-    safe('fences', () => { placeNorthFence(ctx); placeSouthFence(ctx) })
+    // 2. low lawn fences (south walk only: on the north walk, the spawn view, the 25 cm hoops read
+    //    as a dark wall) go in before the banks so the cleared snow banks up behind them
+    safe('fences', () => placeSouthFence(ctx))
     // 3. windrows, the median ridge, banks of cleared snow, plough piles
     raiseBanks(ctx)
     // 4. median lamps, trolley poles, span and contact wires (wrap-periodic)

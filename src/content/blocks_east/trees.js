@@ -71,7 +71,7 @@ export function buildTrees(ctx) {
 
   // ---- bushes: snowberry along the kindergarten fence, lilac behind the 5-storey ------------
   safe('bushes', () => {
-    for (const [x, z, kind] of [[359.5, 258.8, 'snowberry'], [420.5, 258.8, 'snowberry'], [372, 258.8, 'lilac'], [500, 304.5, 'lilac'], [527, 305, 'lilac'], [552, 304.5, 'currant'], [592, 214.5, 'lilac']]) {
+    for (const [x, z, kind] of [[359.5, 258.8, 'snowberry'], [420.5, 258.8, 'snowberry'], [372, 258.8, 'lilac'], [500, 304.5, 'lilac'], [527, 305, 'lilac'], [552, 304.5, 'currant'], [577.5, 252, 'lilac']]) {
       if (!blocked(x, z, 0.2)) placeBush(ctx, { x, z, kind, seed: Math.round(x + z * 3) })
     }
   })

@@ -2,7 +2,8 @@
 
 import { M } from '../../core/materials.js'
 import { paintPath } from '../base/api.js'
-import { fbm2, valueNoise2 } from '../../core/rng.js'
+import { RNG, fbm2, valueNoise2 } from '../../core/rng.js'
+import { snowBank } from '../nature/api.js'
 import { residentialSize } from '../residential/api.js'
 
 /** Run a part of the build; log (do not throw) on failure so one broken prop never kills a district. */
@@ -19,18 +20,22 @@ export function pad(ctx, x0, z0, x1, z1, h = 0.25, mat = M('snow_packed')) {
   ctx.terrain.apply(Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1), () => ({ h: hv, mat }))
 }
 
-/** Paved courtyard sidewalk (tile-less asphalt under packed snow) at 0.25 m. */
+/**
+ * Paved courtyard sidewalk at 0.25 m: packed snow over asphalt, worn in soft patches (dirty
+ * snow where people walk, a little bare asphalt and the odd frozen puddle) — noise clusters,
+ * never single random cells (those read as holes at eye height).
+ */
 export function paveWalk(ctx, x0, z0, x1, z1, seed = 1) {
   shoulderRect(ctx, x0, z0, x1, z1, 1.4)
-  const packed = M('snow_packed'), dirty = M('snow_dirty'), ice = M('ice'), asph = M('asphalt')
-  let s = seed * 9301 + 49297
-  const rnd = () => ((s = (s * 9301 + 49297) % 233280) / 233280)
+  const packed = M('snow_packed'), dirty = M('snow_dirty'), ice = M('ice'), asph = M('asphalt'), snow = M('snow')
   ctx.terrain.apply(Math.min(x0, x1), Math.min(z0, z1), Math.max(x0, x1), Math.max(z0, z1), (x, z) => {
-    const r = rnd()
+    const n = fbm2(x * 0.32, z * 0.32, 3, seed)
+    const w = valueNoise2(x * 0.11, z * 0.11, seed + 11)
     let mat = packed
-    if (r < 0.05) mat = ice
-    else if (r < 0.12) mat = dirty
-    else if (r < 0.15) mat = asph
+    if (n > 0.66) mat = snow
+    else if (n < 0.3) mat = dirty
+    if (n < 0.22 && w > 0.55) mat = asph
+    if (n < 0.2 && w < 0.3) mat = ice
     return { h: 1, mat }
   })
 }
@@ -67,18 +72,50 @@ export function resBody(series, floors, sections, x, z, rot) {
 }
 
 /**
- * Courtyard lawn snow: 0.5 m with small wind-packed drift patches (0.75 m) — smaller and more
- * broken than base paintYard's 12 m plateaus, which read as terraces at eye height.
+ * Courtyard lawn snow: flat 0.5 m with rare small wind-packed lumps (0.75 m) in a few zones.
+ * Large 0.75 m plateaus (base paintYard) read as terraces at eye height, so they stay small.
  */
 export function paintLawn(ctx, x0, z0, x1, z1, seed = 9) {
   const snow = M('snow'), fresh = M('snow_fresh')
   ctx.terrain.apply(x0, z0, x1, z1, (x, z) => {
-    const big = fbm2(x * 0.045, z * 0.045, 2, seed)
-    const n = fbm2(x * 0.21, z * 0.17, 3, seed + 7) * 0.7 + valueNoise2(x * 0.9, z * 0.9, seed + 3) * 0.3
-    const h = n + (big - 0.5) * 0.25 > 0.69 ? 3 : 2
-    const m = fbm2(x * 0.5, z * 0.5, 2, seed + 1) > 0.55 ? fresh : snow
+    const zone = fbm2(x * 0.035, z * 0.035, 2, seed)
+    const n = fbm2(x * 0.3, z * 0.3, 2, seed + 7)
+    const h = zone > 0.55 && n > 0.64 ? 3 : 2
+    const m = fbm2(x * 0.5, z * 0.5, 2, seed + 1) > 0.55 || h === 3 ? fresh : snow
     return { h, mat: m }
   })
+}
+
+/**
+ * A plough windrow along a straight edge, broken into pieces with openings (people climb over
+ * where it is low, cross where it is cut) and varying height. axis 'x': runs along x from a to b,
+ * across w0..w1 (z); axis 'z': runs along z, across w0..w1 (x). gaps = absolute [from, to].
+ */
+export function windrow(ctx, axis, w0, w1, a, b, height, gaps, seed, dirtySide) {
+  const rng = new RNG(seed)
+  const cuts = (gaps || []).map(g => [Math.min(g[0], g[1]), Math.max(g[0], g[1])]).sort((p, q) => p[0] - q[0])
+  const pieces = []
+  let cur = a
+  for (const [g0, g1] of cuts) {
+    if (g1 <= cur || g0 >= b) continue
+    if (g0 > cur) pieces.push([cur, g0])
+    cur = Math.max(cur, g1)
+  }
+  if (cur < b) pieces.push([cur, b])
+  for (const [p0, p1] of pieces) {
+    let s0 = p0
+    while (p1 - s0 > 30) {
+      const e = s0 + rng.float(14, 28)
+      emit(s0, e)
+      s0 = e + rng.float(2.0, 3.5)
+    }
+    if (p1 - s0 > 2.5) emit(s0, p1)
+  }
+  function emit(s0, s1) {
+    const h = height * rng.float(0.7, 1.15)
+    if (axis === 'z') snowBank(ctx, w0, s0, w1, s1, h, { dirtySide, seed: rng.int(1, 1e6) })
+    else snowBank(ctx, s0, w0, s1, w1, h, { dirtySide, seed: rng.int(1, 1e6) })
+  }
 }
 
 /** Lower snow lumps (> maxH) within `r` m of a polyline, so paths never sit in 0.5 m trenches. */
@@ -99,10 +136,17 @@ export function shoulderRect(ctx, x0, z0, x1, z1, r = 1.6, maxH = 0.5) {
   ctx.terrain.apply(Math.min(x0, x1) - r, Math.min(z0, z1) - r, Math.max(x0, x1) + r, Math.max(z0, z1) + r, (x, z, h) => (h > mv && h <= mv + 2 ? { h: mv } : null))
 }
 
-/** Trodden path through snow: paint it, register it for pedestrians, optionally lay old footprints. */
+/**
+ * Trodden path through the lawn snow (a 0.25 m trench, as real тропинки are): white trampled snow
+ * at the edges, a greyer packed strip down the middle; registered for pedestrians, optionally
+ * with an old footprint trail (laid in init).
+ */
 export function trodden(ctx, points, o = {}) {
-  shoulder(ctx, points, (o.width ?? 1.3) / 2 + 1.6)
-  paintPath(ctx, { points, width: o.width ?? 1.3, wobble: o.wobble ?? 0.5, seed: o.seed ?? 5, mat: o.mat })
+  const width = o.width ?? 1.5
+  const seed = o.seed ?? 5, wobble = o.wobble ?? 0.5
+  shoulder(ctx, points, width / 2 + 1.6)
+  paintPath(ctx, { points, width, wobble, seed, mat: o.edgeMat ?? M('snow') })
+  paintPath(ctx, { points, width: Math.max(0.5, width * 0.45), wobble, seed, mat: o.mat ?? M('snow_packed') })
   if (o.nav !== false) ctx.navPaths.push({ points: points.map(p => [p[0], p[1]]), kind: o.kind ?? 'trodden' })
   if (o.trail) TRAILS.push({ points: o.trail === true ? points : o.trail, age: o.age ?? 0.45 })
 }

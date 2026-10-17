@@ -1,32 +1,15 @@
 // North side of проспект Строителей: the spawn trolleybus stop (the first view), the tree strip
-// in front of the district with its half-buried lawn fence, furniture along the sidewalk.
+// in front of the district, furniture along the sidewalk.
 
 import { RNG } from '../../core/rng.js'
 import {
   placeBusStop, placeStopPole, placeStreetLamp, placePayphone, placeManhole, placeAdColumn, placeLitterBin,
-  placeElectricalCabinet, placePaymentTerminal, placeRoadSign, placeBillboard, placeFence, placeNoticeBoard,
+  placeElectricalCabinet, placePaymentTerminal, placeRoadSign, placeBillboard, placeNoticeBoard,
   placeTrafficLight, addPoleFlyer,
 } from '../street/api.js'
 import { placeTree, placeBush, addCrows } from '../nature/api.js'
 import { addPlate } from '../phone/api.js'
 import { Z, STOP_N, BEREZOVAYA, DRIVEWAYS, PASSAGES, METRO, ZEBRA, safe, poster } from './layout.js'
-
-/** Low green arched fence along the tree strip — placed BEFORE the banks bury it. */
-export function placeNorthFence(ctx) {
-  const gaps = [
-    [BEREZOVAYA.x0 - 1.5, BEREZOVAYA.walk1 + 1], [PASSAGES[0] - 2.5, PASSAGES[0] + 3], [PASSAGES[1] - 2.5, PASSAGES[1] + 3],
-    [DRIVEWAYS[0].x0 - 1.5, DRIVEWAYS[0].x1 + 1.5], [DRIVEWAYS[1].x0 - 1.5, DRIVEWAYS[1].x1 + 1.5],
-    [METRO.x0 - 3, METRO.x1 + 3], [STOP_N.x - 9.5, STOP_N.x - 4.5],
-  ]
-  let x = 42
-  const runs = []
-  for (const [g0, g1] of gaps.sort((a, b) => a[0] - b[0])) {
-    if (g0 > x + 2) runs.push([x, g0])
-    x = Math.max(x, g1)
-  }
-  if (x < 598) runs.push([x, 598])
-  runs.forEach(([a, b], i) => safe('north fence', () => placeFence(ctx, { points: [[a, Z.FENCE_N], [b, Z.FENCE_N]], type: 'lawn', seed: 300 + i, tint: 0x4d6248 })))
-}
 
 /** Tree strip z 500–508: a loose row of birches, pollarded poplars and lindens with gaps. */
 export function placeNorthTrees(ctx) {

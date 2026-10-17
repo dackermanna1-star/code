@@ -317,20 +317,37 @@ defineModel('north_pylon', () => {
 // ---------------------------------------------------------------------------------------------
 
 /**
- * Cast-iron park fence panel, 2.5 m: low granite plinth, black bars with spear finials, two
- * rails and a row of rings between them. Runs along local +X; pivot = bottom centre.
+ * Cast-iron park fence, 2.5 m panel, in two parts on one transform:
+ * - `north_fence_cast` (25 cm, solid): granite plinth and a dark iron base band, 0.5 m high —
+ *   the part that keeps the player out (the fine bars cannot collide).
+ * - `north_fence_cast_bars` (12.5 cm fine voxels, non-solid): bars every 50 cm with spear tips,
+ *   two rails, small scrolls under the top rail, thin snow on it. Place it at the band top (+0.5 m)
+ *   with placeFine.
+ * Both run along local +X; pivot = bottom centre.
  */
 defineModel('north_fence_cast', () => {
-  const m = new VoxelModel(10, 9, 1)
-  const iron = M('metal_dark')
+  const m = new VoxelModel(10, 3, 1)
   m.fill(0, 0, 0, 10, 1, 1, M('granite'))
-  for (let x = 0; x < 10; x++) { m.set(x, 2, 0, iron); m.set(x, 6, 0, iron) }
-  for (let x = 1; x < 10; x += 2) for (let y = 1; y < 8; y++) m.set(x, y, 0, iron)
-  for (let x = 0; x < 10; x += 2) m.set(x, 4, 0, iron) // rings read as dots between bars
-  snowOn(m, { chance: 0.8, seed: 6 })
+  m.fill(0, 1, 0, 10, 1, 1, M('metal_dark'))
+  for (const x of [2, 7]) m.set(x, 1, 0, M('metal_rust'))
   m.setPivot(5, 0, 0.5)
   return m
 }, { lods: [1, 2], lodDistances: [45], maxDistance: 200 })
+
+defineModel('north_fence_cast_bars', () => {
+  const L = 20, m = new VoxelModel(L, 15, 1)
+  const iron = M('metal_dark')
+  for (let x = 0; x < L; x++) { m.set(x, 0, 0, iron); m.set(x, 9, 0, iron) }
+  for (let x = 2; x < L; x += 4) {
+    for (let y = 0; y <= 11; y++) m.set(x, y, 0, iron)
+    m.set(x, 12, 0, iron) // spear tip
+  }
+  // a small scroll between every pair of bars just under the top rail
+  for (let x = 4; x < L; x += 4) { m.set(x, 8, 0, iron); m.set(x - 1, 7, 0, iron); m.set(x + 1, 7, 0, iron) }
+  m.addSnow({ mat: M('snow'), depth: 1, chance: 0.75, seed: 6, onlyAbove: 8 })
+  m.setPivot(L / 2, 0, 0.5)
+  return fineModel(m, 0.5)
+}, { lods: [0.5, 0.999], lodDistances: [38], maxDistance: 170, collide: false, contact: false })
 
 /** Brick pillar of the park fence with a concrete cap, 0.75 × 2.0 m. Pivot = bottom centre. */
 defineModel('north_fence_pillar', () => {
@@ -344,17 +361,21 @@ defineModel('north_fence_pillar', () => {
   return m
 }, { lods: [1, 2], lodDistances: [45], maxDistance: 200 })
 
-/** One cast-iron gate leaf (1.5 m), drawn closed along local +X from its hinge (pivot). */
+/** One cast-iron gate leaf (1.5 m × 2 m), fine 12.5 cm voxels, drawn closed along local +X from its
+ * hinge (pivot). Non-solid (an open leaf never traps the player); place with placeFine. */
 defineModel('north_gate_cast', () => {
-  const m = new VoxelModel(6, 9, 1)
+  const m = new VoxelModel(12, 17, 1)
   const iron = M('metal_dark')
-  for (let x = 0; x < 6; x++) { m.set(x, 1, 0, iron); m.set(x, 6, 0, iron); m.set(x, 3, 0, iron) }
-  for (let x = 0; x < 6; x += 2) for (let y = 1; y < 8; y++) m.set(x, y, 0, iron)
-  m.set(5, 2, 0, iron); m.set(5, 4, 0, iron); m.set(5, 5, 0, iron)
-  snowOn(m, { chance: 0.7, seed: 8 })
+  for (let y = 0; y < 15; y++) { m.set(0, y, 0, iron); m.set(11, y, 0, iron) }
+  for (let x = 0; x < 12; x++) { m.set(x, 1, 0, iron); m.set(x, 13, 0, iron); m.set(x, 5, 0, iron) }
+  for (let x = 3; x < 11; x += 3) for (let y = 1; y < 16; y++) m.set(x, y, 0, iron)
+  // a little scroll in the lower panel and the latch
+  for (const [x, y] of [[1, 3], [2, 2], [4, 3], [5, 4], [7, 3], [8, 2], [10, 3]]) m.set(x, y, 0, iron)
+  m.set(11, 8, 0, M('metal_rust')); m.set(10, 8, 0, iron)
+  m.addSnow({ mat: M('snow'), depth: 1, chance: 0.7, seed: 8, onlyAbove: 12 })
   m.setPivot(0, 0, 0.5)
-  return m
-}, { lods: [1], maxDistance: 160, contact: false })
+  return fineModel(m, 0.5)
+}, { lods: [0.5, 0.999], lodDistances: [38], maxDistance: 160, collide: false, contact: false })
 
 /**
  * War memorial: two granite steps, pedestal, a whitened concrete obelisk (6.75 m) tapering to

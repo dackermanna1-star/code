@@ -4,7 +4,7 @@
 
 /** ул. Заводская: carriageway, kerbs, south sidewalk, north verge with the heating main. */
 export const ROAD = { x0: 16, x1: 624, z0: 133, z1: 143, lanes: [135.5, 140.5] }
-export const WALK = { z0: 143, z1: 146.5, line: 145.3 } // south sidewalk (y 0.25), nav line
+export const WALK = { z0: 143, z1: 146.5, line: 145.0 } // south sidewalk (y 0.25), nav line
 export const VERGE = { fence: 124.5, pipe: 128.5, z1: 133 } // yard fences, heat-pipe axis, kerb
 /** ул. Берёзовая (blocks_west) meets Заводская here: no sidewalk across it. */
 export const BER = { x0: 139.75, x1: 148.25 }

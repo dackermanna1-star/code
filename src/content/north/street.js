@@ -7,7 +7,7 @@
 import { RNG } from '../../core/rng.js'
 import { placeHeatPipe } from '../public/api.js'
 import {
-  placeStreetLamp, placeBusStop, placeStopPole, placeManhole, placeLitterBin, addPoleFlyer, placeRoadSign,
+  placeStreetLamp, placeBusStop, placeStopPole, placeManhole, placeLitterBin, addPoleFlyer, placeRoadSign, placePayphone,
 } from '../street/api.js'
 import { snowBank, plowedPile, placeTreeRow, addSteam } from '../nature/api.js'
 import { placeParkedCar } from '../vehicles/api.js'
@@ -75,6 +75,8 @@ export function buildStreet(ctx) {
     if (out.stop?.light) out.lights++
     placeStopPole(ctx, { x: STOP.x + 7.5, z: ROAD.z0 - 1.0, angle: HALF_PI, kind: 'bus', name: STOP.name, routes: ['276'], from: 'Ст. м. «Заречная»', to: 'Платформа «Заводская»' })
     placeLitterBin(ctx, { x: STOP.x - 4.2, z: WALK.z1 - 0.55, angle: PI, type: 'concrete' })
+    // a payphone by the stop, its receiver hanging on the cord
+    placePayphone(ctx, { x: STOP.x - 7.2, z: WALK.z1 - 0.4, angle: PI, offhook: true })
     addNoticeCluster(ctx, { x: STOP.x + 7.5, y: 1.55, z: ROAD.z0 - 1.0 + 0.14, angle: 0, w: 0.22, h: 0.7, count: 3, kinds: ['notice', 'ad'], subs: ['tearoff'], seed: 1602 })
   })
 
@@ -120,7 +122,7 @@ export function buildStreet(ctx) {
     ]
     snowBank(ctx, ROAD.x0, ROAD.z0 - 2.25, ROAD.x1, ROAD.z0 - 0.05, 0.95, { seed: 1701, dirtySide: 's', gaps: rel(nGaps, ROAD.x0) })
     const sGaps = [
-      [GSK.gate[0] - 3, GATES.main.x + 4], [BER.x0 - 1.5, BER.x1 + 1.5], [STOP.x - 4.5, CROSS.rail + 3.5],
+      [GSK.gate[0] - 3, BER.x1 + 1.5], [STOP.x - 4.5, CROSS.rail + 3.5],
       [CROSS.boilerDoor - 2.4, CROSS.boilerDoor + 2.4], [BOILER.gate[0] - 1, BOILER.gate[1] + 1],
       [WAREHOUSE.x - 11, WAREHOUSE.x + 0.5], [SUBSTATION.x - 3.5, SUBSTATION.x + 3.5],
       [DRIVES[0][0] - 1.5, DRIVES[0][1] + 1.5], [DRIVES[1][0] - 1.5, DRIVES[1][1] + 1.5],
@@ -135,7 +137,7 @@ export function buildStreet(ctx) {
   const W = WALK.line
   nav(ctx, [[24.5, W], [GATES.north.x, W], [GATES.main.x, W], [BER.x0 - 0.3, W]], 'sidewalk')
   nav(ctx, [[BER.x0 - 0.3, W], [BER.x1 + 0.6, W]], 'crossing')
-  nav(ctx, [[BER.x1 + 0.6, W], [150.2, W], [CROSS.boilerDoor, W], [STOP.x - 6, W], [STOP.x - 3.4, WALK.z0 + 0.95], [STOP.x + 3.4, WALK.z0 + 0.95], [STOP.x + 6, W], [CROSS.rail, W], [305, W], [CROSS.warehouse, W], [459, W], [CROSS.substation, W], [615.5, W]], 'sidewalk')
+  nav(ctx, [[BER.x1 + 0.6, W], [150.2, W], [CROSS.boilerDoor, W], [STOP.x - 6, W], [STOP.x - 3.4, WALK.z0 + 0.8], [STOP.x + 3.4, WALK.z0 + 0.8], [STOP.x + 6, W], [CROSS.rail, W], [305, W], [CROSS.warehouse, W], [459, W], [CROSS.substation, W], [615.5, W]], 'sidewalk')
   nav(ctx, [[GATES.main.x, W], [CROSS.gsk + 1.5, ROAD.z1 - 0.4], [CROSS.gsk, ROAD.z0 - 1.2], [CROSS.gsk, VERGE.fence + 0.6]], 'crossing')
   nav(ctx, [[CROSS.boilerDoor, W], [CROSS.boilerDoor, ROAD.z0 - 1.2], [CROSS.boilerDoor, VERGE.fence + 0.9]], 'crossing')
   nav(ctx, [[CROSS.rail, W], [CROSS.rail, ROAD.z1 - 0.4], ...CROSSING_TRAIL], 'crossing')
@@ -148,8 +150,11 @@ export function buildStreet(ctx) {
 
 /** Lazily turn our own steam marker (auto:false) into a plume (nature must be loaded). */
 export function initStreetSteam(ctx, out) {
-  if (!out?.leak) return
-  try { addSteam(ctx, { ...out.leak, kind: 'pipe', rate: 9, opacity: 0.9, tag: 'north_leak' }) } catch { /* nature optional */ }
+  try {
+    if (out?.leak) addSteam(ctx, { ...out.leak, kind: 'pipe', rate: 9, opacity: 0.9, tag: 'north_leak' })
+    // the boiler hall breathes through its roof ventilators (the chimney plume is the public package's)
+    for (const [x, z, r] of [[263.5, 107.5, 3], [274, 111, 2.2]]) addSteam(ctx, { x, y: 13.0, z, kind: 'vent', rate: r, vel: [0.25, 0.1], tag: 'north_boiler_vent' })
+  } catch { /* nature optional */ }
 }
 
 export { CROSS }

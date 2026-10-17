@@ -3,7 +3,7 @@
 // N–S driveway (x 302–308) and the west part of the E–W driveway (z 322–328).
 // See docs/catalog/blocks_west.md.
 
-import { paintStreets, furnishStreets } from './streets.js'
+import { paintStreets, placeStreetFixtures, finishStreets } from './streets.js'
 import { paintBlockA, buildBlockA } from './blockA.js'
 import { paintCourtyard, buildCourtyard } from './courtyard.js'
 import { BLOCK_D, BLOCK_F } from './api.js'
@@ -21,12 +21,14 @@ export default {
     safe('paint block A', () => paintBlockA(ctx, gaps))
     safe('paint block D', () => paintCourtyard(ctx, BLOCK_D, gaps))
     safe('paint block F', () => paintCourtyard(ctx, BLOCK_F, gaps))
+    // ---- street lamps & signs first (the blocks' trees keep clear of them) -------------------------
+    safe('street fixtures', () => placeStreetFixtures(ctx, keep))
     // ---- buildings, props, trees -------------------------------------------------------------------
     const a = safe('block A', () => buildBlockA(ctx, keep))
     const d = safe('block D', () => buildCourtyard(ctx, BLOCK_D, keep))
     const f = safe('block F', () => buildCourtyard(ctx, BLOCK_F, keep))
     // ---- streets last (their banks need every block's gaps) --------------------------------------
-    safe('streets', () => furnishStreets(ctx, keep, gaps))
+    safe('streets', () => finishStreets(ctx, keep, gaps))
 
     const reg = ctx.registry
     if (d?.home) {

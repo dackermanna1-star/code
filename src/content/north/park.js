@@ -16,7 +16,7 @@ import { placeStory } from '../life/api.js'
 import { addNotice, addPoster, addGraffiti } from '../phone/api.js'
 import { SIGN_FONT, SERIF_FONT, PLAIN_FONT } from '../../render/Signs.js'
 import { PARK, FENCE, GATES, POND, MEMORIAL, CAFE, BANDSTAND, PLAYGROUND, BER } from './layout.js'
-import { nav, reg, safe, chaikin, distToPolyline, alongPolyline, polylineLength, PI, HALF_PI } from './lib.js'
+import { nav, reg, safe, chaikin, distToPolyline, alongPolyline, polylineLength, placeFine, PI, HALF_PI } from './lib.js'
 
 // ---- the alley network (world points; smoothed with Chaikin before painting) ---------------------
 const ringAt = deg => {
@@ -135,7 +135,9 @@ function fenceRun(ctx, a, b, opts = {}) {
   for (let i = 0; i < n; i++) {
     const t = (i + 0.5) * step
     const off = i % 2 ? 0.012 : -0.012
-    ctx.world.place('north_fence_cast', { x: x0 + ux * t - uz * off, z: z0 + uz * t + ux * off, angle, seed: rng.next(), tag: 'fence' })
+    const x = x0 + ux * t - uz * off, z = z0 + uz * t + ux * off
+    const p = ctx.world.place('north_fence_cast', { x, z, angle, seed: rng.next(), tag: 'fence' })
+    if (p) placeFine(ctx, 'north_fence_cast_bars', { x, z, y: p.y + 0.5, angle, tag: 'fence' })
   }
   for (let i = 0; i <= n; i += every) {
     if (i === 0 && opts.skipStart) continue
@@ -155,8 +157,8 @@ function parkGate(ctx, g, inAngle, open = [1, 1]) {
   const h0 = [p0[0] + along[0] * hingeOff, p0[1] + along[1] * hingeOff], h1 = [p1[0] - along[0] * hingeOff, p1[1] - along[1] * hingeOff]
   const closed0 = Math.atan2(-along[1], along[0]), closed1 = closed0 + PI
   const turn = (base, target, f) => base + f * (((target - base + 3 * PI) % (2 * PI)) - PI)
-  ctx.world.place('north_gate_cast', { x: h0[0], z: h0[1], angle: turn(closed0, inAngle, open[0]), tag: 'gate' })
-  ctx.world.place('north_gate_cast', { x: h1[0], z: h1[1], angle: turn(closed1, inAngle, open[1]), tag: 'gate' })
+  placeFine(ctx, 'north_gate_cast', { x: h0[0], z: h0[1], y: ctx.terrain.heightAt(h0[0], h0[1]), angle: turn(closed0, inAngle, open[0]), tag: 'gate' })
+  placeFine(ctx, 'north_gate_cast', { x: h1[0], z: h1[1], y: ctx.terrain.heightAt(h1[0], h1[1]), angle: turn(closed1, inAngle, open[1]), tag: 'gate' })
 }
 
 export function buildParkGround(ctx) {
@@ -268,8 +270,8 @@ export function buildPark(ctx) {
     signs?.add({ x: g.x - 6.2, y: by + 2.125, z: FENCE.zN + 1.4 + 0.14, angle: 0, w: 3.0, h: 0.72, ppm: 60, lines: ['Правила пользования парком', 'см. на информационном щите'], bg: '#2b4a3a', color: '#d8d2c0', font: PLAIN_FONT, aged: 0.5, seed: 6502 })
     ctx.interactions?.add({ x: g.x - 6.2, y: by + 2.1, z: FENCE.zN + 1.4, size: [3.0, 0.9, 0.9], reach: 3, prompt: { ru: 'Читать', en: 'Read' }, tag: 'notice', onUse(game) { game.ui.showNote({ ru: 'ПАРК «БЕРЁЗОВАЯ РОЩА»\nГУП «Мосзеленхоз» · Управа района «Восточный»\n\nЗапрещается: разводить костры, выгуливать собак без поводка, выходить на лёд пруда, ломать деревья и кустарники.\n\nПарк открыт круглосуточно.', en: '"BIRCH GROVE" PARK\nMoszelenkhoz · Vostochny District Council\n\nIt is forbidden to light fires, walk dogs off the lead, go out on the pond ice, or break trees and shrubs.\n\nThe park is open day and night.', style: 'sign' }) } })
     placeNoticeBoard(ctx, { x: g.x + 4.8, z: FENCE.zN + 1.6, angle: 0, count: 3, seed: 6503 })
-    addNotice(ctx, { x: FENCE.x - 0.02, y: 1.3, z: GATES.e412.z - 2.9, angle: HALF_PI, id: 'notice_trees', w: 0.21, readable: true })
-    addNotice(ctx, { x: FENCE.x + 0.4, y: 1.45, z: GATES.e236.z + 2.75, angle: HALF_PI, kind: 'notice', sub: 'lost', seed: 6505 })
+    addNotice(ctx, { x: FENCE.x + 0.14, y: 1.3, z: GATES.e412.z - 3.0, angle: HALF_PI, id: 'notice_trees', w: 0.21 })
+    addNotice(ctx, { x: FENCE.x + 0.14, y: 1.45, z: GATES.e236.z + 3.1, angle: HALF_PI, kind: 'notice', sub: 'lost', seed: 6505 })
   })
   // ---- the memorial --------------------------------------------------------------------------------
   safe('memorial', () => {
@@ -319,7 +321,7 @@ export function buildPark(ctx) {
       placeBench(ctx, { x: x + (k % 3 === 1 ? 0.3 : 0), z, angle: 0, type: 'park', snow: 'snow', seed: 6800 + k, sittable: k % 2 === 0 })
       k++
     }
-    addPoster(ctx, { x: BANDSTAND.x - 4.2, y: 0.5 + 1.75, z: BANDSTAND.z - 2.9, angle: PI, id: 'ad_concert', w: 0.6, h: 0.84, fade: 0.8, aged: 0.8 })
+    addPoster(ctx, { x: BANDSTAND.x - 2.4, y: 0.5 + 0.5, z: BANDSTAND.z - 2.26, angle: PI, id: 'ad_concert', w: 0.42, h: 0.6, fade: 0.8, aged: 0.8 })
     ctx.zones?.add({ name: 'park_shell', min: [BANDSTAND.x - 5, 0, BANDSTAND.z - 2.5], max: [BANDSTAND.x + 5, 6, BANDSTAND.z + 3], reverb: 'courtyard', wind: 0.2, priority: 1, data: { pkg: 'north' } })
   })
   // ---- playground at the edge, by the avenue -------------------------------------------------------
@@ -392,7 +394,7 @@ export function buildPark(ctx) {
     placeStory(ctx, 'glove', { x: FENCE.x - 1.1, z: GATES.e412.z + 3.6, seed: 7201 })
     placeStory(ctx, 'sled', { x: HILL.x + 12.5, z: HILL.z + 5.2, angle: 1.9, seed: 7202 })
     placeStory(ctx, 'butts', { x: BANDSTAND.x + 4.4, z: BANDSTAND.z - 4.6, angle: 0.3, seed: 7203, inspect: false })
-    addGraffiti(ctx, { x: BANDSTAND.x + 4.9, y: 0.5 + 0.75, z: BANDSTAND.z - 3.0, angle: PI, id: 'gr_tsoi', h: 0.42 })
+    addGraffiti(ctx, { x: BANDSTAND.x + 2.2, y: 0.5 + 0.55, z: BANDSTAND.z - 2.26, angle: PI, id: 'gr_tsoi', h: 0.36 })
   })
   // ---- trees: the birch grove, the fence rows, the pond and the rest -------------------------------
   safe('trees', () => {
