@@ -419,7 +419,7 @@ export default {
     { id: 'w1_cubbies', type: 'cubbies', x: 35, y: 3,
       examine: by("[n] Cubbies. Name strips: JASON. AMY. MELISSA K. There's a mitten in one, and it's damp.", "[worried] The mitten's still damp.",
         '[sad] JASON. AMY. MELISSA K.'),
-      banter: B('[grin] Uncle Frank says cubbies were the best part of his education. He peaked in a cubby, Dolan.',
+      banter: B('[grin] Frank peaked in a cubby, Dolan. Peaked.',
         '[talk] These kids would be twenty-two now.', '[thoughtful] Hope they got out of Kettle Run.', 2) },
     { type: 'cubbies', x: 37, y: 3 },
     { id: 'w1_battery_101', type: 'pickup', x: 38, y: 3, item: 'battery', examine: "[relieved] A battery in the last cubby, under a mitten. Somebody's flashlight money." },
