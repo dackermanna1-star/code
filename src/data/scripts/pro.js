@@ -29,16 +29,11 @@ export function aim(g, dir) {
   if (HW.flashlight && DIR_ANGLE[dir] !== undefined) HW.flashlight.angle = DIR_ANGLE[dir];
 }
 
-/** Sweep Tess's beam to an angle (radians) over `sec` of game time. */
-export function sweep(to, sec) {
-  const fl = HW.flashlight;
-  if (!fl || !HW.game?.tween) return Promise.resolve();
-  const from = fl.angle;
-  let d = to - from;
-  while (d > Math.PI) d -= Math.PI * 2;
-  while (d < -Math.PI) d += Math.PI * 2;
-  if (HW.debug?.autoAdvance) { fl.angle = to; return Promise.resolve(); }
-  return HW.game.tween(sec, (k) => { fl.angle = from + d * (k * k * (3 - 2 * k)); });
+/** Point Tess's beam at a world point / entity (she keeps her facing). */
+export function aimAt(target) {
+  const p = HW.player;
+  if (!p || !target || !HW.flashlight) return;
+  HW.flashlight.angle = Math.atan2(target.y - 6 - (p.y - 9), target.x - p.x);
 }
 
 /** Take a friend out of the caterpillar so a scene can place them (they stay where they stand). */

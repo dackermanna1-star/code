@@ -50,7 +50,7 @@ await page.evaluate(() => {
     },
     // Real-input dialogue driving (screenshot phase): advance every finished line until one containing
     // `sub` has typed `frac` of itself, then return (the box stays up for the screenshot).
-    async line(sub, frac = 1, timeout = 120) {
+    async line(sub, frac = 1, timeout = 45) {
       const ui = H().HW.ui; const t0 = performance.now();
       while (performance.now() - t0 < timeout * 1000) {
         const d = ui.dialogue; const l = d.cur;
@@ -73,6 +73,13 @@ await page.evaluate(() => {
         await H().steps(1);
       }
       return false;
+    },
+    /** Switch to autoAdvance, releasing a line the UI is already showing. */
+    async fast(ts = 4) {
+      const HW = H().HW;
+      H().autoAdvance(true);
+      H().timeScale(ts);
+      for (let i = 0; i < 240 && (HW.ui.dialogue.cur || HW.ui.dialogue.queue.length); i++) { HW.input.tap('confirm'); await H().steps(2); }
     },
     async until(src, timeout = 60) {
       const f = new Function('HW', `return (${src});`);
@@ -195,6 +202,8 @@ await T.step('ch1: lobby props (portrait, memorial, plaque, trophy, east doors, 
   T.ok(await said('ALL-COUNTY BAND 1979') && await said('...Clarinet.', 'marcus'), 'ch1.trophy');
   await hw(async (H) => { await H.walkTo([25, 15]); await H.press('right', 400); await H.idle(60); });
   T.ok((await st()).flags.ch1_danny_shoulder && await said("That's a load-bearing door.", 'danny'), 'ch1.east_jammed: Kovach style');
+  await hw(async (H) => { await H.walkTo([26, 15]); await H.press('right', 400); await H.idle(60); });
+  T.ok(await said("Danny's shoulder didn't help."), 'ch1.east_jammed: the second try is just the door');
   await use('danny_bag', 'up');
   T.ok(await said('Hands off the Krimpets.', 'danny'), 'ch1.backpack before the vanish');
   T.ok(!(await st()).inv.bolt_cutters, 'no bolt cutters yet');
@@ -514,10 +523,10 @@ if (!NO_SHOTS) {
     await drain();
     await hw(async (H) => { await H.walkTo('front_doors'); H.walkTo([24, 7]); });
     await take(await L('basically'), '03_doors');
-    await hw((H) => { H.autoAdvance(true); H.timeScale(4); });
+    await page.evaluate(() => window.__n1.fast(4));
     await U("HW.map && HW.map.id === 'lobby' && HW.state.chapter === 1");
-    await hw((H) => H.timeScale(0.08));
-    await take(await U("!!HW.entities.get('adair_glass')", 120), '04_adair_glass');
+    await hw((H) => H.timeScale(0.25));
+    await take(await U("((e) => !!(e && e.frameImage() && e.sortKey > 350))(HW.entities.get('adair_glass'))", 120), '04_adair_glass');
     await hw(async (H) => { H.timeScale(4); await H.idle(); H.autoAdvance(false); H.timeScale(1); H.walkTo([14, 16]); });
     await take(await L('He ate the Civil War.'), '05_portrait');
     await take(await L('Everybody say Hollow Hell.'), '06_group_shot');
@@ -528,8 +537,8 @@ if (!NO_SHOTS) {
     await hw(async (H) => { H.timeScale(3); await H.walkTo([22, 15]); H.timeScale(1); H.walkTo([18, 15]); });
     await take(await L('Backwards.'), '08_jog');
     await L('gets to', 0.97);
-    await hw((H) => H.timeScale(0.06));
-    if (await U("!!HW.entities.get('kevin')", 30)) { await page.waitForTimeout(250); shots.push(await shot('09_kevin')); }
+    await hw((H) => H.timeScale(0.25));
+    await take(await U("((e) => !!(e && e.frameImage()))(HW.entities.get('kevin'))", 30), '09_kevin');
     await hw((H) => H.timeScale(0.5));
     await U("!HW.entities.get('danny')");
     await page.waitForTimeout(300); shots.push(await shot('10_dark_jerk'));

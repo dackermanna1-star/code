@@ -25,6 +25,15 @@ const pa = () => HW.ui?.get?.('pa') || null;
 const roomOf = (e) => (e && HW.map ? HW.map.roomAt(e.x, e.y)?.id || null : null);
 const center = (p) => ({ x: (p.x + p.w / 2) * TILE, y: (p.y + p.h / 2) * TILE });
 
+/** Tess turns to a direction / entity / anchor, and her beam goes with her (it holds still in cutscenes). */
+function look(g, target) {
+  g.face('tess', target);
+  const p = HW.player;
+  if (!p || !HW.flashlight) return;
+  const e = typeof target === 'string' ? (HW.entities?.get(target) || HW.map?.anchor(target)) : null;
+  HW.flashlight.angle = e ? Math.atan2(e.y - 6 - (p.y - 9), e.x - p.x) : Math.atan2(p.aimY, p.aimX);
+}
+
 /** Run a blocking script once nothing else is (sys.pa has to finish closing the console first). */
 function runWhenFree(g, id) {
   g.parallel(async (pg) => {
@@ -49,8 +58,8 @@ export default {
     }
     if (g.flag('roll1_done') || g.seen('ch4_office')) return;
     await g.wait(0.3);
-    g.face('tess', 'down');
-    await g.think('worried', "The little red light. It's back past the counter, in the P.A. room.");
+    look(g, 'pa_console');
+    await g.think('worried', 'The red light. Back past the counter — the P.A. room.');
     g.objective('The P.A. room. Behind the counter.');
   },
 
@@ -64,7 +73,7 @@ export default {
     const m = ent('marcus');
     if (m && g.party.has('marcus')) {
       g.face('marcus', 'tess');
-      g.face('tess', 'marcus');
+      look(g, 'marcus');
       await g.wait(0.6);
       await g.say('marcus', 'neutral', 'Denise Webb. {p} Dentist. {p} Signed I. Webb.');
       await g.wait(0.6);
@@ -75,7 +84,7 @@ export default {
       g.sfx('paper_rustle', { vol: 0.6 });
       await g.narrate('He takes a photo from his jacket and holds it in my light. A girl in a band uniform, laughing at somebody off camera.');
       await g.say('tess', 'sad', 'She looks like you.');
-      await g.say('marcus', 'soft_smile', 'Grandma says that.');
+      await g.say('marcus', 'soft_smile', 'Grandma says I got her eyes.');
       g.set('ch4_signout_read');
     }
     await g.wait(0.8);
@@ -90,7 +99,7 @@ export default {
     await g.examine('[n] Pigeonholes, name strips gone yellow: HAUPT. LUTZ. DOMBROWSKI. ADAIR. Only ADAIR has anything in it.');
     g.sfx('paper_rustle', { vol: 0.5 });
     await g.doc('adair_mailbox');
-    await g.think('worried', "'I am begging you.' {p} Whoever R. was, she knew something.");
+    await g.think('worried', "'I am begging you.' {p} Whoever R. was, she knew.");
     if (!g.flag('ch4_kevin')) { await g.wait(0.6); await g.run('ch4.kevin'); }
   },
 
@@ -116,7 +125,7 @@ export default {
     HW.patrol.spawn('kevin', { at: 'kevin_glass', dir: 'right', whistle: false });
     const tube = HW.lighting?.addLight?.({ type: 'fluor', x: Math.floor(at.x / TILE), y: Math.floor(at.y / TILE) - 1, map: 'west1', flicker: true, intensity: 0.8, fade: 0.05 }) || null;
     g.sfx('squeak', { x: at.x, y: at.y, vol: 0.7 });
-    g.face('tess', 'up');
+    look(g, 'up');
     await g.cam([28, 15], { time: 1.4 });
     await g.wait(1.7);
     if (tube) tube.on = false;
@@ -137,7 +146,7 @@ export default {
     if (!g.party.has('marcus')) return;
     if (room === '205' && !g.flag('ch4_listen_205')) {
       g.set('ch4_listen_205');
-      await g.say('marcus', 'determined', 'Upstairs. {p} He\'s upstairs.');
+      await g.say('marcus', 'thoughtful', "Sounds like detention. {p} He's had practice.");
     } else if (room === 'LIB' && !g.flag('ch4_listen_lib')) {
       g.set('ch4_listen_lib');
       await g.say('marcus', 'relieved', "She's alive, Tess.");
@@ -147,6 +156,7 @@ export default {
   /** Roll call #1 (DESIGN §6 IV.3), while the console is open. sys.pa closes it and checkpoints 'roll 1'. */
   'ch4.roll1': async (g) => {
     g.seen('roll1');
+    g.music(null, 1.5);   // no drone under the school's voice (DESIGN §14); the period hooks bring it back
     const lamp = (id) => {
       const p = pa();
       if (p?.setLamp) p.setLamp(id, true);
@@ -275,7 +285,7 @@ export default {
     if (HW.player?.seated) await HW.hiding?.stand?.();
     await g.wait(0.6);
     g.face('marcus', 'tess');
-    g.face('tess', 'marcus');
+    look(g, 'marcus');
     if (!replay) {
       await g.say('marcus', 'determined', "Danny's upstairs. {p} Two-oh-five.");
       await g.say('tess', 'determined', 'East stairs. The gate.');

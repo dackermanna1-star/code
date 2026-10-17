@@ -36,7 +36,7 @@ async function setup(H, cfg) {
   HW.state.party = cfg.chapter >= 3 ? ['marcus'] : ['leah', 'marcus'];
   HW.entities.syncParty();
   for (const it of ['danny_flashlight', 'bolt_cutters', ...(cfg.chapter >= 3 ? ['camcorder'] : []), ...(cfg.chapter >= 4 ? ['keyring'] : [])]) H.give(it);
-  if (cfg.noCutters) H.HW.state.inv.bolt_cutters = 0, delete H.HW.state.inv.bolt_cutters;
+  if (cfg.noCutters) delete HW.state.inv.bolt_cutters;
   H.refresh();
   H.transcript.length = 0;
   H.errors.length = 0;
@@ -72,7 +72,7 @@ async function playCh2(game, { hold, rewind, label }) {
     const HW = H.HW;
     const L = HW.entities.get('leah'); const M = HW.entities.get('marcus');
     await HW.game.until(() => L?.seat && M?.seat, 30);
-    return { ...(() => { const s = { obj: HW.state.objective, cp: HW.state.checkpoint }; return s; })(),
+    return { obj: HW.state.objective, cp: HW.state.checkpoint,
       doors: Object.fromEntries(['w1_door_101', 'w1_door_102', 'w1_door_rr', 'w1_door_av', 'w1_door_custodian', 'w1_door_103'].map((d) => [d, H.prop(d)?.state])),
       seats: [L?.seat?.id || null, M?.seat?.id || null] };
   });
@@ -124,7 +124,8 @@ async function playCh2(game, { hold, rewind, label }) {
   t.ok((s.inv.camcorder || 0) > 0, `${label} ch2: the camcorder given by script`);
   t.ok(tr.some((x) => x.type === 'choice' && x.text === (rewind ? 'Rewind it.' : "Don't.")), `${label} ch2: VHS choice [${rewind ? 'Rewind it.' : "Don't."}]`);
   t.ok(said('tess', /That's him\. (\{p\} )?The portrait\./), `${label} ch2: "That's him. The portrait."`);
-  t.ok(said('leah', /Where's the hour\?/) || !rewind || true, `${label} ch2: Leah's "Where's the hour?" (tape)`);
+  t.ok(said('leah', /Where's the hour\?/) && said('leah', /^This is Leah Brandt for STATIC\. Ten forty-one\./) && said('leah', /^T, don't look up—$/),
+    `${label} ch2: the tape — "Where's the hour?" · "This is Leah Brandt for STATIC. Ten forty-one..." · "T, don't look up—"`);
   t.ok(s.flags.colonel_named && s.flags.ch2_vhs_seen, `${label} ch2: colonel_named, ch2_vhs_seen`);
   t.ok(said('marcus', /^She moved\./) && said('tess', /^So we don't move\./) && said('marcus', /^We don't move\./), `${label} ch2: "She moved." / "So we don't move." / "We don't move."`);
   t.ok(said('marcus', /^My aunt was one of them\. \{p=0\.8\} Denise\.$/), `${label} ch2: "My aunt was one of them. Denise."`);
@@ -385,15 +386,26 @@ function budget(tr, ch, label) {
 
 // ------------------------------------------------------------------------------------------ runs
 const browser = await launch();
-let game = await openGame(browser);
+const open = async () => {
+  const g = await openGame(browser);
+  await g.page.addScriptTag({ content: `window.__n2setup = ${setup.toString()};` });
+  return g;
+};
+let game = await open();
 const errs = async (label) => {
   const e = await game.errors();
   t.ok(e.length === 0, `${label}: zero captured errors`, e.slice(0, 5));
 };
 
-if (!SHOTS_ONLY) {
+const ONLY = (process.argv.find((a) => a.startsWith('--only=')) || '').slice(7);
+if (ONLY === 'B4') {
+  await game.hw((H, cfg) => window.__n2setup(H, cfg), { chapter: 4, map: 'west1', at: 'from_lobby', timeScale: 6 });
+  await game.hw((H) => H.run('ch4.start'));
+  await playCh4(game, { here: true, reload: true, label: 'B' });
+  await errs('run B4');
+} else if (!SHOTS_ONLY) {
   // ---- run A: continuous
-  await game.hw((H, cfg) => setup(H, cfg), { chapter: 2, map: 'west1', at: 'library_end', timeScale: 6 });
+  await game.hw((H, cfg) => window.__n2setup(H, cfg), { chapter: 2, map: 'west1', at: 'library_end', timeScale: 6 });
   const tA2 = await playCh2(game, { hold: true, rewind: true, label: 'A' });
   budget(tA2.filter((x) => x), 2, 'A');
   await game.hw((H) => { H.transcript.length = 0; });
@@ -405,12 +417,12 @@ if (!SHOTS_ONLY) {
   await errs('run A');
 
   // ---- run B: each chapter on its own, other branches
-  await game.hw((H, cfg) => setup(H, cfg), { chapter: 2, map: 'west1', at: 'library_end', timeScale: 6 });
+  await game.hw((H, cfg) => window.__n2setup(H, cfg), { chapter: 2, map: 'west1', at: 'library_end', timeScale: 6 });
   await game.hw((H) => { H.choiceQueue = [1]; });
   await playCh2(game, { hold: false, rewind: false, label: 'B' });
-  await game.hw((H, cfg) => setup(H, cfg), { chapter: 3, map: 'west1', at: 'in_103', timeScale: 6 });
+  await game.hw((H, cfg) => window.__n2setup(H, cfg), { chapter: 3, map: 'west1', at: 'in_103', timeScale: 6 });
   await playCh3(game, { cut: true, panel: false, label: 'B', fromStart: true });
-  await game.hw((H, cfg) => setup(H, cfg), { chapter: 4, map: 'west1', at: 'from_lobby', timeScale: 6 });
+  await game.hw((H, cfg) => window.__n2setup(H, cfg), { chapter: 4, map: 'west1', at: 'from_lobby', timeScale: 6 });
   await game.hw((H) => H.run('ch4.start'));
   await playCh4(game, { here: true, reload: true, label: 'B' });
   await errs('run B');
@@ -418,7 +430,7 @@ if (!SHOTS_ONLY) {
   // ---- odds and ends: the hollow heap (later visit), the gate refusal helper, replays
   const odd = await game.hw(async (H, cfg) => {
     const HW = H.HW;
-    await setup(H, cfg);
+    await window.__n2setup(H, cfg);
     await H.walkTo([15, 13]); await H.idle();
     await H.walkTo([12, 23]); H.face('left'); await H.interact();
     const hollow = H.transcript.some((x) => x.type === 'narrate' && /hollow pressed into the coal/.test(x.text));
@@ -490,7 +502,7 @@ const shots = [];
 
 if (!NO_SHOTS) {
   await game.close();
-  game = await openGame(browser);
+  game = await open();
   const g = game;
   const key = async (k, n = 1) => { for (let i = 0; i < n; i++) { await g.page.keyboard.press(k); await sleep(140); } };
   const hold = (on) => g.hw((H, v) => H.HW.input.setVirtual('confirm', v), on);
@@ -498,7 +510,7 @@ if (!NO_SHOTS) {
   const fast = () => g.hw((H) => { H.autoAdvance(true); H.timeScale(6); });
 
   // Chapter II
-  await g.hw((H, cfg) => setup(H, cfg), { chapter: 2, map: 'west1', at: 'library_end', auto: false });
+  await g.hw((H, cfg) => window.__n2setup(H, cfg), { chapter: 2, map: 'west1', at: 'library_end', auto: false });
   await play();
   g.hw((H) => { H.run('ch2.start'); });
   await drive(g, { label: 'ch2 start', until: (st) => !st.blocking && st.mode === 'play', rules: [
@@ -518,15 +530,14 @@ if (!NO_SHOTS) {
   await drive(g, { label: 'ch2 marcus', until: (st) => st.text && st.text.startsWith('My aunt') && st.done, maxSec: 60 });
   await g.shot('n2_05_ch2_denise'); shots.push('n2_05_ch2_denise');
   await fast();
-  await g.hw(async (H) => { await H.HW.game.until(() => H.HW.state.chapter === 3 && !H.HW.scripts.blocking, 60); });
-  await drive(g, { label: 'ch2 out', until: (st) => !st.blocking && !st.text, maxSec: 30 });
+  await drive(g, { label: 'ch2 out', until: (st) => st.chapter === 3 && !st.blocking, maxSec: 60 });
   const st2 = await g.hw((H) => ({ ch: H.HW.state.chapter, c: { ...(H.HW.audio.__n2tap?.counts || {}) } }));
   t.eq(st2.ch, 3, 'shots ch2: real-input run reaches Chapter III');
   t.eq(st2.c.stinger_hard || 0, 1, 'shots ch2: stinger_hard exactly once (the VHS face)');
   t.ok((st2.c.stinger_soft || 0) <= 1, 'shots ch2: stinger_soft ≤ 1', st2.c.stinger_soft);
 
   // Chapter III
-  await g.hw((H, cfg) => setup(H, cfg), { chapter: 3, map: 'east1', at: 'mixer', auto: false });
+  await g.hw((H, cfg) => window.__n2setup(H, cfg), { chapter: 3, map: 'east1', at: 'mixer', auto: false });
   await play();
   await g.walkTo('dumbwaiter'); await g.face('up'); await sleep(200); await key('z');
   await drive(g, { label: 'dumbwaiter', until: (st) => !st.blocking && st.mode === 'play', maxSec: 60, rules: [
@@ -557,7 +568,7 @@ if (!NO_SHOTS) {
   await g.hw(async (H) => { await H.HW.game.until(() => H.HW.state.chapter === 4 && !H.HW.scripts.blocking, 120); });
 
   // Chapter IV
-  await g.hw((H, cfg) => setup(H, cfg), { chapter: 4, map: 'west1', at: 'counter', auto: false, flags: { office_open: true, seen_ch4_office: true } });
+  await g.hw((H, cfg) => window.__n2setup(H, cfg), { chapter: 4, map: 'west1', at: 'counter', auto: false, flags: { office_open: true, seen_ch4_office: true } });
   await play();
   await g.face('down'); await sleep(200); await key('z');
   await drive(g, { label: 'signout', until: (st) => !st.blocking && st.mode === 'play', maxSec: 120, rules: [
@@ -568,7 +579,7 @@ if (!NO_SHOTS) {
   await g.hw((H) => { H.setFlag('ch4_pa_used', true); });
   await g.walkTo('pa_console'); await g.face('up'); await sleep(200); await key('z');
   await sleep(800);
-  await key('Escape');   // stepping away from the console fires ALL CALL
+  await key('x');   // stepping away from the console fires ALL CALL
   await drive(g, { label: 'roll', until: (st) => st.text && st.text.startsWith('Sit.') && st.done, choices: [1], maxSec: 120, rules: [
     { when: (st) => st.choice && st.choice.ready, delay: 400, shot: 'n2_11_ch4_roll_choice' },
   ] });

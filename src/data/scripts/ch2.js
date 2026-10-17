@@ -28,6 +28,15 @@ const ent = (id) => HW.entities?.get(id) || null;
 const propOf = (id) => HW.map?.prop(id) || null;
 const doorPt = (p) => ({ x: (p.x + p.w / 2) * TILE, y: (p.y + p.h / 2) * TILE });
 
+/** Tess turns to a direction / entity / anchor, and her beam goes with her (it holds still in cutscenes). */
+function look(g, target) {
+  g.face('tess', target);
+  const p = HW.player;
+  if (!p || !HW.flashlight) return;
+  const e = typeof target === 'string' ? (HW.entities?.get(target) || HW.map?.anchor(target)) : null;
+  HW.flashlight.angle = e ? Math.atan2(e.y - 6 - (p.y - 9), e.x - p.x) : Math.atan2(p.aimY, p.aimX);
+}
+
 /** Seat a friend at a desk (walk/run there, or snap). Never leaves a stale seat reservation behind. */
 async function seatFriend(g, id, deskId, { walk = true } = {}) {
   const e = ent(id);
@@ -146,7 +155,7 @@ export default {
     // Every door on the hall drifts open in the dark (so it can slam).
     for (const id of SLAMS) if (g.prop(id)) g.setProp(id, 'open');
     g.setProp('w1_door_103', 'open');
-    g.face('tess', 'right');
+    look(g, 'right');
     await g.wait(0.6);
     g.sfx('intercom_crackle', { vol: 0.5 });
     await g.wait(0.5);
@@ -154,6 +163,7 @@ export default {
     await g.wait(2.2);
     await g.say('voice', null, 'Good evening, students. {p} You will proceed to your homerooms. {p=0.6} Attendance will now be taken.', VOICE);
     await g.wait(0.8);
+    await g.say('tess', 'scared', 'Who is that?');
     await g.say('leah', 'scared', "There's no power. There hasn't been power since '84.");
     // The doors slam, far to near. Only 103 — the nearest — stays open.
     g.cam([19, 14], { time: 1.4 });
@@ -171,7 +181,7 @@ export default {
     await g.cam([11, 13], { time: 0.9 });
     await g.wait(0.7);
     await g.cam(null, { time: 0.6 });
-    g.face('tess', 'left');
+    look(g, 'marcus');
     await g.say('marcus', 'urgent', 'Get in a room. {p} Sit down. {p} Now.', { shake: 1 });
     await g.say('leah', 'scared', 'Marcus, what—');
     // He takes her arm; they run for 103.
@@ -249,7 +259,9 @@ export default {
     g.overlay('black', null);
     await g.cg('colonel_hand', { fade: 1.4 });
     g.sfx('colonel_breath', { x: HW.player.x, y: HW.player.y - 12, vol: 1 });
-    await g.wait(3.6);
+    await g.wait(2.0);
+    await g.think('eyes_shut', '{dim}Pennies. {p} Wet wool.{/dim}', { hold: true });
+    await g.wait(1.6);
     // Leah's record button.
     g.sfx('camcorder_click', { ...(ent('leah') ? { x: ent('leah').x, y: ent('leah').y } : {}), vol: 0.9 });
     g.anim('leah', 'film_down', { hold: true });
@@ -294,7 +306,7 @@ export default {
     await g.wait(1.4);
     g.anim('tess', null);
     await g.wait(0.8);
-    g.face('tess', 'left');
+    look(g, 'left');
     await g.say('tess', 'scared', 'Leah?');
     await g.wait(1.2);
     g.anim('marcus', null);
@@ -303,19 +315,19 @@ export default {
     // The empty desk; the camcorder on it, its red light still on.
     await HW.hiding?.stand?.();
     await g.walk('tess', 'desk_103_leah');
-    g.face('tess', 'up');
+    look(g, 'up');
     await g.wait(0.5);
     if (led) HW.lighting?.removeLight?.(led);
     g.give('camcorder');
     g.sfx('camcorder_whir', { vol: 0.5 });
-    if (!replay) await g.think('shocked', "It's still warm. {p} It's still recording.");
+    if (!replay) await g.think('shocked', "It's still warm.");
     await g.run('ch2.vhs', { chain: true });
   },
 
   // ------------------------------------------------------------------------------------------ the tape
   'ch2.vhs': async (g, ctx) => {
     if (!g.seen('ch2_vhs')) {
-      await g.think('worried', 'She was filming. {p} She was filming the whole time.');
+      await g.think('worried', 'She was filming. {p} The whole time.');
       g.sfx('camcorder_click');
       g.sfx('camcorder_whir', { vol: 0.6 });
       await g.wait(1.2);
@@ -347,7 +359,7 @@ export default {
     if (m?.seat) HW.hiding?.unseatNpc?.(m);
     if (m && HW.map?.id === 'west1') await g.walk('marcus', [7, 7]);
     g.face('marcus', 'tess');
-    g.face('tess', 'marcus');
+    look(g, 'marcus');
     if (!replay) {
       await g.wait(0.8);
       await g.say('marcus', 'grief', "She moved. {p} That's all she did. {p=0.6} She lifted the camera.");
@@ -393,35 +405,39 @@ async function playTape(g) {
     onFrame: (i) => { if (i === 5) g.sfx('stinger_hard'); },
   });
   await g.wait(0.05);
-  const scr = HW.ui?.get?.('vhs');
-  if (!scr) { await shown; return; }   // automated runs resolve the screen at once
-  // Hands off the controls while the tape plays.
-  const update = scr.update;
-  if (typeof update === 'function') scr.update = (dt) => update.call(scr, dt, null);
-  scr.playing = true;      // the OSD reads ▶ PLAY; the frames are stepped from here
-  scr.hold = 1e9;
+  // Automated runs resolve the screen at once: the lines still play (into the transcript), unframed.
+  const scr = HW.ui?.get?.('vhs') || null;
+  if (scr) {
+    // Hands off the controls while the tape plays; the OSD reads ▶ PLAY and the frames are stepped here.
+    const update = scr.update;
+    if (typeof update === 'function') scr.update = (dt) => update.call(scr, dt, null);
+    scr.playing = true;
+    scr.hold = 1e9;
+  }
+  const on = () => !scr || HW.ui?.get?.('vhs') === scr;   // false once the player has ejected it
   const step = async (sec) => {
-    if (HW.ui?.get?.('vhs') !== scr) return false;
-    if (typeof scr._step === 'function') scr._step(1);
+    if (!on()) return false;
+    if (scr && typeof scr._step === 'function') scr._step(1);
     await g.wait(sec);
     return true;
   };
+  const leah = (expr, text, o = {}) => (on() ? g.say('leah', expr, text, { ...TAPE, hold: true, ...o }) : null);
   await g.wait(1.8);
-  await g.say('leah', 'smile', 'Everybody say Hollow Hell.', { ...TAPE, hold: true });
+  await leah('smile', 'Everybody say Hollow Hell.');                                        // 9:51 — the lobby
   await g.wait(1.4);
-  if (!(await step(1.4))) return;                                  // 10:41 — heads down
-  await g.say('leah', 'worried', "We got here at nine forty-seven. {p} That's an hour, T. {p} Where's the hour?", { ...TAPE, hold: true });
+  if (!(await step(1.4))) return;                                                         // 10:41 — heads down
+  await leah('worried', "We got here at nine forty-seven. {p} That's an hour, T. {p} Where's the hour?");
   await g.wait(1.6);
-  if (!(await step(0.9))) return;                                  // a dark mass
-  await g.say('leah', 'scared', "This is Leah Brandt for STATIC. Ten forty-one. {p} For the record— {p} it's real.", { ...TAPE, hold: true, speed: 0.9 });
+  if (!(await step(0.9))) return;                                                         // a dark mass
+  await leah('scared', "This is Leah Brandt for STATIC. Ten forty-one. {p} For the record— {p} it's real.", { speed: 0.9 });
   await g.wait(1.1);
-  if (!(await step(0.5))) return;                                  // the hand on her shoulder
-  await g.say('leah', 'scared', "T, don't look up—", { ...TAPE, hold: true });
-  if (!(await step(0.9))) return;                                  // tilt, static
-  if (!(await step(2.6))) return;                                  // his face, filling the lens
+  if (!(await step(0.5))) return;                                                         // the hand on her shoulder
+  await leah('scared', "T, don't look up—");
+  if (!(await step(0.9))) return;                                                         // tilt, static
+  if (!(await step(2.6))) return;                                                         // his face, filling the lens
   // ▶ PLAY: blue.
   g.overlay('vhs', { blue: true, timestamp: 'OCT 18 1996 10:42PM' });
-  HW.ui?.close?.('vhs', { frame: 5, held: 0 });
+  if (scr) HW.ui?.close?.('vhs', { frame: 5, held: 0 });
   await shown;
   await g.wait(1.2);
 }

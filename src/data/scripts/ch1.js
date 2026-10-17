@@ -18,7 +18,7 @@
 //   ch1.end              intercom crackle → g.chapter(2) → ch2.start
 import HW from '../../engine/hw.js';
 import { DIR_ANGLE } from '../../engine/entities.js';
-import { DANNY_LIGHT, here, aim, sweep, hold, release, tileOf, installWeather } from './pro.js';
+import { DANNY_LIGHT, here, aim, aimAt, hold, release, tileOf, installWeather } from './pro.js';
 
 const TILE = 16;
 const auto = () => !!HW.debug?.autoAdvance;
@@ -169,6 +169,7 @@ async function tinyChair(g) {
     if (g.npc('danny')) { d.x = chair.x * TILE + 8; d.y = chair.y * TILE + 12; d.sitDir = 'up'; d.dir = 'up'; d.sortBias = 4; }
   }
   g.sfx('desk_creak', { x: d.x, y: d.y, rate: 1.4 });
+  aimAt(d); // Tess's beam finds him, knees up around his ears
   if (was.leah) {
     g.face('leah', 'up');
     g.anim('leah', 'film_up');
@@ -256,6 +257,7 @@ async function vanishScene(g) {
   const d = g.npc('danny');
   await g.walk('danny', [clampX(ttx + dirX * 3), row], { run: true });
   g.face('danny', back);
+  g.light('danny', null); // (an attached light keeps its shape until it is replaced)
   g.light('danny', DANNY_CHIN);
   await cam;
   const jog = g.walk('danny', [clampX(ttx + dirX * 6), row], { speed: 16 });
@@ -300,9 +302,10 @@ async function vanishScene(g) {
   const cone = HW.lighting?.addLight?.({ ...DANNY_LIGHT, intensity: 1.35, px: hx, py: hy, angle: Math.atan2(tess.y - 9 - hy, tess.x - hx), map: 'west1' });
   if (cone) cone._n1keep = true;
   // The lens itself: a hot little point that rides with the cone (so the flashlight reads as a thing).
-  const lens = HW.lighting?.addLight?.({ type: 'bulb', px: hx, py: hy, radius: 0.4, intensity: 1.1, color: '#fff0dc', cage: false, glow: 'led', shadows: false, map: 'west1' });
+  const lens = HW.lighting?.addLight?.({ type: 'bulb', px: hx, py: hy, radius: 0.4, intensity: 1.1, color: '#fff0dc', cage: false, glow: 'led', map: 'west1' });
   if (lens) lens._n1keep = true;
-  const follow = () => { if (cone && lens) { lens.px = cone.px + Math.cos(cone.angle) * 2; lens.py = cone.py + Math.sin(cone.angle) * 2; } };
+  // (_spriteDirty: a moved light must re-render its lightmap sprite — see report re: lighting.)
+  const follow = () => { if (cone && lens) { lens.px = cone.px + Math.cos(cone.angle) * 2; lens.py = cone.py + Math.sin(cone.angle) * 2; lens._spriteDirty = true; } };
   try {
     await g.wait(0.7);
     // It jerks up to the ceiling. Danny is gone from under it.
@@ -430,10 +433,13 @@ export default {
     // For one frame, a woman stands behind her in the glass.
     const t = g.player;
     // In the glass, over Tess's shoulder: drawn on the case (after it, before Tess), half there.
-    const ad = g.spawn({ id: 'adair_glass', sprite: 'adair', px: 10 * TILE + 8, py: 21 * TILE + 8, dir: 'down', alpha: 0.7 });
+    const ad = g.spawn({ id: 'adair_glass', sprite: 'adair', px: 10 * TILE + 8, py: 21 * TILE + 8, dir: 'down', alpha: 0.75 });
     if (ad) { ad.sortBias = 10; ad.shadow = false; }
+    // a cold sheen on her, the colour of the glass
+    const sheen = HW.lighting?.addLight?.({ type: 'bulb', px: 10 * TILE + 8, py: 21 * TILE - 14, radius: 1.3, intensity: 0.7, color: '#9ec3c9', cage: false, glow: null, map: 'lobby' });
     await g.wait(1 / 15);
     g.despawn('adair_glass');
+    if (sheen) HW.lighting.removeLight(sheen);
     g.set('ch1_adair_glimpse');
     await g.wait(0.45);
     // She turns round. Nobody. Just Leah and Marcus, and the doors.
@@ -563,7 +569,11 @@ export default {
       release(g, 'danny');
       return;
     }
-    const text = p?.inst?.lockedText;
+    if (!vanished(g) && g.flag('ch1_danny_shoulder')) {
+      await g.examine("[n] Still jammed. Danny's shoulder didn't help.");
+      return;
+    }
+    const text = vanished(g) ? null : p?.inst?.lockedText;
     await g.examine(text ? (typeof text === 'function' ? text(g.state) : text)
       : "[n] Still jammed. Something on the other side is leaning on them.");
   },

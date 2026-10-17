@@ -734,7 +734,9 @@ export default {
     // Ch2: "Get in a room. Sit down. Now." — 103 is the only door left open
     { id: 'ch2_103', rect: [2, 3, 13, 7], script: 'ch2.sit', cond: (s) => s.chapter === 2 && !F(s).ch2_bell1 },
     // Ch4: the main office with the janitor's OFFICE key
-    { id: 'office_first', rect: [33, 21, 10, 3], script: 'ch4.office_enter', cond: from(4) },
+    // (repeatable through Ch4 until the period is done: after a reload between roll #1 and the period,
+    // stepping back into reception picks the period up again — narrative-2)
+    { id: 'office_first', rect: [33, 21, 10, 3], script: 'ch4.office_enter', once: false, cond: (s) => s.chapter === 4 && !F(s).ch4_hide_done },
   ],
 
   lights: [

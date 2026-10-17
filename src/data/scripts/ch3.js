@@ -12,7 +12,8 @@
 //   ch3.calendar     OCTOBER 1979. "That's the day."
 //   ch3.keyring      the key ring (OFFICE, 2F GATE); Walt's log opens; checkpoint.
 //   ch3.panel        the breaker panel: CLUNK (stir 1 if the heap is quiet).
-//   ch3.gate         the stair gate before roll #1 (for ch5.gate to call; the map's gate text says the same).
+//   ch3.gate         the stair gate before roll #1 (DESIGN §9.2). e1_gate's script is ch5.gate (narrative-3);
+//                    it can delegate here while !roll1_done (the map's lockedText carries the same lines).
 //   ch3.first_period trigger first_period (top of the basement stairs, with the keys): the guided period —
 //                    "Cafeteria. Go." — HW.periods.start({ guided: true }); afterwards ch3.end.
 //   ch3.end          the heap is empty now (coalbin_empty); → g.chapter(4) → ch4.start.
@@ -23,6 +24,15 @@ const ent = (id) => HW.entities?.get(id) || null;
 const withMarcus = () => !!HW.state?.party?.includes('marcus') && !!ent('marcus');
 const centerOf = (p) => (p ? { x: (p.x + p.w / 2) * TILE, y: (p.y + p.h / 2) * TILE } : null);
 const heapProp = () => HW.map?.prop('b_coal_heap') || null;
+
+/** Tess turns to a direction / entity / anchor, and her beam goes with her (it holds still in cutscenes). */
+function look(g, target) {
+  g.face('tess', target);
+  const p = HW.player;
+  if (!p || !HW.flashlight) return;
+  const e = typeof target === 'string' ? (HW.entities?.get(target) || HW.map?.anchor(target)) : null;
+  HW.flashlight.angle = e ? Math.atan2(e.y - 6 - (p.y - 9), e.x - p.x) : Math.atan2(p.aimY, p.aimX);
+}
 const heapEmpty = () => !!HW.state?.flags?.coalbin_empty || heapProp()?.state === 'hollow';
 
 /** The keyring was taken but the hint watcher should stop: one per script generation. */
@@ -38,15 +48,15 @@ export default {
     if (withMarcus()) await g.say('marcus', 'thoughtful', 'By the boiler. {p} Always by the boiler.');
   },
 
-  /** First step into the east hall in Ch3 (the trigger fires on every crossing; only the first one speaks). */
+  /** First step into the east hall in Ch3 (trigger ch3_east; seen-guarded in case it is ever made repeatable). */
   'ch3.east_hall': async (g) => {
     if (g.seen('ch3_east_hall')) return;
     await g.wait(0.2);
-    g.face('tess', 'right');
+    look(g, 'right');
     // Down the hall: the stairwell, the moonlight on the steps, the gym doors at the far end.
     await g.cam('stair_down', { time: 1.6 });
     await g.wait(1.2);
-    await g.think('worried', 'Jammed an hour ago. Open now. {p} Like somebody wanted us over here.');
+    await g.think('worried', 'Jammed when we came in. Open now. {p} Like somebody wants us over here.');
     await g.cam(null, { time: 1.0 });
   },
 
@@ -235,6 +245,7 @@ export default {
       await g.wait(0.6);
       await g.say('marcus', 'sad', "That's the day.");
     }
+    await g.think('worried', 'Circled before it happened. {p} He knew.');
   },
 
   'ch3.keyring': async (g, ctx) => {
@@ -249,7 +260,7 @@ export default {
       await g.doc('walt_log');
       await g.think('scared', "Don't answer. {p} When the bell goes, sit.");
       if (withMarcus()) {
-        await g.say('marcus', 'sad', "'Sit down when the bell goes.' {p} Grandma says that. Every single school morning.");
+        await g.say('marcus', 'sad', "'Sit down when the bell goes.' {p} Grandma used to tell me that. Every school morning.");
       }
     }
     g.objective('Back upstairs. The main office.');
@@ -332,7 +343,7 @@ export default {
     if (m?.seat) HW.hiding?.unseatNpc?.(m);
     await g.wait(1.6);
     if (!g.seen('ch3_end')) {
-      await g.think('scared', 'That breathing. {p} The heap in the basement breathed exactly like that.');
+      await g.think('scared', 'It looked in. {p} It looked right at us, and it kept going.');
       if (withMarcus()) await g.say('marcus', 'determined', 'Office. {p} Before it rings again.');
     }
     if (HW.player?.seated) await HW.hiding?.stand?.();
