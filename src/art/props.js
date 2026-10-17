@@ -28,6 +28,9 @@ export const PROP_A_TYPES = Object.keys(PROPS_A);
 
 const cache = new Map();
 const DIRS = ['up', 'down', 'left', 'right'];
+const B_SET = new Set(PROP_B_TYPES);
+const warned = new Set();
+function warnOnce(key, e) { if (!warned.has(key)) { warned.add(key); console.error(`[props] ${key}`, e); } }
 
 function safeDef(type) {
   try { return propDef(type); } catch { return null; }
@@ -54,13 +57,15 @@ function norm(type, entry, def, opts) {
 }
 
 export async function initProps() {
-  await initPropsB();
+  try { await initPropsB(); } catch (e) { warnOnce('initPropsB failed', e); }
   // Prewarm the props nearly every map shows; everything else is built on first use (~0.1–2 ms).
   for (const t of ['door_class', 'desk_student', 'locker']) { try { getProp(t, {}); } catch { /* lazily retried */ } }
 }
 
 export function getProp(type, opts = {}) {
-  if (PROP_B_TYPES.includes(type)) { const r = renderPropB(type, opts); if (r) return r; }
+  if (B_SET.has(type)) {
+    try { const r = renderPropB(type, opts); if (r && r.canvas) return r; } catch (e) { warnOnce(`renderPropB ${type}`, e); }
+  }
   const entry = PROPS_A[type];
   const def = safeDef(type);
   if (!entry) return fallback(type, def, opts);
@@ -68,19 +73,22 @@ export function getProp(type, opts = {}) {
   const key = `${type}|${o.state}|${o.dir}|${o.variant}|${o.clean ? 1 : 0}|${o.label}`;
   let r = cache.get(key);
   if (!r) {
-    try { r = entry.build(o); } catch (e) { console.error(`[props] ${type} build failed`, e); r = fallback(type, def, opts); }
+    try { r = entry.build(o); } catch (e) { warnOnce(`${type} build failed`, e); r = fallback(type, def, opts); }
     cache.set(key, r);
   }
   return r;
 }
 
 export function drawPropDynamic(ctx, type, px, py, params = {}, t = 0) {
-  if (PROP_B_TYPES.includes(type)) return drawPropDynamicB(ctx, type, px, py, params, t);
+  if (B_SET.has(type)) {
+    try { return drawPropDynamicB(ctx, type, px, py, params, t); } catch (e) { warnOnce(`drawPropDynamicB ${type}`, e); return; }
+  }
   const entry = PROPS_A[type];
   if (entry && entry.draw) {
-    const def = safeDef(type);
-    const o = norm(type, entry, def, { ...params, params });
-    return entry.draw(ctx, px, py, o, params, t);
+    try {
+      const o = norm(type, entry, safeDef(type), { ...params, params });
+      return entry.draw(ctx, px, py, o, params, t);
+    } catch (e) { warnOnce(`${type} dynamic draw failed`, e); }
   }
   const p = getProp(type, { ...params, params });
   ctx.drawImage(p.canvas, px + p.ox, py + p.oy);
