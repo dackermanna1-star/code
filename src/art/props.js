@@ -62,7 +62,12 @@ export async function initProps() {
   for (const t of ['door_class', 'desk_student', 'locker']) { try { getProp(t, {}); } catch { /* lazily retried */ } }
 }
 
+let EMPTY = null;
 export function getProp(type, opts = {}) {
+  if (type === 'examine_spot') { // invisible hotspot: no art
+    if (!EMPTY) { const c = document.createElement('canvas'); c.width = 1; c.height = 1; EMPTY = { canvas: c, ox: 0, oy: 0 }; }
+    return EMPTY;
+  }
   if (B_SET.has(type)) {
     try { const r = renderPropB(type, opts); if (r && r.canvas) return r; } catch (e) { warnOnce(`renderPropB ${type}`, e); }
   }

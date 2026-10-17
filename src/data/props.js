@@ -138,7 +138,7 @@ export const PROPS = {
   tray_rack:    { desc: 'stack of brown fiberglass trays' },
   stove:        { w: 2, desc: 'industrial range' },
   mixer:        { interact: 'script', desc: 'tall industrial stand mixer (Hobart)' },
-  freezer_door: { w: 1, h: 2, interact: 'door', states: ['closed', 'open'], desc: 'walk-in freezer door, chrome latch' },
+  freezer_door: { w: 1, h: 2, opaque: true, interact: 'door', states: ['closed', 'open'], desc: 'walk-in freezer door, chrome latch' },
   dumbwaiter:   { mount: 'wall', interact: 'script', states: ['closed', 'open'], desc: 'small wall hatch on a rope lift' },
   sink_big:     { w: 2, desc: 'deep stainless kitchen sink' },
   shelf_pantry: { w: 2, desc: 'pantry shelf: #10 cans, rusted' },
@@ -233,6 +233,7 @@ export const PROPS = {
   bush_dead:    { desc: 'dead hedge clump' },
 
   // ================================================================ items, notes, decals
+  examine_spot: { solid: false, mount: 'decal', interact: 'examine', desc: 'invisible interaction hotspot (no art): a ledge, a crack, a smell' },
   pickup:       { solid: false, interact: 'pickup', frames: 4, fps: 3, desc: 'small item on floor/desk; instance `item` = item id; sparkles faintly' },
   note_paper:   { solid: false, interact: 'examine', desc: 'loose paper / document; instance `doc` = doc id' },
   backpack:     { solid: false, interact: 'pickup', desc: 'Danny\'s black JanSport backpack' },

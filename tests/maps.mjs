@@ -32,9 +32,9 @@ for (const id of ids) {
     }
     const S = HW.data.scripts;
     const refs = new Set();
-    for (const p of map.props) if (p.script || p.params?.script) refs.add(p.script || p.params.script);
+    for (const p of map.props) { const sc = p.inst?.script || p.script || p.params?.script; if (sc) refs.add(sc); }
     for (const tr of data.triggers || []) if (tr.script) refs.add(tr.script);
-    for (const e of data.exits || []) if (e.script) refs.add(e.script);
+    for (const e of data.exits || []) { if (e.script) refs.add(e.script); if (typeof e.refuse === 'string') refs.add(e.refuse); }
     out.missingScripts = [...refs].filter((s) => typeof s === 'string' && !S[s]);
     out.size = [map.w, map.h];
     out.props = map.props.length;
