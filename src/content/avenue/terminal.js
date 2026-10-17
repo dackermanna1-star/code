@@ -57,7 +57,7 @@ export function buildTerminal(ctx) {
   // ---- lamps: few, at the platform and the far corner (pools with darkness between) -----------
   safe('terminal lamps', () => {
     out.lamps = [
-      placeStreetLamp(ctx, { x: 528.6, z: 581.5, angle: Math.PI / 2, type: 'cobra', broken: false, seed: 531 }),
+      placeStreetLamp(ctx, { x: 528.6, z: 581.5, angle: Math.PI / 2, type: 'cobra', broken: false, flicker: false, seed: 531 }),
       placeStreetLamp(ctx, { x: 597.4, z: 583.0, angle: -Math.PI / 2, type: 'cobra', broken: false, flicker: 'cycle', seed: 597 }),
       placeStreetLamp(ctx, { x: 571.5, z: 586.9, angle: 0, type: 'courtyard', bulb: 'mercury', pole: 'concrete', broken: false, seed: 571 }),
     ]
