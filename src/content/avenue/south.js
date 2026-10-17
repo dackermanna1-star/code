@@ -1,6 +1,6 @@
 // South side of проспект Строителей: the eastbound bus stop, the kiosk row by the underpass exit,
 // the 24-hour «ПРОДУКТЫ» pavilion, the pharmacy, the taxi lay-by, the row of 9-storey slabs with
-// their backs to the avenue (entrances face south), trees, fences and furniture.
+// their backs to the avenue (entrances face south), trees and furniture.
 
 import { RNG } from '../../core/rng.js'
 import {

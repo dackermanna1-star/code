@@ -150,7 +150,7 @@ function thawStrip(ctx, pts) {
 export function paintPaths(ctx) {
   // ---- Block B ---------------------------------------------------------------------------
   // along the north side of the kindergarten fence, joining both towers to the gate
-  walkway(ctx, [[333.2, 250.5], [362, 255.5], [390, 256], [420, 255.5], [432.8, 244.5]], { kind: 'path', width: 2.0, seed: 101 })
+  walkway(ctx, [[335.5, 250], [362, 255.5], [390, 256], [420, 255.5], [430.5, 244]], { kind: 'path', width: 2.0, seed: 101 })
   walkway(ctx, [[390, 256], [390, 261.5]], { kind: 'path', width: 2.4, seed: 102 })
   // inside the kindergarten yard: gate to the three group porches
   walkway(ctx, [[390, 261.5], [390, 286.8]], { kind: 'path', width: 2.0, seed: 131, nav: false })
