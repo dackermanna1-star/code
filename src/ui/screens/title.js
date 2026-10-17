@@ -51,6 +51,7 @@ export class TitleScreen extends Screen {
 
   update(dt, input) {
     if (this.phase === 'menu') this.menuT += dt;
+    this._thunder();
     if (!input || this.busy || this.closing) return;
     if (this.phase === 'press') {
       if (this.t > 0.6 && input.anyPressed()) {
@@ -66,6 +67,19 @@ export class TitleScreen extends Screen {
     if (input.repeat('down')) { this.sel = (this.sel + 1) % n; svc.sfx('ui_move'); }
     if (input.pressed('confirm')) this._activate(this.items[this.sel]);
     else if (input.pressed('cancel')) { this.phase = 'press'; svc.sfx('ui_cancel'); }
+  }
+
+  /**
+   * Thunder follows the backdrop's own lightning: on each strike's rising edge
+   * (title_bg.lightning(t) — the same clock the CG draws with) a roll a beat later.
+   */
+  _thunder() {
+    let lt = 0;
+    try { lt = Number(svc.cgArt('title_bg')?.lightning?.(this.t)) || 0; } catch (e) { svc.warnOnce('title.lightning', e); }
+    if (lt >= 0.5 && this._ltArmed !== false) {
+      this._ltArmed = false;
+      if (!this.closing) svc.sfx('thunder', { vol: 0.6, delay: 0.45 + Math.random() * 0.6 });
+    } else if (lt < 0.05) this._ltArmed = true;
   }
 
   render(ctx) {

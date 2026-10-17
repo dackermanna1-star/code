@@ -10,6 +10,8 @@ export const FL_RADIUS = 130;   // throw at full power (px)
 const HAZE = 0.05;              // additive in-air haze of the beam
 const HOT = 0.42;               // hotspot weight in Tess's beam
 const SPILL_RADIUS = 44;        // back-spill around the hand (px)
+const BOUNCE = 0.13;            // light the beam throws back off whatever it hits (readability, v2.2)
+const BOUNCE_RADIUS = 92;       // px at full power
 const MOTES = 30;
 const MAX_POLY = 4096;
 
@@ -37,6 +39,10 @@ export class Beam {
     this.n = 0;
     this.small = new Float32Array(MAX_POLY * 2);
     this.nSmall = 0;
+    this.bpoly = new Float32Array(MAX_POLY * 2);
+    this.nBounce = 0;
+    this.bx = 0;
+    this.by = 0;
     this.R = FL_RADIUS;
     this.I = 1;
     this.half = (55 * Math.PI) / 360;
@@ -90,6 +96,47 @@ export class Beam {
     lc.translate(fl.x, fl.y);
     lc.rotate(fl.angle);
     lc.drawImage(this.tex, -R, -R, R * 2, R * 2);
+    lc.restore();
+  }
+
+  /**
+   * Bounce: where the beam lands (its hotspot on the floor, or the first wall in its way) a soft,
+   * shadowed omni glow lights the surroundings a little — a lit floor fills a dark room. It keeps
+   * room shapes readable around the beam without lifting the darkness when the light is off.
+   * Not counted by lightAt (the beam itself already makes Tess "lit").
+   */
+  drawBounce(lc, fl, sys, lmx, lmy, K) {
+    this.nBounce = 0;
+    if (!fl.on || this.n < 3 || !(this.I > 0.02) || !sys.grid) return;
+    const ca = Math.cos(fl.angle);
+    const sa = Math.sin(fl.angle);
+    const { w, h, cls } = sys.grid;
+    const reach = this.R * 0.36;
+    let d = 4;
+    for (; d < reach; d += 3) {
+      const tx = Math.floor((fl.x + ca * d) / 16);
+      const ty = Math.floor((fl.y + sa * d) / 16);
+      if (tx < 0 || ty < 0 || tx >= w || ty >= h || cls[ty * w + tx] !== 0) { d = Math.max(2, d - 3); break; }
+    }
+    const x = fl.x + ca * d;
+    const y = fl.y + sa * d;
+    const R = BOUNCE_RADIUS * (this.R / FL_RADIUS);
+    const o = nudgeOrigin(sys.grid, x, y, this.o);
+    this.bx = x;
+    this.by = y;
+    this.nBounce = sys.solver.compute(sys.segs, o.x, o.y, R + 2, this.bpoly, sys.bleed);
+    if (this.nBounce < 3) return;
+    const v = BOUNCE * Math.min(1, this.I);
+    lc.save();
+    lc.setTransform(K, 0, 0, K, -lmx * K, -lmy * K);
+    tracePoly(lc, this.bpoly, this.nBounce);
+    lc.clip();
+    const g = lc.createRadialGradient(x, y, 0, x, y, R);
+    g.addColorStop(0, `rgb(${Math.round(255 * v)},${Math.round(238 * v)},${Math.round(212 * v)})`);
+    g.addColorStop(0.35, `rgb(${Math.round(150 * v)},${Math.round(142 * v)},${Math.round(130 * v)})`);
+    g.addColorStop(1, 'rgb(0,0,0)');
+    lc.fillStyle = g;
+    lc.fillRect(x - R, y - R, R * 2, R * 2);
     lc.restore();
   }
 

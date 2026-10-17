@@ -702,17 +702,19 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
       mapState: {},
       playtime: 0,
       // Engine additions (DESIGN v2): last checkpoint label, assist multiplier (1 | 1.3),
-      // active light source ('maglite' | 'danny'), lights attached to entities by id.
+      // active light source ('maglite' | 'danny'), lights attached to entities by id,
+      // explicit light-group switches (group → bool; HW.lighting.setGroup, v2.2).
       checkpoint: "",
       assist: 1,
       lightSource: "maglite",
-      entityLights: {}
+      entityLights: {},
+      lightGroups: {}
     };
   }
   function normalizeState(s) {
     const base2 = createState();
     const out = { ...base2, ...s || {} };
-    for (const k of ["flags", "inv", "docs", "visited", "mapState", "bonds", "entityLights"]) {
+    for (const k of ["flags", "inv", "docs", "visited", "mapState", "bonds", "entityLights", "lightGroups"]) {
       if (!out[k] || typeof out[k] !== "object" || Array.isArray(out[k])) out[k] = base2[k];
     }
     if (!Array.isArray(out.party)) out.party = [];
@@ -1057,7 +1059,7 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
     tray_rack: { desc: "stack of brown fiberglass trays" },
     stove: { w: 2, desc: "industrial range" },
     mixer: { interact: "script", desc: "tall industrial stand mixer (Hobart)" },
-    freezer_door: { w: 1, h: 2, interact: "door", states: ["closed", "open"], desc: "walk-in freezer door, chrome latch" },
+    freezer_door: { w: 1, h: 2, opaque: true, interact: "door", states: ["closed", "open"], desc: "walk-in freezer door, chrome latch" },
     dumbwaiter: { mount: "wall", interact: "script", states: ["closed", "open"], desc: "small wall hatch on a rope lift" },
     sink_big: { w: 2, desc: "deep stainless kitchen sink" },
     shelf_pantry: { w: 2, desc: "pantry shelf: #10 cans, rusted" },
@@ -1167,6 +1169,7 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
     dumpster: { w: 2, desc: "rusted dumpster" },
     bush_dead: { desc: "dead hedge clump" },
     // ================================================================ items, notes, decals
+    examine_spot: { solid: false, mount: "decal", interact: "examine", desc: "invisible interaction hotspot (no art): a ledge, a crack, a smell" },
     pickup: { solid: false, interact: "pickup", frames: 4, fps: 3, desc: "small item on floor/desk; instance `item` = item id; sparkles faintly" },
     note_paper: { solid: false, interact: "examine", desc: "loose paper / document; instance `doc` = doc id" },
     backpack: { solid: false, interact: "pickup", desc: "Danny's black JanSport backpack" },
@@ -2296,6 +2299,17 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
     const v4 = dy > 0 ? "down" : "up";
     return cur === h || cur === v4 ? cur : h;
   }
+  var LIGHT_LIVE_KEYS = ["color", "intensity", "power", "radius", "cone"];
+  var LIGHT_IGNORE_KEYS = /* @__PURE__ */ new Set([...LIGHT_LIVE_KEYS, "on", "angle", "dir", "x", "y", "px", "py"]);
+  function lightNeedsRebuild(a, b) {
+    if (!a || !b) return true;
+    if ((a.type || "flashlight") !== (b.type || "flashlight")) return true;
+    for (const k of /* @__PURE__ */ new Set([...Object.keys(a), ...Object.keys(b)])) {
+      if (k === "type" || LIGHT_IGNORE_KEYS.has(k)) continue;
+      if (a[k] !== b[k]) return true;
+    }
+    return false;
+  }
   var shadowCanvas = null;
   function shadow() {
     if (shadowCanvas) return shadowCanvas;
@@ -2353,25 +2367,31 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
       this.seat = null;
       this.lightSpec = spec.light || null;
       this._light = null;
+      this._lightFrom = null;
     }
     /** Attach / detach a light that travels with this entity (HW.lighting.addLight). */
     setLight(spec) {
       this.lightSpec = spec || null;
       this.syncLight();
     }
-    /** Create/update/remove the attached light. Coordinates: x/y tile units (centre = x*16+8), px/py world px. */
+    /**
+     * Create/update/remove the attached light. Coordinates: x/y tile units (centre = x*16+8), px/py world px.
+     * A new spec (g.light(id, spec) on an entity that already carries a light) updates the live light in
+     * place when only its level/colour/size changed, and rebuilds it when its shape changed (type, shape,
+     * shadows, glow, cage, flicker, …) — the lighting system bakes those when a light is created.
+     */
     syncLight() {
       const L2 = hw_default.lighting;
       if (!this.lightSpec || !this.visible || !L2?.addLight) {
-        if (this._light) {
-          try {
-            L2?.removeLight?.(this._light);
-          } catch (e) {
-            console.error("[entities] removeLight failed", e);
-          }
-        }
-        this._light = null;
+        this._dropLight();
         return;
+      }
+      if (this._light && this._lightFrom !== this.lightSpec) {
+        if (lightNeedsRebuild(this._lightFrom, this.lightSpec)) this._dropLight();
+        else {
+          for (const k of LIGHT_LIVE_KEYS) this._light[k] = this.lightSpec[k];
+          this._lightFrom = this.lightSpec;
+        }
       }
       if (!this._light) {
         try {
@@ -2382,6 +2402,7 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
           return;
         }
         if (!this._light) return;
+        this._lightFrom = this.lightSpec;
       }
       const l2 = this._light;
       l2.px = this.x;
@@ -2390,6 +2411,17 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
       l2.y = l2.py / TILE2 - 0.5;
       l2.angle = DIR_ANGLE[this.dir];
       l2.on = true;
+    }
+    _dropLight() {
+      if (this._light) {
+        try {
+          hw_default.lighting?.removeLight?.(this._light);
+        } catch (e) {
+          console.error("[entities] removeLight failed", e);
+        }
+      }
+      this._light = null;
+      this._lightFrom = null;
     }
     get sheet() {
       if (this._sheet === void 0) this.setSprite(this.spriteId);
@@ -2526,6 +2558,10 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
         const d2 = Math.hypot(dx, dy);
         if (d2 > 0.01) {
           this.dir = dirFromVec(dx, dy, this.dir, 1.05);
+          if (this.etype === "player") {
+            this.aimX = dx / d2;
+            this.aimY = dy / d2;
+          }
           if (map) openDoorAhead(this, map, dx / d2, dy / d2);
         }
         if (d2 <= budget) {
@@ -2623,6 +2659,7 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
       this.inputActive = false;
       this.aimX = 0;
       this.aimY = 1;
+      this.aimSeq = 0;
       this.speed = 0;
       this.blockedBy = null;
       this.sitTime = -10;
@@ -2637,6 +2674,20 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
       const v4 = DIR_VEC[this.dir];
       this.aimX = v4[0];
       this.aimY = v4[1];
+      this.aimSeq++;
+    }
+    /** Face toward a world point and aim (the flashlight) exactly at it (hand height → point). */
+    faceToward(x, y) {
+      const dx = x - this.x;
+      const dy = y - this.y;
+      this.face(dirFromVec(dx, dy, this.dir));
+      const ax = x - this.x;
+      const ay = y - 6 - (this.y - 9);
+      const d2 = Math.hypot(ax, ay);
+      if (d2 > 0.5) {
+        this.aimX = ax / d2;
+        this.aimY = ay / d2;
+      }
     }
     /** Reset transient states (map load, new game). */
     resetTransient() {
@@ -3536,7 +3587,7 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
           hw_default.debug?.record?.("refuse", null, null, `${map.id}:${exit.id}`);
           return;
         }
-        this.transfer(exit.to, exit.anchor, { fade: exit.fade !== false, dir: exit.dir, auto: true });
+        this._takeExit(exit, map);
         return;
       }
       const trig = map.triggers;
@@ -3560,6 +3611,36 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
         hw_default.debug?.record?.("trigger", null, null, `${map.id}:${t.id}`);
         hw_default.scripts.run(t.script, { trigger: t, map }, { blocking: t.blocking !== false });
         break;
+      }
+    },
+    /**
+     * Walk through an exit. An exit's optional `script` runs (v2.2):
+     *   scriptWhen: 'after' (default) — once the transfer has completed (new map loaded, faded in);
+     *               'before' — before the transfer; a blocking 'before' script that returns false
+     *               cancels the transfer (the exit re-arms once the player steps off it).
+     *   blocking:   true (default) — a cutscene (dialogue allowed); false — runs alongside play.
+     * ctx = { exit, map (the map the script runs on), from (map id left), to (map id) }.
+     */
+    async _takeExit(exit, map) {
+      const from5 = map?.id;
+      const ctx2 = () => ({ exit, map: hw_default.map, from: from5, to: exit.to });
+      const blocking = exit.blocking !== false;
+      const runScript = () => hw_default.scripts.run(exit.script, ctx2(), { blocking });
+      const hasScript = !!exit.script && hw_default.scripts.has(exit.script);
+      if (exit.script && !hasScript) console.warn(`[game] exit ${exit.id}: unknown script '${exit.script}'`);
+      if (hasScript && exit.scriptWhen === "before") {
+        hw_default.debug?.record?.("exitScript", null, null, `${from5}:${exit.id}:${exit.script}:before`);
+        if (blocking) {
+          const r = await runScript();
+          if (r === false || hw_default.map !== map) return;
+        } else runScript();
+      }
+      const gen = hw_default.scripts.gen;
+      const ok2 = await this.transfer(exit.to, exit.anchor, { fade: exit.fade !== false, dir: exit.dir, auto: true });
+      if (!ok2 || gen !== hw_default.scripts.gen || hw_default.map?.id !== exit.to) return;
+      if (hasScript && exit.scriptWhen !== "before") {
+        hw_default.debug?.record?.("exitScript", null, null, `${from5}:${exit.id}:${exit.script}`);
+        runScript();
       }
     },
     _trackRoom() {
@@ -4412,7 +4493,9 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
           return;
         }
         const pt = resolvePoint(typeof dir === "string" && hw_default.entities.get(dir) ? `@${dir}` : dir);
-        if (pt) e.face(dirFromVec(pt.x - e.x, pt.y - e.y, e.dir));
+        if (!pt) return;
+        if (e === hw_default.player && typeof e.faceToward === "function") e.faceToward(pt.x, pt.y);
+        else e.face(dirFromVec(pt.x - e.x, pt.y - e.y, e.dir));
       },
       /** Animation override; { once } resolves when done; name null clears. */
       anim(id, name, opts = {}) {
@@ -6182,11 +6265,7 @@ ${e.error.stack}` : ""}`);
           hw_default.game.emit("batteryDead");
         }
       }
-      if (!cutscene || p2.path) {
-        const target = Math.atan2(p2.aimY, p2.aimX);
-        const k = 1 - Math.exp(-dt * AIM_RATE);
-        this.angle = wrapAngle(this.angle + wrapAngle(target - this.angle) * k);
-      }
+      this._aim(dt, p2, cutscene);
       const b = s.battery;
       let power = src.power;
       let flicker2 = 0;
@@ -6209,6 +6288,38 @@ ${e.error.stack}` : ""}`);
       L2.cone = src.cone;
       L2.color = src.color;
       L2.source = srcName;
+    },
+    /**
+     * Beam aim. In free play (and scripted walks) it eases toward Tess's aim vector. In cutscenes it
+     * holds still — until her facing changes (g.face('tess', dir | target), a turn at the end of a
+     * walk), then it swings smoothly to the new aim and holds there. A script that writes
+     * HW.flashlight.angle directly is a manual override: that angle holds until her next turn.
+     */
+    _aim(dt, p2, cutscene) {
+      const k = 1 - Math.exp(-dt * AIM_RATE);
+      if (!cutscene || p2.path) {
+        const target = Math.atan2(p2.aimY, p2.aimX);
+        this.angle = wrapAngle(this.angle + wrapAngle(target - this.angle) * k);
+        this._aimTarget = null;
+      } else {
+        if (this._wrote !== void 0 && this.angle !== this._wrote) this._aimTarget = null;
+        else if ((p2.aimSeq | 0) !== this._seenSeq || p2.dir !== this._seenDir) {
+          let a = Math.atan2(p2.aimY, p2.aimX);
+          const da = DIR_ANGLE[p2.dir];
+          if (da !== void 0 && Math.abs(wrapAngle(a - da)) > 1.25) a = da;
+          this._aimTarget = a;
+        }
+        if (this._aimTarget !== null && this._aimTarget !== void 0) {
+          const d2 = wrapAngle(this._aimTarget - this.angle);
+          if (Math.abs(d2) < 2e-3) {
+            this.angle = this._aimTarget;
+            this._aimTarget = null;
+          } else this.angle = wrapAngle(this.angle + d2 * k);
+        }
+      }
+      this._seenSeq = p2.aimSeq | 0;
+      this._seenDir = p2.dir;
+      this._wrote = this.angle;
     },
     /** Low-battery flicker bursts (more frequent as the cells die); dregs dropouts never reach 0. */
     _flicker(dt, b, p2) {
@@ -10057,9 +10168,68 @@ ${e.error.stack}` : ""}`);
   };
   var breaker_default = breaker;
 
+  // src/game/weather.js
+  var TILE16 = 16;
+  var weather = {
+    _t: 0,
+    _foreignN: -1,
+    _foreign: false,
+    /** Is another (script-installed) weather system registered? Re-checked when the system list changes. */
+    get deferred() {
+      const list = hw_default.game?.systems || [];
+      if (list.length !== this._foreignN) {
+        this._foreignN = list.length;
+        this._foreign = list.some((s) => s && s !== this && typeof s.update === "function" && /steam_vent/.test(String(s.update)) && /weather/.test(String(s.onMapLoad || "")));
+      }
+      return this._foreign;
+    },
+    get active() {
+      return !this.deferred && !!hw_default.map?.data?.weather;
+    },
+    /** Apply a map's weather now (rain on/off). Called on every map load. */
+    apply(map) {
+      const w = map?.data?.weather;
+      const rain = w ? w.rain === true ? 1 : Number(w.rain) || 0 : 0;
+      try {
+        hw_default.fx?.rain?.(rain > 0, rain || 1);
+      } catch (e) {
+        console.error("[weather] rain", e);
+      }
+    },
+    onMapLoad(map) {
+      this._t = 0;
+      if (this.deferred) return;
+      this.apply(map);
+    },
+    update(dt) {
+      const map = hw_default.map;
+      const w = map?.data?.weather;
+      if (!w?.steam || this.deferred) return;
+      this._t -= dt;
+      if (this._t > 0) return;
+      const [g0, g1] = Array.isArray(w.steamGap) ? w.steamGap : [0.3, 0.75];
+      this._t = g0 + Math.random() * Math.max(0, g1 - g0);
+      const cam = hw_default.camera?.view;
+      const near = (p2) => !cam || p2.x * TILE16 > cam.x - 32 && p2.x * TILE16 < cam.x + (cam.w || 480) + 32 && p2.y * TILE16 > cam.y - 32 && p2.y * TILE16 < cam.y + (cam.h || 270) + 48;
+      let pick3 = null;
+      let n = 0;
+      for (const p2 of map.props) {
+        if (p2.type !== "steam_vent" || !near(p2)) continue;
+        n++;
+        if (Math.random() * n < 1) pick3 = p2;
+      }
+      if (!pick3) return;
+      try {
+        hw_default.fx?.emit?.("steam", pick3.x * TILE16 + 8, pick3.y * TILE16 + 10, 1 + Math.floor(Math.random() * 2));
+      } catch (e) {
+      }
+    }
+  };
+  var weather_default = weather;
+
   // src/game/index.js
-  var SERVICES = { noise: noise_default, periods: periods_default, colonel: colonel_ai_default, patrol: patrol_default, basement: basement_default, longhall: longhall_default, assembly: assembly_default, chase: chase_default, breaker: breaker_default };
-  var ORDER = [noise_default, periods_default, colonel_ai_default, patrol_default, basement_default, longhall_default, assembly_default, chase_default, breaker_default];
+  var SERVICES = { noise: noise_default, periods: periods_default, colonel: colonel_ai_default, patrol: patrol_default, basement: basement_default, longhall: longhall_default, assembly: assembly_default, chase: chase_default, breaker: breaker_default, weather: weather_default };
+  var ORDER = [noise_default, periods_default, colonel_ai_default, patrol_default, basement_default, longhall_default, assembly_default, chase_default, breaker_default, weather_default];
   var META_HOOKS = [
     [chapters_exports, ["installChapters", "install"]],
     [endings_exports, ["installEndings", "install"]]
@@ -21799,7 +21969,17 @@ ${e.error.stack}` : ""}`);
       }
     }
   }
+  var EMPTY2 = null;
   function getProp(type, opts = {}) {
+    if (type === "examine_spot") {
+      if (!EMPTY2) {
+        const c3 = document.createElement("canvas");
+        c3.width = 1;
+        c3.height = 1;
+        EMPTY2 = { canvas: c3, ox: 0, oy: 0 };
+      }
+      return EMPTY2;
+    }
     if (B_SET.has(type)) {
       try {
         const r2 = renderPropB(type, opts);
@@ -31134,6 +31314,14 @@ ${e.error.stack}` : ""}`);
       ctx2.fillRect(0, 0, W6, H6);
     } };
   }
+  function warmColonelCg(id) {
+    const c3 = makeCanvas(W6, H6), x = ctxOf(c3);
+    const cg = CGS[id];
+    if (!cg) return;
+    if (id === "vhs_frames") cg.draw(x, 0, { frame: 0 });
+    else if (id === "locker_slits") cg.draw(x, 0, { phase: 0.6, faceIn: 0 });
+    else cg.draw(x, 0, { lit: 1 });
+  }
 
   // src/art/cg_kit.js
   var W7 = 480;
@@ -34681,6 +34869,24 @@ ${e.error.stack}` : ""}`);
     prepCar();
     background(LATE, { delay: 2500 });
   }
+  var PREP = {
+    title_bg: prepTitle,
+    car_interior: prepCar,
+    register_book: prepRegister,
+    breaker_reveal: prepBreaker,
+    ending_dawn: prepDawn,
+    ending_present: prepPresent,
+    ending_truant: prepTruant,
+    coda_2013: prepCoda
+  };
+  function warmCg(id) {
+    try {
+      if (COLONEL_CG_IDS.includes(id)) warmColonelCg?.(id);
+      else if (typeof PREP[id] === "function") PREP[id]();
+    } catch (e) {
+      console.error(`[cg] warm ${id} failed`, e);
+    }
+  }
   var fallback3 = /* @__PURE__ */ new Map();
   function getCg(id) {
     if (COLONEL_CG_IDS.includes(id)) return getColonelCg(id);
@@ -35308,6 +35514,8 @@ ${e.error.stack}` : ""}`);
     sprite: (id) => getSprite(id),
     portrait: (char, expr, opts) => getPortrait(char, expr, opts || {}),
     cg: (id) => getCg(id),
+    /** Pre-build a CG before its scene (v2.2): forwards to the CG modules' warm/prep functions; unknown ids no-op. */
+    warmCg: (id) => warmCg?.(id),
     icon: (id) => getIcon(id),
     glyph: (name) => getGlyph(name)
   };
@@ -38092,100 +38300,6 @@ ${e.error.stack}` : ""}`);
     return bus;
   }
 
-  // src/audio/sfx.js
-  var SFX = { ...UI_SFX, ...FOLEY_SFX, ...SCHOOL_SFX, ...COLONEL_SFX, ...WORLD_SFX, ...STEP_SFX, ...BLIP_SFX, ...VOICE_SFX };
-  var SFX_IDS = [
-    "ui_move",
-    "ui_confirm",
-    "ui_cancel",
-    "ui_open",
-    "ui_close",
-    "page_turn",
-    "item_get",
-    "objective",
-    "door_open_wood",
-    "door_close_wood",
-    "door_open_metal",
-    "door_close_metal",
-    "door_locked",
-    "door_creak_slow",
-    "door_slam",
-    "key_unlock",
-    "chain_rattle",
-    "padlock",
-    "bolt_cutters",
-    "locker_open",
-    "locker_close",
-    "locker_tap",
-    "gate_rattle",
-    "flashlight_click",
-    "battery_swap",
-    "flashlight_flicker",
-    "flashlight_roll",
-    "camcorder_click",
-    "camcorder_whir",
-    "vhs_noise",
-    "intercom_crackle",
-    "intercom_chime",
-    "school_bell",
-    "bell_short",
-    "fluor_on",
-    "fluor_off",
-    "colonel_breath",
-    "colonel_breath_fast",
-    "colonel_drag",
-    "colonel_hm",
-    "colonel_jingle",
-    "colonel_lunge",
-    "colonel_grab",
-    "colonel_sink",
-    "whistle",
-    "whistle_breath",
-    "squeak",
-    "glass_tone",
-    "glass_write",
-    "husk_rustle",
-    "cicada_click",
-    "chalk",
-    "chair_scrape",
-    "desk_creak",
-    "paper_rustle",
-    "typewriter_key",
-    "trs80_key",
-    "trs80_beep",
-    "safe_click",
-    "safe_open",
-    "stamp",
-    "pen_scratch",
-    "book_close",
-    "lever_pull",
-    "trapdoor",
-    "drip",
-    "splash",
-    "pipe_knock",
-    "steam_hiss",
-    "coal_slide",
-    "boiler_door",
-    "lightning",
-    "thunder",
-    "wind_gust",
-    "heartbeat",
-    "breath_hold",
-    "breath_release",
-    "tape_play",
-    "mixer_start",
-    "dumbwaiter",
-    "crowd_murmur",
-    "applause_old",
-    "record_crackle",
-    "stinger_soft",
-    "stinger_hard",
-    "collapse_rumble",
-    "dust_fall",
-    "footstep_heavy_above"
-  ];
-  var EVENT_IDS = Object.keys(SFX).filter((k) => k.startsWith("amb_"));
-
   // src/audio/layers.js
   function modulate(V2, eng2, param, { period = 20, points = 12, depth = 0.5, seed = 0 } = {}) {
     const c3 = V2.src(eng2.curve(points, seed), 2 / period, true);
@@ -38356,6 +38470,206 @@ ${e.error.stack}` : ""}`);
     return noiseLayer(V2, eng2, { color, filters, level, dest, mod: mod3 }).out;
   }
 
+  // src/audio/radio.js
+  var mtof2 = (m) => 440 * Math.pow(2, (m - 69) / 12);
+  var CHORDS = [[57, 60, 64], [53, 57, 60], [55, 60, 64], [55, 59, 62]];
+  var ROOTS = [45, 41, 48, 43];
+  function carRadio(V2, eng2, o = {}) {
+    const R2 = eng2.R.fork();
+    const level = o.level ?? -14;
+    const spk = V2.gain(dbToGain(level));
+    const hp = V2.filter("highpass", 260, 0.8);
+    const box2 = V2.filter("peaking", 1150, 1.4, 5);
+    const lp = V2.filter("lowpass", 2700, 0.9);
+    V2.chain(spk, hp, box2, lp, V2.out);
+    modulate(V2, eng2, spk.gain, { period: 11, points: 10, depth: dbToGain(level) * 0.35, seed: 62 });
+    noiseLayer(V2, eng2, { color: "white", filters: [["bandpass", 1900, 0.6]], level: -27, dest: spk, mod: { period: 3.7, points: 14, depth: 0.6, seed: 61 } });
+    const crackleBus = V2.gain(dbToGain(-16));
+    crackleBus.connect(spk);
+    eng2.addTask(V2.t0 + R2.range(0.5, 2), (t) => {
+      if (V2.disposed || V2.stopping) return null;
+      const v4 = eng2.play("record_crackle", { t, dest: crackleBus, send: null, vol: R2.range(0.3, 0.8) });
+      if (v4) (V2.children || (V2.children = [])).push(v4);
+      if (V2.children && V2.children.length > 6) V2.children = V2.children.filter((c3) => {
+        if (eng2.now > c3.end + 0.1) {
+          c3.dispose();
+          return false;
+        }
+        return true;
+      });
+      return t + R2.range(1.5, 6);
+    }, V2);
+    const talk = V2.gain(0);
+    talk.connect(spk);
+    const music = V2.gain(0);
+    music.connect(spk);
+    formantVoice(V2, eng2, { f0: 108, scale: 0.97, rate: 4.8, talk: 0.94, breath: 0.12, lp: 2600, level: 0.85, inton: 0.13, seed: 71, dest: talk });
+    formantVoice(V2, eng2, { f0: 196, scale: 1.14, rate: 4.2, talk: 0.9, breath: 0.15, lp: 2600, level: 0.5, inton: 0.12, seed: 72, dest: talk });
+    musicBed(V2, eng2, R2, music);
+    let mode = R2.chance(0.5) ? "talk" : "music";
+    eng2.addTask(V2.t0, (t) => {
+      if (V2.disposed || V2.stopping) return null;
+      const xf = 0.6;
+      if (mode === "talk") {
+        talk.gain.setTargetAtTime(1, t, xf / 3);
+        music.gain.setTargetAtTime(R2.chance(0.3) ? 0.25 : 0, t, xf / 3);
+        mode = "music";
+        return t + R2.range(7, 15);
+      }
+      music.gain.setTargetAtTime(0.9, t, xf / 3);
+      talk.gain.setTargetAtTime(0, t + R2.range(0, 1.2), xf / 3);
+      mode = "talk";
+      return t + R2.range(10, 22);
+    }, V2);
+  }
+  function musicBed(V2, eng2, R2, dest) {
+    const bpm = R2.range(84, 96), beat = 60 / bpm, bar = beat * 4;
+    const pad2 = V2.gain(0.22);
+    const padLp = V2.filter("lowpass", 1800, 0.7);
+    V2.chain(pad2, padLp, dest);
+    const voices = CHORDS[0].map((m, i) => {
+      const osc = V2.osc(i === 0 ? "triangle" : "sawtooth", mtof2(m), R2.range(-8, 8));
+      const g = V2.gain(i === 0 ? 0.5 : 0.18);
+      osc.connect(g);
+      g.connect(pad2);
+      V2.play(osc, 0, null);
+      return osc;
+    });
+    const bassOsc = V2.osc("triangle", mtof2(ROOTS[0] + 12));
+    const bass = V2.gain(0);
+    bassOsc.connect(bass);
+    bass.connect(dest);
+    V2.play(bassOsc, 0, null);
+    const hatSrc = V2.noise("white");
+    const hatBp = V2.filter("bandpass", 2300, 1.6);
+    const hat = V2.gain(0);
+    V2.chain(hatSrc, hatBp, hat, dest);
+    V2.play(hatSrc, 0, null);
+    let n = 0;
+    eng2.addTask(V2.t0 + 0.05, (t) => {
+      if (V2.disposed || V2.stopping) return null;
+      const c3 = Math.floor(n / 4) % CHORDS.length;
+      const b = n % 4;
+      if (b === 0) {
+        CHORDS[c3].forEach((m, i) => voices[i].frequency.setTargetAtTime(V2.hz(mtof2(m)), t, 0.02));
+        bassOsc.frequency.setTargetAtTime(V2.hz(mtof2(ROOTS[c3] + 12)), t, 0.01);
+        pad2.gain.setTargetAtTime(0.26, t, 0.05);
+        pad2.gain.setTargetAtTime(0.16, t + bar * 0.5, 0.6);
+      }
+      bass.gain.setTargetAtTime(b === 0 ? 0.55 : 0.4, t, 8e-3);
+      bass.gain.setTargetAtTime(0, t + beat * 0.35, 0.06);
+      hat.gain.setTargetAtTime(0.09, t + beat * 0.5, 2e-3);
+      hat.gain.setTargetAtTime(0, t + beat * 0.5 + 0.02, 0.012);
+      n++;
+      return t + beat;
+    }, V2);
+  }
+  var RADIO_SFX = {
+    /** The radio knob turned off: a plastic detent click, a speaker pop, the station gone. */
+    radio_off: { peak: -14, var: 3, gen(S2) {
+      const { sr, R: R2 } = S2, o = S2.alloc(0.3);
+      burst(o, sr, 0, { dur: 0.05, R: R2, gain: 0.25, env: envPts([[0, 0.6], [0.045, 0.6], [0.05, 0]]), filters: [["bp", 1400, 0.8]] });
+      clink(o, sr, 0.045, { f: R2.range(2300, 2600), amp: 0.6, t60: 0.012, R: R2 });
+      knock(o, sr, 0.045, { f: 640, amp: 0.55, t60: 0.025, click: 0.6, R: R2 });
+      thump(o, sr, 0.05, { f: 70, to: 40, t60: 0.08, amp: 0.45, noise: 0.2, lp: 400, R: R2 });
+      return filt(o, new BQ(sr, "hp", 40, 0.7));
+    } }
+  };
+
+  // src/audio/sfx.js
+  var SFX = { ...UI_SFX, ...FOLEY_SFX, ...SCHOOL_SFX, ...COLONEL_SFX, ...WORLD_SFX, ...STEP_SFX, ...BLIP_SFX, ...VOICE_SFX, ...RADIO_SFX };
+  var SFX_IDS = [
+    "ui_move",
+    "ui_confirm",
+    "ui_cancel",
+    "ui_open",
+    "ui_close",
+    "page_turn",
+    "item_get",
+    "objective",
+    "door_open_wood",
+    "door_close_wood",
+    "door_open_metal",
+    "door_close_metal",
+    "door_locked",
+    "door_creak_slow",
+    "door_slam",
+    "key_unlock",
+    "chain_rattle",
+    "padlock",
+    "bolt_cutters",
+    "locker_open",
+    "locker_close",
+    "locker_tap",
+    "gate_rattle",
+    "flashlight_click",
+    "battery_swap",
+    "flashlight_flicker",
+    "flashlight_roll",
+    "camcorder_click",
+    "camcorder_whir",
+    "vhs_noise",
+    "intercom_crackle",
+    "intercom_chime",
+    "school_bell",
+    "bell_short",
+    "fluor_on",
+    "fluor_off",
+    "colonel_breath",
+    "colonel_breath_fast",
+    "colonel_drag",
+    "colonel_hm",
+    "colonel_jingle",
+    "colonel_lunge",
+    "colonel_grab",
+    "colonel_sink",
+    "whistle",
+    "whistle_breath",
+    "squeak",
+    "glass_tone",
+    "glass_write",
+    "husk_rustle",
+    "cicada_click",
+    "chalk",
+    "chair_scrape",
+    "desk_creak",
+    "paper_rustle",
+    "typewriter_key",
+    "trs80_key",
+    "trs80_beep",
+    "safe_click",
+    "safe_open",
+    "stamp",
+    "pen_scratch",
+    "book_close",
+    "lever_pull",
+    "trapdoor",
+    "drip",
+    "splash",
+    "pipe_knock",
+    "steam_hiss",
+    "coal_slide",
+    "boiler_door",
+    "lightning",
+    "thunder",
+    "wind_gust",
+    "heartbeat",
+    "breath_hold",
+    "breath_release",
+    "tape_play",
+    "mixer_start",
+    "dumbwaiter",
+    "crowd_murmur",
+    "applause_old",
+    "record_crackle",
+    "stinger_soft",
+    "stinger_hard",
+    "collapse_rumble",
+    "dust_fall",
+    "footstep_heavy_above"
+  ];
+  var EVENT_IDS = Object.keys(SFX).filter((k) => k.startsWith("amb_"));
+
   // src/audio/loops.js
   var LOOPS = {
     // ---- continuous graphs ---------------------------------------------------------------------
@@ -38394,6 +38708,10 @@ ${e.error.stack}` : ""}`);
     } },
     crowd: { graph(V2, o, eng2) {
       crowd(V2, eng2, { n: 10, dur: null, level: 0.4 });
+    } },
+    // the prologue's car radio: AM on low (radio.js; v2.2). opts.level (dB, default -14) trims the station.
+    car_radio: { graph(V2, o, eng2) {
+      carRadio(V2, eng2, o);
     } },
     vhs_noise: { graph(V2, o, eng2) {
       const n = V2.noise("white"), hp = V2.filter("highpass", 400, 0.7), pk = V2.filter("peaking", 5e3, 0.7, 4);
@@ -42432,6 +42750,7 @@ ${e.error.stack}` : ""}`);
       const el = live ? line3.elapsed : 1e9;
       const tick = Math.floor(this.t * 20);
       const voice = line3.kind === "voice";
+      const glitch = line3.opts?.glitch === true;
       const flick = voice ? !reduceFlashing() && hash2(Math.floor(this.t * 12), 7) % 9 === 0 ? 0.55 : 0.92 : 1;
       page.lines.forEach((ln, li) => {
         let x0 = line3.tx;
@@ -42451,7 +42770,7 @@ ${e.error.stack}` : ""}`);
           if (voice) {
             alpha *= flick;
             const h = hash2(tick >> 1, i + li * 131);
-            if (h % 509 === 0) ch2 = "#%&@/"[h % 5];
+            if (glitch && h % 509 === 0) ch2 = "#%&@/"[h % 5];
             if (h % 211 === 0) gx += AP * 2;
           }
           g.f.glyph(ctx2, ch2, gx, gy, color, alpha);
@@ -43012,12 +43331,18 @@ ${e.error.stack}` : ""}`);
       ctx2.drawImage(this.fx480, 0, 0, W8, H8);
       vhsOSD(ctx2, this.t, { mode: p2.blue ? "blue" : "play", timestamp: p2.timestamp });
     }
-    // -- 'heads_down': head on the desk, eyes shut — a dark tunnel that breathes
+    // -- 'heads_down': head on the desk, eyes shut — a dark tunnel that breathes.
+    // params (all optional): tight 0..1 (0 = wide open, 1 = shut; default = the classic breathing
+    // tunnel, ≈ 0.87), cx/cy = tunnel centre in WORLD px (default: Tess's head on screen; screen
+    // centre without a player), ui: true = cx/cy are UI px (960×540) instead, dim 0..1 (veil, 0.6).
     heads_down(ctx2, o) {
+      const p2 = o.params || {};
       const breath2 = 0.5 + 0.5 * Math.sin(this.t * 1.15);
-      const r = 0.05 + breath2 * 0.1;
-      rect(ctx2, 0, 0, W8, H8, "rgba(0,0,0,0.6)");
-      vignette(ctx2, 1, Math.round(r * 20) / 20);
+      let r = 0.05 + breath2 * 0.1;
+      if (p2.tight !== void 0 && p2.tight !== null) r = Math.max(0, (1 - clamp4(Number(p2.tight) || 0)) * 0.8 - 0.05 + breath2 * 0.1);
+      rect(ctx2, 0, 0, W8, H8, `rgba(0,0,0,${clamp4(p2.dim ?? 0.6)})`);
+      const c3 = tunnelCentre(p2);
+      tunnel(ctx2, Math.round(r * 20) / 20, c3.x, c3.y);
     }
     // -- 'compact': Mom's cracked compact mirror; the world renderer draws the 1979 view inside
     compact(ctx2, o) {
@@ -43045,6 +43370,50 @@ ${e.error.stack}` : ""}`);
       rect(ctx2, 0, 0, W8, H8, `rgba(0,0,0,${clamp4(o.params.alpha ?? 1)})`);
     }
   };
+  function tunnelCentre(p2) {
+    let x = W8 / 2, y = H8 / 2;
+    if (Number.isFinite(p2.cx) && Number.isFinite(p2.cy)) {
+      if (p2.ui) {
+        x = p2.cx;
+        y = p2.cy;
+      } else {
+        const u = HW.camera?.toUI?.(p2.cx, p2.cy);
+        if (u) {
+          x = u.x;
+          y = u.y;
+        }
+      }
+    } else {
+      const pl = HW.player;
+      const u = pl && HW.map ? HW.camera?.toUI?.(pl.x, pl.y - 14) : null;
+      if (u && Number.isFinite(u.x) && Number.isFinite(u.y)) {
+        x = u.x;
+        y = u.y;
+      }
+    }
+    return { x: clamp4(Math.round(x / AP) * AP, 0, W8), y: clamp4(Math.round(y / AP) * AP, 0, H8) };
+  }
+  var tunnelCache = /* @__PURE__ */ new Map();
+  function tunnel(ctx2, r0, ux, uy) {
+    const rl = Math.round(r0 * 20);
+    let c3 = tunnelCache.get(rl);
+    if (!c3) {
+      const aw = LW2 * 2, ah = LH2 * 2, cx = LW2, cy = LH2;
+      const maxd = Math.hypot(LW2 / 2, LH2 / 2);
+      c3 = canvas(aw, ah);
+      const x = ctx2d(c3);
+      const img = x.createImageData(aw, ah), px = img.data;
+      for (let j = 0; j < ah; j++) for (let i = 0; i < aw; i++) {
+        const d2 = Math.hypot(i - cx, (j - cy) * 1.25) / maxd;
+        const t = Math.max(0, Math.min(1, (d2 - rl / 20) / 0.45));
+        if (t > 0 && BAYER4[j - cy + LH2 / 2 & 3][i - cx + LW2 / 2 & 3] < t * 16) px[(j * aw + i) * 4 + 3] = 255;
+      }
+      x.putImageData(img, 0, 0);
+      if (tunnelCache.size >= 6) tunnelCache.delete(tunnelCache.keys().next().value);
+      tunnelCache.set(rl, c3);
+    }
+    ctx2.drawImage(c3, ux - W8, uy - H8, W8 * 2, H8 * 2);
+  }
   var compactCanvas = null;
   function compactFrame() {
     if (compactCanvas) return compactCanvas;
@@ -44083,6 +44452,7 @@ ${e.error.stack}` : ""}`);
     }
     update(dt, input2) {
       if (this.phase === "menu") this.menuT += dt;
+      this._thunder();
       if (!input2 || this.busy || this.closing) return;
       if (this.phase === "press") {
         if (this.t > 0.6 && input2.anyPressed()) {
@@ -44113,6 +44483,22 @@ ${e.error.stack}` : ""}`);
         this.phase = "press";
         sfx("ui_cancel");
       }
+    }
+    /**
+     * Thunder follows the backdrop's own lightning: on each strike's rising edge
+     * (title_bg.lightning(t) — the same clock the CG draws with) a roll a beat later.
+     */
+    _thunder() {
+      let lt6 = 0;
+      try {
+        lt6 = Number(cgArt("title_bg")?.lightning?.(this.t)) || 0;
+      } catch (e) {
+        warnOnce3("title.lightning", e);
+      }
+      if (lt6 >= 0.5 && this._ltArmed !== false) {
+        this._ltArmed = false;
+        if (!this.closing) sfx("thunder", { vol: 0.6, delay: 0.45 + Math.random() * 0.6 });
+      } else if (lt6 < 0.05) this._ltArmed = true;
     }
     render(ctx2) {
       const bx = ctx2d(this.bg);
@@ -47162,6 +47548,79 @@ ${e.error.stack}` : ""}`);
       this.out = canvas(LW3, LH3);
       this.tmp = canvas(LW3, LH3);
       this.cgFrames = Number(cgArt("vhs_frames")?.frames) || 5;
+      this.locked = !!args.locked;
+      this._seq = null;
+      if (Array.isArray(args.sequence) && args.sequence.length) {
+        if (args.start == null) this.i = this._clampAll(Number(args.sequence[0]?.frame) || 0);
+        this.play(args.sequence, { end: args.end, _first: true });
+      }
+    }
+    _clampAll(i) {
+      return clamp4(Math.round(i), 0, this.tape.length - 1);
+    }
+    // ---- script control (HW.ui.get('vhs')) -----------------------------------------------------------
+    /** Step d frames (respects min/max, like the player's ←/→). */
+    step(d2 = 1) {
+      this._step(d2);
+    }
+    /** Seek straight to tape index i (any frame; tracking noise unless it is already showing). */
+    goTo(i, { seek = SEEK } = {}) {
+      const j = this._clampAll(i);
+      if (j === this.i) {
+        this.onT = 0;
+        return;
+      }
+      this.seekDir = j > this.i ? 1 : -1;
+      this.i = j;
+      this.seek = seek;
+      this.onT = 0;
+      sfx("camcorder_whir", { vol: 0.5 });
+    }
+    lock(on = true) {
+      this.locked = !!on;
+    }
+    unlock() {
+      this.locked = false;
+    }
+    /** Play a sequence [{ frame, hold, seek }]; end: 'close' | 'unlock' | 'stay'. */
+    play(sequence, { end, _first = false } = {}) {
+      const list = (sequence || []).filter((e) => e && Number.isFinite(Number(e.frame)));
+      if (!list.length) return;
+      this._seq = { list, k: -1, end: end || this.args.end || "close" };
+      this.playing = true;
+      this._seqNext(_first);
+    }
+    get frame() {
+      return this.i;
+    }
+    _seqNext(first = false) {
+      const q = this._seq;
+      q.k++;
+      if (q.k >= q.list.length) {
+        this._seq = null;
+        try {
+          this.args.onEnd?.();
+        } catch (e2) {
+          console.error("[ui] vhs.onEnd", e2);
+        }
+        if (q.end === "unlock") {
+          this.locked = false;
+          this.playing = false;
+        } else if (q.end === "stay") this.playing = false;
+        else this.close({ frame: this.i, held: 0, done: true });
+        return;
+      }
+      const e = q.list[q.k];
+      try {
+        this.args.onStep?.(q.k, e);
+      } catch (err) {
+        console.error("[ui] vhs.onStep", err);
+      }
+      if (first && this._clampAll(e.frame) === this.i) {
+        this.onT = 0;
+        return;
+      }
+      this.goTo(e.frame, { seek: e.seek ?? SEEK });
     }
     onOpen() {
       sfx("camcorder_click");
@@ -47197,12 +47656,15 @@ ${e.error.stack}` : ""}`);
           }
         }
         if (this._isFace() && !this.playing) this.faceHeld = Math.max(this.faceHeld, this.onT);
-        if (this.playing && this.onT >= this.hold) {
+        if (this._seq) {
+          const e = this._seq.list[this._seq.k];
+          if (this.onT >= (Number(e?.hold) >= 0 ? Number(e.hold) : 1.6)) this._seqNext();
+        } else if (this.playing && this.onT >= this.hold) {
           if (this.i < this.max) this._step(1);
           else this.playing = false;
         }
       }
-      if (!input2) return;
+      if (!input2 || this.locked || this.closing) return;
       if (input2.repeat("left")) {
         this.playing = false;
         this._step(-1);
@@ -47256,8 +47718,8 @@ ${e.error.stack}` : ""}`);
       ctx2.drawImage(this.out, 0, 0, W8, H8);
       const mode = seeking ? this.seekDir < 0 ? "rew" : "ff" : this.playing ? "play" : "pause";
       vhsOSD(ctx2, this.t, { mode, timestamp: def.timestamp, counter: def.counter });
-      this._strip(ctx2);
-      hints(ctx2, [["EJECT", this.ui.input.keyLabel("cancel")], [this.playing ? "STILL" : "PLAY", this.ui.input.keyLabel("confirm")], ["FRAME", "\u2190 \u2192"]], H8 - 30, W8 - 24, "#a8a8a0");
+      if (this.args.strip !== false) this._strip(ctx2);
+      if (!this.locked) hints(ctx2, [["EJECT", this.ui.input.keyLabel("cancel")], [this.playing ? "STILL" : "PLAY", this.ui.input.keyLabel("confirm")], ["FRAME", "\u2190 \u2192"]], H8 - 30, W8 - 24, "#a8a8a0");
     }
     /** Tape position: one notch per frame, the current one lit. */
     _strip(ctx2) {
@@ -47270,6 +47732,38 @@ ${e.error.stack}` : ""}`);
       }
     }
   };
+  function autoVhs(args = {}) {
+    const seq3 = Array.isArray(args.sequence) ? args.sequence.filter((e) => e && Number.isFinite(Number(e.frame))) : [];
+    if (!seq3.length) return null;
+    const tape = Array.isArray(args.frames) && args.frames.length ? args.frames : DEFAULT_TAPE;
+    const seen = /* @__PURE__ */ new Set();
+    let last = 0;
+    const settle = (i) => {
+      if (seen.has(i)) return;
+      seen.add(i);
+      try {
+        args.onFrame?.(i, tape[i]);
+      } catch (e) {
+        console.error("[ui] vhs.onFrame", e);
+      }
+    };
+    if (args.start != null) settle(clamp4(Number(args.start) || 0, 0, tape.length - 1));
+    seq3.forEach((e, k) => {
+      try {
+        args.onStep?.(k, e);
+      } catch (err) {
+        console.error("[ui] vhs.onStep", err);
+      }
+      last = clamp4(Math.round(Number(e.frame)), 0, tape.length - 1);
+      settle(last);
+    });
+    try {
+      args.onEnd?.();
+    } catch (e) {
+      console.error("[ui] vhs.onEnd", e);
+    }
+    return { frame: last, held: 0, done: true };
+  }
   var groupCanvas = null;
   function groupShot() {
     if (groupCanvas) return groupCanvas;
@@ -47686,7 +48180,7 @@ ${e.error.stack}` : ""}`);
         case "write":
           return "done";
         case "vhs":
-          return null;
+          return autoVhs(args);
         case "title":
           return { action: "new" };
         case "pa":
@@ -47714,7 +48208,7 @@ ${e.error.stack}` : ""}`);
   var C_ALWAYS = 0;
   var C_SOUTH_OF = 2;
   var C_NORTH_OF = 3;
-  var TILE16 = 16;
+  var TILE17 = 16;
   var EXT = 13;
   function classifyCells(map) {
     const { w, h } = map;
@@ -47744,30 +48238,30 @@ ${e.error.stack}` : ""}`);
     const raw = [];
     const edge = (o, line3, a, b, cond = C_ALWAYS, meta = 0) => raw.push([o, line3, a, b, cond, meta]);
     for (let y = 0; y <= h; y++) {
-      const ly = y * TILE16;
+      const ly = y * TILE17;
       for (let x = 0; x < w; x++) {
         const n = at(x, y - 1);
         const s = at(x, y);
-        const a = x * TILE16;
-        if (n === BLOCK !== (s === BLOCK)) edge(0, ly, a, a + TILE16);
+        const a = x * TILE17;
+        if (n === BLOCK !== (s === BLOCK)) edge(0, ly, a, a + TILE17);
         else if (n === OPEN && s === FACE3) {
           if (freeTop(x, y)) {
-            edge(0, ly, a, a + TILE16, C_NORTH_OF, ly);
-            edge(0, ly - EXT, a, a + TILE16, C_SOUTH_OF, ly);
+            edge(0, ly, a, a + TILE17, C_NORTH_OF, ly);
+            edge(0, ly - EXT, a, a + TILE17, C_SOUTH_OF, ly);
           } else {
-            edge(0, ly, a, a + TILE16);
+            edge(0, ly, a, a + TILE17);
           }
         }
       }
     }
     for (let x = 0; x <= w; x++) {
-      const lx = x * TILE16;
+      const lx = x * TILE17;
       for (let y = 0; y < h; y++) {
         const wc = at(x - 1, y);
         const ec = at(x, y);
-        const a = y * TILE16;
-        if (wc === BLOCK !== (ec === BLOCK)) edge(1, lx, a, a + TILE16);
-        else if (wc !== BLOCK && wc === FACE3 !== (ec === FACE3)) edge(1, lx, a, a + TILE16);
+        const a = y * TILE17;
+        if (wc === BLOCK !== (ec === BLOCK)) edge(1, lx, a, a + TILE17);
+        else if (wc !== BLOCK && wc === FACE3 !== (ec === FACE3)) edge(1, lx, a, a + TILE17);
         const lt6 = freeTop(x - 1, y);
         const rt = freeTop(x, y);
         if (lt6 !== rt) edge(1, lx, a - EXT, a, C_SOUTH_OF, a);
@@ -47809,8 +48303,8 @@ ${e.error.stack}` : ""}`);
     if (!grid) return out;
     const { w, h, cls } = grid;
     const at = (cx2, cy2) => cx2 < 0 || cy2 < 0 || cx2 >= w || cy2 >= h ? BLOCK : cls[cy2 * w + cx2];
-    let cx = Math.floor(x / TILE16);
-    let cy = Math.floor(y / TILE16);
+    let cx = Math.floor(x / TILE17);
+    let cy = Math.floor(y / TILE17);
     let c3 = at(cx, cy);
     if (c3 === BLOCK) {
       let best = Infinity;
@@ -47819,8 +48313,8 @@ ${e.error.stack}` : ""}`);
       for (let dy = 1; dy >= -1; dy--) {
         for (let dx = -1; dx <= 1; dx++) {
           if (!dx && !dy || at(cx + dx, cy + dy) === BLOCK) continue;
-          const nx = Math.min(Math.max(x, (cx + dx) * TILE16 + 0.5), (cx + dx) * TILE16 + TILE16 - 0.5);
-          const ny = Math.min(Math.max(y, (cy + dy) * TILE16 + 0.5), (cy + dy) * TILE16 + TILE16 - 0.5);
+          const nx = Math.min(Math.max(x, (cx + dx) * TILE17 + 0.5), (cx + dx) * TILE17 + TILE17 - 0.5);
+          const ny = Math.min(Math.max(y, (cy + dy) * TILE17 + 0.5), (cy + dy) * TILE17 + TILE17 - 0.5);
           const d2 = (nx - x) * (nx - x) + (ny - y) * (ny - y);
           if (d2 < best - 1e-6) {
             best = d2;
@@ -47838,7 +48332,7 @@ ${e.error.stack}` : ""}`);
     if (c3 === FACE3) {
       let fy = cy;
       for (let k = 0; k < 4 && at(cx, fy) === FACE3; k++) fy++;
-      if (at(cx, fy) === OPEN) out.y = fy * TILE16 + 0.5;
+      if (at(cx, fy) === OPEN) out.y = fy * TILE17 + 0.5;
     }
     return out;
   }
@@ -48539,7 +49033,7 @@ ${e.error.stack}` : ""}`);
   };
 
   // src/render/lighting_moon.js
-  var TILE17 = 16;
+  var TILE18 = 16;
   var SKEW = 11;
   var SPREAD = 5;
   var BASE = 0.62;
@@ -48576,8 +49070,8 @@ ${e.error.stack}` : ""}`);
         this.layer = null;
         return;
       }
-      const mw = Math.ceil(map.w * TILE17 * K4);
-      const mh = Math.ceil(map.h * TILE17 * K4);
+      const mw = Math.ceil(map.w * TILE18 * K4);
+      const mh = Math.ceil(map.h * TILE18 * K4);
       if (!this.layer || this.layer.width !== mw || this.layer.height !== mh) this.layer = canvas2(mw, mh);
       const c3 = this.layer.getContext("2d");
       c3.setTransform(1, 0, 0, 1, 0, 0);
@@ -48587,10 +49081,10 @@ ${e.error.stack}` : ""}`);
       c3.setTransform(K4, 0, 0, K4, 0, 0);
       for (const w of windows) {
         const { tx, ty } = w;
-        const len = (w.explicit?.radius ?? 4.2) * TILE17;
+        const len = (w.explicit?.radius ?? 4.2) * TILE18;
         const inten = w.explicit?.intensity ?? 1;
-        const x0 = tx * TILE17;
-        const y0 = (ty + 1) * TILE17;
+        const x0 = tx * TILE18;
+        const y0 = (ty + 1) * TILE18;
         this.shafts.push({ x0, y0, len, inten });
         const n = solver.compute(segs, x0 + 8, y0 + 0.5, len + 24, this.poly, 2);
         c3.save();
@@ -48628,14 +49122,14 @@ ${e.error.stack}` : ""}`);
       c3.globalCompositeOperation = "lighter";
       for (const w of windows) {
         const tall = isTallWindow(map, w.tx, w.ty);
-        const gy = (tall ? w.ty - 1 : w.ty) * TILE17 + 1;
+        const gy = (tall ? w.ty - 1 : w.ty) * TILE18 + 1;
         const gh = tall ? 31 : 15;
         const g = c3.createLinearGradient(0, gy, 0, gy + gh);
         g.addColorStop(0, rgbStr(MOON_RGB, 0.42));
         g.addColorStop(1, rgbStr(MOON_RGB, 0.62));
         c3.fillStyle = g;
-        c3.fillRect(w.tx * TILE17 + 1, gy, 14, gh);
-        this.glass.push({ x0: w.tx * TILE17 + 1, y0: gy, x1: w.tx * TILE17 + 15, y1: gy + gh });
+        c3.fillRect(w.tx * TILE18 + 1, gy, 14, gh);
+        this.glass.push({ x0: w.tx * TILE18 + 1, y0: gy, x1: w.tx * TILE18 + 15, y1: gy + gh });
       }
     }
     /** Add the visible part of the layer to the lightmap, with rain sliding down the panes. */
@@ -48692,10 +49186,10 @@ ${e.error.stack}` : ""}`);
       ctx2.globalAlpha = Math.min(1, e * (reduce ? 0.5 : 0.9));
       ctx2.fillStyle = lightningColor;
       for (const w of windows) {
-        const x = w.tx * TILE17 - cam.x;
+        const x = w.tx * TILE18 - cam.x;
         if (x < -16 || x > 480) continue;
         const tall = isTallWindow(map, w.tx, w.ty);
-        const y = (tall ? w.ty - 1 : w.ty) * TILE17 - cam.y;
+        const y = (tall ? w.ty - 1 : w.ty) * TILE18 - cam.y;
         ctx2.fillRect(x + 2, y + 2, 12, tall ? 28 : 12);
       }
       ctx2.globalAlpha = 1;
@@ -48703,7 +49197,7 @@ ${e.error.stack}` : ""}`);
   };
 
   // src/render/lighting.js
-  var TILE18 = 16;
+  var TILE19 = 16;
   var W9 = 480;
   var H9 = 270;
   var K3 = 0.5;
@@ -48715,7 +49209,7 @@ ${e.error.stack}` : ""}`);
   var TUBE_SY = 0.8;
   var SELF_RADIUS = 25;
   var SELF_LEVEL = 0.36;
-  var SHROUD_RANGE = 3.5 * TILE18;
+  var SHROUD_RANGE = 3.5 * TILE19;
   var SHROUD_RECOVER = 1;
   var LIGHTNING_RGB = hexToRgb(LIGHT_COLORS.lightning);
   var lum = (rgb2) => (0.2126 * rgb2[0] + 0.7152 * rgb2[1] + 0.0722 * rgb2[2]) / 255;
@@ -48730,7 +49224,7 @@ ${e.error.stack}` : ""}`);
   }
   var defaultOn = (d2) => d2.on ?? d2.group !== "period";
   function radiusPx(L2) {
-    const base2 = (L2.radius ?? L2._P.radius) * TILE18;
+    const base2 = (L2.radius ?? L2._P.radius) * TILE19;
     const p2 = L2.type === "flashlight" && L2.radius === void 0 && L2.power !== void 0 ? 0.55 + 0.45 * clamp013(L2.power) : 1;
     return Math.max(4, base2 * p2);
   }
@@ -48774,6 +49268,7 @@ ${e.error.stack}` : ""}`);
       this._all = [];
       this._windows = [];
       this._groups = /* @__PURE__ */ new Map();
+      this._groupsState = void 0;
       this._ambRGB = [0, 0, 0];
       this._ambFrom = null;
       this._ambTo = null;
@@ -48804,6 +49299,7 @@ ${e.error.stack}` : ""}`);
     }
     onMapLoad(map) {
       this.init();
+      this._syncGroupsFromState();
       this._map = map || null;
       this._override = null;
       this._ambTo = null;
@@ -48845,8 +49341,10 @@ ${e.error.stack}` : ""}`);
      * Group state is global (it survives map loads, so a period spans maps).
      */
     setGroup(group, on, opts = {}) {
+      this._syncGroupsFromState();
       if (on === null || on === void 0) this._groups.delete(group);
       else this._groups.set(group, !!on);
+      this._persistGroup(group);
       const stagger = opts.stagger ?? (opts.mode === "bang" ? 0 : 0.35);
       let n = 0;
       for (const L2 of this._all) {
@@ -48857,7 +49355,33 @@ ${e.error.stack}` : ""}`);
     }
     /** Is a group currently switched on? (Unset groups: on, except 'period'.) */
     groupOn(group) {
+      this._syncGroupsFromState();
       return this._groups.has(group) ? this._groups.get(group) : group !== "period";
+    }
+    /**
+     * Explicit group states are saved with the game (HW.state.lightGroups: group → bool), so a
+     * reload keeps the basement bulbs, gym banks and breaker lamps a script switched. 'period' is
+     * owned by the periods system (it resets it on load) and is not persisted.
+     */
+    _persistGroup(group) {
+      const s = hw_default.state;
+      if (!s || group === "period") return;
+      const lg = s.lightGroups && typeof s.lightGroups === "object" ? s.lightGroups : s.lightGroups = {};
+      if (this._groups.has(group)) lg[group] = this._groups.get(group);
+      else delete lg[group];
+    }
+    /** A new game or a loaded save brings its own group states (checked by state identity). */
+    _syncGroupsFromState() {
+      const s = hw_default.state || null;
+      if (s === this._groupsState) return;
+      this._groupsState = s;
+      const period = this._groups.get("period");
+      this._groups.clear();
+      if (period !== void 0) this._groups.set("period", period);
+      const lg = s?.lightGroups;
+      if (lg && typeof lg === "object") {
+        for (const [k, v4] of Object.entries(lg)) if (k !== "period" && typeof v4 === "boolean") this._groups.set(k, v4);
+      }
     }
     /**
      * Add a dynamic light (survives map loads until removed; def.map scopes it to one map id).
@@ -48958,12 +49482,12 @@ ${e.error.stack}` : ""}`);
     }
     _updateLight(L2, reduce) {
       if (L2.px !== L2._lpx || L2.py !== L2._lpy) {
-        L2.x = L2.px / TILE18 - 0.5;
-        L2.y = L2.py / TILE18 - 0.5;
+        L2.x = L2.px / TILE19 - 0.5;
+        L2.y = L2.py / TILE19 - 0.5;
         L2._polyDirty = true;
       } else if (L2.x !== L2._lx || L2.y !== L2._ly) {
-        L2.px = L2.x * TILE18 + 8;
-        L2.py = L2.y * TILE18 + 8;
+        L2.px = L2.x * TILE19 + 8;
+        L2.py = L2.y * TILE19 + 8;
         L2._polyDirty = true;
       }
       L2._lpx = L2.px;
@@ -48982,6 +49506,10 @@ ${e.error.stack}` : ""}`);
       }
       if (L2.angle !== L2._langle) {
         L2._langle = L2.angle;
+        L2._spriteDirty = true;
+      }
+      if (L2.cone !== L2._lcone) {
+        L2._lcone = L2.cone;
         L2._spriteDirty = true;
       }
       if (L2.on !== L2._lon) {
@@ -49117,12 +49645,12 @@ ${e.error.stack}` : ""}`);
       L2._P = P;
       L2._seed = hashStr3(String(L2.id));
       if (L2.px === void 0) {
-        L2.px = (L2.x ?? 0) * TILE18 + 8;
-        L2.py = (L2.y ?? 0) * TILE18 + 8;
+        L2.px = (L2.x ?? 0) * TILE19 + 8;
+        L2.py = (L2.y ?? 0) * TILE19 + 8;
       }
       if (L2.x === void 0) {
-        L2.x = L2.px / TILE18 - 0.5;
-        L2.y = L2.py / TILE18 - 0.5;
+        L2.x = L2.px / TILE19 - 0.5;
+        L2.y = L2.py / TILE19 - 0.5;
       }
       L2._lpx = L2.px;
       L2._lpy = L2.py;
@@ -49134,6 +49662,7 @@ ${e.error.stack}` : ""}`);
       L2._lcolor = L2.color;
       if (L2.angle === void 0) L2.angle = DIR_ANGLE2[L2.dir] ?? (L2.type === "headlights" ? -Math.PI / 2 : Math.PI / 2);
       L2._langle = L2.angle;
+      L2._lcone = L2.cone;
       L2._lradius = L2.radius;
       L2._lpower = L2.power;
       L2._flickerMode = this._flickerModeOf(L2, P);
@@ -49240,7 +49769,13 @@ ${e.error.stack}` : ""}`);
     }
     /** (Re)compute a light's visibility polygon if its origin, reach or the geometry changed. */
     _ensurePoly(L2) {
-      if (!L2._shadows) return;
+      if (!L2._shadows) {
+        if (L2._polyDirty) {
+          L2._polyDirty = false;
+          L2._spriteDirty = true;
+        }
+        return;
+      }
       if (!L2._polyDirty && L2._polyVer === this._segVer) return;
       const o = nudgeOrigin(this._grid, L2.px, L2.py, this._nudge);
       const n = this._solver.compute(this._segs, o.x, o.y, L2._reach + 2, this._tmpPoly, BLEED2);
@@ -49303,7 +49838,7 @@ ${e.error.stack}` : ""}`);
         return;
       }
       if (P.kind === "spot") {
-        const disc3 = (L2.disc ?? P.disc) * TILE18;
+        const disc3 = (L2.disc ?? P.disc) * TILE19;
         c3.globalCompositeOperation = "lighter";
         c3.fillStyle = lightGradient(c3, L2.px, L2.py, r, rgb2.map((v4) => v4 * 0.22), false);
         c3.fillRect(bx, by5, bw, bh);
@@ -49362,7 +49897,7 @@ ${e.error.stack}` : ""}`);
       return best;
     }
     _spotTerm(L2, dx, dy) {
-      const disc3 = (L2.disc ?? L2._P.disc) * TILE18;
+      const disc3 = (L2.disc ?? L2._P.disc) * TILE19;
       const d2 = Math.hypot(dx, dy / 0.72) / disc3;
       const inDisc = d2 < 0.85 ? 1 : d2 < 1 ? (1 - d2) / 0.15 : 0;
       return Math.max(inDisc, 0.22 * falloff(Math.hypot(dx, dy) / L2._r));
@@ -49481,7 +50016,7 @@ ${e.error.stack}` : ""}`);
     }
     /** Theatre spot: a faint column of light falling from the flies onto the disc. */
     _drawSpotColumn(ctx2, L2, gx, gy, v4) {
-      const disc3 = (L2.disc ?? L2._P.disc) * TILE18;
+      const disc3 = (L2.disc ?? L2._P.disc) * TILE19;
       const top = gy - 150;
       const g = ctx2.createLinearGradient(0, top, 0, gy);
       const rgb2 = L2._rgb;
@@ -59128,7 +59663,7 @@ ${e.error.stack}` : ""}`);
       " BBvvBBBBBBBBBBBBBBBBBBBBBBBBBBRRRR ",
       //  9  face_high · spiral niche (x 3–4)
       " BBvvBBBBBBBBBBBBBBBBBBBBBBBBBBRRRR ",
-      // 10  face_low  · maker's plate, bulb cages, chalk
+      // 10  face_low  · maker's plate, bulb cages
       " B~:::::::::::::::::::::::::::BRRRR ",
       // 11  iron stair foot (x 2–8) · brick tunnel (x 9–29)
       " B::::~~::::::::::::::~:::::::BRRRR ",
@@ -59152,7 +59687,7 @@ ${e.error.stack}` : ""}`);
       " RRvvvRRRRRRMMMMMMMMMMMMMMMMRRRRRRR ",
       // 21  face_high
       " RRvvvRRRRRRMMMMMMMMMMMMMMMMRRRRRRR ",
-      // 22  face_low: name walls, flag, plaque · Walt's chalk
+      // 22  face_low: name walls, flag, plaque
       " R;;;;;;;;;RMmmmmmmmmmmmmmmMRRRRRRR ",
       // 23  gravel landing | FOUNDER'S VAULT
       " R;;;;;;;;;RMmmmmmmmmmmmmmmMRRRRRRR ",
@@ -59160,20 +59695,20 @@ ${e.error.stack}` : ""}`);
       " R;;;%;;;;;RMmmmmmmmmmmmmmmMRRRRRRR ",
       // 25
       " RRRRRRRvvvRMmmmmmmmmmmmmmmMRRRRRRR ",
-      // 26  ledge face · stairs down (x 8–10)
+      // 26  ledge face (PRESENT scratched, row 27) · stairs down (x 8–10)
       " RRRRRRRvvvRMmmmmmmmmmmmmmmMRRRRRRR ",
       // 27
       " R%%%%%%%%%RMmmmmmmmmmmmmmmMRRRRRRR ",
-      // 28  coal landing (embers)
-      " R%%%Z%%%%%%mmmmmmmmmmmmmmmd%%%%%%R ",
-      // 29  west archway (x 11–12) · east breach (x 27) · coal passage
+      // 28  coal landing (the crack: x 3 rows 30–32, row 32 x 3–6)
       " R%%%%%%%%%%mmmmmmmmmmmmmmmd%%%%%%R ",
+      // 29  west archway (x 11–12) · east breach (x 27) · coal passage
+      " R%Z%%%%%%%%mmmmmmmmmmmmmmmd%%%%%%R ",
       // 30
       " R%Z%%%%%%%%mmmmmmmmmmmmmmmd%%%%%%R ",
       // 31
-      " R%Z%%%%%%%RMmmmmmmmmmmmmmmMRRRvvvR ",
+      " R%ZZZZ%%%%RMmmmmmmmmmmmmmmMRRRvvvR ",
       // 32  stairs down into the dark (x 31–33)
-      " R%%%%%%Z%%RMmmmmmmmmmmmmmmMRRRvvvR ",
+      " R%%%%%%%%%RMmmmmmmmmmmmmmmMRRRvvvR ",
       // 33
       " RRRRRRRRRRRMMMMMMMMMMMMMMMMRRRvvvR ",
       // 34  exit → breaker (gated: red pen)
@@ -59260,12 +59795,16 @@ ${e.error.stack}` : ""}`);
       web(13, 4, "left"),
       web(33, 4, "right", "[n] Cobwebs, thick as gauze, strung between the joists and the brick."),
       web(20, 7, "left"),
-      web(6, 4, "right", ["[n] A curtain of cobweb by the well, torn through at about my height.", "[worried] A long time ago. Somebody else came this way."]),
-      // the well: a web strung on the north railing is the examine spot (stepping on the treads goes down)
+      web(7, 4, "right", [
+        "[n] A curtain of cobweb by the well, torn through at about my height.",
+        "[worried] A long time ago. Somebody else came this way."
+      ]),
+      // the well: a web strung on the railing's corner post is the examine spot (from x 6 facing west;
+      // stepping on the treads goes down)
       {
         id: "v_well",
         type: "cobweb",
-        x: 4,
+        x: 5,
         y: 4,
         dir: "right",
         verb: "Look",
@@ -59384,17 +59923,19 @@ ${e.error.stack}` : ""}`);
         ]
       },
       { type: "cobweb", x: 2, y: 23, dir: "left" },
+      // the crack in the coal (pit cells x 3 rows 30–32, x 3–6 row 32): the fire showing through
       {
         type: "steam_vent",
-        x: 8,
-        y: 32,
+        x: 4,
+        y: 31,
         examine: [
           "[n] The coal's split open here. It glows down inside, orange, like an oven seen through a crack.",
           "[worried] The mine fire. It's right under me."
         ]
       },
-      { type: "steam_vent", x: 5, y: 30 },
-      { type: "coal_heap", x: 6, y: 31, state: "flat", interact: false },
+      { type: "steam_vent", x: 7, y: 32 },
+      { type: "steam_vent", x: 5, y: 29 },
+      { type: "coal_heap", x: 6, y: 29, state: "flat", interact: false },
       // ================================================================ the Founder's Vault
       // north wall (face_low row 22): the rolls, the colour, the founder's plate
       {
@@ -59542,7 +60083,7 @@ ${e.error.stack}` : ""}`);
       {
         type: "decal_tiles",
         x: 26,
-        y: 32,
+        y: 29,
         examine: [
           "[n] Chunks of marble, and the coal behind where the wall should be.",
           "[worried] It broke outward. From in here."
@@ -59627,14 +60168,26 @@ ${e.error.stack}` : ""}`);
     lights: [
       // light spilling down the trap-room steps from the open hatch (no fixture, no halo)
       { type: "bulb", x: 32.5, y: 3.2, color: "#d8b57c", radius: 3.2, intensity: 0.34, cage: false, glow: null },
-      // the Assembly's light seeping down between the boards right under the lectern
-      { type: "spot", x: 17, y: 5.6, color: "#e2cf9e", radius: 2.4, disc: 1.3, intensity: 0.3, shadows: false, glow: null },
+      // the Assembly's light seeping down between the boards right under the lectern. Group
+      // 'floorboards' (on by default): ch8.last_roll should fade it out when the roll moves on
+      // (g.lights('floorboards', false)) — the camera at the spiral foot can still see this row.
+      {
+        type: "spot",
+        x: 17,
+        y: 5.6,
+        color: "#e2cf9e",
+        radius: 2.4,
+        disc: 1.3,
+        intensity: 0.3,
+        shadows: false,
+        glow: null,
+        group: "floorboards"
+      },
       // the well: a red breath from very far below
       { type: "mine_fire", x: 3.5, y: 5.5, radius: 2.4, intensity: 0.42 },
-      // coal landing fissures (fire preset for the glow in the crack; mine-fire red)
-      { type: "fire", x: 3, y: 31.5, color: "#d03a12", radius: 3, intensity: 0.75 },
-      { type: "fire", x: 5, y: 29, color: "#d03a12", radius: 2.2, intensity: 0.6 },
-      { type: "fire", x: 8, y: 33, color: "#d03a12", radius: 2.4, intensity: 0.65 },
+      // the crack across the coal landing (fire preset: a hot glow in the crack; mine-fire red)
+      { type: "fire", x: 3, y: 31, color: "#d03a12", radius: 3.2, intensity: 0.95 },
+      { type: "fire", x: 5.5, y: 32, color: "#d03a12", radius: 3, intensity: 0.9 },
       // the vault's broken east wall and the stairs to the breaker: red from below, pulling east
       { type: "mine_fire", x: 27.5, y: 30, radius: 3.4, intensity: 0.45 },
       { type: "mine_fire", x: 32, y: 34, radius: 4.2, intensity: 0.75 }
@@ -59643,7 +60196,7 @@ ${e.error.stack}` : ""}`);
       {
         id: "vault_1979",
         rect: [19, 27, 7, 6],
-        hint: "She's still writing. Her light's almost gone.",
+        hint: "1979. She got this far. She's still writing.",
         hide: ["v_adair_husk"],
         adair: { x: 22, y: 29, anim: "heads_down", dir: "down" },
         setFlag: "saw_vault_past"
@@ -59652,8 +60205,8 @@ ${e.error.stack}` : ""}`);
     // For an ambient emitter (onEnter script or system): HW.fx.emit(type, x*16+8, y*16+8, …) at intervals.
     fx: {
       drip: [[5, 12], [12, 13], [20, 12], [21, 13], [8, 18], [18, 19]],
-      ember: [[3, 31], [5, 29], [8, 33], [27, 30], [32, 33]],
-      steam: [[6, 18], [6, 24], [8, 32], [5, 30], [30, 31]]
+      ember: [[3, 30], [3, 32], [5, 32], [27, 30], [32, 33]],
+      steam: [[6, 18], [4, 24], [4, 31], [7, 32], [5, 29], [30, 31]]
     }
   };
 
@@ -59685,7 +60238,10 @@ ${e.error.stack}` : ""}`);
     [39, 18, "intact", "[n] A boy. Nine, maybe ten. His shell is so thin the lamp shows through it."],
     // L4 (walked west to the office stair)
     [40, 12, "intact", "[n] The last bench under the office. You could see this one from the desk."],
-    [34, 12, "intact", "[n] He's right under the office window. Right under it."],
+    [34, 12, "intact", [
+      "[n] He's right under the office. His face is tipped up at the railing.",
+      "[worried] He's the only one not looking at the coal."
+    ], "nochute"],
     [18, 12, "turned", ["[n] Off on his own at the far end of the walk.", "[scared] He was facing the chute. I know he was."]]
   ];
   var BOY_AFTER = [
@@ -59698,8 +60254,12 @@ ${e.error.stack}` : ""}`);
     "[n] The chute climbs up into the dark. Something shifts in it, up there, and settles."
   ];
   var boyProps = [];
-  BOYS.forEach(([x, y, state2, text], i) => {
+  BOYS.forEach(([x, y, state2, text, nochute], i) => {
     const n = i + 1;
+    const chutes = nochute ? [] : [
+      { type: "chute", x, y: y - 2, dir: "down", variant: n },
+      { type: "chute", x, y: y - 1, dir: "down", variant: n + 1 }
+    ];
     boyProps.push(
       {
         id: `br_bench_${n}`,
@@ -59719,47 +60279,37 @@ ${e.error.stack}` : ""}`);
         solid: false,
         examine: [...BOY_AFTER, { text }]
       },
-      { type: "chute", x, y: y - 2, dir: "down", variant: n, examine: n === 3 ? CHUTE_TEXT[0] : n === 11 ? CHUTE_TEXT[1] : void 0 },
-      { type: "chute", x, y: y - 1, dir: "down", variant: n + 1 }
+      ...chutes
     );
   });
   for (const p2 of boyProps) if (p2.examine === void 0) delete p2.examine;
   var LAMPS = BOYS.map(([x, y], i) => ({ type: "lamp_miner", x, y: y - 0.75, group: `lamp_${i + 1}`, on: false }));
   var POST_TEXT = "[n] A tarred timber, thick as I am. The fire's been licking it from underneath for thirty years. It hasn't burned.";
   var POSTS = [
-    [12, 33],
-    [22, 33],
-    [29, 33],
-    [37, 33],
-    [45, 33],
-    // L1 railing
-    [15, 27],
-    [24, 27],
-    [32, 27],
-    [40, 27],
+    [11, 33],
+    [30, 33],
+    [48, 33],
+    // L1 railing: ends + middle
+    [13, 27],
+    [31, 27],
     // L2 railing
-    [17, 21],
     [23, 21],
-    [30, 21],
-    [36, 21],
+    [37, 21],
     // L3 railing
-    [22, 15],
-    [26, 15],
-    [37, 15],
+    [24, 15],
+    [38, 15],
     // L4 railing
     [9, 26],
-    [6, 33],
     [11, 15],
     [50, 21],
     [52, 30],
     [48, 12],
-    [8, 9],
-    [51, 7],
-    // legs in the voids
+    [6, 35],
+    // legs standing up out of the voids
     [27, 37],
     [44, 36]
     // floor
-  ].map(([x, y], i) => ({ type: "beam", x, y, variant: i % 2, ...i === 0 || i === 23 ? { examine: POST_TEXT } : {} }));
+  ].map(([x, y], i) => ({ type: "beam", x, y, variant: i % 2, ...i === 0 || i === 15 ? { examine: POST_TEXT } : {} }));
   var breaker_default2 = {
     id: "breaker",
     name: "The Breaker",
@@ -59767,8 +60317,8 @@ ${e.error.stack}` : ""}`);
     offset: [45, -30],
     ambience: "breaker",
     music: null,
-    dark: 0.955,
-    ambient: "#1a0806",
+    dark: 0.945,
+    ambient: "#1c0806",
     moon: 0,
     //   x → 0         1         2         3         4         5
     //       012345678901234567890123456789012345678901234567890123456789
@@ -59787,15 +60337,15 @@ ${e.error.stack}` : ""}`);
       //  5
       " RRRRZZZZZZZZZZZZZZZZZKppppppppppppppKZZZZZZZZZZZZZZZZZRRRR ",
       //  6
-      " RRZZZZZZZZZZZZZZZZZZZKppppppppppppppKZZZZZZZZZZZZZZZZZRRRR ",
+      " RRZZZZZZZZZZZZZKKKKKKKppppppppppppppKKKKKKKZZZZZZZZZZZRRRR ",
       //  7
-      " RRZZZZZZZZZZZZZZZZZZZKppppppppppppppKZZZZZZZZZZZZZZZZZZZRR ",
+      " RRZZZZZZZZZZZZZKKKKKKKppppppppppppppKKKKKKKZZZZZZZZZZZZZRR ",
       //  8
       " RRZZZZZZZZZZZZZKKKKKKK||||||^^||||||KKKKKKKZZZZZZZZZZZZZRR ",
       //  9
-      " RRZZZZZZZZZZZZZKKKKKKKKKKKKK^^KKKKKKKKKKKKKZZZZZZZZZZZZZRR ",
+      " RRZZZZZZZZZZZZZZZZZZZZZZZZZ|^^|ZZZZZZZZZZZZZZZZZZZZZZZZZRR ",
       // 10
-      " RRZZZZZZZZZZZZZKKKKKKKKKKKKK^^KKKKKKKKKKKKKZZZZZZZZZZZZZRR ",
+      " RRZZZZZZZZZZZZZZZZZZZZZZZZZ|^^|ZZZZZZZZZZZZZZZZZZZZZZZZZRR ",
       // 11
       " RRZZZZZZZZZZZZ|pppppppppppppppppppppppppppp|ZZZZZZZZZZZZRR ",
       // 12
@@ -59805,9 +60355,9 @@ ${e.error.stack}` : ""}`);
       // 14
       " RZZZZZZZZZZZZZ|||||||||||||||||||||||||||^^|ZZZZZZZZZZZZRR ",
       // 15
-      " RZZZZZZZZZZZZZ|KKKKKKKKKKKKKKKKKKKKKKKKKK^^|ZZZZZZZZZZZZRR ",
+      " RZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ|^^|ZZZZZZZZZZZZRR ",
       // 16
-      " RZZZZZZZZZZZZ||KKKKKKKKKKKKKKKKKKKKKKKKKK^^||ZZZZZZZZZZZZR ",
+      " RZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ|^^|ZZZZZZZZZZZZZR ",
       // 17
       " RZZZZZZZZZZZ|pppppppppppppppppppppppppppppppp|ZZZZZZZZZZZR ",
       // 18
@@ -59817,9 +60367,9 @@ ${e.error.stack}` : ""}`);
       // 20
       " RZZZZZZZZZZZ|^^|||||||||||||||||||||||||||||||ZZZZZZZZZZZR ",
       // 21
-      " RZZZZZZZZZZZ|^^KKKKKKKKKKKKKKKKKKKKKKKKKKKKKK|ZZZZZZZZZZZR ",
+      " RZZZZZZZZZZZ|^^|ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZR ",
       // 22
-      " RZZZZZZZZZZ||^^KKKKKKKKKKKKKKKKKKKKKKKKKKKKKK||ZZZZZZZZZZR ",
+      " RZZZZZZZZZZZ|^^|ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZR ",
       // 23
       " RZZZZZZZZZ|pppppppppppppppppppppppppppppppppppp|ZZZZZZZZZR ",
       // 24
@@ -59829,21 +60379,21 @@ ${e.error.stack}` : ""}`);
       // 26
       " RZZZZZZZZZ|||||||||||||||||||||||||||||||||||^^|ZZZZZZZZZR ",
       // 27
-      " RZZZZZZZZZ|KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK^^|ZZZZZZZZZR ",
+      " RZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ|^^|ZZZZZZZZZR ",
       // 28
-      " RZZZZZZZK||KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK^^||ZZZZZZZZR ",
+      " RZZZZZZKKZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ|^^|ZZZZZZZZZR ",
       // 29
-      " RZZZZZZZKpppppppppppppppppppppppppppppppppppppppp|ZZZZZZZR ",
+      " RZZZZZZKKpppppppppppppppppppppppppppppppppppppppp|ZZZZZZZR ",
       // 30
-      " RZZZZZZZDpppppppppppppppppppppppppppppppppppppppp|ZZZZZZZR ",
+      " RZZZZZZKDpppppppppppppppppppppppppppppppppppppppp|ZZZZZZZR ",
       // 31
-      " RZZZZZZZKpppppppppppppppppppppppppppppppppppppppp|ZZZZZZZR ",
+      " RZZZZZZKKpppppppppppppppppppppppppppppppppppppppp|ZZZZZZZR ",
       // 32
-      " RZZZZZZZK|||||||||^^||||||||||||||||||||||||||||||ZZZZZZZR ",
+      " RZZZZZZZ||||||||||^^||||||||||||||||||||||||||||||ZZZZZZZR ",
       // 33
-      " RZZZZZZZ|KKKKKKKKK^^KKKKKKKKKKKKKKKKKKKKKKKKKKKKK|ZZZZZZZR ",
+      " RZZZZZZZZZZZZZZZZ|^^|ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZR ",
       // 34
-      " RZZZZZZZ|KKKKKKKKK^^KKKKKKKKKKKKKKKKKKKKKKKKKKKKK|ZZZZZZZR ",
+      " RZZZZZZZZZZZZZZZZ|^^|ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZR ",
       // 35
       " R%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%ZZZZZZZZZZR ",
       // 36
@@ -59866,6 +60416,12 @@ ${e.error.stack}` : ""}`);
       // ================================================================ the seventeen
       ...boyProps,
       ...POSTS,
+      // two chutes with nobody at their foot (reachable to examine): one spills onto the cavern floor,
+      // one hangs from the head house over L4
+      { type: "chute", x: 34, y: 34, dir: "down", variant: 1 },
+      { type: "chute", x: 34, y: 35, dir: "down", variant: 2, examine: CHUTE_TEXT[0] },
+      { type: "chute", x: 21, y: 10, dir: "down", variant: 0 },
+      { type: "chute", x: 21, y: 11, dir: "down", variant: 1, examine: CHUTE_TEXT[1] },
       { type: "pulley_wheel", x: 46, y: 6 },
       { type: "pulley_wheel", x: 11, y: 10 },
       // ================================================================ cavern floor
@@ -59887,7 +60443,10 @@ ${e.error.stack}` : ""}`);
         y: 40,
         examine: [
           { cond: AFTER2, text: "[scared] Don't look down. Go." },
-          { text: ["[n] The floor just stops. Red, a long way down. The heat comes up off it in a wall.", "[worried] It's burning under the whole town. It's been burning since 1962."] }
+          { text: [
+            "[n] The floor just stops. Red, a long way down. The heat comes up off it in a wall.",
+            "[worried] It's burning under the whole town. It's been burning since 1962."
+          ] }
         ]
       },
       { type: "steam_vent", x: 21, y: 39 },
@@ -59980,6 +60539,14 @@ ${e.error.stack}` : ""}`);
         examine: ["[n] A candle, burning. Down here.", "[scared] Somebody was expecting me."]
       },
       {
+        id: "br_candle_2",
+        type: "candle",
+        x: 27,
+        y: 6,
+        state: "lit",
+        examine: "[n] Two candles, one either side of the book. Like a church."
+      },
+      {
         id: "br_ledgers",
         type: "shelf_ledgers",
         x: 34,
@@ -60026,21 +60593,21 @@ ${e.error.stack}` : ""}`);
     ],
     lights: [
       // the fire below: floor pits (the breaker is lit red from underneath)
-      { type: "mine_fire", x: 30.5, y: 40, radius: 7, intensity: 0.8 },
-      { type: "mine_fire", x: 38.5, y: 39.5, radius: 6, intensity: 0.7 },
-      { type: "mine_fire", x: 45, y: 39, radius: 7, intensity: 0.75 },
-      { type: "mine_fire", x: 13, y: 40.5, radius: 4, intensity: 0.55 },
-      { type: "mine_fire", x: 23, y: 40.5, radius: 4, intensity: 0.55 },
-      { type: "mine_fire", x: 7, y: 41, radius: 3, intensity: 0.45 },
-      { type: "mine_fire", x: 32, y: 37.5, radius: 4, intensity: 0.5 },
-      // the voids either side: red rim on the deck ends, black silhouette in front
-      { type: "mine_fire", x: 5, y: 31, radius: 7, intensity: 0.5 },
-      { type: "mine_fire", x: 7, y: 20, radius: 8, intensity: 0.45 },
-      { type: "mine_fire", x: 10, y: 9, radius: 7, intensity: 0.32 },
-      { type: "mine_fire", x: 53, y: 33, radius: 8, intensity: 0.6 },
-      { type: "mine_fire", x: 52, y: 22, radius: 8, intensity: 0.5 },
-      { type: "mine_fire", x: 49, y: 11, radius: 7, intensity: 0.35 },
-      { type: "mine_fire", x: 52, y: 39, radius: 8, intensity: 0.7 },
+      { type: "mine_fire", x: 30.5, y: 40, radius: 7, intensity: 0.9 },
+      { type: "mine_fire", x: 38.5, y: 39.5, radius: 6, intensity: 0.8 },
+      { type: "mine_fire", x: 46, y: 39, radius: 7, intensity: 0.85 },
+      { type: "mine_fire", x: 13, y: 40.5, radius: 4, intensity: 0.6 },
+      { type: "mine_fire", x: 23, y: 40.5, radius: 4, intensity: 0.6 },
+      { type: "mine_fire", x: 7, y: 41, radius: 3, intensity: 0.5 },
+      // the open drops between the picking floors: red bands under every deck
+      ...[[34.5, [12, 28, 41]], [28.5, [16, 30, 43]], [22.5, [19, 31, 41]], [16.5, [21, 31, 39]], [10.5, [20, 39]]].flatMap(([y, xs]) => xs.map((x) => ({ type: "mine_fire", x, y, radius: 3.8, intensity: 0.95, shadows: false }))),
+      // the voids either side: the deck ends in red silhouette
+      { type: "mine_fire", x: 5, y: 30, radius: 7, intensity: 0.6, shadows: false },
+      { type: "mine_fire", x: 7, y: 18, radius: 8, intensity: 0.5, shadows: false },
+      { type: "mine_fire", x: 10, y: 8, radius: 6, intensity: 0.35, shadows: false },
+      { type: "mine_fire", x: 54, y: 31, radius: 8, intensity: 0.65, shadows: false },
+      { type: "mine_fire", x: 52, y: 19, radius: 8, intensity: 0.5, shadows: false },
+      { type: "mine_fire", x: 49, y: 8, radius: 6, intensity: 0.35, shadows: false },
       // the seventeen cap-lamps, dark until the climb lights them
       ...LAMPS
     ],
@@ -60242,7 +60809,7 @@ ${e.error.stack}` : ""}`);
   };
 
   // src/data/scripts/pro.js
-  var TILE19 = 16;
+  var TILE20 = 16;
   var PRO2 = (s) => (s.chapter || 0) === 0;
   var DANNY_LIGHT = Object.freeze({ type: "flashlight", power: 0.35, cone: 30, color: "#ffc9a8" });
   var here = (g, id) => g.party.has(id) && !!g.npc(id);
@@ -60265,7 +60832,7 @@ ${e.error.stack}` : ""}`);
     g.state.party = order.filter((id) => g.state.party.includes(id));
     hw_default.entities?.syncParty?.();
   }
-  var tileOf = (e) => [Math.floor(e.x / TILE19), Math.floor(e.y / TILE19)];
+  var tileOf = (e) => [Math.floor(e.x / TILE20), Math.floor(e.y / TILE20)];
   var weatherInstalled = false;
   function installWeather() {
     if (weatherInstalled) return true;
@@ -60288,11 +60855,11 @@ ${e.error.stack}` : ""}`);
         if (t > 0) return;
         t = 0.3 + Math.random() * 0.45;
         const cam = hw_default.camera?.view;
-        const vents = map.props.filter((p2) => p2.type === "steam_vent" && (!cam || p2.x * TILE19 > cam.x - 32 && p2.x * TILE19 < cam.x + (cam.w || 480) + 32 && p2.y * TILE19 > cam.y - 32 && p2.y * TILE19 < cam.y + (cam.h || 270) + 48));
+        const vents = map.props.filter((p2) => p2.type === "steam_vent" && (!cam || p2.x * TILE20 > cam.x - 32 && p2.x * TILE20 < cam.x + (cam.w || 480) + 32 && p2.y * TILE20 > cam.y - 32 && p2.y * TILE20 < cam.y + (cam.h || 270) + 48));
         if (!vents.length) return;
         const v4 = vents[Math.floor(Math.random() * vents.length)];
         try {
-          hw_default.fx.emit("steam", v4.x * TILE19 + 8, v4.y * TILE19 + 10, 1 + Math.floor(Math.random() * 2));
+          hw_default.fx.emit("steam", v4.x * TILE20 + 8, v4.y * TILE20 + 10, 1 + Math.floor(Math.random() * 2));
         } catch (e) {
         }
       }
@@ -60463,7 +61030,7 @@ ${e.error.stack}` : ""}`);
       aim(g, "up");
       await g.cam([24, 7], { time: 0.8 });
       if (danny) {
-        const spot = Math.floor(tess.x / TILE19) <= 24 ? [25, 7] : [24, 7];
+        const spot = Math.floor(tess.x / TILE20) <= 24 ? [25, 7] : [24, 7];
         await g.walk("danny", spot);
         g.face("danny", "up");
         if (!replay) {
@@ -60472,11 +61039,11 @@ ${e.error.stack}` : ""}`);
           if (leah) await g.say("leah", "deadpan", "Basically.");
         }
       }
-      g.sfx("bolt_cutters", { x: 24.5 * TILE19, y: 6 * TILE19 });
+      g.sfx("bolt_cutters", { x: 24.5 * TILE20, y: 6 * TILE20 });
       g.shake(1.2, 0.18);
       await g.wait(0.35);
-      g.sfx("chain_rattle", { x: 24.5 * TILE19, y: 6.5 * TILE19 });
-      g.sfx("padlock", { x: 24.5 * TILE19, y: 7 * TILE19, delay: 0.3 });
+      g.sfx("chain_rattle", { x: 24.5 * TILE20, y: 6.5 * TILE20 });
+      g.sfx("padlock", { x: 24.5 * TILE20, y: 7 * TILE20, delay: 0.3 });
       g.setProp("ext_front_doors", "closed");
       g.set("pro_doors_cut");
       await g.wait(0.6);
@@ -60493,7 +61060,7 @@ ${e.error.stack}` : ""}`);
         }
         g.face("danny", "up");
       }
-      g.sfx("door_creak_slow", { x: 24.5 * TILE19, y: 6 * TILE19, rate: 0.85 });
+      g.sfx("door_creak_slow", { x: 24.5 * TILE20, y: 6 * TILE20, rate: 0.85 });
       await g.wait(0.5);
       g.setProp("ext_front_doors", "open");
       await g.wait(0.9);
@@ -60526,7 +61093,7 @@ ${e.error.stack}` : ""}`);
   };
 
   // src/data/scripts/ch1.js
-  var TILE20 = 16;
+  var TILE21 = 16;
   var auto2 = () => !!hw_default.debug?.autoAdvance;
   var vanished = (g) => !!g.flag("ch1_danny_vanished");
   var LEAH_LED = Object.freeze({ type: "led_red", radius: 0.7, intensity: 0.55 });
@@ -60570,7 +61137,7 @@ ${e.error.stack}` : ""}`);
     await Promise.all(walks);
     aim(g, "up");
     for (const id of ["danny", "leah", "marcus"]) if (was[id]) g.face(id, "up");
-    const pool = hw_default.lighting?.addLight?.({ type: "bulb", px: 15.5 * TILE20, py: 3.6 * TILE20, radius: 2.6, intensity: 0, color: "#e8dcc0", cage: false, glow: null, shadows: false, map: "lobby" });
+    const pool = hw_default.lighting?.addLight?.({ type: "bulb", px: 15.5 * TILE21, py: 3.6 * TILE21, radius: 2.6, intensity: 0, color: "#e8dcc0", cage: false, glow: null, shadows: false, map: "lobby" });
     if (pool) {
       pool._n1keep = true;
       lights.push(pool);
@@ -60599,7 +61166,7 @@ ${e.error.stack}` : ""}`);
     if (was.leah) {
       await g.walk("leah", [15, 11]);
       g.face("leah", "up");
-      g.sfx("camcorder_click", { x: 15.5 * TILE20, y: 10.5 * TILE20 });
+      g.sfx("camcorder_click", { x: 15.5 * TILE21, y: 10.5 * TILE21 });
       await g.wait(0.3);
       await g.say("leah", "talk", "Group shot. For the record. {p} Marcus. You too.");
       const lineUp = [g.walk("tess", [14, 6])];
@@ -60619,14 +61186,14 @@ ${e.error.stack}` : ""}`);
       await g.wait(0.9);
       await g.walk("leah", [15, 11]);
       g.face("leah", "up");
-      g.sfx("camcorder_click", { x: 15.5 * TILE20, y: 10.5 * TILE20, vol: 0.6 });
+      g.sfx("camcorder_click", { x: 15.5 * TILE21, y: 10.5 * TILE21, vol: 0.6 });
       await g.wait(0.3);
       g.light("leah", LEAH_LED);
     }
     if (was.danny) {
       await g.walk("danny", [16, 11]);
       g.face("danny", "up");
-      g.sfx("desk_creak", { x: 16.5 * TILE20, y: 10.5 * TILE20, vol: 0.6, rate: 0.7 });
+      g.sfx("desk_creak", { x: 16.5 * TILE21, y: 10.5 * TILE21, vol: 0.6, rate: 0.7 });
       dropBag(g);
       await g.say("danny", "grin", "Base camp.");
     } else dropBag(g);
@@ -60661,8 +61228,8 @@ ${e.error.stack}` : ""}`);
     if (!sat) {
       await g.walk("danny", "tiny_chair");
       if (g.npc("danny")) {
-        d2.x = chair.x * TILE20 + 8;
-        d2.y = chair.y * TILE20 + 12;
+        d2.x = chair.x * TILE21 + 8;
+        d2.y = chair.y * TILE21 + 12;
         d2.sitDir = "up";
         d2.dir = "up";
         d2.sortBias = 4;
@@ -60767,7 +61334,7 @@ ${e.error.stack}` : ""}`);
     const kx = clampX(ttx + dirX * 10);
     const fl = hw_default.lighting?.flashlight;
     if (fl) fl.radiusScale = 1.5;
-    const belt = hw_default.lighting?.addLight?.({ type: "bulb", px: kx * TILE20 + 8, py: row2 * TILE20 + 2, radius: 0.9, intensity: 0.6, color: "#f06a1c", cage: false, glow: null, map: "west1" });
+    const belt = hw_default.lighting?.addLight?.({ type: "bulb", px: kx * TILE21 + 8, py: row2 * TILE21 + 2, radius: 0.9, intensity: 0.6, color: "#f06a1c", cage: false, glow: null, map: "west1" });
     if (belt) belt._n1keep = true;
     g.spawn({ id: "kevin", sprite: "kevin", at: [kx, row2], dir: back });
     g.set("ch1_kevin_glimpse");
@@ -60775,7 +61342,7 @@ ${e.error.stack}` : ""}`);
     g.despawn("kevin");
     if (belt) hw_default.lighting.removeLight(belt);
     if (fl) fl.radiusScale = 1;
-    g.sfx("whistle_breath", { x: kx * TILE20 + 8, y: row2 * TILE20 });
+    g.sfx("whistle_breath", { x: kx * TILE21 + 8, y: row2 * TILE21 });
     await g.wait(0.35);
     g.anim("danny", null);
     g.face("danny", back);
@@ -60880,12 +61447,12 @@ ${e.error.stack}` : ""}`);
   }
   async function voice102(g, was = { leah: here(g, "leah"), marcus: here(g, "marcus") }) {
     await g.wait(1);
-    g.sfx("intercom_crackle", { x: 20.5 * TILE20, y: 11 * TILE20, vol: 0.7 });
+    g.sfx("intercom_crackle", { x: 20.5 * TILE21, y: 11 * TILE21, vol: 0.7 });
     await g.wait(0.5);
     await g.say("voice", null, "Guys? {p=1.0}...Theresa? {p=0.6}In here.", { name: "Danny?", speed: 0.7 });
     await g.wait(0.6);
     if (was.leah) await g.say("leah", "scared", "*Theresa?* {p} He never calls you that.");
-    g.sfx("door_creak_slow", { x: 20.5 * TILE20, y: 12 * TILE20 });
+    g.sfx("door_creak_slow", { x: 20.5 * TILE21, y: 12 * TILE21 });
     await g.wait(0.4);
     g.setProp("w1_door_102", "open");
     await g.cam([20, 13], { time: 0.9 });
@@ -60906,7 +61473,7 @@ ${e.error.stack}` : ""}`);
       aim(g, "up");
       await g.fade("in", 1.2);
       if (g.state.map !== "lobby") return;
-      g.sfx("door_close_metal", { x: 15 * TILE20, y: 25.5 * TILE20, rate: 0.8, vol: 0.9 });
+      g.sfx("door_close_metal", { x: 15 * TILE21, y: 25.5 * TILE21, rate: 0.8, vol: 0.9 });
       g.shake(0.6, 0.2);
       await g.wait(0.9);
       if (g.npc("marcus")) g.face("marcus", "down");
@@ -60919,12 +61486,12 @@ ${e.error.stack}` : ""}`);
       aim(g, "up");
       await g.wait(0.9);
       const t = g.player;
-      const ad = g.spawn({ id: "adair_glass", sprite: "adair", px: 10 * TILE20 + 8, py: 21 * TILE20 + 8, dir: "down", alpha: 0.75 });
+      const ad = g.spawn({ id: "adair_glass", sprite: "adair", px: 10 * TILE21 + 8, py: 21 * TILE21 + 8, dir: "down", alpha: 0.75 });
       if (ad) {
         ad.sortBias = 10;
         ad.shadow = false;
       }
-      const sheen = hw_default.lighting?.addLight?.({ type: "bulb", px: 10 * TILE20 + 8, py: 21 * TILE20 - 14, radius: 1.3, intensity: 0.7, color: "#9ec3c9", cage: false, glow: null, map: "lobby" });
+      const sheen = hw_default.lighting?.addLight?.({ type: "bulb", px: 10 * TILE21 + 8, py: 21 * TILE21 - 14, radius: 1.3, intensity: 0.7, color: "#9ec3c9", cage: false, glow: null, map: "lobby" });
       await g.wait(1 / 15);
       g.despawn("adair_glass");
       if (sheen) hw_default.lighting.removeLight(sheen);
@@ -61053,7 +61620,7 @@ ${e.error.stack}` : ""}`);
         g.face("danny", "right");
         await g.wait(0.3);
         await g.walk("danny", [26, 15], { run: true });
-        g.sfx("door_locked", { x: 27 * TILE20, y: 15.5 * TILE20, vol: 1, rate: 0.7 });
+        g.sfx("door_locked", { x: 27 * TILE21, y: 15.5 * TILE21, vol: 1, rate: 0.7 });
         g.shake(1.2, 0.2);
         await g.walk("danny", [25, 15], { speed: 40 });
         g.face("danny", "left");
@@ -61187,7 +61754,7 @@ ${e.error.stack}` : ""}`);
         aim(g, "up");
         await g.cam([23, 6], { time: 1.6 });
         await g.wait(0.5);
-        g.sfx("chalk", { x: 19.5 * TILE20, y: 3 * TILE20, vol: 0.45 });
+        g.sfx("chalk", { x: 19.5 * TILE21, y: 3 * TILE21, vol: 0.45 });
         await g.cam([19, 4], { time: 1.2 });
         await g.wait(0.9);
         if (was.leah) {
@@ -61245,7 +61812,7 @@ ${e.error.stack}` : ""}`);
       await Promise.all(out);
       g.setProp("w1_library_doors", "jammed");
       g.setProp("w1_library_doors_b", "jammed");
-      g.sfx("door_close_wood", { x: 1.5 * TILE20, y: 16 * TILE20, rate: 0.85 });
+      g.sfx("door_close_wood", { x: 1.5 * TILE21, y: 16 * TILE21, rate: 0.85 });
       if (L2) g.face("leah", "right");
       if (M10) g.face("marcus", "left");
       await g.wait(1.6);
@@ -61264,7 +61831,7 @@ ${e.error.stack}` : ""}`);
         if (M10) {
           await g.walk("marcus", [2, 16]);
           g.face("marcus", "left");
-          g.sfx("door_locked", { x: 1.5 * TILE20, y: 16 * TILE20, vol: 1 });
+          g.sfx("door_locked", { x: 1.5 * TILE21, y: 16 * TILE21, vol: 1 });
           g.shake(0.5, 0.15);
           await g.wait(0.8);
         }
@@ -61297,11 +61864,11 @@ ${e.error.stack}` : ""}`);
   var SLAMS = ["w1_door_custodian", "w1_door_rr", "w1_door_101", "w1_door_av", "w1_door_102"];
   var ROOM2 = "w1_room103";
   var DESKS = { leah: "w1_desk_103_leah", tess: "w1_desk_103_tess", marcus: "w1_desk_103_marcus" };
-  var TILE21 = 16;
+  var TILE22 = 16;
   var keyLabel = (a) => hw_default.ui?.input?.keyLabel?.(a) || "Z";
   var ent = (id) => hw_default.entities?.get(id) || null;
   var propOf = (id) => hw_default.map?.prop(id) || null;
-  var doorPt = (p2) => ({ x: (p2.x + p2.w / 2) * TILE21, y: (p2.y + p2.h / 2) * TILE21 });
+  var doorPt = (p2) => ({ x: (p2.x + p2.w / 2) * TILE22, y: (p2.y + p2.h / 2) * TILE22 });
   function look(g, target) {
     g.face("tess", target);
     const p2 = hw_default.player;
@@ -61692,10 +62259,10 @@ ${e.error.stack}` : ""}`);
   }
 
   // src/data/scripts/ch3.js
-  var TILE22 = 16;
+  var TILE23 = 16;
   var ent2 = (id) => hw_default.entities?.get(id) || null;
   var withMarcus5 = () => !!hw_default.state?.party?.includes("marcus") && !!ent2("marcus");
-  var centerOf = (p2) => p2 ? { x: (p2.x + p2.w / 2) * TILE22, y: (p2.y + p2.h / 2) * TILE22 } : null;
+  var centerOf = (p2) => p2 ? { x: (p2.x + p2.w / 2) * TILE23, y: (p2.y + p2.h / 2) * TILE23 } : null;
   var heapProp = () => hw_default.map?.prop("b_coal_heap") || null;
   function look2(g, target) {
     g.face("tess", target);
@@ -62020,12 +62587,12 @@ ${e.error.stack}` : ""}`);
 
   // src/data/scripts/ch4.js
   var VOICE2 = { name: "???" };
-  var TILE23 = 16;
+  var TILE24 = 16;
   var NOTE = "Danny \u2014 205? Leah \u2014 library?";
   var ent3 = (id) => hw_default.entities?.get(id) || null;
   var pa = () => hw_default.ui?.get?.("pa") || null;
   var roomOf = (e) => e && hw_default.map ? hw_default.map.roomAt(e.x, e.y)?.id || null : null;
-  var center = (p2) => ({ x: (p2.x + p2.w / 2) * TILE23, y: (p2.y + p2.h / 2) * TILE23 });
+  var center = (p2) => ({ x: (p2.x + p2.w / 2) * TILE24, y: (p2.y + p2.h / 2) * TILE24 });
   function look3(g, target) {
     g.face("tess", target);
     const p2 = hw_default.player;
@@ -62117,7 +62684,7 @@ ${e.error.stack}` : ""}`);
       const at = hw_default.map?.anchor("kevin_glass");
       if (!at || !hw_default.patrol) return;
       hw_default.patrol.spawn("kevin", { at: "kevin_glass", dir: "right", whistle: false });
-      const tube = hw_default.lighting?.addLight?.({ type: "fluor", x: Math.floor(at.x / TILE23), y: Math.floor(at.y / TILE23) - 1, map: "west1", flicker: true, intensity: 0.8, fade: 0.05 }) || null;
+      const tube = hw_default.lighting?.addLight?.({ type: "fluor", x: Math.floor(at.x / TILE24), y: Math.floor(at.y / TILE24) - 1, map: "west1", flicker: true, intensity: 0.8, fade: 0.05 }) || null;
       g.sfx("squeak", { x: at.x, y: at.y, vol: 0.7 });
       look3(g, "up");
       await g.cam([28, 15], { time: 1.4 });
@@ -62250,7 +62817,7 @@ ${e.error.stack}` : ""}`);
       C2.face("down");
       C2.anim("peek_down", { once: true, hold: true });
       g.sfx("colonel_jingle", { x: C2.x, y: C2.y - 16, vol: 0.9 });
-      if (p2 && Math.hypot(p2.x - C2.x, p2.y - C2.y) < 3 * TILE23) C2.closePass();
+      if (p2 && Math.hypot(p2.x - C2.x, p2.y - C2.y) < 3 * TILE24) C2.closePass();
       await g.wait(3);
       C2.anim(null);
       await C2.walkTo([34, 21]);

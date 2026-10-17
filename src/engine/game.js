@@ -404,7 +404,7 @@ export const game = {
         HW.debug?.record?.('refuse', null, null, `${map.id}:${exit.id}`);
         return;
       }
-      this.transfer(exit.to, exit.anchor, { fade: exit.fade !== false, dir: exit.dir, auto: true });
+      this._takeExit(exit, map);
       return;
     }
     const trig = map.triggers;
@@ -424,6 +424,37 @@ export const game = {
       HW.debug?.record?.('trigger', null, null, `${map.id}:${t.id}`);
       HW.scripts.run(t.script, { trigger: t, map }, { blocking: t.blocking !== false });
       break;
+    }
+  },
+
+  /**
+   * Walk through an exit. An exit's optional `script` runs (v2.2):
+   *   scriptWhen: 'after' (default) — once the transfer has completed (new map loaded, faded in);
+   *               'before' — before the transfer; a blocking 'before' script that returns false
+   *               cancels the transfer (the exit re-arms once the player steps off it).
+   *   blocking:   true (default) — a cutscene (dialogue allowed); false — runs alongside play.
+   * ctx = { exit, map (the map the script runs on), from (map id left), to (map id) }.
+   */
+  async _takeExit(exit, map) {
+    const from = map?.id;
+    const ctx = () => ({ exit, map: HW.map, from, to: exit.to });
+    const blocking = exit.blocking !== false;
+    const runScript = () => HW.scripts.run(exit.script, ctx(), { blocking });
+    const hasScript = !!exit.script && HW.scripts.has(exit.script);
+    if (exit.script && !hasScript) console.warn(`[game] exit ${exit.id}: unknown script '${exit.script}'`);
+    if (hasScript && exit.scriptWhen === 'before') {
+      HW.debug?.record?.('exitScript', null, null, `${from}:${exit.id}:${exit.script}:before`);
+      if (blocking) {
+        const r = await runScript();
+        if (r === false || HW.map !== map) return; // cancelled, or the script moved us itself
+      } else runScript();
+    }
+    const gen = HW.scripts.gen;
+    const ok = await this.transfer(exit.to, exit.anchor, { fade: exit.fade !== false, dir: exit.dir, auto: true });
+    if (!ok || gen !== HW.scripts.gen || HW.map?.id !== exit.to) return; // aborted (load, game over)
+    if (hasScript && exit.scriptWhen !== 'before') {
+      HW.debug?.record?.('exitScript', null, null, `${from}:${exit.id}:${exit.script}`);
+      runScript();
     }
   },
 

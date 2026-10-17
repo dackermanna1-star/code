@@ -15,8 +15,9 @@ import { COLONEL_SFX } from './sfx_colonel.js';
 import { WORLD_SFX } from './sfx_world.js';
 import { STEP_SFX } from './footsteps.js';
 import { BLIP_SFX, VOICE_SFX } from './voices.js';
+import { RADIO_SFX } from './radio.js';
 
-export const SFX = { ...UI_SFX, ...FOLEY_SFX, ...SCHOOL_SFX, ...COLONEL_SFX, ...WORLD_SFX, ...STEP_SFX, ...BLIP_SFX, ...VOICE_SFX };
+export const SFX = { ...UI_SFX, ...FOLEY_SFX, ...SCHOOL_SFX, ...COLONEL_SFX, ...WORLD_SFX, ...STEP_SFX, ...BLIP_SFX, ...VOICE_SFX, ...RADIO_SFX };
 
 /** The contract list (TECH §10) — QA and the preview page iterate this. */
 export const SFX_IDS = [

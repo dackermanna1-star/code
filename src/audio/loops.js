@@ -4,6 +4,7 @@
 import { noiseLayer, humLayer, ballastLayer, fireLayer, engineLayer, rainLayer, windLayer, modulate } from './layers.js';
 import { crowd } from './voices.js';
 import { dbToGain } from './dsp.js';
+import { carRadio } from './radio.js';
 
 export const LOOPS = {
   // ---- continuous graphs ---------------------------------------------------------------------
@@ -26,6 +27,8 @@ export const LOOPS = {
   wind: { graph(V, o, eng) { windLayer(V, eng, { level: -4 }); } },
   engine_idle: { graph(V, o, eng) { engineLayer(V, eng, { level: -19 }); } },
   crowd: { graph(V, o, eng) { crowd(V, eng, { n: 10, dur: null, level: 0.4 }); } },
+  // the prologue's car radio: AM on low (radio.js; v2.2). opts.level (dB, default -14) trims the station.
+  car_radio: { graph(V, o, eng) { carRadio(V, eng, o); } },
   vhs_noise: { graph(V, o, eng) {
     // static with the 59.94 Hz field buzz (square-wave AM) and mains hum
     const n = V.noise('white'), hp = V.filter('highpass', 400, 0.7), pk = V.filter('peaking', 5000, 0.7, 4);

@@ -4,9 +4,24 @@
 //   start:    first tape frame shown (default 0) · min / max: scrub limits (default the whole tape)
 //   autoplay: true → plays forward from `start` (each frame `hold` s, default 1.6) and stops on the last
 //   onFrame:  (index, frameDef) => void — fired when a frame first settles (scripts time stingers on it)
+//   --- scripted (non-interactive) viewing, v2.2 ---
+//   locked:   true → the player's keys do nothing and the key hints are hidden; the tape moves only by
+//             `sequence` or by script calls on the live screen (HW.ui.get('vhs'): step(d), goTo(i),
+//             lock(on), play(sequence, { end }), unlock()).
+//   sequence: [{ frame, hold = 1.6, seek = 0.26 }] — tape indices played in order: seek to `frame`
+//             (tracking noise), stay `hold` s once it settles, then the next. The OSD reads ▶ PLAY.
+//             `start` defaults to the first entry's frame. min/max limit only the player's scrubbing.
+//   end:      what follows the last hold: 'close' (default; resolves { frame, held: 0, done: true }),
+//             'unlock' (the player gets the controls, paused on the last frame) or 'stay' (a script
+//             closes it: HW.ui.close('vhs', result)).
+//   onStep:   (k, entry) => void — fired as sequence entry k begins (before its seek).
+//   onEnd:    () => void — fired after the last hold (before `end` applies).
+//   strip:    false hides the tape-position notches.
 // } → resolves with { frame, held } when ejected (cancel): the frame it stopped on and the longest time
 //     the player held still on the face frame.
 // ←/→ step a frame (rewind / fast-forward with tracking noise between), Confirm toggles PLAY / STILL.
+// Under autoAdvance (tests) a sequence resolves at once: onStep/onFrame fire for every entry in
+// order, then { frame: last, held: 0, done: true } (autoVhs below).
 //
 // Frame 0 of the tape is the lobby group shot (DESIGN). The vhs_frames CG currently starts at the
 // heads-down shot (frames 0..4), so unless the CG reports `frames >= 6` the UI composes the group shot
@@ -53,6 +68,54 @@ export class VhsScreen extends Screen {
     this.settled = new Set();
     this.src = canvas(LW, LH); this.out = canvas(LW, LH); this.tmp = canvas(LW, LH);
     this.cgFrames = Number(svc.cgArt('vhs_frames')?.frames) || 5;
+    this.locked = !!args.locked;
+    this._seq = null;         // { list, k, end } while a scripted sequence plays
+    if (Array.isArray(args.sequence) && args.sequence.length) {
+      if (args.start == null) this.i = this._clampAll(Number(args.sequence[0]?.frame) || 0);
+      this.play(args.sequence, { end: args.end, _first: true });
+    }
+  }
+
+  _clampAll(i) { return clamp(Math.round(i), 0, this.tape.length - 1); }
+
+  // ---- script control (HW.ui.get('vhs')) -----------------------------------------------------------
+  /** Step d frames (respects min/max, like the player's ←/→). */
+  step(d = 1) { this._step(d); }
+  /** Seek straight to tape index i (any frame; tracking noise unless it is already showing). */
+  goTo(i, { seek = SEEK } = {}) {
+    const j = this._clampAll(i);
+    if (j === this.i) { this.onT = 0; return; }
+    this.seekDir = j > this.i ? 1 : -1;
+    this.i = j; this.seek = seek; this.onT = 0;
+    svc.sfx('camcorder_whir', { vol: 0.5 });
+  }
+  lock(on = true) { this.locked = !!on; }
+  unlock() { this.locked = false; }
+  /** Play a sequence [{ frame, hold, seek }]; end: 'close' | 'unlock' | 'stay'. */
+  play(sequence, { end, _first = false } = {}) {
+    const list = (sequence || []).filter((e) => e && Number.isFinite(Number(e.frame)));
+    if (!list.length) return;
+    this._seq = { list, k: -1, end: end || this.args.end || 'close' };
+    this.playing = true;
+    this._seqNext(_first);
+  }
+  get frame() { return this.i; }
+
+  _seqNext(first = false) {
+    const q = this._seq;
+    q.k++;
+    if (q.k >= q.list.length) {
+      this._seq = null;
+      try { this.args.onEnd?.(); } catch (e) { console.error('[ui] vhs.onEnd', e); }
+      if (q.end === 'unlock') { this.locked = false; this.playing = false; }
+      else if (q.end === 'stay') this.playing = false;
+      else this.close({ frame: this.i, held: 0, done: true });
+      return;
+    }
+    const e = q.list[q.k];
+    try { this.args.onStep?.(q.k, e); } catch (err) { console.error('[ui] vhs.onStep', err); }
+    if (first && this._clampAll(e.frame) === this.i) { this.onT = 0; return; }
+    this.goTo(e.frame, { seek: e.seek ?? SEEK });
   }
   onOpen() { svc.sfx('camcorder_click'); svc.sfx('tape_play', { vol: 0.5 }); }
 
@@ -78,12 +141,15 @@ export class VhsScreen extends Screen {
         try { this.args.onFrame?.(this.i, this.tape[this.i]); } catch (e) { console.error('[ui] vhs.onFrame', e); }
       }
       if (this._isFace() && !this.playing) this.faceHeld = Math.max(this.faceHeld, this.onT);
-      if (this.playing && this.onT >= this.hold) {
+      if (this._seq) {
+        const e = this._seq.list[this._seq.k];
+        if (this.onT >= (Number(e?.hold) >= 0 ? Number(e.hold) : 1.6)) this._seqNext();
+      } else if (this.playing && this.onT >= this.hold) {
         if (this.i < this.max) this._step(1);
         else this.playing = false;
       }
     }
-    if (!input) return;
+    if (!input || this.locked || this.closing) return;
     if (input.repeat('left')) { this.playing = false; this._step(-1); }
     else if (input.repeat('right')) { this.playing = false; this._step(1); }
     if (input.pressed('confirm')) { this.playing = !this.playing; svc.sfx('camcorder_click', { vol: 0.6 }); }
@@ -123,8 +189,8 @@ export class VhsScreen extends Screen {
     ctx.drawImage(this.out, 0, 0, W, H);
     const mode = seeking ? (this.seekDir < 0 ? 'rew' : 'ff') : this.playing ? 'play' : 'pause';
     vhsOSD(ctx, this.t, { mode, timestamp: def.timestamp, counter: def.counter });
-    this._strip(ctx);
-    hints(ctx, [['EJECT', this.ui.input.keyLabel('cancel')], [this.playing ? 'STILL' : 'PLAY', this.ui.input.keyLabel('confirm')], ['FRAME', '← →']], H - 30, W - 24, '#a8a8a0');
+    if (this.args.strip !== false) this._strip(ctx);
+    if (!this.locked) hints(ctx, [['EJECT', this.ui.input.keyLabel('cancel')], [this.playing ? 'STILL' : 'PLAY', this.ui.input.keyLabel('confirm')], ['FRAME', '← →']], H - 30, W - 24, '#a8a8a0');
   }
 
   /** Tape position: one notch per frame, the current one lit. */
@@ -137,6 +203,31 @@ export class VhsScreen extends Screen {
       rect(ctx, x0 + i * gap - 4, y, 8, on ? 14 : 8, out ? '#3a3a3a' : on ? '#f4f4ec' : '#8a8a84');
     }
   }
+}
+
+/**
+ * autoAdvance result for 'vhs' (ui.js): a scripted sequence "plays" instantly — onStep / onFrame fire
+ * for every entry in order — and resolves { frame, held: 0, done: true }; anything else resolves null.
+ */
+export function autoVhs(args = {}) {
+  const seq = Array.isArray(args.sequence) ? args.sequence.filter((e) => e && Number.isFinite(Number(e.frame))) : [];
+  if (!seq.length) return null;
+  const tape = Array.isArray(args.frames) && args.frames.length ? args.frames : DEFAULT_TAPE;
+  const seen = new Set();
+  let last = 0;
+  const settle = (i) => {
+    if (seen.has(i)) return;
+    seen.add(i);
+    try { args.onFrame?.(i, tape[i]); } catch (e) { console.error('[ui] vhs.onFrame', e); }
+  };
+  if (args.start != null) settle(clamp(Number(args.start) || 0, 0, tape.length - 1));
+  seq.forEach((e, k) => {
+    try { args.onStep?.(k, e); } catch (err) { console.error('[ui] vhs.onStep', err); }
+    last = clamp(Math.round(Number(e.frame)), 0, tape.length - 1);
+    settle(last);
+  });
+  try { args.onEnd?.(); } catch (e) { console.error('[ui] vhs.onEnd', e); }
+  return { frame: last, held: 0, done: true };
 }
 
 // ---- the lobby group shot (fallback until the CG has it) ------------------------------------------------

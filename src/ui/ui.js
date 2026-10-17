@@ -14,6 +14,7 @@ import { Hud } from './hud.js';
 import { Backdrop, Overlays, COMPACT_CIRCLE } from './overlays.js';
 import { Z_SPECIAL, Z_MENU, Z_TOP } from './screen.js';
 import { SCREENS } from './screens/index.js';
+import { autoVhs } from './special/vhs.js';
 import { dimScreen } from './gfx.js';
 import * as svc from './services.js';
 
@@ -233,7 +234,7 @@ class UIManager {
       case 'gameover': return 'retry';
       case 'breath': return 'held';
       case 'write': return 'done';
-      case 'vhs': return null;
+      case 'vhs': return autoVhs(args);
       case 'title': return { action: 'new' };
       case 'pa': case 'terminal': case 'register': return null;
       case 'safe': {

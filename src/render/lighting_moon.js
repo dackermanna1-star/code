@@ -13,7 +13,7 @@ const TILE = 16;
 const SKEW = 11;        // px the far end of a shaft shifts east (the moon is high and a little east)
 const SPREAD = 5;       // px each side a shaft widens over its length
 const BASE = 0.62;      // shaft brightness at the sill (before the layer alpha)
-const LAYER = 0.55;     // overall moonlight strength
+const LAYER = 0.68;     // overall moonlight strength (v2.2: 0.55 → 0.68, readability)
 const MOON_RGB = hexToRgb(LIGHT_COLORS.moon);
 const MOON_LUM = (0.2126 * MOON_RGB[0] + 0.7152 * MOON_RGB[1] + 0.0722 * MOON_RGB[2]) / 255;
 

@@ -22,6 +22,8 @@ export const art = {
   sprite: (id) => sprites.getSprite(id),
   portrait: (char, expr, opts) => portraits.getPortrait(char, expr, opts || {}),
   cg: (id) => cg.getCg(id),
+  /** Pre-build a CG before its scene (v2.2): forwards to the CG modules' warm/prep functions; unknown ids no-op. */
+  warmCg: (id) => cg.warmCg?.(id),
   icon: (id) => icons.getIcon(id),
   glyph: (name) => icons.getGlyph(name),
 };

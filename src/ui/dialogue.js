@@ -439,6 +439,7 @@ export class Dialogue {
     const el = live ? line.elapsed : 1e9;
     const tick = Math.floor(this.t * 20);
     const voice = line.kind === 'voice';
+    const glitch = line.opts?.glitch === true;
     const flick = voice ? (!svc.reduceFlashing() && hash2(Math.floor(this.t * 12), 7) % 9 === 0 ? 0.55 : 0.92) : 1;
     page.lines.forEach((ln, li) => {
       let x0 = line.tx;
@@ -456,9 +457,11 @@ export class Dialogue {
         }
         let ch = g.ch;
         if (voice) {
+          // Static and flicker only: letters are never swapped unless a script opts in with
+          // say('voice', …, { glitch: true }) — the words of a roll call must stay legible.
           alpha *= flick;
           const h = hash2(tick >> 1, i + li * 131);
-          if (h % 509 === 0) ch = '#%&@/'[h % 5];
+          if (glitch && h % 509 === 0) ch = '#%&@/'[h % 5];
           if (h % 211 === 0) gx += AP * 2;
         }
         g.f.glyph(ctx, ch, gx, gy, color, alpha);

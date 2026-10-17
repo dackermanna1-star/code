@@ -331,7 +331,10 @@ function makeG(gen, ctx, scriptId) {
       if (!e) return;
       if (DIR_VEC[dir]) { e.face(dir); return; }
       const pt = resolvePoint(typeof dir === 'string' && HW.entities.get(dir) ? `@${dir}` : dir);
-      if (pt) e.face(dirFromVec(pt.x - e.x, pt.y - e.y, e.dir));
+      if (!pt) return;
+      // Tess also points her beam at the target (game/flashlight.js eases it there, cutscenes too).
+      if (e === HW.player && typeof e.faceToward === 'function') e.faceToward(pt.x, pt.y);
+      else e.face(dirFromVec(pt.x - e.x, pt.y - e.y, e.dir));
     },
 
     /** Animation override; { once } resolves when done; name null clears. */

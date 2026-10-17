@@ -141,11 +141,7 @@ export const flashlight = {
     }
 
     // Aim: ease toward the movement/facing direction.
-    if (!cutscene || p.path) {
-      const target = Math.atan2(p.aimY, p.aimX);
-      const k = 1 - Math.exp(-dt * AIM_RATE);
-      this.angle = wrapAngle(this.angle + wrapAngle(target - this.angle) * k);
-    }
+    this._aim(dt, p, cutscene);
 
     // Power: Danny's is steady and weak. The Maglite is full above 20 %, dims toward 45 % with
     // flicker bursts below it, and runs on the dregs at 0 %.
@@ -172,6 +168,39 @@ export const flashlight = {
     L.cone = src.cone;
     L.color = src.color;
     L.source = srcName;
+  },
+
+  /**
+   * Beam aim. In free play (and scripted walks) it eases toward Tess's aim vector. In cutscenes it
+   * holds still — until her facing changes (g.face('tess', dir | target), a turn at the end of a
+   * walk), then it swings smoothly to the new aim and holds there. A script that writes
+   * HW.flashlight.angle directly is a manual override: that angle holds until her next turn.
+   */
+  _aim(dt, p, cutscene) {
+    const k = 1 - Math.exp(-dt * AIM_RATE);
+    if (!cutscene || p.path) {
+      const target = Math.atan2(p.aimY, p.aimX);
+      this.angle = wrapAngle(this.angle + wrapAngle(target - this.angle) * k);
+      this._aimTarget = null;
+    } else {
+      if (this._wrote !== undefined && this.angle !== this._wrote) this._aimTarget = null; // manual override
+      else if ((p.aimSeq | 0) !== this._seenSeq || p.dir !== this._seenDir) {
+        // She turned: aim along her aim vector (g.face toward a point sets it exactly), unless it is
+        // stale against her facing (a system set p.dir directly) — then along the facing.
+        let a = Math.atan2(p.aimY, p.aimX);
+        const da = DIR_ANGLE[p.dir];
+        if (da !== undefined && Math.abs(wrapAngle(a - da)) > 1.25) a = da;
+        this._aimTarget = a;
+      }
+      if (this._aimTarget !== null && this._aimTarget !== undefined) {
+        const d = wrapAngle(this._aimTarget - this.angle);
+        if (Math.abs(d) < 0.002) { this.angle = this._aimTarget; this._aimTarget = null; }
+        else this.angle = wrapAngle(this.angle + d * k);
+      }
+    }
+    this._seenSeq = p.aimSeq | 0;
+    this._seenDir = p.dir;
+    this._wrote = this.angle;
   },
 
   /** Low-battery flicker bursts (more frequent as the cells die); dregs dropouts never reach 0. */

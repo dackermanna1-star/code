@@ -5,7 +5,7 @@
 import { HW } from '../engine/hw.js';
 import { C, F, W, H } from './theme.js';
 import { canvas, ctx2d, rect, dither, vignette, keycap, AP, clamp, approach, ease } from './gfx.js';
-import { rng } from '../art/util.js';
+import { rng, BAYER4 } from '../art/util.js';
 import * as svc from './services.js';
 import { vhsFilter, vhsBlue, vhsOSD } from './vhsfx.js';
 
@@ -135,12 +135,18 @@ export class Overlays {
     vhsOSD(ctx, this.t, { mode: p.blue ? 'blue' : 'play', timestamp: p.timestamp });
   }
 
-  // -- 'heads_down': head on the desk, eyes shut — a dark tunnel that breathes
+  // -- 'heads_down': head on the desk, eyes shut — a dark tunnel that breathes.
+  // params (all optional): tight 0..1 (0 = wide open, 1 = shut; default = the classic breathing
+  // tunnel, ≈ 0.87), cx/cy = tunnel centre in WORLD px (default: Tess's head on screen; screen
+  // centre without a player), ui: true = cx/cy are UI px (960×540) instead, dim 0..1 (veil, 0.6).
   heads_down(ctx, o) {
+    const p = o.params || {};
     const breath = 0.5 + 0.5 * Math.sin(this.t * 1.15);
-    const r = 0.05 + breath * 0.1;
-    rect(ctx, 0, 0, W, H, 'rgba(0,0,0,0.6)');
-    vignette(ctx, 1, Math.round(r * 20) / 20);
+    let r = 0.05 + breath * 0.1;
+    if (p.tight !== undefined && p.tight !== null) r = Math.max(0, (1 - clamp(Number(p.tight) || 0)) * 0.8 - 0.05 + breath * 0.1);
+    rect(ctx, 0, 0, W, H, `rgba(0,0,0,${clamp(p.dim ?? 0.6)})`);
+    const c = tunnelCentre(p);
+    tunnel(ctx, Math.round(r * 20) / 20, c.x, c.y);
   }
 
   // -- 'compact': Mom's cracked compact mirror; the world renderer draws the 1979 view inside
@@ -170,6 +176,46 @@ export class Overlays {
   black(ctx, o) { rect(ctx, 0, 0, W, H, `rgba(0,0,0,${clamp(o.params.alpha ?? 1)})`); }
 }
 
+
+/** heads_down centre in UI px: params cx/cy (world px, or UI px with ui:true), else Tess's head, else screen centre. */
+function tunnelCentre(p) {
+  let x = W / 2, y = H / 2;
+  if (Number.isFinite(p.cx) && Number.isFinite(p.cy)) {
+    if (p.ui) { x = p.cx; y = p.cy; }
+    else { const u = HW.camera?.toUI?.(p.cx, p.cy); if (u) { x = u.x; y = u.y; } }
+  } else {
+    const pl = HW.player;
+    const u = pl && HW.map ? HW.camera?.toUI?.(pl.x, pl.y - 14) : null;
+    if (u && Number.isFinite(u.x) && Number.isFinite(u.y)) { x = u.x; y = u.y; }
+  }
+  // stay on the art-pixel grid, and on screen (the tunnel canvas covers the screen from any on-screen centre)
+  return { x: clamp(Math.round(x / AP) * AP, 0, W), y: clamp(Math.round(y / AP) * AP, 0, H) };
+}
+
+const tunnelCache = new Map();
+/**
+ * The heads_down tunnel: the same dithered vignette as gfx.vignette(ctx, 1, r) (identical when
+ * centred), built at twice the screen size so it can sit around any on-screen point.
+ */
+function tunnel(ctx, r0, ux, uy) {
+  const rl = Math.round(r0 * 20);
+  let c = tunnelCache.get(rl);
+  if (!c) {
+    const aw = LW * 2, ah = LH * 2, cx = LW, cy = LH;          // art px; the centre in the middle
+    const maxd = Math.hypot(LW / 2, LH / 2);                     // normalised to the SCREEN, like vignette()
+    c = canvas(aw, ah); const x = ctx2d(c);
+    const img = x.createImageData(aw, ah), px = img.data;   // black where set (alpha only)
+    for (let j = 0; j < ah; j++) for (let i = 0; i < aw; i++) {
+      const d = Math.hypot(i - cx, (j - cy) * 1.25) / maxd;
+      const t = Math.max(0, Math.min(1, (d - rl / 20) / 0.45));
+      if (t > 0 && BAYER4[(j - cy + LH / 2) & 3][(i - cx + LW / 2) & 3] < t * 16) px[(j * aw + i) * 4 + 3] = 255;
+    }
+    x.putImageData(img, 0, 0);
+    if (tunnelCache.size >= 6) tunnelCache.delete(tunnelCache.keys().next().value);
+    tunnelCache.set(rl, c);
+  }
+  ctx.drawImage(c, ux - W, uy - H, W * 2, H * 2);
+}
 
 let compactCanvas = null;
 /** Static compact frame at 480×270 (scaled ×2 when drawn): dark surround, metal rim, hinge, crack. */

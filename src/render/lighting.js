@@ -25,6 +25,7 @@ import {
 import { canvas, coneTexture, glowSprite, lightGradient, rgbStr } from './lighting_tex.js';
 import { Beam, coneDeg } from './lighting_beam.js';
 import { MoonLayer } from './lighting_moon.js';
+import { ambientRGB, CatchLayer } from './lighting_ambient.js';
 
 const TILE = 16;
 const W = 480;
@@ -36,8 +37,10 @@ const BLEED = 2;                     // px light bleeds into occluder edges
 const MAX_POLY = 4096;
 const TUBE_SX = 1.2;                 // fluorescent pools: wider than deep ("rect-ish")
 const TUBE_SY = 0.8;
-const SELF_RADIUS = 25;              // Tess's self-glow (px)
-const SELF_LEVEL = 0.36;
+const SELF_RADIUS = 34;              // Tess's self-glow (px) — v2.2: larger and softer (readability)
+const SELF_LEVEL = 0.4;
+const CATCH_GAIN = 0.9;              // wall-face catch light, × ambient luminance (lighting_ambient.js)
+const CATCH_MAX = 0.16;              // … capped (bright exteriors don't need it)
 const SHROUD_RANGE = 3.5 * TILE;     // period lights die within this of the shrouded Colonel
 const SHROUD_RECOVER = 1;            // s after he has passed
 const LIGHTNING_RGB = hexToRgb(LIGHT_COLORS.lightning);
@@ -113,6 +116,7 @@ export class LightingSystem {
     this._all = [];
     this._windows = [];
     this._groups = new Map();
+    this._groupsState = undefined;   // the HW.state the explicit group states were read from
     this._ambRGB = [0, 0, 0];
     this._ambFrom = null;
     this._ambTo = null;
@@ -130,6 +134,7 @@ export class LightingSystem {
     this._nudge = { x: 0, y: 0 };
     this.beam = new Beam();
     this.moon = new MoonLayer();
+    this.catchLayer = new CatchLayer();
   }
 
   // ============================================================================ lifecycle
@@ -146,6 +151,7 @@ export class LightingSystem {
 
   onMapLoad(map) {
     this.init();
+    this._syncGroupsFromState();
     this._map = map || null;
     this._override = null;
     this._ambTo = null;
@@ -185,8 +191,10 @@ export class LightingSystem {
    * Group state is global (it survives map loads, so a period spans maps).
    */
   setGroup(group, on, opts = {}) {
+    this._syncGroupsFromState();
     if (on === null || on === undefined) this._groups.delete(group);
     else this._groups.set(group, !!on);
+    this._persistGroup(group);
     const stagger = opts.stagger ?? (opts.mode === 'bang' ? 0 : 0.35);
     let n = 0;
     for (const L of this._all) {
@@ -198,7 +206,35 @@ export class LightingSystem {
 
   /** Is a group currently switched on? (Unset groups: on, except 'period'.) */
   groupOn(group) {
+    this._syncGroupsFromState();
     return this._groups.has(group) ? this._groups.get(group) : group !== 'period';
+  }
+
+  /**
+   * Explicit group states are saved with the game (HW.state.lightGroups: group → bool), so a
+   * reload keeps the basement bulbs, gym banks and breaker lamps a script switched. 'period' is
+   * owned by the periods system (it resets it on load) and is not persisted.
+   */
+  _persistGroup(group) {
+    const s = HW.state;
+    if (!s || group === 'period') return;
+    const lg = s.lightGroups && typeof s.lightGroups === 'object' ? s.lightGroups : (s.lightGroups = {});
+    if (this._groups.has(group)) lg[group] = this._groups.get(group);
+    else delete lg[group];
+  }
+
+  /** A new game or a loaded save brings its own group states (checked by state identity). */
+  _syncGroupsFromState() {
+    const s = HW.state || null;
+    if (s === this._groupsState) return;
+    this._groupsState = s;
+    const period = this._groups.get('period');
+    this._groups.clear();
+    if (period !== undefined) this._groups.set('period', period);
+    const lg = s?.lightGroups;
+    if (lg && typeof lg === 'object') {
+      for (const [k, v] of Object.entries(lg)) if (k !== 'period' && typeof v === 'boolean') this._groups.set(k, v);
+    }
   }
 
   /**
@@ -320,6 +356,7 @@ export class LightingSystem {
     }
     if (L.color !== L._lcolor) { L._rgb = hexToRgb(L.color || L._P.color); L._lcolor = L.color; L._spriteDirty = true; }
     if (L.angle !== L._langle) { L._langle = L.angle; L._spriteDirty = true; }
+    if (L.cone !== L._lcone) { L._lcone = L.cone; L._spriteDirty = true; }
     if (L.on !== L._lon) { L._lon = L.on; this._retarget(L, false); }
 
     let level;
@@ -451,6 +488,7 @@ export class LightingSystem {
     L._lcolor = L.color;
     if (L.angle === undefined) L.angle = DIR_ANGLE[L.dir] ?? (L.type === 'headlights' ? -Math.PI / 2 : Math.PI / 2);
     L._langle = L.angle;
+    L._lcone = L.cone;
     L._lradius = L.radius;
     L._lpower = L.power;
     L._flickerMode = this._flickerModeOf(L, P);
@@ -550,15 +588,18 @@ export class LightingSystem {
 
   /** Lightmap ground level: (1 - darkness), tinted toward the ambient color's hue. */
   _ambientRGB(color, level) {
-    const c = hexToRgb(color || '#0b1020');
-    const m = Math.max(1, c[0], c[1], c[2]);
-    const base = (1 - clamp01(level)) * 1.75;
-    return c.map((v) => 255 * base * (0.42 + 0.58 * (v / m)));
+    // (1 - level) · 1.75 in the map's tint + a softly tinted interior lift (lighting_ambient.js, v2.2)
+    return ambientRGB(hexToRgb(color || '#0b1020'), clamp01(level));
   }
 
   /** (Re)compute a light's visibility polygon if its origin, reach or the geometry changed. */
   _ensurePoly(L) {
-    if (!L._shadows) return;
+    if (!L._shadows) {
+      // No polygon to rebuild, but the cached sprite is positioned at the light: a moved
+      // shadowless light (a carried lamp, a drifting glow) must still redraw it.
+      if (L._polyDirty) { L._polyDirty = false; L._spriteDirty = true; }
+      return;
+    }
     if (!L._polyDirty && L._polyVer === this._segVer) return;
     const o = nudgeOrigin(this._grid, L.px, L.py, this._nudge);
     const n = this._solver.compute(this._segs, o.x, o.y, L._reach + 2, this._tmpPoly, BLEED);
@@ -704,6 +745,7 @@ export class LightingSystem {
     if (this._moonDirty) {
       this._moonDirty = false;
       this.moon.build(map, this._windows, this._solver, this._segs, K);
+      this.catchLayer.build(map, this._grid, K);
     }
     this.stats.rebuilt = 0;
 
@@ -729,6 +771,9 @@ export class LightingSystem {
         lc.fillRect(0, 0, LW, LH);
       }
     }
+
+    // Wall faces catch a little more of the ambient than the floor (room outlines stay legible).
+    this.catchLayer.draw(lc, lmx, lmy, K, Math.min(CATCH_MAX, CATCH_GAIN * lum(this._ambRGB)));
 
     const lt = this.lightningLevel;
     this.moon.draw(lc, lmx, lmy, this.t, 1 + lt * 5, K, LW, LH);
@@ -759,6 +804,7 @@ export class LightingSystem {
     lc.globalAlpha = 1;
 
     this.beam.draw(lc, fl, this._sys, lmx, lmy, K, this.t, reduce);
+    this.beam.drawBounce(lc, fl, this._sys, lmx, lmy, K);
     this.beam.drawSelf(lc, fl, this.selfGlow, !!HW.player?.hidden, this._sys, lmx, lmy, K);
 
     if (lt > 0.001) {

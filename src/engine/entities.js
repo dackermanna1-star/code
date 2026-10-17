@@ -42,6 +42,22 @@ export function dirFromVec(dx, dy, cur = 'down', hysteresis = 1) {
   return cur === h || cur === v ? cur : h;
 }
 
+// Attached-light spec fields the lighting system reads live every frame (everything else — type,
+// shape, shadows, glow, cage, flicker, … — is baked when the light is created).
+const LIGHT_LIVE_KEYS = ['color', 'intensity', 'power', 'radius', 'cone'];
+const LIGHT_IGNORE_KEYS = new Set([...LIGHT_LIVE_KEYS, 'on', 'angle', 'dir', 'x', 'y', 'px', 'py']);
+
+/** Does switching an entity light from spec a to spec b need a fresh light (not just new live values)? */
+export function lightNeedsRebuild(a, b) {
+  if (!a || !b) return true;
+  if ((a.type || 'flashlight') !== (b.type || 'flashlight')) return true;
+  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) {
+    if (k === 'type' || LIGHT_IGNORE_KEYS.has(k)) continue;
+    if (a[k] !== b[k]) return true;
+  }
+  return false;
+}
+
 // Shared drop shadow (soft ellipse) under every character.
 let shadowCanvas = null;
 function shadow() {
@@ -103,6 +119,7 @@ export class Entity {
     this.seat = null;          // seat prop while an NPC/follower sits (HW.hiding.seatNpc)
     this.lightSpec = spec.light || null;   // attached light (e.g. Danny's flashlight), see syncLight()
     this._light = null;
+    this._lightFrom = null;                // the spec the live light was built from
   }
 
   /** Attach / detach a light that travels with this entity (HW.lighting.addLight). */
@@ -111,13 +128,24 @@ export class Entity {
     this.syncLight();
   }
 
-  /** Create/update/remove the attached light. Coordinates: x/y tile units (centre = x*16+8), px/py world px. */
+  /**
+   * Create/update/remove the attached light. Coordinates: x/y tile units (centre = x*16+8), px/py world px.
+   * A new spec (g.light(id, spec) on an entity that already carries a light) updates the live light in
+   * place when only its level/colour/size changed, and rebuilds it when its shape changed (type, shape,
+   * shadows, glow, cage, flicker, …) — the lighting system bakes those when a light is created.
+   */
   syncLight() {
     const L = HW.lighting;
     if (!this.lightSpec || !this.visible || !L?.addLight) {
-      if (this._light) { try { L?.removeLight?.(this._light); } catch (e) { console.error('[entities] removeLight failed', e); } }
-      this._light = null;
+      this._dropLight();
       return;
+    }
+    if (this._light && this._lightFrom !== this.lightSpec) {
+      if (lightNeedsRebuild(this._lightFrom, this.lightSpec)) this._dropLight();
+      else {
+        for (const k of LIGHT_LIVE_KEYS) this._light[k] = this.lightSpec[k];
+        this._lightFrom = this.lightSpec;
+      }
     }
     if (!this._light) {
       try {
@@ -128,6 +156,7 @@ export class Entity {
         return;
       }
       if (!this._light) return;
+      this._lightFrom = this.lightSpec;
     }
     const l = this._light;
     l.px = this.x;
@@ -136,6 +165,14 @@ export class Entity {
     l.y = l.py / TILE - 0.5;
     l.angle = DIR_ANGLE[this.dir];
     l.on = true;
+  }
+
+  _dropLight() {
+    if (this._light) {
+      try { HW.lighting?.removeLight?.(this._light); } catch (e) { console.error('[entities] removeLight failed', e); }
+    }
+    this._light = null;
+    this._lightFrom = null;
   }
 
   get sheet() {
@@ -279,6 +316,7 @@ export class Entity {
       const d = Math.hypot(dx, dy);
       if (d > 0.01) {
         this.dir = dirFromVec(dx, dy, this.dir, 1.05);
+        if (this.etype === 'player') { this.aimX = dx / d; this.aimY = dy / d; } // the beam follows a scripted walk
         if (map) openDoorAhead(this, map, dx / d, dy / d);
       }
       if (d <= budget) {
@@ -384,6 +422,7 @@ export class Player extends Entity {
     this.inputActive = false;
     this.aimX = 0;
     this.aimY = 1;
+    this.aimSeq = 0;         // ++ on every explicit face() (game/flashlight.js re-aims in cutscenes)
     this.speed = 0;
     this.blockedBy = null;   // solid prop bumped this step
     this.sitTime = -10;      // HW.time when she last sat down (the Colonel notices sitting, DESIGN R2)
@@ -400,6 +439,18 @@ export class Player extends Entity {
     const v = DIR_VEC[this.dir];
     this.aimX = v[0];
     this.aimY = v[1];
+    this.aimSeq++; // the flashlight re-aims on every explicit turn, even in cutscenes
+  }
+
+  /** Face toward a world point and aim (the flashlight) exactly at it (hand height → point). */
+  faceToward(x, y) {
+    const dx = x - this.x;
+    const dy = y - this.y;
+    this.face(dirFromVec(dx, dy, this.dir));
+    const ax = x - this.x;
+    const ay = (y - 6) - (this.y - 9);
+    const d = Math.hypot(ax, ay);
+    if (d > 0.5) { this.aimX = ax / d; this.aimY = ay / d; }
   }
 
   /** Reset transient states (map load, new game). */

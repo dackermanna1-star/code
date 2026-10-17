@@ -524,6 +524,301 @@ try {
     await g.hw((H) => { H.HW.colonel = null; H.HW.entities.despawn('colonel'); });
   });
 
+  await T.step('engine fixes v2.2', async () => {
+    await g.teleport('test', 'start');
+    // 1. A shadowless dynamic light that moves redraws its lightmap sprite (not just its halo).
+    const mv = await g.hw(async (H) => {
+      const HW = H.HW;
+      const cam = HW.camera.view;
+      const c = document.createElement('canvas'); c.width = 480; c.height = 270;
+      const ctx = c.getContext('2d');
+      const L = HW.lighting.addLight({ type: 'bulb', shadows: false, px: cam.x + 200, py: cam.y + 130, map: HW.map.id });
+      await H.steps(2);
+      HW.lighting.render(ctx, { x: cam.x, y: cam.y, w: 480, h: 270 });
+      const bx0 = L._bx;
+      L.px += 40;
+      await H.steps(2);
+      HW.lighting.render(ctx, { x: cam.x, y: cam.y, w: 480, h: 270 });
+      const r = { bx0, bx1: L._bx };
+      HW.lighting.removeLight(L);
+      return r;
+    });
+    T.ok(Math.abs(mv.bx1 - mv.bx0 - 40) <= 2, 'shadows:false light: moving it moves its lightmap pool', mv);
+
+    // 2. g.light on an entity that already carries a light: rebuilt on a shape change, live-updated otherwise.
+    const sl = await g.hw(async (H) => {
+      const HW = H.HW;
+      HW.entities.spawn({ id: 'lampkid', sprite: 'danny', at: [24, 15] });
+      const mine = () => HW.lighting.lights.filter((l) => l.entity === 'lampkid');
+      await HW.scripts.runFn((gg) => gg.light('lampkid', { type: 'flashlight', power: 0.35, cone: 30 }));
+      await H.steps(2);
+      const a = mine()[0];
+      await HW.scripts.runFn((gg) => gg.light('lampkid', { type: 'bulb', radius: 1.5, intensity: 0.55, cage: false, glow: null }));
+      await H.steps(2);
+      const b = mine()[0];
+      await HW.scripts.runFn((gg) => gg.light('lampkid', { type: 'bulb', radius: 3, intensity: 0.7, cage: false, glow: null }));
+      await H.steps(2);
+      const c = mine()[0];
+      const r = { n: mine().length, a: a?.type, b: b?.type, rebuilt: a !== b, bShape: b?._r, same: b === c, cR: c?.radius, cI: c?.intensity, cPx: c?._r };
+      await HW.scripts.runFn((gg) => gg.light('lampkid', null));
+      await H.steps(1);
+      r.after = mine().length;
+      HW.entities.despawn('lampkid');
+      return r;
+    });
+    T.ok(sl.n === 1 && sl.a === 'flashlight' && sl.b === 'bulb' && sl.rebuilt, 'g.light: a new type replaces the light (one light, new shape)', sl);
+    T.ok(sl.same && sl.cR === 3 && sl.cI === 0.7 && sl.cPx === 48, 'g.light: radius/intensity change updates the live light in place', sl);
+    T.eq(sl.after, 0, 'g.light(id, null) removes it');
+
+    // 3. Exit scripts: after the transfer (default), and 'before' + return false cancels it.
+    const ex = await g.hw(async (H) => {
+      const HW = H.HW;
+      const out = { runs: [] };
+      HW.data.scripts['test.v22_exit'] = async (gg, ctx) => { out.runs.push({ map: HW.map.id, from: ctx.from, to: ctx.to, mode: HW.game.mode, transferring: HW.game.transferring }); };
+      HW.data.scripts['test.v22_gate'] = async () => { out.runs.push({ gate: HW.map.id }); return false; };
+      const exit = HW.map.exits.find((e) => e.to === 'test2' && e.fade !== false);
+      exit.script = 'test.v22_exit';
+      const ok = await H.walkTo([46, 14]);
+      await H.idle();
+      out.ok = ok;
+      out.map = HW.map.id;
+      out.rec = H.transcript.filter((t) => t.type === 'exitScript').map((t) => t.text);
+      // 'before' on the way back: cancels.
+      await H.teleport('test', 'hall_east');
+      const exit2 = HW.map.exits.find((e) => e.to === 'test2' && e.fade !== false);
+      exit2.script = 'test.v22_gate';
+      exit2.scriptWhen = 'before';
+      HW.input.setVirtual('right', true);
+      await H.steps(80);
+      HW.input.setVirtual('right', false);
+      await H.idle();
+      out.mapAfterGate = HW.map.id;
+      delete exit2.script;
+      delete exit2.scriptWhen;
+      delete HW.data.scripts['test.v22_exit'];
+      delete HW.data.scripts['test.v22_gate'];
+      return out;
+    });
+    const r0 = ex.runs[0] || {};
+    T.ok(ex.ok && ex.map === 'test2' && r0.map === 'test2' && r0.from === 'test' && r0.to === 'test2' && r0.mode === 'cutscene' && !r0.transferring, 'exit `script` runs after the transfer completes (blocking)', ex);
+    T.ok(ex.runs.some((r) => r.gate === 'test') && ex.mapAfterGate === 'test', "exit scriptWhen:'before' runs first; returning false cancels the transfer", ex);
+
+    // 4. heads_down overlay: { tight, cx, cy } (world px) — the clear centre goes where it's told.
+    const hd = await g.hw(async (H) => {
+      const HW = H.HW;
+      H.autoAdvance(false);
+      const cam = HW.camera.view;
+      const ux = 160, uy = 300;                       // UI px of a world point
+      const wx = cam.x + ux / 2, wy = cam.y + uy / 2;
+      HW.ui.setOverlay('heads_down', { tight: 0.85, cx: wx, cy: wy });
+      await H.steps(30);
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      const uctx = HW.display.uiCtx;
+      const a = (x, y) => uctx.getImageData(x, y, 1, 1).data[3];
+      const r = { atCentre: a(ux, uy), farRight: a(900, 60), params: { ...HW.ui.overlays.items.get('heads_down')?.params } };
+      HW.ui.setOverlay('heads_down', null);
+      await H.steps(30);
+      H.autoAdvance(true);
+      return r;
+    });
+    T.ok(hd.atCentre < 200 && hd.farRight === 255, 'heads_down: the tunnel opens around cx/cy (world px), dark elsewhere', hd);
+
+    // 5. VHS: locked scripted sequence (input ignored, steps itself, closes with done) + the legacy ch2 hooks.
+    const vhs = await g.hw(async (H) => {
+      const HW = H.HW;
+      const out = { frames: [], steps: [] };
+      // under autoAdvance: resolves at once, firing the callbacks in order
+      out.auto = await HW.scripts.runFn((gg) => gg.screen('vhs', { locked: true, sequence: [{ frame: 0, hold: 1 }, { frame: 3, hold: 1 }, { frame: 5, hold: 1 }], onFrame: (i) => out.frames.push(i), onStep: (k) => out.steps.push(k) }));
+      H.autoAdvance(false);
+      const p = HW.ui.open('vhs', { locked: true, sequence: [{ frame: 1, hold: 0.3 }, { frame: 2, hold: 0.3 }] });
+      const scr = HW.ui.get('vhs');
+      out.start = scr.frame;
+      HW.input.setVirtual('cancel', true);
+      await H.steps(6);
+      HW.input.setVirtual('cancel', false);
+      out.ignoredCancel = HW.ui.get('vhs') === scr;
+      let res = null;
+      p.then((r) => { res = r; });
+      await HW.game.until(() => res !== null, 5);
+      out.res = res;
+      // legacy: ch2 wraps update() and calls _step(1) itself
+      const p2 = HW.ui.open('vhs', { start: 0, min: 0, max: 5 });
+      const s2 = HW.ui.get('vhs');
+      const upd = s2.update;
+      s2.update = (dt) => upd.call(s2, dt, null);
+      s2.playing = true; s2.hold = 1e9;
+      s2._step(1); await H.steps(30); s2._step(1); await H.steps(30);
+      out.legacy = s2.i;
+      HW.ui.close('vhs', { frame: 5, held: 0 });
+      out.legacyRes = await p2;
+      H.autoAdvance(true);
+      return out;
+    });
+    T.ok(vhs.auto?.done && vhs.auto.frame === 5 && vhs.frames.join() === '0,3,5' && vhs.steps.join() === '0,1,2', 'vhs sequence under autoAdvance: callbacks in order, { done, frame }', vhs);
+    T.ok(vhs.start === 1 && vhs.ignoredCancel && vhs.res?.done && vhs.res.frame === 2, 'vhs locked: Cancel ignored; the sequence plays and closes itself', vhs);
+    T.ok(vhs.legacy === 2 && vhs.legacyRes?.frame === 5, "vhs: ch2's wrapped update + _step(1) still drive the tape", vhs);
+
+    // 6. The beam turns with Tess in cutscenes; a manual angle holds until her next turn.
+    const fl = await g.hw(async (H) => {
+      const HW = H.HW;
+      const out = {};
+      H.autoAdvance(false);
+      await HW.scripts.runFn(async (gg) => {
+        gg.face('tess', 'down');
+        await gg.wait(0.6);
+        gg.face('tess', 'left');
+        await gg.wait(0.1);
+        out.mid = HW.flashlight.angle;
+        await gg.wait(0.7);
+        out.left = HW.flashlight.angle;
+        HW.flashlight.angle = 0.3;               // a script's manual aim
+        await gg.wait(0.5);
+        out.manual = HW.flashlight.angle;
+        gg.face('tess', 'up');
+        await gg.wait(0.8);
+        out.up = HW.flashlight.angle;
+        const p = HW.player;
+        gg.face('tess', { x: p.x + 100, y: p.y + 3 });   // a point: aim straight at it
+        await gg.wait(0.8);
+        out.point = HW.flashlight.angle;
+        out.mode = HW.game.mode;
+      });
+      H.autoAdvance(true);
+      return out;
+    });
+    const near0 = (a, b, tol = 0.06) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b))) < tol;
+    T.ok(fl.mode === 'cutscene' && near0(fl.left, Math.PI) && !near0(fl.mid, Math.PI, 0.01), 'cutscene: g.face turns the beam, smoothly', fl);
+    T.ok(near0(fl.manual, 0.3, 1e-9) && near0(fl.up, -Math.PI / 2) && near0(fl.point, 0, 0.08), 'manual HW.flashlight.angle holds; the next g.face re-aims (also at a point)', fl);
+
+    // 7. Intercom text: no letter substitution unless opts.glitch.
+    const vt = await g.hw(async (H) => {
+      const HW = H.HW;
+      const D = HW.ui.dialogue;
+      H.autoAdvance(false);
+      const count = async (opts) => {
+        const p = HW.ui.say('voice', null, 'Theresa Dolan. Absences. Present. Theresa Dolan. Absences.', opts);
+        await H.steps(4);
+        const line = D.cur;
+        if (!line) return { err: 'no line' };
+        line.elapsed = 1e9;
+        const f = line.style.font();
+        const own = Object.prototype.hasOwnProperty.call(f, 'glyph');
+        const orig = f.glyph;
+        const seen = new Set();
+        f.glyph = function (ctx, ch, ...rest) { seen.add(ch); return orig.call(this, ctx, ch, ...rest); };
+        const c = document.createElement('canvas'); c.width = 960; c.height = 540;
+        const t0 = D.t;
+        try {
+          for (let k = 0; k < 1500; k++) { D.t = t0 + k * 0.05; D.render(c.getContext('2d')); }
+        } finally { if (own) f.glyph = orig; else delete f.glyph; D.t = t0; }
+        D.reset();
+        await p;
+        return [...seen].filter((ch) => '#%&@/'.includes(ch)).join('');
+      };
+      const r = { plain: await count({}), glitch: await count({ glitch: true }) };
+      H.autoAdvance(true);
+      return r;
+    });
+    T.ok(vt.plain === '' && vt.glitch.length > 0, "voice lines keep their letters; opts.glitch opts in to substitutions", vt);
+
+    // 8. Light groups persist in HW.state.lightGroups across save/load; a new game clears them.
+    const lg = await g.hw(async (H) => {
+      const HW = H.HW;
+      const L = HW.lighting;
+      L.setGroup('v22_bank', true);
+      L.setGroup('v22_lamp', false);
+      L.setGroup('period', true, { mode: 'instant' });
+      const saved = { ...HW.state.lightGroups };
+      H.save('3');
+      L.setGroup('v22_bank', false);
+      L.setGroup('v22_lamp', null);
+      H.load('3');
+      await H.steps(2);
+      const loaded = { bank: L.groupOn('v22_bank'), lamp: L.groupOn('v22_lamp'), state: { ...HW.state.lightGroups } };
+      L.setGroup('period', null, { mode: 'instant' });
+      L.setGroup('v22_bank', null);
+      L.setGroup('v22_lamp', null);
+      return { saved, loaded };
+    });
+    T.ok(lg.saved.v22_bank === true && lg.saved.v22_lamp === false && !('period' in lg.saved), "setGroup records explicit states in HW.state.lightGroups ('period' excluded)", lg);
+    T.ok(lg.loaded.bank === true && lg.loaded.lamp === false, 'group states come back on load', lg);
+    const fresh = await g.hw((H) => {
+      const L = H.HW.lighting;
+      L.setGroup('v22_bank', false);
+      const S0 = H.HW.state;
+      H.HW.state = { ...S0, lightGroups: {} };                // what a new game brings
+      const on = L.groupOn('v22_bank');
+      H.HW.state = S0;
+      const back = L.groupOn('v22_bank');
+      L.setGroup('v22_bank', null);
+      return { on, back };
+    });
+    T.ok(fresh.on === true && fresh.back === false, 'a different state (new game) brings its own (empty) groups', fresh);
+
+    // 9. Weather: map.data.weather is applied by HW.weather unless the prologue's own system is installed.
+    const wx = await g.hw(async (H) => {
+      const HW = H.HW;
+      const w = HW.weather;
+      const r = { exists: !!w, deferredWithPro: w?.deferred };
+      const foreign = HW.game.systems.filter((s) => s !== w && /steam_vent/.test(String(s.update)));
+      for (const s of foreign) HW.game.removeSystem(s);
+      HW.map.data.weather = { rain: 0.8 };
+      w.onMapLoad(HW.map);
+      r.deferredAlone = w.deferred;
+      r.rainOn = HW.fx._rain?.target;
+      delete HW.map.data.weather;
+      w.onMapLoad(HW.map);
+      r.rainOff = HW.fx._rain?.target;
+      for (const s of foreign) HW.game.addSystem(s);
+      r.deferredAgain = w.deferred;
+      r.foreign = foreign.length;
+      return r;
+    });
+    T.ok(wx.exists && wx.deferredAlone === false && Math.abs(wx.rainOn - 0.8) < 1e-6 && wx.rainOff === 0, 'HW.weather applies map.data.weather rain on load', wx);
+    T.ok(wx.deferredWithPro === wx.foreign > 0 && wx.deferredAgain === wx.foreign > 0, "HW.weather defers while pro.js's weather system is installed", wx);
+
+    // 10. Audio: car_radio loop and radio_off sfx exist and render.
+    const au = await g.hw(async (H) => {
+      const A = H.HW.audio;
+      const rms = (x) => { let s = 0; for (let i = 0; i < x.length; i++) s += x[i] * x[i]; return Math.sqrt(s / Math.max(1, x.length)); };
+      const peak = (x) => { let m = 0; for (let i = 0; i < x.length; i++) m = Math.max(m, Math.abs(x[i])); return m; };
+      const loop = await A.renderOffline('loop', 'car_radio', 6);
+      const off = await A.renderOffline('sfx', 'radio_off', 0.5);
+      return { ids: A.ids?.loops?.includes('car_radio'), loopRms: rms(loop), loopPeak: peak(loop), offPeak: peak(off), finite: [...loop.subarray(0, 4000)].every(Number.isFinite) };
+    });
+    T.ok(au.ids && au.loopRms > 0.002 && au.loopPeak < 1 && au.offPeak > 0.02 && au.finite, "audio: loop 'car_radio' and sfx 'radio_off' render", au);
+
+    // 11. HW.art.warmCg forwards to the CG modules (Colonel CGs, the CG agent's preps); unknown ids no-op.
+    const wc = await g.hw((H) => {
+      const A = H.HW.art;
+      const t0 = performance.now();
+      try { A.warmCg('vhs_frames'); A.warmCg('register_book'); A.warmCg('no_such_cg'); } catch (e) { return { err: String(e) }; }
+      return { ok: typeof A.warmCg === 'function', ms: Math.round(performance.now() - t0) };
+    });
+    T.ok(wc.ok && !wc.err, 'HW.art.warmCg(id)', wc);
+
+    // 12. Title: thunder follows title_bg's built-in lightning (rising edge → thunder with a delay).
+    const th = await g.hw(async (H) => {
+      const HW = H.HW;
+      H.autoAdvance(false);
+      const cg = HW.art.cg('title_bg');
+      let edges = 0, armed = true;
+      for (let t = 0; t <= 40; t += 1 / 60) { const v = cg.lightning(t); if (v >= 0.5 && armed) { edges++; armed = false; } else if (v < 0.05) armed = true; }
+      const calls = [];
+      const orig = HW.audio.sfx;
+      HW.audio.sfx = (id, o) => { if (id === 'thunder') calls.push(o); return orig.call(HW.audio, id, o); };
+      HW.ui.open('title', {});
+      const s = HW.ui.get('title');
+      try { for (let t = 0; t <= 40; t += 1 / 60) { s.t = t; s._thunder(); } } finally { HW.audio.sfx = orig; }
+      HW.ui.close('title', null);
+      await H.steps(80);
+      H.autoAdvance(true);
+      return { edges, calls: calls.length, vol: calls[0]?.vol, delay: calls[0]?.delay };
+    });
+    T.ok(th.edges >= 2 && th.calls === th.edges && th.vol === 0.6 && th.delay > 0.3 && th.delay < 1.2, "title: one thunder (vol .6, short delay) per title_bg lightning strike", th);
+    T.eq(await g.mode(), 'play', 'still in play after the title-screen probe');
+  });
+
   await T.step('special screens (g.screen)', async () => {
     await g.hw((H) => H.screenAnswer('safe', true));
     await g.hw((H) => H.run('test.screen'));

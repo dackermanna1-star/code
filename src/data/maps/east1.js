@@ -499,6 +499,9 @@ export default {
     // Ch3: coming up from the basement with the keys — the guided period (Marcus: "Cafeteria. Go.")
     { id: 'first_period', rect: [17, 8, 2, 2], script: 'ch3.first_period', once: false,
       cond: (s) => !!F(s).ch3_keyring && !F(s).ch3_period_done },
+    // Ch6: at the gym doors behind Marcus — checkpoint 'gym doors' (DESIGN §9.3); he goes in first (narrative-4)
+    { id: 'ch6_gym_doors', rect: [55, 13, 1, 5], script: 'ch6.gym_doors', once: false,
+      cond: (s) => s.chapter === 6 && !!F(s).ch6_breather_done && !F(s).ch6_gym_lights && !F(s).ch6_marcus_taken },
   ],
 
   lights: [

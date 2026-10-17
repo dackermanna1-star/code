@@ -3,7 +3,7 @@
 // Ours live in cg_*.js; each builds its static layers lazily (once) and animates cheap overlays per frame.
 // initCg() builds title_bg and car_interior up front and prebuilds the rest in idle time.
 import { tinyText } from './util.js';
-import { COLONEL_CG_IDS, getColonelCg, initColonelCg } from './cg_colonel.js';
+import { COLONEL_CG_IDS, getColonelCg, initColonelCg, warmColonelCg } from './cg_colonel.js';
 import { background } from './cg_kit.js';
 import { titleBg, prepTitle } from './cg_title.js';
 import { carInterior, prepCar } from './cg_car.js';
@@ -28,6 +28,25 @@ export async function initCg() {
   prepTitle();          // on screen right after boot
   prepCar();            // the prologue's first image
   background(LATE, { delay: 2500 });
+}
+
+// Each CG's build ("prep") function: calling one finishes that CG's layers synchronously.
+const PREP = {
+  title_bg: prepTitle, car_interior: prepCar, register_book: prepRegister, breaker_reveal: prepBreaker,
+  ending_dawn: prepDawn, ending_present: prepPresent, ending_truant: prepTruant, coda_2013: prepCoda,
+};
+
+/**
+ * Pre-build one CG ahead of the scene that shows it (avoids a first-draw hitch): the Colonel's CGs
+ * go to cg_colonel.js warmColonelCg(id); the others finish their staged build now. Unknown ids: no-op.
+ */
+export function warmCg(id) {
+  try {
+    if (COLONEL_CG_IDS.includes(id)) warmColonelCg?.(id);
+    else if (typeof PREP[id] === 'function') PREP[id]();
+  } catch (e) {
+    console.error(`[cg] warm ${id} failed`, e);
+  }
 }
 
 const fallback = new Map();
