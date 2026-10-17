@@ -214,6 +214,10 @@ export function buildParkGround(ctx) {
       paintPath(ctx, { points: p, width: 1.1, wobble: 0.5, seed: 6300 + i })
       ctx.footprints?.addTrail(p.map(([x, z]) => [x + 0.15, z]), t, 0.5)
     })
+    // on the shell's square the alleys end in their windrow caps: the snow round the trodden ways
+    // is trampled down to the square's level, so the ways run on from the alley ends without a ridge
+    const shellWays = TRODDEN.slice(3)
+    t.apply(60, 432, 84, 452, (x, z, h) => (h >= 3 && shellWays.some(p => distToPolyline(x, z, p) < 1.6) ? { h: 2 } : null))
     // trodden ways up the hill and along the bandstand benches
     ctx.footprints?.addTrail([[63.5, 395], [58, 398], [HILL.x + 1, HILL.z]], t, 0.6)
     ctx.footprints?.addTrail([[HILL.x + 11, HILL.z + 4.5], [62, HILL.z + 6], [64, 409]], t, 0.7)

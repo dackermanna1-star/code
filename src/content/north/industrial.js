@@ -40,6 +40,11 @@ export function buildGarages(ctx) {
       x: g0 + 1.9, y: 1.35, z: FZ + 0.08, angle: 0, w: 0.3, h: 0.21, flat: true,
       item: { id: 'north_dog', kind: 'notice', sub: 'plea', look: 'handwritten', style: 'hand', ru: 'ОСТОРОЖНО!\nЗЛАЯ СОБАКА', en: 'CAREFUL!\nVICIOUS DOG' },
     })
+    // painted on the fence east of the gate, the way garages were sold
+    addGraffiti(ctx, {
+      x: g1 + 7.5, y: 1.25, z: FZ + 0.15, angle: 0, h: 0.26,
+      item: { id: 'north_garage_sale', kind: 'graffiti', look: 'spray', color: '#e8e2d2', style: 'sign', ru: 'ПРОДАЁТСЯ ГАРАЖ\nспросить у сторожа', en: 'GARAGE FOR SALE\nask the watchman' },
+    })
   })
   safe('gsk rows', () => {
     const opens = [-1, 21, 9]

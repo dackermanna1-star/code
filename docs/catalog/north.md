@@ -56,7 +56,7 @@ z 147–499.5 PARK x 24–139 (cast-iron fence on the north, east and south side
 | Pylons of the 110 kV line | (492, 112), (536, 93), (580, 74) | wires continue north-east into the whiteout |
 | Park memorial | obelisk (125, 325), faces east | on the axis of the gate opposite 3-й Молодёжный проезд; plaza x 119.5–132.5, z 318.5–331.5 |
 | Frozen pond | (80, 330), rx 26, rz 20 | sign «Выход на лёд запрещён!» on its east shore, ring path at 1.42× radius, six benches facing the ice |
-| Concert shell (эстрада) | (72, 452), opens north | six buried benches in front |
+| Concert shell (эстрада) | (72, 452), opens north | six buried benches on the snowed-in square in front; a trodden way crosses the square between the bench rows (alley I → alley J, alley H ends in the middle aisle) with a spur down the aisle to the stage |
 | Summer café «Берёзка» | (100, 374), faces north | shuttered, chairs stacked under snow |
 | Playground | (113, 470), entrance north | full set with its own lamp |
 | Sledding hill | (53, 401), 2.4 m | packed slide toward the east, a sled at its foot |
@@ -143,7 +143,7 @@ No building in this district is enterable (the open garages are walk-in: two in 
   the public `entrance` stub), the warehouse gate (390, meets the public `path` stub at z 136), the substation
   (522), and the way to the level crossing (x 300 → over the tracks → z 40.2).
 - `path`: the ГСК lanes (z 71.4 and 92.3) and the way in from the gate.
-- `trodden`: the substation → railway-fence trail; three shortcuts in the park.
+- `trodden`: the substation → railway-fence trail; five trodden ways in the park (three shortcuts, two across the concert shell's square).
 - `park`: every alley (`ALLEYS` A–K), the pond ring, both sides of the memorial plaza; the south alley G ends
   on the avenue's sidewalk nav line at (139.1, 513.2); the east alleys start at x 139.6 opposite
   blocks_west's crossing ends (139.5, 236) and (139.5, 412); a `crossing` (150.2, 325) → (139.6, 325) joins the
@@ -179,6 +179,9 @@ No building in this district is enterable (the open garages are walk-in: two in 
 Sizes W × H × D in metres (local X × Y × Z). "fine" = 12.5 cm voxels (non-solid, place with
 `placeFine` from `lib.js`, which also corrects the culling box).
 
+Material defined by this package: `north_signal_lens` (EMIT_CONST, dark maroon albedo, red glow ×7; for
+lamps whose emissive level follows a linked light through the placement flag).
+
 | model | size (m) | pivot / facing / notes |
 |---|---|---|
 | `north_rail` | 15 × 0.25 × 1.875, fine | one track's two rails (gauge 1.5), rusty web, polished head, clips at the 0.75 m sleepers; pivot = segment start on the track axis at sleeper-top level (rail top = pivot + 0.25); runs along +X; non-solid |
@@ -186,9 +189,9 @@ Sizes W × H × D in metres (local X × Y × Z). "fine" = 12.5 cm voxels (non-so
 | `north_cat_pole` | 0.5 × 10.5 × 4.75 | square concrete catenary pole; cantilever, stay and registration arm reach 3.9 m toward local +Z (contact wire ≈ 6.2 m above the pivot) |
 | `north_relay_box` | 1 × 2 × 0.75 | railway relay cabinet, front −Z |
 | `north_crossing_signal` | 1.75 × 4 × 0.75 | striped post, black backboard with two lamp hoods (lamps are `north_signal_lamp` at local (±0.5, 2.25, −0.25)), bell dome; front −Z |
-| `north_signal_lamp` | 0.25 cube | `lamp_red`, follows its light (flag) |
+| `north_signal_lamp` | 0.25 cube | lens in the package's own material `north_signal_lens` (dark maroon, glows red only while its light is on — the stock `lamp_red` has a bright albedo and read as lit under the crossing lamp); follows its light (flag) |
 | `north_board_posts` | 3.5 × 3 × 0.25 | two posts and a blank board (3 × 0.75 at 1.75–2.5 m) for double-sided signs |
-| `north_platform`, `_b`, `_west` | 10 × 3.5 × 4 (deck top 2.25) | high platform section; pivot = min corner (x0, 0, z0); track edge with a painted line at local z 0, railing at the back; `_west` has the end railing |
+| `north_platform`, `_b`, `_west` | 10 × 3.5 × 4 (deck top 2.25) | high platform section; pivot = min corner (x0, 0, z0); worn edge slab with a broken safety line at local z 0–1, deck snow in coherent patches (packed where people stand by the edge, a trodden band along the middle with asphalt showing, soft snow at the back), railing at the back; `_west` has the end railing |
 | `north_platform_stairs` | 2.75 × 3.5 × 4 | five 0.25 m steps down toward +X from 2.25 to 1.25 (2 m wide, handrails); pivot = min corner |
 | `north_platform_shelter` | 7 × 3.25 × 2.75 | blue corrugated shelter with a bench; open side −Z; occludes snow |
 | `north_ticket_booth` | 2.5 × 3.25 × 2.25 | boarded ticket window −Z, door +X; *tint* |

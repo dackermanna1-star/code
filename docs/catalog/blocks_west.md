@@ -65,10 +65,11 @@ Layout (the courtyard is open only at the passage, the NW corner driveway and th
   from x 180 east into the N–S driveway at x 302. Registered in `registry.driveways` for the
   courtyard car.
 - **Parking strips at road level**: north row z 360.4–366.6 (x 188–295, perpendicular, facing
-  the driveway), west row x 182.4–188.6 (z 369.4–460.4, facing west), a perpendicular pocket on
-  the N–S driveway x 296.3–302, z 396.6–429.4. Gaps at every door. Low windrows behind them
-  (z 366.9–368.5 and x 188.9–190.5), cut at every door path.
-- **Facade sidewalks** (y 0.25): z 352.5–355.4 (корп. 2), x 174.5–177.4 (корп. 1),
+  the driveway; the garbage area stands on its east end), west row x 182.4–188.6 (z 369.4–460.4,
+  facing west), a perpendicular pocket on the N–S driveway x 296.3–302, z 396.6–429.4 (the only
+  half-buried cars of D: their drifts must not reach a door path). Gaps at every door. Low
+  windrows behind them (z 366.9–368.5 and x 188.9–190.5), cut at every door path.
+- **Facade sidewalks** (y 0.25): z 352.5–355.4 (корп. 2), x 174.5–177.4 (корп. 1, from z 355.5),
   z 480.4–483.5 (корп. 3, out to the N–S driveway).
 - **Playground** (full set, fence with the gate on the south): centre (246, 424), 22 × 16 m —
   rocket slide, double swing (creaks in the wind), climbing dome «паутинка», carousel, sandbox,
@@ -80,6 +81,9 @@ Layout (the courtyard is open only at the passage, the NW corner driveway and th
 - **Rakushki** (10 shell garages, two tagged with graffiti) along z 491.5, x 179–208, facing the yard.
 - **Electrical cabinet** at (233.2, 485.8) on корп. 3's gable.
 - **Keys** with an intercom fob on the snow at (242, 479) (life `key`).
+- A pull-up bar and a Swedish wall at (212, 427) / (215, 425.4); a bench and a concrete bin where
+  the paths cross at the hub (223.4, 463.4); three painted tyre flower beds under the windows left
+  of the home porch (x 220–222, z 351.3).
 - Story props by the doors: cat with the «Не закрывайте продухи» note at корп. 2 подъезд 1,
   butts at корп. 1 подъезд 2, a bicycle at корп. 3 подъезд 3, the sled at the home door.
 - «Пропала собака» flyer with one tab left beside корп. 1 подъезд 3.
@@ -112,11 +116,13 @@ poplars and dry weeds, then snow and fog (the wrap band begins at x 600).
 | корп. 3 (south, II-32 5 fl.) | facade z 486, x 546–589 | (557.75, 486), (579.25, 486) → north |
 
 Variations: the passage (x 534–546) has a **steel bar fence with its gate swung open** into the
-yard at z 493 (fence x 531.9–538.2 and 542.2–545.9, leaf hinged at (542.2, 493)); the passage
+yard at z 493 (fence x 531.9–538.2 and 542.2–545.9, the leaf hinged at (542.2, 493) and frozen
+open toward the north-west — "an open gate to a courtyard that feels familiar"); the passage
 lamp is dead; mercury lamps NW and on the playground (buzzing); brick garbage enclosure with 3
 containers at (588, 365.6); playground mirrored with a fly-agaric sandbox (558, 424); a frozen
 carrier bag on a playground bench; a kids' sledging hill with a sled at (586, 456); a buried
-Moskvich in the yard at (574, 468); different notices («residents' meeting», «close the door»).
+Moskvich in the yard at (574, 468); the pull-up corner at (562, 456); different notices
+(«residents' meeting», «close the door»).
 The inner yard around the playground is a **silence zone** (`courtyard_F_still`: wind 0, silence)
 — the wind stops there. Trodden paths as in D; the "shop line" here simply runs out at the east
 edge (596, 436.5); the SW path leads to the mouth of the eastern N–S driveway at (463, 499.4) with
@@ -141,7 +147,8 @@ a nav link onto it.
 - **Rakushki** along the N–S driveway x ≈ 298.6, z 197–247, fronts to the driveway («Спартак» on one).
 - South edge: a parking strip at road level along the E–W driveway (z 315.6–322, x 166–278, cars
   nose to the driveway) with a windrow and a row of poplars behind it.
-- Trodden paths: школа walk ↔ courtyard round both ends of корп. 1; courtyard → Берёзовая
+- Trodden paths: школа walk ↔ courtyard round both ends of корп. 1 (the east one between the
+  gable and the rakushki, x ≈ 293); courtyard → Берёзовая
   (150.2, 283); courtyard → E–W driveway (288.2, 321.4); short tracks from the bays and the
   courtyard driveway up to the facade sidewalks.
 

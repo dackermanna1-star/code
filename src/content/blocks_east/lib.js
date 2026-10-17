@@ -8,11 +8,18 @@ import { paintPath, paintSidewalk } from '../base/api.js'
 
 export const PKG = 'blocks_east'
 
-/** Run a build step; log and continue if it throws, so one broken part never empties the region. */
+const DEBUG = (() => { try { return new URLSearchParams(location.search).has('be_debug') } catch { return false } })()
+
+/** Run a build step; log and continue if it throws, so one broken part never empties the region.
+ *  With ?be_debug=1 every step logs its duration (development only). */
 export function safe(name, fn) {
+  const t0 = DEBUG ? performance.now() : 0
+  if (DEBUG) console.log(`[${PKG}] > ${name}`)
   try { return fn() } catch (e) {
     console.error(`[${PKG}] ${name} failed`, e)
     return null
+  } finally {
+    if (DEBUG) console.log(`[${PKG}] < ${name} ${(performance.now() - t0).toFixed(0)} ms`)
   }
 }
 
