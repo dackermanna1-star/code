@@ -44,14 +44,18 @@ function roomNumber(label) {
   const m = String(label || '').match(/\d+[A-Z]?/i);
   return m ? m[0].slice(0, 3).toUpperCase() : '';
 }
-/** Wired glass: dark cold pane, diamond wire mesh, a highlight streak. */
+/** Small wired-glass pane: deep cold glass, a sparse wire lattice, one short reflection streak. */
 function wiredGlass(k, x, y, w, h, clean, seed = 0) {
-  k.glass(x, y, w, h, { clean, seed });
-  const wire = mix(PAL.g3, PAL.blue_d, 0.4);
-  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (((i + j) % 3 === 0) || ((i - j + 30) % 3 === 0 && j % 2 === 0)) {
-    if ((x + i + y + j) % 2 === 0) k.P(x + i, y + j, wire);
-  }
-  k.P(x + 1, y + 1, PAL.moon_l);
+  const base = mix(PAL.blue_dd, PAL.navy_d, 0.5);
+  k.R(x, y, w, h, base);
+  k.DV(x, y + (h >> 1), w, h - (h >> 1), PAL.ink, 0.1, 0.5);
+  const wire = mix(base, PAL.g4, clean ? 0.35 : 0.25);
+  for (let j = 1; j < h; j += 2) for (let i = (j >> 1) & 1; i < w; i += 2) k.P(x + i, y + j, wire);
+  // reflection: a short bright diagonal near the top-left, a faint echo lower down
+  const sx = x + Math.min(w - 1, 2 + (seed & 1));
+  k.P(sx, y + 1, PAL.moon_l); k.P(sx - 1, y + 2, PAL.moon_l); k.P(sx - 1, y + 3, PAL.moon); if (sx - 2 >= x) k.P(sx - 2, y + 4, PAL.moon);
+  k.P(x + w - 1, y + h - 4, PAL.blue_l); k.P(x + w - 2, y + h - 3, PAL.blue_l);
+  k.H(x, y, w, mix(base, PAL.moon, 0.35));
 }
 /** Dark doorway seen through an open door: black near the top, fading so the threshold shows. */
 function doorway(k, x, y, w, h) {
@@ -96,11 +100,13 @@ function doorClass(o) {
   k.frame(4, 22, 8, 6, W.dk); k.H(4, 22, 8, W.dd); k.V(11, 23, 5, W.hi); k.H(5, 27, 7, W.hi);
   // kick plate
   k.R(2, 28, 12, 3, clean ? BRASS.md : mix(BRASS.dk, PAL.g3, 0.4)); k.H(2, 28, 12, clean ? BRASS.hi : BRASS.md);
-  // number plate
+  // number plate: tarnished brass, engraved digits (catches the flashlight, doesn't glow)
   const num = roomNumber(o.label);
-  k.R(3, 2, 10, 7, T.dd); k.H(3, 2, 10, T.dk); k.H(3, 8, 10, dk(T.dd, 0.4));
-  if (num) k.T(3 + Math.max(0, Math.floor((10 - (num.length * 4 - 1)) / 2)), 3, num, clean ? PAL.gold_l : PAL.gold);
-  else { k.H(5, 5, 6, BRASS.dk); }
+  const pw = num ? k.numWidth(num) + 2 : 8, px0 = 2 + ((12 - pw) >> 1);
+  const pb = clean ? BRASS.lt : mix(BRASS.md, PAL.g3, 0.35);
+  k.R(px0, 2, pw, 7, pb); k.H(px0, 2, pw, clean ? BRASS.hi : BRASS.lt); k.H(px0, 8, pw, BRASS.dd); k.V(px0 + pw - 1, 3, 5, BRASS.dk);
+  if (num) k.num(px0 + 1, 3, num, clean ? BRASS.dd : mix(PAL.brown_dd, PAL.ink, 0.5));
+  else { k.H(px0 + 2, 5, pw - 4, BRASS.dd); }
   // window: narrow wired glass at head height
   k.frame(5, 9, 6, 11, W.dd); k.V(10, 10, 9, W.hi);
   if (state === 'locked') {
@@ -121,14 +127,13 @@ function doorClass(o) {
     if (o.variant % 3 === 1) { k.L(3, 13, 4, 15, lt(W.md, 0.2)); k.P(4, 13, lt(W.md, 0.2)); }
   }
   if (state === 'jammed') {
-    // leaf dropped & skewed: black wedge at the top latch corner, gap down the latch side,
-    // splintered casing, a split in the lower panel, and drag marks on the floor
-    k.poly([[8, 2], [14, 2], [14, 7]], PAL.ink);
-    k.V(13, 7, 20, PAL.ink);
-    k.P(14, 13, PAL.tan_l); k.P(15, 14, PAL.tan_l); k.P(14, 15, PAL.maple_l); k.P(14, 17, PAL.tan_l); k.P(15, 18, W.hi);
-    k.L(5, 23, 9, 27, W.dd);
-    k.R(2, 31, 12, 1, W.dd);
-    dragMarks(k, 2, 32, 12, clean);
+    // the leaf has dropped on its hinges and racked in the frame: shear it (latch side sinks 3 px),
+    // leaving a black wedge under the head jamb; splintered stop at the latch; drag arcs on the floor
+    k.shiftCols(2, 2, 12, 30, (i) => Math.floor((i * 4) / 12), [10, 10, 15, 255]);
+    k.V(13, 2, 29, PAL.ink);
+    k.P(14, 17, PAL.tan_l); k.P(14, 19, PAL.maple_l); k.P(15, 18, PAL.tan); k.P(14, 21, PAL.tan);
+    k.L(4, 23, 10, 28, W.dd);
+    dragMarks(k, 1, 32, 13, clean);
   }
   k.H(2, 31, 12, dk(T.dd, 0.2));
   return k.done({ outline: false });
@@ -208,7 +213,12 @@ function doorMetal(o) {
   const code = (String(o.label || '').match(/[A-Z0-9]{1,3}/i) || [''])[0].toUpperCase();
   const st = clean ? PAL.cream_l : mix(PAL.cream, S.md, 0.35);
   if (code) k.T(2 + Math.floor((12 - (code.length * 4 - 1)) / 2), 5, code, st);
-  else { k.R(4, 4, 8, 5, clean ? PAL.yellow : PAL.mustard); for (let i = 0; i < 8; i += 2) k.L(4 + i, 8, 5 + i, 4, OUT); k.frame(4, 4, 8, 5, PAL.ink); }
+  else {
+    // DANGER placard: black header with the red oval, cream body with two text lines
+    const cr = clean ? PAL.paper : mix(PAL.paper_d, PAL.g4, 0.3);
+    k.R(4, 4, 8, 7, cr); k.R(4, 4, 8, 3, PAL.ink); k.H(6, 5, 4, clean ? PAL.red_l : PAL.red); k.P(5, 5, PAL.red_d); k.P(10, 5, PAL.red_d);
+    k.H(5, 8, 6, PAL.g2); k.H(5, 9, 4, PAL.g3); k.frame(3, 3, 10, 9, OUT);
+  }
   // louvre vent low
   for (let j = 0; j < 4; j++) { k.H(4, 22 + j * 2, 8, S.dd); k.H(4, 23 + j * 2, 8, S.lt); }
   // lever handle
@@ -254,15 +264,20 @@ function doorGlass(o) {
     for (let j = 0; j < fh; j += 2) k.H(fx, fy + j, fw, mix(PAL.cream_d, PAL.g3, 0.5));
     k.V(fx + 6, fy, fh, PAL.g3);
   }
-  // gold leaf: a word arc + rule (label shown when it is short enough to letter)
-  const gold = clean ? PAL.gold : mix(PAL.gold, PAL.cream_d, 0.4), gd = clean ? PAL.brass : PAL.brass_d;
-  const lab = String(o.label || '').toUpperCase().replace(/[^A-Z0-9 ]/g, '');
-  if (lab && lab.length <= 2) k.T(fx + 1, fy + 3, lab, gold);
-  else {
-    for (let i = 0; i < 6; i++) { const yy = fy + 3 + (i === 0 || i === 5 ? 1 : 0); k.P(fx + 1 + i, yy, gold); if (i % 2 === 0) k.P(fx + 1 + i, yy + 1, gd); else k.P(fx + 1 + i, yy - 1, gold); }
-    k.H(fx + 2, fy + 6, 4, gold); k.P(fx + 3, fy + 7, gd);
-  }
-  k.H(fx + 1, fy + 9, 6, gd);
+  // gold leaf lettering: two lines of tiny letterforms with a dark keyline, then a rule
+  const gold = clean ? PAL.gold_l : mix(PAL.gold, PAL.cream_d, 0.35), gd = clean ? PAL.brass : mix(PAL.brass_d, PAL.g3, 0.3);
+  const GL = [['11', '10', '11'], ['10', '11', '10'], ['11', '11', '11'], ['11', '10', '10'], ['10', '10', '11'], ['11', '01', '11'], ['01', '11', '01']];
+  const lab = String(o.label || 'OFFICE').toUpperCase().replace(/[^A-Z]/g, '') || 'OFFICE';
+  const word = (y0, n, off) => {
+    let x = fx + ((fw - (n * 3 - 1)) >> 1);
+    for (let i = 0; i < n; i++, x += 3) {
+      const g = GL[(lab.charCodeAt((i + off) % lab.length) * 7 + i) % GL.length];
+      for (let j = 0; j < 3; j++) for (let b = 0; b < 2; b++) if (g[j][b] === '1') { k.P(x + b, y0 + j, gold); k.P(x + b + 1, y0 + j + 1, gd); }
+    }
+  };
+  word(fy + 2, 3, 0);
+  word(fy + 6, 2, 3);
+  k.H(fx + 1, fy + 10, 6, gold); k.H(fx + 2, fy + 11, 6, gd);
   // lower panel, knob, kick
   k.frame(4, 21, 8, 6, W.dk); k.H(5, 26, 7, W.hi);
   knob(k, 11, 18, clean);
@@ -408,57 +423,61 @@ function trapdoor(o) {
 }
 
 // ---- stair_spiral -----------------------------------------------------------------------------
+// A helix of wedge treads round a pole, climbing out of view. Back-half treads are drawn first,
+// then the pole, then the front half (each half bottom→top) so nearer and higher treads overlap.
 function stairSpiral(o) {
   const { clean } = o;
-  const k = new K(36, 88, -2, -56, seedOf('spiral', clean));
-  const I = clean ? { hi: PAL.g5, lt: PAL.g4, md: PAL.g3, dk: PAL.g2, dd: PAL.g1 } : { hi: mix(PAL.g4, PAL.rust, 0.25), lt: PAL.g3, md: mix(PAL.g2, PAL.rust, 0.18), dk: PAL.g1, dd: PAL.shadow };
-  const cx = 16, cy = 16, R = 14, Ry = 9, rise = 5;
-  k.shadow(2, 22, 30, 9);
-  k.shadow(4, 28, 26, 3);
-  // treads from the top down so lower (nearer) treads overlap upper ones correctly
-  const N = 14;
-  const treads = [];
-  for (let i = 0; i < N; i++) treads.push(i);
-  // pole behind
-  for (let i = N - 1; i >= 0; i--) {
-    const a0 = (i * Math.PI) / 4.2 + Math.PI * 0.35, a1 = a0 + Math.PI / 3.6;
-    const yo = cy - i * rise;
+  const k = new K(36, 92, -2, -60, seedOf('spiral', clean));
+  const I = clean
+    ? { hi: PAL.g6, lt: PAL.g5, md: PAL.g4, dk: PAL.g2, dd: PAL.g1 }
+    : { hi: mix(PAL.g5, PAL.tan, 0.2), lt: mix(PAL.g4, PAL.rust, 0.15), md: mix(PAL.g3, PAL.rust, 0.18), dk: PAL.g1, dd: PAL.shadow };
+  const cx = 16, cy = 18, R = 14, Ry = 8, rise = 6, N = 11, turn = Math.PI / 4;
+  const ang = (i) => Math.PI * 0.62 - i * turn;          // tread i starts here and sweeps by `turn`
+  const fade = (i) => Math.max(0, (i - 5) / (N - 5));     // the upper flight dissolves into the dark
+  const fc = (c, i, m = 0.85) => mix(c, PAL.ink, fade(i) * m);
+  // landing disc + floor shadow
+  k.shadow(1, 20, 32, 8);
+  k.E(cx, cy + 1, 13, 6, fc(I.dk, 0));
+  k.E(cx, cy, 12, 5, fc(I.md, 0));
+  const tread = (i) => {
+    const a0 = ang(i), a1 = a0 - turn, yo = cy - (i + 1) * rise;
     const pts = [[cx, yo]];
-    for (let s = 0; s <= 4; s++) { const a = a0 + ((a1 - a0) * s) / 4; pts.push([cx + Math.cos(a) * R, yo + Math.sin(a) * Ry]); }
-    const front = Math.sin((a0 + a1) / 2) > 0;
-    const fade = Math.min(1, i / (N - 1));
-    const top = mix(front ? I.lt : I.md, PAL.ink, fade * 0.75);
-    k.poly(pts, top);
-    // nosing + riser (thickness) along the outer arc
-    for (let s = 0; s <= 8; s++) {
-      const a = a0 + ((a1 - a0) * s) / 8;
+    for (let s2 = 0; s2 <= 6; s2++) { const a = a0 + ((a1 - a0) * s2) / 6; pts.push([cx + Math.cos(a) * R, yo + Math.sin(a) * Ry]); }
+    const mid = (a0 + a1) / 2, lit = Math.cos(mid) < 0.2 ? I.lt : I.md;
+    k.poly(pts, fc(lit, i));
+    for (let s2 = 0; s2 <= 10; s2++) {
+      const a = a0 + ((a1 - a0) * s2) / 10;
       const x = Math.round(cx + Math.cos(a) * R), y = Math.round(yo + Math.sin(a) * Ry);
-      k.P(x, y, mix(I.hi, PAL.ink, fade * 0.8));
-      k.P(x, y + 1, mix(I.dk, PAL.ink, fade * 0.6));
+      k.P(x, y, fc(I.hi, i)); k.P(x, y + 1, fc(I.dk, i)); k.P(x, y + 2, fc(I.dd, i));
     }
-    // diamond plate dots
-    for (let s = 0; s < 3; s++) {
-      const a = a0 + ((a1 - a0) * (s + 0.5)) / 3, rr = R * 0.6;
-      k.P(Math.round(cx + Math.cos(a) * rr), Math.round(yo + Math.sin(a) * rr * (Ry / R)), mix(I.hi, PAL.ink, fade * 0.8));
+    // leading edge (the nosing line back to the pole)
+    k.L(cx, yo, Math.round(cx + Math.cos(a0) * R), Math.round(yo + Math.sin(a0) * Ry), fc(I.hi, i));
+    // baluster up to the rail
+    const bx = Math.round(cx + Math.cos(a1) * (R - 1)), by = Math.round(yo + Math.sin(a1) * (Ry - 1));
+    k.V(bx, by - 11, 11, fc(I.md, i));
+  };
+  const back = [], front = [];
+  for (let i = 0; i < N; i++) (Math.sin(ang(i) - turn / 2) < 0 ? back : front).push(i);
+  const rail = (sel) => {
+    let prev = null;
+    for (let s2 = 0; s2 <= N * 12; s2++) {
+      const i = s2 / 12, a = ang(i) - turn, front2 = Math.sin(a) >= 0;
+      const x = Math.round(cx + Math.cos(a) * (R - 1)), y = Math.round(cy - (i + 1) * rise + Math.sin(a) * (Ry - 1) - 11);
+      if (prev && front2 === sel) { k.L(prev[0], prev[1], x, y, fc(front2 ? I.hi : I.md, Math.floor(i))); k.P(x, y + 1, fc(I.dd, Math.floor(i))); }
+      prev = [x, y];
     }
-    // baluster from the outer end of the tread up to the rail
-    const ax = Math.round(cx + Math.cos(a1) * (R - 1)), ay = Math.round(yo + Math.sin(a1) * (Ry - 1));
-    k.V(ax, ay - 12, 12, mix(I.md, PAL.ink, fade * 0.7));
-  }
-  // central pole
-  k.R(cx - 1, cy - N * rise - 8, 3, N * rise + 10, I.dk); k.V(cx - 1, cy - N * rise - 8, N * rise + 10, I.lt);
-  k.DV(cx - 1, cy - N * rise - 8, 3, 30, PAL.ink, 0.9, 0);
-  // handrail: helix over the outer edge
-  let prev = null;
-  for (let s = 0; s <= N * 10; s++) {
-    const i = s / 10, a = (i * Math.PI) / 4.2 + Math.PI * 0.35 + Math.PI / 3.6;
-    const x = Math.round(cx + Math.cos(a) * (R - 1)), y = Math.round(cy - i * rise + Math.sin(a) * (Ry - 1) - 12);
-    const fade = Math.min(1, i / N);
-    if (prev) k.L(prev[0], prev[1], x, y, mix(Math.sin(a) > 0 ? I.hi : I.md, PAL.ink, fade * 0.8));
-    prev = [x, y];
-  }
-  // newel post at the foot
-  k.R(28, 6, 3, 15, I.md); k.V(28, 6, 15, I.hi); k.R(27, 4, 5, 3, I.lt); k.H(27, 4, 5, I.hi);
+  };
+  back.forEach(tread);
+  rail(false);
+  const top = cy - N * rise - 16;
+  k.R(cx - 1, top, 3, cy - top, I.dk); k.V(cx - 1, top, cy - top, I.lt); k.V(cx + 1, top, cy - top, I.dd);
+  k.DV(cx - 1, top, 3, 22, PAL.ink, 1, 0);
+  front.forEach(tread);
+  rail(true);
+  // newel post + ball at the foot
+  k.R(cx + R - 2, cy - 12, 2, 13, I.md); k.V(cx + R - 2, cy - 12, 13, I.hi);
+  k.R(cx + R - 3, cy - 14, 4, 3, I.lt); k.H(cx + R - 3, cy - 14, 4, I.hi);
+  if (!clean) k.rust(cx - R, cy - 30, R * 2, 30, 5);
   return k.done({ outline: OUT });
 }
 
@@ -467,11 +486,14 @@ function coalChute(o) {
   const { state, clean } = o;
   const k = new K(32, 34, 0, -18, seedOf('chute', state, clean));
   const I = clean ? { hi: PAL.g5, lt: PAL.g4, md: PAL.g3, dk: PAL.g2 } : { hi: mix(PAL.g4, PAL.rust, 0.3), lt: mix(PAL.g3, PAL.rust, 0.35), md: mix(PAL.g2, PAL.rust, 0.3), dk: PAL.g1 };
-  // sheet-metal apron below the hatch, blackened by coal
-  k.poly([[6, 0], [26, 0], [29, 15], [3, 15]], I.md);
-  k.H(6, 0, 20, I.lt); k.L(6, 0, 3, 15, I.hi); k.L(26, 0, 29, 15, I.dk);
-  k.D(4, 2, 24, 13, PAL.ink, 0.45);
-  for (let i = 0; i < 9; i++) k.P(8 + k.ri(0, 16), 4 + k.ri(0, 10), PAL.g3);
+  // sheet-metal slide below the hatch, coal-blackened toward the foot
+  k.poly([[5, -1], [27, -1], [29, 15], [3, 15]], I.md);
+  k.L(5, -1, 3, 15, I.hi); k.L(27, -1, 29, 15, I.dk);
+  for (const yy of [4, 10]) { k.H(5, yy, 23, I.dk); for (let x = 6; x < 27; x += 4) k.P(x, yy - 1, I.hi); }
+  for (let j = 0; j < 16; j++) { const t = j / 15; const y = -1 + j; const xl = Math.round(5 - (j * 2) / 16), xr = Math.round(27 + (j * 2) / 16); k.H(xl + 1, y, xr - xl - 1, mix(I.md, PAL.ink, t * 0.75)); }
+  k.L(5, -1, 3, 15, I.hi); k.L(27, -1, 29, 15, I.dk);
+  for (const yy of [4, 10]) { k.H(5, yy, 23, mix(I.dk, PAL.ink, 0.3)); for (let x = 6; x < 27; x += 4) k.P(x, yy - 1, mix(I.hi, PAL.ink, yy / 20)); }
+  for (let i = 0; i < 14; i++) { const x = 5 + k.ri(0, 22), y = 11 + k.ri(0, 4); k.P(x, y, k.chance(0.5) ? PAL.ink : PAL.g3); }
   // iron frame
   k.R(2, -16, 28, 15, I.dk); k.frame(2, -16, 28, 15, OUT); k.H(3, -15, 26, I.hi); k.V(3, -15, 13, I.lt);
   for (const [rx, ry] of [[4, -14], [27, -14], [4, -4], [27, -4]]) k.P(rx, ry, I.hi);

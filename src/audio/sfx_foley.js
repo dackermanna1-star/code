@@ -1,7 +1,7 @@
 // Foley: doors, locks, chains, lockers, gates, flashlights, office & classroom objects,
 // machines. Physical recipes: friction creaks are stick-slip impulse trains through body
 // resonances; impacts are modal (inharmonic) rings plus contact noise.
-import { ring, burst, grains, tone, stickSlip, envHump, envPts, xlerp, BQ, filt, mixInto, saturate, TAU } from './dsp.js';
+import { ring, burst, grains, tone, envHump, envPts, xlerp, BQ, filt, mixInto, saturate, TAU } from './dsp.js';
 import { RATIOS, thump, knock, metal, clink, latch, creak, scrape, whoosh, rumble, grit, paper } from './synth.js';
 
 /** Glass in a door's wired-glass window rattling after an impact. */
@@ -13,11 +13,11 @@ export const FOLEY_SFX = {
   // ------------------------------------------------------------------ doors
   door_open_wood: { peak: -9, var: 4, gen(S) {
     const { sr, R } = S, o = S.alloc(1.25);
-    latch(o, sr, 0, { amp: 0.55, f: R.range(1900, 2300), R });
-    clink(o, sr, 0.07, { f: 2900, amp: 0.12, t60: 0.03, R });
-    knock(o, sr, 0.1, { f: 175, amp: 0.45, t60: 0.1, click: 0.2, R });
+    latch(o, sr, 0, { amp: 0.3, f: R.range(1900, 2300), R });
+    clink(o, sr, 0.07, { f: 2900, amp: 0.08, t60: 0.03, R });
+    knock(o, sr, 0.1, { f: 175, amp: 0.3, t60: 0.1, click: 0.2, R });
     const peakU = R.range(0.3, 0.5), top = R.range(80, 120);
-    creak(o, sr, 0.13, { dur: R.range(0.7, 0.9), body: 'door', R, gain: 0.85, jitter: 0.2,
+    creak(o, sr, 0.13, { dur: R.range(0.7, 0.9), body: 'door', R, gain: 2.2, jitter: 0.2,
       rate: (u) => (u < peakU ? xlerp(28, top, u / peakU) : xlerp(top, 45, (u - peakU) / (1 - peakU))),
       amp: envPts([[0, 0], [0.12, 0.7], [peakU, 1], [0.85, 0.6], [1, 0]]) });
     whoosh(o, sr, 0.15, { dur: 0.7, f0: 200, fm: 650, f1: 250, amp: 0.12, R });
@@ -228,7 +228,7 @@ export const FOLEY_SFX = {
     clink(o, sr, 0, { f: 3200, amp: 0.5, t60: 0.01, R });
     knock(o, sr, 0, { f: 1100, amp: 0.3, t60: 0.015, R });
     latch(o, sr, 0.06, { amp: 0.3, f: 2600, R });
-    tone(o, sr, 0.09, 0.22, { f: (t) => 380 + 200 * t, a: envHump(0.05, 0.22), wave: 'saw' });
+    tone(o, sr, 0.09, 0.16, { f: (t) => 380 + 200 * t, a: (t) => 0.25 * envHump(0.04, 0.16)(t), wave: 'saw' });
     return filt(o, new BQ(sr, 'lp', 3500, 0.7));
   } },
   camcorder_whir: { peak: -14, var: 2, gen(S) {
@@ -273,8 +273,9 @@ export const FOLEY_SFX = {
     for (let k = 0; k < R.int(3, 4); k++) {
       const d = R.range(0.16, 0.34);
       knock(o, sr, t, { f: 2200, amp: 0.45, t60: 0.012, click: 0.9, R });
-      scrape(o, sr, t, { dur: d, f: R.range(2200, 3000), q: 1, grain: 90, depth: 0.9, amp: envHump(0.3, 1), gain: 0.9, R });
-      if (R.chance(0.4)) tone(o, sr, t + d * 0.4, 0.06, { f: R.range(2100, 2600), a: envHump(0.02, 0.06) });
+      scrape(o, sr, t, { dur: d, f: R.range(2200, 3000), q: 1, grain: 90, depth: 0.9, amp: envHump(0.3, 1), gain: 1.4, R });
+      grains(o, sr, t, { dur: d, R, rate: 260, amp: envHump(0.3, 1), f: [2000, 6000], t60: [0.001, 0.004], click: 0.5, gain: 0.5 });
+      if (R.chance(0.25)) tone(o, sr, t + d * 0.4, 0.05, { f: R.range(2100, 2600), a: (tt) => 0.025 * envHump(0.02, 0.05)(tt) });
       t += d + R.range(0.04, 0.12);
     }
     return o;

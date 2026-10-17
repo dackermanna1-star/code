@@ -29,7 +29,7 @@ export const ITEMS = {
                        : 'A TDK SA90, Leah\'s handwriting on the J-card: FOR THE DRIVE. Pittsburgh\'s not till Thanksgiving, but okay.' },
   gum:             { name: 'Big Red', key: false, use: 'item.gum', desc: 'Big Red, five sticks left. Mom says it makes the car smell like a candle shop.' },
   house_key:       { name: 'House Key', key: true, desc: 'Our front door key, with a pink rubber cap so I can find it in the dark. Ours until Christmas.' },
-  danny_flashlight:{ name: "Danny's Flashlight", key: true,
+  danny_flashlight:{ use: 'engine:use_danny_flashlight', name: "Danny's Flashlight", key: true,
                      desc: (s) => (s.flags.danny_light_used || (s.chapter || 0) >= 3
                        ? 'It\'s still on. It\'s been on this whole time.'
                        : 'Red plastic, masking tape: DANNY K. It was still on when it rolled to my feet.') },

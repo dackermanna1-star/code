@@ -12,7 +12,7 @@
 // register     near-silent tension pad
 // ending_bad   one detuned music-box note, repeating, slowing, fading — then nothing
 import { Voice } from './voice.js';
-import { dbToGain, mtof, cents } from './dsp.js';
+import { dbToGain, cents } from './dsp.js';
 import { MELODY_BARS, HARMONY_BARS, below } from './alma.js';
 import { MUSIC_BOX, PIANO, PLUCK, SUB_PULSE, JUNK_HIT, cornet, clarinet, tuba, horn, pad } from './instruments.js';
 import { noiseLayer, modulate } from './layers.js';
@@ -20,6 +20,13 @@ import { noiseLayer, modulate } from './layers.js';
 MUSIC_BOX.id = 'mus_box'; PIANO.id = 'mus_piano'; PLUCK.id = 'mus_pluck'; SUB_PULSE.id = 'mus_sub'; JUNK_HIT.id = 'mus_junk';
 
 const spb = (bpm) => 60 / bpm;
+
+/** Output calibration per track (dB), measured with tools/audio-qa.mjs (≈ -20 dBFS RMS;
+ *  'register' and 'ending_bad' are meant to sit near silence). */
+export const TRACK_GAIN = {
+  title: 0, phonograph: 0, ending_good: 2.5, ending_true: -0.5, credits: -2.5,
+  drone_1: -1.5, drone_2: -2, drone_3: -4, chase: -8, register: 0, ending_bad: 0,
+};
 /** The chord sounding at a beat inside a bar. */
 function chordAt(bar, beat) {
   let cur = HARMONY_BARS[bar][0][1];
@@ -32,7 +39,7 @@ export class Track {
     this.eng = eng; this.id = id; this.R = eng.R.fork();
     const t0 = eng.now + 0.05;
     this.t0 = t0;
-    this.core = new Voice(eng, { id: `music:${id}`, dest, send, wet: 0.35, t0 });
+    this.core = new Voice(eng, { id: `music:${id}`, dest, send, wet: 0.35, t0, vol: dbToGain(TRACK_GAIN[id] ?? 0) });
     this.core.end = Infinity;
     const g = this.core.out.gain;
     g.setValueAtTime(0, t0); g.linearRampToValueAtTime(1, t0 + Math.max(0.05, fade));
@@ -52,6 +59,7 @@ export class Track {
     this.core.chain(this.input, ...nodes, this.post);
   }
   filter(type, f, q = 0.707, g = 0) { return this.core.filter(type, f, q, g, false); }
+  gain(v) { return this.core.gain(v); }
   shaper(drive = 2) {
     const n = 1024, c = new Float32Array(n), k = Math.tanh(drive);
     for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(x * drive) / k; }
@@ -138,16 +146,25 @@ export class Track {
 
 // ---- shared continuous pieces ------------------------------------------------------------------
 /** Drone: detuned saw pairs on `tones` (Hz) → slowly moving low-pass; sub; air; shimmer. */
-function drone(T, eng, { tones, lp, lpMod, level, sub, subLevel = -6, air = -24, airF = 600, shimmer = [], shimLevel = -26, seed = 1 }) {
+function drone(T, eng, { tones, lp, lpMod, level, sub, subLevel = -6, air = -24, airF = 600, shimmer = [], shimLevel = -26, mid = null, seed = 1 }) {
   const V = T.core, out = V.gain(dbToGain(level));
   out.connect(T.input);
   const f = V.filter('lowpass', lp, 0.9);
   f.connect(out);
   modulate(V, eng, f.frequency, { period: 37, points: 10, depth: lpMod, seed });
+  // a slow, vowel-like resonance over the same oscillators: mid presence on small speakers
+  let mf = null;
+  if (mid) {
+    mf = V.filter('bandpass', mid.f, mid.q || 5);
+    const mg = V.gain(dbToGain(mid.level));
+    mf.connect(mg); mg.connect(out);
+    modulate(V, eng, mf.frequency, { period: 41, points: 9, depth: mid.f * 0.4, seed: seed + 50 });
+    modulate(V, eng, mg.gain, { period: 27, points: 8, depth: dbToGain(mid.level) * 0.7, seed: seed + 51 });
+  }
   tones.forEach((hz, i) => {
     for (const dt of [-7, 6]) {
       const o = V.osc('sawtooth', hz, dt + i * 1.3), g = V.gain(0.5 / (1 + i * 0.4));
-      o.connect(g); g.connect(f); V.play(o, 0, null);
+      o.connect(g); g.connect(f); if (mf) g.connect(mf); V.play(o, 0, null);
       modulate(V, eng, o.detune, { period: 23 + i * 7, points: 8, depth: 4, seed: seed + i * 3 + (dt > 0 ? 1 : 0) });
     }
   });
@@ -197,7 +214,7 @@ export const TRACKS = {
 
   phonograph(T, eng) {
     const TON = 70, beat = spb(92); // B-flat, school band
-    T.fx(T.shaper(1.8), T.filter('highpass', 300, 0.7), T.filter('peaking', 1400, 1, 5), T.filter('lowpass', 3400, 0.8), T.filter('lowpass', 4200, 0.6), T.wow(0.0025, 0.55, 0.00025, 7.5));
+    T.fx(T.gain(0.22), T.shaper(1.8), T.gain(0.5), T.filter('highpass', 300, 0.7), T.filter('peaking', 1400, 1, 5), T.filter('lowpass', 3400, 0.8), T.filter('lowpass', 4200, 0.6), T.wow(0.0025, 0.55, 0.00025, 7.5));
     T.wet(0.22);
     // surface noise is on the disc, not in the band: it bypasses the wow but not the horn
     T.every([3.3, 3.3], (t) => eng.play('record_crackle', { t, dest: T.post, send: null, vol: 0.32 }), { start: [0, 0.01] });
@@ -218,7 +235,7 @@ export const TRACKS = {
 
   ending_good(T, eng) {
     const R = T.R, TON = 67, beat = spb(84); // G major, Leah's tape
-    T.fx(T.wow(0.0011, 0.45, 0.00012, 6), T.shaper(1.25), T.filter('lowpass', 5200, 0.7), T.filter('highpass', 90));
+    T.fx(T.wow(0.0011, 0.45, 0.00012, 6), T.gain(0.45), T.shaper(1.25), T.filter('lowpass', 5200, 0.7), T.filter('highpass', 90));
     T.wet(0.3);
     noiseLayer(T.core, eng, { color: 'white', filters: [['bandpass', 5000, 0.4]], level: -50, dest: T.post });
     T.seq(84, 16, (t, bar, loop) => {
@@ -283,19 +300,19 @@ export const TRACKS = {
 
   drone_1(T, eng) {
     T.wet(0.4);
-    drone(T, eng, { tones: [55, 82.41, 110], lp: 320, lpMod: 140, level: -14, sub: 55, subLevel: -10, air: -26, shimmer: [440 * 1.002, 659.25], shimLevel: -34, seed: 1 });
+    drone(T, eng, { tones: [55, 82.41, 110], lp: 320, lpMod: 140, level: -14, sub: 55, subLevel: -10, air: -26, shimmer: [440 * 1.002, 659.25], shimLevel: -34, mid: { f: 620, q: 6, level: 9 }, seed: 1 });
     T.every([18, 40], (t) => swell(T, t, T.R.pick([110, 164.81, 146.83]), T.R.range(6, 9), 0.5), { start: [8, 16] });
   },
   drone_2(T, eng) {
     T.wet(0.45);
-    drone(T, eng, { tones: [43.65, 87.31, 92.5], lp: 240, lpMod: 110, level: -13, sub: 43.65, subLevel: -8, air: -24, airF: 420, shimmer: [1396.9, 1479.98], shimLevel: -38, seed: 5 });
+    drone(T, eng, { tones: [43.65, 87.31, 92.5], lp: 240, lpMod: 110, level: -13, sub: 43.65, subLevel: -8, air: -24, airF: 420, shimmer: [1396.9, 1479.98], shimLevel: -38, mid: { f: 480, q: 7, level: 9 }, seed: 5 });
     noiseLayer(T.core, eng, { color: 'brown', filters: [['lowpass', 300, 0.7]], level: -30, dest: T.input, mod: { period: 17, depth: 0.5, seed: 8 } });
     T.every([20, 40], (t) => { T.buf(SUB_PULSE, {}, t, 0.35, 0.7); T.buf(SUB_PULSE, {}, t + 0.38, 0.25, 0.7); }, { start: [10, 20] });
     T.every([30, 60], (t) => T.buf(JUNK_HIT, {}, t, 0.12, 0.5), { start: [15, 30] });
   },
   drone_3(T, eng) {
     T.wet(0.5);
-    drone(T, eng, { tones: [36.71, 51.91, 73.42, 74.2], lp: 180, lpMod: 80, level: -12, sub: 36.71, subLevel: -6, air: -24, airF: 300, shimmer: [], seed: 9 });
+    drone(T, eng, { tones: [36.71, 51.91, 73.42, 74.2], lp: 180, lpMod: 80, level: -12, sub: 36.71, subLevel: -6, air: -24, airF: 300, shimmer: [], mid: { f: 360, q: 8, level: 12 }, seed: 9 });
     noiseLayer(T.core, eng, { color: 'brown', filters: [['lowpass', 150, 0.7]], level: -26, dest: T.input, mod: { period: 11, depth: 0.6, seed: 12 } });
     T.every([25, 50], (t) => T.buf(SUB_PULSE, {}, t, 0.45, 0.55), { start: [6, 14] });
     T.every([20, 45], (t) => eng.play('amb_timber', { t, dest: T.input, send: null, vol: 0.35, rate: 0.6 }), { start: [12, 24] });
@@ -341,4 +358,3 @@ export const TRACKS = {
     T.every([20, 40], (t) => T.note(t, (W) => pad(W, [36, 37, 43], 7, 0.25, { lp: 500, a: 3, r: 4 })), { start: [10, 20] });
   },
 };
-export { mtof, cents };

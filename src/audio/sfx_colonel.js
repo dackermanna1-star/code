@@ -2,7 +2,7 @@
 // (pea whistle, breath, sole squeak), Miss Adair (glass harmonica, finger on fogged glass) and
 // the husks (dry rustle, cicada click). The Colonel's palette is low, wet and close; nothing
 // supernatural is "spooky-synth" — it is all bodies, cloth, brass and glass.
-import { ring, burst, grains, tone, stickSlip, voiced, envPts, envHump, xlerp, smooth, BQ, Reson, OnePole, filt, mixInto, saturate, TAU, clamp } from './dsp.js';
+import { ring, burst, grains, tone, stickSlip, voiced, envPts, envHump, xlerp, smooth, BQ, Reson, OnePole, filt, mixInto, saturate, TAU } from './dsp.js';
 import { RATIOS, thump, knock, clink, creak, scrape, whoosh, drop, grit, breath } from './synth.js';
 
 /** Tiny wet sounds (saliva, mucus): a damp click + a small bubble. */
@@ -37,8 +37,8 @@ function breathCycle(o, sr, t, R, { inD, pause, exD, intensity = 0.5, sub = 1 })
   // the chest: a sub-bass swell under the whole cycle (felt more than heard)
   const total = inD + pause + exD;
   const chest = (tt) => (tt < inD ? smooth(tt / inD) : tt < inD + pause ? 1 : 1 - smooth((tt - inD - pause) / exD));
-  tone(o, sr, t, total, { f: (tt) => 38 + 3 * Math.sin(TAU * 0.4 * tt), a: (tt) => 0.42 * sub * chest(tt) * Math.min(1, tt / 0.3) });
-  tone(o, sr, t, total, { f: 76, a: (tt) => 0.14 * sub * chest(tt) * Math.min(1, tt / 0.3) });
+  tone(o, sr, t, total, { f: (tt) => 38 + 3 * Math.sin(TAU * 0.4 * tt), a: (tt) => 0.16 * sub * chest(tt) * Math.min(1, tt / 0.3) });
+  tone(o, sr, t, total, { f: 76, a: (tt) => 0.07 * sub * chest(tt) * Math.min(1, tt / 0.3) });
   return exT + exD;
 }
 
@@ -59,9 +59,9 @@ export const COLONEL_SFX = {
   colonel_drag: { peak: -9, var: 3, max: 2, gen(S) {
     // the weight shifts (low thud), then the long drag of wet wool and flesh over floorboards
     const { sr, R } = S, o = S.alloc(2.7);
-    thump(o, sr, 0, { f: 48, to: 34, t60: 0.5, amp: 1, noise: 0.8, lp: 500, R });
-    knock(o, sr, 0.01, { f: 110, amp: 0.4, t60: 0.15, click: 0.05, R });
-    scrape(o, sr, 0.08, { dur: 2.1, f: 420, f1: 300, q: 0.9, grain: 14, depth: 0.75, color: 'pink', gain: 1, R,
+    thump(o, sr, 0, { f: 48, to: 34, t60: 0.5, amp: 0.45, noise: 0.8, lp: 500, R });
+    knock(o, sr, 0.01, { f: 110, amp: 0.3, t60: 0.15, click: 0.05, R });
+    scrape(o, sr, 0.08, { dur: 2.1, f: 420, f1: 300, q: 0.9, grain: 14, depth: 0.75, color: 'pink', gain: 1.6, R,
       amp: envPts([[0, 0], [0.08, 1], [0.6, 0.8], [1, 0]]) });
     scrape(o, sr, 0.1, { dur: 1.9, f: 1400, q: 1.2, grain: 40, depth: 0.6, gain: 0.25, R, amp: envPts([[0, 0], [0.1, 1], [0.7, 0.6], [1, 0]]) });
     creak(o, sr, R.range(0.5, 1.0), { dur: 0.8, body: 'floor', R, gain: 0.6, rate: (u) => 18 + 20 * Math.sin(Math.PI * u), amp: envHump(0.4, 1) });
@@ -72,11 +72,11 @@ export const COLONEL_SFX = {
   colonel_hm: { peak: -10, var: 3, max: 1, jit: 0.02, gen(S) {
     // closed-mouth "hm?" — a low nasal hum with a questioning rise; sub-harmonic underneath
     const { sr, R } = S, o = S.alloc(1.05), top = R.range(112, 126), turn = R.range(0.34, 0.42);
-    voiced(o, sr, 0.02, { dur: 0.9, R, breath: 0.05, jitter: 0.02, sub: 0.6, lp: 900,
+    voiced(o, sr, 0.02, { dur: 0.9, R, breath: 0.06, jitter: 0.02, sub: 0.5, lp: 1500,
       f0: (t) => (t < turn ? 84 : 84 + (top - 84) * smooth((t - turn) / 0.42)) * (1 + 0.012 * Math.sin(TAU * 5 * t)),
       amp: envPts([[0, 0], [0.07, 1], [0.7, 0.9], [0.9, 0]]),
-      formants: () => [[250, 5, 1], [1050, 6, 0.12], [2300, 8, 0.05]] });
-    tone(o, sr, 0.02, 0.8, { f: 42, a: envHump(0.3, 0.8) });
+      formants: () => [[250, 4, 1], [1050, 6, 0.25], [2300, 8, 0.08]] });
+    tone(o, sr, 0.02, 0.8, { f: 42, a: (t) => 0.04 * envHump(0.3, 0.8)(t) });
     wetClick(o, sr, 0.015, R, 0.05);
     return o;
   } },
@@ -126,7 +126,7 @@ export const COLONEL_SFX = {
     scrape(o, sr, 0, { dur: 3.2, f: 500, f1: 180, q: 1.1, grain: 9, depth: 0.7, color: 'pink', gain: 1, R, amp: envPts([[0, 0], [0.1, 1], [0.7, 0.7], [1, 0]]) });
     tone(g, sr, 0.2, 3.0, { f: (t) => 44 - 4 * t + 1.5 * Math.sin(TAU * 0.7 * t), a: envHump(1.0, 3.0), wave: 'saw', harm: 6 });
     filt(g, new BQ(sr, 'lp', 220, 0.8));
-    mixInto(o, g, sr, 0, 0.9);
+    mixInto(o, g, sr, 0, 0.5);
     grit(o, sr, 0.3, { dur: 2.5, rate: 120, amp: 0.3, R, env: (u) => Math.exp(-u * 1.5) });
     for (let k = 0; k < 6; k++) knock(o, sr, R.range(0.3, 2.4), { f: R.range(1200, 2500), amp: 0.15, t60: 0.02, R });
     for (let k = 0; k < 4; k++) wetClick(o, sr, R.range(0.2, 2.8), R, 0.15);
@@ -226,4 +226,3 @@ export const COLONEL_SFX = {
     return o;
   } },
 };
-export { clamp };

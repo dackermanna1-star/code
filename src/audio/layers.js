@@ -2,7 +2,7 @@
 // wind, mains hum, fluorescent buzz, fire, an idling engine. Slow random modulation comes from
 // looping smooth-random curves (engine.curve) so nothing repeats on an audible period.
 // Used by ambience beds (ambience.js) and positional loops (loops.js).
-import { dbToGain, alloc, normalize } from './dsp.js';
+import { dbToGain, alloc } from './dsp.js';
 import { rainDrops } from './synth.js';
 
 /** Slow random modulation of an AudioParam: param += depth * curve(t), period in seconds. */
@@ -162,5 +162,3 @@ export function toneLayer(V, eng, { level = -40, lp = 200, hp = 0, color = 'brow
   if (hp) filters.unshift(['highpass', hp, 0.7]);
   return noiseLayer(V, eng, { color, filters, level, dest, mod }).out;
 }
-
-export { alloc, normalize };

@@ -29,7 +29,7 @@ const TICK_MS = 50;
 let ctx = null;
 let eng = null;
 let timer = null;
-const pending = { volumes: null };
+const pending = { volumes: null, ambience: undefined, music: undefined, layers: new Map() };
 
 function hashId(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
 
@@ -59,6 +59,9 @@ export const audio = {
     if (ctx.state === 'running') ctx.suspend().catch(() => {});
     eng = new AudioEngine(ctx, { analyser: true, getOccluder: () => audio.occluder });
     if (pending.volumes) eng.setVolumes(pending.volumes);
+    if (pending.ambience !== undefined) eng.ambience(pending.ambience, 1);
+    if (pending.music !== undefined) eng.music(pending.music, 1);
+    for (const [id, on] of pending.layers) eng.layer(id, on, 1);
     timer = setInterval(() => { try { eng.tick(); } catch (e) { console.error('[audio] tick failed', e); } }, TICK_MS);
   },
 
@@ -75,10 +78,10 @@ export const audio = {
   // ---- sounds ----------------------------------------------------------------------------------
   sfx(id, opts) { return eng ? eng.sfx(id, opts || {}) : NULL_HANDLE; },
   loop(id, opts) { return eng ? eng.loop(id, opts || {}) : NULL_HANDLE; },
-  ambience(id, fade = 2) { eng?.ambience(id, fade); },
-  layer(id, on = true, fade = 1) { eng?.layer(id, on, fade); },
+  ambience(id, fade = 2) { if (eng) eng.ambience(id, fade); else if (id === 'period_buzz') pending.layers.set(id, true); else pending.ambience = id || null; },
+  layer(id, on = true, fade = 1) { if (eng) eng.layer(id, on, fade); else pending.layers.set(id, !!on); },
   stripAmbience(n = 0, fade = 1.5) { eng?.stripAmbience(n, fade); },
-  music(id, fade = 2) { eng?.music(id, fade); },
+  music(id, fade = 2) { if (eng) eng.music(id, fade); else pending.music = id || null; },
   silence(on = true, fade = 0.5) { eng?.silence(on, fade); },
   duck(level = 1, fade = 0.5) { eng?.duck(level, fade); },
   footstep(surface, opts) { eng?.footstep(surface, opts || {}); },
@@ -97,7 +100,7 @@ export const audio = {
 
   /** Render a sound offline through the same engine code (QA / tooling).
    *  kind: 'sfx' | 'ambience' | 'music' | 'loop' | 'layer' | 'footstep' | 'blip' | 'murmur'.
-   *  opts: sampleRate, seed, dynamics (default true), space, x/y + listener [x, y],
+   *  opts: sampleRate, seed, dynamics (default true), space, x/y + listener [x, y], occlusion (0..1),
    *        run (footstep), steps/interval (footstep/blip count & spacing), sfx (extra sfx opts).
    *  Resolves to a Float32Array mono mix-down with .channels = [L, R] and .sampleRate. */
   async renderOffline(kind, id, seconds = 4, opts = {}) {
@@ -105,7 +108,9 @@ export const audio = {
     if (!OAC) return new Float32Array(0);
     const sr = opts.sampleRate || 44100, len = Math.max(1, Math.ceil(seconds * sr));
     const octx = new OAC(2, len, sr);
-    const e = new AudioEngine(octx, { offline: true, seed: opts.seed ?? hashId(`${kind}:${id}`), dynamics: opts.dynamics !== false });
+    const occ = opts.occlusion;
+    const e = new AudioEngine(octx, { offline: true, seed: opts.seed ?? hashId(`${kind}:${id}`), dynamics: opts.dynamics !== false,
+      getOccluder: () => (occ != null ? () => occ : null) });
     if (opts.space) e.setSpace(opts.space, 0.01);
     if (opts.listener) e.setListener(opts.listener[0], opts.listener[1]);
     const t0 = 0.03;

@@ -71,6 +71,7 @@ export const WORLD_SFX = {
       burst(c, sr, 0, { dur: 0.6, t60: 0.4, gain: 0.6, R: cr, filters: [['bp', 1800, 0.5]] });
       thump(c, sr, 0.03, { f: 55, to: 30, tau: 0.1, t60: 1.4, amp: 1.6, noise: 1, lp: 400, R: cr });
       rumble(c, sr, 0.05, { dur: 3.1, lp: 140, amp: 1, env: (u) => Math.min(1, u * 20) * Math.exp(-u * 2.5), R: cr });
+      burst(c, sr, 0.04, { dur: 2.6, R: cr, color: 'pink', gain: 0.35, env: (tt) => Math.min(1, tt * 30) * Math.exp(-tt * 1.6), filters: [['bp', 500, 0.7]] });
     }
     return o;
   } },
@@ -83,7 +84,11 @@ export const WORLD_SFX = {
     for (const c of o) {
       const cr = R.fork();
       burst(c, sr, 0, { dur: 0.25, t60: 0.2, gain: 0.35, R: cr, filters: [['lp', 2200, 0.7]] });
-      for (const [t0, dd, a, lp] of rolls) rumble(c, sr, Math.max(0, t0 + cr.range(-0.05, 0.05)), { dur: dd, lp, amp: a * cr.range(0.8, 1.2), env: envHump(0.25, 1), R: cr });
+      for (const [t0, dd, a, lp] of rolls) {
+        const tt = Math.max(0, t0 + cr.range(-0.05, 0.05));
+        rumble(c, sr, tt, { dur: dd, lp, amp: a * cr.range(0.8, 1.2), env: envHump(0.25, 1), R: cr });
+        burst(c, sr, tt, { dur: dd, R: cr, color: 'pink', gain: a * 0.22, env: envHump(dd * 0.2, dd), filters: [['bp', cr.range(300, 600), 0.8]] });
+      }
       rumble(c, sr, 0.05, { dur: d - 0.1, lp: 110, amp: 0.7, env: (u) => Math.min(1, u * 30) * Math.exp(-u * 3.2), R: cr });
     }
     return o;
@@ -131,8 +136,9 @@ export const WORLD_SFX = {
     const rate = (u) => 110 * Math.min(1, u / 0.08) * (u < 0.55 ? 1 : Math.exp(-(u - 0.55) * 5));
     let t = 0;
     for (;;) {
-      t += expo(R, Math.max(1, rate(t / d)));
+      t += expo(R, 115);
       if (t >= d) break;
+      if (R.r() * 115 > rate(t / d)) continue;
       burst(o, sr, t, { dur: 0.02, attack: 0.0008, t60: R.range(0.008, 0.02), gain: R.range(0.3, 1), R, filters: [['bp', R.range(700, 2200), R.range(1.2, 2.5)]] });
     }
     surfaceNoise(o, sr, 0, d, { amp: 0.12, pops: 2, crackle: 150, hiss: 0.2, R });
@@ -237,7 +243,12 @@ export const WORLD_SFX = {
     for (const c of o) {
       const cr = R.fork();
       let t = 0.05;
-      for (let k = 0; k < cr.int(3, 5); k++) { rumble(c, sr, t, { dur: cr.range(1, 2.4), lp: cr.range(100, 170), amp: cr.range(0.5, 1) * Math.pow(0.8, k), env: envHump(0.3, 1), R: cr }); t += cr.range(0.4, 1.1); }
+      for (let k = 0; k < cr.int(3, 5); k++) {
+        const dd = cr.range(1, 2.4), a = cr.range(0.5, 1) * Math.pow(0.8, k);
+        rumble(c, sr, t, { dur: dd, lp: cr.range(100, 170), amp: a, env: envHump(0.3, 1), R: cr });
+        burst(c, sr, t, { dur: dd, R: cr, color: 'pink', gain: a * 0.12, env: envHump(dd * 0.3, dd), filters: [['bp', cr.range(250, 450), 0.8]] });
+        t += cr.range(0.4, 1.1);
+      }
     }
     return o;
   } },

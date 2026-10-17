@@ -9,6 +9,17 @@ import { noiseLayer, rainLayer, windLayer, humLayer, ballastLayer, fireLayer, en
 import { crowd } from './voices.js';
 
 export const STRIP_ORDER = ['wind', 'creaks', 'drips', 'rain', 'events'];
+/** Scattered events sit this far under their own peak (keeps drips ≈ 15 dB over the bed). */
+const EVENT_TRIM = -12;
+
+/** Output calibration per bed (dB), measured with tools/audio-qa.mjs: beds land near -24 dBFS
+ *  RMS — quiet rooms (library, auditorium, vault) a little under, rain/fire spaces over. */
+export const BED_GAIN = {
+  silence: 10.5, exterior_rain: 10, car_interior: 4.4, hall: 21.7, classroom: 21.3, office: 21,
+  restroom: 21.3, library: 23.1, cafeteria: 22.1, kitchen: 23.9, gym: 13, basement: 22.9,
+  boiler_room: 15, stairwell: 22.6, auditorium: 22.1, assembly: 17.8, vault: 24.5, breaker: 16,
+  dawn: 24.5, period_buzz: 4.4,
+};
 
 /** Reverb space each bed implies (applied on ambience change unless setSpace overrides). */
 export const BED_SPACE = {
@@ -22,18 +33,23 @@ export class Bed {
   constructor(eng, id, def, { fade = 2, dest, send, layer = false }) {
     this.eng = eng; this.id = id; this.send = send; this.layer = layer;
     const t0 = eng.now + 0.02;
-    this.core = new Voice(eng, { id: `bed:${id}`, dest, send: null, t0, vol: 1 });
+    this.core = new Voice(eng, { id: `bed:${id}`, dest, send: null, t0, vol: dbToGain(BED_GAIN[id] ?? 18) });
     this.core.end = Infinity;
     const g = this.core.out.gain;
     g.setValueAtTime(0, t0); g.linearRampToValueAtTime(1, t0 + Math.max(0.02, fade));
-    this.strata = new Map(); this.events = []; this.tasks = [];
+    this.strata = new Map(); this.events = []; this.tasks = []; this.stripN = 0;
     this.end = Infinity; this.stopped = false;
     def(this, eng);
   }
 
   stratum(name = 'tone') {
     let g = this.strata.get(name);
-    if (!g) { g = this.core.gain(1); g.connect(this.core.out); this.strata.set(name, g); }
+    if (!g) {
+      const k = STRIP_ORDER.indexOf(name);
+      g = this.core.gain(k >= 0 && k < this.stripN ? 0 : 1);
+      g.connect(this.core.out);
+      this.strata.set(name, g);
+    }
     return g;
   }
 
@@ -64,10 +80,11 @@ export class Bed {
   /** Scatter sfx `id` around the listener: vol dB, dist 0..1, pan -1..1, rate ranges. */
   event(id, { gap = [5, 15], vol = [-6, 0], dist = [0.3, 1], pan = [-1, 1], stratum = 'events', rate = [0.97, 1.03], start } = {}) {
     const R = this.eng.R;
+    this.stratum(stratum);
     return this.every(gap, (t) => this.play(id, t, { vol: R.range(vol[0], vol[1]), dist: R.range(dist[0], dist[1]), pan: R.range(pan[0], pan[1]), stratum, rate: R.range(rate[0], rate[1]) }), { start });
   }
   play(id, t, { vol = 0, dist = 0.5, pan = 0, stratum = 'events', rate = 1 } = {}) {
-    const v = this.eng.play(id, { t, dest: this.stratum(stratum), send: this.send, place: this.eng.placeRel(pan, dist), vol: dbToGain(vol), rate });
+    const v = this.eng.play(id, { t, dest: this.stratum(stratum), send: this.send, place: this.eng.placeRel(pan, dist), vol: dbToGain(vol + EVENT_TRIM), rate });
     if (v) this.events.push(v);
     return v;
   }
@@ -78,6 +95,7 @@ export class Bed {
   }
   strip(n, fade = 1.5) {
     const t = this.eng.now;
+    this.stripN = n;
     STRIP_ORDER.forEach((name, i) => { const g = this.strata.get(name); if (g) g.gain.setTargetAtTime(i < n ? 0 : 1, t, fade / 3); });
   }
   stop(fade = 2) {
@@ -166,8 +184,8 @@ export const BEDS = {
   },
 
   restroom(B) {
-    B.tone({ level: -36, lp: 200 });
-    B.noise({ color: 'white', filters: [['bandpass', 2600, 2]], level: -46, mod: { period: 7, depth: 0.5, seed: 50 } });
+    B.tone({ level: -32, lp: 200 });
+    B.noise({ color: 'white', filters: [['bandpass', 2600, 2]], level: -40, mod: { period: 7, depth: 0.5, seed: 50 } });
     B.every([1.2, 2.2], (t) => B.play('amb_faucet', t, { vol: -3, dist: 0.25, pan: 0.35, stratum: 'drips' }), { start: [0.3, 1] });
     B.event('drip', { gap: [4, 10], vol: [-12, -6], dist: [0.3, 0.8], stratum: 'drips' });
     B.event('pipe_knock', { gap: [20, 45], vol: [-12, -6], dist: [0.5, 0.9], start: [8, 20], stratum: 'creaks' });
@@ -237,8 +255,8 @@ export const BEDS = {
   },
 
   stairwell(B) {
-    B.tone({ level: -36, lp: 250 });
-    B.wind({ level: -33, whistle: -6, center: 450 });
+    B.tone({ level: -34, lp: 250 });
+    B.wind({ level: -31, whistle: -6, center: 450 });
     B.event('drip', { gap: [4, 12], vol: [-10, -4], dist: [0.3, 1], stratum: 'drips' });
     SETTLING(B, 0.9);
     B.event('amb_rattle', { gap: [8, 20], vol: [-10, -4], dist: [0.3, 0.8], stratum: 'wind' });
@@ -284,8 +302,8 @@ export const BEDS = {
   },
 
   dawn(B) {
-    B.wind({ level: -38, whistle: null });
-    B.rain({ kind: 'asphalt', level: -42 });
+    B.wind({ level: -33, whistle: null });
+    B.rain({ kind: 'asphalt', level: -39 });
     B.event('drip', { gap: [0.8, 3.5], vol: [-10, -4], dist: [0.2, 0.8], stratum: 'drips' });
     B.event('amb_bird', { gap: [3, 9], vol: [-10, -2], dist: [0.5, 1], start: [2, 5], stratum: 'events' });
     B.event('amb_crow', { gap: [15, 35], vol: [-10, -4], dist: [0.7, 1], start: [6, 15], stratum: 'events' });

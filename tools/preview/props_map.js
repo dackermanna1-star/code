@@ -71,6 +71,12 @@ export function renderScene(art, m, props = [], { clean = false, t = 0, actors =
     else if (def.interact === 'door' && p.state === 'open') wall.push(it);
     else ys.push({ sortY: (p.y + def.h) * 16, prop: it });
   }
+  // engine rule (map.js): small non-solid floor props resting on solid furniture sort just after it
+  for (const e of ys) {
+    if (!e.prop || e.prop.def.solid) continue;
+    const under = ys.find((u) => u.prop && u !== e && u.prop.def.solid && e.prop.x >= u.prop.x && e.prop.x < u.prop.x + u.prop.def.w && e.prop.y + e.prop.def.h - 1 >= u.prop.y && e.prop.y + e.prop.def.h - 1 < u.prop.y + u.prop.def.h);
+    if (under) e.sortY = Math.max(e.sortY, under.sortY + 0.5);
+  }
   const draw = (it) => {
     const params = { ...(it.params || {}), state: it.state, dir: it.dir, variant: it.variant, clean: it.clean, label: it.label };
     if (it.def.dynamic) { art.drawPropDynamic(ctx, it.type, it.x * 16, it.y * 16, params, t); return; }

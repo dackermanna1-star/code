@@ -1,7 +1,7 @@
 // Music instruments. Percussive voices (music box, piano, plucked string, chase hits) are
 // buffer recipes rendered per pitch and cached by the engine; sustained band voices (cornet,
 // clarinet, tuba, horn) and pads are small live graphs inside a note Voice.
-import { ring, burst, tone, BQ, OnePole, filt, mtof, cents, clamp, pluckString, saturate } from './dsp.js';
+import { ring, burst, BQ, OnePole, filt, mtof, cents, clamp, pluckString, saturate } from './dsp.js';
 import { RATIOS, thump, metal } from './synth.js';
 
 const fadeTail = (o, sr, sec) => { const n = Math.min(o.length, Math.round(sec * sr)); for (let i = 0; i < n; i++) o[o.length - 1 - i] *= i / n; return o; };
@@ -80,7 +80,7 @@ export const JUNK_HIT = {
 };
 
 // ---- graph instruments (inside a note Voice V; dest = V.out) ----------------------------------
-let CLAR_WAVE = new WeakMap();
+const CLAR_WAVE = new WeakMap();
 function clarWave(ctx) {
   let w = CLAR_WAVE.get(ctx);
   if (!w) {
@@ -142,5 +142,3 @@ export function pad(V, midis, dur, vel = 0.3, { lp = 1100, a = 1.2, r = 2 } = {}
   f.connect(g); g.connect(V.out);
   for (const m of midis) for (const d of [-7, 7]) { const o = V.osc(d < 0 ? 'triangle' : 'sawtooth', mtof(m), d); const og = V.gain(d < 0 ? 1 : 0.25); o.connect(og); og.connect(f); V.play(o, 0, dur + r + 0.05); }
 }
-
-export { tone, cents, clamp };

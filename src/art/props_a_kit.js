@@ -9,6 +9,9 @@
 import { PAL, mix, darken, lighten } from './palette.js';
 import { makeCanvas, ctxOf, rng, BAYER4, tinyText } from './util.js';
 
+// Glyph overrides for the shared 3×5 font where the stock shape misreads at prop scale.
+const GLYPH_FIX = { G: '111100101101111', N: '101111111111101', M: '101111111101101', Q: '111101101111011', W: '101101101111101', K: '101101110101101' };
+
 export { PAL, mix, darken, lighten };
 export const OUT = '#0d0a0e';        // outline (warm near-black, matches character outlines)
 export const OUT_LIT = '#1e1719';    // outline on the lit (top/left) side
@@ -27,9 +30,12 @@ export class K {
     this.x = ctxOf(this.c);
     this.r = rng(seed);
     this.shadows = [];
+    this.fw = 0; // when set (= footprint width in px), all x coordinates are mirrored about it
   }
+  /** Mirror subsequent drawing horizontally within a footprint of width fw px (0 = off). */
+  mirror(fw) { this.fw = fw; return this; }
   // ---- primitives (footprint coords, integer, crisp) ----
-  R(x, y, w, h, c) { if (w <= 0 || h <= 0) return; this.x.fillStyle = c; this.x.fillRect((x - this.ox) | 0, (y - this.oy) | 0, w | 0, h | 0); }
+  R(x, y, w, h, c) { if (w <= 0 || h <= 0) return; if (this.fw) x = this.fw - x - w; this.x.fillStyle = c; this.x.fillRect((x - this.ox) | 0, (y - this.oy) | 0, w | 0, h | 0); }
   P(x, y, c) { this.R(x, y, 1, 1, c); }
   H(x, y, w, c) { this.R(x, y, w, 1, c); }
   V(x, y, h, c) { this.R(x, y, 1, h, c); }
@@ -48,6 +54,7 @@ export class K {
   }
   /** Even-odd polygon fill. */
   poly(pts, c) {
+    if (this.fw) { const fw = this.fw; this.fw = 0; this.poly(pts.map(([x, y]) => [fw - x, y]), c); this.fw = fw; return; }
     let y0 = Infinity, y1 = -Infinity;
     for (const [, y] of pts) { y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
     for (let y = Math.floor(y0); y <= Math.ceil(y1); y++) {
@@ -72,6 +79,12 @@ export class K {
   DH(x, y, w, h, b, r0, r1) {
     for (let i = 0; i < w; i++) { const t = w <= 1 ? r1 : r0 + (r1 - r0) * (i / (w - 1)); for (let j = 0; j < h; j++) if (bay(x + i, y + j) < t) this.P(x + i, y + j, b); }
   }
+  /** Stepped vertical bands (clean pixel-art gradient): equal bands, a 50% checker row between. */
+  bands(x, y, w, h, cols) {
+    const n = cols.length, bh = h / n;
+    for (let i = 0; i < n; i++) { const y0 = y + Math.round(i * bh), y1 = y + Math.round((i + 1) * bh); this.R(x, y0, w, y1 - y0, cols[i]); }
+    for (let i = 1; i < n; i++) { const yy = y + Math.round(i * bh); for (let a = 0; a < w; a++) if ((a + yy) & 1) this.P(x + a, yy, cols[i - 1]); }
+  }
   /** Random speckle. */
   S(x, y, w, h, c, density) {
     const n = Math.round(w * h * density);
@@ -80,9 +93,42 @@ export class K {
   /** Translucent rect (stains, glass tints, glow). */
   A(x, y, w, h, rgba) { this.R(x, y, w, h, rgba); }
   /** 3×5 caps text at footprint coords; returns width. */
-  T(x, y, text, c) { return tinyText(this.x, x - this.ox, y - this.oy, text, c); }
+  T(x, y, text, c) {
+    let cx = x;
+    for (const ch of String(text).toUpperCase()) {
+      const g = GLYPH_FIX[ch];
+      if (g) { for (let j = 0; j < 5; j++) for (let i = 0; i < 3; i++) if (g[j * 3 + i] === '1') this.P(cx + i, y + j, c); }
+      else if (this.fw) { /* mirrored text is never wanted */ } else tinyText(this.x, cx - this.ox, y - this.oy, ch, c);
+      cx += 4;
+    }
+    return cx - x - 1;
+  }
+  /** Digits/caps with a narrow '1' (door plates, locker numbers); returns width. */
+  num(x, y, text, c) {
+    let cx = x;
+    for (const ch of String(text)) {
+      if (ch === '1') { this.P(cx + 1, y, c); this.P(cx, y + 1, c); this.P(cx + 1, y + 1, c); this.V(cx + 1, y + 2, 3, c); cx += 3; continue; }
+      this.T(cx, y, ch, c); cx += 4;
+    }
+    return cx - x - 1;
+  }
+  numWidth(text) { let w = 0; for (const ch of String(text)) w += ch === '1' ? 3 : 4; return Math.max(0, w - 1); }
+  /** Shear a region: column i shifts down by fn(i) px; vacated pixels get `fill`. */
+  shiftCols(x, y, w, h, fn, fill) {
+    const X = x - this.ox, Y = y - this.oy;
+    const img = this.x.getImageData(X, Y, w, h), src = new Uint8ClampedArray(img.data);
+    for (let i = 0; i < w; i++) {
+      const s = fn(i) | 0;
+      for (let j = h - 1; j >= 0; j--) {
+        const d = (j * w + i) * 4, from = j - s;
+        if (from >= 0) { const f = (from * w + i) * 4; for (let k = 0; k < 4; k++) img.data[d + k] = src[f + k]; }
+        else for (let k = 0; k < 4; k++) img.data[d + k] = fill[k];
+      }
+    }
+    this.x.putImageData(img, X, Y);
+  }
   /** Clear a rect back to transparent. */
-  clear(x, y, w, h) { this.x.clearRect(x - this.ox, y - this.oy, w, h); }
+  clear(x, y, w, h) { if (this.fw) x = this.fw - x - w; this.x.clearRect(x - this.ox, y - this.oy, w, h); }
   ri(a, b) { return a + Math.floor(this.r() * (b - a + 1)); }
   chance(p) { return this.r() < p; }
 
@@ -120,7 +166,7 @@ export class K {
       const s = 1 + Math.floor(this.r() * 2);
       for (let k = 0; k < s * 3; k++) {
         const px = cx + Math.floor(this.r() * (s * 2 + 1)) - s, py = cy + Math.floor(this.r() * (s * 2 + 1)) - s;
-        if (px >= x && py >= y && px < x + w && py < y + h) this.P(px, py, this.r() < 0.5 ? PAL.rust : mix(PAL.rust, PAL.brown_d, 0.5));
+        if (px >= x && py >= y && px < x + w && py < y + h) this.P(px, py, this.r() < 0.4 ? mix(PAL.rust, PAL.brown_d, 0.3) : mix(PAL.rust, PAL.brown_dd, 0.55));
       }
     }
   }
@@ -161,7 +207,7 @@ export class K {
   glint(x, y, c = PAL.gold_l) { this.P(x, y, c); }
 
   /** Contact shadow on the floor (drawn under the art at finish). */
-  shadow(x, y, w, h, c = SHADOW) { this.shadows.push([x, y, w, h, c]); }
+  shadow(x, y, w, h, c = SHADOW) { this.shadows.push([this.fw ? this.fw - x - w : x, y, w, h, c]); }
 
   /** Selective 1-px outline around opaque pixels (lit side slightly lighter). */
   outline(col = OUT, litCol = OUT_LIT) {

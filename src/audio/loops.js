@@ -14,18 +14,18 @@ export const LOOPS = {
     pops(V, eng, 'amb_fire_pop', [0.4, 2.5], -8);
   } },
   mine_fire: { graph(V, o, eng) { fireLayer(V, eng, { level: -10, lp: 200 }); pops(V, eng, 'amb_fire_pop', [0.2, 1.2], -6); } },
-  fluor_buzz: { graph(V, o, eng) { ballastLayer(V, eng, { level: -14 }); } },
+  fluor_buzz: { graph(V, o, eng) { ballastLayer(V, eng, { level: -20 }); } },
   intercom_hum: { graph(V, o, eng) {
-    humLayer(V, { f: 60, level: -20, h: [1, 0.8, 0.5, 0.35, 0.2, 0.12] });
-    noiseLayer(V, eng, { color: 'white', filters: [['bandpass', 3000, 0.5]], level: -34 });
+    humLayer(V, { f: 60, level: -26, h: [1, 0.8, 0.5, 0.35, 0.2, 0.12] });
+    noiseLayer(V, eng, { color: 'white', filters: [['bandpass', 3000, 0.5]], level: -38 });
     pops(V, eng, 'intercom_crackle', [4, 9], -12);
   } },
   steam: { graph(V, o, eng) { noiseLayer(V, eng, { color: 'white', filters: [['highpass', 1800, 0.7], ['peaking', 4500, 1, 6]], level: -16, mod: { period: 0.6, points: 10, depth: 0.15, seed: 41 } }); } },
-  rain_window: { graph(V, o, eng) { rainLayer(V, eng, { kind: 'window', level: -14 }); } },
+  rain_window: { graph(V, o, eng) { rainLayer(V, eng, { kind: 'window', level: -6 }); } },
   rain_roof: { graph(V, o, eng) { rainLayer(V, eng, { kind: 'roof', level: -12 }); } },
-  wind: { graph(V, o, eng) { windLayer(V, eng, { level: -14 }); } },
-  engine_idle: { graph(V, o, eng) { engineLayer(V, eng, { level: -8 }); } },
-  crowd: { graph(V, o, eng) { crowd(V, eng, { n: 10, dur: null, level: 0.2 }); } },
+  wind: { graph(V, o, eng) { windLayer(V, eng, { level: -4 }); } },
+  engine_idle: { graph(V, o, eng) { engineLayer(V, eng, { level: -19 }); } },
+  crowd: { graph(V, o, eng) { crowd(V, eng, { n: 10, dur: null, level: 0.4 }); } },
   vhs_noise: { graph(V, o, eng) {
     // static with the 59.94 Hz field buzz (square-wave AM) and mains hum
     const n = V.noise('white'), hp = V.filter('highpass', 400, 0.7), pk = V.filter('peaking', 5000, 0.7, 4);

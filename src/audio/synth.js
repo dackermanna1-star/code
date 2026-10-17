@@ -2,7 +2,7 @@
 // clinks, whooshes, scrapes, drops, rumbles and the PA / old-recording colourations.
 // Each ADDS into a Float32Array `o` at time t (seconds). R = Rand. Amplitudes are relative;
 // recipes are normalised to their target peak afterwards.
-import { BQ, OnePole, Noise, Rand, ring, hit, burst, grains, stickSlip, tone, envAD, envHump, xlerp, TAU, clamp, saturate } from './dsp.js';
+import { BQ, OnePole, Noise, Rand, ring, hit, burst, grains, stickSlip, tone, envHump, xlerp, TAU, saturate } from './dsp.js';
 
 // Inharmonic mode-ratio sets.
 export const RATIOS = {
@@ -181,6 +181,3 @@ export function rainDrops(o, sr, t, dur, { rate = 400, f = [1200, 5000], t60 = [
   return grains(o, sr, t, { dur, R, rate: env ? (u) => rate * env(u) : rate, amp: env || 1, f, t60, click: 0.25, gain: amp, skew: 2 });
 }
 
-/** Utility: a fresh Rand for a recipe from S. */
-export const rnd = (S) => S.R || new Rand();
-export { clamp, xlerp, envAD, envHump };

@@ -41,7 +41,7 @@ const MAT_TYPE = {
 };
 const DYN = {
   chalkboard: [{}, { text: 'DANIEL KOVACH — PRESENT' }, { text: 'MR. H SAYS HI' }, { text: 'I WILL NOT LEAVE I WILL NOT LEAVE I WILL NOT LEAVE' }, { text: 'DOLAN, THERESA — ABSENT\nABSENCES WILL BE MADE UP' },
-    { text: "FOUNDER'S DAY — NO CLASSES AFTER 1:30 — ASSEMBLY 1:45", clean: true }, { clean: true }],
+    { text: 'THERESA DOLAN — PRESENT', text1979: "FOUNDER'S DAY — ASSEMBLY 1:45", clean: true }, { clean: true }],
   clock_wall: [{ time: 1.75 }, { time: 10.1 }, { time: 1.72, clean: true }],
   clock_hall: [{ time: 1.75 }, { time: 7.5 }, { time: 1.7, clean: true }],
   memorial_board: [{}, { polaroids: { danny: true, leah: 'pencil', marcus: true } }, { polaroids: { danny: 'pencil', leah: 'pencil', marcus: 'pencil' }, tessFrame: 0 },
@@ -135,11 +135,16 @@ function sheet(group) {
   return c;
 }
 
-function scenes() {
+async function scenes() {
   const out = [];
+  let getSprite = null;
+  try { getSprite = (await import('../../src/art/sprites.js')).getSprite; } catch (e) { console.warn('sprites unavailable', e); }
+  const only = q.get('scene');
   for (const sc of SCENES) {
+    if (only && !sc.id.includes(only)) continue;
     const m = buildMap(sc.id, sc.rows, sc.legend || {});
-    const img = renderScene(art, m, sc.props, { clean: !!q.get('clean'), t: sc.t || 0, actors: sc.actors || [] });
+    const actors = getSprite ? (sc.actors || []).map((a) => { try { return a(getSprite); } catch (e) { console.warn(e); return null; } }).filter(Boolean) : [];
+    const img = renderScene(art, m, sc.props, { clean: !!q.get('clean'), t: sc.t || 0, actors });
     out.push({ title: sc.name, img });
     if (q.get('dark')) out.push({ title: `${sc.name} — darkness check`, img: darkPass(img, sc.lights || []) });
   }
@@ -162,7 +167,7 @@ function scenes() {
   const t0 = performance.now();
   await art.init();
   const t1 = performance.now();
-  const c = GROUP === 'scenes' ? scenes() : sheet(GROUP);
+  const c = GROUP === 'scenes' ? await scenes() : sheet(GROUP);
   const t2 = performance.now();
   document.getElementById('root').appendChild(c);
   const info = document.createElement('div');

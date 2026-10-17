@@ -19,8 +19,8 @@ const LOOKAHEAD = 0.6;          // s of audio scheduled ahead by the pump
 const MAX_VOICES = 40;          // one-shot sfx/ui voices
 const MAX_STEPS = 10;           // footsteps have their own, lower-priority pool
 const NEAR = 24, FAR = 480;     // px: full volume inside NEAR, silent beyond FAR (TECH §10)
-const PAN_SPAN = 180;           // px offset that reaches the pan limit
-const CACHE_BYTES = 48 * 1024 * 1024;
+const PAN_SPAN = 300;           // px offset that reaches the pan limit (view is 480 px wide)
+const CACHE_BYTES = 40 * 1024 * 1024;
 const SILENT = 0;               // scene gain while silence(true)
 
 export class AudioEngine {
@@ -152,7 +152,7 @@ export class AudioEngine {
     const dx = x - L.x, dy = y - L.y, d = Math.hypot(dx, dy);
     const far = opts.far || FAR;
     let gain = d <= NEAR ? 1 : d >= far ? 0 : Math.pow(1 - (d - NEAR) / (far - NEAR), 1.6);
-    const pan = clamp(dx / PAN_SPAN, -1, 1) * 0.82;
+    const pan = clamp(dx / PAN_SPAN, -1, 1) * 0.8;
     let occ = 0;
     const occluder = this.getOccluder();
     if (occluder && d > 8) { try { occ = clamp(Number(occluder(L.x, L.y, x, y)) || 0); } catch { occ = 0; } }
@@ -233,7 +233,7 @@ export class AudioEngine {
       const buf = this.buffer(id, entry, o);
       const s = v.src(buf, 1);
       s.connect(v.out);
-      v.play(s, 0, buf.duration * (o.loop ? 1 : 1.0));
+      v.play(s, 0, buf.duration);
     } else if (entry.graph) {
       entry.graph(v, o, this);
       if (v.end === Infinity && !o.loop) v.end = v.T(entry.dur || 4);
@@ -349,7 +349,8 @@ export class AudioEngine {
     if (!id) return;
     if (!BEDS[id]) { warnOnce(`unknown ambience '${id}'`); return; }
     this.bed = new Bed(this, id, BEDS[id], { fade, dest: this.mix.bus.ambience, send: this.mix.sends.ambience });
-    if (!this.manualSpace && BED_SPACE[id]) this.mix.setSpace(BED_SPACE[id], Math.max(0.3, fade * 0.6));
+    // each bed implies its reverb space; a manual setSpace() lasts until the next bed change
+    if (BED_SPACE[id]) this.mix.setSpace(BED_SPACE[id], Math.max(0.3, fade * 0.6));
     this.manualSpace = null;
   }
   /** Ambience layers play over the current bed (e.g. 'period_buzz' during periods). Any

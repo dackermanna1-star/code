@@ -3,7 +3,7 @@
 // murmur and crowd are live graphs whose "syllables" are scheduled by the engine's pump, so
 // they run for any length and render identically offline.
 import { CHARS } from '../data/chars.js';
-import { tone, burst, ring, envPts, BQ, filt, cents } from './dsp.js';
+import { tone, burst, envPts, BQ, filt, cents } from './dsp.js';
 import { clink } from './synth.js';
 
 // ---- blips ---------------------------------------------------------------------------------
@@ -91,7 +91,7 @@ export function formantVoice(V, eng, o) {
   const start = V.t0, end = o.dur != null ? start + o.dur / V.rate : null;
   for (const s of sources) V.play(s, 0, o.dur != null ? o.dur + 0.4 : null);
   const scale = o.scale || 1, rate = o.rate || 4.5;
-  let speaking = R.chance(0.7);
+  let speaking = (o.talk ?? 0.85) > 0.95 || R.chance(0.7); // a lone speaker starts talking at once
   eng.addTask(start + R.range(0, 0.4), (t) => {
     if (V.disposed || V.stopping) return null;
     if (end != null && t >= end - 0.05) { amp.gain.setTargetAtTime(0, t, 0.05); return null; }
@@ -120,7 +120,7 @@ export const VOICE_SFX = {
     V.out.gain.linearRampToValueAtTime(1, V.T(0.12));
     V.out.gain.setValueAtTime(1, V.T(Math.max(0.13, dur - 0.25)));
     V.out.gain.linearRampToValueAtTime(0, V.T(dur + 0.1));
-    formantVoice(V, eng, { f0: eng.R.range(64, 72), scale: 0.78, rate: 3.2, talk: 0.97, sub: 0.6, breath: 0.25, lp: 1100, level: 0.32, inton: 0.07, dur: dur + 0.15, seed: 3 });
+    formantVoice(V, eng, { f0: eng.R.range(64, 72), scale: 0.78, rate: 3.2, talk: 0.97, sub: 0.6, breath: 0.25, lp: 1100, level: 0.45, inton: 0.07, dur: dur + 0.15, seed: 3 });
     // wet undertone: a slow gurgle under the voice
     const n = V.noise('pink'), bp = V.filter('bandpass', 420, 3), g = V.gain(0.06);
     const am = V.src(eng.curve(24, 5), 2 / 1.3, true), amg = V.gain(0.05);
@@ -136,7 +136,7 @@ export const VOICE_SFX = {
     V.out.gain.linearRampToValueAtTime(1, V.T(0.6));
     V.out.gain.setValueAtTime(1, V.T(dur - 0.8));
     V.out.gain.linearRampToValueAtTime(0, V.T(dur));
-    crowd(V, eng, { n: 12, dur, level: 0.16 });
+    crowd(V, eng, { n: 12, dur, level: 0.32 });
     V.end = V.T(dur + 0.3);
   } },
 };
@@ -156,4 +156,3 @@ export function crowd(V, eng, { n = 12, dur = null, level = 0.15, kids = 0.5, lp
   }
   return bus;
 }
-export { ring };

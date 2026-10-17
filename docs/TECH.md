@@ -107,7 +107,7 @@ Instance fields (all optional except `type`, `x`, `y`):
   script: 'ch1.portrait',                // interaction runs this script instead of default behaviour
   item: 'battery', count: 1,             // for type 'pickup' (and backpack)
   doc: 'walt_log',                       // for note_paper / examine → opens document reader
-  lock: 'item:keyring' | 'flag:office_open' | ((s) => bool),   // doors: locked while not satisfied
+  lock: 'item:keyring' | 'flag:office_open' | ((s) => bool),   // item:/flag: = locked until satisfied; a FUNCTION returns true while LOCKED
   lockedText: "[n] Locked.", unlockSfx: 'key_unlock',
   to: { map: 'exterior', anchor: 'front_doors' },               // doors/props that transfer
   light: { type: 'lamp_green', group: 'library' },             // attached light override
@@ -489,6 +489,7 @@ inside the title screen). **Game over:** `HW.ui.gameOver(reason)` → Promise `'
 ## Changelog
 - v1 — initial contract.
 - v1.1 — MapRuntime interface (§5.7a); overlays vs screens split; docs format, title & special-screen contracts (§16); Colonel/props-B ownership.
+- v2.1 — subsystem API additions recorded in `docs/API_NOTES.md` (UI, engine, lighting/FX, audio). Noise radii are in tiles.
 - v2 — DESIGN v2 deltas (see CONTENT.md §7): player walk 60 / run 112 px/s; auto-closing doors; game-over referral reasons;
   screens `vhs` (frame scrubber) and `write` (hold meter); Register v2 (provisional, previews, grounds, reasons);
   Tess `enrolled` levels 0/1/2; Colonel shroud (renderer + lighting); seen-dialogue fast-forward; assist; battery 600 s.

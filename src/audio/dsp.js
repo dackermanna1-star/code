@@ -181,10 +181,13 @@ export function dcBlock(x, sr, f = 18) {
   }
   return x;
 }
-/** tanh saturation with drive; output re-scaled to roughly unity for small signals. */
+/** tanh saturation. Scale-invariant: the input is normalised to peak 1 first, so `drive`
+ *  alone sets the amount of colour (≈1 gentle, 2 obvious, 3+ fuzz). Output peak = 1. */
 export function saturate(x, drive = 2) {
-  const k = Math.tanh(drive);
-  for (const c of chans(x)) for (let i = 0; i < c.length; i++) c[i] = Math.tanh(c[i] * drive) / k;
+  const p = peakOf(x);
+  if (p < 1e-9) return x;
+  const k = Math.tanh(drive), s = drive / p;
+  for (const c of chans(x)) for (let i = 0; i < c.length; i++) c[i] = Math.tanh(c[i] * s) / k;
   return x;
 }
 /** Run a filter chain over a buffer (array of BQ/OnePole-like objects with run()). */
@@ -284,11 +287,18 @@ export function grains(out, sr, t0, opts) {
   const dur = opts.dur, rate = opts.rate, amp = opts.amp || (() => 1);
   const [flo, fhi] = opts.f || [2000, 6000], [tlo, thi] = opts.t60 || [0.005, 0.02];
   const modes = opts.modes || 1, click = opts.click ?? 0.3, g = opts.gain ?? 1;
+  // Non-homogeneous Poisson process by thinning: draw at the peak rate, keep with p = rate/peak
+  // (a time-varying rate that starts at 0 must not stall the process).
+  const rateAt = typeof rate === 'function' ? rate : () => rate;
+  let rmax = 0;
+  for (let k = 0; k <= 64; k++) rmax = Math.max(rmax, rateAt(k / 64));
+  if (rmax <= 0) return out;
+  rmax *= 1.05;
   let t = 0;
   while (t < dur) {
-    const u = t / dur, rr = Math.max(0.01, typeof rate === 'function' ? rate(u) : rate);
-    t += -Math.log(1 - R.r() * 0.999) / rr;
+    t += -Math.log(1 - R.r() * 0.999) / rmax;
     if (t >= dur) break;
+    if (R.r() * rmax > rateAt(t / dur)) continue;
     const a = (typeof amp === 'function' ? amp(t / dur) : amp) * g * Math.pow(R.r(), opts.skew ?? 1.5);
     if (a < 1e-5) continue;
     const f = xlerp(flo, fhi, R.r()), tt = xlerp(tlo, thi, R.r());

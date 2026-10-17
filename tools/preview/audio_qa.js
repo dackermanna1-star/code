@@ -25,6 +25,7 @@ export function qaList() {
   for (const id of audio.ids.events) L.push({ group: 'events', kind: 'sfx', id, seconds: SFX_SECONDS[id] || 2.5 });
   for (const id of audio.ids.ambience) L.push({ group: 'ambience', kind: id === 'period_buzz' ? 'layer' : 'ambience', id, seconds: 20 });
   for (const id of audio.ids.music) L.push({ group: 'music', kind: 'music', id, seconds: 40 });
+  for (const id of audio.ids.loops) L.push({ group: 'loops', kind: 'loop', id, label: `loop ${id}`, seconds: 6 });
   return L;
 }
 

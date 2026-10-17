@@ -1,12 +1,13 @@
 // The building's own voice: electro-mechanical bells, the PA (crackle + two-tone chime) and
 // fluorescent tubes. Bells accept opts.dur (ring length, s) — e.g. the dismissal bell that
 // "rings on and on" in DISMISSED: sfx('school_bell', { dur: 9 }).
-import { ring, burst, grains, BQ, Reson, OnePole, filt, saturate, envPts, envHump, Rand, TAU } from './dsp.js';
+import { ring, burst, grains, BQ, Reson, filt, saturate, envPts, TAU } from './dsp.js';
 import { RATIOS, thump, knock, clink, hum, ballast, paColour } from './synth.js';
 
-/** Trembler bell: an armature hammers a gong ~20×/s; each stroke excites the gong's
- *  inharmonic (doublet-split) modes and briefly damps them while in contact → the harsh,
- *  rattling "BRRRRING". After power-off the gong rings out. */
+/** Trembler bell: an armature hammers a gong ~20×/s. Each stroke kicks the gong's inharmonic
+ *  (doublet-split) modes — with per-mode random phase, so the ring builds up instead of
+ *  spiking — and the hammer briefly damps them while in contact. The result is the harsh,
+ *  rattling "BRRRRING" (20 Hz roughness on a sustained ring); after power-off the gong rings out. */
 function bell(S, ringDur, distant) {
   const { sr, R } = S;
   const tail = distant ? 1.2 : 1.7, o = S.alloc(ringDur + tail);
@@ -15,34 +16,40 @@ function bell(S, ringDur, distant) {
   const res = [];
   RATIOS.gong.forEach((r, i) => {
     const f = f0 * r * (1 + R.bi() * 0.004);
-    res.push({ m: new Reson(sr, f, T60[i]), g: G[i] });
-    res.push({ m: new Reson(sr, f * (1.0016 + 0.0011 * i), T60[i] * 0.9), g: G[i] * 0.55 });
+    for (const [ff, t60, g] of [[f, T60[i], G[i]], [f * (1.0016 + 0.0011 * i), T60[i] * 0.9, G[i] * 0.55]]) {
+      res.push({ m: new Reson(sr, ff, t60), g, w: TAU * ff / sr });
+    }
   });
   const clickHp = new BQ(sr, 'hp', 2500, 0.7), rattleBp = new BQ(sr, 'bp', 260, 2);
-  const nStop = Math.round(ringDur * sr), pw = Math.max(2, Math.round(0.00022 * sr)), contact = Math.round(0.0035 * sr);
+  const nStop = Math.round(ringDur * sr), pw = Math.max(2, Math.round(0.00025 * sr)), contact = Math.round(0.005 * sr);
+  const damp = Math.pow(0.6, 1 / contact); // ≈ -4.4 dB per stroke while the hammer rests on the gong
   let next = Math.round(0.004 * sr), pulseLeft = 0, pulseAmp = 0, sinceHit = 1e9, rattle = 0;
   for (let i = 0; i < o.length; i++) {
     if (i >= next && i < nStop) {
       const rate = 20.5 - 6.5 * Math.exp(-(i / sr) / 0.08); // armature settles from ~14 to ~20.5 Hz
       next = i + Math.round(sr / (rate * (1 + R.bi() * 0.06)));
       pulseLeft = pw; pulseAmp = 1 + R.bi() * 0.15; sinceHit = 0; rattle = 1;
+      for (const r of res) { // kick every mode with its own phase
+        const ph = R.r() * TAU, a = pulseAmp * r.g * 0.25;
+        r.m.y1 += a * Math.sin(ph); r.m.y2 += a * Math.sin(ph - r.w);
+      }
     }
     let x = 0;
-    if (pulseLeft > 0) { x = pulseAmp * Math.sin(Math.PI * (pw - pulseLeft) / pw) + R.bi() * 0.3; pulseLeft--; }
+    if (pulseLeft > 0) { x = pulseAmp * Math.sin(Math.PI * (pw - pulseLeft) / pw) + R.bi() * 0.2; pulseLeft--; }
     let y = 0;
     for (let k = 0; k < res.length; k++) {
       const m = res[k].m;
-      if (sinceHit < contact) { m.y1 *= 0.99935; m.y2 *= 0.99935; } // hammer resting on the gong
-      y += m.run(x) * res[k].g;
+      if (sinceHit < contact) { m.y1 *= damp; m.y2 *= damp; }
+      y += m.run(0) * res[k].g;
     }
     sinceHit++;
-    y += clickHp.run(x) * 0.4;
+    y += clickHp.run(x) * 0.35; // the clapper's tick
     rattle *= 0.9992;
-    if (i < nStop) y += rattleBp.run(R.bi()) * 0.08 * (0.4 + rattle);
+    if (i < nStop) y += rattleBp.run(R.bi()) * 0.05 * (0.4 + rattle);
     o[i] = y;
   }
   filt(o, new BQ(sr, 'hp', 220, 0.7), new BQ(sr, 'peak', 2600, 1, 3));
-  saturate(o, 1.7);
+  saturate(o, 1.4);
   if (distant) filt(o, new BQ(sr, 'lp', 1900, 0.7), new BQ(sr, 'lp', 2600, 0.6));
   return o;
 }
@@ -58,7 +65,7 @@ function chimeBar(o, sr, t, f, amp, R) {
 }
 
 export const SCHOOL_SFX = {
-  school_bell: { peak: -4, var: 2, max: 1, jit: 0.01, wet: 1.2, key: (o) => (o.dur ? `d${Math.round(o.dur * 4)}` : ''),
+  school_bell: { peak: -6, var: 2, max: 1, jit: 0.01, wet: 1.2, key: (o) => (o.dur ? `d${Math.round(o.dur * 4)}` : ''),
     gen: (S) => bell(S, Math.max(0.5, Math.min(20, S.opts.dur ?? 3.6)), false) },
   bell_short: { peak: -12, var: 2, max: 1, jit: 0.01, wet: 1.4, key: (o) => (o.dur ? `d${Math.round(o.dur * 4)}` : ''),
     gen: (S) => bell(S, Math.max(0.5, Math.min(20, S.opts.dur ?? 2.1)), true) },
@@ -121,4 +128,3 @@ export const SCHOOL_SFX = {
     return o;
   } },
 };
-export { Rand, OnePole, envHump, TAU };
