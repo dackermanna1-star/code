@@ -106,7 +106,7 @@ No building in this district is enterable (the open garages are walk-in: two in 
 | Memorial: a wreath with a faded ribbon, two frozen carnations, a readable plaque | (125, 325) |
 | Ski track (лыжня): two grooves winding through the western birch grove into the whiteout | x 28–56, z 158–494 |
 
-## Lights (≈ 56 in the region; pools far apart, dark gaps between)
+## Lights (57 in the region, 4 of them only while a train passes; pools far apart, dark gaps between)
 
 | group | count | notes |
 |---|---|---|
@@ -116,7 +116,7 @@ No building in this district is enterable (the open garages are walk-in: two in 
 | Bus stop tube | 1 | pavilion light, the fascia is backlit |
 | Platform | 2 mercury poles, one dead | (259.5, 55.4) lit, (279.5, 55.4) dead |
 | Crossing signals | 4 red point lights | dark unless a train is within 280 m of x 300 (schedule follows `crossingSignal.active`) |
-| Garage cooperative | guard booth (2), two open garages (2 each) | |
+| Garage cooperative | guard booth (2), two open garages (2 each), two caged wall bulbs over the lanes (one dying) | wall bulbs at (98.5, 67.8) and (161.2, 88.55) |
 | Boiler house | ≈ 8 (public package: aviation lights, door bulb, floodlight, window spill) | |
 | Warehouse base | dock flood, guard booth (2), the gate lamp | |
 | Wasteland | the lonely buzzing mercury lamp | |
