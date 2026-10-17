@@ -78,6 +78,7 @@ export default {
     { type: 'clock_wall', x: 9, y: 3 },
     { type: 'desk_teacher', x: 3, y: 4, examine: ['[n] A teacher\'s desk. Grade book, empty.', '[skeptical] Somebody carved "KR \'91" into it.'] },
     { type: 'desk_student', x: 3, y: 6, examine: '[n] Initials: D.W. + M.R. in a heart.' }, // merges with the prop-layer desk
+    { id: 'test_past_globe', type: 'globe', x: 11, y: 5, pastOnly: true }, // only visible in the 1979 view
     // ---- Room B
     { type: 'bulletin_board', x: 18, y: 3, state: 'bell_schedule', doc: 'bell_schedule', examine: '[curious] A bell schedule. 1979–80.' },
     { type: 'poster', x: 20, y: 3, state: 'periodic', examine: '[n] The periodic table, missing the bottom row.' },
@@ -135,7 +136,9 @@ export default {
     '28,12': { id: 'test_door_c', state: 'locked', lock: 'item:keyring', label: 'GIRLS',
       lockedText: ['[n] Locked. A hand-lettered sign: OUT OF ORDER.', '[skeptical] Since 1979, probably.'] },
     '9,19': { label: 'MAIN OFFICE' },
-    '26,19': { type: 'door_metal', label: 'STORAGE' },
+    // Gate as a condition (CONTENT §1): the function returns true while locked.
+    '26,19': { type: 'door_metal', label: 'STORAGE', lock: (s) => !!s.flags.test_storage_locked,
+      lockedText: (s) => (s.chapter >= 1 ? '[n] Locked again.' : "[worried] It won't open. Something's leaning on it.") },
   },
   rooms: [
     { id: 'test_a', name: 'Room A', rect: [2, 4, 11, 6], kind: 'classroom' },

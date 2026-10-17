@@ -8,40 +8,46 @@
 
 export const ITEMS = {
   flashlight:      { name: 'Maglite', key: true, use: 'engine:toggle_flashlight',
-                     desc: "Dad's flashlight. Heavy enough to count as a weapon, if I were the kind of person who hit things." },
+                     desc: (s) => s.flags.ch6_marcus_taken
+                       ? "Dad's Maglite. As long as it's on, I can see what's coming."
+                       : "Dad's Maglite. Heavy enough to count as a weapon, if I were the kind of person who hit things." },
   sketchbook:      { name: 'Sketchbook', key: true, use: 'engine:open_sketchbook',
                      desc: 'Half drawings, half lists. Now also a map of a building that keeps changing its mind.' },
   compact:         { name: "Mom's Compact", key: true, use: 'engine:use_compact',
                      desc: (s) => s.flags.compact_unlocked
-                       ? "Mom's compact. In it, the school remembers October 19, 1979."
-                       : "Mom's compact mirror. The glass has a crack across it. I've been meaning to buy her a new one." },
+                       ? "Mom's compact. In the mirror, it's still October 19, 1979."
+                       : "Mom's compact, cracked right across the mirror. I keep meaning to buy her a new one." },
   transfer_form:   { name: 'Transfer Form', key: true,
-                     desc: (s) => s.flags.form_used
-                       ? 'Somebody else\'s name in my handwriting, over mine.'
-                       : 'PA Student Withdrawal/Transfer Form. Mom signed it. I was supposed to hand it in Monday.' },
+                     desc: (s) => (!s.flags.form_used && !s.flags.form_used_on
+                       ? 'PA Student Withdrawal/Transfer Form, signed by Mom. It goes to the office Monday, and that\'s that.'
+                       : s.flags.form_used_on === 'tess'
+                         ? 'Reason: moving to Philadelphia. First time I wrote it down and didn\'t cross it out.'
+                         : 'Mom\'s signature, and somebody else\'s name over mine. She\'d understand.') },
   mixtape:         { name: "Leah's Mixtape", key: true, examine: 'item.mixtape',
                      desc: (s) => s.flags.bond_leah
-                       ? 'FOR THE DRIVE. She meant Philly. She knew the whole time.'
-                       : 'A TDK-90 in Leah\'s handwriting: FOR THE DRIVE.' },
-  gum:             { name: 'Big Red', key: false, use: 'item.gum', desc: 'Five sticks left. Cinnamon. Mom says it smells like a candle.' },
-  house_key:       { name: 'House Key', key: true, desc: 'Our key. Brass, with a pink rubber cap so I can find it in the dark.' },
+                       ? 'FOR THE DRIVE. She meant Philly — she knew the whole time.'
+                       : 'A TDK SA90, Leah\'s handwriting on the J-card: FOR THE DRIVE. Pittsburgh\'s not till Thanksgiving, but okay.' },
+  gum:             { name: 'Big Red', key: false, use: 'item.gum', desc: 'Big Red, five sticks left. Mom says it makes the car smell like a candle shop.' },
+  house_key:       { name: 'House Key', key: true, desc: 'Our front door key, with a pink rubber cap so I can find it in the dark. Ours until Christmas.' },
   danny_flashlight:{ name: "Danny's Flashlight", key: true,
-                     desc: 'Red plastic. Masking tape: DANNY K. It was still on when I picked it up.' },
-  bolt_cutters:    { name: 'Bolt Cutters', key: true, desc: "Danny's uncle's. Danny said he'd 'basically' asked." },
+                     desc: (s) => (s.flags.danny_light_used || (s.chapter || 0) >= 3
+                       ? 'It\'s still on. It\'s been on this whole time.'
+                       : 'Red plastic, masking tape: DANNY K. It was still on when it rolled to my feet.') },
+  bolt_cutters:    { name: 'Bolt Cutters', key: true, desc: "Uncle Frank's bolt cutters. Danny says he 'basically' asked." },
   camcorder:       { name: "Leah's Camcorder", key: true, examine: 'item.camcorder',
-                     desc: "Her dad's Palmcorder. The red light is still on. I don't want to watch it again." },
-  keyring:         { name: "Janitor's Keys", key: true, desc: 'A steel ring. Two keys left on it: OFFICE and 2F GATE.' },
-  hall_pass:       { name: 'Hall Pass', key: true, desc: 'A block of wood the size of a brick. HALL PASS — RM 206. Somebody chewed the corner.' },
-  withdrawn_stamp: { name: 'Withdrawn Stamp', key: true, desc: "Rubber stamp and an ink pad from Haupt's safe. WITHDRAWN." },
+                     desc: "Her dad's VHS-C camcorder. The red light's still on, and I don't want to watch that tape again." },
+  keyring:         { name: "Janitor's Keys", key: true, desc: 'The custodian\'s key ring, mostly empty. Two keys left on it, tagged OFFICE and 2F GATE.' },
+  hall_pass:       { name: 'Hall Pass', key: true, desc: 'A block of wood the size of a brick: HALL PASS — RM 206. Somebody chewed the corner.' },
+  withdrawn_stamp: { name: 'Withdrawn Stamp', key: true, desc: "The principal's rubber stamp and ink pad, from Haupt's safe: WITHDRAWN. The pad's still wet." },
   aud_key:         { name: 'Auditorium Key', key: true, desc: 'Long, old, brass. Paper tag: AUD — MAIN.' },
   case_key:        { name: 'Small Brass Key', key: true, desc: 'From the card catalog, drawer HA–HE. H for Hallowell.' },
   charter:         { name: "Founder's Charter", key: true, examine: 'doc:charter_full',
-                     desc: 'The whole will. "I shall be the first scholar of Hallowell School, and subject to its rules as any child."' },
+                     desc: 'The whole Charter, in his own hand. "...subject to its rules as any child; and I shall be the last to leave it."' },
   denise_photo:    { name: 'Photo of Denise', key: true,
-                     desc: 'Denise Webb, fifteen, in her band uniform. On the back, in pencil: "My girl. Fall 1979. —Mama"' },
+                     desc: 'Denise Webb, fifteen, in her band uniform, laughing at somebody off camera. On the back, in pencil: "My girl. Fall 1979. —Mama"' },
   diary_page:      { name: "Denise's Diary Page", key: true, examine: 'doc:denise_diary',
-                     desc: 'Torn from a diary. Her handwriting leans hard to the right, like she was in a hurry.' },
-  red_pen:         { name: 'Red Pen', key: true, desc: "Miss Adair's. A teacher's red felt-tip. It still writes." },
+                     desc: 'Torn from Denise\'s diary. Her handwriting leans hard to the right, like she was in a hurry.' },
+  red_pen:         { name: 'Red Pen', key: true, desc: "Miss Adair's red Flair, the pen she graded with. It still writes." },
   battery:         { name: 'D Batteries', key: false, stack: true, use: 'engine:use_battery',
                      desc: 'Two D cells. Enough to keep the dark back a little longer.' },
 };

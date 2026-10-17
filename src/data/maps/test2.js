@@ -72,7 +72,9 @@ export default {
   },
   exits: [
     { rect: [1, 11, 1, 4], to: 'test', anchor: 'from_test2' },
-    { rect: [30, 11, 1, 4], to: 'test', anchor: 'loop_back', fade: false }, // seamless loop
+    // Seamless loop, gated: refuses (in voice) while the flag holds it shut.
+    { rect: [30, 11, 1, 4], to: 'test', anchor: 'loop_back', fade: false,
+      lock: (s) => !!s.flags.test_block_loop, lockedText: "[n] The door won't open. Something on the other side is holding it." },
   ],
   triggers: [
     { id: 'count', rect: [16, 11, 1, 4], script: 'test.t2_trigger', once: false, blocking: false },

@@ -60,7 +60,7 @@
   breaker was never rebuilt; it was buried under culm with not all the boys recovered. That autumn the Colonel
   instituted **Founder's Day**, "kept in memory of the Hallowell Breaker and his boys" — the town has held
   Homecoming on the anniversary of the day its children burned ever since. His ledger, Oct 19 1894: *"The
-  locusts were up again this year, the first since I came home. Seventeen years in the dark and they come up
+  locusts were up again this year, as they were in '77, the summer they hanged the Mollies at Pottsville. Seventeen years in the dark and they come up
   singing. A man might learn from them."*
 - **1911 — the timed death.** Seventeen years to the day, at his Founder's Day banquet, he dies "of a surfeit."
   He timed it. No children are taken. He goes under. His will — the **Founder's Charter** — endows a school
@@ -734,7 +734,7 @@ never dies (power 0.35, narrow cone): "It's still on. It's been on this whole ti
 `hall_pass` (taken by Kevin) · `withdrawn_stamp` · `aud_key` · `case_key` · `charter` · `denise_photo` · `diary_page` ·
 `red_pen` · `battery`.
 **Mixtape J-card (Leah's hand), side A:** Mazzy Star "Fade Into You" · Fiona Apple "Shadowboxer" · The Cranberries "Linger" ·
-Weezer "El Scorcho" · Garbage "Stupid Girl" · Björk "Hyperballad". Side B: Liz Phair "Never Said" · Pavement "Gold Soundz" ·
+Weezer "Say It Ain't So" · Garbage "Stupid Girl" · Björk "Hyperballad". Side B: Liz Phair "Never Said" · Pavement "Gold Soundz" ·
 Belly "Feed the Tree" · Tori Amos "Winter" · Smashing Pumpkins "1979" "(sorry. had to.)" — titles only, never lyrics.
 
 ## 11. Documents (original prose; ≤ 120 words each, Haupt's letter / Adair's note / full Charter ≤ 200)

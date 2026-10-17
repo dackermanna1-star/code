@@ -69,6 +69,31 @@ export default {
     await g.say(who, 'talk', 'You talk to me, I talk back. That is how this works.');
   },
 
+  /** Modal special screen through the UI (tests force the answer with __HW.screenAnswer). */
+  'test.screen': async (g) => {
+    const opened = await g.screen('safe', { label: "FOUNDER'S DAY (mo-day-yr)", check: (a, b, c) => a === 10 && b === 19 && c === 94 });
+    g.set('test_safe', opened);
+    g.set('test_screen_done');
+  },
+
+  /** Ending flow: g.ending(id) runs end.<id>, then credits, then the title. */
+  'test.ending': async (g) => {
+    await g.ending('test');
+  },
+
+  'end.test': async (g) => {
+    await g.narrate('The bell rings. Nobody answers it.');
+    g.set('test_ending_ran');
+  },
+
+  /** Replay bookkeeping (DESIGN §9.3): g.seen() marks the second run as fast-forwardable. */
+  'test.seen_demo': async (g) => {
+    const was = g.seen('test_demo');
+    g.set('test_seen_was', was);
+    g.set('test_seen_replaying', g.replaying);
+    await g.say('tess', 'neutral', was ? 'I have done this before.' : 'First time.');
+  },
+
   'test.sub': async (g, ctx) => {
     g.set('gapi_sub', ctx?.n ?? true);
   },
