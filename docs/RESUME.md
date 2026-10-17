@@ -1,5 +1,9 @@
 # Resume notes — development paused
 
+> **Update 2026-10-17:** development resumed; Phase B relaunched from `tools/workflows/phase-b-layouts.js`
+> (avenue + blocks_west, blocks_east + north). If this note is still here, check whether those
+> packages have catalogs in `docs/catalog/` and are still in the `WIP` set.
+
 Paused 2026-10-16, partway through **Phase B (district layouts)**. Everything is committed on the
 branch `claude/pensive-johnson-vg5dgw`. Read this note first, then `docs/PLAN.md`.
 

@@ -8,6 +8,7 @@
 //   node tools/shot.mjs --query "only=props&viewer=lamp_cobra"  # raw query string
 //   node tools/shot.mjs --at 230,400,0 --console              # also print browser console
 //
+// --wip also loads packages still under construction (district layouts, see docs/RESUME.md).
 // Options: --w 960 --h 540 --frames 20 --timeout 120000 --pitch -0.1 --only pkg1,pkg2
 //          --base http://localhost:5173 (use an already running dev server)
 // Prints the output file paths. Errors from the page are printed and exit code is 1.
@@ -54,6 +55,7 @@ if (opt.only) common.push(`only=${opt.only}`)
 common.push(`frames=${opt.frames ?? 6}`)
 if (opt.quality) common.push(`quality=${opt.quality}`)
 common.push(`timescale=${opt.timescale ?? 0}`)
+if (opt.wip) common.push('wip=1')
 if (opt.viewer) {
   const views = String(opt.views ?? '0,1,2,3').split(',')
   for (const v of views) {
