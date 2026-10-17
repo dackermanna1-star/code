@@ -7,7 +7,7 @@ import * as THREE from 'three'
 import { VOXEL, WORLD_SIZE } from './constants.js'
 import { SOLID, LOD_REMAP, TRANSPARENT, WINDOWMAT } from './materials.js'
 import { getModelDef } from './models.js'
-import { meshModel, setTransparentTable } from './mesher.js'
+import { meshModel, setTransparentTable, voxelGeometry } from './mesher.js'
 import { MeshPool } from './MeshPool.js'
 import { HOLE } from './Terrain.js'
 import { hashf } from './rng.js'
@@ -234,12 +234,7 @@ export class World {
   }
 
   _makeInstanced(r, material, name, capacity = 4) {
-    const g = new THREE.BufferGeometry()
-    g.setAttribute('position', new THREE.BufferAttribute(r.positions, 3))
-    g.setAttribute('aData', new THREE.BufferAttribute(r.data, 4))
-    g.setAttribute('aSize', new THREE.BufferAttribute(r.size, 2))
-    g.setIndex(new THREE.BufferAttribute(r.indices, 1))
-    g.computeBoundingSphere()
+    const g = voxelGeometry(THREE, r)
     const holder = { geometry: g, material, name, mesh: null, capacity: 0 }
     this._resizeInstanced(holder, capacity)
     return holder

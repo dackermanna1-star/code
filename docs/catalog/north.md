@@ -69,7 +69,7 @@ z 147–499.5 PARK x 24–139 (cast-iron fence on the north, east and south side
 | Park north gate | (71, 147) | alley B through the birch grove, one leaf hanging nearly closed |
 | Park east gates | (139, 236), (139, 325), (139, 412) | meet blocks_west's crossings over Берёзовая (z 236, 412) and the E–W driveway axis (z 325) |
 | Park south gate | (133.5, 499.4) | path through the avenue's tree strip (x 137–139.75, by Берёзовая's mouth) to the avenue sidewalk at (139.1, 513.2) |
-| ГСК gate | x 118–124.5, z 124.5 | west leaf closed, east leaf open; guard booth (128.2, 120.4) |
+| ГСК gate | x 118–124.5, z 124.5 | west leaf closed, east leaf open; a caged bulb on the east gate post lights the gateway; guard booth (128.2, 120.4) |
 | Boiler yard gate | x 262–270, z 124.5 (both leaves open); wicket x 247.6–250.8 by the staff door | the boiler door is not enterable (public package) |
 | Warehouse base gate | x 386.75–393.25, z 124.5 | lit gate lamp (385.3, 123.5), guard booth inside |
 | Way to the crossing | x ≈ 300 from the sidewalk (stop «Платформа «Заводская»») to the embankment | stairs up to the platform at x 294.5–297 |
@@ -82,7 +82,7 @@ No building in this district is enterable (the open garages are walk-in: two in 
 | what | where |
 |---|---|
 | Chained guard dog (the stray's model) by its doghouse; turns to watch you, barks when you come within ~16 m and now and then | (129.75, 123.35), doghouse (131.2, 122.8) |
-| «ОСТОРОЖНО! ЗЛАЯ СОБАКА» handwritten on the closed gate leaf; «ГСК «МОТОР-7»» plate | ГСК gate, z 124.6 |
+| «ОСТОРОЖНО! ЗЛАЯ СОБАКА» handwritten on the closed gate leaf; «ГСК «МОТОР-7»» plate; «ПРОДАЁТСЯ ГАРАЖ / спросить у сторожа» sprayed on the fence east of the gate | ГСК gate, z 124.6; the sale at (128.2, 124.65) |
 | Two open garages with a bulb, a Lada and a radio (public package) | row 2 index 21 (≈ x 127, z 75), row 3 index 9 (≈ x 90, z 88.3) |
 | Garbage containers with a thrown-out New Year tree | ГСК yard (107.5, 122.4) |
 | A buried УАЗ, a buried «шестёрка», a brushed «семёрка» in the ГСК yard | (61.5, 114), (146, 104.5), (141.5, 94.9) |
@@ -104,7 +104,7 @@ No building in this district is enterable (the open garages are walk-in: two in 
 | Memorial: a wreath with a faded ribbon, two frozen carnations, a readable plaque | (125, 325) |
 | Ski track (лыжня): two grooves winding through the western birch grove into the whiteout | x 28–56, z 158–494 |
 
-## Lights (58 in the region, 4 of them only while a train passes; pools far apart, dark gaps between)
+## Lights (59 in the region, 4 of them only while a train passes; pools far apart, dark gaps between)
 
 | group | count | notes |
 |---|---|---|
@@ -114,7 +114,7 @@ No building in this district is enterable (the open garages are walk-in: two in 
 | Bus stop tube | 1 | pavilion light, the fascia is backlit |
 | Platform and crossing | 3 mercury poles, one dead | (259.5, 55.4) lit, (279.5, 55.4) dead, (303.2, 57.4) over the crossing approach |
 | Crossing signals | 4 red point lights | dark unless a train is within 280 m of x 300 (schedule follows `crossingSignal.active`) |
-| Garage cooperative | guard booth (2), two open garages (2 each), two caged wall bulbs over the lanes (one dying) | wall bulbs at (98.5, 67.8) and (161.2, 88.55) |
+| Garage cooperative | gate bulb, guard booth (2), two open garages (2 each), two caged wall bulbs over the lanes (one dying) | gate bulb on the east gate post (124.5, 124.76) facing the street; wall bulbs at (98.5, 67.8) and (161.2, 88.55) |
 | Boiler house | ≈ 8 (public package: aviation lights, door bulb, floodlight, window spill) | |
 | Warehouse base | dock flood, guard booth (2), the gate lamp | |
 | Wasteland | the lonely buzzing mercury lamp | |
@@ -249,5 +249,5 @@ lamps whose emissive level follows a linked light through the placement flag).
 - Dry weeds (burdock, tansy, grass) along the fences, the embankment foot and over the wasteland; reeds and
   cattails at the pond (nature's `placePond`); lilac, snowberry and currant by the café, plaza and alleys.
 - Measured in a headless build: ≈ 2 880 placements (a third of them fence panels and their fine bars, rails,
-  garage boxes and doors — all instanced), 58 lights. In-world views at 800 × 450: 90–400 draw calls,
+  garage boxes and doors — all instanced), 59 lights. In-world views at 800 × 450: 90–400 draw calls,
   0.15–0.65 M triangles (the birch grove is the heaviest view).

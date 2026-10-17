@@ -176,7 +176,7 @@ function platformSeg(seed, end) {
     let mat
     if (z === 0) mat = n2 > 0.8 ? M('snow_packed') : M('concrete_light')
     else if (z === 1) mat = n > 0.82 || n2 > 0.86 ? M('snow_packed') : M('road_marking')
-    else if (z >= 5 && z <= 9) mat = n < 0.22 ? M('asphalt') : n > 0.74 ? M('snow_dirty') : M('snow_packed')
+    else if (z >= 5 && z <= 9) mat = n < 0.14 ? M('asphalt') : n < 0.27 || n > 0.8 ? M('snow_dirty') : M('snow_packed')
     else if (z <= 4) mat = n > 0.55 ? M('snow_packed') : n2 > 0.7 ? M('snow_dirty') : M('snow')
     else mat = n2 > 0.72 ? M('snow_packed') : M('snow')
     m.set(x, 8, z, mat)

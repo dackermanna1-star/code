@@ -126,7 +126,7 @@ export function buildDriveways(ctx) {
   ctx.navPaths.push(
     { points: [[cx, 146], [cx, 322], [cx, 328], [cx, 520]], kind: 'driveway' },
     { points: [[310, cz], [cx, cz], [596, cz]], kind: 'driveway' },
-    { points: [[310, 175.5], [cx, 175.5]], kind: 'driveway' },
+    { points: [[305, 175.5], [cx, 175.5]], kind: 'driveway' },
     { points: [[310, 359.5], [cx, 359.5]], kind: 'driveway' },
     { points: [[cx, 200.5], [576, 200.5]], kind: 'driveway' },
     { points: [[cx, 161.8], [590, 161.8]], kind: 'driveway' },
@@ -137,9 +137,15 @@ export function buildDriveways(ctx) {
     { points: [[454.75, 320.75], [462, 320.75]], kind: 'crossing' },
     { points: [[462, 320.75], [597, 320.75]], kind: 'sidewalk' },
     { points: [[309.25, 320.75], [309.25, 329.25]], kind: 'crossing' },
-    { points: [[309.25, 329.25], [454.75, 329.25], [454.75, 443]], kind: 'sidewalk' },
-    { points: [[309.25, 329.25], [309.25, 508]], kind: 'sidewalk' },
-    { points: [[313, 170.5], [454.75, 170.5]], kind: 'sidewalk' },
+    { points: [[309.25, 329.25], [454.75, 329.25], [454.75, 470.5]], kind: 'sidewalk' },
+    { points: [[309.25, 329.25], [309.25, 513.2]], kind: 'sidewalk' },
+    // across the shop's parking lot to the shop's back path (the lot's free lane, x 445)
+    { points: [[434, 481], [445, 480], [445, 470.5], [454.75, 470.5], [458.3, 470.5]], kind: 'path' },
+    // the spine's two ends on to the avenue's sidewalk (z 513.2), round the outside of the metro
+    // stair pits (x 377–381 and 389–393, z 509–519); nothing is painted here, the avenue owns it
+    { points: [[377.6, 499.8], [375.2, 504.5], [374.6, 509], [374.6, 513.2]], kind: 'path' },
+    { points: [[392.6, 499.8], [395.0, 504.5], [395.6, 509], [395.6, 513.2]], kind: 'path' },
+    { points: [[305.2, 171.5], [313, 170.5], [454.75, 170.5]], kind: 'sidewalk' },
     { points: [[319, 184.5], [454.75, 184.5]], kind: 'sidewalk' },
     { points: [[332.75, 184.5], [332.75, 251]], kind: 'sidewalk' },
     { points: [[433.25, 184.5], [433.25, 245]], kind: 'sidewalk' },

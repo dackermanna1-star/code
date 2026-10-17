@@ -74,6 +74,29 @@ class MeshBuffers {
 
 export { MeshBuffers }
 
+/**
+ * Build a THREE.BufferGeometry from mesher output. Indices become 16-bit when they fit, and
+ * the CPU-side arrays are released right after their first GPU upload (static voxel geometry
+ * is never read back), roughly halving the memory a big city needs.
+ */
+export function voxelGeometry(THREE, r, { release = true } = {}) {
+  const g = new THREE.BufferGeometry()
+  const free = release ? function () { this.array = null } : null
+  const attr = (arr, n) => {
+    const a = new THREE.BufferAttribute(arr, n)
+    if (free) a.onUpload(free)
+    return a
+  }
+  g.setAttribute('position', attr(r.positions, 3))
+  g.setAttribute('aData', attr(r.data, 4))
+  g.setAttribute('aSize', attr(r.size, 2))
+  const idx = r.vertexCount <= 65535 ? Uint16Array.from(r.indices) : r.indices
+  g.setIndex(attr(idx, 1))
+  g.computeBoundingSphere()
+  g.computeBoundingBox()
+  return g
+}
+
 let DEFAULT_TRANSPARENT = new Uint8Array(256)
 /** Main thread registers the material transparency table (workers receive it per job). */
 export function setTransparentTable(t) { DEFAULT_TRANSPARENT = t }

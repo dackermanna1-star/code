@@ -42,9 +42,15 @@ export function buildGarages(ctx) {
     })
     // painted on the fence east of the gate, the way garages were sold
     addGraffiti(ctx, {
-      x: g1 + 7.5, y: 1.25, z: FZ + 0.15, angle: 0, h: 0.26,
+      x: g1 + 3.7, y: 1.3, z: FZ + 0.15, angle: 0, h: 0.24,
       item: { id: 'north_garage_sale', kind: 'graffiti', look: 'spray', color: '#e8e2d2', style: 'sign', ru: 'ПРОДАЁТСЯ ГАРАЖ\nспросить у сторожа', en: 'GARAGE FOR SALE\nask the watchman' },
     })
+  })
+  // a caged bulb on the east gate post: a small warm pool at the gate, the only light on this stretch
+  // of the street side (the guard booth's tube faces the yard)
+  safe('gsk gate lamp', () => {
+    const l = placeStreetLamp(ctx, { x: g1, z: FZ + 0.26, y: 2.6, angle: 0, type: 'wall', broken: false, flicker: false, seed: 7005 })
+    if (l?.light) out.lights++
   })
   safe('gsk rows', () => {
     const opens = [-1, 21, 9]

@@ -103,7 +103,7 @@ export function dressPublic(ctx, out) {
   safe('shop bench', () => {
     const bench = placeBench(ctx, { x: 414.5, z: 465.2, angle: -Math.PI / 2, type: 'courtyard', seed: 71, snow: 'brushed' })
     if (bench) placeStory(ctx, 'bread', { bench: { ...bench, angle: -Math.PI / 2 }, seed: 72, benchSnow: 0, along: 0.05 })
-    placeLitterBin(ctx, { x: 417.6, z: 480.2, angle: -Math.PI / 2, type: 'concrete' })
+    placeLitterBin(ctx, { x: 418.6, z: 482.6, angle: -Math.PI / 2, type: 'concrete' })
   })
   // the roof letters «ПРОДУКТЫ», facing west across the vast yard toward Block D (they are what
   // you see first from the far side of the courtyard: red, lit from dusk)

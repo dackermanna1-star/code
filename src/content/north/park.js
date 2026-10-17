@@ -102,8 +102,8 @@ function paintAlley(ctx, pts, w, seed) {
       if (distToPolyline(x, z, seg) >= w / 2) return null
       const n = fbm2(x * 0.45, z * 0.45, 3, seed)
       let m = packed
-      if (n < 0.24) m = asphalt
-      else if (n < 0.34) m = dirty
+      if (n < 0.19) m = asphalt // scraped down to the asphalt here and there (kept rare: it reads as a hole at dusk)
+      else if (n < 0.33) m = dirty
       if (valueNoise2(x * 1.4, z * 1.4, seed + 3) > 0.92) m = ice
       return { h: 1, mat: m }
     })

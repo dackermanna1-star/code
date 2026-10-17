@@ -11,6 +11,7 @@ const packages = import.meta.glob('./*/index.js')
 const WIP = new Set(['avenue', 'blocks_west', 'blocks_east', 'north'])
 
 function wipEnabled() {
+  if (import.meta.env.VITE_WIP === '1') return true // test builds: VITE_WIP=1 npm run build:single
   try { return new URLSearchParams(location.search).has('wip') } catch { return false }
 }
 

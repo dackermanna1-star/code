@@ -75,12 +75,25 @@ z 290 (north); kindergarten porches x 376.5 / 390 / 403.5 at z 289 (locked).
 - **The spine** (cleared path, 2.6 m): from tower 8/2's door (381.25, 366.5) south past the
   saplings, benches (mittens, a frozen bag) and four courtyard lamps; it forks at z 486 and meets
   the metro's two footpaths at (377.6, 499.8) and (392.6, 499.8) → the NW / NE underpass stairs.
-- **Block C's gap**: garage lane (590, 165) → along the east gable (596.8, 172–190) → through the
-  2.5 m gap between the wings (593 → 583, z 195.5) → the dead end under the lone lamp.
+  Its nav lines continue (nothing painted) round the outside of the stair pits to the avenue's
+  sidewalk line z 513.2 at x 374.6 and 395.6.
+- **Tower 8/3 → the shop**: a cleared path (433, 366.5) → (415, 446) → west of the shop bench →
+  joins the desire line at (412, 473). Behind the shop a path runs round its south side to the
+  parking lot, and a nav line crosses the lot's free lane (x 445) to the N–S driveway at z 470.5.
+- **Block C's gap**: garage lane (586.5, 163.6) → along the east gable (596.8, 172–190) → through
+  the 2.5 m gap between the wings (593 → 583, z 195.5) → the dead end under the lone lamp.
+  (Walk-tested: no snag.)
 - **Into the pit**: a kids' trodden way (516, 248) → gate (522.5, 240.7) → the pit rim (530.4,
   240.3) → down stepped earth slopes (one 0.25 m voxel per 0.5 m) to the frozen floor at y −1.5.
 - Sidewalks along every facade (y 0.25), the west sidewalk of Block E (x 308–310.5, to the
-  avenue at z 508), and the driveways themselves.
+  avenue at z 508; lowered to road level where Block E's inner driveway crosses it, z 357–362),
+  and the driveways themselves. All nav lines end on another line (checked in-page: the only loose
+  ends are the dead ends meant as such — the playground gate, the pit, the driveway dead ends — and
+  the north end at z 144.5, which meets ул. Заводская's sidewalk once `north` is loaded).
+- Walk-tested with `tools/walk.mjs` (scenarios in the report): Block D sidewalk → desire line →
+  shop door → inside («Купить хлеб» works) → out → spine → tower 8/2's door → stairwell → lift
+  call; the garage lane → gap → east-wing sidewalk; the full N–S and E–W driveways and every
+  sidewalk of the N–S / E–W edges.
 
 ## Driveways and parking
 
@@ -205,3 +218,5 @@ All carry snow on their tops; pivot = bottom centre of the footprint unless note
 - **vehicles**: parked cars keep clear of the registered driveway lines (see above).
 - Everything is deterministic; no `Math.random()`; build steps are wrapped in `safe()` so one
   failing part logs `[blocks_east] … failed` and the rest of the district still builds.
+- Debug: `?be_debug=1` logs every build step of this package with its duration
+  (`[blocks_east] > name` / `< name 12 ms`).

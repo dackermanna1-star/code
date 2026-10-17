@@ -15,7 +15,7 @@ export class MeshPool {
         const w = new MeshWorker()
         w.busy = false
         w.onmessage = e => this._done(w, e.data)
-        w.onerror = err => { console.warn('mesh worker error', err); this.failed = true }
+        w.onerror = err => { console.warn('mesh worker unavailable, meshing on the main thread', err?.message || err); this._fail() }
         this.workers.push(w)
       }
     } catch (e) {
@@ -35,6 +35,20 @@ export class MeshPool {
       this.queue.push({ id, model: plain, opts: o })
       this._pump()
     })
+  }
+
+  // A worker failed (e.g. blocked by a sandbox's CSP): mesh everything in flight on the main thread.
+  _fail() {
+    if (this.failed) return
+    this.failed = true
+    this.queue.length = 0
+    const jobs = [...this.pending.values()]
+    this.pending.clear()
+    for (const w of this.workers) { try { w.terminate() } catch { /* ignore */ } }
+    this.workers = []
+    for (const p of jobs) {
+      try { p.resolve(meshModel(p.model, p.opts)) } catch (e) { p.reject(e) }
+    }
   }
 
   _pump() {

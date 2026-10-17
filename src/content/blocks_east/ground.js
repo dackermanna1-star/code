@@ -150,8 +150,8 @@ function thawStrip(ctx, pts) {
 export function paintPaths(ctx) {
   // ---- Block B ---------------------------------------------------------------------------
   // along the north side of the kindergarten fence, joining both towers to the gate
-  walkway(ctx, [[335.5, 250], [362, 255.5], [390, 256], [420, 255.5], [430.5, 244]], { kind: 'path', width: 2.0, seed: 101 })
-  walkway(ctx, [[390, 256], [390, 261.5]], { kind: 'path', width: 2.4, seed: 102 })
+  walkway(ctx, [[333.0, 250.6], [362, 255.3], [390, 254.6], [420, 255.3], [432.9, 244.6]], { kind: 'path', width: 2.0, seed: 101 })
+  walkway(ctx, [[390, 254.6], [390, 261.5]], { kind: 'path', width: 2.4, seed: 102 })
   // inside the kindergarten yard: gate to the three group porches
   walkway(ctx, [[390, 261.5], [390, 286.8]], { kind: 'path', width: 2.0, seed: 131, nav: false })
   walkway(ctx, [[376.5, 287.4], [403.5, 287.4]], { kind: 'path', width: 1.6, seed: 132, nav: false })
@@ -160,13 +160,15 @@ export function paintPaths(ctx) {
   walkway(ctx, [[420, 255.5], [426, 266], [426, 319.5]], { kind: 'path', width: 1.8, seed: 104 })
   // from the parking sidewalk across the yard to the hockey box gate, then on to the kindergarten
   walkway(ctx, [[398, 185.5], [404, 205], [404, 238], [384, 240], [380, 234]], { kind: 'path', width: 1.8, seed: 105 })
-  walkway(ctx, [[384, 240], [388, 256]], { kind: 'trodden', seed: 106, trail: 0.45, trailLen: 14 })
+  walkway(ctx, [[384, 240], [388.6, 254.6]], { kind: 'trodden', seed: 106, trail: 0.45, trailLen: 14 })
   // kids' shortcut from tower B1 across the west yard to the E–W driveway
-  walkway(ctx, [[335.5, 246], [340, 280], [332, 319.5]], { kind: 'trodden', seed: 107 })
+  walkway(ctx, [[333.2, 246], [340, 280], [332, 319.5]], { kind: 'trodden', seed: 107 })
   // tower B2 to the N–S driveway sidewalk
-  walkway(ctx, [[436, 240], [453.5, 244]], { kind: 'path', width: 1.6, seed: 108 })
+  walkway(ctx, [[433.8, 240], [453.5, 244]], { kind: 'path', width: 1.6, seed: 108 })
   // west end of the parking sidewalk down to the B1 sidewalk
-  walkway(ctx, [[318, 185.5], [330, 190]], { kind: 'path', width: 1.6, seed: 109 })
+  walkway(ctx, [[318, 185.5], [332.2, 190]], { kind: 'path', width: 1.6, seed: 109 })
+  // the 1-515's front sidewalk out to the western driveway (people cut across the corner)
+  walkway(ctx, [[313, 170.5], [308.3, 171.2]], { kind: 'trodden', seed: 128, nav: false })   // nav: the sidewalk line runs on to x 305
 
   // ---- Block E ---------------------------------------------------------------------------
   // the spine: from the middle tower straight south toward the metro underpass; it forks before
@@ -180,13 +182,13 @@ export function paintPaths(ctx) {
   // a second, fainter line from further south on the western sidewalk
   walkway(ctx, [[310.5, 486], [350, 478], [381.4, 472]], { kind: 'trodden', width: 1.1, seed: 113 })
   // tower E3 to the shop
-  walkway(ctx, [[433, 366.5], [427, 400], [415, 446], [413, 462]], { kind: 'path', width: 1.8, seed: 114 })
+  walkway(ctx, [[433, 366.5], [427, 400], [415, 446], [411.5, 458], [410.5, 466], [412, 473.0]], { kind: 'path', width: 1.8, seed: 114 })
   // tower E1 down to the spine
   walkway(ctx, [[329, 366.5], [352, 395], [381.25, 430]], { kind: 'trodden', seed: 115 })
   // playground gate (faces east) to the spine
   walkway(ctx, [[358.5, 425], [381.25, 427]], { kind: 'path', width: 1.6, seed: 116 })
   // the shop's south side to its parking lot
-  walkway(ctx, [[418, 480.5], [434, 481]], { kind: 'path', width: 1.6, seed: 117 })
+  walkway(ctx, [[414, 474.6], [416.5, 480.5], [434, 481]], { kind: 'path', width: 1.6, seed: 117 })
   // spine to the substation corner and the western sidewalk near the avenue
   walkway(ctx, [[380.1, 490], [334, 493], [310.5, 497]], { kind: 'trodden', seed: 118 })
   // between the towers: tower-front sidewalk to the E–W driveway sidewalk
@@ -207,7 +209,7 @@ export function paintPaths(ctx) {
   walkway(ctx, [[516, 248], [519.5, 241.5], [523, 240.7], [530.4, 240.3]], { kind: 'trodden', width: 1.2, seed: 125, trail: 0.6, trailLen: 18 })
   // from the garage lane past the long building's east gable and through the narrow gap between
   // the two wings into the yard (the passage opens onto the dead end under the lone lamp)
-  walkway(ctx, [[587.5, 165.2], [591, 166.8], [596.6, 172], [597, 190], [593, 195.4], [583, 196.4]], { kind: 'trodden', width: 1.3, seed: 126, trail: 0.5, trailLen: 16 })
+  walkway(ctx, [[586.5, 163.6], [591, 166.8], [596.6, 172], [597, 190], [593, 195.4], [583, 196.4]], { kind: 'trodden', width: 1.3, seed: 126, trail: 0.5, trailLen: 16 })
 }
 
 export function gateGap() { return SITE.gate }
