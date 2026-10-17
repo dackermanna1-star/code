@@ -232,3 +232,17 @@ Sizes W × H × D in metres (local X × Y × Z). "fine" = 12.5 cm voxels (non-so
 - **Not walkable on purpose:** the plough banks along both kerbs (gaps at every crossing listed above), the
   shovelled ridges along the park alleys (patchy, with gaps), the fences.
 - The heating main is the public package's `placeHeatPipe` (6 m segments, П-arches with 6.25 m clearance).
+
+## Vegetation and performance
+
+- ≈ 210 trees in the district (≈ 180 in the park): a dense birch grove (with clumps, a few spruces, rowans,
+  lindens) in the north-west (x 26–94, z 151–300) and south-west (x 26–72, z 360–497); sparser mixed planting
+  in the east half; old lindens/poplars along the east and north fences; lindens (and a few Norway maples)
+  lining both sides of the main alley A; two blue spruces at the memorial; birches leaning over the pond;
+  negundo maples and birches self-seeded in the industrial yards, along the embankment foot and in the
+  wasteland; pollarded poplars on the verge in front of the ГСК fence.
+- Dry weeds (burdock, tansy, grass) along the fences, the embankment foot and over the wasteland; reeds and
+  cattails at the pond (nature's `placePond`); lilac, snowberry and currant by the café, plaza and alleys.
+- Measured in a headless build: ≈ 2 830 placements (a third of them fence panels and their fine bars, rails,
+  garage boxes and doors — all instanced), 57 lights. In-world views at 800 × 450: 90–400 draw calls,
+  0.15–0.65 M triangles (the birch grove is the heaviest view).
