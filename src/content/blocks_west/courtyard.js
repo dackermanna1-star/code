@@ -354,8 +354,8 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
     // windrow behind the north parking and along the west parking, gaps at every path
     const gN = [[homeU - 3, homeU + 3], [n2U - 3, n2U + 3]]
     const nLen = (W - 17.5) - 40.5
-    snowBank(ctx, X(40.5), Z(38.8), X(W - 17.5), Z(40.4), 0.75, { seed: cfg.seed + 901, dirtySide: 'n', gaps: gN.map(([a, b]) => [a - 40.5, b - 40.5]).filter(([a]) => a < nLen) })
-    snowBank(ctx, X(38.8), Z(44), X(40.4), Z(131), 0.7, { seed: cfg.seed + 902, dirtySide: 'w', gaps: [w3, w2, w1].map(e => [v(e.z) - 3 - 44, v(e.z) + 3 - 44]) })
+    snowBank(ctx, X(40.5), Z(38.9), X(W - 17.5), Z(40.5), 0.5, { seed: cfg.seed + 901, dirtySide: 'n', gaps: gN.map(([a, b]) => [a - 40.5, b - 40.5]).filter(([a]) => a < nLen) })
+    snowBank(ctx, X(38.9), Z(44), X(40.5), Z(131), 0.5, { seed: cfg.seed + 902, dirtySide: 'w', gaps: [w3, w2, w1].map(e => [v(e.z) - 3 - 44, v(e.z) + 3 - 44]) })
     // dead end of the west driveway: the plough's pile
     plowedPile(ctx, X(C.driveW.u + 0.5), Z(C.driveW.v1 + 2.6), { radius: 3, height: 2.3, seed: cfg.seed + 903, buried: V.pileBuried ?? 'chair' })
     if (!cfg.eastDriveway) plowedPile(ctx, X(W - 3.5), Z(C.driveN.v), { radius: 3.2, height: 2.4, seed: cfg.seed + 904, buried: 'pallet' })
