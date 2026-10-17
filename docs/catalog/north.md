@@ -51,7 +51,7 @@ z 147–499.5 PARK x 24–139 (cast-iron fence on the north, east and south side
 |---|---|---|
 | Boiler-house chimney | (262, 95), 55 m | THE landmark: red/white bands, blinking red aviation lights, a steam plume (public package); visible along ул. Заводская and over the blocks |
 | Boiler house № 3 | hall (268, 109.4), front faces the street | lit cold industrial windows, roof vents steaming (north), «КОТЕЛЬНАЯ № 3» plate by the door (249.25, 117.4) |
-| Heating main on П-supports | z 128.5, x 158–598 (+ from the boiler at x 289) | arches over the boiler gate (266), the way to the platform (300), the warehouse gate (390), the substation path (522), and over the boiler fence (289, 121.5); a leaking joint steams at (337, 128.5); chambers where it dives underground at x 158 and 598 |
+| Heating main on П-supports | z 128.5, x 158–598 (+ from the boiler at x 289) | arches over the boiler gate (266) and the staff wicket (249.6), the way to the platform (300), the warehouse gate (390), the substation path (522), and over the boiler fence (289, 121.5); a leaking joint steams at (337, 128.5); chambers where it dives underground at x 158 and 598 |
 | Platform «Заводская» | x 244.5–294.5, z 51.9–55.9 | high platform, one lit mercury lamp, a dead one, shelter with the timetable, name boards, bench; the chimney looms behind it |
 | Level crossing | (300, 48) | rubber/timber deck over both tracks, red signals that flash and a bell that rings while a train approaches, «Берегись поезда!» |
 | Pylons of the 110 kV line | (492, 112), (536, 93), (580, 74) | wires continue north-east into the whiteout |
@@ -88,6 +88,7 @@ No building in this district is enterable (the open garages are walk-in: two in 
 | Garbage containers with a thrown-out New Year tree | ГСК yard (107.5, 122.4) |
 | A buried УАЗ, a buried «шестёрка», a brushed «семёрка» in the ГСК yard | (61.5, 114), (146, 104.5), (141.5, 94.9) |
 | Cat in the boiler-house plinth vent with «Не закрывайте продухи» | (275.5, 117.4) |
+| Yellow gas pipe on posts from a regulator cabinet («ГАЗ · ОГНЕОПАСНО») into the boiler annex | cabinet (240.5, 122.6) |
 | Bicycle chained to the boiler fence since autumn; cigarette butts by the staff door | (252.6, 125.2), (251.6, 118.3) |
 | Heating-main leak steaming over a thawed muddy patch | (337, 128.5) |
 | Payphone with its receiver hanging on the cord, by the bus stop; a used ticket under the stop | (279.8, 146.1); stop (287, 145.65) |
@@ -205,6 +206,8 @@ Sizes W × H × D in metres (local X × Y × Z). "fine" = 12.5 cm voxels (non-so
 | `north_container` | 6 × 2.75 × 2.5 | shipping container, doors +X; *tint* |
 | `north_slabs` | 6.25 × 2 × 1.75 | three road slabs on timber spacers |
 | `north_drum` | 2.25 × 2.5 × 1.25 | wooden cable drum on its rim |
+| `north_gas_pipe` | 3 × 2.375 × 0.125, fine | yellow gas pipe at 2.1–2.25 m on a thin post (post at the segment start); along +X; non-solid |
+| `north_gas_cabinet` | 1.25 × 2 × 0.75 | yellow gas regulator cabinet (ШРП) on a concrete foot; front −Z |
 
 ## Helpers (`lib.js`, `park.js`)
 

@@ -608,3 +608,33 @@ defineModel('north_drum', () => {
   m.setPivot(4.5, 0, 2.5)
   return m
 }, { lods: [1], maxDistance: 160 })
+
+/**
+ * Yellow gas pipe (газопровод) on a thin steel post, 3 m segment in fine 12.5 cm voxels: the pipe
+ * runs along local +X at 2.1–2.25 m, the post stands at the segment start. Non-solid (overhead).
+ * Pivot = segment start at the foot of the post; place with placeFine.
+ */
+defineModel('north_gas_pipe', () => {
+  const L = 24, m = new VoxelModel(L, 19, 1)
+  for (let x = 0; x < L; x++) m.set(x, 17, 0, M('metal_yellow'))
+  for (let y = 0; y < 17; y++) m.set(0, y, 0, M('metal_dark'))
+  m.set(1, 16, 0, M('metal_dark'))
+  m.set(9, 17, 0, M('metal_rust'))
+  m.addSnow({ mat: M('snow'), depth: 1, chance: 0.8, seed: 12 })
+  m.setPivot(0, 0, 0.5)
+  return fineModel(m, 0.5)
+}, { lods: [0.5, 0.999], lodDistances: [40], maxDistance: 170, collide: false, contact: false })
+
+/** Gas regulator cabinet (ШРП): yellow steel box on a concrete foot, pipes into the ground. Front −Z. */
+defineModel('north_gas_cabinet', () => {
+  const m = new VoxelModel(5, 8, 3)
+  m.fill(0, 0, 0, 5, 1, 3, M('concrete'))
+  m.fill(0, 1, 0, 5, 5, 3, M('metal_yellow'))
+  m.fill(2, 1, 0, 1, 5, 1, M('metal_brown')) // door seam
+  m.set(1, 3, 0, M('metal_dark')); m.set(3, 3, 0, M('metal_dark'))
+  m.set(0, 1, 0, M('metal_rust')); m.set(4, 2, 2, M('metal_rust'))
+  m.fill(0, 6, 0, 5, 1, 3, M('metal_yellow'))
+  m.addSnow({ mat: M('snow'), depth: 1 })
+  m.setPivot(2.5, 0, 1.5)
+  return m
+}, { lods: [1], maxDistance: 140 })

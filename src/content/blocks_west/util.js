@@ -187,3 +187,26 @@ export class KeepOut {
 }
 
 export const lerp = (a, b, t) => a + (b - a) * t
+
+/**
+ * Make sure an entrance's bulb works (the residential helper breaks a seeded share of them):
+ * re-lights the dark fixture and adds the same calibrated light the helper would have added.
+ */
+export function ensureEntranceLamp(ctx, building, e, o = {}) {
+  if (!e || e.lamp) return e?.lamp ?? null
+  const lamps = (building?.placements || []).filter(p => p.tag === 'lamp')
+  let best = null, bd = Infinity
+  for (const p of lamps) {
+    const d = Math.hypot(p.x - e.x, p.z - e.z)
+    if (d < bd) { bd = d; best = p }
+  }
+  if (!best || bd > 1.5) return null
+  best.flag = 1
+  const fx = Math.sin(e.angle), fz = Math.cos(e.angle)
+  const l = ctx.lights.add({
+    x: best.x + fx * 0.8, y: best.y - 0.175, z: best.z + fz * 0.8, color: 0xffd29a, intensity: o.intensity ?? 4.4, range: 8.5,
+    type: 'point', schedule: 'night', domain: 'outdoor', flicker: o.flicker ?? 'none', placement: best, halo: true, haloSize: 0.6, tag: 'entrance_lamp',
+  })
+  e.lamp = l
+  return l
+}

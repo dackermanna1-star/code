@@ -17,7 +17,7 @@ import { addNotice, addGraffiti, addPlate } from '../phone/api.js'
 import { SIGN_FONT, PLAIN_FONT } from '../../render/Signs.js'
 import { PYLON_ATTACH, PYLON_PEAK } from './models.js'
 import { GSK, GSK_ROWS, BOILER, WAREHOUSE, SUBSTATION, PYLONS, LONE_LAMP, VERGE, RAIL } from './layout.js'
-import { nav, reg, safe, PI, HALF_PI, alongAngle, distToPolyline } from './lib.js'
+import { nav, reg, safe, placeFine, PI, HALF_PI, alongAngle, distToPolyline } from './lib.js'
 
 const FZ = VERGE.fence
 
@@ -122,6 +122,11 @@ export function buildBoiler(ctx) {
     placeStory(ctx, 'butts', { x: 251.6, z: 118.3, angle: 0.2, seed: 7115, inspect: false })
     placeStory(ctx, 'bicycle', { x: 252.6, z: FZ + 0.7, angle: HALF_PI, seed: 7116 })
     placeLitterBin(ctx, { x: 246.2, z: FZ + 0.65, angle: 0, type: 'concrete' })
+    // the gas supply: a yellow regulator cabinet by the fence and the yellow pipe on posts into the annex
+    ctx.world.place('north_gas_cabinet', { x: 240.5, z: 122.6, rot: 2, tag: 'cabinet' })
+    ctx.signs?.add({ x: 240.5, y: 0.25 + 1.0, z: 122.6 + 0.39, angle: 0, w: 0.5, h: 0.32, ppm: 140, lines: ['ГАЗ', 'ОГНЕОПАСНО'], bg: '#e2c23a', color: '#a3241c', font: SIGN_FONT, aged: 0.4, seed: 7120 })
+    for (let k = 0; k < 3; k++) placeFine(ctx, 'north_gas_pipe', { x: 240.5, z: 121.8 - k * 3, y: 0.25, angle: HALF_PI, tag: 'gas_pipe' })
+    for (let k = 0; k < 2; k++) placeFine(ctx, 'north_gas_pipe', { x: 240.5 + k * 3, z: 112.8, y: 0.25, angle: 0, tag: 'gas_pipe' })
     scatterWeeds(ctx, { rect: [BOILER.yard[0] + 0.6, 60, BOILER.yard[0] + 5, 96], density: 3, kinds: { grass: 0.5, burdock: 0.5 }, seed: 7117 })
     for (const [x, z, sp, v] of [[218, 64, 'birch', 1], [289, 64.5, 'maple', 4], [217.5, 120, 'poplar', 4]]) placeTree(ctx, { x, z, species: sp, variant: v, seed: x * 5 })
     addCrows(ctx, { perch: 'roof', x: 270, y: 12.75, z: 101.55, angle: 0, facing: HALF_PI, count: 4, seed: 7118 })

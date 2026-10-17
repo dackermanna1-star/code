@@ -12,18 +12,19 @@
 //                       north v 27.5–32.5 (u 30 → the N–S driveway in D, a dead end in F)
 
 import { M } from '../../core/materials.js'
+import { valueNoise2 } from '../../core/rng.js'
 import { paintDriveway } from '../base/api.js'
 import { placeResidential } from '../residential/api.js'
 import { placeSubstation } from '../public/api.js'
 import {
   placeStreetLamp, placeBench, placePlayground, placeCarpetRack, placeGarbageArea, placeRakushkaRow,
-  placeLitterBin, placeElectricalCabinet, angleFacing,
+  placeLitterBin, placeElectricalCabinet, placeFence, angleFacing, angleAlong,
 } from '../street/api.js'
 import { placeTree, placeTreeRow, scatterTrees, placeBush, plowedPile, snowDrift, snowBank, addCrows, scatterWeeds } from '../nature/api.js'
 import { parkRow, placeParkedCar, CAR_COLORS } from '../vehicles/api.js'
 import { placeStory, placeStoryAtEntrance } from '../life/api.js'
 import { addNotice, addNoticeCluster, addGraffiti, addPlate } from '../phone/api.js'
-import { safe, pad, paveWalk, resBody, trodden, KeepOut, paintLawn, shoulderRect } from './util.js'
+import { safe, pad, paveWalk, resBody, trodden, KeepOut, paintLawn, shoulderRect, ensureEntranceLamp } from './util.js'
 
 export const COURTYARD = {
   N: { series: 'ii49', floors: 9, u0: 38, v: 22, sec: 27, door: 14.5 },
@@ -61,6 +62,14 @@ export function paintCourtyard(ctx, cfg, gaps) {
   const eastEnd = cfg.eastDriveway ? W + 3 : W - 6
   paintDriveway(ctx, { points: [[X(C.driveW.u), Z(-1.2)], [X(C.driveW.u), Z(C.driveN.v)], [X(C.driveW.u), Z(C.driveW.v1)]], width: C.driveW.w, banks: false, seed: cfg.seed + 5 })
   paintDriveway(ctx, { points: [[X(C.driveW.u), Z(C.driveN.v)], [X(eastEnd), Z(C.driveN.v)]], width: C.driveN.w, banks: false, seed: cfg.seed + 6 })
+  // parking strips at road level along the driveways (cars stand on packed snow, not in the lawn)
+  const lot = (u0, v0, u1, v1, s) => ctx.terrain.apply(X(u0), Z(v0), X(u1), Z(v1), (x, z) => {
+    const n = valueNoise2(x * 0.6, z * 0.6, s)
+    return { h: 0, mat: n > 0.66 ? M('snow_dirty') : n < 0.1 ? M('slush') : M('snow_packed') }
+  })
+  lot(38.4, 32.4, W - 16.6, 38.6, cfg.seed + 61)
+  lot(32.4, 41.4, 38.6, 132.4, cfg.seed + 62)
+  if (cfg.eastDriveway && cfg.v?.pocket) lot(W - 5.7, 68.6, W, 101.4, cfg.seed + 63)
   // facade sidewalks (0.25)
   const nLen = C.N.sec * cfg.nN
   paveWalk(ctx, X(32.6), Z(24.5), X(cfg.eastDriveway ? W : Math.min(W - 4, C.N.u0 + nLen + 8)), Z(27.4), cfg.seed + 7)
@@ -133,6 +142,8 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
   if (!N || !Wb || !S) return out
   const home = N.entrances[cfg.enterN[0]]
   out.home = home
+  // the bulb over the home door always works (the stairwell inside has its one working light)
+  safe(`${cfg.name} home lamp`, () => ensureEntranceLamp(ctx, N, home))
   const u = x => x - cfg.xW, v = z => z - cfg.zN
   const homeU = u(home.x)
 
@@ -224,6 +235,19 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
     placeElectricalCabinet(ctx, { x: X(C.passage[1] - 0.8), z: Z(157.8), angle: -Math.PI / 2 })
     keep.circle(X(C.passage[1] - 0.8), Z(157.8), 1.2)
   })
+  if (V.gate) {
+    // a steel bar fence across the passage, its gate swung open into the yard and frozen there
+    safe(`${cfg.name} gate`, () => {
+      const g = V.gate, tint = g.tint ?? 0x2f4a36
+      placeFence(ctx, { points: [P(69.9, g.v), P(g.u0, g.v)], type: 'bars', seed: cfg.seed + 30, tint })
+      placeFence(ctx, { points: [P(g.u1, g.v), P(83.9, g.v)], type: 'bars', seed: cfg.seed + 31, tint })
+      const a = g.open ?? 1.75 // radians the leaf has swung from closed (pointing −u)
+      const dx = -Math.cos(a), dz = -Math.sin(a)
+      const [hx, hz] = P(g.u1, g.v)
+      ctx.world.place('street_fence_bars', { x: hx + dx * 1.27, z: hz + dz * 1.27, angle: angleAlong(dx, dz), tint, tag: 'fence', userData: { gate: true } })
+      keep.rect(X(69.5), Z(g.v - 3), X(84), Z(g.v + 0.5), 0)
+    })
+  }
 
   // ---- entrances: benches, notices, story props -----------------------------------------------
   safe(`${cfg.name} entrances`, () => {
@@ -245,7 +269,7 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
         addNoticeCluster(ctx, { x: ns.x, y: ns.y, z: ns.z, angle: ns.angle, w: 0.6, h: 0.5, count: isHome ? 3 : 2 + ((i + cfg.seed) % 2), seed: cfg.seed * 3 + i * 29, include })
       }
       if ((i + cfg.seed) % 3 === 0) {
-        const lx = e.x - tx * 7 * side + fx * 2.4, lz = e.z - tz * 7 * side + fz * 2.4
+        const lx = e.x - tx * 7 * side + fx * 1.7, lz = e.z - tz * 7 * side + fz * 1.7
         if (!keep.hit(lx, lz) || true) placeBush(ctx, { x: lx, z: lz, kind: (i % 2) ? 'lilac' : 'currant', seed: cfg.seed + 140 + i })
       }
     })

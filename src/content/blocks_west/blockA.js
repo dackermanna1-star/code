@@ -48,6 +48,11 @@ export function paintBlockA(ctx, gaps) {
     const n = valueNoise2(x * 0.7, z * 0.7, 177)
     return { h: 0, mat: n > 0.62 ? M('snow_dirty') : n < 0.12 ? M('slush') : M('snow_packed') }
   })
+  // and the bays on the north side of the courtyard driveway
+  ctx.terrain.apply(230, 264.2, 290, A.drive.z - A.drive.w / 2 + 0.25, (x, z) => {
+    const n = valueNoise2(x * 0.7, z * 0.7, 178)
+    return { h: 0, mat: n > 0.62 ? M('snow_dirty') : n < 0.12 ? M('slush') : M('snow_packed') }
+  })
   gaps.ewN.push([A.lot.x0 - 1, A.lot.x1 + 1])  // no windrow in front of the parked cars
   gaps.ewN.push([282, 294])                     // path from the courtyard to the E–W driveway
   gaps.berE.push([280, 286])        // path from the courtyard to Берёзовая
@@ -101,7 +106,7 @@ export function buildBlockA(ctx, keep) {
       if (e.noticeSpot) addNoticeCluster(ctx, { x: e.noticeSpot.x, y: e.noticeSpot.y, z: e.noticeSpot.z, angle: e.noticeSpot.angle, w: 0.55, h: 0.45, count: 2 + (i % 2), seed: 1200 + i * 17 })
       // lilac against the facade between some entrances
       if (i % 2 === 0) {
-        const lx = e.x - tx * 7.5 * sgn + fx * 2.2, lz = e.z - tz * 7.5 * sgn + fz * 2.2
+        const lx = e.x - tx * 7.5 * sgn + fx * 1.6, lz = e.z - tz * 7.5 * sgn + fz * 1.6
         placeBush(ctx, { x: lx, z: lz, kind: i % 4 === 0 ? 'lilac' : 'snowberry', seed: 500 + i })
       }
     })

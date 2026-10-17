@@ -98,8 +98,8 @@ function paintAlley(ctx, pts, w, seed) {
       if (distToPolyline(x, z, seg) >= w / 2) return null
       const n = fbm2(x * 0.45, z * 0.45, 3, seed)
       let m = packed
-      if (n < 0.33) m = asphalt
-      else if (n < 0.4) m = dirty
+      if (n < 0.24) m = asphalt
+      else if (n < 0.34) m = dirty
       if (valueNoise2(x * 1.4, z * 1.4, seed + 3) > 0.92) m = ice
       return { h: 1, mat: m }
     })
@@ -115,8 +115,9 @@ function alleyEdges(ctx) {
     if (h <= 1 && pathMats.has(mat)) return null
     const d = alleyDist(x, z)
     if (d > 1.3 || d < -0.01) return null
-    if (d < 0.55) return { h: Math.min(h, 2), mat: h > 2 ? bank : mat }
-    if (valueNoise2(x * 0.7, z * 0.7, 6250) > 0.58) return { h: 3, mat: bank }
+    if (d < 0.5) return { h: Math.min(h, 2), mat: h > 2 ? M('snow') : mat }
+    // a low shovelled windrow along the edge, broken here and there where people step off the path
+    if (d < 1.05 && valueNoise2(x * 0.16, z * 0.16, 6250) > 0.42) return { h: 3, mat: valueNoise2(x * 1.1, z * 1.1, 6251) > 0.7 ? bank : M('snow') }
     return null
   })
 }

@@ -45,6 +45,7 @@ export const BLOCK_F = {
     ],
     extraCars: [{ u: 112, v: 140, angle: 0.4, type: 'moskvich2141', snow: 'buried' }],
     spruce: [52, 132], trees: 13, wind: 0.35, silence: true, crows: 2, benchShift: 1,
+    gate: { v: 165, u0: 76.2, u1: 80.2, open: 1.75 },
   },
 }
 

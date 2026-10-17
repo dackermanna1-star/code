@@ -63,11 +63,11 @@ export const STOP = { x: 287, z: 145.65, name: 'Платформа «Завод�
 
 /** Heating main from the boiler house along the north verge (public package pipes). */
 export const HEAT = {
-  fromBoiler: [[284.0, 112.5], [289, 112.5], [289, VERGE.pipe]],
+  fromBoiler: [[283.6, 115.6], [289, 115.6], [289, VERGE.pipe]],
   west: [[289, VERGE.pipe], [158, VERGE.pipe]],
   east: [[289, VERGE.pipe], [598, VERGE.pipe]],
   archFence: [[289, 121.5]],
-  archesWest: [[266, VERGE.pipe]],
+  archesWest: [[266, VERGE.pipe], [249.6, VERGE.pipe]],
   archesEast: [[300, VERGE.pipe], [390, VERGE.pipe], [522, VERGE.pipe]],
 }
 
