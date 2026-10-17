@@ -151,7 +151,8 @@ export function paintGround(ctx) {
   // ---- ул. Берёзовая mouth (the street itself is blocks_west's; repainted here so the sidewalk
   //      meets it even when that package is absent) -------------------------------------------
   safe('berezovaya mouth', () => {
-    paintRoad(ctx, { axis: 'z', x0: BEREZOVAYA.x0, x1: BEREZOVAYA.x1, z0: Z.TREES[0], z1: Z.N_CURB, lanes: [142.5, 147.5], banks: false, seed: 81 })
+    paintSidewalk(ctx, BEREZOVAYA.x1, Z.TREES[0], BEREZOVAYA.walk1, Z.N_SIDE[0], 82)
+    paintRoad(ctx, { axis: 'z', x0: BEREZOVAYA.x0, x1: BEREZOVAYA.x1, z0: Z.TREES[0], z1: Z.N_CURB, lanes: BEREZOVAYA.lanes, laneWidth: 3.4, banks: false, seed: 81 })
     paintZebra(ctx, BEREZOVAYA.x0 + 0.5, BEREZOVAYA.x1 - 0.5, 510.5, 515, 'z', 83)
   })
 
@@ -177,6 +178,9 @@ export function paintGround(ctx) {
     paintTrampled(ctx, METRO.x0 - 18, Z.N_WALK[0], METRO.x0, Z.N_CURB - V, 55)
     paintTrampled(ctx, METRO.x1, Z.N_WALK[0], METRO.x1 + 16, Z.N_CURB - V, 56)
     paintTrampled(ctx, METRO.x0 - 22, Z.S_CURB + V, METRO.x0, Z.S_WALK[1], 57)
+    // the south stairs come up facing south: a trampled apron in front of them (z 572–578; the
+    // metro package paints its footprint only to z 572), joining the forecourt and the paths
+    paintTrampled(ctx, METRO.x0 - 3, Z.S_SIDE[1], METRO.x1, 578, 58)
   })
 
   // ---- kiosk / shop forecourt -------------------------------------------------------------------
@@ -228,8 +232,8 @@ function paintTerminal(ctx) {
   const T = ctx.terrain
   const curb = M('curb')
   // mouths across the south sidewalk (y 0)
-  paintDriveway(ctx, { points: [[522, 552.5], [529, 552.5], [535, 559.25], [538, 566], [538, 574]], width: 8, banks: false, seed: 111 })
-  paintDriveway(ctx, { points: [[592, 574], [592, 566], [596, 559.25], [604, 552.5], [612, 552.5]], width: 8, banks: false, seed: 113 })
+  paintDriveway(ctx, { points: [[530.5, 554.6], [535, 559.25], [538, 566], [538, 574]], width: 8, banks: false, seed: 111 })
+  paintDriveway(ctx, { points: [[592, 574], [592, 566], [596, 559.25], [600.5, 554.6]], width: 8, banks: false, seed: 113 })
   // the loop
   paintDriveway(ctx, { points: TERM.loop, width: 7.5, banks: false, seed: 115 })
   // layover bays beside the loop (island side)
@@ -257,6 +261,8 @@ function paintTerminal(ctx) {
 /** Footpaths: into the courtyards, through the row, along the porches, from the underpass. */
 function paintPaths(ctx) {
   // north: through the tree strip into Block D (228) and Block F (540)
+  // (a paved mouth where the passage leaves the sidewalk — blocks_west paves x ± 2.5 down to z 508)
+  for (const x of PASSAGES) paintSidewalk(ctx, x - 2.5, 506, x + 2.5, Z.N_WALK[0], 40 + x)
   for (const x of PASSAGES) paintPath(ctx, { points: [[x, Z.N_WALK[0] + 0.3], [x + 0.6, 504], [x - 0.4, Z.TREES[0] - 0.5]], width: 1.6, wobble: 0.5, seed: x })
   // metro's two footpaths north of the stairs end at z 504: carry them through the strip
   paintPath(ctx, { points: [[378.4, 504.2], [377.6, 499.5]], width: 1.6, wobble: 0.3, seed: 61 })
@@ -311,16 +317,16 @@ export function raiseBanks(ctx) {
   // cleared-sidewalk snow heaped along the tree strip and the south strip edges
   safe('sidewalk banks', () => {
     const nGaps = [
-      [BEREZOVAYA.x0 - 1, BEREZOVAYA.x1 + 1], [PASSAGES[0] - 2.5, PASSAGES[0] + 3], [PASSAGES[1] - 2.5, PASSAGES[1] + 3],
+      [BEREZOVAYA.x0 - 1, BEREZOVAYA.walk1 + 0.5], [PASSAGES[0] - 2.5, PASSAGES[0] + 3], [PASSAGES[1] - 2.5, PASSAGES[1] + 3],
       [DRIVEWAYS[0].x0 - 1, DRIVEWAYS[0].x1 + 1], [DRIVEWAYS[1].x0 - 1, DRIVEWAYS[1].x1 + 1],
       [METRO.x0 - 2, METRO.x1 + 2], [STOP_N.x - 9, STOP_N.x - 5],
     ]
     for (const [a, b] of cut(40, 600, nGaps)) {
-      snowBank(ctx, a, Z.N_SIDE[0] - 1.2, b, Z.N_WALK[0] + 0.2, 0.38, { dirtySide: 'none', chunks: false, seed: 13 + a })
+      snowBank(ctx, a, Z.BANK_N[0], b, Z.BANK_N[1], 0.42, { dirtySide: 'none', chunks: false, seed: 13 + a })
     }
     const sGaps = [[160, 166], [290, 297], [METRO.x0 - 24, 500], [520, 549], [585, 612]]
     for (const [a, b] of cut(40, 600, sGaps)) {
-      snowBank(ctx, a, Z.S_WALK[1] - 0.2, b, Z.S_SIDE[1] + 1.0, 0.36, { dirtySide: 'none', chunks: false, seed: 15 + a })
+      snowBank(ctx, a, Z.BANK_S[0], b, Z.BANK_S[1], 0.4, { dirtySide: 'none', chunks: false, seed: 15 + a })
     }
   })
   // plough piles where the snow from the terminal and the lay-by ends up

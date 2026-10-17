@@ -94,7 +94,15 @@ export function paintApron(ctx, x0, z0, x1, z1, seed = 8) { paintSidewalk(ctx, x
 export function walkway(ctx, pts, o = {}) {
   const trodden = o.kind === 'trodden'
   const width = o.width ?? (trodden ? 1.2 : 2.0)
-  paintPath(ctx, { points: pts, width, wobble: o.wobble ?? (trodden ? 0.7 : 0.15), seed: o.seed ?? 5, mat: o.mat ?? M('snow_packed') })
+  const wobble = o.wobble ?? (trodden ? 0.7 : 0.15)
+  if (trodden && !o.mat) {
+    // a trodden line through deep snow: loose trampled snow at the sides, a narrow packed,
+    // greyer tread in the middle where most feet go
+    paintPath(ctx, { points: pts, width, wobble, seed: o.seed ?? 5, mat: M('snow') })
+    paintPath(ctx, { points: pts, width: Math.max(0.5, width * 0.45), wobble, seed: o.seed ?? 5, mat: M('snow_packed') })
+  } else {
+    paintPath(ctx, { points: pts, width, wobble, seed: o.seed ?? 5, mat: o.mat ?? M('snow_packed') })
+  }
   if (o.nav !== false) ctx.navPaths.push({ points: pts.map(p => [p[0], p[1]]), kind: o.kind ?? 'path' })
   if (o.trail !== undefined && ctx.footprints) {
     // footprints share a 1400-print ring buffer with the player: only the last `trailLen` metres

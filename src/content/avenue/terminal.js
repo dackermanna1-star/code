@@ -10,7 +10,7 @@ import { placeBusStop, placeStreetLamp, placeBench, placeLitterBin, placeFence }
 import { placeDispatcherBooth } from '../public/api.js'
 import { placeParkedBus } from '../vehicles/api.js'
 import { placeTree } from '../nature/api.js'
-import { TERM, safe } from './layout.js'
+import { TERM, safe, poster } from './layout.js'
 import { buildTerminalWires } from './overhead.js'
 
 // ---- биотуалет: blue plastic portable toilet (1.25 × 2.5 × 1.25 m), door at local +Z ----------
@@ -40,7 +40,7 @@ export function buildTerminal(ctx) {
   safe('terminal pavilion', () => {
     out.stop = placeBusStop(ctx, {
       x: 530.6, z: 586.5, angle: Math.PI / 2, kind: 'bus', name: 'Ст. м. «Заречная»', routes: ['648', '276'],
-      from: 'Ст. м. «Заречная»', to: '9-й микрорайон', lit: true, ticket: true, seed: 530, tint: 0x2f3e57, ad: 'disco',
+      from: 'Ст. м. «Заречная»', to: '9-й микрорайон', lit: true, ticket: true, seed: 530, tint: 0x2f3e57, ad: poster('disco'),
     })
   })
   safe('platform bench', () => placeBench(ctx, { x: 529.4, z: 577.2, angle: Math.PI / 2, type: 'park', seed: 529 }))

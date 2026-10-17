@@ -12,18 +12,18 @@ import { placeKiosk, placeShop, placePharmacy } from '../public/api.js'
 import { placeResidential } from '../residential/api.js'
 import { placeTree, placeBush } from '../nature/api.js'
 import { placeParkedCar, CAR_COLORS } from '../vehicles/api.js'
-import { Z, STOP_S, ROW, ROW_Z, LAYBY, ZEBRA, METRO, safe } from './layout.js'
+import { Z, STOP_S, ROW, ROW_Z, LAYBY, ZEBRA, METRO, safe, poster } from './layout.js'
 
 /** Low fence along the lawns in front of the 9-storey row — before the banks bury it. */
 export function placeSouthFence(ctx) {
   const runs = [[46, 159], [167, 289], [298, 351]]
-  runs.forEach(([a, b], i) => safe('south fence', () => placeFence(ctx, { points: [[a, 571.7], [b, 571.7]], type: 'lawn', seed: 400 + i, tint: 0x55663f })))
+  runs.forEach(([a, b], i) => safe('south fence', () => placeFence(ctx, { points: [[a, Z.FENCE_S], [b, Z.FENCE_S]], type: 'lawn', seed: 400 + i, tint: 0x55663f })))
 }
 
 export function placeSouthStop(ctx) {
   return safe('south stop', () => placeBusStop(ctx, {
     x: STOP_S.x, z: STOP_S.z, angle: Math.PI, kind: 'bus', name: 'Улица Берёзовая', routes: ['648', '613'],
-    from: 'Ст. м. «Заречная»', to: '9-й микрорайон', lit: false, ticket: true, seed: 266, tint: 0x4a4f55, ad: 'evrosvyaz',
+    from: 'Ст. м. «Заречная»', to: '9-й микрорайон', lit: false, ticket: true, seed: 266, tint: 0x4a4f55, ad: poster('evrosvyaz'),
   }))
 }
 
@@ -125,8 +125,8 @@ export function placeSouthFurniture(ctx) {
     safe('bin', () => placeLitterBin(ctx, { x: x + rng.float(-1, 1), z: 569.9, angle: Math.PI, type: rng.chance(0.5) ? 'concrete' : 'metal', seed: x + 7 }))
   }
   safe('billboard s', () => placeBillboard(ctx, { x: 301.5, z: 560.2, angle: -Math.PI / 2, ad: 'family', adBack: 'evrosvyaz', seed: 301 }))
-  safe('notice board s', () => placeNoticeBoard(ctx, { x: 166.6, z: 571.6, angle: Math.PI, seed: 166 }))
-  safe('cabinet s', () => placeElectricalCabinet(ctx, { x: 289.2, z: 571.2, angle: Math.PI, seed: 289 }))
+  safe('notice board s', () => placeNoticeBoard(ctx, { x: 165.2, z: 569.95, angle: Math.PI, seed: 166 }))
+  safe('cabinet s', () => placeElectricalCabinet(ctx, { x: 287.6, z: 570.0, angle: Math.PI, seed: 289 }))
   // garbage enclosure and rakushki in the yard behind the forecourt
   safe('garbage', () => placeGarbageArea(ctx, { x: 412.5, z: 595.2, angle: Math.PI, seed: 412, enclosure: 'brick', count: 3, tree: true }))
   safe('rakushki', () => placeRakushkaRow(ctx, { x0: 425.5, z0: 592.6, x1: 442, z1: 592.6, facing: 'left', seed: 425, missing: 0.1 }))

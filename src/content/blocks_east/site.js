@@ -41,7 +41,7 @@ export function buildSite(ctx) {
 
   // ---- the object passport board by the gate --------------------------------------------------
   safe('passport', () => {
-    const px = x0 - 3.2, pz = 248.5
+    const px = x0 - 2.6, pz = g0 - 7.5
     const p = world.place('be_passport', { x: px, z: pz, angle: Math.PI / 2, tag: 'sign' }) // board faces west
     if (!p || !signs) return
     signs.add({ x: px - 0.02, y: p.y + 1.62, z: pz, angle: -Math.PI / 2, w: 2.2, h: 1.2, ppm: 110, aged: 0.6, seed: 9,
@@ -73,24 +73,26 @@ export function buildSite(ctx) {
     world.place('be_fbs', { x: P.x1 - 7.5, z: P.z1 - 7.2, y: fy, angle: 1.4, tag: 'site' })
     // up on the rim inside the fence: the trailer, a heap of blocks, concrete rings
     const y0 = 0.5
-    world.place('be_bytovka', { x: 584.5, z: 228, y: y0 - 0.05, rot: 1, tag: 'site' })       // door faces west, toward the pit
-    world.place('be_fbs_pile', { x: 543.2, z: 262.5, y: y0 - 0.1, rot: 1, tag: 'site' })
-    world.place('be_rings', { x: 568, z: 264.0, y: y0 - 0.15, rot: 0, tag: 'site' })
-    world.place('be_fbs', { x: 553, z: 218.2, y: y0 - 0.1, rot: 0, tag: 'site' })
+    const bx = (P.x1 + x1) / 2 + 0.5                                                        // on the east rim
+    world.place('be_bytovka', { x: bx, z: 228, y: y0 - 0.05, rot: 1, tag: 'site' })        // door faces west, toward the pit
+    world.place('be_fbs_pile', { x: x0 + 5.2, z: 262.5, y: y0 - 0.1, rot: 1, tag: 'site' })
+    world.place('be_rings', { x: x0 + 30, z: 264.0, y: y0 - 0.15, rot: 0, tag: 'site' })
+    world.place('be_fbs', { x: x0 + 15, z: 218.2, y: y0 - 0.1, rot: 0, tag: 'site' })
     // the trailer's notice and a scratched "закрыто"
-    addNotice(ctx, { x: 583.24, y: y0 + 1.5, z: 227.6, angle: -Math.PI / 2, id: 'notice_door', aged: 0.85 })
+    addNotice(ctx, { x: bx - 1.26, y: y0 + 1.5, z: 227.6, angle: -Math.PI / 2, id: 'notice_door', aged: 0.85 })
   })
 
   // ---- weeds, a self-seeded maple, a birch with a bag, crows ------------------------------------
+  const P0 = SITE.pit
   safe('site nature', () => {
     scatterWeeds(ctx, { rect: [x0 + 0.8, z0 + 0.8, x1 - 0.8, SITE.pit.z0 - 0.6], count: 10, kinds: { burdock: 0.4, tansy: 0.3, grass: 0.3 }, seed: 151 })
     scatterWeeds(ctx, { rect: [x0 + 0.8, SITE.pit.z1 + 0.6, x1 - 0.8, z1 - 0.8], count: 8, kinds: { burdock: 0.4, tansy: 0.3, grass: 0.3 }, seed: 152 })
     scatterWeeds(ctx, { rect: [x0 - 3, z0, x0 - 0.6, z1], count: 6, kinds: { grass: 0.6, burdock: 0.4 }, avoid: (x, z) => z > g0 - 2 && z < g1 + 2, seed: 153 })
-    placeTree(ctx, { x: 586.5, z: 262.5, species: 'maple:negundo', rot: 1, seed: 154 })
-    placeTree(ctx, { x: 542.5, z: 218.5, species: 'maple:negundo', rot: 2, seed: 155 })
-    const birch = placeTree(ctx, { x: 532.5, z: 262.5, species: 'birch:single', size: 'medium', rot: 3, seed: 156 })
+    placeTree(ctx, { x: x1 - 3.5, z: 263, species: 'maple:negundo', rot: 1, seed: 154 })
+    placeTree(ctx, { x: x0 + 4.5, z: 218.5, species: 'maple:negundo', rot: 2, seed: 155 })
+    const birch = placeTree(ctx, { x: x0 - 9, z: 264, species: 'birch:single', size: 'medium', rot: 3, seed: 156 })
     if (birch) addBag(ctx, { tree: birch, seed: 157 })
-    addCrows(ctx, { perch: 'ground', x: 563, z: 247, count: 3, seed: 158 })
+    addCrows(ctx, { perch: 'ground', x: (P0.x0 + P0.x1) / 2 + 8, z: 247, y: SITE.floorY, count: 3, seed: 158 })
   })
 
   // ---- the lost glove on a lone post by the gate ---------------------------------------------

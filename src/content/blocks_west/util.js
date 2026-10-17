@@ -104,9 +104,14 @@ export function trodden(ctx, points, o = {}) {
   shoulder(ctx, points, (o.width ?? 1.3) / 2 + 1.6)
   paintPath(ctx, { points, width: o.width ?? 1.3, wobble: o.wobble ?? 0.5, seed: o.seed ?? 5, mat: o.mat })
   if (o.nav !== false) ctx.navPaths.push({ points: points.map(p => [p[0], p[1]]), kind: o.kind ?? 'trodden' })
-  if (o.trail && ctx.footprints?.addTrail) {
-    try { ctx.footprints.addTrail(o.trail === true ? points : o.trail, ctx.terrain, o.age ?? 0.45) } catch (e) { void e }
-  }
+  if (o.trail) TRAILS.push({ points: o.trail === true ? points : o.trail, age: o.age ?? 0.45 })
+}
+
+/** Old footprint trails, laid in init() on the final terrain (see index.js). */
+export const TRAILS = []
+export function layTrails(ctx) {
+  if (!ctx.footprints?.addTrail) return
+  for (const t of TRAILS) safe('trail', () => ctx.footprints.addTrail(t.points, ctx.terrain, t.age))
 }
 
 /** Distance from point to a polyline segment list. */

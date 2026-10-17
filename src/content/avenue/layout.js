@@ -1,6 +1,8 @@
 // проспект Строителей — geometry shared by every part of the avenue package.
 // World metres: x east, z south. Road surface y 0, sidewalks 0.25, lawn snow 0.5.
 
+import { POSTERS } from '../street/api.js'
+
 export const PLAY_MIN = 24
 export const PLAY_MAX = 616
 export const SPAN = PLAY_MAX - PLAY_MIN // 592
@@ -21,10 +23,28 @@ export const Z = {
   S_WALK: [563, 570.5],
   S_SIDE: [556, 572],
   STRIP: [572, 600], // south strip: kiosks, shop, 9-storey row, terminal
+  // low arched lawn fences stand on the outer edge cells of the walks; the cleared snow is heaped
+  // in banks on the lawn just behind them (hoops stick out of the bank's foot)
+  FENCE_N: 508.88,
+  BANK_N: [505.4, 508.72],
+  FENCE_S: 570.62,
+  BANK_S: [570.78, 573.9],
 }
 export const LANES_W = [527.5, 531, 534.5]
 export const LANES_E = [552.5, 549, 545.5]
 export const MEDIAN_Z = 540
+
+/**
+ * Sidewalk lamps (cobras on concrete poles at the back of each walk, heads over the walk), every
+ * 2 periods (74 m, also tiling the 592 m wrap) so the walks get pools of light with dark gaps.
+ * The north row is phased on the spawn stop's lamp (x 254.6, placed with the stop); the south row
+ * sits half a pitch (37 m) further on.
+ */
+export const WALK_LAMPS = {
+  n: { x0: 254.6 - 3 * 74, z: 509.45, skip: [[248, 262], [368, 401]] },
+  s: { x0: 254.6 - 3 * 74 + 37, z: 570.25, skip: [[352, 401], [430, 450], [580, 612], [255, 280]] },
+  pitch: 74,
+}
 
 /** Metro package footprint: never paint or place inside. */
 export const METRO = { x0: 374, x1: 396, z0: 504, z1: 574 }
@@ -40,7 +60,9 @@ export const NAV_S_PIT = 558.6
 export const SPAWN = { x: 248, z: 515.5 }
 export const STOP_N = { x: 248, z: 520.6 } // trolleybus stop (spawn)
 export const STOP_S = { x: 266, z: 559.4 } // bus stop on the south side
-export const BEREZOVAYA = { x0: 140, x1: 150 } // ул. Берёзовая meets the avenue (T-junction)
+// ул. Берёзовая meets the avenue (T-junction). Same cross-section as blocks_west: road x 140–148,
+// east sidewalk 148–151.5 (the park fence of the north package is west of x 140).
+export const BEREZOVAYA = { x0: 140, x1: 148, walk1: 151.5, lanes: [142.3, 145.7] }
 export const DRIVEWAYS = [{ x0: 302, x1: 308 }, { x0: 456, x1: 462 }]
 export const PASSAGES = [228, 540] // footpaths into Block D / Block F
 export const ZEBRA = { x0: 509.5, x1: 514.5 } // the one zebra crossing (flashing yellow)
@@ -66,6 +88,9 @@ export const TERM = {
   entry: [[527, 552.5], [534, 558.5], [538, 566]],
   exit: [[592, 566], [596, 559.25], [604, 552.5]],
 }
+
+/** A street-package poster record by id (placeBusStop wants the record, not the id). */
+export const poster = id => POSTERS.find(p => p.id === id) ?? POSTERS[0]
 
 /** Is x inside [a, b] (with margin)? */
 export const within = (x, a, b, m = 0) => x >= a - m && x <= b + m

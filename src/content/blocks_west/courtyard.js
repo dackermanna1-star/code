@@ -67,7 +67,7 @@ export function paintCourtyard(ctx, cfg, gaps) {
   paveWalk(ctx, X(24.5), Z(C.W.v0 - 1), X(27.4), Z(C.W.v0 + C.W.sec * 4 + 1), cfg.seed + 8)
   paveWalk(ctx, X(C.passage[0]), Z(152.4), X(cfg.eastDriveway ? W : W - 4), Z(155.5), cfg.seed + 9)
   // passage paving out to the avenue's tree strip
-  paveWalk(ctx, X(C.passage[0] + 3.5), Z(155.5), X(C.passage[1] - 3.5), Z(cfg.zS - cfg.zN + 8), cfg.seed + 10)
+  paveWalk(ctx, X(C.passage[0] + 3.5), Z(155.5), X(C.passage[1] - 3.5), cfg.zS, cfg.seed + 10)
   // building pads
   for (const r of buildingRects(cfg)) pad(ctx, r.x0, r.z0, r.x1, r.z1, 0.25)
   // bank gaps on the streets this block opens onto
@@ -148,7 +148,7 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
   const hub = [77, 131]
   const paths = {}
   const PG = C.playground
-  paths.home = [[78, 179], [78.5, 166], [79, 155.5], [hub[0], hub[1]], [75.5, 113], [75.8, 92], [homeU - 1.5, 62], [homeU, 41], [homeU, 38.6]]
+  paths.home = [[77.7, cfg.zS - cfg.zN], [78.5, 166], [79, 155.5], [hub[0], hub[1]], [75.5, 113], [75.8, 92], [homeU - 1.5, 62], [homeU, 41], [homeU, 38.6]]
   const n2 = N.entrances.find(e => Math.abs(u(e.x) - (homeU + 27)) < 2) || N.entrances[0]
   const n2U = u(n2.x)
   paths.ne = [[hub[0], hub[1]], [96, 116.5], [111, 109], [114, 84], [n2U + 1.5, 60], [n2U, 41], [n2U, 38.6]]
@@ -157,22 +157,29 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
   paths.w3 = [[38.6, v(w3.z)], [52, v(w3.z) + 6], [66, 146], [79, 155.5]]
   paths.w2 = [[38.6, v(w2.z)], [54, v(w2.z) + 10], [hub[0], hub[1]]]
   paths.w1 = [[38.6, v(w1.z)], [58, v(w1.z) + 6], [PG[0] - 12.5, PG[1] - 9]]
-  // toward the shop (east): from the north parking gap past the playground's north side
-  paths.east = [[homeU, 41], [homeU + 14, 58], [120, 77], [136, 98], [W - 1.5, 108.5]]
-  if (cfg.eastDriveway) paths.east.push([W + 6.5, 109.5])
-  // SW corner → Берёзовая (or the block's west edge)
-  paths.sw = [[C.driveW.u, C.driveW.v1 - 1], [22, 143], [8, 146.5], [cfg.westStreet ? -0.2 : 2, 147]]
+  // toward the shop: from the north parking gap past the playground's north side, east to the
+  // N–S driveway (D: Block E's desire line to «Продукты» starts across it at x 310.5, z 438).
+  // In F the same line just runs out into the open snow at the east edge of the block.
+  paths.east = [[homeU, 41], [homeU + 14, 58], [120, 77], [136, 98], [cfg.eastDriveway ? W - 0.6 : W - 4, 108.5]]
+  // SW corner → Берёзовая (D) / the mouth of the eastern N–S driveway by the avenue (F)
+  paths.sw = cfg.westStreet
+    ? [[27.4, 137.6], [22, 143], [8, 146.5], [-0.2, 147]]
+    : [[27.4, 137.6], [20, 150], [6, 166], [1, 171.4]]
   for (const [k, pts] of Object.entries(paths)) {
     const world = pts.map(([a, b]) => P(a, b))
     keep.line(world, 2.3)
-    const trail = k === 'home' && V.trail ? world.slice(4) : false
+    const trail = k === 'home' && V.trail ? world : false
     safe(`path ${k}`, () => trodden(ctx, world, { seed: cfg.seed + k.length * 7, trail, age: 0.3, width: k === 'home' ? 1.5 : 1.25 }))
   }
-  // nav: link path ends across the parking + driveway to the sidewalks and doors
+  // nav: link path ends across the parking + driveway to the sidewalks and doors (not painted:
+  // a 0.25 m path strip across 0 m asphalt would be a kerb in the road)
   const navLink = (a, b) => ctx.navPaths.push({ points: [P(...a), P(...b)], kind: 'crossing' })
   navLink([homeU, 38.6], [homeU, 25.9])
   navLink([n2U, 38.6], [n2U, 25.9])
   for (const e of [w3, w2, w1]) navLink([38.6, v(e.z)], [25.9, v(e.z)])
+  navLink([C.driveW.u, C.driveW.v1], [27.4, 137.6])
+  if (cfg.eastDriveway) navLink([W - 0.6, 108.5], [W + 8.5, 110])
+  if (!cfg.westStreet) navLink([1, 171.4], [-4.6, 171.4])
   // sidewalks + driveways
   const eastEnd = cfg.eastDriveway ? W + 3 : W - 6
   ctx.navPaths.push({ points: [P(C.N.u0 - 1.5, 25.9), P(homeU, 25.9), P(cfg.eastDriveway ? W + 3 : W - 5, 25.9)], kind: 'sidewalk' })
@@ -182,8 +189,6 @@ export function buildCourtyard(ctx, cfg, keepGlobal) {
   ctx.navPaths.push({ points: [P(C.driveW.u, C.driveN.v), P(homeU, C.driveN.v), P(eastEnd, C.driveN.v)], kind: 'driveway' })
   ctx.navPaths.push({ points: [P(25.9, C.W.v0 - 0.5), P(C.driveW.u, C.W.v0 - 3)], kind: 'crossing' })
   ctx.navPaths.push({ points: [P(C.N.u0 - 1.5, 25.9), P(C.driveW.u, 25.9)], kind: 'crossing' })
-  // the passage continues onto the avenue's north sidewalk (z ≈ 508.6)
-  ctx.navPaths.push({ points: [P(79, 154), P(78.5, 166), P(78, cfg.zS - cfg.zN + 8.6)], kind: 'path' })
   reg.driveways = reg.driveways || []
   reg.driveways.push({ name: `${cfg.name} courtyard`, points: cfg.eastDriveway
     ? [P(W + 3, C.driveN.v), P(C.driveW.u, C.driveN.v), P(C.driveW.u, C.driveW.v1 - 2)]

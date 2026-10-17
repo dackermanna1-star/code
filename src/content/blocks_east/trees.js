@@ -35,9 +35,17 @@ export function buildTrees(ctx) {
   safe('trees E', () => {
     // a row of birches along the north edge of the vast yard, gaps where paths cross
     placeTreeRow(ctx, { x0: 318, z0: 369.4, x1: 450, z1: 369.4, spacing: 11, species: { birch: 0.8, linden: 0.2 }, missing: 0.22, skip: free(1.0), seed: 1101 })
-    // young saplings with stakes either side of the spine, all the way to the metro
-    for (const x of [377.6, 384.9]) {
-      placeTreeRow(ctx, { x0: x, z0: 373, x1: x, z1: 497, spacing: 8, species: 'sapling', jitter: 0.15, missing: 0.12, skip: free(0.25), seed: x === 377.6 ? 1102 : 1103 })
+    // young saplings planted in two rows either side of the spine (a 2007 «благоустройство»):
+    // mostly single-stake birches and lindens, now and then the three-stake tripod; a few died
+    const VAR = [1, 0, 3, 1, 2, 0, 3, 1, 0, 3, 1, 2, 0, 1]
+    for (const [k, x] of [[0, 377.4], [1, 385.1]]) {
+      let i = 0
+      for (let z = 374 + k * 4; z < 480; z += 8, i++) {
+        if ((i * 7 + k * 3) % 9 === 4) continue            // a dead one was pulled out
+        const xx = x + ((i * 5 + k) % 3 - 1) * 0.12
+        if (blocked(xx, z, 0.2)) continue
+        placeTree(ctx, { x: xx, z, species: 'sapling', variant: VAR[(i + k * 5) % VAR.length], rot: (i + k) % 4, seed: 1102 + i * 13 + k })
+      }
     }
     // tall poplars in the gaps between the towers
     for (const [x, z] of [[350.5, 341], [362, 340.5], [400.5, 337.5], [415.5, 340]]) placeTree(ctx, { x, z, species: 'poplar:natural', seed: Math.round(x * 3 + z) })

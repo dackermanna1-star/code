@@ -15,7 +15,7 @@ import { placeBuildings, dressEntrances, entranceStories, dressPublic } from './
 import { buildDriveways, buildCourtyards, buildParking } from './streets.js'
 import { buildSite } from './site.js'
 import { buildTrees } from './trees.js'
-import { BUILDINGS, LANDMARKS, SHOP_DOOR, PUBLIC } from './geo.js'
+import { BUILDINGS, LANDMARKS, SHOP_DOOR, PUBLIC, SITE } from './geo.js'
 import { safe, resetKeep, PKG } from './lib.js'
 
 function zones(ctx) {
@@ -26,7 +26,8 @@ function zones(ctx) {
   Z.add({ name: 'yard_C', min: [462, -2, 193], max: [598, 40, 290], reverb: 'courtyard', wind: 0.8, traffic: 0.5, data: { pkg: PKG } })
   Z.add({ name: 'garage_lane_C', min: [466, -2, 150], max: [594, 8, 166], reverb: 'courtyard', wind: 0.7, traffic: 0.6, data: { pkg: PKG } })
   // down in the abandoned pit the wind drops and the district goes quiet
-  Z.add({ name: 'construction_pit', min: [549, -3, 225], max: [579, 0.3, 257], reverb: 'courtyard', wind: 0.35, traffic: 0.3, priority: 1, data: { pkg: PKG } })
+  const P = SITE.pit
+  Z.add({ name: 'construction_pit', min: [P.x0 + 2, -3, P.z0 + 2], max: [P.x1 - 2, 0.3, P.z1 - 2], reverb: 'courtyard', wind: 0.35, traffic: 0.3, priority: 1, data: { pkg: PKG } })
 }
 
 function registry(ctx, out) {

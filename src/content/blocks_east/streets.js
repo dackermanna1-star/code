@@ -10,7 +10,7 @@ import {
 import { snowBank, plowedPile } from '../nature/api.js'
 import { parkRow, placeParkedCar } from '../vehicles/api.js'
 import { placeStory } from '../life/api.js'
-import { DRIVE } from './geo.js'
+import { DRIVE, LONE_LAMP, HILL } from './geo.js'
 import { safe, keep, rngFor } from './lib.js'
 
 const H = Math.PI / 2
@@ -63,21 +63,21 @@ export function buildDriveways(ctx) {
   // ---- plough windrows -------------------------------------------------------------------
   safe('windrows', () => {
     // N–S driveway, west edge (between the asphalt and the sidewalk)
-    windrow(ctx, 'z', 456.05, 457.35, 150, 444,
+    windrow(ctx, 'z', 456.0, 457.0, 150, 444,
       0.75, [[171, 180], [239, 249], [320, 330], [355, 364], [394, 402]], 301, 'e')
     // N–S driveway, east edge (Block C, then Block F's side): none where cars stand or rakushki open onto it
     windrow(ctx, 'z', 460.75, 462.25, 150, 512,
       0.9, [[156, 167], [196, 205], [210, 288], [288, 318], [320, 330], [334, 362], [398, 442], [500, 512]], 302, 'w')
     // E–W driveway, north edge (sidewalk side) and south edge
-    windrow(ctx, 'x', 322.05, 323.25, 308, 598,
+    windrow(ctx, 'x', 322.0, 323.0, 308, 598,
       0.7, [[318, 324], [329, 336], [351, 358], [419, 431], [452, 466], [474, 482], [579, 587]], 303, 's')
     windrow(ctx, 'x', 326.75, 327.95, 308, 598,
-      0.85, [[308, 312], [330, 384], [352, 360], [436, 444], [452, 466], [490, 540]], 304, 'n')
+      0.85, [[308, 312], [330, 384], [352, 360], [436, 444], [452, 466], [485, 542]], 304, 'n')
   })
   // ---- plough piles at the dead ends and lot corners ---------------------------------------
   safe('piles', () => {
     plowedPile(ctx, 595.5, 325, { radius: 2.6, height: 2.2, seed: 11, buried: 'yolka' })
-    plowedPile(ctx, 595.0, 200.5, { radius: 2.3, height: 1.9, seed: 12 })
+    plowedPile(ctx, 578.6, 200.6, { radius: 2.2, height: 1.9, seed: 12 })       // dead end of Block C's inner driveway
     plowedPile(ctx, 592.5, 161.8, { radius: 2.4, height: 2.0, seed: 13, buried: 'tire' })
     plowedPile(ctx, 452.0, 497.0, { radius: 2.5, height: 2.4, seed: 14 })
     plowedPile(ctx, 320.0, 180.8, { radius: 2.0, height: 1.6, seed: 15, buried: false })
@@ -96,34 +96,38 @@ export function buildDriveways(ctx) {
 
   // ---- parked cars on the driveway edges (snowed in; the buried drifts fall away from the lane) --
   safe('driveway cars', () => {
+    // (kept clear of the crawler routes below: N–S lane x ≤ 459.2, E–W lane z ≤ 325.3)
     const snow = [['heavy', 4], ['buried', 3], ['light', 1]]
-    parkRow(ctx, { x0: 460.55, z0: 290, x1: 460.55, z1: 318, angle: Math.PI, density: 0.75, snow, seed: 601, warmChance: 0 })
-    parkRow(ctx, { x0: 460.55, z0: 336, x1: 460.55, z1: 360, angle: Math.PI, density: 0.7, snow, seed: 602, warmChance: 0 })
-    parkRow(ctx, { x0: 460.55, z0: 400, x1: 460.55, z1: 440, angle: Math.PI, density: 0.6, snow, seed: 603, warmChance: 0 })
-    parkRow(ctx, { x0: 332, z0: 326.6, x1: 382, z1: 326.6, angle: H, density: 0.65, snow, seed: 604, warmChance: 0 })
-    parkRow(ctx, { x0: 492, z0: 326.6, x1: 538, z1: 326.6, angle: H, density: 0.6, snow, seed: 605, warmChance: 0 })
+    parkRow(ctx, { x0: 461.0, z0: 290, x1: 461.0, z1: 318, angle: Math.PI, density: 0.75, snow, seed: 601, warmChance: 0 })
+    parkRow(ctx, { x0: 461.0, z0: 336, x1: 461.0, z1: 360, angle: Math.PI, density: 0.7, snow, seed: 602, warmChance: 0 })
+    parkRow(ctx, { x0: 461.0, z0: 400, x1: 461.0, z1: 440, angle: Math.PI, density: 0.6, snow, seed: 603, warmChance: 0 })
+    parkRow(ctx, { x0: 332, z0: 326.95, x1: 382, z1: 326.95, angle: H, density: 0.65, snow, seed: 604, warmChance: 0 })
+    // (Block F's own driveway leaves the E–W driveway at x 489.5–494.5: no cars there)
+    parkRow(ctx, { x0: 501, z0: 326.95, x1: 540, z1: 326.95, angle: H, density: 0.6, snow, seed: 605, warmChance: 0 })
   })
 
   // ---- registry for the vehicles package's rare courtyard car -----------------------------
+  // The free lane of the N–S driveway is its west half (cars stand along the east kerb, x ≥ 460.1),
+  // the E–W driveway's is its north half (cars along the south kerb, z ≥ 326.1).
   reg.driveways = reg.driveways || []
-  const cx = (DRIVE.ns.x0 + DRIVE.ns.x1) / 2
+  const cx = 458.3, cz = 324.4
   reg.driveways.push(
     { points: [[cx, 150], [cx, 320]], name: 'east N–S, blocks B/C' },
     { points: [[cx, 330], [cx, 512]], name: 'east N–S, blocks E/F' },
-    { points: [[312, 325], [cx, 325], [590, 325]], name: 'E–W 3-й Молодёжный' },
+    { points: [[312, cz], [cx, cz], [590, cz]], name: 'E–W 3-й Молодёжный' },
     { points: [[cx, 175.5], [314, 175.5]], name: 'Block B inner' },
     { points: [[cx, 359.5], [314, 359.5]], name: 'Block E inner' },
-    { points: [[cx, 200.5], [590, 200.5]], name: 'Block C inner (dead end)' },
+    { points: [[cx, 200.5], [574, 200.5]], name: 'Block C inner (dead end)' },
     { points: [[cx, 161.5], [588, 161.5]], name: 'Block C garage lane (dead end)' },
     { points: [[cx, 470], [445, 470], [445, 497]], name: 'shop parking lot' },
   )
   // driveways as pedestrian routes too (people walk 0.8 m right of the line)
   ctx.navPaths.push(
     { points: [[cx, 146], [cx, 322], [cx, 328], [cx, 520]], kind: 'driveway' },
-    { points: [[310, 325], [cx, 325], [596, 325]], kind: 'driveway' },
+    { points: [[310, cz], [cx, cz], [596, cz]], kind: 'driveway' },
     { points: [[310, 175.5], [cx, 175.5]], kind: 'driveway' },
     { points: [[310, 359.5], [cx, 359.5]], kind: 'driveway' },
-    { points: [[cx, 200.5], [594, 200.5]], kind: 'driveway' },
+    { points: [[cx, 200.5], [576, 200.5]], kind: 'driveway' },
     { points: [[cx, 161.8], [590, 161.8]], kind: 'driveway' },
   )
   // sidewalks
@@ -138,8 +142,8 @@ export function buildDriveways(ctx) {
     { points: [[433.25, 185], [433.25, 245]], kind: 'sidewalk' },
     { points: [[313, 354.5], [451, 354.5]], kind: 'sidewalk' },
     { points: [[313, 365.5], [451, 365.5]], kind: 'sidewalk' },
-    { points: [[465, 195.5], [596, 195.5]], kind: 'sidewalk' },
-    { points: [[465, 206.5], [596, 206.5]], kind: 'sidewalk' },
+    { points: [[465, 195.5], [583, 195.5]], kind: 'sidewalk' },
+    { points: [[465, 206.5], [580.9, 206.5], [580.9, 248.5]], kind: 'sidewalk' },
     { points: [[484, 287.5], [574, 287.5]], kind: 'sidewalk' },
   )
 }
@@ -156,16 +160,25 @@ export function buildCourtyards(ctx) {
     lamp(ctx, { x: 383.6, z: 384, angle: -H, type: 'courtyard', bulb: 'sodium', seed: 711, broken: false })
     lamp(ctx, { x: 378.9, z: 419, angle: H, type: 'courtyard', bulb: 'sodium', seed: 712, broken: true })
     lamp(ctx, { x: 383.6, z: 454, angle: -H, type: 'courtyard', bulb: 'sodium', seed: 713, broken: false, flicker: 'buzz' })
-    lamp(ctx, { x: 378.9, z: 489, angle: H, type: 'courtyard', bulb: 'sodium', seed: 714, broken: false })
+    lamp(ctx, { x: 381.6, z: 491.6, angle: Math.PI, type: 'courtyard', bulb: 'sodium', seed: 714, broken: false })   // in the fork
     // Block C: where the yard path leaves the long building, and THE lone lamp at its far end
     lamp(ctx, { x: 486.6, z: 208.6, angle: 0, type: 'courtyard', bulb: 'mercury', seed: 721, broken: false })
-    lamp(ctx, { x: 596.7, z: 208.4, angle: -H, type: 'courtyard', pole: 'concrete', bulb: 'sodium', seed: 722, broken: false, flicker: 'dying', flyers: true })
+    lamp(ctx, { x: LONE_LAMP[0], z: LONE_LAMP[1], angle: -H, type: 'courtyard', pole: 'concrete', bulb: 'sodium', seed: 722, broken: false, flicker: 'dying', flyers: true })
   })
 
   // ---- playgrounds ------------------------------------------------------------------------
   safe('playground E', () => placePlayground(ctx, { x: 350, z: 425, angle: H, set: 'full', seed: 31, lamp: true, mittens: false }))
   safe('playground C', () => placePlayground(ctx, { x: 506, z: 242, angle: 0, set: 'small', seed: 33, mittens: false }))
   safe('playground C lamp', () => lamp(ctx, { x: 513.6, z: 236.2, angle: Math.atan2(506 - 513.6, 242 - 236.2), type: 'courtyard', bulb: 'sodium', seed: 731, broken: false }))
+
+  // ---- the snow hill: a forgotten sled at the end of the ice chute, prints up the back --------
+  safe('hill story', () => {
+    const [hx, hz] = HILL
+    placeStory(ctx, 'sled', { x: hx + 2.4, z: hz + 12.6, angle: 2.6, seed: 63 })
+    if (ctx.footprints) {
+      try { ctx.footprints.addTrail([[hx - 3, hz - 13], [hx - 1.5, hz - 7], [hx - 0.3, hz - 2.5], [hx, hz]], ctx.terrain, 0.55) } catch (e) { /* optional */ }
+    }
+  })
 
   // ---- garbage areas by the driveways ------------------------------------------------------
   safe('garbage B', () => placeGarbageArea(ctx, { x: 446, z: 190.6, angle: Math.PI, seed: 41, enclosure: 'brick', tree: true }))
@@ -212,7 +225,6 @@ export function buildCourtyards(ctx) {
     placeNoticeBoard(ctx, { x: 371.5, z: 186.6, angle: Math.PI, seed: 93 })
     keep(375.5, 367.5, 378.2, 369.4, 0.6); keep(370.4, 185.6, 372.6, 187.6, 0.6)
     placeElectricalCabinet(ctx, { x: 447.5, z: 331.6, angle: Math.PI, seed: 94 })
-    placeRoadSign(ctx, { x: 453.9, z: 499.0, angle: 0, type: 'residential' })
     placeRoadSign(ctx, { x: 453.9, z: 149.5, angle: Math.PI, type: 'children' })
   })
 
@@ -242,7 +254,9 @@ export function buildParking(ctx) {
     placeParkedCar(ctx, { x: 437.6, z: 470.6, angle: H, type: 'vaz2107', warm: true, seed: 820 })
     parkRow(ctx, { x0: 437.6, z0: 446, x1: 437.6, z1: 467.5, angle: H, density: 0.75, snow, seed: 821, warmChance: 0 })
     parkRow(ctx, { x0: 437.6, z0: 474, x1: 437.6, z1: 495, angle: H, density: 0.6, snow, seed: 822, warmChance: 0 })
-    parkRow(ctx, { x0: 451.6, z0: 449, x1: 451.6, z1: 494, angle: -H, density: 0.55, snow: [['buried', 3], ['heavy', 3]], seed: 823, warmChance: 0 })
+    // east row, with the lot's mouth from the N–S driveway left open at z 466–475
+    parkRow(ctx, { x0: 451.6, z0: 449, x1: 451.6, z1: 465, angle: -H, density: 0.6, snow: [['buried', 3], ['heavy', 3]], seed: 823, warmChance: 0 })
+    parkRow(ctx, { x0: 451.6, z0: 476, x1: 451.6, z1: 494, angle: -H, density: 0.55, snow: [['buried', 3], ['heavy', 3]], seed: 824, warmChance: 0 })
   })
   safe('C strip', () => {
     const rows = [[472, 485], [492, 527], [534, 590]]

@@ -10,14 +10,14 @@ import { safe } from './util.js'
 
 // Берёзовая cross-section (west → east): park fence (north pkg) | road 140–148 | curb |
 // sidewalk 148–151.5 | tree lawn (blocks)
-export const BER = { x0: 140, x1: 148, walk0: 148, walk1: 151.5, lanes: [142.3, 145.7], z0: 132, z1: 524, lampX: 148.85 }
-export const NS = { x0: 302, x1: 308, cx: 305, z0: 144, z1: 524 }
+export const BER = { x0: 140, x1: 148, walk0: 148, walk1: 151.5, lanes: [142.3, 145.7], z0: 132, z1: 500, lampX: 148.85 }
+export const NS = { x0: 302, x1: 308, cx: 305, z0: 144, z1: 500 }
 export const EW = { z0: 322, z1: 328, cz: 325, x0: 148, x1: 308 }
 
 /** Ground for the streets (call before the blocks so their mouths cut into it cleanly). */
 export function paintStreets(ctx) {
   // sidewalk first (the road paints its curb on the sidewalk's first column)
-  paintSidewalk(ctx, BER.walk0, 144, BER.walk1, 508, 31)
+  paintSidewalk(ctx, BER.walk0, 144, BER.walk1, BER.z1, 31)
   paintRoad(ctx, { axis: 'z', x0: BER.x0, z0: BER.z0, x1: BER.x1, z1: BER.z1, lanes: BER.lanes, laneWidth: 3.4, banks: false, seed: 41 })
   // driveways (y 0) — banks are added later with gaps
   paintDriveway(ctx, { points: [[NS.cx, NS.z0], [NS.cx, NS.z1]], width: 6, banks: false, seed: 43 })
@@ -48,18 +48,18 @@ export function furnishStreets(ctx, keep, gaps = {}) {
   safe('berezovaya signs', () => {
     // a bus stop pole by the school (plates toward northbound traffic), ticket, bin
     placeStopPole(ctx, { x: 149.2, z: 212, angle: 0, kind: 'bus', name: 'Школа', routes: ['648'], from: 'Ст. м. «Заречная»', to: '9-й микрорайон' })
-    placeLitterBin(ctx, { x: 150.6, z: 210.2, angle: -Math.PI / 2, type: 'metal' })
+    placeLitterBin(ctx, { x: 148.75, z: 209.6, angle: Math.PI / 2, type: 'metal' })
     placeStory(ctx, 'ticket', { x: 149.0, z: 214.3, angle: 0.7, seed: 31 })
     keep.circle(149.5, 211, 2)
     // «Осторожно, дети» for both directions around the school (signs face the oncoming traffic)
     placeRoadSign(ctx, { x: 149.1, z: 238, angle: 0, type: 'children' })
     placeRoadSign(ctx, { x: 149.1, z: 168, angle: Math.PI, type: 'children' })
     placeRoadSign(ctx, { x: 149.2, z: 331.5, angle: -Math.PI / 2, type: 'residential' })
-    placeRoadSign(ctx, { x: 151.0, z: 470, angle: -Math.PI / 2, type: 'noparking' })
-    keep.circle(149.2, 238, 1).circle(149.2, 168, 1).circle(149.2, 331.5, 1).circle(151, 470, 1)
+    placeRoadSign(ctx, { x: 148.6, z: 470, angle: 0, type: 'noparking' })
+    keep.circle(149.2, 238, 1).circle(149.2, 168, 1).circle(149.2, 331.5, 1).circle(148.6, 470, 1)
     // utility cabinet with flyers by the corner of the E–W driveway
-    placeElectricalCabinet(ctx, { x: 151.0, z: 316.5, angle: -Math.PI / 2 })
-    keep.circle(151, 316.5, 1.5)
+    placeElectricalCabinet(ctx, { x: 152.4, z: 316.5, angle: -Math.PI / 2 })
+    keep.circle(152.4, 316.5, 1.5)
     placeManhole(ctx, { x: 144.0, z: 286, wet: true, steam: 0.55 })
     placeManhole(ctx, { x: 146.4, z: 452, wet: true })
   })

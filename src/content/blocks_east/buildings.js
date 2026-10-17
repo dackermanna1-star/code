@@ -8,6 +8,7 @@ import { placeBench, placeLitterBin } from '../street/api.js'
 import { placeBush } from '../nature/api.js'
 import { addNoticeCluster, addNotice, addPoster, addGraffiti } from '../phone/api.js'
 import { placeStory, placeStoryAtEntrance } from '../life/api.js'
+import { SIGN_FONT } from '../../render/Signs.js'
 import { BUILDINGS, PUBLIC } from './geo.js'
 import { safe, keep, rngFor } from './lib.js'
 
@@ -85,8 +86,6 @@ export function entranceStories(ctx, out) {
   at('b9', 4, 'cat', { seed: 13, note: true, along: 6.5, side: 1 })
   at('et2', 0, 'key', { seed: 14 })           // dropped intercom fob right outside the enterable tower
   at('et3', 0, 'butts', { seed: 15 })
-  at('et1', 0, 'sled', { seed: 16, along: 3.0 })
-  at('c9', 1, 'sled', { seed: 17 })
   at('c9', 3, 'butts', { seed: 18 })
   at('c5', 1, 'cat', { seed: 19, along: 6.0 })
   at('c5', 2, 'bicycle', { seed: 20, along: 4.2, out: 1.6 })
@@ -103,8 +102,36 @@ export function dressPublic(ctx, out) {
   // flyers on the shop's north end wall
   safe('shop bench', () => {
     const bench = placeBench(ctx, { x: 414.5, z: 465.2, angle: -Math.PI / 2, type: 'courtyard', seed: 71, snow: 'brushed' })
-    if (bench) placeStory(ctx, 'bread', { bench: { ...bench, angle: -Math.PI / 2 }, seed: 72, benchSnow: 0 })
+    if (bench) placeStory(ctx, 'bread', { bench: { ...bench, angle: -Math.PI / 2 }, seed: 72, benchSnow: 0, along: 0.05 })
     placeLitterBin(ctx, { x: 417.6, z: 480.2, angle: -Math.PI / 2, type: 'concrete' })
+  })
+  // the roof letters «ПРОДУКТЫ», facing west across the vast yard toward Block D (they are what
+  // you see first from the far side of the courtyard: red, lit from dusk)
+  safe('shop roof sign', () => {
+    const { x: sx, z: sz } = PUBLIC.shop
+    const fx = sx - 3.25, roofY = 0.25 + 3.75                    // 1.75 m behind the west facade
+    ctx.world.place('be_roof_sign', { x: fx, z: sz - 0.5, y: roofY, rot: 1, tag: 'sign', userData: { pkg: 'blocks_east', kind: 'roof_sign' } })
+    ctx.signs?.add({
+      x: fx - 0.27, y: roofY + 1.15, z: sz - 0.5, angle: -Math.PI / 2, w: 8.6, h: 1.25, ppm: 40,
+      emissive: 1.35, schedule: 'street', seed: 77,
+      draw: (c, W, H) => {
+        c.clearRect(0, 0, W, H)
+        // individual box letters: a darker red return round each glyph, the lit face on top
+        c.font = `bold ${Math.round(H * 0.92)}px ${SIGN_FONT}`
+        c.textAlign = 'center'; c.textBaseline = 'middle'
+        const text = 'ПРОДУКТЫ'
+        let fw = c.measureText(text).width
+        const sx2 = Math.min(1, (W * 0.96) / fw)
+        c.save(); c.translate(W / 2, H / 2 + H * 0.03); c.scale(sx2, 1)
+        c.fillStyle = '#5a1410'; c.fillText(text, 2, 2)
+        c.fillStyle = '#c8281e'; c.fillText(text, 0, 0)
+        c.restore()
+        // one letter (the «Д») half dead: a darker band across it
+        c.save(); c.globalCompositeOperation = 'source-atop'
+        c.fillStyle = 'rgba(40,10,8,0.55)'; c.fillRect(W * 0.4, H * 0.45, W * 0.1, H * 0.55)
+        c.restore()
+      },
+    })
   })
   safe('shop flyers', () => {
     addPoster(ctx, { x: 425.6, y: 1.75, z: 462.99, angle: Math.PI, kind: 'ad', seed: 21, fade: 0.45 })

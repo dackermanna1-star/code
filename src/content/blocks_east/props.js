@@ -128,3 +128,27 @@ defineModel('be_post', () => {
   m.addSnow({ mat: SNOW(), depth: 1 })
   return m
 }, { lods: [1], maxDistance: 120 })
+
+// Roof letters frame («крышная установка») over the shop: an angle-iron lattice 9 m long that
+// carries the lit red letters «ПРОДУКТЫ» (a sign quad added by the layout just in front of it).
+// Posts and rails at the back (local z 1), the letters' plane is the empty front row (z 0).
+// Feet on small concrete pads. Front (letters) = local −Z. Pivot = bottom centre.
+defineModel('be_roof_sign', () => {
+  const m = new VoxelModel(36, 10, 2)
+  const iron = M('metal_dark'), rust = M('metal_rust')
+  for (const x of [1, 9, 17, 26, 34]) {
+    m.fill(x, 0, 0, 1, 1, 2, M('concrete'))      // pad
+    m.fill(x, 1, 1, 1, 7, 1, iron)                // post
+  }
+  m.fill(0, 2, 1, 36, 1, 1, iron)                 // lower rail (0.5 m)
+  m.fill(0, 7, 1, 36, 1, 1, iron)                 // upper rail (1.75 m)
+  // diagonal braces between the posts
+  for (const [a, b] of [[1, 9], [17, 26]]) for (let k = 0; k < 4; k++) m.set(a + 1 + k * 2, 3 + k, 1, iron)
+  // rust bleeding at the joints
+  for (const x of [1, 9, 17, 26, 34]) { m.set(x, 2, 1, rust); m.set(x, 7, 1, rust) }
+  m.set(5, 7, 1, rust); m.set(22, 2, 1, rust); m.set(30, 7, 1, rust)
+  // a junction box and the cable down the back
+  m.fill(12, 3, 1, 1, 2, 1, M('metal_gray'))
+  m.addSnow({ mat: SNOW(), depth: 1 })
+  return m
+}, { lods: [1, 2], lodDistances: [70], maxDistance: 420 })

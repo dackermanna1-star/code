@@ -6,7 +6,7 @@
 
 import { safe } from './layout.js'
 import { paintGround, raiseBanks } from './ground.js'
-import { buildOverhead } from './overhead.js'
+import { buildOverhead, buildWalkLamps } from './overhead.js'
 import { placeNorthFence, placeNorthTrees, placeSpawnStop, placeNorthFurniture } from './north.js'
 import {
   placeSouthFence, placeSouthStop, placeForecourt, placeLaybyCars, placeRow, furnishRow, placeSouthTrees, placeSouthFurniture,
@@ -22,6 +22,7 @@ export default {
   name: 'avenue',
   order: 32,
   build(ctx) {
+    const lights0 = ctx.lights?.list?.length ?? 0
     // 1. ground: roads, kerbs, median, sidewalks, lawns, forecourts, terminal, paths
     paintGround(ctx)
     // 2. low lawn fences go in before the banks so the cleared snow half-buries them
@@ -30,6 +31,7 @@ export default {
     raiseBanks(ctx)
     // 4. median lamps, trolley poles, span and contact wires (wrap-periodic)
     parts.overhead = safe('overhead', () => buildOverhead(ctx))
+    parts.walkLamps = safe('walk lamps', () => buildWalkLamps(ctx))
     // 5. north side
     parts.spawn = safe('spawn stop', () => placeSpawnStop(ctx))
     safe('north furniture', () => placeNorthFurniture(ctx))
@@ -51,6 +53,11 @@ export default {
     registerNav(ctx)
     registerZones(ctx)
     safe('registry', () => registerAvenue(ctx, parts))
+    // light budget bookkeeping (outdoor lights this package added, incl. lamps placed via helpers)
+    if (ctx.registry.avenue && ctx.lights?.list) {
+      const added = ctx.lights.list.slice(lights0)
+      ctx.registry.avenue.lights = { total: added.length, outdoor: added.filter(l => l.domain !== 2).length }
+    }
   },
   init(ctx) {
     safe('trails', () => initTrails(ctx))

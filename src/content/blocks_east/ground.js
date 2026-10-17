@@ -4,7 +4,7 @@
 
 import { M } from '../../core/materials.js'
 import { paintYard } from '../base/api.js'
-import { DRIVE, SITE, SHOP_DOOR } from './geo.js'
+import { DRIVE, SITE, SHOP_DOOR, HILL } from './geo.js'
 import { paintDrive, paintWalk, paintLot, paintApron, walkway, keep, safe } from './lib.js'
 import { VOXEL } from '../../core/constants.js'
 import { fbm2, valueNoise2 } from '../../core/rng.js'
@@ -31,11 +31,11 @@ export function paintGround(ctx) {
   paintLot(ctx, 440, 183.5, 452, 188.25, 52)   // Block B: garbage apron
   paintLot(ctx, 318, 362, 450, 364.5, 53)      // Block E: parallel strip along the towers
   paintLot(ctx, 434, 444, 456, 500, 54)        // Block E: the shop's parking lot
-  paintLot(ctx, 470, 203, 590, 205.5, 55)      // Block C: parallel strip
+  paintLot(ctx, 470, 203, 576, 205.5, 55)      // Block C: parallel strip
   paintLot(ctx, 470.5, 150, 591.5, 158.5, 56)  // Block C: garage row footprint at road level
   paintLot(ctx, 462, 205.5, 476, 210.5, 57)    // Block C: garbage apron
   keep(318, 178, 446, 183.5, 0.5); keep(434, 444, 456, 500, 0.5); keep(318, 362, 450, 364.5, 0.5)
-  keep(470, 203, 590, 205.5, 0.5); keep(462, 205.5, 476, 210.5, 0.5); keep(440, 183.5, 452, 188.25, 0.5)
+  keep(470, 203, 576, 205.5, 0.5); keep(462, 205.5, 476, 210.5, 0.5); keep(440, 183.5, 452, 188.25, 0.5)
 
   // ---- sidewalks (0.25) ------------------------------------------------------------------
   const W = (x0, z0, x1, z1, curb, s) => { paintWalk(ctx, x0, z0, x1, z1, s, curb); keep(x0, z0, x1, z1, 1.0, 'walk') }
@@ -44,7 +44,7 @@ export function paintGround(ctx) {
   W(318, 183.5, 452, 185.5, 'n', 62)       // behind the parking bays
   W(330, 185.5, 335.5, 252, null, 63)      // in front of tower B1
   W(430.5, 185.5, 436, 246, null, 64)      // in front of tower B2
-  W(453.5, 148, 456, 173, 'e', 65)         // west side of the N–S driveway
+  W(453.5, 144, 456, 173, 'e', 65)         // west side of the N–S driveway (from ул. Заводская)
   W(453.5, 178, 456, 322, 'e', 66)
   W(308, 319.5, 456, 322, 's', 67)         // north side of the E–W driveway
   // Block E
@@ -56,8 +56,9 @@ export function paintGround(ctx) {
   W(453.5, 362, 456, 444, 'e', 76)
   // Block C
   W(462, 319.5, 598, 322, 's', 81)         // north side of the E–W driveway
-  W(464, 193, 597, 198, 's', 82)           // long building front
-  W(464, 205.5, 597, 207.5, 'n', 83)       // behind the parallel parking
+  W(464, 193, 594, 198, 's', 82)           // long building front (runs on into the gap between the wings)
+  W(464, 205.5, 582.5, 207.5, 'n', 83)     // behind the parallel parking
+  W(579.5, 198, 585, 249, null, 85)        // in front of the east wing (entrances 6–7, porches stand on it)
   W(483, 285, 575, 290, null, 84)          // 5-storey front
 
   // ---- forecourts --------------------------------------------------------------------------
@@ -75,6 +76,9 @@ export function paintGround(ctx) {
   t.setHeightRect(337, 412, 365, 440, 0.5, M('snow'))   // Block E playground (22 × 16, turned)
   t.setHeightRect(498, 235, 514, 249, 0.5, M('snow'))   // Block C small playground
   keep(339, 414, 363, 438, 0.5, 'playground'); keep(499, 236, 513, 248, 0.5, 'playground')
+
+  // ---- the courtyard snow hill (горка) in Block E's vast yard -------------------------------
+  safe('hill', () => snowHill(ctx, HILL[0], HILL[1]))
 
   // ---- construction pit (Block C) ----------------------------------------------------------
   safe('pit', () => digPit(ctx))
@@ -106,6 +110,19 @@ function digPit(ctx) {
     return { h, mat }
   })
   keep(x0, z0, x1, z1, 0.5, 'pit')
+}
+
+/** A snow hill the dads shovelled together and the kids poured water on: a 2.2 m mound of packed
+ *  snow with an ice chute down its south side and trampled snow round its foot. */
+function snowHill(ctx, x, z) {
+  const t = ctx.terrain
+  t.paintCircle(x, z, 7.8, { mat: M('snow_packed'), only: new Set([M('snow'), M('snow_fresh')]) })   // trampled foot
+  t.mound(x, z, 6.5, 6.5, 2.3, M('snow_packed'), 0.12, 4711)
+  t.mound(x + 0.6, z - 1.2, 3.2, 3.0, 0.35, M('snow'), 0.3, 4712)          // the lumpy top
+  const only = new Set([M('snow_packed'), M('snow'), M('snow_fresh')])
+  t.paintLine(x, z + 0.4, x + 0.5, z + 8.2, 1.2, { mat: M('ice'), only })   // the chute
+  t.paintLine(x + 0.5, z + 8.2, x + 1.2, z + 13, 1.4, { mat: M('ice'), only }) // its polished run-out
+  keep(x - 7.5, z - 7.5, x + 7.5, z + 14, 0.5, 'hill')
 }
 
 /** Melted strip of dirty snow and bare earth over an underground heating main (y 0.25). */
@@ -148,8 +165,11 @@ export function paintPaths(ctx) {
   walkway(ctx, [[318, 185.5], [330, 190]], { kind: 'path', width: 1.6, seed: 109 })
 
   // ---- Block E ---------------------------------------------------------------------------
-  // the spine: from the middle tower straight south to the metro underpass (x 377–393, z 509)
-  walkway(ctx, [[381.25, 366.5], [381.25, 430], [381.5, 500], [383, 508]], { kind: 'path', width: 2.6, wobble: 0.05, seed: 111 })
+  // the spine: from the middle tower straight south toward the metro underpass; it forks before
+  // the avenue's tree strip and meets the metro's two footpaths (x 377.6 / 392.6, z 499.5) that
+  // lead to the NW and NE stair pits
+  walkway(ctx, [[381.25, 366.5], [381.25, 430], [381.5, 486], [378.2, 495.5], [377.6, 499.8]], { kind: 'path', width: 2.6, wobble: 0.05, seed: 111 })
+  walkway(ctx, [[381.5, 486], [389.5, 494], [392.6, 499.8]], { kind: 'path', width: 2.2, wobble: 0.05, seed: 110 })
   // THE desire line: from Block D (western driveway sidewalk) across the vast yard to the shop
   const [dx, dz] = SHOP_DOOR
   walkway(ctx, [[310.5, 438], [346, 451], [381.25, 462], [404, 470.5], [dx - 3.5, dz], [dx - 0.6, dz]], { kind: 'trodden', width: 1.5, seed: 112, trail: 0.35, trailLen: 34 })
@@ -164,7 +184,7 @@ export function paintPaths(ctx) {
   // the shop's south side to its parking lot
   walkway(ctx, [[418, 480.5], [434, 481]], { kind: 'path', width: 1.6, seed: 117 })
   // spine to the substation corner and the western sidewalk near the avenue
-  walkway(ctx, [[381.4, 492], [334, 493], [310.5, 497]], { kind: 'trodden', seed: 118 })
+  walkway(ctx, [[380.1, 490], [334, 493], [310.5, 497]], { kind: 'trodden', seed: 118 })
   // between the towers: tower-front sidewalk to the E–W driveway sidewalk
   walkway(ctx, [[356, 352], [356, 330.5]], { kind: 'path', width: 1.6, seed: 119 })
   walkway(ctx, [[434, 352], [440, 330.5]], { kind: 'trodden', seed: 120 })
@@ -172,15 +192,18 @@ export function paintPaths(ctx) {
   // ---- Block C ---------------------------------------------------------------------------
   // between the long building and the 5-storey
   walkway(ctx, [[488, 207.5], [489, 250], [494, 285]], { kind: 'path', width: 1.8, seed: 121 })
-  walkway(ctx, [[530, 207.5], [522, 250], [519, 285]], { kind: 'trodden', seed: 122 })
+  walkway(ctx, [[514, 207.5], [516, 250], [519, 285]], { kind: 'trodden', seed: 122 })
+  // from the east wing's south end, past the site fence's corner, to the 5-storey
+  walkway(ctx, [[581, 249], [578.5, 270], [574, 285]], { kind: 'trodden', seed: 127 })
   // round the 5-storey's west gable to the E–W driveway sidewalk
   walkway(ctx, [[483, 288], [479, 300], [478, 319.5]], { kind: 'path', width: 1.6, seed: 123 })
   // round the east gable
   walkway(ctx, [[575, 288], [580, 304], [583, 319.5]], { kind: 'trodden', seed: 124 })
   // kids' trodden way into the abandoned construction site through the open gate
-  walkway(ctx, [[522, 250], [534, 241], [540.5, 240.5], [546.6, 240.2]], { kind: 'trodden', width: 1.2, seed: 125, trail: 0.6, trailLen: 18 })
-  // from the garage lane past the long building's east gable to the inner driveway
-  walkway(ctx, [[594, 165], [596.5, 180], [596.5, 198]], { kind: 'trodden', seed: 126 })
+  walkway(ctx, [[516, 248], [519.5, 241.5], [523, 240.7], [530.4, 240.3]], { kind: 'trodden', width: 1.2, seed: 125, trail: 0.6, trailLen: 18 })
+  // from the garage lane past the long building's east gable and through the narrow gap between
+  // the two wings into the yard (the passage opens onto the dead end under the lone lamp)
+  walkway(ctx, [[590, 165], [596.6, 172], [597, 190], [593, 195.4], [583, 196.4]], { kind: 'trodden', width: 1.3, seed: 126, trail: 0.5, trailLen: 16 })
 }
 
 export function gateGap() { return SITE.gate }

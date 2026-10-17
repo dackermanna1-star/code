@@ -9,12 +9,12 @@ import {
 } from '../street/api.js'
 import { placeTree, placeBush, addCrows } from '../nature/api.js'
 import { addPlate } from '../phone/api.js'
-import { Z, STOP_N, BEREZOVAYA, DRIVEWAYS, PASSAGES, METRO, ZEBRA, safe } from './layout.js'
+import { Z, STOP_N, BEREZOVAYA, DRIVEWAYS, PASSAGES, METRO, ZEBRA, safe, poster } from './layout.js'
 
 /** Low green arched fence along the tree strip — placed BEFORE the banks bury it. */
 export function placeNorthFence(ctx) {
   const gaps = [
-    [BEREZOVAYA.x0 - 1.5, BEREZOVAYA.x1 + 1.5], [PASSAGES[0] - 2.5, PASSAGES[0] + 3], [PASSAGES[1] - 2.5, PASSAGES[1] + 3],
+    [BEREZOVAYA.x0 - 1.5, BEREZOVAYA.walk1 + 1], [PASSAGES[0] - 2.5, PASSAGES[0] + 3], [PASSAGES[1] - 2.5, PASSAGES[1] + 3],
     [DRIVEWAYS[0].x0 - 1.5, DRIVEWAYS[0].x1 + 1.5], [DRIVEWAYS[1].x0 - 1.5, DRIVEWAYS[1].x1 + 1.5],
     [METRO.x0 - 3, METRO.x1 + 3], [STOP_N.x - 9.5, STOP_N.x - 4.5],
   ]
@@ -25,14 +25,14 @@ export function placeNorthFence(ctx) {
     x = Math.max(x, g1)
   }
   if (x < 598) runs.push([x, 598])
-  runs.forEach(([a, b], i) => safe('north fence', () => placeFence(ctx, { points: [[a, 508.35], [b, 508.35]], type: 'lawn', seed: 300 + i, tint: 0x4d6248 })))
+  runs.forEach(([a, b], i) => safe('north fence', () => placeFence(ctx, { points: [[a, Z.FENCE_N], [b, Z.FENCE_N]], type: 'lawn', seed: 300 + i, tint: 0x4d6248 })))
 }
 
 /** Tree strip z 500–508: a loose row of birches, pollarded poplars and lindens with gaps. */
 export function placeNorthTrees(ctx) {
   const rng = new RNG(5081)
   const skip = [
-    [BEREZOVAYA.x0 - 4, BEREZOVAYA.x1 + 4], [PASSAGES[0] - 4.5, PASSAGES[0] + 4.5], [PASSAGES[1] - 4.5, PASSAGES[1] + 4.5],
+    [BEREZOVAYA.x0 - 4, BEREZOVAYA.walk1 + 3], [PASSAGES[0] - 4.5, PASSAGES[0] + 4.5], [PASSAGES[1] - 4.5, PASSAGES[1] + 4.5],
     [DRIVEWAYS[0].x0 - 5, DRIVEWAYS[0].x1 + 5], [DRIVEWAYS[1].x0 - 5, DRIVEWAYS[1].x1 + 5], [METRO.x0 - 6, METRO.x1 + 6],
     [236, 262], // hand-placed around the spawn view
   ]
@@ -71,7 +71,7 @@ export function placeSpawnStop(ctx) {
   safe('spawn stop', () => {
     out.stop = placeBusStop(ctx, {
       x: STOP_N.x, z: STOP_N.z, angle: 0, kind: 'trolleybus', name: 'Улица Берёзовая', routes: ['41', '63'],
-      from: 'Ст. м. «Заречная»', to: 'Мкр. «Восточный»', lit: true, ticket: false, seed: 248, tint: 0x3d4a5c, ad: 'megasvyaz',
+      from: 'Ст. м. «Заречная»', to: 'Мкр. «Восточный»', lit: true, ticket: false, seed: 248, tint: 0x3d4a5c, ad: poster('megasvyaz'),
     })
   })
   // separate pole for the bus (А 648) a little downstream, as Mosgortrans often did
@@ -79,7 +79,7 @@ export function placeSpawnStop(ctx) {
   // «the stop's lamp»: a sidewalk cobra reaching over the walk, the snow falls through its cone
   safe('stop lamp', () => { out.lamp = placeStreetLamp(ctx, { x: 254.6, z: 509.5, angle: 0, type: 'cobra', broken: false, flicker: false, seed: 77, flyers: true }) })
   safe('payphone', () => placePayphone(ctx, { x: 240.9, z: 510.05, angle: 0, seed: 12 }))
-  safe('manhole', () => placeManhole(ctx, { x: 245.4, z: 512.1, steam: 0.75 }))
+  safe('manhole', () => placeManhole(ctx, { x: 253.4, z: 511.9, steam: 0.75 }))
   safe('ad column', () => placeAdColumn(ctx, { x: 264.2, z: 510.5, angle: 0, seed: 264 }))
   safe('bin', () => placeLitterBin(ctx, { x: 236.6, z: 510.1, angle: 0, type: 'concrete', seed: 236 }))
   return out
@@ -89,7 +89,7 @@ export function placeSpawnStop(ctx) {
 export function placeNorthFurniture(ctx) {
   const rng = new RNG(5240)
   // litter bins along the walk
-  for (const x of [72, 131, 198, 292, 352, 419, 478, 533, 582]) {
+  for (const x of [72, 131, 198, 292, 352, 419, 482, 533, 582]) {
     safe('bin', () => placeLitterBin(ctx, { x: x + rng.float(-1, 1), z: 510.1, angle: 0, type: rng.chance(0.55) ? 'concrete' : 'metal', seed: x }))
   }
   safe('cabinet', () => placeElectricalCabinet(ctx, { x: 318.5, z: 509.75, angle: 0, seed: 318 }))
@@ -98,13 +98,13 @@ export function placeNorthFurniture(ctx) {
     placeManhole(ctx, { x: 433.2, z: 512.6, steam: 0.4 })
     placeManhole(ctx, { x: 118.6, z: 513.4, wet: false })
     placeManhole(ctx, { x: 471.3, z: 529.2, steam: 0.55 }) // between the westbound lanes
-    ;(ctx.registry.manholes ||= []).push({ x: 245.4, z: 512.1 }, { x: 433.2, z: 512.6 }, { x: 471.3, z: 529.2 })
+    ;(ctx.registry.manholes ||= []).push({ x: 253.4, z: 511.9 }, { x: 433.2, z: 512.6 }, { x: 471.3, z: 529.2 })
   })
   // «Жилая зона» at the driveway mouths, facing the cars turning in
   for (const d of DRIVEWAYS) safe('zone sign', () => placeRoadSign(ctx, { x: d.x0 - 1.1, z: 509.6, angle: 0, type: 'residential', seed: d.x0 }))
   // street name plates on a post at the corner of ул. Берёзовая
   safe('name plates', () => {
-    const px = BEREZOVAYA.x1 + 1.4, pz = 509.6
+    const px = BEREZOVAYA.x1 + 0.6, pz = 509.4
     ctx.world.place('street_sign_pole', { x: px, z: pz, angle: 0, tag: 'sign' })
     const gy = ctx.terrain.heightAt(px, pz)
     addPlate(ctx, { x: px, y: gy + 2.62, z: pz + 0.13, angle: 0, id: 'street_prospekt', w: 0.9, h: 0.24 })
@@ -114,7 +114,7 @@ export function placeNorthFurniture(ctx) {
   safe('billboard n1', () => placeBillboard(ctx, { x: 166.5, z: 519.8, angle: Math.PI / 2, ad: 'luch', adBack: 'credit', seed: 166 }))
   safe('billboard n2', () => placeBillboard(ctx, { x: 499.5, z: 519.8, angle: Math.PI / 2, ad: 'flats', adBack: 'beer', seed: 499, lit: false }))
   // notice board where the footpath turns into Block D
-  safe('notice board', () => placeNoticeBoard(ctx, { x: PASSAGES[0] + 4.2, z: 509.0, angle: 0, seed: 228, lostDog: true }))
+  safe('notice board', () => placeNoticeBoard(ctx, { x: PASSAGES[0] + 4.2, z: 509.7, angle: 0, seed: 228, lostDog: true }))
   // a second ad column by the metro approach
   safe('ad column 2', () => placeAdColumn(ctx, { x: 412.6, z: 510.4, angle: 0, seed: 412 }))
   // flyers on the side trolley poles near the stop and the metro

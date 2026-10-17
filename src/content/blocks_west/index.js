@@ -7,12 +7,13 @@ import { paintStreets, furnishStreets } from './streets.js'
 import { paintBlockA, buildBlockA } from './blockA.js'
 import { paintCourtyard, buildCourtyard } from './courtyard.js'
 import { BLOCK_D, BLOCK_F } from './api.js'
-import { KeepOut, safe } from './util.js'
+import { KeepOut, safe, layTrails, TRAILS } from './util.js'
 
 export default {
   name: 'blocks_west',
   order: 34,
   build(ctx) {
+    TRAILS.length = 0
     const keep = new KeepOut()
     const gaps = { berE: [], berW: [], ns: [], ewN: [], ewS: [] }
     // ---- ground first (roads, driveways, sidewalks, pads) --------------------------------------
@@ -42,5 +43,9 @@ export default {
     reg.blocks.push({ name: 'F', pkg: 'blocks_west', rect: [462, 328, 600, 508], house: '14' })
     reg.landmarks = reg.landmarks || []
     if (d?.buildings?.N) reg.landmarks.push({ kind: 'home', name: 'ул. Берёзовая, 12/2', x: (d.buildings.N.bounds.minX + d.buildings.N.bounds.maxX) / 2, z: (d.buildings.N.bounds.minZ + d.buildings.N.bounds.maxZ) / 2, height: d.buildings.N.height })
+  },
+  init(ctx) {
+    // old footprint trails, on the final terrain of every package
+    safe('trails', () => layTrails(ctx))
   },
 }

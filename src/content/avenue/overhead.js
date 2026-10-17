@@ -3,7 +3,7 @@
 // x mod 592, so the pattern is identical on both sides of the wrap.
 
 import { placeStreetLamp } from '../street/api.js'
-import { Z, LANES_W, LANES_E, MEDIAN_Z, PERIOD, stations, wrapSeed, safe, METRO, BEREZOVAYA, TERM } from './layout.js'
+import { Z, LANES_W, LANES_E, MEDIAN_Z, PERIOD, stations, wrapSeed, safe, METRO, BEREZOVAYA, TERM, WALK_LAMPS } from './layout.js'
 
 const SPAN_H = 7.25 // span-wire eyes on the poles
 const WIRE_H = 5.8 // contact wire above the road
@@ -74,6 +74,26 @@ export function buildOverhead(ctx) {
       }
     }
   })
+  return out
+}
+
+/**
+ * Cobra lamps along the back of both walks (heads reaching over the walk), every 74 m, seeded by
+ * x mod 592 so the wrapped copies match. One on the south walk is dead.
+ */
+export function buildWalkLamps(ctx) {
+  const out = []
+  for (const side of ['n', 's']) {
+    const W = WALK_LAMPS[side]
+    for (let x = W.x0; x <= 640; x += WALK_LAMPS.pitch) {
+      if (x < 0 || W.skip.some(([a, b]) => x > a && x < b)) continue
+      const s = wrapSeed(x, side === 'n' ? 3 : 5)
+      safe('walk lamp', () => out.push(placeStreetLamp(ctx, {
+        x, z: W.z, angle: side === 'n' ? 0 : Math.PI, type: 'cobra', seed: s,
+        broken: side === 's' && Math.round(x) === 218, flicker: false, flyers: undefined,
+      })))
+    }
+  }
   return out
 }
 
