@@ -1,0 +1,17 @@
+{
+  "name": "resdemo-home",
+  "query": "resdemo=home&only=base,residential,street,audio",
+  "start": { "x": 231.5, "z": 366, "yaw": 0, "t": "17:30" },
+  "steps": [
+    { "to": [231.5, 354.2], "tol": 0.5 },
+    { "use": "Открыть дверь", "within": 3 },
+    { "wait": 0.8 },
+    { "to": [231.5, 350.5], "tol": 0.5 },
+    { "expectZone": "stairwell" },
+    { "shot": "tambour" },
+    { "to": [231.5, 347.5], "tol": 0.6, "optional": true },
+    { "use": "Вызвать лифт", "within": 4, "optional": true },
+    { "wait": 8 },
+    { "shot": "lift" }
+  ]
+}

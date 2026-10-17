@@ -169,3 +169,11 @@ Layout packages push pedestrian routes: `ctx.navPaths.push({ points: [[x,z], ...
   SwiftShader: expect ~20 s per shot; keep shots purposeful.
 - `npx vite build` must succeed.
 - URL params in the browser: `?t=21:00&weather=heavy&x=..&z=..&yaw=..&stats=1&only=..`.
+
+## QA tools
+- `node tools/walk.mjs tools/walks/<scenario>.json [--shots]` — scripted walkthroughs through the real
+  game logic at simulation speed (collision, stairs, doors, lifts, zones), reporting where the player
+  gets stuck or falls; see the header of `tools/walk.mjs` for the scenario format. `game.simStep(dt, keys)`
+  is the underlying hook.
+- `node tools/shot.mjs ... --profile --frames 40` — prints average CPU ms per frame per subsystem
+  (`?profile=1`, `game.profileReport()`).

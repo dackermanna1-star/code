@@ -8,6 +8,7 @@
 //   node tools/shot.mjs --query "only=props&viewer=lamp_cobra"  # raw query string
 //   node tools/shot.mjs --at 230,400,0 --console              # also print browser console
 //
+// --profile prints average CPU ms per frame per subsystem (needs --frames ≥ 20 to be meaningful).
 // --wip also loads packages still under construction (district layouts, see docs/RESUME.md).
 // Options: --w 960 --h 540 --frames 20 --timeout 120000 --pitch -0.1 --only pkg1,pkg2
 //          --base http://localhost:5173 (use an already running dev server)
@@ -56,6 +57,7 @@ common.push(`frames=${opt.frames ?? 6}`)
 if (opt.quality) common.push(`quality=${opt.quality}`)
 common.push(`timescale=${opt.timescale ?? 0}`)
 if (opt.wip) common.push('wip=1')
+if (opt.profile) common.push('profile=1')
 if (opt.viewer) {
   const views = String(opt.views ?? '0,1,2,3').split(',')
   for (const v of views) {
@@ -135,7 +137,7 @@ for (const job of jobs) {
       const g = window.game
       if (!g) return null
       const r = g.renderer.info.render
-      return { calls: r.calls, tris: r.triangles, inst: g.world.stats.instancesDrawn, contentErrors: window.__contentErrors || [], buildErrors: g.buildErrors || [] }
+      return { calls: r.calls, tris: r.triangles, inst: g.world.stats.instancesDrawn, contentErrors: window.__contentErrors || [], buildErrors: g.buildErrors || [], profile: g.profileReport?.() || undefined, meshMs: Math.round(g.world.stats.meshMs || 0) }
     })
     console.log(`${job.out}  (${((Date.now() - t0) / 1000).toFixed(1)}s) ${info ? JSON.stringify(info) : ''}`)
   } catch (e) {

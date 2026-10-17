@@ -329,6 +329,9 @@ export class Game {
   tick(dt) {
     this.frame++
     this.renderer.info.reset()
+    if (this.params.profile && !this.prof) { this.prof = {}; this.profFrames = 0 }
+    if (this.prof) this.profFrames++
+    let t0 = this.prof ? performance.now() : 0
     const input = this.input
     if (input.hit('Escape')) {
       if (this.ui.noteOpen) this.ui.closeNote()
@@ -341,8 +344,11 @@ export class Game {
       this.uniforms.uTime.value = this.time
       this._updateGameplay(dt)
     }
+    if (this.prof) { this._pt('gameplay(total)', t0); t0 = performance.now() }
     this._updateWorld(this.paused ? 0 : dt)
+    if (this.prof) { this._pt('world+lights+fx', t0); t0 = performance.now() }
     this.audio.update(this.paused ? 0 : dt, this.camera, this)
+    if (this.prof) { this._pt('audio', t0); t0 = performance.now() }
     this.ui.update(dt)
     // eye adaptation: indoor spaces lit by bulbs/tubes need far less exposure than a dark street
     const indoor = this.zone && this.zone.indoor
@@ -351,6 +357,7 @@ export class Game {
     this._exposure = this._exposure === undefined ? target : this._exposure + (target - this._exposure) * Math.min(1, dt * k)
     this.post.uniforms.uExposure.value = this._exposure
     this.post.render(dt, this.time)
+    if (this.prof) this._pt('render(submit)', t0)
     if (this.settings.showStats || this.params.stats) this._stats(dt)
     input.endFrame()
   }
@@ -410,10 +417,51 @@ export class Game {
 
     for (const mod of this.modules) {
       if (!mod.update) continue
+      const t0 = this.prof ? performance.now() : 0
       try { mod.update(dt, this.ctx) } catch (e) {
         if (!mod._errored) { console.error(`[content:${mod.name}] update failed`, e); mod._errored = true }
       }
+      if (this.prof) this._pt('mod:' + mod.name, t0)
     }
+  }
+
+  // ---- development helpers: profiling and headless simulation ------------------------------
+  _pt(name, t0) { this.prof[name] = (this.prof[name] || 0) + performance.now() - t0 }
+
+  /** Average CPU milliseconds per frame per subsystem (?profile=1). */
+  profileReport() {
+    if (!this.prof) return null
+    const n = Math.max(1, this.profFrames || 1)
+    return Object.entries(this.prof).map(([k, v]) => [k, +(v / n).toFixed(3)]).sort((a, b) => b[1] - a[1])
+  }
+
+  /**
+   * Advance gameplay without rendering (walkthrough tests). keys: Set of KeyboardEvent codes held.
+   * Returns nothing; inspect this.player / this.zone afterwards.
+   */
+  simStep(dt, keys = new Set(), press = new Set()) {
+    if (!this._simInput) {
+      this._realInput = this.input
+      this._simInput = {
+        keys, pressed: press, touchWalk: false, clicked: false, locked: false, lockFailed: true,
+        down(c) { return this.keys.has(c) }, hit(c) { return this.pressed.has(c) },
+        consumeMouse() { return [0, 0] }, endFrame() { this.pressed = new Set() },
+        requestLock() {}, exitLock() {},
+      }
+    }
+    const inp = this._simInput
+    inp.keys = keys
+    inp.pressed = press
+    this.input = inp
+    this.time += dt
+    this.uniforms.uTime.value = this.time
+    this._updateGameplay(dt)
+    this.atmos.update(dt)
+    this.player.applyCamera(this.camera, this.time)
+    this.camera.updateMatrixWorld()
+    this.lights.update(this.camera, { streetOn: this.uniforms.uStreetOn.value, night: this.uniforms.uNight.value, time: this.time, game: this }, dt)
+    inp.endFrame()
+    this.input = this._realInput
   }
 
   toggleFlashlight(on) {
