@@ -356,7 +356,7 @@ stuttering on), `fluor_off`, `colonel_breath`, `colonel_breath_fast`, `colonel_d
 
 ## 11. Game systems (`src/game/*`)
 
-- `flashlight.js` — battery drain (100 → 0 in ~300 s on), low-battery flicker < 20%, aims along facing
+- `flashlight.js` — battery drain (100 → 0 in ~600 s on; 'dregs' power 0.15 at 0%), low-battery flicker < 20%, aims along facing
   (smoothly), off during cutscenes unless forced; `engine:use_battery`, `engine:toggle_flashlight`.
 - `periods.js` — `HW.periods`: `enable(cfg)`, `disable()`, `start({ scripted, length })`, `end()`,
   `active`, `timeLeft`, `onStart/onEnd` hooks. Warning: crackle + chime ~10 s before the bell. Lights group
@@ -366,6 +366,7 @@ stuttering on), `fluor_off`, `colonel_breath`, `colonel_breath_fast`, `colonel_d
   'assembly'|'off'`), `walkTo(target)`, `lunge`, vision cone (100°, 7 tiles dark / 10 if target lit),
   hearing (noise events), search of hiding spots seen being entered, catch → `HW.game.gameOver('caught')`.
   Movement: drag 26 px/s; chase = lurches (150 px/s for 0.5 s every ~1.4 s); "notice" delay 0.8 s with `hm`.
+  Full numbers & behaviour: CONTENT.md §5 (authoritative for systems).
 - `noise.js` — `HW.noise.emit(x, y, radius, kind)` (running = 7 tiles, walking = 1.5, doors = 5, items = 8).
 - `patrol.js` — Safety Patrol (Kevin) sentinel behaviour.
 - `hiding.js` — seated/locker state, "still" detection (no movement input for ≥ 0.5 s).
@@ -411,7 +412,10 @@ stuttering on), `fluor_off`, `colonel_breath`, `colonel_breath_fast`, `colonel_d
 `ch6_marcus_taken` · `roll2_done` · `roll2_answered` · `ch6_showers` · `truant_available` · `ch7_assembly` ·
 `roll3_done` · `roll3_answered` · `diary_page` · `bond_marcus` · `trapdoor_open` · `ch8_vault` · `adair_note` ·
 `breaker_seen` · `register_done` · `expelled` · `withdrawn_danny` · `withdrawn_leah` · `withdrawn_marcus` ·
-`withdrawn_tess` · `form_used_on` (id) · `ending` (id) · `colonel_named` · `portrait_state` ('seated'|'empty'|'uniform').
+`withdrawn_tess` · `form_used_on` (id) · `ending` (id) · `colonel_named` · `adair_named` · `portrait_state` ('seated'|'empty'|'uniform') ·
+`ch1_danny_stuck` · `ch3_period_done` · `ch6_gym_lights` · `ch6_breather_done` · `ch7_started` · `saw_catalog_past` ·
+`longhall_loops` (count) · `dawn` · `seen_<scene>` (replay abbreviation) · `deaths_<checkpoint>` (assist).
+(items.js uses `form_used` as a boolean alias set together with `form_used_on`.)
 `HW.state.rollAnswered` mirrors the three `rollN_answered` flags.
 
 ## 14. Debug & test API — `window.__HW` (engine/debug.js)
@@ -485,3 +489,7 @@ inside the title screen). **Game over:** `HW.ui.gameOver(reason)` → Promise `'
 ## Changelog
 - v1 — initial contract.
 - v1.1 — MapRuntime interface (§5.7a); overlays vs screens split; docs format, title & special-screen contracts (§16); Colonel/props-B ownership.
+- v2 — DESIGN v2 deltas (see CONTENT.md §7): player walk 60 / run 112 px/s; auto-closing doors; game-over referral reasons;
+  screens `vhs` (frame scrubber) and `write` (hold meter); Register v2 (provisional, previews, grounds, reasons);
+  Tess `enrolled` levels 0/1/2; Colonel shroud (renderer + lighting); seen-dialogue fast-forward; assist; battery 600 s.
+  Required anchors: see CONTENT.md §2 (supersedes §5.7 where they differ).
