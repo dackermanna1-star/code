@@ -4,6 +4,7 @@
 // otherwise a neutral small object by variant. Every pickup carries a faint glint (frame-driven).
 // Damage decals are empty in the clean (1979) view; graffiti too, except old carved initials.
 import { K, PAL, mix, lt, dk, BRASS, CHROME, seedOf, Blob, SHADOW_SOFT, paper } from './props_b_kit.js';
+import { chalkLines, chalkWrap } from './props_a_dynamic.js';
 
 const EMPTY = () => new K(1, 1, 0, 0).done({ outline: false });
 
@@ -196,9 +197,25 @@ function spray(k, x, y, text, col, { tall = 2, drip = 0.35, seed = 1, outline = 
   k.blit(L, L.ox, L.oy);
 }
 const rgbaArr = (c) => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(',').map(Number); return [p[0], p[1], p[2], Math.round((p[3] ?? 1) * 255)]; };
+/** 'chalk' (Integration 2): a kid's chalk scrawl on the wall — params.text in the chalk hand, a
+ *  little crooked, up to four lines across the 52-px face, a smudge where a sleeve went through it. */
+function chalkScrawl(o) {
+  const text = String(o.label || o.params?.text || 'WAS HERE');
+  const k = new K(52, 30, 0, -14, seedOf('graffiti', 'chalk', o.variant, text));
+  const lines = chalkWrap(text, 48).slice(0, 4);
+  const pitch = lines.length > 3 ? 6 : 7;
+  const top = -13 + Math.max(0, (4 - lines.length) * 3);
+  chalkLines(k.x, 2 - k.ox, top - k.oy, lines, { pitch, seed: seedOf('chalkgr', text), color: 'rgba(222,220,208,0.78)', dim: 'rgba(170,176,170,0.5)' });
+  // a smear across the lower edge and a few loose strokes
+  const sy = top + lines.length * pitch - 2;
+  for (let i = 0; i < 9; i++) if (i % 3 !== 1) k.P(6 + i * 3, sy + (i & 1), 'rgba(200,198,186,0.25)');
+  return k.done({ outline: false });
+}
+
 function graffiti(o) {
   const st = o.state;
   if (o.clean && st !== 'names') return EMPTY();
+  if (st === 'chalk') return chalkScrawl(o);
   const k = new K(52, 30, 0, -14, seedOf('graffiti', st, o.variant, o.clean));
   const black = 'rgba(14,12,16,0.82)', red = 'rgba(122,30,32,0.8)', white = 'rgba(214,208,192,0.7)';
   if (st === 'hollowhell') {
@@ -247,6 +264,6 @@ export const MISC = {
   decal_glass: { build: glass, variants: 4 },
   decal_stain: { build: stain, variants: 3, showVariants: [0, 1] },
   decal_tiles: { build: tiles, variants: 2, showVariants: [0, 1] },
-  graffiti: { build: graffiti },
+  graffiti: { build: graffiti, label: true },   // label = params.label | params.text (the 'chalk' lettering)
   cicada_shells: { build: cicadaShells, variants: 4, showVariants: [0, 3] },
 };

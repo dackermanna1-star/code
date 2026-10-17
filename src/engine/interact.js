@@ -3,6 +3,8 @@
 //
 // Resolution order for a prop: instance script → hiding spot → seat → door → pickup → transfer
 // (`to`) → terminal/pa/safe/register system scripts → examine text / document.
+// Seats: a seat with `script` runs it instead of sitting; a seat with `sitScript` is sat in normally
+// and its script runs (blocking) once she is seated — see game/hiding.js (Integration 2).
 import HW from './hw.js';
 import { LOCKED_STATES, lockSatisfied, isDoorProp } from './map.js';
 import { DIR_VEC } from './entities.js';
@@ -31,6 +33,7 @@ export const interact = {
   _lastBumpT: -10,
   _closing: [],     // [{ prop, map, t }] doors waiting to swing shut
   _seatPress: false,
+  _seatExamined: null, // '<seat id>@<sitTime>' whose examine text was shown this sit (next tap stands)
 
   /** Called once per step after entities move. */
   update(dt) {
@@ -52,8 +55,8 @@ export const interact = {
       }
       return;
     }
-    // Seated: a tap of confirm shows the seat's examine text (if any), otherwise stands up;
-    // holding it shuts Tess's eyes (time runs ×4 during periods, DESIGN §4.1).
+    // Seated: a tap of confirm shows the seat's examine text (if any) — the next tap stands her up —
+    // otherwise stands up; holding it shuts Tess's eyes (time runs ×4 during periods, DESIGN §4.1).
     if (p.seated) {
       this._prompt(null, null);
       if (input.pressed('confirm')) { input.consume('confirm'); this._seatPress = true; }
@@ -67,6 +70,7 @@ export const interact = {
       return;
     }
     this._seatPress = false;
+    this._seatExamined = null;
     const t = this.findTarget(p);
     const verb = t ? this.verbFor(t) : null;
     this._prompt(t, verb);
@@ -76,11 +80,14 @@ export const interact = {
     }
   },
 
+  /** A tap of confirm while seated: script (if the seat has one) · examine once, then stand · stand. */
   _seatAction(seat) {
     const text = seat.inst.examine ?? seat.def.examine;
     if (seat.inst.script) HW.scripts.run(seat.inst.script, { prop: seat, map: HW.map, seated: true });
-    else if (text) HW.scripts.runFn((g) => g.examine(text), { prop: seat }, { id: `examine:${seat.id}` });
-    else HW.hiding?.stand?.();
+    else if (text && this._seatExamined !== `${seat.id}@${HW.player?.sitTime}`) {
+      this._seatExamined = `${seat.id}@${HW.player?.sitTime}`; // once per sit (a re-sit examines again)
+      HW.scripts.runFn((g) => g.examine(text), { prop: seat }, { id: `examine:${seat.id}` });
+    } else HW.hiding?.stand?.();
   },
 
   _prompt(t, verb) {

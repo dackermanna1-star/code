@@ -3,8 +3,8 @@
 // first draw and cached (a few quantized states each), so draw() itself is just blits.
 // Exports: COLONEL_CG_IDS, initColonelCg(), getColonelCg(id) → { draw(ctx, t, params) }.
 import { GBuf, rig, shade, imgToCanvas } from './colonel_gbuf.js';
-import { drawHead, repaintEyes, FACE_EXPR } from './colonel_face.js';
-import { buildDeskGB, shadeDesk } from './colonel_cg_scenes.js';
+import { faceFrame, blinkPatch, prepFace } from './colonel_cg_face.js';
+import { composeHand, prepHand, handReady, handOffset } from './colonel_cg_hand.js';
 import { buildLockerInterior, buildLockerOutside, buildSlitFace, LOCKER } from './colonel_cg_locker.js';
 import { buildVhsFrame } from './colonel_cg_vhs.js';
 import { makeCanvas, ctxOf, hash2 } from './util.js';
@@ -32,50 +32,9 @@ function pump() {
 }
 
 // ------------------------------------------------------------------------------------ colonel_face
-// Extreme close-up: the small serene face in the vast dough of the head. params.lit 0..1 = how much
-// of Tess's flashlight is on him. The eyes blink rarely, and never together.
+// Extreme close-up (colonel_cg_face.js): the small serene face in the vast dough of the head.
+// params.lit 0..1 = how much of Tess's flashlight is on him. The eyes blink rarely, and never together.
 const FACE_LEVELS = 8;
-const faceGB = new Map(), faceImg = new Map();
-const BLINKS = { open: null, l: [0, 0.36], both: [0, 0], r: [0.42, 0] };
-const FACE_P = { ...FACE_EXPR.serene, eyeSmile: 0.15, cx: 240, cy: 118, s: 4.6, seed: 1841, chins: 3, collar: false };
-function faceBuffer(state) {
-  if (faceGB.has(state)) return faceGB.get(state);
-  let gb;
-  if (state === 'open') {
-    gb = new GBuf(W, H);
-    drawHead(gb, FACE_P);
-    gb.folds(1.4 * FACE_P.s, 0.72, 0.9);
-    gb.ssao(9, 0.012, 0.35);
-  } else { // blink states: same head, only the lids repainted
-    gb = faceBuffer('open').clone();
-    repaintEyes(gb, { ...FACE_P, blink: BLINKS[state] });
-  }
-  faceGB.set(state, gb);
-  return gb;
-}
-function faceRig(lit) {
-  return rig({
-    amb: 0.015 + 0.06 * lit, shadowTint: '#4a5070', keyTint: '#ffeedd', exposure: 1.0,
-    lights: [
-      { p: [170, 250, 520], r: 760, i: 0.25 + 1.15 * lit, fall: 1.3, sh: 26, shK: 0.35 },
-      { d: [0.4, -0.9, 0.3], i: 0.08 * lit, spec: 0 },
-    ],
-    rim: [0.7, -0.7, 0.05 + 0.05 * lit],
-  });
-}
-function faceFrame(state, level, lazy) {
-  const key = `${state}|${level}`;
-  if (faceImg.has(key)) return faceImg.get(key);
-  if (lazy) { later(key, () => faceFrame(state, level)); return faceImg.get(`open|${level}`) || null; }
-  const lit = level / (FACE_LEVELS - 1);
-  const img = shade(faceBuffer(state), faceRig(lit), {
-    focus: (x, y) => { const d = Math.hypot((x - 240) / 300, (y - 140) / 230); return Math.max(0, 1 - d * d * (1.1 - 0.4 * lit)); },
-    bg: '#030305',
-  });
-  const c = imgToCanvas(img);
-  faceImg.set(key, c);
-  return c;
-}
 function blinkState(t) {
   // every ~6.3 s: left lid drops, the right follows a beat late, the left reopens first
   const p = (((t + 3.1) % 6.3) + 6.3) % 6.3;
@@ -84,49 +43,58 @@ function blinkState(t) {
   if (p < 0.34) return 'r';
   return 'open';
 }
+const patchReady = new Set();
 const colonelFace = {
   draw(ctx, t = 0, params = {}) {
     const lit = Math.max(0, Math.min(1, params.lit ?? 1));
     const level = Math.round(lit * (FACE_LEVELS - 1));
-    const base = faceFrame('open', level);
-    const st = blinkState(t);
-    // blink states for this level are prepared in the background; until then the eyes just stay open
-    const img = st === 'open' ? base : faceFrame(st, level, true) || base;
-    ctx.drawImage(img, 0, 0);
-    for (const s2 of ['l', 'both', 'r']) if (!faceImg.has(`${s2}|${level}`)) later(`${s2}|${level}`, () => faceFrame(s2, level));
+    ctx.drawImage(faceFrame(level, FACE_LEVELS), 0, 0);
+    // blink patches for this level are prepared in the background; until then the eyes stay open
+    const stt = blinkState(t);
+    if (stt !== 'open' && patchReady.has(`${stt}|${level}`)) { const p = blinkPatch(stt, level, FACE_LEVELS); ctx.drawImage(p.canvas, p.x, p.y); }
+    for (const s2 of ['l', 'both', 'r']) {
+      const k = `${s2}|${level}`;
+      if (!patchReady.has(k)) later('blink' + k, () => { blinkPatch(s2, level, FACE_LEVELS); patchReady.add(k); });
+    }
   },
 };
 
 // ------------------------------------------------------------------------------------ colonel_hand
-// Tess's desk from just above: her red hair and denim arms at the bottom, head down; an enormous
-// ringed hand resting beside her face. Fluorescent flicker + the hand's slow breathing swell.
-const handGB = new Map(), handCache = new Map();
-function handFrame(swell, dim) {
-  const key = `${swell}|${dim}`;
-  if (handCache.has(key)) return handCache.get(key);
-  if (!handGB.has(swell)) handGB.set(swell, buildDeskGB(swell / 2));
-  const c = shadeDesk(handGB.get(swell), dim);
-  handCache.set(key, c);
-  return c;
-}
-function flicker(t) {
+// Tess's desk from just above (colonel_cg_hand.js). params: light 'fluor' (Ch2, default) | 'red' (Ch8,
+// the Register under the breaker's fire), reach 0..1 (0 = still out of frame, back along his arm;
+// 1 = resting), slack 0..1 (after EXPELLED: the blood leaves it and it withdraws). The tube flickers;
+// the hand and cuff swell with a slow breath.
+const handOut = new Map();
+function flicker(t, red) {
+  if (red) { // the fire: frequent small dips
+    const k = Math.floor(t * 9);
+    return h01(k, 3, 77) > 0.78;
+  }
   // mostly steady; short irregular dips like a dying starter
   const k = Math.floor(t * 14);
   const r = h01(k, 7, 31), r2 = h01(Math.floor(t * 3), 9, 31);
   return r2 > 0.72 && r > 0.55;
 }
 const colonelHand = {
-  draw(ctx, t = 0) {
-    const ph = (Math.sin(t * Math.PI * 2 / 3.6) + 1) / 2; // ~3.6 s breath
-    const want = Math.round(ph * 2), dim = flicker(t) ? 1 : 0;
-    // the first state renders now; the other breaths/flicker states are prepared in the background
-    let key = `${want}|${dim}`;
-    if (!handCache.has(key)) {
-      for (const s2 of [0, 1, 2]) for (const d2 of [0, 1]) later(`h${s2}${d2}`, () => handFrame(s2, d2));
-      key = [...handCache.keys()].sort((a, b) => Math.abs(+a[0] - want) + (a[2] !== String(dim)) * 0.5 - (Math.abs(+b[0] - want) + (b[2] !== String(dim)) * 0.5))[0];
-      if (!key) { handFrame(0, 0); key = '0|0'; }
+  draw(ctx, t = 0, params = {}) {
+    const light = params.light === 'red' ? 'red' : 'fluor';
+    const reach = Math.max(0, Math.min(1, params.reach ?? 1)), slack = Math.max(0, Math.min(1, params.slack ?? 0));
+    const ph = (Math.sin(t * Math.PI * 2 / 3.6) + 1) / 2;             // ~3.6 s breath
+    // if the idle-time build hasn't got this far, the first frame finishes what it needs now and
+    // the other breaths follow in the background
+    while (!handReady(light, 1)) prepHand(light);
+    let swell = slack > 0.3 ? 0 : Math.round(ph * 2);
+    if (!handReady(light, swell)) { swell = 1; later('hand|' + light, function step() { if (!prepHand(light)) later('hand|' + light, step); }); }
+    const dim = slack < 0.95 && flicker(t, light === 'red');
+    const [ox, oy] = handOffset(reach, slack);
+    const key = `${light}|${dim ? 1 : 0}|${swell}|${ox},${oy}|${Math.round(slack * 16)}`;
+    let c = handOut.get(key);
+    if (!c) {
+      c = composeHand({ light, dim, swell, reach, slack: Math.round(slack * 16) / 16 });
+      handOut.set(key, c);
+      if (handOut.size > 24) handOut.delete(handOut.keys().next().value);
     }
-    ctx.drawImage(handCache.get(key), 0, 0);
+    ctx.drawImage(c, 0, 0);
   },
 };
 

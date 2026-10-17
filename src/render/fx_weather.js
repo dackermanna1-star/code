@@ -46,8 +46,13 @@ export class Rain {
     for (let i = 0; i < RAIN_MAX; i++) this._spawn(i, true);
   }
 
-  set(on, intensity = 1) {
+  /** instant: jump straight to the target (no ease) — map loads into interiors (Integration 2). */
+  set(on, intensity = 1, instant = false) {
     this.target = on ? Math.max(0, Math.min(1.5, intensity)) : 0;
+    if (instant) {
+      this.level = this.target;
+      if (!this.target) for (let s = 0; s < SPLASH_MAX; s++) this.st[s] = -1;
+    }
   }
 
   get active() { return this.level > 0.01 || this.target > 0; }

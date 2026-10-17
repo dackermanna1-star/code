@@ -8,6 +8,13 @@
 //   HW.player.eyesShut — holding Confirm while seated; during a period time runs ×4 (DESIGN §4.1)
 //     unless HW.colonel.peeking is set (peeks play at normal speed)
 // HW.hiding.isSafe() summarises it for the Colonel AI; seatNpc()/unseatNpc() seat followers.
+//
+// Seat `sitScript` (Integration 2): after Tess sits on a seat whose instance has `sitScript: '<id>'`,
+// that script runs as a blocking cutscene (ctx { prop, map, seated: true }) — queued behind any
+// blocking script a 'sit' listener started on the same sit (e.g. roll call #3), and dropped if she
+// stands, the map changes or a load intervenes first. Without one, HW.assembly.sitScriptFor(prop)
+// may supply a default (the Assembly front-row seats → ch7.front_<front>). sitScriptFor(prop) here
+// resolves the id that would run.
 import HW from '../engine/hw.js';
 
 const TILE = 16;
@@ -102,6 +109,31 @@ export const hiding = {
     this.busy = false;
     this.stillTime = 0;
     HW.game.emit('sit', prop);
+    this._queueSitScript(prop, p);
+  },
+
+  /** The script a seat runs after Tess sits: its own `sitScript`, else a system default, else null. */
+  sitScriptFor(prop) {
+    if (!prop) return null;
+    if (prop.inst?.sitScript) return prop.inst.sitScript;
+    try { return HW.assembly?.sitScriptFor?.(prop) || null; } catch (e) { console.error('[hiding] sitScriptFor', e); return null; }
+  },
+
+  /** Run the seat's sitScript once nothing else is blocking, if she is still sitting there. */
+  _queueSitScript(prop, p) {
+    if (!prop.inst?.sitScript && !HW.assembly?.sitScriptFor) return;
+    const map = HW.map;
+    const gen = HW.scripts.gen;
+    const sitTime = p.sitTime;
+    const still = () => HW.map === map && HW.player === p && p.seated === prop && p.sitTime === sitTime && HW.scripts.gen === gen;
+    HW.game.until(() => !still() || (!HW.scripts.blocking && HW.game.mode === 'play' && !this.busy), 120).then(() => {
+      if (!still() || HW.scripts.blocking) return;
+      const id = this.sitScriptFor(prop);
+      if (!id) return;
+      if (!HW.scripts.has(id)) { console.warn(`[hiding] seat ${prop.id}: unknown sitScript '${id}'`); return; }
+      HW.debug?.record?.('sitScript', null, null, `${prop.id}:${id}`);
+      HW.scripts.run(id, { prop, map: HW.map, seated: true });
+    });
   },
 
   async stand() {

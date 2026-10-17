@@ -519,17 +519,19 @@ export class RegisterScreen extends Screen {
   _hand(ctx) {
     const W8 = this.write;
     if (!W8 || W8.handT < 0) return;
-    const inK = ease.out(clamp(W8.handT / 0.6));
-    const outK = W8.handOut >= 0 ? ease.inOut(clamp(W8.handOut / 0.9)) : 0;
-    const k = inK * (1 - outK);
-    if (k <= 0) return;
-    // the hand comes in from the left, over the names already cleared, leaving the line being written free
-    const pw = 336, ph = 252;
-    const px = snap(16 - pw * (1 - k)), py = 180 + snap(outK * 16);
+    // a window onto the desk (the Ch2 composition, under the breaker's red): the hand slides in along
+    // its arm (reach); EXPELLED → it goes slack and withdraws; putting the pen down → it simply withdraws
+    const out = W8.handOut;
+    const reach = W8.cancelled ? 1 - ease.inOut(clamp(out / 0.6)) : ease.out(clamp(W8.handT / 0.9));
+    const slack = W8.done && out >= 0 ? clamp(out / 1.3) : 0;
+    const fade = clamp(W8.handT / 0.25) * (1 - (W8.cancelled ? clamp((out - 0.4) / 0.3) : W8.done ? clamp((out - 1.25) / 0.5) : 0));
+    if (fade <= 0) return;
+    // the window sits under the line being written, left of his line's panel; 2× art pixels
+    const pw = HAND_CROP.w * 2, ph = HAND_CROP.h * 2, px = 16, py = 196;
     ctx.save();
-    ctx.globalAlpha *= clamp(k * 1.4);
+    ctx.globalAlpha *= fade;
     dither(ctx, px + 8, py + 8, pw, ph, 'rgba(0,0,0,1)', 0.6);
-    ctx.drawImage(handPanel(this.t, W8.done ? 1 : 0), px, py, pw, ph);
+    ctx.drawImage(handPanel(this.t, reach, slack), px, py, pw, ph);
     frame(ctx, px - AP, py - AP, pw + AP * 2, ph + AP * 2, '#1a0406');
     frame(ctx, px, py, pw, ph, '#5a0c12');
     ctx.restore();
@@ -643,26 +645,20 @@ function typeLine(ctx, text, t, x, y, maxW) {
 }
 
 let handCanvas = null, handCanvasKey = '', handFull = null;
-const HAND_CROP = { x: 0, y: 14, w: 300, h: 225 };
-/** The Ch2 hand, cropped to the hand and rings, re-lit red from below (the breaker), at 400×300 UI. */
-function handPanel(t, slack) {
-  const key = `${Math.floor(t * 8)}|${slack}`;
+// the part of colonel_hand the window shows (art px): the rings, the knuckles, the fingertips
+const HAND_CROP = { x: 150, y: 66, w: 168, h: 150 };
+/** colonel_hand under the mine-fire red (the CG lights itself: params.light 'red', reach, slack). */
+function handPanel(t, reach, slack) {
+  const key = `${Math.floor(t * 12)}|${Math.round(reach * 200)}|${Math.round(slack * 32)}`;
   if (handCanvas && handCanvasKey === key) return handCanvas;
   const full = handFull || (handFull = canvas(480, 270));
   const fx = ctx2d(full);
   fx.fillStyle = '#05060a'; fx.fillRect(0, 0, 480, 270);
-  try { svc.cgArt('colonel_hand')?.draw?.(fx, slack ? 0 : t, {}); } catch (e) { svc.warnOnce('register.hand', e); }
+  try { svc.cgArt('colonel_hand')?.draw?.(fx, t, { light: 'red', reach, slack }); } catch (e) { svc.warnOnce('register.hand', e); }
   const c = handCanvas || canvas(HAND_CROP.w, HAND_CROP.h);
   const x = ctx2d(c);
   x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
   x.drawImage(full, HAND_CROP.x, HAND_CROP.y, HAND_CROP.w, HAND_CROP.h, 0, 0, HAND_CROP.w, HAND_CROP.h);
-  // red light from below: multiply a red ramp, then lift the highlights a touch
-  const g = x.createLinearGradient(0, HAND_CROP.h, 0, 0);
-  g.addColorStop(0, '#ff8a64'); g.addColorStop(0.55, '#d8483a'); g.addColorStop(1, '#5a1610');
-  x.globalCompositeOperation = 'multiply'; x.fillStyle = g; x.fillRect(0, 0, HAND_CROP.w, HAND_CROP.h);
-  x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.08; x.fillStyle = '#ff6040'; x.fillRect(0, HAND_CROP.h * 0.6, HAND_CROP.w, HAND_CROP.h * 0.4);
-  x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;
-  if (slack) { x.globalAlpha = 0.35; x.fillStyle = '#000'; x.fillRect(0, 0, HAND_CROP.w, HAND_CROP.h); x.globalAlpha = 1; }
   handCanvas = c; handCanvasKey = key;
   return c;
 }

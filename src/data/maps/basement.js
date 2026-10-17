@@ -289,8 +289,7 @@ export default {
 
   doors: {
     '7,12': { id: 'b_jan_door', type: 'door_metal', state: 'locked', label: 'JANITOR', script: 'ch3.jan_door',
-      // (chapter 0 = no story context: debug teleports / map tests walk straight in)
-      lock: (s) => (s.chapter || 0) >= 1 && !F(s).ch3_jan_key, lockedText: janDoorText, unlockSfx: 'key_unlock' },
+      lock: (s) => !F(s).ch3_jan_key, lockedText: janDoorText, unlockSfx: 'key_unlock' },
     '20,12': { id: 'b_door_storage', type: 'door_metal', label: 'STORAGE' },
     '35,12': { id: 'b_door_elec', type: 'door_metal', label: 'ELECTRICAL — DANGER' },
     '43,12': { id: 'b_door_shelter', type: 'door_metal', label: 'FALLOUT SHELTER' },

@@ -285,10 +285,10 @@ function huskSeated(o) {
   return k.done({ outline: false });
 }
 function huskKneeling(o) {
-  const k = new K(28, 40, -6, -18, seedOf('kneel', o.dir));
+  const k = new K(28, 40, -6, -18, seedOf('kneel', o.dir, o.state));
   const ground = o.dir === 'down' ? 20 : 14;
   if (o.dir !== 'down') k.shadowE(8, 13, 7, 2, SHADOW_SOFT);
-  drawKneeling(k, { cx: 8, groundY: ground, view: o.dir });
+  drawKneeling(k, { cx: 8, groundY: ground, view: o.dir, pen: o.state !== 'nopen' });
   return k.done({ outline: false });
 }
 

@@ -22,7 +22,7 @@ import { TILES } from '../data/tiles.js';
 import { FLOOR_GEN, TW, TH, concreteTexture } from './tiles_floors.js';
 import { FACE_GEN, FW, TS, MAT, topTex, applyTopLips, drawWindow, genSpill } from './tiles_walls.js';
 import {
-  PIT_S, pitTex, pitEdges, railingCell, stageCell, DOOR_S, doorTex, doorJambs, stairsCell, waterCell, WATER_FRAMES,
+  PIT_S, pitTex, pitEdges, DROP_S, dropTex, dropEdges, railingCell, stageCell, DOOR_S, doorTex, doorJambs, stairsCell, waterCell, WATER_FRAMES,
 } from './tiles_special.js';
 
 const mod = (a, n) => ((a % n) + n) % n;
@@ -199,8 +199,18 @@ function drawSpecial(ctx, key, mask, px, py, tx, ty, clean, v) {
       ctx.drawImage(cell(`pit|${sx}|${sy}|${mask & 15}`, () => { const c = t.pb.sub(sx, sy, 16, 16); pitEdges(c, mask); return c; }), px, py);
       return;
     }
+    case 'drop': {
+      const t = tex('drop', false, dropTex);
+      const sx = mod(tx, DROP_S / 16) * 16, sy = mod(ty, DROP_S / 16) * 16;
+      if ((mask & 15) === 15) { ctx.drawImage(t.cv, sx, sy, 16, 16, px, py, 16, 16); return; }
+      ctx.drawImage(cell(`drop|${sx}|${sy}|${mask & 15}`, () => { const c = t.pb.sub(sx, sy, 16, 16); dropEdges(c, mask); return c; }), px, py);
+      return;
+    }
     case 'railing':
       ctx.drawImage(cell(`rail|${mask & 15}|${c1}`, () => railingCell(mask & 15, clean)), px, py);
+      return;
+    case 'railing_wood':
+      ctx.drawImage(cell(`railw|${mask & 15}|${c1}`, () => railingCell(mask & 15, clean, true)), px, py);
       return;
     case 'stage_front':
       ctx.drawImage(cell(`stage|${mask & 10}|${v & 3}|${c1}`, () => stageCell(mask & 10, clean, v & 3)), px, py);

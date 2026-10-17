@@ -3,7 +3,9 @@
 //   HW.compact.use()          toggle (or Tess remarks on her reflection)
 //   HW.compact.active         past view showing
 //   HW.compact.current        the active past entry (map.past[i]) | null
-//   HW.compact.hasPastHere    player stands inside a past rect (HUD sparkle hint)
+//   HW.compact.hasPastHere    player stands inside a past rect whose `cond` holds, and the compact is
+//                             unlocked (flag compact_unlocked) — the HUD sparkle hint
+// Past entries may carry `cond: (state) => bool` (Integration 2): a failing cond hides the view.
 import HW from '../engine/hw.js';
 
 const TILE = 16;
@@ -24,16 +26,17 @@ export const compact = {
   current: null,
   _lineIdx: 0,
 
-  /** Past entry under the player, if any. */
+  /** Past entry under the player whose `cond(state)` holds (if it has one), or null. */
   pastHere() {
     const p = HW.player;
     const map = HW.map;
     if (!p || !map || !map.past.length) return null;
-    return map.pastAt(Math.floor(p.x / TILE), Math.floor(p.y / TILE));
+    return map.pastAt(Math.floor(p.x / TILE), Math.floor(p.y / TILE), HW.state);
   },
 
+  /** HUD sparkle: only once the compact works (flag compact_unlocked) and a live past view is here. */
   get hasPastHere() {
-    return !!this.pastHere();
+    return this.unlocked && !!this.pastHere();
   },
 
   get unlocked() {

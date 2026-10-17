@@ -352,9 +352,10 @@ function carpet(clean) {
 // anthracite: glinting faceted lumps over black
 function coal(clean) {
   const r = R('coal');
-  const pb = new PB(TW, TH, 'ink');
-  speck(pb, r, 'night', 0.3);
-  const ramp = ['ink', mixc('night', 'shadow', 0.5), mixc('g1', 'blue_dd', 0.3), mixc('g2', 'blue_d', 0.3), mixc('g3', 'blue_l', 0.3)];
+  // (Integration 2: one notch lighter overall so heaps and paths read in the dark)
+  const pb = new PB(TW, TH, mixc('ink', 'night', 0.6));
+  speck(pb, r, mixc('night', 'shadow', 0.5), 0.3);
+  const ramp = [mixc('ink', 'night', 0.7), mixc('night', 'shadow', 0.85), mixc('g1', 'blue_dd', 0.15), mixc('g2', 'blue_d', 0.2), mixc('g3', 'blue_l', 0.3)];
   for (let i = 0; i < 3400; i++) {
     const s = r();
     const rad = s < 0.5 ? 1.2 + r() * 1 : s < 0.9 ? 2.2 + r() * 1.4 : 3.6 + r() * 2;

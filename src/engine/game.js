@@ -398,8 +398,9 @@ export const game = {
     } else if (this._exitArmed && play) {
       this._exitArmed = false;
       if (exit.lock && !lockSatisfied(exit.lock, HW.state)) {
-        // Gated exit: an in-voice refusal; it re-arms once the player steps back out.
-        if (exit.refuse) HW.scripts.run(exit.refuse, { exit, map });
+        // Gated exit: an in-voice refusal; it re-arms once the player steps back out. A `refuse`
+        // script id that doesn't exist (yet) falls back to lockedText (Integration 2).
+        if (exit.refuse && HW.scripts.has(exit.refuse)) HW.scripts.run(exit.refuse, { exit, map });
         else HW.scripts.runFn((g) => g.examine(exit.lockedText || "[n] I can't go that way."), { exit, map }, { id: `exit:${exit.id}` });
         HW.debug?.record?.('refuse', null, null, `${map.id}:${exit.id}`);
         return;

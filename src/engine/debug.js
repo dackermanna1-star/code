@@ -277,7 +277,8 @@ const api = {
   steps(n = 1) { return steps(n); },
 
   /** BFS reachability on the collision grid (current door states; closed doors count as open). */
-  pathExists(mapId, from, to) {
+  /** BFS reachability; opts.doors as MapRuntime.reachable (true | false | 'locks' | 'all'). */
+  pathExists(mapId, from, to, { doors = true } = {}) {
     let map = HW.map;
     if (!map || map.id !== mapId) {
       const data = HW.data.maps[mapId];
@@ -292,7 +293,7 @@ const api = {
     const a = pt(from);
     const b = pt(to);
     if (!a || !b) throw new Error('pathExists: bad endpoints');
-    return map.reachable([a.x, a.y], [b.x, b.y], { doors: true });
+    return map.reachable([a.x, a.y], [b.x, b.y], { doors });
   },
 
   save(slot = '1') { return HW.game.save(slot); },

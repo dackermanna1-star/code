@@ -724,3 +724,177 @@ Darkness stays deep, but room shapes, doorways and landmarks now read beyond the
 - The readability aids (catch light, bounce, self-glow) are **not** counted by `lightAt()`, so the Colonel's "lit" test (> 0.45) is unaffected; only the ambient term rises (about +0.05).
 - Fluorescents, exit signs, boiler and fire glows are unchanged in intensity and stay punchy.
 - Cost is within measurement noise: about 0.5–1.3 ms per lighting render headless, before and after.
+
+---
+
+## Integration 2
+
+The second integration pass over `docs/INTEGRATION_TODO.md`. Everything is additive and backwards-compatible:
+old calls and data keep their old behaviour unless a section says otherwise.
+
+### 1. Compact past views: `cond` and the HUD sparkle
+- A `past` entry may carry `cond: (state) => bool`. While it fails, the view isn't offered: `HW.compact.pastHere()`
+  skips it and an open view closes when the cond flips.
+- `map.pastAt(tx, ty, state?)`: with a `state`, entries whose cond fails are skipped. Without one (structural use)
+  cond is ignored, as before.
+- `HW.compact.hasPastHere` (HUD sparkle) is now `compact_unlocked && pastHere()`. The sparkle no longer shows before the compact works.
+
+### 2. Lightning only flashes real windows
+- `MoonLayer.flash` draws only on cells whose tile is a window (`window_*`). An explicit `{ type: 'window' }` map light
+  on a non-window cell still casts its moon shaft, but no longer draws a white square on lightning.
+- An explicit window light on a real window cell replaces that cell's automatic shaft instead of doubling it.
+
+### 3. Seats
+- **Examine, then stand.** While seated, a tap of Confirm shows the seat's `examine` once; the next tap stands Tess
+  up. Movement input still stands her up at any time. Seats with a `script` are unchanged: the script runs instead of sitting.
+- **`sitScript: '<id>'`** on a seat instance: Tess sits normally, then the script runs as a blocking cutscene with
+  ctx `{ prop, map, seated: true }`.
+  - It waits behind any blocking script that a `'sit'` listener started on the same sit (for example roll call #3).
+  - It is dropped if she stands, the map changes or a load intervenes first.
+  - Each run is recorded in the transcript as type `sitScript`.
+- `HW.hiding.sitScriptFor(prop)` returns the id that would run: the instance's `sitScript`, else a system default
+  (see §4), else null.
+
+### 4. Assembly
+- `HW.assembly.start()` now also switches the aud's map-light group `'assembly'` on (`fade`, 1.2 s; persisted like any
+  explicit group).
+- **Front row.** Seats with `front: '<friend>'` (aud_seats.js: `aud_seat_beside_danny/_leah/_marcus`) get the default
+  sit script `ch7.front_<friend>` through `HW.assembly.sitScriptFor(prop)`. It applies only when all of these hold:
+  - roll #3 is done (the same sit fires `ch7.roll3` first when it's due, and the scene queues behind it);
+  - the Assembly is active, or Chapter VII is under way (`ch7_started`);
+  - `register_done` is not set;
+  - the script exists.
+- **Compatibility with ch7.js.** ch7.js already runs the front-row scenes from its own `'sit'` hook (after roll #3).
+  - `HW.assembly.frontScenes` defaults to `'auto'`. In that mode the default stays out while such a hook is installed
+    (`HW.assembly.frontDeferred`, detected like weather's deferral), so each scene runs exactly once.
+  - If ch7.js drops its hook, the engine default takes over with no data change.
+  - `frontScenes = true` forces the default; `false` disables it.
+- Covered by tests/systems.mjs on the real `aud` map: roll #3, then exactly one `ch7.front_danny`, with and without ch7's hook.
+
+### 5. Map `sounds` and `fx` — `HW.ambient` (src/game/ambient.js)
+Both fields are rebuilt on every map load. Their conditions are re-checked on `HW.game.refresh()` and every 0.5 s.
+
+**`sounds: [{ loop, at: [tx, ty], vol = 0.6, radius (tiles) | far (px), fade = 0.6, cond(state), id }]`**
+- Plays a positional `HW.audio.loop(loop, { x, y, vol, far })` at the cell centre while `cond` holds.
+- Entries start 0.3 s after the load, once the map's `onEnter` script has had its first tick.
+- Hand-over to scripts: if another loop with the same id is already playing within 2 tiles of the point (when the
+  entry would start, or while it plays), the entry stays silent for the rest of the visit. The script keeps full
+  control, including stopping the sound mid-scene.
+- Today `ch5.enter_west2` plays the faucet itself, so west2's `sounds` entry defers and nothing doubles. If ch5 drops
+  its own loop, the map entry drives the tap until `adair_met`. A scene that stops the tap before setting the flag
+  should then call `HW.ambient.mute('faucet')`.
+
+**`fx: { <type>: [[tx, ty], …] }`** (the vault and breaker form) **or `[{ type, at | points, every: [min, max] s, n, cond }]`**
+- Ambient particle emitters: `HW.fx.emit(type, tx*16+8, ty*16+8, n)` at per-type default intervals.
+- Only points within 48 px of the view emit. Drips sometimes play a quiet positional `drip` as they land.
+- The vault and breaker data are now live.
+
+**API**
+- `HW.ambient.sounds` (live entries `{ id, def, x, y, handle, deferred }`), `.emitters`, `.refresh()`, `.stopSounds(fade)`.
+- `.mute(idOrLoop, fade)` silences matching entries until the next map load.
+- New audio query: `HW.audio.activeLoops(id?)` returns `[{ id, x, y, handle }]` for playing loops (`[]` before init).
+
+### 6. Weather
+- Rain never shows on a map without `weather.rain`. Loading such a map snaps the rain off at once: the transfer fade
+  hides the cut, where the old eased fade-out leaked streaks indoors for about 3 s.
+  - This happens even while `HW.weather` defers to pro.js's own system.
+  - Rain switched on there by anything else is cut the next step.
+- `HW.fx.rain(on, intensity, { instant })`: the new `instant` option snaps to the target. Getter `HW.fx.rainLevel` reads the current level.
+- Steam: unchanged deferral. While pro.js's system is registered `HW.weather` emits no steam itself; alone, it emits
+  from `steam_vent` props on maps with `weather.steam`. A test checks both directions.
+
+### 7. Exits
+- An exit whose `refuse` names a script that doesn't exist (yet) now shows `lockedText`, else "I can't go that way.".
+  Before, it silently ran nothing.
+
+### 8. Map light `cond`
+- A map data light may carry `cond: (state) => bool`.
+  - While the cond holds, the light is on (it overrides `on`); groups still apply when they have been explicitly switched.
+  - While it fails, the light is off whatever its group says.
+- It is re-evaluated on map load and on `HW.game.refresh()`: the light transitions in place when the cond flips.
+- Light defs carry `condOff: true` while the cond fails, and lighting honours it.
+- Explicit light groups were already saved (v2.2 §8), so gym banks survive a reload either way; `cond` is for data-driven cases.
+
+### 8b. Data-driven prop state: `stateWhen`
+- A prop instance may carry `stateWhen: [{ cond(state), state }]`. The first entry whose cond holds sets the prop's
+  state, falling back to `state`, then the catalog default.
+- It is evaluated on map build and on every `HW.game.refresh()`, until a script persists a state for that prop
+  (`g.setProp`, a door opening). A persisted state always wins.
+- Wired today: west1 `w1_desk_103_leah` turns `outline` once `ch2_leah_taken` is set. This is DESIGN §12's
+  camcorder-shaped dust outline, and the desk's examine text already describes it.
+
+### 9. Reachability and lock exceptions
+- `map.reachable(from, to, { doors })`:
+  - `doors: true` (default, live): closed doors pass, and locked ones only once their lock is satisfied.
+  - `false`: no doors pass.
+  - `'locks'`: any door gated by a `lock` (`item:`, `flag:` or a function, whatever its value right now) also passes.
+    Doors shut by state alone (`jammed`, `locked` with no `lock`) stay shut, because only scripts open those.
+  - `'all'`: every door passes.
+- `map.doorPassable(p, mode)` takes the same modes. `__HW.pathExists(map, from, to, { doors })`.
+- tests/maps.mjs checks anchors with `doors: 'locks'`.
+- The chapter-0 exceptions are gone from the locks:
+  - `w1_office_door` is `!keyring`;
+  - `b_jan_door` is `!ch3_jan_key`.
+- The maps test asserts both locks hold in chapter 0 without the key, and that the rooms are unreachable live but
+  reachable with `'locks'` and `'all'`.
+
+### 10. Convention: double doors in east–west walls
+- A door through a **vertical** wall (east or west end of a corridor, library ↔ west1, east1 ↔ gym, lobby east doors)
+  is a **`door_side`**. The auto-door pass makes one only from a **single** `D` cell with wall cells above and below.
+  Two stacked `D`s become one `door_class` facing south, which is wrong here.
+- A two-cell-wide opening is therefore authored as **two explicit `door_side` objects**:
+  - one per cell, stacked (y and y + 1);
+  - the tiles under them are floor (`,`/`.`/`=`), not `D`;
+  - the two objects share `label`, `lock` / `lockedText`, `state` and `to`;
+  - ids are `<id>` and `<id>_b` (or `_2`).
+- Scripts must change both leaves together (`setProp` each id). Chapter variants are two pairs with complementary
+  `cond`s (see gym.js `gym_doors_w`/`_w2` and `gym_doors_shut`/`_shut2`, or east1 `e1_gym_doors*`).
+
+### 11. UI
+- The compact's past-view hint wraps to two centred lines (700 UI px wide) under the mirror. The bottom line sits where a
+  one-line hint did, and any further words join the second line.
+
+### 12. Art
+- **chalkboard.** Four-line boards start one row higher, and glyph pixels are clipped per pixel at the slate's bottom
+  edge, so the fourth line is whole and never paints the frame.
+- **desk_student** state **`outline`** (catalog, additive): the desk top grey with dust, swept clean in a camcorder
+  shape (body, lens barrel, eyepiece). The clean 1979 view draws a plain desk. Leah's 103 desk uses it after
+  `ch2_leah_taken` through `stateWhen` (§8b).
+- **headlights** preset: intensity 0.9 → 1, each lamp's share of the pool (`twinAlpha`, a new preset field also
+  accepted per light) 0.62 → 0.8, and a brighter lamp glow. Stronger in the exterior shot even with the map's intensity override.
+- **banner** state **`hallpass`**: the archway sign as enamelled tin.
+  - Lettering comes from `params.text`; `\n` or auto-wrap, up to 3 lines of 3×5 caps, the first line in red when there are several.
+  - Default text: HALL PASS / REQUIRED BEYOND / THIS POINT.
+  - Group-A prop entries may now declare `text: true`: `opts.text` / `params.text` reaches the builder and keys the cache.
+- **poster** state **`navy`**: a wartime NAVY recruiting sheet (anchor, red and white rule). Wide word posters no longer
+  lose their title's last column to the paper-edge shade (BAND was affected too).
+- **Tiles** (additive in data/tiles.js):
+  - **`drop`**, LEGEND **`O`**: a neutral dark open drop for galleries, with the pit's edge treatment and no mine-fire glow.
+  - **`railing_wood`**, LEGEND **`I`**: a timber railing with a broad handrail, square spindles and chunky posts. A map
+    can also turn all its `|` railings wooden with `legend: { '|': 'railing_wood' }`.
+  - The engine treats `railing_wood` like `railing` (same-key mask, faces layer) and `drop` like `pit`.
+- **graffiti** state **`chalk`**: `params.text` in the chalk hand, up to 4 lines, with a smudge. graffiti now has
+  `label: true`, so `params.label` / `params.text` keys the cache.
+- **husk_kneeling** state **`nopen`**: Adair without the red pen, for after Tess takes it.
+- **Kevin** `beltoff_down`: three frames, non-looping (hands at the buckle → the belt hanging from his fist → hanging
+  long). `HW.patrol.dismiss()` now plays it once and holds the last frame, falling back to `hand_out_down`.
+- **portrait_colonel**: more dominant.
+  - The canvas overhangs the 3-tile footprint by 6 px a side: 60 px of gilt over the full wall-face height.
+  - The ground lifts to a warm halo behind the sitter, and the navy mass spills wider past the chair arms.
+  - In the lobby, the clock at x 12 and the plaque at x 18 stay clear.
+- **floor_coal**: one notch lighter overall.
+- **Not done (owned elsewhere):** the `vhs_frames` frame-0 lobby group shot (`frames: 6`) and `colonel_hand`'s `light`
+  param. Both live in the Colonel CG files the artist is redrawing (`cg_colonel.js`, `colonel_cg_*.js`).
+
+### 13. Tests
+- **tests/engine.mjs** has a new `integration 2` step: compact cond and sparkle gate, window-only lightning, seat
+  examine → stand, sitScript queueing, the assembly front-row resolver and its deferral, map sounds (cond, refresh,
+  hand-over, mute), map fx (both forms, cond, off-screen), rain snap-off and single-source steam, exit refuse
+  fallback, light `cond`, reachability modes, `stateWhen`, and the art additions.
+- Two timing-sensitive checks were hardened:
+  - "fresh batteries" now tolerates a few steps of drain;
+  - the gamepad check starts from a known spot.
+- **tests/systems.mjs**:
+  - `ambient` and `weather` are in the registry check;
+  - new step: the assembly group switched on, and the front row on the real `aud` map running roll #3 then exactly one scene.
+- **tests/maps.mjs**: reachability uses `doors: 'locks'`, plus the lock regression checks from §9.

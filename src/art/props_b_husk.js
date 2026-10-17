@@ -236,7 +236,7 @@ export function drawFlakes(k, cx, floorY, size, seed = 0) {
  * her lap and her hands rest on its far edge); 'up' = back to the viewer (south of the desk);
  * 'left'/'right' = profile.
  */
-export function drawKneeling(k, { cx, groundY, view = 'down' }) {
+export function drawKneeling(k, { cx, groundY, view = 'down', pen: withPen = true }) {
   const b = new Blob(k.w, k.h, k.ox, k.oy);
   const rx = 4, ry = 5;
   const shY = groundY - (view === 'down' || view === 'up' ? 17 : 15); // kneeling: shoulders well above the knees
@@ -301,14 +301,14 @@ export function drawKneeling(k, { cx, groundY, view = 'down' }) {
     // cardigan: the V of the collar and a row of buttons
     k.P(cx - 1, shY + 1, 'rgba(240,207,140,0.7)'); k.P(cx + 1, shY + 1, 'rgba(240,207,140,0.7)'); k.P(cx, shY + 2, 'rgba(62,42,16,0.7)');
     for (let y = shY + 4; y < shY + 9; y += 2) k.P(cx, y, 'rgba(62,42,16,0.6)');
-    // the red pen in the right hand, nib toward the page
-    pen(k, cx + 3, shY + 7, 1);
+    // the red pen in the right hand, nib toward the page (state 'nopen': Tess has taken it)
+    if (withPen) pen(k, cx + 3, shY + 7, 1);
     backFold(k, cx, shY);
   } else if (view === 'up') {
     // split down the back of the cardigan, glasses arms at the temples
     for (let y = shY - 2; y < shY + 8; y++) { k.R(cx, y, y < shY + 3 ? 2 : 1, 1, 'rgba(20,12,4,0.92)'); k.P(cx - 1, y, 'rgba(240,207,140,0.75)'); }
     k.P(cx - rx - 1, hcy, frame); k.P(cx + rx + 1, hcy, frame);
-    pen(k, cx + sw, shY - 9, 0);
+    if (withPen) pen(k, cx + sw, shY - 9, 0);
   } else {
     const s = view === 'right' ? 1 : -1;
     const hx = cx + 4 * s;
@@ -319,7 +319,7 @@ export function drawKneeling(k, { cx, groundY, view = 'down' }) {
     k.L(ex - s * 1, hcy + 2, hx - s * 2, hcy + 1, frame); // temple arm
     // the split along the back
     for (let y = shY; y < shY + 6; y++) k.P(cx - 1 * s + (y & 1) * -s, y + 1, 'rgba(20,12,4,0.85)');
-    pen(k, cx + 9 * s - (s < 0 ? 1 : 0), shY + 1, s > 0 ? 2 : 3);
+    if (withPen) pen(k, cx + 9 * s - (s < 0 ? 1 : 0), shY + 1, s > 0 ? 2 : 3);
   }
   k.P(cx - 2, hcy - ry - 1, 'rgba(255,244,216,0.8)');
 }

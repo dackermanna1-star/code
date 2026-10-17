@@ -123,9 +123,12 @@ function kevinTorsoFront(P, g) {
     P.vl(12, sh + 1, hem - sh - 1, 1, 'jacket');
     P.hl(10, sh, 4, 3, 'jacket');
     // Sam Browne belt: his right shoulder (screen-left) → left hip, plus the waist belt
-    line(P, 'belt', [[9, sh + 1], [14, hem - 2]], 2, 2);
-    P.part('belt', { sep: 1, shade: false }, () => P.hl(8, hem - 1, 8, 2));
-    P.px(10, sh + 2, 4, 'silver'); P.px(9, hem - 1, 3, 'silver');
+    // (g.beltOff: taken off — the 'beltoff_down' special, DISMISSED)
+    if (!g.beltOff) {
+      line(P, 'belt', [[9, sh + 1], [14, hem - 2]], 2, 2);
+      P.part('belt', { sep: 1, shade: false }, () => P.hl(8, hem - 1, 8, 2));
+      P.px(10, sh + 2, 4, 'silver'); P.px(9, hem - 1, 3, 'silver');
+    }
     // whistle on its lanyard
     P.px(12, sh + 1, 1, 'silver'); P.px(12, sh + 2, 1, 'silver'); P.px(13, sh + 3, 4, 'silver');
   } else {
@@ -188,8 +191,31 @@ const KEVIN = {
       return g;
     };
     anims.hand_out_down = X.anim([R(ho(0)), R(ho(1))], 4, false);
+    // belt off (DISMISSED, Integration 2): both hands at the buckle → the belt off, hanging from his
+    // right hand → hanging long, held (non-looping; the last frame holds).
+    const bo = (k) => {
+      const g = front('down');
+      const a = g.arm('R');
+      a.el = [a.sh[0] + 1, a.sh[1] + 4];
+      a.hd = k === 0 ? [a.sh[0] + 2, g.hem - 1] : [a.sh[0] + 1, g.hem + (k === 1 ? 0 : 1)];
+      a.late = true; a.cover = 1;
+      if (k === 0) { const b = g.arm('L'); b.el = [b.sh[0] - 1, b.sh[1] + 4]; b.hd = [b.sh[0] - 2, g.hem - 1]; b.late = true; b.cover = 1; }
+      g.beltOff = k > 0;
+      g.beltHang = k;
+      g.order = ['legs', 'torso', 'arms', 'head', 'lateArms', 'heldBelt'];
+      return g;
+    };
+    anims.beltoff_down = X.anim([R(bo(0)), R(bo(1)), R(bo(2))], 2.5, false);
   },
   layers: {
+    heldBelt(P, g) {
+      if (!g.beltHang) return;
+      const [hx, hy] = g.arm('R').hd;
+      const len = g.beltHang === 1 ? 4 : 6;
+      // the white patrol belt hanging from his fist, the buckle swinging at the end
+      P.part('belt', { sep: 1, shade: false }, () => { P.vl(hx, hy + 1, len, 2); P.vl(hx + 1, hy + 1, len - 1, 1); });
+      P.px(hx, hy + len + 1, 4, 'silver'); P.px(hx + 1, hy + len + 1, 3, 'silver');
+    },
     whistle(P, g) {
       if (!g.whistle) return;
       const y = g.head.y + 6;

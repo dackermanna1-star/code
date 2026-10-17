@@ -199,6 +199,8 @@ function finishFalseLeah(g) {
 /** Open the compact on one of this map's past views (scripted), hold, and say what she sees. */
 async function compactLook(g, pastId, expr, line, sec = 2.4) {
   const past = HW.map?.past?.find((p) => p.id === pastId);
+  // The camera frames the remembered room inside the glass only while it follows Tess.
+  await g.cam(null, { time: 0.01 });
   if (past && HW.compact && !HW.compact.active) HW.compact.open(past);
   await g.wait(sec);
   if (line) await g.think(expr, line);
@@ -255,7 +257,7 @@ async function holdDoor(g) {
     if (door) g.setProp(door.id, 'closed');
     g.sfx('door_slam', { ...at, vol: 0.9 });
     g.shake(1.5, 0.2);
-    if (C?.entity) await C.despawn({ sink: false });
+    if (C?.entity) C.anim(null);
   }
   return 'caught';
 }
@@ -407,7 +409,7 @@ export default {
     const rang = await bell;
     if (!rang) { release(g, 'marcus'); return; }
     // The tubes stutter on. Down the hall they die again, one at a time, coming this way.
-    const cam = g.cam([20, 9], { time: 1.6 });
+    const cam = g.cam([20, 8], { time: 1.6 });
     await g.wait(1.6);
     await C.spawn('fold:0', { mode: 'scripted', anim: 'emerge', dir: 'left' });
     await cam;
@@ -422,25 +424,27 @@ export default {
     await g.wait(0.7);
     await C.walkTo('colonel_205');
     await g.wait(0.5);
-    // Along the back row, behind their chairs.
-    await C.walkTo([19, 9]);
-    C.face('up');
+    // Up the aisle between the rows, the tubes dying over him, to the front of Danny's desk.
+    await C.walkTo([16, 6]);
+    await C.walkTo([19, 6]);
+    C.face('down');
     await g.wait(0.8);
     g.sfx('colonel_jingle', { x: C.x, y: C.y - 16, vol: 0.8 });
-    await C.anim('reach_up', { once: true, hold: true });
+    await C.anim('reach_down', { once: true, hold: true });
     HW.audio?.murmur?.(2.8);
     await g.say('voice', null, "Good boy. {p} I knew your grandfather's name.", VOICE);
     await g.wait(1.0);
     C.anim(null);
-    await C.walkTo([22, 9]);
-    C.face('up');
-    // Beside her desk. The close pass.
+    await C.walkTo([23, 6]);
+    C.face('down');
+    // Over her desk. The close pass.
     C.closePass();
     const p = HW.player;
     if (p) g.sfx('colonel_breath', { x: p.x + 6, y: p.y - 14, vol: 1 });
     await g.wait(0.9);
     await g.think('eyes_shut', '{dim}Pennies. {p} Danny was right.{/dim}', { hold: true });
     await g.wait(2.0);
+    await C.walkTo([16, 6]);
     await C.walkTo('colonel_205');
     await C.walkTo([16, 14]);
     if (door) HW.interact?.closeDoor?.(door);
@@ -486,6 +490,7 @@ export default {
 
   // ------------------------------------------------------------------------------------------ the long hall
   'ch5.longhall_refuse': async (g) => {
+    g.seen('ch5_longhall_refuse');   // repeats fast-forward
     if (withMarcus(g)) {
       g.face('marcus', 'tess');
       await g.say('marcus', 'urgent', "Two-oh-five first. {p} He's right there, Tess.");
@@ -675,18 +680,21 @@ export default {
     if (K) g.setPos('kevin', [12, 9]);   // his hand, raised, between them
     await g.wait(0.5);
     look(g, 'right');
-    await g.cam([18, 8], { time: 1.6 });
-    await g.wait(1.0);
+    await g.wait(0.8);
+    // Back down the hall: past Kevin's raised hand, a long way of dark, and Marcus, small, at the end of it.
+    await g.cam([24, 8], { time: 2.4 });
+    await g.wait(1.2);
     if (M) {
       await g.say('marcus', 'determined', "One student. Right. {p} Go. {p} I'll go around — east stairs. Find Leah.");
       g.face('marcus', 'right');
-      await g.walk('marcus', [40, 9]);
+      await g.walk('marcus', [42, 9]);
       g.despawn('marcus');
     }
+    await g.cam([12, 8], { time: 1.4 });
     g.state.party = g.state.party.filter((id) => id !== 'marcus');
     HW.entities?.syncParty?.();
     g.set('ch5_marcus_around');
-    await g.cam(null, { time: 1.0 });
+    await g.cam(null, { time: 0.8 });
     look(g, 'left');
     if (!replay) await g.say('tess', 'sad', 'He kept it. {p} Of course he kept it.');
     g.objective('The library. West end.');
@@ -821,6 +829,7 @@ export default {
       await g.wait(2.6);
       // The compact.
       await compactLook(g, 'room201_1979', 'terrified', "Her chair's empty. {p} And the corner isn't.", 2.6);
+      await g.cam([17, 7], { time: 0.6 });
     } else {
       await shadowOn(g);
     }
@@ -833,7 +842,7 @@ export default {
         asked = true;
         await g.say('tess', 'scared', 'The tape. {p} The one you gave me in the car.');
         await g.say('voice', null, 'For the drive, silly. {p} Pittsburgh. {p} Thanksgiving.', LEAH_Q);
-        await g.think('terrified', "That's what *I* said. {p} In the car. That's my line, not hers.");
+        await g.think('terrified', "That's what *I* said. {p} In the car.");
         continue;
       }
       if (c === 1) {
@@ -870,6 +879,11 @@ export default {
     if (door && door.state === 'open') HW.interact?.closeDoor?.(door);
     g.sfx('door_slam', { ...(door ? center(door) : cell(20, 11)), vol: 1 });
     g.shake(1.5, 0.2);
+    // Behind the door: her chair is empty. What leans on the door from inside is not her.
+    g.light('false_leah', null);
+    if (ent('false_leah')) g.despawn('false_leah');
+    const Ce = HW.colonel?.entity;
+    if (Ce) { Ce.x = 20 * TILE + 8; Ce.y = 9 * TILE + 12; HW.colonel.face('down'); }
     const r = await holdDoor(g);
     if (r !== 'held') {
       if (door) g.setProp(door.id, 'open');
@@ -893,8 +907,7 @@ export default {
     look(g, [15, 8]);
     await g.cam([16, 7], { time: 1.0 });
     await g.wait(1.4);
-    g.sfx('paper_rustle', { vol: 0.5 });
-    await g.think('scared', "Empty. {p} ...The camcorder's still in my bag. It never left my bag.");
+    await g.think('scared', 'Empty.');
     await g.cam(null, { time: 0.8 });
     g.objective(g.flag('ch5_leah_found') ? 'The library. Leah.' : "The library. The door by the girls' room.");
   },
@@ -918,7 +931,7 @@ export default {
     if (!ent('leah')) seatLeah(g);
     await g.walk('tess', 'leah_talk');
     look(g, 'leah');
-    await g.cam([11, 15], { time: 1.0 });
+    await g.cam([11, 17], { time: 1.0 });
     if (!replay) {
       await g.wait(0.9);
       await g.say('tess', 'relieved', "Leah. {p} Hey. It's me.");
@@ -962,7 +975,7 @@ export default {
     g.set('ch5_leah_found');
     g.refresh();   // her checkout cards on the table
     await g.cam(null, { time: 0.8 });
-    g.objective('The library doors. Marcus went around.');
+    g.objective('The barricaded doors. Marcus is coming around.');
     g.checkpoint('leah bond');
   },
 
@@ -977,6 +990,7 @@ export default {
       if (n >= 2 && g.flag('compact_unlocked')) await g.think('worried', 'The mirror remembered the restroom. {p} Maybe it remembers this.');
       return;
     }
+    g.seen('ch5_catalog');
     g.sfx('paper_rustle', { vol: 0.6 });
     await g.examine('[n] HA–HE. The drawer slides all the way out. Behind the last card, taped to the wood: a small brass key.');
     g.give('case_key');
@@ -996,6 +1010,7 @@ export default {
       if (!g.seen('ch5_case_locked')) await g.think('worried', 'The rest of it. {p} The whole thing, in his own handwriting.');
       return;
     }
+    g.seen('ch5_case');
     g.sfx('key_unlock', p ? center(p) : {});
     if (p) g.setProp(p.id, 'empty');
     g.take('case_key');
@@ -1067,9 +1082,8 @@ export default {
       await g.wait(0.8);
       g.face('marcus', 'tess');
       await g.say('marcus', 'thoughtful', "Came past the office. {p} Haupt's door was standing open. That little painting of him's crooked.");
-      if (g.flag('ch5_leah_clue')) await g.think('look_away', "WITHDRAWN. {p} The office stamps it on the form. Mine's in my bag.");
+      if (g.flag('ch5_leah_clue')) await g.think('look_away', 'WITHDRAWN. {p} The office stamps it on the form. {p} On mine, Monday.');
       await g.say('tess', 'determined', "Crooked painting in a principal's office. {p} There's a safe behind it.");
-      await g.say('marcus', 'soft_smile', 'Every movie.');
     }
     g.objective("Haupt's office. The safe.");
     await g.chapter(6);

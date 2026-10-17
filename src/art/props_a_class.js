@@ -47,7 +47,7 @@ function deskUp(k, o, { chair = true, desk = true } = {}) {
     k.R(1, -10, 14, 6, L.md); k.H(1, -10, 14, L.hi); k.V(1, -9, 5, L.hi); k.V(14, -9, 5, L.dk);
     k.H(1, -4, 14, L.edge); k.H(1, -5, 14, mix(L.md, L.dk, 0.5));
     k.R(2, -3, 12, 3, G.dk); k.H(3, -3, 10, PAL.ink); k.H(2, -1, 12, mix(G.dk, PAL.ink, 0.3)); k.P(2, -2, G.md);
-    deskTopItems(k, 1, -10, o, L);
+    if (!o.bare) deskTopItems(k, 1, -10, o, L);
     if (!o.clean) { k.P(1, -4, PAL.brown_d); k.P(9, -4, L.hi); k.S(2, -9, 12, 4, mix(L.md, PAL.g3, 0.5), 0.06); }
   }
   if (chair) {
@@ -70,9 +70,9 @@ function deskSide(k, o) {
   k.V(1, 1, 7, G.md); k.V(8, 1, 7, G.dk); k.P(1, 8, PAL.g1); k.P(8, 8, PAL.g1);
   k.R(1, -8, 8, 8, L.md); k.H(1, -8, 8, L.hi); k.V(1, -7, 7, L.hi); k.V(8, -7, 7, L.dk);
   k.H(1, 0, 8, L.edge); k.R(2, 1, 6, 2, G.dk); k.H(2, 3, 6, PAL.ink);
-  if (o.variant === 1) paper(k, 2, -7, 5, 4, { clean: o.clean, lineGap: 1 });
-  if (o.variant === 3) { k.R(2, -6, 5, 4, mix(PAL.blue, PAL.g3, o.clean ? 0 : 0.4)); k.H(2, -6, 5, PAL.blue_l); }
-  if (!o.clean && o.variant !== 1) { const c = mix(L.dk, PAL.brown_d, 0.55); k.H(3, -4, 3, c); k.P(6, -3, c); }
+  if (o.variant === 1 && !o.bare) paper(k, 2, -7, 5, 4, { clean: o.clean, lineGap: 1 });
+  if (o.variant === 3 && !o.bare) { k.R(2, -6, 5, 4, mix(PAL.blue, PAL.g3, o.clean ? 0 : 0.4)); k.H(2, -6, 5, PAL.blue_l); }
+  if (!o.clean && o.variant !== 1 && !o.bare) { const c = mix(L.dk, PAL.brown_d, 0.55); k.H(3, -4, 3, c); k.P(6, -3, c); }
   // connecting tube under the seat
   k.H(8, 7, 5, G.md);
   // chair: seat top, backrest in profile at the east edge, legs
@@ -101,8 +101,43 @@ function deskOverturned(k, o) {
   k.L(5, 7, 4, 1, G.md); k.L(11, 7, 12, 1, G.dk); k.P(4, 0, PAL.g1); k.P(12, 0, PAL.g1);
   k.shadow(1, 5, 15, 2); k.shadow(3, 12, 11, 2, SHADOW_SOFT);
 }
+/**
+ * 'outline' (Leah's desk after ch2_leah_taken): a desk gone grey with dust, swept clean in one
+ * place — the camcorder-shaped rectangle where the camera sat (body, lens barrel, eyepiece, strap).
+ * The 1979 (clean) view has no dust and no camera: it draws as the plain desk.
+ */
+function deskDustOutline(k, o, L, side) {
+  if (o.clean) return;
+  // desk-top area: up view (1,-10,14,6) · side view (1,-8,8,8)
+  const [x, y, w, h] = side ? [2, -7, 6, 6] : [2, -9, 12, 4];
+  // a grey film of dust over the laminate (lighter, colder), denser toward the edges
+  const dust = mix(L.md, PAL.g6, 0.5), dust2 = mix(L.md, PAL.g6, 0.72);
+  k.R(x - 1, y - 1, w + 2, h + 2, mix(L.md, dust, 0.6));
+  k.D(x - 1, y - 1, w + 2, h + 2, dust, 0.6);
+  k.S(x - 1, y - 1, w + 2, h + 2, dust2, 0.25);
+  // the swept-clean shape: the laminate's own warm brown, crisp-edged, a ridge of dust along its rim
+  const bare = mix(L.md, L.dk, 0.25), rim = dust2;
+  if (side) {
+    // seen end-on from the aisle: a short body + the lens toward the front
+    k.R(x + 1, y + 1, 3, 4, bare); k.R(x + 2, y + 5, 2, 1, bare);
+    k.V(x, y + 1, 4, rim); k.V(x + 4, y + 1, 4, rim);
+  } else {
+    // body 7×3, lens barrel 2×2 at the east end, the eyepiece nub west
+    k.R(x + 2, y, 7, 3, bare); k.R(x + 9, y + 1, 2, 2, bare); k.P(x + 1, y, bare);
+    k.H(x + 2, y + 3, 7, rim); k.H(x + 9, y + 3, 2, rim); k.V(x + 11, y + 1, 2, rim); k.P(x + 1, y + 1, rim);
+  }
+}
+
 function deskStudent(o) {
   const k = new K(20, 32, -2, -15, seedOf('desk', o.state, o.dir, o.variant, o.clean));
+  if (o.state === 'outline') {
+    const oo = { ...o, bare: !o.clean }; // nothing else left on the top
+    const L = lam(o.clean);
+    if (o.dir === 'left' || o.dir === 'right') { if (o.dir === 'right') k.mirror(16); deskSide(k, oo); deskDustOutline(k, oo, L, true); return k.done(); }
+    deskUp(k, oo);
+    deskDustOutline(k, oo, L, false);
+    return k.done();
+  }
   if (o.state === 'overturned') { if (o.variant & 1) k.mirror(16); deskOverturned(k, o); return k.done(); }
   if (o.state === 'scattered') {
     // knocked askew: the desk racked and shoved, the chair pulled out sideways
@@ -406,11 +441,11 @@ function poster(o) {
   const { state, clean } = o;
   const k = new K(16, 20, 0, -17, seedOf('poster', state, clean));
   // word posters fill the sheet edge to edge so their 4-letter titles fit
-  const wide = state === 'read' || state === 'band';
+  const wide = state === 'read' || state === 'band' || state === 'navy';
   const x = wide ? 0 : 1, y = -15, w = wide ? 16 : 14, h = 16;
   const f = (c) => (clean ? c : mix(c, PAL.paper_d, 0.42));
   const bgOf = { read: PAL.yellow_l, homecoming79: PAL.green_d, periodic: PAL.paper, foodgroups: PAL.paper, pa_map: PAL.moon_l, alphabet: PAL.paper,
-    ourtown: PAL.blue_d, patrol: PAL.paper, computer: PAL.g2, band: PAL.green }[state] || PAL.paper;
+    ourtown: PAL.blue_d, patrol: PAL.paper, computer: PAL.g2, band: PAL.green, navy: PAL.navy }[state] || PAL.paper;
   k.R(x, y, w, h, f(bgOf));
   switch (state) {
     case 'read':
@@ -466,6 +501,14 @@ function poster(o) {
       k.R(x + 1, y + 10, 10, 2, PAL.g5); k.H(x + 2, y + 11, 8, PAL.g3);
       k.H(x + 1, y + 1, 10, f(PAL.green_l)); k.H(x + 2, y + 14, 8, f(PAL.green_l));
       break;
+    case 'navy':
+      // a wartime recruiting sheet in the Colonel's blue: NAVY, a red-white rule, a gold anchor
+      k.T(x + ((w - textW('NAVY')) >> 1), y + 1, 'NAVY', f(PAL.white));
+      k.H(x, y + 7, w, f(PAL.crimson_l)); k.H(x, y + 8, w, f(PAL.white)); k.H(x + 1, y + 9, w - 2, f(PAL.navy_l));
+      k.P(x + 8, y + 10, f(PAL.gold_l)); k.V(x + 8, y + 11, 4, f(PAL.gold)); k.H(x + 6, y + 11, 5, f(PAL.gold));
+      k.H(x + 5, y + 14, 7, f(PAL.gold)); k.P(x + 4, y + 13, f(PAL.gold_l)); k.P(x + 12, y + 13, f(PAL.gold_l));
+      k.P(x + 9, y + 12, f(PAL.brass));
+      break;
     case 'band':
       k.T(x + ((w - textW('BAND')) >> 1), y + 1, 'BAND', f(PAL.yellow_l));
       k.L(x + 2, y + 13, x + 8, y + 7, f(PAL.gold)); k.R(x + 8, y + 6, 3, 3, f(PAL.gold)); k.P(x + 8, y + 6, f(PAL.gold_l));
@@ -473,7 +516,8 @@ function poster(o) {
       break;
   }
   // paper edge, tape, curling corner, decay
-  k.V(x + w - 1, y + 1, h - 1, dk(f(bgOf), 0.12));
+  // (wide word posters keep their title's last column: the edge shade starts under the title)
+  k.V(x + w - 1, y + (wide ? 7 : 1), h - (wide ? 7 : 1), dk(f(bgOf), 0.12));
   if (!clean) {
     k.clear(x + w - 2, y + h - 2, 2, 2); k.P(x + w - 3, y + h - 2, lt(f(bgOf), 0.25)); k.P(x + w - 2, y + h - 3, lt(f(bgOf), 0.25)); k.P(x + w - 3, y + h - 3, dk(f(bgOf), 0.3));
     k.A(x, y + 9, 5, 7, 'rgba(110,80,40,0.22)');

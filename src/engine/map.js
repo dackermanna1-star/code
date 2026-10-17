@@ -378,7 +378,7 @@ export class MapRuntime {
       dir: inst.dir || 'down',
       variant: inst.variant ?? (hashStr(inst.id) & 0xff),
       mount: inst.mount || def.mount,
-      state: saved?.state ?? inst.state ?? def.states[0],
+      state: saved?.state ?? this._dataState(inst, def),
       taken: !!saved?.taken,
       pparams: { ...(saved?.params || {}) },
       params: null,
@@ -401,6 +401,18 @@ export class MapRuntime {
     p.present = !p.taken && evalCond(inst.cond, this._state, inst.id);
     this._rebuildParams(p);
     return p;
+  }
+
+  /**
+   * A prop's state from data: the first `stateWhen: [{ cond(state), state }]` entry whose cond holds
+   * (Integration 2; re-evaluated on refresh() while no script has persisted a state), else `state`,
+   * else the catalog's first state.
+   */
+  _dataState(inst, def) {
+    if (Array.isArray(inst.stateWhen) && this._state) {
+      for (const w of inst.stateWhen) if (w && w.state && (!w.cond || evalCond(w.cond, this._state, inst.id))) return w.state;
+    }
+    return inst.state ?? def.states[0];
   }
 
   _rebuildParams(p) {
@@ -531,14 +543,23 @@ export class MapRuntime {
   refresh(state = this._state) {
     this._state = state;
     let changed = false;
+    let restated = false;
     for (const p of this.allProps) {
       const present = !p.taken && evalCond(p.inst.cond, state, p.id);
       if (present !== p.present) { p.present = present; changed = true; }
+      // data-driven state (stateWhen), unless a script has persisted one
+      if (p.inst.stateWhen && state && state.mapState?.[this.id]?.[p.id]?.state === undefined) {
+        const st = this._dataState(p.inst, p.def);
+        if (st !== p.state) { p.state = st; this._rebuildParams(p); restated = true; }
+      }
     }
+    if (restated && !changed) { this._rebuildGrids(); this._invalidateLights(); }
     if (changed) {
       this.props = this.allProps.filter((p) => p.present && !p.pastOnly);
       this._rebuildGrids();
       this._invalidateLights();
+    } else if (this._lightSig !== undefined && this._lightSig !== this._lightCondSig(state)) {
+      this._invalidateLights(); // a data light's cond flipped
     }
     return changed;
   }
@@ -554,7 +575,14 @@ export class MapRuntime {
     return this.opaque[ty * this.w + tx] === 1;
   }
 
-  /** Can a pathing walker use this cell? Closed (or unlockable) doors count when `doors` is set. */
+  /**
+   * Can a pathing walker use this cell? `doors`:
+   *   false   — closed doors block;
+   *   true    — closed doors count, locked ones only once their lock is satisfied now;
+   *   'locks' — also doors gated by a `lock` (item:/flag:/function), whatever its current value — the
+   *             "eventually reachable" test for map validation (state-only locks stay shut: scripts open those);
+   *   'all'   — every door prop counts.
+   */
   _pathCell(tx, ty, doors) {
     if (!this.inBounds(tx, ty)) return false;
     const i = ty * this.w + tx;
@@ -562,12 +590,16 @@ export class MapRuntime {
     if (!doors) return false;
     if (this.tileSolid[i]) return false;
     const p = this.solidPropAt(tx, ty);
-    return !!p && isDoorProp(p) && this.doorPassable(p);
+    return !!p && isDoorProp(p) && this.doorPassable(p, doors);
   }
 
-  /** Would walking into this door open it (closed and unlocked, or lock now satisfied)? */
-  doorPassable(p) {
-    if (p.state === 'open') return true;
+  /**
+   * Would walking into this door open it (closed and unlocked, or lock now satisfied)? `mode` 'locks'
+   * treats any lock as satisfiable, 'all' any door (see _pathCell).
+   */
+  doorPassable(p, mode = true) {
+    if (p.state === 'open' || mode === 'all') return true;
+    if (mode === 'locks' && p.inst.lock) return true;
     const lock = p.inst.lock;
     if (LOCKED_STATES.has(p.state)) return !!lock && lockSatisfied(lock, this._state);
     return !lock || lockSatisfied(lock, this._state);
@@ -632,7 +664,10 @@ export class MapRuntime {
     return best;
   }
 
-  /** BFS reachability between two world points on the collision grid (doors: closed = passable). */
+  /**
+   * BFS reachability between two world points on the collision grid. `doors`: true (default; closed
+   * and currently-unlockable doors pass) | false | 'locks' (any lock-gated door passes) | 'all'.
+   */
   reachable(from, to, { doors = true } = {}) {
     const [fx, fy] = toXY(from);
     const [gx, gy] = toXY(to);
@@ -714,9 +749,16 @@ export class MapRuntime {
     return null;
   }
 
-  /** Past view (compact) whose rect contains the cell, or null. */
-  pastAt(tx, ty) {
-    for (const pe of this.past) if (pe.rect && rectHas(pe.rect, tx, ty)) return pe;
+  /**
+   * Past view (compact) whose rect contains the cell, or null. With `state`, entries whose
+   * `cond(state)` fails are skipped (Integration 2); without it (structural use) cond is ignored.
+   */
+  pastAt(tx, ty, state) {
+    for (const pe of this.past) {
+      if (!pe.rect || !rectHas(pe.rect, tx, ty)) continue;
+      if (state && pe.cond && !evalCond(pe.cond, state, pe.id)) continue;
+      return pe;
+    }
     return null;
   }
 
@@ -742,7 +784,15 @@ export class MapRuntime {
 
   _buildLights() {
     const out = [];
-    (this.data.lights || []).forEach((l, i) => out.push({ id: `${this.id}_light_${i}`, ...l }));
+    // Data lights may carry `cond(state)` (Integration 2): on while it holds (it overrides `on`),
+    // off — whatever the light's group says — while it fails. Re-checked on refresh().
+    this._lightSig = this._lightCondSig(this._state);
+    (this.data.lights || []).forEach((l, i) => {
+      const id = `${this.id}_light_${i}`;
+      if (!l.cond) { out.push({ id, ...l }); return; }
+      const ok = evalCond(l.cond, this._state, id);
+      out.push({ id, ...l, on: ok ? true : false, condOff: !ok });
+    });
     for (const p of this.props) {
       const spec = p.inst.light ?? p.def.light;
       if (!spec) continue;
@@ -760,6 +810,13 @@ export class MapRuntime {
       });
     }
     return out;
+  }
+
+  /** '0'/'1' per data light with a `cond` (detects a flip on refresh). */
+  _lightCondSig(state) {
+    let sig = '';
+    for (const l of this.data.lights || []) if (l.cond) sig += evalCond(l.cond, state, `${this.id} light`) ? '1' : '0';
+    return sig;
   }
 
   _invalidateLights() {
@@ -825,11 +882,11 @@ export class MapRuntime {
       // characters walking through stay visible.
       if (this.lintel[i]) { o.kind = 'top'; o.mask = this.wallMask(tx, ty); }
       ctx = L.floorCtx;
-    } else if (key === 'railing' || key === 'stage_front') {
+    } else if (key === 'railing' || key === 'railing_wood' || key === 'stage_front') {
       o.mask = this.sameMask(tx, ty);
       ctx = L.facesCtx;
     } else {
-      if (key === 'pit') o.mask = this.sameMask(tx, ty);
+      if (key === 'pit' || key === 'drop') o.mask = this.sameMask(tx, ty);
       // Bit 16 marks a valid same-kind mask: water gets damp shorelines, stairs get side walls (art/tiles.js).
       else if (key === 'floor_water' || key === 'floor_stairs_up' || key === 'floor_stairs_down') o.mask = this.sameMask(tx, ty) | 16;
       ctx = L.floorCtx;

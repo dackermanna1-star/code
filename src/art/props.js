@@ -53,7 +53,9 @@ function norm(type, entry, def, opts) {
   const nv = entry.variants || 1;
   const variant = nv > 1 ? ((opts.variant | 0) % nv + nv) % nv : 0;
   const label = entry.label ? String(opts.label ?? opts.params?.label ?? '') : '';
-  return { type, state, dir, variant, clean: !!opts.clean, label, frame: opts.frame | 0, occupant: opts.occupant || null, params: opts.params || {} };
+  // `text: true` entries (banner) take their lettering from opts.text / params.text (cache-keyed).
+  const text = entry.text ? String(opts.text ?? opts.params?.text ?? '') : '';
+  return { type, state, dir, variant, clean: !!opts.clean, label, text, frame: opts.frame | 0, occupant: opts.occupant || null, params: opts.params || {} };
 }
 
 export async function initProps() {
@@ -75,7 +77,7 @@ export function getProp(type, opts = {}) {
   const def = safeDef(type);
   if (!entry) return fallback(type, def, opts);
   const o = norm(type, entry, def, opts);
-  const key = `${type}|${o.state}|${o.dir}|${o.variant}|${o.clean ? 1 : 0}|${o.label}`;
+  const key = `${type}|${o.state}|${o.dir}|${o.variant}|${o.clean ? 1 : 0}|${o.label}${o.text ? `|${o.text}` : ''}`;
   let r = cache.get(key);
   if (!r) {
     try { r = entry.build(o); } catch (e) { warnOnce(`${type} build failed`, e); r = fallback(type, def, opts); }

@@ -7,6 +7,9 @@
 // does the same for the exterior. Two systems would double the steam, so this one DEFERS while a
 // foreign weather system is installed (detected by its handling `steam_vent` props): pro.js keeps
 // driving the exterior exactly as before, and this takes over for any map/build where it is absent.
+// Rain never shows on a map without `weather.rain` (Integration 2): loading one snaps the rain off
+// (HW.fx.rain(false, 1, { instant: true })) even while deferring, and any rain switched on there
+// is cut the next step.
 // API: active (this system is driving weather), deferred (a foreign system is), apply(map).
 import HW from '../engine/hw.js';
 
@@ -34,17 +37,37 @@ export const weather = {
   apply(map) {
     const w = map?.data?.weather;
     const rain = w ? (w.rain === true ? 1 : Number(w.rain) || 0) : 0;
-    try { HW.fx?.rain?.(rain > 0, rain || 1); } catch (e) { console.error('[weather] rain', e); }
+    // Into a map without rain (interiors): cut it at once — the transfer fade hides the cut, and an
+    // eased fade-out would leak streaks indoors for ~3 s (Integration 2).
+    try { HW.fx?.rain?.(rain > 0, rain || 1, rain > 0 ? undefined : { instant: true }); } catch (e) { console.error('[weather] rain', e); }
   },
 
   onMapLoad(map) {
     this._t = 0;
-    if (this.deferred) return;
-    this.apply(map);
+    if (!this.deferred) { this.apply(map); return; }
+    // Deferring to a script-installed system (pro.js) — but rain never shows on a map without
+    // `weather`, whatever that system does: snap it off here (it may also ease it off; harmless).
+    if (!this._rainOf(map)) {
+      try { HW.fx?.rain?.(false, 1, { instant: true }); } catch (e) { console.error('[weather] rain', e); }
+    }
+  },
+
+  _rainOf(map) {
+    const w = map?.data?.weather;
+    return w ? (w.rain === true ? 1 : Number(w.rain) || 0) : 0;
   },
 
   update(dt) {
+    // Belt and braces: something (a script) turned rain on while on a map without weather.
     const map = HW.map;
+    if (map && !this._rainOf(map) && (HW.fx?.rainTarget > 0 || HW.fx?.rainLevel > 0)) {
+      try { HW.fx.rain(false, 1, { instant: true }); } catch (e) { /* fx not ready */ }
+    }
+    this._steam(dt, map);
+  },
+
+  /** Steam wisps from `steam_vent` props near the camera (maps with weather.steam). */
+  _steam(dt, map) {
     const w = map?.data?.weather;
     if (!w?.steam || this.deferred) return;
     this._t -= dt;

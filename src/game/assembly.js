@@ -11,6 +11,13 @@
 // Roll call #3: the first time Tess SITS in a seat whose object has `row` 1–4 (aud_seat instances
 // carry `row`), the blocking script `ch7.roll3` runs (ctx { prop, row }) unless flag roll3_done.
 // The spotlight is a dynamic `spot` light owned by this system (scoped to the map): its px/py drift.
+// start() also switches the aud's map-light group 'assembly' on (Integration 2).
+// Front row (Integration 2): the empty seats beside the friends carry `front: '<friend>'`
+// (aud_seats.js). sitScriptFor(prop) gives such a seat the default sit script `ch7.front_<front>`
+// (game/hiding.js runs it after Tess sits, queued behind roll call #3) once roll3_done, during the
+// Assembly (active, or Chapter VII under way) and before register_done. `frontScenes`: 'auto'
+// (default — stays out while a script-installed 'sit' hook already runs ch7.front_* itself, as
+// ch7.js does today; see frontDeferred) | true (always) | false (never).
 //
 // API
 //   start({ lectern = 'lectern', spot = true, radius = 3.2 }) → bool   (spawns him at the anchor)
@@ -18,6 +25,7 @@
 //   pause() / resume() / scanNow()
 //   active · paused · phase ('read' | 'telegraph' | 'scan' | 'off') · phaseLeft (s) · spot (the light)
 //   onPhase(fn) → off             fn(phase); HW.game also emits 'assemblyPhase'
+//   sitScriptFor(prop) → id|null  front-row default sit script · frontScenes · frontDeferred
 // Persisted: flag assembly_on = { map, lectern } so a reload in the auditorium restarts the cycle.
 import HW from '../engine/hw.js';
 import colonel from './colonel_ai.js';
@@ -46,6 +54,7 @@ export const assembly = {
   _roll3: false,
   _hooks: new Set(),
   _hooked: false,
+  frontScenes: 'auto',
 
   get phaseLeft() { return this.active ? Math.max(0, this._len - this._t) : 0; },
 
@@ -59,6 +68,8 @@ export const assembly = {
     this.active = true;
     this.paused = false;
     if (HW.state) HW.state.flags.assembly_on = { map: map.id, lectern };
+    // The house lights for the Assembly: the aud's map lights in group 'assembly'.
+    try { HW.lighting?.setGroup?.('assembly', true, { mode: 'fade', time: 1.2 }); } catch (e) { console.error('[assembly] setGroup', e); }
     colonel.assembly({ at: lectern });
     this._removeSpot();
     if (spot && HW.lighting?.addLight) {
@@ -97,6 +108,30 @@ export const assembly = {
   scanNow() { if (this.active && this.phase !== 'scan') this._enter('scan'); },
 
   onPhase(fn) { this._hooks.add(fn); return () => this._hooks.delete(fn); },
+
+  /** Does a script-installed 'sit' hook already run the front-row scenes (ch7.js)? */
+  get frontDeferred() {
+    const set = HW.game?._listeners?.get?.('sit');
+    if (!set) return false;
+    for (const fn of set) {
+      const src = String(fn);
+      if (/\.front\b/.test(src) && /ch7\.front_/.test(src)) return true;
+    }
+    return false;
+  },
+
+  /** Default sit script for a front-row seat (`front: '<friend>'`) → 'ch7.front_<friend>' | null. */
+  sitScriptFor(prop) {
+    const friend = prop?.inst?.front;
+    if (!friend || this.frontScenes === false) return null;
+    const s = HW.state;
+    const f = s?.flags || {};
+    if (f.register_done || !f.roll3_done) return null;
+    if (!this.active && !((s.chapter || 0) === 7 && f.ch7_started)) return null;
+    if (this.frontScenes !== true && this.frontDeferred) return null;
+    const id = `ch7.front_${friend}`;
+    return HW.scripts?.has?.(id) ? id : null;
+  },
 
   _enter(phase) {
     this.phase = phase;

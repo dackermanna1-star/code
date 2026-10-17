@@ -166,16 +166,38 @@ export class Overlays {
     const gx = 480 - 120 + Math.round(Math.sin(this.t * 0.4) * 10) * AP;
     dither(ctx, gx, 150, 16, 40, 'rgba(255,250,235,0.5)', 0.18);
     // what Tess notices in the old view (past.hint), as a passing thought under the mirror
+    // Long hints wrap to two centred lines under the glass (Integration 2), bottom line where a
+    // one-line hint sits.
     const hint = o.params.hint;
     if (hint && o.params.on !== false) {
       const a = clamp((o.t - 0.8) / 0.6);
-      if (a > 0) F.bodyIt.draw(ctx, hint, W / 2, H - 42, C.think, { align: 'center', alpha: a });
+      if (a > 0) {
+        const lines = hintLines(hint);
+        for (let i = 0; i < lines.length; i++) {
+          F.bodyIt.draw(ctx, lines[i], W / 2, H - 42 - (lines.length - 1 - i) * HINT_LH, C.think, { align: 'center', alpha: a });
+        }
+      }
     }
   }
 
   black(ctx, o) { rect(ctx, 0, 0, W, H, `rgba(0,0,0,${clamp(o.params.alpha ?? 1)})`); }
 }
 
+
+const HINT_W = 700;      // UI px: wrap width for the compact hint
+const HINT_LH = 32;      // UI px between hint lines
+const hintCache = new Map();
+/** The compact hint as at most two lines (wraps at HINT_W; a third line's words join the second). */
+function hintLines(str) {
+  let lines = hintCache.get(str);
+  if (lines) return lines;
+  const f = F.bodyIt;
+  lines = f.width(str) <= HINT_W ? [str] : f.wrap(str, HINT_W);
+  if (lines.length > 2) lines = [lines[0], lines.slice(1).join(' ')];
+  if (hintCache.size > 32) hintCache.clear();
+  hintCache.set(str, lines);
+  return lines;
+}
 
 /** heads_down centre in UI px: params cx/cy (world px, or UI px with ui:true), else Tess's head, else screen centre. */
 function tunnelCentre(p) {

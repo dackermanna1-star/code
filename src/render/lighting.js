@@ -90,7 +90,7 @@ const GLOWS = {
   flame: [6, { core: 1.6, power: 1.8 }, 0.7],
   crt: [8, { sx: 1.25, sy: 1, power: 2 }, 0.35],
   led: [3, { core: 1.2, power: 1.5 }, 0.9],
-  headlights: [7, { core: 2, power: 2 }, 0.7],
+  headlights: [8, { core: 2.2, power: 2 }, 0.85],
 };
 
 export class LightingSystem {
@@ -357,7 +357,7 @@ export class LightingSystem {
     if (L.color !== L._lcolor) { L._rgb = hexToRgb(L.color || L._P.color); L._lcolor = L.color; L._spriteDirty = true; }
     if (L.angle !== L._langle) { L._langle = L.angle; L._spriteDirty = true; }
     if (L.cone !== L._lcone) { L._lcone = L.cone; L._spriteDirty = true; }
-    if (L.on !== L._lon) { L._lon = L.on; this._retarget(L, false); }
+    if (L.on !== L._lon || L.condOff !== L._lcond) { L._lon = L.on; L._lcond = L.condOff; this._retarget(L, false); }
 
     let level;
     if (L._trans) {
@@ -425,6 +425,8 @@ export class LightingSystem {
 
   _effectiveOn(L) {
     if (L._killed || !this._activeOn(L)) return false;
+    // A map light whose data `cond(state)` fails is off whatever its group says (Integration 2).
+    if (L.condOff) return false;
     const g = L.group;
     if (g && this._groups.has(g)) {
       // A prop whose own state is off (a dead lamp) stays off whatever its group does.
@@ -494,6 +496,7 @@ export class LightingSystem {
     L._flickerMode = this._flickerModeOf(L, P);
     if (L.on === undefined) L.on = defaultOn(L);
     L._lon = L.on;
+    L._lcond = L.condOff;
     L._trans = null;
     L._killed = false;
     L._killFar = 0;
@@ -529,6 +532,7 @@ export class LightingSystem {
       if (L && L.type === d.type && !initial) {
         // Keep live state (level, transition, flicker phase); take the new data.
         L.on = defaultOn(d);
+        L.condOff = !!d.condOff;
         if (d.x !== L._dx || d.y !== L._dy) { L.x = d.x; L.y = d.y; L._dx = d.x; L._dy = d.y; }
         L.intensity = d.intensity;
         L.color = d.color;
@@ -543,7 +547,11 @@ export class LightingSystem {
       }
       next.push(L);
     }
-    for (const c of map.windowCells || []) this._windows.push({ tx: c.tx, ty: c.ty, explicit: null });
+    for (const c of map.windowCells || []) {
+      // An explicit window light on a real window cell already covers it (no doubled shaft/flash).
+      if (this._windows.some((w) => w.tx === c.tx && w.ty === c.ty)) continue;
+      this._windows.push({ tx: c.tx, ty: c.ty, explicit: null });
+    }
     this._mapLights = next;
     this._moonDirty = true;
     this._rebuildAll();
@@ -657,7 +665,7 @@ export class LightingSystem {
         c.save();
         c.translate(L.px - Math.sin(a) * twin * s, L.py + Math.cos(a) * twin * s);
         c.rotate(a);
-        c.globalAlpha = twin ? 0.62 : 1;
+        c.globalAlpha = twin ? (L.twinAlpha ?? P.twinAlpha ?? 0.62) : 1;
         c.drawImage(tex, -r, -r, r * 2, r * 2);
         c.restore();
       }

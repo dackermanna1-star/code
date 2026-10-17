@@ -32,7 +32,8 @@ export const PRESETS = {
   lamp_miner: { kind: 'point', color: LIGHT_COLORS.lamp_miner, radius: 3, intensity: 0.82, flicker: 'oil', glow: 'flame' },
   spot: { kind: 'spot', color: LIGHT_COLORS.spot, radius: 5, disc: 2.1, intensity: 1, flicker: 'steady', shadows: false, onMode: 'bang', glow: 'spot' },
   streetlamp: { kind: 'point', color: LIGHT_COLORS.streetlamp, radius: 5.5, intensity: 1, flicker: 'steady', flickerAlt: 'sodium', glow: 'lamp', glowDy: -26 },
-  headlights: { kind: 'cone', color: LIGHT_COLORS.headlights, radius: 10, intensity: 0.9, cone: 40, twin: 11, flicker: 'idle', glow: 'headlights' },
+  // twinAlpha: each lamp's share of the pool (0.62 before Integration 2 — a little stronger now).
+  headlights: { kind: 'cone', color: LIGHT_COLORS.headlights, radius: 10, intensity: 1, cone: 40, twin: 11, twinAlpha: 0.8, flicker: 'idle', glow: 'headlights' },
   crt: { kind: 'point', color: LIGHT_COLORS.crt, radius: 2, intensity: 0.6, flicker: 'crt', glow: 'crt' },
   led_red: { kind: 'point', color: LIGHT_COLORS.led_red, radius: 1, intensity: 0.7, flicker: 'steady', glow: 'led' },
   mine_fire: { kind: 'point', color: LIGHT_COLORS.mine_fire, radius: 12, intensity: 0.95, flicker: 'mine', glow: null },

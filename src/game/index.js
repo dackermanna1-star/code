@@ -12,6 +12,7 @@
 //   HW.chase     chase.js       chase set pieces (gym, Ch8 escape)
 //   HW.breaker   breaker.js     the breaker boys' cap-lamps
 //   HW.weather   weather.js     map.data.weather (rain, vent steam); defers to a script-installed one
+//   HW.ambient   ambient.js     map.data.sounds (positional loops) and map.data.fx (particle emitters)
 // Each file's header documents its API. Chapter setup lives in chapters.js (HW.game.chapterSetup);
 // chapters.js / endings.js may export install hooks (installChapters / installEndings / install),
 // which are called here when present.
@@ -29,9 +30,10 @@ import assembly from './assembly.js';
 import chase from './chase.js';
 import breaker from './breaker.js';
 import weather from './weather.js';
+import ambient from './ambient.js';
 
-const SERVICES = { noise, periods, colonel, patrol, basement, longhall, assembly, chase, breaker, weather };
-const ORDER = [noise, periods, colonel, patrol, basement, longhall, assembly, chase, breaker, weather];
+const SERVICES = { noise, periods, colonel, patrol, basement, longhall, assembly, chase, breaker, weather, ambient };
+const ORDER = [noise, periods, colonel, patrol, basement, longhall, assembly, chase, breaker, weather, ambient];
 const META_HOOKS = [
   [chaptersModule, ['installChapters', 'install']],
   [endingsModule, ['installEndings', 'install']],

@@ -404,6 +404,17 @@ export class AudioEngine {
   }
   level() { return this.mix.level(); }
 
+  /** Playing loops (optionally of one id): [{ id, x, y, handle }] — x/y null for non-positional loops. */
+  activeLoops(id) {
+    const out = [];
+    for (const h of this.loops) {
+      const v = h.voice;
+      if (!h.playing || (id && v.id !== id)) continue;
+      out.push({ id: v.id, x: v.pos ? v.pos.x : null, y: v.pos ? v.pos.y : null, handle: h });
+    }
+    return out;
+  }
+
   /** Stop everything (used by renderOffline cleanup and the preview page). */
   stopAll(fade = 0.2) {
     for (const v of this.voices) v.stop(fade);

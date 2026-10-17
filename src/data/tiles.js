@@ -64,6 +64,10 @@ export const TILES = {
   void:        { kind: 'special', solid: true, opaque: true,  desc: 'nothing — outside the playable space; drawn black' },
   pit:         { kind: 'special', solid: true, opaque: false, desc: 'open drop (breaker abyss); dark with red glow far below' },
   railing:     { kind: 'special', solid: true, opaque: false, surface: 'metal', desc: 'balcony/walkway railing (iron or wood); see-through' },
+  // Integration 2 (additive): a timber railing (or set a map's `legend: { '|': 'railing_wood' }`), and a
+  // neutral open drop for galleries/landings (the pit without the mine-fire glow).
+  railing_wood:{ kind: 'special', solid: true, opaque: false, surface: 'wood', desc: 'wooden balcony/walkway railing; see-through' },
+  drop:        { kind: 'special', solid: true, opaque: false, desc: 'open drop (gallery over a dark hall); neutral dark, no glow' },
   stage_front: { kind: 'special', solid: true, opaque: false, desc: 'front face of the raised stage (wood apron, ~1 tile tall)' },
   door:        { kind: 'door',    solid: false, opaque: false, surface: 'wood', desc: 'door threshold cell (engine creates the door prop)' },
 };
@@ -103,6 +107,8 @@ export const LEGEND = {
   'U': 'window_brick',
   'Z': 'pit',
   '|': 'railing',
+  'I': 'railing_wood',
+  'O': 'drop',
   'F': 'stage_front',
   'D': 'door',
 };

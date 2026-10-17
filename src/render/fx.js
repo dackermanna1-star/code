@@ -127,10 +127,14 @@ export class FxSystem {
     if (count) this.particles.emit(type, x, y, count, opts || {});
   }
 
-  /** Exterior rain: full-screen slanted streaks + ground splashes. Eases in and out. */
-  rain(on, intensity = 1) {
-    this._rain.set(on, intensity);
+  /** Exterior rain: full-screen slanted streaks + ground splashes. Eases in and out; opts.instant snaps. */
+  rain(on, intensity = 1, opts) {
+    this._rain.set(on, intensity, !!opts?.instant);
   }
+
+  /** Current rain level 0..1.5 (0 = none drawn) and the level it is easing toward. */
+  get rainLevel() { return this._rain.active ? this._rain.level : 0; }
+  get rainTarget() { return this._rain.target; }
 
   /** Ambient dust drifting in the light (on by default). */
   dustMotes(on = true) {

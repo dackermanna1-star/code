@@ -47,7 +47,7 @@ export const PROPS = {
                   desc: 'iron coal-chute hatch in the basement wall, rusted grate, padlock; gray predawn light when open' },
 
   // ================================================================ classroom
-  desk_student: { seat: true, sitDir: 'up', states: ['default', 'scattered', 'overturned'],
+  desk_student: { seat: true, sitDir: 'up', states: ['default', 'scattered', 'overturned', 'outline'],
                   desc: '1970s combo chair-desk, tan laminate top, tubular legs, carved initials; scattered = rotated/askew' },
   desk_teacher: { w: 2, desc: 'steel teacher desk, green-gray, papers, apple-shaped paperweight' },
   chair_teacher:{ seat: true, sitDir: 'down', desc: 'wooden swivel chair' },
@@ -59,7 +59,7 @@ export const PROPS = {
                   desc: 'cork board with curling papers; state picks the content' },
   clock_wall:   { mount: 'wall', dynamic: true, desc: 'round institutional wall clock, cage guard; hands drawn live' },
   flag_us:      { mount: 'wall', desc: 'small faded US flag on a wall bracket' },
-  poster:       { mount: 'wall', states: ['read', 'homecoming79', 'periodic', 'foodgroups', 'pa_map', 'alphabet', 'ourtown', 'patrol', 'computer', 'band'],
+  poster:       { mount: 'wall', states: ['read', 'homecoming79', 'periodic', 'foodgroups', 'pa_map', 'alphabet', 'ourtown', 'patrol', 'computer', 'band', 'navy'],
                   desc: 'curling 1970s school poster' },
   cubbies:      { w: 2, desc: 'kindergarten cubbies with name strips and a forgotten mitten' },
   drawings_wall:{ w: 2, mount: 'wall', desc: 'crayon drawings taped to the wall, "WHEN I GROW UP"' },
@@ -86,7 +86,8 @@ export const PROPS = {
                   desc: 'huge gilt-framed oil portrait of Col. Cyrus Hallowell seated in a carved chair; ' +
                         'empty = the chair is empty; uniform = only his coat slumped on the chair' },
   plaque:       { mount: 'wall', desc: 'brass dedication plaque, verdigris' },
-  banner:       { w: 4, mount: 'wall', states: ['colliers', 'homecoming79', 'founders'], desc: 'painted paper banner, torn' },
+  banner:       { w: 4, mount: 'wall', states: ['colliers', 'homecoming79', 'founders', 'hallpass'],
+                  desc: 'painted paper banner, torn; hallpass = enamel archway sign, lettering from params.text (2 lines)' },
   motto_stone:  { w: 4, mount: 'wall', desc: 'carved limestone lintel: NEMO RELINQUATUR' },
   clock_hall:   { mount: 'wall', dynamic: true, desc: 'double-faced hall clock (same as clock_wall art acceptable)' },
 
@@ -209,7 +210,7 @@ export const PROPS = {
   husk_seated:  { states: ['intact', 'turned', 'crumbled'],
                   desc: 'translucent amber child-husk sitting upright (instance `variant` a–f for size/pose, `dir`); ' +
                         'turned = head rotated toward the player; crumbled = small pile of amber flakes' },
-  husk_kneeling:{ desc: 'Miss Adair\'s husk, kneeling at the desk, red pen in hand' },
+  husk_kneeling:{ states: ['default', 'nopen'], desc: 'Miss Adair\'s husk, kneeling at the desk, red pen in hand; nopen = the pen taken' },
   chute:        { solid: true, desc: 'slanted wooden coal chute section (breaker), worn smooth' },
   picking_bench:{ w: 3, desc: 'low plank bench along a chute where breaker boys sat' },
   beam:         { desc: 'massive tarred timber post' },
@@ -242,7 +243,8 @@ export const PROPS = {
   decal_glass:  { solid: false, mount: 'decal', desc: 'broken glass' },
   decal_stain:  { solid: false, mount: 'decal', desc: 'water stain / mold bloom' },
   decal_tiles:  { solid: false, mount: 'decal', desc: 'fallen ceiling tiles' },
-  graffiti:     { mount: 'wall', states: ['hollowhell', 'kr91', 'pentagram', 'names', 'present'], desc: 'spray paint / marker graffiti on a wall face' },
+  graffiti:     { mount: 'wall', states: ['hollowhell', 'kr91', 'pentagram', 'names', 'present', 'chalk'],
+                  desc: 'spray paint / marker graffiti on a wall face; chalk = params.text in a chalk hand' },
   cicada_shells:{ solid: false, mount: 'decal', desc: 'cluster of amber cicada shells (floor/sill)' },
 };
 

@@ -17,6 +17,7 @@ const LAYER = 0.68;     // overall moonlight strength (v2.2: 0.55 → 0.68, read
 const MOON_RGB = hexToRgb(LIGHT_COLORS.moon);
 const MOON_LUM = (0.2126 * MOON_RGB[0] + 0.7152 * MOON_RGB[1] + 0.0722 * MOON_RGB[2]) / 255;
 
+const isWindowTile = (map, tx, ty) => /^window/.test(map.tileAt(tx, ty));
 const isTallWindow = (map, tx, ty) => map.wallKind(tx, ty - 1) === 'face_high' && /^window/.test(map.tileAt(tx, ty - 1));
 
 export class MoonLayer {
@@ -165,12 +166,17 @@ export class MoonLayer {
     return v * MOON_LUM * LAYER * this.level * lift;
   }
 
-  /** Lightning: the glass blazes for a moment (additive, over the lit world). */
+  /**
+   * Lightning: the glass blazes for a moment (additive, over the lit world). Only cells that are
+   * real window tiles flash — an explicit `type:'window'` light def on a wall/floor cell still casts
+   * its shaft but never draws a white square (Integration 2).
+   */
   flash(ctx, cam, map, windows, e, reduce, lightningColor) {
     if (e < 0.01 || !windows.length) return;
     ctx.globalAlpha = Math.min(1, e * (reduce ? 0.5 : 0.9));
     ctx.fillStyle = lightningColor;
     for (const w of windows) {
+      if (!isWindowTile(map, w.tx, w.ty)) continue;
       const x = w.tx * TILE - cam.x;
       if (x < -16 || x > 480) continue;
       const tall = isTallWindow(map, w.tx, w.ty);

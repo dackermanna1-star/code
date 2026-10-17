@@ -58,6 +58,7 @@ export function chalkLines(ctx, x, y, lines, { pitch = 6, seed = 1, color = '#dc
       const wob = rnd() < 0.2 ? 1 : 0;
       for (let j = 0; j < 5; j++) for (let i = 0; i < rows[j].length; i++) {
         if (rows[j][i] !== '1') continue;
+        if (ly + j + wob - y >= clipH) continue; // per-pixel: never onto the frame below the slate
         const r = rnd();
         if (ghost && r < 0.25) continue;
         ctx.fillStyle = r < 0.16 ? dim : color;
@@ -106,7 +107,8 @@ function chalkboardRender(o, text) {
     const { x, y, w, h } = BOARD;
     const lines = chalkWrap(text, w - 4);
     const pitch = lines.length <= 3 ? 6 : 5;
-    const top = y + 2 + (lines.length <= 2 ? 2 : 0);
+    // Four lines at pitch 5 need 20 rows: start one row higher so the last line isn't clipped.
+    const top = y + (lines.length >= 4 ? 1 : 2) + (lines.length <= 2 ? 2 : 0);
     chalkLines(k.x, x + 2 - k.ox, top - k.oy, lines, { pitch, seed: seedOf('chalk', text), color: o.clean ? '#e8e5d6' : '#d6d4c6', dim: o.clean ? '#b9bdb0' : '#98a097', clipH: y + h - top });
   }
   return k.done({ outline: false });

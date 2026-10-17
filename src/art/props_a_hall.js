@@ -251,18 +251,22 @@ function giltFrame(k, x, y, w, h, clean) {
   // name plate
   k.R(x + (w >> 1) - 5, y + h - 2, 10, 2, g[0]); k.H(x + (w >> 1) - 4, y + h - 1, 8, g[3]);
 }
+// Integration 2: "more dominant" — the canvas overhangs the 3-tile footprint by 6 px a side (60 px of
+// heavy gilt, the whole height of the wall face), the ground lifts to a warm halo behind him so the
+// navy mass reads as a silhouette, and the coat spills wider past the chair arms.
 function portraitColonel(o) {
   const { state, clean } = o;
-  const k = new K(48, 32, 0, -16, seedOf('portrait', state, clean));
-  const X = 3, Y = -13, W = 42, H = 24; // painting area
+  const k = new K(64, 33, -8, -16, seedOf('portrait', state, clean));
+  const X = -3, Y = -13, W = 54, H = 25; // painting area
   // varnished oil ground: warm umber, a light halo behind the sitter, vignette
   const v = (c) => (clean ? c : mix(c, PAL.amber_dd, 0.22));
   k.bands(X, Y, W, H, [v(PAL.brown_d), v(mix(PAL.brown_d, PAL.brown_dd, 0.5)), v(PAL.brown_dd)]);
-  k.E(23, -7, 11, 7, v(mix(PAL.brown, PAL.brown_d, 0.4)));
+  k.E(23, -7, 15, 9, v(mix(PAL.brown, PAL.brown_d, 0.25)));
+  k.E(23, -9, 10, 6, v(mix(PAL.brown, PAL.tan, 0.3)));
   k.D(X, Y, W, H, v(PAL.brown_dd), 0.0);
-  k.DH(X, Y, 6, H, v(PAL.ink), 0.5, 0); k.DH(X + W - 6, Y, 6, H, v(PAL.ink), 0, 0.5);
+  k.DH(X, Y, 8, H, v(PAL.ink), 0.6, 0); k.DH(X + W - 8, Y, 8, H, v(PAL.ink), 0, 0.6);
   // drape at the left, column at the right, a carpet underfoot
-  k.R(X, Y, 6, H, v(mix(PAL.green_dd, PAL.brown_dd, 0.4))); for (let i = 0; i < 3; i++) k.V(X + 1 + i * 2, Y, H, v(mix(PAL.green_d, PAL.brown_d, 0.5)));
+  k.R(X, Y, 8, H, v(mix(PAL.green_dd, PAL.brown_dd, 0.4))); for (let i = 0; i < 4; i++) k.V(X + 1 + i * 2, Y, H, v(mix(PAL.green_d, PAL.brown_d, 0.5)));
   k.R(X + W - 5, Y, 4, H, v(mix(PAL.brown_d, PAL.g2, 0.4))); k.V(X + W - 5, Y, H, v(PAL.brown));
   k.R(X, Y + H - 4, W, 4, v(mix(PAL.velvet_d, PAL.brown_dd, 0.4))); k.H(X, Y + H - 4, W, v(PAL.velvet_d));
   // the carved chair: tall back with a crest and gilt finials, arms, velvet seat
@@ -293,11 +297,12 @@ function portraitColonel(o) {
     const nv = v(PAL.navy), nl = v(PAL.navy_l), nd = v(PAL.navy_dd), nd2 = v(PAL.navy_d);
     const fl = v(PAL.flesh_l), fm = v(PAL.flesh), fd = v(PAL.flesh_d), fdd = v(PAL.flesh_dd);
     // chair arms (under the hands)
-    k.R(6, 0, 7, 2, cl); k.H(6, 0, 7, v(PAL.wood_l)); k.R(34, 0, 7, 2, cl); k.H(34, 0, 7, v(PAL.wood_l));
+    k.R(3, 0, 9, 2, cl); k.H(3, 0, 9, v(PAL.wood_l)); k.R(35, 0, 9, 2, cl); k.H(35, 0, 9, v(PAL.wood_l));
     // trousers + split cavalry boots under the coat skirt
     k.R(16, 5, 14, 3, nd2);
     k.R(16, 6, 6, 4, v(PAL.ink)); k.R(25, 6, 6, 4, v(PAL.ink)); k.H(16, 6, 6, v(PAL.g2)); k.H(25, 6, 6, v(PAL.g2)); k.P(19, 8, fd); k.P(28, 7, fdd);
-    // body: shadow mass, mid mass, lit upper-left
+    // body: shadow mass (spilling past the chair arms), mid mass, lit upper-left
+    k.E(23, 2, 19, 7, nd); k.E(23, -4, 15, 4, nd);
     k.E(23, 1, 15, 6, nd); k.E(23, -4, 12, 3, nd);
     k.E(22, 0, 14, 5, nd2); k.E(22, -4, 11, 2, nv);
     k.E(21, -1, 12, 4, nv);
@@ -314,7 +319,7 @@ function portraitColonel(o) {
     k.P(22, -11, fdd); k.P(24, -11, fdd);
     k.P(23, -10, fd);
     // epaulettes
-    for (const ex of [9, 34]) { k.R(ex, -6, 4, 2, v(PAL.gold)); k.H(ex, -6, 4, v(PAL.gold_l)); for (let i = 0; i < 4; i++) k.P(ex + i, -4, i % 2 ? v(PAL.brass) : v(PAL.gold)); }
+    for (const ex of [7, 36]) { k.R(ex, -6, 4, 2, v(PAL.gold)); k.H(ex, -6, 4, v(PAL.gold_l)); for (let i = 0; i < 4; i++) k.P(ex + i, -4, i % 2 ? v(PAL.brass) : v(PAL.gold)); }
     // buttons following the belly's curve (some sunk into the folds)
     for (const [bx, by, sunk] of [[20, -5, 0], [26, -5, 0], [19, -3, 0], [27, -3, 1], [19, 0, 1], [27, 0, 0], [20, 2, 0], [26, 2, 1], [21, 4, 1], [25, 4, 0]]) k.P(bx, by, v(sunk ? PAL.brass_d : PAL.gold));
     // medals on the breast
@@ -323,7 +328,7 @@ function portraitColonel(o) {
     for (let i = 0; i < 24; i++) { const x = 12 + i, y = -5 + Math.round(i * 0.45); k.P(x, y, v(PAL.crimson_l)); k.P(x, y + 1, v(PAL.crimson)); k.P(x, y + 2, v(PAL.velvet)); }
     k.P(36, 6, v(PAL.crimson)); k.P(37, 7, v(PAL.crimson_l)); k.P(36, 8, v(PAL.velvet)); k.P(35, 7, v(PAL.crimson));
     // hands on the chair arms: pale, heavy, ringed
-    for (const hx of [6, 37]) {
+    for (const hx of [3, 40]) {
       k.R(hx, -2, 5, 3, fm); k.H(hx, -2, 5, fl); k.H(hx, 0, 5, fd);
       k.P(hx + 1, 0, fdd); k.P(hx + 3, 0, fdd); k.P(hx + (hx < 20 ? 4 : 0), -1, fd);
       k.P(hx + 2, -1, v(PAL.gold_l));
@@ -336,8 +341,8 @@ function portraitColonel(o) {
     k.S(X, Y, W, H, 'rgba(200,180,140,0.18)', 0.03);
   }
   k.P(X + 2, Y + 1, 'rgba(255,240,210,0.25)'); k.H(X + 3, Y + 1, 6, 'rgba(255,240,210,0.12)');
-  giltFrame(k, 0, -16, 48, 29, clean);
-  k.shadow(1, 13, 48, 1, 'rgba(6,5,10,0.4)');
+  giltFrame(k, -6, -16, 60, 31, clean);
+  k.shadow(-5, 15, 60, 1, 'rgba(6,5,10,0.4)');
   return k.done({ outline: false });
 }
 
@@ -361,8 +366,47 @@ function plaque(o) {
 }
 
 // ---- banner (4×1 wall, high) ------------------------------------------------------------------
+/**
+ * 'hallpass' (Integration 2): the long hall's archway sign — enamelled cream tin, black stencil
+ * (params.text overrides; '\n' or auto-wrap to ≤ 3 lines of 3×5 caps), the first line in red,
+ * rust bleeding from the rivets. Default: HALL PASS / REQUIRED BEYOND / THIS POINT.
+ */
+function hallpassSign(o) {
+  const { clean } = o;
+  const raw = String(o.text || 'HALL PASS\nREQUIRED BEYOND\nTHIS POINT').toUpperCase().replace(/[—–]/g, '-');
+  const lines = [];
+  for (const para of raw.split('\n')) {
+    let line = '';
+    for (const wd of para.split(/\s+/).filter(Boolean)) {
+      if (line && textW(`${line} ${wd}`) > 60) { lines.push(line); line = wd; } else line = line ? `${line} ${wd}` : wd;
+    }
+    if (line) lines.push(line);
+  }
+  const n = Math.max(1, Math.min(3, lines.length));
+  const h = 4 + n * 6, y = -1 - h;
+  const k = new K(64, h + 3, 0, y - 1, seedOf('banner', 'hallpass', clean, o.text));
+  const tin = clean ? PAL.cream_l : mix(PAL.cream, PAL.g4, 0.22), rim = clean ? PAL.g2 : mix(PAL.g2, PAL.rust, 0.25);
+  const ink = clean ? PAL.ink : mix(PAL.ink, PAL.g2, 0.25), red = clean ? PAL.red : mix(PAL.red, PAL.g3, 0.2);
+  k.R(0, y, 64, h, tin);
+  k.frame(0, y, 64, h, rim); k.H(1, y + 1, 62, lt(tin, 0.1)); k.H(1, y + h - 2, 62, dk(tin, 0.12));
+  for (let i = 0; i < n; i++) {
+    const ln = lines[i] || '';
+    const tw = Math.min(62, textW(ln));
+    k.T(Math.max(1, (64 - tw) >> 1), y + 2 + i * 6, ln, i === 0 && n > 1 ? red : ink);
+  }
+  for (const rx of [2, 61]) { k.P(rx, y + 2, PAL.g3); k.P(rx, y + h - 3, PAL.g3); }
+  if (!clean) {
+    for (const rx of [2, 61]) k.drip(rx, y + 3, 2);
+    k.S(0, y, 64, h, 'rgba(70,50,30,0.35)', 0.05);
+    k.A(42, y + 1, 12, 5, 'rgba(110,80,40,0.14)');
+  }
+  k.shadow(1, y + h, 62, 1, 'rgba(6,5,10,0.35)');
+  return k.done({ outline: false });
+}
+
 function banner(o) {
   const { state, clean } = o;
+  if (state === 'hallpass') return hallpassSign(o);
   const k = new K(64, 16, 0, -16, seedOf('banner', state, clean));
   const f = (c) => (clean ? c : mix(c, PAL.paper_d, 0.35));
   const spec = {
@@ -427,6 +471,6 @@ export const HALL = {
   bench: { build: bench, facing: ['down', 'up'] },
   portrait_colonel: { build: portraitColonel },
   plaque: { build: plaque },
-  banner: { build: banner },
+  banner: { build: banner, text: true },
   motto_stone: { build: mottoStone },
 };

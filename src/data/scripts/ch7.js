@@ -368,7 +368,7 @@ export default {
     }
     if (!g.flag('ch7_music_hint') && !g.flag('diary_page')) {
       g.set('ch7_music_hint');
-      await g.think('sad', 'Denise was in the band. {p} Their room is back there somewhere. Behind the stage.');
+      await g.think('sad', 'Denise was in the band. {p} The band room is back there somewhere. Behind the stage.');
       g.objective('The music room. Stage left.');
     }
     g.checkpoint('marcus');

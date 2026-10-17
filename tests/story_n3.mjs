@@ -140,20 +140,26 @@ async function partUpstairs(g, { bond, label, fromCh4 = true, reloadMid = false 
       mark('w1>lobby', await window.__n3cross(H, [61, 15], 'lobby'));
       mark('lobby>e1', await window.__n3cross(H, [28, 15], 'east1'));
     }
-    // the gate: the 2F GATE key
-    mark('gate', await window.__n3go(H, 'stair_gate'));
-    await window.__n3use(H, 'up');
-    mark('gate_open', !!HW.state.flags.gate_2f_open);
-    mark('e1>e2', await window.__n3cross(H, [14, 3], 'east2'));
-    await H.steps(10); await H.idle();
+    if (HW.map.id === 'east1') {
+      // the gate: the 2F GATE key
+      mark('gate', await window.__n3go(H, 'stair_gate'));
+      await window.__n3use(H, 'up');
+      mark('gate_open', !!HW.state.flags.gate_2f_open);
+      mark('e1>e2', await window.__n3cross(H, [14, 3], 'east2'));
+      await H.steps(10); await H.idle();
+    } else {
+      mark('gate_open', !!HW.state.flags.gate_2f_open);
+      mark('e1>e2', HW.map.id === 'east2');
+    }
     mark('danny_spawned', !!HW.entities.get('danny'));
     mark('danny_seated', HW.entities.get('danny')?.seat?.id || null);
     mark('upstairs', !!HW.state.flags.seen_ch5_upstairs);
     // 205
     H.choiceQueue = [bond];
     mark('door205', await window.__n3go(H, 'door_205'));
-    await H.walkTo('in_205');
-    await H.steps(4);
+    // (the walk's promise stays pending through the cutscene the trigger starts — don't await it)
+    H.walkTo('in_205');
+    await HW.game.until(() => HW.scripts.blocking > 0, 10);
     if (reloadMid) {
       await HW.game.until(() => HW.state.checkpoint === 'danny bond', 60);
       mark('cp_bond', HW.state.checkpoint);
@@ -188,13 +194,13 @@ async function partUpstairs(g, { bond, label, fromCh4 = true, reloadMid = false 
   t.ok(said(tr, 'marcus', /^Second floor's been shut since '79\.$/) || !fromCh4, `${label} gate: Marcus — "Second floor's been shut since '79."`);
   t.ok(r['e1>e2'], `${label} up the east stairs to east2`);
   t.ok(r.danny_spawned && r.danny_seated === 'e2_desk_danny', `${label} east2 onEnter: Danny in session at e2_desk_danny`, r);
-  t.ok(r.upstairs && said(tr, 'tess', /A pencil\./), `${label} first time upstairs: "A pencil. Somebody up here is writing."`);
+  if (fromCh4) t.ok(r.upstairs && said(tr, 'tess', /A pencil\./), `${label} first time upstairs: "A pencil. Somebody up here is writing."`);
   t.ok(said(tr, 'danny', /^It wrote my name, Dolan\. \{p\} In a big book\. \{p\} Under the school\.$/), `${label} Danny — "It wrote my name, Dolan. In a big book. Under the school."`);
   t.ok(said(tr, 'danny', /He smells like pennies\. \{p\} And, like, Christmas ham\./), `${label} Danny — pennies / Christmas ham`);
   t.ok(said(tr, 'danny', /^I can't get up, Dolan\. I tried\. \{p\} My legs are, like\.\.\. enrolled\.$/), `${label} Danny — "My legs are, like... enrolled."`);
   t.ok(said(tr, 'danny', /^I'm the guy who gets stuck\. \{p\} That's my whole thing\.$/), `${label} Danny — "I'm the guy who gets stuck. That's my whole thing."`);
   const opts = ["I'm coming back for you. Promise.", "Hang in there. You're gonna be fine.", "I'm sorry, Danny."];
-  t.ok(chose(tr, opts[bond]), `${label} BOND (Danny): [${opts[bond]}]`);
+  if (!t.ok(chose(tr, opts[bond]), `${label} BOND (Danny): [${opts[bond]}]`) && process.env.N3_DEBUG) console.log(tr.map((x) => `${x.type}|${x.who}|${x.text}`).join('\n'));
   if (bond === 0) {
     t.ok(said(tr, 'danny', /^You can't promise that\.$/) && said(tr, 'tess', /^Watch me\.$/), `${label} Promise → "You can't promise that." / "Watch me."`);
     t.ok(s.flags.bond_danny && s.bonds.danny, `${label} bond_danny (state.bonds.danny)`);
@@ -329,8 +335,8 @@ async function partLongHall(g, { loops, label }) {
 
 // ================================================================================================ part 3
 // west2: 202, the locked mezzanine door, the mirror, the False Leah (choices per cfg).
-async function partWest2(g, { label, readExcerpt = true, leahChoices, write, expectGameOver = false }) {
-  const r = await g.hw(async (H, readExcerpt, leahChoices, write) => {
+async function partWest2(g, { label, readExcerpt = true, leahChoices, write, untilDone = false }) {
+  const r = await g.hw(async (H, readExcerpt, leahChoices, write, untilDone) => {
     const HW = H.HW;
     const log = {};
     const mark = (k, v) => { log[k] = v; };
@@ -360,12 +366,15 @@ async function partWest2(g, { label, readExcerpt = true, leahChoices, write, exp
     await window.__n3go(H, 'door_201');
     await H.walkTo('in_201');
     await H.steps(4);
-    await HW.game.until(() => HW.state.flags.false_leah_done || HW.game.mode === 'gameover' || (!HW.scripts.blocking && HW.game.mode === 'play' && HW.state.flags.seen_ch5_false_leah), 120);
+    if (untilDone) await HW.game.until(() => HW.state.flags.false_leah_done && !HW.scripts.blocking, 400);
+    else await HW.game.until(() => HW.state.flags.false_leah_done || HW.game.mode === 'gameover' || (!HW.scripts.blocking && HW.game.mode === 'play' && HW.state.flags.seen_ch5_false_leah), 120);
+    await H.idle();
     mark('mode', HW.game.mode);
     mark('done', !!HW.state.flags.false_leah_done);
     mark('cp_201', HW.state.checkpoint);
+    mark('obj', HW.state.objective);
     return log;
-  }, readExcerpt, leahChoices, write || null);
+  }, readExcerpt, leahChoices, write || null, untilDone);
   return r;
 }
 
@@ -529,7 +538,7 @@ if (!SHOTS_ONLY && (!ONLY || ONLY === 'A')) {
   t.ok(chose(trW, 'Ask about the tape') && voice(trW, /^For the drive, silly\. \{p\} Pittsburgh\. \{p\} Thanksgiving\.$/), 'A 201: [Ask about the tape] → "For the drive, silly. Pittsburgh. Thanksgiving."');
   t.ok(chose(trW, 'Back out slowly'), 'A 201: [Back out slowly]');
   t.ok(narr(trW, /The door gives an inch/), 'A 201: first release → the door gives an inch, the hand');
-  t.ok(said(trW, 'tess', /^Empty\./), 'A 201: silence, then the room is empty');
+  t.ok(said(trW, 'tess', /^Empty\.$/), 'A 201: silence, then the room is empty');
   const sA = await snapState(game);
   t.eq(sA.stingers.stinger_hard || 0, 1, 'A 201: stinger_hard exactly once (the head turn)');
   t.ok(!sA.flags.longhall_cleared || true, 'A');
@@ -537,6 +546,7 @@ if (!SHOTS_ONLY && (!ONLY || ONLY === 'A')) {
   await partLibrary(game, { label: 'A', choice: 0, charter: true });
   await keep();
   budget(all, 'A ch5');
+  if (process.env.N3_TRANSCRIPT) (await import('node:fs')).writeFileSync(process.env.N3_TRANSCRIPT, all.filter((x) => ['say', 'think', 'narrate', 'choice', 'objective', 'checkpoint'].includes(x.type)).map((x) => `${x.type.padEnd(10)} ${(x.who || '').padEnd(7)} ${x.expr ? `[${x.expr}] ` : ''}${x.text}`).join('\n'));
   const sA2 = await snapState(game);
   t.ok((sA2.stingers.stinger_soft || 0) <= 1, 'A: stinger_soft ≤ 1 in the chapter', sA2.stingers.stinger_soft);
   await game.hw((H, all) => { window.__n3all = all; }, all);
@@ -569,7 +579,10 @@ if (!SHOTS_ONLY && (!ONLY || ONLY === 'B')) {
     const HW = H.HW;
     await H.idle();
     H.transcript.length = 0;
-    await H.walkTo([1, 15]);
+    H.walkTo([1, 15]);
+    await HW.game.until(() => HW.scripts.blocking > 0, 20);
+    await H.idle();
+    await H.walkTo(H.player());   // a player stops after the refusal (cancels the autopilot)
     await H.steps(4); await H.idle();
     return { map: HW.map.id, tr: H.transcript.map((x) => `${x.who}:${x.text}`), p: H.player() };
   });
@@ -580,44 +593,21 @@ if (!SHOTS_ONLY && (!ONLY || ONLY === 'B')) {
   // the pass first, then the long hall without a single loop
   await partLongHall(game, { loops: false, label: 'B' });
   await game.hw((H) => { H.transcript.length = 0; H.setFlag('roll1_answered', true); });
-  // False Leah: sit down → PRESENT → retry at the threshold → back out → lose the door twice → PRESENT → retry → held
-  const w1 = await partWest2(game, { label: 'B', readExcerpt: false, leahChoices: [1] });
-  await checkWest2(game, w1, { label: 'B', answered: true, readExcerpt: false });
-  const go1 = await game.hw(async (H) => {
-    const HW = H.HW;
-    const sawGO = H.transcript.some((x) => x.type === 'gameover' && /present/.test(x.text));
-    // the referral slip resolves 'retry' under autoAdvance → the checkpoint reloads; the onEnter resumes the scene
-    await HW.game.until(() => HW.game.mode === 'play' && HW.map?.id === 'west2', 20);
-    H.transcript.length = 0;
-    H.choiceQueue = [1];   // visible options on the replay: [Ask about the tape, Sit down, Back out slowly] → Back out = 2? (see below)
-    return { sawGO, cp: HW.state.checkpoint, map: HW.map.id, p: H.player() };
-  });
-  t.ok(go1.sawGO, 'B 201: [Sit down] → game over (PRESENT)', go1);
-  t.eq(go1.cp, '201 threshold', 'B 201: retry from the threshold checkpoint');
-  const retry1 = await game.hw(async (H) => {
-    const HW = H.HW;
-    H.choiceQueue = [2];
-    H.screenAnswer('write', ['released', 'released']);
-    await HW.game.until(() => HW.game.mode === 'gameover' || H.transcript.some((x) => x.type === 'gameover'), 60);
-    const tr = H.transcript.map((x) => ({ type: x.type, who: x.who, text: x.text }));
-    await HW.game.until(() => HW.game.mode === 'play' && HW.map?.id === 'west2' && HW.scripts.blocking, 20);
-    return { tr };
-  });
-  const rt = retry1.tr;
-  t.ok(rt.some((x) => x.type === 'say' && x.who === 'voice' && /^Sit with me, Theresa\./.test(x.text)) && !rt.some((x) => x.type === 'say' && /I got out of the library/.test(x.text)),
-    'B 201: the retry is abbreviated to the decision point', rt.slice(0, 6));
-  t.ok(rt.some((x) => x.type === 'narrate' && /The door gives an inch/.test(x.text)) && rt.some((x) => x.type === 'gameover' && /present/.test(x.text)),
-    'B 201: door released twice → caught (PRESENT)');
-  const retry2 = await game.hw(async (H) => {
-    const HW = H.HW;
-    H.transcript.length = 0;
-    H.choiceQueue = [2];
-    H.screenAnswer('write', ['done']);
-    await HW.game.until(() => HW.state.flags.false_leah_done && !HW.scripts.blocking, 60);
-    await H.idle();
-    return { done: !!HW.state.flags.false_leah_done, tr: H.transcript.map((x) => ({ type: x.type, who: x.who, text: x.text })), obj: HW.state.objective };
-  });
-  t.ok(retry2.done && retry2.obj === "The library. The door by the girls' room.", 'B 201: third try held → empty room, objective → the library', retry2);
+  // False Leah: [Sit down] → PRESENT → retry at the threshold (abbreviated) → [Back out] → the door lost twice
+  // → PRESENT → retry → [Back out] → held. Choices and door results are queued up front: each retry resumes
+  // at once (the west2 onEnter picks the scene back up after the reload).
+  const w1 = await partWest2(game, { label: 'B', readExcerpt: false, leahChoices: [1, 2, 2], write: ['released', 'released', 'done'], untilDone: true });
+  const { tr: tb } = await checkWest2(game, w1, { label: 'B', answered: true, readExcerpt: false });
+  const gos = tb.filter((x) => x.type === 'gameover' && /present/.test(x.text)).length;
+  t.ok(chose(tb, 'Sit down') && gos === 2, 'B 201: [Sit down] → PRESENT; the door released twice → PRESENT (two referrals)', gos);
+  t.ok(tb.filter((x) => x.type === 'say' && x.who === 'voice' && /I got out of the library/.test(x.text)).length === 1
+    && tb.filter((x) => x.type === 'say' && x.who === 'voice' && /^Sit with me, Theresa\./.test(x.text)).length === 3,
+    'B 201: each retry is abbreviated to the decision point ("Sit with me, Theresa." ×3, the intro once)');
+  t.ok(tb.filter((x) => x.type === 'narrate' && /The door gives an inch/.test(x.text)).length === 1, 'B 201: first release → the hand round the door edge; second release → caught');
+  t.ok(tb.filter((x) => x.type === 'checkpoint' && x.text === '201 threshold').length >= 1 && w1.cp_201 === '201 threshold', 'B 201: retries from the threshold checkpoint');
+  t.ok(w1.done && w1.obj === "The library. The door by the girls' room.", 'B 201: third try held → the empty room; objective → the library', w1);
+  const sB = await snapState(game);
+  t.ok((sB.stingers.stinger_hard || 0) >= 1, 'B 201: the head turn stinger plays on each [Back out]');
   await game.hw((H) => { H.transcript.length = 0; });
   await partLibrary(game, { label: 'B', choice: 1, charter: false });
   await errs('run B');
@@ -704,79 +694,67 @@ if (!NO_SHOTS && (!ONLY || ONLY === 'S')) {
   await game.close();
   game = await open();
   const g = game;
-  const key = async (k, n = 1) => { for (let i = 0; i < n; i++) { await g.page.keyboard.press(k); await sleep(140); } };
   const play = () => g.hw((H) => { H.autoAdvance(false); H.timeScale(1); });
-  const fast = () => g.hw((H) => { H.autoAdvance(true); H.timeScale(6); });
-  const idle = () => g.hw(async (H) => { await H.idle(60); });
+  // A walk into a trigger stays pending through the cutscene it starts: never await those.
+  const walk = (target) => { g.walkTo(target).catch(() => {}); };
+  const T = (re) => (st) => !!st.text && re.test(st.text);
+  const L5 = { gate_2f_open: true, ch5_danny_found: true, ch5_205_period_done: true, portrait_state: 'empty' };
+  const ALONE = { ...L5, longhall_cleared: true, ch5_marcus_around: true, seen_ch5_west2_arrive: true };
 
-  // 205: Danny, the pat, the close pass
+  // 205: Danny; the pat; the close pass
   await g.hw((H, cfg) => window.__n3setup(H, cfg), { chapter: 5, map: 'east2', at: 'door_205', auto: false, flags: { gate_2f_open: true, seen_ch5_upstairs: true }, noPatrol: true });
-  await play();
-  await g.walkTo('in_205');
+  await play(); walk('in_205');
   await drive(g, { label: '205', until: (st) => st.flags.ch5_205_period_done && !st.blocking, choices: [0], maxSec: 240, rules: [
-    { when: (st) => st.text && st.text.startsWith('It wrote my name') && st.done, shot: 'n3_01_danny' },
-    { when: (st) => st.text && st.text.startsWith('Good boy') && st.done, shot: 'n3_02_good_boy' },
-    { when: (st) => st.text && st.text.includes('Pennies') && st.done, delay: 300, shot: 'n3_03_close_pass' },
+    { when: (st) => T(/^It wrote my name/)(st) && st.done, shot: 'n3_01_danny' },
+    { when: T(/^Good boy/), delay: 1500, shot: 'n3_02_good_boy' },
+    { when: T(/Pennies/), delay: 900, shot: 'n3_03_close_pass' },
   ] });
 
-  // the long hall: the empty chair; loop 4 voice; the pass
-  await g.hw((H, cfg) => window.__n3setup(H, cfg), { chapter: 5, map: 'longhall', at: 'from_east2', auto: false,
-    flags: { gate_2f_open: true, ch5_danny_found: true, ch5_205_period_done: true, portrait_state: 'empty' }, noPeriods: true, noPatrol: true });
-  await play();
-  await g.walkTo([79, 9]);
-  await drive(g, { label: 'lh enter', until: (st) => !st.blocking && st.mode === 'play', maxSec: 60, rules: [
-    { when: (st) => st.text && st.text.includes("The chair's empty") && st.done, shot: 'n3_04_empty_chair' },
+  // the long hall: the empty chair across the void; Kevin keeps the pass; Marcus at the far end
+  await g.hw((H, cfg) => window.__n3setup(H, cfg), { chapter: 5, map: 'longhall', at: 'from_east2', auto: false, flags: { ...L5 }, noPeriods: true });
+  await play(); walk([60, 9]);
+  await drive(g, { label: 'lh enter', until: (st) => st.flags.seen_ch5_longhall_enter && !st.blocking, maxSec: 60, rules: [
+    { when: (st) => T(/The chair's empty/)(st) && st.done, shot: 'n3_04_empty_chair' },
   ] });
-  await fast();
-  await g.hw(async (H) => { const HW = H.HW; HW.state.flags.longhall_loops = 3; });
-  await g.walkTo([25, 9]);
-  await play();
-  await g.press('left', 700);
-  await drive(g, { label: 'lh voice', until: (st) => !st.blocking && st.mode === 'play' && st.flags.seen_ch5_longhall_line_4, maxSec: 60, rules: [
-    { when: (st) => st.text && st.text.startsWith('Theresa? {p} Is that you') && st.done, shot: 'n3_05_voice_door' },
-  ] });
-  await fast();
   await g.hw((H) => { H.give('hall_pass'); H.setFlag('hall_pass', true); });
-  await g.walkTo([9, 9]);
-  await play();
+  await g.walkTo([12, 9]);
+  walk([7, 9]);
   await drive(g, { label: 'kevin pass', until: (st) => st.flags.longhall_cleared && !st.blocking, maxSec: 90, rules: [
-    { when: (st) => st.text && st.text.includes('...pass.') && !st.text.includes('one') && st.done, shot: 'n3_06_pass' },
-    { when: (st) => st.text && st.text.startsWith('One student') && st.done, shot: 'n3_07_marcus_far' },
+    { when: T(/^\{dim\}\.\.\.pass/), delay: 900, shot: 'n3_05_pass' },
+    { when: (st) => st.flags.longhall_cleared && !st.text, delay: 3600, shot: 'n3_06_far_end' },
   ] });
 
-  // west2: the mirror (Adair, the fog), the compact
-  await g.hw((H, cfg) => window.__n3setup(H, cfg), { chapter: 5, map: 'west2', at: 'in_rr', auto: false, party: [],
-    flags: { gate_2f_open: true, ch5_danny_found: true, ch5_205_period_done: true, portrait_state: 'empty', longhall_cleared: true, ch5_marcus_around: true, seen_ch5_west2_arrive: true }, noPeriods: true, noPatrol: true });
-  await play();
-  await g.walkTo('mirror_2f');
+  // west2: the Reflection; the compact
+  await g.hw((H, cfg) => window.__n3setup(H, cfg), { chapter: 5, map: 'west2', at: 'in_rr', auto: false, party: [], flags: { ...ALONE }, noPeriods: true, noPatrol: true });
+  await play(); walk('mirror_2f');
   await drive(g, { label: 'mirror', until: (st) => st.flags.adair_met && !st.blocking, maxSec: 90, rules: [
-    { when: (st) => st.text && st.text.includes("DON'T ANSWER HIM") && st.done, shot: 'n3_08_fog' },
-    { when: (st) => st.text && st.text.includes('Press'), delay: 400, act: async () => { await key('q'); } },
-    { when: (st) => st.compact, delay: 1200, shot: 'n3_09_compact' },
+    { when: T(/ANSWER HIM/), delay: 800, shot: 'n3_07_fog' },
+    { when: T(/Press/), delay: 400, act: async () => { await g.page.keyboard.press('q'); } },
+    { when: (st) => st.compact, delay: 1500, shot: 'n3_08_compact' },
   ] });
 
-  // 201: the False Leah — the shadow, the head turn, the door
-  await play();
-  await g.walkTo('door_201');
-  await g.walkTo('in_201');
-  let holdOn = false;
-  await drive(g, { label: '201', until: (st) => st.flags.false_leah_done && !st.blocking, choices: [2], maxSec: 180, rules: [
-    { when: (st) => st.text && st.text.includes('in my *bag*') && st.done, delay: 1800, shot: 'n3_10_false_leah' },
-    { when: (st) => st.text && st.text.includes('keeps turning'), delay: 250, shot: 'n3_11_head_turn' },
-    { when: (st) => st.screens.includes('write'), delay: 300, act: async () => { await g.hw((H) => H.HW.input.setVirtual('confirm', true)); holdOn = true; await sleep(1600); await g.shot('n3_12_hold_door'); shots.push('n3_12_hold_door'); } },
-    { when: (st) => holdOn && !st.screens.includes('write'), act: async () => { await g.hw((H) => H.HW.input.setVirtual('confirm', false)); holdOn = false; } },
+  // 201: the False Leah — the 1979 view, the head turn, the door
+  await play(); walk('in_201');
+  let holding = false;
+  await drive(g, { label: '201', until: (st) => st.flags.false_leah_done && !st.blocking, choices: [2], maxSec: 200, rules: [
+    { when: (st) => T(/^I got out of the library/)(st) && st.done, shot: 'n3_09_theresa' },
+    { when: (st) => st.compact, delay: 1500, shot: 'n3_10_compact_201' },
+    { when: T(/keeps turning/), delay: 200, shot: 'n3_11_head_turn' },
+    { when: (st) => st.screens.includes('write'), delay: 300, act: async () => { await g.hw((H) => H.HW.input.setVirtual('confirm', true)); holding = true; await sleep(1500); await g.shot('n3_12_hold_door'); shots.push('n3_12_hold_door'); } },
+    { when: (st) => holding && !st.screens.includes('write'), act: async () => { await g.hw((H) => H.HW.input.setVirtual('confirm', false)); holding = false; } },
   ] });
   await g.hw((H) => H.HW.input.setVirtual('confirm', false));
 
   // the library: Leah under the lamp
   await g.hw((H, cfg) => window.__n3setup(H, cfg), { chapter: 5, map: 'library', at: 'spiral_bottom', auto: false, party: [],
-    flags: { gate_2f_open: true, ch5_danny_found: true, ch5_205_period_done: true, portrait_state: 'empty', longhall_cleared: true, ch5_marcus_around: true, adair_met: true, compact_unlocked: true, false_leah_done: true, seen_ch5_library_enter: true, trig_library_library_enter: true }, noPeriods: true });
-  await play();
-  await g.walkTo([9, 16]);
+    flags: { ...ALONE, adair_met: true, compact_unlocked: true, false_leah_done: true, seen_ch5_library_enter: true, trig_library_library_enter: true }, noPeriods: true });
+  await play(); walk([9, 16]);
   await drive(g, { label: 'leah', until: (st) => st.flags.ch5_leah_found && !st.blocking, choices: [0], maxSec: 120, rules: [
-    { when: (st) => st.text && st.text.startsWith('Where were you gonna go') && st.done, shot: 'n3_13_leah' },
-    { when: (st) => st.text && st.text.startsWith("My hand won't stop") && st.done, shot: 'n3_14_go_come_back' },
+    { when: (st) => T(/^Where were you gonna go/)(st) && st.done, shot: 'n3_13_leah' },
   ] });
+  const st = await snapState(g);
+  t.ok(st.flags.ch5_leah_found && st.flags.false_leah_done && st.flags.adair_met, 'shots: the real-input scenes all reach their ends', st.flags);
+  t.ok(shots.length >= 10, `shots: ${shots.length} key moments captured`, shots);
   await errs('screenshot pass');
   console.log(`  info screenshots (${shots.length}): ${shots.join(', ')}`);
 }

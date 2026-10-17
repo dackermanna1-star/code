@@ -17,7 +17,8 @@
 //       visible at load). Persisted in HW.state.patrolCfg.
 //   whistle(id = 'kevin') → Promise            force a whistle (scripts)
 //   dismiss()                                   DISMISSED: he lowers the whistle and takes off the
-//       belt — never whistles again (art: holds `hand_out_down`; a belt-off frame is an art request).
+//       belt — never whistles again (art: plays `beltoff_down` once and holds its last frame;
+//       falls back to holding `hand_out_down` on a sprite without it).
 //   sentinels → [{ id, entity, … }] · onWhistle(fn) → off   (fn({ id, x, y, tx, ty }))
 //   HW.game also emits 'whistle' with the same object.
 import HW from '../engine/hw.js';
@@ -84,7 +85,9 @@ export const patrol = {
     for (const s of this.sentinels) {
       s.whistle = false;
       const e = s.entity;
-      if (e?.sheet?.anims?.hand_out_down) e.playAnim('hand_out_down', { once: true, hold: true });
+      const anims = e?.sheet?.anims;
+      if (anims?.beltoff_down) e.playAnim('beltoff_down', { once: true, hold: true });
+      else if (anims?.hand_out_down) e.playAnim('hand_out_down', { once: true, hold: true });
     }
   },
 

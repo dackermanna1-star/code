@@ -239,7 +239,7 @@ try {
     T.ok(r.L.on && r.L.power < 1 && Number.isFinite(r.L.angle), 'lighting.flashlight driven each step (dim when low)', r.L);
     await g.hw((H) => H.give('battery', 1));
     T.ok(await g.hw((H) => H.HW.game.useItem('battery')), 'useItem(battery)');
-    T.eq((await g.state()).battery, 100, 'fresh batteries');
+    { const b = (await g.state()).battery; T.ok(b > 99.5, 'fresh batteries (100, less a few steps of drain)', b); }
   });
 
   await T.step('menus pause the game', async () => {
@@ -271,6 +271,7 @@ try {
   });
 
   await T.step('input & display', async () => {
+    await g.teleport('test', 'start'); // a known spot (no exit within 30 steps of walking east)
     // Gamepad: a fake standard-mapping pad with the left stick pushed right.
     const pad = await g.hw(async (H) => {
       const x0 = H.HW.player.x;
@@ -817,6 +818,303 @@ try {
     });
     T.ok(th.edges >= 2 && th.calls === th.edges && th.vol === 0.6 && th.delay > 0.3 && th.delay < 1.2, "title: one thunder (vol .6, short delay) per title_bg lightning strike", th);
     T.eq(await g.mode(), 'play', 'still in play after the title-screen probe');
+  });
+
+  await T.step('integration 2', async () => {
+    await g.teleport('test', 'start');
+    await g.idle();
+    // 1. compact: past.cond hides a view; hasPastHere needs compact_unlocked.
+    const cp = await g.hw(async (H) => {
+      const HW = H.HW;
+      await H.teleport('test', 'past_a');
+      const pe = HW.map.past[0];
+      const r = { base: HW.compact.hasPastHere };
+      pe.cond = (st) => !!st.flags.i2_past;
+      r.condOff = HW.compact.hasPastHere || !!HW.compact.pastHere();
+      HW.state.flags.i2_past = true;
+      r.condOn = HW.compact.hasPastHere;
+      delete pe.cond; delete HW.state.flags.i2_past;
+      const un = HW.state.flags.compact_unlocked;
+      HW.state.flags.compact_unlocked = false;
+      r.locked = HW.compact.hasPastHere;
+      HW.state.flags.compact_unlocked = un;
+      return r;
+    });
+    T.ok(cp.base && !cp.condOff && cp.condOn, 'compact: a past view whose cond fails is not offered (pastHere/hasPastHere)', cp);
+    T.ok(cp.locked === false, 'compact: no HUD sparkle before compact_unlocked', cp);
+
+    // 2. Lightning flashes only real window tiles (an explicit window light on a floor cell does not).
+    const mf = await g.hw((H) => {
+      const HW = H.HW;
+      const map = HW.map;
+      const win = map.windowCells[0];
+      const cam = { x: win.tx * 16 - 64, y: win.ty * 16 - 64, w: 480, h: 270 };
+      const c = document.createElement('canvas'); c.width = 480; c.height = 270;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = '#000'; ctx.fillRect(0, 0, 480, 270);
+      const floor = { tx: win.tx + 2, ty: win.ty + 3 };
+      HW.lighting.moon.flash(ctx, cam, map, [{ tx: floor.tx, ty: floor.ty, explicit: { type: 'window' } }, { tx: win.tx, ty: win.ty, explicit: null }], 1, false, '#ffffff');
+      const px = (tx, ty) => ctx.getImageData(tx * 16 - cam.x + 8, ty * 16 - cam.y + 8, 1, 1).data[0];
+      return { window: px(win.tx, win.ty), floor: px(floor.tx, floor.ty), floorKey: map.tileAt(floor.tx, floor.ty) };
+    });
+    T.ok(mf.window > 100 && mf.floor === 0, 'lightning: window tiles flash, a window light on a non-window cell does not', mf);
+
+    // 3. Seat examine: confirm while seated shows it, the next confirm stands her up.
+    T.ok(await g.walkTo('desk_a'), 'walk to the desk (seat examine)');
+    await g.face('up');
+    await g.interact();
+    T.eq((await g.player()).seated, 'test_desk_student_3_6', 'seated');
+    await g.interact();
+    T.ok(await g.hw((H) => /Initials/.test(H.transcript.slice(-1)[0]?.text || '')), 'first confirm while seated: the examine text');
+    T.ok((await g.player()).seated, 'still seated after the examine');
+    await g.interact();
+    await g.idle();
+    T.ok(!(await g.player()).seated, 'second confirm while seated: she stands up');
+
+    // 4. Seat sitScript: runs after she sits, queued behind a blocking script a 'sit' listener started.
+    const ss = await g.hw(async (H) => {
+      const HW = H.HW;
+      const order = [];
+      HW.data.scripts['test.i2_first'] = async (gg) => { order.push('first'); await gg.wait(0.3); order.push('first_end'); };
+      HW.data.scripts['test.i2_sit'] = async (gg, ctx) => { order.push(`sit:${ctx.prop?.id}:${!!ctx.seated}:${HW.game.mode}`); };
+      const bench = HW.map.prop('test_bench');
+      bench.inst.sitScript = 'test.i2_sit';
+      const off = HW.game.on('sit', (p) => { if (p === bench) HW.scripts.run('test.i2_first'); });
+      await H.teleport('test', 'bench');
+      H.face('up');
+      await H.interact();
+      await H.HW.game.until(() => order.length >= 3, 5);
+      await H.idle();
+      const r = { order: order.slice(), seated: HW.player.seated?.id, resolved: HW.hiding.sitScriptFor(bench) };
+      off();
+      delete bench.inst.sitScript;
+      delete HW.data.scripts['test.i2_first']; delete HW.data.scripts['test.i2_sit'];
+      HW.input.setVirtual('down', true); await H.steps(10); HW.input.setVirtual('down', false); await H.idle();
+      return r;
+    });
+    T.eq(ss.order, ['first', 'first_end', 'sit:test_bench:true:cutscene'], 'sitScript runs after sitting, after the blocking sit-listener script, as a cutscene');
+    T.ok(ss.seated === 'test_bench' && ss.resolved === 'test.i2_sit', 'still seated; hiding.sitScriptFor resolves the instance sitScript', ss);
+
+    // 5. Assembly front-row default (ch7.front_<front>) and its deferral to a script's own sit hook.
+    const fr = await g.hw((H) => {
+      const HW = H.HW;
+      const A = HW.assembly;
+      const s = HW.state;
+      const saved = { ch: s.chapter, f: { ...s.flags }, fs: A.frontScenes };
+      const prop = { id: 'fake_front', inst: { front: 'danny' } };
+      const hasScript = HW.scripts.has('ch7.front_danny');
+      if (!hasScript) HW.data.scripts['ch7.front_danny'] = async () => {};
+      const r = {};
+      s.chapter = 7; s.flags.ch7_started = true;
+      r.noRoll = A.sitScriptFor(prop);
+      s.flags.roll3_done = true;
+      A.frontScenes = true; r.forced = A.sitScriptFor(prop);
+      A.frontScenes = 'auto'; r.auto = A.sitScriptFor(prop); r.deferred = A.frontDeferred;
+      A.frontScenes = false; r.off = A.sitScriptFor(prop);
+      s.flags.register_done = true; A.frontScenes = true; r.after = A.sitScriptFor(prop);
+      r.plain = A.sitScriptFor({ id: 'x', inst: {} });
+      s.chapter = saved.ch; s.flags = saved.f; A.frontScenes = saved.fs;
+      if (!hasScript) delete HW.data.scripts['ch7.front_danny'];
+      return r;
+    });
+    T.ok(fr.noRoll === null && fr.forced === 'ch7.front_danny' && fr.off === null && fr.after === null && fr.plain === null, 'assembly.sitScriptFor: front seat → ch7.front_<front> after roll #3, Ch7 only', fr);
+    T.ok(fr.deferred ? fr.auto === null : fr.auto === 'ch7.front_danny', "assembly front scenes: 'auto' defers to a script's own front-row sit hook (ch7.js)", fr);
+
+    // 6. Map `sounds`: a positional loop while cond holds (refresh), handed over to a script that plays it.
+    const snd = await g.hw(async (H) => {
+      const HW = H.HW;
+      await H.teleport('test', 'start');
+      const A = HW.ambient;
+      const map = HW.map;
+      const at = [20, 14];
+      const x = at[0] * 16 + 8, y = at[1] * 16 + 8;
+      const mine = () => (HW.audio.activeLoops?.('faucet') || []).filter((l) => l.x === x && l.y === y).length;
+      const r = { api: typeof HW.audio.activeLoops === 'function' };
+      map.data.sounds = [{ loop: 'faucet', at, vol: 0.4, radius: 12, cond: (st) => !!st.flags.i2_snd }];
+      A.onMapLoad(map);
+      await H.steps(40);
+      r.off = mine();
+      H.setFlag('i2_snd', true); H.refresh();
+      await H.steps(4);
+      r.on = mine();
+      r.entryOn = !!A.sounds[0]?.handle;
+      H.setFlag('i2_snd', false); H.refresh();
+      await H.steps(4);
+      r.entryOff = !A.sounds[0]?.handle;
+      // A script already plays the same loop there: the map entry stays out of it for the visit.
+      H.setFlag('i2_snd', true);
+      const foreign = HW.audio.loop('faucet', { x, y, vol: 0.4 });
+      A.onMapLoad(map);
+      await H.steps(40);
+      r.deferred = A.sounds[0]?.deferred && !A.sounds[0]?.handle;
+      foreign.stop(0.05);
+      await H.steps(40);
+      r.stillDeferred = A.sounds[0]?.deferred && !A.sounds[0]?.handle;
+      // mute(): a scene silences the entry for the rest of the visit.
+      A.onMapLoad(map);
+      await H.steps(40);
+      r.beforeMute = !!A.sounds[0]?.handle;
+      r.muted = A.mute('faucet', 0.05);
+      await H.steps(40);
+      r.afterMute = !A.sounds[0]?.handle && mine() === 0;
+      delete map.data.sounds; delete HW.state.flags.i2_snd;
+      A.onMapLoad(map);
+      return r;
+    });
+    T.ok(snd.api && snd.off === 0 && snd.on === 1 && snd.entryOn && snd.entryOff, 'map sounds: positional loop while cond holds, re-checked on refresh', snd);
+    T.ok(snd.deferred && snd.stillDeferred, 'map sounds: a script playing the same loop at the spot owns it for the visit', snd);
+    T.ok(snd.beforeMute && snd.muted === 1 && snd.afterMute, 'map sounds: HW.ambient.mute(loop) silences it for the visit', snd);
+
+    // 7. Map `fx`: ambient emitters near the camera (object and array forms; cond).
+    const fx = await g.hw(async (H) => {
+      const HW = H.HW;
+      const map = HW.map;
+      const counts = {};
+      const orig = HW.fx.emit;
+      HW.fx.emit = function (type, ...rest) { counts[type] = (counts[type] || 0) + 1; return orig.call(this, type, ...rest); };
+      map.data.fx = { drip: [[20, 14]], ember: [[21, 14]] };
+      HW.ambient.onMapLoad(map);
+      await H.steps(240);
+      const a = { ...counts };
+      for (const k of Object.keys(counts)) delete counts[k];
+      map.data.fx = [{ type: 'steam', at: [20, 14], every: 0.2, cond: (st) => !!st.flags.i2_fx }, { type: 'coal_dust', points: [[400, 400]] }];
+      HW.ambient.onMapLoad(map);
+      await H.steps(60);
+      const b = { ...counts };
+      HW.state.flags.i2_fx = true;
+      await H.steps(60);
+      const c = { ...counts };
+      HW.fx.emit = orig;
+      delete map.data.fx; delete HW.state.flags.i2_fx;
+      HW.ambient.onMapLoad(map);
+      return { a, b, c, emitters: HW.ambient.emitters.length };
+    });
+    T.ok(fx.a.drip >= 1 && fx.a.ember >= 2, 'map fx (object form): drips and embers emitted near the camera', fx);
+    T.ok(!fx.b.steam && !fx.b.coal_dust && fx.c.steam >= 3 && !fx.c.coal_dust && fx.emitters === 0, 'map fx (array form): cond gates an emitter; points off screen stay idle', fx);
+
+    // 8. Weather: rain is cut at once on a map without weather (also while deferring to pro.js);
+    //    vent steam comes from exactly one system.
+    const wx = await g.hw(async (H) => {
+      const HW = H.HW;
+      HW.fx.rain(true, 1, { instant: true });
+      const r = { before: HW.fx.rainLevel };
+      HW.weather.onMapLoad(HW.map);
+      r.after = HW.fx.rainLevel; r.deferred = HW.weather.deferred;
+      HW.fx.rain(true, 1);
+      await H.steps(2);
+      r.leak = HW.fx.rainLevel;
+      // steam: HW.weather emits nothing itself while pro.js's system runs; alone, it does.
+      await H.teleport('exterior', 'start');
+      const counts = { n: 0 };
+      const orig = HW.fx.emit;
+      HW.fx.emit = function (type, ...rest) { if (type === 'steam') counts.n++; return orig.call(this, type, ...rest); };
+      for (let i = 0; i < 300; i++) HW.weather.update(1 / 60);
+      r.ownWhileDeferred = counts.n;
+      const foreign = HW.game.systems.filter((sy) => sy !== HW.weather && /steam_vent/.test(String(sy.update)));
+      for (const sy of foreign) HW.game.removeSystem(sy);
+      for (let i = 0; i < 300; i++) HW.weather.update(1 / 60);
+      r.ownAlone = counts.n;
+      for (const sy of foreign) HW.game.addSystem(sy);
+      HW.fx.emit = orig;
+      r.foreign = foreign.length;
+      r.extRain = HW.fx._rain.target;
+      await H.teleport('test', 'start');
+      r.backIn = HW.fx.rainLevel;
+      return r;
+    });
+    T.ok(wx.before > 0.9 && wx.after === 0 && wx.leak === 0, 'weather: rain snaps off on a map without weather, and stays off', wx);
+    T.ok(wx.foreign === 0 || (wx.ownWhileDeferred === 0 && wx.ownAlone > 0), 'weather: steam from one system only (HW.weather idle while pro.js drives it)', wx);
+    T.ok(wx.extRain > 0 && wx.backIn === 0, 'weather: exterior rains; back indoors no rain at all', wx);
+
+    // 9. Exit `refuse` naming a missing script falls back to lockedText.
+    const rf = await g.hw(async (H) => {
+      const HW = H.HW;
+      await H.teleport('test', 'hall_east');
+      const exit = HW.map.exits.find((e) => e.to === 'test2' && e.fade !== false);
+      Object.assign(exit, { lock: () => true, refuse: 'test.no_such_refusal', lockedText: '[n] I2 refusal fallback.' });
+      HW.input.setVirtual('right', true);
+      await H.steps(80);
+      HW.input.setVirtual('right', false);
+      await H.idle();
+      const r = { map: HW.map.id, text: H.transcript.slice(-3).map((e) => e.text).join(' | ') };
+      delete exit.lock; delete exit.refuse; delete exit.lockedText;
+      return r;
+    });
+    T.ok(rf.map === 'test' && /I2 refusal fallback/.test(rf.text), 'exit refuse script missing → lockedText', rf);
+
+    // 10. Map light `cond`: off (whatever its group) while it fails; on after refresh once it holds.
+    const lc = await g.hw(async (H) => {
+      const HW = H.HW;
+      await H.teleport('test', 'start');
+      const map = HW.map;
+      map.data.lights.push({ type: 'bulb', x: 22, y: 15, group: 'i2grp', cond: (st) => !!st.flags.i2_light });
+      map._invalidateLights();
+      await H.steps(2);
+      const find = () => HW.lighting._mapLights.find((l) => l.id === `${map.id}_light_${map.data.lights.length - 1}`);
+      const r = { def: map.lightDefs.find((d) => d.group === 'i2grp')?.condOff };
+      HW.lighting.setGroup('i2grp', true);
+      r.offWithGroup = HW.lighting._effectiveOn(find());
+      H.setFlag('i2_light', true); H.refresh();
+      await H.steps(2);
+      r.on = HW.lighting._effectiveOn(find());
+      H.setFlag('i2_light', false); H.refresh();
+      await H.steps(2);
+      r.offAgain = HW.lighting._effectiveOn(find());
+      map.data.lights.pop();
+      HW.lighting.setGroup('i2grp', null);
+      delete HW.state.flags.i2_light;
+      map._invalidateLights();
+      return r;
+    });
+    T.ok(lc.def === true && lc.offWithGroup === false && lc.on === true && lc.offAgain === false, 'map light cond: off while failing (group or not), on after refresh', lc);
+
+    // 11. Reachability modes on a lock-gated door (test_door_c: item:keyring).
+    const rc = await g.hw((H) => {
+      const HW = H.HW;
+      const had = HW.state.inv.keyring;
+      delete HW.state.inv.keyring;
+      HW.game.setProp('test_door_c', 'locked');
+      const r = { live: H.pathExists('test', 'door_c', 'in_c'), locks: H.pathExists('test', 'door_c', 'in_c', { doors: 'locks' }), all: H.pathExists('test', 'door_c', 'in_c', { doors: 'all' }), none: H.pathExists('test', 'door_c', 'in_c', { doors: false }) };
+      if (had) HW.state.inv.keyring = had;
+      return r;
+    });
+    T.ok(!rc.live && rc.locks && rc.all && !rc.none, "map.reachable doors: true (live) / 'locks' / 'all' / false", rc);
+
+    // 11b. Data-driven prop state: `stateWhen` re-evaluated on refresh until a script persists a state.
+    const sw = await g.hw((H) => {
+      const HW = H.HW;
+      const p = HW.map.prop('test_desk_student_3_6');
+      p.inst.stateWhen = [{ cond: (st) => !!st.flags.i2_state, state: 'outline' }];
+      const r = { s0: p.state };
+      H.setFlag('i2_state', true); H.refresh(); r.s1 = HW.map.prop('test_desk_student_3_6').state;
+      H.setFlag('i2_state', false); H.refresh(); r.s2 = HW.map.prop('test_desk_student_3_6').state;
+      HW.game.setProp('test_desk_student_3_6', 'scattered');
+      H.setFlag('i2_state', true); H.refresh(); r.s3 = HW.map.prop('test_desk_student_3_6').state;
+      delete p.inst.stateWhen; delete HW.state.flags.i2_state;
+      delete HW.state.mapState.test.test_desk_student_3_6;
+      HW.map.setPropState('test_desk_student_3_6', 'default', null, { persist: false });
+      return r;
+    });
+    T.eq([sw.s0, sw.s1, sw.s2, sw.s3], ['default', 'outline', 'default', 'scattered'], 'prop stateWhen: data state follows flags on refresh; a persisted state wins');
+
+    // 12. Art additions build (catalog states + params).
+    const art = await g.hw((H) => {
+      const A = H.HW.art;
+      const ok = (r) => !!(r && r.canvas && r.canvas.width > 1);
+      const a = A.prop('desk_student', { state: 'outline' });
+      const b = A.prop('banner', { state: 'hallpass', params: { text: 'HALL PASS REQUIRED BEYOND THIS POINT' } });
+      const b2 = A.prop('banner', { state: 'hallpass', params: { text: 'NO RUNNING' } });
+      const c = A.prop('poster', { state: 'navy' });
+      const d = A.prop('graffiti', { state: 'chalk', params: { text: 'KR WAS HERE' } });
+      const e = A.prop('husk_kneeling', { state: 'nopen', dir: 'down' });
+      const e0 = A.prop('husk_kneeling', { state: 'default', dir: 'down' });
+      const kev = A.sprite('kevin').anims.beltoff_down;
+      const c1 = document.createElement('canvas'); c1.width = 32; c1.height = 32;
+      A.drawTile(c1.getContext('2d'), 'drop', 0, 0, { mask: 15 }); A.drawTile(c1.getContext('2d'), 'railing_wood', 16, 0, { mask: 10 });
+      return { all: [a, b, c, d, e].every(ok), textKeyed: b !== b2, pen: e !== e0, kev: kev ? { n: kev.frames.length, loop: kev.loop } : null };
+    });
+    T.ok(art.all && art.textKeyed && art.pen, 'art: desk outline, hallpass sign (text-keyed), navy poster, chalk graffiti, husk without pen', art);
+    T.ok(art.kev && art.kev.n >= 3 && art.kev.loop === false, "art: Kevin 'beltoff_down' (non-looping)", art.kev);
   });
 
   await T.step('special screens (g.screen)', async () => {

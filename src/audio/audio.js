@@ -78,6 +78,8 @@ export const audio = {
   // ---- sounds ----------------------------------------------------------------------------------
   sfx(id, opts) { return eng ? eng.sfx(id, opts || {}) : NULL_HANDLE; },
   loop(id, opts) { return eng ? eng.loop(id, opts || {}) : NULL_HANDLE; },
+  /** Playing loops, optionally of one id: [{ id, x, y, handle }] (Integration 2; [] before init). */
+  activeLoops(id) { return eng ? eng.activeLoops(id) : []; },
   ambience(id, fade = 2) { if (eng) eng.ambience(id, fade); else if (id === 'period_buzz') pending.layers.set(id, true); else pending.ambience = id || null; },
   layer(id, on = true, fade = 1) { if (eng) eng.layer(id, on, fade); else pending.layers.set(id, !!on); },
   stripAmbience(n = 0, fade = 1.5) { eng?.stripAmbience(n, fade); },

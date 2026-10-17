@@ -30,8 +30,8 @@
 //   - 102's board is four 3-wide panels (the art fits ~one roll line per panel). Text variants are
 //     cond objects (CONTENT §4): w1_chalk_102 (DANIEL KOVACH — PRESENT, from ch1_102_rows),
 //     w1_chalk_102_leah, w1_chalk_102_tess_a / _tess_p (by roll1_answered), w1_chalk_102_marcus.
-//   - The office door gate is `chapter >= 1 && no keyring` (chapter 0 = no story context: debug
-//     teleports / map tests); the trigger office_first → ch4.office_enter should set office_open.
+//   - The office door gate is `no keyring` (tests/maps.mjs checks reachability with lock-gated doors
+//     passable); the trigger office_first → ch4.office_enter should set office_open.
 //   - The vanish cond also accepts `flags.ch1_west1_t` (playtime when the party first entered west1),
 //     if a Ch1 script records it, for DESIGN's "≥ 1 room and > 90 s" alternative.
 //
@@ -326,6 +326,8 @@ export default {
       banter: B('[grin] That was me. Retroactively.', '[deadpan] Penn had no mustache. Historically.', '[soft_smile] Suits him.', 0) },
     // front row: Leah · Tess · Marcus (anchors desk_103_* are the aisle cells right below)
     { id: 'w1_desk_103_leah', type: 'desk_student', x: 5, y: 6,
+      // the camcorder-shaped clean rectangle in the dust (DESIGN §12) once she's taken
+      stateWhen: [{ cond: (s) => !!F(s).ch2_leah_taken, state: 'outline' }],
       examine: [
         { cond: (s) => !!F(s).ch2_leah_taken, text: '[sad] A clean rectangle in the dust, where the camcorder sat.' },
         { text: "[n] Carved in the desktop: CLASS OF '84 RULES." },
@@ -656,7 +658,7 @@ export default {
     '31,5': { id: 'w1_cloak_door', label: 'CLOAKROOM' },
     '19,20': { id: 'w1_door_av', label: 'A.V. — SAFETY PATROL' },
     '34,20': { id: 'w1_office_door', type: 'door_glass', state: 'locked', label: 'MAIN OFFICE',
-      lock: (s) => s.chapter >= 1 && !((s.inv && s.inv.keyring) > 0), lockedText: officeDoorText, unlockSfx: 'key_unlock' },
+      lock: (s) => !((s.inv && s.inv.keyring) > 0), lockedText: officeDoorText, unlockSfx: 'key_unlock' },
     '32,24': { id: 'w1_nurse_door', label: 'NURSE' },
     '43,23': { id: 'w1_pa_door', label: 'P.A.' },
     '49,27': { id: 'w1_haupt_door', label: 'PRINCIPAL' },

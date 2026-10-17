@@ -155,11 +155,7 @@ export function installCh6() {
     const s = HW.state;
     if (!s || !map) return;
     const f = s.flags;
-    if (map.id === 'gym' && f.ch6_gym_lights) {
-      banksOn();
-      if (s.chapter === 6 && !f.roll2_done && !HW.chase?.active) later('ch6.locker', { resume: true });
-      else if (s.chapter === 6 && f.roll2_done && !f.ch6_marcus_taken) later('ch6.after_locker', { resume: true });
-    }
+    if (map.id === 'gym' && f.ch6_gym_lights) banksOn();
     if (LEAD(s)) {
       if (map.id === 'east1') later('ch6.lead', {}, { blocking: false });
       else if (map.id === 'gym') later('ch6.gym_arrive', {}, { blocking: false });
@@ -178,9 +174,16 @@ export function installCh6() {
     stash = Object.keys(f).filter((k) => /^seen_(ch6_|ch7_|roll3$)/.test(k) && f[k]);
   });
   HW.game.on('load', () => {
-    if (!stash) return;
-    for (const k of stash) HW.state.flags[k] = true;
-    stash = null;
+    if (stash) {
+      for (const k of stash) HW.state.flags[k] = true;
+      stash = null;
+    }
+    // A reload inside the gym after the lights (the 'locker' / 'roll 2' checkpoints): pick the scene up.
+    const s = HW.state;
+    const f = s?.flags || {};
+    if (HW.map?.id !== 'gym' || s.chapter !== 6 || !f.ch6_gym_lights) return;
+    if (!f.roll2_done) later('ch6.locker', { resume: true });
+    else if (!f.ch6_marcus_taken || !s.inv.denise_photo) later('ch6.after_locker', { resume: true });
   });
   HW.game.on('newGame', () => { stash = null; });
   return true;
@@ -209,7 +212,7 @@ export default {
     if (ch() < 6 || !f.safe_seen_past) {
       if (!f.ch6_portrait_looked) {
         g.set('ch6_portrait_looked');
-        await g.narrate('A small oil of the Colonel in a gilt frame. The same chair, the same sash. Smaller, and somehow closer.');
+        await g.narrate('A small oil of the Colonel in a gilt frame, hanging a little crooked. I lift the edge. Paneling behind it. Nothing.');
       }
       await g.think('worried', "Just a painting. He's watching the door.");
       if (ch() >= 6 && g.inc('ch6_portrait_tries') >= 2 && !f.ch6_safe_hint) await safeHint(g);
@@ -304,7 +307,7 @@ export default {
       await g.wait(2.2);
       await g.say('marcus', 'thoughtful', "You've been weird since August.");
     }
-    const c = await g.choice(['Tell him about Philly', "It's nothing."]);
+    const c = await g.choice(['Tell him about Philly.', "It's nothing."]);
     if (c === 0) {
       g.set('ch6_told_marcus');
       await g.say('tess', 'look_away', 'Mom took a job in Philly. {p} We leave after Christmas.');
@@ -416,9 +419,11 @@ export default {
     if (!replay) {
       await g.cam('denise', { time: 2.4 });
       await g.wait(1.8);
-      await g.narrate('On the bleachers, a girl in a green-and-gold band uniform, a tall hat in her lap. Playing.');
-      await g.wait(0.6);
-    } else await g.cam('denise', { time: 1.0 });
+      await g.narrate('On the bleachers, a girl in a green-and-gold band uniform and a tall plumed hat. Playing.');
+      await g.wait(0.4);
+    }
+    // Wide enough for the three of them.
+    g.cam([14, 12], { time: replay ? 1.0 : 1.4 });
     // Marcus walks to her.
     const toHer = g.walk('marcus', 'beside_denise');
     const tessTo = g.walk('tess', 'tess_mark');
@@ -499,8 +504,9 @@ export default {
     C.anim(null);
     C.face('tess');
     await g.wait(0.5);
-    // Marcus stands up (the ones who stand up).
+    // Marcus stands up (the ones who stand up): off the bench, onto the boards.
     if (m.seat) HW.hiding?.unseatNpc?.(m);
+    g.setPos('marcus', 'beside_denise');
     g.face('marcus', 'tess');
     await g.cam('tess', { time: 0.35 });
     HW.scripts.run('ch6.chase', {}, { blocking: false });
@@ -713,7 +719,7 @@ export default {
     const ghosts = [3, 4, 5, 6].map((x, i) => glassGhost(g, `adair_shower_${i}`, x, 27, 'point_down'));
     await g.wait(1.6);
     if (!replay) {
-      await g.narrate('In every mirror, behind me: the woman from the restroom upstairs. In all four of them. Pointing at the floor.');
+      await g.narrate('In every mirror, behind me: Miss Adair. Four of her. Pointing at the floor.');
     }
     const r = g.state.rollAnswered || 0;
     const at = { x: 4.5 * TILE, y: 27 * TILE };

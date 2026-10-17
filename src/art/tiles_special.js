@@ -48,15 +48,57 @@ export function pitEdges(c, mask) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// railing: iron balusters + top rail, joined per mask, transparent behind (see-through)
+// drop (Integration 2): a neutral open drop for galleries/landings — the pit's geometry without the
+// mine fire: near-black falling to a faint cold gray-blue, a few far-off shapes of a floor below.
+export const DROP_S = 128;
+export function dropTex() {
+  const pb = new PB(DROP_S, DROP_S, 'ink');
+  const g = fbm(DROP_S, DROP_S, [[64, 64, 1], [32, 32, 0.5], [8, 8, 0.2]], 911);
+  shadeField(pb, g, { lo: 0.5, hi: 0.82, color: mixc('night', 'blue_dd', 0.6), steps: 3, step: 0.3 });
+  shadeField(pb, g, { lo: 0.7, hi: 0.9, color: mixc('blue_dd', 'g1', 0.4), steps: 2, step: 0.25 });
+  const r = R('drop');
+  // the floor far below: a faint checker of tiles here and there, and a fallen something
+  for (let i = 0; i < 6; i++) {
+    const x0 = Math.floor(r() * DROP_S), y0 = Math.floor(r() * DROP_S);
+    for (let j = 0; j < 8; j++) for (let k = 0; k < 8; k++) if (((j >> 2) + (k >> 2)) & 1 && g[((y0 + j) % DROP_S) * DROP_S + ((x0 + k) % DROP_S)] > 0.58) pb.tint(x0 + k, y0 + j, 'g2', 0.18);
+  }
+  return pb;
+}
+/** Edge treatment of one drop cell: the floor's cut edge in plain plaster/concrete grays. */
+export function dropEdges(c, mask) {
+  const N = !(mask & 1), E = !(mask & 2), S = !(mask & 4), W = !(mask & 8);
+  const lip = mixc('g3', 'g4', 0.3), face = mixc('g1', 'g2', 0.5), faceD = mixc('ink', 'g1', 0.5);
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    let d = 99;
+    if (N) d = Math.min(d, y); if (S) d = Math.min(d, 15 - y); if (W) d = Math.min(d, x); if (E) d = Math.min(d, 15 - x);
+    if (d < 6 && bay(x, y) < (6 - d) / 6) c.set(x, y, 'ink');
+  }
+  if (N) { // the far edge: the slab's cut face going down into the dark
+    for (let x = 0; x < 16; x++) {
+      c.set(x, 0, lip); c.set(x, 1, lt(face, 0.1));
+      for (let y = 2; y < 6; y++) if (bay(x, y) < (6 - y) / 4.5) c.set(x, y, y < 4 ? face : faceD);
+    }
+  }
+  if (S) { for (let x = 0; x < 16; x++) { c.set(x, 15, lt(lip, 0.08)); c.set(x, 14, 'ink'); } }
+  if (W) { for (let y = 0; y < 16; y++) { c.set(0, y, lip); c.set(1, y, faceD); } }
+  if (E) { for (let y = 0; y < 16; y++) { c.set(15, y, dk(lip, 0.25)); c.set(14, y, 'ink'); } }
+  if (N && W) c.set(0, 0, lt(lip, 0.15));
+}
+
+// ---------------------------------------------------------------------------------------------
+// railing: iron balusters + top rail, joined per mask, transparent behind (see-through).
+// wood = true (tile 'railing_wood', Integration 2): a timber rail — a broad lit handrail, square
+// spindles, chunky posts, worn pale where hands went.
 const IRON = { hi: mixc('g3', 'g4', 0.4), mid: mixc('g1', 'g2', 0.5), dk: mixc('ink', 'g1', 0.4) };
-export function railingCell(mask, clean) {
+const TIMBER = { hi: mixc('maple', 'wood_l', 0.4), mid: mixc('wood', 'wood_d', 0.3), dk: mixc('wood_d', 'brown_dd', 0.5) };
+export function railingCell(mask, clean, wood = false) {
   const c = new PB(16, 18); // 2 extra rows: the cast shadow on the floor to the south
   for (let i = 0; i < c.d.length; i += 4) c.d[i + 3] = 0;
   const N = !!(mask & 1), E = !!(mask & 2), S = !!(mask & 4), W = !!(mask & 8);
   const horiz = E || W || !(N || S);
   const vert = N || S;
-  const iron = clean ? { hi: lt(IRON.hi, 0.1), mid: IRON.mid, dk: IRON.dk } : IRON;
+  const base = wood ? TIMBER : IRON;
+  const iron = clean ? { hi: lt(base.hi, 0.1), mid: base.mid, dk: base.dk } : wood ? { hi: mixc(base.hi, 'g3', 0.2), mid: mixc(base.mid, 'g2', 0.15), dk: base.dk } : base;
   const curb = mixc('g2', 'g3', 0.5);
   const shadow = mixc('ink', 'night', 0.3);
   const shade = (x, y, a) => { const i = c.idx(x, y); if (c.d[i + 3]) return; c.d[i] = 10; c.d[i + 1] = 10; c.d[i + 2] = 15; c.d[i + 3] = a; };
@@ -64,15 +106,17 @@ export function railingCell(mask, clean) {
   if (horiz) {
     // slab nosing the railing stands on
     for (let x = hx0; x <= hx1; x++) { c.set(x, 14, lt(curb, 0.15)); c.set(x, 15, dk(curb, 0.3)); }
-    // balusters
-    for (let x = hx0 + 1; x <= hx1; x += 3) {
+    // balusters (wood: square spindles, wider apart, lit on their west face)
+    for (let x = hx0 + 1; x <= hx1; x += wood ? 4 : 3) {
       for (let y = 5; y <= 13; y++) c.set(x, y, iron.dk);
       c.set(x, 6, iron.mid);
-      if (!clean && ((x * 7) % 5 === 0)) c.set(x, 9, mixc(iron.dk, 'rust', 0.35));
+      if (wood) { for (let y = 6; y <= 12; y++) c.set(x, y, iron.mid); if (x + 1 <= hx1) for (let y = 5; y <= 13; y++) c.set(x + 1, y, iron.dk); }
+      else if (!clean && ((x * 7) % 5 === 0)) c.set(x, 9, mixc(iron.dk, 'rust', 0.35));
       if (!S) { shade(x, 16, 140); shade(x + 1, 17, 90); } // baluster shadows lean south-east
     }
-    // top rail (lit top) and bottom rail
+    // top rail (lit top) and bottom rail; the timber handrail is two rows deep, worn pale on top
     for (let x = hx0; x <= hx1; x++) { c.set(x, 3, iron.hi); c.set(x, 4, iron.dk); c.set(x, 12, iron.mid); c.set(x, 13, iron.dk); }
+    if (wood) for (let x = hx0; x <= hx1; x++) { c.set(x, 2, (x * 5) % 7 === 0 && !clean ? mixc(iron.hi, 'g5', 0.35) : lt(iron.hi, 0.08)); c.set(x, 4, iron.mid); c.set(x, 5, iron.dk); }
     if (!S) for (let x = hx0; x <= hx1; x++) { shade(x, 16, 70); shade(x, 17, 30); }
   }
   if (vert) {
@@ -86,6 +130,7 @@ export function railingCell(mask, clean) {
   const post = (x) => {
     for (let y = 2; y <= 14; y++) { c.set(x, y, iron.mid); c.set(x + 1, y, iron.dk); }
     c.set(x, 1, iron.hi); c.set(x + 1, 1, iron.hi); c.set(x, 2, iron.hi);
+    if (wood) { c.set(x, 0, lt(iron.hi, 0.1)); c.set(x + 1, 0, iron.hi); for (let y = 3; y <= 14; y += 4) c.set(x, y, iron.dk); }
     if (!S) { shade(x + 1, 16, 150); shade(x + 2, 16, 150); shade(x + 2, 17, 90); }
   };
   if (horiz && !vert) { if (!W) post(0); if (!E) post(14); }

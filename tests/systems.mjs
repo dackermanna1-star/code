@@ -72,7 +72,7 @@ try {
     const r = await g.hw(async (H) => {
       await window.__T.fresh();
       const HW = H.HW;
-      const names = ['noise', 'periods', 'colonel', 'patrol', 'basement', 'longhall', 'assembly', 'chase', 'breaker'];
+      const names = ['noise', 'periods', 'colonel', 'patrol', 'basement', 'longhall', 'assembly', 'chase', 'breaker', 'weather', 'ambient'];
       return {
         services: names.filter((n) => HW[n] && HW.game.systems.includes(HW[n])),
         api: ['enable', 'disable', 'start', 'end', 'clockTime', 'onStart', 'onEnd'].filter((k) => typeof HW.periods[k] === 'function'),
@@ -81,7 +81,7 @@ try {
         map: H.map(),
       };
     });
-    T.eq(r.services.length, 9, 'all nine systems registered and exposed on HW');
+    T.eq(r.services.length, 11, 'all eleven systems registered and exposed on HW (incl. weather, ambient)');
     T.eq(r.api.length, 7, 'HW.periods API');
     T.eq(r.colonelApi.length, 13, 'HW.colonel API');
     T.ok(r.chapterSetup && r.map === 'test_ai', 'chapterSetup installed; AI test map loads');
@@ -542,6 +542,53 @@ try {
     T.ok(r.row4 === 1 && r.row === 4, 'sitting in row 4 fires ch7.roll3 (ctx.row = 4)', r);
     T.eq(r.runScan, 'scan', 'running during READ → immediate scan');
     T.eq(r.gameOvers, ['out_of_seat'], 'standing through the scan → caught (out_of_seat)');
+  });
+
+  await T.step('assembly (Integration 2): house lights group on; front-row scene runs exactly once', async () => {
+    const r = await g.hw(async (H) => {
+      const T = window.__T;
+      const HW = H.HW;
+      await T.fresh(7);
+      H.god(true);
+      HW.lighting.setGroup('assembly', null);
+      T.stub('ch7.roll3', async (g2) => { g2.set('roll3_done'); g2.set('roll3_answered', false); });
+      T.stub('ch7.front_danny');
+      HW.state.flags.ch7_started = true;
+      await H.teleport('aud', 'beside_danny');
+      await H.idle();
+      HW.assembly.start({ lectern: 'lectern' });
+      const r = { group: HW.state.lightGroups?.assembly === true, active: HW.assembly.active };
+      const seat = HW.map.prop('aud_seat_beside_danny');
+      r.front = seat?.inst.front;
+      r.deferred = HW.assembly.frontDeferred;
+      // A: roll #3 due — the sit fires it first, then the friend's scene, once.
+      await HW.hiding.sit(seat);
+      await T.until(() => T.count('ch7.front_danny') >= 1, 20);
+      await H.steps(150);
+      await H.idle();
+      r.a = { roll3: T.count('ch7.roll3'), front: T.count('ch7.front_danny'), seated: HW.player.seated?.id };
+      // C: without a script's own front-row hook, the engine default runs it — still once.
+      const set = HW.game._listeners.get('sit');
+      const hooks = [...set].filter((fn) => /ch7\.front_/.test(String(fn)));
+      for (const fn of hooks) set.delete(fn);
+      r.deferredNoHook = HW.assembly.frontDeferred;
+      r.resolved = HW.hiding.sitScriptFor(seat);
+      await HW.hiding.stand();
+      await H.steps(10);
+      await HW.hiding.sit(seat);
+      await T.until(() => T.count('ch7.front_danny') >= 2, 20);
+      await H.steps(150);
+      await H.idle();
+      r.c = { front: T.count('ch7.front_danny') };
+      for (const fn of hooks) set.add(fn);
+      await HW.hiding.stand();
+      HW.assembly.stop();
+      H.god(false);
+      return r;
+    });
+    T.ok(r.group && r.active, "assembly.start() switches the 'assembly' light group on (persisted)", r);
+    T.ok(r.front === 'danny' && r.a.roll3 === 1 && r.a.front === 1 && r.a.seated === 'aud_seat_beside_danny', 'front seat: roll #3 first, then ch7.front_danny exactly once', r);
+    T.ok(r.deferred === true ? r.deferredNoHook === false && r.resolved === 'ch7.front_danny' && r.c.front === 2 : r.c.front === 2, 'front seat without a script hook: the engine default (sitScript) runs it, once', r);
   });
 
   await T.step('long hall: seamless loop, stripped ambience, clocks, voice at loop 4, whistle on running, the pass', async () => {
