@@ -2,7 +2,8 @@
 // pale face, oversized light-wash denim jacket (sleeves pushed up), black tee, black jeans, black
 // high-tops with a white side stripe + white soles, olive bag strap, black Maglite in her right hand.
 import { PAL, mix } from './palette.js';
-import { frontGeom, sideGeom, walkGeom, drawArm, polyPts } from './sprites_human.js';
+import { polyPts, rotateFrame, renderFrame } from './sprites_human.js';
+import { buildHumanSheet } from './sprites_anims.js';
 
 // ---- materials (5-step ramps, dark → light; base tone 2) ------------------------------------------
 export const M = {
@@ -90,7 +91,7 @@ const HEADS = {
     '...hHHLHHHh.',
     '..hHLLLHHHHh',
     '..HLLHHHHHHH',
-    '.hHHHHHHhHHH',
+    '.hHHHHHHHHHH',
     '.HHSSShHHHHH',
     '.SSeSShHHHHH',
     'SSSSSShHHHHh',
@@ -259,11 +260,8 @@ export function aimTorch(g) {
   return g;
 }
 
-export { frontGeom, sideGeom, walkGeom, drawArm };
 
 // ---- sheet ------------------------------------------------------------------------------------------
-import { buildHumanSheet } from './sprites_anims.js';
-import { rotateFrame, seq as SEQ, anim as ANIM, renderFrame } from './sprites_human.js';
 TESS.adjust = aimTorch;
 
 /** Left hand in the jacket pocket (her idle habit). */
@@ -367,14 +365,14 @@ function tessSpecials(anims, X) {
     for (const k of ['near', 'far']) { const L = g.legs[k]; L.knee[0] += 1; L.ankle = [L.knee[0] + 3, L.ankle[1] - 2]; }
     return renderFrame(TESS, g);
   })();
-  const lie = rotateFrame(lyingSrc, -1, 1, 6);
-  const lie2 = rotateFrame(lyingSrc, -1, 1, 7);
+  const lie = rotateFrame(lyingSrc, -1, -4, 7);
+  const lie2 = rotateFrame(lyingSrc, -1, -4, 7);
   const torchOnFloor = (src) => {
     const c = document.createElement('canvas'); c.width = 24; c.height = 32;
     const x = c.getContext('2d'); x.drawImage(src, 0, 0);
-    x.fillStyle = M.torch[0]; x.fillRect(2, 18, 6, 3);
-    x.fillStyle = M.torch[2]; x.fillRect(3, 19, 4, 1);
-    x.fillStyle = M.lens[3]; x.fillRect(2, 19, 1, 1);
+    x.fillStyle = M.torch[0]; x.fillRect(15, 14, 6, 3);
+    x.fillStyle = M.torch[2]; x.fillRect(16, 15, 4, 1);
+    x.fillStyle = M.lens[3]; x.fillRect(15, 15, 1, 1);
     return c;
   };
   anims.collapse = X.anim([R(c0), R(c1), R(c2), lie, torchOnFloor(lie2)], 5, false);

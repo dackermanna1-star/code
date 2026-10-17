@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HALLOWELL — Audio (preview)</title>
+<style>
+  :root { --bg: #0b0b10; --panel: #14141c; --ink: #c4bdb0; --dim: #7d778a; --accent: #e6d188; --hot: #d9a441; --line: #262633; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.35 ui-monospace, Menlo, Consolas, monospace; }
+  #root { padding: 12px 16px 40px; max-width: 1400px; }
+  h1 { font-size: 18px; color: var(--accent); margin: 4px 0 2px; letter-spacing: 0.04em; }
+  h2 { font-size: 13px; color: var(--accent); margin: 16px 0 6px; text-transform: uppercase; letter-spacing: 0.08em; }
+  .sub { color: var(--dim); margin-bottom: 10px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; background: var(--panel); border: 1px solid var(--line); padding: 10px 12px; border-radius: 6px; position: sticky; top: 0; z-index: 2; }
+  .bar label { display: flex; align-items: center; gap: 6px; color: var(--dim); }
+  .bar input[type=range] { width: 110px; accent-color: var(--hot); }
+  .grid { display: flex; flex-wrap: wrap; gap: 5px; }
+  button { background: #1c1c27; color: var(--ink); border: 1px solid #2f2f3f; border-radius: 4px; padding: 5px 8px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--hot); color: #fff; }
+  button.on { background: #3a2c12; border-color: var(--hot); color: var(--accent); }
+  button.big { padding: 8px 14px; font-weight: 600; }
+  #meter { width: 140px; height: 10px; background: #1c1c27; border: 1px solid #2f2f3f; border-radius: 3px; overflow: hidden; }
+  #meter > div { height: 100%; width: 0; background: linear-gradient(90deg, #6b8f4e, #d9a441 70%, #e0533e); }
+  #pad { background: #101018; border: 1px solid var(--line); border-radius: 6px; cursor: crosshair; display: block; }
+  .row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  .note { color: var(--dim); font-size: 12px; max-width: 540px; }
+  #sheet { display: block; }
+  body.qa #root { padding: 0; max-width: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<canvas id="sheet" width="1" height="1"></canvas>
+<script type="module">
+  const qa = new URLSearchParams(location.search).has('qa');
+  if (qa) { document.body.classList.add('qa'); import('./audio_qa.js'); }
+  else import('./audio.js');
+</script>
+</body>
+</html>

@@ -1,11 +1,13 @@
-// Wall textures (tiles agent). Faces look south. Each material is one 256×32 horizontal strip in
+// Wall textures (tiles agent). Faces look south. Each material is one 512×32 horizontal strip in
 // world space — rows 0–15 = face_high, 16–31 = face_low — so the upper and lower faces of a wall
 // are one continuous surface (a stain can run from the ceiling past the chair rail) and adjacent
-// cells tile seamlessly. Tops are a 64×64 toroidal texture (very dark) plus per-mask lips. Under
-// every face_low a 4-px "spill" strip (contact shadow; debris for rubble) is drawn onto the floor.
-import { PB, rgb, mixc, dk, lt, bay, fbm, vnoise, shadeField, speck, crack, lump, R } from './tiles_px.js';
+// cells tile seamlessly (period 32 tiles: wider than the screen). Decay clusters along the wall by
+// a 1-D damage profile — long stretches nearly sound, a few badly gone. Tops are a 64×64 toroidal
+// texture (very dark) plus per-mask lips. Under every face_low a 4-px translucent "spill" strip
+// (contact shadow; debris for rubble) is drawn onto the floor.
+import { PB, rgb, mixc, dk, lt, bay, fbm, shadeField, speck, crack, lump, R } from './tiles_px.js';
 
-export const FW = 256;   // face strip period
+export const FW = 512;   // face strip period
 export const TS = 64;    // top texture period
 
 // ---------------------------------------------------------------------------------------------
@@ -25,15 +27,30 @@ export const MAT = {
 
 // ---------------------------------------------------------------------------------------------
 // shared face elements
+/** 1-D damage profile along the strip (period FW); at(x) in 0..1. */
+function damage1D(seed) {
+  const f = fbm(FW, 1, [[160, 1, 1], [56, 1, 0.55], [20, 1, 0.25]], seed);
+  return (x) => f[((Math.round(x) % FW) + FW) % FW];
+}
+/** Random x preferring damaged stretches. */
+function pickX(r, dmg, power = 2) {
+  for (let k = 0; k < 30; k++) {
+    const x = Math.floor(r() * FW);
+    if (r() < Math.pow(Math.max(0, (dmg(x) - 0.28) / 0.55), power)) return x;
+  }
+  return Math.floor(r() * FW);
+}
 /** Lip at y=0 (the top's front edge catching light) and a dithered ceiling shadow below it. */
 function ceiling(pb, lip, depth = 5, strength = 0.55) {
+  // stepped, not fuzzy: two solid shade rows, then a short ordered-dither fade
   for (let x = 0; x < pb.w; x++) {
     pb.set(x, 0, lip);
     pb.tint(x, 1, 'ink', strength + 0.15);
-    for (let y = 2; y <= depth; y++) {
-      const t = (depth - y + 1) / depth;
-      if (bay(x, y) < t) pb.tint(x, y, 'ink', strength * 0.7);
-      else pb.tint(x, y, 'ink', strength * 0.25 * t);
+    pb.tint(x, 2, 'ink', strength * 0.6);
+    for (let y = 3; y <= depth; y++) {
+      const t = (depth - y + 1) / (depth - 1);
+      pb.tint(x, y, 'ink', strength * 0.18 * t);
+      if (bay(x, y) < t * 0.5) pb.tint(x, y, 'ink', strength * 0.35);
     }
   }
 }
@@ -49,9 +66,10 @@ function blockJoints(pb, y0, y1, t = 0.1, ratio = 0.8) {
   }
 }
 /** Water stains running down from the ceiling: tea-coloured body, darker tide-line rim. */
-function waterStains(pb, r, n, { yMax = 26, color = mixc('mustard_d', 'brown', 0.45), body = 0.18, rim = 0.32 } = {}) {
+function waterStains(pb, r, n, { yMax = 26, color = mixc('mustard_d', 'brown', 0.45), body = 0.18, rim = 0.28, dmg = null } = {}) {
   for (let i = 0; i < n; i++) {
-    const cx = Math.floor(r() * pb.w), w = 4 + r() * 10, len = 6 + r() * (yMax - 6);
+    const cx = dmg ? pickX(r, dmg, 2) : Math.floor(r() * pb.w), sev = dmg ? dmg(cx) : 0.5;
+    const w = 3 + r() * 6 + sev * 10, len = Math.min(yMax, 5 + r() * (yMax - 6) * (0.4 + sev));
     const k = r() * 6.28, kk = r() * 6.28;
     for (let y = 1; y < Math.min(pb.h, len + 3); y++) {
       const prog = y / len;
@@ -94,8 +112,8 @@ function jointCrack(pb, r, x, y, n, dark) {
   for (let i = 0; i < n; i++) {
     if (r() < 0.55) { y += 1; } else { x += r() < 0.7 ? 1 : -1; }
     if (y > 31) break;
-    pb.set(x, y, dark);
-    if (r() < 0.3) pb.tint(x + 1, y, [255, 255, 255], 0.15);
+    pb.tint(x, y, dark, 0.55);
+    if (r() < 0.3) pb.tint(x + 1, y, [255, 255, 255], 0.12);
   }
 }
 /** Darken the bottom few rows (dirt where wall meets floor). */
@@ -105,15 +123,16 @@ function baseGrime(pb, y0, y1, color = mixc('brown_dd', 'ink', 0.4), max = 0.3) 
     for (let x = 0; x < pb.w; x++) if (bay(x, y) < t * 0.9) pb.tint(x, y, color, max * t);
   }
 }
-function scuffs(pb, r, n, y0, y1, color = mixc('ink', 'g1', 0.3)) {
+/** Scuffs (chair backs, shoes) and chips; `dmg` clusters them along the wall. */
+function scuffs(pb, r, n, y0, y1, color = mixc('ink', 'g1', 0.3), dmg = null) {
   for (let i = 0; i < n; i++) {
-    const x = Math.floor(r() * pb.w), y = y0 + Math.floor(r() * (y1 - y0 + 1)), l = 3 + Math.floor(r() * 8);
-    for (let k = 0; k < l; k++) if (r() < 0.8) pb.tint(x + k, y + (k > l / 2 && r() < 0.3 ? 1 : 0), color, 0.35 + r() * 0.2);
+    const x = dmg ? pickX(r, dmg, 1) : Math.floor(r() * pb.w), y = y0 + Math.floor(r() * (y1 - y0 + 1)), l = 3 + Math.floor(r() * 8);
+    for (let k = 0; k < l; k++) if (r() < 0.8) pb.tint(x + k, y + (k > l / 2 && r() < 0.3 ? 1 : 0), color, 0.3 + r() * 0.2);
   }
 }
-function chips(pb, r, n, y0, y1, core, edge = 'ink') {
+function chips(pb, r, n, y0, y1, core, edge = 'ink', dmg = null) {
   for (let i = 0; i < n; i++) {
-    const x = Math.floor(r() * pb.w), y = y0 + Math.floor(r() * (y1 - y0 + 1));
+    const x = dmg ? pickX(r, dmg, 2) : Math.floor(r() * pb.w), y = y0 + Math.floor(r() * (y1 - y0 + 1));
     pb.set(x, y, core); if (r() < 0.6) pb.set(x + 1, y, core);
     pb.tint(x, y - 1, edge, 0.35); pb.tint(x + 2, y, edge, 0.25);
   }
@@ -140,20 +159,26 @@ function plaster(clean) {
   pb.hline(0, 29, FW, lt(base, 0.18)); pb.hline(0, 30, FW, base); pb.hline(0, 31, FW, dk(base, 0.3));
   ceiling(pb, MAT.wall_plaster.lip);
   if (clean) { speck(pb, R('w_plaster_c'), [255, 255, 255], 0.004, 0, 2, FW, 14, 0.12); return pb; }
-  const d = R('w_plaster_decay');
+  const d = R('w_plaster_decay'), dmg = damage1D(209);
   // nicotine: upper wall yellows unevenly, darker near the ceiling
   shadeField(pb, fbm(FW, 32, [[64, 16, 1], [16, 8, 0.6]], 201), { lo: 0.45, hi: 0.8, color: mixc('mustard_d', 'brown', 0.4), steps: 3, step: 0.1, where: (x, y) => y < 16 });
   shadeField(pb, fbm(FW, 32, [[48, 16, 1], [8, 8, 0.5]], 202), { lo: 0.55, hi: 0.85, color: mixc('green_dd', 'ink', 0.4), steps: 2, step: 0.14, where: (x, y) => y > 17 });
-  waterStains(pb, d, 9);
+  waterStains(pb, d, 14, { dmg });
   // peeling: cream flakes reveal old mint paint / bare gray block; green flakes reveal gray
-  for (let i = 0; i < 9; i++) peel(pb, d, Math.floor(d() * FW), 4 + Math.floor(d() * 10), 2 + Math.floor(d() * 4), 1 + Math.floor(d() * 2), d() < 0.6 ? mixc('mint', 'g4', 0.45) : mixc('g4', 'g5', 0.3), lt(CREAM, 0.22), 2, 15);
-  for (let i = 0; i < 6; i++) peel(pb, d, Math.floor(d() * FW), 21 + Math.floor(d() * 6), 1 + Math.floor(d() * 3), 1, mixc('g4', 'g3', 0.4), lt(LGREEN, 0.25), 19, 28);
-  scuffs(pb, d, 40, 20, 28);
-  chips(pb, d, 20, 19, 28, mixc('g4', 'g5', 0.5));
-  for (let i = 0; i < 4; i++) jointCrack(pb, d, Math.floor(d() * FW), 2 + Math.floor(d() * 6), 6 + Math.floor(d() * 12), mixc('ink', 'brown_dd', 0.4));
+  for (let i = 0; i < 20; i++) {
+    const x = pickX(d, dmg, 2.5), sev = dmg(x);
+    peel(pb, d, x, 3 + Math.floor(d() * 11), 1 + Math.floor(d() * 2 + sev * 5), 1 + Math.floor(d() * (1 + sev * 2)), d() < 0.6 ? mixc('mint', 'g4', 0.45) : mixc('g4', 'g5', 0.3), lt(CREAM, 0.22), 2, 15);
+  }
+  for (let i = 0; i < 12; i++) {
+    const x = pickX(d, dmg, 2.5), sev = dmg(x);
+    peel(pb, d, x, 21 + Math.floor(d() * 6), 1 + Math.floor(d() * 2 + sev * 3), 1, mixc('g4', 'g3', 0.4), lt(LGREEN, 0.25), 19, 28);
+  }
+  // scuffs at chair/desk height, chips, stair-step cracks — all heavier where the wall is worst
+  scuffs(pb, d, 70, 20, 28, undefined, dmg);
+  chips(pb, d, 34, 19, 28, mixc('g4', 'g5', 0.5), 'ink', dmg);
+  for (let i = 0; i < 7; i++) jointCrack(pb, d, pickX(d, dmg, 2), 2 + Math.floor(d() * 6), 6 + Math.floor(d() * 14), mixc('ink', 'brown_dd', 0.4));
   baseGrime(pb, 25, 28);
-  // mildew dots low on the wall
-  for (let i = 0; i < 30; i++) pb.tint(Math.floor(d() * FW), 24 + Math.floor(d() * 5), 'green_dd', 0.5);
+  for (let i = 0; i < 60; i++) pb.tint(pickX(d, dmg, 1), 24 + Math.floor(d() * 5), 'green_dd', 0.45); // mildew low on the wall
   return pb;
 }
 
@@ -186,22 +211,23 @@ function brick(clean) {
   speck(pb, r, dk(gran, 0.3), 0.15, 0, 29, FW, 2);
   ceiling(pb, MAT.wall_brick.lip, 4, 0.5);
   if (clean) return pb;
-  const d = R('w_brick_decay');
+  const d = R('w_brick_decay'), dmg = damage1D(219);
   // soot / weather streaks from the top
   shadeField(pb, fbm(FW, 32, [[24, 64, 1], [8, 32, 0.5]], 211), { lo: 0.55, hi: 0.85, color: 'ink', steps: 3, step: 0.12 });
   // efflorescence: salt bloom low on the wall and along mortar
   shadeField(pb, fbm(FW, 32, [[48, 16, 1], [8, 8, 0.6]], 212), { lo: 0.5, hi: 0.8, color: 'g6', steps: 2, step: 0.2, where: (x, y) => y > 14 && y < 28 });
   for (let x = 0; x < FW; x++) for (let y = 3; y < 28; y += 4) if (d() < 0.08) pb.tint(x, y, 'g6', 0.5);
   // spalling: chipped faces show the paler core
-  for (let i = 0; i < 16; i++) {
-    const [bx, by, col] = bricks[Math.floor(d() * bricks.length)];
+  for (let i = 0; i < 34; i++) {
+    let [bx, by, col] = bricks[Math.floor(d() * bricks.length)];
+    if (d() > dmg(bx)) [bx, by, col] = bricks[Math.floor(d() * bricks.length)];
     const sx = bx + Math.floor(d() * 4), w = 2 + Math.floor(d() * 3);
     for (let k = 0; k < w; k++) for (let j = 0; j < 2; j++) pb.set(sx + k, by + j + (d() < 0.5 ? 0 : 1), lt(mixc(col, 'tan', 0.4), 0.08));
     pb.tint(sx, by, 'ink', 0.35); pb.tint(sx + w, by + 1, 'ink', 0.3);
   }
   // eroded mortar
-  for (let i = 0; i < 60; i++) { const x = Math.floor(d() * FW), y = Math.floor(d() * 7) * 4 + 3; pb.set(x, y, mixc('ink', 'brick_d', 0.3)); }
-  for (let i = 0; i < 3; i++) jointCrack(pb, d, Math.floor(d() * FW), 1 + Math.floor(d() * 6), 10 + Math.floor(d() * 14), mixc('ink', 'brick_d', 0.2));
+  for (let i = 0; i < 140; i++) { const x = pickX(d, dmg, 1.5), y = Math.floor(d() * 7) * 4 + 3; pb.set(x, y, mixc('ink', 'brick_d', 0.3)); }
+  for (let i = 0; i < 6; i++) jointCrack(pb, d, pickX(d, dmg, 2), 1 + Math.floor(d() * 6), 10 + Math.floor(d() * 14), mixc('ink', 'brick_d', 0.2));
   // moss on the water table
   for (let x = 0; x < FW; x++) if (d() < 0.25) pb.tint(x, 28 + Math.floor(d() * 2), mixc('green_d', 'green_dd', 0.5), 0.6);
   baseGrime(pb, 24, 27, 'ink', 0.25);
@@ -214,7 +240,7 @@ function tileWall(clean) {
   const plast = mixc(CREAM, 'cream_l', 0.2);
   const field = dk(mixc('mint', 'g6', 0.38), 0.08);
   const band = mixc('green', 'slate_l', 0.4);
-  const grout = mixc('g5', 'g4', 0.5);
+  const grout = mixc(field, 'g4', 0.45);
   pb.rect(0, 0, FW, 9, plast);
   // bullnose cap
   const cap = mixc('green_d', 'slate_l', 0.5);
@@ -229,8 +255,7 @@ function tileWall(clean) {
     const j = (r() - 0.5) * 0.05;
     const c = j > 0 ? lt(base, j) : dk(base, -j);
     pb.rect(x, y, 3, 3, c);
-    pb.set(x, y, lt(c, 0.22)); pb.tint(x + 1, y, [255, 255, 255], 0.08);
-    pb.tint(x + 2, y + 2, 'ink', 0.12);
+    pb.set(x, y, lt(c, 0.16));
   }
   pb.hline(0, 28, FW, dk(grout, 0.1));
   // cove base
@@ -238,29 +263,31 @@ function tileWall(clean) {
   pb.hline(0, 29, FW, lt(cove, 0.2)); pb.hline(0, 30, FW, cove); pb.hline(0, 31, FW, dk(cove, 0.35));
   ceiling(pb, MAT.wall_tile.lip);
   if (clean) return pb;
-  const d = R('w_tile_decay');
+  const d = R('w_tile_decay'), dmg = damage1D(229);
   shadeField(pb, fbm(FW, 32, [[64, 16, 1], [16, 8, 0.6]], 221), { lo: 0.45, hi: 0.8, color: mixc('mustard_d', 'brown', 0.4), steps: 3, step: 0.1, where: (x, y) => y < 8 });
-  waterStains(pb, d, 4, { yMax: 10 });
-  // grout blackens, glaze yellows
+  waterStains(pb, d, 8, { yMax: 10, dmg });
+  // grout blackens in patches (not per pixel: a field), glaze yellows
+  const gf = fbm(FW, 32, [[32, 16, 1], [8, 8, 0.5]], 224);
   for (let y = 12; y < 29; y++) for (let x = 0; x < FW; x++) {
-    if (((x & 3) === 3 || ((y - 12) & 3) === 3) && d() < 0.55) pb.tint(x, y, mixc('ink', 'brown_dd', 0.5), 0.3 + d() * 0.25);
+    const f = gf[y * FW + x] * (0.5 + dmg(x));
+    if (((x & 3) === 3 || ((y - 12) & 3) === 3) && f > 0.45) pb.tint(x, y, mixc('ink', 'brown_dd', 0.5), Math.min(0.45, (f - 0.45) * 1.4));
   }
   shadeField(pb, fbm(FW, 32, [[32, 16, 1], [8, 8, 0.5]], 222), { lo: 0.55, hi: 0.85, color: mixc('mustard_d', 'tan', 0.5), steps: 2, step: 0.13, where: (x, y) => y > 11 });
   // rust runs from old fixture bolts
-  for (let i = 0; i < 6; i++) {
-    const x = Math.floor(d() * FW), y = 12 + Math.floor(d() * 6), l = 4 + Math.floor(d() * 10);
+  for (let i = 0; i < 10; i++) {
+    const x = pickX(d, dmg, 1.5), y = 12 + Math.floor(d() * 6), l = 4 + Math.floor(d() * 10);
     pb.set(x, y, mixc('rust', 'brown_dd', 0.3));
     for (let k = 1; k < l && y + k < 29; k++) pb.tint(x + (k > l / 2 && d() < 0.3 ? 1 : 0), y + k, 'rust', 0.45 * (1 - k / l) + 0.1);
   }
   // cracked and missing tiles
-  for (let i = 0; i < 8; i++) crack(pb, d, d() * FW, 12 + d() * 14, 4 + d() * 8, d() * 6.28, mixc('ink', 'g2', 0.4), { branch: 0.03, wobble: 0.7 });
-  for (let i = 0; i < 9; i++) {
-    const x = Math.floor(d() * (FW / 4)) * 4, y = 12 + Math.floor(d() * 4) * 4;
+  for (let i = 0; i < 12; i++) crack(pb, d, pickX(d, dmg, 2), 12 + d() * 14, 4 + d() * 8, d() * 6.28, 'ink', { tint: 0.5, straight: 3, branch: 0.03, wobble: 0.7 });
+  for (let i = 0; i < 16; i++) {
+    const x = (pickX(d, dmg, 3) >> 2) * 4, y = 12 + Math.floor(d() * 4) * 4;
     pb.rect(x, y, 3, 3, mixc('g3', 'g2', d()));
     pb.hline(x, y, 3, 'ink'); pb.tint(x, y + 1, 'ink', 0.4);
     if (d() < 0.5) pb.set(x + 1, y + 2, 'g4');
   }
-  for (let i = 0; i < 14; i++) pb.tint(Math.floor(d() * FW), 0 + 3 + Math.floor(d() * 5), 'ink', 0.25);
+  for (let i = 0; i < 28; i++) pb.tint(pickX(d, dmg, 1), 3 + Math.floor(d() * 5), 'ink', 0.25);
   baseGrime(pb, 25, 28, mixc('brown_dd', 'ink', 0.4), 0.28);
   return pb;
 }
@@ -296,17 +323,17 @@ function panel(clean) {
   pb.hline(0, 28, FW, dk(w0, 0.2)); pb.hline(0, 29, FW, lt(w1, 0.08)); pb.hline(0, 30, FW, w0); pb.hline(0, 31, FW, dk(w0, 0.45));
   ceiling(pb, MAT.wall_panel.lip, 3, 0.4);
   if (clean) { speck(pb, R('w_panel_c'), [255, 230, 190], 0.01, 0, 5, FW, 24, 0.18); return pb; }
-  const d = R('w_panel_decay');
+  const d = R('w_panel_decay'), dmg = damage1D(239);
   // dust on the ledges, water damage, scratches, split panels
   for (let x = 0; x < FW; x++) { if (d() < 0.6) pb.tint(x, 16, 'g4', 0.3); if (d() < 0.5) pb.tint(x, 2, 'g4', 0.28); if (d() < 0.5) pb.tint(x, 29, 'g4', 0.25); }
-  waterStains(pb, d, 5, { color: mixc('ink', 'brown_dd', 0.5), body: 0.2, rim: 0.3 });
+  waterStains(pb, d, 9, { color: mixc('ink', 'brown_dd', 0.5), body: 0.2, rim: 0.28, dmg });
   shadeField(pb, fbm(FW, 32, [[48, 32, 1], [12, 8, 0.5]], 231), { lo: 0.6, hi: 0.85, color: 'g3', steps: 2, step: 0.12 });
-  for (let i = 0; i < 18; i++) {
-    const x = d() * FW, y = 5 + d() * 22, a = (d() - 0.5) * 1.2, l = 2 + d() * 5;
+  for (let i = 0; i < 36; i++) {
+    const x = pickX(d, dmg, 1), y = 5 + d() * 22, a = (d() - 0.5) * 1.2, l = 2 + d() * 5;
     for (let k = 0; k < l; k++) pb.tint(x + Math.cos(a) * k, y + Math.sin(a) * k, wl, 0.35);
   }
-  for (let i = 0; i < 3; i++) { const x = Math.floor(d() * 16) * 16 + 5 + Math.floor(d() * 6), y0 = d() < 0.5 ? 6 : 20; for (let k = 0; k < 7; k++) pb.set(x + (k > 3 ? 1 : 0), y0 + k, 'ink'); }
-  for (let i = 0; i < 2; i++) { const x = Math.floor(d() * FW); pb.rect(x, 16, 5 + Math.floor(d() * 6), 2, dk(w0, 0.5)); } // lost molding
+  for (let i = 0; i < 5; i++) { const x = (pickX(d, dmg, 3) & ~15) + 5 + Math.floor(d() * 6), y0 = d() < 0.5 ? 6 : 20; for (let k = 0; k < 7; k++) pb.tint(x + (k > 3 ? 1 : 0), y0 + k, 'ink', 0.7); }
+  for (let i = 0; i < 3; i++) { const x = pickX(d, dmg, 3); pb.rect(x, 16, 5 + Math.floor(d() * 6), 2, dk(w0, 0.5)); } // lost molding
   return pb;
 }
 
@@ -331,12 +358,12 @@ function concreteWall(clean) {
   pb.hline(0, 30, FW, dk(c0, 0.25)); pb.hline(0, 31, FW, dk(c0, 0.45));
   ceiling(pb, MAT.wall_concrete.lip, 5, 0.6);
   if (clean) return pb;
-  const d = R('w_conc_decay');
+  const d = R('w_conc_decay'), dmg = damage1D(249);
   // sweating: damp dark patches + drip runs
   shadeField(pb, fbm(FW, 32, [[48, 24, 1], [12, 8, 0.6]], 241), { lo: 0.5, hi: 0.8, color: mixc('blue_dd', 'g1', 0.5), steps: 3, step: 0.13 });
-  for (let i = 0; i < 26; i++) {
-    const x = Math.floor(d() * FW), y = 2 + Math.floor(d() * 10), l = 6 + Math.floor(d() * 18);
-    for (let k = 0; k < l && y + k < 31; k++) pb.tint(x, y + k, mixc('blue_dd', 'ink', 0.5), 0.3 * (1 - k / l) + 0.08);
+  for (let i = 0; i < 34; i++) {
+    const x = pickX(d, dmg, 1), y = 2 + Math.floor(d() * 10), l = 6 + Math.floor(d() * 18);
+    for (let k = 0; k < l && y + k < 31; k++) pb.tint(x, y + k, mixc('blue_dd', 'ink', 0.5), 0.22 * (1 - k / l) + 0.06);
     pb.tint(x, y + l, 'moon', 0.2);
   }
   // rust streaks from tie holes and rebar
@@ -344,13 +371,13 @@ function concreteWall(clean) {
     const l = 4 + Math.floor(d() * 10);
     for (let k = 1; k < l && y + k < 31; k++) pb.tint(x + (d() < 0.2 ? 1 : 0), y + k, 'rust', 0.5 * (1 - k / l) + 0.1);
   }
-  for (let i = 0; i < 3; i++) { // spalled patch with exposed rebar
-    const cx = Math.floor(d() * FW), cy = 6 + Math.floor(d() * 18);
+  for (let i = 0; i < 5; i++) { // spalled patch with exposed rebar
+    const cx = pickX(d, dmg, 3), cy = 6 + Math.floor(d() * 18);
     for (let dy = -2; dy <= 2; dy++) for (let dx = -3; dx <= 3; dx++) if (dx * dx / 9 + dy * dy / 4 <= 1 && d() < 0.9) pb.set(cx + dx, cy + dy, d() < 0.5 ? dk(c0, 0.3) : dk(c0, 0.1));
     pb.hline(cx - 2, cy, 5, mixc('rust', 'brown_dd', 0.4)); pb.hline(cx - 3, cy - 2, 7, dk(c0, 0.45));
   }
   shadeField(pb, fbm(FW, 32, [[32, 16, 1], [6, 6, 0.6]], 242), { lo: 0.62, hi: 0.85, color: 'g6', steps: 2, step: 0.2, where: (x, y) => y > 20 });
-  for (let i = 0; i < 4; i++) crack(pb, d, d() * FW, d() * 20, 8 + d() * 16, 1.2 + (d() - 0.5), mixc('ink', 'g1', 0.3), { branch: 0.06 });
+  for (let i = 0; i < 6; i++) crack(pb, d, pickX(d, dmg, 1), d() * 20, 8 + d() * 14, 1.2 + (d() - 0.5), 'ink', { tint: 0.5, straight: 3, branch: 0.05 });
   baseGrime(pb, 24, 29, mixc('ink', 'brown_dd', 0.3), 0.35);
   return pb;
 }
@@ -383,14 +410,14 @@ function rock(clean) {
     const c = pb.get(x, y);
     if (c[0] < 22 && r() < 0.03) pb.set(x, y, r() < 0.4 ? 'moon_l' : mixc('g3', 'blue_l', 0.3));
   }
-  for (let i = 0; i < 10; i++) crack(pb, r, r() * FW, r() * 30, 5 + r() * 12, r() * 6.28, 'ink', { branch: 0.08, wobble: 0.9 });
+  for (let i = 0; i < 20; i++) crack(pb, r, r() * FW, r() * 30, 5 + r() * 12, r() * 6.28, 'ink', { tint: 0.7, branch: 0.08, wobble: 0.9 });
   // rubble at the foot
   const ramp = ['ink', 'g1', 'g2', mixc('g3', 'tan', 0.2), 'g4'];
-  for (let i = 0; i < 70; i++) lump(pb, r, Math.floor(r() * FW), 29 + Math.floor(r() * 3), 1 + r() * 1.8, 0.8 + r(), ramp);
+  for (let i = 0; i < 140; i++) lump(pb, r, Math.floor(r() * FW), 29 + Math.floor(r() * 3), 1 + r() * 1.8, 0.8 + r(), ramp);
   ceiling(pb, MAT.wall_rock.lip, 6, 0.6);
   if (!clean) {
     shadeField(pb, fbm(FW, 32, [[32, 32, 1], [8, 8, 0.5]], 252), { lo: 0.6, hi: 0.85, color: mixc('blue_dd', 'ink', 0.3), steps: 2, step: 0.18 });
-    for (let i = 0; i < 12; i++) { const x = Math.floor(r() * FW), y = Math.floor(r() * 12), l = 4 + Math.floor(r() * 12); for (let k = 0; k < l; k++) pb.tint(x, y + k, 'moon', 0.08); }
+    for (let i = 0; i < 24; i++) { const x = Math.floor(r() * FW), y = Math.floor(r() * 12), l = 4 + Math.floor(r() * 12); for (let k = 0; k < l; k++) pb.tint(x, y + k, 'moon', 0.08); }
   }
   return pb;
 }
@@ -402,8 +429,8 @@ function marbleWall(clean) {
   const cloud = fbm(FW, 32, [[24, 16, 1], [8, 8, 0.5]], 261);
   shadeField(pb, cloud, { lo: 0.55, hi: 0.85, color: mixc('g5', 'moon', 0.3), steps: 2, step: 0.2 });
   const veins = new PB(FW, 32);
-  for (let i = 0; i < 14; i++) crack(veins, r, r() * FW, r() * 32, 18 + r() * 40, 0.5 + (r() - 0.5) * 1.2, [255, 255, 255], { branch: 0.06, wobble: 0.35 });
-  for (let y = 0; y < 32; y++) for (let x = 0; x < FW; x++) if (veins.alpha(x, y)) { pb.set(x, y, mixc('g4', 'moon', 0.25)); if (bay(x, y) < 0.35) pb.tint(x + 1, y, 'g5', 0.4); }
+  for (let i = 0; i < 18; i++) crack(veins, r, r() * FW, r() * 32, 18 + r() * 40, 0.5 + (r() - 0.5) * 1.2, [255, 255, 255], { branch: 0.04, wobble: 0.3 });
+  for (let y = 0; y < 32; y++) for (let x = 0; x < FW; x++) if (veins.alpha(x, y) && bay(x, y) < 0.85) { pb.tint(x, y, mixc('g4', 'moon', 0.25), 0.55); if (bay(x, y) < 0.3) pb.tint(x + 1, y, 'g5', 0.3); }
   // slab joints: courses at y=4..15 and 16..26, staggered verticals
   const jc = dk(MARBLE_W, 0.3);
   pb.hline(0, 16, FW, jc); pb.hline(0, 17, FW, lt(MARBLE_W, 0.12));
@@ -422,7 +449,7 @@ function marbleWall(clean) {
   if (clean) return pb;
   const d = R('w_marble_decay');
   shadeField(pb, fbm(FW, 32, [[24, 48, 1], [8, 16, 0.5]], 262), { lo: 0.55, hi: 0.85, color: mixc('g2', 'brown_dd', 0.3), steps: 3, step: 0.11 });
-  for (let i = 0; i < 4; i++) crack(pb, d, d() * FW, 4 + d() * 20, 6 + d() * 14, 1.3 + (d() - 0.5), 'ink', { light: 'g5', branch: 0.05 });
+  for (let i = 0; i < 8; i++) crack(pb, d, d() * FW, 4 + d() * 20, 6 + d() * 14, 1.3 + (d() - 0.5), 'ink', { tint: 0.6, straight: 3, light: 'g5', branch: 0.05 });
   baseGrime(pb, 22, 26, mixc('g2', 'ink', 0.4), 0.3);
   return pb;
 }
@@ -468,16 +495,16 @@ function gymWall(clean) {
   pb.hline(0, 29, FW, lt(cove, 0.18)); pb.hline(0, 30, FW, cove); pb.hline(0, 31, FW, dk(cove, 0.35));
   ceiling(pb, MAT.wall_gym.lip, 5, 0.5);
   if (clean) return pb;
-  const d = R('w_gym_decay');
+  const d = R('w_gym_decay'), dmg = damage1D(289);
   shadeField(pb, fbm(FW, 32, [[64, 16, 1], [16, 8, 0.6]], 281), { lo: 0.5, hi: 0.82, color: mixc('mustard_d', 'g3', 0.4), steps: 3, step: 0.1 });
-  waterStains(pb, d, 7);
+  waterStains(pb, d, 12, { dmg });
   // basketball marks: round dark smudges
-  for (let i = 0; i < 26; i++) {
+  for (let i = 0; i < 40; i++) {
     const cx = Math.floor(d() * FW), cy = 3 + Math.floor(d() * 24);
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (Math.abs(dx) + Math.abs(dy) < 2 || d() < 0.4) pb.tint(cx + dx, cy + dy, 'ink', 0.18 + d() * 0.1);
   }
-  for (let i = 0; i < 7; i++) peel(pb, d, Math.floor(d() * FW), 4 + Math.floor(d() * 20), 2 + Math.floor(d() * 3), 1 + Math.floor(d() * 2), mixc('g4', 'g5', 0.4), lt(blk, 0.15), 2, 28);
-  scuffs(pb, d, 30, 23, 28);
+  for (let i = 0; i < 12; i++) { const x = pickX(d, dmg, 2.5); peel(pb, d, x, 4 + Math.floor(d() * 20), 1 + Math.floor(d() * 2 + dmg(x) * 4), 1 + Math.floor(d() * 2), mixc('g4', 'g5', 0.4), lt(blk, 0.15), 2, 28); }
+  scuffs(pb, d, 60, 23, 28, undefined, dmg);
   baseGrime(pb, 25, 28);
   return pb;
 }
@@ -499,7 +526,7 @@ function rubbleInto(pb, r, density, yBias = 0) {
     lump(pb, r, Math.floor(r() * pb.w), Math.floor(yBias + r() * (pb.h - yBias)), rad * (1 + r() * 0.6), rad * (0.6 + r() * 0.4), ramp);
   }
   // lath and a broken beam or two
-  for (let i = 0; i < pb.w / 10; i++) {
+  for (let i = 0; i < pb.w / 12; i++) {
     const x = r() * pb.w, y = yBias + r() * (pb.h - yBias), a = (r() - 0.5) * 2.2, l = 4 + r() * 10;
     for (let k = 0; k < l; k++) { pb.set(x + Math.cos(a) * k, y + Math.sin(a) * k, mixc('wood_l', 'tan', 0.4)); pb.tint(x + Math.cos(a) * k, y + Math.sin(a) * k + 1, 'ink', 0.5); }
   }
@@ -530,9 +557,9 @@ function topTex(mat, clean) {
   const r = R('top_' + mat);
   const base = MAT[mat].top;
   const pb = new PB(TS, TS, base);
-  const n = fbm(TS, TS, [[16, 16, 1], [4, 4, 0.5]], 301 + mat.length);
-  shadeField(pb, n, { lo: 0.55, hi: 0.85, color: lt(base, 0.08), steps: 1, step: 0.7 });
-  shadeField(pb, n.map((v) => 1 - v), { lo: 0.6, hi: 0.85, color: dk(base, 0.3), steps: 1, step: 0.7 });
+  const n = fbm(TS, TS, [[32, 32, 1], [8, 8, 0.4]], 301 + mat.length);
+  shadeField(pb, n, { lo: 0.6, hi: 0.85, color: lt(base, 0.05), steps: 1, step: 0.8 });
+  shadeField(pb, n.map((v) => 1 - v), { lo: 0.62, hi: 0.85, color: dk(base, 0.2), steps: 1, step: 0.8 });
   if (mat === 'wall_brick') {
     for (let y = 0; y < TS; y++) for (let x = 0; x < TS; x++) if ((y & 3) === 3 || (x & 7) === (((y >> 2) & 1) ? 4 : 0)) pb.tint(x, y, 'ink', 0.25);
   } else if (mat === 'wall_rock' || (mat === 'wall_rubble' && !clean)) {
@@ -604,10 +631,9 @@ export function drawWindow(c, kind, clean, variant) {
         const t = (y - 6) / 18;
         col = bay(x, y) < t ? dayBot : dayTop;
       } else {
-        col = GLASS;
-        // faint cold reflection: a diagonal band from the top-left
-        const dd = (x - 3) + (y - 6) * 0.6;
-        if (dd > 2 && dd < 6 && bay(x, y) < 0.5) col = mixc(GLASS, 'blue_l', 0.4);
+        col = y > y1 - 1 ? dk(GLASS, 0.12) : GLASS;
+        // faint cold reflection: one clean diagonal glint per pane
+        if ((x - x0) - (y - y0) === 1 && y > y0 && (x - x0) < 4) col = mixc(GLASS, 'blue_l', 0.45);
         if (y === y0) col = dk(GLASS, 0.35); // frame shadow on the glass
       }
       c.set(x, y, col);
@@ -648,13 +674,17 @@ const MAT_MORTAR = mixc('mortar', 'g3', 0.25);
 // spill strip under face_low: contact shadow (ordered-dither ink, opaque pixels) / rubble spill
 export function genSpill(mat, clean) {
   const pb = new PB(FW, 4);
-  const shadowRows = [0.62, 0.36, 0.14, 0];
-  for (let y = 0; y < 4; y++) for (let x = 0; x < FW; x++) if (bay(x, y) < shadowRows[y]) pb.set(x, y, mixc('ink', 'night', 0.3));
+  const shadowRows = [150, 84, 34, 0]; // alpha: a stepped occlusion band that darkens whatever floor it lands on
+  const sh = rgb('ink');
+  for (let y = 0; y < 3; y++) for (let x = 0; x < FW; x++) {
+    const i = pb.idx(x, y);
+    pb.d[i] = sh[0]; pb.d[i + 1] = sh[1]; pb.d[i + 2] = sh[2]; pb.d[i + 3] = shadowRows[y];
+  }
   if (mat === 'wall_rubble' && !clean) {
     // chunks that rolled off the heap: drawn in a taller buffer so nothing wraps vertically
     const r = R('spill_rubble');
     const tmp = new PB(FW, 16);
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < 140; i++) {
       const ramp = RUBBLE_RAMPS[Math.floor(r() * RUBBLE_RAMPS.length)];
       lump(tmp, r, Math.floor(r() * FW), 4 + Math.floor(r() * 2), 0.8 + r() * 1.3, 0.6 + r() * 0.8, ramp);
     }

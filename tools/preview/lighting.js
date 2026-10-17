@@ -27,6 +27,7 @@ const sfxLog = [];
 HW.settings = { get: (k) => settings[k], values: settings };
 HW.audio = { sfx: (id, o) => { sfxLog.push(`${id}@${Math.round(o?.x ?? 0)},${Math.round(o?.y ?? 0)}`); return { stop() {} }; } };
 HW.time = 0;
+HW.camera = { view: { x: 0, y: 0, w: 480, h: 270 } }; // fx keeps its dust around this view
 const FxSystem = FXM.FxSystem;
 HW.fx = FxSystem ? new FxSystem() : null;
 HW.fx?.init?.();
@@ -42,6 +43,7 @@ export function makeWorld() {
 }
 
 export function panel(src, { label = '', scale = 2, crop = null } = {}) {
+  if (!crop && q.has('crop')) crop = q.get('crop').split(',').map(Number);
   const [sx, sy, sw, sh] = crop || [0, 0, 480, 270];
   const c = document.createElement('canvas');
   c.width = sw * scale;
@@ -70,6 +72,7 @@ const clampCam = (map, x, y) => ({
 function simulate(L, map, { t = 2, tess, period = null, lightningAt = null, each = null, fx = HW.fx } = {}) {
   HW.map = map;
   HW.player = tess ? { x: tess.x, y: tess.y, hidden: null } : null;
+  if (tess) Object.assign(HW.camera.view, clampCam(map, tess.x - 240, tess.y - 150));
   L.onMapLoad(map);
   if (period === 'instant') L.setGroup('period', true, { mode: 'instant' });
   const dt = 1 / 60;
@@ -96,8 +99,8 @@ function setFlashlight(L, tess) {
 }
 
 function frame(L, map, cam, tess, ctx) {
+  Object.assign(HW.camera.view, cam);
   drawScene(ctx, map, cam, tess ? [tess] : []);
-  HW.fx?.renderWorldPre?.(ctx, cam);
   L.render(ctx, cam);
   HW.fx?.renderWorld?.(ctx, cam);
   if (q.get('post') === '1') HW.fx?.renderPost?.(ctx);
@@ -277,9 +280,95 @@ function viewBench() {
   const lights = L.lights.length;
   const msg = `[bench] lighting.render over ${N} frames, ${lights} lights + flashlight: JS avg ${avg(times).toFixed(2)} ms, p50 ${times[N >> 1].toFixed(2)}, p95 ${times[Math.floor(N * 0.95)].toFixed(2)}, max ${times[N - 1].toFixed(2)} | incl. raster flush avg ${avg(tFrame).toFixed(2)} p95 ${tFrame[Math.floor(N * 0.95)].toFixed(2)}`;
   console.log(msg);
+  // FX post: resting look (grain + vignette) vs. the pixel pass (VHS + distort + chroma).
+  const fx = new FxSystem(7);
+  fx.init();
+  const postTimes = (setup) => {
+    const out = [];
+    setup();
+    for (let i = 0; i < 120; i++) {
+      fx.update(1 / 60);
+      const t0 = performance.now();
+      fx.renderPost(x);
+      x.getImageData(0, 0, 1, 1);
+      out.push(performance.now() - t0);
+    }
+    return avg(out);
+  };
+  const rest = postTimes(() => {});
+  const heavy = postTimes(() => { fx.vhs(true); fx.distort(2, 0); fx.chroma(1, 0); });
+  const msg2 = `[bench] fx.renderPost: resting ${rest.toFixed(2)} ms, vhs+distort+chroma ${heavy.toFixed(2)} ms (incl. flush)`;
+  console.log(msg2);
+  info.textContent = `${msg}\n${msg2}`;
+  panel(c, { scale: 1 });
+  window.__bench = { avg: avg(times), p95: times[Math.floor(N * 0.95)], flushAvg: avg(tFrame), postRest: rest, postHeavy: heavy };
+}
+
+/** The shrouded Colonel walking the hall during a period: tubes die around him and recover. */
+function viewShroud() {
+  const map = corridorMap();
+  for (const at of [1.5, 3.2, 4.4, 6.5]) {
+    const L = new LightingSystem();
+    L.init();
+    sfxLog.length = 0;
+    const col = { x: 0, y: 15 * 16 + 12 };
+    HW.colonel = { shrouded: true, entity: col };
+    const tess = { x: 30 * 16, y: 16 * 16, dir: 'left', angle: 180, fl: false, power: 1, flicker: 0 };
+    // He drags east along the hall at ~2 tiles/s (faster than real so the stills cover the hall).
+    simulate(L, map, { t: at, tess, period: 'instant', each: (i, time) => { col.x = 2 * 16 + time * 64; } });
+    const cam = clampCam(map, 0, 6 * 16);
+    const [c, x] = makeWorld();
+    frame(L, map, cam, tess, x);
+    x.fillStyle = '#05060a';
+    x.fillRect(Math.round(col.x - cam.x) - 14, Math.round(col.y - cam.y) - 40, 28, 40);
+    x.fillStyle = '#cfae55';
+    x.fillRect(Math.round(col.x - cam.x) - 3, Math.round(col.y - cam.y) - 26, 1, 1);
+    x.fillRect(Math.round(col.x - cam.x) + 2, Math.round(col.y - cam.y) - 20, 1, 1);
+    panel(c, { label: `Colonel x=${Math.round(col.x / 16)} t=${at}s  sfx: ${sfxLog.join(' ')}`, scale: num('scale', 1) });
+  }
+  HW.colonel = null;
+}
+
+/** lightAt() vs the drawn lightmap, sampled on a grid (away from Tess's self-glow). */
+function viewConsistency() {
+  const map = corridorMap();
+  const L = new LightingSystem();
+  L.init();
+  const tess = { x: 12 * 16 + 8, y: 15 * 16 + 12, dir: 'up', angle: -40, fl: true, power: 1, flicker: 0 };
+  simulate(L, map, { t: 1, tess, period: q.get('period') === '0' ? null : 'instant' });
+  const cam = clampCam(map, 0, 40);
+  const [c, x] = makeWorld();
+  frame(L, map, cam, tess, x);
+  const lm = L._lm.getContext('2d').getImageData(0, 0, L._lm.width, L._lm.height).data;
+  const lmx = cam.x - (cam.x % 2);
+  const lmy = cam.y - (cam.y % 2);
+  let n = 0;
+  let err = 0;
+  let worst = 0;
+  const pairs = [];
+  for (let wy = cam.y + 8; wy < cam.y + 262; wy += 12) {
+    for (let wx = cam.x + 8; wx < cam.x + 472; wx += 12) {
+      if (Math.hypot(wx - tess.x, wy - (tess.y - 5)) < 50) continue; // self-glow is drawn, not counted
+      const i = (Math.floor((wy - lmy) / 2) * L._lm.width + Math.floor((wx - lmx) / 2)) * 4;
+      const drawn = Math.min(1, (0.2126 * lm[i] + 0.7152 * lm[i + 1] + 0.0722 * lm[i + 2]) / 255);
+      const est = L.lightAt(wx, wy);
+      const e = Math.abs(drawn - est);
+      err += e;
+      if (e > worst) { worst = e; window.__worst = { wx, wy, drawn, est }; }
+      n++;
+      pairs.push([drawn, est]);
+    }
+  }
+  const mean = (a) => a.reduce((s, v) => s + v, 0) / a.length;
+  const md = mean(pairs.map((p) => p[0]));
+  const me = mean(pairs.map((p) => p[1]));
+  const cov = mean(pairs.map((p) => (p[0] - md) * (p[1] - me)));
+  const sd = Math.sqrt(mean(pairs.map((p) => (p[0] - md) ** 2)));
+  const se = Math.sqrt(mean(pairs.map((p) => (p[1] - me) ** 2)));
+  const msg = `[consistency] ${n} points: mean |drawn - lightAt| ${(err / n).toFixed(3)}, worst ${worst.toFixed(3)}, correlation ${(cov / (sd * se)).toFixed(3)}`;
+  console.log(msg, JSON.stringify(window.__worst));
   info.textContent = msg;
   panel(c, { scale: 1 });
-  window.__bench = { avg: avg(times), p95: times[Math.floor(N * 0.95)], flushAvg: avg(tFrame) };
 }
 
 function viewLive() {
@@ -336,7 +425,7 @@ function viewLive() {
 
 const VIEWS = {
   corridor: viewCorridor, angles: viewAngles, presets: viewPresets, exterior: viewExterior, lightning: viewLightning,
-  stutter: viewStutter, doors: viewDoors, bench: viewBench, live: viewLive,
+  stutter: viewStutter, doors: viewDoors, bench: viewBench, live: viewLive, consistency: viewConsistency, shroud: viewShroud,
   fx: () => fxGallery({ makeWorld, panel, q, info }), post: () => postGallery({ makeWorld, panel, q, info }),
 };
 

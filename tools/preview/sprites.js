@@ -5,7 +5,7 @@
 //   focus  — chosen anims for chosen ids at a big scale (iteration)
 import { initSprites, getSprite } from '../../src/art/sprites.js';
 import { SPRITE_IDS } from '../../src/data/chars.js';
-import { PAL, mix, darken } from '../../src/art/palette.js';
+import { PAL, mix } from '../../src/art/palette.js';
 
 const q = new URLSearchParams(location.search);
 const sheet = q.get('sheet') || 'all';
@@ -24,7 +24,7 @@ function label(x, t, dx, dy, col = '#9c9897') { x.fillStyle = col; x.font = '11p
 
 /** Linoleum checker (classroom tan/green) lit by a soft warm pool, crisp + dithered. */
 function lino(x, x0, y0, w, h, s, lit = true) {
-  const A = mix(PAL.cream_d, PAL.tan, 0.35), B = mix(PAL.green_d, PAL.green, 0.45);
+  const A = mix(mix(PAL.cream_d, PAL.tan, 0.35), PAL.green_d, 0.25), B = mix(PAL.green_d, PAL.green, 0.55);
   for (let ty = 0; ty < h; ty += 8) for (let tx = 0; tx < w; tx += 8) {
     x.fillStyle = ((tx + ty) / 8) % 2 ? A : B;
     x.fillRect(x0 + tx * s, y0 + ty * s, 8 * s, 8 * s);
@@ -32,7 +32,7 @@ function lino(x, x0, y0, w, h, s, lit = true) {
   if (!lit) return;
   // dithered darkness falloff from the centre (the game multiplies darkness the same way)
   const BAY = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
-  x.fillStyle = 'rgba(8,8,14,0.55)';
+  x.fillStyle = 'rgba(8,8,14,0.6)';
   for (let py = 0; py < h; py++) for (let px = 0; px < w; px++) {
     const dx = (px - w / 2) / (w / 2), dy = (py - h / 2) / (h / 1.6);
     const d = Math.min(1, Math.sqrt(dx * dx + dy * dy));
@@ -44,27 +44,30 @@ function charSheet(id, scale = 3) {
   const S = getSprite(id);
   const names = Object.keys(S.anims).filter((n) => !q.get('anims') || q.get('anims').split(',').includes(n));
   const fw = S.fw * scale, fh = S.fh * scale;
-  const maxN = Math.max(...names.map((n) => S.anims[n].frames.length));
+  // long idles reuse canvases: show each unique frame once, label with the full sequence length
+  const uniq = (a) => [...new Set(a.frames)];
+  const maxN = Math.max(...names.map((n) => uniq(S.anims[n]).length));
   const cols = Math.min(maxN, 16);
-  const lw = 118;
+  const lw = 150;
   const rowH = fh + 6;
   let rows = 0;
-  for (const n of names) rows += Math.ceil(S.anims[n].frames.length / cols);
+  for (const n of names) rows += Math.ceil(uniq(S.anims[n]).length / cols);
   h2(`${id}  (${names.length} anims, ${S.fw}×${S.fh}, anchor ${S.ax},${S.ay}) @${scale}×`);
   const x = board(lw + cols * (fw + 4) + 8, rows * rowH + 8);
   let r = 0;
   for (const n of names) {
     const a = S.anims[n];
+    const u = uniq(a);
     label(x, n, 4, 8 + r * rowH + 14);
-    label(x, `${a.frames.length}f ${a.fps}fps${a.loop === false ? ' once' : ''}`, 4, 8 + r * rowH + 28, '#5e5c66');
-    a.frames.forEach((f, i) => {
+    label(x, `${a.frames.length}f${u.length < a.frames.length ? ` (${u.length} uniq)` : ''} ${a.fps}fps${a.loop === false ? ' once' : ''}`, 4, 8 + r * rowH + 28, '#5e5c66');
+    u.forEach((f, i) => {
       const cx = lw + (i % cols) * (fw + 4), cy = 4 + (r + Math.floor(i / cols)) * rowH;
       x.fillStyle = '#1d1d26'; x.fillRect(cx, cy, fw, fh);
       put(x, f, cx, cy, scale);
       // feet anchor tick
       x.fillStyle = '#c8423b'; x.fillRect(cx + S.ax * scale - 1, cy + S.ay * scale, 3, 1);
     });
-    r += Math.ceil(a.frames.length / cols);
+    r += Math.ceil(u.length / cols);
   }
 }
 
@@ -99,7 +102,7 @@ function walkStrips(id = 'tess', s = 4) {
   const S = getSprite(id);
   for (const kind of ['walk', 'run', 'idle']) {
     h2(`${id} ${kind} strips @${s}×`);
-    const x = board(4 * 4 * (S.fw * s + 6) + 40, S.fh * s + 8);
+    const x = board(4 * (4 * (S.fw * s + 6) + 10) + 10, S.fh * s + 8);
     ['down', 'left', 'up', 'right'].forEach((d, k) => {
       const a = S.anims[`${kind}_${d}`];
       if (!a) return;

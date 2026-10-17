@@ -138,18 +138,23 @@ export function nudgeOrigin(grid, x, y, out) {
   let cy = Math.floor(y / TILE);
   let c = at(cx, cy);
   if (c === BLOCK) {
-    // Prefer the cell below (lights are mounted on walls facing the camera), then any neighbour.
-    const order = [[0, 1], [-1, 0], [1, 0], [0, -1], [-1, 1], [1, 1], [-1, -1], [1, -1]];
-    for (const [dx, dy] of order) {
-      if (at(cx + dx, cy + dy) !== BLOCK) {
-        cx += dx;
-        cy += dy;
-        out.x = Math.min(Math.max(x, cx * TILE + 0.5), cx * TILE + TILE - 0.5);
-        out.y = Math.min(Math.max(y, cy * TILE + 0.5), cy * TILE + TILE - 0.5);
-        c = at(cx, cy);
-        break;
+    // Step into the nearest non-block neighbour cell (ties favour the cell below: lights hang on
+    // walls that face the camera).
+    let best = Infinity;
+    let bx = cx;
+    let by = cy;
+    for (let dy = 1; dy >= -1; dy--) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if ((!dx && !dy) || at(cx + dx, cy + dy) === BLOCK) continue;
+        const nx = Math.min(Math.max(x, (cx + dx) * TILE + 0.5), (cx + dx) * TILE + TILE - 0.5);
+        const ny = Math.min(Math.max(y, (cy + dy) * TILE + 0.5), (cy + dy) * TILE + TILE - 0.5);
+        const d = (nx - x) * (nx - x) + (ny - y) * (ny - y);
+        if (d < best - 1e-6) { best = d; bx = cx + dx; by = cy + dy; out.x = nx; out.y = ny; }
       }
     }
+    cx = bx;
+    cy = by;
+    c = at(cx, cy);
   }
   if (c === FACE) {
     let fy = cy;

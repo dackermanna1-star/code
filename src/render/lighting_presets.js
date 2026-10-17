@@ -11,10 +11,10 @@ import { LIGHT_COLORS } from '../art/palette.js';
  *   radius    tiles      intensity 0..1      color hex
  *   shape     'round' | 'tube' (fluorescent: wide, flat-topped ellipse)
  *   flicker   steady curve; flickerAlt is used when the def says `flicker: true` (dying fixtures)
- *   onMode    transition when switched on: 'fade' | 'stutter' | 'bang'
+ *   onMode    transition when switched on: 'fade' | 'stutter' | 'bang'   fade  seconds (default 0.4)
  *   glow      additive halo style drawn over the lit world (null = none)
  *   shadows   cast shadows (default true)
- *   cone      full cone angle in degrees (kind 'cone')
+ *   cone      full cone angle (kind cone): degrees here; defs may give radians (≤ 2π) like flashlight.js
  */
 export const PRESETS = {
   flashlight: { kind: 'cone', color: LIGHT_COLORS.flashlight, radius: 130 / 16, intensity: 1, cone: 55, flicker: 'steady', glow: null },
@@ -31,12 +31,12 @@ export const PRESETS = {
   candle: { kind: 'point', color: LIGHT_COLORS.candle, radius: 2.5, intensity: 0.85, flicker: 'candle', glow: 'flame', jitter: 1 },
   lamp_miner: { kind: 'point', color: LIGHT_COLORS.lamp_miner, radius: 3, intensity: 0.82, flicker: 'oil', glow: 'flame' },
   spot: { kind: 'spot', color: LIGHT_COLORS.spot, radius: 5, disc: 2.1, intensity: 1, flicker: 'steady', shadows: false, onMode: 'bang', glow: 'spot' },
-  streetlamp: { kind: 'point', color: LIGHT_COLORS.streetlamp, radius: 5, intensity: 0.85, flicker: 'steady', flickerAlt: 'sodium', glow: 'lamp', glowDy: -26 },
+  streetlamp: { kind: 'point', color: LIGHT_COLORS.streetlamp, radius: 5.5, intensity: 1, flicker: 'steady', flickerAlt: 'sodium', glow: 'lamp', glowDy: -26 },
   headlights: { kind: 'cone', color: LIGHT_COLORS.headlights, radius: 10, intensity: 0.9, cone: 40, twin: 11, flicker: 'idle', glow: 'headlights' },
   crt: { kind: 'point', color: LIGHT_COLORS.crt, radius: 2, intensity: 0.6, flicker: 'crt', glow: 'crt' },
   led_red: { kind: 'point', color: LIGHT_COLORS.led_red, radius: 1, intensity: 0.7, flicker: 'steady', glow: 'led' },
   mine_fire: { kind: 'point', color: LIGHT_COLORS.mine_fire, radius: 12, intensity: 0.95, flicker: 'mine', glow: null },
-  dawn: { kind: 'ambient', color: LIGHT_COLORS.dawn, radius: 0, intensity: 0.42, flicker: 'steady', glow: null },
+  dawn: { kind: 'ambient', color: LIGHT_COLORS.dawn, radius: 0, intensity: 0.42, flicker: 'steady', fade: 4, glow: null },
 };
 
 const DEFAULT_PRESET = { kind: 'point', color: '#ffffff', radius: 3, intensity: 0.8, flicker: 'steady', glow: null };
@@ -236,26 +236,37 @@ export function falloffTube(t) {
 
 /** Flashlight cone profile (shared by the texture, lightAt and the beam motes). */
 export const CONE = {
-  /** Angular term: θ = |angle off axis|, h = half-angle (rad). */
+  /** Angular term: θ = |angle off axis|, h = half-angle (rad). Wide, soft shoulders. */
   ang(theta, h) {
-    const inner = h * 0.42;
-    const outer = h * 1.22;
+    const inner = h * 0.28;
+    const outer = h * 1.32;
     if (theta <= inner) return 1;
     if (theta >= outer) return 0;
     const u = 1 - (theta - inner) / (outer - inner);
-    return u * u * (3 - 2 * u);
+    return u * u * u * (u * (u * 6 - 15) + 10); // smootherstep
   },
-  /** Radial term, d = distance / radius. Rises from the hand to the throw, then dies away. */
+  /** Radial term, d = distance / radius. Dimmer at the hand, strongest at the throw, then dies away. */
   rad(d) {
     if (d >= 1) return 0;
-    const rise = 0.62 + 0.38 * Math.min(1, d / 0.24);
+    const rise = 0.5 + 0.5 * Math.min(1, d / 0.3);
     const s = 1 - d;
-    return rise * (0.35 * s + 0.65 * s * s);
+    return rise * (0.3 * s + 0.7 * s * s);
   },
-  /** Hot spot along the axis around a third of the throw. */
+  /** Hot spot along the axis around a third of the throw (where the beam meets the floor). */
   hot(d, theta, h) {
-    const a = theta / (h * 0.55);
-    const r = (d - 0.33) / 0.2;
+    const a = theta / (h * 0.5);
+    const r = (d - 0.36) / 0.19;
     return Math.exp(-(a * a + r * r));
+  },
+  /**
+   * The whole cone (texture, lightAt and beam motes all use this): body + optional hotspot weight
+   * + a small lobe right at the lens so the beam visibly starts at the hand.
+   */
+  value(d, theta, h, hot = 0) {
+    if (d >= 1) return 0;
+    let v = CONE.rad(d) * CONE.ang(theta, h);
+    if (hot) v += hot * CONE.hot(d, theta, h) * (1 - d);
+    if (d < 0.07) v += 0.25 * (1 - d / 0.07) * (theta < Math.PI / 2 ? 1 : 0.3);
+    return v;
   },
 };

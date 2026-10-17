@@ -30,7 +30,8 @@ export function polyPts(pts) {
 // ---- head ---------------------------------------------------------------------------------------
 /** Head template placement: template is centred on the frame's centre line (between cols 11|12). */
 export function drawHead(P, C, h) {
-  const H = C.heads[h.dir] || C.heads.down;
+  // 'right' falls back to the canonical left profile (the painter is already mirrored)
+  const H = C.heads[h.dir] || (h.dir === 'right' ? C.heads.left : null) || C.heads.down;
   const rows = H.rows;
   const w = rows[0].length;
   const x = 12 - (w >> 1) + (h.dx || 0) + (H.ox || 0);

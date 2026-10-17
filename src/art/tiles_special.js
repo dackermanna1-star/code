@@ -1,6 +1,7 @@
 // Special tiles (tiles agent): pit, railing, stage front, door threshold, stairs, standing water.
 // Masks are SAME-KEY neighbour masks from the engine (N1 E2 S4 W8 = neighbour is the same tile).
-import { PB, rgb, mixc, dk, lt, bay, fbm, vnoise, shadeField, speck, crack, lump, R } from './tiles_px.js';
+import { PB, rgb, mixc, dk, lt, bay, fbm, shadeField, speck, R } from './tiles_px.js';
+import { CONC } from './tiles_floors.js';
 
 // ---------------------------------------------------------------------------------------------
 // pit: black, dropping to a faint red glow; floor edge drawn where the neighbour is not pit
@@ -58,6 +59,7 @@ export function railingCell(mask, clean) {
   const iron = clean ? { hi: lt(IRON.hi, 0.1), mid: IRON.mid, dk: IRON.dk } : IRON;
   const curb = mixc('g2', 'g3', 0.5);
   const shadow = mixc('ink', 'night', 0.3);
+  const shade = (x, y, a) => { const i = c.idx(x, y); if (c.d[i + 3]) return; c.d[i] = 10; c.d[i + 1] = 10; c.d[i + 2] = 15; c.d[i + 3] = a; };
   const hx0 = vert ? (W ? 0 : 7) : 0, hx1 = vert ? (E ? 15 : 8) : 15;
   if (horiz) {
     // slab nosing the railing stands on
@@ -66,25 +68,25 @@ export function railingCell(mask, clean) {
     for (let x = hx0 + 1; x <= hx1; x += 3) {
       for (let y = 5; y <= 13; y++) c.set(x, y, iron.dk);
       c.set(x, 6, iron.mid);
-      if (!clean && ((x * 7) % 5 === 0)) c.set(x, 9, mixc('rust', 'g1', 0.4));
-      if (!S) { if (bay(x, 16) < 0.75) c.set(x, 16, shadow); c.set(x + 1, 17, shadow); } // shadows lean south-east
+      if (!clean && ((x * 7) % 5 === 0)) c.set(x, 9, mixc(iron.dk, 'rust', 0.35));
+      if (!S) { shade(x, 16, 140); shade(x + 1, 17, 90); } // baluster shadows lean south-east
     }
     // top rail (lit top) and bottom rail
     for (let x = hx0; x <= hx1; x++) { c.set(x, 3, iron.hi); c.set(x, 4, iron.dk); c.set(x, 12, iron.mid); c.set(x, 13, iron.dk); }
-    if (!S) for (let x = hx0; x <= hx1; x++) if (bay(x, 16) < 0.5) c.set(x, 16, shadow);
+    if (!S) for (let x = hx0; x <= hx1; x++) { shade(x, 16, 70); shade(x, 17, 30); }
   }
   if (vert) {
     const y0 = N ? 0 : 3, y1 = S ? 15 : 13;
     for (let y = y0; y <= y1; y++) { c.set(6, y, lt(curb, 0.1)); c.set(9, y, dk(curb, 0.3)); }
     for (let y = y0; y <= y1; y += 3) { c.set(7, y + 1, iron.dk); c.set(8, y + 1, iron.dk); c.set(8, y + 2, shadow); }
     for (let y = y0; y <= y1; y++) { c.set(7, y, iron.hi); c.set(8, y, iron.mid); }
-    if (!S && !horiz) { c.set(7, 16, shadow); c.set(8, 16, shadow); }
+    if (!S && !horiz) { shade(7, 16, 120); shade(8, 16, 120); shade(9, 17, 60); }
   }
   // newel posts: run ends and corners
   const post = (x) => {
     for (let y = 2; y <= 14; y++) { c.set(x, y, iron.mid); c.set(x + 1, y, iron.dk); }
     c.set(x, 1, iron.hi); c.set(x + 1, 1, iron.hi); c.set(x, 2, iron.hi);
-    if (!S) { c.set(x + 1, 16, shadow); c.set(x + 2, 16, shadow); c.set(x + 2, 17, shadow); }
+    if (!S) { shade(x + 1, 16, 150); shade(x + 2, 16, 150); shade(x + 2, 17, 90); }
   };
   if (horiz && !vert) { if (!W) post(0); if (!E) post(14); }
   if (horiz && vert) post(7);
@@ -118,7 +120,8 @@ export function stageCell(mask, clean, v) {
     for (let i = 0; i < 3; i++) { const x = 3 + Math.floor(r() * 10), y = 7 + Math.floor(r() * 5); c.set(x, y, mixc('wood', 'g3', 0.5)); }
     for (let x = 0; x < 16; x++) if (r() < 0.4) c.tint(x, 0, 'g4', 0.3); // dust on the nosing
   }
-  for (let x = 0; x < 16; x++) for (let y = 16; y < 19; y++) if (bay(x, y) < [0.62, 0.36, 0.14][y - 16]) c.set(x, y, mixc('ink', 'night', 0.3));
+  const sh = rgb('ink'), al = [150, 84, 34];
+  for (let x = 0; x < 16; x++) for (let y = 16; y < 19; y++) { const i = c.idx(x, y); c.d[i] = sh[0]; c.d[i + 1] = sh[1]; c.d[i + 2] = sh[2]; c.d[i + 3] = al[y - 16]; }
   return c;
 }
 
@@ -127,10 +130,10 @@ export function stageCell(mask, clean, v) {
 export const DOOR_S = 64;
 export function doorTex(clean) {
   const r = R('door');
-  const base = mixc('wood_d', 'g1', 0.5);
+  const base = mixc(mixc('wood_d', 'g1', 0.5), 'ink', 0.3);
   const pb = new PB(DOOR_S, DOOR_S, base);
   for (let x = 0; x < DOOR_S; x += 4) {
-    const c = mixc(base, 'wood', r() * 0.3);
+    const c = mixc(base, 'wood_d', r() * 0.35);
     pb.rect(x, 0, 3, DOOR_S, c);
     pb.vline(x + 3, 0, DOOR_S, mixc('ink', base, 0.3));
     pb.vline(x, 0, DOOR_S, lt(c, 0.06));
@@ -153,79 +156,96 @@ export function doorJambs(c, mask) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// stairs (2 steps per tile; runs of cells tile seamlessly). up: lit treads + risers facing you,
-// nosing at the riser top. down: treads falling away north into the dark, no risers.
-export function stairsCell(dir, clean, v) {
+// stairs (2 steps per tile; runs of cells tile seamlessly; flights read north = away from camera)
+//   up:   tread (lit) → bright nosing → riser facing you (darker toward its foot)
+//   down: a black drop line → bright nosing → tread falling away; the whole flight a value darker
+export function stairsCell(dir, clean, v, sides = 0) {
   const r = R(`stairs_${dir}_${v}_${clean ? 1 : 0}`);
   const c = new PB(16, 16);
-  const tread = mixc(mixc('g4', 'cream_d', 0.2), 'g3', 0.2);
-  const riser = mixc('g2', 'g3', 0.4);
-  const nose = mixc('g5', 'g6', 0.3);
+  const tread = mixc(mixc('g4', 'cream_d', 0.25), 'g3', 0.15);
+  const riser = mixc('g2', 'g3', 0.35);
+  const nose = mixc('g5', 'g6', 0.4);
+  const n = (x, y, col) => c.set(x, y, col);
   for (let s = 0; s < 2; s++) {
     const y0 = s * 8;
-    if (dir === 'up') {
-      for (let x = 0; x < 16; x++) {
-        c.set(x, y0, dk(tread, 0.12)); // back of the tread, under the next riser's lip
-        for (let y = 1; y < 4; y++) c.set(x, y0 + y, tread);
-        c.set(x, y0 + 4, nose); c.set(x, y0 + 5, dk(nose, 0.25));
-        c.set(x, y0 + 6, riser); c.set(x, y0 + 7, dk(riser, 0.3));
-      }
-      if (!clean) for (let x = 4; x < 12; x++) if (bay(x, y0 + 2) < 0.5) c.tint(x, y0 + 2, [255, 255, 255], 0.1); // worn centre
-    } else {
-      for (let x = 0; x < 16; x++) {
-        c.set(x, y0, 'ink'); c.set(x, y0 + 1, mixc('ink', riser, 0.4)); // the drop beyond each nosing
-        c.set(x, y0 + 2, dk(tread, 0.5));
-        for (let y = 3; y < 7; y++) c.set(x, y0 + y, bay(x, y0 + y) < (7 - y) / 5 ? dk(tread, 0.35) : dk(tread, 0.12));
-        c.set(x, y0 + 7, nose);
+    for (let x = 0; x < 16; x++) {
+      if (dir === 'up') {
+        n(x, y0, dk(riser, 0.25));                       // crease where the tread meets the next riser
+        n(x, y0 + 1, dk(tread, 0.06)); n(x, y0 + 2, tread); n(x, y0 + 3, lt(tread, 0.08));
+        n(x, y0 + 4, nose);                              // nosing catches the light
+        n(x, y0 + 5, lt(riser, 0.18)); n(x, y0 + 6, riser); n(x, y0 + 7, dk(riser, 0.35)); // riser faces you
+      } else {
+        const tr = dk(tread, 0.45);
+        n(x, y0, 'ink'); n(x, y0 + 1, mixc('ink', 'night', 0.5)); // the drop beyond the nosing
+        n(x, y0 + 2, dk(nose, 0.25));
+        n(x, y0 + 3, lt(tr, 0.1)); n(x, y0 + 4, tr);
+        n(x, y0 + 5, bay(x, y0 + 5) < 0.5 ? dk(tr, 0.2) : tr);
+        n(x, y0 + 6, dk(tr, 0.25)); n(x, y0 + 7, bay(x, y0 + 7) < 0.5 ? dk(tr, 0.5) : dk(tr, 0.35));
       }
     }
+    for (let x = 2; x < 16; x += 4) n(x, y0 + (dir === 'up' ? 4 : 2), lt(nose, dir === 'up' ? 0.3 : 0.05)); // steel studs
+    if (!clean) {
+      // feet wore the middle of every tread pale; grit collects at the ends; kick marks on risers
+      const ty = y0 + (dir === 'up' ? 2 : 4);
+      for (let x = 4; x < 12; x++) if (bay(x, ty) < 0.55) c.tint(x, ty, [255, 255, 255], dir === 'up' ? 0.1 : 0.06);
+      for (const x of [0, 1, 14, 15]) c.tint(x, y0 + (dir === 'up' ? 3 : 6), 'ink', 0.3);
+      if (dir === 'up') for (let k = 0; k < 3; k++) c.tint(2 + Math.floor(r() * 12), y0 + 6 + (r() < 0.5 ? 1 : 0), 'ink', 0.35);
+    }
   }
-  // metal nosing studs
-  for (let s = 0; s < 2; s++) for (let x = 2; x < 16; x += 4) c.set(x, s * 8 + (dir === 'up' ? 4 : 7), lt(nose, 0.25));
   if (!clean) {
-    for (let i = 0; i < 4; i++) { const x = Math.floor(r() * 16), y = Math.floor(r() * 16); c.tint(x, y, 'ink', 0.35); }
-    if (v % 5 === 1) { const x = 2 + Math.floor(r() * 10), y = dir === 'up' ? 1 + (r() < 0.5 ? 0 : 8) : 4 + (r() < 0.5 ? 0 : 8); c.set(x, y, 'g6'); c.set(x + 1, y, 'g5'); } // paper scrap
-    if (v % 5 === 3) { const x = 3 + Math.floor(r() * 10); c.set(x, dir === 'up' ? 4 : 7, 'g2'); c.set(x + 1, dir === 'up' ? 4 : 7, 'g2'); } // chipped nosing
-    for (let x = 0; x < 16; x++) if (r() < 0.2) c.tint(x, 0, 'g4', 0.2);
+    for (let i = 0; i < 3; i++) c.tint(Math.floor(r() * 16), Math.floor(r() * 16), 'ink', 0.3);
+    if (v % 5 === 1) { const x = 2 + Math.floor(r() * 10), y = (dir === 'up' ? 2 : 4) + (r() < 0.5 ? 0 : 8); n(x, y, 'g6'); n(x + 1, y, 'g5'); n(x + 1, y + 1, dk(tread, 0.3)); } // paper scrap
+    if (v % 5 === 3) { const x = 3 + Math.floor(r() * 10), y = dir === 'up' ? 4 : 2; n(x, y, 'g2'); n(x + 1, y, 'g2'); } // chipped nosing
   }
+  // optional stringers (engine-supplied same-key mask | 16): dark side walls where the run ends
+  if (sides & 8) for (let y = 0; y < 16; y++) { n(0, y, 'ink'); c.tint(1, y, 'ink', 0.45); }
+  if (sides & 2) for (let y = 0; y < 16; y++) { n(15, y, 'ink'); c.tint(14, y, 'ink', 0.55); }
   return c;
 }
 
 // ---------------------------------------------------------------------------------------------
 // standing water: dark, reflective; frames shimmer (cells are self-contained and seamless)
 export const WATER_FRAMES = 4;
-export function waterCell(v, frame) {
+export function waterCell(v, frame, shore = 0) {
   const r = R(`water_${v}`);
-  const base = mixc('blue_dd', 'ink', 0.3);
+  // a film of black water over the concrete: dark, cold, the floor still faintly there
+  const base = mixc(dk(CONC, 0.55), 'blue_dd', 0.45);
   const c = new PB(16, 16, base);
-  // what lies under the water: a hint of concrete mottle, tile-periodic so cells join
-  const n = vnoise(16, 16, 8, 8, 421 + v);
-  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
-    const f = n[y * 16 + x];
-    if (f > 0.6 && bay(x, y) < (f - 0.6) * 3) c.tint(x, y, mixc('g2', 'blue_d', 0.5), 0.5);
-    if (f < 0.3 && bay(x, y) < (0.3 - f) * 3) c.tint(x, y, 'ink', 0.4);
-  }
-  // reflected light: horizontal glints that drift with the frame
-  const streaks = 2 + (v & 1);
+  // the drowned floor shows through as sparse, organic speckle (no ordered dither: it would grid)
+  for (let i = 0; i < 26; i++) c.tint(Math.floor(r() * 16), Math.floor(r() * 16), mixc(dk(CONC, 0.3), 'blue_d', 0.35), 0.45);
+  for (let i = 0; i < 18; i++) c.tint(Math.floor(r() * 16), Math.floor(r() * 16), 'ink', 0.35);
+  // faint cold sheen: a short darker/lighter ripple pair
+  { const y = 2 + Math.floor(r() * 12), x = Math.floor(r() * 10); for (let k = 0; k < 5; k++) { c.tint(x + k, y, 'ink', 0.25); c.tint(x + k + 1, y + 1, 'blue_d', 0.3); } }
+  // reflected light: at most one or two long horizontal glints, drifting a pixel with the frame
+  const streaks = v % 3 === 0 ? 0 : v % 5 === 1 ? 2 : 1;
   for (let i = 0; i < streaks; i++) {
-    const y = 2 + Math.floor(r() * 12), x0 = 1 + Math.floor(r() * 8), len = 2 + Math.floor(r() * 4);
-    const ph = (frame + i + v) % WATER_FRAMES;
+    const y = 3 + Math.floor(r() * 10), x0 = 2 + Math.floor(r() * 6), len = 3 + Math.floor(r() * 4);
+    const ph = (frame + i * 2 + v) % WATER_FRAMES;
     const dx = [0, 1, 1, 0][ph], dl = [0, 0, -1, 1][ph];
     for (let k = 0; k < len + dl; k++) {
       const x = x0 + dx + k;
       if (x < 1 || x > 14) continue;
-      c.set(x, y, k === 0 || k === len + dl - 1 ? mixc('blue_l', 'blue_d', 0.5) : mixc('moon', 'blue_l', 0.45));
+      const mid = k > 0 && k < len + dl - 1;
+      c.set(x, y, mid && i === 0 ? mixc('blue_l', 'moon', 0.3) : mixc('blue_l', 'blue_d', 0.5));
     }
   }
-  // a slow ring where a drip landed
-  if (v % 3 === 0) {
-    const cx = 4 + Math.floor(r() * 8), cy = 4 + Math.floor(r() * 8), rad = 1 + (frame % WATER_FRAMES) * 0.7;
-    for (let a = 0; a < 6.28; a += 0.4) {
-      const x = Math.round(cx + Math.cos(a) * rad * 1.6), y = Math.round(cy + Math.sin(a) * rad * 0.8);
-      if (x >= 1 && x <= 14 && y >= 1 && y <= 14) c.tint(x, y, 'blue_l', 0.3);
+  // a slow ripple where a drip lands (some cells)
+  if (v % 4 === 1) {
+    const cx = 5 + Math.floor(r() * 6), cy = 5 + Math.floor(r() * 6), rad = 1.5 + (frame % WATER_FRAMES) * 0.8;
+    for (let a = 0.3; a < 3.0; a += 0.45) {
+      const x = Math.round(cx + Math.cos(a + 3.3) * rad * 1.6), y = Math.round(cy + Math.sin(a + 3.3) * rad * 0.7);
+      if (x >= 1 && x <= 14 && y >= 1 && y <= 14) c.tint(x, y, 'blue_l', 0.22);
     }
   }
-  // dark ripple troughs
-  for (let i = 0; i < 2; i++) { const y = 1 + Math.floor(r() * 14), x = 1 + Math.floor(r() * 10); for (let k = 0; k < 4; k++) c.tint(x + k, y, 'ink', 0.4); }
+  // shorelines (only when the engine supplies a valid mask): a damp margin and a dark meniscus
+  if (shore) {
+    const damp = dk(CONC, 0.3);
+    for (let k = 0; k < 16; k++) {
+      if (shore & 1) { if (bay(k, 0) < 0.6) c.set(k, 0, damp); c.tint(k, 1, 'ink', 0.3); }
+      if (shore & 4) { c.set(k, 15, damp); if (bay(k, 14) < 0.5) c.set(k, 14, damp); c.tint(k, 13, mixc('blue_l', 'blue_d', 0.6), 0.25); }
+      if (shore & 8) { if (bay(0, k) < 0.6) c.set(0, k, damp); c.tint(1, k, 'ink', 0.25); }
+      if (shore & 2) { if (bay(15, k) < 0.6) c.set(15, k, damp); c.tint(14, k, 'ink', 0.25); }
+    }
+  }
   return c;
 }

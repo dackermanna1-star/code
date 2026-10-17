@@ -36,11 +36,8 @@ export function coneTexture(coneDeg, color, edge, hot, RT = 80) {
       const d = Math.hypot(dx, dy) / RT;
       const theta = Math.abs(Math.atan2(dy, dx));
       const a = CONE.ang(theta, h);
-      let v = CONE.rad(d) * a;
-      if (hot) v += hot * CONE.hot(d, theta, h) * (1 - d);
-      // Tiny lobe right at the lens so the beam visibly starts at the hand.
-      v += 0.25 * Math.max(0, 1 - d / 0.07) * (theta < Math.PI / 2 ? 1 : 0.3);
-      const m = Math.min(1, a * 1.15);
+      const v = CONE.value(d, theta, h, hot);
+      const m = Math.min(1, a * 1.15); // axis color → rim color
       const i = (y * c.width + x) * 4;
       d8[i] = Math.min(255, v * (r1 + (r0 - r1) * m));
       d8[i + 1] = Math.min(255, v * (g1 + (g0 - g1) * m));

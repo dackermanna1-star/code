@@ -156,20 +156,22 @@ export function speck(pb, r, color, density, x = 0, y = 0, w = pb.w, h = pb.h, t
  * Wandering crack: dark core, optional light lip on the lower-right (light from the top-left),
  * occasional branches. Returns the end point.
  */
-export function crack(pb, r, x, y, len, ang, dark, { light = null, branch = 0.05, wobble = 0.55, depth = 0 } = {}) {
-  let fx = x, fy = y;
+export function crack(pb, r, x, y, len, ang, dark, { light = null, branch = 0.05, wobble = 0.55, depth = 0, tint = 0, straight = 0 } = {}) {
+  let fx = x, fy = y, run = 0;
   for (let i = 0; i < len; i++) {
-    ang += (r() - 0.5) * wobble;
+    // jagged: hold a heading for a few px, then kink (straight > 0), else wander continuously
+    if (straight) { if (--run <= 0) { ang += (r() - 0.5) * wobble * 2.2; run = 2 + Math.floor(r() * straight); } }
+    else ang += (r() - 0.5) * wobble;
     fx += Math.cos(ang); fy += Math.sin(ang);
     const ix = Math.round(fx), iy = Math.round(fy);
-    pb.set(ix, iy, dark);
+    if (tint) pb.tint(ix, iy, dark, tint); else pb.set(ix, iy, dark);
     if (light && r() < 0.45) {
       // lip on the side away from the light: below a flat crack, right of a steep one
-      if (Math.abs(Math.sin(ang)) < 0.7) pb.tint(ix, iy + 1, light, 0.45); else pb.tint(ix + 1, iy, light, 0.45);
+      if (Math.abs(Math.sin(ang)) < 0.7) pb.tint(ix, iy + 1, light, 0.35); else pb.tint(ix + 1, iy, light, 0.35);
     }
     if (depth < 2 && r() < branch) {
-      crack(pb, r, ix, iy, Math.floor(len * (0.25 + r() * 0.3)), ang + (r() < 0.5 ? -1 : 1) * (0.7 + r() * 0.6), dark,
-        { light, branch: branch * 0.5, wobble, depth: depth + 1 });
+      crack(pb, r, ix, iy, Math.floor(len * (0.2 + r() * 0.25)), ang + (r() < 0.5 ? -1 : 1) * (0.6 + r() * 0.6), dark,
+        { light, branch: branch * 0.4, wobble, depth: depth + 1, tint: tint ? tint * 0.85 : 0, straight });
     }
   }
   return [Math.round(fx), Math.round(fy)];

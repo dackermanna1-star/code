@@ -215,7 +215,7 @@ export function trimTail(x, sr, floorDb = -70) {
  *  { to: Hz, tau: s } for a pitch drop, am: fn(t) extra amplitude envelope. */
 export function ring(out, sr, t0, f, amp, t60, opts = {}) {
   const n0 = Math.round(t0 * sr);
-  if (n0 >= out.length || amp === 0) return out;
+  if (n0 >= out.length || amp === 0 || f >= sr * 0.49) return out;
   const len = Math.min(out.length - n0, Math.ceil(Math.min(t60 * 1.2, opts.maxDur || 60) * sr));
   const att = Math.max(1, Math.round((opts.attack || 0) * sr));
   const d = Math.exp(-6.9078 / (t60 * sr));
@@ -462,28 +462,30 @@ export function makeIR(sr, opts, R = new Rand(mulberry32(7))) {
 export function pluckString(sr, f, opts = {}) {
   const R = opts.R || new Rand();
   const dur = opts.dur || 2, out = alloc(sr, dur);
-  const period = sr / f, N = Math.floor(period), frac = period - N;
-  // fractional delay via first-order all-pass tuning
+  // loop delay = N samples + 0.5 (averaging filter) + all-pass fractional delay
+  const D = sr / f - 0.5;
+  let N = Math.floor(D), frac = D - N;
+  if (frac < 0.15) { N -= 1; frac += 1; }
   const apC = (1 - frac) / (1 + frac);
-  const line = new Float32Array(N + 2);
-  const exc = new OnePole(sr, 800 + 9000 * (opts.bright ?? 0.5));
-  for (let i = 0; i < line.length; i++) line[i] = exc.run(R.bi());
-  // pick-position comb on the excitation
+  const line = new Float32Array(N);
+  const exc = new OnePole(sr, 600 + 9000 * (opts.bright ?? 0.5));
+  for (let i = 0; i < N; i++) line[i] = exc.run(R.bi());
+  // pick-position comb on the excitation (plucking near the bridge = brighter, thinner)
   const pk = Math.max(1, Math.round(N * (opts.pick ?? 0.18)));
   const tmp = line.slice();
-  for (let i = 0; i < line.length; i++) line[i] = tmp[i] - (i >= pk ? tmp[i - pk] : 0);
-  const loss = 0.4985 + 0.0014 * (opts.damp ?? 0.6);
-  let idx = 0, apX1 = 0, apY1 = 0, prev = 0;
-  const L = line.length;
+  for (let i = 0; i < N; i++) line[i] = tmp[i] - tmp[(i - pk + N) % N];
+  let mean = 0; for (let i = 0; i < N; i++) mean += line[i]; mean /= N;
+  for (let i = 0; i < N; i++) line[i] -= mean;
+  const loss = 0.990 + 0.0098 * (opts.damp ?? 0.6);
+  let idx = 0, apX1 = 0, apY1 = 0, last = 0;
   for (let i = 0; i < out.length; i++) {
-    const a = line[idx], b = line[(idx + 1) % L];
-    let y = (a + b) * loss + (prev - (a + b) * 0.5) * 0.0; // two-point average low-pass
-    // all-pass fractional tuning
-    const ap = apC * y + apX1 - apC * apY1; apX1 = y; apY1 = ap; y = ap;
-    prev = y;
-    line[idx] = y;
-    idx = (idx + 1) % (N);
-    out[i] = a;
+    const cur = line[idx];
+    const avg = 0.5 * (cur + last) * loss;
+    const ap = apC * avg + apX1 - apC * apY1; apX1 = avg; apY1 = ap;
+    line[idx] = ap;
+    last = cur;
+    out[i] = cur;
+    idx = idx + 1 === N ? 0 : idx + 1;
   }
   return out;
 }
