@@ -128,7 +128,7 @@ export function buildStreet(ctx) {
       [DRIVES[0][0] - 1.5, DRIVES[0][1] + 1.5], [DRIVES[1][0] - 1.5, DRIVES[1][1] + 1.5],
       [GATES.north.x - 3, GATES.north.x + 3], [36, 39], [176, 179], [214, 217], [350, 353], [497, 500], [561, 564], [600, 603],
     ]
-    snowBank(ctx, ROAD.x0, ROAD.z1 + 0.05, ROAD.x1, ROAD.z1 + 1.3, 0.55, { seed: 1702, dirtySide: 'n', gaps: rel(sGaps, ROAD.x0) })
+    snowBank(ctx, ROAD.x0, ROAD.z1 + 0.05, ROAD.x1, ROAD.z1 + 1.3, 0.55, { seed: 1702, dirtySide: 'n', chunks: false, gaps: rel(sGaps, ROAD.x0) })
     // where the plough turned at the Берёзовая corner
     plowedPile(ctx, BER.x0 - 3.8, ROAD.z0 - 3.2, { radius: 2.6, height: 1.9, seed: 1711, buried: 'tire' })
   })
@@ -137,7 +137,7 @@ export function buildStreet(ctx) {
   const W = WALK.line
   nav(ctx, [[24.5, W], [GATES.north.x, W], [GATES.main.x, W], [BER.x0 - 0.3, W]], 'sidewalk')
   nav(ctx, [[BER.x0 - 0.3, W], [BER.x1 + 0.6, W]], 'crossing')
-  nav(ctx, [[BER.x1 + 0.6, W], [150.2, W], [CROSS.boilerDoor, W], [STOP.x - 6, W], [STOP.x - 3.4, WALK.z0 + 0.8], [STOP.x + 3.4, WALK.z0 + 0.8], [STOP.x + 6, W], [CROSS.rail, W], [305, W], [CROSS.warehouse, W], [459, W], [CROSS.substation, W], [615.5, W]], 'sidewalk')
+  nav(ctx, [[BER.x1 + 0.6, W], [150.2, W], [CROSS.boilerDoor, W], [STOP.x - 6.5, W], [STOP.x - 4.5, WALK.z1 + 1.0], [STOP.x + 4.5, WALK.z1 + 1.0], [STOP.x + 6.5, W], [CROSS.rail, W], [305, W], [CROSS.warehouse, W], [459, W], [CROSS.substation, W], [615.5, W]], 'sidewalk')
   nav(ctx, [[GATES.main.x, W], [CROSS.gsk + 1.5, ROAD.z1 - 0.4], [CROSS.gsk, ROAD.z0 - 1.2], [CROSS.gsk, VERGE.fence + 0.6]], 'crossing')
   nav(ctx, [[CROSS.boilerDoor, W], [CROSS.boilerDoor, ROAD.z0 - 1.2], [CROSS.boilerDoor, VERGE.fence + 0.9]], 'crossing')
   nav(ctx, [[CROSS.rail, W], [CROSS.rail, ROAD.z1 - 0.4], ...CROSSING_TRAIL], 'crossing')

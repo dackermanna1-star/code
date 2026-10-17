@@ -27,7 +27,8 @@ import { RAIL, ROAD, WALK, PARK, GATES, PLATFORM, CROSSING, POND, MEMORIAL, ALLE
 ```
 z  0–40   open snow (wrap band). A trodden path leaves the crossing at x 300 and fades north into it.
 z 40–56   RAILWAY: embankment (slopes 0.75, top 1.0 at z 41–55), tracks z 46 (west-bound) / 50 (east-bound),
-          rail top 1.25; catenary poles every 59.2 m (x = 38.8 + k·59.2, both sides, z 42.1 / 53.9);
+          rail top 1.25; catenary poles every 59.2 m (x = 38.8 + k·59.2, both sides, z 42.1 / 53.9; the south
+          pole that would stand on the platform moves to x 243.1);
           platform «Заводская» x 244.5–294.5 (z 51.9–55.9, deck 2.25) with stairs down at its east end;
           level crossing deck x 297–303 (centre 300) with signals; ticket booth (308.6, 53.2).
 z 58.5    fence line: chain-link where no yard fence runs (gaps at the crossing path x 297–303 and x 512–516, 566–571.5)
@@ -137,8 +138,8 @@ No building in this district is enterable (the open garages are walk-in: two in 
 
 ## Nav paths (life package)
 
-- `sidewalk`: the south sidewalk of Заводская at z 145.0 from x 24.5 to 615.5 (a detour in front of the bus
-  stop at z 143.8), a `crossing` over Берёзовая's mouth.
+- `sidewalk`: the south sidewalk of Заводская at z 145.0 from x 24.5 to 615.5 (it swings behind the bus-stop
+  pavilion over a trodden pocket at z 147.5), a `crossing` over Берёзовая's mouth.
 - `crossing`: from the sidewalk over the street to the ГСК gate (x 122.85), the boiler staff door (249.25, meets
   the public `entrance` stub), the warehouse gate (390, meets the public `path` stub at z 136), the substation
   (522), and the way to the level crossing (x 300 → over the tracks → z 40.2).
@@ -148,7 +149,8 @@ No building in this district is enterable (the open garages are walk-in: two in 
   on the avenue's sidewalk nav line at (139.1, 513.2); the east alleys start at x 139.6 opposite
   blocks_west's crossing ends (139.5, 236) and (139.5, 412); a `crossing` (150.2, 325) → (139.6, 325) joins the
   E–W driveway's line.
-- `platform` (ignored by life: walkers stand on terrain): along the platform deck.
+- `platform` (ignored by life: walkers stand on terrain): along the platform deck at z 52.5 (in front of the
+  shelter, which takes the back 2.75 m of the 4 m deck).
 
 ## Registry keys set
 

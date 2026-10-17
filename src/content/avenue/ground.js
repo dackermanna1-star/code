@@ -37,7 +37,8 @@ function paintLawn(ctx, x0, z0, x1, z1, seed) {
   ctx.terrain.apply(x0, z0, x1, z1, (x, z) => {
     const n = fbm2(x * 0.11, z * 0.4, 3, seed)
     const g = valueNoise2(x * 0.9, z * 0.9, seed + 3)
-    let h = n > 0.64 ? 3 : 2
+    // swells only away from the edges, so a lawn meets the walk with a one-voxel step
+    let h = n > 0.64 && Math.min(z - z0, z1 - z) > 0.9 ? 3 : 2
     let mat = g > 0.58 ? fresh : snow
     if (n > 0.7) mat = bank
     // grey spray from passing cars on the side facing the road
@@ -293,7 +294,7 @@ export function raiseBanks(ctx) {
     ]
     for (const [a, b] of SPANS) {
       const gaps = gapsAbs.filter(([g0, g1]) => g1 > a && g0 < b).map(([g0, g1]) => [g0 - a - 0.5, g1 - a - 0.5])
-      snowBank(ctx, a + 0.5, Z.N_CURB + 0.25, b - 0.5, Z.N_CURB + 1.9, 0.7, { dirtySide: 's', gaps, seed: 7 + a })
+      snowBank(ctx, a + 0.5, Z.N_CURB + 0.25, b - 0.5, Z.N_CURB + 1.9, 0.7, { dirtySide: 's', gaps, chunks: false, seed: 7 + a })
     }
   })
   safe('south windrow', () => {
@@ -303,7 +304,7 @@ export function raiseBanks(ctx) {
     ]
     for (const [a, b] of SPANS) {
       const gaps = gapsAbs.filter(([g0, g1]) => g1 > a && g0 < b).map(([g0, g1]) => [g0 - a - 0.5, g1 - a - 0.5])
-      snowBank(ctx, a + 0.5, Z.S_CURB - 1.9, b - 0.5, Z.S_CURB - 0.25, 0.7, { dirtySide: 'n', gaps, seed: 9 + a })
+      snowBank(ctx, a + 0.5, Z.S_CURB - 1.9, b - 0.5, Z.S_CURB - 0.25, 0.7, { dirtySide: 'n', gaps, chunks: false, seed: 9 + a })
     }
   })
   // ridge of ploughed snow along the median (grimy both sides)

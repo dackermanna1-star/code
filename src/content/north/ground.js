@@ -6,7 +6,7 @@
 import { M } from '../../core/materials.js'
 import { fbm2, valueNoise2 } from '../../core/rng.js'
 import { paintRoad, paintPath } from '../base/api.js'
-import { ROAD, WALK, VERGE, BER, DRIVES, RAIL, GSK, BOILER, WAREHOUSE, SUBSTATION, CROSS_PATH, PARK } from './layout.js'
+import { ROAD, WALK, VERGE, BER, DRIVES, RAIL, GSK, BOILER, WAREHOUSE, SUBSTATION, CROSS_PATH, PARK, STOP } from './layout.js'
 
 const inGap = (x, gaps) => gaps.some(([a, b]) => x >= a && x < b)
 
@@ -67,6 +67,8 @@ export function paintStreet(ctx) {
     if (valueNoise2(x * 1.3, z * 1.3, 19) > 0.94) mat = ice
     return { h: 1, mat }
   })
+  // the walk swings round behind the bus-stop pavilion (a trodden pocket on the lawn edge)
+  t.apply(STOP.x - 5.5, WALK.z1 - 0.25, STOP.x + 6.5, WALK.z1 + 2.1, (x, z) => ({ h: 1, mat: valueNoise2(x * 0.9, z * 0.9, 18) > 0.55 ? dirty : packed }))
   // the carriageway (curb rows: the verge shoulder on the north, the sidewalk's first row south)
   paintRoad(ctx, { axis: 'x', x0: ROAD.x0, z0: ROAD.z0, x1: ROAD.x1, z1: ROAD.z1, lanes: ROAD.lanes, laneWidth: 3.4, banks: false, seed: 1381 })
   // no kerb across Берёзовая's mouth or the driveway mouths
@@ -106,18 +108,18 @@ export function paintYards(ctx) {
 /** The trodden way from the street to the crossing and on into the white field north of the line. */
 export const CROSSING_TRAIL = [
   [CROSS_PATH.x - 1.2, ROAD.z0 - 1.5], [CROSS_PATH.x - 0.4, 118], [CROSS_PATH.x + 1.1, 96], [CROSS_PATH.x + 0.2, 74],
-  [CROSS_PATH.x - 0.3, RAIL.fenceZ + 1.5], [CROSS_PATH.x, RAIL.top[1] + 0.6],
+  [CROSS_PATH.x - 0.3, RAIL.fenceZ + 1.5], [CROSS_PATH.x, RAIL.z1 + 1.6],
 ]
-export const NORTH_TRAIL = [[CROSS_PATH.x, RAIL.top[0] - 0.8], [CROSS_PATH.x + 1.5, 34], [CROSS_PATH.x + 4, 26], [CROSS_PATH.x + 5, 18]]
+export const NORTH_TRAIL = [[CROSS_PATH.x, RAIL.z0 + 0.1], [CROSS_PATH.x + 1.5, 34], [CROSS_PATH.x + 4, 26], [CROSS_PATH.x + 5, 18]]
 
 export function paintCrossingPath(ctx) {
   const t = ctx.terrain
   paintPath(ctx, { points: CROSSING_TRAIL, width: 1.5, wobble: 0.5, seed: 41 })
-  // up the embankment slope and over the approach: packed snow ramp at sleeper-top level
-  t.apply(CROSS_PATH.x - 1.2, RAIL.top[1] - 0.25, CROSS_PATH.x + 1.2, RAIL.z1, (x, z) => ({ h: z < RAIL.top[1] ? 4 : 3, mat: M('snow_packed') }))
+  // up the embankment in 0.25 m steps: 0.5 at its foot, 0.75 on the slope, 1.0 on the top
+  t.apply(CROSS_PATH.x - 1.2, RAIL.top[1] - 0.25, CROSS_PATH.x + 1.2, RAIL.z1 + 1.5, (x, z) => ({ h: z < RAIL.top[1] ? 4 : z < RAIL.z1 ? 3 : 2, mat: M('snow_packed') }))
   t.apply(CROSS_PATH.x - 1.0, RAIL.z0, CROSS_PATH.x + 1.0, RAIL.top[0] + 0.25, (x, z) => ({ h: z < RAIL.top[0] ? 3 : 4, mat: M('snow_packed') }))
-  // north of the line: a narrow trodden path through deep snow, dissolving into the whiteout
-  paintPath(ctx, { points: NORTH_TRAIL, width: 1.0, wobble: 0.6, seed: 42 })
+  // north of the line: a narrow trodden track through the deep snow (no step down), into the whiteout
+  for (let i = 0; i < NORTH_TRAIL.length - 1; i++) t.paintLine(NORTH_TRAIL[i][0], NORTH_TRAIL[i][1], NORTH_TRAIL[i + 1][0], NORTH_TRAIL[i + 1][1], 0.9, { mat: M('snow_packed'), height: 0.5 })
   ctx.footprints?.addTrail(NORTH_TRAIL.map(([x, z]) => [x + 0.2, z]), t, 0.6)
   ctx.footprints?.addTrail(CROSSING_TRAIL.map(([x, z]) => [x + 0.25, z]), t, 0.35)
 }

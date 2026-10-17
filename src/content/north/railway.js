@@ -74,25 +74,27 @@ export function buildRailway(ctx) {
   safe('catenary', () => {
     const xs = []
     for (let k = -2; ; k++) { const x = RAIL.poleX0 + k * RAIL.polePitch; if (x > 680) break; if (x > -60) xs.push(x) }
-    for (const x of xs) {
-      // the south pole stands back on the platform's rear edge there (the cantilever still reaches the wire)
+    // south poles: one would stand on the platform deck, so it moves off its west end
+    const xsS = xs.map(x => (x + 0.5 > PLATFORM.x0 - 1 && x + 0.5 < PLATFORM.stairsX + 4 ? PLATFORM.x0 - 1.4 : x + 0.5))
+    xs.forEach((x, i) => {
       world.place('north_cat_pole', { x, z: RAIL.poleN, y: RAIL.bed, rot: 0, tag: 'catenary', seed: (x * 0.013) % 1 })
-      world.place('north_cat_pole', { x: x + 0.5, z: RAIL.poleS, y: RAIL.bed, rot: 2, tag: 'catenary', seed: (x * 0.017) % 1 })
-    }
+      world.place('north_cat_pole', { x: xsS[i], z: RAIL.poleS, y: RAIL.bed, rot: 2, tag: 'catenary', seed: (x * 0.017) % 1 })
+    })
     if (wires) {
       for (const [z, side] of [[zW, -1], [zE, 1]]) {
         const contact = [], messenger = []
         xs.forEach((x, i) => {
           const zig = (i % 2 ? 0.2 : -0.2)
-          contact.push([x + (side > 0 ? 0.5 : 0), RAIL.contactY, z + zig])
-          messenger.push([x + (side > 0 ? 0.5 : 0), RAIL.messengerY, z])
+          const px = side > 0 ? xsS[i] : x
+          contact.push([px, RAIL.contactY, z + zig])
+          messenger.push([px, RAIL.messengerY, z])
         })
         wires.add(contact, { sag: 0.04, color: 0x2a2724 })
         wires.add(messenger, { sag: 0.75, color: 0x1e1d1c })
       }
       // feeder on the pole tops (north side) and an earth wire low on the south poles
       wires.add(xs.map(x => [x, RAIL.bed + 10.1, RAIL.poleN - 0.1]), { sag: 0.9, color: 0x1a1a1c })
-      wires.add(xs.map(x => [x + 0.5, RAIL.bed + 8.0, RAIL.poleS + 0.2]), { sag: 0.7, color: 0x1a1a1c })
+      wires.add(xsS.map(x => [x, RAIL.bed + 8.0, RAIL.poleS + 0.2]), { sag: 0.7, color: 0x1a1a1c })
     }
     out.poleXs = xs
   })
@@ -129,7 +131,7 @@ export function buildRailway(ctx) {
     addNotice(ctx, { x: shX + 3.51, y: top + 1.5, z: PLATFORM.z1 - 0.375, angle: HALF_PI, id: 'notice_vigilance', w: 0.2 })
     // «Выход к ул. Заводской» plate by the stairs
     signs?.add({ x: PLATFORM.stairsX - 3.5, y: top + 0.62, z: PLATFORM.z1 - 0.27, angle: PI, w: 0.9, h: 0.3, ppm: 100, lines: ['Выход к ул. Заводской →'], bg: '#1d3a66', color: '#eee', font: PLAIN_FONT, aged: 0.4, seed: 63 })
-    nav(ctx, [[PLATFORM.x0 + 3, 53.6], [PLATFORM.stairsX - 0.5, 53.6]], 'platform')
+    nav(ctx, [[PLATFORM.x0 + 3, 52.5], [PLATFORM.stairsX - 0.5, 52.5], [PLATFORM.stairsX + 1.5, 53.6]], 'platform')
   })
 
   // ---- ticket booth (closed) east of the path, on the embankment top ---------------------------

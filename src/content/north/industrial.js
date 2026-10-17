@@ -48,6 +48,11 @@ export function buildGarages(ctx) {
       if (opens[i] >= 0) out.lights += 2
       if (i === 0) out.row1 = row
     })
+    // two bare bulbs under cages over the lanes, far apart (one dying)
+    for (const [x, z, a, fl] of [[98.5, 67.8, 0, false], [161.2, 88.3, 0, 'dying']]) {
+      const l = placeStreetLamp(ctx, { x, z, y: 0.25 + 2.85, angle: a, type: 'wall', broken: false, flicker: fl, seed: Math.round(x) })
+      if (l?.light) out.lights++
+    }
     // tags on the end walls facing the gate lane
     addGraffiti(ctx, { x: 190.64, y: 1.4, z: 64.5, angle: HALF_PI, id: 'gr_spartak', h: 0.45 })
     addGraffiti(ctx, { x: 189.0 + 0.02, y: 1.2, z: 85.5, angle: HALF_PI, kind: 'graffiti', seed: 7011, look: 'tag', h: 0.4 })
@@ -201,7 +206,7 @@ export function buildWasteland(ctx) {
     out.pylons = pls
   })
   safe('wasteland', () => {
-    const trail = [[SUBSTATION.x + 0.4, 121.2], [535, 108], [551, 86], [563.5, 68], [568.6, 59.6], [569.5, RAIL.top[1] + 0.3]]
+    const trail = [[SUBSTATION.x + 0.4, 121.2], [527.6, 121.0], [535, 108], [551, 86], [563.5, 68], [568.6, 59.6], [569.5, RAIL.top[1] + 0.3]]
     const avoid = (x, z) => (x > 516 && x < 528 && z > 111 && z < 125) || distToPolyline(x, z, trail) < 1.4 ||
       PYLONS.some(([px, pz]) => Math.hypot(x - px, z - pz) < 4) || Math.hypot(x - LONE_LAMP.x, z - LONE_LAMP.z) < 1.5
     scatterWeeds(ctx, { rect: [463, 60.5, 615, FZ + 0.5], density: 2.4, kinds: { grass: 0.45, burdock: 0.3, tansy: 0.25 }, avoid, seed: 7311 })
@@ -218,7 +223,7 @@ export function buildWasteland(ctx) {
     ctx.world.place('north_drum', { x: 541.5, z: 72.5, rot: 1, tag: 'drum' })
     snowDrift(ctx, 590, 96.4, { side: 's', length: 6, depth: 2.4, height: 0.7, seed: 7313 })
   })
-  nav(ctx, [[SUBSTATION.x, 120.2], [SUBSTATION.x + 0.4, 121.2], [535, 108], [551, 86], [563.5, 68], [568.6, 59.6]], 'trodden')
+  nav(ctx, [[SUBSTATION.x, 120.2], [SUBSTATION.x + 0.4, 121.2], [527.6, 121.0], [535, 108], [551, 86], [563.5, 68], [568.6, 59.6]], 'trodden')
   reg(ctx, 'storySpots', { kind: 'lonely_lamp', x: LONE_LAMP.x, z: LONE_LAMP.z, pkg: 'north' })
   return out
 }

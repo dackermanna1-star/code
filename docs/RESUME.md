@@ -73,6 +73,11 @@ Some of these may already be fixed by the Phase A review passes. Check each befo
 - Block F repeats Block D's layout with its own address (д. 14). It is not a doppelgänger.
 
 ## Working environment gotchas
+
+- Memory: the container has a ~16 GB cgroup limit and each headless Chromium renderer with the full
+  city uses 1–1.3 GB; with 4 agents each running several renders at once the kernel OOM-kills
+  renderers (seen 2026-10-17). Keep SHOT_SLOTS ≤ 3 and avoid loading the whole city when a district
+  with ?only=… suffices.
 - `tools/shot.mjs` renders headless with software WebGL (SwiftShader). A shot takes 10–60 s. A
   machine-wide queue allows 2 concurrent renders (`SHOT_SLOTS`). On a 4-core box, many parallel
   agents rendering at once thrash the CPU.

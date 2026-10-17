@@ -39,8 +39,8 @@ export const ALLEYS = {
 }
 /** Narrow trodden paths (paintPath + footprints) where people cut across. */
 export const TRODDEN = [
-  [[124.5, 408.5], [100, 418], [80, 431], [72.5, 438]],
-  [[GATES.main.x - 3, PARK.z0 + 1], [117, 152], [96, 165], [72, 171]],
+  [[118.8, 403.7], [100, 418], [82, 431], [77.5, 440]],
+  [[130.2, 156], [117, 158.5], [96, 166], [72.2, 171]],
   [ringAt(160), [44, 352], [50, 368], [60.5, 372]],
 ]
 const HILL = { x: 53, z: 401, rx: 9, rz: 10.5, h: 2.4 }
@@ -112,7 +112,9 @@ function alleyEdges(ctx) {
   const bank = M('snow_bank')
   const pathMats = new Set([M('snow_packed'), M('asphalt'), M('snow_dirty'), M('ice')])
   t.apply(PARK.x0 - 4, PARK.z0, PARK.x1, PARK.z1, (x, z, h, mat) => {
-    if (h <= 1 && pathMats.has(mat)) return null
+    if (h <= 1) return null // any paved or trodden surface (paths, the pond ring, the plaza)
+    const pr = Math.hypot((x - POND.x) / POND.rx, (z - POND.z) / POND.rz)
+    if (pr > 1.2 && pr < 1.75) return null // the pond's ring path: no windrow across it
     const d = alleyDist(x, z)
     if (d > 1.3 || d < -0.01) return null
     if (d < 0.5) return { h: Math.min(h, 2), mat: h > 2 ? M('snow') : mat }
@@ -270,7 +272,7 @@ export function buildPark(ctx) {
     signs?.add({ x: g.x - 6.2, y: by + 2.125, z: FENCE.zN + 1.4 - 0.14, angle: PI, w: 3.0, h: 0.72, ppm: 90, lines: ['ПАРК «БЕРЁЗОВАЯ РОЩА»'], bg: '#2b4a3a', color: '#efe9d6', font: SIGN_FONT, aged: 0.45, seed: 6501 })
     signs?.add({ x: g.x - 6.2, y: by + 2.125, z: FENCE.zN + 1.4 + 0.14, angle: 0, w: 3.0, h: 0.72, ppm: 60, lines: ['Правила пользования парком', 'см. на информационном щите'], bg: '#2b4a3a', color: '#d8d2c0', font: PLAIN_FONT, aged: 0.5, seed: 6502 })
     ctx.interactions?.add({ x: g.x - 6.2, y: by + 2.1, z: FENCE.zN + 1.4, size: [3.0, 0.9, 0.9], reach: 3, prompt: { ru: 'Читать', en: 'Read' }, tag: 'notice', onUse(game) { game.ui.showNote({ ru: 'ПАРК «БЕРЁЗОВАЯ РОЩА»\nГУП «Мосзеленхоз» · Управа района «Восточный»\n\nЗапрещается: разводить костры, выгуливать собак без поводка, выходить на лёд пруда, ломать деревья и кустарники.\n\nПарк открыт круглосуточно.', en: '"BIRCH GROVE" PARK\nMoszelenkhoz · Vostochny District Council\n\nIt is forbidden to light fires, walk dogs off the lead, go out on the pond ice, or break trees and shrubs.\n\nThe park is open day and night.', style: 'sign' }) } })
-    placeNoticeBoard(ctx, { x: g.x + 4.8, z: FENCE.zN + 1.6, angle: 0, count: 3, seed: 6503 })
+    placeNoticeBoard(ctx, { x: g.x + 4.2, z: FENCE.zN + 2.6, angle: -HALF_PI, count: 3, seed: 6503 })
     addNotice(ctx, { x: FENCE.x + 0.14, y: 1.3, z: GATES.e412.z - 3.0, angle: HALF_PI, id: 'notice_trees', w: 0.21 })
     addNotice(ctx, { x: FENCE.x + 0.14, y: 1.45, z: GATES.e236.z + 3.1, angle: HALF_PI, kind: 'notice', sub: 'lost', seed: 6505 })
   })
@@ -343,7 +345,7 @@ export function buildPark(ctx) {
       const b = placeBench(ctx, { x: bx, z: bz, angle, type: 'park', snow: kind, seed: 6950 + deg })
       if (story && b) placeStory(ctx, story, { bench: { ...b, angle, type: 'park' }, seed: 6960 })
     }
-    for (const [name, d, side] of [['A', 60, 1], ['A', 140, -1], ['C', 48, 1], ['E', 22, -1], ['H', 30, 1], ['B', 70, -1]]) {
+    for (const [name, d, side] of [['A', 60, 1], ['A', 140, -1], ['C', 48, 1], ['E', 22, 1], ['H', 30, 1], ['B', 70, -1]]) {
       const pts = pathPts(name)
       const p = alongPolyline(pts, d)
       const nx = -p.dz * side, nz = p.dx * side
@@ -356,7 +358,7 @@ export function buildPark(ctx) {
   safe('lanterns', () => {
     const spots = [
       ['A', 12, 1, false], ['A', 48, -1, false], ['A', 86, 1, true], ['A', 120, -1, false], ['A', 152, 1, true],
-      ['B', 24, -1, false], ['B', 68, 1, true], ['B', 112, -1, true], ['B', 150, 1, false],
+      ['B', 24, 1, false], ['B', 68, 1, true], ['B', 112, -1, true], ['B', 150, 1, false],
       ['C', 16, 1, false], ['C', 66, -1, true],
       ['E', 16, -1, false], ['E', 52, 1, false], ['F', 30, 1, true], ['G', 18, -1, false], ['G', 52, 1, false],
       ['H', 28, -1, true], ['H', 62, 1, false], ['J', 20, 1, true],
@@ -408,6 +410,21 @@ export function buildPark(ctx) {
       ((x - HILL.x) / (HILL.rx + 2)) ** 2 + ((z - HILL.z) / (HILL.rz + 2)) ** 2 < 1 ||
       distToPolyline(x, z, SKI) < 1.6 ||
       x > FENCE.x - 2.2 || z < FENCE.zN + 2.2 || z > FENCE.zS - 2.2
+    // the main alley is lined with old lindens (and a few maples) on both sides, like every Soviet park
+    out.avenue = []
+    {
+      const pts = pathPts('A'), L = polylineLength(pts)
+      const busy = [...out.lanterns.map(l => [l.x, l.z]), ...(ctx.registry.benches || []).map(b => [b.x, b.z])]
+      for (let d = 10; d < L - 6; d += 9.2) {
+        const p = alongPolyline(pts, d)
+        for (const side of [-1, 1]) {
+          const x = p.x - p.dz * side * 3.7, z = p.z + p.dx * side * 3.7
+          if (busy.some(([bx, bz]) => Math.hypot(bx - x, bz - z) < 2.2) || x > FENCE.x - 2 || alleyDist(x, z) < 1.8) continue
+          const t = placeTree(ctx, { x, z, species: (Math.round(d) + side) % 5 === 0 ? 'maple:norway' : 'linden', size: 'large', seed: Math.round(d * 13 + side * 7) })
+          if (t) out.avenue.push(t)
+        }
+      }
+    }
     // the birch grove: north-west and south-west, dense, in clumps
     out.grove = [
       ...scatterTrees(ctx, { rect: [26, 151, 94, 300], density: 0.5, species: { 'birch:single': 0.62, 'birch:clump': 0.18, spruce: 0.08, linden: 0.06, rowan: 0.06 }, avoid: keep, minSpacing: 4.2, clump: 0.5, seed: 7301 }),
@@ -427,10 +444,17 @@ export function buildPark(ctx) {
     ]
     // birches leaning over the pond shore
     for (const [x, z, v] of [[112, 312, 2], [50, 304, 7], [46, 349, 1], [108, 354, 0]]) placeTree(ctx, { x, z, species: 'birch', variant: v, seed: x * 11 + z })
+    // snowberry and currant under the trees by the alleys
+    for (const [name, d, side, kind] of [['B', 40, 1, 'snowberry'], ['B', 95, -1, 'currant'], ['C', 30, -1, 'snowberry'], ['E', 40, -1, 'currant'], ['H', 45, -1, 'snowberry'], ['A', 100, 1, 'currant'], ['F', 18, -1, 'snowberry']]) {
+      const pts = pathPts(name)
+      const p = alongPolyline(pts, d)
+      const off = ALLEYS[name].w / 2 + 2.4
+      placeBush(ctx, { x: p.x - p.dz * side * off, z: p.z + p.dx * side * off, kind, seed: d * 3 + side })
+    }
     // lilac by the café and the plaza
     for (const [x, z] of [[94.5, 378.2], [108.6, 377.2], [118.6, 316.2], [118.6, 333.8]]) placeBush(ctx, { x, z, kind: 'lilac', seed: Math.round(x * 7 + z) })
     // crows: on a grove birch near the main alley and the café birch; on the ground by the café bin
-    const all = [...out.grove, ...out.east]
+    const all = [...out.grove, ...out.east, ...out.avenue]
     const near = (x, z) => all.reduce((b, t) => (!b || Math.hypot(t.x - x, t.z - z) < Math.hypot(b.x - x, b.z - z) ? t : b), null)
     const t1 = near(100, 230), t2 = out.cafeTree, t3 = near(60, 420)
     if (t1) addCrows(ctx, { perch: 'tree', tree: t1, count: 4, seed: 7321 })
@@ -442,14 +466,14 @@ export function buildPark(ctx) {
     out.trees = all.length + out.rows.length + 10
   })
   // ---- nav: every alley, the trodden shortcuts --------------------------------------------------------
-  for (const k of Object.keys(ALLEYS)) nav(ctx, ALLEYS[k].pts, 'park')
+  for (const k of Object.keys(ALLEYS)) nav(ctx, pathPts(k), 'park')
   // the pond ring as a walkable loop
   const ring = []
   for (let d = 0; d <= 360; d += 15) ring.push(ringAt(d))
   nav(ctx, ring, 'park')
   TRODDEN.forEach(p => nav(ctx, p, 'trodden'))
-  nav(ctx, [[MEMORIAL.plaza[2], MEMORIAL.z], [MEMORIAL.x + 2.5, MEMORIAL.plaza[1] + 0.8], [MEMORIAL.plaza[0], MEMORIAL.z]], 'park')
-  nav(ctx, [[MEMORIAL.plaza[2], MEMORIAL.z], [MEMORIAL.x + 2.5, MEMORIAL.plaza[3] - 0.8], [MEMORIAL.plaza[0], MEMORIAL.z]], 'park')
+  nav(ctx, [[MEMORIAL.plaza[2], MEMORIAL.z], [MEMORIAL.x + 3.8, MEMORIAL.z - 3.4], [MEMORIAL.x - 4, MEMORIAL.z - 3.4], [MEMORIAL.plaza[0], MEMORIAL.z]], 'park')
+  nav(ctx, [[MEMORIAL.plaza[2], MEMORIAL.z], [MEMORIAL.x + 3.8, MEMORIAL.z + 3.4], [MEMORIAL.x - 4, MEMORIAL.z + 3.4], [MEMORIAL.plaza[0], MEMORIAL.z]], 'park')
   // crossings over Берёзовая meet blocks_west's ends at x 139.5 (z 236 and 412) and the E–W driveway axis
   nav(ctx, [[150.2, GATES.e325.z], [FENCE.x + 0.6, GATES.e325.z]], 'crossing')
   // ---- zones ------------------------------------------------------------------------------------------
