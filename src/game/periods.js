@@ -27,7 +27,8 @@
 //                                       on this map and the chapter's max isn't spent). → bool
 //   notePeek(roomId)                    the Colonel took attendance in a room (early end if Tess sits there)
 //   active (bell → dismissal) · warning · phase ('idle'|'warning'|'active'|'dismissal') · enabled ·
-//   config · timeLeft (s) · count (free periods this chapter) · reportedBy ('kevin' | null)
+//   config · length (s, 0 = open-ended) · timeLeft (s) · count (free periods this chapter) ·
+//   reportedBy ('kevin' | null) · scripted
 //   clockTime() → hours (1.6667 = 1:40): 1:40→1:45 over passing time, 1:45→1:46 during a period,
 //                 1:40 otherwise; + clockBias minutes (the long hall adds a minute per loop).
 //   onWarning(fn) / onStart(fn) / onEnd(fn) → off()   hooks; HW.game also emits 'periodWarning',
@@ -55,11 +56,20 @@ const CLOCK_TYPES = new Set(['clock_hall', 'clock_wall']);
 
 const act = (ch) => (ch <= 2 ? 1 : ch <= 5 ? 2 : 3);
 
-/** Free play: no cutscene, dialogue, document, menu or transfer. */
+/**
+ * Free play: no cutscene, dialogue, document, menu or transfer. Shared by every system, so it is
+ * evaluated once per fixed step (the UI's busy check is not free).
+ */
+const freeMemo = { step: -1, v: false };
 export function inFreePlay() {
   const g = HW.game;
-  if (!g || g.mode !== 'play' || g.transferring || HW.scripts?.blocking) return false;
-  try { return !HW.ui?.isBusy?.(); } catch { return true; }
+  if (!g) return false;
+  if (freeMemo.step === g.steps) return freeMemo.v;
+  let v = g.mode === 'play' && !g.transferring && !HW.scripts?.blocking;
+  if (v) { try { v = !HW.ui?.isBusy?.(); } catch { v = true; } }
+  freeMemo.step = g.steps;
+  freeMemo.v = v;
+  return v;
 }
 
 export const periods = {
@@ -90,6 +100,11 @@ export const periods = {
   get active() { return this.phase === 'active'; },
   get warning() { return this.phase === 'warning'; },
   get scripted() { return !!this._opts?.scripted; },
+
+  /** Length (s) of the running period; 0 when idle or open-ended (scripted). The HUD clock reads it. */
+  get length() {
+    return this.phase === 'active' || this.phase === 'dismissal' ? (this._opts?.length || 0) : 0;
+  },
 
   get timeLeft() {
     if (this.phase === 'warning') return Math.max(0, (this._opts?.countdown ?? COUNTDOWN) - this._t);

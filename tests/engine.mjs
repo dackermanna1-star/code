@@ -426,15 +426,15 @@ try {
     await g.interact();
     const eyes = await g.hw(async (H) => {
       const HW = H.HW;
-      const fakePeriods = !HW.periods;
-      if (fakePeriods) HW.periods = { active: true };
+      const savedPeriods = HW.periods;
+      HW.periods = { active: true };
       HW.input.setVirtual('confirm', true);
       await H.steps(40);
       const during = { shut: HW.player.eyesShut, warp: HW.game.timeWarp };
       HW.input.setVirtual('confirm', false);
       await H.steps(3);
       const after = { shut: HW.player.eyesShut, seated: !!HW.player.seated, warp: HW.game.timeWarp };
-      if (fakePeriods) HW.periods = null;
+      HW.periods = savedPeriods;
       return { during, after, sitTime: HW.player.sitTime };
     });
     T.ok(eyes.during.shut && eyes.during.warp === 4, 'holding Confirm while seated shuts her eyes (×4 time in a period)', eyes);

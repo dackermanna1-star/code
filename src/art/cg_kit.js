@@ -48,9 +48,15 @@ export function shade(rp, v, x, y) {
   return (f - i) > bay(x, y) ? rp[i + 1] : rp[i];
 }
 export const h01 = (x, y, s) => hash2(x | 0, y | 0, s) / 4294967296;
+// value noise on a 256×256 lattice table; each seed reads the table at its own offset (fast: no
+// hashing per sample — the CG builders call this a few million times)
+const NT = new Float32Array(65536);
+for (let i = 0; i < 65536; i++) NT[i] = hash2(i & 255, i >> 8, 1923) / 4294967296;
 export function vnoise(x, y, seed) {
+  const so = Math.imul(seed | 0, 2654435761) >>> 0;
   const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
-  const a = h01(xi, yi, seed), b = h01(xi + 1, yi, seed), c = h01(xi, yi + 1, seed), d = h01(xi + 1, yi + 1, seed);
+  const ix = (xi + so) & 255, iy = (yi + (so >>> 8)) & 255, ix1 = (ix + 1) & 255, iy1 = ((iy + 1) & 255) << 8, iy0 = iy << 8;
+  const a = NT[iy0 + ix], b = NT[iy0 + ix1], c = NT[iy1 + ix], d = NT[iy1 + ix1];
   const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
   return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
 }
@@ -178,8 +184,8 @@ export class Buf {
 export const rgbOfU = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255];
 /** Mix two packed colors (used sparingly — prefer ramps). */
 export function mixU(a, b, t) {
-  const A = rgbOfU(a), B = rgbOfU(b);
-  const r = Math.round(A[0] + (B[0] - A[0]) * t), g = Math.round(A[1] + (B[1] - A[1]) * t), bl = Math.round(A[2] + (B[2] - A[2]) * t);
+  const ar = a & 255, ag = (a >>> 8) & 255, ab = (a >>> 16) & 255;
+  const r = (ar + ((b & 255) - ar) * t + 0.5) | 0, g = (ag + (((b >>> 8) & 255) - ag) * t + 0.5) | 0, bl = (ab + (((b >>> 16) & 255) - ab) * t + 0.5) | 0;
   return ((255 << 24) | (bl << 16) | (g << 8) | r) >>> 0;
 }
 /** Approximate luminance 0..1 of a packed color. */
@@ -406,15 +412,25 @@ export function makeVapor(x0, y0, w, h, hexes) {
       const d = buf.d;
       d.fill(0);
       const px0 = minX * 2, px1 = Math.min(w, maxX * 2 + 2), py0 = minY * 2, py1 = Math.min(h, maxY * 2 + 2);
-      for (let y = py0; y < py1; y++) {
-        const fy = y / 2, j = fy | 0, ty = fy - j, j1 = Math.min(ch - 1, j + 1);
-        for (let x = px0; x < px1; x++) {
-          const fx = x / 2, i = fx | 0, tx = fx - i, i1 = Math.min(cw - 1, i + 1);
+      // walk the half-res cells; skip empty ones whole, fill each live cell's 2×2 pixels bilinearly
+      for (let j = minY; j <= maxY; j++) {
+        const j1 = Math.min(ch - 1, j + 1);
+        for (let i = minX; i <= maxX; i++) {
+          const i1 = Math.min(cw - 1, i + 1);
           const a = dens[j * cw + i], b = dens[j * cw + i1], c = dens[j1 * cw + i], e = dens[j1 * cw + i1];
-          const v = (a + (b - a) * tx + (c - a) * ty + (a - b - c + e) * tx * ty) * gain;
-          if (v <= 0.01) continue;
-          const lv = Math.floor(Math.min(1, v) * n + bay(x + x0, y + y0));
-          if (lv > 0) d[y * w + x] = cols[Math.min(n - 1, lv - 1)];
+          if (a <= 0.01 && b <= 0.01 && c <= 0.01 && e <= 0.01) continue;
+          for (let sy = 0; sy < 2; sy++) {
+            const y = j * 2 + sy; if (y >= h) break;
+            const ty = sy * 0.5;
+            for (let sx = 0; sx < 2; sx++) {
+              const x = i * 2 + sx; if (x >= w) break;
+              const tx = sx * 0.5;
+              const v = (a + (b - a) * tx + (c - a) * ty + (a - b - c + e) * tx * ty) * gain;
+              if (v <= 0.01) continue;
+              const lv = Math.floor(Math.min(1, v) * n + bay(x + x0, y + y0));
+              if (lv > 0) d[y * w + x] = cols[Math.min(n - 1, lv - 1)];
+            }
+          }
         }
       }
       cx.putImageData(buf.img, 0, 0, px0, py0, px1 - px0, py1 - py0);
@@ -459,6 +475,44 @@ function pump() {
 }
 /** once(fn) → memoized thunk. */
 export function once(fn) { let v, done = false; return () => { if (!done) { v = fn(); done = true; } return v; }; }
+/**
+ * lazyGen(function* build() { …; yield; …; return layers; }) → thunk that returns the built layers.
+ * Calling it finishes the build synchronously (a CG asked to draw before its background build is
+ * done); .step() advances one slice (one paint pass) for background prebuilding; .done() reports.
+ */
+export function lazyGen(genFn) {
+  let it = null, done = false, value;
+  const f = () => {
+    if (!done) {
+      if (!it) it = genFn();
+      let r;
+      do { r = it.next(); } while (!r.done);
+      value = r.value; done = true; it = null;
+    }
+    return value;
+  };
+  f.step = () => {
+    if (done) return true;
+    if (!it) it = genFn();
+    const r = it.next();
+    if (r.done) { value = r.value; done = true; it = null; }
+    return done;
+  };
+  f.done = () => done;
+  return f;
+}
+/** Step a list of lazyGen builds one slice per idle period, starting after `delay` ms. */
+export function background(list, { delay = 1500 } = {}) {
+  const q = list.filter(Boolean);
+  const ric = typeof requestIdleCallback === 'function' ? (fn) => requestIdleCallback(fn, { timeout: 400 }) : (fn) => setTimeout(fn, 40);
+  const tick = () => {
+    while (q.length && q[0].done()) q.shift();
+    if (!q.length) return;
+    try { q[0].step(); } catch (e) { console.error('[cg] background build failed', e); q.shift(); }
+    ric(tick);
+  };
+  setTimeout(() => ric(tick), delay);
+}
 
 /** Blit with globalAlpha (lightning, crossfades) — callers quantize a to avoid shimmer. */
 export function blitA(ctx, c, a, x = 0, y = 0) {

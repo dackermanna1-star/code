@@ -19,6 +19,7 @@
 //   escape      relentless pursuit with a rubber band keeping Tess 4–8 tiles ahead while she moves
 //               well; `cannotCatch` for the PRESENT escape (HW.chase drives the per-map flow).
 //   sleep       in the coal heap (no entity; the heap prop shows him); rise() wakes him into a chase.
+//   (caught)    transient: the grab beat before HW.game.gameOver; cleared by the reload.
 //
 // VISION 100° cone around his look angle, 7 tiles (10 if Tess's flashlight is on or
 //   lightAt(Tess) > 0.45), line of sight through opaque cells. Detection/s = lerp(2.0 at ≤ 2 tiles,
@@ -95,7 +96,6 @@ const EYE = 10;                   // px above the feet for sight lines
 const ASSEMBLY_RANGE = 30 * TILE;
 const POUNCE = 220;
 const AUTONOMOUS = new Set(['patrol', 'investigate', 'search']);
-const VISION = new Set(['patrol', 'investigate', 'search']);
 const PERIOD_MODES = new Set(['patrol', 'investigate', 'search', 'chase']);
 
 // Interned animation names (no string building per frame).
@@ -137,6 +137,8 @@ export const colonel = {
   _hooks: new Map(),
   _breath: null,
   _breathId: null,
+  _bx: NaN,
+  _by: NaN,
   _stride: 0,
   _jingleT: 5,
   _dragT: 3,
@@ -1025,7 +1027,7 @@ export const colonel = {
     if (style === 'shadow' || !map.doorPassable(d)) {
       // Ch3: a shadow crosses the door window; he never opens it.
       this._push({ type: 'scan', t: 2.4, amp: 0.25, base: pts.into, keepPose: true });
-      this._push({ type: 'fn', fn: () => periods.notePeek(room) });
+      this._push({ type: 'fn', fn: () => this._attend(room, 'shadow') });
     } else {
       this._push({ type: 'fn', fn: () => this._openPeekDoor(d) });
       this._push({ type: 'wait', t: 0.5 });
@@ -1035,7 +1037,7 @@ export const colonel = {
           this._faceAngle(pts.into);
           const e = this.entity;
           if (e) HW.audio?.sfx?.('colonel_hm', { x: e.x, y: e.y - 20 });
-          periods.notePeek(room);
+          this._attend(room, style);
         } });
         this._push({ type: 'anim', name: AN.peek[angToDir(pts.into)], once: true, hold: true });
         this._push({ type: 'scan', t: 2.5, amp: 0.7, base: pts.into, keepPose: true });
@@ -1045,7 +1047,7 @@ export const colonel = {
         this._push({ type: 'fn', fn: () => {
           const e = this.entity;
           if (e) HW.audio?.sfx?.('colonel_jingle', { x: e.x, y: e.y - 16 });
-          periods.notePeek(room);
+          this._attend(room, style);
         } });
         const row = this._rowEnd(pts.look);
         if (row) {
@@ -1059,12 +1061,15 @@ export const colonel = {
       this._pushWalk(pts.outside, { strict: false });
       this._push({ type: 'fn', fn: () => this._closeHeldDoor() });
     }
-    this._push({ type: 'fn', fn: () => {
-      this.peeking = false;
-      this._peeks++;
-      this._emit('peek', { info: `${room}:${style}` });
-    } });
+    this._push({ type: 'fn', fn: () => { this.peeking = false; } });
     return true;
+  },
+
+  /** The look into the room: attendance is taken (counts toward the ≤ 3 peeks even if interrupted). */
+  _attend(room, style) {
+    this._peeks++;
+    periods.notePeek(room);
+    this._emit('peek', { info: `${room}:${style}` });
   },
 
   _openPeekDoor(d) {
@@ -1374,7 +1379,11 @@ export const colonel = {
     if (!e) return;
     if (e !== HW.entities.get('colonel')) { this.entity = null; this._stopBreath(); return; } // removed by someone else
     if (this._godT > 0) this._godT -= dt;
-    if (this._breath) this._breath.setPos?.(e.x, e.y - 20);
+    if (this._breath && (e.x !== this._bx || e.y !== this._by)) {
+      this._bx = e.x;
+      this._by = e.y;
+      this._breath.setPos?.(e.x, e.y - 20);
+    }
     if (this.mode === 'caught') return;
     // The world holds its breath during scenes: only scripted movement runs in a cutscene.
     const free = inFreePlay();
@@ -1419,7 +1428,7 @@ export const colonel = {
         this._runQueue(dt);
         break;
     }
-    if (this.entity && this.mode !== 'chase' && this.mode !== 'escape' && this.mode !== 'assembly') this._checkClosePass();
+    if (this.entity && (AUTONOMOUS.has(this.mode) || this.mode === 'scripted')) this._checkClosePass();
     if (this.entity && this.mode !== 'assembly' && this.mode !== 'off') this._ambientSounds(dt);
   },
 

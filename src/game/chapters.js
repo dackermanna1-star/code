@@ -7,12 +7,12 @@
 // Helpers the rest of the game reads (also on HW.chapters):
 //   actFor(n) / HW.game.act       audio act 1 (Pro–Ch2) · 2 (Ch3–5) · 3 (Ch6–8): the intercom chime drops a
 //                                 semitone per act → chimeRate(n) = 2 ** (-(act - 1) / 12)
-//   droneFor(n)                   passing-time drone for the chapter (null = silence)
+//   droneFor(n) / wantDrone()     passing-time drone for the chapter (null = silence); periods suspend it
 //   grimeFor(n)                   portrait grime 0 → 1 from Ch3 → 2 from Ch6
 //   tessEnrolled(state)           Tess's `enrolled` portrait level 0 / 1 / 2 (rollAnswered: 1 = catchlight, ≥2 = sheen)
 //
-// Period config must survive a reload (HW.periods keeps it at runtime only), so installChapters()
-// re-applies it on load / new game and reacts to the flag that opens Ch5's free periods.
+// installChapters() (called by game/index.js) also re-opens Ch5's free periods when the flag that opens
+// them is set, and after a reload (HW.periods persists its config too; this is belt and braces).
 import HW from '../engine/hw.js';
 
 /** Free-period settings for Ch5 (DESIGN §4.1): east2 + west2, passing 150 s, period ≤ 60 s, max 3. */
@@ -30,7 +30,7 @@ export const CHAPTERS = [
   /* 3 III — Custodial      */ { party: ['marcus'], objective: "Find the janitor's keys.", periods: null, drone: 'drone_1' },
   /* 4 IV — Attendance      */ { party: ['marcus'], objective: 'The main office. The intercom.', periods: null, drone: 'drone_2' },
   /* 5 V — Upstairs         */ { party: ['marcus'], objective: "Danny's upstairs. Room 205.", periods: CH5_PERIODS, periodsAfter: 'ch5_205_period_done', drone: 'drone_2' },
-  /* 6 VI — Passing Time    */ { party: ['marcus'], objective: "Haupt's office. The safe.", periods: null, drone: 'drone_3' },
+  /* 6 VI — Passing Time    */ { party: ['marcus'], objective: "Haupt's office. The safe.", periods: null, drone: 'drone_3', droneOff: 'ch6_marcus_taken' },
   /* 7 VII — Assembly       */ { party: [], objective: 'The auditorium.', periods: null, drone: null, flags: { ch7_started: true } },
   /* 8 VIII — The Register  */ { party: [], objective: 'Go down.', periods: null, drone: null },
   /* 9 EPILOGUE             */ { party: null, objective: '', periods: null, drone: null },
@@ -44,6 +44,12 @@ export const actFor = (n) => (n <= 2 ? 1 : n <= 5 ? 2 : 3);
 /** Playback rate for 'intercom_chime': one semitone lower per act. */
 export const chimeRate = (n) => 2 ** (-(actFor(n) - 1) / 12);
 export const droneFor = (n) => chapterConfig(n).drone;
+/** The drone that should be playing right now in passing time (null after the chapter's `droneOff` flag). */
+export function wantDrone(n = HW.state?.chapter ?? 0, s = HW.state) {
+  const c = chapterConfig(n);
+  if (!c.drone || (c.droneOff && s?.flags?.[c.droneOff])) return null;
+  return c.drone;
+}
 /** Portrait grime by chapter (DESIGN §13). Matches engine/script.js and the UI's default. */
 export const grimeFor = (n) => (n <= 2 ? 0 : n <= 5 ? 1 : 2);
 /** Tess's `enrolled` portrait level from her answers: 0 none · 1 amber catchlight · 2 + husk sheen (DESIGN §7). */
@@ -53,19 +59,29 @@ export function tessEnrolled(s = HW.state) {
   return Math.max(0, Math.min(2, r));
 }
 
-/** Apply (or re-apply) the chapter's free-period setting. Idempotent; guarded if HW.periods is missing. */
-export function applyPeriods(n = HW.state?.chapter ?? 0) {
+/**
+ * Apply the chapter's free-period setting. At chapter start (authoritative) it enables or disables;
+ * with `{ onlyOpen: true }` (reload, the opening flag) it only ever turns them on, so a period config a
+ * script set for itself is never undone. Guarded if HW.periods is missing.
+ */
+export function applyPeriods(n = HW.state?.chapter ?? 0, { onlyOpen = false } = {}) {
   const P = HW.periods;
   if (!P) return false;
   const cfg = chapterConfig(n);
-  const open = cfg.periods && (!cfg.periodsAfter || HW.state?.flags?.[cfg.periodsAfter]);
+  const open = !!cfg.periods && (!cfg.periodsAfter || !!HW.state?.flags?.[cfg.periodsAfter]);
   try {
-    if (open) P.enable?.({ ...cfg.periods, maps: cfg.periods.maps.slice() });
-    else P.disable?.();
+    if (open) { if (!(onlyOpen && P.enabled)) P.enable?.({ ...cfg.periods, maps: cfg.periods.maps.slice() }); }
+    else if (!onlyOpen) P.disable?.();
   } catch (e) {
     console.error('[chapters] periods config failed', e);
   }
-  return !!open;
+  return open;
+}
+
+/** True while a period has silenced the chapter's drone (it comes back at the dismissal). */
+let droneSuspended = false;
+function setMusic(id, fade) {
+  try { HW.audio?.music?.(id || null, fade); } catch (e) { console.error('[chapters] drone', e); }
 }
 
 /** Party for the chapter (null = untouched). Followers are synced by g.chapter's refresh(). */
@@ -89,31 +105,35 @@ export function chapterSetup(n) {
   if (cfg.flags) for (const [k, v] of Object.entries(cfg.flags)) if (s.flags[k] === undefined) s.flags[k] = v;
   if (cfg.objective !== undefined) s.objective = cfg.objective;
   applyPeriods(ch);
-  // Drones play only in passing time from Ch3 (DESIGN §14); scripted scenes may silence them.
-  try { HW.audio?.music?.(cfg.drone || null, 3); } catch (e) { console.error('[chapters] drone', e); }
+  // Drones play only in passing time from Ch3 (DESIGN §14); periods suspend them, scripts may silence them.
+  droneSuspended = false;
+  setMusic(wantDrone(ch), 3);
 }
 
 // ---------------------------------------------------------------------------------------------
 // Installation: reactive bits that must also hold after a reload. Call installChapters() once at boot
 // (game/index.js); chapterSetup() also installs lazily so nothing breaks if the index forgets.
 let installed = false;
-const unsub = [];
 
 export function ensureInstalled() {
   if (installed || !HW.game?.on) return;
   installed = true;
-  unsub.push(
-    HW.game.on('load', () => applyPeriods()),
-    HW.game.on('newGame', () => { try { HW.periods?.disable?.(); } catch { /* periods not loaded */ } }),
-    HW.game.on('flag', (name) => {
+  for (const [ev, fn] of [
+    // HW.periods persists its own config in saves; this only re-opens what the chapter rules say is open.
+    ['load', () => { applyPeriods(undefined, { onlyOpen: true }); droneSuspended = false; setMusic(wantDrone(), 2); }],
+    // "Drones only in passing time": the chime silences the drone, the dismissal brings it back.
+    ['periodWarning', () => { if (wantDrone()) { droneSuspended = true; setMusic(null, 2); } }],
+    ['periodStart', () => { if (wantDrone() && !droneSuspended) { droneSuspended = true; setMusic(null, 1); } }],
+    ['periodEnd', () => { if (droneSuspended) { droneSuspended = false; setMusic(wantDrone(), 4); } }],
+    ['flag', (name, value) => {
       const cfg = chapterConfig(HW.state?.chapter ?? 0);
-      if (cfg.periodsAfter && name === cfg.periodsAfter) applyPeriods();
-    }),
-  );
+      if (value && cfg.periodsAfter && name === cfg.periodsAfter) applyPeriods(undefined, { onlyOpen: true });
+    }],
+  ]) HW.game.on(ev, fn);
   if (!Object.getOwnPropertyDescriptor(HW.game, 'act')) {
     Object.defineProperty(HW.game, 'act', { get: () => actFor(HW.state?.chapter ?? 0), configurable: true });
   }
-  HW.chapters = { config: chapterConfig, actFor, chimeRate, droneFor, grimeFor, tessEnrolled, applyPeriods, setup: chapterSetup, CHAPTERS };
+  HW.chapters = { config: chapterConfig, actFor, chimeRate, droneFor, wantDrone, grimeFor, tessEnrolled, applyPeriods, setup: chapterSetup, CHAPTERS };
 }
 
 /** Boot hook for game/index.js: HW.game.chapterSetup + listeners + HW.chapters / HW.game.act. */

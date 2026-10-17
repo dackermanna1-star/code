@@ -10,7 +10,13 @@ const steps = [
   ['smoke (dev + built)', ['tests/smoke.mjs']],
   ['engine (dev)', ['tests/engine.mjs']],
   ['engine (built)', ['tests/engine.mjs', '--built']],
+  ['maps', ['tests/maps.mjs']],
 ];
+// Slow suites (systems ~150 s, meta ~90 s, story playthrough): `npm test -- --all` or `node tests/run-all.mjs --all`.
+if (process.argv.includes('--all')) {
+  steps.push(['systems (dev)', ['tests/systems.mjs']], ['meta', ['tests/meta.mjs']]);
+  if (process.env.HW_PLAYTHROUGH !== '0') steps.push(['playthrough', ['tests/playthrough.mjs']]);
+}
 
 const results = [];
 for (const [name, args] of steps) {

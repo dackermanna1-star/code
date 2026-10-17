@@ -53,7 +53,8 @@ function paintOutside(b) {
   for (let y = 0; y < GROUND; y++) for (let x = 0; x < W; x++) {
     const c = fbm(x / 60 + y / 200, y / 16, 7, 4);
     const moon = Math.exp(-Math.hypot((x + 40) / 1.6, y + 10) / 90);
-    const v = 0.1 + 0.16 * (y / GROUND) + 0.45 * moon * (0.5 + 0.7 * c) + (c - 0.5) * 0.14 + 0.08 * Math.exp(-(GROUND - y) / 10);
+    const v = 0.2 + 0.14 * (y / GROUND) + 0.5 * moon * (0.5 + 0.7 * c) + (c - 0.5) * 0.18 + 0.1 * Math.exp(-(GROUND - y) / 10)
+      - 0.12 * clamp01((31 - y + Math.abs(x - 240) * 0.03) / 8);                       // the tinted band along the top of the glass
     b.px(x, y, shade(SKY, clamp01(v), x, y));
   }
   // culm banks on the horizon
@@ -62,7 +63,7 @@ function paintOutside(b) {
     for (let y = top; y < GROUND; y++) b.px(x, y, shade(SCHOOL, 0.16 + (y === top ? 0.08 : 0), x, y));
   }
   // the school: wings, pavilion with crenellations and pinnacles
-  const lit = (x, y) => 0.24 + 0.08 * (1 - (y - 55) / 60) + (vnoise(x / 2, y / 3, 11) - 0.5) * 0.06;
+  const lit = (x, y) => 0.18 + 0.08 * (1 - (y - 55) / 60) + (vnoise(x / 2, y / 3, 11) - 0.5) * 0.06;
   const wings = [[104, PV.x0, 77], [PV.x1, 376, 77]];
   for (const [x0, x1, top] of wings) for (let y = top; y < GROUND; y++) for (let x = x0; x < x1; x++) b.px(x, y, shade(SCHOOL, clamp01(lit(x, y)), x, y));
   for (let y = 59; y < GROUND; y++) for (let x = PV.x0; x < PV.x1; x++) b.px(x, y, shade(SCHOOL, clamp01(lit(x, y) + 0.04), x, y));
@@ -120,13 +121,13 @@ function paintBack(b) {
   for (let y = 0; y < 60; y++) for (let x = 0; x < W; x++) {
     if (inPoly(WS, x + 0.5, y + 0.5)) continue;
     const edge = Math.max(0, 1 - Math.abs(y - (23 + Math.abs(x - 240) * 0.03)) / 10);
-    const v = 0.12 + 0.12 * edge * (1 - Math.abs(x - 240) / 300) + (vnoise(x / 1.5, y / 1.5, 5) - 0.5) * 0.06;
+    const v = 0.06 + 0.14 * edge * (1 - Math.abs(x - 240) / 300) + (vnoise(x / 1.5, y / 1.5, 5) - 0.5) * 0.05;
     b.px(x, y, shade(LINER, clamp01(v), x, y));
   }
   b.ellipse(240, 9, 16, 4, (x, y) => shade(LINER, 0.25 + (y < 9 ? 0.06 : 0), x, y));
   b.hline(226, 12, 28, shade(LINER, 0.1, 0, 0));
   // A-pillars with door seals
-  const pillar = (pts, lightSide) => b.poly(pts, (x, y) => shade(PLASTIC, clamp01(0.1 + (lightSide(x, y) ? 0.14 : 0) + (vnoise(x, y / 4, 6) - 0.5) * 0.04), x, y));
+  const pillar = (pts, lightSide) => b.poly(pts, (x, y) => shade(PLASTIC, clamp01(0.05 + (lightSide(x, y) ? 0.14 : 0) + (vnoise(x, y / 4, 6) - 0.5) * 0.04), x, y));
   pillar([[44, 28], [62, 30], [14, 128], [0, 128], [0, 100]], (x, y) => x > 60 - (y - 30) * 0.48 - 2);
   pillar([[418, 30], [436, 28], [480, 100], [480, 128], [466, 128]], (x, y) => x < 420 + (y - 30) * 0.48 + 2);
   // the side windows beyond (black, with a sliver of streaked rain)
@@ -143,7 +144,7 @@ function paintBack(b) {
   paintMirror(b);
   // dashboard: top surface catching the glass, the face beneath it
   b.poly([[0, 127], [480, 127], [480, 150], [0, 150]], (x, y) => {
-    const v = y < 131 ? 0.28 - (y - 127) * 0.04 : 0.1 + (y < 134 ? 0.04 : 0);
+    const v = y < 131 ? 0.26 - (y - 127) * 0.05 : 0.05 + (y < 134 ? 0.04 : 0);
     return shade(PLASTIC, clamp01(v + (vnoise(x / 3, y, 2) - 0.5) * 0.04), x, y);
   });
   for (let x = 110; x < 380; x += 3) b.px(x, 128, shade(PLASTIC, 0.08, x, 128));          // defroster grille
@@ -164,7 +165,7 @@ function paintBack(b) {
     for (let k = 0; k < 5; k++) b.px(x, y + k, shade(PLASTIC, k === 0 ? 0.42 : k < 2 ? 0.3 : 0.12, x, y));
   }
   // centre stack: clock pod, radio, climate
-  b.rect(206, 131, 68, 70, (x, y) => shade(PLASTIC, 0.12 + (x === 206 ? 0.1 : 0) + (y === 131 ? 0.12 : 0), x, y));
+  b.rect(206, 131, 68, 70, (x, y) => shade(PLASTIC, 0.07 + (x === 206 ? 0.1 : 0) + (y === 131 ? 0.12 : 0), x, y));
   b.rect(222, 133, 36, 12, (x, y) => shade(VFD, 0.02, x, y));
   b.rect(212, 149, 56, 22, (x, y) => shade(PLASTIC, 0.2 + (y === 149 ? 0.12 : 0) - (y === 170 ? 0.1 : 0), x, y));
   b.rect(230, 153, 20, 4, (x, y) => shade(AMBERD, 0.2, x, y));                               // radio display, off
@@ -196,7 +197,7 @@ function paintMirror(b) {
     const face = fx > 10 && fx < 44;
     if (!face) c = shade(LINER, 0.06 + (fy < 2 ? 0.05 : 0), x, y);                                    // the dark car behind her
     else if (fy < 3 - (Math.abs(fx - 27) < 10 ? 1 : 0)) c = shade(CAST.leahHair, 0.1 + (fx % 3 === 0 ? 0.08 : 0), x, y); // bangs
-    else c = shade(FACE_DK, 0.35 + 0.3 * (1 - Math.abs(fx - 27) / 18) - (fy > 7 ? 0.15 : 0) + (fx > 27 ? 0.1 : 0), x, y);
+    else c = shade(FACE_DK, 0.2 + 0.25 * (1 - Math.abs(fx - 27) / 18) - (fy > 7 ? 0.12 : 0) + (fx > 27 ? 0.08 : 0), x, y);
     if (face && (fx === 11 || fx === 43)) c = shade(CAST.leahHair, 0.1, x, y);
     b.px(x, y, c);
   }
@@ -291,7 +292,7 @@ function paintFront(b) {
     const tex = (vnoise(x / 1.4, y / 1.4, 17) - 0.5) * 0.05;
     const rim = Math.max(0, 1 - Math.abs(x - inner) / 7) * clamp01(1 - (y - 150) / 70);
     const top = Math.max(0, 1 - (y - topY(x)) / 5);
-    const v = 0.05 + 0.2 * rim + 0.16 * top + tex - 0.03 * clamp01((y - 200) / 60);
+    const v = 0.03 + 0.2 * rim + 0.18 * top + tex - 0.03 * clamp01((y - 200) / 60);
     const c = shade(FABRIC, clamp01(v), x, y);
     return rim > 0.4 && y < 200 ? mixU(c, TEAL_RIM, 0.25) : c;
   });
@@ -312,7 +313,7 @@ function paintFront(b) {
       if (nx * nx * nx * nx + ny * ny * ny * ny > 1) continue;
       const top = ny < -0.72 ? 0.26 : ny < -0.55 ? 0.1 : 0;
       const rim = Math.max(0, 1 - Math.abs(x - inner) / 5) * 0.2;
-      const c = shade(FABRIC, clamp01(0.06 + top + rim + (vnoise(x / 1.3, y / 1.3, 19) - 0.5) * 0.04), x, y);
+      const c = shade(FABRIC, clamp01(0.03 + top + rim + (vnoise(x / 1.3, y / 1.3, 19) - 0.5) * 0.04), x, y);
       b.px(x, y, rim > 0.08 ? mixU(c, TEAL_RIM, 0.2) : c);
     }
     for (const px of [x0 + 18, x1 - 20]) b.vline(px, y1, 3, U(PAL.g3));                        // posts
@@ -355,10 +356,11 @@ function drawBeads(ctx, beads, t) {
       if (tau - last < bd.delay) continue;
     }
     const { x, y } = bd;
-    if (bd.size === 0) { ctx.fillStyle = (bd.k & 1) ? 'rgba(88,120,159,0.5)' : 'rgba(151,175,203,0.35)'; ctx.fillRect(x, y, 1, 1); continue; }
-    ctx.fillStyle = 'rgba(8,10,18,0.55)'; ctx.fillRect(x, y + 1, bd.size + 1, 1);
-    ctx.fillStyle = 'rgba(88,120,159,0.6)'; ctx.fillRect(x, y, bd.size + 1, 1);
-    ctx.fillStyle = 'rgba(196,212,230,0.7)'; ctx.fillRect(x, y, 1, 1);
+    // a bead is a tiny lens: dark belly, the sky caught in its top, one glint
+    if (bd.size === 0) { ctx.fillStyle = (bd.k & 1) ? 'rgba(10,12,22,0.5)' : 'rgba(88,120,159,0.55)'; ctx.fillRect(x, y, 1, 1); continue; }
+    ctx.fillStyle = 'rgba(8,10,18,0.6)'; ctx.fillRect(x, y + 1, bd.size + 1, 1);
+    ctx.fillStyle = 'rgba(70,96,130,0.6)'; ctx.fillRect(x, y, bd.size + 1, 1);
+    if (bd.k % 3 === 0) { ctx.fillStyle = 'rgba(196,212,230,0.6)'; ctx.fillRect(x, y, 1, 1); }
     if (bd.size === 2) { ctx.fillStyle = 'rgba(8,10,18,0.5)'; ctx.fillRect(x + 1, y + 2, 2, 1); }
   }
 }
@@ -409,7 +411,7 @@ const layers = once(() => {
   return {
     outside: out.toCanvas(), back: back.toCanvas(), front: front.toCanvas(), danny: buildDanny(),
     beads: buildBeads(), riv: seeds(9, 77), rain: seeds(90, 78), blink: seeds(8, 79),
-    vapor: makeVapor(90, 40, 300, 90, [mix(PAL.g1, PAL.blue_d, 0.35), mix(PAL.g2, PAL.blue_d, 0.25), mix(PAL.g3, PAL.blue_l, 0.15)]),
+    vapor: makeVapor(90, 40, 300, 90, [mix(PAL.g2, PAL.blue_d, 0.4), mix(PAL.g3, PAL.blue_d, 0.3), mix(PAL.g4, PAL.moon, 0.2)]),
     plumes: makePlumes([
       { x: 186, y: 118, rise: 40, r0: 2, r1: 12, life: 8, a: 0.4, w: 6, wind: 10, spread: 3 },
       { x: 262, y: 120, rise: 44, r0: 2, r1: 13, life: 9, a: 0.36, w: 8, wind: 12, spread: 3 },

@@ -6,6 +6,7 @@ import { ctx2d, rect, dither, noiseFrame, triangle, AP } from './gfx.js';
 import { hash2 } from '../art/util.js';
 
 const LW = 480, LH = 270;
+const BLEED = [['#ff2020', 2], ['#2040ff', -1]];   // chroma bleed: red right, blue left
 
 /**
  * Filter `src` (480×270, already drawn) into `out` (480×270) using `tmp` as scratch.
@@ -26,7 +27,7 @@ export function vhsFilter(src, out, tmp, t, o = {}) {
   }
   // chroma bleed: a red-only copy shifted right, a blue-only copy shifted left
   const tx = ctx2d(tmp);
-  for (const [col, off] of [['#ff2020', 2], ['#2040ff', -1]]) {
+  for (const [col, off] of BLEED) {
     tx.globalCompositeOperation = 'source-over'; tx.clearRect(0, 0, LW, LH); tx.drawImage(out, 0, 0);
     tx.globalCompositeOperation = 'multiply'; tx.fillStyle = col; tx.fillRect(0, 0, LW, LH);
     tx.globalCompositeOperation = 'destination-in'; tx.drawImage(out, 0, 0);

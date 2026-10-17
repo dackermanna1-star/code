@@ -18,7 +18,7 @@ import { C, F, W, H, handFont } from '../theme.js';
 import { font } from '../text.js';
 import { FONT } from '../fonts.js';
 import { canvas, ctx2d, rect, frame, dither, triangle, paperSheet, steelPanel, plate, AP, clamp, ease, snap } from '../gfx.js';
-import { hints, spaced } from '../widgets.js';
+import { hints } from '../widgets.js';
 import { stampCanvas } from '../screens/card.js';
 import { rng, hashStr, hash2 } from '../../art/util.js';
 import * as svc from '../services.js';
@@ -71,14 +71,37 @@ export class RegisterScreen extends Screen {
     this.ghosts = [];            // marks fading after Start over
     this.shake = 0;
     this.write = null;           // { p, text, handT, lineT, done, out } while the expulsion is written
+    this._sync();
   }
   onOpen() { svc.sfx('book_close', { rate: 0.8 }); svc.sfx('page_turn'); }
 
   // ---- model access (tolerant of the plain TECH §16 shape) ---------------------------------------------------
-  get tray() { return [...(this.model.tools || []).map((t) => ({ ...t })), ...TRAY_EXTRA.map((t) => ({ ...t, available: t.id !== 'reset' || !!this.model.dirty }))]; }
-  get rows() { return [{ ...this.model.founder, id: 'founder', founder: true }, ...(this.model.lines || [])]; }
+  // The page and the tray are snapshotted from the model after every change (not rebuilt per frame).
+  get tray() { return this._trayItems; }
+  get rows() { return this._rowItems; }
+  _sync() {
+    const m = this.model;
+    this._rowItems = [{ ...m.founder, id: 'founder', founder: true }, ...(m.lines || [])];
+    this._trayItems = [...(m.tools || []).map((t) => ({ ...t })), ...TRAY_EXTRA.map((t) => ({ ...t, available: t.id !== 'reset' || !!m.dirty }))];
+    this._version = (this._version || 0) + 1;
+  }
   _rowY(i) { return PAGE.y + (i === 0 ? ROW0 : ROW0 + FOUNDER_H + (i - 1) * ROW_H); }
-  _refresh() { try { this.model = this.model.refresh?.() || this.model; } catch (e) { console.error('[ui] register.refresh', e); } }
+  _refresh() {
+    try { this.model = this.model.refresh?.() || this.model; } catch (e) { console.error('[ui] register.refresh', e); }
+    this._sync();
+  }
+  /** Tess's note under the page (tool caption / prediction), memoised per selection and page version. */
+  _note() {
+    const key = `${this.mode}|${this.toolSel}|${this.lineSel}|${this._version}`;
+    if (key === this._noteKey) return this._noteText;
+    let text = '';
+    const t = this.tray[this.toolSel];
+    if (this.mode === 'tray') text = (t.available === false && t.id !== 'reset' && t.unavailableText) || t.comment || DEFAULT_COMMENT[t.id] || '';
+    else if (this.mode === 'line') text = this.model.preview?.(t.id, this.rows[this.lineSel].id)?.text || '';
+    this._noteKey = key;
+    this._noteText = text.replace(/\{p(=[\d.]+)?\}/g, '').replace(/\s+/g, ' ').trim();
+    return this._noteText;
+  }
 
   async _say(lines) {
     for (const line of lines || []) {
@@ -153,7 +176,7 @@ export class RegisterScreen extends Screen {
     const res = this.model.startOver?.() || { say: [] };
     this._refresh();
     for (const r of before) this.ghosts.push({ row: r, t: 0 });
-    this.anims = [];
+    this.anims.length = 0;
     if (before.length) { svc.sfx('paper_rustle'); svc.sfx('page_turn', { vol: 0.5 }); }
     this.busy = true;
     this._say(res.say).then(() => { this.busy = false; });
@@ -225,11 +248,11 @@ export class RegisterScreen extends Screen {
       a.t += dt;
       if (a.kind === 'stamp' && before < 0.32 && a.t >= 0.32) { svc.sfx('stamp'); this.shake = 0.2; }
     }
-    this.anims = this.anims.filter((a) => a.t <= (a.kind === 'expel' ? 1.6 : 0.8));
+    prune(this.anims, KEEP_ANIM);
     for (const g of this.ghosts) g.t += dt;
-    this.ghosts = this.ghosts.filter((g) => g.t < 0.7);
+    prune(this.ghosts, KEEP_GHOST);
     for (const d of this.dust) { d.t += dt; d.x += d.vx * dt; d.y += d.vy * dt; d.vy -= 6 * dt; }
-    this.dust = this.dust.filter((d) => d.t < d.life);
+    prune(this.dust, KEEP_DUST);
     const W8 = this.write;
     if (W8) {
       if (W8.handT >= 0) W8.handT += dt;
@@ -500,37 +523,40 @@ export class RegisterScreen extends Screen {
     const outK = W8.handOut >= 0 ? ease.inOut(clamp(W8.handOut / 0.9)) : 0;
     const k = inK * (1 - outK);
     if (k <= 0) return;
-    const pw = 400, ph = 300;
-    const px = snap(W - 20 - pw * k), py = 34 + snap(outK * 20);
+    // the hand comes in from the left, over the names already cleared, leaving the line being written free
+    const pw = 336, ph = 252;
+    const px = snap(16 - pw * (1 - k)), py = 180 + snap(outK * 16);
     ctx.save();
     ctx.globalAlpha *= clamp(k * 1.4);
     dither(ctx, px + 8, py + 8, pw, ph, 'rgba(0,0,0,1)', 0.6);
     ctx.drawImage(handPanel(this.t, W8.done ? 1 : 0), px, py, pw, ph);
     frame(ctx, px - AP, py - AP, pw + AP * 2, ph + AP * 2, '#1a0406');
     frame(ctx, px, py, pw, ph, '#5a0c12');
-    // his line, under the panel: name plate, the bust, slow red text
-    if (W8.lineT >= 0 && !W8.done) {
-      const by = py + ph + 14, bw = pw, bh = 76;
-      steelPanel(ctx, px, by, bw, bh, { fill: 'rgba(12,6,8,0.92)', hi: '#4a2229', mid: '#331a1e', cornerColor: '#7a1a24', seed: 3 });
-      const bust = svc.portrait('colonel', 'speaking', { light: 'red' });
-      if (bust) {
-        ctx.save(); ctx.beginPath(); ctx.rect(px + AP, by + AP, 108, bh - 2 * AP); ctx.clip();
-        ctx.drawImage(bust, 14, 6, 72, 70, px + 2, by + 2, 108, 105);
-        ctx.restore();
-        frame(ctx, px + 110, by + AP, AP, bh - 2 * AP, '#4a2229');
-      }
-      const name = svc.speakerName('colonel').toUpperCase().split('').join(' ');
-      plate(ctx, px + 124, by - 14, snap(F.small.width(name) + 24), 24, '#3d0910', '#9b1b2b');
-      F.small.draw(ctx, name, px + 136, by - 12, '#e9c9c0');
-      typeLine(ctx, COLONEL_LINE, W8.lineT, px + 126, by + 22, bw - 140);
+    ctx.restore();
+    // his line: the bust (this is one of its three beats) and slow text, beside the hand
+    if (W8.lineT < 0 || W8.done || W8.cancelled) return;
+    const la = clamp(W8.lineT / 0.4);
+    const bx = 368, by = 360, bw = 576, bh = 76;
+    ctx.save(); ctx.globalAlpha *= la;
+    steelPanel(ctx, bx, by, bw, bh, { fill: 'rgba(12,6,8,0.94)', hi: '#4a2229', mid: '#331a1e', cornerColor: '#7a1a24', seed: 3 });
+    const bust = svc.portrait('colonel', 'speaking', { light: 'red' });
+    if (bust) {
+      ctx.save(); ctx.beginPath(); ctx.rect(bx + AP * 2, by + AP * 2, 84, bh - AP * 4); ctx.clip();
+      ctx.drawImage(bust, 24, 38, 48, 48, bx + AP * 2, by - 8, 96, 96);
+      ctx.restore();
+      rect(ctx, bx + 88, by + AP * 2, AP, bh - AP * 4, '#4a2229');
     }
+    const name = svc.speakerName('colonel').toUpperCase().split('').join(' ');
+    plate(ctx, bx + 104, by - 14, snap(F.small.width(name) + 24), 24, '#3d0910', '#9b1b2b');
+    F.small.draw(ctx, name, bx + 116, by - 12, '#e9c9c0');
+    typeLine(ctx, COLONEL_LINE, W8.lineT, bx + 108, by + 24, bw - 124);
     ctx.restore();
   }
 
   _groundsCard(ctx) {
     // the school's own rules, printed on a card from the principal's office: the grounds for expulsion
     const G = this._grounds();
-    const w = 600, h = 74 + G.length * 40 + 20;
+    const w = 660, h = 74 + G.length * 40 + 20;
     const x = snap(W / 2 - w / 2), y = 48;
     dither(ctx, x + 10, y + 10, w, h, 'rgba(0,0,0,1)', 0.6);
     ctx.drawImage(paperSheet(w, h, { seed: 'rulescard', tone: '#e2dbc4', hi: '#ece6d2', lo: '#c8bfa4', stains: 1 }), x, y);
@@ -547,8 +573,8 @@ export class RegisterScreen extends Screen {
     const q = 'On what grounds?';
     const hf = handFont('tess');
     const qw = hf.font.width(q) + 40;
-    ctx.drawImage(paperSheet(snap(qw), 40, { seed: 'groundsq', tone: '#e2dbc6', stains: 0, torn: 'bottom' }), x + w - qw + 20, y - 22);
-    hf.font.draw(ctx, q, x + w - qw + 40, y - 18, hf.color);
+    ctx.drawImage(paperSheet(snap(qw), 40, { seed: 'groundsq', tone: '#e2dbc6', stains: 0, torn: 'bottom' }), x + w - qw + 24, y + h - 18);
+    hf.font.draw(ctx, q, x + w - qw + 44, y + h - 14, hf.color);
   }
 
   _tray(ctx) {
@@ -565,24 +591,16 @@ export class RegisterScreen extends Screen {
       const lift = on && this.mode === 'tray' ? -AP * 2 : 0;
       ctx.save();
       if (!avail) ctx.globalAlpha *= 0.35;
-      drawTool(ctx, t.id, cx - 24, TRAY_Y - 2 + lift, 2);
+      drawTool(ctx, t.id, cx - 24, TRAY_Y - 4 + lift, 2);
       ctx.restore();
-      F.small.draw(ctx, t.label || t.id, cx, TRAY_Y + 48, on ? C.textHi : avail ? C.textDim : '#4a4850', { align: 'center' });
-      if (on) frame(ctx, x0 + i * cw + 8, TRAY_Y - 4, cw - 16, 74, this.mode === 'tray' ? C.red : 'rgba(208,69,60,0.4)');
+      F.small.draw(ctx, t.label || t.id, cx, TRAY_Y + 44, on ? C.textHi : avail ? C.textDim : '#4a4850', { align: 'center' });
+      if (on) frame(ctx, x0 + i * cw + 8, TRAY_Y - 4, cw - 16, 70, this.mode === 'tray' ? C.red : 'rgba(208,69,60,0.4)');
     });
     // Tess's note: the tool's caption in the tray, her prediction once a line is picked
     if (this.busy) return;
-    let text = '';
-    if (this.mode === 'tray') {
-      const t = tray[this.toolSel];
-      text = t.comment || DEFAULT_COMMENT[t.id] || '';
-    } else if (this.mode === 'line') {
-      const t = tray[this.toolSel], r = this.rows[this.lineSel];
-      text = this.model.preview?.(t.id, r.id)?.text || '';
-    }
-    if (!text) return;
+    const plain = this._note();
+    if (!plain) return;
     const hf = handFont('tess');
-    const plain = text.replace(/\{p(=[\d.]+)?\}/g, '').replace(/\s+/g, ' ').trim();
     const tw = Math.min(820, hf.font.width(plain) + 44);
     const px = snap(W / 2 - tw / 2), py = PAGE.y + PAGE.h - 36;
     ctx.drawImage(paperSheet(snap(tw), 36, { seed: 'regnote', tone: '#e2dbc6', stains: 0, torn: 'bottom' }), px, py);
@@ -592,10 +610,22 @@ export class RegisterScreen extends Screen {
 
 // ---- helpers -------------------------------------------------------------------------------------------------
 
+const KEEP_ANIM = (a) => a.t <= (a.kind === 'expel' ? 1.6 : 0.8);
+const KEEP_GHOST = (g) => g.t < 0.7;
+const KEEP_DUST = (d) => d.t < d.life;
+/** Remove the items failing `keep`, in place (no per-frame garbage). */
+function prune(arr, keep) {
+  let j = 0;
+  for (let i = 0; i < arr.length; i++) if (keep(arr[i])) arr[j++] = arr[i];
+  arr.length = j;
+}
+
 /** Type a short markup line ({p} pauses) at the Colonel's slow pace; red-black text. */
+const lineParts = new Map();
 function typeLine(ctx, text, t, x, y, maxW) {
   const f = F.body;
-  const parts = String(text).split(/\{p(?:=([\d.]+))?\}/);
+  let parts = lineParts.get(text);
+  if (!parts) { parts = String(text).split(/\{p(?:=([\d.]+))?\}/); lineParts.set(text, parts); }
   let clock = 0.2, cx = x, cy = y;
   const cps = 11;
   for (let i = 0; i < parts.length; i++) {
@@ -612,13 +642,13 @@ function typeLine(ctx, text, t, x, y, maxW) {
   }
 }
 
-let handCanvas = null, handCanvasKey = '';
-const HAND_CROP = { x: 0, y: 0, w: 280, h: 210 };
+let handCanvas = null, handCanvasKey = '', handFull = null;
+const HAND_CROP = { x: 0, y: 14, w: 300, h: 225 };
 /** The Ch2 hand, cropped to the hand and rings, re-lit red from below (the breaker), at 400×300 UI. */
 function handPanel(t, slack) {
   const key = `${Math.floor(t * 8)}|${slack}`;
   if (handCanvas && handCanvasKey === key) return handCanvas;
-  const full = canvas(480, 270);
+  const full = handFull || (handFull = canvas(480, 270));
   const fx = ctx2d(full);
   fx.fillStyle = '#05060a'; fx.fillRect(0, 0, 480, 270);
   try { svc.cgArt('colonel_hand')?.draw?.(fx, slack ? 0 : t, {}); } catch (e) { svc.warnOnce('register.hand', e); }
@@ -628,7 +658,7 @@ function handPanel(t, slack) {
   x.drawImage(full, HAND_CROP.x, HAND_CROP.y, HAND_CROP.w, HAND_CROP.h, 0, 0, HAND_CROP.w, HAND_CROP.h);
   // red light from below: multiply a red ramp, then lift the highlights a touch
   const g = x.createLinearGradient(0, HAND_CROP.h, 0, 0);
-  g.addColorStop(0, '#ff5a3a'); g.addColorStop(0.6, '#b0281c'); g.addColorStop(1, '#3a0a08');
+  g.addColorStop(0, '#ff8a64'); g.addColorStop(0.55, '#d8483a'); g.addColorStop(1, '#5a1610');
   x.globalCompositeOperation = 'multiply'; x.fillStyle = g; x.fillRect(0, 0, HAND_CROP.w, HAND_CROP.h);
   x.globalCompositeOperation = 'lighter'; x.globalAlpha = 0.08; x.fillStyle = '#ff6040'; x.fillRect(0, HAND_CROP.h * 0.6, HAND_CROP.w, HAND_CROP.h * 0.4);
   x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1;

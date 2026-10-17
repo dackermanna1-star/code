@@ -59,7 +59,7 @@ export const noise = {
     ev.map = HW.map?.id || null;
     this.last = ev;
     this._pending.push(ev);
-    if (kind !== 'walk') HW.debug?.record?.('noise', null, null, `${kind}@${Math.round(x)},${Math.round(y)} r${rad}`);
+    if (kind !== 'walk' && kind !== 'run') HW.debug?.record?.('noise', null, null, `${kind}@${Math.round(x)},${Math.round(y)} r${rad}`);
     return ev;
   },
 

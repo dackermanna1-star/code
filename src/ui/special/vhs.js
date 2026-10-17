@@ -12,7 +12,7 @@
 // heads-down shot (frames 0..4), so unless the CG reports `frames >= 6` the UI composes the group shot
 // itself from the party's sprites and tape frame i>0 maps to CG frame i-1.
 import { Screen, Z_SPECIAL } from '../screen.js';
-import { C, F, W, H } from '../theme.js';
+import { W, H } from '../theme.js';
 import { canvas, ctx2d, rect, dither, AP, clamp, snap } from '../gfx.js';
 import { hints } from '../widgets.js';
 import { rng } from '../../art/util.js';
@@ -157,14 +157,29 @@ function groupShot() {
   for (let i = 0; i < LW; i += 40) rect(x, i, 156, 1, 64, '#24302a');
   rect(x, 0, 220, LW, 50, '#4a4842');
   for (let i = 0; i < 300; i++) { x.fillStyle = r() < 0.5 ? '#55534c' : '#403e39'; x.fillRect(Math.floor(r() * LW), 220 + Math.floor(r() * 50), 2 + Math.floor(r() * 6), 1); }
-  // the portrait over their heads: gilt frame, a seated dark mass, a crimson sash, a small pale face
-  const px = 176, py = 8, pw = 128, ph = 120;
-  rect(x, px - 6, py - 6, pw + 12, ph + 12, '#5a4318'); rect(x, px - 4, py - 4, pw + 8, ph + 8, '#9a7a34'); rect(x, px - 2, py - 2, pw + 4, ph + 4, '#3a2a10');
-  rect(x, px, py, pw, ph, '#1a1712');
-  for (let j = 0; j < 80; j++) { const w = 30 + Math.round(Math.sin(j / 80 * Math.PI) * 40); rect(x, px + pw / 2 - w, py + 34 + j, w * 2, 1, j % 3 ? '#1c2234' : '#202840'); }
-  rect(x, px + 40, py + 70, 52, 4, '#7a1622'); rect(x, px + 38, py + 74, 56, 2, '#5a0f18');
-  rect(x, px + 58, py + 22, 12, 13, '#c9b9a0'); rect(x, px + 56, py + 30, 3, 6, '#8a8478'); rect(x, px + 69, py + 30, 3, 6, '#8a8478');
-  rect(x, px + 50, py + 44, 4, 3, '#b08a3a'); rect(x, px + 76, py + 44, 4, 3, '#b08a3a');
+  // the portrait over their heads: gilt frame; inside, the Founder seated — a vast navy mass, gold
+  // epaulettes, a crimson sash, brass buttons, and a small pale face with gray chops
+  const px = 168, py = 6, pw = 144, ph = 128;
+  rect(x, px - 8, py - 6, pw + 16, ph + 14, '#3a2a0e');
+  rect(x, px - 6, py - 4, pw + 12, ph + 10, '#9a7a34');
+  rect(x, px - 4, py - 2, pw + 8, ph + 6, '#c8a24c');
+  rect(x, px - 2, py, pw + 4, ph + 2, '#5a4318');
+  for (let j = 0; j < ph; j++) rect(x, px, py + j, pw, 1, j < ph * 0.6 ? '#2a2418' : '#221c12');
+  rect(x, px + 30, py + 30, 84, 90, '#3a1416');                       // the chair's red velvet back
+  const cx = px + pw / 2;
+  for (let j = 0; j < 92; j++) {                                        // the body: a swollen pear
+    const t = j / 92;
+    const half = Math.round(18 + Math.sin(Math.min(1, t * 1.25) * Math.PI * 0.62) * 44);
+    rect(x, cx - half, py + 34 + j, half * 2, 1, (j + (j >> 2)) % 7 === 0 ? '#121a2c' : '#1c2540');
+  }
+  for (let j = 0; j < 46; j++) rect(x, cx - 40 + j * 1.5, py + 52 + j, 6, 2, j % 9 === 0 ? '#5a0f18' : '#8a1a26'); // sash
+  for (const ex of [-1, 1]) { rect(x, cx + ex * 34 - 7, py + 34, 14, 5, '#b8923e'); rect(x, cx + ex * 34 - 5, py + 39, 10, 3, '#8a6a2a'); }
+  for (let j = 0; j < 4; j++) rect(x, cx - 1, py + 64 + j * 10, 3, 3, '#c8a24c');                        // buttons
+  rect(x, cx - 7, py + 18, 14, 16, '#cbbca2'); rect(x, cx - 7, py + 30, 14, 3, '#9a8c78');               // the small face
+  rect(x, cx - 10, py + 22, 3, 10, '#8a8478'); rect(x, cx + 7, py + 22, 3, 10, '#8a8478');               // mutton chops
+  rect(x, cx - 4, py + 24, 2, 1, '#3a3028'); rect(x, cx + 2, py + 24, 2, 1, '#3a3028'); rect(x, cx - 2, py + 29, 4, 1, '#7a5a4a');
+  rect(x, cx - 7, py + 17, 14, 2, '#a8a094');
+  x.fillStyle = 'rgba(40,24,6,0.18)'; x.fillRect(px, py, pw, ph);         // old varnish
   // memorial board on the right, plaque on the left
   rect(x, 382, 40, 84, 64, '#4a3420'); rect(x, 386, 44, 76, 56, '#8a6a44');
   for (let i = 0; i < 9; i++) rect(x, 392 + (i % 3) * 24, 50 + Math.floor(i / 3) * 17, 14, 11, i % 2 ? '#cfc6ae' : '#b7ae96');
@@ -182,6 +197,10 @@ function groupShot() {
   };
   x.imageSmoothingEnabled = false;
   const feetY = 262;
+  // Danny's bunny ears behind Leah's head (drawn first: her head covers his hand)
+  const lx = 176, ly = feetY - 30 * S + 4;
+  for (const [ox, lean] of [[-4, -1], [5, 1]]) for (let k = 0; k < 7; k++) rect(x, lx + ox + lean * Math.floor(k / 2), ly + 10 - k * 3, 3, 3, '#e0b08c');
+  rect(x, lx - 6, ly + 10, 14, 5, '#e0b08c');
   for (const [id, cx] of cast) {
     const sp = sprite(id);
     if (!sp) continue;
@@ -191,13 +210,9 @@ function groupShot() {
     dither(x, cx - 30, feetY - 6, 60, 10, 'rgba(0,0,0,1)', 0.5);
     x.drawImage(img, dx, dy, img.width * S, img.height * S);
   }
-  // Danny's bunny ears behind Leah's head
-  const lx = 176, ly = feetY - 30 * S - 10;
-  for (const [ox, lean] of [[-4, -1], [5, 1]]) for (let k = 0; k < 7; k++) rect(x, lx + ox + lean * Math.floor(k / 2), ly + 10 - k * 3, 3, 3, '#e0b08c');
-  rect(x, lx - 6, ly + 10, 14, 5, '#e0b08c');
   // their flashlights + the lobby dark: warm centre, heavy falloff
   const g = x.createRadialGradient(LW / 2, 170, 30, LW / 2, 170, 300);
-  g.addColorStop(0, 'rgba(255,214,150,0.22)'); g.addColorStop(0.5, 'rgba(0,0,0,0.25)'); g.addColorStop(1, 'rgba(0,0,0,0.85)');
+  g.addColorStop(0, 'rgba(255,214,150,0.24)'); g.addColorStop(0.45, 'rgba(0,0,0,0.32)'); g.addColorStop(1, 'rgba(0,0,0,0.9)');
   x.fillStyle = g; x.fillRect(0, 0, LW, LH);
   return (groupCanvas = c);
 }
