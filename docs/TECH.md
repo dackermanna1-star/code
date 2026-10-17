@@ -164,6 +164,23 @@ When the compact is used and the player stands inside a `past.rect`, the rendere
 `clean` tiles/props, warm light, the extra objects/figures, inside the compact's round frame. HUD shows a
 faint sparkle on the compact icon while the player is inside any past rect.
 
+### 5.7a MapRuntime interface (engine/map.js) — consumed by lighting, AI, audio, UI
+```
+map.id, map.data, map.w, map.h            // tiles
+map.tileAt(tx, ty) -> tile key             // 'void' outside bounds
+map.wallKind(tx, ty) -> 'top'|'face_high'|'face_low'|null
+map.isSolid(tx, ty) / map.isOpaque(tx, ty) // isOpaque includes closed opaque doors & opaque props
+map.opaqueVersion                          // int, ++ whenever opacity changes (door opened, prop moved)
+map.windowCells -> [{ tx, ty }]            // face_low window cells (light emitters)
+map.lightDefs -> data lights (tile coords) // from map data + attached prop lights (with prop id)
+map.props -> [{ id, type, def, x, y, state, params, solid, opaque }]
+map.prop(id), map.anchor(name) -> { x, y, dir } (world px, feet point)
+map.los(x0, y0, x1, y1) -> bool            // world px, opaque-aware
+map.roomAt(x, y) -> room | null            // world px
+map.findPath(from, to, { radius }) -> [[x, y], ...] | null   // world px
+```
+`cam` passed to render functions = `{ x, y, w: 480, h: 270 }` (world px of the top-left of the view).
+
 ### 5.7 Required anchors (maps must define these; scripts rely on them)
 | Map | Anchors |
 |---|---|
@@ -207,8 +224,12 @@ Dialogue/UI
 - `doc(docId)` — document reader; marks read; adds to Notes.
 - `toast(text)` (sync) · `objective(text)` (sync; persisted; toast "Sketchbook updated").
 - `card(title, subtitle?, { hold })` — full-screen title card.
+- `prompt(prop | null, verb)` — engine → UI each frame: show/hide the interaction glyph.
 - `cg(id | null, { fade })` — show/hide a CG backdrop behind dialogue.
-- `overlay(name, args)` → result — special screens: `'pa' | 'safe' | 'terminal' | 'register' | 'locker' | 'vhs' | 'compact'`.
+- `overlay(name, params | null)` (sync) — persistent overlay drawn under dialogue until cleared:
+  `'locker'` ({ phase: 0..1 approach progress, faceIn: 0..1 }), `'vhs'` ({ frame, timestamp }),
+  `'heads_down'` (dark tunnel vignette), `'compact'` ({ on }), `'black'` ({ alpha }).
+- `screen(name, args)` → result — modal special screens (§16): `'pa' | 'safe' | 'terminal' | 'register' | 'breath'`.
 - `chapter(n)` — set chapter, show card, run `chapterSetup(n)` (game/chapters.js), checkpoint.
 World
 - `player` (sync getter) · `npc(id)` (sync) · `spawn({ id, sprite, at | x, y, dir, anim, solid, follow })` (sync) · `despawn(id)` (sync)
@@ -419,17 +440,48 @@ __HW.mode()                        current game mode
 
 | Area | Files | Owner |
 |---|---|---|
-| Contracts | `docs/*`, `src/engine/hw.js`, `src/data/{tiles,props,chars,items}.js`, `src/art/palette.js`, `src/art/util.js`, `tools/{serve,shot,build}.mjs` | lead (ask in report for changes) |
+| Contracts | `docs/*`, `src/engine/hw.js`, `src/data/{tiles,props,chars,items,docs}.js`, `src/art/palette.js`, `src/art/util.js`, `tools/{serve,shot,build}.mjs` | lead (ask in report for changes) |
 | Engine | `src/main.js`, `index.html`, `src/engine/*` (except hw.js), `src/render/renderer.js`, `src/game/flashlight.js`, `src/game/hiding.js`, `src/data/maps/index.js`, `src/data/maps/test*.js`, `src/data/scripts/index.js`, `src/data/scripts/test.js`, `tests/*` | engine agent |
 | Lighting/FX | `src/render/lighting.js`, `src/render/fx.js`, `tools/preview/lighting.*` | lighting agent |
 | Audio | `src/audio/*`, `tools/preview/audio.*` | audio agent |
 | UI | `src/ui/**`, `tools/preview/ui.*` | UI agent |
 | Art: tiles | `src/art/tiles.js` (+ `tiles_*.js`), `tools/preview/tiles.*` | tiles agent |
-| Art: props | `src/art/props.js` (+ `props_*.js`), `tools/preview/props.*` | props agent(s) |
-| Art: sprites | `src/art/sprites.js`, `src/art/colonel.js` (+ `sprites_*.js`), `tools/preview/sprites.*` | sprites agent |
-| Art: portraits | `src/art/portraits.js` (+ `portraits_*.js`), `tools/preview/portraits.*` | portraits agent |
-| Art: CG & icons | `src/art/cg.js`, `src/art/icons.js` (+ `cg_*.js`), `tools/preview/cg.*` | CG agent |
+| Art: props A | `src/art/props.js` (dispatcher; delegates `PROP_B_TYPES` to props_b.js) (+ `props_a_*.js`), `tools/preview/props.*` | props-A agent |
+| Art: sprites | `src/art/sprites.js` (delegates `'colonel'` → colonel.js `getColonelSprite()`) (+ `sprites_*.js`), `tools/preview/sprites.*` | sprites agent |
+| Art: portraits | `src/art/portraits.js` (delegates `'colonel'` → portraits_colonel.js `getColonelPortrait(expr, opts)`) (+ `portraits_*.js`), `tools/preview/portraits.*` | portraits agent |
+| Art: the Colonel | `src/art/colonel.js` (sprite), `src/art/portraits_colonel.js`, `src/art/cg_colonel.js` (`colonel_hand`, `colonel_face`, `locker_slits`, `vhs_frames`), `tools/preview/colonel.*` | colonel agent |
+| Art: CG & icons | `src/art/cg.js`, `src/art/icons.js` (+ `cg_*.js` except cg_colonel), `tools/preview/cg.*` | CG agent |
+| Art: props B | `src/art/props_b.js` (exports `PROP_B_TYPES`, `renderPropB(type, opts)`, `drawPropDynamicB(...)`) | props-B agent |
 | Art facade | `src/art/index.js` | lead (stable; implementers export the functions it imports) |
+
+## 16. UI contracts — documents, screens, title
+
+**Documents** — `src/data/docs.js` exports `DOCS = { [id]: { title, kind, hand?, date?, body, footer? } }`.
+`kind`: `'typed' | 'handwritten' | 'print' | 'note' | 'chalk' | 'plaque' | 'clipping' | 'form' | 'screen' | 'book'`.
+`hand`: `'walt' | 'adair' | 'leah' | 'denise' | 'haupt' | 'kid' | 'colonel' | 'tess' | 'lutz'` (picks the
+handwriting font/color/slant). `body` uses `\n\n` for paragraphs; `~~text~~` strike-through; `__text__`
+underline. The reader paginates long bodies. Read docs are listed in the sketchbook's Notes tab.
+
+**Title:** `HW.ui.title()` → Promise `{ action: 'new' } | { action: 'load', slot }` (Settings/Credits handled
+inside the title screen). **Game over:** `HW.ui.gameOver(reason)` → Promise `'retry' | 'title'`.
+
+**Special screens** (`HW.ui.open(name, args)` / `g.screen`):
+- `'pa'` args `{ rooms: [{ id, label }], onListen: async (roomId) => void }` — intercom console; resolves
+  when the player exits or a script calls `HW.ui.close('pa')`.
+- `'safe'` args `{ label, check: (a, b, c) => bool, onWrong: async (tries) => void }` → `true` | `false`.
+- `'terminal'` args `{ boot: [lines], handle: async (input) => [lines] | { lines, exit } }` → on exit.
+  Green-on-black TRS-80 look (VT323), 64×16 text, blinking block cursor, typed input (letters, digits,
+  space, comma, period), `EXIT` or Esc leaves.
+- `'register'` args `{ model }` where `model` (from game/endings.js) is
+  `{ title, founder: { name, status }, lines: [{ id, name, ink: 'pencil'|'ink', status: 'enrolled'|'withdrawn' }],
+     tools: [{ id: 'stamp'|'form'|'pen', label, available }],
+     apply: async (toolId, lineId | 'founder') => ({ ok, say: [[who, expr, text], ...] }),
+     refresh: () => model }` — resolves when the player closes the book (with a confirm).
+- `'breath'` args `{ seconds }` — hold confirm to hold breath while a meter fills; releasing early or
+  running out = `'failed'`, completing = `'held'`.
+- Persistent screens owned by UI (engine opens them): `'pause'`, `'inventory'`, `'sketchbook'` (tabs: Map,
+  Notes, Objective), `'settings'`, `'saveload'`, `'credits'`.
 
 ## Changelog
 - v1 — initial contract.
+- v1.1 — MapRuntime interface (§5.7a); overlays vs screens split; docs format, title & special-screen contracts (§16); Colonel/props-B ownership.

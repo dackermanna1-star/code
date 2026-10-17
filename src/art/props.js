@@ -2,9 +2,11 @@
 // drawPropDynamic(ctx, type, px, py, params, t).
 import { propDef } from '../data/props.js';
 import { makeCanvas, ctxOf, hashStr, tinyText } from './util.js';
+import { PROP_B_TYPES, renderPropB, drawPropDynamicB, initPropsB } from './props_b.js';
 const cache = new Map();
-export async function initProps() {}
+export async function initProps() { await initPropsB(); }
 export function getProp(type, opts = {}) {
+  if (PROP_B_TYPES.includes(type)) { const r = renderPropB(type, opts); if (r) return r; }
   const key = `${type}|${opts.state || ''}|${opts.dir || ''}`;
   if (cache.has(key)) return cache.get(key);
   const d = propDef(type);
@@ -18,5 +20,6 @@ export function getProp(type, opts = {}) {
   cache.set(key, r); return r;
 }
 export function drawPropDynamic(ctx, type, px, py, params = {}, t = 0) {
+  if (PROP_B_TYPES.includes(type)) return drawPropDynamicB(ctx, type, px, py, params, t);
   const p = getProp(type, params); ctx.drawImage(p.canvas, px + p.ox, py + p.oy);
 }

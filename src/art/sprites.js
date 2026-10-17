@@ -1,9 +1,11 @@
 // STUB — replaced by the sprites agent. Exports: initSprites(), getSprite(id).
 import { makeCanvas, ctxOf, hashStr } from './util.js';
+import { getColonelSprite, initColonel } from './colonel.js';
 const cache = new Map();
 const DIRS = ['down', 'up', 'left', 'right'];
-export async function initSprites() {}
+export async function initSprites() { await initColonel(); }
 export function getSprite(id) {
+  if (id === 'colonel') return getColonelSprite();
   if (cache.has(id)) return cache.get(id);
   const big = id === 'colonel';
   const fw = big ? 64 : 24, fh = big ? 64 : 32;

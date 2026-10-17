@@ -1,8 +1,10 @@
 // STUB — replaced by the portraits agent. Exports: initPortraits(), getPortrait(char, expr, opts) → 96×120 canvas.
 import { makeCanvas, ctxOf, hashStr, tinyText } from './util.js';
+import { getColonelPortrait, initColonelPortraits } from './portraits_colonel.js';
 const cache = new Map();
-export async function initPortraits() {}
+export async function initPortraits() { await initColonelPortraits(); }
 export function getPortrait(char, expr = 'neutral', opts = {}) {
+  if (char === 'colonel') return getColonelPortrait(expr, opts);
   const key = `${char}|${expr}|${opts.light || ''}|${opts.grime || 0}|${opts.enrolled ? 1 : 0}`;
   if (cache.has(key)) return cache.get(key);
   const c = makeCanvas(96, 120); const x = ctxOf(c);
