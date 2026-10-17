@@ -1,0 +1,30 @@
+// PLACEHOLDER — replaced by maps-A (see docs/CONTENT.md §2). Minimal valid map with every required anchor.
+export default {
+  id: 'lobby', name: 'lobby (placeholder)', floor: '1F', offset: [0, 0], ambience: 'silence', dark: 0.6,
+  tiles: [
+    '                            ',
+    ' ########################## ',
+    ' ########################## ',
+    ' ########################## ',
+    ' #........................# ',
+    ' #........................# ',
+    ' #........................# ',
+    ' ########################## ',
+    '                            ',
+  ],
+  rooms: [{ id: 'lobby_room', name: 'lobby', rect: [2, 4, 24, 3], kind: 'special' }],
+  anchors: {
+    from_exterior: [2, 5],
+    from_west1: [3, 5],
+    from_east1: [4, 5],
+    from_aud: [5, 5],
+    aud_doors: [6, 5],
+    portrait: [7, 5],
+    memorial: [8, 5],
+    plaque: [9, 5],
+    danny_bag: [10, 5],
+    bench: [11, 5],
+    trophy: [12, 5],
+    stage_door: [13, 5],
+  },
+};

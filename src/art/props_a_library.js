@@ -1,7 +1,7 @@
 // Props A — library & restrooms: bookshelf_tall card_catalog reading_table chair_library
 // librarian_desk display_case lamp_banker microfiche book_cart yearbook_pile | stall sink mirror
 // urinal hand_dryer shower_head.
-import { K, PAL, mix, lt, dk, OUT, SHADOW_SOFT, woodSet, steelSet, CHROME, BRASS, porcelain, seedOf, paper } from './props_a_kit.js';
+import { K, PAL, mix, lt, dk, OUT, SHADOW_SOFT, woodSet, steelSet, CHROME, BRASS, porcelain, seedOf, paper, textW } from './props_a_kit.js';
 import { books } from './props_a_class.js';
 
 const TABLE_H = 12; // things that sit on a table (lamp, yearbooks) are raised by the table's height
@@ -129,7 +129,8 @@ function librarianDesk(o) {
   for (let x = 2; x < 46; x += 11) { k.frame(x, -2, 10, 11, W.dk); k.H(x + 1, -1, 8, W.lt); }
   // brass CIRCULATION plate
   k.R(2, 1, 45, 8, W.md); k.H(2, 1, 45, W.dk); k.H(2, 8, 45, W.hi);
-  k.T(4, 3, 'CIRCULATION', W.lt); k.T(3, 2, 'CIRCULATION', clean ? BRASS.md : mix(W.dd, PAL.ink, 0.3));
+  const cx0 = 2 + ((45 - textW('CIRCULATION')) >> 1);
+  k.T(cx0 + 1, 3, 'CIRCULATION', W.lt); k.T(cx0, 2, 'CIRCULATION', clean ? BRASS.md : mix(W.dd, PAL.ink, 0.3));
   // date stamp on its rack, card trays, ink pad, a QUIET sign
   k.R(4, -14, 5, 3, PAL.g2); k.H(4, -14, 5, PAL.g4); k.V(6, -17, 3, PAL.wood); k.R(5, -18, 3, 1, PAL.wood_l);
   for (const tx of [14, 22]) { k.R(tx, -11, 7, 4, W.dk); k.H(tx, -11, 7, W.lt); for (let i = 1; i < 6; i++) k.V(tx + i, -12, 2, i % 2 ? PAL.paper : PAL.cream_l); }

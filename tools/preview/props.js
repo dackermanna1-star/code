@@ -163,11 +163,33 @@ async function scenes() {
   return c;
 }
 
+function perf() {
+  // build every group-A type × state × facing × variant × clean (cold cache) and time it
+  const rows = [];
+  let total = 0, count = 0;
+  for (const type of Object.values(GROUPS).flat()) {
+    const def = propDef(type), e = PROPS_A[type] || {};
+    const t0 = performance.now();
+    let n = 0;
+    for (const state of def.states) for (const dir of e.facing || ['down']) for (let v = 0; v < (e.variants || 1); v++) for (const clean of [false, true]) {
+      art.prop(type, { state, dir, sitDir: e.facing ? dir : undefined, variant: v, clean, params: {} }); n++;
+    }
+    const ms = performance.now() - t0;
+    total += ms; count += n;
+    rows.push(`${type.padEnd(18)} ${String(n).padStart(3)} canvases ${ms.toFixed(1).padStart(7)} ms`);
+  }
+  rows.unshift(`ALL: ${count} canvases in ${total.toFixed(0)} ms (avg ${(total / count).toFixed(2)} ms)`);
+  const pre = document.createElement('pre'); pre.textContent = rows.join('\n');
+  console.log(rows.slice(0, 1).join(''));
+  console.log(rows.slice().sort((a, b) => parseFloat(b.split('canvases')[1]) - parseFloat(a.split('canvases')[1])).slice(1, 8).join('\n'));
+  return pre;
+}
+
 (async () => {
   const t0 = performance.now();
   await art.init();
   const t1 = performance.now();
-  const c = GROUP === 'scenes' ? await scenes() : sheet(GROUP);
+  const c = GROUP === 'scenes' ? await scenes() : GROUP === 'perf' ? perf() : sheet(GROUP);
   const t2 = performance.now();
   document.getElementById('root').appendChild(c);
   const info = document.createElement('div');

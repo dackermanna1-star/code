@@ -1,7 +1,7 @@
 // Props A — dynamic props: chalkboard (chalk text param), clock_wall / clock_hall (live hands),
 // memorial_board (Polaroids + Tess's frame). Each has a cached base; per-frame work is a couple of
 // drawImage calls plus (clocks) two short hand lines.
-import { K, PAL, mix, lt, dk, OUT, woodSet, BRASS, seedOf } from './props_a_kit.js';
+import { K, PAL, mix, lt, dk, OUT, woodSet, BRASS, seedOf, GLYPH_FIX, glyphW, textW } from './props_a_kit.js';
 import { makeCanvas, ctxOf } from './util.js';
 
 // ---- chalk hand ---------------------------------------------------------------------------------
@@ -21,23 +21,30 @@ const CH = {
   ' ': '000000000000000',
 };
 const chalkNorm = (s) => String(s).toUpperCase().replace(/[—–]/g, '-').replace(/[‘’`]/g, "'").replace(/[“”]/g, '"');
-/** Wrap text into lines of at most `max` px (4 px/char). Honours '\n'. */
+const chW = (ch) => (ch === ' ' ? 2 : glyphW(ch));
+const lineW = (ln) => { let w = 0; for (const ch of ln) w += chW(ch) + 1; return Math.max(0, w - 1); };
+/** Wrap text into lines of at most `max` px (variable glyph widths). Honours '\n'. */
 export function chalkWrap(text, max) {
-  const per = Math.max(1, Math.floor((max + 1) / 4));
   const out = [];
   for (const para of chalkNorm(text).split('\n')) {
     let line = '';
     for (let word of para.split(/\s+/).filter(Boolean)) {
-      while (word.length > per) { if (line) { out.push(line); line = ''; } out.push(word.slice(0, per)); word = word.slice(per); }
+      while (lineW(word) > max) { // hard-break words too long for a line
+        let cut = word.length;
+        while (cut > 1 && lineW(word.slice(0, cut)) > max) cut--;
+        if (line) { out.push(line); line = ''; }
+        out.push(word.slice(0, cut)); word = word.slice(cut);
+      }
       if (!line) line = word;
-      else if (line.length + 1 + word.length <= per) line += ' ' + word;
+      else if (lineW(line + ' ' + word) <= max) line += ' ' + word;
       else { out.push(line); line = word; }
     }
     out.push(line);
   }
   return out;
 }
-/** Draw chalk text lines into ctx at canvas coords. alpha<1 for ghosts. */
+/** Draw chalk text lines into ctx at canvas coords. Glyphs stay whole (legibility); the chalk
+ *  texture is a scatter of dimmer pixels plus a per-letter baseline wobble. */
 export function chalkLines(ctx, x, y, lines, { pitch = 6, seed = 1, color = '#dcd9cb', dim = '#9aa49c', ghost = false, clipH = 999 } = {}) {
   let s = seed >>> 0;
   const rnd = () => { s = (Math.imul(s ^ (s >>> 15), 2246822519) + 0x9e3779b9) >>> 0; return s / 4294967296; };
@@ -46,16 +53,17 @@ export function chalkLines(ctx, x, y, lines, { pitch = 6, seed = 1, color = '#dc
     if (ly - y + 5 > clipH) return;
     let cx = x + (li % 2 && !ghost ? 1 : 0);
     for (const ch of ln) {
-      const g = CH[ch] || CH[' '];
+      const fix = GLYPH_FIX[ch];
+      const rows = fix || (CH[ch] || CH[' ']).match(/.{3}/g);
       const wob = rnd() < 0.2 ? 1 : 0;
-      for (let j = 0; j < 5; j++) for (let i = 0; i < 3; i++) {
-        if (g[j * 3 + i] !== '1') continue;
+      for (let j = 0; j < 5; j++) for (let i = 0; i < rows[j].length; i++) {
+        if (rows[j][i] !== '1') continue;
         const r = rnd();
-        if (r < (ghost ? 0.25 : 0.05)) continue;
-        ctx.fillStyle = r < 0.14 ? dim : color;
+        if (ghost && r < 0.25) continue;
+        ctx.fillStyle = r < 0.16 ? dim : color;
         ctx.fillRect(cx + i, ly + j + wob, 1, 1);
       }
-      cx += ch === ' ' ? 3 : 4;
+      cx += chW(ch) + 1;
     }
   });
 }
@@ -139,20 +147,21 @@ function clockBase(o, hall) {
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2;
     const x = Math.round(cx + Math.sin(a) * (r - 0.6)), y = Math.round(cy - Math.cos(a) * (r - 0.6));
-    if (i % 3 === 0) k.P(x, y, PAL.ink); else if (!clean || i % 2 === 0) k.P(x, y, PAL.g4);
+    if (i % 3 === 0) k.P(x, y, PAL.ink); else k.P(x, y, mix(PAL.g4, PAL.paper, 0.4));
   }
   if (!clean) { k.L(cx - 3, cy - 4, cx + 1, cy + 3, 'rgba(230,236,240,0.35)'); k.S(cx - r, cy - r, r * 2, r * 2, 'rgba(80,60,30,0.25)', 0.08); }
   k.shadow(cx - r + 1, cy + r + 1, r * 2 + 1, 1, 'rgba(6,5,10,0.3)');
   return k.done({ outline: false });
 }
 function clockOverlay(o) {
-  // wire cage + glass glint, drawn over the hands
+  // wire guard: a dark ring standing off the face, two thin bars and a cross-wire (translucent so the
+  // hands stay readable), a glint on the glass
   const k = new K(20, 22, -2, -18, 7);
   const { cx, cy, r } = CLK;
-  const wire = o.clean ? PAL.g5 : PAL.g4, wd = PAL.g2;
-  for (let a = 0; a < Math.PI * 2; a += 0.05) { const x = Math.round(cx + Math.cos(a) * (r + 2)), y = Math.round(cy + Math.sin(a) * (r + 2)); k.P(x, y, Math.sin(a + 0.8) > 0 ? wd : wire); }
-  for (const dx of [-3, 0, 3]) for (let j = -r - 1; j <= r + 1; j++) if ((j & 1) === 0 && dx * dx + j * j <= (r + 2) * (r + 2)) k.P(cx + dx, cy + j, wire);
-  for (let i = -r - 1; i <= r + 1; i++) if ((i & 1) === 1) k.P(cx + i, cy, wire);
+  const ring = o.clean ? PAL.g4 : PAL.g3, bar = o.clean ? 'rgba(196,189,176,0.55)' : 'rgba(156,152,151,0.5)';
+  for (let a = 0; a < Math.PI * 2; a += 0.04) { const x = Math.round(cx + Math.cos(a) * (r + 1.6)), y = Math.round(cy + Math.sin(a) * (r + 1.6)); k.P(x, y, a > 3.3 && a < 4.9 ? lt(ring, 0.25) : ring); }
+  for (const dx of [-2, 2]) for (let j = -r; j <= r; j++) if (dx * dx + j * j <= r * r) k.P(cx + dx, cy + j, bar);
+  for (let i = -r; i <= r; i++) if (i !== 0) k.P(cx + i, cy, bar);
   k.P(cx - 3, cy - 3, PAL.white); k.P(cx - 2, cy - 4, PAL.moon_l);
   k.P(cx, cy, PAL.ink);
   return k.done({ outline: false });
@@ -229,17 +238,19 @@ const FRIEND = {
   marcus: { bg: PAL.slate_l, skin: PAL.dskin, hair: PAL.hair_k, cloth: mix(PAL.green_d, PAL.tan, 0.3), acc: PAL.g2 },
 };
 function polaroid(k, x, y, who, ink) {
+  // 11×14 instant print, pinned; photo above a thick margin with '96 written on it
   const F = FRIEND[who];
-  k.R(x, y, 11, 12, PAL.white); k.V(x + 10, y + 1, 11, PAL.g6); k.H(x + 1, y + 11, 10, PAL.g6);
-  k.R(x + 1, y + 1, 9, 7, F.bg);
-  k.R(x + 4, y + 3, 3, 3, F.skin); k.R(x + 3, y + 6, 5, 2, F.cloth);
-  k.H(x + 4, y + 2, 3, F.hair);
-  if (who === 'danny') { k.H(x + 3, y + 2, 5, F.hair); k.P(x + 3, y + 3, F.hair); } // backwards cap
-  if (who === 'leah') { k.P(x + 3, y + 3, F.hair); k.P(x + 7, y + 3, F.hair); k.P(x + 3, y + 4, F.hair); k.P(x + 7, y + 4, F.hair); k.H(x + 4, y + 4, 3, PAL.g5); }
-  if (who === 'marcus') { k.H(x + 4, y + 1, 3, PAL.ink); k.H(x + 3, y + 2, 5, PAL.ink); k.P(x + 3, y + 6, PAL.g2); k.P(x + 7, y + 6, PAL.g2); }
-  k.D(x + 1, y + 1, 9, 7, PAL.ink, 0.12);
-  micro(k, x + 1, y + 8, '1996', ink === 'pencil' ? PAL.g4 : mix(PAL.blue_dd, PAL.ink, 0.3));
-  k.P(x + 5, y - 1, PAL.red_l); k.P(x + 5, y, PAL.g2); // pushpin
+  k.R(x, y, 11, 14, PAL.white); k.V(x + 10, y + 1, 13, PAL.g6); k.H(x + 1, y + 13, 10, PAL.g6);
+  k.R(x + 1, y + 2, 9, 7, F.bg);
+  k.R(x + 4, y + 4, 3, 3, F.skin); k.R(x + 3, y + 7, 5, 2, F.cloth);
+  k.H(x + 4, y + 3, 3, F.hair);
+  if (who === 'danny') { k.H(x + 3, y + 3, 5, F.hair); k.P(x + 3, y + 4, F.hair); } // backwards cap
+  if (who === 'leah') { k.P(x + 3, y + 4, F.hair); k.P(x + 7, y + 4, F.hair); k.P(x + 3, y + 5, F.hair); k.P(x + 7, y + 5, F.hair); k.H(x + 4, y + 5, 3, PAL.g5); }
+  if (who === 'marcus') { k.H(x + 4, y + 2, 3, PAL.ink); k.H(x + 3, y + 3, 5, PAL.ink); k.P(x + 3, y + 7, PAL.g2); k.P(x + 7, y + 7, PAL.g2); }
+  k.D(x + 1, y + 2, 9, 7, PAL.ink, 0.12);
+  const col = ink === 'pencil' ? PAL.g4 : mix(PAL.blue_dd, PAL.ink, 0.2);
+  k.P(x + 2, y + 9, col); k.T(x + 4, y + 9, '96', col);
+  k.P(x + 5, y, PAL.red_l); k.P(x + 5, y + 1, PAL.g2); // pushpin
 }
 function memorialBase(o) {
   const { clean } = o;
@@ -250,13 +261,13 @@ function memorialBase(o) {
   k.R(2, -13, 44, 25, felt); k.H(2, -13, 44, mix(felt, PAL.ink, 0.5)); k.V(2, -13, 25, mix(felt, PAL.ink, 0.5));
   for (const [cx, cy] of [[0, -15], [46, -15], [0, 12], [46, 12]]) { k.R(cx, cy, 2, 2, clean ? BRASS.lt : BRASS.dk); k.P(cx, cy, BRASS.hi); }
   const gold = clean ? PAL.gold : mix(PAL.gold, PAL.g4, 0.35);
-  k.T(5, -12, 'HOMECOMING', gold);
+  k.T((48 - textW('HOMECOMING')) >> 1, -12, 'HOMECOMING', gold);
   k.H(5, -6, 39, clean ? BRASS.md : BRASS.dk);
   for (let i = 0; i < 5; i++) schoolPhoto(k, 3 + i * 9, -4, NINE[i], clean, i);
   for (let i = 0; i < 4; i++) schoolPhoto(k, 7 + i * 9, 4, NINE[5 + i], clean, 5 + i);
   // dried carnation tucked in the frame; dust
   if (!clean) {
-    k.P(44, -14, PAL.velvet); k.P(45, -13, PAL.red_d); k.L(43, -12, 41, -8, PAL.green_d);
+    k.P(1, -9, PAL.velvet); k.P(2, -10, PAL.red_d); k.P(1, -10, PAL.red_d); k.L(2, -8, 3, -4, PAL.green_d);
     k.S(2, -13, 44, 20, 'rgba(150,140,120,0.2)', 0.05);
   }
   k.shadow(1, 14, 48, 1, 'rgba(6,5,10,0.35)');
@@ -270,12 +281,12 @@ function memorialRender(o, params) {
   const hasTess = tf !== undefined && tf !== null && tf !== false;
   // The school pins its new pupils OVER the old: Polaroids on the right, Tess's frame low left.
   if (pol) {
-    const slots = hasTess ? [[19, -7], [27, -6], [35, -7]] : [[23, -1], [30, 0], [37, -1]];
+    const slots = hasTess ? [[20, -8], [27, -7], [34, -8]] : [[23, -2], [29, -1], [35, -2]];
     ['danny', 'leah', 'marcus'].forEach((who, i) => { if (pol[who]) polaroid(k, slots[i][0], slots[i][1], who, pol[who] === 'pencil' ? 'pencil' : 'ink'); });
   }
   if (hasTess) {
     const n = tf === true ? 0 : tf === 'sketch' ? 1 : tf === 'photo' ? 2 : Number(tf) || 0;
-    const fx = 3, fy = 2;
+    const fx = 3, fy = 1;
     k.R(fx, fy, 10, 11, PAL.g1); k.frame(fx, fy, 10, 11, PAL.ink); k.H(fx + 1, fy + 1, 8, PAL.g2); k.V(fx + 1, fy + 1, 9, PAL.g2);
     k.R(fx + 2, fy + 2, 6, 7, n === 0 ? PAL.shadow : PAL.paper);
     if (n === 1) { // a faint pencil sketch: a girl at a desk
@@ -289,8 +300,8 @@ function memorialRender(o, params) {
     k.P(fx + 5, fy - 1, PAL.g4);
     // typed label card
     const card = mix(PAL.paper, PAL.paper_d, 0.5);
-    k.R(fx + 12, fy + 1, 30, 11, card); k.H(fx + 12, fy + 11, 30, PAL.paper_d); k.V(fx + 41, fy + 1, 11, PAL.paper_d);
-    k.T(fx + 14, fy + 1, 'THERESA', PAL.g1); k.T(fx + 14, fy + 6, 'DOLAN', PAL.g1);
+    k.R(fx + 12, fy + 4, 30, 11, card); k.H(fx + 12, fy + 14, 30, PAL.paper_d); k.V(fx + 41, fy + 4, 11, PAL.paper_d);
+    k.T(fx + 14, fy + 4, 'THERESA', PAL.g1); k.T(fx + 14, fy + 9, 'DOLAN', PAL.g1);
   }
   return k.done({ outline: false });
 }

@@ -9,9 +9,15 @@
 import { PAL, mix, darken, lighten } from './palette.js';
 import { makeCanvas, ctxOf, rng, BAYER4, tinyText } from './util.js';
 
-// Glyph overrides for the shared 3×5 font where the stock shape misreads at prop scale.
-const GLYPH_FIX = { G: '111100101101111', N: '101111111111101', M: '101111111101101', Q: '111101101111011', W: '101101101111101', K: '101101110101101' };
-
+// Glyph overrides for the shared 3×5 font where the stock shape misreads at prop scale; M, N, W
+// get 4-px-wide forms (rows are strings of '0'/'1', width = row length).
+export const GLYPH_FIX = {
+  "'": ['001', '010', '000', '000', '000'], G: ['111', '100', '101', '101', '111'], Q: ['111', '101', '101', '111', '011'],
+  N: ['1001', '1101', '1011', '1001', '1001'], M: ['1001', '1111', '1111', '1001', '1001'], W: ['1001', '1001', '1111', '1111', '1001'],
+};
+export const glyphW = (ch) => (GLYPH_FIX[ch] ? GLYPH_FIX[ch][0].length : 3);
+/** Width in px of 3×5 text drawn with K.T (1-px letter gaps). */
+export const textW = (text) => { let w = 0; for (const ch of String(text).toUpperCase()) w += glyphW(ch) + 1; return Math.max(0, w - 1); };
 export { PAL, mix, darken, lighten };
 export const OUT = '#0d0a0e';        // outline (warm near-black, matches character outlines)
 export const OUT_LIT = '#1e1719';    // outline on the lit (top/left) side
@@ -97,9 +103,9 @@ export class K {
     let cx = x;
     for (const ch of String(text).toUpperCase()) {
       const g = GLYPH_FIX[ch];
-      if (g) { for (let j = 0; j < 5; j++) for (let i = 0; i < 3; i++) if (g[j * 3 + i] === '1') this.P(cx + i, y + j, c); }
+      if (g) { for (let j = 0; j < 5; j++) for (let i = 0; i < g[j].length; i++) if (g[j][i] === '1') this.P(cx + i, y + j, c); }
       else if (this.fw) { /* mirrored text is never wanted */ } else tinyText(this.x, cx - this.ox, y - this.oy, ch, c);
-      cx += 4;
+      cx += glyphW(ch) + 1;
     }
     return cx - x - 1;
   }
@@ -154,10 +160,15 @@ export class K {
       }
     }
   }
-  /** Grime: darker speckle + a dithered bottom-heavy film. */
+  /** Grime: random speckle getting denser toward the bottom, plus a scuffed dithered kick band. */
   grime(x, y, w, h, amt = 1, col = 'rgba(16,10,8,0.32)') {
-    this.S(x, y, w, h, col, 0.05 * amt);
-    for (let j = 0; j < h; j++) { const t = (j / Math.max(1, h - 1)) * 0.35 * amt; for (let i = 0; i < w; i++) if (bay(x + i, y + j) < t * 0.6) this.P(x + i, y + j, col); }
+    this.S(x, y, w, h, col, 0.03 * amt);
+    for (let j = 0; j < h; j++) {
+      const t = (j / Math.max(1, h - 1)) ** 2 * 0.22 * amt;
+      for (let i = 0; i < w; i++) if (this.r() < t) this.P(x + i, y + j, col);
+    }
+    const kb = Math.min(2, h);
+    for (let j = h - kb; j < h; j++) for (let i = 0; i < w; i++) if (bay(x + i, y + j) < 0.35 * amt) this.P(x + i, y + j, col);
   }
   /** Rust bloom: clustered rust/brown pixels. */
   rust(x, y, w, h, n = 3) {

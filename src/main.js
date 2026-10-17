@@ -18,6 +18,7 @@ import renderer from './render/renderer.js';
 import flashlight from './game/flashlight.js';
 import hiding from './game/hiding.js';
 import compact from './game/compact.js';
+import installGameSystems from './game/index.js';
 import art from './art/index.js';
 import audio from './audio/audio.js';
 import ui from './ui/ui.js';
@@ -106,6 +107,7 @@ async function boot() {
   game.addSystem(flashlight);
   game.addSystem(hiding);
   game.addSystem(compact);
+  installGameSystems();
 
   game.start();
   game.toTitle();

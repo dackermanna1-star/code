@@ -1,6 +1,6 @@
 // Props A — hallway & lobby: locker water_fountain trophy_case fire_extinguisher exit_sign bench
 // portrait_colonel plaque banner motto_stone. (memorial_board / clock_hall: props_a_dynamic.js.)
-import { K, PAL, mix, lt, dk, OUT, SHADOW_SOFT, woodSet, steelSet, CHROME, BRASS, porcelain, seedOf, paper } from './props_a_kit.js';
+import { K, PAL, mix, lt, dk, OUT, SHADOW_SOFT, woodSet, steelSet, CHROME, BRASS, porcelain, seedOf, paper, textW } from './props_a_kit.js';
 
 // ---- locker -----------------------------------------------------------------------------------
 // One tall olive locker standing against a north-wall face; a row of them reads as one bank.
@@ -187,19 +187,13 @@ function exitSign(o) {
   k.R(-1, -16, 18, 9, housing); k.H(-1, -16, 18, lt(housing, 0.2)); k.H(-1, -8, 18, PAL.g1); k.V(16, -16, 9, PAL.g2);
   k.R(0, -15, 16, 7, state === 'dead' ? PAL.g1 : mix(PAL.red_d, PAL.ink, 0.45));
   const lit = state === 'on' || state === 'flicker';
-  const on = clean ? '#ffd0c0' : '#ff8a72', mid = PAL.exit_red, dead = mix(PAL.red_d, PAL.g2, 0.4);
-  const letters = 'EXIT';
-  for (let i = 0; i < 4; i++) {
-    const L = letters[i];
-    const isLit = lit && !(state === 'flicker' && (i === 2 || i === 3));
-    const col = isLit ? mid : state === 'flicker' ? mix(PAL.red_d, PAL.red, 0.4) : dead;
+  const hot = clean ? '#ffd0c0' : '#ff8a72', dead = mix(PAL.red_d, PAL.g2, 0.4);
+  'EXIT'.split('').forEach((L, i) => {
+    const isLit = lit && !(state === 'flicker' && i >= 2);
+    const col = isLit ? hot : state === 'flicker' ? mix(PAL.red_d, PAL.red, 0.4) : dead;
+    if (isLit) k.T(i * 4 + 1, -13, L, PAL.red); // a red bloom under each lit letter
     k.T(i * 4, -14, L, col);
-    if (isLit) k.T(i * 4, -14, L, on), k.T(i * 4, -14 + 1, L, mid), k.T(i * 4, -14, L, on);
-  }
-  if (lit) {
-    // hot core: re-stamp the upper rows bright so letters glow from within
-    for (let i = 0; i < 4; i++) if (!(state === 'flicker' && i >= 2)) k.T(i * 4, -14, letters[i], on);
-  }
+  });
   if (state === 'dead' && !clean) { k.L(2, -15, 7, -9, PAL.g3); k.S(0, -15, 16, 7, PAL.g3, 0.08); }
   if (!clean) k.S(-1, -16, 18, 1, PAL.g5, 0.3);
   return k.done({ outline: false });
@@ -367,11 +361,6 @@ function plaque(o) {
 }
 
 // ---- banner (4×1 wall, high) ------------------------------------------------------------------
-function bannerText(k, x, y, text, col, bold = false) {
-  let cx = x;
-  for (const ch of text) { k.T(cx, y, ch, col); if (bold) k.T(cx + 1, y, ch, col); cx += bold ? 5 : 4; }
-  return cx - x;
-}
 function banner(o) {
   const { state, clean } = o;
   const k = new K(64, 16, 0, -16, seedOf('banner', state, clean));
@@ -384,17 +373,20 @@ function banner(o) {
   const y = -15, h = 11;
   k.R(0, y, 64, h, f(spec.bg));
   k.H(0, y, 64, f(spec.edge)); k.H(0, y + h - 1, 64, f(spec.edge)); k.H(0, y + h - 2, 64, dk(f(spec.bg), 0.2));
-  const tw = spec.text.length * (spec.bold ? 5 : 4) - 1;
-  bannerText(k, Math.max(1, (64 - tw) >> 1), y + 3, spec.text, f(spec.fg), spec.bold);
+  const tw = textW(spec.text);
+  k.T(Math.max(1, (64 - tw) >> 1), y + 3, spec.text, f(spec.fg));
   // paint drips under the letters, sag between the tape points
   for (let i = 0; i < 4; i++) k.P(8 + i * 14, y + 9, dk(f(spec.fg), 0.25));
   k.P(0, y, 'rgba(230,220,180,0.75)'); k.P(63, y, 'rgba(230,220,180,0.75)'); k.P(31, y, 'rgba(230,220,180,0.75)');
   if (!clean) {
-    // torn: the right end ripped and hanging, a missing corner, water stain
-    k.clear(56, y, 8, 4); k.clear(60, y + 4, 4, 3);
-    k.poly([[57, y + 4], [63, y + 7], [63, y + 11], [58, y + 11]], f(spec.bg));
-    k.L(57, y + 4, 63, y + 7, dk(f(spec.bg), 0.3)); k.P(56, y + 3, f(spec.edge));
-    k.clear(0, y + h - 2, 3, 2);
+    // torn: one end ripped and hanging (away from the lettering), a missing corner, water stain
+    const tw2 = textW(spec.text), x0 = Math.max(1, (64 - tw2) >> 1);
+    if (x0 + tw2 < 56) {
+      k.clear(56, y, 8, 4); k.clear(60, y + 4, 4, 3);
+      k.poly([[57, y + 4], [63, y + 7], [63, y + 11], [58, y + 11]], f(spec.bg));
+      k.L(57, y + 4, 63, y + 7, dk(f(spec.bg), 0.3)); k.P(56, y + 3, f(spec.edge));
+    } else { k.clear(0, y, 3, 5); k.clear(0, y + 5, 1, 2); k.L(3, y, 1, y + 6, dk(f(spec.bg), 0.3)); }
+    k.clear(61, y + h - 2, 3, 2);
     k.A(20, y + 1, 9, 8, 'rgba(110,80,40,0.2)');
     k.S(0, y, 64, h, 'rgba(60,40,20,0.3)', 0.05);
   }
@@ -414,12 +406,12 @@ function mottoStone(o) {
   k.S(1, y + 1, 62, h - 2, S[2], 0.08);
   // incised letters: shadow cut, lit lower lip
   const carve = (tx, ty, text) => { k.T(tx + 1, ty + 1, text, S[0]); k.T(tx, ty, text, S[3]); };
-  carve(24, y + 2, 'NEMO'); carve(10, y + 8, 'RELINQUATUR');
+  carve((64 - textW('NEMO')) >> 1, y + 2, 'NEMO'); carve((64 - textW('RELINQUATUR')) >> 1, y + 8, 'RELINQUATUR');
   k.H(4, y + 7, 56, S[2]);
   if (!clean) {
     // soot and rain streaks run down from the cornice; a crack through the R
-    for (const x of [3, 9, 21, 40, 52, 60]) k.V(x, y + 1, k.ri(4, h - 2), 'rgba(40,36,34,0.28)');
-    k.L(46, y, 44, y + 6, S[3]); k.P(45, y + 3, S[3]);
+    for (const x of [6, 17, 38, 49, 58]) { const len = k.ri(3, 9); for (let j = 0; j < len; j++) if ((j & 1) === 0 || j < 2) k.P(x, y + h - 1 - j, 'rgba(40,36,34,0.22)'); }
+    k.L(56, y + h - 1, 58, y + h - 5, S[2]);
     k.S(0, y, 64, h, 'rgba(30,30,30,0.25)', 0.05);
   }
   k.shadow(0, y + h, 64, 1, 'rgba(6,5,10,0.45)');

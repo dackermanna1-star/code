@@ -4,7 +4,7 @@
 //
 // Seats face the SITTER's direction. A seated character is drawn over the seat prop (engine sorts it
 // after the seat), so seat art keeps desktops/backrests readable around a ~12-px body.
-import { K, PAL, mix, lt, dk, OUT, SHADOW_SOFT, woodSet, steelSet, CHROME, BRASS, seedOf, paper } from './props_a_kit.js';
+import { K, PAL, mix, lt, dk, OUT, SHADOW_SOFT, woodSet, steelSet, CHROME, BRASS, seedOf, paper, textW } from './props_a_kit.js';
 
 // ---- shared seat colours (molded plastic, period hues pulled toward the palette) -------------
 const SEAT = [
@@ -139,7 +139,7 @@ function deskTeacher(o) {
   k.V(0, -2, 15, S.lt); k.V(31, -2, 15, S.dk); k.H(0, 12, 32, S.dd);
   if (o.dir === 'up') {
     // teacher's side: pedestals of drawers either side of a dark kneehole
-    k.R(11, 0, 10, 12, PAL.ink); k.DV(11, 0, 10, 12, S.dd, 0.5, 0);
+    k.R(11, 0, 10, 12, PAL.ink); k.H(11, 0, 10, S.dd); k.V(11, 1, 11, mix(S.dd, PAL.ink, 0.5));
     for (const [px0, rows] of [[1, [0, 4, 8]], [21, [0, 6]]]) {
       for (const ry of rows) {
         const h = rows.length === 2 && ry === 6 ? 6 : 4;
@@ -405,14 +405,16 @@ function flagUS(o) {
 function poster(o) {
   const { state, clean } = o;
   const k = new K(16, 20, 0, -17, seedOf('poster', state, clean));
-  const x = 1, y = -15, w = 14, h = 16;
+  // word posters fill the sheet edge to edge so their 4-letter titles fit
+  const wide = state === 'read' || state === 'band';
+  const x = wide ? 0 : 1, y = -15, w = wide ? 16 : 14, h = 16;
   const f = (c) => (clean ? c : mix(c, PAL.paper_d, 0.42));
   const bgOf = { read: PAL.yellow_l, homecoming79: PAL.green_d, periodic: PAL.paper, foodgroups: PAL.paper, pa_map: PAL.moon_l, alphabet: PAL.paper,
     ourtown: PAL.blue_d, patrol: PAL.paper, computer: PAL.g2, band: PAL.green }[state] || PAL.paper;
   k.R(x, y, w, h, f(bgOf));
   switch (state) {
     case 'read':
-      k.R(x, y, w, 7, f(PAL.red_d)); k.T(x, y + 1, 'READ', f(PAL.yellow_l));
+      k.R(x, y, w, 7, f(PAL.red_d)); k.T(x + ((w - textW('READ')) >> 1), y + 1, 'READ', f(PAL.yellow_l));
       k.R(x + 2, y + 8, 8, 5, f(PAL.white)); k.V(x + 6, y + 8, 5, f(PAL.g4)); k.H(x + 3, y + 10, 2, PAL.g4); k.H(x + 7, y + 10, 2, PAL.g4);
       k.E(x + 6, y + 6, 2, 1, f(PAL.brown)); k.P(x + 5, y + 6, PAL.white); k.P(x + 7, y + 6, PAL.white);
       break;
@@ -465,7 +467,7 @@ function poster(o) {
       k.H(x + 1, y + 1, 10, f(PAL.green_l)); k.H(x + 2, y + 14, 8, f(PAL.green_l));
       break;
     case 'band':
-      k.T(x, y + 1, 'BAND', f(PAL.yellow_l));
+      k.T(x + ((w - textW('BAND')) >> 1), y + 1, 'BAND', f(PAL.yellow_l));
       k.L(x + 2, y + 13, x + 8, y + 7, f(PAL.gold)); k.R(x + 8, y + 6, 3, 3, f(PAL.gold)); k.P(x + 8, y + 6, f(PAL.gold_l));
       k.P(x + 4, y + 9, f(PAL.white)); k.P(x + 5, y + 8, f(PAL.white)); k.P(x + 6, y + 11, f(PAL.white)); k.V(x + 7, y + 9, 3, f(PAL.white));
       break;
@@ -510,7 +512,7 @@ function drawingsWall(o) {
   const { clean } = o;
   const k = new K(32, 22, 0, -16, seedOf('drawings', clean));
   const f = (c) => (clean ? c : mix(c, PAL.paper_d, 0.45));
-  k.R(2, -15, 28, 7, f(PAL.yellow)); k.T(4, -14, 'GROW UP', f(PAL.red_d)); k.H(2, -9, 28, dk(f(PAL.yellow), 0.2));
+  k.R(2, -15, 28, 7, f(PAL.yellow)); k.T(2 + ((28 - textW('GROW UP')) >> 1), -14, 'GROW UP', f(PAL.red_d)); k.H(2, -9, 28, dk(f(PAL.yellow), 0.2));
   const sheet = (x, y, w, h, draw) => { k.R(x, y, w, h, f(PAL.white)); k.H(x, y + h - 1, w, f(PAL.g5)); k.P(x + 1, y, 'rgba(230,220,180,0.7)'); k.P(x + w - 2, y, 'rgba(230,220,180,0.7)'); draw(x, y); };
   sheet(2, -7, 8, 10, (x, y) => { // fireman
     k.R(x + 3, y + 1, 3, 1, f(PAL.red)); k.P(x + 4, y + 2, f(PAL.skin)); k.V(x + 4, y + 3, 3, f(PAL.yellow)); k.P(x + 3, y + 6, f(PAL.ink)); k.P(x + 5, y + 6, f(PAL.ink)); k.L(x + 1, y + 8, x + 6, y + 3, f(PAL.red_l));
