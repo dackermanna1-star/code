@@ -87,7 +87,7 @@ function leafOf(e) {
   if (!p.dynamic) return e.enterable ? null : p
   const base = e.sectionPlacement?.angle
   if (!Number.isFinite(base)) return null
-  return Math.abs(angDiff(p.angle, base)) < 1e-3 ? p : null
+  return Math.abs(angDiff(p.angle, base)) < 0.28 ? p : null // closed, or propped ajar on its brick
 }
 
 /**

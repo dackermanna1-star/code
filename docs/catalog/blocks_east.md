@@ -15,7 +15,7 @@ name it in `?only=…`.
 z 144  ┌────────────── BLOCK B ──────────────┬──┬──────────────── BLOCK C ─────────────────┐
        │ 1-515 «Заводская 5» (5 sect., x 317–449.5)│N │ ГСК «Мотор-14» brick garages (34 boxes)  │
        │ inner driveway z 173–178 + parking bays   │– │ garage lane z 158.5–165 (dead end)        │
-       │ P-44T 17 fl. (2 sect.)   P-44 16 fl.      │S │ P-44 9 fl. «Заводская 9», 5 sections ─┐   │
+       │ P-44T 17 fl. (2 sect.)   P-44 16 fl.      │S │ P-44 9 fl. «Заводская 9», 5 + 2 sect. ┐   │
        │ x 316–330, z 194–246     x 436–449        │  │ inner driveway z 198–203 (dead end)   │2  │
        │      hockey box x 360–400, z 212–232      │d │ playground   construction site        │sect│
        │      kindergarten № 1543 x 357.5–422.5    │r │ x 500–512    (fence x 522–574,        │L  │
@@ -30,6 +30,10 @@ z 322  ├──────── E–W driveway «3-й Молодёжный п
 z 500  └──────────── avenue tree strip (avenue pkg) ─────────────────────────────────────────┘
 ```
 
+Shop door entrance record (public): `registry.shops` entry at (425, 470), entrance stub from
+(419.25, 474.5). Key numbers live in `src/content/blocks_east/geo.js` (one place for every
+coordinate).
+
 ## Landmarks (world x, z)
 
 | what | where | notes |
@@ -38,7 +42,7 @@ z 500  └──────────── avenue tree strip (avenue pkg) �
 | P-44T 17 fl. «Молодёжный 3/1» (2 sections) | x 316–330, z 194–246 (entrances face east) | Block B west tower |
 | P-44 16 fl. «Молодёжный 3/2» | x 436–449, z 210.5–236 (entrance faces west) | Block B east tower, two blue spruces at its door |
 | 1-515 9 fl. «ул. Заводская 5», 5 sections | x 317–449.5, z 156–168 (entrances face south) | Block B's north wall along ул. Заводская |
-| **The long building** P-44 9 fl. «ул. Заводская 9», 7 sections in an L | E–W wing x 466.5–594, z 180–193 (entrances 1–5 face south); east wing x 585–598, z 197–248 (entrances 6–7 face west) | "repetition": 127 m of identical sections fading into fog, then the corner; a 2.5 m gap between the wings (x 585–594, z 194.5–197) is a passage from the garage lane |
+| **The long building** P-44 9 fl. «ул. Заводская 9», 7 sections in an L | main wing x 466.5–594, z 180–193 (подъезды 3–7 face south); east wing x 585–598, z 197–248 (подъезды 1–2 face west) | "repetition": 127 m of identical sections fading into fog, then the corner; a 2.5 m gap between the wings (x 585–594, z 194.5–197) is a passage from the garage lane |
 | Lone flickering lamp | (582.4, 200.5) | sodium courtyard lamp, `flicker: 'dying'`, tear-off flyers on its pole, at the dead end of Block C's inner driveway under the corner of the long building, where the gap passage opens |
 | Abandoned construction site («долгострой») | fence x 522–574, z 214–268; pit x 531–565, z 223–259, floor y −1.5 | green corrugated fence, gate open on the west side (z 238–243.5), passport board «Окончание работ: IV кв. 2007 г.», strip foundation with rebar, ФБС blocks, rings, a site trailer, weeds, two ash-leaved maples, crows, a birch with a bag |
 | ГСК «Мотор-14» brick garages | x 475.75–586.25, z 151.75–158.25 (doors face south) | one garage open with a bulb and a Lada (public package) |
@@ -83,8 +87,11 @@ z 290 (north); kindergarten porches x 376.5 / 390 / 403.5 at z 289 (locked).
 - **Block C's gap**: garage lane (586.5, 163.6) → along the east gable (596.8, 172–190) → through
   the 2.5 m gap between the wings (593 → 583, z 195.5) → the dead end under the lone lamp.
   (Walk-tested: no snag.)
-- **Into the pit**: a kids' trodden way (516, 248) → gate (522.5, 240.7) → the pit rim (530.4,
+- **Into the pit**: a kids' trodden way (516, 248) → gate (522.5, 240.7) → the pit rim (531.2,
   240.3) → down stepped earth slopes (one 0.25 m voxel per 0.5 m) to the frozen floor at y −1.5.
+  The pit is dug after the paths are painted, so the path runs into the slope without a step;
+  every slope is climbable (walk-tested in and out). The strip foundation and blocks on the floor
+  are solid obstacles to walk round.
 - Sidewalks along every facade (y 0.25), the west sidewalk of Block E (x 308–310.5, to the
   avenue at z 508; lowered to road level where Block E's inner driveway crosses it, z 357–362),
   and the driveways themselves. All nav lines end on another line (checked in-page: the only loose
@@ -202,6 +209,17 @@ All carry snow on their tops; pivot = bottom centre of the footprint unless note
 | `be_passport` | 2.75 × 2.75 × 0.5 | object passport board on two posts (text = a sign added by the layout); board front −Z |
 | `be_post` | 0.25 × 1.25 × 0.25 | lone rusty post (the glove sits on it) |
 | `be_roof_sign` | 9.0 × 2.5 × 0.5 | angle-iron roof frame for shop letters; letters plane = local −Z row (a sign quad 0.27 m in front of the pivot), placed with `rot: 1` on the shop roof (y 4.0) |
+
+## Known limitations
+
+- 25 cm terrain makes any snow heap read as terraces (the snow hill, windrows, plough piles);
+  the hill is kept low with bright fresh snow on its flanks to soften it.
+- Headless QA note: a page with this district loaded and a few teleports reaches ~3–3.5 GB RSS in
+  the SwiftShader renderer (LOD0 meshes of the 17-storey sections, tree crowns); with several
+  agents rendering at once the shared memory cgroup OOM-kills pages. Not a problem in a normal
+  browser, but worth a look in the integration perf pass.
+- Trees inside the kindergarten site and the snowman there are placed by this package (the
+  public package does not plant trees).
 
 ## Notes for the integrator / neighbours
 

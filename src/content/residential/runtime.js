@@ -26,6 +26,9 @@ export const RT = {
 }
 
 const DOOR_OPEN = 1.85 // rad, outward
+// Enterable entrances rest propped ajar on a brick, with a warm spill of light at the foot:
+// the only way the player can tell an open stairwell from ~60 locked ones (no HUD).
+const DOOR_REST = 0.24
 const _tmp = [0, 0, 0]
 
 // ---------------------------------------------------------------------------------------------
@@ -71,11 +74,23 @@ export function addEntranceDoor(ctx, sec, doorP, opts) {
   const { L, p } = sec
   const hinge = p.voxelToWorld(L.door.x0, L.tambourY, L.F)
   const center = p.voxelToWorld(L.door.x0 + 2, L.tambourY + 4, L.F + 0.5)
+  const rest = opts.enterable ? DOOR_REST : 0
   const d = {
-    sec, p: doorP, hinge, center, base: p.angle, swing: 0, target: 0, timer: 0, enterable: !!opts.enterable,
+    sec, p: doorP, hinge, center, base: p.angle, swing: rest, target: rest, rest, timer: 0, enterable: !!opts.enterable,
     ringing: null, number: opts.number, flats: opts.flats,
   }
   RT.doors.push(d)
+  if (rest > 0 && doorP) {
+    doorP.set(hinge.x, hinge.y, hinge.z, d.base + rest)
+    // brick wedged under the free edge of the leaf
+    const a = d.base + rest
+    const bx = hinge.x + Math.cos(a) * 0.95, bz = hinge.z - Math.sin(a) * 0.95
+    ctx.world.place('res_door_brick', { x: bx, y: hinge.y, z: bz, angle: a + Math.PI / 2, tag: 'door_brick' })
+    // warm stairwell light leaking out through the gap onto the porch (from dusk)
+    const ox = -Math.sin(p.angle), oz = -Math.cos(p.angle) // outward (local -Z)
+    ctx.lights.add({ x: center.x + ox * 0.8, y: hinge.y + 0.9, z: center.z + oz * 0.8, color: 0xffc27a, intensity: 1.8, range: 4.2,
+      domain: 'outdoor', schedule: 'night', halo: false, scatter: 0.15, tag: 'door_spill' })
+  }
   const box = worldBox(p, L.door.x0 - 0.2, L.tambourY, L.F - 0.6, L.door.x1 + 0.2, L.tambourY + 8, L.F + 1.8)
   ctx.interactions.add({
     x: box.x, y: box.y, z: box.z, size: box.size, reach: 2.6, tag: 'entrance_door',
@@ -100,7 +115,7 @@ function useEntrance(d) {
     })
     return
   }
-  if (d.target > 0.5 && d.swing > 0.3) { d.target = 0; d.timer = 0; return }
+  if (d.target > 0.5 && d.swing > 0.3) { d.target = d.rest; d.timer = 0; return }
   const pl = RT.ctx.player.pos
   const inside = insideOf(d, pl)
   play(inside ? 'door_magnet_lock' : 'intercom_beep', { pos: [d.center.x, d.center.y, d.center.z], gain: 0.6 })
@@ -119,10 +134,10 @@ function insideOf(d, pos) {
 function tickDoor(d, dt) {
   if (!d.enterable) return
   const pl = RT.ctx.player.pos
-  if (d.target > 0) {
+  if (d.target > d.rest) {
     d.timer -= dt
     const near = Math.hypot(pl.x - d.hinge.x, pl.z - d.hinge.z) < 1.5 && Math.abs(pl.y - d.hinge.y) < 2
-    if (d.timer <= 0 && !near) d.target = 0
+    if (d.timer <= 0 && !near) d.target = d.rest
   }
   if (Math.abs(d.swing - d.target) < 1e-4) return
   const opening = d.target > d.swing
@@ -131,10 +146,13 @@ function tickDoor(d, dt) {
   d.p.collide = false
   d.p.set(d.hinge.x, d.hinge.y, d.hinge.z, d.base + d.swing)
   if (d.swing === d.target) {
-    if (d.target === 0) {
+    if (d.target === d.rest) {
       d.p.collide = true
-      play('door_metal_slam', { pos: [d.center.x, d.center.y, d.center.z], gain: 1.0 })
-      later(0.18, () => play('door_magnet_lock', { pos: [d.center.x, d.center.y, d.center.z], gain: 0.7 }))
+      if (d.rest > 0) play('door_metal_open', { pos: [d.center.x, d.center.y, d.center.z], gain: 0.35 }) // settles back onto the brick
+      else {
+        play('door_metal_slam', { pos: [d.center.x, d.center.y, d.center.z], gain: 1.0 })
+        later(0.18, () => play('door_magnet_lock', { pos: [d.center.x, d.center.y, d.center.z], gain: 0.7 }))
+      }
     }
   }
 }

@@ -79,8 +79,8 @@ export function paintLawn(ctx, x0, z0, x1, z1, seed = 9) {
   const snow = M('snow'), fresh = M('snow_fresh')
   ctx.terrain.apply(x0, z0, x1, z1, (x, z) => {
     const zone = fbm2(x * 0.035, z * 0.035, 2, seed)
-    const n = fbm2(x * 0.3, z * 0.3, 2, seed + 7)
-    const h = zone > 0.55 && n > 0.64 ? 3 : 2
+    const n = fbm2(x * 0.5, z * 0.5, 2, seed + 7)
+    const h = zone > 0.6 && n > 0.68 ? 3 : 2
     const m = fbm2(x * 0.5, z * 0.5, 2, seed + 1) > 0.55 || h === 3 ? fresh : snow
     return { h, mat: m }
   })

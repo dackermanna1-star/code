@@ -66,7 +66,7 @@ the same pattern. The sidewalk lamps are every 74 m (also a divisor of 592).
 | «Остановка запрещена» sign | (373.2, 556.6) | |
 | **kiosk row** | z 576.4 (fronts north at z 575), x 401.6 «ТАБАК», 408.8 «ПЕЧАТЬ», 416.2 «ЦВЕТЫ 24», 423.4 closed («ОВОЩИ • ФРУКТЫ», shutter, СДАЁТСЯ), 430.8 «ШАУРМА» | public `placeKiosk`, y 0.25; coffee machine (439.6, 575.5), terminal (436.9, 575.4) |
 | **«ПРОДУКТЫ 24 ЧАСА»** (enterable) | public `placeShop` centred (460, 580), rot 0 (front north); door/entrance point (455.5, 574.25) | second enterable shop of the city (bread, cashier); zone `shop` |
-| **«АПТЕКА»** (enterable 8–22) | public `placePharmacy` centred (476.8, 577.6), rot 0 | green cross over the door |
+| **«АПТЕКА»** (enterable 8–22) | public `placePharmacy` centred (476.8, 577.6), rot 0; glass door ≈ (474.6, 575.1) on the north facade | green cross over the door; night window after 22:00 |
 | mailbox | (485.2, 571.4) | |
 | garbage enclosure + rakushki | brick enclosure (412.5, 595.2) facing north; rakushka row x 425.5–442, z 592.6 | yard behind the kiosks (a trodden path from the plaza at (396.8, 578)) |
 | **9-storey row** (backs to the avenue, entrances face south) | body z 582–594, porches to 596.5: д. 27 II-49 ×4 x 44–152; д. 29 1-515 ×4 x 174–280; д. 31 II-49 ×2 x 308–362 | residential `placeResidential` rot 2, address «просп. Строителей, д. 27/29/31»; benches by ~2/3 of the porches; notices on every entrance; nothing enterable |
@@ -91,7 +91,7 @@ the same pattern. The sidewalk lamps are every 74 m (also a divisor of 592).
   (life `placePerson`, (586.8, 572.4)).
 - Trolley wires: a pair from the eastbound line round the whole loop and back out, a branch over
   the trolleybus bay, seven support poles outside the loop with span arms.
-- Lamps: cobras (528.6, 581.5) over the platform and (597.4, 583.0) (end-of-life `cycle`), a
+- Lamps: cobras (528.6, 581.5) over the platform (steady) and (597.4, 583.0) (end-of-life `cycle`), a
   mercury courtyard lamp (571.5, 586.9). Plough piles at (580.5, 574.8), (548.5, 589.8) (a tyre
   sticks out) and (525.5, 597.5) (a New-Year tree).
 
@@ -117,8 +117,8 @@ the same pattern. The sidewalk lamps are every 74 m (also a divisor of 592).
 ## Story props and texts
 
 Ticket at the spawn stop; keys by the payphone; frozen bag on the south stop's bench; cigarette
-ends by the shawarma kiosk and by the dispatcher's hut; a glove on a lone post at the terminal
-platform (541.2, 572.9); a sled, two cats in plinth vents (one with the «Не закрывайте продухи»
+ends by the shawarma kiosk and by the dispatcher's hut; a glove on a lone post at the north-west
+corner of the terminal island (541.2, 572.9); a sled, two cats in plinth vents (one with the «Не закрывайте продухи»
 note), cigarette ends and a chained bicycle at entrances of the 9-storey row; the warm cab in the
 lay-by; crows on the span wire east of the stop (x 259) and in the birch behind the kiosks
 (404, 586.5). Notices (`addNoticeCluster`, 2–4 each, incl. heating, snow clearing, lift) beside
@@ -185,3 +185,16 @@ tube buzz, kiosk radios, shop ambience, the warm cab's idle, the parked LiAZ's d
   and the tree strip end at x ≈ 44 and ≈ 600 (open snow in the bands).
 - **Performance.** ≈ 100 trees, ≈ 91 lights (see above), 3 residential buildings (10 sections),
   ~520 draw calls / ~1.5 M triangles at the spawn view with the blocks loaded.
+
+## Verification (what was checked)
+
+- `tools/walk.mjs` scenarios (kept in the avenue agent's scratchpad): spawn → Block D passage → z 500;
+  the whole north walk x 30–540 round the metro pits and across both driveway mouths, ул. Берёзовая
+  and the Block F passage; walking west past x 24 wraps to x 616 and continues; the zebra (kerb →
+  median gap → kerb), the shop door («Открыть дверь» → zone `shop`), the pharmacy door, the path
+  round the pharmacy to the terminal platform and on to x 614; the SW metro exit → round д. 31 →
+  the porch path → through both row gaps; behind the kiosks to the bins; the south stop. All pass.
+- In-world shots at 16:45, 21:00 and 13:00 (spawn view with and without blocks_west, the passage,
+  both walks, the metro approach, the wrap ends, kiosks, shop, terminal, zebra, the row's back and
+  porch side). `npx vite build` passes; no content errors in the console.
+

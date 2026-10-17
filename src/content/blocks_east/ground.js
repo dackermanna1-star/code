@@ -120,10 +120,12 @@ function snowHill(ctx, x, z) {
   t.paintCircle(x, z, 7.8, { mat: M('snow_packed'), only: new Set([M('snow'), M('snow_fresh')]) })   // trampled foot
   // a few lumps shovelled together, kept low and long (a tall round heap reads as a stepped
   // ziggurat in 25 cm terrain)
-  t.mound(x, z + 1, 4.2, 8.0, 1.2, M('snow_packed'), 0.4, 4711)
-  t.mound(x + 2.0, z - 2.2, 3.0, 2.8, 0.4, M('snow_packed'), 0.5, 4713)
-  t.mound(x + 0.6, z - 1.2, 2.2, 2.0, 0.3, M('snow'), 0.6, 4712)           // the lumpy top
+  // fresh snow on its flanks (bright, so the 25 cm terraces read softer), packed where kids climb
+  t.mound(x, z + 1, 4.2, 8.0, 1.2, M('snow_fresh'), 0.4, 4711)
+  t.mound(x + 2.0, z - 2.2, 3.0, 2.8, 0.4, M('snow'), 0.5, 4713)
+  t.mound(x + 0.6, z - 1.2, 2.2, 2.0, 0.3, M('snow_fresh'), 0.6, 4712)     // the lumpy top
   const only = new Set([M('snow_packed'), M('snow'), M('snow_fresh')])
+  t.paintLine(x - 0.6, z - 7.5, x - 0.1, z - 1.5, 1.0, { mat: M('snow_packed'), only })     // the climb up the back
   t.paintLine(x, z + 0.4, x + 0.5, z + 8.2, 1.2, { mat: M('ice'), only })   // the chute
   t.paintLine(x + 0.5, z + 8.2, x + 1.2, z + 13, 1.4, { mat: M('ice'), only }) // its polished run-out
   keep(x - 7.5, z - 7.5, x + 7.5, z + 14, 0.5, 'hill')

@@ -125,8 +125,8 @@ Moskvich in the yard at (574, 468); the pull-up corner at (562, 456); different 
 («residents' meeting», «close the door»).
 The inner yard around the playground is a **silence zone** (`courtyard_F_still`: wind 0, silence)
 — the wind stops there. Trodden paths as in D; the "shop line" here simply runs out at the east
-edge (596, 436.5); the SW path leads to the mouth of the eastern N–S driveway at (463, 499.4) with
-a nav link onto it.
+edge (596, 436.5); the SW path leads to the mouth of the eastern N–S driveway at (463, 499.6) with
+a nav link onto it (459, 503.5) through the gap in blocks_east's windrow.
 
 ## Block A (x 150–302, z 144–322)
 
@@ -188,8 +188,10 @@ a nav link onto it.
 
 ## Budget (measured in-world)
 
-About 55 outdoor lights in the region (street lamps ~32, entrance bulbs ~21, the stop light) plus
-~27 indoor (the two enterable stairwells); ~160 trees; ~100 parked cars.
+Measured with the full city loaded: 55 outdoor lights in the region (street lamps 32, entrance
+bulbs 21, the stop light) plus 27 indoor (the two enterable stairwells: stair and lift lights);
+164 trees; 88 parked cars. Typical views: 250–550 draw calls, 0.6–2.0 M triangles (the 2 M views
+look across D's yard at three 9-storey blocks plus Block E's towers).
 
 ## Walkability notes (for the integrator)
 
@@ -197,3 +199,19 @@ About 55 outdoor lights in the region (street lamps ~32, entrance bulbs ~21, the
   0.25 sidewalks, paths and parking-strip tracks. Every courtyard is reachable from its driveway
   sidewalk and from the avenue passages; every door has a path or sidewalk at 0.25 in front.
 - Windrows are cut at crossings, mouths and door paths; plough piles stand only at dead ends.
+- Half-buried cars (vehicles `snow: 'buried'`) throw a terrain drift 3.4 m off their left flank,
+  so they are only used where no path passes: Block A's strip along the E–W driveway and D's
+  pocket on the N–S driveway. The rows next to door gaps use heavy / light / brushed snow.
+- A scripted check of every nav path in the region (0.2 m samples: terrain steps > 0.3 m and
+  obstacles at 0.45–1.3 m) is clean with the full city loaded, except one blocks_east crossing at
+  (309.3, 322.1–322.9) that climbs over their E–W windrow (theirs to fix).
+
+## Testing
+
+```
+node tools/shot.mjs --wip --at "228,497,0;227,455,0.15;227.5,363,0" --t 16:45   # passage, yard, home
+node tools/shot.mjs --wip --at "539.5,503,0" --t 21:00                          # Block F's open gate
+node tools/shot.mjs --wip --at "150,300,0;250,262,1.5708" --t 13:00              # Берёзовая, Block A
+```
+Spawn view (avenue's stop, 248, 515.5, facing north) looks at корп. 3's lit back facade with the
+passage to the yard on the left.

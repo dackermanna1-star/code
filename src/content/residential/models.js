@@ -3,6 +3,8 @@
 
 import './materials.js'
 import { defineModel, hasModel } from '../../core/models.js'
+import { M } from '../../core/materials.js'
+import { VoxelModel } from '../../core/VoxelModel.js'
 import { SERIES } from './series.js'
 import { buildSection } from './section.js'
 import { buildPorch, buildEntranceDoor, buildInnerDoor, buildLampEntrance, buildLampCeiling, buildLiftCab, buildLiftLeaf } from './props.js'
@@ -35,6 +37,13 @@ for (const S of Object.values(SERIES))
 for (let v = 0; v < 3; v++) defineModel(`res_porch_${VARIANTS[v]}`, () => buildPorch(v), { lods: [1, 2], maxDistance: 260, occludesSnow: true })
 defineModel('res_door_entrance', buildEntranceDoor, { lods: [1], maxDistance: 160, dynamic: true, contact: false })
 defineModel('res_door_inner', buildInnerDoor, { lods: [1], maxDistance: 60, contact: false })
+// the brick that props an enterable entrance door ajar (how open entrances look in real life)
+defineModel('res_door_brick', () => {
+  const m = new VoxelModel(2, 1, 1)
+  m.fill(0, 0, 0, 2, 1, 1, M('brick_red'))
+  m.setPivot(1, 0, 0.5)
+  return m
+}, { lods: [1], maxDistance: 70, collide: false, contact: false })
 defineModel('res_lamp_entrance', buildLampEntrance, { lods: [1], maxDistance: 400, collide: false, contact: false })
 defineModel('res_lamp_ceiling', buildLampCeiling, { lods: [1], maxDistance: 120, collide: false, contact: false, indoor: true })
 defineModel('res_lift_cab', buildLiftCab, { lods: [1], maxDistance: 80, dynamic: true, indoor: true, contact: false })
