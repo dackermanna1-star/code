@@ -494,15 +494,18 @@ function frame5() {
       while (y < y1 && cel.mat[cel.idx(x, y)] === FM.WHISK) y++;
       if (y >= y1) continue;
       const au = Math.abs(u), lift = Math.max(0, au - 3.4) * 0.6;            // the corners turn up a little
-      const lineY = Math.round(y + 1 - lift), lipH = au < 4.2 ? Math.round(2.6 - au * 0.25) : 0;
+      const lineY = Math.round(y + 1 - lift), lipH = au < 4.4 ? Math.round(3.4 - au * 0.3) : 0;
       for (let yy = y; yy < Math.round(Y(17.4)); yy++) {
         const i = cel.idx(x, yy); if (i < 0 || !(isFace(cel.mat[i]) || cel.mat[i] === FM.MOUTH)) continue;
         if (yy < lineY) { cel.mat[i] = FM.FACE; cel.fix[i] = 3; }                                       // in the moustache's shadow
         else if (yy === lineY && au < 5.8) { cel.mat[i] = FM.MOUTH; cel.fix[i] = 3; }                   // the closed line
         else if (yy <= lineY + lipH) { cel.mat[i] = FM.LIP; cel.fix[i] = yy === lineY + 1 && au < 1.2 ? 5 : 3; }   // the lower lip
-        else if (yy <= lineY + lipH + 2 && au < 4.6) { cel.mat[i] = FM.FACE; cel.fix[i] = 4; }          // the shadow under it
+        else if (yy <= Y(15.9) && au < 5.2 - (yy - lineY) * 0.08) { cel.mat[i] = FM.FACE; cel.fix[i] = yy <= lineY + lipH + 3 ? 3 : 4; }   // the shadow under it
         else if (au < 6.2) { cel.mat[i] = FM.FACE; cel.fix[i] = -1; cel.off[i] = 0; }                    // (the rig's own lip and groove: gone)
       }
+    }
+    for (const sd of [-1, 1]) for (let y = Math.floor(Y(13.2)); y <= Y(15.4); y++) for (let x = Math.floor(X(sd * 5.3) - 4); x <= X(sd * 5.3) + 4; x++) {
+      const i = cel.idx(x, y); if (i >= 0 && cel.mat[i] === FM.FACE && cel.fix[i] < 0) cel.fix[i] = 4;   // the corners, tucked in (no dimple dots)
     }
     for (let y = Math.floor(Y(20.6)); y <= Y(26); y++) for (let x = Math.floor(X(-9)); x <= X(9); x++) {
       const i = cel.idx(x, y); if (i < 0 || !isFace(cel.mat[i])) continue;
