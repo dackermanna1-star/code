@@ -10,18 +10,21 @@ import { rng } from './util.js';
 
 const W = 480, H = 270;
 // ---------------------------------------------------------------------------------------- materials
-export const FM = { DOUGH: 60, DOUGH_R: 61, DOUGH_Y: 62, FACE: 63, BLUSH: 64, WHISK: 65, SCLERA: 66, IRIS: 67, PUPIL: 68, LIP: 69, MOUTH: 70, DOUGH_D: 71, BHAIR: 72, SWEAT: 73 };
-const TD = [0.08, 0.19, 0.33, 0.52, 0.74, 0.95];
-const DJ = [0.055, 8, 0.03];
-const DF = 5;
+export const FM = { DOUGH: 60, DOUGH_R: 61, DOUGH_Y: 62, FACE: 63, BLUSH: 64, WHISK: 65, SCLERA: 66, IRIS: 67, PUPIL: 68, LIP: 69, MOUTH: 70, DOUGH_D: 71, BHAIR: 72, SWEAT: 73, FACE_V: 74, DOUGH_V: 75 };
+const TD = [0.09, 0.22, 0.4, 0.62, 0.86, 1.06];
+const DJ = null;
+const DF = 4;
 // the dough: pale, cool, dead, with livid and sallow patches
-celMat(FM.DOUGH, { jit: DJ, fold: DF, ramp: ['#09080a', '#1f1819', '#3e3230', '#665650', '#8f7e72', '#b6a594', '#dacbb6'], th: TD, line: 0, lineLit: 1, gap: 4, spec: { at: 0.97, w: 0.03, k: 0.3 } });
-celMat(FM.DOUGH_R, { jit: DJ, fold: DF, ramp: ['#0a0709', '#22151a', '#45282e', '#6e4448', '#95686a', '#b98e8a', '#d9b6a8'], th: TD, line: 0, lineLit: 1, gap: 4, spec: { at: 0.97, w: 0.03, k: 0.3 } });
-celMat(FM.DOUGH_Y, { jit: DJ, fold: DF, ramp: ['#090908', '#1c1a15', '#3a362a', '#625c48', '#8a846a', '#b0aa8c', '#d4cfb0'], th: TD, line: 0, lineLit: 1, gap: 4, spec: { at: 0.97, w: 0.03, k: 0.3 } });
-celMat(FM.DOUGH_D, { jit: DJ, fold: DF, ramp: ['#070506', '#170f10', '#2e2020', '#4a3634', '#6a524a', '#8c7466', '#ac9682'], th: TD, line: 0, gap: 4 });
+celMat(FM.DOUGH, { jit: DJ, dith: 0.03, fold: DF, ramp: ['#09080a', '#1f1819', '#3e3230', '#665650', '#8f7e72', '#b6a594', '#dacbb6'], th: TD, line: 0, lineLit: 1, gap: 4, spec: { at: 0.95, w: 0.04, k: 0.45 } });
+celMat(FM.DOUGH_R, { jit: DJ, dith: 0.03, fold: DF, ramp: ['#0a0709', '#22151a', '#45282e', '#6e4448', '#95686a', '#b98e8a', '#d9b6a8'], th: TD, line: 0, lineLit: 1, gap: 4, spec: { at: 0.95, w: 0.04, k: 0.45 } });
+celMat(FM.DOUGH_Y, { jit: DJ, dith: 0.03, fold: DF, ramp: ['#090908', '#1c1a15', '#3a362a', '#625c48', '#8a846a', '#b0aa8c', '#d4cfb0'], th: TD, line: 0, lineLit: 1, gap: 4, spec: { at: 0.95, w: 0.04, k: 0.45 } });
+celMat(FM.DOUGH_D, { jit: DJ, dith: 0.03, fold: DF, ramp: ['#070506', '#170f10', '#2e2020', '#4a3634', '#6a524a', '#8c7466', '#ac9682'], th: TD, line: 0, gap: 4 });
+// veins: the dough's own ramp, gone desaturated violet only in the shadow transition (tones 2-3)
+celMat(FM.DOUGH_V, { jit: DJ, dith: 0.03, fold: DF, ramp: ['#09080a', '#1f1819', '#3a3040', '#5c5064', '#8f7e72', '#b6a594', '#dacbb6'], th: TD, line: 0, lineLit: 1, gap: 4, spec: { at: 0.95, w: 0.04, k: 0.45 } });
 // the face: warmer, waxier, smoother — fewer, wider bands, a doll's sheen
 celMat(FM.FACE, { ramp: ['#100a0a', '#33221f', '#5f463f', '#8f7163', '#bb9c88', '#dcc5ae', '#f5e8d6'], th: [0.08, 0.2, 0.36, 0.56, 0.8, 0.95], line: 1, lineLit: 2, gap: 3.5, spec: { at: 0.94, w: 0.05, k: 0.55 } });
 celMat(FM.BLUSH, { ramp: ['#120a0a', '#3a201e', '#6a403a', '#9c6a5e', '#c4907e', '#e2b4a0', '#f6d6c4'], th: [0.08, 0.2, 0.36, 0.56, 0.8, 0.95], line: 1, lineLit: 2, gap: 3.5, spec: { at: 0.94, w: 0.05, k: 0.55 } });
+celMat(FM.FACE_V, { ramp: ['#100a0c', '#32222a', '#5c4650', '#8a7076', '#b49aa0', '#d4c0c0', '#eee2de'], th: [0.08, 0.2, 0.36, 0.56, 0.8, 0.95], line: 1, lineLit: 2, gap: 3.5 });
 celMat(FM.LIP, { ramp: ['#120808', '#341a18', '#5c302c', '#864a42', '#a8665a', '#c48676'], th: [0.1, 0.24, 0.42, 0.64, 0.86], line: 0, gap: 3 });
 celMat(FM.MOUTH, { ramp: ['#000000', '#060101', '#100404', '#1c0808', '#2a0e0e'], th: [0.2, 0.45, 0.7, 0.95], gap: 3 });
 // whiskers: gray, combed
@@ -38,45 +41,67 @@ const MAP = {
   [M.HAIR]: { mat: FM.WHISK, sid: 3 }, [M.EYE]: { mat: FM.SCLERA, sid: 4 }, [M.IRIS]: { mat: FM.IRIS, sid: 5 }, [M.DARK]: { mat: FM.PUPIL, sid: 6 },
   [M.LIP]: { mat: FM.LIP, sid: 2 }, [M.MOUTH]: { mat: FM.MOUTH, sid: 7 },
 };
-const DOUGHS = [FM.DOUGH, FM.DOUGH_R, FM.DOUGH_Y, FM.DOUGH_D];
+const DOUGHS = [FM.DOUGH, FM.DOUGH_R, FM.DOUGH_Y, FM.DOUGH_D, FM.DOUGH_V];
 
 // the flashlight, held low and to the left of him; lit 1 = full beam on his face
-const BEAM = light({ L: [-0.5, 0.26, 0.83], amb: 0.05, key: 1.02, shadow: 0.75, steps: 30, spec: 1 });
+const BEAM = light({ L: [-0.5, 0.26, 0.83], amb: 0.05, key: 1.02, shadow: 0.75, steps: 30, spec: 1, rim: [0.72, -0.5, 0.2] });
 const beamFall = (x, y, lit) => { const r = 0.6 + 0.4 * lit, d = Math.hypot((x - 222) / 330, (y - 136) / 240) / r; return clamp(1.12 - d * d * 0.85, 0, 1.08); };
 export const FACE_GRADE = { lit: '#fff0d8', litGain: 1.02, dark: '#5a6078', darkGain: 0.8, desat: 0.1, crush: 0.5, abyss: '#030305' };
 
-/** Texture the dough so it never reads as rubber: mottling, pores, stretch, coarse hairs, sweat. */
+/**
+ * Texture the dough with restraint (the portraits' rule: almost no noise). Pores cluster on the lit
+ * planes near the face; a few broad veins (they only show violet in the shadow transitions — see
+ * DOUGH_V); a handful of coarse hairs; a few sweat beads, 2-3 px, standing on the brightest planes.
+ * o: { faceC, faceR, L (key light), pores (density), veins, hairs, sweat }
+ */
 export function textureDough(cel, r, o = {}) {
   const { w, h } = cel, fc = o.faceC || [240, 130], fr = o.faceR || 110;
+  const Lv = o.L || [-0.5, 0.26, 0.83], ll = Math.hypot(...Lv), L = Lv.map((v) => v / ll);
+  const ndl = (i) => cel.nx[i] * L[0] + cel.ny[i] * L[1] + cel.nz[i] * L[2];
+  const near = (x, y) => Math.hypot((x - fc[0]) / (fr * 1.35), (y - fc[1]) / fr);
+  // pores: tiny pits in clusters, only where the light lies on the dough near the face
+  const pd = o.pores ?? 0.035;
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = y * w + x; if (cel.mat[i] !== FM.DOUGH) continue;
     const fx = x + cel.ox, fy = y + cel.oy;
-    // livedo: a net of livid blood under the skin, broken; a few sallow patches
-    const q = 1 - Math.abs(2 * vn(fx + vn(fx, fy, 14, 35) * 9, fy, 11, 36) - 1);
-    if (q > 0.9 && vn(fx, fy, 30, 37) > 0.52 && h01(fx >> 1, fy >> 1, 38) > 0.2) cel.mat[i] = FM.DOUGH_R;
-    else if (fbm(fx + 50, fy, 26, 32) > 0.7) cel.mat[i] = FM.DOUGH_Y;
-    // pores: tiny pits, each with a lit lip toward the light
-    if (h01(fx, fy, 33) < 0.012) { cel.off[i] -= 1; const j = i - 1 + w; if (j < w * h && DOUGHS.includes(cel.mat[j]) && cel.fix[j] < 0) cel.off[j] += 1; }
+    if (near(fx, fy) > 1.05 || ndl(i) < 0.72) continue;
+    if (vn(fx, fy, 11, 34) > 0.58 && h01(fx, fy, 33) < pd) cel.off[i] -= 1;
   }
-  // coarse hairs sprouting from the dough
-  for (let k = 0; k < (o.hairs ?? 60); k++) {
-    let x = r() * w, y = r() * h, a = -1.2 + r() * 2.4 + (r() < 0.5 ? Math.PI : 0);
-    const i0 = cel.idx(x, y); if (i0 < 0 || !DOUGHS.includes(cel.mat[i0])) continue;
-    const L = 3 + Math.floor(r() * 5);
-    for (let j = 0; j < L; j++) {
-      const i = cel.idx(x, y); if (i < 0 || !DOUGHS.includes(cel.mat[i]) && cel.mat[i] !== FM.BHAIR) break;
-      cel.mat[i] = FM.BHAIR; cel.fix[i] = -1; cel.off[i] = j < L - 1 ? -2 : -1;
-      x += Math.cos(a); y += Math.sin(a); a += 0.18;
+  // veins: a few broad, wandering paths (violet only where the light turns away)
+  for (let k = 0; k < (o.veins ?? 5); k++) {
+    let x = r() * w, y = r() * h, a = r() * 6.283;
+    const n = 30 + Math.floor(r() * 30);
+    for (let j = 0; j < n; j++) {
+      for (let dy = 0; dy < 3; dy++) for (let dx = 0; dx < 3; dx++) {
+        if ((dx === 2 || dy === 2) && bay(Math.round(x) + dx, Math.round(y) + dy) < 0.5) continue;
+        const i = cel.idx(x + dx, y + dy); if (i >= 0 && cel.mat[i] === FM.DOUGH) cel.mat[i] = FM.DOUGH_V;
+      }
+      x += Math.cos(a) * 1.6; y += Math.sin(a) * 1.6; a += (vn(j * 7, k * 13, 3, 36) - 0.5) * 0.5;
     }
   }
-  // sweat standing in the folds near the face: a bright bead over a dark pixel
-  for (let k = 0; k < (o.sweat ?? 400); k++) {
-    const a = r() * 6.283, d = Math.sqrt(r()) * fr;
-    const x = Math.round(fc[0] + Math.cos(a) * d * 1.4), y = Math.round(fc[1] + Math.sin(a) * d);
-    const i = cel.idx(x, y); if (i < 0 || !DOUGHS.includes(cel.mat[i]) || cel.ao[i] > 0.8) continue;
-    const j = cel.idx(x, y + 1); if (j < 0 || !DOUGHS.includes(cel.mat[j])) continue;
-    cel.mat[i] = FM.SWEAT; cel.off[i] = 2; cel.flag[i] |= 1;
-    cel.fix[j] = 1;
+  // coarse hairs sprouting from the dough: few, dark, curved
+  for (let k = 0; k < (o.hairs ?? 14); k++) {
+    let x = r() * w, y = r() * h, a = -1.2 + r() * 2.4 + (r() < 0.5 ? Math.PI : 0);
+    const i0 = cel.idx(x, y); if (i0 < 0 || !DOUGHS.includes(cel.mat[i0])) continue;
+    const Ln = 4 + Math.floor(r() * 4);
+    for (let j = 0; j < Ln; j++) {
+      const i = cel.idx(x, y); if (i < 0 || !DOUGHS.includes(cel.mat[i]) && cel.mat[i] !== FM.BHAIR) break;
+      cel.mat[i] = FM.BHAIR; cel.fix[i] = j < Ln - 1 ? 1 : 2;
+      x += Math.cos(a); y += Math.sin(a); a += 0.16;
+    }
+  }
+  // sweat: a handful of beads on the brightest planes near the face — a 2-3 px bead, a dark lip under it
+  let placed = 0;
+  for (let tries = 0; tries < 400 && placed < (o.sweat ?? 8); tries++) {
+    const a = r() * 6.283, d = (0.55 + r() * 0.5) * fr;
+    const x = Math.round(fc[0] + Math.cos(a) * d * 1.3), y = Math.round(fc[1] + Math.sin(a) * d);
+    const i = cel.idx(x, y); if (i < 0 || cel.mat[i] !== FM.DOUGH || ndl(i) < 0.86) continue;
+    const big = r() < 0.5;
+    const px = big ? [[0, 0], [1, 0], [0, 1], [1, 1]] : [[0, 0], [1, 0], [0, 1]];
+    if (px.some(([dx, dy]) => { const j = cel.idx(x + dx, y + dy); return j < 0 || cel.mat[j] !== FM.DOUGH; })) continue;
+    px.forEach(([dx, dy], k) => { const j = cel.idx(x + dx, y + dy); cel.mat[j] = FM.SWEAT; cel.fix[j] = k === 0 ? 5 : 3; cel.flag[j] |= 1; });
+    for (const [dx, dy] of [[0, big ? 2 : 1], [1, 2]]) { const j = cel.idx(x + dx, y + dy); if (j >= 0 && DOUGHS.includes(cel.mat[j])) cel.fix[j] = 2; }
+    placed++;
   }
 }
 
@@ -98,7 +123,24 @@ function finishFace(cel) {
 }
 
 // ---------------------------------------------------------------------------------------- build
-const P0 = { ...FACE_EXPR.serene, eyeSmile: 0.15, cx: 240, cy: 118, s: 4.6, seed: 1841, chins: 3, collar: false };
+// the dough as a few big rolls — the brow, both cheeks, the chins — over the mass of the head; the hollows
+// beside the cheeks filled in (no second pair of sockets); clean bands (no jitter)
+export function doughRolls({ B }) {
+  B(0, -2, 70, 64, 56, 0.28);                                        // the mass of the head (broad, flat: no rings)
+  B(-1, -20, 31, 11, 66, 0.5);                                       // the brow roll
+  B(-23, 12, 15, 25, 66, 0.5); B(22.5, 11, 14.5, 25, 65.5, 0.5);     // the cheeks swallowing its sides
+  B(0, 33.5, 25, 9.5, 63, 0.5);                                      // the chin roll
+  B(-1, 45, 34, 9, 58, 0.5);                                         // and the next
+}
+// the rolls are made by their creases: each fold overhangs the next (the crisp core shadow sits under it)
+export function doughCreases({ fold }) {
+  fold([[-27, -6], [-14, -15.5], [0, -17.5], [14, -15.5], [27, -6]], 2.6, 4.5);    // the brow roll over the forehead
+  fold([[-21, 30], [-23, 14], [-20, -2], [-15, -10]], 2.4, 3.6);                    // the left cheek over the face's side
+  fold([[15, -10], [20, -2], [23, 14], [21, 30]], 2.4, 3.6);                        // the right
+  fold([[-20, 27], [-10, 31.5], [0, 32.5], [10, 31.5], [20, 27]], 2.2, 4);         // under the chin
+  fold([[-30, 38], [-12, 44], [0, 45], [12, 44], [30, 38]], 2.4, 4.5);             // the next chin
+}
+const P0 = { ...FACE_EXPR.serene, eyeSmile: 0.15, cx: 240, cy: 118, s: 4.6, seed: 1841, chins: 3, collar: false, dough: doughRolls, doughFolds: doughCreases };
 export const BLINKS = { open: null, l: [0, 0.36], both: [0, 0], r: [0.42, 0] };
 const st = { gb: null, cel: null, lev: null, frames: new Map(), patches: new Map(), eyeRect: null };
 
@@ -112,10 +154,40 @@ function baseGB() {
 }
 function toCel(gb, blink = null, P = P0, o = {}) {
   const cel = celFromGB(gb, MAP);
-  textureDough(cel, rng(P.seed || 1841), { faceC: [P.cx, P.cy + 12], faceR: 24 * P.s, ...o });
+  textureDough(cel, rng(P.seed || 1841), { faceC: [P.cx, P.cy + 12], faceR: 24 * P.s, L: BEAM.L, ...o });
   finishFace(cel);
+  humanize(cel, P);
   wetEyes(cel, blink, P);
   return cel;
+}
+// almost human: the colour a living face has in its hollows and at its tips, and combed whiskers
+function humanize(cel, P) {
+  const s = P.s, sl = P.slide || [0, 0], X = (u) => P.cx + (u + sl[0]) * s, Y = (v) => P.cy + (v + sl[1]) * s;
+  const isF = (m) => m === FM.FACE || m === FM.BLUSH;
+  const zone = (u0, v0, ru, rv, fn) => {
+    for (let y = Math.floor(Y(v0 - rv)); y <= Y(v0 + rv); y++) for (let x = Math.floor(X(u0 - ru)); x <= X(u0 + ru); x++) {
+      const i = cel.idx(x, y); if (i < 0) continue;
+      const e = ((x + 0.5 - X(u0)) / (ru * s)) ** 2 + ((y + 0.5 - Y(v0)) / (rv * s)) ** 2;
+      if (e < 1) fn(i, e, x, y);
+    }
+  };
+  for (const sd of [-1, 1]) {
+    zone(sd * 6, 3.2, 3.4, 1.15, (i, e, x, y) => { if (isF(cel.mat[i]) && (e < 0.6 || bay(x, y) < 0.5)) cel.mat[i] = FM.FACE_V; });   // the bags under his eyes
+    zone(sd * 2.7, 0.5, 0.55, 0.45, (i) => { if (isF(cel.mat[i]) || cel.mat[i] === FM.SCLERA) { cel.mat[i] = FM.BLUSH; cel.off[i] = -1; } });  // the wet pink corners
+  }
+  zone(0, 7.2, 2.6, 2.0, (i, e, x, y) => { if (cel.mat[i] === FM.FACE && (e < 0.55 || bay(x, y) < 0.5)) cel.mat[i] = FM.BLUSH; });       // the nose's tip
+  zone(0, 16.0, 4.6, 0.9, (i) => { if (isF(cel.mat[i])) cel.mat[i] = FM.LIP; });                                                     // his lower lip
+  // whiskers: combed strands following the chops down and the mustache out
+  for (let y = 0; y < cel.h; y++) for (let x = 0; x < cel.w; x++) {
+    const i = y * cel.w + x; if (cel.mat[i] !== FM.WHISK) continue;
+    const u = (x + 0.5 - X(0)) / s, v = (y + 0.5 - Y(0)) / s, sd = u < 0 ? -1 : 1;
+    let dx, dy;
+    if (Math.abs(u) > 8.6) { dx = -sd * 0.22; dy = 1; } else if (v > 8) { dx = sd * 0.85; dy = 0.5; } else { dx = sd; dy = 0.05; }
+    const L = Math.hypot(dx, dy); dx /= L; dy /= L;
+    const across = (x * dy - y * dx) / Math.max(1.6, s * 0.42) + vn(x, y, 3, 77) * 0.8;
+    const f = across - Math.floor(across);
+    if (f < 0.22) cel.off[i] -= 1; else if (f > 0.78 && h01(x, y, 78) < 0.4) cel.off[i] += 1;
+  }
 }
 /** A head (drawHead params P) as a textured cel, ready to light. */
 export function headCel(P, o = {}) {
@@ -155,9 +227,10 @@ function baseCel() {
   st.eyeRect = [ex0, ey0, ex1, ey1];
   return st.cel;
 }
+const vig = (x, y) => { const d = Math.hypot((x - 238) / 196, (y - 136) / 138); const t = clamp((d - 0.62) / 0.42); return 1 - 0.8 * t * t * (3 - 2 * t); };
 const levFor = (lit) => (i, x, y, l) => {
   const full = beamFall(x, y, 1), now = beamFall(x, y, lit);
-  return full > 0 ? (l - 0.0) * (0.35 + 0.65 * lit) * (now / full) + 0.012 * lit : 0;
+  return full > 0 ? (l - 0.0) * (0.35 + 0.65 * lit) * (now / full) * vig(x, y) + 0.012 * lit : 0;
 };
 let LUT = null;
 const lut = () => LUT || (LUT = gradeLUT(FACE_GRADE));

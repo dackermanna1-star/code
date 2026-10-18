@@ -64,6 +64,11 @@ export class Cel {
     this.off = new Int8Array(n); this.fix = new Int8Array(n).fill(-1);
     this.flag = new Uint8Array(n);   // 1 no outline · 2 never in cast shadow · 4 casts no shadow · 8 no spec
   }
+  clone() {
+    const c = new Cel(this.w, this.h, this.ox, this.oy);
+    for (const k of ['mat', 'sid', 'z', 'nx', 'ny', 'nz', 'ao', 'lum', 'off', 'fix', 'flag']) c[k].set(this[k]);
+    return c;
+  }
   idx(x, y) { x = Math.round(x); y = Math.round(y); return x < 0 || y < 0 || x >= this.w || y >= this.h ? -1 : y * this.w + x; }
   has(x, y) { const i = this.idx(x, y); return i >= 0 && this.mat[i] !== 0; }
   matAt(x, y) { const i = this.idx(x, y); return i < 0 ? 0 : this.mat[i]; }
@@ -182,6 +187,51 @@ export class Cel {
     }
   }
 }
+/** Point-in-polygon (even-odd) and distance to a polygon's edge. */
+export function inPoly(pts, x, y) {
+  let c = false;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i], [xj, yj] = pts[j];
+    if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+  }
+  return c;
+}
+export function polyDist(pts, x, y) {
+  let d = 1e9;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const ax = pts[j][0], ay = pts[j][1], dx = pts[i][0] - ax, dy = pts[i][1] - ay, L2 = dx * dx + dy * dy || 1e-9;
+    let t = ((x - ax) * dx + (y - ay) * dy) / L2; t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const ex = x - ax - dx * t, ey = y - ay - dy * t, q = ex * ex + ey * ey;
+    if (q < d) d = q;
+  }
+  return Math.sqrt(d);
+}
+/**
+ * A soft volume with a clean silhouette: fill a polygon (frame coords) with a dome whose height rises
+ * with the distance from its edge (z + hgt·√(d/R)); normals from that surface, plus an optional tilt.
+ * o: { R, hgt, z, sid, tilt: [tx, ty], mode ('z' | 'any'), off, clip(x, y), zf(x, y, d) }
+ */
+export function domePoly(cel, pts, mat, o = {}) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+  for (const [x, y] of pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  x0 = Math.floor(x0) - 1; y0 = Math.floor(y0) - 1; x1 = Math.ceil(x1) + 1; y1 = Math.ceil(y1) + 1;
+  const w = x1 - x0 + 1, h = y1 - y0 + 1, zb = new Float32Array(w * h).fill(-1e9);
+  const R = o.R ?? 8, hgt = o.hgt ?? R, z0 = o.z ?? 0;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const fx = x0 + x + 0.5, fy = y0 + y + 0.5;
+    if (!inPoly(pts, fx, fy) || (o.clip && !o.clip(x0 + x, y0 + y))) continue;
+    const d = polyDist(pts, fx, fy);
+    zb[y * w + x] = o.zf ? o.zf(x0 + x, y0 + y, d) : z0 + hgt * Math.sqrt(Math.min(d, R) / R);
+  }
+  const [tx, ty] = o.tilt || [0, 0];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, z = zb[i]; if (z < -1e8) continue;
+    const g = (j, ok) => (ok && zb[j] > -1e8 ? zb[j] : z - hgt * 0.35);
+    const gx = (g(i + 1, x < w - 1) - g(i - 1, x > 0)) * 0.5, gy = (g(i + w, y < h - 1) - g(i - w, y > 0)) * 0.5;
+    cel.put(x0 + x - cel.ox, y0 + y - cel.oy, mat, { z, n: [-gx + tx, -gy + ty, 1], sid: o.sid ?? 1, fix: -1, off: o.off ?? 0, mode: o.mode || 'z' });
+  }
+}
+
 /** Quadratic bezier → points. */
 export function quad(a, b, c, n = 12) {
   const o = [];

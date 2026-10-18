@@ -31,8 +31,13 @@ export function drawHead(gb, P) {
   const sag = P.old ? 2.5 : 0;
   const open = Math.max(0, P.mouth || 0), mh = open * 3.2; // mouth opening (face units)
   // ---------------------------------------------------------------- the dough
-  const hf = new HField(gb.w, gb.h, 0.13 / s);
+  const hf = new HField(gb.w, gb.h, (P.doughK ?? 0.13) / s);
   const B = (u, v, rx, ry, hgt, p = 0.5, mat = M.FLESH) => hf.blob(X(u), Y(v), rx * s, ry * s, hgt * s, { p, mat });
+  if (P.dough) {
+    // a caller-designed dough (the close-up CGs): P.dough({ hf, X, Y, s, B, T }) — T is a tube in face units
+    const T = (u0, v0, r0, u1, v1, r1, z0, z1, o = {}) => hf.tube(X(u0), Y(v0), r0 * s, X(u1), Y(v1), r1 * s, { mat: M.FLESH, k: 1, p: 0.5, ...o, z0: z0 * s, z1: z1 * s });
+    P.dough({ hf, X, Y, s, B, T });
+  } else {
   B(0, -8, 52, 56, 56);                      // cranium
   B(-6, -37, 30, 14, 52, 0.6); B(14, -31, 22, 12, 55, 0.6);   // lumpy scalp
   B(-1, -19.5, 25, 9, 64.5, 0.7);            // brow roll hanging over the little forehead
@@ -42,6 +47,7 @@ export function drawHead(gb, P) {
   B(0, 28.4 + sag + mh * 0.85, 12.5, 7, 62.5, 0.65);   // wattle tucked under the small chin
   B(0, 37.5 + sag + mh * 0.5, 23, 8.5, 57.5, 0.6);
   B(1, 47.5 + sag, 33, 9, 49.5, 0.6);
+  }
   hf.finalize();
   // the pit the face is pressed into (irregular: the dough didn't give evenly)
   {
@@ -57,6 +63,7 @@ export function drawHead(gb, P) {
   }
   // overhanging folds (left→right strokes drop the side below the stroke)
   const fold = (pts, w, d) => hf.fold(pts.map(([u, v]) => [X(u), Y(v)]), w * s, d * s);
+  if (P.doughFolds) P.doughFolds({ hf, X, Y, s, fold }); else {
   fold([[-44, -4], [-35, -11], [-24, -16]], 2.0, 3);                                    // temple rolls
   fold([[23, -15], [34, -9], [44, 0]], 2.0, 3);
   fold([[-15, 31.5 + sag + mh], [0, 35 + sag + mh * 0.8], [15, 31.5 + sag + mh]], 1.8, 4);      // chins (U-shaped, sagging)
@@ -64,6 +71,7 @@ export function drawHead(gb, P) {
   fold([[-36, 49 + sag], [-14, 55 + sag], [10, 55.5 + sag], [37, 49.5 + sag]], 2.2, 5);
   // jowl creases running down from the face
   for (const sd of [-1, 1]) hf.groove([[X(sd * 15), Y(20)], [X(sd * 20.5), Y(28)], [X(sd * 25), Y(35)]], 1.3 * s, 1.5 * s);
+  }
   // stretch marks radiating from the pit
   for (let k = 0; k < 9; k++) {
     const a = (k / 9) * Math.PI * 2 + 0.3 + r() * 0.4, ca = Math.cos(a), sa = Math.sin(a);
@@ -77,17 +85,19 @@ export function drawHead(gb, P) {
   const ff = new HField(gb.w, gb.h, 0.5 / s);
   const HI = s >= 2, sink = HI ? 4 : 1.5; // at close-up scale feature volumes must merge without any cliff
   const FB = (u, v, rx, ry, prot, p = 0.6, mat = M.FACE) => ff.blob(fx(u), fy(v), rx * s, ry * s, (prot + sink) * s, { base: (faceZ(u, v) - sink) * s, p, mat });
+  // optional (close-up CGs only): a shorter nose (noseK scales its length from the brow), a smaller tip
+  const NK = P.noseK ?? 1, NT = P.noseTip ?? 1, NV = (v) => 0.6 + (v - 0.6) * NK;
   ff.blob(fx(0), fy(FCY + mh * 0.25), FRX * s, (FRY + mh * 0.5) * s, FH * s, { base: FZ0 * s, p: 0.5, mat: M.FACE });
   for (const sd of [-1, 1]) {
     FB(sd * 6, -3.6, 5.6, 2.6, 1.6, 0.7);                       // brow ridge
     FB(sd * 8.2, 8.2, 5.6, 4.6, 1.5 + (P.smile > 0 ? 0.5 : 0), 0.6, M.FACE);  // cheeks (lifted by the smile)
-    FB(sd * 1.9, 7.6, 1.3, 1.1, 3.4, 0.6);                      // nostril wings
+    FB(sd * 1.9, NV(7.6), 1.3, 1.1, 3.4 * NT, 0.6);              // nostril wings
   }
-  ff.tube(fx(0), fy(0.6), 1.0 * s, fx(0), fy(6.4), 1.7 * s, { z0: faceZ(0, 0.6) * s + 0.8 * s, z1: faceZ(0, 6.4) * s + 2.2 * s, mat: M.FACE, k: 1 });
-  FB(0, 7.1, 2.1, 1.7, 3.9, 0.6);                               // nose tip
+  ff.tube(fx(0), fy(0.6), 1.0 * s, fx(0), fy(NV(6.4)), 1.7 * s, { z0: faceZ(0, 0.6) * s + 0.8 * s, z1: faceZ(0, NV(6.4)) * s + 2.2 * NT * s, mat: M.FACE, k: 1 });
+  FB(0, NV(7.1), 2.1 * NT, 1.7 * NT, 3.9 * NT, 0.6);              // nose tip
   FB(0, 16.4 + mh, 3.2, 1.2, 0.8, 0.6);                         // lower lip (barely)
   FB(0, 16.5 + mh * 0.7, 8.5, 6.5, 2.6, 0.5);                   // the clean-shaven lower face, turned to the light
-  FB(0, 19.6 + mh, 5.2, 3.4, 1.6, 0.7);                         // small clean chin
+  FB(0, 19.6 + mh, 5.2, 3.4, 1.6 * (P.chinK ?? 1), 0.7);         // small clean chin
   ff.finalize();
   for (const sd of [-1, 1]) {
     ff.pit(fx(sd * 6), fy(0.2), 4.4 * s, 2.7 * s, 1.4 * s, 0.6); // sockets
@@ -116,7 +126,7 @@ export function drawHead(gb, P) {
   }
   for (let y = Math.floor(fy(15.6 + mh)); y <= fy(23.5 + mh); y++) for (let x = Math.floor(fx(-5)); x <= fx(5); x++) {
     const m = gb.matAt(x, y);
-    if (m === M.FACE) { const i = y * gb.w + x; gb.lum[i] += 0.07; gb.ao[i] = Math.max(gb.ao[i], 0.85); }
+    if (m === M.FACE) { const i = y * gb.w + x; gb.lum[i] += 0.07 * (P.lowerLum ?? 1); gb.ao[i] = Math.max(gb.ao[i], 0.85); }
   }
   const F = { X: fx, Y: fy, s };
   if (HI) hairStrands(gb, F, P, mh, r);

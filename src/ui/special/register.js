@@ -646,7 +646,7 @@ function typeLine(ctx, text, t, x, y, maxW) {
 
 let handCanvas = null, handCanvasKey = '', handFull = null;
 // the part of colonel_hand the window shows (art px): the rings, the knuckles, the fingertips
-const HAND_CROP = { x: 150, y: 66, w: 168, h: 150 };
+const HAND_CROP = { x: 132, y: 56, w: 168, h: 150 };
 /** colonel_hand under the mine-fire red (the CG lights itself: params.light 'red', reach, slack). */
 function handPanel(t, reach, slack) {
   const key = `${Math.floor(t * 12)}|${Math.round(reach * 200)}|${Math.round(slack * 32)}`;

@@ -1,4 +1,7 @@
 // Colonel contact sheets. ?part=sprite|portraits|cg|all (default all) &scale=3
+//   ?part=one&cg=<id>&t=<s>&p=<json params>&scale=2   one CG frame, no chrome (for iteration shots)
+//   ?part=vhs                                         the vhs_frames through the game's camcorder filter
+//   ?part=bench                                       build timings (colonel_bench.js)
 import { initColonel, getColonelSprite } from '../../src/art/colonel.js';
 import { initColonelPortraits, getColonelPortrait, COLONEL_PORTRAIT_EXPRS, COLONEL_LIGHTS } from '../../src/art/portraits_colonel.js';
 import { initColonelCg, getColonelCg, COLONEL_CG_IDS } from '../../src/art/cg_colonel.js';
@@ -114,10 +117,10 @@ async function cgs() {
   const only = q.get('cg');
   const S = Number(q.get('cscale') || 1);
   const sets = {
-    colonel_hand: [{ t: 0 }, { t: 1.3 }, { t: 2.71 }],
-    colonel_face: [{ t: 0, p: { lit: 1 } }, { t: 1, p: { lit: 0.5 } }, { t: 2.2, p: { lit: 0.15 } }],
+    colonel_hand: [{ t: 0, p: { dim: false } }, { t: 1.3, p: { dim: true } }, { t: 0, p: { light: 'red', dim: false } }, { t: 0, p: { reach: 0.6 } }, { t: 0, p: { slack: 0.6 } }],
+    colonel_face: [{ t: 0, p: { lit: 1 } }, { t: 1, p: { lit: 0.5 } }, { t: 2.2, p: { lit: 0.15 } }, { t: 3.25, p: { lit: 1 } }],
     locker_slits: q.get('lk') ? q.get('lk').split(';').map((v) => { const [ph, fi, tt] = v.split(',').map(Number); return { t: tt || 0, p: { phase: ph, faceIn: fi } }; }) : [{ t: 0, p: { phase: 0.1, faceIn: 0 } }, { t: 0.5, p: { phase: 0.3, faceIn: 0 } }, { t: 1, p: { phase: 0.55, faceIn: 0 } }, { t: 1.4, p: { phase: 0.8, faceIn: 0 } }, { t: 2, p: { phase: 1, faceIn: 0.5 } }, { t: 3, p: { phase: 1, faceIn: 1 } }],
-    vhs_frames: [0, 1, 2, 3, 4].map((f) => ({ t: 0, p: { frame: f } })),
+    vhs_frames: [0, 1, 2, 3, 4, 5].map((f) => ({ t: 0, p: { frame: f } })),
   };
   for (const id of COLONEL_CG_IDS) {
     if (only && !only.split(',').includes(id)) continue;
@@ -147,9 +150,28 @@ async function one() {
   show(c, Number(q.get('scale') || 2));
 }
 
+// the VHS frames as the player sees them: through the game's camcorder filter, 2x, in a grid
+async function vhsSheet() {
+  const { vhsFilter } = await import('../../src/ui/vhsfx.js');
+  const cg = getColonelCg('vhs_frames');
+  const n = cg.frames || 5, S = 1;
+  const grid = makeCanvas(480 * 2 * S + 10, Math.ceil(n / 2) * (270 * S + 10)), gx = ctxOf(grid);
+  gx.fillStyle = '#000'; gx.fillRect(0, 0, grid.width, grid.height);
+  for (let f = 0; f < n; f++) {
+    const src = makeCanvas(480, 270), out = makeCanvas(480, 270), tmp = makeCanvas(480, 270);
+    const x = ctxOf(src); x.fillStyle = '#000'; x.fillRect(0, 0, 480, 270);
+    cg.draw(x, 0, { frame: f });
+    vhsFilter(src, out, tmp, 1.3 + f, { strength: 1, pause: true });
+    gx.drawImage(out, (f % 2) * (480 * S + 10), Math.floor(f / 2) * (270 * S + 10), 480 * S, 270 * S);
+  }
+  root.style.padding = '0';
+  show(grid, Number(q.get('scale') || 1));
+}
+
 (async () => {
   try {
     if (part === 'one') await one();
+    if (part === 'vhs') await vhsSheet();
     if (part === 'all' || part === 'sprite') await spriteSheet();
     if (part === 'bench') { const { bench } = await import('./colonel_bench.js'); console.log('bench ' + JSON.stringify(await bench())); }
     if (part === 'zoom') await zoom();

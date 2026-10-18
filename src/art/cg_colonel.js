@@ -1,13 +1,15 @@
 // The Colonel's CGs (480×270 pixel-art illustrations): colonel_hand, colonel_face, locker_slits, vhs_frames.
-// Built on the same sculpt+shade core as his sprite & portraits; heavy layers are generated lazily on
-// first draw and cached (a few quantized states each), so draw() itself is just blits.
-// Exports: COLONEL_CG_IDS, initColonelCg(), getColonelCg(id) → { draw(ctx, t, params) }.
-import { GBuf, rig, shade, imgToCanvas } from './colonel_gbuf.js';
+// Painted in the cast's style by the cel pipeline (colonel_cg_cel.js): short ramps, hard bands with a
+// 1-px dithered seam, selective outlines, hand-placed detail. The scenes live in colonel_cg_hand.js,
+// colonel_cg_face.js, colonel_cg_vhs.js and colonel_cg_locker.js. Their layers are prebuilt in small
+// slices in idle time after boot (like cg.js's late CGs); a CG drawn before its build is done finishes
+// what it needs on the spot. draw() itself is blits (plus a cheap compose while the hand moves).
+// Exports: COLONEL_CG_IDS, initColonelCg(), getColonelCg(id) → { draw(ctx, t, params) }, warmColonelCg(id).
 import { faceFrame, blinkPatch, prepFace } from './colonel_cg_face.js';
 import { composeHand, prepHand, handReady, handOffset } from './colonel_cg_hand.js';
 import { buildLockerInterior, buildLockerOutside, buildSlitFace, LOCKER } from './colonel_cg_locker.js';
-import { buildVhsFrame } from './colonel_cg_vhs.js';
-import { makeCanvas, ctxOf, hash2 } from './util.js';
+import { buildVhsFrame, VHS_FRAMES } from './colonel_cg_vhs.js';
+import { hash2 } from './util.js';
 
 export const COLONEL_CG_IDS = ['colonel_hand', 'colonel_face', 'locker_slits', 'vhs_frames'];
 const W = 480, H = 270;
@@ -85,7 +87,7 @@ const colonelHand = {
     while (!handReady(light, 1)) prepHand(light);
     let swell = slack > 0.3 ? 0 : Math.round(ph * 2);
     if (!handReady(light, swell)) { swell = 1; later('hand|' + light, function step() { if (!prepHand(light)) later('hand|' + light, step); }); }
-    const dim = slack < 0.95 && flicker(t, light === 'red');
+    const dim = params.dim ?? (slack < 0.95 && flicker(t, light === 'red'));   // params.dim: preview override
     const [ox, oy] = handOffset(reach, slack);
     const key = `${light}|${dim ? 1 : 0}|${swell}|${ox},${oy}|${Math.round(slack * 16)}`;
     let c = handOut.get(key);
@@ -119,29 +121,58 @@ const lockerSlits = {
 };
 
 // ------------------------------------------------------------------------------------ vhs_frames
+// frames: 0 the lobby group shot · 1 heads-down · 2 the mass · 3 the hand on her shoulder · 4 wrenched ·
+// 5 the face. `frames` tells the vhs screen the group shot is ours (it then maps tape frame k → k + 1).
 const vhsCache = new Map();
 const vhsFrames = {
+  frames: VHS_FRAMES,
   draw(ctx, t = 0, params = {}) {
-    const f = Math.max(0, Math.min(4, Math.round(params.frame ?? 0)));
+    const f = Math.max(0, Math.min(VHS_FRAMES - 1, Math.round(params.frame ?? 0)));
     if (!vhsCache.has(f)) vhsCache.set(f, buildVhsFrame(f));
-    for (let k = 0; k < 5; k++) if (!vhsCache.has(k)) later(`v${k}`, () => { if (!vhsCache.has(k)) vhsCache.set(k, buildVhsFrame(k)); });
+    for (let k = 0; k < VHS_FRAMES; k++) if (!vhsCache.has(k)) later(`v${k}`, () => { if (!vhsCache.has(k)) vhsCache.set(k, buildVhsFrame(k)); });
     ctx.drawImage(vhsCache.get(f), 0, 0);
   },
 };
 
 const CGS = { colonel_hand: colonelHand, colonel_face: colonelFace, locker_slits: lockerSlits, vhs_frames: vhsFrames };
 
+// idle-time prebuild, in the order the story needs them: Ch2's hand and tape first, the locker (Ch6),
+// then the close-up. (The hand under the Register's red light is built when Ch8 asks for it.)
+const PREBUILD = [
+  () => prepHand('fluor'),
+  ...Array.from({ length: VHS_FRAMES }, (_, k) => () => { if (!vhsCache.has(k)) vhsCache.set(k, buildVhsFrame(k)); return true; }),
+  () => { if (!lockerFG) lockerFG = buildLockerInterior(); return true; },
+  () => { if (!lockerOut) lockerOut = buildLockerOutside(later); return true; },
+  () => { if (!slitFace) slitFace = buildSlitFace(); return true; },
+  () => prepFace(FACE_LEVELS),
+];
+let prebuildStarted = false;
+function prebuild({ delay = 6000 } = {}) {
+  if (prebuildStarted || typeof window === 'undefined') return;
+  prebuildStarted = true;
+  const ric = typeof requestIdleCallback === 'function' ? (fn) => requestIdleCallback(fn, { timeout: 2000 }) : (fn) => setTimeout(() => fn({ timeRemaining: () => 50 }), 120);
+  let k = 0;
+  const tick = (dl) => {
+    if (k >= PREBUILD.length) return;
+    // only start a slice when the browser has a real idle period in hand
+    if (dl && dl.timeRemaining && dl.timeRemaining() < 30 && !dl.didTimeout) { ric(tick); return; }
+    try { if (PREBUILD[k]()) k++; } catch (e) { console.error('[cg] colonel prebuild failed', e); k++; }
+    ric(tick);
+  };
+  setTimeout(() => ric(tick), delay);
+}
+
 export async function initColonelCg() {
-  // generated lazily on first draw (each CG is used in one or two scenes)
+  prebuild();
 }
 export function getColonelCg(id) {
   return CGS[id] || { draw(ctx) { ctx.fillStyle = '#05060a'; ctx.fillRect(0, 0, W, H); } };
 }
-/** Optional: pre-generate one CG's layers ahead of a scene (avoids a first-draw hitch). */
-export function warmColonelCg(id) {
-  const c = makeCanvas(W, H), x = ctxOf(c);
+/** Optional: finish one CG's layers now, ahead of the scene that shows it (no first-draw hitch). */
+export function warmColonelCg(id, params = {}) {
   const cg = CGS[id]; if (!cg) return;
-  if (id === 'vhs_frames') cg.draw(x, 0, { frame: 0 });
-  else if (id === 'locker_slits') cg.draw(x, 0, { phase: 0.6, faceIn: 0 });
-  else cg.draw(x, 0, { lit: 1 });
+  if (id === 'colonel_hand') { const light = params.light === 'red' ? 'red' : 'fluor'; while (!prepHand(light)); return; }
+  if (id === 'vhs_frames') { for (let k = 0; k < VHS_FRAMES; k++) if (!vhsCache.has(k)) vhsCache.set(k, buildVhsFrame(k)); return; }
+  if (id === 'locker_slits') { if (!lockerFG) lockerFG = buildLockerInterior(); if (!lockerOut) lockerOut = buildLockerOutside(); if (!slitFace) slitFace = buildSlitFace(); return; }
+  if (id === 'colonel_face') { while (!prepFace(FACE_LEVELS)); }
 }
