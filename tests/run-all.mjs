@@ -12,10 +12,15 @@ const steps = [
   ['engine (built)', ['tests/engine.mjs', '--built']],
   ['maps', ['tests/maps.mjs']],
 ];
-// Slow suites (systems ~150 s, meta ~90 s, story playthrough): `npm test -- --all` or `node tests/run-all.mjs --all`.
+// Slow suites (systems ~150 s, meta ~90 s, the full-game playthrough ~4.5 min per run, dev + built):
+// `npm test -- --all` or `node tests/run-all.mjs --all`. HW_PLAYTHROUGH=0 skips the playthrough,
+// HW_PLAYTHROUGH=dev runs it on the dev page only.
 if (process.argv.includes('--all')) {
   steps.push(['systems (dev)', ['tests/systems.mjs']], ['meta', ['tests/meta.mjs']]);
-  if (process.env.HW_PLAYTHROUGH !== '0') steps.push(['playthrough', ['tests/playthrough.mjs']]);
+  if (process.env.HW_PLAYTHROUGH !== '0') {
+    steps.push(['playthrough (dev)', ['tests/playthrough.mjs']]);
+    if (process.env.HW_PLAYTHROUGH !== 'dev') steps.push(['playthrough (built)', ['tests/playthrough.mjs', '--built']]);
+  }
 }
 
 const results = [];
