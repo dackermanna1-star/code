@@ -1,4 +1,6 @@
 // Colonel contact sheets. ?part=sprite|portraits|cg|all (default all) &scale=3
+//   ?part=cg&cg=locker_slits&lk=phase,faceIn,t,mouth;...   locker states (mouth 0..1 = stinger #4)
+//   colonel_face renders its fury state by default (ch8); p={"fury":0} for the serene close-up
 //   ?part=one&cg=<id>&t=<s>&p=<json params>&scale=2   one CG frame, no chrome (for iteration shots)
 //   ?part=vhs                                         the vhs_frames through the game's camcorder filter
 //   ?part=bench                                       build timings (colonel_bench.js)
@@ -117,9 +119,11 @@ async function cgs() {
   const only = q.get('cg');
   const S = Number(q.get('cscale') || 1);
   const sets = {
-    colonel_hand: [{ t: 0, p: { dim: false } }, { t: 1.3, p: { dim: true } }, { t: 0, p: { light: 'red', dim: false } }, { t: 0, p: { reach: 0.6 } }, { t: 0, p: { slack: 0.6 } }],
-    colonel_face: [{ t: 0, p: { lit: 1 } }, { t: 1, p: { lit: 0.5 } }, { t: 2.2, p: { lit: 0.15 } }, { t: 3.25, p: { lit: 1 } }],
-    locker_slits: q.get('lk') ? q.get('lk').split(';').map((v) => { const [ph, fi, tt] = v.split(',').map(Number); return { t: tt || 0, p: { phase: ph, faceIn: fi } }; }) : [{ t: 0, p: { phase: 0.1, faceIn: 0 } }, { t: 0.5, p: { phase: 0.3, faceIn: 0 } }, { t: 1, p: { phase: 0.55, faceIn: 0 } }, { t: 1.4, p: { phase: 0.8, faceIn: 0 } }, { t: 2, p: { phase: 1, faceIn: 0.5 } }, { t: 3, p: { phase: 1, faceIn: 1 } }],
+    colonel_hand: [{ t: 0, p: { dim: false } }, { t: 1.3, p: { dim: true } }, { t: 0, p: { light: 'red', dim: false } }, { t: 0, p: { reach: 0.6 } }, { t: 0, p: { slack: 0.6 } },
+      { t: 0, p: { light: 'red', reach: 0.5, dim: false } }, { t: 0, p: { light: 'red', slack: 0.5, dim: false } }],
+    colonel_face: [{ t: 0, p: { lit: 1 } }, { t: 0.6, p: { lit: 1 } }, { t: 1.5, p: { lit: 0.5 } }, { t: 2.2, p: { lit: 0.15 } }, { t: 3.25, p: { lit: 1, fury: 0 } }, { t: 3.3, p: { lit: 0.6, fury: 0 } }],
+    locker_slits: q.get('lk') ? q.get('lk').split(';').map((v) => { const [ph, fi, tt, mo] = v.split(',').map(Number); return { t: tt || 0, p: { phase: ph, faceIn: fi, mouth: mo || 0 } }; }) : [{ t: 0, p: { phase: 0.1, faceIn: 0 } }, { t: 0.5, p: { phase: 0.3, faceIn: 0 } }, { t: 1, p: { phase: 0.55, faceIn: 0 } }, { t: 1.4, p: { phase: 0.8, faceIn: 0 } }, { t: 2, p: { phase: 1, faceIn: 0.5 } }, { t: 3, p: { phase: 1, faceIn: 1 } },
+      { t: 3, p: { phase: 1, faceIn: 1, mouth: 0.3 } }, { t: 3, p: { phase: 1, faceIn: 1, mouth: 1 } }],
     vhs_frames: [0, 1, 2, 3, 4, 5].map((f) => ({ t: 0, p: { frame: f } })),
   };
   for (const id of COLONEL_CG_IDS) {

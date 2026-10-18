@@ -308,21 +308,39 @@ export function lightCel(cel, lt, opts = {}) {
  */
 export function quantize(cel, lev, opts = {}) {
   const { w, h, mat, sid, off, fix } = cel;
-  const tone = new Int8Array(w * h).fill(-1), base = new Int8Array(w * h).fill(-1), L2 = opts.levFn ? new Float32Array(w * h) : lev;
+  const tone = new Int8Array(w * h).fill(-1), base = new Int8Array(w * h).fill(-1);
   const [rx0, ry0, rx1, ry1] = opts.rect || [0, 0, w, h];
+  let L2 = lev;
+  if (opts.levFn) { L2 = new Float32Array(w * h); for (let y = Math.max(0, ry0); y < Math.min(h, ry1); y++) for (let x = Math.max(0, rx0); x < Math.min(w, rx1); x++) { const i = y * w + x; if (mat[i]) L2[i] = opts.levFn(i, x, y, lev[i]); } }
+  // materials with `smooth: r` get their light level averaged over their own surface first (clean,
+  // straight band edges instead of staircases from small normal wobbles)
+  const LS = smoothLev(cel, L2, [rx0, ry0, rx1, ry1]);
   for (let y = Math.max(0, ry0); y < Math.min(h, ry1); y++) for (let x = Math.max(0, rx0); x < Math.min(w, rx1); x++) {
     const i = y * w + x, m = mat[i]; if (!m) continue;
     const M = MATS[m];
-    let l = opts.levFn ? (L2[i] = opts.levFn(i, x, y, lev[i])) : lev[i];
+    let l = LS[i];
     if (M.jit) l += (vn(x + cel.ox, y + cel.oy, M.jit[1], m) - 0.5) * M.jit[0] + (M.jit[2] ? (vn(x + cel.ox, y + cel.oy, M.jit[1] * 0.37, m + 9) - 0.5) * M.jit[2] : 0);
-    let k;
-    if (fix[i] >= 0) k = fix[i];
-    else {
-      const th = M.th, d = M.dith ? (bay(x + cel.ox, y + cel.oy) - 0.5) * 2 * M.dith : 0;
-      k = 0; while (k < th.length && l + d >= th[k]) k++;
-      base[i] = k;
-      k += off[i];
+    if (M.grain) { const gx = x + cel.ox, gy = y + cel.oy; l += ((vn(gx * 0.08, gy * 1.1, 1, 61) - 0.5) * 0.7 + (vn(gx * 0.25, gy * 2.2, 1, 67) - 0.5) * 0.3) * M.grain * 2 * l; }   // streaks along the grain
+    if (fix[i] >= 0) continue;
+    const th = M.th, d = M.dith ? (bay(x + cel.ox, y + cel.oy) - 0.5) * 2 * M.dith : 0;
+    let k = 0; while (k < th.length && l + d >= th[k]) k++;
+    base[i] = k;
+  }
+  // `clean` materials: a lone pixel whose band disagrees with 3+ of its 4 neighbours joins them
+  for (let pass = 0; pass < 2; pass++) for (let y = Math.max(1, ry0); y < Math.min(h - 1, ry1); y++) for (let x = Math.max(1, rx0); x < Math.min(w - 1, rx1); x++) {
+    const i = y * w + x, m = mat[i]; if (!m || base[i] < 0 || !MATS[m].clean) continue;
+    let t0 = -9, c0 = 0, t1 = -9, c1 = 0;
+    for (const j of [i - 1, i + 1, i - w, i + w]) {
+      if (mat[j] !== m || sid[j] !== sid[i] || base[j] < 0) continue;
+      const b = base[j];
+      if (b === t0) c0++; else if (b === t1) c1++; else if (t0 === -9) { t0 = b; c0 = 1; } else if (t1 === -9) { t1 = b; c1 = 1; }
     }
+    if (c0 >= 3 && t0 !== base[i]) base[i] = t0; else if (c1 >= 3 && t1 !== base[i]) base[i] = t1;
+  }
+  for (let y = Math.max(0, ry0); y < Math.min(h, ry1); y++) for (let x = Math.max(0, rx0); x < Math.min(w, rx1); x++) {
+    const i = y * w + x, m = mat[i]; if (!m) continue;
+    const M = MATS[m];
+    const k = fix[i] >= 0 ? fix[i] : base[i] + off[i];
     tone[i] = k < 0 ? 0 : k >= M.n ? M.n - 1 : k;
   }
   if (!opts.noSeam) {
@@ -337,6 +355,35 @@ export function quantize(cel, lev, opts = {}) {
     }
   }
   return { tone, lev: L2 };
+}
+
+/** Average the light level over each `smooth` material's own surface (same sid, same smoothing group). */
+export function smoothLev(cel, lev, rect = null) {
+  const { w, h, mat, sid } = cel;
+  const [rx0, ry0, rx1, ry1] = rect || [0, 0, w, h];
+  let any = false;
+  for (let m = 1; m < MATS.length; m++) if (MATS[m]?.smooth) { any = true; break; }
+  if (!any) return lev;
+  const out = Float32Array.from(lev);
+  for (let y = Math.max(0, ry0); y < Math.min(h, ry1); y++) for (let x = Math.max(0, rx0); x < Math.min(w, rx1); x++) {
+    const i = y * w + x, m = mat[i]; if (!m) continue;
+    const M = MATS[m], r = M.smooth | 0; if (!r) continue;
+    const g = M.sgroup ?? m, si = sid[i];
+    let s = 0, n = 0;
+    for (let dy = -r; dy <= r; dy++) {
+      const yy = y + dy; if (yy < 0 || yy >= h) continue;
+      for (let dx = -r; dx <= r; dx++) {
+        const xx = x + dx; if (xx < 0 || xx >= w) continue;
+        const j = yy * w + xx, mj = mat[j];
+        if (!mj || sid[j] !== si) continue;
+        const Mj = MATS[mj]; if ((Mj.sgroup ?? mj) !== g) continue;
+        const wt = (r + 1 - Math.abs(dx)) * (r + 1 - Math.abs(dy));
+        s += lev[j] * wt; n += wt;
+      }
+    }
+    out[i] = n ? s / n : lev[i];
+  }
+  return out;
 }
 
 /** Light → { tone, lev } (lightCel + quantize). */

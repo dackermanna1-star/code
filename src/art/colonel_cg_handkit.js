@@ -2,19 +2,26 @@
 // One kit so the motif stays the same everywhere: a corpulent right hand with a real thumb, a gold
 // signet sunk into the little finger and a dark stone strangling the ring finger, thick yellowed nails.
 //
-// Discipline (the portraits' rules): ONE flesh ramp of 6 tones, a violet accent for veins and the
-// congested finger, a liver-spot brown; hard cel bands, no texture noise. The volume is a few big
-// planes — the back of the hand is built as a broad slab (lit thumb-side plane, mid crown, a turn into
-// shadow at the little-finger edge) with four knuckle domes along its front and fat fingers whose
-// shafts stay smooth between the joints. Detail is placed, not sprinkled: one crease cluster per joint,
-// a few liver spots and hairs, two veins, sunk rings, nails inset in their beds.
+// Discipline (the portraits' rules): ONE flesh ramp of 7 tones (waxy grey-pink; the top tone only where a
+// highlight is placed), a cooler accent for the veins, a livid one for the congested finger, a liver-spot
+// brown; hard cel bands on a light level smoothed over each surface first, no texture noise. The volume is
+// a few big planes — the back of the hand a broad slab with four knuckle RIDGES along the bones (their
+// highlights drawn 2 × 6 px along the bone, the valleys between them two steps down), tendons converging
+// on the wrist; four fingers of different widths and lengths, fanned, the little one short and curled.
+// Each finger's top runs level (one long highlight) while its silhouette narrows ~1 px a side between the
+// joints, swells at the middle joint, tapers to ~75 % at the tip and squashes wider at the pad. Detail is
+// placed, not sprinkled: over each middle joint an oval pocket of loose skin with 4-5 short broken lines
+// (never across the whole finger), two faint ones at the end joint; horn nails ~62 % of the finger's width
+// set into their folds; soft cool veins with a Y fork; a few small liver spots by the wrist and thumb; a
+// few grey hairs; rings sunk 3 px wide into the flesh; the wrist's flesh rolling over the cuff in lobes.
 //
 // Coordinates: a pose puts the middle finger's knuckle at C (frame px), the fingers along `ang`, the
 // thumb on the `side` (+1: thumb to the left of the fingers' way, i.e. a right hand seen from above).
 // Local units (u along the fingers, v toward the thumb) are scaled by s.
 import { HField } from './colonel_gbuf.js';
-import { celMat, bay, h01, vn, clamp, lerp, sstep, quad, inPoly, polyDist } from './colonel_cg_cel.js';
+import { celMat, bay, vn, clamp, lerp, sstep, quad, inPoly, polyDist } from './colonel_cg_cel.js';
 import { rng } from './util.js';
+import { hexToRgb } from './palette.js';
 
 // material ids (shared with the scenes that import CM)
 export const CM = {
@@ -22,41 +29,72 @@ export const CM = {
   DENIM: 10, DENIM_D: 11, STITCH: 12, SKIN: 13, CHEEK: 14, FRECKLE: 15, HAIR: 16, LASH: 17, TNAIL: 18, HAIR_D: 19,
   FLESH: 20, VEIN: 21, SPOT: 22, NAIL: 23, GHAIR: 24, GOLD: 25, STONE: 26, HOTF: 27, HOTR: 28, FLESH_V: 29,
   WOOL: 30, WOOL_W: 31, BRASS: 32, VERD: 33, THREAD: 34,
-  PENCIL: 40, PWOOD: 41, GRAPHITE: 42, ERASER: 43, FERRULE: 44,
+  PENCIL: 40, PWOOD: 41, GRAPHITE: 42, ERASER: 43, FERRULE: 44, TBTN: 45, BROW: 46,
 };
-// the hand: waxy gray-pink, cel-banded. Bands: 1 deep turn · 2 shadow plane · 3 crown · 4 lit plane ·
-// 5 sheen (and the painted knuckle highlights); 0 is the outline.
-const FL_TH = [0.2, 0.42, 0.66, 0.9, 1.08];
-const FL = { th: FL_TH, dith: 0, line: 0, lineLit: 1, gap: 2.6, spec: null };
-celMat(CM.FLESH, { ramp: ['#331e1e', '#663f3b', '#956a5e', '#bc9480', '#d9b99e', '#eedcbf'], ...FL });
-celMat(CM.VEIN, { ramp: ['#2e1d26', '#573f4c', '#7f6370', '#a18890', '#bfa8a8', '#d6c4bc'], ...FL, line: null });
-celMat(CM.FLESH_V, { ramp: ['#2e1b26', '#573a4a', '#7e5f6c', '#a2868c', '#c0a8a8', '#d8c6c0'], ...FL });
-celMat(CM.SPOT, { ramp: ['#2c1c16', '#4c3426', '#6e5038', '#8c6c4c', '#a6865e', '#bc9c72'], ...FL, line: null, spec: null });
-celMat(CM.NAIL, { ramp: ['#241e14', '#3a3020', '#917859', '#a08a62', '#b49e72', '#cfb891'], th: [0.2, 0.4, 0.6, 0.85, 1.1], dith: 0, line: null, gap: 1.5 });
-celMat(CM.GHAIR, { ramp: ['#1c1a1e', '#363238', '#545056', '#747072', '#949090', '#b4b0ac'], th: FL_TH, dith: 0 });
-celMat(CM.GOLD, { ramp: ['#1e1406', '#4a3510', '#7c5e22', '#ab8a3e', '#d2b462', '#f0dc9c'], th: [0.2, 0.4, 0.62, 0.86, 1.04], dith: 0, gap: 1, spec: { at: 0.95, w: 0.05, k: 0.4 } });
-celMat(CM.STONE, { ramp: ['#070208', '#170810', '#2e0f1c', '#4e1a2e', '#8a5068'], th: [0.25, 0.5, 0.8, 1.05], dith: 0 });
+const mixh = (a, b, t) => { const A = hexToRgb(a), B = hexToRgb(b); return '#' + A.map((v, k) => Math.round(v + (B[k] - v) * t).toString(16).padStart(2, '0')).join(''); };
+// the hand: waxy grey-pink, 7 tones. Bands: 1 deep turn · 2 shadow plane · 3 low mid · 4 crown · 5 lit plane ·
+// 6 the waxy sheen (and the placed highlights); 0 is the outline.
+export const FLESH_RAMP = ['#291a1e', '#4a3238', '#6b4d53', '#8c6c6c', '#ac8c88', '#ccb0a6', '#e6d2c6'];
+const FL_TH = [0.15, 0.28, 0.42, 0.57, 0.75, 1.06];   // tone 6 only where a highlight is placed
+const FL = { th: FL_TH, line: 0, lineLit: 1, gap: 2.6, seam: false, smooth: 2, clean: true, sgroup: CM.FLESH, spec: { at: 0.93, w: 0.05, k: 0.06 } };
+celMat(CM.FLESH, { ramp: FLESH_RAMP, ...FL });
+celMat(CM.VEIN, { ramp: FLESH_RAMP.map((c, i) => mixh(c, '#7c88b8', 0.34 - i * 0.03)), ...FL, line: null, spec: null });
+celMat(CM.FLESH_V, { ramp: FLESH_RAMP.map((c) => mixh(c, '#6e4a6c', 0.32)), ...FL });
+celMat(CM.SPOT, { ramp: FLESH_RAMP.map((c, i) => mixh(FLESH_RAMP[Math.max(0, i - 1)], '#8a6040', 0.42)), ...FL, line: null, spec: null });
+// nails: yellowed horn (base #8e7a62 blending into the skin, mid #bca684, a lengthwise sheen)
+celMat(CM.NAIL, { ramp: ['#2a1e14', '#4e4030', '#7a6a50', '#a08c68', '#c4b08a', '#dccaa4', '#eee2c4'], th: [0.16, 0.3, 0.45, 0.61, 0.79, 0.99], line: null, gap: 1.5, seam: false });
+celMat(CM.GHAIR, { ramp: ['#1c1a1e', '#363238', '#545056', '#747072', '#949090', '#b4b0ac'], th: [0.18, 0.36, 0.56, 0.78, 1.0], seam: false });
+celMat(CM.GOLD, { ramp: ['#1e1406', '#4a3510', '#7c5e22', '#ab8a3e', '#d2b462', '#f0dc9c'], th: [0.2, 0.4, 0.62, 0.86, 1.04], gap: 1, seam: false, spec: { at: 0.95, w: 0.05, k: 0.4 } });
+celMat(CM.STONE, { ramp: ['#08030a', '#1a0812', '#30101e', '#4c1a2c', '#7a3a4c', '#a86a78'], th: [0.2, 0.42, 0.66, 0.9, 1.1], seam: false });
 // hot pixels on the metal: HOTF burns only under the tube (a gold glint), HOTR only under the fire;
 // their colours are patched per grade (patchLUT) — elsewhere they read as the gold around them
-celMat(CM.HOTF, { ramp: ['#7c5e22', '#ab8a3e', '#d2b462', '#f0dc9c', '#fff4cc'], th: [0.2, 0.45, 0.7, 0.95], dith: 0 });
-celMat(CM.HOTR, { ramp: ['#4a3510', '#7c5e22', '#ab8a3e', '#d2b462', '#f0dc9c'], th: [0.2, 0.45, 0.7, 0.95], dith: 0 });
+celMat(CM.HOTF, { ramp: ['#7c5e22', '#ab8a3e', '#d2b462', '#f0dc9c', '#fff4cc'], th: [0.2, 0.45, 0.7, 0.95], seam: false });
+celMat(CM.HOTR, { ramp: ['#4a3510', '#7c5e22', '#ab8a3e', '#d2b462', '#f0dc9c'], th: [0.2, 0.45, 0.7, 0.95], seam: false });
 // the cuff: navy wool, wet in places, tarnished brass
-celMat(CM.WOOL, { ramp: ['#05070e', '#0e1426', '#1a2442', '#28365e', '#3c4e7c', '#56699a'], th: [0.14, 0.32, 0.54, 0.8, 1.02], dith: 0, line: 0, lineLit: 1, gap: 3 });
-celMat(CM.WOOL_W, { ramp: ['#04050b', '#0a0f1e', '#141d36', '#213052', '#344a76', '#7488b8'], th: [0.14, 0.32, 0.54, 0.84, 0.99], dith: 0, line: 0, lineLit: 1, gap: 3, spec: { at: 0.94, w: 0.04, k: 0.35 } });
-celMat(CM.BRASS, { ramp: ['#140d05', '#33250e', '#5a4519', '#836a2c', '#a88c44', '#cdb46c'], th: [0.16, 0.36, 0.58, 0.82, 1.0], dith: 0, line: 0, gap: 1, spec: { at: 0.95, w: 0.05, k: 0.45 } });
-celMat(CM.VERD, { ramp: ['#0e1612', '#1c2c24', '#30483a', '#4a6652', '#68846c'], th: [0.2, 0.42, 0.66, 0.9], dith: 0 });
-celMat(CM.THREAD, { ramp: ['#141418', '#2e2e36', '#4c4a52', '#6e6a6c', '#928c86'], th: [0.2, 0.42, 0.66, 0.9], dith: 0 });
+celMat(CM.WOOL, { ramp: ['#05070e', '#0e1426', '#1a2442', '#28365e', '#3c4e7c', '#56699a'], th: [0.14, 0.32, 0.54, 0.8, 1.02], line: 0, lineLit: 1, gap: 3, seam: false, smooth: 1 });
+celMat(CM.WOOL_W, { ramp: ['#04050b', '#0a0f1e', '#141d36', '#213052', '#344a76', '#7488b8'], th: [0.14, 0.32, 0.54, 0.84, 0.99], line: 0, lineLit: 1, gap: 3, seam: false, smooth: 1, sgroup: CM.WOOL, spec: { at: 0.94, w: 0.04, k: 0.35 } });
+celMat(CM.BRASS, { ramp: ['#140d05', '#33250e', '#5a4519', '#836a2c', '#a88c44', '#cdb46c'], th: [0.16, 0.36, 0.58, 0.82, 1.0], line: 0, gap: 1, seam: false, spec: { at: 0.95, w: 0.05, k: 0.45 } });
+celMat(CM.VERD, { ramp: ['#0e1612', '#1c2c24', '#30483a', '#4a6652', '#68846c'], th: [0.2, 0.42, 0.66, 0.9], seam: false });
+celMat(CM.THREAD, { ramp: ['#141418', '#2e2e36', '#4c4a52', '#6e6a6c', '#928c86'], th: [0.2, 0.42, 0.66, 0.9], seam: false });
 
 export const FLESHY = [CM.FLESH, CM.VEIN, CM.SPOT, CM.FLESH_V];
 const isFlesh = (m) => m === CM.FLESH || m === CM.VEIN || m === CM.SPOT || m === CM.FLESH_V;
 
-/** Per-grade colours for the hot pixels (call on a LUT from gradeLUT). */
-export function patchLUT(lut, red) {
+/** Per-grade colours for the hot pixels (call on a LUT from gradeLUT). Under the fire the flesh gets its own
+ * ramp with the mid-reds the grade would crush (else it posterizes into carved wood); name 'redDim' is the
+ * flicker dip, 'redDead' the slack hand. */
+const RED_FLESH = ['#120405', '#2a0909', '#46120e', '#641e14', '#842c1a', '#a83e22', '#d0602e', '#f08a44'];
+export function patchLUT(lut, red, name = red ? 'red' : 'fluor') {
   const hex = (h) => { const n = parseInt(h.slice(1), 16); return ((255 << 24) | ((n & 255) << 16) | (((n >> 8) & 255) << 8) | (n >> 16)) >>> 0; };
   const gold = lut[CM.GOLD];
   if (!gold) return lut;
   lut[CM.HOTF] = red ? Uint32Array.from([1, 2, 3, 3, 4].map((k) => gold[k])) : Uint32Array.from(['#8a6a2a', '#c09a48', '#e8cc78', '#fff0bc', '#fffbe8'].map(hex));
   lut[CM.HOTR] = red ? Uint32Array.from(['#c0602a', '#e88a3c', '#ffb050', '#ffc874', '#ffe0a0'].map(hex)) : Uint32Array.from([1, 2, 3, 3, 4].map((k) => gold[k]));
+  if (!red) {
+    const horn = ['#2a1e14', '#4e4030', '#7a6a50', '#a08c68', '#c4b08a', '#dccaa4', '#eee2c4'];
+    const sh = name === 'dim' ? -1 : 0;
+    lut[CM.NAIL] = Uint32Array.from(horn.map((_, k) => hex(horn[Math.max(0, Math.min(horn.length - 1, k + sh))])));
+  }
+  if (red) {
+    const sh = name === 'redDim' ? 0 : 1, dead = name === 'redDead';
+    const ramp = FLESH_RAMP.map((_, k) => RED_FLESH[Math.min(RED_FLESH.length - 1, k + sh)]).map((c) => (dead ? mixh(c, '#2a1414', 0.35) : c));
+    lut[CM.FLESH] = Uint32Array.from(ramp.map(hex));
+    lut[CM.VEIN] = Uint32Array.from(ramp.map((c, k) => hex(mixh(c, '#2a0c2a', 0.16 + k * 0.01))));
+    lut[CM.FLESH_V] = Uint32Array.from(ramp.map((c) => hex(mixh(c, '#3a0830', 0.16))));
+    lut[CM.SPOT] = Uint32Array.from(ramp.map((c) => hex(mixh(c, '#300c06', 0.18))));
+    // the metal catches the fire (dark gold read as empty sockets); the horn of the nails stays dull
+    const gold = ['#1a0602', '#3c1406', '#6c260a', '#a24614', '#d87028', '#ffa850'].map((c) => (dead ? mixh(c, '#2a1414', 0.3) : c));
+    lut[CM.GOLD] = Uint32Array.from(gold.map((c, k) => hex(gold[Math.max(0, k - (name === 'redDim' ? 1 : 0))])));
+    const horn = ['#160604', '#2c0e08', '#48180c', '#622412', '#7c3018', '#963e1e', '#b04e26'];
+    lut[CM.NAIL] = Uint32Array.from(horn.map((_, k) => hex(horn[Math.max(0, k - (name === 'redDim' ? 1 : 0))])));
+    // the navy wool: near black, its top two tones the fire's rim along the cuff
+    const dimK = name === 'redDim' ? 0.8 : 1;
+    const wool = ['#050203', '#0b0407', '#14070c', '#220c12', mixh('#6a2410', '#050203', 1 - dimK), mixh('#c25a20', '#3a1008', 1 - dimK)].map((c) => (dead ? mixh(c, '#140606', 0.4) : c));
+    lut[CM.WOOL] = Uint32Array.from(wool.map(hex));
+    lut[CM.WOOL_W] = Uint32Array.from(wool.map(hex));
+    const brass = ['#120603', '#2a0e05', '#4a1c08', '#7a3210', '#c0601c', '#ffa448'].map((c) => (dead ? mixh(c, '#2a1414', 0.3) : c));
+    lut[CM.BRASS] = Uint32Array.from(brass.map((c, k) => hex(brass[Math.max(0, k - (name === 'redDim' ? 1 : 0))])));
+  }
   return lut;
 }
 
@@ -87,15 +125,53 @@ class Field {
 export { Field };
 
 // ---------------------------------------------------------------------------------------- skeleton
-// the four fingers (local units): knuckle (u, v), splay (rad, + toward the thumb), segment lengths,
-// radii at knuckle / PIP / DIP / tip, the axis height at each joint (the fingers arch a little)
+// the four fingers (local units): knuckle (u, v), splay (rad, + toward the thumb) and drift (per segment),
+// segment lengths, radii at knuckle / PIP / DIP / tip, the axis height at each joint; bend: per-joint droop.
+// Different on purpose: index 20 px wide, middle 22 and the longest, ring 21 and swollen past its stone,
+// the little finger 15, short and curled; fanned a few degrees each way so the tips never line up.
 const FINGERS = [
-  { name: 'index', mu: -3, mv: 37, splay: 0.06, len: [46, 28, 23], r: [15.5, 15, 13.4, 11.8], z: [8, 8.5, 5, 2] },
-  { name: 'middle', mu: 2, mv: 11, splay: 0.0, len: [50, 31, 25], r: [16.2, 15.6, 14, 12.2], z: [8, 9, 5.5, 2] },
-  { name: 'ring', mu: -3, mv: -15, splay: -0.07, len: [46, 28, 23], r: [15.4, 15, 13.2, 11.6], z: [8, 8.5, 5, 2] },
-  { name: 'pinky', mu: -14, mv: -39, splay: -0.17, len: [35, 22, 19], r: [13.4, 12.8, 11.6, 10.4], z: [7, 7, 4, 1.5] },
+  { name: 'index', mu: -3, mv: 31, splay: 0.11, drift: -0.04, len: [42, 26, 21], r: [9.9, 9.0, 8.4, 7.5], z: [8, 8.5, 5.5, 2.5] },
+  { name: 'middle', mu: 2, mv: 9, splay: 0.02, drift: 0.006, len: [48, 30, 24], r: [10.7, 9.7, 9.0, 8.1], z: [8.5, 9, 6, 2.5] },
+  { name: 'ring', mu: -2, mv: -13, splay: -0.075, drift: 0.03, len: [44, 27, 22], r: [10.1, 9.8, 9.1, 8.0], z: [8, 8.5, 5.5, 2.5] },
+  { name: 'pinky', mu: -13, mv: -33, splay: -0.15, drift: 0.065, len: [32, 19, 15], r: [7.9, 7.1, 6.6, 6.0], z: [7, 7, 4.5, 2], bend: [0.05, 0.22, 0.28] },
 ];
-const THUMB = { base: [-84, 40], ang: 0.56, len: [38, 29], r: [19, 16.5, 14, 12.4], z: [15, 11, 6] };
+const THUMB = { base: [-80, 33], ang: 0.42, len: [36, 28], r: [17, 14.5, 12.4, 11], z: [14, 10, 6] };
+// raised veins on the back (local u, v): a trunk from the wrist forking toward two knuckle valleys, and a
+// shorter one by the little-finger edge
+const VEINS = [
+  [[-170, -2], [-152, -4], [-134, 0], [-116, -2], [-100, -1]],
+  [[-100, -1], [-88, 5], [-76, 11], [-64, 16], [-52, 19]],
+  [[-100, -1], [-87, -4], [-74, -2], [-62, -4], [-50, -2]],
+  [[-158, -29], [-142, -25], [-127, -28], [-114, -24]],
+];
+/** Catmull-Rom through control points → dense polyline. */
+function crs(P, seg = 6) {
+  const out = [];
+  for (let i = 0; i < P.length - 1; i++) {
+    const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+    for (let k = 0; k < seg; k++) {
+      const t = k / seg, t2 = t * t, t3 = t2 * t;
+      out.push([0, 1].map((c) => 0.5 * (2 * p1[c] + (-p0[c] + p2[c]) * t + (2 * p0[c] - 5 * p1[c] + 4 * p2[c] - p3[c]) * t2 + (-p0[c] + 3 * p1[c] - 3 * p2[c] + p3[c]) * t3)));
+    }
+  }
+  out.push(P[P.length - 1].slice());
+  return out;
+}
+/** Distance to a polyline and the fraction along it (a cheap reject far outside its box). */
+function nearPL(pts, u, v, pt = false) {
+  const bb = pts.bb || (pts.bb = pts.reduce((b, [a, c]) => [Math.min(b[0], a), Math.min(b[1], c), Math.max(b[2], a), Math.max(b[3], c)], [1e9, 1e9, -1e9, -1e9]));
+  if (u < bb[0] - 12 || v < bb[1] - 12 || u > bb[2] + 12 || v > bb[3] + 12) return [99, 0, 0, 0];
+  let best = 1e18, bt = 0, acc = 0, total = 0, bu = 0, bv = 0;
+  const L = []; for (let j = 0; j + 1 < pts.length; j++) { const l = Math.hypot(pts[j + 1][0] - pts[j][0], pts[j + 1][1] - pts[j][1]); L.push(l); total += l; }
+  for (let j = 0; j + 1 < pts.length; j++) {
+    const [ua, va] = pts[j], du = pts[j + 1][0] - ua, dv = pts[j + 1][1] - va, L2 = du * du + dv * dv || 1e-9;
+    let t = ((u - ua) * du + (v - va) * dv) / L2; t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const d2 = (u - ua - du * t) ** 2 + (v - va - dv * t) ** 2;
+    if (d2 < best) { best = d2; bt = (acc + t * L[j]) / (total || 1); if (pt) { bu = ua + du * t; bv = va + dv * t; } }
+    acc += L[j];
+  }
+  return [Math.sqrt(best), bt, bu, bv];
+}
 
 /** Pose → skeleton in frame coords. pose: { C, ang, s, side, z0, swell 0..1, curl 0..1, bends, rings } */
 export function handSkel(pose) {
@@ -107,34 +183,35 @@ export function handSkel(pose) {
   const dirOf = (a) => [f[0] * Math.cos(a) + t[0] * Math.sin(a), f[1] * Math.cos(a) + t[1] * Math.sin(a)];
   const fingers = FINGERS.map((fg, i) => {
     let [x, y] = P(fg.mu, fg.mv), a = fg.splay, zz = z0 + fg.z[0] * s, bend = 0;
-    const joints = [[x, y, zz]], segs = [], bends = pose.bends?.[i] || [0, 0, 0];
+    const joints = [[x, y, zz]], segs = [], bends = pose.bends?.[i] || [0, 0, 0], own = fg.bend || [0, 0, 0];
     for (let k = 0; k < 3; k++) {
-      bend += (bends[k] || 0) + curl * [0.7, 1.0, 0.65][k];
+      const bk = (bends[k] || 0) + (curl ? 0 : own[k]);
+      bend += bk + curl * [0.7, 1.0, 0.65][k];
       const d = dirOf(a), Lk = fg.len[k] * s * (1 + sw * 0.01), Lp = Lk * Math.cos(Math.min(1.45, bend));
       const nx = x + d[0] * Lp, ny = y + d[1] * Lp;
-      const nz = curl || bends[k] ? zz - Lk * Math.sin(Math.min(1.45, bend)) * (pose.dropK ?? 0.6) : z0 + fg.z[k + 1] * s;
+      const nz = curl || bend ? zz - Lk * Math.sin(Math.min(1.45, bend)) * (pose.dropK ?? 0.6) * (curl ? 1 : 0.35) : z0 + fg.z[k + 1] * s;
       segs.push({ a: [x, y], b: [nx, ny], d, L: Lp, r0: R(fg.r[k]), r1: R(fg.r[k + 1]), z0: zz, z1: nz });
       x = nx; y = ny; zz = nz; joints.push([x, y, zz]);
-      a += (i === 0 ? -0.04 : i === 3 ? 0.05 : i === 2 ? 0.02 : 0.005);     // each curves its own way toward the middle
+      a += fg.drift;
     }
     const sg = segs[2], tipR = R(fg.r[3]);
     const tip = [sg.b[0] + sg.d[0] * tipR * 0.92, sg.b[1] + sg.d[1] * tipR * 0.92];
     return { ...fg, i, joints, segs, tipR, tip, mcp: joints[0] };
   });
-  // the thumb: from its fat mound near the wrist, ~35° off the index, lying on its side
+  // the thumb: from its fat mound near the wrist, lying on its side along the index
   const ta = THUMB.ang * (pose.thumbAng ?? 1);
   let [tx, ty] = P(THUMB.base[0], THUMB.base[1]), tz = z0 + THUMB.z[0] * s;
   const tsegs = [];
   for (let k = 0; k < 2; k++) {
     const d = dirOf(ta + (k ? -0.12 : 0)), Lk = THUMB.len[k] * s * (pose.thumbLen ?? 1);
     const nx = tx + d[0] * Lk, ny = ty + d[1] * Lk, nz = z0 + THUMB.z[k + 1] * s;
-    tsegs.push({ a: [tx, ty], b: [nx, ny], d, L: Lk, r0: R(THUMB.r[k + 1 - (k ? 0 : 1)] * (k ? 1 : 1)), r1: R(THUMB.r[k + 1 + (k ? 1 : 0)]), z0: tz, z1: nz });
+    tsegs.push({ a: [tx, ty], b: [nx, ny], d, L: Lk, r0: R(THUMB.r[k * 2]), r1: R(THUMB.r[k * 2 + 1]), z0: tz, z1: nz });
     tx = nx; ty = ny; tz = nz;
   }
-  tsegs[0].r0 = R(THUMB.r[0]); tsegs[0].r1 = R(THUMB.r[1]); tsegs[1].r0 = R(THUMB.r[2]); tsegs[1].r1 = R(THUMB.r[3]);
   const ts = tsegs[1], ttipR = R(THUMB.r[3]);
   const thumb = { segs: tsegs, tipR: ttipR, tip: [ts.b[0] + ts.d[0] * ttipR * 0.9, ts.b[1] + ts.d[1] * ttipR * 0.9], ip: tsegs[0].b, base: tsegs[0].a };
-  return { pose, s, side, f, t, P, L, R, z0, fingers, thumb, rings: pose.rings || {} };
+  const veins = VEINS.map((p) => crs(p, 6));
+  return { pose, s, side, f, t, P, L, R, z0, fingers, thumb, veins, rings: pose.rings || {} };
 }
 
 // ---------------------------------------------------------------------------------------- sculpt
@@ -146,52 +223,53 @@ export function sculptHand(cel, pose, o = {}) {
   const S = handSkel(pose), { P, L, R, z0, s, fingers, thumb } = S;
   const FM = CM.FLESH;
   // bounding box of everything (frame coords)
-  const pts = [P(-170, -70), P(-170, 75), P(40, 90), P(130, 60), P(130, -70)];
+  const pts = [P(-170, -60), P(-170, 70), P(40, 80), P(130, 60), P(130, -60)];
   let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
   for (const [x, y] of pts) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
   for (const fg of fingers) for (const [x, y] of [fg.tip, fg.mcp]) { x0 = Math.min(x0, x - 30); y0 = Math.min(y0, y - 30); x1 = Math.max(x1, x + 30); y1 = Math.max(y1, y + 30); }
   // ---- A: the back of the hand, knuckles, thenar mound, finger roots, wrist (one soft mass)
   const A = new Field(x0, y0, x1, y1, 0.24 / s);
   const uW = o.wrist ?? -150;
-  const plate = [[uW, -60], [-90, -58], [-46, -55], [-20, -50], [-8, -40], [0, -14], [3, 10], [-1, 36], [-6, 50], [-34, 55], [-70, 60], [uW, 60]];
-  const Hu = (u) => (23 + 5 * sstep(-120, -12, u)) * s;
+  const plate = [[uW, -38], [-96, -41], [-50, -42], [-26, -40], [-12, -34], [-3, -16], [2, 6], [0, 26], [-5, 36], [-30, 40], [-66, 43], [uW, 41]];
+  const Hu = (u) => (24 - 6 * sstep(-80, -8, u)) * s;      // high over the wrist, down to the fingers' own height at the knuckles
   // across the hand: a gently falling plane on the thumb side, a crown, a rounded turn on the little-finger side
   const plateP = (v) => {
-    const vc = -8;
-    if (v >= vc) return 1 - 0.42 * ((v - vc) / 62) ** 1.25;
-    const w = Math.min(1, (vc - v) / 52); return Math.sqrt(Math.max(0, 1 - w ** 2.4));
+    const vc = 2;
+    if (v >= vc) return 1 - 0.4 * ((v - vc) / 46) ** 1.3;
+    const w = Math.min(1, (vc - v) / 44); return Math.sqrt(Math.max(0, 1 - w ** 2.4));
   };
-  // tendons fanning from the wrist to the index, middle and ring knuckles: low ridges under the skin
-  const tendons = o.tendons === false ? [] : [0, 1, 2].map((k) => { const fg = fingers[k]; return quad([-112, 6 - k * 8], [-64, (6 - k * 8 + fg.mv) * 0.5 + 3], [fg.mu - 14, fg.mv * 0.9], 12); });
+  // tendons from one point at the wrist, fanning out to the index, middle and ring knuckles: low ridges
+  const W0 = [-136, 3];
+  const tendons = [0, 1, 2].map((k) => quad(W0, [-80, (W0[1] + FINGERS[k].mv) * 0.48 + (k - 1) * 2], [FINGERS[k].mu - 14, FINGERS[k].mv * 0.93], 16));
   const ridge = (u, v) => {
     let best = 0;
-    for (const pts of tendons) for (let j = 0; j + 1 < pts.length; j++) {
-      const [ua, va] = pts[j], [ub, vb] = pts[j + 1], dx = ub - ua, dy = vb - va, L2 = dx * dx + dy * dy;
-      let t = ((u - ua) * dx + (v - va) * dy) / L2; t = t < 0 ? 0 : t > 1 ? 1 : t;
-      const d = Math.hypot(u - ua - dx * t, v - va - dy * t), tt = (j + t) / (pts.length - 1);
-      const h = Math.exp(-((d / 3.6) ** 2)) * Math.sin(Math.PI * Math.min(1, tt * 1.08)) ** 0.7;
+    for (const tp of tendons) {
+      const [d, tt] = nearPL(tp, u, v);
+      const h = Math.exp(-((d / 3.6) ** 2)) * Math.sin(Math.PI * Math.min(1, tt * 1.05)) ** 0.8;
       if (h > best) best = h;
     }
-    return best * 1.7 * s;
+    return best * 0.9 * s;
   };
+  // (the veins are painted in detailHand, not sculpted: a sculpted ridge lights into a white line)
+  S.veinsL = VEINS.map((p) => crs(p, 6));
   A.fn((fx, fy) => {
     const [u, v] = L(fx, fy);
-    if (u < uW - 2 || u > 8 || v < -62 || v > 64 || !inPoly(plate, u, v)) return null;
+    if (u < uW - 2 || u > 8 || v < -44 || v > 46 || !inPoly(plate, u, v)) return null;
     const d = polyDist(plate, u, v);
     const e = Math.sqrt(Math.min(d, 8) / 8);
     return z0 + (Hu(u) * Math.max(plateP(v), 0.08) + ridge(u, v)) * e;
   }, FM);
   // the wrist going into the cuff: thick, round
-  A.tube(P(uW - 30, -2), R(60), P(uW + 34, -2), R(58), { mat: FM, z0, z1: z0, k: 0.5, p: 0.6 });
-  // knuckle domes
+  A.tube(P(uW - 30, 2), R(50), P(uW + 34, 2), R(48), { mat: FM, z0, z1: z0, k: 0.5, p: 0.6 });
+  // knuckle domes: long along the bone (a ridge, not a ball)
   for (const fg of fingers) {
-    const [kx, ky] = P(fg.mu - 3, fg.mv), r = R(fg.r[0] * 0.92);
-    A.blob(kx, ky, r, r, Hu(fg.mu) * 0.9 + 6 * s, { base: z0, p: 0.62, mat: FM });
+    const a = P(fg.mu - 17, fg.mv * 0.96), b = P(fg.mu + 1, fg.mv), r = R(fg.r[0] * 0.55), kk = 0.45;
+    A.tube(a, r * 0.75, b, r, { mat: FM, z0: z0 + Hu(fg.mu - 17) - r * 0.75 * kk + 1.2 * s, z1: z0 + Hu(fg.mu) - r * kk + 2.4 * s, k: kk, p: 0.6 });
   }
   // the finger roots (blend into the knuckles), the thenar mound and the thumb's root
-  for (const fg of fingers) { const sg = fg.segs[0], mid = [lerp(sg.a[0], sg.b[0], 0.42), lerp(sg.a[1], sg.b[1], 0.42)]; A.tube(sg.a, sg.r0, mid, lerp(sg.r0, sg.r1, 0.42), { mat: FM, z0: sg.z0, z1: lerp(sg.z0, sg.z1, 0.42), k: 0.9, p: 0.5 }); }
+  for (const fg of fingers) { const sg = fg.segs[0], mid = [lerp(sg.a[0], sg.b[0], 0.28), lerp(sg.a[1], sg.b[1], 0.28)]; A.tube(sg.a, sg.r0 * 1.1, mid, lerp(sg.r0, sg.r1, 0.28) * 1.04, { mat: FM, z0: sg.z0, z1: lerp(sg.z0, sg.z1, 0.28), k: 0.86, p: 0.5 }); }
   if (!o.noThumb) {
-    { const [mx, my] = P(-86, 38); A.blob(mx, my, R(30), R(30), 25 * s, { base: z0, p: 0.6, mat: FM }); }
+    { const [mx, my] = P(-86, 30); A.blob(mx, my, R(22), R(22), 23 * s, { base: z0, p: 0.6, mat: FM }); }
     const tg = thumb.segs[0], mid = [lerp(tg.a[0], tg.b[0], 0.4), lerp(tg.a[1], tg.b[1], 0.4)];
     A.tube(tg.a, tg.r0, mid, lerp(tg.r0, tg.r1, 0.4), { mat: FM, z0: tg.z0, z1: lerp(tg.z0, tg.z1, 0.4), k: 0.85, p: 0.5 });
   }
@@ -199,7 +277,7 @@ export function sculptHand(cel, pose, o = {}) {
   // the dimples between the knuckle domes
   for (let k = 0; k < 3; k++) {
     const a = fingers[k], b = fingers[k + 1], [mx, my] = P((a.mu + b.mu) / 2 - 2, (a.mv + b.mv) / 2);
-    A.edit((fx, fy, z) => { const d = Math.hypot(fx - mx, fy - my) / R(5); if (d < 1) return z - 0.8 * s * (1 - d * d); });
+    A.edit((fx, fy, z) => { const d = Math.hypot(fx - mx, fy - my) / R(4.5); if (d < 1) return z - 1.0 * s * (1 - d * d); });
   }
   A.toCel(cel, { sid: 20, mode: 'z' });
   // ---- B: each finger in its own field (hard union with the others: real crevices between them)
@@ -207,25 +285,52 @@ export function sculptHand(cel, pose, o = {}) {
     let bx0 = 1e9, by0 = 1e9, bx1 = -1e9, by1 = -1e9;
     for (const [x, y] of [...fg.joints, fg.tip]) { bx0 = Math.min(bx0, x); by0 = Math.min(by0, y); bx1 = Math.max(bx1, x); by1 = Math.max(by1, y); }
     const pad = fg.segs[0].r0 + 4, B = new Field(bx0 - pad, by0 - pad, bx1 + pad, by1 + pad, 0.34 / s);
-    fg.segs.forEach((sg) => B.tube(sg.a, sg.r0, sg.b, sg.r1, { mat: FM, z0: sg.z0, z1: sg.z1, k: 0.9, p: 0.5 }));
+    // each phalanx a smooth capsule whose TOP runs level (one long highlight along the finger) while its
+    // silhouette narrows ~1 px a side between the joints, swells 1-2 px at the middle joint, and squashes a
+    // little wider behind the tip (the pad under the weight)
+    const jointAt = [0, fg.segs[0].L, fg.segs[0].L + fg.segs[1].L];            // along-the-finger positions of MCP, PIP, DIP
+    fg.segs.forEach((sg, k) => {
+      const L2 = sg.L * sg.L || 1;
+      B.fn((fx, fy) => {
+        let t = ((fx - sg.a[0]) * sg.d[0] + (fy - sg.a[1]) * sg.d[1]) / (sg.L || 1);
+        const tc = t < 0 ? 0 : t > 1 ? 1 : t;
+        const ex = fx - sg.a[0] - sg.d[0] * sg.L * tc, ey = fy - sg.a[1] - sg.d[1] * sg.L * tc, dist = Math.hypot(ex, ey);
+        const Rh = lerp(sg.r0, sg.r1, tc);
+        const along = jointAt[k] + tc * sg.L;
+        let Rs = Rh - (k ? 0.75 : 0.35) * s * Math.sin(Math.PI * tc);
+        Rs += 1.3 * s * Math.exp(-(((along - jointAt[1]) / (3.2 * s)) ** 2)) + 0.55 * s * Math.exp(-(((along - jointAt[2]) / (2.6 * s)) ** 2));
+        if (k === 2) Rs += 1.1 * s * sstep(0.62, 0.98, t);
+        if (dist >= Rs) return null;
+        void L2;
+        return lerp(sg.z0, sg.z1, tc) + Rh * 0.9 * Math.sqrt(Math.max(0, 1 - (dist / Rs) ** 2));
+      }, FM);
+    });
     const sg = fg.segs[2];
     B.blob(sg.b[0], sg.b[1], fg.tipR * 1.02, fg.tipR * 1.02, fg.tipR * 0.86, { base: sg.z1, p: 0.55, mat: FM });
     B.finalize();
+    // joints (no grooves in the sculpt: the skin is painted — see detailHand)
+    fg.creases = [];
+    for (const [jsg, dip] of [[fg.segs[1], false], [fg.segs[2], true]]) fg.creases.push({ c: jsg.a, d: jsg.d, n: [-jsg.d[1], jsg.d[0]], r: jsg.r0, dip });
     // a ring cuts in: a groove for the band, the flesh swelling on both sides of it
     const kind = S.rings[fg.i];
     if (kind) {
-      const r0 = fg.segs[0], c = [lerp(r0.a[0], r0.b[0], 0.52), lerp(r0.a[1], r0.b[1], 0.52)], d = r0.d, bw = 1.5 * s;
-      fg.ring = { kind, c, d, n: [-d[1], d[0]], r: lerp(r0.r0, r0.r1, 0.52), bw, z: lerp(r0.z0, r0.z1, 0.52) };
+      const r0 = fg.segs[0], c = [lerp(r0.a[0], r0.b[0], 0.6), lerp(r0.a[1], r0.b[1], 0.6)], d = r0.d, bw = Math.max(1.5, 1.75 * s);   // a 3-4 px band
+      fg.ring = { kind, c, d, n: [-d[1], d[0]], r: lerp(r0.r0, r0.r1, 0.6), bw, z: lerp(r0.z0, r0.z1, 0.6) };
       B.edit((fx, fy, z) => {
         const a = (fx - c[0]) * d[0] + (fy - c[1]) * d[1];
         if (Math.abs(a) > bw + 5 * s) return;
         const q = Math.abs(a);
-        const lip = 1.5 * s * Math.exp(-(((q - bw - 1.6 * s) / (1.3 * s)) ** 2));
+        const lip = 1.6 * s * Math.exp(-(((q - bw - 1.6 * s) / (1.3 * s)) ** 2));
         const cut = q < bw + 0.6 * s ? 1.6 * s : 0;
         return z + lip - cut;
       });
     }
     B.toCel(cel, { sid: 40 + fg.i, mode: 'z' });
+    // where the finger rises out of the back of the hand: no outline (a soft turn, not a seam)
+    for (let y = 0; y < cel.h; y++) for (let x = 0; x < cel.w; x++) {
+      const i = y * cel.w + x; if (cel.sid[i] !== 40 + fg.i) continue;
+      const [u] = L(x + cel.ox + 0.5, y + cel.oy + 0.5); if (u < fg.mu + 14) cel.flag[i] |= 1;
+    }
   }
   // ---- T: the thumb
   if (!o.noThumb) {
@@ -248,18 +353,19 @@ export function sculptHand(cel, pose, o = {}) {
 const fingerOf = (sid) => (sid >= 40 && sid <= 44 ? sid - 40 : -1);
 
 /**
- * Paint the placed detail onto the sculpted hand. light: { L } (the key light, for where highlights go).
- * o: { seed, hairs (count on the back), spots, veins, congest (the ring finger beyond its stone) }
+ * Paint the placed detail onto the sculpted hand. o.L / o.LR: the tube's and the fire's directions (for the
+ * knuckles' highlights). o: { seed, hairs (count on the back), spots, veins, congest }
+ * Flags: 16 a highlight under the tube, 32 under the fire, 128 the wet sheen on the knuckles under the fire.
  */
 export function detailHand(cel, S, o = {}) {
   const r = rng(o.seed ?? 1894), { P, L: toL, s, fingers, thumb } = S;
   const at = (x, y) => cel.idx(x - cel.ox, y - cel.oy);
   const flesh = (x, y) => { const i = at(x, y); return i >= 0 && isFlesh(cel.mat[i]) ? i : -1; };
-  const shift = (x, y, d, floor = 1) => { const i = flesh(x, y); if (i >= 0 && cel.fix[i] < 0) cel.off[i] = Math.max(-floor - 4, Math.min(3, cel.off[i] + d)); };
   const Lxy = (() => { const Lv = o.L || [-0.32, -0.66, 0.68], l = Math.hypot(Lv[0], Lv[1]) || 1; return [Lv[0] / l, Lv[1] / l]; })();
   const LRxy = (() => { const Lv = o.LR || [0.2, 0.6, 0.78], l = Math.hypot(Lv[0], Lv[1]) || 1; return [Lv[0] / l, Lv[1] / l]; })();
-  // 1. crevices between the fingers past the webs: one dark line (not black)
   const { w, h } = cel;
+  const sh = (i, d) => { if (i >= 0 && cel.fix[i] < 0) cel.off[i] = d < 0 ? Math.min(cel.off[i], d) : Math.max(cel.off[i], d); };
+  // 1. crevices between the fingers past the webs: one dark line
   for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
     const i = y * w + x; if (!isFlesh(cel.mat[i])) continue;
     const fi = fingerOf(cel.sid[i]); if (fi < 0 || fi > 3) continue;
@@ -271,111 +377,131 @@ export function detailHand(cel, S, o = {}) {
       if (fj >= 0 && fj <= 3 && fj !== fi && isFlesh(cel.mat[j]) && cel.z[j] >= cel.z[i] - 0.5) { cel.fix[i] = u < web + 8 ? 2 : 1; break; }
     }
   }
-  // 2. knuckles: a 2-3 px highlight on each dome's lit side (per light: flag 16 tube, 32 fire), a 1 px
-  // dimple between them
+  // 2. knuckles: the valleys between them two steps down (one at their rims); on each crest a highlight drawn
+  // ALONG the bone, ~2 × 6 px, for each light (the fire's is the wet sheen)
+  for (let k = 0; k < 3; k++) {
+    const a = fingers[k], b = fingers[k + 1], [mx, my] = P((a.mu + b.mu) / 2 - 7, (a.mv + b.mv) / 2), ru = 9.5 * s, rv = 2.3 * s;
+    for (let y = Math.floor(my - ru); y <= my + ru; y++) for (let x = Math.floor(mx - ru); x <= mx + ru; x++) {
+      const i = flesh(x, y); if (i < 0 || cel.sid[i] !== 20) continue;
+      const px = x + 0.5 - mx, py = y + 0.5 - my, au = px * S.f[0] + py * S.f[1], av = px * S.t[0] + py * S.t[1];
+      const e = (au / ru) ** 2 + (av / rv) ** 2;
+      if (e < 0.22) sh(i, -2); else if (e < 0.7 || (e < 1 && ((x + y) & 1))) sh(i, -1);
+    }
+  }
   const mark = (x, y, bit) => { const i = flesh(x, y); if (i >= 0 && cel.fix[i] < 0) cel.flag[i] |= bit; };
-  fingers.forEach((fg, k) => {
-    const [kx, ky] = P(fg.mu - 3, fg.mv), rr = fg.r[0] * 0.92 * s;
-    for (const [Ld, bit] of [[Lxy, 16], [LRxy, 32]]) {
-      const hx = Math.round(kx + Ld[0] * rr * 0.34), hy = Math.round(ky + Ld[1] * rr * 0.34);
-      for (const [dx, dy] of [[0, 0], [1, 0], [0, 1]].slice(0, k === 3 ? 2 : 3)) mark(hx + dx, hy + dy, bit);
-    }
-    if (k < 3) {
-      const b = fingers[k + 1], [mx, my] = P((fg.mu + b.mu) / 2 - 1, (fg.mv + b.mv) / 2);
-      const i = flesh(Math.round(mx), Math.round(my)); if (i >= 0) cel.off[i] = -1;
-    }
-  });
-  // 3. each shaft: smooth between its joints, one broad highlight along its lit side (per light)
-  const shafts = [];
-  fingers.forEach((fg) => fg.segs.forEach((sg, k) => shafts.push({ sg, sid: 40 + fg.i, t0: k === 0 ? 0.48 : 0.2, t1: k === 2 ? 0.95 : 0.8, w: k === 2 ? 2 : 3 })));
-  if (thumb) thumb.segs.forEach((sg, k) => shafts.push({ sg, sid: 44, t0: k === 0 ? 0.5 : 0.2, t1: k ? 0.9 : 0.82, w: 3 }));
-  for (const { sg, sid, t0, t1, w } of shafts) {
-    const n = [-sg.d[1], sg.d[0]];
-    for (const [Ld, bit] of [[Lxy, 16], [LRxy, 32]]) {
-      const side = (n[0] * Ld[0] + n[1] * Ld[1]) >= 0 ? 1 : -1;
-      const steps = Math.ceil(sg.L * 2);
-      for (let j = 0; j <= steps; j++) {
-        const t = t0 + (t1 - t0) * (j / steps), r = lerp(sg.r0, sg.r1, t);
-        const ww = w * Math.min(1, Math.sin(Math.PI * (j / steps)) * 2.2);
-        for (let q = 0; q < ww; q += 0.5) {
-          const off = r * 0.36 + q - ww / 2;
-          const x = Math.round(lerp(sg.a[0], sg.b[0], t) + n[0] * side * off), y = Math.round(lerp(sg.a[1], sg.b[1], t) + n[1] * side * off);
-          const i = flesh(x, y); if (i >= 0 && cel.sid[i] === sid && cel.fix[i] < 0) cel.flag[i] |= bit;
-        }
-      }
-    }
-  }
-  // 4. veins: two, violet, broad and soft, from the wrist toward the valleys between the knuckles
-  for (let k = 0; k < (o.veins ?? 2); k++) {
-    const pts = k === 0 ? [P(-130, -22), P(-104, -30), P(-78, -24), P(-56, -30), P(-34, -27)] : [P(-130, 20), P(-108, 14), P(-84, 24), P(-60, 22), P(-40, 26)];
-    const sm = []; for (let j = 0; j + 1 < pts.length; j++) { const a = pts[j], b = pts[j + 1], c = pts[j + 2] || b; sm.push(...quad(a, b, [(b[0] + c[0]) / 2, (b[1] + c[1]) / 2], 8)); }
-    cel.stroke(sm, (x, y, tt) => {
-      if (tt < 0.05 || tt > 0.96) return;
-      const wv = tt < 0.75 ? 3 : 2;
-      for (let q = 0; q < wv; q++) for (const [dx, dy] of [[q, 0], [0, q]]) {
-        const i = flesh(x + dx, y + dy); if (i < 0 || fingerOf(cel.sid[i]) >= 0 || cel.mat[i] === CM.SPOT) continue;
-        if ((tt > 0.82 || q === 2) && bay(x + dx, y + dy) < 0.5) continue;
-        cel.mat[i] = CM.VEIN;
-      }
-    });
-  }
-  // 5. liver spots: a handful, irregular, on the wrist half and the back
-  const spot = (cx, cy, rad) => {
-    for (let y = Math.floor(cy - rad - 1); y <= cy + rad + 1; y++) for (let x = Math.floor(cx - rad - 1); x <= cx + rad + 1; x++) {
-      const d = Math.hypot(x + 0.5 - cx, (y + 0.5 - cy) * 1.2) / rad + (h01(x, y, 71) - 0.5) * 0.45;
-      const i = flesh(x, y); if (i >= 0 && d < 1 && cel.mat[i] === CM.FLESH) cel.mat[i] = CM.SPOT;
+  const streak = (u0, u1, v, bit, wid = 2) => {
+    for (let q = 0; q <= 1; q += 0.04) {
+      const [x, y] = P(lerp(u0, u1, q), v);
+      for (let k = 0; k < wid; k++) mark(Math.round(x + S.t[0] * k * 0.9), Math.round(y + S.t[1] * k * 0.9), bit);
     }
   };
-  const spots = o.spots ?? [[-104, -24, 3.2], [-92, 6, 2.2], [-70, -36, 2.6], [-58, 22, 1.6], [-120, 18, 2.4], [-40, -8, 1.4], [-84, -44, 1.5]];
-  for (const [u, v, rad] of spots) { const [x, y] = P(u, v); spot(x, y, rad * s); }
-  // 6. hairs: few, dark, lying along the hand on the wrist half and the finger roots
+  fingers.forEach((fg, k) => {
+    if (k === 3) return;                                   // the little finger's knuckle is down in the turn
+    const vt = fg.mv + (Lxy[0] * S.t[0] + Lxy[1] * S.t[1]) * fg.r[0] * 0.3;   // the crest's lit side
+    streak(fg.mu - 8, fg.mu - 8 + 6 / s, vt, 16);
+    const vr = fg.mv + (LRxy[0] * S.t[0] + LRxy[1] * S.t[1]) * fg.r[0] * 0.3;
+    if (k === 1 || k === 2) streak(fg.mu - 8, fg.mu - 8 + 3 / s, vr, 32 | 128, 2);   // under the fire: a wet streak on two crests
+  });
+  // 3. veins: soft raised ridges 2-3 px wide — a cool core, one step lighter on the edge toward the light, one
+  // step darker on the other, no outline; a Y from the wrist forking between the 2nd and 3rd knuckles
+  if (o.veins !== false) {
+    const vl = S.veinsL || S.veins;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x; if (!isFlesh(cel.mat[i]) || cel.sid[i] !== 20 || cel.fix[i] >= 0) continue;
+      const [u, v] = toL(x + cel.ox + 0.5, y + cel.oy + 0.5);
+      if (u < -175 || u > -40) continue;
+      let bd = 9, side = 0, kk = 0;
+      vl.forEach((vp, k) => {
+        const [d, tt, cu, cv] = nearPL(vp, u, v, true);
+        if (k > 0 && (tt < 0.02 || tt > 0.95)) return;
+        if (d < bd) { bd = d; kk = k; const [cx, cy] = P(cu, cv); side = (x + cel.ox + 0.5 - cx) * Lxy[0] + (y + cel.oy + 0.5 - cy) * Lxy[1]; }
+      });
+      const px = bd * s;   // distance in frame px
+      if (px < 0.85 * (kk === 3 ? 0.7 : 1)) { if (cel.mat[i] === CM.FLESH) { cel.mat[i] = CM.VEIN; cel.off[i] = Math.min(cel.off[i], -1); } }   // the cool mid core
+      else if (px < 1.9 && side > 0) { if (cel.mat[i] === CM.FLESH) cel.mat[i] = CM.VEIN; }                     // its lit edge: the skin's own value, cooled
+      else if (px < 2.0 && side < 0) cel.off[i] = Math.min(cel.off[i], -1);                                     // its shadow edge
+    }
+  }
+  // 3b. mottling (optional, large and clean-edged)
+  for (const [u0, v0, ru, rv, mat] of o.mottle ?? []) {
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x; if (cel.mat[i] !== CM.FLESH || cel.sid[i] !== 20) continue;
+      const [u, v] = toL(x + cel.ox + 0.5, y + cel.oy + 0.5);
+      const e = ((u - u0) / ru) ** 2 + ((v - v0) / rv) ** 2 + Math.sin(u * 0.4 + v * 0.3) * 0.18;
+      if (e < 1) cel.mat[i] = mat;
+    }
+  }
+  // 4. liver spots: 6-10 small irregular warm-brown blots (2-5 px), clustered by the wrist and the thumb's root
+  const spot = (cx, cy, rad) => {
+    const lobes = [[0, 0, 1]];
+    for (let k = 0; k < 2; k++) { const a = r() * 6.283, d = rad * (0.4 + r() * 0.4); lobes.push([Math.cos(a) * d, Math.sin(a) * d, 0.5 + r() * 0.35]); }
+    for (let y = Math.floor(cy - rad * 2); y <= cy + rad * 2; y++) for (let x = Math.floor(cx - rad * 2); x <= cx + rad * 2; x++) {
+      const i = flesh(x, y); if (i < 0 || cel.mat[i] !== CM.FLESH) continue;
+      if (lobes.some(([lx, ly, lr]) => Math.hypot(x + 0.5 - cx - lx, y + 0.5 - cy - ly) < rad * lr)) cel.mat[i] = CM.SPOT;
+    }
+  };
+  const spots = o.spots ?? [[-106, 12, 2.2], [-101, 19, 1.3], [-97, 3, 1.6], [-108, -17, 1.9], [-93, 27, 1.1], [-82, 35, 2.0], [-76, 41, 1.3], [-89, 41, 1.5], [-99, -9, 1.1]];
+  for (const [u, v, rx] of spots) { const [x, y] = P(u, v); spot(x, y, rx * s); }
+  // 5. hairs: few, grey, lying along the hand on the wrist half and the finger roots
   const hair = (x0, y0, len) => {
     let x = x0, y = y0; const d = S.f, bendA = (r() - 0.5) * 0.5;
     for (let j = 0; j < len; j++) {
       const i = flesh(Math.round(x), Math.round(y)); if (i < 0) break;
-      cel.mat[i] = CM.GHAIR; cel.fix[i] = j === len - 1 ? 2 : 1;
+      cel.mat[i] = CM.GHAIR; cel.fix[i] = j === 0 || j === len - 1 ? 4 : 3;
       x += d[0] + d[1] * bendA * (j / len); y += d[1] - d[0] * bendA * (j / len);
     }
   };
-  for (let k = 0; k < (o.hairs ?? 9); k++) { const [x, y] = P(-128 + r() * 58, -42 + r() * 80); hair(x, y, 3 + Math.floor(r() * 3)); }
-  fingers.forEach((fg) => { if (fg.i === 3) return; const sg = fg.segs[0]; for (let k = 0; k < 2; k++) { const u = 0.14 + r() * 0.24, sd = (r() - 0.5) * 0.7 * sg.r0; hair(lerp(sg.a[0], sg.b[0], u) + sg.d[1] * sd, lerp(sg.a[1], sg.b[1], u) - sg.d[0] * sd, 3 + Math.floor(r() * 2)); } });
-  // 7. creases: one cluster per joint (PIP, DIP) — 2-3 short curves bowed toward the tip, one step darker
-  const cluster = (c, d, rr, lens, sid) => {
-    const n = [-d[1], d[0]];
-    lens.forEach((len, j) => {
-      const along = (j - (lens.length - 1) / 2) * 2.1 * s, half = len / 2, bow = Math.max(1, len * 0.22);
-      const cx = c[0] + d[0] * along, cy = c[1] + d[1] * along;
-      cel.stroke(quad([cx - n[0] * half - d[0] * bow * 0.2, cy - n[1] * half - d[1] * bow * 0.2], [cx + d[0] * bow, cy + d[1] * bow], [cx + n[0] * half - d[0] * bow * 0.2, cy + n[1] * half - d[1] * bow * 0.2], 10), (x, y) => {
+  for (let k = 0; k < (o.hairs ?? 5); k++) { const [x, y] = P(-110 + r() * 46, -30 + r() * 56); hair(x, y, 4 + Math.floor(r() * 3)); }
+  // 6. the joints. Over the middle joint an oval pocket of loose skin one step down, with 4-6 short broken
+  // 1-px lines (3-7 px) bowed toward the tip, inside 55 % of the finger's width; over the end joint two faint
+  // short lines; nothing at the base knuckle; no line ever reaches the silhouette
+  const joint = (cr, sid, dip) => {
+    const { c, d, n, r: rr } = cr;
+    const half = rr * (dip ? 0.36 : 0.55);                 // half of the span across the finger
+    if (!dip) {
+      const ra = 3.6 * s, rb = rr * 0.46;
+      for (let y = Math.floor(c[1] - rb - ra); y <= c[1] + rb + ra; y++) for (let x = Math.floor(c[0] - rb - ra); x <= c[0] + rb + ra; x++) {
+        const i = flesh(x, y); if (i < 0 || cel.sid[i] !== sid) continue;
+        const px = x + 0.5 - c[0], py = y + 0.5 - c[1], a = px * d[0] + py * d[1], b = px * n[0] + py * n[1];
+        const e = ((a + 0.6 * s) / ra) ** 2 + (b / rb) ** 2;
+        if (e < 0.6 || (e < 1 && ((x + y) & 1))) sh(i, -1);
+      }
+    }
+    const lines = dip ? [[-0.9, 0.42, 0], [1.0, 0.32, 0.3]] : [[-2.9, 0.34, -0.25], [-1.0, 0.62, 0.05], [0.9, 0.55, -0.12], [2.7, 0.3, 0.3], [1.6, 0.22, 0.75]];
+    lines.forEach(([ak, lenK, shiftB]) => {
+      const hl = half * lenK, b0 = shiftB * half, pts = [];
+      const deep = !dip && lenK >= 0.55;                     // only the longest lines cut deeper than the pocket
+      for (let q = -1; q <= 1; q += 0.1) { const b = b0 + q * hl, a = ak * s + Math.min(1.6, hl * 0.45) * (1 - q * q); pts.push([c[0] + d[0] * a + n[0] * b, c[1] + d[1] * a + n[1] * b]); }
+      let gap = r() < 0.5 ? Math.floor(r() * 4) + 2 : -1, cnt = 0;
+      cel.stroke(pts, (x, y) => {
+        cnt++; if (cnt === gap) return;                      // broken: one gap per line
         const i = flesh(x, y); if (i < 0 || cel.sid[i] !== sid || cel.fix[i] >= 0) return;
-        cel.off[i] = Math.min(cel.off[i], -1);
+        cel.off[i] = Math.min(cel.off[i], deep ? -2 : -1);
       });
     });
   };
-  fingers.forEach((fg) => {
-    const k1 = fg.segs[1], k2 = fg.segs[2], sc = s * (fg.i === 3 ? 0.85 : 1);
-    cluster(k1.a, k1.d, k1.r0, [5 * sc, 7 * sc, 5 * sc], 40 + fg.i);
-    cluster(k2.a, k2.d, k2.r0, [4 * sc, 5 * sc], 40 + fg.i);
-  });
+  fingers.forEach((fg) => fg.creases?.forEach((cr) => joint(cr, 40 + fg.i, cr.dip)));
   if (thumb && cel.sidAt(Math.round(thumb.ip[0] - cel.ox), Math.round(thumb.ip[1] - cel.oy)) === 44) {
-    const sg = thumb.segs[1], c = [sg.a[0] + sg.d[1] * 2 * s, sg.a[1] - sg.d[0] * 2 * s];
-    cluster(c, sg.d, sg.r0, [6 * s, 8 * s], 44);
+    const sg = thumb.segs[1];
+    joint({ c: sg.a, d: sg.d, n: [-sg.d[1], sg.d[0]], r: sg.r0 }, 44, true);
   }
-  // 8. the ring finger beyond its stone: congested, livid (the violet accent, dithered in)
+  // 7. the ring finger beyond its stone: congested, livid (one clean boundary)
   if (o.congest !== false) for (const fg of fingers) {
     const rg = fg.ring; if (!rg || rg.kind !== 'stone') continue;
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       const i = y * w + x; if (cel.mat[i] !== CM.FLESH || cel.sid[i] !== 40 + fg.i) continue;
       const fx = x + cel.ox + 0.5, fy = y + cel.oy + 0.5, a = (fx - rg.c[0]) * rg.d[0] + (fy - rg.c[1]) * rg.d[1];
-      const k = (a - rg.bw - 4 * s) / (14 * s);
-      if (k > 1 || (k > 0 && bay(x + cel.ox, y + cel.oy) < k)) cel.mat[i] = CM.FLESH_V;
+      const k = (a - rg.bw - 3 * s) / (12 * s);
+      if (k > 0.5 || (k > 0.36 && ((x + y) & 1))) cel.mat[i] = CM.FLESH_V;
     }
   }
 }
 
 /**
- * Nails: inset plates (about 60% of the finger's width, 3 px of skin wall each side), starting a third
- * of the way back from the tip; a dirt line where the free edge leaves the flesh; the free edge darker,
- * overhanging 2-3 px. The thumb's nail is seen edge-on: a sliver along its outer edge.
+ * Nails: thick yellowed horn set into their beds. The plate is ~62 % of the finger's width, with 2-3 px of
+ * flesh each side (the side folds one step down) and a 1-px curved cuticle; horn/ivory with 1-px ridges
+ * running lengthwise (never across); the free edge stands 2 px past the pad, grime under it. The thumb's
+ * nail is seen edge-on: a sliver along its outer edge.
  */
 export function paintNails(cel, S, o = {}) {
   const at = (x, y) => cel.idx(x - cel.ox, y - cel.oy);
@@ -384,44 +510,48 @@ export function paintNails(cel, S, o = {}) {
   for (const fg of S.fingers) {
     if (o.skip?.includes(fg.i)) continue;
     const sg = fg.segs[2], d = sg.d, n = [-d[1], d[0]], tipR = fg.tipR, sid = 40 + fg.i;
-    const tipA = sg.L + tipR * 0.92;                       // the flesh tip, along d from the DIP
-    const nailL = Math.max(7, tipA * 0.42);                 // the plate: from a third of the way back
-    const a0 = tipA - nailL, over = Math.max(2, 2.6 * s * long), a1 = tipA + over;
-    const hw = Math.max(2, tipR * 0.6);
+    const tipA = sg.L + tipR * 0.92;                        // the flesh tip, along d from the DIP
     const fleshHalf = (a) => (a <= sg.L ? lerp(sg.r0, sg.r1, clamp(a / sg.L)) : Math.sqrt(Math.max(0, (tipR * 1.02) ** 2 - (a - sg.L) ** 2))) * 0.97;
-    const wall = Math.max(2, 2.6 * s);
+    const nailL = Math.max(7, tipA * 0.46);
+    const a0 = tipA - nailL;
+    const hw = Math.max(2.2, fleshHalf(a0 + nailL * 0.4) * 0.62);   // half the plate: ~62 % of the finger
+    const over = Math.max(1.6, 2.2 * s * long);               // the free edge past the pad
     const litSide = Math.sign(n[0] * Lxy[0] + n[1] * Lxy[1]) || 1;
-    const freeStart = tipA - 1.6 * s;                     // where the nail leaves the flesh
-    const hwFree = Math.max(1.5, Math.min(hw, fleshHalf(freeStart) - wall));
     const R2 = Math.ceil(tipA + tipR + 6);
     for (let y = Math.floor(sg.a[1] - R2); y <= sg.a[1] + R2; y++) for (let x = Math.floor(sg.a[0] - R2); x <= sg.a[0] + R2; x++) {
       const px = x + 0.5 - sg.a[0], py = y + 0.5 - sg.a[1], a = px * d[0] + py * d[1], b = px * n[0] + py * n[1];
-      if (a < a0 - 1.2 || a > a1) continue;
+      if (a < a0 - 2 || a > tipA + over + 1) continue;
       const i = at(x, y); if (i < 0) continue;
       const onFinger = isFlesh(cel.mat[i]) && cel.sid[i] === sid;
+      const ab = Math.abs(b), bl = b * litSide;
+      const cut = a0 + (ab / hw) ** 2 * 2.2 * s;              // the cuticle's curve, round toward the base
+      // the end of the flesh under the nail at this b (the pad's outline)
+      const padEnd = sg.L + Math.sqrt(Math.max(0, (tipR * 1.02) ** 2 - b * b)) * 0.97;
       let k;
-      if (a < freeStart) {
-        // the plate, inset between walls of skin; a round cuticle
-        const lim = Math.min(hw, fleshHalf(a) - wall);
-        const cuticle = a0 + (b / hw) ** 2 * 1.6 * s;
-        if (!onFinger || Math.abs(b) > lim + 0.5) continue;
-        if (a < cuticle) { if (a > cuticle - 1.3) cel.off[i] = Math.min(cel.off[i], -1); continue; }   // the cuticle fold
-        if (Math.abs(b) > lim - 0.5) { cel.off[i] = Math.min(cel.off[i], -1); continue; }               // the groove at its side
-        k = b * litSide > lim - 1.6 ? 4 : b * -litSide > lim - 1.6 ? 3 : 4;
+      if (onFinger && a < padEnd - 0.3) {
+        if (a < cut - 1.05) {
+          if (ab < hw + 1 && a > cut - 2.1) cel.off[i] = Math.max(cel.off[i], 0);                      // the skin just behind the cuticle
+          continue;
+        }
+        if (ab > hw + 1.3) continue;
+        if (ab > hw) { cel.off[i] = Math.min(cel.off[i], -1); continue; }                                 // the side folds, a step down
+        if (a < cut) { cel.fix[i] = 1; cel.flag[i] |= 8; continue; }                                    // the 1-px cuticle line
+        // the plate: mid horn, its lit half a step up, the far edge a step down, lengthwise ridges
+        k = bl > hw * 0.15 ? 4 : 3;
+        if (bl < -(hw - 1.1)) k = 2;
+        if (Math.abs(bl - hw * 0.45) < 0.5 && a > cut + 1) k = 5;                                       // the sheen, along the lit ridge
+        else if (Math.abs(b + hw * 0.1 * litSide) < 0.5 || Math.abs(bl + hw * 0.62) < 0.5) k = Math.max(2, k - 1);   // ridges
       } else {
-        // the free edge: overhangs the fingertip by 2-3 px, following its curve; dirt in the first row
-        const tipAt = sg.L + Math.sqrt(Math.max(0, (tipR * 1.02) ** 2 - b * b)) * 0.97;
-        if (Math.abs(b) > hwFree + 0.3 || a > tipAt + over - (b / hwFree) ** 2 * 1.2 * s) continue;
-        k = a < freeStart + 1 ? 1 : 2;
+        // past the pad: grime first (seen under the edge), then the free edge, rounded at its corners
+        const lim = hw - (a - padEnd) * 0.6;
+        if (ab > lim || a > padEnd + over - (ab / Math.max(1, hw)) ** 2 * 1.2) continue;
+        if (a < padEnd - 0.3) continue;
+        k = a < padEnd + 0.75 ? 0 : (bl > 0 ? 5 : 4);
       }
       const zz = (onFinger ? cel.z[i] : sg.z1 + tipR * 0.5) + 0.8;
       cel.put(x - cel.ox, y - cel.oy, CM.NAIL, { z: zz, n: [n[0] * (b / hw) * 0.5, n[1] * (b / hw) * 0.5, 1], sid: 60 + fg.i, fix: k, off: 0 });
       cel.flag[i] |= 8;
     }
-    // one light pixel on the plate, toward the light
-    const la = a0 + nailL * 0.42, lb = litSide * hw * 0.4;
-    const lx = Math.round(sg.a[0] + d[0] * la + n[0] * lb), ly = Math.round(sg.a[1] + d[1] * la + n[1] * lb), li = at(lx, ly);
-    if (li >= 0 && cel.mat[li] === CM.NAIL && cel.fix[li] === 4) cel.fix[li] = 5;
   }
   // the thumb: the nail turned away, seen edge-on — a 2-3 px sliver along its outer edge
   const th = S.thumb;
@@ -434,23 +564,17 @@ export function paintNails(cel, S, o = {}) {
     for (let y = Math.floor(sg.a[1] - R2); y <= sg.a[1] + R2; y++) for (let x = Math.floor(sg.a[0] - R2); x <= sg.a[0] + R2; x++) {
       if (!isT(x, y)) continue;
       const a = (x + 0.5 - sg.a[0]) * d[0] + (y + 0.5 - sg.a[1]) * d[1], b = (x + 0.5 - sg.a[0]) * out[0] + (y + 0.5 - sg.a[1]) * out[1];
-      if (a < tipA * 0.38 || a > tipA - 1.2 * s || b < 0) continue;
+      if (a < tipA * 0.4 || a > tipA - 1.2 * s || b < 0) continue;
       let rim = 9;
       for (let k = 1; k <= 5; k++) if (!isT(Math.round(x + out[0] * k), Math.round(y + out[1] * k))) { rim = k; break; }
       if (rim <= 5) marks.push([x, y, rim, a]);
     }
-    const thick = Math.max(3, Math.round(3.4 * s));
+    const thick = Math.max(2, Math.round(2.6 * s));
     for (const [x, y, rim, a] of marks) {
       const i = at(x, y);
-      const taper = a < tipA * 0.52 ? 1 : 0;          // thinner where it disappears into its fold
-      if (rim <= thick - taper) cel.put(x - cel.ox, y - cel.oy, CM.NAIL, { z: cel.z[i] + 0.6, sid: 64, fix: rim === 1 ? 0 : rim === 2 ? 5 : rim === 3 ? 4 : 3, off: 0 });
-      else if (rim === thick - taper + 1) cel.fix[i] = 1;                          // the nail fold
-    }
-    // its free edge, just past the tip on the outer side
-    const ex = sg.a[0] + d[0] * (tipA + 0.6 * s), ey = sg.a[1] + d[1] * (tipA + 0.6 * s);
-    for (let k = 0; k < 3; k++) for (let j = 0; j < 2; j++) {
-      const x = Math.round(ex + out[0] * (th.tipR * 0.45 + k) + d[0] * j), y = Math.round(ey + out[1] * (th.tipR * 0.45 + k) + d[1] * j), i = at(x, y);
-      if (i >= 0 && !isFlesh(cel.mat[i]) && cel.mat[i] !== CM.NAIL) cel.put(x - cel.ox, y - cel.oy, CM.NAIL, { z: (sg.z1 || 0) + 8, sid: 64, fix: j ? 1 : 2, off: 0 });
+      const taper = a < tipA * 0.55 ? 1 : 0;
+      if (rim <= thick - taper) cel.put(x - cel.ox, y - cel.oy, CM.NAIL, { z: cel.z[i] + 0.6, sid: 64, fix: rim === 1 ? 3 : 4, off: 0 });
+      else if (rim === thick - taper + 1) cel.off[i] = Math.min(cel.off[i], -1);                     // the fold over it
     }
   }
 }
@@ -469,15 +593,15 @@ export function paintRings(cel, S, o = {}) {
     const { c, d, n, r, bw } = rg, sid = 40 + fg.i;
     const vis = r * 0.84;                       // the flesh swallows the band at the finger's sides
     for (let y = Math.floor(c[1] - r - 3); y <= c[1] + r + 3; y++) for (let x = Math.floor(c[0] - r - 3); x <= c[0] + r + 3; x++) {
-      const i = at(x, y); if (i < 0 || !isFlesh(cel.mat[i]) || cel.sid[i] !== sid) continue;
+      const i = at(x, y); if (i < 0 || !isFlesh(cel.mat[i]) || (cel.sid[i] !== sid && cel.sid[i] !== 20)) continue;
       const px = x + 0.5 - c[0], py = y + 0.5 - c[1], a = px * d[0] + py * d[1], b = px * n[0] + py * n[1];
       const q = Math.abs(b) / vis;
       if (q > 1) continue;
-      const half = bw * (1 - q * q * 0.35);
+      const half = bw * (1 - q * q * 0.15);
       const aa = Math.abs(a);
       if (aa <= half) cel.put(x - cel.ox, y - cel.oy, CM.GOLD, { z: cel.z[i] + 0.2, n: [n[0] * (b / r) * 0.9, n[1] * (b / r) * 0.9, Math.sqrt(Math.max(0.15, 1 - (b / r) ** 2 * 0.8))], sid: 70, fix: -1, off: 0, flag: 1 });
       else if (aa <= half + 1.05) cel.fix[i] = 1;                                         // the crease where the skin meets the metal
-      else if (aa <= half + 1.05 + 2 * s && q < 0.92) { cel.off[i] = Math.max(cel.off[i], 1); cel.flag[i] |= 0; }   // the flesh bulging over it
+      else if (aa <= half + 2.1 && q < 0.9) { if (a < 0) cel.off[i] = Math.max(cel.off[i], 1); else cel.off[i] = Math.min(cel.off[i], -1); }   // the flesh bulging over it (lit on the knuckle side)
     }
     // hot pixels: 1-2 px on the band's lit edge for each light
     const hot = (Ld, m) => {
@@ -487,26 +611,26 @@ export function paintRings(cel, S, o = {}) {
     if (rg.kind === 'signet') {
       // the signet's face: a flat oval turned up to the light, its crest worn nearly smooth; the flesh
       // swells against it on both sides along the finger (no ring of outline around it)
-      const rx = r * 0.46, ry = Math.max(3, 3.6 * s);
+      const rx = r * 0.52, ry = Math.max(2.6, 2.9 * s);
       for (let y = Math.floor(c[1] - r); y <= c[1] + r; y++) for (let x = Math.floor(c[0] - r); x <= c[0] + r; x++) {
         const px = x + 0.5 - c[0], py = y + 0.5 - c[1], a = px * d[0] + py * d[1], b = px * n[0] + py * n[1];
-        const e = (a / ry) ** 2 + (b / rx) ** 2; if (e > 1.6) continue;
+        const e = (a / ry) ** 2 + (b / rx) ** 2; if (e > 1.7) continue;
         const i = at(x, y); if (i < 0) continue;
         if (e > 1) {
-          if (isFlesh(cel.mat[i]) && cel.sid[i] === sid) { if (e < 1.25 && Math.abs(a) > ry * 0.6) cel.fix[i] = 1; else if (Math.abs(a) > ry * 0.6) cel.off[i] = Math.max(cel.off[i], 1); }
+          if (isFlesh(cel.mat[i]) && (cel.sid[i] === sid || cel.sid[i] === 20)) { if (e < 1.3 && Math.abs(a) > ry * 0.5) cel.fix[i] = 1; else if (Math.abs(a) > ry * 0.5) cel.off[i] = Math.max(cel.off[i], 1); }
           continue;
         }
-        const rim = e > 0.5;
-        const nn = rim ? [px / rx * 0.55, py / rx * 0.55, 0.8] : [0.04, -0.04, 1];
+        const rim = e > 0.55;
+        const nn = rim ? [px / rx * 0.5, py / rx * 0.5, 0.85] : [0.04, -0.04, 1];
         cel.put(x - cel.ox, y - cel.oy, CM.GOLD, { z: (cel.z[i] || rg.z) + 2, n: nn, sid: 71, fix: -1, off: rim ? 0 : -1, flag: 1 });
-        if (!rim && e < 0.25 && (Math.abs(b) < 0.7 || Math.abs(a) < 0.7)) cel.off[i] = -2;     // the worn crest
+        if (s >= 1 && e > 0.42 && e < 0.62) cel.off[i] = -2;                // the engraved border, worn (too small to read below full size)
       }
       hot(LF, CM.HOTF); hot(LR, CM.HOTR);
       // the hot rim under the fire also catches the bezel's lower edge
       { const sgn = Math.sign(d[0] * LR[0] + d[1] * LR[1]) || 1; for (const k of [-0.3, 0.3]) { const x = Math.round(c[0] + d[0] * sgn * ry * 0.85 + n[0] * rx * k), y = Math.round(c[1] + d[1] * sgn * ry * 0.85 + n[1] * rx * k), i = at(x, y); if (i >= 0 && cel.mat[i] === CM.GOLD) { cel.mat[i] = CM.HOTR; cel.fix[i] = 3; } } }
     } else {
       // a dark stone, swollen flesh pressing up around its bezel
-      const sr = Math.max(2.6, r * 0.3);
+      const sr = s >= 1 ? Math.max(2.6, r * 0.3) : Math.max(1.6, r * 0.22);
       for (let y = Math.floor(c[1] - sr - 3); y <= c[1] + sr + 3; y++) for (let x = Math.floor(c[0] - sr - 3); x <= c[0] + sr + 3; x++) {
         const e = Math.hypot(x + 0.5 - c[0], y + 0.5 - c[1]);
         const i = at(x, y); if (i < 0) continue;
@@ -516,8 +640,14 @@ export function paintRings(cel, S, o = {}) {
       }
       hot(LF, CM.HOTF); hot(LR, CM.HOTR);
       // the stone's glints: a cold one up toward the tube, one hot pinpoint toward the fire
-      const g = (Ld, m, k) => { const x = Math.round(c[0] + Ld[0] * sr * 0.45), y = Math.round(c[1] + Ld[1] * sr * 0.45), i = at(x, y); if (i >= 0 && cel.mat[i] === CM.STONE) { cel.mat[i] = m; cel.fix[i] = k; } };
-      g(LF, CM.HOTF, 3); g(LR, CM.HOTR, 4);
+      // a dull garnet: one elongated reflection (2-3 px, along the finger) toward each light, never a pinpoint
+      const g = (Ld, m, k) => {
+        for (const q of [-0.9, 0, 0.9]) {
+          const x = Math.round(c[0] + Ld[0] * sr * 0.42 + d[0] * q), y = Math.round(c[1] + Ld[1] * sr * 0.42 + d[1] * q), i = at(x, y);
+          if (i >= 0 && cel.mat[i] === CM.STONE) { cel.mat[i] = m; cel.fix[i] = q ? k - 1 : k; }
+        }
+      };
+      g(LF, CM.STONE, 5); g(LR, CM.HOTR, 2);
     }
   }
 }
@@ -563,25 +693,36 @@ export function sculptCuff(cel, S, o = {}) {
   F.edit((fx, fy, z) => { const [u] = toL(fx, fy); const du = u - edge; if (du > -5 && du <= 0) return z + 1.6 * s * Math.sin(Math.PI * (du + 5) / 5); });   // the cuff's rolled lip
   F.toCel(cel, { sid: 30, mode: 'z', clip: o.clip });
   for (let y = 0; y < cel.h; y++) for (let x = 0; x < cel.w; x++) { const i = y * cel.w + x; if (cel.mat[i] === CM.WOOL_W) cel.sid[i] = 31; }
-  // the roll of flesh bulging over the cuff's edge: 3-5 px of flesh lying on the wool, round, uneven;
-  // a squeezed valley just behind it on the wrist
+  // the roll of flesh bulging over the cuff's edge: lying on the wool, convex and uneven — 3-5 px past the edge
+  // in the middle of the wrist, sagging there, little at the sides; a squeezed crease just behind it on the
+  // wrist, and a black undercut on the WOOL under its lip
   const ex0 = Math.floor(x0), ey0 = Math.floor(y0);
+  const lim = 64;
+  const over = (v) => { const a = Math.min(1, Math.abs(v + 6) / lim); return s * (0.8 + 2.2 * Math.pow(Math.max(0, 1 - a * a), 0.7) + 3.4 * Math.exp(-(((v + 34) / 15) ** 2)) + 3.0 * Math.exp(-(((v - 8) / 13) ** 2)) + 0.4 * Math.sin(v * 0.31 + 2.1)); };   // two lobes of flesh, pinched between
   for (let y = ey0; y < y1; y++) for (let x = ex0; x < x1; x++) {
     const [u, v] = toL(x + 0.5, y + 0.5);
-    const lim = 66;
-    if (Math.abs(v + 2) > lim) continue;
+    if (Math.abs(v + 2) > lim + 2) continue;
     const du = (edge - u) * s;   // px into the cuff from its edge
-    if (du < -6 * s || du > 6 * s) continue;
+    if (du < -6 * s || du > 8 * s) continue;
     const i = cel.idx(x - cel.ox, y - cel.oy); if (i < 0) continue;
-    const across = Math.abs(v + 2) / lim;
-    const w = s * (3.6 + Math.sin(v * 0.21) * 0.9 + Math.sin(v * 0.07 + 1) * 0.6) * (1 - across ** 4 * 0.7);
-    if (du < 0) { if (isFlesh(cel.mat[i]) && du > -4.5 * s && cel.fix[i] < 0 && (du < -1.2 * s || bay(x, y) < 0.5)) cel.off[i] = Math.min(cel.off[i], -1); continue; }
-    if (cel.mat[i] !== CM.WOOL_W && !isFlesh(cel.mat[i])) continue;
-    if (du > w) { if (du < w + 1.2 && cel.mat[i] === CM.WOOL_W) { cel.fix[i] = 0; cel.flag[i] |= 1; } continue; }   // its shadow on the wool
+    const w = Math.max(0.6, over(v));
+    if (du < 0) {
+      if (isFlesh(cel.mat[i]) && cel.fix[i] < 0) {
+        if (du > -1.6 * s && du < -0.4 * s) cel.off[i] = Math.min(cel.off[i], -2);          // the crease where the roll folds over
+        else if (du > -3.4 * s && du <= -1.6 * s) cel.off[i] = Math.min(cel.off[i], -1);
+      }
+      continue;
+    }
+    if (cel.mat[i] !== CM.WOOL_W && cel.mat[i] !== CM.WOOL && !isFlesh(cel.mat[i])) continue;
+    if (du > w) { if (du < w + 1.6 * s && (cel.mat[i] === CM.WOOL_W || cel.mat[i] === CM.WOOL)) { cel.fix[i] = 0; cel.flag[i] |= 1; } continue; }   // the black undercut under its lip
     const q = clamp(du / w);
     const zc = cel.z[i] + 1.5 * s;
-    const nf = [S.f[0] * (0.5 - q) * 1.8, S.f[1] * (0.5 - q) * 1.8, 1];
-    cel.put(x - cel.ox, y - cel.oy, CM.FLESH, { z: zc, n: nf, sid: 21, fix: -1, off: 0 });
+    // the same skin as the wrist it hangs from (its normal borrowed from a few px back), shaded by hand: the
+    // fold a step down, a lit crest, the lip turning down onto the wool a step down again
+    const j = cel.idx(Math.round(x + S.f[0] * (du + 5 * s)) - cel.ox, Math.round(y + S.f[1] * (du + 5 * s)) - cel.oy);
+    const nf = j >= 0 && isFlesh(cel.mat[j]) ? [cel.nx[j], cel.ny[j], cel.nz[j]] : [0, 0, 1];
+    const offR = q < 0.2 ? -1 : q < 0.66 ? 0 : -1;
+    cel.put(x - cel.ox, y - cel.oy, CM.FLESH, { z: zc + 2.4 * s * Math.sqrt(Math.max(0, 1 - q * q)), n: nf, sid: 21, fix: -1, off: offR, flag: 1 });
   }
   return { edge, F };
 }
@@ -607,7 +748,7 @@ export function detailCuff(cel, S, o = {}) {
       const i = at(x, y); if (i < 0) continue;
       if (e > 1) { if (e < 1.28 && isW(cel.mat[i])) cel.fix[i] = e < 1.14 ? 0 : 1; continue; }   // the wool puckers around it
       const dome = Math.sqrt(Math.max(0, 1 - e * e));
-      cel.put(x - cel.ox, y - cel.oy, CM.BRASS, { z: bz + 2 + dome * rad * 0.5, n: [px / rad, py / rad, dome + 0.35], sid: 33, fix: -1, off: 0 });
+      cel.put(x - cel.ox, y - cel.oy, CM.BRASS, { z: bz + 2 + dome * rad * 0.5, n: [px / rad, py / rad, dome + 0.35], sid: 33, fix: -1, off: 0, flag: eagle && e > 0.45 && e < 0.95 && (px * 0.42 + py * 0.91) / rad > 0.3 ? 32 : 0 });
       if (e > 0.72 && e < 0.88) cel.mat[i] = CM.VERD;
       else if (eagle && e < 0.5 && ((Math.abs(py) < rad * 0.12 && Math.abs(px) < rad * 0.46) || (Math.abs(px) < rad * 0.12 && py > -rad * 0.36 && py < rad * 0.3))) cel.off[i] = 1;
     }
@@ -628,10 +769,13 @@ export function liftHighlights(cel, bit, mats = null) {
   return () => off.set(saved);
 }
 
-/** Cast-shadow coverage + contact of a layer onto the plane z = z0 (layer coords). */
+/**
+ * Cast shadow of a layer onto the plane z = z0 (layer coords): cov (0 none, 1 dithered rim, 2 full) and
+ * occ, the height of the occluder that threw it (a raised receiver above that height is not in it).
+ */
 export function shadowMask(cel, L, z0 = 0) {
   const { w, h, z, mat } = cel;
-  const hard = new Uint8Array(w * h), cov = new Uint8Array(w * h);
+  const hard = new Uint8Array(w * h), cov = new Uint8Array(w * h), occ = new Float32Array(w * h);
   const px = -L[0] / L[2], py = -L[1] / L[2];
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const i = y * w + x; if (!mat[i]) continue;
@@ -643,16 +787,17 @@ export function shadowMask(cel, L, z0 = 0) {
     const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay)));
     for (let k = 0; k <= n; k++) {
       const xx = Math.round(ax + (bx - ax) * k / n), yy = Math.round(ay + (by - ay) * k / n);
-      if (xx >= 0 && yy >= 0 && xx < w && yy < h) hard[yy * w + xx] = 1;
+      if (xx >= 0 && yy >= 0 && xx < w && yy < h) { const j = yy * w + xx; hard[j] = 1; if (zi > occ[j]) occ[j] = zi; }
     }
   }
   // close pinholes; a 1-px rim (value 1) the compositor dithers, full cover = 2
   for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
     const i = y * w + x;
-    let s = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) s += hard[i + dy * w + dx];
+    let s = 0, oz = occ[i]; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const j = i + dy * w + dx; s += hard[j]; if (occ[j] > oz) oz = occ[j]; }
     cov[i] = hard[i] ? (s >= 7 ? 2 : 1) : s >= 5 ? 1 : 0;
+    if (cov[i] && !occ[i]) occ[i] = oz;
   }
-  return cov;
+  return { cov, occ };
 }
 
 /** Distance (chamfer) from flesh resting on the plane, for contact lines and halos (layer coords). */

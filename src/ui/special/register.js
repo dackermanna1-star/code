@@ -62,6 +62,8 @@ export class RegisterScreen extends Screen {
     this.z = Z_SPECIAL;
     this.dimWorld = 0.86;
     this.fadeIn = 0.6;
+    // the ringed hand (CG colonel_hand under the fire) is built in the background now, not at the 70 % beat
+    try { svc.cgArt('colonel_hand')?.warm?.({ light: 'red' }); } catch (e) { svc.warnOnce('register.warm', e); }
     this.model = args.model || { title: 'REGISTER OF PUPILS', founder: { id: 'founder', name: 'HALLOWELL, CYRUS — FIRST PUPIL', status: 'enrolled' }, lines: [], tools: [] };
     this.mode = 'tray';          // 'tray' | 'line' | 'grounds' | 'write'
     this.toolSel = 0; this.lineSel = 0; this.groundSel = 1;
@@ -646,7 +648,7 @@ function typeLine(ctx, text, t, x, y, maxW) {
 
 let handCanvas = null, handCanvasKey = '', handFull = null;
 // the part of colonel_hand the window shows (art px): the rings, the knuckles, the fingertips
-const HAND_CROP = { x: 132, y: 56, w: 168, h: 150 };
+const HAND_CROP = { x: 144, y: 52, w: 168, h: 150 };
 /** colonel_hand under the mine-fire red (the CG lights itself: params.light 'red', reach, slack). */
 function handPanel(t, reach, slack) {
   const key = `${Math.floor(t * 12)}|${Math.round(reach * 200)}|${Math.round(slack * 32)}`;

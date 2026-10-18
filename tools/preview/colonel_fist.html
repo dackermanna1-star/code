@@ -1,0 +1,13 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Colonel fist</title>
+<style>html,body{margin:0;background:#222}canvas{image-rendering:pixelated;display:block}</style></head>
+<body><div id="root"></div>
+<script type="module">
+import * as LK from '../../src/art/colonel_cg_locker.js';
+const root = document.getElementById('root');
+try {
+  const f = LK.buildKnockPreview();
+  if (f) { const o = document.createElement('canvas'); o.width = f.width * 3; o.height = f.height * 3; const x = o.getContext('2d'); x.imageSmoothingEnabled = false; x.fillStyle = '#556'; x.fillRect(0,0,o.width,o.height); x.drawImage(f, 0, 0, o.width, o.height); root.appendChild(o); }
+} catch (e) { console.error(e.stack || e); }
+window.__ready = true;
+</script></body></html>

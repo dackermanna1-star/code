@@ -614,10 +614,11 @@ export default {
       C.face('up');
       await tween(1.8, (k) => set({ faceIn: k }));
       await g.wait(replay ? 0.8 : 2.2);
-      // The mouth opens too far, vertically (stinger #4).
+      // The mouth opens too far, vertically (stinger #4): below the eye the lips part and keep going.
       g.sfx('stinger_hard');
       g.shake(1.6, 0.4);
       g.fx('chroma', 0.4, 0.8);
+      const opening = tween(2.2, (k) => set({ mouth: k < 0.25 ? k * 0.9 : 0.225 + (k - 0.25) * 1.03 }));
       if (!replay) await g.narrate('{shake}Below the eye, the mouth opens. {p} It keeps opening. Down past where a mouth stops.{/shake}');
       // Roll call #2.
       await colonelVoice(g, 'Theresa?', { speed: 0.6 });
@@ -660,7 +661,8 @@ export default {
         await colonelVoice(g, 'Theresa?', { speed: 0.55 });
       }
       // The face withdraws. He moves on.
-      await tween(1.4, (k) => set({ faceIn: 1 - k }));
+      await opening;
+      await tween(1.4, (k) => set({ faceIn: 1 - k, mouth: Math.max(0, 1 - k * 1.8) }));
       try { beat?.stop(1.2); } catch { /* audio stub */ }
       beat = null;
       const away = auto() ? null : C.walkTo('locker_room', { speed: 26 });

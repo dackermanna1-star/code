@@ -13,7 +13,7 @@ export async function bench() {
   const HN = await import('/src/art/colonel_cg_hand.js');
   for (const light of ['fluor', 'red']) {
     const steps = [];
-    for (let n = 0; n < 12; n++) { const a = performance.now(); const done = HN.prepHand(light); steps.push(Math.round(performance.now() - a)); if (done) break; }
+    for (let n = 0; n < 40; n++) { const a = performance.now(); const done = HN.prepHand(light); steps.push(Math.round(performance.now() - a)); if (done) break; }
     T['hand_prep_' + light] = steps.join('+');
   }
   T.hand_prof = JSON.stringify(HN.PROF);

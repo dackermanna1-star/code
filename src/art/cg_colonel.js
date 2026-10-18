@@ -1,13 +1,15 @@
 // The Colonel's CGs (480×270 pixel-art illustrations): colonel_hand, colonel_face, locker_slits, vhs_frames.
 // Painted in the cast's style by the cel pipeline (colonel_cg_cel.js): short ramps, hard bands with a
-// 1-px dithered seam, selective outlines, hand-placed detail. The scenes live in colonel_cg_hand.js,
-// colonel_cg_face.js, colonel_cg_vhs.js and colonel_cg_locker.js. Their layers are prebuilt in small
+// 1-px dithered seam, selective outlines, hand-placed detail. The scenes live in colonel_cg_hand.js (+ its
+// desk in colonel_cg_desk.js and Tess in colonel_cg_tess.js), colonel_cg_face.js, colonel_cg_vhs.js and colonel_cg_locker.js; the
+// Colonel's hand itself (all three CGs that show it) is colonel_cg_handkit.js. Their layers are prebuilt in small
 // slices in idle time after boot (like cg.js's late CGs); a CG drawn before its build is done finishes
 // what it needs on the spot. draw() itself is blits (plus a cheap compose while the hand moves).
-// Exports: COLONEL_CG_IDS, initColonelCg(), getColonelCg(id) → { draw(ctx, t, params) }, warmColonelCg(id).
+// Exports: COLONEL_CG_IDS, initColonelCg(), getColonelCg(id) → { draw(ctx, t, params) }, warmColonelCg(id, params).
+// colonel_hand also has warm({ light }) (background slices); locker_slits takes params.mouth 0..1.
 import { faceFrame, blinkPatch, prepFace } from './colonel_cg_face.js';
 import { composeHand, prepHand, handReady, handOffset } from './colonel_cg_hand.js';
-import { buildLockerInterior, buildLockerOutside, buildSlitFace, LOCKER } from './colonel_cg_locker.js';
+import { buildLockerInterior, buildLockerOutside, buildSlitFace, buildMouth, LOCKER } from './colonel_cg_locker.js';
 import { buildVhsFrame, VHS_FRAMES } from './colonel_cg_vhs.js';
 import { hash2 } from './util.js';
 
@@ -34,8 +36,10 @@ function pump() {
 }
 
 // ------------------------------------------------------------------------------------ colonel_face
-// Extreme close-up (colonel_cg_face.js): the small serene face in the vast dough of the head.
-// params.lit 0..1 = how much of Tess's flashlight is on him. The eyes blink rarely, and never together.
+// Extreme close-up (colonel_cg_face.js): the small face in the vast dough of the head — in FURY by default
+// (ch8: "WHO IS OUT OF THEIR SEAT."): lids snapped wide, white all round the irises, the mouth dropped open
+// too far. params.lit 0..1 = how much of Tess's flashlight is on him; params.fury 0 = the serene face, whose
+// eyes blink rarely, and never together.
 const FACE_LEVELS = 8;
 function blinkState(t) {
   // every ~6.3 s: left lid drops, the right follows a beat late, the left reopens first
@@ -50,7 +54,13 @@ const colonelFace = {
   draw(ctx, t = 0, params = {}) {
     const lit = Math.max(0, Math.min(1, params.lit ?? 1));
     const level = Math.round(lit * (FACE_LEVELS - 1));
-    ctx.drawImage(faceFrame(level, FACE_LEVELS), 0, 0);
+    // fury (default: ch8's "WHO IS OUT OF THEIR SEAT.") — eyes wide and unblinking, the mouth dropped open;
+    // params.fury 0 → the serene close-up with its rare out-of-sync blinks
+    if ((params.fury ?? 1) > 0.5) {
+      ctx.drawImage(faceFrame(level, FACE_LEVELS, 'fury'), 0, 0);
+      return;
+    }
+    ctx.drawImage(faceFrame(level, FACE_LEVELS, 'serene'), 0, 0);
     // blink patches for this level are prepared in the background; until then the eyes stay open
     const stt = blinkState(t);
     if (stt !== 'open' && patchReady.has(`${stt}|${level}`)) { const p = blinkPatch(stt, level, FACE_LEVELS); ctx.drawImage(p.canvas, p.x, p.y); }
@@ -78,6 +88,12 @@ function flicker(t, red) {
   return r2 > 0.72 && r > 0.55;
 }
 const colonelHand = {
+  /** Build a light's layers in the background (small slices), ahead of the scene — e.g. the Register
+   * calls warm({ light: 'red' }) when it opens, so the hand's first red frame has nothing left to build. */
+  warm(params = {}) {
+    const light = params.light === 'red' ? 'red' : 'fluor';
+    later('hand|' + light, function step() { if (!prepHand(light)) later('hand|' + light, step); });
+  },
   draw(ctx, t = 0, params = {}) {
     const light = params.light === 'red' ? 'red' : 'fluor';
     const reach = Math.max(0, Math.min(1, params.reach ?? 1)), slack = Math.max(0, Math.min(1, params.slack ?? 0));
@@ -101,10 +117,13 @@ const colonelHand = {
 };
 
 // ------------------------------------------------------------------------------------ locker_slits
+// params: phase 0..1 (he passes the vents, then knocks along the lockers), faceIn 0..1 (his face slides
+// into the middle vent), mouth 0..1 (stinger #4: below the eye the lips part and the mouth keeps opening).
 let lockerFG = null, lockerOut = null, slitFace = null;
+const mouthFrames = new Map();
 const lockerSlits = {
   draw(ctx, t = 0, params = {}) {
-    const phase = Math.max(0, Math.min(1, params.phase ?? 0)), faceIn = Math.max(0, Math.min(1, params.faceIn ?? 0));
+    const phase = Math.max(0, Math.min(1, params.phase ?? 0)), faceIn = Math.max(0, Math.min(1, params.faceIn ?? 0)), mouth = Math.max(0, Math.min(1, params.mouth ?? 0));
     if (!lockerFG) lockerFG = buildLockerInterior();
     if (!lockerOut) lockerOut = buildLockerOutside(later);
     if (!slitFace && phase > 0.3) later('slitface', () => { if (!slitFace) slitFace = buildSlitFace(); });
@@ -115,6 +134,14 @@ const lockerSlits = {
       const e = faceIn * faceIn * (3 - 2 * faceIn);
       const x = Math.round(LOCKER.eyeX - slitFace.eyeX + (1 - e) * 330), y = Math.round(LOCKER.eyeY - slitFace.eyeY + (1 - e) * 6 + Math.sin(t * 1.3) * 1.2);
       ctx.drawImage(slitFace.canvas, x, y);
+      // below the eye: the lips (closed at 0), a nostril and the mustache joining them to it; the mouth opens
+      // too far, vertically: params.mouth 0..1 (tweened at the stinger)
+      {
+        const k = Math.round(mouth * 16);
+        if (!mouthFrames.has(k)) mouthFrames.set(k, buildMouth(k / 16));
+        const M = mouthFrames.get(k);
+        ctx.drawImage(M.canvas, x + slitFace.eyeX + M.x, y + slitFace.eyeY + M.y);
+      }
     }
     ctx.drawImage(lockerFG, 0, 0);
   },
@@ -174,5 +201,5 @@ export function warmColonelCg(id, params = {}) {
   if (id === 'colonel_hand') { const light = params.light === 'red' ? 'red' : 'fluor'; while (!prepHand(light)); return; }
   if (id === 'vhs_frames') { for (let k = 0; k < VHS_FRAMES; k++) if (!vhsCache.has(k)) vhsCache.set(k, buildVhsFrame(k)); return; }
   if (id === 'locker_slits') { if (!lockerFG) lockerFG = buildLockerInterior(); if (!lockerOut) lockerOut = buildLockerOutside(); if (!slitFace) slitFace = buildSlitFace(); return; }
-  if (id === 'colonel_face') { while (!prepFace(FACE_LEVELS)); }
+  if (id === 'colonel_face') { const mode = (params.fury ?? 1) > 0.5 ? 'fury' : 'serene'; while (!prepFace(FACE_LEVELS, mode)); }
 }

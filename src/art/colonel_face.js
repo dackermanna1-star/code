@@ -14,6 +14,9 @@ export const FACE_EXPR = {
   wrong:      { lidL: 0.68, lidR: 0.2, gazeL: [0.0, -0.05], gazeR: [0.6, -0.5], mouth: 2.7, smile: 1, brow: 0, slide: [2.2, 2.6], zoom: 1.3, glint: true },
   confused:   { lidL: 0.8, lidR: 0.72, gazeL: [-0.6, 0.55], gazeR: [-0.25, 0.7], mouth: 0.6, smile: -0.6, brow: 1.4, old: 1, wet: true },
   dissolving: { lidL: 0.55, lidR: 0.42, gazeL: [-0.35, 0.65], gazeR: [-0.05, 0.75], mouth: 0.55, smile: -0.3, brow: 0.8, old: 1, dissolve: 1 },
+  // (close-up CG only) WHO IS OUT OF THEIR SEAT: the lids snapped wide, white all round small irises, the
+  // brows driven down, the mouth dropped open far too far
+  fury:       { lidL: 1.16, lidR: 1.2, gazeL: [0.04, -0.12], gazeR: [-0.04, -0.12], mouth: 3.4, smile: -0.7, brow: -0.9, iris: 0.72, slot: true, jawK: 0.5 },
 };
 
 // face mask geometry (face units; eye line at v = 0)
@@ -51,8 +54,8 @@ export function drawHead(gb, P) {
   hf.finalize();
   // the pit the face is pressed into (irregular: the dough didn't give evenly)
   {
-    const pcx = X(0), pcy = Y(FCY + 1.0 + mh * 0.35), prx = (FRX + 0.3) * s, pry = (FRY - 0.9 + mh * 0.55) * s;
-    const ph = r() * 6.28, depth = 13 * s, soft = 0.3;
+    const pcx = X(0), pcy = Y(FCY + 1.0 + mh * 0.35 * (P.jawK ?? 1)), prx = (FRX + 0.3) * s, pry = (FRY - 0.9 + mh * 0.55 * (P.jawK ?? 1)) * s;
+    const ph = r() * 6.28, depth = (P.pitDepth ?? 13) * s, soft = 0.3;
     hf.each(pcx - prx * 1.3, pcy - pry * 1.3, pcx + prx * 1.3, pcy + pry * 1.3, (x, y, z) => {
       const u = (x + 0.5 - pcx) / prx, v = (y + 0.5 - pcy) / pry, a = Math.atan2(v, u);
       const d = Math.sqrt(u * u + v * v) / (1 + Math.sin(a * 3 + ph) * 0.07 + Math.sin(a * 5 + ph * 1.7) * 0.05 + Math.sin(a * 11 + ph) * 0.015);
@@ -72,8 +75,8 @@ export function drawHead(gb, P) {
   // jowl creases running down from the face
   for (const sd of [-1, 1]) hf.groove([[X(sd * 15), Y(20)], [X(sd * 20.5), Y(28)], [X(sd * 25), Y(35)]], 1.3 * s, 1.5 * s);
   }
-  // stretch marks radiating from the pit
-  for (let k = 0; k < 9; k++) {
+  // stretch marks radiating from the pit (the close-up CGs build their own folds: P.noStretch)
+  if (!P.noStretch) for (let k = 0; k < 9; k++) {
     const a = (k / 9) * Math.PI * 2 + 0.3 + r() * 0.4, ca = Math.cos(a), sa = Math.sin(a);
     const r0 = 1.06 + r() * 0.05, r1 = r0 + 0.22 + r() * 0.3, bend = (r() - 0.5) * 0.25;
     const p0 = [X(ca * FRX * r0), Y(FCY + 1.6 + sa * FRY * r0)], p2 = [X(ca * FRX * r1 - sa * bend * 10), Y(FCY + 1.6 + sa * FRY * r1 + ca * bend * 10)];
@@ -86,8 +89,9 @@ export function drawHead(gb, P) {
   const HI = s >= 2, sink = HI ? 4 : 1.5; // at close-up scale feature volumes must merge without any cliff
   const FB = (u, v, rx, ry, prot, p = 0.6, mat = M.FACE) => ff.blob(fx(u), fy(v), rx * s, ry * s, (prot + sink) * s, { base: (faceZ(u, v) - sink) * s, p, mat });
   // optional (close-up CGs only): a shorter nose (noseK scales its length from the brow), a smaller tip
-  const NK = P.noseK ?? 1, NT = P.noseTip ?? 1, NV = (v) => 0.6 + (v - 0.6) * NK;
-  ff.blob(fx(0), fy(FCY + mh * 0.25), FRX * s, (FRY + mh * 0.5) * s, FH * s, { base: FZ0 * s, p: 0.5, mat: M.FACE });
+  const NK = P.noseK ?? 1, NT = P.noseTip ?? 1, NV = (v) => (NK === 1 ? v : 0.6 + (v - 0.6) * NK);
+  const jk = P.jawK ?? 1;
+  ff.blob(fx(0), fy(FCY + mh * 0.25 * jk), FRX * s, (FRY + mh * 0.5 * jk) * s, FH * s, { base: FZ0 * s, p: 0.5, mat: M.FACE });
   for (const sd of [-1, 1]) {
     FB(sd * 6, -3.6, 5.6, 2.6, 1.6, 0.7);                       // brow ridge
     FB(sd * 8.2, 8.2, 5.6, 4.6, 1.5 + (P.smile > 0 ? 0.5 : 0), 0.6, M.FACE);  // cheeks (lifted by the smile)
@@ -95,9 +99,9 @@ export function drawHead(gb, P) {
   }
   ff.tube(fx(0), fy(0.6), 1.0 * s, fx(0), fy(NV(6.4)), 1.7 * s, { z0: faceZ(0, 0.6) * s + 0.8 * s, z1: faceZ(0, NV(6.4)) * s + 2.2 * NT * s, mat: M.FACE, k: 1 });
   FB(0, NV(7.1), 2.1 * NT, 1.7 * NT, 3.9 * NT, 0.6);              // nose tip
-  FB(0, 16.4 + mh, 3.2, 1.2, 0.8, 0.6);                         // lower lip (barely)
-  FB(0, 16.5 + mh * 0.7, 8.5, 6.5, 2.6, 0.5);                   // the clean-shaven lower face, turned to the light
-  FB(0, 19.6 + mh, 5.2, 3.4, 1.6 * (P.chinK ?? 1), 0.7);         // small clean chin
+  FB(0, (P.mouthY == null ? 16.4 : P.mouthY + 1.5) + mh, 3.2, 1.2, 0.8, 0.6);   // lower lip (barely)
+  FB(0, 16.5 + mh * 0.7 * jk, 8.5, 6.5, 2.6, 0.5);              // the clean-shaven lower face, turned to the light
+  FB(0, 19.6 + mh * jk, 5.2, 3.4, 1.6 * (P.chinK ?? 1), 0.7);    // small clean chin
   ff.finalize();
   for (const sd of [-1, 1]) {
     ff.pit(fx(sd * 6), fy(0.2), 4.4 * s, 2.7 * s, 1.4 * s, 0.6); // sockets
@@ -149,7 +153,7 @@ function drawFeatures(gb, F, P, mh, r) {
   for (const sd of [-1, 1]) {
     const L = sd < 0;
     const lid = P.blink ? P.blink[L ? 0 : 1] : (L ? P.lidL : P.lidR);
-    eye(gb, X(sd * 6), Y(0.2), s, lid, L ? P.gazeL : P.gazeR, Z(sd * 6, 0, 0.6), P.glint, sd, P.wet, P.eyeSmile || 0);
+    eye(gb, X(sd * 6), Y(0.2), s, lid, L ? P.gazeL : P.gazeR, Z(sd * 6, 0, 0.6), P.glint, sd, P.wet, P.eyeSmile || 0, P.iris ?? 1);
   }
   const HI = s >= 2;
   // ---- brows: thin, gray, groomed (inner ends lift with P.brow)
@@ -181,11 +185,11 @@ function drawFeatures(gb, F, P, mh, r) {
   }
   if (!HI) gb.line(X(0), Y(9.2 - ml), X(0), Y(11.4 - ml), null, { k: 0.72 });
   // ---- mouth
-  const my = 14.9;
+  const my = P.mouthY ?? 14.9;
   const sm = P.smile ?? 1;
   if (mh < 0.3 && HI) {
     // close-up: the lips are sculpted (faceGrooves); a touch of shadow tucks the corners in
-    for (const sd of [-1, 1]) gb.ell(X(sd * 5.3), Y(my - 0.9 * sm), 0.55 * s, 0.5 * s, { mat: M.FACE, mode: 'over', z: Z(5.3, my, 0.5), rz: 0.3 * s, ao: 0.55 });
+    for (const sd of [-1, 1]) gb.ell(X(sd * 5.3), Y(my - 0.9 * sm), 0.55 * s, 0.5 * s, { mat: M.FACE, mode: 'over', z: Z(5.3, my, 0.5), rz: 0.3 * s, ao: 0.55, clip: (x, y) => gb.matAt(x, y) !== M.HAIR });
   } else if (mh < 0.3) {
     // closed polite smile: the mustache hides the lips; just the corners, lifted, and a soft line
     for (const sd of [-1, 1]) {
@@ -193,6 +197,42 @@ function drawFeatures(gb, F, P, mh, r) {
       gb.dim(X(sd * 5.7), Y(my - 1.3 * sm), 0.8);
     }
     gb.curve(X(-3.6), Y(my + 0.3), X(0), Y(my + 0.9), X(3.6), Y(my + 0.3), (x, y) => { if (gb.matAt(x, y) !== M.HAIR) gb.dim(x, y, 0.55); });
+  } else if (HI && P.slot) {
+    // (close-up fury) the mouth drops open far too far: an uneven slot, wide just under the thin upper lip,
+    // narrowing as it falls to the chin; no rim of lip down its sides — stretched skin, a 1-px wet dark-red
+    // edge, black inside; the corners dragged down
+    const top = Y(my - 0.2), bot = Y(my + 0.4 + mh), H2 = Math.max(1, bot - top), cx0 = X(0);
+    const halfAt = (yy) => {
+      const t = (yy - top) / H2;
+      let hw2 = s * (3.1 - 2.0 * t) * (t < 0.1 ? 0.55 + t * 4.5 : 1) * (t > 0.88 ? Math.sqrt(Math.max(0, (1 - t) / 0.12)) : 1);
+      return Math.max(0, hw2 + Math.sin(yy * 0.37) * 0.5 + Math.sin(yy * 0.11 + 1) * 0.7);
+    };
+    const skew = (yy) => ((yy - top) / H2) * 0.9 * s * 0.4;
+    for (let yy = Math.floor(top); yy <= Math.ceil(bot); yy++) {
+      const hw2 = halfAt(yy + 0.5), c = cx0 + skew(yy);
+      for (let xx = Math.floor(c - hw2 - 2); xx <= Math.ceil(c + hw2 + 2); xx++) {
+        const e = Math.abs(xx + 0.5 - c) - hw2;
+        if (e < -1) gb.pix(xx, yy, M.MOUTH, { mode: 'any', z: Z(0, my, 1.6), lum: -0.5 });
+        else if (e < 0) gb.pix(xx, yy, M.LIP, { mode: 'any', z: Z(0, my, 1.5), lum: -0.45 });            // the wet edge
+      }
+    }
+    // the upper lip: thin, stretched, its corners pulled down past the slot
+    for (let xx = Math.floor(cx0 - 5.4 * s); xx <= cx0 + 5.4 * s; xx++) {
+      const u = (xx + 0.5 - cx0) / s, ly = Y(my - 0.2 + Math.max(0, Math.abs(u) - 2.6) * 0.55 * Math.abs(sm));
+      for (let k = 0; k < 2; k++) if (Math.abs(u) < 3.6 - k * 0.8) gb.pix(xx, Math.round(ly) - 1 - k, M.LIP, { mode: 'any', z: Z(0, my, 1.4), lum: k ? 0.1 : -0.1 });
+      if (Math.abs(u) > 3.2) gb.pix(xx, Math.round(ly), M.FACE, { mode: 'over', lum: -0.35 });                  // the corners, dragged down
+    }
+    // the lower lip, carried down with the jaw: a thin band under the slot's end
+    for (let xx = Math.floor(cx0 - 2.4 * s); xx <= cx0 + 2.4 * s; xx++) {
+      const u = (xx + 0.5 - cx0) / (2.4 * s), yy = Math.round(bot + 1 - u * u * 1.5);
+      gb.pix(xx + Math.round(skew(bot)), yy, M.LIP, { mode: 'any', z: Z(0, my + mh, 1.4), lum: 0.05 });
+      gb.pix(xx + Math.round(skew(bot)), yy + 1, M.LIP, { mode: 'any', z: Z(0, my + mh, 1.3), lum: -0.2 });
+    }
+    // tension: creases fanning from the corners down and out over the stretched cheeks
+    for (const sd of [-1, 1]) for (let k = 0; k < 3; k++) {
+      const a = [X(sd * (4.6 + k * 0.5)), Y(my + 0.6 + k * 1.6)], c = [X(sd * (6.4 + k * 0.9)), Y(my + 4.2 + k * 2.6)];
+      gb.curve(a[0], a[1], (a[0] + c[0]) / 2 + sd * s * 0.4, (a[1] + c[1]) / 2, c[0], c[1], (x, y) => { if (gb.matAt(x, y) === M.FACE) gb.dim(x, y, 0.8); });
+    }
   } else {
     // it opens a little too far, vertically: narrow, tall, lightless
     const mw = Math.max(1.6, 2.9 - mh * 0.12) * s, mH = mh * s;
@@ -214,60 +254,96 @@ function faceGrooves(ff, fx, fy, s, P, mh) {
     const es = P.eyeSmile || 0;
     G([[ex - hw * 0.8, ey + hh * (0.85 - es * 0.5)], [ex, ey + hh * (1.45 - es * 0.75)], [ex + hw * 0.8, ey + hh * (0.85 - es * 0.5)]], 0.75, 0.28 + es * 0.3);
   }
-  const my = 14.9, sm = P.smile ?? 1;
+  const my = P.mouthY ?? 14.9, sm = P.smile ?? 1;
   if (mh < 0.3) {
     G([[-6.6, my - 1.6 * sm], [-5.2, my - 0.4 * sm], [-3.6, my + 0.3], [0, my + 0.9], [3.6, my + 0.3], [5.2, my - 0.4 * sm], [6.6, my - 1.6 * sm]], 0.55, 0.75);
     G([[-3.0, my + 2.5], [0, my + 3.2], [3.0, my + 2.5]], 0.75, 0.35); // under the lower lip
   }
   if (sm > 0.5) for (const sd of [-1, 1]) G([[sd * 3.0, 7.2], [sd * 5.6, 9.4], [sd * 7.4, 12.4]], 0.85, 0.45 * sm); // smile lines past the whiskers
+  if ((P.brow ?? 0) < -0.5) {
+    // fury: the knot between the brows — two short vertical furrows, and the bridge's crease
+    for (const sd of [-1, 1]) G([[sd * 1.3, -6.4], [sd * 0.9, -4.2], [sd * 0.8, -2.6]], 0.45, 0.7);
+    G([[-1.6, -1.6], [0, -1.2], [1.6, -1.6]], 0.45, 0.45);
+  }
 }
 
-// close-up scale: whiskers as soft volumes combed with fine, irregular flow grooves
+// close-up scale (CGs only): the whiskers as separate tufts — each a tapering lock rooted in the skin,
+// dark at the root, white-grey at the tip; the mustache drooping in tufts past the mouth corners with a few
+// wisps over the lip, the chops a row of tufts down the jaw (no smooth tube, no outline round them)
 function hairStrands(gb, F, P, mh, r) {
-  const s = F.s, X = F.X, Y = F.Y;
-  const hf = new HField(gb.w, gb.h, 0.35 / s).finalize(); // hard-max union: chained strokes must not bulge at joints
-  const quad = (a, b, c, n = 9) => { const o = []; for (let i = 0; i <= n; i++) { const t = i / n, q = 1 - t; o.push([q * q * a[0] + 2 * q * t * b[0] + t * t * c[0], q * q * a[1] + 2 * q * t * b[1] + t * t * c[1]]); } return o; };
-  const vol = (pts, rads, lifts) => {
-    for (let k = 0; k + 1 < pts.length; k++) {
-      const t0 = k / (pts.length - 1), t1 = (k + 1) / (pts.length - 1);
-      const ra = rads(t0), rb = rads(t1);
-      const [u0, v0] = pts[k], [u1, v1] = pts[k + 1];
-      hf.tube(X(u0), Y(v0), ra * s, X(u1), Y(v1), rb * s, { mat: M.HAIR, z0: (faceZ(u0, v0) + lifts(t0) - ra * 0.5) * s, z1: (faceZ(u1, v1) + lifts(t1) - rb * 0.5) * s, k: 0.7, p: 0.6 });
+  const s = F.s, X = F.X, Y = F.Y, W = gb.w, H = gb.h;
+  const hf = new HField(W, H, 0.35 / s).finalize(); // hard-max union
+  const tag = new Float32Array(W * H).fill(-1), edge = new Float32Array(W * H), tid = new Int16Array(W * H).fill(-1);
+  let nT = 0;
+  const quad = (a, b, c, n = 10) => { const o = []; for (let i = 0; i <= n; i++) { const t = i / n, q = 1 - t; o.push([q * q * a[0] + 2 * q * t * b[0] + t * t * c[0], q * q * a[1] + 2 * q * t * b[1] + t * t * c[1]]); } return o; };
+  /** One tuft along a curve (face units, root → tip), width w0 at the root (face units), lift above the face. */
+  const kind = [], clump = [];
+  const tuft = (pts, w0, lift = 2.2, kd = '', cl = -1) => {
+    const id = nT++; kind[id] = kd; clump[id] = cl < 0 ? id + 1000 : cl;
+    const P2 = pts.map(([u, v]) => [X(u), Y(v)]), n = P2.length - 1;
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const [x, y] of P2) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+    const pad = w0 * s + 2;
+    for (let y = Math.max(0, Math.floor(y0 - pad)); y <= Math.min(H - 1, y1 + pad); y++) for (let x = Math.max(0, Math.floor(x0 - pad)); x <= Math.min(W - 1, x1 + pad); x++) {
+      let best = 1e9, bt = 0;
+      for (let k = 0; k < n; k++) {
+        const [ax, ay] = P2[k], dx = P2[k + 1][0] - ax, dy = P2[k + 1][1] - ay, L2 = dx * dx + dy * dy || 1e-9;
+        let t = ((x + 0.5 - ax) * dx + (y + 0.5 - ay) * dy) / L2; t = t < 0 ? 0 : t > 1 ? 1 : t;
+        const d = Math.hypot(x + 0.5 - ax - dx * t, y + 0.5 - ay - dy * t);
+        if (d < best) { best = d; bt = (k + t) / n; }
+      }
+      const wv = (w0 * s) * Math.pow(1 - bt, 0.45) * (bt < 0.12 ? 0.75 + bt * 2 : 1) + 0.4;
+      if (best > wv) continue;
+      const u = (x + 0.5 - X(0)) / s, v = (y + 0.5 - Y(0)) / s, q = best / wv;
+      const zz = (faceZ(u, v) + lift + (1 - bt) * 0.8) * s + Math.sqrt(1 - q * q) * wv * 0.5;
+      const i = y * W + x;
+      if (zz > hf.z[i]) { hf.z[i] = zz; hf.mat[i] = M.HAIR; tag[i] = bt; edge[i] = q; tid[i] = id; }
     }
   };
-  const combs = [];
-  const ml = mh * 0.18;
+  const ml = mh * 0.18, J = (a) => (r() - 0.5) * a;
   for (const sd of [-1, 1]) {
-    // mutton chop: temple → down the cheek → sweeping in to the mustache
-    vol(quad([sd * 11.1, -8.2], [sd * 13.4, 4.5], [sd * 8.6, 14.2 + mh * 0.25]), (t) => 1.5 + Math.sin(t * Math.PI) * 1.3, (t) => 2.6 + Math.sin(t * Math.PI) * 1.0);
-    for (let j = 0; j < 34; j++) {
-      const t = r(), jit = () => (r() - 0.5) * 0.6;
-      combs.push(quad([sd * (10.2 + t * 2.4 + jit()), -8 + jit() + t], [sd * (11.4 + t * 3.4 + jit()), 4 + jit()], [sd * (7.4 + t * 3.2 + jit()), 13.4 + t * 2 + mh * 0.25 + jit()]));
-    }
-    // mustache wing, drooping past the mouth corners
-    const lift = (P.smile ?? 1) > 0.5 ? 0.9 + (P.eyeSmile || 0) * 2.4 : 0;
-    vol(quad([sd * 0.4, 10.1 - ml], [sd * 4.6, 10.9 - ml - lift * 0.3], [sd * 7.8, 14.4 - ml * 0.5 - lift]), (t) => 1.75 - t * 0.95, (t) => 3.6 - t * 1.2);
-    for (let j = 0; j < 20; j++) {
-      const t = r(), jit = () => (r() - 0.5) * 0.45;
-      combs.push(quad([sd * (0.3 + t * 1.2), 9.4 + t * 1.6 - ml + jit() * 0.4], [sd * (4.2 + jit()), 10.4 + t * 1.6 - ml + jit()], [sd * (7.6 + t * 0.9 + jit()), 13.6 + t * 1.6 - ml * 0.5 + jit()]));
-    }
+    // the chops: wide tufts layered down the jaw from the temple, overlapping, combed down and in
+    const chops = [[-8.4, 11.0, 12.0, -2.8], [-5.6, 12.3, 12.8, 0.8], [-2.4, 12.9, 13.0, 4.4], [1.0, 13.2, 12.6, 8.0], [4.4, 13.0, 11.6, 11.4], [7.6, 12.2, 10.2, 13.8], [10.4, 10.8, 8.4, 15.2 + mh * 0.25]];
+    chops.forEach(([v0, u0, u1, v1], k) => {
+      const a = [sd * (u0 + J(0.4)), v0 + J(0.5)], c = [sd * (u1 + J(0.6)), v1 + J(0.9)], b = [(a[0] + c[0]) / 2 + sd * (0.7 + J(0.4)), (a[1] + c[1]) / 2];
+      tuft(quad(a, b, c), 2.1 + J(0.3), 1.6 + k * 0.06);
+    });
+    // the mustache: FINE strands (≈1.5 px), pale, combed from under the nose out and down past the corners of
+    // the mouth — longer toward the corners, each ending at its own length (a ragged lower edge), the outer
+    // ones running on into the chops; the lower ones lie on top
+    const lift = (P.smile ?? 1) > 0.5 ? 0.6 + (P.eyeSmile || 0) * 1.6 : 0;
+    const sw = 1.3 / s;
+    const clumps = [[0.35, 9.5, 2.9, 3.6], [1.4, 9.8, 3.4, 4.2], [2.5, 10.1, 3.8, 4.8], [3.7, 10.5, 4.0, 5.3], [4.9, 10.9, 4.1, 5.8], [6.0, 11.4, 3.5, 5.4]];
+    clumps.forEach(([cu, cv, du, dv], c) => {
+      const cid = 100 + c + (sd > 0 ? 10 : 0), dl = lift * c * 0.07;   // (a smile barely lifts it: it droops into the chops)
+      for (let k = 0; k < 5; k++) {
+        const o = (k - 2) * 0.34 + J(0.12), L = 0.82 + J(0.36) + (k === 2 ? 0.12 : 0);
+        const u0 = cu + o * 0.4, v0 = cv - ml + o * 0.85;
+        const u1 = u0 + du * L, v1 = v0 + dv * L - dl;
+        tuft(quad([sd * u0, v0], [sd * (u0 + du * 0.62 * L + 0.4), v0 + dv * 0.3 * L - dl * 0.5], [sd * (u1 + J(0.3)), v1 + J(0.4)]), sw * (1 + J(0.25)), 2.0 + c * 0.1 + k * 0.02, 'm', cid);
+      }
+    });
     // brows: thin, groomed (inner ends lift with P.brow)
     const bi = P.brow || 0;
-    vol(quad([sd * 2.3, -4.3 - bi * 1.4], [sd * 6.2, -5.9 - bi * 0.5], [sd * 10.2, -3.9], 6), (t) => 0.62 - t * 0.25, () => 1.9);
-    for (let j = 0; j < 2; j++) combs.push(quad([sd * 2.6, -4.3 - bi * 1.4 + j * 0.35 - 0.2], [sd * 6.2, -5.9 - bi * 0.5 + j * 0.35 - 0.2], [sd * 9.8, -4 + j * 0.3], 6));
+    tuft(quad([sd * 2.3, -4.3 - bi * 1.4], [sd * 6.2, -5.9 - bi * 0.5], [sd * 10.2, -3.9], 8), 0.62, 1.9);
   }
-  for (const c of combs) hf.groove(c.map(([u, v]) => [X(u), Y(v)]), 0.24 * s, (0.3 + r() * 0.3) * s);
   hf.toGB(gb, { mode: 'z' });
-  // stray whiskers past the edge of each mass
-  for (let j = 0; j < 10; j++) {
-    const sd = j & 1 ? 1 : -1, t = r();
-    const u = sd * (8.2 + t * 6), v = 4 + t * 10 + (r() - 0.5) * 6;
-    const x0 = X(u), y0 = Y(v), x1 = x0 + sd * (0.4 + r()) * s * 0.6, y1 = y0 + (0.8 + r()) * s * 0.7;
-    gb.line(x0, y0, x1, y1, M.HAIR, { mode: 'on', tol: 3 * s, z: (faceZ(u, v) + 1.8) * s, n: [sd * 0.3, -0.2, 0.9], lum: 0.04 });
+  // roots dark, tips white-grey, the edge of each tuft a step down (they part from each other)
+  for (let i = W; i < W * H - W; i++) {
+    if (tag[i] < 0 || gb.mat[i] !== M.HAIR) continue;
+    const fine = kind[tid[i]] === 'm';
+    gb.lum[i] = fine ? 0.22 + tag[i] * 0.3 : (tag[i] - 0.5) * 0.46;    // the mustache's fine strands: pale, paler at the tips
+    // where this tuft slips under the next: a 1-px parting line; a strand line down its middle. The
+    // mustache's strands part only between their clumps; inside a clump each strand's edge is a step down
+    let under = false, inClump = false;
+    for (const j of [i - 1, i + 1, i - W, i + W]) if (tid[j] >= 0 && tid[j] !== tid[i] && hf.z[j] > hf.z[i] + 0.2) { if (clump[tid[j]] === clump[tid[i]]) inClump = true; else under = true; }
+    if (under) gb.lum[i] = fine ? -0.34 : -0.4;
+    else if (fine && (inClump || edge[i] > 0.8)) gb.lum[i] -= 0.16;
+    else if (!fine && edge[i] < 0.14 && tag[i] > 0.15 && tag[i] < 0.85) gb.lum[i] -= 0.14;
   }
 }
 
-function eye(gb, ex, ey, s, lid, gz, ez, glint, sd, wet, es = 0) {
+function eye(gb, ex, ey, s, lid, gz, ez, glint, sd, wet, es = 0, isc = 1) {
   const hw = 3.45 * s, hh = 2.1 * s;
   const inAlmond = (x, y) => {
     const u = (x + 0.5 - ex) / hw, v = (y + 0.5 - ey) / hh, w = v - sd * u * 0.14, lim = 1 - u * u;
@@ -275,8 +351,8 @@ function eye(gb, ex, ey, s, lid, gz, ez, glint, sd, wet, es = 0) {
   };
   gb.ell(ex, ey, hw, hh * 1.05, { mat: M.EYE, z: ez, rz: 1.5 * s, mode: 'any', clip: inAlmond, ao: 0.95 });
   const ix = ex + gz[0] * hw * 0.55, iy = ey + gz[1] * hh * 0.45;
-  gb.ell(ix, iy, 1.5 * s, 1.65 * s, { mat: M.IRIS, z: ez + 0.5 * s, rz: 1.3 * s, mode: 'any', clip: inAlmond });
-  gb.ell(ix, iy, 0.62 * s, 0.7 * s, { mat: M.DARK, z: ez + 0.6 * s, rz: 1 * s, mode: 'any', clip: inAlmond });
+  gb.ell(ix, iy, 1.5 * s * isc, 1.65 * s * isc, { mat: M.IRIS, z: ez + 0.5 * s, rz: 1.3 * s, mode: 'any', clip: inAlmond });
+  gb.ell(ix, iy, 0.62 * s * isc * isc, 0.7 * s * isc * isc, { mat: M.DARK, z: ez + 0.6 * s, rz: 1 * s, mode: 'any', clip: inAlmond });
   if (glint) { const gy = Math.max(iy - 0.7 * s, ey - hh + (1 - lid) * hh * 2 + 0.5 * s + 1); gb.ell(ix - 0.6 * s, gy, Math.max(0.5, 0.28 * s), Math.max(0.5, 0.24 * s), { mat: M.EYE, mode: 'any', z: ez + 1.5 * s, rz: 0.2 * s, lum: 1.0, clip: (x, y) => inAlmond(x, y) }); }
   if (wet) for (let k = -1; k <= 1; k++) gb.pix(ex + k * hw * 0.45, ey + hh * 0.82, M.EYE, { mode: 'any', lum: 0.55, n: [0, -0.3, 1] }); // watery old eyes
   // the heavy upper lid comes down to `lid`
@@ -337,7 +413,7 @@ export function repaintEyes(gb, P) {
   for (const sd of [-1, 1]) {
     const L = sd < 0;
     const lid = P.blink ? P.blink[L ? 0 : 1] : (L ? P.lidL : P.lidR);
-    eye(gb, X(sd * 6), Y(0.2), s, lid, L ? P.gazeL : P.gazeR, Z(sd * 6, 0, 0.6), P.glint, sd, P.wet, P.eyeSmile || 0);
+    eye(gb, X(sd * 6), Y(0.2), s, lid, L ? P.gazeL : P.gazeR, Z(sd * 6, 0, 0.6), P.glint, sd, P.wet, P.eyeSmile || 0, P.iris ?? 1);
   }
 }
 

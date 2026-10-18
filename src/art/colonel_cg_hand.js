@@ -5,14 +5,14 @@
 // wrist vanishing into a wet navy cuff stretched to bursting. The tube is up to the left: the hand's
 // shadow falls across the desk toward her.
 //
-// Layers (cel-shaded through colonel_cg_cel.js): the background (desk + Tess, colonel_cg_desk.js) lit
+// Layers (cel-shaded through colonel_cg_cel.js): the background (desk + Tess, colonel_cg_desk.js / _tess.js) lit
 // and in shadow; the hand + cuff + sleeve (colonel_cg_handkit.js), larger than the frame so it can slide
 // in; the hand's cast-shadow mask and its contact with the desk. composeHand() puts them together for
 // any reach / slack / breath / flicker state.
-import { light, shadeCel, outline, gradeLUT, packTones, bay, clamp } from './colonel_cg_cel.js';
+import { light, shadeCel, lightCel, quantize, outline, gradeLUT, packTones, bay, clamp, vn, celDef } from './colonel_cg_cel.js';
 import { Cel } from './colonel_cg_cel.js';
-import { CM, sculptHand, detailHand, paintNails, paintRings, sculptCuff, detailCuff, shadowMask, contactDist, patchLUT, isFlesh, liftHighlights } from './colonel_cg_handkit.js';
-import { buildBackground, bgLUTPatch } from './colonel_cg_desk.js';
+import { CM, FLESHY, sculptHand, detailHand, paintNails, paintRings, sculptCuff, detailCuff, shadowMask, contactDist, patchLUT, isFlesh, liftHighlights } from './colonel_cg_handkit.js';
+import { buildBackgroundGen, bgLUTPatch } from './colonel_cg_desk.js';
 import { makeCanvas, ctxOf } from './util.js';
 
 export { CM };
@@ -22,9 +22,15 @@ const W = 480, H = 270;
 // the tube up to the left of the desk: the hand's shadow falls down and to the right, toward her
 const L_FLUOR = [-0.32, -0.66, 0.68];
 const FLUOR = light({ L: L_FLUOR, amb: 0.2, key: 0.86, shadow: 0.78, steps: 60,
-  falloff: (x, y) => { const d = Math.hypot((x - 232) / 300, (y - 120) / 205); return clamp(1.12 - d * d * 0.95, 0.12, 1.08); } });
+  falloff: (x, y) => { const d = Math.hypot((x - 170) / 320, (y - 90) / 220); return clamp(1.1 - d * d * 0.9, 0.12, 1.08); } });
+// the desk and Tess: the pool of the tube centred on her, falling to dark at the left edge and up under his cuff
+const FLUOR_BG = light({ L: L_FLUOR, amb: 0.2, key: 0.86, shadow: 0.78, steps: 60,
+  falloff: (x, y) => { const d = Math.hypot((x - 330) / 270, (y - 140) / 200); return clamp((0.98 - d * d * 0.6) * (0.94 + vn(x, y, 70, 5) * 0.12), 0.32, 0.95); } });
 // the breaker's fire, from below and in front: everything lit from underneath, shadows thrown back up
 const RED = light({ L: [0.2, 0.6, 0.78], amb: 0.03, key: 0.95, shadow: 0.86, steps: 40, rim: [0.15, 0.95, 0.5],
+  falloff: (x, y) => { const d = Math.hypot((x - 240) / 300, (y - 250) / 230); return clamp((1.25 - d * d * 0.9) * (0.93 + vn(x, y, 60, 9) * 0.14), 0.06, 1.12); } });
+// the same fire on the hand, without the falloff's mottling (its planes stay calm)
+const RED_HAND = light({ L: [0.2, 0.6, 0.78], amb: 0.03, key: 0.95, shadow: 0.86, steps: 40, rim: [0.15, 0.95, 0.5],
   falloff: (x, y) => { const d = Math.hypot((x - 240) / 300, (y - 250) / 230); return clamp(1.25 - d * d * 0.9, 0.06, 1.12); } });
 export const GRADES = {
   fluor: { lit: '#f6fff2', litGain: 1.0, dark: '#a8bcbc', darkGain: 1.0, desat: 0.06 },
@@ -36,11 +42,12 @@ export const GRADES = {
   redDead: { lit: '#d07050', litGain: 0.98, dark: '#3a0a0a', darkGain: 0.6, desat: 0.8, crush: 0.55, abyss: '#0e0202' },
 };
 export const LIGHTS = { fluor: FLUOR, red: RED };
+const BG_LIGHTS = { fluor: FLUOR_BG, red: RED };
 const CONTACT = { fluor: [10, 9, 10], red: [14, 2, 2] };
 
 // ------------------------------------------------------------------------------------------ the pose
-const ANG = (29 * Math.PI) / 180;
-export const HAND_POSE = { C: [184.5, 100.9], ang: ANG, s: 1.06, side: 1, z0: 0, rings: { 3: 'signet', 2: 'stone' } };
+const ANG = (25 * Math.PI) / 180;
+export const HAND_POSE = { C: [180, 92], ang: ANG, s: 1.12, side: 1, z0: 0, rings: { 3: 'signet', 2: 'stone' } };
 const LAYER = { ox: -380, oy: -170, w: W + 380, h: H + 170 };
 export const PROF = {};
 const prof = (k, f) => { const a = performance.now(); const r = f(); PROF[k] = (PROF[k] || 0) + Math.round(performance.now() - a); return r; };
@@ -49,17 +56,17 @@ const state = { bg: null, hand: new Map(), mask: new Map(), contact: null, shade
 
 // the background, in one slice (a few tens of ms)
 function* bgGen() {
-  state.bg = prof('bg', () => buildBackground());
-  yield;
+  const g = buildBackgroundGen();
+  for (;;) { const st = prof('bg', () => g.next()); if (st.done) { state.bg = st.value; break; } yield; }
 }
 /** The hand + cuff layer (larger than the frame, origin LAYER.ox/oy), in slices. */
 function* handGen(swell) {
   const cel = new Cel(LAYER.w, LAYER.h, LAYER.ox, LAYER.oy);
   const S = prof('sculpt', () => sculptHand(cel, { ...HAND_POSE, swell: swell / 2 })); yield;
-  const cf = prof('cuff', () => sculptCuff(cel, S, { box: [LAYER.ox, LAYER.oy, LAYER.ox + LAYER.w, LAYER.oy + LAYER.h] }));
+  const cf = prof('cuff', () => sculptCuff(cel, S, { box: [LAYER.ox, LAYER.oy, LAYER.ox + LAYER.w, LAYER.oy + LAYER.h] })); yield;
   prof('cuffdetail', () => detailCuff(cel, S, { edge: cf.edge })); yield;
-  prof('handdetail', () => { detailHand(cel, S, { L: L_FLUOR, LR: RED.L }); paintRings(cel, S, { L: L_FLUOR }); paintNails(cel, S, { L: L_FLUOR }); });
-  prof('handcav', () => cel.cavity(4, 0.05, 0.4));
+  prof('handdetail', () => { detailHand(cel, S, { L: L_FLUOR, LR: RED.L }); paintRings(cel, S, { L: L_FLUOR }); paintNails(cel, S, { L: L_FLUOR }); }); yield;
+  prof('handcav', () => cel.cavity(4, 0.03, 0.22));
   state.hand.set(swell, { cel, S });
 }
 
@@ -86,39 +93,80 @@ function contactMap(cel, S) {
 
 const luts = new Map();
 function lut(name) {
-  if (!luts.has(name)) { const l = gradeLUT(GRADES[name]); patchLUT(l, name.startsWith('red')); bgLUTPatch(l, name); luts.set(name, l); }
+  if (!luts.has(name)) { const l = gradeLUT(GRADES[name]); patchLUT(l, name.startsWith('red'), name); bgLUTPatch(l, name); luts.set(name, l); }
   return luts.get(name);
 }
 
-/** Shaded background (lit + in the hand's shadow) for a light: packed tones. */
-function shadeBg(lightName) {
-  const cel = state.bg, lt = LIGHTS[lightName];
-  const undo = liftHighlights(cel, lightName === 'red' ? 32 : 16, [CM.HAIR, CM.HAIR_D, CM.SKIN]);
-  const lit = prof('bgshade', () => outline(cel, shadeCel(cel, lt, { steps: lightName === 'red' ? 14 : 60 })));
-  const dark = prof('bgshadeD', () => outline(cel, shadeCel(cel, { ...lt, key: lt.key * (1 - lt.shadow) }, { noCast: true })));
-  undo();
-  state.shaded.set('bg|' + lightName, { lit: packTones(cel, lit.tone), dark: packTones(cel, dark.tone), z: cel.z });
+/** Light a cel in horizontal bands (one slice each: the shadow march is the heavy part). Returns lev. */
+function* lightBands(cel, lt, opts, bands) {
+  const lev = new Float32Array(cel.w * cel.h), step = Math.ceil(cel.h / bands);
+  for (let y0 = 0; y0 < cel.h; y0 += step) {
+    const part = lightCel(cel, lt, { ...opts, rect: [0, y0, cel.w, Math.min(cel.h, y0 + step)] });
+    lev.set(part.subarray(y0 * cel.w, Math.min(cel.h, y0 + step) * cel.w), y0 * cel.w);
+    yield;
+  }
+  return lev;
 }
-function shadeHand(swell, lightName) {
-  const { cel } = state.hand.get(swell), lt = LIGHTS[lightName];
-  const undo = liftHighlights(cel, lightName === 'red' ? 32 : 16);
-  const sh = prof('handshade', () => outline(cel, shadeCel(cel, lt, { steps: 34 }), { lit: 0.72 }));
+/** Shaded background (lit + in the hand's shadow) for a light: packed tones — in slices. */
+function* shadeBg(lightName) {
+  const cel = state.bg, lt = BG_LIGHTS[lightName];
+  const lev = yield* lightBands(cel, lt, lightName === 'red' ? { noCast: true } : { steps: 60 }, lightName === 'red' ? 1 : 3);
+  const undo = liftHighlights(cel, lightName === 'red' ? 32 : 16, [CM.HAIR, CM.HAIR_D, CM.SKIN]);
+  const lit = prof('bgshade', () => packTones(cel, outline(cel, quantize(cel, lev)).tone));
+  undo(); yield;
+  const undo2 = liftHighlights(cel, lightName === 'red' ? 32 : 16, [CM.HAIR, CM.HAIR_D, CM.SKIN]);
+  const dark = prof('bgshadeD', () => {
+    const sh = outline(cel, shadeCel(cel, { ...lt, key: lt.key * (1 - lt.shadow) }, { noCast: true }));
+    // painted pixels (Tess's face, the cuff's opening, the button) don't relight: in his shadow they go two steps down
+    for (let i = 0; i < sh.tone.length; i++) if (cel.fix[i] >= 0 && cel.mat[i] !== CM.DESK_EDGE) sh.tone[i] = Math.max(Math.min(sh.tone[i], 1), sh.tone[i] - 2);
+    return packTones(cel, sh.tone);
+  });
+  undo2();
+  state.shaded.set('bg|' + lightName, { lit, dark, z: cel.z });
+}
+function* shadeHand(swell, lightName) {
+  const { cel } = state.hand.get(swell), red = lightName === 'red', lt = red ? RED_HAND : LIGHTS[lightName];
+  const lev = yield* lightBands(cel, lt, { noCast: true }, 3);
+  const undo = liftHighlights(cel, red ? 32 : 16);
+  // under the fire the back of the hand is banded on a wider average (big calm planes, not carved wood)
+  const FD = celDef(CM.FLESH), sm0 = FD.smooth;
+  if (red) for (const m of FLESHY) celDef(m).smooth = 4;
+  const sh = prof('handshade', () => outline(cel, quantize(cel, lev), { lit: 0.72 }));
+  if (red) for (const m of FLESHY) celDef(m).smooth = sm0;
   undo();
+  if (red) {
+    const { w, h, mat, fix } = cel, T = sh.tone;
+    // the knuckles are wet: a short specular streak on two crests goes to the top of the ramp
+    for (let i = 0; i < T.length; i++) if ((cel.flag[i] & 128) && isFlesh(mat[i])) T[i] = 6;
+    // the fire catches the cuff: a 2-px rim along the wool's edges that face it (its lip at the wrist, its lower
+    // silhouette), so the arm goes on out of frame instead of ending in a glove's gauntlet
+    const isW = (m) => m === CM.WOOL || m === CM.WOOL_W;
+    const fd = [0.42, 0.91];
+    for (let y = 2; y < h - 4; y++) for (let x = 2; x < w - 4; x++) {
+      const i = y * w + x; if (!isW(mat[i]) || fix[i] === 0) continue;
+      for (let k = 1; k <= 2; k++) {
+        const j = (y + Math.round(fd[1] * k)) * w + x + Math.round(fd[0] * k);
+        if (!isW(mat[j]) || fix[j] === 0) { T[i] = Math.max(T[i], k === 1 ? 5 : 4); break; }
+      }
+    }
+    // ... and the big brass button's lower rim
+    for (let i = 0; i < T.length; i++) if (mat[i] === CM.BRASS && (cel.flag[i] & 32)) T[i] = Math.max(T[i], 5);
+  }
   state.shaded.set(`hand|${swell}|${lightName}`, { p: packTones(cel, sh.tone) });
 }
 function* prepGen(lightName) {
   if (!state.bg) yield* bgGen();
-  if (!state.shaded.has('bg|' + lightName)) { shadeBg(lightName); yield; }
+  if (!state.shaded.has('bg|' + lightName)) { yield* shadeBg(lightName); yield; }
   for (const sw of [1, 0, 2]) {
     if (!state.shaded.has(`hand|${sw}|${lightName}`)) {
       if (!state.hand.has(sw)) yield* handGen(sw);
-      shadeHand(sw, lightName); yield;
+      yield* shadeHand(sw, lightName); yield;
     }
     if (sw === 1 && !state.mask.has(lightName)) {
       const { cel, S } = state.hand.get(1);
-      state.mask.set(lightName, prof('mask', () => shadowMask(cel, LIGHTS[lightName].L)));
-      if (!state.contact) state.contact = prof('contact', () => contactMap(cel, S));
-      yield;
+      const m = prof('mask', () => shadowMask(cel, LIGHTS[lightName].L)); yield;
+      if (!state.contact) { state.contact = prof('contact', () => contactMap(cel, S)); yield; }
+      state.mask.set(lightName, m);
     }
   }
   state.hand.clear();      // the shaded tones stay; the heavy buffers are rebuilt if the other light is needed
@@ -176,7 +224,7 @@ export function composeHand(s, into = null) {
   const lightName = s.light === 'red' ? 'red' : 'fluor';
   while (!handReady(lightName, 1)) prepHand(lightName);
   const sw = handReady(lightName, s.swell | 0) ? s.swell | 0 : 1;
-  const bg = state.shaded.get('bg|' + lightName), hd = state.shaded.get(`hand|${sw}|${lightName}`), cov = state.mask.get(lightName), con = state.contact;
+  const bg = state.shaded.get('bg|' + lightName), hd = state.shaded.get(`hand|${sw}|${lightName}`), msk = state.mask.get(lightName), cov = msk.cov, occ = msk.occ, con = state.contact;
   const L = LIGHTS[lightName].L, px = -L[0] / L[2], py = -L[1] / L[2];
   const reach = s.reach ?? 1, slack = s.slack ?? 0;
   const [dx, dy] = handOffset(reach, slack);
@@ -206,8 +254,8 @@ export function composeHand(s, into = null) {
       const mx = Math.round(x + px * z - dx - lox), my = Math.round(y + py * z - dy - loy);
       let set = BC.lit, k = 0;
       if (mx >= 0 && my >= 0 && mx < lw && my < lh) {
-        const cv = cov[my * lw + mx];
-        if (cv === 2 || (cv === 1 && bay(x, y) < 0.5)) set = BC.dark;
+        const j = my * lw + mx, cv = cov[j];
+        if (cv && z < occ[j] + 2 && (cv === 2 || bay(x, y) < 0.5)) set = BC.dark;     // (a receiver above the hand is not in its shadow)
       }
       // where the flesh meets the desk: a hard dark line; a faint grease halo around the resting tips
       if (z < 2 && slack < 0.2) {
@@ -215,7 +263,7 @@ export function composeHand(s, into = null) {
         if (hx >= 0 && hy2 >= 0 && hx < lw && hy2 < lh) {
           const q = con[hy2 * lw + hx];
           if (q === 1) { d[i] = CC; continue; }
-          if (resting && q >= 2 && (q === 2 ? bay(x, y) < 0.5 : bay(x, y) < 0.25)) k = 2;
+          if (resting && q >= 2 && (q === 2 || bay(x, y) < 0.5)) k = 1;
         }
       }
       d[i] = set[k][i];
