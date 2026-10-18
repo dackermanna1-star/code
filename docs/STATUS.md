@@ -13,4 +13,7 @@ prop's script id/examine) to DONE maps for their chapters and must list them in 
 
 Systems: DONE (see docs/API_NOTES.md "Game systems" sections). Lore/docs: DONE.
 
-Scripts: pro, ch1, items (narrative-1) DONE · ch2, ch3, ch4 (narrative-2) DONE · ch5 / ch6–7 / ch8+end IN PROGRESS.
+Scripts: ALL DONE — pro, ch1, items (narrative-1) · ch2–ch4 (narrative-2) · ch5 (n3) · ch6–ch7 (n4) · ch8 + end (n5).
+Story suites: story_n1 142 · story_n2 170 · story_n3 243 · story_n4 233 · story_n5 312 (all passing).
+
+IN PROGRESS: Colonel CG redraw round 2 (colonel_cg_*.js, cg_colonel.js, ui/special/register.js) · final QA (playthrough test, adversarial reviews).
