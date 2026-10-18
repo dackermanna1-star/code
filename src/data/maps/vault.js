@@ -247,7 +247,7 @@ export default {
     { id: 'v_adair_husk', type: 'husk_kneeling', x: 22, y: 29, dir: 'down', script: 'ch8.adair',
       examine: ['[n] Her. Kneeling at the desk, in a cardigan gone to amber. Glasses. Hair still pinned up.',
         '[n] There\'s a pen in her hand. Red.'] },
-    { id: 'v_adair_desk', type: 'writing_desk', x: 22, y: 30,
+    { id: 'v_adair_desk', type: 'writing_desk', x: 22, y: 30, script: 'ch8.adair',   // (narrative-5: the desk is what faces her anchor)
       examine: ['[n] A writing desk with a crust of dried ink in the well. Pages under her hands.',
         '[n] A flashlight lies by her knee, the switch still pushed forward. Dead.'] },
     { type: 'coal_heap', x: 24, y: 30, state: 'flat', interact: false },

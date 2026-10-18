@@ -387,6 +387,10 @@ export default {
       cond: (s) => !!s.flags.ch6_marcus_taken && !s.flags.ch7_started },
     { id: 'ch7_start_e', rect: [23, 4, 1, 14], script: 'ch7.start', once: true,
       cond: (s) => !!s.flags.ch6_marcus_taken && !s.flags.ch7_started },
+    // Ch8 PRESENT (narrative-5): first step into the vestibule on the way out — the friends cross into the
+    // dawn; she doesn't.
+    { id: 'ch8_vestibule', rect: [8, 21, 14, 1], script: 'ch8.vestibule', once: false,
+      cond: (s) => !!s.flags.register_done && s.flags.ending === 'present' && !s.flags.ch8_doors_shut },
   ],
   lights: [
     { type: 'fluor', x: 9, y: 8, group: 'period' },

@@ -63,7 +63,7 @@ function spotTo(pt, sec = 1.2) {
 
 // ---------------------------------------------------------------------------------------------
 let installed = false;
-let frontGen = -1;
+let rustleGen = -1;
 const frontBusy = new Set();
 function install() {
   if (installed) return true;
@@ -96,9 +96,14 @@ function install() {
   HW.game.on('assemblyPhase', (phase) => {
     if (HW.map?.id !== 'aud' || !IN_SESSION() || phase !== 'read') return;
     const e = HW.colonel?.entity;
-    try { HW.audio?.murmur?.(5.5); } catch { /* audio stub */ }
-    if (frontGen === HW.scripts.gen && Math.random() < 0.5) return;
-    frontGen = HW.scripts.gen;
+    // (the murmur isn't positional: only out in the house, not behind the walls of the wings)
+    const p = HW.player;
+    const room = p ? HW.map.roomAt(p.x, p.y)?.id : null;
+    if (room === 'aud_house' || room === 'aud_stage') {
+      try { HW.audio?.murmur?.(5.5); } catch { /* audio stub */ }
+    }
+    if (rustleGen === HW.scripts.gen && Math.random() < 0.5) return;
+    rustleGen = HW.scripts.gen;
     const gen = HW.scripts.gen;
     HW.game.afterSteps(2 + Math.random() * 3).then(() => {
       if (gen !== HW.scripts.gen || HW.map?.id !== 'aud') return;
@@ -135,17 +140,18 @@ export default {
       if (doors) g.sfx('crowd_murmur', { x: doors.x, y: doors.y - 16, vol: 0.55 });
       await g.wait(1.8);
       // The memorial board.
-      await g.walk('tess', 'memorial');
-      look(g, 'up');
-      await g.cam([4, 5], { time: 1.2 });
+      // She stops short of it, off to the side, so her light falls on the board and not her shadow.
+      await g.walk('tess', [7, 6]);
+      look(g, 'memorial');
+      await g.cam([6, 5], { time: 1.2 });
       await g.wait(0.8);
       const s = g.state;
       const ink = (id) => (bonded(s, id) ? 'in pencil' : 'in ink');
       await g.narrate(`Three Polaroids now, pinned over the Nine. Danny. Leah. Marcus. Under each, 1996 — Danny's ${ink('danny')}, Leah's ${ink('leah')}, Marcus's ${ink('marcus')}.`);
       const r = Math.min(2, s.rollAnswered || 0);
       await g.narrate(['Under them, a little frame on a nail. A typed card: THERESA DOLAN. The frame is empty.',
-        'Under them, a little frame on a nail. A typed card: THERESA DOLAN. Inside, a pencil sketch: a girl at a desk, head down.',
-        'Under them, a little frame on a nail. A typed card: THERESA DOLAN. Inside, a Polaroid: a girl at a desk, head down.'][r]);
+        'Under them, a little frame on a nail. A typed card: THERESA DOLAN. In it, a pencil sketch. A girl at a desk, head down.',
+        'Under them, a little frame on a nail. A typed card: THERESA DOLAN. In it, a Polaroid. A girl at a desk, head down.'][r]);
       await g.think(r === 0 ? 'scared' : r === 1 ? 'scared' : 'terrified',
         ['Empty. {p} Keep it empty.', "That's me. {p} In pencil.", "That's me. {p=0.8} That's ink."][r]);
       await g.wait(1.0);
@@ -303,7 +309,7 @@ export default {
       await g.say('danny', 'entranced', "My pencil quit. Right in the middle of a word. {p} It won't start up again.");
       await g.say('danny', 'flicker', "I'm the guy who gets stuck. {p} You're the guy who comes back. That's the act.");
     } else {
-      await g.say('danny', 'entranced', 'Sit down, Theresa— {p} ...Dolan. Sorry. It keeps doing that.');
+      await g.say('danny', 'entranced', 'Take your seat, Theresa— {p} ...Dolan. Jeez. Sorry. {p} My mouth keeps doing that.');
       await g.say('tess', 'scared', 'Danny. Look at me.');
       await g.say('danny', 'entranced', "Can't. {p} Class is starting.");
     }
@@ -337,8 +343,11 @@ export default {
     const replay = g.seen('ch7_front_marcus');
     if (g.has('diary_page')) {
       // BOND (Marcus): he reads it.
-      if (!replay) await g.wait(0.8);
-      await g.say('marcus', 'entranced', "She's so cold, Tess. {p} Her hand's so cold.");
+      if (!replay) {
+        await g.wait(0.8);
+        await g.say('marcus', 'entranced', "She's so cold, Tess. {p} Her hand's so cold.");
+      }
+      await g.say('tess', 'sad', "It's hers. {p} Read it.");
       await g.narrate("I put the page in his free hand. Denise's handwriting, leaning hard to the right, like she was in a hurry.");
       g.sfx('paper_rustle', { vol: 0.5 });
       await g.wait(auto() ? 0 : 3.2);       // a long pause
@@ -486,8 +495,10 @@ export default {
   'ch7.trapdoor': async (g) => {
     if (!g.flag('trapdoor_open')) return;
     look(g, 'down');
-    if (!g.seen('ch7_trapdoor')) await g.narrate('Iron rungs, going down into the dark. Somewhere under the stage, the roll goes on.');
-    await g.think('scared', 'Once I go down, I stay down. {p} Until it\'s done.');
+    if (!g.seen('ch7_trapdoor')) {
+      await g.narrate('Iron rungs, going down into the dark. Somewhere under the stage, the roll goes on.');
+      await g.think('scared', 'Once I go down, I stay down. {p} Until it\'s done.');
+    }
     const c = await g.choice(['Go down.', 'Not yet.']);
     if (c !== 0) {
       await g.walk('tess', [37, 10]);

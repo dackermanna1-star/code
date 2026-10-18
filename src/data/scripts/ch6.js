@@ -24,10 +24,14 @@
 //   ch6.chute        (basement b_chute) the coal chute: refusals (DESIGN §9.2) or the TRUANT choice.
 //
 // Module hooks (installed once the game exists, so they also hold after a reload):
-//   mapLoad  gym: the four banks stay lit after ch6_gym_lights (group state isn't saved); the locker
-//            scene / the photo resume after a reload · east1: Marcus leads (ch6.lead); Kevin on the
-//            walk back · elsewhere while Marcus leads: he rejoins the caterpillar.
-//   gameOver/load  seen_ch6_* / seen_ch7_* flags survive a retry (the gym checkpoint is before the scene).
+//   mapLoad  gym: the four banks stay lit after ch6_gym_lights (group state isn't saved) · east1:
+//            Marcus leads (ch6.lead); Kevin on the walk back · gym while he leads: ch6.gym_arrive ·
+//            elsewhere while he leads: he rejoins the caterpillar.
+//   load     a reload in the lit gym resumes ch6.locker (slit view, tapping phase 0.4) or
+//            ch6.after_locker; seen_ch6_* / seen_ch7_* / seen_roll3 survive a retry (stashed on gameOver:
+//            the gym's checkpoints are before its scene sets seen_ — Pillar 6).
+// Exports used by other files (keep stable): look, tween, auto, fog, glassGhost, hold, later, hasTrack,
+// installCh6 (ch7.js; end.js imports auto / tween / look).
 // Replays: every scene calls g.seen() and jumps to its decision point when it was already seen.
 import HW from '../../engine/hw.js';
 
@@ -362,7 +366,7 @@ export default {
     hold(g, 'marcus');
     if (!m) m = g.spawn({ id: 'marcus', sprite: 'marcus', at: start, dir: 'right' });
     else g.setPos('marcus', start);
-    if (g.music && hasTrack('clarinet')) g.music('clarinet', 2);
+    g.music(hasTrack('clarinet') ? 'clarinet' : null, 2);    // (no drone while he leads: the tune, or nothing)
     for (const leg of [[16, 16], [27, 16], [38, 16], [48, 16], GYM_DOOR_WAIT]) {
       if (!g.alive || HW.map?.id !== 'east1' || !g.npc('marcus')) return;
       if (m.x >= leg[0] * TILE - 2) continue;
@@ -415,10 +419,17 @@ export default {
     const d = g.npc('denise') || g.spawn({ id: 'denise', sprite: 'denise', at: 'denise', dir: 'down', light: { ...DENISE_LIGHT } });
     if (d && !d.seat && HW.hiding) await HW.hiding.seatNpc(d, g.prop('gym_bleachers_denise'), { walk: false });
     g.anim('denise', 'sit_play');
-    look(g, 'up');
     if (!replay) {
-      await g.cam('denise', { time: 2.4 });
-      await g.wait(1.8);
+      // Her beam goes out across the dark court first: under the far hoop, a heap.
+      look(g, 'colonel_hoop');
+      await g.cam([31, 16], { time: 2.6 });
+      await g.wait(0.8);
+      await g.think('worried', 'Gym mats. {p} ...Just gym mats.');
+      await g.wait(0.4);
+      // The clarinet. Up on the bleachers.
+      look(g, 'up');
+      await g.cam('denise', { time: 2.2 });
+      await g.wait(1.6);
       await g.narrate('On the bleachers, a girl in a green-and-gold band uniform and a tall plumed hat. Playing.');
       await g.wait(0.4);
     }

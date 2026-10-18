@@ -377,7 +377,7 @@ async function playCh7(label, o) {
   const ink = (b) => (b ? 'in pencil' : 'in ink');
   t.ok(narrated(tr, new RegExp(`Danny's ${ink(o.bonds.danny)}, Leah's ${ink(o.bonds.leah)}, Marcus's in ink\\.`)), `${L}.start: the Polaroids — Danny ${ink(o.bonds.danny)}, Leah ${ink(o.bonds.leah)}, Marcus in ink`);
   const rr = Math.min(2, o.rollBefore7);
-  t.ok(narrated(tr, [/The frame is empty\./, /a pencil sketch/, /a Polaroid: a girl at a desk/][rr]), `${L}.start: Tess's frame by rollAnswered (${o.rollBefore7})`);
+  t.ok(narrated(tr, [/The frame is empty\./, /a pencil sketch\. A girl at a desk/, /a Polaroid\. A girl at a desk/][rr]), `${L}.start: Tess's frame by rollAnswered (${o.rollBefore7})`);
   t.ok(typeof r.memorial === 'string' && r.memorial.endsWith(String(rr)), `${L}.start: the board itself (memorial variant ${r.memorial})`);
   t.ok(tr.filter((x) => x.type === 'say' && x.who === 'voice' && /^Theresa( Marie Dolan)?\./.test(x.text)).length === 2, `${L}.start: Mom's voice (mimic) — "Theresa." · "Theresa Marie Dolan. You answer me when I call you."`);
   t.ok(said(tr, 'tess', /^\.\.\.She only does the middle name when it's bad\.$/) && said(tr, 'tess', /^She's on nights at Pottsville\. She doesn't know I'm here\. \{p\} Nice try\.$/), `${L}.start: "...She only does the middle name when it's bad." · "…Nice try."`);
@@ -397,7 +397,7 @@ async function playCh7(label, o) {
   if (o.bonds.leah) t.ok(said(tr, 'leah', /Then it's evidence\./), `${L}.front_leah: bonded — "Then it's evidence."`);
   else t.ok(said(tr, 'leah', /^Sit down, Theresa— \{p\} \.\.\.T\. Sorry\. It keeps doing that\.$/), `${L}.front_leah: unbonded name slip — "Sit down, Theresa— …T. Sorry. It keeps doing that."`);
   if (o.bonds.danny) t.ok(said(tr, 'danny', /^Dolan\. \{p\} You came back\.$/), `${L}.front_danny: bonded — "Dolan. You came back."`);
-  else t.ok(said(tr, 'danny', /^Sit down, Theresa— \{p\} \.\.\.Dolan\. Sorry\./), `${L}.front_danny: unbonded name slip`);
+  else t.ok(said(tr, 'danny', /^Take your seat, Theresa— \{p\} \.\.\.Dolan\. Jeez\. Sorry\./), `${L}.front_danny: unbonded name slip — "Take your seat, Theresa— …Dolan. Jeez. Sorry."`);
   t.ok(said(tr, 'marcus', /^She's so cold, Tess\. \{p\} Her hand's so cold\.$/), `${L}.front_marcus: "She's so cold, Tess. Her hand's so cold."`);
   if (!o.pageFirst) {
     if (o.nopage === 0) t.ok(said(tr, 'marcus', /^You don't know that\.$/) && said(tr, 'marcus', /^You're leaving too\. \{p\} Everybody says it like it's nothing\.$/), `${L}.front_marcus: no page — [She's gone, Marcus.] → "You don't know that." · "You're leaving too…"`);
@@ -533,7 +533,7 @@ if (!SHOTS_ONLY && (!ONLY || ONLY === 'D')) {
     H.choiceQueue = [0];
     HW.input.tap('confirm');
     await HW.game.until(() => HW.game.mode === 'ending', 30);
-    return { mode: HW.game.mode, ending: HW.state.flags.ending, truant: !!HW.state.flags.truant, chute: H.prop('b_chute')?.state,
+    return { mode: HW.game.mode, ending: HW.state.flags.ending, truant: !!HW.state.flags.truant, chute: HW.state.mapState?.basement?.b_chute?.state,
       tr: H.transcript.map((x) => ({ type: x.type, who: x.who, text: x.text })), resolved: HW.endings?.resolveEnding?.(HW.state) };
   });
   t.ok(d.mode === 'ending' && d.ending === 'truant' && d.truant, 'D ch6.chute: [Climb out.] → g.ending(\'truant\')', d);
@@ -682,6 +682,7 @@ async function ui(g) {
       choice: d.choiceState ? { ready: !!d.choiceState.ready, list: d.choiceState.list.map((o) => o.text) } : null,
       screens: HW.ui.screens.filter((s) => !s.closing).map((s) => s.name), chapter: HW.state.chapter, map: HW.map?.id,
       overlays: [...HW.ui.overlays.items.keys()], lights: !!HW.state.flags.ch6_gym_lights, phase: HW.assembly?.phase,
+      seenLeah: !!HW.state.flags.seen_ch7_front_leah, bondMarcus: !!HW.state.flags.bond_marcus,
     };
   });
 }
@@ -725,6 +726,8 @@ if (!NO_SHOTS && !ONLY) {
   const play = () => g.hw((H) => { H.autoAdvance(false); H.timeScale(1); });
   const shot = async (name) => { await g.shot(name); shots.push(name); };
 
+  const SH7 = process.argv.includes('--shots7');     // (iterate on Chapter VII's frames only)
+  if (!SH7) {
   // VI — the intercom after the safe.
   await S({ stage: 'ch6', bonds: { danny: true, leah: true }, flags: { safe_seen_past: true }, auto: false, timeScale: 1 });
   await play();
@@ -769,6 +772,7 @@ if (!NO_SHOTS && !ONLY) {
   await drive(g, { label: 'showers', until: (st) => !st.blocking && st.mode === 'play', maxSec: 150, rules: [
     { when: (st) => st.text && /NOT GONE|IN INK/.test(st.text) && st.done, shot: 'n4_07_ch6_showers' },
   ] });
+  }
   // VII — the lobby: the memorial and Mom's voice.
   await S({ stage: 'ch7', bonds: { danny: true, leah: false }, roll1: true, auto: false, timeScale: 1 });
   await play();
@@ -787,14 +791,15 @@ if (!NO_SHOTS && !ONLY) {
     { when: (st) => st.text && st.text.startsWith('{dim}"Hallowell') && st.done, shot: 'n4_09_ch7_assembly' },
   ] });
   await g.walkTo('beside_leah'); await g.face('down'); await sleep(200); await key('z');
-  await drive(g, { label: 'roll3', until: (st) => !st.blocking && st.mode === 'play' && !st.text, choices: [0], maxSec: 120, rules: [
+  await drive(g, { label: 'roll3', until: (st) => st.seenLeah && !st.blocking && st.mode === 'play' && !st.text, choices: [0], maxSec: 150, rules: [
     { when: (st) => st.text === 'Theresa Dolan?' && st.done, shot: 'n4_10_ch7_roll3' },
     { when: (st) => st.text && st.text.startsWith('Sit down, Theresa') && st.done, shot: 'n4_11_ch7_leah' },
   ] });
   await g.hw((H) => { H.give('diary_page'); H.setFlag('diary_page', true); });
   await g.press('up', 250);
-  await g.walkTo('beside_marcus'); await g.face('down'); await sleep(200); await key('z');
-  await drive(g, { label: 'marcus', until: (st) => !st.blocking && st.mode === 'play' && !st.text, maxSec: 120, rules: [
+  await g.hw((H) => H.idle());
+  await g.walkTo('beside_marcus'); await g.face('down'); await sleep(300); await key('z');
+  await drive(g, { label: 'marcus', until: (st) => st.bondMarcus && !st.blocking && st.mode === 'play' && !st.text, maxSec: 150, rules: [
     { when: (st) => st.text && st.text.startsWith('Okay. {p} Okay, Aunt Denise') && st.done, shot: 'n4_12_ch7_marcus' },
   ] });
   await errs('screenshot pass');
