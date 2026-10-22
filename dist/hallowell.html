@@ -3949,6 +3949,8 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
       if (token !== this._titleToken || this.mode !== "title") return;
       if (r && r.action === "load" && r.slot !== void 0 && r.slot !== null) {
         if (!this.loadSave(r.slot)) this.toTitle();
+      } else if (r && r.action === "ending") {
+        this.endingGallery(r.variant);
       } else {
         this.newGame();
       }
@@ -4193,7 +4195,51 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
       this.save("auto");
     },
     /** Ending sequence: 'end.<id>' script, then credits, then the title. */
+    /**
+     * Endings gallery (title → Endings): a fresh state shaped like the end of a run that reaches `variant`,
+     * on the map the epilogue starts from, then the ending itself (credits → title as usual). Never saves.
+     */
+    async endingGallery(variant) {
+      hw_default.scripts.abortAll();
+      this._titleToken++;
+      call(hw_default.ui, "close", "ui.close", "title");
+      call(hw_default.ui, "reset", "ui.reset");
+      hw_default.state = createState();
+      call(hw_default.flashlight, "reset", "flashlight.reset");
+      call(hw_default.compact, "close", "compact.close", true);
+      hw_default.entities.reset();
+      hw_default.map = null;
+      this.transferring = false;
+      this.setMode("play");
+      const s = hw_default.state;
+      const [kind, arg] = String(variant).split("_");
+      const saved2 = {
+        dismissed: ["danny", "leah", "marcus"],
+        present: ["danny", "leah", "marcus"],
+        withdrawn: { 3: ["danny", "leah", "marcus"], 1: ["leah"] }[arg] || []
+      }[kind] || [];
+      s.chapter = kind === "truant" ? 6 : 8;
+      s.rollAnswered = kind === "present" ? 2 : 0;
+      Object.assign(s.flags, { gallery: true, ch8_last_roll: true, dawn: kind !== "truant" });
+      if (kind !== "truant") s.flags.register_done = true;
+      for (const id of saved2) {
+        s.flags[`withdrawn_${id}`] = true;
+        s.flags[`bond_${id}`] = true;
+      }
+      if (kind === "dismissed" && arg !== "form") s.flags.form_used = true;
+      for (const it of ["danny_flashlight", "camcorder", "denise_photo", "bolt_cutters"]) s.inv[it] = 1;
+      if (kind === "dismissed" && arg === "form") s.inv.transfer_form = 1;
+      s.party = kind === "dismissed" || kind === "withdrawn" ? saved2.slice() : [];
+      const start = kind === "dismissed" || kind === "withdrawn" ? ["exterior", "dawn_steps"] : kind === "present" ? ["lobby", "from_exterior"] : ["basement", "coal_chute"];
+      this.loadMap(...start);
+      this._settle();
+      await this.ending(kind);
+    },
     async ending(id) {
+      try {
+        globalThis.localStorage?.setItem("hallowell.endingSeen", "1");
+      } catch {
+      }
       hw_default.state.flags.ending = id;
       this.setMode("ending");
       this.emit("ending", id);
@@ -50011,6 +50057,23 @@ ${e.error.stack}` : ""}`);
   }
 
   // src/ui/screens/title.js
+  var ENDING_GALLERY = [
+    { id: "e_dismissed", label: "Dismissed", variant: "dismissed" },
+    { id: "e_dismissed_m", label: "Dismissed \u2014 form kept", variant: "dismissed_form" },
+    { id: "e_withdrawn3", label: "Withdrawn \u2014 all three", variant: "withdrawn_3" },
+    { id: "e_withdrawn1", label: "Withdrawn \u2014 Leah only", variant: "withdrawn_1" },
+    { id: "e_withdrawn0", label: "Withdrawn \u2014 alone", variant: "withdrawn_0" },
+    { id: "e_present", label: "Present", variant: "present" },
+    { id: "e_truant", label: "Truant", variant: "truant" }
+  ];
+  function galleryOpen() {
+    if (false) return true;
+    try {
+      return !!globalThis.localStorage?.getItem("hallowell.endingSeen");
+    } catch {
+      return false;
+    }
+  }
   var TitleScreen = class extends Screen {
     constructor(ui2, args) {
       super(ui2, args);
@@ -50037,8 +50100,10 @@ ${e.error.stack}` : ""}`);
         latest ? { id: "continue", label: "Continue", slot: latest } : null,
         { id: "load", label: "Load", disabled: !anySave() },
         { id: "settings", label: "Settings" },
-        { id: "credits", label: "Credits" }
+        { id: "credits", label: "Credits" },
+        galleryOpen() ? { id: "endings", label: "Endings" } : null
       ].filter(Boolean);
+      this.sub = null;
       if (latest && this.sel === 0) this.sel = 1;
     }
     async _activate(it) {
@@ -50077,7 +50142,15 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         this.busy = true;
         await this.open("credits");
         this.busy = false;
-      }
+      } else if (it.id === "endings") {
+        this.sub = this.items;
+        this.items = [...ENDING_GALLERY, { id: "back", label: "Back" }];
+        this.sel = 0;
+        this.menuT = 0;
+      } else if (it.id === "back") {
+        this._buildItems();
+        this.sel = this.items.findIndex((x) => x.id === "endings");
+      } else if (it.variant) this.close({ action: "ending", variant: it.variant });
     }
     update(dt, input2) {
       if (this.phase === "menu") this.menuT += dt;
@@ -50108,7 +50181,10 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         sfx("ui_move");
       }
       if (input2.pressed("confirm")) this._activate(this.items[this.sel]);
-      else if (input2.pressed("cancel")) {
+      else if (input2.pressed("cancel") && this.sub) {
+        sfx("ui_cancel");
+        this._activate({ id: "back" });
+      } else if (input2.pressed("cancel")) {
         this.phase = "press";
         sfx("ui_cancel");
       }
@@ -50161,12 +50237,12 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         fs.draw(ctx2, spaced("Press any key"), W11 / 2, 404, "#cfc6ab", { align: "center" });
         ctx2.globalAlpha = a0;
       } else {
-        const top = 330;
+        const step = this.sub ? 25 : 34, top = this.sub ? 466 - (this.items.length - 1) * step : 330;
         this.items.forEach((it, i) => {
           const k = ease3.out(clamp5((this.menuT - i * 0.05) / 0.3));
           if (k <= 0) return;
           ctx2.globalAlpha = a0 * k;
-          const y = top + i * 34;
+          const y = top + i * step;
           const sel = i === this.sel;
           const label = spaced(it.label);
           const col = it.disabled ? "#4d4b50" : sel ? "#f0e6cc" : "#8a8478";

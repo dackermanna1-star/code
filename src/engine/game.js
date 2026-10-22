@@ -628,6 +628,8 @@ export const game = {
     if (token !== this._titleToken || this.mode !== 'title') return; // superseded (load / debug newGame)
     if (r && r.action === 'load' && r.slot !== undefined && r.slot !== null) {
       if (!this.loadSave(r.slot)) this.toTitle(); // the title shows this.loadError
+    } else if (r && r.action === 'ending') {
+      this.endingGallery(r.variant);
     } else {
       this.newGame();
     }
@@ -887,7 +889,43 @@ export const game = {
   },
 
   /** Ending sequence: 'end.<id>' script, then credits, then the title. */
+  /**
+   * Endings gallery (title → Endings): a fresh state shaped like the end of a run that reaches `variant`,
+   * on the map the epilogue starts from, then the ending itself (credits → title as usual). Never saves.
+   */
+  async endingGallery(variant) {
+    HW.scripts.abortAll();
+    this._titleToken++;
+    call(HW.ui, 'close', 'ui.close', 'title');
+    call(HW.ui, 'reset', 'ui.reset');
+    HW.state = createState();
+    call(HW.flashlight, 'reset', 'flashlight.reset');
+    call(HW.compact, 'close', 'compact.close', true);
+    HW.entities.reset();
+    HW.map = null;
+    this.transferring = false;
+    this.setMode('play');
+    const s = HW.state;
+    const [kind, arg] = String(variant).split('_');
+    const saved = { dismissed: ['danny', 'leah', 'marcus'], present: ['danny', 'leah', 'marcus'],
+      withdrawn: { 3: ['danny', 'leah', 'marcus'], 1: ['leah'] }[arg] || [] }[kind] || [];
+    s.chapter = kind === 'truant' ? 6 : 8;
+    s.rollAnswered = kind === 'present' ? 2 : 0;
+    Object.assign(s.flags, { gallery: true, ch8_last_roll: true, dawn: kind !== 'truant' });
+    if (kind !== 'truant') s.flags.register_done = true;
+    for (const id of saved) { s.flags[`withdrawn_${id}`] = true; s.flags[`bond_${id}`] = true; }
+    if (kind === 'dismissed' && arg !== 'form') s.flags.form_used = true;
+    for (const it of ['danny_flashlight', 'camcorder', 'denise_photo', 'bolt_cutters']) s.inv[it] = 1;
+    if (kind === 'dismissed' && arg === 'form') s.inv.transfer_form = 1;
+    s.party = kind === 'dismissed' || kind === 'withdrawn' ? saved.slice() : [];
+    const start = kind === 'dismissed' || kind === 'withdrawn' ? ['exterior', 'dawn_steps'] : kind === 'present' ? ['lobby', 'from_exterior'] : ['basement', 'coal_chute'];
+    this.loadMap(...start);
+    this._settle();
+    await this.ending(kind);
+  },
+
   async ending(id) {
+    try { globalThis.localStorage?.setItem('hallowell.endingSeen', '1'); } catch { /* storage blocked: the gallery stays hidden */ }
     HW.state.flags.ending = id;
     this.setMode('ending');
     this.emit('ending', id);

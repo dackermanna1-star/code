@@ -14,6 +14,22 @@ import { logo } from '../logo.js';
 import { spaced } from '../widgets.js';
 import * as svc from '../services.js';
 
+/** Endings gallery: each variant replays one ending's epilogue from a prepared state (engine/game.js endingGallery). */
+export const ENDING_GALLERY = [
+  { id: 'e_dismissed', label: 'Dismissed', variant: 'dismissed' },
+  { id: 'e_dismissed_m', label: 'Dismissed — form kept', variant: 'dismissed_form' },
+  { id: 'e_withdrawn3', label: 'Withdrawn — all three', variant: 'withdrawn_3' },
+  { id: 'e_withdrawn1', label: 'Withdrawn — Leah only', variant: 'withdrawn_1' },
+  { id: 'e_withdrawn0', label: 'Withdrawn — alone', variant: 'withdrawn_0' },
+  { id: 'e_present', label: 'Present', variant: 'present' },
+  { id: 'e_truant', label: 'Truant', variant: 'truant' },
+];
+/** The gallery is on in the endings build, and in the game once any ending has been seen. */
+function galleryOpen() {
+  if (globalThis.__HW_GALLERY__ === true) return true;
+  try { return !!globalThis.localStorage?.getItem('hallowell.endingSeen'); } catch { return false; }
+}
+
 export class TitleScreen extends Screen {
   constructor(ui, args) {
     super(ui, args);
@@ -38,7 +54,9 @@ export class TitleScreen extends Screen {
       { id: 'load', label: 'Load', disabled: !svc.anySave() },
       { id: 'settings', label: 'Settings' },
       { id: 'credits', label: 'Credits' },
+      galleryOpen() ? { id: 'endings', label: 'Endings' } : null,
     ].filter(Boolean);
+    this.sub = null;
     if (latest && this.sel === 0) this.sel = 1;
   }
 
@@ -66,6 +84,9 @@ export class TitleScreen extends Screen {
       if (slot) this.close({ action: 'load', slot });
     } else if (it.id === 'settings') { this.busy = true; await this.open('settings'); this.busy = false; }
     else if (it.id === 'credits') { this.busy = true; await this.open('credits'); this.busy = false; }
+    else if (it.id === 'endings') { this.sub = this.items; this.items = [...ENDING_GALLERY, { id: 'back', label: 'Back' }]; this.sel = 0; this.menuT = 0; }
+    else if (it.id === 'back') { this._buildItems(); this.sel = this.items.findIndex((x) => x.id === 'endings'); }
+    else if (it.variant) this.close({ action: 'ending', variant: it.variant });
   }
 
   update(dt, input) {
@@ -85,6 +106,7 @@ export class TitleScreen extends Screen {
     if (input.repeat('up')) { this.sel = (this.sel + n - 1) % n; svc.sfx('ui_move'); }
     if (input.repeat('down')) { this.sel = (this.sel + 1) % n; svc.sfx('ui_move'); }
     if (input.pressed('confirm')) this._activate(this.items[this.sel]);
+    else if (input.pressed('cancel') && this.sub) { svc.sfx('ui_cancel'); this._activate({ id: 'back' }); }
     else if (input.pressed('cancel')) { this.phase = 'press'; svc.sfx('ui_cancel'); }
   }
 
@@ -131,12 +153,13 @@ export class TitleScreen extends Screen {
       fs.draw(ctx, spaced('Press any key'), W / 2, 404, '#cfc6ab', { align: 'center' });
       ctx.globalAlpha = a0;
     } else {
-      const top = 330;
+      // the endings list is longer: tighter rows, ending above the footer
+      const step = this.sub ? 25 : 34, top = this.sub ? 466 - (this.items.length - 1) * step : 330;
       this.items.forEach((it, i) => {
         const k = ease.out(clamp((this.menuT - i * 0.05) / 0.3));
         if (k <= 0) return;
         ctx.globalAlpha = a0 * k;
-        const y = top + i * 34;
+        const y = top + i * step;
         const sel = i === this.sel;
         const label = spaced(it.label);
         const col = it.disabled ? '#4d4b50' : sel ? '#f0e6cc' : '#8a8478';

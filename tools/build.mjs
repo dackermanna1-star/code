@@ -6,10 +6,11 @@ import path from 'node:path';
 import { ROOT, fontsCss } from './serve.mjs';
 
 const minify = process.argv.includes('--minify');
+const gallery = process.argv.includes('--gallery');   // endings build: title → Endings is always open
 const result = await esbuild.build({
   entryPoints: [path.join(ROOT, 'src/main.js')], bundle: true, format: 'iife', write: false,
   target: 'es2020', minify, legalComments: 'none', logLevel: 'warning',
-  define: { 'globalThis.__HW_BUILD__': 'true' },
+  define: { 'globalThis.__HW_BUILD__': 'true', 'globalThis.__HW_GALLERY__': gallery ? 'true' : 'false' },
 });
 const js = result.outputFiles[0].text.replace(/<\/script/gi, '<\\/script');
 const html = `<!doctype html>
@@ -25,6 +26,6 @@ canvas#screen{display:block;width:100vw;height:100vh;image-rendering:pixelated;o
 <script>${js}</script>
 </body></html>`;
 fs.mkdirSync(path.join(ROOT, 'dist'), { recursive: true });
-const out = path.join(ROOT, 'dist/hallowell.html');
+const out = path.join(ROOT, gallery ? 'dist/hallowell-endings.html' : 'dist/hallowell.html');
 fs.writeFileSync(out, html);
 console.log(`built ${path.relative(ROOT, out)} (${(html.length / 1024).toFixed(0)} KB)`);
