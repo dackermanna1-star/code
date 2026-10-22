@@ -74,12 +74,17 @@ export class HUD {
     const side = (cls, f) => {
       const s = el('div', `side ${cls}`);
       const nm = el('div', 'nm');
-      nm.append(el('span', '', FACTION_INFO[f].name), el('span', 'tk', ''));
+      const name = el('span');
+      name.append(el('span', 'full', FACTION_INFO[f].name), el('span', 'short', FACTION_INFO[f].short));
+      const tk = el('span', 'tk');
+      const num = el('b');
+      tk.append(num, el('span', 'word', ' tickets'));
+      nm.append(name, tk);
       const bar = el('div', 'bar');
       const fill = el('i');
       bar.append(fill);
       s.append(nm, bar);
-      return { s, tk: nm.lastChild, fill };
+      return { s, num, word: tk.lastChild, fill };
     };
     this.sides = [side('left', 0), side('right', 1)];
     this.clock = el('div', 'clock');
@@ -452,7 +457,8 @@ export class HUD {
     for (let f = 0; f < 2; f++) {
       const fac = w.factions[f];
       const s = this.sides[f];
-      s.tk.textContent = w.endless ? `${fac.units.length} units` : `${Math.round(fac.tickets)} tickets`;
+      s.num.textContent = String(w.endless ? fac.units.length : Math.round(fac.tickets));
+      s.word.textContent = w.endless ? ' units' : ' tickets';
       s.fill.style.width = `${w.endless ? 100 : (fac.tickets / fac.startTickets) * 100}%`;
     }
     this.clock.innerHTML = '';

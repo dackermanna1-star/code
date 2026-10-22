@@ -60,7 +60,8 @@ export class AudioBridge {
             if (d2 < 600 * 600) a.play('impact_metal', e, { volume: e.kind === 'penetration' ? 1.3 : 1 });
           } else if (e.kind === 'ricochet') {
             if (d2 < 150 * 150) a.play('ricochet', e);
-          } else if (d2 < 45 * 45 && this.impactBudget-- > 0) {
+          } else if (d2 < 45 * 45 && this.impactBudget > 0) {
+            this.impactBudget -= 1;
             const map = { dirt: 'impact_dirt', concrete: 'impact_concrete', wood: 'impact_wood', foliage: 'impact_dirt', water: 'impact_dirt' };
             if (map[e.kind]) a.play(map[e.kind], e, { volume: 0.7 });
           }

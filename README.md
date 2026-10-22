@@ -10,7 +10,7 @@ Built with [three.js](https://threejs.org) (WebGL 2) and the Web Audio API. All 
 npm install
 npm run dev          # http://localhost:5173
 npm run build        # production build in dist/
-npm run build:single # also writes dist/battlespace.html, a single self-contained file
+npm run build:single # also writes dist/battlespace.html (one self-contained file) and dist/site/ (page + script for hosts that supply the document skeleton)
 ```
 
 Tests and tooling:
@@ -19,6 +19,8 @@ Tests and tooling:
 npm test             # headless simulation tests (Node, no browser)
 npm run bench        # simulation throughput: node scripts/bench-sim.mjs [scenario] [size] [seconds]
 npm run smoke        # headless Chromium smoke test with screenshots in screenshots/
+                     # node scripts/smoke.mjs [scenario] [quality] [fastForwardSeconds] [time] [weather]
+node scripts/diag-battle.mjs town 600 900   # battle flow report: squad states, captures, kills by weapon
 ```
 
 ## What's in a battle
@@ -31,6 +33,8 @@ npm run smoke        # headless Chromium smoke test with screenshots in screensh
 | Airbase Strike | Assault on a Federation forward airbase: HESCO perimeter, guard towers, hangars, command post, fuel depot, runway, plus a village on the approach. |
 | Hill 305 | Meeting engagement over a forested ridge, a summit strongpoint and the village beneath it. |
 | Crossroads | Meeting engagement across open farmland: crossroads village, mill farm and grain silos. |
+
+In the two assault scenarios the attacker fields about 1.6 times the defender's strength and a deeper reinforcement pool; meeting engagements are symmetric. Holding more objectives drains the other side's tickets; a side that runs out of tickets gets no more reinforcements and is beaten once its army is shattered or its last stand fails.
 
 **Forces** (Coalition vs. Federation, western- and eastern-style equipment with fictional designations): riflemen, squad leaders, grenadiers, machine gunners, AT riflemen, ATGM teams, snipers, MANPADS teams, FPV drone operators; main battle tanks, IFVs and APCs carrying mechanized infantry, scout cars, SPAAGs, self-propelled howitzers, MLRS; attack and transport helicopters, strike jets, transport planes, recon UAVs and FPV kamikaze drones.
 
@@ -58,13 +62,13 @@ npm run smoke        # headless Chromium smoke test with screenshots in screensh
 | Right-drag (or drag) | Look around |
 | Mouse wheel | Camera speed (free) / zoom (orbit, chase, map) |
 | Left click | Select a unit |
-| F / V / O | Chase / first person (soldier's eyes, gunner's sight, cockpit, FPV drone feed) / orbit the selection |
+| F / V / O | Chase / first person (soldier's eyes, vehicle gunner's sight with reticle, cockpit, FPV drone feed) / orbit the selection |
 | 1 – 6 | Free · Orbit · Chase · Eyes · Cinematic director · Battle map |
 | ] / [ | Next / previous unit |
 | R | Jump to the heaviest fighting |
 | T | Follow a random aircraft |
 | Space, − / + | Pause, time scale (0.25× to 4×) |
-| M, Tab, P, H | Objective markers, hide interface, performance stats, help |
+| M, Tab, P, H | Markers (objectives, and unit markers on the battle map or high above the field), hide interface, performance stats, help |
 
 ## Architecture
 
@@ -83,4 +87,4 @@ src/
 
 The simulation has no rendering or DOM dependency (it runs under Node for tests and benchmarks). It produces an event stream (shots, impacts, explosions, kills, radio) that the effects, audio and HUD consume.
 
-Performance techniques: counting-sort spatial grids rebuilt every tick, staggered AI thinking, a per-tick line-of-sight budget with caching, time-budgeted path queue, closed-form GPU particles (the CPU only writes particles at birth), shader-animated instanced soldiers (a whole army in a few draw calls), chunked terrain LOD, instanced everything, and dynamic resolution scaling.
+Performance techniques: counting-sort spatial grids rebuilt every tick, staggered AI thinking that slows down gracefully as armies grow, near-first enemy scanning, a per-tick line-of-sight budget with caching, time-budgeted path queue, a fixed 30 Hz simulation step when a step gets expensive, closed-form GPU particles (the CPU only writes particles at birth), shader-animated instanced soldiers (a whole army in a few draw calls), chunked terrain LOD, instanced everything, and dynamic resolution scaling.
