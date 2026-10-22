@@ -1,20 +1,16 @@
 {
   "model": {
-    "type": "minecraft:select",
-    "property": "minecraft:component",
+    "type": "minecraft:condition",
+    "property": "minecraft:has_component",
     "component": "ordnance:magazine",
-    "cases": [
-      {
-        "when": [],
-        "model": {
-          "type": "minecraft:model",
-          "model": "ordnance:item/rpg7"
-        }
-      }
-    ],
-    "fallback": {
+    "ignore_default": true,
+    "on_true": {
       "type": "minecraft:model",
       "model": "ordnance:item/rpg7_loaded"
+    },
+    "on_false": {
+      "type": "minecraft:model",
+      "model": "ordnance:item/rpg7"
     }
   }
 }

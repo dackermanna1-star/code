@@ -1,0 +1,23 @@
+{
+	"schemaVersion": 1,
+	"id": "ordnance-test",
+	"version": "1.0.0",
+	"name": "Ordnance Tests",
+	"description": "Gameplay tests for Ordnance. Not shipped.",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-gametest": [
+			"com.ordnance.test.OrdnanceGameTests"
+		],
+		"fabric-client-gametest": [
+			"com.ordnance.test.OrdnanceClientGameTest"
+		]
+	},
+	"mixins": [
+		"ordnance-test.mixins.json"
+	],
+	"depends": {
+		"ordnance": "*",
+		"fabric-api": "*"
+	}
+}

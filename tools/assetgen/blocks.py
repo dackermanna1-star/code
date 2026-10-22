@@ -122,13 +122,15 @@ def item_definitions():
 
     for name in ITEMS_3D:
         write_json(f"items/{name}.json", {"model": model(f"ordnance:item/{name}")})
-    # The RPG shows the warhead in the tube only while loaded.
+    # The RPG shows the warhead in the tube only while loaded. Its magazine defaults to empty, so "changed from the
+    # default" means "loaded".
     write_json("items/rpg7.json", {"model": {
-        "type": "minecraft:select",
-        "property": "minecraft:component",
+        "type": "minecraft:condition",
+        "property": "minecraft:has_component",
         "component": "ordnance:magazine",
-        "cases": [{"when": [], "model": model("ordnance:item/rpg7")}],
-        "fallback": model("ordnance:item/rpg7_loaded"),
+        "ignore_default": True,
+        "on_true": model("ordnance:item/rpg7_loaded"),
+        "on_false": model("ordnance:item/rpg7"),
     }})
     for block in ("scorched_earth", "ash_layer", "charred_log"):
         write_json(f"items/{block}.json", {"model": model(f"ordnance:block/{block}")})

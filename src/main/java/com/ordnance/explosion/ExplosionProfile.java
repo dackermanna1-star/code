@@ -9,7 +9,7 @@ import java.util.function.Consumer;
  * visual/sound treatment; the server reads the tunable {@link OrdnanceConfig.Warhead} for gameplay values.
  *
  * <p>To add a munition, add a constant here (its warhead appears in the config automatically) and point an
- * {@link com.ordnance.weapon.AmmoType} or projectile at it.
+ * {@link com.ordnance.weapon.AmmoItem} or projectile at it.
  */
 public enum ExplosionProfile {
 	FRAG_GRENADE("frag_grenade", FxStyle.FRAG, w -> {

@@ -6,7 +6,6 @@
 	"description": "Realistic explosions, dynamic fire and a modern arsenal: hand grenades, RPG-7, flamethrower, grenade launcher and hypersonic missile strikes.",
 	"authors": ["Ordnance contributors"],
 	"contact": {},
-	"license": "MIT",
 	"icon": "assets/ordnance/icon.png",
 	"environment": "*",
 	"entrypoints": {
