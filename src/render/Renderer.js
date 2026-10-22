@@ -188,6 +188,94 @@ class SelectionRing {
   }
 }
 
+// Faction-coloured unit markers for high views (battle map, free camera far
+// above the ground), where soldiers would be smaller than a pixel. Drawn on
+// top of everything; size encodes the category.
+class UnitMarkers {
+  constructor(scene, max = 8000) {
+    this.max = max;
+    const g = new THREE.BufferGeometry();
+    this.pos = new Float32Array(max * 3);
+    this.col = new Float32Array(max * 3);
+    this.size = new Float32Array(max);
+    this.aPos = new THREE.BufferAttribute(this.pos, 3).setUsage(THREE.DynamicDrawUsage);
+    this.aCol = new THREE.BufferAttribute(this.col, 3).setUsage(THREE.DynamicDrawUsage);
+    this.aSize = new THREE.BufferAttribute(this.size, 1).setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('position', this.aPos);
+    g.setAttribute('aCol', this.aCol);
+    g.setAttribute('aSize', this.aSize);
+    g.setDrawRange(0, 0);
+    this.geo = g;
+    this.mat = new THREE.ShaderMaterial({
+      uniforms: { uAlpha: { value: 0 }, uScale: { value: 1 } },
+      vertexShader: `
+        attribute vec3 aCol;
+        attribute float aSize;
+        uniform float uScale;
+        varying vec3 vCol;
+        void main() {
+          vCol = aCol;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = aSize * uScale;
+        }`,
+      fragmentShader: `
+        uniform float uAlpha;
+        varying vec3 vCol;
+        void main() {
+          float r = length(gl_PointCoord - 0.5);
+          if (r > 0.5) discard;
+          vec3 c = mix(vec3(0.03), vCol, smoothstep(0.46, 0.32, r));
+          gl_FragColor = vec4(c, uAlpha * smoothstep(0.5, 0.42, r));
+        }`,
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+    });
+    this.points = new THREE.Points(g, this.mat);
+    this.points.frustumCulled = false;
+    this.points.renderOrder = 30;
+    this.points.visible = false;
+    scene.add(this.points);
+    this.colors = [new THREE.Color(FACTION_INFO[0].color), new THREE.Color(FACTION_INFO[1].color)];
+    this.alpha = 0;
+  }
+
+  // mode: 'on' (battle map), 'auto' (fade in with altitude) or 'off'.
+  update(world, camera, mode, pixelRatio, dt) {
+    const h = camera.position.y - world.terrain.heightAt(camera.position.x, camera.position.z);
+    const want = mode === 'on' ? 1 : mode === 'auto' ? Math.min(1, Math.max(0, (h - 220) / 200)) : 0;
+    this.alpha += (want - this.alpha) * Math.min(1, dt * 6);
+    this.points.visible = this.alpha > 0.02;
+    if (!this.points.visible) return;
+    this.mat.uniforms.uAlpha.value = this.alpha * 0.95;
+    this.mat.uniforms.uScale.value = pixelRatio * (h > 1500 ? 0.8 : 1);
+    let n = 0;
+    const units = world.units;
+    for (let i = 0; i < units.length && n < this.max; i++) {
+      const u = units[i];
+      if (!u.alive || u.hidden || u.dying) continue;
+      const c = this.colors[u.faction];
+      const k = n * 3;
+      this.pos[k] = u.pos.x;
+      this.pos[k + 1] = u.pos.y + 2;
+      this.pos[k + 2] = u.pos.z;
+      const lift = u.cat === 'inf' ? 0 : 0.25;
+      this.col[k] = c.r + (1 - c.r) * lift;
+      this.col[k + 1] = c.g + (1 - c.g) * lift;
+      this.col[k + 2] = c.b + (1 - c.b) * lift;
+      this.size[n] = u.cat === 'inf' ? 4 : u.cat === 'veh' ? 8 : u.aclass === 'drone' ? 3 : 7;
+      n++;
+    }
+    this.geo.setDrawRange(0, n);
+    for (const a of [this.aPos, this.aCol, this.aSize]) {
+      a.clearUpdateRanges();
+      a.addUpdateRange(0, n * a.itemSize);
+      a.needsUpdate = true;
+    }
+  }
+}
+
 export class GameRenderer {
   constructor(canvas, qualityName = 'high') {
     this.canvas = canvas;
@@ -262,6 +350,8 @@ export class GameRenderer {
     this.effects = new Effects(this.scene, world.terrain, this.atlas, q);
     this.markers = new ObjectiveMarkers(this.scene, world);
     this.selection = new SelectionRing(this.scene);
+    this.unitMarkers = new UnitMarkers(this.scene);
+    this.markerMode = 'auto';
   }
 
   // Consume simulation events (call once per frame before render()).
@@ -292,6 +382,7 @@ export class GameRenderer {
     this.effects.update(simDt, w, cam, this.sky);
     this.markers.update(this.time);
     this.selection.update(selected, w.terrain, this.time);
+    this.unitMarkers.update(w, cam, this.markerMode, this.renderer.getPixelRatio(), dt);
     // Final pass parameters.
     const F = this.final.uniforms;
     F.uTime.value = this.time;

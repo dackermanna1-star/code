@@ -1,6 +1,7 @@
 // Headless browser smoke test: builds nothing, serves the repo with Vite,
 // deploys a battle, cycles camera modes and saves screenshots. Fails on any
-// page error. Usage: node scripts/smoke.mjs [scenario] [quality]
+// page error.
+// Usage: node scripts/smoke.mjs [scenario] [quality] [fastForwardSeconds] [time] [weather]
 
 import { createRequire } from 'module';
 import { createServer } from 'vite';
@@ -16,6 +17,10 @@ try {
 
 const scenario = process.argv[2] || 'town';
 const quality = process.argv[3] || 'medium';
+const ff = Number(process.argv[4] || 0);
+const time = process.argv[5] || 'morning';
+const weather = process.argv[6] || 'clear';
+const tag = `${scenario}${ff ? `-ff${ff}` : ''}${time !== 'morning' ? `-${time}` : ''}${weather !== 'clear' ? `-${weather}` : ''}`;
 const out = new URL('../screenshots/', import.meta.url).pathname;
 mkdirSync(out, { recursive: true });
 
@@ -43,29 +48,38 @@ try {
   await page.goto(url, { waitUntil: 'load' });
   await page.screenshot({ path: `${out}menu.png` });
   await page.evaluate(
-    ([s, q]) => {
-      localStorage.setItem('battlespace.settings.v1', JSON.stringify({ scenario: s, size: 250, quality: q, audio: false, time: 'morning', weather: 'clear' }));
+    ([s, q, t, wx]) => {
+      localStorage.setItem('battlespace.settings.v1', JSON.stringify({ scenario: s, size: 250, quality: q, audio: false, time: t, weather: wx }));
     },
-    [scenario, quality],
+    [scenario, quality, time, weather],
   );
   await page.reload({ waitUntil: 'load' });
   await page.click('#deploy');
   await page.waitForFunction(() => window.__battlespace && window.__battlespace.world && document.getElementById('loading').hidden, null, { timeout: 180000 });
   const shoot = async (name, ms = 4000) => {
     await page.waitForTimeout(ms);
-    await page.screenshot({ path: `${out}${scenario}-${name}.png` });
+    await page.screenshot({ path: `${out}${tag}-${name}.png` });
   };
-  await shoot('start', 6000);
+  if (ff > 0) {
+    await page.evaluate((s) => window.__battlespace.fastForward(s), ff);
+  } else {
+    await shoot('start', 6000);
+    await page.evaluate(() => {
+      window.__battlespace.timeScaleIdx = 4;
+    });
+    await page.waitForTimeout(20000);
+    await page.evaluate(() => {
+      window.__battlespace.timeScaleIdx = 2;
+    });
+  }
+  await page.evaluate(() => window.__battlespace.jumpToHotspot());
+  await shoot('hotspot');
+  // Chase and first person on a tank if one is alive, else the default pick.
   await page.evaluate(() => {
     const app = window.__battlespace;
-    app.timeScaleIdx = 4;
+    const tank = app.world.units.find((u) => u.alive && u.type === 'mbt');
+    if (tank) app.select(tank);
   });
-  await page.waitForTimeout(20000);
-  await page.evaluate(() => {
-    window.__battlespace.timeScaleIdx = 2;
-    window.__battlespace.jumpToHotspot();
-  });
-  await shoot('hotspot');
   await page.keyboard.press('KeyF');
   await shoot('chase');
   await page.keyboard.press('KeyV');

@@ -130,9 +130,14 @@ export class CameraController {
       this.yaw = _e.y + Math.PI;
       this.pitch = clamp(_e.x, -1.5, 1.5);
     }
-    if (mode === 'overview') {
-      this.overview.x = this.camera.position.x;
-      this.overview.z = this.camera.position.z;
+    if (mode === 'overview' && world) {
+      // Centre the map on what the camera is looking at.
+      const cam = this.camera;
+      const dir = cam.getWorldDirection(_v);
+      const g = world.terrain.heightAt(cam.position.x, cam.position.z);
+      const t = dir.y < -0.05 ? Math.min(1500, (cam.position.y - g) / -dir.y) : 400;
+      this.overview.x = clamp(cam.position.x + dir.x * t, -1100, 1100);
+      this.overview.z = clamp(cam.position.z + dir.z * t, -1100, 1100);
     }
     if (mode === 'cinematic') this.director.start(world);
     if (mode === 'follow' || mode === 'orbit') this.orbit.dist = this.defaultDist(this.target);

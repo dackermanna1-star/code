@@ -293,6 +293,21 @@ export class App {
     location.reload();
   }
 
+  // Advance the simulation without rendering (used by the smoke test to
+  // reach the middle of a battle). Craters and the last moments of events
+  // are kept for the effects, HUD and audio.
+  fastForward(seconds) {
+    const w = this.world;
+    const keep = [];
+    const n = Math.round(seconds * 30);
+    for (let i = 0; i < n && !w.over; i++) {
+      w.update(1 / 30);
+      for (const e of w.events) if (e.t === 'crater' || i > n - 45) keep.push(e);
+      w.events.length = 0;
+    }
+    for (const e of keep) w.events.push(e);
+  }
+
   // ------------------------------------------------------------ main loop
 
   frame(now) {
@@ -320,6 +335,7 @@ export class App {
     const cin = this.camera.mode === 'cinematic';
     this.renderer.letterbox += ((cin ? 1 : 0) - this.renderer.letterbox) * Math.min(1, dt * 3);
     this.renderer.fpv = this.camera.fpvActive ? 1 : 0;
+    this.renderer.markerMode = !this.markersVisible ? 'off' : this.camera.mode === 'overview' ? 'on' : this.camera.mode === 'free' ? 'auto' : 'off';
     const ct = this.camera.target;
     this.renderer.hideUnit = this.camera.mode === 'eyes' && ct && ct.cat === 'veh' && ct.alive ? ct : null;
     this.renderer.render(dt, simDt, this.selected);

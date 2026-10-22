@@ -10,6 +10,21 @@ const ROLE_INTEREST = { mg: 1.6, at: 2, atgm: 2.4, sniper: 1.8, leader: 1.3, man
 
 const _v = new THREE.Vector3();
 const _look = new THREE.Vector3();
+const _trees = [];
+
+// Can a camera at p see l without sitting in a tree or building or looking
+// through a wall, hillside or wood?
+function clearShot(world, px, py, pz, lx, ly, lz) {
+  const s = world.structures.structureAt(px, pz, 2.5);
+  if (s && py < s.top + 2) return false;
+  world.map.trees.grid.queryRadius(px, pz, 7, _trees);
+  for (const t of _trees) {
+    if (t.alive && t.fall < 0.5 && Math.hypot(t.x - px, t.z - pz) < 6 && py < world.terrain.heightAt(t.x, t.z) + 15 * t.scale) return false;
+  }
+  if (!world.terrain.lineClear(px, py, pz, lx, ly, lz, 0.4)) return false;
+  if (world.structures.blocksSight(px, py, pz, lx, ly, lz, null, null)) return false;
+  return world.los.forestTransmittance(px, py, pz, lx, ly, lz) > 0.3;
+}
 
 export class Director {
   constructor() {
@@ -143,13 +158,22 @@ export class Director {
         break;
       }
       case 'ground': {
-        // Low camera at the edge of a firefight looking across it.
-        const a = Math.random() * Math.PI * 2;
-        const r = 40 + Math.random() * 40;
-        const px = hs.x + Math.cos(a) * r;
-        const pz = hs.z + Math.sin(a) * r;
-        shot.fixed = new THREE.Vector3(px, world.terrain.heightAt(px, pz) + 1.2 + Math.random() * 1.2, pz);
-        shot.lookAt = new THREE.Vector3(hs.x, world.terrain.heightAt(hs.x, hs.z) + 4, hs.z);
+        // Low camera at the edge of a firefight looking across it, from a
+        // spot with a clear view.
+        const ly = world.terrain.heightAt(hs.x, hs.z) + 4;
+        for (let k = 0; k < 12 && !shot.fixed; k++) {
+          const a = Math.random() * Math.PI * 2;
+          const r = 35 + Math.random() * 55;
+          const px = hs.x + Math.cos(a) * r;
+          const pz = hs.z + Math.sin(a) * r;
+          const py = world.terrain.heightAt(px, pz) + 1.2 + Math.random() * 1.2;
+          if (clearShot(world, px, py, pz, hs.x, ly, hs.z)) shot.fixed = new THREE.Vector3(px, py, pz);
+        }
+        if (!shot.fixed) {
+          shot.fallback = true;
+          break;
+        }
+        shot.lookAt = new THREE.Vector3(hs.x, ly, hs.z);
         shot.fov = 50 + Math.random() * 15;
         shot.pan = (Math.random() - 0.5) * 0.04;
         break;
@@ -177,7 +201,7 @@ export class Director {
         shot.fov = 92;
         break;
     }
-    if ((type === 'track' || type === 'air' || type === 'flyby' || type === 'fpv') && !shot.target) {
+    if (((type === 'track' || type === 'air' || type === 'flyby' || type === 'fpv') && !shot.target) || shot.fallback) {
       shot.type = 'orbit';
       shot.center = new THREE.Vector3(hs.x, world.terrain.heightAt(hs.x, hs.z), hs.z);
       shot.radius = 90;
@@ -244,6 +268,19 @@ export class Director {
         ctrl.fpvActive = true;
         this.cut = false;
         return;
+    }
+    // Tracking and orbiting cameras dodge obstructions: swap sides, then rise.
+    if (s.type === 'track' || s.type === 'orbit') {
+      s.checkT = (s.checkT || 0) - dt;
+      if (s.checkT <= 0) {
+        s.checkT = 0.5;
+        if (!clearShot(world, want.x, want.y, want.z, look.x, look.y, look.z)) {
+          if (s.type === 'track' && !s.flipped) {
+            s.side = -s.side;
+            s.flipped = true;
+          } else s.height = Math.min(s.height + 4, s.type === 'track' ? 24 : 90);
+        }
+      }
     }
     const g = world.terrain.heightAt(want.x, want.z) + 0.8;
     if (want.y < g) want.y = g;
