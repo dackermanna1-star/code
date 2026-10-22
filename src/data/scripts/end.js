@@ -79,10 +79,28 @@ async function reveal(g, sec = 1.6) {
 }
 
 /** The confession on the steps, trimmed to who's there (DESIGN EPILOGUES; lines verbatim). */
-async function confession(g, here) {
+async function confession(g, here, lost = []) {
   const D = here.includes('danny');
   const L = here.includes('leah');
   const M = here.includes('marcus');
+  if (lost.length) {
+    // Someone is still inside: no jokes. The confession, quietly.
+    await g.narrate('Nobody says anything for a while. Nobody looks back at the doors.');
+    await g.wait(auto() ? 0 : 1.2);
+    await g.say('tess', 'look_away', "I'm moving. To Philly. {p} After Christmas.", DL);
+    if (L) await g.say('leah', 'hurt', 'I know, T. {p} I know.', DL);
+    else if (D) {
+      await g.say('danny', 'sad', "...Leah knew. {p} Didn't she.", DL);
+      await g.say('tess', 'sad', 'Since August.', DL);
+    }
+    if (M) {
+      await g.wait(auto() ? 0 : 0.8);
+      await g.say('marcus', 'sad', "You'll call.", DL);
+      await g.say('tess', 'sad', "I'll call.", DL);
+    }
+    if (L) await g.say('leah', 'smile', "Side B's better. {p} For the record.", DL);
+    return;
+  }
   const others = here.filter((id) => id !== 'leah');
   if (L && others.length > 1) await g.say('leah', 'smirk', 'You gonna tell them, or am I?', DL);
   else if (L && others.length === 1) await g.say('leah', 'smirk', 'You gonna tell him, or am I?', DL);
@@ -209,7 +227,7 @@ export default {
     g.overlay('black', null);
     await g.wait(auto() ? 0 : 2.6);
     if (free.length) {
-      await confession(g, free);
+      await confession(g, free, lost);
       await g.wait(auto() ? 0 : 1.6);
     }
     // The things left behind: she carries out what she couldn't bring back.
@@ -448,7 +466,8 @@ export default {
     await g.wait(auto() ? 0 : 1.4);
     g.sfx('intercom_crackle', { vol: 0.6 });
     await g.wait(auto() ? 0 : 1.2);
-    await g.say('voice', null, 'Kaylee Ann Brooks?', { name: 'INTERCOM', speed: 0.8 });
+    await g.narrate("{dim}A girl's voice. Calm. A little dry.{/dim}");
+    await g.say('voice', null, 'Kaylee Ann Brooks?', { name: 'Tess?', speed: 0.8 });
     // Cut.
     g.overlay('black', { alpha: 1 });
     HW.audio?.ambience?.('silence', 0.02);

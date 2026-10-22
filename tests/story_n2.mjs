@@ -64,7 +64,7 @@ const lines = (H) => H.transcript.filter((x) => ['say', 'think', 'narrate', 'cho
   .map((x) => `${x.type}|${x.who || ''}|${x.expr || ''}|${x.text}`);
 
 // ------------------------------------------------------------------------------------------ chapter II
-async function playCh2(game, { hold, rewind, label }) {
+async function playCh2(game, { hold, rewind, label, reload }) {
   // ch2.start is what ch1.end runs right after the chapter card.
   const s0 = await game.hw(async (H) => {
     await H.run('ch2.start');
@@ -82,11 +82,17 @@ async function playCh2(game, { hold, rewind, label }) {
   t.eq(s0.doors.w1_door_103, 'open', `${label} ch2.start: only 103 stays open`);
   t.eq(s0.seats, ['w1_desk_103_leah', 'w1_desk_103_marcus'], `${label} ch2.start: Leah and Marcus ran in and sat`);
   // Into 103 (trigger ch2_103 → ch2.sit), then sit at a far desk: it snaps to desk_103_tess.
-  const s1 = await game.hw(async (H, hold) => {
+  const s1 = await game.hw(async (H, [hold, reload]) => {
     const HW = H.HW;
     const a = await H.walkTo('door_103');
     const b = await H.walkTo('in_103');
     await H.idle();
+    if (reload) {
+      // tech-01: a save inside 103 before the bell, reloaded — sitting must still ring it
+      await HW.game.save('1');
+      await HW.game.loadSave('1');
+      await H.idle();
+    }
     const bellBefore = !!HW.state.flags.ch2_bell1;
     const c = await H.walkTo([13, 7]);
     H.face('up');
@@ -100,7 +106,7 @@ async function playCh2(game, { hold, rewind, label }) {
     HW.input.setVirtual('confirm', false);
     await H.idle();
     return { walked: [a, b, c], bellBefore, seatedAt, periodsIdle: HW.periods.phase };
-  }, hold);
+  }, [hold, !!reload]);
   t.ok(s1.walked.every(Boolean), `${label} ch2: walked into 103 (real collisions)`, s1.walked);
   t.ok(!s1.bellBefore, `${label} ch2: the bell waits until Tess sits`);
   t.eq(s1.seatedAt, 'w1_desk_103_tess', `${label} ch2: any 103 desk snaps to desk_103_tess`);
@@ -419,7 +425,7 @@ if (ONLY === 'B4') {
   // ---- run B: each chapter on its own, other branches
   await game.hw((H, cfg) => window.__n2setup(H, cfg), { chapter: 2, map: 'west1', at: 'library_end', timeScale: 6 });
   await game.hw((H) => { H.choiceQueue = [1]; });
-  await playCh2(game, { hold: false, rewind: false, label: 'B' });
+  await playCh2(game, { hold: false, rewind: false, label: 'B', reload: true });
   await game.hw((H, cfg) => window.__n2setup(H, cfg), { chapter: 3, map: 'west1', at: 'in_103', timeScale: 6 });
   await playCh3(game, { cut: true, panel: false, label: 'B', fromStart: true });
   await game.hw((H, cfg) => window.__n2setup(H, cfg), { chapter: 4, map: 'west1', at: 'from_lobby', timeScale: 6 });

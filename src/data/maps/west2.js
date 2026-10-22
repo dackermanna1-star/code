@@ -45,7 +45,7 @@ const by = (c5, c6) => (c6 ? [{ cond: from(6), text: c6 }, { text: c5 }] : c5);
 
 const MEZZ_TEXT = [
   { cond: (s) => !met(s), text: '[n] Locked. Behind me, a faucet is running.' },
-  { text: ['[n] Locked.', '[worried] The tap stopped. When did the tap stop.'] },
+  { text: ['[n] Locked.', '[worried] Somebody sat down in two-oh-one. {p} ...Leah?'] },
 ];
 
 export default {
@@ -189,7 +189,7 @@ export default {
 
     // ======================================================== library mezzanine door (west wall)
     { id: 'w2_mezz_door', type: 'door_side', x: 1, y: 15, state: 'locked', label: 'LIBRARY',
-      lock: (s) => !F(s).compact_unlocked, lockedText: MEZZ_TEXT, unlockSfx: 'key_unlock',
+      lock: (s) => !F(s).compact_unlocked || ((s.chapter || 0) === 5 && !F(s).false_leah_done), lockedText: MEZZ_TEXT, unlockSfx: 'key_unlock',
       to: { map: 'library', anchor: 'from_west2' } },
 
     // ======================================================== girls' restroom 2F (no seats) — Adair
@@ -452,6 +452,7 @@ export default {
 
   exits: [
     { rect: [57, 13, 1, 5], to: 'longhall', anchor: 'from_west2' },
+    { id: 'library', rect: [1, 15, 1, 1], to: 'library', anchor: 'from_west2' },   // once the door stands open
   ],
 
   triggers: [

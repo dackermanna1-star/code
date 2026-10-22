@@ -27796,6 +27796,8 @@ ${e.error.stack}` : ""}`);
   };
   LEAH.specials = (anims, X) => {
     for (const d2 of ["down", "up", "left", "right"]) anims[`film_${d2}`] = X.anim([X.R(filmGeom(X, d2, true)), X.R(filmGeom(X, d2, false))], 2);
+    const back = (o) => X.R(X.sit("up", o));
+    anims.headturn = X.anim([back(), back({ headDir: "left" }), back({ headDir: "down" }), back({ headDir: "down", headDy: 1 })], 3, false);
   };
   var MARCUS_M = {
     skin: [PAL.dskin_dd, "#3e2416", PAL.dskin, PAL.dskin_l, "#b2805a"],
@@ -47577,7 +47579,7 @@ ${e.error.stack}` : ""}`);
     sfx: 0.9,
     ambience: 0.8,
     textSpeed: 1,
-    pixelPerfect: true,
+    pixelPerfect: false,
     crt: false,
     grain: true,
     reduceFlashing: false,
@@ -48362,8 +48364,9 @@ ${e.error.stack}` : ""}`);
       }
       this.prompt = { target, verb: verb || "Look", a: 0, on: true, key };
     }
-    toast(text) {
-      this.toasts.push({ text: String(text), t: 0 });
+    /** opts.voice: a line in his voice heard in the room (not a system message) — no panel, his voice styling. */
+    toast(text, opts = {}) {
+      this.toasts.push({ text: String(text), t: 0, voice: !!opts.voice });
       if (this.toasts.length > 4) this.toasts.shift();
     }
     notice(text) {
@@ -48431,6 +48434,10 @@ ${e.error.stack}` : ""}`);
       rect(ctx2, x + 10, y + 12, 4, 6, "#bdb59e");
       rect(ctx2, x, y + 12, 4, 6, "#bdb59e");
       f2.draw(ctx2, label, x + 26, y, "#bdb59e");
+      if (HW.periods?.active) {
+        const hint = `HOLD ${this.ui.input?.keyLabel?.("confirm") || "Z"} \u2014 EYES SHUT   \xB7   MOVE TO STAND`;
+        f2.draw(ctx2, hint, W11 / 2, y - 24, "#8f897a", { align: "center" });
+      }
       ctx2.globalAlpha = a0;
     }
     /** Toasts + notices (above everything but title/game over; notices wait out modal screens). */
@@ -48581,6 +48588,7 @@ ${e.error.stack}` : ""}`);
       ctx2.globalAlpha = a0;
     }
     _toast(ctx2, t, i) {
+      if (t.voice) return this._voiceToast(ctx2, t);
       const f2 = F2.small;
       const k = ease3.out(clamp5(t.t / 0.2)) * (1 - clamp5((t.t - TOAST_LIFE + 0.4) / 0.4));
       if (k <= 0) return;
@@ -48593,6 +48601,18 @@ ${e.error.stack}` : ""}`);
       rect(ctx2, x, y, AP * 2, h, C.red);
       rect(ctx2, x, y, w, AP, C.panelHi);
       f2.draw(ctx2, t.text, x + 20, y + 4, C.text);
+      ctx2.globalAlpha = a0;
+    }
+    _voiceToast(ctx2, t) {
+      const k = ease3.out(clamp5(t.t / 0.35)) * (1 - clamp5((t.t - TOAST_LIFE + 1.6) / 1.6));
+      if (k <= 0) return;
+      const f2 = F2.mono;
+      const w = snap(f2.width(t.text) + 80), h = 40;
+      const x = snap(W11 / 2 - w / 2), y = 300;
+      const a0 = ctx2.globalAlpha;
+      ctx2.globalAlpha = a0 * k;
+      dither(ctx2, x, y, w, h, "rgba(0,0,0,0.85)", 0.5);
+      f2.draw(ctx2, t.text, W11 / 2, y + 8, "#cfcabd", { align: "center" });
       ctx2.globalAlpha = a0;
     }
     _notice(ctx2, n, i) {
@@ -53722,9 +53742,9 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       return this.dialogue.choice(options, opts || {});
     }
     // ---- notifications ----------------------------------------------------------------------------------
-    toast(text) {
+    toast(text, opts) {
       this._log({ kind: "toast", text });
-      this.hud.toast(text);
+      this.hud.toast(text, opts);
     }
     objective(text) {
       if (HW.state) HW.state.objective = text;
@@ -58250,7 +58270,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         cond: LATER,
         examine: [
           { cond: (s) => (s.chapter || 0) >= 6 && !s.flags.safe_open, text: "[n] Brass, going green. Leah read it out loud, before. FIRST KEPT IN 1894." },
-          { cond: (s) => !!s.flags.safe_open, text: "[sad] The day the boys burned. He had it cast in brass." },
+          { cond: (s) => !!s.flags.safe_open, text: "[sad] The day his boys died. He had it cast in brass." },
           { text: "[n] Brass, going green. Somebody kept his name polished and let the rest go." }
         ]
       },
@@ -59955,7 +59975,9 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       // in front of the seam in the hall's south wall (fold [25, 18])
     },
     exits: [
-      { rect: [60, 13, 2, 5], to: "lobby", anchor: "from_west1" }
+      { rect: [60, 13, 2, 5], to: "lobby", anchor: "from_west1" },
+      { id: "library", rect: [1, 15, 1, 2], to: "library", anchor: "from_west1" }
+      // once the doors stand open
     ],
     triggers: [
       // Ch1 exploration (Leah's one line per room; the count gates the vanish)
@@ -59978,7 +60000,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       // Desks in rows, DANIEL KOVACH — PRESENT
       { id: "room102", rect: [16, 3, 15, 7], script: "ch1.room102", cond: post },
       // Ch2: "Get in a room. Sit down. Now." — 103 is the only door left open
-      { id: "ch2_103", rect: [2, 3, 13, 7], script: "ch2.sit", cond: (s) => s.chapter === 2 && !F3(s).ch2_bell1 },
+      { id: "ch2_103", rect: [2, 3, 13, 7], script: "ch2.sit", once: false, cond: (s) => s.chapter === 2 && !F3(s).ch2_bell1 },
       // Ch4: the main office with the janitor's OFFICE key
       // (repeatable through Ch4 until the period is done: after a reload between roll #1 and the period,
       // stepping back into reception picks the period up again — narrative-2)
@@ -60502,6 +60524,9 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       // the walkway at the rail, over the lamp
     },
     exits: [
+      // walking into a door that already stands open goes through it (closed/locked doors are solid)
+      { id: "west1_doors", rect: [27, 19, 1, 2], to: "west1", anchor: "from_library" },
+      { id: "west2_door", rect: [27, 9, 1, 1], to: "west2", anchor: "from_library" },
       { rect: [1, 13, 2, 1], to: "library", anchor: "spiral_top" },
       // up the spiral (1F → 2F)
       { rect: [1, 11, 2, 1], to: "library", anchor: "spiral_bottom" }
@@ -62364,7 +62389,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       {
         id: "b_battery_jan",
         type: "pickup",
-        x: 2,
+        x: 3,
         y: 3,
         item: "battery",
         examine: "[relieved] A battery in the desk drawer, rubber-banded to a note: FOR THE BIG LIGHT."
@@ -64007,7 +64032,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
   var by4 = (c5, c6) => c6 ? [{ cond: from4(6), text: c6 }, { text: c5 }] : c5;
   var MEZZ_TEXT = [
     { cond: (s) => !met(s), text: "[n] Locked. Behind me, a faucet is running." },
-    { text: ["[n] Locked.", "[worried] The tap stopped. When did the tap stop."] }
+    { text: ["[n] Locked.", "[worried] Somebody sat down in two-oh-one. {p} ...Leah?"] }
   ];
   var west2_default = {
     id: "west2",
@@ -64309,7 +64334,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         y: 15,
         state: "locked",
         label: "LIBRARY",
-        lock: (s) => !F10(s).compact_unlocked,
+        lock: (s) => !F10(s).compact_unlocked || (s.chapter || 0) === 5 && !F10(s).false_leah_done,
         lockedText: MEZZ_TEXT,
         unlockSfx: "key_unlock",
         to: { map: "library", anchor: "from_west2" }
@@ -64796,7 +64821,9 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       hall_east: [55, 15, "left"]
     },
     exits: [
-      { rect: [57, 13, 1, 5], to: "longhall", anchor: "from_west2" }
+      { rect: [57, 13, 1, 5], to: "longhall", anchor: "from_west2" },
+      { id: "library", rect: [1, 15, 1, 1], to: "library", anchor: "from_west2" }
+      // once the door stands open
     ],
     triggers: [
       // the Reflection (DESIGN §6 V.5): stepping up to the fogged mirror
@@ -66083,7 +66110,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         rect: [19, 27, 7, 6],
         hint: "1979. She got this far. She's still writing.",
         hide: ["v_adair_husk"],
-        adair: { x: 22, y: 29, anim: "heads_down", dir: "down" },
+        adair: { x: 22, y: 29, anim: "write", dir: "down" },
         setFlag: "saw_vault_past"
       }
     ],
@@ -66168,7 +66195,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
     );
   });
   for (const p2 of boyProps) if (p2.examine === void 0) delete p2.examine;
-  var LAMPS = BOYS.map(([x, y], i) => ({ type: "lamp_miner", x, y: y - 0.75, group: `lamp_${i + 1}`, on: false }));
+  var LAMPS = BOYS.map(([x, y], i) => ({ type: "lamp_miner", x, y: y - 1.2, group: `lamp_${i + 1}`, on: false }));
   var POST_TEXT = "[n] A tarred timber, thick as I am. The fire's been licking it from underneath for thirty years. It hasn't burned.";
   var POSTS = [
     [11, 33],
@@ -67364,7 +67391,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       if (g.npc("marcus")) g.face("marcus", "down");
       await g.wait(0.7);
       if (replay) {
-        g.objective("Look around.");
+        g.objective("Look around. The classrooms.");
         return;
       }
       await g.walk("tess", [11, 22]);
@@ -67393,7 +67420,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         await g.say("danny", "grin", "Dolan. You coming?");
         release(g, "danny");
       }
-      g.objective("Look around.");
+      g.objective("Look around. The classrooms.");
     },
     /** Trigger (once) crossing from the vestibule into the lobby. */
     "ch1.enter_lobby": async (g) => {
@@ -67801,7 +67828,12 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
     });
   }
   function eyesShut(g) {
-    const eyes = { on: true, danger: false, cg: false, glimpses: 0, cool: 0, loose: 0, open: false };
+    const eyes = { on: true, danger: false, cg: false, glimpses: 0, cool: 0, loose: 0, open: false, peek: false };
+    const seen = () => {
+      const e = hw_default.colonel?.entity;
+      if (e) e.visible = !eyes.on || eyes.open || eyes.peek || eyes.cg;
+    };
+    eyes.seen = seen;
     const tight = (on) => {
       g.overlay("heads_down", {});
       g.overlay("black", on ? { alpha: 0.22 } : null);
@@ -67811,6 +67843,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       let wasHeld = true;
       while (eyes.on) {
         await pg.wait(0.05);
+        seen();
         if (!eyes.on || eyes.cg || eyes.open) continue;
         eyes.cool = Math.max(0, eyes.cool - 0.05);
         const held = !!hw_default.input?.down?.("confirm");
@@ -67821,6 +67854,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         eyes.loose = held ? 0 : eyes.loose + 0.05;
         if (!eyes.danger || held || eyes.loose < 0.3 || eyes.cool > 0 || eyes.glimpses >= 2) continue;
         eyes.open = true;
+        seen();
         eyes.glimpses++;
         hw_default.debug?.record?.("glimpse", null, null, `ch2:${eyes.glimpses}`);
         pg.overlay("heads_down", null);
@@ -67846,15 +67880,51 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         eyes.open = false;
       }
       pg.overlay("black", null);
+      {
+        const ce = hw_default.colonel?.entity;
+        if (ce) ce.visible = true;
+      }
     });
     return eyes;
   }
-  async function fragment(g, text) {
+  async function fragment(g, eyes, text) {
     hw_default.lighting?.setGroup?.("period", false, { mode: "instant" });
     await g.wait(0.14);
     hw_default.lighting?.setGroup?.("period", true, { mode: "stutter", stagger: 0.12 });
+    eyes.peek = true;
+    eyes.seen?.();
+    g.parallel(async (pg) => {
+      await pg.wait(0.5);
+      eyes.peek = false;
+      eyes.seen?.();
+    });
     await g.narrate(`{dim}${text}{/dim}`, { hold: true });
     await g.wait(1.3);
+  }
+  var installed3 = false;
+  function installCh2() {
+    if (installed3) return true;
+    if (!hw_default.game?.on || !hw_default.scripts) return false;
+    installed3 = true;
+    hw_default.game.on("load", () => {
+      const s = hw_default.state;
+      const f2 = s?.flags || {};
+      if (s?.chapter !== 2 || f2.ch2_bell1) return;
+      hw_default.scripts.runFn((g) => {
+        if (hw_default.map?.id === "west1") {
+          setRoom(g);
+          seatFriend(g, "leah", DESKS.leah, { walk: false });
+          seatFriend(g, "marcus", DESKS.marcus, { walk: false });
+        }
+        armSitWatcher(g);
+      }, {}, { blocking: false, id: "ch2:resume" });
+    });
+    return true;
+  }
+  if (typeof window !== "undefined") {
+    const poll = setInterval(() => {
+      if (installCh2()) clearInterval(poll);
+    }, 200);
   }
   var ch2_default = {
     // ------------------------------------------------------------------------------------------ start
@@ -67946,16 +68016,16 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       eyes.danger = true;
       const into = C2.walkTo([11, 8]);
       await g.wait(0.9);
-      await fragment(g, "Navy wool. A hem, dragging.");
+      await fragment(g, eyes, "Navy wool. A hem, dragging.");
       await into;
       const along = C2.walkTo([9, 7]);
       await g.think("eyes_shut", "{slow}Don't move. Don't move.{/slow}", { hold: true });
       await g.wait(0.6);
-      await fragment(g, "A crimson fringe, swinging.");
+      await fragment(g, eyes, "A crimson fringe, swinging.");
       await along;
       await C2.walkTo([8, 7]);
       C2.face("tess");
-      await fragment(g, "A boot. Split open along the seam.");
+      await fragment(g, eyes, "A boot. Split open along the seam.");
       await g.wait(1.4);
       await hw_default.game.until(() => !eyes.open, 3);
       eyes.cg = true;
@@ -68410,6 +68480,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       if (hw_default.periods && hw_default.periods.phase !== "idle") return;
       const replay = g.seen("ch3_first_period");
       const bell2 = g.periods.start({ guided: true, reason: "ch3" });
+      if (!replay) g.toast(`[${hw_default.ui?.input?.keyLabel?.("flashlight") || "F"}] Light off \u2014 in the dark he sees less.`);
       await g.wait(replay ? 0.4 : 1.2);
       const m = ent2("marcus");
       if (m && withMarcus5()) {
@@ -68866,7 +68937,14 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
     const C2 = g.colonel;
     if (!C2) return null;
     if (C2.entity) return C2.entity;
-    const e = await C2.spawn([15, 7], { mode: "scripted", anim: null, dir: "down" });
+    const e = await C2.spawn([14, 3], { mode: "scripted", anim: null, dir: "down" });
+    if (e) {
+      e.wallShadow = 0;
+      for (let i = 1; i <= 8; i++) {
+        e.wallShadow = 0.1 * i;
+        await g.wait(0.15);
+      }
+    }
     try {
       C2._breath?.setVol?.(0.3, 0.6);
     } catch (err) {
@@ -69089,7 +69167,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       g.sfx("colonel_jingle", { x: C2.x, y: C2.y - 16, vol: 0.8 });
       await C2.anim("reach_down", { once: true, hold: true });
       hw_default.audio?.murmur?.(2.8);
-      await g.say("voice", null, "Good boy. {p} I knew your grandfather's name.", VOICE3);
+      await g.say("voice", null, "Good boy. {p} I knew your grandfather's name.", { ...VOICE3, present: true });
       await g.wait(1);
       C2.anim(null);
       await C2.walkTo([23, 6]);
@@ -69459,7 +69537,9 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         await g.think("scared", "That's in my bag. {p} That's in my *bag*.");
         look4(g, [15, 6]);
         await shadowOn(g);
-        await g.wait(2.6);
+        await g.wait(0.8);
+        await g.think("scared", "Her shadow. {p} It's too big for her. {p} It's too *wide*.");
+        await g.wait(0.6);
         await compactLook(g, "room201_1979", "terrified", "Her chair's empty. {p} And the corner isn't.", 2.6);
         await g.cam([17, 7], { time: 0.6 });
       } else {
@@ -69492,15 +69572,18 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       await g.walk("tess", [20, 9]);
       look4(g, "false_leah");
       await g.wait(0.6);
-      if (L3) {
-        L3.sitDir = "down";
-        L3.dir = "down";
-      }
-      g.sfx("stinger_hard");
+      const turn = L3 ? g.anim("false_leah", "headturn", { once: true, hold: true }) : null;
+      await g.wait(0.67);
+      g.sfx(g.replaying ? "stinger_soft" : "stinger_hard", g.replaying ? { vol: 0.5 } : void 0);
       g.fx("chroma", 0.7, 0.9);
       g.fx("distort", 0.5, 0.9);
       g.shake(2, 0.4);
-      if (hw_default.colonel?.entity) hw_default.colonel.face("tess");
+      const Cs = hw_default.colonel?.entity;
+      if (Cs) {
+        delete Cs.wallShadow;
+        hw_default.colonel.face("tess");
+      }
+      await turn;
       await g.narrate("{shake}Her head turns. {p} It keeps turning.{/shake}");
       const out = g.walk("tess", "door_hold", { run: true });
       g.anim("tess", "walk_up");
@@ -69646,7 +69729,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       g.give("charter");
       g.set("charter");
       await g.doc("charter_full");
-      await g.think("worried", "'The first scholar of Hallowell School.' {p} He put himself on the roll.");
+      await g.think("worried", "'And I shall be the last to leave it.' {p} He's on his own roll. He means to be the last one off it.");
     },
     "ch5.marcus_knock": async (g) => {
       if (g.flag("library_door_open") || g.flag("ch5_knocked") || !g.flag("ch5_leah_found")) return;
@@ -69709,7 +69792,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         g.face("marcus", "tess");
         await g.say("marcus", "thoughtful", "Came past the office. {p} Haupt's door was standing open. That little painting of him's crooked.");
         if (g.flag("ch5_leah_clue")) await g.think("look_away", "WITHDRAWN. {p} The office stamps it on the form. {p} On mine, Monday.");
-        await g.say("tess", "determined", "Crooked painting in a principal's office. {p} There's a safe behind it.");
+        await g.say("tess", "determined", g.flag("ch5_leah_clue") ? "Then that's where the stamp is. {p} Locked in his safe, I bet." : "Haupt ran this place in '79. {p} Whatever he knew, he kept locked up.");
       }
       g.objective("Haupt's office. The safe.");
       await g.chapter(6);
@@ -69840,13 +69923,13 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
     for (const id of ["marcus", "denise"]) if (g.npc(id)) g.despawn(id);
     if (g.party.has("marcus")) g.party.remove("marcus");
   }
-  var installed3 = false;
+  var installed4 = false;
   var stash = null;
   var kevinGen = -1;
   function installCh6() {
-    if (installed3) return true;
+    if (installed4) return true;
     if (!hw_default.game?.on || !hw_default.scripts) return false;
-    installed3 = true;
+    installed4 = true;
     hw_default.game.on("mapLoad", (map) => {
       const s = hw_default.state;
       if (!s || !map) return;
@@ -69871,7 +69954,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
     });
     hw_default.game.on("load", () => {
       if (stash) {
-        for (const k of stash) hw_default.state.flags[k] = true;
+        if ((hw_default.state?.chapter || 0) >= 6) for (const k of stash) hw_default.state.flags[k] = true;
         stash = null;
       }
       const s = hw_default.state;
@@ -69881,6 +69964,9 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       else if (!f2.ch6_marcus_taken || !s.inv.denise_photo) later2("ch6.after_locker", { resume: true });
     });
     hw_default.game.on("newGame", () => {
+      stash = null;
+    });
+    hw_default.game.on("title", () => {
       stash = null;
     });
     return true;
@@ -69911,7 +69997,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       if (ch() < 6 || !f2.safe_seen_past) {
         if (!f2.ch6_portrait_looked) {
           g.set("ch6_portrait_looked");
-          await g.narrate("A small oil of the Colonel in a gilt frame, hanging a little crooked. I lift the edge. Paneling behind it. Nothing.");
+          await g.narrate("A small oil of the Colonel in a gilt frame, hanging a little crooked. I go to straighten it. It doesn't budge.");
         }
         await g.think("worried", "Just a painting. He's watching the door.");
         if (ch() >= 6 && g.inc("ch6_portrait_tries") >= 2 && !f2.ch6_safe_hint) await safeHint(g);
@@ -69968,7 +70054,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
           await g.wait(0.6);
         }
         look5(g, "up");
-        await g.say("tess", "angry", "Founder's Day. {p} The day the boys burned. {p=0.8} He made it a holiday.");
+        await g.say("tess", "angry", "Founder's Day. {p} The day his boys died. {p=0.8} He made it a holiday.");
       } else {
         g.state.docs.haupt_letter = true;
       }
@@ -70019,7 +70105,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       if (g.flag("bond_leah") || g.flag("ch6_told_marcus")) {
         g.set("ch6_homeroom_said");
         await g.wait(0.6);
-        await g.think("sad", "I was gonna let homeroom find out from the attendance sheet. Just gone, and a chalkboard says why. {p} Like *him*.");
+        await g.think("sad", "I was gonna let homeroom find out from the attendance sheet. Just gone, and a chalkboard says why. {p} Like Danny.");
       }
       await g.wait(1.4);
       await g.narrate("Marcus hums under his breath. The old school song, the one his grandma sings. I don't think he knows he's doing it.");
@@ -70169,10 +70255,10 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       g.set("ch6_gym_lights");
       g.refresh();
       const C2 = g.colonel;
-      await C2.spawn("colonel_hoop", { mode: "scripted", anim: "mound", dir: "left" });
+      await C2.spawn("colonel_hoop", { mode: "scripted", anim: "sitfloor", dir: "left" });
       C2.face("left");
       bank(g, 4, 1);
-      g.sfx("stinger_hard");
+      g.sfx(g.replaying ? "stinger_soft" : "stinger_hard", g.replaying ? { vol: 0.5 } : void 0);
       g.music(null, 0.05);
       g.anim("denise", "wrong", { once: true, hold: true });
       g.silence(true, 0.05);
@@ -70183,7 +70269,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       const hoop2 = hw_default.map?.anchor("colonel_hoop");
       if (hoop2) g.sfx("colonel_breath", { x: hoop2.x, y: hoop2.y - 24, vol: 1 });
       await g.wait(0.6);
-      const rise = C2.anim("rise", { once: true, hold: true });
+      const rise = C2.anim("rise_seated", { once: true, hold: true });
       g.shake(0.8, 2);
       if (hoop2) g.sfx("coal_slide", { x: hoop2.x, y: hoop2.y, vol: 0.7, rate: 0.6 });
       await rise;
@@ -70193,12 +70279,12 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       if (m.seat) hw_default.hiding?.unseatNpc?.(m);
       g.setPos("marcus", "beside_denise");
       g.face("marcus", "tess");
-      await g.cam("tess", { time: 0.35 });
+      await g.cam([31, 14], { time: 0.35 });
       hw_default.scripts.run("ch6.chase", {}, { blocking: false });
       await g.say("marcus", "urgent", "TESS. RUN.", { shake: 2, hold: true });
-      g.state.objective = "The girls' locker room. Hide.";
-      hw_default.debug?.record?.("objective", null, null, g.state.objective);
-      await g.cam(null, { time: 0.2 });
+      if (!replay) await g.think("terrified", "The girls' locker room. {p=0.3} The left door\u2014");
+      g.objective("The girls' locker room. Hide.");
+      await g.cam(null, { time: 0.4 });
     },
     /** Non-blocking: the gym chase. Resolves 'hidden' when she climbs into gym_locker_tess. */
     "ch6.chase": async (g) => {
@@ -70294,7 +70380,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         g.fx("chroma", 0.4, 0.8);
         const opening = tween2(2.2, (k) => set({ mouth: k < 0.25 ? k * 0.9 : 0.225 + (k - 0.25) * 1.03 }));
         if (!replay) await g.narrate("{shake}Below the eye, the mouth opens. {p} It keeps opening. Down past where a mouth stops.{/shake}");
-        await colonelVoice(g, "Theresa?", { speed: 0.6 });
+        await colonelVoice(g, "Theresa?", { speed: 0.6, present: true });
         let fails = 0;
         for (; ; ) {
           const c3 = await g.choice(["Here.", "Hold your breath."]);
@@ -70302,7 +70388,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
             g.set("roll2_answered");
             g.set("roll2_done");
             await g.wait(0.9);
-            await colonelVoice(g, "Thank you, Theresa.", { speed: 0.7 });
+            await colonelVoice(g, "Thank you, Theresa.", { speed: 0.7, present: true });
             break;
           }
           const assist = g.state.assist || 1;
@@ -70330,7 +70416,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
           await g.wait(0.6);
           g.sfx("locker_tap", { ...lockerAt, vol: 1.3 });
           await g.wait(1);
-          await colonelVoice(g, "Theresa?", { speed: 0.55 });
+          await colonelVoice(g, "Theresa?", { speed: 0.55, present: true });
         }
         await opening;
         await tween2(1.4, (k) => set({ faceIn: 1 - k, mouth: Math.max(0, 1 - k * 1.8) }));
@@ -70576,13 +70662,13 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       s._spriteDirty = true;
     });
   }
-  var installed4 = false;
+  var installed5 = false;
   var rustleGen = -1;
   var frontBusy = /* @__PURE__ */ new Set();
   function install() {
-    if (installed4) return true;
+    if (installed5) return true;
     if (!hw_default.game?.on || !hw_default.scripts) return false;
-    installed4 = true;
+    installed5 = true;
     installCh6();
     hw_default.game.on("mapLoad", (map) => {
       if (!IN_SESSION()) return;
@@ -70753,7 +70839,8 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         await g.wait(0.8);
         await g.cam([21, 25], { time: 2.4 });
         g.sfx("husk_rustle", { x: 21 * TILE29, y: 24 * TILE29, vol: 0.5 });
-        await g.narrate("Every seat is taken. Shapes sitting up straight, the color of old honey, and you can see through them. Every one of them facing the stage.");
+        await g.narrate("Almost every seat is taken. Shapes sitting up straight, the color of old honey, and you can see through them. Every one of them facing the stage.");
+        await g.narrate("Here and there, an empty seat. {p} Like somebody is saving it.");
         await g.cam([21, 13], { time: 2.6 });
         await g.wait(1.2);
         hw_default.audio?.murmur?.(2.4);
@@ -70871,6 +70958,10 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         g.take("diary_page");
         g.set("bond_marcus");
         g.refresh();
+        if (!g.flag("trapdoor_open") && !(g.flag("ch7_lever_asked") && !g.has("charter"))) {
+          await g.think("determined", "Miss Adair pointed at the floor. {p} Under the stage. The door marked STAGE CREW ONLY.");
+          g.objective("Under the stage. Stage right, the crew door.");
+        }
         g.checkpoint("marcus bond");
         return;
       }
@@ -71115,11 +71206,11 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       }
     });
   }
-  var installed5 = false;
+  var installed6 = false;
   function install2() {
-    if (installed5) return true;
+    if (installed6) return true;
     if (!hw_default.game?.on || !hw_default.scripts) return false;
-    installed5 = true;
+    installed6 = true;
     hw_default.game.on("mapLoad", (map) => {
       const s = hw_default.state;
       if (!s || !map) return;
@@ -71203,7 +71294,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       await g.wait(1.4);
       if (!replay) {
         g.sfx("colonel_murmur", { dur: 2.8, vol: 0.5 });
-        await g.narrate('{dim}"...Patricia Szalay." "Michelle Yancey."{/dim} {p} The names come down through the boards, one at a time.');
+        await g.narrate('{dim}"...Patricia Szalay." "Denise Webb." "Michelle Yancey."{/dim} {p} The names come down through the boards, one at a time.');
         await g.wait(0.6);
         await g.narrate('{dim}"Present." "Present."{/dim} {p} Dry, from a hundred seats.');
         await g.wait(1.4);
@@ -71463,7 +71554,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         g.shake(2.2, 0.6);
         g.fx("chroma", 0.6, 1.2);
         g.fx("distort", 0.3, 1.2);
-        await colonelVoice2(g, "WHO IS OUT OF THEIR SEAT.", { shake: 3, speed: 1.6 });
+        await colonelVoice2(g, "WHO IS OUT OF THEIR SEAT.", { shake: 3, speed: 3, present: true });
         await g.cg(null, { fade: 0.15 });
       }
       g.sfx("coal_slide", { x: 24 * TILE30, y: 5 * TILE30, vol: 1, rate: 0.7 });
@@ -71473,7 +71564,8 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       look5(g, "left");
       g.music("chase", 0.2);
       await g.think("terrified", "Run.");
-      g.objective("Out. The front doors.");
+      g.state.objective = "Out. The front doors.";
+      hw_default.debug?.record?.("objective", null, null, g.state.objective);
       hw_default.chase?.escape?.({ cannotCatch: false, rubber: [4, 8] });
     },
     /** PRESENT with a friend freed: the chase plays, but he cannot catch her — he doesn't need to. */
@@ -71494,7 +71586,8 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
         await g.think("terrified", "Get them out. {p} Go.");
       }
       g.music("chase", 0.4);
-      g.objective("Out. The front doors.");
+      g.state.objective = "Out. The front doors.";
+      hw_default.debug?.record?.("objective", null, null, g.state.objective);
       hw_default.chase?.escape?.({ cannotCatch: true, rubber: [4, 8] });
     },
     /** PRESENT with nobody freed: the book closes, the bell rings once, the pen goes down by itself. */
@@ -71713,6 +71806,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
     "ch8.lobby_open": async (g) => {
       doorsOpen(g);
       dawnDoorLight(0.85);
+      hw_default.chase?.setRubber?.([2, 4]);
     },
     /** The auditorium on the way out: the freed wake and run with her; the rest stay in their seats. */
     "ch8.escape_aud": async (g) => {
@@ -71754,14 +71848,23 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       g.sfx("colonel_drag", { x: 37 * TILE30, y: 8 * TILE30, vol: 0.8 });
       g.shake(0.6, 0.3);
       look5(g, "up");
+      const C2 = g.colonel;
+      hw_default.chase?.cancelEntry?.();
       const p2 = g.player;
-      await Promise.all(fresh.map((id) => {
+      const up = Promise.all(fresh.map((id) => {
         standFriend(id);
         return g.walk(id, { x: p2.x + (id === "danny" ? -14 : id === "leah" ? 0 : 14), y: p2.y + 12 }, { run: true });
       }));
+      await g.wait(0.5);
+      g.sfx("coal_slide", { x: 21 * TILE30 + 8, y: 11 * TILE30, vol: 1, rate: 0.7 });
+      g.fx("emit", "coal_dust", 21 * TILE30 + 8, 11 * TILE30 + 8, 14);
+      await C2.spawn("lectern", { mode: "scripted", anim: "emerge", dir: "down" });
+      C2.face("tess");
+      await up;
       joinParty(g, free);
       await g.cam(null, { time: 0.4 });
       g.checkpoint("escape_aud");
+      hw_default.chase?.pursue?.();
     },
     /** Lobby trigger (PRESENT): the vestibule. The friends cross into the dawn. She doesn't. */
     "ch8.vestibule": async (g) => {
@@ -71875,10 +71978,27 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
     g.overlay("black", null);
     await g.fade("in", sec);
   }
-  async function confession(g, here2) {
+  async function confession(g, here2, lost = []) {
     const D2 = here2.includes("danny");
     const L3 = here2.includes("leah");
     const M10 = here2.includes("marcus");
+    if (lost.length) {
+      await g.narrate("Nobody says anything for a while. Nobody looks back at the doors.");
+      await g.wait(auto4() ? 0 : 1.2);
+      await g.say("tess", "look_away", "I'm moving. To Philly. {p} After Christmas.", DL);
+      if (L3) await g.say("leah", "hurt", "I know, T. {p} I know.", DL);
+      else if (D2) {
+        await g.say("danny", "sad", "...Leah knew. {p} Didn't she.", DL);
+        await g.say("tess", "sad", "Since August.", DL);
+      }
+      if (M10) {
+        await g.wait(auto4() ? 0 : 0.8);
+        await g.say("marcus", "sad", "You'll call.", DL);
+        await g.say("tess", "sad", "I'll call.", DL);
+      }
+      if (L3) await g.say("leah", "smile", "Side B's better. {p} For the record.", DL);
+      return;
+    }
     const others = here2.filter((id) => id !== "leah");
     if (L3 && others.length > 1) await g.say("leah", "smirk", "You gonna tell them, or am I?", DL);
     else if (L3 && others.length === 1) await g.say("leah", "smirk", "You gonna tell him, or am I?", DL);
@@ -72012,7 +72132,7 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       g.overlay("black", null);
       await g.wait(auto4() ? 0 : 2.6);
       if (free.length) {
-        await confession(g, free);
+        await confession(g, free, lost);
         await g.wait(auto4() ? 0 : 1.6);
       }
       g.overlay("black", { alpha: 1 });
@@ -72253,7 +72373,8 @@ Your autosave (${nb(auto5.chapterTitle || "in progress")}, ${fmtTime(auto5.playt
       await g.wait(auto4() ? 0 : 1.4);
       g.sfx("intercom_crackle", { vol: 0.6 });
       await g.wait(auto4() ? 0 : 1.2);
-      await g.say("voice", null, "Kaylee Ann Brooks?", { name: "INTERCOM", speed: 0.8 });
+      await g.narrate("{dim}A girl's voice. Calm. A little dry.{/dim}");
+      await g.say("voice", null, "Kaylee Ann Brooks?", { name: "Tess?", speed: 0.8 });
       g.overlay("black", { alpha: 1 });
       hw_default.audio?.ambience?.("silence", 0.02);
       if (beam2) hw_default.lighting?.removeLight?.(beam2);

@@ -500,7 +500,7 @@ async function partLibrary(g, { label, choice, charter }) {
   }
   t.ok(cps(tr).includes('marcus knocks'), `${label} checkpoint after Marcus knocks`);
   t.ok(r.door_open && r.barricade === false && r.marcus && s.party.includes('marcus'), `${label} unbar: library_door_open, Marcus rejoins`, r);
-  t.ok(said(tr, 'tess', /There's a safe behind it\./), `${label} the crooked painting → "There's a safe behind it."`);
+  t.ok(said(tr, 'tess', /Locked in his safe, I bet\.|Whatever he knew, he kept locked up\./), `${label} the crooked painting → the safe`);
   t.ok(tr.some((x) => x.type === 'objective' && x.text === "Haupt's office. The safe."), `${label} objective "Haupt's office. The safe."`);
   t.eq(s.chapter, 6, `${label} ch5.end → g.chapter(6)`);
   t.ok(cps(tr).includes('chapter 6'), `${label} checkpoint 'chapter 6'`);
@@ -607,7 +607,7 @@ if (!SHOTS_ONLY && (!ONLY || ONLY === 'B')) {
   t.ok(tb.filter((x) => x.type === 'checkpoint' && x.text === '201 threshold').length >= 1 && w1.cp_201 === '201 threshold', 'B 201: retries from the threshold checkpoint');
   t.ok(w1.done && w1.obj === "The library. The door by the girls' room.", 'B 201: third try held → the empty room; objective → the library', w1);
   const sB = await snapState(game);
-  t.ok((sB.stingers.stinger_hard || 0) >= 1, 'B 201: the head turn stinger plays on each [Back out]');
+  t.ok((sB.stingers.stinger_hard || 0) + (sB.stingers.stinger_soft || 0) >= 1, 'B 201: the head turn stings on each [Back out] (soft on a replay)');
   await game.hw((H) => { H.transcript.length = 0; });
   await partLibrary(game, { label: 'B', choice: 1, charter: false });
   await errs('run B');

@@ -217,7 +217,7 @@ export default {
     { id: 'b_jan_desk', type: 'janitor_desk', x: 2, y: 3,
       examine: v(["[n] Walt's desk. A transistor radio still tuned to the polka station out of Pottsville. A coffee can of screws, sorted by size.",
         '[curious] A school photo in a dime-store frame, face down. I leave it face down.'], "[n] The radio. The screws. The photo, face down.") },
-    { id: 'b_battery_jan', type: 'pickup', x: 2, y: 3, item: 'battery',
+    { id: 'b_battery_jan', type: 'pickup', x: 3, y: 3, item: 'battery',
       examine: "[relieved] A battery in the desk drawer, rubber-banded to a note: FOR THE BIG LIGHT." },
     { type: 'office_chair', x: 2, y: 4, dir: 'up', sitDir: 'up' },
     // the workbench under the pegboard: the key ring, and the log in its plastic sleeve

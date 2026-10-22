@@ -424,7 +424,7 @@ export default {
     await g.wait(0.9);
     if (g.npc('marcus')) g.face('marcus', 'down');
     await g.wait(0.7);
-    if (replay) { g.objective('Look around.'); return; }
+    if (replay) { g.objective('Look around. The classrooms.'); return; }
 
     // Tess's beam finds the west trophy case.
     await g.walk('tess', [11, 22]);
@@ -454,7 +454,7 @@ export default {
       await g.say('danny', 'grin', 'Dolan. You coming?');
       release(g, 'danny');
     }
-    g.objective('Look around.');
+    g.objective('Look around. The classrooms.');
   },
 
   /** Trigger (once) crossing from the vestibule into the lobby. */

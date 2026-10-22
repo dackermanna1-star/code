@@ -101,7 +101,7 @@ BOYS.forEach(([x, y, state, text, nochute], i) => {
   );
 });
 for (const p of boyProps) if (p.examine === undefined) delete p.examine;
-const LAMPS = BOYS.map(([x, y], i) => ({ type: 'lamp_miner', x, y: y - 0.75, group: `lamp_${i + 1}`, on: false }));
+const LAMPS = BOYS.map(([x, y], i) => ({ type: 'lamp_miner', x, y: y - 1.2, group: `lamp_${i + 1}`, on: false }));
 
 // ---- timber posts: on the railings between benches, and standing in the voids --------------------
 const POST_TEXT = '[n] A tarred timber, thick as I am. The fire\'s been licking it from underneath for thirty years. It hasn\'t burned.';

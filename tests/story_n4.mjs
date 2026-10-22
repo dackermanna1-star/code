@@ -223,7 +223,7 @@ async function playCh6(label, o) {
   t.eq(r.portrait, 'open', `${L}.portrait: swung open on its hinges`);
   t.ok(tr.some((x) => x.type === 'say' && x.who === 'voice' && /^Theresa\. \{p=1\.2\} Those belong to the principal\. .*Put them back\.$/.test(x.text)),
     `${L}.safe_open: the intercom, quietly — "Theresa. Those belong to the principal. …Put them back." (voice styling)`);
-  t.ok(said(tr, 'tess', /^No\.$/) && said(tr, 'tess', /^Founder's Day\. \{p\} The day the boys burned\. \{p=0\.8\} He made it a holiday\.$/), `${L}.safe_open: "No." · "Founder's Day. The day the boys burned. He made it a holiday."`);
+  t.ok(said(tr, 'tess', /^No\.$/) && said(tr, 'tess', /^Founder's Day\. \{p\} The day his boys died\. \{p=0\.8\} He made it a holiday\.$/), `${L}.safe_open: "No." · "Founder's Day. The day his boys died. He made it a holiday."`);
   t.ok(narrated(tr, /WITHDRAWN/) , `${L}.safe_open: the stamp's thunk (WITHDRAWN on the envelope)`);
   t.eq(r.cp_safe, 'safe', `${L}: checkpoint 'safe'`);
   t.eq(r.obj_safe, 'The auditorium.', `${L}: objective "The auditorium."`);
@@ -238,7 +238,7 @@ async function playCh6(label, o) {
   const homeroom = /^I was gonna let homeroom find out from the attendance sheet\. Just gone, and a chalkboard says why\./;
   const hr = tr.filter((x) => x.type === 'think' && homeroom.test(x.text));
   t.eq(hr.length, 1, `${L}: the attendance-sheet thought exactly once (breather if she told Leah or Marcus, else alone)`);
-  if (o.expectHomeroomIn === 'breather') t.ok(/Like \*him\*\.$/.test(hr[0]?.text || ''), `${L}: …in the breather ("Like *him*.")`);
+  if (o.expectHomeroomIn === 'breather') t.ok(/Like Danny\.$/.test(hr[0]?.text || ''), `${L}: …in the breather ("Like Danny.")`);
   if (o.expectHomeroomIn === 'alone') t.ok(/Like them\.$/.test(hr[0]?.text || ''), `${L}: …alone ("Like them.")`);
   t.ok(narrated(tr, /The tune doesn't\./) && narrated(tr, /clarinet picks it up/) && said(tr, 'marcus', /^That's not me\.$/), `${L}.breather: the hum; the clarinet carries on from the east — "That's not me."`);
   t.eq(r.obj_breather, 'The gym. East hall.', `${L}: objective "The gym. East hall."`);

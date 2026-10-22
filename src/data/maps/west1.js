@@ -715,6 +715,7 @@ export default {
 
   exits: [
     { rect: [60, 13, 2, 5], to: 'lobby', anchor: 'from_west1' },
+    { id: 'library', rect: [1, 15, 1, 2], to: 'library', anchor: 'from_west1' },   // once the doors stand open
   ],
 
   triggers: [
@@ -734,7 +735,7 @@ export default {
     // Desks in rows, DANIEL KOVACH — PRESENT
     { id: 'room102', rect: [16, 3, 15, 7], script: 'ch1.room102', cond: post },
     // Ch2: "Get in a room. Sit down. Now." — 103 is the only door left open
-    { id: 'ch2_103', rect: [2, 3, 13, 7], script: 'ch2.sit', cond: (s) => s.chapter === 2 && !F(s).ch2_bell1 },
+    { id: 'ch2_103', rect: [2, 3, 13, 7], script: 'ch2.sit', once: false, cond: (s) => s.chapter === 2 && !F(s).ch2_bell1 },
     // Ch4: the main office with the janitor's OFFICE key
     // (repeatable through Ch4 until the period is done: after a reload between roll #1 and the period,
     // stepping back into reception picks the period up again — narrative-2)

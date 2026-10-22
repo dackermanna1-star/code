@@ -147,7 +147,7 @@ class UIManager {
   choice(options, opts) { return this.dialogue.choice(options, opts || {}); }
 
   // ---- notifications ----------------------------------------------------------------------------------
-  toast(text) { this._log({ kind: 'toast', text }); this.hud.toast(text); }
+  toast(text, opts) { this._log({ kind: 'toast', text }); this.hud.toast(text, opts); }
   objective(text) {
     if (HW.state) HW.state.objective = text;
     this._log({ kind: 'objective', text });

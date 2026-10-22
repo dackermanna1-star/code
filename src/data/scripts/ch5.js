@@ -178,12 +178,13 @@ function spawnFalseLeah(g) {
   return L;
 }
 
-/** Her shadow in the beam: the shroud (near-black, brass winking in it) rising behind her chair. */
+/** Her shadow, thrown up the wall over the board: the wrong shape. Flat (no brass) until her head turns. */
 async function shadowOn(g) {
   const C = g.colonel;
   if (!C) return null;
   if (C.entity) return C.entity;
-  const e = await C.spawn([15, 7], { mode: 'scripted', anim: null, dir: 'down' });
+  const e = await C.spawn([14, 3], { mode: 'scripted', anim: null, dir: 'down' });
+  if (e) { e.wallShadow = 0; for (let i = 1; i <= 8; i++) { e.wallShadow = 0.1 * i; await g.wait(0.15); } }
   // The room is quiet; the breathing is there, low. (No public volume API: the AI's own breath loop.)
   try { C._breath?.setVol?.(0.3, 0.6); } catch (err) { console.error('[ch5] breath vol', err); }
   return e;
@@ -432,7 +433,7 @@ export default {
     g.sfx('colonel_jingle', { x: C.x, y: C.y - 16, vol: 0.8 });
     await C.anim('reach_down', { once: true, hold: true });
     HW.audio?.murmur?.(2.8);
-    await g.say('voice', null, "Good boy. {p} I knew your grandfather's name.", VOICE);
+    await g.say('voice', null, "Good boy. {p} I knew your grandfather's name.", { ...VOICE, present: true });
     await g.wait(1.0);
     C.anim(null);
     await C.walkTo([23, 6]);
@@ -826,7 +827,9 @@ export default {
       // In the beam, her shadow climbs the wall behind her. It is the wrong shape.
       look(g, [15, 6]);
       await shadowOn(g);
-      await g.wait(2.6);
+      await g.wait(0.8);
+      await g.think('scared', "Her shadow. {p} It's too big for her. {p} It's too *wide*.");
+      await g.wait(0.6);
       // The compact.
       await compactLook(g, 'room201_1979', 'terrified', "Her chair's empty. {p} And the corner isn't.", 2.6);
       await g.cam([17, 7], { time: 0.6 });
@@ -862,12 +865,16 @@ export default {
     await g.walk('tess', [20, 9]);
     look(g, 'false_leah');
     await g.wait(0.6);
-    if (L) { L.sitDir = 'down'; L.dir = 'down'; }
-    g.sfx('stinger_hard');
+    // Her head comes round. Her shoulders don't.
+    const turn = L ? g.anim('false_leah', 'headturn', { once: true, hold: true }) : null;
+    await g.wait(0.67);                 // 3 fps: the last frame is her face, over her own back
+    g.sfx(g.replaying ? 'stinger_soft' : 'stinger_hard', g.replaying ? { vol: 0.5 } : undefined);
     g.fx('chroma', 0.7, 0.9);
     g.fx('distort', 0.5, 0.9);
     g.shake(2, 0.4);
-    if (HW.colonel?.entity) HW.colonel.face('tess');
+    const Cs = HW.colonel?.entity;
+    if (Cs) { delete Cs.wallShadow; HW.colonel.face('tess'); }   // the shadow stops being a shadow: brass, sash, him
+    await turn;
     await g.narrate('{shake}Her head turns. {p} It keeps turning.{/shake}');
     // Out. Backwards, eyes on her, then the door.
     const out = g.walk('tess', 'door_hold', { run: true });
@@ -1017,7 +1024,7 @@ export default {
     g.give('charter');
     g.set('charter');
     await g.doc('charter_full');
-    await g.think('worried', "'The first scholar of Hallowell School.' {p} He put himself on the roll.");
+    await g.think('worried', "'And I shall be the last to leave it.' {p} He's on his own roll. He means to be the last one off it.");
   },
 
   'ch5.marcus_knock': async (g) => {
@@ -1083,7 +1090,7 @@ export default {
       g.face('marcus', 'tess');
       await g.say('marcus', 'thoughtful', "Came past the office. {p} Haupt's door was standing open. That little painting of him's crooked.");
       if (g.flag('ch5_leah_clue')) await g.think('look_away', 'WITHDRAWN. {p} The office stamps it on the form. {p} On mine, Monday.');
-      await g.say('tess', 'determined', "Crooked painting in a principal's office. {p} There's a safe behind it.");
+      await g.say('tess', 'determined', g.flag('ch5_leah_clue') ? "Then that's where the stamp is. {p} Locked in his safe, I bet." : "Haupt ran this place in '79. {p} Whatever he knew, he kept locked up.");
     }
     g.objective("Haupt's office. The safe.");
     await g.chapter(6);

@@ -310,6 +310,7 @@ export default {
     if (HW.periods && HW.periods.phase !== 'idle') return;
     const replay = g.seen('ch3_first_period');
     const bell = g.periods.start({ guided: true, reason: 'ch3' });
+    if (!replay) g.toast(`[${HW.ui?.input?.keyLabel?.('flashlight') || 'F'}] Light off — in the dark he sees less.`);
     await g.wait(replay ? 0.4 : 1.2);
     const m = ent('marcus');
     if (m && withMarcus()) {

@@ -178,7 +178,7 @@ export default {
     { id: 'lobby_plaque_later', type: 'plaque', x: 18, y: 3, doc: 'plaque', cond: LATER,
       examine: [
         { cond: (s) => (s.chapter || 0) >= 6 && !s.flags.safe_open, text: '[n] Brass, going green. Leah read it out loud, before. FIRST KEPT IN 1894.' },
-        { cond: (s) => !!s.flags.safe_open, text: '[sad] The day the boys burned. He had it cast in brass.' },
+        { cond: (s) => !!s.flags.safe_open, text: '[sad] The day his boys died. He had it cast in brass.' },
         { text: '[n] Brass, going green. Somebody kept his name polished and let the rest go.' },
       ] },
     { id: 'lobby_exit_e', type: 'exit_sign', x: 19, y: 3, state: 'dead', examine: EXIT_DEAD,

@@ -385,6 +385,10 @@ LEAH.idle = (dir, X) => {
 };
 LEAH.specials = (anims, X) => {
   for (const d of ['down', 'up', 'left', 'right']) anims[`film_${d}`] = X.anim([X.R(filmGeom(X, d, true)), X.R(filmGeom(X, d, false))], 2);
+  // headturn (the False Leah, 201): seated with her back to us, only the head comes round — back of the
+  // head, profile, then her face over her own shoulder blades. The body never turns. Holds the last frame.
+  const back = (o) => X.R(X.sit('up', o));
+  anims.headturn = X.anim([back(), back({ headDir: 'left' }), back({ headDir: 'down' }), back({ headDir: 'down', headDy: 1 })], 3, false);
 };
 
 // =============================================================================================

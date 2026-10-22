@@ -25,8 +25,9 @@ export class Hud {
     this.prompt = { target, verb: verb || 'Look', a: 0, on: true, key };
   }
 
-  toast(text) {
-    this.toasts.push({ text: String(text), t: 0 });
+  /** opts.voice: a line in his voice heard in the room (not a system message) — no panel, his voice styling. */
+  toast(text, opts = {}) {
+    this.toasts.push({ text: String(text), t: 0, voice: !!opts.voice });
     if (this.toasts.length > 4) this.toasts.shift();
   }
   notice(text) { this.notices.push({ text: String(text || ''), t: 0 }); if (this.notices.length > 2) this.notices.shift(); }
@@ -86,6 +87,11 @@ export class Hud {
     rect(ctx, x, y + 2, 4, 14, '#bdb59e'); rect(ctx, x, y + 10, 14, 4, '#bdb59e'); rect(ctx, x + 10, y + 12, 4, 6, '#bdb59e');
     rect(ctx, x, y + 12, 4, 6, '#bdb59e');
     f.draw(ctx, label, x + 26, y, '#bdb59e');
+    if (HW.periods?.active) {
+      // teach the period controls while it matters (a Confirm tap no longer stands her up mid-period)
+      const hint = `HOLD ${this.ui.input?.keyLabel?.('confirm') || 'Z'} — EYES SHUT   ·   MOVE TO STAND`;
+      f.draw(ctx, hint, W / 2, y - 24, '#8f897a', { align: 'center' });
+    }
     ctx.globalAlpha = a0;
   }
 
@@ -235,6 +241,7 @@ export class Hud {
   }
 
   _toast(ctx, t, i) {
+    if (t.voice) return this._voiceToast(ctx, t);
     const f = F.small;
     const k = ease.out(clamp(t.t / 0.2)) * (1 - clamp((t.t - TOAST_LIFE + 0.4) / 0.4));
     if (k <= 0) return;
@@ -246,6 +253,19 @@ export class Hud {
     rect(ctx, x, y, AP * 2, h, C.red);
     rect(ctx, x, y, w, AP, C.panelHi);
     f.draw(ctx, t.text, x + 20, y + 4, C.text);
+    ctx.globalAlpha = a0;
+  }
+
+  _voiceToast(ctx, t) {
+    // his question, heard: soft dark behind the words, centred a little below the middle, fading slowly
+    const k = ease.out(clamp(t.t / 0.35)) * (1 - clamp((t.t - TOAST_LIFE + 1.6) / 1.6));
+    if (k <= 0) return;
+    const f = F.mono;
+    const w = snap(f.width(t.text) + 80), h = 40;
+    const x = snap(W / 2 - w / 2), y = 300;
+    const a0 = ctx.globalAlpha; ctx.globalAlpha = a0 * k;
+    dither(ctx, x, y, w, h, 'rgba(0,0,0,0.85)', 0.5);
+    f.draw(ctx, t.text, W / 2, y + 8, '#cfcabd', { align: 'center' });
     ctx.globalAlpha = a0;
   }
 

@@ -134,7 +134,7 @@ export function speakerName(who, o = {}) {
 
 // ---- settings ----------------------------------------------------------------------------------
 export const SETTINGS_KEY = 'hallowell.settings';
-export const SETTINGS_DEFAULTS = { master: 0.8, music: 0.7, sfx: 0.9, ambience: 0.8, textSpeed: 1, pixelPerfect: true,
+export const SETTINGS_DEFAULTS = { master: 0.8, music: 0.7, sfx: 0.9, ambience: 0.8, textSpeed: 1, pixelPerfect: false,
   crt: false, grain: true, reduceFlashing: false, fullscreen: false };
 let localSettings = null;
 function local() {

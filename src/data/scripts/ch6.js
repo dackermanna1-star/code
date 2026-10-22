@@ -179,7 +179,8 @@ export function installCh6() {
   });
   HW.game.on('load', () => {
     if (stash) {
-      for (const k of stash) HW.state.flags[k] = true;
+      // only into the run that died (Ch6/Ch7); never into an older save loaded from the title
+      if ((HW.state?.chapter || 0) >= 6) for (const k of stash) HW.state.flags[k] = true;
       stash = null;
     }
     // A reload inside the gym after the lights (the 'locker' / 'roll 2' checkpoints): pick the scene up.
@@ -190,6 +191,7 @@ export function installCh6() {
     else if (!f.ch6_marcus_taken || !s.inv.denise_photo) later('ch6.after_locker', { resume: true });
   });
   HW.game.on('newGame', () => { stash = null; });
+  HW.game.on('title', () => { stash = null; });
   return true;
 }
 if (typeof window !== 'undefined') {
@@ -216,7 +218,7 @@ export default {
     if (ch() < 6 || !f.safe_seen_past) {
       if (!f.ch6_portrait_looked) {
         g.set('ch6_portrait_looked');
-        await g.narrate('A small oil of the Colonel in a gilt frame, hanging a little crooked. I lift the edge. Paneling behind it. Nothing.');
+        await g.narrate("A small oil of the Colonel in a gilt frame, hanging a little crooked. I go to straighten it. It doesn't budge.");
       }
       await g.think('worried', "Just a painting. He's watching the door.");
       if (ch() >= 6 && g.inc('ch6_portrait_tries') >= 2 && !f.ch6_safe_hint) await safeHint(g);
@@ -274,7 +276,7 @@ export default {
         await g.wait(0.6);
       }
       look(g, 'up');
-      await g.say('tess', 'angry', "Founder's Day. {p} The day the boys burned. {p=0.8} He made it a holiday.");
+      await g.say('tess', 'angry', "Founder's Day. {p} The day his boys died. {p=0.8} He made it a holiday.");
     } else {
       g.state.docs.haupt_letter = true;
     }
@@ -327,7 +329,7 @@ export default {
     if (g.flag('bond_leah') || g.flag('ch6_told_marcus')) {
       g.set('ch6_homeroom_said');
       await g.wait(0.6);
-      await g.think('sad', 'I was gonna let homeroom find out from the attendance sheet. Just gone, and a chalkboard says why. {p} Like *him*.');
+      await g.think('sad', 'I was gonna let homeroom find out from the attendance sheet. Just gone, and a chalkboard says why. {p} Like Danny.');
     }
     // The hum. Then the tune goes on without him.
     await g.wait(1.4);
@@ -493,10 +495,11 @@ export default {
     g.set('ch6_gym_lights');            // the light no longer dies around him (exposure #12)
     g.refresh();                        // the 'gym mats' are gone
     const C = g.colonel;
-    await C.spawn('colonel_hoop', { mode: 'scripted', anim: 'mound', dir: 'left' });
+    // seated on the floor under the hoop, facing them — he was there the whole time
+    await C.spawn('colonel_hoop', { mode: 'scripted', anim: 'sitfloor', dir: 'left' });
     C.face('left');
     bank(g, 4, 1);
-    g.sfx('stinger_hard');              // stinger #3 (DESIGN §14)
+    g.sfx(g.replaying ? 'stinger_soft' : 'stinger_hard', g.replaying ? { vol: 0.5 } : undefined);   // stinger #3 (DESIGN §14)
     g.music(null, 0.05);
     g.anim('denise', 'wrong', { once: true, hold: true });
     g.silence(true, 0.05);              // the roof rain cuts out for 2 s
@@ -508,7 +511,7 @@ export default {
     const hoop = HW.map?.anchor('colonel_hoop');
     if (hoop) g.sfx('colonel_breath', { x: hoop.x, y: hoop.y - 24, vol: 1 });
     await g.wait(0.6);
-    const rise = C.anim('rise', { once: true, hold: true });
+    const rise = C.anim('rise_seated', { once: true, hold: true });   // ~2 s, slowly
     g.shake(0.8, 2.0);
     if (hoop) g.sfx('coal_slide', { x: hoop.x, y: hoop.y, vol: 0.7, rate: 0.6 });
     await rise;
@@ -519,12 +522,12 @@ export default {
     if (m.seat) HW.hiding?.unseatNpc?.(m);
     g.setPos('marcus', 'beside_denise');
     g.face('marcus', 'tess');
-    await g.cam('tess', { time: 0.35 });
+    await g.cam([31, 14], { time: 0.35 });   // hold the wide shot: Marcus, Tess and his lunge all above the box
     HW.scripts.run('ch6.chase', {}, { blocking: false });
     await g.say('marcus', 'urgent', 'TESS. RUN.', { shake: 2, hold: true });
-    g.state.objective = "The girls' locker room. Hide.";
-    HW.debug?.record?.('objective', null, null, g.state.objective);
-    await g.cam(null, { time: 0.2 });
+    if (!replay) await g.think('terrified', "The girls' locker room. {p=0.3} The left door—");
+    g.objective("The girls' locker room. Hide.");
+    await g.cam(null, { time: 0.4 });
   },
 
   /** Non-blocking: the gym chase. Resolves 'hidden' when she climbs into gym_locker_tess. */
@@ -621,7 +624,7 @@ export default {
       const opening = tween(2.2, (k) => set({ mouth: k < 0.25 ? k * 0.9 : 0.225 + (k - 0.25) * 1.03 }));
       if (!replay) await g.narrate('{shake}Below the eye, the mouth opens. {p} It keeps opening. Down past where a mouth stops.{/shake}');
       // Roll call #2.
-      await colonelVoice(g, 'Theresa?', { speed: 0.6 });
+      await colonelVoice(g, 'Theresa?', { speed: 0.6, present: true });
       let fails = 0;
       for (;;) {
         const c = await g.choice(['Here.', 'Hold your breath.']);
@@ -629,7 +632,7 @@ export default {
           g.set('roll2_answered');
           g.set('roll2_done');
           await g.wait(0.9);
-          await colonelVoice(g, 'Thank you, Theresa.', { speed: 0.7 });
+          await colonelVoice(g, 'Thank you, Theresa.', { speed: 0.7, present: true });
           break;
         }
         const assist = g.state.assist || 1;
@@ -658,7 +661,7 @@ export default {
         await g.wait(0.6);
         g.sfx('locker_tap', { ...lockerAt, vol: 1.3 });
         await g.wait(1.0);
-        await colonelVoice(g, 'Theresa?', { speed: 0.55 });
+        await colonelVoice(g, 'Theresa?', { speed: 0.55, present: true });
       }
       // The face withdraws. He moves on.
       await opening;

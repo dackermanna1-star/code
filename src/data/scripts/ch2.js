@@ -87,7 +87,10 @@ function armSitWatcher(g) {
  * Returns the shared state; set .danger while he's in the room, .cg during the CG, .on = false to stop.
  */
 function eyesShut(g) {
-  const eyes = { on: true, danger: false, cg: false, glimpses: 0, cool: 0, loose: 0, open: false };
+  const eyes = { on: true, danger: false, cg: false, glimpses: 0, cool: 0, loose: 0, open: false, peek: false };
+  // Eyes shut = he is not seen. Only an opened eye (release) or a fragment's flicker shows the mass.
+  const seen = () => { const e = HW.colonel?.entity; if (e) e.visible = !eyes.on || eyes.open || eyes.peek || eyes.cg; };
+  eyes.seen = seen;
   const tight = (on) => {
     g.overlay('heads_down', {});
     g.overlay('black', on ? { alpha: 0.22 } : null);
@@ -97,6 +100,7 @@ function eyesShut(g) {
     let wasHeld = true;
     while (eyes.on) {
       await pg.wait(0.05);
+      seen();
       if (!eyes.on || eyes.cg || eyes.open) continue;
       eyes.cool = Math.max(0, eyes.cool - 0.05);
       const held = !!HW.input?.down?.('confirm');
@@ -105,6 +109,7 @@ function eyesShut(g) {
       if (!eyes.danger || held || eyes.loose < 0.3 || eyes.cool > 0 || eyes.glimpses >= 2) continue;
       // Her eyes open: the coat, inches away; the hand sliding toward her face.
       eyes.open = true;
+      seen();
       eyes.glimpses++;
       HW.debug?.record?.('glimpse', null, null, `ch2:${eyes.glimpses}`);
       pg.overlay('heads_down', null);
@@ -127,17 +132,47 @@ function eyesShut(g) {
       eyes.open = false;
     }
     pg.overlay('black', null);
+    { const ce = HW.colonel?.entity; if (ce) ce.visible = true; }
   });
   return eyes;
 }
 
 /** A fragment glimpsed through the tubes' stutter: the lights die for a beat, one line, back. */
-async function fragment(g, text) {
+async function fragment(g, eyes, text) {
   HW.lighting?.setGroup?.('period', false, { mode: 'instant' });
   await g.wait(0.14);
   HW.lighting?.setGroup?.('period', true, { mode: 'stutter', stagger: 0.12 });
+  // The tubes stutter back and, for half a second, the mass is there in the flicker.
+  eyes.peek = true; eyes.seen?.();
+  g.parallel(async (pg) => { await pg.wait(0.5); eyes.peek = false; eyes.seen?.(); });
   await g.narrate(`{dim}${text}{/dim}`, { hold: true });
   await g.wait(1.3);
+}
+
+// A reload before the bell (a save inside 103, or the map-exit autosave after walking out) aborts the
+// sit watcher, and the once-trigger ch2_103 won't fire again: re-arm it on every Ch2 load.
+let installed = false;
+function installCh2() {
+  if (installed) return true;
+  if (!HW.game?.on || !HW.scripts) return false;
+  installed = true;
+  HW.game.on('load', () => {
+    const s = HW.state;
+    const f = s?.flags || {};
+    if (s?.chapter !== 2 || f.ch2_bell1) return;
+    HW.scripts.runFn((g) => {
+      if (HW.map?.id === 'west1') {
+        setRoom(g);
+        seatFriend(g, 'leah', DESKS.leah, { walk: false });
+        seatFriend(g, 'marcus', DESKS.marcus, { walk: false });
+      }
+      armSitWatcher(g);
+    }, {}, { blocking: false, id: 'ch2:resume' });
+  });
+  return true;
+}
+if (typeof window !== 'undefined') {
+  const poll = setInterval(() => { if (installCh2()) clearInterval(poll); }, 200);
 }
 
 export default {
@@ -240,16 +275,16 @@ export default {
     eyes.danger = true;
     const into = C.walkTo([11, 8]);
     await g.wait(0.9);
-    await fragment(g, 'Navy wool. A hem, dragging.');
+    await fragment(g, eyes, 'Navy wool. A hem, dragging.');
     await into;
     const along = C.walkTo([9, 7]);
     await g.think('eyes_shut', "{slow}Don't move. Don't move.{/slow}", { hold: true });
     await g.wait(0.6);
-    await fragment(g, 'A crimson fringe, swinging.');
+    await fragment(g, eyes, 'A crimson fringe, swinging.');
     await along;
     await C.walkTo([8, 7]);
     C.face('tess');
-    await fragment(g, 'A boot. Split open along the seam.');
+    await fragment(g, eyes, 'A boot. Split open along the seam.');
     await g.wait(1.4);
 
     // The hand (CG): on her desk, beside her face. A long breath.

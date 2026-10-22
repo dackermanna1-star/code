@@ -237,7 +237,8 @@ export default {
       await g.wait(0.8);
       await g.cam([21, 25], { time: 2.4 });
       g.sfx('husk_rustle', { x: 21 * TILE, y: 24 * TILE, vol: 0.5 });
-      await g.narrate('Every seat is taken. Shapes sitting up straight, the color of old honey, and you can see through them. Every one of them facing the stage.');
+      await g.narrate('Almost every seat is taken. Shapes sitting up straight, the color of old honey, and you can see through them. Every one of them facing the stage.');
+      await g.narrate('Here and there, an empty seat. {p} Like somebody is saving it.');
       await g.cam([21, 13], { time: 2.6 });
       await g.wait(1.2);
       HW.audio?.murmur?.(2.4);
@@ -361,6 +362,10 @@ export default {
       g.take('diary_page');
       g.set('bond_marcus');
       g.refresh();                          // his Polaroid in the lobby: pencil now
+      if (!g.flag('trapdoor_open') && !(g.flag('ch7_lever_asked') && !g.has('charter'))) {
+        await g.think('determined', 'Miss Adair pointed at the floor. {p} Under the stage. The door marked STAGE CREW ONLY.');
+        g.objective('Under the stage. Stage right, the crew door.');
+      }
       g.checkpoint('marcus bond');
       return;
     }

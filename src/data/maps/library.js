@@ -266,6 +266,9 @@ export default {
   },
 
   exits: [
+    // walking into a door that already stands open goes through it (closed/locked doors are solid)
+    { id: 'west1_doors', rect: [27, 19, 1, 2], to: 'west1', anchor: 'from_library' },
+    { id: 'west2_door', rect: [27, 9, 1, 1], to: 'west2', anchor: 'from_library' },
     { rect: [1, 13, 2, 1], to: 'library', anchor: 'spiral_top' },     // up the spiral (1F → 2F)
     { rect: [1, 11, 2, 1], to: 'library', anchor: 'spiral_bottom' },  // down the spiral (2F → 1F)
   ],

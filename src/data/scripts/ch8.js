@@ -250,7 +250,7 @@ export default {
     await g.wait(1.4);
     if (!replay) {
       g.sfx('colonel_murmur', { dur: 2.8, vol: 0.5 });
-      await g.narrate('{dim}"...Patricia Szalay." "Michelle Yancey."{/dim} {p} The names come down through the boards, one at a time.');
+      await g.narrate('{dim}"...Patricia Szalay." "Denise Webb." "Michelle Yancey."{/dim} {p} The names come down through the boards, one at a time.');
       await g.wait(0.6);
       await g.narrate('{dim}"Present." "Present."{/dim} {p} Dry, from a hundred seats.');
       await g.wait(1.4);
@@ -519,7 +519,7 @@ export default {
       g.shake(2.2, 0.6);
       g.fx('chroma', 0.6, 1.2);
       g.fx('distort', 0.3, 1.2);
-      await colonelVoice(g, 'WHO IS OUT OF THEIR SEAT.', { shake: 3, speed: 1.6 });
+      await colonelVoice(g, 'WHO IS OUT OF THEIR SEAT.', { shake: 3, speed: 3, present: true });
       await g.cg(null, { fade: 0.15 });
     }
     // He pours up out of the floor behind the desk — out of his chair.
@@ -530,7 +530,8 @@ export default {
     look(g, 'left');
     g.music('chase', 0.2);
     await g.think('terrified', 'Run.');
-    g.objective('Out. The front doors.');
+    g.state.objective = 'Out. The front doors.';
+    HW.debug?.record?.('objective', null, null, g.state.objective);
     HW.chase?.escape?.({ cannotCatch: false, rubber: [4, 8] });
   },
 
@@ -552,7 +553,8 @@ export default {
       await g.think('terrified', 'Get them out. {p} Go.');
     }
     g.music('chase', 0.4);
-    g.objective('Out. The front doors.');
+    g.state.objective = 'Out. The front doors.';
+    HW.debug?.record?.('objective', null, null, g.state.objective);
     HW.chase?.escape?.({ cannotCatch: true, rubber: [4, 8] });
   },
 
@@ -776,6 +778,7 @@ export default {
   'ch8.lobby_open': async (g) => {
     doorsOpen(g);
     dawnDoorLight(0.85);
+    HW.chase?.setRubber?.([2, 4]);   // the last straight: he closes to 2–4 tiles (does nothing outside an escape)
   },
 
   /** The auditorium on the way out: the freed wake and run with her; the rest stay in their seats. */
@@ -818,19 +821,29 @@ export default {
       else await g.say('tess', 'devastated', `${NAME[id]}—`);
       await g.say(id, 'entranced', `Class is starting, ${NICK[id]}.`);
     }
-    // Under the stage, the trapdoor bangs up. He's coming.
+    // Under the stage the trapdoor bangs up, and he comes up through the boards behind the lectern, into the
+    // Assembly spotlight, where he stood to read the roll.
     g.sfx('trapdoor', { x: 38 * TILE, y: 8 * TILE, vol: 1 });
     g.sfx('colonel_drag', { x: 37 * TILE, y: 8 * TILE, vol: 0.8 });
     g.shake(0.6, 0.3);
     look(g, 'up');
+    const C = g.colonel;
+    HW.chase?.cancelEntry?.();   // he's here already: no re-entry at the trapdoor after the scene
     const p = g.player;
-    await Promise.all(fresh.map((id) => {
+    const up = Promise.all(fresh.map((id) => {
       standFriend(id);
       return g.walk(id, { x: p.x + (id === 'danny' ? -14 : id === 'leah' ? 0 : 14), y: p.y + 12 }, { run: true });
     }));
+    await g.wait(0.5);
+    g.sfx('coal_slide', { x: 21 * TILE + 8, y: 11 * TILE, vol: 1, rate: 0.7 });
+    g.fx('emit', 'coal_dust', 21 * TILE + 8, 11 * TILE + 8, 14);
+    await C.spawn('lectern', { mode: 'scripted', anim: 'emerge', dir: 'down' });
+    C.face('tess');
+    await up;
     joinParty(g, free);
     await g.cam(null, { time: 0.4 });
     g.checkpoint('escape_aud');
+    HW.chase?.pursue?.();         // pursues with the set piece's opts (keeps PRESENT's cannotCatch)
   },
 
   /** Lobby trigger (PRESENT): the vestibule. The friends cross into the dawn. She doesn't. */

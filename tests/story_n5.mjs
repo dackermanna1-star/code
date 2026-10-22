@@ -322,7 +322,7 @@ if (run('A')) {
   t.ok(r.start.ch === 8 && r.start.map === 'vault' && r.start.obj === 'Under the stage. Go down.', `${L}.start: Chapter VIII under the stage; objective "Under the stage. Go down."`, r.start);
   t.ok(!r.start.assembly[0] && !r.start.assembly[1] && r.start.assembly[2] !== 'assembly', `${L}.start: the Assembly stops being a system (flag assembly_on cleared)`, r.start.assembly);
   // the last roll
-  t.ok(narrated(tr, /^\{dim\}"\.\.\.Patricia Szalay\." "Michelle Yancey\."\{\/dim\}/) && narrated(tr, /Nineteen ninety-six\.$/), `${L}.last_roll: the roll through the boards reaches 1996`);
+  t.ok(narrated(tr, /^\{dim\}"\.\.\.Patricia Szalay\." "Denise Webb\." "Michelle Yancey\."\{\/dim\}/) && narrated(tr, /Nineteen ninety-six\.$/), `${L}.last_roll: the roll through the boards reaches 1996`);
   for (const n of ['Daniel Kovach', 'Leah Brandt', 'Marcus Webb']) t.ok(narrated(tr, new RegExp(`^\\{dim\\}"${n}\\?"\\{/dim\\}$`)), `${L}.last_roll: "${n}?" (full legal name)`);
   t.ok(said(tr, 'danny', /^\.\.\.Dolan said she's coming back\.$/) && said(tr, 'tess', /^I am\.$/), `${L}.last_roll: Danny (bonded) — "...Dolan said she's coming back." · Tess: "I am."`);
   t.ok(said(tr, 'leah', /^\.\.\.She said Philly\. \{p\} She actually said it\.$/), `${L}.last_roll: Leah (bonded) — "...She said Philly. She actually said it."`);
@@ -464,17 +464,17 @@ async function withdrawn(L, cfg, actions, expect) {
 if (run('C')) await withdrawn('C', { bonds: {}, roll: 0, charter: false }, [], { saved: [] });
 if (run('D')) {
   await withdrawn('D', { bonds: {}, roll: 0, charter: false }, [['form', 'leah']], {
-    saved: ['leah'], confession: ['moving', 'long', 'sideB'], notConfession: ['tell', 'santa', 'knew', 'call'],
+    saved: ['leah'], confession: ['moving', 'sideB'], notConfession: ['tell', 'santa', 'long', 'knew', 'august', 'AUGUST', 'call'],
   });
   const tr = await game.hw(TR);
-  t.ok(said(tr, 'leah', /^You gonna say it, or am I\?$/), 'D.end: Leah alone — "You gonna say it, or am I?"');
+  t.ok(said(tr, 'leah', /^I know, T\. \{p\} I know\.$/) && !said(tr, 'leah', /^You gonna/), 'D.end: someone still inside — the quiet confession, no jokes');
 }
 if (run('E')) {
   await withdrawn('E', { bonds: { danny: true, leah: true }, roll: 2, charter: true }, [['form', 'tess'], ['stamp', 'danny'], ['stamp', 'leah']], {
-    saved: ['danny', 'leah'], confession: ['moving', 'santa', 'long', 'knew', 'august', 'AUGUST', 'sideB'], notConfession: ['call', 'icall'],
+    saved: ['danny', 'leah'], confession: ['moving', 'sideB'], notConfession: ['tell', 'santa', 'long', 'knew', 'august', 'AUGUST', 'call', 'icall'],
   });
   const tr = await game.hw(TR);
-  t.ok(said(tr, 'leah', /^You gonna tell him, or am I\?$/), 'E.end: Danny + Leah — "You gonna tell him, or am I?"');
+  t.ok(said(tr, 'leah', /^I know, T\. \{p\} I know\.$/) && !said(tr, 'leah', /^You gonna/), 'E.end: Marcus still inside — the quiet confession, no jokes');
 }
 if (run('F')) {
   await withdrawn('F', { bonds: { danny: true, leah: true, marcus: true }, roll: 0, charter: false }, [['stamp', 'danny'], ['stamp', 'leah'], ['stamp', 'marcus']], {

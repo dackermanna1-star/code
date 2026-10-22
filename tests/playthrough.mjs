@@ -755,7 +755,7 @@ SEG.pro = { limit: 150, async run() {
   T.ok(s.state.flags.pro_doors_cut, '[pro] Danny cuts the chain (pro_doors_cut)');
   need(s.map === 'lobby' && s.chapter === 1, '[pro] inside: the lobby, Chapter I', { map: s.map, ch: s.chapter });
   T.ok(cards(tr).includes('I — After Hours'), '[pro] card "I — After Hours"', cards(tr));
-  T.eq(s.objective, 'Look around.', '[pro→ch1] objective "Look around."');
+  T.eq(s.objective, 'Look around. The classrooms.', '[pro→ch1] objective "Look around. The classrooms."');
   T.ok(said(tr, /Let no one be left behind\./), '[pro] Leah translates the motto');
 } };
 

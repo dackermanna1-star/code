@@ -331,7 +331,7 @@ export default {
     {
       id: 'vault_1979', rect: [19, 27, 7, 6], hint: '1979. She got this far. She\'s still writing.',
       hide: ['v_adair_husk'],
-      adair: { x: 22, y: 29, anim: 'heads_down', dir: 'down' },
+      adair: { x: 22, y: 29, anim: 'write', dir: 'down' },
       setFlag: 'saw_vault_past',
     },
   ],

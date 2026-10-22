@@ -152,7 +152,7 @@ await T.step('prologue: pro.doors → in → Chapter I', async () => {
   T.eq(s.chapter, 1, 'chapter 1');
   T.eq(s.mapState.exterior?.ext_front_doors?.state, 'open', 'the front doors stand open behind them');
   T.ok(s.flags.ch1_adair_glimpse, 'Miss Adair, one frame, in the trophy glass');
-  T.eq(s.objective, 'Look around.', 'objective "Look around."');
+  T.eq(s.objective, 'Look around. The classrooms.', 'objective "Look around. The classrooms."');
   T.eq(s.party, ['danny', 'leah', 'marcus'], 'all four inside');
   const cps = await hw((H) => H.transcript.filter((t) => t.type === 'checkpoint').map((t) => t.text));
   T.ok(cps.includes('doors cut') && cps.includes('chapter 1'), 'checkpoints: doors cut, chapter 1', cps);
