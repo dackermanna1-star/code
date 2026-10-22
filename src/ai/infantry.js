@@ -284,6 +284,7 @@ export class InfantryBrain {
         if (u.drones > 0 && u.activeDrone) st = 1;
       }
     }
+    if (u.diveT > world.time) st = 2;
     u.stance = st;
   }
 

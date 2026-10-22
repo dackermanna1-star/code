@@ -114,6 +114,7 @@ export const AIRCRAFT_SPECS = {
     gunPivot: [0, 0.75, 4.6],             // chin cannon turret
     rocketPods: [[2.05, 1.5, 0.5], [-2.05, 1.5, 0.5]],
     missileRails: [[2.65, 1.45, 0.5], [-2.65, 1.45, 0.5]],
+    skidHeight: 0,                       // origin is at the wheels' ground contact
     cockpit: [0, 2.2, 3.4],
   },
   // Utility/transport helicopter (UH-60 class vs Mi-8 class).
@@ -141,7 +142,7 @@ export const AIRCRAFT_SPECS = {
     propPivots: [[5.2, 1.9, 4.2], [-5.2, 1.9, 4.2], [10.4, 1.8, 3.9], [-10.4, 1.8, 3.9]],
     propRadius: 2.05,                    // props spin about Z
     rampPivot: [0, -1.4, -7.2],          // rear cargo ramp hinge
-    jumpDoors: [[1.75, -0.6, -6.2], [-1.75, -0.6, -6.2]],
+    jumpDoors: [[2.2, -0.6, -6.2], [-2.2, -0.6, -6.2]],
     cockpit: [0, 1.6, 12.6],
   },
   // FPV kamikaze quadcopter with an RPG warhead slung underneath.

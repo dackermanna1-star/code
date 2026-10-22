@@ -8,6 +8,7 @@ import { rng } from '../core/rng.js';
 import { hitSoldier, hitVehicle, hitAircraft, hitStructure, explode } from './damage.js';
 
 const _cand = [];
+const _near = [];
 const _body = [0, 0, 0, 0, 0, 0];
 const _hit = { structure: null, t: 0, nx: 0, ny: 0, nz: 0 };
 
@@ -143,7 +144,19 @@ export class ProjectileSystem {
     // Incoming whistle for artillery / bombs, timed before impact.
     if (p.whistleAt > 0 && p.age >= p.whistleAt) {
       p.whistleAt = -1;
-      world.emit({ t: 'incoming', kind: p.kind, x: p.targetPoint ? p.targetPoint.x : p.x, y: p.targetPoint ? p.targetPoint.y : p.y, z: p.targetPoint ? p.targetPoint.z : p.z });
+      const tp = p.targetPoint || p;
+      world.emit({ t: 'incoming', kind: p.kind, x: tp.x, y: tp.y, z: tp.z });
+      // Soldiers who hear it coming throw themselves flat.
+      const R = (p.def.explosive ? p.def.explosive.radius : 15) * 2.4;
+      world.unitGrid.queryRadius(tp.x, tp.z, R, _near);
+      for (let i = 0; i < _near.length; i++) {
+        const u = _near[i];
+        if (u.cat !== 'inf' || !u.alive || u.hidden || u.mounted) continue;
+        if (rng.chance(0.85)) {
+          u.diveT = world.time + rng.range(2.4, 4);
+          u.stance = 2;
+        }
+      }
     }
 
     // Flyby past the camera.

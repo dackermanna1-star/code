@@ -115,7 +115,9 @@ export class AudioSystem {
 
   // s < 1 slows sound down (lower pitch, softer top end); 0 pauses the sound clock and ducks loops.
   setTimeScale(s) {
-    this.timeScale = Math.max(0, Number(s) || 0);
+    const scale = Math.max(0, Number(s) || 0);
+    if (scale === this.timeScale && this.applied) return;
+    this.timeScale = scale;
     if (this._ready) this.applyTimeScale();
   }
 
@@ -125,6 +127,7 @@ export class AudioSystem {
     this.sim.pitch = s >= 1 ? 1 : 0.6 + 0.4 * s;
     this.mixer.setTimeScale(s);
     this.loops.setPaused(s <= 0);
+    this.applied = true;
   }
 
   // Per frame. dt in real seconds; listener = { position, forward, up, velocity } (world, metres).

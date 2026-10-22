@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { generateMap } from '../world/mapgen.js';
 import { World } from '../sim/world.js';
-import { attachAI } from '../ai/index.js';
+import { attachAI, planForces } from '../ai/index.js';
 import { GameRenderer, QUALITY } from '../render/Renderer.js';
 import { CameraController } from '../camera/CameraController.js';
 import { AudioSystem } from '../audio/AudioSystem.js';
@@ -58,16 +58,15 @@ export class App {
       rng.seed(settings.seed);
       const map = generateMap(settings.scenario, settings.seed);
       await step(0.25, 'Charting routes and fields of fire');
-      const tickets = Math.round(settings.size * 2.4);
+      const forces = planForces(map, settings.size, settings.mix);
       const world = new World(map, {
-        tickets,
+        tickets: forces.tickets,
         endless: settings.endless,
         weather: { condition: settings.weather, time: settings.time, dynamic: settings.dynamicWeather, timeFlow: 1 },
         maxBodies: settings.size > 1200 ? 1400 : 1800,
       });
       await step(0.42, 'Mustering forces');
-      const army = { size: settings.size, ...settings.mix, reinforcements: true };
-      attachAI(world, [army, army]);
+      attachAI(world, forces.armies);
       await step(0.58, 'Building the battlefield');
       this.renderer = new GameRenderer(this.canvas, settings.quality);
       this.renderer.attachWorld(world);
@@ -321,6 +320,8 @@ export class App {
     const cin = this.camera.mode === 'cinematic';
     this.renderer.letterbox += ((cin ? 1 : 0) - this.renderer.letterbox) * Math.min(1, dt * 3);
     this.renderer.fpv = this.camera.fpvActive ? 1 : 0;
+    const ct = this.camera.target;
+    this.renderer.hideUnit = this.camera.mode === 'eyes' && ct && ct.cat === 'veh' && ct.alive ? ct : null;
     this.renderer.render(dt, simDt, this.selected);
     if (this.bridge) this.bridge.update(dt, this.renderer.camera, w, this.timeScale, this.paused);
     const t2 = performance.now();

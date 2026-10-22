@@ -269,7 +269,8 @@ const VIEWS = {
   aircraft(o) {
     const v = place(aircraft(o.type, o.faction, o.pose), 0, o.y ?? 0, 0, `${o.type} · ${o.faction ? 'federation' : 'coalition'}`);
     const [az, el] = angleOf(o.angle);
-    frame(new THREE.Box3().setFromObject(v), az * RAD, el * RAD, { zoom: o.zoom ?? 0.8 });
+    const box = o.focus ? new THREE.Box3(new THREE.Vector3(...o.focus[0]), new THREE.Vector3(...o.focus[1])) : new THREE.Box3().setFromObject(v);
+    frame(box, az * RAD, el * RAD, { zoom: o.zoom ?? 0.8 });
   },
   airRow(o) {
     // both factions of each type side by side; types stacked front to back

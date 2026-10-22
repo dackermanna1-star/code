@@ -166,9 +166,9 @@ class ObjectiveMarkers {
 
 class SelectionRing {
   constructor(scene) {
-    const g = new THREE.RingGeometry(0.85, 1, 48);
+    const g = new THREE.RingGeometry(0.92, 1, 64);
     g.rotateX(-Math.PI / 2);
-    this.mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.2, 0.6), transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false }));
+    this.mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: new THREE.Color(1.25, 0.95, 0.32), transparent: true, opacity: 0.75, depthWrite: false, toneMapped: false }));
     this.mesh.renderOrder = 7;
     this.mesh.visible = false;
     scene.add(this.mesh);
@@ -285,6 +285,7 @@ export class GameRenderer {
     this.terrain.update(cam);
     this.structures.update(cam, this.frustum, dt, this.time, this.sky.nightFactor, { x: w.weather.windX, z: w.weather.windZ });
     this.infantry.update(w, cam, this.frustum, simDt);
+    this.vehicles.hide = this.hideUnit || null;
     this.vehicles.update(w, cam, this.frustum);
     this.aircraft.update(w, cam, this.frustum, this.time);
     this.projectiles.update(w, cam);

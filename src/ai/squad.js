@@ -12,10 +12,12 @@ import { rng } from '../core/rng.js';
 import { clamp, dist2 } from '../core/math.js';
 import { MOVE_INF, MOVE_TRACK, MOVE_WHEEL } from '../world/nav.js';
 
+// Slot offsets in metres (x right, z forward); spaced so one burst or shell
+// does not catch the whole squad.
 const FORMATIONS = {
-  wedge: [[0, 0], [-4, -4], [4, -4], [-8, -8], [8, -8], [-12, -12], [12, -12], [-16, -16], [16, -16], [0, -9]],
-  line: [[0, 0], [-6, -1], [6, -1], [-12, -2], [12, -2], [-18, -2], [18, -2], [-24, -3], [24, -3], [0, -6]],
-  column: [[0, 0], [0.8, -3.5], [-0.8, -7], [0.8, -10.5], [-0.8, -14], [0.8, -17.5], [-0.8, -21], [0.8, -24.5], [-0.8, -28], [0, -31]],
+  wedge: [[0, 0], [-6, -5], [6, -5], [-12, -10], [12, -10], [-18, -15], [18, -15], [-24, -20], [24, -20], [0, -12]],
+  line: [[0, 0], [-7, -1], [7, -1], [-14, -2], [14, -2], [-21, -2], [21, -2], [-28, -3], [28, -3], [0, -7]],
+  column: [[0, 0], [0.8, -4.5], [-0.8, -9], [0.8, -13.5], [-0.8, -18], [0.8, -22.5], [-0.8, -27], [0.8, -31.5], [-0.8, -36], [0, -40]],
 };
 
 const NATO = ['Alpha', 'Bravo', 'Charlie', 'Delta', 'Echo', 'Foxtrot', 'Golf', 'Hotel', 'India', 'Juliet', 'Kilo', 'Lima', 'Mike', 'Oscar', 'Romeo', 'Sierra', 'Tango', 'Victor', 'Whiskey', 'Yankee'];
@@ -222,12 +224,14 @@ export class Squad {
     let cz = 0;
     let supp = 0;
     let underFire = false;
+    let hit = false;
     let active = 0;
     for (const m of ms) {
       if (m.mounted) continue;
       active++;
       supp += m.suppression;
-      if (world.time - (m.lastShotAt || -100) < 4 || world.time - m.lastHitTime < 4) underFire = true;
+      if (world.time - (m.lastShotAt || -100) < 4) underFire = true;
+      if (world.time - m.lastHitTime < 4) hit = underFire = true;
       const t = m.target;
       if (t && t.alive && t.cat !== 'air') {
         seen++;
@@ -264,7 +268,9 @@ export class Squad {
         break;
       case 'moving':
       case 'flank': {
-        if (inContact && (this.contactNear(world, 450) || underFire)) {
+        // Distant contact does not stop the advance; close contact or
+        // effective fire (casualties, heavy suppression) does.
+        if (inContact && (this.contactNear(world, 320) || hit || this.suppression > 0.32)) {
           this.setState('contact', world);
           break;
         }
@@ -397,7 +403,7 @@ export class Squad {
       }
       return;
     }
-    if (elapsed < 5) return;
+    if (elapsed < 3) return;
     const type = this.order ? this.order.type : 'hold';
     if (type === 'defend' || type === 'hold' || type === 'overwatch' || this.isTeam) {
       this.setState('holding', world);
@@ -415,11 +421,11 @@ export class Squad {
       // Tanks and no AT weapons: hold in cover and wait for support.
       return;
     }
-    if (ours > enemy.strength * 0.9 && this.suppression < 0.55) {
+    if (ours > enemy.strength * 0.7 && this.suppression < 0.55) {
       this.setState('bounding', world);
-    } else if (!this.flankDone && elapsed > 25 && this.members.length >= 4 && c && this.order) {
+    } else if (!this.flankDone && elapsed > 18 && this.members.length >= 4 && c && this.order) {
       this.startFlank(world, c);
-    } else if (elapsed > 60 && this.suppression < 0.4) {
+    } else if (elapsed > 40 && this.suppression < 0.45) {
       this.setState('bounding', world);
     }
   }
@@ -468,14 +474,18 @@ export class Squad {
       this.setState('assault', world);
       return;
     }
-    if (!inContact && world.time - this.lastContactT > 18) {
+    if (!inContact && world.time - this.lastContactT > 12) {
       this.setState('moving', world);
       this.moveTo(world, g.x, g.z, 'run', true);
       return;
     }
+    // Far from the enemy the bounds are long; close in they shorten.
+    const dThreat = this.contact ? dist2(L.pos.x, L.pos.z, this.contact.x, this.contact.z) : dGoal;
+    const stepMin = dThreat > 260 ? 55 : dThreat > 140 ? 35 : 22;
+    const stepMax = dThreat > 260 ? 85 : dThreat > 140 ? 55 : 38;
     const movers = this.members.filter((m, i) => m.alive && !m.mounted && i % 2 === this.team);
     const done = movers.every((m) => !m.task || m.task.type !== 'bound' || m.arrived);
-    if (world.time - this.boundT > 14 || (done && world.time - this.boundT > 3)) {
+    if (world.time - this.boundT > 16 || (done && world.time - this.boundT > 1.5)) {
       this.team = 1 - this.team;
       this.boundT = world.time;
       const threat = this.contact || target;
@@ -487,7 +497,7 @@ export class Squad {
           const dx = target.x - m.pos.x;
           const dz = target.z - m.pos.z;
           const d = Math.hypot(dx, dz) || 1;
-          const step = Math.min(d, rng.range(25, 48));
+          const step = Math.min(d, rng.range(stepMin, stepMax));
           const gx = m.pos.x + (dx / d) * step;
           const gz = m.pos.z + (dz / d) * step;
           const cp = world.cover.find(m, threat.x, threat.z, 30, { gx, gz, goalRadius: 30, goalWeight: 1.4 });

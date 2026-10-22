@@ -268,6 +268,8 @@ export class ArtilleryBrain {
     this.current = null;
     this.relocateT = 0;
     this.home = null;
+    this.cooldownUntil = 0;
+    this.now = 0;
     this.aimPt = { x: 0, y: 0, z: 0, loft: 0 };
   }
 
@@ -276,15 +278,22 @@ export class ArtilleryBrain {
   }
 
   get busy() {
-    return !!this.current || this.missions.length > 0;
+    return !!this.current || this.missions.length > 0 || this.now < this.cooldownUntil;
   }
 
   addMission(m) {
+    // The first rounds land off the observer's aim point and walk onto it as
+    // the forward observer adjusts.
+    const a = rng.range(0, Math.PI * 2);
+    const e = m.barrage ? rng.range(8, 30) : rng.range(18, 55);
+    m.errX = Math.cos(a) * e;
+    m.errZ = Math.sin(a) * e;
     this.missions.push(m);
   }
 
   think(world) {
     const v = this.v;
+    this.now = world.time;
     if (!this.home) this.home = { x: v.pos.x, z: v.pos.z };
     if (!this.current && this.missions.length) {
       this.current = this.missions.shift();
@@ -334,8 +343,12 @@ export class ArtilleryBrain {
       const spread = m.spread * (isRocket ? 1.4 : 1);
       const a = rng.range(0, Math.PI * 2);
       const r = Math.sqrt(rng.next()) * spread;
-      const tx = m.x + Math.cos(a) * r;
-      const tz = m.z + Math.sin(a) * r;
+      const tx = m.x + m.errX + Math.cos(a) * r;
+      const tz = m.z + m.errZ + Math.sin(a) * r;
+      if (!isRocket) {
+        m.errX *= 0.55;
+        m.errZ *= 0.55;
+      }
       const ty = world.terrain.heightAt(tx, tz);
       if (isRocket) v.mountPoint('tube', _o, w.shots - k);
       else v.mountPoint('gun', _o);
@@ -348,6 +361,7 @@ export class ArtilleryBrain {
     }
     if (m.fired >= m.rounds) {
       this.current = null;
+      this.cooldownUntil = world.time + (isRocket ? rng.range(40, 70) : rng.range(25, 45));
       world.emitRadio(v.faction, `${v.callsign || 'Battery'}: rounds complete.`, 0);
       // Shoot and scoot: displace after firing.
       if (this.home && rng.chance(0.6)) {

@@ -250,8 +250,9 @@ export function explode(world, x, y, z, ex, owner, faction, def, opts = {}) {
         let dmg = ex.damage * Math.pow(1 - d / R, 1.3) + (d < R * 0.2 ? ex.damage * 0.5 : 0);
         // Cover between the blast and the soldier absorbs most of it.
         if (d > 1.2 && !world.blastExposed(x, y + 0.3, z, u.pos.x, cy, u.pos.z)) dmg *= 0.12;
-        if (u.stance === 2 && d > R * 0.25) dmg *= 0.45;
-        else if (u.stance === 1) dmg *= 0.8;
+        // Fragments fly up and out: lying flat is the best protection.
+        if (u.stance === 2 && d > R * 0.15) dmg *= 0.3;
+        else if (u.stance === 1) dmg *= 0.72;
         if (u.roof && y < u.pos.y - 1) dmg *= 0.2;
         if (dmg > 4) world.damageSoldier(u, dmg, owner, def, false);
       }

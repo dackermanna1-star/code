@@ -3,7 +3,7 @@
 //   -> glue compressor -> trim -> limiter (radio joins here) -> soft clip -> master
 // The convolver is fed by a mono send bus. A very close blast briefly ducks and
 // muffles everything (the ear's protective reflex) and adds a faint ringing.
-import { clamp } from './dsp.js';
+import { Rng, clamp } from './dsp.js';
 
 // Compensates DynamicsCompressorNode's automatic make-up gain so quiet material
 // passes at roughly unity and only peaks are pulled down.
@@ -63,6 +63,7 @@ export class Mixer {
     this.duckDepth = 0;
     this.ringUntil = 0;
     this.ringLevel = 0;
+    this.rng = new Rng(0x41e5);
   }
 
   setVolume(v) {
@@ -112,7 +113,7 @@ export class Mixer {
   ring(level, when) {
     if (when < this.ringUntil && level <= this.ringLevel) return;
     const ctx = this.ctx;
-    const f = 3600 + Math.random() * 900;
+    const f = 3600 + this.rng.next() * 900;
     const g = new GainNode(ctx, { gain: 0 });
     const peak = 0.036 * clamp(level, 0, 1);
     const len = 1 + level;

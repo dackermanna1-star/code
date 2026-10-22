@@ -114,9 +114,11 @@ export const SOUNDS = {
   explosion_air: boom('explosion_air', { level: 10, ref: 10, roll: 0.55, range: 6000, decay: 1.0, farDist: 1200, duck: 50, size: 20 }, 2, 22050),
 
   // Incoming, impacts, destruction, foley
-  // The sim fires the whistle ~2 s before impact; opts.duration overrides the lead time.
-  incoming_shell: fx('misc', FX.incomingShell, 2, 22050, { level: -2, ref: 20, roll: 0.7, range: 700, wet: 0.5, decay: 3, alignEnd: true, lead: 2 }),
-  bomb_whistle: fx('misc', FX.bombWhistle, 1, 22050, { level: 0, ref: 30, roll: 0.7, range: 1200, wet: 0.5, decay: 3, alignEnd: true }),
+  // Whistles and the drone dive end on impact. `lead` is the default time from the
+  // call to impact (matching the sim: shells ~2.8 s, bombs ~3 s, FPV dives ~4 s);
+  // opts.duration overrides it.
+  incoming_shell: fx('misc', FX.incomingShell, 2, 22050, { level: -2, ref: 20, roll: 0.7, range: 700, wet: 0.5, decay: 3, alignEnd: true, lead: 2.8 }),
+  bomb_whistle: fx('misc', FX.bombWhistle, 1, 22050, { level: 0, ref: 30, roll: 0.7, range: 1200, wet: 0.5, decay: 3, alignEnd: true, lead: 3 }),
   ricochet: fx('impact', FX.ricochet, 4, 32000, { level: -6, ref: 2, roll: 0.75, range: 300, decay: 0.3 }),
   impact_metal: fx('impact', FX.impactMetal, 3, 32000, { level: -2, ref: 2, roll: 0.7, range: 800, decay: 0.25 }),
   impact_dirt: fx('impact', FX.impactDirt, 4, 24000, { level: -10, ref: 2, roll: 0.75, range: 200, decay: 0.08 }),
@@ -133,7 +135,7 @@ export const SOUNDS = {
   ammo_cookoff: fx('explosion', ammoCookoff, 2, 22050, { level: 4, ref: 6, roll: 0.6, range: 3000, wet: 1, decay: 2.5, duck: 20, bed: 'heavy' }),
   fire_burst: fx('misc', fireBurst, 2, 22050, { level: -1, ref: 4, roll: 0.7, range: 800, wet: 0.7, decay: 0.6 }),
   parachute_open: fx('misc', FX.parachuteOpen, 2, 22050, { level: -8, ref: 3, roll: 0.8, range: 300, wet: 0.5, decay: 0.4 }),
-  drone_dive: fx('misc', FX.droneDive, 2, 24000, { level: -4, ref: 3, roll: 0.75, range: 600, wet: 0.4, decay: 3, alignEnd: true }),
+  drone_dive: fx('misc', FX.droneDive, 2, 24000, { level: -4, ref: 3, roll: 0.75, range: 600, wet: 0.4, decay: 3, alignEnd: true, lead: 4 }),
   jet_flyby: fx('heavy', FX.jetFlyby, 1, 22050, { level: 8, ref: 30, roll: 0.55, range: 6000, wet: 0.6, decay: 2.5 }),
   debris: fx('impact', debrisFall, 3, 24000, { level: -8, ref: 3, roll: 0.8, range: 400, decay: 0.4 }),
   shell_casings: fx('misc', FX.shellCasings, 3, FULL_RATE, { level: -16, ref: 1.5, roll: 0.9, range: 40, wet: 0.3, decay: 0.2 }),

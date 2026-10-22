@@ -11,6 +11,26 @@ import { resetCallsigns } from './squad.js';
 
 export { DEFAULT_ARMY };
 
+// Army sizes and ticket pools for a battle. Assaulting a prepared defence
+// needs local superiority, so the attacker fields a larger force with a deeper
+// reinforcement pool; meeting engagements are symmetric.
+export function planForces(map, size, mix = {}) {
+  const base = { ...DEFAULT_ARMY, ...mix, size, reinforcements: true };
+  const att = map.attacker;
+  if (att < 0) {
+    const t = Math.round(size * 2.4);
+    return { armies: [base, base], tickets: [t, t] };
+  }
+  const armies = [];
+  const tickets = [];
+  for (const f of [0, 1]) {
+    const attacker = f === att;
+    armies[f] = { ...base, size: Math.round(size * (attacker ? 1.3 : 0.8)) };
+    tickets[f] = Math.round(size * (attacker ? 3 : 1.8));
+  }
+  return { armies, tickets };
+}
+
 export function createBrain(u) {
   if (u.cat === 'inf') return new InfantryBrain(u);
   if (u.cat === 'veh') return u.def.artillery ? new ArtilleryBrain(u) : new VehicleBrain(u);

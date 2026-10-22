@@ -290,9 +290,9 @@ export class CameraController {
       _e.set(pitch + this.followOff.pitch, yaw + Math.PI + this.followOff.yaw, 0, 'YXZ');
       cam.quaternion.setFromEuler(_e);
     } else if (u.cat === 'veh') {
-      // Gunner's sight above the gun.
-      u.mountPoint('gun', _v, -u.spec.barrelLength + 0.2);
-      _v.y += 0.8;
+      // Gunner's sight just above the gun (the vehicle itself is hidden).
+      u.mountPoint('gun', _v, -u.spec.barrelLength + 0.4);
+      _v.y += 0.45;
       cam.position.copy(_v);
       u.gunDir(_v2);
       _q.setFromUnitVectors(new THREE.Vector3(0, 0, -1), _v2);

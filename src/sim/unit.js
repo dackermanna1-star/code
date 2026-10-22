@@ -118,6 +118,7 @@ export class Soldier extends Unit {
     this.sepX = 0;
     this.sepZ = 0;
     this.grenades = 0;
+    this.diveT = -1; // flat on the ground (incoming fire) until this time
     this.smokeGrenades = this.def.smokeGrenades || 0;
     this.drones = this.def.drones || 0;
     this.skill = rng.range(0.75, 1.25);
@@ -226,7 +227,7 @@ export class Soldier extends Unit {
     let want = 0;
     let dirX = 0;
     let dirZ = 0;
-    if (this.path && this.pathIdx < this.path.length) {
+    if (this.path && this.pathIdx < this.path.length && this.diveT < world.time) {
       let wp = this.path[this.pathIdx];
       let dx = wp.x - p.x;
       let dz = wp.z - p.z;
@@ -813,7 +814,7 @@ export class Aircraft extends Unit {
     if (this.landed) {
       this.vel.set(0, 0, 0);
       this.speed = 0;
-      p.y = ground + (this.spec.skidHeight || 1.2);
+      p.y = ground + (this.spec.skidHeight ?? 1.2);
       this.throttle = approach(this.throttle, 0.45, dt);
       this.quatFromAngles(0, 0, dt);
       return;

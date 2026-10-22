@@ -539,7 +539,7 @@ export class Commander {
       }
       const gun = free.splice(idx, 1)[0];
       const rocket = gun.type === 'mlrs';
-      gun.brain.addMission({ x: tg.x, y: world.terrain.heightAt(tg.x, tg.z), z: tg.z, rounds: rocket ? 12 : tg.barrage ? 6 : 4, spread: rocket ? 45 : 22 });
+      gun.brain.addMission({ x: tg.x, y: world.terrain.heightAt(tg.x, tg.z), z: tg.z, rounds: rocket ? 12 : tg.barrage ? 6 : 4, spread: rocket ? 45 : 22, barrage: !!tg.barrage });
       const idxReq = this.requests.indexOf(tg);
       if (idxReq >= 0) this.requests.splice(idxReq, 1);
       world.emitRadio(this.faction, `${gun.callsign}: fire mission, grid ${gridRef(tg.x, tg.z)}, ${rocket ? 'rocket salvo' : '4 rounds HE'}, over.`, 1);

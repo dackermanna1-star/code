@@ -454,17 +454,20 @@ function transportFederation(spec) {
   for (const sx of [1, -1]) {
     const side = (y, z) => [sx * 1.2, y, z];
     pane(body, side(0.6, 6.2), side(0.6, 5.2), side(1.75, 5.2), side(1.75, 6.0), [sx, 0.05, 0.1]);
-    // round portholes along the cabin
-    for (const z of [1.6, 0.6, -0.4, -1.4]) body.add(cyl(0.2, 0.02, 8, { axis: 'x', caps: 'end', capMat: 'glass' }), { at: [sx * 1.28, 1.2, z], c: 'glass' });
-    // sliding door (left) / window panel (right) at the door gun station
-    pane(body, side(-0.3, 3.6), side(-0.3, 2.2), side(1.95, 2.2), side(1.95, 3.6), [sx, 0, 0], 'paintDark', 0.004);
-    pane(body, side(1.1, 3.4), side(1.1, 2.5), side(1.75, 2.5), side(1.75, 3.4), [sx, 0, 0]);
+    // round portholes along the cabin (x follows the skin as the cabin tapers aft)
+    for (const z of [0.95, 0.05, -0.85, -1.75]) {
+      const x = 1.22 + 0.06 * Math.min(1, (z + 2) / 2.5) + 0.004;
+      body.add(cyl(0.2, 0.02, 8, { axis: 'x', caps: 'end', capMat: 'glass' }), { at: [sx * x, 1.2, z], c: 'glass' });
+    }
+    // sliding door / window panel centred on the spec door gun station
+    pane(body, side(-0.3, 2.8), side(-0.3, 1.4), side(1.95, 1.4), side(1.95, 2.8), [sx, 0, 0], 'paintDark', 0.004);
+    pane(body, side(1.1, 2.6), side(1.1, 1.7), side(1.75, 1.7), side(1.75, 2.6), [sx, 0, 0]);
   }
-  // external fuel tanks
+  // external fuel tanks, below and aft of the door
   body.mirrorX(() => {
-    body.add(lathe([[0, -1.6], [0.36, -1.35], [0.46, -0.9], [0.46, 1.0], [0.38, 1.45], [0, 1.65]], 10, { axis: 'z', crease: 40 }), { at: [1.62, 0.05, 1.0], c: 'paint' });
-    strut(body, [1.25, 0.2, 1.8], [1.5, 0.15, 1.8], 0.04);
-    strut(body, [1.25, 0.2, 0.2], [1.5, 0.15, 0.2], 0.04);
+    body.add(lathe([[0, -1.6], [0.36, -1.35], [0.46, -0.9], [0.46, 1.0], [0.38, 1.45], [0, 1.65]], 10, { axis: 'z', crease: 40 }), { at: [1.62, 0.05, 0.1], c: 'paint' });
+    strut(body, [1.25, 0.2, 0.9], [1.5, 0.15, 0.9], 0.04);
+    strut(body, [1.25, 0.2, -0.7], [1.5, 0.15, -0.7], 0.04);
   });
   // engine cowling with twin intakes over the cockpit, exhausts
   fuselage(body, [
@@ -496,7 +499,7 @@ function transportFederation(spec) {
     wheel(body, [1.75, gy + 0.4, 0.08], 0.4, 0.25);
   });
   strut(body, [0, 1.6, -8.9], [0, 1.1, -9.0], 0.05);
-  for (const p of spec.doorGuns) doorGun(body, [p[0] + Math.sign(p[0]) * 0.1, p[1], p[2] + 0.8], Math.sign(p[0]));
+  for (const p of spec.doorGuns) doorGun(body, [p[0] + Math.sign(p[0]) * 0.1, p[1], p[2]], Math.sign(p[0]));
   body.tube([0, 2.3, -3.8], [0, 2.9, -4.3], 0.015, 0.008, 3, { c: 'black' });
   navLights(em, [1.25, 2.0, 2.6], [-1.25, 2.0, 2.6], [0, 2.25, -10.6], { size: 0.09 });
   em.box(0.1, 0.1, 0.1, { at: [0, 3.2, -1.5], c: 0xff3020 });
@@ -614,7 +617,7 @@ function jetFederation(spec) {
       { z: -5.0, w: 0.33, yb: -0.32, yt: 0.36, x: 0.56, e: 2.4 },
       { z: -6.85, w: 0.3, yb: -0.2, yt: 0.4, x: 0.42, e: 2.2 },
     ], { n: 10 });
-    body.add(sphere(1, 8, 4).transform({ s: [0.28, 0.33, 0.04] }), { at: [0.8, -0.13, 2.77], c: 'intake' });
+    body.add(sphere(1, 8, 2).transform({ s: [0.28, 0.33, 0.04] }), { at: [0.8, -0.13, 2.77], c: 'intake' });
     body.lathe([[0.3, -6.85], [0.29, -7.1], [0.22, -7.1], [0.2, -6.95], [0, -6.95]], 10, { axis: 'z', at: [0.42, 0.1, 0], mats: ['nozzle', 'exhaust', 'black', 'black'] });
   });
   // framed canopy
@@ -796,7 +799,7 @@ function fpvDrone(spec, f) {
   em.box(0.006, 0.004, 0.012, { at: [-px * 0.9, -0.009, -pz * 0.9], c: f ? 0xff2416 : 0x3fa0ff });
   em.box(0.004, 0.003, 0.004, { at: [0, 0.019, -0.02], c: 0x22ff55 });
   const propBlur = new Part();
-  const disc = blurDisc(0.008, spec.propRadius, 12, [[0, 0x4a4b4e], [0.8, 0x2a2b2d], [1, 0x5a5a58]]);
+  const disc = blurDisc(0.008, spec.propRadius, 10, [[0, 0x4a4b4e], [0.8, 0x2a2b2d], [1, 0x5a5a58]]);
   for (const p of spec.propPivots) propBlur.add(disc, { at: p });
   return { body, emissive: em, propBlur };
 }
@@ -850,13 +853,13 @@ function reconUav(spec, f) {
   body.lathe([[0.045, 0.0], [0.03, -0.05], [0, -0.08]], 8, { axis: 'z', at: [0, ppy, ppz], c: 'black' });
   const [cx, cy, cz] = spec.camera;
   body.add(cyl(0.035, 0.08, 8, { caps: 'none' }), { at: [cx, cy + 0.1, cz], c: 'black' });
-  body.add(sphere(0.085, 10, 6), { at: [cx, cy, cz], c: f ? 'darkSteel' : 'lightGrey' });
+  body.add(sphere(0.085, 8, 5), { at: [cx, cy, cz], c: f ? 'darkSteel' : 'lightGrey' });
   body.box(0.07, 0.05, 0.02, { at: [cx, cy - 0.01, cz + 0.078], c: 'glass' });
   body.tube([0, 0.22, -0.3], [0, 0.4, -0.38], 0.006, 0.004, 3, { c: 'black' });
   navLights(em, [2.68, 0.3, 0.2], [-2.68, 0.3, 0.2], [0, 0.18, -1.55], { size: 0.03 });
   em.box(0.025, 0.02, 0.025, { at: [0, -0.15, -0.3], c: 0xff5050 });
   const propBlur = new Part();
-  propBlur.add(blurDisc(0.05, spec.propRadius, 18, [[0, 0x4a4b4e], [0.82, 0x2a2b2d], [1, 0x5a5a58]]), { at: spec.propPivot, rot: [PI / 2, 0, 0], order: 'XYZ' });
+  propBlur.add(blurDisc(0.05, spec.propRadius, 14, [[0, 0x4a4b4e], [0.82, 0x2a2b2d], [1, 0x5a5a58]]), { at: spec.propPivot, rot: [PI / 2, 0, 0], order: 'XYZ' });
   return { body, emissive: em, propBlur };
 }
 

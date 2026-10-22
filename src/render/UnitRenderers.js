@@ -83,19 +83,10 @@ export class PartBatch {
   }
 }
 
-// Vehicle paint material: vertex colours, slight dirt toward the ground.
+// Vehicle paint material: vertex colours (camouflage and ground grime are
+// baked into the models).
 function vehicleMaterial() {
-  const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.78, metalness: 0.18 });
-  mat.onBeforeCompile = (shader) => {
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying float vH;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvH = position.y;');
-    shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nvarying float vH;')
-      .replace('#include <color_fragment>', '#include <color_fragment>\n diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.2, 0.17, 0.12), (1.0 - smoothstep(0.0, 0.9, vH)) * 0.45);');
-  };
-  mat.customProgramCacheKey = () => 'vehicle-paint';
-  return mat;
+  return new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.78, metalness: 0.18 });
 }
 
 function emissiveMaterial() {
@@ -131,7 +122,7 @@ export class VehicleRenderer {
     const cam = camera.position;
     const max2 = this.maxDist * this.maxDist;
     const draw = (v) => {
-      if (v.removed) return;
+      if (v.removed || v === this.hide) return;
       const s = v.spec;
       if (v.pos.distanceToSquared(cam) > max2) return;
       _sphere.center.set(v.pos.x, v.pos.y + s.height * 0.5, v.pos.z);

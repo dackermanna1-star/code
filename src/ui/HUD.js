@@ -3,7 +3,7 @@
 import * as THREE from 'three';
 import { FACTION_INFO } from '../sim/world.js';
 import { MAT } from '../world/terrain.js';
-import { formatDistance } from '../core/math.js';
+import { formatDistance, bearingDegrees } from '../core/math.js';
 
 const _v = new THREE.Vector3();
 
@@ -181,6 +181,18 @@ export class HUD {
     this.osdBL = el('div', 'bl');
     this.osdBR = el('div', 'br');
     this.osd.append(el('div', 'cross'), this.osdTL, this.osdTR, this.osdBL, this.osdBR);
+    // Gunner's sight for vehicles in first person.
+    this.sight = el('div', 'sight');
+    this.sight.hidden = true;
+    this.sight.innerHTML =
+      '<svg class="ret" viewBox="-100 -100 200 200" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.4">' +
+      '<path d="M-90 0H-14M14 0H90M0 14V60"/><path d="M-8 10L0 2L8 10"/>' +
+      '<path d="M-40 -4V4M-60 -4V4M40 -4V4M60 -4V4M-6 30H6M-6 45H6"/></g></svg>';
+    this.sightTL = el('div', 'tl');
+    this.sightTR = el('div', 'tr');
+    this.sightBL = el('div', 'bl');
+    this.sightBR = el('div', 'br');
+    this.sight.append(this.sightTL, this.sightTR, this.sightBL, this.sightBR);
     // Perf.
     this.perf = el('div', 'perf panel');
     this.perf.hidden = true;
@@ -188,7 +200,7 @@ export class HUD {
     this.toasts = el('div');
     // Touch pad.
     if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) this.buildTouchPad();
-    r.append(this.labels, this.top, this.status, this.feed, this.radio, this.mini, this.card, this.forces, this.osd, this.perf, this.toasts, this.help);
+    r.append(this.labels, this.top, this.status, this.feed, this.radio, this.mini, this.card, this.forces, this.osd, this.sight, this.perf, this.toasts, this.help);
   }
 
   buildTouchPad() {
@@ -549,17 +561,40 @@ export class HUD {
 
   updateLabels(camera, width, height) {
     const show = this.app.markersVisible;
+    const placed = [];
     for (const c of this.objChips) {
       const o = c.o;
       _v.set(o.x, o.y + 16, o.z).project(camera);
       const vis = show && _v.z < 1 && _v.z > -1 && Math.abs(_v.x) < 1.1 && Math.abs(_v.y) < 1.1;
       c.label.hidden = !vis;
       if (vis) {
-        c.label.style.left = `${((_v.x + 1) / 2) * width}px`;
-        c.label.style.top = `${((1 - _v.y) / 2) * height}px`;
+        c.sx = ((_v.x + 1) / 2) * width;
+        c.sy = ((1 - _v.y) / 2) * height;
         c.label.style.color = o.owner === 0 ? FACTION_INFO[0].color : o.owner === 1 ? FACTION_INFO[1].color : '#e6e6d8';
-        c.dist.textContent = formatDistance(camera.position.distanceTo(_v.set(o.x, o.y, o.z)));
+        c.range = camera.position.distanceTo(_v.set(o.x, o.y, o.z));
+        c.dist.textContent = formatDistance(c.range);
+        if (!c.w) c.w = c.label.offsetWidth || 120;
+        placed.push(c);
       }
+    }
+    // Nearest labels keep their spot; labels behind them that would overlap
+    // stack upward. Positions are bottom-centre anchored.
+    placed.sort((a, b) => a.range - b.range);
+    for (let i = 0; i < placed.length; i++) {
+      const c = placed[i];
+      for (let pass = 0; pass < placed.length; pass++) {
+        let moved = false;
+        for (let j = 0; j < i; j++) {
+          const p = placed[j];
+          if (Math.abs(c.sx - p.sx) < (c.w + p.w) / 2 + 6 && Math.abs(c.sy - p.sy) < 34) {
+            c.sy = p.sy - 36;
+            moved = true;
+          }
+        }
+        if (!moved) break;
+      }
+      c.label.style.left = `${c.sx}px`;
+      c.label.style.top = `${c.sy}px`;
     }
     const u = this.selected;
     if (u && !u.removed && !u.hidden && this.app.camera.mode !== 'eyes') {
@@ -592,6 +627,23 @@ export class HUD {
     this.osdBL.append(el('div', '', `ALT ${Math.round(d.pos.y - g)} M`), el('div', '', `SPD ${Math.round(Math.hypot(d.vel.x, d.vel.y, d.vel.z) * 3.6)} KM/H`));
     this.osdBR.innerHTML = '';
     if (tg && tg.alive) this.osdBR.append(el('div', '', `TGT ${tg.name.toUpperCase()}`), el('div', '', `${Math.round(d.pos.distanceTo(tg.pos))} M`));
+  }
+
+  updateSight() {
+    const cam = this.app.camera;
+    const v = cam.target;
+    const on = cam.mode === 'eyes' && v && v.cat === 'veh' && v.alive;
+    this.sight.hidden = !on;
+    if (!on) return;
+    const w = v.weapons[0];
+    const ammo = w && w.ammoType ? ` · ${w.ammoType.toUpperCase()}` : '';
+    this.sightTL.textContent = `${(v.callsign || '').toUpperCase()} · GUNNER`;
+    this.sightTR.textContent = w ? `${w.def.name.toUpperCase()}${ammo}${w.reloading ? ' · LOADING' : ''}` : '';
+    const a = v.yaw + v.turretYaw;
+    const az = Math.round(bearingDegrees(Math.sin(a), Math.cos(a))) % 360;
+    this.sightBL.textContent = `AZ ${String(az).padStart(3, '0')}  EL ${v.gunPitch >= 0 ? '+' : ''}${((v.gunPitch * 180) / Math.PI).toFixed(1)}°`;
+    const t = v.target;
+    this.sightBR.textContent = t && t.alive ? `RNG ${Math.round(v.pos.distanceTo(t.pos))} M · ${t.name.toUpperCase()}` : 'RNG ----';
   }
 
   updatePerf(stats) {
@@ -654,6 +706,7 @@ export class HUD {
     }
     this.updateLabels(camera, width, height);
     this.updateOSD();
+    this.updateSight();
   }
 }
 

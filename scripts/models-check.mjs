@@ -94,7 +94,7 @@ for (const [type, spec] of Object.entries(VEHICLE_SPECS)) {
     if (type === 'spaag' && !p.radar) fail(`${name}: missing radar part`);
     for (const [k, g] of Object.entries(p)) checkGeometry(`${name}.${k}`, g);
     const t = Object.fromEntries(Object.entries(p).map(([k, g]) => [k, tris(g)]));
-    const total = t.hull + t.turret + t.gun + (t.radar || 0);
+    const total = t.hull + t.turret + t.gun + (t.radar || 0) + (t.emissive || 0);
     for (const k of ['hull', 'turret', 'gun']) if (t[k] > VB[k]) fail(`${name}: ${k} ${t[k]} tris > ${VB[k]}`);
     if (total > VB.total) fail(`${name}: total ${total} tris > ${VB.total}`);
     table.push([name, t.hull, t.turret, t.gun, t.radar || 0, t.emissive || 0, total]);
@@ -150,7 +150,7 @@ for (const [type, spec] of Object.entries(AIRCRAFT_SPECS)) {
     if (!p.body) fail(`${name}: missing body`);
     for (const [k, g] of Object.entries(p)) checkGeometry(`${name}.${k}`, g);
     const t = Object.fromEntries(Object.entries(p).map(([k, g]) => [k, tris(g)]));
-    const total = Object.entries(t).filter(([k]) => k !== 'emissive').reduce((s, [, v]) => s + v, 0);
+    const total = Object.values(t).reduce((s, v) => s + v, 0);
     if (total > AB[type]) fail(`${name}: ${total} tris > ${AB[type]}`);
     table.push([name, t.body, (t.rotor || 0) + (t.tailRotor || 0), (t.rotorBlur || 0) + (t.tailRotorBlur || 0) + (t.propBlur || 0), 0, t.emissive || 0, total]);
     let ub = bbox(p.body);

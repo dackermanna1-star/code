@@ -35,6 +35,8 @@ export class Faction {
     this.startTickets = tickets;
     this.losses = { inf: 0, veh: 0, air: 0 };
     this.kills = 0;
+    this.peakGround = 0;
+    this.depletedAt = -1;
     this.commander = null;
     this.intel = null;
     this.spawned = 0;
@@ -59,8 +61,8 @@ export class World {
     this.units = [];
     this.dead = [];
     this.events = [];
-    const tickets = opts.tickets ?? 1500;
-    this.factions = [new Faction(0, tickets), new Faction(1, tickets)];
+    const tickets = Array.isArray(opts.tickets) ? opts.tickets : [opts.tickets ?? 1500, opts.tickets ?? 1500];
+    this.factions = [new Faction(0, tickets[0]), new Faction(1, tickets[1])];
     this.objectives = map.objectives.map((o) => new Objective(o));
     const half = this.terrain.half;
     this.unitGrid = new SpatialGrid(-half, -half, this.terrain.size, 16);
@@ -869,23 +871,41 @@ export class World {
 
   // ------------------------------------------------------------ tickets & end
 
+  // Holding more objectives bleeds the other side's tickets (after the
+  // opening phase). A side whose tickets run out gets no more reinforcements;
+  // it is beaten once its army is shattered or, after a last stand, if it
+  // still holds no more objectives than the enemy.
   updateTickets(dt) {
     if (this.over || this.endless) return;
     this.bleedTimer += dt;
-    if (this.bleedTimer >= 4) {
+    if (this.bleedTimer >= 3) {
       this.bleedTimer = 0;
       const own = [0, 0];
       for (const o of this.objectives) if (o.owner >= 0) own[o.owner]++;
       const diff = own[0] - own[1];
-      if (diff > 0) this.factions[1].tickets = Math.max(0, this.factions[1].tickets - diff * 2);
-      if (diff < 0) this.factions[0].tickets = Math.max(0, this.factions[0].tickets + diff * 2);
-    }
-    for (const f of this.factions) {
-      if (f.tickets <= 0 && f.units.filter((u) => u.cat !== 'air').length < 8) {
-        this.over = true;
-        this.winner = 1 - f.id;
-        this.emit({ t: 'battle_over', winner: this.winner });
-        return;
+      if (this.time > 150) {
+        if (diff > 0) this.factions[1].tickets = Math.max(0, this.factions[1].tickets - diff);
+        if (diff < 0) this.factions[0].tickets = Math.max(0, this.factions[0].tickets + diff);
+      }
+      for (const f of this.factions) {
+        let ground = 0;
+        for (const u of f.units) if (u.cat !== 'air' && !u.dying) ground++;
+        f.peakGround = Math.max(f.peakGround, ground);
+        if (f.tickets > 0) {
+          f.depletedAt = -1;
+          continue;
+        }
+        if (f.depletedAt < 0) {
+          f.depletedAt = this.time;
+          this.emit({ t: 'depleted', faction: f.id });
+        }
+        const lastStand = this.time - f.depletedAt > 150 && own[1 - f.id] >= own[f.id];
+        if (ground < Math.max(8, f.peakGround * 0.12) || lastStand) {
+          this.over = true;
+          this.winner = 1 - f.id;
+          this.emit({ t: 'battle_over', winner: this.winner });
+          return;
+        }
       }
     }
   }
