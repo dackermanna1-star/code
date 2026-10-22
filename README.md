@@ -52,7 +52,8 @@ You need a JDK 21. The Gradle wrapper downloads Gradle, Minecraft and the mappin
   (day, night, underwater), the RPG-7 in first and third person, reloading, the grenade launcher, grenade
   throwing, smoke, the flamethrower, a spreading fire and a missile strike, then repeats the weapons on a
   dedicated server over a real network connection. Timed screenshots are saved to
-  `build/run/clientGameTest/screenshots` (about 220; under 10 minutes even with software rendering). It fails on
+  `build/run/clientGameTest/screenshots` (about 220; under 10 minutes even with software rendering). Copy them
+  elsewhere before running `build` or `runGameTest`, which clear the test run directories. It fails on
   crashes, errors and timeouts. Set `ORDNANCE_TEST_SCENES` to a comma-separated subset of
   `items,explosions,weapons,fire,missile,multiplayer` to run only some scenes. On a machine without a display,
   run it under a virtual one: `xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientGameTest`.
