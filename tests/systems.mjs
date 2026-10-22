@@ -192,8 +192,10 @@ try {
       let endAt = null;
       let warpSeen = 0;
       let peekWarp = 0;
+      let pass = null;
       const offs = [
         HW.colonel.on('peek', (e) => { if (e.info.startsWith('ai_a') && peekAt === null) peekAt = HW.time; }),
+        HW.colonel.on('closePass', () => { if (!pass) pass = { cy: HW.colonel.y, py: HW.player.y, d: Math.hypot(HW.colonel.x - HW.player.x, HW.colonel.y - HW.player.y) }; }),
         HW.game.on('periodEnd', () => { endAt = HW.time; }),
       ];
       const startT = HW.time;
@@ -210,8 +212,9 @@ try {
       offs.forEach((f) => f());
       H.timeScale(1);
       const log = HW.colonel.log.map((e) => e.ev + (e.info ? `:${e.info}` : ''));
-      return { maxDet, peekAt, endAt, startT, warpSeen, peekWarp, log, caught: T.gameOvers.length, seated: !!HW.player.seated, peeks: log.filter((l) => l.startsWith('peek')) };
+      return { maxDet, peekAt, endAt, startT, warpSeen, peekWarp, log, pass, caught: T.gameOvers.length, seated: !!HW.player.seated, peeks: log.filter((l) => l.startsWith('peek')) };
     });
+    T.ok(r.pass && r.pass.cy < r.pass.py - 8 && r.pass.d < 3 * 16, 'the step peek stages the close pass from behind her desk (she draws in front of him)', r.pass);
     T.ok(r.peeks.some((p) => p === 'peek:ai_a:step'), 'Ch5 peek: he stepped into Room A and dragged along a row', r.peeks);
     T.ok(r.log.includes('closePass'), 'close pass beside the seated Tess', r.log);
     T.eq(r.maxDet, 0, 'seated + still = invisible (detection never rose)');
@@ -349,6 +352,280 @@ try {
     T.ok(Math.abs(r.lungeV - 150) < 3 && Math.abs(r.dragV - 30) < 3, 'lunge 150 px/s, drag 30 px/s', { lunge: r.lungeV, drag: r.dragV });
     T.ok(r.runs.length >= 2 && r.runs.every((d) => Math.abs(d - 0.5) < 0.03), 'each lunge lasts 0.5 s', r.runs);
     T.ok(r.total > 60 && r.total < 85, 'average chase speed ≈ 73 px/s (walking loses, running wins)', r.total);
+  });
+
+  await T.step('R2 in a chase: sat in his sight → caught at the seat; seated + still where he finds her → he stands over her and goes', async () => {
+    const r = await g.hw(async (H) => {
+      const T = window.__T;
+      const HW = H.HW;
+      const c = HW.colonel;
+      // A: he chases across Room B; she sits at the nearest desk in his sight (R2: sitting counts as moving).
+      await T.fresh(5);
+      await H.teleport('test_ai', 16, 10);
+      H.checkpoint('systems r2 chase');
+      await HW.periods.start({ length: 300, warning: false, colonel: false });
+      await c.spawn([25, 5], { mode: 'patrol', anim: null, dir: 'left' });
+      c.chase();
+      await H.steps(20);
+      H.face('up');
+      await H.interact();
+      const r = { satA: !!HW.player.seated };
+      const t0 = HW.time;
+      await T.until(() => T.gameOvers.length > 0, 20);
+      r.a = { go: T.gameOvers.map((x) => x.reason), dt: +(HW.time - t0).toFixed(2), lunges: c.log.filter((e) => e.ev === 'lunge').length };
+      // B: she sat where he could not see; he arrives with her in sight, seated and still → search, close pass, gone.
+      await T.fresh(5);
+      await H.teleport('test_ai', 'below_desk_a');
+      await T.sit('test_ai_desk_student_10_9');
+      await H.steps(80);          // well past the 1.5 s in which sitting still counts as moving
+      await HW.periods.start({ length: 300, warning: false, colonel: false });
+      await c.spawn([7, 5], { mode: 'patrol', anim: null, dir: 'down' });
+      c.chase();
+      c._sawSeat = null;          // (the chase began on a seated Tess; here: she sat before he came)
+      H.timeScale(2);
+      let arrive = null;
+      const offSearch = c.on('search', () => { if (!arrive) arrive = +(Math.hypot(c.x - HW.player.x, c.y - HW.player.y)).toFixed(1); });
+      await T.until(() => T.gameOvers.length > 0 || c.log.some((e) => e.ev === 'huntEnd'), 30);
+      await H.steps(30);
+      offSearch();
+      H.timeScale(1);
+      r.b = { go: T.gameOvers.length, arrive, log: c.log.map((e) => e.ev).filter((e) => e !== 'lunge'), mode: c.mode, seated: !!HW.player.seated, lunges: c.log.filter((e) => e.ev === 'lunge').length };
+      await HW.periods.end();
+      return r;
+    });
+    T.ok(r.satA && r.a.go.length === 1 && r.a.go[0] === 'out_of_seat' && r.a.dt < 8, 'sitting down in his sight during a chase → caught at the seat (out_of_seat), no hover', r);
+    T.ok(r.a.lunges <= Math.ceil(r.a.dt / 1.4) + 1, 'one lunge per 1.4 s window', r.a);
+    T.ok(r.b.go === 0 && r.b.arrive !== null && r.b.arrive <= 40 && r.b.log.includes('closePass') && r.b.log.includes('huntEnd') && r.b.mode === 'patrol', 'seated + still where he finds her: he stands over her (search, close pass) and goes back on patrol', r.b);
+  });
+
+  await T.step('rubber band (set pieces): lunge fx once per window; walking gets the full lurch, running is held back', async () => {
+    const r = await g.hw(async (H) => {
+      const T = window.__T;
+      const HW = H.HW;
+      const c = HW.colonel;
+      const lungeSfx = [];
+      const o = HW.audio.sfx;
+      HW.audio.sfx = function (id, op) { if (id === 'colonel_lunge') lungeSfx.push(HW.time); return o.call(this, id, op); };
+      const run = async (running) => {
+        await T.fresh(6);
+        await H.teleport('test_ai', 16, 17);
+        H.checkpoint('systems rubber');
+        await c.spawn([11, 17], { anim: null, dir: 'right' });
+        T.place(16, 17, 'right');
+        lungeSfx.length = 0;
+        const done = HW.chase.start({ rubber: [4, 8], reason: 'out_of_seat' });
+        HW.input.setVirtual('run', running);
+        HW.input.setVirtual('right', true);
+        const t0 = HW.time;
+        let minD = 99;
+        await T.until(() => {
+          minD = Math.min(minD, Math.hypot(c.x - HW.player.x, c.y - HW.player.y) / 16);
+          return T.gameOvers.length > 0 || HW.player.x > 58 * 16;
+        }, 15);
+        HW.input.setVirtual('run', false);
+        HW.input.setVirtual('right', false);
+        const dt = HW.time - t0;
+        const out = { go: T.gameOvers.map((x) => x.reason), dt: +dt.toFixed(2), minD: +minD.toFixed(1), sfx: lungeSfx.length, windows: Math.ceil(dt / 1.4) + 1 };
+        HW.chase.stop();
+        await Promise.race([done, H.steps(2)]);
+        return out;
+      };
+      const walk = await run(false);
+      const sprint = await run(true);
+      HW.audio.sfx = o;
+      return { walk, sprint };
+    });
+    T.ok(r.walk.go[0] === 'out_of_seat' && r.walk.dt < 10, 'walking ahead of him in a rubber-banded chase: the full lurch catches her (walking loses)', r.walk);
+    T.ok(r.sprint.go.length === 0 && r.sprint.minD > 3, 'running: the band holds him back (she gets away)', r.sprint);
+    T.ok(r.walk.sfx <= r.walk.windows && r.sprint.sfx <= r.sprint.windows, 'colonel_lunge sfx once per 1.4 s window (no per-frame retrigger in the band)', r);
+  });
+
+  await T.step('escape: a start beat after "Run."; re-entry rises behind a Tess still in the doorway', async () => {
+    const r = await g.hw(async (H) => {
+      const T = window.__T;
+      const HW = H.HW;
+      const c = HW.colonel;
+      await T.fresh(8);
+      await H.teleport('test_ai', 28, 17);
+      H.checkpoint('systems escape start');
+      await c.spawn([22, 17], { anim: null, dir: 'right' });
+      T.place(28, 17, 'left');
+      HW.chase.escape({ endMaps: ['test'] });
+      const t0 = HW.time;
+      let minEarly = 99;
+      await T.until(() => {
+        if (HW.time - t0 < 1.9) minEarly = Math.min(minEarly, Math.hypot(c.x - HW.player.x, c.y - HW.player.y) / 16);
+        return T.gameOvers.length > 0;
+      }, 10);
+      const r = { minEarly: +minEarly.toFixed(2), caughtAt: +(HW.time - t0).toFixed(2), go: T.gameOvers.map((x) => x.reason) };
+      HW.chase.stop();
+      // Re-entry: she stands where she arrived → he rises 1.5 tiles behind her (not on her, not never).
+      await T.fresh(8);
+      H.god(true);
+      await H.teleport('test_ai', 30, 17);
+      T.place(30, 17, 'left');
+      HW.chase.escape({ endMaps: ['test'], entryDelay: 0.5 });
+      const t1 = HW.time;
+      await T.until(() => !!c.entity, 6);
+      r.entry = { dt: +(HW.time - t1).toFixed(2), d: c.entity ? +(Math.hypot(c.x - HW.player.x, c.y - HW.player.y) / 16).toFixed(2) : null, behind: c.entity ? c.x > HW.player.x : null };
+      await T.until(() => c.mode === 'escape', 6);
+      r.entry.mode = c.mode;
+      HW.chase.stop();
+      H.god(false);
+      return r;
+    });
+    T.ok(r.minEarly >= 2.3 && r.caughtAt > 2 && r.go[0] === 'chase', 'he looms but holds off while she has not moved (grace 2 s), then a Tess who never runs is caught', r);
+    T.ok(r.entry.d !== null && r.entry.dt < 2.5 && r.entry.d > 1 && r.entry.d < 2 && r.entry.behind && r.entry.mode === 'escape', 're-entry with her still in the doorway: he rises 1.5 tiles behind her and pursues', r.entry);
+  });
+
+  await T.step('R1: a Tess left standing in the hall pulls his patrol to her', async () => {
+    const r = await g.hw(async (H) => {
+      const T = window.__T;
+      const HW = H.HW;
+      await T.fresh(5);
+      await H.teleport('test_ai', 60, 17);
+      H.checkpoint('systems hall hunt');
+      T.place(60, 17, 'left');
+      H.timeScale(6);
+      let hunt = false;
+      await HW.periods.start({ length: 90, warning: false });   // (60 s in the game; margin for the random legs)
+      await T.until(() => { if (HW.colonel._hallHunt?.()) hunt = true; return T.gameOvers.length > 0 || HW.periods.phase === 'idle'; }, 90);
+      H.timeScale(1);
+      return { hunt, go: T.gameOvers.map((x) => x.reason) };
+    });
+    T.ok(r.hunt && r.go[0] === 'hall_after_bell', 'standing at the end of the hall: he comes down it and takes her (hall_after_bell)', r);
+  });
+
+  await T.step('"Who is out of their seat?": once per chapter, even across game-over reloads; in his voice', async () => {
+    const r = await g.hw(async (H) => {
+      const T = window.__T;
+      const HW = H.HW;
+      const c = HW.colonel;
+      const toasts = [];
+      const o = HW.ui.toast;
+      HW.ui.toast = function (text, opts) { toasts.push([text, opts || null]); return o.call(this, text, opts); };
+      const notice = async () => {
+        await c.spawn([20, 17], { anim: null });
+        c._notice();
+        c.setMode('scripted');
+        await c.despawn({ sink: false });
+      };
+      await T.fresh(5);
+      const said = () => H.transcript.filter((x) => x.type === 'say' && x.text === 'Who is out of their seat?').length;
+      const s0 = said();
+      await notice();
+      const first = said() - s0;
+      HW.state.flags.colonel_who_ch5 = false;      // what a checkpoint taken before the period restores
+      await notice();
+      const again = said() - s0;
+      await T.fresh(5);                           // a new game asks again
+      const s1 = said();
+      await notice();
+      const fresh = said() - s1;
+      HW.ui.toast = o;
+      return { first, again, fresh, opts: toasts.filter((t) => /Who is out/.test(t[0])).map((t) => t[1]) };
+    });
+    T.ok(r.first === 1 && r.again === 1, 'asked once; after a reload that restored the flag, only the "hm"', r);
+    T.eq(r.fresh, 1, 'a new game asks again');
+    T.ok(r.opts.length >= 1 && r.opts.every((o) => o && o.voice === true), 'shown with { voice: true } (not the system toast chrome)', r.opts);
+  });
+
+  await T.step('assembly: the SCAN meter takes ≥ 0.75 s; out of his sight the telegraph "Hm." still reaches her', async () => {
+    const r = await g.hw(async (H) => {
+      const T = window.__T;
+      const HW = H.HW;
+      await T.fresh(7);
+      await H.teleport('test_ai', 'aud_aisle');
+      H.checkpoint('systems assembly rise');
+      HW.assembly.start({ lectern: 'lectern' });
+      HW.assembly.scanNow();
+      const t0 = HW.time;
+      let first = null;
+      await T.until(() => { if (first === null && HW.colonel.detection > 0) first = HW.time; return HW.colonel._noticeT >= 0; }, 6);
+      const rise = +(HW.time - (first ?? t0)).toFixed(2);
+      // Behind the north wall (the hall): the placed "Hm." is muffled — an unplaced one carries.
+      await T.fresh(7);
+      H.god(true);
+      await H.teleport('test_ai', 36, 17);
+      const hm = [];
+      const o = HW.audio.sfx;
+      HW.audio.sfx = function (id, op) { if (id === 'colonel_hm') hm.push(Number.isFinite(op?.x) ? 'placed' : 'unplaced'); return o.call(this, id, op); };
+      HW.assembly.start({ lectern: 'lectern' });
+      await T.until(() => HW.assembly.phase === 'scan', 20);
+      HW.audio.sfx = o;
+      HW.assembly.stop();
+      H.god(false);
+      return { rise, hm };
+    });
+    T.ok(r.rise >= 0.7 && r.rise < 1.2, 'standing in his sight during a SCAN: noticed after ~0.75 s (one beat to react)', r.rise);
+    T.ok(r.hm.includes('placed') && r.hm.includes('unplaced'), 'telegraph "Hm.": placed at the lectern + an unplaced copy when she is out of his sight', r.hm);
+  });
+
+  await T.step('periods: a chapter lull window holds the schedule; Kevin\'s whistle ignores the max', async () => {
+    const r = await g.hw(async (H) => {
+      const T = window.__T;
+      const HW = H.HW;
+      await T.fresh(5);
+      const ch5 = HW.chapters.CHAPTERS[5];
+      const lull = { maps: ['test_ai'], after: 'test_lull_on', until: 'test_lull_off' };
+      ch5.periodsLull.push(lull);
+      HW.game.loadMap('test_ai', 'store');
+      HW.periods.enable({ maps: ['test_ai'], passing: 3, length: 20, max: 3 });
+      H.setFlag('test_lull_on', true);
+      H.timeScale(8);
+      await H.steps(60 * 30);
+      const r = { inLull: HW.periods.phase, passT: HW.periods._passT };
+      H.setFlag('test_lull_off', true);
+      await T.until(() => HW.periods.phase === 'warning', 10);
+      r.after = HW.periods.phase;
+      await HW.periods.end();
+      H.timeScale(1);
+      ch5.periodsLull.splice(ch5.periodsLull.indexOf(lull), 1);
+      // The max is spent: the schedule stops, a whistle still forces a warning.
+      HW.periods.enable({ maps: ['test_ai'], passing: 999, length: 20, max: 1 });
+      HW.state.flags.periods_ch5 = 1;
+      HW.periods.count = 1;
+      r.auto = HW.periods.forceWarning('auto');
+      r.whistle = HW.periods.forceWarning('whistle');
+      r.phase = HW.periods.phase;
+      await HW.periods.end();
+      HW.periods.disable();
+      return r;
+    });
+    T.ok(r.inLull === 'idle' && r.passT === 0, 'inside the lull window no warning is scheduled (passing time held at 0)', r);
+    T.eq(r.after, 'warning', 'after the lull the schedule resumes');
+    T.ok(r.auto === false && r.whistle === true && r.phase === 'warning', "the chapter's max stops the schedule, not Kevin's whistle", r);
+  });
+
+  await T.step('flashlight: the battery hints (first spare, under 20 %, dead)', async () => {
+    const r = await g.hw(async (H) => {
+      const T = window.__T;
+      const HW = H.HW;
+      await T.fresh(5);
+      const toasts = [];
+      const o = HW.ui.toast;
+      HW.ui.toast = function (text, opts) { toasts.push(text); return o.call(this, text, opts); };
+      const inf = HW.debug.infiniteBattery;
+      HW.debug.infiniteBattery = false;
+      delete HW.state.flags.hint_battery;
+      if (!(HW.state.inv.flashlight > 0)) H.give('flashlight', 1);
+      HW.state.lightSource = 'maglite';
+      HW.state.flashlightOn = true;
+      H.give('battery', 1);
+      await H.steps(100);
+      HW.state.battery = 20.02;
+      await H.steps(30);
+      HW.state.battery = 0.02;
+      await H.steps(30);
+      HW.debug.infiniteBattery = inf;
+      HW.ui.toast = o;
+      HW.state.battery = 100;
+      return { toasts, key: HW.ui.input.keyLabel('inventory') };
+    });
+    const has = (re) => r.toasts.some((t) => re.test(t));
+    T.ok(has(/^D Batteries: \[.+\] Bag → Use when the light fades\.$/), 'first spare battery: how to use it', r.toasts);
+    T.ok(has(/^The light's going\. \[.+\] Bag → D Batteries → Use$/), 'under 20 %: the light is going, swap from the Bag', r.toasts);
+    T.ok(has(/^Dead batteries\. \[.+\] Bag → D Batteries → Use$/), 'at 0 %: dead batteries, swap from the Bag', r.toasts);
   });
 
   await T.step('hearing: running behind him → investigate; lost sight → search → back on patrol', async () => {

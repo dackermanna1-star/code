@@ -1,5 +1,7 @@
 // Pause menu: Resume, Items, Sketchbook, Settings, Save, Load, Quit to Title — beside a status
 // card (chapter, where you are, objective in Tess's pencil, who's with you, time).
+// args { cutscene } (opened over a cutscene: the scene is frozen until Resume) → the reduced menu:
+// Resume, Settings, Load, Quit to Title. args { auto } = opened because the window lost focus.
 import { HW } from '../../engine/hw.js';
 import { Screen } from '../screen.js';
 import { C, F, CHAPTERS, handFont } from '../theme.js';
@@ -33,6 +35,12 @@ export class PauseScreen extends Screen {
   }
   onOpen() { svc.sfx('ui_open'); }
   get items() {
+    if (this.args.cutscene) {
+      return [
+        { id: 'resume', label: 'Resume' }, { id: 'settings', label: 'Settings' },
+        { id: 'load', label: 'Load', disabled: !svc.anySave() }, { id: 'quit', label: 'Quit to Title' },
+      ];
+    }
     const canSave = svc.canSave();
     return [
       { id: 'resume', label: 'Resume' }, { id: 'items', label: 'Items' }, { id: 'sketchbook', label: 'Sketchbook' },
@@ -68,8 +76,10 @@ export class PauseScreen extends Screen {
     if (input.repeat('down')) { this.sel = (this.sel + 1) % items.length; svc.sfx('ui_move'); }
     if (input.pressed('confirm')) this._do(items[this.sel]);
     else if (input.pressed('cancel') || input.pressed('pause')) { svc.sfx('ui_close'); this.close(null); }
-    else if (input.pressed('inventory')) this._do(items[1]);
-    else if (input.pressed('sketchbook')) this._do(items[2]);
+    else if (input.pressed('inventory') || input.pressed('sketchbook')) {
+      const it = items.find((x) => x.id === (input.pressed('inventory') ? 'items' : 'sketchbook'));
+      if (it) this._do(it);
+    }
   }
   render(ctx) {
     const k = ease.out(clamp(this.t / 0.2));

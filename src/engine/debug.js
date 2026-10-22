@@ -11,6 +11,10 @@
 //
 // window.__HW is the test-facing facade (functions per TECH §14, plus a few extras listed in
 // `api` below). It shares the same queue/errors arrays as HW.debug.
+//
+// The shipped single file (tools/build.mjs defines globalThis.__HW_BUILD__) keeps both window.__HW and
+// the F3 overlay switched off unless the page is opened with `?debug` (or `#debug`) in its URL — the
+// test harness (tests/lib.mjs) does that. HW.debug itself always exists (the engine reads its flags).
 import HW from './hw.js';
 import { cloneState } from './state.js';
 import { MapRuntime } from './map.js';
@@ -18,6 +22,17 @@ import { resolvePoint } from './entities.js';
 import { setFlag, giveItem } from './script.js';
 
 const TRANSCRIPT_MAX = 2000;
+
+/** Dev page: always. Built file: only with ?debug / #debug in the URL. */
+function debugAllowed() {
+  if (globalThis.__HW_BUILD__ !== true) return true;
+  try {
+    const { search, hash } = globalThis.location || {};
+    return /(?:^|[?&#])debug(?:[=&#]|$)/.test(`${search || ''}${hash || ''}`);
+  } catch {
+    return false;
+  }
+}
 
 function fmt(a) {
   if (a instanceof Error) return a.stack || a.message;
@@ -28,6 +43,8 @@ function fmt(a) {
 }
 
 export const debug = {
+  /** window.__HW and the F3 overlay are available (see the header). */
+  enabled: debugAllowed(),
   ready: false,
   autoAdvance: false,
   god: false,
@@ -58,7 +75,7 @@ export const debug = {
       this._err(args.map(fmt).join(' '));
       orig(...args);
     };
-    window.__HW = api;
+    if (this.enabled) window.__HW = api;
   },
 
   _err(msg) {

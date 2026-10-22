@@ -34,7 +34,7 @@ export function basePose(dir = 'down') {
     smear: 0,             // lunge stretch toward facing
     clipX: null,          // peek: keep only x < clipX (or > -clipX if negative)
     sinkY: 0,             // pixels pushed below the floor (sink/emerge)
-    seam: 0,              // 0..1 squeeze toward a vertical seam
+    spill: 0,             // sink/emerge: half-width (px) of the dark stain on the floor
     crumble: 0,           // dissolve 0..1
     coat: 0,              // dissolve: empty-coat heap reveal 0..1
     lectern: false,
@@ -75,7 +75,7 @@ function buildFront(P, back) {
   const hsx = Math.max(s, 0.6), hsy = Math.max(hs, 0.8);
   hf.blob(hx, hy - 0.3 * hsy, (11 + b * 0.4) * hsx, 11 * hsy, 13, { mat: FL, p: 0.55 });
   hf.blob(hx, hy + 9 * hsy, 8.5 * hsx, 3.8 * hsy, 14.5, { mat: FL, p: 0.6 });                     // wattle
-  for (const sd of [-1, 1]) hf.blob(hx + sd * 7.5 * hsx, hy + 5.5 * hsy, 5 * hsx, 5.5 * hsy, 14, { mat: FL, p: 0.6 }); // jowls
+  for (const sd of [-1, 1]) hf.blob(hx + sd * 6.5 * hsx, hy + 7.5 * hsy, 5.5 * hsx, 4 * hsy, 14.5, { mat: FL, p: 0.6 }); // jowls (low and flat: chin fat, not locks of hair)
   hf.finalize();
   // folds: under the chin, under the belly, at the hem
   hf.fold([[hx - 11 * s, hy + 9 * hs], [hx - 6 * s, hy + 12.2 * hs], [hx, hy + 13 * hs], [hx + 6 * s, hy + 12.2 * hs], [hx + 11 * s, hy + 9 * hs]], 1.2, 4.5);
@@ -85,6 +85,8 @@ function buildFront(P, back) {
     hf.groove([[hx - 9 * s, hy + 6.5 * hs], [hx, hy + 8.5 * hs], [hx + 9 * s, hy + 6.5 * hs]], 1.1, 1.8);
   }
   hf.toGB(gb);
+  // a crisp shine on the bald dome (flesh, not wool)
+  for (const [dx, dy, l] of [[-5, -6, 0.2], [-4, -7, 0.24], [-3, -7, 0.2], [-4, -6, 0.12], [-2, -8, 0.1]]) { const x = Math.round(hx + dx * hsx), y = Math.round(hy + dy * hsy); if (gb.matAt(x, y) === FL) gb.dim(x, y, 1, l); }
   // ---- coat details painted on the surface
   const belly = (x, y) => gb.matAt(x, y) === NV;
   if (!back) {
@@ -243,10 +245,10 @@ function faceFront(gb, P, hx, hy, hs) {
     if (e > 1) continue;
     put(dx, dy, M.FACE, { n: [dx * 0.12 - 0.05, (dy - 0.5) * 0.12 - 0.08, 1], lum: 0.02 });
   }
-  // pressed-in rim: a dim ring just outside the mask
+  // pressed-in rim: only its lower lip (a dark arch above the face read as a hairline / a hood's opening)
   for (let dy = rows[0] - 1; dy <= rows[1] + 1; dy++) for (let dx = -5; dx <= 5; dx++) {
     const e = (dx / 3.6) ** 2 + ((dy - 0.8) / 4.6) ** 2;
-    if (e > 1 && e < 1.55 && gb.matAt(fx + dx, fy + dy) === FL) gb.dim(fx + dx, fy + dy, dy < 0 ? 0.62 : 0.75);
+    if (e > 1 && e < 1.55 && gb.matAt(fx + dx, fy + dy) === FL && dy > 3) gb.dim(fx + dx, fy + dy, 0.8);
   }
   const vis_ = (dy) => dy >= rows[0] && dy <= rows[1];
   // brows
@@ -308,6 +310,8 @@ function buildSide(P) {
   hf.fold([[X(11), Y(49)], [X(22), Y(53.5)], [X(36), Y(52)]], 1.3, 3);
   hf.groove([[hx + 4 * s, hy + 2], [hx + 8 * s, hy + 5], [hx + 10 * s, hy + 9]], 1, 1.4);
   hf.toGB(gb);
+  // a crisp shine on the bald dome (flesh, not wool)
+  for (const [dx, dy, l] of [[-3, -7, 0.2], [-2, -8, 0.24], [-1, -8, 0.2], [-2, -7, 0.12], [0, -9, 0.1]]) { const x = Math.round(hx + dx * s), y = Math.round(hy + dy * hs); if (gb.matAt(x, y) === FL) gb.dim(x, y, 1, l); }
   // coat front opening along the belly's leading edge (flesh straining through)
   const oy0 = Y(28) + ly * 0.8, oy1 = Y(52) + ly * 0.4;
   for (let y = Math.floor(oy0); y <= oy1; y++) {
@@ -398,7 +402,7 @@ function faceSide(gb, P, hx, hy, hs) {
     const e = ((dx + 0.3) / 2.6) ** 2 + ((dy - 0.8) / 4.6) ** 2;
     if (e <= 1) put(dx, dy, M.FACE, { n: [-0.45 + dx * 0.1, (dy - 0.5) * 0.12 - 0.08, 0.9] });
   }
-  for (let dy = -4; dy <= 6; dy++) { if (gb.matAt(fx + 3, fy + dy) === FL) gb.dim(fx + 3, fy + dy, 0.7); }
+  for (let dy = 2; dy <= 6; dy++) { if (gb.matAt(fx + 3, fy + dy) === FL) gb.dim(fx + 3, fy + dy, 0.82); }   // a short jaw crease (a full-height line read as a hood's edge)
   put(-1, -2, M.HAIR); put(0, -2, M.HAIR);                       // brow
   put(-1, -1, M.DARK); put(0, -1, M.DARK);                       // lid
   if (P.lids[0] > 0.3) put(-1, 0, M.IRIS);
@@ -434,7 +438,7 @@ function buildGB(P) {
   if (P.crumble > 0) crumbleGB(gb, P);
   if (P.clipX != null) peekClip(gb, P);
   if (P.sinkY > 0) sinkShift(gb, Math.round(P.sinkY));
-  if (P.seam > 0) seamGB(gb, P); // after the floor clip: the seam he goes into stays visible
+  if (P.spill > 0) spillGB(gb, P); // after the floor clip: the stain he goes into stays visible
   return gb;
 }
 
@@ -497,14 +501,13 @@ function sinkShift(gb, dy) {
   for (let x = 0; x < FW; x++) if (gb.mat[GROUND * FW + x]) gb.ao[GROUND * FW + x] *= 0.5; // the lip where he meets the floor
 }
 
-// sink: a dark seam opens in the floor/wall and he is pulled into it
-function seamGB(gb, P) {
-  const h = Math.round(P.seam * 20 * (P.sinkY > 20 ? 0.35 : 1));
-  for (let y = GROUND - h; y <= GROUND; y++) {
-    const x = 32 + ((y * 5) % 3 === 0 ? 1 : 0);
-    if (P.seam > 0.85 || !gb.mat[y * FW + x]) gb.pix(x, y, M.DARK, { mode: 'any', n: [0, 0, 1], z: 99, ao: 1, lum: -0.2 });
+// sink/emerge: the dark stain on the floor he goes down into / comes up out of
+function spillGB(gb, P) {
+  const rx = P.spill, ry = Math.max(1.5, rx * 0.2), cy = GROUND - 0.5;
+  for (let y = Math.floor(cy - ry); y < FH; y++) for (let x = Math.floor(32 - rx); x <= Math.ceil(32 + rx); x++) {
+    if (x < 0 || x >= FW || ((x - 32) / rx) ** 2 + ((y - cy) / ry) ** 2 > 1 || gb.mat[y * FW + x]) continue;
+    gb.pix(x, y, M.DARK, { mode: 'any', n: [0, 0, 1], z: 1, ao: 1, lum: -0.25 });
   }
-  if (P.seam >= 1) for (const [dx, dy] of [[-3, 0], [2, -1], [4, 0], [-1, -3]]) gb.pix(32 + dx, GROUND + dy, M.COAL, { mode: 'any', n: [0, -0.5, 0.8], z: 99, ao: 1 });
 }
 
 // lectern: the long roll of names in his hands, draped over the lectern's edge
@@ -686,7 +689,7 @@ function buildMound(P) {
   hf.toGB(gb);
   // the face, barely: brows and the line of the lids peeking over the top roll
   const fx = 33, fy = Math.round(38 - lift * 5);
-  const put = (dx, dy, mat, o = {}) => { if (gb.matAt(fx + dx, fy + dy) === FL) gb.pix(fx + dx, fy + dy, mat, { mode: 'any', ...o }); };
+  const put = (dx, dy, mat, o = {}) => { const m0 = gb.matAt(fx + dx, fy + dy); if (m0 === FL || m0 === M.FACE) gb.pix(fx + dx, fy + dy, mat, { mode: 'any', ...o }); };
   for (let dy = -2; dy <= (lift > 0.5 ? 2 : 0); dy++) for (let dx = -3; dx <= 3; dx++) if ((dx / 3.6) ** 2 + ((dy + 0.3) / 3.2) ** 2 <= 1) put(dx, dy, M.FACE, { n: [dx * 0.1, -0.1, 1] });
   put(-3, -2, M.HAIR); put(-2, -2, M.HAIR); put(1, -2, M.HAIR); put(2, -2, M.HAIR);
   const open = P.lids[0] > 0.5;
@@ -736,6 +739,30 @@ function riseAnim() {
   return { frames, fps: 5, loop: false };
 }
 
+// seated on the floor, facing them (Ch6 gym, the last light bank): rise frame 3's pose, breathing — so
+// rise_seated (rise from frame 3) takes over from it without a seam
+function sitFloorAnim() {
+  return { frames: [1, 0.6].map((b) => {
+    const Q = Object.assign(basePose('down'), { h: 0.66, w: 1.12, massW: 1.15, handL: [8, 59], handR: [56, 59], b });
+    Q.lids = [0.62, 0.58];
+    return renderPose(Q);
+  }), fps: 1, loop: true };
+}
+
+// from the seated pose he rises — slowly (DESIGN VI.4: ~2 s): rise's last five poses with in-betweens, so the
+// heave takes most of the two seconds instead of snapping up in two frames (frame 0 = sitfloor's frame 0)
+function riseSeatedAnim() {
+  const A = { h: 0.66, w: 1.12, massW: 1.15, handL: [8, 59], handR: [56, 59], b: 1 };
+  const Bk = { h: 0.84, w: 1.05, massW: 1.08, handL: [9, 57], handR: [55, 57], b: 1 };
+  const C = { h: 1.035, w: 0.97, massW: 1, handL: [8.4, 51.4], handR: [55.6, 49], b: 1 };   // (≈ the hands' rest)
+  const keys = [[A, A, 0], [A, Bk, 0.5], [Bk, Bk, 0], [Bk, C, 0.5], [C, C, 0], [{ ...C, handL: null, handR: null }, { h: 1, w: 1, b: 0.7 }, 0.5], [{ h: 1, w: 1, massW: 1, b: 0.7 }, null, 0], [{ h: 1, w: 1, massW: 1, b: 0.4 }, null, 0]];
+  return { frames: keys.map(([a, c, t]) => {
+    const Q = Object.assign(basePose('down'), c ? lerpPose(Object.assign(basePose('down'), a), Object.assign(basePose('down'), a, c), t) : a);
+    Q.lids = [0.62, 0.58];
+    return renderPose(Q);
+  }), fps: 4, loop: false };
+}
+
 function lecternAnim(scan) {
   const n = scan ? 8 : 4;
   return { frames: seq('down', n, (P, i, t) => {
@@ -747,13 +774,15 @@ function lecternAnim(scan) {
 }
 
 function sinkFrames() {
-  // compressing impossibly into a seam in the floor; the little face keeps its size and goes last
+  // he goes down through the floor at full width, head last, into a stain that closes after him
+  // (emerge = reversed: a stain spreads, then the dome of the head, the epaulettes, the mass come up out of it)
   return seq('down', 8, (P, i) => {
     const t = i / 7;
-    P.w = 1 - 0.88 * ease(t); P.h = 1 - 0.55 * t * t; P.b = 1; P.seam = Math.min(1, t * 1.4);
-    P.massW = 1 - 0.5 * t; P.lids = [0.45 - 0.3 * t, 0.4];
-    P.sinkY = t > 0.25 ? (t - 0.25) * 34 : 0;
-    P.head = [0, t * 6];
+    P.w = 1 - 0.12 * t; P.massW = 1 - 0.08 * t; P.h = 1 - 0.3 * t * t; P.b = 1;
+    P.sinkY = ease(t) * 60;                              // wholly under the floor line from t ≈ 0.75
+    P.head = [0, t * 3];
+    P.lids = [0.45 - 0.3 * t, 0.4];
+    P.spill = t > 0.4 ? 4 + 20 * (1 - t) : 0;           // 4 px as the floor closes → ~15 px while he is half under
     if (t > 0.85) P.face = 0;
   });
 }
@@ -789,6 +818,8 @@ export function getColonelSprite() {
   }
   anims.mound = moundAnim();
   anims.rise = riseAnim();
+  anims.sitfloor = sitFloorAnim();
+  anims.rise_seated = riseSeatedAnim();
   anims.lectern_down = lecternAnim(false);
   anims.lectern_scan = lecternAnim(true);
   const sink = sinkFrames();

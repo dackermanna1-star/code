@@ -1,7 +1,8 @@
 // Smoke test: the dev page AND the built single file boot to the title, start a new game, walk
 // around with real keyboard input, render, and produce no errors. Screenshots → $HW_SHOTS.
 // node tests/smoke.mjs [--dev-only | --built-only]
-import { launch, openGame, suite, SHOTS } from './lib.mjs';
+import fs from 'node:fs';
+import { launch, openGame, suite, SHOTS, DIST, STUBS } from './lib.mjs';
 
 const T = suite('smoke');
 const targets = process.argv.includes('--dev-only') ? [false] : process.argv.includes('--built-only') ? [true] : [false, true];
@@ -57,6 +58,23 @@ for (const built of targets) {
     T.eq(await g.errors(), [], `${tag}: no errors`);
   });
   await g?.close();
+}
+
+// The shipped file keeps the debug API and the F3 overlay to itself unless opened with ?debug.
+if (targets.includes(true) && !STUBS && fs.existsSync(DIST)) {
+  await T.step('built: no debug API without ?debug', async () => {
+    const page = await browser.newPage({ viewport: { width: 960, height: 540 } });
+    try {
+      await page.goto(`file://${DIST}`);
+      await page.waitForFunction(() => window.__ready === true, null, { timeout: 30000 });
+      await page.evaluate(() => { window.__f3 = null; window.addEventListener('keydown', (e) => { if (e.code === 'F3') window.__f3 = e.defaultPrevented; }); });
+      await page.keyboard.press('F3');
+      const r = await page.evaluate(() => ({ api: typeof window.__HW, hw: typeof window.HW, f3: window.__f3 }));
+      T.ok(r.api === 'undefined' && r.hw === 'undefined' && r.f3 === false, 'built: window.__HW / F3 overlay off without ?debug', r);
+    } finally {
+      await page.close();
+    }
+  });
 }
 
 await browser.close();

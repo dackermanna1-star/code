@@ -2,6 +2,9 @@
 //   Maglite: drains 100 → 0 in ~600 s while on; flickers below 20 %; at 0 % runs on the "dregs"
 //            (power ≈ 0.15 with irregular dropouts — never fully black).
 //   Danny's flashlight: a weak, narrow beam (power 0.35) that never dies ('engine:use_danny_flashlight').
+// Teaching (non-blocking toasts, never a thought — that would cut a chase): the first time she holds a spare
+// battery ("D Batteries: [Tab] Bag → Use when the light fades."), when the Maglite drops under 20 %, and when it
+// dies (each says whether a spare is in the bag and how to use it).
 // Smooth aim along her facing, toggle / battery swap, scripted overrides. Writes
 // HW.lighting.flashlight = { on, x, y, angle, power, flicker, cone, color, source } every step.
 //
@@ -11,6 +14,7 @@
 import HW from '../engine/hw.js';
 import { DIR_ANGLE } from '../engine/entities.js';
 import { LIGHT_COLORS } from '../art/palette.js';
+import { inFreePlay } from './periods.js';
 
 const DRAIN_PER_SEC = 100 / 600;
 const LOW = 20;
@@ -38,6 +42,7 @@ export const flashlight = {
   _burstStep: 0,
   _burstLevel: 1,
   _nextBurst: 4,
+  _lowWarned: false, // the under-20 % toast has been shown for this set of cells
   _beam: null,      // fallback object when lighting has none
 
   /** 'maglite' | 'danny' (persisted in HW.state.lightSource). */
@@ -104,6 +109,7 @@ export const flashlight = {
     s.inv.battery -= 1;
     if (s.inv.battery <= 0) delete s.inv.battery;
     s.battery = 100;
+    this._lowWarned = false;
     s.lightSource = 'maglite';
     s.flashlightOn = true;
     this._burstT = 0;
@@ -111,6 +117,11 @@ export const flashlight = {
     HW.ui?.toast?.('Fresh batteries.');
     HW.game?.emit?.('item', 'battery', s.inv.battery || 0);
     return true;
+  },
+
+  /** The Bag key's label for the hints ('Tab', or the pad button). */
+  _bagKey() {
+    try { return HW.ui?.input?.keyLabel?.('inventory') || 'Tab'; } catch { return 'Tab'; }
   },
 
   /** Script override: true | false | 'restore' (back to the player's switch). */
@@ -131,12 +142,30 @@ export const flashlight = {
     if (cutscene && this.offInCutscenes && this.forced === null) on = false;
     const maglite = srcName === 'maglite';
 
+    if (s.battery >= LOW) this._lowWarned = false; // fresh cells, a new game, an earlier save
     // Drain only in free play while the Maglite is on.
     if (on && maglite && this.forced === null && mode === 'play' && !HW.debug?.infiniteBattery && s.battery > 0) {
+      const was = s.battery;
       s.battery = Math.max(0, s.battery - DRAIN_PER_SEC * dt);
       if (s.battery <= 0) {
         HW.audio?.sfx?.('flashlight_flicker');
         HW.game.emit('batteryDead');
+        this._lowWarned = true;
+        HW.ui?.toast?.(s.inv.battery > 0 ? `Dead batteries. [${this._bagKey()}] Bag → D Batteries → Use`
+          : 'Dead batteries. Keep an eye out for D cells.');
+      } else if (was >= LOW && s.battery < LOW && !this._lowWarned) {
+        this._lowWarned = true;
+        HW.ui?.toast?.(s.inv.battery > 0 ? `The light's going. [${this._bagKey()}] Bag → D Batteries → Use`
+          : "The light's going. No spare batteries.");
+      }
+    }
+    // First spare battery: say once how to use it — polled, 1.2 s into free play, so it lands after the
+    // pickup's examine line and its "Got:" toast.
+    if (s.inv.battery > 0 && !s.flags.hint_battery) {
+      this._hintT = inFreePlay() ? (this._hintT || 0) + dt : 0;
+      if (this._hintT >= 1.2) {
+        s.flags.hint_battery = true;
+        HW.ui?.toast?.(`D Batteries: [${this._bagKey()}] Bag → Use when the light fades.`);
       }
     }
 

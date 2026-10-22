@@ -21,7 +21,9 @@ export const CH5_PERIODS = Object.freeze({ maps: ['east2', 'west2'], passing: 15
 /**
  * Per-chapter table. party: follower ids (null = leave as is) · objective: default when the chapter starts
  * · periods: free-period config or null (scripted / none) · periodsAfter: flag that must be set before the
- * free periods begin · flags: set at chapter start · drone: passing-time music.
+ * free periods begin · periodsLull: [{ maps, after, until }] windows in which no free warning is scheduled on
+ * those maps (from flag `after` until flag `until`; passing time restarts after it — HW.periods reads it)
+ * · flags: set at chapter start · drone: passing-time music.
  */
 export const CHAPTERS = [
   /* 0 PROLOGUE — Kettle Run */ { party: ['danny', 'leah', 'marcus'], objective: 'Get inside.', periods: null, drone: null },
@@ -29,7 +31,9 @@ export const CHAPTERS = [
   /* 2 II — First Period    */ { party: ['leah', 'marcus'], objective: 'Get in a room. Sit down.', periods: null, drone: null },
   /* 3 III — Custodial      */ { party: ['marcus'], objective: "Find the janitor's keys.", periods: null, drone: 'drone_1' },
   /* 4 IV — Attendance      */ { party: ['marcus'], objective: 'The main office. The intercom.', periods: null, drone: 'drone_2' },
-  /* 5 V — Upstairs         */ { party: ['marcus'], objective: "Danny's upstairs. Room 205.", periods: CH5_PERIODS, periodsAfter: 'ch5_205_period_done', drone: 'drone_2' },
+  /* 5 V — Upstairs         */ { party: ['marcus'], objective: "Danny's upstairs. Room 205.", periods: CH5_PERIODS, periodsAfter: 'ch5_205_period_done', drone: 'drone_2',
+    // The compact lull (DESIGN §6 V.6): apparent safety on west2 from the Reflection until the False Leah.
+    periodsLull: [{ maps: ['west2'], after: 'adair_met', until: 'false_leah_done' }] },
   /* 6 VI — Passing Time    */ { party: ['marcus'], objective: "Haupt's office. The safe.", periods: null, drone: 'drone_3', droneOff: 'ch6_marcus_taken' },
   /* 7 VII — Assembly       */ { party: [], objective: 'The auditorium.', periods: null, drone: null, flags: { ch7_started: true } },
   /* 8 VIII — The Register  */ { party: [], objective: 'Go down.', periods: null, drone: null },

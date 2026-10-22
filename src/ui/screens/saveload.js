@@ -1,6 +1,7 @@
 // Save / Load: four file-folder slots (AUTO, 1, 2, 3) with chapter, place, play time and date.
 // args { mode: 'save' | 'load', fromTitle } → resolves the slot loaded (or saved), else null.
 
+import { HW } from '../../engine/hw.js';
 import { Screen } from '../screen.js';
 import { C, F } from '../theme.js';
 import { steelPanel, rect, frame, dither, triangle, AP, clamp, ease, snap } from '../gfx.js';
@@ -34,7 +35,11 @@ export class SaveLoadScreen extends Screen {
         const done = await svc.saveTo(s.slot);
         svc.sfx(done ? 'pen_scratch' : 'door_locked');
         if (!done) this.ui.toast("Couldn't save.");
-        else { this.ui.toast('Saved.'); this.flash = 1; }
+        else {
+          // Blocked storage / private window / quota: it only lives as long as this page (tech-10).
+          this.ui.toast(HW.game?.lastSavePersisted === false ? 'Saved — for this session only.' : 'Saved.');
+          this.flash = 1;
+        }
         this.refresh();
       } else {
         svc.sfx('ui_confirm');
@@ -43,7 +48,14 @@ export class SaveLoadScreen extends Screen {
         if (!ok) return;
         closeMenus(this.ui);
         this.result = s.slot;
-        setTimeout(() => { this.ui.reset(); svc.loadSave(s.slot); }, 0);
+        setTimeout(async () => {
+          this.ui.reset();
+          if (await svc.loadSave(s.slot)) return;
+          // Refused before anything changed (unknown map, corrupt): carry on. Failed halfway: title.
+          const g = HW.game;
+          if (g && HW.map && HW.player && g.loadError !== 'broken') this.ui.toast("That save can't be loaded.");
+          else g?.toTitle?.();
+        }, 0);
       }
     } finally { this.busy = false; }
   }
@@ -87,6 +99,7 @@ export class SaveLoadScreen extends Screen {
     });
     const cur = this.slots[this.sel];
     if (this.mode === 'save' && cur.slot === 'auto') F.small.draw(ctx, 'The autosave is written at checkpoints.', x + 40, y + h - 26, C.textMute);
+    else if (HW.storage && HW.storage.persistent === false) F.small.draw(ctx, "This browser isn't keeping saves: they last until the page closes.", x + 40, y + h - 26, '#b0544c');
     hints(ctx, [['BACK', this.ui.input.keyLabel('cancel')], [this.mode === 'save' ? 'SAVE' : 'LOAD', this.ui.input.keyLabel('confirm')]]);
   }
 }

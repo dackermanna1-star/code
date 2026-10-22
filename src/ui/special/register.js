@@ -66,7 +66,8 @@ export class RegisterScreen extends Screen {
     try { svc.cgArt('colonel_hand')?.warm?.({ light: 'red' }); } catch (e) { svc.warnOnce('register.warm', e); }
     this.model = args.model || { title: 'REGISTER OF PUPILS', founder: { id: 'founder', name: 'HALLOWELL, CYRUS — FIRST PUPIL', status: 'enrolled' }, lines: [], tools: [] };
     this.mode = 'tray';          // 'tray' | 'line' | 'grounds' | 'write'
-    this.toolSel = 0; this.lineSel = 0; this.groundSel = 1;
+    // grounds: no rule is highlighted until the player picks one (a cursor on a valid rule pre-solved it)
+    this.toolSel = 0; this.lineSel = 0; this.groundSel = -1;
     this.busy = false;
     this.anims = [];             // { kind: 'stamp'|'slip'|'expel', id, t }
     this.dust = [];              // pencil dust lifting off withdrawn names
@@ -294,9 +295,9 @@ export class RegisterScreen extends Screen {
       else if (input.pressed('cancel')) { this.mode = 'tray'; svc.sfx('ui_cancel'); }
     } else if (this.mode === 'grounds') {
       const G = this._grounds();
-      if (input.repeat('up')) { this.groundSel = (this.groundSel + G.length - 1) % G.length; svc.sfx('ui_move'); }
+      if (input.repeat('up')) { this.groundSel = this.groundSel < 0 ? G.length - 1 : (this.groundSel + G.length - 1) % G.length; svc.sfx('ui_move'); }
       if (input.repeat('down')) { this.groundSel = (this.groundSel + 1) % G.length; svc.sfx('ui_move'); }
-      if (input.pressed('confirm')) { svc.sfx('pen_scratch', { vol: 0.5 }); this._apply({ id: 'pen' }, this.rows[0], { grounds: G[this.groundSel].id }); }
+      if (input.pressed('confirm') && G[this.groundSel]) { svc.sfx('pen_scratch', { vol: 0.5 }); this._apply({ id: 'pen' }, this.rows[0], { grounds: G[this.groundSel].id }); }
       else if (input.pressed('cancel')) { this.mode = 'tray'; svc.sfx('ui_cancel'); }
     }
   }

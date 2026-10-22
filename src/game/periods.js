@@ -24,7 +24,8 @@
 //   end() → Promise                     dismissal now (cancels a pending warning); resolves when the
 //                                       lights are out.
 //   forceWarning(reason = 'whistle')    Kevin: a standard warning right now (if periods are enabled
-//                                       on this map and the chapter's max isn't spent). → bool
+//                                       on this map; a whistle ignores the chapter's max — the cap is for
+//                                       the schedule). → bool
 //   notePeek(roomId)                    the Colonel took attendance in a room (early end if Tess sits there)
 //   active (bell → dismissal) · warning · phase ('idle'|'warning'|'active'|'dismissal') · enabled ·
 //   config · length (s, 0 = open-ended) · timeLeft (s) · count (free periods this chapter) ·
@@ -36,11 +37,13 @@
 //
 // Guards (DESIGN §4.1): free warnings never start within 20 s of a map load, or while a cutscene,
 // dialogue, document or menu is up, or during a chase; passing time only runs in free play on an
-// enabled map. Followers walk to a free seat in Tess's room on the warning (never the one nearest
-// her) and stand up at dismissal. Holding Confirm while seated fast-forwards ×4 (engine-side, via
-// hiding.js, which reads `active` and HW.colonel.peeking).
+// enabled map, and not in a chapter's lull window (chapters.js `periodsLull`: Ch5's compact lull on west2,
+// adair_met → false_leah_done; passing time restarts after it). Followers walk to a free seat in Tess's
+// room on the warning (never the one nearest her) and stand up at dismissal. Holding Confirm while seated
+// fast-forwards ×4 (engine-side, via hiding.js, which reads `active` and HW.colonel.peeking).
 import HW from '../engine/hw.js';
 import colonel from './colonel_ai.js';
+import { chapterConfig } from './chapters.js';
 
 const TILE = 16;
 const COUNTDOWN = 10;
@@ -138,6 +141,15 @@ export const periods = {
     return !!this.cfg && !!HW.map && this.cfg.maps.includes(HW.map.id);
   },
 
+  /** A chapter lull window (chapters.js `periodsLull`) holds the schedule on this map right now. */
+  _lull() {
+    const s = HW.state;
+    const lulls = s && chapterConfig(s.chapter ?? 0).periodsLull;
+    if (!lulls || !HW.map) return false;
+    const f = s.flags || {};
+    return lulls.some((w) => w.maps.includes(HW.map.id) && (!w.after || f[w.after]) && !(w.until && f[w.until]));
+  },
+
   // ------------------------------------------------------------------------------ hooks
   onWarning(fn) { this._hooks.warning.add(fn); return () => this._hooks.warning.delete(fn); },
   onStart(fn) { this._hooks.start.add(fn); return () => this._hooks.start.delete(fn); },
@@ -207,7 +219,8 @@ export const periods = {
 
   /** A standard warning right now (Kevin's whistle). */
   forceWarning(reason = 'whistle') {
-    if (this.phase !== 'idle' || !this._mapEnabled() || this.count >= this.cfg.max) return false;
+    if (this.phase !== 'idle' || !this._mapEnabled()) return false;
+    if (reason !== 'whistle' && this.count >= this.cfg.max) return false;
     if (HW.scripts?.blocking) return false;
     this._countFree();
     this.start({ reason });
@@ -439,6 +452,7 @@ export const periods = {
     switch (this.phase) {
       case 'idle':
         if (this._mapEnabled() && free && this.count < this.cfg.max) {
+          if (this._lull()) { this._passT = 0; break; } // apparent safety; the clock restarts after it
           this._passT += dt;
           if (this._passT >= this.cfg.passing && this._sinceLoad >= LOAD_GUARD && colonel.mode !== 'chase') {
             this._countFree();

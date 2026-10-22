@@ -15,12 +15,15 @@ export const STARTING_INVENTORY = Object.freeze({
   flashlight: 1, sketchbook: 1, compact: 1, transfer_form: 1, mixtape: 1, gum: 1, house_key: 1,
 });
 
+/** Notes Tess already has in her sketchbook (DESIGN §3: 'How to Tell Leah (draft 6)', in Notes from the start). */
+export const STARTING_DOCS = Object.freeze({ tess_draft: true });
+
 export function createState() {
   return {
     version: STATE_VERSION, chapter: 0, map: 'exterior', px: 0, py: 0, dir: 'down',
     flags: {},
     inv: { ...STARTING_INVENTORY },
-    docs: {},
+    docs: { ...STARTING_DOCS },
     objective: '',
     party: [],
     battery: 100,
@@ -49,6 +52,8 @@ export function normalizeState(s) {
     if (!out[k] || typeof out[k] !== 'object' || Array.isArray(out[k])) out[k] = base[k];
   }
   if (!Array.isArray(out.party)) out.party = [];
+  // Saves from before the sketchbook page existed get it too (it has been in her bag all along).
+  for (const id of Object.keys(STARTING_DOCS)) if (!(id in out.docs)) out.docs = { [id]: true, ...out.docs };
   out.version = STATE_VERSION;
   return out;
 }

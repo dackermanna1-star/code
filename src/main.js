@@ -7,6 +7,7 @@ import HW from './engine/hw.js';
 import { createDisplay } from './engine/display.js';
 import input from './engine/input.js';
 import settings from './engine/settings.js';
+import storage from './engine/storage.js';
 import { createState } from './engine/state.js';
 import game from './engine/game.js';
 import entities from './engine/entities.js';
@@ -67,6 +68,7 @@ async function boot() {
 
   const canvas = findCanvas();
   HW.settings = settings;
+  HW.storage = storage; // .persistent: false when saves only last for this page session
   settings.load();
   HW.display = createDisplay(canvas);
   HW.display.applySettings(settings.values);

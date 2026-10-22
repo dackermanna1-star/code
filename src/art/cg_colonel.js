@@ -37,8 +37,9 @@ function pump() {
 
 // ------------------------------------------------------------------------------------ colonel_face
 // Extreme close-up (colonel_cg_face.js): the small face in the vast dough of the head — in FURY by default
-// (ch8: "WHO IS OUT OF THEIR SEAT."): lids snapped wide, white all round the irises, the mouth dropped open
-// too far. params.lit 0..1 = how much of Tess's flashlight is on him; params.fury 0 = the serene face, whose
+// (ch8: "WHO IS OUT OF THEIR SEAT."): rage — brows driven down onto glaring eyes, the mouth torn wide and
+// dropped too far, the fat closing over the face's edges; framed so all of it sits above the voice box.
+// params.lit 0..1 = how much of Tess's flashlight is on him; params.fury 0 = the serene face, whose
 // eyes blink rarely, and never together.
 const FACE_LEVELS = 8;
 function blinkState(t) {
@@ -54,7 +55,7 @@ const colonelFace = {
   draw(ctx, t = 0, params = {}) {
     const lit = Math.max(0, Math.min(1, params.lit ?? 1));
     const level = Math.round(lit * (FACE_LEVELS - 1));
-    // fury (default: ch8's "WHO IS OUT OF THEIR SEAT.") — eyes wide and unblinking, the mouth dropped open;
+    // fury (default: ch8's "WHO IS OUT OF THEIR SEAT.") — a glare that does not blink, the mouth howling;
     // params.fury 0 → the serene close-up with its rare out-of-sync blinks
     if ((params.fury ?? 1) > 0.5) {
       ctx.drawImage(faceFrame(level, FACE_LEVELS, 'fury'), 0, 0);

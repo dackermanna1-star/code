@@ -18,7 +18,7 @@ export const CHARS = {
   },
   danny: {
     name: 'Danny', color: '#5fae6b', sprite: 'danny', blip: 'danny',
-    expr: ['neutral', 'grin', 'laugh', 'talk', 'smug', 'nervous', 'scared', 'sad', 'serious', 'relieved', 'entranced', 'flicker'],
+    expr: ['neutral', 'grin', 'laugh', 'talk', 'smug', 'nervous', 'worried', 'scared', 'sad', 'serious', 'relieved', 'entranced', 'flicker'],
   },
   leah: {
     name: 'Leah', color: '#c8423b', sprite: 'leah', blip: 'leah',

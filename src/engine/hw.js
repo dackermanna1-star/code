@@ -5,6 +5,7 @@ export const HW = {
   game: null,      // engine/game.js  — Game (loop, scene control, map loading)
   state: null,     // engine/state.js — GameState (flags, inventory, chapter, ...)
   settings: null,  // engine/settings.js — persisted user settings
+  storage: null,   // engine/storage.js — key/value persistence (.persistent false = saves last this session only)
   input: null,     // engine/input.js
   display: null,   // engine/display.js — canvases & scaling
   map: null,       // engine/map.js — current MapRuntime

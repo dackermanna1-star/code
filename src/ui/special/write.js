@@ -17,6 +17,7 @@ import * as svc from '../services.js';
 const INK = '#c0202c';
 const INK_DK = '#5a0c12';
 const SCRATCH_EVERY = 0.32;   // s between pen-scratch sfx while writing
+const CARRY_HOLD = 0.6;       // a confirm already down on opening counts once held this long (see breath.js)
 
 const bigScript = () => font({ family: FONT.script, size: 56, lineHeight: 56, weight: 700, threshold: 0.45, skew: -0.14 });
 
@@ -35,6 +36,10 @@ export class WriteScreen extends Screen {
     this.scratchT = 0;
     this.done = false;
     this.heldFor = 0;       // continuous hold (for the hand tremor)
+    // Writing only starts on a fresh press made after the screen got focus (the key that dismissed the
+    // line before it may still be down); a press carried in counts once it has clearly become a hold.
+    this.armedAt = undefined;
+    this.carry = 0;
   }
 
   _progress(p) {
@@ -45,7 +50,12 @@ export class WriteScreen extends Screen {
 
   update(dt, input) {
     if (this.done) return;
-    const down = !!input && input.down('confirm');
+    const raw = !!input && input.down('confirm');
+    if (input && this.armedAt === undefined) {
+      if (!raw) this.armedAt = this.t;
+      else if ((this.carry += dt) >= CARRY_HOLD) this.armedAt = this.t;
+    }
+    const down = raw && this.armedAt !== undefined;
     if (down && !this.holding) svc.sfx('pen_scratch', { vol: 0.7 });
     this.holding = down;
     if (down) {

@@ -1,7 +1,10 @@
 // Screen-space post effects on the 480×270 world buffer (TECH §9).
-//   PixelPass  — one getImageData/putImageData round trip, only while distort / chroma / VHS are
+//   PixelPass  — one read/putImageData round trip, only while distort / chroma / VHS are
 //                active: per-row horizontal displacement (scanline wave, VHS jitter and tracking
-//                band), RGB split and VHS chroma bleed, noise, black lift.
+//                band), RGB split and VHS chroma bleed, noise, black lift. The world is copied to a
+//                private willReadFrequently canvas and read back from there, so the world buffer
+//                itself is never getImageData'd (no "multiple readback" warning, and the browser
+//                never demotes the world canvas to software rendering).
 //   overlays   — cached canvases for grain, vignette (wide + tight), CRT scanlines, edge pulses.
 const W = 480;
 const H = 270;
@@ -17,6 +20,7 @@ export class PixelPass {
   constructor() {
     this.out = null;
     this.o32 = null;
+    this.rbCtx = null;   // private CPU-side copy of the world for the per-frame readback
     this.rowShift = new Int16Array(H);
     this.rowNoise = new Float32Array(H);
   }
@@ -25,7 +29,13 @@ export class PixelPass {
    * @param p { distort (px), chroma (px), vhs (0..1), t (s), rand () => [0,1), reduce (bool) }
    */
   run(ctx, p) {
-    const img = ctx.getImageData(0, 0, W, H);
+    let rb = this.rbCtx;
+    if (!rb) {
+      rb = this.rbCtx = makeCanvas(W, H).getContext('2d', { willReadFrequently: true });
+      rb.globalCompositeOperation = 'copy';
+    }
+    rb.drawImage(ctx.canvas, 0, 0);
+    const img = rb.getImageData(0, 0, W, H);
     const s32 = new Uint32Array(img.data.buffer);
     if (!this.out) {
       this.out = ctx.createImageData(W, H);

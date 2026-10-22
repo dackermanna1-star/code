@@ -122,6 +122,70 @@ export function clarinet(V, midi, dur, vel = 0.5) {
   V.chain(o, lp, g, V.out);
   V.play(o, 0, end + 0.05);
 }
+/** Reed wave for the solo clarinet: a fuller odd-harmonic series (the closed bore) with faint evens, so
+ *  the breath-driven low-pass below decides how bright it gets. */
+const REED_WAVE = new WeakMap();
+function reedWave(ctx) {
+  let w = REED_WAVE.get(ctx);
+  if (!w) {
+    const n = 28, re = new Float32Array(n), im = new Float32Array(n);
+    for (let k = 1; k < n; k++) im[k] = k % 2 ? 1 / Math.pow(k, 0.85) : 0.045 / k;
+    im[3] *= 0.8; // the chalumeau's slightly hollow third
+    w = ctx.createPeriodicWave(re, im);
+    REED_WAVE.set(ctx, w);
+  }
+  return w;
+}
+/**
+ * A lone clarinet, played by someone (Ch6: Denise on the bleachers). Unlike the band `clarinet` above
+ * (a pad voice inside the 78), this one breathes: a tongued "d" onset (a little chiff and a pitch
+ * scoop from below) or a soft slur, brightness that follows the breath, breath noise along the reed,
+ * a slow pitch drift and a late, shy vibrato on long notes, and a swell through held notes.
+ * opts: slur (no tongue), seed (0..1, per-note variation), rel (release s: short into a slur).
+ */
+export function clarinetSolo(V, midi, dur, vel = 0.7, { slur = false, seed = 0.5, rel = 0.14 } = {}) {
+  const f = mtof(midi);
+  const o = V.osc(reedWave(V.ctx), f);
+  // pitch: up from below into the note, then a slow drift; long notes waver late (a player, not a synth)
+  const det = o.detune;
+  det.setValueAtTime(slur ? -7 : -22, V.T(0));
+  det.setTargetAtTime(0, V.T(0.005), slur ? 0.025 : 0.035);
+  const drift = V.osc('sine', 0.23 + seed * 0.3), dg = V.gain(2.5 + seed * 2);
+  drift.connect(dg); dg.connect(det);
+  let vib = null;
+  if (dur > 0.75) {
+    vib = V.osc('sine', 4.4 + seed * 0.8);
+    const vg = V.gain(0);
+    vg.gain.setValueAtTime(0, V.T(0)); vg.gain.setValueAtTime(0, V.T(dur * 0.4));
+    vg.gain.linearRampToValueAtTime(6 + seed * 4, V.T(dur * 0.95));
+    vib.connect(vg); vg.connect(det);
+  }
+  // breath-driven brightness and the bore's resonance
+  const a = slur ? 0.07 : 0.045, peak = 0.42 * vel;
+  const lp = V.filter('lowpass', 700, 0.9);
+  const top = 1300 + 2200 * vel;
+  V.env(lp.frequency, [[0, 650], [a * 1.6, top], [Math.max(a * 1.6 + 0.01, dur * 0.35), top * 0.82], [Math.max(a * 2, dur * 0.7), top * (dur > 0.75 ? 0.95 : 0.85)], [dur + rel, 700]], true);
+  const body = V.filter('peaking', 1450, 1.6, 3.5);
+  const g = V.gain(0);
+  g.gain.setValueAtTime(0, V.T(0));
+  g.gain.linearRampToValueAtTime(peak, V.T(a));
+  g.gain.setTargetAtTime(peak * 0.8, V.T(a), 0.09);
+  if (dur > 0.75) { g.gain.setValueAtTime(peak * 0.8, V.T(dur * 0.45)); g.gain.linearRampToValueAtTime(peak * 0.92, V.T(dur * 0.8)); }
+  g.gain.setValueAtTime(peak * (dur > 0.75 ? 0.92 : 0.8), V.T(Math.max(a + 0.02, dur)));
+  g.gain.linearRampToValueAtTime(0, V.T(dur + rel));
+  V.chain(o, lp, body, g, V.out);
+  // breath along the reed (follows the tone) + the tongue's chiff
+  const n = V.noise('pink'), nb = V.filter('bandpass', 2900 + seed * 600, 0.8), ng = V.gain(0);
+  const breath = 0.05 * vel;
+  ng.gain.setValueAtTime(0, V.T(0));
+  ng.gain.linearRampToValueAtTime(slur ? breath * 0.8 : breath * 2.6, V.T(slur ? a : 0.012));
+  ng.gain.setTargetAtTime(breath * 0.55, V.T(slur ? a : 0.02), 0.05);
+  ng.gain.setValueAtTime(breath * 0.55, V.T(Math.max(a + 0.02, dur)));
+  ng.gain.linearRampToValueAtTime(0, V.T(dur + rel * 0.85));
+  V.chain(n, nb, ng, V.out);
+  const end = dur + rel + 0.02;
+  for (const s of [o, drift, n, ...(vib ? [vib] : [])]) V.play(s, 0, end);
+}
 export function tuba(V, midi, dur, vel = 0.7) {
   const o = V.osc('sawtooth', mtof(midi)), lp = V.filter('lowpass', 380, 1.2), g = V.gain(0);
   const end = sustainEnv(V, g.gain, dur, 0.7 * vel, { a: 0.04, d: 0.3, s: 0.6, r: 0.1 });

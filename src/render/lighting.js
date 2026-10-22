@@ -88,6 +88,7 @@ const GLOWS = {
   bulb: [9, { core: 2.5, power: 2.2 }, 0.6],
   fire: [18, { sy: 0.8, power: 2 }, 0.32],
   flame: [6, { core: 1.6, power: 1.8 }, 0.7],
+  cap: [5, { power: 2 }, 0.6],
   crt: [8, { sx: 1.25, sy: 1, power: 2 }, 0.35],
   led: [3, { core: 1.2, power: 1.5 }, 0.9],
   headlights: [8, { core: 2.2, power: 2 }, 0.85],

@@ -8,16 +8,21 @@
 //               ≤ 3 peeks), escalating by chapter: Ch≤3 'shadow' (pauses outside the door window),
 //               Ch4 'doorway' (opens the door, the coat fills the doorway, "hm?"), Ch5+ 'step' (steps
 //               in and drags along one row). A peek into the room where Tess sits takes attendance
-//               (HW.periods ends 10 s later).
+//               (HW.periods ends 10 s later). A Tess left standing in a hall 10 s after he emerges pulls
+//               his route toward her (R1).
 //   investigate walks to a noise he heard (HW.noise), looks around, resumes.
 //   chase       the lurch: drag 30 px/s, then a 150 px/s lunge for 0.5 s every 1.4 s (≈ 73 px/s avg —
-//               walking loses, running wins). Loses her after 3 s without line of sight → search.
+//               walking loses, running wins; the lunge sfx + shake fire once per window). Loses her after 3 s
+//               without line of sight → search. At a seated Tess: caught if he saw her sit (or she fidgets),
+//               else he stands over her (search → close pass) and goes (R2).
 //   search      goes to where she was last seen, looks around; checks a seat only if he saw her sit.
 //   scripted    scripts drive him (walkTo / anim / face / peekInto / lunge); no vision unless
 //               setMode('scripted', { vision: true }).
-//   assembly    stands at the lectern; HW.assembly toggles `assemblyScan`; seated = safe at once.
-//   escape      relentless pursuit with a rubber band keeping Tess 4–8 tiles ahead while she moves
-//               well; `cannotCatch` for the PRESENT escape (HW.chase drives the per-map flow).
+//   assembly    stands at the lectern; HW.assembly toggles `assemblyScan`; seated = safe at once; the meter
+//               fills in 0.75 s at the quickest. A notice → the pounce: straight off the stage lip at her.
+//   escape      relentless pursuit with a rubber band keeping a RUNNING Tess 4–8 tiles ahead (walking gets
+//               the full lurch; a seat doesn't save her); `cannotCatch` for the PRESENT escape; `grace` s
+//               (start beat: he looms ≥ 2.5 tiles off until she moves). HW.chase drives the per-map flow.
 //   sleep       in the coal heap (no entity; the heap prop shows him); rise() wakes him into a chase.
 //   (caught)    transient: the grab beat before HW.game.gameOver; cleared by the reload.
 //
@@ -30,8 +35,8 @@
 //   as moving — then he also comes to check that seat); seated but not still within 4 tiles fills.
 // HEARING HW.noise events within their radius (walls muffle) → investigate. Noises made by NPCs
 //   (doors opened by followers) are ignored; Kevin's whistle marks Tess as reported ('running').
-// CATCH within 14 px → reach + colonel_grab → HW.game.gameOver(reason): 'hall_after_bell' (hall),
-//   'out_of_seat' (rooms, assembly), 'running' (reported by Kevin), 'woke' (basement), 'chase'
+// CATCH within 14 px (or on reaching her seat, see chase) → reach + colonel_grab → HW.game.gameOver(reason):
+//   'hall_after_bell' (hall), 'out_of_seat' (rooms, assembly), 'running' (reported by Kevin), 'woke' (basement), 'chase'
 //   (the Ch8 escape) — or `reason` if a script/chase set one. Respects HW.debug.god and cannotCatch.
 // SHROUD `shrouded` is true while he is on the map until flag ch6_gym_lights (override: `shroud`
 //   true/false/null). The renderer draws him near-black with brass/gold/crimson glints; lighting
@@ -49,8 +54,9 @@
 //   walkTo(target, { speed = 26, run, lunge, doors = true }) → Promise   (run = 30 px/s chase drag)
 //   anim(name, { once, hold }) → Promise · face(dirOrTarget) · lunge(target, { speed = 150 }) → Promise
 //   peekInto(roomIdOrPeek, { style }) → Promise   style 'shadow' | 'doorway' | 'step' (default by chapter)
-//   investigate(x, y) · chase({ reason, track, style }) · search(x, y) · catch(reason)
-//   sleep(at) · rise({ at, reason = 'woke' }) → Promise · escape({ cannotCatch, rubber }) · assembly({ at })
+//   investigate(x, y) · chase({ reason, track, style, rubber, cannotCatch, grace }) · search(x, y) · catch(reason)
+//   sleep(at) · rise({ at, reason = 'woke' }) → Promise · escape({ cannotCatch, rubber, grace }) · assembly({ at })
+//   setRubber([min, max] | null)               retune the running chase's rubber band (HW.chase.setRubber)
 //   closePass() → Promise                      play the micro-beat now (scripted scenes)
 //   spawnPeriod() → bool · dismiss()           used by HW.periods
 //   fields: mode, entity, x, y, shrouded, shroud, peeking, detection, cannotCatch, reason, peekStyle,
@@ -89,12 +95,18 @@ const LOSE_T = 3;                 // s without sight → search
 const REPATH = 0.3;
 const MIN_FOLD = 12 * TILE;
 const MAX_PEEKS = 3;
+const HALL_GRACE = 10;            // s after he emerges before R1 pulls him toward a Tess left standing in a hall
 const CLOSE_R = 22;
 const CLOSE_FX = 2.5;
 const STRIDE = 22;
 const EYE = 10;                   // px above the feet for sight lines
 const ASSEMBLY_RANGE = 30 * TILE;
+const ASSEMBLY_RISE = 0.75;       // s: the scan's meter never fills faster than this (× assist) — one beat after
+                                  // the "hm?" cue to step back out of his sight or drop into a seat (was 0.22 s)
 const POUNCE = 220;
+// Chapters in which he has already asked "Who is out of their seat?" this session. The state flag alone is
+// not enough: it is set mid-period, and every game over reloads a checkpoint taken before the period.
+const ASKED = new Set();
 const AUTONOMOUS = new Set(['patrol', 'investigate', 'search']);
 const PERIOD_MODES = new Set(['patrol', 'investigate', 'search', 'chase']);
 
@@ -162,6 +174,8 @@ export const colonel = {
   _closeAt: -99,
   _closeFxT: -1,
   _godT: 0,
+  _spawnAt: 0,
+  _passStaged: false,
   _c: null,             // chase state
   _hooked: false,
   _sleepAt: null,
@@ -336,6 +350,7 @@ export const colonel = {
     this._node = null;
     this._prevNode = null;
     this._sawSeat = null;
+    this._spawnAt = HW.time;
   },
 
   // ------------------------------------------------------------------------------ action queue
@@ -346,6 +361,7 @@ export const colonel = {
   _clearQueue() {
     const q = this._q;
     this._q = [];
+    this._passStaged = false;
     for (const a of q) a.resolve?.(false);
     const e = this.entity;
     if (e && e.animOnce) e.clearAnim();
@@ -625,7 +641,7 @@ export const colonel = {
     this.despawn({ sink: true });
   },
 
-  chase({ reason = null, track = false, style = 'lurch', rubber = null, cannotCatch = this.cannotCatch } = {}) {
+  chase({ reason = null, track = false, style = 'lurch', rubber = null, cannotCatch = this.cannotCatch, grace = 0 } = {}) {
     if (!this.entity) return;
     this._clearQueue();
     this._closeHeldDoor();
@@ -637,16 +653,24 @@ export const colonel = {
     this.mode = style === 'escape' ? 'escape' : 'chase';
     const p = HW.player;
     this._c = {
-      t: 0, lunging: false, path: null, i: 0, pathT: 0, lost: 0, track: !!track, style, rubber,
+      t: 0, lunging: false, win: false, path: null, i: 0, pathT: 0, lost: 0, track: !!track, style, rubber,
+      grace: Math.max(0, Number(grace) || 0),
       tx: p ? p.x : this.entity.x, ty: p ? p.y : this.entity.y,
     };
     if (p) { this._lastSeen.x = p.x; this._lastSeen.y = p.y; this._lastSeen.t = HW.time; }
+    // A chase that starts on a seated Tess began with her moving in his view (sitting down, fidgeting): R2.
+    if (p?.seated) this._sawSeat = p.seated;
     this._startBreath('colonel_breath_fast');
     this._emit(this.mode === 'escape' ? 'escape' : 'chase', { info: style });
   },
 
-  escape({ cannotCatch = false, rubber = [4, 8] } = {}) {
-    this.chase({ style: 'escape', track: true, rubber, cannotCatch, reason: 'chase' });
+  escape({ cannotCatch = false, rubber = [4, 8], grace = 0 } = {}) {
+    this.chase({ style: 'escape', track: true, rubber, cannotCatch, reason: 'chase', grace });
+  },
+
+  /** Retune the running chase's rubber band ([min, max] tiles kept ahead of a running Tess, or null). */
+  setRubber(rubber) {
+    if (this._c) this._c.rubber = Array.isArray(rubber) ? [rubber[0], rubber[1]] : null;
   },
 
   _endChase() {
@@ -839,9 +863,11 @@ export const colonel = {
     if (p) this._faceAngle(Math.atan2(p.y - e.y, p.x - e.x));
     const ch = HW.state?.chapter ?? 0;
     const key = `colonel_who_ch${ch}`;
-    if (!HW.state.flags[key]) {
+    if (!HW.state.flags[key] && !ASKED.has(ch)) {
       HW.state.flags[key] = true;
-      HW.ui?.toast?.('"Who is out of their seat?"');
+      ASKED.add(ch);
+      // His voice, not a system notice: { voice: true } asks the HUD for the dialogue 'voice' styling.
+      HW.ui?.toast?.('"Who is out of their seat?"', { voice: true });
       HW.audio?.murmur?.(1.6);
       HW.debug?.record?.('say', 'colonel', null, 'Who is out of their seat?');
     } else {
@@ -929,17 +955,17 @@ export const colonel = {
     if (!opts.length) opts = nb;
     // Drift toward Tess's room if it hasn't had attendance yet (every period is one encounter).
     const goal = this._tessPeek();
-    if (goal && Math.random() < 0.75) {
-      const ap = this._peekPoints(goal)?.outside;
-      if (ap) {
-        let best = null;
-        let bd = Infinity;
-        for (const n of nb) {
-          const d = Math.hypot(G.pts[n].x - ap.x, G.pts[n].y - ap.y);
-          if (d < bd) { bd = d; best = n; }
-        }
-        if (best) return best;
+    let ap = goal && Math.random() < 0.75 ? this._peekPoints(goal)?.outside : null;
+    // R1: still standing in the hall after the bell — he drifts toward where she is.
+    if (!ap && this._hallHunt() && Math.random() < 0.75) ap = HW.player;
+    if (ap) {
+      let best = null;
+      let bd = Infinity;
+      for (const n of nb) {
+        const d = Math.hypot(G.pts[n].x - ap.x, G.pts[n].y - ap.y);
+        if (d < bd) { bd = d; best = n; }
       }
+      if (best) return best;
     }
     return opts[Math.floor(Math.random() * opts.length)];
   },
@@ -953,12 +979,22 @@ export const colonel = {
     return map.patrol.peeks.find((k) => k.room === room.id && !this._peeked.has(k.room)) || null;
   },
 
+  /** R1: Tess standing (not seated — hall benches are legal seats) in a hall/stair during a period, ≥ HALL_GRACE s after he emerged. */
+  _hallHunt() {
+    const p = HW.player;
+    if (!p || p.seated || p.hidden || !periods.active || this._home !== 'period') return false;
+    if (HW.time - this._spawnAt < HALL_GRACE) return false;
+    const room = HW.map?.roomAt(p.x, p.y);
+    return !room || room.kind === 'hall' || room.kind === 'stair';
+  },
+
   _choosePeek() {
     if (this._peeks >= MAX_PEEKS) return null;
     const map = HW.map;
     const e = this.entity;
     const tp = this._tessPeek();
     if (tp && this._legs >= 1 && this._peekPoints(tp)) return tp;
+    if (!tp && this._hallHunt()) return null; // hunting the hall: no detours into other rooms
     let best = null;
     let bd = 6 * TILE;
     for (const pk of map.patrol.peeks || []) {
@@ -1043,23 +1079,45 @@ export const colonel = {
         this._push({ type: 'scan', t: 2.5, amp: 0.7, base: pts.into, keepPose: true });
       } else {
         // Ch5+: he steps in and drags along one row; the medals jingle beside the desks.
-        this._pushWalk(pts.look, { strict: false });
-        this._push({ type: 'fn', fn: () => {
-          const e = this.entity;
-          if (e) HW.audio?.sfx?.('colonel_jingle', { x: e.x, y: e.y - 16 });
-          this._attend(room, style);
-        } });
-        const row = this._rowEnd(pts.look);
-        if (row) {
-          this._pushWalk(row, { strict: false });
-          this._push({ type: 'scan', t: 1.6, amp: 0.9 });
-          this._pushWalk(pts.look, { strict: false });
+        const p = HW.player;
+        const over = p?.seated && map.roomAt(p.x, p.y)?.id === room ? this._overSeat(p) : null;
+        if (over) {
+          // She sits in this room: the close pass is staged like the scripted 205 pass — he comes round to the far
+          // side of her desk and looks down over it (she draws in front of him; his hand lands on the desk).
+          const ang = Math.atan2(p.y - over.y, p.x - over.x);
+          this._push({ type: 'fn', fn: () => { this._passStaged = true; } });
+          this._pushWalk(over, { strict: false });
+          this._push({ type: 'fn', fn: () => {
+            const e = this.entity;
+            if (e) HW.audio?.sfx?.('colonel_jingle', { x: e.x, y: e.y - 16 });
+            this._attend(room, style);
+          } });
+          this._push({ type: 'face', angle: ang });
+          // (_closePassFx(false) + explicit entries: its pause variant unshifts into the queue, which a queued fn
+          // must not do — _runQueue would shift the wrong entry and run the fn again.)
+          this._push({ type: 'fn', fn: () => { if (HW.player?.seated && HW.player.still) this._closePassFx(false); } });
+          this._push({ type: 'anim', name: AN.reach[angToDir(ang)], once: true, hold: true });
+          this._push({ type: 'wait', t: 1.1 });
+          this._push({ type: 'scan', t: 1.6, amp: 0.5 });
         } else {
-          this._push({ type: 'scan', t: 2.2, amp: 1 });
+          this._pushWalk(pts.look, { strict: false });
+          this._push({ type: 'fn', fn: () => {
+            const e = this.entity;
+            if (e) HW.audio?.sfx?.('colonel_jingle', { x: e.x, y: e.y - 16 });
+            this._attend(room, style);
+          } });
+          const row = this._rowEnd(pts.look);
+          if (row) {
+            this._pushWalk(row, { strict: false });
+            this._push({ type: 'scan', t: 1.6, amp: 0.9 });
+            this._pushWalk(pts.look, { strict: false });
+          } else {
+            this._push({ type: 'scan', t: 2.2, amp: 1 });
+          }
         }
       }
       this._pushWalk(pts.outside, { strict: false });
-      this._push({ type: 'fn', fn: () => this._closeHeldDoor() });
+      this._push({ type: 'fn', fn: () => { this._passStaged = false; this._closeHeldDoor(); } });
     }
     this._push({ type: 'fn', fn: () => { this.peeking = false; } });
     return true;
@@ -1110,6 +1168,20 @@ export const colonel = {
     if (n < 2) return null;
     const s = r >= l ? 1 : -1;
     return cellPt(tx + s * n, ty);
+  },
+
+  /** Close-pass spot over a seated Tess: behind her desk (she draws in front of him, his hand lands on her desk), else beside her on her row. */
+  _overSeat(p) {
+    const map = HW.map;
+    const room = map.roomAt(p.x, p.y)?.id;
+    const tx = Math.floor(p.x / TILE);
+    const ty = Math.floor(p.y / TILE);
+    for (const [dx, dy] of [[0, -2], [-1, -2], [1, -2], [-1, 0], [1, 0]]) {
+      const x = tx + dx;
+      const y = ty + dy;
+      if (map.inBounds(x, y) && !map.isSolid(x, y) && map.roomAt(x * TILE + 8, y * TILE + 8)?.id === room) return cellPt(x, y);
+    }
+    return null;
   },
 
   _nearFree(x, y) {
@@ -1188,6 +1260,7 @@ export const colonel = {
   },
 
   _checkClosePass() {
+    if (this._passStaged) return; // a staged step-peek pass is on its way (no early pass on the walk in)
     const p = HW.player;
     if (!p?.seated || !p.still || HW.time - this._closeAt < 8) return;
     if (this._dist(p) > CLOSE_R) return;
@@ -1211,6 +1284,9 @@ export const colonel = {
       c.lost = 0;
       c.tx = p.x;
       c.ty = p.y;
+      // R2: sitting down while he can see her (or fidgeting on the seat) counts as moving — as in _detect,
+      // which does not run during a chase.
+      if (seen && p.seated && (HW.time - p.sitTime < SIT_GRACE || !p.still)) this._sawSeat = p.seated;
     } else {
       c.lost += dt;
       if (c.lost >= LOSE_T && this.mode === 'chase') {
@@ -1219,31 +1295,53 @@ export const colonel = {
         return;
       }
     }
+    const dist = this._dist(p);
+    const dT = dist / TILE;
+    const ps = p.moving ? (p.speed || 0) : 0;
+    // Start grace (the escape's first beat after "Run."): he looms ≥ 2.5 tiles off until she moves or it runs out.
+    if (c.grace > 0) c.grace = p.moving ? 0 : c.grace - dt;
+    const graceHold = c.grace > 0 && dT < 2.5;
+    // PRESENT (cannotCatch): inside 2.5 tiles he only shadows her, never closes in.
+    const presentHold = this.cannotCatch && !!c.rubber && dT < 2.5;
     // The lurch: drag 30 px/s, then a 150 px/s lunge for 0.5 s every 1.4 s.
     let speed;
     if (c.style === 'pounce') {
       speed = POUNCE;
       c.lunging = true;
     } else {
-      const lunging = c.t % LUNGE_EVERY >= LUNGE_EVERY - LUNGE_T;
-      if (lunging && !c.lunging) this._lungeFx();
-      c.lunging = lunging;
-      speed = lunging ? LUNGE : CHASE_BASE;
+      // c.win tracks the 1.4 s lunge window; the rubber band below may drop c.lunging (pose/speed) but never
+      // c.win, so the lunge sfx + shake fire once per window, not every frame while he is held back. While he
+      // is held right behind her (grace / PRESENT) there is no lunge at all, so no lunge sound either.
+      const win = c.t % LUNGE_EVERY >= LUNGE_EVERY - LUNGE_T;
+      if (!graceHold && !presentHold) {
+        if (win && !c.win) this._lungeFx();
+        c.win = win;
+      }
+      c.lunging = win;
+      speed = win ? LUNGE : CHASE_BASE;
     }
-    const dist = this._dist(p);
     if (c.rubber) {
-      const dT = dist / TILE;
-      const ps = p.moving ? (p.speed || 0) : 0;
       if (dT > c.rubber[1]) speed = Math.max(speed, 140);
-      else if (dT < c.rubber[0] && ps > 40) { speed = Math.min(speed, ps * 0.85); c.lunging = false; }
-      if (this.cannotCatch && dT < 2.5) { speed = Math.min(speed, ps * 0.7); c.lunging = false; }
+      // The band only holds him back from a RUNNING Tess: walking gets the full lurch (walking loses).
+      else if (dT < c.rubber[0] && p.running && ps > 40) { speed = Math.min(speed, ps * 0.85); c.lunging = false; }
+      if (presentHold) { speed = Math.min(speed, ps * 0.7); c.lunging = false; }
     }
+    if (graceHold) { speed = 0; c.lunging = false; }
+    const holding = this.cannotCatch || c.grace > 0;
     // Path toward her (or where she was).
     c.pathT -= dt;
     if (c.pathT <= 0 || !c.path || c.i >= c.path.length) {
       c.pathT = REPATH;
       c.path = map.findPath([e.x, e.y], [c.tx, c.ty], { doors: true }) || [[c.tx, c.ty]];
       c.i = 0;
+      // The Assembly pounce pours straight off the stage lip instead of detouring to the side steps.
+      if (c.style === 'pounce') c.path = this._dropPath(e, c.tx, c.ty, c.path) || c.path;
+      // Her cell can be blocked for the path grid (she stands against a prop): A* then ends on the nearest free
+      // cell, 16+ px off — outside CATCH_R for good. Finish that last short stretch straight at her (not onto a
+      // seat: at a seat R2 decides, below).
+      const last = c.path[c.path.length - 1] || [e.x, e.y];
+      const off = Math.hypot(last[0] - c.tx, last[1] - c.ty);
+      if (!p.seated && off > 4 && off <= 1.5 * TILE) c.path.push([c.tx, c.ty]);
     }
     this._advance(c.path, c, speed * dt, c.lunging ? 'lunge' : 'drag');
     if (!seen && !c.track && c.i >= c.path.length && Math.hypot(e.x - c.tx, e.y - c.ty) < 6 && this.mode === 'chase') {
@@ -1251,7 +1349,54 @@ export const colonel = {
       this.search(this._lastSeen.x, this._lastSeen.y);
       return;
     }
-    if (dist <= CATCH_R && !p.hidden && !this.cannotCatch && this._godT <= 0) this.catch();
+    // A seat is solid: he stops on the free cell beside it (16–23 px; 2 tiles for the long tables and the
+    // bleachers), outside CATCH_R. At her seat, R2 decides: sat in his sight / fidgeting → caught; sat unseen
+    // → he stands over her (search → close pass) and goes. The escape is relentless, and so is the Assembly's
+    // pounce (he has called it — "Who is out of their seat?"): there a seat doesn't save her.
+    if (p.seated && (dist <= 28 || (c.i >= c.path.length && dist < 40))) {
+      if (this.mode === 'chase' && c.style !== 'pounce' && this._sawSeat !== p.seated && p.still) {
+        this.search(p.x, p.y);
+        // He is standing over her already: the close pass now (his hand rests on the next desk), then the look round.
+        if (HW.time - this._closeAt >= 8) this._closePassFx(true);
+        return;
+      }
+      if (!holding && this._godT <= 0) this.catch();
+      return;
+    }
+    if (dist <= CATCH_R && !p.hidden && !holding && this._godT <= 0) this.catch();
+  },
+
+  /**
+   * A straight drop over a low ledge (non-opaque solid cells such as the stage front, ≤ 2 deep, within 4 tiles)
+   * toward (tx, ty), then the A* route from where he lands — if that is clearly shorter than `path`. → path | null
+   */
+  _dropPath(e, tx, ty, path) {
+    const map = HW.map;
+    const dx = tx - e.x;
+    const dy = ty - e.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 2 * TILE) return null;
+    const ux = dx / d;
+    const uy = dy / d;
+    let solid = 0;
+    let land = null;
+    let lastCell = -1;
+    for (let s = 4; s < Math.min(d, 4 * TILE); s += 4) {
+      const cx = Math.floor((e.x + ux * s) / TILE);
+      const cy = Math.floor((e.y + uy * s) / TILE);
+      const key = cy * 4096 + cx;
+      if (key === lastCell) continue;
+      lastCell = key;
+      if (map.isSolid(cx, cy)) {
+        if (map.isOpaque(cx, cy) || ++solid > 2) return null;
+      } else if (solid) { land = cellPt(cx, cy); break; }
+    }
+    if (!land) return null;
+    const rest = map.findPath([land.x, land.y], [tx, ty], { doors: true });
+    if (!rest) return null;
+    const len = (pts, x0, y0) => { let L = 0; let px = x0; let py = y0; for (const q of pts) { L += Math.hypot(q[0] - px, q[1] - py); px = q[0]; py = q[1]; } return L; };
+    const drop = [[land.x, land.y], ...rest];
+    return len(drop, e.x, e.y) + 3 * TILE < len(path, e.x, e.y) ? drop : null;
   },
 
   _lungeFx() {
@@ -1280,7 +1425,7 @@ export const colonel = {
         const spot = this.assemblySpot;
         const inSpot = spot && Math.hypot(p.x - spot.px, p.y - spot.py) < (spot.radius ?? 3) * TILE * 0.8;
         const lit = inSpot || this._tessLit(dt);
-        gain = RATE_NEAR * (p.moving ? 1.5 : 1) * (p.running ? 2 : 1) * (lit ? 1.5 : 1);
+        gain = Math.min(1 / ASSEMBLY_RISE, RATE_NEAR * (p.moving ? 1.5 : 1) * (p.running ? 2 : 1) * (lit ? 1.5 : 1));
       }
     }
     const assist = HW.state?.assist || 1;
@@ -1326,7 +1471,7 @@ export const colonel = {
   _hook() {
     if (this._hooked || !HW.game?.on) return;
     this._hooked = true;
-    HW.game.on('newGame', () => this._reset());
+    HW.game.on('newGame', () => { ASKED.clear(); this._reset(); });
     HW.game.on('load', () => this._reset());
     HW.game.on('gameOver', () => { this._clearQueue(); this._endChase(); this._stopBreath(); });
     noise.on((ev) => this._hear(ev));

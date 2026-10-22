@@ -31,7 +31,7 @@ export class Hud {
   }
   notice(text) { this.notices.push({ text: String(text || ''), t: 0 }); if (this.notices.length > 2) this.notices.shift(); }
 
-  update(dt, show, notify = true) {
+  update(dt, show, notify = true, notices = true) {
     this.t += dt;
     this.alpha = approach(this.alpha, show ? 1 : 0, dt / 0.25);
     const s = svc.state();
@@ -42,10 +42,17 @@ export class Hud {
     const hasCompact = !!(s.inv?.compact) && (s.flags?.compact_unlocked ?? true);
     this.compactA = approach(this.compactA, past && hasCompact ? 1 : 0, dt / 0.5);
     this.seatA = approach(this.seatA, HW.player?.seated ? 1 : 0, dt / 0.3);
-    const per = !!HW.periods?.active;
-    if (per && this.periodA === 0) this.periodT = 0;
+    // the period clock: up through the warning (the 10 s to get seated — not only a sound: muted and
+    // hard-of-hearing players need to see it) and the period itself; the bell rings when the period starts
+    const P = HW.periods;
+    const per = !!P?.active, warn = !!P?.warning;
+    if (warn && !this.warnOn) { this.warnTotal = Math.max(1, Number(P.timeLeft) || 10); this.warnT = 0; }
+    this.warnT = (this.warnT || 0) + dt;
+    this.warnOn = warn;
+    if (per && (!this.perOn || this.periodA === 0)) this.periodT = 0;
+    this.perOn = per;
     this.periodT += dt;
-    this.periodA = approach(this.periodA, per ? 1 : 0, dt / 0.4);
+    this.periodA = approach(this.periodA, per || warn ? 1 : 0, dt / (warn ? 0.2 : 0.4));
     if (this.prompt) {
       this.prompt.a = approach(this.prompt.a, this.prompt.on ? 1 : 0, dt / 0.12);
       if (!this.prompt.on && this.prompt.a <= 0) this.prompt = null;
@@ -53,6 +60,7 @@ export class Hud {
     if (!notify) return;
     for (const t of this.toasts) t.t += dt;
     this.toasts = this.toasts.filter((t) => t.t < TOAST_LIFE);
+    if (!notices) return;   // held (not aged) while a modal screen is up
     for (const n of this.notices) n.t += dt;
     this.notices = this.notices.filter((n) => n.t < NOTICE_LIFE);
   }
@@ -81,10 +89,10 @@ export class Hud {
     ctx.globalAlpha = a0;
   }
 
-  /** Toasts + notices (above everything but title/game over). */
-  renderTop(ctx) {
+  /** Toasts + notices (above everything but title/game over; notices wait out modal screens). */
+  renderTop(ctx, notices = true) {
     this.toasts.forEach((t, i) => this._toast(ctx, t, i));
-    this.notices.forEach((n, i) => this._notice(ctx, n, i));
+    if (notices) this.notices.forEach((n, i) => this._notice(ctx, n, i));
   }
 
   // ---- pieces -------------------------------------------------------------------------------------
@@ -199,14 +207,30 @@ export class Hud {
     hand(this.periodT * 2 * Math.PI / 60 * 6, r - 7, '#9a2229');   // sweeping red second hand
     // cage guard bars
     for (let i = -r + 4; i < r; i += 10) rect(ctx, cx + i, cy - r + 2, AP, (r - 2) * 2, 'rgba(30,30,34,0.45)');
+    // the warning: a red ring on the rim burns down with the seconds left to get seated
+    const warn = !!P?.warning;
+    let throb = 1;
+    if (warn) {
+      const left = Math.max(0, Number(P.timeLeft) || 0), f = clamp(left / (this.warnTotal || 10));
+      const n = 40;
+      for (let k = 0; k < Math.ceil(n * f); k++) {
+        const an = k / n * Math.PI * 2;
+        rect(ctx, snap(cx + Math.sin(an) * (r - 2)) - 1, snap(cy - Math.cos(an) * (r - 2)) - 1, AP, AP, '#d8342a');
+      }
+      throb = 0.35 + 0.65 * (1 - (left % 1));   // the bell pulses once a second
+    }
     // bell: rings (wiggles) for the first seconds of a period
-    const ring = this.periodT < 2.5 ? Math.sin(this.periodT * 40) : 0;
+    const ring = !warn && this.periodT < 2.5 ? Math.sin(this.periodT * 40) : 0;
     const bx = cx - 74 + snap(ring * 3), by = cy - 16;
+    const ba = ctx.globalAlpha; ctx.globalAlpha = ba * throb;
     rect(ctx, bx + 6, by, 4, 4, '#3b3a36');
     rect(ctx, bx + 2, by + 4, 12, 4, '#9a7d34'); rect(ctx, bx, by + 8, 16, 12, '#9a7d34');
     rect(ctx, bx + 2, by + 8, 4, 10, '#cfae55'); rect(ctx, bx - 2, by + 20, 20, 4, '#5e4a1c');
     rect(ctx, bx + 6, by + 24, 4, 4, '#3b3a36');
     if (ring) { rect(ctx, bx - 10, by + 6, 4, AP, '#cfc6ab'); rect(ctx, bx + 22, by + 6, 4, AP, '#cfc6ab'); }
+    ctx.globalAlpha = ba;
+    // closed caption for the chime itself (only while it sounds); the ring and the bell carry the rest
+    if (warn && this.warnT < 3) F.small.draw(ctx, '[ C H I M E ]', bx - 16, cy - 10, '#cfc6ab', { align: 'right', alpha: clamp((3 - this.warnT) / 0.6) });
     ctx.globalAlpha = a0;
   }
 

@@ -312,20 +312,37 @@ try {
     });
     T.ok(rep >= 7 && rep <= 10, 'held direction auto-repeats for menus', rep);
 
-    // Integer scaling vs fit, letterboxed.
-    await g.page.setViewportSize({ width: 1000, height: 600 });
-    await g.steps(2);
+    // Scaling: by default fill the window (sharp), snapping to a whole number within 6 %; the
+    // pixel-perfect setting forces the whole-number scale, letterboxed.
+    const rectAt = async (w, h) => {
+      await g.page.setViewportSize({ width: w, height: h });
+      await g.steps(2);
+      return g.hw((H) => ({ ...H.HW.display.rect, s: H.HW.display.scale }));
+    };
+    T.eq(await g.hw((H) => H.HW.settings.get('pixelPerfect')), false, 'default scaling: fill (pixel-perfect off)');
+    const snap = await rectAt(1000, 600);
+    T.ok(snap.s === 2 && snap.w === 960 && snap.x === 20, 'fill: a near-whole scale snaps to it (1000×600 → ×2, 20 px border)', snap);
+    const fit = await rectAt(1366, 768);
+    T.ok(fit.s > 2.8 && fit.w >= 1365 && fit.h === 768, 'fill: 1366×768 fills the window (×2.84, sharp)', fit);
+    const small = await rectAt(800, 450);
+    T.ok(small.w === 800 && small.h === 450, 'fill: 800×450 fills the window (was ×1 at 480×270)', small);
+    await g.hw((H) => H.HW.settings.set('pixelPerfect', true));
     const pp = await g.hw((H) => ({ ...H.HW.display.rect, s: H.HW.display.scale }));
     await g.hw((H) => H.HW.settings.set('pixelPerfect', false));
-    const fit = await g.hw((H) => ({ ...H.HW.display.rect, s: H.HW.display.scale }));
-    await g.hw((H) => H.HW.settings.set('pixelPerfect', true));
-    await g.page.setViewportSize({ width: 960, height: 540 });
-    T.ok(pp.s === 2 && pp.w === 960 && pp.x === 20, 'pixel-perfect: integer scale, letterboxed', pp);
-    T.ok(fit.s > 2 && fit.w === 1000, 'fit mode fills the window', fit);
+    T.ok(pp.s === 1 && pp.w === 480, 'pixel-perfect: whole-number scale, letterboxed', pp);
+    const shot = await g.page.screenshot();
+    T.ok(shot.length > 1000, 'sharp-scaled frame renders');
+    await rectAt(960, 540);
     await g.page.keyboard.press('F11');
     await g.page.keyboard.press('Alt+Enter');
     await g.steps(2);
     T.eq(await g.mode(), 'play', 'fullscreen keys are handled without side effects');
+    await g.page.waitForTimeout(300);
+    const fsSync = await g.hw((H) => ({ live: H.HW.display.fullscreen, setting: H.HW.settings.get('fullscreen') }));
+    T.eq(fsSync.setting, fsSync.live, 'the Fullscreen setting follows the real state', fsSync);
+    await g.page.evaluate(() => document.fullscreenElement && document.exitFullscreen());
+    await g.page.waitForTimeout(300);
+    T.eq(await g.hw((H) => H.HW.settings.get('fullscreen')), false, 'leaving fullscreen (Esc / F11) updates the setting');
   });
 
   await T.step('save / load roundtrip', async () => {
@@ -1115,6 +1132,257 @@ try {
     });
     T.ok(art.all && art.textKeyed && art.pen, 'art: desk outline, hallpass sign (text-keyed), navy poster, chalk graffiti, husk without pen', art);
     T.ok(art.kev && art.kev.n >= 3 && art.kev.loop === false, "art: Kevin 'beltoff_down' (non-looping)", art.kev);
+  });
+
+  await T.step('final QA fixes (engine, saves, input, screens)', async () => {
+    await g.teleport('test', 'start');
+    await g.idle();
+    // tech-02 / tech-09: no manual save or engine autosave while a period is up (warning, bell,
+    // dismissal) or a chase set piece runs; the Ch8 escape still checkpoints.
+    const gate = await g.hw((H) => {
+      const HW = H.HW;
+      const P = HW.periods;
+      const C = HW.chase;
+      const out = {};
+      const probe = (k) => { out[k] = [HW.game.canSave(), HW.game.canCheckpoint()]; };
+      probe('idle');
+      for (const phase of ['warning', 'active', 'dismissal']) {
+        HW.periods = { phase, active: phase === 'active' };
+        probe(phase);
+      }
+      HW.periods = P;
+      HW.chase = { active: true, kind: 'gym' }; probe('gym');
+      HW.chase = { active: true, kind: 'escape' }; probe('escape');
+      HW.chase = C;
+      return out;
+    });
+    T.eq(gate.idle, [true, true], 'free play: save + checkpoint allowed');
+    T.ok(['warning', 'active', 'dismissal'].every((k) => gate[k][0] === false && gate[k][1] === false), 'period warning / bell / dismissal: no save, no transfer autosave', gate);
+    T.eq(gate.gym, [false, false], 'gym chase (he may be scripted between lunges): no save, no autosave');
+    T.eq(gate.escape, [false, true], 'Ch8 escape: no manual save; its own checkpoints still write');
+
+    // ld-05: a direction held through a transfer that lands her facing another way stays dead until
+    // released; the arrival direction (a corridor) keeps walking.
+    const stale = await g.hw(async (H) => {
+      const HW = H.HW;
+      HW.input.setVirtual('up', true);
+      await H.steps(2);
+      await HW.game.transfer('test2', 'start2', { fade: false });
+      const p0 = { x: HW.player.x, y: HW.player.y, dir: HW.player.dir };
+      await H.steps(30);
+      const held = { dy: HW.player.y - p0.y, down: HW.input.down('up') };
+      HW.input.setVirtual('up', false);
+      await H.steps(2);
+      HW.input.setVirtual('up', true);
+      await H.steps(20);
+      const again = HW.player.y - p0.y;
+      HW.input.setVirtual('up', false);
+      await H.steps(2);
+      await H.teleport('test', [40, 14]);
+      HW.input.setVirtual('right', true);
+      await H.steps(2);
+      await HW.game.transfer('test2', 'from_test', { fade: false });
+      const p1 = HW.player.x;
+      await H.steps(20);
+      const kept = HW.player.x - p1;
+      HW.input.setVirtual('right', false);
+      await H.steps(2);
+      return { arrive: p0.dir, held, again, kept };
+    });
+    T.ok(stale.arrive === 'down' && stale.held.dy === 0 && !stale.held.down, 'Up held across a transfer that arrives facing down does nothing', stale);
+    T.ok(stale.again < -10, 'released and pressed again, Up walks', stale);
+    T.ok(stale.kept > 10, 'the arrival direction keeps walking (corridor exits)', stale);
+    const unit = await g.hw(async (H) => {
+      const I = H.HW.input;
+      I.setVirtual('left', true); await H.steps(2);
+      I.staleHeld('right');
+      await H.steps(2);
+      const dead = I.down('left');
+      I.clear(); await H.steps(1);
+      I.setVirtual('left', true); await H.steps(2);
+      const live = I.down('left');
+      I.setVirtual('left', false); await H.steps(1);
+      return { dead, live };
+    });
+    T.ok(!unit.dead && unit.live, 'input.staleHeld(keep) / clear()', unit);
+
+    // tech-21: map-exit autosaves are labelled by where they land (assist counts per place).
+    await g.teleport('test', [44, 14]);
+    T.ok(await g.walkTo([46, 14]), 'walk into the east exit');
+    await g.idle();
+    T.eq((await g.state()).checkpoint, 'transfer test2 from_test', "transfer checkpoint label names the map and anchor");
+
+    // tech-08: the sketchbook page is in Notes from the start; older saves get it too.
+    const notes = await g.hw(async (H) => {
+      const HW = H.HW;
+      const fresh = Object.keys(HW.state.docs);
+      const keep = JSON.parse(JSON.stringify(HW.state));
+      HW.game.save('3');
+      const raw = JSON.parse(localStorage.getItem('hallowell.save.3'));
+      raw.state.docs = { plaque: true }; // a save from before the page existed
+      localStorage.setItem('hallowell.save.3', JSON.stringify(raw));
+      HW.game.loadSave('3');
+      const old = Object.keys(HW.state.docs);
+      localStorage.removeItem('hallowell.save.3');
+      HW.state.docs = keep.docs;
+      return { fresh, old };
+    });
+    T.ok(notes.fresh.includes('tess_draft'), "a new game's Notes hold 'How to Tell Leah (draft 6)'", notes);
+    T.eq(notes.old, ['tess_draft', 'plaque'], 'older saves get it too (first in Notes)');
+
+    // ld-08: during a period a tap of Confirm while seated does not stand her up (movement does).
+    await g.teleport('test', 'desk_a');
+    await g.face('up');
+    await g.interact();
+    const seat = await g.hw(async (H) => {
+      const HW = H.HW;
+      const sat = !!HW.player.seated;
+      const saved = HW.periods;
+      HW.periods = { active: true, phase: 'active' };
+      HW.input.tap('confirm'); await H.steps(4);
+      const afterTap = !!HW.player.seated;
+      HW.periods = saved;
+      await H.press('down', 120); await H.steps(4);
+      return { sat, afterTap, afterMove: !!HW.player.seated };
+    });
+    T.ok(seat.sat && seat.afterTap && !seat.afterMove, 'period: a Confirm tap keeps her seated; a direction stands her', seat);
+
+    // tech-11: a save naming a map this build lacks is refused with the game untouched; an empty
+    // state lands on the map start, a position in a wall on the nearest floor.
+    const bad = await g.hw(async (H) => {
+      const HW = H.HW;
+      const key = (k) => `hallowell.save.${k}`;
+      const put = (k, state) => localStorage.setItem(key(k), JSON.stringify({ v: 1, summary: { chapter: 0 }, state }));
+      const keep = JSON.parse(JSON.stringify(HW.state));
+      const before = { map: HW.map.id, x: HW.player.x };
+      put('3', { ...keep, map: 'nonexistent_map' });
+      const r1 = HW.game.loadSave('3');
+      const after1 = { ok: r1, err: HW.game.loadError, map: HW.map?.id, player: !!HW.player, x: HW.player?.x, mode: HW.game.mode };
+      put('3', { ...keep, map: 'test', px: undefined, py: undefined }); // no position at all
+      const r2 = HW.game.loadSave('3');
+      await H.steps(2);
+      const p2 = H.player();
+      const start = HW.map.anchor('start');
+      put('3', { ...keep, map: 'test', px: 5 * 16 + 8, py: 2 * 16 + 12 }); // inside Room A's north wall
+      const r3 = HW.game.loadSave('3');
+      await H.steps(2);
+      const p3 = H.player();
+      localStorage.removeItem(key('3'));
+      return { before, after1, r2, p2, start: [start.tx, start.ty], r3, p3, solid3: HW.map.isSolid(p3.tx, p3.ty) };
+    });
+    T.ok(!bad.after1.ok && bad.after1.err === 'map' && bad.after1.map === bad.before.map && bad.after1.player && bad.after1.x === bad.before.x && bad.after1.mode === 'play', 'unknown-map save refused; the running game is untouched', bad.after1);
+    T.ok(bad.r2 && bad.p2.tx === bad.start[0] && bad.p2.ty === bad.start[1], 'a save without a position → the map start (not (0,0) in a wall)', bad);
+    T.ok(bad.r3 && !bad.solid3 && Math.max(Math.abs(bad.p3.tx - 5), Math.abs(bad.p3.ty - 2)) <= 4, 'a saved spot inside a wall moves to the nearest open tile', bad.p3);
+    await g.teleport('test', 'start');
+
+    // tech-10: the save toast knows when storage only kept it in memory.
+    const mem = await g.hw((H) => {
+      const HW = H.HW;
+      const orig = Storage.prototype.setItem;
+      Storage.prototype.setItem = function () { throw new DOMException('blocked', 'SecurityError'); };
+      HW.game.save('2');
+      const blocked = HW.game.lastSavePersisted;
+      Storage.prototype.setItem = orig;
+      HW.game.save('2');
+      return { blocked, ok: HW.game.lastSavePersisted, storage: !!HW.storage, persistent: HW.storage?.persistent };
+    });
+    T.ok(mem.blocked === false && mem.ok === true && mem.storage && mem.persistent === true, 'game.lastSavePersisted / HW.storage.persistent', mem);
+
+    // tech-15: fullscreen is live state — never restored from storage.
+    const fs = await g.hw((H) => {
+      const S = H.HW.settings;
+      localStorage.setItem('hallowell.settings', JSON.stringify({ ...S.values, fullscreen: true, pixelPerfect: true }));
+      const oldFmt = { ...S.load() };
+      localStorage.setItem('hallowell.settings', JSON.stringify({ ...S.values, pixelPerfect: true, v: 2 }));
+      const newFmt = { ...S.load() };
+      S.reset();
+      return { fs: oldFmt.fullscreen, ppOld: oldFmt.pixelPerfect, ppNew: newFmt.pixelPerfect, live: H.HW.display.fullscreen, after: S.values.fullscreen };
+    });
+    T.ok(fs.fs === fs.live, 'settings.fullscreen mirrors the live state, never a stored value (no gesture at boot)', fs);
+    T.ok(fs.ppOld === false && fs.ppNew === true, 'old settings drop pixelPerfect (new fill default); v2 settings keep it', fs);
+
+    // tech-17: Esc in a cutscene opens the reduced pause and freezes the scene; leaving the window pauses.
+    const cut = await g.hw(async (H) => {
+      const HW = H.HW;
+      H.autoAdvance(false);
+      let done = false;
+      HW.scripts.runFn(async (gg) => { await gg.wait(1.5); done = true; }, {}, { id: 'test:cutpause' });
+      await H.steps(3);
+      const m0 = HW.game.mode;
+      HW.input.tap('pause'); await H.steps(3);
+      const pause = HW.ui.get?.('pause');
+      const r = { m0, m1: HW.game.mode, cut: !!pause?.args?.cutscene, items: pause ? pause.items.map((i) => i.id) : null };
+      await H.steps(150);
+      r.doneWhilePaused = done;
+      HW.input.tap('cancel'); await H.steps(20);
+      r.m2 = HW.game.mode;
+      await HW.game.until(() => done, 5);
+      r.done = done;
+      await H.idle();
+      window.dispatchEvent(new Event('blur'));
+      await H.steps(2);
+      r.blur = HW.game.mode;
+      r.blurPause = !!HW.ui.get?.('pause')?.args?.auto;
+      HW.input.tap('cancel'); await H.steps(20);
+      r.m3 = HW.game.mode;
+      H.autoAdvance(true);
+      return r;
+    });
+    T.ok(cut.m0 === 'cutscene' && cut.m1 === 'menu' && cut.cut, 'Esc during a cutscene opens the pause menu', cut);
+    T.eq(cut.items, ['resume', 'settings', 'load', 'quit'], 'cutscene pause: Resume / Settings / Load / Quit to Title');
+    T.ok(!cut.doneWhilePaused && cut.m2 === 'cutscene' && cut.done, 'the cutscene is frozen while paused and resumes after', cut);
+    T.ok(cut.blur === 'menu' && cut.blurPause && cut.m3 === 'play', 'losing window focus in free play opens the pause menu', cut);
+
+    // tech-05: back to the title, every sound of the last game stops ('title' event).
+    const title = await g.hw(async (H) => {
+      const HW = H.HW;
+      let stopped = null;
+      let ev = 0;
+      let mode = null;
+      const orig = HW.audio.stopAll;
+      HW.audio.stopAll = (f) => { stopped = f; return orig.call(HW.audio, f); };
+      const off = HW.game.on('title', () => { ev++; mode = HW.game.mode; });
+      HW.game.toTitle();
+      await H.steps(3);
+      HW.audio.stopAll = orig;
+      off();
+      const r = { stopped, ev, mode };
+      H.autoAdvance(true);
+      await H.newGame({ skipIntro: true });
+      await H.teleport('test', 'start');
+      return r;
+    });
+    T.ok(title.stopped > 0 && title.ev === 1 && title.mode === 'title', 'toTitle stops all audio and emits title', title);
+
+    // ld-12 / horror-17: the referral slip takes a press from 0.5 s (skips to the stamp), the next
+    // press picks; a repeat death at the same checkpoint opens already stamped.
+    const slip = await g.hw(async (H) => {
+      const HW = H.HW;
+      H.autoAdvance(false);
+      const t0 = performance.now();
+      const p = HW.ui.open('gameover', { reason: 'out_of_seat' });
+      await H.steps(40);
+      const s = HW.ui.get('gameover');
+      HW.input.tap('confirm'); await H.steps(2);
+      const skipped = { t: s.t, stamped: s.stamped };
+      await H.steps(12);
+      HW.input.tap('confirm');
+      const res = await Promise.race([p, new Promise((r) => setTimeout(() => r('timeout'), 3000))]);
+      const sec = (performance.now() - t0) / 1000;
+      HW.state.flags[HW.game._deathKey(HW.state.checkpoint)] = 1;
+      const p2 = HW.ui.open('gameover', { reason: 'out_of_seat' });
+      await H.steps(14);
+      const s2 = HW.ui.get('gameover');
+      const rep = { stamped: s2.stamped, t: s2.t };
+      await H.steps(20);
+      HW.input.tap('confirm');
+      const res2 = await Promise.race([p2, new Promise((r) => setTimeout(() => r('timeout'), 3000))]);
+      delete HW.state.flags[HW.game._deathKey(HW.state.checkpoint)];
+      H.autoAdvance(true);
+      return { skipped, res, sec, rep, res2 };
+    });
+    T.ok(slip.skipped.stamped && slip.res === 'retry', 'game over: a press skips to the stamp, the next retries', slip);
+    T.ok(slip.rep.stamped && slip.res2 === 'retry', 'repeat death at a checkpoint: the slip opens stamped (menu in ~0.4 s)', slip.rep);
   });
 
   await T.step('special screens (g.screen)', async () => {

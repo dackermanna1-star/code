@@ -2,9 +2,11 @@
 //
 // The Colonel stands at the lectern reading the roll. The cycle:
 //   READ 7–9 s       he reads (lectern_down); Tess may move, walking. Running ANYWHERE → immediate SCAN.
-//   TELEGRAPH 2.0 s  page turn; "Hm." at −1.0 s; the spotlight drifts off the lectern over the house.
+//   TELEGRAPH 2.0 s  page turn; "Hm." at −1.0 s (if Tess is out of his sight — the wings, the music room —
+//                    a second, unplaced "Hm." carries to her: the cycle is audible everywhere in the aud);
+//                    the spotlight drifts off the lectern over the house.
 //   SCAN 3 s         he looks up (lectern_scan; 4.5 s after a silent roll #3): standing anywhere he can
-//                    see = the detection meter fills fast (seated is safe at once in this mode) →
+//                    see = the detection meter fills fast (0.75 s at the quickest; seated is safe at once) →
 //                    "Who is out of their seat?" → he pours off the stage → caught ('out_of_seat').
 // Telegraph and meters stretch ×HW.state.assist. The cycle only advances in free play, so the
 // front-row scenes (cutscenes) pause it; scripts can also pause()/resume().
@@ -223,6 +225,8 @@ export const assembly = {
       this._hm = true;
       const e = colonel.entity;
       HW.audio?.sfx?.('colonel_hm', e ? { x: e.x, y: e.y - 24 } : {});
+      // Behind the wing walls the placed "Hm." is muffled to nothing: let it carry (unplaced, softer).
+      if (e && p && HW.map?.los && !HW.map.los(p.x, p.y - 10, e.x, e.y - 20)) HW.audio?.sfx?.('colonel_hm', { vol: 0.5 });
     }
     this._driftSpot(dt);
     if (this._t >= this._len) this._enter(this.phase === 'read' ? 'telegraph' : this.phase === 'telegraph' ? 'scan' : 'read');

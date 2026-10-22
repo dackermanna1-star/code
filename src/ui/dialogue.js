@@ -15,6 +15,10 @@ export const BOX = { x: 20, y: 376, w: 920, h: 150 };
 const PW = 192, PH = 240;              // portrait at 2×
 const P_SINK = 56;                     // portrait px hidden behind the box
 const GRACE = 0.14;                    // seconds a finished line lingers waiting for the next one
+// A choice list ignores Confirm for this long after it appears (opts.guard overrides), so the habitual
+// extra tap that skips a line's typing can't pick an answer from a list the player never saw.
+const CHOICE_GUARD = 0.35;
+const CHOICE_LH = 34;                  // line step inside a wrapped choice row
 const LINE_H = 36;
 
 const BASE_CPS = 40;                   // characters per second at textSpeed 1
@@ -84,7 +88,9 @@ export class Dialogue {
 
   // ---- public API (wrapped by ui.js) ----------------------------------------------------------
   say(who, expr, text, opts = {}) {
-    const kind = who === 'voice' ? 'voice' : who === 'colonel' ? 'colonel' : 'say';
+    // say('voice', …, { present: true }): the Colonel speaking in the room before the gym (DESIGN §5.1: no
+    // bust yet). It takes his crimson box, plate and murmur — no intercom grille, crackle or blips.
+    const kind = who === 'voice' ? (opts.present ? 'colonel' : 'voice') : who === 'colonel' ? 'colonel' : 'say';
     return this._push({ kind, who, expr, text, opts });
   }
   think(expr, text, opts = {}) { return this._push({ kind: 'think', who: 'tess', expr: expr || 'neutral', text, opts }); }
@@ -108,12 +114,17 @@ export class Dialogue {
       return Promise.resolve(n);
     }
     return new Promise((resolve) => {
-      const st = { list, sel: 0, resolve, t: 0, frame0: this.ui.frame, ready: !opts.prompt, opts };
+      // opts.default: the option (index into `options`) the cursor starts on — e.g. the non-answer of a
+      // roll call, so a stray press is never "Here.". Hidden options fall back to the first shown.
+      const sel = Math.max(0, list.findIndex((o) => o.idx === (opts.default ?? 0)));
+      const guard = Number.isFinite(opts.guard) ? Math.max(0, opts.guard) : CHOICE_GUARD;
+      const st = { list, sel, resolve, t: 0, guard, frame0: this.ui.frame, ready: !opts.prompt, opts };
       this.choiceState = st;
       if (opts.prompt) {
-        // the prompt types out in the box; the list appears once it has finished
+        // the prompt types out in the box; the list appears once it has finished (and the guard and the
+        // fade-in count from then, not from when the prompt started typing)
         this._push({ kind: opts.who === 'colonel' ? 'colonel' : opts.who ? 'say' : 'think', who: opts.who || 'tess', expr: opts.expr || 'neutral', text: opts.prompt, opts: { ...opts, hold: true } })
-          .then(() => { st.ready = true; st.frame0 = this.ui.frame; });
+          .then(() => { st.ready = true; st.t = 0; st.frame0 = this.ui.frame; });
       }
     });
   }
@@ -137,6 +148,8 @@ export class Dialogue {
   _start(line) {
     const o = line.opts || {};
     line.style = STYLE[line.kind];
+    // a present 'voice' line keeps the voice's typing pace, so the scripts' speed values mean the same thing
+    if (line.kind === 'colonel' && line.who === 'voice') line.style = { ...STYLE.colonel, cpsMul: STYLE.voice.cpsMul };
     line.closeup = !!o.closeup && line.kind !== 'narrate' && line.kind !== 'voice';
     line.side = o.side || (line.who === 'tess' ? 'left' : 'right');
     // Rigs face viewer-right; mirror right-side speakers so they face the text (Tess keeps her tucked ear on the left).
@@ -152,10 +165,17 @@ export class Dialogue {
     let tx = BOX.x + 30, maxW = BOX.w - 60;
     if (line.kind === 'think') { tx = BOX.x + 156; maxW = BOX.w - 156 - 30; }
     if (line.kind === 'voice') { tx = BOX.x + 150; maxW = BOX.w - 150 - 30; }
-    if (line.kind === 'narrate') maxW = 600;
-    line.tx = tx; line.ty = BOX.y + 24; line.maxW = maxW;
     const fontFor = (s) => (s & S_EM ? line.style.em() : line.style.font());
-    const { lines } = layoutMarkup(parseMarkup(line.text), fontFor, maxW);
+    const parsed = parseMarkup(line.text);
+    let { lines } = layoutMarkup(parsed, fontFor, line.kind === 'narrate' ? (maxW = 600) : maxW);
+    if (line.kind === 'narrate' && lines.length > 3) {
+      // a narration keeps its narrow card, but widens (up to 832) rather than spill an orphan line onto a page
+      for (const w of [680, 760, 832]) {
+        const l2 = layoutMarkup(parsed, fontFor, w).lines;
+        if (Math.ceil(l2.length / 3) < Math.ceil(lines.length / 3)) { lines = l2; maxW = w; break; }
+      }
+    }
+    line.tx = tx; line.ty = BOX.y + 24; line.maxW = maxW;
     line.pages = [];
     for (let i = 0; i < lines.length; i += 3) line.pages.push(this._timeline(lines.slice(i, i + 3), line));
     if (line.kind === 'narrate') {
@@ -251,7 +271,7 @@ export class Dialogue {
         const n = ch.list.length;
         if (input.repeat('up')) { ch.sel = (ch.sel + n - 1) % n; svc.sfx('ui_move'); }
         if (input.repeat('down')) { ch.sel = (ch.sel + 1) % n; svc.sfx('ui_move'); }
-        if (input.pressed('confirm')) {
+        if (input.pressed('confirm') && ch.t >= ch.guard) {
           svc.sfx('ui_confirm');
           this.choiceState = null;
           this.grace = 0;
@@ -402,7 +422,8 @@ export class Dialogue {
     const label = line.name.toUpperCase().split('').join(' ').replace(/ {3}/g, '   ');
     const tw = f.width(label);
     const w = snap(tw + 28), h = 28;
-    const right = line.side === 'right' && line.kind !== 'voice';
+    // the plate sits over the speaker's bust; bust-less voices (the PA, the Colonel in the room) keep it left
+    const right = line.side === 'right' && line.kind !== 'voice' && line.who !== 'voice';
     const x = right ? b.x + b.w - 28 - w : b.x + 28;
     const y = b.y - 18;
     let fill, edge, txt;
@@ -474,29 +495,44 @@ export class Dialogue {
     }
   }
 
-  _renderChoice(ctx, ch, boxUp) {
-    const f = F.body;
+  /** Choice panel geometry: centred, but kept off any portrait on stage (bond choices: the friend's face
+   *  stays visible while you decide), wrapping long options when the free band is narrow. */
+  _choiceLayout(ch) {
+    const slotOn = (k) => { const s = this.slots[k]; return !!(s && !s.leaving && s.a > 0.05); };
+    const lo = slotOn('left') ? 32 + PW + 12 : 24, hi = slotOn('right') ? W - 32 - PW - 12 : W - 24;
+    const key = lo + '|' + hi;
+    if (ch.layout?.key === key) return ch.layout;
     const rows = ch.list.map((o) => ({ ...o, quiet: /^\(.*\)$/.test(o.text.trim()) }));
-    const tw = Math.max(...rows.map((r) => (r.quiet ? F.bodyIt : f).width(r.text)));
-    const w = snap(Math.min(900, tw + 92)), rowH = 42, h = rows.length * rowH + 24;
-    const x = snap(W / 2 - w / 2);
+    const fontOf = (r) => (r.quiet ? F.bodyIt : F.body);
+    const tw = Math.max(...rows.map((r) => fontOf(r).width(r.text)));
+    const w = snap(Math.min(900, tw + 92, hi - lo));
+    let h = 24;
+    for (const r of rows) { r.lines = fontOf(r).wrap(r.text, w - 72); r.h = 42 + (r.lines.length - 1) * CHOICE_LH; r.y = h - 24; h += r.h; }
+    const x = snap(clamp(W / 2 - w / 2, lo, hi - w));
+    return (ch.layout = { key, rows, w, h, x });
+  }
+
+  _renderChoice(ctx, ch, boxUp) {
+    const { rows, w, h, x } = this._choiceLayout(ch);
     const bottom = boxUp ? BOX.y - 26 : BOX.y + BOX.h;
     const y = snap(bottom - h);
     const a = ease.out(clamp(ch.t / 0.16));
     const a0 = ctx.globalAlpha; ctx.globalAlpha = a0 * a;
     steelPanel(ctx, x, y + snap((1 - a) * 10), w, h, { fill: 'rgba(9,10,13,0.94)', seed: 5 });
     rows.forEach((r, i) => {
-      const ry = y + 12 + i * rowH + snap((1 - a) * 10);
+      const ry = y + 12 + r.y + snap((1 - a) * 10);
       const sel = i === ch.sel;
       if (sel) {
-        rect(ctx, x + AP * 2, ry, w - AP * 4, rowH - AP, 'rgba(232,224,200,0.07)');
-        rect(ctx, x + AP * 2, ry, AP, rowH - AP, C.red);
-        const nudge = Math.floor(ch.t * 3) % 2 ? AP : 0;
-        triangle(ctx, x + 18 + nudge, ry + 12, 6, C.red, 'right');
+        // until the guard has passed the cursor sits dim and still: the list can't be answered yet
+        const armed = ch.t >= (ch.guard ?? 0);
+        rect(ctx, x + AP * 2, ry, w - AP * 4, r.h - AP, 'rgba(232,224,200,0.07)');
+        rect(ctx, x + AP * 2, ry, AP, r.h - AP, armed ? C.red : '#5a2a2c');
+        const nudge = armed && Math.floor(ch.t * 3) % 2 ? AP : 0;
+        triangle(ctx, x + 18 + nudge, ry + 12, 6, armed ? C.red : '#5a2a2c', 'right');
       }
-      const ff = r.quiet ? F.bodyIt : f;
+      const ff = r.quiet ? F.bodyIt : F.body;
       const col = sel ? (r.quiet ? C.thinkHi : C.textHi) : (r.quiet ? C.textMute : C.textDim);
-      ff.draw(ctx, r.text, x + 48, ry + 3, col);
+      r.lines.forEach((ln, j) => ff.draw(ctx, ln, x + 48, ry + 3 + j * CHOICE_LH, col));
     });
     ctx.globalAlpha = a0;
   }

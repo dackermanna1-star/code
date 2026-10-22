@@ -14,8 +14,10 @@ try {
 }
 
 export const storage = {
-  /** True when values survive a page reload. */
+  /** True when values survive a page reload (localStorage is usable). Exposed as HW.storage. */
   persistent: !!native,
+  /** False when the most recent write could only be kept in memory (blocked storage, quota). */
+  lastWriteOk: !!native,
 
   get(key) {
     // A memory entry only exists when a native write failed, so it is always the freshest value.
@@ -31,10 +33,12 @@ export const storage = {
       try {
         native.setItem(key, value);
         memory.delete(key);
+        this.lastWriteOk = true;
         return true;
       } catch { /* quota or security error: keep it in memory for this session */ }
     }
     memory.set(key, value);
+    this.lastWriteOk = false;
     return false;
   },
 

@@ -5,6 +5,7 @@
 //   HW.input.released(a)  went up this step
 //   HW.input.repeat(a)    pressed, then auto-repeats while held (menus)
 //   HW.input.consume(a)   clear this step's press so a later reader (e.g. the UI) won't see it again
+//   HW.input.staleHeld(keep)  ignore movement directions held right now (except `keep`) until released
 //   HW.input.beginText() / endText() / typed[]   raw text entry (terminal screen)
 //   HW.input.mouse        { x, y (UI-buffer px), down, clicked, moved }
 //
@@ -54,6 +55,7 @@ export const input = {
   releaseEvents: new Uint8Array(N),
   _down: new Uint8Array(N),
   _prev: new Uint8Array(N),
+  _stale: new Uint8Array(N),       // held through a transfer: ignored until released (staleHeld)
   _pressed: new Uint8Array(N),
   _released: new Uint8Array(N),
   _repeat: new Uint8Array(N),
@@ -109,9 +111,10 @@ export const input = {
       return;
     }
     if (e.ctrlKey || e.metaKey) return; // leave browser shortcuts alone
-    if (isDown && e.code === 'F3') {
+    if (isDown && e.code === 'F3' && HW.debug?.enabled) {
+      // Debug overlay (collision, triggers, exits): dev page, or the build opened with ?debug.
       e.preventDefault();
-      if (HW.debug) HW.debug.showGrid = !HW.debug.showGrid;
+      HW.debug.showGrid = !HW.debug.showGrid;
       return;
     }
 
@@ -174,7 +177,12 @@ export const input = {
       if (acts) for (const a of acts) this.keyDown[a] = 1;
     }
     for (let i = 0; i < N; i++) {
-      const now = this.keyDown[i] || this.padDown[i] || this.virtDown[i] ? 1 : 0;
+      let now = this.keyDown[i] || this.padDown[i] || this.virtDown[i] ? 1 : 0;
+      if (this._stale[i]) {
+        // A direction still held from before a transfer stays "up" until released (or re-pressed).
+        if (!now || this.pressEvents[i] > 0) this._stale[i] = 0;
+        else now = 0;
+      }
       const pressed = this.pressEvents[i] > 0 || (now && !this._prev[i]);
       const released = this.releaseEvents[i] > 0 || (!now && this._prev[i]);
       this._pressed[i] = pressed ? 1 : 0;
@@ -231,6 +239,18 @@ export const input = {
     this._repeat[i] = 0;
   },
 
+  /**
+   * Ignore the movement directions held right now — every source: keys, pad, simulated — until each
+   * is released, except `keep` (e.g. the way the player arrives facing). Used after a map transfer so
+   * a key held to climb a stair doesn't walk her straight back into the return exit.
+   */
+  staleHeld(keep) {
+    for (const a of ['up', 'down', 'left', 'right']) {
+      const i = A[a];
+      if (a !== keep && this._down[i]) this._stale[i] = 1;
+    }
+  },
+
   consumeAll() {
     this._pressed.fill(0);
     this._repeat.fill(0);
@@ -242,6 +262,7 @@ export const input = {
     this.held.clear();
     this.keyDown.fill(0);
     this.virtDown.fill(0);
+    this._stale.fill(0);
     this.mouse.down = false;
   },
 

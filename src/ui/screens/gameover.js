@@ -4,6 +4,11 @@
 // The reporter fills in the infraction and his name in his own hand, ticks DETAINED, and the office
 // stamp slams down. Reason 'present' (the False Leah) is different: the slip just says PRESENT.
 // Resolves 'retry' | 'title'.
+//
+// Speed (DESIGN §9.3 / Pillar 6: game over → playable in < 2 s): from 0.5 s a Confirm press skips the
+// writing straight to the stamp and puts the menu up; the next press picks. A repeat death at the same
+// checkpoint (HW.game.deathsAt() ≥ 1) opens with the slip already filled in, the stamp landing at once.
+import { HW } from '../../engine/hw.js';
 import { Screen, Z_TOP } from '../screen.js';
 import { C, F, W, H, handFont } from '../theme.js';
 import { font } from '../text.js';
@@ -48,6 +53,9 @@ export function referralFor(reason) {
 
 const SLIP_W = 660, SLIP_H = 390;
 const T_INFRACTION = 0.85, T_REPORTER = 1.45, T_TICK = 1.95, STAMP_AT = 2.2, PRESENT_AT = 1.25;
+const SKIP_FROM = 0.5;   // s: earlier presses are the panic of the moment before, not a choice
+const MENU_DELAY = 0.8;  // s after the stamp before the menu comes up on its own
+const MENU_FADE = 0.3;
 const PINK = { tone: '#e9b9bc', hi: '#f2cdd0', lo: '#d29ea2', edge: '#b0787e' };
 
 export class GameOverScreen extends Screen {
@@ -62,16 +70,35 @@ export class GameOverScreen extends Screen {
     this.scratched = new Set();
     this.reporter = REPORTERS[this.ref.by] || REPORTERS.colonel;
     this.hand = this.reporter.hand();
+    this.menuAt = this.stampAt + MENU_DELAY;
+    let repeat = false;
+    try { repeat = (HW.game?.deathsAt?.() || 0) >= 1; } catch { /* stubs */ }
+    this.age = 0; // real seconds open (t jumps when skipping)
+    if (repeat) this._skip(0.12, 0.25);
+  }
+
+  /** Jump to just before the stamp lands (`lead` s), the writing done; the menu `menuIn` s after it. */
+  _skip(lead, menuIn) {
+    for (const k of ['inf', 'rep', 'tick']) this.scratched.add(k); // no pen sounds for writing we skip
+    this.t = Math.max(this.t, this.stampAt - lead);
+    this.menuAt = Math.min(this.menuAt, this.stampAt + menuIn);
+    this.fadeIn = Math.min(this.fadeIn, 0.4);
   }
 
   update(dt, input) {
+    this.age += dt;
     if (!this.stamped && this.t >= this.stampAt) { this.stamped = true; svc.sfx('stamp'); }
     if (!this.ref.present) {
       for (const [k, at] of [['inf', T_INFRACTION], ['rep', T_REPORTER], ['tick', T_TICK]]) {
         if (!this.scratched.has(k) && this.t >= at) { this.scratched.add(k); svc.sfx('pen_scratch', { vol: 0.5 }); }
       }
     }
-    if (!input || this.t < this.stampAt + 0.8) return;
+    if (!input || this.age < SKIP_FROM) return;
+    if (this.t < this.menuAt) {
+      // Still writing: a press skips to the stamp, and the menu follows straight after.
+      if (input.pressed('confirm') || input.pressed('cancel')) this._skip(0, 0.12);
+      return;
+    }
     if (input.repeat('up') || input.repeat('down') || input.repeat('left') || input.repeat('right')) { this.sel ^= 1; svc.sfx('ui_move'); }
     if (input.pressed('confirm')) { svc.sfx('ui_confirm'); this.close(this.sel === 0 ? 'retry' : 'title'); }
   }
@@ -135,7 +162,7 @@ export class GameOverScreen extends Screen {
   }
 
   _menu(ctx, a0) {
-    const mk = ease.out(clamp((this.t - this.stampAt - 0.8) / 0.5));
+    const mk = ease.out(clamp((this.t - this.menuAt + MENU_FADE) / MENU_FADE));
     if (mk <= 0) return;
     ctx.globalAlpha = a0 * mk;
     const fs = F.small;

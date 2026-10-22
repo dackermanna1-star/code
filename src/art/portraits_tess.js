@@ -128,8 +128,8 @@ function tessBody({ rig, E }) {
   rig.strokeH([[37.5, s(89.5, 0.3)], [42, 92.6], [47, 94.3], [52, 92.6], [56.5, s(89.5, 0.3)]], ['tee', 1]);
   rig.strokeH([[37.5, s(90.5, 0.3)], [42, 93.6], [47, 95.3], [52, 93.6], [56.5, s(90.5, 0.3)]], ['tee', -1]);
   // jacket panels (open front)
-  const nearPanel = [[-6, s(104)], [2, s(98)], [12, s(93.5)], [24, s(90, 0.7)], [33, s(87, 0.4)], [36.5, 95], [38.5, 105], [40.5, 114], [41.5, 124], [-6, 124]];
-  const farPanel = [[60, s(87, 0.4)], [70, s(89, 0.7)], [82, s(93)], [92, s(97.5)], [102, s(102)], [102, 124], [59.5, 124], [59.8, 113], [60.4, 101], [60.8, 93]];
+  const nearPanel = [[-6, s(106.5)], [2, s(100.5)], [12, s(95.5)], [24, s(91, 0.7)], [33, s(87, 0.4)], [36.5, 95], [38.5, 105], [40.5, 114], [41.5, 124], [-6, 124]];
+  const farPanel = [[60, s(87, 0.4)], [70, s(90, 0.7)], [82, s(95)], [92, s(100)], [102, s(104.5)], [102, 124], [59.5, 124], [59.8, 113], [60.4, 101], [60.8, 93]];
   rig.poly(nearPanel, { mat: 'denim', rim: 5, rimDepth: 5, z: torsoZ, edgeOpen: 1 });
   rig.poly(farPanel, { mat: 'denim', rim: 5, rimDepth: 5, z: (x) => torsoZ(x) - 0.5, edgeOpen: 1 });
   // collar wings (lie over the shoulders, points on the chest)
@@ -137,7 +137,7 @@ function tessBody({ rig, E }) {
   const farCollar = [[60.5, s(84.5, 0.5)], [65, s(87.5, 0.7)], [71.5, s(91.5, 0.9)], [68, 97], [63.5, 102.5], [60.6, 106.5], [60.4, 98], [60.2, 91]];
   rig.poly(nearCollar, { mat: 'denim', rim: 2.5, rimDepth: 2.5, z: (x) => torsoZ(x) + 3.5, smooth: false });
   rig.poly(farCollar, { mat: 'denim', rim: 2.5, rimDepth: 2.5, z: (x) => torsoZ(x) + 3, smooth: false });
-  denimDetails(rig, { nearCollar, farCollar, sh, s });
+  denimDetails(rig, { nearCollar, farCollar, sh, s, nearEdge: nearPanel.slice(4, 9), farEdge: farPanel.slice(6).reverse() });
 }
 
 function tessHairFront({ rig, sids, E, o, face }) {

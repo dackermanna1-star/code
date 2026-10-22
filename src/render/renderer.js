@@ -6,13 +6,17 @@
 // view's extra objects/figures, warm light instead of darkness, and the rest of the screen dimmed.
 //
 // The Colonel's shroud (DESIGN §4.1 "the light dies where he is"): while HW.colonel.shrouded his
-// sprite is drawn near-black and only its brass/gold/crimson pixels are drawn again after the
-// lighting pass, so a moving hole in the light winks with brass.
+// sprite is drawn near-black, and after the lighting pass only single-pixel glints come back — the
+// highlight of each brass button / epaulette / ring and the tips of the sash fringe, each winking on
+// its own clock — so a moving hole in the light winks with brass (glints, never shapes: whole
+// epaulettes and the sash band read as two eyes over a grin).
+// An entity with `wallShadow` (0..1) is drawn as that silhouette alone at that alpha, no glints —
+// a flat shadow thrown on a wall (ch5 False Leah); delete the field (or set null) to restore it.
 //
 // Hot path: no per-frame allocation — bucket arrays are reused and art canvases cached per prop.
 import HW from '../engine/hw.js';
 import { Entity } from '../engine/entities.js';
-import { tinyText } from '../art/util.js';
+import { tinyText, hash2 } from '../art/util.js';
 
 const TILE = 16;
 const W = 480;
@@ -22,21 +26,41 @@ const PAST_TEXT_COLORS = { chalk: '#e8e4d4', fog: '#c4d4e6', ink: '#2a2a33', red
 
 const bySortKey = (a, b) => a.sortKey - b.sortKey;
 
-/** Brass/gold (warm, saturated) or crimson (saturated red) — the Colonel's emissive pixels. */
-function isEmissive(r, g, b) {
+/** The Colonel's emissive pixels: 1 brass/gold (warm, saturated), 2 crimson (saturated red), 0 neither. */
+function emissiveKind(r, g, b) {
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
-  if (max < 70) return false;
+  if (max < 70) return 0;
   const sat = (max - min) / max;
-  if (sat < 0.38) return false;
+  if (sat < 0.38) return 0;
   let hue;
   if (max === r) hue = ((g - b) / (max - min) + 6) % 6;
   else if (max === g) hue = (b - r) / (max - min) + 2;
   else hue = (r - g) / (max - min) + 4;
   hue *= 60;
-  const brass = hue >= 32 && hue <= 58;
-  const crimson = (hue >= 340 || hue <= 8) && sat > 0.55;
-  return brass || crimson;
+  if (hue >= 32 && hue <= 58) return 1;
+  if ((hue >= 340 || hue <= 8) && sat > 0.55) return 2;
+  return 0;
+}
+
+const GLINT_FLOOR = 0.5;    // a brass glint between winks (never fully gone: the hole keeps a few embers)
+const FRINGE_FLOOR = 0.65;  // the sash fringe is cloth, not metal: it barely pulses
+const GLINT_STAR = 0.75;    // above this a brass wink flares into a tiny 4-point star
+const GLINT_HOT = [255, 244, 214]; // a brass highlight is pushed toward warm white (specular, not paint)
+/**
+ * Two glints too close to both stay: closer than 4 px, or a near-level pair (within an ellipse 24 px
+ * across, 6 px up/down) — two level (or gently tilted) sparks in a dark mass read as a pair of eyes
+ * (DESIGN §3). The epaulettes, ~40 px apart at the silhouette's corners, both keep theirs.
+ */
+function glintsClash(ax, ay, bx, by) {
+  const dx = ax - bx;
+  const dy = ay - by;
+  return (Math.abs(dx) < 4 && Math.abs(dy) < 4) || dx * dx / 576 + dy * dy / 36 < 1;
+}
+/** A glint's brightness at time t: its own rate and phase; a wink (sin²) on half the cycle, its floor on the rest. */
+function glintAlpha(t, gl) {
+  const v = Math.sin(t * gl.rate + gl.phase);
+  return v > 0 ? gl.floor + (1 - gl.floor) * v * v : gl.floor;
 }
 
 function blit(ctx, src, cam) {
@@ -62,6 +86,12 @@ export const renderer = {
   _errors: new Set(),
   _shroud: null,                 // the shrouded Colonel entity this frame
   _shroudCache: new WeakMap(),   // sprite frame → { dark, glow }
+  // This frame's glints, on a sprite-sized canvas: drawn when he is drawn, then erased wherever a later
+  // layer (a desk, Tess, a wall top) covers him, and laid over the world after the lighting pass.
+  _glintCv: null,
+  _glintCtx: null,
+  _glintR: { x: 0, y: 0, w: 0, h: 0, clip: 0 },
+  _glintCam: { x: 0, y: 0 },
 
   render() {
     const ctx = HW.display.worldCtx;
@@ -99,24 +129,34 @@ export const renderer = {
     ys.sort(bySortKey);
     const ghost = past ? 0.55 : 1;
     const shroud = this._shroud;
+    const glints = !past && !!shroud && shroud.wallShadow == null && this._glintBegin(shroud, cam);
+    let behind = false; // past the shroud in draw order: what follows stands in front of him
     for (let i = 0; i < ys.length; i++) {
       const it = ys[i];
-      if (it === shroud) this._drawShroud(ctx, it, cam, 'dark', null);
+      if (it === shroud || it.wallShadow != null) this._drawShroud(ctx, it, cam, 'dark', null);
       else if (it.kind === 'entity') it.draw(ctx, cam.x, cam.y, it === HW.player ? ghost : 1);
       else this._drawProp(ctx, it, cam, clean);
+      if (it === shroud) behind = true;
+      else if (behind && glints) this._glintCover(it, clean);
     }
 
     blit(ctx, L.tops, cam);
+    if (glints) this._glintCoverTops(L.tops);
     // Tall sprites (the Colonel) stand in front of north walls: redraw what rises above them.
+    // (Not a wall shadow: it lies on the wall face, under the wall tops.)
     const tall = this._tall;
     for (let i = 0; i < tall.length; i++) {
       const e = tall[i];
+      if (e.wallShadow != null) continue;
       const clipY = (Math.floor(e.y / TILE) - 2) * TILE - cam.y;
       if (e === shroud) this._drawShroud(ctx, e, cam, 'dark', clipY);
       else e.draw(ctx, cam.x, cam.y, 1, clipY);
     }
     const over = this._over;
-    for (let i = 0; i < over.length; i++) this._drawProp(ctx, over[i], cam, clean);
+    for (let i = 0; i < over.length; i++) {
+      this._drawProp(ctx, over[i], cam, clean);
+      if (glints) this._glintCover(over[i], clean);
+    }
 
     const systems = HW.game.systems;
     for (let i = 0; i < systems.length; i++) {
@@ -139,7 +179,10 @@ export const renderer = {
       }
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
-      if (shroud) this._drawShroud(ctx, shroud, cam, 'glow', null);
+      if (glints) {
+        const R = this._glintR;
+        ctx.drawImage(this._glintCv, 0, 0, R.w, R.h, R.x, R.y, R.w, R.h);
+      }
       try {
         HW.fx?.renderWorld?.(ctx, cam);
       } catch (e) {
@@ -266,66 +309,235 @@ export const renderer = {
   },
 
   // ---------------------------------------------------------------------------------- shroud
-  /** Draw an entity's current frame as its shroud silhouette ('dark') or emissive mask ('glow'). */
+  /**
+   * Draw an entity's current frame as its shroud silhouette ('dark') or its glints ('glow').
+   * The silhouette is drawn at the entity's `wallShadow` alpha when it has one.
+   */
   _drawShroud(ctx, e, cam, layer, clipY) {
     const sheet = e.sheet;
     const img = sheet && e.visible ? e.frameImage() : null;
     if (!img) return;
     const s = this._shroudOf(img);
-    const canvas = layer === 'glow' ? s.glow : s.dark;
-    if (!canvas) return;
     const dx = Math.round(e.x) - cam.x - sheet.ax;
     const dy = Math.round(e.y) - cam.y - sheet.ay;
-    if (layer === 'glow') ctx.globalAlpha = 0.72 + 0.28 * Math.sin(HW.time * 2.3);
+    if (layer === 'glow') {
+      if (s.glow) this._drawGlints(ctx, s.glow, dx, dy);
+      return;
+    }
+    const alpha = e.wallShadow != null ? Math.max(0, Math.min(1, +e.wallShadow || 0)) : 1;
+    if (alpha <= 0) return;
+    ctx.globalAlpha = alpha;
     if (clipY !== null) {
       const h = Math.min(img.height, clipY - dy);
-      if (h > 0) ctx.drawImage(canvas, 0, 0, img.width, h, dx, dy, img.width, h);
+      if (h > 0) ctx.drawImage(s.dark, 0, 0, img.width, h, dx, dy, img.width, h);
     } else {
-      ctx.drawImage(canvas, dx, dy);
+      ctx.drawImage(s.dark, dx, dy);
     }
     ctx.globalAlpha = 1;
   },
 
-  /** Build (once per sprite frame) the near-black silhouette and the brass/gold/crimson mask. */
+  /** Draw a frame's glints at (dx, dy), each at its own wink brightness for HW.time. */
+  _drawGlints(ctx, gl, dx, dy) {
+    const t = HW.time;
+    for (let i = 0; i < gl.length; i++) {
+      const g = gl[i];
+      const a = glintAlpha(t, g);
+      const x = dx + g.x;
+      const y = dy + g.y;
+      ctx.fillStyle = g.css;
+      ctx.globalAlpha = g.a * a;
+      ctx.fillRect(x, y, 1, 1);
+      if (g.star && a > GLINT_STAR) {
+        ctx.globalAlpha = g.a * (a - GLINT_STAR) * 1.3;
+        ctx.fillRect(x - 1, y, 1, 1);
+        ctx.fillRect(x + 1, y, 1, 1);
+        ctx.fillRect(x, y - 1, 1, 1);
+        ctx.fillRect(x, y + 1, 1, 1);
+      }
+    }
+    ctx.globalAlpha = 1;
+  },
+
+  /** Start this frame's glint layer for the shrouded entity (false: nothing to glint). */
+  _glintBegin(e, cam) {
+    const sheet = e.sheet;
+    const img = sheet && e.visible ? e.frameImage() : null;
+    if (!img) return false;
+    const s = this._shroudOf(img);
+    if (!s.glow) return false;
+    const w = img.width;
+    const h = img.height;
+    let cv = this._glintCv;
+    if (!cv || cv.width < w || cv.height < h) {
+      cv = this._glintCv = document.createElement('canvas');
+      cv.width = Math.max(w, 64);
+      cv.height = Math.max(h, 64);
+      this._glintCtx = cv.getContext('2d');
+    }
+    const g = this._glintCtx;
+    g.globalCompositeOperation = 'source-over';
+    g.clearRect(0, 0, cv.width, cv.height);
+    const R = this._glintR;
+    R.x = Math.round(e.x) - cam.x - sheet.ax;
+    R.y = Math.round(e.y) - cam.y - sheet.ay;
+    R.w = w;
+    R.h = h;
+    // The tall pass redraws him over the wall tops above this row; below it the tops cover him.
+    R.clip = e.tall ? Math.max(0, (Math.floor(e.y / TILE) - 2) * TILE - cam.y - R.y) : 0;
+    this._glintCam.x = cam.x + R.x;
+    this._glintCam.y = cam.y + R.y;
+    this._drawGlints(g, s.glow, 0, 0);
+    g.globalCompositeOperation = 'destination-out'; // from here on, draws erase glints
+    return true;
+  },
+
+  /** Erase the glints a prop or entity drawn in front of him covers. */
+  _glintCover(it, clean) {
+    const g = this._glintCtx;
+    const c = this._glintCam;
+    const R = this._glintR;
+    if (it.kind === 'entity') {
+      it.draw(g, c.x, c.y, 1);
+    } else {
+      const px = it.x * TILE - c.x;
+      const py = it.y * TILE - c.y;
+      if (px > R.w + 16 || px + it.w * TILE < -16 || py - 96 > R.h || py + it.h * TILE < -16) return;
+      this._drawProp(g, it, c, clean);
+    }
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'destination-out'; // whatever the art did to the state
+  },
+
+  /** Erase the glints the wall tops cover (below the row the tall pass redraws him from). */
+  _glintCoverTops(tops) {
+    const R = this._glintR;
+    const c = this._glintCam;
+    let sx = c.x;
+    let sy = c.y + R.clip;
+    let dx = 0;
+    let dy = R.clip;
+    let w = R.w;
+    let h = R.h - R.clip;
+    if (sx < 0) { dx = -sx; w += sx; sx = 0; }
+    if (sy < 0) { dy -= sy; h += sy; sy = 0; }
+    w = Math.min(w, tops.width - sx);
+    h = Math.min(h, tops.height - sy);
+    if (w > 0 && h > 0) this._glintCtx.drawImage(tops, sx, sy, w, h, dx, dy, w, h);
+  },
+
+  /**
+   * Build (once per sprite frame) the near-black silhouette and its glints (DESIGN §4.1: brass buttons,
+   * epaulette and ring glints, sash fringe — never whole shapes, which read as eyes over a grin):
+   *  - brass: each 8-connected cluster keeps its brightest pixel (its specular highlight), plus a second
+   *    one ≥ 4 px away on clusters of 12+ px;
+   *  - crimson: the sash band (rows with ≥ 5 crimson px) stays dark; only the tip of each strand that
+   *    hangs below it (the tassel fringe) glints;
+   *  - brightest first, a glint that clashes with a kept one (glintsClash: too close, or a level pair
+   *    that would read as eyes) is dropped.
+   * Returns { dark: canvas, glow: [{ x, y, css, a, star, floor, rate, phase }] | null }.
+   */
   _shroudOf(img) {
     let s = this._shroudCache.get(img);
     if (s) return s;
     const w = img.width;
     const h = img.height;
-    const mk = () => {
-      const c = document.createElement('canvas');
-      c.width = w;
-      c.height = h;
-      return c;
-    };
-    const dark = mk();
-    const glow = mk();
+    const n = w * h;
+    const dark = document.createElement('canvas');
+    dark.width = w;
+    dark.height = h;
     const dctx = dark.getContext('2d');
-    const gctx = glow.getContext('2d');
     dctx.drawImage(img, 0, 0);
-    const src = dctx.getImageData(0, 0, w, h);
-    const out = gctx.createImageData(w, h);
+    const src = dctx.getImageData(0, 0, w, h); // once per frame image (cached), never per tick
     const d = src.data;
-    const o = out.data;
-    let any = false;
+    const kind = new Uint8Array(n);
+    const lum = new Float32Array(n);
+    const rowC = new Uint16Array(h);
+    for (let p = 0, i = 0; p < n; p++, i += 4) {
+      if (!d[i + 3]) continue;
+      const k = emissiveKind(d[i], d[i + 1], d[i + 2]);
+      if (!k) continue;
+      kind[p] = k;
+      lum[p] = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      if (k === 2) rowC[(p / w) | 0]++;
+    }
+    // Brass: the highlight of each cluster (8-connected flood fill).
+    const cand = [];
+    const seen = new Uint8Array(n);
+    const stack = [];
+    const comp = [];
+    for (let p0 = 0; p0 < n; p0++) {
+      if (kind[p0] !== 1 || seen[p0]) continue;
+      comp.length = 0;
+      stack.push(p0);
+      seen[p0] = 1;
+      while (stack.length) {
+        const p = stack.pop();
+        comp.push(p);
+        const x = p % w;
+        const y = (p / w) | 0;
+        for (let yy = Math.max(0, y - 1); yy <= Math.min(h - 1, y + 1); yy++) {
+          for (let xx = Math.max(0, x - 1); xx <= Math.min(w - 1, x + 1); xx++) {
+            const q = yy * w + xx;
+            if (kind[q] === 1 && !seen[q]) { seen[q] = 1; stack.push(q); }
+          }
+        }
+      }
+      comp.sort((a, b) => lum[b] - lum[a] || a - b);
+      const a0 = comp[0];
+      cand.push(a0);
+      if (comp.length >= 12) {
+        const ax = a0 % w;
+        const ay = (a0 / w) | 0;
+        const b0 = comp.find((q) => Math.abs((q % w) - ax) + Math.abs(((q / w) | 0) - ay) >= 4);
+        if (b0 !== undefined) cand.push(b0);
+      }
+    }
+    // Crimson: only the strand tips hanging below the sash band.
+    let bandBot = -1;
+    for (let y = 0; y < h; y++) if (rowC[y] >= 5) bandBot = y;
+    if (bandBot >= 0) {
+      for (let p = (bandBot + 1) * w; p < n; p++) {
+        if (kind[p] === 2 && !(p + w < n && kind[p + w] === 2)) cand.push(p);
+      }
+    }
+    // Brightest first; a glint that clashes with a kept one is dropped.
+    cand.sort((a, b) => lum[b] - lum[a] || a - b);
+    const keep = [];
+    for (const p of cand) {
+      const x = p % w;
+      const y = (p / w) | 0;
+      let ok = true;
+      // (Fringe tips too: two red points side by side in the narrow mass of a peek read as red eyes.)
+      for (const q of keep) if (glintsClash(q % w, (q / w) | 0, x, y)) { ok = false; break; }
+      if (ok) keep.push(p);
+    }
+    const glow = [];
+    for (const p of keep) {
+      const i = p * 4;
+      const x = p % w;
+      const y = (p / w) | 0;
+      // Rate and phase hash a coarse cell, so a glint keeps its clock while the pose breathes by a pixel.
+      const hc = hash2(x >> 3, y >> 3, 0x51ab);
+      const brass = kind[p] === 1;
+      const m = brass ? 0.4 : 0;
+      const c = (j, k) => Math.min(255, Math.round(Math.min(255, d[i + j] * k) * (1 - m) + GLINT_HOT[j] * m));
+      glow.push({
+        x, y, a: d[i + 3] / 255, star: brass, floor: brass ? GLINT_FLOOR : FRINGE_FLOOR,
+        css: `rgb(${c(0, 1.15)},${c(1, 1.15)},${c(2, 1.1)})`,
+        rate: 2.2 + 1.6 * ((hc & 1023) / 1023),
+        phase: ((hc >>> 10) & 1023) / 1023 * Math.PI * 2,
+      });
+    }
     for (let i = 0; i < d.length; i += 4) {
       const a = d[i + 3];
       if (!a) continue;
-      if (isEmissive(d[i], d[i + 1], d[i + 2])) {
-        o[i] = Math.min(255, d[i] * 1.15);
-        o[i + 1] = Math.min(255, d[i + 1] * 1.15);
-        o[i + 2] = Math.min(255, d[i + 2] * 1.1);
-        o[i + 3] = a;
-        any = true;
-      }
       d[i] = 7;
       d[i + 1] = 7;
       d[i + 2] = 11;
       d[i + 3] = Math.round(a * 0.96);
     }
     dctx.putImageData(src, 0, 0);
-    gctx.putImageData(out, 0, 0);
-    s = { dark, glow: any ? glow : null };
+    s = { dark, glow: glow.length ? glow : null };
     this._shroudCache.set(img, s);
     return s;
   },

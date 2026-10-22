@@ -3,7 +3,7 @@
 //   start(opts) → Promise<result>     generic: the Colonel (spawned at `from` if needed) optionally lunges
 //                                     to `lungeTo`, then hunts. opts: { from, lungeTo, lungeSpeed = 150,
 //                                     reason, track = false, rubber = null ([min, max] tiles kept ahead
-//                                     while she moves well), cannotCatch = false }.
+//                                     while she runs; walking gets the full lurch), cannotCatch = false }.
 //                                     result: 'caught' | 'hidden' (she got into a hiding spot) | 'lost'
 //                                     (he lost her and gave up) | 'transfer' | 'stopped'.
 //   gym(opts) → Promise<result>       Ch6: his first lunge covers half the court (`lungeTo` = 'center',
@@ -13,11 +13,18 @@
 //                                     (stands still) for the ch6.locker scene. reason default 'out_of_seat'.
 //   escape(opts) → Promise<result>    Ch8: relentless pursuit across maps. opts: { cannotCatch = false
 //                                     (PRESENT: he can't catch), rubber = [4, 8], endMaps = ['exterior'],
-//                                     entryDelay = 1.4 }. On every map load during the escape: a
-//                                     checkpoint ('escape_<map>') and, entryDelay s later (or once she is
-//                                     3 tiles clear), he pours in where she arrived. Persisted in flag
-//                                     chase_escape so a retry from the checkpoint resumes the chase.
-//                                     Resolves 'escaped' on an endMaps map, or 'stopped'.
+//                                     entryDelay = 1.4, grace = 2 }. If he is already on the map (the
+//                                     Register), he looms but holds off for `grace` s or until she moves.
+//                                     On every map load during the escape: a checkpoint ('escape_<map>')
+//                                     and, once entryDelay s have passed AND she is 3 tiles clear of where
+//                                     she arrived, he pours in there; if she is still in the doorway 1.2 s
+//                                     later, he rises 1.5 tiles behind her instead (emerge; 1 s grace).
+//                                     Persisted in flag chase_escape so a retry from the checkpoint resumes
+//                                     the chase. Resolves 'escaped' on an endMaps map, or 'stopped'.
+//   cancelEntry()                     escape: a script has put him on this map itself — no re-entry here.
+//   pursue() → bool                   escape: (re)start his pursuit with the set piece's opts (after a
+//                                     scene that spawned him; also cancels the pending entry).
+//   setRubber([min, max])             escape: retune the band (persisted; live if he is chasing).
 //   stop(result = 'stopped')          end the current set piece (he stays where he is, scripted).
 //   active · kind ('chase' | 'gym' | 'escape' | null)
 // HW.game emits 'chaseEnd' (kind, result).
@@ -32,7 +39,7 @@ export const chase = {
   kind: null,
   opts: null,
   _waiters: [],
-  _respawnT: -1,
+  _respawnT: null,    // escape re-entry countdown (null = none pending)
   _cpT: -1,
   _entry: null,
   _mapId: null,
@@ -62,16 +69,39 @@ export const chase = {
     return p;
   },
 
-  escape({ cannotCatch = false, rubber = [4, 8], endMaps = ['exterior'], entryDelay = 1.4 } = {}) {
+  escape({ cannotCatch = false, rubber = [4, 8], endMaps = ['exterior'], entryDelay = 1.4, grace = 2 } = {}) {
     const opts = { cannotCatch: !!cannotCatch, rubber, endMaps: [...endMaps], entryDelay };
     this._begin('escape', opts);
     if (HW.state) HW.state.flags.chase_escape = { ...opts, endMaps: [...opts.endMaps] };
     const done = new Promise((r) => this._waiters.push(r));
     if (colonel.entity) {
-      colonel.escape({ cannotCatch: opts.cannotCatch, rubber });
+      // He is right there (the Register): one beat to start running before he can take her.
+      colonel.escape({ cannotCatch: opts.cannotCatch, rubber, grace });
       this._cpT = 0.05; // checkpoint here too, once the starting scene lets go
     } else this._arm(HW.map);
     return done;
+  },
+
+  /** Escape: a script has spawned him on this map itself — cancel the pending re-entry at her arrival point. */
+  cancelEntry() {
+    if (this.active && this.kind === 'escape') this._respawnT = null;
+  },
+
+  /** Escape: (re)start his pursuit with the set piece's opts once a scene that spawned him lets go. → bool */
+  pursue() {
+    if (!this.active || this.kind !== 'escape' || !colonel.entity) return false;
+    this._respawnT = null;
+    colonel.escape({ cannotCatch: this.opts.cannotCatch, rubber: this.opts.rubber });
+    return true;
+  },
+
+  /** Escape: retune the rubber band ([min, max] tiles ahead of a running Tess) — persisted, live if chasing. */
+  setRubber(rubber) {
+    if (!this.active || this.kind !== 'escape' || !Array.isArray(rubber)) return;
+    this.opts.rubber = [rubber[0], rubber[1]];
+    const f = HW.state?.flags?.chase_escape;
+    if (f && typeof f === 'object') f.rubber = [rubber[0], rubber[1]];
+    if (colonel.mode === 'escape') colonel.setRubber(this.opts.rubber);
   },
 
   stop(result = 'stopped') {
@@ -88,7 +118,7 @@ export const chase = {
     this.kind = kind;
     this.opts = opts;
     this._mapId = HW.map?.id || null;
-    this._respawnT = -1;
+    this._respawnT = null;
     this._cpT = -1;
     HW.debug?.record?.('chase', null, null, `start:${kind}`);
   },
@@ -98,7 +128,7 @@ export const chase = {
     this.active = false;
     this.kind = null;
     this.opts = null;
-    this._respawnT = -1;
+    this._respawnT = null;
     this._cpT = -1;
     this._starting = false;
     HW.debug?.record?.('chase', null, null, `end:${kind}:${result}`);
@@ -111,18 +141,26 @@ export const chase = {
   _arm(map) {
     const p = HW.player;
     this._mapId = map?.id || null;
-    this._entry = p ? { x: p.x, y: p.y } : null;
+    this._entry = p ? { x: p.x, y: p.y, dir: p.dir } : null;
     this._respawnT = this.opts.entryDelay ?? 1.4;
     this._cpT = 0.05;
   },
 
-  _spawnBehind() {
+  /** He pours in where she arrived — or, if she is still standing in the doorway, rises 1.5 tiles behind her. */
+  _spawnBehind(emerge = false) {
     const e = this._entry;
     if (!e) return;
-    colonel.spawn({ x: e.x, y: e.y }, { mode: 'scripted', anim: null }).then(() => {
+    let at = { x: e.x, y: e.y };
+    if (emerge) {
+      const v = { left: [1, 0], right: [-1, 0], up: [0, 1], down: [0, -1] }[e.dir] || [0, 0];
+      const bx = e.x + v[0] * 24;
+      const by = e.y + v[1] * 24;
+      if (HW.map && !HW.map.isSolid(Math.floor(bx / TILE), Math.floor(by / TILE))) at = { x: bx, y: by };
+    }
+    colonel.spawn(at, { mode: 'scripted', anim: emerge ? 'emerge' : null }).then(() => {
       if (!this.active || this.kind !== 'escape' || !colonel.entity) return;
-      HW.audio?.sfx?.('colonel_lunge', { x: e.x, y: e.y });
-      colonel.escape({ cannotCatch: this.opts.cannotCatch, rubber: this.opts.rubber });
+      HW.audio?.sfx?.('colonel_lunge', at);
+      colonel.escape({ cannotCatch: this.opts.cannotCatch, rubber: this.opts.rubber, grace: emerge ? 1 : 0 });
     });
   },
 
@@ -168,13 +206,15 @@ export const chase = {
           else this._cpT = 0.25; // a scene is still running: try again shortly
         }
       }
-      if (this._respawnT >= 0 && inFreePlay()) {
+      // (null = no entry pending. The old `>= 0` guard froze the countdown just below 0 when she had not yet
+      // cleared her arrival point, so he never came onto that map at all.)
+      if (this._respawnT !== null && inFreePlay()) {
         this._respawnT -= dt;
         const p = HW.player;
         const clear = p && this._entry && Math.hypot(p.x - this._entry.x, p.y - this._entry.y) >= 3 * TILE;
         if (this._respawnT <= 0 && (clear || this._respawnT <= -1.2)) {
-          this._respawnT = -1;
-          this._spawnBehind();
+          this._respawnT = null;
+          this._spawnBehind(!clear);
         }
       }
       return;

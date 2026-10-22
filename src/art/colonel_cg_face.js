@@ -4,13 +4,13 @@
 // shared head rig (colonel_face.js drawHead); the rendering is the cel pipeline (colonel_cg_cel.js).
 // params.lit 0..1 = how much of the light is on him (cheap re-quantization of one lighting pass).
 import { GBuf, M } from './colonel_gbuf.js';
-import { drawHead, repaintEyes, FACE_EXPR } from './colonel_face.js';
-import { celMat, light, lightCel, quantize, outline, gradeLUT, packTones, packedToCanvas, celFromGB, bay, h01, vn, clamp } from './colonel_cg_cel.js';
+import { drawHead, repaintEyes, FACE_EXPR, HOWL_MATS } from './colonel_face.js';
+import { celMat, light, lightCel, quantize, outline, gradeLUT, packTones, packedToCanvas, celFromGB, bay, h01, vn, clamp, sstep } from './colonel_cg_cel.js';
 import { rng } from './util.js';
 
 const W = 480, H = 270;
 // ---------------------------------------------------------------------------------------- materials
-export const FM = { DOUGH: 60, DOUGH_R: 61, DOUGH_Y: 62, FACE: 63, BLUSH: 64, WHISK: 65, SCLERA: 66, IRIS: 67, PUPIL: 68, LIP: 69, MOUTH: 70, DOUGH_D: 71, BHAIR: 72, SWEAT: 73, FACE_V: 74, DOUGH_V: 75 };
+export const FM = { DOUGH: 60, DOUGH_R: 61, DOUGH_Y: 62, FACE: 63, BLUSH: 64, WHISK: 65, SCLERA: 66, IRIS: 67, PUPIL: 68, LIP: 69, MOUTH: 70, DOUGH_D: 71, BHAIR: 72, SWEAT: 73, FACE_V: 74, DOUGH_V: 75, TOOTH: 76, GUM: 77, TONGUE: 78, FLUSH: 79 };
 const TD = [0.09, 0.22, 0.4, 0.62, 0.86, 1.06];
 const TDD = [0.1, 0.26, 0.46, 0.7, 0.98, 1.2];
 const DJ = null;
@@ -35,18 +35,25 @@ celMat(FM.BHAIR, { ramp: ['#0b0b0c', '#252528', '#46454a', '#6e6c6c', '#9a968f',
 celMat(FM.SCLERA, { ramp: ['#0c0b09', '#2a2620', '#544c40', '#827866', '#aaa08a', '#cbc3aa', '#ebe5d0'], th: [0.08, 0.2, 0.36, 0.54, 0.74, 0.94], line: 0, gap: 1.5, spec: { at: 0.97, w: 0.03, k: 0.8 } });
 celMat(FM.IRIS, { ramp: ['#040507', '#0e141c', '#1c2a38', '#30465a', '#4c6680', '#7a94aa'], th: [0.1, 0.24, 0.42, 0.62, 0.84], gap: 1, spec: { at: 0.96, w: 0.04, k: 1.2 } });
 celMat(FM.PUPIL, { ramp: ['#010102', '#040406', '#08080c', '#101016', '#cfd8e0'], th: [0.2, 0.5, 0.85, 1.25], gap: 1, spec: { at: 0.95, w: 0.04, k: 1.4 } });
+// the howl's inside (fury): old yellowed teeth, a dark gum, the tongue low in the dark
+celMat(FM.TOOTH, { ramp: ['#0e0b06', '#2e2618', '#5a4c32', '#8a7a58', '#b4a47e', '#d6caa4'], th: [0.08, 0.2, 0.38, 0.6, 0.84], line: 0, gap: 2, spec: { at: 0.95, w: 0.05, k: 0.6 } });
+celMat(FM.GUM, { ramp: ['#100506', '#2c0e10', '#4e1c1e', '#743030', '#94484a'], th: [0.1, 0.26, 0.48, 0.74], line: 0, gap: 2 });
+celMat(FM.TONGUE, { ramp: ['#060203', '#160708', '#2c1012', '#47201f', '#64302c'], th: [0.12, 0.3, 0.55, 0.85], gap: 3, spec: { at: 0.95, w: 0.05, k: 0.5 } });
+// rage: blood up in the cheeks, the nose and the knot of the brow — still the face's waxy bands
+celMat(FM.FLUSH, { ramp: ['#120909', '#391f1d', '#674038', '#986656', '#c08e78', '#deb29c', '#f2d2c0'], th: [0.08, 0.2, 0.36, 0.56, 0.8, 0.95], line: 1, lineLit: 2, gap: 3.5, spec: { at: 0.94, w: 0.05, k: 0.55 } });
 celMat(FM.SWEAT, { ramp: ['#0e0c0c', '#2e2a28', '#5c5652', '#8e8882', '#c2bcb4', '#f2eee6'], th: [0.1, 0.25, 0.45, 0.65, 0.85], seam: false });
 
 const MAP = {
   [M.FLESH]: { mat: FM.DOUGH, sid: 1 }, [M.FLESH_D]: { mat: FM.DOUGH_D, sid: 1 }, [M.FACE]: { mat: FM.FACE, sid: 2 }, [M.BLUSH]: { mat: FM.BLUSH, sid: 2 },
   [M.HAIR]: { mat: FM.WHISK, sid: 3 }, [M.EYE]: { mat: FM.SCLERA, sid: 4 }, [M.IRIS]: { mat: FM.IRIS, sid: 5 }, [M.DARK]: { mat: FM.PUPIL, sid: 6 },
   [M.LIP]: { mat: FM.LIP, sid: 2 }, [M.MOUTH]: { mat: FM.MOUTH, sid: 7 },
+  [HOWL_MATS.TEETH]: { mat: FM.TOOTH, sid: 8 }, [HOWL_MATS.GUM]: { mat: FM.GUM, sid: 8 }, [HOWL_MATS.TONGUE]: { mat: FM.TONGUE, sid: 9 }, [HOWL_MATS.SPIT]: { mat: FM.SWEAT, sid: 10 },
 };
 const DOUGHS = [FM.DOUGH, FM.DOUGH_R, FM.DOUGH_Y, FM.DOUGH_D, FM.DOUGH_V];
 
 // the flashlight, held low and to the left of him; lit 1 = full beam on his face
 const BEAM = light({ L: [-0.42, -0.36, 0.83], amb: 0.06, key: 1.0, shadow: 0.45, steps: 30, spec: 1, rim: [0.72, 0.5, 0.18] });
-const beamFall = (x, y, lit) => { const r = 0.6 + 0.4 * lit, d = Math.hypot((x - 222) / 330, (y - 136) / 240) / r; return clamp(1.12 - d * d * 0.85, 0, 1.08); };
+const beamFall = (x, y, lit, c = [222, 136], k = 1) => { const r = (0.6 + 0.4 * lit) * k, d = Math.hypot((x - c[0]) / 330, (y - c[1]) / 240) / r; return clamp(1.12 - d * d * 0.85, 0, 1.08); };
 export const FACE_GRADE = { lit: '#fff0d8', litGain: 1.02, dark: '#5a6078', darkGain: 0.8, desat: 0.1, crush: 0.5, abyss: '#030305' };
 
 /**
@@ -123,6 +130,41 @@ function finishFace(cel) {
   }
 }
 
+/**
+ * (fury) No rim, no mask: the face's skin goes over into the dough across a few px — the face's own colour
+ * dithering out into a band of livid, warmer dough, then the dough — with no line and no lit lip anywhere.
+ */
+function meltRim(cel) {
+  const { w, h } = cel, n = w * h;
+  const isF = (m) => m === FM.FACE || m === FM.BLUSH || m === FM.FACE_V;
+  const isD = (m) => m === FM.DOUGH || m === FM.DOUGH_V || m === FM.DOUGH_R || m === FM.DOUGH_Y;
+  const dist = (seed) => {
+    const D = new Float32Array(n).fill(99);
+    for (let i = 0; i < n; i++) if (seed(cel.mat[i])) D[i] = 0;
+    for (let y = 1; y < h; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x; D[i] = Math.min(D[i], D[i - 1] + 1, D[i - w] + 1, D[i - w - 1] + 1.4, D[i - w + 1] + 1.4); }
+    for (let y = h - 2; y >= 0; y--) for (let x = w - 2; x > 0; x--) { const i = y * w + x; D[i] = Math.min(D[i], D[i + 1] + 1, D[i + w] + 1, D[i + w + 1] + 1.4, D[i + w - 1] + 1.4); }
+    return D;
+  };
+  const toD = dist(isD), toF = dist(isF);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, m = cel.mat[i], b = bay(x, y);
+    // the face sunk under the fat that closes over it: occluded where the dough overhangs (above, beside)
+    if (isF(m) && toD[i] < 8) {
+      let k = 9;
+      for (let d = 1; d <= 8; d++) { if (y - d >= 0 && isD(cel.mat[i - d * w])) { k = Math.min(k, d); break; } }
+      for (let d = 1; d <= 5; d++) { if ((x - d >= 0 && isD(cel.mat[i - d])) || (x + d < w && isD(cel.mat[i + d]))) { k = Math.min(k, d * 1.5); break; } }
+      if (k < 9) cel.ao[i] *= 0.5 + 0.5 * sstep(0, 8, k);
+    }
+    if (isF(m) && toD[i] < 4.5) {
+      cel.flag[i] |= 1;
+      if (b > toD[i] / 4.5 + 0.12) { cel.mat[i] = FM.DOUGH_R; cel.sid[i] = 1; }
+    } else if (m === FM.DOUGH && toF[i] < 9) {
+      cel.flag[i] |= 1;
+      if (b > 0.15 + toF[i] / 9) cel.mat[i] = FM.DOUGH_R;
+    } else if ((isD(m) || m === FM.WHISK) && toF[i] < 12) cel.flag[i] |= 1;   // (no line where the fat closes over the chops)
+  }
+}
+
 // ---------------------------------------------------------------------------------------- build
 // the dough as stacked horizontal fat rolls — a scalp fold and the brow roll over the little forehead,
 // rolls stacked down each cheek (three on his left, two on his right: never symmetric), jowls hanging in
@@ -146,10 +188,29 @@ export function doughCreases({ fold }) {
   fold([[-27, 37], [-10, 40], [8, 40.2], [28, 37.2]], 1.4, 3);                        // the next
   fold([[-34, 44.5], [-12, 48], [12, 48.2], [35, 44.6]], 1.4, 3);                     // and the next
 }
+// fury: the fat closing in on the face — the brow roll pressed down onto the brows, the cheek rolls lapping
+// over its sides, folds of the chins shoved up into the corners of the mouth, the jowls over the jaw — so
+// no clean rim is left between face and dough (the rolls sit between doughCreases' creases)
+export function doughOverFury({ lip }) {
+  // where the fat has closed in (angle on the face's oval → how far in its edge now reaches): deep over the
+  // forehead, down onto the brows; unevenly over the cheeks (his left more than his right); shoved up at the
+  // corners of the mouth; over the jaw
+  const g = (a, c, w) => { let d = Math.abs(a - c) % (2 * Math.PI); if (d > Math.PI) d = 2 * Math.PI - d; return Math.exp(-((d / w) ** 2)); };
+  lip((a) => 0.92 - 0.39 * g(a, -1.62, 0.62) - 0.12 * g(a, -2.55, 0.32) - 0.13 * g(a, 3.0, 0.3) - 0.13 * g(a, 2.42, 0.26) - 0.15 * g(a, 0.1, 0.4) - 0.12 * g(a, 0.82, 0.24) - 0.11 * g(a, 2.18, 0.2),
+    3.4, (a) => 2.6 * g(a, -1.62, 0.5) + 1.2 * g(a, 0.82, 0.3) + 1.2 * g(a, 2.3, 0.3) + 2.6 * g(a, 0.1, 0.45) + 2.0 * g(a, 3.05, 0.4));   // (over the chops)
+}
+// the cheek rolls' creases run on over the face's edge (rig: carved into dough and face alike)
+const FURY_RIM_FOLDS = [
+  [[[-19, 0.2], [-14, 1.4], [-10.6, 2.8]], 1.0, 2.2], [[[-19, 9.4], [-14, 10.4], [-10.4, 11.8]], 1.0, 2.4], [[[-17, 18.6], [-12.5, 19.2], [-9.6, 20.6]], 1.0, 2.2],
+  [[[10.6, 6.0], [14, 5.0], [19, 4.6]], 1.0, 2.2], [[[10.2, 16.8], [13.6, 15.9], [18.5, 15.6]], 1.0, 2.4],
+];
 const P0 = { ...FACE_EXPR.serene, eyeSmile: 0.15, cx: 240, cy: 118, s: 4.6, seed: 1841, chins: 3, collar: false, noStretch: true, pitDepth: 7, dough: doughRolls, doughFolds: doughCreases };
-// the CG's own state (ch8.escape, DESIGN §5.1 #15b "full face, fury"): eyes wide with white all round, the
-// mouth dropped open too far — the serene face stays available (params.fury 0) for anything that wants it
-const PF = { ...P0, ...FACE_EXPR.fury, eyeSmile: 0, cy: 112 };
+// the CG's own state (ch8.escape, DESIGN §5.1 #15b "full face, fury"): rage — the brows driven down onto the
+// glaring eyes, the nose wrinkled, the cheeks bunched, the mouth torn wide and dropped far too far; the fat
+// closing over its edges. Framed for the game's presentation: the voice box covers y ≥ 188, so the whole
+// face, brow to lower lip, sits above it (the jowls and chins go on under the box). The serene face stays
+// available (params.fury 0) for anything that wants it.
+const PF = { ...P0, ...FACE_EXPR.fury, s: 5.3, cy: 74, pitDepth: 3, doughOver: doughOverFury, rimFolds: FURY_RIM_FOLDS, beamC: [228, 88], beamK: 0.86, vigC: [240, 100] };
 export const FACE_MODES = { serene: P0, fury: PF };
 export const BLINKS = { open: null, l: [0, 0.36], both: [0, 0], r: [0.42, 0] };
 const mk = () => ({ gb: null, cel: null, lev: null, frames: new Map(), patches: new Map(), eyeRect: null });
@@ -174,7 +235,7 @@ function toCel(gb, blink = null, P = PM, o = {}) {
     for (let k = 1; k <= 4; k++) { const j = i + k * cel.w; if (cel.mat[j] === FM.FACE || cel.mat[j] === FM.LIP || cel.mat[j] === FM.BLUSH) cel.ao[j] = Math.max(cel.ao[j], 0.92); }
   }
   textureDough(cel, rng(P.seed || 1841), { faceC: [P.cx, P.cy + 12], faceR: 24 * P.s, L: BEAM.L, pores: 0.012, veins: 2, hairs: 8, ...o });
-  finishFace(cel);
+  if (P.howl) meltRim(cel); else finishFace(cel);
   humanize(cel, P);
   wetEyes(cel, blink, P);
   return cel;
@@ -195,6 +256,12 @@ function humanize(cel, P) {
     zone(sd * 2.7, 0.5, 0.55, 0.45, (i) => { if (isF(cel.mat[i]) || cel.mat[i] === FM.SCLERA) { cel.mat[i] = FM.BLUSH; cel.off[i] = -1; } });  // the wet pink corners
   }
   zone(0, 7.2, 2.6, 2.0, (i, e, x, y) => { if (cel.mat[i] === FM.FACE && (e < 0.55 || bay(x, y) < 0.5)) cel.mat[i] = FM.BLUSH; });       // the nose's tip
+  if (P.scowl) {
+    // rage: the blood up in the bunched cheeks, the nose, the knot between the brows (dithered out at the edges)
+    const fl = (i, e, x, y) => { if (isF(cel.mat[i]) && (e < 0.6 || bay(x, y) < (0.86 - e) * 3.8)) cel.mat[i] = FM.FLUSH; };
+    for (const sd of [-1, 1]) zone(sd * 8.2, 6.6, 5.4, 3.6, fl);
+    zone(0, 5.6, 3.0, 3.6, fl); zone(0, -1.8, 3.2, 2.6, fl);
+  }
   if (!(P.mouth > 0.3)) zone(0, (P.mouthY ?? 14.9) + 1.1, 4.6, 0.9, (i) => { if (isF(cel.mat[i])) cel.mat[i] = FM.LIP; });                                                     // his lower lip
 }
 /** A head (drawHead params P) as a textured cel, ready to light. */
@@ -213,7 +280,7 @@ function wetEyes(cel, blink, P = PM) {
     const L = sd < 0, lid = blink ? blink[L ? 0 : 1] : (L ? P.lidL : P.lidR);
     if (lid < 0.15) continue;
     const gz = L ? P.gazeL : P.gazeR, ex = P.cx + sd * 6 * s, ey = P.cy + 0.2 * s;
-    const ix = ex + gz[0] * hw * 0.55, lidY = ey - hh + (1 - lid) * hh * 2;
+    const ix = ex + gz[0] * hw * 0.55, lidY = ey - hh + (1 - lid) * hh * 2 + (P.lidTilt || 0) * hh * clamp((1 - sd * (ix + 0.5 - ex) / hw) / 2);
     const cx = Math.round(ix - 0.35 * s), cy = Math.round(lidY + 1.6);
     for (const [dx, dy, k] of [[0, 0, 4], [1, 0, 4], [0, 1, 3]]) { const i = cel.idx(cx + dx, cy + dy); if (i >= 0 && (cel.mat[i] === FM.IRIS || cel.mat[i] === FM.PUPIL)) { cel.mat[i] = FM.PUPIL; cel.fix[i] = k; } }
     // the wet line along the lower lid (not at the slit's distance: there it reads as teeth)
@@ -235,10 +302,10 @@ function baseCel() {
   st.eyeRect = [ex0, ey0, ex1, ey1];
   return st.cel;
 }
-const vig = (x, y) => { const d = Math.hypot((x - 238) / 214, (y - 136) / 150) * (0.92 + vn(x, y, 40, 61) * 0.16); const t = clamp((d - 0.66) / 0.4); return 1 - 0.75 * t * t * (3 - 2 * t); };
+const vig = (x, y, c = [238, 136]) => { const d = Math.hypot((x - c[0]) / 214, (y - c[1]) / 150) * (0.92 + vn(x, y, 40, 61) * 0.16); const t = clamp((d - 0.66) / 0.4); return 1 - 0.75 * t * t * (3 - 2 * t); };
 const levFor = (lit) => (i, x, y, l) => {
-  const full = beamFall(x, y, 1), now = beamFall(x, y, lit);
-  return full > 0 ? (l - 0.0) * (0.35 + 0.65 * lit) * (now / full) * vig(x, y) + 0.012 * lit : 0;
+  const full = beamFall(x, y, 1, PM.beamC, PM.beamK), now = beamFall(x, y, lit, PM.beamC, PM.beamK);
+  return full > 0 ? (l - 0.0) * (0.35 + 0.65 * lit) * (now / full) * vig(x, y, PM.vigC) + 0.012 * lit : 0;
 };
 let LUT = null;
 const lut = () => LUT || (LUT = gradeLUT(FACE_GRADE));

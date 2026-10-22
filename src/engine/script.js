@@ -208,8 +208,11 @@ function makeG(gen, ctx, scriptId) {
       });
       if (!texts.length) return -1;
       let k;
+      // opts.default names an ORIGINAL index (like the return value); the UI only sees the shown options.
+      // opts.guard (s) overrides how long the list ignores Confirm after it appears. Tests (auto) ignore both.
+      const uo = opts.default != null ? { ...opts, default: Math.max(0, index.indexOf(opts.default)) } : opts;
       if (auto()) k = HW.debug.nextChoice();
-      else k = await after(ui().choice?.(texts, opts));
+      else k = await after(ui().choice?.(texts, uo));
       k = Number.isInteger(k) && k >= 0 && k < texts.length ? k : 0;
       record('choice', opts.who || 'tess', null, texts[k]);
       return index[k];

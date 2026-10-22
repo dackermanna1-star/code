@@ -13,6 +13,7 @@ import { LIGHT_COLORS } from '../art/palette.js';
  *   flicker   steady curve; flickerAlt is used when the def says `flicker: true` (dying fixtures)
  *   onMode    transition when switched on: 'fade' | 'stutter' | 'bang'   fade  seconds (default 0.4)
  *   glow      additive halo style drawn over the lit world (null = none)
+ *   glowDx/Dy px offset of that halo from the light (a fixture whose lens is not at the light's spot)
  *   shadows   cast shadows (default true)
  *   cone      full cone angle (kind cone): degrees here; defs may give radians (≤ 2π) like flashlight.js
  */
@@ -29,9 +30,13 @@ export const PRESETS = {
   boiler: { kind: 'point', color: LIGHT_COLORS.boiler, radius: 7, intensity: 0.9, flicker: 'fire', glow: 'fire' },
   fire: { kind: 'point', color: LIGHT_COLORS.boiler, radius: 4, intensity: 0.9, flicker: 'fire', glow: 'fire' },
   candle: { kind: 'point', color: LIGHT_COLORS.candle, radius: 2.5, intensity: 0.85, flicker: 'candle', glow: 'flame', jitter: 1 },
-  lamp_miner: { kind: 'point', color: LIGHT_COLORS.lamp_miner, radius: 3, intensity: 0.82, flicker: 'oil', glow: 'flame' },
+  // A breaker boy's cap-lamp sits on a 12-px amber husk: dimmer than a candle and a small halo ('cap'),
+  // so he stays a silhouette rim-lit from his own lamp instead of an amber smear.
+  lamp_miner: { kind: 'point', color: LIGHT_COLORS.lamp_miner, radius: 3, intensity: 0.66, flicker: 'oil', glow: 'cap' },
   spot: { kind: 'spot', color: LIGHT_COLORS.spot, radius: 5, disc: 2.1, intensity: 1, flicker: 'steady', shadows: false, onMode: 'bang', glow: 'spot' },
-  streetlamp: { kind: 'point', color: LIGHT_COLORS.streetlamp, radius: 5.5, intensity: 1, flicker: 'steady', flickerAlt: 'sodium', glow: 'lamp', glowDy: -26 },
+  // lamp_post art: the cobra-head lens sits ~70 px up the pole and 10 px out on the davit arm (the light
+  // itself, and its pool, stay at the foot of the pole).
+  streetlamp: { kind: 'point', color: LIGHT_COLORS.streetlamp, radius: 5.5, intensity: 1, flicker: 'steady', flickerAlt: 'sodium', glow: 'lamp', glowDx: 10, glowDy: -77 },
   // twinAlpha: each lamp's share of the pool (0.62 before Integration 2 — a little stronger now).
   headlights: { kind: 'cone', color: LIGHT_COLORS.headlights, radius: 10, intensity: 1, cone: 40, twin: 11, twinAlpha: 0.8, flicker: 'idle', glow: 'headlights' },
   crt: { kind: 'point', color: LIGHT_COLORS.crt, radius: 2, intensity: 0.6, flicker: 'crt', glow: 'crt' },

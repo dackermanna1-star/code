@@ -1,5 +1,7 @@
 // Settings: volume sliders (applied live via HW.audio.setVolumes), text speed, display toggles,
 // fullscreen and the controls list. Persisted via HW.settings (or localStorage) on close.
+// "Pixel-perfect scaling" ON = strict whole-number scale with a black border; OFF (default) fills the
+// window with sharp scaling (engine/display.js).
 import { HW } from '../../engine/hw.js';
 import { Screen } from '../screen.js';
 import { C, F, W } from '../theme.js';
@@ -40,7 +42,9 @@ export class SettingsScreen extends Screen {
   }
   onOpen() { svc.sfx('ui_open'); }
   onClose() { svc.settings.save(); }
-  _get(k) { return svc.settings.get(k); }
+  /** Fullscreen shows the live state (a stored value can't be restored without a gesture, and Esc /
+   *  F11 leave it behind the settings' back). */
+  _get(k) { return k === 'fullscreen' && HW.display ? !!HW.display.fullscreen : svc.settings.get(k); }
   _adjust(row, dir) {
     const k = row.key;
     if (row.type === 'slider') {

@@ -2,7 +2,7 @@
 // beanie, gentle eyes; olive M-65 field jacket (stand collar, epaulettes, snap storm flap) over a charcoal tee;
 // headphones resting around his neck, cord running into the jacket.
 import { PAL, mix } from './palette.js';
-import { material, spline, rimLight } from './portraits_core.js';
+import { material, spline, rimLight, PW } from './portraits_core.js';
 import { stdMats } from './portraits_human.js';
 import { drawSmudges } from './portraits_face.js';
 import { hairVol, enrolledDarkSkin, stitch } from './portraits_parts.js';
@@ -129,7 +129,7 @@ function marcusBeanie({ rig, sids, E }) {
   rig.strokeH(spline([[23, 35], [33, 32], [46, 31], [60, 32], [70, 35]], { seg: 4 }), (t, x, y, i) => (rig.sid[i] === fsid ? ['beanie', -1] : null));
 }
 
-function marcusBody({ rig, E }) {
+function marcusBody({ rig, E, sids }) {
   const sh = E.shoulder || 0;
   const s = (y, k = 1) => y - sh * 3 * k;
   const torsoZ = (x) => 3 + 12 * Math.sqrt(Math.max(0, 1 - ((x - 48) / 64) ** 2));
@@ -164,18 +164,43 @@ function marcusBody({ rig, E }) {
     rig.strokeH([[x0 + 1, y0 + 1], [x1 - 1, y0 + 0.6]], (t, x, y, i) => [rig.mat[i], 1], { onlyMat: ['olive'] });
     rig.dotH((x0 + x1) / 2, y0 + 3, 'snap', 0);
   }
-  // headphones resting around the neck: band behind, cups on the collarbones, cord into the jacket
-  rig.strokeH(spline([[35, s(84, 0.4)], [37, 82], [40, 81]], { seg: 3 }), ['metal', 0]);
-  rig.strokeH(spline([[60, s(84, 0.4)], [58, 82], [55, 81]], { seg: 3 }), ['metal', 0]);
-  const cup = (cx, cy, rx, ry, z) => {
-    rig.ellipse(cx, cy, rx, ry, { mat: 'phones', rim: 2.2, rimDepth: 2.5, z: (x) => torsoZ(x) + z });
-    // silver rim + darker foam pad centre
-    const pts = []; for (let k = 0; k <= 24; k++) { const a = (k / 24) * Math.PI * 2; pts.push([cx + Math.cos(a) * (rx - 0.6), cy + Math.sin(a) * (ry - 0.6)]); }
-    rig.strokeH(pts, (t, x, y, i) => (rig.mats[rig.mat[i]].name === 'phones' ? ['metal', t > 0.45 && t < 0.95 ? 0 : -1] : null));
-    rig.ellipse(cx + 0.3, cy - 0.2, rx * 0.45, ry * 0.42, { mat: 'phones', rim: 1, rimDepth: 0.8, z: (x) => torsoZ(x) + z + 1.5, off: -1 });
+  // headphones resting around the neck: a steel band wrapping the back of the neck (seen either side of it, the
+  // neck covers the rest) and two cups tipped onto the collarbones — a shell with the pad turned toward the neck —
+  // so they read as earcups on a band, not coat toggles. Cord into the jacket.
+  const neckSid = sids.neck;
+  const behindNeck = (i) => rig.sid[i] !== neckSid;
+  // band: a steel headband (outer edge) over its dark padding (toward the neck), rising from each cup between the
+  // collar and the neck and ducking behind the neck under the jaw
+  const band = (ptsH, outer) => {
+    const P = rig.ptsC(spline(ptsH, { seg: 4 }));
+    const xAt = (y) => { for (let k = 0; k < P.length - 1; k++) { const [ax, ay] = P[k], [bx, by] = P[k + 1]; if ((y - ay) * (y - by) <= 0 && ay !== by) return ax + ((y - ay) / (by - ay)) * (bx - ax); } return null; };
+    const ys = P.map((p) => p[1]), y0 = Math.ceil(Math.min(...ys)), y1 = Math.floor(Math.max(...ys));
+    for (let y = y0; y <= y1; y++) {
+      const xc = xAt(y + 0.5); if (xc === null) continue;
+      for (let x = Math.floor(xc) - 2; x <= Math.floor(xc) + 2; x++) {
+        const i = y * PW + x; if (!rig.mat[i] || !behindNeck(i)) continue;
+        const u = (x + 0.5 - xc) * outer; // + toward the outside
+        if (u > 0 && u <= 1.1) rig.setPix(i, 'metal', outer < 0 ? 0 : -1);
+        else if (u <= 0 && u > -1.1) rig.setPix(i, 'phones', 0);
+      }
+    }
   };
-  cup(33.5, s(90, 0.5), 5, 4.2, 4);
-  cup(61.5, s(90, 0.5), 3.8, 3.8, 3.5);
+  band([[34.8, s(86.5, 0.4)], [35.6, 82], [36.8, 79], [38.6, 76.8]], -1);
+  band([[60.2, s(86.5, 0.4)], [59.5, 82], [58.4, 79], [56.4, 77]], 1);
+  const oval = (cx, cy, rx, ry, a, n = 24) => {
+    const pts = [], c = Math.cos(a), sn = Math.sin(a);
+    for (let k = 0; k < n; k++) { const th = (k / n) * Math.PI * 2, x = Math.cos(th) * rx, y = Math.sin(th) * ry; pts.push([cx + x * c - y * sn, cy + x * sn + y * c]); }
+    return pts;
+  };
+  const cup = (cx, cy, rx, ry, a, toNeck, z) => {
+    const sid = rig.poly(oval(cx, cy, rx, ry, a), { mat: 'phones', rim: 2, rimDepth: 2.4, z: (x) => torsoZ(x) + z });
+    // steel ring on the shell, then the dark foam pad turned toward the neck (the cup is tipped up onto the collarbone)
+    const ring = oval(cx, cy, rx - 0.7, ry - 0.7, a, 22);
+    rig.strokeH([...ring, ring[0]], (t, x, y, i) => (rig.sid[i] === sid ? ['metal', t > 0.4 && t < 0.85 ? 0 : -1] : null));
+    rig.poly(oval(cx + toNeck * 0.8, cy - 0.6, rx * 0.5, ry * 0.52, a, 16), { mat: 'phones', rim: 1, rimDepth: 0.8, z: (x) => torsoZ(x) + z + 1.4, off: -1 });
+  };
+  cup(33, s(90.5, 0.5), 5.2, 4.3, -0.25, 1, 4);
+  cup(62, s(90.5, 0.5), 4, 3.8, 0.25, -1, 3.5);
   rig.strokeH(spline([[36, s(93, 0.4)], [38, 99], [39.5, 106], [40.5, 112]], { seg: 4 }), (t, x, y, i) => (rig.mats[rig.mat[i]].name === 'olive' || rig.mats[rig.mat[i]].name === 'tee' ? ['phones', 1] : null));
 }
 

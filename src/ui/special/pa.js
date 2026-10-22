@@ -157,7 +157,8 @@ export class PAScreen extends Screen {
   }
 
   _switches(ctx) {
-    const cw = 88, rh = 84, top = 276, left = BODY.x + (BODY.w - PER_ROW * cw) / 2;
+    // two rows must fit between the ROOM SELECTOR heading and the divider over the mode switches (y 428)
+    const cw = 88, rh = 82, top = 264, left = BODY.x + (BODY.w - PER_ROW * cw) / 2;
     this.rooms.forEach((r, i) => {
       const x = left + (i % PER_ROW) * cw, y = top + Math.floor(i / PER_ROW) * rh;
       const flip = ease.out(this.flips.get(r.id) || 0);
@@ -178,8 +179,9 @@ export class PAScreen extends Screen {
       rect(ctx, x + 64, y + 4, 8, 8, lit ? (this.listening && Math.floor(this.t * 6) % 2 ? '#ffd27a' : '#e0a040') : '#3a2a14');
       if (this.lamps.has(r.id)) dither(ctx, x + 56, y - 4, 24, 24, 'rgba(255,190,90,0.9)', 0.18);
       if (i === this.sel && !this.listening && !this.locked) {
-        frame(ctx, x + 4, y - 8, 76, 86, C.red);
-        triangle(ctx, x + 36, y - 22 + (Math.floor(this.t * 3) % 2 ? AP : 0), 6, C.red, 'down');
+        // the cursor points at the lever from inside the frame (above the frame it sat on the row above)
+        frame(ctx, x + 4, y - 6, 76, 82, C.red);
+        triangle(ctx, x + 12 + (Math.floor(this.t * 3) % 2 ? AP : 0), y + 9, 6, C.red, 'right');
       }
     });
   }

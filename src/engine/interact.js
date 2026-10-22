@@ -80,10 +80,13 @@ export const interact = {
     }
   },
 
-  /** A tap of confirm while seated: script (if the seat has one) · examine once, then stand · stand. */
+  /** A tap of confirm while seated: script (if the seat has one) · examine once, then stand · stand.
+   *  While a period is on, a tap does nothing: Z is also the advance key, and one reflexive press
+   *  would stand her up in class (Rule 2). She stands with a movement key (ld-08). */
   _seatAction(seat) {
     const text = seat.inst.examine ?? seat.def.examine;
     if (seat.inst.script) HW.scripts.run(seat.inst.script, { prop: seat, map: HW.map, seated: true });
+    else if (HW.periods?.active) return;
     else if (text && this._seatExamined !== `${seat.id}@${HW.player?.sitTime}`) {
       this._seatExamined = `${seat.id}@${HW.player?.sitTime}`; // once per sit (a re-sit examines again)
       HW.scripts.runFn((g) => g.examine(text), { prop: seat }, { id: `examine:${seat.id}` });

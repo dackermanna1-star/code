@@ -19,7 +19,8 @@
 //   strip:    false hides the tape-position notches.
 // } → resolves with { frame, held } when ejected (cancel): the frame it stopped on and the longest time
 //     the player held still on the face frame.
-// ←/→ step a frame (rewind / fast-forward with tracking noise between), Confirm toggles PLAY / STILL.
+// ←/→ step a frame (rewind / fast-forward with tracking noise between), Confirm toggles PLAY / STILL (on the
+// last frame of the range it ejects, like Cancel).
 // Under autoAdvance (tests) a sequence resolves at once: onStep/onFrame fire for every entry in
 // order, then { frame: last, held: 0, done: true } (autoVhs below).
 //
@@ -29,7 +30,7 @@
 import { Screen, Z_SPECIAL } from '../screen.js';
 import { W, H } from '../theme.js';
 import { canvas, ctx2d, rect, dither, AP, clamp, snap } from '../gfx.js';
-import { hints } from '../widgets.js';
+import { hints, hintsWidth } from '../widgets.js';
 import { rng } from '../../art/util.js';
 import { HW } from '../../engine/hw.js';
 import * as svc from '../services.js';
@@ -152,8 +153,11 @@ export class VhsScreen extends Screen {
     if (!input || this.locked || this.closing) return;
     if (input.repeat('left')) { this.playing = false; this._step(-1); }
     else if (input.repeat('right')) { this.playing = false; this._step(1); }
-    if (input.pressed('confirm')) { this.playing = !this.playing; svc.sfx('camcorder_click', { vol: 0.6 }); }
-    if (input.pressed('cancel') || input.pressed('pause')) {
+    // at the end of the tape there is nothing left to play: Confirm ejects (a player who keeps pressing
+    // the advance key isn't stranded on the tape; Cancel still ejects anywhere)
+    const atEnd = this.i >= this.max && this.seek <= 0;
+    if (input.pressed('confirm') && !atEnd) { this.playing = !this.playing; svc.sfx('camcorder_click', { vol: 0.6 }); }
+    if (input.pressed('cancel') || input.pressed('pause') || (input.pressed('confirm') && atEnd)) {
       svc.sfx('camcorder_click');
       this.close({ frame: this.i, held: Math.round(this.faceHeld * 10) / 10 });
     }
@@ -190,7 +194,16 @@ export class VhsScreen extends Screen {
     const mode = seeking ? (this.seekDir < 0 ? 'rew' : 'ff') : this.playing ? 'play' : 'pause';
     vhsOSD(ctx, this.t, { mode, timestamp: def.timestamp, counter: def.counter });
     if (this.args.strip !== false) this._strip(ctx);
-    if (!this.locked) hints(ctx, [['EJECT', this.ui.input.keyLabel('cancel')], [this.playing ? 'STILL' : 'PLAY', this.ui.input.keyLabel('confirm')], ['FRAME', '← →']], H - 30, W - 24, '#a8a8a0');
+    if (!this.locked) {
+      // on a black plate, so the keys read over the head-switching noise at the bottom of the picture
+      const K = (a) => this.ui.input.keyLabel(a);
+      const atEnd = this.i >= this.max && !seeking;
+      const list = atEnd ? [['EJECT', K('confirm')], ['FRAME', '← →']]
+        : [['EJECT', K('cancel')], [this.playing ? 'STILL' : 'PLAY', K('confirm')], ['FRAME', '← →']];
+      const hw = hintsWidth(list);
+      rect(ctx, W - 24 - hw - 14, H - 38, hw + 38, 38, 'rgba(0,0,0,0.85)');
+      hints(ctx, list, H - 32, W - 24, '#e4e0d4');
+    }
   }
 
   /** Tape position: one notch per frame, the current one lit. */

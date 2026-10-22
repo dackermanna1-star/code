@@ -66,8 +66,9 @@ class UIManager {
         if (s.alpha <= 0) this._remove(s);
       } else s.alpha = Math.min(1, s.alpha + dt / Math.max(0.01, s.fadeIn));
     }
-    // toasts and notices wait behind full-screen cards / title / game over
-    this.hud.update(dt, this._hudVisible(), !this._fullscreenUp());
+    // toasts and notices wait behind full-screen cards / title / game over; "Sketchbook updated" notices
+    // also wait while any modal screen is up (the Register, the sketchbook itself, a document…)
+    this.hud.update(dt, this._hudVisible(), !this._fullscreenUp(), !this._modalUp());
     this.frame++;
     this.input.endFrame();
   }
@@ -88,11 +89,12 @@ class UIManager {
       this._renderScreen(ctx, s);
     }
     if (!dialogueDrawn) this.dialogue.render(ctx);
-    if (!this._fullscreenUp()) this.hud.renderTop(ctx);
+    if (!this._fullscreenUp()) this.hud.renderTop(ctx, !this._modalUp());
     ctx.globalAlpha = 1;
   }
 
   _fullscreenUp() { return this.screens.some((s) => s.z >= 25 && !s.closing); }
+  _modalUp() { return this.screens.some((s) => !s.closing); }
 
   _renderScreen(ctx, s) {
     if (s.alpha <= 0) return;

@@ -68,7 +68,7 @@ export async function launch() {
 }
 
 /**
- * Open the game. built=false → dev server + index.html; built=true → file://dist/hallowell.html.
+ * Open the game. built=false → dev server + index.html; built=true → file://dist/hallowell.html?debug=1.
  * Resolves once window.__ready is true. Returns a Game wrapper.
  */
 export async function openGame(browser, { built = false, width = 960, height = 540, timeout = 30000 } = {}) {
@@ -83,7 +83,8 @@ export async function openGame(browser, { built = false, width = 960, height = 5
   if (built) {
     const file = STUBS ? await stubBuild() : DIST;
     if (!fs.existsSync(file)) throw new Error(`${file} not found — run npm run build first`);
-    url = `file://${file}`;
+    // The shipped build only exposes window.__HW (and the F3 overlay) with ?debug in the URL.
+    url = `file://${file}?debug=1`;
   } else {
     srv = await startServer(0);
     url = `http://127.0.0.1:${srv.port}/index.html`;

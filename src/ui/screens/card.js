@@ -96,23 +96,35 @@ export function stampCanvas(word, color = '#b3262c') {
   if (stampCache.has(key)) return stampCache.get(key);
   const f = F.typedL;
   const tw = f.width(word);
-  // draw large text at UI res into a temp, then downsample by 2 (nearest) for chunky art pixels
+  // draw large text at UI res into a temp, then 2x2 max-pool down to art pixels (nearest drops thin strokes)
   const big = canvas(tw + 80, 90); const bx = ctx2d(big);
   f.draw(bx, word, 40, 26, color);
   bx.fillStyle = color;
   const bw = big.width, bh = big.height;
   for (const [x, y, w, h] of [[16, 8, bw - 32, 6], [16, bh - 14, bw - 32, 6], [16, 8, 6, bh - 16], [bw - 22, 8, 6, bh - 16]]) bx.fillRect(x, y, w, h);
-  const small = canvas(Math.ceil(bw / 2), Math.ceil(bh / 2)); const sx = ctx2d(small);
-  sx.drawImage(big, 0, 0, small.width, small.height);
-  // ink starvation: knock out speckles, heavier toward the right edge
+  const sw = Math.ceil(bw / 2), sh = Math.ceil(bh / 2);
+  const small = canvas(sw, sh); const sx = ctx2d(small);
+  // 2x2 max-pool: any inked source pixel inks the art pixel, so 1-px strokes survive the halving
+  const src = bx.getImageData(0, 0, bw, bh).data;
+  const img = sx.createImageData(sw, sh); const d = img.data;
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+    let a = 0, k = 0;
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
+      const X = 2 * x + dx, Y = 2 * y + dy;
+      if (X < bw && Y < bh) { const j = (Y * bw + X) * 4; if (src[j + 3] > a) { a = src[j + 3]; k = j; } }
+    }
+    const i = (y * sw + x) * 4;
+    d[i] = src[k]; d[i + 1] = src[k + 1]; d[i + 2] = src[k + 2]; d[i + 3] = a > 100 ? 255 : 0;
+  }
+  // ink starvation: knock out speckles, heavier toward the right edge, but only where 3+ of the
+  // 4 neighbours are still inked (read live), so letter strokes never break (W stays W, R keeps its bowl)
+  const ink = (x, y) => (x >= 0 && y >= 0 && x < sw && y < sh && d[(y * sw + x) * 4 + 3] ? 1 : 0);
   const r = rng(word.length * 131 + 7);
-  const img = sx.getImageData(0, 0, small.width, small.height); const d = img.data;
-  for (let y = 0; y < small.height; y++) for (let x = 0; x < small.width; x++) {
-    const i = (y * small.width + x) * 4;
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+    const i = (y * sw + x) * 4;
     if (!d[i + 3]) continue;
-    d[i + 3] = d[i + 3] > 100 ? 255 : 0;
-    const p = 0.06 + (x / small.width) * 0.16;
-    if (r() < p) d[i + 3] = 0;
+    const p = 0.06 + (x / sw) * 0.16;
+    if (r() < p && ink(x - 1, y) + ink(x + 1, y) + ink(x, y - 1) + ink(x, y + 1) >= 3) d[i + 3] = 0;
   }
   sx.putImageData(img, 0, 0);
   stampCache.set(key, small);

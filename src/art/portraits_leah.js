@@ -80,7 +80,8 @@ export const LEAH = {
     if (g >= 2) list.push([c2[0], c2[1], 2.5, 1.6, 0.5]);
     drawSmudges(rig, list, { mat: 'dirt', on });
     if (g >= 2) {
-      const a = face.proj(-0.2, 38.5), b = face.proj(0.05, 40);
+      // a thin scratch on the near cheekbone, under the lens (the forehead is too short under the bangs for one)
+      const a = face.proj(-0.62, 57.5), b = face.proj(-0.47, 60.5);
       rig.strokeH([[a[0], a[1]], [b[0], b[1]]], ['lip', -1], { onlyMat: on });
     }
   },
@@ -179,9 +180,9 @@ function leahHair({ rig, sids, o }) {
   const zs = hairVol(46, 46, 28, -6);
   const g = o.grime || 0;
   // crown dome
-  sids.hair.add(rig.poly([[22, 40], [21, 28], [27, 18], [37, 12], [48, 10.5], [59, 13], [67, 20], [71, 30], [70.5, 40], [60, 39], [46, 39.5], [32, 39]], { mat: 'hair', smooth: true, rim: 4, rimDepth: 3, z: (x, y) => zs(...rig.toH(x, y)) + 1.5 }));
+  sids.hair.add(rig.poly([[22, 40], [21, 28], [27, 18], [37, 12], [48, 10.5], [59, 13], [67, 20], [71, 30], [70.5, 38], [60, 37.5], [46, 38], [32, 37.5]], { mat: 'hair', smooth: true, rim: 4, rimDepth: 3, z: (x, y) => zs(...rig.toH(x, y)) + 1.5 }));
   // blunt bangs: one curtain across the forehead, cut straight just above the brows, a few soft separations
-  const bang = [[24.5, 39.5], [24, 30], [29, 19], [38, 13.5], [48, 12.5], [58, 15], [65.5, 21], [68.5, 30], [68, 38.5], [62, 40.2], [54, 40.8], [46, 40.9], [38, 40.5], [30, 40]];
+  const bang = [[24.5, 39.5], [24, 30], [29, 19], [38, 13.5], [48, 12.5], [58, 15], [65.5, 21], [68.5, 30], [68, 38.5], [62, 38.2], [54, 38.8], [46, 38.9], [38, 38.5], [30, 38]];
   const bsid = rig.poly(bang, { mat: 'hair', smooth: true, seg: 4, rim: 3, rimDepth: 2.2, z: (x, y) => zf(...rig.toH(x, y)) + 0.5 });
   sids.hair.add(bsid);
   for (const [x0, x1, y1] of [[33, 32, 40], [39.5, 39, 40.5], [46.5, 46.6, 40.9], [53, 54, 40.7], [59, 61, 40.1], [64, 66.6, 39]]) {
@@ -201,13 +202,13 @@ function leahHair({ rig, sids, o }) {
 
 export const LEAH_EXPR = {
   neutral: { mouth: { smile: -0.04 }, brow: { y: -0.05 } },
-  deadpan: { brow: { y: -0.2, nearY: -0.05 }, eye: { open: 0.62, gx: -0.5 }, mouth: { smile: -0.1, press: 1, width: 0.85 } },
+  deadpan: { brow: { y: -0.2, nearY: -0.05 }, eye: { open: 0.5, lower: 0.3, gx: -0.5 }, mouth: { smile: -0.1, press: 1, width: 0.85 } },
   smirk: { tilt: -0.05, brow: { farY: 0.4 }, eye: { open: 0.66, lower: 0.35, gx: -0.5 }, mouth: { smileF: 0.7, smileN: -0.05, dx: 0.02 } },
   talk: { brow: { y: 0.1 }, eye: { open: 0.86 }, mouth: { open: 0.45, shape: 'talk', width: 0.72 } },
   annoyed: { tilt: -0.06, hx: -0.5, brow: { y: -0.45, furrow: 0.75, nearY: -0.15 }, eye: { open: 0.58, lower: 0.25, gx: 0.85, gy: -0.1 }, mouth: { smile: -0.32, smileN: -0.15, press: 1 } },
-  worried: { brow: { inner: 1.05, furrow: 0.45, y: 0.1 }, eye: { open: 1, innerUp: 0.5, gx: -0.2, gy: 0.2 }, mouth: { smile: -0.4, press: 1, width: 0.85 } },
+  worried: { brow: { inner: 1.45, furrow: 0.45, y: 0.1 }, eye: { open: 1.08, innerUp: 0.5, gx: -0.2, gy: 0.2 }, mouth: { smile: -0.45, press: 1, width: 0.85 } },
   scared: { shoulder: 0.8, brow: { inner: 1.2, y: 0.65, furrow: 0.3 }, eye: { open: 1.32, pupil: 0.62, iris: 0.9 }, mouth: { open: 0.6, shape: 'O', width: 0.6, smile: -0.2 }, sweat: 1, pale: 0.3 },
-  hurt: { pitch: 0.3, tilt: 0.05, brow: { inner: 1.0, furrow: 0.35 }, eye: { open: 0.72, innerUp: 0.35, wet: 0.8, gx: 0.55, gy: 0.55 }, mouth: { smile: -0.45, press: 1, tremble: 0.35 } },
+  hurt: { pitch: 0.3, tilt: 0.05, brow: { inner: 1.5, furrow: 0.4 }, eye: { open: 0.62, innerUp: 0.45, wet: 0.8, gx: 0.55, gy: 0.55 }, mouth: { smile: -0.55, press: 1, tremble: 0.35 } },
   crying: { pitch: 0.45, tilt: -0.05, brow: { inner: 1.4, furrow: 0.65, y: 0.1 }, eye: { open: 0.48, lower: 0.35, innerUp: 0.5, wet: 1, gy: 0.4 }, mouth: { open: 0.5, shape: 'frown', smile: -0.85, tremble: 1, width: 0.95 }, tears: 1, blush: 0.55 },
   smile: { tilt: 0.04, brow: { y: 0.2, inner: 0.1 }, eye: { open: 0.8, lower: 0.52 }, mouth: { smile: 0.62, width: 1.02 }, blush: 0.28 },
   relieved: { shoulder: -0.35, tilt: -0.05, brow: { inner: 0.55, y: 0.25 }, eye: { shut: 'soft' }, mouth: { open: 0.18, shape: 'talk', smile: 0.35, width: 0.8 }, blush: 0.15 },

@@ -74,7 +74,8 @@ export const game = {
   // ---------------------------------------------------------------------------------- events
   /** Subscribe: 'mode', 'mapLoad', 'roomEnter', 'propChange', 'doorOpen', 'flag', 'item', 'doc',
    *  'chapter', 'checkpoint', 'save', 'load', 'transfer', 'gameOver', 'ending', 'sit', 'stand',
-   *  'hide', 'unhide', 'refresh'. Returns an unsubscribe function. */
+   *  'hide', 'unhide', 'refresh', 'title' (returning to the title screen: everything from the last
+   *  game should stop). Returns an unsubscribe function. */
   on(ev, fn) {
     if (!this._listeners.has(ev)) this._listeners.set(ev, new Set());
     this._listeners.get(ev).add(fn);
@@ -151,6 +152,7 @@ export const game = {
   start() {
     if (this._running) return;
     this._running = true;
+    this._hookFocus();
     this._last = performance.now();
     const frame = (now) => {
       if (!this._running) return;
@@ -202,6 +204,7 @@ export const game = {
         HW.scripts.update(dt);
         this._updateTweens(dt);
         if (this.mode === 'play' && HW.map) this._globalKeys();
+        else if (this.mode === 'cutscene' && HW.map) this._cutsceneKeys();
         HW.entities.update(dt);
         for (let i = 0; i < this.systems.length; i++) call(this.systems[i], 'update', 'system.update', dt);
         if (HW.map && HW.player) {
@@ -241,9 +244,76 @@ export const game = {
     if (input.pressed('flashlight')) { input.consume('flashlight'); HW.flashlight?.toggle?.(); }
   },
 
-  /** Open a persistent UI screen as a pausing menu; resolves with the screen's result. */
+  /** Pause during a cutscene: the reduced pause menu (Resume / Settings / Load / Quit), when no modal
+   *  screen (PA console, Register, breath, a card…) owns the moment. Scripts, tweens and FX freeze. */
+  _cutsceneKeys() {
+    const input = HW.input;
+    if (!input.pressed('pause') || !this.canPause()) return;
+    input.consumeAll();
+    this.openMenu('pause', { cutscene: true });
+  },
+
+  /** Can the pause menu open right now (free play, or a cutscene with no modal screen up)? */
+  canPause() {
+    if (!HW.map || this.transferring) return false;
+    if (this.mode === 'play') return !this._uiBusy() && !HW.player?.busy;
+    if (this.mode === 'cutscene') return !this._screenUp();
+    return false;
+  },
+
+  /** Is a UI screen (anything but dialogue / choices) open? */
+  _screenUp() {
+    try {
+      return !!HW.ui?.screens?.some?.((s) => !s.closing);
+    } catch (e) {
+      report('ui.screens', e);
+      return true;
+    }
+  },
+
+  // ---------------------------------------------------------------------------------- focus
+  /** Leaving the window pauses (DESIGN: no unfair deaths); a hidden tab also silences the audio. */
+  _hookFocus() {
+    if (this._focusHooked || typeof window === 'undefined' || typeof document === 'undefined') return;
+    this._focusHooked = true;
+    window.addEventListener('blur', () => this._autoPause('blur'));
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this._autoPause('hidden');
+        this._holdAudio(true);
+      } else this._holdAudio(false);
+    });
+  },
+
+  _autoPause(why) {
+    if (!this.canPause()) return;
+    HW.debug?.record?.('autopause', null, null, why);
+    this.openMenu('pause', this.mode === 'cutscene' ? { cutscene: true, auto: why } : { auto: why });
+  },
+
+  /** Suspend the AudioContext while the tab is hidden (rAF stops; nothing would update the mix). */
+  _holdAudio(hide) {
+    const ctx = HW.audio?.context;
+    if (!ctx) return;
+    try {
+      if (hide) {
+        if (ctx.state === 'running') {
+          this._audioHeld = true;
+          ctx.suspend().catch(() => {});
+        }
+      } else if (this._audioHeld) {
+        this._audioHeld = false;
+        ctx.resume().catch(() => {});
+      }
+    } catch (e) {
+      report('audio suspend', e);
+    }
+  },
+
+  /** Open a persistent UI screen as a pausing menu; resolves with the screen's result. The pause menu
+   *  may also open over a cutscene (then the cutscene resumes when it closes). */
   async openMenu(name, args) {
-    if (this.mode !== 'play') return null;
+    if (this.mode !== 'play' && !(this.mode === 'cutscene' && name === 'pause')) return null;
     const token = ++this._menuToken;
     call(HW.ui, 'prompt', 'ui.prompt', null, null);
     if (HW.player) { HW.player.moving = false; HW.player.running = false; }
@@ -373,9 +443,15 @@ export const game = {
     try {
       if (fade) await bounded(call(HW.fx, 'fade', 'fx.fade', 'out', t, color), t);
       this.loadMap(mapId, at, { dir });
+      // A direction still held from walking through the exit only carries on if it is the way she now
+      // faces (a corridor); on the stairs she arrives facing back down, and a held Up would walk her
+      // straight into the return exit (ld-05). It works again once released and pressed.
+      HW.input?.staleHeld?.(HW.player?.dir);
       HW.debug?.record?.('transfer', null, null, `${from || '-'}>${mapId}:${typeof at === 'string' ? at : JSON.stringify(at)}${fade ? '' : ':seamless'}`);
       this.emit('transfer', mapId, from, fade);
-      if (auto && this.canCheckpoint()) this.checkpoint('transfer');
+      // Labelled by where it lands, so assist counts deaths per place (DESIGN §9.3), not per "any exit".
+      if (auto && this.canCheckpoint()) this.checkpoint(`transfer ${mapId}${typeof at === 'string' ? ` ${at}` : ''}`);
+      this._settle();
       if (fade) await bounded(call(HW.fx, 'fade', 'fx.fade', 'in', t, color), t);
     } catch (e) {
       report('transfer', e);
@@ -529,7 +605,12 @@ export const game = {
     HW.map = null;
     this.room = null;
     this.transferring = false;
+    this.timeWarp = 1;
+    // Nothing of the last game plays under the title: beds, music, positional loops (the boiler, the
+    // Colonel's breathing, a tap left running). The title starts its own music on the first key.
+    call(HW.audio, 'stopAll', 'audio.stopAll', 0.6);
     this.setMode('title');
+    this.emit('title');
     const token = ++this._titleToken;
     let pending = null;
     try {
@@ -546,7 +627,7 @@ export const game = {
     }
     if (token !== this._titleToken || this.mode !== 'title') return; // superseded (load / debug newGame)
     if (r && r.action === 'load' && r.slot !== undefined && r.slot !== null) {
-      if (!this.loadSave(r.slot)) this.toTitle();
+      if (!this.loadSave(r.slot)) this.toTitle(); // the title shows this.loadError
     } else {
       this.newGame();
     }
@@ -575,6 +656,7 @@ export const game = {
     if (skipIntro && S['pro.skip']) return HW.scripts.run('pro.skip');
     const [mapId, anchor] = skipIntro && HW.data.maps.exterior ? ['exterior', 'start'] : NEW_GAME_FALLBACK;
     this.loadMap(mapId, anchor);
+    this._settle();
     this.checkpoint('new game');
     call(HW.fx, 'fade', 'fx.fade', 'in', HW.debug?.autoAdvance ? 0.01 : 0.8, '#000');
     return undefined;
@@ -608,7 +690,8 @@ export const game = {
       objective: s.objective || '',
       checkpoint: s.checkpoint || '',
     };
-    saves.write(slot, cloneState(s), summary);
+    // false = this browser only kept it in memory (private mode, blocked storage, quota): the UI says so.
+    this.lastSavePersisted = saves.write(slot, cloneState(s), summary) !== false;
     this.emit('save', slot);
     return true;
   },
@@ -632,29 +715,97 @@ export const game = {
     return saves.exists(slot);
   },
 
-  /** Load a slot; returns false if it doesn't exist. */
+  /**
+   * Load a slot. Returns false — with the running game untouched and `loadError` set — when the slot
+   * is missing, corrupt or names a map this build doesn't have. A position inside a wall (or none)
+   * is moved to the nearest open floor, else the map's start.
+   */
   loadSave(slot) {
+    this.loadError = null;
     const data = saves.read(slot);
-    if (!data) return false;
+    if (!data) { this.loadError = 'missing'; return false; }
+    const st = normalizeState(cloneState(data.state));
+    if (!HW.data?.maps?.[st.map]) {
+      console.warn(`[game] save '${slot}' can't be loaded: unknown map '${st.map}'`);
+      this.loadError = 'map';
+      return false;
+    }
     HW.scripts.abortAll();
     this._titleToken++;
     call(HW.ui, 'close', 'ui.close', 'title');
     call(HW.ui, 'reset', 'ui.reset');
-    HW.state = normalizeState(cloneState(data.state));
+    HW.state = st;
     call(HW.flashlight, 'reset', 'flashlight.reset');
     call(HW.compact, 'close', 'compact.close', true);
     HW.entities.reset();
     this.transferring = false;
     this.setMode('play');
     try {
-      this.loadMap(HW.state.map, { x: HW.state.px, y: HW.state.py }, { dir: HW.state.dir });
+      this.loadMap(st.map, this._savedPoint(st), { dir: st.dir });
+      this._unstick();
     } catch (e) {
+      // The old game is already gone: callers fall back (title → title, game over → new game, the
+      // in-game Load screen → title).
       report('loadSave', e);
+      this.loadError = 'broken';
       return false;
     }
+    this._settle();
     call(HW.fx, 'fade', 'fx.fade', 'in', HW.debug?.autoAdvance ? 0.01 : 0.6, '#000');
     this.emit('load', slot);
     return true;
+  },
+
+  /** Where a loaded save puts Tess: her saved spot, or — with none (a broken / empty state) — the
+   *  map's 'start' (or first) anchor. */
+  _savedPoint(st) {
+    const px = Number(st.px);
+    const py = Number(st.py);
+    if (Number.isFinite(px) && Number.isFinite(py) && !(px === 0 && py === 0)) return { x: px, y: py };
+    const anchors = HW.data.maps[st.map]?.anchors || {};
+    return (anchors.start ? 'start' : Object.keys(anchors)[0]) || null; // null: the map centre
+  },
+
+  /** A loaded position inside a wall (a save from an older layout, a hand-edited one): step to the
+   *  nearest open tile within 4, else the map's start. */
+  _unstick() {
+    const p = HW.player;
+    const map = HW.map;
+    if (!p || !map) return;
+    const tx = Math.floor(p.x / 16);
+    const ty = Math.floor(p.y / 16);
+    const open = (x, y) => map.inBounds(x, y) && !map.isSolid(x, y);
+    if (open(tx, ty)) return;
+    let to = null;
+    for (let r = 1; r <= 4 && !to; r++) {
+      for (let dy = -r; dy <= r && !to; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) === r && open(tx + dx, ty + dy)) { to = [tx + dx, ty + dy]; break; }
+        }
+      }
+    }
+    if (!to) {
+      const a = map.anchor('start') || map.anchor(Object.keys(map.anchors || {})[0]);
+      if (a) to = [a.tx, a.ty];
+    }
+    if (!to) return;
+    console.warn(`[game] loaded position (${tx},${ty}) on '${map.id}' is blocked; moved to (${to[0]},${to[1]})`);
+    p.resetTransient?.();
+    p.x = to[0] * 16 + 8;
+    p.y = to[1] * 16 + 12;
+    HW.entities.onPlayerMoved?.();
+    HW.camera.snap();
+    this._trigInside = map.triggers.map((t) => rectHas(t.rect, to[0], to[1]));
+    this._trackRoom();
+  },
+
+  /** After a synchronous map load: draw the new map once while the screen is still black (first visits
+   *  build its layers, art and light map here, not in the first faded-in frame), and don't count the
+   *  time that took as elapsed game time — no jump at the start of the fade-in. */
+  _settle() {
+    call(HW.renderer, 'render', 'renderer.render');
+    this._last = performance.now();
+    this._acc = Math.min(this._acc, DT);
   },
 
   _deathKey(label) {
@@ -665,14 +816,33 @@ export const game = {
     return HW.state.flags[this._deathKey(label)] || 0;
   },
 
-  /** Saving allowed from the pause menu (TECH §7). */
-  canSave() {
-    return !!HW.map && (this.mode === 'play' || this.mode === 'menu') && !HW.scripts.blocking
-      && !this.transferring && !HW.periods?.active && HW.colonel?.mode !== 'chase' && HW.colonel?.mode !== 'escape';
+  /** Game overs so far at a checkpoint (default: the current one). The referral slip skips its
+   *  animation on a repeat death. */
+  deathsAt(label = HW.state?.checkpoint) {
+    return HW.state ? this._deaths(label) : 0;
   },
 
+  /** A period's warning, bell or dismissal is up (anything but idle). A save taken then would reload
+   *  with the period gone and its watcher scripts aborted (tech-02). */
+  _periodUp() {
+    const P = HW.periods;
+    return !!P && (!!P.active || (P.phase != null && P.phase !== 'idle'));
+  },
+
+  /** Saving allowed from the pause menu (TECH §7): free play, no period warning/bell/dismissal, no
+   *  chase set piece (gym, escape — between lunges he may be 'scripted'), not in a cutscene. */
+  canSave() {
+    return !!HW.map && (this.mode === 'play' || this.mode === 'menu') && !HW.scripts.blocking
+      && !this.transferring && !this._periodUp() && !HW.chase?.active
+      && HW.colonel?.mode !== 'chase' && HW.colonel?.mode !== 'escape';
+  },
+
+  /** Engine autosaves (map exits; HW.chase's escape checkpoints): as canSave, except during the Ch8
+   *  escape, which writes its own per-map checkpoints and resumes from them. Scripts' g.checkpoint()
+   *  isn't gated. */
   canCheckpoint() {
-    return !!HW.map && !HW.periods?.active && HW.colonel?.mode !== 'chase' && !HW.scripts.blocking;
+    return !!HW.map && !this._periodUp() && HW.colonel?.mode !== 'chase' && !HW.scripts.blocking
+      && !(HW.chase?.active && HW.chase.kind !== 'escape');
   },
 
   /** Autosave to slot 'auto'. The label keys the death counter used by assist. */

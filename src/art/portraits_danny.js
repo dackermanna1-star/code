@@ -189,7 +189,9 @@ export const DANNY_EXPR = {
   talk: { brow: { y: 0.25 }, eye: { open: 0.98, lower: 0.1 }, mouth: { open: 0.55, shape: 'talk', smile: 0.2, width: 0.85 } },
   smug: { tilt: -0.07, hy: -0.5, brow: { farY: 0.55, nearY: -0.1 }, eye: { open: 0.62, lower: 0.35, gx: -0.5 }, mouth: { smileF: 0.8, smileN: 0.05, dx: 0.03 } },
   nervous: { shoulder: 0.45, brow: { inner: 0.95, furrow: 0.35, y: 0.2 }, eye: { open: 1.05, innerUp: 0.45, gx: 0.75 }, mouth: { open: 0.42, shape: 'grin', smile: 0.5, teeth: 1, width: 1.05, tremble: 0.4 }, sweat: 1 },
-  scared: { shoulder: 0.8, brow: { inner: 1.2, y: 0.7, furrow: 0.3 }, eye: { open: 1.32, pupil: 0.6, iris: 0.9 }, mouth: { open: 0.68, shape: 'O', width: 0.65, smile: -0.2 }, sweat: 1, pale: 0.35 },
+  // worried: the clown with the grin gone — knit brows, soft wet eyes, a small frown, lips parted to speak
+  worried: { shoulder: 0.25, brow: { inner: 1.2, furrow: 0.45, y: 0.15 }, eye: { open: 1.0, innerUp: 0.55, gx: -0.3, gy: 0.25, wet: 0.25 }, mouth: { smile: -0.32, open: 0.24, shape: 'talk', width: 0.9 } },
+  scared: { shoulder: 0.8, brow: { inner: 1.2, y: 0.85, furrow: 0 }, eye: { open: 1.32, pupil: 0.6, iris: 0.9 }, mouth: { open: 0.68, shape: 'O', width: 0.65, smile: -0.2 }, sweat: 1, pale: 0.35 },
   sad: { pitch: 0.4, tilt: 0.05, brow: { inner: 1.05, furrow: 0.3 }, eye: { open: 0.68, outerDown: 0.5, gy: 0.7, wet: 0.3, innerUp: 0.3 }, mouth: { smile: -0.5, press: 1 } },
   serious: { pitch: 0.12, brow: { y: -0.3, furrow: 0.45, inner: -0.15 }, eye: { open: 0.88 }, mouth: { smile: -0.1, press: 1, width: 0.95 } },
   relieved: { shoulder: -0.4, tilt: -0.06, hy: -0.5, brow: { inner: 0.55, y: 0.3 }, eye: { shut: 'soft' }, mouth: { open: 0.3, shape: 'talk', smile: 0.5, width: 0.95 }, blush: 0.15 },

@@ -28,6 +28,12 @@ export function hints(ctx, list, y = H - 30, right = W - 24, color = C.textMute)
     keycap(ctx, x - kw, y, key, f);
     x -= kw + 22;
   }
+  return x + 22; // left edge of the row
+}
+/** Width of a hints() row (to put a backing plate behind it). */
+export function hintsWidth(list) {
+  const f = F.small;
+  return list.reduce((w, [label, key]) => w + f.width(label) + 8 + keycapWidth(key, f) + 22, -22);
 }
 
 /**

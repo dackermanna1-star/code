@@ -11,10 +11,14 @@
 // chase        pulsing distorted sub + irregular junk-metal hits; no melody
 // register     near-silent tension pad
 // ending_bad   one detuned music-box note, repeating, slowing, fading — then nothing
+// clarinet     Ch6 (Denise): the alma mater on one clarinet in the empty gym — a player breathing, rubato,
+//              tongued phrase starts and slurs, hard walls; two bars of breath before she starts again
+// clarinet_far the same performance from down the hall (lobby / east hall): dark, distant, mostly room.
+//              Both share one performance clock, so switching far → near carries on mid-tune.
 import { Voice } from './voice.js';
 import { dbToGain, cents } from './dsp.js';
 import { MELODY_BARS, HARMONY_BARS, below } from './alma.js';
-import { MUSIC_BOX, PIANO, PLUCK, SUB_PULSE, JUNK_HIT, cornet, clarinet, tuba, horn, pad } from './instruments.js';
+import { MUSIC_BOX, PIANO, PLUCK, SUB_PULSE, JUNK_HIT, cornet, clarinet, clarinetSolo, tuba, horn, pad } from './instruments.js';
 import { noiseLayer, modulate } from './layers.js';
 
 MUSIC_BOX.id = 'mus_box'; PIANO.id = 'mus_piano'; PLUCK.id = 'mus_pluck'; SUB_PULSE.id = 'mus_sub'; JUNK_HIT.id = 'mus_junk';
@@ -26,6 +30,7 @@ const spb = (bpm) => 60 / bpm;
 export const TRACK_GAIN = {
   title: 0, phonograph: 0, ending_good: 2.5, ending_true: -0.5, credits: -2.5,
   drone_1: -1.5, drone_2: -2, drone_3: -4, chase: -8, register: 0, ending_bad: 0,
+  clarinet: -6, clarinet_far: -11.5,
 };
 /** The chord sounding at a beat inside a bar. */
 function chordAt(bar, beat) {
@@ -106,8 +111,8 @@ export class Track {
   // ---- scheduling ----------------------------------------------------------------------------
   /** Bar sequencer: barFn(t, bar, loop, beatSec) schedules one bar starting at t and returns
    *  its length in seconds (default 3 beats). Bars wrap at nBars (loop++). */
-  seq(bpm, nBars, barFn, { start = 0 } = {}) {
-    let bar = 0, loop = 0;
+  seq(bpm, nBars, barFn, { start = 0, bar: bar0 = 0 } = {}) {
+    let bar = bar0 % nBars, loop = 0;
     const task = this.eng.addTask(this.t0 + start, (t) => {
       if (this.stopped) return null;
       const len = barFn(t, bar, loop, spb(bpm)) ?? 3 * spb(bpm);
@@ -186,6 +191,55 @@ function swell(T, t, hz, dur, vel, lp = 420) {
     f.connect(g); g.connect(V.out);
     for (const d of [-9, 0, 8]) { const o = V.osc('sawtooth', hz, d); o.connect(f); V.play(o, 0, dur + 0.05); }
   });
+}
+
+/** Denise's clarinet: one player, the alma mater, unaccompanied (Ch6 VI.3–4). */
+const CLAR_BPM = 84, CLAR_BARS = 18, CLAR_TON = 58; // B-flat like the band record, low chalumeau register
+const CLAR_DYN = [0.6, 0.64, 0.72, 0.58, 0.64, 0.7, 0.76, 0.6, 0.8, 0.84, 0.9, 0.94, 0.74, 0.66, 0.6, 0.5];
+/** Bar length (s): rubato that breathes with the phrase, longer at the cadences, two rest bars. */
+function clarBarLen(bar) {
+  const beat = spb(CLAR_BPM);
+  if (bar >= 16) return beat * 3;
+  return beat * 3 * (1 + 0.06 * Math.sin(bar * 1.7)) * (bar === 15 ? 1.25 : bar === 7 ? 1.12 : bar === 3 || bar === 11 ? 1.06 : 1);
+}
+const CLAR_LOOP = Array.from({ length: CLAR_BARS }, (_, b) => clarBarLen(b)).reduce((a, b) => a + b, 0);
+
+function soloClarinet(T, eng, far) {
+  const R = T.R, V = T.core;
+  // the room: in the gym she is right there (hard walls, a long tail); from the halls it is mostly the room
+  if (far) T.fx(T.filter('highpass', 240), T.filter('lowpass', 1500, 0.6), T.filter('lowpass', 2300, 0.5));
+  else T.fx(T.filter('highpass', 150), T.filter('lowpass', 4400, 0.6));
+  T.wet(far ? 1 : 0.6);
+  // early reflections off bare walls / lockers (parallel, into the fader)
+  for (const [d, lvl, lpf] of far ? [[0.13, -8, 1100], [0.29, -12, 900], [0.47, -17, 750]] : [[0.083, -15, 2600], [0.191, -18, 1900], [0.34, -24, 1400]]) {
+    const dl = V.delay(d, 1), lp = V.filter('lowpass', lpf, 0.7, 0, false), g = V.gain(dbToGain(lvl));
+    T.input.connect(dl); V.chain(dl, lp, g, T.post);
+  }
+  // one performance clock for both versions: a new track picks the tune up where it is
+  const now = T.t0 + 0.3;
+  let clk = eng.clarinetClock;
+  if (!clk || now - clk.alive > 6) clk = eng.clarinetClock = { t: now, alive: now };
+  const e = (now - clk.t) % CLAR_LOOP;
+  let bar = 0, acc = 0;
+  while (bar < CLAR_BARS - 1 && acc + clarBarLen(bar) <= e) acc += clarBarLen(bar++);
+  let start = now - e + acc;
+  if (start < now - 0.05) { start += clarBarLen(bar); bar = (bar + 1) % CLAR_BARS; }
+  T.seq(CLAR_BPM, CLAR_BARS, (t, b) => {
+    clk.alive = t;
+    if (b >= 16) return clarBarLen(b); // she breathes, then starts again
+    const bt = clarBarLen(b) / 3;
+    const notes = MELODY_BARS[b];
+    notes.forEach(([at, d, dur], i) => {
+      const last = i === notes.length - 1;
+      const phraseEnd = last && b % 4 === 3;
+      // tongue the phrase starts (and now and then a bar start); slur the rest
+      const slur = i > 0 || (b % 4 !== 0 && R.chance(0.55));
+      const nextSlur = !last || (b + 1) % 4 !== 0;
+      const len = dur * bt * (phraseEnd ? 0.8 : nextSlur ? 1.0 : 0.9);
+      T.note(t + at * bt + R.range(0, 0.02), (W) => clarinetSolo(W, CLAR_TON + d, len, CLAR_DYN[b] * R.range(0.93, 1.04), { slur, seed: R.r(), rel: phraseEnd ? 0.3 : nextSlur ? 0.05 : 0.1 }));
+    });
+    return bt * 3;
+  }, { start: start - T.t0, bar });
 }
 
 // =================================================================================================
@@ -343,6 +397,9 @@ export const TRACKS = {
       return st * 16;
     }, { start: 0.2 });
   },
+
+  clarinet(T, eng) { soloClarinet(T, eng, false); },
+  clarinet_far(T, eng) { soloClarinet(T, eng, true); },
 
   register(T, eng) {
     T.wet(0.8);

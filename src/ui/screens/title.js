@@ -1,6 +1,9 @@
 // Title screen (TECH §16): title_bg CG, the decayed HALLOWELL logotype, "the things left behind",
 // "Press any key" (unlocks audio), then New Game / Continue / Load / Settings / Credits.
 // Resolves { action: 'new' } | { action: 'load', slot }.
+// New Game asks first when an autosave exists (its first checkpoint replaces it; slots 1-3 are kept).
+// A footer line says when this browser isn't keeping saves (HW.storage.persistent === false) or when
+// the last Continue / Load failed (HW.game.loadError).
 import { HW } from '../../engine/hw.js';
 import { Screen, Z_TOP } from '../screen.js';
 import { C, F, W, H } from '../theme.js';
@@ -21,6 +24,10 @@ export class TitleScreen extends Screen {
     this.bg = canvas(480, 270);
     this.menuT = 0;
     this.busy = false;
+    // A Continue / Load that just failed comes back to the menu with a word about it.
+    this.loadError = HW.game?.loadError || null;
+    if (HW.game) HW.game.loadError = null;
+    if (this.loadError) { this.phase = 'menu'; this.menuT = 0; }
     this._buildItems();
   }
   _buildItems() {
@@ -38,8 +45,20 @@ export class TitleScreen extends Screen {
   async _activate(it) {
     if (it.disabled) { svc.sfx('door_locked', { vol: 0.4 }); return; }
     svc.sfx('ui_confirm');
-    if (it.id === 'new') this.close({ action: 'new' });
-    else if (it.id === 'continue') this.close({ action: 'load', slot: it.slot });
+    if (it.id === 'new') {
+      const auto = svc.saveSummary('auto');
+      if (auto) {
+        this.busy = true;
+        const nb = (x) => String(x).replace(/ /g, '\u00a0'); // keep "V — Upstairs" on one line
+        const ok = await this.open('confirm', {
+          text: `Start a new game?\nYour autosave (${nb(auto.chapterTitle || 'in progress')}, ${svc.fmtTime(auto.playtime || 0)}) will be replaced. Saves in slots 1-3 are kept.`,
+          yes: 'New Game', no: 'Cancel', danger: true,
+        });
+        this.busy = false;
+        if (!ok) return;
+      }
+      this.close({ action: 'new' });
+    } else if (it.id === 'continue') this.close({ action: 'load', slot: it.slot });
     else if (it.id === 'load') {
       this.busy = true;
       const slot = await this.open('saveload', { mode: 'load', fromTitle: true });
@@ -131,9 +150,17 @@ export class TitleScreen extends Screen {
       });
       ctx.globalAlpha = a0;
     }
-    // footer
-    ctx.globalAlpha = a0 * ease.out(clamp((this.t - 2.5) / 1));
-    fs.draw(ctx, 'KETTLE RUN, PA  ·  OCTOBER 18, 1996', W / 2, H - 34, '#4f4c50', { align: 'center' });
+    // footer — or, in its place, why saves won't work (a failed load says so at once)
+    const note = this._notice();
+    ctx.globalAlpha = a0 * (note && this.loadError ? 1 : ease.out(clamp((this.t - 2.5) / 1)));
+    if (note) fs.draw(ctx, note, W / 2, H - 34, '#b0544c', { align: 'center' });
+    else fs.draw(ctx, 'KETTLE RUN, PA  ·  OCTOBER 18, 1996', W / 2, H - 34, '#4f4c50', { align: 'center' });
     ctx.globalAlpha = a0;
+  }
+
+  _notice() {
+    if (this.loadError && this.t < 8) return "That save couldn't be loaded.";
+    if (HW.storage && HW.storage.persistent === false) return 'This browser is blocking storage: saves last only until the page closes.';
+    return null;
   }
 }

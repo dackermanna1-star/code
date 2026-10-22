@@ -552,7 +552,8 @@ try {
     // [Not yet.] keeps the book open
     await tap('down'); await tap('confirm'); await wait(500);
     T.ok((await st()).open && (await g.page.evaluate(() => window.__regResult)) === 'pending', '[Not yet.] keeps it open');
-    await sel('tray', 4); await tap('confirm'); await wait(2600); await tap('confirm'); await wait(1200);
+    // the choice list ignores Confirm for 0.35 s after it appears (ld-02 guard)
+    await sel('tray', 4); await tap('confirm'); await wait(2600); await wait(500); await tap('confirm'); await wait(1200);
     T.eq(await g.page.evaluate(() => window.__regResult), null, '[Close it.] closes the book');
     T.eq(await g.page.evaluate(() => window.__model.outcome()), 'dismissed', 'page outcome: dismissed');
   });

@@ -1,7 +1,7 @@
 // Credits: slow scroll over black. Confirm/cancel leaves; holding confirm speeds it up.
 import { Screen } from '../screen.js';
 import { F, W, H } from '../theme.js';
-import { rect, vignette, snap } from '../gfx.js';
+import { rect, vignette, snap, clamp } from '../gfx.js';
 import { logo } from '../logo.js';
 import { spaced } from '../widgets.js';
 import * as svc from '../services.js';
@@ -31,6 +31,8 @@ const LINES = [
   ['small', 'The cicadas are real. They come back every seventeen years.'],
 ];
 
+const FADE_BAND = 48;   // px at the bottom where the scroll fades in (the hint lives there)
+
 export class CreditsScreen extends Screen {
   constructor(ui, args) {
     super(ui, args);
@@ -53,9 +55,14 @@ export class CreditsScreen extends Screen {
   }
   render(ctx) {
     rect(ctx, 0, 0, W, H, '#030304');
+    const a0 = ctx.globalAlpha;
     for (const l of this.layout) {
       const y = snap(l.y - this.scroll);
       if (y < -120 || y > H + 20) continue;
+      // lines fade in as they rise out of the bottom band, so they never cross the hint drawn there
+      const k = clamp((H - FADE_BAND - (y + (l.kind === 'logo' ? 75 : 10))) / FADE_BAND);
+      if (k <= 0) continue;
+      ctx.globalAlpha = a0 * k;
       if (l.kind === 'logo') { const L = logo(); ctx.drawImage(L.canvas, snap(W / 2 - L.w), y, L.w * 2, L.h * 2); }
       else if (l.kind === 'sub') F.typed.draw(ctx, l.text, W / 2, y, '#a39a84', { align: 'center' });
       else if (l.kind === 'head') F.small.draw(ctx, spaced(l.text), W / 2, y, '#8d877a', { align: 'center' });
@@ -64,6 +71,7 @@ export class CreditsScreen extends Screen {
       else if (l.kind === 'quote') F.typedL.draw(ctx, l.text, W / 2, y, '#c8423b', { align: 'center' });
       else if (l.kind === 'small') F.small.draw(ctx, l.text, W / 2, y, '#5c5850', { align: 'center' });
     }
+    ctx.globalAlpha = a0;
     vignette(ctx, 0.8, 0.6);
     F.small.draw(ctx, 'hold to hurry · back to leave', W - 24, H - 30, '#3e3c40', { align: 'right' });
   }

@@ -1,6 +1,9 @@
 // 'breath' — hold your breath in the locker. args { seconds } → 'held' | 'failed'.
 // Press and hold confirm; a lung meter drains while a heartbeat speeds up and the dark closes in.
 // Letting go early fails; never starting (within a few seconds) fails too.
+// The hold only starts on a FRESH press made after the screen got focus: the tap that picked
+// [Hold your breath.] is usually still down when the screen opens, and its release must not read as
+// a gasp. A press carried in from that choice counts only once it has clearly become a hold (CARRY_HOLD).
 import { Screen, Z_SPECIAL } from '../screen.js';
 import { C, F, W, H } from '../theme.js';
 import { rect, frame, dither, vignette, keycap, AP, clamp, snap, keycapWidth } from '../gfx.js';
@@ -8,7 +11,8 @@ import { spaced } from '../widgets.js';
 import { hash2 } from '../../art/util.js';
 import * as svc from '../services.js';
 
-const START_WINDOW = 3.5;
+const START_WINDOW = 3.5;   // s to start holding, counted from when the screen is armed
+const CARRY_HOLD = 0.6;     // a confirm already down on opening, held this long, is a deliberate hold
 
 export class BreathScreen extends Screen {
   constructor(ui, args) {
@@ -18,6 +22,8 @@ export class BreathScreen extends Screen {
     this.seconds = Math.max(1, Number(args.seconds) || 6);
     this.held = 0; this.started = false; this.beatT = 0; this.done = false;
     this.flash = 0;
+    this.armedAt = undefined;  // screen time when confirm was first seen UP while focused
+    this.carry = 0;            // how long a confirm carried in from before the screen has stayed down
   }
   onOpen() { svc.sfx('heartbeat', { vol: 0.5 }); }
   _end(res) {
@@ -32,8 +38,18 @@ export class BreathScreen extends Screen {
     if (this.done) return;
     const down = input ? input.down('confirm') : false;
     if (!this.started) {
+      // input is null on the opening frame (and while something else has focus): never arm on that
+      if (!input) return;
+      if (this.armedAt === undefined) {
+        if (!down) { this.armedAt = this.t; return; }
+        // still holding the press that picked the choice: a tap lets go soon (→ armed, no gasp);
+        // a press that stays down is the player already holding their breath
+        this.carry += dt;
+        if (this.carry >= CARRY_HOLD) { this.armedAt = this.t; this.started = true; svc.sfx('breath_hold'); }
+        return;
+      }
       if (down) { this.started = true; svc.sfx('breath_hold'); }
-      else if (this.t > START_WINDOW) this._end('failed');
+      else if (this.t - this.armedAt > START_WINDOW) this._end('failed');
       return;
     }
     if (!down) { this._end('failed'); return; }

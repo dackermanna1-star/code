@@ -2,7 +2,7 @@
 // tears, sweat, grime. Everything is driven by an expression parameter object so that every expression of
 // a character is the same face with different muscle settings.
 import { rng } from './util.js';
-import { clamp, lerp, smooth } from './portraits_core.js';
+import { clamp, lerp, smooth, PW, PH } from './portraits_core.js';
 
 // ---- expression parameters ---------------------------------------------------------------------
 export const BASE_EXPR = {
@@ -301,7 +301,7 @@ export function drawMouth(rig, face, S, M, seed = 1) {
   const prof = (s, p) => Math.pow(Math.max(0, 4 * s * (1 - s)), p);
   let top, bot;
   switch (shape) {
-    case 'O': top = (s) => base(s) - open * 1.4 * prof(s, 0.5); bot = (s) => base(s) + open * H * 0.8 * prof(s, 0.5); break;
+    case 'O': top = (s) => base(s) - open * 1.5 * prof(s, 0.55); bot = (s) => base(s) + open * H * 1.1 * prof(s, 0.5); break;
     case 'scream': top = (s) => base(s) - open * 1.0 * prof(s, 0.35); bot = (s) => base(s) + open * H * 1.25 * prof(s, 0.28); break;
     case 'grin': top = (s) => base(s) - 0.2 * prof(s, 1); bot = (s) => base(s) + open * H * 0.9 * prof(s, 0.7); break;
     case 'laugh': top = (s) => base(s) - 0.4 * prof(s, 1); bot = (s) => base(s) + open * H * 1.2 * prof(s, 0.55); break;
@@ -320,6 +320,13 @@ export function drawMouth(rig, face, S, M, seed = 1) {
     }
     if (hy >= t && hy < b) {
       const ft = hy - t, fb = b - hy;
+      if (shape === 'O') {
+        // a dark round hole, not a pucker: fixed deep tones (a lit mouth tone reads as red lipstick at this size),
+        // darkest under the upper lip, a dim tongue floor only when the hole is tall enough to hold it
+        if (ft < 1.2) return [S.mouthMat, 0, 0];
+        if (fb < 1 && b - t > 3.4 && Math.abs(s - 0.5) < 0.22) return [S.tongueMat, 0, 1];
+        return [S.mouthMat, 0, 1];
+      }
       if (shape === 'grimace' && teeth) {
         const mid = (t + b) / 2;
         if (Math.abs(hy - mid) < 0.5) return [S.mouthMat, 0];
@@ -384,17 +391,26 @@ export function drawBlush(rig, face, S, amt) {
 const B4 = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]];
 const bayer4 = (x, y) => (B4[y & 3][x & 3] + 0.5) / 16;
 export function drawTears(rig, eye, S, amt, side) {
+  // A wet track, not a painted line: no fixed/boosted tones, so it follows the light like the sweat bead and
+  // never glows on the shadowed half. Water (tear material) near the lid, then the skin one tone lighter, one
+  // drop pixel. The track bends toward the nose and is dropped within 2 px of the silhouette / hair / glasses.
   if (amt <= 0 || !eye) return;
   const dir = side === 'near' ? -1 : 1;
-  const x0 = eye.ex + dir * eye.hw * 0.55, y0 = (eye.L ? eye.L(0.55) : eye.ey + 2) + 0.8;
-  const len = 4 + amt * 9;
+  const t0 = 0.3;
+  const x0 = eye.ex + dir * eye.hw * t0, y0 = (eye.L ? eye.L(t0) : eye.ey + 2) + 1;
+  const len = 3 + amt * 6;
   const pts = [];
-  for (let k = 0; k <= 8; k++) { const t = k / 8; pts.push([x0 + dir * Math.sin(t * 1.4) * 1.6 - dir * t * 0.6, y0 + t * len]); }
-  rig.strokeH(pts, (t) => (t < 0.18 ? [S.mat, 0, 4] : [S.mat, t < 0.6 ? 1 : 0]), { onlyMat: S.on });
-  const end = pts[pts.length - 1];
-  rig.dotH(end[0], end[1] + 1, S.mat, 1, -1, { onlyMat: S.on });
-  rig.dotH(end[0] + 1, end[1] + 1, S.mat, 0, -1, { onlyMat: S.on });
-  rig.dotH(end[0], end[1] + 2, S.mat, -1, -1, { onlyMat: S.on });
+  for (let k = 0; k <= 6; k++) { const t = k / 6; pts.push([x0 - dir * t * t * 1.2, y0 + t * len]); }
+  const onFace = (x, y) => x >= 0 && x < PW && y >= 0 && y < PH && S.on.includes(rig.mats[rig.mat[y * PW + x]]?.name);
+  const inside = (x, y) => onFace(x + 2, y) && onFace(x - 2, y) && onFace(x, y + 1);
+  let last = null;
+  rig.strokeH(pts, (t, x, y, i) => {
+    if (!inside(x, y)) return null;
+    last = [x, y];
+    if (t === 0) return [S.mat, 0];                         // pooled at the lid
+    return t < 0.5 ? [S.mat, -1] : [rig.mat[i], 1];          // water, thinning to a wet sheen on the skin
+  }, { onlyMat: S.on });
+  if (last && onFace(last[0], last[1] + 1)) rig.dotC(last[0], last[1] + 1, S.mat, 0, -1, S.on); // the drop
 }
 export function drawSweat(rig, x, y, S) {
   // a translucent bead: tones follow the light (no glowing in the dark), one small fixed glint

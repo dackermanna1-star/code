@@ -1,8 +1,14 @@
 // Display: the on-screen canvas plus two offscreen buffers (TECH §3).
 //   world buffer 480×270 — the game world, drawn by render/renderer.js
 //   UI buffer    960×540 — dialogue, menus, HUD (one UI pixel = ½ world pixel), drawn by HW.ui
-// Both are composited each frame onto the screen canvas at the same rect: integer-scaled when
-// settings.pixelPerfect (default) or fit-to-window otherwise, letterboxed in black.
+// Both are composited each frame onto the screen canvas at the same rect, letterboxed in black.
+//
+// Scaling (tech-18): by default the image fills the window. When a whole-number scale is within 6 %
+// of the fit it is used as is (perfectly crisp: 960×540, 1920×1080, 1440×810…); otherwise the fit is
+// fractional and drawn "sharp": each layer is first blown up by the next whole number with nearest
+// neighbour, then scaled down to the fit with smoothing, so every art pixel keeps the same size and
+// only its edges are blended — no uneven 2-3-2 pixel columns, no blur. settings.pixelPerfect forces
+// the strict whole-number scale (smaller, black border) instead.
 import HW from './hw.js';
 
 export const WORLD_W = 480;
@@ -10,31 +16,71 @@ export const WORLD_H = 270;
 export const UI_W = 960;
 export const UI_H = 540;
 const MAX_BACKING_PIXELS = 3840 * 2160; // cap the backing store on very large / high-DPI screens
+const SNAP = 0.94; // use the whole-number scale when it is at least this much of the fit
 
-function makeBuffer(w, h) {
+function makeBuffer(w, h, opts) {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
-  const ctx = c.getContext('2d');
+  const ctx = c.getContext('2d', opts);
   ctx.imageSmoothingEnabled = false;
   return [c, ctx];
 }
 
+const isWhole = (k) => Math.abs(k - Math.round(k)) < 1e-6;
+
 export function createDisplay(canvas) {
+  // The world buffer stays GPU-friendly (no willReadFrequently): the post FX pixel pass copies it into
+  // its own CPU-side canvas and reads that back (render/fx_post.js), so nothing getImageData's it.
   const [world, worldCtx] = makeBuffer(WORLD_W, WORLD_H);
   const [ui, uiCtx] = makeBuffer(UI_W, UI_H);
   const ctx = canvas.getContext('2d', { alpha: false });
+  // Sharp-scaling intermediates (one per layer), sized on demand.
+  const pre = new Map();
+  function prescaled(src, n) {
+    let p = pre.get(src);
+    if (!p) {
+      p = makeBuffer(1, 1);
+      pre.set(src, p);
+    }
+    const [c, x] = p;
+    const w = src.width * n;
+    const h = src.height * n;
+    if (c.width !== w || c.height !== h) {
+      c.width = w;
+      c.height = h;
+      x.imageSmoothingEnabled = false;
+    } else x.clearRect(0, 0, w, h);
+    x.drawImage(src, 0, 0, w, h);
+    return c;
+  }
+  /** Draw one layer at scale k (screen px per layer px) into rect r. */
+  function blitLayer(src, r, k) {
+    if (k >= 1 && isWhole(k)) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(src, r.x, r.y, r.w, r.h);
+    } else if (k > 1) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'low'; // plain bilinear: blends only the edges of the blown-up pixels
+      ctx.drawImage(prescaled(src, Math.ceil(k)), r.x, r.y, r.w, r.h);
+    } else {
+      ctx.imageSmoothingEnabled = true; // smaller than the buffer (a phone held upright): filter it down
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(src, r.x, r.y, r.w, r.h);
+    }
+  }
 
   const display = {
     W: WORLD_W, H: WORLD_H, UI_W, UI_H,
     screen: canvas, ctx,
     world, worldCtx, ui, uiCtx,
-    /** Screen pixels per world pixel (may be fractional when pixelPerfect is off). */
+    /** Screen pixels per world pixel (fractional when the window doesn't fit a whole number). */
     scale: 1,
     /** Destination rect of the game image on the screen canvas, in canvas (device) pixels. */
     rect: { x: 0, y: 0, w: WORLD_W, h: WORLD_H },
     dpr: 1,
-    pixelPerfect: true,
+    /** Strict whole-number scaling (settings.pixelPerfect); off = fill the window, sharp. */
+    pixelPerfect: false,
 
     resize() {
       let dpr = window.devicePixelRatio || 1;
@@ -48,7 +94,7 @@ export function createDisplay(canvas) {
         canvas.height = ch;
       }
       let s = Math.min(cw / WORLD_W, ch / WORLD_H);
-      if (this.pixelPerfect && s >= 1) s = Math.floor(s);
+      if (s >= 1 && (this.pixelPerfect || Math.floor(s) / s >= SNAP)) s = Math.floor(s);
       const w = Math.round(WORLD_W * s);
       const h = Math.round(WORLD_H * s);
       this.scale = s;
@@ -60,7 +106,7 @@ export function createDisplay(canvas) {
     },
 
     applySettings(v) {
-      const pp = v?.pixelPerfect !== false;
+      const pp = v?.pixelPerfect === true;
       if (pp !== this.pixelPerfect) {
         this.pixelPerfect = pp;
         this.resize();
@@ -72,14 +118,10 @@ export function createDisplay(canvas) {
       const r = this.rect;
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(world, r.x, r.y, r.w, r.h);
-      // The UI layer is twice the world resolution: smooth it only when its own scale is fractional,
-      // so text stays crisp at even scales and evenly weighted at odd ones.
-      const uiScale = r.w / UI_W;
-      ctx.imageSmoothingEnabled = Math.abs(uiScale - Math.round(uiScale)) > 1e-6;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(ui, r.x, r.y, r.w, r.h);
+      blitLayer(world, r, r.w / WORLD_W);
+      // The UI layer is twice the world resolution, so at an odd whole scale (×3) its own scale is
+      // fractional (×1.5) and it goes through the sharp path too: text stays evenly weighted.
+      blitLayer(ui, r, r.w / UI_W);
     },
 
     /** Client (CSS px) → UI-buffer coordinates. Writes into `out` to avoid allocation. */
@@ -104,10 +146,12 @@ export function createDisplay(canvas) {
       } catch (e) {
         console.warn('[display] fullscreen request refused', e?.message || e);
       }
-      if (HW.settings && HW.settings.values.fullscreen !== want) {
-        HW.settings.values.fullscreen = want;
-        HW.settings.save();
-      }
+      this._syncFullscreen();
+    },
+
+    /** settings.fullscreen mirrors the live state (Esc / F11 / the browser's own controls too). */
+    _syncFullscreen() {
+      if (HW.settings?.values) HW.settings.values.fullscreen = !!document.fullscreenElement;
     },
 
     /** Settings-screen helpers (aliases used by the UI). */
@@ -152,7 +196,10 @@ export function createDisplay(canvas) {
   };
 
   window.addEventListener('resize', () => display.resize());
-  document.addEventListener('fullscreenchange', () => display.resize());
+  document.addEventListener('fullscreenchange', () => {
+    display.resize();
+    display._syncFullscreen();
+  });
   display.resize();
   return display;
 }

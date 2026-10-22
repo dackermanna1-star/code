@@ -91,7 +91,9 @@ defMat(M.SILVER, { ramp: rampFrom([dk(PAL.g1, 0.5), PAL.g2, PAL.g4, PAL.g6, PAL.
 defMat(M.NAIL, { ramp: rampFrom([dk(PAL.flesh_dd, 0.5), PAL.flesh_dd, mix(PAL.flesh_d, PAL.cream_d, 0.4), mix(PAL.flesh, PAL.cream_d, 0.4), mix(PAL.flesh_l, PAL.paper_d, 0.5)], 6), spec: 0.35, shin: 24, dith: 0.4 });
 
 // sprite-scale variants: no bump (at 64 px the dough texture reads as curls), quieter dither
-defMat(M.SFLESH, { ramp: rampFrom([dk(PAL.flesh_dd, 0.65), dk(PAL.flesh_dd, 0.3), mix(PAL.flesh_d, PAL.flesh_sick, 0.35), mix(PAL.flesh, PAL.flesh_sick, 0.35), mix(PAL.flesh_l, PAL.flesh_sick, 0.2), lt(PAL.flesh_l, 0.12)], 8), spec: 0.3, shin: 12, dith: 0.55, wrap: 0.1, tex: (x, y) => (h01(x, y, 93) < 0.04 ? -0.05 : 0) });
+// (the sprite's dough is the same pale skin family as its little face — glossy and bald, no speckle: the grey-
+// olive speckled ramp read as a wool hood / powdered wig on the 22-px dome)
+defMat(M.SFLESH, { ramp: rampFrom([dk(PAL.flesh_dd, 0.6), mix(dk(PAL.flesh_dd, 0.25), PAL.skin_dd, 0.3), mix(PAL.flesh_d, PAL.skin_d, 0.3), mix(PAL.flesh, PAL.skin, 0.22), mix(PAL.flesh_l, PAL.skin_l, 0.25), lt(PAL.skin_l, 0.45)], 8), spec: 0.55, shin: 26, dith: 0.3, wrap: 0.1 });
 defMat(M.SNAVY, { ...MATS[M.NAVY], bump: null, dith: 0.6, tex: (x, y) => (((x + y) & 1) ? 0.015 : -0.015) - 0.06, alt: { ...MATS[M.NAVY].alt, f: (x, y) => Math.max(0, fbm(x, y, 9, 9) - 0.66) * 2.5 } });
 
 // ---------------------------------------------------------------------------------- G-buffer
