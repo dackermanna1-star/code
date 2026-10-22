@@ -695,6 +695,7 @@ export class HUD {
   update(dt, camera, width, height) {
     this.t -= dt;
     this.miniT -= dt;
+    if (this.world.over && !this.end) this.showEnd(this.world.winner);
     const m = this.app.camera.mode;
     this.modeEl.textContent = MODE_NAMES[m] || m;
     const app = this.app;

@@ -306,7 +306,7 @@ export class App {
     const n = Math.round(seconds * 30);
     for (let i = 0; i < n && !w.over; i++) {
       w.update(1 / 30);
-      for (const e of w.events) if (e.t === 'crater' || i > n - 45) keep.push(e);
+      for (const e of w.events) if (e.t === 'crater' || e.t === 'objective' || e.t === 'battle_over' || i > n - 45) keep.push(e);
       w.events.length = 0;
     }
     for (const e of keep) w.events.push(e);
