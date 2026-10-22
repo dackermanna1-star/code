@@ -27,9 +27,10 @@ missile strikes. Damage and world changes are computed on the server; clients on
 You need a JDK 21. The Gradle wrapper downloads Gradle, Minecraft and the mappings on the first run.
 
 ```sh
-./gradlew build                 # -> build/libs/ordnance-1.0.0.jar (+ -sources.jar)
+./gradlew build                 # -> build/libs/ordnance-1.0.0.jar (+ -sources.jar); also runs the server game tests
+./gradlew build -x runGameTest  # the same without the tests
 ./gradlew runClient             # development client
-./gradlew runServer             # development dedicated server (accept build/../run/eula.txt first)
+./gradlew runServer             # development dedicated server (set eula=true in run/eula.txt first)
 ```
 
 ## Testing
@@ -51,7 +52,7 @@ You need a JDK 21. The Gradle wrapper downloads Gradle, Minecraft and the mappin
   (day, night, underwater), the RPG-7 in first and third person, reloading, the grenade launcher, grenade
   throwing, smoke, the flamethrower, a spreading fire and a missile strike, then repeats the weapons on a
   dedicated server over a real network connection. Timed screenshots are saved to
-  `build/run/clientGameTest/screenshots` (about 230, roughly 25 minutes with software rendering). It fails on
+  `build/run/clientGameTest/screenshots` (about 220; under 10 minutes even with software rendering). It fails on
   crashes, errors and timeouts. Set `ORDNANCE_TEST_SCENES` to a comma-separated subset of
   `items,explosions,weapons,fire,missile,multiplayer` to run only some scenes. On a machine without a display,
   run it under a virtual one: `xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientGameTest`.
@@ -115,13 +116,13 @@ All recipes unlock in the recipe book as soon as you pick up gunpowder or an iro
   fragments. Flying **debris** chunks (real block textures) fly out, bounce, can burn, and settle as rubble.
   Spawn protection and the world border are respected for explosives thrown by players.
 * **Effects**: white-hot flash and sky flash, expanding fireball, ground-hugging shockwave ring, dust skirt,
-  sparks and glowing embers, smoke columns that rise, spread and drift downwind, block chunks, scorch light,
-  and for missiles a rising mushroom cloud with lingering fires. Each family (frag, incendiary, smoke, HEAT,
+  sparks and glowing embers, smoke columns that rise, spread and drift downwind, block chunks, and for
+  missiles a rising mushroom cloud with lingering fires. Each family (frag, incendiary, smoke, HEAT,
   thermobaric, missile, vanilla, underwater) has its own look.
-* **Camera**: screen shake scaled by size and distance, flash, ringing ears near large blasts, and smoke that
-  obscures your view when you stand in it.
+* **Camera**: screen shake scaled by size and distance (arriving with the blast front), a blinding flash for
+  nearby detonations, and smoke that obscures your view when you stand in it.
 * **Sound**: near/far layers that change with size and distance (sharp crack up close, rolling boom far away),
-  delayed by distance at the speed of sound, debris patter and missile booms.
+  delayed by distance at the speed of sound, debris patter, and the missile's incoming scream and sonic boom.
 * **Vanilla explosions** (TNT, creepers, beds, crystals...) get the same debris, scorch marks and visuals;
   both can be turned off separately.
 * **Performance**: particle counts adapt to distance (far explosions use fewer, larger particles), there is
@@ -129,12 +130,14 @@ All recipes unlock in the recipe book as soon as you pick up gunpowder or an iro
 
 ## Fire
 
-* Faster, configurable spread; burning logs **char** instead of always vanishing; burnt-out fires leave ash and
-  scorched ground; large fires throw **embers** that ignite flammable blocks downwind.
+* Spread speed is configurable; burning logs **char** instead of always vanishing; burnt-out fires leave ash
+  and scorched ground; fires throw **embers** that drift downwind and can ignite flammable blocks a few blocks
+  away.
 * **Burning fuel** puddles (napalm) from incendiaries and the flamethrower burn on any solid surface, spread to
   neighbours and burn out.
-* Client effects: layered flames, glowing embers, rising smoke that drifts with the wind, heat haze above
-  big fires and fireballs (a screen-space distortion shader), and crackling ambience.
+* Client effects: flame licks, glowing embers riding the wind, and soft smoke that rises and drifts (replacing
+  vanilla's pixel-art fire smoke), plus heat haze above fireballs and the flamethrower stream (a screen-space
+  distortion shader).
 
 ## Configuration
 
@@ -185,11 +188,14 @@ building the mod does not need Python.
 ## Known limitations
 
 * Item models are blocky Minecraft-style 3D models; weapons have no skeletal animations. Firing, reloading and
-  throwing are conveyed by arm poses (crossbow-style aiming for launchers, trident wind-up for grenades),
-  recoil, muzzle flashes and sounds rather than animated parts.
+  throwing are conveyed by poses (shouldered aiming for launchers, a pulled-back wind-up and overhead throwing
+  arm for grenades), recoil, muzzle flashes and sounds rather than animated parts.
 * All sounds are synthesized placeholders. They are layered and distance-aware, but recorded sounds would be
   more convincing; replace the `.ogg` files under `assets/ordnance/sounds` to upgrade them.
 * Heat haze uses four fixed strength steps, because 1.21.11 post-effect uniforms are fixed per shader file.
+* Minecraft samples the particle atlas without filtering. Smoke, fireball and shockwave textures are 128-256 px
+  and fade out as they reach the camera, but a huge smoke puff seen up close can still show texel edges.
+* A launched 40 mm grenade is drawn as the whole cartridge, casing included.
 * Smoke blocks vision for players and is drawn as particles; it does not stop mobs from seeing or targeting.
 * Fire spread still follows the vanilla `fire_spread_radius_around_player` game rule; fire far away from
   players does not spread.

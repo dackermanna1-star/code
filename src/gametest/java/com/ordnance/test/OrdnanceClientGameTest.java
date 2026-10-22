@@ -353,8 +353,6 @@ public class OrdnanceClientGameTest implements FabricClientGameTest {
 	/** Clears the range and rebuilds the targets: grass field, wooden hut, brick wall, glass and a concrete backstop. */
 	private void resetRange() {
 		this.run("kill @e[type=!player]");
-		// Each scene starts clean: no smoke drifting in from the previous one.
-		this.context.runOnClient(client -> client.particleManager.clearParticles());
 		this.run("fill -40 " + G + " -40 40 " + (G + 30) + " 60 air");
 		this.run("fill -40 " + (G - 3) + " -40 40 " + (G - 2) + " 60 dirt");
 		this.run("fill -40 " + (G - 1) + " -40 40 " + (G - 1) + " 60 grass_block");
@@ -369,6 +367,9 @@ public class OrdnanceClientGameTest implements FabricClientGameTest {
 		this.run("place feature minecraft:oak -16 " + G + " 22");
 		this.run("place feature minecraft:birch 16 " + G + " 26");
 		this.context.waitTicks(2);
+		// Each scene starts clean: no smoke drifting in from the previous one (cleared once the removed entities
+		// have stopped emitting on the client).
+		this.context.runOnClient(client -> client.particleManager.clearParticles());
 	}
 
 	/**
