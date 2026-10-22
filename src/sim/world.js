@@ -3,7 +3,7 @@
 // audio consume `events` produced here; AI brains are attached through
 // `brainFactory` so the simulation itself has no AI dependency.
 
-import { Vector3, Quaternion } from 'three';
+import { Vector3, Quaternion, Euler } from 'three';
 import { SpatialGrid } from '../core/grid.js';
 import { rng } from '../core/rng.js';
 import { clamp } from '../core/math.js';
@@ -625,7 +625,14 @@ export class World {
     const big = a.aclass === 'plane' || a.aclass === 'jet';
     const ex = { radius: big ? 16 : 10, damage: big ? 300 : 200, blastPen: 10, suppression: 1.4, size: 'huge', crater: big ? 2.2 : 1.2 };
     explode(this, a.pos.x, y + 0.5, a.pos.z, ex, null, -1, null, {});
-    a.pos.y = g;
+    // The airframe comes to rest on the ground: planes on their belly,
+    // helicopters on their side; fast jets break up completely.
+    if (a.aclass === 'jet') a.removed = true;
+    const level = a.aclass === 'heli';
+    a.pitch = rng.range(-0.12, 0.06);
+    a.roll = level ? rng.sign() * rng.range(0.6, 1.4) : rng.range(-0.18, 0.18);
+    a.quat.setFromEuler(new Euler(-a.pitch, a.yaw, a.roll, 'YXZ'));
+    a.pos.y = g + (a.aclass === 'plane' ? 0.9 : a.aclass === 'heli' ? 0.4 : 0);
     a.alive = false;
     a.wreck = true;
     a.dying = false;

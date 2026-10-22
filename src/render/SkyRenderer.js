@@ -289,18 +289,19 @@ export class SkyRenderer {
     // Lights.
     const sunUp = el > -0.02;
     const lightDir = sunUp ? this.sunDir : moonDir;
-    const sunI = sunUp ? 3.4 * clamp(el / 0.25, 0, 1) * (1 - cloud * 0.72) : 0.22 * (1 - cloud * 0.6);
+    // Moonlight is kept bright enough to read the battlefield at night.
+    const sunI = sunUp ? 3.4 * clamp(el / 0.25, 0, 1) * (1 - cloud * 0.72) : 0.6 * (1 - cloud * 0.45);
     this.sun.color.copy(sunUp ? sunCol : KEYS.moon);
     this.sun.intensity = sunI;
     const flash = weather.flash;
-    const hemiI = lerp(0.12, 1.15, day) * (1 - cloud * 0.2) + flash * 1.2;
+    const hemiI = lerp(0.34, 1.15, day) * (1 - cloud * 0.2) + flash * 1.2;
     this.hemi.intensity = hemiI;
     this.hemi.color.copy(zen).lerp(new THREE.Color(1, 1, 1), 0.35);
     this.hemi.groundColor.setRGB(0.28, 0.25, 0.18).multiplyScalar(0.4 + day * 0.6);
     // Ambient level for particles (smoke darkens at night).
-    const amb = lerp(0.1, 1, day) * (1 - cloud * 0.25) + flash * 0.8;
+    const amb = lerp(0.16, 1, day) * (1 - cloud * 0.25) + flash * 0.8;
     this.ambientLevel.setRGB(amb, amb * (0.97 + 0.03 * day), amb * (1.02 - 0.05 * day));
-    this.exposure = lerp(1.6, 1.0, day);
+    this.exposure = lerp(1.8, 1.0, day);
 
     // Shadow frustum centred on the focus, snapped to texels to avoid shimmer.
     if (focus) {
@@ -325,8 +326,10 @@ export class SkyRenderer {
       R.uOrigin.value.copy(camera.position);
       R.uTime.value = time;
       R.uVel.value.set(weather.windX * 0.6, -11 - rain * 3, weather.windZ * 0.6);
-      R.uOpacity.value = 0.35 + rain * 0.35 + day * 0.15;
-      R.uColor.value.setRGB(0.6 + day * 0.25, 0.65 + day * 0.25, 0.72 + day * 0.22);
+      R.uOpacity.value = 0.25 + rain * 0.3 + day * 0.15;
+      // Streaks are only as bright as the light falling on them.
+      const lit = Math.min(1.2, 0.16 + day * 0.84 + flash * 0.8);
+      R.uColor.value.setRGB((0.6 + day * 0.25) * lit, (0.65 + day * 0.25) * lit, (0.72 + day * 0.22) * lit);
     }
   }
 }

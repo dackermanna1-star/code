@@ -34,7 +34,9 @@ export class App {
     this.slowT = 0;
     this.fastT = 0;
     this.frame = this.frame.bind(this);
+    // Handle for tests and debugging in the browser console.
     window.__battlespace = this;
+    this.THREE = THREE;
   }
 
   get timeScale() {
