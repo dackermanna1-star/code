@@ -1,0 +1,40 @@
+{
+  "name": "battlespace",
+  "version": "0.1.0",
+  "description": "Massive autonomous modern combined-arms battle simulator with a free-roaming spectator camera (three.js + Web Audio).",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:single": "vite build && node scripts/inline-build.mjs",
+    "preview": "vite preview",
+    "test": "node --test tests/*.test.js",
+    "bench": "node scripts/bench-sim.mjs",
+    "smoke": "node scripts/smoke.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dackermanna1-star/code.git"
+  },
+  "keywords": [
+    "simulation",
+    "three.js",
+    "webgl",
+    "battle",
+    "rts",
+    "ai"
+  ],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dackermanna1-star/code/issues"
+  },
+  "homepage": "https://github.com/dackermanna1-star/code#readme",
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.5"
+  },
+  "type": "module",
+  "private": true
+}
