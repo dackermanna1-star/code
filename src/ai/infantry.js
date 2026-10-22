@@ -25,8 +25,8 @@ export class InfantryBrain {
     this.fleeing = false;
   }
 
-  thinkInterval() {
-    return 0.32 + rng.next() * 0.22;
+  thinkInterval(world) {
+    return (0.32 + rng.next() * 0.22) * (world ? 0.55 + 0.45 * world.load : 1);
   }
 
   think(world) {
@@ -35,7 +35,7 @@ export class InfantryBrain {
     const t = world.time;
     if (t >= this.scanT) {
       scan(u, world, u.def.role === 'sniper' || u.def.role === 'manpads' ? 5 : 3);
-      this.scanT = t + 0.7 + rng.next() * 0.5;
+      this.scanT = t + (0.7 + rng.next() * 0.5) * (0.5 + 0.5 * world.load);
       pickTarget(u, world);
     } else if (u.target && (!u.target.alive || u.target.hidden)) {
       pickTarget(u, world);

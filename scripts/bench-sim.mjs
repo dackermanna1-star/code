@@ -3,7 +3,7 @@
 
 import { generateMap } from '../src/world/mapgen.js';
 import { World } from '../src/sim/world.js';
-import { attachAI } from '../src/ai/index.js';
+import { attachAI, planForces } from '../src/ai/index.js';
 import { rng } from '../src/core/rng.js';
 
 const scenario = process.argv[2] || 'town';
@@ -15,9 +15,9 @@ let t0 = performance.now();
 const map = generateMap(scenario, 5);
 const tMap = performance.now() - t0;
 t0 = performance.now();
-const world = new World(map, { tickets: size * 3 });
-const army = { size, infantry: 1, armor: 1, air: 1, artillery: 1, drones: 1, reinforcements: true };
-attachAI(world, [army, army]);
+const forces = planForces(map, size);
+const world = new World(map, { tickets: forces.tickets });
+attachAI(world, forces.armies);
 const tSetup = performance.now() - t0;
 console.log(`map ${tMap.toFixed(0)} ms, world+AI ${tSetup.toFixed(0)} ms, units ${world.units.length}`);
 

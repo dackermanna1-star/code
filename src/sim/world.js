@@ -58,6 +58,7 @@ export class World {
     this.trees = map.trees;
     this.time = 0;
     this.tick = 0;
+    this.load = 1;
     this.units = [];
     this.dead = [];
     this.events = [];
@@ -184,6 +185,8 @@ export class World {
     this.time += dt;
     this.tick++;
     this.losBudget = this.losPerTick;
+    // AI load factor: brains think less often in very large battles.
+    this.load = Math.min(2.5, Math.max(1, this.units.length / 1600));
     this.weather.update(dt);
     // Grids.
     this.unitGrid.rebuild(this.units, isActive);
@@ -195,7 +198,7 @@ export class World {
       const u = this.units[i];
       if (u.cat === 'air' && u.alive && !u.dying) this.airUnits[u.faction].push(u);
     }
-    this.paths.update(this.opts.pathBudgetMs ?? 3);
+    this.paths.update((this.opts.pathBudgetMs ?? 3) / Math.sqrt(this.load));
     // Strategic and squad AI.
     for (const f of this.factions) {
       if (f.intel) f.intel.update(dt, this);
@@ -220,7 +223,7 @@ export class World {
       if (b && !u.hidden && !u.dying) {
         if (this.time >= u.nextThink) {
           b.think(this);
-          u.nextThink = this.time + b.thinkInterval();
+          u.nextThink = this.time + b.thinkInterval(this);
         }
         b.update(dt, this);
       }

@@ -208,7 +208,7 @@ export class Menu {
         el('h2', { text: 'Spectator controls' }),
         el(
           'div',
-          { class: 'keys-mini', html: '' },
+          { class: 'keys-mini' },
           ...[
             ['WASD · Q/E', 'fly · down/up'],
             ['Right-drag', 'look around'],

@@ -31,6 +31,8 @@ export class App {
     this.hudHidden = false;
     this.selected = null;
     this.frameMs = 16;
+    this.simAcc = 0;
+    this.stepMs = 0;
     this.slowT = 0;
     this.fastT = 0;
     this.frame = this.frame.bind(this);
@@ -322,10 +324,16 @@ export class App {
     const t0 = performance.now();
     const simDt = this.paused ? 0 : dt * this.timeScale;
     w.listener = this.renderer.camera.position;
-    if (simDt > 0) {
-      const steps = Math.min(4, Math.ceil(simDt / 0.034));
-      const h = simDt / steps;
+    // The simulation normally steps once per frame; when a step gets
+    // expensive (huge battles) it runs at a fixed 30 Hz instead.
+    this.simAcc += simDt;
+    const minStep = this.stepMs > 7 ? 1 / 30 : 0;
+    if (this.simAcc > 0 && this.simAcc >= minStep) {
+      const steps = Math.min(4, Math.ceil(this.simAcc / 0.034));
+      const h = Math.min(this.simAcc / steps, 0.034);
       for (let i = 0; i < steps; i++) w.update(h);
+      this.stepMs += ((performance.now() - t0) / steps - this.stepMs) * 0.1;
+      this.simAcc = 0;
     }
     const t1 = performance.now();
     this.camera.update(dt, w, this.renderer.shake);

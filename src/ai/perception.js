@@ -63,9 +63,15 @@ export function scan(u, world, maxChecks = 4) {
   const ux = u.pos.x;
   const uz = u.pos.z;
   // Top-K candidates by priority (distance, discounted if firing or already known).
+  // Nearby enemies first; the whole vision range only every third scan, when
+  // nothing is close, or for long-range observers (keeps big battles cheap).
   _top.length = 0;
   _topD.length = 0;
-  world.factionGrids[e].queryRadius(ux, uz, range, _cand);
+  u.scanN = (u.scanN || 0) + 1;
+  const near = Math.min(range, 320);
+  const farSighted = u.cat !== 'inf' || maxChecks > 3;
+  world.factionGrids[e].queryRadius(ux, uz, farSighted ? range : near, _cand);
+  if (!farSighted && range > near && (_cand.length < maxChecks * 2 || u.scanN % 3 === 0)) world.factionGrids[e].queryRadius(ux, uz, range, _cand);
   for (let i = 0; i < _cand.length; i++) {
     const c = _cand[i];
     if (!c.alive || c.dying || c.cat === 'air') continue;
@@ -182,15 +188,14 @@ export function pickTarget(u, world, opts = {}) {
   for (let i = 0; i < seen.length; i++) consider(seen[i], true);
   // Known (spotted) enemies within weapon range.
   if (opts.known !== false) {
-    world.factionGrids[1 - f].queryRadius(u.pos.x, u.pos.z, Math.min(maxRange, 1500), _cand);
     let n = 0;
-    for (let i = 0; i < _cand.length && n < 24; i++) {
-      const c = _cand[i];
+    world.factionGrids[1 - f].forEachInRadius(u.pos.x, u.pos.z, Math.min(maxRange, 1500), (c) => {
       if (c.spotted[f] > t && seen.indexOf(c) < 0) {
         consider(c, false);
-        n++;
+        if (++n >= 24) return true;
       }
-    }
+      return false;
+    });
     if (maxRange > 1000) {
       const air = world.airUnits[1 - f];
       for (const c of air) if (c.spotted[f] > t && seen.indexOf(c) < 0) consider(c, false);

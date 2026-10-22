@@ -9,7 +9,7 @@ export default defineConfig({
     assetsInlineLimit: 1 << 20,
     chunkSizeWarningLimit: 4096,
     rollupOptions: {
-      output: { inlineDynamicImports: true },
+      output: { codeSplitting: false },
     },
   },
 });

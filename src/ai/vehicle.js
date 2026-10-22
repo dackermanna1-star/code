@@ -26,8 +26,8 @@ export class VehicleBrain {
     this.supportT = 0;
   }
 
-  thinkInterval() {
-    return 0.3 + rng.next() * 0.15;
+  thinkInterval(world) {
+    return (0.3 + rng.next() * 0.15) * (world ? 0.7 + 0.3 * world.load : 1);
   }
 
   get cls() {
