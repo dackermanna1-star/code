@@ -34,6 +34,8 @@ public final class ExplosionEffects {
 	private static final int FIRE_START = 0xFFFFF6D8;
 	private static final int FIRE_MID = 0xFFFF9C3A;
 	private static final int FIRE_END = 0x80502616;
+	/** Smoke rolls in a few ticks after the fireball; spawned together it would hide the fireball completely. */
+	private static final int SMOKE_DELAY = 3;
 
 	private ExplosionEffects() {
 	}
@@ -70,13 +72,13 @@ public final class ExplosionEffects {
 
 	private static void frag(Ctx c) {
 		float s = c.scale;
-		flash(c, 2.2F * s, 0xFFFFF4D8, 3);
-		fireball(c, 9.0F * (float)Math.pow(s, 1.2), 0.6F * s, 0.45F * s, 1.4F * s, 8, 14, 0.004F);
+		flash(c, 2.4F * s, 0xFFFFF4D8, 4);
+		fireball(c, 14.0F * (float)Math.pow(s, 1.2), 0.65F * s, 0.6F * s, 1.7F * s, 8, 15, 0.004F);
 		sparks(c, 36.0F * s, 0.55 * MathHelper.sqrt(s), 1.1 * MathHelper.sqrt(s), null);
 		chunks(c, 18.0F * s, 0.25 * MathHelper.sqrt(s), 0.65 * MathHelper.sqrt(s));
 		groundDust(c, 16.0F * s, 0.4F * s, 0.25 * MathHelper.sqrt(s), 0.42 * MathHelper.sqrt(s), 0.5F * s, 1.9F * s);
 		shockRing(c, 0.3F, 6.0F * s, 6, 0.35F);
-		smoke(c, 12.0F * s, 1.0F * s, 0.9F * s, 3.0F * s, 70, 140, HE_SMOKE_START, HE_SMOKE_MID, HE_SMOKE_END, 0.85F, 0.0015F);
+		FxScheduler.schedule(SMOKE_DELAY, () -> smoke(c, 12.0F * s, 1.0F * s, 0.9F * s, 3.0F * s, 70, 140, HE_SMOKE_START, HE_SMOKE_MID, HE_SMOKE_END, 0.85F, 0.0015F));
 		embers(c, 10.0F * s, 0.3);
 		common(c, 0.55F, 0xFFF4D8, 2.5F, 0.7F, 30);
 	}
@@ -122,7 +124,7 @@ public final class ExplosionEffects {
 				.spawn(c.world, c.pos);
 		}
 
-		smoke(c, 16.0F * s, 1.2F * s, 1.0F * s, 3.4F * s, 100, 180, 0xF0161210, 0xE0221E1A, 0xC0403A34, 0.9F, 0.003F);
+		FxScheduler.schedule(SMOKE_DELAY, () -> smoke(c, 16.0F * s, 1.2F * s, 1.0F * s, 3.4F * s, 100, 180, 0xF0161210, 0xE0221E1A, 0xC0403A34, 0.9F, 0.003F));
 		embers(c, 24.0F * s, 0.35);
 		ScreenEffects.explosionFlash(c.pos, s * 0.8F, 0xFFB060);
 		HeatHaze.addSource(c.pos, 1.0F, 9.0F * s, 70);
@@ -161,7 +163,7 @@ public final class ExplosionEffects {
 			sparks(c, 50.0F, 0.6, 1.4, null);
 			chunks(c, 30.0F, 0.35, 0.9);
 			groundDust(c, 30.0F, 0.6F * s, 0.45, 0.8, 1.0F * s, 3.0F * s);
-			smoke(c, 22.0F, 1.6F * s, 1.2F * s, 4.0F * s, 120, 220, 0xF0201C18, 0xE0403A34, 0xB0706A64, 0.9F, 0.003F);
+			FxScheduler.schedule(SMOKE_DELAY, () -> smoke(c, 22.0F, 1.6F * s, 1.2F * s, 4.0F * s, 120, 220, 0xF0201C18, 0xE0403A34, 0xB0706A64, 0.9F, 0.003F));
 			embers(c, 40.0F, 0.6);
 			common(c, 0.9F, 0xFFE0B0, 5.0F, 1.0F, 100);
 		});
@@ -193,7 +195,7 @@ public final class ExplosionEffects {
 		chunks(c, 110.0F, 0.6, 1.6);
 		fieryDebris(c, 30.0F);
 		groundDust(c, 80.0F, 3.0F, 1.0, 1.8, 2.0F, 7.0F);
-		smoke(c, 40.0F, 1.2F * s, 2.0F * s, 4.0F * s, 160, 260, 0xF0221C18, 0xE04A423A, 0xC0747068, 0.95F, 0.004F);
+		FxScheduler.schedule(SMOKE_DELAY + 2, () -> smoke(c, 40.0F, 1.2F * s, 2.0F * s, 4.0F * s, 160, 260, 0xF0221C18, 0xE04A423A, 0xC0747068, 0.95F, 0.004F));
 
 		// Mushroom cloud: a rising stem, then a rolling cap spreading outward.
 		double groundY = c.groundY != null ? c.groundY : c.pos.y - 1.0;
@@ -242,7 +244,7 @@ public final class ExplosionEffects {
 		chunks(c, 22.0F * s, 0.25, 0.7);
 		groundDust(c, 18.0F * s, 0.5F * s, 0.25, 0.45, 0.6F * s, 2.0F * s);
 		shockRing(c, 0.3F, 5.0F * s, 6, 0.3F);
-		smoke(c, 16.0F * s, 1.1F * s, 0.9F * s, 3.2F * s, 80, 160, 0xE04A4540, 0xD0807A74, 0xB0A8A29C, 0.85F, 0.002F);
+		FxScheduler.schedule(SMOKE_DELAY, () -> smoke(c, 16.0F * s, 1.1F * s, 0.9F * s, 3.2F * s, 80, 160, 0xE04A4540, 0xD0807A74, 0xB0A8A29C, 0.85F, 0.002F));
 		common(c, 0.5F, 0xFFF0D0, 2.6F * s, 0.6F, 40);
 	}
 
@@ -428,7 +430,7 @@ public final class ExplosionEffects {
 			OrdnanceParticle.builder(ParticleSprites.SMOKE)
 				.life((int)(lifeMin * linger) + 10, (int)(lifeMax * linger) + 20)
 				.size(sizeStart * c.sizeComp, sizeEnd * c.sizeComp).sizeCurve(0.55F)
-				.colors(colorStart, colorMid, colorEnd).colorMidPoint(0.35F).alpha(alpha).fade(0.04F, 0.55F)
+				.colors(colorStart, colorMid, colorEnd).colorMidPoint(0.35F).alpha(alpha).fade(0.12F, 0.55F)
 				.velocity(velocity).buoyancy(buoyancy).drag(0.95F).wind(c.wind, 0.6F).spin(0.01F)
 				.emissive(0.45F, 0.0F)
 				.spawn(c.world, c.pos.add(offset));
@@ -485,8 +487,8 @@ public final class ExplosionEffects {
 	}
 
 	public static void trailSmoke(ClientWorld world, Vec3d pos, float size, int argb) {
-		OrdnanceParticle.builder(ParticleSprites.SMOKE).life(30, 60).size(size * 0.5F, size * 1.6F).sizeCurve(0.6F)
-			.colors(argb, argb & 0x00FFFFFF | 0x60000000).alpha(0.8F).fade(0.0F, 0.4F)
+		OrdnanceParticle.builder(ParticleSprites.SMOKE).life(30, 60).size(size * 0.6F, size * 1.8F).sizeCurve(0.6F)
+			.colors(argb, argb & 0x00FFFFFF | 0x60000000).alpha(0.7F).fade(0.2F, 0.45F)
 			.velocity(0.0, 0.02, 0.0).drag(0.95F).buoyancy(0.001F)
 			.spawn(world, pos);
 	}

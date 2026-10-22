@@ -39,19 +39,22 @@ You need a JDK 21. The Gradle wrapper downloads Gradle, Minecraft and the mappin
 ./gradlew runClientGameTest     # scripted client walkthrough with screenshots
 ```
 
-* **`runGameTest`** starts a test server and runs the gameplay tests in
-  `src/gametest/java/com/ordnance/test/OrdnanceGameTests.java`: recipes/damage types load, the magazine
-  logic, frag blasts breaking blocks and hurting mobs once the blast front arrives, the HEAT jet punching
-  through walls, thermobaric and incendiary fires, smoke grenades venting, the RPG-7 and grenade launcher firing
-  real projectiles from a player, the flame stream igniting wood, burning fuel burning out, and vanilla TNT
-  getting debris and scorch marks. The task fails if any test fails.
+* **`runGameTest`** starts a test server and runs the 14 gameplay tests in
+  `src/gametest/java/com/ordnance/test/OrdnanceGameTests.java`: recipes, damage types and the recipe
+  advancement load; the magazine logic; frag blasts breaking blocks and hurting mobs once the blast front
+  arrives; the HEAT jet punching through walls; thermobaric and incendiary fires; smoke grenades venting; the
+  RPG-7 and grenade launcher firing real projectiles from a player; the flame stream igniting wood; burning fuel
+  burning out; scorch marks reaching the floor under a roof; and vanilla TNT getting debris and scorch marks.
+  The task fails if any test fails.
 * **`runClientGameTest`** launches a real client, creates a superflat world, builds a firing range and goes
   through every item (first person, third person, on the ground, in the creative tab), every warhead
   (day, night, underwater), the RPG-7 in first and third person, reloading, the grenade launcher, grenade
-  throwing, smoke, the flamethrower, a spreading forest fire and a missile strike. Timed screenshots are saved
-  to `build/run/clientGameTest/screenshots`. It fails on crashes, render/shader errors or mixin failures.
-  On a machine without a display, run it under a virtual one:
-  `xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientGameTest`.
+  throwing, smoke, the flamethrower, a spreading fire and a missile strike, then repeats the weapons on a
+  dedicated server over a real network connection. Timed screenshots are saved to
+  `build/run/clientGameTest/screenshots` (about 230, roughly 25 minutes with software rendering). It fails on
+  crashes, errors and timeouts. Set `ORDNANCE_TEST_SCENES` to a comma-separated subset of
+  `items,explosions,weapons,fire,missile,multiplayer` to run only some scenes. On a machine without a display,
+  run it under a virtual one: `xvfb-run -a -s "-screen 0 1280x720x24" ./gradlew runClientGameTest`.
 
 For manual testing, use a creative world and the operator command:
 

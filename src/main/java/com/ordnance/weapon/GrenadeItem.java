@@ -31,7 +31,8 @@ import net.minecraft.world.World;
  * after the throw; hold past the fuse and it detonates in hand.
  */
 public class GrenadeItem extends Item implements ExplosiveItem {
-	private static final int FULL_THROW_TICKS = 14;
+	/** Hold time for a full-strength throw. */
+	public static final int FULL_THROW_TICKS = 14;
 	private final ExplosionProfile profile;
 
 	public GrenadeItem(Settings settings, ExplosionProfile profile) {
@@ -107,9 +108,10 @@ public class GrenadeItem extends Item implements ExplosiveItem {
 		return 72000;
 	}
 
+	/** No vanilla use animation: the wind-up is drawn by the client weapon poses. */
 	@Override
 	public UseAction getUseAction(ItemStack stack) {
-		return UseAction.TRIDENT;
+		return UseAction.NONE;
 	}
 
 	@Override

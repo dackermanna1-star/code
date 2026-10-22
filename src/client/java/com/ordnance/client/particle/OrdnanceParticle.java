@@ -243,6 +243,10 @@ public class OrdnanceParticle extends BillboardParticle {
 	@Override
 	public void render(BillboardParticleSubmittable submittable, Camera camera, float tickProgress) {
 		this.updateColor(this.progress(tickProgress));
+		if (this.renderType == OrdnanceRenderTypes.SOFT) {
+			this.alpha *= this.nearCameraFade(camera, tickProgress);
+		}
+
 		if (this.alpha <= 0.003F) {
 			return;
 		}
@@ -254,6 +258,24 @@ public class OrdnanceParticle extends BillboardParticle {
 		} else {
 			super.render(submittable, camera, tickProgress);
 		}
+	}
+
+	/**
+	 * Smoke and dust billboards that reach the camera would fill the screen with one flat sprite; thin them out
+	 * instead. Standing inside smoke is conveyed by the smoke-obstruction overlay.
+	 */
+	private float nearCameraFade(Camera camera, float tickProgress) {
+		if (this.horizontal) {
+			return 1.0F;
+		}
+
+		Vec3d eye = camera.getCameraPos();
+		double dx = MathHelper.lerp(tickProgress, this.lastX, this.x) - eye.x;
+		double dy = MathHelper.lerp(tickProgress, this.lastY, this.y) - eye.y;
+		double dz = MathHelper.lerp(tickProgress, this.lastZ, this.z) - eye.z;
+		float halfSize = this.getSize(tickProgress);
+		double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+		return (float)MathHelper.clamp((distance - halfSize) / (2.0 * halfSize), 0.0, 1.0);
 	}
 
 	@Override

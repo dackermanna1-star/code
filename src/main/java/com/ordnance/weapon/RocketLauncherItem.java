@@ -12,7 +12,6 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
-import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.math.Box;
@@ -103,7 +102,6 @@ public class RocketLauncherItem extends MagazineWeaponItem {
 			BlastWaveManager.apply(world, new BlastWaveManager.Hit(entity, (float)(cfg.backblastDamage * falloff), source, push, falloff > 0.6 ? 2.0F : 0.0F, player));
 		}
 
-		Vec3d exhaust = origin.subtract(look.multiply(0.8));
-		world.spawnParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, exhaust.x, exhaust.y, exhaust.z, 6, 0.4, 0.3, 0.4, 0.02);
+		// The visible exhaust cloud is drawn by each client (see WeaponEffects).
 	}
 }

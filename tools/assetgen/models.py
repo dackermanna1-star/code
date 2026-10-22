@@ -174,12 +174,15 @@ def tf(rotation=(0, 0, 0), translation=(0, 0, 0), scale=1.0):
     return {"rotation": list(rotation), "translation": list(translation), "scale": list(s)}
 
 
-def long_gun_display(scale_hand=1.0, gui_scale=0.55, ground=0.5):
+def long_gun_display(first_person, fp_scale=1.0, gui_scale=0.55, ground=0.5):
+    """``first_person`` is the right-hand translation; values were fitted with a projection of the vanilla view
+    model so the muzzle sits just right of and below the crosshair and the body leaves the lower-right corner."""
+    # The game mirrors left-hand transforms itself (negated x translation), so both hands share the values.
     return {
-        "firstperson_righthand": tf((0, 0, 0), (-3.0, -1.5, -2.0), scale_hand),
-        "firstperson_lefthand": tf((0, 0, 0), (3.0, -1.5, -2.0), scale_hand),
-        "thirdperson_righthand": tf((0, 0, 0), (0, 2.0, -1.0), scale_hand * 0.85),
-        "thirdperson_lefthand": tf((0, 0, 0), (0, 2.0, -1.0), scale_hand * 0.85),
+        "firstperson_righthand": tf((0, 0, 0), first_person, fp_scale),
+        "firstperson_lefthand": tf((0, 0, 0), first_person, fp_scale),
+        "thirdperson_righthand": tf((0, 0, 0), (0, 2.0, -1.0), 0.85),
+        "thirdperson_lefthand": tf((0, 0, 0), (0, 2.0, -1.0), 0.85),
         "gui": tf((30, 135, 0), (0, 0, 0), gui_scale),
         "ground": tf((0, 0, 0), (0, 3, 0), ground),
         "fixed": tf((0, 90, 0), (0, 0, 0), gui_scale * 1.1),
@@ -187,10 +190,13 @@ def long_gun_display(scale_hand=1.0, gui_scale=0.55, ground=0.5):
     }
 
 
-def small_item_display(gui_scale=1.0, hand=0.7, fixed_flip=True):
+def small_item_display(gui_scale=1.0, hand=0.7, fixed_flip=True, first_person=None):
+    """``first_person`` = (translation, scale) for the right hand, fitted so the item sits fully on screen in the
+    lower right like a held vanilla item; defaults suit long thin items (rockets)."""
+    translation, fp_scale = first_person or ((0, 1.5, -1.0), hand)
     return {
-        "firstperson_righthand": tf((0, 0, 0), (0, 1.5, -1.0), hand),
-        "firstperson_lefthand": tf((0, 0, 0), (0, 1.5, -1.0), hand),
+        "firstperson_righthand": tf((0, 0, 0), translation, fp_scale),
+        "firstperson_lefthand": tf((0, 0, 0), translation, fp_scale),
         "thirdperson_righthand": tf((0, 0, 0), (0, 2.5, 0.5), hand * 0.8),
         "thirdperson_lefthand": tf((0, 0, 0), (0, 2.5, 0.5), hand * 0.8),
         "gui": tf((30, 135, 0), (0, 0, 0), gui_scale),
@@ -233,7 +239,7 @@ def rpg7(loaded):
         m.tube("warhead", 8, 8, 1.35, -14.0, -12.0)
         m.box("warhead_light", (7.2, 7.2, -15.4), (8.8, 8.8, -14.0))
         m.box("steel_light", (7.65, 7.65, -16.0), (8.35, 8.35, -15.4))
-    m.display = long_gun_display(1.0, 0.5)
+    m.display = long_gun_display((-2.0, 3.5, -2.0), 1.0, 0.5)
     m.write()
 
 
@@ -284,7 +290,7 @@ def grenade_launcher():
     m.box("rubber", (7.2, 4.5, -4.5), (8.8, 8.3, -2.8))
     m.box("black", (7.0, 11.0, 0.5), (9.0, 12.6, 3.5))
     m.box("lens", (7.3, 11.3, 0.3), (8.7, 12.3, 0.5))
-    m.display = long_gun_display(1.0, 0.55)
+    m.display = long_gun_display((-2.5, 3.0, -2.0), 0.8, 0.55)
     m.write()
 
 
@@ -296,7 +302,7 @@ def round_40mm(name, head, band):
     m.cylinder_y(band, 8, 8, 1.7, 3.6, 4.0)
     m.cylinder_y(head, 8, 8, 1.2, 5.0, 5.8)
     m.cylinder_y(head, 8, 8, 0.7, 5.8, 6.3)
-    m.display = small_item_display(1.3, 0.75, fixed_flip=False)
+    m.display = small_item_display(1.3, 0.75, fixed_flip=False, first_person=((1.5, 5.5, -4.0), 0.85))
     # Launched rounds fly nose (+Y) first: tip the model forward.
     m.display["fixed"] = tf((-90, 0, 0), (0, 0, 0), 1.2)
     m.write()
@@ -316,7 +322,7 @@ def frag_grenade():
     m.box("steel_light", (4.0, 9.0, 7.8), (4.4, 11.6, 8.2))
     m.box("steel_light", (4.0, 11.4, 7.8), (5.6, 11.8, 8.2))
     m.box("steel_light", (4.0, 8.8, 7.8), (5.6, 9.2, 8.2))
-    m.display = small_item_display(1.25, 0.8, fixed_flip=False)
+    m.display = small_item_display(1.25, 0.8, fixed_flip=False, first_person=((1.0, 2.5, -3.0), 0.5))
     m.write()
 
 
@@ -331,7 +337,7 @@ def canister_grenade(name, body, band, top):
     m.box("steel_light", (4.6, 10.0, 7.8), (5.0, 12.0, 8.2))
     m.box("steel_light", (4.6, 11.8, 7.8), (6.4, 12.2, 8.2))
     m.box("steel_light", (4.6, 9.8, 7.8), (6.4, 10.2, 8.2))
-    m.display = small_item_display(1.25, 0.8, fixed_flip=False)
+    m.display = small_item_display(1.25, 0.8, fixed_flip=False, first_person=((1.5, 2.0, -4.0), 0.5))
     m.write()
 
 
@@ -357,7 +363,7 @@ def flamethrower():
     m.box("gunmetal_dark", (7.3, 8.6, 8.0), (8.7, 10.2, 16.0))
     m.box("rubber", (7.0, 7.0, 16.0), (9.0, 10.6, 17.4))
     m.box("hazard", (6.2, 5.0, 2.0), (6.4, 6.0, 5.0))
-    m.display = long_gun_display(1.0, 0.6)
+    m.display = long_gun_display((-1.0, 2.5, -2.0), 0.9, 0.6)
     m.write()
 
 
@@ -369,7 +375,7 @@ def fuel_canister():
     m.box("fuel_red", (6.0, 10.8, 7.4), (9.5, 12.0, 8.6))
     m.box("steel", (9.8, 10.8, 7.2), (11.0, 12.4, 8.8))
     m.box("hazard", (4.4, 6.0, 9.9), (8.0, 8.5, 10.15))
-    m.display = small_item_display(1.0, 0.75, fixed_flip=False)
+    m.display = small_item_display(1.0, 0.75, fixed_flip=False, first_person=((1.5, 2.0, -4.0), 0.45))
     m.write()
 
 
@@ -389,9 +395,7 @@ def strike_designator():
     m.box("black", (10.6, 10.5, 5.0), (11.0, 15.5, 5.4))
     m.box("rubber", (7.2, 2.0, 3.0), (8.8, 6.0, 4.8))
     m.box("led_red", (5.0, 10.5, 6.5), (5.6, 10.7, 7.1), shade=False, light=15)
-    m.display = small_item_display(1.0, 0.75, fixed_flip=False)
-    m.display["firstperson_righthand"] = tf((0, 0, 0), (-1.0, 0.5, -2.0), 0.8)
-    m.display["firstperson_lefthand"] = tf((0, 0, 0), (1.0, 0.5, -2.0), 0.8)
+    m.display = small_item_display(1.0, 0.75, fixed_flip=False, first_person=((1.0, 3.0, -4.0), 0.55))
     m.write()
 
 
@@ -422,7 +426,7 @@ def explosive_charge():
     m.box("led_red", (9.6, 5.0, 6.6), (10.4, 5.3, 7.4), shade=False, light=15)
     m.box("red", (6.0, 3.5, 8.6), (9.0, 3.9, 9.0))
     m.box("yellow", (5.0, 3.5, 6.2), (9.0, 3.9, 6.6))
-    m.display = small_item_display(1.1, 0.75, fixed_flip=False)
+    m.display = small_item_display(1.1, 0.75, fixed_flip=False, first_person=((2.0, 4.5, -5.5), 0.7))
     m.write()
 
 

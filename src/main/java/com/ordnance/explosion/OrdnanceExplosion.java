@@ -3,6 +3,7 @@ package com.ordnance.explosion;
 import com.ordnance.config.ConfigManager;
 import com.ordnance.config.OrdnanceConfig;
 import com.ordnance.entity.DebrisEntity;
+import com.ordnance.entity.GrenadeEntity;
 import com.ordnance.fire.FireHelper;
 import com.ordnance.network.OrdnanceNetworking;
 import com.ordnance.registry.ModDamageTypes;
@@ -53,6 +54,10 @@ import org.jspecify.annotations.Nullable;
  */
 public final class OrdnanceExplosion implements Explosion {
 	private static final float CRATER_MAX_RESISTANCE = 60.0F;
+	/** Warheads at least this strong flatten light structures beyond the reach of their blast rays. */
+	private static final float OVERPRESSURE_MIN_POWER = 8.0F;
+	/** Blocks up to this blast resistance (wood, glass, foliage, soil, concrete) give way to the overpressure. */
+	private static final float OVERPRESSURE_MAX_RESISTANCE = 3.0F;
 
 	private final ServerWorld world;
 	private final Vec3d pos;
@@ -101,6 +106,12 @@ public final class OrdnanceExplosion implements Explosion {
 	 * @param direction travel direction at impact; drives the shaped-charge jet and directional effects
 	 */
 	public static void detonate(ServerWorld world, Vec3d pos, ExplosionProfile profile, @Nullable Entity source, @Nullable Entity owner, Vec3d direction) {
+		if (profile.style().isSmoke()) {
+			// Smoke munitions don't explode; they vent a smoke screen.
+			GrenadeEntity.ventSmoke(world, pos, profile, owner);
+			return;
+		}
+
 		new OrdnanceExplosion(world, pos, profile, source, owner, direction).explode();
 	}
 
@@ -203,6 +214,10 @@ public final class OrdnanceExplosion implements Explosion {
 			this.penetrate(set);
 		}
 
+		if (this.power >= OVERPRESSURE_MIN_POWER && !this.underwater) {
+			this.overpressure(set);
+		}
+
 		int limit = this.settings.maxBlocksPerExplosion;
 		if (set.size() > limit) {
 			LongSet trimmed = new LongOpenHashSet(limit);
@@ -250,6 +265,39 @@ public final class OrdnanceExplosion implements Explosion {
 
 					BlockState state = this.world.getBlockState(mutable);
 					if (!state.isAir() && state.getBlock().getBlastResistance() <= CRATER_MAX_RESISTANCE && this.canDestroy(mutable, state)) {
+						set.add(mutable.asLong());
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * The blast front of a very large warhead flattens trees and light buildings well beyond the crater, which the
+	 * ray pass alone can't do (rays lose strength quickly in open air). Only blocks at or above the burst height go;
+	 * the ground itself is left to the crater and scorching.
+	 */
+	private void overpressure(LongSet set) {
+		float radius = this.power * 1.5F;
+		int r = MathHelper.ceil(radius);
+		int up = MathHelper.ceil(radius * 0.6F);
+		BlockPos center = BlockPos.ofFloored(this.pos);
+		BlockPos.Mutable mutable = new BlockPos.Mutable();
+		for (int dx = -r; dx <= r; dx++) {
+			for (int dz = -r; dz <= r; dz++) {
+				for (int dy = 0; dy <= up; dy++) {
+					double d = Math.sqrt(dx * dx + dz * dz + dy * dy * 2.5) / radius;
+					if (d > 1.0 || this.random.nextFloat() > (1.0 - d) * 1.8) {
+						continue;
+					}
+
+					mutable.set(center.getX() + dx, center.getY() + dy, center.getZ() + dz);
+					if (!this.world.isInBuildLimit(mutable) || set.contains(mutable.asLong())) {
+						continue;
+					}
+
+					BlockState state = this.world.getBlockState(mutable);
+					if (!state.isAir() && state.getBlock().getBlastResistance() <= OVERPRESSURE_MAX_RESISTANCE && this.canDestroy(mutable, state)) {
 						set.add(mutable.asLong());
 					}
 				}

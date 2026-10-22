@@ -8,15 +8,19 @@ import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.PillarBlock;
+import net.minecraft.block.ShapeContext;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
+import net.minecraft.world.RaycastContext;
 import org.jspecify.annotations.Nullable;
 
 /** Scorch marks, charring and other heat damage to terrain. */
@@ -66,9 +70,10 @@ public final class TerrainEffects {
 						break;
 					}
 
-					BlockPos above = mutable.up();
-					if (!world.getBlockState(above).isAir() && !world.getBlockState(above).isReplaceable()) {
-						break;
+					// Only an upward-facing surface the blast can see: keep looking below ceilings, roofs and walls.
+					BlockState aboveState = world.getBlockState(mutable.up());
+					if ((!aboveState.isAir() && !aboveState.isReplaceable()) || !exposed(world, center, mutable)) {
+						continue;
 					}
 
 					scorchBlock(world, mutable.toImmutable(), state, d, random, owner);
@@ -76,6 +81,15 @@ public final class TerrainEffects {
 				}
 			}
 		}
+	}
+
+	/** Whether the blast has a clear line to the top face of {@code surface}. */
+	private static boolean exposed(ServerWorld world, Vec3d center, BlockPos surface) {
+		// Start slightly above the burst point: ground bursts sit exactly on the surface they hit.
+		Vec3d from = center.add(0.0, 0.3, 0.0);
+		Vec3d to = new Vec3d(surface.getX() + 0.5, surface.getY() + 1.05, surface.getZ() + 0.5);
+		BlockHitResult hit = world.raycast(new RaycastContext(from, to, RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, ShapeContext.absent()));
+		return hit.getType() == HitResult.Type.MISS || hit.getBlockPos().equals(surface) && hit.getSide() == Direction.UP;
 	}
 
 	private static void scorchBlock(ServerWorld world, BlockPos pos, BlockState state, double distance, Random random, @Nullable Entity owner) {

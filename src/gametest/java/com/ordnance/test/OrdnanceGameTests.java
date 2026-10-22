@@ -5,6 +5,7 @@ import com.ordnance.entity.GrenadeEntity;
 import com.ordnance.entity.LauncherGrenadeEntity;
 import com.ordnance.explosion.ExplosionProfile;
 import com.ordnance.explosion.OrdnanceExplosion;
+import com.ordnance.explosion.TerrainEffects;
 import com.ordnance.registry.ModBlocks;
 import com.ordnance.registry.ModComponents;
 import com.ordnance.registry.ModDamageTypes;
@@ -215,19 +216,44 @@ public class OrdnanceGameTests {
 
 	@GameTest(maxTicks = 30)
 	public void vanillaTntGetsDebrisAndScorchMarks(TestContext context) {
-		// Thick enough that the crater does not swallow every block that could be scorched.
-		for (int y = 0; y <= 2; y++) {
+		// Thick enough that the crater never reaches the bottom of the test area, where scorch marks would land
+		// outside it.
+		for (int y = 0; y <= 4; y++) {
 			for (int x = 0; x < 8; x++) {
 				for (int z = 0; z < 8; z++) {
-					context.setBlockState(x, y, z, y == 2 ? Blocks.GRASS_BLOCK : Blocks.DIRT);
+					context.setBlockState(x, y, z, y == 4 ? Blocks.GRASS_BLOCK : Blocks.DIRT);
 				}
 			}
 		}
 
-		Vec3d pos = context.getAbsolute(new Vec3d(3.5, 3.0, 3.5));
+		Vec3d pos = context.getAbsolute(new Vec3d(3.5, 5.0, 3.5));
 		context.getWorld().createExplosion(null, pos.x, pos.y, pos.z, 4.0F, World.ExplosionSourceType.TNT);
 		context.assertTrue(!context.getEntities(ModEntities.DEBRIS).isEmpty(), "vanilla explosion threw no debris");
 		context.assertTrue(count(context, state -> state.isOf(ModBlocks.SCORCHED_EARTH)) > 0, "vanilla explosion left no scorch marks");
+		context.complete();
+	}
+
+	@GameTest
+	public void scorchMarksReachTheFloorUnderARoof(TestContext context) {
+		floor(context, Blocks.GRASS_BLOCK);
+		for (int x = 0; x < 8; x++) {
+			for (int z = 0; z < 8; z++) {
+				context.setBlockState(x, 3, z, Blocks.STONE);
+			}
+		}
+
+		TerrainEffects.scorch(context.getWorld(), context.getAbsolute(new Vec3d(3.5, 1.2, 3.5)), 3.0F, context.getWorld().getRandom(), null, 1.0F);
+		int floor = 0;
+		int roof = 0;
+		for (int x = 0; x < 8; x++) {
+			for (int z = 0; z < 8; z++) {
+				floor += context.getBlockState(new BlockPos(x, 0, z)).isOf(ModBlocks.SCORCHED_EARTH) ? 1 : 0;
+				roof += context.getBlockState(new BlockPos(x, 3, z)).isOf(Blocks.STONE) ? 0 : 1;
+			}
+		}
+
+		context.assertTrue(floor > 0, "the floor under the roof was not scorched");
+		context.assertEquals(0, roof, "roof blocks changed by a blast below them");
 		context.complete();
 	}
 

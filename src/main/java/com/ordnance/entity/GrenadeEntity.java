@@ -9,6 +9,7 @@ import com.ordnance.registry.ModEntities;
 import com.ordnance.registry.ModItems;
 import com.ordnance.registry.ModSounds;
 import com.ordnance.weapon.ExplosiveItem;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
@@ -24,6 +25,7 @@ import net.minecraft.storage.ReadView;
 import net.minecraft.storage.WriteView;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Thrown hand grenade. Bounces and rolls with real restitution and friction, then detonates when its fuse burns
@@ -55,6 +57,16 @@ public class GrenadeEntity extends OrdnanceProjectileEntity {
 	protected void initDataTracker(DataTracker.Builder builder) {
 		super.initDataTracker(builder);
 		builder.add(EMITTING, false);
+	}
+
+	/** A canister that vents at once: what a smoke warhead detonated directly (by command or by other code) leaves. */
+	public static void ventSmoke(ServerWorld world, Vec3d pos, ExplosionProfile profile, @Nullable Entity owner) {
+		GrenadeEntity canister = new GrenadeEntity(ModEntities.GRENADE, world);
+		canister.setItem(new ItemStack(profile == ExplosionProfile.SMOKE_40MM ? ModItems.GRENADE_40MM_SMOKE : ModItems.SMOKE_GRENADE));
+		canister.setOwner(owner);
+		canister.setPosition(pos);
+		canister.fuse = 1;
+		world.spawnEntity(canister);
 	}
 
 	public ExplosionProfile profile() {

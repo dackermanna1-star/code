@@ -17,8 +17,13 @@ public final class FireAmbience {
 	private FireAmbience() {
 	}
 
+	/** Whether the enhanced fire visuals are on; they replace vanilla's fire smoke. */
+	public static boolean isActive() {
+		return ConfigManager.get().visuals.fireEmbers && ParticleSprites.ready();
+	}
+
 	public static void fireTick(BlockState state, World world, BlockPos pos, Random random) {
-		if (!(world instanceof ClientWorld clientWorld) || !ConfigManager.get().visuals.fireEmbers || !ParticleSprites.ready()) {
+		if (!(world instanceof ClientWorld clientWorld) || !isActive()) {
 			return;
 		}
 
@@ -40,8 +45,9 @@ public final class FireAmbience {
 		}
 
 		if (random.nextInt(3) == 0) {
-			OrdnanceParticle.builder(ParticleSprites.SMOKE).life(60, 120).size(0.35F, 1.9F).sizeCurve(0.6F)
-				.colors(0xC0221E1A, 0x904A443E, 0x20706A64).alpha(0.75F).fade(0.08F, 0.5F)
+			// Fades in while it grows: small, dark, opaque puffs read as specks of soot rather than smoke.
+			OrdnanceParticle.builder(ParticleSprites.SMOKE).life(60, 120).size(0.6F, 2.3F).sizeCurve(0.6F)
+				.colors(0xB0221E1A, 0x904A443E, 0x20706A64).alpha(0.7F).fade(0.25F, 0.5F)
 				.velocity(0.0, 0.05 + random.nextDouble() * 0.04, 0.0).buoyancy(0.002F).drag(0.96F).wind(wind, 0.7F).spin(0.01F)
 				.spawn(clientWorld, x, pos.getY() + 0.9, z);
 		}

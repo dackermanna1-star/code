@@ -85,6 +85,7 @@ public final class OrdnanceConfig {
 		/** Sound reaches distant listeners at the speed of sound (~343 m/s) instead of instantly. */
 		public boolean realisticSoundDelay = true;
 		public float lingeringSmokeMultiplier = 1.0F;
+		/** Embers, flame licks and soft smoke around fire (replacing vanilla's pixel-art fire smoke). */
 		public boolean fireEmbers = true;
 		public boolean muzzleFlash = true;
 		public float recoil = 1.0F;

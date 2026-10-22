@@ -4,11 +4,19 @@ import com.ordnance.registry.ModItemGroups;
 import java.util.Locale;
 import net.fabricmc.fabric.api.client.gametest.v1.FabricClientGameTest;
 import net.fabricmc.fabric.api.client.gametest.v1.context.ClientGameTestContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestClientWorldContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestDedicatedServerContext;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerConnection;
+import net.fabricmc.fabric.api.client.gametest.v1.context.TestServerContext;
 import net.fabricmc.fabric.api.client.gametest.v1.context.TestSingleplayerContext;
 import net.minecraft.client.gui.screen.ingame.CreativeInventoryScreen;
 import net.minecraft.client.option.Perspective;
 import net.minecraft.network.message.ChatVisibility;
 import net.minecraft.registry.Registries;
+import net.minecraft.server.network.ChunkFilter;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.chunk.ChunkStatus;
+import org.lwjgl.glfw.GLFW;
 
 /**
  * Scripted visual walkthrough, run with {@code ./gradlew runClientGameTest}: builds a firing range in a superflat
@@ -26,25 +34,48 @@ public class OrdnanceClientGameTest implements FabricClientGameTest {
 	private static final int CHUNK_TIMEOUT = 6000;
 
 	private ClientGameTestContext context;
-	private TestSingleplayerContext world;
+	/** The server and client world of the scene being filmed (singleplayer first, then a dedicated server). */
+	private TestServerContext server;
+	private TestClientWorldContext clientWorld;
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
 		this.context = context;
+		// ORDNANCE_TEST_SCENES=items,explosions,weapons,fire,missile,multiplayer picks scenes; all run by default.
+		String scenes = System.getenv().getOrDefault("ORDNANCE_TEST_SCENES", "items,explosions,weapons,fire,missile,multiplayer");
 		try (TestSingleplayerContext world = context.worldBuilder().create()) {
-			this.world = world;
+			this.server = world.getServer();
+			this.clientWorld = world.getClientWorld();
 			this.prepare();
-			this.itemShowcase();
-			this.explosionGallery();
-			this.weapons();
-			this.fire();
-			this.missileStrike();
+			if (scenes.contains("items")) {
+				this.itemShowcase();
+			}
+
+			if (scenes.contains("explosions")) {
+				this.explosionGallery();
+			}
+
+			if (scenes.contains("weapons")) {
+				this.weapons();
+			}
+
+			if (scenes.contains("fire")) {
+				this.fire();
+			}
+
+			if (scenes.contains("missile")) {
+				this.missileStrike();
+			}
+		}
+
+		if (scenes.contains("multiplayer")) {
+			this.multiplayer();
 		}
 	}
 
 	private void prepare() {
 		this.context.getInput().resizeWindow(1280, 720);
-		this.world.getClientWorld().waitForChunksRender(CHUNK_TIMEOUT);
+		this.waitForTerrain();
 		this.run("gamemode creative @a");
 		this.run("time set noon");
 		this.run("gamerule max_block_modifications 1000000");
@@ -57,7 +88,7 @@ public class OrdnanceClientGameTest implements FabricClientGameTest {
 		});
 		this.resetRange();
 		this.context.waitTicks(20);
-		this.world.getClientWorld().waitForChunksRender(CHUNK_TIMEOUT);
+		this.waitForTerrain();
 	}
 
 	// ---------------------------------------------------------------- items
@@ -253,9 +284,16 @@ public class OrdnanceClientGameTest implements FabricClientGameTest {
 		this.camera(0.5, G + 8.0, -52.5, 0.0F, -2.0F, true);
 		this.selectEmptySlot();
 		this.context.waitTicks(10);
-		this.world.getClientWorld().waitForChunksRender(CHUNK_TIMEOUT);
+		this.waitForTerrain();
 		this.run("ordnance strike 0.5 " + G + " 10.5");
 		this.frames("missile", new int[] {20, 60, 82, 90, 96, 100, 103, 105, 107, 109, 111, 114, 120, 130, 150, 190, 260, 400, 600});
+		// The aftermath from above and from the crater rim.
+		this.camera(0.5, G + 34.0, 10.5, 0.0F, 90.0F, true);
+		this.waitForTerrain();
+		this.shot("missile_crater_top");
+		this.camera(0.5, G + 10.0, -12.5, 0.0F, 30.0F, true);
+		this.context.waitTicks(5);
+		this.shot("missile_crater_rim");
 
 		// Designating a strike with the item: hold use on a spot until locked.
 		this.resetRange();
@@ -268,11 +306,55 @@ public class OrdnanceClientGameTest implements FabricClientGameTest {
 		this.frames("designator_strike", new int[] {40, 100, 120, 160});
 	}
 
+	// ---------------------------------------------------------------- multiplayer
+
+	/**
+	 * The same mod on a dedicated server over a real connection, where every payload and item component is encoded
+	 * and decoded: synced magazines, rockets, explosion effects, knockback, the fire-mode key and strike warnings.
+	 */
+	private void multiplayer() {
+		try (TestDedicatedServerContext dedicated = this.context.worldBuilder().createServer();
+			TestServerConnection connection = dedicated.connect()) {
+			this.server = dedicated;
+			this.clientWorld = connection.getClientWorld();
+			this.run("gamemode creative @a");
+			this.run("time set noon");
+			this.run("gamerule max_block_modifications 1000000");
+			this.run("gamerule send_command_feedback false");
+			this.resetRange();
+			this.camera(0.5, G, -8.5, 0.0F, -1.0F, false);
+			this.waitForTerrain();
+
+			this.hold(0, "ordnance:rpg7[ordnance:magazine=[\"ordnance:pg7v_rocket\"]]");
+			this.context.waitTicks(10);
+			this.shot("mp_rpg_aim");
+			this.context.getInput().pressKey(options -> options.useKey);
+			this.frames("mp_rpg", new int[] {3, 8, 14, 30});
+
+			this.hold(1, "ordnance:grenade_launcher[ordnance:magazine=[\"ordnance:grenade_40mm_he\",\"ordnance:grenade_40mm_he\"]]");
+			this.context.getInput().pressKey(GLFW.GLFW_KEY_V);
+			this.context.waitTicks(5);
+			this.shot("mp_launcher_timed_mode");
+			this.context.getInput().pressKey(options -> options.useKey);
+			this.frames("mp_launcher", new int[] {10, 40, 70});
+
+			// Close enough for the blast front to push the player (a knockback payload).
+			this.selectEmptySlot();
+			this.run("ordnance explode frag_grenade 0.5 " + G + " -4.5");
+			this.frames("mp_frag_close", new int[] {2, 6, 20});
+			this.run("ordnance explode smoke_grenade 4.5 " + G + " 4.5");
+			this.run("ordnance strike 0.5 " + G + " 24.5");
+			this.frames("mp_strike", new int[] {30, 100, 112, 160});
+		}
+	}
+
 	// ---------------------------------------------------------------- helpers
 
 	/** Clears the range and rebuilds the targets: grass field, wooden hut, brick wall, glass and a concrete backstop. */
 	private void resetRange() {
 		this.run("kill @e[type=!player]");
+		// Each scene starts clean: no smoke drifting in from the previous one.
+		this.context.runOnClient(client -> client.particleManager.clearParticles());
 		this.run("fill -40 " + G + " -40 40 " + (G + 30) + " 60 air");
 		this.run("fill -40 " + (G - 3) + " -40 40 " + (G - 2) + " 60 dirt");
 		this.run("fill -40 " + (G - 1) + " -40 40 " + (G - 1) + " 60 grass_block");
@@ -289,8 +371,29 @@ public class OrdnanceClientGameTest implements FabricClientGameTest {
 		this.context.waitTicks(2);
 	}
 
+	/**
+	 * Waits for the terrain around the player to arrive and be built. The server sends a disc of chunks, while
+	 * {@code waitForChunksRender(true, ...)} expects the full square around the player, so check the disc here.
+	 */
+	private void waitForTerrain() {
+		this.context.waitFor(client -> {
+			int radius = client.options.getClampedViewDistance();
+			ChunkPos center = client.player.getChunkPos();
+			for (int x = center.x - radius; x <= center.x + radius; x++) {
+				for (int z = center.z - radius; z <= center.z + radius; z++) {
+					if (ChunkFilter.isWithinDistanceExcludingEdge(center.x, center.z, radius, x, z) && client.world.getChunk(x, z, ChunkStatus.FULL, false) == null) {
+						return false;
+					}
+				}
+			}
+
+			return true;
+		}, CHUNK_TIMEOUT);
+		this.clientWorld.waitForChunksRender(false, CHUNK_TIMEOUT);
+	}
+
 	private void run(String command) {
-		this.world.getServer().runCommand(command);
+		this.server.runCommand(command);
 	}
 
 	/** Moves the player; {@code fly} keeps them hovering so the camera holds still. */

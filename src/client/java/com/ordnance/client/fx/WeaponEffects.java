@@ -169,8 +169,8 @@ public final class WeaponEffects implements ClientBridge.Effects {
 		int puffs = ParticleBudget.count(16.0F, 1.0F);
 		for (int i = 0; i < puffs; i++) {
 			Vec3d v = ExplosionEffects.jitter(look.multiply(-1.0), 0.4, RANDOM).multiply(0.2 + RANDOM.nextDouble() * 0.35);
-			OrdnanceParticle.builder(ParticleSprites.SMOKE).life(40, 80).size(0.3F, 2.0F).sizeCurve(0.5F)
-				.colors(0xD0D0CAC2, 0xB0B4ACA2, 0x40A89E92).alpha(0.85F).velocity(v).drag(0.88F).buoyancy(0.0015F)
+			OrdnanceParticle.builder(ParticleSprites.SMOKE).life(30, 60).size(0.3F, 1.6F).sizeCurve(0.5F)
+				.colors(0xD0D0CAC2, 0xB0B4ACA2, 0x40A89E92).alpha(0.5F).fade(0.1F, 0.4F).velocity(v).drag(0.88F).buoyancy(0.0015F)
 				.spawn(world, origin);
 		}
 
@@ -256,14 +256,17 @@ public final class WeaponEffects implements ClientBridge.Effects {
 		int puffs = ParticleBudget.count(3.0F, ParticleBudget.scale(distanceToCamera(pos)));
 		Vec3d wind = Wind.velocity(world, 0.05);
 		for (int i = 0; i < puffs; i++) {
-			Vec3d v = new Vec3d((RANDOM.nextDouble() - 0.5) * 0.08, 0.06 + RANDOM.nextDouble() * 0.07, (RANDOM.nextDouble() - 0.5) * 0.08);
-			OrdnanceParticle.builder(ParticleSprites.SMOKE).life(160, 260).size(0.4F, 3.3F).sizeCurve(0.45F)
-				.colors(0xF8F2F2EE, 0xEAE2E2DE, 0xC0D2D2CE).colorMidPoint(0.3F).alpha(0.95F).fade(0.03F, 0.6F)
-				.velocity(v).drag(0.95F).buoyancy(0.0006F).wind(wind, 0.35F).spin(0.008F)
+			// The canister vents sideways; the smoke hugs the ground and builds a wide screen that drifts downwind.
+			double angle = RANDOM.nextDouble() * MathHelper.TAU;
+			double speed = 0.06 + RANDOM.nextDouble() * 0.12;
+			Vec3d v = new Vec3d(Math.cos(angle) * speed, 0.015 + RANDOM.nextDouble() * 0.04, Math.sin(angle) * speed);
+			OrdnanceParticle.builder(ParticleSprites.SMOKE).life(200, 320).size(0.5F, 4.2F).sizeCurve(0.45F)
+				.colors(0xF8F2F2EE, 0xEAE2E2DE, 0xC0D2D2CE).colorMidPoint(0.3F).alpha(0.92F).fade(0.06F, 0.6F)
+				.velocity(v).drag(0.96F).buoyancy(0.00025F).wind(wind, 0.6F).spin(0.008F)
 				.spawn(world, pos);
 		}
 
-		SmokeVolumes.attach(canister, 6.5F, 0.95F, 0xD6D6D2);
+		SmokeVolumes.attach(canister, 8.0F, 0.95F, 0xD6D6D2);
 	}
 
 	private void debrisTrail(ClientWorld world, DebrisEntity debris) {
@@ -323,19 +326,23 @@ public final class WeaponEffects implements ClientBridge.Effects {
 			Vec3d spread = new Vec3d(RANDOM.nextGaussian(), RANDOM.nextGaussian(), RANDOM.nextGaussian()).multiply(0.035);
 			Vec3d v = look.add(spread).normalize().multiply(0.95 * range * (0.9 + RANDOM.nextDouble() * 0.2)).add(inherited);
 			Vec3d start = nozzle.add(look.multiply(RANDOM.nextDouble() * 0.9));
-			OrdnanceParticle.builder(ParticleSprites.FLAME).animated().glow().life(18, 24).size(0.1F, 1.25F).sizeCurve(0.7F)
-				.colors(0xFFFFF4D0, 0xFFFF8A2A, 0x00702008).colorMidPoint(0.3F).fade(0.0F, 0.6F).emissive(1.0F, 1.0F)
+			OrdnanceParticle.builder(ParticleSprites.FLAME).animated().life(18, 24).size(0.04F, 1.15F).sizeCurve(0.65F)
+				.colors(0xFFFFD27A, 0xF4FF7A1E, 0x00501206).colorMidPoint(0.35F).alpha(0.95F).fade(0.0F, 0.65F).emissive(1.0F, 1.0F)
 				.velocity(v).gravity(0.012F).drag(0.93F).collide().spin(0.15F)
 				.onDeath(p -> {
 					if (RANDOM.nextInt(3) == 0) {
-						ExplosionEffects.trailSmoke(world, p.getPos(), 0.9F, 0xC0201C18);
+						ExplosionEffects.trailSmoke(world, p.getPos(), 1.1F, 0x90241E1A);
 					}
 				})
 				.spawn(world, start);
 		}
 
-		OrdnanceParticle.builder(ParticleSprites.GLOW).glow().emissive(1.0F, 1.0F).life(2, 3).size(0.18F, 0.1F)
-			.color(0xFFB8D8FF).velocity(look.multiply(0.4)).spawn(world, nozzle);
+		// White-hot core close to the nozzle, kept small so it doesn't blow out the view.
+		Vec3d coreVelocity = look.multiply(0.9 * range).add(inherited);
+		OrdnanceParticle.builder(ParticleSprites.FLAME).animated().glow().emissive(1.0F, 1.0F).life(4, 6).size(0.05F, 0.3F)
+			.colors(0xC0FFF6D8, 0x00FF9A40).velocity(coreVelocity).drag(0.9F).spawn(world, nozzle.add(look.multiply(0.2)));
+		OrdnanceParticle.builder(ParticleSprites.GLOW).glow().emissive(1.0F, 1.0F).life(2, 3).size(0.12F, 0.08F)
+			.color(0xFFB8D8FF).alpha(0.8F).velocity(look.multiply(0.4)).spawn(world, nozzle);
 		if (RANDOM.nextInt(2) == 0) {
 			Vec3d mid = nozzle.add(look.multiply(5.0 + RANDOM.nextDouble() * 5.0));
 			OrdnanceParticle.builder(ParticleSprites.SMOKE).life(40, 70).size(0.5F, 2.4F).sizeCurve(0.5F)

@@ -20,7 +20,7 @@ def edge_falloff(size, power=2.0, reach=0.98):
     return np.clip(1.0 - (r / reach) ** power, 0.0, 1.0)
 
 
-def smoke(seed, size=64):
+def smoke(seed, size=128):
     rng = np.random.default_rng(seed)
     xx, yy = grid(size)
     shape = blobs(size, rng, rng.integers(5, 9), 0.2, 0.22, 0.42)
@@ -33,7 +33,7 @@ def smoke(seed, size=64):
     return rgba_from(np.clip(shade, 0.45, 1.0), alpha)
 
 
-def dust(seed, size=64):
+def dust(seed, size=128):
     rng = np.random.default_rng(seed)
     xx, yy = grid(size)
     shape = blobs(size, rng, rng.integers(4, 7), 0.25, 0.2, 0.38)
@@ -45,7 +45,7 @@ def dust(seed, size=64):
     return rgba_from(np.clip(shade, 0.5, 1.0), alpha)
 
 
-def fireball(frame, frames=8, size=64, seed=100):
+def fireball(frame, frames=8, size=128, seed=100):
     """Frame 0 is a dense, white-hot ball; later frames are cooler, broken-up and billowing."""
     t = frame / (frames - 1)
     rng = np.random.default_rng(seed + frame)
@@ -62,7 +62,7 @@ def fireball(frame, frames=8, size=64, seed=100):
     return rgba_from(np.clip(lum, 0.2, 1.0), alpha)
 
 
-def flame(frame, frames=8, size=32, seed=200):
+def flame(frame, frames=8, size=64, seed=200):
     """A turbulent tongue of flame: noise stretched upward and thresholded inside a teardrop envelope. Later
     frames are thinner and more broken as the flame dies."""
     t = frame / (frames - 1)
@@ -70,7 +70,8 @@ def flame(frame, frames=8, size=32, seed=200):
     xx, yy = grid(size)
     v = (1.0 - yy) / 2.0  # 0 at bottom, 1 at top
     big = fbm(size * 2, rng, octaves=5, base=4)
-    rows = slice(frame * 3, frame * 3 + size)
+    shift = frame * size // 10  # the noise scrolls up by about a tenth of the texture per frame
+    rows = slice(shift, shift + size)
     n = big[rows, ::2][:size, :size]
     width = 0.78 * (1.0 - v) ** 0.75 * (1.0 - 0.25 * t) + 0.06
     sway = (n - 0.5) * 0.45 * v
@@ -88,7 +89,7 @@ def radial(size, sharpness, core=1.0):
     return np.exp(-r2 * sharpness) * core * edge_falloff(size, 2.0, 1.0)
 
 
-def flash(size=64):
+def flash(size=128):
     xx, yy = grid(size)
     r = np.sqrt(xx ** 2 + yy ** 2)
     angle = np.arctan2(yy, xx)
@@ -98,7 +99,7 @@ def flash(size=64):
     return rgba_from(np.ones_like(a), a)
 
 
-def shockwave(size=64):
+def shockwave(size=256):
     xx, yy = grid(size)
     r = np.sqrt(xx ** 2 + yy ** 2)
     ring = np.exp(-(((r - 0.84) / 0.07) ** 2))
@@ -142,6 +143,8 @@ def debris(seed, size=16):
 
 
 def generate():
+    """Smoke, dust, fireball, flash and shockwave are drawn many blocks wide, so they get 128-256 px textures (flames
+    64 px); the particle atlas is sampled without filtering and smaller textures show stair-stepped edges up close."""
     sets = {}
 
     def emit(name, images):
