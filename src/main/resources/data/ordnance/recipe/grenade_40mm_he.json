@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "C",
+    "G",
+    "B"
+  ],
+  "key": {
+    "C": "ordnance:explosive_charge",
+    "G": "minecraft:gunpowder",
+    "B": "minecraft:copper_ingot"
+  },
+  "result": {
+    "id": "ordnance:grenade_40mm_he",
+    "count": 4
+  }
+}

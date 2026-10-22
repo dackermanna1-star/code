@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "  S",
+    "III",
+    "PTP"
+  ],
+  "key": {
+    "S": "minecraft:spyglass",
+    "I": "minecraft:iron_ingot",
+    "P": "#minecraft:planks",
+    "T": "minecraft:tripwire_hook"
+  },
+  "result": {
+    "id": "ordnance:rpg7",
+    "count": 1
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_gunpowder": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:gunpowder"
+          }
+        ]
+      }
+    },
+    "has_iron_ingot": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:iron_ingot"
+          }
+        ]
+      }
+    }
+  },
+  "requirements": [
+    [
+      "has_gunpowder",
+      "has_iron_ingot"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "ordnance:explosive_charge",
+      "ordnance:frag_grenade",
+      "ordnance:incendiary_grenade",
+      "ordnance:smoke_grenade",
+      "ordnance:rpg7",
+      "ordnance:pg7v_rocket",
+      "ordnance:tbg7v_rocket",
+      "ordnance:grenade_launcher",
+      "ordnance:grenade_40mm_he",
+      "ordnance:grenade_40mm_incendiary",
+      "ordnance:grenade_40mm_smoke",
+      "ordnance:flamethrower",
+      "ordnance:fuel_canister",
+      "ordnance:strike_designator",
+      "ordnance:hypersonic_missile"
+    ]
+  }
+}

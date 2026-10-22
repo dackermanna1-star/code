@@ -1,0 +1,12 @@
+{
+  "values": [
+    "#minecraft:impermeable",
+    "#c:glass_blocks",
+    "#c:glass_panes",
+    "minecraft:glass_pane",
+    "minecraft:ice",
+    "minecraft:glowstone",
+    "minecraft:sea_lantern",
+    "minecraft:redstone_lamp"
+  ]
+}

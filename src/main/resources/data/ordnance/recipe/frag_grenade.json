@@ -1,0 +1,18 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " N ",
+    "ICI",
+    " I "
+  ],
+  "key": {
+    "N": "minecraft:iron_nugget",
+    "I": "minecraft:iron_ingot",
+    "C": "ordnance:explosive_charge"
+  },
+  "result": {
+    "id": "ordnance:frag_grenade",
+    "count": 3
+  }
+}

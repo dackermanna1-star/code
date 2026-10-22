@@ -1,0 +1,15 @@
+{
+	"required": true,
+	"package": "com.ordnance.client.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"AbstractFireBlockMixin",
+		"ClientPlayNetworkHandlerMixin",
+		"GameRendererMixin",
+		"HeldItemRendererMixin",
+		"PlayerEntityRendererMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

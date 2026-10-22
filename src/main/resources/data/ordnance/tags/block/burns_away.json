@@ -1,0 +1,23 @@
+{
+  "values": [
+    "minecraft:short_grass",
+    "minecraft:tall_grass",
+    "minecraft:fern",
+    "minecraft:large_fern",
+    "#minecraft:flowers",
+    "minecraft:dead_bush",
+    "#minecraft:saplings",
+    "minecraft:sweet_berry_bush",
+    "#minecraft:crops",
+    "minecraft:vine",
+    "minecraft:bush",
+    "minecraft:short_dry_grass",
+    "minecraft:tall_dry_grass",
+    "minecraft:leaf_litter",
+    "minecraft:firefly_bush",
+    "minecraft:moss_carpet",
+    "minecraft:pale_moss_carpet",
+    "minecraft:glow_lichen",
+    "minecraft:hanging_roots"
+  ]
+}

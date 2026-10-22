@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " N ",
+    "WGW",
+    " I "
+  ],
+  "key": {
+    "N": "minecraft:iron_nugget",
+    "W": "minecraft:white_dye",
+    "G": "minecraft:gunpowder",
+    "I": "minecraft:iron_ingot"
+  },
+  "result": {
+    "id": "ordnance:smoke_grenade",
+    "count": 3
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    "  F",
+    "IIR",
+    "BT "
+  ],
+  "key": {
+    "F": "minecraft:flint_and_steel",
+    "I": "minecraft:iron_ingot",
+    "R": "minecraft:blaze_rod",
+    "B": "minecraft:bucket",
+    "T": "minecraft:tripwire_hook"
+  },
+  "result": {
+    "id": "ordnance:flamethrower",
+    "count": 1
+  }
+}

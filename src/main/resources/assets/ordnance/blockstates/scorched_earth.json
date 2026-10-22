@@ -1,0 +1,21 @@
+{
+  "variants": {
+    "": [
+      {
+        "model": "ordnance:block/scorched_earth"
+      },
+      {
+        "model": "ordnance:block/scorched_earth",
+        "y": 90
+      },
+      {
+        "model": "ordnance:block/scorched_earth",
+        "y": 180
+      },
+      {
+        "model": "ordnance:block/scorched_earth",
+        "y": 270
+      }
+    ]
+  }
+}

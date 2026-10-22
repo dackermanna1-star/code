@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "minecraft:iron_ingot",
+    [
+      "minecraft:coal",
+      "minecraft:charcoal"
+    ],
+    [
+      "minecraft:coal",
+      "minecraft:charcoal"
+    ],
+    "minecraft:blaze_powder",
+    "minecraft:slime_ball"
+  ],
+  "result": {
+    "id": "ordnance:fuel_canister",
+    "count": 2
+  }
+}

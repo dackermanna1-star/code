@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "pattern": [
+    " F ",
+    "NCN",
+    "IGI"
+  ],
+  "key": {
+    "F": "minecraft:fire_charge",
+    "N": "minecraft:iron_nugget",
+    "C": "ordnance:explosive_charge",
+    "I": "minecraft:iron_ingot",
+    "G": "minecraft:gunpowder"
+  },
+  "result": {
+    "id": "ordnance:tbg7v_rocket",
+    "count": 2
+  }
+}

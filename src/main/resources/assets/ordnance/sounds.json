@@ -1,0 +1,371 @@
+{
+  "explosion.small": {
+    "subtitle": "subtitles.ordnance.explosion",
+    "sounds": [
+      {
+        "name": "ordnance:explosion/small_0",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "ordnance:explosion/small_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "ordnance:explosion/small_2",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "explosion.medium": {
+    "subtitle": "subtitles.ordnance.explosion",
+    "sounds": [
+      {
+        "name": "ordnance:explosion/medium_0",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "ordnance:explosion/medium_1",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "ordnance:explosion/medium_2",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "explosion.large": {
+    "subtitle": "subtitles.ordnance.explosion",
+    "sounds": [
+      {
+        "name": "ordnance:explosion/large_0",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "ordnance:explosion/large_1",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "explosion.huge": {
+    "subtitle": "subtitles.ordnance.explosion_huge",
+    "sounds": [
+      {
+        "name": "ordnance:explosion/huge_0",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "ordnance:explosion/huge_1",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "explosion.distant": {
+    "subtitle": "subtitles.ordnance.explosion_distant",
+    "sounds": [
+      {
+        "name": "ordnance:explosion/distant_0",
+        "attenuation_distance": 128
+      },
+      {
+        "name": "ordnance:explosion/distant_1",
+        "attenuation_distance": 128
+      },
+      {
+        "name": "ordnance:explosion/distant_2",
+        "attenuation_distance": 128
+      }
+    ]
+  },
+  "explosion.distant_huge": {
+    "subtitle": "subtitles.ordnance.explosion_distant",
+    "sounds": [
+      {
+        "name": "ordnance:explosion/distant_huge_0",
+        "attenuation_distance": 128
+      },
+      {
+        "name": "ordnance:explosion/distant_huge_1",
+        "attenuation_distance": 128
+      }
+    ]
+  },
+  "explosion.underwater": {
+    "subtitle": "subtitles.ordnance.explosion_underwater",
+    "sounds": [
+      {
+        "name": "ordnance:explosion/underwater_0",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "ordnance:explosion/underwater_1",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "explosion.debris": {
+    "subtitle": "subtitles.ordnance.debris",
+    "sounds": [
+      {
+        "name": "ordnance:explosion/debris_0",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ordnance:explosion/debris_1",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ordnance:explosion/debris_2",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "explosion.incendiary": {
+    "subtitle": "subtitles.ordnance.explosion_incendiary",
+    "sounds": [
+      {
+        "name": "ordnance:explosion/incendiary_0",
+        "attenuation_distance": 48
+      },
+      {
+        "name": "ordnance:explosion/incendiary_1",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "explosion.smoke_pop": {
+    "subtitle": "subtitles.ordnance.smoke_pop",
+    "sounds": [
+      {
+        "name": "ordnance:explosion/smoke_pop",
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "smoke.hiss": {
+    "subtitle": "subtitles.ordnance.smoke_hiss",
+    "sounds": [
+      {
+        "name": "ordnance:smoke/hiss",
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "debris.land": {
+    "subtitle": "subtitles.ordnance.debris_land",
+    "sounds": [
+      {
+        "name": "ordnance:debris/land_0"
+      },
+      {
+        "name": "ordnance:debris/land_1"
+      },
+      {
+        "name": "ordnance:debris/land_2"
+      }
+    ]
+  },
+  "grenade.pin": {
+    "subtitle": "subtitles.ordnance.grenade_pin",
+    "sounds": [
+      {
+        "name": "ordnance:grenade/pin"
+      }
+    ]
+  },
+  "grenade.throw": {
+    "subtitle": "subtitles.ordnance.grenade_throw",
+    "sounds": [
+      {
+        "name": "ordnance:grenade/throw_0"
+      },
+      {
+        "name": "ordnance:grenade/throw_1"
+      }
+    ]
+  },
+  "grenade.bounce": {
+    "subtitle": "subtitles.ordnance.grenade_bounce",
+    "sounds": [
+      {
+        "name": "ordnance:grenade/bounce_0",
+        "attenuation_distance": 20
+      },
+      {
+        "name": "ordnance:grenade/bounce_1",
+        "attenuation_distance": 20
+      },
+      {
+        "name": "ordnance:grenade/bounce_2",
+        "attenuation_distance": 20
+      }
+    ]
+  },
+  "rpg.fire": {
+    "subtitle": "subtitles.ordnance.rpg_fire",
+    "sounds": [
+      {
+        "name": "ordnance:rpg/fire_0",
+        "attenuation_distance": 64
+      },
+      {
+        "name": "ordnance:rpg/fire_1",
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "rpg.reload": {
+    "subtitle": "subtitles.ordnance.rpg_reload",
+    "sounds": [
+      {
+        "name": "ordnance:rpg/reload"
+      }
+    ]
+  },
+  "rpg.reload_done": {
+    "subtitle": "subtitles.ordnance.reload_done",
+    "sounds": [
+      {
+        "name": "ordnance:rpg/reload_done"
+      }
+    ]
+  },
+  "rocket.motor": {
+    "subtitle": "subtitles.ordnance.rocket_motor",
+    "sounds": [
+      {
+        "name": "ordnance:rocket/motor",
+        "attenuation_distance": 48
+      }
+    ]
+  },
+  "grenade_launcher.fire": {
+    "subtitle": "subtitles.ordnance.gl_fire",
+    "sounds": [
+      {
+        "name": "ordnance:grenade_launcher/fire_0",
+        "attenuation_distance": 32
+      },
+      {
+        "name": "ordnance:grenade_launcher/fire_1",
+        "attenuation_distance": 32
+      }
+    ]
+  },
+  "grenade_launcher.reload": {
+    "subtitle": "subtitles.ordnance.gl_reload",
+    "sounds": [
+      {
+        "name": "ordnance:grenade_launcher/reload_0"
+      },
+      {
+        "name": "ordnance:grenade_launcher/reload_1"
+      }
+    ]
+  },
+  "grenade_launcher.mode": {
+    "subtitle": "subtitles.ordnance.gl_mode",
+    "sounds": [
+      {
+        "name": "ordnance:grenade_launcher/mode"
+      }
+    ]
+  },
+  "flamethrower.ignite": {
+    "subtitle": "subtitles.ordnance.flamethrower_ignite",
+    "sounds": [
+      {
+        "name": "ordnance:flamethrower/ignite",
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "flamethrower.loop": {
+    "subtitle": "subtitles.ordnance.flamethrower",
+    "sounds": [
+      {
+        "name": "ordnance:flamethrower/loop",
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "flamethrower.stop": {
+    "subtitle": "subtitles.ordnance.flamethrower_stop",
+    "sounds": [
+      {
+        "name": "ordnance:flamethrower/stop",
+        "attenuation_distance": 24
+      }
+    ]
+  },
+  "flamethrower.refuel": {
+    "subtitle": "subtitles.ordnance.flamethrower_refuel",
+    "sounds": [
+      {
+        "name": "ordnance:flamethrower/refuel"
+      }
+    ]
+  },
+  "designator.beep": {
+    "subtitle": "subtitles.ordnance.designator_beep",
+    "sounds": [
+      {
+        "name": "ordnance:designator/beep",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "designator.lock": {
+    "subtitle": "subtitles.ordnance.designator_lock",
+    "sounds": [
+      {
+        "name": "ordnance:designator/lock",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "designator.confirm": {
+    "subtitle": "subtitles.ordnance.designator_confirm",
+    "sounds": [
+      {
+        "name": "ordnance:designator/confirm",
+        "attenuation_distance": 8
+      }
+    ]
+  },
+  "missile.alarm": {
+    "subtitle": "subtitles.ordnance.missile_alarm",
+    "sounds": [
+      {
+        "name": "ordnance:missile/alarm",
+        "attenuation_distance": 64
+      }
+    ]
+  },
+  "missile.incoming": {
+    "subtitle": "subtitles.ordnance.missile_incoming",
+    "sounds": [
+      {
+        "name": "ordnance:missile/incoming",
+        "attenuation_distance": 96
+      }
+    ]
+  },
+  "missile.sonic_boom": {
+    "subtitle": "subtitles.ordnance.sonic_boom",
+    "sounds": [
+      {
+        "name": "ordnance:missile/sonic_boom",
+        "attenuation_distance": 128
+      }
+    ]
+  },
+  "weapon.dry_fire": {
+    "subtitle": "subtitles.ordnance.dry_fire",
+    "sounds": [
+      {
+        "name": "ordnance:weapon/dry_fire",
+        "attenuation_distance": 8
+      }
+    ]
+  }
+}

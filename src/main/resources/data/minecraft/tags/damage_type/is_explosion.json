@@ -1,0 +1,8 @@
+{
+  "replace": false,
+  "values": [
+    "ordnance:blast",
+    "ordnance:missile_strike",
+    "ordnance:backblast"
+  ]
+}
