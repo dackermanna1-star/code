@@ -1,0 +1,216 @@
+{
+  "sword.swing_1": {
+    "sounds": [
+      "julius_juukulius:sword/swing_1a",
+      "julius_juukulius:sword/swing_1b"
+    ],
+    "subtitle": "subtitles.julius_juukulius.sword.swing_1"
+  },
+  "sword.swing_2": {
+    "sounds": [
+      "julius_juukulius:sword/swing_2a",
+      "julius_juukulius:sword/swing_2b"
+    ],
+    "subtitle": "subtitles.julius_juukulius.sword.swing_2"
+  },
+  "sword.swing_3": {
+    "sounds": [
+      "julius_juukulius:sword/swing_3"
+    ],
+    "subtitle": "subtitles.julius_juukulius.sword.swing_3"
+  },
+  "sword.heavy_swing": {
+    "sounds": [
+      "julius_juukulius:sword/heavy_swing"
+    ],
+    "subtitle": "subtitles.julius_juukulius.sword.heavy_swing"
+  },
+  "sword.hit": {
+    "sounds": [
+      "julius_juukulius:sword/hit_a",
+      "julius_juukulius:sword/hit_b",
+      "julius_juukulius:sword/hit_c"
+    ],
+    "subtitle": "subtitles.julius_juukulius.sword.hit"
+  },
+  "sword.heavy_hit": {
+    "sounds": [
+      "julius_juukulius:sword/heavy_hit"
+    ],
+    "subtitle": "subtitles.julius_juukulius.sword.heavy_hit"
+  },
+  "sword.charge": {
+    "sounds": [
+      "julius_juukulius:sword/charge"
+    ],
+    "subtitle": "subtitles.julius_juukulius.sword.charge"
+  },
+  "sword.charge_ready": {
+    "sounds": [
+      "julius_juukulius:sword/charge_ready"
+    ],
+    "subtitle": "subtitles.julius_juukulius.sword.charge_ready"
+  },
+  "sword.wave_release": {
+    "sounds": [
+      "julius_juukulius:sword/wave_release"
+    ],
+    "subtitle": "subtitles.julius_juukulius.sword.wave_release"
+  },
+  "spirit.summon": {
+    "sounds": [
+      "julius_juukulius:spirit/summon"
+    ],
+    "subtitle": "subtitles.julius_juukulius.spirit.summon"
+  },
+  "spirit.dismiss": {
+    "sounds": [
+      "julius_juukulius:spirit/dismiss"
+    ],
+    "subtitle": "subtitles.julius_juukulius.spirit.dismiss"
+  },
+  "spirit.select": {
+    "sounds": [
+      "julius_juukulius:spirit/select"
+    ],
+    "subtitle": "subtitles.julius_juukulius.spirit.select"
+  },
+  "transform": {
+    "sounds": [
+      "julius_juukulius:transform"
+    ],
+    "subtitle": "subtitles.julius_juukulius.transform"
+  },
+  "revert": {
+    "sounds": [
+      "julius_juukulius:revert"
+    ],
+    "subtitle": "subtitles.julius_juukulius.revert"
+  },
+  "art.fire_cast": {
+    "sounds": [
+      "julius_juukulius:art/fire_cast"
+    ],
+    "subtitle": "subtitles.julius_juukulius.art.fire_cast"
+  },
+  "art.fire_explode": {
+    "sounds": [
+      "julius_juukulius:art/fire_explode"
+    ],
+    "subtitle": "subtitles.julius_juukulius.art.fire_explode"
+  },
+  "art.water_cast": {
+    "sounds": [
+      "julius_juukulius:art/water_cast"
+    ],
+    "subtitle": "subtitles.julius_juukulius.art.water_cast"
+  },
+  "art.water_heal": {
+    "sounds": [
+      "julius_juukulius:art/water_heal"
+    ],
+    "subtitle": "subtitles.julius_juukulius.art.water_heal"
+  },
+  "art.wind_cast": {
+    "sounds": [
+      "julius_juukulius:art/wind_cast"
+    ],
+    "subtitle": "subtitles.julius_juukulius.art.wind_cast"
+  },
+  "art.dash": {
+    "sounds": [
+      "julius_juukulius:art/dash"
+    ],
+    "subtitle": "subtitles.julius_juukulius.art.dash"
+  },
+  "art.earth_cast": {
+    "sounds": [
+      "julius_juukulius:art/earth_cast"
+    ],
+    "subtitle": "subtitles.julius_juukulius.art.earth_cast"
+  },
+  "art.earth_shatter": {
+    "sounds": [
+      "julius_juukulius:art/earth_shatter"
+    ],
+    "subtitle": "subtitles.julius_juukulius.art.earth_shatter"
+  },
+  "art.yang_cast": {
+    "sounds": [
+      "julius_juukulius:art/yang_cast"
+    ],
+    "subtitle": "subtitles.julius_juukulius.art.yang_cast"
+  },
+  "art.yang_buff": {
+    "sounds": [
+      "julius_juukulius:art/yang_buff"
+    ],
+    "subtitle": "subtitles.julius_juukulius.art.yang_buff"
+  },
+  "art.yin_cast": {
+    "sounds": [
+      "julius_juukulius:art/yin_cast"
+    ],
+    "subtitle": "subtitles.julius_juukulius.art.yin_cast"
+  },
+  "art.yin_seal": {
+    "sounds": [
+      "julius_juukulius:art/yin_seal"
+    ],
+    "subtitle": "subtitles.julius_juukulius.art.yin_seal"
+  },
+  "el_fura": {
+    "sounds": [
+      "julius_juukulius:el_fura"
+    ],
+    "subtitle": "subtitles.julius_juukulius.el_fura"
+  },
+  "ul_gora": {
+    "sounds": [
+      "julius_juukulius:ul_gora"
+    ],
+    "subtitle": "subtitles.julius_juukulius.ul_gora"
+  },
+  "al_clauzeria_charge": {
+    "sounds": [
+      "julius_juukulius:al_clauzeria_charge"
+    ],
+    "subtitle": "subtitles.julius_juukulius.al_clauzeria_charge"
+  },
+  "al_clauzeria_burst": {
+    "sounds": [
+      "julius_juukulius:al_clauzeria_burst"
+    ],
+    "subtitle": "subtitles.julius_juukulius.al_clauzeria_burst"
+  },
+  "barrier": {
+    "sounds": [
+      "julius_juukulius:barrier"
+    ],
+    "subtitle": "subtitles.julius_juukulius.barrier"
+  },
+  "ultimate.activate": {
+    "sounds": [
+      "julius_juukulius:ultimate/activate"
+    ],
+    "subtitle": "subtitles.julius_juukulius.ultimate.activate"
+  },
+  "ultimate.end": {
+    "sounds": [
+      "julius_juukulius:ultimate/end"
+    ],
+    "subtitle": "subtitles.julius_juukulius.ultimate.end"
+  },
+  "ability.denied": {
+    "sounds": [
+      "julius_juukulius:ability/denied"
+    ],
+    "subtitle": "subtitles.julius_juukulius.ability.denied"
+  },
+  "cushion": {
+    "sounds": [
+      "julius_juukulius:cushion"
+    ],
+    "subtitle": "subtitles.julius_juukulius.cushion"
+  }
+}

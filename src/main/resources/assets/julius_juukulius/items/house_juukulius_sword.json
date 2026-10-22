@@ -1,0 +1,14 @@
+{
+  "model": {
+    "type": "minecraft:condition",
+    "property": "julius_juukulius:clad",
+    "on_true": {
+      "type": "minecraft:model",
+      "model": "julius_juukulius:item/house_juukulius_sword_clad"
+    },
+    "on_false": {
+      "type": "minecraft:model",
+      "model": "julius_juukulius:item/house_juukulius_sword"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+package dev.juukulius.network;
+
+/** Cosmetic effect identifiers carried by {@link FxPayload}. */
+public enum FxType {
+	TRANSFORM,
+	REVERT,
+	SPIRITS_SUMMON,
+	SPIRITS_DISMISS,
+	SLASH_HIT,
+	HEAVY_HIT,
+	HEAVY_GROUND,
+	WAVE_IMPACT,
+	CAST_CIRCLE,
+	FLAME_EXPLOSION,
+	WATER_SPLASH,
+	HEALING_WATER,
+	GALE_STEP,
+	EL_FURA,
+	STONE_SPIRE,
+	GROUND_SHATTER,
+	RADIANT_BURST,
+	STRENGTH_ENHANCEMENT,
+	UMBRAL_IMPACT,
+	YIN_SEAL,
+	UL_GORA_CAST,
+	CLAUZERIA_GATHER,
+	CLAUZERIA_BURST,
+	BARRIER,
+	BARRIER_BLOCK,
+	CRANVEL_ACTIVATE,
+	CRANVEL_BURST,
+	CRANVEL_END,
+	CUSHION,
+	HIT_SPARK;
+
+	private static final FxType[] VALUES = values();
+
+	public static FxType byId(int id) {
+		return id >= 0 && id < VALUES.length ? VALUES[id] : HIT_SPARK;
+	}
+}

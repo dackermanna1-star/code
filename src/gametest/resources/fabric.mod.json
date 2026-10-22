@@ -1,0 +1,21 @@
+{
+	"schemaVersion": 1,
+	"id": "julius_juukulius_test",
+	"version": "1.0.0",
+	"name": "Julius Juukulius Tests",
+	"description": "Server GameTests and client game tests for Julius Juukulius.",
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-gametest": [
+			"dev.juukulius.test.JuliusGameTests"
+		],
+		"fabric-client-gametest": [
+			"dev.juukulius.test.JuliusClientGameTest"
+		]
+	},
+	"depends": {
+		"julius_juukulius": "*",
+		"fabric-api": "*"
+	}
+}

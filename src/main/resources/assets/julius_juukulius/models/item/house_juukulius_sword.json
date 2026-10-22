@@ -1,0 +1,1424 @@
+{
+  "gui_light": "front",
+  "textures": {
+    "particle": "julius_juukulius:item/house_juukulius_sword",
+    "sword": "julius_juukulius:item/house_juukulius_sword"
+  },
+  "elements": [
+    {
+      "name": "pommel",
+      "from": [
+        7.1,
+        0.0,
+        7.1
+      ],
+      "to": [
+        8.9,
+        1.6,
+        8.9
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "pommel_gem",
+      "from": [
+        7.55,
+        0.35,
+        6.95
+      ],
+      "to": [
+        8.45,
+        1.25,
+        9.05
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            10,
+            2,
+            12,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            10,
+            2,
+            12,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            10,
+            2,
+            12,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            10,
+            2,
+            12,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            10,
+            2,
+            12,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            10,
+            2,
+            12,
+            4
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "grip",
+      "from": [
+        7.45,
+        1.6,
+        7.45
+      ],
+      "to": [
+        8.55,
+        6.4,
+        8.55
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            8,
+            0,
+            10,
+            8
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            8,
+            0,
+            10,
+            8
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            8,
+            0,
+            10,
+            8
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            8,
+            0,
+            10,
+            8
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "grip_ring_low",
+      "from": [
+        7.3,
+        1.5,
+        7.3
+      ],
+      "to": [
+        8.7,
+        2.0,
+        8.7
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            4,
+            8,
+            8
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            5,
+            4,
+            8,
+            8
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            5,
+            4,
+            8,
+            8
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            5,
+            4,
+            8,
+            8
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            5,
+            4,
+            8,
+            8
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            5,
+            4,
+            8,
+            8
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "grip_ring_high",
+      "from": [
+        7.3,
+        6.0,
+        7.3
+      ],
+      "to": [
+        8.7,
+        6.5,
+        8.7
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "crossguard",
+      "from": [
+        4.6,
+        6.5,
+        7.35
+      ],
+      "to": [
+        11.4,
+        7.4,
+        8.65
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            4,
+            8,
+            8
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            5,
+            4,
+            8,
+            8
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "quillon_left",
+      "from": [
+        3.7645,
+        6.925,
+        7.45
+      ],
+      "to": [
+        5.0855,
+        7.625,
+        8.55
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        }
+      },
+      "rotation": {
+        "origin": [
+          4.425,
+          7.275,
+          8
+        ],
+        "axis": "z",
+        "angle": -29.476
+      }
+    },
+    {
+      "name": "quillon_right",
+      "from": [
+        10.9145,
+        6.925,
+        7.45
+      ],
+      "to": [
+        12.2355,
+        7.625,
+        8.55
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        }
+      },
+      "rotation": {
+        "origin": [
+          11.575,
+          7.275,
+          8
+        ],
+        "axis": "z",
+        "angle": 29.476
+      }
+    },
+    {
+      "name": "knuckle_bow_upper",
+      "from": [
+        8.961,
+        4.55,
+        7.75
+      ],
+      "to": [
+        12.589,
+        5.05,
+        8.25
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        }
+      },
+      "rotation": {
+        "origin": [
+          10.775,
+          4.8,
+          8
+        ],
+        "axis": "z",
+        "angle": 82.875
+      }
+    },
+    {
+      "name": "knuckle_bow_lower",
+      "from": [
+        8.35,
+        1.85,
+        7.75
+      ],
+      "to": [
+        11.1,
+        2.35,
+        8.25
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        }
+      },
+      "rotation": {
+        "origin": [
+          9.725,
+          2.1,
+          8
+        ],
+        "axis": "z",
+        "angle": 53.13
+      }
+    },
+    {
+      "name": "guard_center",
+      "from": [
+        7.05,
+        6.2,
+        7.2
+      ],
+      "to": [
+        8.95,
+        7.9,
+        8.8
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            5,
+            0,
+            8,
+            4
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "guard_gem",
+      "from": [
+        7.6,
+        6.65,
+        7.05
+      ],
+      "to": [
+        8.4,
+        7.45,
+        8.95
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            10,
+            0,
+            12,
+            2
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            10,
+            0,
+            12,
+            2
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            10,
+            0,
+            12,
+            2
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            10,
+            0,
+            12,
+            2
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            10,
+            0,
+            12,
+            2
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            10,
+            0,
+            12,
+            2
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "ricasso",
+      "from": [
+        7.35,
+        7.9,
+        7.78
+      ],
+      "to": [
+        8.65,
+        9.2,
+        8.22
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            12,
+            2,
+            14,
+            6
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            12,
+            2,
+            14,
+            6
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "blade",
+      "from": [
+        7.4,
+        9.0,
+        7.82
+      ],
+      "to": [
+        8.6,
+        28.0,
+        8.18
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            4,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            4,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "fuller",
+      "from": [
+        7.88,
+        9.6,
+        7.79
+      ],
+      "to": [
+        8.12,
+        25.0,
+        8.21
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            1.5,
+            0,
+            2,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            1.5,
+            0,
+            2,
+            16
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "tip_1",
+      "from": [
+        7.5,
+        28.0,
+        7.84
+      ],
+      "to": [
+        8.5,
+        28.6,
+        8.16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            4,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            4,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "tip_2",
+      "from": [
+        7.65,
+        28.6,
+        7.86
+      ],
+      "to": [
+        8.35,
+        29.2,
+        8.14
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            4,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            4,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "tip_3",
+      "from": [
+        7.8,
+        29.2,
+        7.88
+      ],
+      "to": [
+        8.2,
+        29.7,
+        8.12
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        }
+      }
+    },
+    {
+      "name": "tip_4",
+      "from": [
+        7.92,
+        29.7,
+        7.9
+      ],
+      "to": [
+        8.08,
+        30.0,
+        8.1
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "south": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "east": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "west": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "up": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        },
+        "down": {
+          "uv": [
+            4,
+            0,
+            5,
+            16
+          ],
+          "texture": "#sword"
+        }
+      }
+    }
+  ],
+  "display": {
+    "thirdperson_righthand": {
+      "rotation": [
+        -30.0,
+        -90.0,
+        -40.0
+      ],
+      "translation": [
+        0.0,
+        0.81,
+        1.82
+      ],
+      "scale": [
+        0.62,
+        0.62,
+        0.62
+      ]
+    },
+    "firstperson_righthand": {
+      "rotation": [
+        -25.0,
+        -15.0,
+        25.0
+      ],
+      "translation": [
+        0.34,
+        0.63,
+        -1.28
+      ],
+      "scale": [
+        0.55,
+        0.55,
+        0.55
+      ]
+    },
+    "gui": {
+      "rotation": [
+        0,
+        0,
+        -45
+      ],
+      "translation": [
+        -3.618,
+        -3.618,
+        0.0
+      ],
+      "scale": [
+        0.731,
+        0.731,
+        0.731
+      ]
+    },
+    "fixed": {
+      "rotation": [
+        0,
+        180,
+        45
+      ],
+      "translation": [
+        -3.034,
+        -3.034,
+        0.0
+      ],
+      "scale": [
+        0.613,
+        0.613,
+        0.613
+      ]
+    },
+    "ground": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        -0.8,
+        0
+      ],
+      "scale": [
+        0.4,
+        0.4,
+        0.4
+      ]
+    },
+    "head": {
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "translation": [
+        0,
+        6,
+        0
+      ],
+      "scale": [
+        0.6,
+        0.6,
+        0.6
+      ]
+    }
+  }
+}

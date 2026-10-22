@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "A": "minecraft:amethyst_shard",
+    "D": "minecraft:diamond",
+    "G": "minecraft:gold_ingot",
+    "R": "minecraft:blaze_rod"
+  },
+  "pattern": [
+    " A ",
+    " D ",
+    "GRG"
+  ],
+  "result": {
+    "count": 1,
+    "id": "julius_juukulius:house_juukulius_sword"
+  }
+}

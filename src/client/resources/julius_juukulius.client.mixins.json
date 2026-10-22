@@ -1,0 +1,18 @@
+{
+	"required": true,
+	"package": "dev.juukulius.mixin.client",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"AvatarRendererMixin",
+		"CameraMixin",
+		"HumanoidModelMixin",
+		"ItemInHandLayerMixin",
+		"ItemInHandRendererAccessor",
+		"ItemInHandRendererMixin",
+		"MinecraftMixin",
+		"PlayerModelAccessor"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

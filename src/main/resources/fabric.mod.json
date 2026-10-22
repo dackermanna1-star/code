@@ -1,0 +1,37 @@
+{
+	"schemaVersion": 1,
+	"id": "julius_juukulius",
+	"version": "${version}",
+	"name": "Julius Juukulius: Finest of Knights",
+	"description": "Become Julius Juukulius, the Spirit Knight from Re:Zero. Six contracted spirits, House Juukulius's sword clad in Al Clarista's rainbow light, elegant combo swordplay, spirit arts, Al Clauzeria and the ultimate Al Cranvel.",
+	"authors": [
+		"dackermanna1-star"
+	],
+	"contact": {
+		"sources": "https://github.com/dackermanna1-star/code"
+	},
+	"license": "MIT",
+	"icon": "assets/julius_juukulius/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"dev.juukulius.JuliusMod"
+		],
+		"client": [
+			"dev.juukulius.client.JuliusClient"
+		]
+	},
+	"mixins": [
+		"julius_juukulius.mixins.json",
+		{
+			"config": "julius_juukulius.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": ">=0.141.6"
+	}
+}
