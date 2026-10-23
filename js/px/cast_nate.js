@@ -56,14 +56,15 @@
       const r = c.hr;
       // hair framing the face below the beanie's cuff; the far side falls over the shoulder
       const soft = { line: 2 };
-      B.lock([[40, 27], [35, 42], [34, 60], [34, 80], [36, 102], [38, 122]], [11, 11, 11, 10, 8, 3], r, Object.assign({ name: 'hair:f1' }, soft));
+      B.lock([[40, 27], [35, 42], [34, 60], [34, 80], [35, 98]], [11, 11, 11, 9, 3], r, Object.assign({ name: 'hair:f1' }, soft));
+      B.lock([[36, 70], [37, 90], [40, 108], [42, 124]], [8, 8, 7, 3], r, Object.assign({ name: 'hair:f1b', tone: 1 }, soft));
       B.lock([[45, 28], [41, 38], [39, 49]], [7, 6, 3], r, Object.assign({ name: 'hair:f2', tone: 1 }, soft));
       B.lock([[30, 66], [28, 88], [30, 110]], [8, 8, 3], r, Object.assign({ name: 'hair:f3', tone: -1 }, soft));
       B.lock([[75, 28], [79, 34], [83, 41]], [7, 6, 3], r, Object.assign({ name: 'hair:f5' }, soft));
       // goatee: a thin mustache over the lip, and a chin beard below it
       const g = { kind: 'hair', line: 2 };
       B.shape([[49, 62.3], [52, 60.6], [55.5, 60.3], [59, 60.6], [62, 62.2], [61, 63.4], [55.5, 62.7], [50, 63.5]], r, Object.assign({ round: 1.5, name: 'hair:stache' }, g));
-      B.shape([[52, 68.6], [55.5, 68.2], [59.5, 68.8], [61, 72.5], [58.5, 78.6], [55, 80.6], [51.8, 78.6], [50.2, 72.5]], r, Object.assign({ round: 2.5, name: 'hair:goatee' }, g));
+      B.shape([[51.8, 68.6], [55.5, 68.2], [59.6, 68.8], [61, 72], [59.2, 77], [56.2, 81.8], [53.2, 78.2], [50.4, 72.5]], r, Object.assign({ round: 2.2, name: 'hair:goatee' }, g));
     },
     extras(B, c) {
       const k = P.knit_rust;

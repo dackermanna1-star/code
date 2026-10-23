@@ -737,13 +737,13 @@
   const SP = { cx: 262, by: 116, rx: 58, ry: 9 };
   const spBrow = (x) => 104 + Math.sin(x * 0.05) * 1.2 + Math.sin(x * 0.13) * 0.6 + x * 0.012;
   /* jagged top of the front wall (height above the base) and of the far wall's inner face */
-  const spTopH = pw([[203, 26], [207, 38], [212, 38], [213, 46], [219, 46], [220, 42], [226, 42], [227, 54], [233, 54], [234, 50], [238, 50], [239, 30], [243, 30], [244, 18], [249, 18], [250, 14], [258, 14], [259, 20], [264, 20], [265, 34], [269, 34], [270, 48], [275, 48], [276, 60], [281, 60], [282, 70], [286, 70], [287, 82], [297, 82], [298, 74], [302, 74], [303, 62], [308, 62], [309, 52], [314, 52], [315, 40], [321, 40]]);
-  const spBackH = pw([[236, 44], [242, 44], [243, 52], [249, 52], [250, 58], [256, 58], [257, 50], [262, 50], [263, 56], [270, 56]]);
+  const spTopH = pw([[203, 25], [207, 35], [212, 35], [213, 45], [219, 45], [220, 40], [226, 40], [227, 55], [233, 55], [234, 50], [238, 50], [239, 30], [242, 30], [243, 15], [246, 15], [247, 10], [261, 10], [262, 15], [265, 15], [266, 30], [269, 30], [270, 45], [275, 45], [276, 60], [281, 60], [282, 70], [286, 70], [287, 82], [297, 82], [298, 75], [302, 75], [303, 65], [308, 65], [309, 55], [314, 55], [315, 40], [321, 40]]);
+  const spBackH = pw([[236, 40], [241, 40], [242, 50], [248, 50], [249, 58], [255, 58], [256, 50], [261, 50], [262, 55], [272, 55]]);
   const spW = (x) => { const u = (x - SP.cx) / SP.rx; return Math.abs(u) >= 1 ? 0 : Math.sqrt(1 - u * u); };
   const spCourseY = (H, x) => SP.by - H + SP.ry * Math.max(-0.3, 1 - H / 45) * spW(x);   // screen y of a course at height H
   const spH = (y, x) => { const w = spW(x), a = (SP.by + SP.ry * w - y) / (1 + SP.ry * w / 45); return a <= 58.5 ? a : SP.by - 0.3 * SP.ry * w - y; };
   const SP_LAMP = [292, 0];   // x of the highest stone; y filled in below
-  SP_LAMP[1] = Math.round(spCourseY(82, 292));
+  SP_LAMP[1] = Math.round(spCourseY(80, 292));
 
   function spSky(s, T, rng) {
     if (T.day) {
@@ -872,80 +872,79 @@
   }
 
   function spRing(s, T, rng) {
-    const S = P.stone_warm, { cx, by, rx } = SP;
-    const bL = 240, bR = 266;   // the breach
-    // the far wall's inner face, seen through the breach
-    for (let x = bL - 4; x <= bR + 4; x++) {
-      const yb = Math.round(by - SP.ry * spW(x)), yt = Math.round(yb - spBackH(x));
-      for (let y = yt; y <= yb; y++) {
-        const h = yb - y, row = Math.floor(h / 4), off = row % 2 ? 3 : 0;
-        let c = (x - bL) / (bR - bL) > 0.6 ? S[2] : S[1];
-        if (h % 4 === 3 || (x + off) % 7 === 0) c = S[0];
-        if (y === yt) c = S[3];
-        s.px(x, y, c);
-      }
-    }
-    // rubble and weeds inside
-    for (let k = 0; k < 9; k++) rock(s, rng.int(bL, bR), rng.int(104, 110), rng.range(2, 3.5), rng.range(1.5, 2.4), S, { base: 2 });
-    // the front wall, block by block on the curve of the cylinder, lit from the left
-    const rs = PX.rng('sp-blocks');
-    const shadeOf = new Map();
+    const S = P.stone_warm, { cx, by, rx, ry } = SP, CH = 5, DT = 0.16;
+    const lam = (th) => -0.62 * Math.sin(th) + 0.78 * Math.cos(th);
+    const shadeOf = (l) => (l > 0.92 ? 5 : l > 0.62 ? 4 : l > 0.28 ? 3 : l > -0.12 ? 2 : 1);
+    const hash = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
     const thOf = (x) => Math.asin(Math.max(-1, Math.min(1, (x - cx) / rx)));
-    for (let x = cx - rx; x <= Math.min(319, cx + rx); x++) {
-      const u = (x - cx) / rx, w = spW(x), th = thOf(x), th2 = thOf(x + 1);
-      const topH = spTopH(x), yb = Math.round(by + SP.ry * w), yt = Math.round(spCourseY(topH, x));
+    const bL = 243, bR = 265;
+    // the far wall's inner face, seen through the breach: lit above, in the front wall's shadow below
+    for (let x = bL - 3; x <= bR + 3; x++) {
+      const u = (x - cx) / rx, w = spW(x), yb = Math.round(by - ry * w), yt = Math.round(yb - spBackH(x));
+      const l = 0.62 * u + 0.78 * w, k = shadeOf(l), th = thOf(x);
       for (let y = yt; y <= yb; y++) {
-        const H = spH(y, x), row = Math.floor(H / 4), off = row % 2 ? 0.055 : 0;
-        const bi = Math.floor((th + off) / 0.11), key = row * 100 + bi;
-        let base = shadeOf.get(key);
-        if (base === undefined) { base = (rs() < 0.22 ? -1 : rs() < 0.12 ? 1 : 0); shadeOf.set(key, base); }
-        const lightK = u < -0.62 ? 4 : u < -0.05 ? 3 : u < 0.55 ? 2 : 1;
-        let c = clampR(S, lightK + base);
-        const fr = H - row * 4;
-        const edge = bi !== Math.floor((th2 + off) / 0.11);
-        if (fr < 0.9) c = clampR(S, lightK - 2);                       // mortar under each course
-        else if (edge) c = clampR(S, lightK - 1);                       // vertical joints
-        else if (fr > 3.1 && u < 0.3) c = clampR(S, lightK + base + 1);  // lit top lip of each block
-        if (y === yt) c = clampR(S, topH < 26 ? 5 : lightK + 1);
+        const h = yb - y, row = Math.floor(h / CH), bi = Math.floor((th + (row % 2) * DT / 2) / DT), bi2 = Math.floor((thOf(x + 1) + (row % 2) * DT / 2) / DT);
+        let c = clampR(S, (h < 22 ? k - 2 : k - 1) + (hash(row, bi + 50) < 0.2 ? -1 : 0));
+        if (h % CH === 0 || bi !== bi2) c = S[Math.max(0, (h < 22 ? k - 3 : k - 2))];
+        if (y === yt) c = S[k];
         s.px(x, y, c);
       }
-      // the broken top's thickness where we can see onto it, and moss along it
-      if (topH < 26) { s.px(x, yt - 1, S[4]); s.px(x, yt - 2, S[3]); }
-      if (rs() < 0.35) s.px(x, yt - 1, P.grass[3]);
     }
-    // silhouette edges of the cylinder
-    for (let y = Math.round(spCourseY(spTopH(cx - rx + 1), cx - rx + 1)); y < by + 2; y++) s.px(cx - rx, y, S[2]);
-    // grass growing out of the top, a birch sapling in the broken crown
-    for (let x = cx - rx; x < 320; x += rng.int(2, 6)) { const yt = Math.round(spCourseY(spTopH(x), x)) - 1; tuft(s, x, yt, rng.int(2, 4), T.fall ? P.grass_fall : P.grass, rng, { n: 3, base: 2 }); }
-    { const x = 230, yt = Math.round(spCourseY(spTopH(230), 230)); s.line(x, yt, x - 1, yt - 12, P.birch[4]); s.line(x - 1, yt - 6, x - 4, yt - 9, P.birch[3]); s.foliage(x - 2, yt - 13, 4, 3.5, [T.fall ? P.leaf_gold : P.grass], { rng, clusters: 5, blob: 1.8 }); }
-    // rebar: rusted iron rods sticking out of the broken top, some bent
+    // the front wall, block by block on the curve of the cylinder, lit from the front left
+    for (let x = cx - rx; x <= Math.min(319, cx + rx); x++) {
+      const w = spW(x), th = thOf(x), th2 = thOf(x + 1), k0 = shadeOf(lam(th));
+      const topH = Math.round(spTopH(x) / CH) * CH, yb = Math.round(by + ry * w), yt = Math.round(spCourseY(topH, x));
+      for (let y = yt; y <= yb; y++) {
+        const H = Math.max(0, spH(y, x)), row = Math.floor(H / CH), off = (row % 2) * DT / 2;
+        const bi = Math.floor((th + off) / DT), v = hash(row, bi);
+        let k = k0 + (v < 0.18 ? -1 : v > 0.9 ? 1 : 0);
+        const fr = H - row * CH;
+        if (fr < 1) k -= 2;                                        // mortar bed under each course
+        else if (bi !== Math.floor((th2 + off) / DT)) k -= 2;      // the joint between blocks
+        else if (fr > CH - 1.2 && k0 >= 3) k += 1;                 // the lit lip along each block's top
+        else if (fr < 2 && k0 <= 2) k -= 1;
+        if (row * CH >= topH - CH && v > 0.82 && fr >= 1) k = 0;   // a block missing near the broken top
+        s.px(x, y, clampR(S, k));
+      }
+      // the broken top: a pale edge against the sky; where it is below our eyes we see onto its thickness
+      if (topH <= 25) { s.px(x, yt - 1, S[4]); s.px(x, yt - 2, S[5]); s.px(x, yt - 3, S[3]); }
+      else s.px(x, yt, clampR(S, k0 + 1));
+    }
+    // a rubble heap on the wall's stump in the breach, grass in its cracks
+    for (const [x, y, w2, h2] of [[249, 100, 3, 2], [254, 99, 3.5, 2.2], [259, 101, 2.6, 1.8], [246, 102, 2.4, 1.6]]) rock(s, x, y, w2, h2, S, { base: 3 });
+    const GR = T.fall ? P.grass_fall : P.grass;
+    // grass and weeds growing out of the top, a birch sapling in the broken crown
+    for (let x = cx - rx + 1; x < 320; x += rng.int(2, 5)) { const topH = Math.round(spTopH(x) / CH) * CH, yt = Math.round(spCourseY(topH, x)) - (topH <= 25 ? 3 : 0); tuft(s, x, yt, rng.int(2, 4), GR, rng, { n: 3, base: 2 }); }
+    { const x = 230, yt = Math.round(spCourseY(55, 230)); s.line(x, yt, x - 1, yt - 12, P.birch[4]); s.line(x - 1, yt - 6, x - 4, yt - 9, P.birch[3]); s.px(x, yt - 4, P.birch[1]); s.foliage(x - 2, yt - 13, 4.5, 4, [T.fall ? P.leaf_gold : P.grass, P.leaf_gold], { rng, clusters: 6, blob: 1.8 }); }
+    // rebar: rusted iron rods sticking out of the broken top, some bent over
     const Rr = P.od_rust;
-    for (const [x, len, bend] of [[216, 6, 2], [229, 4, 0], [246, 7, -3], [255, 5, 2], [272, 5, 0], [284, 8, 3], [289, 5, -2], [300, 7, 2], [311, 5, 0]]) {
-      const yt = Math.round(spCourseY(spTopH(x), x));
-      s.vline(x, yt - Math.round(len * 0.6), yt - 1, Rr[2]); s.px(x, yt - Math.round(len * 0.6), Rr[4]);
-      s.line(x, yt - Math.round(len * 0.6), x + bend, yt - len, Rr[3]);
+    for (const [x, len, bend] of [[216, 6, 2], [229, 4, 0], [244, 6, -3], [256, 5, 2], [272, 5, 0], [284, 8, 3], [290, 5, -2], [300, 7, 2], [311, 5, 0]]) {
+      const topH = Math.round(spTopH(x) / CH) * CH, yt = Math.round(spCourseY(topH, x)) - (topH <= 25 ? 2 : 0);
+      const up = Math.round(len * 0.6);
+      s.vline(x, yt - up, yt - 1, Rr[2]); s.px(x, yt - up, Rr[4]);
+      s.line(x, yt - up, x + bend, yt - len, Rr[3]); s.px(x + bend, yt - len, Rr[1]);
     }
-    // Virginia creeper gone red, climbing the lower wall
-    for (const [x0, h, spread] of [[208, 26, 7], [222, 18, 5], [278, 30, 8], [296, 38, 9], [314, 24, 5]]) {
-      const yb = Math.round(by + SP.ry * spW(x0));
+    // Virginia creeper gone red, climbing the lower wall in runners
+    for (const [x0, h, spread] of [[208, 24, 6], [221, 16, 5], [279, 28, 7], [296, 36, 8], [313, 22, 5]]) {
+      const yb = Math.round(by + ry * spW(x0));
       let x = x0;
-      for (let k = 0; k < h; k++) { x += rng.int(-1, 1) * 0.5; s.px(x, yb - k, P.leaf_red[1]); }
-      for (let k = 0; k < h * 1.4; k++) {
-        const yy = yb - rng.int(0, h), xx = x0 + rng.int(-spread, spread) * (1 - (yb - yy) / h * 0.6);
+      for (let k = 0; k < h; k++) { if (k % 4 === 0) x += rng.int(-1, 1); s.px(x, yb - k, P.leaf_red[1]); }
+      for (let k = 0; k < h * 1.3; k++) {
+        const yy = yb - rng.int(0, h), f = (yb - yy) / h, xx = Math.round(x0 + rng.int(-spread, spread) * (1 - f * 0.7));
         const c = P.leaf_red[rng.pick([2, 3, 3, 4])]; s.px(xx, yy, c); s.px(xx + 1, yy, SH(c, -1)); if (rng() < 0.5) s.px(xx, yy - 1, SH(c, 1));
       }
     }
-    // graffiti on the lit side: a heart, initials, KISS RULES, and the crossed lantern scratched small
-    const hx = 214, hy = 82;
+    // graffiti on the lit side: a heart, initials, KISS, and the crossed lantern scratched small
+    const hx = 213, hy = 80;
     for (const [dx, dy] of [[1, 0], [2, 0], [4, 0], [5, 0], [0, 1], [3, 1], [6, 1], [0, 2], [6, 2], [1, 3], [5, 3], [2, 4], [4, 4], [3, 5]]) s.px(hx + dx, hy + dy, P.red[3]);
-    text(s, 'TK', hx + 1, hy + 7, P.white[2]);
-    text(s, 'KISS', 226, 100, P.sky_day[1]);
-    const lx = 234, ly = 84;
+    text(s, 'TK', hx + 1, hy + 7, P.ink[4]);
+    text(s, 'KISS', 225, 99, P.navy[4]);
+    const lx = 235, ly = 82;
     s.px(lx + 1, ly, S[1]); s.rect(lx, ly + 1, 3, 4, S[1]); s.px(lx + 1, ly + 2, S[5]); s.px(lx + 1, ly + 3, S[5]);
     s.line(lx - 1, ly, lx + 3, ly + 6, S[0]); s.line(lx + 3, ly, lx - 1, ly + 6, S[0]);
-    // fallen blocks in the grass in front of the ring, a contact shadow along its foot
-    shiftIn(s, cx - rx - 2, by - 2, 319, by + 14, (x, y) => { const yb = by + SP.ry * spW(x); return y > yb && y < yb + 3; }, -1);
-    for (const [x, y, w, h] of [[200, 121, 4, 2.4], [236, 126, 5, 2.8], [247, 124, 3, 2], [306, 128, 5, 2.6], [218, 125, 3, 1.8]]) rock(s, x, y, w, h, S, { base: 3 });
+    // the silhouette edge on the shadow side, a contact shadow along the foot, fallen blocks in the grass
+    shiftIn(s, cx - rx - 2, by - 2, 319, by + 14, (x, y) => { const yb = by + ry * spW(x); return y > yb && y < yb + 3; }, -1);
+    for (const [x, y, w2, h2] of [[200, 121, 4, 2.4], [236, 126, 5, 2.8], [247, 124, 3, 2], [306, 128, 5, 2.6], [218, 125, 3, 1.8]]) rock(s, x, y, w2, h2, S, { base: 3 });
   }
 
   function spFence(s, T, rng) {
