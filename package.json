@@ -1,0 +1,30 @@
+{
+  "name": "what-derry-keeps",
+  "version": "1.0.0",
+  "description": "What Derry Keeps — Episode One: a choice-driven visual novel set in Derry, Maine, 1991",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "playtest": "node tools/playtest.mjs 500",
+    "shots": "node tools/shoot.mjs",
+    "smoke": "node tools/smoke.mjs 60"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dackermanna1-star/code.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dackermanna1-star/code/issues"
+  },
+  "homepage": "https://github.com/dackermanna1-star/code#readme",
+  "devDependencies": {
+    "inkjs": "^2.2.5",
+    "playwright-core": "^1.47.2"
+  },
+  "private": true
+}

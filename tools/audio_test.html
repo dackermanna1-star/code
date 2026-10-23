@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>What Derry Keeps — Sound Audition</title>
+<style>
+  :root {
+    --ink: #141824; --navy: #1f2a3d; --slate: #3b4a63; --bone: #ece3cf; --paper: #d9ccb0;
+    --rust: #b5532e; --mustard: #d9a441; --teal: #2e8b8b; --lantern: #a6e08e; --fog: #8a9bb0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px 16px 48px; background: var(--ink); color: var(--bone);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  header { max-width: 1100px; margin: 0 auto 18px; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+  h1 { font: 600 22px/1.2 Georgia, "Times New Roman", serif; letter-spacing: .02em; margin: 0; flex: 1 1 260px; }
+  h1 small { display: block; font: 13px/1.4 system-ui, sans-serif; color: var(--fog); letter-spacing: 0; margin-top: 4px; }
+  main { max-width: 1100px; margin: 0 auto; display: grid; gap: 14px; }
+  section { background: var(--navy); border-radius: 10px; padding: 12px 14px 14px; }
+  h2 { font: 600 12px/1 system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--paper); margin: 2px 0 10px; display: flex; gap: 10px; align-items: center; }
+  h2 .now { letter-spacing: .02em; text-transform: none; color: var(--mustard); font-weight: 500; }
+  .grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  button {
+    font: inherit; font-size: 14px; color: var(--bone); background: var(--slate); border: 1px solid transparent;
+    border-radius: 6px; padding: 7px 11px; cursor: pointer; min-height: 36px;
+  }
+  button:hover { border-color: var(--fog); }
+  button:active { transform: translateY(1px); }
+  button.on { background: var(--teal); border-color: var(--lantern); }
+  button.stop { background: transparent; border-color: var(--slate); color: var(--fog); }
+  button:disabled { opacity: .45; cursor: default; }
+  #start { background: var(--rust); font-weight: 600; padding: 10px 18px; }
+  #start.ready { background: var(--teal); }
+  #status { color: var(--fog); font-size: 13px; }
+  .sliders { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 18px; }
+  label { display: grid; grid-template-columns: 76px 1fr 38px; gap: 8px; align-items: center; font-size: 13px; color: var(--paper); }
+  input[type=range] { width: 100%; accent-color: var(--mustard); }
+  output { text-align: right; font-variant-numeric: tabular-nums; color: var(--fog); }
+  .row { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+  .row + .row { margin-top: 10px; }
+  .hint { color: var(--fog); font-size: 12px; }
+  .locked section:not(.always) { opacity: .5; pointer-events: none; }
+</style>
+</head>
+<body class="locked">
+<header>
+  <h1>What Derry Keeps — sound audition<small>Every sound is synthesized live by <code>js/audio.js</code> (Web Audio). Press Start first.</small></h1>
+  <button id="start">Start audio</button>
+  <span id="status">not started</span>
+</header>
+<main>
+  <section class="always">
+    <h2>Volume</h2>
+    <div class="sliders" id="sliders"></div>
+  </section>
+  <section>
+    <h2>Music <span class="now" id="now-music"></span></h2>
+    <div class="grid" id="music"></div>
+  </section>
+  <section>
+    <h2>Ambience <span class="now" id="now-ambience"></span></h2>
+    <div class="grid" id="ambience"></div>
+  </section>
+  <section>
+    <h2>Weather <span class="now" id="now-weather"></span></h2>
+    <div class="grid" id="weather"></div>
+  </section>
+  <section>
+    <h2>Sound effects</h2>
+    <div class="grid" id="sfx"></div>
+  </section>
+  <section>
+    <h2>Tape, voices &amp; body</h2>
+    <div class="row" id="tape-row"></div>
+    <div class="row" id="voice-row"></div>
+    <div class="row" id="hb-row"></div>
+    <div class="row" id="misc-row"></div>
+    <p class="hint">Voices play through the tape bus; try them with the tape layer on. Duck lowers the music by 80% for 3 seconds.</p>
+  </section>
+</main>
+<script src="../js/audio.js"></script>
+<script>
+(function () {
+  var MUSIC = 'title june larch school town barrens mystery tension horror quiet festival warm sad end'.split(' ');
+  var AMB = 'rain rain_car night wind house school cafeteria classroom hum boiler diner records library creek hill canal festival quiet town attic static'.split(' ');
+  var WEATHER = ['rain', 'wind'];
+  var SFX = ('click select hover page notify clue door_open door_close door_knock window_knock footsteps car_door bell locker ' +
+    'phone_ring phone_pickup phone_hangup tape_play tape_stop tape_rewind tape_insert record_start static_burst radio_tune ' +
+    'thunder heartbeat whisper breath light_switch lantern lights_out bike_bell paper typewriter wind_gust splash match sting').split(' ');
+  var VOLS = { master: 0.9, music: 0.55, ambience: 0.6, sfx: 0.8 };
+
+  function $(id) { return document.getElementById(id); }
+  function btn(parent, label, fn, cls) {
+    var b = document.createElement('button');
+    b.type = 'button'; b.textContent = label;
+    if (cls) b.className = cls;
+    b.addEventListener('click', fn);
+    parent.appendChild(b);
+    return b;
+  }
+  if (!window.SND) { $('status').textContent = 'js/audio.js did not load'; return; }
+
+  // volume sliders (work before Start too; SND remembers them)
+  Object.keys(VOLS).forEach(function (ch) {
+    var l = document.createElement('label'), r = document.createElement('input'), o = document.createElement('output');
+    l.appendChild(document.createTextNode(ch));
+    r.type = 'range'; r.min = 0; r.max = 1; r.step = 0.01; r.value = VOLS[ch];
+    o.textContent = Math.round(VOLS[ch] * 100);
+    r.addEventListener('input', function () { o.textContent = Math.round(r.value * 100); SND.setVolume(ch, +r.value); });
+    l.appendChild(r); l.appendChild(o); $('sliders').appendChild(l);
+  });
+
+  // exclusive groups: music / ambience / weather
+  function group(kind, ids, call) {
+    var box = $(kind), buttons = {};
+    function mark(id) {
+      Object.keys(buttons).forEach(function (k) { buttons[k].classList.toggle('on', k === id); });
+      $('now-' + kind).textContent = id ? 'playing: ' + id : '';
+    }
+    ids.forEach(function (id) {
+      buttons[id] = btn(box, id, function () {
+        var playing = buttons[id].classList.contains('on');
+        call(playing ? null : id); mark(playing ? null : id);
+      });
+    });
+    btn(box, 'stop', function () { call(null); mark(null); }, 'stop');
+    return mark;
+  }
+  var marks = {
+    music: group('music', MUSIC, function (id) { SND.music(id, { fade: 2 }); }),
+    ambience: group('ambience', AMB, function (id) { SND.ambience(id, { fade: 2 }); }),
+    weather: group('weather', WEATHER, function (id) { SND.weather(id); })
+  };
+  SFX.forEach(function (id) { btn($('sfx'), id, function () { SND.sfx(id); }); });
+
+  // tape / voices / heartbeat / misc
+  var tapeOn = false, tapeBtn = btn($('tape-row'), 'tape layer: off', function () {
+    tapeOn = !tapeOn; SND.tape(tapeOn);
+    tapeBtn.textContent = 'tape layer: ' + (tapeOn ? 'on' : 'off'); tapeBtn.classList.toggle('on', tapeOn);
+  });
+  ['girl', 'boy', 'woman', 'man', 'old'].forEach(function (k) {
+    btn($('voice-row'), 'voice: ' + k + ' (4 s)', function () { SND.voice(4, k); });
+  });
+  var hbButtons = [];
+  [60, 90, 120].forEach(function (bpm) {
+    var b = btn($('hb-row'), 'heartbeat ' + bpm, function () {
+      SND.heartbeat(bpm);
+      hbButtons.forEach(function (x) { x.classList.toggle('on', x === b); });
+    });
+    hbButtons.push(b);
+  });
+  btn($('hb-row'), 'heartbeat off', function () { SND.heartbeat(null); hbButtons.forEach(function (x) { x.classList.remove('on'); }); }, 'stop');
+  btn($('misc-row'), 'duck music 80% for 3 s', function () { SND.duck(0.8, 3); });
+  btn($('misc-row'), 'stop everything', function () {
+    SND.stopAll();
+    Object.keys(marks).forEach(function (k) { marks[k](null); });
+    hbButtons.forEach(function (x) { x.classList.remove('on'); });
+    tapeOn = false; tapeBtn.textContent = 'tape layer: off'; tapeBtn.classList.remove('on');
+  }, 'stop');
+
+  $('start').addEventListener('click', function () {
+    SND.init().then(function (ok) {
+      if (!ok) { $('status').textContent = 'Web Audio is not available in this browser'; return; }
+      document.body.classList.remove('locked');
+      $('start').classList.add('ready'); $('start').textContent = 'Audio on';
+      $('status').textContent = 'ready';
+    });
+  });
+})();
+</script>
+</body>
+</html>
