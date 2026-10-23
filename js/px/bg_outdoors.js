@@ -3,10 +3,7 @@
  *                                            that breathes, Wes's log, the Admiral, the trestle upstream
  *   standpipe     day, dusk, night, quiet  — Memorial Park: the ruined Standpipe above the town;
  *                                            quiet = the Keeper's Lamp burning green on the ring
- *   canal         dusk, lanterns           — the downtown canal between the mill backs;
- *                                            lanterns = the Lantern Float, one lantern going the wrong way
- *   park          afternoon                — Bassey Park: Paul Bunyan and the playground
- *   street_quiet  quiet                    — a residential street on Quiet Night, one TV still on
+ *   (canal, park and street_quiet are in bg_exteriors.js)
  * Ramps added here are prefixed od_ so they never collide with other files.
  */
 (function () {

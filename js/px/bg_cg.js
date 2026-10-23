@@ -5,13 +5,9 @@
  *                  in the dark by her window; five: the new Maxell XLII on
  *                  Gus's pillow, "#5 — FOR GUSSIE — PLAY AFTER"
  *   cg_polaroid    the faded Polaroid on the attic boards, in flashlight light
- *   cg_june_window June on the porch roof, through Gus's window
  *   cg_map         the hand-drawn Derry map for the Saturday free roam
- *   cg_lanterns    the Lantern Float, up close
- *   cg_standpipe   Quiet Night at the top of the hill: the Keeper's Lamp
- *   cg_lights_out  from Gus's window, the moment Larch Street goes dark
- *   title          Derry at night from the hill, the Standpipe's green lamp
  *   black          plain near-black
+ *   (cg_lanterns, cg_standpipe, cg_june_window and title are in bg_cg2.js)
  *
  * Every image is 320×180, drawn in daylight colors; the time presets do the
  * ambient light. Ramps added here are prefixed cg_ so they can't collide with

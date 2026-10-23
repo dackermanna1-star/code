@@ -9,10 +9,11 @@ published artifact. The only build step compiles the Ink script to
 index.html            page shell (full document; tools/build.mjs derives the artifact page)
 js/vendor/ink.js      inkjs runtime (fallback if the CDN is unreachable)
 js/story.js           compiled Ink story  -> window.STORY_JSON   (generated)
-js/art/kit.js         SVG helpers + palette + ART registry       -> window.KIT, window.ART
-js/art/bg_*.js        backgrounds  (each file registers several)
-js/art/cg.js          full-screen event illustrations
-js/art/portraits.js   portrait system + every character
+js/px/px.js           pixel kit: ramps, light, Surf, registry      -> window.PX (PX.ART)
+js/px/pxchar.js       the portrait rig shared by the cast           -> PX.RIG, PX.person
+js/px/cast_*.js       one file per character
+js/px/bg_*.js         backgrounds and CGs (each file registers several)
+js/px/ui_px.js        the pixel interface textures                  -> window.UIPX
 js/audio.js           procedural music / ambience / sfx          -> window.SND
 js/data.js            journal text: people, clues, tapes, places -> window.DATA
 js/freeform.js        "say something else": Claude + offline fallback
@@ -20,31 +21,28 @@ js/engine.js          the visual-novel runtime
 story/*.ink           the script
 tools/build.mjs       compile Ink, emit js/story.js and dist/artifact.html
 tools/playtest.mjs    random-walk every branch, report errors + word counts
-tools/shoot.mjs       Playwright screenshots of art for review
+tools/pxshoot.mjs     Playwright renders of the pixel art for review
 ```
 
-## Art registry (`js/art/kit.js`)
+## Art registry (`js/px/px.js`)
 
 ```js
-ART.bg(id, {
+PX.bg(id, {
   times: ['day', 'dusk', 'night'],          // first entry is the default
-  light: { night: 'interior_lamp' },        // optional: map time -> KIT.LIGHT preset
-  draw(o) { return '<svg-inner-markup/>'; } // o = {time, variant, W:1600, H:900, id, rng}
+  variants: ['board_blank'],                // optional: @bg id time variant
+  preset: { night: 'evening' },             // optional: light a time with another PX.TIME preset
+  draw(s, o) { ... }                        // s = 320×180 palette surface, o = {time, variant, rng, night}
 });
-ART.cg(id, { draw(o) { ... } });            // same signature, o.variant optional
-ART.char(id, { name, draw(o) { ... } });    // o = {expr, outfit, id}; 600x900 canvas
+PX.cg(id, { times: ['night'], draw(s, o) { ... } });
+PX.person(id, spec);                        // a character on the shared rig (see pxchar.js)
 ```
 
-- `o.id('sky')` returns a per-render unique id. **Every** `id=` / `url(#…)` in a
-  drawing must go through it: two renders of the same background are on screen
-  together during crossfades.
-- `o.rng` is a seeded RNG (`() => [0,1)`) seeded from the background id, so a
-  drawing is identical every time it renders.
-- Return only the inner markup; the engine wraps it in
-  `<svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">`.
-  Because of `slice`, phones crop the sides: keep essentials in x 250–1350.
-- No `<filter>` blur/turbulence in backgrounds (slow on phones). Gradients,
-  opacity and `mix-blend-mode` are fine.
+- Draw in daylight colours; the time preset applies the ambient light, and
+  `s.light()` / `s.lightPoly()` add lamps, windows and the Lamp. Skies, screens
+  and lit glass are emissive (`PX.E(code)`).
+- `o.rng` is seeded from the id, so a picture is identical every time.
+- The dialogue box covers y > 130; sprites stand at x ≈ 87, 160 and 233.
+- The style rules and the full API are in `docs/ART_DIRECTION.md`.
 
 ## Ink script conventions
 

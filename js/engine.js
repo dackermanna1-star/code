@@ -93,35 +93,29 @@
     return v.join(' ');
   }
   function setLight(L) { const m = $('#spriteLightM'); if (m && L) m.setAttribute('values', lightMatrix(L)); }
-  /* ---------- art: the pixel kit (PX) first, the older SVG kit as a fallback ---------- */
+  /* ---------- art: the pixel kit (js/px) ---------- */
   const urlCache = new Map();
   const ART = E.art = {
-    bg(id, time, variant) { if (window.PX && PX.hasBg(id)) return PX.renderBg(id, time, variant); return window.KIT ? KIT.renderBg(id, time, variant) : null; },
+    bg(id, time, variant) { return window.PX && PX.hasBg(id) ? PX.renderBg(id, time, variant) : null; },
     /* markup for places that build HTML strings (title, map) */
     bgHTML(id, time, variant) {
       const r = ART.bg(id, time, variant); if (!r) return '';
-      if (!r.el) return r.svg || '';
       const k = 'bg|' + id + '|' + (time || '') + '|' + (variant || '') + '|' + PX.F;
       if (!urlCache.has(k)) urlCache.set(k, r.el.toDataURL());
       return `<img class="px" alt="" src="${urlCache.get(k)}">`;
     },
-    put(host, r) { host.innerHTML = ''; if (!r) return; if (r.el) host.appendChild(r.el); else host.innerHTML = r.svg || ''; },
+    put(host, r) { host.innerHTML = ''; if (r) host.appendChild(r.el); },
     portraitHTML(id, expr) {
-      if (window.PX && PX.hasChar(id)) {
-        const k = 'pt|' + id + '|' + (expr || 'neutral');
-        if (!urlCache.has(k)) { const c = PX.renderPortrait(id, expr || 'neutral', 3); urlCache.set(k, c ? c.toDataURL() : ''); }
-        return urlCache.get(k) ? `<img class="px" alt="" src="${urlCache.get(k)}">` : '';
-      }
-      const svg = window.KIT && KIT.renderChar(id, expr || 'neutral');
-      return svg ? svg.replace('viewBox="0 0 600 900"', 'viewBox="140 66 320 320"').replace('xMidYMax meet', 'xMidYMid slice') : '';
+      if (!(window.PX && PX.hasChar(id))) return '';
+      const k = 'pt|' + id + '|' + (expr || 'neutral');
+      if (!urlCache.has(k)) { const c = PX.renderPortrait(id, expr || 'neutral', 3); urlCache.set(k, c ? c.toDataURL() : ''); }
+      return urlCache.get(k) ? `<img class="px" alt="" src="${urlCache.get(k)}">` : '';
     },
     figureHTML(id, expr) {
-      if (window.PX && PX.hasChar(id)) {
-        const k = 'fig|' + id + '|' + (expr || 'neutral');
-        if (!urlCache.has(k)) { const r = PX.renderChar(id, expr || 'neutral', {}); urlCache.set(k, r ? r.open.toDataURL() : ''); }
-        return urlCache.get(k) ? `<img class="px" alt="" src="${urlCache.get(k)}">` : '';
-      }
-      return (window.KIT && KIT.renderChar(id, expr || 'neutral')) || '';
+      if (!(window.PX && PX.hasChar(id))) return '';
+      const k = 'fig|' + id + '|' + (expr || 'neutral');
+      if (!urlCache.has(k)) { const r = PX.renderChar(id, expr || 'neutral', {}); urlCache.set(k, r ? r.open.toDataURL() : ''); }
+      return urlCache.get(k) ? `<img class="px" alt="" src="${urlCache.get(k)}">` : '';
     }
   };
   E.setBg = function (id, time, variant, trans) {
@@ -156,24 +150,19 @@
   const spriteEls = {};
   function renderSprite(el, id, expr, outfit, pos) {
     const flip = /left/.test(pos || '');
-    if (window.PX && PX.hasChar(id)) {
-      const r = PX.renderChar(id, expr, { outfit, flip });
-      const sp = document.createElement('div'); sp.className = 'sp px';
-      if (r) {
-        r.open.classList.add('f', 'eyes-open'); sp.appendChild(r.open);
-        if (r.closed) { r.closed.classList.add('f', 'eyes-closed'); sp.appendChild(r.closed); }
-      }
-      el.innerHTML = ''; el.appendChild(sp);
-      el.classList.add('pxs');
-    } else {
-      const svg = window.KIT && KIT.renderChar(id, expr, outfit);
-      el.innerHTML = '<div class="sp">' + (svg || '') + '</div>';
+    const r = PX.renderChar(id, expr, { outfit, flip });
+    const sp = document.createElement('div'); sp.className = 'sp px';
+    if (r) {
+      r.open.classList.add('f', 'eyes-open'); sp.appendChild(r.open);
+      if (r.closed) { r.closed.classList.add('f', 'eyes-closed'); sp.appendChild(r.closed); }
     }
+    el.innerHTML = ''; el.appendChild(sp);
+    el.classList.add('pxs');
     el.dataset.expr = expr;
     el.dataset.flip = flip ? '1' : '0';
   }
   E.show = function (id, expr, pos, outfit) {
-    if (!((window.PX && PX.hasChar(id)) || (window.ART && window.ART.chars && window.ART.chars[id]))) { console.warn('missing character', id); return; }
+    if (!(window.PX && PX.hasChar(id))) { console.warn('missing character', id); return; }
     const cur = E.vis.sprites[id] || {};
     expr = expr || cur.expr || 'neutral';
     pos = pos || cur.pos || 'center';

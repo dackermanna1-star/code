@@ -2,10 +2,7 @@
  *
  *   school_ext  morning (Sep 4, first day: cool, crisp) | afternoon (gold, long shadows)
  *   school_hall day | empty_night (after hours: EXIT sign, moonlight)
- *   classroom   day, variant board_blank (Room 114, Ms. Whitcomb's English)
- *   cafeteria   day
- *   library     day | evening (the grand old library, with a microfilm corner)
- *   boiler      dim, variant wall (Mr. Teague's wall of names)
+ *   (classroom, cafeteria, library and boiler are in bg_rooms.js)
  *
  * Shared helpers at the top: a 3×5 pixel font, a one-point perspective
  * camera for the interiors, brick and tile textures.

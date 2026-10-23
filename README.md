@@ -31,7 +31,7 @@ npm run shots -- bg standpipe:all   # render art to .shots/ for review
 | `js/ui.js` | Title, notebook, history, saves, settings, the Derry map, end-of-episode summary. |
 | `js/freeform.js` | "Say something else…": Claude when available, a tone matcher otherwise. |
 | `js/data.js` | Speaker table and notebook content (people, clues, tapes, theories). |
-| `js/art/*.js` | All artwork, drawn as SVG by code: `kit.js` (palette, light, helpers), `portraits.js` (the cast's shared face rig), backgrounds, CGs. |
+| `js/px/*.js` | All artwork, drawn as pixel art by code: `px.js` (palette ramps, light, the 320×180 kit), `pxchar.js` (the cast's shared portrait rig), `cast_*.js`, backgrounds (`bg_*.js`), CGs, and the pixel UI (`ui_px.js`). |
 | `js/audio.js` | All music, ambience and sound effects, synthesized with the Web Audio API. |
 | `docs/ART_DIRECTION.md` | The visual identity. |
 | `docs/ENGINE.md` | Script conventions and module APIs. |

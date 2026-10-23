@@ -26,16 +26,17 @@ win.window = win;
 const ctx = vm.createContext(win);
 const load = (f) => { try { vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), ctx, { filename: f }); } catch (e) { console.log('load fail', f, e.message); } };
 load('js/story.js');
-load('js/art/kit.js');
-load('js/art/portraits.js');
-for (const f of fs.readdirSync(path.join(root, 'js/art')).filter((f) => f.endsWith('.js') && f !== 'kit.js' && f !== 'portraits.js')) load('js/art/' + f);
+load('js/px/px.js');
+load('js/px/pxchar.js');
+for (const f of fs.readdirSync(path.join(root, 'js/px')).filter((f) => f.endsWith('.js') && !['px.js', 'pxchar.js', 'ui_px.js'].includes(f)).sort()) load('js/px/' + f);
 load('js/data.js');
-const { STORY_JSON, ART, DATA, PORTRAIT } = win;
+const { STORY_JSON, DATA, PX } = win;
+const ART = PX.ART;
 const audioSrc = fs.existsSync(path.join(root, 'js/audio.js')) ? fs.readFileSync(path.join(root, 'js/audio.js'), 'utf8') : '';
 const MUSIC = 'title larch school town barrens mystery tension horror quiet festival warm june sad end'.split(' ');
 const AMB = 'rain rain_car night wind house school cafeteria classroom hum boiler diner records library creek hill canal festival quiet town attic static'.split(' ');
 const SFX = 'click select hover page notify clue door_open door_close door_knock window_knock footsteps car_door bell locker phone_ring phone_pickup phone_hangup tape_play tape_stop tape_rewind tape_insert record_start static_burst radio_tune thunder heartbeat whisper breath light_switch lantern lights_out bike_bell paper typewriter wind_gust splash match sting'.split(' ');
-const EXPRS = Object.keys((PORTRAIT && PORTRAIT.EXPR) || {});
+const EXPRS = PX.RIG.EXPRS;
 const TONES = 'friendly joke sarcastic shy blunt confront manipulate kind ask probe deflect honest lie flirt silent leave action look go record'.split(' ');
 const FX = 'shake flash glitch pulse blackout clear redout greenout heartbeat heartbeat_off lights_out'.split(' ');
 const SPECIAL = ['GUS', 'THINK', 'TAPE', 'PHONE', 'RADIO', 'VOICE'];
@@ -46,7 +47,7 @@ function checkCmd(line) {
   const [name, ...a] = line.slice(1).trim().split(/\s+/);
   switch (name) {
     case 'bg': {
-      const d = ART.bgs[a[0]];
+      const d = ART.bgs[a[0]] || ART.cgs[a[0]];
       if (!d) miss(`bg:${a[0]}`);
       else if (a[1] && a[1] !== '-' && d.times && !d.times.includes(a[1])) miss(`bg-time:${a[0]}:${a[1]}`);
       break;

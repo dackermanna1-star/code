@@ -3,9 +3,7 @@
  *                                      wagon at dusk in the rain; 'sign' = the DERRY sign
  *   downtown  day dusk night festival  Center Street. day = Sat Oct 12, 3:12 pm, empty;
  *                                      night = after the Lantern Float; festival = Canal Days
- *   diner     day afternoon            Dot's Diner (afternoon: 3:15, the grilled cheese)
- *   records   day                      Low Tide Records
- *   theater   night                    inside the Aladdin, from the balcony, Friday night
+ *   (diner and records are in bg_rooms.js; theater is in bg_exteriors.js)
  */
 (function () {
   'use strict';
