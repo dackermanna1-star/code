@@ -36,6 +36,21 @@ export class UI {
     $('btn-start').addEventListener('click', () => this.play());
     $('btn-settings').addEventListener('click', () => this.openDrawer('settings'));
     $('btn-controls').addEventListener('click', () => this.openDrawer('controls'));
+    const fs = $('btn-fullscreen');
+    if (document.fullscreenEnabled && document.documentElement.requestFullscreen) {
+      fs.hidden = false;
+      const label = () => {
+        fs.textContent = document.fullscreenElement ? 'Exit fullscreen' : 'Fullscreen';
+      };
+      fs.addEventListener('click', () => {
+        const p = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+        if (p && p.catch) p.catch(() => this.toast('Fullscreen is not available here'));
+      });
+      document.addEventListener('fullscreenchange', () => {
+        label();
+        this.game.resize();
+      });
+    }
     for (const b of document.querySelectorAll('[data-close]')) b.addEventListener('click', () => this.closeDrawers());
 
     const input = game.input;

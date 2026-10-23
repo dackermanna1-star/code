@@ -105,7 +105,11 @@ async function boot(hotData = {}) {
       } catch {
         // Fine: we just restart at the spawn point.
       }
-      location.reload();
+      try {
+        location.reload();
+      } catch {
+        ui.toast('Reload the page to apply the new quality');
+      }
     },
   });
 

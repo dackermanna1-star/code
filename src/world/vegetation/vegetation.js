@@ -117,9 +117,9 @@ export class Vegetation {
 
     const palmMat = createFoliageMaterial(atmosphere, atlas, {
       map: frondMap,
-      leafTint: [0.88, 0.9, 0.86],
+      leafTint: [0.84, 0.88, 0.86],
       deadTint: [0.3, 0.24, 0.16],
-      translucency: 0.8,
+      translucency: 0.55,
       stiffness: 1.6,
       objectShadows: shadows,
       alphaToCoverage: a2c,
