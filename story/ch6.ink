@@ -251,7 +251,7 @@ Click.
 
 // ------------------------------------------------------------
 === q_hill ===
-@bg standpipe night
+@bg standpipe quiet
 @amb hill
 @music tension
 @weather fog
@@ -325,6 +325,7 @@ It's a woman's voice. It comes out of the light. It sounds like every mother who
 
 = face_constance
 You take one step toward the light—
+@show wes smile left
 @show constance neutral right
 A hand closes on your arm. A gloved hand, small and very strong.
 Mrs. Ashgrove. Camel coat buttoned to the throat, the little brass lantern on her collar. She crossed thirty feet of wet grass while you were watching Wes, and you never heard her.
@@ -558,6 +559,7 @@ The Lamp gutters, and goes out.
 
 = after
 @hide all
+@bg black night - slow
 @fx clear
 @music stop 3
 @weather none
