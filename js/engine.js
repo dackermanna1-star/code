@@ -237,61 +237,71 @@
     requestAnimationFrame(() => requestAnimationFrame(() => host.classList.add('on')));
     E.vis.cg = { id, variant: variant || null };
   };
-  /* weather particles on a canvas */
-  const W = { type: null, parts: [], raf: 0, w: 0, h: 0, ctx: null };
+  /* weather particles, drawn at the pixel art's native size (320×180) and scaled up crisply */
+  const W = { type: null, parts: [], raf: 0, w: 320, h: 180, ctx: null, img: null, frame: 0 };
+  const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
   function weatherResize() {
-    const c = $('#weather'); const st = $('#stage');
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
-    W.w = st.clientWidth; W.h = st.clientHeight;
-    c.width = Math.round(W.w * dpr); c.height = Math.round(W.h * dpr);
-    W.ctx = c.getContext('2d'); W.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const c = $('#weather');
+    W.w = 320; W.h = 180;
+    if (c.width !== W.w || c.height !== W.h) { c.width = W.w; c.height = W.h; }
+    W.ctx = c.getContext('2d');
+    W.img = W.ctx.createImageData(W.w, W.h);
   }
   function weatherSeed() {
     W.parts = [];
-    const n = W.type === 'rain' ? 170 : W.type === 'leaves' ? 18 : W.type === 'fog' ? 7 : W.type === 'dust' ? 50 : W.type === 'snow' ? 90 : 0;
+    const n = W.type === 'rain' ? 110 : W.type === 'leaves' ? 14 : W.type === 'fog' ? 6 : W.type === 'dust' ? 40 : W.type === 'snow' ? 70 : 0;
     for (let i = 0; i < n; i++) W.parts.push(newPart(true));
   }
-  const LEAF = ['#b5532e', '#e08a3c', '#d9a441', '#8c3b2e'];
+  const LEAF = [[176, 64, 30], [224, 128, 50], [214, 170, 60], [140, 52, 40]];
   function newPart(init) {
-    const w = W.w || 800, h = W.h || 450;
-    if (W.type === 'rain') return { x: Math.random() * w * 1.2, y: init ? Math.random() * h : -20, l: 8 + Math.random() * 14, v: 9 + Math.random() * 7, a: 0.12 + Math.random() * 0.25 };
-    if (W.type === 'leaves') return { x: Math.random() * w, y: init ? Math.random() * h : -20, r: 3 + Math.random() * 4, v: 0.5 + Math.random() * 0.9, ph: Math.random() * 6, rot: Math.random() * 6, c: LEAF[Math.floor(Math.random() * 4)] };
-    if (W.type === 'fog') return { x: Math.random() * w, y: h * (0.45 + Math.random() * 0.5), r: w * (0.18 + Math.random() * 0.2), v: 0.08 + Math.random() * 0.15, a: 0.05 + Math.random() * 0.06 };
-    if (W.type === 'dust') return { x: Math.random() * w, y: Math.random() * h, r: 0.6 + Math.random() * 1.4, v: 0.05 + Math.random() * 0.15, ph: Math.random() * 6, a: 0.2 + Math.random() * 0.4 };
-    return { x: Math.random() * w, y: init ? Math.random() * h : -10, r: 1 + Math.random() * 2, v: 0.4 + Math.random() * 0.8, ph: Math.random() * 6 };
+    const w = W.w, h = W.h, R = Math.random;
+    if (W.type === 'rain') return { x: R() * w * 1.25, y: init ? R() * h : -6, l: 3 + Math.floor(R() * 4), v: 3.2 + R() * 2, a: 70 + R() * 90 };
+    if (W.type === 'leaves') return { x: R() * w, y: init ? R() * h : -4, v: 0.25 + R() * 0.35, ph: R() * 6, c: LEAF[Math.floor(R() * 4)], big: R() < 0.4 };
+    if (W.type === 'fog') return { x: R() * w, y: h * (0.5 + R() * 0.45), rx: 40 + R() * 50, ry: 8 + R() * 10, v: 0.04 + R() * 0.07, d: 0.22 + R() * 0.2 };
+    if (W.type === 'dust') return { x: R() * w, y: R() * h, v: 0.02 + R() * 0.06, ph: R() * 6 };
+    return { x: R() * w, y: init ? R() * h : -3, v: 0.2 + R() * 0.4, ph: R() * 6, big: R() < 0.3 };
   }
   function weatherTick() {
-    const c = W.ctx; if (!c) return;
-    c.clearRect(0, 0, W.w, W.h);
+    W.raf = requestAnimationFrame(weatherTick);
+    if (!W.ctx || (W.frame++ & 1)) return;            // ~30 fps is plenty for pixel weather
+    const d = W.img.data; d.fill(0);
+    const put = (x, y, r, g, b, a) => {
+      x = Math.round(x); y = Math.round(y);
+      if (x < 0 || y < 0 || x >= W.w || y >= W.h) return;
+      const k = (y * W.w + x) * 4; d[k] = r; d[k + 1] = g; d[k + 2] = b; d[k + 3] = Math.max(d[k + 3], a);
+    };
     for (let i = 0; i < W.parts.length; i++) {
       const p = W.parts[i];
       if (W.type === 'rain') {
-        c.strokeStyle = `rgba(200,215,235,${p.a})`; c.lineWidth = 1;
-        c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(p.x - p.l * 0.18, p.y + p.l); c.stroke();
-        p.y += p.v; p.x -= p.v * 0.18;
+        for (let k = 0; k < p.l; k++) put(p.x - k * 0.34, p.y + k, 196, 212, 236, p.a * (1 - k / (p.l + 1)));
+        p.y += p.v; p.x -= p.v * 0.34;
+        if (p.y > W.h * 0.78 && Math.random() < 0.08) { put(p.x - 1, p.y, 210, 222, 240, 110); put(p.x + 1, p.y, 210, 222, 240, 110); }
         if (p.y > W.h) W.parts[i] = newPart(false);
       } else if (W.type === 'leaves') {
-        p.ph += 0.02; p.rot += 0.03; p.y += p.v; p.x += Math.sin(p.ph) * 0.8 + 0.25;
-        c.save(); c.translate(p.x, p.y); c.rotate(p.rot); c.fillStyle = p.c; c.globalAlpha = 0.85;
-        c.beginPath(); c.ellipse(0, 0, p.r * 1.6, p.r * 0.7, 0, 0, Math.PI * 2); c.fill(); c.restore();
-        if (p.y > W.h + 10) W.parts[i] = newPart(false);
+        p.ph += 0.05; p.y += p.v; p.x += Math.sin(p.ph) * 0.45 + 0.12;
+        const [r, g, b] = p.c, flip = Math.sin(p.ph * 1.7) > 0;
+        put(p.x, p.y, r, g, b, 235); put(p.x + (flip ? 1 : 0), p.y + (flip ? 0 : 1), r * 0.8, g * 0.8, b * 0.8, 235);
+        if (p.big) put(p.x + 1, p.y + 1, r * 1.1, g * 1.1, b * 1.1, 235);
+        if (p.y > W.h + 4) W.parts[i] = newPart(false);
       } else if (W.type === 'fog') {
-        p.x += p.v; if (p.x - p.r > W.w) p.x = -p.r;
-        const g = c.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r);
-        g.addColorStop(0, `rgba(170,180,190,${p.a})`); g.addColorStop(1, 'rgba(170,180,190,0)');
-        c.fillStyle = g; c.fillRect(p.x - p.r, p.y - p.r, p.r * 2, p.r * 2);
+        p.x += p.v; if (p.x - p.rx > W.w) p.x = -p.rx;
+        for (let y = Math.floor(p.y - p.ry); y <= p.y + p.ry; y++) for (let x = Math.floor(p.x - p.rx); x <= p.x + p.rx; x++) {
+          const nx = (x - p.x) / p.rx, ny = (y - p.y) / p.ry, q = 1 - nx * nx - ny * ny;
+          if (q <= 0 || x < 0 || y < 0 || x >= W.w || y >= W.h) continue;
+          if (BAY[((y & 3) << 2) | (x & 3)] < q * p.d) put(x, y, 168, 180, 192, 120);
+        }
       } else if (W.type === 'dust') {
-        p.ph += 0.01; p.y -= p.v; p.x += Math.sin(p.ph) * 0.2;
-        if (p.y < -5) { p.y = W.h + 5; p.x = Math.random() * W.w; }
-        c.fillStyle = `rgba(255,240,210,${p.a * (0.6 + 0.4 * Math.sin(p.ph * 3))})`;
-        c.beginPath(); c.arc(p.x, p.y, p.r, 0, Math.PI * 2); c.fill();
+        p.ph += 0.03; p.y -= p.v; p.x += Math.sin(p.ph) * 0.08;
+        if (p.y < -2) { p.y = W.h + 2; p.x = Math.random() * W.w; }
+        const tw = 0.5 + 0.5 * Math.sin(p.ph * 3);
+        if (tw > 0.25) put(p.x, p.y, 255, 238, 200, 120 + 120 * tw);
       } else {
-        p.ph += 0.02; p.y += p.v; p.x += Math.sin(p.ph) * 0.4;
-        c.fillStyle = 'rgba(240,244,250,.7)'; c.beginPath(); c.arc(p.x, p.y, p.r, 0, Math.PI * 2); c.fill();
-        if (p.y > W.h + 5) W.parts[i] = newPart(false);
+        p.ph += 0.03; p.y += p.v; p.x += Math.sin(p.ph) * 0.25;
+        put(p.x, p.y, 240, 244, 250, 220); if (p.big) { put(p.x + 1, p.y, 230, 236, 246, 200); put(p.x, p.y + 1, 230, 236, 246, 200); }
+        if (p.y > W.h + 3) W.parts[i] = newPart(false);
       }
     }
-    W.raf = requestAnimationFrame(weatherTick);
+    W.ctx.putImageData(W.img, 0, 0);
   }
   E.weather = function (type) {
     if (type === 'none' || type === 'off') type = null;
