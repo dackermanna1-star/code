@@ -2,10 +2,7 @@
  *   kitchen     Mémère's kitchen, 9 Larch St     morning, evening, night
  *   living      Mémère's living room             evening, night
  *   gus_room    Gus's room under the eaves       day, night, dawn
- *   hall_up     the upstairs hall                night
- *   attic       the attic                        day, flashlight
- *   teddy_room  Teddy Okafor's bedroom           night
- *   ashgrove    the Ashgrove front hall          night
+ *   (hall_up, attic, teddy_room and ashgrove are in bg_homes2.js)
  *
  * Rooms are one-point perspective boxes (Room below): world coordinates are
  * back-wall pixels (x across, y down, floor = by1) plus a depth d toward the
@@ -1672,4 +1669,7 @@
       return SH(rows[flo(v / 4) % rows.length], (flo(u / 3) + flo(v / 2)) & 1 ? 0 : -1);
     });
   }
+
+  /* shared with the other interior files (bg_rooms.js, bg_homes2.js) */
+  PX.HOME = { Room, box, rbox, obj, text, textW, plankFloor, motif, shadePoly, shadeRect, shadeEll, falloff, band, rrect, wallShadow, cord, sag, fold, gingham, ripple, cl, isE };
 })();
