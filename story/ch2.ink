@@ -469,7 +469,8 @@ WES(flat): Because he's got one eye. Like the Admiral. Lord Nelson. Never mind. 
 @amb library
 @show cal neutral center
 @ctx Gus finds Cal Ashgrove eating lunch alone in the school library, surrounded by microfilm printouts of old Derry newspapers. He's pleased and suspicious.
-The school library is the one grand room in Derry High, built back when the town had money and wanted you to know it: tall oak shelves, green-shaded lamps, a ceiling you could lose a balloon in. Cal is at a table in the back with a peanut butter sandwich, an apple, and a fan of photocopied newspaper pages laid out around him like a game of solitaire.
+The school library is the one grand room in Derry High, built back when the town had money and wanted you to know it: tall oak shelves, green-shaded lamps, a ceiling you could lose a balloon in.
+Cal is at a table in the back with a peanut butter sandwich, an apple, and a fan of photocopied newspaper pages laid out around him like a game of solitaire.
 CAL(surprised): You came to the library.
 GUS: You said the company was quieter.
 CAL(smirk): I say a lot of things. People don't usually test them.
@@ -611,7 +612,7 @@ Wes doesn't say anything. His face isn't scared. It's worse than scared. It's bo
 You don't decide to do it. Your feet decide, and you follow them.
 GUS(angry): Hey. Give it back.
 BRETT(surprised): Whoa. Whoa! New girl's got a crush.
-BRETT(smirk): Grandpa's jacket. You gonna kill me in it?
+BRETT(smirk): {brett_steps == "sarcastic":Grandpa's jacket. You gonna kill me in it?|Army jacket. You gonna fight me in it?}
 * ["I'll settle for embarrassing you. Should be easy." #confront]
     DOUGIE: Ohhh—
     BRETT(angry): ...
@@ -619,7 +620,7 @@ BRETT(smirk): Grandpa's jacket. You gonna kill me in it?
 * [(Grab the sketchbook out of his hand.) #action]
     You grab it. He's not expecting it. Nobody ever does that to Brett Lindqvist; you can see it on his face, the pure surprise of it, like a dog that's never been told no.
 - He drops the sketchbook in the dirt.
-BRETT(smirk): Sure. Take it. See you around, Grandpa. Derry's a small town.
+BRETT(smirk): Sure. Take it. See you around, {brett_steps == "sarcastic":Grandpa|new girl}. Derry's a small town.
 @hide brett
 ~ brett_heat += 2
 ~ rep_brave += 1

@@ -62,7 +62,7 @@ function checkCmd(line) {
     case 'tape': if (!DATA.tapes[a[0]]) miss(`tape-data:${a[0]}`); break;
     case 'theory': if (!DATA.theories[a[0]]) miss(`theory-data:${a[0]}`); break;
     case 'remember': case 'note': if (!DATA.people[a[0]]) miss(`person:${a[0]}`); break;
-    case 'weather': case 'chapter': case 'date': case 'wait': case 'ctx': case 'map': case 'save': case 'end': case 'hide': case 'clear': case 'decide': case 'met': break;
+    case 'weather': case 'chapter': case 'card': case 'date': case 'wait': case 'ctx': case 'map': case 'save': case 'end': case 'hide': case 'clear': case 'decide': case 'met': break;
     default: miss(`command:${name}`);
   }
 }

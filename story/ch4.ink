@@ -39,7 +39,7 @@ WHITCOMB(neutral): Find somebody who's lived here thirty years or more. Get them
     @show wes flat center
     WES(flat): You know I'm not from here, right? I don't know anybody old.
     GUS: That's what I'm for.
-    WES(smirk): ...Okay, Grandpa.
+    WES(smirk): ...Okay, {bully_choice == "fight" && brett_steps == "sarcastic":Grandpa|Brennan}.
     ~ wes += 1
 * {sloane >= 2} [Partner with Sloane. #go]
     ~ partner = "sloane"

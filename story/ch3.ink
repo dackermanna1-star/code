@@ -291,7 +291,7 @@ He goes back to the cat.
 - -> admiral
 
 = warm
-WES(neutral): Grandpa. You came to the woods. Mom said not to go in the woods, I bet.
+WES(neutral): {bully_choice == "fight":{brett_steps == "sarcastic":Grandpa|Hey, tough guy}|Hey, liar}. You came to the woods. Mom said not to go in the woods, I bet.
 GUS: How'd you know?
 WES(smirk): Everybody's mom says that. Nobody's mom has ever been obeyed.
 ~ wes += 1

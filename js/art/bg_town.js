@@ -76,6 +76,9 @@
   /* A shared soft-halo gradient (objectBoundingBox) so dozens of bulbs cost one <defs>. */
   const haloDef = (id, color, a = 0.7) => `<radialGradient id="${id}"><stop offset="0" stop-color="${color}" stop-opacity="${a}"/><stop offset="0.35" stop-color="${color}" stop-opacity="${a * 0.4}"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></radialGradient>`;
   const screen = 'mix-blend-mode:screen';
+  /* Unique gradient names for helpers called in loops (o.id alone repeats within a render). */
+  let _u = 0;
+  const uq = (nm) => nm + (++_u).toString(36);
 
   /* Single-stroke spray-paint alphabet on a 0..1 box (x right, y down). */
   const GLYPH = {
@@ -144,31 +147,55 @@
       s += K.pool(o, VX - 20, VY - 8, 300, 58, P.sodium, 0.26, 'townglow');
       s += K.path(K.ridge(rng, { y: VY - 6, amp: 9, steps: 24, jag: 0.3, bottom: VY + 30 }), K.mix('#3b4658', haze, 0.45));
 
-      /* --- forest: a dark wall each side, then individual pines on top, far to near --- */
-      const nearC = '#141c1b', nearS = '#0d1314';
-      const hz = (z) => 1 - Math.exp(-z / 85);
+      /* --- forest: a dark wall each side, then spruce spires on top, far to near --- */
+      const nearC = '#18211f', nearS = '#0c1213', fogC = '#4f5966';
+      const hz = (z) => 1 - Math.exp(-z / 150);
       for (const side of [-1, 1]) {
-        const xe = side > 0 ? 8.5 : -14;
+        const xe = side > 0 ? 9.5 : -15;
         const g = o.id('fwall' + side);
-        const x0 = VX, x1 = side > 0 ? 1600 : 0;
-        s += K.defs(K.linear(g, [[0, K.mix(nearC, haze, 0.85)], [0.18, K.mix(nearC, haze, 0.45)], [0.6, nearC], [1, nearS]], x0, 0, x1, 0, true));
-        s += poly(p.wx(xe, 4, 900, -0.5, 13), `url(#${g})`);
+        s += K.defs(K.linear(g, [[0, K.mix(nearC, fogC, 0.9)], [0.12, K.mix(nearC, fogC, 0.5)], [0.45, nearC], [1, nearS]], VX, 0, side > 0 ? 1600 : 0, 0, true));
+        s += poly(p.wx(xe, 4, 900, -0.5, 12.5), `url(#${g})`);
       }
-      const trees = [];
+      const things = [];
       for (const side of [-1, 1]) {
-        const edge = side > 0 ? 5.6 : -10.5;
-        let z = 6;
-        while (z < 520) {
-          trees.push({ x: edge + side * rng() * (z < 50 ? 5 : 12), z, h: 12 + rng() * 12 });
-          z += 1.1 + z * 0.055 * (0.5 + rng());
+        const edge = side > 0 ? 6.2 : -11.2;
+        let z = 5.5;
+        while (z < 600) {
+          things.push({ kind: 'spruce', x: edge + side * rng() * (z < 40 ? 4.5 : 11), z, h: 10 + rng() * 11 });
+          z += 0.9 + z * 0.045 * (0.5 + rng());
         }
       }
-      trees.sort((a, b) => b.z - a.z);
-      for (const tr of trees) {
-        const [sx, sy] = p(tr.x, 0, tr.z);
-        const k = hz(tr.z), hp = (tr.h * f) / tr.z;
-        s += K.pine(sx, sy, hp, hp * (0.34 + rng() * 0.1), K.mix('#24302c', haze, k), K.mix(nearS, haze, k * 0.92), rng);
+      // October at the edge of the woods: a few birches and a maple, colour muted by rain
+      for (const [x, z, kind] of [[5.4, 15, 'birch'], [5.9, 23, 'birch'], [5.2, 47, 'maple'], [-9.4, 19, 'maple'], [-9.0, 34, 'birch'], [-9.8, 62, 'maple']]) things.push({ kind, x, z, h: kind === 'birch' ? 11 : 9 });
+      // telephone poles marching along the left shoulder
+      const poles = [];
+      for (let z = 9; z < 420; z += 31) poles.push(z);
+      for (const z of poles) things.push({ kind: 'pole', x: -7.4, z });
+      things.sort((a, b) => b.z - a.z);
+      const tops = [];
+      for (const tr of things) {
+        const [sx, sy] = p(tr.x, 0, tr.z), k = hz(tr.z), hp = (tr.h * f) / tr.z, pk = f / tr.z;
+        if (tr.kind === 'spruce') s += K.pine(sx, sy, hp, hp * (0.24 + rng() * 0.08), K.mix('#22302b', fogC, k), K.mix(nearS, fogC, k * 0.95), rng);
+        else if (tr.kind === 'birch') {
+          const tw = Math.max(1.5, 0.22 * pk), bark = K.mix('#c9c2b0', fogC, 0.25 + k * 0.6);
+          s += rect(sx - tw / 2, sy - hp, tw, hp, bark);
+          for (let i = 0; i < 7; i++) s += rect(sx - tw / 2, sy - hp * (0.1 + rng() * 0.8), tw * (0.4 + rng() * 0.6), Math.max(1, pk * 0.05), '#2a2a2a', { opacity: 0.6 });
+          for (let i = 0; i < 9; i++) { const a = rng() * 6.28, d = rng(); s += K.path(K.blob(rng, sx + Math.cos(a) * d * hp * 0.16, sy - hp * (0.72 + Math.sin(a) * d * 0.18), hp * (0.05 + rng() * 0.05), hp * (0.04 + rng() * 0.03), { lobes: 5, jag: 0.3 }), K.mix(rng() < 0.6 ? '#b8963e' : '#8a7a3a', fogC, 0.3 + k * 0.5)); }
+        } else if (tr.kind === 'maple') {
+          s += K.tree(rng, { x: sx, base: sy, h: hp, w: hp * 0.7, colors: [K.mix('#9a4a2c', fogC, 0.3 + k * 0.5), K.mix('#5a2e22', fogC, 0.25 + k * 0.5), K.mix('#b8703a', fogC, 0.3 + k * 0.5)], trunk: K.mix('#2a2420', fogC, k) });
+        } else if (tr.kind === 'pole') {
+          const ph = 9.5 * pk, c = K.mix('#1c1a18', fogC, k * 0.9);
+          s += rect(sx - Math.max(1, 0.13 * pk), sy - ph, Math.max(2, 0.26 * pk), ph, c) + rect(sx - 1.1 * pk, sy - ph + 0.5 * pk, 2.2 * pk, Math.max(1.2, 0.14 * pk), c);
+          tops.push([sx, sy - ph + 0.5 * pk, pk, k]);
+        }
       }
+      // wires sagging pole to pole, converging on the road ahead
+      for (let i = 0; i < tops.length - 1; i++) {
+        const [ax, ay, ak, kk] = tops[i], [bx, by, bk] = tops[i + 1];
+        const wc = K.mix('#121416', fogC, kk * 0.8);
+        for (const off of [-0.9, 0.9]) s += K.wire(ax + off * ak, ay, bx + off * bk, by, 0.9 * (ak + bk) * 0.5, wc, Math.max(0.8, 1.6 - i * 0.15));
+      }
+      if (tops.length) { const [bx, by, bk] = tops[tops.length - 1]; for (const off of [-0.9, 0.9]) s += K.wire(-40, -30, bx + off * bk, by, 60, '#121416', 1.8); }
 
       /* --- ground: shoulders, wet asphalt, paint --- */
       const gnd = o.id('gnd');
@@ -209,7 +236,7 @@
 
       /* --- the town sign, caught in our headlights --- */
       if (sign) {
-        const z = 11.5, xa = 3.4, xb = 7.6, yb = 1.05, yt = 3.25;
+        const z = 11.5, xa = 3.35, xb = 7.3, yb = 1.05, yt = 3.25;
         const [ax, ay] = p(xa, yt, z), [bx, by] = p(xb, yb, z), k = p.k(z);
         const W = bx - ax, H = by - ay;
         // posts + their long shadows thrown back into the trees
@@ -225,7 +252,7 @@
           s += K.path(`M${n(gx)},${n(gy + 4)} q${n((rng() - 0.5) * 10)},${n(-gh * 0.6)} ${n((rng() - 0.3) * 14)},${n(-gh)}`, 'none', { stroke: rng() < 0.5 ? '#b9a27a' : '#8a7a5c', strokeWidth: 1.6, opacity: 0.85 });
         }
         // the board: weathered planks with a carved crest
-        const board = '#7a5a40', boardS = '#4a3527';
+        const board = '#5e4330', boardS = '#33261c';
         s += K.path(`M${n(ax - 8)},${n(ay + 10)} Q${n(ax + W / 2)},${n(ay - 36)} ${n(bx + 8)},${n(ay + 10)} L${n(bx + 8)},${n(by + 6)} L${n(ax - 8)},${n(by + 6)} Z`, boardS);
         s += K.path(`M${n(ax)},${n(ay + 12)} Q${n(ax + W / 2)},${n(ay - 26)} ${n(bx)},${n(ay + 12)} L${n(bx)},${n(by)} L${n(ax)},${n(by)} Z`, board);
         for (let i = 1; i < 6; i++) s += rect(ax, ay + 12 + ((H - 12) * i) / 6, W, 1.6, boardS, { opacity: 0.55 });
@@ -237,16 +264,16 @@
         s += txt(cx, ay + H * 0.43, 'DERRY', { size: H * 0.34, fill: cream, font: FONT.serif, len: W * 0.62, ls: 2 });
         s += txt(cx, ay + H * 0.58, 'Welcome Home', { size: H * 0.13, fill: cream, font: FONT.serif, italic: true, len: W * 0.42 });
         // graffiti: crossed-out warning, and the answer under it in a different paint
-        const g1 = 'LEAVE WHILE YOU CAN', gh1 = H * 0.085, gw1 = sprayWidth(gh1, g1);
+        const g1 = 'LEAVE WHILE YOU CAN', gh1 = H * 0.095, gw1 = Math.min(W * 0.86, sprayWidth(H * 0.095, g1));
         const g1x = cx - gw1 / 2, g1y = ay + H * 0.74;
-        s += spray(rng, g1x, g1y, gh1, g1, { color: '#f4f1ea', w: 0.14, slant: 0.06 });
+        s += spray(rng, g1x, g1y, gh1, g1, { color: '#f4f1ea', w: 0.17, slant: 0.06 });
         s += K.path(`M${n(g1x - 10)},${n(g1y - gh1 * 0.35)} C${n(g1x + gw1 * 0.3)},${n(g1y - gh1 * 0.9)} ${n(g1x + gw1 * 0.7)},${n(g1y + gh1 * 0.1)} ${n(g1x + gw1 + 12)},${n(g1y - gh1 * 0.55)}`, 'none', { stroke: '#151313', strokeWidth: 4.5, strokeLinecap: 'round', opacity: 0.92 });
         s += K.path(`M${n(g1x - 4)},${n(g1y - gh1 * 0.05)} L${n(g1x + gw1 + 6)},${n(g1y - gh1 * 0.85)}`, 'none', { stroke: '#151313', strokeWidth: 3.5, strokeLinecap: 'round', opacity: 0.85 });
-        const g2 = "YOU CAN'T", gh2 = H * 0.13, gw2 = sprayWidth(gh2, g2);
-        s += spray(rng, cx - gw2 / 2 + 6, ay + H * 0.93, gh2, g2, { color: '#a8261f', w: 0.15, drips: 0.75, slant: -0.04 });
+        const g2 = "YOU CAN'T", gh2 = H * 0.15, gw2 = sprayWidth(gh2, g2);
+        s += spray(rng, cx - gw2 / 2 + 8, ay + H * 0.945, gh2, g2, { color: '#b3261d', w: 0.2, drips: 0.8, slant: -0.05, op: 0.95 });
         // headlight wash: hot at the lower left, falling off up and right
         const wash = o.id('wash');
-        s += K.defs(K.linear(wash, [[0, '#fff2d2', 0.42], [0.55, '#fff2d2', 0.12], [1, '#fff2d2', 0]], 0, 1, 1, 0));
+        s += K.defs(K.linear(wash, [[0, '#fff2d2', 0.62], [0.5, '#fff2d2', 0.2], [1, '#fff2d2', 0.02]], 0, 1, 1, 0));
         s += `<g style="${screen}">` + K.path(`M${n(ax - 8)},${n(ay + 10)} Q${n(ax + W / 2)},${n(ay - 36)} ${n(bx + 8)},${n(ay + 10)} L${n(bx + 8)},${n(by + 6)} L${n(ax - 8)},${n(by + 6)} Z`, `url(#${wash})`) + '</g>';
         s += `<g style="${screen}">` + K.pool(o, ax + W * 0.35, gy - 6, W * 0.9, 34, '#fff2d2', 0.25, 'signfoot') + K.glow(o, ax + W * 0.3, ay + H * 0.6, W * 0.9, '#fff2d2', 0.12, 'signhalo') + '</g>';
       }
@@ -316,7 +343,9 @@
       const mg = o.id('mirror');
       s += K.defs(K.linear(mg, [[0, '#4a5262'], [0.5, '#2c323d'], [1, '#1c2028']]));
       s += rect(478, 63, 230, 52, `url(#${mg})`, { rx: 11 });
-      s += poly([[530, 70], [660, 70], [676, 100], [514, 100]], '#68717f', { opacity: 0.45 });
+      s += poly([[524, 72], [664, 72], [682, 104], [508, 104]], '#6d7684', { opacity: 0.5 });
+      s += rect(512, 88, 48, 27, '#7a6248') + rect(552, 80, 40, 35, '#8a7052') + rect(616, 92, 58, 23, '#6e5840') + K.path('M640,92 l8,-16 l20,0 l6,16 Z', '#3a3036');
+      s += rect(512, 88, 48, 3, '#a08664', { opacity: 0.7 }) + K.line(572, 80, 572, 115, '#5a4a38', 1);
       s += rect(478, 63, 230, 6, '#ffffff', { opacity: 0.06, rx: 3 });
       // pine-tree air freshener, hanging a little crooked
       const fx = 612, fy = 196;
@@ -336,6 +365,9 @@
       s += K.path('M0,598 C90,566 220,566 300,620 C420,662 900,654 1600,636 L1600,900 L0,900 Z', dash);
       s += K.path('M0,598 C90,566 220,566 300,620 C420,662 900,654 1600,636 L1600,664 C900,684 420,690 300,654 C220,606 90,604 0,630 Z', dashTop);
       for (let i = 0; i < 26; i++) { const x = 420 + i * 40; s += rect(x, 664 - i * 0.6, 28, 3, '#141114', { opacity: 0.8, rx: 1.5 }); }
+      // a folded road map on the dash in front of the passenger
+      s += K.path('M1010,668 L1236,656 L1262,682 L1028,696 Z', '#8f8572') + K.path('M1092,664 L1116,690 M1172,660 L1196,686', 'none', { stroke: '#6f6656', strokeWidth: 1.2 });
+      s += K.path('M1030,684 C1080,676 1120,684 1160,672 S1220,668 1250,676', 'none', { stroke: '#a8483a', strokeWidth: 1.6, opacity: 0.8 }) + K.path('M1060,692 C1090,680 1150,666 1210,664', 'none', { stroke: '#4a6a8a', strokeWidth: 1.2, opacity: 0.7 });
       // dash glow from the gauges
       s += K.glow(o, 120, 640, 200, '#f2b45a', 0.16, 'gauge');
       s += K.path('M0,626 C90,596 220,598 290,640', 'none', { stroke: '#f2b45a', strokeWidth: 2, opacity: 0.4 });
@@ -501,7 +533,7 @@
         const k = p.k(z), [rx, gy] = p(x, 0, z);
         const ym = p.VY + (p.f * ((y0 + y1) / 2 + p.eye)) / z, yb = Math.min(902, gy + Math.min(230, (ym - gy) * 1.35));
         if (yb <= gy + 4) return '';
-        const id = o.id('wet');
+        const id = o.id(uq('wet'));
         let d = '';
         for (let i = 0; i < 16; i++) {
           const u = Math.pow(rng(), 0.8), y = gy + (yb - gy) * u, ww = w * k * (0.25 + rng() * 0.75) * (1 - u * 0.5);
@@ -838,7 +870,7 @@
         r += K.ellipse(bx, gy, gr, gr * 1.25, on ? '#fff3d2' : L('#e9e4d8')) + rect(bx - gr * 0.55, gy - gr * 1.45, gr * 1.1, gr * 0.3, iron) + K.path(`M${n(bx - gr * 0.3)},${n(gy - gr * 1.45)} l${n(gr * 0.3)},${n(-gr * 0.5)} l${n(gr * 0.3)},${n(gr * 0.5)} Z`, iron);
         if (on) {
           r += halo(bx, gy, 2.6 * k) + halo(bx, gy, 0.8 * k, gHaloW);
-          r += K.pool(o, bx, by, 3.2 * k, 3.2 * k * 1.6 / z + 4, P.sodium, night ? 0.4 : 0.28, 'lp');
+          r += K.pool(o, bx, by, 3.2 * k, 3.2 * k * 1.6 / z + 4, P.sodium, night ? 0.4 : 0.28, uq('lp'));
         }
         return r;
       } });
@@ -1275,7 +1307,7 @@
       const ga = p(0, 0, walkZ0)[1];
       const reflect = (x0, x1, h0, h1, z, color, op, streaks) => {
         const yA = Math.max(ga + 6, p(0, -h0, z)[1] - 40), yB = Math.min(905, p(0, -h1, z)[1] + 30);
-        const xa = p(x0, 0, z)[0], xb = p(x1, 0, z)[0], id = o.id('rf');
+        const xa = p(x0, 0, z)[0], xb = p(x1, 0, z)[0], id = o.id(uq('rf'));
         const f0 = Math.min(0.9, (yA - ga) / (yB - ga)).toFixed(2);
         let r = `<defs><linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="0" y1="${n(ga)}" x2="0" y2="${n(yB)}"><stop offset="0" stop-color="${color}" stop-opacity="${(op * 0.35).toFixed(2)}"/><stop offset="${f0}" stop-color="${color}" stop-opacity="${op}"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>`;
         r += `<g style="${screen}">` + rect(xa, ga, xb - xa, yB - ga, `url(#${id})`, { opacity: 0.45 });
@@ -1314,7 +1346,7 @@
         s += rect(bx - 0.13 * k, by - 0.5 * k, 0.26 * k, 0.5 * k, iron) + rect(bx - 0.06 * k, by - 3.7 * k, 0.12 * k, 3.3 * k, iron);
         const gy = by - 4.05 * k, gr = 0.24 * k;
         s += K.ellipse(bx, gy, gr, gr * 1.25, '#fff3d2') + rect(bx - gr * 0.55, gy - gr * 1.45, gr * 1.1, gr * 0.3, iron);
-        s += halo(bx, gy, 2.6 * k, gHalo) + K.pool(o, bx, by, 3 * k, 18, P.sodium, 0.32, 'lp');
+        s += halo(bx, gy, 2.6 * k, gHalo) + K.pool(o, bx, by, 3 * k, 18, P.sodium, 0.32, uq('lp'));
       }
       const queue = [[-2.0, 22.4, 1.62, '#3a2a30', 'f'], [-2.75, 22.6, 1.78, '#2a2a34', 'm'], [-3.9, 22.5, 1.7, '#30262c', 'u'], [-4.6, 22.7, 1.2, '#3a3040', 'k']];
       for (const [x, z, h, c, kind] of queue) {
@@ -1589,7 +1621,7 @@
         s += K.ellipse(x1, y1 + 0.17 * k, 0.17 * k, 0.03 * k, '#fff3d0');
         s += halo(x1, y1 + 0.2 * k, 0.9 * k, aft ? 0.55 : 0.8);
         const [fx, fy] = p(1.34, ch, z);
-        s += `<g style="${screen}">` + K.pool(o, fx, fy, 0.5 * k, 0.08 * k, '#ffe0a0', 0.3, 'pp') + '</g>';
+        s += `<g style="${screen}">` + K.pool(o, fx, fy, 0.5 * k, 0.08 * k, '#ffe0a0', 0.3, uq('pp')) + '</g>';
       }
 
       /* ---------- the light ---------- */
@@ -1606,7 +1638,7 @@
           stripes += `<polygon points="${K.pts(p.wy(0.005, Math.max(xa, -1.0), xb, z0 + szz * 1.2, z1 + szz * 1.2))}"/>`;
           // the shaft through the air
           const A = p(XL, wy1, z0), B = p(XL, wy1, z1), C = p(XL + sx * wy1, 0, z1 + szz * wy1), D2 = p(XL + sx * wy1, 0, z0 + szz * wy1);
-          s += K.shaft(o, [A, B, C, D2], gold, 0.26, 'ray', [0, 0, 1, 1]);
+          s += K.shaft(o, [A, B, C, D2], gold, 0.26, uq('ray'), [0, 0, 1, 1]);
         }
         s += `<g fill="#ffe2a0" opacity="0.62" style="${screen}">${stripes}</g>`;
         // light caught on the booth tables and the counter front
@@ -1624,5 +1656,331 @@
     }
   });
 
-/*NEXT*/
+  /* ================================================================== */
+  /* 5. Inside Low Tide Records, looking from the back of the shop toward */
+  /*    the sunny front window and Center Street.                         */
+  ART.bg('records', {
+    times: ['day'],
+    light: { day: 'morning' },
+    draw(o) {
+      const rng = o.rng, tt = 'morning';
+      const L = (c) => K.tone(c, tt), S = (c) => K.shade(c, tt);
+      const p = cam(800, 340, 820, 1.55);
+      const XL = -2.5, XR = 3.0, YC = 3.25, ZF = 8.0, ZN = 0.5;
+      const gWarm = o.id('warm'), gSun = o.id('sun');
+      let s = '<defs>' + haloDef(gWarm, '#ffd890', 0.65) + K.linear(gSun, [[0, '#fff3d4'], [1, '#ffd890']]) + '</defs>';
+      const halo = (x, y, r, op = 1, ry) => `<ellipse cx="${n(x)}" cy="${n(y)}" rx="${n(r)}" ry="${n(ry || r)}" fill="url(#${gWarm})" opacity="${op}" style="${screen}"/>`;
+      const R = (x0, x1, y0, y1, z) => { const a = p(x0, y1, z), b = p(x1, y0, z); return [a[0], a[1], b[0] - a[0], b[1] - a[1]]; };
+      const brick = '#9a5236', pine = '#b98a52', cream = '#e9dcbc';
+
+      /* ---------- shell ---------- */
+      s += poly(p.wy(YC, XL, XR, ZN, ZF), S('#d9c9a4'));
+      { let d = ''; for (let z = 1.0; z < ZF; z += 0.9) { const a = p(XL, YC, z), b = p(XR, YC, z); d += `M${n(a[0])},${n(a[1])} L${n(b[0])},${n(b[1])} `; } s += K.path(d, 'none', { stroke: S('#8a6a44'), strokeWidth: 5, opacity: 0.55 }); }
+      s += poly(p.wx(XL, ZN, ZF, 0, YC), S(brick));
+      { let d = ''; for (let y = 0.25; y < YC; y += 0.25) { const a = p(XL, y, 1.2), b = p(XL, y, ZF); d += `M${n(a[0])},${n(a[1])} L${n(b[0])},${n(b[1])} `; } s += K.path(d, 'none', { stroke: K.adj(S(brick), -0.3), strokeWidth: 1, opacity: 0.45 }); }
+      s += poly(p.wx(XR, ZN, ZF, 0, YC), K.mix(L(pine), S(pine), 0.35));
+      { let d = ''; for (let z = 1.0; z < ZF; z += 0.22) { const a = p(XR, 0, z), b = p(XR, YC, z); d += `M${n(a[0])},${n(a[1])} L${n(b[0])},${n(b[1])} `; } s += K.path(d, 'none', { stroke: S(pine), strokeWidth: 1, opacity: 0.5 }); }
+      // floorboards toward the window
+      s += poly(p.wy(0, XL, XR, ZN, ZF), L('#a8743f'));
+      { let d = ''; for (let x = XL + 0.14; x < XR; x += 0.14) { const a = p(x, 0, 1.0), b = p(x, 0, ZF); d += `M${n(a[0])},${n(a[1])} L${n(b[0])},${n(b[1])} `; } for (let i = 0; i < 70; i++) { const x = XL + Math.floor(rng() * 39) * 0.14, z = 2 + rng() * 6, a = p(x, 0, z), b = p(x + 0.14, 0, z); d += `M${n(a[0])},${n(a[1])} L${n(b[0])},${n(b[1])} `; } s += K.path(d, 'none', { stroke: S('#7a5028'), strokeWidth: 1, opacity: 0.55 }); }
+
+      /* ---------- the front: window with Center Street, door, listening booth ---------- */
+      const FW = (x0, x1, y0, y1) => p.wz(ZF, x0, x1, y0, y1);
+      s += poly(FW(XL, XR, 0, YC), L(cream));
+      const win = [-2.3, 0.72, 0.55, 2.9], door = [0.95, 1.9, 0, 2.45];
+      const cid = o.id('front');
+      s += `<clipPath id="${cid}"><polygon points="${K.pts(FW(win[0], win[1], win[2], win[3]))}"/><polygon points="${K.pts(FW(door[0] + 0.12, door[1] - 0.12, 1.0, 2.3))}"/></clipPath>`;
+      {
+        // outside, in the same camera: the hardware store across the street, the blue pickup, sunlit haze
+        const OZ = ZF + 17, OL = (c) => K.tone(c, 'morning'), OS = (c) => K.shade(c, 'morning');
+        let out = rect(0, 0, 1600, 900, '#f6e2b8');
+        out += poly(p.wy(0, -30, 30, ZF + 0.2, OZ), OL('#8d8a84'));
+        out += poly(p.wy(0, -30, 30, ZF + 0.2, ZF + 2.6), OL('#c9c2b0'));
+        out += poly(p.wy(0.15, -30, 30, OZ - 3, OZ), OL('#b9b2a2'));
+        out += poly(p.wz(OZ, -30, 30, 0, 8.4), OS('#8a4a34'));
+        out += poly(p.wz(OZ, -30, 30, 7.8, 8.4), OL('#e2d6bc'));
+        for (const x of [-7.5, -5, -2.5, 2.4, 4.9]) out += poly(p.wz(OZ, x, x + 1.1, 4.9, 6.8), OS('#3a4458'));
+        out += poly(p.wz(OZ, -6.2, 3.6, 3.45, 4.35), OL('#e9e1cf'));
+        out += poly(p.wz(OZ, -6.2, 3.6, 0, 3.4), OS('#3e3a34')) + poly(p.wz(OZ, -5.8, 1.0, 0.5, 2.85), OS('#4a5468'));
+        for (let i = 0; i < 9; i++) { const x0 = -6.2 + i * 1.09; out += poly([p(x0, 3.3, OZ), p(x0 + 1.09, 3.3, OZ), p(x0 + 1.09, 2.5, OZ - 1.4), p(x0, 2.5, OZ - 1.4)], OL(i % 2 ? '#e9e1cf' : '#a8382c')); }
+        for (let i = 0; i < 4; i++) { const q = p(-4.4 + i * 0.45, 0.4, OZ - 0.6), kk = p.k(OZ); out += K.ellipse(q[0], q[1], 0.25 * kk, 0.2 * kk, OL(P.ember)); }
+        // the pickup at the far curb
+        out += box(p, -3.2, 2.0, 0.34, 1.04, OZ - 4.4, OZ - 2.6, { front: OL('#4a5a72'), top: OL('#5a6a82') });
+        out += box(p, -1.0, 0.8, 1.04, 1.8, OZ - 4.3, OZ - 2.7, { front: OL('#2a3242'), top: OL('#5a6a82') });
+        for (const x of [-2.4, 1.2]) { const q = p(x, 0.33, OZ - 4.42), kk = p.k(OZ - 4.4); out += K.circle(q[0], q[1], 0.33 * kk, '#1a1c22'); }
+        // a lamp post and a passer-by on our side of the street
+        { const a = p(-1.8, 0, ZF + 2.2), b = p(-1.8, 4.1, ZF + 2.2); out += K.line(a[0], a[1], b[0], b[1], OL('#22262a'), 3) + K.circle(b[0], b[1], 6, OL('#efe9da')); }
+        out += walker(p, 1.5, ZF + 1.6, 1.68, OL('#6e2b29'), rng);
+        // sun flooding past the roofline
+        out += K.glow(o, 620, 120, 600, '#fff6dc', 0.8, 'sunsky') + rect(0, 0, 1600, 900, '#fff1d2', { opacity: 0.42 });
+        s += `<g clip-path="url(#${cid})">${out}</g>`;
+      }
+      // window frame + mullions, door frame
+      s += K.path(pathD(FW(win[0], win[1], win[2], win[3])), 'none', { stroke: L('#3a2c22'), strokeWidth: 6 });
+      for (const x of [-1.29, -0.29]) s += poly(FW(x - 0.03, x + 0.03, win[2], win[3]), L('#3a2c22'));
+      s += poly(FW(win[0] - 0.12, win[1] + 0.12, win[2] - 0.16, win[2]), L('#6b4a32')) + poly(p.wy(win[2], win[0] - 0.12, win[1] + 0.12, ZF - 0.3, ZF), L('#8a6440'));
+      s += poly(FW(door[0], door[1], 0, door[3]), L('#4a3326')) + poly(FW(door[0] + 0.12, door[1] - 0.12, 0, 0.9), L('#5a4030'));
+      s += K.path(pathD(FW(door[0] + 0.12, door[1] - 0.12, 1.0, 2.3)), 'none', { stroke: L('#3a2c22'), strokeWidth: 3 });
+      s += poly(FW(door[0] + 0.12, door[1] - 0.12, 1.32, 1.36), L('#d9b25a'));
+      // a few records on stands in the window, backlit
+      for (const [x, c] of [[-1.95, '#c8463a'], [-0.95, '#2a3a5a'], [0.15, '#d9a441']]) {
+        const [rx, ry, rw, rh] = R(x, x + 0.42, 0.6, 1.02, ZF - 0.25);
+        s += rect(rx, ry, rw, rh, L(c)) + K.circle(rx + rw / 2, ry + rh / 2, rw * 0.28, '#151515', { opacity: 0.85 }) + K.circle(rx + rw / 2, ry + rh / 2, rw * 0.08, L(cream));
+      }
+      // reversed gold lettering on the glass, seen from inside: an arc, then NEW & USED
+      {
+        const word = 'SDROCER EDIT WOL', cx = (win[0] + win[1]) / 2, N = word.length, col = '#f0b848', k = p.k(ZF);
+        let g = '';
+        for (let i = 0; i < N; i++) {
+          const ch = word[i]; if (ch === ' ') continue;
+          const u = (i + 0.5) / N - 0.5, x = cx + u * 2.75, y = 2.2 + Math.cos(u * 2.3) * 0.36 - 0.12;
+          const [tx, ty] = p(x, y, ZF - 0.01);
+          g += `<text transform="translate(${n(tx)},${n(ty)}) rotate(${n(u * 46)}) scale(-1,1)" font-size="${n(0.34 * k)}" text-anchor="middle">${ch}</text>`;
+        }
+        s += `<g font-family="${FONT.hand}" fill="${col}" stroke="#4a2408" stroke-width="1.2" paint-order="stroke">${g}</g>`;
+        const [dx, dy] = p(cx, 1.86, ZF - 0.01);
+        s += txt(0, 0, '· NEW & USED ·', { size: 0.2 * k, fill: col, font: FONT.hand, len: 1.5 * k, tr: `translate(${n(dx)},${n(dy)}) scale(-1,1)`, style: 'paint-order:stroke;stroke:#4a2408;stroke-width:1' });
+      }
+      // above the door, a hand-lettered board facing in
+      { const [bx, by, bw, bh] = (() => { const a = p(door[0] - 0.05, 2.98, ZF - 0.02), b2 = p(door[1] + 0.05, 2.56, ZF - 0.02); return [a[0], a[1], b2[0] - a[0], b2[1] - a[1]]; })(); s += rect(bx, by, bw, bh, L('#efe6d2')) + rect(bx + 2, by + 2, bw - 4, bh - 4, 'none', { stroke: L('#a8322a'), strokeWidth: 1.2 }) + txt(bx + bw / 2, by + bh * 0.72, 'WE BUY LPs', { size: bh * 0.56, fill: L('#a8322a'), font: FONT.hand, len: bw * 0.86 }); }
+      // the listening booth in the front corner: glass front, headphones on a hook
+      {
+        const x0 = 2.05, x1 = 3.0, z0 = 6.75, h = 2.32;
+        s += box(p, x0, x1, 0, h, z0, ZF, { l: L('#7a4c2c'), front: L('#8a5a35') });
+        s += poly(p.wz(z0, x0 + 0.1, x1 - 0.12, 0.95, h - 0.25), L('#e9cf98'));
+        s += poly(p.wz(z0, x0 + 0.1, x1 - 0.12, 0.95, h - 0.25), '#fff6dc', { opacity: 0.25 });
+        const [hx, hy] = p(x0 + 0.42, 1.72, z0 + 0.4), k = p.k(z0 + 0.4);
+        s += K.line(hx, hy - 0.12 * k, hx, hy - 0.05 * k, '#3a2a20', 2);
+        s += K.path(`M${n(hx - 0.09 * k)},${n(hy + 0.07 * k)} Q${n(hx)},${n(hy - 0.14 * k)} ${n(hx + 0.09 * k)},${n(hy + 0.07 * k)}`, 'none', { stroke: '#2a2224', strokeWidth: 3 });
+        s += K.ellipse(hx - 0.09 * k, hy + 0.08 * k, 0.035 * k, 0.05 * k, '#e2702e') + K.ellipse(hx + 0.09 * k, hy + 0.08 * k, 0.035 * k, 0.05 * k, '#e2702e');
+        s += K.path(`M${n(hx + 0.09 * k)},${n(hy + 0.12 * k)} q${n(0.06 * k)},${n(0.25 * k)} ${n(-0.02 * k)},${n(0.4 * k)}`, 'none', { stroke: '#2a2224', strokeWidth: 1.2 });
+        const [sx2, sy2] = p(x0 + 0.6, 0.95, z0 + 0.6), k2 = p.k(z0 + 0.6);
+        s += rect(sx2 - 0.16 * k2, sy2 - 0.06 * k2, 0.32 * k2, 0.06 * k2, L('#2a2224')) + K.ellipse(sx2, sy2 - 0.07 * k2, 0.11 * k2, 0.02 * k2, L('#151515'));
+        s += K.path(pathD(p.wz(z0, x0 + 0.1, x1 - 0.12, 0.95, h - 0.25)), 'none', { stroke: L('#5a3a22'), strokeWidth: 3 });
+        const [bx, by, bw, bh] = R(x0 + 0.05, x1 - 0.05, h - 0.22, h - 0.04, z0 - 0.01);
+        s += rect(bx, by, bw, bh, L('#2a2224')) + txt(bx + bw / 2, by + bh * 0.76, 'LISTEN', { size: bh * 0.66, fill: L('#efc76a'), weight: 700, len: bw * 0.7, ls: 2 });
+      }
+
+      /* ---------- the sun on the floor, through the window ---------- */
+      const sd = [0.12 / 0.55, 0.83 / 0.55];   // dx, dz per metre of height
+      const floorPt = (x, y) => [x + sd[0] * y, ZF - sd[1] * y];
+      {
+        const q = (x0, x1, y0, y1) => { const a = floorPt(x0, y0), b = floorPt(x1, y0), c = floorPt(x1, y1), d = floorPt(x0, y1); return [p(a[0], 0.004, a[1]), p(b[0], 0.004, b[1]), p(c[0], 0.004, c[1]), p(d[0], 0.004, d[1])]; };
+        let sun = '';
+        for (const [x0, x1] of [[win[0], -1.32], [-1.26, -0.32], [-0.26, win[1]]]) sun += `<polygon points="${K.pts(q(x0, x1, win[2], win[3]))}"/>`;
+        sun += `<polygon points="${K.pts(q(door[0] + 0.12, door[1] - 0.12, 1.0, 2.3))}"/>`;
+        const sg = o.id('sunfloor'), [, yNear] = p(0, 0, floorPt(0, win[3])[1]), [, yFar] = p(0, 0, ZF - 0.5);
+        s += `<defs><linearGradient id="${sg}" gradientUnits="userSpaceOnUse" x1="0" y1="${n(yFar)}" x2="0" y2="${n(yNear)}"><stop offset="0" stop-color="#fff0c0" stop-opacity="0.85"/><stop offset="1" stop-color="#ffd890" stop-opacity="0.3"/></linearGradient></defs>`;
+        s += `<g fill="url(#${sg})" style="${screen}">${sun}</g>`;
+        // shadows of the lettering inside the light
+        let sh = '';
+        for (let i = 0; i < 14; i++) { const u = (i + 0.5) / 15 - 0.5, fp = floorPt(-0.79 + u * 2.7, 2.2 + Math.cos(u * 2.2) * 0.3), c = p(fp[0], 0.005, fp[1]); sh += `<ellipse cx="${n(c[0])}" cy="${n(c[1])}" rx="${n(5 + rng() * 4)}" ry="2.2"/>`; }
+        s += `<g fill="#6a4020" opacity="0.35">${sh}</g>`;
+        // the shaft through the dusty air
+        const A = p(win[0], win[3], ZF), B = p(win[1], win[3], ZF), fC = floorPt(win[1], win[3]), fD = floorPt(win[0], win[3]);
+        s += K.shaft(o, [A, B, p(fC[0], 0, fC[1]), p(fD[0], 0, fD[1])], '#fff0c8', 0.2, 'beam', [0, 0, 0, 1]);
+        s += halo(p(-0.8, 1.7, ZF)[0], p(-0.8, 1.7, ZF)[1], 420, 0.55, 260);
+      }
+
+      /* ---------- left wall: posters, LP covers, the guitar, the cat clock, crates of records ---------- */
+      const LW = (z0, z1, y0, y1, dx = 0.01) => p.wx(XL + dx, z0, z1, y0, y1);
+      // LP sleeves on a rail along the top
+      const sleeveC = [P.mustard, P.teal, P.rust, '#e9e1cf', P.bruise, P.rose, '#2a3a5a', P.ember, '#c8463a', '#6b7a45', '#e9e1cf', P.slate, '#d9a441'];
+      for (let i = 0; i < 13; i++) {
+        const z0 = 2.7 + i * 0.4, c = sleeveC[i % sleeveC.length];
+        s += poly(LW(z0, z0 + 0.32, 2.3, 2.62), S(c));
+        if (i % 3 === 0) s += poly(LW(z0 + 0.08, z0 + 0.24, 2.4, 2.52, 0.012), S(K.adj(c, -0.35)));
+        else if (i % 3 === 1) { const c2 = p(XL + 0.012, 2.46, z0 + 0.16); s += K.ellipse(c2[0], c2[1], 0.06 * p.k(z0) * (2.5 / z0), 0.09 * p.k(z0), S('#151515'), { opacity: 0.8 }); }
+      }
+      s += poly(LW(2.6, 8, 2.27, 2.3, 0.03), S('#5a3a22'));
+      // posters: a few big ones at head height, flyers crowding the near end
+      const posters = [[2.65, 3.25, 1.05, 2.15, '#2a3a5a'], [3.3, 3.75, 1.5, 2.2, '#e9e1cf'], [3.3, 3.75, 0.9, 1.45, P.rust], [3.85, 4.5, 1.1, 2.15, '#151515'], [4.7, 5.35, 1.2, 2.15, P.mustard], [5.6, 6.2, 1.2, 2.1, P.bruise], [6.5, 7.0, 1.25, 2.05, '#e9e1cf'], [7.25, 7.8, 1.2, 2.1, P.teal]];
+      posters.forEach(([z0, z1, y0, y1, c], i) => {
+        s += poly(LW(z0, z1, y0, y1), S(c));
+        if (i === 3) { // a static-noise square, the Static Hours' sleeve art
+          for (let j = 0; j < 30; j++) { const zz = z0 + 0.08 + rng() * (z1 - z0 - 0.16), yy = y0 + 0.4 + rng() * 0.5, a = p(XL + 0.015, yy, zz); s += rect(a[0], a[1], 2, 2, rng() < 0.5 ? '#e9e1cf' : '#6a6a6a'); }
+        }
+        if (i === 0) s += poly(LW(z0 + 0.08, z1 - 0.08, y1 - 0.4, y1 - 0.12, 0.015), S('#e8b04a'));
+        if (i === 4) { const c2 = p(XL + 0.015, (y0 + y1) / 2, (z0 + z1) / 2); s += K.ellipse(c2[0], c2[1], 0.16 * p.k(z0) * (2.5 / z0), 0.24 * p.k(z0), S('#b5532e')); }
+        if (i === 6) s += poly(LW(z0 + 0.05, z1 - 0.05, y0 + 0.1, y0 + 0.35, 0.015), S('#c8463a'));
+        s += poly(LW(z0, z0 + 0.04, y1 - 0.04, y1, 0.016), '#f2ead6', { opacity: 0.8 });
+      });
+      for (let i = 0; i < 16; i++) { const z0 = 2.62 + rng() * 1.8, y0 = 0.55 + rng() * 1.5, w = 0.18 + rng() * 0.18; s += poly(LW(z0, z0 + w, y0, y0 + w * 1.3, 0.017), S(rng.pick(['#e9e1cf', '#f2d488', '#c98a8a', '#e9e1cf', '#9fb4cf'])), { opacity: 0.95 }); }
+      s += wallText(p, XL + 0.02, 2.72, 3.2, 1.9, 0.11, 'STATIC', { fill: S('#e8b04a'), fit: 0.85 });
+      // the cat clock: eyes, bow tie, pendulum tail
+      {
+        const zc = 4.25, yc = 2.38, cp = (dz, dy) => p(XL + 0.03, yc + dy, zc + dz), k = p.k(zc), sq = 2.5 / zc;
+        const head = cp(0, 0.42), body = cp(0, 0.05);
+        s += K.ellipse(body[0], body[1], 0.17 * k * sq, 0.36 * k, '#16141a') + K.ellipse(head[0], head[1], 0.15 * k * sq, 0.13 * k, '#16141a');
+        const e1 = cp(-0.06, 0.44), e2 = cp(0.06, 0.44), ea = cp(-0.11, 0.56), eb = cp(0.11, 0.56);
+        s += K.path(`M${n(ea[0] - 3)},${n(head[1] - 0.06 * k)} L${n(ea[0])},${n(ea[1] - 0.05 * k)} L${n(ea[0] + 0.05 * k * sq)},${n(head[1] - 0.09 * k)} Z M${n(eb[0] + 3)},${n(head[1] - 0.06 * k)} L${n(eb[0])},${n(eb[1] - 0.05 * k)} L${n(eb[0] - 0.05 * k * sq)},${n(head[1] - 0.09 * k)} Z`, '#16141a');
+        s += K.ellipse(e1[0], e1[1], 0.035 * k * sq, 0.04 * k, '#f2ead6') + K.ellipse(e2[0], e2[1], 0.035 * k * sq, 0.04 * k, '#f2ead6');
+        s += K.ellipse(e1[0] + 1, e1[1], 0.015 * k * sq, 0.03 * k, '#16141a') + K.ellipse(e2[0] + 1, e2[1], 0.015 * k * sq, 0.03 * k, '#16141a');
+        const fc = cp(0, 0.12);
+        s += K.ellipse(fc[0], fc[1], 0.11 * k * sq, 0.12 * k, '#f2ead6');
+        s += K.line(fc[0], fc[1], fc[0] - 0.03 * k * sq, fc[1] - 0.07 * k, '#16141a', 1.6) + K.line(fc[0], fc[1], fc[0] + 0.05 * k * sq, fc[1] + 0.02 * k, '#16141a', 1.2);
+        const bt = cp(0, 0.3); s += K.path(`M${n(bt[0] - 0.06 * k * sq)},${n(bt[1] - 0.03 * k)} L${n(bt[0] + 0.06 * k * sq)},${n(bt[1] + 0.03 * k)} L${n(bt[0] + 0.06 * k * sq)},${n(bt[1] - 0.03 * k)} L${n(bt[0] - 0.06 * k * sq)},${n(bt[1] + 0.03 * k)} Z`, '#c8463a');
+        const tl0 = cp(0, -0.3), tl1 = cp(0.05, -0.6);
+        s += K.path(`M${n(tl0[0])},${n(tl0[1])} Q${n(tl0[0] + 0.06 * k * sq)},${n((tl0[1] + tl1[1]) / 2)} ${n(tl1[0])},${n(tl1[1])}`, 'none', { stroke: '#16141a', strokeWidth: 3.5, strokeLinecap: 'round' });
+      }
+      // low crates of records along the wall
+      for (let z = 2.7; z < 7.6; z += 0.95) {
+        s += box(p, XL, XL + 0.55, 0, 0.62, z, z + 0.85, { top: S('#3a2a20'), r: K.adj(S(pine), -0.1), front: L(pine) });
+        for (let j = 0; j < 14; j++) { const zz = z + 0.06 + j * 0.055, a = p(XL + 0.05, 0.7, zz + 0.04), b = p(XL + 0.5, 0.72, zz + 0.04), c = p(XL + 0.5, 0.5, zz), e = p(XL + 0.05, 0.5, zz); s += poly([a, b, c, e], S(rng.pick(sleeveC))); }
+        s += poly(p.wz(z, XL, XL + 0.55, 0.35, 0.62), L(pine));
+      }
+
+      /* ---------- right wall: cassette racks, the counter, stereo shelves ---------- */
+      const RW = (z0, z1, y0, y1, dx = 0.01) => p.wx(XR - dx, z0, z1, y0, y1);
+      // cassette racks: slatted wood with rows of bright spines
+      s += box(p, XR - 0.28, XR, 0, 2.25, 3.0, 4.6, { l: L(pine), front: L('#9a6a3a') });
+      {
+        const cc = ['#e9e1cf', '#c8463a', '#2a3a5a', '#d9a441', '#2e8b8b', '#151515', '#e88a6a', '#9fb4cf', '#f2d488'];
+        for (let r = 0; r < 9; r++) {
+          const y = 0.3 + r * 0.21;
+          s += poly(RW(3.05, 4.55, y - 0.02, y, 0.29), S('#7a4c2c'));
+          let d = '';
+          const seg = [];
+          for (let z = 3.08; z < 4.52; z += 0.035) seg.push(z);
+          for (const z of seg) { const a = p(XR - 0.29, y + 0.02, z), b = p(XR - 0.29, y + 0.17, z); d += `M${n(a[0])},${n(a[1])} L${n(b[0])},${n(b[1])} `; }
+          s += K.path(d, 'none', { stroke: L(cc[r % cc.length]), strokeWidth: 2.4, opacity: 0.9 });
+          let d2 = ''; for (let i = 0; i < 12; i++) { const z = 3.1 + rng() * 1.4, a = p(XR - 0.29, y + 0.02, z), b = p(XR - 0.29, y + 0.17, z); d2 += `M${n(a[0])},${n(a[1])} L${n(b[0])},${n(b[1])} `; }
+          s += K.path(d2, 'none', { stroke: L(rng.pick(cc)), strokeWidth: 2.6 });
+        }
+        const [hx, hy] = p(XR - 0.3, 2.42, 3.8);
+        s += wallText(p, XR - 0.3, 4.4, 3.2, 2.32, 0.16, 'TAPES', { fill: L('#2a1a14'), fit: 0.8 });
+        void hx; void hy;
+      }
+      // shelves behind the counter: a boombox, a tape deck, stacks of LPs, hand-lettered sign
+      s += poly(RW(4.85, 6.7, 1.55, 1.6), L('#6b4a32')) + poly(RW(4.85, 6.7, 2.1, 2.15), L('#6b4a32'));
+      s += poly(RW(5.0, 5.75, 1.6, 1.92, 0.05), L('#2a2a30')) + K.circle(...p(XR - 0.051, 1.76, 5.18), 6, L('#55555c')) + K.circle(...p(XR - 0.051, 1.76, 5.58), 6, L('#55555c'));
+      s += poly(RW(5.95, 6.6, 1.6, 1.75, 0.04), L('#1d1d22'));
+      for (let i = 0; i < 4; i++) s += poly(RW(5.05 + i * 0.32, 5.3 + i * 0.32, 2.15, 2.5 - (i % 2) * 0.08, 0.03), L(rng.pick(sleeveC)));
+      // a sunburst electric guitar hung on two hooks above the counter
+      {
+        const zc = 5.4, yc = 2.52, g2 = (dz, dy) => p(XR - 0.04, yc + dy, zc + dz);
+        const outline = [[-0.38, 0], [-0.35, 0.12], [-0.25, 0.19], [-0.12, 0.18], [0, 0.12], [0.12, 0.14], [0.27, 0.21], [0.31, 0.16], [0.22, 0.07], [0.36, 0.035], [0.36, -0.035], [0.24, -0.07], [0.31, -0.13], [0.22, -0.18], [0.08, -0.13], [-0.04, -0.16], [-0.2, -0.2], [-0.33, -0.15]];
+        const body = outline.map(([dz, dy]) => g2(dz, dy)), inner = outline.map(([dz, dy]) => g2(dz * 0.62 - 0.03, dy * 0.6));
+        s += K.path(pathD(body), L('#4a1e10')) + K.path(pathD(inner), L('#d9772e'), { opacity: 0.9 });
+        s += K.path(pathD([[-0.24, -0.08], [-0.05, -0.12], [0.16, -0.06], [0.1, 0.06], [-0.1, 0.02]].map(([dz, dy]) => g2(dz, dy))), L('#efe6d2'));
+        const n0 = g2(0.34, 0), n1 = g2(1.15, 0.02);
+        s += K.line(n0[0], n0[1], n1[0], n1[1], L('#d9b07a'), 4.5);
+        s += K.path(pathD([g2(1.12, -0.04), g2(1.36, -0.03), g2(1.38, 0.08), g2(1.12, 0.07)]), L('#2a1a14'));
+        for (const dz of [0.2, 0.95]) { const h0 = g2(dz, 0.16), h1 = g2(dz, 0.24); s += K.line(h0[0], h0[1], h1[0], h1[1], L('#2a2a2e'), 2); }
+      }
+      // the counter
+      const kx0 = 1.95, kx1 = 2.9, kz0 = 4.85, kz1 = 6.65, kh = 1.0;
+      s += box(p, kx0, kx1, 0, kh, kz0, kz1, { l: L('#7a4c2c'), top: L('#5a3a2a'), front: L('#8a5a35') });
+      { let d = ''; for (let z = kz0 + 0.3; z < kz1; z += 0.3) { const a = p(kx0 - 0.002, 0.05, z), b = p(kx0 - 0.002, kh - 0.05, z); d += `M${n(a[0])},${n(a[1])} L${n(b[0])},${n(b[1])} `; } s += K.path(d, 'none', { stroke: S('#7a4c2c'), strokeWidth: 1.2, opacity: 0.7 }); }
+      // a flyer taped to the counter front
+      s += poly(p.wx(kx0 - 0.004, 5.2, 5.62, 0.4, 0.85), L('#efe6d2')) + poly(p.wx(kx0 - 0.005, 5.25, 5.57, 0.66, 0.8), L('#c8463a'));
+      s += wallText(p, kx0 - 0.006, 5.57, 5.25, 0.48, 0.1, 'RATS', { fill: L('#151515'), fit: 0.85 });
+      {
+        // turntable with a record on the platter
+        const z = 5.25, [tx, ty] = p(2.42, kh, z), k = p.k(z), sq = (p.eye - kh) / z;
+        s += K.path(pathD(p.wy(kh + 0.08, 2.08, 2.78, 4.95, 5.6)), L('#1d1d22')) + poly(p.wz(4.95, 2.08, 2.78, kh, kh + 0.08), L('#2a2a30'));
+        const [cx, cy] = p(2.4, kh + 0.08, 5.27);
+        s += K.ellipse(cx, cy, 0.17 * k, 0.17 * k * sq, '#0f0f12') + K.ellipse(cx, cy, 0.05 * k, 0.05 * k * sq, '#c8463a');
+        s += K.ellipse(cx, cy, 0.13 * k, 0.13 * k * sq, 'none', { stroke: '#2a2a30', strokeWidth: 1 });
+        const ta = p(2.68, kh + 0.12, 5.5), tb = p(2.5, kh + 0.1, 5.2);
+        s += K.line(ta[0], ta[1], tb[0], tb[1], L('#c3c8cc'), 2) + K.circle(ta[0], ta[1], 3, L('#9aa0a6'));
+        void tx; void ty;
+      }
+      {
+        // the cash register: beige, a small amber display
+        const z = 6.05, k = p.k(z);
+        s += box(p, 2.15, 2.75, kh, kh + 0.22, 5.85, 6.45, { l: L('#d8cdb8'), top: L('#e6dcc8'), front: L('#cfc4ae') });
+        s += box(p, 2.3, 2.7, kh + 0.22, kh + 0.42, 6.2, 6.45, { l: L('#d8cdb8'), top: L('#e6dcc8'), front: L('#cfc4ae') });
+        const [dx, dy] = p(2.3, kh + 0.36, 6.2);
+        s += rect(dx, dy, 0.18 * k, 0.06 * k, '#1b0f05') + txt(dx + 0.09 * k, dy + 0.05 * k, '8.99', { size: 0.05 * k, fill: P.sodium, font: FONT.type, len: 0.14 * k });
+        let d = ''; for (let i = 0; i < 4; i++) for (let j = 0; j < 3; j++) { const q = p(2.2 + j * 0.12, kh + 0.225, 5.9 + i * 0.1); d += `M${n(q[0] - 2)},${n(q[1])} h4 `; }
+        s += K.path(d, 'none', { stroke: L('#6a6458'), strokeWidth: 2 });
+      }
+      // a stack of LPs and a mug on the counter
+      { const q = p(2.25, kh, 4.98), k = p.k(4.98); for (let i = 0; i < 5; i++) s += rect(q[0] - 0.16 * k, q[1] - (i + 1) * 0.018 * k, 0.32 * k, 0.016 * k, L(rng.pick(sleeveC))); }
+      { const q = p(2.7, kh, 6.55), k = p.k(6.55); s += rect(q[0] - 0.04 * k, q[1] - 0.1 * k, 0.08 * k, 0.1 * k, L('#2e8b8b')); }
+
+      /* ---------- the record bins down the middle ---------- */
+      const bin = (x0, x1, z0, z1) => {
+        let r = '';
+        const h = 0.86, sh = floorPt(0, h);
+        // shadow thrown toward us by the window light
+        r += poly([p(x0, 0.003, z0), p(x1, 0.003, z0), p(x1 + sd[0] * h, 0.003, z0 - sd[1] * h * 0.55), p(x0 + sd[0] * h, 0.003, z0 - sd[1] * h * 0.55)], '#3a2210', { opacity: 0.35 });
+        r += box(p, x0, x1, 0.12, h - 0.18, z0, z1, { top: L('#5a3a22'), l: L(pine), r: S(pine), front: S('#8a5a35') });
+        for (const [lx, lz] of [[x0 + 0.05, z0 + 0.05], [x1 - 0.05, z0 + 0.05]]) { const a = p(lx, 0, lz), b = p(lx, 0.12, lz); r += K.line(a[0], a[1], b[0], b[1], S('#5a3a22'), Math.max(2, p.k(lz) * 0.05)); }
+        // records standing in the bin: sleeve tops leaning back, divider tabs
+        const N = Math.round((z1 - z0) / 0.045);
+        let d = '';
+        const cols = [];
+        for (let i = 0; i < N; i++) {
+          const z = z0 + 0.05 + (i * (z1 - z0 - 0.1)) / N, top = h - 0.02 + (rng() - 0.5) * 0.04;
+          const a = p(x0 + 0.04, top, z + 0.04), b = p(x1 - 0.04, top, z + 0.04), c = p(x1 - 0.04, h - 0.2, z), e = p(x0 + 0.04, h - 0.2, z);
+          cols.push(`<polygon points="${K.pts([a, b, c, e])}" fill="${L(rng.pick(sleeveC))}"/>`);
+          d += `M${n(a[0])},${n(a[1])} L${n(b[0])},${n(b[1])} `;
+        }
+        r += cols.join('') + K.path(d, 'none', { stroke: '#2a1a10', strokeWidth: 0.8, opacity: 0.6 });
+        // the near face of the bin box in front of the records
+        r += poly(p.wz(z0, x0, x1, h - 0.3, h - 0.02), L(pine)) + poly(p.wz(z0, x0, x1, h - 0.3, h - 0.27), S(pine));
+        void sh;
+        return r;
+      };
+      s += bin(-1.45, -0.55, 5.4, 6.9) + bin(-0.35, 0.55, 5.4, 6.9);
+      s += bin(-1.45, -0.55, 3.55, 5.05) + bin(-0.35, 0.55, 3.55, 5.05);
+      // light from the window on the bins' tops
+      s += `<g style="${screen}">` + K.pool(o, 700, 470, 260, 60, '#ffe6a8', 0.3, 'bintop') + '</g>';
+      // divider cards
+      for (const [x, z, t2] of [[-1.0, 4.3, 'ROCK'], [0.1, 4.3, 'JAZZ'], [-1.0, 6.2, 'NEW'], [0.1, 6.2, '45s']]) {
+        const [cx, cy] = p(x, 0.95, z), k = p.k(z);
+        s += rect(cx - 0.16 * k, cy - 0.06 * k, 0.32 * k, 0.11 * k, L('#efe6d2')) + txt(cx, cy + 0.035 * k, t2, { size: 0.085 * k, fill: L('#2a1a14'), weight: 700, len: 0.22 * k * Math.min(1, t2.length / 4) });
+      }
+
+      /* ---------- hanging posters + string lights under the ceiling ---------- */
+      const hang = (x0, x1, y0, y1, z, draw) => {
+        const [ax, ay] = p(x0, y1, z), [bx, by] = p(x1, y0, z);
+        const [cx0, cy0] = p(x0 + 0.08, YC, z), [cx1, cy1] = p(x1 - 0.08, YC, z);
+        let r = K.line(cx0, cy0, ax + (bx - ax) * 0.08, ay, '#2a1a14', 1) + K.line(cx1, cy1, bx - (bx - ax) * 0.08, ay, '#2a1a14', 1);
+        r += rect(ax + 4, ay + 5, bx - ax, by - ay, '#1a0f08', { opacity: 0.25 });
+        return r + draw(ax, ay, bx - ax, by - ay);
+      };
+      s += hang(-2.08, -1.26, 2.22, 3.14, 3.9, (x, y, w, h) => {
+        let r = rect(x, y, w, h, L('#1e2a3a'));
+        r += rect(x + w * 0.16, y + h * 0.36, w * 0.68, h * 0.42, L('#3a3a42'), { rx: 6 }) + rect(x + w * 0.22, y + h * 0.4, w * 0.56, h * 0.33, L('#9aa4ae'), { rx: 4 });
+        for (let i = 0; i < 70; i++) r += rect(x + w * (0.22 + rng() * 0.54), y + h * (0.4 + rng() * 0.31), 2, 1.5, rng() < 0.5 ? '#f2f2ee' : '#3a3a42');
+        r += K.line(x + w * 0.4, y + h * 0.36, x + w * 0.3, y + h * 0.27, L('#9aa4ae'), 1.5) + K.line(x + w * 0.6, y + h * 0.36, x + w * 0.7, y + h * 0.27, L('#9aa4ae'), 1.5);
+        r += txt(x + w / 2, y + h * 0.13, 'THE STATIC', { size: h * 0.1, fill: L('#f2d488'), weight: 700, len: w * 0.8 });
+        r += txt(x + w / 2, y + h * 0.24, 'HOURS', { size: h * 0.1, fill: L('#f2d488'), weight: 700, len: w * 0.5, ls: 2 });
+        r += txt(x + w / 2, y + h * 0.9, 'LIVE · FRI OCT 25', { size: h * 0.055, fill: L('#e9e1cf'), font: FONT.type, len: w * 0.8 });
+        return r;
+      });
+      s += hang(1.22, 2.0, 2.36, 3.16, 5.3, (x, y, w, h) => {
+        let r = rect(x, y, w, h, L('#efe9dc'));
+        r += K.path(`M${n(x + w * 0.18)},${n(y + h * 0.7)} q${n(w * 0.1)},${n(-h * 0.2)} ${n(w * 0.38)},${n(-h * 0.14)} q${n(w * 0.12)},${n(h * 0.02)} ${n(w * 0.18)},${n(h * 0.08)} l${n(w * 0.1)},${n(-h * 0.02)} l${n(-w * 0.06)},${n(h * 0.06)} q${n(-w * 0.2)},${n(h * 0.06)} ${n(-w * 0.6)},${n(h * 0.02)} Z`, L('#151515'));
+        r += K.path(`M${n(x + w * 0.18)},${n(y + h * 0.7)} q${n(-w * 0.12)},${n(h * 0.1)} ${n(-w * 0.06)},${n(h * 0.18)}`, 'none', { stroke: L('#151515'), strokeWidth: 1.6 });
+        r += txt(x + w / 2, y + h * 0.14, 'CANAL', { size: h * 0.12, fill: L('#c8263a'), weight: 700, len: w * 0.62 });
+        r += txt(x + w / 2, y + h * 0.27, 'STREET RATS', { size: h * 0.1, fill: L('#c8263a'), weight: 700, len: w * 0.84 });
+        r += txt(x + w / 2, y + h * 0.9, 'ALL AGES · VFW HALL', { size: h * 0.05, fill: L('#151515'), font: FONT.type, len: w * 0.84 });
+        r += rect(x, y + h * 0.33, w, 1.5, L('#151515'), { opacity: 0.5 }) + rect(x + w * 0.62, y + h * 0.4, w * 0.3, h * 0.12, L('#151515'), { opacity: 0.85 });
+        return r;
+      });
+      {
+        // string lights looping across the ceiling
+        const spans = [[XL, 2.6, XR, 4.2], [XR, 4.2, XL, 5.8], [XL, 5.8, XR, 7.4]];
+        let wire = '', bulbs = '', glow = '';
+        for (const [xa, za, xb, zb] of spans) {
+          const pts = [];
+          for (let i = 0; i <= 24; i++) { const u = i / 24, x = xa + (xb - xa) * u, z = za + (zb - za) * u, y = YC - 0.12 - Math.sin(u * Math.PI) * 0.38; pts.push([p(x, y, z), z]); }
+          wire += 'M' + pts.map((q) => n(q[0][0]) + ',' + n(q[0][1])).join(' L') + ' ';
+          pts.forEach(([q, z], i) => { if (i % 2) return; const k = p.k(z); bulbs += K.circle(q[0], q[1] + 0.05 * k, Math.max(1.6, 0.045 * k), i % 4 ? '#fff0c4' : '#ffc26a'); if (i % 4 === 0) glow += halo(q[0], q[1], 0.45 * k, 0.75); });
+        }
+        s += K.path(wire, 'none', { stroke: '#2a1a14', strokeWidth: 1.1, opacity: 0.8 }) + glow + bulbs;
+      }
+
+      /* ---------- dust in the sunbeam, warm corners ---------- */
+      for (let i = 0; i < 46; i++) { const a = p(-2.2 + rng() * 2.9, 0.4 + rng() * 2.4, 3.5 + rng() * 4.3); s += K.circle(a[0], a[1], 0.7 + rng() * 1.2, '#fff4d8', { opacity: 0.3 + rng() * 0.45 }); }
+      s += K.band(o, 0, 180, '#2a1808', 0.35, 0, 'ceil');
+      s += K.band(o, 640, 260, '#1a0f06', 0, 0.35, 'floor');
+      return s;
+    }
+  });
+
 })();

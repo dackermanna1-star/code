@@ -151,7 +151,7 @@
     skinS: '#d5aa9b'
   };
   const memere = {
-    name: 'Mémère',
+    name: 'M\u00e9m\u00e8re',
     age: 0.95,
     headScale: 1.0,
     blush: 0.34,
@@ -436,12 +436,13 @@
     marks: '<path d="M242,296 C252,307 272,309 285,298 C272,305 254,304 242,296 Z M315,298 C328,309 348,307 358,296 C346,304 328,305 315,298 Z" fill="#86697a" opacity="0.34"/>',
     hairBack(o) {
       const c = CAL;
-      // straight black hair grown past the jaw, ends tapering
+      // straight black hair hanging behind the neck down to his shoulders
       return fp('M190,300 C176,196 222,100 298,96 C376,100 418,196 404,300 C406,360 410,420 404,452 L196,452 C188,420 188,360 190,300 Z', c.hairS);
     },
     hairFront(o) {
       const c = CAL;
-      // cap; a part on his left; the right side falls straight over the ear
+      // cap with a part on his left; straight hair falls past the jaw to rest
+      // on the jacket's shoulders, the ends left uneven
       let s = fp('M199,452 C190,400 186,340 188,262 C190,170 236,100 300,98 C364,100 402,152 406,226 C410,290 412,360 408,420 L404,446 L398,430 L392,448 L387,428 L382,440 C384,400 388,330 382,262 C378,236 366,214 348,198 C330,206 312,214 296,220 C282,225 270,230 262,234 C248,236 234,238 226,244 C220,270 218,330 222,390 L228,440 L222,458 L216,438 L210,462 L205,440 Z', c.hair);
       s += fp('M352,106 C390,124 404,170 406,226 C410,290 412,360 408,420 L404,446 L398,430 L392,448 L387,428 L382,440 C384,400 388,330 382,262 C378,236 366,214 348,198 C352,166 354,136 352,106 Z', c.hairS);
       s += sp('M328,108 C336,140 340,170 345,196', c.hairS, 2.4, 0.9);
@@ -515,7 +516,7 @@
   const SLO = {
     hair: '#c99b5d', hairS: '#a27845', hairL: '#ebcd96', hairD: '#8a6236',
     band: '#1b181e', bandL: '#433c48', bandS: '#0f0d11',
-    cream: '#ece0c8', creamS: '#cdbd9f', creamD: '#b6a383', creamL: '#f6eedd',
+    cream: '#ece0c8', creamS: '#cdbd9f', creamD: '#b6a383',
     blouse: '#f8f5f0', blouseS: '#dcd6cb',
     pearl: '#f6f1e8', pearlS: '#d3cabc'
   };
@@ -766,7 +767,7 @@
     },
     hairFront(o, ex, spec) {
       const c = spec.pal;
-      // chin-length bob, blunt bangs cut straight across
+      // full, round chin-length bob (ends turned under), blunt bangs cut straight across
       let s = fp('M194,404 C184,368 182,320 184,276 C184,196 222,116 300,106 C378,116 416,196 416,276 C418,320 416,368 406,404 C400,414 390,418 378,416 C380,406 380,394 380,382 C379,352 380,320 384,290 C386,262 386,246 384,234 ' +
         'L370,233 L362,235.5 L350,233 L338,235 L326,233 L312,235 L300,233 L288,235 L274,233 L262,235 L250,233 L238,235.5 L228,233 L216,234 ' +
         'C214,246 214,262 216,290 C220,320 221,352 220,382 C220,394 220,406 222,416 C210,418 200,414 194,404 Z', c.hair);

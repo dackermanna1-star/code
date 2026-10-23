@@ -14,7 +14,8 @@
   /* Light words the kit doesn't have. */
   const XTOD = {
     dawn: { mul: [0.56, 0.62, 0.78], addC: '#7d88a8', addT: 0.3, shadowMul: [0.72, 0.76, 0.9] },
-    attic: { mul: [0.66, 0.58, 0.50], addC: '#3a2c22', addT: 0.14, shadowMul: [0.58, 0.58, 0.70] }
+    attic: { mul: [0.66, 0.58, 0.50], addC: '#3a2c22', addT: 0.14, shadowMul: [0.58, 0.58, 0.70] },
+    lampnight: { mul: [0.58, 0.52, 0.52], addC: '#1c1a2c', addT: 0.18, shadowMul: [0.52, 0.52, 0.66] }
   };
   const tone = (c, t) => { const x = XTOD[t]; return x ? K.mix(K.mul(c, x.mul), x.addC, x.addT) : K.tone(c, t); };
   const shade = (c, t) => { const x = XTOD[t]; return x ? K.mul(tone(c, t), x.shadowMul) : K.shade(c, t); };
@@ -1215,7 +1216,7 @@
     light: { night: 'interior_lamp' },
     draw(o) {
       o = U(o);
-      const rng = o.rng, tt = 'evening';
+      const rng = o.rng, tt = 'lampnight';
       const L = (c) => tone(c, tt), S = (c) => shade(c, tt);
       const R = mkRoom({ vx: 800, vy: 300, D: 2400, depth: 1800, Yc: 0, Yf: 900 });
       const DB = R.depth, at = R.at, Pp = R.P;
@@ -1237,10 +1238,10 @@
       let st = '';
       for (let i = 0; i < 34; i++) {
         const X = 60 + rng() * 1480, d = 60 + rng() * (DB - 120), p = Pp(X, 0, d), r = (10 + rng() * 9) * R.k(d);
-        st += K.circle(p[0], p[1], r * 2.6, '#eef0c4', { opacity: 0.1 }) + K.path(star(p[0], p[1], r, rng() * 6), '#eef0c4', { opacity: n(0.6 + rng() * 0.35) });
+        st += K.circle(p[0], p[1], r * 1.5, '#eef0c4', { opacity: 0.07 }) + K.path(star(p[0], p[1], r, rng() * 6), '#eef0c4', { opacity: n(0.55 + rng() * 0.4) });
       }
-      st += K.path(star(Pp(980, 0, 900)[0], Pp(980, 0, 900)[1], 34 * R.k(900), 0.3), 'none', { stroke: '#eef0c4', strokeWidth: 1.4, opacity: 0.5 });
-      s += st;
+      st += K.path(star(Pp(980, 0, 900)[0], Pp(980, 0, 900)[1], 34 * R.k(900), 0.3), '#eef0c4', { opacity: 0.6 });
+      for (let i = 0; i < 9; i++) { const p = Pp(1000 + rng() * 500, 0, 300 + rng() * 900), r = 4 * R.k(600); st += K.circle(p[0], p[1], r, '#eef0c4', { opacity: 0.6 }); }
 
       /* ---- QSL cards and a world map over the desk ---- */
       let qs = '';
@@ -1333,14 +1334,25 @@
       s += at(DB - 300, ts);
 
       /* ---- the bed: purple comforter; the nightstand, lava lamp, paperbacks ---- */
-      const B0 = 1270, BD0 = 700, BD1 = DB - 120;
-      s += R.box(B0 - 10, 1600, 420, 900, BD1, BD1 + 40, { f: L('#6a5440'), l: S('#6a5440'), t: K.adj(L('#6a5440'), 0.1) });
-      s += R.box(B0 + 20, 1580, 610, 690, BD1 - 160, BD1 - 10, { f: L('#e6e2da'), l: S('#e6e2da'), t: K.adj(L('#e6e2da'), 0.05) });
-      const purple = '#5e3f86';
-      s += K.poly(R.qY(690, B0, 1600, BD0, BD1 - 150), L(purple)) + K.poly(R.qX(B0, BD0, BD1 - 150, 690, 860), S(purple)) + K.poly(R.qB(B0, 1600, 690, 860, BD0), K.mix(S(purple), L(purple), 0.5));
-      for (const d of [BD0 + 160, BD0 + 420]) { const a = R.P(B0, 690, d), b = R.P(B0, 860, d + 30); s += K.line(a[0], a[1], b[0], b[1], K.adj(S(purple), -0.2), 3, { opacity: 0.6 }); }
-      s += K.poly(R.qY(689, B0, 1600, BD0 + 240, BD0 + 300), L('#2e8b8b'), { opacity: 0.85 }) + K.poly(R.qX(B0, BD0 + 240, BD0 + 300, 690, 860), S('#2e8b8b'));
-      s += K.poly(R.qY(688, B0 + 60, 1500, BD1 - 330, BD1 - 160), K.adj(L(purple), 0.1));
+      const B0 = 1270, BD0 = 760, BD1 = DB - 110, CT = 692, purple = '#5e3f86';
+      s += at(BD1 + 20, K.path(`M${B0 - 10},900 L${B0 - 10},540 Q${B0 + 40},470 ${(B0 + 1600) / 2},466 Q1560,470 1610,540 L1610,900 Z`, L('#7a5e46')) +
+        K.path(`M${B0 + 22},880 L${B0 + 22},556 Q${B0 + 60},500 ${(B0 + 1600) / 2},496 Q1540,500 1580,556 L1580,880 Z`, 'none', { stroke: S('#7a5e46'), strokeWidth: 7 }));
+      s += R.box(B0 + 10, 1600, CT, 900, BD0 + 30, BD1, { l: S('#d8d0c4'), f: L('#d8d0c4') });
+      s += at(BD1 - 50, K.path(`M${B0 + 36},${CT + 4} Q${B0 + 24},${CT - 70} ${B0 + 84},${CT - 78} L${B0 + 236},${CT - 78} Q${B0 + 292},${CT - 70} ${B0 + 282},${CT + 4} Z`, L('#e6e0ee')) +
+        K.path(`M${B0 + 170},${CT - 78} L${B0 + 236},${CT - 78} Q${B0 + 292},${CT - 70} ${B0 + 282},${CT + 4} L${B0 + 200},${CT + 4} Z`, S('#e6e0ee')));
+      // comforter: quilted top, a soft hem down the near side and over the foot
+      s += K.poly(R.qY(CT, B0, 1600, BD0, BD1 - 170), L(purple));
+      s += R.patQuad(o, [[B0, CT, BD0], [B0, CT, BD1 - 170], [1600, CT, BD1 - 170], [1600, CT, BD0]], { w: 110, h: 110, inner: `<path d="M0,0 L110,110 M110,0 L0,110" stroke="${S(purple)}" stroke-width="4" opacity="0.55"/>` }, 1, 4);
+      s += K.poly(R.qY(CT - 1, B0, 1600, BD0 + 250, BD0 + 320), L('#2e8b8b'), { opacity: 0.8 });
+      const hemPts = [];
+      for (let i = 0; i <= 12; i++) { const d = lerp(BD1 - 170, BD0, i / 12); hemPts.push(R.P(B0, 846 + Math.sin(i * 1.7) * 10, d)); }
+      s += K.poly([R.P(B0, CT, BD0), R.P(B0, CT, BD1 - 170), ...hemPts], S(purple));
+      for (const i of [3, 7, 10]) { const d = lerp(BD1 - 170, BD0, i / 12); const a2 = R.P(B0, CT + 10, d), b2 = R.P(B0, 840, d + 20); s += K.line(a2[0], a2[1], b2[0], b2[1], K.adj(S(purple), -0.25), 3, { opacity: 0.6 }); }
+      s += K.poly([R.P(B0, CT, BD0 + 250), R.P(B0, CT, BD0 + 320), R.P(B0, 850, BD0 + 320), R.P(B0, 850, BD0 + 250)], S('#2e8b8b'), { opacity: 0.85 });
+      let foot = `<path d="M${B0},${CT + 30} Q${B0},${CT} ${B0 + 30},${CT} L1600,${CT} L1600,860 Q${(B0 + 1600) / 2 + 60},876 ${(B0 + 1600) / 2},856 Q${B0 + 80},846 ${B0},866 Z" fill="${K.mix(S(purple), L(purple), 0.55)}"/>`;
+      foot += K.rect(B0 + 4, CT + 10, 1600 - B0, 40, L(purple), { opacity: 0.4 }) + K.rect(B0 + 250 - 250 + 0, CT, 0, 0, 'none');
+      s += at(BD0, foot);
+
       // nightstand
       const N0 = 1130, N1 = 1250, ND0 = DB - 150;
       s += R.box(N0, N1, 680, 900, ND0, DB - 20, { t: K.adj(L('#e6e0d2'), 0.04), l: S('#e6e0d2'), f: L('#e6e0d2') });
@@ -1369,7 +1381,7 @@
       sp += K.rect(1300, 160, 250, 330, 'none', { stroke: L('#e6e0d2'), strokeWidth: 6 }) + K.rect(1320, 175, 210, 22, L('#2e8b8b'), { opacity: 0.6 });
       s += at(DB, sp);
       // starship silhouette, left wall
-      s += R.patQuad(o, [[0, 160, 640], [0, 160, 1240], [0, 520, 1240], [0, 520, 640]], { w: 600, h: 360, inner: `<rect width="600" height="360" fill="${L('#121428')}"/>` + Array.from({ length: 30 }, () => `<circle cx="${n(rng() * 600)}" cy="${n(rng() * 360)}" r="${n(1 + rng() * 2.4)}" fill="#e8eef8" opacity="${n(0.4 + rng() * 0.5)}"/>`).join('') + `<path d="M80,210 L330,170 Q420,160 520,180 L540,190 L520,200 Q420,214 330,206 L230,216 L200,250 L170,252 L190,214 Z" fill="${L('#b8c0cc')}"/><path d="M200,186 L150,120 L184,118 L250,180 Z" fill="${L('#9aa2ae')}"/><circle cx="96" cy="210" r="14" fill="#9ad0ff" opacity="0.8"/>` }, 1, 3, 1);
+      s += R.patQuad(o, [[0, 160, 640], [0, 160, 1240], [0, 520, 1240], [0, 520, 640]], { w: 600, h: 360, inner: `<rect width="600" height="360" fill="${L('#1a1838')}"/><circle cx="300" cy="560" r="330" fill="${L('#6a5a9a')}"/><circle cx="300" cy="560" r="330" fill="none" stroke="${L('#c8a8e0')}" stroke-width="10" opacity="0.7"/>` + Array.from({ length: 30 }, () => `<circle cx="${n(rng() * 600)}" cy="${n(rng() * 220)}" r="${n(1 + rng() * 2.4)}" fill="#e8eef8" opacity="${n(0.4 + rng() * 0.5)}"/>`).join('') + `<path d="M110,190 L360,150 L500,166 L520,176 L500,186 L360,196 L250,214 L230,246 L196,248 L210,212 L150,206 Z M250,170 L210,110 L240,108 L300,160 Z" fill="#05060c"/><circle cx="112" cy="196" r="9" fill="#9ad0ff"/><circle cx="112" cy="196" r="20" fill="#9ad0ff" opacity="0.3"/>` }, 1, 3, 1);
       s += K.poly(R.qX(0, 640, 1240, 160, 520), 'none', { stroke: L('#e6e0d2'), strokeWidth: 3 });
       // ringed planet, right wall over the bed
       s += R.patQuad(o, [[1600, 140, 900], [1600, 140, 1500], [1600, 470, 1500], [1600, 470, 900]], { w: 600, h: 330, inner: `<rect width="600" height="330" fill="${L('#1a1430')}"/><circle cx="300" cy="165" r="90" fill="${L('#d9a441')}"/><path d="M210,150 Q300,130 390,150 L390,170 Q300,150 210,170 Z" fill="${L('#b8803a')}"/><ellipse cx="300" cy="170" rx="190" ry="34" fill="none" stroke="${L('#e9d2a0')}" stroke-width="14"/><path d="M210,165 A90,90 0 0 0 390,165 Z" fill="#000" opacity="0.25"/>` + Array.from({ length: 20 }, () => `<circle cx="${n(rng() * 600)}" cy="${n(rng() * 330)}" r="${n(1 + rng() * 2)}" fill="#e8eef8" opacity="0.6"/>`).join('') }, 1, 3, 1);
@@ -1381,14 +1393,17 @@
 
       /* ---- light ---- */
       const lampP = R.P(330, 430, DB - 150), radP = R.P(315, 520, DB - 110);
-      s += K.shaft(o, [Pp(306, 430, DB - 150), Pp(354, 430, DB - 150), Pp(560, 620, DB - 60), Pp(80, 620, DB - 60)], '#ffd38a', 0.28, 'tlamp');
-      s += screen(K.glow(o, lampP[0], lampP[1] + 30, 330, '#ffcf86', 0.42, 'tlg'));
+      s += K.shaft(o, [Pp(306, 430, DB - 150), Pp(354, 430, DB - 150), Pp(560, 620, DB - 60), Pp(80, 620, DB - 60)], '#ffd38a', 0.32, 'tlamp');
+      s += screen(K.pool(o, ...Pp(330, 620, DB - 120), 260, 40, '#ffcf86', 0.5, 'tdesk'));
+      s += screen(K.glow(o, lampP[0], lampP[1] + 30, 380, '#ffc878', 0.45, 'tlg'));
       s += screen(K.glow(o, radP[0], radP[1], 170, '#ffb050', 0.4, 'tradio'));
       s += K.shaft(o, [Pp(W0 + 8, WB, DB), Pp(W1 - 8, WB, DB), Pp(W1 + 200, 900, 900), Pp(W0 - 150, 900, 900)], '#8fa8e0', 0.1, 'tmoonf');
-      s += falloff(o, radP[0] + 120, radP[1] - 40, 1150, '#0a0810', 0.68, 0.2);
-      s += K.band(o, 0, 150, '#0a0810', 0.35, 0, 'tceil');
+      s += falloff(o, radP[0] + 60, radP[1] - 40, 1050, '#08070f', 0.6, 0.18);
+      const cool = rad(o, 'tcool', [[0, '#1a2a50', 0], [0.4, '#1a2a50', 0], [1, '#1a2a50', 0.35]], radP[0], radP[1], 1100);
+      s += cool.def + `<rect x="-10" y="-10" width="1620" height="920" fill="${cool.url}" style="mix-blend-mode:multiply"/>`;
+      s += K.band(o, 0, 150, '#08070f', 0.3, 0, 'tceil');
       // the stars glow on top of the dark
-      s += `<g opacity="0.55">${st}</g>`;
+      s += st;
       return s;
     }
   });

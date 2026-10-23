@@ -796,7 +796,7 @@
         s += T(tx, by0 + bh * 0.33, 'The Lottery — Shirley Jackson (1948)', { size: 29, anchor: 'middle', fill: chalk, opacity: 0.9, font: F_HAND, len: bw * 0.86 });
         s += K.path(`M${n(tx - bw * 0.42)},${n(by0 + bh * 0.39)} q${n(bw * 0.2)},-3 ${n(bw * 0.42)},-1`, 'none', { stroke: chalk, strokeWidth: 2, opacity: 0.7, strokeLinecap: 'round' });
         s += T(tx - bw * 0.02, by0 + bh * 0.7, 'Why do they keep doing it?', { size: 30, anchor: 'middle', fill: chalk, opacity: 0.9, font: F_HAND, len: bw * 0.6 });
-        s += T(bx1 - 14, by0 + bh * 0.93, 'p. 291', { size: 16, anchor: 'end', fill: chalk, opacity: 0.55, font: F_HAND, len: 40 });
+        s += T(bx0 + 16, by0 + bh * 0.92, 'pp. 291–302', { size: 16, fill: chalk, opacity: 0.55, font: F_HAND, len: 70 });
       }
       // chalk tray, chalk, eraser
       s += K.poly(c.fz(ZB, BX0 - 0.1, BX1 + 0.1, BY0 - 0.3, BY0), M('#a9a9a2', 0.7));
@@ -836,8 +836,8 @@
 
       /* the teacher's desk (front right) and what's on it */
       const TX0 = 4.2, TX1 = 9.2, TZ0 = 17.4, TZ1 = 19.8;
-      s += c.box(TX0 + 1.7, TX1 - 1.7, 2.3, 3.55, TZ1 + 0.5, TZ1 + 0.62, { front: M(oak, 0.62), top: L(oak) }); // her chair back
-      for (const sx of [TX0 + 2.15, TX0 + 2.5, TX0 + 2.85]) s += K.poly(c.fz(TZ1 + 0.49, sx, sx + 0.12, 2.5, 3.25), S(oak));
+      s += c.box(TX0 + 1.7, TX1 - 1.7, 2.3, 3.3, TZ1 + 0.5, TZ1 + 0.62, { front: M(oak, 0.62), top: L(oak) }); // her chair back
+      for (const sx of [TX0 + 2.15, TX0 + 2.5, TX0 + 2.85]) s += K.poly(c.fz(TZ1 + 0.49, sx, sx + 0.12, 2.5, 3.05), S(oak));
       s += c.box(TX0, TX1, 0, 2.35, TZ0 + 0.1, TZ1, { front: M(oak, 0.62), left: M(oak, 0.85) });
       s += c.box(TX0 - 0.1, TX1 + 0.1, 2.35, 2.5, TZ0, TZ1, { front: L(oak), top: L('#a4744a'), left: L(oak) });
       s += K.poly(c.fz(TZ0 + 0.1, TX0 + 0.3, TX1 - 0.3, 0.3, 2.1), 'none', { stroke: S(oak), strokeWidth: 2 });
@@ -1036,6 +1036,10 @@
       for (let z = LZ0 + 0.4; z < LZ1 - 0.6; z += 1.0) s += c.line([CX0, 0.3, z], [CX0, 2.7, z], S(steel), 1, { opacity: 0.5 });
       const pans = ['#d9b23a', '#9a4a2a', '#c9a472', '#e0c070', '#7a8a4a', '#b8442a', '#e8e0c8', '#c9862e'];
       for (let k = 0; k < 8; k++) { const z = LZ0 + 1.2 + k * 1.95; s += K.poly(c.fy(3.01, CX0 + 0.25, CX0 + 1.3, z, z + 1.5), S('#7f8486')) + K.poly(c.fy(3.03, CX0 + 0.35, CX0 + 1.2, z + 0.12, z + 1.38), L(pans[k])); }
+      for (let k = 0; k < 6; k++) {
+        const z = LZ0 + 2 + k * 2.6, [sx, sy] = c.p(CX0 + 0.8, 3.1, z), sc = c.s(z);
+        s += K.path(`M${n(sx)},${n(sy)} c${n(-sc * 0.25)},${n(-sc * 0.35)} ${n(sc * 0.25)},${n(-sc * 0.55)} 0,${n(-sc * 0.95)} c${n(-sc * 0.2)},${n(-sc * 0.3)} ${n(sc * 0.2)},${n(-sc * 0.5)} 0,${n(-sc * 0.8)}`, 'none', { stroke: '#ffffff', strokeWidth: n(sc * 0.16), opacity: 0.28, strokeLinecap: 'round' });
+      }
       for (let z = LZ0 + 1; z <= LZ1 - 0.5; z += 4) s += c.line([CX0 + 0.3, 3.0, z], [CX0 + 0.3, 5.2, z], L(steel), 2);
       s += K.poly([c.p(CX0 + 0.3, 5.2, LZ0 + 1), c.p(CX0 + 0.3, 5.2, LZ1 - 0.5), c.p(CX0 - 0.15, 3.6, LZ1 - 0.5), c.p(CX0 - 0.15, 3.6, LZ0 + 1)], '#dfeef0', { opacity: 0.22 });
       s += c.line([CX0 - 0.15, 3.6, LZ0 + 1], [CX0 - 0.15, 3.6, LZ1 - 0.5], '#ffffff', 1.4, { opacity: 0.5 }) + c.line([CX0 + 0.3, 5.2, LZ0 + 1], [CX0 + 0.3, 5.2, LZ1 - 0.5], L(steel), 2.5);
@@ -1127,6 +1131,9 @@
   const RETRACE = [[2, 2, 1, 2, 2, 2, 1, 2, 2, 1], [2, 1, 2, 2, 1, 2, 2, 1, 2, 1], [1, 2, 1, 1, 2, 1, 1, 2, 1], [1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1]];
   const retrace = (ci, ri) => RETRACE[ci][ri];
   const GREASE = '#17130f';
+  /* rough relative widths of hand-printed capitals, so a name laid out
+   * letter by letter doesn't come out monospaced ("1 9 8 1") */
+  const glyphW = (ch) => (/[1I.'?]/.test(ch) ? 0.55 : /[0-9]/.test(ch) ? 0.78 : /[MW]/.test(ch) ? 1.2 : ch === ' ' ? 0.7 : 1);
 
   /* pipe running along Z: hull of its two end circles, with a lit stripe */
   const pipeZ = (c, X, Y, z0, z1, r, col, lit, hi) => {
@@ -1196,9 +1203,13 @@
           if (rt > 0) names += T(0.9, 0.6, str, { size: h * 100, anchor: 'middle', fill: GREASE, opacity: rt > 1 ? 0.42 : 0.28, font: F_HAND, transform: tr, len });
           return;
         }
-        [...str].forEach((ch, k) => {
+        const chars = [...str], ws = chars.map(glyphW), tot = ws.reduce((a, b) => a + b, 0), unit = (chars.length * adv) / tot;
+        let acc = 0;
+        chars.forEach((ch, k) => {
+          const mid = acc + ws[k] / 2;
+          acc += ws[k];
           if (ch === ' ') return;
-          const Z = zs - (k + 0.5) * adv;
+          const Z = zs - mid * unit;
           const tr = c.onX(XR, Y, Z, -1);
           names += T(0, 0, ch, { size: h * 100, anchor: 'middle', fill: GREASE, opacity: 0.84, font: F_HAND, transform: tr });
           if (rt > 0) names += T(0.9, 0.6, ch, { size: h * 100, anchor: 'middle', fill: GREASE, opacity: rt > 1 ? 0.42 : 0.28, font: F_HAND, transform: tr });

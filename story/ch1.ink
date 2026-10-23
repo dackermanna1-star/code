@@ -206,7 +206,8 @@ MEMERE(laugh): Which Christmas?
 === ch1_dinner ===
 @bg kitchen evening
 @ctx Dinner in Mémère's kitchen on the first night: microwaved tourtière (meat pie). Mom absent-mindedly sets an extra plate.
-The kitchen has yellow wallpaper with tiny daisies, a wall phone with a cord long enough to reach the bathroom, and a crucifix over the window watching the sink. The tourtière comes out of the microwave steaming on the outside and frozen solid in the middle, which Mémère says is how her mother made it too.
+The kitchen has yellow wallpaper with tiny daisies, a wall phone with a cord long enough to reach the bathroom, and a crucifix over the window watching the sink.
+The tourtière comes out of the microwave steaming on the outside and frozen solid in the middle, which Mémère says is how her mother made it too.
 Your mother sets the table while she talks about the hospital, the night shifts, the parking.
 One plate. Two plates. Three plates.
 Four.

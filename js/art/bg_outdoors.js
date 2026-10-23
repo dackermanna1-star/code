@@ -16,18 +16,20 @@
 
   /* ---------- local helpers ----------
    * Many small shapes (leaves, blades, pebbles, mesh, crowds) are emitted as
-   * path data and merged into one <path> per colour to keep element counts low. */
+   * path data and merged into one <path> per colour, and kept to few points,
+   * so element counts and markup size stay phone-friendly. */
   const pd = (pts) => 'M' + pts.map((p) => n(p[0]) + ',' + n(p[1])).join('L') + 'Z';
   const ld = (pts) => 'M' + pts.map((p) => n(p[0]) + ',' + n(p[1])).join('L');
   const ellD = (cx, cy, rx, ry) => `M${n(cx - rx)},${n(cy)}a${n(rx)},${n(ry)} 0 1,0 ${n(2 * rx)},0a${n(rx)},${n(ry)} 0 1,0 ${n(-2 * rx)},0Z`;
   const domeD = (cx, cy, rx, ry) => `M${n(cx - rx)},${n(cy)}A${n(rx)},${n(ry)} 0 0,1 ${n(cx + rx)},${n(cy)}Z`;
   const litDomeD = (cx, cy, rx, ry) => `M${n(cx - rx)},${n(cy)}A${n(rx)},${n(ry)} 0 0,1 ${n(cx)},${n(cy - ry)}Q${n(cx + rx * 0.25)},${n(cy - ry * 0.3)} ${n(cx - rx * 0.1)},${n(cy)}Z`;
+  /* a leaf as a rotated diamond (reads as a leaf at these sizes, a quarter of the markup) */
   const leafD = (x, y, len, wid, ang, sy = 1) => {
     const c = Math.cos(ang), si = Math.sin(ang);
     const p = (u, v) => n(x + u * c - v * si) + ',' + n(y + (u * si + v * c) * sy);
-    return `M${p(-len, 0)}Q${p(0, -wid)} ${p(len, 0)}Q${p(0, wid)} ${p(-len, 0)}Z`;
+    return `M${p(-len, 0)}L${p(0, -wid)}L${p(len, 0)}L${p(0, wid)}Z`;
   };
-  const bladeD = (x, y, h, w, lean) => `M${n(x - w)},${n(y)}Q${n(x + lean * 0.35)},${n(y - h * 0.55)} ${n(x + lean)},${n(y - h)}Q${n(x + lean * 0.3 + w * 0.5)},${n(y - h * 0.5)} ${n(x + w)},${n(y)}Z`;
+  const bladeD = (x, y, h, w, lean) => `M${n(x - w)},${n(y)}Q${n(x + lean * 0.35)},${n(y - h * 0.55)} ${n(x + lean)},${n(y - h)}L${n(x + w)},${n(y)}Z`;
   const stroke = (d, color, w, o) => K.path(d, 'none', Object.assign({ stroke: color, strokeWidth: w }, o || {}));
   const smoothD = (pts, move = true) => {
     let d = (move ? 'M' : 'L') + n(pts[0][0]) + ',' + n(pts[0][1]);
@@ -49,6 +51,39 @@
   };
   /* one radial gradient (objectBoundingBox) shared by many glow circles */
   const glowDef = (id, color, op) => K.radial(id, [[0, color, op], [0.35, color, op * 0.45], [1, color, 0]], 0.5, 0.5, 0.5, false);
+  /* vertical fade band, transparent at both ends (no hard edges) */
+  const band3 = (o, y, h, color, peak, name = 'b3', at = 0.5) => {
+    const id = o.id(name);
+    return K.defs(K.linear(id, [[0, color, 0], [at, color, peak], [1, color, 0]])) + K.rect(-10, y, 1620, h, `url(#${id})`);
+  };
+
+  /* KIT.blob with k points per lobe (fewer than the kit's 6), integer coords for big shapes */
+  const blobL = (rng, cx, cy, rx, ry, { lobes = 6, jag = 0.25, scallop = 0.14, k = 3 } = {}) => {
+    const N = lobes * k, ph = rng() * 6.28, ph2 = rng() * 6.28, pts = [];
+    const r = Math.max(rx, ry) > 14 ? Math.round : n;
+    for (let i = 0; i < N; i++) {
+      const a = (i / N) * Math.PI * 2, lobe = Math.abs(Math.sin((a * lobes) / 2 + ph));
+      const m = 1 + jag * Math.sin(a * 3 + ph2) * 0.6 + scallop * lobe + (rng() - 0.5) * jag * 0.35;
+      pts.push([cx + Math.cos(a) * rx * m, cy + Math.sin(a) * ry * m]);
+    }
+    let d = `M${r((pts[0][0] + pts[N - 1][0]) / 2)},${r((pts[0][1] + pts[N - 1][1]) / 2)}`;
+    for (let i = 0; i < N; i++) { const p = pts[i], q = pts[(i + 1) % N]; d += `Q${r(p[0])},${r(p[1])} ${r((p[0] + q[0]) / 2)},${r((p[1] + q[1]) / 2)}`; }
+    return d + 'Z';
+  };
+  /* stones half out of water / ground: shadow domes + lit caps */
+  const stonesD = (list) => { let sh = '', li = ''; for (const [x, y, rx, ry] of list) { sh += domeD(x, y, rx, ry); li += litDomeD(x, y, rx, ry); } return [sh, li]; };
+  /* deciduous tree, same construction as KIT.tree but with lighter path data */
+  const treeL = (rng, { x, base, h = 260, w = 200, colors, trunk }) => {
+    const cy = base - h * 0.64, tw = Math.max(6, w * 0.055);
+    let s = K.path(`M${n(x - tw)},${n(base)}C${n(x - tw * 0.7)},${n(base - h * 0.2)} ${n(x - tw * 0.6)},${n(cy + h * 0.15)} ${n(x - w * 0.2)},${n(cy - h * 0.1)}L${n(x - w * 0.16)},${n(cy - h * 0.13)}C${n(x - tw)},${n(cy + h * 0.02)} ${n(x)},${n(cy)} ${n(x + w * 0.04)},${n(cy - h * 0.2)}L${n(x + w * 0.08)},${n(cy - h * 0.19)}C${n(x + tw * 0.6)},${n(cy + h * 0.02)} ${n(x + w * 0.12)},${n(cy - h * 0.02)} ${n(x + w * 0.22)},${n(cy - h * 0.08)}L${n(x + w * 0.23)},${n(cy - h * 0.05)}C${n(x + tw)},${n(cy + h * 0.12)} ${n(x + tw * 0.6)},${n(base - h * 0.2)} ${n(x + tw)},${n(base)}Z`, trunk);
+    s += K.path(blobL(rng, x, cy, w * 0.5, h * 0.34, { lobes: 8, jag: 0.22, scallop: 0.12, k: 4 }), colors[1]);
+    s += K.path(blobL(rng, x - w * 0.08, cy - h * 0.06, w * 0.38, h * 0.25, { lobes: 7, jag: 0.25, scallop: 0.14, k: 4 }), colors[0]);
+    let hl = '', pk = '', lv0 = '', lv1 = '';
+    for (let i = 0; i < 4; i++) { const a = Math.PI * (1.0 + rng() * 0.7), rr = 0.3 + rng() * 0.5; hl += blobL(rng, x - w * 0.05 + Math.cos(a) * w * 0.3 * rr, cy - h * 0.06 + Math.sin(a) * h * 0.2 * rr, w * (0.07 + rng() * 0.07), h * (0.05 + rng() * 0.04), { lobes: 5, jag: 0.2, k: 3 }); }
+    for (let i = 0; i < 3; i++) pk += blobL(rng, x + (rng() - 0.3) * w * 0.4, cy + rng() * h * 0.12, w * 0.07, h * 0.04, { lobes: 5, jag: 0.2, k: 3 });
+    for (let i = 0; i < 12; i++) { const a = rng() * Math.PI * 2, d = leafD(x + Math.cos(a) * w * 0.52, cy + Math.sin(a) * h * 0.35, 5 + rng() * 4, 3, rng() * Math.PI); if (rng() < 0.5) lv0 += d; else lv1 += d; }
+    return s + K.path(hl, colors[2], { opacity: 0.8 }) + K.path(pk, colors[1], { opacity: 0.7 }) + K.path(lv0, colors[0]) + K.path(lv1, colors[1]);
+  };
 
   /* grass blades scattered over a band (nearer = taller) */
   const grassD = (rng, { x0, x1, y0, y1, count, hMin = 10, hMax = 28, w = 1.6, lean = 7 }) => {
@@ -93,7 +128,7 @@
       [x + hw * 0.8, base], [x + hw + cw, hem], [x + sw * 0.8, base - h * 0.4], [x + sw * 1.04, base - h * 0.43],
       [x + sw, shY + h * 0.035], [x + sw * 0.72, shY - h * 0.012], [x + hr * 0.45, top + hr * 1.8]]);
   };
-  /* a band of distant autumn canopy: many two-tone blobs merged per colour */
+  /* a band of autumn canopy: many two-tone blobs merged per colour */
   const canopyBand = (rng, { x0 = -40, x1 = 1640, y, amp = 14, r0 = 22, r1 = 46, step = 34, pairs, k = 0.8 }) => {
     const sh = bucket(), li = bucket();
     for (let x = x0; x < x1; x += step * (0.6 + rng() * 0.8)) {
@@ -102,6 +137,17 @@
       li.add(lc, blobL(rng, x - r * 0.14, yy - r * 0.16, r * 0.74, r * k * 0.66, { lobes: 6, jag: 0.25, scallop: 0.14, k: 4 }));
     }
     return sh.out() + li.out();
+  };
+  /* a solid stand of trees: lumpy crown line, lit caps, solid below */
+  const canopyMass = (rng, { x0 = -40, x1 = 1640, y, amp = 14, step = 30, r0 = 20, r1 = 40, mass, lits, k = 0.75, bottom = 920 }) => {
+    let dm = `M${x0},${bottom}L${x0},${y}L${x1},${y}L${x1},${bottom}Z`;
+    const lb = bucket();
+    for (let x = x0; x < x1; x += step * (0.6 + rng() * 0.8)) {
+      const r = r0 + (r1 - r0) * rng(), yy = y + (rng() - 0.5) * 2 * amp;
+      dm += blobL(rng, x, yy, r, r * k, { lobes: 6, jag: 0.25, scallop: 0.14, k: 4 });
+      lb.add(rng.pick(lits), blobL(rng, x - r * 0.1, yy - r * 0.22, r * 0.86, r * k * 0.66, { lobes: 6, jag: 0.25, scallop: 0.14, k: 4 }));
+    }
+    return K.path(dm, mass) + lb.out();
   };
   /* birch: slender pale trunk, dark lenticels, shadow side right; airy crown */
   const birch = (rng, { x, base, h, w = 14, lean = 0, bark, barkS, mark, crown = null, crownR = 1, branches = 5 }) => {
@@ -121,14 +167,14 @@
       const u = 0.5 + rng() * 0.45, [cx, cy] = at(u), sd = rng() < 0.5 ? -1 : 1, l = h * (0.1 + rng() * 0.14);
       br += `M${n(cx)},${n(cy)}q${n(sd * l * 0.4)},${n(-l * 0.4)} ${n(sd * l)},${n(-l * 0.9)}`;
     }
-    s += stroke(br, barkS, Math.max(1.2, w * 0.16));
+    if (br) s += stroke(br, barkS, Math.max(1.2, w * 0.16));
     if (crown) {
       const [lit, shade] = crown;
       let dl = '', ds = '';
       for (let i = 0; i < 9; i++) {
         const bx = tx + (rng() - 0.5) * h * 0.42 * crownR, by = top + h * (0.04 + rng() * 0.26), r = h * (0.045 + rng() * 0.05) * crownR;
-        ds += K.blob(rng, bx + r * 0.2, by + r * 0.18, r, r * 0.78, { lobes: 6, jag: 0.4, scallop: 0.22 });
-        dl += K.blob(rng, bx - r * 0.18, by - r * 0.16, r * 0.74, r * 0.56, { lobes: 6, jag: 0.4, scallop: 0.22 });
+        ds += blobL(rng, bx + r * 0.2, by + r * 0.18, r, r * 0.78, { lobes: 6, jag: 0.4, scallop: 0.22, k: 3 });
+        dl += blobL(rng, bx - r * 0.18, by - r * 0.16, r * 0.74, r * 0.56, { lobes: 6, jag: 0.4, scallop: 0.22, k: 3 });
       }
       s += K.path(ds, shade) + K.path(dl, lit);
     }
@@ -136,8 +182,8 @@
   };
   /* tangled shrub mass, lit upper-left, optional bare twigs */
   const shrub = (rng, x, y, rx, ry, [lit, shade], twig) => {
-    let s = K.path(K.blob(rng, x, y, rx, ry, { lobes: 8, jag: 0.3, scallop: 0.22 }), shade);
-    s += K.path(K.blob(rng, x - rx * 0.16, y - ry * 0.2, rx * 0.72, ry * 0.6, { lobes: 7, jag: 0.3, scallop: 0.22 }), lit);
+    let s = K.path(blobL(rng, x, y, rx, ry, { lobes: 8, jag: 0.3, scallop: 0.22, k: 4 }), shade);
+    s += K.path(blobL(rng, x - rx * 0.16, y - ry * 0.2, rx * 0.72, ry * 0.6, { lobes: 7, jag: 0.3, scallop: 0.22, k: 4 }), lit);
     if (twig) {
       let d = '';
       for (let i = 0; i < 7; i++) {
@@ -150,8 +196,8 @@
   };
   /* staghorn sumac: scarlet mass, drooping leaflets at the edge, dark fruit cones */
   const sumac = (rng, x, y, sz, [lit, shade, cone]) => {
-    let s = K.path(K.blob(rng, x, y - sz * 0.35, sz, sz * 0.5, { lobes: 9, jag: 0.35, scallop: 0.25 }), shade);
-    s += K.path(K.blob(rng, x - sz * 0.15, y - sz * 0.5, sz * 0.7, sz * 0.36, { lobes: 8, jag: 0.35, scallop: 0.25 }), lit);
+    let s = K.path(blobL(rng, x, y - sz * 0.35, sz, sz * 0.5, { lobes: 9, jag: 0.35, scallop: 0.25, k: 4 }), shade);
+    s += K.path(blobL(rng, x - sz * 0.15, y - sz * 0.5, sz * 0.7, sz * 0.36, { lobes: 8, jag: 0.35, scallop: 0.25, k: 4 }), lit);
     let dl = '', dsh = '';
     for (let i = 0; i < 16; i++) {
       const a = Math.PI * (1.0 + rng()), px = x + Math.cos(a) * sz * 0.95, py = y - sz * 0.35 + Math.sin(a) * sz * 0.55;
@@ -202,38 +248,6 @@
     return s;
   };
 
-  /* KIT.blob with fewer points (k per lobe): lighter path data for distant masses */
-  const blobL = (rng, cx, cy, rx, ry, { lobes = 6, jag = 0.25, scallop = 0.14, k = 3 } = {}) => {
-    const N = lobes * k, ph = rng() * 6.28, ph2 = rng() * 6.28, pts = [];
-    for (let i = 0; i < N; i++) {
-      const a = (i / N) * Math.PI * 2, lobe = Math.abs(Math.sin((a * lobes) / 2 + ph));
-      const m = 1 + jag * Math.sin(a * 3 + ph2) * 0.6 + scallop * lobe + (rng() - 0.5) * jag * 0.35;
-      pts.push([cx + Math.cos(a) * rx * m, cy + Math.sin(a) * ry * m]);
-    }
-    let d = `M${n((pts[0][0] + pts[N - 1][0]) / 2)},${n((pts[0][1] + pts[N - 1][1]) / 2)}`;
-    for (let i = 0; i < N; i++) { const p = pts[i], q = pts[(i + 1) % N]; d += `Q${n(p[0])},${n(p[1])} ${n((p[0] + q[0]) / 2)},${n((p[1] + q[1]) / 2)}`; }
-    return d + 'Z';
-  };
-  /* stones half out of water / ground: shadow dome + lit cap, merged per call */
-  const stonesD = (list) => { let sh = '', li = ''; for (const [x, y, rx, ry] of list) { sh += domeD(x, y, rx, ry); li += litDomeD(x, y, rx, ry); } return [sh, li]; };
-
-  /* a solid canopy mass with a lumpy crown line and lit caps (reads as one stand of trees) */
-  const canopyMass = (rng, { x0 = -40, x1 = 1640, y, amp = 14, step = 30, r0 = 20, r1 = 40, mass, lits, k = 0.75, bottom = 920 }) => {
-    let dm = `M${x0},${bottom}L${x0},${y}L${x1},${y}L${x1},${bottom}Z`;
-    const lb = bucket();
-    for (let x = x0; x < x1; x += step * (0.6 + rng() * 0.8)) {
-      const r = r0 + (r1 - r0) * rng(), yy = y + (rng() - 0.5) * 2 * amp;
-      dm += blobL(rng, x, yy, r, r * k, { lobes: 6, jag: 0.25, scallop: 0.14, k: 4 });
-      lb.add(rng.pick(lits), blobL(rng, x - r * 0.1, yy - r * 0.22, r * 0.86, r * k * 0.66, { lobes: 6, jag: 0.25, scallop: 0.14, k: 4 }));
-    }
-    return K.path(dm, mass) + lb.out();
-  };
-  /* vertical fade band that is transparent at both ends (no hard edges) */
-  const band3 = (o, y, h, color, peak, name = 'b3', at = 0.5) => {
-    const id = o.id(name);
-    return K.defs(K.linear(id, [[0, color, 0], [at, color, peak], [1, color, 0]])) + K.rect(-10, y, 1620, h, `url(#${id})`);
-  };
-
   /* ================================================================== */
   /* The Barrens: an overgrown ravine at the edge of town. The Kenduskeag
    * runs shallow over stones; a concrete culvert mouth stares out of the
@@ -272,7 +286,7 @@
       const crowns = [[P.ember, P.rust, P.mustard], [P.mustard, '#a87a2a', '#f0c868'], [P.rust, '#7e3a24', P.ember], ['#7a7a44', '#545a34', '#a09a54']];
       for (const [x, h, w, ci] of [[60, 250, 230, 0], [236, 210, 200, 1], [408, 268, 240, 2], [530, 196, 176, 3], [690, 236, 220, 0], [884, 252, 236, 1], [1084, 218, 200, 2], [1240, 272, 252, 0], [1436, 232, 220, 1], [1590, 262, 240, 2]]) {
         const c = crowns[ci], hk = 0.24;
-        s += K.tree(rng, { x, base: 476, h, w, colors: [hz(L(c[0]), hk), hz(S(c[1]), hk), hz(L(c[2]), hk)], trunk: hz(S('#3a2c26'), hk) });
+        s += treeL(rng, { x, base: 476, h, w, colors: [hz(L(c[0]), hk), hz(S(c[1]), hk), hz(L(c[2]), hk)], trunk: hz(S('#3a2c26'), hk) });
       }
 
       s += K.pine(470, 486, 170, 72, hz(L(P.pine), 0.18), hz(S(P.pine), 0.18), rng) + K.pine(1172, 488, 190, 80, hz(L(P.pine), 0.18), hz(S(P.pine), 0.18), rng) + K.pine(1338, 486, 150, 64, hz(L(P.pine), 0.2), hz(S(P.pine), 0.2), rng);
@@ -556,13 +570,14 @@
         const wl = ['#e2d8c2', '#d4c4a0', '#c9c2b0', '#b4b0a4', '#c7b48c'].map((c) => hz(L(dq(c)), hk)), ws = hz(S('#b9ae96'), hk);
         const rf = ['#4a4448', '#5a4c42', '#3e4352'].map((c) => hz(L(c), hk));
         const tc = [[P.rust, '#7e3a24'], [P.ember, P.rust], [P.mustard, '#a87a2a'], [P.pine, '#22382c'], [P.rust, '#7e3a24']].map(([a, b]) => [hz(L(dq(a)), hk), hz(S(dq(b)), hk)]);
-        for (let x = 790 + rng() * 20 * k; x < 1650;) {
+        for (let x = -30 + rng() * 20 * k; x < 1650;) {
+          if (x > 150 && x < 790) x = 790 + rng() * 20 * k;
           const y = ry + (rng() - 0.5) * 2 * k;
           if (inCanal(x, y) || inDown(x, y)) { x += 8 * k; continue; }
           if (rng() < 0.6) {
             const [tl, ts] = rng.pick(tc), r = (5 + rng() * 6) * k;
-            trees.add(ts, blobL(rng, x + r, y - r * 0.6, r, r * 0.8, { lobes: 5, jag: 0.3, k: 3 }));
-            trees.add(tl, blobL(rng, x + r * 0.82, y - r * 0.82, r * 0.72, r * 0.5, { lobes: 5, jag: 0.3, k: 3 }));
+            trees.add(ts, blobL(rng, x + r, y - r * 0.6, r, r * 0.8, { lobes: 4, jag: 0.3, k: 2 }));
+            trees.add(tl, blobL(rng, x + r * 0.82, y - r * 0.82, r * 0.72, r * 0.5, { lobes: 4, jag: 0.3, k: 2 }));
             x += r * 1.5;
           } else {
             const w = (5 + rng() * 3.5) * k, h = (3.2 + rng() * 1.6) * k, rh = (2.2 + rng() * 1.4) * k, d = (7 + rng() * 5) * k;
@@ -581,7 +596,7 @@
       // the canal winding through, with two bridges
       let cTop = [], cBot = [];
       for (let x = 780; x <= 1640; x += 20) { cTop.push([x, yC(x) - hwC(x)]); cBot.push([x, yC(x) + hwC(x)]); }
-      const canalC = quiet ? '#0c1018' : night ? '#1a2640' : dusk ? '#d29a82' : hz('#c4d0d4', 0.2);
+      const canalC = quiet ? '#0c1018' : night ? '#1a2640' : dusk ? '#b07c78' : hz('#c4d0d4', 0.2);
       s += K.path(ld(cTop) + ld(cBot.slice().reverse()).replace('M', 'L') + 'Z', canalC) + stroke(ld(cTop), hz(S('#8a8478'), dark ? 0.1 : 0.3), 1.2);
       for (const bx of [1000, 1384]) s += K.rect(bx, yC(bx) - hwC(bx) - 1, 10 * (1.4 - (bx - 780) / 1400), hwC(bx) * 2 + 2, hz(L('#8a8478'), dark ? 0.15 : 0.3));
       // downtown: brick blocks along the canal, the mill and its stack
@@ -611,7 +626,7 @@
       const BROW = [[-20, 590], [800, 596], [940, 600], [1100, 610], [1300, 626], [1500, 644], [1640, 656]];
       const gg = o.id('ground');
       s += K.defs(K.linear(gg, [[0, L(P.moss)], [1, S(P.moss)]], 0, 590, 0, 900, true)) + K.path(smoothD(BROW) + 'L1640,920L-20,920Z', `url(#${gg})`);
-      s += K.path(tuftsD(rng, Array.from({ length: 80 }, () => { const x = 780 + rng() * 860; return [x, lerpY(BROW, x) + 3, 0.6 + rng() * 0.5]; }), { blades: 5, h: 18 }), S(P.moss));
+      s += K.path(tuftsD(rng, Array.from({ length: 56 }, () => { const x = 780 + rng() * 860; return [x, lerpY(BROW, x) + 3, 0.6 + rng() * 0.5]; }), { blades: 4, h: 18 }), S(P.moss));
 
       /* ---- the ring of the old Standpipe ---- */
       const RXc = 468, RW = 332, NC = 12;
@@ -639,9 +654,12 @@
       // the inside, seen where the front has fallen: the far wall's inner face, rubble
       const backTop = [];
       let bk = 2;
-      for (let j = 0; j < cols; j++) { if (rng() < 0.3) bk = Math.max(0, Math.min(6, bk + Math.round((rng() - 0.5) * 4))); const a = thL(j), b = thL(j + 1); backTop.push([xAt(a), 336 + 36 * Math.cos(a) + bk * 20], [xAt(b), 336 + 36 * Math.cos(b) + bk * 20]); }
+      for (let j = 0; j < cols; j++) { if (rng() < 0.45) bk = Math.max(0, Math.min(7, bk + Math.round((rng() - 0.5) * 5))); const a = thL(j), b = thL(j + 1); backTop.push([xAt(a), 336 + 36 * Math.cos(a) + bk * 20], [xAt(b), 336 + 36 * Math.cos(b) + bk * 20]); }
       s += K.path(ld(backTop) + `L${xAt(Math.PI / 2)},600L${xAt(-Math.PI / 2)},600Z`, K.mix(stM, stS, 0.55));
       s += K.path(ld(backTop) + 'L' + backTop.slice().reverse().map(([x, y]) => n(x) + ',' + n(y + 6)).join('L') + 'Z', K.mix(stS, '#0b0e14', 0.3), { opacity: 0.5 });
+      let bcr = '';
+      for (let yy = 392; yy < 600; yy += 17) { const pts = []; for (let j = 0; j <= cols; j += 2) { const th = thL(j); pts.push([xAt(th), yy + 36 * Math.cos(th) * 0.8]); } bcr += ld(pts); }
+      s += stroke(bcr, K.mix(stS, '#0d1018', 0.35), 1.2, { opacity: 0.4 });
       s += K.path(`M${n(xAt(-1.4))},560 Q${RXc},520 ${n(xAt(1.4))},560 L${n(xAt(1.4))},600 L${n(xAt(-1.4))},600 Z`, S('#5a5a44'));
       const [ruS, ruL] = stonesD(Array.from({ length: 12 }, () => [200 + rng() * 160, 548 + rng() * 30, 8 + rng() * 14, 6 + rng() * 8]));
       s += K.path(ruS, stS) + K.path(ruL, stM);
@@ -684,7 +702,7 @@
       // graffiti: faded spray paint, scratched initials, the lantern with the X
       const colAt = (th) => keep[Math.max(0, Math.min(cols - 1, Math.floor((th + Math.PI / 2) / dth)))];
       const yK = (th, down) => courseY(colAt(th) - down, th);
-      const scr = dark ? K.adj(stM, quiet ? 0.12 : 0.28) : '#f2eadb';
+      const scr = dark ? K.adj(stM, quiet ? 0.12 : 0.28) : K.mix(stL, '#fff8ec', dusk ? 0.42 : 0.6);
       wall += K.text(xAt(-1.0) - 10, yK(-1.0, 3.5), 'CLASS OF 84', { fontFamily: SCRAWL, fontSize: 22, fill: L('#9a3a3a'), opacity: quiet ? 0.25 : 0.5, transform: `rotate(-5 ${n(xAt(-1.0))} ${n(yK(-1.0, 3.5))})` });
       const hx = xAt(-0.12), hy = yK(-0.12, 2.6);
       wall += stroke(`M${n(hx)},${n(hy + 15)}c-28,-19 -24,-42 -6,-40 c5,0 6,5 6,8 c0,-3 2,-8 7,-8 c18,-2 20,24 -7,40Z`, L('#b24a4a'), 2.6, { opacity: quiet ? 0.3 : 0.75 });
@@ -716,7 +734,7 @@
       let rbS = '', rbL = '';
       for (let i = 0; i < 18; i++) { const x = 190 + rng() * 200, y = 584 + rng() * 36, rr = 6 + rng() * 13; rbS += domeD(x, y, rr * 1.2, rr * 0.8); rbL += litDomeD(x, y, rr * 1.2, rr * 0.8); }
       s += K.path(rbS, stS) + K.path(rbL, stL);
-      s += K.path(tuftsD(rng, Array.from({ length: 40 }, () => { const x = 140 + rng() * 660, th = Math.asin(Math.max(-1, Math.min(1, (x - RXc) / RW))); return [x, baseY(th) + 3, 0.8 + rng() * 0.6]; }), { blades: 7, h: 32 }), quiet ? '#121812' : L('#8a8a4a'));
+      s += K.path(tuftsD(rng, Array.from({ length: 30 }, () => { const x = 140 + rng() * 660, th = Math.asin(Math.max(-1, Math.min(1, (x - RXc) / RW))); return [x, baseY(th) + 3, 0.8 + rng() * 0.6]; }), { blades: 6, h: 32 }), quiet ? '#121812' : L('#8a8a4a'));
 
       /* the plaque on its stone, the bench facing the view, a wire trash barrel */
       s += K.path('M1004,688 Q998,650 1026,640 Q1066,632 1094,646 Q1112,662 1106,688 Z', L('#8e8a80')) + K.path('M1076,638 Q1112,656 1106,688 L1066,688 Q1088,664 1076,638 Z', S('#8e8a80'));
@@ -751,9 +769,9 @@
       /* the worn path to the bench; tall grass and late wildflowers */
       s += K.path('M640,920 Q760,780 940,716 Q1060,690 1160,688 L1180,698 Q1080,704 980,732 Q820,800 760,920 Z', quiet ? '#0e120e' : L('#8a7a5a'), { opacity: 0.8 });
       const gb2 = (count, y0, hMax) => { let a = '', b = ''; for (let i = 0; i < count; i++) { const x = rng() * 1660 - 20, y = y0 + rng() * (905 - y0), k = 0.6 + (y - 600) / 300, h = (12 + rng() * hMax) * k, d = bladeD(x, y, h, 1.7 * k, (rng() - 0.5) * 18 * k); if (rng() < 0.55) a += d; else b += d; } return [a, b]; };
-      const [ga1, gb1] = gb2(260, 640, 30);
+      const [ga1, gb1] = gb2(200, 640, 30);
       s += K.path(ga1, quiet ? '#141a14' : L('#8a8a50')) + K.path(gb1, quiet ? '#0e120e' : S('#6e7040'));
-      s += K.path(tuftsD(rng, Array.from({ length: 34 }, () => [60 + rng() * 880, 652 + rng() * 22, 0.9 + rng() * 0.6]).concat(Array.from({ length: 26 }, () => [rng() < 0.5 ? rng() * 300 : 1340 + rng() * 300, 760 + rng() * 140, 1.4 + rng() * 0.8])), { blades: 7, h: 38 }), quiet ? '#121812' : L('#9a9456'));
+      s += K.path(tuftsD(rng, Array.from({ length: 34 }, () => [60 + rng() * 880, 652 + rng() * 22, 0.9 + rng() * 0.6]).concat(Array.from({ length: 26 }, () => [rng() < 0.5 ? rng() * 300 : 1340 + rng() * 300, 760 + rng() * 140, 1.4 + rng() * 0.8])), { blades: 6, h: 38 }), quiet ? '#121812' : L('#9a9456'));
       if (!quiet) {
         const fl = bucket();
         for (let i = 0; i < 110; i++) {
@@ -1073,9 +1091,9 @@
 
       /* mid maples */
       const mc = (a, b, c, k) => [hz(L(a), k), hz(S(b), k), hz(L(c), k)];
-      s += K.tree(rng, { x: 300, base: 500, h: 330, w: 290, colors: mc(P.ember, P.rust, P.mustard, 0.22), trunk: hz(S('#3a2c26'), 0.22) });
-      s += K.tree(rng, { x: 860, base: 486, h: 250, w: 220, colors: mc(P.mustard, '#a87a2a', '#f0c060', 0.28), trunk: hz(S('#3a2c26'), 0.28) });
-      s += K.tree(rng, { x: 1450, base: 494, h: 300, w: 260, colors: mc(P.rust, '#7e3a24', P.ember, 0.24), trunk: hz(S('#3a2c26'), 0.24) });
+      s += treeL(rng, { x: 300, base: 500, h: 330, w: 290, colors: mc(P.ember, P.rust, P.mustard, 0.22), trunk: hz(S('#3a2c26'), 0.22) });
+      s += treeL(rng, { x: 860, base: 486, h: 250, w: 220, colors: mc(P.mustard, '#a87a2a', '#f0c060', 0.28), trunk: hz(S('#3a2c26'), 0.28) });
+      s += treeL(rng, { x: 1450, base: 494, h: 300, w: 260, colors: mc(P.rust, '#7e3a24', P.ember, 0.24), trunk: hz(S('#3a2c26'), 0.24) });
       // long afternoon shadows of the trees, falling right
       s += K.path('M300,500 L620,520 L640,534 L300,512 Z M860,486 L1120,500 L1130,510 L860,496 Z M1450,494 L1660,506 L1660,516 L1450,504 Z', S(P.moss), { opacity: 0.45 });
 
@@ -1168,8 +1186,8 @@
       s += K.text(700, 734, 'JUMP 100!', { fontFamily: SCRAWL, fontSize: 16, fill: '#f2ece0', opacity: 0.65, transform: 'rotate(-3 700 734)' });
 
       /* framing maples, leaves everywhere */
-      s += K.tree(rng, { x: 60, base: 720, h: 760, w: 560, colors: [L(P.ember), S(P.rust), L(P.mustard)], trunk: S('#3a2c26') });
-      s += K.tree(rng, { x: 1560, base: 700, h: 700, w: 480, colors: [L(P.rust), S('#7e3a24'), L(P.ember)], trunk: S('#3a2c26') });
+      s += treeL(rng, { x: 60, base: 720, h: 760, w: 560, colors: [L(P.ember), S(P.rust), L(P.mustard)], trunk: S('#3a2c26') });
+      s += treeL(rng, { x: 1560, base: 700, h: 700, w: 480, colors: [L(P.rust), S('#7e3a24'), L(P.ember)], trunk: S('#3a2c26') });
       s += leafField(rng, { count: 220, x0: -20, x1: 1640, y0: 470, y1: 640, colors: [L(P.rust), L(P.ember), L(P.mustard), S(P.rust)], size: 5 });
       s += leafField(rng, { count: 320, x0: -20, x1: 1640, y0: 640, y1: 910, colors: [L(P.rust), L(P.ember), L(P.mustard), S(P.rust), S(P.ember)], size: 8 });
       s += leafField(rng, { count: 90, x0: -20, x1: 220, y0: 680, y1: 760, colors: [L(P.ember), L(P.rust), L(P.mustard)], size: 9 });

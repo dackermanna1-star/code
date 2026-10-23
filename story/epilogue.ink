@@ -170,6 +170,6 @@ JUNE: Can I come in?
 -> credits
 
 === credits ===
-@chapter WHAT DERRY KEEPS :: Episode One — Welcome Home :: Your choices will follow you into Episode Two.
+@card WHAT DERRY KEEPS :: Episode One — Welcome Home :: Your choices will follow you into Episode Two.
 @end
 -> END

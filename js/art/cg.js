@@ -177,38 +177,59 @@
   });
 
   /* ------------------------------------------------------------------ */
-  /* Title art: Derry at night from across the canal, a green light on the hill. */
+  /* Title art: Derry at night from across the canal, a green light on the hill,
+   * the last paper lanterns of the Float drifting — and one going the wrong way. */
   ART.cg('title', {
     draw(o) {
       const rng = o.rng;
       let s = K.sky(o, 'night');
-      s += K.stars(rng, { count: 160, y1: 520 });
-      s += K.circle(1260, 150, 46, '#ece6d4', { opacity: 0.9 }) + K.glow(o, 1260, 150, 260, '#c8d4f0', 0.22, 'moon');
-      s += K.clouds(rng, { count: 4, y0: 120, y1: 330, color: '#26324e', shadow: '#141b2c', opacity: 0.7, w: 700 });
-      // far hills and the Standpipe hill (right)
-      s += K.path(K.ridge(rng, { y: 520, amp: 30, steps: 18 }), '#141c2e');
-      s += K.path('M780,600 C960,420 1080,330 1200,322 C1330,318 1450,420 1640,560 L1640,900 L780,900 Z', '#0f1626');
-      s += K.path('M1176,326 l4,-30 l12,6 l6,-20 l14,14 l10,-4 l8,24 l11,-8 l4,22 Z', '#2a3348');
-      s += K.glow(o, 1212, 300, 120, P.lantern, 0.75, 'lamp') + K.circle(1212, 300, 5, '#eaffde');
-      s += K.pines(rng, { x0: 760, x1: 1640, base: 600, hMin: 30, hMax: 70, gap: 15, fill: '#0c1220', shade: '#0a0f1a', jitterY: 30 });
-      // the town: rooftops, steeples, a few warm windows
-      let x = -20;
+      s += K.stars(rng, { count: 170, y1: 500 });
+      s += K.circle(1300, 140, 44, '#ece6d4', { opacity: 0.92 }) + K.glow(o, 1300, 140, 300, '#c8d4f0', 0.2, 'moon');
+      s += K.clouds(rng, { count: 3, y0: 190, y1: 330, color: '#243049', shadow: '#121a2c', opacity: 0.55, w: 420 });
+      // far ridge, then the Standpipe hill with its broken ring and the Lamp
+      s += K.path(K.ridge(rng, { y: 500, amp: 34, steps: 20 }), '#131b2d');
+      s += K.path('M760,610 C930,430 1060,318 1190,308 C1330,300 1460,410 1640,560 L1640,900 L760,900 Z', '#0e1525');
+      s += K.pines(rng, { x0: 780, x1: 1640, base: 560, hMin: 26, hMax: 64, gap: 13, fill: '#0c1322', shade: '#09101c', jitterY: 50 });
+      const ring = 'M1150,318 l3,-34 l10,6 l5,-24 l12,14 l9,-10 l7,30 l10,-12 l6,20 l9,-6 l5,16 Z';
+      s += K.shaft(o, [[1196, 268], [1204, 268], [1500, 900], [900, 900]], P.lantern, 0.07, 'ray');
+      s += K.path(ring, '#222b40');
+      s += K.glow(o, 1197, 262, 150, P.lantern, 0.8, 'lamp') + K.circle(1197, 262, 5, '#f0ffe6') + K.rect(1191, 266, 12, 10, '#3a3a2a');
+      // the town: Victorian rooflines, chimneys, steeples, a few warm windows
+      const house = (x, w, h, base, c) => {
+        let r = K.rect(x, base - h, w, h + 40, c);
+        const gable = rng() < 0.7;
+        if (gable) r += K.poly([[x - 8, base - h], [x + w / 2, base - h - w * 0.45], [x + w + 8, base - h]], c);
+        else r += K.rect(x - 6, base - h - 8, w + 12, 10, c);
+        if (rng() < 0.5) r += K.rect(x + w * (0.15 + rng() * 0.6), base - h - w * 0.4, 10, 34, c);
+        if (rng() < 0.35) r += K.poly([[x + w * 0.2, base - h + 6], [x + w * 0.35, base - h - 22], [x + w * 0.5, base - h + 6]], K.adj(c, 0.05));
+        const rows = Math.max(1, Math.floor(h / 46));
+        for (let i = 0; i < rows; i++) for (let j = 0; j < Math.max(1, Math.floor(w / 34)); j++) {
+          if (rng() < 0.2) r += K.rect(x + 10 + j * 34, base - h + 18 + i * 46, 12, 18, '#ffd38a', { opacity: n(0.55 + rng() * 0.45) });
+        }
+        return r;
+      };
+      let x = -30;
       while (x < 1640) {
-        const w = 60 + rng() * 90, h = 70 + rng() * 120, base = 700;
-        const c = K.mix('#0b101b', '#141b2a', rng());
-        s += K.rect(x, base - h, w, h + 20, c);
-        if (rng() < 0.6) s += K.poly([[x - 6, base - h], [x + w / 2, base - h - 40 - rng() * 30], [x + w + 6, base - h]], c);
-        for (let k = 0; k < 3; k++) if (rng() < 0.35) s += K.rect(x + 10 + rng() * (w - 30), base - h + 20 + rng() * (h - 40), 12, 16, '#ffd38a', { opacity: n(0.5 + rng() * 0.5) });
-        x += w + rng() * 10;
+        const w = 70 + rng() * 80, h = 80 + rng() * 110, c = K.mix('#0a0f1a', '#151c2b', rng());
+        s += house(x, w, h, 690 + rng() * 14, c);
+        x += w + 6 + rng() * 14;
       }
-      // steeples
-      for (const sx of [380, 980]) s += K.rect(sx, 470, 26, 240, '#0b101b') + K.poly([[sx - 6, 472], [sx + 13, 380], [sx + 32, 472]], '#0b101b') + K.line(sx + 13, 380, sx + 13, 352, '#0b101b', 3);
-      // canal with reflections and mist
-      s += K.rect(0, 700, 1600, 200, '#0a0f1a');
-      for (let i = 0; i < 40; i++) s += K.rect(rng() * 1600, 720 + rng() * 160, 20 + rng() * 60, 2, '#ffd38a', { opacity: n(0.08 + rng() * 0.2) });
-      s += K.rect(1180, 720, 60, 2, P.lantern, { opacity: 0.35 }) + K.rect(1196, 760, 30, 2, P.lantern, { opacity: 0.25 });
-      s += K.band(o, 600, 220, '#2a3448', 0, 0.45, 'mist');
-      s += K.vignette(o, 0.6);
+      for (const [sx, sh] of [[330, 300], [1010, 250]]) s += K.rect(sx, 690 - sh, 30, sh, '#0a0e18') + K.poly([[sx - 6, 692 - sh], [sx + 15, 580 - sh], [sx + 36, 692 - sh]], '#0a0e18') + K.line(sx + 15, 580 - sh, sx + 15, 550 - sh, '#0a0e18', 3) + K.circle(sx + 15, 650 - sh + 40, 7, '#d9b56a', { opacity: 0.5 });
+      // embankment and the stone footbridge
+      s += K.rect(0, 700, 1600, 26, '#141a26');
+      s += K.path('M560,726 Q760,600 960,726 L960,740 L560,740 Z', '#161d2b') + K.rect(540, 700, 440, 18, '#1b2232');
+      for (let i = 0; i < 12; i++) s += K.rect(548 + i * 36, 682, 4, 20, '#1b2232');
+      // the canal: dark water, reflections of windows, lanterns drifting east — and one green going west
+      const wid = o.id('water');
+      s += K.defs(K.linear(wid, [[0, '#0b111d'], [1, '#05080f']])) + K.rect(0, 726, 1600, 174, `url(#${wid})`);
+      s += K.path('M560,726 Q760,850 960,726 Z', '#06090f', { opacity: 0.8 });
+      for (let i = 0; i < 46; i++) s += K.rect(rng() * 1600, 736 + rng() * 150, 16 + rng() * 54, 2, '#ffd38a', { opacity: n(0.06 + rng() * 0.16) });
+      const lantern = (lx, ly, c, sc) => K.glow(o, lx, ly, 60 * sc, c, 0.45, 'lg') + K.rect(lx - 9 * sc, ly - 12 * sc, 18 * sc, 16 * sc, c, { opacity: 0.95 }) + K.rect(lx - 12 * sc, ly + 4 * sc, 24 * sc, 4 * sc, '#3a2a1a') + K.rect(lx - 3 * sc, ly + 14 * sc, 6 * sc, 26 * sc, c, { opacity: 0.18 });
+      for (const [lx, ly, sc] of [[1080, 800, 1.1], [1230, 770, 0.8], [1400, 820, 1.25], [1520, 760, 0.7], [1330, 860, 1.4]]) s += lantern(lx, ly, '#ffc477', sc);
+      s += lantern(430, 790, P.lantern, 0.9);
+      s += K.band(o, 610, 210, '#2a3448', 0, 0.42, 'mist');
+      s += K.band(o, 0, 240, '#05070d', 0.5, 0, 'top');
+      s += K.vignette(o, 0.62);
       return s;
     }
   });

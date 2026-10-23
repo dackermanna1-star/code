@@ -11,7 +11,8 @@ VAR festival_stops = 0
 @amb festival
 @music festival
 @ctx The Canal Days festival downtown at dusk: lights strung across Center Street, booths, a brass band. Gus is there with Mom and Mémère.
-Downtown has been turned inside out. Strings of bulbs zigzag over Center Street. Maroon and gold bunting on every lamppost. Booths with striped awnings selling cider donuts and fried dough and raffle tickets for a riding mower. The high school band plays something that might be "Louie Louie" if you're generous.
+Downtown has been turned inside out. Strings of bulbs zigzag over Center Street. Maroon and gold bunting on every lamppost. Booths with striped awnings selling cider donuts and fried dough and raffle tickets for a riding mower.
+The high school band plays something that might be "Louie Louie" if you're generous.
 Everybody in Derry is here. Everybody's smiling. It's the most beautiful, normal thing you've ever seen, and it makes the back of your neck crawl.
 @show mom smile left
 @show memere neutral right
@@ -405,7 +406,7 @@ PHONE(wes): It's late. Mrs. Dunmore's gonna kill me. What?
         @sfx phone_hangup
     }
 * ["Just — be careful. Okay?" #kind]
-    PHONE(wes): ...Yeah. Okay. You too, Grandpa.
+    PHONE(wes): ...Yeah. Okay. You too, {bully_choice == "fight" && brett_steps == "sarcastic":Grandpa|Brennan}.
 - -> calls
 
 // ------------------------------------------------------------

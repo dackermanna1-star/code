@@ -60,14 +60,15 @@ MEMERE(flat): I'm not telling you to go. I'm telling you I know you will. You're
 @music stop 2
 @ctx 8:40 p.m. on Quiet Night. Gus watches from her bedroom window as every light on Larch Street goes out at once.
 At 8:40 you're at your window with the curtain pulled back an inch.
-@cg cg_lights_out
+@bg larch_ext night - fade
+Larch Street. Porch lights. The blue flicker of TVs. The Gagnons' kitchen window, yellow. Mrs. Bouchard's lamp with the fringe on it, two doors down. An ordinary Saturday night.
 @sfx lights_out
-@fx lights_out
+@bg larch_ext quiet - cut
+@fx shake
 Every light on Larch Street goes out at the same time.
 Not a power cut. You can see the Gagnons' TV flickering blue behind their curtains. They turned off their lamps. Everybody did. At the exact same second. Like somebody rang a bell only grown-ups can hear.
 Then the streetlights. One by one, down the block, from the far end toward you. *Tick.* *Tick.* *Tick.* Like someone walking up the street turning them off with their fingers.
 And past the end of the street, up on the hill, there's a light. Small. Steady. Green.
-@cg off
 {saw_note || knows_wes_target:
     {wes_promised:
         And then you see him. In the middle of Larch Street, walking. Clean flannel. Hands at his sides. Wes. He promised he'd stay home, and he's walking up the center line toward the hill with his eyes open and nobody behind them, like someone being called for supper.
@@ -202,7 +203,7 @@ VOICE(june): Gussie. This way. It's me. I'm right here.
 }
 Halfway up the path, a flashlight beam swings into your face.
 @show brett afraid center
-BRETT(afraid): Who's there? Who — Grandpa?
+BRETT(afraid): Who's there? Who — {brett_steps == "sarcastic":Grandpa|new girl}?
 Brett Lindqvist. In his letterman jacket, holding a flashlight in both hands like a gun. He's white as paper. He's been crying.
 BRETT(afraid): You can't be up here. My dad said nobody — I'm supposed to keep people *off.* It's just a prank, it's supposed to be a — there's something up there, Gus. There's something *up there.*
 ~ brett_present = true

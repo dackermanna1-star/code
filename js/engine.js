@@ -49,7 +49,7 @@
   /* ---------- state ---------- */
   const E = window.ENGINE = {
     story: null, store, icons: I, tones: TONES, clone, esc, snd,
-    settings: Object.assign({ textSpeed: 55, autoDelay: 1.0, master: 0.9, music: 0.55, ambience: 0.6, sfx: 0.8, fx: 'full', fontScale: 1, skipUnseen: false, claude: true }, store.get('settings', {})),
+    settings: Object.assign({ textSpeed: 45, autoDelay: 1.0, master: 0.9, music: 0.55, ambience: 0.6, sfx: 0.8, fx: 'full', fontScale: 1, skipUnseen: false, claude: true }, store.get('settings', {})),
     eng: null, vis: null, snap: null, runToken: 0, running: false,
     auto: false, skip: false, ctrlSkip: false, typing: false, hideUI: false,
     seen: new Set(store.get('seen', [])),
@@ -483,6 +483,12 @@
         snd('sfx', 'typewriter', { volume: 0.5 });
         await card(num, title, when);
         if (token === E.runToken) { const d = E.serialize(); store.set('save.auto', d); const n = (num || '').replace(/\D/g, '') || title; store.set('chapter.' + n, d); const ch = store.get('chapters', []); if (!ch.includes(n)) { ch.push(n); store.set('chapters', ch); } }
+        break;
+      }
+      case 'card': {
+        const [num, title, when] = argStr.split('::').map((x) => x.trim());
+        $('#dialogue').hidden = true;
+        await card(num, title, when);
         break;
       }
       case 'date': dateCard(argStr); break;

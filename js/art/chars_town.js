@@ -111,7 +111,7 @@
   /* MS. WHITCOMB — Paige Whitcomb, 23, first-year English teacher */
   const WH = { h: '#a84c2a', hs: '#7b321d', hd: '#62281a', hl: '#d27a4b' };
   // bottom edge of the curled bangs, right to left; each span is one curl
-  const WH_FRINGE = [[394, 212], [358, 199], [320, 209], [282, 201], [246, 209], [212, 216]];
+  const WH_FRINGE = [[394, 212], [350, 201], [302, 211], [254, 202], [210, 214]];
   const whitcomb = {
     name: 'Ms. Whitcomb',
     skin: { base: '#f5d3b8', shadow: '#dca98c', blush: '#e68a7b' },
@@ -121,7 +121,7 @@
     nose: { size: 0.9, width: 0.86 },
     mouth: { width: 1.0, lip: '#d0716b', full: 0.6 },
     // the curled bangs cast a scalloped band across the forehead
-    hairShadow: 'M206,196 L398,196 L397,228' + scallops(WH_FRINGE.map(([x, y]) => [x + 3, y + 16]), 0.36) + ' Z',
+    hairShadow: 'M206,196 L398,196 L397,228' + scallops(WH_FRINGE.map(([x, y]) => [x + 3, y + 16]), 0.34) + ' Z',
     hairBack(o) {
       const { h, hs, hd } = WH;
       const outline = [
@@ -135,7 +135,7 @@
       const right = outline.slice(1, 12).concat([[372, 396, 0], [382, 300, 0], [378, 200, 0], [356, 116, 0]]);
       s += `<path d="${bumpy(right)}" fill="${hs}"/>`;
       // depth behind the jaw and neck
-      s += `<path d="M236,330 C240,398 262,444 300,448 C338,444 360,398 364,330 Z" fill="${hd}"/>`;
+      s += `<path d="M246,340 C250,400 268,444 300,448 C332,444 350,400 354,340 Z" fill="${hd}"/>`;
       // curl hints
       s += `<path d="M166,250 q-12,22 0,46 M158,322 q-12,26 2,52 M170,396 q-10,24 8,44" fill="none" stroke="${hs}" stroke-width="3" stroke-linecap="round" opacity="0.7"/>`;
       s += `<path d="M434,250 q12,22 0,46 M442,322 q12,26 -2,52 M430,396 q10,24 -8,44" fill="none" stroke="${hd}" stroke-width="3" stroke-linecap="round" opacity="0.7"/>`;
@@ -147,23 +147,26 @@
       // crown behind the bangs; the temples sweep back above the ears so the earrings show
       s += `<path d="M206,272 C186,240 178,176 200,136 C220,100 256,86 300,86 C344,86 384,100 404,136 C426,178 420,242 394,272 C392,252 390,232 386,212 L214,212 C210,232 208,252 206,272 Z" fill="${h}"/>`;
       s += `<path d="M404,136 C426,178 420,242 394,272 C392,252 390,232 386,212 L372,212 C382,184 380,148 360,108 C380,112 396,122 404,136 Z" fill="${hs}"/>`;
-      // big teased bangs: a tall roll standing over the forehead, curled under at the edge
-      s += `<path d="M212,216 C198,170 206,110 242,82 C268,62 302,56 334,60 C372,66 400,94 404,138 C407,170 402,194 394,212${scallops(WH_FRINGE, 0.36)} Z" fill="${h}"/>`;
-      s += `<path d="M334,60 C372,66 400,94 404,138 C407,170 402,194 394,212${scallops(WH_FRINGE.slice(0, 2), 0.36)} C374,166 376,104 334,60 Z" fill="${hs}"/>`;
-      // underside of the roll
-      const up = WH_FRINGE.slice().reverse().map(([x, y]) => [x, y - 15, -0.3]);
-      s += `<path d="M${up[0][0]},${up[0][1]}${scallops(up)} L${WH_FRINGE[0][0]},${WH_FRINGE[0][1]}${scallops(WH_FRINGE, 0.36)} Z" fill="${hs}" opacity="0.9"/>`;
-      // each curl turning under
-      let curls = '';
+      // big teased bangs: a wall of hair standing up off the forehead, its ends rolled under
+      const wall = 'M210,214 C196,168 204,108 240,80 C266,60 300,54 334,58 C374,64 402,94 406,138 C409,170 404,196 394,212';
+      s += `<path d="${wall}${scallops(WH_FRINGE, 0.34)} Z" fill="${h}"/>`;
+      s += `<path d="M334,58 C374,64 402,94 406,138 C409,170 404,196 394,212${scallops(WH_FRINGE.slice(0, 2), 0.34)} C376,160 378,100 334,58 Z" fill="${hs}"/>`;
+      // teased roots: strands rising from the roll
+      s += `<path d="M236,160 C232,128 244,98 268,80 M262,152 C262,120 276,92 302,76 M292,148 C296,118 312,94 336,82 M324,150 C334,124 352,106 374,100" fill="none" stroke="${hs}" stroke-width="2.2" opacity="0.5"/>`;
+      // the roll: separate curls, each turning under, each catching its own light
+      const up = WH_FRINGE.slice().reverse().map(([x, y]) => [x, y - 17, -0.28]);
+      s += `<path d="M${up[0][0]},${up[0][1]}${scallops(up)} L${WH_FRINGE[0][0]},${WH_FRINGE[0][1]}${scallops(WH_FRINGE, 0.34)} Z" fill="${hs}"/>`;
+      let curls = '', splits = '', shine = '';
       for (let i = 0; i < WH_FRINGE.length - 1; i++) {
-        const mx = (WH_FRINGE[i][0] + WH_FRINGE[i + 1][0]) / 2, my = (WH_FRINGE[i][1] + WH_FRINGE[i + 1][1]) / 2;
-        curls += `M${n(mx + 12)},${n(my - 26)} C${n(mx - 2)},${n(my - 28)} ${n(mx - 14)},${n(my - 14)} ${n(mx - 8)},${n(my)} `;
+        const [x0, y0] = WH_FRINGE[i], [x1, y1] = WH_FRINGE[i + 1], mx = (x0 + x1) / 2, my = (y0 + y1) / 2, w = (x0 - x1) / 2;
+        curls += `M${n(mx + 13)},${n(my - 9)} C${n(mx + 2)},${n(my - 16)} ${n(mx - 13)},${n(my - 8)} ${n(mx - 7)},${n(my + 5)} `;
+        if (i > 0) splits += `M${n(x0)},${n(y0 + 2)} C${n(x0 + 2)},${n(y0 - 14)} ${n(x0 + 6)},${n(y0 - 30)} ${n(x0 + 12)},${n(y0 - 44)} `;
+        if (i < 3) shine += `M${n(mx - w * 0.75)},${n(my - 20)} C${n(mx - w * 0.4)},${n(my - 34)} ${n(mx + w * 0.3)},${n(my - 36)} ${n(mx + w * 0.7)},${n(my - 28)} C${n(mx + w * 0.3)},${n(my - 30)} ${n(mx - w * 0.3)},${n(my - 28)} ${n(mx - w * 0.75)},${n(my - 20)} Z `;
       }
-      s += `<path d="${curls}" fill="none" stroke="${hd}" stroke-width="2.4" stroke-linecap="round" opacity="0.65"/>`;
-      // the split between the two wings of the bangs, teased volume lines
-      s += `<path d="M300,60 C296,82 296,102 300,124 M250,104 C276,86 318,80 352,92" fill="none" stroke="${hs}" stroke-width="2.2" opacity="0.55"/>`;
-      // one highlight on the roll
-      s += `<path d="M234,120 C250,90 288,72 330,74 C304,82 280,96 262,120 C254,130 240,132 234,120 Z" fill="${hl}" opacity="0.85"/>`;
+      s += `<path d="${splits}" fill="none" stroke="${hs}" stroke-width="2.8" stroke-linecap="round" opacity="0.8"/>`;
+      s += `<path d="${curls}" fill="none" stroke="${hd}" stroke-width="2.6" stroke-linecap="round" opacity="0.75"/>`;
+      // the highlight, broken across the curls of the roll
+      s += `<path d="${shine}" fill="${hl}" opacity="0.9"/>`;
       return s;
     },
     body(o) {
@@ -269,7 +272,7 @@
           if (xx > 352 + (yy - 118) * 0.12) dark += seg; else lit += seg;
         }
       }
-      s += `<path d="${lit}" stroke="${gL}" stroke-width="1.4" stroke-linecap="round" opacity="0.55"/><path d="${dark}" stroke="${gD}" stroke-width="1.4" stroke-linecap="round" opacity="0.7"/></g>`;
+      s += `<path d="${lit}" stroke="${gL}" stroke-width="1.3" stroke-linecap="round" opacity="0.42"/><path d="${dark}" stroke="${gD}" stroke-width="1.3" stroke-linecap="round" opacity="0.55"/></g>`;
       // bristles standing up along the flat top
       let br = '', brS = '';
       for (let x = 240; x <= 360; x += 4) {
@@ -344,7 +347,7 @@
     '<ellipse cx="304" cy="336" rx="15" ry="11" fill="#c55f56" opacity="0.26"/><ellipse cx="297" cy="331" rx="5" ry="3.2" fill="#f0c4a6" opacity="0.6"/>' +
     '<path d="M190,264 C180,280 182,312 196,326" fill="none" stroke="#b47c63" stroke-width="2.4" opacity="0.8"/>' +
     '<path d="M410,264 C420,280 418,312 404,326" fill="none" stroke="#8f5e4a" stroke-width="2.4" opacity="0.8"/>' +
-    stubbleDots('teague-stubble', teague, { count: 150, color: '#77737c', op: 0.55 });
+    stubbleDots('teague-stubble', teague, { count: 170, color: '#7a7680', op: 0.5, r0: 0.7, r1: 1.2 });
   ART.char('teague', teague);
 
   /* ================================================================== */
@@ -580,8 +583,9 @@
       const { hs, hd } = CN;
       let s = `<path d="M206,276 C196,198 230,110 300,102 C370,98 414,172 404,258 C400,290 392,312 380,326 L220,326 C210,312 206,294 206,276 Z" fill="${hs}"/>`;
       // the French twist: a smooth vertical roll at the back of the head, seen past the right side
-      s += `<path d="M366,104 C402,112 426,156 426,212 C426,262 414,300 392,324 L382,318 C398,286 404,248 402,208 C400,166 388,130 366,104 Z" fill="${hd}"/>`;
-      s += `<path d="M380,126 C400,146 410,180 410,214 C410,250 402,282 390,304" fill="none" stroke="${hs}" stroke-width="2.4" opacity="0.8"/>`;
+      s += `<path d="M356,98 C404,100 436,148 436,212 C436,268 420,308 392,330 L378,322 C398,290 406,252 404,208 C402,160 386,120 356,98 Z" fill="${hs}"/>`;
+      s += `<path d="M372,112 C398,132 412,170 412,212 C412,248 404,280 392,306 C402,276 404,246 402,212 C400,174 390,140 372,112 Z" fill="${CN.h}" opacity="0.75"/>`;
+      s += `<path d="M396,108 C420,130 430,170 428,214 C426,258 412,294 390,318" fill="none" stroke="${hd}" stroke-width="2.6" opacity="0.9"/>`;
       return s;
     },
     hairFront(o) {
@@ -651,7 +655,7 @@
     nose: { size: 1.04, width: 0.96, y: 1 },
     mouth: { width: 1.06, lip: '#c77c6c', full: 0.4, y: 1 },
     neck: { w: 1.14 },
-    hairShadow: 'M222,214 C236,200 262,192 300,190 C338,190 366,198 382,210 L388,230 C370,212 340,206 300,206 C264,206 240,214 224,230 Z',
+    hairShadow: 'M222,212 C236,198 262,190 300,188 C338,188 366,196 382,208 L386,220 C368,206 340,200 300,200 C264,200 240,208 224,222 Z',
     marks: '<path d="M300,407 q-1.6,5 0,9.5" fill="none" stroke="#cc9676" stroke-width="2.2" stroke-linecap="round" opacity="0.7"/>',
     hairBack(o) {
       return `<path d="M204,262 C194,180 236,108 302,104 C368,102 410,168 400,262 C396,292 388,310 378,320 L222,320 C212,308 206,290 204,262 Z" fill="${BR.hs}"/>`;
@@ -666,7 +670,10 @@
       s += `<path d="M236,200 C226,166 232,122 262,98 C286,80 322,76 350,86 C372,94 388,110 394,130 C378,116 356,108 334,110 C312,112 296,122 286,136 C276,150 270,170 268,190 C256,192 244,196 236,200 Z" fill="${h}"/>`;
       s += `<path d="M334,110 C356,108 378,116 394,130 C400,146 404,166 404,190 C396,166 384,146 366,134 C356,126 346,118 334,110 Z" fill="${hs}"/>`;
       s += `<path d="M252,196 C246,160 258,124 290,104 M276,190 C276,156 292,126 324,110 M300,188 C306,160 324,138 352,128 M330,190 C340,170 356,156 378,150" fill="none" stroke="${hs}" stroke-width="2.4" opacity="0.55"/>`;
-      // one sun-bleached highlight
+      // strand tips breaking the silhouette where the quiff rolls back
+      s += `<path d="M350,86 C364,84 376,88 386,96 C378,94 370,94 362,96 Z M372,98 C384,98 394,104 400,112 C392,110 386,110 380,112 Z" fill="${h}"/>`;
+      // sun-bleached streaks and one highlight
+      s += `<path d="M262,186 C258,150 272,118 304,100 M314,186 C320,160 336,140 362,130" fill="none" stroke="${hl}" stroke-width="3" stroke-linecap="round" opacity="0.55"/>`;
       s += `<path d="M244,160 C248,128 266,104 294,92 C276,108 264,128 258,154 C256,164 246,168 244,160 Z" fill="${hl}" opacity="0.9"/>`;
       return s;
     },
@@ -715,12 +722,22 @@
    * line and the droops outside the mouth corners, so every mouth still reads. */
   const walrus = (my) => {
     const { g, gS, gD, gL } = FW;
-    const top = 343, bot = my - 9;
-    const outer = `M300,${top} C316,${top - 3} 334,${top + 2} 344,${top + 12} C352,${top + 20} 352,${n(my - 2)} 348,${n(my + 6)} C344,${n(my - 2)} 338,${n(bot - 1)} 328,${n(bot + 1)} C318,${n(bot - 1)} 308,${n(bot + 1)} 300,${n(bot)}`;
-    let s = `<path d="${outer} C292,${n(bot + 1)} 282,${n(bot - 1)} 272,${n(bot + 1)} C262,${n(bot - 1)} 256,${n(my - 2)} 252,${n(my + 6)} C248,${n(my - 2)} 248,${top + 20} 256,${top + 12} C266,${top + 2} 284,${top - 3} 300,${top} Z" fill="${g}"/>`;
-    s += `<path d="${outer} C306,${n(bot - 8)} 304,${top + 8} 300,${top} Z" fill="${gS}"/>`;
-    s += `<path d="M262,${top + 14} l-6,10 M272,${top + 12} l-5,12 M284,${top + 10} l-3,12 M316,${top + 10} l3,12 M328,${top + 12} l5,12 M338,${top + 14} l6,10" stroke="${gD}" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>`;
-    s += `<path d="M262,${top + 10} C272,${top + 2} 286,${top - 1} 296,${top + 1} C284,${top + 4} 274,${top + 9} 266,${top + 16} Z" fill="${gL}" opacity="0.8"/>`;
+    const top = 341, bot = my - 9;
+    // the shape: under the nose to wide drooping ends; the bottom is a ragged fringe of strands
+    const fringe = (x0, x1, y0, y1, k) => {
+      let d = '';
+      for (let i = 1; i <= k; i++) {
+        const t = i / k, x = x0 + (x1 - x0) * t, y = y0 + (y1 - y0) * t, xm = x0 + (x1 - x0) * (t - 0.5 / k), ym = y0 + (y1 - y0) * (t - 0.5 / k);
+        d += ` L${n(xm)},${n(ym + (i % 2 ? 2.2 : 3.8))} L${n(x)},${n(y)}`;
+      }
+      return d;
+    };
+    const right = `M300,${top} C318,${top - 4} 340,${top + 1} 352,${top + 12} C362,${top + 22} 362,${n(my)} 356,${n(my + 10)} L350,${n(my + 4)} L344,${n(my + 8)} C340,${n(my - 2)} 336,${n(bot - 1)} 330,${n(bot)}${fringe(330, 300, bot, bot, 5)}`;
+    const left = ` L300,${n(bot)}${fringe(300, 270, bot, bot, 5)} C264,${n(bot - 1)} 260,${n(my - 2)} 256,${n(my + 8)} L250,${n(my + 4)} L244,${n(my + 10)} C238,${n(my)} 238,${top + 22} 248,${top + 12} C260,${top + 1} 282,${top - 4} 300,${top} Z`;
+    let s = `<path d="${right}${left}" fill="${g}"/>`;
+    s += `<path d="${right} C308,${n(bot - 10)} 306,${top + 8} 300,${top} Z" fill="${gS}"/>`;
+    s += `<path d="M258,${top + 14} l-7,12 M270,${top + 11} l-5,14 M284,${top + 9} l-3,14 M316,${top + 9} l3,14 M330,${top + 11} l5,14 M342,${top + 14} l7,12" stroke="${gD}" stroke-width="1.8" stroke-linecap="round" opacity="0.7"/>`;
+    s += `<path d="M256,${top + 11} C268,${top + 1} 284,${top - 2} 296,${top} C282,${top + 4} 270,${top + 10} 262,${top + 18} Z" fill="${gL}" opacity="0.85"/>`;
     return s;
   };
   const fenwick = {
@@ -811,13 +828,16 @@
 
   /* ================================================================== */
   /* HANNAH GAGNON — 8, the neighbor girl. Child proportions: a bigger head
-   * (headScale 1.25), narrow shoulders, short neck, and the whole figure
-   * sits `drop` lower in the frame so she stands shorter than the teens. */
+   * for her body (headScale 1.25), narrow shoulders, short neck. The whole
+   * figure is drawn at `stature` and `drop` lower in the frame, so on stage
+   * she stands a head shorter than the teens instead of having a head bigger
+   * than theirs. */
   const HN = { h: '#a37c55', hs: '#7c5a3b', hd: '#644830', hl: '#c9a273', pk: '#d9a7b1', pkS: '#b88894', pkD: '#9b6c78' };
   const hannah = {
     name: 'Hannah',
     headScale: 1.25,
-    drop: 96,
+    stature: 0.9,
+    drop: 36,
     skin: { base: '#f3d8c6', shadow: '#d7b19c', blush: '#e7998c' },
     face: { jaw: 1.02, chin: -12, top: 1.02, cheek: 5 },
     eyes: { color: '#33251f', size: 1.1, iris: 1.18, lashes: true, lash: '#2a1d1a', y: 8, spacing: 1.02, bags: 0.25 },
@@ -900,13 +920,16 @@
       s += `<rect x="280" y="512" width="6" height="10" rx="2" fill="#cfc6bc"/><rect x="313" y="504" width="6" height="10" rx="2" fill="#bfb6ac"/>`;
       return s;
     },
-    draw(o) { return `<g transform="translate(0 ${hannah.drop})">${P.draw(o, hannah)}</g>`; }
+    draw(o) {
+      const k = hannah.stature;
+      return `<g transform="translate(${n(300 * (1 - k))} ${n(900 * (1 - k) + hannah.drop * k)}) scale(${k})">${P.draw(o, hannah)}</g>`;
+    }
   };
   ART.char('hannah', hannah);
 
   /* ================================================================== */
   /* MRS. FENNIMORE — 60, Derry Public Library */
-  const LB = { g: '#8e949c', gS: '#696f78', gD: '#565b63', gL: '#b5bbc3' };
+  const LB = { g: '#878d96', gS: '#5f656e', gD: '#4b5058', gL: '#adb4bd' };
   const librarian = {
     name: 'Mrs. Fennimore',
     age: 0.7,
@@ -916,24 +939,28 @@
     brows: { color: '#76706a', thick: 0.72, arch: 1.5, y: -4 },
     nose: { size: 1.18, width: 0.74, y: 3 },
     mouth: { width: 0.88, lip: '#b8796f', full: 0.08, y: 3 },
-    hairShadow: 'M258,146 C270,166 296,180 326,188 C348,194 368,198 382,214 L388,236 C370,214 346,210 322,204 C292,196 266,180 252,160 Z',
+    hairShadow: 'M258,146 C270,166 296,180 326,188 C348,194 368,198 382,214 L386,226 C368,208 346,204 322,198 C294,190 268,176 254,156 Z',
     marks: '<path d="M302,296 C304,310 306,322 306,330" fill="none" stroke="#fbe4d4" stroke-width="2" opacity="0.6"/>',
     hairBack(o) {
       const { gS } = LB;
-      return `<path d="M300,92 C380,90 426,156 424,236 C423,290 422,330 412,364 C406,382 394,390 380,388 L220,388 C206,390 194,382 188,364 C178,330 177,290 176,236 C174,156 220,90 300,92 Z" fill="${gS}"/>`;
+      return `<path d="M296,86 C382,82 428,150 426,232 C425,288 422,330 412,364 C406,382 394,390 380,388 L220,388 C206,390 194,382 188,364 C178,330 177,290 176,236 C174,156 214,90 296,86 Z" fill="${gS}"/>`;
     },
     hairFront(o) {
       const { g, gS, gD, gL } = LB;
       let s = '';
       // side-parted bob with a full crown, the ends turning under at the jaw
-      s += `<path d="M218,386 C200,380 186,360 186,330 C184,280 182,222 196,170 C210,120 252,94 300,94 C354,94 402,120 414,176 C424,222 420,288 416,330 C414,360 404,380 384,388 C380,372 380,352 382,330 C384,290 384,254 378,226 C372,206 360,196 344,190 C318,184 292,176 274,162 C266,156 260,150 258,144 C254,166 242,188 228,204 C220,218 216,240 216,270 C216,310 220,350 218,386 Z" fill="${g}"/>`;
-      s += `<path d="M352,100 C390,114 408,142 414,176 C424,222 420,288 416,330 C414,360 404,380 384,388 C380,372 380,352 382,330 C384,290 384,254 378,226 C376,214 372,204 366,198 C380,160 374,124 352,100 Z" fill="${gS}"/>`;
+      s += `<path d="M218,386 C198,382 180,362 179,330 C177,280 176,222 190,168 C206,120 248,90 296,87 C356,86 404,116 416,176 C424,222 420,288 416,330 C414,360 404,380 384,388 C380,372 380,352 382,330 C384,290 384,254 378,226 C372,206 360,196 344,190 C318,184 292,176 274,162 C266,156 260,150 258,144 C254,166 242,188 228,204 C220,218 216,240 216,270 C216,310 220,350 218,386 Z" fill="${g}"/>`;
+      s += `<path d="M352,96 C392,108 410,140 416,176 C424,222 420,288 416,330 C414,360 404,380 384,388 C380,372 380,352 382,330 C384,290 384,254 378,226 C376,214 372,204 366,198 C380,160 374,124 352,100 Z" fill="${gS}"/>`;
       // the ends curling under
-      s += `<path d="M188,348 C192,372 204,386 220,388 C218,374 216,362 218,346 C208,352 198,354 188,348 Z" fill="${gD}"/>`;
+      s += `<path d="M182,346 C188,372 202,386 220,388 C218,374 216,362 218,346 C206,352 194,352 182,346 Z" fill="${gD}"/>`;
       s += `<path d="M414,348 C410,372 400,386 384,388 C382,374 380,362 382,346 C392,352 404,354 414,348 Z" fill="${gD}"/>`;
       s += `<path d="M258,144 C258,126 262,110 268,98" fill="none" stroke="${gD}" stroke-width="2.2"/>`;
-      s += `<path d="M274,140 C300,124 338,122 370,138 M202,250 C200,296 202,330 206,350 M400,240 C402,286 400,322 396,348" fill="none" stroke="${gS}" stroke-width="2" opacity="0.55"/>`;
-      s += `<path d="M230,140 C248,114 276,100 304,100 C282,110 262,126 248,148 C242,156 230,152 230,140 Z" fill="${gL}" opacity="0.8"/>`;
+      s += `<path d="M274,140 C300,124 338,122 370,138 M206,232 C198,280 200,328 212,370 M216,262 C212,300 214,334 220,364" fill="none" stroke="${gS}" stroke-width="2" opacity="0.6"/>`;
+      s += `<path d="M398,226 C404,276 402,326 390,368 M388,258 C390,296 388,330 382,362" fill="none" stroke="${gD}" stroke-width="2" opacity="0.6"/>`;
+      s += `<path d="M184,352 C192,372 204,384 220,386" fill="none" stroke="${gL}" stroke-width="2.6" stroke-linecap="round" opacity="0.7"/>`;
+      s += `<path d="M198,214 C192,252 192,292 198,326 M206,180 C200,200 198,214 198,226" fill="none" stroke="${gL}" stroke-width="2.4" stroke-linecap="round" opacity="0.6"/>`;
+      // one highlight, combed along the sweep from the part
+      s += `<path d="M264,126 C292,104 338,102 374,128 C338,114 298,116 272,134 C268,137 262,132 264,126 Z" fill="${gL}" opacity="0.85"/>`;
       return s;
     },
     headwear(o) {
