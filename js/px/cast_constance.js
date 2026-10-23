@@ -14,7 +14,7 @@
     skin: 'skin_fair', hair: 'hair_honey', eyes: 'eye_blue', lips: 'lip_red',
     lashes: true, browThick: 1, brow: 'hair_honey',
     head: {
-      l: 37, r: 82, top: 22, eyeY: 42, browY: 36, chinY: 76, chinX: 56, jaw: -0.6, cheek: 0.6,
+      l: 37, r: 82, top: 22, eyeY: 42, browY: 36, chinY: 75, chinX: 56, jaw: -0.2, cheek: 0.6,
       nearEye: [59, 11], farEye: [41, 8], noseX: 53, noseY: 49, mouthX: 55, mouthY: 64, ear: [80, 45], neck: 8
     },
     faceBumps: [[66, 51, 4, 2.5, 0.6], [43, 51, 2.5, 2.5, 0.4]],   // high cheekbones
@@ -79,6 +79,10 @@
       // pearl stud
       const [ex, ey] = h.ear;
       s.px(ex + 3, ey + 13, pl[5]); s.px(ex + 4, ey + 13, pl[3]); s.px(ex + 3, ey + 14, pl[3]); s.px(ex + 4, ey + 14, pl[1]);
+      // tailoring: topstitched lapel edges, a welt pocket
+      const stitch = (x0, y0, x1, y1) => { let k = 0; s.line(x0, y0, x1, y1, (i, x, y) => { if (k++ % 2) return 0; RIG.over(s, x, y, cm, 1); return 0; }); };
+      stitch(36, 106, 51, 133); stitch(33, 99, 37, 104); stitch(85, 105, 68, 133); stitch(87, 98, 83, 103);
+      for (let x = 26; x < 38; x++) { RIG.over(s, x, 128, cm, -2); RIG.over(s, x, 127, cm, 1); }
       // coat buttons and the brass lantern pin on the near lapel
       s.px(60, 152, P.wood_dark[3]); s.px(61, 152, P.wood_dark[2]); s.px(60, 153, P.wood_dark[1]);
       const lx = 79, ly = 101;

@@ -42,7 +42,7 @@
     lashes: false, nose: 'long', lines: 2, rosy: 1, browThick: 2,
     head: {
       l: 34, r: 82, top: 15, eyeY: 43, browY: 38, chinY: 78, chinX: 55, jaw: 3, cheek: 1.6,
-      nearEye: [59, 9], farEye: [42, 7], noseX: 52, noseY: 50, mouthX: 55, mouthY: 68, ear: [80, 45], neck: 12
+      nearEye: [59, 9], farEye: [42, 7], noseX: 52, noseY: 50, mouthX: 55, mouthY: 68, ear: [80, 45], neck: 13
     },
     faceBumps: [
       [52, 57, 2.6, 2.0, 1.6],                                   // round nose tip
@@ -56,7 +56,7 @@
       B.shape(arc.concat([[96.5, 50], [94, 58], [89, 66], [81, 68], [75, 58], [74, 30]]), c.hr, { kind: 'hair', round: 6, name: 'hair:back', tone: -1 });
       B.lock([[93, 32], [95, 45], [92, 58], [87, 66]], [6, 7, 6, 4], c.hr, { name: 'hair:b1', tone: -1 });
       // the far side of the fringe, peeking past the temple
-      B.lock([[37, 30], [32, 38], [32, 47], [35, 54]], [5, 7, 6, 3], c.hr, { name: 'hair:far', tone: -1 });
+      B.lock([[37, 32], [33.5, 39], [33, 46], [35, 51]], [4, 5, 4, 2], c.hr, { name: 'hair:far', tone: -1 });
     },
     body(B, c) {
       const tw = P.tweed;
@@ -87,7 +87,7 @@
     front(B, c) {
       const r = c.hr;
       // fringe wrapping forward over the near ear to the temple
-      B.lock([[93, 41], [87, 37], [81, 37], [77.5, 40]], [8, 7, 5, 3], r, { name: 'hair:side' });
+      B.lock([[94, 42], [88, 38.5], [82.5, 38.5], [79.5, 41]], [7, 5.5, 4, 2], r, { name: 'hair:side', line: 2 });
       // walrus mustache: a full base over the lip, strands fanning down, droops past the corners
       const st = { kind: 'hair', line: 2 };
       B.shape([[47, 58], [53, 56.5], [59, 57], [64, 58.5], [67.5, 62], [66.5, 66], [61, 67], [55, 67.3], [49, 67], [45, 66], [43.5, 62.5]], r, Object.assign({ round: 3.5, name: 'hair:stache' }, st));

@@ -27,7 +27,7 @@
     lashes: false, nose: 'long', lines: 2, ear: false,
     head: {
       l: 36, r: 82, top: 25, eyeY: 44, browY: 39, chinY: 79, chinX: 55, jaw: 1, cheek: 0.8,
-      nearEye: [59, 10], farEye: [42, 7], noseX: 52, noseY: 51, mouthX: 55, mouthY: 67, neck: 10
+      nearEye: [59, 10], farEye: [42, 7], noseX: 52, noseY: 51, mouthX: 55, mouthY: 67, neck: 9.5
     },
     faceBumps: [
       [64, 46, 3.8, 2.4, -1.6], [45, 46, 2.8, 2.2, -1.2],        // deep-set sockets
@@ -38,7 +38,7 @@
     ],
     back(B, c) {
       // back of the neck behind the ear, and the back of the skull (short grey hair)
-      B.shape([[68, 56], [82, 58], [85, 66], [86, 80], [87, 92], [66, 94]], c.sk, { kind: 'skin', round: 4, name: 'nape', flatTone: 2 });
+      B.shape([[68, 58], [80, 60], [83, 68], [83, 82], [84, 92], [66, 94]], c.sk, { kind: 'skin', round: 4, name: 'nape', flatTone: 2 });
       B.shape([[72, 14], [84, 14], [92, 21], [96, 33], [96, 47], [93, 58], [88, 66], [80, 68], [74, 56], [72, 30]], c.hr, { kind: 'hair', round: 7, name: 'hair:back', tone: -1 });
     },
     body(B, c) {
@@ -121,6 +121,8 @@
         s.px(x, y, P.stubble_warm[sh]);
         if (sh >= 2 && (x * 3 + y * 5) % 7 === 0) s.px(x, y, sh >= 4 ? g[5] : sh === 3 ? g[4] : g[3]);
       }
+      // a weary set to the mouth at rest
+      if (c.ex.mouth === 'neutral') { s.px(h.mouthX - 3, h.mouthY + 1, sk[1]); s.px(h.mouthX + 2, h.mouthY + 1, sk[1]); s.px(h.mouthX - 1, h.mouthY + 1, sk[3]); }
       // crow's feet, marionette lines, the inner ear
       const ex = nx + nw;
       if (rampOf(ex + 2, h.eyeY + 4) === sk.id) { s.px(ex + 2, h.eyeY + 4, sk[2]); s.px(ex + 3, h.eyeY + 3, sk[2]); s.px(ex + 2, h.eyeY + 6, sk[2]); s.px(ex + 3, h.eyeY + 7, sk[2]); }

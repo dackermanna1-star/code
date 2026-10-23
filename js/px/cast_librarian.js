@@ -95,6 +95,8 @@
       s.line(h.mouthX + 6, h.mouthY + 3, h.mouthX + 6, h.mouthY + 6, sk[2]);
       const [nx, nw] = h.nearEye;
       if (rampOf(nx + nw + 2, h.eyeY + 4) === sk.id) { s.px(nx + nw + 2, h.eyeY + 4, sk[2]); s.px(nx + nw + 3, h.eyeY + 3, sk[2]); }
+      // cords of the neck
+      for (const [x0, y0, x1, y1] of [[57, 81, 56, 88], [63, 80, 64, 87]]) s.line(x0, y0, x1, y1, (i, x, y) => (rampOf(x, y) === sk.id && (s.get(x, y) & 15) >= 3 ? sk[(s.get(x, y) & 15) - 1] : 0));
       // the half-moons over everything, a glint on each lens
       repaint(s, c, over);
       s.px(60, h.eyeY + 8, P.white[5]); s.px(61, h.eyeY + 9, P.white[3]);

@@ -55,7 +55,7 @@ button { font: inherit; color: inherit; }
 #frame {
   position: relative; width: min(100%, calc((100vh - 24px) * 16 / 9)); aspect-ratio: 16 / 9;
   max-height: calc(100vh - 24px); container-type: inline-size; background: #000;
-  box-shadow: 0 0 0 4px #100c16, 0 0 0 8px #271e31, 0 30px 80px rgba(0,0,0,.6); overflow: hidden;
+  box-shadow: 0 0 0 var(--px) #100c16, 0 0 0 calc(var(--px) * 2) #271e31, 0 0 0 calc(var(--px) * 3) #100c16, 0 30px 80px rgba(0,0,0,.6); overflow: hidden;
   /* one interface pixel (ui_px.js snaps it to device pixels); type sizes follow it */
   --px: calc(100cqw / 320); --hpx: var(--px);
   --t-dlg: max(15px, calc(var(--px) * 6));
@@ -222,7 +222,7 @@ img.px { width: 100%; height: 100%; display: block; object-fit: cover; image-ren
 #dialogue.tape #text { font-family: var(--f-type); font-size: calc(var(--t-type) * 1.12 * var(--fs)); line-height: 1.12; color: var(--ink1); padding-top: calc(var(--px) * 1.5); }
 #dialogue.tape #text em { color: var(--red3); }
 #dialogue.tape #more { filter: brightness(.5); }
-#dialogue .reels { display: none; position: absolute; right: calc(var(--px) * 1); top: calc(var(--px) * -2); width: calc(var(--px) * 23); height: calc(var(--px) * 9); background: var(--ui-reels) 0 0 / 200% 100% no-repeat; image-rendering: pixelated; }
+#dialogue .reels { display: none; position: absolute; right: calc(var(--px) * 4); top: calc(var(--px) * -8.5); width: calc(var(--px) * 23); height: calc(var(--px) * 9); background: var(--ui-reels) 0 0 / 200% 100% no-repeat; image-rendering: pixelated; }
 #dialogue.tape .reels { display: block; animation: reels .5s steps(1) infinite; }
 @keyframes reels { 0% { background-position: 0 0 } 50% { background-position: 100% 0 } }
 /* radio: static, green on dark glass */
@@ -534,7 +534,7 @@ img.px { width: 100%; height: 100%; display: block; object-fit: cover; image-ren
   #stage { position: relative; inset: auto; flex: none; width: 100%; aspect-ratio: 16 / 9; container-type: inline-size; }
   #panel { position: relative; flex: 1; min-height: 0; overflow: auto; padding: calc(var(--px) * 12) 16px max(14px, env(safe-area-inset-bottom, 0px)); justify-content: flex-start; gap: calc(var(--px) * 5);
     background: var(--ui-marble) 0 0 / 96px 96px repeat; image-rendering: pixelated; box-shadow: inset 0 var(--px) 0 var(--ink3), inset 0 calc(var(--px) * 2) 0 var(--ink0); }
-  #panel::before { content: ""; position: absolute; inset: 0; background: rgba(13,10,18,.9); pointer-events: none; }
+  #panel::before { content: ""; position: absolute; inset: 0; z-index: -1; background: rgba(13,10,18,.9); pointer-events: none; }
   #dialogue { order: -1; }
   #mapchrome { display: flex; flex-direction: column; gap: calc(var(--px) * 3); }
   #mapchrome .maptag { position: relative; align-self: flex-start; margin: calc(var(--px) * 3) 0 calc(var(--px) * 2); border: solid transparent; border-width: calc(var(--px) * 3); border-image: var(--ui-paper) 24 fill / calc(var(--px) * 4) stretch; padding: 0 calc(var(--px) * 4) calc(var(--px) * 1); color: var(--ink1); }
@@ -709,14 +709,22 @@ img.px { width: 100%; height: 100%; display: block; object-fit: cover; image-ren
 <script src="js/px/bg_outdoors.js"></script>
 <script src="js/px/bg_school.js"></script>
 <script src="js/px/bg_town.js"></script>
+<script src="js/px/cast_brett.js"></script>
+<script src="js/px/cast_cal.js"></script>
 <script src="js/px/cast_constance.js"></script>
 <script src="js/px/cast_dot.js"></script>
 <script src="js/px/cast_fenwick.js"></script>
 <script src="js/px/cast_gus.js"></script>
 <script src="js/px/cast_hannah.js"></script>
+<script src="js/px/cast_june.js"></script>
 <script src="js/px/cast_librarian.js"></script>
+<script src="js/px/cast_memere.js"></script>
+<script src="js/px/cast_mom.js"></script>
 <script src="js/px/cast_nate.js"></script>
+<script src="js/px/cast_sloane.js"></script>
 <script src="js/px/cast_teague.js"></script>
+<script src="js/px/cast_teddy.js"></script>
+<script src="js/px/cast_wes.js"></script>
 <script src="js/px/cast_whitcomb.js"></script>
 <script src="js/px/ui_px.js"></script>
 <!--/ART-FILES-->

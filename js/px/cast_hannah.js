@@ -31,13 +31,13 @@
     },
     body(B, c) {
       const pk = P.kid_pink;
-      c.farArm = B.tube([[34, 108], [29, 140], [27, 176]], [10, 9.5, 9], pk, { name: 'body:farArm', tone: -1, kind: 'soft' });
-      c.torso = B.shape([[51, 88], [41, 92], [33, 99], [31, 114], [32, 176], [89, 176], [91, 114], [89, 98], [81, 91], [71, 87]], pk, { kind: 'soft', round: 11, name: 'body:torso' });
-      B.crease(c.torso, [[44, 146], [52, 156], [58, 158]], 1.2, 1.2);
-      c.nearArm = B.tube([[87, 104], [92, 140], [94, 176]], [10.5, 10, 9.5], pk, { name: 'body:nearArm', kind: 'soft' });
-      B.crease(c.nearArm, [[82, 106], [85, 100], [90, 98]], 1.0, 0.9);
-      B.crease(c.nearArm, [[82, 120], [86, 140], [88, 160]], 1.2, 1.0);
-      B.crease(c.farArm, [[35, 120], [33, 144]], 1.1, 1.0);
+      c.farArm = B.tube([[38, 108], [34, 140], [32, 176]], [9.5, 9, 8.5], pk, { name: 'body:farArm', tone: -1, kind: 'soft' });
+      c.torso = B.shape([[52, 88], [44, 92], [37, 99], [35, 114], [36, 176], [86, 176], [88, 114], [86, 98], [80, 91], [70, 87]], pk, { kind: 'soft', round: 11, name: 'body:torso' });
+      B.crease(c.torso, [[46, 146], [53, 156], [58, 158]], 1.2, 1.2);
+      c.nearArm = B.tube([[84, 104], [88, 140], [90, 176]], [10, 9.5, 9], pk, { name: 'body:nearArm', kind: 'soft' });
+      B.crease(c.nearArm, [[79, 106], [82, 100], [87, 98]], 1.0, 0.9);
+      B.crease(c.nearArm, [[79, 120], [83, 140], [85, 160]], 1.2, 1.0);
+      B.crease(c.farArm, [[39, 120], [37, 144]], 1.1, 1.0);
     },
     collar(B, c) {
       // the sweatshirt's front over the neck, and the ribbed crew neck
@@ -90,7 +90,7 @@
           if ((dx * dx + dy * dy) <= br * br && yy <= y + 2 && rampOf(xx, yy) === pk.id) RIG.over(s, xx, yy, P.white_cloth, dy + by < -1.5 ? 2 : 1);
         }
       };
-      cloud(cx - 14, cy); cloud(cx + 14, cy);
+      cloud(cx - 13, cy); cloud(cx + 13, cy);
     },
     portraitBox: [20, 16, 76, 76]
   });

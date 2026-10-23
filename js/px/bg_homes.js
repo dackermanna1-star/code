@@ -1315,4 +1315,361 @@
       return SH(rings[k], (bz ? 0 : -1) + (r > 0.95 ? -1 : 0));
     });
   }
+
+  /* ================================================================== */
+  /* GUS'S ROOM — the front bedroom under the eaves                      */
+  /* ================================================================== */
+  const DAISY2 = [
+    '..............',
+    '...o..........',
+    '..oyo.........',
+    '...o..........',
+    '..............',
+    '..............',
+    '..............',
+    '..........o...',
+    '.........oyo..',
+    '..........o...',
+    '..............',
+    '..............'
+  ];
+  R('g_paper', ['#4c4030', '#7c6a4c', '#a8966e', '#cbbb90', '#e3d6ae', '#f3ead0']);    // daisy paper faded to cream
+  R('iron', ['#141219', '#221f2a', '#35303f', '#4b4557', '#665e73', '#857c92']);
+  R('quilt_b', ['#1e2638', '#33405a', '#4c5c7c', '#6a7e9c', '#93a5bd', '#bcc9d8']);
+  R('rec_red', ['#3a0b12', '#6a131d', '#9a2028', '#c53a34', '#e2614a', '#f49470']);   // her recorder
+  R('poster', ['#0b0a10', '#16141d', '#221f2b', '#302c3b', '#423d50', '#575168']);
+
+  PX.bg('gus_room', {
+    times: ['day', 'night', 'dawn'],
+    draw(s, o) { gusRoom(s, o); }
+  });
+
+  function gusRoom(s, o) {
+    const t = o.time, night = t === 'night', dawn = t === 'dawn', day = t === 'day';
+    const rm = Room({ vx: 150, vy: 52, bx0: 56, by0: 10, bx1: 262, by1: 106, z0: 220 });
+    const { by0, by1, bx0, bx1, vx, vy, z0 } = rm, G = P.g_paper;
+    // the roof slope: meets the flat ceiling at x = xs on the back wall, the knee wall at y = yk
+    const xs = 176, yk = 68, sB = (yk - by0) / (bx1 - xs), sA = by0 - sB * xs;
+    const backPoly = [[bx0, by0], [xs, by0], [bx1, yk], [bx1, by1], [bx0, by1]];
+    const slopePoly = [[xs, by0], rm.p(xs, by0, rm.far), rm.p(bx1, yk, rm.far), [bx1, yk]];
+    const onSlope = (x, y) => { const k = ((y + 0.5 - vy) - sB * (x + 0.5 - vx)) / (sA + sB * vx - vy); return [z0 - z0 / k, vx + (x + 0.5 - vx) / k]; };
+
+    /* ---- shell ---- */
+    const paper = motif(DAISY2, { '.': G[4], o: G[5], y: P.mustard[4] });
+    s.poly(backPoly, (x, y) => paper(x - bx0, y));
+    s.poly(rm.left, (x, y) => { const q = rm.onLeft(x, y); return SH(paper(q[0] * 0.9 + 5, q[1]), -1); });
+    s.poly(rm.rq(0, rm.far, yk, by1), (x, y) => { const q = rm.onRight(x, y); return SH(paper(-q[0] * 0.9, q[1]), -1); });
+    s.poly([[bx0, by0], [xs, by0], rm.p(xs, by0, rm.far), rm.p(bx0, by0, rm.far)], P.ceil[4]);
+    // the slope: plaster, the same paper's ground colour, darker as it comes down
+    s.poly(slopePoly, (x, y) => { const q = onSlope(x, y); const v = (q[1] - xs) / (bx1 - xs); return P.ceil[v > 0.62 ? 2 : 3]; });
+    s.line(xs, by0, ...rm.pr(xs, by0, 60), P.ceil[5]);
+    // painted pine floor
+    plankFloor(s, rm, P.wood_pale, { pw: 10, base: 3, seed: 'gus-floor' });
+    // baseboards
+    s.rect(bx0, by1 - 4, bx1 - bx0, 4, P.trim[3]); s.hline(bx0, bx1 - 1, by1 - 4, P.trim[4]);
+    s.poly(rm.lq(0, rm.far, by1 - 4, by1), P.trim[2]); s.poly(rm.rq(0, rm.far, by1 - 4, by1), P.trim[2]);
+    // soft occlusion where the planes meet
+    band(s, backPoly, (x, y) => Math.max((by0 + 10 - y) / 6, (y - (sA + sB * x) < 7 && x > xs ? 1.2 - (y - (sA + sB * x)) / 7 : 0)), 0.5);
+    band(s, rm.floor, (x, y) => { const q = rm.onFloor(x, y); return Math.max((9 - q[1]) / 6, (bx0 + 10 - q[0]) / 8, (q[1] - 66) / 28); }, 0.3);
+    band(s, rm.left, (x, y) => { const q = rm.onLeft(x, y); return (by0 + 12 - q[1]) / 7; }, 0.5);
+
+    /* ---- the back wall ---- */
+    const view = { t };
+    gusWindow(s, 128, 28, 44, 42, t);
+    closet(s, rm, t);
+    staticHours(s, 100, 26);
+    // where somebody's posters used to be: brighter squares, old tape marks
+    for (const [fx, fy, fw, fh] of [[186, 30, 14, 18], [204, 40, 12, 14]]) {
+      for (let yy = fy; yy < fy + fh; yy++) for (let xx = fx; xx < fx + fw; xx++) { const v = s.get(xx, yy); if (v && !isE(v) && yy < sA + sB * xx - 1) s.px(xx, yy, SH(v, 1)); }
+      for (const [tx, ty] of [[fx, fy], [fx + fw - 2, fy], [fx, fy + fh - 1], [fx + fw - 2, fy + fh - 1]]) if (ty < sA + sB * tx - 1) { s.px(tx, ty, P.paper[3]); s.px(tx + 1, ty, P.paper[3]); }
+    }
+    desk(s, rm, t);
+    nightstand(s, rm, t);
+    ironBed(s, rm, t);
+    boxes(s, rm);
+    rug2(s, rm);
+
+    /* ---- light ---- */
+    if (day) {
+      // afternoon sun through the window: a patch across the floor
+      const a = rm.pr(126, by1, 30), b = rm.pr(170, by1, 30), c = rm.pr(196, by1, 96), d = rm.pr(150, by1, 96);
+      s.lightPoly('sun', [[130, 30], [170, 30], c, d], 0.22, { fade: { x0: 150, y0: 34, x1: 170, y1: 150 } });
+      s.lightPoly('sun', [a, b, c, d], 0.75);
+      s.light('sun', 150, 60, 140, 90, 0.3);
+    } else if (night) {
+      // the streetlight through the glass, the clock radio's red numbers
+      const a = rm.pr(124, by1, 22), b = rm.pr(168, by1, 22), c = rm.pr(176, by1, 92), d = rm.pr(126, by1, 92);
+      s.lightPoly('warm', [a, b, c, d], 0.42);
+      s.lightPoly('cool', [[128, 28], [172, 28], c, d], 0.14, { fade: { x0: 150, y0: 30, x1: 150, y1: 150 } });
+      s.light('cool', 150, 48, 40, 34, 0.3);
+    } else {
+      const a = rm.pr(124, by1, 22), b = rm.pr(168, by1, 22), c = rm.pr(186, by1, 92), d = rm.pr(136, by1, 92);
+      s.lightPoly('cool', [a, b, c, d], 0.35);
+      s.light('white', 150, 48, 70, 50, 0.3);
+    }
+  }
+
+  /* the front window: the porch roof right outside, Larch Street below */
+  function gusWindow(s, x, y, w, h, t) {
+    const night = t === 'night', dawn = t === 'dawn';
+    s.rect(x - 4, y - 4, w + 8, h + 7, P.trim[3]); s.hline(x - 4, x + w + 3, y - 4, P.trim[4]); s.vline(x - 4, y - 4, y + h + 2, P.trim[4]); s.vline(x + w + 3, y - 3, y + h + 2, P.trim[2]);
+    // sky
+    const sky = night ? [P.sky_night[0], P.sky_night[1], P.sky_night[2], P.sky_night[3]] : dawn ? [P.sky_night[3], P.sky_dusk[2], P.sky_dusk[3], P.sky_dusk[4], P.sky_dusk[5]] : [P.sky_day[2], P.sky_day[3], P.sky_day[4]];
+    s.vgrad(x, y, w, 26, sky.map(E), 3);
+    if (night) { for (const [sx, sy] of [[x + 5, y + 3], [x + 17, y + 7], [x + 33, y + 4], [x + 40, y + 10], [x + 26, y + 12]]) s.px(sx, sy, E(P.cloud[3])); s.px(x + 9, y + 9, E(P.white[5])); }
+    if (!night && !dawn) { s.cloud(x + 12, y + 7, 12, 4, { emit: true, rng: PX.rng('g-cloud') }); }
+    // across the street: houses, a porch light, the maple
+    const H = night ? P.nite : dawn ? P.violet : P.house_blue;
+    const hb = night ? 2 : dawn ? 1 : 3;
+    s.poly([[x - 1, y + 22], [x + 9, y + 13], [x + 19, y + 22]], E(cl(H, hb - 1)));
+    s.rect(x - 1, y + 22, 21, 12, E(cl(H, hb)));
+    s.poly([[x + 23, y + 20], [x + 33, y + 12], [x + w + 1, y + 20]], E(night ? P.nite[1] : dawn ? P.violet[0] : P.roof_red[2]));
+    s.rect(x + 23, y + 20, w - 22, 14, E(night ? P.nite[2] : dawn ? P.violet[1] : P.house_yellow[3]));
+    const win = (wx, wy, lit) => s.rect(wx, wy, 3, 4, E(lit ? P.lamp[4] : night ? P.nite[0] : dawn ? P.violet[0] : P.sky_day[1]));
+    win(x + 4, y + 25, night); win(x + 13, y + 25, false); win(x + 27, y + 24, false); win(x + 36, y + 24, night || dawn);
+    // the curtain across the street, in the upstairs window
+    if (night) s.px(x + 28, y + 24, E(P.nite[3]));
+    // the maple on the right, bare-ish branches at night
+    const mr = PX.rng('g-maple');
+    const lv = night ? [P.nite[1], P.nite[2]] : dawn ? [P.violet[1], P.violet[2], P.leaf_red[1]] : [P.leaf_orange[3], P.leaf_orange[4], P.leaf_red[3], P.leaf_gold[4]];
+    for (let i = 0; i < 46; i++) { const lx = x + w - 14 + mr.int(0, 14), ly = y + mr.int(0, 20); s.rect(lx, ly, 2, 1, E(mr.pick(lv))); }
+    // the streetlight on the corner
+    s.vline(x + 20, y + 10, y + 34, E(night ? P.nite[0] : dawn ? P.violet[0] : P.wood_dark[2]));
+    s.hline(x + 20, x + 24, y + 10, E(night ? P.nite[0] : dawn ? P.violet[0] : P.wood_dark[2]));
+    s.rect(x + 23, y + 11, 3, 1, E(night || dawn ? P.lamp[5] : P.metal[2]));
+    if (night) { s.px(x + 24, y + 12, E(P.lamp[3])); s.ellipse(x + 24, y + 34, 7, 1.6, E(P.lamp[2])); }
+    // the street
+    s.rect(x, y + 34, w, 3, E(night ? P.nite[1] : dawn ? P.violet[1] : P.asphalt[3]));
+    // the porch roof, just under the sill
+    const rf = night ? P.nite : dawn ? P.violet : P.roof;
+    for (let yy = y + 36; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) {
+      const row = flo((yy - y - 36) / 2), u = ((xx + (row & 1) * 2) % 4 + 4) % 4;
+      s.px(xx, yy, E(cl(rf, (u === 0 ? 1 : 2) + (night ? 1 : dawn ? 1 : 1) + ((yy - y - 36) % 2 === 1 ? -1 : 0))));
+    }
+    s.hline(x, x + w - 1, y + 36, E(cl(rf, 4)));
+    // sashes: 6 over 6
+    const fr = P.trim;
+    s.rect(x, y, w, 2, fr[4]); s.rect(x, y + h - 2, w, 2, fr[3]); s.rect(x, y, 2, h, fr[4]); s.rect(x + w - 2, y, 2, h, fr[2]);
+    s.rect(x, y + 20, w, 3, fr[4]); s.hline(x, x + w - 1, y + 22, fr[2]);
+    for (const mx of [x + 14, x + 29]) { s.vline(mx, y, y + h - 1, fr[3]); }
+    for (const my of [y + 10, y + 32]) s.hline(x, x + w - 1, my, fr[3]);
+    if (!night) { s.px(x + 4, y + 3, E(P.white[4])); s.px(x + 5, y + 2, E(P.white[4])); s.px(x + 19, y + 25, E(P.white[3])); }
+    // a roller shade half down and plain muslin curtains
+    s.rect(x - 1, y - 2, w + 2, 9, P.cream[4]); s.hline(x - 1, x + w, y + 6, P.cream[2]); s.hline(x - 1, x + w, y - 2, P.cream[5]);
+    s.rect(x + w / 2 - 1, y + 7, 3, 2, P.cream[2]); s.px(x + w / 2, y + 9, P.cream[3]);
+    for (const side of [-1, 1]) for (let yy = y - 3; yy < y + h + 3; yy++) for (let k = 0; k < 7; k++) {
+      const xx = side < 0 ? x - 6 + k : x + w + 5 - k;
+      s.px(xx, yy, k === 6 ? P.white_cloth[2] : cl(P.white_cloth, 4 + fold(k, 3, 1)));
+    }
+    s.rect(x - 8, y - 5, w + 16, 2, P.brass[3]); s.hline(x - 8, x + w + 7, y - 5, P.brass[5]);
+    // sill
+    s.rect(x - 6, y + h + 3, w + 12, 3, P.trim[4]); s.hline(x - 6, x + w + 5, y + h + 3, P.trim[5]); s.hline(x - 6, x + w + 5, y + h + 5, P.trim[1]);
+  }
+
+  /* the closet: door open, empty hangers, pencil heights on the frame */
+  function closet(s, rm, t) {
+    const x = 62, y = 24, w = 30, h = rm.by1 - 24;
+    // casing and the dark inside
+    s.rect(x - 4, y - 4, w + 8, h + 4, P.trim[3]); s.hline(x - 4, x + w + 3, y - 4, P.trim[4]); s.vline(x - 4, y - 4, y + h - 1, P.trim[4]); s.vline(x + w + 3, y - 3, y + h - 1, P.trim[2]);
+    s.rect(x, y, w, h, P.ink[2]);
+    s.rect(x, y, w, 6, P.ink[1]);
+    // the rod and empty hangers
+    s.hline(x + 1, x + w - 2, y + 9, P.metal[3]);
+    for (const hx of [x + 8, x + 13, x + 19, x + 24]) { s.px(hx, y + 8, P.metal[4]); s.line(hx, y + 10, hx - 4, y + 13, P.metal[3]); s.line(hx, y + 10, hx + 4, y + 13, P.metal[2]); s.hline(hx - 4, hx + 4, y + 13, P.metal[2]); }
+    // the ornament box on the shelf, a shoebox on the floor
+    s.rect(x + 3, y + 2, 14, 5, P.cardboard[2]); s.hline(x + 3, x + 16, y + 2, P.cardboard[3]);
+    s.rect(x + 18, y + h - 9, 10, 8, P.cardboard[1]); s.hline(x + 18, x + 27, y + h - 9, P.cardboard[2]);
+    // pencil heights on the inside of the frame: C '51, C '53 ... and one G
+    const jx = x + w;
+    s.rect(jx, y, 3, h, P.trim[2]);
+    for (const [hy, len] of [[78, 2], [72, 2], [66, 3], [60, 2], [54, 2], [46, 2], [40, 2]]) { const yy = rm.by1 - 24 - (78 - hy) - 6; s.hline(jx, jx + len - 1, yy, P.stone[1]); }
+    s.hline(jx, jx + 2, rm.by1 - 31, P.ink[3]); s.px(jx + 1, rm.by1 - 33, P.ink[3]);
+    // the door, swung open toward the room
+    const dx = x - 4, dw = 14;
+    s.poly([[dx - dw, y - 1], [dx, y - 4], [dx, y + h], [dx - dw, y + h + 6]], P.trim[3]);
+    s.poly([[dx - dw + 2, y + 3], [dx - 2, y + 1], [dx - 2, y + 30], [dx - dw + 2, y + 34]], P.trim[2]);
+    s.poly([[dx - dw + 2, y + 40], [dx - 2, y + 37], [dx - 2, y + h - 8], [dx - dw + 2, y + h - 4]], P.trim[2]);
+    s.line(dx - dw, y - 1, dx - dw, y + h + 6, P.trim[4]);
+    s.line(dx - dw, y - 1, dx, y - 4, P.trim[5]);
+    s.rect(dx - dw + 1, y + h / 2 + 2, 2, 2, P.brass[4]);
+    shadePoly(s, [[dx - dw, y + h + 6], [dx, y + h], [dx + 6, y + h], [dx - dw + 4, y + h + 8]], -1);
+  }
+
+  /* poster: The Static Hours — black, an orange sun */
+  function staticHours(s, x, y) {
+    const w = 25, h = 36;
+    s.rect(x, y, w, h, P.poster[1]); s.hline(x, x + w - 1, y, P.poster[3]); s.vline(x + w - 1, y + 1, y + h - 1, P.poster[0]);
+    // the sun, sliced by scan lines
+    const cx = x + 12.5, cy = y + 13;
+    s.circle(cx, cy, 8, (xx, yy) => { const r = yy - (cy - 8); if (r > 7 && (r % 3) === 0) return 0; return r < 5 ? P.amber[5] : r < 9 ? P.amber[4] : P.amber[3]; });
+    s.hline(x + 2, x + w - 3, y + 22, P.amber[2]);
+    text(s, x + 7, y + 24, 'THE', P.amber[4], { sp: 1 });
+    text(s, x + 2, y + 30, 'STATIC', P.amber[4]);
+    // tape at the corners, a curling bottom corner
+    s.rect(x - 1, y - 1, 3, 2, P.paper[4]); s.rect(x + w - 2, y - 1, 3, 2, P.paper[4]);
+    s.px(x + w - 1, y + h - 1, P.g_paper[4]); s.px(x + w - 2, y + h - 1, P.poster[3]);
+    wallShadow(s, x, y, w, h);
+  }
+
+  /* the desk under the window: her red recorder, a pile of tapes, Dad's photo */
+  function desk(s, rm, t) {
+    const F = rm.by1, ty = 76;
+    shadePoly(s, rm.fq(118, 182, 0, 26), -1);
+    const c = box(s, rm, { x0: 120, x1: 180, y0: ty, y1: ty + 3, d0: 0, d1: 24 }, P.wood, { base: 3, top: 4 });
+    s.hline(c.front[0], c.front[0] + c.front[2] - 1, c.front[1], P.wood[5]);
+    // drawers on the right, legs on the left
+    const dr = box(s, rm, { x0: 160, x1: 180, y0: ty + 3, y1: F, d0: 1, d1: 23 }, P.wood, { base: 3, side: 2 });
+    const [dx, dy, dw, dh] = dr.front;
+    for (let k = 0; k < 3; k++) { const yy = rnd(dy + 1 + k * (dh - 2) / 3); panel(s, dx + 1, yy, dw - 2, rnd((dh - 2) / 3) - 1, P.wood); s.rect(dx + dw / 2 - 1, yy + 3, 3, 1, P.brass[4]); }
+    const lg = rm.pr(121, ty + 3, 23), lz = rm.pr(121, F, 23); s.rect(lg[0], lg[1], 2, lz[1] - lg[1], P.wood[2]);
+    const lg2 = rm.pr(121, ty + 3, 2), lz2 = rm.pr(121, F, 2); s.rect(lg2[0] + 1, lg2[1], 1, lz2[1] - lg2[1], P.wood[1]);
+    // the recorder: red, scuffed silver at the corners
+    const rp = rm.pr(130, ty, 12);
+    obj(s, (T) => {
+      T.rect(rp[0], rp[1] - 7, 18, 7, P.rec_red[3]); T.hline(rp[0], rp[0] + 17, rp[1] - 7, P.rec_red[5]); T.vline(rp[0], rp[1] - 7, rp[1] - 1, P.rec_red[4]);
+      T.rect(rp[0] + 2, rp[1] - 6, 8, 4, P.ink[2]); T.rect(rp[0] + 3, rp[1] - 5, 6, 2, P.metal[2]); T.px(rp[0] + 4, rp[1] - 5, P.ink[1]); T.px(rp[0] + 7, rp[1] - 5, P.ink[1]);
+      for (let k = 0; k < 4; k++) T.rect(rp[0] + 11 + k * 2, rp[1] - 7, 1, 1, P.chrome[k === 0 ? 5 : 3]);
+      T.rect(rp[0] + 11, rp[1] - 5, 6, 3, P.rec_red[2]); for (let k = 0; k < 3; k++) T.hline(rp[0] + 11, rp[0] + 16, rp[1] - 5 + k, k % 2 ? P.rec_red[1] : P.rec_red[2]);
+      T.px(rp[0], rp[1] - 7, P.chrome[4]); T.px(rp[0] + 17, rp[1] - 7, P.chrome[4]); T.px(rp[0] + 17, rp[1] - 1, P.chrome[3]);
+    }, { box: [rp[0] - 1, rp[1] - 9, 21, 10] });
+    // headphones beside it, the cord trailing
+    const hp = rm.pr(152, ty, 14);
+    s.ring(hp[0] + 0.5, hp[1] - 2.5, 3.5, 3, P.ink[2]); s.rect(hp[0] - 4, hp[1] - 3, 2, 3, P.ink[1]); s.rect(hp[0] + 3, hp[1] - 3, 2, 3, P.ink[1]);
+    s.path([[rp[0] + 18, rp[1] - 2], [hp[0] - 3, hp[1] - 1]], P.ink[3]);
+    // a pile of cassettes, labels in her tiny capitals
+    const tp = rm.pr(148, ty, 5);
+    const labels = [P.paper[5], P.mustard[4], P.white_cloth[4], P.sky_day[3], P.paper[4], P.pink[4]];
+    for (let k = 0; k < 6; k++) {
+      const yy = tp[1] - 2 - k * 2, xx = tp[0] + ((k * 3) % 4) - 2;
+      s.rect(xx, yy, 9, 2, P.ink[3]); s.rect(xx + 1, yy, 7, 1, labels[k]); s.px(xx + 3, yy + 1, P.ink[1]); s.px(xx + 6, yy + 1, P.ink[1]);
+    }
+    s.rect(tp[0] + 9, tp[1] - 3, 3, 3, P.ink[3]); s.rect(tp[0] + 9, tp[1] - 3, 3, 1, P.rec_red[4]);
+    // Dad at the mixing board, in a frame
+    const fp = rm.pr(168, ty, 4);
+    s.rect(fp[0], fp[1] - 10, 9, 10, P.chrome[3]); s.rect(fp[0] + 1, fp[1] - 9, 7, 8, P.ink[3]);
+    s.rect(fp[0] + 1, fp[1] - 4, 7, 3, P.metal[2]); for (let k = 0; k < 3; k++) s.px(fp[0] + 2 + k * 2, fp[1] - 4, P.rec_red[4]);
+    s.rect(fp[0] + 3, fp[1] - 8, 3, 3, P.skin_fair[4]); s.hline(fp[0] + 3, fp[0] + 5, fp[1] - 8, P.hair_mid[2]); s.px(fp[0] + 6, fp[1] - 7, P.yellow[4]);
+    // gooseneck lamp
+    const lp = rm.pr(124, ty, 6);
+    s.rect(lp[0] - 2, lp[1] - 2, 6, 2, P.ink[3]);
+    s.path([[lp[0] + 1, lp[1] - 2], [lp[0] + 1, lp[1] - 12], [lp[0] + 4, lp[1] - 17], [lp[0] + 8, lp[1] - 18]], P.ink[3]);
+    s.poly([[lp[0] + 6, lp[1] - 20], [lp[0] + 11, lp[1] - 19], [lp[0] + 13, lp[1] - 15], [lp[0] + 7, lp[1] - 16]], P.iron[3]);
+    // the chair, pushed in
+    const ch0 = rm.pr(132, 84, 30), ch1 = rm.pr(152, 84, 30);
+    s.rect(ch0[0], ch0[1] - 20, ch1[0] - ch0[0], 3, P.wood[3]); s.hline(ch0[0], ch1[0] - 1, ch0[1] - 20, P.wood[4]);
+    s.rect(ch0[0] + 1, ch0[1] - 17, 2, 17, P.wood[2]); s.rect(ch1[0] - 3, ch1[1] - 17, 2, 17, P.wood[1]);
+    for (let k = 1; k < 4; k++) s.vline(ch0[0] + 1 + k * ((ch1[0] - ch0[0] - 2) / 4) | 0, ch0[1] - 17, ch0[1] - 8, P.wood[2]);
+    s.rect(ch0[0] - 1, ch0[1] - 7, ch1[0] - ch0[0] + 2, 3, P.wood[3]); s.hline(ch0[0] - 1, ch1[0], ch0[1] - 7, P.wood[4]);
+    const cz = rm.pr(132, F, 34);
+    s.rect(ch0[0], ch0[1] - 4, 2, cz[1] - ch0[1] + 4, P.wood[2]); s.rect(ch1[0] - 2, ch1[1] - 4, 2, cz[1] - ch1[1] + 4, P.wood[1]);
+  }
+
+  /* nightstand and the clock radio with its red numbers */
+  function nightstand(s, rm, t) {
+    const F = rm.by1;
+    shadePoly(s, rm.fq(182, 204, 0, 18), -1);
+    const c = box(s, rm, { x0: 184, x1: 202, y0: 82, y1: F, d0: 1, d1: 16 }, P.wood, { base: 3, top: 4 });
+    const [x, y, w, h] = c.front;
+    panel(s, x + 1, y + 2, w - 2, 6, P.wood); s.rect(x + w / 2 - 1, y + 4, 2, 1, P.brass[4]);
+    s.hline(x, x + w - 1, y, P.wood[5]);
+    // the clock radio
+    const cp = rm.pr(186, 82, 6);
+    obj(s, (T) => {
+      T.rect(cp[0], cp[1] - 8, 16, 8, P.iron[2]); T.hline(cp[0], cp[0] + 15, cp[1] - 8, P.iron[4]);
+      T.rect(cp[0] + 1, cp[1] - 6, 10, 5, P.ink[0]);
+      T.rect(cp[0] + 12, cp[1] - 6, 3, 5, P.bakelite[2]); for (let k = 0; k < 3; k++) T.hline(cp[0] + 12, cp[0] + 14, cp[1] - 6 + k * 2, P.bakelite[1]);
+    }, { box: [cp[0] - 1, cp[1] - 9, 18, 10] });
+    const digits = t === 'night' ? '3:00' : t === 'dawn' ? '6:02' : '4:12';
+    // LED segments in a 3x5 font squeezed: draw '3:00' etc. 1px apart
+    let dx = cp[0] + 1;
+    for (const ch of digits) {
+      if (ch === ':') { s.px(dx, cp[1] - 5, E(P.neon[3])); s.px(dx, cp[1] - 3, E(P.neon[3])); dx += 1; continue; }
+      const rows = glyph(ch);
+      rows.forEach((row, ry) => { for (let rx = 0; rx < 3; rx++) if (row[rx] === '1' && ry % 2 === 0 || row[rx] === '1' && ry === 3 || row[rx] === '1' && ry === 1) s.px(dx + rx * 0 + (rx === 2 ? 1 : rx === 1 ? 0 : 0) + (rx > 0 ? rx - 1 : 0), cp[1] - 6 + Math.min(4, ry), E(P.neon[4])); });
+      dx += 3;
+    }
+    s.light('red', cp[0] + 6, cp[1] - 4, 9, 6, t === 'day' ? 0 : 0.6);
+    // a water glass and her Timex
+    s.rect(cp[0] + 17, cp[1] - 5, 3, 5, P.white_cloth[3]); s.px(cp[0] + 17, cp[1] - 5, P.white_cloth[5]);
+  }
+
+  /* the iron bed under the slope, the patchwork quilt */
+  function ironBed(s, rm, t) {
+    const F = rm.by1, x0 = 206, x1 = 256, d0 = 4, d1 = 84, top = 84;
+    shadePoly(s, rm.fq(x0 - 3, x1 + 2, d0, d1 + 4), -1);
+    // headboard: bars against the wall
+    const hb0 = rm.pr(x0, 58, d0), hb1 = rm.pr(x1, 58, d0), hz = rm.pr(x0, F, d0);
+    for (let x = hb0[0] + 2; x < hb1[0] - 1; x += 4) s.vline(x, hb0[1] + 2, hz[1] - 6, P.iron[2]);
+    s.rect(hb0[0], hb0[1], hb1[0] - hb0[0], 2, P.iron[3]); s.hline(hb0[0], hb1[0] - 1, hb0[1], P.iron[5]);
+    s.rect(hb0[0] - 1, hb0[1] - 2, 3, hz[1] - hb0[1] + 2, P.iron[3]); s.rect(hb1[0] - 2, hb1[1] - 2, 3, hz[1] - hb1[1] + 2, P.iron[2]);
+    s.rect(hb0[0] - 2, hb0[1] - 4, 5, 3, P.brass[4]); s.px(hb0[0] - 1, hb0[1] - 4, P.brass[5]);
+    s.rect(hb1[0] - 3, hb1[1] - 4, 5, 3, P.brass[3]);
+    // mattress and quilt: top plane, the side that faces the room
+    const quilt = (xw, d) => {
+      const i = flo((xw - x0) / 10), j = flo((d - d0) / 10), k = ((i * 7 + j * 3) % 5 + 5) % 5;
+      const fx = xw - x0 - i * 10, fd = d - d0 - j * 10;
+      if (fx < 1 || fd < 1.2) return P.cream[3];
+      return [P.quilt_b[3], P.rosebud[4], P.mustard[4], P.sage[4], P.cream[4]][k];
+    };
+    const tp = [rm.pr(x0, top, d0 + 4), rm.pr(x1, top, d0 + 4), rm.pr(x1, top, d1), rm.pr(x0, top, d1)];
+    s.poly(tp, (x, y) => { const q = rm.onFloor(x, y, top); return quilt(q[0], q[1]); });
+    // the pillow
+    const p0 = rm.pr(x0 + 4, top - 4, d0 + 4), p1 = rm.pr(x1 - 4, top - 4, d0 + 4), p2 = rm.pr(x1 - 4, top, d0 + 16), p3 = rm.pr(x0 + 4, top, d0 + 16);
+    s.poly([p0, p1, p2, p3], P.white_cloth[4]); s.line(p3[0], p3[1], p2[0], p2[1], P.white_cloth[2]); s.line(p0[0], p0[1], p1[0], p1[1], P.white_cloth[5]);
+    // the quilt hanging down the side
+    const sd = [rm.pr(x0, top, d0 + 4), rm.pr(x0, top, d1), rm.pr(x0, top + 13, d1), rm.pr(x0, top + 13, d0 + 4)];
+    s.poly(sd, (x, y) => { const q = rm.onLeft(x, y); const d = rm.D((x + 0.5 - rm.vx) / (x0 - rm.vx)); const c = quilt(x0 + 5 + ((y * 3) % 7), d); return SH(c, -1 + (fold(y, 6) < 0 ? -1 : 0)); });
+    s.line(sd[0][0], sd[0][1], sd[1][0], sd[1][1], P.cream[4]);
+    // side rail below, legs
+    const r0 = rm.pr(x0, top + 13, d0 + 4), r1 = rm.pr(x0, top + 13, d1);
+    s.line(r0[0], r0[1] + 1, r1[0], r1[1] + 1, P.iron[2]);
+    // footboard: bars, a curved top rail, brass knobs
+    const f0 = rm.pr(x0, 66, d1), f1 = rm.pr(x1, 66, d1), fz = rm.pr(x0, F, d1);
+    const fw = f1[0] - f0[0];
+    obj(s, (T) => {
+      for (let x = f0[0] + 4; x < f1[0] - 2; x += 5) { T.vline(x, f0[1] + 3, fz[1] - 8, P.iron[3]); T.vline(x + 1, f0[1] + 3, fz[1] - 8, P.iron[1]); }
+      for (let k = 0; k <= fw; k++) { const yy = f0[1] - rnd(Math.sin(k / fw * Math.PI) * 3); T.px(f0[0] + k, yy, P.iron[4]); T.px(f0[0] + k, yy + 1, P.iron[3]); T.px(f0[0] + k, yy + 2, P.iron[1]); }
+      T.rect(f0[0], fz[1] - 9, fw, 2, P.iron[3]); T.hline(f0[0], f1[0], fz[1] - 9, P.iron[4]);
+      T.rect(f0[0] - 1, f0[1] - 2, 4, fz[1] - f0[1] + 2, P.iron[3]); T.vline(f0[0] - 1, f0[1] - 2, fz[1] - 1, P.iron[5]);
+      T.rect(f1[0] - 2, f1[1] - 2, 4, fz[1] - f1[1] + 2, P.iron[2]);
+      T.ellipse(f0[0] + 1, f0[1] - 4, 3, 2.5, (x, y, nx, ny) => P.brass[nx + ny < -0.3 ? 5 : nx + ny > 0.6 ? 2 : 4]);
+      T.ellipse(f1[0], f1[1] - 4, 3, 2.5, (x, y, nx, ny) => P.brass[nx + ny < -0.3 ? 5 : nx + ny > 0.6 ? 2 : 3]);
+    }, { box: [f0[0] - 5, f0[1] - 8, fw + 10, fz[1] - f0[1] + 10] });
+  }
+
+  /* moving boxes: WINTER on BOOKS, and GUS — TAPES open by the bed */
+  function boxes(s, rm) {
+    const F = rm.by1, C = P.cardboard;
+    const crate = (x0, x1, y0, y1, d0, d1, label, open) => {
+      const c = box(s, rm, { x0, x1, y0, y1, d0, d1 }, C, { base: 3, top: 4, side: 2 });
+      const [x, y, w, h] = c.front;
+      s.hline(x, x + w - 1, y, C[5]); s.vline(x + w - 1, y, y + h - 1, C[1]);
+      s.rect(x + rnd(w / 2) - 1, y, 3, h, C[2]);   // tape
+      if (c.faces.top) { const tq = c.faces.top; s.line(rnd((tq[0][0] + tq[3][0]) / 2), rnd((tq[0][1] + tq[3][1]) / 2), rnd((tq[1][0] + tq[2][0]) / 2), rnd((tq[1][1] + tq[2][1]) / 2), C[2]); }
+      const lw = Math.max(...label.map((l) => textW(l)));
+      label.forEach((l, i) => text(s, x + rnd((w - textW(l)) / 2), y + 3 + i * 7, l, P.ink[2]));
+      if (open && c.faces.top) {
+        const tq = c.faces.top;
+        s.poly([tq[3], tq[2], [tq[2][0] + 2, tq[2][1] - 7], [tq[3][0] - 2, tq[3][1] - 6]], C[4]);
+        s.poly([tq[0], tq[1], [tq[1][0] + 1, tq[1][1] - 6], [tq[0][0] - 1, tq[0][1] - 5]], C[2]);
+      }
+      shadePoly(s, rm.fq(x0 - 1, x1 + 3, d0 - 1, d1 + 2), -1);
+      return c;
+    };
+    crate(84, 112, 82, F, 46, 70, ['BOOKS']);
+    crate(86, 110, 62, 82, 48, 68, ['WINTER']);
+    const tb = crate(178, 204, 90, F, 62, 82, ['GUS —', 'TAPES'], true);
+    // cassettes peeking out of the open box
+    if (tb.faces.top) { const tq = tb.faces.top; for (let k = 0; k < 4; k++) s.rect(tq[3][0] + 4 + k * 4, tq[3][1] - 3 + (k & 1), 3, 3, [P.ink[3], P.mustard[3], P.ink[3], P.sky_day[2]][k]); }
+  }
+
+  function rug2(s, rm) {
+    const rows = [P.sage[3], P.cream[4], P.rosebud[3], P.cream[3], P.quilt_b[3]];
+    s.poly(rm.fq(150, 204, 40, 98), (x, y) => {
+      const q = rm.onFloor(x, y), u = q[0] - 150, v = q[1] - 40;
+      if (u < 0 || u > 54 || v < 0 || v > 58) return 0;
+      if (u < 2 || u > 52) return (flo(v / 2) & 1) ? P.cream[4] : 0;
+      return SH(rows[flo(v / 4) % rows.length], (flo(u / 3) + flo(v / 2)) & 1 ? 0 : -1);
+    });
+  }
 })();

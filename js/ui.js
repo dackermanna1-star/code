@@ -362,11 +362,12 @@
     let s = { decisions: [], people: [], stats: [] };
     try { s = D.summary ? D.summary(V, E.eng) : s; } catch (e) { console.error(e); }
     const totalClues = Object.keys(D.clues || {}).length;
+    const n = (k, one, many) => (k === 1 ? one : many);
     const side = (letter, title, rows) => `<div class="jc"><h3>${esc(title)}<span>Side ${letter}</span></h3>${(rows || []).map((d, i) => `<div class="dec"><i>${letter}${i + 1}</i><b>${esc(d[0])}</b><span>${esc(d[1])}</span></div>`).join('')}</div>`;
     $('#sum-body').innerHTML =
       `<div class="tbc">To be continued</div><div class="tbcs">Episode Two · ${esc(D.nextTitle || 'coming')}</div>` +
       `<div class="sides">${side('A', 'What you did', s.decisions)}${side('B', 'Who you are to them', s.people)}</div>` +
-      `<div class="found"><span><b>${E.eng.clues.length}</b> of ${totalClues} clues</span><span><b>${E.eng.tapes.length}</b> recordings</span><span><b>${E.eng.theories.length}</b> theories</span><span><b>${Math.round(E.eng.playtime / 60)}</b> minutes in Derry</span></div>` +
+      `<div class="found"><span><b>${E.eng.clues.length}</b> of ${totalClues} clues</span><span><b>${E.eng.tapes.length}</b> ${n(E.eng.tapes.length, 'recording', 'recordings')}</span><span><b>${E.eng.theories.length}</b> ${n(E.eng.theories.length, 'theory', 'theories')}</span><span><b>${Math.round(E.eng.playtime / 60)}</b> ${n(Math.round(E.eng.playtime / 60), 'minute', 'minutes')} in Derry</span></div>` +
       `<p class="carry">Your choices are saved with your autosave and will carry into Episode Two.</p>`;
     store.set('save.auto', E.serialize());
     store.set('finished', true);

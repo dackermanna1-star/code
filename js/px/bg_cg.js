@@ -115,9 +115,9 @@
     4: '#..#/#..#/####/...#/...#/...#', 5: '####/#.../###./...#/...#/###.', 6: '.##./#.../###./#..#/#..#/.##.',
     7: '####/...#/..#./..#./.#../.#..', 8: '.##./#..#/.##./#..#/#..#/.##.', 9: '.##./#..#/#..#/.###/...#/.##.',
     '#': '.#.#./#####/.#.#./#####/.#.#.', '—': '...../...../...../#####', '-': '.../.../.../###', '/': '...#/...#/..#./.#../#.../#...',
-    '!': '#/#/#/#/./#', "'": '#/#', '.': './././././#', ',': './././././#/#', '+': '.../.../.#./###/.#.', '·': './././#',
+    '!': '#/#/#/#/./#', "'": '#/#', '.': './././././#', ',': './././././#/#', '+': '.../.#./.#./###/.#./.#.', '·': './././#',
     a: '..../..../.###/#..#/#..#/.###', e: '..../..../.##./####/#.../.###', i: '#/./#/#/#/#', l: '#/#/#/#/#/#',
-    s: '.../.../.##/##./..#/##.', u: '..../..../#..#/#..#/#..#/.###', y: '..../..../#..#/#..#/#..#/.###/...#/.##.'
+    s: '.../.../.##/#../..#/##.', u: '..../..../#..#/#..#/#..#/.###', y: '..../..../#..#/#..#/#..#/.###/...#/.##.'
   };
   /* TINY: a 3×5 print face for labels, counters, the J-card */
   const TINY = {
@@ -842,8 +842,10 @@
       }
       // dust lies thick away from where the box was dragged out
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-        const n = fbm(x, y, 41, 26), drag = Math.abs((y - 60) - (x - 230) * 0.08) < 22 && x > 150;
-        if (n > 0.56 && !drag && PX.bayer(x, y) < (n - 0.56) * 4) s.px(x, y, P.stone_warm[4]);
+        const drag = x > 150 && Math.abs((y - 64) - (x - 230) * 0.08) < 20;
+        if (drag) continue;
+        const n = fbm(x, y, 41, 30);
+        if (qd(n * 2.4, x, y, 6) >= 2) { const v = s.get(x, y); s.px(x, y, (((v & 0x7ff0) >> 4) === P.wood_pale.id) ? P.stone_warm[Math.min(5, (v & 15) + 1)] : v); }
       }
       /* the open box from behind the loose board, its lid beside it */
       box(s, rng);
@@ -855,7 +857,7 @@
       s.hline(X0, X0 + PW - 1, Y0, WC[5]); s.vline(X0, Y0, Y0 + PH - 1, WC[5]);
       s.hline(X0, X0 + PW - 1, Y0 + PH - 1, WC[2]); s.vline(X0 + PW - 1, Y0, Y0 + PH - 1, WC[3]);
       // yellowing and scuffs on the border
-      shiftIn(s, X0 + 1, Y0 + 1, X0 + PW - 2, Y0 + PH - 2, -1, (x, y) => fbm(x, y, 5, 12) > 0.66);
+      for (let y = Y0 + 1; y < Y0 + PH - 1; y++) for (let x = X0 + 1; x < X0 + PW - 1; x++) { const n = fbm(x, y, 5, 14); if (n > 0.6 && PX.bayer(x, y) < (n - 0.6) * 6) s.px(x, y, n > 0.7 ? P.paper[4] : P.paper[5]); }
       const IX = X0 + 6, IY = Y0 + 7, IS = 96;
       s.rect(IX - 1, IY - 1, IS + 2, IS + 2, WC[2]);
       s.clip([IX, IY, IS, IS], () => photo(s, IX, IY, IS));
@@ -866,8 +868,8 @@
       /* dust in the beam */
       for (const [x, y] of [[96, 40], [214, 22], [128, 118], [200, 96], [86, 88], [222, 70], [150, 6], [182, 124]]) { s.px(x, y, E(P.paper[4])); s.px(x + 1, y, P.paper[3]); }
       /* the flashlight: a warm-white pool on the photo, falling off into the dark */
-      s.light('white', 156, 66, 74, 62, 1.1, { core: 0.3 });
-      s.light('warm', 160, 70, 132, 98, 0.95);
+      s.light('white', 156, 66, 96, 92, 1.25, { core: 0.62 });
+      s.light('warm', 158, 70, 150, 112, 0.9, { core: 0.3 });
     }
   });
 
@@ -900,33 +902,41 @@
     for (let k = 0; k < 40; k++) { const gx = (k * 37) % n, gy = 77 + ((k * 11) % 18); s.px(x + gx, y + gy, F('grass')[k % 3 ? 3 : 5]); }
     s.ellipse(x + 40, y + 92, 18, 3, F('grass')[2]);
     // June: dark bob, yellow sweater, jeans, holding Gus on her left hip
-    const SK = F('skin_peach'), HR = F('hair_dark'), YL = F('yellow'), DN = F('denim');
-    R0(33, 64, 5, 24, DN[3]); R0(40, 64, 5, 24, DN[2]); s.vline(x + 33, y + 64, y + 87, DN[4]);
-    R0(32, 88, 6, 3, F('white_cloth')[4]); R0(40, 88, 6, 3, F('white_cloth')[3]);
-    s.poly([[x + 30, y + 40], [x + 48, y + 40], [x + 49, y + 66], [x + 30, y + 66]], YL[4]);
-    s.vline(x + 30, y + 41, y + 65, YL[5]); s.vline(x + 47, y + 42, y + 65, YL[3]); s.hline(x + 31, x + 47, y + 64, YL[3]);
-    R0(26, 42, 5, 20, YL[4]); s.vline(x + 26, y + 43, y + 61, YL[5]); R0(26, 61, 4, 4, SK[4]);      // her right arm at her side
-    R0(36, 36, 6, 5, SK[4]);                                                                         // neck
-    s.ellipse(x + 39, y + 28, 7.5, 9, HR[2]); R0(31, 26, 16, 10, HR[2]);                            // the bob
-    s.vline(x + 32, y + 27, y + 36, HR[3]); s.hline(x + 33, x + 44, y + 21, HR[3]);
-    s.ellipse(x + 39.5, y + 30, 5.5, 6.5, F('white_cloth')[5]);                                     // her face, burned out to white
-    R0(33, 22, 13, 4, HR[2]); s.hline(x + 34, x + 45, y + 25, HR[1]);                                // blunt bangs
-    s.px(x + 37, y + 33, SK[3]); s.px(x + 38, y + 34, SK[3]); s.px(x + 39, y + 34, SK[3]); s.px(x + 40, y + 34, SK[3]); s.px(x + 41, y + 33, SK[3]);   // what's left: the smile
-    // little Gus on her hip: messy brown hair, a scowl, a striped shirt
+    const SK = F('skin_peach'), HR = F('hair_dark'), YL = F('yellow'), DN = F('denim'), WS = F('white_cloth');
+    s.ellipse(x + 39, y + 90, 16, 3, F('grass')[2]);                                                 // her shadow on the lawn
+    s.poly([[x + 32, y + 63], [x + 39, y + 63], [x + 38.5, y + 88], [x + 33, y + 88]], DN[3]); s.vline(x + 33, y + 64, y + 87, DN[4]);
+    s.poly([[x + 39.5, y + 63], [x + 46, y + 63], [x + 45.5, y + 88], [x + 40, y + 88]], DN[2]); s.vline(x + 45, y + 64, y + 87, DN[1]);
+    R0(31, 87, 8, 3, WS[4]); R0(40, 87, 7, 3, WS[3]); s.hline(x + 31, x + 38, y + 89, WS[2]); s.hline(x + 40, x + 46, y + 89, WS[2]);
+    s.poly([[x + 31, y + 39], [x + 47, y + 39], [x + 49, y + 44], [x + 47.5, y + 64], [x + 30.5, y + 64], [x + 29, y + 44]], YL[4]);
+    s.line(x + 30, y + 42, x + 31, y + 63, YL[5]); s.line(x + 48, y + 44, x + 47, y + 63, YL[3]); s.hline(x + 31, x + 47, y + 63, YL[3]);
+    s.hline(x + 31, x + 47, y + 61, YL[3]);                                                         // ribbed hem
+    s.poly([[x + 29, y + 41], [x + 25, y + 48], [x + 25, y + 60], [x + 29, y + 60], [x + 30, y + 47]], YL[4]); s.vline(x + 25, y + 48, y + 59, YL[5]);   // her right arm, sleeve
+    R0(25, 60, 4, 3, SK[4]); s.px(x + 25, y + 62, SK[3]);                                          // hand
+    R0(36, 35, 6, 5, SK[4]); s.vline(x + 41, y + 35, y + 38, SK[3]);                               // neck
+    s.ellipse(x + 39, y + 27.5, 8, 8.5, HR[2]); R0(31, 27, 16, 8, HR[2]);                           // the bob
+    s.px(x + 31, y + 34, HR[1]); s.px(x + 46, y + 34, HR[1]); s.vline(x + 32, y + 26, y + 34, HR[3]); s.line(x + 34, y + 20, x + 38, y + 19, HR[3]);
+    s.ellipse(x + 39.5, y + 30.5, 5.5, 6, WS[5]);                                                  // her face, burned out to white
+    R0(33, 23, 13, 3, HR[2]); s.hline(x + 34, x + 45, y + 25, HR[1]);                               // blunt bangs
+    s.px(x + 37, y + 33, SK[3]); s.px(x + 38, y + 34, SK[3]); s.px(x + 39, y + 34, SK[3]); s.px(x + 40, y + 34, SK[3]); s.px(x + 41, y + 33, SK[3]);   // what's left: her smile
+    // little Gus on her hip: a messy brown bob, a scowl, a striped shirt, one shoe untied
     const GH = F('hair_brown'), NV = F('navy');
-    R0(46, 54, 4, 9, SK[3]); R0(51, 54, 4, 10, SK[4]);                                               // legs
-    R0(45, 62, 5, 3, F('white_cloth')[4]); R0(51, 63, 5, 3, F('white_cloth')[4]);                    // sneakers
-    s.line(x + 54, y + 65, x + 57, y + 70, F('white_cloth')[3]); s.line(x + 52, y + 65, x + 52, y + 69, F('white_cloth')[3]);   // the untied laces
-    R0(45, 50, 11, 5, DN[3]);                                                                        // shorts
-    R0(44, 38, 13, 13, F('white_cloth')[4]);
-    for (let yy = y + 39; yy < y + 51; yy += 3) s.hline(x + 44, x + 56, yy, NV[3]);                  // stripes
-    s.vline(x + 56, y + 38, y + 50, NV[2]);
-    s.ellipse(x + 50.5, y + 32, 5.5, 5.5, SK[4]); s.px(x + 47, y + 34, SK[3]);
-    s.ellipse(x + 50.5, y + 28.5, 6, 3.5, GH[2]); s.px(x + 45, y + 31, GH[2]); s.px(x + 56, y + 30, GH[2]); s.px(x + 53, y + 25, GH[3]);
-    s.hline(x + 48, x + 49, y + 31, GH[1]); s.hline(x + 52, x + 53, y + 31, GH[1]); s.px(x + 50, y + 32, GH[1]);   // the scowl
+    R0(46, 53, 4, 9, SK[3]); R0(51, 53, 4, 10, SK[4]); s.vline(x + 49, y + 53, y + 61, SK[2]);        // legs
+    R0(45, 61, 5, 3, WS[4]); s.hline(x + 45, x + 49, y + 63, WS[2]); R0(51, 62, 5, 3, WS[4]); s.hline(x + 51, x + 55, y + 64, WS[2]);   // sneakers
+    s.line(x + 55, y + 65, x + 57, y + 70, WS[3]); s.line(x + 53, y + 65, x + 53, y + 69, WS[3]);      // the untied laces
+    R0(45, 49, 11, 5, DN[3]); s.hline(x + 45, x + 55, y + 53, DN[2]);                                  // shorts
+    s.poly([[x + 45, y + 38], [x + 55, y + 38], [x + 57, y + 41], [x + 56, y + 50], [x + 44, y + 50]], WS[4]);
+    for (let yy = y + 40; yy < y + 50; yy += 3) s.hline(x + 44, x + 56, yy, NV[3]);                    // stripes
+    s.vline(x + 56, y + 40, y + 49, NV[2]);
+    s.line(x + 46, y + 39, x + 43, y + 42, WS[4]); s.px(x + 42, y + 42, SK[4]);                       // her arm round June's neck
+    s.ellipse(x + 50.5, y + 32, 5.5, 5.5, SK[4]); s.px(x + 46, y + 33, SK[3]); s.vline(x + 55, y + 31, y + 34, SK[3]);
+    s.ellipse(x + 50.5, y + 28, 6.5, 4, GH[2]); R0(44, 28, 3, 9, GH[2]); R0(55, 28, 3, 8, GH[2]);         // a messy bob to her jaw
+    s.px(x + 44, y + 37, GH[1]); s.px(x + 57, y + 36, GH[1]); s.px(x + 52, y + 24, GH[3]); s.px(x + 48, y + 25, GH[3]); s.px(x + 58, y + 30, GH[2]);
+    R0(46, 27, 3, 1, GH[1]); s.px(x + 54, y + 27, F('red')[4]); s.px(x + 55, y + 27, F('red')[3]);    // fringe, a red barrette
+    s.line(x + 47, y + 30, x + 49, y + 31, GH[1]); s.line(x + 54, y + 30, x + 52, y + 31, GH[1]);       // the scowl
     s.px(x + 48, y + 32, NV[1]); s.px(x + 53, y + 32, NV[1]);
     s.hline(x + 49, x + 52, y + 35, SK[2]); s.px(x + 48, y + 36, SK[2]); s.px(x + 53, y + 36, SK[2]);
-    R0(42, 46, 8, 4, YL[4]); s.hline(x + 42, x + 49, y + 49, YL[3]); R0(48, 45, 4, 4, SK[4]);         // June's arm round her
+    s.poly([[x + 46, y + 42], [x + 49, y + 46], [x + 50, y + 49], [x + 44, y + 52], [x + 40, y + 50], [x + 41, y + 46]], YL[4]);   // June's arm under her
+    s.line(x + 40, y + 50, x + 44, y + 52, YL[3]); s.line(x + 44, y + 52, x + 50, y + 49, YL[3]); R0(50, 47, 4, 3, SK[4]); s.px(x + 53, y + 49, SK[3]);
     // the fade: a light leak from the corner, a darker rim, the bloom round June's face
     shiftIn(s, x + n - 30, y, x + n - 1, y + 30, 1, (px, py) => (px - x - n) ** 2 + (py - y) ** 2 < 900, 0.6);
     shiftIn(s, x + n - 19, y, x + n - 1, y + 19, 1, (px, py) => (px - x - n) ** 2 + (py - y) ** 2 < 330, 0.5);
