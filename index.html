@@ -75,15 +75,17 @@ button { font: inherit; color: inherit; }
 /* sprites */
 #sprites { pointer-events: none; }
 .sprite { position: absolute; bottom: -9%; height: 98%; aspect-ratio: 600 / 900; transform: translateX(-50%) translateY(2%); opacity: 0;
-  transition: opacity .45s ease, transform .5s ease, left .6s ease, filter .35s ease; filter: url(#spriteLight) brightness(.78); will-change: opacity, transform; }
+  transition: opacity .45s ease, transform .5s ease, left .6s ease; will-change: opacity, transform; }
 .sprite.on { opacity: 1; transform: translateX(-50%) translateY(0); }
-.sprite.speaking { filter: url(#spriteLight) brightness(1); z-index: 2; }
-.sprite svg { width: 100%; height: 100%; display: block; }
+.sprite.speaking { z-index: 2; }
+.sprite .sp { width: 100%; height: 100%; transform-origin: 50% 100%; will-change: transform; }
+.sprite svg { width: 100%; height: 100%; display: block; filter: url(#spriteLight) brightness(.8); }
+.sprite.speaking svg { filter: url(#spriteLight) brightness(1); }
 .sprite .eyes-closed { opacity: 0; animation: blinkC var(--blink, 5.2s) infinite; animation-delay: var(--bd, 0s); }
 .sprite .eyes-open { animation: blinkO var(--blink, 5.2s) infinite; animation-delay: var(--bd, 0s); }
 @keyframes blinkC { 0%, 95.5% { opacity: 0 } 96%, 98.5% { opacity: 1 } 99%, 100% { opacity: 0 } }
 @keyframes blinkO { 0%, 95.5% { opacity: 1 } 96%, 98.5% { opacity: 0 } 99%, 100% { opacity: 1 } }
-.sprite.breathe svg { animation: breathe 5s ease-in-out infinite; transform-origin: 50% 100%; }
+.sprite.breathe .sp { animation: breathe 5s ease-in-out infinite; }
 @keyframes breathe { 0%,100% { transform: scaleY(1) } 50% { transform: scaleY(1.006) } }
 
 #cg { opacity: 0; transition: opacity 1.2s ease; pointer-events: none; }

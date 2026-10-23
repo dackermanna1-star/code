@@ -134,7 +134,7 @@
   const spriteEls = {};
   function renderSprite(el, id, expr, outfit) {
     const svg = window.KIT && KIT.renderChar(id, expr, outfit);
-    el.innerHTML = svg || '';
+    el.innerHTML = '<div class="sp">' + (svg || '') + '</div>';
     el.dataset.expr = expr;
   }
   E.show = function (id, expr, pos, outfit) {

@@ -166,7 +166,7 @@
         }
       }
       // October at the edge of the woods: a few birches and a maple, colour muted by rain
-      for (const [x, z, kind] of [[5.4, 15, 'birch'], [5.9, 23, 'birch'], [5.2, 47, 'maple'], [-9.4, 19, 'maple'], [-9.0, 34, 'birch'], [-9.8, 62, 'maple']]) things.push({ kind, x, z, h: kind === 'birch' ? 11 : 9 });
+      for (const [x, z, kind] of [[5.5, 17, 'birch'], [6.1, 26, 'birch'], [5.6, 52, 'maple'], [-9.8, 30, 'maple'], [-9.2, 40, 'birch'], [-10.2, 68, 'maple']]) things.push({ kind, x, z, h: kind === 'birch' ? 11 : 8 });
       // telephone poles marching along the left shoulder
       const poles = [];
       for (let z = 9; z < 420; z += 31) poles.push(z);
@@ -180,9 +180,9 @@
           const tw = Math.max(1.5, 0.22 * pk), bark = K.mix('#c9c2b0', fogC, 0.25 + k * 0.6);
           s += rect(sx - tw / 2, sy - hp, tw, hp, bark);
           for (let i = 0; i < 7; i++) s += rect(sx - tw / 2, sy - hp * (0.1 + rng() * 0.8), tw * (0.4 + rng() * 0.6), Math.max(1, pk * 0.05), '#2a2a2a', { opacity: 0.6 });
-          for (let i = 0; i < 9; i++) { const a = rng() * 6.28, d = rng(); s += K.path(K.blob(rng, sx + Math.cos(a) * d * hp * 0.16, sy - hp * (0.72 + Math.sin(a) * d * 0.18), hp * (0.05 + rng() * 0.05), hp * (0.04 + rng() * 0.03), { lobes: 5, jag: 0.3 }), K.mix(rng() < 0.6 ? '#b8963e' : '#8a7a3a', fogC, 0.3 + k * 0.5)); }
+          for (let i = 0; i < 8; i++) { const a = rng() * 6.28, d = rng(); s += K.path(K.blob(rng, sx + Math.cos(a) * d * hp * 0.1, sy - hp * (0.8 + Math.sin(a) * d * 0.12), hp * (0.03 + rng() * 0.035), hp * (0.025 + rng() * 0.02), { lobes: 5, jag: 0.3 }), K.mix(rng() < 0.6 ? '#7d6a34' : '#5e5430', fogC, 0.35 + k * 0.5)); }
         } else if (tr.kind === 'maple') {
-          s += K.tree(rng, { x: sx, base: sy, h: hp, w: hp * 0.7, colors: [K.mix('#9a4a2c', fogC, 0.3 + k * 0.5), K.mix('#5a2e22', fogC, 0.25 + k * 0.5), K.mix('#b8703a', fogC, 0.3 + k * 0.5)], trunk: K.mix('#2a2420', fogC, k) });
+          s += K.tree(rng, { x: sx, base: sy, h: hp, w: hp * 0.62, colors: [K.mix('#64342a', fogC, 0.35 + k * 0.5), K.mix('#3a221e', fogC, 0.3 + k * 0.5), K.mix('#7a4a30', fogC, 0.35 + k * 0.5)], trunk: K.mix('#201c1a', fogC, k) });
         } else if (tr.kind === 'pole') {
           const ph = 9.5 * pk, c = K.mix('#1c1a18', fogC, k * 0.9);
           s += rect(sx - Math.max(1, 0.13 * pk), sy - ph, Math.max(2, 0.26 * pk), ph, c) + rect(sx - 1.1 * pk, sy - ph + 0.5 * pk, 2.2 * pk, Math.max(1.2, 0.14 * pk), c);
@@ -213,6 +213,22 @@
       // edge line (solid white) and centre line (dashed yellow)
       s += poly(p.wy(0, 1.36, 1.5, 2.5, 1200), '#c9ccc8', { opacity: 0.75 });
       for (let z = 3; z < 320; z += 12) s += poly(p.wy(0, -2.24, -2.1, z, z + 3), '#d8b25a', { opacity: 0.85 });
+
+      /* --- the shoulders: dead grass and reflector posts --- */
+      {
+        let d = '';
+        for (let i = 0; i < 90; i++) {
+          const side = rng() < 0.62 ? 1 : -1, z = 4 + Math.pow(rng(), 1.6) * 70, x = side > 0 ? 2.8 + rng() * 3.2 : -7.2 - rng() * 3.5;
+          const [gx, gy] = p(x, 0, z), k = p.k(z), hgt = (0.3 + rng() * 0.5) * k;
+          d += `M${n(gx)},${n(gy)} q${n((rng() - 0.5) * hgt * 0.4)},${n(-hgt * 0.6)} ${n((rng() - 0.3) * hgt * 0.5)},${n(-hgt)} `;
+        }
+        s += K.path(d, 'none', { stroke: '#6a6450', strokeWidth: 1.3, opacity: 0.55 });
+        for (let z = 18; z < 260; z += 24) {
+          const [dx, dy] = p(2.4, 0, z), k = p.k(z);
+          s += rect(dx - 0.05 * k, dy - 1.1 * k, Math.max(1.2, 0.1 * k), 1.1 * k, '#b9bcb8', { opacity: 0.8 });
+          if (z < 60) s += rect(dx - 0.05 * k, dy - 1.0 * k, Math.max(1.2, 0.1 * k), 0.16 * k, '#fff2c0');
+        }
+      }
 
       /* --- our headlights on the wet road --- */
       const hl = '#efe6cf';
@@ -257,6 +273,11 @@
         s += K.path(`M${n(ax)},${n(ay + 12)} Q${n(ax + W / 2)},${n(ay - 26)} ${n(bx)},${n(ay + 12)} L${n(bx)},${n(by)} L${n(ax)},${n(by)} Z`, board);
         for (let i = 1; i < 6; i++) s += rect(ax, ay + 12 + ((H - 12) * i) / 6, W, 1.6, boardS, { opacity: 0.55 });
         for (let i = 0; i < 9; i++) { const yy = ay + 20 + rng() * (H - 26), xx = ax + rng() * W * 0.8; s += rect(xx, yy, 20 + rng() * 60, 1, '#3a2a1f', { opacity: 0.35 }); }
+        // weathering: water streaks, lichen, a split plank, a chipped corner of raw wood
+        for (let i = 0; i < 14; i++) { const xx = ax + 6 + rng() * (W - 12), y0 = ay + 8 + rng() * 20; s += rect(xx, y0, 1.5 + rng() * 2.5, 20 + rng() * (H * 0.6), '#24190f', { opacity: 0.16 + rng() * 0.14 }); }
+        for (let i = 0; i < 10; i++) { const xx = ax + (rng() < 0.5 ? rng() * W * 0.25 : W * (0.75 + rng() * 0.25)), yy = by - 4 - rng() * H * 0.3; s += K.circle(xx, yy, 1.5 + rng() * 3.5, '#8c8a6c', { opacity: 0.45 }); }
+        s += K.path(`M${n(ax + W * 0.62)},${n(ay + H * 0.32)} l${n(W * 0.08)},${n(3)} l${n(W * 0.1)},${n(-2)} l${n(W * 0.12)},${n(4)}`, 'none', { stroke: '#1e150e', strokeWidth: 1.4, opacity: 0.7 });
+        s += K.path(`M${n(ax - 8)},${n(by + 6)} L${n(ax - 8)},${n(by - 22)} L${n(ax + 4)},${n(by - 14)} L${n(ax + 10)},${n(by - 4)} L${n(ax + 22)},${n(by + 6)} Z`, '#a88a62');
         // routed border
         s += K.path(`M${n(ax + 8)},${n(ay + 18)} Q${n(ax + W / 2)},${n(ay - 14)} ${n(bx - 8)},${n(ay + 18)} L${n(bx - 8)},${n(by - 8)} L${n(ax + 8)},${n(by - 8)} Z`, 'none', { stroke: '#e3d6b4', strokeWidth: 2.4, opacity: 0.8 });
         // lettering
@@ -264,18 +285,18 @@
         s += txt(cx, ay + H * 0.43, 'DERRY', { size: H * 0.34, fill: cream, font: FONT.serif, len: W * 0.62, ls: 2 });
         s += txt(cx, ay + H * 0.58, 'Welcome Home', { size: H * 0.13, fill: cream, font: FONT.serif, italic: true, len: W * 0.42 });
         // graffiti: crossed-out warning, and the answer under it in a different paint
-        const g1 = 'LEAVE WHILE YOU CAN', gh1 = H * 0.095, gw1 = Math.min(W * 0.86, sprayWidth(H * 0.095, g1));
+        const g1 = 'LEAVE WHILE YOU CAN', gh1 = H * 0.096, gw1 = sprayWidth(H * 0.096, g1);
         const g1x = cx - gw1 / 2, g1y = ay + H * 0.74;
-        s += spray(rng, g1x, g1y, gh1, g1, { color: '#f4f1ea', w: 0.17, slant: 0.06 });
-        s += K.path(`M${n(g1x - 10)},${n(g1y - gh1 * 0.35)} C${n(g1x + gw1 * 0.3)},${n(g1y - gh1 * 0.9)} ${n(g1x + gw1 * 0.7)},${n(g1y + gh1 * 0.1)} ${n(g1x + gw1 + 12)},${n(g1y - gh1 * 0.55)}`, 'none', { stroke: '#151313', strokeWidth: 4.5, strokeLinecap: 'round', opacity: 0.92 });
-        s += K.path(`M${n(g1x - 4)},${n(g1y - gh1 * 0.05)} L${n(g1x + gw1 + 6)},${n(g1y - gh1 * 0.85)}`, 'none', { stroke: '#151313', strokeWidth: 3.5, strokeLinecap: 'round', opacity: 0.85 });
+        s += spray(rng, g1x, g1y, gh1, g1, { color: '#ece8de', w: 0.17, slant: 0.06, op: 0.88 });
+        s += K.path(`M${n(g1x - 10)},${n(g1y - gh1 * 0.42)} C${n(g1x + gw1 * 0.3)},${n(g1y - gh1 * 0.85)} ${n(g1x + gw1 * 0.7)},${n(g1y - gh1 * 0.05)} ${n(g1x + gw1 + 12)},${n(g1y - gh1 * 0.55)}`, 'none', { stroke: '#0e0c0c', strokeWidth: 5.5, strokeLinecap: 'round', opacity: 0.94 });
+        s += K.path(`M${n(g1x - 4)},${n(g1y + gh1 * 0.05)} L${n(g1x + gw1 + 6)},${n(g1y - gh1 * 0.95)}`, 'none', { stroke: '#0e0c0c', strokeWidth: 4.2, strokeLinecap: 'round', opacity: 0.9 });
         const g2 = "YOU CAN'T", gh2 = H * 0.15, gw2 = sprayWidth(gh2, g2);
-        s += spray(rng, cx - gw2 / 2 + 8, ay + H * 0.945, gh2, g2, { color: '#b3261d', w: 0.2, drips: 0.8, slant: -0.05, op: 0.95 });
+        s += spray(rng, cx - gw2 / 2 + 8, ay + H * 0.945, gh2, g2, { color: '#c0281e', w: 0.23, drips: 0.8, slant: -0.05, op: 1 });
         // headlight wash: hot at the lower left, falling off up and right
         const wash = o.id('wash');
         s += K.defs(K.linear(wash, [[0, '#fff2d2', 0.62], [0.5, '#fff2d2', 0.2], [1, '#fff2d2', 0.02]], 0, 1, 1, 0));
         s += `<g style="${screen}">` + K.path(`M${n(ax - 8)},${n(ay + 10)} Q${n(ax + W / 2)},${n(ay - 36)} ${n(bx + 8)},${n(ay + 10)} L${n(bx + 8)},${n(by + 6)} L${n(ax - 8)},${n(by + 6)} Z`, `url(#${wash})`) + '</g>';
-        s += `<g style="${screen}">` + K.pool(o, ax + W * 0.35, gy - 6, W * 0.9, 34, '#fff2d2', 0.25, 'signfoot') + K.glow(o, ax + W * 0.3, ay + H * 0.6, W * 0.9, '#fff2d2', 0.12, 'signhalo') + '</g>';
+        s += `<g style="${screen}">` + K.pool(o, ax + W * 0.35, gy - 6, W * 0.9, 34, '#fff2d2', 0.25, 'signfoot') + K.glow(o, ax + W * 0.3, ay + H * 0.6, W * 0.9, '#fff2d2', 0.12, 'signhalo') + K.pool(o, ax + W * 0.28, ay + H * 0.78, W * 0.45, H * 0.4, '#fff6e0', 0.22, 'hot') + '</g>';
       }
 
       /* --- the oncoming car, far ahead: two lights and their long wet reflections --- */
@@ -351,8 +372,8 @@
       const fx = 612, fy = 196;
       s += K.path(`M600,122 Q604,150 ${fx},${fy - 6}`, 'none', { stroke: '#d8d2c2', strokeWidth: 1.4 });
       const tree = (x, y, sc, c) => `M${n(x)},${n(y)} l${n(9 * sc)},${n(14 * sc)} l${n(-4 * sc)},0 l${n(13 * sc)},${n(17 * sc)} l${n(-5 * sc)},0 l${n(16 * sc)},${n(21 * sc)} l${n(-23 * sc)},0 l0,${n(9 * sc)} l${n(-6 * sc)},0 l0,${n(-9 * sc)} l${n(-23 * sc)},0 l${n(16 * sc)},${n(-21 * sc)} l${n(-5 * sc)},0 l${n(13 * sc)},${n(-17 * sc)} l${n(-4 * sc)},0 Z`;
-      s += `<g transform="rotate(-7 ${fx} ${fy})">` + K.path(tree(fx + 2, fy - 4, 1.18, 0), '#0f1512', { opacity: 0.4 }) + K.path(tree(fx, fy - 6, 1.18, 0), '#3f6a4c') +
-        K.path(`M${fx},${fy - 6} l${n(10.6)},${n(16.5)} l-4.7,0 l15.3,20 l-5.9,0 l18.9,24.8 l-34.2,0 Z`, '#2c4c37') + rect(fx - 9, fy + 32, 18, 7, '#e8dcc0', { opacity: 0.85 }) + '</g>';
+      s += `<g transform="rotate(-7 ${fx} ${fy})">` + K.path(tree(fx + 2, fy - 4, 1.18, 0), '#0f1512', { opacity: 0.4 }) + K.path(tree(fx, fy - 6, 1.18, 0), '#3d5a48') +
+        K.path(`M${fx},${fy - 6} l${n(10.6)},${n(16.5)} l-4.7,0 l15.3,20 l-5.9,0 l18.9,24.8 l-34.2,0 Z`, '#2a4234') + rect(fx - 9, fy + 32, 18, 7, '#e8dcc0', { opacity: 0.85 }) + '</g>';
 
       // wipers at rest along the cowl
       s += K.path('M150,662 L708,640', 'none', { stroke: '#101012', strokeWidth: 7, strokeLinecap: 'round' });
@@ -510,6 +531,20 @@
       for (let z = 8; z < 50; z += 6.5) s += poly(p.wy(0, cL, cL + 2.1, z, z + 0.12), L('#d8d4c8'), { opacity: 0.7 }) + poly(p.wy(0, cR - 2.1, cR, z, z + 0.12), L('#d8d4c8'), { opacity: 0.7 });
       for (let x = cL + 0.4; x < cR - 0.4; x += 1.1) s += poly(p.wy(0, x, x + 0.55, 3.0, 6.0), L('#dedad0'), { opacity: 0.85 });
       { const [mx, my] = p(1.4, 0, 13), k = p.k(13); s += K.ellipse(mx, my, 0.36 * k, 0.36 * k * 1.6 / 13, S('#3a3c42')) + K.ellipse(mx, my, 0.28 * k, 0.28 * k * 1.6 / 13, 'none', { stroke: L('#6a6c70'), strokeWidth: 1 }); }
+      // tar-sealed frost cracks, storm drains, leaves banked in the gutters
+      {
+        let d = '';
+        for (let i = 0; i < 9; i++) {
+          let x = cL + 1 + rng() * (cR - cL - 2), z = 4 + rng() * 30;
+          const pts = [p(x, 0.001, z)];
+          for (let j = 0; j < 6; j++) { x += (rng() - 0.5) * 1.2; z += 0.4 + rng() * 1.2; pts.push(p(x, 0.001, z)); }
+          d += 'M' + pts.map((q) => n(q[0]) + ',' + n(q[1])).join(' L') + ' ';
+        }
+        s += K.path(d, 'none', { stroke: night ? '#0c0f16' : K.adj(road, -0.35), strokeWidth: 1.6, opacity: 0.7, strokeLinejoin: 'round' });
+        for (const [x, z] of [[cL + 0.15, 12], [cR - 0.75, 18], [cL + 0.15, 31]]) s += poly(p.wy(0.002, x, x + 0.6, z, z + 0.9), K.adj(road, -0.45)) + poly(p.wy(0.003, x + 0.1, x + 0.5, z + 0.15, z + 0.75), K.adj(road, -0.2), { opacity: 0.6 });
+        s += K.leaves(rng, { count: 30, x0: 200, x1: 700, y0: 500, y1: 560, colors: [L(P.rust), L(P.ember), L(P.mustard), S(P.rust)], size: 4 });
+        s += K.leaves(rng, { count: 26, x0: 1080, x1: 1500, y0: 500, y1: 580, colors: [L(P.rust), L(P.ember), L(P.mustard), S(P.rust)], size: 4 });
+      }
       // a darker wet-look band along the gutters
       s += poly(p.wy(0.002, cL, cL + 0.6, 2.2, 51), '#141822', { opacity: 0.25 }) + poly(p.wy(0.002, cR - 0.6, cR, 2.2, 51), '#141822', { opacity: 0.25 });
 
@@ -1005,6 +1040,8 @@
       const post = (x, z) => { const a = p(x, 0, z), b = p(x, 2.35, z); return K.line(a[0], a[1], b[0], b[1], L('#3e3026'), Math.max(1.2, p.k(z) * 0.07)); };
       r += post(xo, z1) + post(xi, z1);
       r += box(p, x0, x1, 0, 0.98, z0, z1, { top: L('#e2d6bc'), l: L('#a88a62'), r: S('#a88a62'), front: L('#b89a70') });
+      for (let i = 0; i < 5; i++) { const xa = x0 + ((x1 - x0) * i) / 5, xb = x0 + ((x1 - x0) * (i + 1)) / 5; r += poly(p.wz(z0 - 0.01, xa, xb, 0.12, 0.9), L(i % 2 ? c2 : '#e9e1cf')); }
+      r += poly(p.wz(z0 - 0.012, x0, x1, 0.82, 0.98), L('#8a6440'));
       for (let i = 0; i < 8; i++) { const za = z0 + ((z1 - z0) * i) / 8, zb = z0 + ((z1 - z0) * (i + 1)) / 8; r += poly(p.wx(xi, za, zb, 0.12, 0.9), F(i % 2 ? c2 : '#e9e1cf')); }
       for (let i = 0; i < 5; i++) { const zz = z0 + 0.35 + (i * (z1 - z0 - 0.7)) / 4, q = p(xi + (side < 0 ? -0.25 : 0.25), 1.07, zz), kk = p.k(zz); r += K.ellipse(q[0], q[1], 0.13 * kk, 0.1 * kk, L(rng.pick([P.ember, P.mustard, P.rust, '#e9e1cf', '#7a4a2a']))); }
       r += post(xo, z0) + post(xi, z0);
@@ -1125,7 +1162,7 @@
       s += poly(F(-24, -10.4, 7.6, 8.2), L('#d9ccb0'));
       for (const x of [-21.6, -18.4, -15.2, -12.4]) { const lit = x === -15.2; s += poly(F(x, x + 1.1, 4.9, 6.8), lit ? '#f7cf86' : L('#2a3348')); s += poly(F(x - 0.08, x + 1.18, 4.78, 4.9), L('#d9ccb0')); if (lit) s += poly(F(x, x + 1.1, 6.2, 6.8), '#d9a860'); }
       s += poly(F(-24, -10.6, 3.45, 4.35), L('#e9e1cf'));
-      { const a = p(-17.5, 3.62, D), b = p(-11.2, 3.62, D); s += txt((a[0] + b[0]) / 2, a[1], 'HARDWARE', { size: 0.62 * p.k(D) / 0.72, fill: L('#8c2a22'), weight: 700, len: b[0] - a[0] }); }
+      { const a = p(-18.6, 3.62, D), b = p(-12.5, 3.62, D); s += txt((a[0] + b[0]) / 2, a[1], 'HARDWARE', { size: 0.62 * p.k(D) / 0.72, fill: L('#8c2a22'), weight: 700, len: b[0] - a[0] }); }
       s += poly(F(-24, -10.6, 0, 3.4), L('#3e3a34')) + poly(F(-23, -11.2, 0.5, 2.85), L('#2a3242'));
       for (let i = 0; i < 12; i++) { const x0 = -24 + i * 1.12; s += poly([p(x0, 3.3, D), p(x0 + 1.12, 3.3, D), p(x0 + 1.12, 2.55, D - 1.4), p(x0, 2.55, D - 1.4)], L(i % 2 ? '#e9e1cf' : '#a8382c')); }
       s += poly(F(-24, -10.6, 2.32, 2.55, D - 1.4), L('#a8382c'));
@@ -1315,7 +1352,7 @@
         return r + '</g>';
       };
       s += reflect(mx0 + 0.4, mx1 - 0.4, my0, my1, mzF, '#ffe2a6', 0.5, 14) + reflect(-0.7, 0.7, 5.7, 11.75, D - 1, '#ff6a50', 0.55, 4) + reflect(-5.8, 5.8, 0.2, 2.7, D, '#ffcf86', 0.35, 6);
-      for (const x of [-10.8, 10.4]) s += reflect(x - 0.3, x + 0.3, 3.8, 4.3, walkZ0 + 0.5, P.sodium, 0.45, 2);
+      for (const x of [-9.2, 10.4]) s += reflect(x - 0.3, x + 0.3, 3.8, 4.3, walkZ0 + 0.5, P.sodium, 0.45, 2);
       // ripples breaking the reflections
       { let d = ''; for (let i = 0; i < 16; i++) { const y = ga + 10 + rng() * 300, x = 300 + rng() * 1000; d += `M${n(x)},${n(y)} h${n(60 + rng() * 220)} `; } s += K.path(d, 'none', { stroke: '#0b0f18', strokeWidth: 2, opacity: 0.5 }); }
       // puddles holding the lights
@@ -1341,7 +1378,7 @@
       }
 
       /* street lamps either side, people waiting in line */
-      for (const x of [-10.8, 10.4]) {
+      for (const x of [-9.2, 10.4]) {
         const z = walkZ0 + 0.5, [bx, by] = p(x, 0.15, z), k = p.k(z), iron = '#12151c';
         s += rect(bx - 0.13 * k, by - 0.5 * k, 0.26 * k, 0.5 * k, iron) + rect(bx - 0.06 * k, by - 3.7 * k, 0.12 * k, 3.3 * k, iron);
         const gy = by - 4.05 * k, gr = 0.24 * k;
@@ -1570,7 +1607,9 @@
         r += K.path(d, 'none', { stroke: S(teal), strokeWidth: 1.4, opacity: 0.8 }) + rect(bx0, by0, bx1 - bx0, 4, L('#e9e1cf'), { opacity: 0.8 });
         return r;
       };
-      for (const z0 of [5.45, 3.7, 1.95]) s += booth(z0);
+      for (const z0 of [5.45, 3.7, 1.95]) {
+        s += booth(z0);
+      }
 
       /* ---------- the counter: steel front, pink formica top ---------- */
       const cx0 = 1.0, cx1 = 1.68, cz0 = 1.2, cz1 = 6.2, ch = 1.04;
@@ -1614,8 +1653,8 @@
       }
 
       /* ---------- pendant lights over the counter ---------- */
-      for (const z of [2.6, 3.9, 5.2, 6.5]) {
-        const [x0, y0] = p(1.34, YC, z), [x1, y1] = p(1.34, 2.38, z), k = p.k(z);
+      for (const z of [2.4, 3.6, 4.8]) {
+        const [x0, y0] = p(1.34, YC, z), [x1, y1] = p(1.34, 2.5, z), k = p.k(z);
         s += K.line(x0, y0, x1, y1, '#2a2a2e', 1.2);
         s += K.path(`M${n(x1 - 0.17 * k)},${n(y1 + 0.17 * k)} Q${n(x1 - 0.15 * k)},${n(y1)} ${n(x1)},${n(y1)} Q${n(x1 + 0.15 * k)},${n(y1)} ${n(x1 + 0.17 * k)},${n(y1 + 0.17 * k)} Z`, L(red));
         s += K.ellipse(x1, y1 + 0.17 * k, 0.17 * k, 0.03 * k, '#fff3d0');

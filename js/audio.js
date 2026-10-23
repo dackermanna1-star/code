@@ -639,10 +639,11 @@
   }
 
   /* Karplus-Strong pluck, rendered once per pitch into a buffer (no per-sample processing at runtime) */
-  var ksCache = {};
+  var ksCache = {}, ksCount = 0;
   function ksBuf(m, kind) {
     var key = kind + m;
     if (ksCache[key]) return ksCache[key];
+    if (++ksCount > 64) { ksCache = {}; ksCount = 1; }      // keep memory bounded
     var sr = Math.max(22050, Math.round(ctx.sampleRate / 2)), f = mtof(m);
     var N = Math.max(2, Math.floor(sr / f - 0.5)), fr = sr / (N + 0.5);
     var bass = kind === 'bass', secs = bass ? 1.7 : 2.6, len = Math.floor(sr * secs);

@@ -288,6 +288,48 @@
     return s;
   };
 
+  /* An oil portrait of a dead Ashgrove, drawn at (x,y,w,h) in local units.
+   * kind: patriarch | man | elder | woman. frame=false paints the canvas only. */
+  const ashPortrait = (L, S, x, y, w, h, kind, rng, frame = true) => {
+    const gilt = L('#a8843a'), giltS = S('#a8843a');
+    let p = '';
+    let ix = x, iy = y, iw = w, ih = h;
+    if (frame) {
+      p += K.rect(x, y, w, h, giltS) + K.rect(x + w * 0.035, y + h * 0.03, w * 0.93, h * 0.94, gilt) + K.rect(x + w * 0.08, y + h * 0.065, w * 0.84, h * 0.87, giltS);
+      ix = x + w * 0.1; iy = y + h * 0.08; iw = w * 0.8; ih = h * 0.84;
+    }
+    const cx = ix + iw * 0.5;
+    p += K.rect(ix, iy, iw, ih, L('#221c16')) + K.rect(ix, iy, iw * 0.55, ih * 0.7, L('#3a3022'), { opacity: 0.55 });
+    const skin = L('#b88a66'), skinS = S('#b88a66'), dark = L('#16120e');
+    const hr = iw * 0.16, hy = iy + ih * 0.33;
+    // coat and collar
+    p += K.path(`M${ix + iw * 0.06},${iy + ih} Q${ix + iw * 0.1},${iy + ih * 0.6} ${cx},${iy + ih * 0.56} Q${ix + iw * 0.9},${iy + ih * 0.6} ${ix + iw * 0.94},${iy + ih} Z`, L('#121010'));
+    p += K.path(`M${cx + iw * 0.05},${iy + ih * 0.57} Q${ix + iw * 0.9},${iy + ih * 0.6} ${ix + iw * 0.94},${iy + ih} L${cx + iw * 0.12},${iy + ih} Z`, '#000', { opacity: 0.25 });
+    if (kind === 'woman') p += K.path(`M${cx - hr * 0.9},${iy + ih * 0.56} Q${cx},${iy + ih * 0.66} ${cx + hr * 0.9},${iy + ih * 0.56} L${cx + hr * 0.5},${iy + ih * 0.53} Q${cx},${iy + ih * 0.58} ${cx - hr * 0.5},${iy + ih * 0.53} Z`, L('#d8d0c0')) + K.circle(cx, iy + ih * 0.62, hr * 0.12, L('#b8903e'));
+    else p += K.path(`M${cx - hr * 0.7},${iy + ih * 0.54} L${cx - hr * 0.15},${iy + ih * 0.64} L${cx + hr * 0.15},${iy + ih * 0.64} L${cx + hr * 0.7},${iy + ih * 0.54} Z`, L('#ddd4c4')) + K.rect(cx - hr * 0.16, iy + ih * 0.58, hr * 0.32, ih * 0.04, dark);
+    // neck, face with its shadow side
+    p += K.rect(cx - hr * 0.42, hy + hr * 0.7, hr * 0.84, hr * 0.8, skinS);
+    p += K.ellipse(cx, hy, hr * 0.78, hr * 1.02, skin);
+    p += K.path(`M${cx + hr * 0.12},${hy - hr * 1.0} Q${cx + hr * 0.95},${hy - hr * 0.2} ${cx + hr * 0.3},${hy + hr * 1.0} Q${cx + hr * 0.5},${hy} ${cx + hr * 0.12},${hy - hr * 1.0} Z`, skinS);
+    // hair
+    const hairC = kind === 'elder' ? L('#b8b2a6') : kind === 'patriarch' ? L('#5a5048') : L('#241a14');
+    if (kind === 'woman') p += K.path(`M${cx - hr * 0.86},${hy - hr * 0.05} Q${cx - hr * 0.95},${hy - hr * 1.25} ${cx},${hy - hr * 1.18} Q${cx + hr * 0.95},${hy - hr * 1.25} ${cx + hr * 0.86},${hy - hr * 0.05} Q${cx + hr * 0.6},${hy - hr * 0.75} ${cx},${hy - hr * 0.7} Q${cx - hr * 0.6},${hy - hr * 0.75} ${cx - hr * 0.86},${hy - hr * 0.05} Z`, hairC) + K.ellipse(cx, hy - hr * 1.12, hr * 0.42, hr * 0.26, hairC);
+    else p += K.path(`M${cx - hr * 0.8},${hy - hr * 0.35} Q${cx - hr * 0.7},${hy - hr * 1.22} ${cx + hr * 0.1},${hy - hr * 1.14} Q${cx + hr * 0.82},${hy - hr * 1.02} ${cx + hr * 0.8},${hy - hr * 0.4} Q${cx + hr * 0.3},${hy - hr * 0.86} ${cx - hr * 0.8},${hy - hr * 0.35} Z`, hairC);
+    // whiskers
+    if (kind === 'patriarch' || kind === 'elder') {
+      const bc = kind === 'elder' ? L('#d0cabe') : L('#6a6058');
+      p += K.path(`M${cx - hr * 0.78},${hy - hr * 0.05} Q${cx - hr * 0.86},${hy + hr * 1.1} ${cx},${hy + hr * 1.45} Q${cx + hr * 0.86},${hy + hr * 1.1} ${cx + hr * 0.78},${hy - hr * 0.05} L${cx + hr * 0.62},${hy + hr * 0.35} Q${cx + hr * 0.3},${hy + hr * 0.62} ${cx},${hy + hr * 0.58} Q${cx - hr * 0.3},${hy + hr * 0.62} ${cx - hr * 0.62},${hy + hr * 0.35} Z`, bc);
+      p += K.path(`M${cx - hr * 0.42},${hy + hr * 0.42} Q${cx},${hy + hr * 0.3} ${cx + hr * 0.42},${hy + hr * 0.42} Q${cx},${hy + hr * 0.52} ${cx - hr * 0.42},${hy + hr * 0.42} Z`, bc);
+    }
+    // stern features: brows pressed down, hard eyes, a flat mouth
+    p += K.path(`M${cx - hr * 0.58},${hy - hr * 0.36} L${cx - hr * 0.12},${hy - hr * 0.24} L${cx - hr * 0.12},${hy - hr * 0.16} L${cx - hr * 0.58},${hy - hr * 0.26} Z`, dark) + K.path(`M${cx + hr * 0.58},${hy - hr * 0.36} L${cx + hr * 0.12},${hy - hr * 0.24} L${cx + hr * 0.12},${hy - hr * 0.16} L${cx + hr * 0.58},${hy - hr * 0.26} Z`, dark);
+    p += K.ellipse(cx - hr * 0.33, hy - hr * 0.06, hr * 0.13, hr * 0.07, dark) + K.ellipse(cx + hr * 0.33, hy - hr * 0.06, hr * 0.13, hr * 0.07, dark);
+    p += K.path(`M${cx - hr * 0.04},${hy - hr * 0.1} L${cx + hr * 0.14},${hy + hr * 0.28} L${cx - hr * 0.06},${hy + hr * 0.3} Z`, skinS);
+    if (kind === 'woman' || kind === 'man') p += K.line(cx - hr * 0.26, hy + hr * 0.52, cx + hr * 0.26, hy + hr * 0.54, dark, hr * 0.06);
+    p += K.rect(ix, iy, iw, ih, '#1a1008', { opacity: 0.16 }) + K.poly([[ix, iy], [ix + iw * 0.3, iy], [ix, iy + ih * 0.4]], '#ffffff', { opacity: 0.04 });
+    return p;
+  };
+
   /* ================================================================ */
   /* 1. Mémère's living room. Rose wallpaper over walnut wainscot, her
    * olive wingback turned to the front window with the afghan over it,
@@ -1404,6 +1446,204 @@
       s += K.band(o, 0, 150, '#08070f', 0.3, 0, 'tceil');
       // the stars glow on top of the dark
       s += st;
+      return s;
+    }
+  });
+  /* ================================================================ */
+  /* 6. The Ashgrove front hall, a party going on without the parents:
+   * dark paneling and oxblood damask, the sweeping stair, the stern
+   * Ashgroves in oils, the tall clock, the fire — and in its glass case,
+   * the old brass ship's lantern, unlit. Red cups on everything. */
+  ART.bg('ashgrove', {
+    times: ['night'],
+    light: { night: 'interior_lamp' },
+    draw(o) {
+      o = U(o);
+      const rng = o.rng, tt = 'lampnight';
+      const L = (c) => tone(c, tt), S = (c) => shade(c, tt);
+      const YC = -360, PANEL = 300;
+      const R = mkRoom({ vx: 800, vy: 300, D: 2200, depth: 2000, Yc: YC, Yf: 900 });
+      const DB = R.depth, at = R.at, Pp = R.P;
+      const damask = '#5a2024', oak = '#4a2e1e', floorC = '#3e2618';
+      const mixR = (c) => K.mix(S(c), L(c), 0.3);
+      const cup = (x, y, h = 46) => K.path(`M${x - h * 0.36},${y - h} L${x + h * 0.36},${y - h} L${x + h * 0.27},${y} L${x - h * 0.27},${y} Z`, L('#c8282a')) + K.rect(x - h * 0.37, y - h, h * 0.74, h * 0.12, L('#e8e2da')) + K.path(`M${x + h * 0.06},${y - h * 0.86} L${x + h * 0.28},${y - h * 0.86} L${x + h * 0.21},${y - h * 0.04} L${x + h * 0.04},${y - h * 0.04} Z`, S('#c8282a'));
+      // a portrait hung on a side wall: exact gilt frame, canvas mapped into it
+      const sidePortrait = (X, d0, d1, y0, y1, kind) => {
+        const fw = (d1 - d0) * 0.09, fh = (y1 - y0) * 0.07;
+        return K.poly(R.qX(X, d0, d1, y0, y1), S('#a8843a')) + K.poly(R.qX(X, d0 + fw * 0.4, d1 - fw * 0.4, y0 + fh * 0.4, y1 - fh * 0.4), L('#a8843a')) +
+          R.patQuad(o, [[X, y0 + fh, d0 + fw], [X, y0 + fh, d1 - fw], [X, y1 - fh, d1 - fw], [X, y1 - fh, d0 + fw]], { w: d1 - d0 - 2 * fw, h: y1 - y0 - 2 * fh, inner: ashPortrait(L, S, 0, 0, d1 - d0 - 2 * fw, y1 - y0 - 2 * fh, kind, rng, false) }, 1, 5, 1);
+      };
+      let s = '';
+
+      /* ---- shell: damask above, tall oak paneling below ---- */
+      s += K.poly(R.ceil, S('#2a1c16'));
+      s += K.poly(R.qX(0, 0, DB, YC, PANEL), S(damask)) + K.poly(R.qX(1600, 0, DB, YC, PANEL), mixR(damask)) + K.poly(R.qB(0, 1600, YC, PANEL), L(damask));
+      const dmT = (c) => ({ w: 110, h: 110, inner: MOTIF.damask(110, K.adj(c, -0.18)) });
+      s += paperOn(o, R.qB(0, 1600, YC, PANEL), 'damask', K.adj(L(damask), -0.18), null, 58, 0.9);
+      s += R.patQuad(o, [[0, YC, 0], [0, YC, DB], [0, PANEL, DB], [0, PANEL, 0]], dmT(S(damask)), 0.9, 8);
+      s += R.patQuad(o, [[1600, YC, 0], [1600, YC, DB], [1600, PANEL, DB], [1600, PANEL, 0]], dmT(mixR(damask)), 0.9, 8);
+      s += K.poly(R.qX(0, 0, DB, PANEL, 900), S(oak)) + K.poly(R.qX(1600, 0, DB, PANEL, 900), mixR(oak)) + K.poly(R.qB(0, 1600, PANEL, 900), L(oak));
+      let pn = '';
+      for (let X = 20; X < 1580; X += 150) for (const [y0, y1] of [[330, 560], [600, 860]]) pn += K.rect(X + 10, y0, 130, y1 - y0, S(oak)) + K.rect(X + 20, y0 + 10, 110, y1 - y0 - 20, K.adj(L(oak), 0.05));
+      s += at(DB, pn);
+      for (let d = 40; d < DB - 100; d += 260) for (const [y0, y1] of [[330, 560], [600, 860]]) s += K.poly(R.qX(0, d, d + 220, y0, y1), K.adj(S(oak), -0.15)) + K.poly(R.qX(0, d + 14, d + 206, y0 + 12, y1 - 12), S(oak));
+      const strip = (y0, y1, c) => K.poly(R.qB(0, 1600, y0, y1), L(c)) + K.poly(R.qX(0, 0, DB, y0, y1), S(c)) + K.poly(R.qX(1600, 0, DB, y0, y1), mixR(c));
+      s += strip(PANEL - 20, PANEL + 12, '#5a3a24') + strip(YC, YC + 60, '#3a2418') + strip(860, 900, '#2a1a10');
+      // floor: dark boards, an oriental runner rug
+      s += K.poly(R.floor, L(floorC)) + R.boards(o, rng, { w: 60, color: S('#1a0e08'), opacity: 0.5, ends: 0.2 });
+      s += K.poly(R.qY(900, 260, 1100, 300, 1750), L('#2a2a48')) + K.poly(R.qY(900, 300, 1060, 340, 1710), L('#6a1e22')) + K.poly(R.qY(900, 520, 840, 800, 1250), L('#b8904a'), { opacity: 0.6 });
+
+      /* ---- back wall: the fireplace under the patriarch, the dark archway, the tall clock ---- */
+      let bw = '';
+      // fireplace: dark marble surround, oak mantel, a low fire
+      const FX0 = 20, FX1 = 400, FM = 450;
+      bw += K.rect(FX0, FM + 20, FX1 - FX0, 900 - FM - 20, L('#34302f')) + K.rect(FX1 - 60, FM + 20, 60, 900 - FM - 20, S('#34302f'));
+      bw += K.rect(FX0 - 24, FM, FX1 - FX0 + 48, 26, L('#5a3a24')) + K.rect(FX0 - 24, FM + 22, FX1 - FX0 + 48, 6, S('#5a3a24'));
+      bw += K.rect(FX0 + 70, 610, FX1 - FX0 - 140, 290, '#0c0706');
+      bw += K.path(`M${FX0 + 96},900 L${FX0 + 110},868 Q${FX0 + 150},820 ${FX0 + 170},860 Q${FX0 + 190},800 ${FX0 + 214},850 Q${FX0 + 250},810 ${FX0 + 262},870 L${FX1 - 90},900 Z`, '#c8501e');
+      bw += K.path(`M${FX0 + 130},900 Q${FX0 + 170},862 ${FX0 + 196},880 Q${FX0 + 220},850 ${FX0 + 244},900 Z`, '#ffb050');
+      bw += K.rect(FX0 + 80, 884, FX1 - FX0 - 160, 16, '#1a0e0a') + K.rect(FX0 + 60, 880, FX1 - FX0 - 120, 8, L('#b08a3e'));
+      // candlesticks and cups on the mantel
+      for (const x of [FX0 + 10, FX1 - 20]) bw += K.rect(x, FM - 60, 10, 60, L('#b08a3e')) + K.rect(x - 4, FM - 4, 18, 6, L('#b08a3e')) + K.rect(x + 1, FM - 100, 8, 40, L('#e8e0cc'));
+      bw += cup(FX0 + 90, FM, 44) + cup(FX0 + 150, FM, 44) + cup(FX1 - 90, FM, 44);
+      // the patriarch, over the mantel
+      bw += ashPortrait(L, S, FX0 + 30, -250, FX1 - FX0 - 60, 660, 'patriarch', rng);
+      // archway into the dark of the house
+      const A0 = 480, A1 = 860, AT = 60;
+      bw += K.path(`M${A0 - 40},900 L${A0 - 40},${AT + 190} A${(A1 - A0) / 2 + 40},${(A1 - A0) / 2 + 40} 0 0 1 ${A1 + 40},${AT + 190} L${A1 + 40},900 Z`, L('#5a3a24'));
+      bw += K.path(`M${A0},900 L${A0},${AT + 190} A${(A1 - A0) / 2},${(A1 - A0) / 2} 0 0 1 ${A1},${AT + 190} L${A1},900 Z`, '#0a0606');
+      bw += K.rect(A0 + 60, 380, 120, 300, '#120c0a') + K.rect(A0 + 210, 330, 100, 220, '#1a1210', { opacity: 0.8 }) + K.circle(A0 + 260, 300, 6, '#5a4a30') + K.path(`M${A0 + 220},310 Q${A0 + 260},350 ${A0 + 300},310`, 'none', { stroke: '#4a3a24', strokeWidth: 2 });
+      bw += K.path(`M${A0},860 L${A1},860 L${A1},900 L${A0},900 Z`, '#1a1210');
+      // a sconce between the fire and the arch
+      bw += K.path('M440,280 q-16,0 -16,-16 l0,-24 q0,-12 12,-12 l8,0 q12,0 12,12 l0,24 q0,16 -16,16 Z', L('#b08a3e')) + K.path('M418,226 L462,226 L454,196 L426,196 Z', '#ffd090');
+      // grandfather clock between the arch and the stair
+      const gc = 990, mah = '#5a2a1c';
+      bw += K.rect(gc - 90, 760, 180, 140, L(mah)) + K.rect(gc - 98, 750, 196, 14, K.adj(L(mah), 0.08));
+      bw += K.rect(gc - 64, 330, 128, 430, L(mah)) + K.rect(gc + 30, 330, 34, 430, S(mah));
+      bw += K.rect(gc - 40, 380, 80, 330, '#120a08') + K.line(gc, 400, gc, 620, L('#b08a3e'), 3) + K.circle(gc, 640, 24, L('#c9a050')) + K.circle(gc - 6, 634, 7, '#fff0c0', { opacity: 0.35 });
+      bw += K.rect(gc - 22, 400, 8, 160, L('#b08a3e')) + K.rect(gc + 14, 400, 8, 200, L('#b08a3e'));
+      bw += K.rect(gc - 80, 110, 160, 220, L(mah)) + K.rect(gc + 40, 110, 40, 220, S(mah));
+      bw += K.circle(gc, 230, 56, L('#d9ccb0')) + K.circle(gc, 230, 56, 'none', { stroke: L('#b08a3e'), strokeWidth: 6 });
+      bw += K.path(`M${gc - 44},200 A44,44 0 0 1 ${gc + 44},200 Z`, L('#2a3a6a')) + K.circle(gc - 14, 188, 9, L('#e8dcb8'));
+      for (let i = 0; i < 12; i++) { const a2 = i / 12 * 6.2832; bw += K.circle(gc + Math.cos(a2) * 46, 230 + Math.sin(a2) * 46, 2.6, L('#2a2420')); }
+      bw += K.line(gc, 230, gc - 6, 196, '#1a1210', 3) + K.line(gc, 230, gc + 26, 238, '#1a1210', 3);
+      bw += K.path(`M${gc - 90},112 Q${gc - 70},40 ${gc - 14},60 L${gc - 14},80 Q${gc - 60},70 ${gc - 70},112 Z M${gc + 90},112 Q${gc + 70},40 ${gc + 14},60 L${gc + 14},80 Q${gc + 60},70 ${gc + 70},112 Z`, L(mah)) + K.circle(gc, 52, 10, L('#b08a3e'));
+      s += at(DB, bw);
+
+      /* ---- the staircase rising along the right wall to the landing ---- */
+      const SX = 1150, N = 15, RISE = 58, RUN = 102, SD = 260;
+      const stepD = (i) => SD + i * RUN, stepY = (i) => 900 - (i + 1) * RISE;
+      // landing and its balustrade
+      s += K.poly(R.qY(stepY(N - 1), SX, 1600, stepD(N - 1), DB), L(oak));
+      s += K.poly(R.qB(SX, 1600, stepY(N - 1), stepY(N - 1) + 50, stepD(N - 1)), L('#5a3a24'));
+      for (let X = SX + 20; X < 1600; X += 46) { const a = R.P(X, stepY(N - 1), stepD(N - 1)), b = R.P(X, stepY(N - 1) - 320, stepD(N - 1)); s += K.line(a[0], a[1], b[0], b[1], L('#3a2418'), 5); }
+      const lr0 = R.P(SX, stepY(N - 1) - 320, stepD(N - 1)), lr1 = R.P(1600, stepY(N - 1) - 320, stepD(N - 1));
+      s += K.line(lr0[0], lr0[1], lr1[0], lr1[1], L('#2a1a10'), 10);
+      // the closed side of the stair: paneled spandrel
+      const side = [R.P(SX, 900, SD)];
+      for (let i = 0; i < N; i++) side.push(R.P(SX, stepY(i), stepD(i)), R.P(SX, stepY(i), stepD(i) + RUN));
+      side.push(R.P(SX, 900, stepD(N - 1) + RUN));
+      s += K.poly(side, S(oak));
+      for (let i = 1; i < 6; i++) s += K.poly(R.qX(SX, SD + i * 240, SD + i * 240 + 180, stepY(Math.min(N - 1, Math.floor((i * 240 + 180) / RUN))) + 40, 860), K.adj(S(oak), -0.2));
+      // treads and risers, top to bottom
+      let stp = '';
+      for (let i = N - 1; i >= 0; i--) {
+        const d = stepD(i), y = stepY(i);
+        if (y > R.vy) stp += K.poly(R.qY(y, SX, 1600, d, d + RUN), K.adj(L(oak), 0.06));
+        stp += K.poly(R.qB(SX, 1600, y, y + RISE, d), L('#3a2418'));
+        stp += K.poly(R.qB(SX, 1600, y, y + 8, d - 6), K.adj(L(oak), 0.12));
+      }
+      s += stp;
+      // runner carpet up the middle of the stair
+      for (let i = N - 1; i >= 0; i--) {
+        const d = stepD(i), y = stepY(i);
+        if (y > R.vy) s += K.poly(R.qY(y - 1, 1280, 1500, d, d + RUN), L('#5a1a1e'));
+        s += K.poly(R.qB(1280, 1500, y, y + RISE, d - 1), L('#6a2024')) + K.poly(R.qB(1280, 1500, y + RISE - 10, y + RISE, d - 1), L('#b8904a'), { opacity: 0.6 });
+      }
+      // balusters and handrail along the open side
+      let bal = '', rail = [];
+      for (let i = 0; i < N; i++) for (const f of [0.25, 0.75]) {
+        const d = stepD(i) + RUN * f, y = stepY(i);
+        const a = R.P(SX + 16, y, d), b = R.P(SX + 16, y - 330 + (f - 0.5) * RISE, d);
+        bal += K.line(a[0], a[1], b[0], b[1], L('#2a1a10'), Math.max(2, 7 * R.k(d)));
+        rail.push(b);
+      }
+      s += bal + `<polyline points="${K.pts(rail)}" fill="none" stroke="${L('#2a1a10')}" stroke-width="10" stroke-linecap="round"/><polyline points="${K.pts(rail)}" fill="none" stroke="${L('#6a4a2e')}" stroke-width="3" stroke-linecap="round" transform="translate(-2 -3)"/>`;
+      // the newel post with its lamp, at the foot of the sweep
+      let nw = '';
+      nw += K.path('M1020,900 L1020,862 Q1030,840 1100,842 L1600,842 L1600,900 Z', L('#3a2418'));
+      nw += K.rect(1050, 520, 60, 330, L('#3a2418')) + K.rect(1090, 520, 20, 330, S('#3a2418')) + K.rect(1040, 500, 80, 26, L('#4a2e1e'));
+      nw += K.rect(1066, 420, 28, 80, L('#7a5a2a')) + K.path('M1060,430 q20,-26 40,0 Z', L('#8a6a30'));
+      nw += K.circle(1080, 400, 26, '#ffe2a8') + K.circle(1080, 400, 26, 'none', { stroke: '#fff4d8', strokeWidth: 3, opacity: 0.6 });
+      nw += cup(1132, 520, 40);
+      s += at(SD - 30, nw);
+      // red cups on the stairs, a boombox on the fourth step
+      for (const [i, X] of [[1, 1210], [3, 1540], [6, 1260], [7, 1520], [10, 1230]]) s += at(stepD(i) + 50, cup(X, stepY(i), 46));
+      let bb = '';
+      const bx = 1300, by = stepY(3);
+      bb += K.path(`M${bx + 24},${by - 110} Q${bx + 90},${by - 150} ${bx + 156},${by - 110}`, 'none', { stroke: L('#55585e'), strokeWidth: 7 });
+      bb += K.rect(bx, by - 110, 180, 110, L('#1e2024'), { rx: 10 }) + K.circle(bx + 40, by - 52, 32, L('#2e3036')) + K.circle(bx + 140, by - 52, 32, L('#2e3036')) + K.circle(bx + 40, by - 52, 12, L('#55585e')) + K.circle(bx + 140, by - 52, 12, L('#55585e'));
+      bb += K.rect(bx + 74, by - 88, 32, 34, L('#101114')) + K.circle(bx + 112, by - 98, 3, '#ff5a3a');
+      s += at(stepD(3) + 20, bb);
+      // portraits climbing the stair wall
+      s += sidePortrait(1600, 640, 1000, 160, 600, 'man') + sidePortrait(1600, 1120, 1440, -160, 240, 'patriarch');
+
+      /* ---- the left wall: two more Ashgroves in oils ---- */
+      s += sidePortrait(0, 900, 1250, -120, 340, 'woman') + sidePortrait(0, 1420, 1700, -80, 300, 'elder');
+
+      /* ---- coats heaped on a chair by the door (left, near) ---- */
+      let ch = '';
+      ch += K.rect(60, 330, 24, 570, L('#3a2418')) + K.rect(300, 330, 24, 570, L('#3a2418')) + K.path('M60,330 Q192,290 324,330 L324,360 Q192,322 60,360 Z', L('#3a2418'));
+      ch += K.path('M40,560 Q60,500 140,500 Q210,470 260,520 Q340,520 350,600 L360,720 L30,720 Z', L('#3e5a7a'));
+      ch += K.path('M90,520 Q160,440 250,480 L300,600 L120,640 Z', L('#7a1e2a')) + K.path('M150,480 L160,520 L240,500 L230,470 Z', L('#d9a441')) + K.rect(118, 560, 120, 10, L('#d9a441'), { transform: 'rotate(-12 178 565)' });
+      ch += K.path('M250,520 Q320,540 330,610 Q300,650 260,640 Z', L('#2a2a30')) + K.path('M60,640 Q120,700 200,690 L210,740 Q120,760 50,720 Z', L('#b8a888'));
+      ch += K.path('M300,600 Q330,660 316,760', 'none', { stroke: L('#c8402e'), strokeWidth: 12 });
+      s += at(640, `<g transform="translate(-20 0)">${ch}</g>`);
+
+      /* ---- the display case and the brass ship's lantern, unlit ---- */
+      const C0 = 480, C1 = 680, CD = 900, CT = 260, CB = 560;
+      s += R.box(C0, C1, CT, CB, CD, CD + 160, { r: K.adj(S('#2a1a10'), 0.05), t: L('#4a2e1e') });
+      let cs = '';
+      // pedestal: carved, with the plaque
+      cs += K.path(`M${C0 + 30},${CB} L${C1 - 30},${CB} L${C1 - 50},${CB + 60} L${C1 - 60},860 L${C1 - 20},900 L${C0 + 20},900 L${C0 + 60},860 L${C0 + 50},${CB + 60} Z`, L('#3a2418'));
+      cs += K.path(`M${(C0 + C1) / 2 + 20},${CB} L${C1 - 30},${CB} L${C1 - 50},${CB + 60} L${C1 - 60},860 L${C1 - 20},900 L${(C0 + C1) / 2 + 30},900 Z`, S('#3a2418'));
+      cs += K.rect(C0 + 40, CB + 70, C1 - C0 - 80, 46, L('#b8903e')) + K.rect(C0 + 44, CB + 74, C1 - C0 - 88, 38, 'none', { stroke: S('#b8903e'), strokeWidth: 2 });
+      for (let i = 0; i < 3; i++) cs += K.rect(C0 + 60 + (i === 2 ? 20 : 0), CB + 84 + i * 9, C1 - C0 - 120 - (i === 2 ? 40 : 0), 2.5, S('#6a5020'));
+      // the case: wood base and top, glass sides
+      cs += K.rect(C0 - 6, CB - 20, C1 - C0 + 12, 26, L('#4a2e1e')) + K.rect(C0 - 6, CT - 10, C1 - C0 + 12, 22, L('#4a2e1e'));
+      cs += K.rect(C0, CT + 12, C1 - C0, CB - CT - 32, '#2a3038', { opacity: 0.35 });
+      s += at(CD, cs);
+      // the lantern itself, inside
+      let lt = '';
+      const lx = (C0 + C1) / 2, brass = L('#b08a3e'), brassS = S('#b08a3e'), hiC = '#f6dc90';
+      lt += K.ellipse(lx, CB - 26, 58, 9, brassS) + K.rect(lx - 56, CB - 52, 112, 26, brass) + K.rect(lx + 20, CB - 52, 36, 26, brassS);
+      const gl = lin(o, 'lglass', [[0, L('#5a646a')], [0.45, L('#8a969a')], [1, L('#3e464c')]], 0, 0, 1, 0);
+      lt += gl.def + K.rect(lx - 42, CB - 196, 84, 144, gl.url, { opacity: 0.85 });
+      for (let y = CB - 186; y < CB - 56; y += 14) lt += K.line(lx - 42, y, lx + 42, y, L('#a8b4b8'), 1.2, { opacity: 0.3 });
+      lt += K.line(lx - 22, CB - 194, lx - 22, CB - 54, '#f0e8d8', 3, { opacity: 0.22 });
+      lt += K.rect(lx - 6, CB - 120, 12, 50, '#5a5040', { opacity: 0.5 });
+      for (const x of [lx - 44, lx + 40]) lt += K.rect(x, CB - 200, 5, 150, brass);
+      lt += K.rect(lx - 2, CB - 200, 4, 150, brass, { opacity: 0.8 });
+      for (const y of [CB - 160, CB - 96]) lt += K.rect(lx - 46, y, 92, 6, brass);
+      lt += K.path(`M${lx - 52},${CB - 196} Q${lx},${CB - 246} ${lx + 52},${CB - 196} Z`, brass) + K.path(`M${lx + 10},${CB - 230} Q${lx + 40},${CB - 222} ${lx + 52},${CB - 196} L${lx + 14},${CB - 196} Z`, brassS);
+      lt += K.rect(lx - 14, CB - 262, 28, 30, brass) + K.rect(lx - 20, CB - 268, 40, 8, brass) + K.circle(lx, CB - 284, 13, 'none', { stroke: brass, strokeWidth: 4 });
+      lt += K.line(lx - 36, CB - 218, lx - 10, CB - 236, hiC, 3, { opacity: 0.7 }) + K.line(lx - 50, CB - 44, lx - 20, CB - 44, hiC, 3, { opacity: 0.6 }) + K.line(lx - 42, CB - 196, lx - 42, CB - 60, hiC, 2, { opacity: 0.45 });
+      s += at(CD + 80, lt);
+      // glass front with its reflections, a red cup left on top of the case
+      let gf = K.rect(C0, CT + 12, C1 - C0, CB - CT - 32, '#c8d4e0', { opacity: 0.06 });
+      gf += K.poly([[C0 + 20, CT + 12], [C0 + 70, CT + 12], [C0 + 20, CT + 120]], '#ffffff', { opacity: 0.16 }) + K.poly([[C1 - 60, CB - 20], [C1 - 30, CB - 20], [C1, CB - 70], [C1, CB - 110]], '#ffffff', { opacity: 0.1 });
+      gf += K.rect(C0, CT + 12, 6, CB - CT - 32, L('#4a2e1e')) + K.rect(C1 - 6, CT + 12, 6, CB - CT - 32, L('#4a2e1e'));
+      gf += cup(C1 - 40, CT - 10, 44);
+      s += at(CD, gf);
+
+      /* ---- light: the newel lamp, the sconce, the fire; deep dark above ---- */
+      const nl = R.P(1080, 400, SD - 30), sc = R.P(440, 210, DB), fp = R.P(210, 820, DB);
+      s += screen(K.glow(o, nl[0], nl[1], 420, '#ffc070', 0.42, 'anl') + K.glow(o, nl[0], nl[1], 90, '#fff0c8', 0.5, 'anl2'));
+      s += screen(K.glow(o, sc[0], sc[1], 160, '#ffc070', 0.4, 'asc'));
+      s += screen(K.pool(o, fp[0] + 40, Pp(0, 900, DB - 200)[1] + 10, 300, 50, '#ff8a3a', 0.4, 'afp') + K.glow(o, fp[0], fp[1] - 30, 330, '#ff9a4a', 0.32, 'afg') + K.glow(o, fp[0], fp[1], 110, '#ffb060', 0.5, 'afg2'));
+      s += screen(K.glow(o, R.P(lx, 420, CD)[0], R.P(lx, 420, CD)[1], 120, '#ffd890', 0.16, 'alant'));
+      s += falloff(o, 760, 420, 1000, '#060404', 0.7, 0.2);
+      s += K.band(o, 0, 260, '#060404', 0.75, 0, 'aceil');
       return s;
     }
   });

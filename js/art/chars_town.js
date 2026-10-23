@@ -189,7 +189,7 @@
       s += `<path d="M344,452 C362,520 368,700 364,920 L432,920 C430,740 420,600 404,520 C390,484 370,462 344,452 Z" fill="${cS}"/>`;
       s += `<path d="M252,470 C238,540 234,700 238,920 M348,470 C362,540 366,700 362,920" fill="none" stroke="${cD}" stroke-width="2.4" opacity="0.5"/>`;
       s += `<path d="M242,490 C232,560 228,720 230,920" fill="none" stroke="${cD}" stroke-width="2" opacity="0.4"/>`;
-      for (let y = 560; y < 900; y += 78) s += `<circle cx="${n(246 - (y - 560) * 0.02)}" cy="${y}" r="5.5" fill="#efe1bd"/><circle cx="${n(246 - (y - 560) * 0.02)}" cy="${y}" r="5.5" fill="none" stroke="${cD}" stroke-width="1.4" opacity="0.6"/>`;
+      for (let y = 560; y < 900; y += 78) s += `<circle cx="${n(236 - (y - 560) * 0.012)}" cy="${y}" r="5.5" fill="#efe1bd"/><circle cx="${n(236 - (y - 560) * 0.012)}" cy="${y}" r="5.5" fill="none" stroke="${cD}" stroke-width="1.4" opacity="0.6"/>`;
       // cable knit columns
       const cable = (x, col, op) => {
         let d = '';
@@ -410,14 +410,15 @@
       s += `<path d="M258,450 Q300,474 342,450 L362,920 L238,920 Z" fill="${tee}"/>`;
       s += `<path d="M300,472 Q324,468 342,450 L362,920 L314,920 Z" fill="${teeS}"/>`;
       s += `<path d="M262,452 Q300,480 338,452" fill="none" stroke="#3e3c42" stroke-width="6"/>`;
-      s += `<path d="M262,524 l12,-10 l9,12 l11,-14 l9,14 l11,-12 l9,12 l11,-10 l9,8 l11,-6" fill="none" stroke="#cfc6b4" stroke-width="3" opacity="0.6"/>`;
-      s += label(300, 568, 'STATIC', { size: 34, w: 118, fill: '#d2c9b6', op: 0.72 });
-      s += label(300, 602, 'HOURS', { size: 30, w: 96, fill: '#d2c9b6', op: 0.72 });
+      // band print, its right edge tucked under the flannel
+      s += `<path d="M268,524 l12,-10 l9,12 l11,-14 l9,14 l11,-12 l9,12 l11,-10 l9,8 l11,-6 l10,6" fill="none" stroke="#cfc6b4" stroke-width="3" opacity="0.6"/>`;
+      s += label(308, 568, 'STATIC', { size: 34, w: 124, fill: '#d2c9b6', op: 0.72 });
+      s += label(306, 602, 'HOURS', { size: 30, w: 102, fill: '#d2c9b6', op: 0.72 });
       // open flannel fronts
       s += `<path d="M256,448 C240,520 236,660 240,920 L176,920 C178,740 186,600 200,520 C212,484 230,462 256,448 Z" fill="url(#${pl})"/>`;
       s += `<path d="M344,448 C360,520 364,660 360,920 L424,920 C422,740 414,600 400,520 C388,484 370,462 344,448 Z" fill="url(#${plS})"/>`;
       s += `<path d="M252,462 C238,530 234,670 238,920 M348,462 C362,530 366,670 362,920" fill="none" stroke="#2a3a26" stroke-width="2.4" opacity="0.6"/>`;
-      for (const y of [560, 640, 720, 800]) s += `<circle cx="${n(245 - (y - 560) * 0.02)}" cy="${y}" r="4" fill="#d8d0bc"/>`;
+      for (const y of [560, 640, 720, 800]) s += `<circle cx="${n(230 - (y - 560) * 0.02)}" cy="${y}" r="4" fill="#d8d0bc"/>`;
       // seams and folds
       s += `<path d="M124,520 C144,600 152,700 148,920 M476,520 C456,600 448,700 452,920" fill="none" stroke="#24331f" stroke-width="3" opacity="0.6"/>`;
       s += `<path d="M206,690 q10,40 4,90 M392,680 q-8,50 0,100" fill="none" stroke="#24331f" stroke-width="2.6" opacity="0.5"/>`;
@@ -462,6 +463,7 @@
     // the goatee follows the mouth, so `marks` is rebuilt for each expression
     draw(o) { nate.marks = nateBeard(nate, P.EXPR[o.expr] || P.EXPR.neutral); return P.draw(o, nate); }
   };
+  nate.marks = nateBeard(nate, P.EXPR.neutral);
   ART.char('nate', nate);
 
   /* ================================================================== */
@@ -581,25 +583,25 @@
     hairShadow: 'M222,200 C236,178 262,164 300,160 C336,160 366,174 386,204 L390,220 C370,190 338,176 300,176 C266,176 240,190 222,214 Z',
     hairBack(o) {
       const { hs, hd } = CN;
-      let s = `<path d="M206,276 C196,198 230,110 300,102 C370,98 414,172 404,258 C400,290 392,312 380,326 L220,326 C210,312 206,294 206,276 Z" fill="${hs}"/>`;
+      let s = `<path d="M206,276 C194,196 226,100 298,92 C372,88 416,168 404,258 C400,290 392,312 380,326 L220,326 C210,312 206,294 206,276 Z" fill="${hs}"/>`;
       // the French twist: a smooth vertical roll at the back of the head, seen past the right side
-      s += `<path d="M356,98 C404,100 436,148 436,212 C436,268 420,308 392,330 L378,322 C398,290 406,252 404,208 C402,160 386,120 356,98 Z" fill="${hs}"/>`;
-      s += `<path d="M372,112 C398,132 412,170 412,212 C412,248 404,280 392,306 C402,276 404,246 402,212 C400,174 390,140 372,112 Z" fill="${CN.h}" opacity="0.75"/>`;
-      s += `<path d="M396,108 C420,130 430,170 428,214 C426,258 412,294 390,318" fill="none" stroke="${hd}" stroke-width="2.6" opacity="0.9"/>`;
+      s += `<path d="M346,88 C400,86 442,140 442,210 C442,268 424,310 394,332 L378,322 C398,290 406,252 404,208 C402,158 384,116 346,88 Z" fill="${hs}"/>`;
+      s += `<path d="M366,102 C396,122 414,164 414,212 C414,250 406,282 394,308 C404,278 406,246 404,212 C402,170 390,132 366,102 Z" fill="${CN.h}" opacity="0.75"/>`;
+      s += `<path d="M392,98 C422,120 436,164 434,212 C432,258 416,296 392,320" fill="none" stroke="${hd}" stroke-width="2.6" opacity="0.9"/>`;
       return s;
     },
     hairFront(o) {
       const { h, hs, hl } = CN, sk = constance.skin;
       let s = '';
       // swept smoothly back from a side part; ears left bare
-      s += `<path d="M212,262 C200,198 214,134 252,106 C278,88 330,86 362,102 C398,122 412,184 398,262 C396,240 392,222 386,210 C374,188 352,170 324,160 C306,154 286,154 268,158 C248,164 232,180 222,198 C216,214 214,236 212,262 Z" fill="${h}"/>`;
-      s += `<path d="M362,102 C398,122 412,184 398,262 C396,240 392,222 386,210 C380,198 372,188 362,180 C380,150 378,124 350,96 C354,98 358,100 362,102 Z" fill="${hs}"/>`;
+      s += `<path d="M212,262 C198,196 210,124 250,96 C278,78 332,76 364,96 C402,118 414,184 398,262 C396,240 392,222 386,210 C374,188 352,170 324,160 C306,154 286,154 268,158 C248,164 232,180 222,198 C216,214 214,236 212,262 Z" fill="${h}"/>`;
+      s += `<path d="M364,96 C402,118 414,184 398,262 C396,240 392,222 386,210 C380,198 372,188 362,180 C382,148 378,118 348,90 C354,91 359,93 364,96 Z" fill="${hs}"/>`;
       // the part
-      s += `<path d="M266,158 C264,136 266,116 272,98" fill="none" stroke="${sk.shadow}" stroke-width="2.2"/>`;
+      s += `<path d="M266,158 C264,134 266,110 274,90" fill="none" stroke="${sk.shadow}" stroke-width="2.2"/>`;
       // combed lines sweeping back toward the twist
       s += `<path d="M280,158 C304,140 340,134 372,146 M238,186 C246,154 270,130 304,118 M352,172 C370,182 384,200 392,226 M226,214 C226,190 234,170 246,154" fill="none" stroke="${hs}" stroke-width="2" opacity="0.6"/>`;
       // the soft wave: one long highlight
-      s += `<path d="M276,136 C300,116 336,110 364,122 C336,122 308,128 286,146 C280,150 272,144 276,136 Z" fill="${hl}" opacity="0.9"/>`;
+      s += `<path d="M276,130 C300,106 338,100 368,114 C338,114 308,122 286,140 C280,144 272,138 276,130 Z" fill="${hl}" opacity="0.9"/>`;
       return s;
     },
     headwear(o) {
@@ -645,7 +647,7 @@
 
   /* ================================================================== */
   /* BRETT LINDQVIST — 17, junior, quarterback */
-  const BR = { h: '#ba945a', hs: '#8b693b', hd: '#6f5230', hl: '#e8cf98' };
+  const BR = { h: '#ba945a', hs: '#8b693b', hl: '#e8cf98' };
   const brett = {
     name: 'Brett',
     skin: { base: '#efc29c', shadow: '#cc9676', blush: '#dd8670' },

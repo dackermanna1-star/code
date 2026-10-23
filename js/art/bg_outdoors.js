@@ -248,6 +248,16 @@
     return s;
   };
 
+  /* a reflection on water: a column of short, jittered horizontal dashes hanging from (x, y0) */
+  const reflD = (rng, x, y0, len, w, step = 3.2) => {
+    let d = '';
+    for (let y = y0; y < y0 + len; y += step * (0.8 + rng() * 0.6)) {
+      const f = 1 - (y - y0) / len, ww = w * (0.45 + 0.6 * rng()) * (0.55 + 0.45 * f), jx = (rng() - 0.5) * w * 0.45, th = Math.max(0.8, step * 0.42);
+      d += `M${n(x - ww / 2 + jx)},${n(y)}h${n(ww)}v${n(th)}h${n(-ww)}Z`;
+    }
+    return d;
+  };
+
   /* ================================================================== */
   /* The Barrens: an overgrown ravine at the edge of town. The Kenduskeag
    * runs shallow over stones; a concrete culvert mouth stares out of the
@@ -815,49 +825,50 @@
     draw(o) {
       const fest = o.time === 'lanterns', rng = o.rng, tt = fest ? 'night' : 'dusk';
       const { L, S, T } = lighting(tt);
-      const VX = 800, VY = 372, F = 760, E = 5;
+      const VX = 800, VY = 372, F = 760, E = 5, ZB = 36, ZB2 = 42;
       const pr = (X, Y, Z) => [VX + F * X / Z, VY + F * (E - Y) / Z];
       const Q = (pts) => pd(pts.map((p) => pr(p[0], p[1], p[2])));
       const hz = (c, k) => K.mix(c, T.haze, k);
       const iron = fest ? '#0b0d14' : L('#26262c');
       let s = K.sky(o, tt);
-      if (fest) s += K.stars(rng, { count: 40, y1: 260 }) + K.clouds(rng, { count: 3, y0: 90, y1: 240, color: '#2a3452', shadow: '#151c2e', opacity: 0.6, w: 620 }) + K.glow(o, 800, 380, 640, '#f2a050', 0.32, 'fglow');
-      else s += K.clouds(rng, { count: 6, y0: 60, y1: 300, color: '#f2a27a', shadow: '#7a5576', opacity: 0.55, w: 600 }) + K.glow(o, 800, 380, 560, '#f6b070', 0.5, 'sunset');
+      if (fest) s += K.stars(rng, { count: 36, y1: 240 }) + K.glow(o, 800, 400, 720, '#f2a050', 0.3, 'fglow');
+      else s += K.clouds(rng, { count: 6, y0: 60, y1: 300, color: '#f2a27a', shadow: '#7a5576', opacity: 0.55, w: 600 }) + K.glow(o, 800, 380, 560, '#f6b070', 0.55, 'sunset');
 
-      const glows = [], wins = [];
-      /* a block of brick backs along one side, Z from z0 to z1 */
-      const building = (sd, z0, z1, h, kind) => {
+      const glows = [], refl = [];
+      /* a block of brick backs along one side of the canal, Z from z0 to z1 */
+      const building = (sd, z0, z1, h, kind, blank) => {
         const X = 14 * sd;
         const base = { mill: '#8c3b2e', brick: '#93452f', brick2: '#6e3328', cream: '#c9b48a', green: '#7f8a78', stone: '#8a8478' }[kind];
-        const far = z0 > 40, fk = far ? Math.min(0.5, (z0 - 40) / 140) : 0;
-        const BL = hz(L(base), fk), BS = hz(S(base), fk);
+        const fk = z0 > 40 ? Math.min(0.5, (z0 - 40) / 140) : 0, near = z0 < 30;
+        const BL = hz(L(base), fk), BS = hz(S(base), fk), face = sd < 0 ? BL : K.mix(BL, BS, 0.35);
         const [ex0, ey0] = pr(X, 2.6, z0), [ex1, ey1] = pr(X + sd * 18, h, z0);
         let r = K.poly([[ex0, ey0], [ex1, ey0], [ex1, ey1], [ex0, ey1]], BS);
-        r += K.path(Q([[X, 2.6, z0], [X, 2.6, z1], [X, h, z1], [X, h, z0]]), sd < 0 ? BL : K.mix(BL, BS, 0.35));
+        r += K.path(Q([[X, 2.6, z0], [X, 2.6, z1], [X, h, z1], [X, h, z0]]), face);
         let crs = '';
-        for (let y = 3.6; y < h - 0.6; y += 1.1) crs += ld([pr(X, y, z0), pr(X, y, z1)]);
-        r += stroke(crs, BS, 1, { opacity: 0.3 });
-        r += K.path(Q([[X, h - 0.7, z0], [X, h - 0.7, z1], [X, h, z1], [X, h, z0]]), K.adj(BS, -0.2));
+        for (let y = 3.6; y < h - 0.6; y += near ? 0.55 : 1.1) crs += ld([pr(X, y, z0), pr(X, y, z1)]);
+        r += stroke(crs, BS, 1, { opacity: near ? 0.22 : 0.3 });
+        r += K.path(Q([[X, h - 0.7, z0], [X, h - 0.7, z1], [X, h, z1], [X, h, z0]]), K.adj(BS, -0.2)) + K.path(Q([[X, h - 0.95, z0], [X, h - 0.95, z1], [X, h - 0.7, z1], [X, h - 0.7, z0]]), K.adj(face, 0.12));
         r += K.path(Q([[X, 2.6, z0], [X, 2.6, z1], [X, 3.3, z1], [X, 3.3, z0]]), hz(L('#8a8478'), fk));
         const mill = kind === 'mill', fl = mill ? 4 : 3.4, bay = mill ? 3.2 : 2.7, ww = mill ? 1.5 : 1.1, wh = mill ? 2.6 : 1.8;
-        let dk = '', lt = bucket();
-        for (let y0 = 4.1; y0 + wh < h - 0.9; y0 += fl) for (let z = z0 + 0.9; z + ww < z1 - 0.4; z += bay) {
-          const lit = rng() < (fest ? 0.42 : 0.28);
+        let dk = '', sills = '';
+        const lt = bucket();
+        for (let y0 = 4.1; y0 + wh < h - 1.0; y0 += fl) for (let z = z0 + 0.9; z + ww < z1 - 0.4; z += bay) {
+          if (blank && y0 + wh > blank[2] && y0 < blank[3] && z + ww > blank[0] && z < blank[1]) continue;
+          const lit = rng() < (fest ? 0.42 : 0.3), zc = z + ww / 2;
           const q = Q([[X, y0, z], [X, y0, z + ww], [X, y0 + wh, z + ww], [X, y0 + wh, z]]);
+          if (near) sills += Q([[X, y0 - 0.2, z - 0.12], [X, y0 - 0.2, z + ww + 0.12], [X, y0, z + ww + 0.12], [X, y0, z - 0.12]]);
           if (lit) {
             const c = rng.pick([P.window, '#f6c784', '#ffcf86', '#ffe2a8']);
             lt.add(c, q);
-            const [wx, wy] = pr(X, y0 + wh / 2, z + ww / 2);
-            wins.push([wx, VY + F * (E + y0) / (z + ww / 2), VY + F * (E + y0 + wh) / (z + ww / 2), F * ww / (z + 1) * 0.7, c]);
-            if (z < 40) glows.push([wx, wy, F * 1.6 / z, c, 0.18]);
+            const [wx, wy] = pr(X, y0 + wh / 2, zc);
+            refl.push([wx, VY + F * (E + y0) / zc, F * wh / zc * 1.5, F * ww / zc * 0.9, c]);
+            if (z < 40) glows.push([wx, wy, F * 1.5 / z, c, 0.16]);
           } else dk += q;
         }
-        r += K.path(dk, hz(fest ? '#151a28' : L('#2e3450'), fk)) + lt.out();
-        // back doors and loading bays at the promenade
+        r += K.path(sills, K.adj(face, 0.18)) + K.path(dk, hz(fest ? '#151a28' : L('#2e3450'), fk)) + lt.out();
         let doors = '';
         for (let z = z0 + 2; z + 1.4 < z1 - 0.5; z += mill ? 7 : 5.5) doors += Q([[X, 2.6, z], [X, 2.6, z + 1.3], [X, 4.8, z + 1.3], [X, 4.8, z]]);
-        r += K.path(doors, K.adj(BS, -0.35));
-        return r;
+        return r + K.path(doors, K.adj(BS, -0.35));
       };
       const fireEscape = (sd, za, zb, levels) => {
         const X = 14 * sd, Xo = X - sd * 1.2;
@@ -870,6 +881,21 @@
         d += ld([pr(Xo + sd * 0.15, levels[0], za + 0.6), pr(Xo + sd * 0.15, 4.6, za + 0.6)]);
         return stroke(d, iron, Math.max(1, F * 0.05 / ((za + zb) / 2)));
       };
+      /* faded paint on the brick, word by word so each word sits on the wall in perspective */
+      const ghost = (sd, za, zb, ya, yb, text) => {
+        const words = text.split(' '), wl = (w) => Math.max(1.6, w.length), tot = words.reduce((a, w) => a + wl(w), 0) + (words.length - 1) * 0.7;
+        const span = zb - za, order = sd < 0 ? words : words.slice().reverse();
+        let z = za, r = '';
+        for (const w of order) {
+          const z1 = z + span * wl(w) / tot;
+          const zs = sd < 0 ? z : z1, ze = sd < 0 ? z1 : z;
+          const p1 = pr(14 * sd, yb, zs), p2 = pr(14 * sd, yb, ze), p3 = pr(14 * sd, ya, zs), W = 100, H = 20;
+          const m = [(p2[0] - p1[0]) / W, (p2[1] - p1[1]) / W, (p3[0] - p1[0]) / H, (p3[1] - p1[1]) / H, p1[0], p1[1]].map((v) => +v.toFixed(4));
+          r += `<g transform="matrix(${m.join(' ')})">` + K.text(0, H * 0.84, w, { fontFamily: SIGN, fontSize: 21, fontWeight: 700, fill: L('#ece3cf'), textLength: W, lengthAdjust: 'spacingAndGlyphs', opacity: fest ? 0.2 : 0.36 }) + '</g>';
+          z = z1 + span * 0.7 / tot;
+        }
+        return r;
+      };
       const lamp = (X, Z, Yb) => {
         const [x, yb] = pr(X, Yb, Z), [, yt] = pr(X, Yb + 3.9, Z), [, yg] = pr(X, Yb + 4.25, Z);
         const w = Math.max(1.2, F * 0.13 / Z), gr = F * 0.27 / Z;
@@ -877,72 +903,81 @@
         r += K.path(`M${n(x - gr * 0.6)},${n(yg + gr * 0.9)}L${n(x + gr * 0.6)},${n(yg + gr * 0.9)}L${n(x + gr * 0.3)},${n(yt)}L${n(x - gr * 0.3)},${n(yt)}Z`, iron);
         r += K.circle(x, yg, gr, '#fff1cc') + K.path(`M${n(x - gr * 0.85)},${n(yg - gr * 0.7)}Q${n(x)},${n(yg - gr * 1.7)} ${n(x + gr * 0.85)},${n(yg - gr * 0.7)}Z`, iron);
         glows.push([x, yg, F * 2.6 / Z, P.sodium, 0.5]);
-        wins.push([x, VY + F * (E + Yb + 4.0) / Z, VY + F * (E + Yb + 4.5) / Z, gr * 1.6, '#ffe0a0']);
+        refl.push([x, VY + F * (E + Yb + 3.9) / Z, F * 1.4 / Z, gr * 1.8, '#ffe0a0']);
         return r;
       };
 
       /* far: the canal beyond the bridge, a steeple at the end of it */
       s += K.rect(812, 236, 12, 150, hz(L('#ece3cf'), 0.45)) + K.path('M810,238 L818,170 L826,238 Z', hz(L('#ece3cf'), 0.45));
       for (const [sd, z0, z1, h, kind] of [[-1, 130, 230, 14, 'brick2'], [1, 150, 240, 12, 'brick2'], [-1, 84, 130, 11, 'stone'], [1, 92, 150, 18, 'mill'], [-1, 60, 84, 16, 'brick'], [1, 56, 92, 12, 'cream'], [-1, 43, 60, 12, 'brick2'], [1, 43, 56, 14, 'brick']]) s += building(sd, z0, z1, h, kind);
-      s += K.path(Q([[-9, 0, 42], [9, 0, 42], [9, 0, 400], [-9, 0, 400]]), fest ? '#1a2238' : '#c78a78');
-      s += K.path(Q([[-9, 2.6, 42], [-14, 2.6, 42], [-14, 2.6, 400], [-9, 2.6, 400]]), hz(L('#8e8678'), 0.35)) + K.path(Q([[9, 2.6, 42], [14, 2.6, 42], [14, 2.6, 400], [9, 2.6, 400]]), hz(L('#8e8678'), 0.35));
-      s += K.path(Q([[-9, 0, 42], [-9, 2.6, 42], [-9, 2.6, 400], [-9, 0, 400]]), hz(S('#9a968c'), 0.3)) + K.path(Q([[9, 0, 42], [9, 2.6, 42], [9, 2.6, 400], [9, 0, 400]]), hz(S('#9a968c'), 0.3));
+      const fwg = o.id('farw');
+      s += K.defs(K.linear(fwg, fest ? [[0, '#3a3448'], [1, '#141826']] : [[0, '#f4c098'], [1, '#86606e']], 0, VY, 0, 470, true));
+      s += K.path(Q([[-9, 0, ZB], [9, 0, ZB], [9, 0, 400], [-9, 0, 400]]), `url(#${fwg})`);
+      s += K.path(pd([pr(-9, 0, ZB), pr(-9, 0, 400), pr(-3, 0, 400), pr(-5.5, 0, ZB)]) + pd([pr(9, 0, ZB), pr(9, 0, 400), pr(3, 0, 400), pr(5.5, 0, ZB)]), '#0e0c16', { opacity: fest ? 0.5 : 0.3 });
+      let frp = '';
+      for (let i = 0; i < 40; i++) { const Z = 42 + rng() * 200, X = (rng() - 0.5) * 16, [x, y] = pr(X, 0, Z), l = F * (0.6 + rng() * 1.6) / Z; frp += `M${n(x - l / 2)},${n(y)}h${n(l)}`; }
+      s += stroke(frp, fest ? '#4a4660' : '#ffd8b0', 1, { opacity: 0.55 });
+      s += K.path(Q([[-9, 2.6, ZB], [-14, 2.6, ZB], [-14, 2.6, 400], [-9, 2.6, 400]]), hz(L('#8e8678'), 0.35)) + K.path(Q([[9, 2.6, ZB], [14, 2.6, ZB], [14, 2.6, 400], [9, 2.6, 400]]), hz(L('#8e8678'), 0.35));
+      s += K.path(Q([[-9, 0, ZB], [-9, 2.6, ZB], [-9, 2.6, 400], [-9, 0, 400]]), hz(S('#9a968c'), 0.3)) + K.path(Q([[9, 0, ZB], [9, 2.6, ZB], [9, 2.6, 400], [9, 0, 400]]), hz(S('#9a968c'), 0.3));
       for (const Z of [48, 60, 72, 84, 96]) s += lamp(-9.6, Z, 2.6) + lamp(9.6, Z, 2.6);
-
-      /* lanterns beyond the bridge: a field of warm points (seen through the arch) */
-      const lanB = bucket(), lanR = bucket();
-      let greenAt = null;
       if (fest) {
-        for (let i = 0; i < 520; i++) {
-          const Z = 36 + Math.pow(rng(), 0.7) * 170, X = (rng() - 0.5) * 16.6, [x, y] = pr(X, 0.15, Z), sz = Math.max(1.1, F * 0.3 / Z);
+        const lanB = bucket(), lanR = bucket();
+        for (let i = 0; i < 480; i++) {
+          const Z = 37 + Math.pow(rng(), 0.7) * 170, X = (rng() - 0.5) * 16.6, [x, y] = pr(X, 0.15, Z), sz = Math.max(1.1, F * 0.3 / Z);
           const c = rng() < 0.5 ? '#ffc35a' : rng() < 0.5 ? '#ffdb8a' : '#f29a3c';
           lanB.add(c, `M${n(x - sz / 2)},${n(y - sz * 0.8)}h${n(sz)}v${n(sz * 0.8)}h${n(-sz)}Z`);
-          lanR.add(c, `M${n(x - sz * 0.2)},${n(y + 1)}h${n(sz * 0.4)}v${n(sz * 2.2)}h${n(-sz * 0.4)}Z`);
+          lanR.add(c, `M${n(x - sz * 0.35)},${n(y + sz * 0.5)}h${n(sz * 0.7)}v${n(Math.max(0.8, sz * 0.3))}h${n(-sz * 0.7)}ZM${n(x - sz * 0.2)},${n(y + sz * 1.3)}h${n(sz * 0.4)}v${n(Math.max(0.8, sz * 0.3))}h${n(-sz * 0.4)}Z`);
         }
-        s += K.pool(o, 800, 446, 230, 26, '#ffb050', 0.5, 'farpool') + lanR.out({ opacity: 0.45 }) + lanB.out();
+        s += K.pool(o, 800, 446, 240, 26, '#ffb050', 0.55, 'farpool') + lanR.out({ opacity: 0.5 }) + lanB.out();
       }
 
-      /* the bridge at Z 36-42: stone arch, parapet, iron lamps; people along it on the night */
-      const ZB = 36, ZB2 = 42;
+      /* the bridge at Z 36: segmental stone arch, voussoirs, string course, parapet, iron lamps */
       const [a0x, a0y] = pr(-9, 0, ZB), [a1x] = pr(9, 0, ZB), RA = 12.125 * F / ZB;
       const [b0x, b0y] = pr(-9, 0, ZB2), [b1x] = pr(9, 0, ZB2), RB = 12.125 * F / ZB2;
       const archF = `M${n(a0x)},${n(a0y)}A${n(RA)},${n(RA)} 0 0,1 ${n(a1x)},${n(a0y)}Z`, archB = `M${n(b0x)},${n(b0y)}A${n(RB)},${n(RB)} 0 0,1 ${n(b1x)},${n(b0y)}Z`;
-      s += K.path(archF + archB, fest ? '#090b12' : L('#2a2430'), { fillRule: 'evenodd' });
+      const crown = a0y - 4 * F / ZB, acy = crown + RA;
+      s += K.path(archF + archB, fest ? '#07080e' : L('#2a2230'), { fillRule: 'evenodd' });
       if (fest) {
         let ppl = '';
-        for (let X = -13.6; X < 13.6; X += 0.48 + rng() * 0.3) { const hh = 1.5 + rng() * 0.35, [x, yb] = pr(X, 5.3, ZB + 1.1); ppl += personD(x, yb, F * hh / (ZB + 1.1), { coat: rng() < 0.4 ? 1 : 0 }); }
+        for (let X = -13.6; X < 13.6; X += 0.46 + rng() * 0.3) { const hh = 1.5 + rng() * 0.35, [x, yb] = pr(X, 5.3, ZB + 1.1); ppl += personD(x, yb, F * hh / (ZB + 1.1), { coat: rng() < 0.4 ? 1 : 0 }); }
         s += K.path(ppl, '#0c0e16');
       }
       const [bx0, by0] = pr(-14.5, 0, ZB), [bx1, by1] = pr(14.5, 6.3, ZB);
-      const bst = '#a69c8c';
-      s += K.path(`M${n(bx0)},${n(by0)}L${n(bx1)},${n(by0)}L${n(bx1)},${n(by1)}L${n(bx0)},${n(by1)}Z` + archF, L(bst), { fillRule: 'evenodd' });
+      const bst = '#a89c88', BL = L(bst), BS = S(bst);
+      const faceD = `M${n(bx0)},${n(by0)}L${n(bx1)},${n(by0)}L${n(bx1)},${n(by1)}L${n(bx0)},${n(by1)}Z` + archF;
+      const bcl = o.id('bface');
+      s += `<clipPath id="${bcl}"><path d="${faceD}" clip-rule="evenodd"/></clipPath>`;
+      let bf = K.rect(bx0, by1, bx1 - bx0, by0 - by1, BL);
+      let cr = '';
+      for (let y = by0 - 13; y > by1; y -= 13) cr += `M${n(bx0)},${n(y)}H${n(bx1)}`;
+      for (let y = by0, i = 0; y > by1; y -= 13, i++) for (let x = bx0 + (i % 2) * 22; x < bx1; x += 44) cr += `M${n(x)},${n(y)}v-13`;
+      bf += stroke(cr, BS, 1, { opacity: 0.35 });
+      let vs = '';
+      const phi = Math.asin(((a1x - a0x) / 2) / RA);
+      for (let i = 0; i <= 16; i++) { const f = -phi + 2 * phi * i / 16, sx = Math.sin(f), cy2 = Math.cos(f); vs += `M${n(VX + RA * sx)},${n(acy - RA * cy2)}L${n(VX + (RA + 30) * sx)},${n(acy - (RA + 30) * cy2)}`; }
+      const ow = Math.sqrt((RA + 30) ** 2 - (acy - a0y) ** 2);
+      bf += K.path(`M${n(VX - ow)},${n(a0y)}A${n(RA + 30)},${n(RA + 30)} 0 0,1 ${n(VX + ow)},${n(a0y)}L${n(a1x)},${n(a0y)}A${n(RA)},${n(RA)} 0 0,0 ${n(a0x)},${n(a0y)}Z`, K.adj(BL, 0.06));
+      bf += stroke(vs, BS, 1.3, { opacity: 0.6 });
+      bf += K.path(`M${n(VX - 9)},${n(crown)}L${n(VX + 9)},${n(crown)}L${n(VX + 12)},${n(crown - 34)}L${n(VX - 12)},${n(crown - 34)}Z`, K.adj(BL, 0.14));
+      bf += K.path(`M${n(a1x)},${n(a0y)}A${n(RA)},${n(RA)} 0 0,0 ${n(VX)},${n(crown)}L${n(VX)},${n(crown + 8)}A${n(RA - 8)},${n(RA - 8)} 0 0,1 ${n(a1x - 6)},${n(a0y)}Z`, BS, { opacity: 0.7 });
+      for (const X of [-10.2, 9.4]) bf += K.path(Q([[X, 0, ZB], [X + 0.8, 0, ZB], [X + 0.8, 5.2, ZB], [X, 5.2, ZB]]), X < 0 ? K.adj(BL, 0.08) : K.mix(BL, BS, 0.5));
       const yDeck = pr(0, 5.2, ZB)[1], yCap = pr(0, 6.0, ZB)[1];
-      s += K.rect(bx0, yDeck - 4, bx1 - bx0, 8, K.adj(L(bst), 0.1)) + K.rect(bx0, yDeck + 4, bx1 - bx0, 3, S(bst));
-      s += K.rect(bx0 - 4, by1 - 2, bx1 - bx0 + 8, yCap - by1 + 4, K.adj(L(bst), 0.12));
-      let vs = '', cr = '';
-      for (let i = 0; i <= 16; i++) { const a = Math.PI * (0.18 + 0.64 * i / 16), cx = (a0x + a1x) / 2, cy = a0y + RA - 84.4 * F / 760 * 0 - (RA - (RA - Math.sqrt(RA * RA - ((a1x - a0x) / 2) ** 2))); const ux = -Math.cos(a), uy = -Math.sin(a); const p0 = [cx + ux * RA, cy + uy * RA], p1 = [cx + ux * (RA + 26), cy + uy * (RA + 26)]; vs += ld([p0, p1]); }
-      for (let y = by0 - 16; y > yDeck + 8; y -= 15) cr += `M${n(bx0)},${n(y)}H${n(bx1)}`;
-      s += `<g>${stroke(cr, S(bst), 1, { opacity: 0.35 })}${stroke(vs, S(bst), 1.4, { opacity: 0.6 })}</g>`;
-      s += K.path(archF, 'none', { stroke: S(bst), strokeWidth: 3, opacity: 0.6 });
-      for (const X of [-10.2, 9.6]) s += K.path(Q([[X, 0, ZB - 0.02], [X + 0.7, 0, ZB - 0.02], [X + 0.7, 5.2, ZB - 0.02], [X, 5.2, ZB - 0.02]]), X < 0 ? K.adj(L(bst), 0.08) : S(bst));
+      bf += K.rect(bx0, yDeck - 4, bx1 - bx0, 7, K.adj(BL, 0.12)) + K.rect(bx0, yDeck + 3, bx1 - bx0, 3, BS);
+      for (let x = bx0 + 16; x < bx1 - 40; x += 58) bf += K.rect(x, yCap + 3, 42, yDeck - yCap - 9, BS, { opacity: 0.35 });
+      bf += K.path(`M${n(a0x)},${n(a0y)}L${n(a0x)},${n(a0y - 6)}L${n(a1x)},${n(a0y - 6)}L${n(a1x)},${n(a0y)}Z`, '#1a1820', { opacity: 0.4 });
+      s += `<g clip-path="url(#${bcl})">${bf}</g>`;
+      s += K.rect(bx0 - 4, by1 - 3, bx1 - bx0 + 8, yCap - by1 + 5, K.adj(BL, 0.16)) + K.rect(bx0 - 4, yCap, bx1 - bx0 + 8, 2.5, BS);
       for (const X of [-11.8, 11.8]) {
         const [x, yb] = pr(X, 6.0, ZB), [, yt] = pr(X, 9.6, ZB), gr = F * 0.24 / ZB;
         s += K.rect(x - 2, yt, 4, yb - yt, iron) + K.rect(x - gr * 2.2, yt + 2, gr * 4.4, 2.5, iron) + K.circle(x - gr * 2, yt - gr * 0.6, gr, '#fff1cc') + K.circle(x + gr * 2, yt - gr * 0.6, gr, '#fff1cc') + K.circle(x, yt - gr * 1.4, gr, '#fff1cc');
         glows.push([x, yt - gr, F * 2.4 / ZB, P.sodium, 0.55]);
-        wins.push([x, VY + F * (E + 9.4) / ZB, VY + F * (E + 9.9) / ZB, gr * 3, '#ffe0a0']);
+        refl.push([x, VY + F * (E + 9.0) / ZB, F * 1.6 / ZB, gr * 4, '#ffe0a0']);
       }
 
       /* near: the mills and storefront backs, Z < 36 */
-      for (const [sd, z0, z1, h, kind] of [[-1, 30, 35.5, 15, 'brick'], [1, 28, 35.5, 11, 'brick2'], [-1, 22, 30, 13, 'cream'], [1, 17, 28, 15, 'brick'], [-1, 8, 22, 17, 'mill'], [1, 8, 17, 12, 'green']]) s += building(sd, z0, z1, h, kind);
+      for (const [sd, z0, z1, h, kind, blank] of [[-1, 30, 35.5, 15, 'brick'], [1, 28, 35.5, 11, 'brick2'], [-1, 22, 30, 13, 'cream'], [1, 17, 28, 15, 'brick'], [-1, 8, 22, 17, 'mill', [14.6, 22.5, 7.6, 17]], [1, 8, 17, 12, 'green']]) s += building(sd, z0, z1, h, kind, blank);
       s += fireEscape(-1, 23.5, 27.5, [6, 9.4]) + fireEscape(1, 10.5, 14.5, [5.9, 9.2]);
-      // ghost signs painted on the brick
-      const ghost = (sd, za, zb, ya, yb, text, size) => {
-        const p1 = pr(14 * sd, yb, za), p2 = pr(14 * sd, yb, zb), p3 = pr(14 * sd, ya, za);
-        const W = 100, H = 20;
-        const m = [(p2[0] - p1[0]) / W, (p2[1] - p1[1]) / W, (p3[0] - p1[0]) / H, (p3[1] - p1[1]) / H, p1[0], p1[1]].map((v) => +v.toFixed(4));
-        return `<g transform="matrix(${m.join(' ')})">` + K.text(W / 2, H * 0.8, text, { fontFamily: SIGN, fontSize: size, fontWeight: 700, fill: L('#ece3cf'), textAnchor: 'middle', opacity: fest ? 0.22 : 0.4, letterSpacing: 1 }) + '</g>';
-      };
-      s += ghost(-1, 10, 21, 14.6, 16.4, 'BOUCHARD WOOLEN CO.', 15) + ghost(1, 18, 27.5, 12.6, 14.4, 'TRACY & SON HARDWARE', 13);
+      s += ghost(-1, 15.4, 21.7, 9.6, 11.6, 'BOUCHARD WOOLEN CO.') + ghost(1, 18.4, 27.4, 9.45, 10.75, 'TRACY & SON HARDWARE');
 
       /* promenades, walls and the water this side of the bridge */
       const pv = '#8e8678';
@@ -955,27 +990,36 @@
       let wst = '';
       for (let z = 6; z < ZB; z += 1.3 + rng() * 2.4) for (const sd of [-1, 1]) { const [x, y0] = pr(9 * sd, 2.5, z), [, y1] = pr(9 * sd, 0.4 + rng() * 1.2, z); wst += `M${n(x)},${n(y0)}L${n(x)},${n(y1)}`; }
       s += stroke(wst, '#2a2a2a', 2, { opacity: 0.2 });
+      for (const z of [11, 19, 27]) for (const sd of [-1, 1]) { const [x, y] = pr(9 * sd, 1.6, z); s += K.circle(x, y, F * 0.16 / z, 'none', { stroke: iron, strokeWidth: Math.max(1, F * 0.04 / z) }); }
 
       const waterD = Q([[-9, 0, 4], [9, 0, 4], [9, 0, ZB], [-9, 0, ZB]]);
       const wg = o.id('water'), wcl = o.id('wclip');
-      const wStops = fest ? [[0, '#2a2e40'], [0.3, '#151a2a'], [1, '#0a0d16']] : [[0, '#d69a80'], [0.25, '#8a5e70'], [1, '#2a2a40']];
+      const wStops = fest ? [[0, '#2a2e40'], [0.3, '#151a2a'], [1, '#0a0d16']] : [[0, '#c48c80'], [0.3, '#7a5a6e'], [1, '#2a2a40']];
       s += K.defs(K.linear(wg, wStops, 0, a0y, 0, 900, true), `<clipPath id="${wcl}"><path d="${waterD}"/></clipPath>`) + K.path(waterD, `url(#${wg})`);
       let wd = '';
-      // dark reflections of the building walls along both sides
-      wd += K.path(pd([pr(-9, 0, ZB), pr(-9, 0, 4), pr(-3.5, 0, 4), pr(-6.5, 0, ZB)]), '#0b0c14', { opacity: fest ? 0.5 : 0.35 }) + K.path(pd([pr(9, 0, ZB), pr(9, 0, 4), pr(3.5, 0, 4), pr(6.5, 0, ZB)]), '#0b0c14', { opacity: fest ? 0.5 : 0.35 });
-      if (!fest) wd += K.path(`M${VX - 40},${a0y} L${VX + 40},${a0y} L${VX + 120},900 L${VX - 120},900 Z`, '#f6b880', { opacity: 0.22 });
-      // the arch reflected, closing the circle
-      wd += K.path(`M${n(a0x)},${n(a0y)}A${n(RA)},${n(RA)} 0 0,0 ${n(a1x)},${n(a0y)}Z`, fest ? '#0e1018' : L('#4a3a48'), { opacity: 0.6 });
-      for (const [x, y0, y1, w, c] of wins) { const h = Math.max(3, (y1 - y0) * 1.7); wd += K.rect(x - w / 2, y0, w, h, c, { opacity: 0.32 }); }
+      wd += K.path(pd([pr(-9, 0, ZB), pr(-9, 0, 4), pr(-3.5, 0, 4), pr(-6.5, 0, ZB)]), '#0b0c14', { opacity: fest ? 0.5 : 0.32 }) + K.path(pd([pr(9, 0, ZB), pr(9, 0, 4), pr(3.5, 0, 4), pr(6.5, 0, ZB)]), '#0b0c14', { opacity: fest ? 0.5 : 0.32 });
+      // the bridge mirrored: stone band with the arch inverted beneath it, broken into dashes
+      const mcy = 2 * a0y - acy;
+      let rStone = '', rArch = '';
+      for (let y = a0y + 1; y < a0y + (a0y - by1) * 0.95; y += 3 + rng() * 2.4) {
+        const jx = (rng() - 0.5) * 12, th = 1.6 + rng() * 1.4;
+        rStone += `M${n(bx0 + 10 + jx)},${n(y)}H${n(bx1 - 10 + jx)}v${n(th)}H${n(bx0 + 10 + jx)}Z`;
+        const dy = y - mcy;
+        if (dy < RA && y < mcy + RA) { const hw = Math.sqrt(Math.max(0, RA * RA - dy * dy)) * (0.92 + rng() * 0.12); rArch += `M${n(VX - hw + jx)},${n(y)}h${n(hw * 2)}v${n(th + 0.4)}h${n(-hw * 2)}Z`; }
+      }
+      wd += K.path(rStone, fest ? '#2a2830' : K.mix(BS, '#3a2e40', 0.4), { opacity: 0.5 }) + K.path(rArch, fest ? '#0a0b12' : '#e8a888', { opacity: fest ? 0.6 : 0.45 });
+      if (!fest) { let sky = ''; for (let y = a0y + 70; y < 900; y += 5 + rng() * 5) { const w = 60 + (y - a0y) * 0.55 * (0.6 + rng() * 0.6); sky += `M${n(VX - w / 2 + (rng() - 0.5) * 40)},${n(y)}h${n(w)}v2h${n(-w)}Z`; } wd += K.path(sky, '#f8c8a0', { opacity: 0.3 }); }
+      const rb = bucket();
+      for (const [x, y0, len, w, c] of refl) rb.add(c, reflD(rng, x, y0, len, w, Math.max(2, len / 9)));
+      wd += rb.out({ opacity: fest ? 0.5 : 0.42 });
       let rp = '';
       for (let i = 0; i < 120; i++) { const Z = 5 + Math.pow(rng(), 0.6) * 31, X = (rng() - 0.5) * 17, [x, y] = pr(X, 0, Z), l = F * (0.4 + rng() * 1.2) / Z; rp += `M${n(x - l / 2)},${n(y)}h${n(l)}`; }
       wd += stroke(rp, fest ? '#3a4260' : '#f0b898', 1.3, { opacity: 0.5 });
       s += `<g clip-path="url(#${wcl})">${wd}</g>`;
 
-      /* the Lantern Float: paper lanterns on the near water, with reflections */
+      /* the Lantern Float: paper lanterns on the near water, each with its broken reflection */
       if (fest) {
-        const near = [];
-        const GX = -6.3, GZ = 31;
+        const near = [], GX = -6.3, GZ = 31;
         for (let i = 0; i < 140; i++) {
           const Z = 6.5 + Math.pow(rng(), 0.85) * 29.4, X = (rng() - 0.5) * 16.4;
           if (Math.abs(X - GX) < 1.4 && Math.abs(Z - GZ) < 2.4) continue;
@@ -983,42 +1027,43 @@
         }
         near.push([GX, GZ, true]);
         near.sort((a, b) => b[1] - a[1]);
-        s += K.pool(o, 800, 560, 520, 90, '#ffa848', 0.28, 'nearpool');
+        s += K.pool(o, 800, 560, 520, 90, '#ffa848', 0.26, 'nearpool');
         const gl = o.id('lg'), gg = o.id('lgg');
-        s += K.defs(glowDef(gl, '#ffb24e', 0.55), glowDef(gg, P.lantern, 0.42));
-        const body = bucket(), top = bucket(), core = bucket(), refl = bucket(), floats = bucket();
+        s += K.defs(glowDef(gl, '#ffb24e', 0.5), glowDef(gg, P.lantern, 0.4));
+        const body = bucket(), top = bucket(), core = bucket(), rf = bucket(), floats = bucket();
         let glowEls = '';
         for (const [X, Z, green] of near) {
           const [x, y] = pr(X, 0.12, Z), w = F * 0.36 / Z, h = w * 0.82;
-          glowEls += K.circle(x, y - h * 0.5, w * (green ? 2.1 : 2.4), `url(#${green ? gg : gl})`);
-          const bc = green ? '#c9eab4' : rng.pick(['#f6a540', '#f8b850', '#f09238', '#ffc866']);
-          refl.add(green ? '#b8e0a0' : bc, `M${n(x - w * 0.32)},${n(y + 1)}L${n(x + w * 0.32)},${n(y + 1)}L${n(x + w * 0.08)},${n(y + w * 2.6)}L${n(x - w * 0.08)},${n(y + w * 2.6)}Z`);
+          glowEls += K.circle(x, y - h * 0.5, w * (green ? 2.0 : 2.3), `url(#${green ? gg : gl})`);
+          const bc = green ? '#c6e8b0' : rng.pick(['#f6a540', '#f8b850', '#f09238', '#ffc866']);
+          rf.add(green ? '#b0dc98' : bc, reflD(rng, x, y + w * 0.15, w * 2.4, w * 1.05, Math.max(1.6, w * 0.24)));
           body.add(bc, `M${n(x - w / 2)},${n(y)}L${n(x + w / 2)},${n(y)}L${n(x + w * 0.44)},${n(y - h)}L${n(x - w * 0.44)},${n(y - h)}Z`);
-          if (w > 7) top.add(green ? '#e6f8da' : '#ffe6b0', `M${n(x - w * 0.44)},${n(y - h)}L${n(x + w * 0.44)},${n(y - h)}L${n(x + w * 0.34)},${n(y - h - w * 0.16)}L${n(x - w * 0.34)},${n(y - h - w * 0.16)}Z`);
-          core.add(green ? '#f2fff0' : '#fff6d8', `M${n(x - w * 0.14)},${n(y - h * 0.15)}h${n(w * 0.28)}v${n(-h * 0.55)}h${n(-w * 0.28)}Z`);
+          if (w > 7) top.add(green ? '#e2f6d4' : '#ffe6b0', `M${n(x - w * 0.44)},${n(y - h)}L${n(x + w * 0.44)},${n(y - h)}L${n(x + w * 0.34)},${n(y - h - w * 0.16)}L${n(x - w * 0.34)},${n(y - h - w * 0.16)}Z`);
+          core.add(green ? '#f0fff0' : '#fff6d8', `M${n(x - w * 0.14)},${n(y - h * 0.15)}h${n(w * 0.28)}v${n(-h * 0.55)}h${n(-w * 0.28)}Z`);
           if (w > 6) floats.add('#2a1a14', `M${n(x - w * 0.56)},${n(y)}h${n(w * 1.12)}v${n(w * 0.12)}h${n(-w * 1.12)}Z`);
         }
-        s += glowEls + refl.out({ opacity: 0.4 }) + floats.out() + body.out() + top.out() + core.out();
+        s += glowEls + rf.out({ opacity: 0.42 }) + floats.out() + body.out() + top.out() + core.out();
       }
 
-      /* the crowd along both railings (night of the Float) */
+      /* the crowd along both railings on the night of the Float; a few strollers at dusk */
       if (fest) {
         const ppl = [];
         for (const sd of [-1, 1]) for (let z = 7; z < 35.5; z += 0.5 + rng() * 0.45) for (let k = 0; k < 3; k++) {
           if (rng() < 0.2) continue;
           const X = sd * (9.5 + k * 0.8 + rng() * 0.35), child = rng() < 0.15;
-          ppl.push([X, z, child ? 1.05 + rng() * 0.3 : 1.55 + rng() * 0.32, child, rng() < 0.4 ? 1 : 0, rng() < 0.12]);
+          ppl.push([X, z, child ? 1.05 + rng() * 0.3 : 1.55 + rng() * 0.32, child, rng() < 0.4 ? 1 : 0, rng() < 0.1]);
         }
         ppl.sort((a, b) => Math.hypot(b[0], b[1]) - Math.hypot(a[0], a[1]));
-        const pb = bucket();
-        const hand = [];
+        const pb = bucket(), hand = [];
         for (const [X, z, hh, child, coat, lan] of ppl) {
           const [x, yb] = pr(X, 2.6, z), h = F * hh / z;
           pb.add(z > 24 ? '#191d2a' : z > 14 ? '#121520' : '#0b0d15', personD(x, yb, h, { child, coat }));
-          if (lan && !child) hand.push(pr(X - Math.sign(X) * 0.3, 3.5, z).concat([F * 0.09 / z]));
+          if (lan && !child) hand.push(pr(X - Math.sign(X) * 0.35, 3.45, z).concat([F * 0.06 / z]));
         }
         s += pb.out();
-        for (const [x, y, r] of hand) s += K.circle(x, y, r * 2.6, '#ffb24e', { opacity: 0.25 }) + K.circle(x, y, r, '#ffd890');
+        const hg = o.id('hand');
+        s += K.defs(glowDef(hg, '#ffb24e', 0.45));
+        for (const [x, y, r] of hand) s += K.circle(x, y, r * 4, `url(#${hg})`) + K.rect(x - r * 0.8, y - r, r * 1.6, r * 2, '#ffd890');
       } else {
         let few = '';
         for (const [X, z, hh] of [[-10.4, 17, 1.7], [-10.9, 17.4, 1.6], [10.6, 26, 1.75], [-11.5, 31, 1.65]]) { const [x, yb] = pr(X, 2.6, z); few += personD(x, yb, F * hh / z, { coat: 1 }); }
@@ -1034,7 +1079,7 @@
       }
       for (const Z of [12, 24]) s += lamp(-9.6, Z, 2.6) + lamp(9.6, Z, 2.6);
 
-      /* string lights across the canal (night of the Float) */
+      /* string lights across the canal */
       if (fest) {
         for (const [z, ya, ym] of [[17, 12.4, 11.0], [24, 12.8, 11.4], [31, 12.2, 10.9]]) {
           const pts = [];
@@ -1046,15 +1091,15 @@
         s += stroke(`M${n(px0)},${n(py0)}H${n(px1)}`, '#fff0c0', 2.2, { strokeDasharray: '0.1 9', strokeLinecap: 'round' });
       }
 
-      /* glows (lamps, lit windows) */
+      /* glows: lamps and lit windows */
       for (const [x, y, r, c, op] of glows) s += K.glow(o, x, y, r, c, op, 'g');
 
       /* the parapet of the bridge we stand on */
       let bal = '';
       for (let x = -20; x < 1630; x += 26) bal += `M${x},806V866`;
       s += stroke(bal, iron, 5) + K.rect(-10, 792, 1620, 14, iron) + K.rect(-10, 862, 1620, 40, fest ? '#10131c' : L('#4a4448'));
-      if (fest) s += K.band(o, 600, 300, '#05070c', 0, 0.3, 'dark');
-      else s += K.band(o, 300, 420, '#d88a68', 0, 0.1, 'haze');
+      if (fest) s += K.band(o, 600, 320, '#05070c', 0, 0.3, 'dark');
+      else s += band3(o, 280, 560, '#d88a68', 0.1, 'haze');
       return s;
     }
   });
@@ -1070,32 +1115,33 @@
       const hz = (c, k) => K.mix(c, T.haze, k);
       let s = K.sky(o, t);
       s += K.glow(o, 160, 300, 720, '#ffdc9c', 0.55, 'sun');
-      s += K.clouds(rng, { count: 5, y0: 60, y1: 300, color: '#ffe2b0', shadow: '#c79a7a', opacity: 0.5, w: 560 });
+      s += K.clouds(rng, { count: 4, y0: 50, y1: 260, color: '#ffe2b0', shadow: '#c79a7a', opacity: 0.45, w: 560 });
 
-      /* downtown beyond the canal, hazy in the gold */
-      const dt = hz(L('#9a5a44'), 0.6), dts = hz(S('#9a5a44'), 0.6);
-      for (let x = 820; x < 1520;) { const w = 30 + rng() * 50, h = 30 + rng() * 50; s += K.rect(x, 452 - h, w, h, dt) + K.rect(x + w - 8, 452 - h, 8, h, dts); x += w + 1; }
-      s += K.rect(1238, 330, 14, 100, hz(L('#ece3cf'), 0.55)) + K.path('M1235,332 L1245,262 L1255,332 Z', hz(L('#ece3cf'), 0.55)) + K.rect(1004, 360, 10, 90, dt);
-      s += K.rect(820, 444, 720, 10, hz(L('#8a8478'), 0.5));
-      s += K.rect(820, 453, 720, 10, hz('#f6dca0', 0.2)) + stroke('M824,446H1536', hz(L('#2e2e33'), 0.5), 1.4) + stroke(Array.from({ length: 48 }, (_, i) => `M${830 + i * 15},446V452`).join(''), hz(L('#2e2e33'), 0.5), 1);
-      /* far tree line, gap where the canal shows */
-      const pairs = [[P.ember, P.rust], [P.mustard, '#a87a2a'], [P.rust, '#7e3a24'], ['#c86a32', '#8a4a2a']].map(([a, b]) => [hz(L(a), 0.4), hz(S(b), 0.4)]);
-      s += canopyBand(rng, { x0: -40, x1: 880, y: 420, amp: 22, r0: 30, r1: 58, step: 40, k: 0.75, pairs });
-      s += canopyBand(rng, { x0: 1440, x1: 1660, y: 420, amp: 20, r0: 30, r1: 56, step: 40, k: 0.75, pairs });
-      s += K.path(K.ridge(rng, { x0: -20, x1: 880, y: 460, amp: 6, steps: 12 }), hz(S(P.moss), 0.35)) + K.rect(1440, 452, 200, 20, hz(S(P.moss), 0.35));
+      /* downtown beyond the canal, hazy in the gold; the canal itself catching the light */
+      const dt = hz(L('#9a5a44'), 0.58), dts = hz(S('#9a5a44'), 0.58);
+      for (let x = 860; x < 1480;) { const w = 30 + rng() * 50, h = 26 + rng() * 46; s += K.rect(x, 446 - h, w, h, dt) + K.rect(x + w - 8, 446 - h, 8, h, dts); x += w + 1; }
+      s += K.rect(1238, 330, 14, 98, hz(L('#ece3cf'), 0.5)) + K.path('M1235,332 L1245,262 L1255,332 Z', hz(L('#ece3cf'), 0.5)) + K.rect(1010, 352, 11, 90, dt);
+      s += K.rect(850, 444, 660, 6, hz(L('#8a8478'), 0.45)) + K.rect(850, 450, 660, 13, hz('#f8dca0', 0.12));
+      s += K.path('M850,452 H1510', 'none', { stroke: '#fff0c8', strokeWidth: 1.4, opacity: 0.7 });
+      s += K.path('M1120,450 Q1170,430 1220,450 L1214,450 Q1170,436 1126,450 Z', hz(L('#8a8478'), 0.4));
+      s += stroke('M854,439H1506' + Array.from({ length: 44 }, (_, i) => `M${858 + i * 15},439V445`).join(''), hz(L('#2e2e33'), 0.45), 1.2);
+      s += K.rect(850, 463, 660, 4, hz(S('#8a8478'), 0.4));
+      /* far tree line, open where the canal shows through */
+      const lits = [hz(L(P.ember), 0.38), hz(L(P.mustard), 0.38), hz(L('#c86a32'), 0.38)];
+      s += canopyMass(rng, { x0: -40, x1: 870, y: 432, amp: 16, step: 36, r0: 26, r1: 48, mass: hz(S('#8a4a2a'), 0.38), lits, bottom: 470 });
+      s += canopyMass(rng, { x0: 1490, x1: 1660, y: 430, amp: 14, step: 36, r0: 26, r1: 46, mass: hz(S('#8a4a2a'), 0.38), lits, bottom: 470 });
 
       /* the lawn */
       const lg = o.id('lawn');
-      s += K.defs(K.linear(lg, [[0, hz(L(P.moss), 0.3)], [1, L('#7a8044')]], 0, 455, 0, 900, true)) + K.rect(-10, 455, 1620, 460, `url(#${lg})`);
-      s += K.path(grassD(rng, { x0: -20, x1: 1640, y0: 470, y1: 640, count: 260, hMin: 4, hMax: 12, lean: 4 }), S(P.moss), { opacity: 0.6 });
+      s += K.defs(K.linear(lg, [[0, hz(L(P.moss), 0.3)], [1, L('#7a8044')]], 0, 462, 0, 900, true)) + K.rect(-10, 462, 1620, 460, `url(#${lg})`);
+      s += K.path(grassD(rng, { x0: -20, x1: 1640, y0: 480, y1: 650, count: 220, hMin: 4, hMax: 12, lean: 4 }), S(P.moss), { opacity: 0.55 });
 
-      /* mid maples */
+      /* mid maples with their long shadows */
       const mc = (a, b, c, k) => [hz(L(a), k), hz(S(b), k), hz(L(c), k)];
+      s += K.path('M300,500 L640,522 L650,536 L300,512 Z M868,488 L1140,502 L1150,512 L868,498 Z M1450,494 L1660,506 L1660,516 L1450,504 Z', S(P.moss), { opacity: 0.45 });
       s += treeL(rng, { x: 300, base: 500, h: 330, w: 290, colors: mc(P.ember, P.rust, P.mustard, 0.22), trunk: hz(S('#3a2c26'), 0.22) });
-      s += treeL(rng, { x: 860, base: 486, h: 250, w: 220, colors: mc(P.mustard, '#a87a2a', '#f0c060', 0.28), trunk: hz(S('#3a2c26'), 0.28) });
+      s += treeL(rng, { x: 868, base: 488, h: 250, w: 220, colors: mc(P.mustard, '#a87a2a', '#f0c060', 0.28), trunk: hz(S('#3a2c26'), 0.28) });
       s += treeL(rng, { x: 1450, base: 494, h: 300, w: 260, colors: mc(P.rust, '#7e3a24', P.ember, 0.24), trunk: hz(S('#3a2c26'), 0.24) });
-      // long afternoon shadows of the trees, falling right
-      s += K.path('M300,500 L620,520 L640,534 L300,512 Z M860,486 L1120,500 L1130,510 L860,496 Z M1450,494 L1660,506 L1660,516 L1450,504 Z', S(P.moss), { opacity: 0.45 });
 
       /* the swing set */
       const tube = L('#7c8a94'), tubeS = S('#7c8a94');
@@ -1120,49 +1166,49 @@
       s += stroke('M872,416 Q914,446 932,532 Q942,576 980,586', '#ffffff', 1.6, { opacity: 0.6 });
       s += stroke('M930,540 L934,592 M890,440 L896,594', tubeS, 4);
 
-      /* Paul Bunyan on his plinth */
+      /* Paul Bunyan on his plinth: fiberglass, twenty-five feet of him */
       const gr = '#9a948a';
-      s += K.path('M740,560 L1080,574 L1210,580 L1236,590 L1080,592 L740,572 Z', S(P.moss), { opacity: 0.45 });
+      s += K.path('M744,560 L1080,574 L1220,580 L1250,590 L1080,594 L744,574 Z', S(P.moss), { opacity: 0.45 });
       s += K.rect(548, 540, 184, 22, L(gr)) + K.poly([[732, 540], [756, 530], [756, 552], [732, 562]], S(gr)) + K.poly([[548, 540], [732, 540], [756, 530], [572, 530]], K.adj(L(gr), 0.1));
       s += K.rect(562, 474, 156, 66, L(gr)) + K.poly([[718, 474], [738, 466], [738, 532], [718, 540]], S(gr)) + K.poly([[562, 474], [718, 474], [738, 466], [582, 466]], K.adj(L(gr), 0.1));
       s += K.rect(552, 462, 176, 12, K.adj(L(gr), 0.05)) + K.poly([[728, 462], [750, 453], [750, 465], [728, 474]], S(gr)) + K.poly([[552, 462], [728, 462], [750, 453], [574, 453]], K.adj(L(gr), 0.14));
       s += K.rect(598, 488, 84, 32, L('#6e5228')) + K.rect(601, 491, 78, 26, L('#8a6a34'));
       s += K.text(640, 505, 'PAUL BUNYAN', { fontFamily: SIGN, fontSize: 11, fontWeight: 700, fill: L('#e8d498'), textAnchor: 'middle', letterSpacing: 1 }) + K.text(640, 514, 'BASSEY PARK · 1959', { fontFamily: SIGN, fontSize: 6.5, fill: L('#e0c88a'), textAnchor: 'middle', letterSpacing: 0.5 });
-      const pid = o.id('plaid'), plaid = L('#b8352c');
-      s += `<defs><pattern id="${pid}" width="22" height="22" patternUnits="userSpaceOnUse"><rect width="22" height="22" fill="${plaid}"/><rect width="11" height="22" fill="#161214" opacity="0.6"/><rect width="22" height="11" fill="#161214" opacity="0.6"/></pattern></defs>`;
-      const shad = '#2a1c30';
-      // boots and jeans
-      s += K.path('M598,458 L600,428 L634,428 L636,458 Z M648,458 L650,428 L686,428 L690,458 Z', L('#2e2420'));
-      s += K.path('M596,458 Q596,446 604,446 L634,446 L636,458 Z M646,458 Q646,446 654,446 L686,446 L690,458 Z', L('#3e302a'));
-      s += K.path('M590,296 L692,296 L686,432 L650,432 L641,324 L634,432 L600,432 Z', L('#3e6090'));
-      s += K.path('M662,296 L692,296 L686,432 L664,432 Z M641,324 L634,432 L626,432 Z', shad, { opacity: 0.35 });
-      s += K.rect(599, 418, 36, 12, L('#5a7eaa')) + K.rect(649, 418, 38, 12, L('#5a7eaa')) + K.rect(669, 418, 18, 12, shad, { opacity: 0.3 });
-      s += stroke('M606,312 Q604,370 610,414', '#ffffff', 2.4, { opacity: 0.18 });
+      const pid = o.id('plaid'), shad = '#2a1c30', skin = L('#d49a72'), gloss = '#fff6e6';
+      s += `<defs><pattern id="${pid}" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="${L('#b8352c')}"/><rect width="12" height="24" fill="#161214" opacity="0.62"/><rect width="24" height="12" fill="#161214" opacity="0.62"/></pattern></defs>`;
+      // boots, jeans, cuffs
+      s += K.path('M584,462 Q580,444 592,434 L638,434 L640,462 Z M644,462 L646,434 L692,434 Q704,444 700,462 Z', L('#2e2420'));
+      s += K.rect(580, 456, 62, 7, '#1a1412') + K.rect(642, 456, 62, 7, '#1a1412') + K.path('M590,446 Q596,438 610,438', 'none', { stroke: gloss, strokeWidth: 2.4, opacity: 0.22 });
+      s += K.path('M582,302 L708,302 L698,434 L646,434 L641,334 L636,434 L588,434 Z', L('#3e6090'));
+      s += K.path('M668,302 L708,302 L698,434 L670,434 Z M641,334 L636,434 L626,434 Z', shad, { opacity: 0.35 });
+      s += K.rect(587, 418, 51, 16, L('#5a7eaa')) + K.rect(645, 418, 55, 16, L('#5a7eaa')) + K.rect(670, 418, 30, 16, shad, { opacity: 0.3 });
+      s += stroke('M598,318 Q596,372 600,412', gloss, 3, { opacity: 0.2 });
       // shirt, belt
-      s += K.path('M574,170 L708,170 L720,188 L700,294 L586,294 L560,190 Z', `url(#${pid})`);
-      s += K.path('M668,170 L708,170 L720,188 L700,294 L670,294 Z', shad, { opacity: 0.38 });
-      s += K.rect(586, 286, 116, 12, L('#4a3020')) + K.rect(634, 287, 14, 10, L(P.mustard));
+      s += K.path('M570,168 L712,168 L728,188 L708,298 L584,298 L554,190 Z', `url(#${pid})`);
+      s += K.path('M672,168 L712,168 L728,188 L708,298 L676,298 Z', shad, { opacity: 0.38 });
+      s += K.rect(580, 290, 130, 14, L('#4a3020')) + K.rect(633, 291, 16, 12, L(P.mustard));
       // his left arm, fist on his hip
-      s += K.path('M706,174 L730,188 L758,250 L714,298 L696,284 L728,248 L700,208 Z', `url(#${pid})`) + K.path('M706,174 L730,188 L758,250 L714,298 L696,284 L728,248 L700,208 Z', shad, { opacity: 0.38 });
-      s += K.circle(704, 288, 12, L('#d49a72')) + K.path('M704,276 a12,12 0 0,1 0,24 Z', shad, { opacity: 0.3 });
-      // his right arm up, the axe on his shoulder
-      s += K.path('M566,182 L598,178 L580,250 L552,250 Z', `url(#${pid})`);
-      s += K.path('M552,240 L580,250 L612,218 L594,204 Z', `url(#${pid})`);
-      s += `<g transform="translate(546,112) rotate(-32.6)">` + K.rect(-3.5, 0, 7, 158, L('#c8a46a')) + K.rect(1, 0, 2.5, 158, S('#c8a46a')) +
-        K.path('M5,-12 L-38,-22 Q-50,0 -38,22 L5,12 Z', L('#9aa0a6')) + K.path('M5,2 L-44,6 Q-46,14 -38,22 L5,12 Z', S('#9aa0a6')) + K.path('M-38,-22 Q-50,0 -38,22 L-34,21 Q-45,0 -34,-21 Z', '#eef2f4') + K.rect(5, -10, 12, 20, S('#9aa0a6')) + '</g>';
-      s += K.circle(602, 210, 13, L('#d49a72')) + K.path('M592,204 q10,-6 20,2', 'none', { stroke: S('#d49a72'), strokeWidth: 2 });
-      // head: black beard, black hair, rosy cheeks
-      s += K.ellipse(613, 130, 5, 8, L('#d49a72')) + K.ellipse(667, 130, 5, 8, L('#d49a72'));
-      s += K.ellipse(640, 128, 26, 31, L('#dca47a'));
-      s += K.path('M612,122 Q614,92 640,90 Q668,92 668,122 Q664,104 640,104 Q618,104 612,122 Z', '#141014');
-      s += K.path('M612,124 Q608,172 640,196 Q672,172 668,124 Q666,146 656,150 Q648,142 640,146 Q632,142 624,150 Q614,146 612,124 Z', '#161216');
-      s += K.path('M626,148 Q640,140 654,148 Q640,152 626,148 Z', '#100c10') + K.path('M633,156 q7,4 14,0', 'none', { stroke: '#a85a5a', strokeWidth: 2.4 });
-      s += K.ellipse(630, 124, 3.2, 3.6, '#1a1214') + K.ellipse(651, 124, 3.2, 3.6, '#1a1214') + K.circle(631, 123, 1, '#ffffff');
-      s += K.path('M622,115 q8,-5 15,-1 l0,3 q-8,-3 -15,1 Z M644,114 q8,-4 15,1 l0,3 q-7,-4 -15,-1 Z', '#141014');
-      s += K.path('M640,126 L636,140 Q640,143 645,140 Z', L('#c68a62'));
-      s += K.circle(628, 138, 6, L('#d87a6e'), { opacity: 0.45 }) + K.circle(653, 138, 6, L('#d87a6e'), { opacity: 0.45 });
-      s += K.path('M652,100 Q670,110 668,130 Q666,160 640,196 Q660,170 662,130 Q662,112 652,100 Z', shad, { opacity: 0.3 });
-      s += stroke('M620,108 Q626,100 636,98 M580,190 Q576,214 570,236', '#ffffff', 2, { opacity: 0.22 });
+      const armR = 'M708,170 L734,184 L768,250 L722,304 L700,292 L736,250 L706,212 Z';
+      s += K.path(armR, `url(#${pid})`) + K.path(armR, shad, { opacity: 0.4 });
+      s += K.circle(712, 292, 15, skin) + K.path('M712,277 a15,15 0 0,1 0,30 Z', shad, { opacity: 0.3 });
+      // his right arm up, the axe across his shoulder
+      s += K.path('M556,180 L600,174 L584,258 L544,254 Z', `url(#${pid})`) + K.path('M544,244 L582,260 L620,222 L598,198 Z', `url(#${pid})`);
+      s += `<g transform="translate(548,108) rotate(-31.5)">` + K.rect(-4, 0, 8, 166, L('#c8a46a')) + K.rect(1.5, 0, 2.5, 166, S('#c8a46a')) +
+        K.path('M6,-12 L-40,-24 Q-54,0 -40,24 L6,12 Z', L('#9aa0a6')) + K.path('M6,2 L-47,6 Q-49,16 -40,24 L6,12 Z', S('#9aa0a6')) + K.path('M-40,-24 Q-54,0 -40,24 L-35,22 Q-48,0 -35,-22 Z', '#eef2f4') + K.rect(6, -10, 13, 20, S('#9aa0a6')) + '</g>';
+      s += K.circle(605, 207, 15, skin) + K.path('M594,200 q11,-7 22,2', 'none', { stroke: S('#d49a72'), strokeWidth: 2 });
+      s += stroke('M566,190 Q560,220 552,244', gloss, 2.4, { opacity: 0.2 });
+      // head: black beard, black hair, painted eyes, rosy cheeks
+      s += K.ellipse(612, 128, 6, 9, skin) + K.ellipse(670, 128, 6, 9, skin);
+      s += K.ellipse(641, 125, 29, 33, L('#dca47a'));
+      s += K.path('M612,120 Q614,86 641,84 Q670,86 670,120 Q666,100 641,100 Q618,100 612,120 Z', '#141014');
+      s += K.path('M612,124 Q606,178 641,204 Q676,178 670,124 Q668,148 657,152 Q649,143 641,147 Q633,143 625,152 Q614,148 612,124 Z', '#161216');
+      s += K.path('M625,149 Q641,140 657,149 Q641,154 625,149 Z', '#100c10') + K.path('M633,158 q8,4 16,0', 'none', { stroke: '#a85a5a', strokeWidth: 2.6 });
+      s += K.ellipse(629, 122, 3.6, 4, '#1a1214') + K.ellipse(653, 122, 3.6, 4, '#1a1214') + K.circle(630, 121, 1.1, '#ffffff') + K.circle(654, 121, 1.1, '#ffffff');
+      s += K.path('M620,112 q9,-6 17,-1 l0,3 q-9,-3 -17,1 Z M645,111 q9,-5 17,1 l0,3 q-8,-4 -17,-1 Z', '#141014');
+      s += K.path('M641,124 L636,140 Q641,143 646,140 Z', L('#c68a62'));
+      s += K.circle(626, 138, 6.5, L('#d87a6e'), { opacity: 0.45 }) + K.circle(656, 138, 6.5, L('#d87a6e'), { opacity: 0.45 });
+      s += K.path('M654,96 Q672,108 670,128 Q668,162 641,204 Q662,174 664,130 Q664,110 654,96 Z', shad, { opacity: 0.3 });
+      s += stroke('M620,104 Q626,95 637,93', gloss, 2, { opacity: 0.25 });
 
       /* the bench, the merry-go-round */
       s += K.path('M400,574 L540,580 L548,588 L400,582 Z', S(P.moss), { opacity: 0.4 });
@@ -1172,6 +1218,7 @@
       s += K.path(ellD(330, 630, 110, 24), S('#7a7064')) + K.rect(220, 620, 220, 10, S('#7a7064'));
       const segs = [L('#b8483a'), L('#d9a441'), L('#4a6a8a'), L('#5a7a4a')];
       for (let i = 0; i < 8; i++) { const a0 = i / 8 * Math.PI * 2, a1 = (i + 1) / 8 * Math.PI * 2; s += K.path(`M330,620 L${n(330 + Math.cos(a0) * 110)},${n(620 + Math.sin(a0) * 24)} A110,24 0 0,1 ${n(330 + Math.cos(a1) * 110)},${n(620 + Math.sin(a1) * 24)} Z`, segs[i % 4]); }
+      s += K.path(ellD(330, 620, 110, 24), '#fff6e6', { opacity: 0.08 });
       let hoops = '';
       for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2 + 0.3, x = 330 + Math.cos(a) * 100, y = 620 + Math.sin(a) * 21; hoops += `M${n(x)},${n(y)}Q${n((x + 330) / 2)},${n(y - 44)} 330,${n(586)}`; }
       s += stroke(hoops, L('#9aa0a6'), 3) + K.rect(326, 580, 8, 40, L('#9aa0a6'));
@@ -1185,18 +1232,19 @@
       s += stroke('M790,688 l12,6 M802,688 l-12,6 M944,708 l10,-8 l10,8 M900,716 h22', '#f2ece0', 2, { opacity: 0.7 });
       s += K.text(700, 734, 'JUMP 100!', { fontFamily: SCRAWL, fontSize: 16, fill: '#f2ece0', opacity: 0.65, transform: 'rotate(-3 700 734)' });
 
-      /* framing maples, leaves everywhere */
+      /* framing maples, leaves everywhere: drifts at the roots, litter on grass and asphalt, a few still falling */
       s += treeL(rng, { x: 60, base: 720, h: 760, w: 560, colors: [L(P.ember), S(P.rust), L(P.mustard)], trunk: S('#3a2c26') });
       s += treeL(rng, { x: 1560, base: 700, h: 700, w: 480, colors: [L(P.rust), S('#7e3a24'), L(P.ember)], trunk: S('#3a2c26') });
-      s += leafField(rng, { count: 220, x0: -20, x1: 1640, y0: 470, y1: 640, colors: [L(P.rust), L(P.ember), L(P.mustard), S(P.rust)], size: 5 });
+      s += K.path(blobL(rng, 90, 716, 120, 16, { lobes: 6, jag: 0.4, k: 4 }) + blobL(rng, 1540, 698, 110, 15, { lobes: 6, jag: 0.4, k: 4 }), L(P.rust), { opacity: 0.85 });
+      s += leafField(rng, { count: 240, x0: -20, x1: 1640, y0: 470, y1: 640, colors: [L(P.rust), L(P.ember), L(P.mustard), S(P.rust)], size: 5 });
       s += leafField(rng, { count: 320, x0: -20, x1: 1640, y0: 640, y1: 910, colors: [L(P.rust), L(P.ember), L(P.mustard), S(P.rust), S(P.ember)], size: 8 });
-      s += leafField(rng, { count: 90, x0: -20, x1: 220, y0: 680, y1: 760, colors: [L(P.ember), L(P.rust), L(P.mustard)], size: 9 });
+      s += leafField(rng, { count: 90, x0: -20, x1: 240, y0: 690, y1: 760, colors: [L(P.ember), L(P.rust), L(P.mustard)], size: 9 });
       s += leafField(rng, { count: 40, x0: 0, x1: 1600, y0: 80, y1: 520, colors: [L(P.ember), L(P.mustard), L(P.rust)], size: 6, flat: 1, persp: false, opacity: 0.9 });
 
       /* gold light through the trees */
       s += K.shaft(o, [[140, 120], [260, 80], [900, 640], [640, 680]], '#ffe2a0', 0.14, 'sun1', [0, 0, 0.5, 1]);
       s += K.shaft(o, [[300, 180], [360, 160], [1200, 560], [1050, 600]], '#ffe2a0', 0.09, 'sun2', [0, 0, 0.6, 1]);
-      s += K.band(o, 360, 220, T.haze, 0, 0.22, 'haze');
+      s += band3(o, 300, 420, T.haze, 0.2, 'haze', 0.45);
       return s;
     }
   });

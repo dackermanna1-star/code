@@ -280,6 +280,7 @@
       const r = window.KIT && KIT.renderBg('cg_map');
       m.innerHTML = (r ? r.svg : fallbackMap()) + `<div class="maphead">Derry</div><div class="mapsub">${esc(E.eng.mapNote || 'Where to?')}</div><div class="tip" id="map-tip">Choose where to go.</div><div class="other" id="map-other"></div>`;
       const tip = $('#map-tip', m);
+      $('#toasts').innerHTML = '';
       let done = false;
       const pick = (o) => { if (done) return; done = true; snd('sfx', 'select'); m.classList.remove('on'); setTimeout(() => { m.innerHTML = ''; }, 600); resolve({ index: o.index }); };
       for (const o of opts) {

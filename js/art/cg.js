@@ -274,8 +274,7 @@
       s += K.rect(X(86) - 18, Y(56) - 16, 36, 30, '#b9a3c9') + K.poly([[X(86) - 22, Y(56) - 16], [X(86), Y(56) - 36], [X(86) + 22, Y(56) - 16]], '#7a6a8a');
       // labels for places without pins + street names
       s += label(X(52), Y(80) + 8, 'Kenduskeag Stream', 'middle', 20) + label(X(70), Y(50) - 26, 'THE CANAL', 'middle', 20);
-      s += label(X(14), Y(84), 'THE BARRENS', 'middle', 20) + label(X(72), Y(70) + 40, 'Larch St.', 'middle', 18) + label(X(56), Y(30) - 10, 'Center St.', 'middle', 18);
-      s += label(X(79), Y(24) + 90, 'Memorial Park', 'middle', 18) + label(X(38), Y(58) + 60, 'Bassey Park', 'middle', 18);
+      s += label(X(72), Y(70) + 40, 'Larch St.', 'middle', 18) + label(X(56), Y(30) - 10, 'Center St.', 'middle', 18) + label(X(79), Y(24) + 96, 'Memorial Park', 'middle', 16);
       // compass rose
       s += `<g transform="translate(1460 790)" opacity="0.8"><circle r="44" fill="none" stroke="${ink}" stroke-width="2"/><path d="M0,-52 L9,0 L0,52 L-9,0 Z" fill="${ink}"/><path d="M-52,0 L0,-7 L52,0 L0,7 Z" fill="${ink}" opacity="0.5"/><text y="-60" text-anchor="middle" font-family="'Special Elite','Courier New',monospace" font-size="20" fill="${ink}">N</text></g>`;
       s += K.text(1540, 880, 'drawn by G.B. (not to scale)', { fontFamily: "'Kalam','Comic Sans MS',cursive", fontSize: 18, fill: ink, textAnchor: 'end', opacity: 0.6 });
