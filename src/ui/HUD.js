@@ -359,8 +359,9 @@ export class HUD {
 
   describe(u) {
     const w = this.world;
-    if (!u.alive && !u.dying) return u.cat === 'inf' ? 'Killed in action' : 'Destroyed';
+    if (!u.alive && !u.dying) return u.cat === 'inf' ? (u.downed ? 'Died of wounds' : 'Killed in action') : 'Destroyed';
     if (u.cat === 'inf') {
+      if (u.downed) return u.downed.stable ? 'Wounded, bleeding stopped' : 'Down and bleeding';
       if (u.para) return u.para.phase === 'fall' ? 'Exiting aircraft' : 'Under canopy, descending';
       if (u.mounted) return `Mounted in ${u.mounted.name}`;
       if (u.climb) return u.climb.up ? 'Climbing to the roof' : 'Coming down from the roof';
@@ -372,6 +373,7 @@ export class HUD {
       if (t === 'bound') return 'Bounding to the next cover';
       if (t === 'assault') return 'Assaulting the position';
       if (t === 'flee') return 'Making for the rear';
+      if (t === 'aid') return u.task.lastT >= 0 ? `Treating ${u.task.patient.name}` : `Running to a wounded ${u.task.patient.name.toLowerCase()}`;
       if (t === 'hold') return u.roof ? 'Holding a rooftop position' : sq && sq.order && sq.order.type === 'overwatch' ? 'On overwatch' : 'Holding position';
       if (t === 'fight') return u.cover ? 'In cover, scanning' : 'Looking for cover';
       if (sq && sq.state === 'flank') return 'Moving to flank';
@@ -643,6 +645,7 @@ export class HUD {
     const rows = [
       ['', FACTION_INFO[0].short, FACTION_INFO[1].short],
       ['Infantry lost', w.factions[0].losses.inf, w.factions[1].losses.inf],
+      ['Wounded, treated', ...[0, 1].map((f) => w.factions[f].units.filter((u) => u.alive && u.downed && u.downed.stable).length)],
       ['Vehicles lost', w.factions[0].losses.veh, w.factions[1].losses.veh],
       ['Aircraft lost', w.factions[0].losses.air, w.factions[1].losses.air],
       ['Kills', w.factions[0].kills, w.factions[1].kills],

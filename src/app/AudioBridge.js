@@ -83,6 +83,15 @@ export class AudioBridge {
         case 'building_collapse':
           a.play('building_collapse', e.s);
           break;
+        case 'building_ruined':
+          a.play('building_collapse', e.s, { volume: 0.7 });
+          a.play('debris', e.s);
+          break;
+        case 'melee': {
+          const p = e.target.pos;
+          if ((p.x - L.x) ** 2 + (p.z - L.z) ** 2 < 60 * 60) a.play('impact_wood', p, { volume: 0.8 });
+          break;
+        }
         case 'structure_destroyed':
         case 'crush':
           a.play('debris', e.s, { volume: 0.7 });

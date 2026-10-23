@@ -7,6 +7,7 @@ import { World } from '../src/sim/world.js';
 import { attachAI } from '../src/ai/index.js';
 import { WeaponMount } from '../src/sim/mount.js';
 import { ballisticAngle, segSegClosest, segOBB } from '../src/core/math.js';
+import { damageStructure } from '../src/sim/damage.js';
 import { rng } from '../src/core/rng.js';
 import { MOVE_INF, MOVE_TRACK } from '../src/world/nav.js';
 
@@ -99,4 +100,49 @@ test('a full AI battle runs, fights and stays numerically sane', () => {
   // Squads moved off their start lines.
   const moved = w.factions[0].squads.filter((s) => s.order).length;
   assert.ok(moved > 3, 'squads received orders');
+});
+
+test('a downed soldier bleeds out unless a squadmate treats him', () => {
+  rng.seed(9);
+  const m = generateMap('valley', 9);
+  const w = new World(m, { tickets: 800 });
+  const army = { size: 250, infantry: 1, armor: 1, air: 0, artillery: 0, drones: 0, reinforcements: false };
+  attachAI(w, [army, army]);
+  const sq = w.factions[0].squads.find((s) => s.members && s.members.length >= 6 && !s.mounted);
+  const p = sq.members[2];
+  w.downSoldier(p, null, null);
+  assert.ok(p.alive && p.downed && p.dying, 'down but alive');
+  assert.ok(!sq.members.includes(p), 'out of the squad');
+  p.downed.bleed = 1e9; // long enough for help to arrive
+  let helped = false;
+  for (let i = 0; i < 30 * 40 && !p.downed.stable; i++) {
+    w.update(1 / 30);
+    w.events.length = 0;
+    if (sq.members.some((x) => x.task && x.task.type === 'aid' && x.task.patient === p)) helped = true;
+  }
+  assert.ok(helped, 'a squadmate went to help');
+  assert.ok(p.downed.stable && p.alive, 'bleeding stopped');
+  // Without help the wound is fatal.
+  const q = sq.members[3];
+  w.downSoldier(q, null, null);
+  q.downed.bleed = 0.5;
+  q.downed.stable = false;
+  for (let i = 0; i < 30; i++) w.update(1 / 30);
+  assert.ok(!q.alive, 'bled out');
+});
+
+test('buildings break down in stages before collapsing', () => {
+  const m = generateMap('town', 4);
+  const w = new World(m, {});
+  const s = m.structures.list.find((b) => b.kind === 'building' && b.h > 6);
+  const full = s.solidH;
+  const hit = (k) => damageStructure(w, s, s.maxHp * k, null);
+  hit(0.35);
+  assert.equal(s.stage, 1, 'holed');
+  hit(0.35);
+  assert.equal(s.stage, 2, 'roof and upper floors gone');
+  assert.ok(s.solidH < full && s.solidH === s.ruinH, 'lower shell');
+  assert.ok(w.events.some((e) => e.t === 'building_ruined'));
+  hit(0.4);
+  assert.ok(s.destroyed && s.solidH === s.rubbleH, 'collapsed to rubble');
 });
