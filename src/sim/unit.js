@@ -119,6 +119,10 @@ export class Soldier extends Unit {
     this.sepZ = 0;
     this.grenades = 0;
     this.diveT = -1; // flat on the ground (incoming fire) until this time
+    this.severed = 0; // limbs lost (SEVER bit mask)
+    this.bleed = 0; // hit points lost per second from an open wound
+    this.bleedT = 0;
+    this.downed = null; // incapacitated: { t, bleed, stable, killer, def }
     this.smokeGrenades = this.def.smokeGrenades || 0;
     this.drones = this.def.drones || 0;
     this.skill = rng.range(0.75, 1.25);
@@ -200,6 +204,23 @@ export class Soldier extends Unit {
     if (!this.alive) {
       this.deadT += dt;
       return;
+    }
+    if (this.downed) {
+      const d = this.downed;
+      d.t += dt;
+      this.deadT += dt;
+      this.suppression = 0;
+      if (!d.stable && d.t > d.bleed) world.killSoldier(this, d.killer, d.def, false);
+      return;
+    }
+    if (this.bleed > 0) {
+      this.hp -= this.bleed * dt;
+      this.bleedT -= dt;
+      if (this.bleedT <= 0) this.bleed = 0; // dressed the wound
+      if (this.hp <= 3 && !this.mounted && !this.para && !this.climb) {
+        world.downSoldier(this, this.lastAttacker || null, this.lastDef || null);
+        return;
+      }
     }
     for (let i = 0; i < this.weapons.length; i++) this.weapons[i].update(dt);
     this.fireT += dt;
@@ -364,7 +385,7 @@ export class Soldier extends Unit {
     if (c.t >= c.dur) {
       this.hidden = false;
       this.climb = null;
-      if (c.up && !c.s.destroyed) {
+      if (c.up && !c.s.destroyed && c.s.stage < 2) {
         this.roof = c.s;
         this.pos.set(c.x, c.s.top, c.z);
       } else {

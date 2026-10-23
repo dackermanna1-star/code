@@ -176,7 +176,7 @@ export function pickTarget(u, world, opts = {}) {
       if (c.threatSource === u || (u.squad && c.threatSource && c.threatSource.squad === u.squad)) s *= 1.5;
       if (!isSeen) s *= 0.55;
       // Single-shot heavy weapons shouldn't be wasted on lone infantry.
-      if ((w.def.kind === 'rocket' || w.def.kind === 'missile') && c.cat === 'inf' && !w.def.antiAir) s *= 0.3;
+      if ((w.def.kind === 'rocket' || w.def.kind === 'missile') && c.cat === 'inf' && !w.def.antiAir) s *= c.roof ? 1.3 : c.cover && c.cover.high ? 0.6 : 0.3;
       if (s > bestS) {
         bestS = s;
         best = c;

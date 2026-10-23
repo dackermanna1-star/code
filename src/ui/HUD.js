@@ -44,7 +44,7 @@ const HELP = [
   ['Follow a random aircraft', 'T'],
   ['Pause', 'Space'],
   ['Slower / faster time', '− / +'],
-  ['Objective markers', 'M'],
+  ['Markers and soldier rings', 'M'],
   ['Hide interface', 'Tab'],
   ['Performance stats', 'P'],
   ['Release camera', 'Esc'],
@@ -61,7 +61,6 @@ export class HUD {
     this.t = 0;
     this.miniT = 0;
     this.feedItems = [];
-    this.radioItems = [];
     this.selected = null;
     this.helpOpen = false;
   }
@@ -99,12 +98,6 @@ export class HUD {
     this.status.append(this.modeEl, this.speedEl, this.hintEl);
     // Feeds.
     this.feed = el('div', 'feed');
-    this.radio = el('div', 'radio panel');
-    this.radio.append(el('div', 'label', 'Radio net'));
-    this.radioList = el('div');
-    this.radioList.style.display = 'grid';
-    this.radioList.style.gap = '6px';
-    this.radio.append(this.radioList);
     // Minimap.
     this.mini = el('div', 'minimap panel pe');
     this.miniCanvas = el('canvas');
@@ -205,7 +198,7 @@ export class HUD {
     this.toasts = el('div');
     // Touch pad.
     if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) this.buildTouchPad();
-    r.append(this.labels, this.top, this.status, this.feed, this.radio, this.mini, this.card, this.forces, this.osd, this.sight, this.perf, this.toasts, this.help);
+    r.append(this.labels, this.top, this.status, this.feed, this.mini, this.card, this.forces, this.osd, this.sight, this.perf, this.toasts, this.help);
   }
 
   buildTouchPad() {
@@ -332,15 +325,11 @@ export class HUD {
     const w = this.world;
     for (const e of events) {
       if (e.t === 'kill') this.addKill(e);
-      else if (e.t === 'radio') this.addRadio(e.faction, e.text);
       else if (e.t === 'objective') {
         const f = FACTION_INFO[e.faction];
         if (e.kind === 'captured') this.toast(`Objective ${e.obj.letter} taken by ${f.name}`, f.color);
         else this.toast(`Objective ${e.obj.letter} neutralized`, '#dbe2d0');
       } else if (e.t === 'battle_over') this.showEnd(e.winner);
-      else if (e.t === 'reinforcements' && e.faction !== undefined && Math.random() < 0.3) {
-        // Occasional notice only; radio carries the detail.
-      }
     }
     void w;
   }
@@ -361,21 +350,6 @@ export class HUD {
     this.feed.prepend(row);
     this.feedItems.unshift({ row, t: performance.now() });
     while (this.feedItems.length > 7) this.feedItems.pop().row.remove();
-  }
-
-  addRadio(faction, text) {
-    const i = text.indexOf(':');
-    const m = el('div', `msg f${faction}`);
-    const stamp = this.world ? hourText(this.world.weather.hour).slice(0, 4) : '';
-    if (i > 0 && i < 40) {
-      m.append(document.createTextNode(`${stamp} `), el('b', '', text.slice(0, i)), document.createTextNode(text.slice(i)));
-    } else {
-      m.append(document.createTextNode(`${stamp} `), el('b', '', FACTION_INFO[faction].short), document.createTextNode(` ${text}`));
-    }
-    this.radioList.prepend(m);
-    this.radioItems.unshift(m);
-    for (let k = 3; k < this.radioItems.length; k++) this.radioItems[k].classList.add('old');
-    while (this.radioItems.length > 8) this.radioItems.pop().remove();
   }
 
   setSelected(u) {

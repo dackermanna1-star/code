@@ -441,7 +441,7 @@ export class Commander {
     const ed = world.map.deploy[this.enemy];
     let best = [];
     for (const u of this.fac.units) {
-      if (!u.alive || u.cat === 'air' || u.hidden) continue;
+      if (!u.alive || u.cat === 'air' || u.hidden || u.dying) continue;
       best.push(u);
     }
     if (!best.length) return { x: this.deploy.x, z: this.deploy.z };
@@ -677,7 +677,7 @@ export class Commander {
     let inf = 0;
     const veh = {};
     for (const u of fac.units) {
-      if (!u.alive) continue;
+      if (!u.alive || u.dying) continue;
       if (u.cat === 'inf') inf++;
       else if (u.cat === 'veh') veh[u.type] = (veh[u.type] || 0) + 1;
     }

@@ -523,7 +523,8 @@ export class Effects {
         for (let i = 0; i < 4 * l; i++) this.emit(this.fx, { x, y, z, vx: rr(-2, 2), vy: rr(0, 2), vz: rr(-2, 2), k: 1.2, tx: this.windX * 0.6, ty: -1.2, tz: this.windZ * 0.6, life: rr(1.5, 3), s0: 0.15, s1: 0.15, spin: rr(-4, 4), c: [1, 1, 1, 1], c1: [1, 1, 1, 0.6], frame: FRAME.LEAF });
         break;
       case 'flesh':
-        if (l > 0.5) this.emit(this.fx, { x, y, z, vx: rr(-0.5, 0.5), vy: 0.4, vz: rr(-0.5, 0.5), k: 2, life: 0.45, s0: 0.12, s1: 0.45, c: [0.28, 0.07, 0.05, 0.55], c1: [0.32, 0.12, 0.1, 0], frame: FRAME.DUST, fadeIn: 0.02 });
+        if (this.gore && this.gore.on) this.gore.hit(x, y, z, -nx, -ny, -nz, !!e.heavy);
+        else if (l > 0.5) this.emit(this.fx, { x, y, z, vx: rr(-0.5, 0.5), vy: 0.4, vz: rr(-0.5, 0.5), k: 2, life: 0.45, s0: 0.12, s1: 0.45, c: [0.3, 0.27, 0.22, 0.4], c1: [0.32, 0.3, 0.26, 0], frame: FRAME.DUST, fadeIn: 0.02 });
         break;
     }
   }
@@ -631,7 +632,7 @@ export class Effects {
       for (let i = 0; i < nd; i++) {
         const a = rand() * 6.28;
         const sp = rr(5, 16) * Math.sqrt(k);
-        this.debris.spawn(e.mat === MAT.CONCRETE ? 1 : 0, x, g + 0.5, z, Math.cos(a) * sp * 0.5, sp, Math.sin(a) * sp * 0.5, rr(0.4, 1.1) * Math.min(1.6, k * 0.4), rr(5, 10));
+        this.debris.spawn(e.mat === MAT.CONCRETE ? 1 : 0, x, g + 0.5, z, Math.cos(a) * sp * 0.5, sp, Math.sin(a) * sp * 0.5, rr(0.3, 0.8) * Math.min(1.1, k * 0.35), rr(5, 10));
       }
       if (k >= 1.7) this.decals.add(x, z, 3 + k * 2.2);
     } else {
@@ -700,6 +701,39 @@ export class Effects {
     this.shake = Math.max(this.shake, 0.6 * l);
   }
 
+  // Roof and upper floors fall in: dust bursting out of the top and the
+  // windows, masonry tumbling off the walls.
+  buildingRuined(e) {
+    const s = e.s;
+    const l = this.lod(s.x, s.y, s.z, 2);
+    if (l <= 0) return;
+    const c = new THREE.Color(s.color);
+    const top = s.y + s.h;
+    const r = Math.max(s.hx, s.hz);
+    for (let i = 0; i < Math.round(Math.min(40, 10 + s.hx * s.hz * 0.08) * l); i++) {
+      this.emit(this.smoke, { x: s.x + rr(-s.hx, s.hx) * 0.8, y: top + rr(-2, 2), z: s.z + rr(-s.hz, s.hz) * 0.8, vx: rr(-2, 2), vy: rr(1, 5), vz: rr(-2, 2), k: 0.6, tx: this.windX, ty: 0.8, tz: this.windZ, life: rr(8, 16), s0: r * 0.4 + 2, s1: r * 0.9 + 6, spin: rr(-0.1, 0.1), c: [c.r * 0.6 + 0.2, c.g * 0.6 + 0.19, c.b * 0.6 + 0.17, 0.8], c1: [c.r * 0.7 + 0.22, c.g * 0.7 + 0.21, c.b * 0.7 + 0.2, 0], frame: FRAME.SMOKE_B, fadeIn: 0.04 });
+    }
+    for (let i = 0; i < Math.min(30, 8 + s.h) * l; i++) {
+      this.debris.spawn(1, s.x + rr(-s.hx, s.hx), top - rr(0, 2), s.z + rr(-s.hz, s.hz), rr(-4, 4), rr(0, 4), rr(-4, 4), rr(0.5, 1.6), rr(15, 30));
+    }
+    this.shake = Math.max(this.shake, 0.35 * l);
+  }
+
+  // A collapse settling: a ring of dust rolling out along the ground.
+  collapseSettle(s) {
+    const l = this.lod(s.x, s.y, s.z, 2);
+    if (l <= 0) return;
+    const c = new THREE.Color(s.color);
+    const r = Math.max(s.hx, s.hz);
+    const n = Math.round(Math.min(48, 14 + r * 1.5) * l);
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + rr(-0.1, 0.1);
+      const sp = rr(5, 11);
+      this.emit(this.smoke, { x: s.x + Math.cos(a) * r * 0.8, y: s.y + rr(0.5, 2.5), z: s.z + Math.sin(a) * r * 0.8, vx: Math.cos(a) * sp, vy: rr(0, 1), vz: Math.sin(a) * sp, k: 0.9, tx: this.windX, ty: 0.3, tz: this.windZ, life: rr(9, 18), s0: 3, s1: r * 0.6 + 7, spin: rr(-0.1, 0.1), c: [c.r * 0.55 + 0.22, c.g * 0.55 + 0.21, c.b * 0.55 + 0.19, 0.75], c1: [c.r * 0.6 + 0.25, c.g * 0.6 + 0.24, c.b * 0.6 + 0.22, 0], frame: FRAME.SMOKE_A, fadeIn: 0.03 });
+    }
+    this.shake = Math.max(this.shake, 0.4 * l);
+  }
+
   smokeLaunch(e) {
     const v = e.unit;
     for (let i = 0; i < 6; i++) this.emit(this.add, { x: e.x, y: e.y, z: e.z, vx: rr(-6, 6), vy: rr(4, 8), vz: rr(-6, 6), life: 0.15, s0: 0.6, s1: 0.3, c: [3, 2.2, 1.2, 1], c1: [1, 0.5, 0.1, 0], frame: FRAME.FLASH, emissive: 1 });
@@ -732,6 +766,9 @@ export class Effects {
           break;
         case 'building_collapse':
           this.buildingCollapse(e);
+          break;
+        case 'building_ruined':
+          this.buildingRuined(e);
           break;
         case 'structure_destroyed':
         case 'crush': {

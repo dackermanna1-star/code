@@ -16,7 +16,7 @@ import { Weather } from './weather.js';
 import { Objective } from './objectives.js';
 import { Soldier, Vehicle, Aircraft, resetUnitIds } from './unit.js';
 import { UNIT_DEFS } from './unitdefs.js';
-import { WEAPONS } from './weapons.js';
+import { WEAPONS, MELEE } from './weapons.js';
 import { explode, damageStructure } from './damage.js';
 
 export const FACTION_INFO = [
@@ -190,8 +190,8 @@ export class World {
     this.weather.update(dt);
     // Grids.
     this.unitGrid.rebuild(this.units, isActive);
-    this.factionGrids[0].rebuild(this.factions[0].units, isActive);
-    this.factionGrids[1].rebuild(this.factions[1].units, isActive);
+    this.factionGrids[0].rebuild(this.factions[0].units, isCombatant);
+    this.factionGrids[1].rebuild(this.factions[1].units, isCombatant);
     this.airUnits[0].length = 0;
     this.airUnits[1].length = 0;
     for (let i = 0; i < this.units.length; i++) {
@@ -260,7 +260,7 @@ export class World {
     const phase = this.tick % 3;
     for (let i = phase; i < this.units.length; i += 3) {
       const u = this.units[i];
-      if (u.cat !== 'inf' || !u.alive || u.hidden || u.para || u.climb) continue;
+      if (u.cat !== 'inf' || !u.alive || u.hidden || u.para || u.climb || u.downed) continue;
       let sx = 0;
       let sz = 0;
       this.unitGrid.queryRadius(u.pos.x, u.pos.z, 6, _tmp);
@@ -465,14 +465,81 @@ export class World {
 
   // ------------------------------------------------------------ damage & death
 
-  damageSoldier(s, dmg, killer, def, head) {
+  // hit: { x, y, z, dx, dy, dz, v, part, blast } describing the blow, used
+  // for how the body falls.
+  damageSoldier(s, dmg, killer, def, head, hit = null) {
     if (!s.alive) return;
+    if (hit) s.lastHit = hit;
+    if (s.downed) {
+      // Anything more finishes a soldier who is already down.
+      this.killSoldier(s, killer || s.downed.killer, def || s.downed.def, head);
+      return;
+    }
     s.hp -= dmg;
     s.lastHitTime = this.time;
     s.suppression = Math.min(1, s.suppression + 0.35);
-    if (killer) s.threatSource = killer;
-    if (s.hp <= 0) this.killSoldier(s, killer, def, head);
-    else if (s.hp < 45) s.wounded = true;
+    if (killer) {
+      s.threatSource = killer;
+      s.lastAttacker = killer;
+      s.lastDef = def;
+    }
+    const canFall = !s.mounted && !s.para && !s.climb && !head;
+    if (s.hp <= 0) {
+      // Not every lethal wound kills outright: some go down and bleed out.
+      const over = -s.hp;
+      if (canFall && over < (s.severed ? 140 : 90) && rng.chance(s.severed ? 0.55 : 0.4)) this.downSoldier(s, killer, def);
+      else this.killSoldier(s, killer, def, head);
+    } else if (s.severed && canFall) {
+      this.downSoldier(s, killer, def);
+    } else {
+      if (s.hp < 45) s.wounded = true;
+      if (dmg >= 20) {
+        s.bleed = Math.max(s.bleed, rng.range(0.12, 0.45));
+        s.bleedT = rng.range(15, 40);
+      }
+    }
+  }
+
+  // Hand-to-hand: a blow with the rifle butt or a knife.
+  melee(a, b) {
+    const dx = b.pos.x - a.pos.x;
+    const dz = b.pos.z - a.pos.z;
+    const d = Math.hypot(dx, dz) || 1;
+    a.aimYaw = a.yaw = Math.atan2(dx, dz);
+    a.fireT = 0;
+    // Whoever is surprised, wounded or reloading loses.
+    let p = 0.55 * (a.skill / b.skill);
+    if (b.weapon && b.weapon.reloading) p += 0.2;
+    if (b.wounded) p += 0.15;
+    if (b.target !== a) p += 0.15;
+    this.emit({ t: 'melee', unit: a, target: b });
+    this.damageSoldier(b, rng.chance(p) ? MELEE.damage : rng.range(25, 55), a, MELEE, false, { x: b.pos.x, y: b.pos.y + 1.3, z: b.pos.z, dx: dx / d, dy: 0.1, dz: dz / d, v: 2.8, part: 'torso', blast: null });
+  }
+
+  // Incapacitated: on the ground, out of the fight, bleeding out unless a
+  // squadmate stops the bleeding.
+  downSoldier(s, killer, def) {
+    if (!s.alive || s.downed) return;
+    s.hp = 1;
+    s.bleed = 0;
+    s.downed = { t: 0, bleed: rng.range(10, 45) * (s.severed ? 0.45 : 1), killer, def, stable: false };
+    s.dying = true;
+    s.deadT = 0.0002;
+    s.fallDir = rng.chance(0.5) ? 1 : -1;
+    s.stance = 2;
+    s.stop();
+    s.target = null;
+    s.weapon = null;
+    s.aiming = false;
+    s.task = null;
+    if (s.cover && this.cover) this.cover.release(s);
+    if (s.squad) {
+      const sq = s.squad;
+      sq.onMemberDown(s, this);
+      s.downed.squad = sq;
+      s.squad = null;
+    }
+    this.emit({ t: 'downed', unit: s, hit: s.lastHit || null });
   }
 
   killSoldier(s, killer, def, head = false) {
@@ -483,6 +550,7 @@ export class World {
     s.deadT = 0;
     s.fallDir = rng.chance(0.5) ? 1 : -1;
     s.killer = killer;
+    s.bleed = 0;
     if (s.cover && this.cover) this.cover.release(s);
     if (s.mounted) {
       const m = s.mounted;
@@ -504,7 +572,7 @@ export class World {
       this.factions[killer.faction].kills++;
     }
     if (u.squad) u.squad.onMemberDeath(u, this);
-    this.emit({ t: 'death', unit: u, head });
+    this.emit({ t: 'death', unit: u, head, hit: u.lastHit || null });
     this.emit({ t: 'kill', killer, victim: u, weapon: def });
     this.noteCombat(u.pos.x, u.pos.z, u.cat === 'inf' ? 1 : 5);
   }
@@ -681,6 +749,30 @@ export class World {
     }
     this.emit({ t: 'drone_down', unit: d });
     if (d.operator && d.operator.activeDrone === d) d.operator.activeDrone = null;
+  }
+
+  // Progressive building damage: holed walls (stage 1), then the roof and
+  // upper floors fall in (stage 2) and anyone up there comes down with them.
+  setStructureStage(s, stage, source) {
+    s.stage = stage;
+    s.version++;
+    if (stage < 2) return;
+    s.ruinH = s.h * rng.range(0.5, 0.78);
+    s.flat = false;
+    this.unitGrid.queryRadius(s.x, s.z, s.radius + 2, _tmp);
+    for (const u of _tmp.slice()) {
+      if (u.cat !== 'inf' || !u.alive || u.roof !== s) continue;
+      u.roof = null;
+      u.pos.y = this.terrain.heightAt(u.pos.x, u.pos.z);
+      this.damageSoldier(u, rng.range(40, 150), source, null, false, { x: u.pos.x, y: u.pos.y + 3, z: u.pos.z, dx: 0, dy: -1, dz: 0, v: 3, part: 'torso', blast: null });
+    }
+    if (this.cover) this.cover.onStructureRuined(s);
+    this.smoke.add(s.x, s.y + s.ruinH, s.z, Math.max(s.hx, s.hz) * 1.2, 14, 0.07, 'dust');
+    if (s.burning <= 0 && s.material !== 'concrete' && rng.chance(0.5)) {
+      s.burning = rng.range(60, 160);
+      this.burningStructures.add(s);
+    }
+    this.emit({ t: 'building_ruined', s });
   }
 
   destroyStructure(s, source) {
@@ -920,9 +1012,12 @@ export class World {
     }
   }
 
+  // Bodies and wrecks stay on the battlefield; only units marked for removal
+  // (crashed jets, evacuated crews) go, or the oldest bodies past an optional
+  // opts.maxBodies cap.
   cleanupDead() {
     if (this.tick % 60 !== 0) return;
-    const maxBodies = this.opts.maxBodies ?? 1800;
+    const maxBodies = this.opts.maxBodies ?? Infinity;
     let bodies = 0;
     for (const u of this.dead) if (u.cat === 'inf') bodies++;
     const now = this.time;
@@ -965,6 +1060,10 @@ const FLARE_DEF = { id: 'flare', kind: 'flare', drag: 0.004, life: 5 };
 
 function isActive(u) {
   return u.alive && !u.hidden;
+}
+
+function isCombatant(u) {
+  return u.alive && !u.hidden && !u.dying;
 }
 
 function _scatter(dx, dy, dz, spread, out) {

@@ -37,6 +37,11 @@ export function resetCallsigns() {
 
 let squadIds = 1;
 
+// A member busy treating a casualty keeps that job until it is done.
+function aiding(m, world) {
+  return m.task && m.task.type === 'aid' && world.time - m.task.t < 45;
+}
+
 export class Squad {
   constructor(world, faction, kind, members, opts = {}) {
     this.id = squadIds++;
@@ -111,6 +116,55 @@ export class Squad {
     this.morale = Math.max(0, this.morale - (u === this.leader ? 0.18 : 0.08));
   }
 
+  // A member is down: out of the squad, but someone may go and help.
+  onMemberDown(u, world) {
+    const i = this.members.indexOf(u);
+    if (i >= 0) this.members.splice(i, 1);
+    this.onMemberDeath(u, world);
+    if (!this.casualties) this.casualties = [];
+    this.casualties.push(u);
+    // Those nearby duck for a moment.
+    for (const m of this.members) {
+      if (m.alive && !m.mounted && Math.abs(m.pos.x - u.pos.x) + Math.abs(m.pos.z - u.pos.z) < 25) {
+        m.suppression = Math.min(1, m.suppression + 0.25);
+      }
+    }
+  }
+
+  // Buddy aid: when the fight allows it, the nearest squadmate crawls over to
+  // a downed comrade and stops the bleeding.
+  updateAid(world) {
+    const cas = this.casualties;
+    if (!cas || !cas.length) return;
+    for (let i = cas.length - 1; i >= 0; i--) {
+      const c = cas[i];
+      if (!c.alive || c.removed || !c.downed || c.downed.stable) cas.splice(i, 1);
+    }
+    if (!cas.length || this.state === 'retreat' || this.state === 'mounted' || this.suppression > 0.45) return;
+    let helpers = 0;
+    for (const m of this.members) if (aiding(m, world)) helpers++;
+    if (helpers >= (this.members.length > 5 ? 2 : 1)) return;
+    for (const c of cas) {
+      if (c.roof || this.members.some((m) => m.task && m.task.patient === c)) continue;
+      let best = null;
+      let bd = 70;
+      for (const m of this.members) {
+        if (!m.alive || m.mounted || m.para || m.climb || m.roof || aiding(m, world)) continue;
+        if ((m === this.leader || m.def.role === 'mg') && this.members.length > 3) continue;
+        const d = dist2(m.pos.x, m.pos.z, c.pos.x, c.pos.z);
+        if (d < bd) {
+          bd = d;
+          best = m;
+        }
+      }
+      if (best) {
+        if (best.cover) world.cover.release(best);
+        best.task = { type: 'aid', patient: c, t: world.time, need: rng.range(7, 13), work: 0, lastT: -1 };
+      }
+      return;
+    }
+  }
+
   setOrder(order, world) {
     this.order = order;
     this.goal = { x: order.x, z: order.z, r: order.r || 40 };
@@ -138,12 +192,16 @@ export class Squad {
     if (this.state === s) return;
     this.state = s;
     this.stateT = world.time;
+    if (s === 'assault') {
+      this.grenadesOut = false;
+      this.boundT = -100;
+    }
     if (s === 'holding' || s === 'contact' || s === 'regroup') this.assignAll(world, s === 'holding' ? 'hold' : 'fight');
   }
 
   assignAll(world, type) {
     for (const m of this.members) {
-      if (!m.alive || m.mounted) continue;
+      if (!m.alive || m.mounted || aiding(m, world)) continue;
       m.task = { type, t: world.time };
     }
   }
@@ -162,7 +220,7 @@ export class Squad {
       if (path && path.length) {
         L.setPath(path, mode);
         L.task = { type: 'lead', mode };
-        for (const m of this.members) if (m !== L && m.alive && !m.mounted) m.task = { type: 'follow', mode };
+        for (const m of this.members) if (m !== L && m.alive && !m.mounted && !aiding(m, world)) m.task = { type: 'follow', mode };
       }
     });
   }
@@ -193,7 +251,7 @@ export class Squad {
     this.t = 0.8 + rng.next() * 0.4;
     // Prune the dead.
     const ms = this.members;
-    for (let i = ms.length - 1; i >= 0; i--) if (!ms[i].alive || ms[i].removed) ms.splice(i, 1);
+    for (let i = ms.length - 1; i >= 0; i--) if (!ms[i].alive || ms[i].removed || ms[i].downed) ms.splice(i, 1);
     if (ms.length === 0) {
       this.disband(world);
       return;
@@ -258,6 +316,7 @@ export class Squad {
     if (this.nearFriendlyArmor(world)) target += 0.15;
     this.morale += (clamp(target, 0, 1) - this.morale) * 0.12;
     if (this.state === 'regroup') this.morale = Math.min(1, this.morale + 0.02);
+    this.updateAid(world);
 
     switch (this.state) {
       case 'idle':
@@ -491,7 +550,7 @@ export class Squad {
       const threat = this.contact || target;
       for (let i = 0; i < this.members.length; i++) {
         const m = this.members[i];
-        if (!m.alive || m.mounted) continue;
+        if (!m.alive || m.mounted || aiding(m, world)) continue;
         if (i % 2 === this.team) {
           // Next bound: a cover point 25-50 m closer to the target.
           const dx = target.x - m.pos.x;
@@ -523,14 +582,47 @@ export class Squad {
       } else this.setState('holding', world);
       return;
     }
-    if (world.time - this.stateT > 25 || this.suppression > 0.6) {
+    if (world.time - this.stateT > 40 || this.suppression > 0.6) {
       this.setState('bounding', world);
       return;
     }
-    for (const m of this.members) {
-      if (!m.alive || m.mounted) continue;
-      if (!m.task || m.task.type !== 'assault' || world.time - m.task.t > 6) {
-        m.task = { type: 'assault', x: c.x + rng.range(-12, 12), z: c.z + rng.range(-12, 12), t: world.time };
+    // Fire and movement: one pair rushes 6-14 m to the next bit of cover
+    // while the other keeps the enemy's heads down; inside ~18 m grenades go
+    // in and everyone closes.
+    const L = this.leader;
+    const dc = dist2(L.pos.x, L.pos.z, c.x, c.z);
+    const final = dc < 18;
+    const movers = this.members.filter((m, i) => m.alive && !m.mounted && i % 2 === this.team);
+    const done = movers.every((m) => !m.task || m.task.type !== 'bound' || m.arrived);
+    if (world.time - this.boundT < (final ? 7 : done ? 1.2 : 5.5)) return;
+    this.team = 1 - this.team;
+    this.boundT = world.time;
+    if (final && !this.grenadesOut) {
+      this.grenadesOut = true;
+      for (const m of this.members) if (m.alive && m.brain && m.grenades > 0 && dist2(m.pos.x, m.pos.z, c.x, c.z) < 32) m.brain.prepGrenade = c;
+    }
+    for (let i = 0; i < this.members.length; i++) {
+      const m = this.members[i];
+      if (!m.alive || m.mounted || aiding(m, world)) continue;
+      if (final) {
+        m.task = { type: 'assault', x: c.x + rng.range(-6, 6), z: c.z + rng.range(-6, 6), t: world.time };
+      } else if (i % 2 === this.team) {
+        const dx = c.x - m.pos.x;
+        const dz = c.z - m.pos.z;
+        const d = Math.hypot(dx, dz) || 1;
+        const step = Math.min(d - 8, rng.range(6, 14));
+        if (step < 2) continue;
+        const gx = m.pos.x + (dx / d) * step + rng.range(-3, 3);
+        const gz = m.pos.z + (dz / d) * step + rng.range(-3, 3);
+        const cp = world.cover.find(m, c.x, c.z, 16, { gx, gz, goalRadius: 6, goalWeight: 2 });
+        if (cp) {
+          world.cover.claim(cp, m);
+          m.task = { type: 'bound', x: cp.x, z: cp.z, cover: cp, t: world.time };
+        } else {
+          m.task = { type: 'bound', x: gx, z: gz, cover: null, t: world.time };
+        }
+      } else {
+        m.task = { type: 'fight', t: world.time, stay: true };
       }
     }
   }
@@ -553,7 +645,7 @@ export class Squad {
     }
     const overwatch = this.order && this.order.type === 'overwatch';
     for (const m of this.members) {
-      if (!m.alive || m.mounted) continue;
+      if (!m.alive || m.mounted || aiding(m, world)) continue;
       if (m.task && m.task.type === 'hold' && m.cover && m.cover.active && world.time - m.task.t < 40) {
         // Still valid if it covers the current threat direction.
         const p = m.cover;

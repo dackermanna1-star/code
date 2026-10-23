@@ -1,6 +1,8 @@
 // Soldier brain. Squads assign tasks; this executes them: movement and
-// pathing, cover selection, rooftop climbing, stance under fire, target
-// selection and shooting, grenades, smoke and drone launches.
+// pathing, cover selection and peeking around corners, rooftop climbing,
+// stance under fire, target selection with a human reaction time, shooting
+// (snap shots up close, aimed singles at range), grenades, close combat,
+// buddy aid, smoke and drone launches.
 
 import { Vector3 } from 'three';
 import { rng } from '../core/rng.js';
@@ -10,6 +12,7 @@ import { scan, pickTarget, aimAt, infantryDispersion } from './perception.js';
 
 const _o = new Vector3();
 const _d = new Vector3();
+const _near = [];
 
 export class InfantryBrain {
   constructor(u) {
@@ -23,6 +26,12 @@ export class InfantryBrain {
     this.smokeT = -100;
     this.droneT = rng.range(5, 20);
     this.fleeing = false;
+    this.lastTarget = null;
+    this.reactT = 0;
+    this.peeking = false;
+    this.peekT = 0;
+    this.meleeT = 0;
+    this.prepGrenade = null;
   }
 
   thinkInterval(world) {
@@ -40,6 +49,23 @@ export class InfantryBrain {
     } else if (u.target && (!u.target.alive || u.target.hidden)) {
       pickTarget(u, world);
     }
+    if (u.target !== this.lastTarget) {
+      // Seeing a new enemy and bringing the weapon onto it takes a moment;
+      // longer at range, under fire, or for a green soldier.
+      this.lastTarget = u.target;
+      if (u.target) {
+        const d = dist2(u.pos.x, u.pos.z, u.target.pos.x, u.target.pos.z);
+        this.reactT = t + (d < 40 ? rng.range(0.12, 0.45) : rng.range(0.35, 1.0)) * (1 + u.suppression) / u.skill;
+      }
+    }
+    // Close combat: an enemy within arm's reach gets the rifle butt.
+    if (t > this.meleeT) {
+      const e = this.enemyWithin(world, 2.3);
+      if (e) {
+        this.meleeT = t + rng.range(1.1, 1.9);
+        world.melee(u, e);
+      }
+    }
     if (u.target) {
       this.losOK = world.unitLOS(u, u.target, 1.2) > 0;
       this.losT = t;
@@ -56,6 +82,16 @@ export class InfantryBrain {
     if (task) this.execute(task, world);
     this.chooseStance(world, task);
     this.special(world, task);
+  }
+
+  enemyWithin(world, r) {
+    const u = this.u;
+    const near = world.factionGrids[1 - u.faction].queryRadius(u.pos.x, u.pos.z, r, _near);
+    for (let i = 0; i < near.length; i++) {
+      const e = near[i];
+      if (e.cat === 'inf' && e.alive && !e.dying && !e.mounted && Math.abs(e.pos.y - u.pos.y) < 1.5) return e;
+    }
+    return null;
   }
 
   // Squadless soldiers (bailed-out crews, pilots): get to the rear.
@@ -108,7 +144,7 @@ export class InfantryBrain {
             const d = dist2(u.pos.x, u.pos.z, cp.x, cp.z);
             if (d > 0.8) u.moveDirect(cp.x, cp.z, 'walk');
             else u.stop();
-          } else if (!cp.struct.destroyed) {
+          } else if (!cp.struct.destroyed && cp.struct.stage < 2 && cp.active) {
             this.climbUp(world, cp);
           } else {
             u.task = { type: 'fight', t: world.time };
@@ -134,6 +170,35 @@ export class InfantryBrain {
         else u.stop();
         break;
       }
+      case 'aid': {
+        const p = task.patient;
+        if (!p || !p.alive || p.removed || !p.downed || p.downed.stable || world.time - task.t > 45) {
+          u.task = sq ? { type: 'follow', mode: 'run' } : { type: 'fight', t: world.time };
+          break;
+        }
+        // Kneel beside the casualty, between them and the enemy if possible.
+        const ex = sq && sq.contact ? sq.contact.x - p.pos.x : 0;
+        const ez = sq && sq.contact ? sq.contact.z - p.pos.z : 1;
+        const el = Math.hypot(ex, ez) || 1;
+        const kx = p.pos.x + (ex / el) * 0.9;
+        const kz = p.pos.z + (ez / el) * 0.9;
+        const d = dist2(u.pos.x, u.pos.z, kx, kz);
+        if (d > 0.8) {
+          this.goTo(world, kx, kz, d > 12 ? 'sprint' : 'run', 40);
+          task.lastT = -1;
+        } else {
+          u.stop();
+          u.faceYaw = Math.atan2(p.pos.x - u.pos.x, p.pos.z - u.pos.z);
+          if (task.lastT >= 0) task.work += world.time - task.lastT;
+          task.lastT = world.time;
+          if (task.work >= task.need) {
+            p.downed.stable = true;
+            world.emit({ t: 'stabilized', unit: p, medic: u });
+            u.task = sq ? { type: 'follow', mode: 'run' } : { type: 'fight', t: world.time };
+          }
+        }
+        break;
+      }
       case 'flee': {
         const d = dist2(u.pos.x, u.pos.z, task.x, task.z);
         if (d > 15) this.goTo(world, task.x, task.z, 'run', 30);
@@ -153,10 +218,12 @@ export class InfantryBrain {
       return;
     }
     const thr = u.target ? u.target.pos : u.squad?.contact || (u.threatSource && u.threatSource.alive ? u.threatSource.pos : null);
-    if (task.stay && u.cover && dist2(u.pos.x, u.pos.z, u.cover.x, u.cover.z) < 1.2) {
+    if (task.stay && u.cover && u.cover.peekX === undefined && dist2(u.pos.x, u.pos.z, u.cover.x, u.cover.z) < 1.2) {
       u.stop();
       return;
     }
+    // Up close there is no time to run to distant cover.
+    const close = thr && dist2(u.pos.x, u.pos.z, thr.x, thr.z) < 35;
     let good = false;
     if (u.cover && u.cover.active && thr) {
       const p = u.cover;
@@ -167,7 +234,7 @@ export class InfantryBrain {
     } else if (u.cover && u.cover.active && !thr) good = true;
     if (!good && t - this.coverT > 2.5) {
       this.coverT = t;
-      const cp = thr ? world.cover.find(u, thr.x, thr.z, 24, {}) : world.cover.find(u, null, null, 18, {});
+      const cp = thr ? world.cover.find(u, thr.x, thr.z, close ? 10 : 24, {}) : world.cover.find(u, null, null, 18, {});
       if (cp) {
         world.cover.claim(cp, u);
         good = true;
@@ -176,8 +243,24 @@ export class InfantryBrain {
       }
     }
     if (u.cover && good) {
-      const d = dist2(u.pos.x, u.pos.z, u.cover.x, u.cover.z);
-      if (d > 0.9) this.goTo(world, u.cover.x, u.cover.z, d > 6 ? 'sprint' : 'run', 30);
+      const cp = u.cover;
+      let tx = cp.x;
+      let tz = cp.z;
+      // Behind a corner: lean out to fire, duck back to reload or when the
+      // rounds come close.
+      if (cp.peekX !== undefined && cp.high && thr && dist2(u.pos.x, u.pos.z, cp.x, cp.z) < 4) {
+        const w = u.weapon;
+        if (t > this.peekT || (this.peeking && w && w.reloading)) {
+          this.peeking = !this.peeking && u.suppression < 0.75 && !(w && w.reloading);
+          this.peekT = t + (this.peeking ? rng.range(2, 4.5) : rng.range(1.2, 3.2) * (1 + u.suppression * 1.5));
+        }
+        if (this.peeking) {
+          tx = cp.peekX;
+          tz = cp.peekZ;
+        }
+      }
+      const d = dist2(u.pos.x, u.pos.z, tx, tz);
+      if (d > 0.6) this.goTo(world, tx, tz, d > 6 ? 'sprint' : 'run', 30);
       else u.stop();
     } else if (!u.path || u.arrived) {
       u.stop();
@@ -284,6 +367,9 @@ export class InfantryBrain {
         if (u.drones > 0 && u.activeDrone) st = 1;
       }
     }
+    if (tt === 'aid' && !moving) st = 1;
+    const w = u.weapon;
+    if (w && w.reloading && !moving && (u.target || supp > 0.15)) st = Math.max(st, u.cover && u.cover.high ? 1 : u.target && dist2(u.pos.x, u.pos.z, u.target.pos.x, u.target.pos.z) < 80 ? 2 : 1);
     if (u.diveT > world.time) st = 2;
     u.stance = st;
   }
@@ -297,10 +383,17 @@ export class InfantryBrain {
     if (w && u.target && this.losOK && (w.def.kind === 'rocket' || w.def.kind === 'missile') && (!task || task.type !== 'bound') && !u.arrived) {
       if (!task || task.type === 'fight' || task.type === 'hold' || task.type === 'assault') u.stop();
     }
+    // Grenades into the position just before the final rush.
+    if (this.prepGrenade) {
+      const c = this.prepGrenade;
+      this.prepGrenade = null;
+      const d = dist2(u.pos.x, u.pos.z, c.x, c.z);
+      if (u.grenades > 0 && d > 9 && d < 32) this.throwGrenadeAt(world, c.x + rng.range(-4, 4), c.z + rng.range(-4, 4), null);
+    }
     // Hand grenades at enemies in cover nearby.
     if (u.grenades > 0 && u.throwT > 9 && u.target && u.target.cat === 'inf' && this.losOK) {
       const d = dist2(u.pos.x, u.pos.z, u.target.pos.x, u.target.pos.z);
-      if (d > 9 && d < 30 && (u.target.cover || u.target.stance === 2 || task?.type === 'assault') && rng.chance(0.35)) this.throwGrenade(world, u.target);
+      if (d > 9 && d < 30 && (u.target.cover || u.target.stance === 2 || task?.type === 'assault') && rng.chance(0.35)) this.throwGrenadeAt(world, u.target.pos.x, u.target.pos.z, u.target);
     }
     // Squad leaders screen movement with smoke.
     if (role === 'leader' && u.smokeGrenades > 0 && t - this.smokeT > 40 && u.squad) {
@@ -341,16 +434,16 @@ export class InfantryBrain {
     }
   }
 
-  throwGrenade(world, target) {
+  throwGrenadeAt(world, x, z, target) {
     const u = this.u;
-    const w = u.weapons.find((x) => x.def.id === 'frag');
+    const w = u.weapons.find((k) => k.def.id === 'frag');
     if (!w || !w.ready) return;
     const n = w.pull(0.016);
     if (n <= 0) return;
     u.grenades--;
     u.throwT = 0;
-    const dx = target.pos.x - u.pos.x;
-    const dz = target.pos.z - u.pos.z;
+    const dx = x - u.pos.x;
+    const dz = z - u.pos.z;
     const hd = Math.hypot(dx, dz);
     const th = 0.68;
     const v = Math.sqrt((GRAVITY * hd) / Math.sin(2 * th)) * rng.range(0.92, 1.06);
@@ -383,18 +476,28 @@ export class InfantryBrain {
       w.aimT = 0;
       return;
     }
-    if (world.time < this.cowerT || !this.losOK) {
+    // Treating a casualty: only an enemy close by interrupts.
+    if (u.task && u.task.type === 'aid' && u.task.lastT >= 0 && hd > 50) {
+      u.aiming = false;
+      w.release();
+      return;
+    }
+    if (world.time < this.cowerT || !this.losOK || world.time < this.reactT) {
       w.release();
       return;
     }
     if (Math.abs(angleDiff(u.yaw, yaw)) > (u.stance === 2 ? 0.2 : 0.3)) return;
+    // Up close: snap shots from the shoulder; far off: deliberate aim.
+    const close = hd < 35;
     w.aimT += dt * (moving ? 0.5 : 1);
-    if (w.aimT < w.def.aimTime * (u.stance === 2 ? 0.9 : 1)) return;
+    if (w.aimT < w.def.aimTime * (u.stance === 2 ? 0.9 : 1) * (close ? 0.45 : 1)) return;
     if (!w.ready) {
       if (w.mag <= 0) w.startReload();
       return;
     }
-    const n = w.pull(dt);
+    // Riflemen fire aimed single shots at long range and save bursts for close work.
+    const rifle = w.def.kind === 'bullet' && w.def.burst[1] <= 4 && w.def.mag >= 10;
+    const n = w.pull(dt, rifle && hd > 220 ? 1 : 0);
     if (n <= 0) return;
     u.muzzlePos(_o);
     const dist = aimAt(u, w, tg, _o, _d, u.skill);
@@ -402,7 +505,7 @@ export class InfantryBrain {
       w.release();
       return;
     }
-    const disp = w.def.kind === 'missile' ? 0 : infantryDispersion(u, w);
+    const disp = w.def.kind === 'missile' ? 0 : infantryDispersion(u, w) * (close ? 1.2 : 1);
     world.fireRounds(u, w, _o, _d, n, disp, tg, dt, { guided: w.def.kind === 'missile' });
   }
 }

@@ -1,10 +1,14 @@
 // Static battlefield geometry: buildings (procedural facades), roofs,
 // rubble, walls and hedges, props, trees and street furniture. Everything is
 // instanced; per-structure state (damage, fire, collapse) updates individual
-// instances when the simulation bumps a structure's version.
+// instances when the simulation bumps a structure's version. Buildings show
+// their damage in stages: breach holes and chipped walls, then a broken
+// shell once the roof and upper floors fall in, then an animated collapse
+// into a rubble mound with masonry and beams strewn around.
 
 import * as THREE from 'three';
 import { buildPropModel } from './models/index.js';
+import { ruinGeometry, WallMarks, RubbleField } from './Destruction.js';
 
 const FACADE_VERT = /* glsl */ `
 attribute vec4 aFacade; // rgb colour, type id
@@ -258,6 +262,9 @@ const _p = new THREE.Vector3();
 const _s = new THREE.Vector3();
 const _up = new THREE.Vector3(0, 1, 0);
 const _axis = new THREE.Vector3();
+const _q2 = new THREE.Quaternion();
+const rand = Math.random;
+const rr = (a, b) => a + (b - a) * rand();
 const _zero = new THREE.Matrix4().makeScale(0, 0, 0);
 const _col = new THREE.Color();
 const _sphere = new THREE.Sphere();
@@ -279,6 +286,7 @@ export class StructureRenderer {
     this.walls = list.filter((s) => s.kind === 'wall');
     this.props = list.filter((s) => s.kind === 'prop');
     this.buildBuildings();
+    this.buildRuins();
     this.buildWalls();
     this.buildProps();
     this.buildTrees(world.map.trees.list);
@@ -344,18 +352,129 @@ export class StructureRenderer {
     this.body.computeBoundingSphere();
   }
 
+  // Ruined shells (three variants), shared facade attributes per instance.
+  buildRuins() {
+    const B = this.buildings;
+    this.ruins = [0, 1, 2].map((v) => {
+      const list = B.filter((s) => s.variant % 3 === v);
+      const n = Math.max(1, list.length);
+      const geo = ruinGeometry(0.17 + v * 0.29);
+      const facade = new Float32Array(n * 4);
+      const info = new Float32Array(n * 4);
+      geo.setAttribute('aFacade', new THREE.InstancedBufferAttribute(facade, 4));
+      geo.setAttribute('aInfo', new THREE.InstancedBufferAttribute(info, 4));
+      const mesh = new THREE.InstancedMesh(geo, this.facadeMat, n);
+      mesh.castShadow = this.shadows;
+      mesh.receiveShadow = this.shadows;
+      mesh.frustumCulled = false;
+      list.forEach((s, i) => {
+        s._ruinMesh = mesh;
+        s._ruinIdx = i;
+        mesh.setMatrixAt(i, _zero);
+        facade.set(this.facadeArr.subarray(s._ri * 4, s._ri * 4 + 4), i * 4);
+        info.set(this.infoArr.subarray(s._ri * 4, s._ri * 4 + 4), i * 4);
+      });
+      mesh.count = list.length;
+      this.scene.add(mesh);
+      return { mesh, info };
+    });
+    this.marks = new WallMarks(this.scene);
+    this.rubbleField = new RubbleField(this.scene, this.world.terrain, this.shadows);
+    this.collapsing = [];
+  }
+
+  // Simulation events: wall hits, breaches, partial and full collapses.
+  handle(events) {
+    for (const e of events) {
+      if (e.t === 'impact' && e.s && (e.s.kind === 'building' || e.s.kind === 'wall') && !e.s.destroyed && e.s.stage < 2) {
+        const big = e.size > 1.5;
+        this.marks.add(e.s, e.x, e.y, e.z, e.nx, e.ny, e.nz, big ? rr(0.7, 1.1) : rr(0.16, 0.3), big);
+      } else if (e.t === 'breach' && !e.s.destroyed && e.s.stage < 2) {
+        this.marks.add(e.s, e.x, e.y, e.z, e.nx, e.ny, e.nz, e.r * rr(0.9, 1.3), true);
+      } else if (e.t === 'building_ruined') {
+        this.marks.clear(e.s);
+        this.rubbleField.scatter(e.s, 0.35);
+      } else if (e.t === 'building_collapse') {
+        const s = e.s;
+        this.marks.clear(s);
+        if (s._collapse) continue;
+        const a = rand() * Math.PI * 2;
+        s._collapse = { t: 0, dur: rr(2.2, 3.4) + Math.min(1.5, s.h * 0.05), ruined: s.stage >= 2, tx: Math.cos(a), tz: Math.sin(a), tilt: rr(0.04, 0.14) };
+        this.collapsing.push(s);
+      }
+    }
+  }
+
+  // Animate collapsing buildings: the walls drop and lean, the mound grows.
+  updateCollapses(dt) {
+    for (let k = this.collapsing.length - 1; k >= 0; k--) {
+      const s = this.collapsing[k];
+      const c = s._collapse;
+      c.t += dt;
+      const f = Math.min(1, c.t / c.dur);
+      const e = f * f;
+      const mesh = c.ruined ? s._ruinMesh : this.body;
+      const idx = c.ruined ? s._ruinIdx : s._ri;
+      const h = (c.ruined ? s.h : s.h) * Math.max(0.03, 1 - 0.97 * e);
+      _q.setFromAxisAngle(_up, s.yaw);
+      _axis.set(c.tz, 0, -c.tx);
+      _q2.setFromAxisAngle(_axis, c.tilt * e);
+      _q.premultiply(_q2);
+      _p.set(s.x + c.tx * e * 0.6, s.y - e * 0.4, s.z + c.tz * e * 0.6);
+      _s.set(s.hx * 2 * (1 + e * 0.05), h, s.hz * 2 * (1 + e * 0.05));
+      _m4.compose(_p, _q, _s);
+      mesh.setMatrixAt(idx, _m4);
+      mesh.instanceMatrix.needsUpdate = true;
+      if (s._roofMesh && !c.ruined) {
+        if (f > 0.25) s._roofMesh.setMatrixAt(s._roofIdx, _zero);
+        else {
+          const over = s.roof === 'spire' || s.roof === 'arch' ? 0 : 0.6;
+          _p.set(s.x, s.y + h, s.z);
+          _s.set(s.hx * 2 + over, s.roofH, s.hz * 2 + over);
+          _m4.compose(_p, _q, _s);
+          s._roofMesh.setMatrixAt(s._roofIdx, _m4);
+        }
+        s._roofMesh.instanceMatrix.needsUpdate = true;
+      }
+      // Rubble rises as the building comes down.
+      _q.setFromAxisAngle(_up, s.yaw);
+      _p.set(s.x, s.y, s.z);
+      _s.set(s.hx * 2.25, Math.max(0.01, s.rubbleH * Math.min(1, f * 1.3)), s.hz * 2.25);
+      _m4.compose(_p, _q, _s);
+      this.rubble.setMatrixAt(s._ri, _m4);
+      this.rubble.instanceMatrix.needsUpdate = true;
+      if (f >= 1) {
+        s._collapse = null;
+        this.collapsing.splice(k, 1);
+        this.updateBuilding(s);
+        this.rubbleField.scatter(s, 1);
+        if (this.onCollapseEnd) this.onCollapseEnd(s);
+      }
+    }
+  }
+
   updateBuilding(s, init = false) {
+    // A collapse in progress is animated by updateCollapses().
+    if (s._collapse) return;
     const i = s._ri;
     const destroyed = s.destroyed;
+    const ruined = !destroyed && s.stage >= 2 && !!s._ruinMesh;
     _q.setFromAxisAngle(_up, s.yaw);
+    _col.set(s.color).multiplyScalar(0.55);
+    this.rubble.setColorAt(i, _col);
     if (destroyed) {
       this.body.setMatrixAt(i, _zero);
       _p.set(s.x, s.y, s.z);
       _s.set(s.hx * 2.25, s.rubbleH, s.hz * 2.25);
       _m4.compose(_p, _q, _s);
       this.rubble.setMatrixAt(i, _m4);
-      _col.set(s.color).multiplyScalar(0.55);
-      this.rubble.setColorAt(i, _col);
+    } else if (ruined) {
+      // Broken shell over a low heap of what fell inside.
+      this.body.setMatrixAt(i, _zero);
+      _p.set(s.x, s.y, s.z);
+      _s.set(s.hx * 1.9, Math.max(0.8, s.rubbleH * 0.55), s.hz * 1.9);
+      _m4.compose(_p, _q, _s);
+      this.rubble.setMatrixAt(i, _m4);
     } else {
       _p.set(s.x, s.y, s.z);
       _s.set(s.hx * 2, s.h, s.hz * 2);
@@ -363,8 +482,21 @@ export class StructureRenderer {
       this.body.setMatrixAt(i, _m4);
       this.rubble.setMatrixAt(i, _zero);
     }
+    if (s._ruinMesh) {
+      if (ruined) {
+        _p.set(s.x, s.y, s.z);
+        _s.set(s.hx * 2, s.h, s.hz * 2);
+        _m4.compose(_p, _q, _s);
+        s._ruinMesh.setMatrixAt(s._ruinIdx, _m4);
+      } else s._ruinMesh.setMatrixAt(s._ruinIdx, _zero);
+      const ri = s._ruinMesh.geometry.getAttribute('aInfo');
+      ri.array[s._ruinIdx * 4 + 1] = Math.max(0.7, s.damage);
+      ri.array[s._ruinIdx * 4 + 2] = s.burning > 0 ? 1 : 0;
+      ri.needsUpdate = true;
+      if (!init) s._ruinMesh.instanceMatrix.needsUpdate = true;
+    }
     if (s._roofMesh) {
-      if (destroyed) s._roofMesh.setMatrixAt(s._roofIdx, _zero);
+      if (destroyed || ruined) s._roofMesh.setMatrixAt(s._roofIdx, _zero);
       else {
         const over = s.roof === 'spire' || s.roof === 'arch' ? 0 : 0.6;
         _p.set(s.x, s.y + s.h, s.z);
@@ -651,6 +783,7 @@ export class StructureRenderer {
       ts.uniforms.uWind.value.set(wind.x * 0.06, wind.z * 0.06);
     }
     if (this.lampGlow) this.lampGlow.visible = night > 0.3;
+    this.updateCollapses(dt);
     this.updateTrees(camera, frustum, dt);
   }
 }

@@ -74,7 +74,8 @@ export class WeaponMount {
     this.accum = 0;
   }
 
-  pull(dt) {
+  // maxBurst > 0 caps the length of a new burst (aimed single shots).
+  pull(dt, maxBurst = 0) {
     if (this.disabled || this.reloadT > 0 || this.pauseT > 0) return 0;
     if (this.mag <= 0) {
       this.startReload();
@@ -83,6 +84,7 @@ export class WeaponMount {
     const def = this.def;
     if (this.burstLeft <= 0) {
       this.burstLeft = rng.int(def.burst[0], def.burst[1]);
+      if (maxBurst > 0 && this.burstLeft > maxBurst) this.burstLeft = maxBurst;
       this.accum = 1; // first round of a burst fires immediately
       this.newBurst = true;
     } else {

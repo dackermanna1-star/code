@@ -231,6 +231,9 @@ export const WEAPONS = {
 
 for (const [id, w] of Object.entries(WEAPONS)) w.id = id;
 
+// Close combat with the rifle butt or a knife (not a mounted weapon).
+export const MELEE = { id: 'melee', name: 'Close combat', kind: 'melee', damage: 150 };
+
 // Pick the ammo type for a gun against a target class.
 export function chooseAmmo(def, targetClass) {
   if (!def.ammoTypes) return null;

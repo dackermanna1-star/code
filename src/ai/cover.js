@@ -97,7 +97,19 @@ export class CoverSystem {
         const lz = fz !== 0 ? fz * (s.hz + off) : t;
         const [x, z] = toW(lx, lz);
         const [dx, dz] = dirW(-fx, -fz);
-        this.add(new CoverPoint(x, z, dx, dz, high, kind, s));
+        const p = this.add(new CoverPoint(x, z, dx, dz, high, kind, s));
+        // Near a corner a soldier can lean out past the edge to fire.
+        if (p && high && halfLen - Math.abs(t) < 3 && n > 1) {
+          const sgn = t < 0 ? -1 : 1;
+          const plx = fx !== 0 ? lx : sgn * (halfLen + 0.8);
+          const plz = fz !== 0 ? lz : sgn * (halfLen + 0.8);
+          const [px, pz] = toW(plx, plz);
+          const blocker = this.world.structures.structureAt(px, pz, 0.4);
+          if (!blocker || blocker.destroyed) {
+            p.peekX = px;
+            p.peekZ = pz;
+          }
+        }
       }
     }
     // Flat roofs: firing positions along the parapet.
@@ -119,6 +131,21 @@ export class CoverSystem {
   addCrater(x, z, r) {
     const p = this.add(new CoverPoint(x, z, 0, 0, false, 'crater', null));
     if (p) p.expire = this.world.time + 600;
+  }
+
+  // Roof gone: no more rooftop firing positions.
+  onStructureRuined(s) {
+    const list = this.byStruct.get(s);
+    if (!list) return;
+    for (const p of list) {
+      if (p.kind !== 'roof') continue;
+      p.active = false;
+      if (p.occupant) {
+        p.occupant.roof = null;
+        p.occupant.cover = null;
+        p.occupant = null;
+      }
+    }
   }
 
   onStructureDestroyed(s) {

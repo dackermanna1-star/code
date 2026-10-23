@@ -32,7 +32,7 @@ export function defaultSettings() {
     dynamicWeather: true,
     quality: 'high',
     audio: true,
-    radioVoice: false,
+    gore: true,
     endless: false,
     seed: Math.floor(Math.random() * 99999),
   };
@@ -200,7 +200,7 @@ export class Menu {
           select('quality', 'Graphics', s.quality, [['low', 'Low'], ['medium', 'Medium'], ['high', 'High'], ['ultra', 'Ultra']], (v) => (s.quality = v)),
           el('div', { class: 'field' }, el('label', { class: 'label', for: 'seed', text: 'Map seed' }), seedInput),
         ),
-        el('div', { class: 'toggles' }, toggle('audio', 'Battlefield audio', s.audio, (v) => (s.audio = v)), toggle('voice', 'Spoken radio chatter (browser speech)', s.radioVoice, (v) => (s.radioVoice = v))),
+        el('div', { class: 'toggles' }, toggle('audio', 'Battlefield audio', s.audio, (v) => (s.audio = v)), toggle('gore', 'Blood and wounds', s.gore, (v) => (s.gore = v))),
       ),
       el(
         'section',

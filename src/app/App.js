@@ -50,7 +50,6 @@ export class App {
     // Audio must start inside the click that triggered this.
     if (settings.audio) {
       this.audio.start().catch(() => {});
-      this.audio.setVoiceRadio(!!settings.radioVoice);
     }
     this.menu.hide();
     const step = (p, text) => {
@@ -67,13 +66,13 @@ export class App {
         tickets: forces.tickets,
         endless: settings.endless,
         weather: { condition: settings.weather, time: settings.time, dynamic: settings.dynamicWeather, timeFlow: 1 },
-        maxBodies: settings.size > 1200 ? 1400 : 1800,
       });
       await step(0.42, 'Mustering forces');
       attachAI(world, forces.armies);
       await step(0.58, 'Building the battlefield');
       this.renderer = new GameRenderer(this.canvas, settings.quality);
       this.renderer.attachWorld(world);
+      this.renderer.setGore(settings.gore !== false);
       this.world = world;
       await step(0.78, 'Positioning observers');
       this.camera = new CameraController(this.renderer.camera, this.canvas);
@@ -184,6 +183,7 @@ export class App {
         case 'KeyM':
           this.markersVisible = !this.markersVisible;
           this.renderer.markers.visible = this.markersVisible;
+          this.renderer.infantry.showRings = this.markersVisible;
           break;
         case 'Tab':
           e.preventDefault();

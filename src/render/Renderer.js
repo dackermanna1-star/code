@@ -17,6 +17,8 @@ import { InfantryRenderer } from './InfantryRenderer.js';
 import { VehicleRenderer, AircraftRenderer } from './UnitRenderers.js';
 import { ProjectileRenderer } from './ProjectileRenderer.js';
 import { Effects } from './Effects.js';
+import { Gore } from './Gore.js';
+import { RagdollSystem } from './Ragdolls.js';
 import { buildPropModel } from './models/index.js';
 import { FACTION_INFO } from '../sim/world.js';
 
@@ -348,6 +350,10 @@ export class GameRenderer {
     this.aircraft = new AircraftRenderer(this.scene, q);
     this.projectiles = new ProjectileRenderer(this.scene);
     this.effects = new Effects(this.scene, world.terrain, this.atlas, q);
+    this.gore = new Gore(this.scene, world.terrain, this.effects);
+    this.effects.gore = this.gore;
+    this.ragdolls = new RagdollSystem(this.scene, world, q, this.gore);
+    this.structures.onCollapseEnd = (s) => this.effects.collapseSettle(s);
     this.markers = new ObjectiveMarkers(this.scene, world);
     this.selection = new SelectionRing(this.scene);
     this.unitMarkers = new UnitMarkers(this.scene);
@@ -357,6 +363,15 @@ export class GameRenderer {
   // Consume simulation events (call once per frame before render()).
   handleEvents(events) {
     this.effects.handle(events, this.world);
+    this.structures.handle(events);
+    this.ragdolls.handle(events);
+  }
+
+  // Blood, wounds and torn-off limbs on or off.
+  setGore(on) {
+    this.gore.on = on;
+    this.ragdolls.setGore(on);
+    this.infantry.gore = on;
   }
 
   render(dt, simDt, selected = null) {
@@ -374,6 +389,8 @@ export class GameRenderer {
     this.renderer.toneMappingExposure = this.sky.exposure;
     this.terrain.update(cam);
     this.structures.update(cam, this.frustum, dt, this.time, this.sky.nightFactor, { x: w.weather.windX, z: w.weather.windZ });
+    this.ragdolls.update(simDt, cam, this.frustum);
+    this.gore.update(simDt, w, cam.position);
     this.infantry.update(w, cam, this.frustum, simDt);
     this.vehicles.hide = this.hideUnit || null;
     this.vehicles.update(w, cam, this.frustum);

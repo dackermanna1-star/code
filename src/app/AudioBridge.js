@@ -1,6 +1,6 @@
 // Connects the simulation to the audio system: events become spatial sounds,
 // nearby engines become loops, weather and battle intensity drive the
-// ambience, and radio traffic is voiced.
+// ambience.
 
 import * as THREE from 'three';
 
@@ -104,9 +104,6 @@ export class AudioBridge {
           break;
         case 'flyby':
           a.flyby(e.kind, e, e.speed);
-          break;
-        case 'radio':
-          a.radio(e.text, e.faction, { priority: e.priority });
           break;
         default:
           break;

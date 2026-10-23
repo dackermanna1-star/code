@@ -7,14 +7,35 @@ import { clamp } from '../core/math.js';
 
 // ------------------------------------------------------------- soldiers
 
+// Limbs a soldier can lose (bit mask in Soldier.severed).
+export const SEVER = { ARM_L: 1, ARM_R: 2, LEG_L: 4, LEG_R: 8, SHIN_L: 16, SHIN_R: 32, FORE_L: 64, FORE_R: 128 };
+const LIMB_CHOICES = [
+  [SEVER.SHIN_L, 2], [SEVER.SHIN_R, 2], [SEVER.LEG_L, 1.6], [SEVER.LEG_R, 1.6],
+  [SEVER.ARM_L, 1.3], [SEVER.ARM_R, 1.3], [SEVER.FORE_L, 1], [SEVER.FORE_R, 1],
+];
+// The lower part of each limb, lost together with the whole limb.
+const LOWER = { [SEVER.LEG_L]: SEVER.SHIN_L, [SEVER.LEG_R]: SEVER.SHIN_R, [SEVER.ARM_L]: SEVER.FORE_L, [SEVER.ARM_R]: SEVER.FORE_R };
+const UPPER = { [SEVER.SHIN_L]: SEVER.LEG_L, [SEVER.SHIN_R]: SEVER.LEG_R, [SEVER.FORE_L]: SEVER.ARM_L, [SEVER.FORE_R]: SEVER.ARM_R };
+
+// Tear off n limbs (blast or heavy-calibre hit).
+export function severLimbs(s, n) {
+  for (let k = 0; k < n; k++) {
+    const opts = LIMB_CHOICES.filter(([m]) => !(s.severed & m) && !(s.severed & (UPPER[m] || 0)));
+    if (!opts.length) return;
+    const m = rng.weighted(opts);
+    s.severed = (s.severed | m) & ~(LOWER[m] || 0);
+  }
+}
+
 export function hitSoldier(world, s, p, x, y, z, bodyT) {
   const def = p.def;
   const ap = p.ap;
   const ex = ap.explosive || def.explosive;
   if (ex && p.kind !== 'bullet') {
     // Direct hit by a rocket or grenade.
-    world.damageSoldier(s, 220, p.owner, def, false);
-    explode(world, x, y, z, ex, p.owner, p.faction, def, {});
+    if (rng.chance(0.85)) severLimbs(s, rng.int(1, 3));
+    world.damageSoldier(s, 220, p.owner, def, false, { x, y, z, dx: 0, dy: 1, dz: 0, v: 6, blast: { x, y, z, r: ex.radius, power: ex.damage * 1.5 } });
+    explode(world, x, y, z, ex, p.owner, p.faction, def, { exclude: s });
     return true;
   }
   let dmg = (ap.damage || def.damage || 40) * rng.range(0.75, 1.25);
@@ -30,13 +51,21 @@ export function hitSoldier(world, s, p, x, y, z, bodyT) {
     dmg *= 0.6;
   }
   if (p.kind === 'bullet') dmg *= clamp(1.05 - p.dist / ((def.range || 500) * 3), 0.5, 1);
+  // Heavy rounds can take a limb off.
+  const heavy = (ap.damage || def.damage || 0) >= 90 || !!ex;
+  if (heavy && dmg >= s.hp && !head && rng.chance(0.45)) {
+    if (bodyT < 0.45) s.severed |= rng.chance(0.5) ? (rng.chance(0.5) ? SEVER.SHIN_L : SEVER.LEG_L) : rng.chance(0.5) ? SEVER.SHIN_R : SEVER.LEG_R;
+    else s.severed |= rng.chance(0.5) ? SEVER.ARM_L : SEVER.ARM_R;
+  }
+  const sp = Math.hypot(p.vx, p.vy, p.vz) || 1;
+  const hit = { x, y, z, dx: p.vx / sp, dy: p.vy / sp, dz: p.vz / sp, v: Math.min(6, 1.3 + dmg / 60), part: head ? 'head' : bodyT > 0.45 ? 'torso' : 'legs', blast: null };
   if (ex) {
     // HE autocannon rounds etc.
     explode(world, x, y, z, ex, p.owner, p.faction, def, {});
   }
-  world.damageSoldier(s, dmg, p.owner, def, head);
+  world.damageSoldier(s, dmg, p.owner, def, head, hit);
   if (p.owner && p.owner.stats) p.owner.stats.hits++;
-  world.emit({ t: 'impact', kind: 'flesh', x, y, z, size: 0.5, nx: -p.vx, ny: -p.vy, nz: -p.vz });
+  world.emit({ t: 'impact', kind: 'flesh', x, y, z, size: heavy ? 1.2 : 0.5, nx: -hit.dx, ny: -hit.dy, nz: -hit.dz, heavy });
   return true;
 }
 
@@ -185,7 +214,7 @@ export function hitStructure(world, s, p, x, y, z, nx, ny, nz) {
     if (ex) explode(world, x + nx * 0.3, y + ny * 0.3, z + nz * 0.3, ex, p.owner, p.faction, def, {});
     return true;
   }
-  world.emit({ t: 'impact', kind: MAT_IMPACT[s.material] || 'concrete', x, y, z, size: (ap.pen || 0) > 100 ? 2 : 0.7, nx, ny, nz });
+  world.emit({ t: 'impact', kind: MAT_IMPACT[s.material] || 'concrete', x, y, z, size: (ap.pen || 0) > 100 ? 2 : 0.7, nx, ny, nz, s });
   if (ex) {
     explode(world, x + nx * 0.3, y + ny * 0.3, z + nz * 0.3, ex, p.owner, p.faction, def, { struct: s });
     return true;
@@ -216,12 +245,52 @@ export function damageStructure(world, s, amount, source) {
     s.damage = dmg;
     s.version++;
   }
+  if (s.kind === 'building' && s.hp > 0) {
+    const stage = dmg >= 0.66 && s.h > 4 ? 2 : dmg >= 0.3 ? 1 : 0;
+    if (stage > s.stage) world.setStructureStage(s, stage, source);
+  }
   if (s.kind === 'building' && dmg > 0.55 && s.burning <= 0 && s.material !== 'concrete' && rng.chance(0.25)) {
     s.burning = rng.range(60, 200);
     s.version++;
     world.burningStructures.add(s);
   }
   if (s.hp <= 0) world.destroyStructure(s, source);
+}
+
+// A hole in the wall nearest to a blast (for the renderer's breach marks).
+function emitBreach(world, s, x, y, z, r) {
+  const c = Math.cos(s.yaw);
+  const sn = Math.sin(s.yaw);
+  const rx = x - s.x;
+  const rz = z - s.z;
+  let lx = rx * c - rz * sn;
+  let lz = rx * sn + rz * c;
+  // Push the point onto the closest side face.
+  const px = s.hx - Math.abs(lx);
+  const pz = s.hz - Math.abs(lz);
+  let nlx = 0;
+  let nlz = 0;
+  if (px < pz) {
+    nlx = Math.sign(lx) || 1;
+    lx = nlx * s.hx;
+    lz = Math.max(-s.hz + r * 0.5, Math.min(s.hz - r * 0.5, lz));
+  } else {
+    nlz = Math.sign(lz) || 1;
+    lz = nlz * s.hz;
+    lx = Math.max(-s.hx + r * 0.5, Math.min(s.hx - r * 0.5, lx));
+  }
+  const hy = Math.max(s.y + r * 0.5, Math.min(s.y + s.solidH - r * 0.4, y));
+  world.emit({
+    t: 'breach',
+    s,
+    x: s.x + lx * c + lz * sn,
+    y: hy,
+    z: s.z - lx * sn + lz * c,
+    nx: nlx * c + nlz * sn,
+    ny: 0,
+    nz: -nlx * sn + nlz * c,
+    r,
+  });
 }
 
 // ------------------------------------------------------------- explosions
@@ -254,7 +323,11 @@ export function explode(world, x, y, z, ex, owner, faction, def, opts = {}) {
         if (u.stance === 2 && d > R * 0.15) dmg *= 0.3;
         else if (u.stance === 1) dmg *= 0.72;
         if (u.roof && y < u.pos.y - 1) dmg *= 0.2;
-        if (dmg > 4) world.damageSoldier(u, dmg, owner, def, false);
+        if (dmg > 4) {
+          // Close to a big blast, limbs are torn off.
+          if (dmg > 130 && d < R * 0.5) severLimbs(u, dmg > 300 ? rng.int(2, 3) : dmg > 200 ? rng.int(1, 2) : rng.chance(0.6) ? 1 : 0);
+          world.damageSoldier(u, dmg, owner, def, false, { x, y, z, dx: dx / (d || 1), dy: dy / (d || 1), dz: dz / (d || 1), v: 0, blast: { x, y, z, r: R, power: ex.damage }, part: 'torso' });
+        }
       }
       if (u.alive && d < Rs && u.faction !== faction) {
         u.suppression = Math.min(1, u.suppression + ex.suppression * (1 - d / Rs) * (u.cover ? 0.6 : 1));
@@ -298,6 +371,7 @@ export function explode(world, x, y, z, ex, owner, faction, def, opts = {}) {
     const reach = R * 0.75 + (s === opts.struct ? R * 0.4 : 0);
     if (d < reach) {
       const dmg = ex.damage * structFactor * (1 - d / reach) * (s === opts.struct ? 1.6 : 1);
+      if (s.kind === 'building' && ex.size !== 'small' && !s.destroyed && d < Math.max(2.5, R * 0.4)) emitBreach(world, s, x, y, z, Math.min(3.6, 0.8 + R * 0.16) * (s === opts.struct ? 1.2 : 1));
       damageStructure(world, s, dmg, owner);
     }
   }

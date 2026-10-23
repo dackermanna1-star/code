@@ -31,7 +31,7 @@ export class Objective {
     let b = 0;
     for (let i = 0; i < _units.length; i++) {
       const u = _units[i];
-      if (!u.alive || u.hidden || u.cat === 'air') continue;
+      if (!u.alive || u.hidden || u.dying || u.cat === 'air') continue;
       const w = u.cat === 'veh' ? 2 : 1;
       if (u.faction === 0) a += w;
       else b += w;

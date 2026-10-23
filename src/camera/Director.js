@@ -17,9 +17,14 @@ const _trees = [];
 function clearShot(world, px, py, pz, lx, ly, lz) {
   const s = world.structures.structureAt(px, pz, 2.5);
   if (s && py < s.top + 2) return false;
-  world.map.trees.grid.queryRadius(px, pz, 7, _trees);
+  world.map.trees.grid.queryRadius(px, pz, 10, _trees);
   for (const t of _trees) {
-    if (t.alive && t.fall < 0.5 && Math.hypot(t.x - px, t.z - pz) < 6 && py < world.terrain.heightAt(t.x, t.z) + 15 * t.scale) return false;
+    if (t.alive && t.fall < 0.5 && Math.hypot(t.x - px, t.z - pz) < 9 && py < world.terrain.heightAt(t.x, t.z) + 15 * t.scale) return false;
+  }
+  // Not hemmed in by a slope rising right beside the camera.
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * Math.PI * 2;
+    if (world.terrain.heightAt(px + Math.cos(a) * 9, pz + Math.sin(a) * 9) > py + 1.5) return false;
   }
   if (!world.terrain.lineClear(px, py, pz, lx, ly, lz, 0.4)) return false;
   if (world.structures.blocksSight(px, py, pz, lx, ly, lz, null, null)) return false;

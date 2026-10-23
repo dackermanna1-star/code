@@ -71,6 +71,8 @@ export class Structure {
     this.maxHp = o.hp || Math.max(def.minHp, volume * def.hpDensity);
     this.hp = this.maxHp;
     this.damage = 0; // 0..1 visual damage
+    this.stage = 0; // buildings: 0 intact, 1 holed, 2 roof and upper floors fallen in
+    this.ruinH = this.h; // standing wall height once ruined
     this.destroyed = false;
     this.blocksMove = o.blocksMove ?? true;
     this.crushable = o.crushable ?? false; // tracked vehicles flatten it
@@ -86,6 +88,7 @@ export class Structure {
   // Effective height of the solid box used for collision and sight.
   get solidH() {
     if (this.destroyed) return this.kind === 'building' ? this.rubbleH : 0.25;
+    if (this.stage >= 2) return this.ruinH;
     return this.h + this.roofH * 0.55;
   }
 

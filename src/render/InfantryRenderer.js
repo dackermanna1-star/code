@@ -10,24 +10,24 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { hash01 } from '../core/rng.js';
 
 // Material ids.
-const M_UNIFORM = 0;
-const M_GEAR = 1;
-const M_SKIN = 2;
-const M_HELMET = 3;
-const M_BOOT = 4;
-const M_METAL = 5;
-const M_FURN = 6;
-const M_TUBE = 7;
+export const M_UNIFORM = 0;
+export const M_GEAR = 1;
+export const M_SKIN = 2;
+export const M_HELMET = 3;
+export const M_BOOT = 4;
+export const M_METAL = 5;
+export const M_FURN = 6;
+export const M_TUBE = 7;
 
 // Weapon variants.
 export const WEAPON_VARIANT = { rifle: 0, mg: 1, sniper: 2, launcher: 3, tube: 4, pistol: 5 };
-const ROLE_WEAPON = { rifleman: 0, leader: 0, grenadier: 0, mg: 1, sniper: 2, at: 3, atgm: 4, manpads: 4, drone_op: 0, crew: 5, pilot: 5 };
+export const ROLE_WEAPON = { rifleman: 0, leader: 0, grenadier: 0, mg: 1, sniper: 2, at: 3, atgm: 4, manpads: 4, drone_op: 0, crew: 5, pilot: 5 };
 
 const _v = new THREE.Vector3();
 const _q = new THREE.Quaternion();
 const _up = new THREE.Vector3(0, 1, 0);
 
-function tag(geo, bone, mat, weap = -1) {
+export function tag(geo, bone, mat, weap = -1) {
   geo = geo.index ? geo.toNonIndexed() : geo;
   geo.deleteAttribute('uv');
   const n = geo.getAttribute('position').count;
@@ -41,7 +41,7 @@ function tag(geo, bone, mat, weap = -1) {
   return geo;
 }
 
-function box(w, h, d, x, y, z, bone, mat, weap = -1, rotX = 0) {
+export function box(w, h, d, x, y, z, bone, mat, weap = -1, rotX = 0) {
   const g = new THREE.BoxGeometry(w, h, d);
   if (rotX) g.rotateX(rotX);
   g.translate(x, y, z);
@@ -49,7 +49,7 @@ function box(w, h, d, x, y, z, bone, mat, weap = -1, rotX = 0) {
 }
 
 // Tapered box: bottom (w0, d0) at y0, top (w1, d1) at y1.
-function taper(w0, d0, w1, d1, y0, y1, x, z, bone, mat) {
+export function taper(w0, d0, w1, d1, y0, y1, x, z, bone, mat) {
   const g = new THREE.BoxGeometry(1, 1, 1);
   const p = g.getAttribute('position');
   for (let i = 0; i < p.count; i++) {
@@ -60,7 +60,7 @@ function taper(w0, d0, w1, d1, y0, y1, x, z, bone, mat) {
   return tag(g, bone, mat);
 }
 
-function limb(a, b, r0, r1, seg, bone, mat, weap = -1) {
+export function limb(a, b, r0, r1, seg, bone, mat, weap = -1) {
   const dir = _v.subVectors(b, a);
   const len = dir.length();
   const g = new THREE.CylinderGeometry(r1, r0, len, seg, 1, false);
@@ -70,21 +70,60 @@ function limb(a, b, r0, r1, seg, bone, mat, weap = -1) {
   return tag(g, bone, mat, weap);
 }
 
-function ball(r, x, y, z, detail, bone, mat, sy = 1) {
+export function ball(r, x, y, z, detail, bone, mat, sy = 1) {
   const g = new THREE.IcosahedronGeometry(r, detail);
   g.scale(1, sy, 1);
   g.translate(x, y, z);
   return tag(g, bone, mat);
 }
 
-function dome(r, x, y, z, bone, mat, segs) {
+export function dome(r, x, y, z, bone, mat, segs) {
   const g = new THREE.SphereGeometry(r, segs, Math.max(3, segs >> 1), 0, Math.PI * 2, 0, Math.PI * 0.55);
   g.scale(1, 0.82, 1.05);
   g.translate(x, y, z);
   return tag(g, bone, mat);
 }
 
-const V = (x, y, z) => new THREE.Vector3(x, y, z);
+export const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+// Weapon primitives in the soldier's model space (held at the aim pose).
+export function weaponShapes(v, lod = 0) {
+  const s = lod === 0 ? 7 : 4;
+  const wx = -0.085;
+  const parts = [];
+  if (v === 0) {
+    // Assault rifle.
+    parts.push(box(0.055, 0.1, 0.42, wx, 1.33, 0.32, 2, M_METAL, 0));
+    parts.push(limb(V(wx, 1.345, 0.52), V(wx, 1.345, 0.84), 0.013, 0.011, 5, 2, M_METAL, 0));
+    parts.push(box(0.05, 0.1, 0.2, wx, 1.31, 0.03, 2, M_FURN, 0));
+    parts.push(box(0.04, 0.14, 0.06, wx, 1.22, 0.33, 2, M_METAL, 0, 0.25));
+    if (lod === 0) parts.push(box(0.035, 0.05, 0.11, wx, 1.405, 0.28, 2, M_METAL, 0));
+  } else if (v === 1) {
+    // Machine gun.
+    parts.push(box(0.075, 0.12, 0.5, wx, 1.33, 0.34, 2, M_METAL, 1));
+    parts.push(limb(V(wx, 1.35, 0.58), V(wx, 1.35, 1.0), 0.019, 0.017, 6, 2, M_METAL, 1));
+    parts.push(box(0.1, 0.11, 0.13, wx - 0.03, 1.22, 0.32, 2, M_FURN, 1));
+    parts.push(box(0.055, 0.11, 0.22, wx, 1.31, 0.02, 2, M_METAL, 1));
+  } else if (v === 2) {
+    // Sniper rifle.
+    parts.push(box(0.055, 0.1, 0.55, wx, 1.33, 0.36, 2, M_FURN, 2));
+    parts.push(limb(V(wx, 1.345, 0.63), V(wx, 1.345, 1.08), 0.012, 0.011, 5, 2, M_METAL, 2));
+    parts.push(limb(V(wx, 1.42, 0.2), V(wx, 1.42, 0.5), 0.024, 0.024, 6, 2, M_METAL, 2));
+  } else if (v === 3) {
+    // Rocket launcher on the shoulder.
+    parts.push(limb(V(-0.13, 1.5, -0.38), V(-0.13, 1.5, 0.62), 0.042, 0.042, s, 2, M_TUBE, 3));
+    parts.push(ball(0.07, -0.13, 1.5, 0.72, 1, 2, M_TUBE, 1.0));
+    parts.push(box(0.03, 0.1, 0.04, -0.13, 1.42, 0.2, 2, M_METAL, 3));
+  } else if (v === 4) {
+    // Heavy launch tube (ATGM / MANPADS).
+    parts.push(limb(V(-0.14, 1.52, -0.55), V(-0.14, 1.52, 0.72), 0.07, 0.07, s, 2, M_TUBE, 4));
+    parts.push(box(0.16, 0.14, 0.2, -0.02, 1.47, 0.15, 2, M_METAL, 4));
+  } else {
+    // Pistol in hand.
+    parts.push(box(0.035, 0.1, 0.16, -0.1, 1.31, 0.27, 2, M_METAL, 5));
+  }
+  return parts;
+}
 
 // Bones: 0 pelvis, 1 torso+head, 2 arms+weapon, 3 L thigh, 4 L shin, 5 R thigh, 6 R shin.
 export function buildSoldierGeometry(lod = 0) {
@@ -121,31 +160,7 @@ export function buildSoldierGeometry(lod = 0) {
   parts.push(ball(0.048, lHa.x, lHa.y - 0.01, lHa.z, 0, 2, M_BOOT));
   parts.push(ball(0.048, rHa.x, rHa.y - 0.01, rHa.z, 0, 2, M_BOOT));
   // Weapons (only the instance's variant is shown).
-  const wx = -0.085;
-  // 0: assault rifle
-  parts.push(box(0.055, 0.1, 0.42, wx, 1.33, 0.32, 2, M_METAL, 0));
-  parts.push(limb(V(wx, 1.345, 0.52), V(wx, 1.345, 0.84), 0.013, 0.011, 5, 2, M_METAL, 0));
-  parts.push(box(0.05, 0.1, 0.2, wx, 1.31, 0.03, 2, M_FURN, 0));
-  parts.push(box(0.04, 0.14, 0.06, wx, 1.22, 0.33, 2, M_METAL, 0, 0.25));
-  if (lod === 0) parts.push(box(0.035, 0.05, 0.11, wx, 1.405, 0.28, 2, M_METAL, 0));
-  // 1: machine gun
-  parts.push(box(0.075, 0.12, 0.5, wx, 1.33, 0.34, 2, M_METAL, 1));
-  parts.push(limb(V(wx, 1.35, 0.58), V(wx, 1.35, 1.0), 0.019, 0.017, 6, 2, M_METAL, 1));
-  parts.push(box(0.1, 0.11, 0.13, wx - 0.03, 1.22, 0.32, 2, M_FURN, 1));
-  parts.push(box(0.055, 0.11, 0.22, wx, 1.31, 0.02, 2, M_METAL, 1));
-  // 2: sniper rifle
-  parts.push(box(0.055, 0.1, 0.55, wx, 1.33, 0.36, 2, M_FURN, 2));
-  parts.push(limb(V(wx, 1.345, 0.63), V(wx, 1.345, 1.08), 0.012, 0.011, 5, 2, M_METAL, 2));
-  parts.push(limb(V(wx, 1.42, 0.2), V(wx, 1.42, 0.5), 0.024, 0.024, 6, 2, M_METAL, 2));
-  // 3: rocket launcher on the shoulder
-  parts.push(limb(V(-0.13, 1.5, -0.38), V(-0.13, 1.5, 0.62), 0.042, 0.042, s, 2, M_TUBE, 3));
-  parts.push(ball(0.07, -0.13, 1.5, 0.72, 1, 2, M_TUBE, 1.0));
-  parts.push(box(0.03, 0.1, 0.04, -0.13, 1.42, 0.2, 2, M_METAL, 3));
-  // 4: heavy launch tube (ATGM / MANPADS)
-  parts.push(limb(V(-0.14, 1.52, -0.55), V(-0.14, 1.52, 0.72), 0.07, 0.07, s, 2, M_TUBE, 4));
-  parts.push(box(0.16, 0.14, 0.2, -0.02, 1.47, 0.15, 2, M_METAL, 4));
-  // 5: pistol in hand
-  parts.push(box(0.035, 0.1, 0.16, -0.1, 1.31, 0.27, 2, M_METAL, 5));
+  for (let v = 0; v < 6; v++) parts.push(...weaponShapes(v, lod));
   // Legs.
   for (const side of [1, -1]) {
     const x = 0.1 * side;
@@ -166,7 +181,7 @@ const ANIM_GLSL = /* glsl */ `
 attribute vec3 aPart;
 attribute vec4 aAnim;   // phase, move (0 idle..1 walk..2.5 sprint), stance (0..2), aim pitch
 attribute vec4 aAnim2;  // aim blend, recoil, time since death (0 = alive), fall direction (+-1, fraction = variant)
-attribute vec4 aVar;    // weapon variant, parachute, unused, seed
+attribute vec4 aVar;    // weapon variant, parachute, lost legs mask, seed
 varying float vMat;
 varying vec3 vObj;
 varying float vSeed;
@@ -204,8 +219,12 @@ void animateSoldier(vec3 p, out vec3 outP, out mat3 outR) {
   float crawl = prone * clamp(mv * 2.0, 0.0, 1.0) * alive;
   float cr = crouch * upright * alive;
 
-  // Hide weapon variants other than this instance's.
-  if (aPart.z > -0.5 && abs(aPart.z - aVar.x) > 0.5) {
+  // Hide weapon variants other than this instance's, and lost legs
+  // (aVar.z bits: 1 left leg, 2 left shin, 4 right leg, 8 right shin).
+  int sev = int(aVar.z + 0.5);
+  bool lost = (bone > 2.5 && bone < 3.5 && (sev & 1) != 0) || (bone > 3.5 && bone < 4.5 && (sev & 3) != 0)
+           || (bone > 4.5 && bone < 5.5 && (sev & 4) != 0) || (bone > 5.5 && (sev & 12) != 0);
+  if ((aPart.z > -0.5 && abs(aPart.z - aVar.x) > 0.5) || lost) {
     outP = vec3(0.0);
     outR = mat3(1.0);
     return;
@@ -303,6 +322,43 @@ vec3 camo(vec3 p) {
 }
 `;
 
+// Surface colour by material id (camouflage, gear, skin...), with optional
+// blood staining.
+const COLOR_GLSL = /* glsl */ `
+{
+  float m = floor(vMat + 0.5);
+  vec3 base;
+  if (m < 0.5) base = camo(vObj);
+  else if (m < 1.5) base = uGear * (0.85 + 0.3 * n3(vObj * 20.0));
+  else if (m < 2.5) base = mix(uSkinA, uSkinB, fract(vSeed * 7.31));
+  else if (m < 3.5) base = uHelmetCamo > 0.5 ? camo(vObj * 1.3) : uHelmet;
+  else if (m < 4.5) base = uBoot;
+  else if (m < 5.5) base = uMetal;
+  else if (m < 6.5) base = uFurn;
+  else base = uTube;
+  float stain = vBlood * smoothstep(0.38, 0.62, n3(vObj * 7.0 + 5.0) * 0.7 + vBlood * 0.45);
+  base = mix(base, vec3(0.16, 0.012, 0.008), clamp(stain, 0.0, 0.92) * step(m, 4.5));
+  diffuseColor.rgb = base;
+}
+`;
+
+function setColorUniforms(u, f) {
+  const col = (h) => ({ value: new THREE.Color(h) });
+  u.uCamo0 = col(f.camo[0]);
+  u.uCamo1 = col(f.camo[1]);
+  u.uCamo2 = col(f.camo[2]);
+  u.uCamo3 = col(f.camo[3]);
+  u.uGear = col(f.gear);
+  u.uHelmet = col(f.helmet);
+  u.uSkinA = col(0xd9a988);
+  u.uSkinB = col(0x7a5038);
+  u.uBoot = col(0x2b2620);
+  u.uMetal = col(0x1e1f20);
+  u.uFurn = col(0x3a3328);
+  u.uTube = col(0x4e5638);
+  u.uHelmetCamo = { value: f.helmetCamo };
+}
+
 export const FACTION_UNIFORMS = [
   // Coalition: multicam-style tan/green/brown, coyote gear.
   { camo: [0xa59672, 0x7d7150, 0x5f4c36, 0xc4b591], gear: 0x8a7a57, helmet: 0x8e8063, helmetCamo: 1 },
@@ -322,39 +378,9 @@ function makeMaterial(faction, depth = false) {
     shader.vertexShader = shader.vertexShader.replace('#include <beginnormal_vertex>', 'vec3 objectNormal = animRot * normal;');
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', 'vec3 transformed = animPos;');
     if (!depth) {
-      const u = shader.uniforms;
-      const col = (h) => ({ value: new THREE.Color(h) });
-      u.uCamo0 = col(f.camo[0]);
-      u.uCamo1 = col(f.camo[1]);
-      u.uCamo2 = col(f.camo[2]);
-      u.uCamo3 = col(f.camo[3]);
-      u.uGear = col(f.gear);
-      u.uHelmet = col(f.helmet);
-      u.uSkinA = col(0xd9a988);
-      u.uSkinB = col(0x7a5038);
-      u.uBoot = col(0x2b2620);
-      u.uMetal = col(0x1e1f20);
-      u.uFurn = col(0x3a3328);
-      u.uTube = col(0x4e5638);
-      u.uHelmetCamo = { value: f.helmetCamo };
-      shader.fragmentShader = CAMO_GLSL + '\n' + shader.fragmentShader;
-      shader.fragmentShader = shader.fragmentShader.replace(
-        '#include <color_fragment>',
-        `#include <color_fragment>
-        {
-          float m = floor(vMat + 0.5);
-          vec3 base;
-          if (m < 0.5) base = camo(vObj);
-          else if (m < 1.5) base = uGear * (0.85 + 0.3 * n3(vObj * 20.0));
-          else if (m < 2.5) base = mix(uSkinA, uSkinB, fract(vSeed * 7.31));
-          else if (m < 3.5) base = uHelmetCamo > 0.5 ? camo(vObj * 1.3) : uHelmet;
-          else if (m < 4.5) base = uBoot;
-          else if (m < 5.5) base = uMetal;
-          else if (m < 6.5) base = uFurn;
-          else base = uTube;
-          diffuseColor.rgb = base;
-        }`,
-      );
+      setColorUniforms(shader.uniforms, f);
+      shader.fragmentShader = CAMO_GLSL + '\nconst float vBlood = 0.0;\n' + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' + COLOR_GLSL);
     } else {
       // Depth shader also needs the varyings declared (unused).
       shader.fragmentShader = 'varying float vMat;\nvarying vec3 vObj;\nvarying float vSeed;\n' + shader.fragmentShader;
@@ -364,25 +390,67 @@ function makeMaterial(faction, depth = false) {
   return mat;
 }
 
+// Rigid body parts (ragdolls): the same colouring without the skeleton, with
+// a per-instance seed and blood stain in aRag.
+export function makeRagdollMaterial(faction) {
+  const f = FACTION_UNIFORMS[faction];
+  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
+  mat.onBeforeCompile = (shader) => {
+    shader.vertexShader = 'attribute vec3 aPart;\nattribute vec2 aRag;\nvarying float vMat;\nvarying vec3 vObj;\nvarying float vSeed;\nvarying float vBlood;\n' + shader.vertexShader.replace(
+      'void main() {',
+      'void main() {\n  vMat = aPart.y;\n  vObj = position + vec3(aRag.x * 37.0, aRag.x * 11.0, 0.0);\n  vSeed = aRag.x;\n  vBlood = aRag.y;',
+    );
+    setColorUniforms(shader.uniforms, f);
+    shader.fragmentShader = CAMO_GLSL + '\nvarying float vBlood;\n' + shader.fragmentShader.replace('#include <color_fragment>', '#include <color_fragment>\n' + COLOR_GLSL);
+  };
+  mat.customProgramCacheKey = () => `ragdoll-${faction}`;
+  return mat;
+}
+
 class SoldierBatch {
-  constructor(geo, material, depthMaterial, max, shadows) {
-    this.max = max;
-    this.geo = geo.clone();
-    this.mesh = new THREE.InstancedMesh(this.geo, material, max);
-    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    this.mesh.frustumCulled = false;
-    this.mesh.castShadow = shadows;
-    this.mesh.receiveShadow = shadows;
-    if (depthMaterial) this.mesh.customDepthMaterial = depthMaterial;
-    this.anim = new Float32Array(max * 4);
-    this.anim2 = new Float32Array(max * 4);
-    this.vars = new Float32Array(max * 4);
+  constructor(scene, geo, material, depthMaterial, max, shadows) {
+    this.scene = scene;
+    this.base = geo;
+    this.material = material;
+    this.depthMaterial = depthMaterial;
+    this.shadows = shadows;
+    this.mesh = null;
+    this.count = 0;
+    this.alloc(max);
+  }
+
+  // (Re)allocate for n soldiers, keeping what this frame already wrote.
+  alloc(n) {
+    const old = this.mesh;
+    this.max = n;
+    this.geo = this.base.clone();
+    const mesh = new THREE.InstancedMesh(this.geo, this.material, n);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.frustumCulled = false;
+    mesh.castShadow = this.shadows;
+    mesh.receiveShadow = this.shadows;
+    if (this.depthMaterial) mesh.customDepthMaterial = this.depthMaterial;
+    const prev = old ? [this.anim, this.anim2, this.vars] : null;
+    this.anim = new Float32Array(n * 4);
+    this.anim2 = new Float32Array(n * 4);
+    this.vars = new Float32Array(n * 4);
     for (const [name, arr] of [['aAnim', this.anim], ['aAnim2', this.anim2], ['aVar', this.vars]]) {
       const a = new THREE.InstancedBufferAttribute(arr, 4);
       a.setUsage(THREE.DynamicDrawUsage);
       this.geo.setAttribute(name, a);
     }
-    this.count = 0;
+    if (old) {
+      const k = this.count;
+      mesh.instanceMatrix.array.set(old.instanceMatrix.array.subarray(0, k * 16));
+      this.anim.set(prev[0].subarray(0, k * 4));
+      this.anim2.set(prev[1].subarray(0, k * 4));
+      this.vars.set(prev[2].subarray(0, k * 4));
+      this.scene.remove(old);
+      old.geometry.dispose();
+      old.dispose();
+    }
+    this.mesh = mesh;
+    this.scene.add(mesh);
   }
 
   begin() {
@@ -390,7 +458,7 @@ class SoldierBatch {
   }
 
   push(m, a, a2, v) {
-    if (this.count >= this.max) return false;
+    if (this.count >= this.max) this.alloc(this.max * 2);
     const i = this.count++;
     this.mesh.instanceMatrix.array.set(m, i * 16);
     this.anim.set(a, i * 4);
@@ -415,6 +483,79 @@ class SoldierBatch {
   }
 }
 
+// Faint faction-coloured rings on the ground under living soldiers. They grow
+// and strengthen with distance so troops stay readable from far away.
+class SoldierRings {
+  constructor(scene, max) {
+    const g = new THREE.PlaneGeometry(2, 2);
+    g.rotateX(-Math.PI / 2);
+    this.alpha = new Float32Array(max);
+    this.aAlpha = new THREE.InstancedBufferAttribute(this.alpha, 1);
+    this.aAlpha.setUsage(THREE.DynamicDrawUsage);
+    g.setAttribute('aAlpha', this.aAlpha);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, toneMapped: false });
+    mat.onBeforeCompile = (shader) => {
+      shader.vertexShader = 'attribute float aAlpha;\nvarying float vA;\nvarying vec2 vR;\n' + shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvA = aAlpha;\nvR = position.xz;');
+      shader.fragmentShader = 'varying float vA;\nvarying vec2 vR;\n' + shader.fragmentShader.replace(
+        '#include <color_fragment>',
+        `#include <color_fragment>
+        float r = length(vR);
+        float ring = smoothstep(0.6, 0.74, r) * (1.0 - smoothstep(0.86, 1.0, r));
+        float fill = (1.0 - smoothstep(0.5, 0.74, r)) * 0.2;
+        diffuseColor.a *= vA * max(ring, fill);`,
+      );
+    };
+    mat.customProgramCacheKey = () => 'soldier-rings';
+    this.mesh = new THREE.InstancedMesh(g, mat, max);
+    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(max * 3), 3);
+    this.mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+    this.mesh.frustumCulled = false;
+    this.mesh.renderOrder = 2;
+    this.mesh.count = 0;
+    scene.add(this.mesh);
+    this.colors = [new THREE.Color(0.32, 0.64, 1.0), new THREE.Color(1.0, 0.34, 0.28)];
+    this.max = max;
+    this.count = 0;
+    this.m = new THREE.Matrix4();
+    this.q = new THREE.Quaternion();
+    this.p = new THREE.Vector3();
+    this.s = new THREE.Vector3();
+    this.n = new THREE.Vector3();
+  }
+
+  push(u, d, terrain) {
+    if (this.count >= this.max || d < 25) return;
+    const i = this.count++;
+    const r = 0.6 + d * 0.0042;
+    if (d > 45) {
+      terrain.normalAt(u.pos.x, u.pos.z, this.n);
+      this.q.setFromUnitVectors(_up, this.n);
+    } else this.q.identity();
+    this.p.set(u.pos.x, u.pos.y + 0.06 + r * 0.03, u.pos.z);
+    this.s.set(r, 1, r);
+    this.m.compose(this.p, this.q, this.s);
+    this.m.toArray(this.mesh.instanceMatrix.array, i * 16);
+    const c = this.colors[u.faction];
+    const ca = this.mesh.instanceColor.array;
+    ca[i * 3] = c.r;
+    ca[i * 3 + 1] = c.g;
+    ca[i * 3 + 2] = c.b;
+    this.alpha[i] = 0.1 + Math.min(1, (d - 25) / 280) * 0.5;
+  }
+
+  end() {
+    const n = this.count;
+    this.mesh.count = n;
+    for (const a of [this.mesh.instanceMatrix, this.mesh.instanceColor, this.aAlpha]) {
+      a.clearUpdateRanges();
+      a.addUpdateRange(0, n * a.itemSize);
+      a.needsUpdate = true;
+    }
+    this.count = 0;
+  }
+}
+
 const _m = new Float32Array(16);
 const _a = new Float32Array(4);
 const _a2 = new Float32Array(4);
@@ -422,7 +563,7 @@ const _vv = new Float32Array(4);
 const _sphere = new THREE.Sphere();
 
 export class InfantryRenderer {
-  constructor(scene, quality, parachuteGeo = null, maxSoldiers = 6000) {
+  constructor(scene, quality, parachuteGeo = null, maxSoldiers = 4096) {
     this.scene = scene;
     this.quality = quality;
     const g0 = buildSoldierGeometry(0);
@@ -431,9 +572,8 @@ export class InfantryRenderer {
     for (let f = 0; f < 2; f++) {
       const mat = makeMaterial(f);
       const dmat = makeMaterial(f, true);
-      const near = new SoldierBatch(g0, mat, dmat, maxSoldiers, !!quality.shadows);
-      const far = new SoldierBatch(g1, mat, null, maxSoldiers, false);
-      scene.add(near.mesh, far.mesh);
+      const near = new SoldierBatch(scene, g0, mat, dmat, 1024, !!quality.shadows);
+      const far = new SoldierBatch(scene, g1, mat, null, maxSoldiers, false);
       this.batches.push([near, far]);
     }
     this.lodDist = 140 * (quality.unitLod ?? 1);
@@ -447,6 +587,9 @@ export class InfantryRenderer {
     scene.add(this.chutes);
     this.chuteObj = new THREE.Object3D();
     this.visibleCount = 0;
+    this.rings = new SoldierRings(scene, 12000);
+    this.showRings = true;
+    this.gore = true;
   }
 
   update(world, camera, frustum, dt) {
@@ -461,8 +604,11 @@ export class InfantryRenderer {
     const max2 = this.maxDist * this.maxDist;
     let chutes = 0;
     let vis = 0;
+    const terrain = world.terrain;
+    const rings = this.showRings ? this.rings : null;
     const draw = (u) => {
-      if (u.hidden || u.removed) return;
+      // Fallen soldiers near the camera are drawn by the ragdoll system.
+      if (u.hidden || u.removed || u._rd) return;
       const p = u.pos;
       const dx = p.x - cx;
       const dy = p.y - cy;
@@ -473,6 +619,8 @@ export class InfantryRenderer {
       _sphere.radius = 1.3;
       if (!frustum.intersectsSphere(_sphere)) return;
       vis++;
+      const fallen = !u.alive || !!u.downed;
+      if (rings && !fallen && !u.mounted) rings.push(u, Math.sqrt(d2), terrain);
       const seed = hash01(u.id, 7);
       const sc = 0.94 + seed * 0.1;
       const c = Math.cos(u.yaw) * sc;
@@ -496,7 +644,7 @@ export class InfantryRenderer {
       // Animation parameters.
       const speed = u.speed || 0;
       const move = speed < 2.2 ? speed / 1.5 : 1 + (speed - 2.2) / 1.6;
-      const aimT = u.aiming && u.alive ? 1 : 0;
+      const aimT = u.aiming && !fallen ? 1 : 0;
       u._aimB = (u._aimB ?? 0) + (aimT - (u._aimB ?? 0)) * Math.min(1, dt * 6);
       _a[0] = u.animPhase;
       _a[1] = Math.min(2.5, move);
@@ -504,11 +652,11 @@ export class InfantryRenderer {
       _a[3] = u.aiming ? u.aimPitch : 0;
       _a2[0] = u._aimB;
       _a2[1] = Math.max(0, 1 - u.fireT / 0.12);
-      _a2[2] = u.alive ? 0 : Math.max(0.0002, u.deadT);
+      _a2[2] = fallen ? Math.max(0.0002, u.deadT) : 0;
       _a2[3] = (u.fallDir >= 0 ? 1 : -1) * (1 + hash01(u.id, 3) * 0.9);
       _vv[0] = ROLE_WEAPON[u.def.role] ?? 0;
       _vv[1] = u.para && u.para.phase === 'canopy' ? 1 : 0;
-      _vv[2] = 0;
+      _vv[2] = this.gore && u.severed ? (u.severed & 4 ? 1 : 0) | (u.severed & 16 ? 2 : 0) | (u.severed & 8 ? 4 : 0) | (u.severed & 32 ? 8 : 0) : 0;
       _vv[3] = seed;
       const [near, far] = this.batches[u.faction];
       (d2 < lod2 ? near : far).push(_m, _a, _a2, _vv);
@@ -530,6 +678,8 @@ export class InfantryRenderer {
     }
     this.chutes.count = chutes;
     if (chutes) this.chutes.instanceMatrix.needsUpdate = true;
+    this.rings.end();
+    this.rings.mesh.visible = this.showRings;
     this.visibleCount = vis;
   }
 }

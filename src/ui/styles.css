@@ -237,12 +237,6 @@ select, input[type='text'] {
 .feed .k .w { color: var(--muted); }
 @keyframes fadein { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
 
-.radio { position: absolute; right: var(--gutter-r); top: max(42%, 270px); width: min(360px, 34vw); padding: 10px 12px; display: grid; gap: 6px; max-height: 38vh; overflow: hidden; }
-.radio .msg { font-family: var(--mono); font-size: 12px; line-height: 1.4; color: var(--text); }
-.radio .msg b { font-weight: 500; }
-.radio .msg.f0 b { color: var(--coa); }
-.radio .msg.f1 b { color: var(--fed); }
-.radio .msg.old { color: var(--muted); }
 
 .minimap { position: absolute; left: var(--gutter); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); padding: 6px; }
 .minimap canvas { display: block; width: 210px; height: 210px; cursor: pointer; image-rendering: auto; }
@@ -322,7 +316,6 @@ select, input[type='text'] {
   .status { top: calc(150px + env(safe-area-inset-top, 0px)); padding: 6px 10px; max-width: 38vw; }
 }
 @media (max-width: 820px) {
-  .radio { display: none; }
   .card { width: calc(100% - 32px); bottom: calc(232px + env(safe-area-inset-bottom, 0px)); }
   .minimap canvas { width: 150px; height: 150px; }
   .feed { width: 52vw; top: calc(156px + env(safe-area-inset-top, 0px)); }
