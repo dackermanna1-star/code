@@ -55,7 +55,8 @@ Your mother is still asleep. Your grandmother is at the kitchen table in her rob
 She's lucid. You can tell the second she looks at you.
 MEMERE(flat): You let it take the Lindqvist boy.
 GUS: How do you—
-MEMERE(sad): Because I remember him. And nobody else in this town will, by lunch. His mother will make three plates for dinner and not know why.
+MEMERE(sad): Because I remember him. Old women with holes in their heads, we catch things.
+MEMERE(sad): By lunch, nobody else will. Only you, and his father, and the rest of them on that hill. His mother will set three plates tonight and not know why.
 She takes your hand across the table. Her fingers are cold.
 MEMERE(sad): You did what we did, ma belle. You did what I did. For thirty-six years.
 MEMERE(flat): Now you know what it weighs.
@@ -66,6 +67,8 @@ MEMERE(flat): Now you know what it weighs.
 * [(Cry.) #silent]
     You cry, and she holds your hand, and doesn't tell you it's all right, because it isn't.
 - @hide memere
+On your way upstairs, you look out the front window.
+A police cruiser is parked across Larch Street. Officer Lindqvist is behind the wheel in last night's clothes, looking at your house. He doesn't get out. He doesn't do anything. He just looks.
 -> tape5
 
 = morning_wes
@@ -123,6 +126,15 @@ TAPE(june): You were so brave last night. Stupid. But brave. You get that from m
     TAPE(june): I'm sorry about the boy. I know what it felt like. I know exactly what it felt like.
 - else:
     TAPE(june): I'm sorry about Wes. I couldn't stop it. I've been trying to stop it for nine years. I've never stopped it once.
+}
+{june_call == "listened" || june_call == "recorded":
+    {outcome:
+    - "brett":
+        TAPE(june): You listened to me. On the phone. You weren't the closest one.
+        TAPE(june): ...Good.
+    - "memere":
+        TAPE(june): I told you not to be the closest one. You never listen. She never did, either.
+    }
 }
 TAPE(june): Listen to me. It's not over. It's never over in Derry. There are things I need to tell you. About me. About Mom. About what's under the town.
 TAPE(june): But not on tape. Tape's not safe anymore. They can hear it now.

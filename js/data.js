@@ -166,6 +166,7 @@
     tape_constance: { title: 'DERRY VOICES — MRS. ASHGROVE', when: 'Sept 25, 1991 · West Broadway', desc: 'The Lantern Society, in its own words.', lines: [['-', 'Grief is a community\'s work, not a family\'s. We carry it so they don\'t have to.'], ['-', 'Derry is a town that knows the value of rest.']] },
     tape_june_bedtime: { title: "GUSSIE'S BEDTIME SONGS", when: 'Summer 1982 · June\'s handwriting', desc: 'DO NOT TAPE OVER (THIS MEANS YOU).', lines: [['june', 'Okay, Gussie. This is for when I\'m at sleepover camp and you can\'t sleep. Pinky promise. Good.'], ['june', 'À la claire fontaine, m\'en allant promener…'], ['june', '…il y a longtemps que je t\'aime, jamais je ne t\'oublierai.'], ['june', 'That means I\'ll never forget you. Not ever. Night, Gus-Gus.']] },
     tape_june_research: { title: 'QUIET NIGHT RESEARCH #3', when: 'Oct 5, 1982 · June\'s handwriting', desc: 'June, investigating.', lines: [['june', 'This is June Brennan, Derry High School, class of 1986, and this is Research Tape Number Three.'], ['june', 'One: every year on the second Saturday in October, the grown-ups go to sleep.'], ['june', 'Two: every year, somebody goes missing, and nobody notices. Not even their family.'], ['june', 'Four: the lantern ladies have a list. I\'ve seen it. And Nate says—'], ['-', '(hiss)']] },
+    tape_payphone: { title: 'PAY PHONE — WITCHAM & JACKSON', when: 'Oct 12, 1991 · Quiet Night', desc: 'A call to a pay phone in a town with every light out. You didn\'t say a word.', lines: [['-', '(tape hiss, the soft endless kind)'], ['june', '…Gussie? Don\'t talk. Don\'t ever talk to it. Just listen.'], ['june', 'When you do, it\'ll turn around. It takes whoever\'s closest.'], ['june', 'So don\'t be the closest one. Please, Gussie. I can\'t have you down here.'], ['-', '(click)']] },
     tape_memere: { title: 'MÉMÈRE SINGING (2 A.M.)', when: 'Aug 31, 1991 · living room', desc: 'Your grandmother at the window, singing to Larch Street.', lines: [['memere', 'À la claire fontaine, m\'en allant promener…'], ['memere', 'Il y a longtemps que je t\'aime, jamais je ne t\'oublierai.'], ['memere', 'Bonne nuit, ma belle.']] }
   };
 
@@ -200,8 +201,12 @@
     if (V('knows_june')) dec.push(['June', told.length ? 'You told ' + told.join(' and ') + '.' : 'You kept her to yourself.']);
     if (V('recorded_wes')) dec.push(['A tape', 'Wes let you record him. "I\'m not going anywhere this time."']);
     const allies = [V('ally_teddy') && 'Teddy', V('ally_cal') && 'Cal', V('ally_sloane') && 'Sloane'].filter(Boolean);
+    const call = { listened: 'You picked up and said nothing. June begged you not to be the closest one.', recorded: 'You picked up and taped June\'s warning without saying a word.', answered: 'You said hello. The warm voice said it would see you on the hill.', ignored: 'You let it ring. Every phone on the way rang after you.' }[V('june_call')];
+    const talk = { pulled: 'You pulled free of Mrs. Ashgrove without a word.', june: 'You asked Mrs. Ashgrove about June, and it cost Wes time. The Lamp used to call June out in your voice.', pin: 'You showed Mrs. Ashgrove Mémère\'s pin. For a minute she didn\'t know what you were.', me: '"Then let it take me." Mrs. Ashgrove let you go to see if you meant it.' }[V('constance_talk')];
     dec.push(['Quiet Night', V('went_out') ? 'You went out into the dark' + (allies.length ? ' with ' + allies.join(' and ') : ', alone') + '.' : 'You stayed inside.']);
-    const out = { wes: 'Wes was taken. You are the only one who remembers him.', brett: 'You stepped aside. The light took Brett Lindqvist. Mémère knows.', memere: 'Mémère walked into the light in your place. Nobody else remembers she lived.' }[V('outcome')];
+    const out = { wes: 'Wes was taken. Nobody at the Dunmores\' remembers him. You do.', brett: 'You stepped aside. The light took Brett Lindqvist while his father watched.', memere: 'Mémère walked into the light in your place. Mom doesn\'t remember she ever lived here.' }[V('outcome')];
+    if (call) dec.push(['The pay phone', call]);
+    if (talk) dec.push(['On the hill', talk]);
     if (out) dec.push(['The Lamp', out]);
     if (V('went_out')) dec.push(['Going home', V('looked_back') ? 'You looked back, and saw her face.' : 'You didn\'t look back.']);
     const win = { open: 'You reached for the latch.', closed: 'You didn\'t open the window.', song: 'You asked her for the song. She knew it.' }[V('window_choice')];
@@ -211,7 +216,7 @@
     const lv = (v, a, b) => (v >= b ? 2 : v >= a ? 1 : v < 0 ? -1 : 0);
     people.push(['Mom', ['You kept her at arm\'s length.', 'You\'re finding your way back to each other.', 'You\'re closer than you\'ve been in years.', 'She\'d walk through fire for you, and she\'s starting to know you\'d do the same.'][lv(V('mom'), 3, 6) + 1]]);
     if (V('outcome') !== 'memere') people.push(['Mémère', ['She watches you like she\'s waiting for something.', 'She lights up when you come in.', 'You\'re her Junie and her Augusta both. She trusts you with the truth.'][Math.max(0, lv(V('mem'), 3, 6))]]);
-    else people.push(['Mémère', 'Gone. Remembered only by you.']);
+    else people.push(['Mémère', 'Gone. You remember her. So does Mrs. Ashgrove.']);
     people.push(['Teddy', ['She thinks you dropped her.', 'Friends, cautiously.', 'Real friends.', 'Best friends. ' + (V('teddy_spark') >= 3 ? 'Maybe more.' : 'Ride or die.')][lv(V('teddy'), 3, 7) + 1]]);
     people.push(['Cal', ['To him you\'re just another local who doesn\'t see.', 'An ally of convenience.', 'He trusts you with things he\'s never said out loud.', 'He trusts you completely, which frightens him.'][lv(V('cal'), 3, 6) + 1]]);
     people.push(['Sloane', ['Beneath her notice, on purpose.', 'A curiosity.', 'She respects you.', 'Something complicated. ' + (V('sloane_spark') >= 3 ? 'She held your hand.' : 'She covered for you.')][lv(V('sloane'), 3, 5) + 1]]);

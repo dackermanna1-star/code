@@ -106,6 +106,7 @@ for (let r = 0; r < runs; r++) {
       } else break;
     }
   } catch (e) { errors.set(String(e.message || e), (errors.get(String(e.message || e)) || 0) + 1); }
+  for (const k of knots) { try { if (S.state.VisitCountAtPathString(k) > 0) visited.add(k); } catch (e) { /* not a container */ } }
   const out = S.variablesState ? String(S.variablesState.outcome || '') : '';
   endings.set(out || (ended ? 'end' : 'stopped'), (endings.get(out || (ended ? 'end' : 'stopped')) || 0) + 1);
   results.push({ words, choices, ended });
@@ -120,6 +121,7 @@ console.log(`choices per run: avg ${avg(cs).toFixed(0)}  est. play time ≈ ${mi
 console.log('outcomes:', Object.fromEntries(endings));
 if (errors.size) { console.log('\nRUNTIME ERRORS:'); for (const [k, v] of errors) console.log(`  ${v}× ${k}`); }
 if (missing.size) { console.log('\nMISSING REFERENCES:'); for (const [k, v] of [...missing].sort()) console.log(`  ${k}  (${v}×)`); }
-const FUNCS = ['clue', 'tape', 'remember', 'jot', 'decide', 'up', 'trait_top'];
+// functions, plus pass-through knots that print nothing and whose visits Ink doesn't count
+const FUNCS = ['clue', 'tape', 'remember', 'jot', 'decide', 'up', 'trait_top', 't3', 'ch3_next'];
 const unvisited = knots.filter((k) => !visited.has(k) && !FUNCS.includes(k));
 if (unvisited.length) console.log('\nknots never visited:', unvisited.join(', '));

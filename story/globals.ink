@@ -33,7 +33,7 @@ VAR rep_popular = 0
 
 // Clues and recordings (the runtime also keeps these for the notebook)
 LIST Clues = rules, casseroles, junie, sign_voice, four_plates, rearview, height_marks, dad_recorder, claire_song, hannah_quiet, locker_initials, locker_lantern, sloane_locker, whitcomb_flinch, cal_october, memere_society, mom_patch, radio_names, rhyme, dot_cheese, daniel_carrier, nate_song, nate_jb, library_1982, library_photo, standpipe_lantern, teddy_tape, wes_map, memere_gave, minutes_1982, broken_e, wes_note, starving_winter, the_wall, teague_cost, june_photo, june_tapes, june_id, june_notes, dad_call, memere_warning, upstream_lantern, society_pins, overheard, yearbook_1983
-LIST Tapes = tape_memere_story, tape_car, tape_night, tape_canal_kids, tape_wes, tape_brett, tape_memere, tape_dot, tape_teague, tape_constance, tape_june_bedtime, tape_june_research, tape_june_last, tape_teddy_radio, tape_creek
+LIST Tapes = tape_memere_story, tape_car, tape_night, tape_canal_kids, tape_wes, tape_brett, tape_memere, tape_dot, tape_teague, tape_constance, tape_june_bedtime, tape_june_research, tape_june_last, tape_teddy_radio, tape_creek, tape_payphone
 
 === function clue(c)
 ~ Clues += c

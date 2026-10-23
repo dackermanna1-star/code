@@ -4,6 +4,9 @@
 // ============================================================
 VAR steps = 0
 VAR has_pin = false
+VAR june_call = ""        // listened | recorded | answered | ignored
+VAR constance_talk = ""   // pulled | june | pin | me
+VAR cal_choice = ""       // helped | photo
 
 === ch6 ===
 @chapter Chapter Six :: The Quiet :: Saturday, October 12, 1991
@@ -179,7 +182,64 @@ VOICE(june): Gussie. This way. It's me. I'm right here.
 * {not knows_rules} [Ignore it. Keep walking. Fast. #silent #default]
     You walk faster. You don't answer. Not because you know the rules — because something in you, very old, very small, says *don't.*
     The voice follows you for a block, and then it doesn't.
-- -> q_hill
+- -> payphone
+
+= payphone
+@ctx Still walking to the hill on Quiet Night. Outside a dead gas station, a pay phone is ringing in the silent town. Answering a voice tonight is dangerous.
+@sfx phone_ring
+At the corner of Witcham and Jackson, outside the dark Gulf station, the pay phone is ringing.
+It's the only sound in Derry. A real bell, loud and old, the kind that makes your hand move before you think.
+{ally_teddy:
+    TEDDY(afraid): Nope. No. Gus. That's the part of the movie where the babysitter picks up and the call is coming from *inside the house.*
+}
+It rings, and rings. It isn't going to stop.
+* [(Pick up. Don't say a word.) #silent]
+    ~ june_call = "listened"
+    -> phone_listen
+* [(Pick up. Hold your recorder to the earpiece. Press RECORD.) #record]
+    ~ june_call = "recorded"
+    -> phone_listen
+* ["Hello?" #honest]
+    ~ june_call = "answered"
+    ~ answered_voice = true
+    You pick it up. The plastic is warm, as if someone just put it down.
+    GUS: Hello?
+    VOICE(june): There you are.
+    The warm voice. Smiling. You can hear it smiling.
+    VOICE(june): See you on the hill, Gus-Gus.
+    Click. Dial tone. And under the dial tone, very faint, something breathing.
+    -> walk_on
+* [Let it ring. Keep walking. #leave]
+    ~ june_call = "ignored"
+    You walk past it. Behind you it keeps ringing. You count twelve rings before it stops.
+    Then, a block ahead, outside the Rexall, another pay phone starts. Then the one past that.
+    All the way to the hill, every phone you pass rings, like the streetlights going out, like somebody keeping pace with you one phone at a time.
+    -> walk_on
+
+= phone_listen
+You pick it up. The plastic is cold. You don't say hello. You don't even breathe.
+{june_call == "recorded":
+    @sfx record_start
+}
+Hiss. Not phone hiss. Tape hiss, the soft, endless kind you've been listening to your whole life.
+PHONE(june): ...Gussie? Don't talk. Don't ever talk to it. Just listen.
+It's her. Not the warm voice from the dark. This one is hoarse and tired and close, like she's whispering under a blanket so nobody in the house will hear.
+PHONE(june): You're going to pull him out. I know you. You're stubborn.
+PHONE(june): When you do, it'll turn around. It takes whoever's closest. It always takes whoever's closest.
+PHONE(june): So don't be the closest one. Please, Gussie. I can't have you down here. I can't.
+Click.
+{june_call == "recorded":
+    ~ tape(tape_payphone)
+    Your thumb finds STOP. The little reels stop turning. Whatever she is, you've got her on tape.
+}
+{ally_teddy:
+    TEDDY(afraid): Was that... her? Your sister?
+    You don't answer. You're not sure you can.
+}
+-> walk_on
+
+= walk_on
+-> q_hill
 
 // ------------------------------------------------------------
 === q_hill ===
@@ -237,7 +297,7 @@ And he follows. Of course he follows. Whatever's on top of the hill, he's more a
 The top of the hill.
 On the broken ring of the Standpipe, on the highest stone, the Keeper's Lamp is burning. The light is green. Not the green of anything alive. The green of deep water, of things that grow in the dark.
 It lights the stones and the grass in a circle maybe thirty feet across. Past the edge of the circle, the dark is *darker.* Not night. Something else. Something you could put your hand into, and keep putting it in, forever.
-And in the dark, at the edge of the light, people are standing. Dozens of them. Still as fence posts. You can't see their faces. You can see the shapes of them: a little girl in a party dress. A boy with a baseball glove. A man in an old-fashioned coat.
+And in the dark, at the edge of the light, people are standing. Still as fence posts. You can't see their faces. You can see the shapes of them: a little girl in a party dress. A boy with a baseball glove. A man in an old-fashioned coat. Behind them, deeper in, there are more. You can feel how many more.
 And closer — on the near side, under the trees — eleven grown-ups in good coats, with little brass lanterns on their collars, watching. Mrs. Ashgrove. Principal Fenwick. Officer Lindqvist. They don't move. They're witnesses. That's all they've ever been.
 @cg off
 And there's Wes.
@@ -252,6 +312,74 @@ It's a woman's voice. It comes out of the light. It sounds like every mother who
     VOICE(june): Gussie. You came. You came back for me.
     The light flickers toward you, just for a second, like a head turning. It knows you. It's been waiting for you.
 }
+-> face_constance
+
+= face_constance
+You take one step toward the light—
+@show constance neutral right
+A hand closes on your arm. A gloved hand, small and very strong.
+Mrs. Ashgrove. Camel coat buttoned to the throat, the little brass lantern on her collar. She crossed thirty feet of wet grass while you were watching Wes, and you never heard her.
+{caught_at_tent:
+    CONSTANCE(flat): I did ask you to have an early night, Augusta.
+- else:
+    {interview == "constance":
+        CONSTANCE(neutral): Augusta. You were so polite in my parlor. I had such hopes for you.
+    - else:
+        CONSTANCE(neutral): Augusta. You have your grandmother's chin. And her timing.
+    }
+}
+{ally_cal || ally_sloane:
+    -> the_twins
+}
+-> the_warning
+
+= the_twins
+Her eyes go past you, into the dark behind you, and for one second Constance Ashgrove's face doesn't know what to do.
+{ally_sloane:
+    CONSTANCE(angry): Sloane. Go home.
+    SLOANE(flat): No.
+    Just that. Like a door closing. You get the feeling nobody has said that word to Constance Ashgrove in a very long time.
+}
+{ally_cal:
+    CONSTANCE(worried): Calvin. You should be in bed.
+    CAL(angry): I wasn't in bed in 1986 either, Mother. You never asked where I was.
+}
+-> the_warning
+
+= the_warning
+@ctx Constance Ashgrove, president of the Lantern Society, holds Gus's arm at the edge of the green light and warns her what saving Wes will cost. Every second Gus spends here, Wes walks closer to the Lamp.
+CONSTANCE(neutral): I'll tell you one thing, and then you'll do as you like. Your family always does.
+CONSTANCE(flat): If you pull that boy out of the light, it will take whoever is standing nearest. Most likely you. That isn't cruelty, dear. It's arithmetic.
+CONSTANCE(neutral): One a year. One. Do you know what Derry was before we kept the count? Nobody does. That's rather the point.
+{Clues ? starving_winter:
+    THINK(afraid): The Starving Winter. A girl walking out into the snow with a lantern, and nobody ever said her name again.
+}
+Past her shoulder, Wes takes another step. Every second you stand here, he's closer.
+* [Pull free. Go. #action #default #timed:10]
+    ~ constance_talk = "pulled"
+    You wrench your arm out of her hand. She lets it go. She doesn't even look surprised.
+    CONSTANCE(neutral): As you like.
+* {knows_june} ["Was June one of the ones nobody would miss?" #confront]
+    ~ constance_talk = "june"
+    CONSTANCE(sad): Your sister was fourteen and very clever, and in another month she'd have made a great many people very sorry. So, no. We missed her. I still do.
+    CONSTANCE(flat): Do you know what it used to call her out? You. Five years old, in your nightgown, in the yard on Corson Street, crying for her. You were asleep upstairs the whole time.
+    CONSTANCE(neutral): Your grandmother abstained. She didn't stop us. Ask her why, when you get home.
+    She lets go of your arm.
+    When you look past her, Wes is two-thirds of the way across the circle. The light is on his face.
+    ~ steps = 1
+* {has_pin} [Open your hand. Show her Mémère's pin. #manipulate]
+    ~ constance_talk = "pin"
+    You open your fingers. The little brass lantern lies in your palm, green in the light.
+    Mrs. Ashgrove looks at it for a long time. Something in her face goes very still.
+    CONSTANCE(sad): She gave you her lamp. Thirty-six years, she wore that.
+    Her glove opens. For a minute, she doesn't know what you are. A minute is all you need.
+* ["Then let it take me." #honest]
+    ~ constance_talk = "me"
+    You say it before you can think about it, and once it's said, you find you mean it.
+    CONSTANCE(thinking): Everyone says that, up here. Hardly anyone means it.
+    She looks at you a moment longer. Then she lets you go, the way you'd let go of a bird.
+    CONSTANCE(neutral): Go on, then. Let's see.
+- @hide constance
 -> rescue
 
 = rescue
@@ -288,9 +416,10 @@ It's a woman's voice. It comes out of the light. It sounds like every mother who
         You and Teddy run into the light with your eyes squeezed shut and your breath held like two kids playing Lantern, and you crash into him from both sides.
     - else:
         {ally_sloane:
-            You and Sloane run in with your eyes shut. She grabs one arm. You grab the other.
+            You and Sloane run in with your eyes shut. Behind you, her mother says her name once, sharp as a slap. Sloane doesn't even slow down. She grabs one arm. You grab the other.
         - else:
             Cal drops the camera. It bounces off the stones, the flash going off once, white, blinding. Then he's beside you, eyes shut, grabbing Wes's flannel.
+            ~ cal_choice = "helped"
         }
     }
     Wes is heavy, dead weight, still leaning toward the light like a plant toward a window. But he's stopped moving forward.
@@ -299,6 +428,7 @@ It's a woman's voice. It comes out of the light. It sounds like every mother who
     CAL(afraid): I — I have to get it on film, Gus, if I don't get it on film it doesn't—
     He raises the camera. FLASH. The light of it is white and ordinary and useless. Across the hill, eleven faces turn toward you all at once, lit up for a second like a photograph.
     ~ suspicion += 2
+    ~ cal_choice = "photo"
 * [Close your eyes. Sing. #kind]
     You don't know why you do it. You close your eyes and sing June's song, the bedtime song, your voice shaking so badly it's barely a tune. *À la claire fontaine, m'en allant promener...*
     It doesn't stop Wes. But the dark at the edge of the light goes still, all of it, the little girl in the party dress, the boy with the glove. Listening.
@@ -339,8 +469,14 @@ Then the Lamp flares. The green light swells, and swings, like the beam of a lig
 It stops on you.
 @fx greenout
 @music quiet
-{knows_cost:
-    THINK(afraid): You pull one out, it takes whoever's closest. Mr. Teague said it. You remember that, girl.
+{june_call == "listened" || june_call == "recorded":
+    THINK(afraid): *Don't be the closest one.* She begged you.
+- else:
+    {knows_cost:
+        THINK(afraid): You pull one out, it takes whoever's closest. Mr. Teague said it. *You remember that, girl.*
+    - else:
+        THINK(afraid): *It will take whoever is standing nearest.* Arithmetic, she said.
+    }
 }
 You can't move. You can't close your eyes. The light is warm, it's so warm, it's like being tucked in, it's like being five years old in a house where everybody still remembers everybody.
 VOICE(june): Gussie. Close your eyes.
@@ -355,6 +491,11 @@ And behind you, you hear breathing. Ragged. Close.
 @show brett afraid right
 Brett. He followed you all the way up. He's right behind you, a step to the side, frozen, the flashlight dead in his hand.
 If you stepped aside — one step — the light would fall on him instead.
+From under the trees comes Mrs. Ashgrove's voice, gentle as a nurse's.
+CONSTANCE: One step, Augusta. That's all it ever is. One step.
+{june_call == "listened" || june_call == "recorded":
+    And under it, in your head, June's tired voice: *Don't be the closest one.*
+}
 @ctx The green light has fixed on Gus. Brett Lindqvist is right behind her. If she steps aside, the light will take him instead of her. She has seconds.
 * [Step aside. #manipulate #timed:8]
     -> brett_taken
@@ -367,6 +508,7 @@ It's so small. One step to the left, in wet grass. The smallest thing you've eve
 BRETT(afraid): No — no, no, Gus, *no*—
 The light falls on him. His face, white and wet and seventeen. He reaches for you.
 And then he's gone, the way Wes almost was, the way everyone is. A breath drawn in, very deep.
+Under the trees, a man makes a sound you will hear for the rest of your life. Officer Lindqvist. He was standing with the others. He watched.
 @hide brett
 @fx flash
 @sfx lantern
@@ -387,6 +529,7 @@ MEMERE(smile): Pas elle. Moi.
 She steps past you, into the light. She doesn't look back. She walks the way she walks down the aisle at church, small and straight, her rosary in her hand.
 MEMERE(sad): *Il y a longtemps que je t'aime...*
 And the light takes her.
+Under the trees, someone says *Yvette—* in a voice you didn't know Mrs. Ashgrove had.
 @hide memere
 @fx flash
 @sfx lantern
@@ -403,12 +546,35 @@ The Lamp gutters, and goes out.
 @amb quiet
 @ctx The lantern has gone out on the Standpipe hill. Total darkness. June's voice speaks to Gus.
 Dark. Total. The kind of dark you can feel on your skin.
-Somewhere across the hill, someone in a good coat starts to clap, slowly, three times, and stops.
+{outcome == "brett":
+    Somewhere across the hill, someone in a good coat starts to clap, slowly, three times, the way they must clap every year. Nobody near Officer Lindqvist claps.
+- else:
+    Somewhere across the hill, someone in a good coat starts to clap, slowly, three times, and stops.
+}
 {outcome == "wes":
     You're on your knees in the grass. Your hands are full of nothing.
-}
-{outcome != "wes":
+- else:
     Wes is shaking in your arms. {ally_teddy:Teddy is holding your sleeve so hard her knuckles crack.}
+}
+{outcome == "memere":
+    CONSTANCE: She was the best of us, you know. Once.
+    Mrs. Ashgrove, somewhere close in the dark. Her voice isn't steady. You didn't know it could do that.
+- else:
+    CONSTANCE: Now you'll remember, too. Welcome home, Augusta.
+}
+{ally_sloane:
+    SLOANE(flat): Walk. Don't run. They like it when you run.
+}
+{ally_cal:
+    {cal_choice:
+    - "helped":
+        CAL(neutral): I didn't get it. Any of it. The camera's in pieces.
+        He sounds almost relieved.
+    - "photo":
+        Cal's flash whines in the dark, recharging. Nobody says anything to him.
+    - else:
+        Somewhere beside you, a pencil is scratching on paper. Cal, writing in the Derry Book in the pitch dark, so he won't forget.
+    }
 }
 VOICE(june): Go home, Gussie.
 Close. Right behind you. Her real voice, not the warm one. Tired. Older than a tape. Fourteen and very, very old.

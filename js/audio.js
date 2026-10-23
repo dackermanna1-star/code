@@ -18,16 +18,23 @@
  *
  * Every method is a silent no-op (never throws) before init, without Web Audio, or for an
  * unknown id (console.warn once per id). music/ambience/weather/tape/heartbeat/setVolume calls
- * made before init are remembered and applied when init() runs.
+ * made before init are remembered and applied when init() runs. 'stop' and 'none' are accepted
+ * as null by music/ambience/weather.
  *
  * Signal flow
- *   layer voices -> layer fade (dry) -> channel [wow -> tape low-pass -> duck] -> channel volume -> master
- *               \-> layer fade (send) -> channel wet copy ------------------------> channel volume -> reverb
+ *   layer voices -> layer fade (dry) -> channel [tape wow -> tape low-pass -> duck] -> volume -> master
+ *               \-> layer fade (send) -> channel wet copy (same chain) -------------> volume -> reverb
  *   master -> DynamicsCompressor (gentle limiter) -> trim -> destination;  reverb return -> master
+ *   One shared ConvolverNode (procedural 2.5 s stereo IR). Sends are post channel volume, so
+ *   muting a channel also mutes its reverb. Tape wow LFOs only run while SND.tape(true).
  *
  * Generative music runs on a lookahead scheduler: a 100 ms setInterval plans whole bars as
  * lightweight events and creates audio nodes only for events that fall inside the next ~0.3 s
- * of AudioContext time (the window widens automatically if timers get throttled).
+ * of AudioContext time (the window widens automatically if timers get throttled). Tracks pick
+ * among phrase variants with a seeded RNG. A faded-out layer stops all of its oscillators and
+ * scheduled notes and is disconnected. Track/sfx levels were normalised by measurement (about
+ * -24 LUFS-ish K-weighted for music, ambience beds 6-15 dB lower, peaks near -6 dBFS before
+ * the limiter).
  */
 (function () {
   'use strict';
@@ -500,10 +507,9 @@
           L.seq.pending = L.def.section(L, L.seq.section++) || [];
           if (!L.seq.pending.length) { L.seq.next += 4 * L.beat; continue; }
         }
-        var bar = L.seq.pending.shift();
-        var beats = bar.len || L.def.beats || 4;
-        bar(L.seq.next, L.beat, L.seq.bar++);
-        L.seq.next += beats * L.beat;
+        var bar = L.seq.pending.shift(), at = L.seq.next;
+        L.seq.next += (bar.len || L.def.beats || 4) * L.beat;    // advance first: a failing bar is skipped, not retried
+        bar(at, L.beat, L.seq.bar++);
       }
     }
     // generators
@@ -511,8 +517,9 @@
       var g = L.gens[i], n = 0;
       if (g.next < t0 - 0.25) g.next = t0 + L.R.r(0, g.min);
       while (g.next < horizon && n++ < 16) {
-        g.fn(g.next);
+        var gt = g.next;
         g.next += Math.max(0.02, L.R.r(g.min, g.max));
+        g.fn(gt);
       }
     }
     // dispatch queued events
@@ -520,7 +527,7 @@
     var q = L.q, k = 0;
     while (k < q.length && q[k].t < horizon) {
       var e = q[k++];
-      if (e.t >= t0 - 0.06) e.fn(Math.max(e.t, t0));
+      if (e.t >= t0 - 0.06) { try { e.fn(Math.max(e.t, t0)); } catch (x) { report(x); } }
     }
     if (k) q.splice(0, k);
   };
@@ -533,7 +540,7 @@
       var gap = lastWall ? (wall - lastWall) / 1000 : 0.1;
       lastWall = wall;
       // widen the window if timers are being throttled (background tab)
-      lookahead = clamp(Math.max(lookahead * 0.9, gap * 1.6 + 0.1), 0.3, 2.5);
+      lookahead = clamp(Math.max(lookahead * 0.75, gap * 1.6 + 0.1), 0.3, 2.5);
       var horizon = t0 + lookahead;
       for (var i = layers.length - 1; i >= 0; i--) {
         var L = layers[i];
@@ -542,7 +549,7 @@
       }
       if (hb) {
         if (hb.next < t0 - 0.2) hb.next = t0 + 0.05;
-        while (hb.next < horizon) { lubDub(chans.sfx.dry, hb.next, 0.5, hb.bpm); hb.next += 60 / hb.bpm; }
+        while (hb.next < horizon) { var bt = hb.next; hb.next += 60 / hb.bpm; lubDub(chans.sfx.dry, bt, 0.5, hb.bpm); }
       }
       for (var j = activeSfx.length - 1; j >= 0; j--) {
         var s = activeSfx[j];
@@ -632,7 +639,7 @@
     lp.frequency.setTargetAtTime(Math.max(f * 1.1, 180), t + 0.02, 0.45);
     var A = out.gain;
     A.setValueAtTime(0, t); A.linearRampToValueAtTime(v, t + (o.a || 0.016)); A.setTargetAtTime(0, t + (o.a || 0.016), decay);
-    A.setTargetAtTime(0, t + Math.max(dur, 0.05), 0.22);
+    A.setTargetAtTime(0, t + Math.max(dur, (o.a || 0.016) + 0.02), 0.22);
     burst(dest, t, { n: 'pink', ft: 'lowpass', f: 380, q: 0.6, v: 0.18 * v, d: 0.012 });
     s1.start(t); s2.start(t); s1.stop(end); s2.stop(end);
     own(L, s1, end); own(L, s2, end);
@@ -736,8 +743,8 @@
     if (!cap(L, end)) return;
     var f = mtof(m), g = gain(0), s1 = osc('sine', f), s2 = osc('sine', f * 4.0), g2 = gain(0);
     s1.connect(g); s2.connect(g2); g2.connect(g); g.connect(via(o.dest || L.vib || L.in, o.pan));
-    g2.gain.setValueAtTime(0.16, t); g2.gain.setTargetAtTime(0, t, 0.2);
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.003); g.gain.setTargetAtTime(0, t + 0.003, o.decay || 0.95);
+    g2.gain.setValueAtTime(0.1, t); g2.gain.setTargetAtTime(0, t, 0.2);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.007); g.gain.setTargetAtTime(0, t + 0.007, o.decay || 0.95);
     s1.start(t); s2.start(t); s1.stop(end); s2.stop(t + 1.5);
     own(L, s1, end); own(L, s2, t + 1.5);
   }
@@ -2091,7 +2098,7 @@
   var SFX_DB = {
     click: 3, select: -6.5, hover: 3.5, page: 5, notify: -5, clue: 3, door_open: 4, door_close: -5,
     door_knock: -2.5, window_knock: 2, footsteps: -1, car_door: -5.5, bell: -1.5, locker: -0.5, phone_ring: -0.5,
-    phone_pickup: 4.5, phone_hangup: -1, tape_play: -2, tape_stop: -2.5, tape_rewind: -0.5, tape_insert: 2,
+    phone_pickup: 4.5, phone_hangup: -3.5, tape_play: -3.5, tape_stop: -3.5, tape_rewind: -0.5, tape_insert: 2,
     record_start: 1.5, static_burst: 3, radio_tune: -0.5, thunder: -3.5, heartbeat: -3, whisper: 1.5, breath: 2,
     light_switch: 3, lantern: -2.5, lights_out: -7, bike_bell: -4.5, paper: 1.5, typewriter: -0.5, wind_gust: -3.5,
     splash: -1, match: 2, sting: -3.5
