@@ -99,7 +99,7 @@ if (mode === 'char') {
     const c = document.createElement('canvas'); c.width = PX.W * scale; c.height = PX.H * scale;
     const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
     g.drawImage(r.canvas, 0, 0, c.width, c.height);
-    const POS = { left: 0.25, center: 0.5, right: 0.75, farleft: 0.16, farright: 0.84 };
+    const POS = { left: 0.27, center: 0.5, right: 0.73, farleft: 0.13, farright: 0.87 };
     const L = PX.SPRITE_LIGHT[r.lightName] || PX.SPRITE_LIGHT.day;
     for (const cs of chars) {
       const [cid, expr, pos] = cs.split(':');
