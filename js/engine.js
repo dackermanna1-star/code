@@ -514,7 +514,7 @@
       case 'decide': E.eng.decisions.push(argStr); break;
       case 'theory': if (!E.eng.theories.includes(a[0])) { E.eng.theories.push(a[0]); E.toast('Theory noted in your notebook', '', 'journal'); } break;
       case 'met': markMet(a[0]); break;
-      case 'map': E.mapNext = true; break;
+      case 'map': E.mapNext = true; E.eng.mapNote = argStr || ''; break;
       case 'save': store.set('save.auto', E.serialize()); break;
       case 'end': $('#dialogue').hidden = true; await sleep(800); if (window.UI) UI.summary(); break;
       default: console.warn('unknown command', cmd);

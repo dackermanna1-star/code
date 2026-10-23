@@ -1496,6 +1496,10 @@
       }
       // the pass-through to the kitchen, order wheel with tickets
       s += poly(RW(5.55, 6.55, 1.2, 1.95, XR - 0.01), L('#3a3430')) + poly(RW(5.6, 6.5, 1.25, 1.9, XR - 0.015), '#f2dcaa', { opacity: 0.85 });
+      s += poly(RW(5.6, 6.5, 1.72, 1.9, XR - 0.016), '#ff9a4a', { opacity: 0.55 });
+      s += poly(RW(5.75, 6.3, 1.25, 1.62, XR - 0.017), L('#8a8e94'), { opacity: 0.55 });
+      { const q = p(XR - 0.017, 1.5, 6.05), kk = p.k(6.05); s += K.ellipse(q[0], q[1] + 0.04 * kk, 0.1 * kk * 0.55, 0.09 * kk, L('#c99a7a')) + rect(q[0] - 0.06 * kk, q[1] - 0.16 * kk, 0.12 * kk, 0.12 * kk, '#ffffff', { rx: 3 }) + K.ellipse(q[0], q[1] - 0.16 * kk, 0.08 * kk, 0.04 * kk, '#ffffff'); }
+      for (const zz of [5.75, 6.25]) { const q = p(XR - 0.15, 1.21, zz), kk = p.k(zz); s += K.ellipse(q[0], q[1], 0.11 * kk * 0.6, 0.025 * kk, '#ffffff') + K.ellipse(q[0], q[1] - 0.02 * kk, 0.06 * kk * 0.6, 0.02 * kk, L('#b5683a')); }
       s += poly(p.wy(1.2, XR - 0.3, XR, 5.5, 6.6), L(chrome));
       { const [cx, cy] = p(XR - 0.14, 1.98, 6.05), kk = p.k(6.05); s += K.ellipse(cx, cy, 0.05 * kk, 0.16 * kk, L('#8a9096')); for (let i = 0; i < 5; i++) s += poly([[cx - 2, cy - 0.12 * kk + i * 0.06 * kk], [cx + 0.09 * kk * 0.3, cy - 0.14 * kk + i * 0.06 * kk], [cx + 0.09 * kk * 0.3, cy - 0.08 * kk + i * 0.06 * kk], [cx - 2, cy - 0.06 * kk + i * 0.06 * kk]], L('#f6f2e6')); }
       // hood + grill
@@ -1510,6 +1514,11 @@
       // back bar along the right wall: steel, coffee machine, shake mixer, cake stand
       s += box(p, XR - 0.65, XR, 0, 0.95, 3.2, 6.4, { l: L('#a9aeb3'), top: L('#c9ced2'), front: L('#b9bfc4') });
       {
+        // milkshake mixer: cream column, teal head, a steel cup on the spindle
+        const [mx, my] = p(XR - 0.32, 0.95, 5.3), kk = p.k(5.3) * 1.15;
+        s += rect(mx - 0.06 * kk, my - 0.62 * kk, 0.12 * kk, 0.62 * kk, L('#e9e1cf')) + rect(mx - 0.12 * kk, my - 0.08 * kk, 0.24 * kk, 0.08 * kk, L('#e9e1cf'));
+        s += K.path(`M${n(mx - 0.06 * kk)},${n(my - 0.62 * kk)} q${n(-0.02 * kk)},${n(-0.12 * kk)} ${n(0.1 * kk)},${n(-0.14 * kk)} l${n(0.12 * kk)},0 q${n(0.06 * kk)},0 ${n(0.06 * kk)},${n(0.08 * kk)} l0,${n(0.08 * kk)} Z`, L(teal));
+        s += rect(mx + 0.07 * kk, my - 0.42 * kk, 0.012 * kk + 1, 0.2 * kk, L(chrome)) + K.path(`M${n(mx + 0.02 * kk)},${n(my - 0.25 * kk)} l${n(0.14 * kk)},0 l${n(-0.02 * kk)},${n(0.17 * kk)} l${n(-0.1 * kk)},0 Z`, L('#d8dde0'));
         // coffee brewer: steel box, black head, two glass pots (orange handle for decaf)
         const z0 = 3.85, z1 = 4.6;
         s += box(p, XR - 0.58, XR - 0.05, 0.95, 1.72, z0, z1, { l: L('#c9ced2'), front: L('#b9bfc4') });
@@ -1522,13 +1531,8 @@
           s += rect(cx - w, cy - 0.16 * kk, w * 2, 0.05 * kk, handle) + rect(cx - w * 1.9, cy - 0.11 * kk, w * 0.45, 0.13 * kk, handle, { rx: 2 });
           s += K.ellipse(cx, cy + 0.12 * kk, w * 1.3, 0.02 * kk, L('#2a2c30'));
         }
-        // milkshake mixer: three spindles and steel cups
-        const [mx, my] = p(XR - 0.3, 0.95, 4.95), kk = p.k(4.95);
-        s += rect(mx - 0.06 * kk, my - 0.62 * kk, 0.12 * kk, 0.62 * kk, L('#e9e1cf')) + rect(mx - 0.12 * kk, my - 0.08 * kk, 0.24 * kk, 0.08 * kk, L('#e9e1cf'));
-        s += K.path(`M${n(mx - 0.06 * kk)},${n(my - 0.62 * kk)} q${n(-0.02 * kk)},${n(-0.12 * kk)} ${n(0.1 * kk)},${n(-0.14 * kk)} l${n(0.12 * kk)},0 q${n(0.06 * kk)},0 ${n(0.06 * kk)},${n(0.08 * kk)} l0,${n(0.08 * kk)} Z`, L(teal));
-        s += rect(mx + 0.07 * kk, my - 0.42 * kk, 0.012 * kk + 1, 0.2 * kk, L(chrome)) + K.path(`M${n(mx + 0.02 * kk)},${n(my - 0.25 * kk)} l${n(0.14 * kk)},0 l${n(-0.02 * kk)},${n(0.17 * kk)} l${n(-0.1 * kk)},0 Z`, L('#d8dde0'));
         // a cake under a glass dome
-        const [cx, cy] = p(XR - 0.35, 0.95, 5.85), k2 = p.k(5.85);
+        const [cx, cy] = p(XR - 0.35, 0.95, 6.15), k2 = p.k(6.15);
         s += K.ellipse(cx, cy, 0.17 * k2 * 0.7, 0.04 * k2, L('#d8dde0')) + K.path(`M${n(cx - 0.12 * k2 * 0.7)},${n(cy - 0.02 * k2)} v${n(-0.1 * k2)} h${n(0.24 * k2 * 0.7)} v${n(0.1 * k2)} Z`, L('#f2e2c8')) + K.path(`M${n(cx - 0.15 * k2 * 0.7)},${n(cy)} Q${n(cx)},${n(cy - 0.42 * k2)} ${n(cx + 0.15 * k2 * 0.7)},${n(cy)} Z`, `url(#${gGlass})`);
       }
 

@@ -42,7 +42,7 @@ You have ten dollars, a recorder, three blank-ish tapes, and the whole day.
 - 2: The light's going gold and long. One more stop before dark.
 }
 @ctx Gus is choosing where to go in Derry on a free Saturday.
-@map
+@map {t3("Saturday morning · three stops before dark", "Saturday afternoon · two stops left", "Late afternoon · one more stop")}
 * [Dot's Diner: pie, coffee, and every rumor in Derry. #map:diner]
     -> ch3_diner
 * [Low Tide Records: used tapes, loud music, blank cassettes. #map:records]

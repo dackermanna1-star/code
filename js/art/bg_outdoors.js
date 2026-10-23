@@ -1257,23 +1257,24 @@
     times: ['quiet'],
     draw(o) {
       const t = 'quiet', rng = o.rng;
-      const { L, S, T } = lighting(t);
+      const { L, S } = lighting(t);
       const VX = 640, VY = 440, F = 900, E = 1.6;
       const pr = (X, Y, Z) => [VX + F * X / Z, VY + F * (E - Y) / Z];
       const Q = (pts) => pd(pts.map((p) => pr(p[0], p[1], p[2])));
       let s = K.sky(o, t);
       s += K.stars(rng, { count: 28, y1: 300, color: '#8fa595' });
+      s += band3(o, 300, 240, '#1a2228', 0.5, 'skyglow', 0.7);
 
-      /* the hill at the end of the street; the Standpipe's ruin, and a light */
+      /* the hill at the end of the street, the Standpipe's stump on its crest */
       s += K.path('M160,470 C300,436 420,380 520,352 C560,342 610,336 640,340 C760,356 920,420 1120,470 Z', '#0d1219');
-      s += K.path('M584,340 l2,-8 l3,2 l2,-5 l3,3 l3,-1 l2,6 l3,-2 l2,5 Z', '#141c1f');
-      s += K.pool(o, 640, 470, 520, 46, '#1c2622', 0.5, 'hillfog');
+      for (let x = 330; x < 960; x += 12 + rng() * 16) { const y = x < 640 ? 470 - (x - 160) * 0.22 : 340 + (x - 640) * 0.24; if (Math.abs(x - 600) < 40) continue; s += K.pine(x, y + 8, 10 + rng() * 10, 6, '#0b1016', '#090d12', rng); }
+      s += K.path('M582,341 l2,-8 l3,2 l2,-5 l3,3 l3,-1 l2,6 l3,-2 l2,5 Z', '#151d20');
+      s += band3(o, 420, 90, '#1c2622', 0.6, 'hillfog');
 
       /* ground: road, curbs, grass strips, sidewalks, lawns */
       const far = 420, near = 2.4;
       const strip = (x0, x1, c, o2) => K.path(Q([[x0, 0, near], [x1, 0, near], [x1, 0, far], [x0, 0, far]]), c, o2);
-      s += strip(-30, 30, L('#3e4448'));
-      s += strip(-6.2, 6.2, L('#33373c'));
+      s += strip(-30, 30, L('#3e4448')) + strip(-6.2, 6.2, L('#33373c'));
       for (const sd of [-1, 1]) {
         s += strip(6.2 * sd, 7.5 * sd, L('#4a5640')) + strip(7.5 * sd, 9 * sd, L('#7a7a74')) + strip(9 * sd, 30 * sd, L('#4e5a42'));
         s += K.path(Q([[6 * sd, 0, near], [6 * sd, 0.15, near], [6 * sd, 0.15, far], [6 * sd, 0, far]]), L('#8a8a82'));
@@ -1281,6 +1282,10 @@
         for (let z = 3; z < 120; z += 1.6) seams += ld([pr(7.5 * sd, 0, z), pr(9 * sd, 0, z)]);
         s += stroke(seams, S('#7a7a74'), 1, { opacity: 0.5 });
       }
+      // driveways cutting across the lawns, a manhole, the patched seam down the road
+      for (const [sd, z] of [[1, 27], [1, 48], [-1, 31], [-1, 64]]) s += K.path(Q([[7.5 * sd, 0, z], [15 * sd, 0, z], [15 * sd, 0, z + 3], [7.5 * sd, 0, z + 3]]), L('#3a3e42'));
+      s += K.path(ellD(pr(-1.2, 0, 7)[0], pr(-1.2, 0, 7)[1], F * 0.4 / 7, F * 0.4 / 7 * 0.2), '#0c0f12', { opacity: 0.8 });
+      s += stroke(ld([pr(0.3, 0, 3), pr(0.3, 0, 60)]), '#1c2024', 2, { opacity: 0.6 });
 
       /* houses */
       const house = (sd, z0, w, type, opt = {}) => {
@@ -1346,12 +1351,18 @@
         s += tr === 'tv' ? tvHouse() : house(1, zr, wr, tr, { siding: sidings[(i + 3) % sidings.length] });
       }
 
-      /* street trees: dark canopies hanging over the sidewalks */
-      const tc = ['#0c100e', '#101512'];
-      for (const [sd, z, rr] of [[-1, 80, 3.2], [1, 72, 3.2], [-1, 46, 3.4], [-1, 22, 3.6], [1, 15, 3.4]]) {
-        const X = 6.9 * sd, [x, yb] = pr(X, 0, z), [, yt] = pr(X, 4.4, z), [cx, cy] = pr(X - sd * 0.6, 7.6, z), R2 = F * rr / z;
-        s += K.rect(x - F * 0.18 / z, yt, F * 0.36 / z, yb - yt, '#0a0d10');
-        s += K.path(K.blob(rng, cx, cy, R2, R2 * 0.82, { lobes: 9, jag: 0.25, scallop: 0.16 }), tc[0]) + K.path(K.blob(rng, cx - R2 * 0.15, cy - R2 * 0.2, R2 * 0.7, R2 * 0.55, { lobes: 8, jag: 0.25 }), tc[1]);
+      /* a child's tricycle left out on a lawn */
+      const [tx, ty] = pr(-11.4, 0, 27), tk = F / 27;
+      s += stroke(`M${n(tx - 0.3 * tk)},${n(ty - 0.16 * tk)}L${n(tx + 0.1 * tk)},${n(ty - 0.42 * tk)}L${n(tx + 0.28 * tk)},${n(ty - 0.16 * tk)}M${n(tx + 0.05 * tk)},${n(ty - 0.42 * tk)}l${n(-0.06 * tk)},${n(-0.12 * tk)}h${n(0.1 * tk)}`, '#141a1c', Math.max(1, 0.03 * tk)) + K.path(ellD(tx - 0.3 * tk, ty - 0.08 * tk, 0.08 * tk, 0.08 * tk) + ellD(tx + 0.28 * tk, ty - 0.12 * tk, 0.12 * tk, 0.12 * tk), 'none', { stroke: '#141a1c', strokeWidth: Math.max(1, 0.025 * tk) });
+
+      /* street trees: dark canopies over the sidewalks, lumpy, with the sky showing through */
+      for (const [sd, z, rr] of [[-1, 80, 3.2], [1, 72, 3.2], [-1, 46, 3.4], [-1, 22, 3.4], [1, 15, 2.6]]) {
+        const X = 6.9 * sd, [x, yb] = pr(X, 0, z), [, yt] = pr(X, 4.4, z), [cx, cy] = pr(X - sd * 0.6, 7.8, z), R2 = F * rr / z;
+        s += K.path(`M${n(x - F * 0.2 / z)},${n(yb)}L${n(x - F * 0.13 / z)},${n(yt)}L${n(x + F * 0.13 / z)},${n(yt)}L${n(x + F * 0.2 / z)},${n(yb)}Z`, '#0a0d10');
+        s += stroke(`M${n(x)},${n(yt + 4)}l${n(-R2 * 0.4)},${n(-R2 * 0.5)}M${n(x)},${n(yt + 4)}l${n(R2 * 0.35)},${n(-R2 * 0.55)}`, '#0a0d10', Math.max(1.5, F * 0.08 / z));
+        let cd = '';
+        for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2 + rng(), d = R2 * (0.35 + rng() * 0.3); cd += blobL(rng, cx + Math.cos(a) * d, cy + Math.sin(a) * d * 0.7, R2 * (0.42 + rng() * 0.2), R2 * (0.34 + rng() * 0.16), { lobes: 6, jag: 0.35, k: 3 }); }
+        s += K.path(cd, '#0b0f0d');
       }
 
       /* parked cars, all dark */
@@ -1365,48 +1376,49 @@
         r += K.path(Q([[xa + 0.12, 0.95, c0], [xb - 0.12, 0.95, c0], [xb - 0.15, 1.38, c0 + 0.4], [xa + 0.15, 1.38, c0 + 0.4]]), GLs);
         r += K.path(Q([[ci, 0.95, c0], [ci, 0.95, c1], [ci, 1.38, c1 - 0.3], [ci, 1.38, c0 + 0.4]]), GLs);
         r += K.path(Q([[xa + 0.15, 1.38, c0 + 0.4], [xb - 0.15, 1.38, c0 + 0.4], [xb - 0.15, 1.38, c1 - 0.3], [xa + 0.15, 1.38, c1 - 0.3]]), K.mix(P0, PS, 0.2));
-        r += K.path(Q([[xa + 0.1, 0.55, z - 0.01], [xa + 0.4, 0.55, z - 0.01], [xa + 0.4, 0.75, z - 0.01], [xa + 0.1, 0.75, z - 0.01]]) + Q([[xb - 0.4, 0.55, z - 0.01], [xb - 0.1, 0.55, z - 0.01], [xb - 0.1, 0.75, z - 0.01], [xb - 0.4, 0.75, z - 0.01]]), '#1a0c0e');
+        r += K.path(Q([[xa + 0.1, 0.55, z - 0.01], [xa + 0.4, 0.55, z - 0.01], [xa + 0.4, 0.75, z - 0.01], [xa + 0.1, 0.75, z - 0.01]]) + Q([[xb - 0.4, 0.55, z - 0.01], [xb - 0.1, 0.55, z - 0.01], [xb - 0.1, 0.75, z - 0.01], [xb - 0.4, 0.75, z - 0.01]]), '#130b0d');
+        r += K.path(Q([[xa + 0.25, 0.08, z + 0.2], [xb - 0.25, 0.08, z + 0.2], [xb - 0.25, 0.08, zb - 0.2], [xa + 0.25, 0.08, zb - 0.2]]), '#05070a', { opacity: 0.6 });
         for (const zw of [z + 0.8, zb - 0.8]) { const [wx, wy] = pr(inner, 0.32, zw), rr = F * 0.33 / zw; r += K.ellipse(wx, wy, rr * 0.45, rr, '#050607'); }
+        r += stroke(ld([pr(xa + 0.15, 1.39, c0 + 0.4), pr(xb - 0.15, 1.39, c0 + 0.4)]) + ld([pr(ci, 1.36, c0 + 0.45), pr(ci, 1.36, c1 - 0.35)]) + ld([pr(inner, 0.96, z), pr(inner, 0.96, zb)]), '#3a4a48', Math.max(1, F * 0.03 / z), { opacity: 0.7 });
         return r;
       };
       s += car(1, 4.9, 72, 5.2, '#4a4a3a', false) + car(-1, -4.9, 52, 5.4, '#5a4a3a', true) + car(1, 4.9, 41, 4.8, '#3a4660', false) + car(-1, -4.9, 24, 4.8, '#5a2e2e', false) + car(1, 4.9, 13.5, 5.4, '#7a7f86', true);
 
-      /* streetlights: the nearest dead, the next dead, one far one still burning, barely */
+      /* streetlights: the near ones dead, one just gone out, one far one still burning, barely */
       const sl = (sd, z, state) => {
         const X = 6.7 * sd, [x, yb] = pr(X, 0, z), [, yt] = pr(X, 7.0, z), [hx, hy] = pr(4.4 * sd, 6.9, z), w = Math.max(1.4, F * 0.16 / z);
         let r = K.rect(x - w / 2, yt, w, yb - yt, '#090b0e') + stroke(`M${n(x)},${n(yt + w)}Q${n((x + hx) / 2)},${n(yt - F * 0.5 / z)} ${n(hx)},${n(hy)}`, '#090b0e', w * 0.8);
-        r += K.ellipse(hx, hy, F * 0.45 / z, F * 0.14 / z, '#0b0d10');
-        if (state === 'ember') r += K.ellipse(hx, hy + F * 0.06 / z, F * 0.28 / z, F * 0.05 / z, '#3a2418');
+        r += K.ellipse(hx, hy, F * 0.45 / z, F * 0.14 / z, '#0b0d10') + K.ellipse(hx, hy + F * 0.06 / z, F * 0.3 / z, F * 0.05 / z, state === 'ember' ? '#2a2018' : '#1a2024');
         if (state === 'on') {
-          r += K.ellipse(hx, hy + F * 0.06 / z, F * 0.3 / z, F * 0.06 / z, '#d8a050');
-          r += K.glow(o, hx, hy, F * 2.2 / z, P.sodium, 0.32, 'slg') + K.shaft(o, [[hx - 3, hy + 2], [hx + 3, hy + 2], [hx + F * 2.2 / z, yb + 4], [hx - F * 2.2 / z, yb + 4]], P.sodium, 0.08, 'sls');
-          r += K.pool(o, hx, pr(4.4 * sd, 0, z)[1], F * 3.2 / z, F * 0.5 / z, P.sodium, 0.22, 'slp');
+          r += K.ellipse(hx, hy + F * 0.06 / z, F * 0.3 / z, F * 0.06 / z, '#c89048');
+          r += K.glow(o, hx, hy, F * 2.0 / z, P.sodium, 0.28, 'slg') + K.shaft(o, [[hx - 3, hy + 2], [hx + 3, hy + 2], [hx + F * 2.2 / z, yb + 4], [hx - F * 2.2 / z, yb + 4]], P.sodium, 0.07, 'sls');
+          r += K.pool(o, hx, pr(4.4 * sd, 0, z)[1], F * 3.2 / z, F * 0.5 / z, P.sodium, 0.2, 'slp');
         }
         return r;
       };
       s += sl(1, 64, 'on') + sl(-1, 40, 'ember') + sl(1, 20, 'dead') + sl(-1, 14, 'dead');
 
-      /* fog lying in the street */
-      s += K.band(o, 410, 190, '#2b3a33', 0, 0.55, 'fog') + K.band(o, 560, 340, '#1e2a26', 0.35, 0.1, 'fog2');
-      for (let i = 0; i < 9; i++) { const z = 10 + rng() * 70, [x, y] = pr((rng() - 0.5) * 18, 0.4, z); s += K.pool(o, x, y, F * (5 + rng() * 6) / z, F * 0.7 / z, '#33443c', 0.35, 'fp'); }
-
-      /* the dark settles over all of it */
-      s += K.band(o, 540, 360, '#05070c', 0, 0.55, 'dark') + K.rect(0, 0, 1600, 900, '#05080a', { opacity: 0.22 });
+      /* fog lying in the street; the dark settling over everything */
+      s += band3(o, 396, 150, '#2b3a33', 0.6, 'fog', 0.4);
+      s += band3(o, 470, 200, '#24302b', 0.3, 'fog2', 0.3);
+      for (let i = 0; i < 9; i++) { const z = 8 + rng() * 70, [x, y] = pr((rng() - 0.5) * 18, 0.4, z); s += K.pool(o, x, y, F * (5 + rng() * 6) / z, F * 0.7 / z, '#33443c', 0.32, 'fp'); }
+      s += K.band(o, 560, 360, '#05070c', 0, 0.6, 'dark') + K.rect(0, 0, 1600, 900, '#05080a', { opacity: 0.2 });
       s += K.glow(o, 600, 333, 40, P.lantern, 0.6, 'hilllant') + K.circle(600, 333, 1.8, '#e8ffd9');
 
-      /* the one TV left on, a figure standing behind the curtain */
+      /* the one TV left on: blue light through drawn curtains, a figure standing behind them */
       const tq = [[12.3, 1.0, tvZ], [14.1, 1.0, tvZ], [14.1, 2.8, tvZ], [12.3, 2.8, tvZ]].map((p) => pr(p[0], p[1], p[2]));
-      const [wx0, wy1] = tq[0], [wx1, wy0] = tq[2], ww = wx1 - wx0, wh = wy1 - wy0;
-      s += K.glow(o, (wx0 + wx1) / 2, (wy0 + wy1) / 2, 120, '#5f80c8', 0.22, 'tvg');
-      s += K.pool(o, (wx0 + wx1) / 2 - 10, pr(13, 0, tvZ - 2)[1], 110, 14, '#5f80c8', 0.2, 'tvp');
+      const [wx0, wy1] = tq[0], [wx1, wy0] = tq[2], ww = wx1 - wx0, wh = wy1 - wy0, wcx = (wx0 + wx1) / 2;
+      s += K.glow(o, wcx, (wy0 + wy1) / 2, 130, '#5f80c8', 0.2, 'tvg');
+      s += K.pool(o, wcx - 14, pr(13, 0, tvZ - 2.2)[1], 120, 14, '#5f80c8', 0.18, 'tvp');
       s += K.rect(wx0 - 4, wy0 - 4, ww + 8, wh + 8, '#1a1e22');
-      const tvg = o.id('tv');
-      s += K.defs(K.radial(tvg, [[0, '#a8c4f0'], [0.6, '#6a8cd0'], [1, '#3a5290']], 0.45, 0.6, 0.7, false)) + K.rect(wx0, wy0, ww, wh, `url(#${tvg})`);
+      const tvg = o.id('tv'), tvc = o.id('tvclip');
+      s += K.defs(K.radial(tvg, [[0, '#b0caf2'], [0.55, '#6a8cd0'], [1, '#34508e']], 0.42, 0.62, 0.7, false), `<clipPath id="${tvc}"><rect x="${n(wx0)}" y="${n(wy0)}" width="${n(ww)}" height="${n(wh)}"/></clipPath>`);
+      s += K.rect(wx0, wy0, ww, wh, `url(#${tvg})`);
       let folds = '';
-      for (let i = 1; i < 7; i++) folds += `M${n(wx0 + ww * i / 7)},${n(wy0)}V${n(wy1)}`;
-      s += stroke(folds, '#2a3a6a', 2, { opacity: 0.35 });
-      s += K.path(personD(wx0 + ww * 0.42, wy1 + wh * 0.9, wh * 1.5), '#0a0e18', { opacity: 0.85 });
-      s += K.rect(wx0 - 4, wy0 - 6, ww + 8, 6, '#1e2226') + K.rect(wx0 + ww / 2 - 1.5, wy0, 3, wh, '#1a1e22', { opacity: 0.5 });
+      for (let i = 1; i < 8; i++) folds += `M${n(wx0 + ww * i / 8)},${n(wy0)}V${n(wy1)}`;
+      const fy = pr(13, 0.55, tvZ)[1], fh = F * 1.74 / tvZ;
+      s += `<g clip-path="url(#${tvc})">` + stroke(folds, '#2a3a6a', 2.2, { opacity: 0.32 }) + K.path(personD(wx0 + ww * 0.44, fy, fh * 1.06), '#1c2a4c', { opacity: 0.45 }) + K.path(personD(wx0 + ww * 0.44, fy, fh), '#0a0e18', { opacity: 0.8 }) + '</g>';
+      s += K.rect(wx0 - 5, wy0 - 7, ww + 10, 6, '#1e2226') + K.rect(wx0 - 7, wy1 + 2, ww + 14, 4, '#1a1e22') + K.rect(wcx - 1.5, wy0, 3, wh, '#141820', { opacity: 0.5 });
       return s;
     }
   });
