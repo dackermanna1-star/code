@@ -25,7 +25,6 @@ export const PRESETS = {
     vegetationRadius: 130,
     vegetationDensity: 0.45,
     heatHaze: false,
-    clouds: true,
   },
   medium: {
     label: 'Medium',
@@ -51,7 +50,6 @@ export const PRESETS = {
     vegetationRadius: 200,
     vegetationDensity: 0.7,
     heatHaze: true,
-    clouds: true,
   },
   high: {
     label: 'High',
@@ -77,7 +75,6 @@ export const PRESETS = {
     vegetationRadius: 280,
     vegetationDensity: 1,
     heatHaze: true,
-    clouds: true,
   },
   ultra: {
     label: 'Ultra',
@@ -103,7 +100,6 @@ export const PRESETS = {
     vegetationRadius: 380,
     vegetationDensity: 1.25,
     heatHaze: true,
-    clouds: true,
   },
 };
 

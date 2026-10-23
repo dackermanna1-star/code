@@ -130,13 +130,13 @@ void main() {
     float w = exp2(d * uLogFar) - 1.0;
     vec4 vp = uInvProj * vec4(uv * 2.0 - 1.0, 1.0, 1.0);
     vec3 dir = normalize((uCamWorld * vec4(vp.xyz / vp.w, 0.0)).xyz);
-    float nearHorizon = 1.0 - smoothstep(0.0, 0.07, abs(dir.y + 0.004));
+    float nearHorizon = 1.0 - smoothstep(0.0, 0.1, abs(dir.y + 0.004));
     float far = smoothstep(60.0, 700.0, w);
     float amt = uHeat * nearHorizon * far * (1.0 - uStorm);
     if (amt > 0.0) {
       vec2 q = vec2(uv.x * uResolution.x / uResolution.y, uv.y) * vec2(38.0, 70.0);
       vec2 n = vec2(vn(q + vec2(0.0, -uTime * 3.1)), vn(q * 1.3 + vec2(7.3, -uTime * 4.3))) - 0.5;
-      uv += n * amt * vec2(0.0016, 0.0026);
+      uv += n * amt * vec2(0.003, 0.0055);
     }
   }
   vec3 col = texture2D(tScene, uv).rgb;
@@ -257,7 +257,7 @@ export class PostFX {
       uBloom: { value: 0.045 },
       uBloomNorm: { value: 1 / 6 },
       uTime: U.uTime,
-      uHeat: U.uHeat,
+      uHeat: { value: 0 },
       uStorm: U.uStorm,
       uLogFar: { value: Math.log2(40001) },
       uInvProj: { value: new THREE.Matrix4() },
@@ -274,6 +274,7 @@ export class PostFX {
     this.useFXAA = false;
     this.bloomEnabled = true;
     this.bloomStrength = 0.05;
+    this.heatHaze = true;
   }
 
   setSize(sceneW, sceneH, outW, outH, { fxaa, bloomLevels }) {
@@ -333,6 +334,7 @@ export class PostFX {
     cu.tBloom.value = chain.length ? chain[0].texture : sceneRT.texture;
     cu.uBloom.value = this.bloomEnabled && chain.length ? this.bloomStrength : 0;
     cu.uBloomNorm.value = 1 / Math.max(1, chain.length);
+    cu.uHeat.value = this.heatHaze ? U.uHeat.value : 0;
     cu.uInvProj.value.copy(camera.projectionMatrixInverse);
     cu.uCamWorld.value.copy(camera.matrixWorld);
     this.pass.material = this.compositeMat;

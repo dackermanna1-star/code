@@ -23,6 +23,7 @@ export class Game {
 
     this.camera = new THREE.PerspectiveCamera(settings.get('fov'), 1, 0.1, 40000);
     this.world = new World(pipeline, quality);
+    pipeline.post.heatHaze = !!quality.heatHaze;
     this.scene = this.world.scene;
 
     this.footprints = quality.footprints ? new Footprints(renderer, { size: quality.clipSize >= 384 ? 1024 : 512, extent: 32 }) : null;
