@@ -402,6 +402,7 @@ export class Effects {
 
   muzzle(e) {
     const def = e.weapon;
+    if (def.thrown) return;
     const size = def.flash || 0.6;
     const l = this.lod(e.x, e.y, e.z);
     if (l <= 0) return;

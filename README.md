@@ -43,7 +43,7 @@ In the two assault scenarios the attacker fields about 1.6 times the defender's 
 - **Ballistics**: every round is a simulated projectile with gravity and quadratic drag; rockets have motor burns; guided missiles fly real guidance (wire-guided, laser, fire-and-forget top attack, IR seekers that flares can decoy, radar SAMs) with proximity fuses; artillery and rocket salvos fly computed high arcs and whistle before impact; bombs are released on a continuously computed impact point.
 - **Damage**: armor by facing (front/side/rear/top, turret front) with impact-angle effective thickness, penetration vs. armor in mm, ricochets, spall, mobility and firepower kills, fires, crew bail-outs, ammunition cook-offs that throw turrets. Infantry take hits by body region with vests and helmets; blasts are blocked by cover.
 - **Wounds**: a lethal wound may leave a soldier down and bleeding out instead of killed outright; squadmates go over and stop the bleeding when the fire allows. Lighter wounds bleed for a while and slow the soldier down. Close blasts and heavy-calibre rounds tear off arms and legs.
-- **Bodies**: fallen soldiers become ragdolls that take the impulse of the shot or blast that killed them, fall onto roofs, walls and wrecks, and are tossed again by later explosions. Weapons drop separately. Blood sprays on hits, pools spread under bodies and the wounded leave drip trails (the menu's "Blood and wounds" option turns this off). Bodies stay on the field for the whole battle.
+- **Bodies**: fallen soldiers become ragdolls that take the impulse of the shot or blast that killed them, fall onto roofs, walls and wrecks, and are tossed again by later explosions. Knees and elbows bend one way only, hips, shoulders and the neck stay within their natural range, limbs collide with each other and with the torso, the torso is a solid block that lies flat on its front, back or side, and bodies pile on one another. Weapons drop separately. Blood sprays on hits, pools spread under bodies and the wounded leave drip trails (the menu's "Blood and wounds" option turns this off). Bodies stay on the field for the whole battle.
 - **Suppression and morale**: near misses and explosions suppress; suppressed soldiers go prone, cower and lose accuracy; squads that take losses break and fall back.
 - **Destructible environment**: buildings break down in stages: hits leave breach holes and chipped walls, heavy damage brings the roof and upper floors down into a burning shell (anyone on the roof comes down too), and finally the building slumps into a rubble mound with masonry, slabs and beams strewn around. Walls, hedges, fences and cars are crushed by tanks; trees fall to tanks and blasts; shells crater the terrain and leave scorch marks; wrecks become cover and obstacles; smoke screens and dust block line of sight.
 - **Weather and time**: clear, overcast, rain, thunderstorms and fog that shift during the battle, a full day/night cycle; visibility affects spotting (thermal optics on vehicles, aircraft, snipers and missile teams see further at night and in fog).
@@ -73,6 +73,27 @@ In the two assault scenarios the attacker fields about 1.6 times the defender's 
 | Space, − / + | Pause, time scale (0.25× to 4×) |
 | M, Tab, P, H | Markers (objectives, faint rings under soldiers that grow with distance, unit markers on the battle map), hide interface, performance stats, help |
 
+## Playing a soldier
+
+Select any soldier (or none: the one nearest the camera is used) and press **Enter**, or use the unit card's Play button. The AI lets go of him and you fight in first person; his squad carries on around you. Click the view to capture the mouse.
+
+| Key | Action |
+| --- | --- |
+| W A S D, Shift | Move, sprint |
+| Mouse (or arrow keys) | Look |
+| Left click | Fire (automatic weapons fire while held) |
+| E (or right button) | Aim down the sights; the marksman rifle has a scope, missile launchers lock onto vehicles or aircraft held in the sight |
+| R | Reload |
+| C / Z / Space | Crouch / prone / stand |
+| G | Throw a grenade |
+| F | Rifle-butt strike at arm's length |
+| Q, 1 2 3, wheel | Switch weapon (rifle, grenade launcher, rocket launcher, missile) |
+| B | Dress a bleeding wound |
+| V | Over-the-shoulder view |
+| Esc | Release the mouse (pauses), then Esc again to hand the soldier back to the AI |
+
+When he falls the view pulls back over his body; **Enter** takes over the nearest soldier of the same side (squadmates first). The played soldier takes a little less damage than the AI's.
+
 ## Architecture
 
 ```
@@ -85,7 +106,7 @@ src/
             GPU particles, tracers, effects, post-processing; models/ builds every 3D model
   audio/    procedural sound synthesis, spatial mixing, engine loops, ambience
   camera/   spectator camera modes and the cinematic director
-  ui/, app/ setup menu, HUD, minimap, main loop
+  ui/, app/ setup menu, HUD, minimap, main loop, playing a soldier
 ```
 
 The simulation has no rendering or DOM dependency (it runs under Node for tests and benchmarks). It produces an event stream (shots, impacts, explosions, wounds, kills, structural damage) that the effects, ragdolls, audio and HUD consume.

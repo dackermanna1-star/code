@@ -264,8 +264,8 @@ export class Squad {
       this.leader = ms.find((m) => m.def.role === 'leader') || ms[0];
       this.setOrder(o, world);
     }
-    if (!this.leader.alive || ms.indexOf(this.leader) < 0) {
-      this.leader = ms.find((m) => m.def.role === 'leader') || ms[0];
+    if (!this.leader.alive || ms.indexOf(this.leader) < 0 || this.leader.player) {
+      this.leader = ms.find((m) => m.def.role === 'leader' && !m.player) || ms.find((m) => !m.player) || ms[0];
       if (this.state === 'moving' || this.state === 'flank' || this.state === 'retreat') {
         const g = this.moveGoal || this.goal;
         if (g && !this.mounted) this.moveTo(world, g.x, g.z, this.state === 'retreat' ? 'sprint' : 'run', this.state !== 'retreat');

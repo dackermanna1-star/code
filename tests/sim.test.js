@@ -146,3 +146,31 @@ test('buildings break down in stages before collapsing', () => {
   hit(0.4);
   assert.ok(s.destroyed && s.solidH === s.rubbleH, 'collapsed to rubble');
 });
+
+test('a soldier played by a person ignores his AI and squad and goes where he is steered', () => {
+  rng.seed(4);
+  const m = generateMap('valley', 4);
+  const w = new World(m, { tickets: 800 });
+  const army = { size: 250, infantry: 1, armor: 1, air: 0, artillery: 0, drones: 0, reinforcements: false };
+  attachAI(w, [army, army]);
+  const sq = w.factions[0].squads.find((s) => s.members && s.members.length >= 6 && !s.mounted);
+  const u = sq.leader;
+  u.player = { damageScale: 0.5 };
+  u.ctrl = { x: 1, z: 0, mode: 'run' };
+  u.stop();
+  u.yaw = 1.2;
+  const x0 = u.pos.x;
+  const z0 = u.pos.z;
+  for (let i = 0; i < 60; i++) {
+    w.update(1 / 30);
+    w.events.length = 0;
+  }
+  assert.ok(u.pos.x - x0 > 4, `moved east ${(u.pos.x - x0).toFixed(1)} m`);
+  assert.ok(Math.abs(u.pos.z - z0) < 2.5, 'kept to the steered line');
+  assert.equal(u.yaw, 1.2, 'the player turns him, not the AI');
+  assert.notEqual(sq.leader, u, 'the squad picks another leader');
+  // The player takes reduced damage.
+  const hp = u.hp;
+  w.damageSoldier(u, 20, null, null, false);
+  assert.equal(hp - u.hp, 10);
+});

@@ -65,7 +65,7 @@ export function hitSoldier(world, s, p, x, y, z, bodyT) {
   }
   world.damageSoldier(s, dmg, p.owner, def, head, hit);
   if (p.owner && p.owner.stats) p.owner.stats.hits++;
-  world.emit({ t: 'impact', kind: 'flesh', x, y, z, size: heavy ? 1.2 : 0.5, nx: -hit.dx, ny: -hit.dy, nz: -hit.dz, heavy });
+  world.emit({ t: 'impact', kind: 'flesh', x, y, z, size: heavy ? 1.2 : 0.5, nx: -hit.dx, ny: -hit.dy, nz: -hit.dz, heavy, owner: p.owner, victim: s, head });
   return true;
 }
 

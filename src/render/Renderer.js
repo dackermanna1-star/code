@@ -19,6 +19,7 @@ import { ProjectileRenderer } from './ProjectileRenderer.js';
 import { Effects } from './Effects.js';
 import { Gore } from './Gore.js';
 import { RagdollSystem } from './Ragdolls.js';
+import { Viewmodel } from './Viewmodel.js';
 import { buildPropModel } from './models/index.js';
 import { FACTION_INFO } from '../sim/world.js';
 
@@ -313,6 +314,9 @@ export class GameRenderer {
     this.composer = new EffectComposer(r, rt);
     this.renderPass = new RenderPass(this.scene, this.camera);
     this.composer.addPass(this.renderPass);
+    // The played soldier's arms and weapon, over the scene.
+    this.viewmodel = new Viewmodel();
+    this.composer.addPass(this.viewmodel.pass);
     if (this.quality.bloom) {
       this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x / 2, size.y / 2), 0.5, 0.55, 0.9);
       this.composer.addPass(this.bloom);

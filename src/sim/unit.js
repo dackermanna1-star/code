@@ -130,6 +130,8 @@ export class Soldier extends Unit {
     this.faceYaw = null;
     this.throwT = 10;
     this.stuckT = 0;
+    this.player = null; // the person playing this soldier, if any
+    this.ctrl = null; // { x, z, mode } movement wished by the player
   }
 
   heightNow() {
@@ -248,7 +250,23 @@ export class Soldier extends Unit {
     let want = 0;
     let dirX = 0;
     let dirZ = 0;
-    if (this.path && this.pathIdx < this.path.length && this.diveT < world.time) {
+    const ctrl = this.ctrl;
+    if (ctrl) {
+      // Driven directly (a person playing this soldier): ctrl.x/z is the
+      // wished direction, ctrl.mode the gait.
+      const l = Math.hypot(ctrl.x, ctrl.z);
+      if (l > 0.01) {
+        const sp = this.def.speed;
+        let base = ctrl.mode === 'sprint' ? sp.sprint : ctrl.mode === 'walk' ? sp.walk : sp.run;
+        if (this.stance === 2) base = sp.crawl * 1.6;
+        else if (this.stance === 1) base = Math.min(base, sp.run * 0.62);
+        if (this.wounded) base *= 0.75;
+        dirX = ctrl.x / l;
+        dirZ = ctrl.z / l;
+        const ahead = terrain.heightAt(p.x + dirX * 2, p.z + dirZ * 2) - p.y;
+        want = base * clamp(1 - ahead * 0.12, 0.55, 1.1) * Math.min(1, l);
+      }
+    } else if (this.path && this.pathIdx < this.path.length && this.diveT < world.time) {
       let wp = this.path[this.pathIdx];
       let dx = wp.x - p.x;
       let dz = wp.z - p.z;
@@ -320,7 +338,12 @@ export class Soldier extends Unit {
     }
     p.y = this.roof && !this.roof.destroyed ? this.roof.top : terrain.heightAt(p.x, p.z);
     if (this.roof && this.roof.destroyed) this.roof = null;
-    // Facing.
+    // Facing (a player turns the soldier directly).
+    if (ctrl) {
+      const stride = this.speed > 2.5 ? 2.1 : 1.4;
+      this.animPhase += (this.speed * dt * Math.PI * 2) / stride;
+      return;
+    }
     let targetYaw = this.yaw;
     if (this.aiming) targetYaw = this.aimYaw;
     else if (this.speed > 0.4) targetYaw = Math.atan2(this.vel.x, this.vel.z);

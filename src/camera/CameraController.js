@@ -6,7 +6,7 @@ import * as THREE from 'three';
 import { clamp, damp } from '../core/math.js';
 import { Director } from './Director.js';
 
-export const MODES = ['free', 'orbit', 'follow', 'eyes', 'cinematic', 'overview'];
+export const MODES = ['free', 'orbit', 'follow', 'eyes', 'cinematic', 'overview', 'play'];
 const SPEEDS = [3, 6, 12, 25, 50, 100, 200, 400];
 
 const _v = new THREE.Vector3();
@@ -36,6 +36,7 @@ export class CameraController {
     this.overview = { x: 0, z: 0, h: 1100 };
     this.director = new Director();
     this.onPick = null;
+    this.onPlay = null; // play mode: the player places the camera
     this.fpvActive = false;
     this.snap = true;
     this.attach();
@@ -49,7 +50,12 @@ export class CameraController {
     const d = this.dom;
     d.addEventListener('contextmenu', (e) => e.preventDefault());
     d.addEventListener('pointerdown', (e) => {
-      d.setPointerCapture?.(e.pointerId);
+      // (Fails while the pointer is locked to the view in play mode.)
+      try {
+        d.setPointerCapture?.(e.pointerId);
+      } catch (err) {
+        void err;
+      }
       this.drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, button: e.button, moved: false, type: e.pointerType };
     });
     d.addEventListener('pointermove', (e) => {
@@ -68,7 +74,7 @@ export class CameraController {
     d.addEventListener('pointerup', (e) => {
       const g = this.drag;
       this.drag = null;
-      if (g && !g.moved && g.button === 0 && this.onPick) this.onPick(e.clientX, e.clientY);
+      if (g && !g.moved && g.button === 0 && this.onPick && this.mode !== 'play') this.onPick(e.clientX, e.clientY);
     });
     d.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -140,6 +146,7 @@ export class CameraController {
       this.overview.z = clamp(cam.position.z + dir.z * t, -1100, 1100);
     }
     if (mode === 'cinematic') this.director.start(world);
+    if (mode === 'play') this.target = null;
     if (mode === 'follow' || mode === 'orbit') this.orbit.dist = this.defaultDist(this.target);
     this.followOff.yaw = 0;
     this.followOff.pitch = 0;
@@ -197,6 +204,9 @@ export class CameraController {
       case 'overview':
         this.updateOverview(dt, terrain);
         break;
+      case 'play':
+        if (this.onPlay) this.onPlay(dt);
+        break;
     }
     const fpvShot = this.mode === 'cinematic' && this.director.shot && this.director.shot.type === 'fpv';
     this.fpvActive = (this.mode === 'eyes' || fpvShot) && !!this.target && this.target.aclass === 'drone';
@@ -212,9 +222,9 @@ export class CameraController {
       cam.rotateZ(Math.sin(t * 29 + 2) * a * 0.01);
       cam.rotateX(Math.sin(t * 31 + 3) * a * 0.006);
     }
-    // Never below ground.
-    const g = terrain.heightAt(cam.position.x, cam.position.z);
-    if (cam.position.y < g + 0.6) cam.position.y = g + 0.6;
+    // Never below ground (a prone player's eyes sit lower).
+    const g = terrain.heightAt(cam.position.x, cam.position.z) + (this.mode === 'play' ? 0.15 : 0.6);
+    if (cam.position.y < g) cam.position.y = g;
     this.snap = false;
   }
 

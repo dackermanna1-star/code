@@ -8,6 +8,7 @@ import { GameRenderer, QUALITY } from '../render/Renderer.js';
 import { CameraController } from '../camera/CameraController.js';
 import { AudioSystem } from '../audio/AudioSystem.js';
 import { AudioBridge } from './AudioBridge.js';
+import { Player } from './Player.js';
 import { HUD, Loading } from '../ui/HUD.js';
 import { Menu } from '../ui/Menu.js';
 import { rng } from '../core/rng.js';
@@ -78,6 +79,8 @@ export class App {
       this.camera = new CameraController(this.renderer.camera, this.canvas);
       this.camera.onPick = (x, y) => this.pick(x, y);
       this.placeInitialCamera();
+      this.player = new Player(this);
+      this.camera.onPlay = (dt) => this.player.updateCamera(dt);
       this.hud = new HUD(this.root, this);
       this.hud.attachWorld(world);
       this.bridge = new AudioBridge(settings.audio ? this.audio : null);
@@ -118,9 +121,14 @@ export class App {
   bindKeys() {
     window.addEventListener('keydown', (e) => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+      if (this.player.active && this.player.keydown(e)) return;
       const c = this.camera;
       const w = this.world;
       switch (e.code) {
+        case 'Enter':
+        case 'NumpadEnter':
+          this.play();
+          break;
         case 'Space':
           this.paused = !this.paused;
           e.preventDefault();
@@ -205,6 +213,26 @@ export class App {
           break;
       }
     });
+  }
+
+  // Take control of the selected soldier, or the one nearest the camera.
+  play() {
+    const p = this.player;
+    let u = this.selected;
+    if (!p.canTake(u)) {
+      u = null;
+      const cam = this.renderer.camera.position;
+      let bs = Infinity;
+      for (const s of this.world.units) {
+        if (!p.canTake(s)) continue;
+        const d = (s.pos.x - cam.x) ** 2 + (s.pos.z - cam.z) ** 2;
+        if (d < bs) {
+          bs = d;
+          u = s;
+        }
+      }
+    }
+    if (!u || !p.take(u)) this.hud.toast('No soldier to take over');
   }
 
   ensureTarget() {
@@ -324,6 +352,8 @@ export class App {
     const t0 = performance.now();
     const simDt = this.paused ? 0 : dt * this.timeScale;
     w.listener = this.renderer.camera.position;
+    const playing = this.player.active;
+    if (playing) this.player.beforeSim(dt, simDt);
     // The simulation normally steps once per frame; when a step gets
     // expensive (huge battles) it runs at a fixed 30 Hz instead.
     this.simAcc += simDt;
@@ -341,14 +371,15 @@ export class App {
     this.renderer.handleEvents(events);
     if (this.bridge) this.bridge.handle(events, w);
     this.hud.handle(events);
+    if (playing) this.player.handle(events);
     events.length = 0;
     const cin = this.camera.mode === 'cinematic';
     this.renderer.letterbox += ((cin ? 1 : 0) - this.renderer.letterbox) * Math.min(1, dt * 3);
     this.renderer.fpv = this.camera.fpvActive ? 1 : 0;
-    this.renderer.markerMode = !this.markersVisible ? 'off' : this.camera.mode === 'overview' ? 'on' : this.camera.mode === 'free' ? 'auto' : 'off';
+    this.renderer.markerMode = !this.markersVisible || playing ? 'off' : this.camera.mode === 'overview' ? 'on' : this.camera.mode === 'free' ? 'auto' : 'off';
     const ct = this.camera.target;
     this.renderer.hideUnit = this.camera.mode === 'eyes' && ct && ct.cat === 'veh' && ct.alive ? ct : null;
-    this.renderer.render(dt, simDt, this.selected);
+    this.renderer.render(dt, simDt, playing ? null : this.selected);
     if (this.bridge) this.bridge.update(dt, this.renderer.camera, w, this.timeScale, this.paused);
     const t2 = performance.now();
     this.hud.update(dt, this.renderer.camera, this.canvas.clientWidth, this.canvas.clientHeight);

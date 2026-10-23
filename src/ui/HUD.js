@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { FACTION_INFO } from '../sim/world.js';
 import { MAT } from '../world/terrain.js';
 import { formatDistance, bearingDegrees } from '../core/math.js';
+import { PlayHUD } from './PlayHUD.js';
 
 const _v = new THREE.Vector3();
 
@@ -26,7 +27,7 @@ function hourText(h) {
   return `${String(hh).padStart(2, '0')}${String(mm).padStart(2, '0')}H`;
 }
 
-const MODE_NAMES = { free: 'Free camera', orbit: 'Orbit', follow: 'Chase', eyes: 'First person', cinematic: 'Cinematic', overview: 'Battle map' };
+const MODE_NAMES = { free: 'Free camera', orbit: 'Orbit', follow: 'Chase', eyes: 'First person', cinematic: 'Cinematic', overview: 'Battle map', play: 'Playing' };
 
 const HELP = [
   ['Fly', 'W A S D'],
@@ -44,6 +45,7 @@ const HELP = [
   ['Follow a random aircraft', 'T'],
   ['Pause', 'Space'],
   ['Slower / faster time', '− / +'],
+  ['Play as the selected soldier', 'Enter'],
   ['Markers and soldier rings', 'M'],
   ['Hide interface', 'Tab'],
   ['Performance stats', 'P'],
@@ -58,6 +60,7 @@ export class HUD {
     this.root.id = 'hud';
     root.append(this.root);
     this.build();
+    this.play = new PlayHUD(this.root, app);
     this.t = 0;
     this.miniT = 0;
     this.feedItems = [];
@@ -146,6 +149,7 @@ export class HUD {
     this.btnFollow = b('Chase (F)', () => this.app.cameraFollow('follow'));
     this.btnEyes = b('Eyes (V)', () => this.app.cameraFollow('eyes'));
     this.btnOrbit = b('Orbit (O)', () => this.app.cameraFollow('orbit'));
+    this.btnPlay = b('Play (Enter)', () => this.app.play());
     b('Release', () => this.app.release());
     this.card.append(top, hp, this.cardDoing, facts, btns);
     // Forces.
@@ -357,6 +361,12 @@ export class HUD {
     this.card.hidden = !u;
   }
 
+  // Playing a soldier: the spectator panels make room for the play HUD.
+  setPlaying(on) {
+    this.root.classList.toggle('playing', on);
+    this.play.show(on);
+  }
+
   describe(u) {
     const w = this.world;
     if (!u.alive && !u.dying) return u.cat === 'inf' ? (u.downed ? 'Died of wounds' : 'Killed in action') : 'Destroyed';
@@ -426,6 +436,7 @@ export class HUD {
     this.btnFollow.classList.toggle('on', m === 'follow');
     this.btnEyes.classList.toggle('on', m === 'eyes');
     this.btnOrbit.classList.toggle('on', m === 'orbit');
+    this.btnPlay.hidden = !this.app.player.canTake(u);
   }
 
   updateScore() {
@@ -691,6 +702,7 @@ export class HUD {
     this.updateLabels(camera, width, height);
     this.updateOSD();
     this.updateSight();
+    if (this.app.player.active) this.play.update(dt, camera, width, height);
   }
 }
 

@@ -596,7 +596,7 @@ export class Commander {
         const z = entry.z * 0.7;
         const h = world.spawnUnit('transport_heli', this.faction, x, z, { y: world.terrain.heightAt(x, z) + 70, speed: 60, yaw: this.deploy.yaw });
         const sq = this.spawnSquad('heli_squad', x, z, this.deploy.yaw);
-        for (const m of sq.members) world.mount(m, h);
+        for (const m of sq.members) if (!m.player) world.mount(m, h);
         sq.state = 'idle';
         sq.pendingOrder = { type: 'attack', obj: this.primary, x: this.primary.x, z: this.primary.z, r: this.primary.radius, issued: t };
         h.callsign = this.faction === 0 ? `Dustoff ${rng.int(1, 6)}` : `Vertolet-${rng.int(10, 60)}`;
@@ -616,7 +616,7 @@ export class Commander {
         const p = world.spawnUnit('transport_plane', this.faction, ex, dz.z, { y, speed: 105, yaw: Math.atan2(exitX - ex, 0) });
         const squads = [this.spawnSquad('para', ex, dz.z, p.yaw), this.spawnSquad('para', ex, dz.z, p.yaw)];
         for (const sq of squads) {
-          for (const m of sq.members) world.mount(m, p);
+          for (const m of sq.members) if (!m.player) world.mount(m, p);
           sq.state = 'idle';
           sq.pendingOrder = { type: 'attack', obj: this.primary, x: this.primary.x, z: this.primary.z, r: this.primary.radius, issued: t };
         }

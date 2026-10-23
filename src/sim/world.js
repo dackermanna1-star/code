@@ -220,7 +220,7 @@ export class World {
       const u = units[i];
       if (!u.alive) continue;
       const b = u.brain;
-      if (b && !u.hidden && !u.dying) {
+      if (b && !u.hidden && !u.dying && !u.player) {
         if (this.time >= u.nextThink) {
           b.think(this);
           u.nextThink = this.time + b.thinkInterval(this);
@@ -470,6 +470,8 @@ export class World {
   damageSoldier(s, dmg, killer, def, head, hit = null) {
     if (!s.alive) return;
     if (hit) s.lastHit = hit;
+    // A soldier played by a person is a little harder to kill.
+    if (s.player) dmg *= s.player.damageScale;
     if (s.downed) {
       // Anything more finishes a soldier who is already down.
       this.killSoldier(s, killer || s.downed.killer, def || s.downed.def, head);

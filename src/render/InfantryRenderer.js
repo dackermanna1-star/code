@@ -590,6 +590,7 @@ export class InfantryRenderer {
     this.rings = new SoldierRings(scene, 12000);
     this.showRings = true;
     this.gore = true;
+    this.hide = null; // the soldier seen through his own eyes
   }
 
   update(world, camera, frustum, dt) {
@@ -608,7 +609,7 @@ export class InfantryRenderer {
     const rings = this.showRings ? this.rings : null;
     const draw = (u) => {
       // Fallen soldiers near the camera are drawn by the ragdoll system.
-      if (u.hidden || u.removed || u._rd) return;
+      if (u.hidden || u.removed || u._rd || u === this.hide) return;
       const p = u.pos;
       const dx = p.x - cx;
       const dy = p.y - cy;

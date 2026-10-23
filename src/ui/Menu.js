@@ -215,6 +215,7 @@ export class Menu {
             ['Wheel', 'camera speed / zoom'],
             ['Click unit', 'select · F follow · V eyes'],
             ['1–6', 'free · orbit · chase · eyes · cinematic · map'],
+            ['Enter', 'play as the selected soldier (E aims, Esc leaves)'],
             ['Space · − / +', 'pause · time scale'],
             ['H', 'all controls'],
           ].map(([k, v]) => el('div', {}, el('b', { text: k }), document.createTextNode(`  ${v}`))),
