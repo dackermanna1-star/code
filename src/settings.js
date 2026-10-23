@@ -107,7 +107,7 @@ export const PRESETS = {
   },
 };
 
-const STORAGE_KEY = 'sahara-wanderer-settings-v1';
+const STORAGE_KEY = 'sahara-wanderer-settings-v2';
 
 const DEFAULTS = {
   quality: 'auto',
@@ -117,7 +117,7 @@ const DEFAULTS = {
   invertY: false,
   volume: 0.8,
   showFps: false,
-  timeSpeed: 1, // 0 = frozen, 1 = one game minute per real second, ...
+  timeSpeed: 0.25, // game minutes per real second: 0.25 = 15x real time
   weather: 'auto',
   // People who ask for reduced motion get a steady camera unless they turn bob back on.
   headBob: !(typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches),
@@ -171,10 +171,12 @@ export class Settings {
       gpu = '';
     }
     const mobile = /android|iphone|ipad|mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && window.innerWidth < 900);
-    if (/swiftshader|llvmpipe|software/.test(gpu)) return 'low';
+    if (/swiftshader|llvmpipe|software|microsoft basic/.test(gpu)) return 'low';
     if (mobile) return 'low';
-    if (/rtx|radeon rx|apple m[2-9]|arc a7/.test(gpu)) return 'high';
-    if (/intel|uhd|iris|mali|adreno|powervr/.test(gpu)) return 'medium';
-    return 'high';
+    if (/rtx [3-9]\d|rx [6-9]\d{3}|apple m[2-9] (pro|max|ultra)/.test(gpu)) return 'high';
+    if (/nvidia|geforce|rtx|gtx|radeon rx|radeon pro|apple m\d|arc a/.test(gpu)) return 'high';
+    if (/uhd|hd graphics|mali|adreno|powervr/.test(gpu)) return 'low';
+    // Iris, Radeon integrated, Apple GPU (Safari hides the model) and anything unknown.
+    return 'medium';
   }
 }

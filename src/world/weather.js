@@ -39,7 +39,8 @@ export class Weather {
   setMode(mode, instant = false) {
     this.mode = mode;
     if (mode !== 'auto') this._enter(mode);
-    else this.timer = 60;
+    // Let the first stretch of a walk settle in before the weather turns.
+    else this.timer = 240;
     if (instant) Object.assign(this.current, this.target);
   }
 

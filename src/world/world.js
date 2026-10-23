@@ -8,7 +8,7 @@ import { createTerrainMaterial } from './terrain/terrainMaterial.js';
 import { sunDirection, moonDirection, starRotation, moonPhaseFraction } from './astro.js';
 
 const BASE_ALTITUDE_M = 720; // the erg floor above sea level
-const MOON_STRENGTH = 1 / 1100; // relative to the sun; brighter than reality so nights stay walkable
+const MOON_STRENGTH = 1 / 650; // relative to the sun; brighter than reality so nights stay walkable
 
 const smoothstep = (a, b, x) => {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));

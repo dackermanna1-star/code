@@ -201,14 +201,24 @@ export class HeightAtlas {
       this._shadowLevel(k, light);
       budget--;
     }
-    for (let i = 0; i < this.levels && budget > 0; i++) {
-      const k = (this.shadowCursor + i) % this.levels;
-      const st = this.levelState[k];
-      if (st.shadowLight.angleTo(light) > 0.0015) {
-        this._shadowLevel(k, light);
-        budget--;
-        this.shadowCursor = (k + 1) % this.levels;
+    // Refresh the stalest levels first, favouring the fine ones around the player:
+    // their shadow edges are the ones you can see move.
+    while (budget > 0) {
+      let best = -1;
+      let bestScore = 0;
+      for (let k = 0; k < this.levels; k++) {
+        const err = this.levelState[k].shadowLight.angleTo(light);
+        const threshold = 0.0006 * (1 + k * 0.7);
+        if (err <= threshold) continue;
+        const score = err / threshold;
+        if (score > bestScore) {
+          bestScore = score;
+          best = k;
+        }
       }
+      if (best < 0) break;
+      this._shadowLevel(best, light);
+      budget--;
     }
     this.generated += changed.length;
     return changed.length;

@@ -9,6 +9,7 @@ import { Weather } from './world/weather.js';
 import { SandParticles } from './world/particles.js';
 import { Input } from './player/input.js';
 import { Player } from './player/player.js';
+import { BodyProxy } from './player/body.js';
 
 export const SPAWN = { x: 984, z: 555, yaw: 207 };
 
@@ -24,7 +25,7 @@ export class Game {
     this.world = new World(pipeline, quality);
     this.scene = this.world.scene;
 
-    this.footprints = quality.footprints ? new Footprints(renderer, { size: quality.clipSize >= 512 ? 1024 : 512, extent: 40 }) : null;
+    this.footprints = quality.footprints ? new Footprints(renderer, { size: quality.clipSize >= 384 ? 1024 : 512, extent: 32 }) : null;
     this.oases = new OasisManager(this.world.atmosphere, this.world.atlas, quality);
     this.scene.add(this.oases.group);
     this.vegetation = new Vegetation(this.world.atmosphere, this.world.atlas, quality);
@@ -38,6 +39,8 @@ export class Game {
     this.input = new Input(canvas);
     this.player = new Player(this.camera, this.input);
     this.player.setPosition(SPAWN.x, SPAWN.z, SPAWN.yaw, -4);
+    this.body = new BodyProxy();
+    this.scene.add(this.body.root);
     this.player.on('step', (e) => {
       this.footprints?.addStep(e);
       if (e.water < 0.05) this.particles.kick(e.x, this.player.feet.y, e.z, e.heading, e.speed, e.running ? 10 : 5);
@@ -96,7 +99,18 @@ export class Game {
     this.vegetation.update(this.player.feet, this.oases.active, this.frames < 2 ? 400 : 4);
     this.player.colliders = this.vegetation.trunks;
     this.footprints?.update(simDt, this.player.feet, U.uWindSpeed.value, U.uStorm.value);
-    this.shadows?.update(this.scene, this.player.feet, U.uLightDir.value, this.vegetation.casters());
+    if (this.shadows) {
+      // A caster can shade the cascade from as far away as its shadow is long.
+      const L = U.uLightDir.value;
+      const reach = Math.min(500, 15 / Math.max(0.03, L.y / Math.max(1e-3, Math.hypot(L.x, L.z))));
+      this.body.update(this.player);
+      const casters = this.debugNoBody ? this.vegetation.casters() : [...this.vegetation.casters(), ...this.body.parts];
+      this.body.root.visible = !this.debugNoBody && !this.player.photoMode;
+      this.shadows.update(this.scene, this.player.feet, L, casters, (i, radius) => {
+        this.vegetation.setShadowRange(radius * 1.45 + reach, i === 0 ? radius * 1.45 + reach * 0.15 : 0);
+      });
+      this.vegetation.setShadowRange(Infinity);
+    }
     for (const fn of this.frameListeners) fn(dt);
     this.pipeline.render(this.scene, this.camera);
     this.frames++;

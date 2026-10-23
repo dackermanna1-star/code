@@ -27,11 +27,12 @@ varying vec3 vWorld;
 vec4 shadeGrain(float a) {
   vec3 L = uLightDir;
   vec3 V = normalize(cameraPosition - vWorld);
-  // Sand glows when backlit by a low sun.
-  float fwd = pow(max(dot(-V, L), 0.0), 5.0);
-  vec3 alb = vec3(0.72, 0.47, 0.27);
+  // Lit about like the sand it came from, glowing a little when backlit by a low sun.
+  float fwd = pow(max(dot(-V, L), 0.0), 6.0);
+  vec3 alb = vec3(0.62, 0.4, 0.22);
   float sh = clipShadow(vWorld.xz);
-  vec3 col = alb / ATM_PI * (keyLightIrradiance() * (0.6 + 2.4 * fwd) * sh + skyIrradiance(vec3(0.0, 1.0, 0.0)) * 1.2);
+  float ndl = max(L.y, 0.0) * 0.6 + 0.25;
+  vec3 col = alb / ATM_PI * (keyLightIrradiance() * (ndl + 1.2 * fwd) * sh + skyIrradiance(vec3(0.0, 1.0, 0.0)));
   col = applyAerial(col, vWorld);
   return vec4(col * exposure() * a, a);
 }
@@ -76,7 +77,7 @@ void main() {
   float base = max(ground, max(up1, up2));
   float y = base + hopH * 4.0 * u * (1.0 - u) + uStorm * aSeed.y * aSeed.z * 5.0;
   vec3 vel = vec3(uWindDir.x, (hopH * 4.0 * (1.0 - 2.0 * u)) / hopLen, uWindDir.y) * spd;
-  float size = 0.005 + 0.008 * aSeed.z;
+  float size = 0.0035 + 0.005 * aSeed.z;
 #else
   float y = ground + 0.2 + aSeed.y * aSeed.y * (1.5 + 16.0 * uStorm);
   y += sin(aSeed.x * 40.0 + uWindOffset.x * 0.05) * 0.3;
@@ -212,7 +213,7 @@ export class SandParticles {
       this.group.add(mesh);
       return mesh;
     };
-    this.grains = makeField(quality.particles, 'GRAIN', 34, 0.8);
+    this.grains = makeField(quality.particles, 'GRAIN', 34, 0.5);
     this.dust = makeField(Math.max(200, Math.round(quality.particles / 10)), 'DUST', 110, 0.22);
 
     // Footstep kicks: a ring buffer of short-lived particles.

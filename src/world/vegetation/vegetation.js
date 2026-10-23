@@ -48,15 +48,35 @@ class InstancedLayer {
     this.mesh.renderOrder = 5;
     this.mesh.userData.depthMaterial = depthMaterial;
     if (castShadow) this.mesh.layers.enable(SHADOW_LAYER);
+    this.castShadow = castShadow;
     this.count = 0;
+    // Instances are pushed nearest-first; dist lets shadow passes draw only a prefix.
+    this.dist = new Float32Array(capacity);
   }
 
   begin() {
     this.count = 0;
   }
 
-  push(x, y, z, yaw, scale, tint, phase) {
+  /** Draw only instances closer than d (they are sorted by distance). */
+  limit(d) {
+    let n = this.count;
+    if (d < Infinity) {
+      let lo = 0;
+      let hi = this.count;
+      while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (this.dist[mid] <= d) lo = mid + 1;
+        else hi = mid;
+      }
+      n = lo;
+    }
+    this.geometry.instanceCount = n;
+  }
+
+  push(x, y, z, yaw, scale, tint, phase, dist = 0) {
     if (this.count >= this.capacity) return;
+    this.dist[this.count] = dist;
     const o = this.count * 4;
     this.offsets[o] = x;
     this.offsets[o + 1] = y;
@@ -97,9 +117,9 @@ export class Vegetation {
 
     const palmMat = createFoliageMaterial(atmosphere, atlas, {
       map: frondMap,
-      leafTint: [1.0, 1.0, 0.95],
+      leafTint: [0.88, 0.9, 0.86],
       deadTint: [0.3, 0.24, 0.16],
-      translucency: 1.2,
+      translucency: 0.8,
       stiffness: 1.6,
       objectShadows: shadows,
       alphaToCoverage: a2c,
@@ -107,10 +127,10 @@ export class Vegetation {
     const palmDepth = createFoliageDepthMaterial({ map: frondMap, stiffness: 1.6 });
     const grassMat = createFoliageMaterial(atmosphere, atlas, { map: grassMap, translucency: 0.6, objectShadows: shadows, alphaToCoverage: a2c });
     const grassDepth = createFoliageDepthMaterial({ map: grassMap });
-    const reedMat = createFoliageMaterial(atmosphere, atlas, { map: reedMap, translucency: 1, objectShadows: shadows, alphaToCoverage: a2c });
+    const reedMat = createFoliageMaterial(atmosphere, atlas, { map: reedMap, leafTint: [0.92, 0.95, 0.85], translucency: 0.9, objectShadows: shadows, alphaToCoverage: a2c });
     const reedDepth = createFoliageDepthMaterial({ map: reedMap });
-    const lushMat = createFoliageMaterial(atmosphere, atlas, { map: lushMap, leafTint: [0.9, 0.95, 0.8], translucency: 1, objectShadows: shadows, alphaToCoverage: a2c });
-    const bushMat = createFoliageMaterial(atmosphere, atlas, { map: bushMap, translucency: 0.3, stiffness: 1.8, objectShadows: shadows, alphaToCoverage: a2c });
+    const lushMat = createFoliageMaterial(atmosphere, atlas, { map: lushMap, leafTint: [0.86, 0.84, 0.7], translucency: 0.7, objectShadows: shadows, alphaToCoverage: a2c });
+    const bushMat = createFoliageMaterial(atmosphere, atlas, { map: bushMap, leafTint: [1.0, 0.98, 0.95], translucency: 0.3, stiffness: 1.8, objectShadows: shadows, alphaToCoverage: a2c });
     const bushDepth = createFoliageDepthMaterial({ map: bushMap, stiffness: 1.8 });
     this.materials = [palmMat, grassMat, reedMat, bushMat, lushMat];
 
@@ -127,17 +147,23 @@ export class Vegetation {
       const geo = palmGeometry(101 + i * 17, { ...spec, fronds: lowPoly ? spec.fronds - 6 : spec.fronds, segs: lowPoly ? 6 : 9 });
       return new InstancedLayer(geo, palmMat, palmDepth, 600, true);
     });
+    // Distant palms: same crowns, far fewer segments.
+    this.palmsFar = palmSpecs.map((spec, i) => {
+      const geo = palmGeometry(101 + i * 17, { ...spec, fronds: spec.fronds - 8, segs: 3, tSegs: 4, radial: 5, deadSegs: 2 });
+      return new InstancedLayer(geo, palmMat, palmDepth, 900, true);
+    });
+    this.palmLodDistance = lowPoly ? 90 : 150;
     this.grass = new InstancedLayer(cardClump(5, { cards: 3, width: 1.0, height: 0.75 }), grassMat, grassDepth, 9000, quality.vegetationDensity >= 1);
     this.reeds = new InstancedLayer(cardClump(8, { cards: 3, width: 1.5, height: 1.4, spread: 0.25 }), reedMat, reedDepth, 6000, false);
     this.lush = new InstancedLayer(cardClump(17, { cards: 3, width: 0.7, height: 0.45 }), lushMat, reedDepth, 6000, false);
     this.bushes = new InstancedLayer(cardClump(13, { cards: 4, width: 1.6, height: 1.2, spread: 0.3 }), bushMat, bushDepth, 3000, true);
-    this.layers = [...this.palms, this.grass, this.reeds, this.bushes, this.lush];
+    this.layers = [...this.palms, ...this.palmsFar, this.grass, this.reeds, this.bushes, this.lush];
     for (const l of this.layers) this.group.add(l.mesh);
 
     this.cells = new Map();
     this.oases = new Map();
     this.dirty = true;
-    this.lastCenter = new THREE.Vector2(1e9, 1e9);
+    this.lastBuild = new THREE.Vector2(1e9, 1e9);
     this.trunks = [];
     this.stats = { palms: 0, grass: 0, bushes: 0, reeds: 0 };
   }
@@ -160,7 +186,7 @@ export class Vegetation {
       const mean = 0.25 * (heightAt(x + 22, z) + heightAt(x - 22, z) + heightAt(x, z + 22) + heightAt(x, z - 22));
       const p = 0.05 + 0.75 * smoothstep(-1, 3.5, mean - y);
       if (r() > p) continue;
-      if (r() < 0.78) {
+      if (r() < 0.86) {
         const k = 1 + Math.floor(r() * 3);
         for (let j = 0; j < k; j++) {
           const gx2 = x + (r() - 0.5) * 2.4 * (j > 0 ? 1 : 0);
@@ -222,7 +248,7 @@ export class Vegetation {
       reeds.push([x, y - 0.05, z, r() * 6.283, 0.6 + 0.7 * r(), r(), r()]);
     }
     // Low green grass on the damp rim under the palms.
-    for (let i = 0; i < 3000 && lush.length < 220 + R * 2; i++) {
+    for (let i = 0; i < 3000 && lush.length < 120 + R; i++) {
       const a = r() * Math.PI * 2;
       const s = (0.7 + 0.9 * r()) * R;
       const x = o.x + px * Math.cos(a) * s * OASIS_STRETCH + WIND_X * Math.sin(a) * s;
@@ -298,21 +324,44 @@ export class Vegetation {
       }
     }
 
+    // Re-sort nearest-first every so often so LODs and shadow ranges stay right.
+    if (Math.hypot(center.x - this.lastBuild.x, center.z - this.lastBuild.y) > 18) this.dirty = true;
     if (!this.dirty) return;
     this.dirty = false;
-    for (const l of this.layers) l.begin();
+    this.lastBuild.set(center.x, center.z);
+    const cx = center.x;
+    const cz = center.z;
+    const sorted = (items) => {
+      const out = items.map((it) => [Math.hypot(it[0] - cx, it[2] - cz), it]);
+      out.sort((a, b) => a[0] - b[0]);
+      return out;
+    };
+    const grass = [];
+    const bushes = [];
+    const palms = [];
+    const reeds = [];
+    const lush = [];
     for (const cell of this.cells.values()) {
-      for (const g of cell.grass) this.grass.push(...g);
-      for (const b of cell.bushes) this.bushes.push(...b);
+      grass.push(...cell.grass);
+      bushes.push(...cell.bushes);
     }
     for (const { data } of this.oases.values()) {
-      for (const p of data.palms) this.palms[p[7]].push(p[0], p[1], p[2], p[3], p[4], p[5], p[6]);
-      for (const g of data.reeds) this.reeds.push(...g);
-      for (const g of data.rim) this.grass.push(...g);
-      for (const g of data.lush) this.lush.push(...g);
+      palms.push(...data.palms);
+      reeds.push(...data.reeds);
+      grass.push(...data.rim);
+      lush.push(...data.lush);
+    }
+    for (const l of this.layers) l.begin();
+    for (const [d, g] of sorted(grass)) this.grass.push(g[0], g[1], g[2], g[3], g[4], g[5], g[6], d);
+    for (const [d, g] of sorted(bushes)) this.bushes.push(g[0], g[1], g[2], g[3], g[4], g[5], g[6], d);
+    for (const [d, g] of sorted(reeds)) this.reeds.push(g[0], g[1], g[2], g[3], g[4], g[5], g[6], d);
+    for (const [d, g] of sorted(lush)) this.lush.push(g[0], g[1], g[2], g[3], g[4], g[5], g[6], d);
+    for (const [d, p] of sorted(palms)) {
+      const layer = d < this.palmLodDistance ? this.palms[p[7]] : this.palmsFar[p[7]];
+      layer.push(p[0], p[1], p[2], p[3], p[4], p[5], p[6], d);
     }
     for (const l of this.layers) l.end();
-    this.stats.palms = this.palms.reduce((s, l) => s + l.count, 0);
+    this.stats.palms = this.palms.reduce((s, l) => s + l.count, 0) + this.palmsFar.reduce((s, l) => s + l.count, 0);
     this.stats.grass = this.grass.count;
     this.stats.bushes = this.bushes.count;
     this.stats.reeds = this.reeds.count;
@@ -320,7 +369,19 @@ export class Vegetation {
 
   /** Meshes that cast object shadows. */
   casters() {
-    return [...this.palms, this.grass, this.bushes].map((l) => l.mesh).filter((m) => m.layers.isEnabled(SHADOW_LAYER));
+    return this.layers.filter((l) => l.castShadow).map((l) => l.mesh);
+  }
+
+  /**
+   * Restrict shadow casters to those that can reach a cascade. range = Infinity
+   * restores normal drawing. Small plants only matter in the nearest cascade.
+   */
+  setShadowRange(range, smallRange = range) {
+    for (const l of this.layers) {
+      if (!l.castShadow) continue;
+      const small = l === this.grass || l === this.bushes;
+      l.limit(small ? smallRange : range);
+    }
   }
 }
 

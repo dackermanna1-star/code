@@ -359,7 +359,7 @@ void main() {
   else if (texel == 4) outv = k1 * cy;
   else if (texel == 5) outv = k1 * cz;
   else if (texel == 6) {
-    vec3 dustAlbedo = vec3(0.78, 0.56, 0.36);
+    vec3 dustAlbedo = vec3(0.8, 0.5, 0.27);
     outv = dustAlbedo / ATM_PI * (sunIrr * 0.55 + moonIrr * 0.55 + eUp * 0.9 + horizon * 0.6);
   } else {
     // Auto-exposure target from the light actually reaching the ground. Adaptation is
@@ -369,7 +369,8 @@ void main() {
     float moonI = dot(moonIrr, lw) * (0.3 + 0.7 * max(uMoonDir.y, 0.0));
     float skyI = dot(shA + k1 * cy, lw);
     float illum = sunI + moonI + skyI + 1e-7;
-    float target = 4.6 / pow(illum, 0.82) * (1.0 - 0.55 * uNight) * exp2(uExposureBias);
+    // Storms stay gloomy: the eye only partly adapts to the dimmed light.
+    float target = 4.6 / pow(illum, 0.82) * (1.0 - 0.4 * uNight) * (1.0 - 0.45 * uStorm) * exp2(uExposureBias);
     outv = vec3(min(target, 4.0e4), horizon.g, horizon.b);
   }
   gl_FragColor = vec4(outv, 1.0);
@@ -404,6 +405,22 @@ uniform vec2 uFarFade;
 uniform float uStorm;
 uniform vec3 uLightDir;
 uniform float uNight;
+#ifndef DECL_WIND_OFFSET
+#define DECL_WIND_OFFSET
+uniform vec2 uWindOffset;
+#endif
+
+float stormHash(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+  p3 += dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
+float stormNoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  f = f * f * (3.0 - 2.0 * f);
+  return mix(mix(stormHash(i), stormHash(i + vec2(1.0, 0.0)), f.x), mix(stormHash(i + vec2(0.0, 1.0)), stormHash(i + vec2(1.0, 1.0)), f.x), f.y);
+}
 
 vec3 probe(int i) {
   return texelFetch(tProbe, ivec2(i, 0), 0).rgb;
@@ -436,7 +453,14 @@ vec3 applyAerial(vec3 color, vec3 wp, out vec3 transmittance) {
   vec3 hdir = normalize(vec3(dir.x, max(dir.y, 0.015), dir.z));
   vec3 inscatter = skyRadiance(hdir);
   vec3 c = color * T + inscatter * (vec3(1.0) - T);
-  float stormT = exp(-uStorm * uStorm * dist * (1.0 / 95.0));
+  // Storm dust travels in clouds: sample the density along the ray at a mid point that
+  // moves with the wind, so visibility opens and closes as gusts pass.
+  float stormDensity = 1.0;
+  if (uStorm > 0.01) {
+    vec2 q = (cameraPosition.xz + dir.xz * min(dist, 120.0) * 0.6 - uWindOffset * 1.2) * 0.012;
+    stormDensity = 0.45 + 1.1 * (0.5 * stormNoise(q) + 0.5 * stormNoise(q * 2.7 + 3.1));
+  }
+  float stormT = exp(-uStorm * uStorm * dist * stormDensity * (1.0 / 95.0));
   c = mix(probe(6), c, stormT);
   transmittance = T * stormT;
   return c;
@@ -452,6 +476,8 @@ export class Atmosphere {
   constructor(renderer) {
     this.renderer = renderer;
     const common = { depthBuffer: false, stencilBuffer: false, generateMipmaps: false, type: THREE.HalfFloatType };
+    // Full float targets need EXT_color_buffer_float; half float is precise enough here.
+    const floatType = renderer.getContext().getExtension('EXT_color_buffer_float') ? THREE.FloatType : THREE.HalfFloatType;
     this.transmittanceRT = new THREE.WebGLRenderTarget(TRANS_W, TRANS_H, { ...common, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
     this.multiScatterRT = new THREE.WebGLRenderTarget(MS_SIZE, MS_SIZE, { ...common, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
     this.skyViewRT = new THREE.WebGLRenderTarget(SKY_W, SKY_H, {
@@ -463,7 +489,7 @@ export class Atmosphere {
     });
     this.probeRT = new THREE.WebGLRenderTarget(PROBE_TEXELS, 1, {
       ...common,
-      type: THREE.FloatType,
+      type: floatType,
       minFilter: THREE.NearestFilter,
       magFilter: THREE.NearestFilter,
     });
@@ -515,7 +541,7 @@ export class Atmosphere {
       () =>
         new THREE.WebGLRenderTarget(1, 1, {
           ...common,
-          type: THREE.FloatType,
+          type: floatType,
           minFilter: THREE.NearestFilter,
           magFilter: THREE.NearestFilter,
         }),
@@ -551,6 +577,7 @@ export class Atmosphere {
       uStorm: U.uStorm,
       uLightDir: U.uLightDir,
       uNight: U.uNight,
+      uWindOffset: U.uWindOffset,
     };
   }
 

@@ -259,7 +259,11 @@ export function heightAt(x, z) {
   const pc = 0.5 * n1c + 0.17 * n2c - barch * dg * uc;
   const grad = Math.max(0.25 / L, Math.sqrt(pa * pa + pc * pc));
   // Height patches are elongated along the crests so dunes end and split naturally.
-  const H = Math.min(0.11 / grad, 24 * clamp01(0.42 + 1.7 * gnoise(across * (1 / 900) + 3.1, along * (1 / 380) - 1.7)));
+  // Horns taper: where two arcs meet the dune is much lower, as on real barchans.
+  const horn = 1 - 0.75 * (1 - smoothstep(0, 0.22, e)) * smoothstep(0.05, 0.25, barch);
+  // Height scales with the along-wind spacing only: the across-wind part of the gradient
+  // vanishes on horn lines and would otherwise raise a ridge along each of them.
+  const H = horn * Math.min(0.11 / Math.max(pa, 0.25 / L), 24 * clamp01(0.42 + 1.7 * gnoise(across * (1 / 900) + 3.1, along * (1 / 380) - 1.7)));
   const leeLen = 2.15 * H + 5;
   const a = Math.min(0.97, Math.max(0.45, 1 - leeLen * grad));
   const t = phase - Math.floor(phase);
@@ -465,7 +469,8 @@ vec2 terrainHeightLee(vec2 p, float fw) {
   float pa = 1.0 / L + 0.5 * n1.z * (1.0 / 1500.0) + 0.17 * n2.z * (1.0 / 420.0) - barch * dg * ua;
   float pc = 0.5 * n1.y * (1.0 / 700.0) + 0.17 * n2.y * (1.0 / 190.0) - barch * dg * uc;
   float grad = max(0.25 / L, sqrt(pa * pa + pc * pc));
-  float H = min(0.11 / grad, 24.0 * clamp(0.42 + 1.7 * gnoise(vec2(across * (1.0 / 900.0) + 3.1, along * (1.0 / 380.0) - 1.7)), 0.0, 1.0));
+  float horn = 1.0 - 0.75 * (1.0 - smoothstep(0.0, 0.22, e)) * smoothstep(0.05, 0.25, barch);
+  float H = horn * min(0.11 / max(pa, 0.25 / L), 24.0 * clamp(0.42 + 1.7 * gnoise(vec2(across * (1.0 / 900.0) + 3.1, along * (1.0 / 380.0) - 1.7)), 0.0, 1.0));
   float leeLen = 2.15 * H + 5.0;
   float a = min(0.97, max(0.45, 1.0 - leeLen * grad));
   float t = phase - floor(phase);

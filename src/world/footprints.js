@@ -46,18 +46,20 @@ void main() {
   p.x *= vFoot > 0.5 ? 1.0 : -1.0;
   float age = vParams.z;
   float running = vParams.y;
-  float soft = 0.18 + 0.5 * age;
+  float soft = 0.1 + 0.55 * age;
   // Boot: heel + forefoot, slightly turned out.
   float heel = ellipse(p, vec2(0.0, -0.085), vec2(0.046, 0.056), soft);
   float sole = ellipse(p, vec2(0.008, 0.045), vec2(0.054, 0.088), soft);
   float shape = max(heel, sole);
   // Toe digs deeper when running; heel strikes harder when walking.
   float toe = ellipse(p, vec2(0.01, 0.085), vec2(0.045, 0.05), soft + 0.1);
-  float depth = shape * (0.016 + 0.006 * (1.0 - running)) + toe * running * 0.022 + heel * (1.0 - running) * 0.006;
+  float depth = shape * (0.026 + 0.008 * (1.0 - running)) + toe * running * 0.03 + heel * (1.0 - running) * 0.01;
+  // Loose sand slumps back in: the walls are not vertical.
+  depth *= 1.0 - 0.45 * age;
   // Displaced sand piles up around the print, more in front when pushing off.
-  float rim = ellipse(p, vec2(0.004, 0.0), vec2(0.1, 0.18), 0.35) - ellipse(p, vec2(0.004, 0.0), vec2(0.07, 0.15), 0.3);
+  float rim = ellipse(p, vec2(0.004, 0.0), vec2(0.1, 0.18), 0.35) - ellipse(p, vec2(0.004, 0.0), vec2(0.068, 0.15), 0.25);
   float spray = ellipse(p, vec2(0.0, 0.17 + 0.05 * running), vec2(0.07, 0.06 + 0.04 * running), 0.6);
-  float bump = max(rim, 0.0) * 0.006 + spray * (0.003 + 0.004 * running);
+  float bump = max(rim, 0.0) * 0.009 + spray * (0.004 + 0.006 * running);
   float fade = vParams.x * (1.0 - age);
   float hgt = (bump - depth) * fade;
   float disturb = clamp(shape + rim * 0.5 + spray * 0.4, 0.0, 1.0) * fade;

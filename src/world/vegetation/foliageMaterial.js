@@ -118,7 +118,7 @@ void main() {
     float cov = tex.a * (1.0 + max(lod, 0.0) * 0.32);
     float a = (cov - 0.5) / max(fwidth(cov), 1e-4) + 0.5;
     if (a < 0.5) discard;
-    albedo = toLinear(tex.rgb);
+    albedo = toLinear(tex.rgb / max(tex.a, 1e-3));
     if (vKind > 1.5 && vKind < 2.5) albedo = mix(albedo, uDeadTint * (0.7 + 0.6 * hash12(vec2(vParams.z * 91.0, 3.0))), 0.85);
     else albedo *= uLeafTint * (0.85 + 0.3 * vParams.y);
     ao = mix(0.45, 1.0, vSway);
@@ -137,7 +137,7 @@ void main() {
   float vis = tShadow * objectShadow(vWorld);
   vec3 E = keyLightIrradiance();
   vec3 col = albedo / ATM_PI * (E * (diff * vis) + skyIrradiance(N) * ao);
-  col += albedo * vec3(0.9, 1.0, 0.55) * E * trans * vis * 0.35;
+  col += albedo * vec3(0.8, 0.9, 0.6) * E * trans * vis * 0.25;
   col = applyAerial(col, vWorld);
   gl_FragColor = vec4(col * exposure(), 1.0);
 }

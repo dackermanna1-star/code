@@ -39,7 +39,8 @@ export class ShadowCascades {
     this.frame = 0;
   }
 
-  update(scene, center, lightDir, casters) {
+  /** onCascade(i, radius) runs before each cascade renders (to cull casters). */
+  update(scene, center, lightDir, casters, onCascade = null) {
     this.frame++;
     if (lightDir.y < 0.015 || casters.length === 0) {
       U.uObjShadowParams.value.x = 0;
@@ -69,6 +70,7 @@ export class ShadowCascades {
       cam.lookAt(_c);
       cam.updateMatrixWorld();
       cs.matrix.multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse);
+      if (onCascade) onCascade(i, cs.radius);
       r.setRenderTarget(cs.rt);
       r.clear(true, true, false);
       r.render(scene, cam);

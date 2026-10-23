@@ -220,9 +220,10 @@ export class UI {
     const g = this.game;
     const s = this.settings;
     this._range('set-time', 'out-time', g.world.timeOfDay.toFixed(2), formatTime, (v) => g.world.setTimeOfDay(v));
-    this._seg('set-timespeed', g.timeSpeed, (v) => {
-      g.timeSpeed = Number(v);
-      s.set('timeSpeed', Number(v));
+    this._seg('set-timespeed', g.timeSpeed === 1 / 60 ? '0.016667' : g.timeSpeed, (v) => {
+      const speed = v === '0.016667' ? 1 / 60 : Number(v);
+      g.timeSpeed = speed;
+      s.set('timeSpeed', speed);
       this._syncSettings();
     });
     this._seg('set-weather', g.weather.mode, (v) => {

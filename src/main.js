@@ -79,6 +79,7 @@ async function boot(hotData = {}) {
   game.world.exposureBias = settings.get('exposureBias') || 0;
   game.world.setTimeOfDay(num('time', resume.time ?? 16.8));
   if (params.has('time')) game.timeSpeed = 0;
+  if (params.has('nobody')) game.debugNoBody = true;
   if (params.has('weather')) game.weather.setMode(params.get('weather'), true);
   else if (resume.weather) game.weather.setMode(resume.weather, true);
   game.world.terrainMaterial.uniforms.uDebugView.value = num('dbg', 0);

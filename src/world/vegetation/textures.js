@@ -16,7 +16,11 @@ function rng(seed) {
 
 function toTexture(canvas) {
   const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
+  // Premultiplied, so mipmaps average colour only over covered texels; the shader divides
+  // alpha back out. Straight alpha would bleed the black of empty texels into thin leaves.
+  tex.premultiplyAlpha = true;
+  // Raw sRGB bytes: the shader un-premultiplies first, then converts to linear.
+  tex.colorSpace = THREE.NoColorSpace;
   tex.anisotropy = 4;
   tex.generateMipmaps = true;
   tex.minFilter = THREE.LinearMipmapLinearFilter;
@@ -119,11 +123,13 @@ export function grassTexture({ green = false, seed = 3 } = {}) {
   const c = makeCanvas(W, H);
   const g = c.getContext('2d');
   const r = rng(seed);
-  for (let i = 0; i < 230; i++) {
-    const x0 = W * (0.42 + 0.16 * r());
+  for (let i = 0; i < 200; i++) {
+    const x0 = W * (0.36 + 0.28 * r());
     const y0 = H;
-    const spread = (r() - 0.5) * 2;
-    const hgt = H * (0.45 + 0.52 * Math.pow(r(), 0.6)) * (1 - 0.35 * Math.abs(spread));
+    // Mostly upright blades of uneven length, a few arching outward.
+    const arch = r() < 0.2;
+    const spread = (r() - 0.5) * (arch ? 1.6 : 0.7);
+    const hgt = H * (0.3 + 0.68 * Math.pow(r(), 0.8)) * (arch ? 0.65 : 1);
     const x1 = x0 + spread * W * 0.42;
     const y1 = H - hgt;
     const k = r();

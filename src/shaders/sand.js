@@ -6,7 +6,10 @@ export const SAND_GLSL = /* glsl */ `
 uniform float uTime;
 uniform vec2 uWindDir;
 uniform float uWindSpeed;
+#ifndef DECL_WIND_OFFSET
+#define DECL_WIND_OFFSET
 uniform vec2 uWindOffset;
+#endif
 uniform vec3 uSunDir;
 uniform vec4 uOases[4];
 uniform int uOasisCount;
@@ -23,6 +26,7 @@ struct SandSurface {
   float roughness;
   float wet;
   float ao;
+  float printShadow;
 };
 
 // Slope of a skewed sine (gentle stoss, steeper lee) for phase th in radians.
@@ -56,16 +60,21 @@ vec2 rippleGradient(vec2 p, float footprint) {
 float sandSparkle(vec3 p, vec3 N, vec3 V, vec3 L, float dist, float footprint) {
 #ifdef USE_SPARKLE
   if (dist > 28.0) return 0.0;
-  vec2 cell = floor(p.xz * 90.0);
+  vec2 g = p.xz * 90.0;
+  vec2 cell = floor(g);
   vec3 r = hash32(cell);
-  if (r.z < 0.9) return 0.0;
+  if (r.z < 0.93) return 0.0;
+  // A grain is a point, not the whole cell: keep the glint to a small jittered disc so
+  // nearby sparkles stay pin-sharp instead of becoming flakes.
+  float pt = 1.0 - smoothstep(0.08, 0.2, length(fract(g) - 0.25 - 0.5 * r.xy));
+  if (pt <= 0.0) return 0.0;
   // Random quartz facet tilted around the surface normal; only a few line up with the
   // half vector at any moment, and they twinkle as the viewer moves.
   vec3 fn = normalize(N + vec3(r.x - 0.5, 0.0, r.y - 0.5) * 1.6);
   vec3 H = normalize(L + V);
   float s = pow(max(dot(fn, H), 0.0), 1400.0);
   float fade = (1.0 - smoothstep(3.0, 12.0, dist)) * (1.0 - smoothstep(0.01, 0.025, footprint));
-  return s * 4.0 * fade;
+  return s * 5.0 * fade * pt;
 #else
   return 0.0;
 #endif
@@ -103,15 +112,36 @@ vec4 sampleDeform(vec2 pxz) {
 #ifdef USE_FOOTPRINTS
   vec2 uv = (pxz - uDeformRect.xy) * uDeformRect.w;
   if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return vec4(0.0);
-  float e = 0.04 * uDeformRect.w;
+  float e = 0.03 * uDeformRect.w;
   vec2 c = textureLod(tDeform, uv, 0.0).rg;
   float hx = textureLod(tDeform, uv + vec2(e, 0.0), 0.0).r - textureLod(tDeform, uv - vec2(e, 0.0), 0.0).r;
   float hz = textureLod(tDeform, uv + vec2(0.0, e), 0.0).r - textureLod(tDeform, uv - vec2(0.0, e), 0.0).r;
   vec2 edge = min(uv, 1.0 - uv);
   float fade = smoothstep(0.0, 0.08, min(edge.x, edge.y));
-  return vec4(vec2(hx, hz) / 0.08, c.y, c.x) * fade;
+  return vec4(vec2(hx, hz) / 0.06, c.y, c.x) * fade;
 #else
   return vec4(0.0);
+#endif
+}
+
+// Shadow cast by the walls of a footprint onto its floor at low sun: a few taps toward
+// the light through the deformation map.
+float footprintShadow(vec2 pxz, float h0, vec3 L) {
+#ifdef USE_FOOTPRINTS
+  float hl = length(L.xz);
+  if (L.y <= 0.0 || hl < 1e-4) return 1.0;
+  vec2 dir = L.xz / hl;
+  float tanL = L.y / hl;
+  float vis = 1.0;
+  for (int i = 1; i <= 4; i++) {
+    float t = float(i) * 0.035;
+    vec2 uv = (pxz + dir * t - uDeformRect.xy) * uDeformRect.w;
+    float h = textureLod(tDeform, uv, 0.0).r;
+    vis = min(vis, clamp((h0 + t * tanL - h) * 90.0 + 0.6, 0.0, 1.0));
+  }
+  return vis;
+#else
+  return 1.0;
 #endif
 }
 
@@ -189,7 +219,8 @@ SandSurface sandSurface(vec3 p, vec4 nd, float footprint, float dist, vec3 V) {
   s.albedo = alb;
   s.wet = wet;
   s.roughness = mix(0.9, 0.3, wet);
-  s.ao = (1.0 - 0.25 * trough) * (1.0 - 0.3 * disturbed * smoothstep(0.0, -0.02, fp.w));
+  s.ao = (1.0 - 0.25 * trough) * (1.0 - 0.45 * smoothstep(0.0, -0.035, fp.w));
+  s.printShadow = disturbed > 0.02 && dist < 30.0 ? footprintShadow(p.xz, fp.w, uLightDir) : 1.0;
   s.sparkle = ripple > 0.0 ? 1.0 : 0.0;
   return s;
 }
@@ -197,7 +228,7 @@ SandSurface sandSurface(vec3 p, vec4 nd, float footprint, float dist, vec3 V) {
 vec3 shadeSand(SandSurface s, vec3 p, vec3 V, float terrainShadow) {
   vec3 L = uLightDir;
   vec3 N = s.N;
-  float vis = terrainShadow * objectShadow(p);
+  float vis = terrainShadow * objectShadow(p) * s.printShadow;
   vec3 E = keyLightIrradiance();
   float diff = orenNayar(N, L, V, 0.6);
   vec3 col = s.albedo / ATM_PI * (E * (diff * vis) + skyIrradiance(N) * s.ao);

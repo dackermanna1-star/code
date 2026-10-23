@@ -27,7 +27,10 @@ uniform vec3 uMoonDir;
 uniform float uTime;
 uniform float uCloud;
 uniform float uDust;
+#ifndef DECL_WIND_OFFSET
+#define DECL_WIND_OFFSET
 uniform vec2 uWindOffset;
+#endif
 uniform mat3 uStarRotation;
 uniform float uStarIntensity;
 varying vec3 vDir;
@@ -64,11 +67,12 @@ vec3 starField(vec3 d, float px) {
     uv = c.xy / a.z;
     face = c.z > 0.0 ? 4.0 : 5.0;
   }
-  const float G = 380.0;
+  const float G = 220.0;
   vec2 g = (uv * 0.5 + 0.5) * G;
   vec2 cell = floor(g);
   vec3 r = hash32(cell + face * 1013.0);
-  float bright = pow(r.z, 22.0);
+  // Steep magnitude distribution: a few bright stars, many faint ones.
+  float bright = pow(r.z, 130.0) * 7.0;
   vec2 pos = cell + 0.2 + 0.6 * r.xy;
   float rad = max(px * G * 0.55, 0.035);
   float s = exp(-dot(g - pos, g - pos) / (rad * rad)) * bright / (rad * rad * 18.0 + 1.0);
@@ -158,7 +162,8 @@ void main() {
   col = mix(col, cl.rgb, cl.a * (1.0 - uStorm));
 
   // Sandstorm: suspended dust hides the sky, thinner toward the zenith.
-  col = mix(col, probe(6), uStorm * mix(1.0, 0.82, max(dir.y, 0.0)));
+  float swirl = 0.5 * stormNoise(dir.xz / max(dir.y + 0.35, 0.2) * 3.0 - uWindOffset * 0.004) + 0.5 * stormNoise(dir.xz * 9.0 + vec2(uTime * 0.05, 0.0));
+  col = mix(col, probe(6) * (0.85 + 0.3 * swirl), uStorm * mix(1.0, 0.75 + 0.2 * swirl, max(dir.y, 0.0)));
 
   gl_FragColor = vec4(min(col * exposure(), vec3(60000.0)), 1.0);
 }
@@ -181,7 +186,7 @@ export class Sky {
         uDust: U.uDust,
         uWindOffset: U.uWindOffset,
         uStarRotation: U.uStarRotation,
-        uStarIntensity: { value: 2.2e-3 },
+        uStarIntensity: { value: 1.2e-3 },
         uInvProj: { value: new THREE.Matrix4() },
         uCamWorld: { value: new THREE.Matrix4() },
       },

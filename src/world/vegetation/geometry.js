@@ -90,11 +90,9 @@ function frond(b, top, az, el, length, droop, width, kind, r, segs) {
 }
 
 /** One date palm. Heights in metres; the trunk base sits at the origin. */
-export function palmGeometry(seed, { height = 10, bend = 0.05, fronds = 26, segs = 9 } = {}) {
+export function palmGeometry(seed, { height = 10, bend = 0.05, fronds = 26, segs = 9, tSegs = 12, radial = 9, deadSegs = 5 } = {}) {
   const r = rng(seed);
   const b = new Builder();
-  const tSegs = 12;
-  const radial = 9;
   const ba = r() * Math.PI * 2;
   const bx = Math.cos(ba);
   const bz = Math.sin(ba);
@@ -135,7 +133,7 @@ export function palmGeometry(seed, { height = 10, bend = 0.05, fronds = 26, segs
   for (let f = 0; f < dead; f++) {
     const az = r() * Math.PI * 2;
     const el = -1.25 - r() * 0.25;
-    frond(b, add(top, [0, -0.45 - r() * 0.4, 0]), az, el, 1.8 + r() * 0.8, 0.02, 0.2, 2, r, 5);
+    frond(b, add(top, [0, -0.45 - r() * 0.4, 0]), az, el, 1.8 + r() * 0.8, 0.02, 0.2, 2, r, deadSegs);
   }
   return b.build();
 }
