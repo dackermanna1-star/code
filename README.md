@@ -32,7 +32,8 @@ Phones and tablets get touch controls and the low preset.
 | --- | --- |
 | `W` `A` `S` `D` / arrows | Walk |
 | `Shift` | Run |
-| `Space` | Jump |
+| `Space` | Jump; press again in mid-air to take off and fly |
+| `G` | Fly / stop flying. You fly where you look: `W` forward, `Shift` full speed (~650 km/h), `Space` up, `C` down; touch down slowly to land |
 | Mouse | Look (click the view to capture the cursor) |
 | `[` / `]` | Turn time back / forward while held |
 | `F` | Photo mode: fly freely, `Space` up, `C` down |
@@ -41,9 +42,13 @@ Phones and tablets get touch controls and the low preset.
 | `T` | Frame-rate readout |
 | `Esc` | Pause menu and settings |
 
-Touch: drag on the left half to walk, on the right half to look; Run toggles running.
-Gamepad: left stick walks, right stick looks, A jumps, a shoulder button runs, Y toggles
-photo mode, Start pauses.
+Touch: drag on the left half to walk, on the right half to look; Run toggles running, Fly
+takes off (hold Up to climb).
+Gamepad: left stick walks, right stick looks, A jumps, a shoulder button runs, X flies
+(hold A to climb, B to dive), Y toggles photo mode, Start pauses.
+
+Flying low and fast throws a wake of sand behind you, you bank into turns, and your shadow
+stretches out flat with one fist forward.
 
 ## What's in the desert
 

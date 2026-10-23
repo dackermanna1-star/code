@@ -70,6 +70,20 @@ export class UI {
       if (!game.player.photoMode) game.player.setPosition(game.player.feet.x, game.player.feet.z);
       this.toast(game.player.photoMode ? 'Photo mode: fly freely. Press F to land.' : 'Back on your feet');
     });
+    input.on('fly', () => {
+      if (this.state !== 'playing' || game.player.photoMode) return;
+      game.player.setFlying(!game.player.flying);
+    });
+    let flightHinted = false;
+    game.player.on('fly', ({ on }) => {
+      const btn = $('touch-fly');
+      btn.setAttribute('aria-pressed', String(on));
+      $('touch-jump').textContent = on ? 'Up' : 'Jump';
+      if (on && !flightHinted) {
+        flightHinted = true;
+        this.toast(this.isTouch ? 'Up, up and away. Look where you want to go.' : 'Up, up and away. Look to steer, Shift for full speed, G to drop.', 4.5);
+      }
+    });
     input.on('mute', () => {
       audio.setMuted(!audio.muted);
       this.toast(audio.muted ? 'Sound off' : 'Sound on');
@@ -352,8 +366,20 @@ export class UI {
       input.touchSprint = !input.touchSprint;
       run.setAttribute('aria-pressed', String(input.touchSprint));
     });
-    $('touch-jump').addEventListener('click', () => {
-      input.jumpQueued = true;
+    const jump = $('touch-jump');
+    jump.addEventListener('click', () => {
+      if (!this.game.player.flying) input.jumpQueued = true;
+    });
+    jump.addEventListener('pointerdown', () => {
+      input.touchUp = this.game.player.flying;
+    });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) {
+      jump.addEventListener(ev, () => {
+        input.touchUp = false;
+      });
+    }
+    $('touch-fly').addEventListener('click', () => {
+      if (!this.game.player.photoMode) this.game.player.setFlying(!this.game.player.flying);
     });
     $('touch-menu').addEventListener('click', () => this.pause());
   }
@@ -397,7 +423,10 @@ export class UI {
     const kmh = Math.round(g.weather.windSpeed * 3.6);
     $('hud-wind').textContent = kmh < 3 ? 'Calm air' : `Wind ${kmh} km/h from ${g.weather.fromCompass()}`;
     const alt = Math.round(720 + g.player.feet.y);
-    $('hud-alt').textContent = `${alt} m · ${(g.player.distanceWalked / 1000).toFixed(1)} km walked`;
+    const p = g.player;
+    $('hud-alt').textContent = p.flying
+      ? `${alt} m · flying ${Math.round(p.airspeed * 3.6)} km/h`
+      : `${alt} m · ${(p.distanceWalked / 1000).toFixed(1)} km walked`;
     if (this.settings.get('showFps')) {
       const s = g.pipeline.size;
       $('hud-fps').textContent = `${g.stats.fps.toFixed(0)} fps · ${g.stats.frameMs.toFixed(1)} ms\n${s.sceneW}×${s.sceneH} · ${this.presetName}`;

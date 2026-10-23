@@ -13,6 +13,12 @@ const GRAVITY = 9.81;
 const REPOSE_SLOPE = 0.62; // tan(~32 deg)
 const LOOK_SCALE = 0.0021;
 
+// Flight: you go where you look. Shift is the afterburner; Space and C climb and dive.
+const FLY_SPEED = 32;
+const FLY_BOOST_SPEED = 180;
+const FLY_CEILING = 1200; // metres above the datum; the terrain fades out much higher up
+const SKIM_SPEED = 9; // touching the ground slower than this lands you
+
 const _v = new THREE.Vector3();
 const _euler = new THREE.Euler(0, 0, 0, 'YXZ');
 
@@ -52,7 +58,11 @@ export class Player {
     this.photoMode = false;
     this.colliders = []; // { x, z, r } trunks near the player
     this.ground = { h: 0, gx: 0, gz: 0, lee: 0, oasis: 0, water: -1e9 };
-    this.listeners = { step: new Set(), land: new Set(), jump: new Set() };
+    this.listeners = { step: new Set(), land: new Set(), jump: new Set(), fly: new Set(), skim: new Set() };
+    this.flying = false;
+    this.bank = 0;
+    this.airspeed = 0;
+    this._skimTimer = 0;
     this.sliding = 0;
     this.speed = 0;
     this.distanceWalked = 0;
@@ -73,8 +83,26 @@ export class Player {
     this.vel.set(0, 0, 0);
     this.vy = 0;
     this.grounded = true;
+    this.flying = false;
+    this.airspeed = 0;
+    this.bank = 0;
     if (yawDeg !== null) this.yaw = (yawDeg * Math.PI) / 180;
     if (pitchDeg !== null) this.pitch = (pitchDeg * Math.PI) / 180;
+  }
+
+  /** Take off (from the ground or mid-air) or stop flying and fall. */
+  setFlying(on) {
+    if (on === this.flying || this.photoMode) return;
+    this.flying = on;
+    if (on) {
+      if (this.grounded) this.vel.y = 9;
+      else this.vel.y = this.vy;
+      this.grounded = false;
+    } else {
+      this.vy = this.vel.y;
+    }
+    this.sliding = 0;
+    this._emit('fly', { on });
   }
 
   get headingDeg() {
@@ -87,6 +115,7 @@ export class Player {
     this.yaw += look.x * LOOK_SCALE * sensitivity;
     this.pitch -= look.y * LOOK_SCALE * sensitivity * (invertY ? -1 : 1);
     this.pitch = Math.max(-1.53, Math.min(1.53, this.pitch));
+    this._yawRate = dt > 0 ? (look.x * LOOK_SCALE * sensitivity) / dt : 0;
 
     const mv = input.moveVector();
     const fx = Math.sin(this.yaw);
@@ -96,6 +125,8 @@ export class Player {
 
     if (this.photoMode) {
       this._updatePhoto(dt, mv, fx, fz, rx, rz);
+    } else if (this.flying) {
+      this._updateFly(dt, mv, fx, fz, rx, rz);
     } else {
       this._updateWalk(dt, mv, fx, fz, rx, rz);
     }
@@ -114,6 +145,86 @@ export class Player {
     this.feet.y = Math.max(this.feet.y, this.ground.h + 0.3);
     this.speed = 0;
     this.grounded = false;
+  }
+
+  _updateFly(dt, mv, fx, fz, rx, rz) {
+    const input = this.input;
+    input.consumeJump();
+    const cp = Math.cos(this.pitch);
+    const sp = Math.sin(this.pitch);
+    const boost = input.sprinting();
+    const speed = boost ? FLY_BOOST_SPEED : FLY_SPEED;
+    const wish = _v.set(fx * cp * mv.y + rx * mv.x, sp * mv.y, fz * cp * mv.y + rz * mv.x);
+    if (wish.lengthSq() > 1) wish.normalize();
+    wish.y += input.verticalAxis() * 0.7;
+    wish.multiplyScalar(speed);
+    // Build speed slowly under boost, brake quickly; with no input you come to a hover.
+    const accel = wish.lengthSq() < this.vel.lengthSq() ? 1.6 : boost ? 0.9 : 1.8;
+    this.vel.lerp(wish, 1 - Math.exp(-dt * accel));
+
+    let nx = this.feet.x + this.vel.x * dt;
+    let nz = this.feet.z + this.vel.z * dt;
+    let ny = this.feet.y + this.vel.y * dt;
+    const g = this.ground;
+    groundSample(nx, nz, g);
+    // Palm trunks only matter down among the palms.
+    if (ny - g.h < 9) {
+      for (const c of this.colliders) {
+        const dx = nx - c.x;
+        const dz = nz - c.z;
+        const d = Math.hypot(dx, dz);
+        const r = c.r + 0.4;
+        if (d < r && d > 1e-4) {
+          nx = c.x + (dx / d) * r;
+          nz = c.z + (dz / d) * r;
+        }
+      }
+    }
+    if (ny > FLY_CEILING) {
+      ny = FLY_CEILING;
+      this.vel.y = Math.min(this.vel.y, 0);
+    }
+    const horiz = Math.hypot(this.vel.x, this.vel.z);
+    this.feet.set(nx, ny, nz);
+    this.airspeed = this.vel.length();
+    this.speed = 0;
+    this.sliding = 0;
+    this.inWater = 0;
+
+    if (ny <= g.h) {
+      this.feet.y = g.h;
+      if (horiz < SKIM_SPEED) {
+        // Touch down. A fast dive makes a proper superhero landing.
+        const impact = Math.max(0, -this.vel.y);
+        this.flying = false;
+        this.grounded = true;
+        this.vy = 0;
+        this.vel.y = 0;
+        this.airspeed = 0;
+        this.landV -= Math.min(impact, 14) * 0.06;
+        this._emit('fly', { on: false });
+        this._emit('land', { x: nx, z: nz, impact, heading: this.yaw, water: g.water - g.h });
+        return;
+      }
+      // Too fast to land: skim the surface.
+      this.vel.y = Math.max(this.vel.y, 0);
+    }
+
+    // Low and fast, you drag a wake of sand behind you.
+    const clearance = this.feet.y - g.h;
+    this._skimTimer -= dt;
+    if (clearance < 6 && horiz > 12 && this._skimTimer <= 0 && g.water - g.h < 0.05) {
+      this._skimTimer = 0.05;
+      const heading = Math.atan2(this.vel.x, -this.vel.z);
+      const strength = Math.min(1, horiz / 80) * (1 - clearance / 6);
+      // Grains are thrown back at a fraction of your speed, not all of it.
+      this._emit('skim', { x: nx, y: g.h, z: nz, heading, speed: Math.min(12, 3 + horiz * 0.1), count: Math.round(4 + 12 * strength) });
+    }
+
+    // Bank into turns, more so the faster you fly.
+    const fast = Math.min(1, horiz / 40);
+    const bankTarget = Math.max(-0.5, Math.min(0.5, this._yawRate * 0.12 * fast + mv.x * 0.12));
+    this.bank += (bankTarget - this.bank) * (1 - Math.exp(-dt * 4));
   }
 
   _updateWalk(dt, mv, fx, fz, rx, rz) {
@@ -184,7 +295,11 @@ export class Player {
         this._emit('jump', { x: nx, z: nz });
       }
     } else {
-      this.input.consumeJump();
+      // A second jump in mid-air takes off.
+      if (this.input.consumeJump()) {
+        this.setFlying(true);
+        return;
+      }
     }
 
     if (this.grounded) {
@@ -240,7 +355,8 @@ export class Player {
   }
 
   _updateCamera(dt, headBob, fov) {
-    const target = this.photoMode ? 0 : Math.min(1, this.speed / 1.6);
+    if (!this.flying) this.bank *= Math.exp(-dt * 5);
+    const target = this.photoMode || this.flying ? 0 : Math.min(1, this.speed / 1.6);
     this.bobWeight += (target - this.bobWeight) * (1 - Math.exp(-dt * 6));
     const w = headBob ? this.bobWeight : 0;
     const run = Math.min(1, Math.max(0, (this.speed - 1.7) / 2.8));
@@ -260,10 +376,10 @@ export class Player {
     this.camera.position.set(this.feet.x + rx * bobX, this.feet.y + eye + bobY + this.landY, this.feet.z + rz * bobX);
 
     // Three.js: yaw about +Y is counter-clockwise; our bearing is clockwise from north.
-    _euler.set(this.pitch, -this.yaw, roll, 'YXZ');
+    _euler.set(this.pitch, -this.yaw, roll - this.bank, 'YXZ');
     this.camera.quaternion.setFromEuler(_euler);
 
-    const kickTarget = this.input.sprinting() && this.speed > 2.5 ? 5 : 0;
+    const kickTarget = this.flying ? Math.min(22, this.airspeed * 0.12) : this.input.sprinting() && this.speed > 2.5 ? 5 : 0;
     this.fovKick += (kickTarget - this.fovKick) * (1 - Math.exp(-dt * 3));
     const f = fov + this.fovKick;
     if (Math.abs(this.camera.fov - f) > 0.01) {

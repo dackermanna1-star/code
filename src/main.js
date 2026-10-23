@@ -150,7 +150,8 @@ async function boot(hotData = {}) {
     const rightX = Math.cos(p.yaw);
     const rightZ = Math.sin(p.yaw);
     Object.assign(audioState, {
-      wind: game.weather.windSpeed,
+      // In flight the rush of air past your ears drowns out the desert wind.
+      wind: Math.max(game.weather.windSpeed, p.flying ? p.airspeed * 0.13 : 0),
       gust: game.weather.gust,
       storm: U.uStorm.value,
       windRelX: -(w.x * rightX + w.y * rightZ),

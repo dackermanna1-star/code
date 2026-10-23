@@ -46,6 +46,7 @@ export class Game {
       this.footprints?.addStep(e);
       if (e.water < 0.05) this.particles.kick(e.x, this.player.feet.y, e.z, e.heading, e.speed, e.running ? 10 : 5);
     });
+    this.player.on('skim', (e) => this.particles.kick(e.x, e.y, e.z, e.heading, e.speed, e.count));
     this.player.on('land', (e) => {
       this.footprints?.addLanding(e.x, e.z, e.heading, e.impact);
       if (e.water < 0.05) this.particles.kick(e.x, this.player.feet.y, e.z, e.heading, 0, Math.min(40, 12 + e.impact * 6));
@@ -104,7 +105,7 @@ export class Game {
       // A caster can shade the cascade from as far away as its shadow is long.
       const L = U.uLightDir.value;
       const reach = Math.min(500, 15 / Math.max(0.03, L.y / Math.max(1e-3, Math.hypot(L.x, L.z))));
-      this.body.update(this.player);
+      this.body.update(this.player, simDt);
       const casters = this.debugNoBody ? this.vegetation.casters() : [...this.vegetation.casters(), ...this.body.parts];
       this.body.root.visible = !this.debugNoBody && !this.player.photoMode;
       this.shadows.update(this.scene, this.player.feet, L, casters, (i, radius) => {

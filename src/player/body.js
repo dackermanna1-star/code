@@ -31,19 +31,38 @@ export class BodyProxy {
     this.legR = limb(0.1, 0.9, 0.07, 0.72);
     this.armL = limb(-0.24, 1.42, 0.045, 0.52);
     this.armR = limb(0.24, 1.42, 0.045, 0.52);
+    this.flyPose = 0;
+    this.flyHeading = 0;
   }
 
-  update(player) {
+  update(player, dt = 0.016) {
     const r = this.root;
+    // In flight the body stretches out along the direction of travel, one fist forward.
+    const v = player.vel;
+    const horiz = Math.hypot(v.x, v.z);
+    const target = player.flying ? Math.min(1, Math.max(0, (player.airspeed - 2) / 10)) : 0;
+    this.flyPose += (target - this.flyPose) * (1 - Math.exp(-dt * 3));
+    const pose = this.flyPose;
+    if (horiz > 1) this.flyHeading = Math.atan2(v.x, -v.z);
+    const heading = pose > 0.01 ? this.flyHeading : player.yaw;
+    const climb = Math.atan2(v.y, Math.max(horiz, 1e-3));
+    // Level flight lies flat; climbing turns upright, diving turns head-down.
+    const tilt = -pose * (Math.PI / 2 - climb * pose);
+    r.rotation.set(tilt, -heading, 0, 'YXZ');
     r.position.copy(player.feet);
-    r.position.y -= player.sink;
-    r.rotation.set(0, -player.yaw, 0);
+    r.position.y -= player.sink * (1 - pose);
+    // Keep the head near the eyes rather than pivoting about the feet.
+    r.position.y += 1.5 * pose;
+    if (pose > 0.01) {
+      r.position.x -= Math.sin(this.flyHeading) * 1.5 * pose;
+      r.position.z += Math.cos(this.flyHeading) * 1.5 * pose;
+    }
     const amp = Math.min(1, player.speed / 1.7) * (player.speed > 3 ? 0.75 : 0.45);
-    const swing = Math.sin(player.stride * Math.PI) * amp;
+    const swing = Math.sin(player.stride * Math.PI) * amp * (1 - pose);
     this.legL.rotation.x = swing;
     this.legR.rotation.x = -swing;
     this.armL.rotation.x = -swing * 0.8;
-    this.armR.rotation.x = swing * 0.8;
+    this.armR.rotation.x = swing * 0.8 + 2.95 * pose;
     r.updateMatrixWorld(true);
   }
 }

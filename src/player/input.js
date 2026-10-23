@@ -18,6 +18,8 @@ export class Input {
     this.dragLookAllowed = true;
     this.actions = new Map();
     this.gamepadButtons = [];
+    this.gamepadVertical = 0;
+    this.touchUp = false;
 
     window.addEventListener('keydown', (e) => this._onKey(e, true));
     window.addEventListener('keyup', (e) => this._onKey(e, false));
@@ -74,6 +76,9 @@ export class Input {
         break;
       case 'KeyF':
         this._emit('photo');
+        break;
+      case 'KeyG':
+        this._emit('fly');
         break;
       case 'KeyM':
         this._emit('mute');
@@ -139,10 +144,11 @@ export class Input {
     return this.enabled && (this.down('ShiftLeft', 'ShiftRight') || this.touchSprint || this.gamepadSprint);
   }
 
-  /** Vertical input for photo mode: +1 up, -1 down. */
+  /** Vertical input for flight and photo mode: +1 up, -1 down. */
   verticalAxis() {
     if (!this.enabled) return 0;
-    return (this.down('Space', 'KeyE') ? 1 : 0) - (this.down('KeyC', 'ControlLeft') ? 1 : 0);
+    const v = (this.down('Space', 'KeyE') || this.touchUp ? 1 : 0) - (this.down('KeyC', 'ControlLeft') ? 1 : 0) + this.gamepadVertical;
+    return Math.max(-1, Math.min(1, v));
   }
 
   /** Time scrubbing: -1, 0 or +1 while [ or ] is held. */
@@ -166,6 +172,7 @@ export class Input {
 
   update() {
     this.gamepadSprint = false;
+    this.gamepadVertical = 0;
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     for (const pad of pads) {
       if (!pad || !pad.connected) continue;
@@ -185,6 +192,8 @@ export class Input {
       if (edge(0)) this.jumpQueued = true;
       if (edge(9)) this._emit('menu');
       if (edge(3)) this._emit('photo');
+      if (edge(2)) this._emit('fly');
+      this.gamepadVertical = (pressed[0] ? 1 : 0) - (pressed[1] ? 1 : 0);
       this.gamepadSprint = !!(pressed[4] || pressed[6] || pressed[10]);
       this.gamepadButtons = pressed;
       this.usingGamepad = true;

@@ -139,6 +139,10 @@ void main() {
   float camR = ATM_RG + max(uCameraAltitude, 0.002);
   vec3 camPos = vec3(0.0, camR, 0.0);
   vec3 col = skyRadiance(dir);
+  // Seen from the air, the far terrain fades into horizon haze before the geometric
+  // horizon; fill the gap below it with that same haze so there is no seam.
+  float belowHorizon = smoothstep(0.015, -0.002, dir.y);
+  if (belowHorizon > 0.0) col = mix(col, skyRadiance(normalize(vec3(dir.x, 0.015, dir.z))), belowHorizon);
   vec3 tview = atmLightTransmittance(camPos, dir);
 
   // Night sky: stars, the Milky Way and faint airglow, extinguished near the horizon.
