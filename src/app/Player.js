@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { clamp, damp, approach, angleDiff } from '../core/math.js';
 import { VIEW_VARIANTS } from '../render/Viewmodel.js';
 import { hash01 } from '../core/rng.js';
+import { Driver } from './Driver.js';
 
 const _o = new THREE.Vector3();
 const _d = new THREE.Vector3();
@@ -32,6 +33,21 @@ export const ROLES = [
   ['manpads', 'AA gunner'],
   ['drone_op', 'Drone operator'],
 ];
+// Vehicles and aircraft, Shift + 1-0 on the same screens.
+export const VEHICLES = [
+  ['mbt', 'Tank'],
+  ['ifv', 'IFV'],
+  ['apc', 'APC'],
+  ['scout', 'Scout car'],
+  ['spaag', 'AA vehicle'],
+  ['spg', 'Howitzer'],
+  ['mlrs', 'Rocket launcher'],
+  ['attack_heli', 'Attack helicopter'],
+  ['transport_heli', 'Transport helicopter'],
+  ['jet', 'Jet'],
+];
+
+const roleOf = (u) => (u.cat === 'inf' ? u.def.role : u.type);
 
 const LOOK = 0.0022; // rad per pixel of mouse movement
 const KEY_TURN = 1.9; // rad/s with the arrow keys
@@ -58,6 +74,7 @@ export class Player {
     this.noLock = false;
     this.paused = false;
     this.view = 'first';
+    this.driver = new Driver(this);
     this.reset();
     const canvas = app.canvas;
     canvas.addEventListener('mousedown', (e) => this.mouseDown(e));
@@ -119,7 +136,15 @@ export class Player {
   }
 
   get alive() {
-    return !!this.u && this.u.alive && !this.u.downed;
+    const u = this.u;
+    if (!u) return false;
+    if (u.cat === 'inf') return u.alive && !u.downed;
+    return u.alive && !u.wreck && !u.crashing && !u.dying;
+  }
+
+  // The vehicle to leave out of the picture (seen from its gunner's sight).
+  get hideUnit() {
+    return this.active && this.u && this.u.cat !== 'inf' ? this.driver.hide : null;
   }
 
   get weapons() {
@@ -134,7 +159,10 @@ export class Player {
   // ------------------------------------------------------------ control
 
   canTake(u) {
-    return !!u && u.cat === 'inf' && u.alive && !u.downed && !u.dying && !u.mounted && !u.para && !u.climb && !u.hidden && u.def.role !== 'pilot';
+    if (!u || !u.alive || u.dying || u.hidden || u.removed) return false;
+    if (u.cat === 'inf') return !u.downed && !u.mounted && !u.para && !u.climb && u.def.role !== 'pilot';
+    if (u.cat === 'veh') return !u.wreck;
+    return (u.aclass === 'heli' || u.aclass === 'jet') && !u.crashing;
   }
 
   take(u) {
@@ -146,24 +174,28 @@ export class Player {
     this.u = u;
     this.active = true;
     u.player = this;
-    u.ctrl = { x: 0, z: 0, mode: 'run' };
-    u.stop();
-    u.task = null;
     u.target = null;
-    u.faceYaw = null;
-    u.skill = Math.max(u.skill, 1.15);
-    if (u.cover && w.cover) w.cover.release(u);
-    u.cover = null;
-    this.yaw = u.yaw;
-    this.pitch = 0;
     this.lastHp = u.hp;
-    this.eyeY = this.eyeHeight();
     this.slot = 0;
+    this.wasAlive = true;
+    if (u.cat === 'inf') {
+      u.ctrl = { x: 0, z: 0, mode: 'run' };
+      u.stop();
+      u.task = null;
+      u.faceYaw = null;
+      u.skill = Math.max(u.skill, 1.15);
+      if (u.cover && w.cover) w.cover.release(u);
+      u.cover = null;
+      this.yaw = u.yaw;
+      this.pitch = 0;
+      this.eyeY = this.eyeHeight();
+    } else this.driver.start(u);
     app.paused = false;
     app.timeScaleIdx = 2;
     app.select(null);
     app.camera.setMode('play', w);
-    app.renderer.infantry.hide = this.view === 'first' ? u : null;
+    app.renderer.infantry.hide = this.view === 'first' && u.cat === 'inf' ? u : null;
+    app.renderer.viewmodel.pass.enabled = false;
     app.hud.setPlaying(true);
     this.requestLock();
     this.say(`You are ${u.name}${u.squad && u.squad.callsign ? `, ${u.squad.callsign}` : ''}`, 2.5);
@@ -177,6 +209,7 @@ export class Player {
     u.player = null;
     u.ctrl = null;
     u.nextThink = 0;
+    if (u.cat !== 'inf') this.driver.stop(u);
     if (u.weapons) for (const w of u.weapons) w.release();
   }
 
@@ -204,7 +237,7 @@ export class Player {
   roleCounts() {
     const counts = {};
     if (!this.u) return counts;
-    for (const u of this.app.world.factions[this.u.faction].units) if (u !== this.u && this.canTake(u)) counts[u.def.role] = (counts[u.def.role] || 0) + 1;
+    for (const u of this.app.world.factions[this.u.faction].units) if (u !== this.u && this.canTake(u)) counts[roleOf(u)] = (counts[roleOf(u)] || 0) + 1;
     return counts;
   }
 
@@ -215,10 +248,12 @@ export class Player {
     if (!old) return;
     const w = this.app.world;
     const sq = old.squad || (old.downed && old.downed.squad);
+    // After a vehicle or aircraft, the next one of the same kind if any.
+    if (!role && old.cat !== 'inf' && this.roleCounts()[roleOf(old)]) role = roleOf(old);
     let best = null;
     let bs = Infinity;
     for (const u of w.factions[old.faction].units) {
-      if (u === old || !this.canTake(u) || (role && u.def.role !== role)) continue;
+      if (u === old || !this.canTake(u) || (role ? roleOf(u) !== role : u.cat !== 'inf')) continue;
       const d = Math.hypot(u.pos.x - old.pos.x, u.pos.z - old.pos.z) - (sq && u.squad === sq ? 400 : 0);
       if (d < bs) {
         bs = d;
@@ -297,19 +332,22 @@ export class Player {
       if (!this.alive) this.next();
       return true;
     }
-    // On the pause and death screens the number keys pick a role.
-    if ((this.paused || !this.alive) && /^(Digit|Numpad)[1-9]$/.test(code)) {
-      const r = ROLES[+code.slice(-1) - 1];
+    // On the pause and death screens the number keys pick a role (with
+    // Shift, a vehicle or aircraft).
+    if ((this.paused || !this.alive) && /^(Digit|Numpad)[0-9]$/.test(code)) {
+      const i = (+code.slice(-1) + 9) % 10;
+      const r = e.shiftKey ? VEHICLES[i] : ROLES[i];
       if (r && this.roleCounts()[r[0]]) this.next(r[0]);
-      return true;
-    }
-    if (code === 'KeyV') {
-      this.view = this.view === 'first' ? 'third' : 'first';
-      this.app.renderer.infantry.hide = this.view === 'first' ? this.u : null;
       return true;
     }
     if (code === 'KeyH') {
       this.since = 0;
+      return true;
+    }
+    if (this.u.cat !== 'inf') return this.alive ? this.driver.keydown(code, e) : code !== 'Tab';
+    if (code === 'KeyV') {
+      this.view = this.view === 'first' ? 'third' : 'first';
+      this.app.renderer.infantry.hide = this.view === 'first' ? this.u : null;
       return true;
     }
     if (!this.alive) return ['KeyW', 'KeyA', 'KeyS', 'KeyD', 'KeyQ', 'KeyE', 'KeyR', 'KeyF', 'KeyG', 'KeyC', 'KeyZ', 'KeyB', 'Space', 'Digit1', 'Digit2', 'Digit3', 'Digit4', 'Digit5', 'Digit6'].includes(code);
@@ -437,10 +475,18 @@ export class Player {
       if (h) this.hurtDir = Math.atan2(-h.dx, -h.dz);
     }
     this.lastHp = u.hp;
-    if (!this.alive) {
-      u.ctrl && (u.ctrl.x = u.ctrl.z = 0);
+    const alive = this.alive;
+    if (this.wasAlive && !alive) this.fallen();
+    this.wasAlive = alive;
+    if (!alive) {
+      if (u.cat === 'inf' && u.ctrl) u.ctrl.x = u.ctrl.z = 0;
       this.trigger = false;
       this.deathT += dt;
+      return;
+    }
+    if (u.cat !== 'inf') {
+      this.driver.beforeSim(dt, simDt);
+      this.edge = false;
       return;
     }
     // Moving.
@@ -489,6 +535,7 @@ export class Player {
     const u = this.u;
     const w = this.weapon;
     if (!w) return 0;
+    if (u.cat !== 'inf') return this.driver.spread();
     const def = w.def;
     let s = def.spread || 0.003;
     s *= 1 + (1 - this.adsT) * (def.kind === 'bullet' ? 5 : 1.5);
@@ -696,15 +743,22 @@ export class Player {
         this.killT = 2;
         this.killName = e.victim.name;
         this.hitT = 0.3;
-      } else if ((e.t === 'death' || e.t === 'downed') && e.unit === u) {
-        this.deathT = 0;
-        this.trigger = false;
-        this.adsWant = false;
-        this.killer = u.lastAttacker || (u.downed && u.downed.killer) || null;
-        this.killerDef = u.lastDef || (u.downed && u.downed.def) || null;
-        if (document.pointerLockElement) document.exitPointerLock();
+      } else if (e.t === 'kill' && e.victim === u) {
+        this.killer = e.killer || null;
+        this.killerDef = e.weapon || null;
       }
     }
+  }
+
+  // The played unit fell (killed, downed, destroyed, shot down).
+  fallen() {
+    const u = this.u;
+    this.deathT = 0;
+    this.trigger = false;
+    this.adsWant = false;
+    this.killer = u.lastAttacker || (u.downed && u.downed.killer) || null;
+    this.killerDef = u.lastDef || (u.downed && u.downed.def) || null;
+    if (document.pointerLockElement) document.exitPointerLock();
   }
 
   // Camera (called by the camera controller in play mode, after the step).
@@ -715,6 +769,14 @@ export class Player {
     const cam = app.camera.camera;
     const vm = app.renderer.viewmodel;
     const alive = this.alive;
+    if (u.cat !== 'inf') {
+      vm.pass.enabled = false;
+      if (alive) {
+        this.driver.camera(dt, cam);
+        this.camPos.copy(cam.position);
+      } else this.deathCam(cam, 5);
+      return;
+    }
     const eye = this.eyeHeight();
     this.eyeY += (eye - this.eyeY) * damp(12, dt);
     const sp = Math.min(u.speed || 0, 6);
@@ -738,23 +800,30 @@ export class Player {
       app.camera.fov = 70 + (VIEW_VARIANTS[this.variant()].fov - 70) * this.adsT;
       this.camPos.copy(cam.position);
     } else {
-      // Fallen: the view drifts back and up to look at the body.
       first = false;
-      const rd = u._rd;
-      _t.set(rd ? rd.cx : u.pos.x, (rd ? rd.cy : u.pos.y) + 0.3, rd ? rd.cz : u.pos.z);
-      const k = Math.min(1, this.deathT / 2.5);
-      const a = this.yaw + Math.PI + this.deathT * 0.12;
-      _p.set(_t.x + Math.sin(a) * (2.5 + k * 2), _t.y + 1.6 + k * 2, _t.z + Math.cos(a) * (2.5 + k * 2));
-      const g = app.world.terrain.heightAt(_p.x, _p.z) + 0.5;
-      if (_p.y < g) _p.y = g;
-      cam.position.lerpVectors(this.camPos, _p, Math.min(1, this.deathT * 1.5));
-      cam.lookAt(_t);
-      app.camera.fov = 60;
+      this.deathCam(cam, 1);
     }
     // Looking through a scope or a launcher's sight hides the weapon.
     const v = this.variant();
     vm.pass.enabled = first && !((v === 2 || v === 4) && this.adsT > 0.85);
     if (vm.pass.enabled) this.placeViewmodel(dt);
+  }
+
+  // Fallen: the view drifts back and up to look at the body or the wreck.
+  deathCam(cam, size) {
+    const u = this.u;
+    const app = this.app;
+    const rd = u._rd;
+    _t.set(rd ? rd.cx : u.pos.x, (rd ? rd.cy : u.pos.y) + 0.3 * size, rd ? rd.cz : u.pos.z);
+    const k = Math.min(1, this.deathT / 2.5);
+    const a = this.yaw + Math.PI + this.deathT * 0.12;
+    const r = (2.5 + k * 2) * size;
+    _p.set(_t.x + Math.sin(a) * r, _t.y + (1.6 + k * 2) * size, _t.z + Math.cos(a) * r);
+    const g = app.world.terrain.heightAt(_p.x, _p.z) + 0.5;
+    if (_p.y < g) _p.y = g;
+    cam.position.lerpVectors(this.camPos, _p, Math.min(1, this.deathT * 1.5));
+    cam.lookAt(_t);
+    app.camera.fov = 60;
   }
 
   // Over the right shoulder, pulled in front of walls and above the ground.
@@ -777,6 +846,7 @@ export class Player {
 
   variant() {
     const w = this.weapon;
+    if (this.u && this.u.cat !== 'inf') return 0;
     return w ? variantOf(w.def) : 0;
   }
 

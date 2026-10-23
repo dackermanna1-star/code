@@ -151,7 +151,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .p-msg { position: absolute; left: 50%; top: calc(50% + 96px); transform: translateX(-50%); font-family: var(--mono); font-size: 14px; color: var(--text); text-shadow: 0 0 3px #000; white-space: nowrap; }
 .p-kill { position: absolute; left: 50%; top: calc(50% + 40px); transform: translateX(-50%); font-family: var(--display); font-weight: 700; font-size: 20px; letter-spacing: 0.14em; color: #fff; text-shadow: 0 1px 4px #000; white-space: nowrap; }
 .p-compass { position: absolute; left: 50%; top: calc(118px + env(safe-area-inset-top, 0px)); transform: translateX(-50%); font-family: var(--mono); font-size: 14px; letter-spacing: 0.1em; color: var(--text); text-shadow: 0 0 3px #000; padding: 2px 10px; border-bottom: 1px solid var(--line-strong); }
-.p-vitals { position: absolute; left: calc(var(--gutter) + 176px); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: min(260px, 40vw); display: grid; gap: 5px; font-family: var(--mono); font-size: 12px; text-shadow: 0 0 3px #000; }
+.p-vitals { position: absolute; left: calc(var(--gutter) + 176px); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: min(380px, 46vw); display: grid; gap: 5px; font-family: var(--mono); font-size: 12px; text-shadow: 0 0 3px #000; }
 .p-vitals .nm { font-family: var(--display); font-size: 16px; font-weight: 600; letter-spacing: 0.04em; }
 .p-vitals .hpbar { height: 6px; background: rgba(0, 0, 0, 0.5); border: 1px solid var(--line-strong); }
 .p-vitals .hpbar i { display: block; height: 100%; }
@@ -177,6 +177,12 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px s
 .p-cover .roles kbd { font-family: var(--mono); color: var(--amber); }
 .p-cover .roles b { font-family: var(--mono); font-weight: 400; color: var(--muted); }
 .p-cover .roles .none { opacity: 0.35; }
+.p-cover .roles .pe { cursor: pointer; }
+.p-cover .roles .pe:hover span { color: var(--amber); }
+.p-mark { position: absolute; left: -9px; top: -9px; width: 18px; height: 18px; border: 2px solid rgba(255, 236, 150, 0.9); border-radius: 50%; box-shadow: 0 0 3px #000; }
+.p-mark.ccip { border-radius: 0; transform-origin: center; }
+.p-lockbox { position: absolute; left: -22px; top: -18px; width: 44px; height: 36px; border: 1.5px dashed var(--warn); }
+.p-lockbox.on { border: 2px solid var(--bad); }
 @media (max-width: 560px) { .p-cover .roles { grid-template-columns: repeat(2, auto); } }
 @media (max-width: 820px) {
   .p-keys { display: none; }

@@ -816,8 +816,8 @@ export class VehicleGroup {
       world.paths.cancel(this);
       return;
     }
-    if (!this.leader.alive || ms.indexOf(this.leader) < 0) {
-      this.leader = ms.find((v) => v.canMove) || ms[0];
+    if (!this.leader.alive || ms.indexOf(this.leader) < 0 || this.leader.player) {
+      this.leader = ms.find((v) => v.canMove && !v.player) || ms.find((v) => !v.player) || ms[0];
       if (this.goal) this.route(world);
     }
     let seen = 0;

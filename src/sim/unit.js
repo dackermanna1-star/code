@@ -54,6 +54,10 @@ export class Unit {
     this.killer = null;
     this.spawnTime = 0;
     this.stats = { shots: 0, hits: 0 };
+    // A person playing this unit, and what they ask of it this tick (the
+    // shape depends on the unit: walk direction, throttle/steer, flight).
+    this.player = null;
+    this.ctrl = null;
   }
 
   addWeapon(id, mount) {
@@ -130,8 +134,6 @@ export class Soldier extends Unit {
     this.faceYaw = null;
     this.throwT = 10;
     this.stuckT = 0;
-    this.player = null; // the person playing this soldier, if any
-    this.ctrl = null; // { x, z, mode } movement wished by the player
   }
 
   heightNow() {
@@ -634,7 +636,16 @@ export class Vehicle extends Unit {
     let targetSpeed = 0;
     let yawRate = 0;
     const tracked = this.spec.kind === 'tracked';
-    if (this.canMove && this.path && this.pathIdx < this.path.length) {
+    const ctrl = this.ctrl;
+    if (ctrl) {
+      // Driven by a player: throttle -1..1, steer -1..1 (positive = right).
+      if (this.canMove) {
+        const onRoad = terrain.materialAt(p.x, p.z) === MAT.ROAD;
+        const vmax = ctrl.throttle < 0 ? def.speed.reverse : onRoad ? def.speed.road : def.speed.offroad;
+        targetSpeed = ctrl.throttle * vmax;
+        yawRate = -ctrl.steer * def.turnRate * (tracked ? 1 : 1.3);
+      }
+    } else if (this.canMove && this.path && this.pathIdx < this.path.length) {
       let wp = this.path[this.pathIdx];
       let dx = wp.x - p.x;
       let dz = wp.z - p.z;
@@ -670,7 +681,7 @@ export class Vehicle extends Unit {
     }
     if (!tracked) yawRate *= clamp(Math.abs(this.speed) / 5, 0, 1) * Math.sign(this.speed || 1);
     // Avoid other vehicles ahead.
-    if (targetSpeed !== 0) {
+    if (targetSpeed !== 0 && !ctrl) {
       const fx = Math.sin(this.yaw) * Math.sign(targetSpeed);
       const fz = Math.cos(this.yaw) * Math.sign(targetSpeed);
       world.unitGrid.queryRadius(p.x + fx * 8, p.z + fz * 8, 7, _near);
@@ -855,6 +866,8 @@ export class Aircraft extends Unit {
     const p = this.pos;
     const isDrone = this.aclass === 'drone';
     const ground = this.groundClearance(world, p.x, p.z);
+    const ctrl = this.ctrl;
+    if (this.landed && ctrl && ctrl.vy > 0.5) this.landed = false;
     if (this.landed) {
       this.vel.set(0, 0, 0);
       this.speed = 0;
@@ -863,18 +876,30 @@ export class Aircraft extends Unit {
       this.quatFromAngles(0, 0, dt);
       return;
     }
-    const gx = this.goal.x - p.x;
-    const gz = this.goal.z - p.z;
-    const hd = Math.hypot(gx, gz);
-    const maxS = this.goalSpeed;
-    const sp = Math.min(maxS, hd * (isDrone ? 1.4 : 0.45));
-    let dvx = hd > 0.1 ? (gx / hd) * sp : 0;
-    let dvz = hd > 0.1 ? (gz / hd) * sp : 0;
-    // Altitude: hold goal height but never below the minimum clearance.
-    const minY = ground + (this.landing ? 0 : this.minAGL);
-    const gy = Math.max(this.goal.y, minY);
-    let dvy = clamp((gy - p.y) * (isDrone ? 2.5 : 0.8), -9, isDrone ? 14 : 10);
-    if (p.y < minY && !this.landing) dvy = Math.max(dvy, 6);
+    let maxS = this.goalSpeed;
+    let dvx;
+    let dvz;
+    let dvy;
+    if (ctrl) {
+      maxS = this.def.speed.max;
+      dvx = ctrl.vx;
+      dvz = ctrl.vz;
+      dvy = ctrl.vy;
+      // Sits on its skids rather than sinking into the ground.
+      if (p.y < ground + (this.spec.skidHeight ?? 1.2) + 0.2) dvy = Math.max(dvy, 1);
+    } else {
+      const gx = this.goal.x - p.x;
+      const gz = this.goal.z - p.z;
+      const hd = Math.hypot(gx, gz);
+      const sp = Math.min(maxS, hd * (isDrone ? 1.4 : 0.45));
+      dvx = hd > 0.1 ? (gx / hd) * sp : 0;
+      dvz = hd > 0.1 ? (gz / hd) * sp : 0;
+      // Altitude: hold goal height but never below the minimum clearance.
+      const minY = ground + (this.landing ? 0 : this.minAGL);
+      const gy = Math.max(this.goal.y, minY);
+      dvy = clamp((gy - p.y) * (isDrone ? 2.5 : 0.8), -9, isDrone ? 14 : 10);
+      if (p.y < minY && !this.landing) dvy = Math.max(dvy, 6);
+    }
     const a = this.def.accel;
     const k = Math.min(1, (a * dt) / Math.max(1, Math.hypot(dvx - this.vel.x, dvz - this.vel.z)));
     const ax = (dvx - this.vel.x) * k;
@@ -895,7 +920,8 @@ export class Aircraft extends Unit {
     this.speed = Math.hypot(this.vel.x, this.vel.z);
     // Facing: a target if strafing, otherwise the direction of travel.
     let wantYaw = this.yaw;
-    if (this.faceTarget) wantYaw = Math.atan2(this.faceTarget.x - p.x, this.faceTarget.z - p.z);
+    if (ctrl) wantYaw = ctrl.yaw;
+    else if (this.faceTarget) wantYaw = Math.atan2(this.faceTarget.x - p.x, this.faceTarget.z - p.z);
     else if (this.speed > 4) wantYaw = Math.atan2(this.vel.x, this.vel.z);
     this.yaw = approachAngle(this.yaw, wantYaw, dt * this.def.turnRate * (isDrone ? 1.5 : 1));
     // Attitude from acceleration and speed: nose down when moving forward.
@@ -923,12 +949,20 @@ export class Aircraft extends Unit {
   updateFixedWing(dt, world) {
     const p = this.pos;
     const def = this.def;
+    const ctrl = this.ctrl;
+    if (ctrl) {
+      // Fly where the player looks; turn back toward the battle off the map.
+      this.goalSpeed = ctrl.speed;
+      this.goal.set(p.x + ctrl.dx * 2000, p.y + ctrl.dy * 2000, p.z + ctrl.dz * 2000);
+      const lim = world.terrain.half + 500;
+      if (Math.abs(p.x) > lim || Math.abs(p.z) > lim) this.goal.set(0, Math.max(p.y, 300), 0);
+    }
     this.speed = approach(this.speed, this.goalSpeed, def.accel * dt);
     // Desired direction toward the goal.
     _v.subVectors(this.goal, p);
     const ground = world.terrain.heightAt(p.x, p.z);
     const look = world.terrain.heightAt(p.x + this.vel.x * 3, p.z + this.vel.z * 3);
-    const minY = Math.max(ground, look) + this.minAGL * (this.attackRun ? 0.35 : 1);
+    const minY = Math.max(ground, look) + (ctrl ? 35 : this.minAGL * (this.attackRun ? 0.35 : 1));
     if (p.y + _v.y < minY) _v.y = minY - p.y;
     _v.normalize();
     // Current forward.
@@ -936,11 +970,12 @@ export class Aircraft extends Unit {
     const wantYaw = Math.atan2(_v.x, _v.z);
     const wantPitch = clamp(Math.asin(clamp(_v.y, -1, 1)), -0.6, 0.6);
     const yawErr = angleDiff(this.yaw, wantYaw);
-    const yawRate = clamp(yawErr * 1.2, -def.turnRate, def.turnRate);
+    const turn = def.turnRate * (ctrl ? 1.3 : 1);
+    const yawRate = clamp(yawErr * (ctrl ? 2 : 1.2), -turn, turn);
     this.yaw = wrapAngle(this.yaw + yawRate * dt);
     let pitchTarget = wantPitch;
     if (p.y < minY) pitchTarget = Math.max(pitchTarget, 0.25);
-    this.pitch = approach(this.pitch, pitchTarget, dt * def.turnRate * 0.8);
+    this.pitch = approach(this.pitch, pitchTarget, dt * turn * 0.8);
     // Coordinated turn bank angle.
     const bank = clamp(Math.atan((this.speed * yawRate) / GRAVITY), -1.25, 1.25);
     this.roll += (bank - this.roll) * damp(3, dt);

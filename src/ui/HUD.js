@@ -45,7 +45,7 @@ const HELP = [
   ['Follow a random aircraft', 'T'],
   ['Pause', 'Space'],
   ['Slower / faster time', '− / +'],
-  ['Play as the selected soldier', 'Enter'],
+  ['Play as the selected soldier, vehicle or aircraft', 'Enter'],
   ['Markers and soldier rings', 'M'],
   ['Hide interface', 'Tab'],
   ['Performance stats', 'P'],

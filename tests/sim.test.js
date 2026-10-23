@@ -6,7 +6,7 @@ import { generateMap, SCENARIOS } from '../src/world/mapgen.js';
 import { World } from '../src/sim/world.js';
 import { attachAI } from '../src/ai/index.js';
 import { WeaponMount } from '../src/sim/mount.js';
-import { ballisticAngle, segSegClosest, segOBB } from '../src/core/math.js';
+import { ballisticAngle, segSegClosest, segOBB, angleDiff } from '../src/core/math.js';
 import { damageStructure } from '../src/sim/damage.js';
 import { rng } from '../src/core/rng.js';
 import { MOVE_INF, MOVE_TRACK } from '../src/world/nav.js';
@@ -173,4 +173,52 @@ test('a soldier played by a person ignores his AI and squad and goes where he is
   const hp = u.hp;
   w.damageSoldier(u, 20, null, null, false);
   assert.equal(hp - u.hp, 10);
+});
+
+test('a player drives a tank, flies a helicopter and steers a jet', () => {
+  rng.seed(5);
+  const m = generateMap('valley', 5);
+  const w = new World(m, { tickets: 800 });
+  const army = { size: 250, infantry: 1, armor: 1, air: 0, artillery: 0, drones: 0, reinforcements: false };
+  attachAI(w, [army, army]);
+  const step = (n) => {
+    for (let i = 0; i < n; i++) {
+      w.update(1 / 30);
+      w.events.length = 0;
+    }
+  };
+  // Tank: full throttle, no steering, then a right turn.
+  const tank = w.units.find((u) => u.type === 'mbt' && u.alive);
+  tank.player = {};
+  tank.ctrl = { throttle: 1, steer: 0 };
+  const yaw0 = tank.yaw;
+  const p0 = tank.pos.clone();
+  step(90);
+  const fwd = (tank.pos.x - p0.x) * Math.sin(yaw0) + (tank.pos.z - p0.z) * Math.cos(yaw0);
+  assert.ok(fwd > 8, `tank drove forward ${fwd.toFixed(1)} m`);
+  assert.ok(Math.abs(angleDiff(yaw0, tank.yaw)) < 0.05, 'and kept straight');
+  tank.ctrl.steer = 1;
+  const y1 = tank.yaw;
+  step(30);
+  assert.ok(angleDiff(y1, tank.yaw) < -0.3, 'steering right turns right (yaw decreases)');
+  // Helicopter: climb straight up and turn to a heading.
+  const heli = w.spawnUnit('attack_heli', 0, 0, 0, {});
+  heli.pos.y = w.terrain.heightAt(0, 0) + 40;
+  heli.player = {};
+  heli.ctrl = { vx: 0, vz: 0, vy: 8, yaw: 1 };
+  const h0 = heli.pos.y;
+  step(60);
+  assert.ok(heli.pos.y > h0 + 6, 'helicopter climbs');
+  step(90); // turning at its own rate
+  assert.ok(Math.abs(angleDiff(1, heli.yaw)) < 0.2, 'helicopter turns to the heading');
+  // Jet: flies toward where the player looks.
+  const jet = w.spawnUnit('jet', 0, 0, 0, {});
+  jet.pos.y = w.terrain.heightAt(0, 0) + 500;
+  jet.speed = 200;
+  jet.yaw = 0;
+  jet.player = {};
+  jet.ctrl = { dx: 1, dy: 0, dz: 0, speed: 220 };
+  step(150);
+  assert.ok(jet.alive, 'jet still flying');
+  assert.ok(Math.abs(angleDiff(Math.PI / 2, jet.yaw)) < 0.2, `jet turned east (${jet.yaw.toFixed(2)})`);
 });

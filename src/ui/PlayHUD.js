@@ -5,7 +5,11 @@
 
 import { FACTION_INFO } from '../sim/world.js';
 import { bearingDegrees } from '../core/math.js';
-import { ROLES } from '../app/Player.js';
+import * as THREE from 'three';
+import { ROLES, VEHICLES } from '../app/Player.js';
+import { VEHICLE_KEYS, kindOf } from '../app/Driver.js';
+
+const _v = new THREE.Vector3();
 
 function el(tag, cls = '', text = '') {
   const e = document.createElement(tag);
@@ -74,11 +78,10 @@ export class PlayHUD {
     this.aExtra = el('div', 'ex');
     this.ammo.append(this.aName, this.aNum, this.aExtra);
     this.keys = el('div', 'p-keys');
-    for (const [k, v] of KEYS) {
-      const kv = el('div');
-      kv.append(el('kbd', '', v), el('span', '', k));
-      this.keys.append(kv);
-    }
+    this.keysKind = null;
+    // Gun line / bomb impact marker and the box around a locked target.
+    this.mark = el('div', 'p-mark');
+    this.lockBox = el('div', 'p-lockbox');
     this.cover = el('div', 'p-cover');
     this.coverTitle = el('div', 't');
     this.coverSub = el('div', 's');
@@ -86,7 +89,7 @@ export class PlayHUD {
     this.coverRoles = el('div', 'roles');
     this.rolesT = 0;
     this.cover.append(this.coverTitle, this.coverSub, this.coverHint, this.coverRoles);
-    r.append(this.dmg, this.supp, this.scope, this.clu, this.dir, this.xhair, this.hit, this.lock, this.msg, this.kill, this.compass, this.vitals, this.ammo, this.keys, this.cover);
+    r.append(this.mark, this.lockBox, this.dmg, this.supp, this.scope, this.clu, this.dir, this.xhair, this.hit, this.lock, this.msg, this.kill, this.compass, this.vitals, this.ammo, this.keys, this.cover);
     root.append(r);
   }
 
@@ -120,7 +123,8 @@ export class PlayHUD {
     this.hit.classList.toggle('head', p.hitHead);
     this.hit.classList.toggle('kill', p.killT > 1.7);
     // Missile lock.
-    const missile = alive && w && w.def.kind === 'missile' && p.adsT > 0.8;
+    const inf = u.cat === 'inf';
+    const missile = alive && w && w.def.kind === 'missile' && (!inf || p.adsT > 0.8);
     this.lock.hidden = !missile;
     if (missile) {
       const need = p.lockNeed(w.def);
@@ -128,12 +132,30 @@ export class PlayHUD {
       this.lock.textContent = !p.lockOn ? 'NO TARGET' : k >= 1 ? `LOCKED · ${p.lockOn.name.toUpperCase()}` : 'LOCKING';
       this.lock.classList.toggle('on', k >= 1);
     }
+    // Lock box and the weapon's own aim mark, projected to the screen.
+    const proj = (pos) => {
+      _v.copy(pos).project(camera);
+      return _v.z < 1 ? [((_v.x + 1) / 2) * width, ((1 - _v.y) / 2) * height] : null;
+    };
+    const lk = missile && p.lockOn ? proj(_v.set(p.lockOn.pos.x, p.lockOn.pos.y + (p.lockOn.cat === 'veh' ? p.lockOn.spec.height * 0.5 : 0), p.lockOn.pos.z)) : null;
+    this.lockBox.hidden = !lk;
+    if (lk) {
+      this.lockBox.style.transform = `translate(${lk[0]}px, ${lk[1]}px)`;
+      this.lockBox.classList.toggle('on', p.lockT >= p.lockNeed(w.def));
+    }
+    const d = p.driver;
+    const mk = !inf && alive && d.markOn ? proj(d.mark) : null;
+    this.mark.hidden = !mk;
+    if (mk) {
+      this.mark.style.transform = `translate(${mk[0]}px, ${mk[1]}px)`;
+      this.mark.classList.toggle('ccip', !!d.ccip);
+    }
     this.msg.textContent = p.msgT > 0 ? p.msg : '';
     this.kill.textContent = p.killT > 0 ? `${p.killName.toUpperCase()} ELIMINATED` : '';
     this.kill.style.opacity = String(Math.min(1, p.killT));
     // Damage: red edges, and an arc toward the shooter.
     this.dmg.style.opacity = String(Math.min(0.85, p.hurt + (alive ? Math.max(0, 0.35 - u.hp / u.maxHp) : 0)));
-    this.supp.style.opacity = String(alive ? Math.min(0.7, u.suppression * 0.8) : 0);
+    this.supp.style.opacity = String(alive ? Math.min(0.7, (u.suppression || 0) * 0.8) : 0);
     this.dir.hidden = !(p.hurt > 0.05 && alive);
     if (!this.dir.hidden) {
       this.dir.style.opacity = String(Math.min(1, p.hurt * 1.6));
@@ -150,17 +172,33 @@ export class PlayHUD {
     const hp = Math.max(0, u.hp / u.maxHp);
     this.hp.style.width = `${hp * 100}%`;
     this.hp.style.background = hp > 0.6 ? 'var(--ok)' : hp > 0.3 ? 'var(--warn)' : 'var(--bad)';
-    const state = [STANCES[u.stance] || ''];
-    if (p.sprintT > 0.5) state[0] = 'Sprinting';
-    if (u.bleed > 0) state.push(p.bandageT > 0 ? 'dressing wound' : 'BLEEDING · B');
+    let state;
+    if (inf) {
+      state = [STANCES[u.stance] || ''];
+      if (p.sprintT > 0.5) state[0] = 'Sprinting';
+      if (u.bleed > 0) state.push(p.bandageT > 0 ? 'dressing wound' : 'BLEEDING · B');
+    } else {
+      state = [`${Math.round(Math.abs(u.speed) * 3.6)} km/h`];
+      if (u.cat === 'air') {
+        state.push(`ALT ${Math.round(u.pos.y - this.app.world.terrain.heightAt(u.pos.x, u.pos.z))} m`, `flares ${u.flares}`);
+        if (u.aclass === 'jet') state.push(`throttle ${Math.round(d.thr * 100)}%`);
+      } else {
+        state.push(`smoke ${u.smokeCharges}`);
+        if (u.mobilityKill) state.push('IMMOBILIZED');
+        if (u.firepowerKill) state.push('GUN OUT');
+        if (u.burning > 0) state.push('ON FIRE');
+      }
+      if (u.passengers && u.passengers.length) state.push(`${u.passengers.length} troops · X`);
+    }
     this.vState.textContent = state.join(' · ');
-    this.vState.classList.toggle('bad', u.bleed > 0);
+    this.vState.classList.toggle('bad', inf ? u.bleed > 0 : u.burning > 0 || u.hp / u.maxHp < 0.3);
     // Ammunition.
     if (w) {
       this.aName.textContent = w.def.name;
       this.aMag.textContent = w.reloadT > 0 ? '··' : String(w.mag);
       this.aRes.textContent = w.reserve === Infinity ? ' / ∞' : ` / ${w.reserve}`;
       const ex = [];
+      if (w.ammoType) ex.push(w.ammoType.toUpperCase());
       if (w.reloadT > 0) ex.push('RELOADING');
       else if (w.mag === 0 && w.reserve > 0) ex.push('R TO RELOAD');
       else if (w.mag === 0) ex.push('EMPTY');
@@ -171,19 +209,29 @@ export class PlayHUD {
       this.aMag.classList.toggle('low', w.mag <= Math.max(1, (w.def.mag ?? 1) * 0.2));
     }
     this.keys.hidden = p.since > 14 || !alive || p.paused;
+    const kk = inf ? 'inf' : kindOf(u);
+    if (kk !== this.keysKind) {
+      this.keysKind = kk;
+      this.keys.textContent = '';
+      for (const [k, v] of inf ? KEYS : VEHICLE_KEYS[kk]) {
+        const kv = el('div');
+        kv.append(el('kbd', '', v), el('span', '', k));
+        this.keys.append(kv);
+      }
+    }
     // Pause and death screens.
     let cover = false;
     if (!alive) {
       cover = p.deathT > 1.2;
-      this.coverTitle.textContent = u.alive ? 'You are down' : 'Killed in action';
+      this.coverTitle.textContent = inf ? (u.alive ? 'You are down' : 'Killed in action') : u.cat === 'air' ? 'Shot down' : 'Vehicle destroyed';
       const k = p.killer;
       this.coverSub.textContent = k ? `by ${k.name}${p.killerDef && p.killerDef.name ? ` · ${p.killerDef.name}` : ''}` : u.alive ? 'Bleeding out; a squadmate may reach you' : '';
-      this.coverHint.textContent = 'Enter: nearest soldier · 1–9: pick a role · Esc: spectate';
+      this.coverHint.textContent = `Enter: ${inf ? 'nearest soldier' : 'another one like it'} · 1–9 or ⇧1–0: pick · Esc: spectate`;
     } else if (p.paused) {
       cover = true;
       this.coverTitle.textContent = 'Paused';
       this.coverSub.textContent = 'Click to keep playing';
-      this.coverHint.textContent = '1–9: switch to another role · Esc: hand the soldier back to the AI';
+      this.coverHint.textContent = '1–9 or ⇧1–0: switch · Esc: hand back to the AI';
     }
     this.cover.hidden = !cover;
     // Roles to switch to, with how many of each are left.
@@ -192,12 +240,20 @@ export class PlayHUD {
       this.rolesT = 0.5;
       const counts = p.roleCounts();
       this.coverRoles.textContent = '';
-      ROLES.forEach(([id, label], i) => {
-        const n = counts[id] || 0;
-        const row = el('div', n ? '' : 'none');
-        row.append(el('kbd', '', String(i + 1)), el('span', '', label), el('b', '', String(n)));
-        this.coverRoles.append(row);
-      });
+      const add = (list, shift) =>
+        list.forEach(([id, label], i) => {
+          const n = counts[id] || 0;
+          const row = el('div', n ? 'pe' : 'none');
+          row.append(el('kbd', '', `${shift ? '⇧' : ''}${(i + 1) % 10}`), el('span', '', label), el('b', '', String(n)));
+          // Rows can be clicked as well.
+          if (n) row.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            p.next(id);
+          });
+          this.coverRoles.append(row);
+        });
+      add(ROLES, false);
+      add(VEHICLES, true);
     }
     this.cover.classList.toggle('dead', !alive);
     void width;

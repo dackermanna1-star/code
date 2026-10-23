@@ -224,7 +224,7 @@ export class App {
       const cam = this.renderer.camera.position;
       let bs = Infinity;
       for (const s of this.world.units) {
-        if (!p.canTake(s)) continue;
+        if (s.cat !== 'inf' || !p.canTake(s)) continue;
         const d = (s.pos.x - cam.x) ** 2 + (s.pos.z - cam.z) ** 2;
         if (d < bs) {
           bs = d;
@@ -378,7 +378,7 @@ export class App {
     this.renderer.fpv = this.camera.fpvActive ? 1 : 0;
     this.renderer.markerMode = !this.markersVisible || playing ? 'off' : this.camera.mode === 'overview' ? 'on' : this.camera.mode === 'free' ? 'auto' : 'off';
     const ct = this.camera.target;
-    this.renderer.hideUnit = this.camera.mode === 'eyes' && ct && ct.cat === 'veh' && ct.alive ? ct : null;
+    this.renderer.hideUnit = this.camera.mode === 'eyes' && ct && ct.cat === 'veh' && ct.alive ? ct : this.player.hideUnit;
     this.renderer.render(dt, simDt, playing ? null : this.selected);
     if (this.bridge) this.bridge.update(dt, this.renderer.camera, w, this.timeScale, this.paused);
     const t2 = performance.now();

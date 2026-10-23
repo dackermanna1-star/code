@@ -94,6 +94,18 @@ Select any soldier (or none: the one nearest the camera is used) and press **Ent
 
 When he falls the view pulls back over his body; **Enter** takes over the nearest soldier of the same side (squadmates first). On that screen, or when paused, the keys 1–9 take over a soldier of a chosen role instead (rifleman, squad leader, grenadier, machine gunner, anti-tank, ATGM gunner, sniper, AA gunner, drone operator), with how many are left of each. Snipers work in two-man teams behind the line, about one team per 110 soldiers. The played soldier takes a little less damage than the AI's.
 
+### Vehicles and aircraft
+
+Select a tank, IFV, APC, scout car, AA vehicle, howitzer, rocket launcher, helicopter or jet and press Enter (or pick one with Shift + 1–0 on the pause and death screens).
+
+| | Ground vehicles | Helicopters | Jets |
+| --- | --- | --- | --- |
+| Move | W/S throttle, A/D steer | W A S D relative to the view, Space / C climb and descend, Shift fast | Flies where you look (mouse aim), A/D nudge, W/S throttle |
+| Aim | The mouse lays the turret on the crosshair at its own traverse speed; the ring shows where the gun points now, range drop is compensated | The chin gun and door guns aim at the crosshair, rockets and the cannon fire along the nose (ring) | The cannon fires along the nose (ring); bombs fall on the impact point shown |
+| Other | R changes ammunition (APFSDS / HE), G smoke screen, X unloads troops; howitzers and rocket launchers lob their rounds onto the aimed point | G flares, X unloads troops once landed | G flares |
+
+Left click fires, Q / 1–4 / the wheel switch weapons, missiles lock onto a vehicle or aircraft held near the crosshair, V switches between the chase view and the gunner's sight or cockpit, E zooms. When the vehicle is destroyed, Enter takes over another of the same kind.
+
 ## Architecture
 
 ```
