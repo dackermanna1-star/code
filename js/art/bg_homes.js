@@ -30,7 +30,6 @@
   const lerp = (a, b, t) => a + (b - a) * t;
   const dOf = (pts) => 'M' + pts.map(F).join(' L') + ' Z';
   const screen = (inner) => `<g style="mix-blend-mode:screen">${inner}</g>`;
-  const grp = (attrs, inner) => `<g ${attrs}>${inner}</g>`;
   const txt = (x, y, str, { size = 16, fill = '#222', family = SANS, anchor = 'middle', weight, rot, opacity, ls, style } = {}) =>
     `<text x="${n(x)}" y="${n(y)}" font-family="${family}" font-size="${size}" fill="${fill}" text-anchor="${anchor}"` +
     `${weight ? ` font-weight="${weight}"` : ''}${ls !== undefined ? ` letter-spacing="${ls}"` : ''}${opacity !== undefined ? ` opacity="${opacity}"` : ''}` +
@@ -373,6 +372,11 @@
       s += K.poly(R.qX(0, 100, 660, 40, 900), L(walnut)) + K.poly(R.qX(0, 130, 630, 70, 900), eve ? '#1a120e' : '#05070c');
       const np = R.P(0, 0, 560);
       s += K.rect(np[0] - 40, 520, 22, 380, eve ? '#3a2618' : '#0b0d14') + K.ellipse(np[0] - 29, 518, 16, 9, eve ? '#4a3020' : '#0d1018');
+      // an oval mirror on the left wall, holding a little of the light
+      const mpts = [], mpts2 = [];
+      for (let i = 0; i < 28; i++) { const a = (i / 28) * 6.2832; mpts.push(R.P(0, 250 + Math.sin(a) * 170, 1250 + Math.cos(a) * 170)); mpts2.push(R.P(0, 250 + Math.sin(a) * 146, 1250 + Math.cos(a) * 146)); }
+      s += K.poly(mpts, L('#9a7a3e')) + K.poly(mpts2, eve ? K.mix(S('#8a9098'), '#c8a878', 0.25) : S('#6a7488'));
+      s += K.poly([R.P(0, 150, 1180), R.P(0, 140, 1230), R.P(0, 330, 1300), R.P(0, 350, 1250)], '#ffffff', { opacity: eve ? 0.12 : 0.06 });
       // floor
       s += K.poly(R.floor, L(floorC));
       s += R.boards(o, rng, { w: 64, color: S('#3a2416'), opacity: 0.45 });
@@ -480,7 +484,8 @@
       const sitter = (x, y, w, h, bg, fg, skin) => K.rect(x, y, w, h, bg) + K.ellipse(x + w / 2, y + h * 0.95, w * 0.36, h * 0.34, fg) + K.ellipse(x + w / 2, y + h * 0.45, w * 0.17, h * 0.2, skin) + K.path(`M${x + w * 0.31},${y + h * 0.42} Q${x + w / 2},${y + h * 0.12} ${x + w * 0.69},${y + h * 0.42} Q${x + w / 2},${y + h * 0.3} ${x + w * 0.31},${y + h * 0.42} Z`, K.adj(fg, -0.2));
       const gilt = L('#b8903e'), dark = L('#3a2618');
       const PX = -110; // shift of the whole cluster
-      ph += K.ellipse(PX + 1080, 262, 62, 80, gilt) + K.ellipse(PX + 1080, 262, 52, 70, L('#c9ae84')) + K.ellipse(PX + 1066, 282, 18, 22, L('#efe2c6')) + K.ellipse(PX + 1066, 330, 30, 30, L('#2e2219')) + K.ellipse(PX + 1096, 278, 15, 19, L('#d9c4a0')) + K.ellipse(PX + 1098, 330, 30, 32, L('#f1e6cf'));
+      ph += K.ellipse(PX + 1080, 262, 62, 80, gilt) + K.ellipse(PX + 1080, 262, 52, 70, L('#c9ae84'));
+      ph += clipWith(o, `<ellipse cx="${PX + 1080}" cy="262" rx="52" ry="70"/>`, K.ellipse(PX + 1064, 262, 15, 19, L('#e6d6b8')) + K.ellipse(PX + 1062, 318, 28, 34, L('#2e2219')) + K.ellipse(PX + 1096, 258, 13, 17, L('#d9c4a0')) + K.ellipse(PX + 1100, 318, 28, 36, L('#f1e6cf')) + K.path(`M${PX + 1084},300 l16,-8 l16,8 l-16,40 Z`, L('#e9dcc4')), 'oval');
       ph += frame(PX + 1170, 190, 84, 108, dark, sitter(PX + 1170, 190, 84, 108, L('#6f86a6'), L('#7a3a3a'), L('#e3c3a6')));
       ph += frame(PX + 1290, 210, 132, 94, gilt, K.rect(PX + 1290, 210, 132, 94, L('#bdb6a8')) + K.rect(PX + 1290, 270, 132, 34, L('#8a857c')) + [0, 1, 2, 3].map((i) => K.ellipse(PX + 1310 + i * 30, 252, 9, 11, L('#4a4640')) + K.rect(PX + 1301 + i * 30, 262, 18, 34, L('#5a554e'))).join(''));
       // THE EMPTY ONE: gilt frame, mat, nothing in it
@@ -813,9 +818,9 @@
       it += K.rect(bbx + 74, bby + 66, 32, 6, L('#c8462e'), { opacity: 0.8 });
       if (!day) it += K.circle(bbx + 112, bby + 14, 2.2, '#ff5a3a');
       // Walkman and the orange foam headphones
-      it += K.rect(880, 618, 52, 20, L('#4a6a8a'), { rx: 3 }) + K.rect(884, 622, 26, 10, L('#20242a'));
-      it += K.path('M944,636 Q976,586 1010,634', 'none', { stroke: L('#3a3a40'), strokeWidth: 4 }) + K.circle(946, 630, 14, L(P.ember)) + K.circle(1008, 630, 14, L(P.ember)) + K.circle(946, 630, 6, S(P.ember)) + K.circle(1008, 630, 6, S(P.ember));
-      it += K.path('M906,628 C920,660 960,650 980,640', 'none', { stroke: L('#2a2a2e'), strokeWidth: 1.5 });
+      it += K.rect(872, 612, 62, 26, L('#4a6a8a'), { rx: 3 }) + K.rect(877, 617, 30, 13, L('#20242a')) + K.rect(912, 616, 16, 6, L('#c8ccd2'));
+      it += K.path('M946,630 Q984,568 1024,628', 'none', { stroke: L('#3a3a40'), strokeWidth: 5 }) + K.circle(946, 626, 18, L(P.ember)) + K.circle(1024, 626, 18, L(P.ember)) + K.circle(946, 626, 7, S(P.ember)) + K.circle(1024, 626, 7, S(P.ember));
+      it += K.path('M906,630 C920,660 960,650 980,640', 'none', { stroke: L('#2a2a2e'), strokeWidth: 1.5 });
       // gooseneck desk lamp, off
       it += K.ellipse(1168, 637, 22, 6, L('#3a4a3a')) + K.path('M1168,634 C1170,560 1150,500 1112,488', 'none', { stroke: L('#3a4a3a'), strokeWidth: 5 });
       it += K.path('M1086,500 L1122,466 L1146,492 Q1124,516 1086,500 Z', L('#3e5a46')) + K.path('M1104,500 L1132,478 L1146,492 Q1128,512 1104,500 Z', S('#3e5a46'));
@@ -957,13 +962,13 @@
 
       /* ---- the attic hatch in the ceiling, cord, padlock ---- */
       const H0 = 820, H1 = 1380, HD0 = 3900, HD1 = 4600;
-      s += K.poly(R.qY(YC, H0 - 50, H1 + 50, HD0 - 50, HD1 + 50), L(trim)) + K.poly(R.qY(YC, H0, H1, HD0, HD1), S('#8a7a64'));
-      s += K.poly(R.qY(YC, H0 + 40, H1 - 40, HD0 + 60, HD1 - 60), K.adj(S('#8a7a64'), -0.08));
+      s += K.poly(R.qY(YC, H0 - 50, H1 + 50, HD0 - 50, HD1 + 50), L(trim)) + K.poly(R.qY(YC, H0 - 10, H1 + 10, HD0 - 10, HD1 + 10), K.adj(S('#d8cfbc'), -0.45));
+      s += K.poly(R.qY(YC, H0, H1, HD0, HD1), K.adj(S('#d8cfbc'), -0.04)) + K.poly(R.qY(YC, H0 + 60, H1 - 60, HD0 + 90, HD1 - 90), K.adj(S('#d8cfbc'), -0.12));
       const ca = Pp(1100, YC, HD0 + 20), cb = Pp(1100, YC + 860, HD0 + 20);
       s += K.line(ca[0], ca[1], cb[0], cb[1], L('#b8b0a0'), 1.6) + K.ellipse(cb[0], cb[1] + 6, 3.4, 7, L('#c9b48e'));
       // hasp and a small brass padlock at the hatch's near edge
       const pl = Pp(1300, YC, HD0 - 10);
-      s += K.rect(pl[0] - 5, pl[1] - 2, 10, 4, L('#6a6a6a')) + K.path(`M${n(pl[0] - 4)},${n(pl[1] + 6)} a4,4.5 0 0 1 8,0`, 'none', { stroke: L('#8a8a8a'), strokeWidth: 1.8 }) + K.rect(pl[0] - 5.5, pl[1] + 6, 11, 9, L('#b8903e'), { rx: 1.5 });
+      s += K.rect(pl[0] - 7, pl[1] - 2, 14, 5, L('#6a6a6a')) + K.path(`M${n(pl[0] - 5)},${n(pl[1] + 8)} a5,6 0 0 1 10,0`, 'none', { stroke: L('#9a9a9a'), strokeWidth: 2.2 }) + K.rect(pl[0] - 7, pl[1] + 8, 14, 12, L('#c9a050'), { rx: 2 }) + K.rect(pl[0] - 5, pl[1] + 10, 4, 6, '#e8e0c8', { opacity: 0.5 }) + K.circle(pl[0] + 1, pl[1] + 15, 1.3, '#1a1410');
 
       /* ---- right wall: photographs, the table, Mémère's door ajar ---- */
       const frameX = (X, d0, d1, y0, y1, fc, pc) => K.poly(R.qX(X, d0, d1, y0, y1), fc) + K.poly(R.qX(X, d0 + (d1 - d0) * 0.12, d1 - (d1 - d0) * 0.12, y0 + (y1 - y0) * 0.1, y1 - (y1 - y0) * 0.1), pc) +
@@ -1226,16 +1231,16 @@
         // a flashlight from where she's crouched, on the open panel
         const sc = Pp((OX0 + OX1) / 2, 610, DB), src = [300, 990];
         const rx = 175, ry = 130;
-        const beam = lin(o, 'beam', [[0, '#fff2d0', 0.0], [0.2, '#fff2d0', 0.07], [1, '#fff2d0', 0.03]], 0, 1, 1, 0);
-        let bm = '';
-        for (const w of [1.15, 0.85, 0.55]) bm += K.poly([[src[0] - 30 * w, src[1] - 10], [src[0] + 30 * w, src[1] + 20], [sc[0] + rx * 0.75 * w, sc[1] + ry * 0.8 * w], [sc[0] - rx * 0.8 * w, sc[1] - ry * 0.8 * w]], beam.url);
-        s += beam.def + `<g style="mix-blend-mode:screen">${bm}</g>`;
         // the lit circle: repaint the panel in torchlight
         const tL = (c) => K.mix(K.tone(c, 'day'), '#ffe8c0', 0.08), tS = (c) => K.mul(tL(c), [0.62, 0.6, 0.66]);
         const spot = `<ellipse cx="${n(sc[0])}" cy="${n(sc[1])}" rx="${rx}" ry="${ry}"/>`;
         s += clipWith(o, spot, K.poly(gable, tL(board)) + clipPoly(o, gable, at(DB, gb)) + K.poly(R.floor, tL(floorC)) + at(DB, panel(tL, tS, true)), 'spot');
-        const vg = rad(o, 'spotv', [[0, '#05070c', 0], [0.45, '#05070c', 0.08], [0.8, '#05070c', 0.55], [1, '#05070c', 0.97]], sc[0], sc[1], rx);
+        const vg = rad(o, 'spotv', [[0, '#05070c', 0], [0.4, '#05070c', 0.06], [0.78, '#05070c', 0.5], [1, '#05070c', 0.93]], sc[0], sc[1], rx);
         s += vg.def + `<circle cx="${n(sc[0])}" cy="${n(sc[1])}" r="${rx + 1}" fill="${vg.url}" transform="translate(${n(sc[0])} ${n(sc[1])}) scale(1 ${(ry / rx).toFixed(3)}) translate(${n(-sc[0])} ${n(-sc[1])})"/>`;
+        const beam = lin(o, 'beam', [[0, '#fff2d0', 0.0], [0.2, '#fff2d0', 0.07], [1, '#fff2d0', 0.03]], 0, 1, 1, 0);
+        let bm = '';
+        for (const w of [1.15, 0.85, 0.55]) bm += K.poly([[src[0] - 30 * w, src[1] - 10], [src[0] + 30 * w, src[1] + 20], [sc[0] + rx * 0.75 * w, sc[1] + ry * 0.8 * w], [sc[0] - rx * 0.8 * w, sc[1] - ry * 0.8 * w]], beam.url);
+        s += beam.def + `<g style="mix-blend-mode:screen">${bm}</g>`;
         s += screen(K.glow(o, sc[0], sc[1], rx * 1.3, '#ffe8c0', 0.14, 'spotg'));
         let motes = '';
         for (let i = 0; i < 50; i++) {

@@ -146,33 +146,36 @@
     `<radialGradient id="${id}" cx="${n(cx)}" cy="${n(cy)}" r="${n(r)}"${user ? ' gradientUnits="userSpaceOnUse"' : ''}>${stopsXml(stops)}</radialGradient>`;
   KIT.defs = (...xs) => `<defs>${xs.join('')}</defs>`;
 
+  /* Unique per-call id for helper-made defs (o.id alone repeats for the same name). */
+  KIT.uid = (o, name) => o.id(name + '_' + (o._uid = (o._uid || 0) + 1));
+
   /* Full-canvas sky gradient for a time of day. */
   KIT.sky = (o, time, h = 900) => {
     const t = KIT.TOD[time] || KIT.TOD.day;
-    const id = o.id('sky');
+    const id = KIT.uid(o, 'sky');
     return KIT.defs(KIT.linear(id, t.sky)) + KIT.rect(0, 0, 1600, h, `url(#${id})`);
   };
 
   /* Soft radial glow: a light source's halo. */
   KIT.glow = (o, cx, cy, r, color, opacity = 0.6, name = 'glow') => {
-    const id = o.id(name);
+    const id = KIT.uid(o, name);
     return KIT.defs(KIT.radial(id, [[0, color, opacity], [0.35, color, opacity * 0.45], [1, color, 0]], cx, cy, r)) +
       KIT.circle(cx, cy, r, `url(#${id})`);
   };
   /* Elliptical glow (floor pools, light on walls). */
   KIT.pool = (o, cx, cy, rx, ry, color, opacity = 0.4, name = 'pool') => {
-    const id = o.id(name);
+    const id = KIT.uid(o, name);
     return KIT.defs(KIT.radial(id, [[0, color, opacity], [0.6, color, opacity * 0.35], [1, color, 0]], 0.5, 0.5, 0.5, false)) +
       KIT.ellipse(cx, cy, rx, ry, `url(#${id})`);
   };
   /* Light shaft: polygon fading from source edge (first two points) outward. */
   KIT.shaft = (o, p, color, opacity = 0.18, name = 'shaft', dir = [0, 0, 0, 1]) => {
-    const id = o.id(name);
+    const id = KIT.uid(o, name);
     return KIT.defs(KIT.linear(id, [[0, color, opacity], [1, color, 0]], dir[0], dir[1], dir[2], dir[3])) + KIT.poly(p, `url(#${id})`);
   };
   /* Vertical fade band (fog, haze, darkness pooling at the floor). */
   KIT.band = (o, y, h, color, top = 0, bottom = 0.6, name = 'band') => {
-    const id = o.id(name);
+    const id = KIT.uid(o, name);
     return KIT.defs(KIT.linear(id, [[0, color, top], [1, color, bottom]])) + KIT.rect(-10, y, 1620, h, `url(#${id})`);
   };
 
@@ -311,10 +314,10 @@
     if (lit && glowR) s += KIT.glow(o, x + w / 2, y + h / 2, glowR, litColor, 0.35, 'wglow');
     s += KIT.rect(x - frameW, y - frameW, w + frameW * 2, h + frameW * 2, frame);
     if (lit) {
-      const gid = o.id('wlit');
+      const gid = KIT.uid(o, 'wlit');
       s += KIT.defs(KIT.linear(gid, [[0, KIT.mix(litColor, '#fff4d8', 0.35)], [1, litColor]])) + KIT.rect(x, y, w, h, `url(#${gid})`);
     } else {
-      const gid = o.id('wdark');
+      const gid = KIT.uid(o, 'wdark');
       s += KIT.defs(KIT.linear(gid, [[0, KIT.mix(glass, '#9fb4cf', 0.18)], [0.5, glass], [1, KIT.mix(glass, '#000', 0.25)]], 0, 0, 1, 1)) + KIT.rect(x, y, w, h, `url(#${gid})`);
       s += KIT.poly([[x + w * 0.15, y], [x + w * 0.42, y], [x + w * 0.12, y + h], [x, y + h], [x, y + h * 0.7]], '#ffffff', { opacity: 0.06 });
     }
@@ -403,14 +406,14 @@
     /* floorboards converging to the vanishing point, clipped to the floor */
     R.boards = (o, count, color, opacity = 0.35, w = 1.5) => {
       const [vx, vy] = R.vp;
-      const id = o.id('fclip');
+      const id = KIT.uid(o, 'fclip');
       let s = `<clipPath id="${id}"><polygon points="${KIT.pts(R.floor)}"/></clipPath><g clip-path="url(#${id})">`;
       for (let i = 0; i <= count; i++) s += KIT.line(vx, vy, -W * 1.5 + W * 4 * (i / count), H, color, w, { opacity });
       return s + '</g>';
     };
     /* clip any markup to a surface polygon */
     R.clip = (o, poly, inner) => {
-      const id = o.id('sclip');
+      const id = KIT.uid(o, 'sclip');
       return `<clipPath id="${id}"><polygon points="${KIT.pts(poly)}"/></clipPath><g clip-path="url(#${id})">${inner}</g>`;
     };
     return R;
@@ -418,7 +421,7 @@
 
   /* Vignette rectangle (used in CGs; the engine also adds a global one). */
   KIT.vignette = (o, strength = 0.55, color = '#05070c') => {
-    const id = o.id('vig');
+    const id = KIT.uid(o, 'vig');
     return KIT.defs(KIT.radial(id, [[0.55, color, 0], [1, color, strength]], 0.5, 0.5, 0.75, false)) + KIT.rect(0, 0, 1600, 900, `url(#${id})`);
   };
 
@@ -475,7 +478,7 @@
   };
   /* Small repeating wallpaper motif over a polygon. */
   KIT.wallpaper = (o, R, poly, { color = '#b89a5a', size = 26, opacity = 0.35, motif = 'dot' } = {}) => {
-    const id = o.id('wp');
+    const id = KIT.uid(o, 'wp');
     let shape;
     if (motif === 'dot') shape = `<circle cx="${size / 2}" cy="${size / 2}" r="${size * 0.09}" fill="${color}"/><circle cx="0" cy="0" r="${size * 0.06}" fill="${color}"/><circle cx="${size}" cy="${size}" r="${size * 0.06}" fill="${color}"/><circle cx="${size}" cy="0" r="${size * 0.06}" fill="${color}"/><circle cx="0" cy="${size}" r="${size * 0.06}" fill="${color}"/>`;
     else if (motif === 'stripe') shape = `<rect x="0" y="0" width="${size * 0.18}" height="${size}" fill="${color}"/>`;
