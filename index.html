@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Sahara Wanderer</title>
+    <meta name="claude:viewport-fit-sides" content="cover" />
+    <meta name="description" content="A first-person walk through a procedurally generated Saharan erg: dunes, oases, sandstorms and starry nights." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Jost:wght@300;400;500&family=Poiret+One&display=swap" />
+    <style>
+      /* Layout: the live dune scene fills the screen; a travel-poster column floats over
+         its left edge, and field notes sit in the corners like a surveyor's logbook. */
+      :root {
+        --night: #10142a;
+        --glass: rgba(14, 18, 40, 0.6);
+        --glass-strong: rgba(12, 15, 34, 0.86);
+        --sand: #f2e3c9;
+        --sand-dim: #b9ab95;
+        --ochre: #e39a45;
+        --ochre-deep: #b8672b;
+        --indigo: #4a5bb0;
+        --line: rgba(242, 227, 201, 0.16);
+        --shadow: rgba(4, 5, 12, 0.55);
+        --font-display: 'Poiret One', 'Didot', 'Bodoni 72', 'Times New Roman', serif;
+        --font-body: 'Jost', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
+        --font-data: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+        --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+        --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+        color-scheme: dark;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--night);
+        color: var(--sand);
+        overflow: hidden;
+        font-family: var(--font-body);
+        -webkit-tap-highlight-color: transparent;
+      }
+      #scene {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        touch-action: none;
+        outline: none;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+        color: inherit;
+      }
+      :focus-visible {
+        outline: 2px solid var(--ochre);
+        outline-offset: 3px;
+      }
+
+      /* ---------- Menu ---------- */
+      #menu {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: stretch;
+        padding-left: var(--gutter-l);
+        padding-right: var(--gutter-r);
+        padding-block: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-bottom, 0px));
+        background: linear-gradient(90deg, rgba(10, 12, 26, 0.72) 0%, rgba(10, 12, 26, 0.35) 38%, rgba(10, 12, 26, 0) 62%);
+        overflow-y: auto;
+        z-index: 20;
+        transition: opacity 0.5s ease;
+      }
+      #menu[hidden] {
+        display: none !important;
+      }
+      .poster {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 22px;
+        width: min(460px, 100%);
+        min-width: 0;
+        padding-block: 24px;
+      }
+      .eyebrow {
+        font-family: var(--font-data);
+        font-size: 0.72rem;
+        letter-spacing: 0.22em;
+        text-transform: uppercase;
+        color: var(--ochre);
+        margin: 0;
+      }
+      .wordmark {
+        margin: 0;
+        font-family: var(--font-display);
+        font-weight: 400;
+        line-height: 0.92;
+        letter-spacing: 0.08em;
+        text-wrap: balance;
+        text-shadow: 0 2px 24px var(--shadow);
+      }
+      .wordmark .big {
+        display: block;
+        font-size: clamp(3.4rem, 11vw, 6.2rem);
+        letter-spacing: 0.16em;
+      }
+      .wordmark .small {
+        display: block;
+        font-size: clamp(1.5rem, 5vw, 2.35rem);
+        letter-spacing: 0.42em;
+        color: var(--sand-dim);
+        margin-top: 0.35em;
+      }
+      .coords {
+        font-family: var(--font-data);
+        font-size: 0.82rem;
+        color: var(--sand-dim);
+        margin: 0;
+        font-variant-numeric: tabular-nums;
+      }
+      .lede {
+        margin: 0;
+        max-width: 38ch;
+        font-size: 1.04rem;
+        line-height: 1.55;
+        font-weight: 300;
+        color: var(--sand);
+        text-shadow: 0 1px 12px var(--shadow);
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+      .btn {
+        appearance: none;
+        border: 1px solid var(--line);
+        background: var(--glass);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border-radius: 999px;
+        padding: 12px 20px;
+        min-height: 44px;
+        cursor: pointer;
+        letter-spacing: 0.04em;
+        transition: background 0.2s, border-color 0.2s, transform 0.2s;
+      }
+      .btn:hover {
+        border-color: rgba(242, 227, 201, 0.4);
+      }
+      .btn.primary {
+        background: var(--ochre);
+        border-color: var(--ochre);
+        color: var(--night);
+        font-weight: 500;
+        padding-inline: 26px;
+      }
+      .btn.primary:hover {
+        background: #efab5c;
+      }
+      .btn:active {
+        transform: translateY(1px);
+      }
+      .preset-note {
+        font-family: var(--font-data);
+        font-size: 0.72rem;
+        color: var(--sand-dim);
+        margin: 0;
+      }
+
+      /* ---------- Drawer (settings / controls) ---------- */
+      .drawer {
+        position: fixed;
+        top: max(16px, env(safe-area-inset-top, 0px));
+        bottom: max(16px, env(safe-area-inset-bottom, 0px));
+        right: var(--gutter-r);
+        width: min(400px, calc(100vw - 32px));
+        background: var(--glass-strong);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 20px 20px 24px;
+        overflow-y: auto;
+        z-index: 30;
+        box-shadow: 0 20px 60px var(--shadow);
+      }
+      .drawer h2 {
+        font-family: var(--font-display);
+        font-weight: 400;
+        font-size: 1.7rem;
+        letter-spacing: 0.1em;
+        margin: 0;
+      }
+      .drawer-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 8px;
+      }
+      .close {
+        appearance: none;
+        border: 1px solid var(--line);
+        background: transparent;
+        border-radius: 999px;
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+        font-size: 1.1rem;
+        line-height: 1;
+      }
+      .group {
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+        margin-top: 14px;
+        display: grid;
+        gap: 12px;
+      }
+      .group h3 {
+        margin: 0;
+        font-family: var(--font-data);
+        font-size: 0.7rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--ochre);
+        font-weight: 500;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px 12px;
+        align-items: center;
+      }
+      .row label {
+        font-size: 0.95rem;
+      }
+      .row output {
+        font-family: var(--font-data);
+        font-size: 0.8rem;
+        color: var(--sand-dim);
+        font-variant-numeric: tabular-nums;
+      }
+      .row input[type='range'] {
+        grid-column: 1 / -1;
+        width: 100%;
+        accent-color: var(--ochre);
+      }
+      .seg {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .seg button {
+        appearance: none;
+        flex: 1 1 auto;
+        min-height: 38px;
+        padding: 6px 10px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: transparent;
+        cursor: pointer;
+        font-size: 0.86rem;
+      }
+      .seg button[aria-pressed='true'] {
+        background: var(--sand);
+        color: var(--night);
+        border-color: var(--sand);
+      }
+      .toggle {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        min-height: 36px;
+        cursor: pointer;
+      }
+      .toggle input {
+        width: 20px;
+        height: 20px;
+        accent-color: var(--ochre);
+      }
+      .hint {
+        font-size: 0.8rem;
+        color: var(--sand-dim);
+        margin: 0;
+        line-height: 1.45;
+      }
+      .keys {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 10px 14px;
+        margin: 0;
+        align-items: baseline;
+      }
+      .keys dt {
+        font-family: var(--font-data);
+        font-size: 0.78rem;
+        white-space: nowrap;
+      }
+      .keys dt kbd {
+        display: inline-block;
+        border: 1px solid var(--line);
+        border-bottom-width: 2px;
+        border-radius: 6px;
+        padding: 2px 6px;
+        margin-right: 3px;
+        background: rgba(242, 227, 201, 0.06);
+      }
+      .keys dd {
+        margin: 0;
+        font-size: 0.92rem;
+        color: var(--sand);
+      }
+
+      /* ---------- HUD ---------- */
+      #hud {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 10;
+        font-family: var(--font-data);
+        transition: opacity 0.6s ease;
+      }
+      #hud.faded {
+        opacity: 0;
+      }
+      .compass {
+        position: absolute;
+        top: max(14px, env(safe-area-inset-top, 0px));
+        left: 50%;
+        transform: translateX(-50%);
+        width: min(380px, calc(100vw - 120px));
+        height: 34px;
+        overflow: hidden;
+        -webkit-mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+        mask-image: linear-gradient(90deg, transparent, #000 22%, #000 78%, transparent);
+      }
+      .compass-tape {
+        position: absolute;
+        top: 0;
+        left: 50%;
+        height: 100%;
+        will-change: transform;
+      }
+      .compass-tape span {
+        position: absolute;
+        top: 4px;
+        transform: translateX(-50%);
+        font-size: 0.78rem;
+        color: var(--sand);
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+      }
+      .compass-tape span.minor {
+        top: 8px;
+        width: 1px;
+        height: 7px;
+        background: rgba(242, 227, 201, 0.55);
+      }
+      .compass-tape span.card {
+        color: var(--ochre);
+        font-weight: 500;
+      }
+      .compass-needle {
+        position: absolute;
+        left: 50%;
+        bottom: 0;
+        width: 1px;
+        height: 10px;
+        background: var(--ochre);
+      }
+      .heading {
+        position: absolute;
+        top: calc(max(14px, env(safe-area-inset-top, 0px)) + 36px);
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 0.7rem;
+        color: var(--sand-dim);
+        font-variant-numeric: tabular-nums;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+      }
+      .notes {
+        position: absolute;
+        left: var(--gutter-l);
+        bottom: max(16px, env(safe-area-inset-bottom, 0px));
+        display: grid;
+        gap: 4px;
+        font-size: 0.78rem;
+        color: var(--sand);
+        text-shadow: 0 1px 8px rgba(0, 0, 0, 0.7);
+        font-variant-numeric: tabular-nums;
+      }
+      .notes .time {
+        font-family: var(--font-display);
+        font-size: 1.6rem;
+        letter-spacing: 0.06em;
+      }
+      .notes .dim {
+        color: var(--sand-dim);
+      }
+      .fps {
+        white-space: pre;
+        position: absolute;
+        top: max(14px, env(safe-area-inset-top, 0px));
+        right: var(--gutter-r);
+        font-size: 0.72rem;
+        color: var(--sand-dim);
+        text-align: right;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.7);
+      }
+      .toast {
+        position: absolute;
+        left: 50%;
+        bottom: max(24px, env(safe-area-inset-bottom, 0px));
+        transform: translateX(-50%);
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: var(--glass);
+        border: 1px solid var(--line);
+        font-family: var(--font-body);
+        font-size: 0.85rem;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+        white-space: nowrap;
+        max-width: calc(100vw - 32px);
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .toast.show {
+        opacity: 1;
+      }
+
+      /* ---------- Touch controls ---------- */
+      #touch {
+        position: fixed;
+        inset: 0;
+        z-index: 12;
+        pointer-events: none;
+      }
+      #touch .zone {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        pointer-events: auto;
+        touch-action: none;
+      }
+      #touch .zone.left {
+        left: 0;
+        width: 45%;
+      }
+      #touch .zone.right {
+        right: 0;
+        width: 55%;
+      }
+      .stick {
+        position: absolute;
+        width: 116px;
+        height: 116px;
+        margin: -58px 0 0 -58px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: rgba(14, 18, 40, 0.28);
+        pointer-events: none;
+      }
+      .stick .knob {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 48px;
+        height: 48px;
+        margin: -24px 0 0 -24px;
+        border-radius: 50%;
+        background: rgba(242, 227, 201, 0.55);
+      }
+      .tbtns {
+        position: absolute;
+        right: var(--gutter-r);
+        bottom: max(20px, env(safe-area-inset-bottom, 0px));
+        display: flex;
+        gap: 12px;
+        pointer-events: auto;
+      }
+      .tbtn {
+        appearance: none;
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: var(--glass);
+        font-family: var(--font-data);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .tbtn[aria-pressed='true'] {
+        background: var(--ochre);
+        color: var(--night);
+      }
+      .tmenu {
+        position: absolute;
+        top: max(14px, env(safe-area-inset-top, 0px));
+        right: var(--gutter-r);
+        pointer-events: auto;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        background: var(--glass);
+        font-size: 1rem;
+      }
+
+      /* ---------- Loader ---------- */
+      #loader {
+        position: fixed;
+        inset: 0;
+        z-index: 40;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(ellipse at 50% 70%, #3a2a1d 0%, var(--night) 70%);
+        transition: opacity 0.8s ease;
+        padding-left: var(--gutter-l);
+        padding-right: var(--gutter-r);
+      }
+      #loader.done {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .loader-inner {
+        display: grid;
+        gap: 14px;
+        justify-items: center;
+        text-align: center;
+      }
+      .loader-inner .wordmark .big {
+        font-size: clamp(2.4rem, 9vw, 4rem);
+      }
+      .loader-inner .wordmark .small {
+        font-size: clamp(1rem, 3.5vw, 1.4rem);
+      }
+      .bar {
+        width: min(240px, 70vw);
+        height: 2px;
+        background: var(--line);
+        overflow: hidden;
+        border-radius: 2px;
+      }
+      .bar i {
+        display: block;
+        height: 100%;
+        width: 0%;
+        background: var(--ochre);
+        transition: width 0.4s ease;
+      }
+      .status {
+        font-family: var(--font-data);
+        font-size: 0.78rem;
+        color: var(--sand-dim);
+        min-height: 1.2em;
+      }
+      .error {
+        max-width: 46ch;
+        line-height: 1.5;
+        color: var(--sand);
+      }
+
+      @media (max-width: 640px) {
+        #menu {
+          background: linear-gradient(180deg, rgba(10, 12, 26, 0.25) 0%, rgba(10, 12, 26, 0.75) 60%);
+          align-items: flex-end;
+        }
+        .poster {
+          justify-content: flex-end;
+          gap: 16px;
+        }
+        .lede {
+          font-size: 0.96rem;
+        }
+        .notes .time {
+          font-size: 1.3rem;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="scene" tabindex="-1" aria-label="First-person view of the Sahara"></canvas>
+
+    <div id="hud" hidden>
+      <div class="compass" aria-hidden="true"><div class="compass-tape" id="compass-tape"></div><div class="compass-needle"></div></div>
+      <div class="heading" id="hud-heading">247° WSW</div>
+      <div class="notes" aria-live="off">
+        <div class="time" id="hud-time">16:48</div>
+        <div id="hud-temp">31 °C · Clear</div>
+        <div id="hud-wind" class="dim">Wind 9 km/h from NE</div>
+        <div id="hud-alt" class="dim">742 m · 0.0 km walked</div>
+      </div>
+      <div class="fps" id="hud-fps" hidden></div>
+      <div class="toast" id="toast" role="status"></div>
+    </div>
+
+    <div id="touch" hidden>
+      <div class="zone left" id="touch-move"></div>
+      <div class="zone right" id="touch-look"></div>
+      <div class="stick" id="stick" hidden><div class="knob" id="knob"></div></div>
+      <div class="tbtns">
+        <button class="tbtn" id="touch-run" type="button" aria-pressed="false">Run</button>
+        <button class="tbtn" id="touch-jump" type="button">Jump</button>
+      </div>
+      <button class="tmenu" id="touch-menu" type="button" aria-label="Open menu">☰</button>
+    </div>
+
+    <div id="menu" hidden>
+      <section class="poster" aria-labelledby="title">
+        <p class="eyebrow">Erg Chebbi · Morocco</p>
+        <h1 class="wordmark" id="title"><span class="big">Sahara</span><span class="small">Wanderer</span></h1>
+        <p class="coords">31°08′N 4°01′W · 720 m above sea level</p>
+        <p class="lede">Walk the dunes from golden hour into a moonlit night. Follow the palms to the oasis, climb a crest for the view, and listen to the sand.</p>
+        <div class="actions">
+          <button class="btn primary" id="btn-start" type="button">Begin walking</button>
+          <button class="btn" id="btn-settings" type="button">Settings</button>
+          <button class="btn" id="btn-controls" type="button">Controls</button>
+        </div>
+        <p class="preset-note" id="preset-note"></p>
+      </section>
+    </div>
+
+    <aside class="drawer" id="drawer-settings" hidden aria-labelledby="settings-title">
+      <div class="drawer-head">
+        <h2 id="settings-title">Settings</h2>
+        <button class="close" type="button" data-close aria-label="Close settings">✕</button>
+      </div>
+      <div class="group">
+        <h3>World</h3>
+        <div class="row">
+          <label for="set-time">Time of day</label>
+          <output id="out-time">16:48</output>
+          <input id="set-time" type="range" min="0" max="23.99" step="0.05" />
+        </div>
+        <div class="row">
+          <label>Passage of time</label>
+          <div class="seg" id="set-timespeed" role="group" aria-label="Passage of time">
+            <button type="button" data-value="0">Still</button>
+            <button type="button" data-value="0.25">Slow</button>
+            <button type="button" data-value="1">Natural</button>
+            <button type="button" data-value="6">Fast</button>
+          </div>
+        </div>
+        <div class="row">
+          <label>Weather</label>
+          <div class="seg" id="set-weather" role="group" aria-label="Weather">
+            <button type="button" data-value="auto">Changing</button>
+            <button type="button" data-value="clear">Clear</button>
+            <button type="button" data-value="breezy">Breezy</button>
+            <button type="button" data-value="windy">Windy</button>
+            <button type="button" data-value="sandstorm">Sandstorm</button>
+          </div>
+        </div>
+      </div>
+      <div class="group">
+        <h3>Graphics</h3>
+        <div class="row">
+          <label>Quality</label>
+          <div class="seg" id="set-quality" role="group" aria-label="Graphics quality">
+            <button type="button" data-value="auto">Auto</button>
+            <button type="button" data-value="low">Low</button>
+            <button type="button" data-value="medium">Medium</button>
+            <button type="button" data-value="high">High</button>
+            <button type="button" data-value="ultra">Ultra</button>
+          </div>
+          <p class="hint" id="quality-hint" style="grid-column: 1 / -1">Changing quality reloads the scene.</p>
+        </div>
+        <label class="toggle" for="set-adaptive"><span>Adaptive resolution</span><input id="set-adaptive" type="checkbox" /></label>
+        <div class="row">
+          <label for="set-scale">Render resolution</label>
+          <output id="out-scale">100%</output>
+          <input id="set-scale" type="range" min="0.5" max="1" step="0.05" />
+        </div>
+        <div class="row">
+          <label for="set-fov">Field of view</label>
+          <output id="out-fov">72°</output>
+          <input id="set-fov" type="range" min="55" max="100" step="1" />
+        </div>
+        <div class="row">
+          <label for="set-ev">Brightness</label>
+          <output id="out-ev">0.0 EV</output>
+          <input id="set-ev" type="range" min="-2" max="2" step="0.1" />
+        </div>
+        <label class="toggle" for="set-fps"><span>Show frame rate</span><input id="set-fps" type="checkbox" /></label>
+      </div>
+      <div class="group">
+        <h3>Sound &amp; control</h3>
+        <div class="row">
+          <label for="set-volume">Volume</label>
+          <output id="out-volume">80%</output>
+          <input id="set-volume" type="range" min="0" max="1" step="0.05" />
+        </div>
+        <div class="row">
+          <label for="set-sens">Look sensitivity</label>
+          <output id="out-sens">1.0×</output>
+          <input id="set-sens" type="range" min="0.3" max="2.5" step="0.05" />
+        </div>
+        <label class="toggle" for="set-invert"><span>Invert vertical look</span><input id="set-invert" type="checkbox" /></label>
+        <label class="toggle" for="set-bob"><span>Head bob</span><input id="set-bob" type="checkbox" /></label>
+      </div>
+    </aside>
+
+    <aside class="drawer" id="drawer-controls" hidden aria-labelledby="controls-title">
+      <div class="drawer-head">
+        <h2 id="controls-title">Controls</h2>
+        <button class="close" type="button" data-close aria-label="Close controls">✕</button>
+      </div>
+      <div class="group">
+        <h3>Keyboard &amp; mouse</h3>
+        <dl class="keys">
+          <dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt>
+          <dd>Walk (arrow keys work too)</dd>
+          <dt><kbd>Shift</kbd></dt>
+          <dd>Run</dd>
+          <dt><kbd>Space</kbd></dt>
+          <dd>Jump</dd>
+          <dt>Mouse</dt>
+          <dd>Look around (click the view if the cursor is free)</dd>
+          <dt><kbd>[</kbd><kbd>]</kbd></dt>
+          <dd>Turn time back or forward while held</dd>
+          <dt><kbd>F</kbd></dt>
+          <dd>Photo mode: fly freely, <kbd>Space</kbd> up, <kbd>C</kbd> down</dd>
+          <dt><kbd>H</kbd></dt>
+          <dd>Hide or show the field notes</dd>
+          <dt><kbd>M</kbd></dt>
+          <dd>Mute</dd>
+          <dt><kbd>Esc</kbd></dt>
+          <dd>Pause and open this menu</dd>
+        </dl>
+      </div>
+      <div class="group">
+        <h3>Touch</h3>
+        <p class="hint">Drag on the left half to walk, drag on the right half to look. Tap Run to toggle running.</p>
+        <h3>Gamepad</h3>
+        <p class="hint">Left stick walks, right stick looks, A jumps, a shoulder button runs, Y toggles photo mode, Start pauses.</p>
+      </div>
+      <div class="group">
+        <h3>Things to try</h3>
+        <p class="hint">Slide down a steep slip face and listen for the dune's low boom. Wait out a sandstorm. Stay for moonrise: the moon comes up in the east as the sun sets.</p>
+      </div>
+    </aside>
+
+    <div id="loader" role="status" aria-live="polite">
+      <div class="loader-inner">
+        <h1 class="wordmark" aria-hidden="true"><span class="big">Sahara</span><span class="small">Wanderer</span></h1>
+        <div class="bar"><i id="load-bar"></i></div>
+        <div class="status" id="load-status">Shaping the dunes…</div>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
