@@ -453,10 +453,23 @@
     ];
   };
 
+  /* The lit, shaded body doesn't depend on the expression: build it once per
+   * character (and outfit) and paint only the face for each expression/blink. */
+  const baseCache = new Map();
   function drawPerson(s, o, spec) {
     const ex = RIG.EXPR[o.expr] || RIG.EXPR.neutral;
     const h = RIG.head(spec);
     const sk = P[spec.skin || 'skin_peach'], hr = P[spec.hair || 'hair_brown'], ir = P[spec.eyes || 'eye_brown'];
+    const key = (spec.name || '') + '|' + (o.outfit || '');
+    const cached = !spec.exprBuild && baseCache.get(spec);
+    if (cached && cached.key === key) {
+      s.d.set(cached.d);
+      const c = { h, sk, hr, ir, ex, o, spec, B: null, tone: cached.tone, rng: PX.rng('p:' + (spec.name || '')) };
+      features(s, c, o.blink);
+      if (spec.details) spec.details(s, c);
+      overlays(s, c);
+      return;
+    }
     const B = new Builder(s.w, s.h);
     const c = { h, sk, hr, ir, ex, o, spec, B, rng: PX.rng('p:' + (spec.name || '')) };
     if (spec.back) spec.back(B, c);
@@ -490,6 +503,7 @@
     B.shadow(['face', 'neck', 'hair'], ['body', 'collar'], 1, 2, 0.2);
     B.render(s);
     c.tone = B.tone;
+    if (!spec.exprBuild) baseCache.set(spec, { key, d: new Uint16Array(s.d), tone: B.tone });
     features(s, c, o.blink);
     if (spec.details) spec.details(s, c);
     overlays(s, c);
