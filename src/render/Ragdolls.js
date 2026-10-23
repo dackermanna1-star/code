@@ -1,57 +1,18 @@
-// Ragdolls for fallen soldiers. Each body is a set of Verlet particles held
-// together by distance constraints: a rigid torso (hips, shoulders, neck),
-// the head, two-segment arms and legs, and the dropped weapon as a separate
-// stick. Bodies collide with the terrain, rooftops, walls and wrecks, take the
-// impulse of the killing shot or blast, are tossed again by later blasts and
-// fall asleep once still. Limbs torn off by a blast become separate pieces.
-// Soldiers who are down but alive writhe until they die or are treated.
-// Parts are drawn as instanced meshes built from the soldier's primitives.
+// Ragdolls for fallen soldiers (the physics of one body is in RagdollBody.js).
+// Bodies take the impulse of the killing shot or blast, are tossed again by
+// later blasts, pile on one another and fall asleep once still. Limbs torn off
+// by a blast become separate pieces. Soldiers who are down but alive writhe
+// until they die or are treated. Parts are drawn as instanced meshes built
+// from the soldier's primitives.
 
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { hash01 } from '../core/rng.js';
 import { SEVER } from '../sim/damage.js';
+import { Ragdoll, STEP, HIP_L, HIP_R, SH_L, SH_R, NECK, HEAD, EL_L, HA_L, EL_R, HA_R, KN_L, FT_L, KN_R, FT_R, L_UA, L_FA, L_TH, L_SH, P_TORSO, P_HEAD, P_UARM, P_FARM, P_THIGH, P_SHIN, P_WEAPON, NTYPES } from './RagdollBody.js';
 import { box, taper, limb, ball, dome, V, weaponShapes, ROLE_WEAPON, makeRagdollMaterial, M_UNIFORM, M_GEAR, M_SKIN, M_HELMET, M_BOOT } from './InfantryRenderer.js';
 
 const rand = Math.random;
 const rr = (a, b) => a + (b - a) * rand();
-
-// Particles.
-const HIP_L = 0;
-const HIP_R = 1;
-const SH_L = 2;
-const SH_R = 3;
-const NECK = 4;
-const HEAD = 5;
-const EL_L = 6;
-const HA_L = 7;
-const EL_R = 8;
-const HA_R = 9;
-const KN_L = 10;
-const FT_L = 11;
-const KN_R = 12;
-const FT_R = 13;
-const GUN_A = 14;
-const GUN_B = 15;
-const NP = 22; // 16 joints plus spare roots for torn-off limbs
-const RADIUS = [0.09, 0.09, 0.09, 0.09, 0.08, 0.12, 0.06, 0.05, 0.06, 0.05, 0.07, 0.06, 0.07, 0.06, 0.035, 0.035];
-
-// Segment lengths (m).
-const L_UA = 0.29;
-const L_FA = 0.29;
-const L_TH = 0.43;
-const L_SH = 0.42;
-const L_NECK = 0.19;
-
-// Part types, each drawn by its own instanced mesh.
-const P_TORSO = 0;
-const P_HEAD = 1;
-const P_UARM = 2;
-const P_FARM = 3;
-const P_THIGH = 4;
-const P_SHIN = 5;
-const P_WEAPON = 6;
-const NTYPES = 6;
 
 // Limbs: [mask, part index, joint it is torn from, parts that go with it].
 const CUTS = [
@@ -65,15 +26,12 @@ const CUTS = [
   [SEVER.SHIN_R, 9, KN_R, [9]],
 ];
 
-const GRAVITY = 9.81;
-const STEP = 1 / 60;
-const ITER = 7;
-const SLEEP_V = 0.0025; // m per step
 const MAX_BODIES = 6000;
-const MAX_AWAKE = 140;
+const MAX_AWAKE = 110;
 const CREATE_RANGE = 450;
 const DRAW_RANGE = 650;
 const NEAR_RANGE = 110;
+const CELL = 4;
 
 // ----------------------------------------------------------------- geometry
 
@@ -190,407 +148,7 @@ class PartBatch {
   }
 }
 
-// ----------------------------------------------------------------- bodies
-
-const _o = new THREE.Vector3();
-const _x = new THREE.Vector3();
-const _y = new THREE.Vector3();
-const _z = new THREE.Vector3();
-const _t = new THREE.Vector3();
 const _sphere = new THREE.Sphere();
-
-class Ragdoll {
-  constructor(u, variant, weapon) {
-    this.u = u;
-    this.faction = u.faction;
-    this.seed = hash01(u.id, 7);
-    this.variant = variant;
-    this.weapon = weapon;
-    this.p = new Float32Array(NP * 3);
-    this.o = new Float32Array(NP * 3);
-    this.r = new Float32Array(NP);
-    this.floor = new Float32Array(NP);
-    this.np = 16;
-    for (let i = 0; i < 16; i++) this.r[i] = RADIUS[i];
-    // Sticks: a, b, rest length, min-only flag, parts whose loss removes it.
-    this.sticks = [];
-    this.parts = [];
-    this.stumps = [];
-    this.structs = [];
-    this.mats = new Float32Array(11 * 16);
-    this.sleeping = false;
-    this.still = 0;
-    this.age = 0;
-    this.writheT = rr(0.5, 1.5);
-    this.pooled = false;
-    this.dirty = true;
-    this.cx = u.pos.x;
-    this.cy = u.pos.y;
-    this.cz = u.pos.z;
-    this.radius = 2;
-  }
-
-  set(i, x, y, z) {
-    const k = i * 3;
-    this.p[k] = this.o[k] = x;
-    this.p[k + 1] = this.o[k + 1] = y;
-    this.p[k + 2] = this.o[k + 2] = z;
-  }
-
-  stick(a, b, min = false, brk = null, len = null) {
-    const k = a * 3;
-    const j = b * 3;
-    const l = len ?? Math.hypot(this.p[k] - this.p[j], this.p[k + 1] - this.p[j + 1], this.p[k + 2] - this.p[j + 2]);
-    this.sticks.push({ a, b, len: min ? l * 0.82 : l, min, brk });
-  }
-
-  // Pose from the soldier's stance at the moment he fell (model space ->
-  // world), then the joints are linked.
-  build(u) {
-    const st = u.stance;
-    const pose = st === 2 ? PRONE : st === 1 ? CROUCH : STAND;
-    const c = Math.cos(u.yaw);
-    const s = Math.sin(u.yaw);
-    for (let i = 0; i < 16; i++) {
-      const q = pose[i];
-      if (!q) continue;
-      this.set(i, u.pos.x + q[0] * c + q[2] * s, u.pos.y + q[1], u.pos.z - q[0] * s + q[2] * c);
-    }
-    // Weapon along the soldier's aim (or along the body when prone).
-    const w = this.weapon;
-    if (w) {
-      const wc = st === 2 ? [w.center.x, 0.18, w.center.y - 0.85 + 0.2] : st === 1 ? [w.center.x, w.center.y - 0.42, w.center.z] : [w.center.x, w.center.y, w.center.z];
-      const half = w.len / 2;
-      for (const [i, dz] of [[GUN_A, -half], [GUN_B, half]]) {
-        const lx = wc[0];
-        const lz = wc[2] + dz;
-        this.set(i, u.pos.x + lx * c + lz * s, u.pos.y + wc[1], u.pos.z - lx * s + lz * c);
-      }
-      this.stick(GUN_A, GUN_B);
-    }
-    // Rigid torso.
-    const torso = [HIP_L, HIP_R, SH_L, SH_R, NECK];
-    for (let i = 0; i < torso.length; i++) for (let j = i + 1; j < torso.length; j++) this.stick(torso[i], torso[j]);
-    // Head, arms, legs at their true lengths.
-    this.stick(NECK, HEAD, false, [1], L_NECK);
-    this.stick(SH_L, EL_L, false, null, L_UA);
-    this.stick(EL_L, HA_L, false, null, L_FA);
-    this.stick(SH_R, EL_R, false, null, L_UA);
-    this.stick(EL_R, HA_R, false, null, L_FA);
-    this.stick(HIP_L, KN_L, false, null, L_TH);
-    this.stick(KN_L, FT_L, false, null, L_SH);
-    this.stick(HIP_R, KN_R, false, null, L_TH);
-    this.stick(KN_R, FT_R, false, null, L_SH);
-    // Joint limits as minimum distances: the head does not fold into the
-    // chest, knees bend only so far, legs do not swing up through the torso.
-    this.limit(HEAD, HIP_L, 0.66, null);
-    this.limit(HEAD, HIP_R, 0.66, null);
-    this.limit(HIP_L, FT_L, 0.36, [6, 7]);
-    this.limit(HIP_R, FT_R, 0.36, [8, 9]);
-    this.limit(KN_L, SH_L, 0.5, [6]);
-    this.limit(KN_R, SH_R, 0.5, [8]);
-    this.limit(KN_L, KN_R, 0.12, [6, 8]);
-    this.limit(FT_L, FT_R, 0.1, [6, 7, 8, 9]);
-    this.limit(HA_L, SH_L, 0.14, [2, 3]);
-    this.limit(HA_R, SH_R, 0.14, [4, 5]);
-    // Parts: [type, a, b] (torso uses its own frame).
-    const P = (type, a, b) => this.parts.push({ type, a, b, gib: false, blood: 0, zx: Math.sin(u.yaw), zy: 0, zz: Math.cos(u.yaw) });
-    P(P_TORSO, HIP_L, NECK);
-    P(P_HEAD, NECK, HEAD);
-    P(P_UARM, SH_L, EL_L);
-    P(P_FARM, EL_L, HA_L);
-    P(P_UARM, SH_R, EL_R);
-    P(P_FARM, EL_R, HA_R);
-    P(P_THIGH, HIP_L, KN_L);
-    P(P_SHIN, KN_L, FT_L);
-    P(P_THIGH, HIP_R, KN_R);
-    P(P_SHIN, KN_R, FT_R);
-    if (w) this.parts.push({ type: P_WEAPON, a: GUN_A, b: GUN_B, gib: true, blood: 0, zx: 0, zy: 1, zz: 0 });
-  }
-
-  limit(a, b, len, brk) {
-    this.sticks.push({ a, b, len, min: true, brk });
-  }
-
-  // Tear a limb off at a joint: the limb gets its own root particle.
-  cut(partIndex, joint, gibs) {
-    if (this.np >= NP) return -1;
-    const ni = this.np++;
-    const k = joint * 3;
-    this.set(ni, this.p[k], this.p[k + 1], this.p[k + 2]);
-    this.o[ni * 3] = this.o[k];
-    this.o[ni * 3 + 1] = this.o[k + 1];
-    this.o[ni * 3 + 2] = this.o[k + 2];
-    this.r[ni] = 0.06;
-    const part = this.parts[partIndex];
-    for (const st of this.sticks) {
-      if (st.a === joint && st.b === part.b) st.a = ni;
-      else if (st.b === joint && st.a === part.b) st.b = ni;
-    }
-    part.a = ni;
-    this.sticks = this.sticks.filter((st) => !st.brk || !st.brk.some((p) => gibs.includes(p)));
-    for (const p of gibs) {
-      this.parts[p].gib = true;
-      this.parts[p].blood = 0.75;
-    }
-    this.stumps.push({ i: joint, out: ni, body: true }, { i: ni, out: joint, body: false });
-    return ni;
-  }
-
-  // Add a velocity (m/s) to particle i.
-  push(i, vx, vy, vz) {
-    const k = i * 3;
-    this.o[k] -= vx * STEP;
-    this.o[k + 1] -= vy * STEP;
-    this.o[k + 2] -= vz * STEP;
-    this.sleeping = false;
-    this.still = 0;
-  }
-
-  blast(bx, by, bz, r, power, gibs = false) {
-    const reach = r * 1.6;
-    const speed = Math.min(10, 1.5 + power / 45);
-    for (let i = 0; i < this.np; i++) {
-      const k = i * 3;
-      const dx = this.p[k] - bx;
-      const dy = this.p[k + 1] - by + 0.4;
-      const dz = this.p[k + 2] - bz;
-      const d = Math.hypot(dx, dy, dz) || 1;
-      const f = Math.max(0, 1 - d / reach);
-      if (f <= 0) continue;
-      let v = speed * f;
-      const gib = gibs && this.isGibParticle(i);
-      if (gib) v *= 1.5;
-      this.push(i, (dx / d) * v + (gib ? rr(-3, 3) : rr(-0.4, 0.4)), (dy / d) * v + v * 0.35 + (gib ? rr(1, 3) : 0), (dz / d) * v + (gib ? rr(-3, 3) : rr(-0.4, 0.4)));
-    }
-  }
-
-  isGibParticle(i) {
-    for (const p of this.parts) if (p.gib && p.type !== P_WEAPON && (p.a === i || p.b === i)) return true;
-    return false;
-  }
-
-  // Remember nearby solid structures for collisions.
-  gatherStructs(world) {
-    this.structs = world.structures.queryRadius(this.p[0], this.p[2], 7, []).filter((s) => s.kind !== 'prop' || s.solidH > 0.5);
-  }
-
-  // Ground height under particle i, pushing it out of walls it ends up inside.
-  collide(i, terrain) {
-    const k = i * 3;
-    const x = this.p[k];
-    const y = this.p[k + 1];
-    const z = this.p[k + 2];
-    let g = terrain.heightAt(x, z);
-    for (const s of this.structs) {
-      const c = Math.cos(s.yaw);
-      const sn = Math.sin(s.yaw);
-      const rx = x - s.x;
-      const rz = z - s.z;
-      const lx = rx * c - rz * sn;
-      const lz = rx * sn + rz * c;
-      const m = this.r[i];
-      if (Math.abs(lx) > s.hx + m || Math.abs(lz) > s.hz + m) continue;
-      const top = s.top;
-      if (y > top - 0.55) {
-        if (top > g) g = top;
-        continue;
-      }
-      // Inside the solid part: out through the nearest side.
-      const px = s.hx + m - Math.abs(lx);
-      const pz = s.hz + m - Math.abs(lz);
-      let nlx = lx;
-      let nlz = lz;
-      if (px < pz) nlx = Math.sign(lx || 1) * (s.hx + m);
-      else nlz = Math.sign(lz || 1) * (s.hz + m);
-      const wx = s.x + nlx * c + nlz * sn;
-      const wz = s.z - nlx * sn + nlz * c;
-      // Out of the wall, keeping a little of the velocity.
-      const vx = this.p[k] - this.o[k];
-      const vz = this.p[k + 2] - this.o[k + 2];
-      this.p[k] = wx;
-      this.p[k + 2] = wz;
-      this.o[k] = wx - vx * 0.2;
-      this.o[k + 2] = wz - vz * 0.2;
-    }
-    this.floor[i] = g;
-  }
-
-  step(terrain) {
-    const p = this.p;
-    const o = this.o;
-    const n = this.np;
-    const gy = -GRAVITY * STEP * STEP;
-    let maxV = 0;
-    for (let i = 0; i < n; i++) {
-      const k = i * 3;
-      const vx = (p[k] - o[k]) * 0.996;
-      const vy = (p[k + 1] - o[k + 1]) * 0.996;
-      const vz = (p[k + 2] - o[k + 2]) * 0.996;
-      const v = Math.abs(vx) + Math.abs(vy) + Math.abs(vz);
-      if (v > maxV) maxV = v;
-      o[k] = p[k];
-      o[k + 1] = p[k + 1];
-      o[k + 2] = p[k + 2];
-      p[k] += vx;
-      p[k + 1] += vy + gy;
-      p[k + 2] += vz;
-    }
-    for (let i = 0; i < n; i++) this.collide(i, terrain);
-    const sticks = this.sticks;
-    for (let it = 0; it < ITER; it++) {
-      for (let s = 0; s < sticks.length; s++) {
-        const st = sticks[s];
-        const a = st.a * 3;
-        const b = st.b * 3;
-        const dx = p[b] - p[a];
-        const dy = p[b + 1] - p[a + 1];
-        const dz = p[b + 2] - p[a + 2];
-        const d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1e-6;
-        if (st.min && d >= st.len) continue;
-        const f = ((d - st.len) / d) * 0.5;
-        p[a] += dx * f;
-        p[a + 1] += dy * f;
-        p[a + 2] += dz * f;
-        p[b] -= dx * f;
-        p[b + 1] -= dy * f;
-        p[b + 2] -= dz * f;
-      }
-      for (let i = 0; i < n; i++) {
-        const k = i * 3 + 1;
-        const fl = this.floor[i] + (this.r[i] || 0.05);
-        if (p[k] < fl) p[k] = fl;
-      }
-    }
-    // Ground contact: no bounce, heavy friction.
-    for (let i = 0; i < n; i++) {
-      const k = i * 3;
-      if (p[k + 1] <= this.floor[i] + (this.r[i] || 0.05) + 0.002) {
-        if (o[k + 1] > p[k + 1]) o[k + 1] = p[k + 1];
-        o[k] = p[k] - (p[k] - o[k]) * 0.45;
-        o[k + 2] = p[k + 2] - (p[k + 2] - o[k + 2]) * 0.45;
-      }
-    }
-    this.still = maxV < SLEEP_V ? this.still + 1 : 0;
-    if (this.still > 40 || this.age > 14) this.sleeping = true;
-    this.dirty = true;
-  }
-
-  // Part transforms (column-major 4x4) from the particles.
-  computeMatrices() {
-    const p = this.p;
-    const m = this.mats;
-    // Torso frame: origin between the hips, Y to the neck, X to the left.
-    _o.set((p[0] + p[3]) / 2, (p[1] + p[4]) / 2, (p[2] + p[5]) / 2);
-    _y.set(p[NECK * 3] - _o.x, p[NECK * 3 + 1] - _o.y, p[NECK * 3 + 2] - _o.z).normalize();
-    _x.set(p[0] - p[3] + p[SH_L * 3] - p[SH_R * 3], p[1] - p[4] + p[SH_L * 3 + 1] - p[SH_R * 3 + 1], p[2] - p[5] + p[SH_L * 3 + 2] - p[SH_R * 3 + 2]);
-    _x.addScaledVector(_y, -_x.dot(_y)).normalize();
-    _z.crossVectors(_x, _y);
-    const fx = _z.x;
-    const fy = _z.y;
-    const fz = _z.z;
-    write(m, 0, _x, _y, _z, _o);
-    this.cx = _o.x;
-    this.cy = _o.y;
-    this.cz = _o.z;
-    let r2 = 1;
-    for (let i = 1; i < this.parts.length; i++) {
-      const part = this.parts[i];
-      const a = part.a * 3;
-      const b = part.b * 3;
-      if (part.type === P_WEAPON) {
-        _o.set((p[a] + p[b]) / 2, (p[a + 1] + p[b + 1]) / 2, (p[a + 2] + p[b + 2]) / 2);
-        _z.set(p[b] - p[a], p[b + 1] - p[a + 1], p[b + 2] - p[a + 2]).normalize();
-        _y.set(part.zx, part.zy, part.zz);
-        _y.addScaledVector(_z, -_y.dot(_z));
-        if (_y.lengthSq() < 1e-4) _y.set(0, 1, 0).addScaledVector(_z, -_z.y);
-        _y.normalize();
-        _x.crossVectors(_y, _z);
-        part.zx = _y.x;
-        part.zy = _y.y;
-        part.zz = _y.z;
-      } else {
-        // Y runs from the far joint back to this part's joint.
-        _o.set(p[a], p[a + 1], p[a + 2]);
-        _y.set(p[a] - p[b], p[a + 1] - p[b + 1], p[a + 2] - p[b + 2]).normalize();
-        if (part.type === P_HEAD) _y.negate();
-        // Keep each part's facing continuous; attached ones follow the torso.
-        if (part.gib) _z.set(part.zx, part.zy, part.zz);
-        else _z.set(part.zx * 0.7 + fx * 0.3, part.zy * 0.7 + fy * 0.3, part.zz * 0.7 + fz * 0.3);
-        _z.addScaledVector(_y, -_z.dot(_y));
-        if (_z.lengthSq() < 1e-4) _z.set(fx, fy, fz).addScaledVector(_y, -_y.dot(_t.set(fx, fy, fz)));
-        if (_z.lengthSq() < 1e-4) _z.set(1, 0, 0).addScaledVector(_y, -_y.x);
-        _z.normalize();
-        _x.crossVectors(_y, _z);
-        part.zx = _z.x;
-        part.zy = _z.y;
-        part.zz = _z.z;
-      }
-      write(m, i * 16, _x, _y, _z, _o);
-      const dx = _o.x - this.cx;
-      const dy = _o.y - this.cy;
-      const dz = _o.z - this.cz;
-      r2 = Math.max(r2, dx * dx + dy * dy + dz * dz);
-    }
-    this.radius = Math.sqrt(r2) + 0.6;
-    this.dirty = false;
-  }
-}
-
-function write(m, off, x, y, z, o) {
-  m[off] = x.x;
-  m[off + 1] = x.y;
-  m[off + 2] = x.z;
-  m[off + 3] = 0;
-  m[off + 4] = y.x;
-  m[off + 5] = y.y;
-  m[off + 6] = y.z;
-  m[off + 7] = 0;
-  m[off + 8] = z.x;
-  m[off + 9] = z.y;
-  m[off + 10] = z.z;
-  m[off + 11] = 0;
-  m[off + 12] = o.x;
-  m[off + 13] = o.y;
-  m[off + 14] = o.z;
-  m[off + 15] = 1;
-}
-
-// Joint positions (model space, facing +Z) for the three stances. Arms start
-// in the weapon-holding pose.
-function poseFrom(hipY, lean, knees, arms) {
-  const up = [0, Math.cos(lean), Math.sin(lean)];
-  const P = [];
-  const at = (x, h, zoff = 0) => [x, hipY + up[1] * h, up[2] * h + zoff];
-  P[HIP_L] = [0.1, hipY, 0];
-  P[HIP_R] = [-0.1, hipY, 0];
-  P[SH_L] = at(0.2, 0.49);
-  P[SH_R] = at(-0.2, 0.49);
-  P[NECK] = at(0, 0.54);
-  P[HEAD] = at(0, 0.54 + L_NECK, 0.01);
-  const add = (a, d, l) => {
-    const n = Math.hypot(d[0], d[1], d[2]);
-    return [a[0] + (d[0] / n) * l, a[1] + (d[1] / n) * l, a[2] + (d[2] / n) * l];
-  };
-  P[EL_L] = add(P[SH_L], arms[0], L_UA);
-  P[HA_L] = add(P[EL_L], arms[1], L_FA);
-  P[EL_R] = add(P[SH_R], arms[2], L_UA);
-  P[HA_R] = add(P[EL_R], arms[3], L_FA);
-  P[KN_L] = add(P[HIP_L], knees[0], L_TH);
-  P[FT_L] = add(P[KN_L], knees[1], L_SH);
-  P[KN_R] = add(P[HIP_R], knees[0], L_TH);
-  P[FT_R] = add(P[KN_R], knees[1], L_SH);
-  return P;
-}
-
-const HOLD = [[-0.025, -0.23, 0.17], [-0.14, 0.11, 0.27], [-0.035, -0.25, 0.07], [0.15, 0.11, 0.13]];
-const STAND = poseFrom(0.93, 0.05, [[0, -1, 0.04], [0, -1, -0.04]], HOLD);
-const CROUCH = poseFrom(0.53, 0.3, [[0, -0.41, 0.91], [0, -0.62, -0.78]], HOLD);
-// Prone: lying face down along +Z, arms forward on the rifle.
-const PRONE = (() => {
-  const P = poseFrom(0.93, 0, [[0, -1, 0], [0, -1, 0]], [[0.05, 0.6, 0.8], [-0.2, 0.3, 0.93], [-0.05, 0.6, 0.8], [0.2, 0.3, 0.93]]);
-  return P.map((q) => (q ? [q[0], 0.14 - q[2] * 0.6, q[1] - 0.85] : q));
-})();
 
 // ----------------------------------------------------------------- system
 
@@ -602,6 +160,8 @@ export class RagdollSystem {
     this.gore = gore;
     this.goreOn = true;
     this.bodies = [];
+    this.grid = new Map();
+    this.gridT = 0;
     this.acc = 0;
     this.cam = new THREE.Vector3();
     const shadows = !!quality.shadows;
@@ -668,6 +228,7 @@ export class RagdollSystem {
     b.dead = dead;
     b.build(u);
     b.gatherStructs(this.world);
+    b.rest(this.terrain);
     // Moving bodies keep their momentum.
     for (let i = 0; i < b.np; i++) b.push(i, u.vel.x, 0, u.vel.z);
     const gore = this.goreOn && this.gore;
@@ -750,7 +311,12 @@ export class RagdollSystem {
       this.acc -= STEP;
       steps++;
     }
-    if (steps) {
+    if (steps && awake) {
+      this.gridT -= dt;
+      if (this.gridT <= 0) {
+        this.gridT = 0.4;
+        this.rebuildGrid();
+      }
       let n = 0;
       for (const b of this.bodies) {
         if (b.sleeping) continue;
@@ -760,12 +326,45 @@ export class RagdollSystem {
           n++;
           continue;
         }
+        if (b.age >= b.nbrT) {
+          b.nbrT = b.age + 0.4;
+          this.neighbours(b);
+        }
         for (let s = 0; s < steps; s++) b.step(terrain);
       }
     }
     // Blood: pools under bodies, spurting stumps.
     if (this.goreOn && this.gore) this.bleed(dt);
     this.draw(frustum);
+  }
+
+  // Bodies by 4 m cell, for bodies landing on one another.
+  rebuildGrid() {
+    const g = this.grid;
+    g.clear();
+    for (const b of this.bodies) {
+      const key = cellKey(Math.floor(b.cx / CELL), Math.floor(b.cz / CELL));
+      const list = g.get(key);
+      if (list) list.push(b);
+      else g.set(key, [b]);
+    }
+  }
+
+  neighbours(b) {
+    b.nbrs.length = 0;
+    const cx = Math.floor(b.cx / CELL);
+    const cz = Math.floor(b.cz / CELL);
+    for (let i = -1; i <= 1; i++) {
+      for (let j = -1; j <= 1; j++) {
+        const list = this.grid.get(cellKey(cx + i, cz + j));
+        if (!list) continue;
+        for (const q of list) {
+          if (q === b || q.u.removed) continue;
+          const r = q.radius + b.radius + 1;
+          if ((q.cx - b.cx) ** 2 + (q.cz - b.cz) ** 2 < r * r) b.nbrs.push(q);
+        }
+      }
+    }
   }
 
   bleed(dt) {
@@ -831,4 +430,8 @@ export class RagdollSystem {
     sm.count = stumps;
     if (stumps) sm.instanceMatrix.needsUpdate = true;
   }
+}
+
+function cellKey(i, j) {
+  return (i + 32768) * 65536 + (j + 32768);
 }
