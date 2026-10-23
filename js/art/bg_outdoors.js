@@ -53,7 +53,7 @@
   const glowDef = (id, color, op) => K.radial(id, [[0, color, op], [0.35, color, op * 0.45], [1, color, 0]], 0.5, 0.5, 0.5, false);
   /* vertical fade band, transparent at both ends (no hard edges) */
   const band3 = (o, y, h, color, peak, name = 'b3', at = 0.5) => {
-    const id = o.id(name);
+    const id = K.uid(o, name);
     return K.defs(K.linear(id, [[0, color, 0], [at, color, peak], [1, color, 0]])) + K.rect(-10, y, 1620, h, `url(#${id})`);
   };
 
@@ -237,7 +237,7 @@
     let s = K.glow(o, x, y - u(26), u(70), '#e2fbd2', 0.75, 'lcore');
     s += K.path(`M${n(x - u(16))},${n(y)}L${n(x + u(16))},${n(y)}L${n(x + u(13))},${n(y - u(7))}L${n(x - u(13))},${n(y - u(7))}Z`, brass);
     s += K.rect(x - u(12), y - u(14), u(24), u(7), brassL) + K.rect(x + u(3), y - u(14), u(9), u(7), brass);
-    const gid = o.id('lglass');
+    const gid = K.uid(o, 'lglass');
     s += K.defs(K.radial(gid, [[0, '#fdfff5'], [0.45, '#d9f7c4'], [1, P.lantern]], 0.5, 0.55, 0.6, false));
     s += K.path(`M${n(x - u(10))},${n(y - u(14))}Q${n(x - u(14))},${n(y - u(27))} ${n(x - u(10))},${n(y - u(40))}L${n(x + u(10))},${n(y - u(40))}Q${n(x + u(14))},${n(y - u(27))} ${n(x + u(10))},${n(y - u(14))}Z`, `url(#${gid})`);
     s += stroke(`M${n(x - u(6))},${n(y - u(14))}Q${n(x - u(9))},${n(y - u(27))} ${n(x - u(6))},${n(y - u(40))}M${n(x + u(6))},${n(y - u(14))}Q${n(x + u(9))},${n(y - u(27))} ${n(x + u(6))},${n(y - u(40))}M${n(x)},${n(y - u(14))}V${n(y - u(40))}M${n(x - u(12))},${n(y - u(27))}H${n(x + u(12))}`, dark, u(1.6), { opacity: 0.75 });
@@ -265,14 +265,16 @@
   ART.bg('barrens', {
     times: ['day', 'dusk'],
     draw(o) {
-      const t = o.time, rng = o.rng, dusk = t === 'dusk';
+      const t = o.time, dusk = t === 'dusk';
+      const seed = Math.floor(o.rng() * 4294967296), stream = (k) => K.rng((seed + k * 2654435761) >>> 0);
+      const rng = stream(0), skyR = stream(1), lightR = stream(2);
       const { L, S, T } = lighting(t);
       const hz = (c, k) => K.mix(c, T.haze, k);
       let s = K.sky(o, t);
 
       /* sky: thin overcast with the sun behind it / a low sun behind the trees */
-      if (dusk) s += K.glow(o, 190, 330, 720, '#f7b06a', 0.6, 'sun') + K.clouds(rng, { count: 5, y0: 30, y1: 200, color: '#f0a07a', shadow: '#6e4f72', opacity: 0.55, w: 560 });
-      else s += K.glow(o, 300, 30, 640, '#fffaf0', 0.5, 'sun') + K.clouds(rng, { count: 6, y0: 20, y1: 210, color: '#f4f1ea', shadow: '#c5cbd1', opacity: 0.7, w: 540 });
+      if (dusk) s += K.glow(o, 190, 330, 720, '#f7b06a', 0.6, 'sun') + K.clouds(skyR, { count: 5, y0: 30, y1: 200, color: '#f0a07a', shadow: '#6e4f72', opacity: 0.55, w: 560 });
+      else s += K.glow(o, 300, 30, 640, '#fffaf0', 0.5, 'sun') + K.clouds(skyR, { count: 6, y0: 20, y1: 210, color: '#f4f1ea', shadow: '#c5cbd1', opacity: 0.7, w: 540 });
 
       /* distant ridge; the rail trestle crossing the valley upstream; the wooded hill it runs into */
       s += K.path(K.ridge(rng, { y: 300, amp: 16, steps: 18, jag: 0.3 }), hz(L(P.slate), 0.62));
@@ -306,7 +308,7 @@
       const FW = [[-20, 604], [200, 600], [420, 598], [600, 592], [690, 579], [880, 579], [980, 571], [1120, 560], [1300, 550], [1460, 545], [1620, 541]];
       const NW = [[-20, 840], [240, 790], [480, 744], [740, 702], [980, 664], [1180, 636], [1360, 610], [1500, 594], [1620, 584]];
       const earth = '#6e5240', clay = '#94704c';
-      const bg = o.id('bank');
+      const bg = K.uid(o, 'bank');
       s += K.defs(K.linear(bg, [[0, L('#7a5c46')], [0.55, L(earth)], [1, S(earth)]], 0, 360, 0, 600, true));
       s += K.path(smoothD(BT) + smoothD(FW.slice().reverse(), false) + 'Z', `url(#${bg})`);
       s += K.path('M870,360 Q940,410 1000,456 L1020,572 L890,580 Q912,460 870,360 Z', S(earth), { opacity: 0.6 });
@@ -371,7 +373,7 @@
       let stain = '';
       for (let i = 0; i < 12; i++) { const a = Math.PI * (0.3 + rng() * 0.4), x = CX + Math.cos(a) * (r + 4), y = CY + Math.sin(a) * (r + 2); stain += `M${n(x - 2)},${n(y)}l${n(1 + rng() * 2)},${n(8 + rng() * 18)}l${n(2 + rng() * 2)},0Z`; }
       s += K.path(stain, S('#3e4430'), { opacity: 0.6 });
-      const ig = o.id('cul');
+      const ig = K.uid(o, 'cul');
       s += K.defs(K.radial(ig, [[0, '#030405'], [0.55, '#08090b'], [0.84, dusk ? '#0c0e10' : '#1e2224'], [1, dusk ? '#131518' : S(conc)]], CX - 3, CY - 20, r * 1.08));
       s += K.circle(CX, CY, r, `url(#${ig})`);
       s += stroke(ellD(CX - 1, CY - 9, r * 0.8, r * 0.78) + ellD(CX - 2, CY - 15, r * 0.6, r * 0.58), dusk ? '#101215' : '#262a2c', 2, { opacity: 0.7 });
@@ -401,7 +403,7 @@
 
       /* ---- the stream ---- */
       const waterD = smoothD(FW) + smoothD(NW.slice().reverse(), false) + 'Z';
-      const wg = o.id('water'), wc = o.id('wclip');
+      const wg = K.uid(o, 'water'), wc = K.uid(o, 'wclip');
       const wS = dusk ? [[0, '#2e2832'], [0.16, '#4e3a46'], [0.4, '#b07e84'], [0.62, '#c69088'], [1, '#382a32']] : [[0, '#3e443c'], [0.16, '#6a6a50'], [0.4, '#a6b6ba'], [0.62, '#bccacc'], [1, '#625c4a']];
       s += K.defs(K.linear(wg, wS, 0, 562, 0, 820, true), `<clipPath id="${wc}"><path d="${waterD}"/></clipPath>`) + K.path(waterD, `url(#${wg})`);
       let wd = '';
@@ -461,6 +463,10 @@
       let rt = '';
       for (let i = 0; i < 16; i++) { const a = rng() * Math.PI * 2, l = 44 + rng() * 34; rt += `M128,432q${n(Math.cos(a) * l * 0.6)},${n(Math.sin(a) * l * 0.4)} ${n(Math.cos(a) * l)},${n(Math.sin(a) * l * 1.1)}`; }
       s += stroke(rt, S('#3a2a20'), 2.4) + K.path(blobL(rng, 122, 424, 32, 42, { lobes: 6, jag: 0.3, k: 5 }), L('#5a4232'));
+      let rt2 = '', clod = '';
+      for (let i = 0; i < 12; i++) { const a = rng() * Math.PI * 2, l = 24 + rng() * 30; rt2 += `M${n(128 + Math.cos(a) * 8)},${n(432 + Math.sin(a) * 10)}q${n(Math.cos(a) * l * 0.5 + (rng() - 0.5) * 10)},${n(Math.sin(a) * l * 0.5)} ${n(Math.cos(a) * l)},${n(Math.sin(a) * l * 1.2)}`; }
+      for (let i = 0; i < 7; i++) clod += ellD(104 + rng() * 48, 404 + rng() * 56, 3 + rng() * 5, 2 + rng() * 3);
+      s += stroke(rt2, L('#7a5e46'), 1.6, { opacity: 0.9 }) + K.path(clod, L('#6e5440'));
       const wood = '#958c7c';
       let cracks = '';
       for (let i = 0; i < 9; i++) { const v = (rng() - 0.5) * 30, u0 = rng() * len * 0.6; cracks += `M${n(u0)},${n(v)}L${n(u0 + 60 + rng() * 120)},${n(v * 0.7)}`; }
@@ -526,12 +532,12 @@
       if (!dusk) {
         s += K.shaft(o, [[300, 0], [420, 0], [800, 620], [600, 640]], '#fff4da', 0.1, 'sh1', [0, 0, 0.4, 1]);
         s += K.shaft(o, [[1060, 0], [1130, 0], [1330, 590], [1190, 600]], '#fff4da', 0.07, 'sh2', [0, 0, 0.3, 1]);
-        const dap = o.id('dap');
+        const dap = K.uid(o, 'dap');
         s += K.defs(K.radial(dap, [[0, '#fff2d0', 0.32], [0.6, '#fff2d0', 0.12], [1, '#fff2d0', 0]], 0.5, 0.5, 0.5, false));
         for (let i = 0; i < 22; i++) {
-          const x = 300 + rng() * 1200, y0 = lerpY(NW, x) + 30; if (y0 > 880) continue;
-          const y = y0 + rng() * (900 - y0), k = 0.5 + (y - 600) / 300;
-          s += K.ellipse(x, y, (24 + rng() * 40) * k, (6 + rng() * 8) * k, `url(#${dap})`);
+          const x = 300 + lightR() * 1200, y0 = lerpY(NW, x) + 30; if (y0 > 880) continue;
+          const y = y0 + lightR() * (900 - y0), k = 0.5 + (y - 600) / 300;
+          s += K.ellipse(x, y, (24 + lightR() * 40) * k, (6 + lightR() * 8) * k, `url(#${dap})`);
         }
         s += band3(o, 250, 320, T.haze, 0.16, 'haze');
       } else {
@@ -554,16 +560,18 @@
   ART.bg('standpipe', {
     times: ['day', 'dusk', 'night', 'quiet'],
     draw(o) {
-      const t = o.time, rng = o.rng;
+      const t = o.time;
+      const seed = Math.floor(o.rng() * 4294967296), stream = (k) => K.rng((seed + k * 2654435761) >>> 0);
+      const rng = stream(0), skyR = stream(1), lightR = stream(2), creepR = stream(3), flowerR = stream(4);
       const { L, S, T } = lighting(t);
       const quiet = t === 'quiet', night = t === 'night', dark = night || quiet, dusk = t === 'dusk';
       const hz = (c, k) => K.mix(c, T.haze, k);
       const dq = (c) => (quiet ? K.desat(c, 0.6) : c);
       let s = K.sky(o, t);
-      if (t === 'day') s += K.clouds(rng, { count: 7, y0: 40, y1: 330, color: '#f2efe8', shadow: '#c3c9cf', opacity: 0.72, w: 560 });
-      if (dusk) s += K.glow(o, 1280, 450, 760, '#f2a066', 0.5, 'sun') + K.clouds(rng, { count: 6, y0: 60, y1: 340, color: '#f2a27a', shadow: '#7a5576', opacity: 0.55, w: 600 });
-      if (night) s += K.stars(rng, { count: 120, y1: 420 }) + K.clouds(rng, { count: 3, y0: 140, y1: 300, color: '#26324e', shadow: '#151c2e', opacity: 0.5, w: 640 }) + K.circle(1330, 110, 30, '#e9e4d2', { opacity: 0.9 }) + K.glow(o, 1330, 110, 170, '#c8d4f0', 0.25, 'moon');
-      if (quiet) s += K.stars(rng, { count: 18, y1: 300, color: '#6f857a' });
+      if (t === 'day') s += K.clouds(skyR, { count: 7, y0: 40, y1: 330, color: '#f2efe8', shadow: '#c3c9cf', opacity: 0.72, w: 560 });
+      if (dusk) s += K.glow(o, 1280, 450, 760, '#f2a066', 0.5, 'sun') + K.clouds(skyR, { count: 6, y0: 60, y1: 340, color: '#f2a27a', shadow: '#7a5576', opacity: 0.55, w: 600 });
+      if (night) s += K.stars(skyR, { count: 120, y1: 420 }) + K.clouds(skyR, { count: 3, y0: 140, y1: 300, color: '#26324e', shadow: '#151c2e', opacity: 0.5, w: 640 }) + K.circle(1330, 110, 30, '#e9e4d2', { opacity: 0.9 }) + K.glow(o, 1330, 110, 170, '#c8d4f0', 0.25, 'moon');
+      if (quiet) s += K.stars(skyR, { count: 18, y1: 300, color: '#6f857a' });
 
       /* the valley: distant hills, the town spread out below the brow of the hill */
       s += K.path(K.ridge(rng, { y: 412, amp: 18, steps: 20, jag: 0.3 }), hz(L(P.slate), dark ? 0.3 : 0.62));
@@ -572,7 +580,7 @@
       const yC = (x) => 604 - (x - 780) * 0.118 + 8 * Math.sin((x - 780) / 140), hwC = (x) => Math.max(4, 10 - (x - 780) / 170);
       const inCanal = (x, y) => Math.abs(y - yC(x)) < hwC(x) + 7;
       const inDown = (x, y) => x > 1070 && x < 1350 && y > 472 && y < 580;
-      const town = bucket(), trees = bucket(), lights = bucket();
+      const lights = bucket();
       const winC = ['#ffd38a', '#f6c784', '#ffe2a8'];
       for (const ry of [446, 453, 461, 470, 480, 492, 505, 520, 537, 556, 577, 600, 626, 654]) {
         const f = (ry - 440) / 214, k = 0.42 + f * 1.8;
@@ -580,29 +588,34 @@
         const wl = ['#e2d8c2', '#d4c4a0', '#c9c2b0', '#b4b0a4', '#c7b48c'].map((c) => hz(L(dq(c)), hk)), ws = hz(S('#b9ae96'), hk);
         const rf = ['#4a4448', '#5a4c42', '#3e4352'].map((c) => hz(L(c), hk));
         const tc = [[P.rust, '#7e3a24'], [P.ember, P.rust], [P.mustard, '#a87a2a'], [P.pine, '#22382c'], [P.rust, '#7e3a24']].map(([a, b]) => [hz(L(dq(a)), hk), hz(S(dq(b)), hk)]);
+        const row = bucket(), rowT = bucket();
+        // the canopy the houses sit in: one lumpy band per row
+        const strip = [];
+        for (let x = -30; x <= 1650; x += 7 * k + rng() * 6 * k) strip.push([x, ry - (3 + rng() * 6) * k]);
+        s += K.path(smoothD(strip) + `L1650,${n(ry + 3 * k)}L-30,${n(ry + 3 * k)}Z`, hz(L(dq(rng.pick(['#8a5a34', '#7a6a3a', '#946238', '#6e6a40']))), hk + 0.04));
         for (let x = -30 + rng() * 20 * k; x < 1650;) {
           if (x > 150 && x < 790) x = 790 + rng() * 20 * k;
           const y = ry + (rng() - 0.5) * 2 * k;
           if (inCanal(x, y) || inDown(x, y)) { x += 8 * k; continue; }
-          if (rng() < 0.6) {
+          if (rng() < 0.4) {
             const [tl, ts] = rng.pick(tc), r = (5 + rng() * 6) * k;
-            trees.add(ts, blobL(rng, x + r, y - r * 0.6, r, r * 0.8, { lobes: 4, jag: 0.3, k: 2 }));
-            trees.add(tl, blobL(rng, x + r * 0.82, y - r * 0.82, r * 0.72, r * 0.5, { lobes: 4, jag: 0.3, k: 2 }));
+            rowT.add(ts, r < 8 ? ellD(x + r, y - r * 0.6, r, r * 0.8) : blobL(rng, x + r, y - r * 0.6, r, r * 0.8, { lobes: 4, jag: 0.3, k: 2 }));
+            rowT.add(tl, r < 8 ? ellD(x + r * 0.82, y - r * 0.82, r * 0.72, r * 0.5) : blobL(rng, x + r * 0.82, y - r * 0.82, r * 0.72, r * 0.5, { lobes: 4, jag: 0.3, k: 2 }));
             x += r * 1.5;
           } else {
             const w = (5 + rng() * 3.5) * k, h = (3.2 + rng() * 1.6) * k, rh = (2.2 + rng() * 1.4) * k, d = (7 + rng() * 5) * k;
-            town.add(rng.pick(wl), pd([[x, y], [x + w, y], [x + w, y - h], [x + w / 2, y - h - rh], [x, y - h]]));
-            town.add(ws, pd([[x + w, y], [x + w + d, y - d * 0.26], [x + w + d, y - h - d * 0.26], [x + w, y - h]]));
-            town.add(rng.pick(rf), pd([[x + w / 2, y - h - rh], [x + w / 2 + d, y - h - rh - d * 0.26], [x + w + d + 1, y - h - d * 0.26], [x + w + 1, y - h]]));
-            if (night && rng() < 0.6) lights.add(rng.pick(winC), `M${n(x + w * 0.3)},${n(y - h * 0.7)}h${n(1.6 * k)}v${n(1.8 * k)}h${n(-1.6 * k)}Z`);
-            if (night && rng() < 0.4) lights.add(rng.pick(winC), `M${n(x + w + d * 0.4)},${n(y - h * 0.7 - d * 0.1)}h${n(1.4 * k)}v${n(1.6 * k)}h${n(-1.4 * k)}Z`);
-            if (dusk && rng() < 0.22) lights.add(rng.pick(winC), `M${n(x + w * 0.3)},${n(y - h * 0.7)}h${n(1.6 * k)}v${n(1.8 * k)}h${n(-1.6 * k)}Z`);
+            row.add(rng.pick(wl), pd([[x, y], [x + w, y], [x + w, y - h], [x + w / 2, y - h - rh], [x, y - h]]));
+            row.add(ws, pd([[x + w, y], [x + w + d, y - d * 0.26], [x + w + d, y - h - d * 0.26], [x + w, y - h]]));
+            row.add(rng.pick(rf), pd([[x + w / 2, y - h - rh], [x + w / 2 + d, y - h - rh - d * 0.26], [x + w + d + 1, y - h - d * 0.26], [x + w + 1, y - h]]));
+            const q1 = rng(), q2 = rng(), wc1 = rng.pick(winC);
+            if ((night && q1 < 0.6) || (dusk && q1 < 0.22)) lights.add(wc1, `M${n(x + w * 0.3)},${n(y - h * 0.7)}h${n(1.6 * k)}v${n(1.8 * k)}h${n(-1.6 * k)}Z`);
+            if (night && q2 < 0.4) lights.add(wc1, `M${n(x + w + d * 0.4)},${n(y - h * 0.7 - d * 0.1)}h${n(1.4 * k)}v${n(1.6 * k)}h${n(-1.4 * k)}Z`);
             x += w + d + (2 + rng() * 5) * k;
           }
         }
-        if (night || dusk) for (let x = 800 + rng() * 40; x < 1640; x += (22 + rng() * 34) * Math.max(0.6, k * 0.6)) if (!inCanal(x, ry)) lights.add(P.sodium, ellD(x, ry + 1, 0.8 + 0.7 * k, 0.8 + 0.7 * k));
+        s += row.out() + rowT.out();
+        if (night || dusk) for (let x = 800 + lightR() * 40; x < 1640; x += (22 + lightR() * 34) * Math.max(0.6, k * 0.6)) if (!inCanal(x, ry)) lights.add(P.sodium, ellD(x, ry + 1, 0.8 + 0.7 * k, 0.8 + 0.7 * k));
       }
-      s += trees.out() + town.out();
       // the canal winding through, with two bridges
       let cTop = [], cBot = [];
       for (let x = 780; x <= 1640; x += 20) { cTop.push([x, yC(x) - hwC(x)]); cBot.push([x, yC(x) + hwC(x)]); }
@@ -614,15 +627,15 @@
       for (const [x, y, w, h] of [[1078, 560, 34, 26], [1114, 556, 28, 34], [1144, 552, 40, 22], [1186, 548, 92, 20], [1282, 540, 30, 30], [1092, 520, 30, 22], [1126, 514, 26, 30], [1156, 508, 34, 20], [1196, 502, 28, 26], [1228, 498, 40, 18], [1272, 494, 30, 24], [1304, 490, 26, 18]]) {
         const hk = dark ? 0.1 : 0.22 + (560 - y) / 400;
         s += K.rect(x, y - h, w, h, hz(L(dq(rng.pick(brickCs))), hk)) + K.rect(x + w - 5, y - h, 5, h, hz(S(P.brick), hk)) + K.rect(x - 1, y - h - 2, w + 1, 3, hz(S('#4a3a34'), hk));
-        if (night) for (let yy = y - h + 4; yy < y - 4; yy += 5) for (let xx = x + 3; xx < x + w - 6; xx += 5) if (rng() < 0.45) lights.add(rng.pick(winC), `M${n(xx)},${n(yy)}h1.8v2h-1.8Z`);
+        if (night) for (let yy = y - h + 4; yy < y - 4; yy += 5) for (let xx = x + 3; xx < x + w - 6; xx += 5) if (lightR() < 0.45) lights.add(lightR.pick(winC), `M${n(xx)},${n(yy)}h1.8v2h-1.8Z`);
       }
-      s += K.rect(1292, 436, 10, 104, hz(L(dq(P.brick)), dark ? 0.1 : 0.28)) + K.rect(1290, 433, 14, 5, hz(S(P.brick), dark ? 0.1 : 0.28));
+      s += K.rect(1316, 432, 10, 104, hz(L(dq(P.brick)), dark ? 0.1 : 0.28)) + K.rect(1314, 429, 14, 5, hz(S(P.brick), dark ? 0.1 : 0.28));
       // two steeples: white clapboard Congregational, granite St. Mary's
       const sw = hz(L('#ece3cf'), dark ? 0.08 : 0.24), sws = hz(S('#ece3cf'), dark ? 0.08 : 0.24);
       s += K.rect(1112, 488, 20, 66, sw) + K.rect(1125, 488, 7, 66, sws) + K.rect(1110, 466, 24, 24, sw) + K.rect(1115, 471, 14, 13, hz(S('#3a3a40'), 0.2)) + K.rect(1108, 463, 28, 4, sws);
       s += K.path('M1110,463 L1122,378 L1134,463 Z', sw) + K.path('M1122,378 L1134,463 L1125,463 Z', sws);
       const sb = hz(L(dq('#8a7e70')), dark ? 0.08 : 0.26), sbs = hz(S('#8a7e70'), dark ? 0.08 : 0.26);
-      s += K.rect(1444, 470, 22, 60, sb) + K.rect(1458, 470, 8, 60, sbs) + K.path('M1442,470 L1455,402 L1468,470 Z', sb) + K.path('M1455,402 L1468,470 L1459,470 Z', sbs);
+      s += K.rect(1240, 462, 22, 46, sb) + K.rect(1254, 462, 8, 46, sbs) + K.rect(1238, 446, 26, 18, sb) + K.rect(1243, 450, 16, 10, hz(S('#3a3a40'), 0.2)) + K.path('M1238,446 L1251,384 L1264,446 Z', sb) + K.path('M1251,384 L1264,446 L1255,446 Z', sbs);
       if (night) s += K.glow(o, 1122, 500, 80, '#ffd9a0', 0.4, 'steeple') + K.rect(1112, 466, 13, 88, '#f3e6c8', { opacity: 0.3 });
       if (night || dusk) s += lights.out();
       if (night) {
@@ -634,7 +647,7 @@
 
       /* the hilltop: grass from the brow of the hill down to our feet */
       const BROW = [[-20, 590], [800, 596], [940, 600], [1100, 610], [1300, 626], [1500, 644], [1640, 656]];
-      const gg = o.id('ground');
+      const gg = K.uid(o, 'ground');
       s += K.defs(K.linear(gg, [[0, L(P.moss)], [1, S(P.moss)]], 0, 590, 0, 900, true)) + K.path(smoothD(BROW) + 'L1640,920L-20,920Z', `url(#${gg})`);
       s += K.path(tuftsD(rng, Array.from({ length: 56 }, () => { const x = 780 + rng() * 860; return [x, lerpY(BROW, x) + 3, 0.6 + rng() * 0.5]; }), { blades: 4, h: 18 }), S(P.moss));
 
@@ -646,7 +659,7 @@
       for (let k = 0; k < NC; k++) cum.push(cum[k] + 0.72 + rng() * 0.56);
       const cumAt = (k) => { k = Math.max(0, Math.min(NC, k)); const i = Math.floor(k); return i >= NC ? cum[NC] : cum[i] + (cum[i + 1] - cum[i]) * (k - i); };
       const courseY = (k, th) => baseY(th) - (baseY(th) - topY0(th)) * cumAt(k) / cum[NC];
-      const BRK = [[-1.571, 5], [-1.36, 4.5], [-1.16, 6], [-0.98, 7.5], [-0.82, 9.5], [-0.66, 10], [-0.52, 8], [-0.4, 3.5], [-0.28, 1.5], [-0.12, 2.5], [0.02, 1], [0.16, 2], [0.3, 0.5], [0.4, 0], [0.48, 0], [0.56, 3], [0.7, 4.5], [0.86, 3.5], [1.0, 5.5], [1.16, 4], [1.34, 6], [1.571, 5.5]];
+      const BRK = [[-1.571, 6], [-1.4, 5.5], [-1.25, 7], [-1.1, 7.2], [-1.0, 9.8], [-0.7, 10.2], [-0.56, 9.6], [-0.5, 4.2], [-0.36, 3.6], [-0.3, 1.8], [-0.1, 1.4], [-0.02, 3.4], [0.12, 3.2], [0.2, 0.6], [0.3, 0], [0.5, 0], [0.56, 5], [0.72, 5.6], [0.78, 2.6], [0.95, 3.2], [1.04, 6.6], [1.3, 6], [1.45, 4.2], [1.571, 7]];
       const cols = 52, dth = Math.PI / cols, thL = (j) => -Math.PI / 2 + j * dth;
       const keep = [];
       for (let j = 0; j < cols; j++) { const th = thL(j + 0.5), lost = lerpY(BRK, th); keep.push(Math.max(1, Math.min(NC, Math.round(NC - lost + (lost > 0.4 ? (rng() - 0.5) * 2.2 : 0))))); }
@@ -669,12 +682,13 @@
       s += K.path(ld(backTop) + 'L' + backTop.slice().reverse().map(([x, y]) => n(x) + ',' + n(y + 6)).join('L') + 'Z', K.mix(stS, '#0b0e14', 0.3), { opacity: 0.5 });
       let bcr = '';
       for (let yy = 392; yy < 600; yy += 17) { const pts = []; for (let j = 0; j <= cols; j += 2) { const th = thL(j); pts.push([xAt(th), yy + 36 * Math.cos(th) * 0.8]); } bcr += ld(pts); }
-      s += stroke(bcr, K.mix(stS, '#0d1018', 0.35), 1.2, { opacity: 0.4 });
+      const bwc = K.uid(o, 'bwall');
+      s += `<clipPath id="${bwc}"><path d="${ld(backTop)}L${n(xAt(Math.PI / 2))},600L${n(xAt(-Math.PI / 2))},600Z"/></clipPath>` + `<g clip-path="url(#${bwc})">` + stroke(bcr, K.mix(stS, '#0d1018', 0.35), 1.2, { opacity: 0.4 }) + '</g>';
       s += K.path(`M${n(xAt(-1.4))},560 Q${RXc},520 ${n(xAt(1.4))},560 L${n(xAt(1.4))},600 L${n(xAt(-1.4))},600 Z`, S('#5a5a44'));
       const [ruS, ruL] = stonesD(Array.from({ length: 12 }, () => [200 + rng() * 160, 548 + rng() * 30, 8 + rng() * 14, 6 + rng() * 8]));
       s += K.path(ruS, stS) + K.path(ruL, stM);
       // the wall itself: lit face, a turning band, the shadow side
-      const rid = o.id('ring');
+      const rid = K.uid(o, 'ring');
       let wall = K.rect(100, 240, 720, 380, stL);
       wall += K.poly([[xAt(0.16), 240], [xAt(0.58), 240], [xAt(0.58), 620], [xAt(0.16), 620]], K.mix(stL, stM, 0.6)) + K.poly([[xAt(0.58), 240], [xAt(0.95), 240], [xAt(0.95), 620], [xAt(0.58), 620]], stM) + K.poly([[xAt(0.95), 240], [820, 240], [820, 620], [xAt(0.95), 620]], stS);
       let blkL = '', blkD = '', crs = '', jts = '';
@@ -702,9 +716,9 @@
         let stem = '', lfA = '', lfB = '';
         for (const th0 of [-1.42, -1.28, -1.12, -0.95, -0.86, -0.3, 1.22, 1.36]) {
           let x = xAt(th0), y = baseY(th0) + 2;
-          const top = y - 90 - rng() * 120;
+          const top = y - 90 - creepR() * 120;
           let d = `M${n(x)},${n(y)}`;
-          while (y > top) { const nx = x + (rng() - 0.5) * 14, ny = y - 12 - rng() * 10; d += `Q${n(x + (rng() - 0.5) * 10)},${n((y + ny) / 2)} ${n(nx)},${n(ny)}`; const a = rng() * Math.PI * 2, lf = leafD(nx + Math.cos(a) * 5, ny + Math.sin(a) * 3, 4.5 + rng() * 2, 2.6, a); if (rng() < 0.6) lfA += lf; else lfB += lf; x = nx; y = ny; }
+          while (y > top) { const nx = x + (creepR() - 0.5) * 14, ny = y - 12 - creepR() * 10; d += `Q${n(x + (creepR() - 0.5) * 10)},${n((y + ny) / 2)} ${n(nx)},${n(ny)}`; const a = creepR() * Math.PI * 2, lf = leafD(nx + Math.cos(a) * 5, ny + Math.sin(a) * 3, 4.5 + creepR() * 2, 2.6, a); if (creepR() < 0.6) lfA += lf; else lfB += lf; x = nx; y = ny; }
           stem += d;
         }
         wall += stroke(stem, S('#4a2a20'), 1.3, { opacity: 0.8 }) + K.path(lfA, L('#9a3426')) + K.path(lfB, S('#7a2a20'));
@@ -712,7 +726,7 @@
       // graffiti: faded spray paint, scratched initials, the lantern with the X
       const colAt = (th) => keep[Math.max(0, Math.min(cols - 1, Math.floor((th + Math.PI / 2) / dth)))];
       const yK = (th, down) => courseY(colAt(th) - down, th);
-      const scr = dark ? K.adj(stM, quiet ? 0.12 : 0.28) : K.mix(stL, '#fff8ec', dusk ? 0.42 : 0.6);
+      const scr = dark ? K.adj(stM, quiet ? 0.12 : 0.28) : K.mix(stL, '#fff8ec', dusk ? 0.3 : 0.55);
       wall += K.text(xAt(-1.0) - 10, yK(-1.0, 3.5), 'CLASS OF 84', { fontFamily: SCRAWL, fontSize: 22, fill: L('#9a3a3a'), opacity: quiet ? 0.25 : 0.5, transform: `rotate(-5 ${n(xAt(-1.0))} ${n(yK(-1.0, 3.5))})` });
       const hx = xAt(-0.12), hy = yK(-0.12, 2.6);
       wall += stroke(`M${n(hx)},${n(hy + 15)}c-28,-19 -24,-42 -6,-40 c5,0 6,5 6,8 c0,-3 2,-8 7,-8 c18,-2 20,24 -7,40Z`, L('#b24a4a'), 2.6, { opacity: quiet ? 0.3 : 0.75 });
@@ -725,7 +739,7 @@
       for (const [th, dn, sz] of [[0.62, 2.6, 1.3], [0.78, 5.0, 1.1], [0.96, 2.8, 1.2]]) lx += lanternX(xAt(th), yK(th, dn), sz);
       wall += stroke(lx, scr, 1.6, { opacity: dark ? 0.5 : 0.85 });
       if (quiet) {
-        const gw = o.id('gwash');
+        const gw = K.uid(o, 'gwash');
         wall += K.defs(K.radial(gw, [[0, P.lantern, 0.5], [0.35, P.lantern, 0.2], [1, P.lantern, 0]], 606, 300, 380)) + K.rect(100, 240, 720, 380, `url(#${gw})`);
       }
       s += `<clipPath id="${rid}"><path d="${wallD}"/></clipPath><g clip-path="url(#${rid})">${wall}</g>`;
@@ -785,8 +799,8 @@
       if (!quiet) {
         const fl = bucket();
         for (let i = 0; i < 110; i++) {
-          const x = rng() * 1640 - 20, y = 640 + rng() * 250, k = 0.6 + (y - 600) / 300, kind = rng();
-          if (kind < 0.45) fl.add(L(P.mustard), leafD(x, y - 26 * k, 7 * k, 2.6 * k, -1.3 + rng() * 0.4) + leafD(x + 4 * k, y - 20 * k, 6 * k, 2.2 * k, -1.1));
+          const x = flowerR() * 1640 - 20, y = 640 + flowerR() * 250, k = 0.6 + (y - 600) / 300, kind = flowerR();
+          if (kind < 0.45) fl.add(L(P.mustard), leafD(x, y - 26 * k, 7 * k, 2.6 * k, -1.3 + flowerR() * 0.4) + leafD(x + 4 * k, y - 20 * k, 6 * k, 2.2 * k, -1.1));
           else if (kind < 0.75) fl.add(L('#8e7aa8'), ellD(x, y - 22 * k, 2.6 * k, 2.6 * k) + ellD(x + 5 * k, y - 18 * k, 2.2 * k, 2.2 * k));
           else fl.add(L('#e8e2cc'), ellD(x, y - 30 * k, 5 * k, 2.4 * k));
         }
@@ -799,14 +813,14 @@
       if (quiet) {
         const LX = 606, LY = 303;
         s += band3(o, 470, 300, '#2a3a34', 0.5, 'fog1', 0.55) + band3(o, 600, 300, '#1e2a26', 0.35, 'fog2', 0.4);
-        for (let i = 0; i < 7; i++) s += K.pool(o, 120 + rng() * 1360, 580 + rng() * 110, 260 + rng() * 200, 22 + rng() * 18, '#34463e', 0.32, 'fogp');
+        for (let i = 0; i < 7; i++) s += K.pool(o, 120 + lightR() * 1360, 580 + lightR() * 110, 260 + lightR() * 200, 22 + lightR() * 18, '#34463e', 0.32, 'fogp');
         s += K.pool(o, LX, 610, 380, 76, P.lantern, 0.2, 'lgrass');
         // figures standing at the edge of the light, very still
         const figs = [[1010, 664, 158, false, 0], [1116, 652, 112, true, 0], [1366, 700, 182, false, 1], [196, 704, 164, false, 0], [372, 642, 104, true, 0]];
         let fg = '', rim = '';
         for (const [x, b, h, child, coat] of figs) { fg += personD(x, b, h, { child, coat }); rim += personD(x + (x < LX ? 1.5 : -1.5), b - 1, h, { child, coat }); }
         s += K.path(rim, P.lantern, { opacity: 0.06 }) + K.path(fg, '#050708', { opacity: 0.34 });
-        const dk = o.id('dark');
+        const dk = K.uid(o, 'dark');
         s += K.defs(K.radial(dk, [[0, '#010203', 0], [0.22, '#010203', 0], [0.58, '#010203', 0.6], [1, '#010203', 0.9]], LX, LY + 80, 1150)) + K.rect(0, 0, 1600, 900, `url(#${dk})`);
         s += K.glow(o, LX, LY - 28, 340, P.lantern, 0.3, 'lhalo');
         s += shipLantern(o, LX, LY, 0.95);
@@ -823,7 +837,9 @@
     times: ['dusk', 'lanterns'],
     light: { lanterns: 'dusk' },
     draw(o) {
-      const fest = o.time === 'lanterns', rng = o.rng, tt = fest ? 'night' : 'dusk';
+      const fest = o.time === 'lanterns', tt = fest ? 'night' : 'dusk';
+      const seed = Math.floor(o.rng() * 4294967296), stream = (k) => K.rng((seed + k * 2654435761) >>> 0);
+      const rng = stream(0), skyR = stream(1), festR = stream(2), waterR = stream(3);
       const { L, S, T } = lighting(tt);
       const VX = 800, VY = 372, F = 760, E = 5, ZB = 36, ZB2 = 42;
       const pr = (X, Y, Z) => [VX + F * X / Z, VY + F * (E - Y) / Z];
@@ -831,8 +847,8 @@
       const hz = (c, k) => K.mix(c, T.haze, k);
       const iron = fest ? '#0b0d14' : L('#26262c');
       let s = K.sky(o, tt);
-      if (fest) s += K.stars(rng, { count: 36, y1: 240 }) + K.glow(o, 800, 400, 720, '#f2a050', 0.3, 'fglow');
-      else s += K.clouds(rng, { count: 6, y0: 60, y1: 300, color: '#f2a27a', shadow: '#7a5576', opacity: 0.55, w: 600 }) + K.glow(o, 800, 380, 560, '#f6b070', 0.55, 'sunset');
+      if (fest) s += K.stars(skyR, { count: 36, y1: 240 }) + K.glow(o, 800, 400, 720, '#f2a050', 0.3, 'fglow');
+      else s += K.clouds(skyR, { count: 6, y0: 60, y1: 300, color: '#f2a27a', shadow: '#7a5576', opacity: 0.55, w: 600 }) + K.glow(o, 800, 380, 560, '#f6b070', 0.55, 'sunset');
 
       const glows = [], refl = [];
       /* a block of brick backs along one side of the canal, Z from z0 to z1 */
@@ -854,11 +870,11 @@
         const lt = bucket();
         for (let y0 = 4.1; y0 + wh < h - 1.0; y0 += fl) for (let z = z0 + 0.9; z + ww < z1 - 0.4; z += bay) {
           if (blank && y0 + wh > blank[2] && y0 < blank[3] && z + ww > blank[0] && z < blank[1]) continue;
-          const lit = rng() < (fest ? 0.42 : 0.3), zc = z + ww / 2;
+          const lr = rng(), wcol = rng.pick([P.window, '#f6c784', '#ffcf86', '#ffe2a8']), lit = lr < (fest ? 0.42 : 0.3), zc = z + ww / 2;
           const q = Q([[X, y0, z], [X, y0, z + ww], [X, y0 + wh, z + ww], [X, y0 + wh, z]]);
           if (near) sills += Q([[X, y0 - 0.2, z - 0.12], [X, y0 - 0.2, z + ww + 0.12], [X, y0, z + ww + 0.12], [X, y0, z - 0.12]]);
           if (lit) {
-            const c = rng.pick([P.window, '#f6c784', '#ffcf86', '#ffe2a8']);
+            const c = wcol;
             lt.add(c, q);
             const [wx, wy] = pr(X, y0 + wh / 2, zc);
             refl.push([wx, VY + F * (E + y0) / zc, F * wh / zc * 1.5, F * ww / zc * 0.9, c]);
@@ -891,7 +907,7 @@
           const zs = sd < 0 ? z : z1, ze = sd < 0 ? z1 : z;
           const p1 = pr(14 * sd, yb, zs), p2 = pr(14 * sd, yb, ze), p3 = pr(14 * sd, ya, zs), W = 100, H = 20;
           const m = [(p2[0] - p1[0]) / W, (p2[1] - p1[1]) / W, (p3[0] - p1[0]) / H, (p3[1] - p1[1]) / H, p1[0], p1[1]].map((v) => +v.toFixed(4));
-          r += `<g transform="matrix(${m.join(' ')})">` + K.text(0, H * 0.84, w, { fontFamily: SIGN, fontSize: 21, fontWeight: 700, fill: L('#ece3cf'), textLength: W, lengthAdjust: 'spacingAndGlyphs', opacity: fest ? 0.2 : 0.36 }) + '</g>';
+          r += `<g transform="matrix(${m.join(' ')})"><text x="0" y="${n(H * 0.84)}" font-family="${K.esc(SIGN)}" font-size="21" font-weight="700" fill="${L('#ece3cf')}" textLength="${W}" lengthAdjust="spacingAndGlyphs" opacity="${fest ? 0.2 : 0.36}">${K.esc(w)}</text></g>`;
           z = z1 + span * 0.7 / tot;
         }
         return r;
@@ -910,7 +926,7 @@
       /* far: the canal beyond the bridge, a steeple at the end of it */
       s += K.rect(812, 236, 12, 150, hz(L('#ece3cf'), 0.45)) + K.path('M810,238 L818,170 L826,238 Z', hz(L('#ece3cf'), 0.45));
       for (const [sd, z0, z1, h, kind] of [[-1, 130, 230, 14, 'brick2'], [1, 150, 240, 12, 'brick2'], [-1, 84, 130, 11, 'stone'], [1, 92, 150, 18, 'mill'], [-1, 60, 84, 16, 'brick'], [1, 56, 92, 12, 'cream'], [-1, 43, 60, 12, 'brick2'], [1, 43, 56, 14, 'brick']]) s += building(sd, z0, z1, h, kind);
-      const fwg = o.id('farw');
+      const fwg = K.uid(o, 'farw');
       s += K.defs(K.linear(fwg, fest ? [[0, '#3a3448'], [1, '#141826']] : [[0, '#f4c098'], [1, '#86606e']], 0, VY, 0, 470, true));
       s += K.path(Q([[-9, 0, ZB], [9, 0, ZB], [9, 0, 400], [-9, 0, 400]]), `url(#${fwg})`);
       s += K.path(pd([pr(-9, 0, ZB), pr(-9, 0, 400), pr(-3, 0, 400), pr(-5.5, 0, ZB)]) + pd([pr(9, 0, ZB), pr(9, 0, 400), pr(3, 0, 400), pr(5.5, 0, ZB)]), '#0e0c16', { opacity: fest ? 0.5 : 0.3 });
@@ -923,8 +939,8 @@
       if (fest) {
         const lanB = bucket(), lanR = bucket();
         for (let i = 0; i < 480; i++) {
-          const Z = 37 + Math.pow(rng(), 0.7) * 170, X = (rng() - 0.5) * 16.6, [x, y] = pr(X, 0.15, Z), sz = Math.max(1.1, F * 0.3 / Z);
-          const c = rng() < 0.5 ? '#ffc35a' : rng() < 0.5 ? '#ffdb8a' : '#f29a3c';
+          const Z = 37 + Math.pow(festR(), 0.7) * 170, X = (festR() - 0.5) * 16.6, [x, y] = pr(X, 0.15, Z), sz = Math.max(1.1, F * 0.3 / Z);
+          const c = festR() < 0.5 ? '#ffc35a' : festR() < 0.5 ? '#ffdb8a' : '#f29a3c';
           lanB.add(c, `M${n(x - sz / 2)},${n(y - sz * 0.8)}h${n(sz)}v${n(sz * 0.8)}h${n(-sz)}Z`);
           lanR.add(c, `M${n(x - sz * 0.35)},${n(y + sz * 0.5)}h${n(sz * 0.7)}v${n(Math.max(0.8, sz * 0.3))}h${n(-sz * 0.7)}ZM${n(x - sz * 0.2)},${n(y + sz * 1.3)}h${n(sz * 0.4)}v${n(Math.max(0.8, sz * 0.3))}h${n(-sz * 0.4)}Z`);
         }
@@ -939,13 +955,13 @@
       s += K.path(archF + archB, fest ? '#07080e' : L('#2a2230'), { fillRule: 'evenodd' });
       if (fest) {
         let ppl = '';
-        for (let X = -13.6; X < 13.6; X += 0.46 + rng() * 0.3) { const hh = 1.5 + rng() * 0.35, [x, yb] = pr(X, 5.3, ZB + 1.1); ppl += personD(x, yb, F * hh / (ZB + 1.1), { coat: rng() < 0.4 ? 1 : 0 }); }
+        for (let X = -13.6; X < 13.6; X += 0.46 + festR() * 0.3) { const hh = 1.5 + festR() * 0.35, [x, yb] = pr(X, 5.3, ZB + 1.1); ppl += personD(x, yb, F * hh / (ZB + 1.1), { coat: festR() < 0.4 ? 1 : 0 }); }
         s += K.path(ppl, '#0c0e16');
       }
       const [bx0, by0] = pr(-14.5, 0, ZB), [bx1, by1] = pr(14.5, 6.3, ZB);
       const bst = '#a89c88', BL = L(bst), BS = S(bst);
       const faceD = `M${n(bx0)},${n(by0)}L${n(bx1)},${n(by0)}L${n(bx1)},${n(by1)}L${n(bx0)},${n(by1)}Z` + archF;
-      const bcl = o.id('bface');
+      const bcl = K.uid(o, 'bface');
       s += `<clipPath id="${bcl}"><path d="${faceD}" clip-rule="evenodd"/></clipPath>`;
       let bf = K.rect(bx0, by1, bx1 - bx0, by0 - by1, BL);
       let cr = '';
@@ -967,6 +983,10 @@
       bf += K.path(`M${n(a0x)},${n(a0y)}L${n(a0x)},${n(a0y - 6)}L${n(a1x)},${n(a0y - 6)}L${n(a1x)},${n(a0y)}Z`, '#1a1820', { opacity: 0.4 });
       s += `<g clip-path="url(#${bcl})">${bf}</g>`;
       s += K.rect(bx0 - 4, by1 - 3, bx1 - bx0 + 8, yCap - by1 + 5, K.adj(BL, 0.16)) + K.rect(bx0 - 4, yCap, bx1 - bx0 + 8, 2.5, BS);
+      const [, yRt] = pr(0, 7.0, ZB);
+      let brl = `M${n(bx0)},${n(yRt)}H${n(bx1)}M${n(bx0)},${n(yRt + (by1 - yRt) * 0.5)}H${n(bx1)}`;
+      for (let x = bx0 + 4; x < bx1; x += 7) brl += `M${n(x)},${n(yRt)}V${n(by1 - 2)}`;
+      s += stroke(brl, iron, 1.3, { opacity: 0.9 });
       for (const X of [-11.8, 11.8]) {
         const [x, yb] = pr(X, 6.0, ZB), [, yt] = pr(X, 9.6, ZB), gr = F * 0.24 / ZB;
         s += K.rect(x - 2, yt, 4, yb - yt, iron) + K.rect(x - gr * 2.2, yt + 2, gr * 4.4, 2.5, iron) + K.circle(x - gr * 2, yt - gr * 0.6, gr, '#fff1cc') + K.circle(x + gr * 2, yt - gr * 0.6, gr, '#fff1cc') + K.circle(x, yt - gr * 1.4, gr, '#fff1cc');
@@ -993,7 +1013,7 @@
       for (const z of [11, 19, 27]) for (const sd of [-1, 1]) { const [x, y] = pr(9 * sd, 1.6, z); s += K.circle(x, y, F * 0.16 / z, 'none', { stroke: iron, strokeWidth: Math.max(1, F * 0.04 / z) }); }
 
       const waterD = Q([[-9, 0, 4], [9, 0, 4], [9, 0, ZB], [-9, 0, ZB]]);
-      const wg = o.id('water'), wcl = o.id('wclip');
+      const wg = K.uid(o, 'water'), wcl = K.uid(o, 'wclip');
       const wStops = fest ? [[0, '#2a2e40'], [0.3, '#151a2a'], [1, '#0a0d16']] : [[0, '#c48c80'], [0.3, '#7a5a6e'], [1, '#2a2a40']];
       s += K.defs(K.linear(wg, wStops, 0, a0y, 0, 900, true), `<clipPath id="${wcl}"><path d="${waterD}"/></clipPath>`) + K.path(waterD, `url(#${wg})`);
       let wd = '';
@@ -1001,19 +1021,19 @@
       // the bridge mirrored: stone band with the arch inverted beneath it, broken into dashes
       const mcy = 2 * a0y - acy;
       let rStone = '', rArch = '';
-      for (let y = a0y + 1; y < a0y + (a0y - by1) * 0.95; y += 3 + rng() * 2.4) {
-        const jx = (rng() - 0.5) * 12, th = 1.6 + rng() * 1.4;
+      for (let y = a0y + 1; y < a0y + (a0y - by1) * 0.95; y += 3 + waterR() * 2.4) {
+        const jx = (waterR() - 0.5) * 12, th = 1.6 + waterR() * 1.4;
         rStone += `M${n(bx0 + 10 + jx)},${n(y)}H${n(bx1 - 10 + jx)}v${n(th)}H${n(bx0 + 10 + jx)}Z`;
         const dy = y - mcy;
-        if (dy < RA && y < mcy + RA) { const hw = Math.sqrt(Math.max(0, RA * RA - dy * dy)) * (0.92 + rng() * 0.12); rArch += `M${n(VX - hw + jx)},${n(y)}h${n(hw * 2)}v${n(th + 0.4)}h${n(-hw * 2)}Z`; }
+        if (dy < RA && y < mcy + RA) { const hw = Math.sqrt(Math.max(0, RA * RA - dy * dy)) * (0.92 + waterR() * 0.12); rArch += `M${n(VX - hw + jx)},${n(y)}h${n(hw * 2)}v${n(th + 0.4)}h${n(-hw * 2)}Z`; }
       }
       wd += K.path(rStone, fest ? '#2a2830' : K.mix(BS, '#3a2e40', 0.4), { opacity: 0.5 }) + K.path(rArch, fest ? '#0a0b12' : '#e8a888', { opacity: fest ? 0.6 : 0.45 });
-      if (!fest) { let sky = ''; for (let y = a0y + 70; y < 900; y += 5 + rng() * 5) { const w = 60 + (y - a0y) * 0.55 * (0.6 + rng() * 0.6); sky += `M${n(VX - w / 2 + (rng() - 0.5) * 40)},${n(y)}h${n(w)}v2h${n(-w)}Z`; } wd += K.path(sky, '#f8c8a0', { opacity: 0.3 }); }
+      if (!fest) { let sky = ''; for (let y = a0y + 70; y < 900; y += 5 + waterR() * 5) { const w = 60 + (y - a0y) * 0.55 * (0.6 + waterR() * 0.6); sky += `M${n(VX - w / 2 + (waterR() - 0.5) * 40)},${n(y)}h${n(w)}v2h${n(-w)}Z`; } wd += K.path(sky, '#f8c8a0', { opacity: 0.3 }); }
       const rb = bucket();
-      for (const [x, y0, len, w, c] of refl) rb.add(c, reflD(rng, x, y0, len, w, Math.max(2, len / 9)));
+      for (const [x, y0, len, w, c] of refl) rb.add(c, reflD(waterR, x, y0, len, w, Math.max(2, len / 9)));
       wd += rb.out({ opacity: fest ? 0.5 : 0.42 });
       let rp = '';
-      for (let i = 0; i < 120; i++) { const Z = 5 + Math.pow(rng(), 0.6) * 31, X = (rng() - 0.5) * 17, [x, y] = pr(X, 0, Z), l = F * (0.4 + rng() * 1.2) / Z; rp += `M${n(x - l / 2)},${n(y)}h${n(l)}`; }
+      for (let i = 0; i < 120; i++) { const Z = 5 + Math.pow(waterR(), 0.6) * 31, X = (waterR() - 0.5) * 17, [x, y] = pr(X, 0, Z), l = F * (0.4 + waterR() * 1.2) / Z; rp += `M${n(x - l / 2)},${n(y)}h${n(l)}`; }
       wd += stroke(rp, fest ? '#3a4260' : '#f0b898', 1.3, { opacity: 0.5 });
       s += `<g clip-path="url(#${wcl})">${wd}</g>`;
 
@@ -1021,22 +1041,22 @@
       if (fest) {
         const near = [], GX = -6.3, GZ = 31;
         for (let i = 0; i < 140; i++) {
-          const Z = 6.5 + Math.pow(rng(), 0.85) * 29.4, X = (rng() - 0.5) * 16.4;
+          const Z = 6.5 + Math.pow(festR(), 0.85) * 29.4, X = (festR() - 0.5) * 16.4;
           if (Math.abs(X - GX) < 1.4 && Math.abs(Z - GZ) < 2.4) continue;
           near.push([X, Z]);
         }
         near.push([GX, GZ, true]);
         near.sort((a, b) => b[1] - a[1]);
         s += K.pool(o, 800, 560, 520, 90, '#ffa848', 0.26, 'nearpool');
-        const gl = o.id('lg'), gg = o.id('lgg');
+        const gl = K.uid(o, 'lg'), gg = K.uid(o, 'lgg');
         s += K.defs(glowDef(gl, '#ffb24e', 0.5), glowDef(gg, P.lantern, 0.4));
         const body = bucket(), top = bucket(), core = bucket(), rf = bucket(), floats = bucket();
         let glowEls = '';
         for (const [X, Z, green] of near) {
           const [x, y] = pr(X, 0.12, Z), w = F * 0.36 / Z, h = w * 0.82;
           glowEls += K.circle(x, y - h * 0.5, w * (green ? 2.0 : 2.3), `url(#${green ? gg : gl})`);
-          const bc = green ? '#c6e8b0' : rng.pick(['#f6a540', '#f8b850', '#f09238', '#ffc866']);
-          rf.add(green ? '#b0dc98' : bc, reflD(rng, x, y + w * 0.15, w * 2.4, w * 1.05, Math.max(1.6, w * 0.24)));
+          const bc = green ? '#c6e8b0' : festR.pick(['#f6a540', '#f8b850', '#f09238', '#ffc866']);
+          rf.add(green ? '#b0dc98' : bc, reflD(festR, x, y + w * 0.15, w * 2.4, w * 1.05, Math.max(1.6, w * 0.24)));
           body.add(bc, `M${n(x - w / 2)},${n(y)}L${n(x + w / 2)},${n(y)}L${n(x + w * 0.44)},${n(y - h)}L${n(x - w * 0.44)},${n(y - h)}Z`);
           if (w > 7) top.add(green ? '#e2f6d4' : '#ffe6b0', `M${n(x - w * 0.44)},${n(y - h)}L${n(x + w * 0.44)},${n(y - h)}L${n(x + w * 0.34)},${n(y - h - w * 0.16)}L${n(x - w * 0.34)},${n(y - h - w * 0.16)}Z`);
           core.add(green ? '#f0fff0' : '#fff6d8', `M${n(x - w * 0.14)},${n(y - h * 0.15)}h${n(w * 0.28)}v${n(-h * 0.55)}h${n(-w * 0.28)}Z`);
@@ -1048,10 +1068,10 @@
       /* the crowd along both railings on the night of the Float; a few strollers at dusk */
       if (fest) {
         const ppl = [];
-        for (const sd of [-1, 1]) for (let z = 7; z < 35.5; z += 0.5 + rng() * 0.45) for (let k = 0; k < 3; k++) {
-          if (rng() < 0.2) continue;
-          const X = sd * (9.5 + k * 0.8 + rng() * 0.35), child = rng() < 0.15;
-          ppl.push([X, z, child ? 1.05 + rng() * 0.3 : 1.55 + rng() * 0.32, child, rng() < 0.4 ? 1 : 0, rng() < 0.1]);
+        for (const sd of [-1, 1]) for (let z = 7; z < 35.5; z += 0.5 + festR() * 0.45) for (let k = 0; k < 3; k++) {
+          if (festR() < 0.2) continue;
+          const X = sd * (9.5 + k * 0.8 + festR() * 0.35), child = festR() < 0.15;
+          ppl.push([X, z, child ? 1.05 + festR() * 0.3 : 1.55 + festR() * 0.32, child, festR() < 0.4 ? 1 : 0, festR() < 0.1]);
         }
         ppl.sort((a, b) => Math.hypot(b[0], b[1]) - Math.hypot(a[0], a[1]));
         const pb = bucket(), hand = [];
@@ -1061,7 +1081,7 @@
           if (lan && !child) hand.push(pr(X - Math.sign(X) * 0.35, 3.45, z).concat([F * 0.06 / z]));
         }
         s += pb.out();
-        const hg = o.id('hand');
+        const hg = K.uid(o, 'hand');
         s += K.defs(glowDef(hg, '#ffb24e', 0.45));
         for (const [x, y, r] of hand) s += K.circle(x, y, r * 4, `url(#${hg})`) + K.rect(x - r * 0.8, y - r, r * 1.6, r * 2, '#ffd890');
       } else {
@@ -1132,7 +1152,7 @@
       s += canopyMass(rng, { x0: 1490, x1: 1660, y: 430, amp: 14, step: 36, r0: 26, r1: 46, mass: hz(S('#8a4a2a'), 0.38), lits, bottom: 470 });
 
       /* the lawn */
-      const lg = o.id('lawn');
+      const lg = K.uid(o, 'lawn');
       s += K.defs(K.linear(lg, [[0, hz(L(P.moss), 0.3)], [1, L('#7a8044')]], 0, 462, 0, 900, true)) + K.rect(-10, 462, 1620, 460, `url(#${lg})`);
       s += K.path(grassD(rng, { x0: -20, x1: 1640, y0: 480, y1: 650, count: 220, hMin: 4, hMax: 12, lean: 4 }), S(P.moss), { opacity: 0.55 });
 
@@ -1174,7 +1194,7 @@
       s += K.rect(552, 462, 176, 12, K.adj(L(gr), 0.05)) + K.poly([[728, 462], [750, 453], [750, 465], [728, 474]], S(gr)) + K.poly([[552, 462], [728, 462], [750, 453], [574, 453]], K.adj(L(gr), 0.14));
       s += K.rect(598, 488, 84, 32, L('#6e5228')) + K.rect(601, 491, 78, 26, L('#8a6a34'));
       s += K.text(640, 505, 'PAUL BUNYAN', { fontFamily: SIGN, fontSize: 11, fontWeight: 700, fill: L('#e8d498'), textAnchor: 'middle', letterSpacing: 1 }) + K.text(640, 514, 'BASSEY PARK · 1959', { fontFamily: SIGN, fontSize: 6.5, fill: L('#e0c88a'), textAnchor: 'middle', letterSpacing: 0.5 });
-      const pid = o.id('plaid'), shad = '#2a1c30', skin = L('#d49a72'), gloss = '#fff6e6';
+      const pid = K.uid(o, 'plaid'), shad = '#2a1c30', skin = L('#d49a72'), gloss = '#fff6e6';
       s += `<defs><pattern id="${pid}" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="${L('#b8352c')}"/><rect width="12" height="24" fill="#161214" opacity="0.62"/><rect width="24" height="12" fill="#161214" opacity="0.62"/></pattern></defs>`;
       // boots, jeans, cuffs
       s += K.path('M584,462 Q580,444 592,434 L638,434 L640,462 Z M644,462 L646,434 L692,434 Q704,444 700,462 Z', L('#2e2420'));
@@ -1224,13 +1244,13 @@
       s += stroke(hoops, L('#9aa0a6'), 3) + K.rect(326, 580, 8, 40, L('#9aa0a6'));
 
       /* the asphalt path, a chalk circle for jump rope */
-      const ASP = [[-20, 648], [300, 662], [700, 654], [1100, 640], [1640, 630]];
+      const ASP = [[-20, 648], [300, 660], [560, 640], [800, 618], [1100, 626], [1640, 630]];
       s += K.path(smoothD(ASP) + 'L1640,920L-20,920Z', L('#7e776c'));
       s += K.path(smoothD(ASP) + smoothD(ASP.map(([x, y]) => [x, y + 8]).reverse(), false) + 'Z', S('#7e776c'));
       s += stroke('M140,720 l40,22 l-10,30 M980,700 l30,18 l40,-6 M1300,760 l-20,30', S('#7e776c'), 1.4, { opacity: 0.6 });
-      s += stroke(ellD(800, 690, 118, 24), '#f2ece0', 3, { opacity: 0.8 }) + stroke(ellD(803, 692, 112, 22), '#f0c0c8', 2, { opacity: 0.55 });
-      s += stroke('M790,688 l12,6 M802,688 l-12,6 M944,708 l10,-8 l10,8 M900,716 h22', '#f2ece0', 2, { opacity: 0.7 });
-      s += K.text(700, 734, 'JUMP 100!', { fontFamily: SCRAWL, fontSize: 16, fill: '#f2ece0', opacity: 0.65, transform: 'rotate(-3 700 734)' });
+      s += stroke(ellD(800, 652, 116, 23), '#f2ece0', 3, { opacity: 0.8 }) + stroke(ellD(803, 654, 110, 21), '#f0c0c8', 2, { opacity: 0.55 });
+      s += stroke('M790,650 l12,6 M802,650 l-12,6 M944,672 l10,-8 l10,8 M902,680 h22', '#f2ece0', 2, { opacity: 0.7 });
+      s += K.text(706, 700, 'JUMP 100!', { fontFamily: SCRAWL, fontSize: 16, fill: '#f2ece0', opacity: 0.65, transform: 'rotate(-3 706 700)' });
 
       /* framing maples, leaves everywhere: drifts at the roots, litter on grass and asphalt, a few still falling */
       s += treeL(rng, { x: 60, base: 720, h: 760, w: 560, colors: [L(P.ember), S(P.rust), L(P.mustard)], trunk: S('#3a2c26') });
@@ -1292,8 +1312,9 @@
         const X0 = 15 * sd, X1 = (15 + (opt.depth || 10)) * sd, z1 = z0 + w, zm = z0 + w / 2;
         const vic = type === 'vic', wallH = vic ? 6.4 : 4.3, ridge = vic ? 10.2 : 8.3;
         const sid = opt.siding || (vic ? '#7f8f86' : '#a89c86');
-        const faceF = sd > 0 ? L(sid) : S(sid), faceN = sd > 0 ? S(sid) : K.mix(L(sid), S(sid), 0.5);
-        const TR = L('#d8d0bc'), RF = L('#3a3d48'), RFs = S('#3a3d48'), GL = L('#2a3550');
+        const dim = (c) => (z0 < 20 ? K.mix(c, '#06080a', 0.35) : c);
+        const faceF = dim(sd > 0 ? L(sid) : S(sid)), faceN = dim(sd > 0 ? S(sid) : K.mix(L(sid), S(sid), 0.5));
+        const TR = dim(L('#d8d0bc')), RF = L('#3a3d48'), RFs = S('#3a3d48'), GL = L('#2a3550');
         const farH = z0 > 70;
         let r = '';
         const win = (pts, frame = !farH) => (frame ? K.path(Q(pts.map(([X, Y, Z], i) => [X, Y + ([0, 1].includes(i) ? -0.12 : 0.12), Z])), TR) : '') + K.path(Q(pts), GL);
@@ -1379,7 +1400,7 @@
         r += K.path(Q([[xa + 0.1, 0.55, z - 0.01], [xa + 0.4, 0.55, z - 0.01], [xa + 0.4, 0.75, z - 0.01], [xa + 0.1, 0.75, z - 0.01]]) + Q([[xb - 0.4, 0.55, z - 0.01], [xb - 0.1, 0.55, z - 0.01], [xb - 0.1, 0.75, z - 0.01], [xb - 0.4, 0.75, z - 0.01]]), '#130b0d');
         r += K.path(Q([[xa + 0.25, 0.08, z + 0.2], [xb - 0.25, 0.08, z + 0.2], [xb - 0.25, 0.08, zb - 0.2], [xa + 0.25, 0.08, zb - 0.2]]), '#05070a', { opacity: 0.6 });
         for (const zw of [z + 0.8, zb - 0.8]) { const [wx, wy] = pr(inner, 0.32, zw), rr = F * 0.33 / zw; r += K.ellipse(wx, wy, rr * 0.45, rr, '#050607'); }
-        r += stroke(ld([pr(xa + 0.15, 1.39, c0 + 0.4), pr(xb - 0.15, 1.39, c0 + 0.4)]) + ld([pr(ci, 1.36, c0 + 0.45), pr(ci, 1.36, c1 - 0.35)]) + ld([pr(inner, 0.96, z), pr(inner, 0.96, zb)]), '#3a4a48', Math.max(1, F * 0.03 / z), { opacity: 0.7 });
+        r += stroke(ld([pr(xa + 0.15, 1.39, c0 + 0.4), pr(xb - 0.15, 1.39, c0 + 0.4)]) + ld([pr(ci, 1.36, c0 + 0.45), pr(ci, 1.36, c1 - 0.35)]) + ld([pr(inner, 0.96, z), pr(inner, 0.96, zb)]), '#4a5c5a', Math.max(1.2, F * 0.035 / z), { opacity: 0.9 });
         return r;
       };
       s += car(1, 4.9, 72, 5.2, '#4a4a3a', false) + car(-1, -4.9, 52, 5.4, '#5a4a3a', true) + car(1, 4.9, 41, 4.8, '#3a4660', false) + car(-1, -4.9, 24, 4.8, '#5a2e2e', false) + car(1, 4.9, 13.5, 5.4, '#7a7f86', true);
@@ -1411,7 +1432,7 @@
       s += K.glow(o, wcx, (wy0 + wy1) / 2, 130, '#5f80c8', 0.2, 'tvg');
       s += K.pool(o, wcx - 14, pr(13, 0, tvZ - 2.2)[1], 120, 14, '#5f80c8', 0.18, 'tvp');
       s += K.rect(wx0 - 4, wy0 - 4, ww + 8, wh + 8, '#1a1e22');
-      const tvg = o.id('tv'), tvc = o.id('tvclip');
+      const tvg = K.uid(o, 'tv'), tvc = K.uid(o, 'tvclip');
       s += K.defs(K.radial(tvg, [[0, '#b0caf2'], [0.55, '#6a8cd0'], [1, '#34508e']], 0.42, 0.62, 0.7, false), `<clipPath id="${tvc}"><rect x="${n(wx0)}" y="${n(wy0)}" width="${n(ww)}" height="${n(wh)}"/></clipPath>`);
       s += K.rect(wx0, wy0, ww, wh, `url(#${tvg})`);
       let folds = '';
