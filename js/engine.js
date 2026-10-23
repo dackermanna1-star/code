@@ -102,13 +102,44 @@
     return v.join(' ');
   }
   function setLight(L) { const m = $('#spriteLightM'); if (m && L) m.setAttribute('values', lightMatrix(L)); }
+  /* ---------- art: the pixel kit (PX) first, the older SVG kit as a fallback ---------- */
+  const urlCache = new Map();
+  const ART = E.art = {
+    bg(id, time, variant) { if (window.PX && PX.hasBg(id)) return PX.renderBg(id, time, variant); return window.KIT ? KIT.renderBg(id, time, variant) : null; },
+    /* markup for places that build HTML strings (title, map) */
+    bgHTML(id, time, variant) {
+      const r = ART.bg(id, time, variant); if (!r) return '';
+      if (!r.el) return r.svg || '';
+      const k = 'bg|' + id + '|' + (time || '') + '|' + (variant || '') + '|' + PX.F;
+      if (!urlCache.has(k)) urlCache.set(k, r.el.toDataURL());
+      return `<img class="px" alt="" src="${urlCache.get(k)}">`;
+    },
+    put(host, r) { host.innerHTML = ''; if (!r) return; if (r.el) host.appendChild(r.el); else host.innerHTML = r.svg || ''; },
+    portraitHTML(id, expr) {
+      if (window.PX && PX.hasChar(id)) {
+        const k = 'pt|' + id + '|' + (expr || 'neutral');
+        if (!urlCache.has(k)) { const c = PX.renderPortrait(id, expr || 'neutral', 3); urlCache.set(k, c ? c.toDataURL() : ''); }
+        return urlCache.get(k) ? `<img class="px" alt="" src="${urlCache.get(k)}">` : '';
+      }
+      const svg = window.KIT && KIT.renderChar(id, expr || 'neutral');
+      return svg ? svg.replace('viewBox="0 0 600 900"', 'viewBox="140 66 320 320"').replace('xMidYMax meet', 'xMidYMid slice') : '';
+    },
+    figureHTML(id, expr) {
+      if (window.PX && PX.hasChar(id)) {
+        const k = 'fig|' + id + '|' + (expr || 'neutral');
+        if (!urlCache.has(k)) { const r = PX.renderChar(id, expr || 'neutral', {}); urlCache.set(k, r ? r.open.toDataURL() : ''); }
+        return urlCache.get(k) ? `<img class="px" alt="" src="${urlCache.get(k)}">` : '';
+      }
+      return (window.KIT && KIT.renderChar(id, expr || 'neutral')) || '';
+    }
+  };
   E.setBg = function (id, time, variant, trans) {
-    const r = window.KIT ? KIT.renderBg(id, time, variant) : null;
+    const r = ART.bg(id, time, variant);
     if (!r) console.warn('missing background', id);
     const host = $('#bg');
     const div = document.createElement('div');
     div.className = 'bgimg';
-    div.innerHTML = r ? r.svg : '';
+    ART.put(div, r);
     const reduce = E.settings.fx !== 'full';
     const olds = $$('.bgimg', host);
     if (trans === 'cut' || trans === 'flash' || trans === 'glitch' || !olds.length || E.fastForward()) {
@@ -132,13 +163,26 @@
 
   /* ---------- stage: sprites ---------- */
   const spriteEls = {};
-  function renderSprite(el, id, expr, outfit) {
-    const svg = window.KIT && KIT.renderChar(id, expr, outfit);
-    el.innerHTML = '<div class="sp">' + (svg || '') + '</div>';
+  function renderSprite(el, id, expr, outfit, pos) {
+    const flip = /left/.test(pos || '');
+    if (window.PX && PX.hasChar(id)) {
+      const r = PX.renderChar(id, expr, { outfit, flip });
+      const sp = document.createElement('div'); sp.className = 'sp px';
+      if (r) {
+        r.open.classList.add('f', 'eyes-open'); sp.appendChild(r.open);
+        if (r.closed) { r.closed.classList.add('f', 'eyes-closed'); sp.appendChild(r.closed); }
+      }
+      el.innerHTML = ''; el.appendChild(sp);
+      el.classList.add('pxs');
+    } else {
+      const svg = window.KIT && KIT.renderChar(id, expr, outfit);
+      el.innerHTML = '<div class="sp">' + (svg || '') + '</div>';
+    }
     el.dataset.expr = expr;
+    el.dataset.flip = flip ? '1' : '0';
   }
   E.show = function (id, expr, pos, outfit) {
-    if (!window.ART || !ART.chars[id]) { console.warn('missing character', id); return; }
+    if (!((window.PX && PX.hasChar(id)) || (window.ART && window.ART.chars && window.ART.chars[id]))) { console.warn('missing character', id); return; }
     const cur = E.vis.sprites[id] || {};
     expr = expr || cur.expr || 'neutral';
     pos = pos || cur.pos || 'center';
@@ -152,17 +196,24 @@
       el.style.left = POS[pos] + '%';
       $('#sprites').appendChild(el);
       spriteEls[id] = el;
-      renderSprite(el, id, expr, outfit);
+      renderSprite(el, id, expr, outfit, pos);
       requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('on')));
     } else {
       el.style.left = (POS[pos] || 50) + '%';
-      if (el.dataset.expr !== expr || cur.outfit !== outfit) renderSprite(el, id, expr, outfit);
+      const flip = /left/.test(pos) ? '1' : '0';
+      if (el.dataset.expr !== expr || cur.outfit !== outfit || el.dataset.flip !== flip) renderSprite(el, id, expr, outfit, pos);
       el.classList.add('on');
     }
     E.vis.sprites[id] = { expr, pos, outfit };
     markMet(id);
   };
   E.expr = function (id, expr) { if (E.vis.sprites[id]) E.show(id, expr); };
+  /* re-draw what is on stage (after the pixel scale changes) */
+  E.refreshArt = function () {
+    if (E.vis.bg) E.setBg(E.vis.bg.id, E.vis.bg.time, E.vis.bg.variant, 'cut');
+    for (const id in E.vis.sprites) { const el = spriteEls[id], sp = E.vis.sprites[id]; if (el) renderSprite(el, id, sp.expr, sp.outfit, sp.pos); }
+    if (E.vis.cg) E.cg(E.vis.cg.id, E.vis.cg.variant);
+  };
   E.hide = function (id) {
     const ids = id === 'all' ? Object.keys(spriteEls) : [id];
     for (const k of ids) {
@@ -182,8 +233,7 @@
   E.cg = function (id, variant) {
     const host = $('#cg');
     if (!id || id === 'off') { host.classList.remove('on'); E.vis.cg = null; setTimeout(() => { if (!E.vis.cg) host.innerHTML = ''; }, 1300); return; }
-    const r = window.KIT ? KIT.renderBg(id, null, variant) : null;
-    host.innerHTML = r ? r.svg : '';
+    ART.put(host, ART.bg(id, null, variant));
     requestAnimationFrame(() => requestAnimationFrame(() => host.classList.add('on')));
     E.vis.cg = { id, variant: variant || null };
   };
@@ -307,10 +357,7 @@
 
   /* ---------- dialogue box ---------- */
   let typeState = null;
-  function portraitSVG(id, expr) {
-    const svg = window.KIT && KIT.renderChar(id, expr || 'neutral');
-    return svg ? svg.replace('viewBox="0 0 600 900"', 'viewBox="140 66 320 320"').replace('xMidYMax meet', 'xMidYMid slice') : '';
-  }
+  const portraitSVG = (id, expr) => ART.portraitHTML(id, expr);
   E.portraitSVG = portraitSVG;
   async function showText(line) {
     const box = $('#dialogue'), plate = $('#nameplate'), port = $('#portrait'), txt = $('#text');
@@ -703,6 +750,15 @@
     document.addEventListener('keyup', (e) => { if (e.key === 'Control') E.ctrlSkip = false; });
     window.addEventListener('blur', () => { E.ctrlSkip = false; });
     window.addEventListener('resize', () => { if (W.type) { weatherResize(); weatherSeed(); } });
+    // pixel art: whole-number upscale matched to the stage's device pixels
+    const pxScale = () => {
+      if (!window.PX) return;
+      const st = $('#stage'), f = PX.scaleFor(st.clientWidth || 1280, st.clientHeight || 720);
+      if (f !== PX.F) { PX.setScale(f); E.refreshArt(); }
+    };
+    pxScale();
+    let rzT = 0;
+    window.addEventListener('resize', () => { clearTimeout(rzT); rzT = setTimeout(pxScale, 250); });
     $('#b-auto').addEventListener('click', (e) => { e.stopPropagation(); setAuto(!E.auto); });
     $('#b-skip').addEventListener('click', (e) => { e.stopPropagation(); setSkip(!E.skip); });
     $('#b-hide').addEventListener('click', (e) => { e.stopPropagation(); E.hideUI = true; document.body.classList.add('hide-ui'); });

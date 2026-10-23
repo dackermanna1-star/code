@@ -81,6 +81,12 @@ button { font: inherit; color: inherit; }
 .sprite .sp { width: 100%; height: 100%; transform-origin: 50% 100%; will-change: transform; }
 .sprite svg { width: 100%; height: 100%; display: block; filter: url(#spriteLight) brightness(.8); }
 .sprite.speaking svg { filter: url(#spriteLight) brightness(1); }
+.sprite.pxs { aspect-ratio: 118 / 176; }
+.sprite .sp.px { position: relative; }
+.sprite canvas.f { position: absolute; inset: 0; width: 100%; height: 100%; display: block; filter: url(#spriteLight) brightness(.82); }
+.sprite.speaking canvas.f { filter: url(#spriteLight) brightness(1); }
+.bgimg > canvas, #cg > canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+img.px { width: 100%; height: 100%; display: block; object-fit: cover; }
 .sprite .eyes-closed { opacity: 0; animation: blinkC var(--blink, 5.2s) infinite; animation-delay: var(--bd, 0s); }
 .sprite .eyes-open { animation: blinkO var(--blink, 5.2s) infinite; animation-delay: var(--bd, 0s); }
 @keyframes blinkC { 0%, 95.5% { opacity: 0 } 96%, 98.5% { opacity: 1 } 99%, 100% { opacity: 0 } }
@@ -103,7 +109,7 @@ button { font: inherit; color: inherit; }
 @keyframes pulse { 0%,100% { opacity: 0 } 40% { opacity: 1 } }
 #grade { pointer-events: none; }
 #grade .vig { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 42%, transparent 52%, rgba(4,5,9,.55) 100%); }
-#grade .grain { position: absolute; inset: -50%; opacity: .085; mix-blend-mode: overlay; background-size: 256px 256px; animation: grain 1.2s steps(6) infinite; }
+#grade .grain { display: none; position: absolute; inset: -50%; opacity: .085; mix-blend-mode: overlay; background-size: 256px 256px; animation: grain 1.2s steps(6) infinite; }
 @keyframes grain { 0% { transform: translate(0,0) } 20% { transform: translate(-4%,3%) } 40% { transform: translate(3%,-5%) } 60% { transform: translate(-2%,6%) } 80% { transform: translate(5%,-2%) } 100% { transform: translate(0,0) } }
 .reduce-fx #grade .grain { animation: none; }
 
@@ -473,6 +479,9 @@ button { font: inherit; color: inherit; }
 <script src="js/art/cg.js"></script>
 <script src="js/art/chars_core.js"></script>
 <script src="js/art/chars_town.js"></script>
+<script src="js/px/px.js"></script>
+<script src="js/px/pxchar.js"></script>
+<script src="js/px/cast_gus.js"></script>
 <!--/ART-FILES-->
 <script src="js/audio.js"></script>
 <script src="js/data.js"></script>

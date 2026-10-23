@@ -37,7 +37,9 @@ fs.copyFileSync(path.join(root, 'node_modules/inkjs/dist/ink.js'), path.join(roo
 // 3. art scripts into index.html
 const artFiles = fs.readdirSync(path.join(root, 'js/art')).filter((f) => f.endsWith('.js') && f !== 'kit.js' && f !== 'portraits.js').sort();
 let html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const tags = artFiles.map((f) => `<script src="js/art/${f}"></script>`).join('\n');
+const pxDir = path.join(root, 'js/px');
+const pxFiles = fs.existsSync(pxDir) ? ['px.js', 'pxchar.js', ...fs.readdirSync(pxDir).filter((f) => f.endsWith('.js') && f !== 'px.js' && f !== 'pxchar.js').sort()].filter((f) => fs.existsSync(path.join(pxDir, f))) : [];
+const tags = artFiles.map((f) => `<script src="js/art/${f}"></script>`).concat(pxFiles.map((f) => `<script src="js/px/${f}"></script>`)).join('\n');
 html = html.replace(/<!--ART-FILES-->[\s\S]*?(<!--\/ART-FILES-->|(?=\n<script src="js\/audio.js"))/, `<!--ART-FILES-->\n${tags}\n<!--/ART-FILES-->`);
 fs.writeFileSync(path.join(root, 'index.html'), html);
 

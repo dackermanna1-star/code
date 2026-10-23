@@ -32,8 +32,7 @@
   /* ---------- title ---------- */
   UI.boot = function () {
     const art = $('#title .art');
-    const r = window.KIT && (KIT.renderBg('title') || KIT.renderBg('standpipe', 'quiet') || KIT.renderBg('larch_ext', 'night'));
-    art.innerHTML = r ? r.svg : '';
+    art.innerHTML = E.art.bgHTML('title') || E.art.bgHTML('standpipe', 'quiet') || E.art.bgHTML('larch_ext', 'night');
     const auto = store.get('save.auto', null);
     $('#t-continue').disabled = !auto;
     $('#t-chapters').hidden = !(store.get('chapters', []).length > 1);
@@ -163,7 +162,7 @@
         const x = (V(a) || 0), y = (V(b) || 0), k = x + y ? y / (x + y) : 0.5;
         return `<div class="traitbar"><span>${l}</span><span class="tb"><i style="left:${(k * 100).toFixed(0)}%"></i></span><span>${r}</span></div>`;
       };
-      return `<div class="selfbox"><div class="ph">${(window.KIT && KIT.renderChar('gus', 'neutral')) || ''}</div><div class="txt"><h3 class="jsec">Augusta Marie Brennan</h3><p>${esc(self.summary)}</p>` +
+      return `<div class="selfbox"><div class="ph">${E.art.figureHTML('gus', 'neutral')}</div><div class="txt"><h3 class="jsec">Augusta Marie Brennan</h3><p>${esc(self.summary)}</p>` +
         pair('Careful', 'Bold', 't_careful', 't_bold') + pair('Guarded', 'Warm', 't_careful', 't_warm') + pair('Serious', 'Funny', 't_curious', 't_funny') + pair('Sly', 'Honest', 't_sly', 't_honest') +
         (self.lines || []).map((l) => `<p class="mem">${esc(l)}</p>`).join('') +
         `<p class="empty" style="margin-top:1.2em">Time in Derry: ${Math.floor(E.eng.playtime / 60)} min</p></div></div>`;
@@ -277,8 +276,7 @@
     return new Promise((resolve) => {
       const D = window.DATA || {};
       const m = $('#map');
-      const r = window.KIT && KIT.renderBg('cg_map');
-      m.innerHTML = (r ? r.svg : fallbackMap()) + `<div class="maphead">Derry</div><div class="mapsub">${esc(E.eng.mapNote || 'Where to?')}</div><div class="tip" id="map-tip">Choose where to go.</div><div class="other" id="map-other"></div>`;
+      m.innerHTML = (E.art.bgHTML('cg_map') || fallbackMap()) + `<div class="maphead">Derry</div><div class="mapsub">${esc(E.eng.mapNote || 'Where to?')}</div><div class="tip" id="map-tip">Choose where to go.</div><div class="other" id="map-other"></div>`;
       const tip = $('#map-tip', m);
       $('#toasts').innerHTML = '';
       let done = false;
