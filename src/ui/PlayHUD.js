@@ -5,6 +5,7 @@
 
 import { FACTION_INFO } from '../sim/world.js';
 import { bearingDegrees } from '../core/math.js';
+import { ROLES } from '../app/Player.js';
 
 function el(tag, cls = '', text = '') {
   const e = document.createElement(tag);
@@ -82,7 +83,9 @@ export class PlayHUD {
     this.coverTitle = el('div', 't');
     this.coverSub = el('div', 's');
     this.coverHint = el('div', 'h');
-    this.cover.append(this.coverTitle, this.coverSub, this.coverHint);
+    this.coverRoles = el('div', 'roles');
+    this.rolesT = 0;
+    this.cover.append(this.coverTitle, this.coverSub, this.coverHint, this.coverRoles);
     r.append(this.dmg, this.supp, this.scope, this.clu, this.dir, this.xhair, this.hit, this.lock, this.msg, this.kill, this.compass, this.vitals, this.ammo, this.keys, this.cover);
     root.append(r);
   }
@@ -167,7 +170,7 @@ export class PlayHUD {
       this.aExtra.textContent = ex.join(' · ');
       this.aMag.classList.toggle('low', w.mag <= Math.max(1, (w.def.mag ?? 1) * 0.2));
     }
-    this.keys.hidden = p.since > 14 || !alive;
+    this.keys.hidden = p.since > 14 || !alive || p.paused;
     // Pause and death screens.
     let cover = false;
     if (!alive) {
@@ -175,14 +178,27 @@ export class PlayHUD {
       this.coverTitle.textContent = u.alive ? 'You are down' : 'Killed in action';
       const k = p.killer;
       this.coverSub.textContent = k ? `by ${k.name}${p.killerDef && p.killerDef.name ? ` · ${p.killerDef.name}` : ''}` : u.alive ? 'Bleeding out; a squadmate may reach you' : '';
-      this.coverHint.textContent = 'Enter: take over the nearest soldier · Esc: spectate';
+      this.coverHint.textContent = 'Enter: nearest soldier · 1–9: pick a role · Esc: spectate';
     } else if (p.paused) {
       cover = true;
       this.coverTitle.textContent = 'Paused';
       this.coverSub.textContent = 'Click to keep playing';
-      this.coverHint.textContent = 'Esc: hand the soldier back to the AI and spectate';
+      this.coverHint.textContent = '1–9: switch to another role · Esc: hand the soldier back to the AI';
     }
     this.cover.hidden = !cover;
+    // Roles to switch to, with how many of each are left.
+    this.rolesT -= dt;
+    if (cover && this.rolesT <= 0) {
+      this.rolesT = 0.5;
+      const counts = p.roleCounts();
+      this.coverRoles.textContent = '';
+      ROLES.forEach(([id, label], i) => {
+        const n = counts[id] || 0;
+        const row = el('div', n ? '' : 'none');
+        row.append(el('kbd', '', String(i + 1)), el('span', '', label), el('b', '', String(n)));
+        this.coverRoles.append(row);
+      });
+    }
     this.cover.classList.toggle('dead', !alive);
     void width;
   }

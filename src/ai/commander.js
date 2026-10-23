@@ -30,7 +30,7 @@ export function computeBudget(s) {
     droneTeams: Math.round((N / 150) * s.drones),
     aaTeams: Math.round((N / 260) * Math.max(0.3, s.air)),
     atgmTeams: Math.round((N / 170) * Math.max(0.5, s.armor)),
-    sniperTeams: Math.max(1, Math.round(N / 220)),
+    sniperTeams: Math.max(2, Math.round(N / 110)),
   };
   const vehicles = b.mbt + b.ifv + b.apc + b.scout + b.spaag + b.spg + b.mlrs;
   const carried = b.ifv * 7 + b.apc * 8;

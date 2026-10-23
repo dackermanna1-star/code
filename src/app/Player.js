@@ -20,6 +20,19 @@ const _t = new THREE.Vector3();
 const _e = new THREE.Euler(0, 0, 0, 'YXZ');
 const _hit = {};
 
+// Roles offered on the pause and death screens, keys 1-9.
+export const ROLES = [
+  ['rifleman', 'Rifleman'],
+  ['leader', 'Squad leader'],
+  ['grenadier', 'Grenadier'],
+  ['mg', 'Machine gunner'],
+  ['at', 'Anti-tank'],
+  ['atgm', 'ATGM gunner'],
+  ['sniper', 'Sniper'],
+  ['manpads', 'AA gunner'],
+  ['drone_op', 'Drone operator'],
+];
+
 const LOOK = 0.0022; // rad per pixel of mouse movement
 const KEY_TURN = 1.9; // rad/s with the arrow keys
 const MAX_AIM = 600;
@@ -187,7 +200,17 @@ export class Player {
   }
 
   // Take over the nearest soldier on the same side (squadmates first).
-  next() {
+  // How many soldiers of each role the player's side could hand over.
+  roleCounts() {
+    const counts = {};
+    if (!this.u) return counts;
+    for (const u of this.app.world.factions[this.u.faction].units) if (u !== this.u && this.canTake(u)) counts[u.def.role] = (counts[u.def.role] || 0) + 1;
+    return counts;
+  }
+
+  // Take over the nearest soldier of the same side, of a given role if one
+  // is named (squadmates first otherwise).
+  next(role = null) {
     const old = this.u;
     if (!old) return;
     const w = this.app.world;
@@ -195,7 +218,7 @@ export class Player {
     let best = null;
     let bs = Infinity;
     for (const u of w.factions[old.faction].units) {
-      if (u === old || !this.canTake(u)) continue;
+      if (u === old || !this.canTake(u) || (role && u.def.role !== role)) continue;
       const d = Math.hypot(u.pos.x - old.pos.x, u.pos.z - old.pos.z) - (sq && u.squad === sq ? 400 : 0);
       if (d < bs) {
         bs = d;
@@ -203,7 +226,7 @@ export class Player {
       }
     }
     if (best) this.take(best);
-    else this.say('No one left to take over', 2);
+    else this.say(role ? 'No one of that role left on your side' : 'No one left to take over', 2);
   }
 
   requestLock() {
@@ -272,6 +295,12 @@ export class Player {
     }
     if (code === 'Enter' || code === 'NumpadEnter') {
       if (!this.alive) this.next();
+      return true;
+    }
+    // On the pause and death screens the number keys pick a role.
+    if ((this.paused || !this.alive) && /^(Digit|Numpad)[1-9]$/.test(code)) {
+      const r = ROLES[+code.slice(-1) - 1];
+      if (r && this.roleCounts()[r[0]]) this.next(r[0]);
       return true;
     }
     if (code === 'KeyV') {

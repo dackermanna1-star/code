@@ -92,7 +92,7 @@ Select any soldier (or none: the one nearest the camera is used) and press **Ent
 | V | Over-the-shoulder view |
 | Esc | Release the mouse (pauses), then Esc again to hand the soldier back to the AI |
 
-When he falls the view pulls back over his body; **Enter** takes over the nearest soldier of the same side (squadmates first). The played soldier takes a little less damage than the AI's.
+When he falls the view pulls back over his body; **Enter** takes over the nearest soldier of the same side (squadmates first). On that screen, or when paused, the keys 1–9 take over a soldier of a chosen role instead (rifleman, squad leader, grenadier, machine gunner, anti-tank, ATGM gunner, sniper, AA gunner, drone operator), with how many are left of each. Snipers work in two-man teams behind the line, about one team per 110 soldiers. The played soldier takes a little less damage than the AI's.
 
 ## Architecture
 
