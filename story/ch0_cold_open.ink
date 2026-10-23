@@ -13,7 +13,7 @@
 @sfx tape_play
 @wait 1
 TAPE(girl): —kay. Okay, it's going. The little wheels are turning.
-TAPE(girl): This is J—— *hiss* ——, and it's eight fifty-two p.m., Saturday, October twelfth, nineteen eighty-two.
+TAPE(girl): This is J—— *hiss* ——, and it's eight fifty-two p.m., Saturday, October ninth, nineteen eighty-two.
 TAPE(girl): Every light on Corson Street just went out. All at once. Not a power cut — the Novaks' TV is still on, I can see it flickering through their curtains. They turned off the lamps. Everybody did. At the exact same second.
 TAPE(girl): Like somebody rang a bell only grown-ups can hear.
 TAPE(girl): Mom went to bed at eight. Dad went to bed at eight. Dad has never gone to bed at eight in his life. He watches Carson. He *likes* Carson.

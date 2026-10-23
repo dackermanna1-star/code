@@ -125,8 +125,8 @@ TEDDY(smile): You're new. I'm new-ish. I've been here two years and I'm still ne
     TEDDY(laugh): Oh my god. Dark. I love it. Okay, we're friends now. That's how it works, I don't make the rules.
     ~ teddy += 2
 * ["Hi. Gus." #shy]
-    TEDDY(smile): Gus! Like the mouse in Cinderella. Sorry. You've heard that. Everybody's heard that. I'm doing the thing where I talk too much because I'm nervous.
-    TEDDY(grin): I'm always nervous. It's sort of my brand.
+    TEDDY(smile): Gus! Like the mouse in Cinderella. Sorry. You've heard that. Everybody's heard that. I talk too much when I'm nervous.
+    TEDDY(grin): I'm always nervous. It's sort of my thing.
     ~ teddy += 1
 * ["Is everybody here this friendly, or just you?" #sarcastic]
     TEDDY(smirk): Just me. Everybody else is Derry-friendly, which is like regular friendly but with a locked door in the middle.
@@ -161,6 +161,7 @@ J.B. + N.F. '82
 Below that, small, careful, scratched with the same point: a little lantern with an X through it.
 ~ clue(locker_initials)
 ~ clue(locker_lantern)
+Down the hall, an old janitor with a mop bucket has stopped mopping. TEAGUE is stitched over the pocket of his gray coveralls. He's looking at the open door of 227, and then at you, the way you'd look at a car wreck you'd driven past once before. Then he goes back to mopping.
 @show sloane flat right
 Someone is standing at locker 229 with the stillness of a person who has never once been in a hurry.
 SLOANE(flat): You're in two-twenty-seven.
@@ -252,7 +253,7 @@ CAL(thinking): Do you know what happens on October twelfth?
 * [(Stop walking.) #silent]
     You stop. He stops too, one step past you, and turns around like a clock hand going backward.
     ~ cal += 1
-- CAL(neutral): Ask your grandmother. She was in the Lantern Society with my mother for thirty-six years. Until 1982. Then she quit.
+- CAL(neutral): Ask your grandmother. She was in the Lantern Society for thirty-six years. Until 1982. Then she quit.
 CAL(thinking): Nobody quits the Lantern Society.
 ~ clue(cal_october)
 ~ clue(memere_society)
@@ -277,7 +278,8 @@ CAL(thinking): Nobody quits the Lantern Society.
     CAL(smirk): She's a wise woman. I talk about dead people.
     CAL(neutral): Someone has to.
     ~ cal += 1
-- @hide cal
+- CAL(neutral): I eat lunch in the library, if you're looking for me. The company's quieter.
+@hide cal
 -> ch2_lunch
 
 === ch2_lunch ===
@@ -287,10 +289,10 @@ CAL(thinking): Nobody quits the Lantern Society.
 @ctx The cafeteria on the first day. Gus has to choose where to sit for lunch: with Teddy, at Sloane's table, outside on the bleachers with Wes, or in the library with Cal.
 The cafeteria is a country with closed borders. Jocks by the windows. The cheer table. The burnouts by the tray return, in denim, conducting some kind of business. Band kids. Farm kids. A hundred tiny nations, all with their own languages.
 Lunch is something called "Tiger Pizza," which is regular pizza that has given up.
-Teddy waves at you from a table by herself, a paperback propped against her milk carton, so hard her whole arm goes.
+Teddy is at a table by herself, a paperback propped against her milk carton. She waves at you so hard her whole arm goes.
 At the center table, Sloane catches your eye across the room — and very slightly, so slightly you could have imagined it, tilts her head at the empty chair beside her.
 Through the window you can see the bleachers by the football field. One person is sitting up at the very top, alone, with a sketchbook: Wes Pike.
-And you remember Cal said, to nobody in particular in history, that he eats in the library, "where the company's quieter."
+And Cal is in the library, where, he said, the company's quieter.
 * [Sit with Teddy. #friendly]
     ~ lunch = "teddy"
     -> lunch_teddy
@@ -337,10 +339,14 @@ TEDDY(flat): Never mind. It was probably Brett Lindqvist and his idiot friends w
     ~ teddy += 1
 * ["Weird. Okay." #deflect]
     TEDDY(smile): Yeah. Weird. Anyway! Do you want my pudding? I don't trust it. It's too still.
-* [(Tell her about the voice on your tape.) #honest]
-    You tell her. The sign, the hiss, the girl who said *Gussie.* You don't know why you tell her — you haven't told your mom — except that she's looking at you like she already believes you.
+* (told_voice) [(Tell her about the voice on your tape.) #honest]
+    You tell her. The sign, the hiss, {heard_sign_voice:the girl who said *Gussie.*|a girl's voice saying *it means you came back.*}{taped_over_sign: How you recorded over it before you could think.} You don't know why you tell her — you haven't told your mom — except that she's looking at you like she already believes you.
     Teddy doesn't laugh. She takes off her glasses and cleans them on her windbreaker, which doesn't work, and puts them back on.
-    TEDDY(worried): Okay. Okay, that's — okay. You have to show me. And I have to show you something. Saturday? My house?
+    {taped_over_sign:
+        TEDDY(worried): Okay. Okay, that's — you *erased* it? Gus, that was evidence. Okay. Then I have to show you something. Saturday? My house?
+    - else:
+        TEDDY(worried): Okay. Okay, that's — okay. You have to show me. And I have to show you something. Saturday? My house?
+    }
     ~ teddy += 3
     @remember teddy You told her about the voice on the tape.
 - @hide teddy
@@ -380,7 +386,7 @@ SLOANE(neutral): Your mother's a nurse. Your father left. Your grandmother is Yv
 Brett Lindqvist goes by with his tray, and stops, because the world is a stage and he's been cast as the guy who stops.
 @show brett smirk right
 BRETT(smirk): Hey, Ashgrove. Where's your freak brother? Digging up graves? Tell him I've got a dead hamster he can—
-SLOANE(flat): Brett. Your father reached out to my mother last week about whether the Society could do anything about your SAT scores. She said she'd pray on it.
+SLOANE(flat): Brett. Your father called my mother last week about whether the Society could do anything about your SAT scores. She said she'd pray on it.
 SLOANE(neutral): Keep walking, and she'll keep praying.
 Brett's ears go red. He keeps walking.
 @hide brett
@@ -485,8 +491,8 @@ He moves a stack of printouts off the chair across from him. Under them is a bla
     ~ cal += 1
 * [(Look at the printouts instead.) #look]
     The printouts are old Derry News front pages. October, every one of them. 1961. 1971. 1979. 1982. 1986. Canal Days photos: crowds, paper lanterns on dark water, smiling men in hats.
-    CAL(neutral): Canal Days. Every October. And the next morning — nothing. Ever. Read the October thirteenths. Go on.
-    You read the October thirteenths. Bake sale results. A lost dog. Weather.
+    CAL(neutral): Canal Days. Every October. And the week after — nothing. Ever. Read the Mondays after. Go on.
+    You read the Mondays after. Bake sale results. A lost dog. Weather.
     GUS: There's nothing here.
     CAL(smirk): Exactly.
     ~ cal += 2
@@ -616,11 +622,10 @@ BRETT(smirk): {brett_steps == "sarcastic":Grandpa's jacket. You gonna kill me in
 * ["I'll settle for embarrassing you. Should be easy." #confront]
     DOUGIE: Ohhh—
     BRETT(angry): ...
-    For a second you think he might actually hit you. Then he looks around — at the windows of the gym, at the girl walking her bike past with her mouth open — and he smiles instead.
+    For a second you think he might actually hit you. Then he looks around — at the windows of the gym, at the girl walking her bike past with her mouth open — and he smiles instead. He drops the sketchbook in the dirt.
 * [(Grab the sketchbook out of his hand.) #action]
-    You grab it. He's not expecting it. Nobody ever does that to Brett Lindqvist; you can see it on his face, the pure surprise of it, like a dog that's never been told no.
-- He drops the sketchbook in the dirt.
-BRETT(smirk): Sure. Take it. See you around, {brett_steps == "sarcastic":Grandpa|new girl}. Derry's a small town.
+    You grab it. He's not expecting it. Nobody ever does that to Brett Lindqvist; you can see it on his face, the pure surprise of it, like a dog that's never been told no. He lets it go.
+- BRETT(smirk): Sure. Take it. See you around, {brett_steps == "sarcastic":Grandpa|new girl}. Derry's a small town.
 @hide brett
 ~ brett_heat += 2
 ~ rep_brave += 1
@@ -636,7 +641,7 @@ WES(neutral): ...Thanks. I guess. Don't do it again.
 
 = bully_trick
 ~ bully_choice = "trick"
-GUS(afraid): Mr. Fenwick's coming! He's right around the corner!
+GUS(afraid): He's right around the corner!
 Brett drops the sketchbook like it's hot and steps back, hands in his pockets, instantly a different person — a golden boy, a nice young man, a credit to his family.
 BRETT(smile): Just helping Wes with his stuff. He dropped his stuff.
 Nobody comes around the corner. Brett waits. Looks at you. You watch him work it out.
@@ -689,7 +694,7 @@ WES(angry): Were you taping that?
     WES(flat): Nobody has to believe a foster kid. That's the whole thing about being a foster kid.
     WES(neutral): ...But okay. Keep it. Maybe.
     ~ wes += 1
-* ["Leverage. Brett's not going to want his uncle hearing that." #manipulate]
+* ["Leverage. Brett's not going to want Mr. Fenwick hearing that." #manipulate]
     WES(thinking): ...Huh.
     WES(smirk): That's kind of evil. I respect it.
     ~ wes += 1
@@ -734,9 +739,15 @@ TEDDY(smile): So. First day. Rate it. One to ten.
     TEDDY(laugh): The pizza is always a two. The pizza is load-bearing for the whole scale.
 * ["Too early to tell." #deflect]
     TEDDY(smirk): Spoken like a true Mainer. You're assimilating.
-- TEDDY(neutral): Come over Saturday? I want to show you my radio. And the thing. The thing I said I'd show you.
-GUS: The Quiet Night thing.
-TEDDY(worried): Yeah. That thing.
+- Teddy hitches up her backpack.
+{lunch == "teddy":
+    TEDDY(neutral): Come over Saturday? I want to show you my radio. And the thing. The thing I said I'd show you.
+    GUS: The Quiet Night thing.
+    TEDDY(worried): Yeah. That thing.
+- else:
+    TEDDY(neutral): Come over Saturday? I've got a ham radio. Last Quiet Night I picked something up on it that I've never played for anybody.
+    TEDDY(worried): You'll think I'm crazy. That's fine. Everybody already thinks I'm crazy. It's a very large club.
+}
 -> kids
 
 = kids
@@ -813,7 +824,7 @@ MOM(flat): And then I came back anyway. Married your dad, had you, lived here ti
         THINK: That's three different answers now. A sister Mom doesn't have. A pet name. Now Mémère's own little sister. She says every one of them like she's always known it.
     - else:
         {ch1_memere.asked_junie:
-            THINK: Last night she said "Junie" was what Mémère used to call *her.* Junebug. Now it's a dead great-aunt. She doesn't seem to hear herself.
+            THINK: On Saturday she said "Junie" was what Mémère used to call *her.* Junebug. Now it's a dead great-aunt. She doesn't seem to hear herself.
         }
     }
     ~ clue(mom_patch)
@@ -859,7 +870,7 @@ RADIO: Daniel Carrier. Rose Teague.
     Then nothing.
 * [Lie still. Listen. #silent]
     You lie perfectly still with your heart going like a rabbit's.
-    RADIO: —Brenn—
+    RADIO: —June Brenn—
     @sfx static_burst
     Click. The radio is off. The red numbers say 3:01, like nothing happened.
 - ~ heard_radio = true
@@ -867,7 +878,7 @@ RADIO: Daniel Carrier. Rose Teague.
 @amb night
 You don't sleep again. You lie there and say the names to yourself so you won't lose them, the way you'd hold water in your cupped hands.
 Peter Dunn. Marcus Lowell. Toby Mercer. Daniel Carrier. Rose Teague.
-And one more, cut off. June.
+And one more, out of order, cut off, as if the voice had gone back for it. June.
 @wait 1
 @fx blackout
 @wait 1.5

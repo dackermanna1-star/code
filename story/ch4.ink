@@ -143,7 +143,8 @@ CAL(thinking): Y.T. Yvette Thibodeau. The only abstention in a hundred and ten y
 The door opens. Sloane, backlit in the hall, her face white.
 SLOANE(angry): Get out of her study. Both of you. *Now.*
 {sloane >= 3:
-    Footsteps on the stairs. Sloane hears them before you do. She steps into the room, shuts the door to a crack, and says, loud and bored, "—and *this* is the room where my mother keeps her collection of ugly lamps, isn't that tragic," and keeps talking until the footsteps go back down.
+    Footsteps on the stairs. Sloane hears them before you do. She steps into the room and shuts the door to a crack.
+    Then, loud and bored: "—and *this* is the room where my mother keeps her collection of ugly lamps, isn't that tragic." She keeps talking until the footsteps go back down.
     SLOANE(flat): You owe me. Both of you. Forever.
     ~ sloane += 1
     @remember sloane She covered for you.
@@ -287,7 +288,7 @@ A thin line of blood runs out of her left nostril, over her lip.
 - @hide mom
 Later she falls asleep on the couch before the episode ends. You put the afghan over her. As you're turning off the TV, she murmurs, without opening her eyes:
 MOM: Junie, did you lock the back door?
-THINK(afraid): You stand there in the blue light for a long time.
+You stand there in the blue light for a long time.
 -> ch4_interview
 
 // ------------------------------------------------------------
@@ -300,6 +301,9 @@ THINK(afraid): You stand there in the blue light for a long time.
 - "cal": Cal has already scheduled three interviews without asking you and canceled two of them because "they were lying in uninteresting ways."
 - "wes": Wes says you pick. "I don't know anybody. Everybody here looks at me like I'm gonna steal their hubcaps."
 - "sloane": Sloane says she'll go anywhere "as long as it's not somewhere with a smell."
+}
+{heard_radio:
+    And there's the night janitor, Mr. Teague, who starts his shift at three. *Rose Teague,* the radio said.
 }
 * [Interview Mémère. #kind]
     ~ interview = "memere"
@@ -380,12 +384,13 @@ DOT(sad): Take the things away. So it doesn't hurt.
 @ctx Gus interviews Mr. Teague, the school's 68-year-old night janitor, in the boiler room. He shows her a wall covered with names of people the town forgot.
 Mr. Teague starts his shift at three. He's in the boiler room under the gym, where it's ninety degrees and smells like oil and pipe tobacco, sitting in a busted armchair with a chessboard on a milk crate.
 @show teague flat center
+You introduce yourself — Gus Brennan, Derry Voices, Ms. Whitcomb's class — and he lets you finish before he says a word.
 TEAGUE(flat): Nothin' to tell. Born here. Gonna die here. That's my oral history. Ayuh.
 {partner == "cal":
     @show cal neutral right
     CAL(neutral): Mr. Teague. Tell her about the wall.
     TEAGUE(angry): Calvin.
-    CAL(flat): She's heard the names. On the radio. She heard Rose.
+    CAL(flat): She's Yvette Thibodeau's granddaughter. She has a right.
 }
 @ctx Mr. Teague, the gruff old janitor, is refusing to talk. Gus heard the name "Rose Teague" read on the radio at 3 a.m.
 * {heard_radio} ["Mr. Teague, who's Rose Teague?" #probe]
@@ -400,8 +405,8 @@ He shines the light on it.
 @bg boiler dim wall slow
 @music sad
 The wall is covered in names.
-Top to bottom, in black grease pencil, in neat old-man capitals. One name, one year, line after line, column after column. Some of them have been traced over so many times the letters stand up off the brick like scars.
-ROSE TEAGUE 1961. DANIEL CARRIER 1971. TOBY MERCER 1986. PETER DUNN 1990.
+Top to bottom, in black grease pencil, in neat old-man capitals. A name and a year, line after line, column after column. Some of them have been traced over so many times the letters stand up off the brick like scars.
+MARGARET TEAGUE 1961. ROSE TEAGUE 1961. DANIEL CARRIER 1971. TOBY MERCER 1986. PETER DUNN 1990.
 And there, in the third column, at the height of your eyes:
 JUNE BRENNAN 1982.
 ~ knows_wall = true
@@ -436,6 +441,8 @@ TEAGUE(flat): It always gets fed, girl. Always. You pull one out, it takes whoev
 {partner == "cal":
     Cal is writing it all down, very fast, his hand shaking.
 }
+In your lap, your recorder is still running. You forgot it was on. It got every word.
+~ tape(tape_teague)
 @hide all
 -> ch4_dad
 
@@ -515,7 +522,7 @@ The dial tone hums in your hand for a long time before you put it back.
 @ctx Gus finds the key to the padlocked attic and goes up while Mémère sleeps.
 The attic hatch in the upstairs hall has a padlock on it. It always has. Mom says Mémère put it there in the eighties, "so the squirrels won't get ideas."
 {evening3 == "memere":
-    You know where the key is. You saw it Saturday night, in Mémère's sewing basket under the Kaiser cards: a little brass key on a faded blue ribbon, hidden in the hem of a maroon sash.
+    You know where the key is. You saw it the night she taught you Kaiser, in her sewing basket under the cards: a little brass key on a faded blue ribbon, hidden in the hem of a maroon sash.
 - else:
     You find the key by accident, helping Mémère look for her reading glasses. It's in her sewing basket, sewn into the hem of a maroon sash with a little brass lantern pinned on it. She watches you find it and doesn't say a word.
 }
@@ -585,8 +592,8 @@ TAPE(june): Night, Gus-Gus.
     You rewind it and play it again. And again. Until you can sing along. Until it's not her voice and your voice anymore, just the song.
 * [(Sit very still. Don't feel it yet.) #silent]
     You don't cry. You sit in the dust with the tape in your hand and the flashlight pointing at nothing, and you feel it arrive inside you like a train, very far away, and you decide you'll be somewhere else when it gets here.
-- THINK: Her name was June. June Marie Brennan. She was my sister.
-THINK(sad): And nobody remembers her. Not Mom. Not Dad. Not me.
+- THINK: Her name was June. June Marie Brennan. She was your sister.
+THINK(sad): And nobody remembers her. Not Mom. Not Dad. Not even you.
 * [Play research tape \#3. #record]
     @sfx tape_play
     TAPE(june): This is June Brennan, Derry High School, class of 1986, and this is Research Tape Number Three. October fifth, nineteen eighty-two.
@@ -702,7 +709,31 @@ WES(sad): I'm sorry, Gus. About your sister. I'd — I'd want to know. If I had 
 ~ wes += 2
 ~ wes_spark += 1
 @remember wes You told him about June.
+{not recorded_wes:
+    -> wes_tape_ask
+}
 @hide wes
+-> ch4_note
+
+= wes_tape_ask
+@ctx By the stream with Wes after telling him about June. Gus has her recorder with her and could ask to record his voice.
+* [Ask if you can record him. So there's something left. #record]
+    GUS: Can I record you? Just say something. Your name. Where you are.
+    WES(thinking): Because of your sister.
+    GUS: Because tape keeps.
+    He looks at the recorder in your hand for a long time. Then he leans toward it, a little embarrassed, a little serious.
+    @sfx record_start
+    WES(neutral): This is Wes Pike. I'm fifteen. It's Thursday. I'm in Derry, Maine, which is a stupid name for a town.
+    WES(flat): And I'm not going anywhere this time.
+    WES(blush): That's it. Don't play it for anybody.
+    ~ recorded_wes = true
+    ~ wes_tape_day = "Thursday"
+    ~ tape(tape_wes_october)
+    ~ wes += 1
+    @remember wes He let you record him.
+* [Just sit with him while the light goes. #silent]
+    You sit on the log and watch the Admiral finish the sardines. Some things you don't put on tape.
+- @hide wes
 -> ch4_note
 
 = tell_sloane
@@ -725,9 +756,9 @@ SLOANE(neutral): Just don't. Okay? Please. I don't say please.
 @bg classroom day
 @show whitcomb neutral center
 @ctx Gus shows Ms. Whitcomb, her English teacher, the photo of June. Ms. Whitcomb was June's best friend in 1982 but doesn't remember her.
-You stay after class and put June's ID card on Ms. Whitcomb's desk, and the library printout of the Float photo beside it. *Paige Whitcomb, Nate Fortier, and—*
+You stay after class and put June's ID card on Ms. Whitcomb's desk{Clues ? library_photo:, and the library printout of the Float photo beside it. *Paige Whitcomb, Nate Fortier, and—*|.}
 WHITCOMB(thinking): What's this? Gus, where did you—
-She looks at the photo. At the girl in the middle with no face, her arms around a younger Paige with enormous bangs.
+{Clues ? library_photo:She looks at the photo. At the girl in the middle with no face, her arms around a younger Paige with enormous bangs.|She looks at the ID. At the bleached white square where a face should be. At the name under it.}
 WHITCOMB(cry): Oh. Oh, no. Oh, I — I can almost — it's right there, it's right *there*—
 She grabs the edge of the desk. Her nose starts to bleed. She doesn't let go of the photo.
 WHITCOMB(afraid): Her laugh. She had this laugh, like a goose. She'd snort. She — what was her *name*—
@@ -778,18 +809,21 @@ WES(smile): It was in my locker. Somebody must've — I don't know. Maybe the ca
     ~ warned_wes = true
     WES(flat): ...What?
     {wes >= 4 || (told_wes && wes >= 3):
-        WES(worried): You mean — the light thing. The stuff you told me.
+        {told_wes:
+            WES(worried): You mean — the light thing. The stuff you told me.
+        - else:
+            WES(worried): Quiet Night? That's a town thing, Gus. That's grown-ups going to bed early.
+        }
         WES(sad): Gus, it's my *mom.* You get that, right? Nine houses. She's — I have to.
         WES(neutral): ...I'll be careful. I'll think about it. Okay? That's all I can say.
-        ~ wes_promised = true
     - else:
         WES(angry): You don't get to take this from me. You don't. Everybody takes everything. Not this.
         He walks away fast without looking back.
         ~ wes -= 1
     }
-* ["Who typed it?" #probe]
+* {saw_note} ["Who typed it?" #probe]
     WES(thinking): What do you mean, who typed it? She did.
-    GUS: Does your mom have a typewriter? You said she was "not in a position."
+    GUS: Does your mom have a typewriter?{ch3_barrens.admiral.asked_mom: You said she was "not in a position."}
     WES(angry): People get typewriters, Gus. People change.
     WES(flat): Why are you being like this?
     ~ warned_wes = true
@@ -827,6 +861,7 @@ MEMERE(afraid): Not even for her.
 * [Ask how to stop it. #ask]
     MEMERE(afraid): You don't. Every time someone stops it, it takes more. It's always fed. Always.
     MEMERE(flat): Close your eyes. Hold your breath. Never answer. The children know. The children always know.
+    ~ knows_rules = true
     ~ asked_memere += 1
 * [Ask who chooses. #ask]
     MEMERE(sad): We do. We did. For thirty-six years I chose. Drifters. Runaways. Boys from the county home. God forgive me, I chose.
@@ -860,7 +895,7 @@ Two days. The leaves have gone from orange to brown and started coming down in e
 One free afternoon. One more thing you can do before Friday.
 * {not knows_wall && (cal >= 2 || heard_radio)} [Go down to the boiler room. Find Mr. Teague. #probe]
     -> aft_teague
-* {knows_june && nate >= 1} [Take June's tape to Nate at Low Tide. #record]
+* {knows_june && nate >= 1 && (Clues ? nate_jb || Clues ? library_photo || Tapes ? tape_june_research)} [Take June's tape to Nate at Low Tide. #record]
     -> aft_nate
 * {knows_june && not told_whitcomb} [Show Ms. Whitcomb June's ID. #honest]
     -> aft_whitcomb
@@ -875,7 +910,7 @@ One free afternoon. One more thing you can do before Friday.
 @show teague flat center
 @ctx Gus finds Mr. Teague, the night janitor, in the boiler room to ask about the names.
 Mr. Teague is in his armchair with the chessboard. He looks at you for a long time before he says anything.
-TEAGUE(flat): You're Calvin's friend. The new one. Brennan.
+TEAGUE(flat): You're the one they gave two-twenty-seven. Brennan. I seen the list.
 TEAGUE(sad): Ayuh. I figured you'd come down eventually.
 He shows you the wall. JUNE BRENNAN 1982, in the third column, at the height of your eyes. And he tells you about Rose, and about Margaret, and about the light that always gets fed.
 TEAGUE(flat): You pull one out, it takes whoever's closest. You remember that, girl.
@@ -899,6 +934,7 @@ NATE(afraid): Who is that?
 TAPE(june): ...*il y a longtemps que je t'aime, jamais je ne t'oublierai.*
 NATE(cry): I know her. I know her, I — that's the girl. That's the girl in the static.
 He sits down on the floor behind the counter. He's crying, and his nose is bleeding, and he keeps saying *I know her, I know her,* and he doesn't know her name.
+You tell him. *June.* He says it back three times, carefully, like he's afraid it'll get away from him again.
 ~ played_nate = true
 ~ nate += 2
 @remember nate You played him June's voice.
@@ -937,7 +973,7 @@ No name under it. Just *Not pictured,* like that's a person.
 @amb house
 @show memere smile center
 @ctx A quiet afternoon with Mémère before Quiet Night.
-You spend the afternoon with your grandmother. She doesn't know who you are for most of it, and calls you Junie, and you let her.
+You spend what's left of the day with your grandmother. She doesn't know who you are for most of it, and calls you Junie, and you let her.
 You fix her buttons. You brush her hair, a hundred strokes, the way she tells you her mother did. She sings. You sing with her.
 MEMERE(smile): You always sang it flat, ma belle. Just a little. On *t'oublierai.* Every time.
 ~ mem += 2
@@ -951,7 +987,7 @@ MEMERE(smile): You always sang it flat, ma belle. Just a little. On *t'oublierai
 @amb night
 @music stop 3
 @ctx The night before Canal Days. Gus lies awake.
-Thursday night you lie awake and make a list in your head, the way June did in her notebook.
+Thursday night you lie awake and make a list in your head{Clues ? june_notes:, the way June did in her notebook}.
 {knows_june:
     June Brennan. Kept, 1982.
 }

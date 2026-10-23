@@ -73,7 +73,7 @@ TEDDY(neutral): You? Who're you writing?
     ~ wrote_june = true
     ~ teddy += 1
 * [Write "Grandpa Henri." #kind]
-    You write HENRI THIBODEAU, a man who held you once while you screamed.
+    You write HENRI THIBODEAU, {ch3_memere.grandpa:a man who held you once while you screamed.|a grandfather you don't remember.}
 * [Leave it blank. #silent]
     You leave it blank. Teddy doesn't push.
     TEDDY(neutral): Blank's allowed. Blank can mean a lot of people.
@@ -113,7 +113,7 @@ WES(smile): Tomorrow.
         GUS: Promise.
         WES(neutral): Okay. If I hear you, I'll stop. I promise.
         He holds out his pinky, embarrassed, like a little kid. You hook it.
-        ~ wes_promised = true
+        ~ wes_stops = true
         @remember wes He promised to stop if he heard you.
     - else:
         WES(flat): I'm not promising you anything. You're not my mom.
@@ -122,9 +122,9 @@ WES(smile): Tomorrow.
     WES(smile): Yeah. Me too.
     WES(sad): I keep thinking about what I'll say. Nine years. What do you say?
     ~ wes += 1
-* {saw_note && Clues ? broken_e} ["Wes, the note was typed on the Lantern Society's typewriter. Same chipped 'e'." #confront]
+* (proof) {saw_note && Clues ? broken_e} ["Wes, the note was typed on the Lantern Society's typewriter. Same chipped 'e'." #confront]
     WES(angry): What?
-    GUS: Every *e* on your note has a chip in it. The Society's minutes have the same chip. Somebody in the Society wrote that note, Wes. Not your mom.
+    GUS: Every *e* on your note has a chip in it. {saw_minutes:The Society's minutes have the same chip.|So does Mrs. Ashgrove's typed history of the Society.} Somebody in the Society wrote that note, Wes. Not your mom.
     WES(afraid): ...
     WES(angry): Why would they — why would anybody — that's insane, Gus. That's *insane.*
     But his hand goes to his pocket, to the note, and stays there. And he doesn't walk away.
@@ -142,7 +142,12 @@ Wes doesn't hear it, or pretends not to. You hear it.
 @ctx Sloane, in her cheer uniform, is alone behind the bandstand looking shaken. She warns Gus about tomorrow night.
 Sloane is behind the bandstand in her cheer uniform, alone, her pom-poms on the ground at her feet like two dead animals.
 SLOANE(flat): Don't look at me. I just did a toe-touch in front of my entire town and my mother clapped like a metronome.
-SLOANE(afraid): Tomorrow night. Stay inside. Please. I'm saying please again. That's twice. Don't make me say it three times.
+SLOANE(afraid): Tomorrow night. Stay inside. Please.
+{told_sloane:
+    SLOANE(flat): I'm saying please again. That's twice. Don't make me say it three times.
+- else:
+    SLOANE(flat): I don't say please. Remember that I said it.
+}
 {sloane >= 3:
     SLOANE(neutral): ...And if you're stupid enough not to — and you are, I can tell, you've got that face — there's a path up the back of the hill. Through the old part of Mount Hope cemetery. They don't watch it. They think nobody knows it.
     SLOANE(flat): I know it. I've known it since I was eight.
@@ -151,7 +156,7 @@ SLOANE(afraid): Tomorrow night. Stay inside. Please. I'm saying please again. Th
 * ["Come with me." #honest]
     {sloane >= 4 || (told_sloane && sloane >= 3):
         SLOANE(afraid): ...
-        SLOANE(flat): If I'm there, it's not because of you. It's because somebody has to make sure you don't die doing something stupid in front of my house.
+        SLOANE(flat): If I'm there, it's not because of you. It's because somebody has to make sure you don't die doing something stupid in front of my mother.
         ~ ally_sloane = true
     - else:
         SLOANE(angry): Are you insane? No. *No.* I'm going to be in bed, with the lights off, like a person who wants to turn fifteen.
@@ -185,15 +190,19 @@ He plays it slow. Somewhere behind you, a woman starts crying, and then a man, a
 @ctx The Lantern Float at nightfall: hundreds of paper lanterns floating on the canal. Gus floats hers with someone she chooses.
 At full dark, the band stops, and the whole town goes down to the canal.
 @cg cg_lanterns
-Hundreds of paper lanterns, all at once, bending down to the black water and letting go. They drift out from the walls and turn slowly in the current and float away under the bridge, little houses of light, and the reflection doubles every one of them, and for a minute the canal is a river of fire.
+Hundreds of people, all at once, bending down to the black water and letting go.
+The lanterns drift out from the walls and turn slowly in the current and float away under the bridge, little houses of light, and the reflection doubles every one of them, and for a minute the canal is a river of fire.
 Nobody talks. The whole town of Derry stands along the railings, holding its breath.
 It is the most beautiful thing you have ever seen. Mémère was right.
 @cg off
+{not ch5_fair.f_teddy:
+    You bought a lantern at the Society booth for a dollar. You still haven't written anything on it.
+}
 @ctx At the Lantern Float on the canal. Gus is choosing who to stand with as she lets her lantern go.
 * {teddy >= 2} [Float your lantern with Teddy. #friendly]
     ~ float_with = "teddy"
     @show teddy smile center
-    You and Teddy kneel at the edge and set your lanterns down side by side. Hers says NKEM. They bump into each other going out, like they're saying hi.
+    You and Teddy kneel at the edge and set your lanterns down side by side. {ch5_fair.f_teddy:Hers says NKEM.|Hers says NKEM OKAFOR, in careful square capitals. "My grandma," she says.} They bump into each other going out, like they're saying hi.
     TEDDY(sad): She'd hate this. She'd love this. Both.
     {teddy_spark >= 2:
         She leans her head on your shoulder. Just for a second. Just long enough.
@@ -227,7 +236,7 @@ It is the most beautiful thing you have ever seen. Mémère was right.
     ~ float_with = "family"
     @show mom sad left
     @show memere sad right
-    Your mother stands behind your grandmother's wheelchair-bench with her hands on Mémère's shoulders. Mémère is crying without making any sound, her lips moving: *jamais je ne t'oublierai.*
+    Your mother stands behind the bench where Mémère is sitting, her hands on Mémère's shoulders. Mémère is crying without making any sound, her lips moving: *jamais je ne t'oublierai.*
     MOM(sad): Every year she cries at this. Every year. I used to think it was the most beautiful thing in the world. Now I just think she's sad.
     ~ mom += 1
     ~ mem += 1
@@ -358,7 +367,7 @@ PHONE(teddy): Okafor residence, Theodora speaking, my mom makes me say that—
 = teddy_ask
 {teddy >= 4 || (told_teddy && teddy >= 3):
     PHONE(teddy): ...Quiet Night.
-    PHONE(teddy): Okay. Okay. Yes. Obviously yes. I've been waiting for you to ask since the cafeteria. I have walkie-talkies. Real ones. Two-mile range. I'll meet you at the corner of Larch at nine.
+    PHONE(teddy): Okay. Okay. Yes. Obviously yes. I've been waiting for you to ask since forever. I have walkie-talkies. Real ones. Two-mile range. I'll meet you at the corner of Larch at nine.
     PHONE(teddy): If I die, I'm haunting you. Specifically you.
     ~ ally_teddy = true
     @remember teddy She said yes.

@@ -22,7 +22,7 @@ Church bells. A dog barking. Somebody raking leaves. Derry wakes up rested and p
 @ctx The morning after Quiet Night. Mémère was taken by the light in Gus's place, and now Mom doesn't remember her own mother ever living here.
 Your mother is in the kitchen in her robe, humming, making French toast. She looks like she slept for a year.
 MOM(smile): Morning, sleepyhead! You were out cold. I didn't even hear you come in last night — did you go somewhere? Never mind. Eat.
-There are two plates on the table.
+There are four plates on the table. Your mother doesn't notice that two of them are for nobody.
 GUS: Where's Mémère?
 MOM(neutral): Hm?
 GUS: Mémère. Your mom. Where is she?
@@ -43,7 +43,7 @@ MOM(sad): Mémère passed in eighty-eight, sweetheart. You know that. We drove u
 - else:
     A little brass lantern pin. You don't know how it got there. You know exactly how it got there.
 }
-THINK(cry): You're the only person alive who remembers she was ever here. Like Mr. Teague with Rose. Like Cal with Toby.
+THINK(cry): Besides Wes, and the people in good coats, you're the only one who remembers she was ever here.{knows_wall: Like Mr. Teague with Rose.}{told_cal: Like Cal with Toby.}
 THINK(sad): You'll have to remember for everybody now.
 @hide mom
 -> tape5
@@ -60,7 +60,9 @@ MEMERE(sad): By lunch, nobody else will. Only you, and his father, and the rest 
 She takes your hand across the table. Her fingers are cold.
 MEMERE(sad): You did what we did, ma belle. You did what I did. For thirty-six years.
 MEMERE(flat): Now you know what it weighs.
-* ["He was going to let them take Wes. He delivered the note." #blunt]
+* {overheard_society || q_hill.brett_confessed} ["He was going to let them take Wes. He delivered the note." #blunt]
+    MEMERE(neutral): Yes. And Constance believes everyone she chose deserved it too. That's how it starts. That's how all of it starts.
+* {not (overheard_society || q_hill.brett_confessed)} ["He was guarding the hill for them." #blunt]
     MEMERE(neutral): Yes. And Constance believes everyone she chose deserved it too. That's how it starts. That's how all of it starts.
 * ["I didn't want to die." #honest]
     MEMERE(sad): No. Nobody does. That's the whole trick of it, ma belle. That's how it's always fed.
@@ -84,7 +86,7 @@ A police cruiser is parked across Larch Street. Officer Lindqvist is behind the 
     WES PIKE. DON'T FORGET. DON'T FORGET. DON'T FORGET.
     You look at it for a long time.
     THINK(afraid): Who's Wes Pike?
-    THINK(afraid): Who's— no. *No.* Wes. Flannel. The cat. The Admiral. *Wes.*
+    THINK(afraid): Who's— no. *No.* Wes. Flannel. {lunch == "wes" || ch3_barrens:The cat. The Admiral.|The sketchbook. The monsters.} *Wes.*
     It comes back the way a word comes back when it's been on the tip of your tongue. Slowly. Not all the way.
 }
 {recorded_wes:
@@ -92,10 +94,16 @@ A police cruiser is parked across Larch Street. Officer Lindqvist is behind the 
     TAPE(wes): This is Wes Pike. I'm fifteen. It's Saturday. I'm in Derry, Maine, which is a stupid name for a town.
     TAPE(wes): And I'm not going anywhere this time.
     You play it nine times. Ten. Tape keeps voices. Tape doesn't forget.
+    THINK(cry): He said he wasn't going anywhere this time.
 - else:
     You don't have anything of his. Not a drawing. Not a tape. Just the shape of him in your head, already blurring at the edges, like a photo left in the sun.
 }
-THINK(cry): He said he wasn't going anywhere this time.
+{not went_out && ally_teddy:
+    @sfx phone_ring
+    At nine the phone rings. It's Teddy.
+    PHONE(teddy): I waited at the corner till ten. You didn't come. I'm not mad. I was mostly relieved, honestly. I was so scared, Gus.
+    PHONE(teddy): What were we even going up there for? I keep trying to remember. Was it for somebody?
+}
 -> tape5
 
 // ------------------------------------------------------------
@@ -106,11 +114,11 @@ THINK(cry): He said he wasn't going anywhere this time.
 @ctx Gus returns to her room and finds a brand-new cassette tape on her pillow, labeled in her sister June's handwriting: tape number five.
 When you go back up to your room, there's a cassette tape on your pillow.
 You didn't put it there.
-It's a Maxell XLII, high bias. Brand new. The kind they sell at Low Tide for five bucks a three-pack, the kind they didn't make until a couple of years ago.
+It's a Maxell XLII, high bias. Brand new, still smelling of the cellophane. The fine print on the J-card says © 1990.
 On the label, in round, bossy handwriting you'd know anywhere now:
 \#5 — FOR GUSSIE — PLAY AFTER
 {Clues ? june_notes:
-    THINK(afraid): *If anything happens: Gussie. Tape \#5.* There was no tape five in the box. There was no tape five in 1982.
+    THINK(afraid): *If anything happens: Gussie. Tape \#5.* There was no tape five in the box. Whatever tape five was in 1982, it wasn't this.
     THINK(afraid): This tape didn't exist in 1982.
 }
 @cg cg_tape five
@@ -118,7 +126,11 @@ On the label, in round, bossy handwriting you'd know anywhere now:
 @sfx tape_play
 There's no hiss. That's the first thing. It's clean, close, like she's sitting on the end of your bed.
 TAPE(june): Hi, Gussie.
-TAPE(june): You were so brave last night. Stupid. But brave. You get that from me.
+{went_out:
+    TAPE(june): You were so brave last night. Stupid. But brave. You get that from me.
+- else:
+    TAPE(june): You stayed in. Good. That's more than I managed.
+}
 {outcome:
 - "memere":
     TAPE(june): I'm sorry about Mémère. I tried. I swear I tried. She wanted to. She's been wanting to for nine years.
@@ -141,18 +153,21 @@ TAPE(june): But not on tape. Tape's not safe anymore. They can hear it now.
 TAPE(june): ...
 TAPE(june): Open your window, Gussie.
 @sfx tape_stop
+~ tape(tape_june_last)
 @cg off
 @music stop 1
 @amb quiet
+You sit on your bed with the recorder in your lap while the light crosses the floor and climbs the wall and goes.
+@bg gus_room night - slow
 @wait 1.5
 @sfx window_knock
-Three taps on the glass.
-@bg gus_room night - slow
+After dark: three taps on the glass.
 @ctx Gus's sister June, still fourteen after nine years, is standing outside Gus's window on the porch roof, asking to come in.
 You turn around.
 @cg cg_june_window
 There's a girl on the porch roof outside your window.
-Dark hair in a bob, bangs cut blunt and straight. A yellow sweater, gone grayish, like it's been in a drawer a long time. A strap across her chest for a tape recorder that isn't there. Fourteen years old. Exactly, perfectly fourteen, the way she was in the Polaroid, the way she will be forever.
+Dark hair in a bob, bangs cut blunt and straight. A yellow sweater, gone grayish, like it's been in a drawer a long time. A strap across her chest for a tape recorder that isn't there.
+Fourteen years old. Exactly, perfectly fourteen, the way she was the night she walked out the door, the way she will be forever.
 Her breath doesn't fog the glass.
 She smiles. It's your smile. You've seen it in the mirror your whole life and never known whose it was.
 JUNE: Hi, Gussie.

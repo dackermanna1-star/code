@@ -22,7 +22,7 @@ MOM(smile): You're taping the rain again.
     She thumps the dashboard with the heel of her hand. The rattle stops, considers, starts again.
 * [(Shrug. Keep recording.) #silent]
     You shrug. The little reels keep turning.
-    MOM(sad): Okay. Cool. Love that for us.
+    MOM(sad): Okay. Cool. Great talk.
 * ["Somebody should remember what this sounds like." #honest]
     MOM(surprised): Remember what? The rain?
     GUS: This. The drive. The last part before it's different.
@@ -34,7 +34,7 @@ Your mother drives the way she used to smoke: like she isn't supposed to be doin
 Every few minutes her eyes go to the rearview mirror. Not the road behind you — the back seat. The empty back seat, full of boxes and a laundry basket of shoes.
 MOM(worried): I know this isn't what you wanted.
 * ["What I wanted was Dad not marrying a woman named Trish." #blunt]
-    MOM(flat): Mm. Well. That ship has sailed. And docked. And is apparently expecting in February.
+    MOM(flat): Mm. Well. That ship has sailed. And docked. And is apparently expecting in November.
     MOM(sad): I'm sorry, Gussie. I didn't mean that to come out mean. About her, I meant it. Not about you.
     ~ mom += 0
 * ["It's fine." #deflect]
@@ -91,8 +91,7 @@ MOM(smirk): Kids. When I was in high school somebody painted DERRY: WE'RE NOT DE
     MOM(thinking): Sure. It was nice. Nice people. Pretty in the fall. Good pie.
     MOM(flat): That's what you say, isn't it. "It was nice." That's what everybody from here says.
     She chews her gum hard.
-* ["Your recorder thing just went crazy." #look]
-    GUS: My meter just pinned. Right when we passed the sign.
+* (meter) ["My meter just pinned. Right when we passed the sign." #look]
     MOM(neutral): That's the power lines. Or a ham radio. There's a hundred guys in this county with antennas in their backyards talking to Belgium.
     MOM(smile): Welcome to Derry. Even the static's friendly.
 - The rain quits the moment you turn onto Larch Street, as if it's done what it came to do.
@@ -142,7 +141,7 @@ HANNAH(flat): ...
 @hide hannah
 She goes without a word. A moment later the porch light next door clicks off, though it isn't dark yet, and the curtains in the front window draw shut.
 ~ clue(hannah_quiet)
-MOM: Gus! Grab the lamp box, would you? The one that says FRAGILE in letters a foot high? Don't take the hint, take the box.
+MOM: Gus! Grab the lamp box, would you? The one that says FRAGILE in letters a foot high? That's not a suggestion.
 -> ch1_memere
 
 // ------------------------------------------------------------
@@ -260,7 +259,7 @@ MOM(neutral): Okay. Ma, pills. The yellow one and the two white ones. Gus, can y
 @amb night
 @music stop 4
 @ctx Gus alone in her new bedroom at 9 Larch Street on the first night, unpacking. The room has daisy wallpaper, a closet with old pencil height marks on the doorframe, moving boxes, and a window over the street.
-Your room is the back bedroom, with a slanted ceiling you'll hit your head on at least twice a week. Yellow daisy wallpaper, faded almost to cream. An iron bed with a quilt that smells like cedar.
+Your room is the front bedroom, under the eaves, with a slanted ceiling you'll hit your head on at least twice a week. Yellow daisy wallpaper, faded almost to cream. An iron bed with a quilt that smells like cedar.
 Mom says it was the sewing room. It doesn't look like a sewing room. It looks like somebody's room.
 - (room)
 * [Look out the window. #look]
@@ -275,7 +274,7 @@ Mom says it was the sewing room. It doesn't look like a sewing room. It looks li
     * * [Look closer at the marks. #look]
         You crouch. The low ones say C and a year: C '51. C '53. C '55. Your mother, shorter than a doorknob.
         Higher up, under a layer of paint, are other ticks with a different letter. You can't make it out. J? I? The years are gone.
-        And at the very bottom, barely two feet off the floor, one tick that isn't painted over at all. Neat block letters: G — 1981.
+        And down low, about level with C '51, one tick that isn't painted over at all. Neat block letters: G — 1981.
         You were four in 1981. You don't remember ever being measured here.
         ~ clue(height_marks)
     * * [Leave it.]
@@ -317,8 +316,8 @@ GUS: She called me Junie.
 PHONE(dad): ...
 PHONE(dad): Huh.
 There's a strange little silence on the line, like the sound of someone standing at the top of stairs in the dark.
-PHONE(dad): Well. She's — you know. She's confused. Hey, you still got that recorder I gave you?
-GUS: It's surgically attached.
+PHONE(dad): Well. She's — you know. She's confused. Hey, you still got that tape recorder thing?
+GUS: The one you gave me? It's surgically attached.
 PHONE(dad): I gave you that? Huh.
 GUS: For my seventh birthday. The red one. You don't remember?
 PHONE(dad): No, right, yeah. Sure. God, I'm getting old. Trish says I can't remember where I put my keys if they're in my hand.
@@ -413,7 +412,7 @@ Then just rain.
     ~ clue(sign_voice)
     ~ tape(tape_car)
     * * ["It's crosstalk. A radio station bleeding through." #honest]
-        THINK: Radio. That's all. Mom said it: a hundred guys in this county talking to Belgium. Some kid's radio drama, bleeding onto the tape.
+        THINK: Radio. That's all. {ch1.meter:Mom said it: a hundred guys in this county talking to Belgium.|Half the county has an antenna in the backyard.} Some kid's radio drama, bleeding onto the tape.
         THINK(flat): A kid's radio drama that knows your nickname.
         @theory voice_radio
     * * ["I've reused this tape a hundred times. It's something old, coming through." #probe]

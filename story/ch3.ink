@@ -20,16 +20,16 @@
 @music larch
 @ctx Saturday morning. Mom is working a double shift. Gus has the whole day free to explore Derry.
 There's a note on the refrigerator under a magnet shaped like a lobster.
-\*G — Double shift, home by midnight. Mrs. Gagnon is checking on Mémère. $10 is for LUNCH, not tapes. (Tapes are allowed.) Explore! Make a friend! Don't go in the woods! Love, Mom. P.S. I know you're going to go in the woods.*
+\*G — Double shift, home by midnight. Mrs. Gagnon is checking on Mémère. $10 is for LUNCH, not tapes. (Okay, ONE tape.) Explore! Make a friend! Don't go in the woods! Love, Mom. P.S. I know you're going to go in the woods.*
 Mémère is asleep in her chair with the TV on. A man on Channel 2 is explaining how to get the most out of your fall mums.
 You have ten dollars, a recorder, three blank-ish tapes, and the whole day.
 {teddy >= 3 || lunch == "teddy":
     @sfx phone_ring
     The phone rings. You grab it before it wakes your grandmother.
     PHONE(teddy): Gus! It's Teddy! Okay so I got your number from the phone book, which, is that creepy? It felt creepy. There are four Thibodeaus. I called two wrong ones first. One of them was a man who sang to me.
-    PHONE(teddy): Are you still coming tonight? My house? I have the radio thing to show you. My dad's making suya. You don't know what suya is. That's fine. You will.
+    PHONE(teddy): {walked_with_teddy || ch2_lunch.lunch_teddy.told_voice:Are you still coming tonight?|Do you want to come over tonight?} My house? {lunch == "teddy" || walked_with_teddy:I have the radio thing to show you.|I have a ham radio. I want to play you something.} My dad's making suya. You don't know what suya is. That's fine. You will.
     GUS: I'll be there.
-    PHONE(teddy): YES. Okay. Seven. Bring your tape. The one with the voice. If you — if you still have it.
+    PHONE(teddy): YES. Okay. Seven. {ch2_lunch.lunch_teddy.told_voice && not taped_over_sign:Bring your tape. The one with the voice.|Bring your recorder.}
 }
 ~ visits = 0
 -> ch3_hub
@@ -47,7 +47,7 @@ You have ten dollars, a recorder, three blank-ish tapes, and the whole day.
     -> ch3_diner
 * [Low Tide Records: used tapes, loud music, blank cassettes. #map:records]
     -> ch3_records
-* [The public library: old newspapers on microfiche. #map:library]
+* [The public library: old newspapers on microfilm. #map:library]
     -> ch3_library
 * [The Barrens: the woods and the stream behind Kansas Street. #map:barrens]
     -> ch3_barrens
@@ -78,7 +78,7 @@ She cuts you a slab of blueberry pie the size of a paperback and pours you coffe
 - (talk)
 * [Ask about Quiet Night. #ask]
     DOT(laugh): Oh, Quiet Night! That's just an old Derry thing. Folks like an early night in October. It's — tradition, I guess. Like the Float.
-    DOT(neutral): Bad for business, I'll tell you that. I close at seven. Everybody's home by eight.
+    DOT(neutral): Bad for business, I'll tell you that. I close at three. Everybody's home by eight.
     GUS: Why?
     DOT(thinking): Why? Well. Because... it's Quiet Night, hon.
     She says it like that's an answer, and then she looks briefly confused, like a woman who has walked into her own kitchen and can't remember what she came in for.
@@ -155,7 +155,7 @@ NATE(smile): Hey. Welcome to Low Tide. Used tapes are a buck fifty, three bucks 
     NATE(blush): Oh — uh. That's us, actually. My band. The Static Hours. We recorded it in my buddy's garage on a four-track.
     ~ nate += 1
 * [(Dig through the used tapes.) #look]
-    In the bin marked LOCAL — 50¢ you find a tape labeled in ballpoint: *DERRY HIGH TALENT SHOW 1983.* Somebody has scribbled out one act on the track list so hard the pen went through the paper.
+    In the bin marked LOCAL — 50¢ you find a tape labeled in ballpoint: *FALL TALENT NIGHT — SEPT. 1982.* Somebody has scribbled out one act on the track list so hard the pen went through the paper.
     NATE(neutral): Oh, that stuff comes in from estate sales. Take it, it's free. Nobody wants it.
 - @ctx Nate is playing his band's song "Girl in the Static" for Gus.
 The song on the speakers changes. It's slow, just a guitar and a voice, a little out of tune in a way that sounds on purpose.
@@ -191,18 +191,18 @@ NATE(smile): It's about a girl I never met. Weird, right? Everybody's got one of
 @music mystery
 @ctx The Derry Public Library. Mrs. Fennimore, a helpful librarian wearing a brass lantern pin, asks Gus what she's researching.
 The Derry Public Library is two buildings, adult and children's, joined by a corridor made entirely of glass. Walking through it feels like walking through the inside of a held breath.
-At the reference desk, a woman with a steel-grey bob and half-moon glasses looks up and smiles like she's been waiting all morning for you specifically.
+At the reference desk, a woman with a steel-grey bob and half-moon glasses looks up and smiles like she's been waiting all day for you specifically.
 @show librarian smile center
 {Clues ? memere_society:
     There's a little brass lantern pinned to her cardigan.
 }
-LIBRARIAN(smile): Good morning, dear. You're new. I know all my regulars. What can I help you find?
+LIBRARIAN(smile): {t3("Good morning", "Good afternoon", "Good evening")}, dear. You're new. I know all my regulars. What can I help you find?
 * ["Old newspapers. October 1982." #honest]
     ~ told_librarian = "1982"
     ~ suspicion += 1
     LIBRARIAN(neutral): October 1982. Goodness. What's in October 1982?
     GUS: School project.
-    LIBRARIAN(smile): Of course. Microfiche is in the back. The machine sticks. Hit it on the left side, gently, like a cat you're fond of.
+    LIBRARIAN(smile): Of course. Microfilm is in the back. The machine sticks. Hit it on the left side, gently, like a cat you're fond of.
 * ["Anything about the Lantern Society." #ask]
     ~ told_librarian = "society"
     ~ suspicion += 2
@@ -221,29 +221,30 @@ LIBRARIAN(smile): Good morning, dear. You're new. I know all my regulars. What c
     LIBRARIAN(smile): Brennan. I'll remember that.
 * ["Just browsing." #lie]
     ~ told_librarian = "nothing"
-    LIBRARIAN(smile): Browsing is the noblest form of research. Microfiche is in the back if you get ambitious.
+    LIBRARIAN(smile): Browsing is the noblest form of research. Microfilm is in the back if you get ambitious.
 - @hide librarian
-@ctx Gus is at the library's microfiche reader looking at old Derry News issues from October 1982.
-The microfiche reader is a beige machine the size of a television with a screen that glows the green of an old aquarium. You feed it the reel for October 1982 and crank.
-SATURDAY, OCTOBER 9, 1982: CANAL DAYS NEXT WEEKEND, LANTERN SOCIETY PROMISES "MOST BEAUTIFUL FLOAT YET."
-TUESDAY, OCTOBER 12: Nothing about the Float. A Little League banquet.
-WEDNESDAY, OCTOBER 13: Bake sale results. A lost beagle named Duke. Weather: clear and cold.
+@ctx Gus is at the library's microfilm reader looking at old Derry News issues from October 1982.
+The microfilm reader is a beige machine the size of a television with a screen that glows the green of an old aquarium. You feed it the reel for October 1982 and crank.
+FRIDAY, OCTOBER 8, 1982: CANAL DAYS TONIGHT — LANTERN SOCIETY PROMISES "MOST BEAUTIFUL FLOAT YET."
+MONDAY, OCTOBER 11: Nothing about the Float. A Little League banquet.
+TUESDAY, OCTOBER 12: Bake sale results. A lost beagle named Duke. Weather: clear and cold.
 ~ clue(library_1982)
 * [Go back to the Canal Days coverage. Look at the photos. #look]
-    The Friday before, a photo spread: paper lanterns on the canal, a hundred little flames on black water. A brass band. Mrs. Constance Ashgrove, twenty years younger and exactly as poised, handing a lantern to a little boy.
+    In Saturday's paper, a photo spread from the Float: paper lanterns on the canal, a hundred little flames on black water. A brass band. Mrs. Constance Ashgrove, nine years younger and exactly as poised, handing a lantern to a little boy.
     And on the bridge, a group of teenagers leaning on the railing, grinning at the camera.
     The caption: *Derry High freshmen enjoy the Float: Paige Whitcomb, Nate Fortier, and*
     And a gap. A space where a name should be, with a smudge in it like the printer's ink ran.
     In the photo, between the girl with the big curled bangs and the boy with the shaggy hair, there's a third kid. Her arm around both of them. Her face is a pale blur, as if the film went bad only there, only on her.
+    You feed the machine a dime for a printout. It comes out warm and gray and smelling of chemicals.
     ~ clue(library_photo)
 * [Look for October 1990. Last year. #probe]
-    OCTOBER 13, 1990: a church supper. A letter to the editor complaining about leaf pickup. Weather: clear and cold.
+    MONDAY, OCTOBER 15, 1990: a church supper. A letter to the editor complaining about leaf pickup. Weather: clear and cold.
     The same nothing. The same perfect, careful nothing.
 - {lunch != "cal" && cal < 2:
     @show cal neutral center
     When you look up from the reader, Cal Ashgrove is standing at the end of your table with a stack of bound volumes, looking at your screen.
     CAL(neutral): October 1982. Interesting choice.
-    CAL(thinking): Read the thirteenths. Every year. You'll see a pattern, if you look at nothing long enough.
+    CAL(thinking): Read the Mondays after. Every year. You'll see a pattern, if you look at nothing long enough.
     GUS: I've seen it.
     CAL(surprised): ...Have you.
     He sits down across from you without asking, which you're learning is how Cal asks.
@@ -321,7 +322,7 @@ WES(neutral): Stand by it for a while. You'll see.
     It does breathe. In, out. Slow. Like something big, asleep.
     Later, when you play it back, under the hum there's something else. Many voices, very far away, all talking at once. Too far to hear what they say. Or maybe it's just water.
     ~ tape(tape_creek)
-* [Ask about his mom. #ask]
+* (asked_mom) [Ask about his mom. #ask]
     WES(flat): What about her.
     GUS: Where is she?
     WES(neutral): Somewhere. Bangor, last anybody told me. Caseworker says she's "not in a position." Whatever that means. Not in a position to want me, probably.
@@ -481,7 +482,7 @@ And on the desk: the radio. A black receiver with amber dials and two needles th
 TEDDY(grin): KA1TDO. That's me. That's my call sign. I'm licensed by the federal government. They gave a fourteen-year-old a license to broadcast. America is wild.
 TEDDY(neutral): Okay. Okay. Before I play it, you have to promise not to laugh.
 GUS: I promise.
-TEDDY(worried): Last October. Quiet Night. My parents were asleep by eight — I told you — and I was up, because I'm always up, and I was scanning the two-meter band. And at 1:12 in the morning I got... this.
+TEDDY(worried): Last October. Quiet Night. My parents were asleep by eight{lunch == "teddy": — I told you —|, the whole street was,} and I was up, because I'm always up, and I was scanning the two-meter band. And at 1:12 in the morning I got... this.
 She presses PLAY on a tape deck wired into the receiver.
 @sfx tape_play
 TAPE(radio): —Peter Dunn. Marcus Lowell. Toby Mercer. Daniel Carrier—
@@ -526,8 +527,12 @@ TEDDY(flat): Peter Dunn. I looked him up in the phone book. There's no Peter Dun
 
 = sign_tape
 {heard_sign_voice && not taped_over_sign:
-    TEDDY(neutral): Did you bring yours? The car tape?
-    You play it for her: the rain, the wipers, and at the sign the girl's voice. *If you're hearing this, Gussie, it means you came back.*
+    {ch2_lunch.lunch_teddy.told_voice:
+        TEDDY(neutral): Did you bring yours? The car tape?
+        You play it for her: the rain, the wipers, and at the sign the girl's voice. *If you're hearing this, Gussie, it means you came back.*
+    - else:
+        You tell her about the sign, and play her the car tape: the rain, the wipers, and at the sign the girl's voice. *If you're hearing this, Gussie, it means you came back.*
+    }
     Teddy listens to it four times with her eyes closed and her head tilted like a bird's.
     TEDDY(thinking): That's not radio. That's not a broadcast — there's no carrier, no drift. That's on the tape. That's *recorded.* Somebody said that into a microphone, close up.
     TEDDY(worried): A long time ago, maybe. It's got that — the high end's gone. Like an old tape that's been recorded over and over.
@@ -570,7 +575,7 @@ She teaches you. You lose. She wins every hand with a little crow of satisfactio
 * ["Are you cheating?" #joke]
     MEMERE(laugh): Of course I'm cheating! I'm seventy-two. You think I got to seventy-two by playing fair?
     ~ mem += 1
-* ["Tell me about Grandpa." #kind]
+* (grandpa) ["Tell me about Grandpa." #kind]
     MEMERE(smile): Henri. He worked at the tannery. He smelled like a shoe for forty years and I never once minded. He could fix anything. A radio, a car, a fence. Not himself, but everything else.
     MEMERE(sad): He died in seventy-eight. Before you remember. He held you once. You screamed the whole time. He said, "This one has opinions."
     ~ mem += 1
@@ -580,13 +585,13 @@ She teaches you. You lose. She wins every hand with a little crow of satisfactio
 * ["Mémère, what's the Lantern Society?" #ask]
     -> society
 * [Keep playing. Let her win. #kind]
-    You keep playing. She keeps winning. Around ten she falls asleep in her chair holding a full house, and you put a blanket over her, and you leave the cards exactly where they are.
+    You keep playing. She keeps winning. Around ten she falls asleep in her chair holding a fistful of trump, and you put a blanket over her, and you leave the cards exactly where they are.
     ~ mem += 1
     -> ch3_end
 
 = society
 MEMERE(neutral): The Lantern Society.
-She puts her cards down. Face up — she's been holding nothing, a pair of fours. She doesn't seem to notice.
+She puts her cards down. Face up — she's been holding nothing. Not one trump, not one face card. She doesn't seem to notice.
 MEMERE(thinking): We did good work. The Float. The wreaths. The church suppers. We kept the town.
 MEMERE(flat): Somebody has to keep it. You don't understand that, you young people. A town doesn't just *happen.* It has to be kept.
 MEMERE(sad): We only ever gave the ones nobody would miss. That was the rule. Drifters. Runaways. People passing through. Nobody's anybody.

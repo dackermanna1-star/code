@@ -26,7 +26,7 @@ At 7:30 she goes through the house drawing every curtain. Living room. Dining ro
 MOM(flat): No calls tonight.
 * ["Mom. What are you doing?" #ask]
     MOM(flat): Hm? Just closing up. It's Quiet Night, honey. Everybody's tired.
-    GUS: You said you didn't know what Quiet Night was.
+    GUS: You just called it Quiet Night.
     MOM(neutral): Did I?
     She smiles at you. It's the right shape. There's nobody behind it.
 * ["Mom. Look at me." #confront]
@@ -65,6 +65,9 @@ MEMERE(flat): I'm not telling you to go. I'm telling you I know you will. You're
 At 8:40 you're at your window with the curtain pulled back an inch.
 @bg larch_ext night - fade
 Larch Street. Porch lights. The blue flicker of TVs. The Gagnons' kitchen window, yellow. Mrs. Bouchard's lamp with the fringe on it, two doors down. An ordinary Saturday night.
+{caught_at_tent:
+    At the end of the street, a police cruiser sits at the curb with its headlights off. It's been there since six.
+}
 @sfx lights_out
 @bg larch_ext quiet - cut
 @fx shake
@@ -90,6 +93,9 @@ And past the end of the street, up on the hill, there's a light. Small. Steady. 
 You open the window. It sticks, and then it doesn't, with a crack like a knuckle. Cold air. The porch roof below, shingles wet with dew.
 You know how to do this. You've never done it before in your life, and your body knows: out the window, down the roof on your butt, the trellis by the lilac, the soft spot in the grass.
 You wonder who taught you. You know who taught you.
+{caught_at_tent:
+    The cruiser at the end of the street is dark now, too. Whoever's in it is asleep, or pretending to be.
+}
 {ally_teddy:
     -> meet_teddy
 }
@@ -109,7 +115,9 @@ She hands you a walkie-talkie. Her hand is shaking so hard the antenna rattles.
 === ch6_stay ===
 @ctx Gus stays inside on Quiet Night. Something knocks at the front door, using her sister June's voice.
 You let the curtain fall. You sit on your bed in the dark with your knees up and your recorder in your hands and you don't go.
-You told yourself you'd go. Everybody tells themselves that.
+{ally_teddy:
+    Somewhere out there, at the corner of Larch, Teddy is crouched behind a mailbox with two walkie-talkies, waiting for you. You think about that for a long time.
+}
 Hours. Or minutes. The house is so quiet you can hear the blood in your ears.
 @sfx door_knock
 Downstairs, someone knocks on the front door. Three knocks. Soft.
@@ -133,7 +141,7 @@ It's her voice. The voice from the tape. Close and warm and laughing a little, l
 @ctx 3 a.m. after Quiet Night. Gus's clock radio turns on and reads a new name.
 At 3:00, the clock radio clicks on by itself.
 @amb static
-RADIO: —June Brennan. Toby Mercer. Peter Dunn.
+RADIO: —June Brennan. Toby Mercer. Marcus Lowell. Peter Dunn.
 RADIO: Wesley Pike.
 Click.
 ~ outcome = "wes"
@@ -149,7 +157,7 @@ Click.
 @weather fog
 @ctx Walking through the completely dark town toward the Standpipe hill on Quiet Night. Voices call from the dark.
 Derry in the dark is a different town.
-Every window black. Every porch light off. Parked cars like animals asleep. The only light is the green, very small, very far away on the hill, and somehow it doesn't get closer as you walk. Everything else gets farther away. You understand now what she meant on the tape.
+Every window black. Every porch light off. Parked cars like animals asleep. The only light is the green, very small, very far away on the hill, and somehow it doesn't get closer as you walk. Everything else gets farther away.
 In one house a TV is on behind drawn curtains, throwing blue light, and in the blue light there's the shape of a man standing at the window. Not moving. Facing out. Facing you.
 {ally_teddy:
     TEDDY(afraid): Don't look at him. Don't look at him. Don't look at him.
@@ -168,7 +176,7 @@ VOICE(june): Gussie. This way. It's me. I'm right here.
     The dark *leans* toward you. You feel it, like a door opening in a warm house in winter. Something knows your name now. Something has a hold of it.
     {ally_teddy:
         Teddy grabs your arm and yanks you back so hard you both fall into a hedge.
-        TEDDY(angry): Never answer. *Never answer.* The kids' song, Gus, you told me—
+        TEDDY(angry): Never answer. *Never answer.* It's in the jump-rope song, Gus!
     - else:
         You stumble back, and the warmth pulls, and you tear yourself away from it like tearing skin off cold metal.
     }
@@ -268,11 +276,12 @@ Brett Lindqvist. In his letterman jacket, holding a flashlight in both hands lik
 BRETT(afraid): You can't be up here. My dad said nobody — I'm supposed to keep people *off.* It's just a prank, it's supposed to be a — there's something up there, Gus. There's something *up there.*
 ~ brett_present = true
 @ctx Brett Lindqvist, the bully, is blocking the path up the hill, terrified. Gus has to get past him.
-* ["You know it's not a prank, Brett. You know what you did." #confront]
+* (brett_confessed) ["{overheard_society || ch5_fair.f_wes:You know it's not a prank, Brett. You know what you did.|What's up there, Brett? What did they make you do?}" #confront]
     BRETT(cry): I just delivered a letter! That's all! Dad said the kid would get scared and go back to Bangor!
     BRETT(afraid): That's all I did. That's *all* I did.
     He doesn't stop you. He can't stop anything. He just stands there with the light shaking.
-* {Tapes ? tape_brett} [Hold up your recorder. "Get out of my way, or your uncle hears this." #manipulate]
+* {Tapes ? tape_brett} [Hold up your recorder. Threaten him. #manipulate]
+    GUS: Move. Or the whole school hears this.
     You press PLAY. His own voice comes out of the little speaker, tinny, laughing: *Bet she's in a ditch somewhere.*
     BRETT(afraid): Turn it off. Turn it *off.*
     He steps aside. He looks at you like you're the scariest thing on the hill, and for one second, you are.
@@ -384,6 +393,9 @@ Past her shoulder, Wes takes another step. Every second you stand here, he's clo
 
 = rescue
 @ctx Wes is walking toward the green lantern, lured by his "mother's" voice. Gus must break the lure before he reaches the light. Each try costs time.
+{anchors == 1 && steps > 0:
+    He shakes loose and leans toward the light again, like a sleepwalker who's been turned around and keeps on walking.
+}
 {steps:
 - 0: Wes is halfway across the circle.
 - 1: Wes is two-thirds of the way across. The light is on his face now.
@@ -391,15 +403,15 @@ Past her shoulder, Wes takes another step. Every second you stand here, he's clo
 }
 * {recorded_wes} [Play Wes's tape. Turn the volume all the way up. #record]
     You fumble the tape in. Your thumb finds PLAY. You hold the recorder up over your head, volume all the way.
-    TAPE(wes): This is Wes Pike. I'm fifteen. I'm in Derry, Maine, which is a stupid name for a town.
+    TAPE(wes): This is Wes Pike. I'm fifteen. It's {wes_tape_day}. I'm in Derry, Maine, which is a stupid name for a town.
     TAPE(wes): And I'm not going anywhere this time.
     Wes stops. His head turns, slowly, like someone hearing their name across a crowded room.
     WES(thinking): ...That's me.
     ~ anchors += 1
 * [Shout his name. #confront]
     GUS(afraid): WES! Wes, it's me! It's Gus! Stop!
-    {wes >= 5 || wes_promised:
-        He stops. Mid-step. He promised. Some part of him remembers he promised.
+    {wes >= 5 || wes_promised || wes_stops:
+        He stops. Mid-step. {wes_promised || wes_stops:He promised. Some part of him remembers he promised.|Some part of him knows your voice.}
         WES(worried): ...Gus?
         ~ anchors += 1
     - else:
@@ -408,7 +420,11 @@ Past her shoulder, Wes takes another step. Every second you stand here, he's clo
 * {saw_note && Clues ? broken_e} ["Your mom didn't write that note! The Lantern Society did. Same typewriter. Same broken e!" #honest]
     WES(thinking): ...
     VOICE: Don't listen to her, baby. Come to me.
-    WES(angry): The e's. The e's on the note were — they were all *chipped.* Like the — Mrs. Ashgrove's flyer in the hall had—
+    {ch5_fair.f_wes.proof:
+        WES(angry): You told me. Yesterday. I looked at it all night. Every *e.*
+    - else:
+        WES(angry): The e's. The e's on the note were — they were all *chipped.* Like somebody bit them.
+    }
     He stops walking.
     ~ anchors += 1
 * {ally_teddy || ally_sloane || (ally_cal && (cal >= 5 || told_cal))} [Run in and grab him. Eyes shut. Breath held. #action]
@@ -447,6 +463,7 @@ Past her shoulder, Wes takes another step. Every second you stand here, he's clo
 
 = lost
 @ctx Wes walks into the green light and is taken.
+For one second he looks back at you, like he's trying to remember your name.
 WES(smile): Mom.
 He steps into the light, and the light closes over him like water over a stone.
 He doesn't scream. Nobody screams. There's just a sound like a breath being drawn in, very deep, by something very large.
@@ -508,7 +525,8 @@ It's so small. One step to the left, in wet grass. The smallest thing you've eve
 BRETT(afraid): No — no, no, Gus, *no*—
 The light falls on him. His face, white and wet and seventeen. He reaches for you.
 And then he's gone, the way Wes almost was, the way everyone is. A breath drawn in, very deep.
-Under the trees, a man makes a sound you will hear for the rest of your life. Officer Lindqvist. He was standing with the others. He watched.
+Under the trees, one of the good coats breaks ranks. Officer Lindqvist, running, shouting his son's name. Mrs. Ashgrove's gloved hand closes on his arm, and he stops, the way everyone stops for her.
+Then he makes a sound you will hear for the rest of your life.
 @hide brett
 @fx flash
 @sfx lantern

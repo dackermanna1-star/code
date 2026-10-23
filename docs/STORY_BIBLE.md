@@ -215,13 +215,13 @@ Marcus Lowell 1989 · Peter Dunn 1990 (a drifter).
 
 | Ch | Date (1991) | Beats |
 |---|---|---|
-| Cold open | Oct 12, 1982 | Degraded tape: June watches the lights go out, sees a green light, hears "...ussie?", goes outside. |
+| Cold open | Sat Oct 9, 1982 | Degraded tape: June watches the lights go out, sees a green light, hears "...ussie?", goes outside. |
 | 1 Welcome Home | Sat Aug 31 | Rain drive, the sign, Mom's rear-view habit; Hannah ("Are you staying for Quiet Night?"); Mémère: "Junie!"; four plates; Gus's room (height marks); Dad's call ("I gave you that?"); Mémère singing at the dark window; the voice on the car tape. |
 | 2 Derry High | Wed Sep 4 | Mom's drive past the Standpipe; Brett on the steps; Ms. Whitcomb flinches at "Brennan"; Teddy; locker 227 ("J.B. + N.F. '82", lantern-X); Sloane ("nobody keeps that locker"); Cal ("ask your grandmother what October twelfth is"); LUNCH choice (Teddy / Sloane / Wes / Cal); "The Lottery"; Brett vs. Wes (intervene / trick / teacher / record / walk away); walk home; Mémère's bad night; Mom's "patch"; 3 a.m. radio reading names. |
 | 3 The Lay of the Land | Sat Sep 7 | Map hub, three daytime visits + evening: Dot's, Low Tide, Library, Barrens, Standpipe, Bassey Park (rhyme); evening at Teddy's (radio tape) or home with Mémère (Kaiser; "they wanted my Junie"). |
 | 4 The Weeks Between | Sep 16 – Oct 10 | Project partner; Friday night (Sloane's party / Aladdin with Teddy & Wes / home with Mom); the interview (Mémère / Dot / Teague → the Wall / Constance); Dad's 2 a.m. call; the attic box; who Gus tells; Wes's note; Mémère's lucid warning (three questions); one free afternoon. |
 | 5 Canal Days | Fri Oct 11 | Festival with friends; Mémère vs. Constance; Lantern Float (a lantern drifts upstream, green); overhearing the Society ("the Pike boy"); evening phone calls to recruit allies. |
-| 6 The Quiet | Sat Oct 12 | Town goes to sleep; Mom sleepwalks to bed; lights out; go or stay; the dark walk; Brett on the hill; the Standpipe; save Wes (anchors); the light turns; step aside (Brett) or stand (Mémère); June's voice: "Go home. Don't look back." |
+| 6 The Quiet | Sat Oct 12 | Town goes to sleep; Mom sleepwalks to bed; lights out; go or stay; the dark walk; the ringing pay phone (June: "don't be the closest one"); Brett on the hill; the Standpipe; Constance at the edge of the light (asking about June costs Wes a step); save Wes (anchors); the light turns; step aside (Brett) or stand (Mémère); June's voice: "Go home. Don't look back." |
 | Epilogue: Side B | Sun Oct 13 | Aftermath by outcome; the new tape on the pillow; knock at the window: June. "Hi, Gussie. Can I come in?" Final choice. |
 
 ### Saving Wes: anchors (need 2+)
