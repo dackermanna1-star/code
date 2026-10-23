@@ -174,4 +174,5 @@ export const PROP_KINDS = [
   'sandbags', 'hesco', 'jersey_barrier', 'tank_trap', 'crates', 'fuel_drums',
   'fuel_tank', 'radio_mast', 'guard_tower', 'car', 'car_wreck', 'street_lamp',
   'power_pole', 'parachute', 'debris_concrete', 'debris_metal',
+  'hay_bale', 'dumpster', 'bus_stop', 'gravestone', 'bench', 'wind_turbine', 'container',
 ];

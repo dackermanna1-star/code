@@ -69,6 +69,18 @@ function propPalette(seed) {
     burnt: v(0x2a2624, 0.15),
     ash: v(0x4b4744, 0.15),
     paintS: v(0x6a6e58),
+    straw: v(0xc2a35a, 0.12),
+    strawDark: v(0x9c8448, 0.12),
+    binGreen: v(0x3f5a3a, 0.08),
+    binBlue: v(0x2f4f6a, 0.08),
+    binGrey: v(0x6d706c, 0.08),
+    stone: v(0x9a958b, 0.12),
+    stoneDark: v(0x75716a, 0.12),
+    turbine: v(0xdcdcd6, 0.03),
+    boxRed: v(0x8a3326, 0.08),
+    boxBlue: v(0x2e4f78, 0.08),
+    boxGreen: v(0x3e6a45, 0.08),
+    boxOrange: v(0xb0632a, 0.08),
     darkSteelS: 0x3e3e3b,
   };
 }
@@ -852,7 +864,104 @@ const BUILDERS = {
   parachute,
   debris_concrete: debrisConcrete,
   debris_metal: debrisMetal,
+  hay_bale: hayBale,
+  dumpster,
+  bus_stop: busStop,
+  gravestone,
+  bench,
+  wind_turbine: windTurbine,
+  container,
 };
+
+// ---------------------------------------------------------------------------
+// Town and country
+
+// Round bale lying on its side, axis along X.
+function hayBale(r, lod) {
+  const P = new Part('straw');
+  const seg = lod ? 8 : 16;
+  P.add(cyl(0.75, 1.3, seg, { caps: 'both' }), { at: [0, 0.75, 0], rot: [0, 0, PI / 2], c: 'straw' });
+  if (!lod) for (const x of [-0.35, 0.05, 0.4]) P.add(cyl(0.758, 0.025, seg, { caps: 'none' }), { at: [x, 0.75, 0], rot: [0, 0, PI / 2], c: 'strawDark' });
+  return P;
+}
+
+function dumpster(r, lod) {
+  const P = new Part('binGreen');
+  const c = r.pick(['binGreen', 'binBlue', 'binGrey']);
+  P.box(1.9, 1.05, 1.1, { at: [0, 0.62, 0], c });
+  P.box(1.96, 0.06, 1.18, { at: [0, 1.17, -0.02], rot: [0.06, 0, 0], c: 'darkSteel' });
+  if (!lod) {
+    P.box(2.0, 0.08, 0.08, { at: [0, 1.0, 0.58], c });
+    for (const x of [-0.8, 0.8]) for (const z of [-0.42, 0.42]) P.add(cyl(0.07, 0.06, 8, { caps: 'both' }), { at: [x, 0.07, z], rot: [0, 0, PI / 2], c: 'rubber' });
+  }
+  return P;
+}
+
+// Shelter open toward +Z with a bench.
+function busStop(r, lod) {
+  const P = new Part('steel');
+  P.box(3.2, 0.08, 1.5, { at: [0, 2.5, 0], c: 'steel' });
+  P.box(3.1, 1.9, 0.04, { at: [0, 1.25, -0.65], c: 'glass' });
+  for (const x of [-1.55, 1.55]) {
+    P.box(0.04, 1.9, 1.2, { at: [x, 1.25, -0.05], c: 'glass' });
+    if (!lod) for (const z of [-0.68, 0.62]) P.box(0.07, 2.5, 0.07, { at: [x, 1.25, z], c: 'steel' });
+  }
+  P.box(2.2, 0.06, 0.4, { at: [0, 0.48, -0.4], c: 'wood' });
+  if (!lod) P.box(0.6, 0.9, 0.05, { at: [1.1, 1.5, -0.6], c: 'white' });
+  return P;
+}
+
+function gravestone(r, lod) {
+  const P = new Part('stone');
+  const c = r.pick(['stone', 'stoneDark', 'concrete']);
+  if (r() < 0.3) {
+    P.box(0.1, 0.9, 0.1, { at: [0, 0.45, 0], c });
+    P.box(0.5, 0.1, 0.1, { at: [0, 0.68, 0], c });
+  } else {
+    P.box(0.55, 0.75, 0.13, { at: [0, 0.375, 0], c });
+    if (!lod) P.add(cyl(0.275, 0.13, 10, { caps: 'both' }), { at: [0, 0.75, 0], rot: [PI / 2, 0, 0], c });
+  }
+  if (!lod) P.box(0.7, 0.08, 1.6, { at: [0, 0.04, 0.8], c: 'stoneDark' });
+  return P;
+}
+
+function bench(r, lod) {
+  const P = new Part('wood');
+  P.box(1.7, 0.06, 0.42, { at: [0, 0.45, 0], c: 'wood' });
+  P.box(1.7, 0.36, 0.05, { at: [0, 0.68, -0.22], rot: [-0.18, 0, 0], c: 'wood' });
+  if (!lod) for (const x of [-0.7, 0.7]) P.box(0.06, 0.45, 0.45, { at: [x, 0.225, -0.02], c: 'darkSteel' });
+  return P;
+}
+
+// Tower, nacelle and three blades facing +Z.
+function windTurbine(r, lod) {
+  const P = new Part('turbine');
+  const H = 62;
+  P.add(cyl(1.7, H, lod ? 8 : 16, { r2: 1.0, caps: 'none' }), { at: [0, H / 2, 0], c: 'turbine' });
+  P.box(2.4, 2.4, 6, { at: [0, H + 1, -0.8], c: 'turbine' });
+  P.add(cyl(0.9, 1.6, 10, { r2: 0.2, caps: 'both' }), { at: [0, H + 1, 2.8], rot: [PI / 2, 0, 0], c: 'turbine' });
+  const spin = r.range(0, TAU);
+  for (let k = 0; k < 3; k++) {
+    const a = spin + (k * TAU) / 3;
+    P.group({ at: [0, H + 1, 2.6], rot: [0, 0, a] }, () => {
+      P.box(1.5, 27, 0.3, { at: [0.25, 14, 0], c: 'turbine' });
+    });
+  }
+  return P;
+}
+
+// 20 ft shipping container, long axis along Z.
+function container(r, lod) {
+  const P = new Part('boxRed');
+  const c = r.pick(['boxRed', 'boxBlue', 'boxGreen', 'boxOrange', 'galv']);
+  P.box(2.44, 2.59, 6.06, { at: [0, 1.295, 0], c });
+  if (!lod) {
+    for (let k = -2; k <= 2; k++) for (const x of [-1.23, 1.23]) P.box(0.04, 2.4, 0.18, { at: [x, 1.3, k * 1.2], c });
+    P.box(2.3, 2.4, 0.05, { at: [0, 1.3, 3.04], c: 'darkSteel' });
+    for (const x of [-0.5, 0.5]) P.box(0.05, 2.3, 0.06, { at: [x, 1.3, 3.08], c: 'steel' });
+  }
+  return P;
+}
 
 export function buildPropLods(kind, variant = 0) {
   const b = BUILDERS[kind];

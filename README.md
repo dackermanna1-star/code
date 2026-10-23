@@ -29,10 +29,12 @@ node scripts/diag-battle.mjs town 600 900   # battle flow report: squad states, 
 
 | Scenario | Setup |
 | --- | --- |
-| Town Assault | Coalition attacks north into a fortified market town: plaza, church, apartment core, residential streets, factory district, farmland and hedgerows. |
+| Town Assault | Coalition attacks north into a fortified town of some 700 buildings: a market square with town hall and church, an old town of crooked lanes and terraced houses inside a ring road, an industrial zone with factories, warehouses and container yards, a housing estate of apartment towers with a hospital and cemetery, suburbs of houses with gardens, a school and pitch, a park, a supermarket and a petrol station; objectives at the square, the factory, the estate and the supermarket. |
 | Airbase Strike | Assault on a Federation forward airbase: HESCO perimeter, guard towers, hangars, command post, fuel depot, runway, plus a village on the approach. |
 | Hill 305 | Meeting engagement over a forested ridge, a summit strongpoint and the village beneath it. |
 | Crossroads | Meeting engagement across open farmland: crossroads village, mill farm and grain silos. |
+
+Around the battle areas the countryside is filled in on every map: villages with houses lining their roads and a chapel, farmsteads with tracks to the roads, roadside houses, orchards, copses, lone trees and bushes, hay bales in the fields and wind turbines on the high ground. Streets in town have pavements, street lamps, parked cars, avenue trees and bus stops, and grass tufts sway in the wind around the camera.
 
 In the two assault scenarios the attacker fields about 1.6 times the defender's strength and a deeper reinforcement pool; meeting engagements are symmetric. Holding more objectives drains the other side's tickets; a side that runs out of tickets gets no more reinforcements and is beaten once its army is shattered or its last stand fails.
 

@@ -20,6 +20,7 @@ import { Effects } from './Effects.js';
 import { Gore } from './Gore.js';
 import { RagdollSystem } from './Ragdolls.js';
 import { Viewmodel } from './Viewmodel.js';
+import { GrassField } from './Grass.js';
 import { buildPropModel } from './models/index.js';
 import { FACTION_INFO } from '../sim/world.js';
 
@@ -343,6 +344,7 @@ export class GameRenderer {
     this.sky = new SkyRenderer(this.scene, this.renderer, q);
     this.terrain = new TerrainRenderer(world.terrain, this.scene, this.detail, q);
     this.structures = new StructureRenderer(this.scene, world, this.detail, q);
+    this.grass = new GrassField(this.scene, world.terrain, q);
     let chute = null;
     try {
       chute = buildPropModel('parachute', 0).lod0;
@@ -393,6 +395,7 @@ export class GameRenderer {
     this.renderer.toneMappingExposure = this.sky.exposure;
     this.terrain.update(cam);
     this.structures.update(cam, this.frustum, dt, this.time, this.sky.nightFactor, { x: w.weather.windX, z: w.weather.windZ });
+    this.grass.update(cam, dt, this.time, { x: w.weather.windX, z: w.weather.windZ });
     this.ragdolls.update(simDt, cam, this.frustum);
     this.gore.update(simDt, w, cam.position);
     this.infantry.update(w, cam, this.frustum, simDt);

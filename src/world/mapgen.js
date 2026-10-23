@@ -9,6 +9,7 @@ import { RNG } from '../core/rng.js';
 import { StaticGrid } from '../core/grid.js';
 import { smoothstep, clamp, lerp } from '../core/math.js';
 import { Structure, StructureSet } from './structures.js';
+import { buildTown, frontage, garden, chunks, OLD, NEW, TILES, SLATE } from './town.js';
 
 export const SCENARIOS = {
   town: {
@@ -91,6 +92,7 @@ class MapContext {
     this.roadMask = new Uint8Array(this.terrain.n * this.terrain.n);
     this.urban = new Uint8Array(this.terrain.n * this.terrain.n); // areas with no forest
     this.defensePositions = [[], []];
+    this.settlements = []; // {x, z, r}: town, villages, farmsteads
   }
 
   // ---------------------------------------------------------------- terrain
@@ -214,8 +216,8 @@ class MapContext {
   }
 
   // Lay a road along a polyline: smooth its grade, flatten the corridor and
-  // paint asphalt (or dirt) with shoulders.
-  road(points, width = 9, { surface = MAT.ROAD, shoulder = 7, main = false } = {}) {
+  // paint asphalt (or dirt) with shoulders, or with pavements in town.
+  road(points, width = 9, { surface = MAT.ROAD, shoulder = 7, main = false, sidewalk = 0 } = {}) {
     const t = this.terrain;
     // Resample the polyline every 4 m.
     const pts = [];
@@ -277,12 +279,16 @@ class MapContext {
         if (t.mat[idx] !== MAT.CONCRETE) t.mat[idx] = surface;
         this.roadMask[idx] = main ? 2 : 1;
         this.urban[idx] = 1;
+      } else if (sidewalk && d <= half + sidewalk) {
+        if (t.mat[idx] !== MAT.ROAD) t.mat[idx] = MAT.CONCRETE;
+        this.roadMask[idx] = Math.max(this.roadMask[idx], 3);
+        this.urban[idx] = 1;
       } else if (d <= half + 1.6 && t.mat[idx] !== MAT.ROAD && t.mat[idx] !== MAT.CONCRETE) {
         t.mat[idx] = MAT.DIRT;
         this.roadMask[idx] = Math.max(this.roadMask[idx], 3);
       }
     }
-    this.roads.push({ points: points.map((p) => [p[0], p[1]]), width, surface, main });
+    this.roads.push({ points: points.map((p) => [p[0], p[1]]), width, surface, main, sidewalk });
   }
 
   onRoad(x, z, pad = 0) {
@@ -400,7 +406,7 @@ class MapContext {
       h: dims[2],
       variant: o.variant ?? this.rng.int(0, CAR_VARIANTS - 1),
       blocksMove: dims[3] !== false,
-      crushable: propKind === 'crates' || propKind === 'fuel_drums' || propKind === 'car' || propKind === 'car_wreck',
+      crushable: propKind === 'crates' || propKind === 'fuel_drums' || propKind === 'car' || propKind === 'car_wreck' || propKind === 'hay_bale' || propKind === 'dumpster',
     });
     this.structures.add(s);
     return s;
@@ -416,7 +422,7 @@ class MapContext {
   }
 
   // ------------------------------------------------------------ vegetation
-  forest({ threshold = 0.18, scale = 360, spacing = 7.5, pineBias = 0, density = 1, maxTrees = 9000 } = {}) {
+  forest({ threshold = 0.18, scale = 360, spacing = 7.5, pineBias = 0, density = 1, maxTrees = 12500 } = {}) {
     const t = this.terrain;
     const rng = this.rng;
     const lim = 960;
@@ -470,8 +476,12 @@ class MapContext {
     return true;
   }
 
-  tree(x, z, kind = 1, scale = 1) {
-    if (!this.treeAllowed(x, z)) return null;
+  // force: planted in town (gardens, avenues), only kept off roads and
+  // out of buildings.
+  tree(x, z, kind = 1, scale = 1, { force = false } = {}) {
+    if (force) {
+      if (!this.terrain.inBounds(x, z, 40) || this.onRoad(x, z, 1) || this.structures.structureAt(x, z, 1.5)) return null;
+    } else if (!this.treeAllowed(x, z)) return null;
     return this.trees.add({ x, z, y: 0, kind, scale, yaw: this.rng.range(0, Math.PI * 2), variant: this.rng.int(0, 3) });
   }
 
@@ -556,6 +566,7 @@ class MapContext {
     const at = (lx, lz) => [cx + lx * c + lz * s, cz - lx * s + lz * c];
     this.flattenCircle(cx, cz, 34, 22);
     this.paintCircle(cx, cz, 30, MAT.DIRT, 0.25);
+    this.settlements.push({ x: cx, z: cz, r: 40 });
     let p = at(-10, 4);
     this.tryBuilding('farmhouse', p[0], p[1], 12, 9, yaw, { floors: 2, roof: 'gable', roofH: 3.4, color: this.rng.pick(FACADES) });
     p = at(12, -6);
@@ -575,237 +586,6 @@ class MapContext {
     const a = at(-28, -24);
     const b = at(28, -24);
     this.wallLine('fence', a[0], a[1], b[0], b[1], 1.2, 0.15, 6, 0.15);
-  }
-
-  // ------------------------------------------------------------------ town
-  // Grid town: plaza, church, apartment core, houses, industrial district.
-  town(cx, cz, radius, yaw, { industrialSide = -1, fortify = 1 } = {}) {
-    const rng = this.rng;
-    const c = Math.cos(yaw);
-    const s = Math.sin(yaw);
-    const toW = (u, v) => [cx + u * c + v * s, cz - u * s + v * c];
-    const block = 66;
-    const K = Math.ceil(radius / block) + 1;
-    const offsU = [];
-    const offsV = [];
-    for (let i = -K; i <= K + 1; i++) {
-      offsU[i + K] = i * block + (i === 0 ? 0 : rng.range(-7, 7));
-      offsV[i + K] = i * block + (i === 0 ? 0 : rng.range(-7, 7));
-    }
-    const radiusAt = (u, v) => radius * (0.92 + 0.16 * this.noise.noise(u / 120 + 9, v / 120 - 4));
-    const inTown = (u, v, k = 1) => Math.hypot(u, v) < radiusAt(u, v) * k;
-
-    // Base plate: flatten the town area gently.
-    const baseH = this.flattenCircle(cx, cz, radius * 0.95, 120, null, 0.85);
-    this.flattenCircle(cx, cz, radius * 0.55, 60, baseH, 0.6);
-
-    // Streets.
-    for (let i = -K; i <= K + 1; i++) {
-      const u = offsU[i + K];
-      const main = i === 0;
-      const segs = [];
-      for (let v = -radius * 1.3; v <= radius * 1.3; v += 8) {
-        if (inTown(u, v, main ? 1.25 : 1.02)) segs.push(toW(u, v));
-      }
-      if (segs.length > 2) this.road(segs, main ? 13 : 9, { main });
-    }
-    for (let j = -K; j <= K + 1; j++) {
-      const v = offsV[j + K];
-      const main = j === 0;
-      const segs = [];
-      for (let u = -radius * 1.3; u <= radius * 1.3; u += 8) {
-        if (inTown(u, v, main ? 1.25 : 1.02)) segs.push(toW(u, v));
-      }
-      if (segs.length > 2) this.road(segs, main ? 13 : 9, { main });
-    }
-    this.paintCircle(cx, cz, radius * 1.02, MAT.GRASS, 0.12);
-
-    const blocks = [];
-    for (let i = -K; i <= K; i++) {
-      for (let j = -K; j <= K; j++) {
-        const u0 = offsU[i + K] + 6;
-        const u1 = offsU[i + K + 1] - 6;
-        const v0 = offsV[j + K] + 6;
-        const v1 = offsV[j + K + 1] - 6;
-        const mu = (u0 + u1) / 2;
-        const mv = (v0 + v1) / 2;
-        if (!inTown(mu, mv, 1.05)) continue;
-        const dn = Math.hypot(mu, mv) / radius;
-        blocks.push({ i, j, u0, u1, v0, v1, mu, mv, dn });
-      }
-    }
-
-    // Special blocks: plaza (i=0,j=0), church (i=-1,j=0), industrial side.
-    const special = new Map();
-    special.set('0,0', 'plaza');
-    special.set('-1,-1', 'church');
-    for (const b of blocks) {
-      if (b.dn > 0.45 && Math.sign(b.mu) === industrialSide && Math.abs(b.mv) < radius * 0.5 && !special.has(`${b.i},${b.j}`)) {
-        special.set(`${b.i},${b.j}`, 'industrial');
-      }
-    }
-
-    const placeAlongEdge = (b, edge, depthRange, lenRange, type, opts) => {
-      // edge: 0 = v0 side (north), 1 = v1 side, 2 = u0 side, 3 = u1 side.
-      const alongU = edge < 2;
-      const a0 = alongU ? b.u0 : b.v0;
-      const a1 = alongU ? b.u1 : b.v1;
-      let pos = a0 + rng.range(0, 3);
-      while (pos < a1 - 6) {
-        const L = rng.range(lenRange[0], lenRange[1]);
-        const D = rng.range(depthRange[0], depthRange[1]);
-        if (pos + L > a1) break;
-        const setback = opts.setback ? rng.range(opts.setback[0], opts.setback[1]) : 0.6;
-        let u;
-        let v;
-        let byaw;
-        if (alongU) {
-          u = pos + L / 2;
-          v = edge === 0 ? b.v0 + setback + D / 2 : b.v1 - setback - D / 2;
-          byaw = yaw + (edge === 0 ? Math.PI : 0);
-        } else {
-          v = pos + L / 2;
-          u = edge === 2 ? b.u0 + setback + D / 2 : b.u1 - setback - D / 2;
-          byaw = yaw + (edge === 2 ? -Math.PI / 2 : Math.PI / 2);
-        }
-        const [wx, wz] = toW(u, v);
-        const skip = opts.skipChance && rng.chance(opts.skipChance);
-        if (!skip) {
-          // Footprint: width along the street = L, depth = D. Building local
-          // +Z faces the street, so hx = L/2, hz = D/2.
-          const floors = rng.int(opts.floors[0], opts.floors[1]);
-          const roof = typeof opts.roof === 'function' ? opts.roof() : opts.roof;
-          const st = this.tryBuilding(type, wx, wz, L, D, byaw, {
-            floors,
-            roof,
-            roofH: roof === 'gable' || roof === 'hip' ? rng.range(2.4, 3.6) : 0,
-            color: opts.colors ? rng.pick(opts.colors) : undefined,
-            pad: opts.pad ?? 0.4,
-          });
-          if (st && opts.yard && rng.chance(0.55)) {
-            // Tree or car in the yard behind.
-            const back = alongU ? (edge === 0 ? 1 : -1) : edge === 2 ? 1 : -1;
-            const [tx, tz] = alongU ? toW(u + rng.range(-3, 3), v + back * (D / 2 + rng.range(4, 9))) : toW(u + back * (D / 2 + rng.range(4, 9)), v + rng.range(-3, 3));
-            if (rng.chance(0.75)) this.tree(tx, tz, 1, rng.range(0.7, 1.05));
-            else this.prop('car', tx, tz, byaw + rng.range(-0.5, 0.5));
-          }
-        }
-        pos += L + rng.range(opts.gap[0], opts.gap[1]);
-      }
-    };
-
-    for (const b of blocks) {
-      const key = `${b.i},${b.j}`;
-      const kind = special.get(key);
-      if (kind === 'plaza') {
-        const [px, pz] = toW(b.mu, b.mv);
-        this.paintRect(px, pz, (b.u1 - b.u0) / 2 + 4, (b.v1 - b.v0) / 2 + 4, yaw, MAT.CONCRETE);
-        // Town hall on the north side of the plaza.
-        const [hx, hz] = toW(b.mu, b.v0 + 10);
-        this.building('townhall', hx, hz, 30, 17, yaw + Math.PI, { floors: 3, roof: 'hip', roofH: 4.5, color: 0xd8cdb4, roofColor: 0x5a5753 });
-        const [tx, tz] = toW(b.mu, b.v0 + 10);
-        this.building('tower', tx, tz, 6, 6, yaw, { floors: 1, h: 20, roof: 'spire', roofH: 6, color: 0xd8cdb4, roofColor: 0x445046 });
-        // Fountain / monument as a low prop (jersey barrier as stand-in is wrong; use stone wall ring).
-        const [mx, mz] = toW(b.mu, b.mv + 6);
-        for (let a = 0; a < 6; a++) {
-          const a0 = (a / 6) * Math.PI * 2;
-          const a1 = ((a + 1) / 6) * Math.PI * 2;
-          this.wall('stone_wall', mx + Math.cos(a0) * 4, mz + Math.sin(a0) * 4, mx + Math.cos(a1) * 4, mz + Math.sin(a1) * 4, 0.8, 0.5, { color: 0xb0a898 });
-        }
-        for (let k = 0; k < 6; k++) {
-          const [lx, lz] = toW(b.u0 + 3 + ((b.u1 - b.u0 - 6) * k) / 5, b.v1 - 3);
-          this.decoration('street_lamp', lx, lz, yaw);
-        }
-        continue;
-      }
-      if (kind === 'church') {
-        const [px, pz] = toW(b.mu, b.mv);
-        this.paintRect(px, pz, (b.u1 - b.u0) / 2, (b.v1 - b.v0) / 2, yaw, MAT.GRASS);
-        this.building('church', px, pz + 0, 13, 27, yaw, { floors: 1, h: 10, roof: 'gable', roofH: 6, color: 0xcbc3b2, roofColor: 0x50504c });
-        const [tx, tz] = toW(b.mu, b.mv - 16.5);
-        this.building('tower', tx, tz, 6.5, 6.5, yaw, { floors: 1, h: 24, roof: 'spire', roofH: 9, color: 0xcbc3b2, roofColor: 0x3f4a42 });
-        for (let k = 0; k < 6; k++) {
-          const [gx, gz] = toW(b.u0 + rng.range(3, 10), b.v0 + rng.range(5, b.v1 - b.v0 - 5));
-          this.tree(gx, gz, 1, rng.range(0.8, 1.0));
-        }
-        this.wallLine('stone_wall', ...toW(b.u0 + 1, b.v1 - 1), ...toW(b.u1 - 1, b.v1 - 1), 1.1, 0.5, 6, 0.1);
-        continue;
-      }
-      if (kind === 'industrial') {
-        const [px, pz] = toW(b.mu, b.mv);
-        this.paintRect(px, pz, (b.u1 - b.u0) / 2 + 3, (b.v1 - b.v0) / 2 + 3, yaw, MAT.CONCRETE);
-        const big = rng.chance(0.5);
-        if (big) {
-          this.tryBuilding('factory', px, pz, Math.min(44, b.u1 - b.u0 - 6), Math.min(30, b.v1 - b.v0 - 8), yaw, { floors: 3, h: 10, roof: 'flat', color: rng.pick([0x9e9a90, 0xa39b8a, 0x8d8a82]) });
-          const [sx, sz] = toW(b.u1 - 6, b.v1 - 6);
-          this.prop('fuel_tank', sx, sz, yaw + Math.PI / 2);
-        } else {
-          for (let k = 0; k < 2; k++) {
-            const [wx, wz] = toW(b.mu, b.v0 + 12 + k * 26);
-            this.tryBuilding('warehouse', wx, wz, Math.min(40, b.u1 - b.u0 - 6), 18, yaw, { floors: 2, h: 8, roof: 'gable', roofH: 2.2, color: rng.pick([0x8c8f88, 0x9aa09a, 0x7f857e]), roofColor: 0x6a6f6d });
-          }
-        }
-        for (let k = 0; k < 4; k++) {
-          const [cx2, cz2] = toW(rng.range(b.u0 + 3, b.u1 - 3), rng.range(b.v0 + 3, b.v1 - 3));
-          this.prop(rng.chance(0.5) ? 'crates' : 'fuel_drums', cx2, cz2, rng.range(0, 6.28));
-        }
-        continue;
-      }
-      if (b.dn < 0.42) {
-        // Dense core: contiguous apartment blocks and shops.
-        const opts = { floors: [3, 5], roof: 'flat', gap: [0.2, 1.5], setback: [0.5, 1.5], skipChance: 0.08 };
-        placeAlongEdge(b, 0, [11, 14], [14, 28], 'apartment', opts);
-        placeAlongEdge(b, 1, [11, 14], [14, 28], 'apartment', opts);
-        placeAlongEdge(b, 2, [10, 13], [10, 16], 'shop', { ...opts, floors: [2, 3] });
-        placeAlongEdge(b, 3, [10, 13], [10, 16], 'shop', { ...opts, floors: [2, 3] });
-        // Courtyard clutter.
-        for (let k = 0; k < 2; k++) {
-          const [qx, qz] = toW(b.mu + rng.range(-8, 8), b.mv + rng.range(-8, 8));
-          if (rng.chance(0.5)) this.tree(qx, qz, 1, rng.range(0.6, 0.9));
-          else this.prop('car', qx, qz, rng.range(0, 6.28));
-        }
-      } else {
-        // Residential: detached houses with yards.
-        const opts = {
-          floors: [1, 2],
-          roof: () => (rng.chance(0.8) ? 'gable' : 'hip'),
-          gap: [4, 9],
-          setback: [3, 6],
-          skipChance: b.dn > 0.85 ? 0.35 : 0.12,
-          yard: true,
-          pad: 1.5,
-        };
-        placeAlongEdge(b, 0, [8, 10], [8, 12], 'house', opts);
-        placeAlongEdge(b, 1, [8, 10], [8, 12], 'house', opts);
-        placeAlongEdge(b, 2, [8, 10], [8, 11], 'house', opts);
-        placeAlongEdge(b, 3, [8, 10], [8, 11], 'house', opts);
-      }
-    }
-
-    // Street furniture: lamps, parked cars, power poles.
-    for (const r of this.roads.slice(-2 * (2 * K + 2))) {
-      const pts = r.points;
-      for (let k = 2; k < pts.length - 2; k += 3) {
-        const [ax, az] = pts[k];
-        const [bx, bz] = pts[k + 1];
-        const dx = bx - ax;
-        const dz = bz - az;
-        const l = Math.hypot(dx, dz) || 1;
-        const nx = -dz / l;
-        const nz = dx / l;
-        const side = k % 2 === 0 ? 1 : -1;
-        const off = r.width / 2 + 1.2;
-        const ly = Math.atan2(dx, dz);
-        if (Math.hypot(ax - cx, az - cz) < radius * 0.95 && rng.chance(0.55)) this.decoration('street_lamp', ax + nx * off * side, az + nz * off * side, ly);
-        if (rng.chance(0.16)) {
-          const cxp = ax + nx * (r.width / 2 - 1.3) * -side;
-          const czp = az + nz * (r.width / 2 - 1.3) * -side;
-          this.prop(rng.chance(0.18) ? 'car_wreck' : 'car', cxp, czp, ly + (rng.chance(0.5) ? 0 : Math.PI), { check: false });
-        }
-      }
-    }
-    this.noTree.push({ x: cx, z: cz, r: radius * 1.05 });
-    return { toW, baseH };
   }
 
   // Fortifications: sandbag positions and hesco in an arc facing `facingYaw`.
@@ -919,33 +699,224 @@ class MapContext {
     return { toW, hq, hangars, fuel, baseH };
   }
 
-  // A small village cluster around a point.
+  // A village: houses lining its roads (its own street and lane if no road
+  // passes through), a chapel by a small square, gardens and barns.
   village(cx, cz, count, radius, yaw) {
     const rng = this.rng;
     this.flattenCircle(cx, cz, radius, 60, null, 0.7);
     this.paintCircle(cx, cz, radius, MAT.GRASS, 0.2);
-    this.paintCircle(cx, cz, radius * 0.35, MAT.DIRT, 0.3);
+    this.settlements.push({ x: cx, z: cz, r: radius });
+    const fx = Math.sin(yaw);
+    const fz = Math.cos(yaw);
+    const through = this.roads.some((r) => r.points.some((p) => Math.hypot(p[0] - cx, p[1] - cz) < radius * 0.4));
+    if (!through) {
+      const L = radius * 1.35;
+      const pts = [];
+      for (let t = -L; t <= L; t += 10) pts.push([cx + fx * t + fz * 9 * this.noise.noise(t / 60, 3), cz + fz * t - fx * 9 * this.noise.noise(t / 60, 3)]);
+      this.road(pts, 7);
+    }
+    const lane = [];
+    for (let t = -radius * 0.8; t <= radius * 0.8; t += 10) lane.push([cx + fz * t + fx * 14, cz - fx * t + fz * 14]);
+    this.road(lane, 6);
+    // Little square with a chapel.
+    const sx = cx - fz * 18 + fx * 20;
+    const sz = cz + fx * 18 + fz * 20;
+    this.paintCircle(sx, sz, 13, MAT.DIRT, 0.2);
+    this.tryBuilding('chapel', sx, sz, 7, 11, yaw + Math.PI / 2, { floors: 1, h: 6, roof: 'gable', roofH: 3.6, color: 0xd6cfbe, roofColor: 0x4f4c48, pad: 1 });
+    // Houses along every road within the village.
     let placed = 0;
-    for (let k = 0; k < count * 10 && placed < count; k++) {
-      const a = rng.range(0, Math.PI * 2);
-      const r = Math.sqrt(rng.next()) * radius;
-      const x = cx + Math.cos(a) * r;
-      const z = cz + Math.sin(a) * r;
-      const by = yaw + Math.round(rng.range(-2, 2)) * (Math.PI / 2) + rng.range(-0.1, 0.1);
-      const big = rng.chance(0.2);
-      const st = this.tryBuilding(big ? 'shop' : 'house', x, z, big ? rng.range(11, 15) : rng.range(8, 11), big ? rng.range(9, 12) : rng.range(8, 10), by, {
-        floors: big ? 2 : rng.int(1, 2),
-        roof: rng.chance(0.85) ? 'gable' : 'hip',
-        roofH: rng.range(2.4, 3.4),
-        pad: 3,
-      });
-      if (st) {
-        placed++;
-        if (rng.chance(0.5)) this.tree(x + rng.range(-12, 12), z + rng.range(-12, 12), 1, rng.range(0.8, 1.1));
-        if (rng.chance(0.25)) this.prop(rng.chance(0.7) ? 'car' : 'car_wreck', x + rng.range(-9, 9), z + rng.range(-9, 9), rng.range(0, 6.28));
+    for (const r of this.roads) {
+      for (const [A, B] of chunks(r.points, 34)) {
+        const mx = (A[0] + B[0]) / 2;
+        const mz = (A[1] + B[1]) / 2;
+        if (Math.hypot(mx - cx, mz - cz) > radius) continue;
+        const dx = B[0] - A[0];
+        const dz = B[1] - A[1];
+        const l = Math.hypot(dx, dz) || 1;
+        for (const side of [-1, 1]) {
+          const before = this.structures.list.length;
+          frontage(this, A, B, [mx - (dz / l) * 10 * side, mz + (dx / l) * 10 * side], {
+            off: r.width / 2 + 1.5,
+            setback: [1.5, 5],
+            corner: 3,
+            width: [8, 12.5],
+            depth: [8, 11],
+            gap: [3, 9],
+            type: () => (rng.chance(0.12) ? 'shop' : rng.chance(0.12) ? 'farmhouse' : 'house'),
+            floors: [1, 2],
+            roof: () => (rng.chance(0.85) ? 'gable' : 'hip'),
+            colors: rng.chance(0.6) ? OLD : NEW,
+            roofColors: rng.chance(0.75) ? TILES : SLATE,
+            skip: 0.15,
+            pad: 1.5,
+            after: (st, p) => garden(this, p),
+          });
+          placed += this.structures.list.length - before;
+        }
       }
     }
+    // Barns and sheds on the outskirts.
+    for (let k = 0; k < Math.max(2, Math.round(count / 6)); k++) {
+      const a = rng.range(0, Math.PI * 2);
+      const d = radius * rng.range(0.75, 1.05);
+      this.tryBuilding('barn', cx + Math.cos(a) * d, cz + Math.sin(a) * d, rng.range(14, 20), rng.range(9, 12), a + rng.range(-0.2, 0.2), { floors: 1, h: 6, roof: 'gable', roofH: 4, color: rng.pick([0x7b4a33, 0x6e5a42, 0x8a7a64]), roofColor: 0x5f5d58, pad: 2 });
+    }
+    void placed;
     this.noTree.push({ x: cx, z: cz, r: radius + 10 });
+  }
+
+  // Fill the open country: more farmsteads with tracks to the roads,
+  // roadside houses, orchards, copses, lone trees and bushes, hay bales in
+  // the fields, wayside chapels and wind turbines on the high ground.
+  countryside({ farms = 5, orchards = 5, copses = 14, bushes = 1600, turbines = 3 } = {}) {
+    const rng = this.rng;
+    const t = this.terrain;
+    const clear = (x, z, r) => {
+      if (!t.inBounds(x, z, 110)) return false;
+      for (const d of this.deploy) if (d && Math.abs(x - d.x) < d.hw + 60 && Math.abs(z - d.z) < d.hd + 60) return false;
+      for (const c of this.noTree) if (Math.hypot(x - c.x, z - c.z) < c.r + r) return false;
+      for (const s of this.settlements) if (Math.hypot(x - s.x, z - s.z) < s.r + r + 60) return false;
+      for (const f of this.fields) if (pointInRect(x, z, f.x, f.z, f.hx + r, f.hz + r, f.yaw)) return false;
+      if (this.onRoad(x, z, r * 0.6)) return false;
+      return t.slopeAt(x, z) < 0.25;
+    };
+    // Farmsteads with a dirt track to the nearest road.
+    for (let k = 0, n = 0; k < 400 && n < farms; k++) {
+      const x = rng.range(-850, 850);
+      const z = rng.range(-850, 850);
+      if (!clear(x, z, 45)) continue;
+      this.farmstead(x, z, rng.range(0, Math.PI * 2));
+      this.trackToRoad(x, z);
+      n++;
+    }
+    // Every settlement off the road network gets a track.
+    for (const s of this.settlements) if (!this.roads.some((r) => r.points.some((p) => Math.hypot(p[0] - s.x, p[1] - s.z) < s.r + 25))) this.trackToRoad(s.x, s.z);
+    // Roadside houses and small hamlets along the country roads.
+    for (const r of this.roads) {
+      if (r.surface === MAT.DIRT) continue;
+      for (const [[ax, az], [bx, bz]] of chunks(r.points, 40)) {
+        if (!rng.chance(0.07) || !clear(ax, az, 20)) continue;
+        const side = rng.pick([-1, 1]);
+        const dx = bx - ax;
+        const dz = bz - az;
+        const l = Math.hypot(dx, dz) || 1;
+        frontage(this, [ax, az], [bx, bz], [ax - (dz / l) * 10 * side, az + (dx / l) * 10 * side], {
+          off: r.width / 2 + 2,
+          setback: [3, 8],
+          corner: 0,
+          width: [8, 12],
+          depth: [8, 10],
+          gap: [6, 14],
+          type: () => (rng.chance(0.2) ? 'farmhouse' : 'house'),
+          floors: [1, 2],
+          roof: () => (rng.chance(0.8) ? 'gable' : 'hip'),
+          colors: OLD,
+          roofColors: TILES,
+          pad: 2,
+          after: (st, p) => garden(this, p),
+        });
+      }
+    }
+    // Orchards: trees in rows.
+    for (let k = 0, n = 0; k < 300 && n < orchards; k++) {
+      const x = rng.range(-850, 850);
+      const z = rng.range(-850, 850);
+      if (!clear(x, z, 45)) continue;
+      const yaw = rng.range(0, Math.PI);
+      const c = Math.cos(yaw);
+      const s = Math.sin(yaw);
+      const w = rng.range(50, 80);
+      const d = rng.range(36, 56);
+      this.paintRect(x, z, w / 2, d / 2, yaw, MAT.DRYGRASS);
+      for (let a = -w / 2 + 3; a < w / 2; a += 7) {
+        for (let b = -d / 2 + 3; b < d / 2; b += 7) {
+          if (rng.chance(0.08)) continue;
+          this.tree(x + a * c + b * s, z - a * s + b * c, 1, rng.range(0.42, 0.55), { force: true });
+        }
+      }
+      this.fields.push({ x, z, hx: w / 2, hz: d / 2, yaw });
+      n++;
+    }
+    // Copses: tight clusters of trees in the open.
+    for (let k = 0, n = 0; k < 400 && n < copses; k++) {
+      const x = rng.range(-880, 880);
+      const z = rng.range(-880, 880);
+      if (!clear(x, z, 20)) continue;
+      const r = rng.range(12, 30);
+      const kind = rng.chance(0.3) ? 0 : 1;
+      for (let i = 0; i < r * 0.9; i++) {
+        const a = rng.range(0, Math.PI * 2);
+        const d = Math.sqrt(rng.next()) * r;
+        this.tree(x + Math.cos(a) * d, z + Math.sin(a) * d, rng.chance(0.15) ? 3 : kind, rng.range(0.75, 1.2));
+      }
+      n++;
+    }
+    // Lone trees and bushes over the grassland.
+    for (let k = 0; k < bushes; k++) {
+      const x = rng.range(-930, 930);
+      const z = rng.range(-930, 930);
+      if (t.slopeAt(x, z) > 0.6) continue;
+      this.tree(x, z, rng.chance(0.82) ? 3 : 1, rng.range(0.6, 1.3));
+    }
+    // Hay bales in some of the fields.
+    for (const f of this.fields) {
+      if (!rng.chance(0.3)) continue;
+      const c = Math.cos(f.yaw);
+      const s = Math.sin(f.yaw);
+      const n = rng.int(4, 12);
+      const row = rng.range(-f.hz * 0.6, f.hz * 0.6);
+      for (let i = 0; i < n; i++) {
+        const a = -f.hx * 0.8 + (i / n) * f.hx * 1.6 + rng.range(-2, 2);
+        this.prop('hay_bale', f.x + a * c + row * s, f.z - a * s + row * c, f.yaw + rng.range(-0.4, 0.4));
+      }
+    }
+    // Wayside chapels at road junction-ish spots and wind turbines on high ground.
+    for (let k = 0, n = 0; k < 200 && n < 2; k++) {
+      const r = rng.pick(this.roads);
+      const p = rng.pick(r.points);
+      const x = p[0] + rng.range(-14, 14);
+      const z = p[1] + rng.range(-14, 14);
+      if (!clear(x, z, 8)) continue;
+      if (this.tryBuilding('chapel', x, z, 5, 7, rng.range(0, Math.PI * 2), { floors: 1, h: 4.5, roof: 'gable', roofH: 2.6, color: 0xddd5c2, roofColor: 0x5a514a, pad: 2 })) {
+        this.tree(x + 6, z + 4, 1, 0.9);
+        n++;
+      }
+    }
+    const spots = [];
+    for (let k = 0; k < 600 && spots.length < turbines; k++) {
+      const x = rng.range(-900, 900);
+      const z = rng.range(-900, 900);
+      if (!clear(x, z, 30) || t.heightAt(x, z) < t.minHeight + (t.maxHeight - t.minHeight) * 0.55) continue;
+      if (spots.some(([sx, sz]) => Math.hypot(x - sx, z - sz) < 160)) continue;
+      spots.push([x, z]);
+      this.decoration('wind_turbine', x, z, rng.range(0, Math.PI * 2));
+    }
+  }
+
+  // A dirt track from a point to the nearest road.
+  trackToRoad(x, z) {
+    let best = null;
+    let bd = Infinity;
+    for (const r of this.roads) {
+      for (const p of r.points) {
+        const d = Math.hypot(p[0] - x, p[1] - z);
+        if (d < bd && d > 20) {
+          bd = d;
+          best = p;
+        }
+      }
+    }
+    if (!best || bd > 600) return;
+    const pts = [];
+    const n = Math.max(2, Math.ceil(bd / 12));
+    const px = -(best[1] - z) / bd;
+    const pz = (best[0] - x) / bd;
+    for (let k = 0; k <= n; k++) {
+      const f = k / n;
+      const w = Math.sin(f * Math.PI) * 18 * this.noise.noise(x / 50 + f * 2, z / 50);
+      pts.push([lerp(x, best[0], f) + px * w, lerp(z, best[1], f) + pz * w]);
+    }
+    this.road(pts, 4.5, { surface: MAT.DIRT, shoulder: 3 });
   }
 
   // Power line poles alongside a road polyline (decoration only).
@@ -1115,6 +1086,9 @@ export const PROP_DIMS = {
   car: [0.92, 2.25, 1.45],
   car_wreck: [0.92, 2.25, 1.3],
   rock: [1.0, 1.0, 1.4],
+  hay_bale: [0.65, 0.78, 1.5],
+  dumpster: [1.0, 0.6, 1.3],
+  container: [1.22, 3.05, 2.6],
 };
 
 function obbOverlap(ax, az, ahx, ahz, ayaw, bx, bz, bhx, bhz, byaw) {
@@ -1163,38 +1137,58 @@ function commonRoads(ctx, through = [[0, 1000], [0, -1000]]) {
 
 function buildTownScenario(ctx) {
   const rng = ctx.rng;
+  const R = 430;
   ctx.baseTerrain({ macro: 20, meso: 6 });
-  // Gentle rise north of town for defenders, hills on the flanks.
-  ctx.addHill(-560, -80, 230, 160, 26, 0.3);
-  ctx.addHill(600, 120, 260, 170, 22, -0.4);
-  ctx.addHill(80, -560, 300, 140, 18, 0.1);
+  // Rising ground north of town for the defenders, hills on the flanks.
+  ctx.addHill(-720, -80, 220, 160, 26, 0.3);
+  ctx.addHill(740, 120, 240, 170, 22, -0.4);
+  ctx.addHill(80, -720, 300, 120, 18, 0.1);
   ctx.setDeploy(0, 0, 860, 420, 70, Math.PI, { rear: { x: 0, z: 940 } });
-  ctx.setDeploy(1, 0, -820, 380, 70, 0, { rear: { x: 0, z: -930 } });
-  // Main N-S highway and E-W road through town.
-  ctx.road(commonRoads(ctx, [[30, 1010], [-20, -1010]]), 11, { main: true });
-  const ew = [];
-  for (let k = 0; k <= 40; k++) ew.push([-1010 + k * 50.5, 30 * Math.sin(k * 0.35) + 20]);
-  ctx.road(ew, 9);
-  ctx.polesAlong(ew.filter((p) => Math.abs(p[0]) > 290));
-  const town = ctx.town(0, 0, 250, 0.03, { industrialSide: -1 });
-  // Objectives: town square, church district, industrial yard.
-  const [ax, az] = town.toW(33, 33);
-  ctx.objective('A', 'Town Square', ax, az, 42, 1);
-  const [bx, bz] = town.toW(150, -40);
-  ctx.objective('B', 'Market District', bx, bz, 50, 1);
-  const [cx, cz] = town.toW(-160, 30);
-  ctx.objective('C', 'Factory', cx, cz, 55, 1);
-  // Farmland and farmsteads south of town (the attack approach) and north.
-  ctx.farmland(-380, 470, 520, 280, 0.12, { cols: 4, rows: 2 });
-  ctx.farmland(380, 450, 500, 300, -0.08, { cols: 4, rows: 2 });
-  ctx.farmland(-420, -470, 420, 240, 0.2, { cols: 3, rows: 2 });
-  ctx.farmstead(-520, 260, 0.3);
-  ctx.farmstead(470, 300, -0.5);
-  ctx.farmstead(560, -380, 1.2);
-  // Federation defences on the southern edge of town.
-  ctx.fortifyLine(0, 300, 0, 360, 1, { sandbags: 10, hesco: 4, traps: 8, barriers: 5 });
-  ctx.fortifyLine(-280, 210, -0.45, 120, 1, { sandbags: 4, hesco: 2, traps: 2, barriers: 1 });
-  ctx.fortifyLine(280, 200, 0.45, 120, 1, { sandbags: 4, hesco: 2, traps: 2, barriers: 1 });
+  ctx.setDeploy(1, 0, -830, 380, 70, 0, { rear: { x: 0, z: -935 } });
+  const town = buildTown(ctx, 0, 0, R, 0.03, { industrialSide: -1 });
+  // Country roads out of the town's main streets.
+  const out = (from, to, bend) => {
+    const L = Math.hypot(to[0] - from[0], to[1] - from[1]);
+    const px = -(to[1] - from[1]) / L;
+    const pz = (to[0] - from[0]) / L;
+    const pts = [];
+    for (let k = 0; k <= 24; k++) {
+      const t = k / 24;
+      const w = Math.sin(t * Math.PI) * bend * ctx.noise.noise(t * 3, from[0] / 100);
+      pts.push([lerp(from[0], to[0], t) + px * w, lerp(from[1], to[1], t) + pz * w]);
+    }
+    return pts;
+  };
+  ctx.road(out(town.ends.south, [30, 1010], 70), 11, { main: true });
+  ctx.road(out(town.ends.north, [-20, -1010], 70), 11, { main: true });
+  const west = out(town.ends.west, [-1010, 40], 50);
+  const east = out(town.ends.east, [1010, -20], 50);
+  ctx.road(west, 9);
+  ctx.road(east, 9);
+  ctx.polesAlong(west);
+  ctx.polesAlong(east);
+  // Objectives: the square, the factory, the housing estate, the supermarket
+  // at the southern edge where the attack comes in.
+  const S = town.sites;
+  ctx.objective('A', 'Town Square', S.square[0], S.square[1], 45, 1);
+  if (S.factory) ctx.objective('B', 'Factory', S.factory[0], S.factory[1], 55, 1);
+  if (S.estate) ctx.objective('C', 'Housing Estate', S.estate[0], S.estate[1], 55, 1);
+  const south = S.market || S.gas || town.toW(0, R * 0.85);
+  ctx.objective(String.fromCharCode(65 + ctx.objectives.length), 'Supermarket', south[0], south[1], 50, 1);
+  // Farmland and farmsteads on the approaches.
+  ctx.farmland(-430, 640, 480, 200, 0.1, { cols: 4, rows: 2 });
+  ctx.farmland(430, 630, 460, 200, -0.08, { cols: 4, rows: 2 });
+  ctx.farmland(-460, -630, 420, 180, 0.2, { cols: 3, rows: 2 });
+  ctx.farmland(470, -620, 400, 180, -0.15, { cols: 3, rows: 2 });
+  ctx.farmstead(-640, 330, 0.3);
+  ctx.farmstead(620, 380, -0.5);
+  ctx.farmstead(640, -420, 1.2);
+  ctx.farmstead(-660, -380, -0.7);
+  // Federation defences along the southern edge of town.
+  ctx.fortifyLine(0, R + 40, 0, 420, 1, { sandbags: 12, hesco: 5, traps: 10, barriers: 6 });
+  ctx.fortifyLine(-330, R * 0.82, -0.6, 140, 1, { sandbags: 5, hesco: 2, traps: 3, barriers: 2 });
+  ctx.fortifyLine(330, R * 0.82, 0.6, 140, 1, { sandbags: 5, hesco: 2, traps: 3, barriers: 2 });
+  ctx.countryside();
   ctx.forest({ threshold: 0.16, spacing: 7.5 });
   ctx.rocks(80);
   for (let k = 0; k < 40; k++) ctx.tree(rng.range(-900, 900), rng.range(-900, 900), 1, rng.range(0.8, 1.2));
@@ -1221,6 +1215,7 @@ function buildBaseScenario(ctx) {
   ctx.farmstead(380, 180, 0.4);
   ctx.fortifyLine(0, 40, 0, 420, 1, { sandbags: 12, hesco: 5, traps: 10, barriers: 6 });
   ctx.fortifyLine(-60, 330, 0, 160, 1, { sandbags: 5, hesco: 2, traps: 3, barriers: 2 });
+  ctx.countryside();
   ctx.forest({ threshold: 0.14, spacing: 7.5 });
   ctx.rocks(70);
 }
@@ -1267,6 +1262,7 @@ function buildRidgeScenario(ctx) {
   ctx.farmland(150, -580, 640, 260, -0.06, { cols: 5, rows: 2 });
   ctx.farmstead(-620, 300, 0.2);
   ctx.farmstead(640, -330, -0.6);
+  ctx.countryside({ farms: 4, orchards: 3, turbines: 4 });
   ctx.forest({ threshold: 0.1, spacing: 7.5, pineBias: 0.3 });
   ctx.rocks(140, { minSlope: 0.3 });
 }
@@ -1298,6 +1294,7 @@ function buildValleyScenario(ctx) {
   ctx.farmland(340, 420, 520, 260, -0.12, { cols: 4, rows: 2 });
   ctx.farmstead(-640, 520, 0.4);
   ctx.farmstead(650, -560, 0.1);
+  ctx.countryside({ farms: 8, orchards: 7, copses: 30, bushes: 2400 });
   ctx.forest({ threshold: 0.24, spacing: 8 });
   ctx.rocks(60);
 }

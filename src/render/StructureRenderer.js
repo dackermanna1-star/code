@@ -33,7 +33,11 @@ float bh(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 437
 `;
 
 // Building type ids for the facade shader.
-const TYPE_ID = { house: 0, apartment: 1, shop: 2, townhall: 3, church: 4, tower: 5, warehouse: 6, factory: 7, barn: 8, garage: 9, hangar: 10, barracks: 11, hq: 12, bunker: 13, control_tower: 14, silo: 15, farmhouse: 16 };
+const TYPE_ID = {
+  house: 0, apartment: 1, shop: 2, townhall: 3, church: 4, tower: 5, warehouse: 6, factory: 7, barn: 8, garage: 9, hangar: 10,
+  barracks: 11, hq: 12, bunker: 13, control_tower: 14, silo: 15, farmhouse: 16, rowhouse: 17, office: 18, school: 19,
+  hospital: 20, supermarket: 21, shed: 22, chapel: 23, chimney: 24, gas_station: 25,
+};
 
 function facadeMaterial(detailTex) {
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, metalness: 0.02 });
@@ -73,8 +77,9 @@ function facadeMaterial(detailTex) {
         vec3 col = base * (0.86 + det.g * 0.28);
         float emis = 0.0;
         vec3 emisCol = vec3(0.0);
-        bool industrial = type > 5.5 && type < 7.5 || type > 9.5 && type < 11.5;
-        bool noWin = type > 12.5 && type < 13.5 || type > 14.5 && type < 15.5;
+        bool industrial = type > 5.5 && type < 7.5 || type > 9.5 && type < 11.5 || type == 21.0;
+        bool noWin = type > 12.5 && type < 13.5 || type > 14.5 && type < 15.5 || type == 22.0 || type == 24.0;
+        bool tallWin = type == 4.0 || type == 23.0;
         if (roof) {
           col = mix(vec3(0.33, 0.32, 0.3), base * 0.6, 0.35) * (0.8 + det.r * 0.35);
           // Parapet rim.
@@ -84,21 +89,28 @@ function facadeMaterial(detailTex) {
           // Plinth.
           col *= mix(0.7, 1.0, smoothstep(0.4, 0.7, v));
           if (industrial) {
-            // Corrugated cladding and a big door on the front.
+            // Corrugated cladding and a big door on the front; shops get a
+            // glass front instead.
             col *= 0.9 + 0.1 * sin(u * 18.0);
-            if (vNrm.z > 0.5 && abs(u - faceW * 0.5) < min(faceW * 0.3, 6.0) && v < min(vSize.y - 1.0, 5.5)) col = vec3(0.25, 0.27, 0.27) * (0.8 + 0.2 * sin(v * 10.0));
+            if (type == 21.0) {
+              if (vNrm.z > 0.5 && v > 0.4 && v < 3.2 && abs(u - faceW * 0.5) < faceW * 0.42) col = fract(u / 2.2) < 0.06 ? base * 0.5 : vec3(0.07, 0.09, 0.11) + vec3(0.05, 0.06, 0.07) * smoothstep(0.4, 3.0, v);
+              if (v > vSize.y - 1.1) col = vec3(0.62, 0.16, 0.12);
+            } else if (vNrm.z > 0.5 && abs(u - faceW * 0.5) < min(faceW * 0.3, 6.0) && v < min(vSize.y - 1.0, 5.5)) col = vec3(0.25, 0.27, 0.27) * (0.8 + 0.2 * sin(v * 10.0));
           } else if (!noWin) {
-            float floorH = type == 4.0 ? vSize.y : 3.1;
+            float floorH = tallWin ? vSize.y : 3.1;
             float fi = floor(v / floorH);
             float fv = fract(v / floorH);
-            float nWin = max(1.0, floor(faceW / (type == 1.0 || type == 2.0 || type == 12.0 ? 2.6 : 3.4)));
+            float spacing = type == 18.0 ? 2.0 : type == 1.0 || type == 2.0 || type == 12.0 ? 2.6 : type == 17.0 ? 2.7 : type == 19.0 || type == 20.0 ? 3.0 : 3.4;
+            float nWin = max(1.0, floor(faceW / spacing));
             float cw = faceW / nWin;
             float ci = floor(u / cw);
             float cu = fract(u / cw);
-            float wTop = type == 4.0 ? 0.85 : 0.84;
-            float wBot = type == 4.0 ? 0.25 : 0.34;
-            float wHalf = type == 4.0 ? 0.12 : 0.27;
-            bool shopFront = (type == 1.0 || type == 2.0) && fi < 0.5;
+            float wTop = tallWin ? 0.85 : 0.84;
+            float wBot = tallWin ? 0.25 : 0.34;
+            float wHalf = tallWin ? 0.12 : type == 19.0 || type == 20.0 ? 0.38 : 0.27;
+            // Offices: ribbon glazing.
+            if (type == 18.0) { wBot = 0.14; wTop = 0.9; wHalf = 0.46; }
+            bool shopFront = (type == 1.0 || type == 2.0 || type == 25.0 || type == 18.0) && fi < 0.5;
             if (shopFront) { wBot = 0.12; wTop = 0.8; wHalf = 0.42; }
             bool win = fv > wBot && fv < wTop && abs(cu - 0.5) < wHalf && v > 0.6 && v < vSize.y - 0.5;
             bool door = vNrm.z > 0.5 && fi < 0.5 && abs(u - faceW * 0.5) < 0.6 && v < 2.2 && !shopFront;
@@ -121,10 +133,17 @@ function facadeMaterial(detailTex) {
               }
             } else if (door) {
               col = vec3(0.16, 0.12, 0.09);
-            } else if (type == 0.0 || type == 16.0) {
+            } else if (type == 0.0 || type == 16.0 || type == 17.0) {
               // Brick/plaster banding on houses.
               col *= 0.95 + 0.05 * step(0.5, fract(v * 3.2));
             }
+          } else if (type == 22.0) {
+            // Sheds: vertical boards and a door.
+            col *= 0.8 + 0.2 * step(0.18, fract(u * 4.0));
+            if (vNrm.z > 0.5 && abs(u - faceW * 0.5) < 0.55 && v < 2.0) col *= 0.55;
+          } else if (type == 24.0) {
+            // Chimneys: brick courses.
+            col *= 0.86 + 0.14 * step(0.2, fract(v * 4.0));
           } else {
             // Bunkers/silos: concrete pour lines.
             col *= 0.92 + 0.08 * step(0.5, fract(v * 1.4));
