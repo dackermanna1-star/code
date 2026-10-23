@@ -19,19 +19,10 @@
   };
 
   /* ---------- icons ---------- */
-  const I = {
-    journal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11a3 3 0 0 1 3 3v15H8a3 3 0 0 1-3-3z"/><path d="M5 18a3 3 0 0 1 3-3h11"/><path d="M9 7h6"/></svg>',
-    log: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
-    save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2"/><circle cx="8.5" cy="11" r="2"/><circle cx="15.5" cy="11" r="2"/><path d="M7 19l1.5-3h7L17 19"/></svg>',
-    auto: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5l11 7-11 7z"/></svg>',
-    skip: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 5l8 7-8 7zM12 5l8 7-8 7z"/></svg>',
-    hide: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
-    menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg>',
-    clue: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5.5 5.5"/></svg>',
-    tape: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5" width="19" height="14" rx="2"/><circle cx="8.5" cy="11" r="2"/><circle cx="15.5" cy="11" r="2"/></svg>',
-    heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 20s-7-4.4-9.2-9A5 5 0 0 1 12 6a5 5 0 0 1 9.2 5C19 15.6 12 20 12 20z"/></svg>',
-    pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 6l3 3"/></svg>'
-  };
+  /* pixel icons drawn in js/px/ui_px.js; each <i> carries all its treatments
+   * (--i-key, --i-light, --i-gold ...) and the surrounding CSS picks one */
+  const I = {};
+  for (const n of ['journal', 'log', 'save', 'auto', 'skip', 'hide', 'menu', 'clue', 'tape', 'heart', 'pencil', 'play', 'stop', 'close', 'lantern']) I[n] = `<i class="pxi pxi-${n}" aria-hidden="true"></i>`;
 
   /* ---------- tones ---------- */
   const TONES = {
@@ -210,6 +201,7 @@
   E.expr = function (id, expr) { if (E.vis.sprites[id]) E.show(id, expr); };
   /* re-draw what is on stage (after the pixel scale changes) */
   E.refreshArt = function () {
+    if (!E.vis) return;                       // nothing on stage yet (title screen)
     if (E.vis.bg) E.setBg(E.vis.bg.id, E.vis.bg.time, E.vis.bg.variant, 'cut');
     for (const id in E.vis.sprites) { const el = spriteEls[id], sp = E.vis.sprites[id]; if (el) renderSprite(el, id, sp.expr, sp.outfit, sp.pos); }
     if (E.vis.cg) E.cg(E.vis.cg.id, E.vis.cg.variant);
@@ -372,16 +364,16 @@
   async function showText(line) {
     const box = $('#dialogue'), plate = $('#nameplate'), port = $('#portrait'), txt = $('#text');
     box.hidden = false;
-    box.classList.remove('tape', 'radio');
+    box.classList.remove('tape', 'radio', 'think', 'voice', 'has-pt');
     txt.className = '';
     let name = null, sub = '', color = null, portrait = null;
     if (line.kind === 'narr') { txt.classList.add('narration'); speaking(null); }
     else if (line.kind === 'gus') { name = 'Gus'; color = DATA.chars.GUS ? DATA.chars.GUS.color : '#8a9a5b'; portrait = ['gus', line.expr || 'neutral']; speaking(null); }
-    else if (line.kind === 'think') { txt.classList.add('think'); portrait = ['gus', line.expr || 'thinking']; speaking(null); }
+    else if (line.kind === 'think') { txt.classList.add('think'); box.classList.add('think'); portrait = ['gus', line.expr || 'thinking']; speaking(null); }
     else if (line.kind === 'tape') { name = line.who ? nameFor(line.who, 'Tape') : 'Tape'; sub = 'cassette'; color = '#4fa3a3'; box.classList.add('tape'); speaking(null); }
     else if (line.kind === 'phone') { name = nameFor(line.who, 'Phone'); sub = 'phone'; color = line.who ? charInfo(line.who.toUpperCase()).color : '#888'; speaking(null); }
     else if (line.kind === 'radio') { name = 'Radio'; sub = 'static'; color = '#a6e08e'; box.classList.add('radio'); speaking(null); }
-    else if (line.kind === 'voice') { name = line.who ? nameFor(line.who, '???') : '???'; color = '#a6e08e'; txt.classList.add('think'); speaking(null); }
+    else if (line.kind === 'voice') { name = line.who ? nameFor(line.who, '???') : '???'; color = '#a6e08e'; txt.classList.add('think'); box.classList.add('think', 'voice'); speaking(null); }
     else {
       const ci = charInfo(line.key);
       name = ci.name; color = ci.color;
@@ -389,9 +381,12 @@
       else speaking(null);
       if (ci.sprite) markMet(ci.sprite);
     }
-    if (name) { plate.hidden = false; plate.innerHTML = esc(name) + (sub ? `<span class="sub">${esc(sub)}</span>` : ''); plate.style.setProperty('--nc', color || '#c0623a'); }
-    else plate.hidden = true;
-    if (portrait) { port.hidden = false; const k = portrait.join(':'); if (port.dataset.k !== k) { port.innerHTML = portraitSVG(portrait[0], portrait[1]); port.dataset.k = k; } }
+    if (name) {
+      plate.hidden = false; plate.innerHTML = esc(name) + (sub ? `<span class="sub">${esc(sub)}</span>` : '');
+      // a Dymo label in the speaker's colour: the ramp comes from the pixel kit
+      plate.style.cssText = (window.UIPX ? UIPX.plate(color || '#c0623a').vars + ';' : '') + '--nc:' + (color || '#c0623a');
+    } else plate.hidden = true;
+    if (portrait) { port.hidden = false; box.classList.add('has-pt'); const k = portrait.join(':'); if (port.dataset.k !== k) { port.innerHTML = portraitSVG(portrait[0], portrait[1]); port.dataset.k = k; } }
     else port.hidden = true;
     E.lastLines.push({ who: name || (line.kind === 'think' ? 'Gus (thinking)' : ''), text: line.text });
     if (E.lastLines.length > 14) E.lastLines.shift();
@@ -619,8 +614,10 @@
         b.className = 'choice';
         const tone = TONES[o.tone];
         const say = isSay(o.text);
-        b.innerHTML = (tone ? `<span class="tone" style="--tc:${tone[1]}">${tone[0]}</span>` : '') +
-          `<span class="ct${say ? '' : ' act'}"></span>` + (o.flags.clue ? '<span class="badge">clue</span>' : '') + `<span class="key">${i + 1}</span>`;
+        // tone sticker in the tone's colour (shades from the pixel kit), a clue badge, the number key
+        const tv = tone ? (window.UIPX ? UIPX.chip(tone[1]).vars : '--tc:' + tone[1]) : '';
+        b.innerHTML = (tone ? `<span class="tone" style="${tv}">${tone[0]}</span>` : '') +
+          `<span class="ct${say ? '' : ' act'}"></span>` + (o.flags.clue ? `<span class="badge">${I.clue}clue</span>` : '') + `<span class="key" aria-hidden="true">${i + 1}</span>`;
         b.querySelector('.ct').textContent = say ? '“' + stripQuotes(o.text) + '”' : o.text;
         b.addEventListener('click', () => pick(o));
         b.addEventListener('mouseenter', () => snd('sfx', 'hover', { volume: 0.25 }));
@@ -631,7 +628,7 @@
         const sayMode = opts.filter((o) => isSay(o.text)).length >= 1;
         const b = document.createElement('button');
         b.className = 'choice free';
-        b.innerHTML = `<span class="tone" style="--tc:#e9e1cf">${I.pencil.replace('<svg', '<svg style="width:1.1em;height:1.1em;vertical-align:-.15em"')}</span><span class="ct"></span><span class="key">${opts.length + 1}</span>`;
+        b.innerHTML = `<span class="tone">${I.pencil}</span><span class="ct"></span><span class="key" aria-hidden="true">${opts.length + 1}</span>`;
         b.querySelector('.ct').textContent = sayMode ? 'Say something else…' : 'Do something else…';
         b.addEventListener('click', () => {
           box.hidden = true;
@@ -650,7 +647,10 @@
         const fill = bar.querySelector('i');
         timer = setInterval(() => {
           const k = 1 - (performance.now() - i0) / dur;
-          fill.style.transform = `scaleX(${Math.max(0, k)})`;
+          // a VU meter: the fill drops one whole segment (4 interface pixels) at a time
+          const seg = 4 * ((window.UIPX && UIPX.px) || 4), full = Math.max(seg, fill.parentNode.clientWidth - seg / 2);
+          fill.style.width = Math.ceil((Math.max(0, k) * full) / seg) * seg + 'px';
+          fill.classList.toggle('low', k < 0.3);
           if (k <= 0) { const d = opts.find((o) => o.flags.default) || opts[opts.length - 1]; pick(d); }
         }, 50);
       }
@@ -764,7 +764,7 @@
     const pxScale = () => {
       if (!window.PX) return;
       const st = $('#stage'), f = PX.scaleFor(st.clientWidth || 1280, st.clientHeight || 720);
-      if (f !== PX.F) { PX.setScale(f); E.refreshArt(); }
+      if (f !== PX.F) { PX.setScale(f); try { E.refreshArt(); } catch (e) { console.error('refreshArt', e); } }
     };
     pxScale();
     let rzT = 0;
