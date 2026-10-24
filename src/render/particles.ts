@@ -328,6 +328,8 @@ export class Particles implements GeometryPass, ForwardPass {
   private bInst = new Float32Array(this.BMAX * 16);
   private order = new Uint32Array(this.BMAX);
   private keys = new Float32Array(this.BMAX);
+  private bucket = new Uint16Array(this.BMAX);
+  private sortCount = new Uint32Array(4096);
 
   // GL
   private pCube: Program; private pCubeShadow: Program; private pBB: Program;
@@ -590,11 +592,21 @@ export class Particles implements GeometryPass, ForwardPass {
     const v = cam.view;
     const fx = -v[2], fy = -v[6], fz = -v[10];
     const order = this.order, keys = this.keys;
+    let kmin = Infinity, kmax = -Infinity;
     for (let i = 0; i < n; i++) {
-      keys[i] = (this.bP[i * 3] - cam.x) * fx + (this.bP[i * 3 + 1] - cam.y) * fy + (this.bP[i * 3 + 2] - cam.z) * fz;
-      order[i] = i;
+      const k = (this.bP[i * 3] - cam.x) * fx + (this.bP[i * 3 + 1] - cam.y) * fy + (this.bP[i * 3 + 2] - cam.z) * fz;
+      keys[i] = k;
+      if (k < kmin) kmin = k;
+      if (k > kmax) kmax = k;
     }
-    const sorted = order.subarray(0, n).sort((a, b) => keys[b] - keys[a]);
+    // back to front with a counting sort on quantised depth (O(n); order inside a 1/4096 slice does not matter)
+    const NB = 4096, cnt = this.sortCount;
+    cnt.fill(0);
+    const sc = (NB - 1) / Math.max(1e-6, kmax - kmin);
+    for (let i = 0; i < n; i++) { const b = NB - 1 - (((keys[i] - kmin) * sc) | 0); this.bucket[i] = b; cnt[b]++; }
+    for (let b = 0, acc = 0; b < NB; b++) { const c = cnt[b]; cnt[b] = acc; acc += c; }
+    for (let i = 0; i < n; i++) order[cnt[this.bucket[i]]++] = i;
+    const sorted = order;
     const I = this.bInst;
     let o = 0;
     for (let k = 0; k < n; k++) {

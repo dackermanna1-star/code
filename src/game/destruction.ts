@@ -147,7 +147,7 @@ export class Destruction {
       const [lr, lg, lb] = palLinear(pal[m]);
       const def = MATERIALS[m];
       // dust: lighter tint of the material
-      const dustN = Math.min(40, Math.ceil(Math.sqrt(n) * 0.9 * o.dust));
+      const dustN = Math.min(40, Math.ceil(Math.sqrt(n) * 0.9 * o.dust * Math.max(0.15, 1 - (P.bn / 14000) * 1.4)));
       if (def.debris === 0 || def.debris === 1 || m === Mat.Wood) {
         for (let i = 0; i < dustN; i++) {
           const s = 0.25 + Math.random() * 0.5 + Math.sqrt(n) * 0.012;
@@ -507,42 +507,48 @@ export class Destruction {
     g.flashLight(x, y + 1.5, z, 7 + power * 2, 8, 4, 1.2, 2.5 + power * 0.2, 0.3);
     P.spawn(PT.Flash, x, y, z, 0, 0, 0, r * 2.0, 0.14, 1, 0.85, 0.6, 1, { emissive: 9 });
     const cp = Math.cbrt(power);
+    // chain reactions: fewer (but bigger) puffs when the particle system is already busy
+    const load = Math.max(0.12, 1 - (P.bn / 14000) * 1.4);
+    const big = Math.min(1.8, 1 / Math.sqrt(load));
+    const ff = fuel ? 1.6 : 1;
     // fireball: a dense core plus flames thrown outwards that slow down, rise and cool
-    const fireN = Math.min(110, 18 + power * 11);
+    const fireN = Math.round(Math.min(110, 18 + power * 11) * ff * Math.sqrt(load));
     for (let i = 0; i < fireN; i++) {
       const a = Math.random() * 6.283, el = Math.random() * 1.5 - 0.25;
       const core = i < fireN * 0.3;
       const sp = (core ? 0.5 + Math.random() * 2 : 3 + Math.random() * 7) * cp;
       P.spawn(PT.Fire, x + (Math.random() - 0.5) * r * 0.5, y + 0.2 + Math.random() * r * 0.3, z + (Math.random() - 0.5) * r * 0.5,
         Math.cos(a) * Math.cos(el) * sp, Math.sin(el) * sp + 1.5, Math.sin(a) * Math.cos(el) * sp,
-        r * (core ? 0.55 + Math.random() * 0.35 : 0.3 + Math.random() * 0.4), (core ? 0.55 : 0.4) + Math.random() * 0.6, 1, 1, 1, 1,
+        r * big * (core ? 0.55 + Math.random() * 0.35 : 0.3 + Math.random() * 0.4), ((core ? 0.55 : 0.4) + Math.random() * 0.6) * ff, 1, 1, 1, 1,
         { grow: core ? 1.6 : 1.1, drag: 3.8, buoy: 3.5, emissive: core ? 4.5 : 3.5 });
     }
-    // thick smoke: soot from the fireball, billowing up and spreading
-    const smokeN = Math.min(220, 30 + power * 20);
+    // thick smoke: soot from the fireball, billowing up and spreading (burning fuel: black)
+    const smokeN = Math.round(Math.min(220, 30 + power * 20) * load);
     for (let i = 0; i < smokeN; i++) {
       const a = Math.random() * 6.283, el = Math.random() * 1.5 - 0.15, sp = (0.8 + Math.random() * 4.5) * cp;
-      const shade = 0.09 + Math.random() * 0.12;
+      const shade = fuel ? 0.04 + Math.random() * 0.06 : 0.09 + Math.random() * 0.12;
       P.spawn(PT.Smoke, x + (Math.random() - 0.5) * r, y + Math.random() * r * 0.6, z + (Math.random() - 0.5) * r,
         Math.cos(a) * Math.cos(el) * sp, Math.sin(el) * sp + 1.4, Math.sin(a) * Math.cos(el) * sp,
-        r * (0.5 + Math.random() * 0.6), 7 + Math.random() * 10, shade, shade * 0.95, shade * 0.9, 0.95,
+        r * big * (0.5 + Math.random() * 0.6), 7 + Math.random() * 10, shade, shade * 0.95, shade * 0.9, 0.95,
         { grow: 0.6 + Math.random() * 0.5, drag: 1.5, buoy: 0.6 + Math.random() * 0.5 });
     }
     // the crater keeps smoking for a while
     this.smolder.push({ x, y, z, r, t: 3 + power * 0.6, rate: 10 + power * 3, acc: 0 });
     // ground dust ring
-    for (let i = 0; i < 24 + power * 3; i++) {
-      const a = (i / (24 + power * 3)) * 6.283;
-      P.spawn(PT.Dust, x + Math.cos(a) * r * 0.8, y - r * 0.4, z + Math.sin(a) * r * 0.8, Math.cos(a) * (6 + power), 0.3, Math.sin(a) * (6 + power),
-        r * 0.5, 3 + Math.random() * 3, 0.55, 0.5, 0.45, 0.5, { grow: 0.8, drag: 2.2, buoy: 0.2 });
+    const ringN = Math.round(Math.min(60, 24 + power * 3) * load);
+    for (let i = 0; i < ringN; i++) {
+      const a = (i / ringN) * 6.283;
+      const rs = Math.min(16, 6 + power) * (0.8 + Math.random() * 0.4);
+      P.spawn(PT.Dust, x + Math.cos(a) * r * 0.8, y - r * 0.4, z + Math.sin(a) * r * 0.8, Math.cos(a) * rs, 0.3, Math.sin(a) * rs,
+        Math.min(2.2, r * 0.5), 2.5 + Math.random() * 2.5, 0.55, 0.5, 0.45, 0.45, { grow: 0.7, drag: 2.4, buoy: 0.25 });
     }
     // sparks / embers
-    for (let i = 0; i < 30 + power * 8; i++) {
+    for (let i = 0; i < Math.min(160, 30 + power * 8) * load; i++) {
       const a = Math.random() * 6.283, el = Math.random() * 1.5 - 0.3, sp = 8 + Math.random() * 18;
       P.spawn(PT.Spark, x, y, z, Math.cos(a) * Math.cos(el) * sp, Math.sin(el) * sp, Math.sin(a) * Math.cos(el) * sp,
         0.03, 0.6 + Math.random() * 1.2, 1, 0.7, 0.3, 1, { emissive: 8, drag: 0.6 });
     }
-    for (let i = 0; i < 12 + power * 4; i++) {
+    for (let i = 0; i < Math.min(80, 12 + power * 4) * load; i++) {
       P.spawn(PT.Ember, x + (Math.random() - 0.5) * r, y + Math.random() * r, z + (Math.random() - 0.5) * r,
         (Math.random() - 0.5) * 3, 2 + Math.random() * 4, (Math.random() - 0.5) * 3, 0.04, 2 + Math.random() * 3, 1, 0.5, 0.15, 1, { emissive: 5, drag: 0.8, buoy: 0.6 });
     }

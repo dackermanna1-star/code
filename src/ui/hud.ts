@@ -21,6 +21,8 @@ const CSS = `
 #hud .panel h1 { margin: 0 0 4px; font-size: 26px; letter-spacing: .04em; color: #f0c25a; font-weight: 800; }
 #hud .panel h2 { margin: 0 0 18px; font-size: 13px; color: #a7a397; font-weight: 500; }
 #hud .grid { display: grid; grid-template-columns: auto 1fr auto 1fr; gap: 6px 14px; font-size: 13px; color: #d9d5cb; }
+#hud .opts button { font: inherit; color: #f2efe8; background: #2a2d33; border: 1px solid #3c4048; border-radius: 4px; padding: 3px 10px; cursor: pointer; }
+#hud .opts button:hover { background: #353941; }
 #hud .grid kbd { font: 12px ui-monospace, monospace; background: #2a2d33; border: 1px solid #3c4048; border-bottom-width: 2px; border-radius: 4px; padding: 1px 6px; color: #f2efe8; white-space: nowrap; }
 #hud .go { margin-top: 20px; font-size: 15px; color: #f0c25a; font-weight: 700; text-align: center; letter-spacing: .03em; }
 #hud .loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0d0f12; font-size: 14px; color: #bdb8ad; gap: 12px; }
@@ -65,10 +67,13 @@ export class Hud {
           <kbd>E</kbd><span>Grab / drop object</span><kbd>F</kbd><span>Toggle flashlight</span>
           <kbd>V</kbd><span>Fly (noclip)</span><kbd>T</kbd><span>Time of day</span>
           <kbd>R</kbd><span>Slow motion</span><kbd>Esc</kbd><span>Pause / menu</span>
+          <kbd>F3</kbd><span>Stats overlay</span><span></span><span></span>
         </div>
         <div class="opts">
           <label>Quality <select data-k="quality"><option value="low">Low</option><option value="medium">Medium</option><option value="high" selected>High</option><option value="ultra">Ultra</option></select></label>
-          <label><input type="checkbox" data-k="stats" checked> Show stats</label>
+          <label>Time <select data-k="env"><option value="afternoon">Afternoon</option><option value="sunset">Sunset</option><option value="overcast">Overcast</option><option value="night">Night</option></select></label>
+          <label><input type="checkbox" data-k="stats"> Show stats</label>
+          <button data-act="restart">Restart level</button>
         </div>
         <div class="go">Click to play</div>
       </div></div>
@@ -82,6 +87,7 @@ export class Hud {
     this.loadText = this.root.querySelector('.ltext')!;
     this.menuEl.addEventListener('click', (e) => {
       const t = e.target as HTMLElement;
+      if (t.closest('[data-act="restart"]')) { location.reload(); return; }
       if (t.closest('.opts')) return;
       this.onStart?.();
     });
@@ -99,7 +105,16 @@ export class Hud {
   }
   doneLoading(): void { this.loadingEl.style.display = 'none'; }
   showMenu(on: boolean): void { this.menuEl.style.display = on ? 'flex' : 'none'; }
-  showStats(on: boolean): void { this.statsEl.style.display = on ? 'block' : 'none'; }
+  showStats(on: boolean): void {
+    this.statsEl.style.display = on ? 'block' : 'none';
+    const cb = this.root.querySelector('[data-k="stats"]') as HTMLInputElement | null;
+    if (cb) cb.checked = on;
+  }
+  /** Reflect the current setting values in the menu controls. */
+  setOption(k: string, v: string): void {
+    const el = this.root.querySelector(`[data-k="${k}"]`) as HTMLSelectElement | null;
+    if (el) el.value = v;
+  }
 
   update(dt: number, tool: number, health: number, stats: () => string): void {
     if (tool !== this.lastTool) {

@@ -94,6 +94,7 @@ export class Renderer {
   private skyDirs = new Float32Array(4 * S.SKY_MAPS);
   private skyNext = 0;
   private skyInit = 0;
+  private skyTick = 0;
   /** set when the world changed so the sky occlusion maps are refreshed */
   skyDirty = true;
   private vol!: Target;
@@ -292,6 +293,8 @@ export class Renderer {
   private renderSkyMap(regions: RegionMeshes, bodies: BodyDraw[]): void {
     this.ensureSky();
     if (!this.skyDirty && this.skyInit >= S.SKY_MAPS) return;
+    // while the world keeps changing, refresh one map every third frame (a full pass over the scene)
+    if (this.skyInit >= S.SKY_MAPS && (this.skyTick++ % 3) !== 0) return;
     const gl = this.gl;
     const k = this.skyNext;
     this.skyNext = (this.skyNext + 1) % S.SKY_MAPS;

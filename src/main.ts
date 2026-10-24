@@ -136,10 +136,14 @@ async function main() {
   hud.showMenu(!autoplay);
   hud.onStart = () => { audio.start(); input.requestLock(); };
   input.onLockChange = (locked) => { playing = locked || autoplay; hud.showMenu(!playing); };
-  let showStats = true;
+  let showStats = params.has('stats') || autoplay;
+  hud.showStats(showStats);
+  hud.setOption('quality', params.get('quality') || 'high');
+  hud.setOption('env', envName);
   hud.onSetting = (k, v) => {
     if (k === 'stats') { showStats = !!v; hud.showStats(showStats); }
     if (k === 'quality') applyQuality(renderer, game.meshes, v as string);
+    if (k === 'env' && ENV_PRESETS[v as string]) { envName = v as string; Object.assign(env, ENV_PRESETS[envName]); }
   };
 
   // flashlight
@@ -170,8 +174,9 @@ async function main() {
     if (enabled) {
       if (input.wasPressed('KeyV')) player.noclip = !player.noclip;
       if (input.wasPressed('KeyF')) flashlight = !flashlight;
+      if (input.wasPressed('F3')) { showStats = !showStats; hud.showStats(showStats); }
       if (input.wasPressed('KeyR')) timeScale = timeScale === 1 ? 0.25 : 1;
-      if (input.wasPressed('KeyT')) { const i = (ENV_ORDER.indexOf(envName) + 1) % ENV_ORDER.length; envName = ENV_ORDER[i]; Object.assign(env, ENV_PRESETS[envName]); }
+      if (input.wasPressed('KeyT')) { const i = (ENV_ORDER.indexOf(envName) + 1) % ENV_ORDER.length; envName = ENV_ORDER[i]; Object.assign(env, ENV_PRESETS[envName]); hud.setOption('env', envName); }
     }
     const tp = performance.now();
     if (g.__game.frames % 3 === 0) game.stress.baselineStep(Math.floor(player.pos.x * 10), Math.floor(player.pos.z * 10), 4);

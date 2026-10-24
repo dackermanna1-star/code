@@ -18,7 +18,7 @@ npm run build    # writes dist/ (open dist/index.html through any static web ser
 A prebuilt `dist/` is committed, so serving that folder is enough (`npx serve dist`, `python3 -m http.server -d dist`).
 
 Click **Play** to capture the mouse. URL options: `?quality=low|medium|high|ultra`, `?env=afternoon|sunset|overcast|night`,
-`?testmap` (small test level), `?autoplay` (skip the menu).
+`?testmap` (small test level), `?autoplay` (skip the menu), `?stats` (performance overlay).
 
 ### Controls
 
@@ -30,7 +30,7 @@ Click **Play** to capture the mouse. URL options: `?quality=low|medium|high|ultr
 | 1 – 8 / wheel | Select tool | E | Grab / drop object |
 | F | Flashlight | V | Fly (noclip) |
 | T | Time of day | R | Slow motion |
-| Esc | Menu / settings | | |
+| Esc | Menu / settings | F3 | Stats overlay |
 
 Tools: sledgehammer, shotgun, rifle, pipe bomb, bomb, rocket launcher, blowtorch, grab.
 
