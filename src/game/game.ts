@@ -3,6 +3,7 @@
 import { World, VOXEL } from '../world/world';
 import { RegionMeshes } from '../world/meshmanager';
 import { Structure, DetachedPiece } from '../world/structure';
+import { Stress, StressFailure } from '../world/stress';
 import { Physics, ImpactEvent } from '../physics/physics';
 import { Body, trimGrid } from '../physics/body';
 import { Renderer, Environment, PointLight } from '../render/renderer';
@@ -10,18 +11,38 @@ import { Particles } from '../render/particles';
 import { BodyMeshes } from './bodymeshes';
 import { Vec3 } from '../engine/math';
 import type { Destruction } from './destruction';
-import { PAL_FRICTION, PAL_RESTITUTION } from '../world/materials';
+import { PAL_FRICTION, PAL_RESTITUTION, PALETTE, srgbToLinear } from '../world/materials';
+import { PT } from '../render/particles';
 
 export interface TimedLight extends PointLight { life: number; maxLife: number; flicker: number }
+
+/** The part of the particle system the simulation talks to (a no-op stub is used headless). */
+export interface ParticleSink {
+  dn: number; bn: number;
+  debris(x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number, pal: number, life?: number): void;
+  spawn(type: number, x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number, life: number,
+    r: number, g: number, b: number, a: number, opts?: { grow?: number; drag?: number; buoy?: number; emissive?: number; rotV?: number }): void;
+  update(dt: number): void;
+}
+
+export class NullParticles implements ParticleSink {
+  dn = 0; bn = 0;
+  debris(): void { /* headless */ }
+  spawn(): void { /* headless */ }
+  update(): void { /* headless */ }
+}
 
 export class Game {
   readonly world: World;
   readonly meshes: RegionMeshes;
   readonly physics: Physics;
   readonly bodyMeshes: BodyMeshes;
-  readonly particles: Particles;
+  readonly particles: ParticleSink;
   readonly structure: Structure;
+  readonly stress: Stress;
   destruction!: Destruction;
+  /** hook: a structural link failed (for audio) */
+  onCrumble: ((x: number, y: number, z: number, mat: number) => void) | null = null;
   env: Environment;
   time = 0;
   /** transient lights (explosions, muzzle flashes, fires) */
@@ -35,16 +56,26 @@ export class Game {
   onImpactHook: ((e: ImpactEvent) => void) | null = null;
   onBodySplit: ((parent: Body, child: Body) => void) | null = null;
 
-  constructor(readonly renderer: Renderer, world: World, env: Environment, workers: number) {
+  constructor(readonly renderer: Renderer | null, world: World, env: Environment, workers: number) {
     this.world = world;
     this.env = env;
-    this.meshes = new RegionMeshes(world, renderer.pool, workers);
     this.physics = new Physics(world);
-    this.bodyMeshes = new BodyMeshes(renderer);
-    this.particles = new Particles(renderer.gl, world);
-    renderer.geometryPasses.push(this.particles);
-    renderer.forwardPasses.push(this.particles);
+    if (renderer) {
+      this.meshes = new RegionMeshes(world, renderer.pool, workers);
+      this.bodyMeshes = new BodyMeshes(renderer);
+      const p = new Particles(renderer.gl, world);
+      this.particles = p;
+      renderer.geometryPasses.push(p);
+      renderer.forwardPasses.push(p);
+    } else {
+      // headless simulation (tests): no GPU resources
+      this.meshes = null as unknown as RegionMeshes;
+      this.bodyMeshes = null as unknown as BodyMeshes;
+      this.particles = new NullParticles();
+    }
     this.structure = new Structure(world, (p) => this.onDetach(p));
+    this.stress = new Stress(world);
+    this.stress.onFail = (f) => this.crumble(f);
     this.physics.onRemove = (b) => this.removeBody(b);
     this.physics.onImpact = (e) => this.onImpactHook?.(e);
   }
@@ -83,7 +114,7 @@ export class Game {
   removeBody(b: Body): void {
     if (b.removed) return;
     this.physics.remove(b);
-    this.bodyMeshes.release(b);
+    this.bodyMeshes?.release(b);
     this.dirtyBodies.delete(b);
   }
 
@@ -91,7 +122,7 @@ export class Game {
 
   private onDetach(p: DetachedPiece): void {
     this.stats.detached++;
-    if (p.count <= 2) {
+    if (p.count <= 12) {
       // tiny bits become debris particles
       for (let y = 0; y < p.sy; y++) for (let z = 0; z < p.sz; z++) for (let x = 0; x < p.sx; x++) {
         const v = p.vox[x + p.sx * (z + p.sz * y)];
@@ -190,6 +221,7 @@ export class Game {
     b.vox = g; b.sx = nx; b.sy = ny; b.sz = nz;
     b.computeMass();
     b.buildSamples();
+    b.pvox = null; b.wsStep = -1;
     const cx = b.com.x + tx, cy = b.com.y + ty, cz = b.com.z + tz;
     const lx = (cx - oldCom.x) * VOXEL, ly = (cy - oldCom.y) * VOXEL, lz = (cz - oldCom.z) * VOXEL;
     const npx = b.pos.x + R[0] * lx + R[1] * ly + R[2] * lz, npy = b.pos.y + R[3] * lx + R[4] * ly + R[5] * lz, npz = b.pos.z + R[6] * lx + R[7] * ly + R[8] * lz;
@@ -200,6 +232,37 @@ export class Game {
     b.meshDirty = true;
     b.wake();
     (b as any)._lastRows = undefined;
+  }
+
+  /** A structural link failed: the face layer of voxels between two cells crumbles away. */
+  private crumble(f: StressFailure): void {
+    const w = this.world, P = this.particles;
+    const ax = f.dir >> 1; // 0 x, 1 y, 2 z
+    const pos = (f.dir & 1) === 0 ? 3 : 0; // +dir -> far layer, -dir -> near layer
+    let n = 0, mx = 0, my = 0, mz = 0, pal = 0;
+    for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) {
+      for (let layer = 0; layer < 2; layer++) {
+        const o = [0, 0, 0];
+        o[ax] = layer === 0 ? pos : pos + ((f.dir & 1) === 0 ? 1 : -1);
+        if (layer === 1 && Math.random() < 0.6) continue; // jagged crack into the neighbour
+        o[(ax + 1) % 3] = a; o[(ax + 2) % 3] = b;
+        const x = f.x + o[0], y = f.y + o[1], z = f.z + o[2];
+        const v = w.get(x, y, z);
+        if (!v || y < 2) continue;
+        w.set(x, y, z, 0);
+        this.structure.noteRemoved(x, y, z);
+        n++; mx += x; my += y; mz += z; pal = v;
+        if (Math.random() < 0.35) P.debris((x + 0.5) * VOXEL, (y + 0.5) * VOXEL, (z + 0.5) * VOXEL, (Math.random() - 0.5) * 1.5, Math.random(), (Math.random() - 0.5) * 1.5, 0.08, v, 6);
+      }
+    }
+    if (n === 0) return;
+    const cx = (mx / n + 0.5) * VOXEL, cy = (my / n + 0.5) * VOXEL, cz = (mz / n + 0.5) * VOXEL;
+    w.noteChange(f.x - 2, f.y - 2, f.z - 2, f.x + 6, f.y + 6, f.z + 6);
+    const e = PALETTE[pal];
+    const r = Math.min(1, srgbToLinear(e.r) * 1.2 + 0.1), g = Math.min(1, srgbToLinear(e.g) * 1.2 + 0.1), b = Math.min(1, srgbToLinear(e.b) * 1.2 + 0.1);
+    for (let i = 0; i < 6; i++) P.spawn(PT.Dust, cx + (Math.random() - 0.5) * 0.4, cy, cz + (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.8, -0.2, (Math.random() - 0.5) * 0.8,
+      0.35 + Math.random() * 0.3, 3 + Math.random() * 3, r, g, b, 0.5, { grow: 0.4, drag: 1.5, buoy: 0.02 });
+    this.onCrumble?.(cx, cy, cz, pal);
   }
 
   // ------------------------------------------------------------------ lights
@@ -248,6 +311,7 @@ export class Game {
     cb.length = 0;
     lap('wake');
     this.structure.process();
+    this.stress.update(dt);
     lap('structure');
     for (const b of this.dirtyBodies) this.rebuildBody(b);
     this.dirtyBodies.clear();

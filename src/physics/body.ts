@@ -63,6 +63,15 @@ export class Body {
   removed = false;
   /** user data */
   tag = 0;
+  /** cached copy of the world around the body (reused while it stays inside and the world is unchanged) */
+  wc: { x0: number; y0: number; z0: number; nx: number; ny: number; nz: number; data: Uint8Array; coarse: Uint8Array; cx: number; cy: number; cz: number; stamp: number } | null = null;
+  /** padded copy of the voxel grid + coarse occupancy for fast collision queries (null = rebuild) */
+  pvox: Uint8Array | null = null;
+  pcoarse: Uint8Array | null = null;
+  pcd = [0, 0, 0];
+  /** world space sample positions (voxel units), valid for wsStep */
+  ws = new Float32Array(0);
+  wsStep = -1;
   /** distance-based simulation LOD: frames to skip */
   friction = 0.6;
   restitution = 0.1;
@@ -271,6 +280,40 @@ export class Body {
   }
 
   wake(): void { this.sleeping = false; this.sleepTime = 0; }
+
+  /** Padded grid for collision queries (built lazily after any voxel change). */
+  padded(): Uint8Array {
+    if (this.pvox) return this.pvox;
+    const PX = this.sx + 2, PY = this.sy + 2, PZ = this.sz + 2;
+    const d = new Uint8Array(PX * PY * PZ);
+    for (let y = 0; y < this.sy; y++) for (let z = 0; z < this.sz; z++) {
+      const si = this.sx * (z + this.sz * y);
+      d.set(this.vox.subarray(si, si + this.sx), 1 + PX * (z + 1 + PZ * (y + 1)));
+    }
+    const cx = (PX + 3) >> 2, cy = (PY + 3) >> 2, cz = (PZ + 3) >> 2;
+    const c = new Uint8Array(cx * cy * cz);
+    let i = 0;
+    for (let y = 0; y < PY; y++) for (let z = 0; z < PZ; z++) for (let x = 0; x < PX; x++, i++) if (d[i]) c[(x >> 2) + cx * ((z >> 2) + cz * (y >> 2))] = 1;
+    this.pvox = d; this.pcoarse = c; this.pcd[0] = cx; this.pcd[1] = cy; this.pcd[2] = cz;
+    return d;
+  }
+
+  /** World-space (voxel units) sample positions for the current transform. */
+  worldSamples(step: number): Float32Array {
+    if (this.wsStep === step && this.ws.length === this.nSamples * 3) return this.ws;
+    if (this.ws.length !== this.nSamples * 3) this.ws = new Float32Array(this.nSamples * 3);
+    const R = this.R, s = this.samples, cx = this.com.x, cy = this.com.y, cz = this.com.z;
+    const px = this.pos.x * 10, py = this.pos.y * 10, pz = this.pos.z * 10;
+    const ws = this.ws;
+    for (let i = 0; i < this.nSamples; i++) {
+      const lx = s[i * 4] - cx, ly = s[i * 4 + 1] - cy, lz = s[i * 4 + 2] - cz;
+      ws[i * 3] = px + R[0] * lx + R[1] * ly + R[2] * lz;
+      ws[i * 3 + 1] = py + R[3] * lx + R[4] * ly + R[5] * lz;
+      ws[i * 3 + 2] = pz + R[6] * lx + R[7] * ly + R[8] * lz;
+    }
+    this.wsStep = step;
+    return ws;
+  }
 }
 
 function invert3(out: Float64Array, a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number): void {

@@ -68,8 +68,8 @@ export function buildMainHall(c: Ctx): void {
   b.box(X0 + 4, G + 110, Z0 + 6, X1 - 4, G + 114, Z0 + 10, P.steelDark);
   b.box(X0 + 4, G + 110, Z1 - 10, X1 - 4, G + 114, Z1 - 6, P.steelDark);
   const cx = 1180;
-  b.box(cx, G + 114, Z0 + 4, cx + 14, G + 124, Z1 - 4, P.paintYellow);       // bridge girder
-  b.box(cx + 1, G + 115, Z0 + 5, cx + 13, G + 123, Z1 - 5, (x, y, z) => (x === cx + 1 || x === cx + 12 || y === G + 115 || y === G + 122 ? P.paintYellow : -1));
+  b.box(cx, G + 114, Z0 + 4, cx + 14, G + 124, Z1 - 4, P.paintYellow);       // bridge girder (hollow box)
+  b.clear(cx + 1, G + 115, Z0 + 5, cx + 13, G + 123, Z1 - 5);
   for (let z = Z0 + 40; z < Z1 - 40; z += 30) b.box(cx, G + 112, z, cx + 14, G + 114, z + 2, hazard());
   b.box(cx - 4, G + 112, Z0 + 3, cx + 18, G + 120, Z0 + 14, P.paintYellow);  // end carriages
   b.box(cx - 4, G + 112, Z1 - 14, cx + 18, G + 120, Z1 - 3, P.paintYellow);
@@ -94,7 +94,9 @@ export function buildMainHall(c: Ctx): void {
   // ---- control room (elevated), stairs
   const crX0 = 800, crX1 = 900, crZ0 = 810, crZ1 = 900, crY = G + 40;
   for (const [x, z] of [[crX0, crZ0], [crX1 - 4, crZ0], [crX0, crZ1 - 4], [crX1 - 4, crZ1 - 4]]) column(c, x, z, G, crY, 4, P.paintYellow);
-  b.box(crX0, crY, crZ0, crX1, crY + 2, crZ1, P.concreteMid);
+  b.box(crX0, crY, crZ0, crX1, crY + 2, crZ1, P.steelDark);
+  for (let z = crZ0; z < crZ1; z += 30) beam(c, 'x', crX0, crX1, crY, z, 4, 2, P.paintYellow);
+  beam(c, 'x', crX0, crX1, crY, crZ1 - 2, 4, 2, P.paintYellow);
   b.walls(crX0, crY + 2, crZ0, crX1, crY + 30, crZ1, 2, P.plasterGrey);
   b.box(crX0, crY + 30, crZ0, crX1, crY + 32, crZ1, P.sheetGrey);
   windowRow(c, 'x', crZ0, 2, crX0 + 6, crX1 - 6, crY + 12, 20, 14, 24, P.glass, P.paintBlack, P.plasterGrey);
@@ -238,7 +240,7 @@ export function buildWarehouse(c: Ctx): void {
   // warehouse office
   const oX0 = X0 + 2, oX1 = X0 + 120, oZ0 = Z1 - 92, oZ1 = Z1 - 2;
   b.walls(oX0, G, oZ0, oX1, G + 32, oZ1, 2, P.plasterBeige);
-  b.box(oX0, G + 32, oZ0, oX1, G + 34, oZ1, P.concreteMid);
+  b.box(oX0, G + 32, oZ0, oX1, G + 33, oZ1, P.sheetGrey);
   windowRow(c, 'x', oZ0, 2, oX0 + 10, oX1 - 10, G + 10, 20, 14, 30, P.glass, P.paintWhite, P.plasterBeige);
   opening(c, 'z', oX1 - 2, 2, oZ0 + 20, 10, G, 22, null);
   c.props.push({ kind: 'desk', x: oX0 + 20, y: G, z: oZ0 + 30, rot: 0 });
@@ -268,15 +270,16 @@ function rack(c: Ctx, x0: number, z0: number, z1: number): void {
   b.line(x0, G, z0, x0 + D - 1, G + 26, z0, 1, P.paintOrange);
   b.line(x0, G + 26, z1, x0 + D - 1, G + 52, z1, 1, P.paintOrange);
   // stored goods (static voxels): boxes on pallets
-  for (const y of [G, G + 27, G + 53]) {
+  for (const deck of [G - 1, G + 26, G + 52]) {
+    const y = deck + 1; // pallet sits directly on the decking (or the floor)
     for (let z = z0 + 3; z < z1 - 12; z += 16) {
       const h = hash3(x0, y, z);
       if (h % 5 === 0) continue;
       const kind = h % 4;
-      b.box(x0 + 3, y + (y === G ? 0 : 1), z, x0 + D - 3, y + (y === G ? 1 : 2), z + 12, P.pallet);
-      const top = y + (y === G ? 1 : 2) + 8 + (h % 9);
-      if (kind === 3) b.box(x0 + 5, y + 2, z + 1, x0 + D - 5, top, z + 11, P.crate);
-      else b.box(x0 + 4, y + 2, z + 1, x0 + D - 4, top, z + 11, (xx, yy, zz) => (((xx >> 2) + (zz >> 2) + (yy >> 2)) % 2 ? P.cardboard : P.cardboard + 1));
+      b.box(x0 + 3, y, z, x0 + D - 3, y + 1, z + 12, P.pallet);
+      const top = y + 1 + 8 + (h % 9);
+      if (kind === 3) b.box(x0 + 5, y + 1, z + 1, x0 + D - 5, top, z + 11, P.crate);
+      else b.box(x0 + 4, y + 1, z + 1, x0 + D - 4, top, z + 11, (xx, yy, zz) => (((xx >> 2) + (zz >> 2) + (yy >> 2)) % 2 ? P.cardboard : P.cardboard + 1));
     }
   }
 }
@@ -393,7 +396,8 @@ export function buildBoilerHouse(c: Ctx): void {
   // boilers
   for (const bz of [380, 530]) {
     b.box(1960, G, bz - 26, 2080, G + 10, bz + 26, P.concreteDark);
-    b.cylX(G + 34, bz, 24, 1965, 2075, P.machineGrey, 2, true);
+    for (const sx2 of [1975, 2020, 2060]) b.box(sx2, G + 10, bz - 18, sx2 + 6, G + 18, bz + 18, P.concreteDark);
+    b.cylX(G + 34, bz, 24, 1965, 2075, P.machineGrey, 1, true);
     b.cylX(G + 34, bz, 25, 1990, 1992, P.steelDark);
     b.cylX(G + 34, bz, 25, 2048, 2050, P.steelDark);
     b.cylX(G + 34, bz, 10, 2075, 2080, P.castIron);
@@ -486,7 +490,8 @@ export function buildConstruction(c: Ctx): void {
     const x1 = f === 3 ? 930 : 1004, z1 = f === 3 ? 1960 : 2034;
     b.box(720, y - 2, 1820, x1, y, z1, (x, yy, z) => (f === 3 && (x + z) % 9 === 0 ? P.concreteStain : P.concrete));
     // beams under slabs
-    for (const z of zs) if (z <= z1) b.box(720, y - 5, z, x1, y - 2, z + 4, P.concrete);
+    for (const z of zs) if (z <= z1) b.box(720, y - 8, z, x1, y - 2, z + 4, P.concrete);
+    for (const x of xs) if (x <= x1) b.box(x, y - 8, 1820, x + 4, y - 2, z1, P.concrete);
     if (f < 3) b.clear(940, y - 5, 1830, 990, y, 1880); // stair void
   }
   stairs(c, 'x', 1, 942, G, 1832, 14, 17, P.concreteMid, 2, 3);

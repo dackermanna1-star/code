@@ -3,7 +3,7 @@
 // island-based sleeping, simple continuous collision for fast debris, and impact callbacks.
 
 import { Body } from './body';
-import { GridView, RawContacts, sphereVsGrid, sphereVsCache, buildCoarse, reduceContacts } from './collide';
+import { GridView, RawContacts, sphereVsCache, buildCoarse, reduceContacts } from './collide';
 import { World, VOXEL } from '../world/world';
 import { PAL_FRICTION, PAL_RESTITUTION } from '../world/materials';
 import { raycastWorld, RayHit } from './raycast';
@@ -54,7 +54,8 @@ export class Physics {
   onImpact: ((e: ImpactEvent) => void) | null = null;
   /** called when a body falls out of the world */
   onRemove: ((b: Body) => void) | null = null;
-  stats = { awake: 0, contacts: 0, pairs: 0, ms: 0 };
+  stats = { awake: 0, contacts: 0, pairs: 0, ms: 0, cacheHits: 0 };
+  private stepNo = 0;
 
   private cs = new ContactSet();
   private raw = new RawContacts(512);
@@ -98,6 +99,8 @@ export class Physics {
 
   step(dt: number): void {
     const t0 = performance.now();
+    this.stepNo++;
+    this.stats.cacheHits = 0;
     const bodies = this.bodies;
     const nb = bodies.length;
     // ---- integrate forces, store previous transforms
@@ -202,26 +205,31 @@ export class Physics {
       if (w.chunkMayBeSolid(cx << 4, cy << 4, cz << 4)) { any = true; break; }
     }
     if (!any) return;
-    const nx = x1 - x0 + 1, ny = y1 - y0 + 1, nz = z1 - z0 + 1;
-    const vol = nx * ny * nz;
-    if (vol > 4_000_000) return; // absurdly large body; skip world contacts (should not happen)
-    if (this.cache.length < vol) this.cache = new Uint8Array(Math.max(vol, this.cache.length * 2));
-    w.copyBox(x0, y0, z0, nx, ny, nz, this.cache);
+    // reuse the body's cached copy of the world if it still covers the box and nothing changed there
+    let wc = b.wc;
+    if (!wc || x0 < wc.x0 || y0 < wc.y0 || z0 < wc.z0 || x1 >= wc.x0 + wc.nx || y1 >= wc.y0 + wc.ny || z1 >= wc.z0 + wc.nz ||
+      w.maxStamp(wc.x0, wc.y0, wc.z0, wc.x0 + wc.nx - 1, wc.y0 + wc.ny - 1, wc.z0 + wc.nz - 1) > wc.stamp) {
+      const M = 6;
+      const bx0 = x0 - M, by0 = y0 - M, bz0 = z0 - M;
+      const nx = x1 - x0 + 1 + 2 * M, ny = y1 - y0 + 1 + 2 * M, nz = z1 - z0 + 1 + 2 * M;
+      const vol = nx * ny * nz;
+      if (vol > 6_000_000) return; // absurdly large body; skip world contacts
+      const data = wc && wc.data.length >= vol ? wc.data : new Uint8Array(vol);
+      w.copyBox(bx0, by0, bz0, nx, ny, nz, data);
+      const cn = ((nx + 3) >> 2) * ((ny + 3) >> 2) * ((nz + 3) >> 2);
+      const coarse = wc && wc.coarse.length >= cn ? wc.coarse : new Uint8Array(cn);
+      const [ccx, ccy, ccz] = buildCoarse(data, nx, ny, nz, coarse);
+      wc = { x0: bx0, y0: by0, z0: bz0, nx, ny, nz, data, coarse, cx: ccx, cy: ccy, cz: ccz, stamp: w.stampCounter };
+      b.wc = wc;
+    } else this.stats.cacheHits++;
     const v = this.view;
-    v.data = this.cache; v.sx = nx; v.sy = ny; v.sz = nz; v.ox = x0; v.oy = y0; v.oz = z0; v.outside = 0;
-    const cn = ((nx + 3) >> 2) * ((ny + 3) >> 2) * ((nz + 3) >> 2);
-    if (this.coarse.length < cn) this.coarse = new Uint8Array(cn * 2);
-    const [ccx, ccy, ccz] = buildCoarse(this.cache, nx, ny, nz, this.coarse);
+    v.data = wc.data; v.sx = wc.nx; v.sy = wc.ny; v.sz = wc.nz; v.ox = wc.x0; v.oy = wc.y0; v.oz = wc.z0; v.outside = 0;
     const raw = this.raw;
     raw.reset();
-    const R = b.R, s = b.samples, cx = b.com.x, cy = b.com.y, cz = b.com.z;
-    const px = b.pos.x * 10, py = b.pos.y * 10, pz = b.pos.z * 10;
+    const s = b.samples;
+    const ws = b.worldSamples(this.stepNo);
     for (let i = 0; i < b.nSamples; i++) {
-      const lx = s[i * 4] - cx, ly = s[i * 4 + 1] - cy, lz = s[i * 4 + 2] - cz;
-      const wx = px + R[0] * lx + R[1] * ly + R[2] * lz;
-      const wy = py + R[3] * lx + R[4] * ly + R[5] * lz;
-      const wz = pz + R[6] * lx + R[7] * ly + R[8] * lz;
-      sphereVsCache(v, this.coarse, ccx, ccy, ccz, wx, wy, wz, s[i * 4 + 3], margin, i, raw);
+      sphereVsCache(v, wc.coarse, wc.cx, wc.cy, wc.cz, ws[i * 3], ws[i * 3 + 1], ws[i * 3 + 2], s[i * 4 + 3], margin, i, raw);
     }
     if (raw.n === 0) return;
     reduceContacts(raw, 0, raw.n, SOLVER.maxPerBucket, this.keep, 10);
@@ -283,32 +291,30 @@ export class Physics {
   private samplesVsBody(S: Body, G: Body, margin: number, out: RawContacts, sign: number): void {
     const tmp = this.tmp;
     tmp.reset();
-    const gv: GridView = { data: G.vox, sx: G.sx, sy: G.sy, sz: G.sz, ox: 0, oy: 0, oz: 0, outside: 0 };
-    const RS = S.R, RG = G.R;
+    const pad = G.padded();
+    const gv: GridView = { data: pad, sx: G.sx + 2, sy: G.sy + 2, sz: G.sz + 2, ox: -1, oy: -1, oz: -1, outside: 0 };
+    const RG = G.R;
     const s = S.samples;
-    const scx = S.com.x, scy = S.com.y, scz = S.com.z;
-    // quick bounding check per sample using G's bounding sphere and AABB overlap region
-    const gr = G.radius * 10 + 2;
-    const pad = (margin + 1) * VOXEL;
+    const ws = S.worldSamples(this.stepNo);
+    // quick bounding checks per sample: G's AABB (expanded) in world space, then G's grid box
+    const gp = (margin + 1);
     const ga = G.aabb;
-    const ox0 = ga[0] - pad, oy0 = ga[1] - pad, oz0 = ga[2] - pad, ox1 = ga[3] + pad, oy1 = ga[4] + pad, oz1 = ga[5] + pad;
+    const ox0 = ga[0] * 10 - gp, oy0 = ga[1] * 10 - gp, oz0 = ga[2] * 10 - gp, ox1 = ga[3] * 10 + gp, oy1 = ga[4] * 10 + gp, oz1 = ga[5] * 10 + gp;
+    const gpx = G.pos.x * 10, gpy = G.pos.y * 10, gpz = G.pos.z * 10;
+    const coarse = G.pcoarse!, ccx = G.pcd[0], ccy = G.pcd[1], ccz = G.pcd[2];
     for (let i = 0; i < S.nSamples; i++) {
-      const lx = (s[i * 4] - scx) * VOXEL, ly = (s[i * 4 + 1] - scy) * VOXEL, lz = (s[i * 4 + 2] - scz) * VOXEL;
-      const wx = S.pos.x + RS[0] * lx + RS[1] * ly + RS[2] * lz;
+      const wx = ws[i * 3];
       if (wx < ox0 || wx > ox1) continue;
-      const wy = S.pos.y + RS[3] * lx + RS[4] * ly + RS[5] * lz;
+      const wy = ws[i * 3 + 1];
       if (wy < oy0 || wy > oy1) continue;
-      const wz = S.pos.z + RS[6] * lx + RS[7] * ly + RS[8] * lz;
+      const wz = ws[i * 3 + 2];
       if (wz < oz0 || wz > oz1) continue;
-      const dx = wx - G.pos.x, dy = wy - G.pos.y, dz = wz - G.pos.z;
-      // into G grid coords
-      const gx = (RG[0] * dx + RG[3] * dy + RG[6] * dz) * 10 + G.com.x;
-      const gy = (RG[1] * dx + RG[4] * dy + RG[7] * dz) * 10 + G.com.y;
-      const gz = (RG[2] * dx + RG[5] * dy + RG[8] * dz) * 10 + G.com.z;
-      const ex = gx - G.com.x, ey = gy - G.com.y, ez = gz - G.com.z;
-      if (ex * ex + ey * ey + ez * ez > gr * gr) continue;
+      const dx = wx - gpx, dy = wy - gpy, dz = wz - gpz;
+      const gx = RG[0] * dx + RG[3] * dy + RG[6] * dz + G.com.x;
+      const gy = RG[1] * dx + RG[4] * dy + RG[7] * dz + G.com.y;
+      const gz = RG[2] * dx + RG[5] * dy + RG[8] * dz + G.com.z;
       if (gx < -2 || gy < -2 || gz < -2 || gx > G.sx + 2 || gy > G.sy + 2 || gz > G.sz + 2) continue;
-      sphereVsGrid(gv, gx, gy, gz, s[i * 4 + 3], margin, i, tmp);
+      sphereVsCache(gv, coarse, ccx, ccy, ccz, gx, gy, gz, s[i * 4 + 3], margin, i, tmp);
     }
     for (let k = 0; k < tmp.n; k++) {
       // point and normal back to world
@@ -535,6 +541,7 @@ export class Physics {
       if (t > SLEEP_TIME) {
         b.sleeping = true;
         b.vel.set(0, 0, 0); b.ang.set(0, 0, 0);
+        b.wc = null;
       }
     }
   }

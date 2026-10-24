@@ -55,6 +55,7 @@ export class Destruction {
    */
   carveWorld(cx: number, cy: number, cz: number, r: number, o: CarveOpts): number {
     const w = this.g.world, st = this.g.structure, P = this.g.particles;
+    this.g.stress.prepare(Math.floor(cx * 10), Math.floor(cz * 10));
     // glass is handled by shatterGlassNear, so the scan box only needs the largest non-glass factor
     const maxF = o.blast ? 1.35 : 1.6;
     const R = r * maxF * (1 + o.noise * 0.5);
@@ -108,6 +109,7 @@ export class Destruction {
     lapc('set');
     if (removed === 0) return 0;
     for (let i = 0; i < removedList.length; i += 4) st.noteRemoved(removedList[i], removedList[i + 1], removedList[i + 2]);
+    this.g.stress.request(Math.floor(cx * 10), Math.floor(cy * 10), Math.floor(cz * 10), o.blast ? 0.15 : 0.3);
     lapc('note');
     w.noteChange(x0, y0, z0, x1, y1, z1);
     this.totalRemoved += removed;

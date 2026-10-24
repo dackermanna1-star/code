@@ -297,8 +297,8 @@ export function buildScrapYard(c: Ctx): void {
       for (let y = 0; y < top; y++) {
         const n = valueNoise3(x * 0.15, y * 0.15, z * 0.15, 9);
         if (n < 0.38) continue;
-        const hh = hash3(x, y, z) % 10;
-        b.set(x, G + y, z, hh < 4 ? P.rust + (hh & 3) : hh < 6 ? P.scrap + (hh & 1) : hh < 7 ? P.steelDark : hh < 8 ? P.carBlue : hh < 9 ? P.rubber : P.sheetRust);
+        const hh = hash3(x, y, z) % 14;
+        b.set(x, G + y, z, hh < 7 ? P.scrapMix + hh : P.scrap + (hh & 1));
       }
     }
   }

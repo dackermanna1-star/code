@@ -65,14 +65,16 @@ export function windowRow(c: Ctx, axis: 'x' | 'z', at: number, t: number, from: 
 
 /** Opening in a wall (door / gate). */
 export function opening(c: Ctx, axis: 'x' | 'z', at: number, t: number, from: number, w: number, y0: number, h: number, lintel: number | null = P.concreteMid): void {
-  if (axis === 'x') { c.b.clear(from, y0, at, from + w, y0 + h, at + t); if (lintel) c.b.box(from - 1, y0 + h, at, from + w + 1, y0 + h + 2, at + t, lintel); }
-  else { c.b.clear(at, y0, from, at + t, y0 + h, from + w); if (lintel) c.b.box(at, y0 + h, from - 1, at + t, y0 + h + 2, from + w + 1, lintel); }
+  // wide openings get a steel beam as lintel
+  const lh = w > 24 ? 4 : 2, lm = w > 24 && lintel ? P.steelDark : lintel, ext = w > 24 ? 4 : 1;
+  if (axis === 'x') { c.b.clear(from, y0, at, from + w, y0 + h, at + t); if (lm) c.b.box(from - ext, y0 + h, at, from + w + ext, y0 + h + lh, at + t, lm); }
+  else { c.b.clear(at, y0, from, at + t, y0 + h, from + w); if (lm) c.b.box(at, y0 + h, from - ext, at + t, y0 + h + lh, from + w + ext, lm); }
 }
 
 /** Roll-up door: slatted metal filling an opening. */
 export function rollerDoor(c: Ctx, axis: 'x' | 'z', at: number, from: number, w: number, y0: number, h: number, openFrac = 0): void {
   const top = y0 + Math.round(h * openFrac);
-  const paint: Paint = (x, y) => ((y % 2) ? P.sheetGrey : P.sheetGrey + 1);
+  const paint: Paint = (x, y) => ((y % 2) ? P.shutter : P.shutter + 1);
   if (axis === 'x') c.b.box(from, top, at, from + w, y0 + h, at + 1, paint);
   else c.b.box(at, top, from, at + 1, y0 + h, from + w, paint);
 }

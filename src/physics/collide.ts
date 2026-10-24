@@ -111,9 +111,11 @@ export function sphereVsCache(g: GridView, coarse: Uint8Array, cx: number, cy: n
   px: number, py: number, pz: number, r: number, margin: number, sample: number, out: RawContacts): void {
   const reach = r + margin;
   const gox = g.ox, goy = g.oy, goz = g.oz;
-  const x0 = Math.floor(px - reach), x1 = Math.floor(px + reach);
-  const y0 = Math.floor(py - reach), y1 = Math.floor(py + reach);
-  const z0 = Math.floor(pz - reach), z1 = Math.floor(pz + reach);
+  // clamp to the inner box so that +-1 neighbour lookups stay inside the data
+  const x0 = Math.max(gox + 1, Math.floor(px - reach)), x1 = Math.min(gox + g.sx - 2, Math.floor(px + reach));
+  const y0 = Math.max(goy + 1, Math.floor(py - reach)), y1 = Math.min(goy + g.sy - 2, Math.floor(py + reach));
+  const z0 = Math.max(goz + 1, Math.floor(pz - reach)), z1 = Math.min(goz + g.sz - 2, Math.floor(pz + reach));
+  if (x1 < x0 || y1 < y0 || z1 < z0) return;
   // coarse rejection
   const ca = (x0 - gox) >> 2, cb = (x1 - gox) >> 2, cc = (y0 - goy) >> 2, cd = (y1 - goy) >> 2, ce = (z0 - goz) >> 2, cf = (z1 - goz) >> 2;
   let any = 0;

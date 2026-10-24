@@ -13,6 +13,9 @@ import { Player } from './game/player';
 import { Tools, TOOL_NAMES, Tool } from './game/tools';
 import { Hud } from './ui/hud';
 import { Vec3 } from './engine/math';
+import { Fire } from './game/fire';
+import { Audio } from './engine/audio';
+import { PAL_MAT, Mat } from './world/materials';
 
 function norm(v: number[]): [number, number, number] { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; }
 
@@ -59,6 +62,26 @@ async function main() {
   const destruction = new Destruction(game);
   game.destruction = destruction;
   game.onImpactHook = (e) => destruction.impact(e.a, e.b, e.x, e.y, e.z, e.nx, e.ny, e.nz, e.speed, e.meff, e.matB);
+  const fire = new Fire(game);
+  destruction.ignite = (x, y, z) => fire.ignite(x, y, z);
+  const audio = new Audio();
+  destruction.onExplosion = (x, y, z, p) => {
+    audio.explosion(x, y, z, p);
+    // camera shake + knockback/damage depending on distance
+    const d = Math.hypot(x - player.pos.x, y - (player.pos.y + 1), z - player.pos.z);
+    game.shake = Math.max(game.shake, Math.min(1.2, (p * 2.5) / (1 + d * 0.35)));
+    renderer.flash = Math.max(renderer.flash, Math.min(1.5, p / (1 + d * d * 0.05)));
+    const r = 1.35 * Math.cbrt(p) + 0.25;
+    if (d < r * 3.2 && !player.noclip) {
+      player.damage(Math.max(0, (r * 3.2 - d) / (r * 3.2)) * 70 * Math.min(1, p / 3));
+      const k = Math.max(0, 1 - d / (r * 3.2)) * 9 * Math.min(1.5, p / 3);
+      player.vel.x += ((player.pos.x - x) / (d || 1)) * k; player.vel.y += 2.5 * k * 0.4; player.vel.z += ((player.pos.z - z) / (d || 1)) * k;
+    }
+  };
+  destruction.onBreak = (x, y, z, m, n) => audio.breakMat(x, y, z, m, n);
+  destruction.onImpactSound = (x, y, z, palA, palB, e) => audio.impact(x, y, z, PAL_MAT[palA || palB] as Mat, e);
+  game.onCrumble = (x, y, z) => audio.crumble(x, y, z);
+  fire.onBurnSound = () => { /* loop volume handled per frame */ };
   const player = new Player(game);
   if (mapResult) {
     player.spawn.set(mapResult.spawn.x, mapResult.spawn.y, mapResult.spawn.z);
@@ -78,6 +101,14 @@ async function main() {
   } else player.spawn.set(25, 4.05, 48);
   player.respawn();
   const tools = new Tools(game, player);
+  tools.onIgnite = (x, y, z) => { if (!fire.ignite(x, y, z)) fire.igniteAt((x + 0.5) * 0.1, (y + 0.5) * 0.1, (z + 0.5) * 0.1, 0.15); };
+  tools.onSound = (name, x, y, z, vol) => {
+    if (name === 'shotgun' || name === 'rifle' || name === 'rocket') audio.shot(name, x, y, z);
+    else if (x === 0 && y === 0 && z === 0) audio.ui(name);
+    else audio.ui(name, x, y, z, vol);
+  };
+  player.onStep = () => audio.ui('step', player.pos.x, player.pos.y, player.pos.z, 0.35);
+  player.onLand = (sp) => audio.ui('land', player.pos.x, player.pos.y, player.pos.z, Math.min(1, sp / 8));
   const input = new Input(canvas);
   const cam = new Camera();
   // initial meshing
@@ -85,6 +116,8 @@ async function main() {
   const total = world.dirtyQueue.length;
   while (game.meshes.pending > 0) {
     game.meshes.update(player.pos.x, player.pos.y, player.pos.z);
+    // the main thread is mostly idle while workers mesh: analyse intact structures meanwhile
+    game.stress.baselineStep(Math.floor(player.pos.x * 10), Math.floor(player.pos.z * 10), 25);
     hud.loading(0.1 + 0.9 * (1 - game.meshes.pending / Math.max(1, total)), `Meshing ${total - game.meshes.pending} / ${total} regions…`);
     await nextFrame();
   }
@@ -92,7 +125,7 @@ async function main() {
   const autoplay = params.has('autoplay');
   let playing = autoplay;
   hud.showMenu(!autoplay);
-  hud.onStart = () => input.requestLock();
+  hud.onStart = () => { audio.start(); input.requestLock(); };
   input.onLockChange = (locked) => { playing = locked || autoplay; hud.showMenu(!playing); };
   let showStats = true;
   hud.onSetting = (k, v) => {
@@ -111,9 +144,9 @@ async function main() {
   const timing = { sim: 0, mesh: 0, render: 0, player: 0, simMax: 0 };
   const g = window as any;
   g.__game = {
-    game, world, renderer, player, tools, cam, input, meshes: game.meshes, ready: true, frames: 0,
+    game, world, renderer, player, tools, cam, input, fire, audio, meshes: game.meshes, ready: true, frames: 0,
     setEnv: (n: string) => { Object.assign(env, ENV_PRESETS[n]); envName = n; },
-    extraStats: () => ({ bodies: game.physics.bodies.length, phys: game.physics.stats, debris: game.particles.dn, bb: game.particles.bn, removed: destruction.totalRemoved, detached: game.stats.detached, genMs, timing, structure: game.structure.stats, gprof: game.prof, dprof: destruction.prof }),
+    extraStats: () => ({ fires: fire.count, bodies: game.physics.bodies.length, phys: game.physics.stats, debris: game.particles.dn, bb: game.particles.bn, removed: destruction.totalRemoved, detached: game.stats.detached, genMs, timing, structure: game.structure.stats, stress: game.stress.stats, gprof: game.prof, dprof: destruction.prof }),
   };
 
   function frame() {
@@ -131,6 +164,7 @@ async function main() {
       if (input.wasPressed('KeyT')) { const i = (ENV_ORDER.indexOf(envName) + 1) % ENV_ORDER.length; envName = ENV_ORDER[i]; Object.assign(env, ENV_PRESETS[envName]); }
     }
     const tp = performance.now();
+    if (g.__game.frames % 3 === 0) game.stress.baselineStep(Math.floor(player.pos.x * 10), Math.floor(player.pos.z * 10), 4);
     player.update(Math.min(dt, 0.05), input, enabled);
     tools.update(dt, input, enabled);
     timing.player = performance.now() - tp;
@@ -142,6 +176,7 @@ async function main() {
     while (acc >= h && steps < 4) {
       game.step(h);
       destruction.update(h);
+      fire.update(h);
       acc -= h;
       steps++;
     }
@@ -161,8 +196,11 @@ async function main() {
     game.meshes.update(cam.x, cam.y, cam.z);
     game.bodyMeshes.update(game.physics.bodies, alpha);
     timing.mesh = performance.now() - tm;
-    game.particles.prepare(alpha);
+    (game.particles as any).prepare(alpha);
     const lights = game.gatherLights(cam.x, cam.y, cam.z, 40);
+    audio.setListener(cam.x, cam.y, cam.z, cam.yaw);
+    audio.setLoops(fire.count > 0 ? Math.min(1, fire.count / 150) : 0, tools.torchActive, cam.y);
+    renderer.flash = Math.max(0, renderer.flash - rawDt * 4);
     if (flashlight) {
       const f = new Vec3(); cam.forward(f);
       flashL.x = cam.x + f.x * 1.5; flashL.y = cam.y + f.y * 1.5; flashL.z = cam.z + f.z * 1.5;
@@ -178,7 +216,8 @@ async function main() {
       `bodies ${game.physics.bodies.length} (awake ${game.physics.stats.awake})  phys ${game.physics.stats.ms.toFixed(1)} ms\n` +
       `contacts ${game.physics.stats.contacts}  debris ${game.particles.dn}  fx ${game.particles.bn}\n` +
       `quads ${(renderer.stats.quads / 1000).toFixed(0)}k  draws ${renderer.stats.drawn}  remesh ${game.meshes.pending}\n` +
-      `voxels destroyed ${destruction.totalRemoved}  detached ${game.stats.detached}\n` +
+      `voxels destroyed ${destruction.totalRemoved}  detached ${game.stats.detached}  fires ${fire.count}\n` +
+      `stress ${game.stress.stats.analyses} (${game.stress.stats.ms.toFixed(1)} ms) failures ${game.stress.stats.failures}\n` +
       `${TOOL_NAMES[tools.current]}${player.noclip ? '  [fly]' : ''}${timeScale < 1 ? '  [slow-mo]' : ''}  ${envName}`);
     input.endFrame();
     g.__game.frames++;

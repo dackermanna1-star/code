@@ -33,6 +33,9 @@ export class World {
   edits = 0;
   /** level generation mode: skip dirty tracking (everything is meshed afterwards) */
   bulk = false;
+  /** per-chunk modification stamp (for caches of world voxels) */
+  readonly stamp: Uint32Array;
+  stampCounter = 1;
 
   constructor(readonly sx: number, readonly sy: number, readonly sz: number, groundHeight: number) {
     this.ncx = sx >> CS_SHIFT; this.ncy = sy >> CS_SHIFT; this.ncz = sz >> CS_SHIFT;
@@ -44,6 +47,7 @@ export class World {
     this.data = new Array(this.nchunks).fill(null);
     this.count = new Int32Array(this.nchunks);
     this.regionDirty = new Uint8Array(this.nregions);
+    this.stamp = new Uint32Array(this.nchunks);
     this.terrain = new Terrain(sx, sz, groundHeight);
   }
 
@@ -140,6 +144,7 @@ export class World {
     if (old === v) return old;
     d[li] = v;
     this.edits++;
+    this.stamp[ci] = ++this.stampCounter;
     if (old === 0) this.count[ci]++;
     else if (v === 0) {
       if (--this.count[ci] === 0) { this.kind[ci] = CK.Empty; this.data[ci] = null; }
@@ -313,6 +318,18 @@ export class World {
     if (solid === 0) return 0;
     if (solid === n && !trans) return 2;
     return 1;
+  }
+
+  /** Latest modification stamp of the chunks overlapping a voxel box. */
+  maxStamp(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): number {
+    let m = 0;
+    const cx0 = Math.max(0, x0 >> 4), cy0 = Math.max(0, y0 >> 4), cz0 = Math.max(0, z0 >> 4);
+    const cx1 = Math.min(this.ncx - 1, x1 >> 4), cy1 = Math.min(this.ncy - 1, y1 >> 4), cz1 = Math.min(this.ncz - 1, z1 >> 4);
+    for (let cy = cy0; cy <= cy1; cy++) for (let cz = cz0; cz <= cz1; cz++) {
+      let ci = cx0 + this.ncx * (cz + this.ncz * cy);
+      for (let cx = cx0; cx <= cx1; cx++, ci++) { const s = this.stamp[ci]; if (s > m) m = s; }
+    }
+    return m;
   }
 
   /** Total memory used by dense chunks, in bytes. */

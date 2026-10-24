@@ -41,8 +41,8 @@ MATERIALS[Mat.Concrete] = M('concrete', 2.4, 2, 0.72, 0.8, 0.05, 0, 0, 1.0, Snd.
 MATERIALS[Mat.Brick] = M('brick', 1.9, 2, 0.8, 0.8, 0.05, 0, 0, 0.75, Snd.Concrete, Debris.Chunk);
 MATERIALS[Mat.Plaster] = M('plaster', 1.1, 1, 1.2, 0.7, 0.05, 0, 0, 0.35, Snd.Concrete, Debris.Dust);
 MATERIALS[Mat.Wood] = M('wood', 0.6, 1, 1.05, 0.6, 0.15, 1.0, 9, 0.6, Snd.Wood, Debris.Splinter);
-MATERIALS[Mat.Metal] = M('metal', 2.2, 3, 0.5, 0.45, 0.15, 0, 0, 2.4, Snd.Metal, Debris.Spark);
-MATERIALS[Mat.HeavyMetal] = M('heavy metal', 5.0, 4, 0.28, 0.45, 0.1, 0, 0, 4.0, Snd.Metal, Debris.Spark);
+MATERIALS[Mat.Metal] = M('metal', 1.0, 3, 0.5, 0.45, 0.15, 0, 0, 2.4, Snd.Metal, Debris.Spark);
+MATERIALS[Mat.HeavyMetal] = M('heavy metal', 3.0, 4, 0.28, 0.45, 0.1, 0, 0, 4.0, Snd.Metal, Debris.Spark);
 MATERIALS[Mat.Glass] = M('glass', 2.5, 0, 2.2, 0.4, 0.05, 0, 0, 0.15, Snd.Glass, Debris.Shard, true);
 MATERIALS[Mat.Dirt] = M('dirt', 1.5, 1, 1.0, 0.9, 0.0, 0, 0, 0.3, Snd.Dirt, Debris.Dust);
 MATERIALS[Mat.Grass] = M('grass', 1.4, 1, 1.0, 0.9, 0.0, 0.15, 3, 0.3, Snd.Dirt, Debris.Dust);
@@ -205,6 +205,7 @@ export const P = {
   chrome: pal('chrome', Mat.Metal, '#c8ccd0', { rough: 0.15, metal: 0.95 }),
   copper: pal('copper', Mat.Metal, '#b06a3a', { rough: 0.4, metal: 0.9 }),
   grate: pal('grate', Mat.Metal, '#5d6064', { density: 0.4 }),
+  shutter: group('shutter', Mat.Metal, ['#8e9397', '#83888c'], { density: 0.35 }),
   // --- heavy metal (machines)
   machineGreen: group('machine green', Mat.HeavyMetal, ['#4f6656', '#4a6051']),
   machineGrey: group('machine grey', Mat.HeavyMetal, ['#6b7075', '#656a6f']),
@@ -263,6 +264,7 @@ export const P = {
   rubbleDirt: group('rubble dirt', Mat.Rubble, ['#5a4836', '#524231']),
   rubbleWood: group('rubble wood', Mat.Rubble, ['#7a5a3a', '#6d5034']),
   scrap: group('scrap metal', Mat.Rubble, ['#5f5f60', '#6f5244']),
+  scrapMix: group('scrap mixed', Mat.Rubble, ['#7e4a2c', '#6b3f28', '#55585c', '#2f4a6e', '#8e2a24', '#1e1e1f', '#9a9d9f']),
   char: group('char', Mat.Char, ['#1c1a18', '#262220', '#2e2925']),
   ash: pal('ash', Mat.Char, '#4a4744'),
 };
@@ -343,6 +345,10 @@ for (let i = 1; i < PALETTE_SIZE; i++) {
   }
   PAL_PATTERN[i] = pt;
 }
+
+/** Palette entries that never carry structural load (doors, shutters...). Glass/lamps/foliage are excluded by material. */
+export const PAL_NOLOAD = new Uint8Array(256);
+for (let i = 0; i < PAL_GROUP[P.shutter]; i++) PAL_NOLOAD[P.shutter + i] = 1;
 
 /** Pick a shade variant of a palette group deterministically from a hash. */
 export function variant(base: number, h: number): number {
