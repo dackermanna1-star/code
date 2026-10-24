@@ -1,6 +1,18 @@
 import { Game } from './game/Game';
 
+async function loadFonts(): Promise<void> {
+  try {
+    await Promise.race([
+      Promise.all([document.fonts.load("120px 'Bungee'"), document.fonts.load("600 20px 'Rubik'")]),
+      new Promise((r) => setTimeout(r, 2500)),
+    ]);
+  } catch {
+    /* offline: fall back to system fonts */
+  }
+}
+
 async function boot(): Promise<void> {
+  await loadFonts();
   const container = document.getElementById('app')!;
   const game = new Game();
   await game.init(container);

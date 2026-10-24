@@ -55,6 +55,8 @@ export class Prop {
   /** interaction cooldown */
   usedAt = -10;
   reservedBy: unknown = null;
+  /** static until broken (railings, shelves) */
+  fixed = false;
 
   constructor(
     public def: PropDef,
@@ -146,12 +148,13 @@ export class PropSystem {
     return m;
   }
 
-  spawn(defId: string, pos: THREE.Vector3, rotY = 0, variant = -1, opts: { rot?: THREE.Quaternion; vel?: THREE.Vector3; angVel?: THREE.Vector3; sleeping?: boolean } = {}): Prop {
+  spawn(defId: string, pos: THREE.Vector3, rotY = 0, variant = -1, opts: { rot?: THREE.Quaternion; vel?: THREE.Vector3; angVel?: THREE.Vector3; sleeping?: boolean; fixed?: boolean } = {}): Prop {
     const def = PROPS[defId];
     if (!def) throw new Error('unknown prop ' + defId);
     const v = variant >= 0 ? variant % (def.variants ?? 1) : Math.floor(Math.random() * (def.variants ?? 1));
     const p = new Prop(def, v);
     const q = opts.rot ? opts.rot.clone() : new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotY);
+    p.fixed = !!opts.fixed || !!def.fixed;
     this.createBody(p, pos, q, opts.vel, opts.angVel, opts.sleeping);
     p.instanceId = this.batch.addInstance(this.geoId(def.id, v));
     _m.compose(pos, q, _s);
@@ -167,7 +170,7 @@ export class PropSystem {
   private createBody(p: Prop, pos: THREE.Vector3, q: THREE.Quaternion, vel?: THREE.Vector3, angVel?: THREE.Vector3, sleeping?: boolean): void {
     const def = p.def;
     const { world } = ctx.physics;
-    const bd = RAPIER.RigidBodyDesc.dynamic()
+    const bd = (p.fixed ? RAPIER.RigidBodyDesc.fixed() : RAPIER.RigidBodyDesc.dynamic())
       .setTranslation(pos.x, pos.y, pos.z)
       .setRotation({ x: q.x, y: q.y, z: q.z, w: q.w })
       .setCcdEnabled(!!def.ccd)
@@ -269,7 +272,7 @@ export class PropSystem {
   capture(): void {
     for (const p of this.props) {
       const b = p.body;
-      if (!b) continue;
+      if (!b || p.fixed) continue;
       const sleeping = b.isSleeping();
       if (sleeping && !p.awake) continue;
       p.awake = !sleeping;
@@ -304,6 +307,14 @@ export class PropSystem {
   private onContact(p: Prop, ev: ContactImpact): void {
     if (p.state !== 'free') return;
     const imp = ev.impulse;
+    if (p.fixed) {
+      const bi = p.def.breakImpulse;
+      if (bi !== undefined && imp > bi * 0.35) {
+        p.health -= imp;
+        if (imp > bi || p.health <= 0) this.breakProp(p, ev.dir.clone().negate(), imp);
+      }
+      return;
+    }
     const now = ctx.time.elapsed;
     const other = ev.otherOwner;
     // thrown or fast-moving prop hitting a character
@@ -418,6 +429,12 @@ export class PropSystem {
   hitProp(collider: RCollider, point: THREE.Vector3, dir: THREE.Vector3, impulse: number, damage: number, type: DamageType | string, attacker: unknown): void {
     const p = this.propOf(collider);
     if (!p || !p.body) return;
+    if (p.fixed) {
+      events.emit('impact', { pos: point.clone(), normal: dir.clone().negate(), material: p.def.material, strength: clamp(impulse / 20, 0.2, 1.2), otherMaterial: 'flesh' });
+      p.health -= damage * 1.5 + impulse * 0.5;
+      if (p.health <= 0) this.breakProp(p, dir, impulse);
+      return;
+    }
     p.body.applyImpulseAtPoint({ x: dir.x * impulse, y: dir.y * impulse + impulse * 0.25, z: dir.z * impulse }, { x: point.x, y: point.y, z: point.z }, true);
     p.awake = true;
     events.emit('impact', { pos: point.clone(), normal: dir.clone().negate(), material: p.def.material, strength: clamp(impulse / 20, 0.2, 1.2), otherMaterial: 'flesh' });

@@ -1288,6 +1288,42 @@ def({
   small: true,
 });
 
+// ------------------------------------------------------------------ architecture breakables
+for (const [suffix, L] of [
+  ['', 1.2],
+  ['_09', 0.9],
+  ['_06', 0.6],
+  ['_15', 1.5],
+] as [string, number][]) {
+  def({
+    id: 'railing' + suffix,
+    name: 'Railing',
+    build: (b) => {
+      const c = '#4a2c18';
+      b.box({ size: [L, 0.09, 0.11], pos: [0, 1.0, 0], tile: T.WOOD_DARK, color: c });
+      b.box({ size: [L, 0.06, 0.07], pos: [0, 0.1, 0], tile: T.WOOD_DARK, color: c });
+      const n = Math.max(2, Math.round(L / 0.16));
+      for (let i = 0; i < n; i++) {
+        const x = -L / 2 + (L / n) * (i + 0.5);
+        b.box({ size: [0.045, 0.85, 0.045], pos: [x, 0.55, 0], tile: T.WOOD, color: '#6a4228' });
+      }
+    },
+    colliders: [{ shape: 'box', size: [L, 1.05, 0.12], pos: [0, 0.53, 0] }],
+    mass: 14 * L,
+    material: 'wood',
+    health: 90,
+    breakImpulse: 60,
+    breakFx: 'wood',
+    debrisColor: '#5a3820',
+    pieces: [
+      { id: 'plank', pos: [0, 1.0, 0], rot: [0, 0, 90] },
+      { id: 'chair_leg', pos: [-L * 0.25, 0.5, 0] },
+      { id: 'chair_leg', pos: [L * 0.25, 0.5, 0] },
+    ],
+    fixed: true,
+  });
+}
+
 // ------------------------------------------------------------------ big interactive machines
 def({
   id: 'arcade',

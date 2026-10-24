@@ -14,14 +14,16 @@ fs.mkdirSync(outDir, { recursive: true });
 const browser = await chromium.launch({
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'],
 });
-const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+const vw = parseInt(process.env.VW || '960', 10);
+const vh = parseInt(process.env.VH || '540', 10);
+const page = await browser.newPage({ viewport: { width: vw, height: vh } });
 const logs = [];
 page.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
 page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}\n${e.stack}`));
 await page.goto(url, { waitUntil: 'load' });
 await page.waitForFunction(() => !!window.__game, null, { timeout: 60000 });
 const shot = async (name) => {
-  await page.screenshot({ path: path.join(outDir, name + '.png') });
+  await page.screenshot({ path: path.join(outDir, name + '.png'), timeout: 90000 });
   console.log('saved', name);
 };
 if (scenarioPath) {

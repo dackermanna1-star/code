@@ -189,7 +189,7 @@ export class FX {
   }
 
   bloodSpray(point: THREE.Vector3, dir: THREE.Vector3, amount: number, sharp: boolean): void {
-    const n = Math.round(amount * (sharp ? 12 : 9));
+    const n = Math.round(amount * (sharp ? 9 : 6.5));
     const d = _v3.copy(dir).normalize();
     for (let i = 0; i < n; i++) {
       // most go forward with the blow; a few spatter back
@@ -198,10 +198,11 @@ export class FX {
       _v2.multiplyScalar(rand(1.5, sharp ? 7 : 5.5));
       _v2.y += rand(0.5, 2.5);
       this.particles.spawn('blood', point, _v2, {
-        size: rand(0.016, 0.042),
+        size: rand(0.018, 0.046),
         color: bloodHex(),
         life: 2.5,
-        stain: true,
+        stain: Math.random() < 0.7,
+        stainScale: 1.35,
         stretch: 0.06,
         drag: 0.5,
         gravity: 15,

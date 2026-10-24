@@ -709,6 +709,11 @@ export class Character implements Combatant {
     }
   }
 
+  /** Add an external horizontal velocity (dodges, shoves). */
+  push(v: THREE.Vector3): void {
+    this.knock.add(v);
+  }
+
   /** Our attack was parried: big stagger window. */
   parried(_by: Combatant): void {
     if (this.state !== 'active') return;

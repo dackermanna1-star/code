@@ -15,6 +15,12 @@ import { PropSystem } from '../world/Props';
 import { WeaponSystem } from '../weapons/Weapons';
 import { PlayerInteraction } from '../player/Interaction';
 import { Gibs } from '../fx/Gibs';
+import { buildBarLevel, type LevelInfo } from '../world/BarLevel';
+import { LightManager } from '../render/LightManager';
+import { NavGrid } from '../ai/NavGrid';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { AIManager } from '../ai/AIManager';
+import { Director } from './Director';
 
 /** Bootstraps systems and runs the main loop. */
 export class Game {
@@ -30,6 +36,12 @@ export class Game {
   weapons!: WeaponSystem;
   interaction!: PlayerInteraction;
   gibs!: Gibs;
+  level!: LevelInfo;
+  lightMgr!: LightManager;
+  nav = new NavGrid();
+  sun!: THREE.DirectionalLight;
+  ai!: AIManager;
+  director!: Director;
   private syncs: BodySync[] = [];
   private last = 0;
   private acc = 0;
@@ -43,9 +55,12 @@ export class Game {
   frameCount = 0;
   paused = false;
 
+  readonly params = new URLSearchParams(location.search);
+
   async init(container: HTMLElement): Promise<void> {
     this.physics = await Physics.create();
-    this.engine = new Engine(container, QUALITY_PRESETS.medium);
+    const qName = (this.params.get('quality') as keyof typeof QUALITY_PRESETS) || (localStorage.getItem('lc_quality') as keyof typeof QUALITY_PRESETS) || 'medium';
+    this.engine = new Engine(container, QUALITY_PRESETS[qName] ?? QUALITY_PRESETS.medium);
     this.input = new Input(this.engine.canvas);
     ctx.engine = this.engine;
     ctx.physics = this.physics;
@@ -58,16 +73,23 @@ export class Game {
     this.weapons = new WeaponSystem(this.props);
     this.gibs = new Gibs(this.engine.scene);
 
-    this.buildTestRoom();
-    this.player = new Player(new THREE.Vector3(0, 0, 6), 0);
+    this.buildLevel();
+    const sp = this.level.playerSpawn;
+    this.player = new Player(sp.pos.clone(), sp.yaw);
     this.player.camFx = this.camFx;
     this.player.combat = this.combat;
     this.player.attachViewModel(this.engine.camera);
     ctx.player = this.player;
     this.combat.add(this.player);
     this.interaction = new PlayerInteraction(this.player, this.weapons);
-    this.spawnTestProps();
-    this.spawnShowcase();
+    this.ai = new AIManager(this.nav, this.level);
+    ctx.services.ai = this.ai;
+    this.director = new Director(this.ai, this.weapons, this.level, (c) => this.addCharacter(c), (c) => this.removeCharacter(c));
+    ctx.services.director = this.director;
+    const crowd = parseInt(this.params.get('crowd') ?? '', 10);
+    if (!isNaN(crowd)) this.director.crowdSize = crowd;
+    if (this.params.get('mode') === 'survival') this.director.startSurvival();
+    else this.director.startBrawl();
 
     events.on('footstep', (e) => {
       if (!e.isPlayer) return;
@@ -75,6 +97,42 @@ export class Game {
 
     this.engine.canvas.addEventListener('click', () => this.input.requestLock());
     (window as any).__game = this;
+  }
+
+  private buildLevel(): void {
+    const scene = this.engine.scene;
+    scene.background = new THREE.Color(0x0c0807);
+    scene.fog = new THREE.Fog(0x140c09, 22, 75);
+    const hemi = new THREE.HemisphereLight(0xffdcb8, 0x3a2418, 0.85);
+    scene.add(hemi);
+    // subtle image based lighting so metals / glass have something to reflect
+    const pmrem = new THREE.PMREMGenerator(this.engine.renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity = 0.22;
+    pmrem.dispose();
+    const sun = new THREE.DirectionalLight(0xffe8d0, 0.85);
+    sun.position.set(7, 30, 9);
+    sun.target.position.set(0, 0, -1);
+    sun.castShadow = this.engine.quality.shadows;
+    const sz = this.engine.quality.shadowMapSize;
+    sun.shadow.mapSize.set(sz, sz);
+    const sc = sun.shadow.camera;
+    sc.left = -21;
+    sc.right = 21;
+    sc.top = 19;
+    sc.bottom = -19;
+    sc.near = 5;
+    sc.far = 60;
+    sun.shadow.bias = -0.0006;
+    sun.shadow.normalBias = 0.03;
+    scene.add(sun);
+    scene.add(sun.target);
+    this.sun = sun;
+    this.level = buildBarLevel(scene, this.props);
+    this.lightMgr = new LightManager(scene, this.level.lights, this.engine.quality.lightBudget, 4);
+    const t0 = performance.now();
+    this.nav.build(this.level.bounds);
+    console.log(`nav grid: ${this.nav.count} nodes in ${(performance.now() - t0).toFixed(0)}ms`);
   }
 
   private buildTestRoom(): void {
@@ -187,18 +245,33 @@ export class Game {
 
   spawnShowcase(): void {
     const styles: Style[] = ['biker', 'bouncer', 'bartender', 'cook', 'waitress', 'drunk', 'nerd', 'brawler', 'boss', 'punk', 'cowboy', 'patron'];
-    styles.forEach((st, i) => {
-      const app = makeAppearance(st, 1000 + i * 17);
-      const x = (i - (styles.length - 1) / 2) * 1.1;
-      const c = new Character(app, new THREE.Vector3(x, 0, 2), 0);
+    const seats = this.level.seats.filter((s) => s.zone === 'hall' || s.zone === 'bar');
+    for (let i = 0; i < 18 && i < seats.length; i++) {
+      const seat = seats[(i * 7) % seats.length];
+      const app = makeAppearance(styles[i % styles.length], 1000 + i * 17);
+      const p = seat.pos.clone();
+      // stand next to the seat for now
+      p.x += Math.sin(seat.yaw) * 0.6;
+      p.z += Math.cos(seat.yaw) * 0.6;
+      const c = new Character(app, p, seat.yaw);
       this.addCharacter(c);
-    });
+    }
   }
 
   addCharacter(c: Character): void {
     this.engine.scene.add(c.model.root);
     this.characters.push(c);
     this.combat.add(c);
+  }
+
+  removeCharacter(c: Character): void {
+    const i = this.characters.indexOf(c);
+    if (i >= 0) this.characters.splice(i, 1);
+    this.combat.remove(c);
+    const b = (c as any).brain;
+    if (b) this.ai.remove(b);
+    if (c.weapon) c.dropWeapon();
+    c.dispose();
   }
 
   start(): void {
@@ -216,6 +289,15 @@ export class Game {
   stepFrames(n: number, dt = 1 / 60): void {
     for (let i = 0; i < n; i++) this.tick(dt);
   }
+
+  /** Run game logic for `seconds` of game time without rendering (headless AI tests). */
+  simulate(seconds: number, dt = 1 / 30): void {
+    this.skipRender = true;
+    const n = Math.ceil(seconds / dt);
+    for (let i = 0; i < n; i++) this.tick(dt);
+    this.skipRender = false;
+  }
+  skipRender = false;
 
   private frame(now: number): void {
     const realDt = Math.min((now - this.last) / 1000, 0.1);
@@ -248,16 +330,22 @@ export class Game {
     const alpha = this.acc / fixed;
 
     for (const s of this.syncs) s.apply(alpha);
+    for (const d of this.level.doors) d.apply(alpha);
+    for (const a of this.level.animated) a(this.time.elapsed, dt);
+    (this.level.danceFloor.material as THREE.ShaderMaterial).uniforms.uTime.value = this.time.elapsed;
+    this.lightMgr.update(dt, this.engine.camera);
     this.frameCount++;
     this.player.ctrl.updateVisual(dt, alpha);
     this.player.update(dt, realDt);
     this.interaction.update(dt);
+    this.ai.update(dt);
+    this.director.update(dt);
     this.props.update(alpha);
     this.gibs.update(dt, alpha);
     for (const c of this.characters) c.update(dt, alpha, this.frameCount);
     this.fx.update(dt, this.engine.camera);
     this.updateCamera(dt, realDt);
-    this.engine.renderer.render(this.engine.scene, this.engine.camera);
+    if (!this.skipRender) this.engine.renderer.render(this.engine.scene, this.engine.camera);
     this.input.endFrame();
   }
 
@@ -285,6 +373,7 @@ export class Game {
     this.player.fixedUpdate(dt);
     this.player.ctrl.intent.jump = false;
     this.player.ctrl.intent.dodge = false;
+    this.ai.fixedUpdate(dt);
     for (const c of this.characters) c.fixedUpdate(dt);
     this.physics.step();
     this.player.ctrl.capture();
@@ -292,6 +381,7 @@ export class Game {
     for (const s of this.syncs) s.capture();
     this.props.capture();
     this.gibs.capture();
+    for (const d of this.level.doors) d.capture();
   }
 
   private _camPos = new THREE.Vector3();
