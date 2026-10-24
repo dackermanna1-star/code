@@ -119,6 +119,20 @@ The first start creates `data/db.json`. The site's clock starts on September 1, 
   - **Ragdoll Bowling**: you are the ball. Pick your line, then slide head first down a polished lane into ten giant pins.
   - The athletes are ragdolls built from six rigid bodies, with joints that bend the way a person's do. Bones break on hard enough landings, and broken limbs go floppy.
   - **A**/**D** aim and **Space** (hold, then let go) sets the power for the launch events. **R** flops you over between events (**Space** gets you up), and **Tab** shows the standings.
+- **DEATHRUN: Curse of the Pharaoh**: a deathrun through an ancient Egyptian temple and tomb, made by Robloxian2008. Like the games above, it is a modern-style user-made place, not a 2008 recreation.
+  - Each round the curse takes one player: the **Pharaoh**. The Pharaoh walks the hidden galleries above the halls and stands by golden scarabs to unleash their traps (**E**). Each trap works once a round, and the Pharaoh wakes four seconds after the gates open.
+  - Everyone else runs through eight halls to the Eye of Ra in the King's Chamber, inside the pyramid. When the first runner reaches it, the Eye opens. Fifteen seconds later the sun burns the Pharaoh and the runners win. If nobody makes it in five minutes, the Pharaoh wins.
+  - The halls and their traps:
+    - **1. The Nile Gate**: seated colossi, a causeway along the Nile. The Collapsing Causeway, the Toppling Obelisk, the Sand Geysers.
+    - **2. The Avenue of the Sphinxes**: a ramp between ram-headed sphinxes. The Rolling Boulder (hide in a niche), the Flame Sphinxes, the Sinking Sands.
+    - **3. The Hypostyle Hall**: a forest of painted columns, with sunbeams through the windows. The Falling Ceiling, the Khopesh Pendulums, the Spear Wall.
+    - **4. The Sacred Lake**: the pyramid is on the horizon. The Sinking Lotus (cross on the lotus pads), Sobek's Jaws, the Flood of the Nile (climb an altar).
+    - **5. The Tomb of the Scarabs**: down a stair into the rock. The Trapdoors over bronze spikes, the Scarab Swarm (get up on a sarcophagus), the Rise of the Mummies (run).
+    - **6. The Hall of Judgement**: Osiris and the 42 judges, in green light. Anubis' Sweep (jump his staff, or hide in a corner), the Scales of Maat over Ammit's pit, the Closing Walls.
+    - **7. The Lake of Fire**: the underworld, where the boat of Ra sails on the lava. The Fire Pillars, the Bridge of Ash (it crumbles behind you), Apophis.
+    - **8. The Ascent of Ra**: up the Grand Gallery to the King's Chamber. The Granite Plugs (get up on a ledge), the Sunbeams of Ra (watch which stones glow), the Falling Capstones.
+  - Rounds start in the explorers' camp at the oasis. Press **P** there to volunteer as the next Pharaoh. Escaping earns gold, and so does each kill for the Pharaoh. While you are dead, **Q** and **E** switch between the runners you watch.
+  - The other players run too: some go first, some wait for someone else to set a trap off, and they duck into the hiding places when one goes off. As the Pharaoh, a bot waits for runners to step into a trap.
 - **Your own place**: on your My ROBLOX page, click Edit under your place.
   - **Tools** gives the Grab, Clone and Delete build tools.
   - **Insert** adds bricks and the models you own.

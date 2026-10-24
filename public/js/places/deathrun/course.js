@@ -285,7 +285,7 @@ function hall1(C, O) {
     run(k, dt) {
       for (const s of slabs) {
         // they shake, then go one row after another from the near end (the far end gives you a chance)
-        const t0 = 0.45 + s.r * 0.3 + s.c * 0.08;
+        const t0 = 0.5 + s.r * 0.6 + s.c * 0.1;
         const fall = seg(k, t0, t0 + 0.9), back = seg(k, 4.8, 6.6);
         const d = easeIn(fall) * 16 * (1 - easeInOut(back));
         _v.copy(s.m.home.pos); _v.y -= d;
@@ -679,7 +679,7 @@ function hall2(C, O) {
     when: (k) => k > 5.2,
   });
   button(C, t4, -60);
-  R.gate(t4).walk(0, 0, -10).walk(0, TOP, -114, { r: 2.5 }).walk(0, TOP, -120);
+  R.gate(t4, { w: 1 }).walk(0, 0, -10).walk(0, TOP, -114, { r: 2.5 }).walk(0, TOP, -120);
 
   // ---- trap 5: the flame sphinxes - great heads on the walls breathe fire across the way
   const eyeM = mat('eyeGlow').clone(); eyeM.emissiveIntensity = 0.25;

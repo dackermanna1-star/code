@@ -207,6 +207,26 @@ Ratings and voting: 2008 pages show only how many times a place was Visited and 
 - The crowd is about 9,000 instanced figures, animated in the vertex shader: they bob, and jump and raise their arms when something big happens.
 - Every sound is synthesized with WebAudio: the crowd's murmur, cheers, "oooh"s and applause, the thuds and bone cracks, the cannon, the whistle and starting pistol, splashes, the pins, and the music (a heroic theme, the action loop and the closing anthem).
 
+### DEATHRUN: Curse of the Pharaoh (not a 2008 recreation)
+- Added on request: a deathrun in ancient Egypt. Deathruns (one player fires the traps, the others run the course) came to ROBLOX years after 2008. The course, the traps, the story and the look are original to this project.
+- The halls borrow from real places and from Egyptian religion, not copied to scale:
+  - The Nile Gate's seated colossi from Abu Simbel.
+  - The avenue of ram-headed sphinxes from Karnak.
+  - The hypostyle hall's papyrus columns and clerestory windows, also from Karnak.
+  - A temple's sacred lake.
+  - A tomb in the style of the Valley of the Kings: a stair cut into the rock, a painted corridor and a starry ceiling.
+  - The judgement of the dead from the Book of the Dead: Anubis, the scales of Maat, Ammit, Osiris and the 42 judges.
+  - The Duat with Apophis and the boat of Ra.
+  - The Great Pyramid's Grand Gallery (a corbelled vault with its side ramps), its granite plugs and the King's Chamber.
+- Building and rendering:
+  - The course is built with a box kit like the Ragdoll Olympics park's. Static geometry is merged per material, and every brick gets its own static collider.
+  - Moving traps are kinematic bodies whose velocity follows the motion, so people standing on them ride along.
+  - Kills are tested against each trap's shape, not with physics.
+  - The textures are painted at load time on canvases: sandstone, carved and painted hieroglyphs, reliefs, granite, gold, lapis, lava.
+  - The light is a low sun with HDR bloom, and each hall changes the light, the fog and the music.
+- The music uses the Hijaz scale over a darbuka rhythm (maqsum), with an oud, a ney and a drone. Like every sound, it is synthesized with WebAudio.
+- The bots follow a route each hall writes for them (walk, jump, and wait at a trap's edge), each on its own line across the way and at its own pace. They hide when a trap goes off, and they wait for someone else to set a trap off first. The bot Pharaoh walks to the trap the runners will reach next and fires it when somebody is inside.
+
 ### Personal places
 - **Verified:** the three starting templates (Happy Home in Robloxia, Starting BrickBattle Map, Empty Baseplate), the Tools and Insert menus in your own place, and the save-on-exit dialog.
 

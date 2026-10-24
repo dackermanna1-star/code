@@ -21,6 +21,7 @@ import { Gui } from './gui.js';
 import { DRBot } from './bots.js';
 import * as A from './audio.js';
 import * as PNT from './paint.js';
+import { THUMB } from './thumb.js';
 
 const ROUND = 300, INTERMISSION = 14, INTRO = 6, EYE = 15, END = 8, AWAKEN = 4; // (the Pharaoh needs a moment to wake)
 const S = { phase: 'boot', T: 0, round: 0, pharaoh: null, eyeAt: null };
@@ -77,7 +78,7 @@ const CAUSE = {
 const SHORT = { nile: 'Eaten by crocodiles!', fell: 'You fell!', mummy: 'A mummy got you!', sobek: 'Sobek ate you!', serpent: 'Apophis ate you!' };
 
 export default {
-  thumbnailImage: null,
+  thumbnailImage: THUMB,
 
   build(world, ctx = {}) {
     world.useStaticGrid?.(24);
