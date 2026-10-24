@@ -17,7 +17,7 @@ npm run build    # writes dist/ (open dist/index.html through any static web ser
 
 A prebuilt `dist/` is committed, so serving that folder is enough (`npx serve dist`, `python3 -m http.server -d dist`).
 
-Click **Play** to capture the mouse. URL options: `?quality=low|medium|high|ultra`, `?env=afternoon|sunset|overcast|night`,
+Click the menu to start (the mouse is captured; Esc brings the menu back). URL options: `?quality=low|medium|high|ultra`, `?env=afternoon|sunset|overcast|night`,
 `?testmap` (small test level), `?autoplay` (skip the menu), `?stats` (performance overlay).
 
 ### Controls
@@ -78,12 +78,26 @@ level always stands until it is damaged. Overloaded links crumble, pieces detach
 and the analysis runs again — collapses progress over seconds instead of being scripted.
 
 **Destruction** (`src/game/destruction.ts`, `fire.ts`). Explosions carve by per-material blast
-resistance, launch fragments as bodies, push bodies with a shockwave, shatter connected glass, ignite
-flammables, and set off connected explosive material (fuel tanks, gas bottles, transformer oil) as
-rolling chain reactions. Impacts break voxels by kinetic energy vs. material toughness; metal dents,
-concrete crumbles to dust and rubble, wood splinters, glass shatters. Fire spreads through flammable
-voxels, chars and burns them away. Debris particles and resting fragments settle into the world as
-rubble, so damage persists.
+resistance, throw fragments out as rigid bodies, push bodies with a shockwave, shatter connected glass,
+bend sheet metal around the hole (panels bulge away from the blast as connected stepped columns),
+blacken the crater with soot, ignite flammables, and set off connected explosive material (fuel tanks,
+gas bottles, transformer oil, vehicle fuel tanks) as rolling chain reactions; liquid fuels splash
+burning fuel around. Impacts break voxels by kinetic energy vs. material toughness: concrete crumbles
+to dust and rubble, metal dents and sparks, wood splinters, glass shatters into thin shards. Fire
+spreads through flammable voxels, chars and burns them away, and cooks off explosives. Debris particles
+and resting fragments settle into the world as rubble, so damage persists.
+
+## Performance
+
+- Level of detail: regions beyond 60 m / 130 m are meshed from 2× / 4× downsampled voxels (~70% fewer
+  quads, no visible change since a voxel is sub-pixel there); frustum culling per region and body.
+- Meshing, which re-runs for every modified region, happens in a worker pool off the main thread.
+- Physics: island sleeping, per-body world collision caches patched per modified chunk, small
+  fragments do not collide with each other and are baked into the static world once they rest.
+- Structural analysis and connectivity searches are time-sliced (they resume on the next frame) and
+  cache per-chunk data; chain reactions share fragment and particle budgets.
+- Quality presets (menu or `?quality=`) scale resolution, shadow map size, SSAO, volumetrics,
+  reflections and LOD distances.
 
 ## Development
 
@@ -92,5 +106,10 @@ npm run typecheck
 node tools/runtest.mjs tests/physics.test.ts     # rigid body regression tests (headless)
 node tools/runtest.mjs tests/stress.test.ts      # structural analysis on the real map
 node tools/runtest.mjs tests/collapse.test.ts    # progressive collapse of the construction site
+node tools/runtest.mjs tests/bend.test.ts        # blast-bent sheet metal stays attached
+node tools/runtest.mjs tests/vehicle.test.ts     # vehicle fuel tanks: bumps vs. bombs
 node tools/scenario.mjs out tests/scenarios/factory_views.json 960 540   # headless screenshots
 ```
+
+Profiling scripts (`tests/*.prof.ts`) measure LOD quad counts, the construction-site and hall
+collapses and the tank-farm chain reaction step by step.

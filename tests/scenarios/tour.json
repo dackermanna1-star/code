@@ -1,0 +1,24 @@
+{
+  "query": "autoplay&fixeddt",
+  "steps": [
+    { "frames": 5 },
+    { "eval": "(() => { const g = window.__game; g.player.noclip = true; g.viewModel.visible = false; document.querySelector('#hud .stats').style.display = 'none'; document.querySelector('#hud .tools').style.display = 'none'; document.querySelector('#hud .health').style.display = 'none'; g.player.pos.set(40, 6.6, 73); g.player.yaw = -1.3; g.player.pitch = 0.02; return true; })()" },
+    { "frames": 20 },
+    { "shot": "a_warehouse" },
+    { "eval": "(() => { const g = window.__game; g.player.pos.set(160, 6.6, 196); g.player.yaw = 2.6; g.player.pitch = -0.05; return true; })()" },
+    { "frames": 20 },
+    { "shot": "b_office" },
+    { "eval": "(() => { const g = window.__game; g.player.pos.set(205, 6.6, 47); g.player.yaw = -1.9; g.player.pitch = 0.05; return true; })()" },
+    { "frames": 20 },
+    { "shot": "c_boiler" },
+    { "eval": "(() => { const g = window.__game; g.player.pos.set(214, 7.0, 168); g.player.yaw = -0.9; g.player.pitch = -0.08; return true; })()" },
+    { "frames": 20 },
+    { "shot": "d_scrap" },
+    { "eval": "(() => { const g = window.__game; g.player.pos.set(30, 7.0, 210); g.player.yaw = -0.5; g.player.pitch = -0.05; return true; })()" },
+    { "frames": 20 },
+    { "shot": "e_substation" },
+    { "eval": "(() => { const g = window.__game; g.player.pos.set(95, 7.0, 140); g.player.yaw = 2.4; g.player.pitch = -0.05; return true; })()" },
+    { "frames": 20 },
+    { "shot": "f_yard" }
+  ]
+}
