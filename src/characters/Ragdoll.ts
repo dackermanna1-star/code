@@ -42,6 +42,8 @@ export class Ragdoll {
   readonly bodies: (RBody | null)[] = new Array(PART_COUNT).fill(null);
   readonly joints: (RAPIER.ImpulseJoint | null)[] = new Array(PART_COUNT).fill(null);
   private prevPos: THREE.Vector3[] = [];
+  /** per-part linear velocity at the end of the previous physics step */
+  readonly prevVel: THREE.Vector3[] = [];
   private currPos: THREE.Vector3[] = [];
   private prevRot: THREE.Quaternion[] = [];
   private currRot: THREE.Quaternion[] = [];
@@ -60,6 +62,7 @@ export class Ragdoll {
     model.updateMatrices();
     for (let i = 0; i < PART_COUNT; i++) {
       this.prevPos.push(new THREE.Vector3());
+      this.prevVel.push(new THREE.Vector3());
       this.currPos.push(new THREE.Vector3());
       this.prevRot.push(new THREE.Quaternion());
       this.currRot.push(new THREE.Quaternion());
@@ -187,6 +190,8 @@ export class Ragdoll {
       const r = b.rotation();
       this.currPos[i].set(t.x, t.y, t.z);
       this.currRot[i].set(r.x, r.y, r.z, r.w);
+      const v = b.linvel();
+      this.prevVel[i].set(v.x, v.y, v.z);
     }
   }
 

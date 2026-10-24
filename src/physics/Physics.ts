@@ -55,6 +55,8 @@ export interface PhysOwner {
   /** For ragdoll parts: part index. */
   part?: number;
   onContactForce?(ev: ContactImpact): void;
+  /** Melee strike on a static fixture (jukebox...). */
+  onMeleeHit?(damage: number, point: THREE.Vector3, dir: THREE.Vector3, attacker: import('../game/Combat').Combatant): void;
 }
 
 export interface ContactImpact {
@@ -91,6 +93,11 @@ export class Physics {
 
   static async create(): Promise<Physics> {
     await RAPIER.init();
+    return Physics.createWorld();
+  }
+
+  /** New empty world (RAPIER must already be initialised by `create`). */
+  static createWorld(): Physics {
     const p = new Physics();
     p.world = new RAPIER.World({ x: 0, y: -15, z: 0 });
     p.world.timestep = p.fixedDt;
@@ -98,6 +105,12 @@ export class Physics {
     p.eventQueue = new RAPIER.EventQueue(true);
     return p;
   }
+  /** Release the WASM world; every body / collider handle becomes invalid. */
+  free(): void {
+    this.eventQueue.free();
+    this.world.free();
+  }
+
 
   register(collider: RCollider, owner: PhysOwner): void {
     this.owners.set(collider.handle, owner);

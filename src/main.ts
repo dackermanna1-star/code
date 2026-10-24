@@ -17,12 +17,14 @@ async function boot(): Promise<void> {
   const game = new Game();
   await game.init(container);
   game.start();
+  await game.firstRound();
+  document.getElementById('boot')?.remove();
 }
 
 boot().catch((err) => {
   console.error(err);
   const el = document.createElement('pre');
-  el.style.cssText = 'position:fixed;inset:0;color:#f66;padding:20px;white-space:pre-wrap;z-index:99';
+  el.style.cssText = 'position:fixed;inset:0;color:#f66;background:#0b0706;padding:20px;white-space:pre-wrap;z-index:99;font:14px monospace';
   el.textContent = 'Failed to start: ' + (err?.stack || err);
   document.body.appendChild(el);
 });

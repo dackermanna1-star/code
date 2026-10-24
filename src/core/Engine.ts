@@ -55,7 +55,7 @@ export const QUALITY_PRESETS: Record<QualitySettings['name'], QualitySettings> =
 /** Owns the renderer, the main scene and the camera. */
 export class Engine {
   readonly renderer: THREE.WebGLRenderer;
-  readonly scene = new THREE.Scene();
+  scene = new THREE.Scene();
   readonly camera: THREE.PerspectiveCamera;
   readonly canvas: HTMLCanvasElement;
   quality: QualitySettings;
@@ -88,6 +88,14 @@ export class Engine {
 
     window.addEventListener('resize', () => this.resize());
     this.resize();
+  }
+
+  /** Swap in a fresh scene (new round); returns the old one for disposal. */
+  newScene(): THREE.Scene {
+    const old = this.scene;
+    this.scene = new THREE.Scene();
+    this.scene.add(this.camera);
+    return old;
   }
 
   onResize(fn: (w: number, h: number) => void): void {

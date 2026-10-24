@@ -51,6 +51,20 @@ export class TimeControl {
     return dt;
   }
 
+  /** Clear slow motion / hit stop (new round). */
+  reset(): void {
+    this.hitStopTimer = 0;
+    this.slowTimer = 0;
+    this.slowScale = 1;
+    this.scale = 1;
+    this.base = 1;
+  }
+
+  /** 0 = normal speed, 1 = heavy slow motion (for screen effects). */
+  get slowness(): number {
+    return this.slowTimer > 0 ? clamp((1 - this.slowScale) * Math.min(1, this.slowTimer / Math.max(0.2, this.slowDuration * 0.35)), 0, 1) : 0;
+  }
+
   get inHitStop(): boolean {
     return this.hitStopTimer > 0;
   }

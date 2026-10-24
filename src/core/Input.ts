@@ -68,6 +68,8 @@ export class Input {
   /** When false, gameplay input is ignored (menus open). */
   enabled = true;
   onLockChange: ((locked: boolean) => void) | null = null;
+  /** Accept mouse input without pointer lock (fallback when lock is unavailable). */
+  allowUnlocked = false;
   private keyboardLocked = false;
 
   constructor(private element: HTMLElement) {
@@ -139,7 +141,7 @@ export class Input {
   private onKeyDown = (e: KeyboardEvent) => {
     const code = e.code;
     // prevent browser shortcuts / scrolling for game keys while playing
-    if (this.locked) {
+    if (this.locked || this.allowUnlocked) {
       if (code === 'Tab' || code === 'Space' || code.startsWith('Arrow') || code === 'AltLeft' || (e.ctrlKey && code !== 'Escape')) {
         e.preventDefault();
       }
@@ -162,7 +164,7 @@ export class Input {
   };
 
   private onMouseDown = (e: MouseEvent) => {
-    if (!this.locked) return;
+    if (!this.locked && !this.allowUnlocked) return;
     e.preventDefault();
     if (!this.mouseDown.has(e.button)) this.mousePressed.add(e.button);
     this.mouseDown.add(e.button);
@@ -174,7 +176,7 @@ export class Input {
   };
 
   private onMouseMove = (e: MouseEvent) => {
-    if (!this.locked) return;
+    if ((!this.locked && !this.allowUnlocked) || !this.enabled) return;
     // guard against the occasional huge spike some browsers emit on lock
     const mx = Math.abs(e.movementX) > 600 ? 0 : e.movementX;
     const my = Math.abs(e.movementY) > 600 ? 0 : e.movementY;
@@ -183,7 +185,7 @@ export class Input {
   };
 
   private onWheel = (e: WheelEvent) => {
-    if (!this.locked) return;
+    if (!this.locked && !this.allowUnlocked) return;
     this.wheel += Math.sign(e.deltaY);
   };
 
@@ -223,6 +225,13 @@ export class Input {
 
   keyPressed(code: string): boolean {
     return this.pressed.has(code);
+  }
+
+  /** Drop any accumulated look / button state (entering or leaving menus). */
+  flush(): void {
+    this.mouseDX = 0;
+    this.mouseDY = 0;
+    this.clearAll();
   }
 
   /** Consume mouse look delta for this frame. */

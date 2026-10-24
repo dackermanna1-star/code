@@ -21,7 +21,7 @@ const logs = [];
 page.on('console', (m) => logs.push(`[${m.type()}] ${m.text()}`));
 page.on('pageerror', (e) => logs.push(`[pageerror] ${e.message}\n${e.stack}`));
 await page.goto(url, { waitUntil: 'load' });
-await page.waitForFunction(() => !!window.__game, null, { timeout: 60000 });
+await page.waitForFunction(() => !!window.__game && !!window.__game.player && window.__game.state !== 'loading', null, { timeout: 90000 });
 const shot = async (name) => {
   await page.screenshot({ path: path.join(outDir, name + '.png'), timeout: 90000 });
   console.log('saved', name);

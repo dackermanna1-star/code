@@ -23,4 +23,17 @@ export class Emitter<T extends Record<string, any>> {
   clear(): void {
     this.handlers = {};
   }
+
+  /** Remember the current listeners (long-lived systems subscribe before this). */
+  snapshot(): Map<keyof T, ((e: any) => void)[]> {
+    const m = new Map<keyof T, ((e: any) => void)[]>();
+    for (const k in this.handlers) m.set(k, this.handlers[k]!.slice());
+    return m;
+  }
+
+  /** Drop every listener added after `snap` was taken (per-round systems). */
+  restore(snap: Map<keyof T, ((e: any) => void)[]>): void {
+    this.handlers = {};
+    for (const [k, list] of snap) this.handlers[k] = list.slice();
+  }
 }

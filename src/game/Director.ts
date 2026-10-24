@@ -42,6 +42,10 @@ export class Director {
   multiKill = 0;
   private drinkTimer = 0;
 
+  get levelZones() {
+    return this.level.zones;
+  }
+
   constructor(
     private ai: AIManager,
     private weapons: WeaponSystem,
@@ -177,7 +181,13 @@ export class Director {
       spawned++;
     }
     this.initialCount = this.npcs.length;
-    this.hooks?.message('THE IRON HORSE', 'Last call. Be the last one standing.', 'big');
+  }
+
+  /** Show the round's opening title (called when the player takes control). */
+  announce(): void {
+    this.startTime = ctx.time.elapsed;
+    if (this.mode === 'brawl') this.hooks?.message('THE IRON HORSE', 'Last call. Be the last one standing.', 'big');
+    else this.hooks?.message('SURVIVAL', 'They keep coming. How long can you last?', 'big');
   }
 
   private placeAtSeat(b: Brain, seat: (typeof this.level.seats)[number]): void {
@@ -213,7 +223,6 @@ export class Director {
       this.placeAtSeat(b, sp);
     }
     this.initialCount = 0;
-    this.hooks?.message('SURVIVAL', 'They keep coming. How long can you last?', 'big');
   }
 
   private spawnWave(): void {
@@ -258,7 +267,7 @@ export class Director {
       this.hooks?.message('BIG EARL', 'The boss wants a word.', 'warn');
     }
     this.hooks?.message(`WAVE ${this.wave}`, `${n} incoming`, 'warn');
-    this.ai.difficulty = Math.min(1.6, 1 + this.wave * 0.05);
+    this.ai.difficulty = this.ai.baseDifficulty * Math.min(1.6, 1 + this.wave * 0.05);
   }
 
   private spawnReinforcements(): void {
@@ -300,12 +309,29 @@ export class Director {
     return this.npcs.filter((c) => c.alive);
   }
 
+  /** Survival: hostiles of the current wave still standing. */
+  waveRemainingList(): Character[] {
+    return this.npcs.filter((c) => c.alive && (((c as any).brain as Brain | undefined)?.group ?? 0) >= 2000);
+  }
+
+  waveRemaining(): number {
+    return this.waveRemainingList().length;
+  }
+
+  get waveInProgress(): boolean {
+    return this.waveActive;
+  }
+
+  get nextWaveIn(): number {
+    return Math.max(0, this.waveTimer);
+  }
+
   private onDeath(victim: Character, cause: string): void {
     if (victim.isPlayer as unknown as boolean) {
       if (this.state === 'playing') {
         this.state = 'lost';
         this.endTime = ctx.time.elapsed;
-        setTimeout(() => this.hooks?.end(false), 2200);
+        ctx.timers.after(2.6, () => this.hooks?.end(false), true);
       }
       return;
     }
@@ -315,8 +341,10 @@ export class Director {
       this.kills++;
       ctx.player.kills++;
       ctx.player.stats.kills++;
-      ctx.player.addAdrenaline(12);
-      ctx.player.heal(4);
+      if (ctx.player.alive) {
+        ctx.player.addAdrenaline(12);
+        ctx.player.heal(6);
+      }
       const now = ctx.time.elapsed;
       this.multiKill = now - this.lastKillTime < 3 ? this.multiKill + 1 : 1;
       this.lastKillTime = now;
@@ -345,11 +373,11 @@ export class Director {
         this.endTime = ctx.time.elapsed;
         ctx.time.slowMo(2.0, 0.25);
         this.hooks?.message('LAST ONE STANDING', 'The Iron Horse is closed for repairs.', 'big');
-        setTimeout(() => this.hooks?.end(true), 3500);
+        ctx.timers.after(3.8, () => this.hooks?.end(true), true);
       }
     } else {
       // survival
-      const rem = this.npcs.filter((c) => c.alive && ((c as any).brain as Brain)?.group >= 2000).length;
+      const rem = this.waveRemaining();
       if (this.waveActive && rem === 0) {
         this.waveActive = false;
         this.waveTimer = 9;

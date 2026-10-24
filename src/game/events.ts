@@ -15,11 +15,12 @@ export interface GameEvents {
   noise: { pos: THREE.Vector3; radius: number; kind: 'hit' | 'scream' | 'break' | 'death' | 'shout' | 'impact' | 'music'; source: Combatant | null; target?: Combatant | null };
   impact: { pos: THREE.Vector3; normal: THREE.Vector3; material: SurfaceMaterial; strength: number; otherMaterial?: SurfaceMaterial };
   whiff: { attacker: Combatant; pos: THREE.Vector3; heavy: boolean };
-  footstep: { pos: THREE.Vector3; material: SurfaceMaterial; intensity: number; isPlayer: boolean };
+  footstep: { pos: THREE.Vector3; material: SurfaceMaterial; intensity: number; isPlayer: boolean; who?: Combatant; yaw?: number; left?: boolean };
   ragdollImpact: { pos: THREE.Vector3; strength: number; part: number; target: Combatant };
   vocal: { who: Combatant; kind: 'grunt' | 'pain' | 'scream' | 'death' | 'shout' | 'laugh' | 'taunt' | 'effort' | 'gurgle'; pos: THREE.Vector3; pitch: number };
   block: { target: Combatant; attacker: Combatant | null; pos: THREE.Vector3; parry: boolean };
   kill: { killer: Combatant | null; victim: Combatant; style: string };
+  takedown: { attacker: Combatant; victim: Combatant; kind: string; pos: THREE.Vector3 };
 }
 
 export const events = new Emitter<GameEvents>();

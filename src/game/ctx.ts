@@ -7,6 +7,7 @@ import type { FX } from '../fx/FX';
 import type { PropSystem } from '../world/Props';
 import type { Player } from '../player/Player';
 import type { CombatSystem } from './CombatSystem';
+import type { Scheduler } from '../core/Scheduler';
 
 /**
  * Global service locator for game systems. Systems are assigned during
@@ -23,6 +24,8 @@ export interface GameContext {
   props: PropSystem;
   player: Player;
   combat: CombatSystem;
+  /** game-time timers for the current round */
+  timers: Scheduler;
   gibs?: { spawn(mesh: THREE.Mesh, half: THREE.Vector3, vel: THREE.Vector3, owner: unknown): void };
   weapons?: { dropFromCharacter(ch: unknown, item: unknown, vel?: THREE.Vector3): void };
   /** generic services added by later systems */

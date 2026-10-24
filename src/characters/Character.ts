@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { surfaceAt } from '../world/BarLevel';
 import { RAPIER, GROUPS, QG, type RBody, type RCollider, type ContactImpact } from '../physics/Physics';
 import { ctx } from '../game/ctx';
 import { events } from '../game/events';
@@ -86,6 +87,7 @@ export class Character implements Combatant {
   lastHitTime = -100;
   deathTime = -1;
   killedBy: Combatant | null = null;
+  private lastImpactDamage = -10;
   /** time spent in current ragdoll */
   ragdollTime = 0;
   canGetUp = true;
@@ -150,9 +152,10 @@ export class Character implements Combatant {
     this.prevPos.copy(this.currPos);
     this.renderPos.copy(this.currPos);
     this.updateRoot();
-    this.animator.onFootstep = (_foot, intensity) => {
+    this.animator.onFootstep = (foot, intensity) => {
       if (this.state !== 'active') return;
-      events.emit('footstep', { pos: this.position, material: 'wood', intensity, isPlayer: false });
+      const zones = ctx.services.director?.levelZones;
+      events.emit('footstep', { pos: this.position, material: zones ? surfaceAt(zones, this.position) : 'wood', intensity, isPlayer: false, who: this, yaw: this.yaw, left: foot === 0 });
     };
     this.model.root.userData.character = this;
   }
@@ -817,13 +820,18 @@ export class Character implements Combatant {
     const strength = ev.impulse;
     if (strength < 4) return;
     events.emit('ragdollImpact', { pos: ev.point.clone(), strength, part, target: this });
-    // impact damage only for violent velocity changes (thrown into walls, long falls)
+    // impact damage only for violent velocity changes (thrown into walls, long falls):
+    // measured as the part's real change in velocity over this physics step
     const body = this.ragdoll?.bodies[part];
-    const mass = body ? body.mass() : 10;
-    const dv = strength / Math.max(mass, 1);
-    if (dv > 7.5) {
-      const dmg = (dv - 7.5) * 5.5;
-      if (this.alive && this.ragdollTime > 0.05) {
+    if (!body || this.ragdollTime < 0.06) return;
+    const pv = this.ragdoll!.prevVel[part];
+    const v = body.linvel();
+    const dv = Math.hypot(v.x - pv.x, v.y - pv.y, v.z - pv.z);
+    const now = ctx.time.elapsed;
+    if (dv > 7 && now - this.lastImpactDamage > 0.12) {
+      this.lastImpactDamage = now;
+      const dmg = Math.min(45, (dv - 7) * 4.2) * (part === P.HEAD ? 1.3 : 1);
+      if (this.alive) {
         this.health -= dmg;
         if (this.health <= 0) this.die(null, 'impact', this.lastAttacker);
       }

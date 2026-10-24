@@ -32,6 +32,8 @@ export class AIManager {
   brawlStartTime = -1;
   maxPlayerAttackers = 2;
   difficulty = 1;
+  /** from the difficulty setting; survival scales `difficulty` from this */
+  baseDifficulty = 1;
   private thinkCursor = 0;
   time = 0;
   peaceful = false;
@@ -42,7 +44,7 @@ export class AIManager {
   ) {
     events.on('hit', ({ target, hit, result }) => {
       if (result.damage <= 0 && !result.blocked) return;
-      this.bumpIntensity(hit.attacker?.isPlayer ? 0.035 : 0.01);
+      this.bumpIntensity(hit.attacker?.isPlayer ? 0.022 : 0.006);
       if (!this.brawlStarted && hit.attacker) this.startBrawl();
       const victimBrain = (target as any).brain as Brain | undefined;
       if (victimBrain && hit.attacker) victimBrain.onAttacked(hit.attacker, result.damage, hit);
@@ -50,14 +52,14 @@ export class AIManager {
       if (hit.attacker) this.broadcastViolence(hit.attacker, target, hit.point, 13, result.killed ? 1.6 : 1);
     });
     events.on('death', ({ victim, hit }) => {
-      this.bumpIntensity(0.05);
+      this.bumpIntensity(0.035);
       const killer = hit?.attacker ?? (victim as Character).killedBy ?? null;
       if (killer) this.broadcastViolence(killer, victim, victim.position, 16, 2);
       this.releaseTokens(victim);
     });
     events.on('noise', (e) => {
       if (e.kind === 'break' || e.kind === 'shout') {
-        this.bumpIntensity(0.015);
+        this.bumpIntensity(0.01);
         for (const b of this.brains) {
           if (!b.ch.alive) continue;
           const d = b.ch.position.distanceTo(e.pos);
@@ -176,7 +178,7 @@ export class AIManager {
     if (set.has(b)) return true;
     // drop stale holders
     for (const h of set) if (!h.ch.alive || h.target !== target || !h.ch.upright) set.delete(h);
-    const max = this.maxPlayerAttackers + Math.floor(this.intensity * 1.5 * this.difficulty);
+    const max = this.maxPlayerAttackers + Math.floor(this.intensity * this.difficulty);
     if (set.size < max) {
       set.add(b);
       return true;

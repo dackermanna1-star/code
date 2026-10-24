@@ -143,7 +143,7 @@ export class Brain {
     else if (friendAttacker) this.addAnger(victim, 0.45 * p.loyalty * closeness);
     else {
       // random bar brawler logic: the more chaos the more people want in
-      const k = (attacker.isPlayer ? 0.38 : 0.2) * p.aggression * (0.4 + this.mgr.intensity) * severity * closeness;
+      const k = (attacker.isPlayer ? 0.32 : 0.16) * p.aggression * (0.4 + this.mgr.intensity) * severity * closeness;
       this.addAnger(attacker, k);
     }
     // staff defends the bar
@@ -552,7 +552,7 @@ export class Brain {
     // brawl fever: idle people decide to join the chaos
     if ((this.state === 'idle' || this.state === 'activity' || this.state === 'watch') && this.mgr.brawlStarted && !this.isBoss) {
       const p = this.arch.p;
-      if (chance(p.aggression * (this.mgr.intensity - 0.25) * 0.06 * dt * 8)) {
+      if (chance(p.aggression * (this.mgr.intensity - 0.3) * 0.035 * dt * 8)) {
         const near = this.mgr.neighbors(ch.position, 9, _near).filter((c) => c !== ch && c.upright && c.alive);
         if (near.length) {
           const pl = near.find((c) => c.isPlayer);
@@ -916,11 +916,11 @@ export class Brain {
       dart.body.setRotation({ x: q.x, y: q.y, z: q.z, w: q.w }, true);
     }
     // darts embed in the board shortly after
-    setTimeout(() => {
-      if (dart.body && dart.position(_v3).x > 16.6) {
+    ctx.timers.after(t + 0.1, () => {
+      if (dart.body && dart.state === 'free' && dart.position(_v3).x > 16.6) {
         dart.body.setBodyType(RAPIER.RigidBodyType.Fixed, false);
       }
-    }, (t + 0.1) * 1000);
+    });
   }
 
   // ------------------------------------------------------------------ combat
@@ -1128,7 +1128,7 @@ export class Brain {
     const target = bestHit.target;
     hitDone = target;
     // NPCs brawling among themselves hurt each other less, so the player stays the main event
-    const dmgMul = ch.stats.damageMul * (0.85 + 0.15 * this.mgr.difficulty) * (target.isPlayer ? 1 : 0.45);
+    const dmgMul = ch.stats.damageMul * (0.85 + 0.15 * this.mgr.difficulty) * (target.isPlayer ? 1 : 0.32);
     const dir = new THREE.Vector3().subVectors(bestHit.hit.world, origin).normalize();
     const hit: HitInfo = wdef
       ? {
@@ -1180,12 +1180,12 @@ export class Brain {
     }
     if (res.killed && this.tauntCD <= 0) {
       this.tauntCD = rand(3, 6);
-      setTimeout(() => {
+      ctx.timers.after(0.6, () => {
         if (ch.alive && this.state === 'combat' && ch.canAct) {
           ch.animator.play('taunt');
           this.bark(pick(['Ha! Lights out!', 'Stay down!', 'Next!', 'Who\'s next?!']));
         }
-      }, 600);
+      });
     }
     void hitDone;
   }

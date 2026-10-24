@@ -2,14 +2,15 @@ import * as THREE from 'three';
 import { Engine, QUALITY_PRESETS } from '../core/Engine';
 import { Input } from '../core/Input';
 import { TimeControl } from '../core/Time';
-import { Physics, RAPIER, GROUPS, BodySync } from '../physics/Physics';
+import { Scheduler } from '../core/Scheduler';
+import { SettingsStore, Records, type Settings, type QualityName } from '../core/Settings';
+import { Physics } from '../physics/Physics';
 import { ctx } from './ctx';
 import { events } from './events';
 import { Player } from '../player/Player';
 import { CameraFX } from '../fx/CameraFX';
 import { FX } from '../fx/FX';
-import { Character } from '../characters/Character';
-import { makeAppearance, type Style } from '../characters/Appearance';
+import type { Character } from '../characters/Character';
 import { CombatSystem } from './CombatSystem';
 import { PropSystem } from '../world/Props';
 import { WeaponSystem } from '../weapons/Weapons';
@@ -20,17 +21,76 @@ import { LightManager } from '../render/LightManager';
 import { NavGrid } from '../ai/NavGrid';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { AIManager } from '../ai/AIManager';
-import { Director } from './Director';
+import { Director, type GameMode } from './Director';
+import { PostFX } from '../render/PostFX';
+import { HUD } from '../ui/HUD';
+import { Menus } from '../ui/Menus';
+import { AttractCam } from './AttractCam';
+import { setupBarInteractions } from '../world/BarInteractions';
 
-/** Bootstraps systems and runs the main loop. */
+export type GameState = 'loading' | 'title' | 'playing' | 'paused' | 'over';
+
+const DIFFICULTY = {
+  easy: { ai: 0.75, incoming: 0.5, attackers: 1 },
+  normal: { ai: 1, incoming: 0.75, attackers: 2 },
+  hard: { ai: 1.3, incoming: 1.1, attackers: 3 },
+};
+
+function fmtTime(s: number): string {
+  s = Math.max(0, Math.floor(s));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/** Free GPU resources of a discarded scene graph (materials are kept so shader programs stay cached). */
+function disposeTree(root: THREE.Object3D): void {
+  root.traverse((o) => {
+    const m = o as THREE.Mesh;
+    if ((o as THREE.InstancedMesh).isInstancedMesh || (o as THREE.BatchedMesh).isBatchedMesh) (o as THREE.InstancedMesh).dispose();
+    else if (m.geometry) m.geometry.dispose();
+    if ((o as THREE.SkinnedMesh).isSkinnedMesh) (o as THREE.SkinnedMesh).skeleton?.dispose();
+    const mats = m.material ? (Array.isArray(m.material) ? m.material : [m.material]) : [];
+    for (const mat of mats) {
+      for (const k in mat) {
+        const v = (mat as any)[k];
+        if (v && v.isTexture) v.dispose();
+      }
+      const u = (mat as THREE.ShaderMaterial).uniforms;
+      if (u) for (const k in u) if (u[k].value?.isTexture) u[k].value.dispose();
+    }
+    const light = o as THREE.DirectionalLight;
+    if (light.isLight && light.shadow?.map) light.shadow.dispose();
+  });
+}
+
+/** Bootstraps systems, owns the round lifecycle and runs the main loop. */
 export class Game {
+  // ---- long-lived
   engine!: Engine;
-  physics!: Physics;
   input!: Input;
   time = new TimeControl();
+  readonly settings = new SettingsStore();
+  readonly records = new Records();
+  post!: PostFX;
+  hud!: HUD;
+  menus!: Menus;
+  /** procedural audio (attached by main once constructed) */
+  audio: any = null;
+  state: GameState = 'loading';
+  mode: GameMode = 'brawl';
+  readonly params = new URLSearchParams(location.search);
+  private envMap: THREE.Texture | null = null;
+  private eventBase!: ReturnType<typeof events.snapshot>;
+  private attract = new AttractCam();
+  private lockFallback = false;
+  private lockErrors = 0;
+  private roundFresh = false;
+  private compiled = false;
+
+  // ---- per round
+  physics!: Physics;
   player!: Player;
   camFx = new CameraFX();
-  combat = new CombatSystem();
+  combat!: CombatSystem;
   fx!: FX;
   props!: PropSystem;
   weapons!: WeaponSystem;
@@ -39,10 +99,16 @@ export class Game {
   level!: LevelInfo;
   lightMgr!: LightManager;
   nav = new NavGrid();
+  private navBuilt = false;
   sun!: THREE.DirectionalLight;
   ai!: AIManager;
   director!: Director;
-  private syncs: BodySync[] = [];
+  characters: Character[] = [];
+  timers = new Scheduler();
+  private bloodyFeet = new WeakMap<object, number>();
+  private playerLeftFoot = false;
+
+  // ---- loop
   private last = 0;
   private acc = 0;
   running = false;
@@ -50,31 +116,126 @@ export class Game {
   fps = 0;
   private fpsAcc = 0;
   private fpsFrames = 0;
-  baseFov = 80;
-  characters: Character[] = [];
+  baseFov = 82;
   frameCount = 0;
-  paused = false;
+  skipRender = false;
 
-  readonly params = new URLSearchParams(location.search);
+  get paused(): boolean {
+    return this.state === 'paused';
+  }
 
   async init(container: HTMLElement): Promise<void> {
-    this.physics = await Physics.create();
-    const qName = (this.params.get('quality') as keyof typeof QUALITY_PRESETS) || (localStorage.getItem('lc_quality') as keyof typeof QUALITY_PRESETS) || 'medium';
+    await Physics.create().then((p) => p.free()); // initialise the WASM module
+    const qp = this.params.get('quality') as QualityName | null;
+    const qName: QualityName = qp && qp in QUALITY_PRESETS ? qp : this.settings.value.quality;
     this.engine = new Engine(container, QUALITY_PRESETS[qName] ?? QUALITY_PRESETS.medium);
     this.input = new Input(this.engine.canvas);
     ctx.engine = this.engine;
-    ctx.physics = this.physics;
     ctx.input = this.input;
     ctx.time = this.time;
-    this.fx = new FX(this.engine.scene, this.engine.quality.maxParticles, this.engine.quality.maxDecals);
-    ctx.fx = this.fx;
-    ctx.combat = this.combat;
-    this.props = new PropSystem(this.engine.scene);
-    this.weapons = new WeaponSystem(this.props);
-    this.gibs = new Gibs(this.engine.scene);
+    this.post = new PostFX(this.engine);
+    const pmrem = new THREE.PMREMGenerator(this.engine.renderer);
+    this.envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
 
+    const ui = document.getElementById('ui-root')!;
+    this.hud = new HUD(this, ui);
+    this.menus = new Menus(this, ui);
+    this.settings.onChange((_s, key) => this.applySettings(key));
+    this.applySettings(null);
+    this.input.onLockChange = (locked) => this.onLockChange(locked);
+    this.engine.canvas.addEventListener('click', () => {
+      if (this.state === 'playing' && !this.input.locked && !this.lockFallback) this.requestLock();
+    });
+    window.addEventListener('keydown', (e) => this.onKey(e));
+    if (this.params.has('nolock')) {
+      // automated tests / environments without pointer lock
+      this.lockFallback = true;
+      this.input.allowUnlocked = true;
+    }
+    (window as any).__game = this;
+    (window as any).__events = events;
+  }
+
+  /** Call once long-lived subscribers (HUD, audio) are attached. */
+  async firstRound(): Promise<void> {
+    this.eventBase = events.snapshot();
+    const autoplay = this.params.has('autoplay') || this.params.has('mode');
+    const mode: GameMode = this.params.get('mode') === 'survival' ? 'survival' : 'brawl';
+    await this.newRound(mode, !autoplay);
+  }
+
+  // ------------------------------------------------------------------ settings
+  private applySettings(key: keyof Settings | null): void {
+    const s = this.settings.value;
+    this.input.sensitivity = s.sensitivity;
+    this.input.invertY = s.invertY;
+    this.baseFov = s.fov;
+    this.camFx.intensity = s.shake;
+    if (this.fx) this.fx.goreScale = s.gore;
+    this.audio?.setVolumes?.(s.master, s.sfx, s.music);
+    if (key === 'quality') {
+      const q = QUALITY_PRESETS[s.quality];
+      this.engine.setQuality(q);
+      this.post.applyQuality();
+      if (this.sun) {
+        this.sun.castShadow = q.shadows;
+        if (this.sun.shadow.map) this.sun.shadow.dispose();
+        this.sun.shadow.mapSize.set(q.shadowMapSize, q.shadowMapSize);
+      }
+    }
+    if (key === 'difficulty' && this.ai) this.applyDifficulty();
+  }
+
+  private applyDifficulty(): void {
+    const d = DIFFICULTY[this.settings.value.difficulty] ?? DIFFICULTY.normal;
+    this.ai.baseDifficulty = d.ai;
+    if (this.director.mode === 'brawl' || this.director.wave === 0) this.ai.difficulty = d.ai;
+    this.ai.maxPlayerAttackers = d.attackers;
+    this.player.incomingMul = d.incoming;
+  }
+
+  uiSound(kind: 'click' | 'hover'): void {
+    this.audio?.ui?.(kind);
+  }
+
+  // ------------------------------------------------------------------ round lifecycle
+  async newRound(mode: GameMode, attract = false): Promise<void> {
+    this.state = 'loading';
+    this.input.enabled = false;
+    this.menus.hide();
+    this.menus.showLoading(true);
+    this.hud.show(false);
+    // let the loading screen paint before the heavy lifting
+    await new Promise((r) => setTimeout(r, 30));
+    if (this.player) this.disposeRound();
+    events.restore(this.eventBase);
+    this.mode = mode;
+    this.time.reset();
+    this.timers = new Scheduler();
+    ctx.timers = this.timers;
+    this.physics = Physics.createWorld();
+    ctx.physics = this.physics;
+    ctx.services = this.audio ? { audio: this.audio, music: this.audio.music } : {};
+    this.camFx = new CameraFX();
+    this.camFx.intensity = this.settings.value.shake;
+    this.combat = new CombatSystem();
+    ctx.combat = this.combat;
+    const scene = this.engine.scene;
+    const q = this.engine.quality;
+    this.fx = new FX(scene, q.maxParticles, q.maxDecals);
+    this.fx.goreScale = this.settings.value.gore;
+    ctx.fx = this.fx;
+    this.props = new PropSystem(scene);
+    ctx.props = this.props;
+    this.weapons = new WeaponSystem(this.props);
+    this.gibs = new Gibs(scene);
+    this.characters = [];
+    this.bloodyFeet = new WeakMap();
     this.buildLevel();
-    const sp = this.level.playerSpawn;
+
+    // survival starts inside, facing the front door the waves pour through
+    const sp = mode === 'survival' ? { pos: new THREE.Vector3(0, 0.15, 5.5), yaw: Math.PI } : this.level.playerSpawn;
     this.player = new Player(sp.pos.clone(), sp.yaw);
     this.player.camFx = this.camFx;
     this.player.combat = this.combat;
@@ -86,30 +247,198 @@ export class Game {
     ctx.services.ai = this.ai;
     this.director = new Director(this.ai, this.weapons, this.level, (c) => this.addCharacter(c), (c) => this.removeCharacter(c));
     ctx.services.director = this.director;
-    const crowd = parseInt(this.params.get('crowd') ?? '', 10);
-    if (!isNaN(crowd)) this.director.crowdSize = crowd;
-    if (this.params.get('mode') === 'survival') this.director.startSurvival();
+    this.director.hooks = {
+      message: (t, s, k) => this.hud.message(t, s, k),
+      killFeed: (t, st) => this.hud.killFeed(t, st),
+      end: (won) => this.endRound(won),
+    };
+    setupBarInteractions(this.level, this.interaction.interactables, this.weapons);
+    this.wireRoundEvents();
+    this.applyDifficulty();
+    const crowdParam = parseInt(this.params.get('crowd') ?? '', 10);
+    this.director.crowdSize = !isNaN(crowdParam) ? crowdParam : this.settings.value.crowd;
+    if (mode === 'survival') this.director.startSurvival();
     else this.director.startBrawl();
-
-    events.on('footstep', (e) => {
-      if (!e.isPlayer) return;
-    });
-
-    this.engine.canvas.addEventListener('click', () => this.input.requestLock());
-    (window as any).__game = this;
+    this.audio?.newRound?.(this.level);
+    this.hud.reset();
+    this.roundFresh = true;
+    this.acc = 0;
+    if (!this.compiled && !this.skipRender) {
+      // warm up shader programs behind the loading screen
+      this.compiled = true;
+      this.engine.camera.position.copy(sp.pos).setY(1.7);
+      await this.post.compile(this.engine.scene, this.engine.camera).catch(() => {});
+    }
+    this.menus.showLoading(false);
+    if (attract) this.enterTitle();
+    else this.beginPlay();
   }
 
+  private disposeRound(): void {
+    this.director.hooks = null;
+    this.timers.clear();
+    this.engine.camera.remove(this.player.vm.root);
+    disposeTree(this.player.vm.root);
+    this.characters = [];
+    const old = this.engine.newScene();
+    disposeTree(old);
+    old.clear();
+    this.physics.free();
+  }
+
+  private enterTitle(): void {
+    this.state = 'title';
+    this.ai.peaceful = true;
+    this.player.vm.root.visible = false;
+    this.input.enabled = false;
+    this.attract.reset();
+    this.hud.show(false);
+    this.menus.showTitle();
+    this.input.exitLock();
+  }
+
+  private beginPlay(): void {
+    this.state = 'playing';
+    this.ai.peaceful = false;
+    this.player.vm.root.visible = true;
+    this.input.flush();
+    this.input.enabled = true;
+    this.post.state.fade = 0;
+    this.menus.hide();
+    this.hud.show(true);
+    this.engine.camera.fov = this.baseFov;
+    this.engine.camera.updateProjectionMatrix();
+    this.director.announce();
+  }
+
+  /** Title / end screen buttons. */
+  startMode(mode: GameMode, forceNew = false): void {
+    this.requestLock();
+    if (!forceNew && this.state === 'title' && this.roundFresh && mode === this.mode) {
+      this.roundFresh = false;
+      this.beginPlay();
+      return;
+    }
+    void this.newRound(mode, false);
+  }
+
+  restart(): void {
+    this.requestLock();
+    void this.newRound(this.mode, false);
+  }
+
+  quitToTitle(): void {
+    void this.newRound('brawl', true);
+  }
+
+  pause(): void {
+    if (this.state !== 'playing') return;
+    this.state = 'paused';
+    this.menus.showPause();
+    this.input.enabled = false;
+    this.input.exitLock();
+    this.audio?.setPaused?.(true);
+  }
+
+  resume(): void {
+    if (this.state !== 'paused') return;
+    this.state = 'playing';
+    this.menus.hide();
+    this.input.flush();
+    this.input.enabled = true;
+    this.requestLock();
+    this.audio?.setPaused?.(false);
+  }
+
+  private endRound(won: boolean): void {
+    if (this.state !== 'playing' && this.state !== 'paused') return;
+    this.state = 'over';
+    this.audio?.setPaused?.(false);
+    this.audio?.music?.stinger?.(won);
+    const d = this.director;
+    const t = Math.max(0, d.endTime - d.startTime);
+    const rec = this.records.get(this.mode);
+    rec.plays = (rec.plays ?? 0) + 1;
+    let newBest = false;
+    let best = '';
+    if (this.mode === 'brawl') {
+      if (won) {
+        rec.wins = (rec.wins ?? 0) + 1;
+        if (!rec.bestTime || t < rec.bestTime) {
+          rec.bestTime = t;
+          newBest = true;
+        }
+      }
+      best = rec.bestTime ? `${fmtTime(rec.bestTime)} clear` : '';
+    } else {
+      if (d.wave > (rec.bestWave ?? 0)) {
+        rec.bestWave = d.wave;
+        newBest = true;
+      }
+      best = rec.bestWave ? `wave ${rec.bestWave}` : '';
+    }
+    rec.bestKills = Math.max(rec.bestKills ?? 0, this.player.stats.kills);
+    this.records.save();
+    this.input.enabled = false;
+    this.input.exitLock();
+    this.hud.show(false);
+    this.menus.showEnd({ won, mode: this.mode, time: t, wave: d.wave, stats: { ...this.player.stats }, newBest, best });
+  }
+
+  // ------------------------------------------------------------------ pointer lock
+  private requestLock(): void {
+    if (this.lockFallback) return;
+    this.input.requestLock();
+  }
+
+  private onLockChange(locked: boolean): void {
+    if (locked) {
+      this.lockErrors = 0;
+      return;
+    }
+    if (this.state === 'playing' && !this.lockFallback) this.pause();
+  }
+
+  /** Browser refused pointer lock (sandboxed frame, or re-lock cooldown after Esc). */
+  onPointerLockUnavailable(): void {
+    this.lockErrors++;
+    if (this.lockErrors >= 2 && !this.lockFallback) {
+      this.lockFallback = true;
+      this.input.allowUnlocked = true;
+      this.engine.canvas.classList.add('free-mouse');
+      this.menus.showNotice('Mouse capture is blocked here, so the cursor stays free. For the best controls, <a href="' + location.href + '" target="_blank" rel="noopener">open the game in its own tab</a>.', 9000);
+      if (this.state === 'paused') this.resume();
+      return;
+    }
+    if (this.state === 'playing') {
+      this.state = 'paused';
+      this.input.enabled = false;
+      this.menus.showClickToResume();
+    }
+  }
+
+  private onKey(e: KeyboardEvent): void {
+    if (e.repeat) return;
+    if (e.code === 'Escape') {
+      if (this.menus.handleEscape()) return;
+      if (this.state === 'playing') this.pause();
+    } else if (e.code === 'KeyP') {
+      if (this.state === 'playing') this.pause();
+      else if (this.state === 'paused') this.resume();
+    } else if (e.code === 'Backquote' || e.code === 'F3') {
+      this.settings.set('showFps', !this.settings.value.showFps);
+    }
+  }
+
+  // ------------------------------------------------------------------ level
   private buildLevel(): void {
     const scene = this.engine.scene;
     scene.background = new THREE.Color(0x0c0807);
     scene.fog = new THREE.Fog(0x140c09, 22, 75);
     const hemi = new THREE.HemisphereLight(0xffdcb8, 0x3a2418, 0.85);
     scene.add(hemi);
-    // subtle image based lighting so metals / glass have something to reflect
-    const pmrem = new THREE.PMREMGenerator(this.engine.renderer);
-    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environment = this.envMap;
     scene.environmentIntensity = 0.22;
-    pmrem.dispose();
     const sun = new THREE.DirectionalLight(0xffe8d0, 0.85);
     sun.position.set(7, 30, 9);
     sun.target.position.set(0, 0, -1);
@@ -130,132 +459,39 @@ export class Game {
     this.sun = sun;
     this.level = buildBarLevel(scene, this.props);
     this.lightMgr = new LightManager(scene, this.level.lights, this.engine.quality.lightBudget, 4);
-    const t0 = performance.now();
-    this.nav.build(this.level.bounds);
-    console.log(`nav grid: ${this.nav.count} nodes in ${(performance.now() - t0).toFixed(0)}ms`);
-  }
-
-  private buildTestRoom(): void {
-    const scene = this.engine.scene;
-    scene.background = new THREE.Color(0x1a1210);
-    scene.fog = new THREE.Fog(0x1a1210, 25, 80);
-    const hemi = new THREE.HemisphereLight(0xffe2c0, 0x6a4a32, 1.6);
-    scene.add(hemi);
-    const sun = new THREE.DirectionalLight(0xfff0dd, 2.2);
-    sun.position.set(8, 18, 6);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -20;
-    sun.shadow.camera.right = 20;
-    sun.shadow.camera.top = 20;
-    sun.shadow.camera.bottom = -20;
-    sun.shadow.bias = -0.0004;
-    scene.add(sun);
-
-    const floorMat = new THREE.MeshStandardMaterial({ color: 0x6b4a32, roughness: 0.9 });
-    const floor = new THREE.Mesh(new THREE.BoxGeometry(40, 0.4, 40), floorMat);
-    floor.position.y = -0.2;
-    floor.receiveShadow = true;
-    scene.add(floor);
-    this.physics.addStaticBox({ x: 0, y: -0.2, z: 0 }, { x: 20, y: 0.2, z: 20 }, 'wood');
-
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0xd8c9a8, roughness: 0.95 });
-    const walls: [number, number, number, number][] = [
-      [0, -20, 40, 0.4],
-      [0, 20, 40, 0.4],
-      [-20, 0, 0.4, 40],
-      [20, 0, 0.4, 40],
-    ];
-    for (const [x, z, w, d] of walls) {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(w, 5, d), wallMat);
-      m.position.set(x, 2.5, z);
-      m.receiveShadow = true;
-      scene.add(m);
-      this.physics.addStaticBox({ x, y: 2.5, z }, { x: w / 2, y: 2.5, z: d / 2 }, 'plaster');
-    }
-    // inner wall to test sprays
-    const iw = new THREE.Mesh(new THREE.BoxGeometry(8, 3, 0.3), wallMat);
-    iw.position.set(0, 1.5, -3);
-    iw.receiveShadow = iw.castShadow = true;
-    scene.add(iw);
-    this.physics.addStaticBox({ x: 0, y: 1.5, z: -3 }, { x: 4, y: 1.5, z: 0.15 }, 'plaster');
-
-    // ramp + platform (stairs test)
-    const platMat = new THREE.MeshStandardMaterial({ color: 0x8a5a3a, roughness: 0.8 });
-    const plat = new THREE.Mesh(new THREE.BoxGeometry(6, 0.3, 6), platMat);
-    plat.position.set(-10, 3, -10);
-    plat.castShadow = plat.receiveShadow = true;
-    scene.add(plat);
-    this.physics.addStaticBox({ x: -10, y: 3, z: -10 }, { x: 3, y: 0.15, z: 3 }, 'wood');
-    const rampLen = Math.hypot(8, 3.15);
-    const ramp = new THREE.Mesh(new THREE.BoxGeometry(2, 0.2, rampLen), platMat);
-    const angle = Math.atan2(3.15, 8);
-    ramp.position.set(-10, 1.55, -3);
-    ramp.rotation.x = angle;
-    ramp.castShadow = ramp.receiveShadow = true;
-    scene.add(ramp);
-    this.physics.addStaticBox(ramp.position, { x: 1, y: 0.1, z: rampLen / 2 }, 'wood', ramp.quaternion);
-
-    // dynamic crates
-    const crateMat = new THREE.MeshStandardMaterial({ color: 0xa0703a, roughness: 0.85 });
-    for (let i = 0; i < 8; i++) {
-      const s = 0.4 + Math.random() * 0.4;
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(s, s, s), crateMat);
-      mesh.castShadow = mesh.receiveShadow = true;
-      scene.add(mesh);
-      const body = this.physics.world.createRigidBody(
-        RAPIER.RigidBodyDesc.dynamic().setTranslation(8 + (Math.random() - 0.5) * 4, 1 + i * 0.6, (Math.random() - 0.5) * 6),
-      );
-      const col = this.physics.world.createCollider(
-        RAPIER.ColliderDesc.cuboid(s / 2, s / 2, s / 2).setDensity(300).setCollisionGroups(GROUPS.PROP),
-        body,
-      );
-      this.physics.register(col, { kind: 'prop', material: 'wood' });
-      this.syncs.push(new BodySync(body, mesh));
+    if (!this.navBuilt) {
+      const t0 = performance.now();
+      this.nav.build(this.level.bounds);
+      this.navBuilt = true;
+      console.log(`nav grid: ${this.nav.count} nodes in ${(performance.now() - t0).toFixed(0)}ms`);
     }
   }
 
-  spawnTestProps(): void {
-    const P = this.props;
-    const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
-    P.spawn('table_round', V(4, 0, 6));
-    P.spawn('chair', V(4.6, 0, 6.3), -1.2);
-    P.spawn('chair', V(3.4, 0, 5.6), 1.9);
-    for (let i = 0; i < 4; i++) P.spawn('bottle', V(4 + (i - 1.5) * 0.12, 0.78, 6 + (i % 2) * 0.1));
-    P.spawn('mug', V(3.8, 0.78, 5.9));
-    P.spawn('table_square', V(-4, 0, 6));
-    P.spawn('stool', V(-3, 0, 6.6));
-    P.spawn('stool', V(-5, 0, 6.6));
-    P.spawn('bat', V(-4, 0.8, 6), 0.3, 0, { rot: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0.3, 0)) });
-    P.spawn('knife', V(-3.8, 0.8, 5.8), 0, 0, { rot: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 1.2, 0)) });
-    P.spawn('pool_cue', V(-4.2, 0.85, 6.2), 0, 0, { rot: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0)) });
-    P.spawn('pan', V(-4.3, 0.85, 5.8), 0, 0, { rot: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0)) });
-    P.spawn('crate', V(6, 0, 8));
-    P.spawn('crate', V(6, 0.46, 8));
-    P.spawn('keg', V(7, 0, 8));
-    P.spawn('barrel', V(7.8, 0, 7));
-    P.spawn('arcade', V(-7, 0, 9), Math.PI);
-    P.spawn('arcade', V(-7.8, 0, 9), Math.PI, 1);
-    P.spawn('couch', V(0, 0, 10), Math.PI);
-    P.spawn('guitar', V(1.5, 0.1, 9), 0, 0, { rot: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0, 0)) });
-    P.spawn('extinguisher', V(-1.5, 0, 9));
-    P.spawn('cleaver', V(-3.9, 0.82, 6.3), 0, 0, { rot: new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI / 2, 0.7, 0)) });
-    for (let i = 0; i < 6; i++) P.spawn('pool_ball', V(2 + i * 0.07, 0.1, 7), 0, i);
+  private wireRoundEvents(): void {
+    const ctrl = this.player.ctrl;
+    ctrl.onFootstep = (mat, intensity) => {
+      this.playerLeftFoot = !this.playerLeftFoot;
+      events.emit('footstep', { pos: this.player.position, material: mat, intensity, isPlayer: true, who: this.player, yaw: ctrl.yaw, left: this.playerLeftFoot });
+    };
+    ctrl.onLand = (speed, mat) => {
+      events.emit('footstep', { pos: this.player.position, material: mat, intensity: Math.min(1.6, 0.7 + speed / 8), isPlayer: true, who: this.player, yaw: ctrl.yaw, left: true });
+    };
+    events.on('footstep', (e) => {
+      if (e.who && e.yaw !== undefined) this.footprint(e.who, e.pos, e.yaw, !!e.left);
+    });
   }
 
-  spawnShowcase(): void {
-    const styles: Style[] = ['biker', 'bouncer', 'bartender', 'cook', 'waitress', 'drunk', 'nerd', 'brawler', 'boss', 'punk', 'cowboy', 'patron'];
-    const seats = this.level.seats.filter((s) => s.zone === 'hall' || s.zone === 'bar');
-    for (let i = 0; i < 18 && i < seats.length; i++) {
-      const seat = seats[(i * 7) % seats.length];
-      const app = makeAppearance(styles[i % styles.length], 1000 + i * 17);
-      const p = seat.pos.clone();
-      // stand next to the seat for now
-      p.x += Math.sin(seat.yaw) * 0.6;
-      p.z += Math.cos(seat.yaw) * 0.6;
-      const c = new Character(app, p, seat.yaw);
-      this.addCharacter(c);
-    }
+  /** Walking through blood leaves a fading trail of bloody footprints. */
+  private footprint(who: object, pos: THREE.Vector3, yaw: number, left: boolean): void {
+    const fx = this.fx;
+    const s = fx.bloodMap.sample(pos);
+    let b = this.bloodyFeet.get(who) ?? 0;
+    if (s > 0.4) b = Math.min(1, b + s * 0.22);
+    if (b > 0.05 && this.fx.goreScale > 0) {
+      fx.footprint(pos, yaw, left, b);
+      b *= 0.86;
+    } else b = 0;
+    this.bloodyFeet.set(who, b);
   }
 
   addCharacter(c: Character): void {
@@ -274,6 +510,7 @@ export class Game {
     c.dispose();
   }
 
+  // ------------------------------------------------------------------ loop
   start(): void {
     this.running = true;
     this.last = performance.now();
@@ -297,7 +534,6 @@ export class Game {
     for (let i = 0; i < n; i++) this.tick(dt);
     this.skipRender = false;
   }
-  skipRender = false;
 
   private frame(now: number): void {
     const realDt = Math.min((now - this.last) / 1000, 0.1);
@@ -315,8 +551,14 @@ export class Game {
   }
 
   private tick(realDt: number): void {
-    const dt = this.paused ? 0 : this.time.update(realDt);
-    this.updateInput(realDt);
+    const st = this.state;
+    if (st === 'loading' || !this.player) {
+      this.input.endFrame();
+      return;
+    }
+    const dt = st === 'paused' ? 0 : this.time.update(realDt);
+    const rdt = st === 'paused' ? 0 : realDt;
+    this.updateInput();
 
     const fixed = this.physics.fixedDt;
     this.acc += dt;
@@ -329,10 +571,17 @@ export class Game {
     if (steps >= 4) this.acc = 0;
     const alpha = this.acc / fixed;
 
-    for (const s of this.syncs) s.apply(alpha);
+    this.timers.update(dt, rdt);
     for (const d of this.level.doors) d.apply(alpha);
     for (const a of this.level.animated) a(this.time.elapsed, dt);
-    (this.level.danceFloor.material as THREE.ShaderMaterial).uniforms.uTime.value = this.time.elapsed;
+    const dance = (this.level.danceFloor.material as THREE.ShaderMaterial).uniforms;
+    dance.uTime.value = this.time.elapsed;
+    const music = this.audio?.music;
+    if (music) {
+      this.lightMgr.beat = music.beat ?? 0;
+      this.lightMgr.energy = music.energy ?? 0;
+      dance.uBeat.value = music.beat ?? 0;
+    }
     this.lightMgr.update(dt, this.engine.camera);
     this.frameCount++;
     this.player.ctrl.updateVisual(dt, alpha);
@@ -345,28 +594,39 @@ export class Game {
     for (const c of this.characters) c.update(dt, alpha, this.frameCount);
     this.fx.update(dt, this.engine.camera);
     this.updateCamera(dt, realDt);
-    if (!this.skipRender) this.engine.renderer.render(this.engine.scene, this.engine.camera);
+    if (this.audio) {
+      this.audio.music?.setIntensity?.(this.ai.brawlStarted ? Math.max(0.25, this.ai.intensity) : 0);
+      this.audio.update?.(rdt, this.engine.camera, this);
+    }
+    this.hud.update(dt, realDt);
+    this.hud.driveScreenFx(realDt);
+    this.post.state.fade = st === 'title' ? this.attract.fade : 0;
+    if (!this.skipRender && (st !== 'paused' || this.frameCount % 4 === 0)) this.post.render(this.engine.scene, this.engine.camera, this.time.realElapsed, dt);
     this.input.endFrame();
   }
 
-  private updateInput(realDt: number): void {
+  private updateInput(): void {
     const input = this.input;
     const look = input.consumeLook();
     const p = this.player.ctrl;
+    const it = p.intent;
+    if (this.state !== 'playing') {
+      it.x = it.z = 0;
+      it.sprint = it.crouch = false;
+      return;
+    }
     if (this.player.alive) {
       p.yaw -= look.dx * 0.0022;
       p.pitch -= look.dy * 0.0022;
       p.pitch = Math.max(-1.54, Math.min(1.54, p.pitch));
       this.player.vm.addSway(look.dx, look.dy);
     }
-    const it = p.intent;
     it.x = (input.isDown('right') ? 1 : 0) - (input.isDown('left') ? 1 : 0);
     it.z = (input.isDown('forward') ? 1 : 0) - (input.isDown('back') ? 1 : 0);
     it.sprint = input.isDown('sprint');
     it.crouch = input.isDown('crouch');
     if (input.wasPressed('jump')) it.jump = true;
     if (input.wasPressed('dodge') || input.wasDoubleTapped('left') || input.wasDoubleTapped('right') || input.wasDoubleTapped('back')) it.dodge = true;
-    void realDt;
   }
 
   private fixedUpdate(dt: number): void {
@@ -378,7 +638,6 @@ export class Game {
     this.physics.step();
     this.player.ctrl.capture();
     for (const c of this.characters) c.capture();
-    for (const s of this.syncs) s.capture();
     this.props.capture();
     this.gibs.capture();
     for (const d of this.level.doors) d.capture();
@@ -391,6 +650,10 @@ export class Game {
 
   private updateCamera(dt: number, realDt: number): void {
     const cam = this.engine.camera;
+    if (this.state === 'title') {
+      this.attract.update(realDt, cam);
+      return;
+    }
     const p = this.player.ctrl;
     p.eyePosition(this._camPos);
     const { roll } = p.bobOffset(this._bob);
@@ -401,6 +664,7 @@ export class Game {
       const t = Math.min(1, (this.time.realElapsed - this.player.deathTime) / 1.2);
       cam.position.y -= t * (p.eyeHeight - 0.25);
       deathRoll = t * 1.1;
+      if (t > 0.3) this.player.vm.root.visible = false;
     }
     const drunk = this.player.drunk;
     const dw = drunk > 0 ? Math.sin(this.time.realElapsed * 1.3) * 0.06 * drunk : 0;

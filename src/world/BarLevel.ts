@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { SurfaceMaterial } from '../physics/Physics';
 import { LevelBuilder, type VirtualLight } from './LevelBuilder';
 import { Door, GlassPane } from './Doors';
 import { ctx } from '../game/ctx';
@@ -988,7 +989,7 @@ export function buildBarLevel(scene: THREE.Scene, props: PropSystem): LevelInfo 
   }
   // motorcycle hung on the wall above the booths
   const bike = makeMotorcycle();
-  bike.position.set(-6.6, 6.0, 11.85);
+  bike.position.set(-3.4, 6.0, 11.85);
   bike.rotation.y = Math.PI;
   scene.add(bike);
   // license plates & guitars on walls
@@ -1047,8 +1048,9 @@ function makeDanceFloor(w: number, d: number): THREE.Mesh {
         float t = floor(uTime * 2.0 + uBeat);
         float h = hash(id + t * 0.37);
         float on = step(0.45, hash(id * 1.7 + t));
-        vec3 c = hsv(fract(h + uTime * 0.05), 0.85, 1.0) * (0.18 + on * 1.15) * uIntensity;
-        vec3 col = mix(vec3(0.02), c, edge);
+        // linear HDR: lit tiles exceed 1.0 so they bloom
+        vec3 c = pow(hsv(fract(h + uTime * 0.05), 0.85, 1.0), vec3(2.2)) * (0.035 + on * (1.45 + uBeat * 1.1)) * uIntensity;
+        vec3 col = mix(vec3(0.003), c, edge);
         gl_FragColor = vec4(col, 1.0);
       }`,
   });
@@ -1233,6 +1235,21 @@ function makeFan(): THREE.Object3D {
   rod.position.y = 0.35;
   g.add(rod);
   return g;
+}
+
+/** Floor material under a point (footstep sounds / NPCs, which do not ray cast). */
+export function surfaceAt(zones: Zone[], p: THREE.Vector3): SurfaceMaterial {
+  switch (zoneAt(zones, p)?.name) {
+    case 'kitchen':
+    case 'bathroom':
+      return 'tile';
+    case 'storage':
+      return 'concrete';
+    case 'vip':
+      return 'carpet';
+    default:
+      return 'wood';
+  }
 }
 
 export function zoneAt(zones: Zone[], p: THREE.Vector3): Zone | null {

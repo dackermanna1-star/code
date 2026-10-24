@@ -8,7 +8,7 @@ import type { PartHit } from '../characters/CharacterModel';
 import type { Character } from '../characters/Character';
 import { P } from '../characters/Rig';
 import { clamp, rand, angleDiff, dampTo } from '../core/math';
-import { QG, CG, groups, type RBody } from '../physics/Physics';
+import { QG, CG, groups, type RBody, type RCollider, type PhysOwner } from '../physics/Physics';
 import type { CombatSystem } from '../game/CombatSystem';
 import type { CameraFX } from '../fx/CameraFX';
 
@@ -121,6 +121,8 @@ export class Player implements Combatant {
   invulnTime = 0;
   drunk = 0;
   godMode = false;
+  /** incoming damage multiplier (difficulty) */
+  incomingMul = 1;
   /** hooks set by the game */
   onAttackWhiff: ((heavy: boolean) => void) | null = null;
   camFx!: CameraFX;
@@ -196,7 +198,7 @@ export class Player implements Combatant {
     if (!this.alive) return res;
     if (this.invulnerable() && hit.source === 'melee') return res;
     const att = hit.attacker;
-    let dmg = hit.damage * (hit.part === P.HEAD ? 1.25 : 1);
+    let dmg = hit.damage * (hit.part === P.HEAD ? 1.25 : 1) * this.incomingMul;
     if (this.blocking && att && !hit.unblockable) {
       const yawTo = Math.atan2(-(att.position.x - this.position.x), -(att.position.z - this.position.z));
       const facing = Math.abs(angleDiff(this.ctrl.yaw, yawTo));
@@ -794,6 +796,7 @@ export class Player implements Combatant {
         if (wh && st.activeT <= 0.0001) {
           st.propHit = true;
           events.emit('impact', { pos: wh.point, normal: wh.normal, material: wh.owner?.material ?? 'wood', strength: st.heavy ? 0.8 : 0.4, otherMaterial: st.weapon ? 'wood' : 'flesh' });
+          wh.owner?.onMeleeHit?.(st.damage, wh.point.clone(), _dir.clone(), this);
           this.camFx.addTrauma(0.15);
           this.camFx.kick(0.6, 0, 0);
           ctx.time.hitStop(0.04);
@@ -935,7 +938,90 @@ export class Player implements Combatant {
     if (t.alive) t.setExpression('angry', 0);
   }
 
+  /** Table / bar top in front of us at waist height (for a slam takedown). */
+  private findSlamSurface(): { point: THREE.Vector3; collider: RCollider; owner: PhysOwner | undefined } | null {
+    if (this.ctrl.pitch > -0.28) return null;
+    const f = this.ctrl.flatForward(new THREE.Vector3());
+    for (const d of [0.95, 1.2, 1.45]) {
+      const o = new THREE.Vector3(this.position.x + f.x * d, this.position.y + 1.6, this.position.z + f.z * d);
+      const h = ctx.physics.raycast(o, new THREE.Vector3(0, -1, 0), 1.35, QG.WORLD_PROPS, undefined, (c) => {
+        const ow = ctx.physics.ownerOf(c);
+        return !!ow && (ow.kind === 'static' || ow.kind === 'prop');
+      });
+      if (!h) continue;
+      const y = h.point.y - this.position.y;
+      if (y < 0.5 || y > 1.25 || h.normal.y < 0.7) continue;
+      return { point: h.point.clone(), collider: h.collider, owner: h.owner };
+    }
+    return null;
+  }
+
+  /** Environmental takedown: smash the grabbed enemy's face into the surface. */
+  private slamGrabbed(surf: { point: THREE.Vector3; collider: RCollider; owner: PhysOwner | undefined }): void {
+    const t = this.grabbed!;
+    this.releaseGrab();
+    const rage = this.raging;
+    t.model.updateMatrices();
+    const head = t.model.partCenter(P.HEAD, new THREE.Vector3());
+    const dir = new THREE.Vector3().subVectors(surf.point, head);
+    dir.y = Math.min(dir.y, -0.5);
+    dir.normalize();
+    const res = t.receiveHit({
+      attacker: this,
+      damage: rage ? 64 : 32,
+      type: 'blunt',
+      part: P.HEAD,
+      point: head.clone(),
+      dir,
+      force: 520,
+      source: rage ? 'rage' : 'melee',
+      heavy: true,
+      knockdown: true,
+      carve: 2.4,
+      stun: 1.6,
+      unblockable: true,
+    });
+    t.lastAttacker = this;
+    this.stats.hits++;
+    this.stats.punches++;
+    this.stats.damageDealt += res.damage;
+    this.combo++;
+    this.comboDecay = 2.2;
+    this.stats.bestCombo = Math.max(this.stats.bestCombo, this.combo);
+    this.addAdrenaline(12);
+    const isProp = surf.owner?.kind === 'prop';
+    const up = new THREE.Vector3(0, 1, 0);
+    events.emit('impact', { pos: surf.point.clone(), normal: up, material: surf.owner?.material ?? 'wood', strength: 1.5, otherMaterial: 'flesh' });
+    ctx.fx.bloodSpray(surf.point.clone().add(new THREE.Vector3(0, 0.05, 0)), up, 2.2, false);
+    ctx.fx.debris(surf.point, up, 6, 0x6a4024, 'splinter', 0.03, 2.2);
+    ctx.fx.dust(surf.point, 4);
+    if (isProp) ctx.props.hitProp(surf.collider, surf.point, new THREE.Vector3(0, -1, 0), 40, 30, 'blunt', this);
+    // everything standing on the surface jumps
+    const pp = new THREE.Vector3();
+    for (const p of ctx.props.props) {
+      if (p.state !== 'free' || !p.body || p.fixed) continue;
+      p.position(pp);
+      if (Math.abs(pp.y - surf.point.y) > 0.45 || pp.distanceToSquared(surf.point) > 1.4 * 1.4) continue;
+      const m = p.def.mass;
+      p.body.applyImpulse({ x: rand(-0.7, 0.7) * m, y: m * rand(2.4, 4.0), z: rand(-0.7, 0.7) * m }, true);
+      p.body.applyTorqueImpulse({ x: rand(-0.05, 0.05) * m, y: rand(-0.05, 0.05) * m, z: rand(-0.05, 0.05) * m }, true);
+    }
+    this.camFx.addTrauma(0.55);
+    this.camFx.kick(-2.6, rand(-0.4, 0.4), rand(-1, 1));
+    ctx.time.hitStop(0.13);
+    this.vm.play('throwHeavy');
+    this.recovery = 0.45;
+    events.emit('vocal', { who: this, kind: 'effort', pos: this.position, pitch: 1 });
+    events.emit('takedown', { attacker: this, victim: t, kind: isProp ? 'TABLE SLAM!' : surf.point.x < -13.5 ? 'BAR SLAM!' : 'FACE PLANT!', pos: surf.point.clone() });
+    events.emit('noise', { pos: surf.point.clone(), radius: 14, kind: 'hit', source: this, target: t });
+  }
+
   private startGrabPunch(): void {
+    const surf = this.findSlamSurface();
+    if (surf) {
+      this.slamGrabbed(surf);
+      return;
+    }
     const st: AttackState = {
       kind: 'grabPunch',
       anim: 'grabPunch',
