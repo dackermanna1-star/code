@@ -289,12 +289,12 @@ export class World {
   }
 
   /**
-   * Copies the voxels of render region (rx,ry,rz) with a 1-voxel border into out (34^3, x fastest, then z, then y).
+   * Copies the voxels of render region (rx,ry,rz) with a pad-voxel border into out ((32+2*pad)^3, x fastest, then z, then y).
    * Returns 0 if the region is empty, 2 if it is solid and fully enclosed (no visible faces), 1 otherwise.
    */
-  gatherRegion(rx: number, ry: number, rz: number, out: Uint8Array): number {
-    const P2 = RS + 2;
-    const bx = (rx << RS_SHIFT) - 1, by = (ry << RS_SHIFT) - 1, bz = (rz << RS_SHIFT) - 1;
+  gatherRegion(rx: number, ry: number, rz: number, out: Uint8Array, pad = 1): number {
+    const P2 = RS + 2 * pad;
+    const bx = (rx << RS_SHIFT) - pad, by = (ry << RS_SHIFT) - pad, bz = (rz << RS_SHIFT) - pad;
     let anyNonEmpty = false, allTerrain = true;
     for (let cy = ry * 2; cy < ry * 2 + 2; cy++) for (let cz = rz * 2; cz < rz * 2 + 2; cz++) for (let cx = rx * 2; cx < rx * 2 + 2; cx++) {
       const ci = this.chunkIndex(cx, cy, cz);

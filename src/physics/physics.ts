@@ -8,6 +8,9 @@ import { World, VOXEL } from '../world/world';
 import { PAL_FRICTION, PAL_RESTITUTION } from '../world/materials';
 import { raycastWorld, RayHit } from './raycast';
 
+/** bodies with at most this many voxels are debris: no collisions among themselves */
+export const DEBRIS_VOXELS = 40;
+
 export const SOLVER = { iterations: 10, warmHits: 0, warm: true, maxPerBucket: 4, warmFriction: true, warmScale: 0.85, baumgarte: 0.25 };
 const BAUMGARTE = 0.25;
 const SLOP = 0.004;
@@ -55,6 +58,8 @@ export class Physics {
   /** called when a body falls out of the world */
   onRemove: ((b: Body) => void) | null = null;
   stats = { awake: 0, contacts: 0, pairs: 0, ms: 0, cacheHits: 0 };
+  /** per-phase time of the last step (ms) */
+  prof = { world: 0, bodies: 0, solve: 0, other: 0 };
   private stepNo = 0;
 
   private cs = new ContactSet();
@@ -134,17 +139,22 @@ export class Physics {
     // ---- contacts
     const cs = this.cs;
     cs.n = 0;
+    const tw = performance.now();
     for (let i = 0; i < nb; i++) {
       const b = bodies[i];
       if (b.sleeping || b.kinematic) continue;
       this.collideWorld(b, i, dt);
     }
+    const tb = performance.now();
     this.collideBodies(dt);
     this.stats.contacts = cs.n;
+    const ts = performance.now();
     // ---- prepare
     this.prepare(dt);
     // ---- iterate
     for (let it = 0; it < SOLVER.iterations; it++) this.solveIteration();
+    const te = performance.now();
+    this.prof.world = tb - tw; this.prof.bodies = ts - tb; this.prof.solve = te - ts;
     // ---- write back velocities, impacts, warm start cache
     for (let i = 0; i < nb; i++) {
       const b = bodies[i];
@@ -188,6 +198,7 @@ export class Physics {
     }
     this.updateSleep(dt);
     this.stats.ms = performance.now() - t0;
+    this.prof.other = this.stats.ms - this.prof.world - this.prof.bodies - this.prof.solve;
   }
 
   // ------------------------------------------------------------------ narrow phase: world
@@ -207,8 +218,11 @@ export class Physics {
     if (!any) return;
     // reuse the body's cached copy of the world if it still covers the box and nothing changed there
     let wc = b.wc;
-    if (!wc || x0 < wc.x0 || y0 < wc.y0 || z0 < wc.z0 || x1 >= wc.x0 + wc.nx || y1 >= wc.y0 + wc.ny || z1 >= wc.z0 + wc.nz ||
-      w.maxStamp(wc.x0, wc.y0, wc.z0, wc.x0 + wc.nx - 1, wc.y0 + wc.ny - 1, wc.z0 + wc.nz - 1) > wc.stamp) {
+    if (wc && !(x0 < wc.x0 || y0 < wc.y0 || z0 < wc.z0 || x1 >= wc.x0 + wc.nx || y1 >= wc.y0 + wc.ny || z1 >= wc.z0 + wc.nz)) {
+      // still covers the box: patch only the chunks modified since it was built
+      if (w.maxStamp(wc.x0, wc.y0, wc.z0, wc.x0 + wc.nx - 1, wc.y0 + wc.ny - 1, wc.z0 + wc.nz - 1) > wc.stamp) this.refreshCache(wc);
+      else this.stats.cacheHits++;
+    } else {
       const M = 6;
       const bx0 = x0 - M, by0 = y0 - M, bz0 = z0 - M;
       const nx = x1 - x0 + 1 + 2 * M, ny = y1 - y0 + 1 + 2 * M, nz = z1 - z0 + 1 + 2 * M;
@@ -221,7 +235,7 @@ export class Physics {
       const [ccx, ccy, ccz] = buildCoarse(data, nx, ny, nz, coarse);
       wc = { x0: bx0, y0: by0, z0: bz0, nx, ny, nz, data, coarse, cx: ccx, cy: ccy, cz: ccz, stamp: w.stampCounter };
       b.wc = wc;
-    } else this.stats.cacheHits++;
+    }
     const v = this.view;
     v.data = wc.data; v.sx = wc.nx; v.sy = wc.ny; v.sz = wc.nz; v.ox = wc.x0; v.oy = wc.y0; v.oz = wc.z0; v.outside = 0;
     const raw = this.raw;
@@ -240,6 +254,38 @@ export class Physics {
     }
   }
 
+  /** Re-copy the chunks of a world cache that changed since it was built, and their coarse cells. */
+  private refreshCache(wc: NonNullable<Body['wc']>): void {
+    const w = this.world;
+    const X0 = wc.x0, Y0 = wc.y0, Z0 = wc.z0, NX = wc.nx, NY = wc.ny, NZ = wc.nz;
+    const data = wc.data, coarse = wc.coarse, CX = wc.cx, CZ = wc.cz;
+    for (let cy = Math.max(0, Y0 >> 4); cy <= Math.min(w.ncy - 1, (Y0 + NY - 1) >> 4); cy++)
+      for (let cz = Math.max(0, Z0 >> 4); cz <= Math.min(w.ncz - 1, (Z0 + NZ - 1) >> 4); cz++)
+        for (let cx = Math.max(0, X0 >> 4); cx <= Math.min(w.ncx - 1, (X0 + NX - 1) >> 4); cx++) {
+          const ci = cx + w.ncx * (cz + w.ncz * cy);
+          if (w.stamp[ci] <= wc.stamp) continue;
+          const ax = Math.max(X0, cx << 4), bx = Math.min(X0 + NX, (cx << 4) + 16);
+          const ay = Math.max(Y0, cy << 4), by = Math.min(Y0 + NY, (cy << 4) + 16);
+          const az = Math.max(Z0, cz << 4), bz = Math.min(Z0 + NZ, (cz << 4) + 16);
+          for (let y = ay; y < by; y++) for (let z = az; z < bz; z++) {
+            let o = (ax - X0) + NX * ((z - Z0) + NZ * (y - Y0));
+            for (let x = ax; x < bx; x++) data[o++] = w.get(x, y, z);
+          }
+          // coarse cells overlapping the patched box
+          for (let gy = (ay - Y0) >> 2; gy <= (by - 1 - Y0) >> 2; gy++)
+            for (let gz = (az - Z0) >> 2; gz <= (bz - 1 - Z0) >> 2; gz++)
+              for (let gx = (ax - X0) >> 2; gx <= (bx - 1 - X0) >> 2; gx++) {
+                let occ = 0;
+                for (let y = gy * 4; y < Math.min(NY, gy * 4 + 4) && !occ; y++) for (let z = gz * 4; z < Math.min(NZ, gz * 4 + 4) && !occ; z++) {
+                  const r = NX * (z + NZ * y);
+                  for (let x = gx * 4; x < Math.min(NX, gx * 4 + 4); x++) if (data[r + x]) { occ = 1; break; }
+                }
+                coarse[gx + CX * (gz + CZ * gy)] = occ;
+              }
+        }
+    wc.stamp = w.stampCounter;
+  }
+
   // ------------------------------------------------------------------ narrow phase: bodies
   private collideBodies(dt: number): void {
     const bodies = this.bodies;
@@ -255,6 +301,8 @@ export class Physics {
         const B = list[j];
         if (B.aabb[0] > ax1 + 0.05) break;
         if ((A.sleeping || A.kinematic) && (B.sleeping || B.kinematic)) continue;
+        // small fragments only collide with the world and larger bodies (keeps big collapses affordable)
+        if (A.debris && B.debris && A.count <= DEBRIS_VOXELS && B.count <= DEBRIS_VOXELS && !A.held && !B.held) continue;
         const a = A.aabb, c = B.aabb;
         if (a[1] > c[4] + 0.05 || c[1] > a[4] + 0.05 || a[2] > c[5] + 0.05 || c[2] > a[5] + 0.05) continue;
         pairs++;

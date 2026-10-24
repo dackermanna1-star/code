@@ -535,6 +535,7 @@ export class Destruction {
       if (b) {
         b.ang.set(rng.range(-8, 8), rng.range(-8, 8), rng.range(-8, 8));
         b.age = 0;
+        b.debris = true;
       }
     }
   }

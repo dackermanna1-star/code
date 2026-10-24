@@ -175,6 +175,25 @@ export class Stress {
     this.cap = c;
   }
 
+  /** Per-chunk masses of its 64 cells (4^3 voxels each), cached until the chunk changes. */
+  private massCache = new Map<number, { stamp: number; m: Float32Array }>();
+  private chunkMasses(ci: number): Float32Array {
+    const w = this.world;
+    const st = w.stamp[ci];
+    let e = this.massCache.get(ci);
+    if (e && e.stamp === st) return e.m;
+    if (!e) { e = { stamp: st, m: new Float32Array(64) }; this.massCache.set(ci, e); }
+    e.stamp = st;
+    const m = e.m;
+    m.fill(0);
+    const d = w.data[ci] as Uint8Array;
+    for (let i = 0; i < 4096; i++) {
+      const v = d[i];
+      if (v) m[((i >> 2) & 3) | (((i >> 6) & 3) << 2) | ((i >> 10) << 4)] += PAL_DENSITY[v];
+    }
+    return m;
+  }
+
   /** Analyze the domain centred at voxel (cx, cz). Returns failures (strongest first). */
   analyze(cx: number, cz: number, baseline = false): StressFailure[] {
     const t0 = performance.now();
@@ -209,43 +228,41 @@ export class Stress {
     };
     for (let cy = 0; cy < w.ncy; cy++) for (let czc = z0 >> 4; czc <= (z1 - 1) >> 4; czc++) for (let cxc = x0 >> 4; cxc <= (x1 - 1) >> 4; cxc++) {
       const ci = cxc + w.ncx * (czc + w.ncz * cy);
-      const k = w.kind[ci];
-      if (k === CK.Empty) continue;
-      if (k === CK.Terrain) {
-        // virtual terrain chunk: entirely ground -> only the cells containing the surface matter (anchors)
-        continue;
-      }
-      if (k !== CK.Dense || w.count[ci] === 0) continue;
-      const d = w.data[ci] as Uint8Array;
+      // virtual terrain chunks are entirely ground: only cells resting on them matter (anchored below)
+      if (w.kind[ci] !== CK.Dense || w.count[ci] === 0) continue;
+      const cm = this.chunkMasses(ci);
       const bx = cxc << 4, by = cy << 4, bz = czc << 4;
-      for (let ly = 0; ly < 16; ly++) for (let lz = 0; lz < 16; lz++) {
-        const z = bz + lz;
-        if (z < z0 || z >= z1) continue;
-        let li = (lz << 4) | (ly << 8);
-        for (let lx = 0; lx < 16; lx++, li++) {
-          const v = d[li];
-          if (!v) continue;
-          const x = bx + lx;
-          if (x < x0 || x >= x1) continue;
-          const y = by + ly;
-          const n = addNode(cellOf(x, y, z), x, y, z);
-          this.mass[n] += PAL_DENSITY[v];
-        }
+      for (let c = 0; c < 64; c++) {
+        const m = cm[c];
+        if (m <= 0) continue;
+        const x = bx + ((c & 3) << 2), z = bz + (((c >> 2) & 3) << 2), y = by + ((c >> 4) << 2);
+        if (x < x0 || x >= x1 || z < z0 || z >= z1) continue;
+        const n = addNode(cellOf(x, y, z), x, y, z);
+        this.mass[n] += m;
       }
     }
     const nn = this.nn;
     if (nn === 0) { this.stats.ms = performance.now() - t0; return []; }
-    // ---- links: voxel pairs across the +X/+Y/+Z faces of each cell
+    // ---- links: voxel pairs across the +X/+Y/+Z faces of each cell. Every node lies in a dense chunk
+    // (cells never straddle chunks), so voxels are read straight from the chunk arrays.
+    const data = w.data, ncx = w.ncx, nxz = w.ncx * w.ncz;
     for (let n = 0; n < nn; n++) {
       const px = this.cellPos[n * 3], py = this.cellPos[n * 3 + 1], pz = this.cellPos[n * 3 + 2];
+      const ci = (px >> 4) + ncx * ((pz >> 4) + w.ncz * (py >> 4));
+      const A = data[ci] as Uint8Array;
+      const lx = px & 15, ly = py & 15, lz = pz & 15;
+      const base = lx | (lz << 4) | (ly << 8);
       // +X
       if (px + 4 < x1) {
         const m = idx[cellOf(px + 4, py, pz)];
         if (m >= 0) {
+          const B = lx === 12 ? data[ci + 1] as Uint8Array : A;
+          const ob = lx === 12 ? base - 12 : base + 4;
           let s = 0;
           for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) {
-            const va = w.get(px + 3, py + a, pz + b); if (!va) continue;
-            const vb = w.get(px + 4, py + a, pz + b); if (!vb) continue;
+            const o = (a << 8) | (b << 4);
+            const va = A[base + 3 + o]; if (!va) continue;
+            const vb = B[ob + o]; if (!vb) continue;
             s += Math.min(P_SHEAR[va], P_SHEAR[vb]);
           }
           if (s > 0) { this.nb[n * 6 + 0] = m; this.nb[m * 6 + 1] = n; this.capL[n * 6 + 0] = s; this.capL[m * 6 + 1] = s; }
@@ -255,10 +272,13 @@ export class Stress {
       if (pz + 4 < z1) {
         const m = idx[cellOf(px, py, pz + 4)];
         if (m >= 0) {
+          const B = lz === 12 ? data[ci + ncx] as Uint8Array : A;
+          const ob = lz === 12 ? base - (12 << 4) : base + (4 << 4);
           let s = 0;
           for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) {
-            const va = w.get(px + a, py + b, pz + 3); if (!va) continue;
-            const vb = w.get(px + a, py + b, pz + 4); if (!vb) continue;
+            const o = a | (b << 8);
+            const va = A[base + (3 << 4) + o]; if (!va) continue;
+            const vb = B[ob + o]; if (!vb) continue;
             s += Math.min(P_SHEAR[va], P_SHEAR[vb]);
           }
           if (s > 0) { this.nb[n * 6 + 4] = m; this.nb[m * 6 + 5] = n; this.capL[n * 6 + 4] = s; this.capL[m * 6 + 5] = s; }
@@ -268,10 +288,13 @@ export class Stress {
       if (py + 4 < w.sy) {
         const m = idx[cellOf(px, py + 4, pz)];
         if (m >= 0) {
+          const B = ly === 12 ? data[ci + nxz] as Uint8Array : A;
+          const ob = ly === 12 ? base - (12 << 8) : base + (4 << 8);
           let comp = 0, tens = 0;
           for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) {
-            const va = w.get(px + a, py + 3, pz + b); if (!va) continue;
-            const vb = w.get(px + a, py + 4, pz + b); if (!vb) continue;
+            const o = a | (b << 4);
+            const va = A[base + (3 << 8) + o]; if (!va) continue;
+            const vb = B[ob + o]; if (!vb) continue;
             comp += Math.min(P_COMP[va], P_COMP[vb]);
             tens += Math.min(P_TENS[va], P_TENS[vb]);
           }

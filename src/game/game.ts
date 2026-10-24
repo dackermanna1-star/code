@@ -4,14 +4,14 @@ import { World, VOXEL } from '../world/world';
 import { RegionMeshes } from '../world/meshmanager';
 import { Structure, DetachedPiece } from '../world/structure';
 import { Stress, StressFailure } from '../world/stress';
-import { Physics, ImpactEvent } from '../physics/physics';
+import { Physics, ImpactEvent, DEBRIS_VOXELS } from '../physics/physics';
 import { Body, trimGrid } from '../physics/body';
 import { Renderer, Environment, PointLight } from '../render/renderer';
 import { Particles } from '../render/particles';
 import { BodyMeshes } from './bodymeshes';
 import { Vec3 } from '../engine/math';
 import type { Destruction } from './destruction';
-import { PAL_FRICTION, PAL_RESTITUTION, PALETTE, srgbToLinear } from '../world/materials';
+import { PAL_FRICTION, PAL_RESTITUTION, PALETTE, PAL_RUBBLE, PAL_MAT, Mat, srgbToLinear } from '../world/materials';
 import { PT } from '../render/particles';
 
 export interface TimedLight extends PointLight { life: number; maxLife: number; flicker: number }
@@ -53,7 +53,10 @@ export class Game {
   private dirtyBodies = new Set<Body>();
   shake = 0;
   private crumbleDust = 0;
-  stats = { bodies: 0, detached: 0 };
+  stats = { bodies: 0, detached: 0, baked: 0 };
+  /** world position to keep clear when baking debris (the player) */
+  keepClear: Vec3 | null = null;
+  private bakeTimer = 0;
   onImpactHook: ((e: ImpactEvent) => void) | null = null;
   onBodySplit: ((parent: Body, child: Body) => void) | null = null;
 
@@ -132,6 +135,7 @@ export class Game {
       return;
     }
     const b = this.spawnGrid(p.vox, p.sx, p.sy, p.sz, p.ox, p.oy, p.oz);
+    if (b) b.debris = true;
     if (b) {
       // a tiny nudge so perfectly balanced pieces still topple
       b.ang.set((Math.random() - 0.5) * 0.05, 0, (Math.random() - 0.5) * 0.05);
@@ -202,6 +206,7 @@ export class Game {
         b.pointVel(nb.pos.x, nb.pos.y, nb.pos.z, nb.vel);
         nb.ang.copy(b.ang);
         nb.friction = b.friction; nb.restitution = b.restitution;
+        nb.debris = true;
         this.physics.add(nb);
         this.onBodySplit?.(b, nb);
       }
@@ -298,6 +303,40 @@ export class Game {
     return out.slice(0, max).map((o) => o.l);
   }
 
+  /**
+   * Small fragments that have rested for a while become part of the static world as rubble: debris keeps
+   * accumulating (and stays destructible) without the physics cost of hundreds of sleeping bodies.
+   */
+  private bakeDebris(): void {
+    const tmp = new Vec3();
+    let baked = 0;
+    const bodies = this.physics.bodies;
+    for (let i = bodies.length - 1; i >= 0 && baked < 40; i--) {
+      const b = bodies[i];
+      if (!b.sleeping || !b.debris || b.held || b.kinematic || b.count > DEBRIS_VOXELS) continue;
+      if (++b.restTicks < 4) continue;
+      const k = this.keepClear;
+      if (k && Math.abs(k.x - b.pos.x) < 1.2 && Math.abs(k.z - b.pos.z) < 1.2 && b.pos.y > k.y - 0.5 && b.pos.y < k.y + 2.4) continue;
+      const cells: number[] = [];
+      let supported = false;
+      for (let y = 0; y < b.sy; y++) for (let z = 0; z < b.sz; z++) for (let x = 0; x < b.sx; x++) {
+        const v = b.vox[x + b.sx * (z + b.sz * y)];
+        if (!v || PAL_MAT[v] === Mat.Glass) continue;
+        b.gridToWorld(x + 0.5, y + 0.5, z + 0.5, tmp);
+        const gx = Math.floor(tmp.x * 10), gy = Math.floor(tmp.y * 10), gz = Math.floor(tmp.z * 10);
+        if (!this.world.inBounds(gx, gy, gz) || this.world.get(gx, gy, gz)) continue;
+        if (this.world.get(gx, gy - 1, gz)) supported = true;
+        cells.push(gx, gy, gz, PAL_RUBBLE[v] || v);
+      }
+      // only fragments lying on the static world (not on another body) are baked
+      if (!supported) continue;
+      for (let c = 0; c < cells.length; c += 4) this.world.set(cells[c], cells[c + 1], cells[c + 2], cells[c + 3]);
+      this.removeBody(b);
+      this.stats.baked++;
+      baked++;
+    }
+  }
+
   // ------------------------------------------------------------------ frame
   /** Fixed-step simulation. */
   prof: Record<string, number> = {};
@@ -316,13 +355,16 @@ export class Game {
     cb.length = 0;
     lap('wake');
     this.structure.process();
-    this.stress.update(dt);
     lap('structure');
+    this.stress.update(dt);
+    lap('stress');
     for (const b of this.dirtyBodies) this.rebuildBody(b);
     this.dirtyBodies.clear();
     lap('rebuild');
     this.particles.update(dt);
     lap('particles');
+    this.bakeTimer += dt;
+    if (this.bakeTimer >= 0.5) { this.bakeTimer = 0; this.bakeDebris(); }
     for (let i = this.lights.length - 1; i >= 0; i--) {
       this.lights[i].life -= dt;
       if (this.lights[i].life <= 0) this.lights.splice(i, 1);

@@ -1,6 +1,7 @@
 // Entry point: builds the level, runs the fixed-step simulation and renders.
 import { Renderer, Environment, PointLight } from './render/renderer';
 import { World } from './world/world';
+import { RegionMeshes } from './world/meshmanager';
 import { generateTestMap } from './map/testmap';
 import { generateFactory, MAP } from './map/factory';
 import { makeProp } from './map/props';
@@ -24,7 +25,7 @@ function norm(v: number[]): [number, number, number] { const l = Math.hypot(v[0]
 export const ENV_PRESETS: Record<string, Environment> = {
   afternoon: {
     sunDir: norm([-0.45, 0.52, -0.33]), sunColor: [3.0, 2.55, 2.1], skyZenith: [0.22, 0.38, 0.72], skyHorizon: [0.72, 0.78, 0.86],
-    groundColor: [0.28, 0.25, 0.21], fogColor: [0.62, 0.67, 0.74], fogDensity: 0.0035, fogHeight: 0.03, ambient: 0.85, exposure: 1.0,
+    groundColor: [0.28, 0.25, 0.21], fogColor: [0.62, 0.67, 0.74], fogDensity: 0.0024, fogHeight: 0.03, ambient: 0.85, exposure: 0.95,
   },
   sunset: {
     sunDir: norm([-0.8, 0.13, -0.35]), sunColor: [3.4, 1.75, 0.85], skyZenith: [0.16, 0.22, 0.42], skyHorizon: [0.95, 0.62, 0.42],
@@ -103,6 +104,7 @@ async function main() {
   } else player.spawn.set(25, 4.05, 48);
   player.respawn();
   const tools = new Tools(game, player);
+  game.keepClear = player.pos;
   const viewModel = new ViewModel();
   const vmHit = new RayHit();
   const vmFwd = new Vec3();
@@ -116,6 +118,7 @@ async function main() {
   player.onLand = (sp) => audio.ui('land', player.pos.x, player.pos.y, player.pos.z, Math.min(1, sp / 8));
   const input = new Input(canvas);
   const cam = new Camera();
+  applyQuality(renderer, game.meshes, params.get('quality') || 'high');
   // initial meshing
   world.markBoxDirty(0, 0, 0, world.sx - 1, world.sy - 1, world.sz - 1);
   const total = world.dirtyQueue.length;
@@ -135,9 +138,8 @@ async function main() {
   let showStats = true;
   hud.onSetting = (k, v) => {
     if (k === 'stats') { showStats = !!v; hud.showStats(showStats); }
-    if (k === 'quality') applyQuality(renderer, v as string);
+    if (k === 'quality') applyQuality(renderer, game.meshes, v as string);
   };
-  applyQuality(renderer, params.get('quality') || 'high');
 
   // flashlight
   let flashlight = false;
@@ -234,14 +236,15 @@ async function main() {
   requestAnimationFrame(frame);
 }
 
-function applyQuality(r: Renderer, q: string): void {
+function applyQuality(r: Renderer, meshes: RegionMeshes, q: string): void {
   const s = r.settings;
   switch (q) {
-    case 'low': s.scale = 0.6; s.shadows = true; s.shadowSize = 1024; s.ssao = false; s.taa = true; s.bloom = false; break;
-    case 'medium': s.scale = 0.8; s.shadows = true; s.shadowSize = 2048; s.ssao = false; s.taa = true; s.bloom = true; break;
-    case 'high': s.scale = 1.0; s.shadows = true; s.shadowSize = 2048; s.ssao = true; s.taa = true; s.bloom = true; break;
-    case 'ultra': s.scale = 1.0; s.shadows = true; s.shadowSize = 4096; s.ssao = true; s.taa = true; s.bloom = true; break;
+    case 'low': s.scale = 0.6; s.shadows = true; s.shadowSize = 1024; s.ssao = false; s.taa = true; s.bloom = false; s.volumetrics = false; meshes.lodDist = [40, 90]; break;
+    case 'medium': s.scale = 0.8; s.shadows = true; s.shadowSize = 2048; s.ssao = false; s.taa = true; s.bloom = true; s.volumetrics = false; meshes.lodDist = [50, 110]; break;
+    case 'high': s.scale = 1.0; s.shadows = true; s.shadowSize = 2048; s.ssao = true; s.taa = true; s.bloom = true; s.volumetrics = true; meshes.lodDist = [60, 130]; break;
+    case 'ultra': s.scale = 1.0; s.shadows = true; s.shadowSize = 4096; s.ssao = true; s.taa = true; s.bloom = true; s.volumetrics = true; meshes.lodDist = [90, 180]; break;
   }
+  meshes.refreshLod();
   r.invalidateHistory();
 }
 

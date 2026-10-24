@@ -8,6 +8,7 @@
 import { World, ANCHOR_Y, CS_SHIFT } from './world';
 
 const MAX_VISIT = 1_600_000;
+const NO_STAMPS = new Uint32Array(0);
 
 export interface DetachedPiece {
   vox: Uint8Array;
@@ -73,7 +74,7 @@ export class Structure {
     const sx = w.sx, sz = w.sz;
     // new removals invalidate "anchored" knowledge: start a fresh pass including the unfinished queue
     if (!this.passActive || this.seedsAddedDuringPass) {
-      if (this.stampId > 4_000_000_000 || this.stamps.size > 6000) { this.stamps.clear(); this.stampId = 1; }
+      if ((this.stampId > 4_000_000_000 || this.stamps.size > 6000) && !this.cur) { this.stamps.clear(); this.stampId = 1; }
       this.anchoredStamps.clear();
       this.passStart = this.stampId + 1;
       const all = this.queue.concat(this.seeds);
@@ -90,6 +91,8 @@ export class Structure {
     }
     const q = this.queue;
     const passStart = this.passStart;
+    // a search that ran out of time on an earlier call continues first
+    if (this.cur && !this.runSearch(t0)) { this.stats.ms = performance.now() - t0; return; }
     while (q.length) {
       const k = q.pop()!;
       const x = k % sx, rest = (k - x) / sx, z = rest % sz, y = (rest - z) / sz;
@@ -98,35 +101,52 @@ export class Structure {
       const li = (x & 15) | ((z & 15) << 4) | ((y & 15) << 8);
       const st = this.stampArr(ci)[li];
       if (st >= passStart) continue; // already classified in this pass
-      this.search(x, y, z, passStart);
+      this.startSearch(x, y, z);
+      if (!this.runSearch(t0)) break; // out of time: resumes on the next call
       if (this.seedsAddedDuringPass) break; // a detach removed voxels: restart with fresh knowledge
       if (performance.now() - t0 > this.budgetMs) break;
     }
-    if (q.length === 0 && !this.seedsAddedDuringPass) this.passActive = false;
+    if (q.length === 0 && !this.cur && !this.seedsAddedDuringPass) this.passActive = false;
     this.stats.ms = performance.now() - t0;
   }
 
-  private search(x0: number, y0: number, z0: number, passStart: number): void {
+  /** In-progress search state (searches can span several process() calls). */
+  private cur: { id: number; lowest: number; highest: number; count: number; minX: number; maxX: number; minY: number; maxY: number; minZ: number; maxZ: number } | null = null;
+
+  private startSearch(x0: number, y0: number, z0: number): void {
     const w = this.world;
-    const sx = w.sx, sy = w.sy, sz = w.sz, ncx = w.ncx, ncz = w.ncz;
+    const sx = w.sx, ncx = w.ncx, ncz = w.ncz;
     const id = ++this.stampId;
     this.stats.searches++;
+    this.visitXZ.length = 0; this.visitY.length = 0;
+    this.stampArr((x0 >> 4) + ncx * ((z0 >> 4) + ncz * (y0 >> 4)))[(x0 & 15) | ((z0 & 15) << 4) | ((y0 & 15) << 8)] = id;
+    this.buckets[y0].push(x0 + sx * z0);
+    this.visitXZ.push(x0 + sx * z0); this.visitY.push(y0);
+    this.cur = { id, lowest: y0, highest: y0, count: 1, minX: x0, maxX: x0, minY: y0, maxY: y0, minZ: z0, maxZ: z0 };
+  }
+
+  /**
+   * Best-first flood fill from the current seed. Returns false if it ran out of time (state is kept),
+   * true when the search finished (anchored, or the floating component was detached).
+   */
+  private runSearch(t0: number): boolean {
+    const c = this.cur!;
+    const w = this.world;
+    const sx = w.sx, sy = w.sy, sz = w.sz, ncx = w.ncx, ncz = w.ncz;
+    const id = c.id, passStart = this.passStart;
     const buckets = this.buckets;
     const vxz = this.visitXZ, vy = this.visitY;
-    vxz.length = 0; vy.length = 0;
-    let lowest = y0, highest = y0;
+    let lowest = c.lowest, highest = c.highest, count = c.count;
+    let minX = c.minX, maxX = c.maxX, minY = c.minY, maxY = c.maxY, minZ = c.minZ, maxZ = c.maxZ;
     let lastCi = -1;
-    let lastArr: Uint32Array = this.stampArr((x0 >> 4) + ncx * ((z0 >> 4) + ncz * (y0 >> 4)));
-    lastArr[(x0 & 15) | ((z0 & 15) << 4) | ((y0 & 15) << 8)] = id;
-    lastCi = (x0 >> 4) + ncx * ((z0 >> 4) + ncz * (y0 >> 4));
-    buckets[y0].push(x0 + sx * z0);
-    vxz.push(x0 + sx * z0); vy.push(y0);
+    let lastArr: Uint32Array = NO_STAMPS;
     let anchored = false;
-    let count = 1;
-    let minX = x0, maxX = x0, minY = y0, maxY = y0, minZ = z0, maxZ = z0;
+    let iter = 0;
+    let yielded = false;
     outer: while (true) {
       while (lowest <= highest && buckets[lowest].length === 0) lowest++;
       if (lowest > highest) break;
+      if ((++iter & 4095) === 0 && performance.now() - t0 > this.budgetMs) { yielded = true; break; }
       const y = lowest;
       const xz = buckets[y].pop()!;
       const x = xz % sx, z = (xz - x) / sx;
@@ -159,10 +179,16 @@ export class Structure {
         if (++count > MAX_VISIT) { anchored = true; break outer; }
       }
     }
+    if (yielded) {
+      c.lowest = lowest; c.highest = highest; c.count = count;
+      c.minX = minX; c.maxX = maxX; c.minY = minY; c.maxY = maxY; c.minZ = minZ; c.maxZ = maxZ;
+      return false;
+    }
+    this.cur = null;
     // clear the buckets that were used
     for (let y = Math.min(lowest, minY); y <= highest; y++) if (buckets[y].length) buckets[y].length = 0;
     this.stats.visited += count;
-    if (anchored) { this.anchoredStamps.add(id); return; }
+    if (anchored) { this.anchoredStamps.add(id); return true; }
     // ---- detached component: extract into a grid and remove from the world
     const gx = maxX - minX + 1, gy = maxY - minY + 1, gz = maxZ - minZ + 1;
     const vox = new Uint8Array(gx * gy * gz);
@@ -178,5 +204,6 @@ export class Structure {
     }
     this.stats.detached++;
     this.onDetach({ vox, sx: gx, sy: gy, sz: gz, ox: minX, oy: minY, oz: minZ, count: vxz.length });
+    return true;
   }
 }

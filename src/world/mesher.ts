@@ -4,7 +4,7 @@
 // Output quads are packed into 4 x u32:
 //   q0 = x | y << 16
 //   q1 = z | (w-1) << 16 | (h-1) << 24
-//   q2 = palette | face << 8 | ao8 << 11 | transparent << 19
+//   q2 = palette | face << 8 | ao8 << 11 | transparent << 19 | lod << 20 (coordinates are in 2^lod voxel units)
 //   q3 = body slot (0 = static world)
 // Faces: 0 +X, 1 -X, 2 +Y, 3 -Y, 4 +Z, 5 -Z. For each face, U/V tangent axes are chosen so that
 // cross(U, V) = N (counter-clockwise when seen from outside).
@@ -46,7 +46,7 @@ let maskBuf = new Uint32Array(64 * 64);
  * @param ox,oy,oz offset added to emitted quad coordinates
  */
 export function meshVolume(vox: Uint8Array, sx: number, sy: number, sz: number, transparent: Uint8Array,
-  ox: number, oy: number, oz: number, slot: number, opaque: QuadBuffer, trans: QuadBuffer): void {
+  ox: number, oy: number, oz: number, slot: number, opaque: QuadBuffer, trans: QuadBuffer, lod = 0): void {
   const PX = sx + 2, PZ = sz + 2;
   const dims = [sx, sy, sz];
   const strides = [1, PX * PZ, PX];
@@ -61,7 +61,7 @@ export function meshVolume(vox: Uint8Array, sx: number, sy: number, sz: number, 
     const off = s * sd;
     if (maskBuf.length < nu * nv) maskBuf = new Uint32Array(nu * nv);
     const mask = maskBuf;
-    const fbits = f << 8;
+    const fbits = (f << 8) | (lod << 20);
     for (let t = 0; t < nd; t++) {
       // ---- build the face mask for this slice
       let n = 0;
@@ -156,4 +156,50 @@ export function padGrid(src: Uint8Array, sx: number, sy: number, sz: number, out
     }
   }
   return dst;
+}
+
+const cellPal = new Uint8Array(64), cellW = new Uint16Array(64);
+
+/**
+ * Downsample a padded region for level-of-detail meshing.
+ * src: (n*f + 2f)^3 voxels (n*f voxels with an f-voxel border), x fastest, then z, then y.
+ * dst: (n + 2)^3 cells (n cells with a 1-cell border), each covering f^3 voxels.
+ * A cell is solid when at least a quarter of its voxels are (so 1-voxel sheets survive);
+ * it takes the most common palette entry, counting exposed voxels much more than buried ones
+ * so a grass-covered cell stays green and a painted wall keeps its paint colour.
+ */
+export function downsample(src: Uint8Array, n: number, f: number, transparent: Uint8Array, dst: Uint8Array): void {
+  const S = n * f + 2 * f, SZ = S, SXZ = S * SZ;
+  const D = n + 2;
+  const need = (f * f * f) >> 2;
+  for (let cy = 0; cy < D; cy++) for (let cz = 0; cz < D; cz++) for (let cx = 0; cx < D; cx++) {
+    let solid = 0, k = 0;
+    const x0 = cx * f, y0 = cy * f, z0 = cz * f;
+    for (let y = y0; y < y0 + f; y++) for (let z = z0; z < z0 + f; z++) {
+      let i = x0 + S * z + SXZ * y;
+      for (let x = x0; x < x0 + f; x++, i++) {
+        const v = src[i];
+        if (v === 0) continue;
+        solid++;
+        // exposed: any face neighbour empty or see-through (outside the source block counts as exposed)
+        let w = 1;
+        const e = (x === 0 || x === S - 1 || y === 0 || y === S - 1 || z === 0 || z === S - 1);
+        if (e) w = 8;
+        else {
+          const a = src[i - 1], b = src[i + 1], c = src[i - S], d = src[i + S], g = src[i - SXZ], h = src[i + SXZ];
+          if (a === 0 || b === 0 || c === 0 || d === 0 || g === 0 || h === 0 ||
+            transparent[a] || transparent[b] || transparent[c] || transparent[d] || transparent[g] || transparent[h]) w = 8;
+        }
+        let j = 0;
+        while (j < k && cellPal[j] !== v) j++;
+        if (j === k) { cellPal[k] = v; cellW[k] = w; k++; } else cellW[j] += w;
+      }
+    }
+    let out = 0;
+    if (solid >= need && solid > 0) {
+      let best = 0;
+      for (let j = 0; j < k; j++) if (cellW[j] > best) { best = cellW[j]; out = cellPal[j]; }
+    }
+    dst[cx + D * cz + D * D * cy] = out;
+  }
 }

@@ -42,6 +42,10 @@ export class Body {
   // sleep / islands
   sleeping = false;
   sleepTime = 0;
+  /** consecutive half-second checks this (small) body spent asleep; see Game.bakeDebris */
+  restTicks = 0;
+  /** fragment of destroyed material: small debris does not collide with other debris and is baked into the world at rest */
+  debris = false;
   island = 0;
   /** frames since the body was created (used to suppress early damage) */
   age = 0;
@@ -282,7 +286,7 @@ export class Body {
     }
   }
 
-  wake(): void { this.sleeping = false; this.sleepTime = 0; }
+  wake(): void { this.sleeping = false; this.sleepTime = 0; this.restTicks = 0; }
 
   /** Padded grid for collision queries (built lazily after any voxel change). */
   padded(): Uint8Array {

@@ -136,8 +136,8 @@ export const P = {
   bedrock: pal('bedrock', Mat.Bedrock, '#2b2b2e'),
   coal: group('coal', Mat.Gravel, ['#1f1f21', '#262628', '#1a1a1c']),
   // --- concrete
-  concrete: group('concrete', Mat.Concrete, ['#9c9a94', '#96948e', '#a19f99']),
-  concreteMid: group('concrete mid', Mat.Concrete, ['#8a8882', '#84827c']),
+  concrete: group('concrete', Mat.Concrete, ['#8e8c86', '#888680', '#93918b']),
+  concreteMid: group('concrete mid', Mat.Concrete, ['#7e7c76', '#787670']),
   concreteDark: group('concrete dark', Mat.Concrete, ['#77756f', '#6f6d68']),
   concreteStain: group('concrete stain', Mat.Concrete, ['#66635d', '#5c5953']),
   concreteFloor: group('concrete floor', Mat.Concrete, ['#7d817b', '#787c76']),

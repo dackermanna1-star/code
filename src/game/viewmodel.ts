@@ -11,10 +11,10 @@ import { Camera } from '../engine/camera';
 function model(t: Tool): Grid {
   switch (t) {
     case Tool.Hammer: {
-      const g = new Grid(10, 10, 40), b = new Builder(g);
-      b.box(4, 4, 0, 6, 6, 32, (x, y, z) => (z < 8 ? P.rubber : P.woodDark + ((z >> 2) & 1)));
-      b.box(1, 2, 31, 9, 8, 40, P.steelDark);
-      b.box(0, 3, 32, 10, 7, 39, P.steel);
+      const g = new Grid(8, 6, 38), b = new Builder(g);
+      b.box(3, 2, 0, 5, 4, 32, (x, y, z) => (z < 8 ? P.rubber : P.woodDark + ((z >> 2) & 1)));
+      b.box(1, 0, 31, 7, 6, 38, P.steelDark);
+      b.box(0, 1, 32, 8, 5, 37, P.steel);
       return g;
     }
     case Tool.Shotgun: {
@@ -80,7 +80,7 @@ function model(t: Tool): Grid {
 
 // rest pose per tool: grip point (grid z), offset right/up/forward (m), pitch/yaw/roll tilt (rad)
 const POSE: { grip: number; o: [number, number, number]; r: [number, number, number] }[] = [];
-POSE[Tool.Hammer] = { grip: 5, o: [0.3, -0.36, 0.42], r: [0.62, -0.22, -0.12] };
+POSE[Tool.Hammer] = { grip: 5, o: [0.32, -0.38, 0.4], r: [0.55, -0.28, -0.1] };
 POSE[Tool.Shotgun] = { grip: 12, o: [0.17, -0.17, 0.3], r: [0.03, 0.025, 0] };
 POSE[Tool.Rifle] = { grip: 15, o: [0.16, -0.165, 0.28], r: [0.03, 0.02, 0] };
 POSE[Tool.PipeBomb] = { grip: 9, o: [0.2, -0.2, 0.38], r: [0.35, 0.3, 0.45] };

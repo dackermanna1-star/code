@@ -26,7 +26,8 @@ Quad decodeQuad(int vid) {
   r.face = int((q.z >> 8u) & 7u);
   vec2 c = CORNER[ci];
   r.uv = c * wh;
-  r.lp = o + FU[r.face] * r.uv.x + FV[r.face] * r.uv.y;
+  // LOD quads are stored in 2^lod voxel units: local positions are always in voxel units
+  r.lp = (o + FU[r.face] * r.uv.x + FV[r.face] * r.uv.y) * float(1u << ((q.z >> 20u) & 3u));
   r.n = FN[r.face];
   r.pal = q.z & 0xffu;
   r.ao = (q.z >> 11u) & 0xffu;
@@ -129,7 +130,15 @@ vec3 surfaceAlbedo(uint pal, int pattern, ivec3 cell, vec3 lp, int face, out flo
     v = (hs - 0.5) * 0.22 + (h - 0.5) * 0.08;
   } else if (pattern == 4) {
     float n = vnoise(lp * 0.07) * 0.6 + vnoise(lp * 0.21) * 0.4;
-    v = (n - 0.5) * 0.26 + (h - 0.5) * 0.07;
+    float big = vnoise(lp * 0.012 + 17.0);
+    v = (n - 0.5) * 0.26 + (h - 0.5) * 0.07 + (big - 0.5) * 0.3;
+    // water / oil stains
+    v -= smoothstep(0.68, 0.8, vnoise(lp * 0.03 + 5.0)) * 0.22;
+    if (face == 2) {
+      // slab joints every 4 m on horizontal surfaces
+      ivec2 j = ivec2(cell.x % 40, cell.z % 40);
+      if (j.x == 0 || j.y == 0) v -= 0.16;
+    }
   } else if (pattern == 5) {
     float n = vnoise(lp * 0.05);
     v = (n - 0.5) * 0.22 + (h - 0.5) * 0.14;
