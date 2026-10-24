@@ -3,7 +3,7 @@
 
 import { Game } from './game';
 import { VOXEL } from '../world/world';
-import { PAL_MAT, PAL_HARD, PAL_BLAST, PALETTE, Mat, MATERIALS, srgbToLinear, PAL_FLAMMABLE, PAL_TRANSPARENT } from '../world/materials';
+import { PAL_MAT, PAL_HARD, PAL_BLAST, PALETTE, Mat, MATERIALS, srgbToLinear, PAL_FLAMMABLE, PAL_TRANSPARENT, PAL_DENSITY } from '../world/materials';
 import { Body } from '../physics/body';
 import { PT } from '../render/particles';
 import { hash3, Vec3, Rng } from '../engine/math';
@@ -38,6 +38,8 @@ export function palLinear(p: number): [number, number, number] {
 
 export class Destruction {
   pending: PendingBlast[] = [];
+  /** blast sites that keep emitting smoke for a few seconds */
+  private smolder: { x: number; y: number; z: number; r: number; t: number; rate: number; acc: number }[] = [];
   /** hook: explosion happened (for audio / player damage) */
   onExplosion: ((x: number, y: number, z: number, power: number) => void) | null = null;
   /** hook: voxels destroyed by material (for sound) */
@@ -332,6 +334,21 @@ export class Destruction {
   }
 
   update(dt: number): void {
+    const P = this.g.particles;
+    for (let i = this.smolder.length - 1; i >= 0; i--) {
+      const s = this.smolder[i];
+      s.t -= dt;
+      if (s.t <= 0) { this.smolder.splice(i, 1); continue; }
+      s.acc += dt * s.rate * Math.min(1, s.t / 2);
+      while (s.acc >= 1) {
+        s.acc -= 1;
+        const shade = 0.13 + Math.random() * 0.12;
+        P.spawn(PT.Smoke, s.x + (Math.random() - 0.5) * s.r * 0.8, s.y + Math.random() * 0.3, s.z + (Math.random() - 0.5) * s.r * 0.8,
+          (Math.random() - 0.5) * 0.6, 1.2 + Math.random() * 1.5, (Math.random() - 0.5) * 0.6,
+          s.r * (0.25 + Math.random() * 0.3), 5 + Math.random() * 6, shade, shade * 0.96, shade * 0.92, 0.75,
+          { grow: 0.45 + Math.random() * 0.3, drag: 1.2, buoy: 0.5 });
+      }
+    }
     for (let i = this.pending.length - 1; i >= 0; i--) {
       const p = this.pending[i];
       p.t -= dt;
@@ -420,6 +437,8 @@ export class Destruction {
     const carve: CarveOpts = { maxHard: 4, blast: true, debris: 0.07, speed: 9 + power * 1.5, noise: 0.55, dust: 1.6, fromX: x, fromY: y, fromZ: z };
     g.world.noteChange(Math.floor((x - r * 3) * 10), Math.floor((y - r * 3) * 10), Math.floor((z - r * 3) * 10), Math.ceil((x + r * 3) * 10), Math.ceil((y + r * 3) * 10), Math.ceil((z + r * 3) * 10));
     this.carveWorld(x, y, z, rc, carve);
+    // sheet metal around the hole is not cut but bent away from the blast
+    this.bendMetal(x, y, z, rc * 0.5, rc * 2.1 + 0.4, power);
     lap('carve');
     // fragments: chunks loosened from the crater rim fly outwards as rigid bodies
     this.fragments(x, y, z, rc, power);
@@ -459,22 +478,31 @@ export class Destruction {
     // ---- visuals
     g.flashLight(x, y + 0.5, z, 10 + power * 3, 60 * Math.cbrt(power), 34 * Math.cbrt(power), 12 * Math.cbrt(power), 0.45 + power * 0.03);
     g.flashLight(x, y + 1.5, z, 7 + power * 2, 8, 4, 1.2, 2.5 + power * 0.2, 0.3);
-    P.spawn(PT.Flash, x, y, z, 0, 0, 0, r * 2.2, 0.18, 1, 0.85, 0.6, 1, { emissive: 14 });
-    const fireN = Math.min(90, 14 + power * 10);
+    P.spawn(PT.Flash, x, y, z, 0, 0, 0, r * 2.0, 0.14, 1, 0.85, 0.6, 1, { emissive: 9 });
+    const cp = Math.cbrt(power);
+    // fireball: a dense core plus flames thrown outwards that slow down, rise and cool
+    const fireN = Math.min(110, 18 + power * 11);
     for (let i = 0; i < fireN; i++) {
-      const a = Math.random() * 6.283, el = Math.random() * 1.4 - 0.2, sp = (2 + Math.random() * 6) * Math.cbrt(power);
-      P.spawn(PT.Fire, x, y + 0.2, z, Math.cos(a) * Math.cos(el) * sp, Math.sin(el) * sp + 1.5, Math.sin(a) * Math.cos(el) * sp,
-        r * (0.35 + Math.random() * 0.45), 0.35 + Math.random() * 0.55, 1, 1, 1, 1, { grow: 1.2, drag: 3.5, buoy: 3, emissive: 7 });
+      const a = Math.random() * 6.283, el = Math.random() * 1.5 - 0.25;
+      const core = i < fireN * 0.3;
+      const sp = (core ? 0.5 + Math.random() * 2 : 3 + Math.random() * 7) * cp;
+      P.spawn(PT.Fire, x + (Math.random() - 0.5) * r * 0.5, y + 0.2 + Math.random() * r * 0.3, z + (Math.random() - 0.5) * r * 0.5,
+        Math.cos(a) * Math.cos(el) * sp, Math.sin(el) * sp + 1.5, Math.sin(a) * Math.cos(el) * sp,
+        r * (core ? 0.55 + Math.random() * 0.35 : 0.3 + Math.random() * 0.4), (core ? 0.55 : 0.4) + Math.random() * 0.6, 1, 1, 1, 1,
+        { grow: core ? 1.6 : 1.1, drag: 3.8, buoy: 3.5, emissive: core ? 4.5 : 3.5 });
     }
-    const smokeN = Math.min(140, 20 + power * 14);
+    // thick smoke: soot from the fireball, billowing up and spreading
+    const smokeN = Math.min(220, 30 + power * 20);
     for (let i = 0; i < smokeN; i++) {
-      const a = Math.random() * 6.283, el = Math.random() * 1.5 - 0.15, sp = (1 + Math.random() * 4.5) * Math.cbrt(power);
-      const shade = 0.12 + Math.random() * 0.14;
+      const a = Math.random() * 6.283, el = Math.random() * 1.5 - 0.15, sp = (0.8 + Math.random() * 4.5) * cp;
+      const shade = 0.09 + Math.random() * 0.12;
       P.spawn(PT.Smoke, x + (Math.random() - 0.5) * r, y + Math.random() * r * 0.6, z + (Math.random() - 0.5) * r,
-        Math.cos(a) * Math.cos(el) * sp, Math.sin(el) * sp + 1.2, Math.sin(a) * Math.cos(el) * sp,
-        r * (0.45 + Math.random() * 0.5), 6 + Math.random() * 9, shade, shade * 0.95, shade * 0.9, 0.85,
-        { grow: 0.55 + Math.random() * 0.4, drag: 1.4, buoy: 0.55 + Math.random() * 0.4 });
+        Math.cos(a) * Math.cos(el) * sp, Math.sin(el) * sp + 1.4, Math.sin(a) * Math.cos(el) * sp,
+        r * (0.5 + Math.random() * 0.6), 7 + Math.random() * 10, shade, shade * 0.95, shade * 0.9, 0.95,
+        { grow: 0.6 + Math.random() * 0.5, drag: 1.5, buoy: 0.6 + Math.random() * 0.5 });
     }
+    // the crater keeps smoking for a while
+    this.smolder.push({ x, y, z, r, t: 3 + power * 0.6, rate: 10 + power * 3, acc: 0 });
     // ground dust ring
     for (let i = 0; i < 24 + power * 3; i++) {
       const a = (i / (24 + power * 3)) * 6.283;
@@ -493,6 +521,89 @@ export class Destruction {
     }
     lap('fx');
     this.onExplosion?.(x, y, z, power);
+  }
+
+  /**
+   * Push thin sheet metal (cladding, roofing, doors, containers) in a shell around a blast outwards along
+   * the sheet normal: up to a few voxels near the hole, fading with distance, so panels bulge and buckle.
+   * Each displaced voxel becomes a short column reaching back to its least displaced neighbour, which keeps
+   * the bent sheet watertight and connected (a stepped dome rather than loose voxels).
+   */
+  bendMetal(cx: number, cy: number, cz: number, r0: number, r1: number, power: number): void {
+    const w = this.g.world;
+    const X = cx * 10, Y = cy * 10, Z = cz * 10, R0 = r0 * 10, R1 = r1 * 10;
+    const maxK = Math.min(4, 1.5 + power * 0.35);
+    // candidates: key -> [x, y, z, v, axis, sign, k]
+    const cand = new Map<number, number[]>();
+    const key = (x: number, y: number, z: number) => x + 4096 * (z + 4096 * y);
+    w.forEachSolid(Math.floor(X - R1), Math.floor(Y - R1), Math.floor(Z - R1), Math.ceil(X + R1), Math.ceil(Y + R1), Math.ceil(Z + R1), (x, y, z, v) => {
+      if (PAL_MAT[v] !== Mat.Metal || PAL_DENSITY[v] >= 0.7) return;
+      const dx = x + 0.5 - X, dy = y + 0.5 - Y, dz = z + 0.5 - Z;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d < R0 || d > R1) return;
+      const t = (d - R0) / (R1 - R0);
+      const k = Math.round((1 - t) * (1 - t) * maxK * (0.75 + 0.5 * ((hash3(x, y, z) & 255) / 255)));
+      if (k <= 0) return;
+      cand.set(key(x, y, z), [x, y, z, v, -1, 0, k, d]);
+    }, true, { cx: X, cy: Y, cz: Z, r: R1 });
+    if (!cand.size) return;
+    const p = [0, 0, 0];
+    // sheet normal (axis with open space on the side facing away from the blast) and free travel
+    for (const c of cand.values()) {
+      const [x, y, z] = c;
+      const dl = [x + 0.5 - X, y + 0.5 - Y, z + 0.5 - Z];
+      let ax = -1, best = 0;
+      for (let a = 0; a < 3; a++) {
+        // open on the far side: empty, or a second sheet layer with empty space behind it
+        const sg = dl[a] >= 0 ? 1 : -1;
+        p[0] = x; p[1] = y; p[2] = z; p[a] += sg;
+        if (w.get(p[0], p[1], p[2])) {
+          if (!cand.has(key(p[0], p[1], p[2]))) continue;
+          p[a] += sg;
+          if (w.get(p[0], p[1], p[2])) continue;
+        }
+        const m = Math.abs(dl[a]);
+        if (m > best) { best = m; ax = a; }
+      }
+      if (ax < 0 || best < c[7] * 0.3) { c[6] = 0; continue; }
+      const sg = dl[ax] >= 0 ? 1 : -1;
+      c[4] = ax; c[5] = sg;
+      p[0] = x; p[1] = y; p[2] = z;
+      let free = 0;
+      for (let s2 = 1; s2 <= c[6]; s2++) {
+        p[ax] += sg;
+        if (!w.inBounds(p[0], p[1], p[2]) || (w.get(p[0], p[1], p[2]) && !cand.has(key(p[0], p[1], p[2])))) break;
+        free++;
+      }
+      c[6] = free;
+    }
+    // columns: from the smallest neighbouring displacement up to the own displacement
+    const clears: number[] = [], sets: number[] = [];
+    for (const c of cand.values()) {
+      const [x, y, z, v, ax, sg, k] = c;
+      if (k <= 0) continue;
+      let kmin = k;
+      for (let a = 0; a < 3; a++) {
+        if (a === ax) continue;
+        for (let s2 = -1; s2 <= 1; s2 += 2) {
+          p[0] = x; p[1] = y; p[2] = z; p[a] += s2;
+          const nb = cand.get(key(p[0], p[1], p[2]));
+          if (nb) { if (nb[4] === ax && nb[5] === sg) kmin = Math.min(kmin, nb[6]); else kmin = 0; }
+          else if (w.get(p[0], p[1], p[2])) kmin = 0; // attached to sheet that does not move
+        }
+      }
+      if (kmin > 0) clears.push(x, y, z);
+      for (let j = Math.max(1, kmin); j <= k; j++) {
+        p[0] = x; p[1] = y; p[2] = z; p[ax] += sg * j;
+        sets.push(p[0], p[1], p[2], v);
+      }
+    }
+    if (!sets.length) return;
+    for (let i = 0; i < clears.length; i += 3) w.set(clears[i], clears[i + 1], clears[i + 2], 0);
+    for (let i = 0; i < sets.length; i += 4) w.set(sets[i], sets[i + 1], sets[i + 2], sets[i + 3]);
+    for (let i = 0; i < clears.length; i += 3) if (!w.get(clears[i], clears[i + 1], clears[i + 2])) this.g.structure.noteRemoved(clears[i], clears[i + 1], clears[i + 2]);
+    w.noteChange(Math.floor(X - R1 - 5), Math.floor(Y - R1 - 5), Math.floor(Z - R1 - 5), Math.ceil(X + R1 + 5), Math.ceil(Y + R1 + 5), Math.ceil(Z + R1 + 5));
+    this.g.stress.request(Math.floor(X), Math.floor(Y), Math.floor(Z), 0.2);
   }
 
   /** Loosen chunks around the crater rim and throw them out as rigid bodies. */

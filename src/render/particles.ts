@@ -210,20 +210,27 @@ void main() {
   float n = nz.r * 0.65 + nz2.g * 0.35;
   float edge = 1.0 - sqrt(r2);
   if (vType == 2 || vType == 4 || vType == 6) {
-    // fire / flash / ember (additive)
-    float d = smoothstep(0.0, 0.7, edge) * (0.55 + 0.9 * n);
+    // fire / flash / ember (additive; alpha 0 keeps them additive inside the sorted premultiplied pass)
+    float d = smoothstep(0.0, 0.8, edge) * (0.15 + 1.6 * n * n);
     if (vType == 4) d = pow(edge, 1.6);
     if (vType == 6) d = smoothstep(0.0, 0.8, edge);
-    float life = vLife;
-    vec3 hot = vec3(1.0, 0.93, 0.75), mid = vec3(1.0, 0.45, 0.08), cool = vec3(0.6, 0.12, 0.02);
-    vec3 c = life < 0.3 ? mix(hot, mid, life / 0.3) : mix(mid, cool, (life - 0.3) / 0.7);
-    if (vType != 2) c = vColor.rgb;
+    vec3 c = vColor.rgb;
+    if (vType == 2) {
+      // temperature: hottest in dense young cores, cooling to deep red at the ragged edges
+      float T = clamp((1.0 - vLife) * (0.35 + 0.9 * d), 0.0, 1.0);
+      c = T < 0.35 ? mix(vec3(0.25, 0.03, 0.01), vec3(1.0, 0.28, 0.04), T / 0.35)
+        : T < 0.7 ? mix(vec3(1.0, 0.28, 0.04), vec3(1.0, 0.62, 0.16), (T - 0.35) / 0.35)
+        : mix(vec3(1.0, 0.62, 0.16), vec3(1.0, 0.92, 0.7), (T - 0.7) / 0.3);
+      d *= 0.4 + T;
+    }
     float fade = clamp((sceneD - vDepth) / 0.6, 0.0, 1.0);
     oColor = vec4(c * vEmis * d * vColor.a * fade, 0.0);
     return;
   }
   // smoke / dust / steam: alpha blended, pseudo-volumetric shading
-  float density = smoothstep(0.0, 0.85, edge) * (0.35 + 0.85 * n);
+  // noise-eroded silhouette: billowing, cauliflower-like puffs instead of soft discs
+  float shape = edge - (1.0 - n) * 0.5;
+  float density = smoothstep(0.0, 0.4, shape) * (0.55 + 0.6 * n);
   density = clamp(density - (1.0 - vColor.a) * 0.6, 0.0, 1.0) * vColor.a;
   vec3 nrm = normalize(vec3(vUV * 1.1 + (nz.gb - 0.5) * 0.9, sqrt(max(0.0, 1.0 - r2)) + 0.25));
   float diff = clamp(dot(nrm, normalize(vViewSun)) * 0.55 + 0.45, 0.0, 1.0);
@@ -578,28 +585,27 @@ export class Particles implements GeometryPass, ForwardPass {
     if (n === 0) return;
     const gl = this.gl;
     const cam = r.cam;
-    // sort alpha-blended types back to front, additive ones after
+    // one back-to-front pass: smoke is premultiplied alpha, fire/sparks write alpha 0 and so add light,
+    // which lets smoke in front of a fireball hide it and flames in front of smoke glow over it
     const v = cam.view;
     const fx = -v[2], fy = -v[6], fz = -v[10];
-    let na = 0, nadd = 0;
     const order = this.order, keys = this.keys;
     for (let i = 0; i < n; i++) {
-      const t = this.bType[i];
-      if (t === PT.Smoke || t === PT.Dust || t === PT.Steam) {
-        keys[i] = (this.bP[i * 3] - cam.x) * fx + (this.bP[i * 3 + 1] - cam.y) * fy + (this.bP[i * 3 + 2] - cam.z) * fz;
-        order[na++] = i;
-      }
+      keys[i] = (this.bP[i * 3] - cam.x) * fx + (this.bP[i * 3 + 1] - cam.y) * fy + (this.bP[i * 3 + 2] - cam.z) * fz;
+      order[i] = i;
     }
-    const alphaIdx = Array.from(order.subarray(0, na)).sort((a, b) => keys[b] - keys[a]);
+    const sorted = order.subarray(0, n).sort((a, b) => keys[b] - keys[a]);
     const I = this.bInst;
     let o = 0;
-    const write = (i: number) => {
-      const life = 1 - this.bLife[i] / this.bMax[i];
+    for (let k = 0; k < n; k++) {
+      const i = sorted[k];
+      const age = this.bMax[i] - this.bLife[i];
+      const life = age / this.bMax[i];
       let a = this.bCol[i * 4 + 3];
       const t = this.bType[i];
-      // fade in quickly, fade out over the last part of life
-      if (t === PT.Smoke || t === PT.Dust || t === PT.Steam) a *= Math.min(1, life * 8) * Math.min(1, (1 - life) * 2.2);
-      else if (t === PT.Fire) a *= Math.min(1, (1 - life) * 3);
+      // quick fade in, fade out over the last part of life
+      if (t === PT.Smoke || t === PT.Dust || t === PT.Steam) a *= Math.min(1, age * 6) * Math.min(1, (1 - life) * 2.5);
+      else if (t === PT.Fire) a *= Math.min(1, age * 25) * Math.min(1, (1 - life) * 2.5);
       else if (t === PT.Flash) a *= (1 - life) * (1 - life);
       else a *= Math.min(1, (1 - life) * 4);
       I[o] = this.bP[i * 3]; I[o + 1] = this.bP[i * 3 + 1]; I[o + 2] = this.bP[i * 3 + 2]; I[o + 3] = this.bSize[i];
@@ -607,12 +613,6 @@ export class Particles implements GeometryPass, ForwardPass {
       I[o + 8] = this.bV[i * 3]; I[o + 9] = this.bV[i * 3 + 1]; I[o + 10] = this.bV[i * 3 + 2]; I[o + 11] = this.bRot[i];
       I[o + 12] = t; I[o + 13] = this.bEmis[i]; I[o + 14] = life; I[o + 15] = this.bSeed[i];
       o += 16;
-    };
-    for (const i of alphaIdx) write(i);
-    for (let i = 0; i < n; i++) {
-      const t = this.bType[i];
-      if (t === PT.Smoke || t === PT.Dust || t === PT.Steam) continue;
-      write(i); nadd++;
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, this.bbInstBuf);
     gl.bufferSubData(gl.ARRAY_BUFFER, 0, I, 0, o);
@@ -627,17 +627,8 @@ export class Particles implements GeometryPass, ForwardPass {
     gl.bindVertexArray(this.bbVao);
     gl.enable(gl.BLEND);
     gl.depthMask(false);
-    if (na > 0) {
-      gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, na);
-    }
-    if (nadd > 0) {
-      gl.blendFunc(gl.ONE, gl.ONE);
-      // draw additive instances: they start at offset na in the buffer
-      for (let k = 0; k < 4; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, 64, na * 64 + k * 16);
-      gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, nadd);
-      for (let k = 0; k < 4; k++) gl.vertexAttribPointer(1 + k, 4, gl.FLOAT, false, 64, k * 16);
-    }
+    gl.blendFuncSeparate(gl.ONE, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, n);
     gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ZERO, gl.ONE);
   }
 }

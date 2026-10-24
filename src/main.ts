@@ -145,6 +145,7 @@ async function main() {
   let flashlight = false;
   const flashL: PointLight = { x: 0, y: 0, z: 0, radius: 18, r: 0, g: 0, b: 0 };
   let timeScale = 1;
+  const fixedDt = params.has('fixeddt');
   let acc = 0;
   let last = performance.now();
   let fps = 60, frameMs = 16;
@@ -158,7 +159,8 @@ async function main() {
 
   function frame() {
     const now = performance.now();
-    const rawDt = Math.min(0.1, (now - last) / 1000);
+    // ?fixeddt: every frame advances exactly 1/60 s (deterministic headless captures)
+    const rawDt = fixedDt ? 1 / 60 : Math.min(0.1, (now - last) / 1000);
     last = now;
     frameMs = frameMs * 0.9 + rawDt * 1000 * 0.1;
     fps = 1000 / frameMs;
