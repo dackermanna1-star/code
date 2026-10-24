@@ -316,33 +316,47 @@ export function buildOffice(c: Ctx): void {
   b.box(1604, G + 52, Z1 + 1, 1716, G + 56, Z1 + 2, P.lampCool);
   // interior per floor
   const cz0 = 2035, cz1 = 2065; // corridor
+  const sx0 = X0 + 6, sz0 = Z0 + 6; // stairwell
   for (let f = 0; f < 3; f++) {
     const y0 = G + f * FH + (f === 0 ? 0 : 2), y1 = G + (f + 1) * FH;
-    b.box(X0 + 3, y0, cz0 - 2, X1 - 3, y1, cz0, P.plaster);
-    b.box(X0 + 3, y0, cz1, X1 - 3, y1, cz1 + 2, P.plaster);
-    for (let x = X0 + 70; x < X1 - 3; x += 70) { b.box(x, y0, Z0 + 3, x + 2, y1, cz0, P.plaster); b.box(x, y0, cz1 + 2, x + 2, y1, Z1 - 3, P.plaster); }
+    const tint = [P.plasterBeige, P.plasterBlue, P.plasterGreen][f];
+    // corridor walls and room partitions with a painted lower band
+    const band = (x0: number, z0: number, x1: number, z1: number) => b.box(x0, y0, z0, x1, y1, z1, (x, y) => (y < y0 + 9 ? tint : y === y0 + 9 ? P.plasterGrey : P.plaster));
+    band(X0 + 3, cz0 - 2, X1 - 3, cz0);
+    band(X0 + 3, cz1, X1 - 3, cz1 + 2);
+    for (let x = X0 + 70; x < X1 - 3; x += 70) { band(x, Z0 + 3, x + 2, cz0); band(x, cz1 + 2, x + 2, Z1 - 3); }
     for (let x = X0 + 25; x < X1 - 20; x += 70) {
       opening(c, 'x', cz0 - 2, 2, x, 10, y0, 22, null);
       opening(c, 'x', cz1, 2, x + 10, 10, y0, 22, null);
     }
     // carpet
     if (f > 0) b.box(X0 + 3, y0, Z0 + 3, X1 - 3, y0 + 1, Z1 - 3, (x, y, z) => (z >= cz0 && z < cz1 + 2 ? P.ceiling : P.carpet + ((x >> 3) & 1)));
-    // rooms: furniture
+    // suspended ceiling with a tile grid (kept clear over the stairwell)
+    b.box(X0 + 3, y1 - 1, Z0 + 3, X1 - 3, y1, Z1 - 3, (x, y, z) => (x % 12 === 0 || z % 12 === 0 ? P.plasterGrey : P.ceiling));
+    if (f < 2) b.clear(sx0, y1 - 1, sz0, sx0 + 18, y1, sz0 + 60);
+    // rooms: desk islands, cabinets along the partition, plants, whiteboards
+    const fy = f === 0 ? G : y0 + 1;
     for (let x = X0 + 10; x < X1 - 60; x += 70) {
-      for (const [zz, rot] of [[Z0 + 30, 0], [cz1 + 40, 2]] as [number, number][]) {
-        const fy = f === 0 ? G : y0 + 1;
-        if (x < X0 + 75 && zz < cz0) continue; // stairwell room
-        c.props.push({ kind: 'desk', x: x + 12, y: fy, z: zz, rot });
-        c.props.push({ kind: 'computer', x: x + 15, y: fy + 8, z: zz + 2, rot });
-        c.props.push({ kind: 'chair', x: x + 16, y: fy, z: rot ? zz - 7 : zz + 10, rot });
-        c.props.push({ kind: 'cabinet', x: x + 46, y: fy, z: rot ? zz + 14 : zz - 26, rot: 0 });
-        lamp(c, x + 30, y1 - 1, zz + 5, false, 11, 3, true);
+      for (const north of [true, false]) {
+        if (x < X0 + 75 && north) continue; // stairwell room
+        const za = north ? Z0 + 28 : cz1 + 34, zb = north ? Z0 + 70 : cz1 + 76;
+        for (const zz of [za, zb]) for (const dx of [2, 24]) {
+          const rot = zz === za ? 0 : 2;
+          c.props.push({ kind: 'desk', x: x + dx, y: fy, z: zz, rot });
+          if (zz === za || dx === 2) c.props.push({ kind: 'computer', x: x + dx + 4, y: fy + 8, z: zz + 2, rot });
+          c.props.push({ kind: 'chair', x: x + dx + 5, y: fy, z: rot ? zz - 7 : zz + 10, rot });
+        }
+        for (let k = 0; k < 3; k++) c.props.push({ kind: 'cabinet', x: x + 52, y: fy, z: (north ? Z0 + 8 : Z1 - 16) + (north ? k * 7 : -k * 7), rot: 0 });
+        plant(c, x + 50, fy, north ? cz0 - 10 : cz1 + 7);
+        // whiteboard on the corridor wall
+        const wz = north ? cz0 - 3 : cz1 + 2;
+        b.box(x + 8, y0 + 12, wz, x + 34, y0 + 26, wz + 1, (xx, yy) => (yy === y0 + 12 || yy === y0 + 25 || xx === x + 8 || xx === x + 33 ? P.alu : P.paintWhite));
+        for (const zl of [za + 4, zb + 4]) lamp(c, x + 20, y1 - 1, zl, false, 11, 3, true);
       }
     }
-    lamp(c, (X0 + X1) >> 1, y1 - 1, (cz0 + cz1) >> 1, false, 14, 3, true);
+    for (let x = X0 + 40; x < X1 - 20; x += 70) lamp(c, x, y1 - 1, (cz0 + cz1) >> 1, false, 12, 3, true);
   }
   // stairwell (west end, north side)
-  const sx0 = X0 + 6, sz0 = Z0 + 6;
   for (let f = 0; f < 2; f++) {
     const y = G + f * FH + (f === 0 ? 0 : 2);
     b.clear(sx0, G + (f + 1) * FH, sz0, sx0 + 18, G + (f + 1) * FH + 2, sz0 + 60);
@@ -571,4 +585,17 @@ function towerCrane(c: Ctx, x: number, z: number): void {
   b.box(x - jl, jy + 2, zc - 1, x - jl + 2, jy + 4, zc + 1, P.lampRed);
   c.lamps.push({ x: x - jl + 1, y: jy + 3, z: zc, r: 4, g: 0.3, b: 0.2, radius: 8 });
   void Builder;
+}
+
+/** Potted plant: pot, stem and a ragged ball of leaves (all destructible voxels). */
+function plant(c: Ctx, x: number, y: number, z: number): void {
+  const b = c.b;
+  b.box(x - 2, y, z - 2, x + 2, y + 4, z + 2, P.plasticBlack);
+  b.box(x - 1, y + 3, z - 1, x + 1, y + 4, z + 1, P.dirt);
+  b.box(x, y + 4, z, x + 1, y + 8, z + 1, P.bark);
+  for (let dy = -3; dy <= 3; dy++) for (let dz = -3; dz <= 3; dz++) for (let dx = -3; dx <= 3; dx++) {
+    const d = dx * dx + dy * dy * 1.4 + dz * dz;
+    if (d > 10 || hash3(x + dx, y + dy, z + dz) % 5 === 0) continue;
+    b.set(x + dx, y + 11 + dy, z + dz, P.leaves + (Math.abs(dx + dz) & 3));
+  }
 }
