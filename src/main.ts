@@ -144,7 +144,7 @@ async function main() {
   world.markBoxDirty(0, 0, 0, world.sx - 1, world.sy - 1, world.sz - 1);
   const total = world.dirtyQueue.length;
   while (game.meshes.pending > 0) {
-    game.meshes.update(player.pos.x, player.pos.y, player.pos.z);
+    game.meshes.update(player.pos.x, player.pos.y, player.pos.z, 2, 30);
     // the main thread is mostly idle while workers mesh: analyse intact structures meanwhile
     game.stress.baselineStep(Math.floor(player.pos.x * 10), Math.floor(player.pos.z * 10), 25);
     hud.loading(0.1 + 0.9 * (1 - game.meshes.pending / Math.max(1, total)), `Meshing ${total - game.meshes.pending} / ${total} regions…`);
@@ -214,8 +214,11 @@ async function main() {
       fire.update(h);
       acc -= h;
       steps++;
+      // don't pile catch-up steps onto an expensive frame: heavy moments briefly run in slow motion
+      // instead of freezing the screen
+      if (performance.now() - ts > 20) break;
     }
-    if (steps === 4) acc = 0;
+    if (steps === 4 || performance.now() - ts > 20) acc = Math.min(acc, h);
     timing.sim = performance.now() - ts;
     timing.simMax = Math.max(timing.simMax * 0.995, timing.sim);
     const alpha = Math.min(1, acc / h);
@@ -257,6 +260,9 @@ async function main() {
       `voxels destroyed ${destruction.totalRemoved}  detached ${game.stats.detached}  fires ${fire.count}\n` +
       `stress ${game.stress.stats.analyses} (${game.stress.stats.ms.toFixed(1)} ms) failures ${game.stress.stats.failures}\n` +
       `${TOOL_NAMES[tools.current]}${player.noclip ? '  [fly]' : ''}${timeScale < 1 ? '  [slow-mo]' : ''}  ${envName}`);
+    // leftover CPU time of this frame goes to structural analysis (no-op when nothing is pending)
+    const spare = 12 - (performance.now() - now);
+    if (spare > 1) game.stress.idle(spare);
     input.endFrame();
     g.__game.frames++;
     requestAnimationFrame(frame);

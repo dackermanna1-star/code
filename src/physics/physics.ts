@@ -2,7 +2,7 @@
 // bodies, sequential-impulse solver with friction, restitution, speculative contacts and warm starting,
 // island-based sleeping, simple continuous collision for fast debris, and impact callbacks.
 
-import { Body } from './body';
+import { Body, SAMPLE_CELL } from './body';
 import { GridView, RawContacts, sphereVsCache, buildCoarse, reduceContacts } from './collide';
 import { World, VOXEL } from '../world/world';
 import { PAL_FRICTION, PAL_RESTITUTION } from '../world/materials';
@@ -64,6 +64,7 @@ export class Physics {
   private raw = new RawContacts(512);
   private tmp = new RawContacts(128);
   private keep: number[] = [];
+  private candBuf = new Int32Array(1024);
   private cache = new Uint8Array(64 * 1024);
   private view: GridView = { data: this.cache, sx: 0, sy: 0, sz: 0, ox: 0, oy: 0, oz: 0, outside: 0 };
   /** warm start cache: per body pair, contacts of the last step (local point in A, normal, impulses) */
@@ -234,9 +235,11 @@ export class Physics {
       if (w.maxStamp(wc.x0, wc.y0, wc.z0, wc.x0 + wc.nx - 1, wc.y0 + wc.ny - 1, wc.z0 + wc.nz - 1) > wc.stamp) this.refreshCache(wc);
       else this.stats.cacheHits++;
     } else {
+      // margin, plus ~0.25 s of travel ahead of a moving body so falling debris doesn't re-copy every few steps
       const M = 6;
-      const bx0 = x0 - M, by0 = y0 - M, bz0 = z0 - M;
-      const nx = x1 - x0 + 1 + 2 * M, ny = y1 - y0 + 1 + 2 * M, nz = z1 - z0 + 1 + 2 * M;
+      const ex = Math.min(24, Math.ceil(Math.abs(b.vel.x) * 2.5)), ey = Math.min(24, Math.ceil(Math.abs(b.vel.y) * 2.5)), ez = Math.min(24, Math.ceil(Math.abs(b.vel.z) * 2.5));
+      const bx0 = x0 - M - (b.vel.x < 0 ? ex : 0), by0 = y0 - M - (b.vel.y < 0 ? ey : 0), bz0 = z0 - M - (b.vel.z < 0 ? ez : 0);
+      const nx = x1 - x0 + 1 + 2 * M + ex, ny = y1 - y0 + 1 + 2 * M + ey, nz = z1 - z0 + 1 + 2 * M + ez;
       const vol = nx * ny * nz;
       if (vol > 6_000_000) return; // absurdly large body; skip world contacts
       const data = wc && wc.data.length >= vol ? wc.data : new Uint8Array(vol);
@@ -278,10 +281,7 @@ export class Physics {
           const ax = Math.max(X0, cx << 4), bx = Math.min(X0 + NX, (cx << 4) + 16);
           const ay = Math.max(Y0, cy << 4), by = Math.min(Y0 + NY, (cy << 4) + 16);
           const az = Math.max(Z0, cz << 4), bz = Math.min(Z0 + NZ, (cz << 4) + 16);
-          for (let y = ay; y < by; y++) for (let z = az; z < bz; z++) {
-            let o = (ax - X0) + NX * ((z - Z0) + NZ * (y - Y0));
-            for (let x = ax; x < bx; x++) data[o++] = w.get(x, y, z);
-          }
+          w.copyChunkRows(ci, ax, ay, az, bx, by, bz, data, X0, Y0, Z0, NX, NZ);
           // coarse cells overlapping the patched box
           for (let gy = (ay - Y0) >> 2; gy <= (by - 1 - Y0) >> 2; gy++)
             for (let gz = (az - Z0) >> 2; gz <= (bz - 1 - Z0) >> 2; gz++)
@@ -361,7 +361,32 @@ export class Physics {
     const ox0 = ga[0] * 10 - gp, oy0 = ga[1] * 10 - gp, oz0 = ga[2] * 10 - gp, ox1 = ga[3] * 10 + gp, oy1 = ga[4] * 10 + gp, oz1 = ga[5] * 10 + gp;
     const gpx = G.pos.x * 10, gpy = G.pos.y * 10, gpz = G.pos.z * 10;
     const coarse = G.pcoarse!, ccx = G.pcd[0], ccy = G.pcd[1], ccz = G.pcd[2];
-    for (let i = 0; i < S.nSamples; i++) {
+    // large S: only visit the sample buckets that overlap G's (expanded) box, expressed in S's grid
+    let cand: Int32Array | null = null, nCand = S.nSamples;
+    const start = S.sampleCellStart, list = S.sampleCellList;
+    if (start && list) {
+      const RS = S.R, e = gp * VOXEL;
+      let lx0 = 1e9, ly0 = 1e9, lz0 = 1e9, lx1 = -1e9, ly1 = -1e9, lz1 = -1e9;
+      for (let k = 0; k < 8; k++) {
+        const dx = ((k & 1) ? ga[3] + e : ga[0] - e) - S.pos.x, dy = ((k & 2) ? ga[4] + e : ga[1] - e) - S.pos.y, dz = ((k & 4) ? ga[5] + e : ga[2] - e) - S.pos.z;
+        const lx = (RS[0] * dx + RS[3] * dy + RS[6] * dz) * 10 + S.com.x;
+        const ly = (RS[1] * dx + RS[4] * dy + RS[7] * dz) * 10 + S.com.y;
+        const lz = (RS[2] * dx + RS[5] * dy + RS[8] * dz) * 10 + S.com.z;
+        if (lx < lx0) lx0 = lx; if (lx > lx1) lx1 = lx; if (ly < ly0) ly0 = ly; if (ly > ly1) ly1 = ly; if (lz < lz0) lz0 = lz; if (lz > lz1) lz1 = lz;
+      }
+      const [nx, ny, nz] = S.sampleCellDims;
+      const cx0 = Math.max(0, Math.floor(lx0 / SAMPLE_CELL)), cx1 = Math.min(nx - 1, Math.floor(lx1 / SAMPLE_CELL));
+      const cy0 = Math.max(0, Math.floor(ly0 / SAMPLE_CELL)), cy1 = Math.min(ny - 1, Math.floor(ly1 / SAMPLE_CELL));
+      const cz0 = Math.max(0, Math.floor(lz0 / SAMPLE_CELL)), cz1 = Math.min(nz - 1, Math.floor(lz1 / SAMPLE_CELL));
+      if (this.candBuf.length < S.nSamples) this.candBuf = new Int32Array(S.nSamples * 2);
+      cand = this.candBuf; nCand = 0;
+      for (let cy = cy0; cy <= cy1; cy++) for (let cz = cz0; cz <= cz1; cz++) for (let cx = cx0; cx <= cx1; cx++) {
+        const c = cx + nx * (cz + nz * cy);
+        for (let k = start[c]; k < start[c + 1]; k++) cand[nCand++] = list[k];
+      }
+    }
+    for (let ci = 0; ci < nCand; ci++) {
+      const i = cand ? cand[ci] : ci;
       const wx = ws[i * 3];
       if (wx < ox0 || wx > ox1) continue;
       const wy = ws[i * 3 + 1];

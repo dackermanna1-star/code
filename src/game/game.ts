@@ -131,7 +131,7 @@ export class Game {
 
   private onDetach(p: DetachedPiece): void {
     this.stats.detached++;
-    if (p.count <= 12) {
+    if (p.count <= 24) {
       // tiny bits become debris particles
       for (let y = 0; y < p.sy; y++) for (let z = 0; z < p.sz; z++) for (let x = 0; x < p.sx; x++) {
         const v = p.vox[x + p.sx * (z + p.sz * y)];
@@ -157,15 +157,18 @@ export class Game {
     const stack: number[] = [];
     let comps = 0;
     const sizes: number[] = [0];
+    const boxes: number[] = [0, 0, 0, 0, 0, 0]; // per component: min x, y, z, max x, y, z
     for (let i = 0; i < n; i++) {
       if (!vox[i] || label[i]) continue;
       comps++;
       let size = 0;
+      let bx0 = sx, by0 = sy, bz0 = sz, bx1 = 0, by1 = 0, bz1 = 0;
       label[i] = comps; stack.push(i);
       while (stack.length) {
         const c = stack.pop()!;
         size++;
         const x = c % sx, r = (c - x) / sx, z = r % sz, y = (r - z) / sz;
+        if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; if (z < bz0) bz0 = z; if (z > bz1) bz1 = z;
         if (x > 0 && vox[c - 1] && !label[c - 1]) { label[c - 1] = comps; stack.push(c - 1); }
         if (x < sx - 1 && vox[c + 1] && !label[c + 1]) { label[c + 1] = comps; stack.push(c + 1); }
         if (z > 0 && vox[c - sx] && !label[c - sx]) { label[c - sx] = comps; stack.push(c - sx); }
@@ -175,6 +178,7 @@ export class Game {
         if (y < sy - 1 && vox[c + sxz] && !label[c + sxz]) { label[c + sxz] = comps; stack.push(c + sxz); }
       }
       sizes.push(size);
+      boxes.push(bx0, by0, bz0, bx1, by1, bz1);
     }
     if (comps === 0) { this.removeBody(b); return; }
     // keep the largest component in b
@@ -185,21 +189,23 @@ export class Game {
     if (comps > 1) {
       for (let c = 1; c <= comps; c++) {
         if (c === keep) continue;
-        // extract component c
-        const sub = new Uint8Array(n);
-        for (let i = 0; i < n; i++) if (label[i] === c) { sub[i] = vox[i]; vox[i] = 0; }
-        if (sizes[c] <= 2) {
-          for (let i = 0; i < n; i++) if (sub[i]) {
-            const x = i % sx, r = (i - x) / sx, z = r % sz, y = (r - z) / sz;
-            const p = b.gridToWorld(x + 0.5, y + 0.5, z + 0.5, new Vec3());
+        // extract component c from its bounding box (not the whole grid: a big body can shed many pieces)
+        const tx = boxes[c * 6], ty = boxes[c * 6 + 1], tz = boxes[c * 6 + 2];
+        const nx = boxes[c * 6 + 3] - tx + 1, ny = boxes[c * 6 + 4] - ty + 1, nz = boxes[c * 6 + 5] - tz + 1;
+        const g = new Uint8Array(nx * ny * nz);
+        for (let y = 0; y < ny; y++) for (let z = 0; z < nz; z++) {
+          let i = tx + sx * ((z + tz) + sz * (y + ty)), o = nx * (z + nz * y);
+          for (let x = 0; x < nx; x++, i++, o++) if (label[i] === c) { g[o] = vox[i]; vox[i] = 0; }
+        }
+        if (sizes[c] <= 6) {
+          for (let o = 0; o < g.length; o++) if (g[o]) {
+            const x = o % nx, r = (o - x) / nx, z = r % nz, y = (r - z) / nz;
+            const p = b.gridToWorld(tx + x + 0.5, ty + y + 0.5, tz + z + 0.5, new Vec3());
             const v = b.pointVel(p.x, p.y, p.z, new Vec3());
-            this.particles.debris(p.x, p.y, p.z, v.x, v.y, v.z, 0.1, sub[i]);
+            this.particles.debris(p.x, p.y, p.z, v.x, v.y, v.z, 0.1, g[o]);
           }
           continue;
         }
-        const t = trimGrid(sub, sx, sy, sz);
-        if (!t) continue;
-        const [g, nx, ny, nz, tx, ty, tz] = t;
         const nb = new Body(nx, ny, nz, g);
         if (!nb.computeMass()) continue;
         nb.buildSamples();
@@ -217,7 +223,7 @@ export class Game {
       }
     }
     // remaining piece: tiny -> particles
-    if (sizes[keep] <= 2) {
+    if (sizes[keep] <= 6) {
       for (let i = 0; i < n; i++) if (vox[i]) {
         const x = i % sx, r = (i - x) / sx, z = r % sz, y = (r - z) / sz;
         const p = b.gridToWorld(x + 0.5, y + 0.5, z + 0.5, new Vec3());
@@ -392,8 +398,13 @@ export class Game {
     lap('structure');
     this.stress.update(dt);
     lap('stress');
-    for (const b of this.dirtyBodies) this.rebuildBody(b);
-    this.dirtyBodies.clear();
+    // re-split damaged bodies within a time budget; the rest continue next step
+    const tr = performance.now();
+    for (const b of this.dirtyBodies) {
+      this.dirtyBodies.delete(b);
+      this.rebuildBody(b);
+      if (performance.now() - tr > 4) break;
+    }
     lap('rebuild');
     this.particles.update(dt);
     lap('particles');

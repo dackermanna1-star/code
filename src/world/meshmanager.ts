@@ -131,7 +131,12 @@ export class RegionMeshes {
   }
 
   /** Dispatch dirty regions to the workers (nearest first), then pending LOD changes. */
-  update(camX: number, camY: number, camZ: number, maxSync = 2): void {
+  /**
+   * @param budgetMs main-thread time this call may spend gathering voxels for jobs; the rest of the queue
+   * waits for the next frame (big blasts dirty dozens of regions at once)
+   */
+  update(camX: number, camY: number, camZ: number, maxSync = 2, budgetMs = 3): void {
+    const t0 = performance.now();
     const w = this.world;
     const dq = w.dirtyQueue;
     if (Math.abs(camX - this.lodCamX) + Math.abs(camY - this.lodCamY) + Math.abs(camZ - this.lodCamZ) > 3) this.scanLod(camX, camY, camZ);
@@ -147,6 +152,7 @@ export class RegionMeshes {
     let sync = 0;
     const useWorker = this.workers.length > 0;
     for (;;) {
+      if (performance.now() - t0 > budgetMs) break;
       let wi = -1;
       if (useWorker) {
         let best = RegionMeshes.MAX_INFLIGHT;

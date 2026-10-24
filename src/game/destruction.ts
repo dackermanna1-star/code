@@ -2,11 +2,11 @@
 // material-specific effects (dust, splinters, glass shards, sparks) and chained explosives.
 
 import { Game } from './game';
-import { VOXEL } from '../world/world';
+import { VOXEL, CK } from '../world/world';
 import { PAL_MAT, PAL_HARD, PAL_BLAST, PALETTE, Mat, MATERIALS, srgbToLinear, PAL_FLAMMABLE, PAL_TRANSPARENT, PAL_DENSITY, PAL_SCORCH, P } from '../world/materials';
 import { Body } from '../physics/body';
 import { PT } from '../render/particles';
-import { hash3, valueNoise3, Vec3, Rng } from '../engine/math';
+import { hash3, Vec3, Rng } from '../engine/math';
 
 export interface CarveOpts {
   /** maximum hardness that can be removed */
@@ -65,7 +65,10 @@ export class Destruction {
    */
   carveWorld(cx: number, cy: number, cz: number, r: number, o: CarveOpts): number {
     const w = this.g.world, st = this.g.structure, P = this.g.particles;
+    let tq = performance.now();
+    const lapc = (k: string) => { const n = performance.now(); this.prof['c_' + k] = (this.prof['c_' + k] || 0) + n - tq; tq = n; };
     this.g.stress.prepare(Math.floor(cx * 10), Math.floor(cz * 10));
+    lapc('prep');
     // glass is handled by shatterGlassNear, so the scan box only needs the largest non-glass factor
     const maxF = o.blast ? 1.35 : 1.6;
     const R = r * maxF * (1 + o.noise * 0.5);
@@ -80,8 +83,6 @@ export class Destruction {
     const matPos = new Float32Array(Mat.COUNT * 3);
     const removedList: number[] = [];
     const R2 = R * R;
-    let tq = performance.now();
-    const lapc = (k: string) => { const n = performance.now(); this.prof['c_' + k] = (this.prof['c_' + k] || 0) + n - tq; tq = n; };
     w.forEachSolid(x0, y0, z0, x1, y1, z1, (x, y, z, v) => {
       const wx = (x + 0.5) * VOXEL - cx, wy = (y + 0.5) * VOXEL - cy, wz = (z + 0.5) * VOXEL - cz;
       const d2 = wx * wx + wy * wy + wz * wz;
@@ -97,9 +98,13 @@ export class Destruction {
       removedList.push(x, y, z, v);
     }, false, { cx: cx * 10, cy: cy * 10, cz: cz * 10, r: R * 10 });
     lapc('scan');
+    const wasBulk = w.bulk;
+    w.bulk = true; // one dirty-box mark below instead of one per voxel
+    let bx0 = 1e9, by0 = 1e9, bz0 = 1e9, bx1 = -1, by1 = -1, bz1 = -1;
     for (let i = 0; i < removedList.length; i += 4) {
       const x = removedList[i], y = removedList[i + 1], z = removedList[i + 2], v = removedList[i + 3];
       w.set(x, y, z, 0);
+      if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; if (z < bz0) bz0 = z; if (z > bz1) bz1 = z;
       removed++;
       const m = PAL_MAT[v];
       matCount[m]++; matPal[m] = v;
@@ -117,6 +122,8 @@ export class Destruction {
         P.debris(px, py, pz, dx * sp + (Math.random() - 0.5) * 2, dy * sp + Math.random() * 2.5, dz * sp + (Math.random() - 0.5) * 2, size, v, 8, shape);
       }
     }
+    w.bulk = wasBulk;
+    if (removed > 0) w.markBoxDirty(bx0, by0, bz0, bx1, by1, bz1);
     lapc('set');
     if (removed === 0) return 0;
     for (let i = 0; i < removedList.length; i += 4) st.noteRemoved(removedList[i], removedList[i + 1], removedList[i + 2]);
@@ -183,6 +190,26 @@ export class Destruction {
     }
   }
 
+  private glassStamp = new Uint32Array(0);
+  private glassHas = new Uint8Array(0);
+  /** Does a chunk hold any glass? Cached per chunk and revalidated by its modification stamp, so blasts
+   *  don't walk every voxel around them looking for windows. */
+  private chunkHasGlass = (ci: number): boolean => {
+    const w = this.g.world;
+    if (this.glassStamp.length !== w.nchunks) { this.glassStamp = new Uint32Array(w.nchunks); this.glassHas = new Uint8Array(w.nchunks); }
+    const s = w.stamp[ci] + 1;
+    if (this.glassStamp[ci] !== s) {
+      this.glassStamp[ci] = s;
+      let has = 0;
+      if (w.kind[ci] === CK.Dense) {
+        const d = w.data[ci] as Uint8Array;
+        for (let i = 0; i < d.length; i++) if (PAL_MAT[d[i]] === Mat.Glass) { has = 1; break; }
+      } else if (w.kind[ci] === CK.Uniform) has = PAL_MAT[w.uni[ci]] === Mat.Glass ? 1 : 0;
+      this.glassHas[ci] = has;
+    }
+    return this.glassHas[ci] === 1;
+  };
+
   /** Breaks glass panes connected to glass voxels near a point (flood fill limited by radius). */
   shatterGlassNear(cx: number, cy: number, cz: number, r: number): void {
     const w = this.g.world, P = this.g.particles;
@@ -196,26 +223,26 @@ export class Destruction {
       if (PAL_MAT[v] !== Mat.Glass) return;
       if ((x - ccx) ** 2 + (y - ccy) ** 2 + (z - ccz) ** 2 > R2) return;
       seeds.push(x, y, z);
-    }, true, { cx: ccx, cy: ccy, cz: ccz, r: R * 10 });
+    }, true, { cx: ccx, cy: ccy, cz: ccz, r: R * 10 }, this.chunkHasGlass);
     if (seeds.length === 0) return;
-    const seen = new Set<number>();
     const stack: number[] = [];
     let broken = 0;
-    const key = (x: number, y: number, z: number) => x + 4096 * (z + 4096 * y);
     const lim = 12; // extra reach beyond the radius (voxels) so whole panes break
+    const wasBulk = w.bulk;
+    w.bulk = true; // one dirty-box mark below instead of one per voxel
+    let bx0 = 1e9, by0 = 1e9, bz0 = 1e9, bx1 = -1, by1 = -1, bz1 = -1;
     for (let s = 0; s < seeds.length; s += 3) {
       stack.push(seeds[s], seeds[s + 1], seeds[s + 2]);
       while (stack.length && broken < 6000) {
         const z = stack.pop()!, y = stack.pop()!, x = stack.pop()!;
-        const k = key(x, y, z);
-        if (seen.has(k)) continue;
-        seen.add(k);
+        // broken glass is cleared right away, so revisits stop here without a visited set
         const v = w.get(x, y, z);
         if (!v || PAL_MAT[v] !== Mat.Glass) continue;
         if (x < x0 - lim || x > x1 + lim || y < y0 - lim || y > y1 + lim || z < z0 - lim || z > z1 + lim) continue;
         w.set(x, y, z, 0);
         this.g.structure.noteRemoved(x, y, z);
         broken++;
+        if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; if (z < bz0) bz0 = z; if (z > bz1) bz1 = z;
         if (Math.random() < 0.35) {
           const px = (x + 0.5) * VOXEL, py = (y + 0.5) * VOXEL, pz = (z + 0.5) * VOXEL;
           let dx = px - cx, dz = pz - cz;
@@ -227,8 +254,10 @@ export class Destruction {
       }
       stack.length = 0;
     }
+    w.bulk = wasBulk;
     if (broken > 0) {
-      w.noteChange(x0 - lim, y0 - lim, z0 - lim, x1 + lim, y1 + lim, z1 + lim);
+      w.markBoxDirty(bx0, by0, bz0, bx1, by1, bz1);
+      w.noteChange(bx0, by0, bz0, bx1, by1, bz1);
       this.onBreak?.(cx, cy, cz, Mat.Glass, broken);
     }
   }
@@ -362,12 +391,16 @@ export class Destruction {
           { grow: 0.45 + Math.random() * 0.3, drag: 1.2, buoy: 0.5 });
       }
     }
+    // at most two blasts per step: chain reactions roll over a few frames instead of stalling one
+    let fired = 0;
     for (let i = this.pending.length - 1; i >= 0; i--) {
       const p = this.pending[i];
       p.t -= dt;
       const body = (p as any).body as Body | undefined;
       if (body && !body.removed) { p.x = body.pos.x; p.y = body.pos.y; p.z = body.pos.z; }
       if (p.t <= 0) {
+        if (fired >= 2) continue;
+        fired++;
         this.pending.splice(i, 1);
         if (body && !body.removed) {
           // remove the explosive voxels of the body before the blast
@@ -455,11 +488,13 @@ export class Destruction {
     const carve: CarveOpts = { maxHard: 4, blast: true, debris: 0.07, speed: 9 + power * 1.5, noise: 0.55, dust: 1.6, fromX: x, fromY: y, fromZ: z };
     g.world.noteChange(Math.floor((x - r * 3) * 10), Math.floor((y - r * 3) * 10), Math.floor((z - r * 3) * 10), Math.ceil((x + r * 3) * 10), Math.ceil((y + r * 3) * 10), Math.ceil((z + r * 3) * 10));
     this.carveWorld(x, y, z, rc, carve);
+    lap('carve');
     // sheet metal around the hole is not cut but bent away from the blast
     this.bendMetal(x, y, z, rc * 0.5, Math.min(5.5, rc * 2.1 + 0.4), power);
+    lap('bend');
     // soot-blackened crater
-    this.scorch(x, y, z, rc * 0.6, Math.min(5.5, rc * 1.8 + 0.3));
-    lap('carve');
+    this.scorch(x, y, z, rc * 0.6, Math.min(4.5, rc * 1.6 + 0.3));
+    lap('scorch');
     // fragments: chunks loosened from the crater rim fly outwards as rigid bodies
     this.fragments(x, y, z, rc, power);
     lap('fragments');
@@ -651,16 +686,19 @@ export class Destruction {
     const w = this.g.world;
     const X = cx * 10, Y = cy * 10, Z = cz * 10, R0 = r0 * 10, R1 = r1 * 10;
     const hits: number[] = [];
+    const R12 = R1 * R1;
     w.forEachSolid(Math.floor(X - R1), Math.floor(Y - R1), Math.floor(Z - R1), Math.ceil(X + R1), Math.ceil(Y + R1), Math.ceil(Z + R1), (x, y, z, v) => {
       const sc = PAL_SCORCH[v];
       if (!sc) return;
       const dx = x + 0.5 - X, dy = y + 0.5 - Y, dz = z + 0.5 - Z;
-      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (d > R1) return;
+      const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 > R12) return;
+      const d = Math.sqrt(d2);
       const p = d < R0 ? 1 : Math.pow(1 - (d - R0) / (R1 - R0), 0.7);
-      // blotchy soot: low-frequency noise with a little per-voxel grain, not salt-and-pepper speckle
-      const nz = valueNoise3(x * 0.16, y * 0.16, z * 0.16, 77) * 0.85 + ((hash3(x, y, z) & 255) / 255) * 0.15;
-      if (nz > p) return;
+      // blotchy soot: random per 0.4 m block with a little per-voxel grain, not salt-and-pepper speckle
+      const nb = ((hash3(x >> 2, y >> 2, z >> 2) & 1023) / 1023) * 0.8;
+      if (nb > p) return;
+      if (nb + ((hash3(x, y, z) & 255) / 255) * 0.2 > p) return;
       // only surfaces that face open air
       if (w.get(x + 1, y, z) && w.get(x - 1, y, z) && w.get(x, y + 1, z) && w.get(x, y - 1, z) && w.get(x, y, z + 1) && w.get(x, y, z - 1)) return;
       hits.push(x, y, z, sc);

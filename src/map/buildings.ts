@@ -337,7 +337,7 @@ export function buildOffice(c: Ctx): void {
     // carpet
     if (f > 0) b.box(X0 + 3, y0, Z0 + 3, X1 - 3, y0 + 1, Z1 - 3, (x, y, z) => (z >= cz0 && z < cz1 + 2 ? P.ceiling : P.carpet + ((x >> 3) & 1)));
     // suspended ceiling with a tile grid (kept clear over the stairwell)
-    b.box(X0 + 3, y1 - 1, Z0 + 3, X1 - 3, y1, Z1 - 3, (x, y, z) => (x % 12 === 0 || z % 12 === 0 ? P.plasterGrey : P.ceiling));
+    b.box(X0 + 3, y1 - 1, Z0 + 3, X1 - 3, y1, Z1 - 3, (x, y, z) => (x % 12 === 0 || z % 12 === 0 ? P.hungGrid : P.hungCeiling));
     if (f < 2) b.clear(sx0, y1 - 1, sz0, sx0 + 18, y1, sz0 + 60);
     // rooms: desk islands, cabinets along the partition, plants, whiteboards
     const fy = f === 0 ? G : y0 + 1;

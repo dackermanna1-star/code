@@ -80,8 +80,12 @@ ground along the cheapest load paths and compares link loads with per-material c
 tension capacities, plus a bending check (load × lever arm against a capacity that grows with member
 depth, so deep trusses and slabs span far while slender rails and purlins cannot carry a lost column).
 Intact structures are analysed once at load time and anything already overloaded is reinforced, so the
-level always stands until it is damaged. Overloaded links crumble, pieces detach, fall and hit things,
-and the analysis runs again — collapses progress over seconds instead of being scripted.
+level always stands until it is damaged. Cladding, roof sheeting, plaster partitions and suspended ceilings
+carry no load (their weight goes to the structure they hang on), and a link may only fail when the damage
+made its load path to the ground substantially longer than in the intact structure: cutting columns brings
+the floors above down, while a hole in a wall that loads can walk around stays a local event. Overloaded
+links crumble, pieces detach, fall and hit things, and the analysis runs again — collapses progress over
+seconds instead of being scripted.
 
 **Destruction** (`src/game/destruction.ts`, `fire.ts`). Explosions carve by per-material blast
 resistance, throw fragments out as rigid bodies, push bodies with a shockwave, shatter connected glass,
@@ -100,8 +104,14 @@ and resting fragments settle into the world as rubble, so damage persists.
 - Meshing, which re-runs for every modified region, happens in a worker pool off the main thread.
 - Physics: island sleeping, per-body world collision caches patched per modified chunk, small
   fragments do not collide with each other and are baked into the static world once they rest.
-- Structural analysis and connectivity searches are time-sliced (they resume on the next frame) and
-  cache per-chunk data; chain reactions share fragment and particle budgets.
+- Structural analysis and connectivity searches are time-sliced (they resume on the next frame; the stress
+  solver also uses whatever CPU time is left at the end of a frame) and cache per-chunk cell masses and
+  link capacities, so a long collapse never stalls a frame.
+- Chain reactions fire at most two blasts per step and share fragment and particle budgets; glass shattering
+  skips chunks without glass; the simulation drops into brief slow motion rather than piling catch-up steps
+  onto an expensive frame.
+- Moving bodies keep their copy of the surrounding world extended in their direction of travel, and big
+  damaged bodies split into pieces from per-piece bounding boxes.
 - Quality presets (menu or `?quality=`) scale resolution, shadow map size, SSAO, volumetrics,
   reflections and LOD distances.
 
@@ -120,4 +130,5 @@ node tools/scenario.mjs out tests/scenarios/factory_views.json 960 540   # headl
 ```
 
 Profiling scripts (`tests/*.prof.ts`) measure LOD quad counts, the construction-site and hall
-collapses and the tank-farm chain reaction step by step.
+collapses, the tank-farm chain reaction step by step, and how far cracks spread after a pipe bomb
+against each building (`smallblast.prof.ts`).

@@ -8,6 +8,9 @@ import { VOXEL } from '../world/world';
 
 let nextBodyId = 1;
 
+/** edge length (voxels) of the sample buckets of large bodies */
+export const SAMPLE_CELL = 8;
+
 export class Body {
   readonly id = nextBodyId++;
   sx: number; sy: number; sz: number;
@@ -34,6 +37,10 @@ export class Body {
   // collision samples in grid voxel units (x,y,z per sample) + radius in voxel units
   samples = new Float32Array(0);
   nSamples = 0;
+  /** samples bucketed into 8^3-voxel cells (large bodies only): cell start offsets + sample indices */
+  sampleCellStart: Int32Array | null = null;
+  sampleCellList: Int32Array | null = null;
+  sampleCellDims = [0, 0, 0];
   sampleR = 0.5;
   /** bounding sphere radius around COM (meters) */
   radius = 0;
@@ -196,6 +203,7 @@ export class Body {
     }
     this.samples = new Float32Array(pts);
     this.nSamples = pts.length / 4;
+    this.buildSampleCells();
     this.sampleR = L * 0.5;
     let r2 = 0;
     for (let i = 0; i < pts.length; i += 4) {
@@ -204,6 +212,27 @@ export class Body {
       if (d > r2) r2 = d;
     }
     this.radius = (Math.sqrt(r2) + this.sampleR + 0.9) * VOXEL;
+  }
+
+  /** Bucket the samples of large bodies so a collision pair only visits samples near the other body. */
+  buildSampleCells(): void {
+    const n = this.nSamples;
+    if (n < 256) { this.sampleCellStart = null; this.sampleCellList = null; return; }
+    const C = SAMPLE_CELL;
+    const nx = (this.sx >> 3) + 1, ny = (this.sy >> 3) + 1, nz = (this.sz >> 3) + 1;
+    this.sampleCellDims = [nx, ny, nz];
+    const start = new Int32Array(nx * ny * nz + 1);
+    const cellOf = (i: number) => {
+      const s = this.samples;
+      const cx = Math.min(nx - 1, Math.max(0, Math.floor(s[i * 4] / C))), cy = Math.min(ny - 1, Math.max(0, Math.floor(s[i * 4 + 1] / C))), cz = Math.min(nz - 1, Math.max(0, Math.floor(s[i * 4 + 2] / C)));
+      return cx + nx * (cz + nz * cy);
+    };
+    for (let i = 0; i < n; i++) start[cellOf(i) + 1]++;
+    for (let c = 0; c < nx * ny * nz; c++) start[c + 1] += start[c];
+    const fill = start.slice(0, nx * ny * nz);
+    const list = new Int32Array(n);
+    for (let i = 0; i < n; i++) list[fill[cellOf(i)]++] = i;
+    this.sampleCellStart = start; this.sampleCellList = list;
   }
 
   /** Update rotation matrix, world inverse inertia and AABB. */

@@ -183,7 +183,7 @@ export class World {
    * iterating dense chunk data directly. Safe to modify voxels inside fn (data is read before the call).
    */
   forEachSolid(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, fn: (x: number, y: number, z: number, v: number) => void,
-    skipTerrain = false, sphere?: { cx: number; cy: number; cz: number; r: number }): void {
+    skipTerrain = false, sphere?: { cx: number; cy: number; cz: number; r: number }, chunkFilter?: (ci: number) => boolean): void {
     x0 = Math.max(0, x0); y0 = Math.max(0, y0); z0 = Math.max(0, z0);
     x1 = Math.min(this.sx - 1, x1); y1 = Math.min(this.sy - 1, y1); z1 = Math.min(this.sz - 1, z1);
     if (x1 < x0 || y1 < y0 || z1 < z0) return;
@@ -202,6 +202,7 @@ export class World {
             const dx = Math.max(ax - sphere.cx, 0, sphere.cx - bx - 1), dy = Math.max(ay - sphere.cy, 0, sphere.cy - by - 1), dz = Math.max(az - sphere.cz, 0, sphere.cz - bz - 1);
             if (dx * dx + dy * dy + dz * dz > r2) continue;
           }
+          if (chunkFilter && k !== CK.Terrain && !chunkFilter(ci)) continue;
           if (k === CK.Dense) {
             if (this.count[ci] === 0) continue;
             const d = this.data[ci] as Uint8Array;
@@ -242,6 +243,25 @@ export class World {
    * Copies the box [x0,x0+nx) x [y0,y0+ny) x [z0,z0+nz) into out (x fastest, then z, then y).
    * Works chunk by chunk (bulk row copies for dense chunks, column fills for virtual terrain).
    */
+  /**
+   * Copies the part [ax, bx) x [ay, by) x [az, bz) of chunk ci (the box must lie inside that chunk) into a
+   * grid of row length nx and depth nz whose origin is (x0, y0, z0).
+   */
+  copyChunkRows(ci: number, ax: number, ay: number, az: number, bx: number, by: number, bz: number, out: Uint8Array,
+    x0: number, y0: number, z0: number, nx: number, nz: number): void {
+    const k = this.kind[ci], w = bx - ax;
+    if (k === CK.Terrain) {
+      for (let z = az; z < bz; z++) for (let x = ax; x < bx; x++) this.terrain.fillColumn(x, z, ay, by, out, (x - x0) + nx * ((z - z0) + nz * (ay - y0)), nx * nz);
+      return;
+    }
+    const d = k === CK.Dense ? this.data[ci] as Uint8Array : null, v = k === CK.Uniform ? this.uni[ci] : 0;
+    for (let y = ay; y < by; y++) for (let z = az; z < bz; z++) {
+      const o = (ax - x0) + nx * ((z - z0) + nz * (y - y0));
+      if (d) { const src = (ax & 15) | ((z & 15) << 4) | ((y & 15) << 8); out.set(d.subarray(src, src + w), o); }
+      else out.fill(v, o, o + w);
+    }
+  }
+
   copyBox(x0: number, y0: number, z0: number, nx: number, ny: number, nz: number, out: Uint8Array): void {
     out.fill(0, 0, nx * ny * nz);
     const x1 = x0 + nx, y1 = y0 + ny, z1 = z0 + nz;

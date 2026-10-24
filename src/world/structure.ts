@@ -197,11 +197,15 @@ export class Structure {
       const x = xz % sx, z = (xz - x) / sx;
       vox[(x - minX) + gx * ((z - minZ) + gz * (y - minY))] = w.get(x, y, z);
     }
+    const wasBulk = w.bulk;
+    w.bulk = true; // one dirty-box mark below instead of one per voxel
     for (let i = 0; i < vxz.length; i++) {
       const xz = vxz[i], y = vy[i];
       const x = xz % sx, z = (xz - x) / sx;
       w.set(x, y, z, 0);
     }
+    w.bulk = wasBulk;
+    w.markBoxDirty(minX, minY, minZ, maxX, maxY, maxZ);
     this.stats.detached++;
     this.onDetach({ vox, sx: gx, sy: gy, sz: gz, ox: minX, oy: minY, oz: minZ, count: vxz.length });
     return true;

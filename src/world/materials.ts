@@ -159,6 +159,9 @@ export const P = {
   plasterBlue: pal('plaster blue', Mat.Plaster, '#8d9aa6'),
   plasterGreen: pal('plaster green', Mat.Plaster, '#9fae95'),
   ceiling: pal('ceiling tile', Mat.Plaster, '#e2e0d8'),
+  // suspended ceilings hang from the slab: never part of a load path
+  hungCeiling: pal('suspended ceiling', Mat.Plaster, '#e2e0d8', { density: 0.4 }),
+  hungGrid: pal('suspended ceiling grid', Mat.Plaster, '#b9b9b4', { density: 0.4 }),
   // --- wood
   plank: group('plank', Mat.Wood, ['#9b7247', '#8a643d', '#a37a4d']),
   woodDark: group('wood dark', Mat.Wood, ['#5c3f25', '#664629']),
@@ -375,6 +378,7 @@ for (let i = 1; i < PALETTE_SIZE; i++) {
 /** Palette entries that never carry structural load (doors, shutters...). Glass/lamps/foliage are excluded by material. */
 export const PAL_NOLOAD = new Uint8Array(256);
 for (let i = 0; i < PAL_GROUP[P.shutter]; i++) PAL_NOLOAD[P.shutter + i] = 1;
+PAL_NOLOAD[P.hungCeiling] = 1; PAL_NOLOAD[P.hungGrid] = 1;
 
 /** Pick a shade variant of a palette group deterministically from a hash. */
 export function variant(base: number, h: number): number {

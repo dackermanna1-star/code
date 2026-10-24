@@ -18,6 +18,7 @@ const before = bays();
 console.log('roof voxels per bay before:', before.join(', '));
 // cut the columns at x = 1100, 1180, 1260, 1340 between 4.5 m and 5.5 m height (like a torch / shaped charges)
 for (const cx of [1100, 1180, 1260]) {
+  game.stress.prepare(cx + 2, 483); // as any tool does before removing voxels
   for (let y = G + 45; y < G + 55; y++) for (let z = 478; z < 490; z++) for (let x = cx - 2; x < cx + 7; x++) {
     if (world.get(x, y, z)) { world.set(x, y, z, 0); game.structure.noteRemoved(x, y, z); }
   }
