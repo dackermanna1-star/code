@@ -1,0 +1,23 @@
+{
+  "name": "wreckfield",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Soft-body vehicle crash sandbox for the browser: node-beam physics, deformable cars and a destruction test map.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && node scripts/inline-build.mjs",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.4",
+    "@types/three": "0.186.0",
+    "typescript": "6.0.3",
+    "vite": "8.3.4"
+  }
+}
