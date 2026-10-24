@@ -115,7 +115,11 @@ export class Destruction {
     this.totalRemoved += removed;
     this.materialEffects(matCount, matPal, matPos, o, fx, fy, fz);
     lapc('fx');
-    if (en > 0) this.schedule((ex / en + 0.5) * VOXEL, (ey / en + 0.5) * VOXEL, (ez / en + 0.5) * VOXEL, 0.6 + en * 0.012, 0.08 + Math.random() * 0.15);
+    if (en > 0) {
+      const seeds: number[] = [];
+      for (let i = 0; i < removedList.length; i += 4) if (PAL_MAT[removedList[i + 3]] === Mat.Explosive) seeds.push(removedList[i], removedList[i + 1], removedList[i + 2]);
+      this.detonateRegion(seeds, en);
+    }
     // glass connected to the hole shatters
     if (matCount[Mat.Glass] > 0 || o.blast) this.shatterGlassNear(cx, cy, cz, r * (o.blast ? 2.4 : 1.5));
     lapc('glass');
@@ -279,6 +283,46 @@ export class Destruction {
     (this.pending[this.pending.length - 1] as any).body = b;
   }
 
+  /**
+   * Explosive voxels of the static world were breached (tanks, gas sphere, transformer oil): the whole
+   * connected explosive volume goes up as a rolling series of blasts.
+   */
+  detonateRegion(seeds: number[], alreadyRemoved = 0): void {
+    const w = this.g.world;
+    const stack: number[] = [];
+    for (let i = 0; i < seeds.length; i += 3) {
+      const x = seeds[i], y = seeds[i + 1], z = seeds[i + 2];
+      stack.push(x + 1, y, z, x - 1, y, z, x, y + 1, z, x, y - 1, z, x, y, z + 1, x, y, z - 1, x, y, z);
+    }
+    const pts: number[] = [];
+    let n = 0;
+    while (stack.length && n < 80000) {
+      const z = stack.pop()!, y = stack.pop()!, x = stack.pop()!;
+      const v = w.get(x, y, z);
+      if (!v || PAL_MAT[v] !== Mat.Explosive) continue;
+      w.set(x, y, z, 0);
+      this.g.structure.noteRemoved(x, y, z);
+      n++;
+      if ((n & 63) === 1) pts.push(x, y, z);
+      stack.push(x + 1, y, z, x - 1, y, z, x, y + 1, z, x, y - 1, z, x, y, z + 1, x, y, z - 1);
+    }
+    const total = n + alreadyRemoved;
+    if (pts.length === 0) {
+      if (seeds.length) this.schedule((seeds[0] + 0.5) * VOXEL, (seeds[1] + 0.5) * VOXEL, (seeds[2] + 0.5) * VOXEL, 0.6 + total * 0.012, 0.08 + Math.random() * 0.15);
+      return;
+    }
+    const power = Math.min(160, 0.8 + total * 0.0065);
+    const blasts = Math.max(1, Math.min(6, Math.round(total / 2500)));
+    for (let k = 0; k < blasts; k++) {
+      const i = (Math.floor(Math.random() * (pts.length / 3))) * 3;
+      const p = blasts === 1 ? power : power / Math.pow(blasts, 0.6);
+      this.pending.push({ x: (pts[i] + 0.5) * VOXEL, y: (pts[i + 1] + 0.5) * VOXEL, z: (pts[i + 2] + 0.5) * VOXEL, power: p, t: 0.06 + k * 0.14 + Math.random() * 0.08 });
+    }
+  }
+
+  /** Explosive voxel heated / hit at a world voxel coordinate. */
+  detonateAt(x: number, y: number, z: number): void { this.detonateRegion([x, y, z], 0); }
+
   schedule(x: number, y: number, z: number, power: number, delay: number): void {
     // merge with a nearby pending blast
     for (const p of this.pending) {
@@ -371,12 +415,14 @@ export class Destruction {
     let tt = performance.now();
     const lap = (k: string) => { const n = performance.now(); this.prof[k] = (this.prof[k] || 0) + n - tt; tt = n; };
     const r = 1.35 * Math.cbrt(power) + 0.25;
+    // huge blasts (tank farms) mostly push and burn; the solid material carved saturates
+    const rc = r < 3.4 ? r : 3.4 + (r - 3.4) * 0.3;
     const carve: CarveOpts = { maxHard: 4, blast: true, debris: 0.07, speed: 9 + power * 1.5, noise: 0.55, dust: 1.6, fromX: x, fromY: y, fromZ: z };
     g.world.noteChange(Math.floor((x - r * 3) * 10), Math.floor((y - r * 3) * 10), Math.floor((z - r * 3) * 10), Math.ceil((x + r * 3) * 10), Math.ceil((y + r * 3) * 10), Math.ceil((z + r * 3) * 10));
-    this.carveWorld(x, y, z, r, carve);
+    this.carveWorld(x, y, z, rc, carve);
     lap('carve');
     // fragments: chunks loosened from the crater rim fly outwards as rigid bodies
-    this.fragments(x, y, z, r, power);
+    this.fragments(x, y, z, rc, power);
     lap('fragments');
     // bodies: carve + shockwave impulse
     const bodies = g.physics.bodies.slice();
@@ -384,7 +430,7 @@ export class Destruction {
       const dx = b.pos.x - x, dy = b.pos.y - y, dz = b.pos.z - z;
       const d = Math.hypot(dx, dy, dz);
       if (d - b.radius > r * 4) continue;
-      if (d - b.radius < r * 2.3) this.carveBody(b, x, y, z, r, carve);
+      if (d - b.radius < rc * 2.3) this.carveBody(b, x, y, z, rc, carve);
       if (b.removed) continue;
       const dd = Math.max(d, 0.6);
       // impulse from overpressure on the exposed area, capped per mass

@@ -53,11 +53,13 @@ export class BodyMeshes {
   }
 
   /** Update transforms (interpolated with alpha between previous and current physics state) and the draw list. */
-  update(bodies: Body[], alpha: number): void {
+  update(bodies: Body[], alpha: number, viewModel: Body | null = null): void {
     const r = this.renderer;
     for (const d of this.draws) this.drawPool.push(d);
     this.draws.length = 0;
-    for (const b of bodies) {
+    const n = bodies.length + (viewModel ? 1 : 0);
+    for (let i = 0; i < n; i++) {
+      const b = i < bodies.length ? bodies[i] : viewModel!;
       if (b.meshDirty) this.build(b);
       if (b.slot < 0 || b.nOp + b.nTr === 0) continue;
       // previous rendered transform is kept in the renderer's xform table (rows 3..5) via lastRows
@@ -71,7 +73,7 @@ export class BodyMeshes {
       else lr.set(rowsCur);
       const d = this.drawPool.pop() ?? { slot: 0, start: 0, nOp: 0, nTr: 0, x: 0, y: 0, z: 0, r: 0 };
       d.slot = b.slot; d.start = b.meshStart; d.nOp = b.nOp; d.nTr = b.nTr;
-      d.x = ip.x; d.y = ip.y; d.z = ip.z; d.r = b.radius;
+      d.x = ip.x; d.y = ip.y; d.z = ip.z; d.r = b.radius; d.vm = b === viewModel;
       this.draws.push(d);
     }
   }

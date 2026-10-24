@@ -36,7 +36,7 @@ export class Fire {
     const mat = MATERIALS[PAL_MAT[v]];
     const life = Math.max(1.5, mat.burnTime || 4) * (0.6 + Math.random() * 0.8);
     this.cells.set(k, { x, y, z, t: 0, life, body: null });
-    if (PAL_MAT[v] === Mat.Explosive) this.g.destruction.schedule((x + 0.5) * VOXEL, (y + 0.5) * VOXEL, (z + 0.5) * VOXEL, 1.5, 0.5 + Math.random());
+    if (PAL_MAT[v] === Mat.Explosive) { this.g.destruction.detonateAt(x, y, z); return true; }
     return true;
   }
 

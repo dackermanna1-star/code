@@ -16,6 +16,8 @@ import { Vec3 } from './engine/math';
 import { Fire } from './game/fire';
 import { Audio } from './engine/audio';
 import { PAL_MAT, Mat } from './world/materials';
+import { ViewModel } from './game/viewmodel';
+import { raycastWorld, RayHit } from './physics/raycast';
 
 function norm(v: number[]): [number, number, number] { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; }
 
@@ -101,6 +103,9 @@ async function main() {
   } else player.spawn.set(25, 4.05, 48);
   player.respawn();
   const tools = new Tools(game, player);
+  const viewModel = new ViewModel();
+  const vmHit = new RayHit();
+  const vmFwd = new Vec3();
   tools.onIgnite = (x, y, z) => { if (!fire.ignite(x, y, z)) fire.igniteAt((x + 0.5) * 0.1, (y + 0.5) * 0.1, (z + 0.5) * 0.1, 0.15); };
   tools.onSound = (name, x, y, z, vol) => {
     if (name === 'shotgun' || name === 'rifle' || name === 'rocket') audio.shot(name, x, y, z);
@@ -144,7 +149,7 @@ async function main() {
   const timing = { sim: 0, mesh: 0, render: 0, player: 0, simMax: 0 };
   const g = window as any;
   g.__game = {
-    game, world, renderer, player, tools, cam, input, fire, audio, meshes: game.meshes, ready: true, frames: 0,
+    game, world, renderer, player, tools, cam, input, fire, audio, viewModel, meshes: game.meshes, ready: true, frames: 0,
     setEnv: (n: string) => { Object.assign(env, ENV_PRESETS[n]); envName = n; },
     extraStats: () => ({ fires: fire.count, bodies: game.physics.bodies.length, phys: game.physics.stats, debris: game.particles.dn, bb: game.particles.bn, removed: destruction.totalRemoved, detached: game.stats.detached, genMs, timing, structure: game.structure.stats, stress: game.stress.stats, gprof: game.prof, dprof: destruction.prof }),
   };
@@ -194,7 +199,10 @@ async function main() {
     cam.update(canvas.clientWidth / Math.max(1, canvas.clientHeight));
     const tm = performance.now();
     game.meshes.update(cam.x, cam.y, cam.z);
-    game.bodyMeshes.update(game.physics.bodies, alpha);
+    cam.forward(vmFwd);
+    const wallDist = raycastWorld(world, cam.x, cam.y, cam.z, vmFwd.x, vmFwd.y, vmFwd.z, 1.2, vmHit) ? vmHit.dist : 1.2;
+    const vm = viewModel.update(cam, tools.current, tools.anim, tools.recoil, player.bob, rawDt, input.mouseDX, input.mouseDY, tools.torchActive, wallDist);
+    game.bodyMeshes.update(game.physics.bodies, alpha, enabled ? vm : null);
     timing.mesh = performance.now() - tm;
     (game.particles as any).prepare(alpha);
     const lights = game.gatherLights(cam.x, cam.y, cam.z, 40);

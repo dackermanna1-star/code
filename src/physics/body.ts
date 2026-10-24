@@ -266,11 +266,14 @@ export class Body {
     this.ang.z += W[6] * tx + W[7] * ty + W[8] * tz;
   }
 
-  /** 3x4 model rows for rendering: grid coords -> world (includes VOXEL scale). */
+  /** render scale (meters per voxel); view models use smaller voxels */
+  scale = VOXEL;
+
+  /** 3x4 model rows for rendering: grid coords -> world (includes the voxel scale). */
   modelRows(out: Float32Array | number[], pos: Vec3, rot: Quat): void {
     const m = [0, 0, 0, 0, 0, 0, 0, 0, 0];
     rot.toMat3(m as unknown as Float64Array);
-    const s = VOXEL;
+    const s = this.scale;
     const cx = this.com.x, cy = this.com.y, cz = this.com.z;
     for (let r = 0; r < 3; r++) {
       const a = m[r * 3] * s, b = m[r * 3 + 1] * s, c = m[r * 3 + 2] * s;

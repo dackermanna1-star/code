@@ -3,6 +3,7 @@ import { GLSL_HEADER } from './gl';
 
 export const MAX_LIGHTS = 48;
 export const NUM_CASCADES = 4;
+export const SKY_MAPS = 8;
 
 /** Quad decoding shared by every pass that draws voxel geometry (vertex pulling from the quad texture). */
 const QUAD_COMMON = `
@@ -401,7 +402,29 @@ uniform float uAmbient;
 uniform int uUseSSAO;
 uniform float uShadowSoft;
 uniform int uFrame;
+uniform sampler2DArrayShadow uSkyOcc;
+uniform mat4 uSkyVP[${SKY_MAPS}];
+uniform vec4 uSkyDir[${SKY_MAPS}];
+uniform int uSkyOn;
+uniform sampler2D uVol;
+uniform int uVolOn;
 out vec4 oColor;
+
+// fraction of the sky visible from a point: soft "sky shadows" from several directions
+float skyVisibility(vec3 wp, vec3 n) {
+  float sum = 0.0, wsum = 0.0;
+  float j = ign(gl_FragCoord.xy + float(uFrame % 8) * 7.31) - 0.5;
+  for (int k = 0; k < ${SKY_MAPS}; k++) {
+    vec3 dir = uSkyDir[k].xyz;
+    float w = uSkyDir[k].w * (0.25 + 0.75 * max(dot(n, dir), 0.0));
+    vec4 lp = uSkyVP[k] * vec4(wp + n * 0.25 + dir * (0.15 + j * 0.1), 1.0);
+    vec3 s = lp.xyz / lp.w * 0.5 + 0.5;
+    float v = 1.0;
+    if (s.x > 0.0 && s.y > 0.0 && s.x < 1.0 && s.y < 1.0) v = texture(uSkyOcc, vec4(s.xy, float(k), s.z - 0.0015));
+    sum += v * w; wsum += w;
+  }
+  return sum / max(wsum, 1e-4);
+}
 
 float shadowAt(vec3 wp, vec3 n, float viewDist) {
   int c = 0;
@@ -468,13 +491,16 @@ void main() {
   vec3 spec = D_GGX(NoH, a) * F * G / max(4.0 * NoL * NoV, 1e-3);
   vec3 col = (diffCol / 3.14159 + spec) * uSunColor * NoL * sh * 3.14159;
 
-  // sky / ambient (hemisphere) with bounce from the ground
+  // sky / ambient (hemisphere) with bounce from the ground, occluded by the large-scale sky visibility
+  float sv = uSkyOn == 1 ? skyVisibility(wp, n) : 1.0;
   float up = n.y * 0.5 + 0.5;
   vec3 skyAmb = mix(uGroundColor, mix(uSkyHorizon, uSkyZenith, 0.5), up);
-  vec3 amb = skyAmb * uAmbient;
+  // indoors: dim ambient tinted by sunlight bouncing off the floor
+  vec3 indoor = (uGroundColor * 0.5 + uSunColor * 0.02) * 0.35;
+  vec3 amb = mix(indoor, skyAmb, sv) * uAmbient;
   // cheap environment reflection for metals / glossy
   vec3 R = reflect(rd, n);
-  vec3 env = skyColor(R) * uAmbient;
+  vec3 env = skyColor(R) * uAmbient * mix(0.12, 1.0, sv);
   vec3 Fe = f0 + (max(vec3(1.0 - rough), f0) - f0) * pow(1.0 - NoV, 5.0);
   col += (diffCol * amb + env * Fe * (1.0 - rough * 0.7)) * ao;
 
@@ -498,7 +524,56 @@ void main() {
 
   col += alb * emissive;
   col = applyFog(col, wp, rd, dist);
+  if (uVolOn == 1) col += texture(uVol, vUV).rgb;
   oColor = vec4(col, 1.0);
+}`;
+
+// ---------------------------------------------------------------------------
+// Volumetric sun scattering (half resolution, jittered, resolved by TAA)
+
+export const VOLUMETRIC_FS = GLSL_HEADER + HASH + `
+in vec2 vUV;
+uniform sampler2D uDepth;
+uniform mat4 uInvViewProj;
+uniform vec3 uCamPos;
+uniform sampler2DArrayShadow uShadow;
+uniform mat4 uCascadeVP[${NUM_CASCADES}];
+uniform vec4 uCascadeSplits;
+uniform vec3 uSunDir;
+uniform vec3 uSunColor;
+uniform vec3 uFogColor;
+uniform float uDensity;
+uniform float uGround;
+uniform int uFrame;
+out vec4 oColor;
+void main() {
+  float d = texture(uDepth, vUV).r;
+  vec4 wp4 = uInvViewProj * vec4(vUV * 2.0 - 1.0, (d >= 1.0 ? 0.9999 : d) * 2.0 - 1.0, 1.0);
+  vec3 wp = wp4.xyz / wp4.w;
+  vec3 rd = wp - uCamPos;
+  float dist = length(rd);
+  rd /= dist;
+  float tmax = min(dist, 70.0);
+  const int N = 20;
+  float jit = ign(gl_FragCoord.xy + float(uFrame % 32) * 5.588);
+  float stepLen = tmax / float(N);
+  float acc = 0.0;
+  for (int i = 0; i < N; i++) {
+    float t = (float(i) + jit) * stepLen;
+    vec3 p = uCamPos + rd * t;
+    int c = t > uCascadeSplits.x ? (t > uCascadeSplits.y ? (t > uCascadeSplits.z ? 3 : 2) : 1) : 0;
+    vec4 lp = uCascadeVP[c] * vec4(p, 1.0);
+    vec3 s = lp.xyz / lp.w * 0.5 + 0.5;
+    float vis = 1.0;
+    if (s.x > 0.0 && s.y > 0.0 && s.x < 1.0 && s.y < 1.0) vis = texture(uShadow, vec4(s.xy, float(c), s.z - 0.001));
+    float dens = uDensity * exp(-max(p.y - uGround, 0.0) * 0.07);
+    acc += vis * dens * stepLen * exp(-t * uDensity * 0.6);
+  }
+  float g = 0.55;
+  float mu = dot(rd, uSunDir);
+  float phase = (1.0 - g * g) / (12.566 * pow(1.0 + g * g - 2.0 * g * mu, 1.5));
+  vec3 sc = acc * uSunColor * (phase * 3.0 + 0.04);
+  oColor = vec4(sc, 1.0);
 }`;
 
 // ---------------------------------------------------------------------------

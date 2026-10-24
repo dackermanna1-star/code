@@ -9,7 +9,7 @@ import { PALETTE, PALETTE_SIZE, PAL_PATTERN } from '../world/materials';
 import type { RegionMeshes } from '../world/meshmanager';
 import { mat4, mat4Mul, mat4Invert, mat4Ortho, mat4LookAt } from '../engine/math';
 
-export interface BodyDraw { slot: number; start: number; nOp: number; nTr: number; x: number; y: number; z: number; r: number }
+export interface BodyDraw { slot: number; start: number; nOp: number; nTr: number; x: number; y: number; z: number; r: number; vm?: boolean }
 export interface PointLight { x: number; y: number; z: number; radius: number; r: number; g: number; b: number }
 
 export interface Environment {
@@ -39,6 +39,8 @@ export interface RenderSettings {
   taa: boolean;
   bloom: boolean;
   edge: number;
+  skyOcclusion: boolean;
+  volumetrics: boolean;
 }
 
 /** Hook for systems that draw into the HDR buffer after lighting (particles etc.). */
@@ -55,7 +57,9 @@ export class Renderer {
   readonly gl: GL;
   readonly pool: QuadPool;
   readonly multiDraw: any;
-  settings: RenderSettings = { scale: 1, shadows: true, shadowSize: 2048, ssao: true, taa: true, bloom: true, edge: 0.07 };
+  settings: RenderSettings = { scale: 1, shadows: true, shadowSize: 2048, ssao: true, taa: true, bloom: true, edge: 0.07, skyOcclusion: true, volumetrics: true };
+  /** world bounds (meters) for the sky occlusion maps */
+  worldBounds = [0, 0, 0, 256, 64, 256];
 
   // resources
   readonly palAlbedo: WebGLTexture;
@@ -68,7 +72,7 @@ export class Renderer {
 
   // programs
   private pG: Program; private pShadow: Program; private pLight: Program; private pSSAO: Program; private pBlur: Program;
-  private pGlass: Program; private pTAA: Program; private pBloomDown: Program; private pBloomUp: Program; private pFinal: Program; private pCopy: Program;
+  private pGlass: Program; private pTAA: Program; private pVol: Program; private pBloomDown: Program; private pBloomUp: Program; private pFinal: Program; private pCopy: Program;
   readonly emptyVao: WebGLVertexArrayObject;
 
   // targets
@@ -83,6 +87,16 @@ export class Renderer {
   private histIdx = 0;
   private bloomMips: Target[] = [];
   shadowTex: WebGLTexture | null = null;
+  private skyTex: WebGLTexture | null = null;
+  private skyFbos: WebGLFramebuffer[] = [];
+  private skyVP: Float32Array[] = [];
+  private skyVPFlat = new Float32Array(16 * S.SKY_MAPS);
+  private skyDirs = new Float32Array(4 * S.SKY_MAPS);
+  private skyNext = 0;
+  private skyInit = 0;
+  /** set when the world changed so the sky occlusion maps are refreshed */
+  skyDirty = true;
+  private vol!: Target;
   private shadowFbos: WebGLFramebuffer[] = [];
   private shadowSize = 0;
 
@@ -154,6 +168,7 @@ export class Renderer {
     this.pBloomUp = new Program(gl, FULLSCREEN_VS, S.BLOOM_UP_FS, 'bloomUp');
     this.pFinal = new Program(gl, FULLSCREEN_VS, S.FINAL_FS, 'final');
     this.pCopy = new Program(gl, FULLSCREEN_VS, S.COPY_FS, 'copy');
+    this.pVol = new Program(gl, FULLSCREEN_VS, S.VOLUMETRIC_FS, 'volumetric');
   }
 
   // ---------------------------------------------------------------- slots
@@ -195,6 +210,7 @@ export class Renderer {
     const hw = Math.max(1, w >> 1), hh = Math.max(1, h >> 1);
     this.ssaoA = this.target(hw, hh, gl.R8, gl.RED, gl.UNSIGNED_BYTE, L);
     this.ssaoB = this.target(hw, hh, gl.R8, gl.RED, gl.UNSIGNED_BYTE, L);
+    this.vol = this.target(hw, hh, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, L);
     this.hist = [this.target(w, h, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, L), this.target(w, h, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, L)];
     this.prevValid = false;
     this.bloomMips = [];
@@ -231,6 +247,75 @@ export class Renderer {
     this.cascadeFrame = 0;
   }
 
+  // ---------------------------------------------------------------- sky occlusion maps
+  private ensureSky(): void {
+    if (this.skyTex) return;
+    const gl = this.gl, N = S.SKY_MAPS, size = 1024;
+    const t = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
+    gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.DEPTH_COMPONENT16, size, size, N);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_COMPARE_MODE, gl.COMPARE_REF_TO_TEXTURE);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_COMPARE_FUNC, gl.LEQUAL);
+    this.skyTex = t;
+    for (let i = 0; i < N; i++) this.skyFbos.push(makeFbo(gl, [], t, i));
+    // directions over the hemisphere, matrices covering the whole level
+    const [bx0, by0, bz0, bx1, by1, bz1] = this.worldBounds;
+    const cx = (bx0 + bx1) / 2, cy = (by0 + by1) / 2, cz = (bz0 + bz1) / 2;
+    for (let k = 0; k < N; k++) {
+      const high = k >= 5;
+      const el = (high ? 70 : 34) * Math.PI / 180;
+      const az = (high ? (k - 5) * 120 + 60 : k * 72 + 20) * Math.PI / 180;
+      const dx = Math.cos(el) * Math.cos(az), dy = Math.sin(el), dz = Math.cos(el) * Math.sin(az);
+      this.skyDirs[k * 4] = dx; this.skyDirs[k * 4 + 1] = dy; this.skyDirs[k * 4 + 2] = dz; this.skyDirs[k * 4 + 3] = Math.sin(el);
+      const D = 400;
+      const view = mat4LookAt(mat4(), cx + dx * D, cy + dy * D, cz + dz * D, cx, cy, cz, 0, 1, 0);
+      let lx0 = 1e9, ly0 = 1e9, lz0 = 1e9, lx1 = -1e9, ly1 = -1e9, lz1 = -1e9;
+      for (let c = 0; c < 8; c++) {
+        const x = c & 1 ? bx1 : bx0, y = c & 2 ? by1 : by0, z = c & 4 ? bz1 : bz0;
+        const vx = view[0] * x + view[4] * y + view[8] * z + view[12];
+        const vy = view[1] * x + view[5] * y + view[9] * z + view[13];
+        const vz = view[2] * x + view[6] * y + view[10] * z + view[14];
+        lx0 = Math.min(lx0, vx); lx1 = Math.max(lx1, vx); ly0 = Math.min(ly0, vy); ly1 = Math.max(ly1, vy); lz0 = Math.min(lz0, vz); lz1 = Math.max(lz1, vz);
+      }
+      const proj = mat4Ortho(mat4(), lx0, lx1, ly0, ly1, -lz1 - 1, -lz0 + 1);
+      const vp = mat4Mul(mat4(), proj, view);
+      this.skyVP.push(vp);
+      this.skyVPFlat.set(vp, k * 16);
+    }
+  }
+
+  /** Re-render one sky occlusion map (round-robin) when the world is changing. */
+  private renderSkyMap(regions: RegionMeshes, bodies: BodyDraw[]): void {
+    this.ensureSky();
+    if (!this.skyDirty && this.skyInit >= S.SKY_MAPS) return;
+    const gl = this.gl;
+    const k = this.skyNext;
+    this.skyNext = (this.skyNext + 1) % S.SKY_MAPS;
+    if (this.skyInit < S.SKY_MAPS) this.skyInit++;
+    else if (this.skyNext === 0) this.skyDirty = false;
+    const ps = this.pShadow.use();
+    this.bindQuadData(ps);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.skyFbos[k]);
+    gl.viewport(0, 0, 1024, 1024);
+    gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.depthMask(true);
+    gl.enable(gl.CULL_FACE); gl.cullFace(gl.FRONT);
+    gl.colorMask(false, false, false, false);
+    gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2.0, 4.0);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    ps.m4('uLightVP', this.skyVP[k]);
+    const f = new Frustum().setFromMatrix(this.skyVP[k]);
+    this.beginList();
+    this.collect(regions, bodies, f, false, 0, 0, 0, 0, true);
+    this.flush();
+    gl.disable(gl.POLYGON_OFFSET_FILL);
+    gl.colorMask(true, true, true, true);
+    gl.cullFace(gl.BACK);
+  }
+
   // ---------------------------------------------------------------- draw lists
   private beginList(): void { this.drawN = 0; }
   private add(first: number, count: number): void {
@@ -253,7 +338,7 @@ export class Renderer {
   }
 
   /** Collect visible geometry for a frustum. transparent=false -> opaque ranges, true -> glass ranges. */
-  private collect(regions: RegionMeshes, bodies: BodyDraw[], f: Frustum, transparent: boolean, maxDistSq: number, cx: number, cy: number, cz: number): number {
+  private collect(regions: RegionMeshes, bodies: BodyDraw[], f: Frustum, transparent: boolean, maxDistSq: number, cx: number, cy: number, cz: number, skipVM = false): number {
     let quads = 0;
     const act = regions.active, b = regions.bounds;
     for (let i = 0; i < act.length; i++) {
@@ -273,7 +358,7 @@ export class Renderer {
     for (let i = 0; i < bodies.length; i++) {
       const bd = bodies[i];
       const n = transparent ? bd.nTr : bd.nOp;
-      if (n === 0) continue;
+      if (n === 0 || (skipVM && bd.vm)) continue;
       if (!f.testSphere(bd.x, bd.y, bd.z, bd.r)) continue;
       this.add(bd.start + (transparent ? bd.nOp : 0), n);
       quads += n;
@@ -317,6 +402,7 @@ export class Renderer {
 
     // ---- shadows
     if (this.settings.shadows) this.renderShadows(cam, env, regions, bodies);
+    if (this.settings.skyOcclusion) this.renderSkyMap(regions, bodies);
 
     // ---- G-buffer
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.gFbo);
@@ -344,6 +430,19 @@ export class Renderer {
 
     // ---- SSAO
     if (this.settings.ssao) this.renderSSAO(cam);
+    // ---- volumetric sun scattering
+    const volOn = this.settings.volumetrics && this.settings.shadows;
+    if (volOn) {
+      gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.disable(gl.BLEND);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.vol.fbo);
+      gl.viewport(0, 0, this.vol.w, this.vol.h);
+      const pv = this.pVol.use();
+      pv.tex('uDepth', 0, this.gDepth).tex('uShadow', 1, this.shadowTex, gl.TEXTURE_2D_ARRAY).m4('uInvViewProj', this.invViewProj)
+        .f3('uCamPos', cam.x, cam.y, cam.z).v3('uSunDir', env.sunDir).v3('uSunColor', env.sunColor).v3('uFogColor', env.fogColor)
+        .f('uDensity', env.fogDensity * 4.0).f('uGround', 4.8).i('uFrame', this.frame);
+      this.setCascadeUniforms(pv);
+      this.fullscreen();
+    }
 
     // ---- lighting
     gl.disable(gl.DEPTH_TEST);
@@ -357,6 +456,16 @@ export class Renderer {
     pl.m4('uInvViewProj', this.invViewProj);
     this.setCascadeUniforms(pl);
     pl.i('uUseSSAO', this.settings.ssao ? 1 : 0).f('uShadowSoft', 1.0).i('uFrame', this.frame);
+    pl.tex('uVol', 6, this.vol.tex).i('uVolOn', volOn ? 1 : 0);
+    if (this.settings.skyOcclusion && this.skyTex) {
+      pl.tex('uSkyOcc', 7, this.skyTex, gl.TEXTURE_2D_ARRAY).i('uSkyOn', 1);
+      gl.uniformMatrix4fv(pl.loc('uSkyVP[0]'), false, this.skyVPFlat);
+      gl.uniform4fv(pl.loc('uSkyDir[0]'), this.skyDirs);
+    } else {
+      pl.i('uSkyOn', 0);
+      // bind something valid to the shadow sampler unit
+      pl.tex('uSkyOcc', 7, this.shadowTex, gl.TEXTURE_2D_ARRAY);
+    }
     // lights
     const nl = Math.min(lights.length, S.MAX_LIGHTS);
     for (let i = 0; i < nl; i++) {

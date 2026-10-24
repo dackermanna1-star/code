@@ -1,0 +1,31 @@
+{
+  "query": "autoplay&testmap",
+  "steps": [
+    { "eval": "(() => { const g = window.__game; g.player.pos.set(38, 4.05, 25); g.player.yaw = 2.8; g.player.pitch = 0.05; return true; })()" },
+    { "frames": 20 },
+    { "eval": "(() => { window.__game.tools.select(0); return 0; })()" },
+    { "frames": 14 },
+    { "shot": "vm0" },
+    { "eval": "(() => { window.__game.tools.select(1); return 1; })()" },
+    { "frames": 14 },
+    { "shot": "vm1" },
+    { "eval": "(() => { window.__game.tools.select(2); return 2; })()" },
+    { "frames": 14 },
+    { "shot": "vm2" },
+    { "eval": "(() => { window.__game.tools.select(3); return 3; })()" },
+    { "frames": 14 },
+    { "shot": "vm3" },
+    { "eval": "(() => { window.__game.tools.select(4); return 4; })()" },
+    { "frames": 14 },
+    { "shot": "vm4" },
+    { "eval": "(() => { window.__game.tools.select(5); return 5; })()" },
+    { "frames": 14 },
+    { "shot": "vm5" },
+    { "eval": "(() => { window.__game.tools.select(6); return 6; })()" },
+    { "frames": 14 },
+    { "shot": "vm6" },
+    { "eval": "(() => { window.__game.tools.select(7); return 7; })()" },
+    { "frames": 14 },
+    { "shot": "vm7" }
+  ]
+}

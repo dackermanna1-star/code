@@ -52,6 +52,7 @@ export class Game {
   /** bodies whose voxels changed and need remesh / split */
   private dirtyBodies = new Set<Body>();
   shake = 0;
+  private crumbleDust = 0;
   stats = { bodies: 0, detached: 0 };
   onImpactHook: ((e: ImpactEvent) => void) | null = null;
   onBodySplit: ((parent: Body, child: Body) => void) | null = null;
@@ -252,7 +253,7 @@ export class Game {
         w.set(x, y, z, 0);
         this.structure.noteRemoved(x, y, z);
         n++; mx += x; my += y; mz += z; pal = v;
-        if (Math.random() < 0.35) P.debris((x + 0.5) * VOXEL, (y + 0.5) * VOXEL, (z + 0.5) * VOXEL, (Math.random() - 0.5) * 1.5, Math.random(), (Math.random() - 0.5) * 1.5, 0.08, v, 6);
+        if (Math.random() < 0.12) P.debris((x + 0.5) * VOXEL, (y + 0.5) * VOXEL, (z + 0.5) * VOXEL, (Math.random() - 0.5) * 1.5, Math.random(), (Math.random() - 0.5) * 1.5, 0.08, v, 6);
       }
     }
     if (n === 0) return;
@@ -260,8 +261,11 @@ export class Game {
     w.noteChange(f.x - 2, f.y - 2, f.z - 2, f.x + 6, f.y + 6, f.z + 6);
     const e = PALETTE[pal];
     const r = Math.min(1, srgbToLinear(e.r) * 1.2 + 0.1), g = Math.min(1, srgbToLinear(e.g) * 1.2 + 0.1), b = Math.min(1, srgbToLinear(e.b) * 1.2 + 0.1);
-    for (let i = 0; i < 6; i++) P.spawn(PT.Dust, cx + (Math.random() - 0.5) * 0.4, cy, cz + (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.8, -0.2, (Math.random() - 0.5) * 0.8,
-      0.35 + Math.random() * 0.3, 3 + Math.random() * 3, r, g, b, 0.5, { grow: 0.4, drag: 1.5, buoy: 0.02 });
+    // dust budget per frame: big collapses produce hundreds of crumbles per second
+    const nd = this.crumbleDust > 40 ? (Math.random() < 0.25 ? 1 : 0) : 2;
+    this.crumbleDust += nd;
+    for (let i = 0; i < nd; i++) P.spawn(PT.Dust, cx + (Math.random() - 0.5) * 0.4, cy, cz + (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.8, -0.2, (Math.random() - 0.5) * 0.8,
+      0.45 + Math.random() * 0.35, 3 + Math.random() * 3, r, g, b, 0.5, { grow: 0.45, drag: 1.5, buoy: 0.02 });
     this.onCrumble?.(cx, cy, cz, pal);
   }
 
@@ -299,6 +303,7 @@ export class Game {
   prof: Record<string, number> = {};
   step(dt: number): void {
     this.time += dt;
+    this.crumbleDust = Math.max(0, this.crumbleDust - dt * 120);
     let tt = performance.now();
     const lap = (k: string) => { const n = performance.now(); this.prof[k] = Math.max(this.prof[k] || 0, n - tt); tt = n; };
     this.physics.step(dt);
