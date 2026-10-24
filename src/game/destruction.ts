@@ -6,7 +6,7 @@ import { VOXEL } from '../world/world';
 import { PAL_MAT, PAL_HARD, PAL_BLAST, PALETTE, Mat, MATERIALS, srgbToLinear, PAL_FLAMMABLE, PAL_TRANSPARENT, PAL_DENSITY, PAL_SCORCH, P } from '../world/materials';
 import { Body } from '../physics/body';
 import { PT } from '../render/particles';
-import { hash3, Vec3, Rng } from '../engine/math';
+import { hash3, valueNoise3, Vec3, Rng } from '../engine/math';
 
 export interface CarveOpts {
   /** maximum hardness that can be removed */
@@ -112,8 +112,9 @@ export class Destruction {
         const dl = Math.hypot(dx, dy, dz) || 1;
         dx /= dl; dy /= dl; dz /= dl;
         const sp = o.speed * (0.4 + Math.random() * 0.9);
-        const size = m === Mat.Glass ? 0.03 + Math.random() * 0.04 : (Math.random() < 0.6 ? 0.1 : 0.05 + Math.random() * 0.04);
-        P.debris(px, py, pz, dx * sp + (Math.random() - 0.5) * 2, dy * sp + Math.random() * 2.5, dz * sp + (Math.random() - 0.5) * 2, size, v, 8);
+        const size = m === Mat.Glass ? 0.03 + Math.random() * 0.04 : m === Mat.Wood ? 0.05 + Math.random() * 0.04 : (Math.random() < 0.6 ? 0.1 : 0.05 + Math.random() * 0.04);
+        const shape = m === Mat.Glass ? 2 : m === Mat.Wood && Math.random() < 0.7 ? 1 : 0;
+        P.debris(px, py, pz, dx * sp + (Math.random() - 0.5) * 2, dy * sp + Math.random() * 2.5, dz * sp + (Math.random() - 0.5) * 2, size, v, 8, shape);
       }
     }
     lapc('set');
@@ -170,8 +171,8 @@ export class Destruction {
       }
       if (m === Mat.Wood) {
         // splinters: thin fast debris
-        for (let i = 0; i < Math.min(12, n * 0.3); i++) {
-          P.debris(x, y, z, (Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6, 0.03 + Math.random() * 0.03, pal[m], 4);
+        for (let i = 0; i < Math.min(14, 2 + n * 0.3); i++) {
+          P.debris(x, y, z, (Math.random() - 0.5) * 6, Math.random() * 4, (Math.random() - 0.5) * 6, 0.04 + Math.random() * 0.04, pal[m], 4, 1);
         }
       }
       if (m === Mat.Foliage) {
@@ -220,7 +221,7 @@ export class Destruction {
           let dx = px - cx, dz = pz - cz;
           const dl = Math.hypot(dx, dz) || 1;
           dx /= dl; dz /= dl;
-          P.debris(px, py, pz, dx * (1 + Math.random() * 3), Math.random() * 1.5, dz * (1 + Math.random() * 3), 0.025 + Math.random() * 0.04, v, 3 + Math.random() * 3);
+          P.debris(px, py, pz, dx * (1 + Math.random() * 3), Math.random() * 1.5, dz * (1 + Math.random() * 3), 0.025 + Math.random() * 0.04, v, 3 + Math.random() * 3, 2);
         }
         stack.push(x + 1, y, z, x - 1, y, z, x, y + 1, z, x, y - 1, z, x, y, z + 1, x, y, z - 1);
       }
@@ -651,7 +652,9 @@ export class Destruction {
       const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (d > R1) return;
       const p = d < R0 ? 1 : Math.pow(1 - (d - R0) / (R1 - R0), 0.7);
-      if (((hash3(x, y, z) & 1023) / 1023) > p) return;
+      // blotchy soot: low-frequency noise with a little per-voxel grain, not salt-and-pepper speckle
+      const nz = valueNoise3(x * 0.16, y * 0.16, z * 0.16, 77) * 0.85 + ((hash3(x, y, z) & 255) / 255) * 0.15;
+      if (nz > p) return;
       // only surfaces that face open air
       if (w.get(x + 1, y, z) && w.get(x - 1, y, z) && w.get(x, y + 1, z) && w.get(x, y - 1, z) && w.get(x, y, z + 1) && w.get(x, y, z - 1)) return;
       hits.push(x, y, z, sc);

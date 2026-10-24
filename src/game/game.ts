@@ -19,7 +19,7 @@ export interface TimedLight extends PointLight { life: number; maxLife: number; 
 /** The part of the particle system the simulation talks to (a no-op stub is used headless). */
 export interface ParticleSink {
   dn: number; bn: number;
-  debris(x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number, pal: number, life?: number): void;
+  debris(x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number, pal: number, life?: number, shape?: number): void;
   spawn(type: number, x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number, life: number,
     r: number, g: number, b: number, a: number, opts?: { grow?: number; drag?: number; buoy?: number; emissive?: number; rotV?: number }): void;
   update(dt: number): void;

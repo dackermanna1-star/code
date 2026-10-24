@@ -29,13 +29,19 @@ out vec4 vPrev;
 out vec3 vLocal;
 flat out uint vPal;
 vec3 qrot(vec4 q, vec3 v) { vec3 t = 2.0 * cross(q.xyz, v); return v + q.w * t + cross(q.xyz, t); }
+// palette index + 256 * shape: 0 cube, 1 splinter (long thin stick), 2 shard (thin plate)
+vec3 shapeScale(float w) {
+  float sh = floor(w / 256.0);
+  return sh < 0.5 ? vec3(1.0) : sh < 1.5 ? vec3(0.28, 0.28, 2.4) : vec3(1.7, 0.14, 1.25);
+}
 void main() {
-  vec3 lp = qrot(iQuat, aPos * iPosSize.w);
+  vec3 sc = shapeScale(iPrevPal.w);
+  vec3 lp = qrot(iQuat, aPos * sc * iPosSize.w);
   vec3 wp = lp + iPosSize.xyz;
   vec3 pwp = lp + iPrevPal.xyz;
-  vNormal = qrot(iQuat, aNrm);
+  vNormal = qrot(iQuat, normalize(aNrm / sc));
   vLocal = aPos;
-  vPal = uint(iPrevPal.w + 0.5);
+  vPal = uint(mod(iPrevPal.w, 256.0) + 0.5);
   vec4 c = uViewProj * vec4(wp, 1.0);
   vCur = c; vPrev = uPrevViewProj * vec4(pwp, 1.0);
   c.xy += uJitter * c.w;
@@ -70,9 +76,14 @@ const CUBE_SHADOW_VS = GLSL_HEADER + `
 layout(location=0) in vec3 aPos;
 layout(location=2) in vec4 iPosSize;
 layout(location=3) in vec4 iQuat;
+layout(location=4) in vec4 iPrevPal;
 uniform mat4 uLightVP;
 vec3 qrot(vec4 q, vec3 v) { vec3 t = 2.0 * cross(q.xyz, v); return v + q.w * t + cross(q.xyz, t); }
-void main() { gl_Position = uLightVP * vec4(qrot(iQuat, aPos * iPosSize.w) + iPosSize.xyz, 1.0); }`;
+vec3 shapeScale(float w) {
+  float sh = floor(w / 256.0);
+  return sh < 0.5 ? vec3(1.0) : sh < 1.5 ? vec3(0.28, 0.28, 2.4) : vec3(1.7, 0.14, 1.25);
+}
+void main() { gl_Position = uLightVP * vec4(qrot(iQuat, aPos * shapeScale(iPrevPal.w) * iPosSize.w) + iPosSize.xyz, 1.0); }`;
 
 const SHADOW_FS = GLSL_HEADER + `void main() {}`;
 
@@ -305,6 +316,7 @@ export class Particles implements GeometryPass, ForwardPass {
   private dW = new Float32Array(this.DMAX * 3);
   private dSize = new Float32Array(this.DMAX);
   private dPal = new Uint8Array(this.DMAX);
+  private dShape = new Uint8Array(this.DMAX);
   private dLife = new Float32Array(this.DMAX);
   private dRest = new Float32Array(this.DMAX);
   private dInst = new Float32Array(this.DMAX * 12);
@@ -397,7 +409,7 @@ export class Particles implements GeometryPass, ForwardPass {
   }
 
   // ------------------------------------------------------------------ spawning
-  debris(x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number, pal: number, life = 6): void {
+  debris(x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number, pal: number, life = 6, shape = 0): void {
     let i: number;
     if (this.dn < this.DMAX) i = this.dn++;
     else i = (Math.random() * this.DMAX) | 0; // recycle a random one
@@ -410,7 +422,7 @@ export class Particles implements GeometryPass, ForwardPass {
     const ql = Math.hypot(this.dQ[i * 4], this.dQ[i * 4 + 1], this.dQ[i * 4 + 2], this.dQ[i * 4 + 3]);
     for (let k = 0; k < 4; k++) this.dQ[i * 4 + k] /= ql;
     this.dW[i * 3] = (Math.random() - 0.5) * 20; this.dW[i * 3 + 1] = (Math.random() - 0.5) * 20; this.dW[i * 3 + 2] = (Math.random() - 0.5) * 20;
-    this.dSize[i] = size; this.dPal[i] = pal; this.dLife[i] = life * (0.7 + Math.random() * 0.6); this.dRest[i] = 0;
+    this.dSize[i] = size; this.dPal[i] = pal; this.dLife[i] = life * (0.7 + Math.random() * 0.6); this.dRest[i] = 0; this.dShape[i] = shape;
   }
 
   spawn(type: PT, x: number, y: number, z: number, vx: number, vy: number, vz: number, size: number, life: number,
@@ -529,7 +541,7 @@ export class Particles implements GeometryPass, ForwardPass {
     if (i === j) return;
     for (let k = 0; k < 3; k++) { this.dP[i * 3 + k] = this.dP[j * 3 + k]; this.dPrev[i * 3 + k] = this.dPrev[j * 3 + k]; this.dV[i * 3 + k] = this.dV[j * 3 + k]; this.dW[i * 3 + k] = this.dW[j * 3 + k]; }
     for (let k = 0; k < 4; k++) this.dQ[i * 4 + k] = this.dQ[j * 4 + k];
-    this.dSize[i] = this.dSize[j]; this.dPal[i] = this.dPal[j]; this.dLife[i] = this.dLife[j]; this.dRest[i] = this.dRest[j];
+    this.dSize[i] = this.dSize[j]; this.dPal[i] = this.dPal[j]; this.dLife[i] = this.dLife[j]; this.dRest[i] = this.dRest[j]; this.dShape[i] = this.dShape[j];
   }
 
   private killBB(i: number): void {
@@ -552,7 +564,7 @@ export class Particles implements GeometryPass, ForwardPass {
       const pz = this.dPrev[i * 3 + 2] + (this.dP[i * 3 + 2] - this.dPrev[i * 3 + 2]) * alpha;
       I[o] = px; I[o + 1] = py; I[o + 2] = pz; I[o + 3] = this.dSize[i];
       I[o + 4] = this.dQ[i * 4]; I[o + 5] = this.dQ[i * 4 + 1]; I[o + 6] = this.dQ[i * 4 + 2]; I[o + 7] = this.dQ[i * 4 + 3];
-      I[o + 8] = this.dPrev[i * 3]; I[o + 9] = this.dPrev[i * 3 + 1]; I[o + 10] = this.dPrev[i * 3 + 2]; I[o + 11] = this.dPal[i];
+      I[o + 8] = this.dPrev[i * 3]; I[o + 9] = this.dPrev[i * 3 + 1]; I[o + 10] = this.dPrev[i * 3 + 2]; I[o + 11] = this.dPal[i] + 256 * this.dShape[i];
     }
     const gl = this.gl;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeInstBuf);

@@ -1,0 +1,21 @@
+{
+  "query": "autoplay&testmap&fixeddt",
+  "steps": [
+    { "frames": 5 },
+    { "eval": "(() => { const g = window.__game; g.player.noclip = true; g.player.pos.set(29.5, 4.9, 49.5); g.player.yaw = 0.15; g.player.pitch = -0.25; g.viewModel.visible = false; return true; })()" },
+    { "frames": 10 },
+    { "eval": "(() => { const g = window.__game; g.game.destruction.explode(28.7, 5.2, 45.6, 0.5); return true; })()" },
+    { "frames": 5 },
+    { "shot": "m0_splinters" },
+    { "frames": 240 },
+    { "shot": "m1_settled" },
+    { "eval": "(() => { const g = window.__game; g.game.destruction.explode(36.0, 6.6, 51.45, 1.6); return true; })()" },
+    { "frames": 480 },
+    { "eval": "(() => { const g = window.__game; g.player.pos.set(33.5, 7.0, 48.2); g.player.yaw = 2.8; g.player.pitch = -0.08; return true; })()" },
+    { "frames": 20 },
+    { "shot": "m2_bent_outside" },
+    { "eval": "(() => { const g = window.__game; g.player.pos.set(37.5, 6.4, 56.0); g.player.yaw = -0.35; g.player.pitch = 0.0; return true; })()" },
+    { "frames": 20 },
+    { "shot": "m3_bent_inside" }
+  ]
+}
