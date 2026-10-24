@@ -21,7 +21,7 @@ import { MusicSystem } from './Music';
 import { Ambience } from './Ambience';
 import { SFX, GROUP_CAP, type SfxParams } from './Sfx';
 import { renderUtterance, vocalScript, VOCAL_PRIORITY, type VocalKind } from './Voice';
-import { getKit, mkGain, mkFilter, makeRoomIR, makeCurve, clamp, rand, chance } from './dsp';
+import { getKit, mkGain, mkFilter, makeRoomIR, makeCurve, kRate, clamp, rand, chance } from './dsp';
 
 export interface PlayOptions extends Partial<Omit<SfxParams, 'vol'>> {
   /** linear volume multiplier (default 1) */
@@ -52,7 +52,6 @@ const MAX_DIST = 42;
 const REF_DIST = 1.8;
 const ROLLOFF = 1.2;
 const PAN_MAX = 40;
-const MAX_HRTF = 20;
 
 const sq = (v: number): number => clamp(v, 0, 1) * clamp(v, 0, 1);
 
@@ -97,6 +96,7 @@ export class AudioSystem {
   private slowPitch = 1;
   private deathMuffle = 0;
   private lastUpdateMs = 0;
+  private lastAudioT = 0;
   private tinyBudget = 10;
   private housekeepT = 0;
   private recentHits: { pos: THREE.Vector3; time: number; material: boolean }[] = [];
@@ -106,8 +106,11 @@ export class AudioSystem {
   private lastDrip = 0;
   private killStreak = { n: 0, t: -10 };
   private readonly warned = new Set<string>();
+  private readonly lastTargets: Record<string, number> = {};
   /** tests: override "now" (offline rendering schedules ahead of time) */
   clockOverride: number | null = null;
+  /** max concurrent HRTF-panned one-shots (nearest sounds); the rest use cheap equal-power panning. 0 = never HRTF. */
+  hrtfLimit = 8;
 
   /** Pass an OfflineAudioContext for offline rendering / tests; by default a realtime AudioContext is created. */
   constructor(context?: BaseAudioContext) {
@@ -119,6 +122,9 @@ export class AudioSystem {
     this.offline = !('close' in this.ac);
     const ac = this.ac;
     getKit(ac); // build shared noise buffers / curves / waves now
+    // the listener moves every frame: k-rate keeps panners from recomputing per sample
+    const L = ac.listener;
+    if (L.positionX) for (const p of [L.positionX, L.positionY, L.positionZ, L.forwardX, L.forwardY, L.forwardZ, L.upX, L.upY, L.upZ]) kRate(p);
 
     // ---- master: DC block -> glue compressor -> limiter -> safety soft clip
     this.master = mkGain(ac, sq(this.volumes.master));
@@ -140,7 +146,7 @@ export class AudioSystem {
     clip.curve = makeCurve((x) => {
       const a = Math.abs(x);
       return a < 0.8 ? x : Math.sign(x) * (0.8 + 0.19 * Math.tanh((a - 0.8) / 0.19));
-    }, 4096);
+    }, 4097);
     this.master.connect(dc);
     dc.connect(comp);
     comp.connect(lim);
@@ -155,7 +161,7 @@ export class AudioSystem {
     // ---- shared room reverb (medium wooden room ~1.4s)
     const conv = ac.createConvolver();
     conv.normalize = false;
-    conv.buffer = makeRoomIR(ac, { seconds: 1.8, rt60: 1.4, preDelay: 0.012, hfStart: 7000, hfEnd: 1500, early: 0.55 });
+    conv.buffer = makeRoomIR(ac, { seconds: 1.6, rt60: 1.4, preDelay: 0.012, hfStart: 7000, hfEnd: 1500, early: 0.55 });
     this.sfxRevIn = mkGain(ac, sq(this.volumes.sfx));
     this.musicRevIn = mkGain(ac, sq(this.volumes.music) * 0.7);
     const revHP = mkFilter(ac, 'highpass', 220, 0.7);
@@ -223,7 +229,7 @@ export class AudioSystem {
   /** Per frame: listener from the camera, ducking, slow-mo filtering, schedulers. */
   update(dt: number, camera: THREE.Camera): void {
     const ac = this.ac;
-    camera.updateMatrixWorld();
+    camera.updateWorldMatrix(true, false); // not the children (view model hangs off the camera)
     const e = camera.matrixWorld.elements;
     const px = e[12];
     const py = e[13];
@@ -259,11 +265,14 @@ export class AudioSystem {
       L.setOrientation(fx, fy, fz, ux, uy, uz);
     }
 
-    // real time step (dt may be scaled by slow motion)
+    // real time step (the game's dt may be scaled by slow motion): audio clock when it runs, else wall clock
     const ms = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    const rdt = this.lastUpdateMs ? clamp((ms - this.lastUpdateMs) / 1000, 0, 0.1) : clamp(dt, 0, 0.1);
-    this.lastUpdateMs = ms;
     const now = ac.currentTime;
+    let rdt = this.lastUpdateMs ? (ms - this.lastUpdateMs) / 1000 : dt;
+    if (this.lastAudioT > 0 && now > this.lastAudioT) rdt = now - this.lastAudioT;
+    rdt = clamp(rdt, 0, 0.1);
+    this.lastUpdateMs = ms;
+    this.lastAudioT = now;
 
     // ---- slow motion: subtle low-pass + pitch-down for new sounds (hit-stop ignored)
     const tc = ctx.time as unknown as { scale?: number; inHitStop?: boolean; slowness?: number } | undefined;
@@ -282,8 +291,8 @@ export class AudioSystem {
     this.slowPitch = 1 - 0.18 * this.slow;
     this.deathMuffle = Math.max(0, this.deathMuffle - rdt);
     const muffle = Math.max(this.slow, this.deathMuffle > 0 ? 0.85 : 0);
-    this.worldLP.frequency.setTargetAtTime(20000 * Math.pow(0.13, muffle), now, 0.04);
-    this.musicLP.frequency.setTargetAtTime(20000 * Math.pow(0.3, muffle), now, 0.06);
+    this.setTarget(this.worldLP.frequency, 'wlp', 20000 * Math.pow(0.13, muffle), now, 0.04, 0.01);
+    this.setTarget(this.musicLP.frequency, 'mlp', 20000 * Math.pow(0.3, muffle), now, 0.06, 0.01);
 
     // ---- ducking: event ducks + loud-sfx side-chain
     this.duckLevel *= Math.exp(-rdt / 0.45);
@@ -296,8 +305,8 @@ export class AudioSystem {
     }
     const d = clamp(this.duckLevel + side, 0, 0.75);
     const tcd = d > this.lastDuckApplied ? 0.02 : 0.25;
-    this.musicDuck.gain.setTargetAtTime(1 - 0.5 * d, now, tcd);
-    this.ambDuck.gain.setTargetAtTime(1 - 0.6 * d, now, tcd);
+    this.setTarget(this.musicDuck.gain, 'mduck', 1 - 0.5 * d, now, tcd, 0.004);
+    this.setTarget(this.ambDuck.gain, 'aduck', 1 - 0.6 * d, now, tcd, 0.004);
     this.lastDuckApplied = d;
 
     this.tinyBudget = Math.min(10, this.tinyBudget + rdt * 12);
@@ -403,7 +412,8 @@ export class AudioSystem {
           if (!worst || v.score < worst.score) worst = v;
         }
         if (count >= cap && worst) {
-          if (worst.score > score) return null;
+          // hysteresis: equal sounds (a crowd's footsteps) must not keep stealing each other
+          if (worst.score + 0.3 > score) return null;
           this.killVoice(worst, now);
         }
       }
@@ -412,7 +422,7 @@ export class AudioSystem {
     if (live.length >= MAX_VOICES) {
       let worst = live[0];
       for (const v of live) if (v.score < worst.score) worst = v;
-      if (worst.score > score) return null;
+      if (worst.score + 0.3 > score) return null;
       this.killVoice(worst, now);
     }
 
@@ -430,13 +440,16 @@ export class AudioSystem {
         extra.push(lp);
       }
       const pn = ac.createPanner();
-      hrtf = this.hrtfActive < MAX_HRTF && dist < 25;
+      hrtf = this.hrtfActive < this.hrtfLimit && dist < 16;
       pn.panningModel = hrtf ? 'HRTF' : 'equalpower';
       pn.distanceModel = 'inverse';
       pn.refDistance = REF_DIST;
       pn.rolloffFactor = ROLLOFF;
       pn.maxDistance = PAN_MAX;
       if (pn.positionX) {
+        kRate(pn.positionX);
+        kRate(pn.positionY);
+        kRate(pn.positionZ);
         pn.positionX.value = pos.x;
         pn.positionY.value = pos.y;
         pn.positionZ.value = pos.z;
@@ -494,8 +507,9 @@ export class AudioSystem {
     }
   }
 
-  private reap(now: number): void {
-    if (this.offline) return;
+  private reap(_now: number): void {
+    // always the real audio clock (tests may pre-schedule with clockOverride)
+    const now = this.ac.currentTime;
     let w = 0;
     for (let i = 0; i < this.voices.length; i++) {
       const v = this.voices[i];
@@ -511,6 +525,14 @@ export class AudioSystem {
   private housekeep(ms: number): void {
     for (const [k, v] of this.lastRagdoll) if (ms - v.t > 5000) this.lastRagdoll.delete(k);
     for (const [k, t] of this.lastCarve) if (ms - t > 5000) this.lastCarve.delete(k);
+  }
+
+  /** setTargetAtTime only when the target moved (keeps automation timelines short) */
+  private setTarget(p: AudioParam, key: string, v: number, now: number, tc: number, rel: number): void {
+    const last = this.lastTargets[key];
+    if (last !== undefined && Math.abs(v - last) <= rel * Math.max(Math.abs(last), 1e-3)) return;
+    this.lastTargets[key] = v;
+    p.setTargetAtTime(v, now, tc);
   }
 
   private duck(amount: number): void {
@@ -732,7 +754,7 @@ export class AudioSystem {
   private onFootstep(e: GameEvents['footstep']): void {
     const k = clamp(e.intensity, 0, 1);
     if (e.isPlayer) this.play('footstep', null, { material: e.material, strength: 0.6 + 0.5 * k, volume: 0.5 });
-    else this.play('footstep', e.pos, { material: e.material, strength: 0.5 + 0.5 * k, volume: 0.4 });
+    else if (e.pos.distanceToSquared(this.lpos) < 18 * 18) this.play('footstep', e.pos, { material: e.material, strength: 0.5 + 0.5 * k, volume: 0.4 });
   }
 
   private onRagdoll(e: GameEvents['ragdollImpact']): void {

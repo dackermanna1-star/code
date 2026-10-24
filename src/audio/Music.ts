@@ -14,7 +14,7 @@
 import * as THREE from 'three';
 import { Band } from './Instruments';
 import { SONGS, COMBAT_FALLBACK, combatBar, songBars, type SongDef, type BarInfo, type BarCtx, type Chord } from './Songs';
-import { getKit, mkGain, mkFilter, mkNoise, mkOsc, mkShaper, envAHR, chain, clamp, smoothstep, mulberry32, rand, type Rng } from './dsp';
+import { getKit, mkGain, mkFilter, mkNoise, mkOsc, mkShaper, envAHR, chain, kRate, clamp, smoothstep, mulberry32, rand, type Rng } from './dsp';
 import { thump, noiseHit, grains, modal } from './layers';
 
 interface QEv {
@@ -30,11 +30,15 @@ interface Session {
   band: Band;
   bus: GainNode;
   wet: GainNode;
+  crackle: AudioBufferSourceNode;
   rng: Rng;
 }
 
 function setPannerPos(p: PannerNode, v: THREE.Vector3): void {
   if (p.positionX) {
+    kRate(p.positionX);
+    kRate(p.positionY);
+    kRate(p.positionZ);
     p.positionX.value = v.x;
     p.positionY.value = v.y;
     p.positionZ.value = v.z;
@@ -53,7 +57,7 @@ export class MusicSystem {
   private readonly jukeDuck: GainNode;
   private readonly fxIn: GainNode;
   private readonly panner: PannerNode;
-  private readonly crackle: AudioBufferSourceNode;
+  private readonly crackleIn: AudioNode;
   private readonly crackleGain: GainNode;
   private readonly chainNodes: AudioNode[] = [];
   // combat chain
@@ -83,6 +87,7 @@ export class MusicSystem {
   private combatIdx = 0;
   private intensity = 0;
   private combatLevel = 0;
+  private lastCombatGain = -1;
   private _energy = 0;
   private readonly sourcePos = new THREE.Vector3(0, 1.2, 0);
 
@@ -106,12 +111,9 @@ export class MusicSystem {
     this.jukeDuck = keep(mkGain(ac, 1));
     chain(
       this.jukeIn,
-      keep(mkFilter(ac, 'highpass', 65, 0.7)),
       keep(mkFilter(ac, 'lowshelf', 180, 0.7, 2)),
-      keep(mkFilter(ac, 'peaking', 2600, 0.8, -2)),
-      keep(mkFilter(ac, 'highshelf', 7000, 0.7, -5)),
+      keep(mkFilter(ac, 'highshelf', 6500, 0.7, -5)),
       keep(mkFilter(ac, 'lowpass', 11000, 0.6)),
-      keep(mkGain(ac, 0.9)),
       keep(mkShaper(ac, kit.curves.soft)),
       this.smashLP,
       this.jukeLevel,
@@ -122,7 +124,8 @@ export class MusicSystem {
     this.jukeDuck.connect(jukeOut);
     this.fxIn.connect(jukeOut);
     const p = keep(ac.createPanner());
-    p.panningModel = 'HRTF';
+    // equal-power: a continuous HRTF panner is expensive and buys little for music
+    p.panningModel = 'equalpower';
     p.distanceModel = 'inverse';
     p.refDistance = 2.5;
     p.rolloffFactor = 1;
@@ -136,13 +139,10 @@ export class MusicSystem {
     const bleed = keep(mkGain(ac, 0.2));
     chain(jukeOut, bleedLP, bleed, out);
     if (reverbSend) chain(jukeOut, keep(mkGain(ac, 0.4)), reverbSend);
-    // vinyl surface noise under the record
+    // vinyl surface noise under the record (a source per record, so the chain idles between records)
     this.crackleGain = keep(mkGain(ac, 0.05));
-    this.crackle = ac.createBufferSource();
-    this.crackle.buffer = kit.crackle;
-    this.crackle.loop = true;
-    this.crackle.start();
-    chain(this.crackle, keep(mkFilter(ac, 'bandpass', 2600, 0.5)), this.crackleGain, this.jukeIn);
+    this.crackleIn = keep(mkFilter(ac, 'bandpass', 2600, 0.5));
+    chain(this.crackleIn, this.crackleGain, this.jukeIn);
 
     // ---- combat layer: score, not in the room
     this.combatIn = keep(mkGain(ac, 1));
@@ -190,6 +190,7 @@ export class MusicSystem {
   start(): void {
     if (this.running) return;
     this.running = true;
+    this.lastCombatGain = -1;
     const now = this.ac.currentTime;
     this.queue = [];
     this.tempoMap = [];
@@ -217,6 +218,7 @@ export class MusicSystem {
     this.jukeLevel.gain.setTargetAtTime(0, t, 0.1);
     this.combatGain.gain.setTargetAtTime(0, t, 0.2);
     this.combatLevel = 0;
+    this.lastCombatGain = -1;
   }
 
   /** Jukebox switches to the next record (needle lift, changer, needle drop). */
@@ -261,6 +263,20 @@ export class MusicSystem {
     this.endSession(t + 0.5, 0.05);
   }
 
+  /** New round: a fresh jukebox replaces a smashed one and a record goes on. */
+  repair(): void {
+    if (this.juke !== 'smashed') return;
+    const t = this.ac.currentTime;
+    this.fallback = false;
+    this.juke = 'off';
+    this.smashLP.frequency.cancelScheduledValues(t);
+    this.smashLP.frequency.setValueAtTime(20000, t);
+    if (this.running) {
+      this.dropLayer('juke');
+      this.startGap(t + 0.05, false);
+    }
+  }
+
   /** 0..1 combat intensity: fades in the combat layer. */
   setIntensity(x: number): void {
     this.intensity = clamp(x, 0, 1);
@@ -269,13 +285,18 @@ export class MusicSystem {
   /** Per-frame: smoothing, ducking and a scheduler pump (also pumped by its own timer). */
   update(dt: number): void {
     const now = this.ac.currentTime;
-    const target = smoothstep(0.04, 0.75, this.intensity) * 0.9;
+    const target = smoothstep(0.04, 0.75, this.intensity) * 1.1;
     const k = 1 - Math.exp(-Math.max(dt, 0) / (target > this.combatLevel ? 0.8 : 2.5));
     this.combatLevel += (target - this.combatLevel) * k;
-    this.combatGain.gain.setTargetAtTime(this.running ? this.combatLevel : 0, now, 0.08);
-    this.jukeDuck.gain.setTargetAtTime(1 - 0.4 * this.combatLevel, now, 0.3);
+    const cg = this.running ? this.combatLevel : 0;
+    if (Math.abs(cg - this.lastCombatGain) > 0.002) {
+      this.lastCombatGain = cg;
+      this.combatGain.gain.setTargetAtTime(cg, now, 0.08);
+      this.jukeDuck.gain.setTargetAtTime(1 - 0.4 * this.combatLevel, now, 0.3);
+    }
     const songE = this.juke === 'song' ? this.songEnergy : this.juke === 'gap' ? 0.06 : 0;
-    const eT = Math.max(songE * (1 - 0.3 * this.combatLevel), this.combatLevel);
+    const combatE = this.combatLevel / 1.1;
+    const eT = clamp(Math.max(songE * (1 - 0.3 * combatE), combatE), 0, 1);
     this._energy += (eT - this._energy) * (1 - Math.exp(-Math.max(dt, 0) / 0.5));
     if (this.running && !this.manual) this.pump(now + this.lookahead());
   }
@@ -310,11 +331,6 @@ export class MusicSystem {
 
   dispose(): void {
     this.stop();
-    try {
-      this.crackle.stop();
-    } catch {
-      /* ignore */
-    }
     this.combatBand.dispose(this.ac.currentTime);
     for (const n of this.chainNodes) {
       try {
@@ -445,13 +461,16 @@ export class MusicSystem {
     const song = SONGS[idx];
     this.pendingIdx = (idx + 1) % SONGS.length;
     this.plays++;
-    const bus = mkGain(ac, 1);
+    const bus = mkGain(ac, song.gain ?? 1);
     bus.connect(this.jukeIn);
     const wet = mkGain(ac, 0.25);
     if (this.revSend) wet.connect(this.revSend);
     const band = new Band(ac, bus, song.style);
     band.wetOut.connect(wet);
-    this.session = { song, bars: songBars(song), bar: 0, band, bus, wet, rng: mulberry32(song.seed * 31 + this.plays * 7919) };
+    const crackle = mkNoise(ac, getKit(ac).crackle, Math.max(ac.currentTime, t0 - 0.1), t0 + 3600);
+    crackle.connect(this.crackleIn);
+    this.crackleGain.gain.setTargetAtTime(0.05, Math.max(ac.currentTime, t0 - 0.1), 0.02);
+    this.session = { song, bars: songBars(song), bar: 0, band, bus, wet, crackle, rng: mulberry32(song.seed * 31 + this.plays * 7919) };
     this.clock = { bpm: song.bpm, spb: song.spb, beats: song.beats };
     this.juke = 'song';
     this.name = song.name;
@@ -466,6 +485,11 @@ export class MusicSystem {
     s.bus.gain.setTargetAtTime(0, t, fade / 3);
     s.wet.gain.setTargetAtTime(0, t, fade / 3);
     s.band.dispose(t + fade + 0.3);
+    try {
+      s.crackle.stop(t + fade + 0.2);
+    } catch {
+      /* ignore */
+    }
     if (!this.offline && typeof setTimeout === 'function')
       setTimeout(() => {
         try {

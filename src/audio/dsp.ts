@@ -115,9 +115,16 @@ function makeWave(ac: BaseAudioContext, amps: number[]): PeriodicWave {
   return ac.createPeriodicWave(real, imag, { disableNormalization: false });
 }
 
-export function makeCurve(f: (x: number) => number, n = 2048): Curve {
-  const c = new Float32Array(n);
-  for (let i = 0; i < n; i++) c[i] = f((i / (n - 1)) * 2 - 1);
+/**
+ * Odd length with an exact 0 -> 0 center: a WaveShaper whose curve(0) != 0
+ * outputs DC for silent input, which defeats the browser's silence
+ * propagation and keeps every downstream node processing forever.
+ */
+export function makeCurve(f: (x: number) => number, n = 2049): Curve {
+  const len = n % 2 ? n : n + 1;
+  const c = new Float32Array(len);
+  const mid = (len - 1) / 2;
+  for (let i = 0; i < len; i++) c[i] = i === mid ? 0 : f((i - mid) / mid);
   return c;
 }
 
@@ -258,15 +265,32 @@ export function makeRoomIR(
 
 // ---------------------------------------------------------------- node helpers
 
+/**
+ * Automated filter / oscillator params are computed per sample by default
+ * (a-rate), which makes per-note filter sweeps very expensive (coefficients /
+ * exp2 every sample). k-rate updates once per 128-sample quantum (~2.7ms):
+ * inaudible for envelopes and sweeps, many times cheaper.
+ */
+export function kRate(p: AudioParam): void {
+  try {
+    p.automationRate = 'k-rate';
+  } catch {
+    /* not supported for this param / browser */
+  }
+}
+
 export function mkOsc(ac: BaseAudioContext, type: OscillatorType | PeriodicWave, freq: number, t: number, stop: number, detune = 0): OscillatorNode {
   const o = ac.createOscillator();
   if (typeof type === 'string') o.type = type as OscillatorType;
   else o.setPeriodicWave(type as PeriodicWave);
+  kRate(o.frequency);
+  kRate(o.detune);
+  const ts = Math.max(t, 0);
   o.frequency.value = freq;
-  o.frequency.setValueAtTime(freq, t);
+  o.frequency.setValueAtTime(freq, ts);
   if (detune) o.detune.value = detune;
-  o.start(t);
-  o.stop(stop);
+  o.start(ts);
+  o.stop(Math.max(stop, ts));
   return o;
 }
 
@@ -276,13 +300,18 @@ export function mkNoise(ac: BaseAudioContext, buf: AudioBuffer, t: number, stop:
   s.buffer = buf;
   s.loop = true;
   if (rate !== 1) s.playbackRate.value = rate;
-  s.start(t, Math.random() * (buf.duration - 0.05));
-  s.stop(stop);
+  const ts = Math.max(t, 0);
+  s.start(ts, Math.random() * (buf.duration - 0.05));
+  s.stop(Math.max(stop, ts));
   return s;
 }
 
 export function mkFilter(ac: BaseAudioContext, type: BiquadFilterType, freq: number, Q = 0.707, gainDb = 0): BiquadFilterNode {
   const f = ac.createBiquadFilter();
+  kRate(f.frequency);
+  kRate(f.Q);
+  kRate(f.gain);
+  kRate(f.detune);
   f.type = type;
   f.frequency.value = Math.min(freq, ac.sampleRate * 0.49);
   f.Q.value = Q;
@@ -301,6 +330,22 @@ export function mkShaper(ac: BaseAudioContext, curve: Curve, oversample: OverSam
   w.curve = curve;
   w.oversample = oversample;
   return w;
+}
+
+/**
+ * Disconnect per-note nodes once `src` has finished. Nodes left connected to a
+ * persistent bus keep costing render time until garbage collection.
+ */
+export function autoDisconnect(src: AudioScheduledSourceNode, ...nodes: AudioNode[]): void {
+  src.onended = () => {
+    for (const n of nodes) {
+      try {
+        n.disconnect();
+      } catch {
+        /* already disconnected */
+      }
+    }
+  };
 }
 
 /** Connect nodes in series, returns the last one. */

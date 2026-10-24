@@ -79,6 +79,8 @@ export interface SongDef {
   beats: number;
   style: BandStyle;
   seed: number;
+  /** loudness trim so records play at similar levels */
+  gain?: number;
   sections: Section[];
   bar(c: BarCtx): void;
 }
@@ -120,10 +122,8 @@ function playLick(c: BarCtx, lick: Lick, root: number, vel = 0.42, offset = 0): 
     const m = root + x.n;
     const st = x.s + offset;
     if (st < 0 || st >= c.steps) continue;
-    c.at(st, (t) => {
-      c.b.gtr(t, m, c.s(x.d) * 0.95, vel, { lead: true, bend: x.b, vib: x.v, cluck: x.m, release: 0.05 });
-      if (x.ds !== undefined) c.b.gtr(t + 0.003, m + x.ds, c.s(x.d) * 0.95, vel * 0.8, { lead: true, cluck: x.m, release: 0.05 });
-    });
+    const notes = x.ds !== undefined ? [m, m + x.ds] : [m];
+    c.at(st, (t) => c.b.dyad(t, notes, c.s(x.d) * 0.95, x.ds !== undefined ? vel * 0.85 : vel, { lead: true, bend: x.b, vib: x.v, cluck: x.m, release: 0.05 }));
   }
 }
 
@@ -250,10 +250,7 @@ const blues: SongDef = {
       for (const sub of [0, 2]) {
         const top = gr + mv[beat];
         const long = sub === 0;
-        c.at(beat * 3 + sub, (t) => {
-          b.gtr(t, gr, c.s(long ? 1.8 : 0.9), long ? 0.34 : 0.26, { mute: !long, release: 0.03 });
-          b.gtr(t + 0.006, top, c.s(long ? 1.8 : 0.9), long ? 0.32 : 0.24, { mute: !long, release: 0.03 });
-        });
+        c.at(beat * 3 + sub, (t) => b.dyad(t, [gr, top], c.s(long ? 1.8 : 0.9), long ? 0.42 : 0.32, { mute: !long, release: 0.03 }));
       }
     // organ: pads, or offbeat stabs in later choruses
     const ov = voicing(c.chord, 55, 4);
@@ -332,7 +329,8 @@ const rock: SongDef = {
   spb: 2,
   beats: 4,
   seed: 202,
-  style: { amp: 'rock', lead: 'rock', drums: 'rock', piano: true, honky: 14, slap: 0.22 },
+  gain: 0.95,
+  style: { amp: 'rock', lead: 'rock', drums: 'rock', piano: true, honky: 0.6, slap: 0.22 },
   sections: [
     { name: 'intro', chords: [E, E, E, B7], energy: 0.7 },
     { name: 'v1', chords: RR12, energy: 0.8 },
@@ -412,16 +410,13 @@ const rock: SongDef = {
     if (!stop)
       for (let k = 0; k < 8; k++) {
         const top = gr + ((k >> 1) % 2 ? 9 : 7);
-        c.at(k, (t) => {
-          b.gtr(t, gr, c.s(0.8), 0.3, { mute: true });
-          b.gtr(t + 0.004, top, c.s(0.8), 0.28, { mute: true });
-        });
+        c.at(k, (t) => b.dyad(t, [gr, top], c.s(0.8), 0.37, { mute: true }));
       }
     else c.at(0, (t) => b.strum(t, [gr, gr + 7, gr + 12, gr + 16], c.s(1.5), 0.42, true, 0.01));
     // piano
     const pv = voicing(c.chord, 64, 3);
-    if (sec === 'v1' || sec === 'v3') for (let k = 0; k < 8; k++) c.at(k, (t) => b.chordPiano(t, pv, c.s(0.6), k % 2 ? 0.22 : 0.16));
-    else if (sec === 'v2' || sec === 'gsolo') for (const k of [1, 3, 5, 7]) c.at(k, (t) => b.chordPiano(t, pv, c.s(0.5), 0.2));
+    if (sec === 'v1' || sec === 'v3') for (let k = 0; k < 8; k++) c.at(k, (t) => b.chordPiano(t, pv, c.s(0.6), k % 2 ? 0.3 : 0.22));
+    else if (sec === 'v2' || sec === 'gsolo') for (const k of [1, 3, 5, 7]) c.at(k, (t) => b.chordPiano(t, pv, c.s(0.5), 0.28));
     else if (sec === 'intro') for (const k of [0, 2, 4, 6]) c.at(k, (t) => b.chordPiano(t, pv, c.s(0.9), 0.2));
     else if (sec === 'psolo') pianoSolo(c);
     // lead guitar
@@ -471,6 +466,7 @@ const country: SongDef = {
   spb: 4,
   beats: 4,
   seed: 303,
+  gain: 1.15,
   style: { amp: 'clean', lead: 'twang', drums: 'brush', steel: true, slap: 0.25 },
   sections: [
     { name: 'intro', chords: [D7, D7, G, G], energy: 0.5 },
@@ -498,8 +494,8 @@ const country: SongDef = {
     c.at(0, (t) => b.kick(t, 0.85), true);
     c.at(8, (t) => b.kick(t, 0.7), true);
     if (rng() < 0.3) c.at(14, (t) => b.kick(t, 0.35), true);
-    c.at(4, (t) => b.snare(t, 0.6), true);
-    c.at(12, (t) => b.snare(t, 0.65), true);
+    c.at(4, (t) => b.snare(t, 0.8), true);
+    c.at(12, (t) => b.snare(t, 0.85), true);
     if (chorus || sec === 'solo') for (const s of [2, 6, 10, 14]) c.at(s, (t) => b.snare(t, 0.3, 'ghost'), true);
     for (let s = 0; s < 16; s += 2) c.at(s, (t) => b.hat(t, s % 4 === 2 ? 0.36 : 0.26), true);
     if (c.last) for (const s of [13, 14, 15]) c.at(s, (t) => b.snare(t, 0.4 + (s - 12) * 0.1), true);
@@ -508,11 +504,11 @@ const country: SongDef = {
     const br = rootAt(c.chord, 36);
     const changing = c.next.root !== c.chord.root && (secBar % 2 === 1 || c.last);
     if (changing) {
-      walkTo(br, rootAt(c.next, 36), G_MAJ).forEach((m, i) => c.at(i * 4, (t) => b.bass(t, m, c.s(3.4), i ? 0.55 : 0.68)));
+      walkTo(br, rootAt(c.next, 36), G_MAJ).forEach((m, i) => c.at(i * 4, (t) => b.bass(t, m, c.s(3.4), i ? 0.45 : 0.55)));
     } else {
       const fifth = br - 5 >= 31 ? br - 5 : br + 7;
-      c.at(0, (t) => b.bass(t, br, c.s(6), 0.7));
-      c.at(8, (t) => b.bass(t, fifth, c.s(6), 0.6));
+      c.at(0, (t) => b.bass(t, br, c.s(6), 0.56));
+      c.at(8, (t) => b.bass(t, fifth, c.s(6), 0.48));
     }
     // rhythm guitar "chick" on 2 & 4 (+ light up-strums in the chorus)
     const ov = openVoicing(c.chord);
@@ -587,7 +583,8 @@ const doowop: SongDef = {
   spb: 3,
   beats: 4,
   seed: 404,
-  style: { amp: 'jazz', drums: 'vintage', piano: true, sax: true, voc: true, honky: 3 },
+  gain: 1.3,
+  style: { amp: 'jazz', drums: 'vintage', piano: true, sax: true, voc: true, honky: 0.12 },
   sections: [
     { name: 'intro', chords: [Bb, Gm, Eb, F7], energy: 0.25 },
     { name: 'a1', chords: DW_A, energy: 0.3 },
@@ -725,16 +722,9 @@ export function combatBar(c: BarCtx, x: number, idx: number): void {
     c.at(s, (t) => b.bass(t, br + oct, c.s(pulse) * 0.85, a ? 0.72 : 0.52, 'pick'));
     if (tier < 1) continue;
     if (open.has(i)) {
-      c.at(s, (t) => {
-        b.gtr(t, gr, c.s(pulse * 2.6), 0.36);
-        b.gtr(t + 0.003, gr + 7, c.s(pulse * 2.6), 0.33);
-        b.gtr(t + 0.006, gr + 12, c.s(pulse * 2.6), 0.28);
-      });
+      c.at(s, (t) => b.dyad(t, [gr, gr + 7, gr + 12], c.s(pulse * 2.6), 0.5));
     } else if (!open.has(i - 1)) {
-      c.at(s, (t) => {
-        b.gtr(t, gr, c.s(pulse) * 0.8, a ? 0.42 : 0.3, { mute: true });
-        b.gtr(t + 0.003, gr + 7, c.s(pulse) * 0.8, a ? 0.38 : 0.27, { mute: true });
-      });
+      c.at(s, (t) => b.dyad(t, [gr, gr + 7], c.s(pulse) * 0.8, a ? 0.52 : 0.37, { mute: true }));
     }
   }
 }

@@ -1302,6 +1302,8 @@ export class Brain {
   bark(text: string): void {
     this.bubble = { text, until: ctx.time.elapsed + 2.2 };
     this.barkCD = rand(2.5, 5);
+    const kind = this.state === 'flee' || this.state === 'cower' ? 'scream' : /^(ha|heh|yee|woo)/i.test(text) ? 'laugh' : this.state === 'combat' ? 'taunt' : 'shout';
+    events.emit('vocal', { who: this.ch, kind, pos: this.ch.position, pitch: this.ch.app.voicePitch });
   }
 
   onKnockdown(): void {

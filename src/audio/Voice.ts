@@ -124,7 +124,7 @@ export function vocalScript(kind: VocalKind): Utterance {
         bright: 12,
         vib: rand(35, 70),
         vibRate: rand(5.5, 7.5),
-        level: 0.62,
+        level: 0.85,
       };
     }
     case 'shout': {
@@ -198,7 +198,7 @@ export function vocalScript(kind: VocalKind): Utterance {
         ],
         jitter: 60,
         bright: 10,
-        level: 0.75,
+        level: 0.62,
         vib: 22,
         vibRate: 4.2,
       };
@@ -265,10 +265,13 @@ export function renderUtterance(ac: BaseAudioContext, out: AudioNode, t: number,
   const sum = mkGain(ac, 1);
   vg.connect(sum);
   ng.connect(sum);
-  const outG = mkGain(ac, u.level);
+  // higher voices put more harmonics into the (wider) formant bands: normalize loudness by f0
+  const outG = mkGain(ac, u.level * clamp(Math.pow(150 / avgF0, 0.8), 0.35, 1));
   const outLP = mkFilter(ac, 'lowpass', 5200, 0.6);
+  const outHP = mkFilter(ac, 'highpass', 75, 0.7);
   outG.connect(outLP);
-  outLP.connect(out);
+  outLP.connect(outHP);
+  outHP.connect(out);
   const v0 = VOWELS[u.syl[0].v[0]];
   const bw0 = [85, 105, 150];
   const fl: BiquadFilterNode[] = [];

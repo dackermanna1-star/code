@@ -51,7 +51,7 @@ function flesh(ac: BaseAudioContext, out: AudioNode, t: number, s: number, heavy
     f1: (heavy ? rand(37, 43) : rand(47, 57)) * pitch,
     drop: heavy ? 0.08 : 0.055,
     tau: heavy ? 0.07 : 0.045,
-    amp: 0.5 + 0.2 * s,
+    amp: (0.5 + 0.2 * s) * (heavy ? 1.15 : 1),
     drive: 0.9,
   });
   noiseHit(ac, out, t, { type: 'bandpass', f: rand(650, 1150) * (head ? 1.3 : 1) * pitch, q: 1.0, tau: heavy ? 0.028 : 0.02, amp: 0.38 + 0.14 * s });
@@ -70,8 +70,8 @@ const punch: SfxGen = (ac, out, t, p) => {
   if (!head) noiseHit(ac, out, t, { buf: 'pink', type: 'lowpass', f: rand(450, 750), tau: 0.035, amp: 0.22 });
   // bone / cartilage crunch
   if (heavy || crit || (head && chance(0.55)))
-    grains(ac, out, t + 0.001, { f: rand(1600, 2900), q: 1.3, n: 4 + (heavy ? 3 : 0) + (crit ? 7 : 0), spread: 0.022 + (crit ? 0.035 : 0), amp: 0.32 + (crit ? 0.25 : 0) });
-  if (crit) thump(ac, out, t, { f0: 70 * pit, f1: 30, drop: 0.14, tau: 0.1, amp: 0.42, drive: 0.6 });
+    grains(ac, out, t + 0.001, { f: rand(1600, 2900), q: 1.3, n: 4 + (heavy ? 3 : 0) + (crit ? 7 : 0), spread: 0.022 + (crit ? 0.035 : 0), amp: 0.3 + (crit ? 0.1 : 0) });
+  if (crit) thump(ac, out, t + 0.012, { f0: 70 * pit, f1: 30, drop: 0.14, tau: 0.1, amp: 0.25, drive: 0.6 });
   return heavy || crit ? 0.65 : 0.5;
 };
 
@@ -100,7 +100,7 @@ const parry: SfxGen = (ac, out, t, p) => {
 const hitGlass: SfxGen = (ac, out, t, p) => {
   const s = clamp(p.strength, 0.4, 1.5);
   flesh(ac, out, t, s, false, !!p.head, p.pitch);
-  modal(ac, out, t, { f: rand(720, 1100) * p.pitch, ratios: [1, 2.02, 3.17, 4.4], taus: [0.06, 0.04, 0.025, 0.015], amps: [1, 0.5, 0.35, 0.2], amp: 0.4 });
+  modal(ac, out, t, { f: rand(720, 1100) * p.pitch, ratios: [1, 2.02, 3.17, 4.4], taus: [0.06, 0.04, 0.025, 0.015], amps: [1, 0.5, 0.35, 0.2], amp: 0.3 });
   noiseHit(ac, out, t, { type: 'highpass', f: 4000, tau: 0.0035, amp: 0.32 });
   modal(ac, out, t + 0.002, { f: rand(2900, 4100), ratios: [1, 1.41, 1.93], taus: [0.04, 0.03, 0.02], amps: [1, 0.7, 0.5], amp: 0.05 });
   return 0.55;
@@ -111,8 +111,8 @@ const hitWood: SfxGen = (ac, out, t, p) => {
   const heavy = !!p.heavy;
   flesh(ac, out, t, s, heavy, !!p.head, p.pitch);
   const f = (heavy ? rand(165, 235) : rand(260, 400)) * p.pitch;
-  modal(ac, out, t, { f, ratios: [1, 2.76, 5.04, 7.3], taus: [0.075, 0.035, 0.02, 0.012], amps: [1, 0.55, 0.3, 0.15], amp: heavy ? 0.55 : 0.48 });
-  noiseHit(ac, out, t, { type: 'bandpass', f: rand(800, 1300), q: 1.2, tau: 0.014, amp: 0.38 });
+  modal(ac, out, t, { f, ratios: [1, 2.76, 5.04, 7.3], taus: [0.075, 0.035, 0.02, 0.012], amps: [1, 0.55, 0.3, 0.15], amp: heavy ? 0.4 : 0.34 });
+  noiseHit(ac, out, t, { type: 'bandpass', f: rand(800, 1300), q: 1.2, tau: 0.014, amp: 0.3 });
   if (heavy || p.crit) grains(ac, out, t + 0.002, { f: rand(1500, 2500), q: 1.2, n: 7, spread: 0.04, amp: 0.3 });
   return 0.55;
 };
@@ -140,7 +140,7 @@ const hitPan: SfxGen = (ac, out, t, p) => {
     ratios: [1, 1.0045, 2.32, 2.98, 4.15, 5.6, 6.95],
     taus: [0.75, 0.7, 0.42, 0.32, 0.2, 0.13, 0.08],
     amps: [0.5, 0.36, 0.3, 0.2, 0.13, 0.08, 0.045],
-    amp: 0.62,
+    amp: 0.5,
     jitter: 0.002,
     bend: 1.035,
     bendT: 0.09,
@@ -168,7 +168,7 @@ const hitPlastic: SfxGen = (ac, out, t, p) => {
 
 const hitCeramic: SfxGen = (ac, out, t, p) => {
   flesh(ac, out, t, 0.9, false, !!p.head, p.pitch);
-  modal(ac, out, t, { f: rand(1200, 2000) * p.pitch, ratios: [1, 1.71, 2.62, 3.8], taus: [0.06, 0.04, 0.03, 0.02], amps: [1, 0.6, 0.4, 0.2], amp: 0.34 });
+  modal(ac, out, t, { f: rand(1200, 2000) * p.pitch, ratios: [1, 1.71, 2.62, 3.8], taus: [0.06, 0.04, 0.03, 0.02], amps: [1, 0.6, 0.4, 0.2], amp: 0.24 });
   noiseHit(ac, out, t, { type: 'highpass', f: 3500, tau: 0.003, amp: 0.32 });
   return 0.45;
 };
@@ -333,17 +333,17 @@ const impact: SfxGen = (ac, out, t, p) => {
 
 /** Glass shatter: crack, spray, many tinkling partials, bouncing shards. */
 function shatterGlass(ac: BaseAudioContext, out: AudioNode, t: number, s: number, big: boolean, pit: number): number {
-  const tl = lowpassTo(ac, out, 9000);
-  noiseHit(ac, out, t, { type: 'highpass', f: 1800, tau: 0.009, amp: 0.7 });
-  thump(ac, out, t, { f0: (big ? 170 : 270) * pit, f1: big ? 80 : 150, drop: 0.03, tau: 0.03, amp: 0.3 });
-  noiseHit(ac, tl, t + 0.002, { type: 'bandpass', f: 5200, q: 0.6, tau: big ? 0.13 : 0.085, amp: 0.45 });
-  noiseHit(ac, tl, t + 0.003, { type: 'highpass', f: 6000, att: 0.004, tau: big ? 0.18 : 0.11, amp: 0.14 });
+  const tl = lowpassTo(ac, out, 7000);
+  noiseHit(ac, tl, t, { type: 'highpass', f: 1500, tau: 0.009, amp: 0.7 });
+  thump(ac, out, t, { f0: (big ? 170 : 270) * pit, f1: big ? 80 : 150, drop: 0.03, tau: 0.035, amp: 0.42 });
+  noiseHit(ac, tl, t + 0.002, { type: 'bandpass', f: 3800, q: 0.8, tau: big ? 0.13 : 0.085, amp: 0.45 });
+  noiseHit(ac, tl, t + 0.003, { type: 'highpass', f: 5000, att: 0.004, tau: big ? 0.16 : 0.1, amp: 0.06 });
   const n = Math.round((big ? 16 : 11) * clamp(s, 0.7, 1.3));
   let end = t + 0.5;
   for (let i = 0; i < n; i++) {
     const dt = Math.pow(Math.random(), 2.2) * (big ? 0.85 : 0.6);
-    const f = expRand(2200, 7200) * pit;
-    end = Math.max(end, ping(ac, tl, t + dt + 0.004, f, rand(0.012, 0.05), rand(0.05, 0.14) * (1 - 0.6 * dt), chance(0.4) ? f * rand(1.3, 1.7) : 0));
+    const f = expRand(2000, 6000) * pit;
+    end = Math.max(end, ping(ac, tl, t + dt + 0.004, f, rand(0.012, 0.05), rand(0.05, 0.12) * (1 - 0.6 * dt), chance(0.4) ? f * rand(1.3, 1.6) : 0));
   }
   for (let i = 0; i < (big ? 4 : 2); i++) {
     const dt = rand(0.12, 0.6);
@@ -379,7 +379,7 @@ function breakCeramic(ac: BaseAudioContext, out: AudioNode, t: number, s: number
 
 function breakMetal(ac: BaseAudioContext, out: AudioNode, t: number, s: number, big: boolean, pit: number): number {
   thump(ac, out, t, { f0: 120 * pit, f1: 55, drop: 0.06, tau: 0.06, amp: 0.5, drive: 0.6 });
-  let end = modal(ac, out, t, { f: rand(170, 260) * pit, ratios: [1, 2.756, 5.404, 8.933], taus: [1.0, 0.6, 0.35, 0.2], amps: [1, 0.7, 0.45, 0.25], amp: 0.35, jitter: 0.012 });
+  let end = modal(ac, out, t, { f: rand(170, 260) * pit, ratios: [1, 2.756, 5.404, 8.933], taus: [1.0, 0.6, 0.35, 0.2], amps: [1, 0.7, 0.45, 0.25], amp: 0.24, jitter: 0.012 });
   noiseHit(ac, out, t, { type: 'highpass', f: 2000, tau: 0.15, amp: 0.3 });
   for (let i = 0; i < (big ? 6 : 4); i++)
     end = Math.max(end, modal(ac, out, t + rand(0.05, 0.6), { f: rand(500, 1500), ratios: [1, 2.756, 5.4], taus: [0.15, 0.09, 0.05], amps: [1, 0.5, 0.3], amp: rand(0.08, 0.16) }));
@@ -517,14 +517,14 @@ const whoosh: SfxGen = (ac, out, t, p) => {
   bp.frequency.exponentialRampToValueAtTime(f1, t + dur * 0.45);
   bp.frequency.exponentialRampToValueAtTime(f2, t + dur);
   const g = mkGain(ac, 0);
-  const a = (heavy ? 0.65 : 0.5) * s * 4.2;
+  const a = (heavy ? 0.5 : 0.5) * s * 4.2;
   g.gain.setValueAtTime(0, t);
   g.gain.linearRampToValueAtTime(a, t + dur * 0.45);
   g.gain.exponentialRampToValueAtTime(0.002, t + dur);
   src.connect(bp);
   bp.connect(g);
   g.connect(out);
-  if (heavy) noiseHit(ac, out, t + dur * 0.2, { type: 'lowpass', f: 230, att: dur * 0.25, tau: dur * 0.25, amp: 0.45 * s });
+  if (heavy) noiseHit(ac, out, t + dur * 0.2, { type: 'lowpass', f: 230, att: dur * 0.25, tau: dur * 0.25, amp: 0.35 * s });
   return dur + 0.05;
 };
 
@@ -533,11 +533,11 @@ const bodyFall: SfxGen = (ac, out, t, p) => {
   const s = clamp(p.strength, 0.1, 1.5);
   const limb = isLimb(p.part);
   const pit = p.pitch * rand(0.92, 1.08);
-  thump(ac, out, t, { f0: rand(80, 105) * pit, f1: rand(38, 46), drop: 0.07, tau: 0.045 + 0.05 * s, amp: (0.42 + 0.38 * s) * (limb ? 0.55 : 1), drive: 0.7 });
+  thump(ac, out, t, { f0: rand(80, 105) * pit, f1: rand(38, 46), drop: 0.07, tau: 0.045 + 0.05 * s, amp: (0.42 + 0.3 * Math.min(s, 1.2)) * (limb ? 0.55 : 1), drive: 0.7 });
   noiseHit(ac, out, t, { buf: 'pink', type: 'lowpass', f: rand(400, 650), tau: 0.035 + 0.03 * s, amp: 0.45 * s });
   noiseHit(ac, out, t + 0.002, { type: 'bandpass', f: rand(1200, 2200), q: 1, tau: 0.008, amp: 0.28 * s * (limb ? 1.3 : 0.8) });
   modal(ac, out, t, { f: rand(120, 180), ratios: [1, 2.3], taus: [0.04, 0.02], amps: [1, 0.4], amp: 0.2 * s });
-  if (p.part === HEAD) modal(ac, out, t, { f: rand(280, 380) * pit, ratios: [1, 2.6], taus: [0.03, 0.015], amps: [1, 0.5], amp: 0.32 * s });
+  if (p.part === HEAD) modal(ac, out, t + 0.004, { f: rand(280, 380) * pit, ratios: [1, 2.6], taus: [0.03, 0.015], amps: [1, 0.5], amp: 0.22 * s });
   if (s > 1.0) grains(ac, out, t + 0.002, { f: 1800, q: 1.2, n: 5, spread: 0.03, amp: 0.2 * s });
   return 0.6;
 };
@@ -814,27 +814,27 @@ export const WEAPON_HIT: Record<string, SfxGen> = {
 };
 
 export const SFX: Record<string, SfxDef> = {
-  punch: { gen: punch, gain: 1, wet: 0.22, prio: 6, group: 'hit' },
-  block: { gen: block, gain: 1, wet: 0.18, prio: 5, group: 'hit' },
-  parry: { gen: parry, gain: 0.95, wet: 0.3, prio: 6, group: 'hit' },
-  hit_glass: { gen: hitGlass, gain: 1, wet: 0.25, prio: 6, group: 'hit' },
-  hit_wood: { gen: hitWood, gain: 1, wet: 0.25, prio: 6, group: 'hit' },
-  hit_metal: { gen: hitMetal, gain: 0.95, wet: 0.3, prio: 6, group: 'hit' },
-  hit_pan: { gen: hitPan, gain: 0.95, wet: 0.3, prio: 7, group: 'hit' },
-  hit_blade: { gen: hitBlade, gain: 1, wet: 0.2, prio: 6, group: 'hit' },
-  hit_plastic: { gen: hitPlastic, gain: 1, wet: 0.2, prio: 5, group: 'hit' },
-  hit_ceramic: { gen: hitCeramic, gain: 1, wet: 0.25, prio: 5, group: 'hit' },
-  hit_guitar: { gen: hitGuitar, gain: 0.95, wet: 0.3, prio: 7, group: 'hit' },
+  punch: { gen: punch, gain: 0.85, wet: 0.22, prio: 6, group: 'hit' },
+  block: { gen: block, gain: 0.8, wet: 0.18, prio: 5, group: 'hit' },
+  parry: { gen: parry, gain: 0.8, wet: 0.3, prio: 6, group: 'hit' },
+  hit_glass: { gen: hitGlass, gain: 0.72, wet: 0.25, prio: 6, group: 'hit' },
+  hit_wood: { gen: hitWood, gain: 0.62, wet: 0.25, prio: 6, group: 'hit' },
+  hit_metal: { gen: hitMetal, gain: 0.56, wet: 0.3, prio: 6, group: 'hit' },
+  hit_pan: { gen: hitPan, gain: 0.6, wet: 0.3, prio: 7, group: 'hit' },
+  hit_blade: { gen: hitBlade, gain: 1.05, wet: 0.2, prio: 6, group: 'hit' },
+  hit_plastic: { gen: hitPlastic, gain: 0.75, wet: 0.2, prio: 5, group: 'hit' },
+  hit_ceramic: { gen: hitCeramic, gain: 0.68, wet: 0.25, prio: 5, group: 'hit' },
+  hit_guitar: { gen: hitGuitar, gain: 0.58, wet: 0.3, prio: 7, group: 'hit' },
   gore_carve: { gen: goreCarve, gain: 0.85, wet: 0.15, prio: 4, group: 'gore' },
   gore_sever: { gen: goreSever, gain: 0.95, wet: 0.2, prio: 7, group: 'gore' },
-  gore_head: { gen: goreHead, gain: 1, wet: 0.25, prio: 8, group: 'gore' },
+  gore_head: { gen: goreHead, gain: 0.65, wet: 0.25, prio: 8, group: 'gore' },
   impact: { gen: impact, gain: 0.85, wet: 0.25, prio: 3, group: 'impact' },
-  break: { gen: breakGen, gain: 0.9, wet: 0.3, prio: 5, group: 'break' },
+  break: { gen: breakGen, gain: 0.85, wet: 0.3, prio: 5, group: 'break' },
   footstep: { gen: footstep, gain: 0.8, wet: 0.12, prio: 1, group: 'step' },
   whoosh: { gen: whoosh, gain: 0.8, wet: 0.1, prio: 2, group: 'whoosh' },
-  body_fall: { gen: bodyFall, gain: 0.9, wet: 0.22, prio: 3, group: 'fall' },
+  body_fall: { gen: bodyFall, gain: 0.72, wet: 0.22, prio: 3, group: 'fall' },
   drip: { gen: drip, gain: 0.35, wet: 0.2, prio: 0, group: 'drip' },
-  kill_sting: { gen: killSting, gain: 0.55, wet: 0.35, prio: 9, group: 'sting' },
+  kill_sting: { gen: killSting, gain: 0.45, wet: 0.35, prio: 9, group: 'sting' },
   player_hurt: { gen: playerHurt, gain: 0.7, wet: 0, prio: 8, group: 'sting' },
   player_death: { gen: playerDeath, gain: 0.75, wet: 0.4, prio: 9, group: 'sting' },
   land: { gen: land, gain: 0.7, wet: 0.12, prio: 3 },
@@ -845,7 +845,7 @@ export const SFX: Record<string, SfxDef> = {
   grab: { gen: grab, gain: 0.7, wet: 0.08, prio: 4 },
   rage: { gen: rage, gain: 0.7, wet: 0.35, prio: 9, group: 'sting' },
   heartbeat: { gen: heartbeat, gain: 0.6, wet: 0, prio: 5 },
-  door_slam: { gen: doorSlam, gain: 0.85, wet: 0.35, prio: 5 },
+  door_slam: { gen: doorSlam, gain: 0.68, wet: 0.35, prio: 5 },
   door_creak: { gen: doorCreak, gain: 0.6, wet: 0.3, prio: 2 },
   drink: { gen: drink, gain: 0.6, wet: 0.1, prio: 4 },
   tap: { gen: tap, gain: 0.45, wet: 0.2, prio: 2 },

@@ -28,10 +28,9 @@ export function thump(ac: BaseAudioContext, out: AudioNode, t: number, o: ThumpO
   const g = mkGain(ac, 0);
   envPerc(g.gain, t, o.amp, att, o.tau);
   if (o.drive) {
-    const pre = mkGain(ac, o.drive);
-    const ws = mkShaper(ac, getKit(ac).curves.sat);
-    osc.connect(pre);
-    pre.connect(ws);
+    // the sine is full scale: the shaper curve itself sets the amount of harmonics
+    const ws = mkShaper(ac, o.drive > 0.6 ? getKit(ac).curves.sat : getKit(ac).curves.soft);
+    osc.connect(ws);
     ws.connect(g);
   } else osc.connect(g);
   g.connect(out);

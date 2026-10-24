@@ -41,17 +41,16 @@ export function setupBarInteractions(level: LevelInfo, it: Interactables, weapon
   const damageJukebox = (amount: number, point: THREE.Vector3, dir: THREE.Vector3, by: Combatant | null) => {
     if (juke.broken) {
       ctx.fx.sparkBurst(point, dir.clone().negate(), 6, 0xffd080);
-      sfx('juke_kick', juke.pos, 0.8);
+      sfx('impact_metal', juke.pos, 0.8);
       return;
     }
     juke.health -= amount;
     ctx.fx.sparkBurst(point, dir.clone().negate(), 4 + Math.floor(amount / 6), 0xffc060);
-    ctx.services.music?.bump?.();
     if (by) provoke(by, juke.pos, 9, 0.6, pick(['Hey! Not the jukebox!', 'That thing was vintage!']));
     if (juke.health <= 0) {
       juke.broken = true;
       ctx.services.music?.smash?.();
-      sfx('juke_smash', juke.pos, 1.2);
+      sfx('break_glass', juke.pos, 1.2);
       _v.copy(juke.pos).setY(1.0);
       ctx.fx.sparkBurst(_v, dir.clone().negate(), 40, 0xffd080);
       ctx.fx.debris(_v, dir.clone().negate(), 22, 0xffd8a0, 'glass', 0.025, 3.5);
@@ -87,13 +86,12 @@ export function setupBarInteractions(level: LevelInfo, it: Interactables, weapon
     },
     use: (p: Player) => {
       if (juke.broken) {
-        // a good whack sometimes brings it sputtering back for a few bars
-        sfx('juke_kick', juke.pos);
-        ctx.services.music?.sputter?.();
+        sfx('impact_metal', juke.pos);
+        ctx.fx.sparkBurst(_v.copy(juke.pos).setY(1.1), UP, 8, 0xffd080);
         return true;
       }
+      sfx('coin', juke.pos, 0.8);
       ctx.services.music?.nextSong?.();
-      sfx('juke_select', juke.pos, 0.8);
       events.emit('noise', { pos: juke.pos.clone(), radius: 6, kind: 'music', source: p });
       return true;
     },
@@ -112,7 +110,7 @@ export function setupBarInteractions(level: LevelInfo, it: Interactables, weapon
         lastPour = now;
         const pint: Prop = ctx.props.spawn('pint', _v.set(tap.x + 0.15, tap.y + 0.02, tap.z + rand(-0.2, 0.2)), 0);
         pint.full = true;
-        sfx('pour', tap, 0.9);
+        sfx('tap', tap, 0.9);
         weapons.playerPickUp(p, pint);
         // pouring yourself a free one annoys the bartender (during the brawl)
         if (ctx.services.ai?.brawlStarted) provoke(p, tap, 7, 0.3);
@@ -145,7 +143,7 @@ export function setupBarInteractions(level: LevelInfo, it: Interactables, weapon
     if (now - prop.usedAt < 2) return;
     prop.usedAt = now;
     const pos = prop.position(new THREE.Vector3()).add(new THREE.Vector3(0, 1.2, 0));
-    sfx(kind === 'arcade' ? 'arcade' : 'pinball', pos, 0.9);
+    sfx(kind === 'arcade' ? 'arcade' : 'bell', pos, 0.9);
     ctx.fx.sparkBurst(pos, UP, 10, kind === 'arcade' ? 0x60f0ff : 0xffe060);
     // a quick game takes the edge off
     p.heal(3);

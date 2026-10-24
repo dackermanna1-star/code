@@ -27,6 +27,8 @@ import { HUD } from '../ui/HUD';
 import { Menus } from '../ui/Menus';
 import { AttractCam } from './AttractCam';
 import { setupBarInteractions } from '../world/BarInteractions';
+import { AudioSystem } from '../audio/AudioSystem';
+import { zoneAt } from '../world/BarLevel';
 
 export type GameState = 'loading' | 'title' | 'playing' | 'paused' | 'over';
 
@@ -73,8 +75,11 @@ export class Game {
   post!: PostFX;
   hud!: HUD;
   menus!: Menus;
-  /** procedural audio (attached by main once constructed) */
-  audio: any = null;
+  /** procedural Web Audio: SFX, voices, crowd, jukebox music */
+  audio!: AudioSystem;
+  private audioStarted = false;
+  private beatCount = 0;
+  private lastBeat = 0;
   state: GameState = 'loading';
   mode: GameMode = 'brawl';
   readonly params = new URLSearchParams(location.search);
@@ -141,6 +146,22 @@ export class Game {
     const ui = document.getElementById('ui-root')!;
     this.hud = new HUD(this, ui);
     this.menus = new Menus(this, ui);
+    // audio subscribes to the event bus here, before the per-round snapshot, so it survives restarts
+    this.audio = new AudioSystem();
+    ctx.services.audio = this.audio;
+    const unlock = () => {
+      void this.audio.resume();
+      if (!this.audioStarted) {
+        this.audioStarted = true;
+        this.audio.music.start();
+      }
+      if (this.audio.ac.state === 'running') {
+        removeEventListener('pointerdown', unlock, true);
+        removeEventListener('keydown', unlock, true);
+      }
+    };
+    addEventListener('pointerdown', unlock, true);
+    addEventListener('keydown', unlock, true);
     this.settings.onChange((_s, key) => this.applySettings(key));
     this.applySettings(null);
     this.input.onLockChange = (locked) => this.onLockChange(locked);
@@ -173,7 +194,7 @@ export class Game {
     this.baseFov = s.fov;
     this.camFx.intensity = s.shake;
     if (this.fx) this.fx.goreScale = s.gore;
-    this.audio?.setVolumes?.(s.master, s.sfx, s.music);
+    if (this.audio && this.state !== 'paused') this.audio.setVolumes(s.master, s.sfx, s.music);
     if (key === 'quality') {
       const q = QUALITY_PRESETS[s.quality];
       this.resScale = 1;
@@ -197,7 +218,7 @@ export class Game {
   }
 
   uiSound(kind: 'click' | 'hover'): void {
-    this.audio?.ui?.(kind);
+    this.audio.play(kind === 'click' ? 'ui_click' : 'ui_hover', null, { volume: kind === 'click' ? 0.9 : 0.5 });
   }
 
   // ------------------------------------------------------------------ round lifecycle
@@ -230,7 +251,7 @@ export class Game {
     ctx.timers = this.timers;
     this.physics = Physics.createWorld();
     ctx.physics = this.physics;
-    ctx.services = this.audio ? { audio: this.audio, music: this.audio.music } : {};
+    ctx.services = { audio: this.audio, music: this.audio.music };
     this.camFx = new CameraFX();
     this.camFx.intensity = this.settings.value.shake;
     this.combat = new CombatSystem();
@@ -274,7 +295,8 @@ export class Game {
     this.roundCrowd = this.director.crowdSize;
     if (mode === 'survival') this.director.startSurvival();
     else this.director.startBrawl();
-    this.audio?.newRound?.(this.level);
+    this.audio.music.repair();
+    this.audio.music.setSource(this.level.jukebox.pos.clone().setY(1.2));
     this.hud.reset();
     this.roundFresh = true;
     this.acc = 0;
@@ -353,7 +375,9 @@ export class Game {
     this.menus.showPause();
     this.input.enabled = false;
     this.input.exitLock();
-    this.audio?.setPaused?.(true);
+    // the jukebox keeps playing quietly behind the pause menu
+    const v = this.settings.value;
+    this.audio.setVolumes(v.master * 0.45, v.sfx, v.music * 0.6);
   }
 
   resume(): void {
@@ -363,14 +387,15 @@ export class Game {
     this.input.flush();
     this.input.enabled = true;
     this.requestLock();
-    this.audio?.setPaused?.(false);
+    const v = this.settings.value;
+    this.audio.setVolumes(v.master, v.sfx, v.music);
   }
 
   private endRound(won: boolean): void {
     if (this.state !== 'playing' && this.state !== 'paused') return;
     this.state = 'over';
-    this.audio?.setPaused?.(false);
-    this.audio?.music?.stinger?.(won);
+    const v = this.settings.value;
+    this.audio.setVolumes(v.master, v.sfx, v.music);
     const d = this.director;
     const t = Math.max(0, d.endTime - d.startTime);
     const rec = this.records.get(this.mode);
@@ -611,12 +636,14 @@ export class Game {
     for (const a of this.level.animated) a(this.time.elapsed, dt);
     const dance = (this.level.danceFloor.material as THREE.ShaderMaterial).uniforms;
     dance.uTime.value = this.time.elapsed;
-    const music = this.audio?.music;
-    if (music) {
-      this.lightMgr.beat = music.beat ?? 0;
-      this.lightMgr.energy = music.energy ?? 0;
-      dance.uBeat.value = music.beat ?? 0;
-    }
+    const music = this.audio.music;
+    const beat = music.beat;
+    if (beat < this.lastBeat - 0.5) this.beatCount++;
+    this.lastBeat = beat;
+    this.lightMgr.beat = beat;
+    this.lightMgr.energy = this.audioStarted ? music.energy : 0.5;
+    dance.uBeat.value = Math.pow(1 - beat, 4) * music.energy;
+    dance.uStep.value = this.beatCount;
     this.lightMgr.update(dt, this.engine.camera);
     this.frameCount++;
     this.player.ctrl.updateVisual(dt, alpha);
@@ -629,15 +656,30 @@ export class Game {
     for (const c of this.characters) c.update(dt, alpha, this.frameCount);
     this.fx.update(dt, this.engine.camera);
     this.updateCamera(dt, realDt);
-    if (this.audio) {
-      this.audio.music?.setIntensity?.(this.ai.brawlStarted ? Math.max(0.25, this.ai.intensity) : 0);
-      this.audio.update?.(rdt, this.engine.camera, this);
-    }
+    this.updateAudio(realDt);
     this.hud.update(dt, realDt);
     this.hud.driveScreenFx(realDt);
     this.post.state.fade = st === 'title' ? this.attract.fade : 0;
     if (!this.skipRender && (st !== 'paused' || this.frameCount % 4 === 0)) this.post.render(this.engine.scene, this.engine.camera, this.time.realElapsed, dt);
     this.input.endFrame();
+  }
+
+  private updateAudio(realDt: number): void {
+    const a = this.audio;
+    const m = a.music;
+    const playing = this.state !== 'title' && this.state !== 'loading';
+    m.setIntensity(playing && this.ai.brawlStarted ? Math.max(0.2, this.ai.intensity) : 0);
+    if (this.level.jukebox.broken && !m.smashed) m.smash();
+    let alive = 0;
+    let scared = 0;
+    for (const b of this.ai.brains) {
+      if (!b.ch.alive) continue;
+      alive++;
+      if (b.state === 'flee' || b.state === 'cower') scared++;
+    }
+    a.setCrowd(Math.min(1, alive / 20), alive ? Math.min(1, scared / alive + (this.ai.brawlStarted ? this.ai.intensity * 0.3 : 0)) : 0);
+    a.setRoom(zoneAt(this.level.zones, this.engine.camera.position)?.name !== 'porch');
+    a.update(realDt, this.engine.camera);
   }
 
   private updateInput(): void {

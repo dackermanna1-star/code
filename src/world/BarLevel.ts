@@ -1031,12 +1031,12 @@ export function buildBarLevel(scene: THREE.Scene, props: PropSystem): LevelInfo 
 // ------------------------------------------------------------------ special meshes
 function makeDanceFloor(w: number, d: number): THREE.Mesh {
   const mat = new THREE.ShaderMaterial({
-    uniforms: { uTime: { value: 0 }, uBeat: { value: 0 }, uIntensity: { value: 1 } },
+    uniforms: { uTime: { value: 0 }, uBeat: { value: 0 }, uStep: { value: 0 }, uIntensity: { value: 1 } },
     vertexShader: /* glsl */ `
       varying vec2 vUv;
       void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
     fragmentShader: /* glsl */ `
-      uniform float uTime; uniform float uBeat; uniform float uIntensity;
+      uniform float uTime; uniform float uBeat; uniform float uStep; uniform float uIntensity;
       varying vec2 vUv;
       vec3 hsv(float h, float s, float v) { vec3 k = vec3(1.0, 2.0/3.0, 1.0/3.0); vec3 p = abs(fract(vec3(h) + k) * 6.0 - 3.0); return v * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), s); }
       float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
@@ -1045,7 +1045,7 @@ function makeDanceFloor(w: number, d: number): THREE.Mesh {
         vec2 id = floor(g);
         vec2 f = fract(g);
         float edge = step(0.06, f.x) * step(0.06, f.y) * step(f.x, 0.94) * step(f.y, 0.94);
-        float t = floor(uTime * 2.0 + uBeat);
+        float t = uStep + floor(uTime * 0.25);
         float h = hash(id + t * 0.37);
         float on = step(0.45, hash(id * 1.7 + t));
         // linear HDR: lit tiles exceed 1.0 so they bloom
