@@ -267,6 +267,15 @@ export const P = {
   scrapMix: group('scrap mixed', Mat.Rubble, ['#7e4a2c', '#6b3f28', '#55585c', '#2f4a6e', '#8e2a24', '#1e1e1f', '#9a9d9f']),
   char: group('char', Mat.Char, ['#1c1a18', '#262220', '#2e2925']),
   ash: pal('ash', Mat.Char, '#4a4744'),
+  // --- soot-blackened surfaces (same materials, scorched by blasts and burning fuel)
+  sootConcrete: group('soot concrete', Mat.Concrete, ['#3b3936', '#31302d']),
+  sootPlaster: pal('soot plaster', Mat.Plaster, '#3e3b38'),
+  sootSheet: group('soot sheet metal', Mat.Metal, ['#2e2d2c', '#272625'], { density: 0.5, rough: 0.8, metal: 0.2 }),
+  sootSteel: pal('soot steel', Mat.Metal, '#2b2a29', { rough: 0.8, metal: 0.3 }),
+  sootHeavy: pal('soot heavy steel', Mat.HeavyMetal, '#2a2928', { rough: 0.8, metal: 0.3 }),
+  grassBurnt: group('burnt grass', Mat.Grass, ['#2f2a1d', '#3a3322']),
+  dirtBurnt: pal('scorched dirt', Mat.Dirt, '#2e261d'),
+  gravelBurnt: pal('scorched gravel', Mat.Gravel, '#3a3733'),
 };
 
 export const PALETTE_SIZE = PALETTE.length;
@@ -285,6 +294,8 @@ export const PAL_RESTITUTION = new Float32Array(256);
 export const PAL_CHAR = new Uint8Array(256);
 /** Palette index for loose rubble produced from this voxel. */
 export const PAL_RUBBLE = new Uint8Array(256);
+/** Soot-blackened version of a palette entry (0 = stays as it is). */
+export const PAL_SCORCH = new Uint8Array(256);
 
 for (let i = 0; i < 256; i++) {
   const e = PALETTE[i] ?? PALETTE[0];
@@ -316,7 +327,21 @@ for (let i = 1; i < PALETTE_SIZE; i++) {
     case Mat.Metal: case Mat.HeavyMetal: PAL_RUBBLE[i] = P.scrap + (i % 2); break;
     default: PAL_RUBBLE[i] = 0;
   }
+  switch (mat) {
+    case Mat.Concrete: PAL_SCORCH[i] = P.sootConcrete + (i % 2); break;
+    case Mat.Brick: PAL_SCORCH[i] = P.sootBrick + (i % 2); break;
+    case Mat.Plaster: PAL_SCORCH[i] = P.sootPlaster; break;
+    case Mat.Metal: PAL_SCORCH[i] = PAL_DENSITY[i] < 0.7 ? P.sootSheet + (i % 2) : P.sootSteel; break;
+    case Mat.HeavyMetal: PAL_SCORCH[i] = P.sootHeavy; break;
+    case Mat.Grass: PAL_SCORCH[i] = P.grassBurnt + (i % 2); break;
+    case Mat.Dirt: PAL_SCORCH[i] = P.dirtBurnt; break;
+    case Mat.Gravel: PAL_SCORCH[i] = P.gravelBurnt; break;
+    case Mat.Wood: case Mat.Fabric: case Mat.Plastic: case Mat.Rubber: PAL_SCORCH[i] = PAL_CHAR[i]; break;
+    default: PAL_SCORCH[i] = 0;
+  }
 }
+// soot never gets sootier
+for (const k of [P.sootConcrete, P.sootConcrete + 1, P.sootBrick, P.sootBrick + 1, P.sootPlaster, P.sootSheet, P.sootSheet + 1, P.sootSteel, P.sootHeavy, P.grassBurnt, P.grassBurnt + 1, P.dirtBurnt, P.gravelBurnt]) PAL_SCORCH[k] = 0;
 
 /**
  * Procedural surface pattern used by the shader for each palette entry:

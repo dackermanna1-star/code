@@ -87,10 +87,11 @@ export class Stress {
    * centred on a fixed 12.8 m tile grid so that post-damage analyses see the same domain as the baseline.
    */
   request(x: number, y: number, z: number, delay = 0.12, gen = 0): void {
-    if (!this.enabled) return;
+    if (!this.enabled || x < 0 || z < 0 || x >= this.world.sx || z >= this.world.sz) return;
     const tx0 = (x - 32) >> 7, tx1 = (x + 32) >> 7, tz0 = (z - 32) >> 7, tz1 = (z + 32) >> 7;
     for (let tz = tz0; tz <= tz1; tz++) for (let tx = tx0; tx <= tx1; tx++) {
       const cx = tx * 128 + 64, cz = tz * 128 + 64;
+      if (cx < 0 || cz < 0 || cx >= this.world.sx || cz >= this.world.sz) continue;
       let found = false;
       for (const r of this.reqs) if (r.x === cx && r.z === cz) { r.t = Math.min(r.t, delay); r.y = Math.max(r.y, y); r.gen = Math.min(r.gen, gen); found = true; break; }
       if (!found) this.reqs.push({ x: cx, y, z: cz, t: delay, gen });
@@ -122,6 +123,7 @@ export class Stress {
 
   /** Baselines for every tile a request at (x, z) will analyse (call before damaging voxels). */
   prepare(x: number, z: number): void {
+    if (x < 0 || z < 0 || x >= this.world.sx || z >= this.world.sz) return;
     const tx0 = (x - 32) >> 7, tx1 = (x + 32) >> 7, tz0 = (z - 32) >> 7, tz1 = (z + 32) >> 7;
     for (let tz = tz0; tz <= tz1; tz++) for (let tx = tx0; tx <= tx1; tx++) this.ensureBaseline(tx * 128 + 64, tz * 128 + 64);
   }
@@ -134,7 +136,7 @@ export class Stress {
    * are driven by load redistribution after damage.
    */
   ensureBaseline(x: number, z: number): void {
-    if (!this.enabled) return;
+    if (!this.enabled || x < 0 || z < 0 || x >= this.world.sx || z >= this.world.sz) return;
     const tk = (x >> 7) + 1000 * (z >> 7);
     if (this.baselineDone.has(tk)) return;
     this.baselineDone.add(tk);

@@ -59,7 +59,7 @@ export class Physics {
   onRemove: ((b: Body) => void) | null = null;
   stats = { awake: 0, contacts: 0, pairs: 0, ms: 0, cacheHits: 0 };
   /** per-phase time of the last step (ms) */
-  prof = { world: 0, bodies: 0, solve: 0, other: 0 };
+  prof = { world: 0, bodies: 0, solve: 0, impacts: 0, other: 0 };
   private stepNo = 0;
 
   private cs = new ContactSet();
@@ -164,11 +164,21 @@ export class Physics {
       b.ang.set(bv[o + 3], bv[o + 4], bv[o + 5]);
     }
     this.storeWarmStart();
+    const ti = performance.now();
     this.emitImpacts();
+    this.prof.impacts = performance.now() - ti;
     // ---- integrate positions
+    const lost: Body[] = [];
     for (let i = 0; i < nb; i++) {
       const b = bodies[i];
       if (b.sleeping || b.kinematic) continue;
+      if (!Number.isFinite(b.vel.x + b.vel.y + b.vel.z + b.ang.x + b.ang.y + b.ang.z)) {
+        // never let a numerical failure poison the simulation: freeze the body where it was
+        b.vel.set(0, 0, 0); b.ang.set(0, 0, 0);
+        b.pos.copy(b.prevPos); b.rot.copy(b.prevRot);
+        b.updateDerived();
+        continue;
+      }
       // clamp velocities
       const sp = b.vel.len();
       if (sp > 70) b.vel.scale(70 / sp);
@@ -194,11 +204,15 @@ export class Physics {
       b.pos.addScaled(b.vel, dt);
       b.rot.integrate(b.ang.x, b.ang.y, b.ang.z, dt);
       b.updateDerived();
-      if (b.pos.y < -30) { this.onRemove?.(b); }
+      // fell out of the world or was flung far beyond the site
+      const W = this.world;
+      if (b.pos.y < -30 || b.pos.x < -60 || b.pos.z < -60 || b.pos.x > W.sx * 0.1 + 60 || b.pos.z > W.sz * 0.1 + 60) lost.push(b);
     }
     this.updateSleep(dt);
+    // removed last: contact indices refer to the body order of this step
+    for (const b of lost) this.onRemove?.(b);
     this.stats.ms = performance.now() - t0;
-    this.prof.other = this.stats.ms - this.prof.world - this.prof.bodies - this.prof.solve;
+    this.prof.other = this.stats.ms - this.prof.world - this.prof.bodies - this.prof.solve - this.prof.impacts;
   }
 
   // ------------------------------------------------------------------ narrow phase: world
@@ -380,6 +394,8 @@ export class Physics {
 
   private addContact(ai: number, bi: number, px: number, py: number, pz: number, nx: number, ny: number, nz: number, depth: number,
     key: number, matB: number, friction: number, restitution: number): void {
+    const nl2 = nx * nx + ny * ny + nz * nz;
+    if (!(nl2 > 0.25)) return; // degenerate normal (also rejects NaN)
     const cs = this.cs;
     if (cs.n >= cs.cap) cs.grow(cs.cap * 2);
     const i = cs.n++;

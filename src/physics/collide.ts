@@ -81,8 +81,14 @@ export function sphereVsGrid(g: GridView, px: number, py: number, pz: number, r:
           const d2 = dx * dx + dy * dy + dz * dz;
           if (d2 >= reach2) continue;
           const d = Math.sqrt(d2);
-          const inv = d > 1e-9 ? 1 / d : 0;
-          out.push(qx, qy, qz, dx * inv, dy * inv, dz * inv, r - d, sample, (x * 73856093) ^ (y * 19349663) ^ (z * 83492791), v);
+          if (d > 1e-6) {
+            const inv = 1 / d;
+            out.push(qx, qy, qz, dx * inv, dy * inv, dz * inv, r - d, sample, (x * 73856093) ^ (y * 19349663) ^ (z * 83492791), v);
+          } else {
+            // centre exactly on the edge / corner: use the feature's outward direction
+            const inv = 1 / Math.hypot(cx, cy, cz);
+            out.push(qx, qy, qz, cx * inv, cy * inv, cz * inv, r, sample, (x * 73856093) ^ (y * 19349663) ^ (z * 83492791), v);
+          }
         } else {
           // sphere center inside this voxel: exit through the nearest exposed face
           let best = 1e9, bn = -1;
@@ -146,8 +152,14 @@ export function sphereVsCache(g: GridView, coarse: Uint8Array, cx: number, cy: n
           const d2 = dx * dx + dy * dy + dz * dz;
           if (d2 >= reach2) continue;
           const d = Math.sqrt(d2);
-          const inv = d > 1e-9 ? 1 / d : 0;
-          out.push(qx, qy, qz, dx * inv, dy * inv, dz * inv, r - d, sample, (x * 73856093) ^ (y * 19349663) ^ (z * 83492791), v);
+          if (d > 1e-6) {
+            const inv = 1 / d;
+            out.push(qx, qy, qz, dx * inv, dy * inv, dz * inv, r - d, sample, (x * 73856093) ^ (y * 19349663) ^ (z * 83492791), v);
+          } else {
+            // centre exactly on the edge / corner: use the feature's outward direction
+            const inv = 1 / Math.hypot(kx, ky, kz);
+            out.push(qx, qy, qz, kx * inv, ky * inv, kz * inv, r, sample, (x * 73856093) ^ (y * 19349663) ^ (z * 83492791), v);
+          }
         } else {
           let best = 1e9, bn = -1, dd: number;
           if (!data[idx + 1]) { dd = x + 1 - px; if (dd < best) { best = dd; bn = 0; } }

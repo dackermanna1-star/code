@@ -3,7 +3,7 @@
 
 import { Game } from './game';
 import { VOXEL } from '../world/world';
-import { PAL_MAT, PAL_HARD, PAL_BLAST, PALETTE, Mat, MATERIALS, srgbToLinear, PAL_FLAMMABLE, PAL_TRANSPARENT, PAL_DENSITY } from '../world/materials';
+import { PAL_MAT, PAL_HARD, PAL_BLAST, PALETTE, Mat, MATERIALS, srgbToLinear, PAL_FLAMMABLE, PAL_TRANSPARENT, PAL_DENSITY, PAL_SCORCH, P } from '../world/materials';
 import { Body } from '../physics/body';
 import { PT } from '../render/particles';
 import { hash3, Vec3, Rng } from '../engine/math';
@@ -25,7 +25,11 @@ export interface CarveOpts {
   fromX?: number; fromY?: number; fromZ?: number;
 }
 
-interface PendingBlast { x: number; y: number; z: number; power: number; t: number }
+interface PendingBlast { x: number; y: number; z: number; power: number; t: number; fuel?: boolean }
+
+/** liquid fuels leave burning pools behind (gas just makes a fireball) */
+const FUEL = new Uint8Array(256);
+FUEL[P.fuelTank] = 1; FUEL[P.fuelRed] = 1; FUEL[P.oilTank] = 1;
 
 const rng = new Rng(4242);
 const tmpV = new Vec3();
@@ -38,6 +42,8 @@ export function palLinear(p: number): [number, number, number] {
 
 export class Destruction {
   pending: PendingBlast[] = [];
+  /** rigid fragments that blasts may still throw out (refills over time) */
+  private fragBudget = 90;
   /** blast sites that keep emitting smoke for a few seconds */
   private smolder: { x: number; y: number; z: number; r: number; t: number; rate: number; acc: number }[] = [];
   /** hook: explosion happened (for audio / player damage) */
@@ -46,6 +52,8 @@ export class Destruction {
   onBreak: ((x: number, y: number, z: number, mat: Mat, count: number) => void) | null = null;
   /** hook: ignite flammable voxel */
   ignite: ((x: number, y: number, z: number) => void) | null = null;
+  /** hook: burning fuel splashed onto any surface voxel */
+  igniteSurface: ((x: number, y: number, z: number) => void) | null = null;
   totalRemoved = 0;
 
   constructor(readonly g: Game) {}
@@ -281,7 +289,9 @@ export class Destruction {
     if (n <= 0) return;
     const power = 0.8 + n * 0.012;
     const delay = 0.12 + Math.random() * 0.35;
-    this.pending.push({ x: b.pos.x, y: b.pos.y, z: b.pos.z, power, t: delay });
+    let fuel = false;
+    for (let i = 0; i < b.vox.length && !fuel; i++) if (FUEL[b.vox[i]]) fuel = true;
+    this.pending.push({ x: b.pos.x, y: b.pos.y, z: b.pos.z, power, t: delay, fuel });
     (this.pending[this.pending.length - 1] as any).body = b;
   }
 
@@ -297,11 +307,12 @@ export class Destruction {
       stack.push(x + 1, y, z, x - 1, y, z, x, y + 1, z, x, y - 1, z, x, y, z + 1, x, y, z - 1, x, y, z);
     }
     const pts: number[] = [];
-    let n = 0;
+    let n = 0, fuel = false;
     while (stack.length && n < 80000) {
       const z = stack.pop()!, y = stack.pop()!, x = stack.pop()!;
       const v = w.get(x, y, z);
       if (!v || PAL_MAT[v] !== Mat.Explosive) continue;
+      if (FUEL[v]) fuel = true;
       w.set(x, y, z, 0);
       this.g.structure.noteRemoved(x, y, z);
       n++;
@@ -318,7 +329,7 @@ export class Destruction {
     for (let k = 0; k < blasts; k++) {
       const i = (Math.floor(Math.random() * (pts.length / 3))) * 3;
       const p = blasts === 1 ? power : power / Math.pow(blasts, 0.6);
-      this.pending.push({ x: (pts[i] + 0.5) * VOXEL, y: (pts[i + 1] + 0.5) * VOXEL, z: (pts[i + 2] + 0.5) * VOXEL, power: p, t: 0.06 + k * 0.14 + Math.random() * 0.08 });
+      this.pending.push({ x: (pts[i] + 0.5) * VOXEL, y: (pts[i + 1] + 0.5) * VOXEL, z: (pts[i + 2] + 0.5) * VOXEL, power: p, t: 0.06 + k * 0.14 + Math.random() * 0.08, fuel });
     }
   }
 
@@ -335,6 +346,7 @@ export class Destruction {
 
   update(dt: number): void {
     const P = this.g.particles;
+    this.fragBudget = Math.min(90, this.fragBudget + dt * 30);
     for (let i = this.smolder.length - 1; i >= 0; i--) {
       const s = this.smolder[i];
       s.t -= dt;
@@ -361,7 +373,7 @@ export class Destruction {
           for (let k = 0; k < body.vox.length; k++) if (PAL_MAT[body.vox[k]] === Mat.Explosive) body.vox[k] = 0;
           this.g.markBodyDirty(body);
         }
-        this.explode(p.x, p.y, p.z, p.power);
+        this.explode(p.x, p.y, p.z, p.power, !!p.fuel);
       }
     }
   }
@@ -427,7 +439,7 @@ export class Destruction {
 
   // ------------------------------------------------------------------ explosions
   prof: Record<string, number> = {};
-  explode(x: number, y: number, z: number, power: number): void {
+  explode(x: number, y: number, z: number, power: number, fuel = false): void {
     const g = this.g, P = g.particles;
     let tt = performance.now();
     const lap = (k: string) => { const n = performance.now(); this.prof[k] = (this.prof[k] || 0) + n - tt; tt = n; };
@@ -438,7 +450,9 @@ export class Destruction {
     g.world.noteChange(Math.floor((x - r * 3) * 10), Math.floor((y - r * 3) * 10), Math.floor((z - r * 3) * 10), Math.ceil((x + r * 3) * 10), Math.ceil((y + r * 3) * 10), Math.ceil((z + r * 3) * 10));
     this.carveWorld(x, y, z, rc, carve);
     // sheet metal around the hole is not cut but bent away from the blast
-    this.bendMetal(x, y, z, rc * 0.5, rc * 2.1 + 0.4, power);
+    this.bendMetal(x, y, z, rc * 0.5, Math.min(5.5, rc * 2.1 + 0.4), power);
+    // soot-blackened crater
+    this.scorch(x, y, z, rc * 0.6, Math.min(5.5, rc * 1.8 + 0.3));
     lap('carve');
     // fragments: chunks loosened from the crater rim fly outwards as rigid bodies
     this.fragments(x, y, z, rc, power);
@@ -473,6 +487,19 @@ export class Destruction {
         const vx = Math.floor(px * 10), vy = Math.floor(py * 10), vz = Math.floor(pz * 10);
         const v = g.world.get(vx, vy, vz);
         if (v && PAL_FLAMMABLE[v] > 0.3 && Math.random() < PAL_FLAMMABLE[v]) this.ignite(vx, vy, vz);
+      }
+    }
+    // burning fuel splashes onto whatever surfaces are around
+    if (fuel && this.igniteSurface) {
+      const n = Math.min(90, 12 + power * 1.6);
+      const reach = Math.min(16, r * 2.6);
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * 6.283, el = Math.random() * 1.6 - 1.0; // mostly sideways and down
+        const dx = Math.cos(el) * Math.cos(a), dy = Math.sin(el), dz = Math.cos(el) * Math.sin(a);
+        for (let t = 0.3; t < reach; t += 0.1) {
+          const vx = Math.floor((x + dx * t) * 10), vy = Math.floor((y + dy * t) * 10), vz = Math.floor((z + dz * t) * 10);
+          if (g.world.get(vx, vy, vz)) { this.igniteSurface(vx, vy, vz); break; }
+        }
       }
     }
     // ---- visuals
@@ -606,10 +633,32 @@ export class Destruction {
     this.g.stress.request(Math.floor(X), Math.floor(Y), Math.floor(Z), 0.2);
   }
 
+  /** Blacken exposed surfaces around a blast (denser near the centre, ragged towards the edge). */
+  scorch(cx: number, cy: number, cz: number, r0: number, r1: number): void {
+    const w = this.g.world;
+    const X = cx * 10, Y = cy * 10, Z = cz * 10, R0 = r0 * 10, R1 = r1 * 10;
+    const hits: number[] = [];
+    w.forEachSolid(Math.floor(X - R1), Math.floor(Y - R1), Math.floor(Z - R1), Math.ceil(X + R1), Math.ceil(Y + R1), Math.ceil(Z + R1), (x, y, z, v) => {
+      const sc = PAL_SCORCH[v];
+      if (!sc) return;
+      const dx = x + 0.5 - X, dy = y + 0.5 - Y, dz = z + 0.5 - Z;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d > R1) return;
+      const p = d < R0 ? 1 : Math.pow(1 - (d - R0) / (R1 - R0), 0.7);
+      if (((hash3(x, y, z) & 1023) / 1023) > p) return;
+      // only surfaces that face open air
+      if (w.get(x + 1, y, z) && w.get(x - 1, y, z) && w.get(x, y + 1, z) && w.get(x, y - 1, z) && w.get(x, y, z + 1) && w.get(x, y, z - 1)) return;
+      hits.push(x, y, z, sc);
+    }, true, { cx: X, cy: Y, cz: Z, r: R1 });
+    for (let i = 0; i < hits.length; i += 4) w.set(hits[i], hits[i + 1], hits[i + 2], hits[i + 3]);
+  }
+
   /** Loosen chunks around the crater rim and throw them out as rigid bodies. */
   private fragments(cx: number, cy: number, cz: number, r: number, power: number): void {
     const g = this.g, w = g.world;
-    const n = Math.min(26, Math.round(5 + power * 2.5));
+    // chain reactions share a refilling budget so dozens of blasts do not spawn thousands of bodies
+    const n = Math.min(26, Math.round(5 + power * 2.5), Math.floor(this.fragBudget));
+    this.fragBudget -= Math.max(0, n);
     for (let i = 0; i < n; i++) {
       // random direction, march outward from inside the crater until we hit material
       const a = rng.next() * 6.283, el = Math.asin(rng.range(-0.95, 0.95));

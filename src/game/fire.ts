@@ -3,12 +3,12 @@
 
 import { Game } from './game';
 import { VOXEL } from '../world/world';
-import { PAL_FLAMMABLE, PAL_CHAR, PAL_MAT, Mat, MATERIALS } from '../world/materials';
+import { PAL_FLAMMABLE, PAL_CHAR, PAL_MAT, PAL_SCORCH, Mat, MATERIALS } from '../world/materials';
 import { PT } from '../render/particles';
 import { Body } from '../physics/body';
 import { Vec3 } from '../engine/math';
 
-interface FireCell { x: number; y: number; z: number; t: number; life: number; body: Body | null }
+interface FireCell { x: number; y: number; z: number; t: number; life: number; body: Body | null; surface?: boolean }
 
 const MAX_FIRES = 1800;
 const tmp = new Vec3();
@@ -37,6 +37,17 @@ export class Fire {
     const life = Math.max(1.5, mat.burnTime || 4) * (0.6 + Math.random() * 0.8);
     this.cells.set(k, { x, y, z, t: 0, life, body: null });
     if (PAL_MAT[v] === Mat.Explosive) { this.g.destruction.detonateAt(x, y, z); return true; }
+    return true;
+  }
+
+  /** Burning fuel on any surface voxel: burns for a while without consuming the voxel, then scorches it. */
+  igniteSurface(x: number, y: number, z: number): boolean {
+    const v = this.g.world.get(x, y, z);
+    if (!v || this.count >= MAX_FIRES) return false;
+    if (PAL_FLAMMABLE[v] > 0 || PAL_MAT[v] === Mat.Explosive) return this.ignite(x, y, z);
+    const k = this.key(x, y, z);
+    if (this.cells.has(k)) return false;
+    this.cells.set(k, { x, y, z, t: 0, life: 5 + Math.random() * 9, body: null, surface: true });
     return true;
   }
 
@@ -111,7 +122,12 @@ export class Fire {
         if (c && !this.cells.has(this.key(f.x + dx, f.y + dy, f.z + dz))) w.set(f.x + dx, f.y + dy, f.z + dz, c);
       }
       // burnt out
-      if (f.t >= f.life) {
+      if (f.t >= f.life && f.surface) {
+        // spilt fuel burnt off: the surface underneath is only scorched
+        dead.push(k);
+        const c = PAL_SCORCH[v];
+        if (c && Math.random() < 0.8) { w.set(f.x, f.y, f.z, c); w.noteChange(f.x, f.y, f.z, f.x, f.y, f.z); }
+      } else if (f.t >= f.life) {
         dead.push(k);
         const c = PAL_CHAR[v];
         if (c && Math.random() < 0.3) w.set(f.x, f.y, f.z, c);

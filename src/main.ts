@@ -67,6 +67,7 @@ async function main() {
   game.onImpactHook = (e) => destruction.impact(e.a, e.b, e.x, e.y, e.z, e.nx, e.ny, e.nz, e.speed, e.meff, e.matB);
   const fire = new Fire(game);
   destruction.ignite = (x, y, z) => fire.ignite(x, y, z);
+  destruction.igniteSurface = (x, y, z) => fire.igniteSurface(x, y, z);
   const audio = new Audio();
   destruction.onExplosion = (x, y, z, p) => {
     audio.explosion(x, y, z, p);
