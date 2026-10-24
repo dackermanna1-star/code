@@ -69,8 +69,11 @@ with island sleeping and CCD for fast small bodies.
 time-sliced best-first flood fill finds parts no longer connected to the ground and turns them into
 rigid bodies. A stress solver coarsens the structure into 0.4 m cells, routes every cell's weight to the
 ground along the cheapest load paths and compares link loads with per-material compression / shear /
-tension capacities. Overloaded links crumble, pieces detach, fall and hit things, and the analysis runs
-again — collapses progress over seconds instead of being scripted.
+tension capacities, plus a bending check (load × lever arm against a capacity that grows with member
+depth, so deep trusses and slabs span far while slender rails and purlins cannot carry a lost column).
+Intact structures are analysed once at load time and anything already overloaded is reinforced, so the
+level always stands until it is damaged. Overloaded links crumble, pieces detach, fall and hit things,
+and the analysis runs again — collapses progress over seconds instead of being scripted.
 
 **Destruction** (`src/game/destruction.ts`, `fire.ts`). Explosions carve by per-material blast
 resistance, launch fragments as bodies, push bodies with a shockwave, shatter connected glass, ignite

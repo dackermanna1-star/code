@@ -54,8 +54,10 @@ const HALF = 120;      // domain half size (voxels) -> 24 m wide
 const CORE = 84;       // failures are only applied inside this half size
 const PREF = [0.7, 0.7, 0.35, 1.0, 0.7, 0.7]; // flow preference per direction (+X,-X,+Y,-Y,+Z,-Z)
 const COST = [2, 2, 4, 1, 2, 2];
+/** bending capacity factor: moment capacity of a link = capacity x member depth (cells) x BEND (cells) */
+const BEND = 1.0;
 
-export interface StressFailure { x: number; y: number; z: number; dir: number; ratio: number }
+export interface StressFailure { x: number; y: number; z: number; dir: number; ratio: number; bend?: boolean }
 
 interface Req { x: number; y: number; z: number; t: number; gen: number }
 
@@ -70,12 +72,15 @@ export class Stress {
   private capL = new Float32Array(0);
   private dist = new Int32Array(0);
   private load = new Float32Array(0);
+  private moment = new Float32Array(0);
   private cellPos = new Int32Array(0);
   private nn = 0;
   enabled = true;
   stats = { analyses: 0, nodes: 0, failures: 0, ms: 0, baselines: 0 };
   /** capacity multipliers for links that are already overloaded in the intact structure */
   private reinforce = new Map<number, number>();
+  /** same for bending (moment) capacities */
+  private reinforceM = new Map<number, number>();
   private baselineDone = new Set<number>();
   /** called to crumble the face layer of a cell towards a neighbour */
   onFail: ((f: StressFailure) => void) | null = null;
@@ -173,7 +178,7 @@ export class Stress {
       return b;
     };
     this.mass = grow(this.mass, c); this.anchor = grow(this.anchor, c); this.nb = grow(this.nb, c * 6);
-    this.capL = grow(this.capL, c * 6); this.dist = grow(this.dist, c); this.load = grow(this.load, c); this.cellPos = grow(this.cellPos, c * 3);
+    this.capL = grow(this.capL, c * 6); this.dist = grow(this.dist, c); this.load = grow(this.load, c); this.moment = grow(this.moment, c); this.cellPos = grow(this.cellPos, c * 3);
     this.cap = c;
   }
 
@@ -194,6 +199,22 @@ export class Stress {
       if (v) m[((i >> 2) & 3) | (((i >> 6) & 3) << 2) | ((i >> 10) << 4)] += PAL_DENSITY[v];
     }
     return m;
+  }
+
+  /** Number of vertically stacked cells (up to 12) that share the horizontal link of n in direction d. */
+  private memberDepth(n: number, d: number, idx: Int32Array, cellOf: (x: number, y: number, z: number) => number, x1: number, z1: number): number {
+    const px = this.cellPos[n * 3], py = this.cellPos[n * 3 + 1], pz = this.cellPos[n * 3 + 2];
+    let depth = 1;
+    for (const dy of [4, -4]) {
+      for (let k = 1; k < 12; k++) {
+        const y = py + dy * k;
+        if (y < 0 || y >= this.world.sy) break;
+        const m = idx[cellOf(px, y, pz)];
+        if (m === undefined || m < 0 || this.nb[m * 6 + d] < 0) break;
+        depth++;
+      }
+    }
+    return Math.min(12, depth);
   }
 
   /** Analyze the domain centred at voxel (cx, cz). Returns failures (strongest first). */
@@ -339,10 +360,17 @@ export class Stress {
       }
     }
     // ---- push loads from the farthest cells towards the anchors
-    const load = this.load;
-    for (let n = 0; n < nn; n++) load[n] = this.mass[n];
+    // Besides the force through each link, horizontal transfer accumulates a bending moment
+    // (load x lever arm in cells) that the member has to resist; its capacity grows with the
+    // member's depth, so deep trusses and slabs span far while slender beams and rails do not.
+    const load = this.load, moment = this.moment;
+    for (let n = 0; n < nn; n++) { load[n] = this.mass[n]; moment[n] = 0; }
     const fails: StressFailure[] = [];
     const icx0 = cx - CORE, icx1 = cx + CORE, icz0 = cz - CORE, icz1 = cz + CORE;
+    const fail = (n: number, d: number, ratio: number, bend: boolean) => {
+      const px = this.cellPos[n * 3], pz = this.cellPos[n * 3 + 2];
+      if (px >= icx0 && px <= icx1 && pz >= icz0 && pz <= icz1) fails.push({ x: px, y: this.cellPos[n * 3 + 1], z: pz, dir: d, ratio, bend });
+    };
     for (let dcur = buckets.length - 1; dcur > 0; dcur--) {
       const bk = buckets[dcur];
       if (!bk) continue;
@@ -355,12 +383,13 @@ export class Stress {
           wsum += this.capL[n * 6 + d] * PREF[d];
         }
         if (wsum <= 0) continue;
-        const L = load[n];
+        const L = load[n], M = moment[n];
         for (let d = 0; d < 6; d++) {
           const m = this.nb[n * 6 + d];
           if (m < 0 || dist[m] >= dcur) continue;
           const c0 = this.capL[n * 6 + d];
-          const f = (L * c0 * PREF[d]) / wsum;
+          const share = (c0 * PREF[d]) / wsum;
+          const f = L * share;
           load[m] += f;
           if (f > c0) {
             const key = this.linkKey(n, d);
@@ -368,30 +397,54 @@ export class Stress {
             const c = c0 * rf;
             if (f > c) {
               if (baseline) this.reinforce.set(key, (f / c0) * 1.35);
-              else {
-                const px = this.cellPos[n * 3], pz = this.cellPos[n * 3 + 2];
-                if (px >= icx0 && px <= icx1 && pz >= icz0 && pz <= icz1) fails.push({ x: px, y: this.cellPos[n * 3 + 1], z: pz, dir: d, ratio: f / c });
-              }
+              else fail(n, d, f / c, false);
+            }
+          }
+          if (d === 3) continue; // carried down into a support: the moment ends here
+          const mc = M * share + (d === 2 ? 0 : f);
+          moment[m] += mc;
+          if (d === 2 || mc <= 0) continue;
+          // bending capacity of the member at this link
+          const cap = c0 * this.memberDepth(n, d, idx, cellOf, x1, z1) * BEND;
+          if (mc > cap) {
+            const key = this.linkKey(n, d);
+            const rf = this.reinforceM.get(key) ?? 1;
+            if (mc > cap * rf) {
+              if (baseline) this.reinforceM.set(key, (mc / cap) * 1.35);
+              else fail(n, d, mc / (cap * rf), true);
             }
           }
         }
       }
     }
-    fails.sort((a, b) => b.ratio - a.ratio);
     this.stats.analyses++;
     this.stats.nodes = nn;
     this.stats.ms = performance.now() - t0;
     // the most overloaded links break first (cracks start where loads converge, so structures come
-    // apart in large pieces); the load then redistributes and the next pass continues the crack
+    // apart in large pieces); the load then redistributes and the next pass continues the crack.
+    // Force and bending overloads scale differently, so each kind is ranked against its own worst case.
     const out: StressFailure[] = [];
     const seen = new Set<number>();
-    const cutoff = fails.length ? Math.max(1, fails[0].ratio * 0.45) : 1;
-    for (const f of fails) {
-      if (out.length >= 48 || f.ratio < cutoff) break;
-      const k = (f.x >> 2) + 1000 * ((f.z >> 2) + 1000 * (f.y >> 2));
-      if (seen.has(k)) continue;
-      seen.add(k);
-      out.push(f);
+    const lists = [fails.filter((f) => !f.bend), fails.filter((f) => f.bend)];
+    for (const l of lists) l.sort((a, b) => b.ratio - a.ratio);
+    const cut = lists.map((l) => (l.length ? Math.max(1, l[0].ratio * 0.45) : 1));
+    const pos = [0, 0];
+    while (out.length < 48) {
+      let progressed = false;
+      for (let k = 0; k < 2 && out.length < 48; k++) {
+        const l = lists[k];
+        while (pos[k] < l.length) {
+          const f = l[pos[k]++];
+          if (f.ratio < cut[k]) { pos[k] = l.length; break; }
+          const key = (f.x >> 2) + 1000 * ((f.z >> 2) + 1000 * (f.y >> 2));
+          if (seen.has(key)) continue;
+          seen.add(key);
+          out.push(f);
+          progressed = true;
+          break;
+        }
+      }
+      if (!progressed) break;
     }
     this.stats.failures += out.length;
     return out;
