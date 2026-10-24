@@ -284,10 +284,12 @@ function hall1(C, O) {
     id: 'causeway', name: 'Collapsing Causeway', duration: 7, zone: { x0: -11, x1: 11, z0: -118, z1: -78 }, wait: [0, 0, -70],
     run(k, dt) {
       for (const s of slabs) {
-        const t0 = s.r * 0.18 + s.c * 0.06;
+        // they shake, then go one row after another from the near end (the far end gives you a chance)
+        const t0 = 0.45 + s.r * 0.3 + s.c * 0.08;
         const fall = seg(k, t0, t0 + 0.9), back = seg(k, 4.8, 6.6);
         const d = easeIn(fall) * 16 * (1 - easeInOut(back));
         _v.copy(s.m.home.pos); _v.y -= d;
+        if (k < t0) _v.x += Math.sin(k * 70 + s.r * 3 + s.c) * 0.08;
         s.m.set(_v, Q(1, 0, s.c ? 1 : -1, 22 * fall * (1 - back)), dt);
       }
       at(this, k, 0.9, () => { SFX.splash(W(0, -9, -92), 1.4); C.FX.dust.puff(W(0, -8, -98), 0xe8f4f0, 30, 3, 14, 1.4, 6); });
@@ -345,12 +347,17 @@ function hall1(C, O) {
     vents.push({ x, z, col: sandColumn(C, K.W(x, 0, z)) });
   }
   const t3 = new Trap(C, {
-    id: 'geysers', name: 'Sand Geysers', duration: 4.2, zone: { x0: -11, x1: 11, z0: -204, z1: -174 }, wait: [0, 0, -166], hide: [[0, 0, -189]],
-    run(k) { for (const v of vents) v.col.set(k < 0.25 ? k / 0.25 * 0.3 : k < 3.4 ? 1 : 1 - seg(k, 3.4, 4.1)); },
-    lethal(p, ch, k) { if (k < 0.2 || k > 3.6) return null; for (const v of vents) if (inColumn(p, v.x, v.z, 3.4, -1, 28)) return 'geyser'; return null; },
+    id: 'geysers', name: 'Sand Geysers', duration: 4.8, zone: { x0: -11, x1: 11, z0: -204, z1: -174 }, wait: [0, 0, -166], hide: [[0, 0, -189]],
+    run(k) {
+      for (const v of vents) {
+        v.col.set(k < 0.9 ? 0.12 + 0.06 * Math.sin(k * 40) : k < 1.1 ? (k - 0.9) / 0.2 : k < 4.1 ? 1 : 1 - seg(k, 4.1, 4.7));
+        if (k < 0.9 && Math.random() < 0.4) C.FX.dust.puff(W(v.x + rnd(-1.5, 1.5), 0.3, v.z + rnd(-1.5, 1.5)), 0xd9b27a, 2, 1.5, 4, 0.7, 2);
+      }
+    },
+    lethal(p, ch, k) { if (k < 0.95 || k > 4.3) return null; for (const v of vents) if (inColumn(p, v.x, v.z, 3.4, -1, 28)) return 'geyser'; return null; },
     onReset() { for (const v of vents) v.col.set(0); },
     sfx() { SFX.sand(W(0, 0, -189), 4); },
-    when: (k) => k > 3.8,
+    when: (k) => k > 4.5,
   });
   button(C, t3, -189);
   R.gate(t3).walk(0, 0, -238);
@@ -664,7 +671,8 @@ function hall2(C, O) {
     },
     lethal(p) {
       if (B.ph < 2 || B.ph > 4) return null;
-      return nearBall(p, B, BR + 0.7, B.ph === 3 && Math.abs(p.x) < 10.8 ? 0.62 : 1) ? 'boulder' : null;
+      // (on the ramp it fills the way from wall to wall; at the bottom it's just a ball)
+      return nearBall(p, B, BR + 0.7, B.ph === 3 && B.z < -14 && p.z < -12 && Math.abs(p.x) < 10.8 ? 0.62 : 1) ? 'boulder' : null;
     },
     onReset() { homeB(); },
     sfx() { SFX.grind(W(0, 35, -119), 1.2, 0.8); },
@@ -874,7 +882,7 @@ function hall3(C, O) {
     when: (k) => k > 2 * PER + 1.25,
   });
   button(C, t8, -108);
-  R.gate(t8).walk(0, 0, -134);
+  R.gate(t8).walk(0, 0, -134, { ox: 4.5, w: 2 });
 
   // ---- trap 9: the spear corridor - the nave narrows between two walls full of holes
   const Z0 = -150, Z1 = -196, CX = 4.5;
@@ -891,14 +899,14 @@ function hall3(C, O) {
       K.box(side * CX - side * 0.02, y, Z0 - s * SECT + z, 0.06, 0.7, 0.7, 'black', NC);
     }
     const m = mover(C, P, side * (CX + 0.2), 0, Z0 - s * SECT);
-    spearSecs.push({ m, side, s, t0: 0.35 + s * 0.12 });
+    spearSecs.push({ m, side, s, t0: 0.65 + s * 0.12 });
   }
   const t9 = new Trap(C, {
-    id: 'spears', name: 'Spear Wall', duration: 2.6, zone: { x0: -CX, x1: CX, z0: Z1, z1: Z0 }, wait: [0, 0, -144],
+    id: 'spears', name: 'Spear Wall', duration: 2.9, zone: { x0: -CX, x1: CX, z0: Z1, z1: Z0 }, wait: [0, 0, -144],
     run(k, dt) {
       for (const q of spearSecs) {
         const out = easeOut(seg(k, q.t0, q.t0 + 0.1)) * (1 - easeInOut(seg(k, q.t0 + 1.1, q.t0 + 1.6)));
-        _v.copy(q.m.home.pos); _v.x -= q.side * 9 * out;
+        _v.copy(q.m.home.pos); _v.x -= q.side * (9 * out + (k < q.t0 ? 0.35 + 0.25 * Math.sin(k * 55 + q.s) : 0));
         q.m.set(_v, null, dt);
         if (q.side > 0) at(this, k, q.t0, () => SFX.spears(W(0, 3, Z0 - q.s * SECT - SECT / 2)));
       }
@@ -912,10 +920,11 @@ function hall3(C, O) {
       return null;
     },
     onReset() { for (const q of spearSecs) q.m.reset(); },
-    when: (k) => k > 2.4,
+    sfx() { SFX.burst(0.6, { kind: 'white', type: 'bandpass', f: 3200, q: 2, vol: 0.18, pos: W(0, 3, -172) }); },
+    when: (k) => k > 2.7,
   });
   button(C, t9, -173);
-  R.gate(t9).walk(0, 0, -200).walk(0, 0, -224);
+  R.gate(t9).walk(0, 0, -200, { w: 1.5 }).walk(0, 0, -224);
   gallery(C, -4, -216, { back: 'glyphsPaint', backH: 29, torchStep: 30 });
   portals(C, -10, -210);
   pit(C, (p) => (p.y - 3 < -20 ? 'fell' : null));
@@ -1072,7 +1081,7 @@ function hall4(C, O) {
     when: (k) => k > 3.3,
   });
   button(C, t11, -105);
-  R.walk(0, 0, -75).gate(t11).walk(0, 0, -133);
+  R.walk(0, 0, -75).gate(t11).walk(0, 0, -133, { w: 1 });
 
   // ---- trap 12: the flood - lion-headed spouts fill the basin; get up on an altar
   K.span(-11, BED, -140, 11, 0, -188, 'floor');
@@ -1192,7 +1201,7 @@ function hall5(C, O) {
   });
   button(C, t13, -78);
   pit(C, (p) => (p.z < -59 && p.z > -97 && p.y - 3 < F - 4 ? 'spikes' : null));
-  R.walk(0, 0, -1).walk(0, F, -50).gate(t13).walk(0, F, -100);
+  R.walk(0, 0, -1, { w: 1.5 }).walk(0, F, -50, { w: 2 }).gate(t13).walk(0, F, -100);
 
   // ---- trap 14: the scarab swarm - beetles pour out of the walls; get up on a sarcophagus
   const refuges = [[-6, -116], [6, -129], [-6, -142]];
@@ -1406,7 +1415,7 @@ function hall6(C, O) {
     when: (k) => k > 7.3,
   });
   button(C, t16, -42);
-  R.walk(0, 0, -6).gate(t16).walk(0, 0, -33).walk(-6.5, 0, -37.5).walk(-6.5, 0, -46.5).walk(0, 0, -51).walk(0, 0, -60);
+  R.walk(0, 0, -6).gate(t16).walk(0, 0, -33, { w: 1.5 }).walk(-6.5, 0, -37.5, { w: 0.5 }).walk(-6.5, 0, -46.5, { w: 0.5 }).walk(0, 0, -51, { w: 1.5 }).walk(0, 0, -60);
 
   // ---- trap 17: the scales of Maat - the way crosses Ammit's pit on the pans of a great balance; the heavy pan tips
   const PZ0 = -72, PZ1 = -116, PB = -18, PC = -94;
@@ -1501,7 +1510,7 @@ function hall6(C, O) {
     when: (k) => k > 3.4,
   });
   button(C, t18, -147);
-  R.walk(0, 0, -123).gate(t18).walk(0, 0, -172).walk(0, 0, -204);
+  R.walk(0, 0, -123).gate(t18).walk(0, 0, -172, { w: 2.5 }).walk(0, 0, -204);
   gallery(C, 0, -197, { lo: -20, backH: 8, wall: 'glyphsDark', back: 'glyphsPaint', torchStep: 30 });
   portals(C, -6, -191);
   pit(C, (p) => (p.y - 3 < -30 ? 'fell' : null));
@@ -1588,7 +1597,7 @@ function hall7(C, O) {
   });
   t19.zoneY = P0;
   button(C, t19, -70);
-  R.walk(0, 0, -1).walk(0, P0, -44).gate(t19).walk(0, P0, -94);
+  R.walk(0, 0, -1, { w: 2 }).walk(0, P0, -44, { w: 2.5 }).gate(t19).walk(0, P0, -94);
 
   // ---- trap 20: the bridge of ash - it crumbles into the fire from the near end; run!
   K.span(-11, LV - 6, -92, 11, P0, -96, 'rockDark');
@@ -1618,7 +1627,7 @@ function hall7(C, O) {
   t20.zoneY = P0;
   button(C, t20, -122);
   K.span(-11, LV - 6, -150.5, 11, P0, -160, 'rockDark');
-  R.gate(t20).walk(0, P0, -154);
+  R.gate(t20).walk(0, P0, -154, { w: 0.6 });
 
   // ---- trap 21: Apophis - the serpent rises out of the fire and strikes across the path
   K.span(-11, LV - 6, -160, 11, P0, END + 3, 'rockDark');
@@ -1761,7 +1770,7 @@ function hall8(C, O) {
   K.span(-11, 64, -113.4, 12.6, 65.2, -114, 'ashlarPale');
   for (const sx of [-1, 1]) K.box(sx * 9.5, 66, -114.2, 1.2, 4, 1.2, 'gold', NC);
   button(C, t22, -118, { x: 0, rot: Math.PI });
-  R.walk(0, 0, -4).walk(0, 0, -12).gate(t22).walk(0, TOPY, -121, { r: 2.5 });
+  R.walk(0, 0, -4).walk(0, 0, -12).gate(t22).walk(0, TOPY, -121, { r: 2.5, w: 2.5 });
 
   // ---- trap 23: the sunbeams of Ra - the floor of the antechamber is a board of sixteen stones; the sun burns down on them in turn
   const AZ0 = -125, AZ1 = -145, ROOF = 78;

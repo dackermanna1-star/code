@@ -35,6 +35,8 @@ export class DRBot extends BotBrain {
     this.skill = this.tier === 'pro' ? rnd(0.9, 0.98) : this.tier === 'average' ? rnd(0.75, 0.9) : rnd(0.55, 0.75);
     this.reaction = this.tier === 'pro' ? rnd(0.08, 0.15) : this.tier === 'average' ? rnd(0.14, 0.26) : rnd(0.22, 0.4);
     this.brave = Math.random();
+    // its own line across the way and its own pace, so a crowd spreads out instead of running as one
+    this.lane = rnd(-1, 1); this.pace = this.tier === 'pro' ? rnd(0.95, 1) : rnd(0.82, 0.98);
     this.si = 0; this.s = {}; this.mode = 'route'; this.hide = null;
     this._gv = V(); this._last = V(); this.stuckT = 0; this.stepT = 0;
     this.ph = { target: null, t: 0, react: 0, greed: 0, think: 0 };
@@ -44,7 +46,8 @@ export class DRBot extends BotBrain {
 
   // --- events -------------------------------------------------------------------------------------------------------------
   onRound(role) {
-    this.si = 0; this.s = {}; this.mode = 'route'; this.hide = null; this.stepT = 0; this.stuckT = 0;
+    this.si = 0; this.s = {}; this.mode = 'route'; this.hide = null; this.unhide = null; this.stepT = 0; this.stuckT = 0;
+    this.startDelay = this.tier === 'pro' ? rnd(0, 0.8) : rnd(0.3, 2.6); // (not everyone bolts the moment the gates open)
     this.ph = { target: null, t: 0, react: 0, greed: 0, think: 0, fired: 0 };
     if (Math.random() < 0.25) this.later(pick(role === 'pharaoh' ? LINES.pharaoh : LINES.start), 1, 4);
   }
@@ -60,12 +63,18 @@ export class DRBot extends BotBrain {
     const ch = this.ch, p = ch.rootPosition, sp = ch.walkSpeed;
     const dx = target.x - p.x, dz = target.z - p.z, d = Math.hypot(dx, dz);
     let vx = 0, vz = 0;
-    if (d > stopR) { const s = o.full ? sp : Math.min(sp, d * (ch.grounded ? 7 : 10)); vx = dx / d * s; vz = dz / d * s; }
+    if (d > stopR) { const s = o.full ? sp * (this.dr?.role === 'runner' ? this.pace : 1) : Math.min(sp, d * (ch.grounded ? 7 : 10)); vx = dx / d * s; vz = dz / d * s; }
     groundVel(ch, this._gv); vx -= this._gv.x; vz -= this._gv.z;
     let mx = vx / sp, mz = vz / sp;
     const m = Math.hypot(mx, mz); if (m > 1) { mx /= m; mz /= m; }
     ch.input.move.set(mx, 0, mz);
     return d;
+  }
+  /** The point of a route step shifted onto this bot's lane (st.w: how far it may stray across; st.ox: the lane's centre). */
+  laneOf(st) {
+    const w = st.w ?? 3;
+    if (!w && !st.ox) return st.p;
+    return (this._lt || (this._lt = V())).set(st.p.x + (st.ox || 0) + this.lane * w, st.p.y, st.p.z);
   }
   hold() { if (!this.s.holdAt) this.s.holdAt = this.ch.rootPosition.clone(); this.goTo(this.s.holdAt, 0.3); }
 
@@ -105,6 +114,7 @@ export class DRBot extends BotBrain {
   // --- the runner ---------------------------------------------------------------------------------------------------------------
   runner(dt) {
     const ch = this.ch, p = ch.rootPosition, route = this.S.route;
+    if (this.S.runAt != null && this.game.world.time - this.S.runAt < (this.startDelay || 0)) return;
     this.stepT += dt;
     // a trap went off around it: hide, or run for it
     for (const T of this.S.trapsNear(p)) {
@@ -119,8 +129,13 @@ export class DRBot extends BotBrain {
       const H = this.hide;
       if ((H.react -= dt) > 0) { /* still running on, it hasn't reacted */ }
       else this.goTo(H.at, 0.3, { full: true });
-      if (!H.trap.dangerous()) { this.mode = 'route'; this.hide = null; this.lost(); }
+      // when it's over, step back out into the way first (out of a niche, off an altar), then carry on
+      if (!H.trap.dangerous()) { this.mode = 'route'; this.hide = null; this.lost(); this.unhide = { at: V(Math.max(-7, Math.min(7, p.x)), p.y, p.z), t: 2 }; }
       return;
+    }
+    if (this.unhide) {
+      this.unhide.t -= dt;
+      if (this.unhide.t <= 0 || this.goTo(this.unhide.at, 0.5, { full: true }) < 1) this.unhide = null; else return;
     }
     if (this.si >= route.length) { this.goTo(this.S.finishAt || p, 1); return; }
     for (let n = 0; n < 3 && this.si < route.length; n++) {
@@ -151,7 +166,7 @@ export class DRBot extends BotBrain {
     s.holdAt = null;
     switch (st.type) {
       case 'walk': {
-        const d = this.goTo(st.p, 0.2, { full: true });
+        const d = this.goTo(this.laneOf(st), 0.2, { full: true });
         if (d < (st.r ?? 1.6) && Math.abs(feet - st.p.y) < 3) return true;
         // (fell off: well below both the last point and this one - not just at the foot of a long climb)
         const prev = this.si > 0 ? this.S.route[this.si - 1].p : null;
@@ -182,10 +197,10 @@ export class DRBot extends BotBrain {
       s.patience = fear < 0.3 ? rnd(0, 0.4) : rnd(1, 3 + fear * 6);
       s.chat = Math.random() < 0.2 * fear;
     }
-    if (T.dangerous()) { this.goTo(st.p, 0.6); s.go = false; return false; }
+    if (T.dangerous()) { this.goTo(this.laneOf(st), 0.6); s.go = false; return false; }
     if (T.used) return this.goNow(s, dt);
     s.t += dt;
-    this.goTo(st.p, 0.8);
+    this.goTo(this.laneOf(st), 0.8);
     // nobody's at the button: off we go (the good ones notice)
     const ph = S.pharaohChar();
     const far = !ph || (T.buttonPos && ph.rootPosition.distanceTo(T.buttonPos) > 40 && this.skill > 0.8);
@@ -225,7 +240,7 @@ export class DRBot extends BotBrain {
     if (inside > 0) {
       P.t += dt;
       // a greedy Pharaoh waits for the ones following; a jumpy one fires at once
-      if (P.react <= 0) P.react = this.reaction + rnd(0.05, 0.35) + (coming > inside && Math.random() < 0.5 ? rnd(0.3, 1.2) : 0);
+      if (P.react <= 0) P.react = this.reaction + rnd(0.15, 0.6) + (coming > inside && Math.random() < 0.5 ? rnd(0.3, 1.2) : 0);
       if (P.t >= P.react) { S.fireTrap(T, this.player); P.t = 0; P.react = 0; P.fired++; }
     } else { P.t = 0; P.react = 0; if (coming && Math.random() < 0.002 * (1 - this.skill)) { S.fireTrap(T, this.player); } }
   }

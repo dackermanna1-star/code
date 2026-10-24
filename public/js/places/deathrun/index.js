@@ -22,7 +22,7 @@ import { DRBot } from './bots.js';
 import * as A from './audio.js';
 import * as PNT from './paint.js';
 
-const ROUND = 300, INTERMISSION = 14, INTRO = 6, EYE = 15, END = 8;
+const ROUND = 300, INTERMISSION = 14, INTRO = 6, EYE = 15, END = 8, AWAKEN = 4; // (the Pharaoh needs a moment to wake)
 const S = { phase: 'boot', T: 0, round: 0, pharaoh: null, eyeAt: null };
 export { S };
 
@@ -256,6 +256,9 @@ export default {
         break;
       }
     }
+    // the Pharaoh wakes a few seconds after the gates open
+    const phc = S.pharaohChar();
+    if (phc) phc.walkSpeed = S.phase === 'run' && world.time < (S.awake ?? 0) ? 0 : 26;
     // the Pharaoh's button prompt
     const me = game.localPlayer;
     S.near = null;
@@ -313,9 +316,11 @@ function roundLogic(game, dt) {
     if (n !== S.lastTick && n <= 3 && n >= 1) { S.lastTick = n; A.tick(false); S.gui.bannerShow(String(n), '', '', 0.9); }
     if (S.T <= 0) {
       S.phase = 'run'; S.T = ROUND; S.lastTick = null;
+      S.runAt = S.world.time; S.awake = S.world.time + AWAKEN;
       A.tick(true); A.gates(C.halls[0].gate.leaves[0].m.pos);
       S.gateK = 0;
-      S.gui.bannerShow('RUN!', 'The gates are open', '', 1.6);
+      if (game.localPlayer?.dr?.role === 'pharaoh') S.gui.bannerShow('Awaken', 'The gates are open', `Your scarabs wake in ${AWAKEN} seconds. Get to the galleries!`, 2.4);
+      else S.gui.bannerShow('RUN!', 'The gates are open', '', 1.6);
       A.playSong('run', 0.28);
     }
   } else if (S.phase === 'run' || S.phase === 'eye') {
@@ -457,6 +462,7 @@ function toCamp(game) {
 }
 
 function fireTrap(T, by) {
+  if (S.world.time < (S.awake ?? 0)) { if (by?.isLocal) S.gui.feed('The curse is still waking... the scarabs sleep', false); return false; }
   if (!T || !T.fire(by)) return false;
   A.gong(T.buttonPos, 0.5);
   T.sfx?.();
