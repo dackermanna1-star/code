@@ -1,0 +1,45 @@
+:root {
+  --red: #d01616;
+  --red-dark: #7a0909;
+  --cream: #f3e6c9;
+  --ink: #120c0a;
+  --amber: #ffb43a;
+  --font-display: 'Bungee', 'Impact', 'Arial Black', sans-serif;
+  --font-body: 'Rubik', 'Segoe UI', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0b0706;
+  color: var(--cream);
+  font-family: var(--font-body);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+#game-canvas {
+  display: block;
+  outline: none;
+  cursor: crosshair;
+}
+
+#ui-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
