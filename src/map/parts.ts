@@ -14,7 +14,11 @@ export interface Ctx {
   G: number;               // ground level (voxels)
   lamps: LampDef[];
   props: PropPlacement[];
+  emitters: EmitterDef[];
 }
+
+/** Continuous smoke / steam source (voxel coordinates); it stops once its anchor voxel is destroyed. */
+export interface EmitterDef { x: number; y: number; z: number; kind: 'smoke' | 'steam'; rate: number; size: number; ax: number; ay: number; az: number }
 
 /** Weathered paint: slight dirt towards the bottom of walls, random stains. */
 export function weathered(base: number, dirty: number, ground: number, height = 12): Paint {

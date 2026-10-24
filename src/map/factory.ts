@@ -9,21 +9,21 @@
 import { World } from '../world/world';
 import { Ground } from '../world/terrain';
 import { Builder } from './builder';
-import { Ctx, LampDef, PropPlacement } from './parts';
+import { Ctx, LampDef, PropPlacement, EmitterDef } from './parts';
 import { fbm2, hash2, Rng } from '../engine/math';
 import { buildMainHall, buildWarehouse, buildOffice, buildBoilerHouse, buildGuardHouse, buildConstruction } from './buildings';
 import { buildTankFarm, buildSilos, buildWaterTower, buildSubstation, buildContainerYard, buildRail, buildFence, buildStreetLights, buildTrees, buildScrapYard, buildPowerLines, buildYardProps } from './industrial';
 
 export const MAP = { sx: 2560, sy: 640, sz: 2560, G: 48 };
 
-export interface MapResult { props: PropPlacement[]; lamps: LampDef[]; spawn: { x: number; y: number; z: number; yaw: number } }
+export interface MapResult { props: PropPlacement[]; lamps: LampDef[]; emitters: EmitterDef[]; spawn: { x: number; y: number; z: number; yaw: number } }
 
 export function generateFactory(world: World, onStep?: (name: string) => void): MapResult {
   const G = MAP.G;
   terrain(world, G);
   world.initTerrain();
   world.bulk = true;
-  const c: Ctx = { b: new Builder(world, 4711), G, lamps: [], props: [] };
+  const c: Ctx = { b: new Builder(world, 4711), G, lamps: [], props: [], emitters: [] };
   buildMainHall(c); onStep?.('buildMainHall');
   buildWarehouse(c); onStep?.('buildWarehouse');
   buildOffice(c); onStep?.('buildOffice');
@@ -43,7 +43,7 @@ export function generateFactory(world: World, onStep?: (name: string) => void): 
   buildTrees(c); onStep?.('buildTrees');
   buildYardProps(c); onStep?.('buildYardProps');
   world.bulk = false;
-  return { props: c.props, lamps: c.lamps, spawn: { x: 129.0, y: G / 10 + 0.05, z: 233.0, yaw: 0 } };
+  return { props: c.props, lamps: c.lamps, emitters: c.emitters, spawn: { x: 129.0, y: G / 10 + 0.05, z: 233.0, yaw: 0 } };
 }
 
 // ---------------------------------------------------------------------------- terrain

@@ -54,6 +54,11 @@ export class Game {
   shake = 0;
   private crumbleDust = 0;
   stats = { bodies: 0, detached: 0, baked: 0 };
+  /** ambient smoke / steam sources (chimneys, stacks); see emitAmbient */
+  emitters: { x: number; y: number; z: number; kind: 'smoke' | 'steam'; rate: number; size: number; ax: number; ay: number; az: number; acc: number }[] = [];
+  /** ground-level wind (m/s), shared with the particle system */
+  get windX(): number { return (this.particles as { windX?: number }).windX ?? 0.6; }
+  get windZ(): number { return (this.particles as { windZ?: number }).windZ ?? 0.25; }
   /** world position to keep clear when baking debris (the player) */
   keepClear: Vec3 | null = null;
   private bakeTimer = 0;
@@ -303,6 +308,34 @@ export class Game {
     return out.slice(0, max).map((o) => o.l);
   }
 
+  /** Run the ambient emitters for a while so plumes are already standing when play starts. */
+  prewarmAmbient(seconds: number): void {
+    for (let t = 0; t < seconds; t += 0.1) { this.emitAmbient(0.1); this.particles.update(0.1); }
+  }
+
+  /** Chimney smoke and stack steam, as long as the chimney / stack top still exists. */
+  private emitAmbient(dt: number): void {
+    const P = this.particles;
+    for (let i = this.emitters.length - 1; i >= 0; i--) {
+      const e = this.emitters[i];
+      e.acc += dt * e.rate;
+      if (e.acc < 1) continue;
+      e.acc -= 1;
+      if (!this.world.get(e.ax, e.ay, e.az)) { this.emitters.splice(i, 1); continue; }
+      const x = (e.x + 0.5) * VOXEL + (Math.random() - 0.5) * e.size, y = (e.y + 0.5) * VOXEL, z = (e.z + 0.5) * VOXEL + (Math.random() - 0.5) * e.size;
+      // plumes lean downwind: up there the wind is a few times stronger than at ground level
+      const wx = this.windX * 2.5, wz = this.windZ * 2.5;
+      if (e.kind === 'smoke') {
+        const sh = 0.3 + Math.random() * 0.12;
+        P.spawn(PT.Smoke, x, y, z, wx + (Math.random() - 0.5) * 0.4, 2.6 + Math.random(), wz + (Math.random() - 0.5) * 0.4,
+          e.size * (0.8 + Math.random() * 0.4), 18 + Math.random() * 8, sh, sh * 0.98, sh * 0.95, 0.6, { grow: 0.55, drag: 0.15, buoy: 0.12 });
+      } else {
+        P.spawn(PT.Steam, x, y, z, wx + (Math.random() - 0.5) * 0.3, 3 + Math.random(), wz + (Math.random() - 0.5) * 0.3,
+          e.size * (0.8 + Math.random() * 0.4), 6 + Math.random() * 3, 0.9, 0.9, 0.92, 0.5, { grow: 0.6, drag: 0.3, buoy: 0.15 });
+      }
+    }
+  }
+
   /**
    * Small fragments that have rested for a while become part of the static world as rubble: debris keeps
    * accumulating (and stays destructible) without the physics cost of hundreds of sleeping bodies.
@@ -365,6 +398,7 @@ export class Game {
     lap('particles');
     this.bakeTimer += dt;
     if (this.bakeTimer >= 0.5) { this.bakeTimer = 0; this.bakeDebris(); }
+    this.emitAmbient(dt);
     for (let i = this.lights.length - 1; i >= 0; i--) {
       this.lights[i].life -= dt;
       if (this.lights[i].life <= 0) this.lights.splice(i, 1);

@@ -111,6 +111,8 @@ async function main() {
     console.log(`props: ${mapResult.props.length} bodies, ${propVox} voxels`);
     // map lamp values are relative; LAMP_GAIN brings them to the sun's scale so lamps light their surroundings
     const LAMP_GAIN = 3.2, LAMP_REACH = 1.25;
+    for (const e of mapResult.emitters) game.emitters.push({ ...e, acc: Math.random() });
+    game.prewarmAmbient(18);
     for (const L of mapResult.lamps) {
       // the emitter voxel that keeps this light on (it goes dark when that voxel is destroyed)
       let ev = [L.x, L.y, L.z];

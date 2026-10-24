@@ -446,6 +446,7 @@ export function buildBoilerHouse(c: Ctx): void {
   b.box(sx + 12, G + 12, sz - 1, sx + 13, G + 222, sz + 1, (x, y) => (y % 4 === 0 ? P.steel : -1));
   c.lamps.push({ x: sx, y: G + 332, z: sz, r: 4, g: 0.3, b: 0.2, radius: 8 });
   b.box(sx - 1, G + 330, sz - 1, sx + 1, G + 332, sz + 1, P.lampRed);
+  c.emitters.push({ x: sx, y: G + 331, z: sz, kind: 'steam', rate: 4, size: 1.2, ax: sx + 11, ay: G + 328, az: sz });
 }
 
 function chimney(c: Ctx, cx: number, cz: number, G: number, h: number): void {
@@ -469,6 +470,8 @@ function chimney(c: Ctx, cx: number, cz: number, G: number, h: number): void {
   for (let y = G + 26; y < top; y += 4) b.box(cx + 26 - Math.round(((y - G - 24) / h) * 10), y, cz - 2, cx + 28 - Math.round(((y - G - 24) / h) * 10), y + 1, cz + 3, P.steel);
   b.box(cx - 1, top + 3, cz - 1, cx + 1, top + 5, cz + 1, P.lampRed);
   c.lamps.push({ x: cx, y: top + 4, z: cz, r: 5, g: 0.4, b: 0.25, radius: 10 });
+  // the boilers are running: a slow plume of coal smoke
+  c.emitters.push({ x: cx, y: top + 2, z: cz, kind: 'smoke', rate: 4, size: 1.8, ax: cx + 17, ay: top + 1, az: cz });
 }
 
 // ============================================================================ guard house + gate
