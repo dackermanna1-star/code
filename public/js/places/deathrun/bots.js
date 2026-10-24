@@ -62,6 +62,7 @@ export class DRBot extends BotBrain {
   goTo(target, stopR = 0.3, o = {}) {
     const ch = this.ch, p = ch.rootPosition, sp = ch.walkSpeed;
     const dx = target.x - p.x, dz = target.z - p.z, d = Math.hypot(dx, dz);
+    if (!(sp > 0)) { ch.input.move.set(0, 0, 0); return d; } // (can't walk: the Pharaoh before he wakes)
     let vx = 0, vz = 0;
     if (d > stopR) { const s = o.full ? sp * (this.dr?.role === 'runner' ? this.pace : 1) : Math.min(sp, d * (ch.grounded ? 7 : 10)); vx = dx / d * s; vz = dz / d * s; }
     groundVel(ch, this._gv); vx -= this._gv.x; vz -= this._gv.z;
@@ -220,7 +221,7 @@ export class DRBot extends BotBrain {
   // --- the Pharaoh ---------------------------------------------------------------------------------------------------------------
   pharaoh(dt) {
     const S = this.S, ch = this.ch, P = this.ph, p = ch.rootPosition;
-    if (S.phase === 'intro') return;
+    if (S.phase === 'intro' || this.game.world.time < (S.awake ?? 0)) return; // (asleep until the curse wakes him)
     P.think -= dt;
     if (P.think <= 0) { P.think = 0.2; P.target = S.pharaohTarget(); }
     const T = P.target;

@@ -270,7 +270,7 @@ export const sounds = {
     const c = ac();
     if (!c || !SYNTHS[name]) return;
     const vol = this._gain(position, volume);
-    if (vol <= 0.01) return;
+    if (!(vol > 0.01)) return; // (also skips a NaN from a position that went bad)
     const g = c.createGain();
     g.gain.value = vol;
     g.connect(master);
@@ -285,7 +285,7 @@ export const sounds = {
     const c = ac();
     if (!c) return;
     const vol = this._gain(position, volume);
-    if (vol <= 0.01) return;
+    if (!(vol > 0.01)) return;
     const g = c.createGain();
     g.gain.value = vol;
     g.connect(master);

@@ -298,7 +298,8 @@ export class Game {
       if (!this.running) return;
       const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
-      this.tick(dt);
+      // one bad frame shouldn't stop the game for good
+      try { this.tick(dt); } catch (e) { if (!this._tickErr || now - this._tickErr > 5000) { this._tickErr = now; console.error(e); } }
       requestAnimationFrame(frame);
     };
     requestAnimationFrame(frame);
