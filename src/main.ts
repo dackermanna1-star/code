@@ -247,10 +247,10 @@ async function main() {
 function applyQuality(r: Renderer, meshes: RegionMeshes, q: string): void {
   const s = r.settings;
   switch (q) {
-    case 'low': s.scale = 0.6; s.shadows = true; s.shadowSize = 1024; s.ssao = false; s.taa = true; s.bloom = false; s.volumetrics = false; meshes.lodDist = [40, 90]; break;
-    case 'medium': s.scale = 0.8; s.shadows = true; s.shadowSize = 2048; s.ssao = false; s.taa = true; s.bloom = true; s.volumetrics = false; meshes.lodDist = [50, 110]; break;
-    case 'high': s.scale = 1.0; s.shadows = true; s.shadowSize = 2048; s.ssao = true; s.taa = true; s.bloom = true; s.volumetrics = true; meshes.lodDist = [60, 130]; break;
-    case 'ultra': s.scale = 1.0; s.shadows = true; s.shadowSize = 4096; s.ssao = true; s.taa = true; s.bloom = true; s.volumetrics = true; meshes.lodDist = [90, 180]; break;
+    case 'low': s.scale = 0.6; s.shadows = true; s.shadowSize = 1024; s.ssao = false; s.taa = true; s.bloom = false; s.volumetrics = false; s.ssr = false; meshes.lodDist = [40, 90]; break;
+    case 'medium': s.scale = 0.8; s.shadows = true; s.shadowSize = 2048; s.ssao = false; s.taa = true; s.bloom = true; s.volumetrics = false; s.ssr = false; meshes.lodDist = [50, 110]; break;
+    case 'high': s.scale = 1.0; s.shadows = true; s.shadowSize = 2048; s.ssao = true; s.taa = true; s.bloom = true; s.volumetrics = true; s.ssr = true; meshes.lodDist = [60, 130]; break;
+    case 'ultra': s.scale = 1.0; s.shadows = true; s.shadowSize = 4096; s.ssao = true; s.taa = true; s.bloom = true; s.volumetrics = true; s.ssr = true; meshes.lodDist = [90, 180]; break;
   }
   meshes.refreshLod();
   r.invalidateHistory();

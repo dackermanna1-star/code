@@ -4,7 +4,7 @@ A Teardown-style destruction sandbox that runs in the browser (WebGL2). One larg
 factory site, built from 10 cm voxels, where everything is destructible and simulated: walls,
 floors, roofs, steel frames, tanks, machines, vehicles, fences and the ground itself.
 
-![factory](docs/overview.png)
+![factory](docs/overview.jpg)
 
 ## Running
 

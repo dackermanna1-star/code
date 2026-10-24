@@ -417,7 +417,56 @@ uniform vec4 uSkyDir[${SKY_MAPS}];
 uniform int uSkyOn;
 uniform sampler2D uVol;
 uniform int uVolOn;
+uniform sampler2D uPrevColor;
+uniform mat4 uViewProj;
+uniform mat4 uPrevViewProj;
+uniform vec2 uNearFar;
+uniform int uSSR;
 out vec4 oColor;
+
+float linDepth(float d) {
+  float z = d * 2.0 - 1.0, n = uNearFar.x, f = uNearFar.y;
+  return 2.0 * n * f / (f + n - z * (f - n));
+}
+
+// Screen-space reflection: march the reflected ray against the depth buffer and shade a hit with
+// last frame's image (reprojected). conf = how much to trust it (0 = fall back to the environment).
+vec3 ssr(vec3 wp, vec3 R, float rough, float dist, out float conf) {
+  conf = 0.0;
+  float j = ign(gl_FragCoord.xy + float(uFrame % 8) * 5.17);
+  float t = 0.12 + j * 0.08, tPrev = 0.0;
+  for (int i = 0; i < 26; i++) {
+    vec3 p = wp + R * t;
+    vec4 c = uViewProj * vec4(p, 1.0);
+    if (c.w <= 0.05) return vec3(0.0);
+    vec3 ndc = c.xyz / c.w;
+    vec2 uv = ndc.xy * 0.5 + 0.5;
+    if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) return vec3(0.0);
+    float sl = linDepth(texture(uDepth, uv).r), rl = linDepth(ndc.z * 0.5 + 0.5);
+    if (rl > sl) {
+      if (rl - sl > 0.35 + t * 0.06) return vec3(0.0); // went behind a thick object: unknown
+      // refine between the last two samples
+      float a = tPrev, b = t;
+      for (int k = 0; k < 5; k++) {
+        float m = (a + b) * 0.5;
+        vec4 cm = uViewProj * vec4(wp + R * m, 1.0);
+        vec3 nm = cm.xyz / cm.w;
+        if (linDepth(nm.z * 0.5 + 0.5) > linDepth(texture(uDepth, nm.xy * 0.5 + 0.5).r)) b = m; else a = m;
+      }
+      vec3 hp = wp + R * b;
+      vec4 pc = uPrevViewProj * vec4(hp, 1.0);
+      vec2 puv = pc.xy / pc.w * 0.5 + 0.5;
+      if (pc.w <= 0.0 || puv.x < 0.0 || puv.y < 0.0 || puv.x > 1.0 || puv.y > 1.0) return vec3(0.0);
+      vec2 e = min(puv, 1.0 - puv);
+      conf = smoothstep(0.0, 0.08, min(e.x, e.y)) * (1.0 - smoothstep(10.0, 18.0, b))
+           * (1.0 - smoothstep(0.25, 0.5, rough)) * (1.0 - smoothstep(40.0, 70.0, dist));
+      return min(texture(uPrevColor, puv).rgb, vec3(30.0));
+    }
+    tPrev = t;
+    t *= 1.2;
+  }
+  return vec3(0.0);
+}
 
 // fraction of the sky visible from a point: soft "sky shadows" from several directions
 float skyVisibility(vec3 wp, vec3 n) {
@@ -510,6 +559,11 @@ void main() {
   // cheap environment reflection for metals / glossy
   vec3 R = reflect(rd, n);
   vec3 env = skyColor(R) * uAmbient * mix(0.12, 1.0, sv);
+  if (uSSR == 1 && rough < 0.5 && dist < 70.0) {
+    float conf;
+    vec3 sc = ssr(wp + n * 0.02, R, rough, dist, conf);
+    env = mix(env, sc, conf);
+  }
   vec3 Fe = f0 + (max(vec3(1.0 - rough), f0) - f0) * pow(1.0 - NoV, 5.0);
   col += (diffCol * amb + env * Fe * (1.0 - rough * 0.7)) * ao;
 

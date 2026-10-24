@@ -122,6 +122,7 @@ export const P = {
   // --- ground
   asphalt: group('asphalt', Mat.Asphalt, ['#3b3b3d', '#363638', '#414043', '#39383b']),
   asphaltPatch: group('asphalt patch', Mat.Asphalt, ['#47464a', '#4c4b4e']),
+  puddle: pal('puddle', Mat.Asphalt, '#22272b', { rough: 0.03 }),
   lineWhite: group('line white', Mat.Asphalt, ['#c9c8c0', '#bdbcb4']),
   lineYellow: group('line yellow', Mat.Asphalt, ['#c9a227', '#bf9a25']),
   gravel: group('gravel', Mat.Gravel, ['#7d7870', '#6e6a63', '#8a857c', '#75716a']),
@@ -141,7 +142,7 @@ export const P = {
   concreteDark: group('concrete dark', Mat.Concrete, ['#77756f', '#6f6d68']),
   concreteStain: group('concrete stain', Mat.Concrete, ['#66635d', '#5c5953']),
   concreteFloor: group('concrete floor', Mat.Concrete, ['#7d817b', '#787c76']),
-  epoxyFloor: group('epoxy floor', Mat.Concrete, ['#5f7068', '#5b6b63'], { rough: 0.5 }),
+  epoxyFloor: group('epoxy floor', Mat.Concrete, ['#5f7068', '#5b6b63'], { rough: 0.3 }),
   concreteYellow: pal('concrete safety yellow', Mat.Concrete, '#c99f2c'),
   cinder: group('cinder block', Mat.Concrete, ['#a3a19a', '#9a9891', '#a8a69f']),
   concreteBlue: pal('concrete painted blue', Mat.Concrete, '#4a6a8a'),
@@ -356,7 +357,7 @@ for (let i = 1; i < PALETTE_SIZE; i++) {
     case Mat.Brick: pt = n.startsWith('mortar') ? 4 : 1; break;
     case Mat.Wood: pt = n.startsWith('bark') ? 7 : 2; break;
     case Mat.Concrete: pt = n.startsWith('epoxy') ? 0 : 4; break;
-    case Mat.Asphalt: pt = n.startsWith('line') ? 4 : 5; break;
+    case Mat.Asphalt: pt = n.startsWith('line') ? 4 : n.startsWith('puddle') ? 0 : 5; break;
     case Mat.Grass: pt = 6; break;
     case Mat.Dirt: case Mat.Gravel: case Mat.Rubble: case Mat.Rock: pt = 7; break;
     case Mat.Foliage: pt = 10; break;

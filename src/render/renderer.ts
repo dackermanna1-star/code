@@ -41,6 +41,8 @@ export interface RenderSettings {
   edge: number;
   skyOcclusion: boolean;
   volumetrics: boolean;
+  /** screen-space reflections on glossy surfaces */
+  ssr: boolean;
 }
 
 /** Hook for systems that draw into the HDR buffer after lighting (particles etc.). */
@@ -57,7 +59,7 @@ export class Renderer {
   readonly gl: GL;
   readonly pool: QuadPool;
   readonly multiDraw: any;
-  settings: RenderSettings = { scale: 1, shadows: true, shadowSize: 2048, ssao: true, taa: true, bloom: true, edge: 0.07, skyOcclusion: true, volumetrics: true };
+  settings: RenderSettings = { scale: 1, shadows: true, shadowSize: 2048, ssao: true, taa: true, bloom: true, edge: 0.07, skyOcclusion: true, volumetrics: true, ssr: true };
   /** world bounds (meters) for the sky occlusion maps */
   worldBounds = [0, 0, 0, 256, 64, 256];
 
@@ -460,6 +462,10 @@ export class Renderer {
     this.setCascadeUniforms(pl);
     pl.i('uUseSSAO', this.settings.ssao ? 1 : 0).f('uShadowSoft', 1.0).i('uFrame', this.frame);
     pl.tex('uVol', 6, this.vol.tex).i('uVolOn', volOn ? 1 : 0);
+    // reflections sample last frame's resolved image (only meaningful with TAA history)
+    const ssrOn = this.settings.ssr && this.settings.taa && this.prevValid;
+    pl.tex('uPrevColor', 8, this.hist[this.histIdx].tex).i('uSSR', ssrOn ? 1 : 0)
+      .m4('uViewProj', this.viewProj).m4('uPrevViewProj', this.prevViewProj).f2('uNearFar', cam.near, cam.far);
     if (this.settings.skyOcclusion && this.skyTex) {
       pl.tex('uSkyOcc', 7, this.skyTex, gl.TEXTURE_2D_ARRAY).i('uSkyOn', 1);
       gl.uniformMatrix4fv(pl.loc('uSkyVP[0]'), false, this.skyVPFlat);

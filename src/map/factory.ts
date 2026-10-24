@@ -10,7 +10,7 @@ import { World } from '../world/world';
 import { Ground } from '../world/terrain';
 import { Builder } from './builder';
 import { Ctx, LampDef, PropPlacement } from './parts';
-import { fbm2, hash2 } from '../engine/math';
+import { fbm2, hash2, Rng } from '../engine/math';
 import { buildMainHall, buildWarehouse, buildOffice, buildBoilerHouse, buildGuardHouse, buildConstruction } from './buildings';
 import { buildTankFarm, buildSilos, buildWaterTower, buildSubstation, buildContainerYard, buildRail, buildFence, buildStreetLights, buildTrees, buildScrapYard, buildPowerLines, buildYardProps } from './industrial';
 
@@ -131,6 +131,21 @@ function terrain(w: World, G: number): void {
   mound(t, sx, 860, 2160, 35, 10, Ground.Sand, G);
   // dirt mound in the scrap yard
   mound(t, sx, 2350, 1900, 55, 12, Ground.Dirt, G);
+  // rain puddles on roads and yards (flat ground only, never on building floors)
+  const prng = new Rng(4711);
+  const wet = new Set<number>([Ground.Asphalt, Ground.AsphaltPatch, Ground.LineWhite, Ground.LineYellow, Ground.Concrete, Ground.ConcreteOld, Ground.Gravel, Ground.Dirt]);
+  for (let k = 0; k < 90; k++) {
+    const cx = prng.int(100, 2460), cz = prng.int(100, 2460);
+    if (!wet.has(t.ground[cx + cz * sx]) || t.height[cx + cz * sx] !== G) continue;
+    const R = prng.range(5, 26), seed = prng.int(0, 9999);
+    for (let z = Math.floor(cz - R * 1.4); z <= cz + R * 1.4; z++) for (let x = Math.floor(cx - R * 1.4); x <= cx + R * 1.4; x++) {
+      if (x < 0 || z < 0 || x >= sx || z >= sz) continue;
+      const i = x + z * sx;
+      if (!wet.has(t.ground[i]) || t.height[i] !== G) continue;
+      const d = Math.hypot(x - cx, (z - cz) * 1.3) / R + (fbm2(x * 0.08, z * 0.08, 2, seed) - 0.5) * 0.9;
+      if (d < 1) t.ground[i] = Ground.Puddle;
+    }
+  }
   void hash2;
 }
 
