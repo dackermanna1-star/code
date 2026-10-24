@@ -43,6 +43,8 @@ export interface RenderSettings {
 
 /** Hook for systems that draw into the HDR buffer after lighting (particles etc.). */
 export interface ForwardPass { draw(r: Renderer): void }
+/** Hook for systems that draw opaque geometry into the G-buffer and the shadow maps. */
+export interface GeometryPass { drawGBuffer(r: Renderer): void; drawShadow(r: Renderer, lightVP: Float32Array, cascade: number): void }
 
 export const MAX_SLOTS = 4096;
 const XFORM_W = 8;
@@ -56,8 +58,8 @@ export class Renderer {
   settings: RenderSettings = { scale: 1, shadows: true, shadowSize: 2048, ssao: true, taa: true, bloom: true, edge: 0.07 };
 
   // resources
-  private palAlbedo: WebGLTexture;
-  private palParams: WebGLTexture;
+  readonly palAlbedo: WebGLTexture;
+  readonly palParams: WebGLTexture;
   private xformTex: WebGLTexture;
   readonly xformData = new Float32Array(MAX_SLOTS * XFORM_W * 4);
   private xformDirtyMax = 0;
@@ -80,7 +82,7 @@ export class Renderer {
   private hist: Target[] = [];
   private histIdx = 0;
   private bloomMips: Target[] = [];
-  private shadowTex: WebGLTexture | null = null;
+  shadowTex: WebGLTexture | null = null;
   private shadowFbos: WebGLFramebuffer[] = [];
   private shadowSize = 0;
 
@@ -97,8 +99,9 @@ export class Renderer {
   private cascadeSplits = [10, 30, 85, 220];
   private cascadeTexel = new Float32Array(S.NUM_CASCADES);
   private cascadeFrame = 0;
-  private lightPos = new Float32Array(S.MAX_LIGHTS * 4);
-  private lightCol = new Float32Array(S.MAX_LIGHTS * 4);
+  readonly lightPos = new Float32Array(S.MAX_LIGHTS * 4);
+  readonly lightCol = new Float32Array(S.MAX_LIGHTS * 4);
+  lightCount = 0;
   private firsts = new Int32Array(4096);
   private counts = new Int32Array(4096);
   private drawN = 0;
@@ -109,6 +112,7 @@ export class Renderer {
   damage = 0;
   stats = { drawn: 0, quads: 0, shadowDraws: 0 };
   forwardPasses: ForwardPass[] = [];
+  geometryPasses: GeometryPass[] = [];
   /** camera for passes that need it */
   cam!: CameraState;
   env!: Environment;
@@ -335,6 +339,8 @@ export class Renderer {
     this.stats.quads = this.collect(regions, bodies, this.frustum, false, 0, cam.x, cam.y, cam.z);
     this.stats.drawn = this.drawN;
     this.flush();
+    for (const gp of this.geometryPasses) gp.drawGBuffer(this);
+    gl.bindVertexArray(this.emptyVao);
 
     // ---- SSAO
     if (this.settings.ssao) this.renderSSAO(cam);
@@ -358,6 +364,7 @@ export class Renderer {
       this.lightPos[i * 4] = L.x; this.lightPos[i * 4 + 1] = L.y; this.lightPos[i * 4 + 2] = L.z; this.lightPos[i * 4 + 3] = L.radius;
       this.lightCol[i * 4] = L.r; this.lightCol[i * 4 + 1] = L.g; this.lightCol[i * 4 + 2] = L.b; this.lightCol[i * 4 + 3] = 0;
     }
+    this.lightCount = nl;
     pl.f4v('uLightPos', this.lightPos).f4v('uLightCol', this.lightCol).i('uLightCount', nl);
     if (!this.settings.shadows) {
       // no shadow map: bind a cleared one so lookups return lit
@@ -384,6 +391,7 @@ export class Renderer {
     this.collect(regions, bodies, this.frustum, true, 0, cam.x, cam.y, cam.z);
     this.flush();
     for (const fp of this.forwardPasses) fp.draw(this);
+    gl.bindVertexArray(this.emptyVao);
     gl.depthMask(true);
     gl.disable(gl.BLEND);
     gl.disable(gl.DEPTH_TEST);
@@ -445,13 +453,13 @@ export class Renderer {
 
   invalidateHistory(): void { this.prevValid = false; }
 
-  private setEnvUniforms(p: Program, env: Environment, cam: CameraState): void {
+  setEnvUniforms(p: Program, env: Environment, cam: CameraState): void {
     p.v3('uSunDir', env.sunDir).v3('uSunColor', env.sunColor).v3('uSkyZenith', env.skyZenith).v3('uSkyHorizon', env.skyHorizon)
       .v3('uGroundColor', env.groundColor).v3('uFogColor', env.fogColor).f('uFogDensity', env.fogDensity).f('uFogHeight', env.fogHeight)
       .f('uTime', this.time).f3('uCamPos', cam.x, cam.y, cam.z).f('uAmbient', env.ambient);
   }
 
-  private setCascadeUniforms(p: Program): void {
+  setCascadeUniforms(p: Program): void {
     for (let i = 0; i < S.NUM_CASCADES; i++) this.cascadeVPFlat.set(this.cascadeVP[i], i * 16);
     this.gl.uniformMatrix4fv(p.loc('uCascadeVP[0]'), false, this.cascadeVPFlat);
     const sp = this.cascadeSplits;
@@ -522,6 +530,9 @@ export class Renderer {
         this.collect(regions, bodies, f, false, 0, cam.x, cam.y, cam.z);
         this.stats.shadowDraws += this.drawN;
         this.flush();
+        if (c < 3) for (const gp of this.geometryPasses) { gp.drawShadow(this, this.cascadeVP[c], c); }
+        gl.bindVertexArray(this.emptyVao);
+        ps.use();
       }
       near = far;
     }

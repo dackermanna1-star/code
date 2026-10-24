@@ -14,6 +14,8 @@ export const ANCHOR_Y = 24;
 
 export const enum CK { Empty = 0, Uniform = 1, Dense = 2, Terrain = 3 }
 
+const COLBUF = new Uint8Array(1024);
+
 export class World {
   readonly ncx: number; readonly ncy: number; readonly ncz: number; readonly nchunks: number;
   readonly nrx: number; readonly nry: number; readonly nrz: number; readonly nregions: number;
@@ -110,12 +112,10 @@ export class World {
       const cz = rest % this.ncz, cy = (rest / this.ncz) | 0;
       const x0 = cx << 4, y0 = cy << 4, z0 = cz << 4;
       const t = this.terrain;
-      let i = 0;
-      for (let ly = 0; ly < 16; ly++) for (let lz = 0; lz < 16; lz++) for (let lx = 0; lx < 16; lx++) {
-        const v = t.eval(x0 + lx, y0 + ly, z0 + lz);
-        d[i++] = v;
-        if (v) n++;
+      for (let lz = 0; lz < 16; lz++) for (let lx = 0; lx < 16; lx++) {
+        t.fillColumn(x0 + lx, z0 + lz, y0, y0 + 16, d, lx | (lz << 4), 256);
       }
+      for (let i = 0; i < CS3; i++) if (d[i]) n++;
     }
     this.data[ci] = d;
     this.kind[ci] = CK.Dense;
@@ -169,6 +169,66 @@ export class World {
 
   noteChange(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): void {
     this.changeBoxes.push(x0, y0, z0, x1, y1, z1);
+  }
+
+  /**
+   * Calls fn(x, y, z, v) for every solid voxel in the inclusive box, skipping empty chunks and
+   * iterating dense chunk data directly. Safe to modify voxels inside fn (data is read before the call).
+   */
+  forEachSolid(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, fn: (x: number, y: number, z: number, v: number) => void,
+    skipTerrain = false, sphere?: { cx: number; cy: number; cz: number; r: number }): void {
+    x0 = Math.max(0, x0); y0 = Math.max(0, y0); z0 = Math.max(0, z0);
+    x1 = Math.min(this.sx - 1, x1); y1 = Math.min(this.sy - 1, y1); z1 = Math.min(this.sz - 1, z1);
+    if (x1 < x0 || y1 < y0 || z1 < z0) return;
+    const r2 = sphere ? sphere.r * sphere.r : 0;
+    for (let cy = y0 >> 4; cy <= y1 >> 4; cy++) {
+      const ay = Math.max(y0, cy << 4), by = Math.min(y1, (cy << 4) + 15);
+      for (let cz = z0 >> 4; cz <= z1 >> 4; cz++) {
+        const az = Math.max(z0, cz << 4), bz = Math.min(z1, (cz << 4) + 15);
+        for (let cx = x0 >> 4; cx <= x1 >> 4; cx++) {
+          const ax = Math.max(x0, cx << 4), bx = Math.min(x1, (cx << 4) + 15);
+          const ci = cx + this.ncx * (cz + this.ncz * cy);
+          const k = this.kind[ci];
+          if (k === CK.Empty) continue;
+          if (sphere) {
+            // chunk vs sphere rejection
+            const dx = Math.max(ax - sphere.cx, 0, sphere.cx - bx - 1), dy = Math.max(ay - sphere.cy, 0, sphere.cy - by - 1), dz = Math.max(az - sphere.cz, 0, sphere.cz - bz - 1);
+            if (dx * dx + dy * dy + dz * dz > r2) continue;
+          }
+          if (k === CK.Dense) {
+            if (this.count[ci] === 0) continue;
+            const d = this.data[ci] as Uint8Array;
+            for (let y = ay; y <= by; y++) for (let z = az; z <= bz; z++) {
+              let li = (ax & 15) | ((z & 15) << 4) | ((y & 15) << 8);
+              for (let x = ax; x <= bx; x++, li++) { const v = d[li]; if (v) fn(x, y, z, v); }
+            }
+          } else if (k === CK.Uniform) {
+            const v = this.uni[ci];
+            if (!v) continue;
+            for (let y = ay; y <= by; y++) for (let z = az; z <= bz; z++) for (let x = ax; x <= bx; x++) fn(x, y, z, v);
+          } else {
+            if (skipTerrain) continue;
+            const t = this.terrain;
+            const col = COLBUF;
+            for (let z = az; z <= bz; z++) for (let x = ax; x <= bx; x++) {
+              const h = t.height[x + z * this.sx];
+              let ya = ay, yb = Math.min(by, h - 1);
+              if (sphere) {
+                const dx = x + 0.5 - sphere.cx, dz = z + 0.5 - sphere.cz;
+                const rem = r2 - dx * dx - dz * dz;
+                if (rem <= 0) continue;
+                const hh = Math.sqrt(rem);
+                ya = Math.max(ya, Math.floor(sphere.cy - hh));
+                yb = Math.min(yb, Math.ceil(sphere.cy + hh));
+              }
+              if (yb < ya) continue;
+              t.fillColumn(x, z, ya, yb + 1, col, 0, 1);
+              for (let y = ya; y <= yb; y++) { const v = col[y - ya]; if (v) fn(x, y, z, v); }
+            }
+          }
+        }
+      }
+    }
   }
 
   /**

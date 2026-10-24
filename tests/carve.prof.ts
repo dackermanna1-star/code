@@ -1,0 +1,16 @@
+import { World } from '../src/world/world';
+import { Structure } from '../src/world/structure';
+import { generateTestMap } from '../src/map/testmap';
+import { Destruction } from '../src/game/destruction';
+const world = new World(1024, 384, 1024, 40);
+generateTestMap(world);
+const particles = { debris() {}, spawn() {} };
+const structure = new Structure(world, () => {});
+const fake: any = { world, structure, particles, physics: { bodies: [] }, flashLight() {}, markBodyDirty() {}, spawnGrid() { return null; } };
+const d = new Destruction(fake);
+const t0 = performance.now();
+d.explode(36.5, 5.2, 30.5, 4);
+const t1 = performance.now();
+structure.process();
+const t2 = performance.now();
+console.log('explode', (t1 - t0).toFixed(1), 'ms', JSON.stringify(d.prof), 'structure', (t2 - t1).toFixed(1), 'ms', JSON.stringify(structure.stats), 'removed', d.totalRemoved);

@@ -1,0 +1,15 @@
+{
+  "query": "autoplay",
+  "steps": [
+    { "eval": "(() => { const g = window.__game; g.player.pos.set(38, 4.05, 25); g.player.yaw = 2.8; g.player.pitch = 0.05; return true; })()" },
+    { "frames": 20 },
+    { "shot": "00_start" },
+    { "eval": "(() => { const g = window.__game; g.game.destruction.explode(36.5, 5.2, 30.5, 4); return g.game.physics.bodies.length; })()" },
+    { "frames": 6 },
+    { "shot": "01_boom" },
+    { "frames": 40 },
+    { "shot": "02_after" },
+    { "frames": 120 },
+    { "shot": "03_settled" }
+  ]
+}
