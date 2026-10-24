@@ -14,7 +14,7 @@
 // gallery, a portal at each end of the gallery, kill zones (the Nile, pits,
 // lava), torches, and the route the runner bots follow.
 import * as THREE from 'three';
-import { Kit, V, Piece, Mover, mat, special, colorMat, boxGeo, cylGeo, scaleOf, quatOf, clamp, lerp, smooth, rnd } from './kit.js';
+import { Kit, V, Piece, Mover, mat, special, colorMat, boxGeo, wedgeGeo, taperGeo, cylGeo, scaleOf, quatOf, clamp, lerp, smooth, rnd } from './kit.js';
 import * as A from './art.js';
 import { Trap, at, seg, easeIn, easeOut, easeInOut, inBox, inColumn, inOBB } from './traps.js';
 import { rng } from './paint.js';
@@ -85,11 +85,11 @@ function gallery(C, z0, z1, o = {}) {
 }
 
 /** A scarab button for a trap on the gallery (local z), and the trap's link to it. */
-function button(C, trap, z) {
-  const h = C.hall, K = C.K;
-  const pos = K.W(BAL.mid + 2.4, h.balY, z);
-  const b = A.scarabButton(C.world, pos, -Math.PI / 2);
-  trap.button = b; trap.buttonPos = K.W(BAL.mid, h.balY, z);
+function button(C, trap, z, o = {}) {
+  const h = C.hall, K = C.K, x = o.x ?? BAL.mid, rot = o.rot ?? -Math.PI / 2;
+  const pos = K.W(x - Math.sin(rot) * 2.4, h.balY, z - Math.cos(rot) * 2.4);
+  const b = A.scarabButton(C.world, pos, rot);
+  trap.button = b; trap.buttonPos = K.W(x, h.balY, z);
   h.buttons.push(trap);
   b.arm(true);
   // a little plaque on the wall behind it with the trap's name
@@ -477,7 +477,7 @@ function flameJet(C, from, dir, len, o = {}) {
   C.every((t) => {
     mesh.visible = v > 0.01; L.on = v > 0.05;
     if (!mesh.visible) return;
-    m.uniforms.t.value = t; m.uniforms.k.value = v;
+    m.uniforms.t.value = t; m.uniforms.k.value = v * (o.gain ?? 1);
     L.intensity = 160 * v;
     mesh.scale.set(1, 0.25 + 0.75 * v, 1);
     if (Math.random() < v * 1.5) {
@@ -519,7 +519,7 @@ function desert(C) {
   // north of the temple the ground rises to a plateau (the tombs are cut down into it; the river keeps to the west)
   D(26, 3000, -690, -920, 12);
   K.span(-110, -22, -690, -99, 12, -3000, 'dune', { noShadow: true });
-  for (const [x0, x1, z0, z1] of [[-99, -8, -920, -952], [8, 3000, -920, -952], [-99, 3000, -952, -3000]]) K.span(x0, 8, z0, x1, 12, z1, 'dune', { noShadow: true, col: false });
+  for (const [x0, x1, z0, z1] of [[-99, -8, -920, -952], [8, 3000, -920, -952], [-99, 3000, -952, -1600], [-99, -14, -1600, -1830], [27, 3000, -1600, -1830], [-99, 3000, -1830, -3000]]) K.span(x0, 8, z0, x1, 12, z1, 'dune', { noShadow: true, col: false });
   water(C, -420, -110, -690, -3000, -9, { color: 0x2c6a62, repeat: 120, flow: 1.4 });
   K.span(-420, -17, -690, -110, -15, -3000, colorMat(0x3a3020, 1), NC);
   // the west bank beyond the river, a little lower
@@ -686,7 +686,7 @@ function hall2(C, O) {
       e.position.copy(K.W(...S.P(ex * u, 8.6 + 0.35 * u, 2.2 + 1.27 * u))); e.quaternion.copy(S.R(0));
       C.world.scene.add(e);
     }
-    jets.push({ z: zH, jet: flameJet(C, K.W(...S.P(0, 8.6 - 0.75 * u, 2.2 + 1.3 * u)), V(-s, -0.2, 0).normalize(), 19) });
+    jets.push({ z: zH, jet: flameJet(C, K.W(...S.P(0, 8.6 - 0.75 * u, 2.2 + 1.3 * u)), V(-s, -0.2, 0).normalize(), 19, { gain: 0.75 }) });
   }
   const t5 = new Trap(C, {
     id: 'flames', name: 'Flame Sphinxes', duration: 4.6, zone: { x0: -11, x1: 11, z0: -171, z1: -129 }, wait: [0, TOP, -121],
@@ -924,7 +924,7 @@ function hall3(C, O) {
 }
 
 /** Sobek: a great crocodile head wearing the god's crown (sun disk, plumes), facing +x; its upper jaw hinges. */
-function sobekHead(C, s = 1.25) {
+function sobekHead(C, s = 1.25, crown = true) {
   const g = new THREE.Group(), croc = mat('croc'), teeth = mat('teeth');
   const add = (parent, geo, m, x, y, z, rot) => { const me = new THREE.Mesh(geo, typeof m === 'string' ? mat(m) : m); me.position.set(x, y, z); if (rot) quatOf(rot, me.quaternion); me.castShadow = true; parent.add(me); return me; };
   add(g, boxGeo(6, 3.2, 5), croc, 0, 0.6, 0);
@@ -938,9 +938,11 @@ function sobekHead(C, s = 1.25) {
   add(jaw, boxGeo(1.8, 0.8, 2.6), croc, 10.3, 1.1, 0);
   for (let i = 0; i < 9; i++) for (const sz of [-1.55, 1.55]) add(jaw, boxGeo(0.25, 0.7, 0.25), teeth, 1 + i * 1.1, -0.55, sz);
   // the crown: the sun disk between two tall plumes, a cobra in front
-  add(g, cylGeo(1.9, 1.9, 0.4, 20), 'gold', -0.6, 5.4, 0, [0, 0, 90]);
-  for (const sz of [-0.9, 0.9]) { add(g, boxGeo(0.5, 6.5, 1.3), 'white', -1.4, 7.4, sz); add(g, boxGeo(0.52, 1.2, 1.32), 'blue', -1.4, 9.9, sz); }
-  add(g, boxGeo(0.4, 1.3, 0.5), 'gold', 0.8, 4.2, 0);
+  if (crown) {
+    add(g, cylGeo(1.9, 1.9, 0.4, 20), 'gold', -0.6, 5.4, 0, [0, 0, 90]);
+    for (const sz of [-0.9, 0.9]) { add(g, boxGeo(0.5, 6.5, 1.3), 'white', -1.4, 7.4, sz); add(g, boxGeo(0.52, 1.2, 1.32), 'blue', -1.4, 9.9, sz); }
+    add(g, boxGeo(0.4, 1.3, 0.5), 'gold', 0.8, 4.2, 0);
+  }
   g.scale.setScalar(s);
   C.world.scene.add(g);
   return { group: g, jaw };
@@ -1306,6 +1308,599 @@ function hall5(C, O) {
 }
 const _Y = V(0, 1, 0), _l2 = V();
 
+/** A stand-in for the Kit that builds into a Piece, so the statue builders of art.js can make things that move. */
+function pieceKit(C) {
+  const P = new Piece(), M = (m) => (typeof m === 'string' ? mat(m) : m);
+  const add = (g, m, x, y, z, rot, o = {}) => {
+    const me = new THREE.Mesh(g, M(m)); me.position.set(x, y, z); quatOf(rot, me.quaternion);
+    if (o.scale) me.scale.set(...o.scale);
+    me.castShadow = !o.noShadow; me.receiveShadow = true; P.group.add(me); return me;
+  };
+  return {
+    P, world: C.world, o: V(), W: (x, y, z) => V(x, y, z),
+    geo: (g, m, x, y, z, rot, o) => add(g, m, x, y, z, rot, o),
+    box: (x, y, z, sx, sy, sz, m, o = {}) => add(boxGeo(sx, sy, sz, scaleOf(M(m))), m, x, y, z, o.rot, o),
+    wedge: (x, y, z, sx, sy, sz, m, o = {}) => add(wedgeGeo(sx, sy, sz, scaleOf(M(m))), m, x, y, z, o.rot, o),
+    taper: (x, y, z, sx, sz, tx, tz, hh, m, o = {}) => add(taperGeo(sx, sz, tx, tz, hh, scaleOf(M(m))), m, x, y, z, o.rot, o),
+    cyl: (x, y, z, r, hh, m, o = {}) => add(cylGeo(o.rTop ?? r, r, hh, o.seg || 16, scaleOf(M(m))), m, x, y, z, o.rot, o),
+    ball: (x, y, z, r, m, o = {}) => add(new THREE.SphereGeometry(r, 14, 8), m, x, y, z, o.rot, o),
+    col: () => null, relief: () => null,
+  };
+}
+/** A thin rod from a to b (local to a Piece): chains, ropes. */
+function rod(P, a, b, r, m) {
+  const d = new THREE.Vector3().subVectors(b, a), L = d.length();
+  const me = P.add(cylGeo(r, r, L, 5), m, (a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2, new THREE.Quaternion().setFromUnitVectors(_Y, d.normalize()), { noShadow: true });
+  return me;
+}
+
+// --- 6. the Hall of Judgement ------------------------------------------------------------------------------------------------------------------------
+function hall6(C, O) {
+  const K = C.K, FX = C.FX, W = (x, y, z) => V(O.x + x, O.y + y, O.z + z);
+  const h = beginHall(C, 5, { name: 'The Hall of Judgement', sub: 'Sixth Hall', look: 'judgement', L: 200, balY: 12 }, O);
+  const R = routeOf(C);
+  const CEIL = 20, END = -200, XL = -42, GREEN = 0x60ff90;
+  // the hall: black floors, a starry ceiling, the walls painted with the judgement of the dead
+  K.span(-11, -2, 2, 11, 0, -72, 'floorDark');
+  K.span(-11, -2, -116, 11, 0, END, 'floorDark');
+  K.span(XL, -2, 2, -11, 0, END, 'floorDark');
+  K.span(XL - 2, CEIL, 2, 26, CEIL + 1, END, 'stars', NC);
+  K.span(XL - 2, -2, 2, XL, CEIL, END, 'glyphsPaint');
+  for (let i = 0, z = -24; z > END + 20; z -= 40, i++) K.relief(XL + 0.06, 10, z, 34, 12, Math.PI / 2, i % 2 ? 0 : 2);
+  K.span(XL - 2, 0, 2, -11, CEIL, -1, 'glyphsDark');
+  K.span(XL - 2, 0, END + 3, -11, CEIL, END, 'glyphsDark');
+  K.span(-11, 14, END + 3, 11, CEIL, END, 'glyphsDark');
+  A.cornice(K, 0, 15.6, END + 3.6, 23, 1.6, 0);
+  // the way is fenced off from the hall by a low screen wall with Osiride pillars; beyond it sit the judges of the dead
+  K.span(-13, 0, -1, -11.4, 7, END + 3, 'glyphsPaint');
+  A.cornice(K, -12.2, 7.6, (END + 2) / 2, -END - 4, 2, Math.PI / 2);
+  for (const z of [-8, -64, -122, -176, -190]) {
+    K.box(-13.4, CEIL / 2, z, 2.6, CEIL, 3, 'glyphsPaint');
+    const S = A.sub(K, -11.4, 0, z, Math.PI / 2, 1);
+    S.box(0, 0.5, 0.6, 2.6, 1, 1.6, 'ashlar', NC);
+    S.taper(0, 4.4, 0.6, 2.2, 1.3, 1.6, 1.1, 6.8, 'white', NC);
+    S.box(0, 8.4, 0.7, 1.1, 1.2, 1, 'green', NC);
+    S.cyl(0, 9.6, 0.6, 0.55, 1.4, 'white', { ...NC, rTop: 0.3 });
+    for (const sx of [-0.45, 0.45]) S.box(sx, 6.4, 1.25, 0.25, 2.4, 0.2, 'gold', NC);
+    S.col(0, 5, 0.8, 2.6, 10, 1.6);
+  }
+  for (let z = -10; z > END + 14; z -= 14) A.colossus(K, XL + 4.5, 0, z, Math.PI / 2, 7, { mat: 'basalt' });
+  for (const z of [-20, -60, -100, -140]) A.brazier(K, FX, -22, 0, z, { h: 4, color: GREEN, lightColor: 0x40ff80, intensity: 90 });
+  A.colossus(K, -27, 0, -184, 0, 18, { painted: true, mat: 'green' });
+  for (const x of [-35, -19]) A.brazier(K, FX, x, 0, -172, { h: 3, color: GREEN, lightColor: 0x40ff80, intensity: 80 });
+  for (let z = -12; z > END + 8; z -= 20) A.torch(K, FX, 10.9, 7.5, z, -Math.PI / 2, { color: 0x9affb0, lightColor: 0x50ff90, intensity: 45, range: 28 });
+
+  // ---- trap 16: Anubis' sweep - in a chamber of its own the god turns, his staff sweeping the floor; jump it, or hide in a corner
+  const AC = -42;
+  for (const z of [-30, -54]) { K.span(-11, 0, z + 0.75, -4, 13, z - 0.75, 'glyphsDark'); K.span(4, 0, z + 0.75, 11, 13, z - 0.75, 'glyphsDark'); K.span(-4, 9, z + 0.75, 4, 13, z - 0.75, 'glyphsDark'); }
+  K.cyl(0, 0.15, AC, 3.4, 0.3, 'gold', NC);
+  const PK = pieceKit(C);
+  A.anubis(PK, 0, 0.3, 0, 0, 15, { plinth: false, staff: false, col: false });
+  PK.box(0, 1.15, 0, 21.8, 0.5, 0.5, 'gold');
+  for (const sx of [-1, 1]) { PK.box(sx * 10.8, 1.15, 0, 0.6, 1.2, 0.9, 'gold'); PK.box(sx * 2.4, 1.15, 0, 1, 1, 1, 'lapis'); }
+  PK.P.box(0, 4, 0, 3.4, 8, 3.4, 'basalt', { draw: false });
+  const anu = mover(C, PK.P, 0, 0, AC);
+  let ang = 0, dAng = 0;
+  const t16 = new Trap(C, {
+    id: 'sweep', name: "Anubis' Sweep", duration: 7.6, zone: { x0: -11, x1: 11, z0: -53, z1: -31 }, wait: [0, 0, -26],
+    hide: [[-9, 0, AC + 9], [9, 0, AC + 9], [-9, 0, AC - 9], [9, 0, AC - 9]],
+    run(k, dt) {
+      const w = 2.6 * smooth(seg(k, 0.3, 1.3)) * (1 - smooth(seg(k, 6.2, 7.4)));
+      dAng = w * dt; ang += dAng;
+      anu.set(anu.home.pos, Q(0, 1, 0, (ang * 180) / Math.PI), dt);
+      if (w > 1 && Math.random() < 0.5) C.FX.dust.puff(W(Math.cos(-ang) * 10, 0.5, AC + Math.sin(-ang) * 10), 0x6a7a60, 1, 1.5, 2, 0.6, -1);
+      at(this, k, 0.2, () => SFX.grind(W(0, 2, AC), 7, 0.6));
+    },
+    lethal(p) {
+      if (Math.abs(dAng) < 1e-4 || p.y - 3 > 1.5) return null;
+      const dx = p.x, dz = p.z - AC, r = Math.hypot(dx, dz);
+      if (r > 11.4 || r < 1.4) return null;
+      for (const off of [0, Math.PI]) {
+        const d = Math.atan2(Math.sin(Math.atan2(dz, dx) + ang + off), Math.cos(Math.atan2(dz, dx) + ang + off));
+        if (Math.abs(d) * r < 0.85 + Math.abs(dAng) * r) return 'sweep';
+      }
+      return null;
+    },
+    onReset() { ang = 0; dAng = 0; anu.reset(); },
+    sfx() { SFX.gong(W(0, 4, AC), 0.4); },
+    when: (k) => k > 7.3,
+  });
+  button(C, t16, -42);
+  R.walk(0, 0, -6).gate(t16).walk(0, 0, -33).walk(-6.5, 0, -37.5).walk(-6.5, 0, -46.5).walk(0, 0, -51).walk(0, 0, -60);
+
+  // ---- trap 17: the scales of Maat - the way crosses Ammit's pit on the pans of a great balance; the heavy pan tips
+  const PZ0 = -72, PZ1 = -116, PB = -18, PC = -94;
+  K.span(-11, PB - 2, PZ0, 11, PB, PZ1, 'basalt', NC);
+  K.span(-11, PB, PZ0 + 2, 11, -2, PZ0, 'ashlarDark', NC); K.span(-11, PB, PZ1, 11, -2, PZ1 - 2, 'ashlarDark', NC);
+  K.span(-13, PB, PZ0, -11, 0, PZ1, 'ashlarDark', NC);
+  K.span(-4, PB, PC + 4, 4, 0, PC - 4, 'granite');
+  K.box(0, 8, PC, 1.4, 16, 1.4, 'gold', NC);
+  K.box(0, 16.6, PC, 2.4, 1.2, 2.4, 'gold', NC);
+  const ammit = sobekHead(C, 1.1, false);
+  ammit.group.position.copy(W(-7.5, PB - 1, PC)); ammit.group.rotation.set(0, Math.PI / 2, Math.PI / 2 - 0.25); ammit.jaw.rotation.z = 0.7;
+  for (const [x, z] of [[-8, -76], [8, -76], [-8, -112], [8, -112], [-9, -94], [9, -86], [9, -102]]) { FX.flames.add(W(x, PB + 0.3, z), 3.2, GREEN); }
+  FX.lights.add(W(0, PB + 4, PC), 0x40ff80, 120, 50, 1);
+  const beamP = new Piece();
+  beamP.box(0, 0, 0, 1.2, 1.2, 28, 'gold', { col: false });
+  beamP.box(0, 2.6, 0, 0.5, 4.4, 1.6, 'white', { col: false });
+  for (const dz of [-13.6, 13.6]) beamP.box(0, 0, dz, 1.8, 1.8, 1, 'lapis', { col: false });
+  const beam = mover(C, beamP, 0, 16, PC);
+  const pans = [13, -13].map((dz) => {
+    const P = new Piece();
+    P.box(0, -0.5, 0, 11.5, 1, 9.5, 'gold');
+    P.box(0, -1.15, 0, 10.6, 0.3, 8.6, 'bronze', { col: false });
+    for (const [cx, cz] of [[-5.5, -4.5], [5.5, -4.5], [-5.5, 4.5], [5.5, 4.5]]) rod(P, V(cx, 0, cz), V(0, 16, 0), 0.09, 'bronze');
+    return { m: mover(C, P, 0, 0, PC + dz), dz, tip: 0 };
+  });
+  const seen6 = [], prev6 = [];
+  let th = 0, heavy = 0;
+  const panAt = (q, th0, tip, dt) => {
+    _v.set(O.x, O.y - q.dz * Math.sin(th0), O.z + PC + q.dz * Math.cos(th0));
+    q.m.set(_v, Q(0, 0, 1, tip), dt);
+  };
+  const t17 = new Trap(C, {
+    id: 'scales', name: 'Scales of Maat', duration: 4.5, zone: { x0: -11, x1: 11, z0: PZ1, z1: PZ0 }, wait: [0, 0, -67],
+    hide: [[0, 0, PC]],
+    onFire() {
+      const n = [0, 0];
+      for (const p of [...prev6, ...seen6]) pans.forEach((q, i) => { if (Math.abs(p.z - (PC + q.dz)) < 5 && Math.abs(p.x) < 6) n[i]++; });
+      heavy = n[0] === n[1] ? (Math.random() < 0.5 ? 0 : 1) : n[0] > n[1] ? 0 : 1;
+    },
+    run(k, dt) {
+      seen6.length = 0;
+      const tilt = 30 * easeIn(seg(k, 0.3, 1.0)) * (1 - easeInOut(seg(k, 3.2, 4.3)));
+      th = ((heavy === 0 ? 1 : -1) * tilt * Math.PI) / 180;
+      beam.set(beam.home.pos, Q(1, 0, 0, (th * 180) / Math.PI), dt);
+      pans.forEach((q, i) => panAt(q, th, i === heavy ? 80 * easeIn(seg(k, 1.0, 1.35)) * (1 - easeInOut(seg(k, 3.0, 3.6))) * (heavy ? -1 : 1) : 0, dt));
+      at(this, k, 0.3, () => SFX.grind(W(0, 10, PC), 1.2, 0.8));
+      at(this, k, 1.1, () => { SFX.chomp(W(0, PB, PC), true); C.shake(W(0, 0, PC), 0.5); });
+    },
+    lethal(p) { seen6.push(p.clone()); return null; },
+    idle() { prev6.length = 0; prev6.push(...seen6); seen6.length = 0; },
+    onReset() { th = 0; beam.reset(); for (const q of pans) q.m.reset(); },
+    sfx() { SFX.tone(392, 1.2, { type: 'triangle', vol: 0.1, to: 196, pos: W(0, 10, PC) }); },
+    when: (k) => k > 4.3,
+  });
+  t17.alwaysLethal = true; // (it looks at who stands on which pan before it fires)
+  button(C, t17, PC);
+  R.walk(0, 0, -66).gate(t17)
+    .jump([0, 0, -71], [0, 0, -81]).jump([0, 0, -84.5], [0, 0, -94]).jump([0, 0, -97.5], [0, 0, -107]).jump([0, 0, -110.5], [0, 0, -120]);
+  pit(C, (p) => (p.z < PZ0 + 1 && p.z > PZ1 - 1 && Math.abs(p.x) < 11.5 && p.y - 3 < -6 ? 'ammit' : null));
+
+  // ---- trap 18: the closing walls
+  const CZ0 = -128, CZ1 = -166, NS = 4, SL = (CZ0 - CZ1) / NS;
+  for (const s of [-1, 1]) K.span(s * 10, 0, CZ0, s * 11, 10, CZ1, 'ashlarDark');
+  for (const s of [-1, 1]) K.span(s * 8, 9.6, CZ0 + 0.5, s * 11, 10.4, CZ1 - 0.5, 'gold', NC);
+  const cw = [];
+  for (let i = 0; i < NS; i++) for (const s of [-1, 1]) {
+    const P = new Piece();
+    P.box(0, 4.75, 0, 2, 9.5, SL - 0.12, 'glyphsDark');
+    P.box(-s * 1.02, 4.75, 0, 0.06, 9.5, 0.5, 'gold', { col: false });
+    cw.push({ m: mover(C, P, s * 9, 0, CZ0 - SL * (i + 0.5)), s, i, t0: 0.3 + i * 0.15, x: 8 });
+  }
+  const t18 = new Trap(C, {
+    id: 'walls', name: 'Closing Walls', duration: 3.6, zone: { x0: -8, x1: 8, z0: CZ1, z1: CZ0 }, wait: [0, 0, -123],
+    run(k, dt) {
+      for (const w of cw) {
+        w.x = 8 - 6.8 * easeIn(seg(k, w.t0, w.t0 + 0.45)) * (1 - easeInOut(seg(k, w.t0 + 1.6, w.t0 + 2.6)));
+        _v.copy(w.m.home.pos); _v.x = O.x + w.s * (w.x + 1);
+        w.m.set(_v, null, dt);
+        if (w.s > 0) at(this, k, w.t0 + 0.45, () => { SFX.slam(W(0, 3, CZ0 - SL * (w.i + 0.5)), 0.8); C.shake(W(0, 3, CZ0 - SL * (w.i + 0.5)), 0.4); });
+      }
+    },
+    lethal(p) {
+      for (const w of cw) {
+        if (w.s < 0 || w.x > 1.6 || p.y - 3 > 9.5) continue;
+        const zc = CZ0 - SL * (w.i + 0.5);
+        if (Math.abs(p.z - zc) < SL / 2 + 0.3 && Math.abs(p.x) < 8) return 'walls';
+      }
+      return null;
+    },
+    onReset() { for (const w of cw) { w.x = 8; w.m.reset(); } },
+    sfx() { SFX.grind(W(0, 3, -147), 1.0, 0.8); },
+    when: (k) => k > 3.4,
+  });
+  button(C, t18, -147);
+  R.walk(0, 0, -123).gate(t18).walk(0, 0, -172).walk(0, 0, -204);
+  gallery(C, 0, -197, { lo: -20, backH: 8, wall: 'glyphsDark', back: 'glyphsPaint', torchStep: 30 });
+  portals(C, -6, -191);
+  pit(C, (p) => (p.y - 3 < -30 ? 'fell' : null));
+  h.start = W(0, 0, -6); h.end = W(0, 0, END);
+  return h;
+}
+
+/** Apophis, the serpent of chaos: a great snake's head (facing +x) with a hinged jaw, and a body of segments to drag behind it. */
+function serpent(C, n = 14) {
+  const g = new THREE.Group(), skin = colorMat(0x6a4a86, 0.35, 0.35, { emissive: 0x200818, emissiveIntensity: 1 }), belly = colorMat(0xd8a040, 0.4, 0.4, { emissive: 0x402000, emissiveIntensity: 1 }), fang = mat('teeth');
+  const add = (parent, geo, m, x, y, z, rot) => { const me = new THREE.Mesh(geo, m); me.position.set(x, y, z); if (rot) quatOf(rot, me.quaternion); me.castShadow = true; parent.add(me); return me; };
+  add(g, boxGeo(7, 3.2, 5.6), skin, 0, 0.6, 0);
+  add(g, boxGeo(5, 1.8, 4.6), skin, 5.4, 0.4, 0);
+  add(g, boxGeo(9, 1.2, 4.8), belly, 2.6, -1.6, 0);
+  for (const sz of [-1.6, 1.6]) { add(g, new THREE.SphereGeometry(0.7, 10, 8), mat('eyeGlow'), 4.2, 1.9, sz); add(g, boxGeo(3.4, 0.6, 1.2), skin, 3.6, 2.4, sz * 1.05, [0, 0, -12]); }
+  for (const sz of [-1.2, 1.2]) add(g, new THREE.ConeGeometry(0.35, 2.2, 6), fang, 6.6, -0.9, sz, [180, 0, 0]);
+  const jaw = new THREE.Group(); jaw.position.set(-1.5, -1, 0); g.add(jaw);
+  add(jaw, boxGeo(8.6, 1.1, 4.4), skin, 4.3, -0.6, 0);
+  for (const sz of [-1.1, 1.1]) add(jaw, new THREE.ConeGeometry(0.3, 1.4, 6), fang, 7.6, 0.3, sz);
+  g.scale.setScalar(1.35);
+  C.world.scene.add(g);
+  const segs = [];
+  for (let i = 0; i < n; i++) { const r = 2.6 - i * 0.08; const s = add(C.world.scene, new THREE.SphereGeometry(r, 14, 10), i % 3 === 1 ? belly : skin, 0, -999, 0); s.scale.set(1, 0.85, 1); segs.push(s); }
+  return { group: g, jaw, segs };
+}
+
+// --- 7. the Lake of Fire ------------------------------------------------------------------------------------------------------------------------------
+function hall7(C, O) {
+  const K = C.K, FX = C.FX, W = (x, y, z) => V(O.x + x, O.y + y, O.z + z);
+  const h = beginHall(C, 6, { name: 'The Lake of Fire', sub: 'Seventh Hall', look: 'duat', L: 240, balY: -12 }, O);
+  const R = routeOf(C);
+  const P0 = -28, LV = -34, CEIL = 19, END = -240, XL = -72; // the paths, the lava, the cavern's roof
+  // down into the underworld: a stair cut in the rock
+  K.span(-11, -2, 2, 11, 0, -2, 'floorDark');
+  for (let i = 0; i < 40; i++) K.span(-8, P0, -2 - i, 8, -0.7 * (i + 1), -3 - i, i % 10 === 9 ? 'basalt' : 'rockDark');
+  for (const sx of [-1, 1]) K.span(sx * 8, P0, 2, sx * 11, CEIL, -42, 'rockDark');
+  K.span(-11, 9, 2, 11, CEIL, -2, 'rockDark');
+  K.span(-11, CEIL, 2, 11, CEIL + 2, -40, 'rockDark', NC);
+  for (let z = -8; z > -40; z -= 10) for (const sx of [-1, 1]) A.torch(K, FX, sx * 7.9, -0.7 * (-2 - z) + 4.5, z, sx > 0 ? -Math.PI / 2 : Math.PI / 2, { color: 0xff9050, intensity: 40, range: 24 });
+  // the cavern: a lake of fire under a roof of rock, its walls ragged
+  K.span(XL - 2, CEIL, -40, 26, CEIL + 2, END, 'rockDark', NC);
+  K.span(XL - 2, LV - 6, -40, XL, CEIL, END, 'rockDark');
+  K.span(XL - 2, LV - 6, -40, -11, CEIL, -43, 'rockDark');
+  for (const [x0, x1, y0, y1] of [[XL - 2, -7, LV - 6, CEIL], [7, 26, LV - 6, CEIL], [-7, 7, P0 + 14, CEIL], [-7, 7, LV - 6, P0]]) K.span(x0, y0, END + 3, x1, y1, END, 'rockDark');
+  K.span(XL, LV - 8, -40, 11, LV - 6, END, 'basalt', NC);
+  lava(C, XL, 11, -42, END + 2, LV);
+  crags(K, XL + 2, -46, XL + 2, END + 6, () => [LV, CEIL - 4], 26, 71, 'rockDark');
+  crags(K, XL + 4, -42, -14, -42, () => [LV, CEIL - 4], 10, 72, 'rockDark');
+  const r = rng(707);
+  for (let i = 0; i < 26; i++) { const x = XL + 6 + r() * 74, z = -50 - r() * 180, hh = 3 + r() * 9; if (x > -14) continue; K.taper(x, CEIL - hh / 2, z, 0.3, 0.3, 2 + r() * 2.5, 2 + r() * 2.5, hh, 'rockDark', { ...NC, rot: [180, r() * 90, 0] }); }
+  for (let i = 0; i < 9; i++) { const x = XL + 5 + r() * 9, z = -60 - r() * 160; K.taper(x, (LV + CEIL) / 2, z, 5 + r() * 4, 5 + r() * 4, 2.5, 2.5, CEIL - LV, 'rockDark', NC); }
+  for (let i = 0; i < 10; i++) FX.lights.add(W(XL + 10 + (i % 5) * 14, LV + 3, -55 - i * 18), 0xff5a18, 110, 46, 1);
+  // the boat of Ra crossing the lake of night
+  const barque = new Piece();
+  barque.box(0, 0.8, 0, 4, 1.6, 22, 'gold', { col: false });
+  for (const s of [-1, 1]) barque.add(taperGeo(4, 3, 1, 1, 5, 4), 'gold', 0, 2.6, s * 12, [s * -35, 0, 0]);
+  barque.box(0, 3, 0, 3, 3, 5, 'lapis', { col: false });
+  barque.add(cylGeo(2.2, 2.2, 0.4, 24), 'sunGlow', 0, 7.2, 0, [0, 0, 90]);
+  const bq = mover(C, barque, -42, LV - 0.4, -120);
+  FX.lights.add(W(-42, LV + 9, -120), 0xffc060, 90, 40, 0);
+  C.every((t) => { const a = t * 0.05; bq.group.position.set(O.x - 42 + Math.sin(a) * 10, O.y + LV - 0.4 + Math.sin(t * 0.9) * 0.3, O.z - 120 + Math.cos(a) * 40); bq.group.rotation.y = a + Math.PI / 2; bq.group.rotation.z = Math.sin(t * 0.7) * 0.03; });
+
+  // ---- trap 19: the fire pillars - the vents in the rock path breathe columns of fire
+  K.span(-11, LV - 6, -42, 11, P0, -92, 'rockDark');
+  K.span(-11, P0 - 0.2, -42, 11, P0 + 0.01, -92, 'basalt', NC);
+  const vents = [[-6, -56], [6, -56], [0, -70], [-9, -70], [9, -70], [-6, -84], [6, -84]];
+  const pillars = vents.map(([x, z]) => {
+    K.cyl(x, P0 + 0.06, z, 2.2, 0.12, 'black', { ...NC, seg: 14 });
+    K.cyl(x, P0 + 0.07, z, 1.5, 0.12, colorMat(0xff5010, 0.6, 0, { emissive: 0xff3000, emissiveIntensity: 2 }), { ...NC, seg: 12 });
+    return { x, z, jet: flameJet(C, W(x, P0, z), V(0, 1, 0), 26, { r0: 1.8, r1: 3.8, gain: 0.45 }) };
+  });
+  const t19 = new Trap(C, {
+    id: 'firepillars', name: 'Fire Pillars', duration: 4.6, zone: { x0: -11, x1: 11, z0: -90, z1: -48 }, wait: [0, P0, -46],
+    hide: [[0, P0, -56], [-4.5, P0, -70], [4.5, P0, -70], [0, P0, -84]],
+    run(k) {
+      const v = k < 0.45 ? 0.08 * (k / 0.45) : k < 0.6 ? (k - 0.45) / 0.15 : k < 4.0 ? 1 : Math.max(0, 1 - (k - 4.0) / 0.4);
+      for (const p of pillars) p.jet.set(v);
+      at(this, k, 0.45, () => SFX.fire(W(0, P0 + 4, -70), 3.8, 0.9));
+    },
+    lethal(p, ch, k) { if (k < 0.5 || k > 4.1) return null; for (const q of pillars) if (inColumn(p, q.x, q.z, 3.1, P0 - 1, P0 + 26)) return 'fire'; return null; },
+    onReset() { for (const p of pillars) p.jet.set(0); },
+    sfx() { SFX.burst(0.5, { kind: 'brown', type: 'lowpass', f: 300, vol: 0.4, pos: W(0, P0, -70) }); },
+    when: (k) => k > 4.4,
+  });
+  t19.zoneY = P0;
+  button(C, t19, -70);
+  R.walk(0, 0, -1).walk(0, P0, -44).gate(t19).walk(0, P0, -94);
+
+  // ---- trap 20: the bridge of ash - it crumbles into the fire from the near end; run!
+  K.span(-11, LV - 6, -92, 11, P0, -96, 'rockDark');
+  const NSG = 11, bseg = [];
+  for (let i = 0; i < NSG; i++) {
+    const P = new Piece();
+    P.box(0, -0.8, 0, 6, 1.6, 4.9, 'rockDark');
+    P.box(0, -2.2, 0, 4.4, 1.4, 4.2, 'basalt', { col: false });
+    for (const sx of [-2.8, 2.8]) P.box(sx, 0.35, 0, 0.4, 0.7, 4.9, 'basalt', { col: false });
+    bseg.push({ m: mover(C, P, 0, P0, -98.5 - i * 5), i, t0: 0.4 + (i * 5) / 13, rx: rnd(-1, 1), rz: rnd(-1, 1) });
+  }
+  const t20 = new Trap(C, {
+    id: 'bridge', name: 'Bridge of Ash', duration: 9, zone: { x0: -4, x1: 4, z0: -151, z1: -96 }, wait: [0, P0, -94],
+    run(k, dt) {
+      for (const b of bseg) {
+        const f = easeIn(seg(k, b.t0, b.t0 + 1.1)), back = easeInOut(seg(k, 6.6, 8.6)), d = f * (1 - back);
+        _v.copy(b.m.home.pos); _v.y -= 14 * d;
+        b.m.set(_v, Q(b.rx, 0, b.rz, 40 * d), dt);
+        if (k > b.t0 && k < b.t0 + 0.12 && Math.random() < 0.7) C.FX.glow.puff(b.m.pos.clone(), 0xff7a20, 4, 1.4, 6, 0.8, 4);
+        at(this, k, b.t0, () => { if (b.i % 3 === 0) SFX.grind(b.m.pos, 0.7, 0.5); });
+      }
+    },
+    onReset() { for (const b of bseg) b.m.reset(); },
+    sfx() { SFX.slam(W(0, P0, -98), 0.5); },
+    when: (k) => k > 8.6,
+  });
+  t20.zoneY = P0;
+  button(C, t20, -122);
+  K.span(-11, LV - 6, -150.5, 11, P0, -160, 'rockDark');
+  R.gate(t20).walk(0, P0, -154);
+
+  // ---- trap 21: Apophis - the serpent rises out of the fire and strikes across the path
+  K.span(-11, LV - 6, -160, 11, P0, END + 3, 'rockDark');
+  K.span(-11, P0 - 0.2, -160, 11, P0 + 0.01, END + 3, 'basalt', NC);
+  const snakes = [];
+  for (const [zs, dly] of [[-172, 0.35], [-194, 1.55]]) {
+    const S = serpent(C);
+    const home = W(-34, LV - 3, zs);
+    S.group.position.copy(home);
+    snakes.push({ ...S, z: zs, dly, home });
+  }
+  const placeBody = (sn, f) => {
+    // from the coil in the lava to the back of the head
+    const hx = sn.group.position.x - O.x, hy = sn.group.position.y - O.y;
+    for (let i = 0; i < sn.segs.length; i++) {
+      const t = i / (sn.segs.length - 1);
+      const x = lerp(hx - 4, -46, t), y = lerp(hy, LV - 1, t) + Math.sin(t * Math.PI) * (4 + 10 * f), z = sn.z + Math.sin(t * 5 + sn.z) * 3 * (1 - t * 0.5);
+      sn.segs[i].position.copy(W(x, y, z));
+    }
+  };
+  for (const s of snakes) placeBody(s, 0);
+  const t21 = new Trap(C, {
+    id: 'apophis', name: 'Apophis', duration: 4.2, zone: { x0: -11, x1: 11, z0: -206, z1: -162 }, wait: [0, P0, -156],
+    hide: [[0, P0, -183]],
+    run(k) {
+      for (const s of snakes) {
+        const t = k - s.dly, up = easeOut(seg(t, 0, 0.5)), back = easeInOut(seg(t, 1.2, 2.1)), f = up * (1 - back);
+        s.group.position.set(s.home.x + 30 * f, s.home.y + 13 * f, s.home.z);
+        s.group.rotation.z = -0.25 * f;
+        s.jaw.rotation.z = t < 0.5 ? -0.9 * up : t < 0.62 ? -0.9 * (1 - (t - 0.5) / 0.12) : 0;
+        placeBody(s, f);
+        at(this, k, s.dly, () => { SFX.burst(0.7, { kind: 'pink', type: 'bandpass', f: 500, to: 2400, q: 1.2, vol: 0.4, pos: W(-20, P0, s.z) }); C.FX.glow.puff(W(-30, LV + 1, s.z), 0xff6a20, 30, 2, 18, 1.2, 4); });
+        at(this, k, s.dly + 0.55, () => { SFX.chomp(W(0, P0 + 2, s.z), true); C.shake(W(0, P0, s.z), 0.6); });
+      }
+    },
+    lethal(p, ch, k) {
+      for (const s of snakes) { const t = k - s.dly; if (t > 0.42 && t < 0.8 && Math.abs(p.z - s.z) < 4.6 && p.x > -12 && p.x < 7 && p.y - 3 < P0 + 6) return 'serpent'; }
+      return null;
+    },
+    onReset() { for (const s of snakes) { s.group.position.copy(s.home); s.group.rotation.z = 0; s.jaw.rotation.z = 0; placeBody(s, 0); } },
+    sfx() { SFX.groan(W(-30, LV, -183)); },
+    when: (k) => k > 4,
+  });
+  t21.zoneY = P0;
+  button(C, t21, -183);
+  R.gate(t21).walk(0, P0, -212).walk(0, P0, -244);
+  // the door at the far end, into the foundations of the pyramid
+  K.span(-11, P0, END + 3, 11, P0 + 0.01, END, 'basalt', NC);
+  for (const sx of [-1, 1]) K.box(sx * 8.5, P0 + 7, END + 4, 3, 14, 2, 'gold');
+  K.box(0, P0 + 15, END + 4, 20, 2.4, 2.2, 'gold');
+  gallery(C, -44, -236, { lo: LV - 6, backH: 30, wall: 'rockDark', back: 'rockDark', floor: 'basalt', torchStep: 34 });
+  portals(C, -50, -230);
+  pit(C, (p) => (p.y - 3 < LV + 1 ? 'lava' : null));
+  h.start = W(0, 0, -2); h.end = W(0, P0, END);
+  return h;
+}
+
+// --- 8. the Ascent of Ra -------------------------------------------------------------------------------------------------------------------------------
+function hall8(C, O) {
+  const K = C.K, FX = C.FX, W = (x, y, z) => V(O.x + x, O.y + y, O.z + z);
+  const h = beginHall(C, 7, { name: 'The Ascent of Ra', sub: 'Eighth Hall', look: 'ascent', L: 230, balY: 64 }, O);
+  const R = routeOf(C);
+  const G0 = -20, G1 = -120, TOPY = 50, END = -228; // the Grand Gallery climbs from z -20 (y 0) to z -120 (y 50)
+  const slope = (z) => clamp((G0 - z) / 2, 0, TOPY);
+  // the pyramid itself, standing on the plateau over all this
+  A.pyramid(K, 0, 52, -115, 320, 200, { far: true });
+  // the chamber under the pyramid where we come in
+  K.span(-11, -2, 4, 11, 0, G0, 'floorDark');
+  for (const sx of [-1, 1]) K.span(sx * 11, -2, 4, sx * 13, 16, G0, 'granite');
+  K.span(-13, 16, 4, 13, 18, G0, 'granite', NC);
+  for (const sx of [-1, 1]) A.torch(K, FX, sx * 10.9, 6, -8, sx > 0 ? -Math.PI / 2 : Math.PI / 2, { intensity: 50 });
+  // the Grand Gallery: a stair in a trough between two ledges, under a corbelled vault
+  for (let i = 0; i < 50; i++) {
+    const za = G0 - 2 * i, zb = za - 2, y = i + 1;
+    K.span(-6, y - 1.6, za, 6, y, zb, i % 5 === 4 ? 'granite' : 'ashlarDark');
+    for (const sx of [-1, 1]) K.span(sx * 6, y - 0.5, za, sx * 11, y + 1.1, zb, 'granite');
+  }
+  for (const sx of [-1, 1]) {
+    const x0 = sx * 11, x1 = sx * 13, ge = sx > 0 ? -112 : G1; // (on the right the gallery's wall takes over at the top)
+    shearBox(C, Math.min(x0, x1), Math.max(x0, x1), G0, ge, slope(G0) - 2, slope(G0) + 14, slope(ge) - 2, slope(ge) + 14, 'granite');
+    for (let j = 1; j <= 4; j++) {
+      const xi = sx * (11 - 0.8 * j);
+      shearBox(C, Math.min(xi, x0), Math.max(xi, x0), G0, ge, slope(G0) + 12 + 2 * j, slope(G0) + 14 + 2 * j, slope(ge) + 12 + 2 * j, slope(ge) + 14 + 2 * j, 'granite', NC);
+    }
+  }
+  shearBox(C, -8, 8, G0, G1, slope(G0) + 22, slope(G0) + 24, slope(G1) + 22, slope(G1) + 24, 'granite', NC);
+  K.span(-13, 16, G0, 13, 26, G0 - 1.5, 'granite', NC);
+  for (let z = G0 - 14; z > G1 + 6; z -= 16) for (const sx of [-1, 1]) A.torch(K, FX, sx * 10.9, slope(z) + 8, z, sx > 0 ? -Math.PI / 2 : Math.PI / 2, { intensity: 46, range: 30 });
+
+  // ---- trap 22: the granite plugs - three blocks slide down the trough; get up on a ledge
+  const plugs = [];
+  for (let i = 0; i < 3; i++) {
+    const P = new Piece();
+    P.box(0, 3.5, 0, 11.8, 7, 8.6, 'granite');
+    P.box(0, 3.5, 4.32, 9, 4.4, 0.05, 'glyphsGranite', { col: false });
+    const m = mover(C, P, 0, TOPY + 14, G1 + 2 - i * 0.01);
+    m.visible(false); m.solid(false);
+    plugs.push({ m, t0: 0.4 + i * 0.55, z: G1, v: 0, ph: 0 });
+  }
+  const tilt = Q(1, 0, 0, (Math.atan2(1, 2) * 180) / Math.PI);
+  const placePlug = (q, dt) => {
+    let y;
+    if (q.ph === 1) y = slope(q.z) + 1; else if (q.ph === 2) y = slope(q.z) + 1 - q.sink; else y = TOPY + 14;
+    _v.set(O.x, O.y + y, O.z + q.z);
+    q.m.set(_v, tilt, dt);
+  };
+  const t22 = new Trap(C, {
+    id: 'plugs', name: 'Granite Plugs', duration: 6.6, zone: { x0: -11, x1: 11, z0: G1, z1: G0 }, wait: [0, 0, -12],
+    hide: [-30, -46, -62, -78, -94, -110].flatMap((z) => [[8.5, slope(z) + 1.1, z], [-8.5, slope(z) + 1.1, z]]),
+    run(k, dt) {
+      dt = Math.min(dt, 1 / 20);
+      for (const q of plugs) {
+        if (k < q.t0) continue;
+        if (q.ph === 0) { q.ph = 1; q.z = G1 + 4; q.v = 6; q.sink = 0; q.m.visible(true); q.m.solid(true); SFX.slam(W(0, TOPY, G1), 0.7); }
+        if (q.ph === 1) {
+          q.v = Math.min(36, q.v + 30 * dt); q.z += q.v * dt;
+          if (Math.random() < 0.6) C.FX.dust.puff(W(rnd(-5, 5), slope(q.z) + 1, q.z - 4), 0x9a8a70, 2, 2.5, 4, 1, 1);
+          if (q.z > G0 - 8) { q.ph = 2; q.z = G0 - 8; SFX.slam(W(0, 4, G0 - 8), 1.2); C.shake(W(0, 4, G0 - 8), 0.8); C.FX.dust.puff(W(0, 5, G0 - 8), 0x9a8a70, 40, 5, 16, 1.6, 2); }
+        } else if (q.ph === 2) { q.sink = Math.min(12, q.sink + 30 * dt); if (q.sink >= 12) { q.ph = 3; q.m.visible(false); q.m.solid(false); } }
+        if (q.ph < 3) placePlug(q, dt);
+      }
+      at(this, k, 0.2, () => SFX.grind(W(0, TOPY - 10, G1 + 10), 5, 0.9));
+    },
+    lethal(p) {
+      if (Math.abs(p.x) > 6.4) return null;
+      for (const q of plugs) {
+        if (q.ph !== 1) continue;
+        const bottom = slope(q.z) + 1, feet = p.y - 3;
+        if (Math.abs(p.z - q.z) < 5.3 && feet < bottom + 7 && feet > bottom - 3) return 'plug';
+      }
+      return null;
+    },
+    onReset() { for (const q of plugs) { q.ph = 0; q.m.reset(); q.m.visible(false); q.m.solid(false); } },
+    sfx() { SFX.tone(98, 1.4, { type: 'sawtooth', vol: 0.12, lp: 400, pos: W(0, TOPY, G1) }); },
+    when: (k) => k > 6.2,
+  });
+  t22.zoneY = 25; t22.zoneH = 40;
+  // the Pharaoh's bridge across the top of the gallery, looking straight down it
+  K.span(-11, 62.5, -114, 12.6, 64, -122, 'floor');
+  K.span(-11, 64, -113.4, 12.6, 65.2, -114, 'ashlarPale');
+  for (const sx of [-1, 1]) K.box(sx * 9.5, 66, -114.2, 1.2, 4, 1.2, 'gold', NC);
+  button(C, t22, -118, { x: 0, rot: Math.PI });
+  R.walk(0, 0, -4).walk(0, 0, -12).gate(t22).walk(0, TOPY, -121, { r: 2.5 });
+
+  // ---- trap 23: the sunbeams of Ra - the floor of the antechamber is a board of sixteen stones; the sun burns down on them in turn
+  const AZ0 = -125, AZ1 = -145, ROOF = 78;
+  K.span(-11, TOPY - 2, G1, 11, TOPY, AZ0, 'floorDark');
+  K.span(-11, TOPY - 2, AZ0, 11, TOPY, AZ1, 'granite');
+  for (let i = 1; i < 4; i++) { K.box(-10 + i * 5, TOPY + 0.02, (AZ0 + AZ1) / 2, 0.15, 0.05, 20, 'gold', NC); K.box(0, TOPY + 0.02, AZ0 - i * 5, 20, 0.05, 0.15, 'gold', NC); }
+  K.span(-13, TOPY - 2, G1, -11, ROOF, -150, 'glyphsGranite');
+  K.span(-13, ROOF, G1, 26, ROOF + 2, END - 2, 'granite', NC);
+  const tiles = [], glowM = new THREE.MeshBasicMaterial({ color: 0xffd070, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+    const x = -7.5 + i * 5, z = AZ0 - 2.5 - j * 5;
+    const gm = glowM.clone();
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(4.8, 4.8).rotateX(-Math.PI / 2), gm); glow.position.copy(W(x, TOPY + 0.08, z)); C.world.scene.add(glow);
+    const beam = lightShaft(2.1, 2.5, ROOF - TOPY, 0xfff0b8, 0.5); beam.position.copy(W(x, ROOF, z)); beam.visible = false; C.world.scene.add(beam);
+    K.box(x, ROOF - 0.05, z, 2.4, 0.2, 2.4, 'black', NC);
+    tiles.push({ i, j, x, z, gm, beam, on: 0 });
+  }
+  const WAVES = [
+    { t: 0.3, set: (t) => (t.i + t.j) % 2 === 0 && !(t.i === 0 && t.j === 0) && !(t.i === 3 && t.j === 3) },
+    { t: 2.0, set: (t) => (t.i + t.j) % 2 === 1 },
+    { t: 3.7, set: (t) => t.j === 1 || t.j === 2 },
+  ];
+  const t23 = new Trap(C, {
+    id: 'sunbeams', name: 'Sunbeams of Ra', duration: 5.4, zone: { x0: -10, x1: 10, z0: AZ1, z1: AZ0 }, wait: [0, TOPY, -122],
+    hide: [[-7.5, TOPY, AZ0 - 2.5], [7.5, TOPY, AZ1 + 2.5]],
+    run(k) {
+      for (const t of tiles) {
+        let warn = 0, burn = 0;
+        for (const w of WAVES) if (w.set(t)) { if (k > w.t && k < w.t + 0.7) warn = (k - w.t) / 0.7; if (k >= w.t + 0.7 && k < w.t + 1.5) burn = 1; }
+        t.on = burn;
+        t.gm.opacity = burn ? 0.85 : warn * 0.35;
+        t.beam.visible = burn > 0 || warn > 0.6;
+        t.beam.material.uniforms.a.value = burn ? 0.55 : 0.12;
+        if (burn && Math.random() < 0.3) C.FX.glow.puff(W(t.x + rnd(-2, 2), TOPY + 0.5, t.z + rnd(-2, 2)), 0xffd070, 2, 1.2, 3, 0.6, -3);
+      }
+      for (const w of WAVES) at(this, k, w.t + 0.7, () => { SFX.burst(0.8, { kind: 'pink', type: 'highpass', f: 1800, vol: 0.3, pos: W(0, TOPY + 4, -135) }); SFX.tone(1320, 0.8, { type: 'sine', vol: 0.06, pos: W(0, TOPY + 4, -135) }); });
+    },
+    lethal(p) {
+      if (p.y - 3 > TOPY + 8) return null;
+      const i = Math.floor((p.x + 10) / 5), j = Math.floor((AZ0 - p.z) / 5);
+      const t = tiles.find((q) => q.i === i && q.j === j);
+      return t && t.on ? 'sunbeam' : null;
+    },
+    onReset() { for (const t of tiles) { t.on = 0; t.gm.opacity = 0; t.beam.visible = false; } },
+    sfx() { SFX.tone(660, 0.5, { type: 'sine', to: 990, vol: 0.1, pos: W(0, TOPY + 4, -135) }); },
+    when: (k) => k > 5.2,
+  });
+  t23.zoneY = TOPY;
+  button(C, t23, -135);
+  R.walk(0, TOPY, -123).gate(t23).walk(0, TOPY, -147.5);
+
+  // ---- trap 24: the falling capstones - stepping stones over a deep well; they drop one by one
+  const WZ0 = -150, WZ1 = -192, WB = 12;
+  K.span(-11, TOPY - 2, AZ1, 11, TOPY, WZ0, 'floorDark');
+  K.span(-11, WB - 2, WZ0, 11, WB, WZ1, 'basalt', NC);
+  for (let x = -9; x < 10; x += 3) for (let z = WZ0 - 2; z > WZ1 + 1; z -= 3) K.geo(new THREE.ConeGeometry(0.5, 3, 6), 'bronze', x + ((z | 0) % 2) * 0.8, WB + 1.5, z, 0);
+  K.span(-13, WB - 2, -150, -11, ROOF, END - 2, 'glyphsGranite');
+  K.span(11, WB - 2, -150, 13, TOPY - 10, WZ1 - 1, 'glyphsGranite');
+  K.span(-11, WB, WZ0 + 0.01, 11, TOPY - 2, WZ0 - 1, 'granite', NC); K.span(-11, WB, WZ1, 11, TOPY - 2, WZ1 - 1, 'granite', NC);
+  const STONES = [[0, -155], [-5, -163], [0, -171], [5, -179], [0, -187]], caps = [];
+  STONES.forEach(([x, z], i) => {
+    const P = new Piece();
+    P.box(0, -1.2, 0, 5, 2.4, 5, 'granite');
+    P.box(0, 0.06, 0, 4.6, 0.12, 4.6, 'gold', { col: false });
+    P.add(cylGeo(0.7, 1.2, TOPY - WB - 4, 8), 'granite', 0, -2.4 - (TOPY - WB - 4) / 2, 0);
+    caps.push({ m: mover(C, P, x, TOPY, z), t0: 0.3 + i * 0.4, rx: rnd(-1, 1), rz: rnd(-1, 1) });
+  });
+  const t24 = new Trap(C, {
+    id: 'capstones', name: 'Falling Capstones', duration: 9, zone: { x0: -11, x1: 11, z0: WZ1, z1: WZ0 }, wait: [0, TOPY, -147],
+    run(k, dt) {
+      for (const c of caps) {
+        const f = easeIn(seg(k, c.t0, c.t0 + 1.2)), back = easeInOut(seg(k, 6.5, 8.5)), d = f * (1 - back);
+        _v.copy(c.m.home.pos); _v.y -= (TOPY - WB) * d;
+        c.m.set(_v, Q(c.rx, 0, c.rz, 25 * d), dt);
+        if (k > c.t0 && k < c.t0 + 0.1 && Math.random() < 0.7) C.FX.dust.puff(c.m.pos.clone(), 0xa89878, 6, 2, 5, 1, 2);
+        at(this, k, c.t0, () => SFX.grind(c.m.pos, 0.6, 0.5));
+        at(this, k, c.t0 + 1.2, () => SFX.slam(W(c.m.home.pos.x - O.x, WB, c.m.home.pos.z - O.z), 0.6));
+      }
+    },
+    onReset() { for (const c of caps) c.m.reset(); },
+    sfx() { SFX.grind(W(0, TOPY, -170), 0.5, 0.6); },
+    when: (k) => k > 8.6,
+  });
+  t24.zoneY = TOPY;
+  button(C, t24, -171);
+  R.gate(t24);
+  {
+    const path = [[0, -149], ...STONES, [0, -195]];
+    for (let i = 1; i < path.length; i++) {
+      const [ax, az] = path[i - 1], [bx, bz] = path[i], L = Math.hypot(bx - ax, bz - az), f = i === 1 ? 0.4 : 1.4;
+      R.jump([ax + ((bx - ax) / L) * f, TOPY, az + ((bz - az) / L) * f], [bx, TOPY, bz]);
+    }
+  }
+  pit(C, (p) => (p.z < WZ0 + 0.5 && p.z > WZ1 - 0.5 && p.y - 3 < TOPY - 6 ? 'capstone' : null));
+
+  // ---- the King's Chamber: red granite, the empty sarcophagus, the Eye of Ra
+  K.span(-11, TOPY - 2, WZ1, 11, TOPY, END - 2, 'floorDark');
+  K.span(-13, TOPY - 2, END + 2, 26, ROOF, END - 2, 'granite');
+  K.span(-11, TOPY + 0.01, -200, 11, TOPY + 0.05, END + 2, 'granite', NC);
+  A.coffin(K, -7, TOPY, -214, 0, 1.3);
+  for (const sx of [-1, 1]) A.brazier(K, FX, sx * 8.5, TOPY, -202, { h: 3.5, color: 0xffd070, lightColor: 0xffc060, intensity: 120 });
+  // the Eye: an almond of gold, a lapis pupil that wakes, the falcon's markings, the sun disk above
+  const EZ = END + 2.1, EY = TOPY + 12;
+  K.geo(new THREE.SphereGeometry(1, 24, 12).scale(5.2, 2.1, 0.5), 'gold', 0, EY, EZ, 0);
+  K.box(0, EY + 3.2, EZ + 0.2, 11, 0.9, 0.5, 'gold', NC);
+  K.box(-0.8, EY - 4.2, EZ + 0.2, 0.9, 4.6, 0.5, 'gold', NC);
+  K.geo(new THREE.TorusGeometry(1.6, 0.42, 8, 16, Math.PI * 1.4), 'gold', 3.6, EY - 5.2, EZ + 0.2, [0, 0, 160]);
+  const pupilM = colorMat(0x1f3c8c, 0.3, 0.3, { emissive: 0xffd060, emissiveIntensity: 0 }).clone();
+  const pupil = new THREE.Mesh(new THREE.SphereGeometry(1.5, 20, 12), pupilM); pupil.position.copy(W(0.4, EY, EZ + 0.5)); C.world.scene.add(pupil);
+  const discM = colorMat(0xffd060, 0.3, 0, { emissive: 0xffb030, emissiveIntensity: 0.6 }).clone();
+  const disc = new THREE.Mesh(cylGeo(3.4, 3.4, 0.5, 32), discM); disc.position.copy(W(0, EY + 8.5, EZ + 0.3)); disc.rotation.x = Math.PI / 2; C.world.scene.add(disc);
+  for (const sx of [-1, 1]) K.box(sx * 4.6, EY + 8.5, EZ + 0.3, 3, 1.4, 0.4, 'lapis', NC);
+  const apex = lightShaft(5, 14, 900, 0xffe7a0, 0.0);
+  apex.position.copy(W(0, 52 + 199, -115)); apex.rotation.x = Math.PI; apex.visible = false; C.world.scene.add(apex);
+  const chamberLight = FX.lights.add(W(0, EY, END + 8), 0xffd070, 0, 60, 0);
+  const shaft = lightShaft(3, 7, 30, 0xffe7a0, 0); shaft.position.copy(W(0, ROOF, -212)); C.world.scene.add(shaft);
+  C.eye = {
+    k: 0,
+    open(on) { this.on = on; },
+    update(dt) {
+      this.k = clamp(this.k + (this.on ? dt / 2 : -dt), 0, 1);
+      pupilM.emissiveIntensity = 3 * this.k; discM.emissiveIntensity = 0.6 + 3 * this.k;
+      apex.material.uniforms.a.value = 0.5 * this.k; apex.visible = this.k > 0.01;
+      shaft.material.uniforms.a.value = 0.45 * this.k; shaft.visible = this.k > 0.01;
+      chamberLight.intensity = 180 * this.k; chamberLight.on = this.k > 0.01;
+    },
+  };
+  C.every((t, dt) => C.eye.update(dt));
+  C.finish = { x0: O.x - 11, x1: O.x + 11, y0: O.y + TOPY, z0: O.z + END + 2, z1: O.z - 200 };
+  R.walk(0, TOPY, -206).walk(0, TOPY, -212);
+  gallery(C, -112, END + 2, { lo: TOPY - 10, backH: 14, wall: false, back: 'glyphsPaint', floor: 'floorDark', torchStep: 30 });
+  for (const [a, b, y0, y1] of [[-112, -114, TOPY - 10, 67.2], [-114, -122, TOPY - 10, 62.5], [-122, END + 2, TOPY - 10, 67.2]]) K.span(11, y0, a, 12.6, y1, b, 'glyphsGranite');
+  K.span(10.7, 67.2, -122, 12.9, 68, END + 2, 'ashlarPale', NC);
+  portals(C, -125, -222);
+  pit(C, (p) => (p.y - 3 < -12 ? 'fell' : null));
+  h.start = W(0, 0, -4); h.end = W(0, TOPY, END);
+  return h;
+}
+
 // --- the whole course -------------------------------------------------------------------------------------------------------------------
 export function buildCourse(world, FX) {
   const C = makeContext(world, FX);
@@ -1316,10 +1911,13 @@ export function buildCourse(world, FX) {
   hall3(C, V(0, 12, -470));
   hall4(C, V(0, 12, -690));
   hall5(C, V(0, 12, -920));
+  hall6(C, V(0, -12, -1150));
+  hall7(C, V(0, -12, -1350));
+  hall8(C, V(0, -40, -1590));
   C.K.flush();
-  // (until the last hall exists, the end of the causeway is the finish)
+  // (the finish is the King's Chamber; without it, the end of the last hall)
   const last = C.halls[C.halls.length - 1];
   C.finish = C.finish || { x0: last.O.x - 11, x1: last.O.x + 11, y0: last.O.y, z0: last.O.z - last.L, z1: last.O.z - last.L + 10 };
-  C.finishZ = last.O.z - last.L;
+  C.finishZ = C.finish ? (C.finish.z0 + C.finish.z1) / 2 : last.O.z - last.L;
   return C;
 }

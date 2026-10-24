@@ -153,7 +153,9 @@ export class DRBot extends BotBrain {
       case 'walk': {
         const d = this.goTo(st.p, 0.2, { full: true });
         if (d < (st.r ?? 1.6) && Math.abs(feet - st.p.y) < 3) return true;
-        if (ch.grounded && feet < st.p.y - 6) this.lost();
+        // (fell off: well below both the last point and this one - not just at the foot of a long climb)
+        const prev = this.si > 0 ? this.S.route[this.si - 1].p : null;
+        if (ch.grounded && feet < Math.min(st.p.y, prev ? prev.y : st.p.y) - 6) this.lost();
         return false;
       }
       case 'jump': {

@@ -72,7 +72,7 @@ const CAUSE = {
   spikes: 'fell onto the spikes', scarab: 'was eaten by the Scarab Swarm', mummy: 'was caught by a Mummy',
   sweep: 'was swept away by Anubis', ammit: 'was fed to Ammit', walls: 'was crushed by the Closing Walls',
   lava: 'fell into the Lake of Fire', fire: 'was burned by the Fire Pillars', bridge: 'fell with the Bridge of Ash', serpent: 'was devoured by Apophis',
-  slide: 'slid into the spikes of the Grand Gallery', sunbeam: 'was burned by the Sunbeams of Ra', capstone: 'fell with the Capstones', fell: 'fell to their death',
+  plug: 'was crushed by the Granite Plugs', sunbeam: 'was burned by the Sunbeams of Ra', capstone: 'fell with the Capstones', fell: 'fell to their death',
 };
 const SHORT = { nile: 'Eaten by crocodiles!', fell: 'You fell!', mummy: 'A mummy got you!', sobek: 'Sobek ate you!', serpent: 'Apophis ate you!' };
 
@@ -347,6 +347,7 @@ function startRound(game) {
   S.pharaoh = ph; ph.dr.lastPharaoh = S.round;
   for (const T of C.traps) T.reset();
   C.halls[0].gate.set(0); S.gateK = null; S.eyeAt = null;
+  C.eye?.open(false);
   if (S.eyeBeam) { S.world.scene.remove(S.eyeBeam); S.eyeBeam = null; }
   const yard = C.spawns.filter((s) => s.hall === 0);
   let i = 0;
@@ -395,6 +396,7 @@ function escape(game, p) {
   if (p.isLocal) S.gui.bannerShow('You escaped!', 'The Eye of Ra', 'Stand in the light and watch the curse burn.', 4);
   if (first) {
     S.eyeAt = S.world.time;
+    S.course.eye?.open(true);
     S.phase = 'eye'; S.T = EYE;
     S.gui.bannerShow('The Eye of Ra opens', `${p.name} reached the top`, `${EYE} seconds until the sun burns the Pharaoh. Hurry!`, 4);
     A.playSong('eye', 0.3); A.eyeCharge(EYE);
@@ -450,6 +452,7 @@ function toCamp(game) {
     game.spawnPlayer(q);
   }
   if (S.eyeBeam) { S.world.scene.remove(S.eyeBeam); S.eyeBeam = null; }
+  S.course.eye?.open(false);
   A.playSong('camp', 0.3);
 }
 
