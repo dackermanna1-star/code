@@ -9,7 +9,7 @@ export const BEDROCK_Y = 2;
 
 export const enum Ground {
   Asphalt = 0, AsphaltPatch, LineWhite, LineYellow, Concrete, ConcreteOld, Gravel, Dirt, Grass, GrassDry,
-  Mud, Sand, Ballast, Coal, Rock, COUNT,
+  Mud, Sand, Ballast, Coal, Rock, Epoxy, EpoxyLine, FactoryFloor, Tiles, COUNT,
 }
 
 /** Layer stacks from the surface downwards (palette group bases). Deeper voxels use the fill. */
@@ -29,6 +29,10 @@ STACKS[Ground.Sand] = [P.sand, P.sand, P.dirt];
 STACKS[Ground.Ballast] = [P.ballast, P.ballast, P.gravel];
 STACKS[Ground.Coal] = [P.coal, P.coal, P.coal, P.dirtDark];
 STACKS[Ground.Rock] = [P.rock, P.rock, P.rock];
+STACKS[Ground.Epoxy] = [P.epoxyFloor, P.concrete, P.concrete, P.concreteMid, P.gravel];
+STACKS[Ground.EpoxyLine] = [P.concreteYellow, P.concrete, P.concrete, P.concreteMid, P.gravel];
+STACKS[Ground.FactoryFloor] = [P.concreteFloor, P.concrete, P.concrete, P.concreteMid, P.gravel];
+STACKS[Ground.Tiles] = [P.ceiling, P.concrete, P.concrete, P.gravel];
 
 // Flattened lookup: STACK_FLAT[g*8 + d], STACK_LEN[g]
 const STACK_FLAT = new Uint8Array(Ground.COUNT * 8);

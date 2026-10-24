@@ -31,6 +31,8 @@ export class World {
   changeBoxes: number[] = [];
   /** Number of voxel modifications (stat). */
   edits = 0;
+  /** level generation mode: skip dirty tracking (everything is meshed afterwards) */
+  bulk = false;
 
   constructor(readonly sx: number, readonly sy: number, readonly sz: number, groundHeight: number) {
     this.ncx = sx >> CS_SHIFT; this.ncy = sy >> CS_SHIFT; this.ncz = sz >> CS_SHIFT;
@@ -142,7 +144,7 @@ export class World {
     else if (v === 0) {
       if (--this.count[ci] === 0) { this.kind[ci] = CK.Empty; this.data[ci] = null; }
     }
-    this.markDirty(x, y, z);
+    if (!this.bulk) this.markDirty(x, y, z);
     return old;
   }
 

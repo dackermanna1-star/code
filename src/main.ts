@@ -2,6 +2,9 @@
 import { Renderer, Environment, PointLight } from './render/renderer';
 import { World } from './world/world';
 import { generateTestMap } from './map/testmap';
+import { generateFactory, MAP } from './map/factory';
+import { makeProp } from './map/props';
+import { Rng } from './engine/math';
 import { Camera } from './engine/camera';
 import { Input } from './engine/input';
 import { Game } from './game/game';
@@ -44,19 +47,36 @@ async function main() {
   await nextFrame();
   let envName = params.get('env') || 'afternoon';
   const env = { ...ENV_PRESETS[envName] };
-  const world = new World(1024, 384, 1024, 40);
+  const useTest = params.has('testmap');
+  const world = useTest ? new World(1024, 384, 1024, 40) : new World(MAP.sx, MAP.sy, MAP.sz, MAP.G);
   const t0 = performance.now();
-  generateTestMap(world);
+  const mapResult = useTest ? null : generateFactory(world);
+  if (useTest) generateTestMap(world);
   const genMs = performance.now() - t0;
+  console.log(`level generated in ${genMs.toFixed(0)} ms, dense chunks ${(world.denseBytes() / 1048576).toFixed(1)} MB`);
   const workers = Math.max(1, Math.min(6, (navigator.hardwareConcurrency || 4) - 1));
   const game = new Game(renderer, world, env, workers);
   const destruction = new Destruction(game);
   game.destruction = destruction;
   game.onImpactHook = (e) => destruction.impact(e.a, e.b, e.x, e.y, e.z, e.nx, e.ny, e.nz, e.speed, e.meff, e.matB);
   const player = new Player(game);
-  player.spawn.set(25, 4.05, 48);
+  if (mapResult) {
+    player.spawn.set(mapResult.spawn.x, mapResult.spawn.y, mapResult.spawn.z);
+    player.yaw = mapResult.spawn.yaw;
+    // dynamic props (start asleep)
+    hud.loading(0.06, 'Placing props\u2026');
+    await nextFrame();
+    const rng = new Rng(12345);
+    let propVox = 0;
+    for (const p of mapResult.props) {
+      const grid = makeProp(p.kind, p.seed !== undefined ? new Rng(p.seed) : rng).rotY(p.rot);
+      const body = game.spawnGrid(grid.vox, grid.sx, grid.sy, grid.sz, p.x, p.y, p.z, undefined, true);
+      if (body) propVox += body.count;
+    }
+    console.log(`props: ${mapResult.props.length} bodies, ${propVox} voxels`);
+    for (const L of mapResult.lamps) game.lamps.push({ light: { x: (L.x + 0.5) * 0.1, y: (L.y - 0.6) * 0.1, z: (L.z + 0.5) * 0.1, radius: L.radius, r: L.r, g: L.g, b: L.b }, vx: L.x, vy: L.y, vz: L.z, on: true });
+  } else player.spawn.set(25, 4.05, 48);
   player.respawn();
-  player.yaw = 0.6;
   const tools = new Tools(game, player);
   const input = new Input(canvas);
   const cam = new Camera();

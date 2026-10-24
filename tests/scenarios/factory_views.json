@@ -1,0 +1,18 @@
+{
+  "query": "autoplay",
+  "steps": [
+    { "frames": 5 },
+    { "eval": "(() => { const g = window.__game; g.player.noclip = true; g.player.pos.set(129, 6.0, 233); g.player.yaw = 0; g.player.pitch = 0.05; return true; })()" },
+    { "frames": 10 },
+    { "shot": "v0_gate" },
+    { "eval": "(() => { const g = window.__game; g.player.pos.set(60, 40, 160); g.player.yaw = -2.3; g.player.pitch = -0.35; return true; })()" },
+    { "frames": 10 },
+    { "shot": "v1_overview" },
+    { "eval": "(() => { const g = window.__game; g.player.pos.set(100, 6.5, 85); g.player.yaw = -1.3; g.player.pitch = 0.05; return true; })()" },
+    { "frames": 10 },
+    { "shot": "v2_hall_inside" },
+    { "eval": "(() => { const g = window.__game; g.player.pos.set(200, 30, 120); g.player.yaw = 0.5; g.player.pitch = -0.25; return true; })()" },
+    { "frames": 10 },
+    { "shot": "v3_tanks" }
+  ]
+}

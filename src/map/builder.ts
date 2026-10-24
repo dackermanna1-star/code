@@ -2,6 +2,43 @@
 // boxes are [min, max) (max exclusive).
 
 import { World } from '../world/world';
+
+/** Anything voxels can be written into (the world or a standalone prop grid). */
+export interface VoxelTarget {
+  get(x: number, y: number, z: number): number;
+  set(x: number, y: number, z: number, v: number): unknown;
+}
+
+/** A standalone voxel grid (prop models). x fastest, then z, then y (same layout as bodies). */
+export class Grid implements VoxelTarget {
+  readonly vox: Uint8Array;
+  constructor(readonly sx: number, readonly sy: number, readonly sz: number) { this.vox = new Uint8Array(sx * sy * sz); }
+  get(x: number, y: number, z: number): number {
+    if (x < 0 || y < 0 || z < 0 || x >= this.sx || y >= this.sy || z >= this.sz) return 0;
+    return this.vox[x + this.sx * (z + this.sz * y)];
+  }
+  set(x: number, y: number, z: number, v: number): void {
+    if (x < 0 || y < 0 || z < 0 || x >= this.sx || y >= this.sy || z >= this.sz) return;
+    this.vox[x + this.sx * (z + this.sz * y)] = v;
+  }
+  /** Rotate around Y by 90deg * k (counter-clockwise seen from above). */
+  rotY(k: number): Grid {
+    k = ((k % 4) + 4) % 4;
+    if (k === 0) return this;
+    const nx = k % 2 ? this.sz : this.sx, nz = k % 2 ? this.sx : this.sz;
+    const g = new Grid(nx, this.sy, nz);
+    for (let y = 0; y < this.sy; y++) for (let z = 0; z < this.sz; z++) for (let x = 0; x < this.sx; x++) {
+      const v = this.vox[x + this.sx * (z + this.sz * y)];
+      if (!v) continue;
+      let X: number, Z: number;
+      if (k === 1) { X = z; Z = this.sx - 1 - x; }
+      else if (k === 2) { X = this.sx - 1 - x; Z = this.sz - 1 - z; }
+      else { X = this.sz - 1 - z; Z = x; }
+      g.vox[X + nx * (Z + nz * y)] = v;
+    }
+    return g;
+  }
+}
 import { hash3, Rng } from '../engine/math';
 import { variant } from '../world/materials';
 
@@ -15,7 +52,7 @@ export class Builder {
   onlyEmpty = false;
   /** count of voxels written */
   written = 0;
-  constructor(readonly world: World, seed = 1337) { this.rng = new Rng(seed); }
+  constructor(readonly world: VoxelTarget, seed = 1337) { this.rng = new Rng(seed); }
 
   set(x: number, y: number, z: number, p: number): void {
     if (this.onlyEmpty && this.world.get(x, y, z) !== 0) return;
