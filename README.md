@@ -6,6 +6,10 @@ floors, roofs, steel frames, tanks, machines, vehicles, fences and the ground it
 
 ![factory](docs/overview.jpg)
 
+| Chain reaction at the tank farm | Sunset over the boiler house |
+| --- | --- |
+| ![tank farm](docs/tankfarm.jpg) | ![sunset](docs/sunset.jpg) |
+
 ## Running
 
 ```sh
