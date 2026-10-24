@@ -6,9 +6,11 @@ floors, roofs, steel frames, tanks, machines, vehicles, fences and the ground it
 
 ![factory](docs/overview.jpg)
 
-| Chain reaction at the tank farm | Sunset over the boiler house |
+| Fuel tank chain reaction | Five seconds later |
 | --- | --- |
-| ![tank farm](docs/tankfarm.jpg) | ![sunset](docs/sunset.jpg) |
+| ![tank farm](docs/tankfarm.jpg) | ![aftermath](docs/aftermath.jpg) |
+| **Sunset over the tank farm** | **Night on the main avenue** |
+| ![sunset](docs/sunset.jpg) | ![night](docs/night.jpg) |
 
 ## Running
 

@@ -294,15 +294,16 @@ export class Game {
       const f = L.flicker > 0 ? 1 - L.flicker * (0.5 + 0.5 * Math.sin(this.time * 31 + L.x * 7) * Math.sin(this.time * 17.3 + L.z * 3)) : 1;
       const s = k * k * f;
       const pl = { x: L.x, y: L.y, z: L.z, radius: L.radius, r: L.r * s, g: L.g * s, b: L.b * s };
-      const d = Math.hypot(L.x - cx, L.y - cy, L.z - cz);
-      out.push({ l: pl, s: (L.r + L.g + L.b) * s / (1 + d * d * 0.01) + 1000 });
+      const d2 = (L.x - cx) ** 2 + (L.y - cy) ** 2 + (L.z - cz) ** 2;
+      // dynamic lights (fire, blasts, muzzle flashes) are favoured, but distant ones must not crowd out nearby lamps
+      out.push({ l: pl, s: 2.5 * (L.r + L.g + L.b) * s * L.radius * L.radius / (L.radius * L.radius + d2) });
     }
     for (const lamp of this.lamps) {
       if (!lamp.on) continue;
       const L = lamp.light;
-      const d = Math.hypot(L.x - cx, L.y - cy, L.z - cz);
-      if (d > 90) continue;
-      out.push({ l: L, s: (L.r + L.g + L.b) / (1 + d * d * 0.02) });
+      const d2 = (L.x - cx) ** 2 + (L.y - cy) ** 2 + (L.z - cz) ** 2;
+      if (d2 > 90 * 90) continue;
+      out.push({ l: L, s: (L.r + L.g + L.b) * L.radius * L.radius / (L.radius * L.radius + d2) });
     }
     out.sort((a, b) => b.s - a.s);
     return out.slice(0, max).map((o) => o.l);
