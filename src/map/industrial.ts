@@ -365,7 +365,7 @@ export function buildStreetLights(c: Ctx): void {
     b.line(x + 1, G + 77, z + 1, ex, G + 80, ez, 1, P.paintGreyBlue);
     b.box(ex - 3, G + 79, ez - 2, ex + 3, G + 81, ez + 2, P.paintGreyBlue);
     b.box(ex - 2, G + 78, ez - 1, ex + 2, G + 79, ez + 1, P.lampWarm);
-    c.lamps.push({ x: ex, y: G + 77, z: ez, r: 9, g: 7, b: 4.5, radius: 22 });
+    c.lamps.push({ x: ex, y: G + 77, z: ez, r: 16, g: 12, b: 7.5, radius: 24 });
   };
   for (let z = 1180; z < 2460; z += 220) { light(1230, z, 1, 0); light(1350, z + 110, -1, 0); }
   for (let x = 200; x < 2400; x += 240) { light(x, 990, 0, 1); }

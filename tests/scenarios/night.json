@@ -1,0 +1,12 @@
+{
+  "query": "autoplay&fixeddt&env=night",
+  "steps": [
+    { "frames": 5 },
+    { "eval": "(() => { const g = window.__game; g.player.noclip = true; g.viewModel.visible = false; document.querySelector('#hud .stats').style.display = 'none'; g.player.pos.set(129, 6.6, 205); g.player.yaw = 0.0; g.player.pitch = -0.05; return true; })()" },
+    { "frames": 24 },
+    { "shot": "n0_avenue" },
+    { "eval": "(() => { const g = window.__game; g.player.pos.set(100, 6.5, 85); g.player.yaw = -1.3; g.player.pitch = 0.0; return true; })()" },
+    { "frames": 24 },
+    { "shot": "n1_hall" }
+  ]
+}

@@ -57,8 +57,10 @@ flammability…) and a colour with a procedural surface pattern (bricks, planks,
 a worker pool; quads (16 bytes each) live in one big integer texture and are drawn with vertex pulling
 and multi-draw. Distant regions are meshed from 2× / 4× downsampled voxels (LOD). Deferred pipeline:
 4-cascade shadow maps, G-buffer, SSAO, directional sky-occlusion maps (dark interiors, light through
-openings), ray-marched volumetric sun light, point lights (lamps, fire, explosions), analytic sky and
-height fog, glass, lit particles with soft depth fade, TAA, bloom and ACES tone mapping.
+openings), ray-marched volumetric sun light, screen-space reflections on glossy surfaces and puddles,
+point lights (lamps, street lights, fire, explosions), analytic sky and height fog, glass, lit
+particles with soft depth fade, TAA, bloom and ACES tone mapping. Four lighting presets (afternoon,
+sunset, overcast, night).
 
 **Physics** (`src/physics`). Every body is a voxel grid. Collisions are sphere samples on the surface
 voxels against exposed voxel faces of the world and of other bodies, reduced to stable manifolds and

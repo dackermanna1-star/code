@@ -37,7 +37,7 @@ export const ENV_PRESETS: Record<string, Environment> = {
   },
   night: {
     sunDir: norm([0.35, 0.55, 0.3]), sunColor: [0.12, 0.15, 0.24], skyZenith: [0.01, 0.015, 0.035], skyHorizon: [0.04, 0.05, 0.08],
-    groundColor: [0.02, 0.02, 0.025], fogColor: [0.04, 0.05, 0.07], fogDensity: 0.012, fogHeight: 0.03, ambient: 0.35, exposure: 1.6,
+    groundColor: [0.02, 0.02, 0.025], fogColor: [0.04, 0.05, 0.07], fogDensity: 0.01, fogHeight: 0.03, ambient: 0.3, exposure: 2.6,
   },
 };
 const ENV_ORDER = ['afternoon', 'sunset', 'overcast', 'night'];
@@ -101,7 +101,17 @@ async function main() {
       if (body) propVox += body.count;
     }
     console.log(`props: ${mapResult.props.length} bodies, ${propVox} voxels`);
-    for (const L of mapResult.lamps) game.lamps.push({ light: { x: (L.x + 0.5) * 0.1, y: (L.y - 0.6) * 0.1, z: (L.z + 0.5) * 0.1, radius: L.radius, r: L.r, g: L.g, b: L.b }, vx: L.x, vy: L.y, vz: L.z, on: true });
+    // map lamp values are relative; LAMP_GAIN brings them to the sun's scale so lamps light their surroundings
+    const LAMP_GAIN = 3.2, LAMP_REACH = 1.25;
+    for (const L of mapResult.lamps) {
+      // the emitter voxel that keeps this light on (it goes dark when that voxel is destroyed)
+      let ev = [L.x, L.y, L.z];
+      search: for (let r = 0; r <= 2; r++) for (let dy = -r; dy <= r; dy++) for (let dz = -r; dz <= r; dz++) for (let dx = -r; dx <= r; dx++) {
+        const v = world.get(L.x + dx, L.y + dy, L.z + dz);
+        if (v && PAL_MAT[v] === Mat.Light) { ev = [L.x + dx, L.y + dy, L.z + dz]; break search; }
+      }
+      game.lamps.push({ light: { x: (L.x + 0.5) * 0.1, y: (L.y - 0.6) * 0.1, z: (L.z + 0.5) * 0.1, radius: L.radius * LAMP_REACH, r: L.r * LAMP_GAIN, g: L.g * LAMP_GAIN, b: L.b * LAMP_GAIN }, vx: ev[0], vy: ev[1], vz: ev[2], on: true });
+    }
   } else player.spawn.set(25, 4.05, 48);
   player.respawn();
   const tools = new Tools(game, player);
