@@ -40,6 +40,7 @@ export class Tools {
   onSound: ((name: string, x: number, y: number, z: number, vol: number) => void) | null = null;
   onIgnite: ((x: number, y: number, z: number) => void) | null = null;
   recoil = 0;
+  private queuedFire = 0;
 
   constructor(readonly g: Game, readonly player: Player) {}
 
@@ -70,7 +71,11 @@ export class Tools {
       if (input.wasPressed('KeyE')) { if (this.held) this.release(); else this.tryGrab(); }
     }
     const fire = enabled && input.mouseDown(0);
-    const firePressed = enabled && input.mousePressed(0);
+    // a click shortly before the tool is ready (switching, reloading) is kept and fires when it is
+    if (enabled && input.mousePressed(0)) this.queuedFire = 0.35;
+    else this.queuedFire = Math.max(0, this.queuedFire - dt);
+    const firePressed = enabled && this.queuedFire > 0 && this.cooldown <= 0;
+    if (firePressed) this.queuedFire = 0;
     this.torchActive = false;
     if (this.held) {
       this.updateHeld(dt);
