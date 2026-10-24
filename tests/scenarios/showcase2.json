@@ -1,0 +1,16 @@
+{
+  "query": "autoplay&fixeddt",
+  "steps": [
+    { "frames": 5 },
+    { "eval": "(() => { const g = window.__game; g.player.noclip = true; g.viewModel.visible = false; for (const s of ['.stats', '.tools', '.health']) { const e = document.querySelector('#hud ' + s); if (e) e.style.display = 'none'; } g.player.pos.set(172, 16, 104); g.player.yaw = -1.45; g.player.pitch = -0.12; return true; })()" },
+    { "frames": 12 },
+    { "eval": "(() => { const g = window.__game; g.game.destruction.explode(204.6, 9.0, 90.0, 2.5); return true; })()" },
+    { "frames": 50 },
+    { "shot": "x1_fireball" },
+    { "frames": 200 },
+    { "shot": "x2_burning" },
+    { "eval": "(() => { const g = window.__game; g.setEnv('night'); g.player.pos.set(129, 6.6, 205); g.player.yaw = 0.0; g.player.pitch = -0.05; return true; })()" },
+    { "frames": 30 },
+    { "shot": "x3_night" }
+  ]
+}

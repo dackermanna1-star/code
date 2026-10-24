@@ -103,6 +103,8 @@ and resting fragments settle into the world as rubble, so damage persists.
 
 ```sh
 npm run typecheck
+npm test                                         # fast headless tests (physics, bending, vehicles)
+npm run test:slow                                # structural analysis + collapse on the full map
 node tools/runtest.mjs tests/physics.test.ts     # rigid body regression tests (headless)
 node tools/runtest.mjs tests/stress.test.ts      # structural analysis on the real map
 node tools/runtest.mjs tests/collapse.test.ts    # progressive collapse of the construction site
