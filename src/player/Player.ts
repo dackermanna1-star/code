@@ -809,7 +809,12 @@ export class Player implements Combatant {
     const eye = this.eye(_v);
     const dir = _v2.subVectors(ph.world, eye).normalize();
     if (st.kick) dir.y = Math.max(dir.y, 0.05);
-    const crit = ph.part === P.HEAD && Math.random() < (st.heavy ? 0.25 : 0.12);
+    let crit = ph.part === P.HEAD && Math.random() < (st.heavy ? 0.25 : 0.12);
+    // finisher: a heavy blow on a staggered, badly hurt enemy (or the end of a long combo)
+    const tc = target as Character;
+    const finisher =
+      st.heavy && !target.isPlayer && target.alive && target.upright && tc.healthFrac !== undefined && (tc.healthFrac < 0.32 || this.combo >= 6) && (tc.stunTimer > 0 || this.combo >= 6);
+    if (finisher) crit = true;
     const hit: HitInfo = {
       attacker: this,
       damage: st.damage * (0.9 + Math.random() * 0.2),
@@ -831,9 +836,19 @@ export class Player implements Combatant {
       stun: st.stun,
       dismember: st.dismember,
       bleed: st.bleed,
-      unblockable: st.kind === 'stomp' || st.kind === 'grabPunch',
-      knockdown: st.kind === 'haymaker' && st.heavy && Math.random() < 0.5,
+      unblockable: st.kind === 'stomp' || st.kind === 'grabPunch' || finisher,
+      knockdown: (st.kind === 'haymaker' && st.heavy && Math.random() < 0.5) || finisher,
     };
+    if (finisher) {
+      hit.damage *= 2.2;
+      hit.force *= 1.6;
+      hit.carve = (hit.carve ?? 1) * 1.6;
+      if (st.dismember > 0) hit.dismember = 1;
+      ctx.time.slowMo(1.1, 0.18);
+      this.camFx.fovPunch(-12);
+      this.camFx.addTrauma(0.3);
+      events.emit('takedown', { attacker: this, victim: target, kind: 'FINISHER!', pos: ph.world.clone() });
+    }
     const res = target.receiveHit(hit);
     st.connected = true;
     this.stats.hits++;

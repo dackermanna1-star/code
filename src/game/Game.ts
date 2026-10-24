@@ -176,6 +176,7 @@ export class Game {
     this.audio?.setVolumes?.(s.master, s.sfx, s.music);
     if (key === 'quality') {
       const q = QUALITY_PRESETS[s.quality];
+      this.resScale = 1;
       this.engine.setQuality(q);
       this.post.applyQuality();
       if (this.sun) {
@@ -200,7 +201,20 @@ export class Game {
   }
 
   // ------------------------------------------------------------------ round lifecycle
+  private building = false;
+  private roundCrowd = 0;
+
   async newRound(mode: GameMode, attract = false): Promise<void> {
+    if (this.building) return;
+    this.building = true;
+    try {
+      await this.buildRound(mode, attract);
+    } finally {
+      this.building = false;
+    }
+  }
+
+  private async buildRound(mode: GameMode, attract: boolean): Promise<void> {
     this.state = 'loading';
     this.input.enabled = false;
     this.menus.hide();
@@ -257,6 +271,7 @@ export class Game {
     this.applyDifficulty();
     const crowdParam = parseInt(this.params.get('crowd') ?? '', 10);
     this.director.crowdSize = !isNaN(crowdParam) ? crowdParam : this.settings.value.crowd;
+    this.roundCrowd = this.director.crowdSize;
     if (mode === 'survival') this.director.startSurvival();
     else this.director.startBrawl();
     this.audio?.newRound?.(this.level);
@@ -314,7 +329,8 @@ export class Game {
   /** Title / end screen buttons. */
   startMode(mode: GameMode, forceNew = false): void {
     this.requestLock();
-    if (!forceNew && this.state === 'title' && this.roundFresh && mode === this.mode) {
+    const crowdChanged = !this.params.has('crowd') && this.roundCrowd !== this.settings.value.crowd;
+    if (!forceNew && !crowdChanged && this.state === 'title' && this.roundFresh && mode === this.mode) {
       this.roundFresh = false;
       this.beginPlay();
       return;
@@ -406,7 +422,7 @@ export class Game {
       this.lockFallback = true;
       this.input.allowUnlocked = true;
       this.engine.canvas.classList.add('free-mouse');
-      this.menus.showNotice('Mouse capture is blocked here, so the cursor stays free. For the best controls, <a href="' + location.href + '" target="_blank" rel="noopener">open the game in its own tab</a>.', 9000);
+      this.menus.showNotice('This window blocks mouse capture, so the cursor stays free. Keep it inside the window while you play.', 9000);
       if (this.state === 'paused') this.resume();
       return;
     }
@@ -547,6 +563,25 @@ export class Game {
       this.fps = this.fpsFrames / this.fpsAcc;
       this.fpsAcc = 0;
       this.fpsFrames = 0;
+      this.adaptResolution();
+    }
+  }
+
+  private resScale = 1;
+  private resTimer = 0;
+  /** Dynamic resolution: trade pixels for frame rate on slower GPUs. */
+  private adaptResolution(): void {
+    if ((navigator as any).webdriver || this.state !== 'playing' || document.visibilityState !== 'visible') return;
+    this.resTimer += 0.5;
+    if (this.resTimer < 2) return;
+    let next = this.resScale;
+    if (this.fps < 42) next = Math.max(0.55, this.resScale * 0.88);
+    else if (this.fps > 57 && this.resScale < 1) next = Math.min(1, this.resScale * 1.06);
+    if (Math.abs(next - this.resScale) > 0.01) {
+      this.resScale = next;
+      this.resTimer = 0;
+      this.engine.renderer.setPixelRatio(this.engine.quality.pixelRatio * next);
+      this.engine.resize();
     }
   }
 

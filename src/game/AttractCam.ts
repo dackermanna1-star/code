@@ -22,7 +22,7 @@ const SHOTS: Shot[] = [
   // balcony overlook
   { from: [-7.5, 6.0, 10.4], to: [6.5, 6.1, 10.4], lookFrom: [-1, 0.6, -1], lookTo: [1, 0.6, -2], dur: 10 },
   // VIP and the boss
-  { from: [-1.5, 5.9, -7.0], to: [3.5, 5.8, -7.6], lookFrom: [8.5, 5.0, -12.3], lookTo: [8.6, 5.0, -12.3], dur: 8 },
+  { from: [3.0, 5.7, -7.6], to: [5.6, 5.55, -8.6], lookFrom: [8.5, 5.0, -12.3], lookTo: [8.6, 5.1, -12.3], dur: 8 },
 ];
 
 const _a = new THREE.Vector3();

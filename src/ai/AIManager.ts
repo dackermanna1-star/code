@@ -43,7 +43,7 @@ export class AIManager {
     public level: LevelInfo,
   ) {
     events.on('hit', ({ target, hit, result }) => {
-      if (result.damage <= 0 && !result.blocked) return;
+      if ((result.damage <= 0 && !result.blocked) || this.peaceful) return;
       this.bumpIntensity(hit.attacker?.isPlayer ? 0.022 : 0.006);
       if (!this.brawlStarted && hit.attacker) this.startBrawl();
       const victimBrain = (target as any).brain as Brain | undefined;

@@ -3,12 +3,13 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "LAST CALL — a physics-driven first-person bar brawler inspired by Paint the Town Red",
+  "description": "LAST CALL \u2014 a physics-driven first-person bar brawler inspired by Paint the Town Red",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:artifact": "vite build && node tools/artifact.mjs"
   },
   "dependencies": {
     "@dimforge/rapier3d-compat": "^0.21.0",

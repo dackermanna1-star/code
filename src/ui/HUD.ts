@@ -44,6 +44,8 @@ const TIPS = [
   '<b>V</b> or double-tap a direction to dodge',
   'Fill the bar with violence, then press <b>R</b> to <b>RAGE</b>',
   'Bottles, chairs, pool cues — anything not nailed down is a weapon',
+  'A heavy blow on a staggered, beaten enemy is a <b>FINISHER</b>',
+  'Grab someone with <b>E</b>, look down at a table and punch to <b>slam</b> them',
 ];
 
 /** In-game heads-up display: vitals, weapon, objective, feedback and overlays. */

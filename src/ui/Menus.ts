@@ -162,7 +162,7 @@ export class Menus {
       h(
         'div',
         'ctl-tips',
-        'Grab someone with <b>E</b>, then punch, knee or throw them. Smash bottles over heads, hurl chairs, swing pool cues. Heavy blows knock people flat — kick them while they are down. Parries open enemies up for brutal counters.',
+        'Grab someone with <b>E</b>, then punch, knee or throw them — or look down at a table or the bar and punch to slam their face into it. Smash bottles over heads, hurl chairs, swing pool cues. Heavy blows knock people flat; stomp them while they are down. A heavy blow on a staggered, beaten enemy is a finisher. Parries open enemies up for brutal counters.',
       ),
     );
     box.appendChild(this.btn('BACK', '', () => this.closeSub()));
