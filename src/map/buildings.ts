@@ -223,7 +223,12 @@ export function buildWarehouse(c: Ctx): void {
   for (let x = X0 - 4; x < X1 + 4; x++) {
     const xx = Math.min(X1 - 1, Math.max(X0, x));
     const y = roofY(xx) + 1;
-    for (let z = Z0 - 4; z < Z1 + 4; z++) b.set(x, y, z, ((z >> 1) & 1) ? P.sheetRust : P.sheetRust + 1);
+    // translucent skylight strips between the portal frames on both roof slopes
+    const sky = Math.abs(x - (X0 + 95)) < 12 || Math.abs(x - (X1 - 95)) < 12;
+    for (let z = Z0 - 4; z < Z1 + 4; z++) {
+      const bay = (z - Z0 - 2 + 600) % 60;
+      b.set(x, y, z, sky && bay > 8 && bay < 52 && z > Z0 && z < Z1 - 1 ? P.glassFrost : ((z >> 1) & 1) ? P.sheetRust : P.sheetRust + 1);
+    }
   }
   // loading docks on the east side
   for (const z of [560, 700, 840]) {
