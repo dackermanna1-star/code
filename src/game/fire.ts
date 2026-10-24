@@ -166,7 +166,12 @@ export class Fire {
       }
       for (const [x, y, z] of bornB) this.igniteBody(b, x, y, z);
       if (changed) this.g.markBodyDirty(b);
-      if (b.explosive > 0 && m.size > 0) this.g.destruction.detonateBody(b);
+      if (b.explosive > 0 && m.size > 0) {
+        // small bottles and barrels go up almost at once, vehicles burn for a while first
+        const bb = b as Body & { _burnT?: number };
+        bb._burnT = (bb._burnT ?? 0) + step;
+        if (bb._burnT > (b.count > 400 ? 6 : 0.6)) this.g.destruction.detonateBody(b);
+      }
       if (m.size === 0) this.bodyCells.delete(b);
     }
   }

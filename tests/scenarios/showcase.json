@@ -1,0 +1,15 @@
+{
+  "query": "autoplay&fixeddt",
+  "steps": [
+    { "frames": 5 },
+    { "eval": "(() => { const g = window.__game; g.player.noclip = true; g.viewModel.visible = false; document.querySelector('#hud .stats').style.display = 'none'; document.querySelector('#hud .tools').style.display = 'none'; document.querySelector('#hud .health').style.display = 'none'; g.player.pos.set(58, 34, 168); g.player.yaw = -2.25; g.player.pitch = -0.3; return true; })()" },
+    { "frames": 24 },
+    { "shot": "s0_overview" },
+    { "eval": "(() => { const g = window.__game; g.setEnv('sunset'); g.player.pos.set(150, 12, 128); g.player.yaw = -0.9; g.player.pitch = -0.05; return true; })()" },
+    { "frames": 24 },
+    { "shot": "s1_sunset" },
+    { "eval": "(() => { const g = window.__game; g.setEnv('afternoon'); g.player.pos.set(96, 5.5, 70); g.player.yaw = -1.75; g.player.pitch = 0.08; return true; })()" },
+    { "frames": 24 },
+    { "shot": "s2_hall" }
+  ]
+}

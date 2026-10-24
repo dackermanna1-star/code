@@ -43,6 +43,8 @@ export function makeProp(kind: PropKind, rng: Rng): Grid {
       }
       // seats
       b.box(14, 5, 3, 17, 10, 8, P.seat); b.box(14, 5, 10, 17, 10, 15, P.seat); b.box(25, 5, 3, 28, 10, 15, P.seat);
+      // fuel tank under the floor, ahead of the rear axle
+      b.box(14, 1, 5, 20, 3, 13, P.fuelTank);
       // lights
       b.box(43, 6, 2, 44, 7, 5, P.lampWarm); b.box(43, 6, 13, 44, 7, 16, P.lampWarm);
       b.box(0, 6, 2, 1, 7, 4, P.lampRed); b.box(0, 6, 14, 1, 7, 16, P.lampRed);
@@ -65,6 +67,7 @@ export function makeProp(kind: PropKind, rng: Rng): Grid {
       b.box(49, 6, 2, 50, 8, 5, P.lampWarm); b.box(49, 6, 14, 50, 8, 17, P.lampWarm);
       b.box(0, 6, 2, 1, 9, 4, P.lampRed); b.box(0, 6, 15, 1, 9, 17, P.lampRed);
       b.box(49, 3, 2, 50, 6, 17, P.plasticBlack); b.box(0, 3, 2, 1, 5, 17, P.plasticBlack);
+      b.box(16, 1, 6, 24, 3, 13, P.fuelTank); // fuel tank
       for (const wx of [10, 40]) {
         for (let y = 0; y < 7; y++) for (let x = wx - 4; x <= wx + 4; x++) { for (let z = 1; z < 4; z++) g.set(x, y, z, 0); for (let z = 15; z < 18; z++) g.set(x, y, z, 0); }
         wheel(b, wx, 3.5, 1, 4, 3.5); wheel(b, wx, 3.5, 15, 18, 3.5);
@@ -92,8 +95,8 @@ export function makeProp(kind: PropKind, rng: Rng): Grid {
       b.box(3, 9, 2, 76, 10, 23, P.plywood);
       b.box(0, 8, 1, 2, 37, 24, P.steelDark); // rear doors
       b.box(0, 10, 2, 1, 12, 5, P.lampRed); b.box(0, 10, 20, 1, 12, 23, P.lampRed);
-      // fuel tank
-      b.cylX(9, 0.5, 2.5, 60, 72, P.alu);
+      // fuel tank (side mounted)
+      b.cylX(9, 0.5, 2.5, 60, 72, P.fuelTank);
       for (const wx of [14, 26, 88]) {
         for (let y = 0; y < 9; y++) for (let x = wx - 6; x <= wx + 6; x++) { for (let z = 1; z < 5; z++) g.set(x, y, z, 0); for (let z = 20; z < 24; z++) g.set(x, y, z, 0); }
         wheel(b, wx, 5, 1, 5, 5); wheel(b, wx, 5, 20, 24, 5);
@@ -116,6 +119,8 @@ export function makeProp(kind: PropKind, rng: Rng): Grid {
       b.box(25, 1, 3, 26, 8, 10, P.steelDark);
       wheel(b, 7, 3, 0, 3, 3); wheel(b, 7, 3, 10, 13, 3); wheel(b, 19, 3.5, 0, 3, 3.5); wheel(b, 19, 3.5, 10, 13, 3.5);
       b.box(20, 10, 2, 21, 11, 3, P.lampOrange);
+      // LPG bottle strapped over the counterweight
+      b.cylZ(3, 14.5, 2.2, 3, 11, P.propane);
       return g;
     }
     case 'container': {

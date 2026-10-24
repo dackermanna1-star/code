@@ -431,12 +431,17 @@ export class Destruction {
         opts.fromX = x - nx; opts.fromY = y - ny; opts.fromZ = z - nz;
         this.carveBody(a, x + nx * 0.05, y + ny * 0.05, z + nz * 0.05, r, opts);
       }
-      if (a.explosive > 0 && E > 600) this.detonateBody(a);
+      if (a.explosive > 0 && E > Destruction.detonateEnergy(a)) this.detonateBody(a);
     }
-    if (b && b.explosive > 0 && E > 600) this.detonateBody(b);
+    if (b && b.explosive > 0 && E > Destruction.detonateEnergy(b)) this.detonateBody(b);
     this.onImpactSound?.(x, y, z, palA || palB, palB, E);
   }
   onImpactSound: ((x: number, y: number, z: number, palA: number, palB: number, energy: number) => void) | null = null;
+
+  /** Impact energy that sets off a body's explosives: barrels and bottles go easily, a car's fuel tank takes a real crash. */
+  static detonateEnergy(b: Body): number {
+    return 600 * Math.pow(Math.max(1, b.count / Math.max(1, b.explosive)), 1.3);
+  }
 
   // ------------------------------------------------------------------ explosions
   prof: Record<string, number> = {};
@@ -477,7 +482,8 @@ export class Destruction {
       b.updateDerived();
       b.applyImpulse(nx * J, ny * J, nz * J, b.pos.x + ox, b.pos.y + oy, b.pos.z + oz);
       b.wake();
-      if (b.explosive > 0 && d - b.radius < r * 1.6) this.detonateBody(b);
+      // blasts set off nearby explosives; a vehicle's fuel tank only if the blast is close
+      if (b.explosive > 0 && d - b.radius < r * (b.explosive * 5 < b.count ? 0.7 : 1.6)) this.detonateBody(b);
     }
     lap('bodies');
     // ignite flammables around
