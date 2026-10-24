@@ -82,7 +82,7 @@ export class Game implements ObstacleHost {
   started = false;
   inMenu = true;
   editorActive = false;
-  savedPos: { x: number; z: number; yaw: number } | null = null;
+  savedPos: { x: number; y: number; z: number; yaw: number } | null = null;
   readonly notices: Notice[] = [];
   onNotice: (n: Notice) => void = () => {};
   onAction: (a: Action) => void = () => {};
@@ -174,7 +174,8 @@ export class Game implements ObstacleHost {
 
   // ------------------------------------------------------------------ vehicles
 
-  spawnVehicle(id: string, color: number, role: Role, x: number, z: number, yaw: number): VehicleEntry {
+  /** Spawn a car on the ground at (x, z); `nearY` picks the level when structures overhang (see World.spawnHeight). */
+  spawnVehicle(id: string, color: number, role: Role, x: number, z: number, yaw: number, nearY?: number): VehicleEntry {
     const def = getVehicleDef(id);
     const v = new Vehicle(def, this.world);
     v.fragility = this.settings.fragility;
@@ -186,7 +187,7 @@ export class Game implements ObstacleHost {
     this.scene.add(view.group);
     this.world.addBody(v.body);
     this.world.addController(v);
-    const y = this.world.groundHeight(x, z, 80);
+    const y = nearY === undefined ? this.world.groundHeight(x, z, 80) : this.world.spawnHeight(x, z, nearY);
     v.spawn(x, y + 0.05, z, yaw);
     const e = new VehicleEntry(v, view, role, color);
     this.vehicles.push(e);
@@ -214,15 +215,17 @@ export class Game implements ObstacleHost {
 
   spawnPlayer(id: string, color: number, at?: [number, number, number]): void {
     let x = 0, z = 10, yaw = Math.PI;
+    let nearY: number | undefined;
     if (at) [x, z, yaw] = at;
     else if (this.player) {
       const v = this.player.vehicle;
       x = v.position[0];
       z = v.position[2];
+      nearY = v.position[1];
       yaw = Math.atan2(v.forward[0], v.forward[2]);
     }
     if (this.player) this.removeVehicle(this.player);
-    const e = this.spawnVehicle(id, color, 'player', x, z, yaw);
+    const e = this.spawnVehicle(id, color, 'player', x, z, yaw, nearY);
     this.player = e;
     storeSet('wf.vehicle', id);
     storeSet('wf.color', String(color));
@@ -237,7 +240,7 @@ export class Game implements ObstacleHost {
     const base = near ?? { x: this.player?.vehicle.position[0] ?? 0, z: this.player?.vehicle.position[2] ?? 0 };
     const a = Math.random() * Math.PI * 2;
     const x = base.x + Math.cos(a) * 25, z = base.z + Math.sin(a) * 25;
-    const e = this.spawnVehicle(vid, color, 'ai', x, z, Math.atan2(base.x - x, base.z - z));
+    const e = this.spawnVehicle(vid, color, 'ai', x, z, Math.atan2(base.x - x, base.z - z), this.player?.vehicle.position[1]);
     const arena = ZONES.find((zz) => zz.id === 'arena')!;
     const inArena = Math.hypot(base.x - arena.x, base.z - arena.z) < 90;
     e.ai = new AIDriver(new THREE.Vector3(inArena ? arena.x : base.x, 0, inArena ? arena.z : base.z), inArena ? 55 : 120);
@@ -282,7 +285,7 @@ export class Game implements ObstacleHost {
   savePosition(): void {
     const v = this.player?.vehicle;
     if (!v) return;
-    this.savedPos = { x: v.position[0], z: v.position[2], yaw: Math.atan2(v.forward[0], v.forward[2]) };
+    this.savedPos = { x: v.position[0], y: v.position[1], z: v.position[2], yaw: Math.atan2(v.forward[0], v.forward[2]) };
     this.notify('Position saved', 'info');
   }
 
@@ -294,7 +297,7 @@ export class Game implements ObstacleHost {
     }
     p.view.resetVisuals();
     const s = this.savedPos;
-    p.vehicle.spawn(s.x, this.world.groundHeight(s.x, s.z, 120) + 0.05, s.z, s.yaw);
+    p.vehicle.spawn(s.x, this.world.spawnHeight(s.x, s.z, s.y) + 0.05, s.z, s.yaw);
     p.fire = 0;
     this.rig.snap(p.vehicle);
   }

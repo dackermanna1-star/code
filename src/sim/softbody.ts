@@ -19,6 +19,9 @@ export const BEAM_ATTACH = 16;
 /** Pulls only (rope/tether), no compression. */
 export const BEAM_ROPE = 32;
 
+/** Speed (m/s) a beam's stored energy may give its lighter node at most; see bCrushCap. */
+const MAX_RELEASE_SPEED = 12;
+
 export const NODE_COLLIDE = 1;
 /** Node participates in node-vs-triangle collisions with other bodies. */
 export const NODE_SOFTCOLLIDE = 2;
@@ -183,6 +186,11 @@ export class SoftBodyBuilder {
       sb.bFlags0[b] = o.flags ?? 0;
       sb.bPart[b] = o.part ?? 0;
       sb.bZone[b] = o.zone ?? 0;
+      // energy at the cap, F^2 / 2k, could give the lighter node at most ~12 m/s
+      const mMin = Math.min(ax.o.mass, bx.o.mass);
+      let cap = MAX_RELEASE_SPEED * Math.sqrt(o.k * mMin);
+      if (Number.isFinite(sb.bYC0[b])) cap = Math.max(cap, 2 * sb.bYC0[b]);
+      sb.bCrushCap[b] = cap;
     }
     // collision triangles, oriented away from the rest centroid
     let gx = 0, gy = 0, gz = 0;
@@ -260,6 +268,12 @@ export class SoftBody {
   bStr: Float64Array;
   bMaxStretch: Float32Array;
   bMinRatio: Float32Array;
+  /**
+   * Largest force (N) a beam may carry in extreme compression (crushed solid,
+   * or an elastic beam squeezed by a machine that cannot be stopped). Past it
+   * the beam gives way, so it never stores enough energy to fling a node.
+   */
+  bCrushCap: Float32Array;
   bFlags: Uint8Array;
   bFlags0: Uint8Array;
   bPart: Uint16Array;
@@ -377,6 +391,7 @@ export class SoftBody {
     this.bStr = new Float64Array(m);
     this.bMaxStretch = new Float32Array(m);
     this.bMinRatio = new Float32Array(m);
+    this.bCrushCap = new Float32Array(m);
     this.bFlags = new Uint8Array(m);
     this.bFlags0 = new Uint8Array(m);
     this.bPart = new Uint16Array(m);
@@ -642,7 +657,7 @@ export class SoftBody {
   beamForces(): void {
     const pos = this.pos, vel = this.vel, frc = this.frc;
     const A = this.bA, B = this.bB, L = this.bL, L0 = this.bL0, K = this.bK, C = this.bC;
-    const YC = this.bYC, YT = this.bYT, S = this.bStr, F = this.bFlags, MS = this.bMaxStretch, MR = this.bMinRatio;
+    const YC = this.bYC, YT = this.bYT, S = this.bStr, F = this.bFlags, MS = this.bMaxStretch, MR = this.bMinRatio, CC = this.bCrushCap;
     const BF = this.bForce;
     let energy = 0;
     const m = this.m;
@@ -700,6 +715,29 @@ export class SoftBody {
           // hardening: crushed material gets progressively stiffer to yield further
           YC[b] *= 1.0005;
         }
+      }
+      if (fs < -CC[b]) {
+        // extreme compression gives way instead of storing unbounded energy
+        const nr = d + CC[b] / k;
+        if (nr < L0[b] * 0.04) {
+          F[b] = fl | BEAM_BROKEN;
+          BF[b] = 0;
+          this.brokenBeams.push(b);
+          this.structVersion++;
+          continue;
+        }
+        energy += CC[b] * (rest - nr);
+        rest = nr;
+        L[b] = nr;
+        fs = -CC[b];
+        damp *= 0.15;
+      } else if (fs > CC[b] && fl & BEAM_NODEFORM) {
+        // elastic-only beams can't yield in tension, so they snap
+        F[b] = fl | BEAM_BROKEN;
+        BF[b] = 0;
+        this.brokenBeams.push(b);
+        this.structVersion++;
+        continue;
       }
       if (fs > S[b] || -fs > S[b]) {
         F[b] = fl | BEAM_BROKEN;

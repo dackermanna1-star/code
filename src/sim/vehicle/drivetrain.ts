@@ -27,6 +27,10 @@ export class Drivetrain {
   clutchTorque = 0;
   limiterCut = 0;
   misfire = 0;
+  /** Seconds since the last upshift (kickdown is held off right after one). */
+  sinceUpshift = 10;
+  /** Traction control's torque limit (1 = none), set by the vehicle each frame. */
+  tcLimit = 1;
   /** Drive torque per wheel (FL, FR, RL, RR). */
   readonly wheelTorque = new Float64Array(4);
   /** Torque share per wheel of the transmission output. */
@@ -75,6 +79,7 @@ export class Drivetrain {
     const n = this.gearCount;
     to = clamp(to, -1, n);
     if (to === this.gear && this.shiftTimer <= 0) return;
+    if (to > this.gear) this.sinceUpshift = 0;
     this.pendingGear = to;
     this.shiftTimer = this.def.trans.shiftTime;
   }
@@ -104,6 +109,7 @@ export class Drivetrain {
   step(dt: number, throttle: number, wOmega: Float64Array, wInertia: Float64Array, attached: ArrayLike<boolean>, rnd: number): void {
     const e = this.def.engine;
     const t = this.def.trans;
+    this.sinceUpshift += dt;
     // gear change in progress
     if (this.shiftTimer > 0) {
       this.shiftTimer -= dt;
@@ -124,8 +130,16 @@ export class Drivetrain {
     const rpmE = this.omega * RPM;
     const rpmW = Math.abs(G * wOut) * RPM;
 
-    // throttle shaping
-    let thr = this.running ? throttle : 0;
+    // Pulling away: the clutch slips until the driveline catches up with the
+    // engine. The harder the throttle, the higher the engine revs before the
+    // clutch fully bites (about a third of the redline when floored).
+    const launchRpm = e.idleRpm + 600 + throttle * (e.redline * 0.32 - 600);
+    const launching = G !== 0 && this.shiftTimer <= 0 && rpmW < rpmE - 150 && rpmW < launchRpm;
+
+    // throttle shaping; traction control trims the throttle once rolling, and
+    // the clutch torque while launching so the engine doesn't bog
+    let thr = this.running ? throttle * (launching ? 1 : this.tcLimit) : 0;
+    if (launching && this.tcLimit < 1) thr *= clamp((launchRpm + 1200 - rpmE) / 600, 0, 1);
     if (this.running && rpmE < e.idleRpm) thr = Math.max(thr, clamp((e.idleRpm - rpmE) / 300, 0, 0.6));
     if (rpmE > e.redline) this.limiterCut = 0.03;
     if (this.limiterCut > 0) {
@@ -153,14 +167,14 @@ export class Drivetrain {
     // automatic clutch engagement
     let target = 0;
     if (G !== 0 && this.shiftTimer <= 0) {
-      const launch = throttle > 0.02 ? smoothstep(e.idleRpm + 100, e.idleRpm + 1300, rpmE) : 0;
+      const launch = throttle > 0.02 ? smoothstep(e.idleRpm + 100, launchRpm, rpmE) : 0;
       const rolling = smoothstep(e.idleRpm - 200, e.idleRpm + 250, rpmW);
       target = Math.max(launch, rolling);
       if (!this.running) target = rolling;
     }
     const rate = target > this.clutch ? 6 : 25;
     this.clutch += clamp(target - this.clutch, -rate * dt, rate * dt);
-    const cap = this.clutch * this.peakTorque * 1.9;
+    const cap = this.clutch * this.peakTorque * 1.9 * (launching ? this.tcLimit : 1);
 
     // clutch constraint
     const Ie = e.inertia;
@@ -212,7 +226,11 @@ export class Drivetrain {
       this.shift(this.gear + 1);
     } else if (this.gear > 1) {
       const rpmLower = speedRpm * Math.abs(this.ratio(this.gear - 1));
-      if (rpmNow < down && rpmLower < e.redline * 0.88) this.shift(this.gear - 1);
+      // Right after an upshift (made early by wheelspin, say) the revs sit low;
+      // kicking straight back down would hunt between gears, so only drop a
+      // gear then if the engine is really lugging.
+      const settled = this.sinceUpshift > 1.2 || rpmNow < e.idleRpm + 400;
+      if (rpmNow < down && rpmLower < e.redline * 0.88 && settled) this.shift(this.gear - 1);
     }
   }
 }

@@ -428,7 +428,13 @@ export function buildVehicleStructure(def: VehicleDef): VehicleStructure {
         const g = shape.greenhouse((za + zc) / 2);
         if (diag) cat = crumple ? C.diagCrumple : C.diag;
         else if (frameish(ra) && frameish(rc)) cat = crumple ? C.frameCrumple : C.frame;
-        else if (top(ka) && top(kc) && g > 0.3) cat = C.roof;
+        else if (top(ka) && top(kc) && g > 0.3) {
+          // along the windshield and rear window edges these are the A- and C-pillars
+          const zm = (za + zc) / 2;
+          const aPillar = zm < P.zWindshieldBase && zm > P.zRoofFront;
+          const cPillar = zm < P.zRoofRear && zm > P.zRearWindowBase;
+          cat = ka !== T && kc !== T && (aPillar || cPillar) ? C.pillar : C.roof;
+        }
         else if (sa === sc && g > 0.3 && ((ka === L2 && kc === L3) || (ka === L3 && kc === L2) || (ka === R2 && kc === R3) || (ka === R3 && kc === R2))) {
           // pillars only at pillar-ish stations
           const kind = stations[sa].kind;
@@ -682,7 +688,8 @@ export function buildVehicleStructure(def: VehicleDef): VehicleStructure {
         windows.push({
           name: `side${di === 0 ? 'F' : 'R'}${side > 0 ? 'L' : 'R'}`,
           nodes: [stations[a].nodes[k2], stations[a].nodes[k3], stations[c].nodes[k2], stations[c].nodes[k3]],
-          beams: beamsAmong(frameSet(Math.max(0, a - 1), Math.min(NS - 1, c + 1), [k2, k3])),
+          // the door's own window frame; the cowl ahead and pillar behind are not part of it
+          beams: beamsAmong(frameSet(a, c, [k2, k3])),
           laminated: false,
         });
       }
@@ -738,7 +745,9 @@ function calibrateCrush(body: SoftBody, stations: StationInfo[], def: VehicleDef
   const s = def.structure;
   const base = 240000 * (def.mass / 1500) * s.strength;
   const zFw = P.zWindshieldBase;
-  const zRb = Math.max(P.zRearWindowBase, P.zRearAxle + P.archRadius + 0.05);
+  // the passenger cell runs back to the rear seatback (about the rear axle) or
+  // the rear window base, whichever is further back; the crumple zone is behind
+  const zRb = Math.max(P.zRearWindowBase, P.zRearAxle - 0.1);
   const zF = P.length / 2, zR = -P.length / 2;
   const target = (z: number): number => {
     if (z > zFw) {
@@ -768,7 +777,10 @@ function calibrateCrush(body: SoftBody, stations: StationInfo[], def: VehicleDef
       list.push(b);
     }
     if (S <= 0) continue;
-    const f = target(zp) / S;
+    let f = target(zp) / S;
+    // the passenger cell's target is a floor: strengthen it if needed, never
+    // weaken it (a softened A-pillar buckles and breaks glass in slow crashes)
+    if (zp <= zFw && zp >= zRb) f = Math.max(f, 1);
     for (const b of list) scale[b] = Math.min(scale[b], f);
   }
   for (let b = 0; b < body.m; b++) {

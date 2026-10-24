@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { World } from '../src/sim/world.ts';
 import { Heightfield } from '../src/sim/terrain.ts';
-import { SoftBodyBuilder, SoftBody } from '../src/sim/softbody.ts';
+import { SoftBodyBuilder, SoftBody, BEAM_NODEFORM } from '../src/sim/softbody.ts';
 import { Collider } from '../src/sim/colliders.ts';
 import { mat3FromYaw } from '../src/sim/math.ts';
 
@@ -169,4 +169,52 @@ test('bodies spawned on a slope are lifted clear of the ground', () => {
     peak = Math.max(peak, long.kineticEnergy());
   }
   assert.ok(peak < 1600 * 9.81 * 0.5, `peak kinetic energy ${peak.toFixed(0)} J`);
+});
+
+test('a thin rod sweeping into a body pushes it instead of passing through', () => {
+  const w = flatWorld();
+  const box = makeBox(1, 80, 2e5, 60);
+  box.place(mat3FromYaw(0), 0, 0.5, 0);
+  w.addBody(box);
+  // a thin vertical rod moving in +x through the middle of the box's face
+  const rod = Collider.capsule(0.04, 1.5);
+  w.addKinematic(rod);
+  let x = -1.2;
+  for (let i = 0; i < 2000; i++) {
+    x += 3 / 2000;
+    rod.setPosition(x, 1.5, 0);
+    rod.lin[0] = 3;
+    w.substep();
+  }
+  box.computeBounds();
+  // the rod ends at x = 1.8: the box must have been carried ahead of it
+  assert.ok(box.min[0] > x - 0.2, `box min x ${box.min[0].toFixed(2)} vs rod at ${x.toFixed(2)}`);
+});
+
+test('a press crushing an elastic strut does not fling its nodes', () => {
+  const w = flatWorld();
+  // a stiff, unbreakable vertical strut (like a beam of a concrete prop or an
+  // engine block) squeezed straight down by a machine that cannot be stopped
+  const b = new SoftBodyBuilder();
+  b.addPart('strut');
+  const lo = b.addNode(0, 0, 0, { mass: 20 });
+  const hi = b.addNode(0, 1, 0, { mass: 20 });
+  b.addBeam(lo, hi, { k: 5e6, c: 200, flags: BEAM_NODEFORM });
+  const strut = b.build();
+  strut.place(mat3FromYaw(0), 0, 0.01, 0);
+  w.addBody(strut);
+  const plate = Collider.box(1, 0.25, 1);
+  w.addKinematic(plate);
+  let peak = 0;
+  for (let i = 0; i < 2000 * 2; i++) {
+    // press the top node down by half a metre, then snap the plate away
+    const t = i / 2000;
+    const y = t < 1 ? 1.27 - 0.5 * t : 5;
+    plate.setPosition(0, y, 0);
+    plate.lin[1] = t < 1 ? -0.5 : 0;
+    w.substep();
+    peak = Math.max(peak, Math.hypot(strut.vel[3], strut.vel[4], strut.vel[5]));
+  }
+  assert.ok(!strut.unstable);
+  assert.ok(peak < 25, `peak node speed ${peak.toFixed(1)} m/s`);
 });

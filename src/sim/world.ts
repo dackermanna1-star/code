@@ -6,6 +6,8 @@ import {
   Collider,
   CF_NO_WHEELS,
   CF_TRIGGER,
+  SHAPE_CAPSULE,
+  SHAPE_CYLINDER,
   pointQuery,
   rayQuery,
   makeRayHit,
@@ -39,6 +41,10 @@ export interface ContactSample {
 const MAX_NODE_SPEED = 300;
 /** An awake body must move at least this fast (m/s) to wake sleeping bodies it touches. */
 const WAKE_SPEED = 0.15;
+/** Capsules and cylinders thinner than this (radius, m) also collide with body triangles. */
+const THIN_RADIUS = 0.35;
+/** Spacing (m) of the sample points along a thin collider's axis. */
+const THIN_STEP = 0.2;
 
 export class World {
   dt = 1 / 2000;
@@ -173,6 +179,10 @@ export class World {
       this.integrate(b, dt);
     }
     this.bodyBodyCollisions();
+    for (let i = 0; i < bodies.length; i++) {
+      const b = bodies[i];
+      if (b.active && !b.sleeping && b.t > 0) this.thinCollidersVsTris(b);
+    }
     for (let i = 0; i < ctrls.length; i++) ctrls[i].postSubstep?.(dt);
 
     if (refresh) {
@@ -456,6 +466,121 @@ export class World {
     }
   }
 
+  /**
+   * Thin colliders (spikes, poles, a mace's arm) are narrower than the gaps
+   * between a body's nodes, so node contacts alone would let them thread
+   * straight through a panel and leave the body skewered. Points along their
+   * axis are also pushed against the body's triangles, so they dent the
+   * panel instead.
+   */
+  private thinCollidersVsTris(b: SoftBody): void {
+    const cands = b.candidates as Collider[];
+    const skin = b.skin;
+    let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+    let any = false;
+    for (let k = 0; k < cands.length; k++) {
+      const c = cands[k];
+      if (!c.enabled || c.flags & CF_TRIGGER || (c.shape !== SHAPE_CAPSULE && c.shape !== SHAPE_CYLINDER) || c.half[0] >= THIN_RADIUS) continue;
+      if (!aabbOverlap(b.min, b.max, c.min, c.max, skin)) continue;
+      any = true;
+      x0 = Math.min(x0, c.min[0]); y0 = Math.min(y0, c.min[1]); z0 = Math.min(z0, c.min[2]);
+      x1 = Math.max(x1, c.max[0]); y1 = Math.max(y1, c.max[1]); z1 = Math.max(z1, c.max[2]);
+    }
+    if (!any) return;
+    const pad = THIN_RADIUS + skin;
+    const hash = this.triHash;
+    hash.build(b, Math.max(x0, b.min[0]) - pad, Math.max(y0, b.min[1]) - pad, Math.max(z0, b.min[2]) - pad, Math.min(x1, b.max[0]) + pad, Math.min(y1, b.max[1]) + pad, Math.min(z1, b.max[2]) + pad, THIN_RADIUS);
+    if (hash.count === 0) return;
+    const pos = b.pos, vel = b.vel, im = b.invMass;
+    const sv = this._sv;
+    const maxPush = 0.01;
+    for (let k = 0; k < cands.length; k++) {
+      const c = cands[k];
+      if (!c.enabled || c.flags & CF_TRIGGER || (c.shape !== SHAPE_CAPSULE && c.shape !== SHAPE_CYLINDER) || c.half[0] >= THIN_RADIUS) continue;
+      if (!aabbOverlap(b.min, b.max, c.min, c.max, skin)) continue;
+      const r = c.half[0], hl = c.half[1];
+      const band = r + skin;
+      // local Y axis in world space
+      const axx = c.rot[1], axy = c.rot[4], axz = c.rot[7];
+      const steps = Math.max(1, Math.ceil((2 * hl) / THIN_STEP));
+      for (let s = 0; s <= steps; s++) {
+        const f = -hl + (2 * hl * s) / steps;
+        const px = c.pos[0] + axx * f, py = c.pos[1] + axy * f, pz = c.pos[2] + axz * f;
+        if (px < b.min[0] - band || px > b.max[0] + band || py < b.min[1] - band || py > b.max[1] + band || pz < b.min[2] - band || pz > b.max[2] + band) continue;
+        // nearest triangle that the point is in front of, within the contact band
+        let best = -1, dist = band, u = 0, v = 0, w = 0;
+        let start = hash.cellStart(px, py, pz);
+        while (start >= 0) {
+          const t = hash.entryTri[start];
+          start = hash.entryNext[start];
+          const t3 = t * 3;
+          const tnx = hash.triN[t3], tny = hash.triN[t3 + 1], tnz = hash.triN[t3 + 2];
+          const ta = b.tA[t] * 3;
+          const ax = pos[ta], ay = pos[ta + 1], az = pos[ta + 2];
+          const d = (px - ax) * tnx + (py - ay) * tny + (pz - az) * tnz;
+          if (d < 0 || d >= dist) continue;
+          const qx = px - tnx * d, qy = py - tny * d, qz = pz - tnz * d;
+          const tb = b.tB[t] * 3, tc = b.tC[t] * 3;
+          const e0x = pos[tb] - ax, e0y = pos[tb + 1] - ay, e0z = pos[tb + 2] - az;
+          const e1x = pos[tc] - ax, e1y = pos[tc + 1] - ay, e1z = pos[tc + 2] - az;
+          const wx = qx - ax, wy = qy - ay, wz = qz - az;
+          const d00 = e0x * e0x + e0y * e0y + e0z * e0z;
+          const d01 = e0x * e1x + e0y * e1y + e0z * e1z;
+          const d11 = e1x * e1x + e1y * e1y + e1z * e1z;
+          const d20 = wx * e0x + wy * e0y + wz * e0z;
+          const d21 = wx * e1x + wy * e1y + wz * e1z;
+          const den = d00 * d11 - d01 * d01;
+          if (den < 1e-12) continue;
+          const bv = (d11 * d20 - d01 * d21) / den;
+          const bw = (d00 * d21 - d01 * d20) / den;
+          const bu = 1 - bv - bw;
+          if (bu < -0.02 || bv < -0.02 || bw < -0.02) continue;
+          best = t;
+          dist = d;
+          u = bu;
+          v = bv;
+          w = bw;
+        }
+        if (best < 0) continue;
+        const nx = hash.triN[best * 3], ny = hash.triN[best * 3 + 1], nz = hash.triN[best * 3 + 2];
+        const ia = b.tA[best], ib = b.tB[best], ic = b.tC[best];
+        const imT = u * u * im[ia] + v * v * im[ib] + w * w * im[ic];
+        if (imT <= 0) continue;
+        // the collider is immovable: the panel gives way
+        const kp = Math.min(band - dist, maxPush) / imT;
+        const ka = kp * u * im[ia], kb = kp * v * im[ib], kc = kp * w * im[ic];
+        pos[ia * 3] -= nx * ka; pos[ia * 3 + 1] -= ny * ka; pos[ia * 3 + 2] -= nz * ka;
+        pos[ib * 3] -= nx * kb; pos[ib * 3 + 1] -= ny * kb; pos[ib * 3 + 2] -= nz * kb;
+        pos[ic * 3] -= nx * kc; pos[ic * 3 + 1] -= ny * kc; pos[ic * 3 + 2] -= nz * kc;
+        let cvx = 0, cvy = 0, cvz = 0;
+        if (c.kinematic) {
+          c.velocityAt(px, py, pz, sv);
+          cvx = sv[0]; cvy = sv[1]; cvz = sv[2];
+        }
+        const tvx = u * vel[ia * 3] + v * vel[ib * 3] + w * vel[ic * 3];
+        const tvy = u * vel[ia * 3 + 1] + v * vel[ib * 3 + 1] + w * vel[ic * 3 + 1];
+        const tvz = u * vel[ia * 3 + 2] + v * vel[ib * 3 + 2] + w * vel[ic * 3 + 2];
+        // panel moving out into the collider (or the collider moving into it)
+        const vn = (tvx - cvx) * nx + (tvy - cvy) * ny + (tvz - cvz) * nz;
+        if (vn <= 0) continue;
+        const jn = vn / imT;
+        const ja = jn * u * im[ia], jb = jn * v * im[ib], jc = jn * w * im[ic];
+        vel[ia * 3] -= nx * ja; vel[ia * 3 + 1] -= ny * ja; vel[ia * 3 + 2] -= nz * ja;
+        vel[ib * 3] -= nx * jb; vel[ib * 3 + 1] -= ny * jb; vel[ib * 3 + 2] -= nz * jb;
+        vel[ic * 3] -= nx * jc; vel[ic * 3 + 1] -= ny * jc; vel[ic * 3 + 2] -= nz * jc;
+        if (vn > b.impactSpeed) {
+          b.impactSpeed = vn;
+          b.impactX = px;
+          b.impactY = py;
+          b.impactZ = pz;
+          b.impactMaterial = b.material[ia];
+        }
+        if (vn > c.contactSpeed || c.lastContactFrame !== this.frameIndex) c.contactSpeed = vn;
+        c.lastContactFrame = this.frameIndex;
+      }
+    }
+  }
+
   /** Nodes of `a` against triangles of `b`. */
   private nodesVsTris(a: SoftBody, b: SoftBody): void {
     if (b.t === 0) return;
@@ -697,6 +822,16 @@ export class World {
     b.computeBounds();
   }
 
+  /**
+   * Surface to put a vehicle on near height `nearY`: cast down from just above
+   * it (never from inside the terrain), so a reset under a gantry or bridge
+   * lands back on the road rather than on the structure overhead.
+   */
+  spawnHeight(x: number, z: number, nearY: number): number {
+    const terrainY = this.terrain ? this.terrain.heightAt(x, z) : 0;
+    return this.groundHeight(x, z, Math.max(nearY + 2.5, terrainY + 0.5));
+  }
+
   /** Ground height below a point, including colliders (for spawning). */
   groundHeight(x: number, z: number, fromY = 300): number {
     const out = makeRayHit();
@@ -799,11 +934,11 @@ class TriHash {
     return this.head[k];
   }
 
-  build(b: SoftBody, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): void {
+  build(b: SoftBody, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number, extraPad = 0): void {
     this.stamp++;
     this.count = 0;
     if (this.triN.length < b.t * 3) this.triN = new Float64Array(b.t * 3 * 2);
-    const p = b.pos, c = this.cell, skin = b.skin + 0.02;
+    const p = b.pos, c = this.cell, skin = b.skin + 0.02 + extraPad;
     const N = this.triN;
     for (let t = 0; t < b.t; t++) {
       if (!b.tEnabled[t]) continue;

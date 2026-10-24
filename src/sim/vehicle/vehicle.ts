@@ -13,6 +13,9 @@ import { makeRayHit, CF_SPIKES, type RayHit, type Collider } from '../colliders.
 import { SURFACES, Surface } from '../surfaces.ts';
 import { clamp, extractRotation, mat3FromQuat, mat3FromYaw, quatFromMat3, Rng, valueNoise2 } from '../math.ts';
 
+/** Wheel loads are capped at this multiple of the static wheel load (see stepWheel). */
+const WHEEL_FORCE_CAP = 30;
+
 export interface VehicleControls {
   throttle: number;
   brake: number;
@@ -248,6 +251,8 @@ export class Vehicle implements SubstepController {
   private wInertia = new Float64Array(4);
   private attached = [true, true, true, true];
   private reverseTimer = 0;
+  /** Traction control's throttle multiplier (1 = no intervention). */
+  tcFactor = 1;
   private rng = new Rng(1234);
   private substepIndex = 0;
   private restAxleZ: number[];
@@ -361,7 +366,7 @@ export class Vehicle implements SubstepController {
     const fx = this.forward[0], fz = this.forward[2];
     const yaw = Math.atan2(fx, fz);
     const x = this.position[0], z = this.position[2];
-    const y = this.world.groundHeight(x, z, this.position[1] + 4);
+    const y = this.world.spawnHeight(x, z, this.position[1]);
     this.spawn(x, y + 0.15, z, yaw);
   }
 
@@ -461,12 +466,19 @@ export class Vehicle implements SubstepController {
         }
       } else this.reverseTimer = 0;
     }
-    // traction control
+    // traction control: an integral controller holding the driven wheels just
+    // past the tire's peak slip (cut fast, restore gently), instead of an
+    // on/off cut that bogs the engine and lets the wheels shudder
     if (this.tractionControl && thr > 0) {
       let maxK = 0;
       for (let i = 0; i < 4; i++) if (dtn.share[i] > 0 && this.wheels[i].inContact) maxK = Math.max(maxK, this.wheels[i].kappa * Math.sign(dtn.ratio() || 1));
-      if (maxK > 0.18) thr *= clamp(1 - (maxK - 0.18) * 4, 0.15, 1);
-    }
+      const err = maxK - this.def.tire.kappaPeak * 1.3;
+      if (err > 0) this.tcFactor -= Math.min(err, 0.3) * 18 * dt;
+      else this.tcFactor += 1.2 * dt;
+      this.tcFactor = clamp(this.tcFactor, 0.25, 1);
+    } else this.tcFactor = 1;
+    // the drivetrain applies it: clutch torque while pulling away, throttle after
+    dtn.tcLimit = this.tcFactor;
     c.throttle = thr;
     c.brake = brk;
     c.handbrake = inp.handbrake;
@@ -582,6 +594,7 @@ export class Vehicle implements SubstepController {
     if (wh.queryPhase % 4 === 0 || !wh.hasPlane) this.queryContact(wh, cx, cy, cz, ux, uy, uz, fx, fy, fz, axx, axy, axz);
 
     // ---- suspension forces
+    const staticLoad = (this.body.totalMass * 9.81) / 4;
     const susp = def.susp;
     const vmu = vmx * ux + vmy * uy + vmz * uz;
     const comp = wh.droopLen - d;
@@ -629,6 +642,9 @@ export class Vehicle implements SubstepController {
           wh.rimHit = Math.max(wh.rimHit, e);
         }
         if (fn < 0) fn = 0;
+        if (fn > wh.peakLoad) wh.peakLoad = fn;
+        // past this the rim and suspension bend instead of passing the load on
+        if (fn > WHEEL_FORCE_CAP * staticLoad) fn = WHEEL_FORCE_CAP * staticLoad;
         // contact frame: f_c = normalize(axle x n), l_c = n x f_c
         let lfx = axy * n2 - axz * n1, lfy = axz * n0 - axx * n2, lfz = axx * n1 - axy * n0;
         const lfl = Math.hypot(lfx, lfy, lfz);
@@ -645,7 +661,7 @@ export class Vehicle implements SubstepController {
           const kap = wh.ux / tdef.relaxLong;
           const tal = wh.uy / tdef.relaxLat;
           const surf = SURFACES[wh.surface];
-          const fz0 = (this.body.totalMass * 9.81) / 4;
+          const fz0 = staticLoad;
           const loadSens = clamp(1 - 0.09 * (fn / fz0 - 1), 0.7, 1.12);
           const mu = tdef.mu * surf.grip * loadSens * (1 - wh.flat * 0.5);
           const fnTire = Math.min(fn, fz0 * 6);
@@ -679,8 +695,6 @@ export class Vehicle implements SubstepController {
           ftx = n0 * fn + lfx * tfx + llx * tfy;
           fty = n1 * fn + lfy * tfx + lly * tfy;
           ftz = n2 * fn + lfz * tfx + llz * tfy;
-          // tire load events
-          if (fn > wh.peakLoad) wh.peakLoad = fn;
           if (wh.cflags & CF_SPIKES && !wh.punctured) {
             wh.punctured = true;
             wh.deflate = 1;
@@ -727,7 +741,14 @@ export class Vehicle implements SubstepController {
     wh.d = d;
 
     // ---- chassis forces
-    const fm = fSusp + impulse / dt;
+    // An end-stop impulse lands on a few light mount nodes within one substep;
+    // capped, the excess goes into bending the suspension instead of flinging
+    // those nodes off the car.
+    let fm = fSusp + impulse / dt;
+    if (Math.abs(fm) > wh.peakLoad) wh.peakLoad = Math.abs(fm);
+    const fCap = WHEEL_FORCE_CAP * staticLoad;
+    if (fm > fCap) fm = fCap;
+    else if (fm < -fCap) fm = -fCap;
     const fmx = ux * fm, fmy = uy * fm, fmz = uz * fm;
     const fpx = ftx - ux * ftu, fpy = fty - uy * ftu, fpz = ftz - uz * ftu;
     for (let k = 0; k < nn; k++) {
@@ -890,8 +911,9 @@ export class Vehicle implements SubstepController {
     st.windows.forEach((w, i) => {
       if (this.windowState[i] === 2) return;
       const strain = this.maxStrain(w.beams);
+      // laminated glass cracks early but holds together until the frame is badly bent
       const crackAt = w.laminated ? 0.012 : 0.022;
-      const shatterAt = w.laminated ? 0.05 : 0.03;
+      const shatterAt = w.laminated ? 0.09 : 0.03;
       let impactNear = false;
       const cen = this.nodeCenter(w.nodes);
       if (body.impactSpeed > 10) {
