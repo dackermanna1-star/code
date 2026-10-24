@@ -87,8 +87,9 @@ export class World {
 
   /** True if the chunk containing the voxel may contain solid voxels. */
   chunkMayBeSolid(x: number, y: number, z: number): boolean {
-    if ((x | y | z) < 0) return y < 0;
-    if (x >= this.sx || y >= this.sy || z >= this.sz) return false;
+    if (y < 0) return true;
+    if (y >= this.sy) return false;
+    if (x < 0 || z < 0 || x >= this.sx || z >= this.sz) return true; // terrain continues outside the map
     const ci = (x >> 4) + this.ncx * ((z >> 4) + this.ncz * (y >> 4));
     const k = this.kind[ci];
     if (k === CK.Empty) return false;

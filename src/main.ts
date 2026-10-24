@@ -5,6 +5,11 @@ import { RegionMeshes } from './world/meshmanager';
 import { generateTestMap } from './map/testmap';
 import { Camera } from './engine/camera';
 import { Input } from './engine/input';
+import { Physics } from './physics/physics';
+import { Body } from './physics/body';
+import { BodyMeshes } from './game/bodymeshes';
+import { P } from './world/materials';
+import { Rng } from './engine/math';
 
 const env: Environment = {
   sunDir: norm([-0.45, 0.52, -0.33]),
@@ -38,11 +43,30 @@ async function main() {
     const [x, y, z, yaw, pitch] = params.get('cam')!.split(',').map(Number);
     cam.x = x; cam.y = y; cam.z = z; cam.yaw = yaw; cam.pitch = pitch;
   }
+  const physics = new Physics(world);
+  const bodyMeshes = new BodyMeshes(renderer);
+  const rng = new Rng(7);
+  const spawn = () => {
+    for (let i = 0; i < 40; i++) {
+      const sx = rng.int(2, 12), sy = rng.int(2, 10), sz = rng.int(2, 12);
+      const vox = new Uint8Array(sx * sy * sz).fill(rng.pick([P.crate, P.concrete, P.brick, P.steel, P.plank, P.paintRed]));
+      const b = new Body(sx, sy, sz, vox);
+      b.computeMass(); b.buildSamples();
+      b.pos.set(28 + rng.range(-3, 3), 6 + i * 0.8, 40 + rng.range(-3, 3));
+      b.rot.setAxisAngle(0.3, 0.8, 0.5, rng.range(0, 3)).normalize();
+      b.ang.set(rng.range(-2, 2), rng.range(-2, 2), rng.range(-2, 2));
+      physics.add(b);
+    }
+  };
+  if (params.has('phys')) spawn();
+  let acc = 0;
   const input = new Input(canvas);
   canvas.addEventListener('click', () => input.requestLock());
   let last = performance.now();
   const g = (window as any);
-  g.__game = { world, meshes, renderer, cam, ready: false, frames: 0 };
+  g.__game = { world, meshes, renderer, cam, ready: false, frames: 0, physics,
+    extraStats: () => ({ phys: physics.stats, bodies: physics.bodies.length, sleeping: physics.bodies.filter((b) => b.sleeping).length,
+      ys: physics.bodies.slice(0, 8).map((b) => +b.pos.y.toFixed(2)) }) };
   function frame() {
     const now = performance.now();
     const dt = Math.min(0.05, (now - last) / 1000);
@@ -57,10 +81,18 @@ async function main() {
     if (input.isDown('KeyD')) { cam.x -= fz * sp; cam.z += fx * sp; }
     if (input.isDown('Space')) cam.y += sp;
     if (input.isDown('KeyC')) cam.y -= sp;
+    if (input.wasPressed('KeyP')) spawn();
+    if (g.__game.ready || params.has('physnow')) {
+      acc += dt;
+      let steps = 0;
+      while (acc >= 1 / 60 && steps < 3) { physics.step(1 / 60); acc -= 1 / 60; steps++; }
+      if (steps === 3) acc = 0;
+    }
+    bodyMeshes.update(physics.bodies, Math.min(1, acc * 60));
     meshes.update(cam.x, cam.y, cam.z);
     if (!g.__game.ready && meshes.pending > 0 && g.__game.frames > 2) { g.__game.frames++; input.endFrame(); requestAnimationFrame(frame); return; }
     cam.update(canvas.clientWidth / Math.max(1, canvas.clientHeight));
-    renderer.render(cam, env, [], meshes, [], dt);
+    renderer.render(cam, env, [], meshes, bodyMeshes.draws, dt);
     input.endFrame();
     g.__game.frames++;
     if (meshes.pending === 0) g.__game.ready = true;
