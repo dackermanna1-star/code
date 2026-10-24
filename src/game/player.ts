@@ -90,7 +90,6 @@ export class Player {
   }
 
   update(dt: number, input: Input, controlsEnabled: boolean): void {
-    const g = this.game;
     // look
     if (controlsEnabled) {
       this.yaw -= input.mouseDX * input.sensitivity;

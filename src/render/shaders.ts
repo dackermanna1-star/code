@@ -824,13 +824,4 @@ void main() {
   oColor = vec4(c, 1.0);
 }`;
 
-// ---------------------------------------------------------------------------
-// Simple blit / copy
-
-export const COPY_FS = GLSL_HEADER + `
-in vec2 vUV;
-uniform sampler2D uSrc;
-out vec4 oColor;
-void main() { oColor = texture(uSrc, vUV); }`;
-
 export { LIGHT_COMMON, HASH, SURFACE, QUAD_COMMON };

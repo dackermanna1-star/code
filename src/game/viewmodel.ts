@@ -4,7 +4,7 @@
 import { Grid, Builder } from '../map/builder';
 import { Body } from '../physics/body';
 import { P } from '../world/materials';
-import { Quat, Vec3 } from '../engine/math';
+import { Quat } from '../engine/math';
 import { Tool } from './tools';
 import { Camera } from '../engine/camera';
 

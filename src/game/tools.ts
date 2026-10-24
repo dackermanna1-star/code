@@ -8,7 +8,6 @@ import { raycastAll, RayHit } from '../physics/raycast';
 import { Body } from '../physics/body';
 import { PAL_MAT, PAL_HARD, Mat, P, PAL_FLAMMABLE } from '../world/materials';
 import { PT } from '../render/particles';
-import { VOXEL } from '../world/world';
 import { CarveOpts } from './destruction';
 
 export const enum Tool { Hammer = 0, Shotgun, Rifle, PipeBomb, Bomb, Rocket, Torch, Grab, COUNT }
@@ -123,14 +122,14 @@ export class Tools {
     } else if (PAL_HARD[hit.pal] <= 2) {
       this.g.destruction.carveWorld(px, py, pz, 0.36, opts);
     } else if (mat === Mat.Metal) {
-      this.dent(hit, r.dx, r.dy, r.dz);
+      this.dent(hit);
     }
     this.onSound?.(mat === Mat.Metal || mat === Mat.HeavyMetal ? 'clang' : mat === Mat.Wood ? 'wood' : mat === Mat.Glass ? 'glass' : 'thud', hit.x, hit.y, hit.z, 1);
     if (mat === Mat.Metal || mat === Mat.HeavyMetal) this.sparks(hit.x, hit.y, hit.z, hit.nx, hit.ny, hit.nz, 12);
   }
 
   /** Bend thin metal: push surface voxels one voxel away from the hit. */
-  private dent(h: RayHit, dx: number, dy: number, dz: number): void {
+  private dent(h: RayHit): void {
     const w = this.g.world;
     // dominant axis of the surface normal
     const ax = Math.abs(h.nx) > Math.abs(h.ny) ? (Math.abs(h.nx) > Math.abs(h.nz) ? 0 : 2) : (Math.abs(h.ny) > Math.abs(h.nz) ? 1 : 2);

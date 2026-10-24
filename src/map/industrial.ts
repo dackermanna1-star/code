@@ -1,5 +1,5 @@
 // Industrial infrastructure and site furniture of the factory level.
-import { Ctx, column, catwalk, railing, steelStairs, pipe, lamp, hazard, windowRow, opening, weathered, flatRoof, rollerDoor } from './parts';
+import { Ctx, column, railing, steelStairs, pipe, lamp, hazard, windowRow, opening, weathered, flatRoof, rollerDoor } from './parts';
 import { P } from '../world/materials';
 import { hash3, Rng, valueNoise3 } from '../engine/math';
 import { PropKind } from './props';

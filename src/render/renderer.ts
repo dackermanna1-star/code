@@ -74,7 +74,7 @@ export class Renderer {
 
   // programs
   private pG: Program; private pShadow: Program; private pLight: Program; private pSSAO: Program; private pBlur: Program;
-  private pGlass: Program; private pTAA: Program; private pVol: Program; private pBloomDown: Program; private pBloomUp: Program; private pFinal: Program; private pCopy: Program;
+  private pGlass: Program; private pTAA: Program; private pVol: Program; private pBloomDown: Program; private pBloomUp: Program; private pFinal: Program;
   readonly emptyVao: WebGLVertexArrayObject;
 
   // targets
@@ -170,7 +170,6 @@ export class Renderer {
     this.pBloomDown = new Program(gl, FULLSCREEN_VS, S.BLOOM_DOWN_FS, 'bloomDown');
     this.pBloomUp = new Program(gl, FULLSCREEN_VS, S.BLOOM_UP_FS, 'bloomUp');
     this.pFinal = new Program(gl, FULLSCREEN_VS, S.FINAL_FS, 'final');
-    this.pCopy = new Program(gl, FULLSCREEN_VS, S.COPY_FS, 'copy');
     this.pVol = new Program(gl, FULLSCREEN_VS, S.VOLUMETRIC_FS, 'volumetric');
   }
 

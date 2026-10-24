@@ -1,7 +1,6 @@
 // Voxel construction helpers used by the level generator. All coordinates are voxel units,
 // boxes are [min, max) (max exclusive).
 
-import { World } from '../world/world';
 
 /** Anything voxels can be written into (the world or a standalone prop grid). */
 export interface VoxelTarget {

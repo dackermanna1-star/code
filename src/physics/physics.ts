@@ -12,13 +12,11 @@ import { raycastWorld, RayHit } from './raycast';
 export const DEBRIS_VOXELS = 40;
 
 export const SOLVER = { iterations: 10, warmHits: 0, warm: true, maxPerBucket: 4, warmFriction: true, warmScale: 0.85, baumgarte: 0.25 };
-const BAUMGARTE = 0.25;
 const SLOP = 0.004;
 const MAX_CORRECTION = 1.6;
 const SLEEP_LIN = 0.09;
 const SLEEP_ANG = 0.14;
 const SLEEP_TIME = 0.45;
-const MAX_PER_BUCKET = 4;
 
 export interface ImpactEvent {
   a: Body; b: Body | null;
@@ -67,7 +65,6 @@ export class Physics {
   private tmp = new RawContacts(128);
   private keep: number[] = [];
   private cache = new Uint8Array(64 * 1024);
-  private coarse = new Uint8Array(4096);
   private view: GridView = { data: this.cache, sx: 0, sy: 0, sz: 0, ox: 0, oy: 0, oz: 0, outside: 0 };
   /** warm start cache: per body pair, contacts of the last step (local point in A, normal, impulses) */
   private prevPairs = new Map<number, number>(); // pairKey -> start index into prevData (records of 9)

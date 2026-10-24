@@ -101,7 +101,6 @@ export class Body {
   computeMass(): boolean {
     const { sx, sy, sz, vox } = this;
     let m = 0, cx = 0, cy = 0, cz = 0, n = 0, expl = 0;
-    let fr = 0, re = 0;
     for (let y = 0; y < sy; y++) for (let z = 0; z < sz; z++) {
       let i = sx * (z + sz * y);
       for (let x = 0; x < sx; x++, i++) {
