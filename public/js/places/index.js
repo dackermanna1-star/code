@@ -20,6 +20,7 @@ export const PLACES = {
   outbreak: () => import('./outbreak/index.js'),
   ragdoll: () => import('./ragdoll/index.js'),
   vice: () => import('./vice/index.js'),
+  deathrun: () => import('./deathrun/index.js'),
 };
 
 export async function loadPlace(script) {

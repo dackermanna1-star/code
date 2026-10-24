@@ -489,6 +489,11 @@ function ensureExtraPlaces(state) {
     desc: 'Welcome to Vice City: sun, sand, neon and crime. South Beach, Ocean Drive and its Art Deco hotels, Downtown towers, Little Havana, the port and the causeways across the bay. Steal any car, bike, boat or helicopter, fight with fists, bats and guns, run from the VCPD and its helicopters, and work your way up for the people who really run this town. A huge open world with traffic, pedestrians, police, missions, ragdolls and the radio on.',
     created: now - 0.004 * DAY, updated: now - 0.0002 * DAY, visits: 6380, favorited: 1544, online: 214, playedRecent: 4415, script: 'vice', maxPlayers: 1,
   });
+  add(3104579, {
+    name: 'DEATHRUN: Curse of the Pharaoh',
+    desc: 'You have found the lost tomb of Pharaoh Khamun-Ra - and one of you has been taken by his curse. Each round one player becomes the PHARAOH and walks the hidden galleries above the tomb, unleashing its traps with golden scarab buttons. Everyone else RUNS: eight halls, from the colossi of the Nile Gate through the Avenue of the Sphinxes, the Hypostyle Hall, the Sacred Lake, the Tomb of the Scarabs, the Hall of Judgement and the Lake of Fire, up through the pyramid to the Eye of Ra. Collapsing causeways, a rolling boulder, khopesh pendulums, Sobek the crocodile, a scarab swarm, mummies, the Scales of Maat, the serpent Apophis and more. Reach the Eye of Ra and the sun burns the curse away!',
+    created: now - 0.002 * DAY, updated: now - 0.0001 * DAY, visits: 3120, favorited: 861, online: 96, playedRecent: 2290, script: 'deathrun', maxPlayers: 10,
+  });
   return added;
 }
 
