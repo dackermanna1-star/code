@@ -49,6 +49,14 @@ async function main() {
   const hud = new Hud();
   const canvas = document.getElementById('c') as HTMLCanvasElement;
   const renderer = new Renderer(canvas);
+  canvas.addEventListener('webglcontextlost', (e) => {
+    e.preventDefault();
+    document.exitPointerLock?.();
+    document.getElementById('hud')!.insertAdjacentHTML('beforeend',
+      '<div style="position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.75);color:#eee;font:15px system-ui;z-index:99">' +
+      '<div style="text-align:center">The graphics device was reset (GPU overload or driver restart).<br><br>' +
+      '<button onclick="location.reload()" style="font:inherit;padding:6px 16px">Reload</button></div></div>');
+  });
   hud.loading(0.03, 'Generating the factory…');
   await nextFrame();
   let envName = params.get('env') || 'afternoon';
