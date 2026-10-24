@@ -14,7 +14,7 @@
 // gallery, a portal at each end of the gallery, kill zones (the Nile, pits,
 // lava), torches, and the route the runner bots follow.
 import * as THREE from 'three';
-import { Kit, V, Piece, Mover, mat, special, colorMat, boxGeo, cylGeo, scaleOf, clamp, lerp, smooth, rnd } from './kit.js';
+import { Kit, V, Piece, Mover, mat, special, colorMat, boxGeo, cylGeo, scaleOf, quatOf, clamp, lerp, smooth, rnd } from './kit.js';
 import * as A from './art.js';
 import { Trap, at, seg, easeIn, easeOut, easeInOut, inBox, inColumn, inOBB } from './traps.js';
 import { rng } from './paint.js';
@@ -216,6 +216,10 @@ function hall1(C, O) {
   K.span(-130, -20, -60, -11, 56, -37, 'rock'); K.span(26, -20, -60, 96, 56, -37, 'rock');
   K.span(-11, 26, -60, 12.6, 56, -37, 'rock'); K.span(12.6, 30, -60, 26, 56, -37, 'rock');
   for (let i = 0; i < 9; i++) K.box(-120 + i * 27, 56 + (i % 3) * 5, -50 - (i % 2) * 6, 26, 10 + (i % 4) * 4, 22, 'rock', { ...NC, rot: [0, i * 13, (i % 2) * 6] });
+  crags(K, -130, -37, -64, -37, () => [-4, 52], 22, 11);
+  crags(K, -130, -38, -130, -60, () => [-8, 52], 8, 12);
+  crags(K, 64, -37, 96, -37, () => [-2, 52], 10, 13);
+  crags(K, 96, -38, 96, -60, () => [-2, 52], 6, 14);
   for (const [x0, x1, y0] of [[-64, -11, 0], [26, 64, 0], [-11, 12.6, 26], [12.6, 26, 30]]) K.span(x0, y0, -37.2, x1, 56, -36, 'ashlarPale');
   K.span(-66, 56, -38, 66, 57.4, -35.2, 'ashlarPale', NC);
   K.span(-66, 57.4, -38.4, 66, 58.6, -34.6, 'lapis', NC);
@@ -254,8 +258,8 @@ function hall1(C, O) {
   }
   for (let z = zA - 6; z > zB; z -= 12) { K.box(-10.5, 0.5, z, 1, 1, 1, 'ashlarPale', NC); }
   // under the causeway: the Nile, its reeds and its crocodiles
-  water(C, -420, 11, 3000, -1500, -9, { color: 0x2c6a62, repeat: 160, flow: 1.4 });
-  K.span(-420, -17, 3000, 11, -15, -1500, colorMat(0x3a3020, 1), NC);
+  water(C, -420, 11, 3000, -690, -9, { color: 0x2c6a62, repeat: 160, flow: 1.4 });
+  K.span(-420, -17, 3000, 11, -15, -690, colorMat(0x3a3020, 1), NC);
   for (let z = -66; z > -236; z -= 9) A.reeds(K, -14 - (z % 3), -10, z, 0.8 + (z % 5) * 0.06, z);
   for (const [x, z, r] of [[-60, -120, 0.4], [-110, -200, -0.3], [-80, -330, 2.6], [-150, -420, 0.1]]) A.felucca(K, x, -9.4, z, r, 1.3);
   pit(C, (p) => (p.y - 3 < -6.5 && p.x < 11 ? 'nile' : null));
@@ -433,14 +437,32 @@ function nearBall(p, c, r, sx = 1) {
   for (const dy of [-2.2, 0, 1.8]) if (Math.hypot((p.x - c.x) * sx, p.y + dy - c.y, p.z - c.z) < r) return true;
   return false;
 }
-const JET_VS = 'varying vec2 vUv; varying vec3 vN; varying vec3 vV; void main(){ vUv = uv; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }';
-const JET_FS = `uniform float t, k; varying vec2 vUv; varying vec3 vN; varying vec3 vV;
+/** Broken rock along a line (a cliff's ragged edge): n blocks from (x0, z0) to (x1, z1), between the heights ys(z) = [lo, hi]. */
+function crags(K, x0, z0, x1, z1, ys, n, seed, m = 'rock') {
+  const r = rng(seed);
+  for (let i = 0; i < n; i++) {
+    const t = (i + r() * 0.8) / n, x = x0 + (x1 - x0) * t + (r() - 0.5) * 3, z = z0 + (z1 - z0) * t + (r() - 0.5) * 3, [lo, hi] = ys(z);
+    K.box(x, lo + r() * (hi - lo), z, 6 + r() * 12, 4 + r() * 11, 5 + r() * 9, m, { col: false, rot: [(r() - 0.5) * 34, r() * 180, (r() - 0.5) * 34] });
+  }
+}
+const JET_VS = 'varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying vec3 vP; void main(){ vUv = uv; vP = position; vec4 mv = modelViewMatrix * vec4(position, 1.0); vN = normalize(normalMatrix * normal); vV = normalize(-mv.xyz); gl_Position = projectionMatrix * mv; }';
+const JET_FS = `uniform float t, k; varying vec2 vUv; varying vec3 vN; varying vec3 vV; varying vec3 vP;
+  float h3(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
+  float n3(vec3 p) {
+    vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(h3(i), h3(i + vec3(1.0, 0.0, 0.0)), f.x), mix(h3(i + vec3(0.0, 1.0, 0.0)), h3(i + vec3(1.0, 1.0, 0.0)), f.x), f.y),
+               mix(mix(h3(i + vec3(0.0, 0.0, 1.0)), h3(i + vec3(1.0, 0.0, 1.0)), f.x), mix(h3(i + vec3(0.0, 1.0, 1.0)), h3(i + vec3(1.0, 1.0, 1.0)), f.x), f.y), f.z);
+  }
   void main(){
     float a = vUv.y;
-    float f = 0.55 + 0.45 * sin(vUv.x * 37.699 + t * 21.0 - a * 26.0) * sin(vUv.x * 18.85 - t * 29.0 + a * 11.0);
-    float edge = pow(abs(dot(vN, vV)), 0.7);
-    vec3 c = mix(vec3(1.0, 0.92, 0.65) * 2.6, vec3(1.0, 0.32, 0.04) * 1.6, smoothstep(0.05, 0.8, a));
-    gl_FragColor = vec4(c, k * edge * f * smoothstep(0.0, 0.06, a) * (1.0 - smoothstep(0.7, 1.0, a)));
+    vec3 q = vec3(vP.x * 0.55, vP.y * 0.32 - t * 7.0, vP.z * 0.55);
+    float n = n3(q) * 0.6 + n3(q * 2.1 + 3.1) * 0.4;
+    float edge = pow(abs(dot(vN, vV)), 1.2);
+    float body = smoothstep(0.0, 0.08, a) * (1.0 - smoothstep(0.5 + n * 0.4, 1.0, a));
+    float heat = clamp(edge * (0.55 + n * 0.85) - a * 0.4, 0.0, 1.0);
+    vec3 c = mix(vec3(0.85, 0.1, 0.02), vec3(1.0, 0.5, 0.1), smoothstep(0.12, 0.55, heat));
+    c = mix(c, vec3(1.0, 0.86, 0.5), smoothstep(0.62, 0.95, heat));
+    gl_FragColor = vec4(c * 1.7, k * body * (0.2 + heat) * 0.9);
   }`;
 /** A jet of fire from `from` along `dir` (a unit vector): set(0..1) for its strength. */
 function flameJet(C, from, dir, len, o = {}) {
@@ -493,7 +515,13 @@ function desert(C) {
   D(-80, -75, 35, 165);
   D(75, 3000, 35, 165);
   D(-80, 3000, -37, 35);
-  D(26, 3000, -37, -700);
+  D(26, 3000, -37, -690);
+  // north of the temple the ground rises to a plateau (the tombs are cut down into it; the river keeps to the west)
+  D(26, 3000, -690, -920, 12);
+  K.span(-110, -22, -690, -99, 12, -3000, 'dune', { noShadow: true });
+  for (const [x0, x1, z0, z1] of [[-99, -8, -920, -952], [8, 3000, -920, -952], [-99, 3000, -952, -3000]]) K.span(x0, 8, z0, x1, 12, z1, 'dune', { noShadow: true, col: false });
+  water(C, -420, -110, -690, -3000, -9, { color: 0x2c6a62, repeat: 120, flow: 1.4 });
+  K.span(-420, -17, -690, -110, -15, -3000, colorMat(0x3a3020, 1), NC);
   // the west bank beyond the river, a little lower
   D(-3000, -420, 3000, -3000, -2);
   // palms and papyrus along the bank by the camp
@@ -548,6 +576,8 @@ function hall2(C, O) {
     K.box(-11.3, yN + NH + 0.6, zc, 1, 1.2, NW * 2 + 1.4, 'ashlarPale', NC);
     K.relief(-16.94, yN + NH / 2, zc, NW * 2 - 0.2, NH - 0.6, Math.PI / 2, 3);
   }
+  crags(K, -122, -13, -122, -233, (z) => [-10, top(z) - 3], 34, 5);
+  crags(K, -120, -13, -20, -13, () => [-10, 6], 14, 6);
   // ram sphinxes along the top of the wall, looking down on the way; palms behind them
   for (let z = -22; z > -214; z -= 12) A.sphinx(K, -24, top(z) - 0.45, z, Math.PI / 2, 1.15, 'ram', { col: false });
   for (let i = 0; i < 9; i++) { const z = -30 - i * 22; A.palm(K, -48 - (i % 3) * 16, top(z) - 0.5, z, 16 + (i % 4) * 3, i + 90, { col: false }); }
@@ -742,8 +772,8 @@ function hall3(C, O) {
   K.span(X0 - 2, 34, zp, X0, 42, END, 'ashlar');
   for (let i = 0, z = -22; z > END + 20; z -= 40, i++) K.relief(X0 + 0.06, 20, z, 36, 14, Math.PI / 2, i % 2 ? 2 : 0);
   for (const zc of WIN) {
-    const b = lightShaft(2.6, 4.8, 92, 0xffe0a8, 0.075);
-    b.position.copy(W(X0 - 1, 38, zc)); b.quaternion.setFromUnitVectors(V(0, 1, 0), SUN_DIR);
+    const b = lightShaft(2.6, 4.8, Math.min(92, (zc - END - 3) / 0.5), 0xffe0a8, 0.075);
+    b.position.copy(W(X0 + 1.5, 38, zc)); b.quaternion.setFromUnitVectors(V(0, 1, 0), SUN_DIR);
     C.world.scene.add(b);
   }
   // the forest of columns: the tall row along the nave (with screen walls between), the aisles beyond
@@ -893,6 +923,389 @@ function hall3(C, O) {
   return h;
 }
 
+/** Sobek: a great crocodile head wearing the god's crown (sun disk, plumes), facing +x; its upper jaw hinges. */
+function sobekHead(C, s = 1.25) {
+  const g = new THREE.Group(), croc = mat('croc'), teeth = mat('teeth');
+  const add = (parent, geo, m, x, y, z, rot) => { const me = new THREE.Mesh(geo, typeof m === 'string' ? mat(m) : m); me.position.set(x, y, z); if (rot) quatOf(rot, me.quaternion); me.castShadow = true; parent.add(me); return me; };
+  add(g, boxGeo(6, 3.2, 5), croc, 0, 0.6, 0);
+  add(g, boxGeo(5, 7, 4.4), croc, -2.6, -3.4, 0);
+  add(g, boxGeo(11, 1, 3.4), croc, 7.5, -0.6, 0);
+  for (let i = 0; i < 9; i++) for (const sz of [-1.45, 1.45]) add(g, boxGeo(0.25, 0.6, 0.25), teeth, 3 + i * 1.1, 0.1, sz);
+  for (const sz of [-1.4, 1.4]) { add(g, new THREE.SphereGeometry(0.9, 10, 8), croc, 1.2, 2.2, sz); add(g, new THREE.SphereGeometry(0.42, 8, 6), 'eyeGlow', 1.75, 2.35, sz); }
+  for (let i = 0; i < 5; i++) add(g, boxGeo(0.8, 0.5, 0.8), croc, -0.4 - i * 1.2, 2.3 - i * 0.25, 0);
+  const jaw = new THREE.Group(); jaw.position.set(2.6, 0.5, 0); g.add(jaw);
+  add(jaw, boxGeo(11, 1.3, 3.6), croc, 5.5, 0.3, 0);
+  add(jaw, boxGeo(1.8, 0.8, 2.6), croc, 10.3, 1.1, 0);
+  for (let i = 0; i < 9; i++) for (const sz of [-1.55, 1.55]) add(jaw, boxGeo(0.25, 0.7, 0.25), teeth, 1 + i * 1.1, -0.55, sz);
+  // the crown: the sun disk between two tall plumes, a cobra in front
+  add(g, cylGeo(1.9, 1.9, 0.4, 20), 'gold', -0.6, 5.4, 0, [0, 0, 90]);
+  for (const sz of [-0.9, 0.9]) { add(g, boxGeo(0.5, 6.5, 1.3), 'white', -1.4, 7.4, sz); add(g, boxGeo(0.52, 1.2, 1.32), 'blue', -1.4, 9.9, sz); }
+  add(g, boxGeo(0.4, 1.3, 0.5), 'gold', 0.8, 4.2, 0);
+  g.scale.setScalar(s);
+  C.world.scene.add(g);
+  return { group: g, jaw };
+}
+
+// --- 4. the Sacred Lake -----------------------------------------------------------------------------------------------------------------------------
+function hall4(C, O) {
+  const K = C.K, FX = C.FX, W = (x, y, z) => V(O.x + x, O.y + y, O.z + z);
+  const h = beginHall(C, 3, { name: 'The Sacred Lake', sub: 'Fourth Hall', look: 'lake', L: 230 }, O);
+  const R = routeOf(C);
+  const WL = -0.6, BED = -12, XW = -95; // the water's level, the lake's bed, the precinct wall
+  // the lake: a stone basin (its bed, its water; the flood basin at the end has a water of its own)
+  K.span(XW, BED - 2, 2, 11, BED, -200, 'ashlarDark', NC);
+  water(C, XW, 11, -8, -136, WL, { color: 0x2a7a70, repeat: 14, opacity: 0.8, flow: 0.5 });
+  const flood = water(C, XW, 11, -140, -188, WL, { color: 0x2f7a72, repeat: 6, opacity: 0.82, flow: 2.5 });
+  // the quay we come in on (steps down into the water), the walk along the precinct wall, the far quay
+  K.span(XW, -2, 2, 11, 0, -10, 'floor');
+  K.span(XW, BED, 2, 11, -2, -10, 'ashlar', NC);
+  for (let i = 0; i < 4; i++) K.span(XW + 8, -0.9 - i * 0.9, -10 - i * 1.4, -14, -0.4 - i * 0.9, -11.4 - i * 1.4, 'ashlarPale', NC);
+  K.span(XW, -2, -10, XW + 8, 0, -188, 'floor');
+  K.span(XW, BED, -10, XW + 8, -2, -188, 'ashlar', NC);
+  K.span(XW, BED, -188, 11, 0, -200, 'floor');
+  // the precinct wall and its portico along the lake
+  K.span(XW - 4, BED, 4, XW, 20.4, -232, 'ashlarPale');
+  K.span(XW, 0, 4, -54, 12, 2, 'ashlarPale');
+  A.cornice(K, XW - 2, 21.6, -114, 236, 4.4, Math.PI / 2);
+  for (let z = -22; z > -186; z -= 20) A.column(K, XW + 6, 0, z, 16, 1.5, { col: false });
+  K.span(XW + 4.3, 18, -10, XW + 7.7, 19.6, -188, 'ashlar', NC);
+  K.span(XW, 19.6, -10, XW + 8.4, 20.4, -188, 'ashlarPale', NC);
+  for (let z = -40; z > -186; z -= 40) K.relief(XW + 0.06, 9, z, 36, 12, Math.PI / 2, 2);
+  // the plateau beyond the far quay, where the tomb goes down into the rock
+  K.span(XW - 4, -22, -200, 26, 0, -232, 'dune');
+  for (const [x, z, hh] of [[-80, -194, 17], [-62, -196, 20], [-44, -194, 15], [-86, -214, 19], [-30, -220, 16], [-72, -226, 22]]) A.palm(K, x, 0, z, hh, x * 3 + z, { col: false });
+  // a kiosk out on the water, a jackal on its shrine inside
+  K.span(-60, BED, -96, -44, 0.4, -112, 'ashlarPale');
+  let ct = 0;
+  for (const [x, z] of [[-58, -98], [-46, -98], [-58, -110], [-46, -110]]) ct = A.column(K, x, 0.4, z, 14, 1.1, { col: false });
+  K.span(-61, ct, -95, -43, ct + 1.4, -113, 'ashlarPale', NC);
+  K.span(-61.4, ct + 1.4, -94.6, -42.6, ct + 2, -113.4, 'gold', NC);
+  A.jackalShrine(K, -52, 0.4, -104, Math.PI / 2, 1.3);
+  // lotus flowers and papyrus on the water
+  const r = rng(404), petal = colorMat(0xf2a6c0, 0.5), pad = colorMat(0x3d7a33, 0.65);
+  for (let i = 0; i < 46; i++) {
+    const x = XW + 10 + r() * 80, z = -14 - r() * 116;
+    if (x > -16) continue;
+    K.cyl(x, WL + 0.05, z, 0.9 + r() * 0.9, 0.1, pad, { ...NC, seg: 12, noShadow: true });
+    if (r() < 0.5) K.geo(new THREE.ConeGeometry(0.45, 0.9, 6), petal, x, WL + 0.5, z, 0, { noShadow: true });
+  }
+  for (let z = -16; z > -186; z -= 13) A.reeds(K, XW + 9.5, BED + 9, z, 0.6 + (z % 3) * 0.05, z);
+
+  // ---- trap 10: the lotus pads - the way across is a field of great lotus leaves; they sink
+  const ROWS = [-15, -24.5, -34, -43.5, -53, -62.5], pads = [];
+  ROWS.forEach((z, i) => {
+    for (const [j, x] of (i % 2 ? [-9.5, -3.5, 3.5] : [-7, 0, 7]).entries()) {
+      const rr = 2.9 + ((i * 3 + j * 2) % 4) * 0.12;
+      const P = new Piece();
+      P.cyl(0, -0.25, 0, rr, 0.5, pad, { col: true, seg: 22 });
+      P.cyl(0, -3.6, 0, 0.35, 6.2, pad, { seg: 8 });
+      if ((i + j) % 3 === 0) for (let q = 0; q < 6; q++) P.add(new THREE.ConeGeometry(0.4, 1.1, 5), petal, Math.cos(q) * 0.8 + rr * 0.4, 0.4, Math.sin(q) * 0.8, [Math.cos(q) * 25, 0, Math.sin(q) * 25]);
+      pads.push({ m: mover(C, P, x, WL + 0.75, z), t0: 0.15 + i * 0.13 + j * 0.05 });
+    }
+    K.cyl(i % 2 ? -3.5 : 0, BED + 3, z, 1.2, 6, 'ashlarDark', NC);
+  });
+  K.span(-11, BED, -69, 11, 0, -78, 'floor');
+  for (const sx of [-1, 1]) A.obelisk(K, sx * 9.4, 0, -73.5, 13, 1.3, { base: 1.4 });
+  const t10 = new Trap(C, {
+    id: 'lotus', name: 'Sinking Lotus', duration: 6.4, zone: { x0: -11, x1: 11, z0: -68, z1: -11 }, wait: [0, 0, -7],
+    run(k, dt) {
+      for (const q of pads) {
+        const d = 5 * easeIn(seg(k, q.t0, q.t0 + 0.8)) * (1 - easeInOut(seg(k, 4.7, 6.2)));
+        _v.copy(q.m.home.pos); _v.y -= d;
+        q.m.set(_v, null, dt);
+        if (d > 0.3 && d < 4.8 && Math.random() < 0.25) C.FX.dust.puff(q.m.pos.clone().add(V(rnd(-2, 2), 0.3, rnd(-2, 2))), 0xdff4f0, 2, 1.6, 3, 0.8, -1);
+      }
+      at(this, k, 0.5, () => SFX.splash(W(0, 0, -40), 1.2));
+    },
+    lethal(p, ch, k) { return k > 0.3 && p.y - 3 < WL - 0.6 ? 'lotus' : null; },
+    onReset() { for (const q of pads) q.m.reset(); },
+    sfx() { SFX.tone(220, 0.8, { type: 'sine', to: 110, vol: 0.12, pos: W(0, 0, -40) }); },
+    when: (k) => k > 6.2,
+  });
+  button(C, t10, -40);
+  R.walk(0, 0, -5).gate(t10);
+  {
+    const path = [[0, -8], [0, -15], [-3.5, -24.5], [0, -34], [3.5, -43.5], [0, -53], [-3.5, -62.5], [0, -71.5]];
+    for (let i = 1; i < path.length; i++) {
+      const [ax, az] = path[i - 1], [bx, bz] = path[i], L = Math.hypot(bx - ax, bz - az), f = i === 1 ? 0.6 : 1.4;
+      R.jump([ax + ((bx - ax) / L) * f, 0.4, az + ((bz - az) / L) * f], [bx, i === path.length - 1 ? 0 : 0.4, bz]);
+    }
+  }
+
+  // ---- trap 11: Sobek's jaws - the crocodile god waits in the water beside a narrow bridge
+  K.span(-4, -2, -78, 4, 0, -130, 'floor');
+  K.span(-3, BED, -78, 3, -2, -130, 'ashlar', NC);
+  K.span(-11, BED, -130, 11, 0, -140, 'floor');
+  K.span(XW + 8, BED, -134, -11, 3.5, -140, 'ashlarPale');
+  const crocs = [];
+  for (const [zh, dly] of [[-94, 0.3], [-116, 1.25]]) {
+    const S = sobekHead(C);
+    const home = W(-25, -2.6, zh);
+    S.group.position.copy(home);
+    crocs.push({ ...S, z: zh, dly, home });
+  }
+  const t11 = new Trap(C, {
+    id: 'sobek', name: "Sobek's Jaws", duration: 3.6, zone: { x0: -11, x1: 11, z0: -130, z1: -78 }, wait: [0, 0, -74],
+    hide: [[0, 0, -105], [0, 0, -76]],
+    run(k) {
+      for (const c of crocs) {
+        const s = k - c.dly, up = easeOut(seg(s, 0, 0.42)), back = easeInOut(seg(s, 1.1, 1.9));
+        const f = up * (1 - back);
+        c.group.position.set(c.home.x + 15 * f, c.home.y + 3.6 * f, c.home.z);
+        c.group.rotation.z = 0.12 * f;
+        c.jaw.rotation.z = s < 0.42 ? 0.95 * up : s < 0.56 ? 0.95 * (1 - (s - 0.42) / 0.14) : 0;
+        at(this, k, c.dly, () => SFX.splash(W(-22, 0, c.z), 1.2));
+        at(this, k, c.dly + 0.5, () => { SFX.chomp(W(0, 1, c.z), true); C.shake(W(0, 0, c.z), 0.5); C.FX.dust.puff(W(-6, 0, c.z), 0xdff4f0, 24, 2.6, 12, 1, 6); });
+      }
+    },
+    lethal(p, ch, k) {
+      for (const c of crocs) {
+        const s = k - c.dly;
+        if (s > 0.38 && s < 0.75 && Math.abs(p.z - c.z) < 4.4 && p.x > -9 && p.x < 6.5 && p.y - 3 < 5) return 'sobek';
+      }
+      return null;
+    },
+    onReset() { for (const c of crocs) { c.group.position.copy(c.home); c.group.rotation.z = 0; c.jaw.rotation.z = 0; } },
+    sfx() { SFX.groan(W(-20, 0, -105)); },
+    when: (k) => k > 3.3,
+  });
+  button(C, t11, -105);
+  R.walk(0, 0, -75).gate(t11).walk(0, 0, -133);
+
+  // ---- trap 12: the flood - lion-headed spouts fill the basin; get up on an altar
+  K.span(-11, BED, -140, 11, 0, -188, 'floor');
+  const alts = [[-6, -151], [6, -164], [-6, -177]];
+  for (const [x, z] of alts) {
+    K.box(x, 0.55, z, 6, 1.1, 6, 'ashlarPale');
+    K.box(x, 1.65, z, 4.2, 1.1, 4.2, 'ashlar');
+    K.box(x, 2.75, z, 2.8, 1.1, 2.8, 'gold');
+  }
+  const spouts = [];
+  for (const z of [-151, -164, -177]) {
+    K.box(10.2, 5, z, 1.8, 2.6, 2.6, 'ashlarPale', NC);
+    K.box(9.25, 4.6, z, 0.1, 0.8, 1.2, 'black', NC);
+    for (const sz of [-0.6, 0.6]) K.box(9.3, 5.7, z + sz, 0.2, 0.3, 0.4, 'black', NC);
+    spouts.push(W(9, 4.6, z));
+  }
+  const _sv = { x: 0, y: 0, z: 0 };
+  const t12 = new Trap(C, {
+    id: 'flood', name: 'Flood of the Nile', duration: 6.4, zone: { x0: -11, x1: 11, z0: -188, z1: -140 }, wait: [0, 0, -136],
+    hide: alts.map(([x, z]) => [x, 3.3, z]),
+    run(k) {
+      const lv = WL + 3.2 * easeInOut(seg(k, 0.5, 1.7)) * (1 - easeInOut(seg(k, 4.4, 6.2)));
+      flood.mesh.position.y = O.y + lv; flood.y = lv;
+      if (k < 4.6) for (const sp of spouts) for (let i = 0; i < 3; i++) {
+        _sv.x = -12 - Math.random() * 6; _sv.y = 3 + Math.random() * 3; _sv.z = (Math.random() - 0.5) * 3;
+        C.FX.dust.emit(sp, _sv, Math.random() < 0.5 ? 0xd8f0f4 : 0x9fd0d8, 1.2 + Math.random(), 0.8, 30, 0.2);
+      }
+    },
+    lethal(p) { const lv = flood.y; return lv > 0.3 && p.y - 3 < lv - 0.6 && Math.abs(p.x) < 11.5 && p.z < -139.5 && p.z > -188.5 ? 'flood' : null; },
+    onReset() { flood.mesh.position.y = O.y + WL; flood.y = WL; },
+    sfx() { SFX.burst(5, { kind: 'brown', type: 'lowpass', f: 700, vol: 0.55, a: 0.5, pos: W(4, 2, -164) }); SFX.splash(W(6, 2, -164), 1.5); },
+    when: (k) => k > 6.1,
+  });
+  button(C, t12, -164);
+  R.walk(0, 0, -136).gate(t12).walk(0, 0, -194).walk(0, 0, -226).walk(0, 0, -238);
+
+  // the way down into the tomb: a portal at the head of the stair
+  for (const sx of [-1, 1]) K.box(sx * 8, 7, -229, 3.4, 14, 3.4, 'glyphsDark');
+  A.jackalShrine(K, -14.5, 0, -224, 0, 1.15);
+  K.box(0, 15.2, -229, 20, 2.4, 4, 'glyphsDark');
+  A.cornice(K, 0, 17, -229, 21, 4.4, 0);
+  K.cyl(0, 15.2, -226.9, 1.3, 0.3, 'gold', { ...NC, rot: [90, 0, 0] });
+  for (const sx of [-1, 1]) K.box(sx * 4.6, 15.3, -226.95, 6, 0.9, 0.2, 'lapis', NC);
+  gallery(C, 0, -228, { lo: BED, back: 'glyphsPaint' });
+  portals(C, -6, -222);
+  pit(C, (p) => (p.z > -200 && p.y - 3 < WL - 0.7 ? 'lake' : null));
+  h.start = W(0, 0, -6); h.end = W(0, 0, -230);
+  return h;
+}
+
+/** A mummy: a blocky body wrapped in linen, arms out in front (it faces +z), glowing eyes; legs and arms on hinges. */
+function mummyModel() {
+  const g = new THREE.Group(), L = mat('linen');
+  const box = (parent, sx, sy, sz, x, y, z, m = L) => { const me = new THREE.Mesh(boxGeo(sx, sy, sz, 1), m); me.position.set(x, y, z); me.castShadow = true; parent.add(me); return me; };
+  box(g, 2, 2, 1, 0, 3, 0);
+  const head = box(g, 1.25, 1.25, 1.25, 0, 4.65, 0);
+  for (const sx of [-0.28, 0.28]) box(head, 0.24, 0.14, 0.05, sx, 0.12, 0.64, mat('eyeGlow'));
+  const legs = [], arms = [];
+  for (const sx of [-0.5, 0.5]) {
+    const leg = new THREE.Group(); leg.position.set(sx, 2, 0); g.add(leg); box(leg, 0.98, 2, 1, 0, -1, 0); legs.push(leg);
+    const arm = new THREE.Group(); arm.position.set(sx * 3, 3.7, 0); g.add(arm); box(arm, 0.95, 0.95, 2.3, 0, 0, 1.05); arms.push(arm);
+  }
+  // loose wrappings trailing
+  box(g, 0.3, 1.4, 0.06, 0.6, 2.4, -0.53); box(g, 0.25, 1.1, 0.06, -0.8, 1.6, 0.53);
+  return { g, legs, arms, head };
+}
+
+// --- 5. the Tomb of the Scarabs ---------------------------------------------------------------------------------------------------------------
+function hall5(C, O) {
+  const K = C.K, FX = C.FX, W = (x, y, z) => V(O.x + x, O.y + y, O.z + z);
+  const h = beginHall(C, 4, { name: 'The Tomb of the Scarabs', sub: 'Fifth Hall', look: 'tomb', L: 230, balY: -12 }, O);
+  const R = routeOf(C);
+  const F = -24, CEIL = -4, END = -230, PIT = -36; // the floor (24 under the desert), the ceiling (just under the sand), the end, the spike pit
+  // the stair cut down into the plateau, the door into the rock
+  for (let i = 0; i < 40; i++) K.span(-6, F, -2 - i * 1.1, 6, -0.6 * (i + 1), -2 - (i + 1) * 1.1, i % 8 === 7 ? 'ashlar' : 'ashlarPale');
+  for (const sx of [-1, 1]) K.span(sx * 6, F, 0, sx * 8.5, 0, -46, 'glyphsDark');
+  K.span(-8.5, CEIL - 4, -32, 8.5, CEIL, -34, 'glyphsDark');
+  A.cornice(K, 0, CEIL - 3.4, -31.6, 17, 1.4, 0);
+  K.cyl(0, CEIL - 5.6, -31.5, 1.1, 0.3, 'gold', { ...NC, rot: [90, 0, 0] });
+  for (const sx of [-1, 1]) K.box(sx * 3.6, CEIL - 5.5, -31.55, 5, 0.8, 0.2, 'lapis', NC);
+  K.span(-8.5, CEIL, -32, 8.5, 0, -46, 'rock', NC);
+  for (let z = -12; z > -44; z -= 10) for (const sx of [-1, 1]) A.torch(K, FX, sx * 5.9, -0.6 * ((-2 - z) / 1.1) + 4.5, z, sx > 0 ? -Math.PI / 2 : Math.PI / 2, { intensity: 40, range: 26 });
+  // the tomb: a long painted corridor, a starry ceiling, the spike pit under its trapdoors
+  K.span(-13, F, -46, -6, CEIL, -48, 'glyphsDark'); K.span(6, F, -46, 11, CEIL, -48, 'glyphsDark');
+  K.span(-11, F - 2, -46, 11, F, -60, 'floorDark');
+  K.span(-11, F - 2, -96, 11, F, END - 2, 'floorDark');
+  K.span(-11, PIT - 2, -60, 11, PIT, -96, 'ashlarDark', NC);
+  K.span(-11, PIT, -58, 11, F - 2, -60, 'ashlarDark', NC); K.span(-11, PIT, -96, 11, F - 2, -98, 'ashlarDark', NC);
+  K.span(-13, PIT - 2, -46, -11, CEIL, END - 2, 'glyphsPaint');
+  K.span(-13, CEIL, -46, 26, CEIL + 1, END - 2, 'stars', NC);
+  for (let i = 0, z = -60; z > END + 10; z -= 34, i++) K.relief(-10.94, F + 9, z, 30, 10, Math.PI / 2, i % 2 ? 2 : 0);
+  for (let z = -52; z > END + 4; z -= 18) A.torch(K, FX, -10.9, F + 7, z, Math.PI / 2, { intensity: 50, range: 30 });
+  for (let z = -61; z > END + 4; z -= 18) A.torch(K, FX, 10.9, F + 7, z, -Math.PI / 2, { intensity: 50, range: 30 });
+
+  // ---- trap 13: the trapdoors - the floor drops away over a pit of bronze spikes
+  for (let x = -9.5; x < 10; x += 2.5) for (let z = -62; z > -95; z -= 3) K.geo(new THREE.ConeGeometry(0.45, 2.6, 6), 'bronze', x + ((z | 0) % 2) * 0.6, PIT + 1.3, z, 0);
+  const doors = [];
+  for (let r = 0; r < 4; r++) for (const s of [-1, 1]) {
+    const P = new Piece();
+    P.box(-s * 5.5, -0.5, 0, 10.98, 1, 8.98, 'floorDark');
+    P.box(-s * 5.5, -1.1, 0, 10.4, 0.2, 8.4, 'bronze', { col: false });
+    doors.push({ m: mover(C, P, s * 11, F, -64.5 - r * 9), s, t0: 0.25 + r * 0.1 });
+  }
+  const t13 = new Trap(C, {
+    id: 'trapdoors', name: 'Trapdoors', duration: 5, zone: { x0: -11, x1: 11, z0: -96, z1: -60 }, wait: [0, F, -54],
+    run(k, dt) {
+      for (const d of doors) {
+        const a = 92 * easeIn(seg(k, d.t0, d.t0 + 0.32)) * (1 - easeInOut(seg(k, 3.6, 4.8)));
+        d.m.set(d.m.home.pos, Q(0, 0, 1, d.s * a), dt);
+      }
+      at(this, k, 0.3, () => { SFX.slam(W(0, F, -78), 0.8); C.shake(W(0, F, -78), 0.4); });
+      at(this, k, 3.6, () => SFX.grind(W(0, F, -78), 1.2, 0.6));
+    },
+    onReset() { for (const d of doors) d.m.reset(); },
+    sfx() { SFX.tone(180, 0.25, { type: 'square', vol: 0.08, pos: W(0, F, -78) }); },
+    when: (k) => k > 4.8,
+  });
+  button(C, t13, -78);
+  pit(C, (p) => (p.z < -59 && p.z > -97 && p.y - 3 < F - 4 ? 'spikes' : null));
+  R.walk(0, 0, -1).walk(0, F, -50).gate(t13).walk(0, F, -100);
+
+  // ---- trap 14: the scarab swarm - beetles pour out of the walls; get up on a sarcophagus
+  const refuges = [[-6, -116], [6, -129], [-6, -142]];
+  for (const [x, z] of refuges) {
+    K.box(x, F + 0.55, z + 4.6, 3.6, 1.1, 1.6, 'ashlar');
+    K.box(x, F + 1.1, z, 3.6, 2.2, 7.4, 'granite');
+    K.box(x, F + 2.3, z, 3.2, 0.2, 6.8, 'gold', NC);
+    K.box(x, F + 2.42, z - 2.2, 1.6, 0.06, 1.4, colorMat(0xd9a060, 0.4, 0.6), NC);
+  }
+  const vents = [];
+  for (const z of [-114, -128, -142]) for (const s of [-1, 1]) { K.box(s * 10.95, F + 0.9, z, 0.1, 1.6, 3, 'black', NC); vents.push([s * 10.5, z]); }
+  const NB = 420, bug = new THREE.SphereGeometry(1, 7, 5);
+  bug.scale(0.32, 0.17, 0.44);
+  const swarm = new THREE.InstancedMesh(bug, new THREE.MeshStandardMaterial({ roughness: 0.35, metalness: 0.7, color: 0xffffff }), NB);
+  swarm.frustumCulled = false; swarm.visible = false; swarm.castShadow = false;
+  C.world.scene.add(swarm);
+  const bugs = [], _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = V(1, 1, 1), _p = V(), _c = new THREE.Color();
+  for (let i = 0; i < NB; i++) { swarm.setColorAt(i, _c.set(Math.random() < 0.25 ? 0xd4a032 : 0x2a2416)); bugs.push({ x: 0, z: 0, tx: 0, tz: 0, h: 0, sp: 8 + Math.random() * 6, v: vents[i % vents.length], d: Math.random() * 0.5 }); }
+  const inRefuge = (x, z) => refuges.some(([rx, rz]) => Math.abs(x - rx) < 2.3 && Math.abs(z - rz) < 4.3);
+  const newTarget = (b) => { for (let n = 0; n < 6; n++) { b.tx = rnd(-10.4, 10.4); b.tz = rnd(-150, -108); if (!inRefuge(b.tx, b.tz)) return; } };
+  const t14 = new Trap(C, {
+    id: 'scarabs', name: 'Scarab Swarm', duration: 6.2, zone: { x0: -11, x1: 11, z0: -150, z1: -108 }, wait: [0, F, -103],
+    hide: refuges.map(([x, z]) => [x, F + 2.4, z]),
+    onFire() { swarm.visible = true; for (const b of bugs) { b.x = b.v[0]; b.z = b.v[1] + rnd(-1.2, 1.2); newTarget(b); } },
+    run(k, dt) {
+      const home = k > 4.8;
+      for (let i = 0; i < NB; i++) {
+        const b = bugs[i];
+        if (k < b.d) { _s.set(0, 0, 0); _m.compose(_p.set(0, -999, 0), _q, _s); swarm.setMatrixAt(i, _m); continue; }
+        const tx = home ? b.v[0] : b.tx, tz = home ? b.v[1] : b.tz, dx = tx - b.x, dz = tz - b.z, d = Math.hypot(dx, dz);
+        if (d < 0.8 && !home) newTarget(b);
+        const sp = b.sp * Math.min(1, d);
+        b.h = Math.atan2(dx, dz) + Math.sin(k * 9 + i) * 0.5;
+        b.x += Math.sin(b.h) * sp * dt; b.z += Math.cos(b.h) * sp * dt;
+        if (inRefuge(b.x, b.z)) { b.x -= Math.sin(b.h) * sp * dt * 1.5; newTarget(b); }
+        const gone = home && d < 0.9;
+        _q.setFromAxisAngle(_Y, b.h); _s.setScalar(gone ? 0 : 1);
+        _m.compose(_p.set(O.x + b.x, O.y + F + 0.17 + Math.abs(Math.sin(k * 20 + i)) * 0.06, O.z + b.z), _q, _s);
+        swarm.setMatrixAt(i, _m);
+      }
+      swarm.instanceMatrix.needsUpdate = true;
+      if (k > 6) swarm.visible = false;
+    },
+    lethal(p, ch, k) { return k > 0.9 && k < 5 && p.y - 3 < F + 1.2 && Math.abs(p.x) < 11 && p.z < -107 && p.z > -151 ? 'scarab' : null; },
+    onReset() { swarm.visible = false; },
+    sfx() { SFX.scarabs(W(0, F, -129), 5.5); },
+    when: (k) => k > 5.6,
+  });
+  if (swarm.instanceColor) swarm.instanceColor.needsUpdate = true;
+  button(C, t14, -129);
+  R.gate(t14).walk(0, F, -154);
+
+  // ---- trap 15: the rise of the mummies - the dead step out of their niches and come for you
+  const mums = [];
+  for (const [z, s] of [[-166, -1], [-176, 1], [-186, -1], [-196, 1], [-204, -1]]) {
+    const nx = s * 9.4;
+    K.box(s * 10.55, F + 3.4, z, 0.8, 6.8, 3.4, 'gold', NC);
+    K.box(s * 10.5, F + 3.4, z, 0.8, 6, 2.6, 'lapis', NC);
+    K.box(s * 9.4, F + 0.2, z, 2.6, 0.4, 2.6, 'ashlarDark', NC);
+    const M = mummyModel();
+    const home = { x: nx, z };
+    M.g.position.copy(W(nx, F, z)); M.g.rotation.y = -s * Math.PI / 2;
+    C.world.scene.add(M.g);
+    mums.push({ ...M, home, x: nx, z, face: -s * Math.PI / 2, s });
+  }
+  const seen = [];
+  const t15 = new Trap(C, {
+    id: 'mummies', name: 'Rise of the Mummies', duration: 10, zone: { x0: -11, x1: 11, z0: -208, z1: -158 }, wait: [0, F, -155],
+    run(k, dt) {
+      for (const M of mums) {
+        let tx = null, tz = null, best = 26;
+        for (const q of seen) { const d = Math.hypot(q.x - M.x, q.z - M.z); if (d < best) { best = d; tx = q.x; tz = q.z; } }
+        const out = k < 1.2;
+        if (out) { tx = M.home.x - M.s * 4; tz = M.home.z; }
+        if (k > 9) { M.g.position.y = O.y + F - 6 * seg(k, 9, 9.8); if (Math.random() < 0.3) C.FX.dust.puff(W(M.x, F + 2, M.z), 0xcfc2a0, 2, 2, 3, 1, -1); continue; }
+        if (tx != null && k > 0.5) {
+          const dx = tx - M.x, dz = tz - M.z, d = Math.hypot(dx, dz), sp = out ? 5 : 12.5;
+          if (d > 0.6) { M.x += (dx / d) * sp * dt; M.z += (dz / d) * sp * dt; M.face = Math.atan2(dx, dz); }
+          if (!out) { M.x = clamp(M.x, -10, 10); M.z = clamp(M.z, -208, -158); }
+        }
+        const sw = k > 0.5 ? Math.sin(k * 9 + M.home.z) * 0.6 : 0;
+        M.legs[0].rotation.x = sw; M.legs[1].rotation.x = -sw;
+        M.arms[0].rotation.x = -0.15 + sw * 0.15; M.arms[1].rotation.x = -0.15 - sw * 0.15;
+        M.g.position.set(O.x + M.x, O.y + F + Math.abs(sw) * 0.2, O.z + M.z);
+        M.g.rotation.y = M.face; M.head.rotation.z = Math.sin(k * 3 + M.home.z) * 0.15;
+      }
+      seen.length = 0;
+      at(this, k, 0.4, () => SFX.groan(W(0, F, -182)));
+      at(this, k, 4, () => SFX.groan(W(0, F, -190)));
+    },
+    lethal(p, ch, k) {
+      seen.push(_l2.set(p.x, 0, p.z).clone());
+      if (k < 1.0 || k > 9) return null;
+      for (const M of mums) if (Math.hypot(p.x - M.x, p.z - M.z) < 2.3 && p.y - 3 < F + 4) return 'mummy';
+      return null;
+    },
+    onReset() { for (const M of mums) { M.x = M.home.x; M.z = M.home.z; M.face = -M.s * Math.PI / 2; M.g.position.copy(W(M.x, F, M.z)); M.g.rotation.y = M.face; for (const l of [...M.legs, ...M.arms]) l.rotation.x = 0; } },
+    sfx() { SFX.grind(W(0, F, -182), 1.4, 0.7); },
+    when: (k) => k > 9.6,
+  });
+  for (const T of [t13, t14, t15]) T.zoneY = F;
+  button(C, t15, -182);
+  R.gate(t15).walk(0, F, -214).walk(0, F, -236);
+  // a burial chamber's worth of things along the end of the corridor
+  A.coffin(K, -7, F, -222, 0, 1);
+  A.canopics(K, 7, F, -220, -Math.PI / 2);
+  for (const z of [-224, -227]) A.chest(K, 8, F, z, 0.3);
+  gallery(C, -50, -228, { lo: PIT, backH: 8, wall: 'glyphsDark', back: 'glyphsPaint', torchStep: 30 });
+  portals(C, -56, -222);
+  pit(C, (p) => (p.y - 3 < PIT - 6 ? 'fell' : null));
+  h.start = W(0, F, -50); h.end = W(0, F, END);
+  return h;
+}
+const _Y = V(0, 1, 0), _l2 = V();
+
 // --- the whole course -------------------------------------------------------------------------------------------------------------------
 export function buildCourse(world, FX) {
   const C = makeContext(world, FX);
@@ -901,6 +1314,8 @@ export function buildCourse(world, FX) {
   hall1(C, V(0, 0, 0));
   hall2(C, V(0, 0, -240));
   hall3(C, V(0, 12, -470));
+  hall4(C, V(0, 12, -690));
+  hall5(C, V(0, 12, -920));
   C.K.flush();
   // (until the last hall exists, the end of the causeway is the finish)
   const last = C.halls[C.halls.length - 1];

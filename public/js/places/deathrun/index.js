@@ -68,7 +68,7 @@ const CAUSE = {
   nile: 'was eaten by the crocodiles of the Nile', causeway: 'fell with the Collapsing Causeway', obelisk: 'was flattened by the Toppling Obelisk', geyser: 'was blasted by a Sand Geyser',
   boulder: 'was rolled flat by the Boulder', flame: 'was roasted by the Sphinx Flames', sands: 'was swallowed by the Sinking Sands',
   crush: 'was crushed by the Falling Ceiling', blade: 'was cut down by a Khopesh Pendulum', spears: 'was skewered by the Spear Wall',
-  lotus: 'sank with the Lotus Pads', sobek: 'was devoured by Sobek', flood: 'drowned in the Flood of the Nile',
+  lotus: 'sank with the Lotus Pads', lake: 'drowned in the Sacred Lake', sobek: 'was devoured by Sobek', flood: 'drowned in the Flood of the Nile',
   spikes: 'fell onto the spikes', scarab: 'was eaten by the Scarab Swarm', mummy: 'was caught by a Mummy',
   sweep: 'was swept away by Anubis', ammit: 'was fed to Ammit', walls: 'was crushed by the Closing Walls',
   lava: 'fell into the Lake of Fire', fire: 'was burned by the Fire Pillars', bridge: 'fell with the Bridge of Ash', serpent: 'was devoured by Apophis',
@@ -217,7 +217,7 @@ export default {
     S.route = C.halls.flatMap((h) => h.route);
     S.finishAt = C.finish ? new THREE.Vector3((C.finish.x0 + C.finish.x1) / 2, C.finish.y0, (C.finish.z0 + C.finish.z1) / 2) : null;
 
-    window.__dr = { S, C, look: (ex, ey, ez, tx, ty, tz) => { game.camera.fixed = { position: V(ex, ey, ez), lookAt: V(tx, ty, tz) }; return 1; }, free: () => { game.camera.fixed = null; return 1; }, start: () => { S.T = 0; }, set: (ph) => { S.phase = ph; S.T = 0.01; }, kill: (n) => kill(n.character, 'fell'), fire: (i) => fireTrap(C.traps[i], game.localPlayer), traps: () => C.traps.map((t) => [t.index, t.id, t.state, t.sec]) };
+    window.__dr = { S, C, look: (ex, ey, ez, tx, ty, tz) => { game.camera.fixed = { position: V(ex, ey, ez), lookAt: V(tx, ty, tz) }; game.camera.focus.set(tx, ty, tz); return 1; }, free: () => { game.camera.fixed = null; return 1; }, start: () => { S.T = 0; }, set: (ph) => { S.phase = ph; S.T = 0.01; }, kill: (n) => kill(n.character, 'fell'), fire: (i) => fireTrap(C.traps[i], game.localPlayer), traps: () => C.traps.map((t) => [t.index, t.id, t.state, t.sec]) };
     A.playSong('camp', 0.3);
   },
 
