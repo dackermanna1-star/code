@@ -5,6 +5,7 @@
 import {
   Collider,
   CF_NO_WHEELS,
+  CF_CUTTER,
   CF_TRIGGER,
   SHAPE_CAPSULE,
   SHAPE_CYLINDER,
@@ -354,6 +355,8 @@ export class World {
             svz = sv[2];
           }
           let rx = vx - svx, ry = vy - svy, rz = vz - svz;
+          // shredder teeth rip into the node as they drive or slide against it
+          if (col.flags & CF_CUTTER) b.cutAt(i, pen + Math.sqrt(rx * rx + ry * ry + rz * rz) * dt, x, y, z);
           const vn = rx * nx + ry * ny + rz * nz;
           if (vn < 0) {
             const jn = -vn * (1 + col.restitution);
@@ -562,6 +565,11 @@ export class World {
         const tvz = u * vel[ia * 3 + 2] + v * vel[ib * 3 + 2] + w * vel[ic * 3 + 2];
         // panel moving out into the collider (or the collider moving into it)
         const vn = (tvx - cvx) * nx + (tvy - cvy) * ny + (tvz - cvz) * nz;
+        if (c.flags & CF_CUTTER) {
+          // the teeth rip into the panel around the contact
+          const cut = band - dist + Math.hypot(tvx - cvx, tvy - cvy, tvz - cvz) * this.dt;
+          b.cutAt(u >= v && u >= w ? ia : v >= w ? ib : ic, cut, px, py, pz);
+        }
         if (vn <= 0) continue;
         const jn = vn / imT;
         const ja = jn * u * im[ia], jb = jn * v * im[ib], jc = jn * w * im[ic];

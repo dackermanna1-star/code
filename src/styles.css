@@ -14,10 +14,18 @@
   --radius: 10px;
   --font: 'Barlow', 'Rajdhani', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --mono: 'Barlow Semi Condensed', 'Barlow', ui-monospace, 'SF Mono', Menlo, monospace;
+  /* one dark look in every theme: the UI floats over a 3D scene */
+  color-scheme: dark;
+  /* keep HUD and controls clear of notches and home indicators */
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
 }
 
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--font); }
+body { padding: 0; }
 #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
 #ui { position: fixed; inset: 0; pointer-events: none; z-index: 2; user-select: none; -webkit-user-select: none; }
 #ui .interactive, #ui button, #ui input, #ui select, #ui label, #ui .panel { pointer-events: auto; }
@@ -51,7 +59,7 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 #loading .label { color: var(--muted); font-size: 14px; letter-spacing: 0.1em; text-transform: uppercase; }
 
 /* ---------------------------------------------------------------- overlays/panels */
-.overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; pointer-events: auto; }
+.overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: max(16px, var(--safe-t)) max(16px, var(--safe-r)) max(16px, var(--safe-b)) max(16px, var(--safe-l)); pointer-events: auto; }
 .overlay.dim { background: rgba(5, 8, 12, 0.55); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
 .panel {
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
@@ -63,7 +71,7 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 .close-x { pointer-events: auto; }
 
 /* ---------------------------------------------------------------- main menu */
-#mainmenu { position: fixed; inset: 0; display: flex; align-items: flex-end; justify-content: flex-start; padding: clamp(16px, 5vw, 64px); pointer-events: none;
+#mainmenu { position: fixed; inset: 0; display: flex; align-items: flex-end; justify-content: flex-start; padding: max(clamp(16px, 5vw, 64px), var(--safe-t)) max(clamp(16px, 5vw, 64px), var(--safe-r)) max(clamp(16px, 5vw, 64px), var(--safe-b)) max(clamp(16px, 5vw, 64px), var(--safe-l)); pointer-events: none;
   background: linear-gradient(90deg, rgba(5, 8, 12, 0.82) 0%, rgba(5, 8, 12, 0.35) 45%, rgba(5, 8, 12, 0) 70%); }
 #mainmenu .menu-box { pointer-events: auto; max-width: 460px; }
 #mainmenu .title { font: 800 clamp(46px, 9vw, 104px)/0.9 var(--font); letter-spacing: 0.06em; margin: 0; text-shadow: 0 6px 30px rgba(0, 0, 0, 0.5); }
@@ -74,14 +82,14 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 #mainmenu .foot { margin-top: 26px; color: var(--muted); font-size: 12px; letter-spacing: 0.04em; }
 
 /* ---------------------------------------------------------------- pause */
-#pause .panel { width: min(400px, 100%); padding: 24px; }
+#pause .panel { width: min(400px, 100%); max-height: 100%; overflow: auto; padding: 24px; }
 #pause .buttons { display: grid; gap: 8px; }
 #pause .buttons .btn { text-align: left; }
 
 /* ---------------------------------------------------------------- garage */
-#garage .panel { width: min(1080px, 100%); max-height: calc(100vh - 32px); padding: 22px; display: flex; flex-direction: column; }
-.garage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; overflow: auto; padding: 2px; }
-.vcard { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: rgba(255, 255, 255, 0.03); cursor: pointer; transition: border-color 0.15s, background 0.15s; text-align: left; color: var(--text); font-family: var(--font); }
+#garage .panel { width: min(1080px, 100%); max-height: 100%; padding: 22px; display: flex; flex-direction: column; }
+.garage-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(230px, 100%), 1fr)); gap: 12px; overflow: auto; padding: 2px; }
+.vcard { display: flex; flex-direction: column; justify-content: flex-start; border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: rgba(255, 255, 255, 0.03); cursor: pointer; transition: border-color 0.15s, background 0.15s; text-align: left; color: var(--text); font-family: var(--font); }
 .vcard:hover { border-color: var(--line-strong); background: rgba(255, 255, 255, 0.06); }
 .vcard.selected { border-color: var(--accent); background: rgba(255, 176, 32, 0.08); }
 .vcard .cat { color: var(--accent-2); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; }
@@ -97,19 +105,19 @@ html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
 .swatch-custom { width: 34px; height: 34px; border: none; background: none; padding: 0; cursor: pointer; }
 
 /* ---------------------------------------------------------------- teleport */
-#teleport .panel { width: min(980px, 100%); max-height: calc(100vh - 32px); padding: 22px; display: flex; flex-direction: column; }
-.zone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; overflow: auto; }
+#teleport .panel { width: min(980px, 100%); max-height: 100%; padding: 22px; display: flex; flex-direction: column; }
+.zone-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 10px; overflow: auto; }
 .zcard { border: 1px solid var(--line); border-left: 4px solid var(--zc, var(--accent)); border-radius: 10px; padding: 12px 14px; background: rgba(255, 255, 255, 0.03); cursor: pointer; text-align: left; color: var(--text); font-family: var(--font); }
 .zcard:hover { background: rgba(255, 255, 255, 0.07); }
 .zcard .name { font-weight: 700; font-size: 17px; }
 .zcard .desc { color: var(--muted); font-size: 13px; margin-top: 4px; line-height: 1.35; }
 
 /* ---------------------------------------------------------------- settings */
-#settings .panel { width: min(620px, 100%); max-height: calc(100vh - 32px); padding: 22px; overflow: auto; }
+#settings .panel { width: min(620px, 100%); max-height: 100%; padding: 22px; overflow: auto; }
 .form { display: grid; grid-template-columns: 1fr auto; gap: 12px 18px; align-items: center; }
 .form label { color: #c6d0da; font-size: 14px; }
 .form .hint { color: var(--muted); font-size: 12px; display: block; margin-top: 2px; }
-.seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+.seg { display: inline-flex; flex-wrap: wrap; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
 .seg button { border: 0; background: transparent; color: var(--muted); font: 600 13px var(--font); padding: 8px 10px; cursor: pointer; letter-spacing: 0.04em; }
 .seg button.on { background: var(--accent); color: #17120a; }
 input[type=range] { width: 180px; accent-color: var(--accent); }
@@ -122,14 +130,14 @@ input[type=range] { width: 180px; accent-color: var(--accent); }
 .val { font-variant-numeric: tabular-nums; color: var(--text); min-width: 46px; display: inline-block; text-align: right; margin-left: 8px; font-size: 13px; }
 
 /* ---------------------------------------------------------------- controls help */
-#controls .panel { width: min(760px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 22px; }
-.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 6px 26px; }
+#controls .panel { width: min(760px, 100%); max-height: 100%; overflow: auto; padding: 22px; }
+.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr)); gap: 6px 26px; }
 .keys .row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
 .keys .row span:first-child { color: #c6d0da; }
 kbd { font: 600 12px var(--mono); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 5px; padding: 2px 6px; color: var(--text); white-space: nowrap; }
 
 /* ---------------------------------------------------------------- HUD */
-#hud { position: fixed; inset: 0; pointer-events: none; }
+#hud { position: fixed; inset: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l); pointer-events: none; }
 .hud-tl { position: absolute; left: 16px; top: 14px; display: flex; flex-direction: column; gap: 6px; max-width: 46vw; }
 .zone-name { font: 700 18px var(--font); letter-spacing: 0.06em; text-transform: uppercase; text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6); }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -155,11 +163,12 @@ kbd { font: 600 12px var(--mono); background: rgba(255, 255, 255, 0.08); border:
 .mech .bar i { display: block; height: 100%; background: var(--good); transition: width 0.3s, background 0.3s; }
 .hud-br { position: absolute; right: 16px; bottom: 12px; }
 #tacho { width: 230px; height: 230px; display: block; }
-.hint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); color: rgba(238, 242, 246, 0.55); font-size: 12px; letter-spacing: 0.05em; white-space: nowrap; }
+.hud-hint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); color: rgba(238, 242, 246, 0.55); font-size: 12px; letter-spacing: 0.05em; white-space: nowrap; }
+.editing .hud-tl, .editing .hud-bl, .editing .hud-hint { display: none; }
 .fps { position: absolute; right: 210px; top: 18px; font: 600 12px var(--mono); color: var(--muted); background: rgba(0, 0, 0, 0.4); padding: 4px 8px; border-radius: 6px; }
 
 /* ---------------------------------------------------------------- editor */
-#editor { position: fixed; left: 12px; top: 12px; bottom: 12px; width: 300px; display: flex; flex-direction: column; padding: 14px; gap: 10px; pointer-events: auto; overflow: hidden; }
+#editor { position: fixed; left: calc(12px + var(--safe-l)); top: calc(12px + var(--safe-t)); bottom: calc(12px + var(--safe-b)); width: 300px; display: flex; flex-direction: column; padding: 14px; gap: 10px; pointer-events: auto; overflow: hidden; }
 #editor .scroll { overflow: auto; flex: 1; padding-right: 4px; }
 #editor h3 { margin: 12px 0 6px; font: 700 12px var(--font); letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-2); }
 .tool-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
@@ -173,7 +182,7 @@ kbd { font: 600 12px var(--mono); background: rgba(255, 255, 255, 0.08); border:
 .ed-hint { color: var(--muted); font-size: 12px; line-height: 1.4; }
 
 /* ---------------------------------------------------------------- touch */
-#touch { position: fixed; inset: 0; pointer-events: none; }
+#touch { position: fixed; inset: var(--safe-t) var(--safe-r) var(--safe-b) var(--safe-l); pointer-events: none; }
 #touch .tbtn { position: absolute; pointer-events: auto; width: 76px; height: 76px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.25); color: #fff; font: 700 20px var(--font); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); touch-action: none; }
 #touch .tbtn.on { background: rgba(255, 176, 32, 0.55); }
 #touch .tbtn.sm { width: 52px; height: 52px; font-size: 13px; }
@@ -184,9 +193,35 @@ kbd { font: 600 12px var(--mono); background: rgba(255, 255, 255, 0.08); border:
   .hud-bl { bottom: 100px; }
   .mech { min-width: 100px; font-size: 11px; }
   #dmgCanvas { width: 52px; height: 96px; }
-  .hint { display: none; }
-  #editor { width: calc(100% - 24px); top: auto; height: 45vh; }
+  .hud-hint { display: none; }
+  #editor { width: calc(100% - 24px - var(--safe-l) - var(--safe-r)); top: auto; height: 45vh; }
   .fps { right: 130px; }
+}
+/* with the on-screen pad: compact minimap, speedometer under it clear of the
+   pedals, damage card above the steering buttons, no keyboard hints */
+.touch-ui #minimap { width: 110px; height: 110px; }
+.touch-ui .hud-br { bottom: auto; top: 128px; right: 6px; }
+.touch-ui #tacho { width: 128px; height: 128px; }
+.touch-ui .hud-bl { bottom: 100px; }
+.touch-ui .hud-hint { display: none; }
+@media (max-height: 500px) {
+  /* landscape phones: speedometer beside the minimap */
+  .touch-ui .hud-br { top: 8px; right: 128px; }
+  .touch-ui #tacho { width: 112px; height: 112px; }
+  .touch-ui .damage-card { transform: scale(0.85); transform-origin: bottom left; }
+}
+@media (max-width: 520px) {
+  /* settings: label above control */
+  .form { grid-template-columns: 1fr; gap: 6px; }
+  .form > :nth-child(2n) { margin-bottom: 8px; }
+  input[type=range] { width: min(180px, 60vw); }
+}
+@media (max-height: 640px) {
+  /* short screens (landscape phones, small windows): tighter menus */
+  #pause .panel { padding: 16px; }
+  #pause .buttons .btn { padding: 9px 14px; }
+  #mainmenu .buttons .btn { padding: 11px 16px; }
+  #mainmenu .tagline { margin: 8px 0 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }

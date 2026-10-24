@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import { Obstacle, register, eulerMat, mul3 } from './base.ts';
-import { Collider, CF_SPIKES, CF_SHARP, CF_TRIGGER, CF_CONVEYOR } from '../../sim/colliders.ts';
+import { Collider, CF_SPIKES, CF_SHARP, CF_CUTTER, CF_TRIGGER, CF_CONVEYOR } from '../../sim/colliders.ts';
 import { Surface } from '../../sim/surfaces.ts';
 import { MAT, texBox, mesh, wedgeGeometry, signBoard } from './assets.ts';
 import { smoothstep } from '../../sim/math.ts';
@@ -282,7 +282,7 @@ export class Grinder extends Machine {
       this.rollers.push(c);
       for (let row = 0; row < nRows; row++) {
         for (let a = 0; a < 6; a++) {
-          const tc = this.kinematicCollider(Collider.capsule(0.09, 0.14), { surface: Surface.METAL, flags: CF_SHARP, tag: 'grinder', harshness: 4, friction: 1.0 });
+          const tc = this.kinematicCollider(Collider.capsule(0.09, 0.14), { surface: Surface.METAL, flags: CF_SHARP | CF_CUTTER, tag: 'grinder', harshness: 4, friction: 1.0 });
           this.teeth.push({ c: tc, roller: k, a: (a / 6) * Math.PI * 2 + (row % 2) * 0.5, x: -w / 2 + (row + 0.5) * (w / nRows) });
         }
       }

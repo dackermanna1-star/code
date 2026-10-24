@@ -46,13 +46,15 @@ export class TouchControls {
       tap('R', { left: '18px', top: '64px' }, () => game.input.push('reset')),
       tap('CAM', { left: '78px', top: '64px' }, () => game.input.push('camera')),
       tap('SLO', { left: '138px', top: '64px' }, () => game.input.push('slowmo')),
-      tap('☰', { right: '18px', top: '206px' }, onMenu),
+      tap('☰', { left: '198px', top: '64px' }, onMenu),
     );
     parent.appendChild(this.root);
   }
 
   setVisible(v: boolean): void {
     this.root.classList.toggle('hidden', !v);
+    // the HUD makes room for the pedals
+    this.root.parentElement?.classList.toggle('touch-ui', v);
     if (!v) {
       const t = this.game.input.touch;
       t.throttle = t.brake = t.handbrake = t.steer = 0;

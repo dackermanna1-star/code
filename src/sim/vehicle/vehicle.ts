@@ -258,7 +258,6 @@ export class Vehicle implements SubstepController {
   private restAxleZ: number[];
   private engineRestDist = 0;
   private firewallRestDist = 0;
-  private zoneNorm = new Float64Array(8);
   /** Driver/brake lights state */
   braking = false;
   reversing = false;
@@ -289,9 +288,6 @@ export class Vehicle implements SubstepController {
     this.restAxleZ = [P.zFrontAxle, P.zRearAxle];
     this.engineRestDist = this.avgDist(this.struct.radiatorNodes, this.struct.engineNodes, true);
     this.firewallRestDist = this.avgDist(this.struct.firewallNodes, this.struct.engineNodes, true);
-    // zone normalization: number of beams per zone
-    for (let b = 0; b < this.body.m; b++) this.zoneNorm[this.body.bZone[b]] += 1;
-    for (let i = 0; i < 8; i++) this.zoneNorm[i] = Math.max(1, this.zoneNorm[i]);
   }
 
   private avgDist(a: number[], b: number[], rest: boolean): number {
@@ -869,21 +865,19 @@ export class Vehicle implements SubstepController {
   private updateDamage(dt: number): void {
     const body = this.body;
     const st = this.struct;
-    // zones
-    const zs = _zones;
-    zs.fill(0);
-    const L = body.bL, L0 = body.bL0, Z = body.bZone, F = body.bFlags;
-    for (let b = 0; b < body.m; b++) {
-      const strain = Math.abs(L[b] - L0[b]) / L0[b];
-      zs[Z[b]] += F[b] & BEAM_BROKEN ? 0.5 : Math.min(strain, 0.5);
-    }
-    let total = 0;
+    // Damage follows the energy the structure has absorbed by bending (plastic
+    // work), so a deep local dent counts as much as a wide shallow one. Scales:
+    // a 50 km/h barrier crash reads about half wrecked overall.
+    const F = body.bFlags;
+    const massScale = body.totalMass / 1500;
+    const zoneScale = 40000 * massScale, totalScale = 160000 * massScale;
+    let work = 0;
     for (let z = 1; z < 8; z++) {
-      const v = clamp((zs[z] / this.zoneNorm[z]) * 6, 0, 1);
-      this.damage.zones[z] = v;
-      total += v;
+      const w = body.zoneWork[z];
+      work += w;
+      this.damage.zones[z] = 1 - Math.exp(-w / zoneScale);
     }
-    this.damage.total = clamp(total / 3, 0, 1);
+    this.damage.total = 1 - Math.exp(-work / totalScale);
 
     // detached parts
     for (let p = 0; p < body.parts.length; p++) {
@@ -995,7 +989,7 @@ export class Vehicle implements SubstepController {
       for (let b = 0; b < body.m; b++) {
         if (body.bZone[b] !== Zone.REAR) continue;
         if (!st.fuelTankNodes.includes(body.bA[b]) && !st.fuelTankNodes.includes(body.bB[b])) continue;
-        maxS = Math.max(maxS, Math.abs(L[b] - L0[b]) / L0[b]);
+        maxS = Math.max(maxS, body.beamStrain(b));
       }
       if (maxS > 0.1) d.fuelLeak = true;
     }
@@ -1133,5 +1127,4 @@ const ANGLE_S = ANGLES.map(Math.sin);
 const ANGLE_C = ANGLES.map(Math.cos);
 const _A9 = new Float64Array(9);
 const _t3 = new Float64Array(3);
-const _zones = new Float64Array(8);
 void UP_LOCAL;

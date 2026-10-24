@@ -26,3 +26,18 @@ html = html.replace(/<link rel="modulepreload"[^>]*>/g, '');
 const out = join(dist, 'wreckfield.html');
 writeFileSync(out, html);
 console.log(`wrote ${out} (${(html.length / 1024).toFixed(0)} KiB)`);
+
+// The same game as page content for hosts that supply their own document
+// skeleton (doctype, head with charset and viewport, body): title, font links
+// and styles first, then the markup, then the module script.
+const pick = (re) => [...html.matchAll(re)].map((m) => m[0]).join('\n');
+const fragment = [
+  pick(/<title>[\s\S]*?<\/title>/g),
+  pick(/<link rel="(?:preconnect|stylesheet)"[^>]*>/g),
+  pick(/<style>[\s\S]*?<\/style>/g),
+  html.match(/<body>([\s\S]*?)<\/body>/)[1].trim(),
+  pick(/<script type="module">[\s\S]*?<\/script>/g),
+].join('\n');
+const fragOut = join(dist, 'wreckfield-artifact.html');
+writeFileSync(fragOut, fragment);
+console.log(`wrote ${fragOut} (${(fragment.length / 1024).toFixed(0)} KiB)`);

@@ -39,6 +39,7 @@ The single-file build (`dist/wreckfield.html`) runs from any static host or stra
 | Drop a random prop ahead | O | |
 | Sandbox editor | B | |
 | Locations map | J | |
+| Controls help | H / F1 | |
 | Menu | Esc | Start |
 
 On phones and tablets an on-screen pad appears automatically.

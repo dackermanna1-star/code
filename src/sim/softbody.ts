@@ -19,6 +19,9 @@ export const BEAM_ATTACH = 16;
 /** Pulls only (rope/tether), no compression. */
 export const BEAM_ROPE = 32;
 
+/** Cutting travel (m) of a cutting edge against a node that tears one of its beams. */
+const TEAR_LENGTH = 0.15;
+
 /** Speed (m/s) a beam's stored energy may give its lighter node at most; see bCrushCap. */
 const MAX_RELEASE_SPEED = 12;
 
@@ -253,6 +256,8 @@ export class SoftBody {
   nodeFlags: Uint8Array;
   /** Frame-accumulated contact intensity per node (for wear/scratches). */
   nodeScrape: Float32Array;
+  /** Distance (m) cutting edges have ground against each node since its last tear. */
+  nodeCut: Float32Array;
 
   // beams
   bA: Int32Array;
@@ -330,6 +335,8 @@ export class SoftBody {
 
   // per-frame accumulators (reset by consumer)
   deformEnergy = 0;
+  /** Plastic work (J) absorbed by beams of each damage zone since the last reset. */
+  zoneWork = new Float64Array(16);
   brokenBeams: number[] = [];
   impactSpeed = 0;
   impactX = 0;
@@ -345,6 +352,11 @@ export class SoftBody {
   scrapeNz = 0;
   scrapeCount = 0;
   scrapeSparks = 0;
+  /** Beams torn by cutting edges this frame, and where (reset by the consumer). */
+  tearCount = 0;
+  tearX = 0;
+  tearY = 0;
+  tearZ = 0;
   /** Exploded / NaN guard tripped. */
   unstable = false;
   /** Incremented whenever beams break (topology changed). */
@@ -378,6 +390,7 @@ export class SoftBody {
     this.nodePart = new Uint16Array(n);
     this.nodeFlags = new Uint8Array(n);
     this.nodeScrape = new Float32Array(n);
+    this.nodeCut = new Float32Array(n);
     this.bA = new Int32Array(m);
     this.bB = new Int32Array(m);
     this.bL = new Float64Array(m);
@@ -528,6 +541,8 @@ export class SoftBody {
     this.tEnabled.fill(1);
     for (const p of this.parts) p.detached = false;
     this.nodeScrape.fill(0);
+    this.nodeCut.fill(0);
+    this.zoneWork.fill(0);
     this.unstable = false;
     this.structVersion++;
   }
@@ -658,7 +673,7 @@ export class SoftBody {
     const pos = this.pos, vel = this.vel, frc = this.frc;
     const A = this.bA, B = this.bB, L = this.bL, L0 = this.bL0, K = this.bK, C = this.bC;
     const YC = this.bYC, YT = this.bYT, S = this.bStr, F = this.bFlags, MS = this.bMaxStretch, MR = this.bMinRatio, CC = this.bCrushCap;
-    const BF = this.bForce;
+    const BF = this.bForce, Z = this.bZone, ZW = this.zoneWork;
     let energy = 0;
     const m = this.m;
     for (let b = 0; b < m; b++) {
@@ -688,7 +703,9 @@ export class SoftBody {
       if (!(fl & BEAM_NODEFORM)) {
         if (fs > YT[b]) {
           const nr = d - YT[b] / k;
-          energy += YT[b] * (nr - rest);
+          const work = YT[b] * (nr - rest);
+          energy += work;
+          ZW[Z[b]] += work;
           rest = nr;
           L[b] = nr;
           fs = YT[b];
@@ -707,7 +724,9 @@ export class SoftBody {
             nr = lim;
             F[b] = fl | BEAM_CRUSHED;
           }
-          energy += YC[b] * (rest - nr);
+          const work = YC[b] * (rest - nr);
+          energy += work;
+          ZW[Z[b]] += work;
           rest = nr;
           L[b] = nr;
           fs = k * (d - rest);
@@ -726,7 +745,9 @@ export class SoftBody {
           this.structVersion++;
           continue;
         }
-        energy += CC[b] * (rest - nr);
+        const work = CC[b] * (rest - nr);
+        energy += work;
+        ZW[Z[b]] += work;
         rest = nr;
         L[b] = nr;
         fs = -CC[b];
@@ -759,6 +780,37 @@ export class SoftBody {
     }
     this.deformEnergy += energy;
     if (this.pdNode.length) this.plateDamping();
+  }
+
+  /**
+   * A cutting edge has ground far enough into node i: tear its most loaded beam.
+   * A node keeps at least three structural beams, so panels rip and go limp
+   * without shedding lone nodes. Returns whether a beam tore.
+   */
+  cutAt(i: number, distance: number, x: number, y: number, z: number): boolean {
+    this.nodeCut[i] += distance;
+    if (this.nodeCut[i] < TEAR_LENGTH) return false;
+    this.nodeCut[i] = 0;
+    let intact = 0, best = -1, bestF = -1;
+    for (let e = this.adjStart[i]; e < this.adjStart[i + 1]; e++) {
+      const b = this.adjBeam[e];
+      const fl = this.bFlags[b];
+      if (fl & (BEAM_BROKEN | BEAM_SUPPORT | BEAM_ROPE)) continue;
+      intact++;
+      if (fl & BEAM_NODEFORM) continue;
+      const f = Math.abs(this.bForce[b]);
+      if (f > bestF) {
+        bestF = f;
+        best = b;
+      }
+    }
+    if (best < 0 || intact <= 3) return false;
+    this.breakBeam(best);
+    this.tearCount++;
+    this.tearX = x;
+    this.tearY = y;
+    this.tearZ = z;
+    return true;
   }
 
   breakBeam(b: number): void {

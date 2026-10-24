@@ -138,7 +138,13 @@ export class Input {
     this.move.fast = k.has('ShiftLeft') || k.has('ShiftRight');
 
     // gamepad
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    // embedded in a cross-origin frame, the permissions policy can make this throw
+    let pads: (Gamepad | null)[] = [];
+    try {
+      pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    } catch {
+      /* no gamepad access here */
+    }
     const gp = pads && Array.from(pads).find((p) => p && p.connected);
     if (gp) {
       const ax = gp.axes;

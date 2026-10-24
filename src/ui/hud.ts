@@ -40,7 +40,7 @@ export class HUD {
     this.mini = h('canvas', { id: 'minimap' });
     this.mech = h('div', { class: 'mech' });
     this.fpsEl = h('div', { class: 'fps hidden' });
-    this.hint = h('div', { class: 'hint' }, 'H controls · C camera · T slow-mo · R reset · Esc menu');
+    this.hint = h('div', { class: 'hud-hint' }, 'H controls · C camera · T slow-mo · R reset · Esc menu');
     this.root = h(
       'div',
       { id: 'hud' },

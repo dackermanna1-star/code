@@ -14,8 +14,9 @@ export const SHAPE_CONVEX = 4;
 export const CF_SPIKES = 1; // punctures tires on contact
 export const CF_NO_WHEELS = 2; // ignored by wheel raycasts
 export const CF_TRIGGER = 4; // reports overlap, no collision response
-export const CF_SHARP = 8; // cuts through panels: higher local damage
+export const CF_SHARP = 8; // spikes and blades: higher local damage
 export const CF_CONVEYOR = 16; // surface velocity applies without moving the shape
+export const CF_CUTTER = 32; // shredder teeth: rips the beams it grinds against
 
 export interface PointHit {
   depth: number;

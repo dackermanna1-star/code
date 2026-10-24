@@ -23,7 +23,7 @@ export class AudioEngine {
   /** Must be called from a user gesture. */
   init(): void {
     if (this.ctx) {
-      void this.ctx.resume();
+      this.ctx.resume().catch(() => {});
       return;
     }
     const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;

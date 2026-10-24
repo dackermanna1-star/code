@@ -678,6 +678,17 @@ export class Game implements ObstacleHost {
     }
     body.deformEnergy = 0;
     body.brokenBeams.length = 0;
+    // metal ripped by spikes and shredder teeth
+    if (body.tearCount > 0) {
+      const col = new THREE.Color(e.color);
+      this.fx.emitSparks(body.tearX, body.tearY, body.tearZ, 0, 1, 0, Math.min(10, 2 + body.tearCount * 2), 6);
+      this.fx.emitDebris(body.tearX, body.tearY, body.tearZ, v.velocity[0], v.velocity[1], v.velocity[2], Math.min(6, body.tearCount), col, 0.06);
+      if (now - e.lastCrunch > 0.15) {
+        e.lastCrunch = now;
+        this.audio.play('crunch', body.tearX, body.tearY, body.tearZ, Math.min(1, 0.35 + body.tearCount * 0.15));
+      }
+      body.tearCount = 0;
+    }
 
     // ---- scraping sparks
     let scrape = 0;

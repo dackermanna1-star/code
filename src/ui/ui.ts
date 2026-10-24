@@ -91,6 +91,8 @@ export class UI {
     this.settingsEl.classList.toggle('hidden', s !== 'settings');
     this.controls.classList.toggle('hidden', s !== 'controls');
     this.hud.setVisible(s === 'play' || s === 'editor' || s === 'controls');
+    // the editor panel takes the left side of the screen
+    this.root.classList.toggle('editing', s === 'editor');
     g.inMenu = s !== 'play' && s !== 'controls' && s !== 'editor';
     this.editor.setActive(s === 'editor');
     g.editorActive = s === 'editor';
