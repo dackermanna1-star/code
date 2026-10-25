@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/speed_bump"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/speed_bump",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/speed_bump",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/speed_bump",
+      "y": 270
+    }
+  }
+}

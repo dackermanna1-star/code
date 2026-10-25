@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "modernapartments:block/shower_drain",
+    "side": "modernapartments:block/mosaic_tile",
+    "bottom": "modernapartments:block/mosaic_tile",
+    "particle": "modernapartments:block/shower_drain"
+  }
+}

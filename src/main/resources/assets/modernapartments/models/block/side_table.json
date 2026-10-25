@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/side_table",
+  "textures": {
+    "top": "modernapartments:block/stone_marble_white",
+    "leg": "modernapartments:block/metal_black",
+    "particle": "modernapartments:block/stone_marble_white"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/parcel_lower",
+  "textures": {
+    "front_lower": "modernapartments:block/parcel_locker_lower",
+    "side": "modernapartments:block/metal_gunmetal",
+    "particle": "modernapartments:block/parcel_locker_lower"
+  }
+}

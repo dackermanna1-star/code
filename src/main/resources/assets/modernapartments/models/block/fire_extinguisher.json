@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/extinguisher",
+  "textures": {
+    "body": "modernapartments:block/extinguisher",
+    "top": "modernapartments:block/plastic_black",
+    "particle": "modernapartments:block/extinguisher"
+  }
+}

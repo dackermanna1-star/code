@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/swing_set",
+  "textures": {
+    "frame": "modernapartments:block/paint_navy",
+    "chain": "modernapartments:block/metal_steel",
+    "seat": "modernapartments:block/rubber_black",
+    "particle": "modernapartments:block/paint_navy"
+  }
+}

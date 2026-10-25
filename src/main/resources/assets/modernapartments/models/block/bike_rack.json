@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/bike_rack",
+  "textures": {
+    "metal": "modernapartments:block/metal_steel",
+    "particle": "modernapartments:block/metal_steel"
+  }
+}

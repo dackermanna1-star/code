@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/clothing_rack",
+  "textures": {
+    "rod": "modernapartments:block/metal_chrome",
+    "clothes": "modernapartments:block/clothes_rack",
+    "particle": "modernapartments:block/metal_chrome"
+  }
+}

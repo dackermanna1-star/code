@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/bbq_grill",
+  "textures": {
+    "side": "modernapartments:block/metal_black",
+    "grate": "modernapartments:block/cooktop_on",
+    "particle": "modernapartments:block/metal_black"
+  }
+}

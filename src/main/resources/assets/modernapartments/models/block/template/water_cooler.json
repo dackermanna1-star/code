@@ -1,0 +1,143 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        4,
+        0,
+        4
+      ],
+      "to": [
+        12,
+        14,
+        12
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            2,
+            12,
+            16
+          ],
+          "texture": "#front"
+        },
+        "south": {
+          "uv": [
+            4,
+            2,
+            12,
+            16
+          ],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [
+            4,
+            2,
+            12,
+            16
+          ],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [
+            4,
+            2,
+            12,
+            16
+          ],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [
+            4,
+            4,
+            12,
+            12
+          ],
+          "texture": "#side"
+        },
+        "down": {
+          "uv": [
+            4,
+            4,
+            12,
+            12
+          ],
+          "texture": "#side",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        14,
+        5
+      ],
+      "to": [
+        11,
+        24,
+        11
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            0,
+            11,
+            10
+          ],
+          "texture": "#bottle"
+        },
+        "south": {
+          "uv": [
+            5,
+            0,
+            11,
+            10
+          ],
+          "texture": "#bottle"
+        },
+        "east": {
+          "uv": [
+            5,
+            0,
+            11,
+            10
+          ],
+          "texture": "#bottle"
+        },
+        "west": {
+          "uv": [
+            5,
+            0,
+            11,
+            10
+          ],
+          "texture": "#bottle"
+        },
+        "up": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#bottle",
+          "cullface": "up"
+        },
+        "down": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#bottle"
+        }
+      }
+    }
+  ]
+}

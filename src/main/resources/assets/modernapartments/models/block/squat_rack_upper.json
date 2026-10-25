@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/squat_rack_upper",
+  "textures": {
+    "frame": "modernapartments:block/metal_black",
+    "metal": "modernapartments:block/metal_chrome",
+    "weight": "modernapartments:block/rubber_black",
+    "particle": "modernapartments:block/metal_black"
+  }
+}

@@ -1,0 +1,210 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        6,
+        4,
+        15
+      ],
+      "to": [
+        10,
+        12,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6,
+            4,
+            10,
+            12
+          ],
+          "texture": "#metal"
+        },
+        "south": {
+          "uv": [
+            6,
+            4,
+            10,
+            12
+          ],
+          "texture": "#metal",
+          "cullface": "south"
+        },
+        "east": {
+          "uv": [
+            0,
+            4,
+            1,
+            12
+          ],
+          "texture": "#metal"
+        },
+        "west": {
+          "uv": [
+            15,
+            4,
+            16,
+            12
+          ],
+          "texture": "#metal"
+        },
+        "up": {
+          "uv": [
+            6,
+            15,
+            10,
+            16
+          ],
+          "texture": "#metal"
+        },
+        "down": {
+          "uv": [
+            6,
+            0,
+            10,
+            1
+          ],
+          "texture": "#metal"
+        }
+      }
+    },
+    {
+      "from": [
+        7,
+        6,
+        13
+      ],
+      "to": [
+        9,
+        11,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7,
+            5,
+            9,
+            10
+          ],
+          "texture": "#sprayer"
+        },
+        "south": {
+          "uv": [
+            7,
+            5,
+            9,
+            10
+          ],
+          "texture": "#sprayer"
+        },
+        "east": {
+          "uv": [
+            1,
+            5,
+            3,
+            10
+          ],
+          "texture": "#sprayer"
+        },
+        "west": {
+          "uv": [
+            13,
+            5,
+            15,
+            10
+          ],
+          "texture": "#sprayer"
+        },
+        "up": {
+          "uv": [
+            7,
+            13,
+            9,
+            15
+          ],
+          "texture": "#sprayer"
+        },
+        "down": {
+          "uv": [
+            7,
+            1,
+            9,
+            3
+          ],
+          "texture": "#sprayer"
+        }
+      }
+    },
+    {
+      "from": [
+        7.3,
+        2,
+        14.5
+      ],
+      "to": [
+        7.7,
+        6,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            8.3,
+            10,
+            8.7,
+            14
+          ],
+          "texture": "#hose"
+        },
+        "south": {
+          "uv": [
+            7.3,
+            10,
+            7.7,
+            14
+          ],
+          "texture": "#hose"
+        },
+        "east": {
+          "uv": [
+            1,
+            10,
+            1.5,
+            14
+          ],
+          "texture": "#hose"
+        },
+        "west": {
+          "uv": [
+            14.5,
+            10,
+            15,
+            14
+          ],
+          "texture": "#hose"
+        },
+        "up": {
+          "uv": [
+            7.3,
+            14.5,
+            7.7,
+            15
+          ],
+          "texture": "#hose"
+        },
+        "down": {
+          "uv": [
+            7.3,
+            1,
+            7.7,
+            1.5
+          ],
+          "texture": "#hose"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/kitchen_cabinet",
+  "textures": {
+    "front": "modernapartments:block/cabinet_sage_door",
+    "side": "modernapartments:block/cabinet_sage_side",
+    "top": "modernapartments:block/wood_teak",
+    "toe": "modernapartments:block/plastic_black",
+    "particle": "modernapartments:block/cabinet_sage_door"
+  }
+}

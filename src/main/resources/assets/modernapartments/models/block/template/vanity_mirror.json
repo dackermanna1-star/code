@@ -1,0 +1,137 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        -3,
+        2,
+        15
+      ],
+      "to": [
+        19,
+        15,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            1,
+            16,
+            14
+          ],
+          "texture": "#frame"
+        },
+        "south": {
+          "uv": [
+            0,
+            1,
+            16,
+            14
+          ],
+          "texture": "#frame",
+          "cullface": "south"
+        },
+        "east": {
+          "uv": [
+            0,
+            1,
+            1,
+            14
+          ],
+          "texture": "#frame",
+          "cullface": "east"
+        },
+        "west": {
+          "uv": [
+            15,
+            1,
+            16,
+            14
+          ],
+          "texture": "#frame",
+          "cullface": "west"
+        },
+        "up": {
+          "uv": [
+            0,
+            15,
+            16,
+            16
+          ],
+          "texture": "#frame"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            1
+          ],
+          "texture": "#frame"
+        }
+      }
+    },
+    {
+      "from": [
+        -2.5,
+        2.5,
+        14.9
+      ],
+      "to": [
+        18.5,
+        14.5,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#glass"
+        },
+        "east": {
+          "uv": [
+            1,
+            1.5,
+            1.1,
+            13.5
+          ],
+          "texture": "#glass",
+          "cullface": "east"
+        },
+        "west": {
+          "uv": [
+            14.9,
+            1.5,
+            15,
+            13.5
+          ],
+          "texture": "#glass",
+          "cullface": "west"
+        },
+        "up": {
+          "uv": [
+            0,
+            14.9,
+            16,
+            15
+          ],
+          "texture": "#glass"
+        },
+        "down": {
+          "uv": [
+            0,
+            1,
+            16,
+            1.1
+          ],
+          "texture": "#glass"
+        }
+      }
+    }
+  ]
+}

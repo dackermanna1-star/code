@@ -1,0 +1,12 @@
+{
+  "parent": "modernapartments:block/template/vanity",
+  "textures": {
+    "front": "modernapartments:block/cabinet_walnut_door",
+    "side": "modernapartments:block/wood_walnut",
+    "top": "modernapartments:block/stone_quartz",
+    "ceramic": "modernapartments:block/ceramic_white",
+    "basin": "modernapartments:block/ceramic_white",
+    "faucet": "modernapartments:block/metal_chrome",
+    "particle": "modernapartments:block/cabinet_walnut_door"
+  }
+}

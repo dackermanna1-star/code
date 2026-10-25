@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/mailbox_bank"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/mailbox_bank",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/mailbox_bank",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/mailbox_bank",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/dog_ramp",
+  "textures": {
+    "ramp": "modernapartments:block/rubber_black",
+    "particle": "modernapartments:block/rubber_black"
+  }
+}

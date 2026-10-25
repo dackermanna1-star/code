@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/wall_mirror_brass"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/wall_mirror_brass",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/wall_mirror_brass",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/wall_mirror_brass",
+      "y": 270
+    }
+  }
+}

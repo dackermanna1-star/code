@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "modernapartments:block/security_camera_dome"
+    }
+  }
+}

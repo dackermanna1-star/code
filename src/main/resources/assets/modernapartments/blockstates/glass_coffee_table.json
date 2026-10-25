@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/glass_coffee_table"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/glass_coffee_table",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/glass_coffee_table",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/glass_coffee_table",
+      "y": 270
+    }
+  }
+}

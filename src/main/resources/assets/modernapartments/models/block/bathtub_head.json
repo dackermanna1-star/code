@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/bathtub_head",
+  "textures": {
+    "ceramic": "modernapartments:block/ceramic_white",
+    "metal": "modernapartments:block/metal_chrome",
+    "water": "modernapartments:block/glass_clear",
+    "particle": "modernapartments:block/ceramic_white"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/shoe_rack"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/shoe_rack",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/shoe_rack",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/shoe_rack",
+      "y": 270
+    }
+  }
+}

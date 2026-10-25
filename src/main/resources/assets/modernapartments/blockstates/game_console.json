@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/game_console"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/game_console",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/game_console",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/game_console",
+      "y": 270
+    }
+  }
+}

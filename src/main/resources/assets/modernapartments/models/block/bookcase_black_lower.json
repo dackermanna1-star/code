@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/bookcase_lower",
+  "textures": {
+    "frame": "modernapartments:block/metal_black",
+    "books": "modernapartments:block/book_spines",
+    "particle": "modernapartments:block/metal_black"
+  }
+}

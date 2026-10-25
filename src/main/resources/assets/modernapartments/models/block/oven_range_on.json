@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/oven_range",
+  "textures": {
+    "front": "modernapartments:block/range_front_on",
+    "side": "modernapartments:block/metal_steel",
+    "cooktop": "modernapartments:block/cooktop_on",
+    "handle": "modernapartments:block/metal_chrome",
+    "particle": "modernapartments:block/range_front_on"
+  }
+}

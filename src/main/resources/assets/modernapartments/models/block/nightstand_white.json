@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/nightstand",
+  "textures": {
+    "front": "modernapartments:block/cabinet_white_drawers",
+    "side": "modernapartments:block/paint_white",
+    "top": "modernapartments:block/wood_light",
+    "particle": "modernapartments:block/cabinet_white_drawers"
+  }
+}

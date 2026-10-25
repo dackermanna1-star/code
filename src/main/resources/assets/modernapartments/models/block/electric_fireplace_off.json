@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/electric_fireplace",
+  "textures": {
+    "frame": "modernapartments:block/plastic_black",
+    "flames": "modernapartments:block/screen_off",
+    "top": "modernapartments:block/stone_marble_white",
+    "particle": "modernapartments:block/plastic_black"
+  }
+}

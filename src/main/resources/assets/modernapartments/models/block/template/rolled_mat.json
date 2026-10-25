@@ -1,0 +1,74 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        2,
+        0,
+        6
+      ],
+      "to": [
+        14,
+        3,
+        9
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            13,
+            14,
+            16
+          ],
+          "texture": "#foam"
+        },
+        "south": {
+          "uv": [
+            2,
+            13,
+            14,
+            16
+          ],
+          "texture": "#foam"
+        },
+        "east": {
+          "uv": [
+            7,
+            13,
+            10,
+            16
+          ],
+          "texture": "#foam"
+        },
+        "west": {
+          "uv": [
+            6,
+            13,
+            9,
+            16
+          ],
+          "texture": "#foam"
+        },
+        "up": {
+          "uv": [
+            2,
+            6,
+            14,
+            9
+          ],
+          "texture": "#foam"
+        },
+        "down": {
+          "uv": [
+            2,
+            7,
+            14,
+            10
+          ],
+          "texture": "#foam",
+          "cullface": "down"
+        }
+      }
+    }
+  ]
+}

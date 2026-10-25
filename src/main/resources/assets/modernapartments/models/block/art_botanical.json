@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/wall_art",
+  "textures": {
+    "frame": "modernapartments:block/wood_light",
+    "art": "modernapartments:block/art_botanical",
+    "particle": "modernapartments:block/wood_light"
+  }
+}

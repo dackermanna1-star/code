@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "modernapartments:block/recessed_light_off"
+    },
+    "lit=true": {
+      "model": "modernapartments:block/recessed_light_on"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/bean_bag"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/bean_bag",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/bean_bag",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/bean_bag",
+      "y": 270
+    }
+  }
+}

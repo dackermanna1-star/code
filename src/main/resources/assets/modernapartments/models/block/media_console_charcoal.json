@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/media_console",
+  "textures": {
+    "front": "modernapartments:block/cabinet_charcoal_door",
+    "side": "modernapartments:block/paint_charcoal",
+    "top": "modernapartments:block/paint_charcoal",
+    "leg": "modernapartments:block/metal_black",
+    "particle": "modernapartments:block/cabinet_charcoal_door"
+  }
+}

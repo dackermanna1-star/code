@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/vanity_white"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/vanity_white",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/vanity_white",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/vanity_white",
+      "y": 270
+    }
+  }
+}

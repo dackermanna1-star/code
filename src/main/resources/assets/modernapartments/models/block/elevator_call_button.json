@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/keycard_reader",
+  "textures": {
+    "frame": "modernapartments:block/metal_steel",
+    "face": "modernapartments:block/elevator_call",
+    "particle": "modernapartments:block/metal_steel"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/lounge_chair_cognac"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/lounge_chair_cognac",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/lounge_chair_cognac",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/lounge_chair_cognac",
+      "y": 270
+    }
+  }
+}

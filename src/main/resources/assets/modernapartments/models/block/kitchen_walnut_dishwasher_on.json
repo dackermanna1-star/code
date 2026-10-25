@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/dishwasher",
+  "textures": {
+    "front": "modernapartments:block/dishwasher_front",
+    "side": "modernapartments:block/metal_steel",
+    "top": "modernapartments:block/stone_granite",
+    "toe": "modernapartments:block/plastic_black",
+    "particle": "modernapartments:block/dishwasher_front"
+  }
+}

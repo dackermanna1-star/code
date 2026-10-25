@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/bathtub_foot",
+  "textures": {
+    "ceramic": "modernapartments:block/ceramic_white",
+    "water": "modernapartments:block/glass_clear",
+    "particle": "modernapartments:block/ceramic_white"
+  }
+}

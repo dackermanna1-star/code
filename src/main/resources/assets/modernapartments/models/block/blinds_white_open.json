@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/blinds_open",
+  "textures": {
+    "slats": "modernapartments:block/paint_white",
+    "particle": "modernapartments:block/paint_white"
+  }
+}

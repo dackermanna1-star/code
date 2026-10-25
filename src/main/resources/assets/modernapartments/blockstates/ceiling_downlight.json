@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "modernapartments:block/ceiling_downlight_off"
+    },
+    "lit=true": {
+      "model": "modernapartments:block/ceiling_downlight_on"
+    }
+  }
+}

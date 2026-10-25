@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/grooming_table",
+  "textures": {
+    "top": "modernapartments:block/rubber_black",
+    "leg": "modernapartments:block/metal_steel",
+    "frame": "modernapartments:block/metal_steel",
+    "particle": "modernapartments:block/rubber_black"
+  }
+}

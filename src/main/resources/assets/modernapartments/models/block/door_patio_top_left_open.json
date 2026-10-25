@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/door_top_left_open",
+  "textures": {
+    "bottom": "modernapartments:block/door_patio_bottom",
+    "top": "modernapartments:block/door_patio_top"
+  }
+}

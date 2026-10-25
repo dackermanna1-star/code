@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/towel_stack"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/towel_stack",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/towel_stack",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/towel_stack",
+      "y": 270
+    }
+  }
+}

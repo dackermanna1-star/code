@@ -1,0 +1,16 @@
+{
+  "variants": {
+    "axis=y": {
+      "model": "modernapartments:block/steel_beam"
+    },
+    "axis=x": {
+      "model": "modernapartments:block/steel_beam_horizontal",
+      "x": 90,
+      "y": 90
+    },
+    "axis=z": {
+      "model": "modernapartments:block/steel_beam_horizontal",
+      "x": 90
+    }
+  }
+}

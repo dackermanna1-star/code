@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/yoga_mat",
+  "textures": {
+    "foam": "modernapartments:block/foam_purple",
+    "particle": "modernapartments:block/foam_purple"
+  }
+}

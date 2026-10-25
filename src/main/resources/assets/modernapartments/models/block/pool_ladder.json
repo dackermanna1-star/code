@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/pool_ladder",
+  "textures": {
+    "metal": "modernapartments:block/metal_chrome",
+    "step": "modernapartments:block/metal_steel",
+    "particle": "modernapartments:block/metal_chrome"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/sofa_middle",
+  "textures": {
+    "fabric": "modernapartments:block/canvas_beige",
+    "leg": "modernapartments:block/wood_teak",
+    "pillow": "modernapartments:block/fabric_stripe_navy",
+    "particle": "modernapartments:block/canvas_beige"
+  }
+}

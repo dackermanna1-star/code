@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/paw_station"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/paw_station",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/paw_station",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/paw_station",
+      "y": 270
+    }
+  }
+}

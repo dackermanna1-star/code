@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/kitchen_cabinet",
+  "textures": {
+    "front": "modernapartments:block/cabinet_walnut_door",
+    "side": "modernapartments:block/wood_walnut",
+    "top": "modernapartments:block/stone_granite",
+    "toe": "modernapartments:block/plastic_black",
+    "particle": "modernapartments:block/cabinet_walnut_door"
+  }
+}

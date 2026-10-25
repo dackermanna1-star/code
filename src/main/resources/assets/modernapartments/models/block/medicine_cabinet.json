@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/medicine_cabinet",
+  "textures": {
+    "front": "modernapartments:block/mirror",
+    "side": "modernapartments:block/metal_white",
+    "particle": "modernapartments:block/mirror"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "parent": "modernapartments:block/template/arcade_lower",
+  "textures": {
+    "side": "modernapartments:block/plastic_black",
+    "front_lower": "modernapartments:block/arcade_panel",
+    "panel": "modernapartments:block/plastic_black",
+    "button": "modernapartments:block/plastic_red",
+    "button_b": "modernapartments:block/plastic_yellow",
+    "particle": "modernapartments:block/plastic_black"
+  }
+}

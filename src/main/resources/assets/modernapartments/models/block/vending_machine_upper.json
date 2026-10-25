@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/vending_upper",
+  "textures": {
+    "front_upper": "modernapartments:block/vending_upper",
+    "side": "modernapartments:block/plastic_red",
+    "particle": "modernapartments:block/vending_upper"
+  }
+}

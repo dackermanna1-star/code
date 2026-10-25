@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/reception_desk",
+  "textures": {
+    "front": "modernapartments:block/white_marble",
+    "top": "modernapartments:block/wood_walnut",
+    "particle": "modernapartments:block/white_marble"
+  }
+}

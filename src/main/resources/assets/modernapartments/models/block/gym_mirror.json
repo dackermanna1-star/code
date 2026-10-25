@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/wall_panel_full",
+  "textures": {
+    "frame": "modernapartments:block/metal_steel",
+    "face": "modernapartments:block/mirror",
+    "particle": "modernapartments:block/metal_steel"
+  }
+}

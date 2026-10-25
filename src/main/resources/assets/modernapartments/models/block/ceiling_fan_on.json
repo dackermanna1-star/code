@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/ceiling_fan",
+  "textures": {
+    "metal": "modernapartments:block/metal_white",
+    "blade": "modernapartments:block/wood_walnut",
+    "light": "modernapartments:block/light_diffuser",
+    "particle": "modernapartments:block/metal_white"
+  }
+}

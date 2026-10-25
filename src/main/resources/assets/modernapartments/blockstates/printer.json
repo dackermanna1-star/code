@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/printer"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/printer",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/printer",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/printer",
+      "y": 270
+    }
+  }
+}

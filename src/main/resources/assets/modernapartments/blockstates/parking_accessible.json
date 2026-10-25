@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/parking_accessible"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/parking_accessible",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/parking_accessible",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/parking_accessible",
+      "y": 270
+    }
+  }
+}

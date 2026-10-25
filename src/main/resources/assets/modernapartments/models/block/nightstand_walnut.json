@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/nightstand",
+  "textures": {
+    "front": "modernapartments:block/nightstand_front",
+    "side": "modernapartments:block/wood_walnut",
+    "top": "modernapartments:block/wood_walnut",
+    "particle": "modernapartments:block/nightstand_front"
+  }
+}

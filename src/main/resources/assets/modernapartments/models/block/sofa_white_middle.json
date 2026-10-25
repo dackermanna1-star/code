@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/sofa_middle",
+  "textures": {
+    "fabric": "modernapartments:block/fabric_cream",
+    "leg": "modernapartments:block/wood_light",
+    "pillow": "modernapartments:block/fabric_sky",
+    "particle": "modernapartments:block/fabric_cream"
+  }
+}

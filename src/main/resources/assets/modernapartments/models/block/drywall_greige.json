@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "modernapartments:block/drywall_greige",
+    "particle": "modernapartments:block/drywall_greige"
+  }
+}

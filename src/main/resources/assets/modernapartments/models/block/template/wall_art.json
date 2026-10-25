@@ -1,0 +1,133 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        1,
+        2,
+        15
+      ],
+      "to": [
+        15,
+        14,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            1,
+            2,
+            15,
+            14
+          ],
+          "texture": "#frame"
+        },
+        "south": {
+          "uv": [
+            1,
+            2,
+            15,
+            14
+          ],
+          "texture": "#frame",
+          "cullface": "south"
+        },
+        "east": {
+          "uv": [
+            0,
+            2,
+            1,
+            14
+          ],
+          "texture": "#frame"
+        },
+        "west": {
+          "uv": [
+            15,
+            2,
+            16,
+            14
+          ],
+          "texture": "#frame"
+        },
+        "up": {
+          "uv": [
+            1,
+            15,
+            15,
+            16
+          ],
+          "texture": "#frame"
+        },
+        "down": {
+          "uv": [
+            1,
+            0,
+            15,
+            1
+          ],
+          "texture": "#frame"
+        }
+      }
+    },
+    {
+      "from": [
+        1.5,
+        2.5,
+        14.9
+      ],
+      "to": [
+        14.5,
+        13.5,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#art"
+        },
+        "east": {
+          "uv": [
+            1,
+            2.5,
+            1.1,
+            13.5
+          ],
+          "texture": "#art"
+        },
+        "west": {
+          "uv": [
+            14.9,
+            2.5,
+            15,
+            13.5
+          ],
+          "texture": "#art"
+        },
+        "up": {
+          "uv": [
+            1.5,
+            14.9,
+            14.5,
+            15
+          ],
+          "texture": "#art"
+        },
+        "down": {
+          "uv": [
+            1.5,
+            1,
+            14.5,
+            1.1
+          ],
+          "texture": "#art"
+        }
+      }
+    }
+  ]
+}

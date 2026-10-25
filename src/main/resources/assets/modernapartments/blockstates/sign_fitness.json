@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/sign_fitness"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/sign_fitness",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/sign_fitness",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/sign_fitness",
+      "y": 270
+    }
+  }
+}

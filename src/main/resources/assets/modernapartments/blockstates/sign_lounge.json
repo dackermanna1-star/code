@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/sign_lounge"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/sign_lounge",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/sign_lounge",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/sign_lounge",
+      "y": 270
+    }
+  }
+}

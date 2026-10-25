@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/dining_chair",
+  "textures": {
+    "frame": "modernapartments:block/metal_black",
+    "seat": "modernapartments:block/leather_cognac",
+    "particle": "modernapartments:block/metal_black"
+  }
+}

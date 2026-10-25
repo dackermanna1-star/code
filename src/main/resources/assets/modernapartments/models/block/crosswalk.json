@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "modernapartments:block/crosswalk",
+    "side": "modernapartments:block/asphalt",
+    "bottom": "modernapartments:block/asphalt",
+    "particle": "modernapartments:block/crosswalk"
+  }
+}

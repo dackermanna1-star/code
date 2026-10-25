@@ -1,0 +1,143 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        1,
+        14,
+        5
+      ],
+      "to": [
+        15,
+        16,
+        11
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            1,
+            0,
+            15,
+            2
+          ],
+          "texture": "#metal"
+        },
+        "south": {
+          "uv": [
+            1,
+            0,
+            15,
+            2
+          ],
+          "texture": "#metal"
+        },
+        "east": {
+          "uv": [
+            5,
+            0,
+            11,
+            2
+          ],
+          "texture": "#metal"
+        },
+        "west": {
+          "uv": [
+            5,
+            0,
+            11,
+            2
+          ],
+          "texture": "#metal"
+        },
+        "up": {
+          "uv": [
+            1,
+            5,
+            15,
+            11
+          ],
+          "texture": "#metal",
+          "cullface": "up"
+        },
+        "down": {
+          "uv": [
+            1,
+            5,
+            15,
+            11
+          ],
+          "texture": "#metal"
+        }
+      }
+    },
+    {
+      "from": [
+        1.5,
+        13.4,
+        6
+      ],
+      "to": [
+        14.5,
+        14,
+        10
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            1.5,
+            2,
+            14.5,
+            2.6
+          ],
+          "texture": "#light"
+        },
+        "south": {
+          "uv": [
+            1.5,
+            2,
+            14.5,
+            2.6
+          ],
+          "texture": "#light"
+        },
+        "east": {
+          "uv": [
+            6,
+            2,
+            10,
+            2.6
+          ],
+          "texture": "#light"
+        },
+        "west": {
+          "uv": [
+            6,
+            2,
+            10,
+            2.6
+          ],
+          "texture": "#light"
+        },
+        "up": {
+          "uv": [
+            1.5,
+            6,
+            14.5,
+            10
+          ],
+          "texture": "#light"
+        },
+        "down": {
+          "uv": [
+            1.5,
+            6,
+            14.5,
+            10
+          ],
+          "texture": "#light"
+        }
+      },
+      "shade": false
+    }
+  ]
+}

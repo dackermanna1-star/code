@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/dresser",
+  "textures": {
+    "front": "modernapartments:block/dresser_front",
+    "side": "modernapartments:block/wood_light",
+    "top": "modernapartments:block/wood_light",
+    "leg": "modernapartments:block/metal_black",
+    "particle": "modernapartments:block/dresser_front"
+  }
+}

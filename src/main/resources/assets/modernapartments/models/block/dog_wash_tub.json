@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/dog_wash_tub",
+  "textures": {
+    "metal": "modernapartments:block/metal_steel",
+    "leg": "modernapartments:block/metal_steel",
+    "drain": "modernapartments:block/plastic_black",
+    "particle": "modernapartments:block/metal_steel"
+  }
+}

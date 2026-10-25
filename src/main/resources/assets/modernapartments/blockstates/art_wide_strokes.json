@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/art_wide_strokes"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/art_wide_strokes",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/art_wide_strokes",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/art_wide_strokes",
+      "y": 270
+    }
+  }
+}

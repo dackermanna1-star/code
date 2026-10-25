@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/punching_bag",
+  "textures": {
+    "chain": "modernapartments:block/metal_steel",
+    "bag": "modernapartments:block/leather_black",
+    "particle": "modernapartments:block/metal_steel"
+  }
+}

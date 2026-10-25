@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/bookcase_upper",
+  "textures": {
+    "frame": "modernapartments:block/wood_walnut",
+    "books2": "modernapartments:block/book_spines_2",
+    "particle": "modernapartments:block/wood_walnut"
+  }
+}

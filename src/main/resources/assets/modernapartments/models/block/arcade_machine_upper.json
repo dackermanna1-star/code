@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/arcade_upper",
+  "textures": {
+    "side": "modernapartments:block/plastic_black",
+    "screen": "modernapartments:block/screen_off",
+    "marquee": "modernapartments:block/arcade_marquee",
+    "particle": "modernapartments:block/plastic_black"
+  }
+}

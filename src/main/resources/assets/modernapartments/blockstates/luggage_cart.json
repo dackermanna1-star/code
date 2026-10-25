@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/luggage_cart"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/luggage_cart",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/luggage_cart",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/luggage_cart",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "modernapartments:block/elevator_floor",
+    "side": "modernapartments:block/elevator_wall",
+    "bottom": "modernapartments:block/elevator_wall",
+    "particle": "modernapartments:block/elevator_floor"
+  }
+}

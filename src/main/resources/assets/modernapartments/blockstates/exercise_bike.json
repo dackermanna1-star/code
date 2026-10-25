@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/exercise_bike"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/exercise_bike",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/exercise_bike",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/exercise_bike",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/washer",
+  "textures": {
+    "front": "modernapartments:block/dryer_front_on",
+    "side": "modernapartments:block/plastic_white",
+    "particle": "modernapartments:block/dryer_front_on"
+  }
+}

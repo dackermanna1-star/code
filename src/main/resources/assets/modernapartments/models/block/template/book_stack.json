@@ -1,0 +1,210 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        4,
+        0,
+        5
+      ],
+      "to": [
+        12,
+        1.5,
+        11
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            14.5,
+            12,
+            16
+          ],
+          "texture": "#book_a"
+        },
+        "south": {
+          "uv": [
+            4,
+            14.5,
+            12,
+            16
+          ],
+          "texture": "#book_a"
+        },
+        "east": {
+          "uv": [
+            5,
+            14.5,
+            11,
+            16
+          ],
+          "texture": "#book_a"
+        },
+        "west": {
+          "uv": [
+            5,
+            14.5,
+            11,
+            16
+          ],
+          "texture": "#book_a"
+        },
+        "up": {
+          "uv": [
+            4,
+            5,
+            12,
+            11
+          ],
+          "texture": "#book_a"
+        },
+        "down": {
+          "uv": [
+            4,
+            5,
+            12,
+            11
+          ],
+          "texture": "#book_a",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        4.5,
+        1.5,
+        5.5
+      ],
+      "to": [
+        11,
+        2.7,
+        10.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            13.3,
+            11.5,
+            14.5
+          ],
+          "texture": "#book_b"
+        },
+        "south": {
+          "uv": [
+            4.5,
+            13.3,
+            11,
+            14.5
+          ],
+          "texture": "#book_b"
+        },
+        "east": {
+          "uv": [
+            5.5,
+            13.3,
+            10.5,
+            14.5
+          ],
+          "texture": "#book_b"
+        },
+        "west": {
+          "uv": [
+            5.5,
+            13.3,
+            10.5,
+            14.5
+          ],
+          "texture": "#book_b"
+        },
+        "up": {
+          "uv": [
+            4.5,
+            5.5,
+            11,
+            10.5
+          ],
+          "texture": "#book_b"
+        },
+        "down": {
+          "uv": [
+            4.5,
+            5.5,
+            11,
+            10.5
+          ],
+          "texture": "#book_b"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        2.7,
+        5
+      ],
+      "to": [
+        12.5,
+        4,
+        11
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            3.5,
+            12,
+            11,
+            13.3
+          ],
+          "texture": "#book_c"
+        },
+        "south": {
+          "uv": [
+            5,
+            12,
+            12.5,
+            13.3
+          ],
+          "texture": "#book_c"
+        },
+        "east": {
+          "uv": [
+            5,
+            12,
+            11,
+            13.3
+          ],
+          "texture": "#book_c"
+        },
+        "west": {
+          "uv": [
+            5,
+            12,
+            11,
+            13.3
+          ],
+          "texture": "#book_c"
+        },
+        "up": {
+          "uv": [
+            5,
+            5,
+            12.5,
+            11
+          ],
+          "texture": "#book_c"
+        },
+        "down": {
+          "uv": [
+            5,
+            5,
+            12.5,
+            11
+          ],
+          "texture": "#book_c"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_column_horizontal",
+  "textures": {
+    "side": "modernapartments:block/steel_beam",
+    "end": "modernapartments:block/steel_beam_end",
+    "particle": "modernapartments:block/steel_beam"
+  }
+}

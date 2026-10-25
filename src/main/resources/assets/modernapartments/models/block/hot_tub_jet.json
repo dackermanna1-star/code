@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/hot_tub_jet",
+  "textures": {
+    "metal": "modernapartments:block/metal_chrome",
+    "grille": "modernapartments:block/speaker_grille",
+    "particle": "modernapartments:block/metal_chrome"
+  }
+}

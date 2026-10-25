@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "modernapartments:block/ceiling_led_panel_off"
+    },
+    "lit=true": {
+      "model": "modernapartments:block/ceiling_led_panel_on"
+    }
+  }
+}

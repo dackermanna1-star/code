@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/sign_trash"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/sign_trash",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/sign_trash",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/sign_trash",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/wardrobe_lower",
+  "textures": {
+    "front_lower": "modernapartments:block/wardrobe_walnut_front_lower",
+    "side": "modernapartments:block/wood_walnut",
+    "particle": "modernapartments:block/wardrobe_walnut_front_lower"
+  }
+}

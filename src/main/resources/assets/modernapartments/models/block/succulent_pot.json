@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/table_plant",
+  "textures": {
+    "pot": "modernapartments:block/ceramic_white",
+    "plant": "modernapartments:block/plant_succulent",
+    "particle": "modernapartments:block/ceramic_white"
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/pendant_light",
+  "textures": {
+    "metal": "modernapartments:block/metal_white",
+    "light": "modernapartments:block/light_diffuser_off",
+    "particle": "modernapartments:block/metal_white"
+  }
+}

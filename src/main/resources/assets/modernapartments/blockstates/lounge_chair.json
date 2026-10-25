@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/lounge_chair"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/lounge_chair",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/lounge_chair",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/lounge_chair",
+      "y": 270
+    }
+  }
+}

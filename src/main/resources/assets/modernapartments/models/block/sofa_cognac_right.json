@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/sofa_right",
+  "textures": {
+    "fabric": "modernapartments:block/leather_cognac",
+    "leg": "modernapartments:block/metal_black",
+    "pillow": "modernapartments:block/fabric_cream",
+    "particle": "modernapartments:block/leather_cognac"
+  }
+}

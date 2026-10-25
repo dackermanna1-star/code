@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/paw_station",
+  "textures": {
+    "mat": "modernapartments:block/rubber_black",
+    "metal": "modernapartments:block/metal_steel",
+    "water": "modernapartments:block/glass_clear",
+    "particle": "modernapartments:block/rubber_black"
+  }
+}

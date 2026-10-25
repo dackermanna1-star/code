@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/weight_bench"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/weight_bench",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/weight_bench",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/weight_bench",
+      "y": 270
+    }
+  }
+}

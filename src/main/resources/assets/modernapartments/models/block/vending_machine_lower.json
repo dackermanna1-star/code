@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/vending_lower",
+  "textures": {
+    "front_lower": "modernapartments:block/vending_lower",
+    "side": "modernapartments:block/plastic_red",
+    "particle": "modernapartments:block/vending_lower"
+  }
+}

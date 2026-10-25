@@ -1,0 +1,13 @@
+{
+	"schemaVersion": 1,
+	"id": "modernapartments-gametest",
+	"version": "1.0.0",
+	"name": "Modern Apartments GameTests",
+	"environment": "*",
+	"entrypoints": {
+		"fabric-client-gametest": ["com.modernapartments.gametest.ApartmentsClientGameTest"]
+	},
+	"depends": {
+		"modernapartments": "*"
+	}
+}

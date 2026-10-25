@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/ev_charger"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/ev_charger",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/ev_charger",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/ev_charger",
+      "y": 270
+    }
+  }
+}

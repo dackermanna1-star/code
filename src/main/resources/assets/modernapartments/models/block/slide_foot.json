@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/slide_chute",
+  "textures": {
+    "chute": "modernapartments:block/plastic_red",
+    "particle": "modernapartments:block/plastic_red"
+  }
+}

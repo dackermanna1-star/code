@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/tv_wall",
+  "textures": {
+    "body": "modernapartments:block/plastic_black",
+    "screen": "modernapartments:block/screen_tv",
+    "particle": "modernapartments:block/plastic_black"
+  }
+}

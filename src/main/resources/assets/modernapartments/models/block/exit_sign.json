@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/exit_sign",
+  "textures": {
+    "frame": "modernapartments:block/plastic_white",
+    "face": "modernapartments:block/exit_sign",
+    "particle": "modernapartments:block/plastic_white"
+  }
+}

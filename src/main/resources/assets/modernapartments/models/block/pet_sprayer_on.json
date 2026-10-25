@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/pet_sprayer",
+  "textures": {
+    "metal": "modernapartments:block/metal_steel",
+    "sprayer": "modernapartments:block/sprayer",
+    "hose": "modernapartments:block/plastic_black",
+    "particle": "modernapartments:block/metal_steel"
+  }
+}

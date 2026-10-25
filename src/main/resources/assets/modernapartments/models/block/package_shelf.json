@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/package_shelf",
+  "textures": {
+    "frame": "modernapartments:block/metal_black",
+    "box": "modernapartments:block/cardboard",
+    "particle": "modernapartments:block/metal_black"
+  }
+}

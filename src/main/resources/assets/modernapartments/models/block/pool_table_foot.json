@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/pool_table_foot",
+  "textures": {
+    "felt": "modernapartments:block/pool_table_top",
+    "wood": "modernapartments:block/wood_walnut",
+    "particle": "modernapartments:block/pool_table_top"
+  }
+}

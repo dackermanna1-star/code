@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/kitchen_walnut_cabinet"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/kitchen_walnut_cabinet",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/kitchen_walnut_cabinet",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/kitchen_walnut_cabinet",
+      "y": 270
+    }
+  }
+}

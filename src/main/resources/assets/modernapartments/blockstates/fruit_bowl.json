@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/fruit_bowl"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/fruit_bowl",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/fruit_bowl",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/fruit_bowl",
+      "y": 270
+    }
+  }
+}

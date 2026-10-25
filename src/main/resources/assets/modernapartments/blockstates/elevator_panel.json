@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/elevator_panel"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/elevator_panel",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/elevator_panel",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/elevator_panel",
+      "y": 270
+    }
+  }
+}

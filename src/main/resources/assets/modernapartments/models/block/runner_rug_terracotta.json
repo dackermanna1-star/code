@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/rug_runner",
+  "textures": {
+    "fabric": "modernapartments:block/fabric_terracotta",
+    "particle": "modernapartments:block/fabric_terracotta"
+  }
+}

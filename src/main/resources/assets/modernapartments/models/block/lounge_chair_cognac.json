@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/lounge_chair",
+  "textures": {
+    "frame": "modernapartments:block/wood_light",
+    "seat": "modernapartments:block/leather_cognac",
+    "leg": "modernapartments:block/metal_chrome",
+    "particle": "modernapartments:block/wood_light"
+  }
+}

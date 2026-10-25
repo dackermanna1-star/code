@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/patio_heater",
+  "textures": {
+    "frame": "modernapartments:block/metal_steel",
+    "particle": "modernapartments:block/metal_steel"
+  }
+}

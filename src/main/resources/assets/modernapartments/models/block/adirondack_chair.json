@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/adirondack_chair",
+  "textures": {
+    "frame": "modernapartments:block/paint_white",
+    "particle": "modernapartments:block/paint_white"
+  }
+}

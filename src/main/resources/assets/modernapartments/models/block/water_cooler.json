@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/water_cooler",
+  "textures": {
+    "front": "modernapartments:block/water_cooler",
+    "side": "modernapartments:block/plastic_white",
+    "bottle": "modernapartments:block/glass_tinted",
+    "particle": "modernapartments:block/water_cooler"
+  }
+}

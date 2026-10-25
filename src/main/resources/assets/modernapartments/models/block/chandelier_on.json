@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/chandelier",
+  "textures": {
+    "metal": "modernapartments:block/metal_brass",
+    "light": "modernapartments:block/light_diffuser",
+    "particle": "modernapartments:block/metal_brass"
+  }
+}

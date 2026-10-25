@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/potted_plant_tall",
+  "textures": {
+    "pot": "modernapartments:block/plastic_black",
+    "soil": "modernapartments:block/soil",
+    "plant": "modernapartments:block/plant_fiddle",
+    "particle": "modernapartments:block/plastic_black"
+  }
+}

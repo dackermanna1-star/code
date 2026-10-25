@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/fridge_upper",
+  "textures": {
+    "front_upper": "modernapartments:block/fridge_upper",
+    "side": "modernapartments:block/metal_steel",
+    "handle": "modernapartments:block/metal_chrome",
+    "particle": "modernapartments:block/fridge_upper"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/armchair_mustard"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/armchair_mustard",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/armchair_mustard",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/armchair_mustard",
+      "y": 270
+    }
+  }
+}

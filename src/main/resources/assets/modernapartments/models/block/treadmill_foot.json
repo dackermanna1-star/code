@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/treadmill_foot",
+  "textures": {
+    "side": "modernapartments:block/plastic_black",
+    "belt": "modernapartments:block/treadmill_belt",
+    "frame": "modernapartments:block/metal_gunmetal",
+    "particle": "modernapartments:block/plastic_black"
+  }
+}

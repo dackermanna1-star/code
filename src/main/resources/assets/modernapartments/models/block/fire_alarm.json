@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/fire_alarm",
+  "textures": {
+    "face": "modernapartments:block/fire_alarm",
+    "particle": "modernapartments:block/fire_alarm"
+  }
+}

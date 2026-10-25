@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "modernapartments:block/ceiling_fan_off"
+    },
+    "lit=true": {
+      "model": "modernapartments:block/ceiling_fan_on"
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/side_table_wood"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/side_table_wood",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/side_table_wood",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/side_table_wood",
+      "y": 270
+    }
+  }
+}

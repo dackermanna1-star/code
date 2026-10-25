@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/camera_dome",
+  "textures": {
+    "body": "modernapartments:block/plastic_white",
+    "lens_body": "modernapartments:block/plastic_black",
+    "lens": "modernapartments:block/security_camera_lens",
+    "particle": "modernapartments:block/plastic_white"
+  }
+}

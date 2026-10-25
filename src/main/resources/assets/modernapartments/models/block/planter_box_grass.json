@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/planter_box",
+  "textures": {
+    "frame": "modernapartments:block/concrete_panel_charcoal",
+    "soil": "modernapartments:block/soil",
+    "plant": "modernapartments:block/plant_palm",
+    "particle": "modernapartments:block/concrete_panel_charcoal"
+  }
+}

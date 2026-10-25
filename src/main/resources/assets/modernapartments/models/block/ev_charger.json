@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/ev_charger",
+  "textures": {
+    "body": "modernapartments:block/plastic_white",
+    "face": "modernapartments:block/ev_charger",
+    "cable": "modernapartments:block/plastic_black",
+    "particle": "modernapartments:block/plastic_white"
+  }
+}

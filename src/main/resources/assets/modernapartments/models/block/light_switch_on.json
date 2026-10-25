@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/wall_switch",
+  "textures": {
+    "frame": "modernapartments:block/plastic_white",
+    "face": "modernapartments:block/light_switch_on",
+    "particle": "modernapartments:block/plastic_white"
+  }
+}

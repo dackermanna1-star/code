@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/park_bench"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/park_bench",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/park_bench",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/park_bench",
+      "y": 270
+    }
+  }
+}

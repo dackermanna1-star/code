@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/media_console_white"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/media_console_white",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/media_console_white",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/media_console_white",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/umbrella",
+  "textures": {
+    "metal": "modernapartments:block/metal_black",
+    "pole": "modernapartments:block/metal_white",
+    "canvas": "modernapartments:block/canvas_navy_stripe",
+    "particle": "modernapartments:block/metal_black"
+  }
+}

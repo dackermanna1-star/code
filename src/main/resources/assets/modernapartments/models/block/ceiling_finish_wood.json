@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/ceiling_layer",
+  "textures": {
+    "side": "modernapartments:block/wood_light",
+    "face": "modernapartments:block/cedar_cladding",
+    "particle": "modernapartments:block/wood_light"
+  }
+}

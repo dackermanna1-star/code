@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/sofa_left",
+  "textures": {
+    "fabric": "modernapartments:block/fabric_gray",
+    "leg": "modernapartments:block/wood_ebony",
+    "pillow": "modernapartments:block/pillow_pattern",
+    "particle": "modernapartments:block/fabric_gray"
+  }
+}

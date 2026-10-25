@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/fire_alarm"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/fire_alarm",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/fire_alarm",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/fire_alarm",
+      "y": 270
+    }
+  }
+}

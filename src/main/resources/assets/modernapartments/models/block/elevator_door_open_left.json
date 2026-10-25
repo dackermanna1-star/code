@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/elevator_door_open_left",
+  "textures": {
+    "panel": "modernapartments:block/elevator_door",
+    "particle": "modernapartments:block/elevator_door"
+  }
+}

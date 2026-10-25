@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/slide_top",
+  "textures": {
+    "post": "modernapartments:block/plastic_blue",
+    "deck": "modernapartments:block/plastic_yellow",
+    "particle": "modernapartments:block/plastic_blue"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "parent": "modernapartments:block/template/luggage_cart",
+  "textures": {
+    "base": "modernapartments:block/fabric_navy",
+    "metal": "modernapartments:block/metal_brass",
+    "wheel": "modernapartments:block/rubber_black",
+    "bag": "modernapartments:block/leather_cognac",
+    "bag2": "modernapartments:block/fabric_charcoal",
+    "particle": "modernapartments:block/fabric_navy"
+  }
+}

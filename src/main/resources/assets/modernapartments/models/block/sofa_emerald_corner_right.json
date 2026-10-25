@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/sofa_corner_right",
+  "textures": {
+    "fabric": "modernapartments:block/fabric_emerald",
+    "leg": "modernapartments:block/metal_brass",
+    "pillow": "modernapartments:block/fabric_blush",
+    "particle": "modernapartments:block/fabric_emerald"
+  }
+}

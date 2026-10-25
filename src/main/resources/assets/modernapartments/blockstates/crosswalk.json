@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/crosswalk"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/crosswalk",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/crosswalk",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/crosswalk",
+      "y": 270
+    }
+  }
+}

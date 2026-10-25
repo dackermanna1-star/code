@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/sofa_single",
+  "textures": {
+    "fabric": "modernapartments:block/fabric_beige",
+    "leg": "modernapartments:block/wood_walnut",
+    "pillow": "modernapartments:block/fabric_terracotta",
+    "particle": "modernapartments:block/fabric_beige"
+  }
+}

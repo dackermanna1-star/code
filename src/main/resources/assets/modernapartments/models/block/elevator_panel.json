@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/elevator_panel",
+  "textures": {
+    "frame": "modernapartments:block/metal_steel",
+    "face": "modernapartments:block/elevator_panel",
+    "particle": "modernapartments:block/metal_steel"
+  }
+}

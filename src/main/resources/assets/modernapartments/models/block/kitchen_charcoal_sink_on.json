@@ -1,0 +1,13 @@
+{
+  "parent": "modernapartments:block/template/kitchen_sink_on",
+  "textures": {
+    "front": "modernapartments:block/cabinet_charcoal_sink",
+    "side": "modernapartments:block/cabinet_charcoal_side",
+    "top": "modernapartments:block/stone_concrete",
+    "toe": "modernapartments:block/plastic_black",
+    "basin": "modernapartments:block/sink_basin",
+    "faucet": "modernapartments:block/metal_chrome",
+    "water": "modernapartments:block/glass_clear",
+    "particle": "modernapartments:block/cabinet_charcoal_sink"
+  }
+}

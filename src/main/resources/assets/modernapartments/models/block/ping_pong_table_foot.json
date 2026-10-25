@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/ping_pong_foot",
+  "textures": {
+    "top": "modernapartments:block/felt_blue",
+    "leg": "modernapartments:block/metal_black",
+    "particle": "modernapartments:block/felt_blue"
+  }
+}

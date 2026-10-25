@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/outdoor_shower_top",
+  "textures": {
+    "metal": "modernapartments:block/metal_chrome",
+    "particle": "modernapartments:block/metal_chrome"
+  }
+}

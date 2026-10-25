@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/kettlebells"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/kettlebells",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/kettlebells",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/kettlebells",
+      "y": 270
+    }
+  }
+}

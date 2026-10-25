@@ -1,0 +1,142 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        7.5,
+        14,
+        7.5
+      ],
+      "to": [
+        8.5,
+        16,
+        8.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.5,
+            0,
+            8.5,
+            2
+          ],
+          "texture": "#metal"
+        },
+        "south": {
+          "uv": [
+            7.5,
+            0,
+            8.5,
+            2
+          ],
+          "texture": "#metal"
+        },
+        "east": {
+          "uv": [
+            7.5,
+            0,
+            8.5,
+            2
+          ],
+          "texture": "#metal"
+        },
+        "west": {
+          "uv": [
+            7.5,
+            0,
+            8.5,
+            2
+          ],
+          "texture": "#metal"
+        },
+        "up": {
+          "uv": [
+            7.5,
+            7.5,
+            8.5,
+            8.5
+          ],
+          "texture": "#metal",
+          "cullface": "up"
+        },
+        "down": {
+          "uv": [
+            7.5,
+            7.5,
+            8.5,
+            8.5
+          ],
+          "texture": "#metal"
+        }
+      }
+    },
+    {
+      "from": [
+        6.5,
+        13.5,
+        6.5
+      ],
+      "to": [
+        9.5,
+        14,
+        9.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            6.5,
+            2,
+            9.5,
+            2.5
+          ],
+          "texture": "#metal"
+        },
+        "south": {
+          "uv": [
+            6.5,
+            2,
+            9.5,
+            2.5
+          ],
+          "texture": "#metal"
+        },
+        "east": {
+          "uv": [
+            6.5,
+            2,
+            9.5,
+            2.5
+          ],
+          "texture": "#metal"
+        },
+        "west": {
+          "uv": [
+            6.5,
+            2,
+            9.5,
+            2.5
+          ],
+          "texture": "#metal"
+        },
+        "up": {
+          "uv": [
+            6.5,
+            6.5,
+            9.5,
+            9.5
+          ],
+          "texture": "#metal"
+        },
+        "down": {
+          "uv": [
+            6.5,
+            6.5,
+            9.5,
+            9.5
+          ],
+          "texture": "#metal"
+        }
+      }
+    }
+  ]
+}

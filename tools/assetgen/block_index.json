@@ -1,0 +1,1787 @@
+{
+  "concrete_panel_white": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "concrete_panel_gray": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "concrete_panel_charcoal": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "lap_siding_white": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "lap_siding_gray": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "lap_siding_navy": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "lap_siding_sage": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "lap_siding_charcoal": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "facade_panel_white": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "facade_panel_gray": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "facade_panel_charcoal": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "facade_panel_cream": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "metal_panel_bronze": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "metal_panel_graphite": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "metal_panel_silver": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "brick_red": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "brick_charcoal": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "brick_white": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "brick_tan": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "brick_exposed": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "cedar_cladding": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "walnut_cladding": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "white_marble": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "black_marble": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "travertine": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "terrazzo": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "limestone": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "hardwood_light": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "hardwood_walnut": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "hardwood_gray": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "hardwood_white_oak": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "herringbone_oak": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "subway_tile": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "subway_tile_sage": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "subway_tile_navy": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "mosaic_tile": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "large_tile_light": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "large_tile_dark": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "slate_tile": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "pool_tile": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "pool_tile_dark": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "pool_coping": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "drywall_white": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "drywall_greige": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "drywall_sage": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "drywall_navy": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "drywall_blush": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "drywall_sky": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "drywall_charcoal": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "drywall_terracotta": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "ceiling": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "acoustic_ceiling": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "polished_concrete": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "asphalt": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "sidewalk": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "pavers_gray": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "pavers_charcoal": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "pavers_sand": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "artificial_turf": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "rubber_flooring": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "pool_deck": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "green_wall": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "elevator_wall": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "playground_mulch": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "rubber_safety_surface": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "curb_yellow": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "mullion_black": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "mullion_silver": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "garage_column": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "steel_beam": {
+    "kind": "pillar",
+    "render": "solid",
+    "group": "materials"
+  },
+  "window_glass": {
+    "kind": "glass",
+    "render": "translucent",
+    "group": "materials"
+  },
+  "curtain_wall_blue": {
+    "kind": "glass",
+    "render": "translucent",
+    "group": "materials"
+  },
+  "curtain_wall_gray": {
+    "kind": "glass",
+    "render": "translucent",
+    "group": "materials"
+  },
+  "smoked_glass": {
+    "kind": "glass",
+    "render": "translucent",
+    "group": "materials"
+  },
+  "frosted_glass": {
+    "kind": "glass",
+    "render": "translucent",
+    "group": "materials"
+  },
+  "factory_window": {
+    "kind": "glass",
+    "render": "translucent",
+    "group": "materials"
+  },
+  "parking_line": {
+    "kind": "facing_cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "parking_line_yellow": {
+    "kind": "facing_cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "parking_accessible": {
+    "kind": "facing_cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "parking_arrow": {
+    "kind": "facing_cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "crosswalk": {
+    "kind": "facing_cube",
+    "render": "solid",
+    "group": "materials"
+  },
+  "ceiling_finish": {
+    "kind": "ceiling",
+    "render": "solid",
+    "group": "materials"
+  },
+  "ceiling_finish_wood": {
+    "kind": "ceiling",
+    "render": "solid",
+    "group": "materials"
+  },
+  "ceiling_downlight": {
+    "kind": "ceiling_lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "ceiling_led_panel": {
+    "kind": "ceiling_lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "recessed_light": {
+    "kind": "light_panel",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "led_panel": {
+    "kind": "light_panel",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "sofa_gray": {
+    "kind": "sofa",
+    "render": "solid",
+    "group": "living"
+  },
+  "sofa_charcoal": {
+    "kind": "sofa",
+    "render": "solid",
+    "group": "living"
+  },
+  "sofa_navy": {
+    "kind": "sofa",
+    "render": "solid",
+    "group": "living"
+  },
+  "sofa_beige": {
+    "kind": "sofa",
+    "render": "solid",
+    "group": "living"
+  },
+  "sofa_emerald": {
+    "kind": "sofa",
+    "render": "solid",
+    "group": "living"
+  },
+  "sofa_cognac": {
+    "kind": "sofa",
+    "render": "solid",
+    "group": "living"
+  },
+  "sofa_white": {
+    "kind": "sofa",
+    "render": "solid",
+    "group": "living"
+  },
+  "sofa_outdoor": {
+    "kind": "sofa",
+    "render": "solid",
+    "group": "living"
+  },
+  "armchair_gray": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "living"
+  },
+  "armchair_navy": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "living"
+  },
+  "armchair_mustard": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "living"
+  },
+  "armchair_terracotta": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "living"
+  },
+  "armchair_emerald": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "living"
+  },
+  "armchair_cream": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "living"
+  },
+  "lounge_chair": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "living"
+  },
+  "lounge_chair_cognac": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "living"
+  },
+  "coffee_table_walnut": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "living"
+  },
+  "coffee_table_oak": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "living"
+  },
+  "coffee_table_marble": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "living"
+  },
+  "glass_coffee_table": {
+    "kind": "furniture",
+    "render": "translucent",
+    "group": "living"
+  },
+  "side_table": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "living"
+  },
+  "side_table_wood": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "living"
+  },
+  "media_console_walnut": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "living"
+  },
+  "media_console_white": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "living"
+  },
+  "media_console_charcoal": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "living"
+  },
+  "wall_tv": {
+    "kind": "toggle",
+    "render": "solid",
+    "group": "electronics"
+  },
+  "smart_tv": {
+    "kind": "toggle",
+    "render": "solid",
+    "group": "electronics"
+  },
+  "bookcase_walnut": {
+    "kind": "tall",
+    "render": "solid",
+    "group": "living"
+  },
+  "bookcase_white": {
+    "kind": "tall",
+    "render": "solid",
+    "group": "living"
+  },
+  "bookcase_black": {
+    "kind": "tall",
+    "render": "solid",
+    "group": "living"
+  },
+  "curtains_cream": {
+    "kind": "curtain",
+    "render": "solid",
+    "group": "living"
+  },
+  "curtains_gray": {
+    "kind": "curtain",
+    "render": "solid",
+    "group": "living"
+  },
+  "curtains_navy": {
+    "kind": "curtain",
+    "render": "solid",
+    "group": "living"
+  },
+  "curtains_sage": {
+    "kind": "curtain",
+    "render": "solid",
+    "group": "living"
+  },
+  "curtains_blush": {
+    "kind": "curtain",
+    "render": "solid",
+    "group": "living"
+  },
+  "blinds_white": {
+    "kind": "curtain",
+    "render": "solid",
+    "group": "living"
+  },
+  "blinds_wood": {
+    "kind": "curtain",
+    "render": "solid",
+    "group": "living"
+  },
+  "floor_lamp": {
+    "kind": "lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "floor_lamp_black": {
+    "kind": "lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "table_lamp_ceramic": {
+    "kind": "lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "table_lamp_brass": {
+    "kind": "lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "table_lamp_black": {
+    "kind": "lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "pendant_light_black": {
+    "kind": "ceiling_lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "pendant_light_brass": {
+    "kind": "ceiling_lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "pendant_light_white": {
+    "kind": "ceiling_lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "chandelier": {
+    "kind": "ceiling_lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "ceiling_fan": {
+    "kind": "ceiling_lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "electric_fireplace": {
+    "kind": "wall_toggle",
+    "render": "solid",
+    "group": "living"
+  },
+  "wall_sconce": {
+    "kind": "wall_lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "garage_light": {
+    "kind": "ceiling_lamp",
+    "render": "solid",
+    "group": "lighting"
+  },
+  "string_lights": {
+    "kind": "string_lights",
+    "render": "cutout",
+    "group": "lighting"
+  },
+  "lamp_post": {
+    "kind": "post",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "lamp_head": {
+    "kind": "lamp_nodir",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "bollard_light": {
+    "kind": "lamp_nodir",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "kitchen_white_cabinet": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_white_drawers": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_white_sink": {
+    "kind": "toggle",
+    "render": "translucent",
+    "group": "kitchen"
+  },
+  "kitchen_white_upper": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_white_dishwasher": {
+    "kind": "toggle",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_navy_cabinet": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_navy_drawers": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_navy_sink": {
+    "kind": "toggle",
+    "render": "translucent",
+    "group": "kitchen"
+  },
+  "kitchen_navy_upper": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_navy_dishwasher": {
+    "kind": "toggle",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_sage_cabinet": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_sage_drawers": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_sage_sink": {
+    "kind": "toggle",
+    "render": "translucent",
+    "group": "kitchen"
+  },
+  "kitchen_sage_upper": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_sage_dishwasher": {
+    "kind": "toggle",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_charcoal_cabinet": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_charcoal_drawers": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_charcoal_sink": {
+    "kind": "toggle",
+    "render": "translucent",
+    "group": "kitchen"
+  },
+  "kitchen_charcoal_upper": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_charcoal_dishwasher": {
+    "kind": "toggle",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_walnut_cabinet": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_walnut_drawers": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_walnut_sink": {
+    "kind": "toggle",
+    "render": "translucent",
+    "group": "kitchen"
+  },
+  "kitchen_walnut_upper": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_walnut_dishwasher": {
+    "kind": "toggle",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "refrigerator": {
+    "kind": "tall_storage",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "oven_range": {
+    "kind": "oven",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "range_hood": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "microwave": {
+    "kind": "toggle",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "coffee_maker": {
+    "kind": "coffee",
+    "render": "translucent",
+    "group": "kitchen"
+  },
+  "espresso_machine": {
+    "kind": "coffee",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "toaster": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "kitchen_utensils": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "fruit_bowl": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "dining_table_walnut": {
+    "kind": "table",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "dining_table_oak": {
+    "kind": "table",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "dining_table_white": {
+    "kind": "table",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "dining_table_black": {
+    "kind": "table",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "dining_chair_walnut": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "dining_chair_oak": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "dining_chair_black": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "dining_chair_white": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "bar_stool_black": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "bar_stool_brass": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "kitchen"
+  },
+  "nightstand_walnut": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "bedroom"
+  },
+  "nightstand_white": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "bedroom"
+  },
+  "dresser_oak": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "bedroom"
+  },
+  "dresser_white": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "bedroom"
+  },
+  "wardrobe_white": {
+    "kind": "tall_storage",
+    "render": "solid",
+    "group": "bedroom"
+  },
+  "wardrobe_walnut": {
+    "kind": "tall_storage",
+    "render": "solid",
+    "group": "bedroom"
+  },
+  "desk_walnut": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "bedroom"
+  },
+  "desk_white": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "bedroom"
+  },
+  "office_chair": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "bedroom"
+  },
+  "wall_mirror": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "bedroom"
+  },
+  "wall_mirror_brass": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "bedroom"
+  },
+  "clothing_rack": {
+    "kind": "furniture",
+    "render": "cutout",
+    "group": "bedroom"
+  },
+  "shoe_rack": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "bedroom"
+  },
+  "laundry_basket": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "bedroom"
+  },
+  "wall_shelf": {
+    "kind": "wall",
+    "render": "cutout",
+    "group": "bedroom"
+  },
+  "toilet": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "vanity_white": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "vanity_walnut": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "vanity_navy": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "bathtub": {
+    "kind": "bathtub",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "shower_head": {
+    "kind": "wall_toggle",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "shower_floor": {
+    "kind": "cube",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "towel_rack": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "toilet_paper_holder": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "medicine_cabinet": {
+    "kind": "wall_storage",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "vanity_mirror": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "bath_mat": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "towel_stack": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "toiletries": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "bathroom"
+  },
+  "washing_machine": {
+    "kind": "appliance",
+    "render": "solid",
+    "group": "laundry"
+  },
+  "dryer": {
+    "kind": "appliance",
+    "render": "solid",
+    "group": "laundry"
+  },
+  "potted_monstera": {
+    "kind": "plant",
+    "render": "cutout",
+    "group": "decor"
+  },
+  "potted_snake": {
+    "kind": "plant",
+    "render": "cutout",
+    "group": "decor"
+  },
+  "potted_fern": {
+    "kind": "plant",
+    "render": "cutout",
+    "group": "decor"
+  },
+  "potted_herbs": {
+    "kind": "plant",
+    "render": "cutout",
+    "group": "decor"
+  },
+  "potted_flowers": {
+    "kind": "plant",
+    "render": "cutout",
+    "group": "decor"
+  },
+  "potted_fiddle": {
+    "kind": "plant",
+    "render": "cutout",
+    "group": "decor"
+  },
+  "potted_olive": {
+    "kind": "plant",
+    "render": "cutout",
+    "group": "decor"
+  },
+  "potted_palm": {
+    "kind": "plant",
+    "render": "cutout",
+    "group": "decor"
+  },
+  "succulent_pot": {
+    "kind": "plant",
+    "render": "cutout",
+    "group": "decor"
+  },
+  "flower_vase": {
+    "kind": "plant",
+    "render": "cutout",
+    "group": "decor"
+  },
+  "planter_box": {
+    "kind": "plant",
+    "render": "cutout",
+    "group": "outdoor"
+  },
+  "planter_box_grass": {
+    "kind": "plant",
+    "render": "cutout",
+    "group": "outdoor"
+  },
+  "book_stack": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "decor"
+  },
+  "vase": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "decor"
+  },
+  "candle_set": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "decor"
+  },
+  "art_fields": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "decor"
+  },
+  "art_grid": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "decor"
+  },
+  "art_waves": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "decor"
+  },
+  "art_sunset": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "decor"
+  },
+  "art_botanical": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "decor"
+  },
+  "art_geometric": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "decor"
+  },
+  "art_city": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "decor"
+  },
+  "art_wide_strokes": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "decor"
+  },
+  "art_wide_landscape": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "decor"
+  },
+  "wall_clock": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "decor"
+  },
+  "laptop": {
+    "kind": "toggle",
+    "render": "solid",
+    "group": "electronics"
+  },
+  "desktop_monitor": {
+    "kind": "toggle",
+    "render": "solid",
+    "group": "electronics"
+  },
+  "game_console": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "electronics"
+  },
+  "speaker": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "electronics"
+  },
+  "wifi_router": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "electronics"
+  },
+  "runner_rug_charcoal": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "decor"
+  },
+  "runner_rug_cream": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "decor"
+  },
+  "runner_rug_terracotta": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "decor"
+  },
+  "doormat": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "decor"
+  },
+  "treadmill": {
+    "kind": "treadmill",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "exercise_bike": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "weight_bench": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "dumbbell_rack": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "kettlebells": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "punching_bag": {
+    "kind": "ceiling",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "squat_rack": {
+    "kind": "tall",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "yoga_mat_purple": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "yoga_mat_teal": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "yoga_mat_coral": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "rolled_yoga_mat": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "gym_mirror": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "locker": {
+    "kind": "tall_storage",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "water_cooler": {
+    "kind": "furniture",
+    "render": "translucent",
+    "group": "fitness"
+  },
+  "towel_cart": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "fitness"
+  },
+  "pool_lounger": {
+    "kind": "lounger",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "patio_umbrella_navy": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "patio_umbrella_teal": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "patio_umbrella_beige": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "pool_ladder": {
+    "kind": "pool_ladder",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "lifebuoy": {
+    "kind": "wall",
+    "render": "cutout",
+    "group": "outdoor"
+  },
+  "hot_tub_jet": {
+    "kind": "jet",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "outdoor_shower": {
+    "kind": "tall_toggle",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "park_bench": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "lobby_bench": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "living"
+  },
+  "adirondack_chair": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "bean_bag": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "living"
+  },
+  "picnic_table": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "bbq_grill": {
+    "kind": "grill",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "patio_heater": {
+    "kind": "tall_toggle",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "bike_rack": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "trash_bin": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "recycling_bin": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "cornhole_board": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "swing_set": {
+    "kind": "seat",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "slide": {
+    "kind": "slide",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "agility_hurdle": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "pet_waste_station": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "outdoor"
+  },
+  "dog_wash_tub": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "amenity"
+  },
+  "dog_ramp": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "amenity"
+  },
+  "pet_sprayer": {
+    "kind": "wall_toggle",
+    "render": "solid",
+    "group": "amenity"
+  },
+  "grooming_table": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "amenity"
+  },
+  "grooming_supplies": {
+    "kind": "wall",
+    "render": "cutout",
+    "group": "amenity"
+  },
+  "paw_station": {
+    "kind": "furniture",
+    "render": "translucent",
+    "group": "amenity"
+  },
+  "treat_jar": {
+    "kind": "furniture",
+    "render": "translucent",
+    "group": "amenity"
+  },
+  "pool_table": {
+    "kind": "two_part",
+    "render": "solid",
+    "group": "amenity"
+  },
+  "ping_pong_table": {
+    "kind": "two_part",
+    "render": "solid",
+    "group": "amenity"
+  },
+  "arcade_machine": {
+    "kind": "tall_toggle",
+    "render": "solid",
+    "group": "amenity"
+  },
+  "vending_machine": {
+    "kind": "vending",
+    "render": "solid",
+    "group": "amenity"
+  },
+  "mini_fridge": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "amenity"
+  },
+  "dartboard": {
+    "kind": "wall",
+    "render": "cutout",
+    "group": "amenity"
+  },
+  "whiteboard": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "amenity"
+  },
+  "printer": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "amenity"
+  },
+  "conference_table": {
+    "kind": "table",
+    "render": "solid",
+    "group": "amenity"
+  },
+  "reception_desk_marble": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "lobby"
+  },
+  "reception_desk_walnut": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "lobby"
+  },
+  "concierge_bell": {
+    "kind": "bell",
+    "render": "solid",
+    "group": "lobby"
+  },
+  "luggage_cart": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "lobby"
+  },
+  "mailbox_bank": {
+    "kind": "wall_storage",
+    "render": "solid",
+    "group": "lobby"
+  },
+  "parcel_locker": {
+    "kind": "tall_storage",
+    "render": "solid",
+    "group": "lobby"
+  },
+  "package_shelf": {
+    "kind": "storage",
+    "render": "solid",
+    "group": "lobby"
+  },
+  "elevator_floor": {
+    "kind": "elevator",
+    "render": "solid",
+    "group": "systems"
+  },
+  "elevator_door": {
+    "kind": "elevator_door",
+    "render": "solid",
+    "group": "systems"
+  },
+  "elevator_panel": {
+    "kind": "elevator_panel",
+    "render": "solid",
+    "group": "systems"
+  },
+  "elevator_call_button": {
+    "kind": "elevator_panel",
+    "render": "solid",
+    "group": "systems"
+  },
+  "keycard_reader": {
+    "kind": "keycard_reader",
+    "render": "solid",
+    "group": "systems"
+  },
+  "intercom": {
+    "kind": "intercom",
+    "render": "solid",
+    "group": "systems"
+  },
+  "security_camera": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "systems"
+  },
+  "security_camera_dome": {
+    "kind": "ceiling",
+    "render": "solid",
+    "group": "systems"
+  },
+  "smoke_detector": {
+    "kind": "ceiling",
+    "render": "solid",
+    "group": "systems"
+  },
+  "sprinkler": {
+    "kind": "ceiling",
+    "render": "solid",
+    "group": "systems"
+  },
+  "fire_extinguisher": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "systems"
+  },
+  "fire_alarm": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "systems"
+  },
+  "exit_sign": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "systems"
+  },
+  "thermostat": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "systems"
+  },
+  "light_switch": {
+    "kind": "light_switch",
+    "render": "solid",
+    "group": "systems"
+  },
+  "wall_outlet": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "systems"
+  },
+  "ev_charger": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "parking"
+  },
+  "wheel_stop": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "parking"
+  },
+  "speed_bump": {
+    "kind": "furniture",
+    "render": "solid",
+    "group": "parking"
+  },
+  "sign_stairs": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_elevator": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_restroom": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_fitness": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_pool": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_laundry": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_mail": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_parking": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_pets": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_bike": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_lounge": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_wifi": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_leasing": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_trash": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_accessible": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "sign_roof": {
+    "kind": "wall",
+    "render": "solid",
+    "group": "signage"
+  },
+  "door_walnut": {
+    "kind": "door",
+    "render": "cutout",
+    "group": "doors"
+  },
+  "door_white": {
+    "kind": "door",
+    "render": "cutout",
+    "group": "doors"
+  },
+  "door_charcoal": {
+    "kind": "door",
+    "render": "cutout",
+    "group": "doors"
+  },
+  "door_glass": {
+    "kind": "door",
+    "render": "cutout",
+    "group": "doors"
+  },
+  "door_barn": {
+    "kind": "door",
+    "render": "cutout",
+    "group": "doors"
+  },
+  "door_steel": {
+    "kind": "door",
+    "render": "cutout",
+    "group": "doors"
+  },
+  "door_patio": {
+    "kind": "door",
+    "render": "cutout",
+    "group": "doors"
+  },
+  "door_oak": {
+    "kind": "door",
+    "render": "cutout",
+    "group": "doors"
+  },
+  "glass_railing": {
+    "kind": "pane",
+    "render": "translucent",
+    "group": "doors"
+  },
+  "metal_railing": {
+    "kind": "pane",
+    "render": "cutout",
+    "group": "doors"
+  },
+  "glass_partition": {
+    "kind": "pane",
+    "render": "translucent",
+    "group": "doors"
+  }
+}

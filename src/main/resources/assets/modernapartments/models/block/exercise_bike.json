@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/exercise_bike",
+  "textures": {
+    "frame": "modernapartments:block/metal_gunmetal",
+    "seat": "modernapartments:block/leather_black",
+    "metal": "modernapartments:block/metal_chrome",
+    "console": "modernapartments:block/treadmill_console",
+    "particle": "modernapartments:block/metal_gunmetal"
+  }
+}

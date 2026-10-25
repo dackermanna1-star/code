@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "modernapartments:block/green_wall",
+    "particle": "modernapartments:block/green_wall"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/runner_rug_charcoal"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/runner_rug_charcoal",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/runner_rug_charcoal",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/runner_rug_charcoal",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/dumbbell_rack"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/dumbbell_rack",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/dumbbell_rack",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/dumbbell_rack",
+      "y": 270
+    }
+  }
+}

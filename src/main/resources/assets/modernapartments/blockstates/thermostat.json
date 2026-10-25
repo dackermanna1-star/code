@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/thermostat"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/thermostat",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/thermostat",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/thermostat",
+      "y": 270
+    }
+  }
+}

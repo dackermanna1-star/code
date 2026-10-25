@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/dog_wash_tub"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/dog_wash_tub",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/dog_wash_tub",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/dog_wash_tub",
+      "y": 270
+    }
+  }
+}

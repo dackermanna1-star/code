@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/kitchen_upper",
+  "textures": {
+    "front": "modernapartments:block/cabinet_walnut_upper",
+    "side": "modernapartments:block/wood_walnut",
+    "particle": "modernapartments:block/cabinet_walnut_upper"
+  }
+}

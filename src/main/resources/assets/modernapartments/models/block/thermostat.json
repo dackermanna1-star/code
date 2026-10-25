@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/thermostat",
+  "textures": {
+    "face": "modernapartments:block/thermostat",
+    "particle": "modernapartments:block/thermostat"
+  }
+}

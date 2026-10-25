@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/kitchen_navy_drawers"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/kitchen_navy_drawers",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/kitchen_navy_drawers",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/kitchen_navy_drawers",
+      "y": 270
+    }
+  }
+}

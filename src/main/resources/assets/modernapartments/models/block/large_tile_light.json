@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "modernapartments:block/large_tile_light",
+    "particle": "modernapartments:block/large_tile_light"
+  }
+}

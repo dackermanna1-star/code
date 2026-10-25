@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/mailbox_bank",
+  "textures": {
+    "front": "modernapartments:block/mailbox_bank",
+    "side": "modernapartments:block/metal_steel",
+    "particle": "modernapartments:block/mailbox_bank"
+  }
+}

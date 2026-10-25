@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/pool_ladder"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/pool_ladder",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/pool_ladder",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/pool_ladder",
+      "y": 270
+    }
+  }
+}

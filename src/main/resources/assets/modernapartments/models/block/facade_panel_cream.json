@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "modernapartments:block/facade_panel_cream",
+    "particle": "modernapartments:block/facade_panel_cream"
+  }
+}

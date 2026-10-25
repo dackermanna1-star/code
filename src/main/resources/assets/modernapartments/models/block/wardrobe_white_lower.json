@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/wardrobe_lower",
+  "textures": {
+    "front_lower": "modernapartments:block/wardrobe_front_lower",
+    "side": "modernapartments:block/paint_white",
+    "particle": "modernapartments:block/wardrobe_front_lower"
+  }
+}

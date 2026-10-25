@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/mini_fridge",
+  "textures": {
+    "front": "modernapartments:block/smoked_glass",
+    "side": "modernapartments:block/plastic_black",
+    "handle": "modernapartments:block/metal_chrome",
+    "particle": "modernapartments:block/smoked_glass"
+  }
+}

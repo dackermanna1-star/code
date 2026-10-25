@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/patio_umbrella_beige"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/patio_umbrella_beige",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/patio_umbrella_beige",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/patio_umbrella_beige",
+      "y": 270
+    }
+  }
+}

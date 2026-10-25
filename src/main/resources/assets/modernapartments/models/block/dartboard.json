@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/wall_panel",
+  "textures": {
+    "frame": "modernapartments:block/wood_ebony",
+    "face": "modernapartments:block/dartboard",
+    "particle": "modernapartments:block/wood_ebony"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/toilet",
+  "textures": {
+    "ceramic": "modernapartments:block/ceramic_white",
+    "seat": "modernapartments:block/ceramic_white",
+    "metal": "modernapartments:block/metal_chrome",
+    "particle": "modernapartments:block/ceramic_white"
+  }
+}

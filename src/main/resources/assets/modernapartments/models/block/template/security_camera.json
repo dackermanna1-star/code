@@ -1,0 +1,151 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        7,
+        11,
+        13
+      ],
+      "to": [
+        9,
+        13,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7,
+            3,
+            9,
+            5
+          ],
+          "texture": "#mount"
+        },
+        "south": {
+          "uv": [
+            7,
+            3,
+            9,
+            5
+          ],
+          "texture": "#mount",
+          "cullface": "south"
+        },
+        "east": {
+          "uv": [
+            0,
+            3,
+            3,
+            5
+          ],
+          "texture": "#mount"
+        },
+        "west": {
+          "uv": [
+            13,
+            3,
+            16,
+            5
+          ],
+          "texture": "#mount"
+        },
+        "up": {
+          "uv": [
+            7,
+            13,
+            9,
+            16
+          ],
+          "texture": "#mount"
+        },
+        "down": {
+          "uv": [
+            7,
+            0,
+            9,
+            3
+          ],
+          "texture": "#mount"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        9,
+        5
+      ],
+      "to": [
+        11,
+        13,
+        14
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#lens"
+        },
+        "south": {
+          "uv": [
+            5,
+            3,
+            11,
+            7
+          ],
+          "texture": "#body"
+        },
+        "east": {
+          "uv": [
+            2,
+            3,
+            11,
+            7
+          ],
+          "texture": "#body"
+        },
+        "west": {
+          "uv": [
+            5,
+            3,
+            14,
+            7
+          ],
+          "texture": "#body"
+        },
+        "up": {
+          "uv": [
+            5,
+            5,
+            11,
+            14
+          ],
+          "texture": "#body"
+        },
+        "down": {
+          "uv": [
+            5,
+            2,
+            11,
+            11
+          ],
+          "texture": "#body"
+        }
+      },
+      "rotation": {
+        "origin": [
+          8,
+          11,
+          13
+        ],
+        "axis": "x",
+        "angle": -22.5
+      }
+    }
+  ]
+}

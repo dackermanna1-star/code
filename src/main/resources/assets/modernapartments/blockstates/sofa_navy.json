@@ -1,0 +1,94 @@
+{
+  "variants": {
+    "facing=north,shape=single": {
+      "model": "modernapartments:block/sofa_navy_single"
+    },
+    "facing=north,shape=left": {
+      "model": "modernapartments:block/sofa_navy_left"
+    },
+    "facing=north,shape=middle": {
+      "model": "modernapartments:block/sofa_navy_middle"
+    },
+    "facing=north,shape=right": {
+      "model": "modernapartments:block/sofa_navy_right"
+    },
+    "facing=north,shape=corner_left": {
+      "model": "modernapartments:block/sofa_navy_corner_left"
+    },
+    "facing=north,shape=corner_right": {
+      "model": "modernapartments:block/sofa_navy_corner_right"
+    },
+    "facing=east,shape=single": {
+      "model": "modernapartments:block/sofa_navy_single",
+      "y": 90
+    },
+    "facing=east,shape=left": {
+      "model": "modernapartments:block/sofa_navy_left",
+      "y": 90
+    },
+    "facing=east,shape=middle": {
+      "model": "modernapartments:block/sofa_navy_middle",
+      "y": 90
+    },
+    "facing=east,shape=right": {
+      "model": "modernapartments:block/sofa_navy_right",
+      "y": 90
+    },
+    "facing=east,shape=corner_left": {
+      "model": "modernapartments:block/sofa_navy_corner_left",
+      "y": 90
+    },
+    "facing=east,shape=corner_right": {
+      "model": "modernapartments:block/sofa_navy_corner_right",
+      "y": 90
+    },
+    "facing=south,shape=single": {
+      "model": "modernapartments:block/sofa_navy_single",
+      "y": 180
+    },
+    "facing=south,shape=left": {
+      "model": "modernapartments:block/sofa_navy_left",
+      "y": 180
+    },
+    "facing=south,shape=middle": {
+      "model": "modernapartments:block/sofa_navy_middle",
+      "y": 180
+    },
+    "facing=south,shape=right": {
+      "model": "modernapartments:block/sofa_navy_right",
+      "y": 180
+    },
+    "facing=south,shape=corner_left": {
+      "model": "modernapartments:block/sofa_navy_corner_left",
+      "y": 180
+    },
+    "facing=south,shape=corner_right": {
+      "model": "modernapartments:block/sofa_navy_corner_right",
+      "y": 180
+    },
+    "facing=west,shape=single": {
+      "model": "modernapartments:block/sofa_navy_single",
+      "y": 270
+    },
+    "facing=west,shape=left": {
+      "model": "modernapartments:block/sofa_navy_left",
+      "y": 270
+    },
+    "facing=west,shape=middle": {
+      "model": "modernapartments:block/sofa_navy_middle",
+      "y": 270
+    },
+    "facing=west,shape=right": {
+      "model": "modernapartments:block/sofa_navy_right",
+      "y": 270
+    },
+    "facing=west,shape=corner_left": {
+      "model": "modernapartments:block/sofa_navy_corner_left",
+      "y": 270
+    },
+    "facing=west,shape=corner_right": {
+      "model": "modernapartments:block/sofa_navy_corner_right",
+      "y": 270
+    }
+  }
+}

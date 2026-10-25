@@ -1,0 +1,45 @@
+{
+  "multipart": [
+    {
+      "apply": {
+        "model": "modernapartments:block/dining_table_walnut_top"
+      }
+    },
+    {
+      "when": {
+        "north": "false",
+        "west": "false"
+      },
+      "apply": {
+        "model": "modernapartments:block/dining_table_walnut_leg_nw"
+      }
+    },
+    {
+      "when": {
+        "north": "false",
+        "east": "false"
+      },
+      "apply": {
+        "model": "modernapartments:block/dining_table_walnut_leg_ne"
+      }
+    },
+    {
+      "when": {
+        "south": "false",
+        "west": "false"
+      },
+      "apply": {
+        "model": "modernapartments:block/dining_table_walnut_leg_sw"
+      }
+    },
+    {
+      "when": {
+        "south": "false",
+        "east": "false"
+      },
+      "apply": {
+        "model": "modernapartments:block/dining_table_walnut_leg_se"
+      }
+    }
+  ]
+}

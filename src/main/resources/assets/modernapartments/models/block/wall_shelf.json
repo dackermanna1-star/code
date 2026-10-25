@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/wall_shelf",
+  "textures": {
+    "frame": "modernapartments:block/wood_walnut",
+    "books": "modernapartments:block/book_spines",
+    "pot": "modernapartments:block/ceramic_white",
+    "plant": "modernapartments:block/plant_herbs",
+    "particle": "modernapartments:block/wood_walnut"
+  }
+}

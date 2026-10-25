@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/pet_waste_station",
+  "textures": {
+    "metal": "modernapartments:block/metal_black",
+    "box": "modernapartments:block/paint_charcoal",
+    "front": "modernapartments:block/pet_station",
+    "bin": "modernapartments:block/paint_charcoal",
+    "particle": "modernapartments:block/metal_black"
+  }
+}

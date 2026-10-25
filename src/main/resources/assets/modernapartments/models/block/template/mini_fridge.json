@@ -1,0 +1,142 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        2,
+        0,
+        3
+      ],
+      "to": [
+        14,
+        14,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            2,
+            14,
+            16
+          ],
+          "texture": "#front"
+        },
+        "south": {
+          "uv": [
+            2,
+            2,
+            14,
+            16
+          ],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [
+            1,
+            2,
+            13,
+            16
+          ],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [
+            3,
+            2,
+            15,
+            16
+          ],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [
+            2,
+            3,
+            14,
+            15
+          ],
+          "texture": "#side"
+        },
+        "down": {
+          "uv": [
+            2,
+            1,
+            14,
+            13
+          ],
+          "texture": "#side",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        11,
+        4,
+        2
+      ],
+      "to": [
+        12,
+        11,
+        3
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            5,
+            5,
+            12
+          ],
+          "texture": "#handle"
+        },
+        "south": {
+          "uv": [
+            11,
+            5,
+            12,
+            12
+          ],
+          "texture": "#handle"
+        },
+        "east": {
+          "uv": [
+            13,
+            5,
+            14,
+            12
+          ],
+          "texture": "#handle"
+        },
+        "west": {
+          "uv": [
+            2,
+            5,
+            3,
+            12
+          ],
+          "texture": "#handle"
+        },
+        "up": {
+          "uv": [
+            11,
+            2,
+            12,
+            3
+          ],
+          "texture": "#handle"
+        },
+        "down": {
+          "uv": [
+            11,
+            13,
+            12,
+            14
+          ],
+          "texture": "#handle"
+        }
+      }
+    }
+  ]
+}

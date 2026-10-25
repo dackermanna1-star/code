@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/ceiling_disk",
+  "textures": {
+    "face": "modernapartments:block/smoke_detector",
+    "particle": "modernapartments:block/smoke_detector"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "bottom": "modernapartments:block/recessed_light_off",
+    "top": "modernapartments:block/ceiling",
+    "side": "modernapartments:block/ceiling",
+    "particle": "modernapartments:block/recessed_light_off"
+  }
+}

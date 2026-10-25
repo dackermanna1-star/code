@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/shoe_rack",
+  "textures": {
+    "frame": "modernapartments:block/wood_light",
+    "shoe_a": "modernapartments:block/plastic_black",
+    "shoe_b": "modernapartments:block/fabric_sky",
+    "shoe_c": "modernapartments:block/leather_cognac",
+    "particle": "modernapartments:block/wood_light"
+  }
+}

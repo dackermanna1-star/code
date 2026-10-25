@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/speed_bump",
+  "textures": {
+    "paint": "modernapartments:block/plastic_yellow",
+    "particle": "modernapartments:block/plastic_yellow"
+  }
+}

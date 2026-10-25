@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/hot_tub_jet"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/hot_tub_jet",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/hot_tub_jet",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/hot_tub_jet",
+      "y": 270
+    }
+  }
+}

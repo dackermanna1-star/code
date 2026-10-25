@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/sign_wifi"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/sign_wifi",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/sign_wifi",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/sign_wifi",
+      "y": 270
+    }
+  }
+}

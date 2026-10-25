@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_all",
+  "textures": {
+    "all": "modernapartments:block/cedar_cladding",
+    "particle": "modernapartments:block/cedar_cladding"
+  }
+}

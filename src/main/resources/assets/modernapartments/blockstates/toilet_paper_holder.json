@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/toilet_paper_holder"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/toilet_paper_holder",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/toilet_paper_holder",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/toilet_paper_holder",
+      "y": 270
+    }
+  }
+}

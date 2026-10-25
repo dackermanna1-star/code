@@ -1,0 +1,64 @@
+{
+  "variants": {
+    "facing=north,half=lower,on=false": {
+      "model": "modernapartments:block/outdoor_shower_lower"
+    },
+    "facing=north,half=lower,on=true": {
+      "model": "modernapartments:block/outdoor_shower_lower_on"
+    },
+    "facing=north,half=upper,on=false": {
+      "model": "modernapartments:block/outdoor_shower_upper"
+    },
+    "facing=north,half=upper,on=true": {
+      "model": "modernapartments:block/outdoor_shower_upper_on"
+    },
+    "facing=east,half=lower,on=false": {
+      "model": "modernapartments:block/outdoor_shower_lower",
+      "y": 90
+    },
+    "facing=east,half=lower,on=true": {
+      "model": "modernapartments:block/outdoor_shower_lower_on",
+      "y": 90
+    },
+    "facing=east,half=upper,on=false": {
+      "model": "modernapartments:block/outdoor_shower_upper",
+      "y": 90
+    },
+    "facing=east,half=upper,on=true": {
+      "model": "modernapartments:block/outdoor_shower_upper_on",
+      "y": 90
+    },
+    "facing=south,half=lower,on=false": {
+      "model": "modernapartments:block/outdoor_shower_lower",
+      "y": 180
+    },
+    "facing=south,half=lower,on=true": {
+      "model": "modernapartments:block/outdoor_shower_lower_on",
+      "y": 180
+    },
+    "facing=south,half=upper,on=false": {
+      "model": "modernapartments:block/outdoor_shower_upper",
+      "y": 180
+    },
+    "facing=south,half=upper,on=true": {
+      "model": "modernapartments:block/outdoor_shower_upper_on",
+      "y": 180
+    },
+    "facing=west,half=lower,on=false": {
+      "model": "modernapartments:block/outdoor_shower_lower",
+      "y": 270
+    },
+    "facing=west,half=lower,on=true": {
+      "model": "modernapartments:block/outdoor_shower_lower_on",
+      "y": 270
+    },
+    "facing=west,half=upper,on=false": {
+      "model": "modernapartments:block/outdoor_shower_upper",
+      "y": 270
+    },
+    "facing=west,half=upper,on=true": {
+      "model": "modernapartments:block/outdoor_shower_upper_on",
+      "y": 270
+    }
+  }
+}

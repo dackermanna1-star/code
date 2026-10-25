@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/glass_coffee_table",
+  "textures": {
+    "top": "modernapartments:block/glass_clear",
+    "leg": "modernapartments:block/metal_brass",
+    "particle": "modernapartments:block/glass_clear"
+  }
+}

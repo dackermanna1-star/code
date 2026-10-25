@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/dining_chair_oak"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/dining_chair_oak",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/dining_chair_oak",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/dining_chair_oak",
+      "y": 270
+    }
+  }
+}

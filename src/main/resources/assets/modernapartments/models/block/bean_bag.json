@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/bean_bag",
+  "textures": {
+    "fabric": "modernapartments:block/fabric_mustard",
+    "particle": "modernapartments:block/fabric_mustard"
+  }
+}

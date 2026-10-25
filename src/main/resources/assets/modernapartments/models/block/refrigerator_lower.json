@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/fridge_lower",
+  "textures": {
+    "front_lower": "modernapartments:block/fridge_lower",
+    "side": "modernapartments:block/metal_steel",
+    "handle": "modernapartments:block/metal_chrome",
+    "particle": "modernapartments:block/fridge_lower"
+  }
+}

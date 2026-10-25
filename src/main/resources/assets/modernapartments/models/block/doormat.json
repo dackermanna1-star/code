@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/mat",
+  "textures": {
+    "fabric": "modernapartments:block/doormat",
+    "particle": "modernapartments:block/doormat"
+  }
+}

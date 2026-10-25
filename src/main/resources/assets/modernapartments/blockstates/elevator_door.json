@@ -1,0 +1,124 @@
+{
+  "variants": {
+    "facing=north,half=lower,hinge=left,open=false": {
+      "model": "modernapartments:block/elevator_door_closed"
+    },
+    "facing=north,half=lower,hinge=left,open=true": {
+      "model": "modernapartments:block/elevator_door_open_left"
+    },
+    "facing=north,half=lower,hinge=right,open=false": {
+      "model": "modernapartments:block/elevator_door_closed"
+    },
+    "facing=north,half=lower,hinge=right,open=true": {
+      "model": "modernapartments:block/elevator_door_open_right"
+    },
+    "facing=north,half=upper,hinge=left,open=false": {
+      "model": "modernapartments:block/elevator_door_closed"
+    },
+    "facing=north,half=upper,hinge=left,open=true": {
+      "model": "modernapartments:block/elevator_door_open_left"
+    },
+    "facing=north,half=upper,hinge=right,open=false": {
+      "model": "modernapartments:block/elevator_door_closed"
+    },
+    "facing=north,half=upper,hinge=right,open=true": {
+      "model": "modernapartments:block/elevator_door_open_right"
+    },
+    "facing=east,half=lower,hinge=left,open=false": {
+      "model": "modernapartments:block/elevator_door_closed",
+      "y": 90
+    },
+    "facing=east,half=lower,hinge=left,open=true": {
+      "model": "modernapartments:block/elevator_door_open_left",
+      "y": 90
+    },
+    "facing=east,half=lower,hinge=right,open=false": {
+      "model": "modernapartments:block/elevator_door_closed",
+      "y": 90
+    },
+    "facing=east,half=lower,hinge=right,open=true": {
+      "model": "modernapartments:block/elevator_door_open_right",
+      "y": 90
+    },
+    "facing=east,half=upper,hinge=left,open=false": {
+      "model": "modernapartments:block/elevator_door_closed",
+      "y": 90
+    },
+    "facing=east,half=upper,hinge=left,open=true": {
+      "model": "modernapartments:block/elevator_door_open_left",
+      "y": 90
+    },
+    "facing=east,half=upper,hinge=right,open=false": {
+      "model": "modernapartments:block/elevator_door_closed",
+      "y": 90
+    },
+    "facing=east,half=upper,hinge=right,open=true": {
+      "model": "modernapartments:block/elevator_door_open_right",
+      "y": 90
+    },
+    "facing=south,half=lower,hinge=left,open=false": {
+      "model": "modernapartments:block/elevator_door_closed",
+      "y": 180
+    },
+    "facing=south,half=lower,hinge=left,open=true": {
+      "model": "modernapartments:block/elevator_door_open_left",
+      "y": 180
+    },
+    "facing=south,half=lower,hinge=right,open=false": {
+      "model": "modernapartments:block/elevator_door_closed",
+      "y": 180
+    },
+    "facing=south,half=lower,hinge=right,open=true": {
+      "model": "modernapartments:block/elevator_door_open_right",
+      "y": 180
+    },
+    "facing=south,half=upper,hinge=left,open=false": {
+      "model": "modernapartments:block/elevator_door_closed",
+      "y": 180
+    },
+    "facing=south,half=upper,hinge=left,open=true": {
+      "model": "modernapartments:block/elevator_door_open_left",
+      "y": 180
+    },
+    "facing=south,half=upper,hinge=right,open=false": {
+      "model": "modernapartments:block/elevator_door_closed",
+      "y": 180
+    },
+    "facing=south,half=upper,hinge=right,open=true": {
+      "model": "modernapartments:block/elevator_door_open_right",
+      "y": 180
+    },
+    "facing=west,half=lower,hinge=left,open=false": {
+      "model": "modernapartments:block/elevator_door_closed",
+      "y": 270
+    },
+    "facing=west,half=lower,hinge=left,open=true": {
+      "model": "modernapartments:block/elevator_door_open_left",
+      "y": 270
+    },
+    "facing=west,half=lower,hinge=right,open=false": {
+      "model": "modernapartments:block/elevator_door_closed",
+      "y": 270
+    },
+    "facing=west,half=lower,hinge=right,open=true": {
+      "model": "modernapartments:block/elevator_door_open_right",
+      "y": 270
+    },
+    "facing=west,half=upper,hinge=left,open=false": {
+      "model": "modernapartments:block/elevator_door_closed",
+      "y": 270
+    },
+    "facing=west,half=upper,hinge=left,open=true": {
+      "model": "modernapartments:block/elevator_door_open_left",
+      "y": 270
+    },
+    "facing=west,half=upper,hinge=right,open=false": {
+      "model": "modernapartments:block/elevator_door_closed",
+      "y": 270
+    },
+    "facing=west,half=upper,hinge=right,open=true": {
+      "model": "modernapartments:block/elevator_door_open_right",
+      "y": 270
+    }
+  }
+}

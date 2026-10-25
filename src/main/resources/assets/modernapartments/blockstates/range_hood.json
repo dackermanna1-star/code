@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/range_hood"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/range_hood",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/range_hood",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/range_hood",
+      "y": 270
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/weight_bench",
+  "textures": {
+    "frame": "modernapartments:block/metal_black",
+    "seat": "modernapartments:block/leather_black",
+    "metal": "modernapartments:block/metal_chrome",
+    "plate": "modernapartments:block/rubber_black",
+    "particle": "modernapartments:block/metal_black"
+  }
+}

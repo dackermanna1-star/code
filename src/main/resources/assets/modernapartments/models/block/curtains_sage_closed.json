@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/curtain_closed",
+  "textures": {
+    "fabric": "modernapartments:block/paint_sage",
+    "particle": "modernapartments:block/paint_sage"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "modernapartments:block/garage_light_off"
+    },
+    "lit=true": {
+      "model": "modernapartments:block/garage_light_on"
+    }
+  }
+}

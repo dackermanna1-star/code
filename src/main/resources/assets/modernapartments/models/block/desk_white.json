@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/desk",
+  "textures": {
+    "top": "modernapartments:block/paint_white",
+    "leg": "modernapartments:block/paint_white",
+    "drawer": "modernapartments:block/cabinet_white_drawers",
+    "particle": "modernapartments:block/paint_white"
+  }
+}

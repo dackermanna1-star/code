@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/lounger_head",
+  "textures": {
+    "frame": "modernapartments:block/metal_white",
+    "cushion": "modernapartments:block/fabric_stripe_navy",
+    "particle": "modernapartments:block/metal_white"
+  }
+}

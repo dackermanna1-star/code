@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/lifebuoy",
+  "textures": {
+    "buoy": "modernapartments:block/lifebuoy",
+    "particle": "modernapartments:block/lifebuoy"
+  }
+}

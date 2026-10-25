@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/wall_plaque",
+  "textures": {
+    "face": "modernapartments:block/sign_pets",
+    "particle": "modernapartments:block/sign_pets"
+  }
+}

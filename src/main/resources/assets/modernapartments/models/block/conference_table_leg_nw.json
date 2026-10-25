@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/table_leg_nw",
+  "textures": {
+    "leg": "modernapartments:block/metal_chrome",
+    "particle": "modernapartments:block/metal_chrome"
+  }
+}

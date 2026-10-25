@@ -1,0 +1,34 @@
+{
+  "variants": {
+    "facing=north,open=false": {
+      "model": "modernapartments:block/curtains_cream_closed"
+    },
+    "facing=north,open=true": {
+      "model": "modernapartments:block/curtains_cream_open"
+    },
+    "facing=east,open=false": {
+      "model": "modernapartments:block/curtains_cream_closed",
+      "y": 90
+    },
+    "facing=east,open=true": {
+      "model": "modernapartments:block/curtains_cream_open",
+      "y": 90
+    },
+    "facing=south,open=false": {
+      "model": "modernapartments:block/curtains_cream_closed",
+      "y": 180
+    },
+    "facing=south,open=true": {
+      "model": "modernapartments:block/curtains_cream_open",
+      "y": 180
+    },
+    "facing=west,open=false": {
+      "model": "modernapartments:block/curtains_cream_closed",
+      "y": 270
+    },
+    "facing=west,open=true": {
+      "model": "modernapartments:block/curtains_cream_open",
+      "y": 270
+    }
+  }
+}

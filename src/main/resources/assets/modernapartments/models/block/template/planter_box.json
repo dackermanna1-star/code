@@ -1,0 +1,232 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        10,
+        16
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            6,
+            16,
+            16
+          ],
+          "texture": "#frame",
+          "cullface": "north"
+        },
+        "south": {
+          "uv": [
+            0,
+            6,
+            16,
+            16
+          ],
+          "texture": "#frame",
+          "cullface": "south"
+        },
+        "east": {
+          "uv": [
+            0,
+            6,
+            16,
+            16
+          ],
+          "texture": "#frame",
+          "cullface": "east"
+        },
+        "west": {
+          "uv": [
+            0,
+            6,
+            16,
+            16
+          ],
+          "texture": "#frame",
+          "cullface": "west"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#frame"
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#frame",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        1,
+        9.6,
+        1
+      ],
+      "to": [
+        15,
+        9.8,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            1,
+            6.2,
+            15,
+            6.4
+          ],
+          "texture": "#soil"
+        },
+        "south": {
+          "uv": [
+            1,
+            6.2,
+            15,
+            6.4
+          ],
+          "texture": "#soil"
+        },
+        "east": {
+          "uv": [
+            1,
+            6.2,
+            15,
+            6.4
+          ],
+          "texture": "#soil"
+        },
+        "west": {
+          "uv": [
+            1,
+            6.2,
+            15,
+            6.4
+          ],
+          "texture": "#soil"
+        },
+        "up": {
+          "uv": [
+            1,
+            1,
+            15,
+            15
+          ],
+          "texture": "#soil"
+        },
+        "down": {
+          "uv": [
+            1,
+            1,
+            15,
+            15
+          ],
+          "texture": "#soil"
+        }
+      }
+    },
+    {
+      "from": [
+        0.8,
+        9,
+        8
+      ],
+      "to": [
+        15.2,
+        20,
+        8
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#plant"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#plant"
+        }
+      },
+      "rotation": {
+        "origin": [
+          8,
+          8,
+          8
+        ],
+        "axis": "y",
+        "angle": 45,
+        "rescale": true
+      },
+      "shade": false
+    },
+    {
+      "from": [
+        8,
+        9,
+        0.8
+      ],
+      "to": [
+        8,
+        20,
+        15.2
+      ],
+      "faces": {
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#plant"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#plant"
+        }
+      },
+      "rotation": {
+        "origin": [
+          8,
+          8,
+          8
+        ],
+        "axis": "y",
+        "angle": 45,
+        "rescale": true
+      },
+      "shade": false
+    }
+  ]
+}

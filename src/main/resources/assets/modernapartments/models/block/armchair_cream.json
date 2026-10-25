@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/armchair",
+  "textures": {
+    "fabric": "modernapartments:block/fabric_cream",
+    "leg": "modernapartments:block/wood_walnut",
+    "pillow": "modernapartments:block/cushion_white",
+    "particle": "modernapartments:block/fabric_cream"
+  }
+}

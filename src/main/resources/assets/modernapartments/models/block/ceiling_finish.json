@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/ceiling_layer",
+  "textures": {
+    "side": "modernapartments:block/ceiling",
+    "face": "modernapartments:block/ceiling",
+    "particle": "modernapartments:block/ceiling"
+  }
+}

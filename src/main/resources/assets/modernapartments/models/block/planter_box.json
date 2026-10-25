@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/planter_box",
+  "textures": {
+    "frame": "modernapartments:block/cedar_cladding",
+    "soil": "modernapartments:block/soil",
+    "plant": "modernapartments:block/plant_flowers",
+    "particle": "modernapartments:block/cedar_cladding"
+  }
+}

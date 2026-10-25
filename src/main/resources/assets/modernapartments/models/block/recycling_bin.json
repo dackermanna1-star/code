@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/trash_bin",
+  "textures": {
+    "front": "modernapartments:block/recycle_bin",
+    "side": "modernapartments:block/plastic_blue",
+    "particle": "modernapartments:block/recycle_bin"
+  }
+}

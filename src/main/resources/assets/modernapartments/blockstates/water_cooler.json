@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/water_cooler"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/water_cooler",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/water_cooler",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/water_cooler",
+      "y": 270
+    }
+  }
+}

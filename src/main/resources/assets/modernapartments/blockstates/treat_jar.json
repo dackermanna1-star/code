@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/treat_jar"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/treat_jar",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/treat_jar",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/treat_jar",
+      "y": 270
+    }
+  }
+}

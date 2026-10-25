@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "modernapartments:block/pendant_light_brass_off"
+    },
+    "lit=true": {
+      "model": "modernapartments:block/pendant_light_brass_on"
+    }
+  }
+}

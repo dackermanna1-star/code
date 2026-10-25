@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/template_glass_pane_post",
+  "textures": {
+    "pane": "modernapartments:block/metal_railing",
+    "edge": "modernapartments:block/metal_railing_edge",
+    "particle": "modernapartments:block/metal_railing"
+  }
+}

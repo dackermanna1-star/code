@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/bar_stool",
+  "textures": {
+    "frame": "modernapartments:block/metal_brass",
+    "seat": "modernapartments:block/leather_cognac",
+    "particle": "modernapartments:block/metal_brass"
+  }
+}

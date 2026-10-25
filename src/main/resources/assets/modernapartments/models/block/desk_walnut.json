@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/desk",
+  "textures": {
+    "top": "modernapartments:block/wood_walnut",
+    "leg": "modernapartments:block/wood_walnut",
+    "drawer": "modernapartments:block/cabinet_walnut_drawers",
+    "particle": "modernapartments:block/wood_walnut"
+  }
+}

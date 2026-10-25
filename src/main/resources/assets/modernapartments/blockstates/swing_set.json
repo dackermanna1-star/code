@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/swing_set"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/swing_set",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/swing_set",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/swing_set",
+      "y": 270
+    }
+  }
+}

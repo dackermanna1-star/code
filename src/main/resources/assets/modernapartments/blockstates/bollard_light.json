@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "modernapartments:block/bollard_light_off"
+    },
+    "lit=true": {
+      "model": "modernapartments:block/bollard_light_on"
+    }
+  }
+}

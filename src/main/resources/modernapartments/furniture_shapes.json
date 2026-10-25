@@ -1,0 +1,4320 @@
+{
+  "templates": {
+    "ceiling_layer": [
+      [
+        0,
+        15,
+        0,
+        16,
+        16,
+        16
+      ]
+    ],
+    "sofa_single": [
+      [
+        0,
+        2,
+        1,
+        16,
+        5,
+        16
+      ],
+      [
+        0,
+        5,
+        13,
+        16,
+        13,
+        16
+      ],
+      [
+        0,
+        5,
+        1,
+        2.5,
+        11,
+        16
+      ],
+      [
+        13.5,
+        5,
+        1,
+        16,
+        11,
+        16
+      ],
+      [
+        2.5,
+        5,
+        1,
+        13.5,
+        8,
+        12.5
+      ],
+      [
+        2.75,
+        8,
+        10.5,
+        13.25,
+        14,
+        13
+      ]
+    ],
+    "sofa_left": [
+      [
+        0,
+        2,
+        1,
+        16,
+        5,
+        16
+      ],
+      [
+        0,
+        5,
+        13,
+        16,
+        13,
+        16
+      ],
+      [
+        0,
+        5,
+        1,
+        2.5,
+        11,
+        16
+      ],
+      [
+        2.5,
+        5,
+        1,
+        16,
+        8,
+        12.5
+      ],
+      [
+        2.75,
+        8,
+        10.5,
+        15.75,
+        14,
+        13
+      ]
+    ],
+    "sofa_middle": [
+      [
+        0,
+        2,
+        1,
+        16,
+        5,
+        16
+      ],
+      [
+        0,
+        5,
+        13,
+        16,
+        13,
+        16
+      ],
+      [
+        0,
+        5,
+        1,
+        16,
+        8,
+        12.5
+      ],
+      [
+        0.25,
+        8,
+        10.5,
+        15.75,
+        14,
+        13
+      ]
+    ],
+    "sofa_right": [
+      [
+        0,
+        2,
+        1,
+        16,
+        5,
+        16
+      ],
+      [
+        0,
+        5,
+        13,
+        16,
+        13,
+        16
+      ],
+      [
+        13.5,
+        5,
+        1,
+        16,
+        11,
+        16
+      ],
+      [
+        0,
+        5,
+        1,
+        13.5,
+        8,
+        12.5
+      ],
+      [
+        0.25,
+        8,
+        10.5,
+        13.25,
+        14,
+        13
+      ]
+    ],
+    "sofa_corner_left": [
+      [
+        0,
+        2,
+        1,
+        16,
+        5,
+        16
+      ],
+      [
+        0,
+        5,
+        13,
+        16,
+        13,
+        16
+      ],
+      [
+        0,
+        5,
+        0,
+        3,
+        13,
+        13
+      ],
+      [
+        3,
+        5,
+        0,
+        16,
+        8,
+        12.5
+      ],
+      [
+        3.25,
+        8,
+        10.5,
+        16,
+        14,
+        13
+      ],
+      [
+        3,
+        8,
+        0,
+        5.5,
+        14,
+        10.5
+      ]
+    ],
+    "sofa_corner_right": [
+      [
+        0,
+        2,
+        1,
+        16,
+        5,
+        16
+      ],
+      [
+        0,
+        5,
+        13,
+        16,
+        13,
+        16
+      ],
+      [
+        13,
+        5,
+        0,
+        16,
+        13,
+        13
+      ],
+      [
+        0,
+        5,
+        0,
+        13,
+        8,
+        12.5
+      ],
+      [
+        0,
+        8,
+        10.5,
+        12.75,
+        14,
+        13
+      ],
+      [
+        10.5,
+        8,
+        0,
+        13,
+        14,
+        10.5
+      ]
+    ],
+    "armchair": [
+      [
+        1,
+        2,
+        2,
+        15,
+        5,
+        15
+      ],
+      [
+        3.5,
+        5,
+        2,
+        12.5,
+        8,
+        12
+      ],
+      [
+        1,
+        5,
+        12,
+        15,
+        15,
+        15
+      ],
+      [
+        1,
+        5,
+        2,
+        3.5,
+        11,
+        15
+      ],
+      [
+        12.5,
+        5,
+        2,
+        15,
+        11,
+        15
+      ]
+    ],
+    "lounge_chair": [
+      [
+        2,
+        0,
+        2,
+        14,
+        8,
+        13
+      ],
+      [
+        2,
+        8,
+        11,
+        14,
+        15,
+        14
+      ]
+    ],
+    "coffee_table": [
+      [
+        0,
+        6,
+        2,
+        16,
+        7.5,
+        14
+      ]
+    ],
+    "glass_coffee_table": [
+      [
+        0,
+        6,
+        2,
+        16,
+        7,
+        14
+      ]
+    ],
+    "side_table": [
+      [
+        3,
+        0,
+        3,
+        13,
+        10,
+        13
+      ]
+    ],
+    "media_console": [
+      [
+        0,
+        2,
+        4,
+        16,
+        8,
+        15
+      ],
+      [
+        0,
+        8,
+        3.5,
+        16,
+        9,
+        15.5
+      ]
+    ],
+    "tv_wall": [
+      [
+        0,
+        3,
+        14,
+        16,
+        16,
+        16
+      ]
+    ],
+    "tv_stand": [
+      [
+        0,
+        0,
+        6,
+        16,
+        16,
+        11
+      ]
+    ],
+    "bookcase_lower": [
+      [
+        0,
+        0,
+        2,
+        16,
+        16,
+        16
+      ]
+    ],
+    "bookcase_upper": [
+      [
+        0,
+        0,
+        2,
+        16,
+        16,
+        16
+      ]
+    ],
+    "curtain_closed": [
+      [
+        0,
+        0,
+        13,
+        16,
+        16,
+        15
+      ]
+    ],
+    "curtain_open": [
+      [
+        0,
+        0,
+        12.6,
+        1.5,
+        16,
+        15.4
+      ],
+      [
+        1.5,
+        0,
+        13,
+        3,
+        16,
+        15
+      ],
+      [
+        13,
+        0,
+        13,
+        14.5,
+        16,
+        15
+      ],
+      [
+        14.5,
+        0,
+        12.6,
+        16,
+        16,
+        15.4
+      ]
+    ],
+    "blinds_closed": [
+      [
+        0,
+        0,
+        14,
+        16,
+        16,
+        15
+      ]
+    ],
+    "blinds_open": [
+      [
+        0,
+        13.5,
+        13.5,
+        16,
+        16,
+        15.5
+      ]
+    ],
+    "floor_lamp": [
+      [
+        5,
+        0,
+        5,
+        11,
+        16,
+        11
+      ]
+    ],
+    "table_lamp": [
+      [
+        4.5,
+        0,
+        4.5,
+        11.5,
+        11,
+        11.5
+      ]
+    ],
+    "pendant_light": [
+      [
+        5,
+        5,
+        5,
+        11,
+        16,
+        11
+      ]
+    ],
+    "chandelier": [
+      [
+        1,
+        4,
+        1,
+        15,
+        16,
+        15
+      ]
+    ],
+    "ceiling_fan": [
+      [
+        0,
+        11.5,
+        0,
+        16,
+        16,
+        16
+      ]
+    ],
+    "electric_fireplace": [
+      [
+        0,
+        2,
+        10,
+        16,
+        12,
+        16
+      ]
+    ],
+    "wall_sconce": [
+      [
+        5.5,
+        5,
+        9.5,
+        10.5,
+        13,
+        16
+      ]
+    ],
+    "garage_light": [
+      [
+        1,
+        13.4,
+        5,
+        15,
+        16,
+        11
+      ]
+    ],
+    "string_lights": [
+      [
+        0,
+        12,
+        7,
+        16,
+        14.5,
+        9
+      ]
+    ],
+    "lamp_post": [
+      [
+        6.5,
+        0,
+        6.5,
+        9.5,
+        16,
+        9.5
+      ]
+    ],
+    "lamp_head": [
+      [
+        3,
+        0,
+        3,
+        13,
+        8,
+        13
+      ]
+    ],
+    "bollard_light": [
+      [
+        5,
+        0,
+        5,
+        11,
+        10,
+        11
+      ],
+      [
+        5.5,
+        10,
+        5.5,
+        10.5,
+        12,
+        10.5
+      ],
+      [
+        5,
+        12,
+        5,
+        11,
+        13,
+        11
+      ]
+    ],
+    "kitchen_cabinet": [
+      [
+        0,
+        0,
+        0,
+        16,
+        16,
+        16
+      ]
+    ],
+    "kitchen_sink": [
+      [
+        0,
+        0,
+        0,
+        16,
+        11,
+        16
+      ],
+      [
+        0,
+        11,
+        0,
+        3,
+        16,
+        16
+      ],
+      [
+        13,
+        11,
+        0,
+        16,
+        16,
+        16
+      ],
+      [
+        3,
+        11,
+        0,
+        13,
+        16,
+        3
+      ],
+      [
+        3,
+        11,
+        12,
+        13,
+        16,
+        16
+      ]
+    ],
+    "kitchen_sink_on": [
+      [
+        0,
+        0,
+        0,
+        16,
+        11,
+        16
+      ],
+      [
+        0,
+        11,
+        0,
+        3,
+        16,
+        16
+      ],
+      [
+        13,
+        11,
+        0,
+        16,
+        16,
+        16
+      ],
+      [
+        3,
+        11,
+        0,
+        13,
+        16,
+        3
+      ],
+      [
+        3,
+        11,
+        12,
+        13,
+        16,
+        16
+      ]
+    ],
+    "kitchen_upper": [
+      [
+        0,
+        0,
+        8,
+        16,
+        16,
+        16
+      ]
+    ],
+    "dishwasher": [
+      [
+        0,
+        0,
+        0,
+        16,
+        16,
+        16
+      ]
+    ],
+    "fridge_lower": [
+      [
+        0,
+        0,
+        1,
+        16,
+        16,
+        16
+      ]
+    ],
+    "fridge_upper": [
+      [
+        0,
+        0,
+        1,
+        16,
+        16,
+        16
+      ]
+    ],
+    "oven_range": [
+      [
+        0,
+        0,
+        0,
+        16,
+        16,
+        16
+      ]
+    ],
+    "range_hood": [
+      [
+        1,
+        0,
+        6,
+        15,
+        5,
+        16
+      ],
+      [
+        5,
+        5,
+        11,
+        11,
+        16,
+        16
+      ]
+    ],
+    "microwave": [
+      [
+        2,
+        0.5,
+        4,
+        14,
+        7.5,
+        14
+      ]
+    ],
+    "coffee_maker": [
+      [
+        4,
+        0,
+        5,
+        12,
+        10,
+        13
+      ]
+    ],
+    "espresso_machine": [
+      [
+        2,
+        0,
+        4,
+        14,
+        10,
+        14
+      ]
+    ],
+    "toaster": [
+      [
+        4,
+        0,
+        6,
+        12,
+        6,
+        11
+      ]
+    ],
+    "kitchen_utensils": [
+      [
+        3,
+        0,
+        9,
+        7,
+        6,
+        13
+      ],
+      [
+        8,
+        0,
+        5,
+        14,
+        0.8,
+        13
+      ]
+    ],
+    "fruit_bowl": [
+      [
+        4,
+        0,
+        4,
+        12,
+        2.5,
+        12
+      ]
+    ],
+    "table_top": [
+      [
+        0,
+        13,
+        0,
+        16,
+        15,
+        16
+      ]
+    ],
+    "table_leg_nw": [
+      [
+        0.5,
+        0,
+        0.5,
+        2.5,
+        13,
+        2.5
+      ]
+    ],
+    "table_leg_ne": [
+      [
+        13.5,
+        0,
+        0.5,
+        15.5,
+        13,
+        2.5
+      ]
+    ],
+    "table_leg_sw": [
+      [
+        0.5,
+        0,
+        13.5,
+        2.5,
+        13,
+        15.5
+      ]
+    ],
+    "table_leg_se": [
+      [
+        13.5,
+        0,
+        13.5,
+        15.5,
+        13,
+        15.5
+      ]
+    ],
+    "dining_chair": [
+      [
+        2,
+        0,
+        2,
+        14,
+        9.5,
+        14
+      ],
+      [
+        2.5,
+        9.5,
+        12.5,
+        13.5,
+        16,
+        13.7
+      ]
+    ],
+    "bar_stool": [
+      [
+        3.5,
+        0,
+        3.5,
+        12.5,
+        12.5,
+        12.5
+      ],
+      [
+        4,
+        12.5,
+        11.5,
+        12,
+        16,
+        12.5
+      ]
+    ],
+    "nightstand": [
+      [
+        2,
+        0,
+        3,
+        14,
+        9,
+        15
+      ],
+      [
+        1.5,
+        9,
+        2.5,
+        14.5,
+        10,
+        15.5
+      ]
+    ],
+    "dresser": [
+      [
+        0,
+        1,
+        3,
+        16,
+        13,
+        15
+      ],
+      [
+        0,
+        13,
+        2.5,
+        16,
+        14,
+        15.5
+      ]
+    ],
+    "wardrobe_lower": [
+      [
+        0,
+        0,
+        2,
+        16,
+        16,
+        16
+      ]
+    ],
+    "wardrobe_upper": [
+      [
+        0,
+        0,
+        2,
+        16,
+        15,
+        16
+      ],
+      [
+        0,
+        15,
+        1.5,
+        16,
+        16,
+        16
+      ]
+    ],
+    "desk": [
+      [
+        0,
+        12,
+        1,
+        16,
+        13.5,
+        16
+      ],
+      [
+        0.5,
+        0,
+        2,
+        2,
+        12,
+        15
+      ],
+      [
+        10,
+        0,
+        2,
+        15.5,
+        12,
+        15
+      ]
+    ],
+    "office_chair": [
+      [
+        3,
+        0,
+        3,
+        13,
+        9,
+        13
+      ],
+      [
+        3.5,
+        9,
+        12,
+        12.5,
+        16,
+        13.5
+      ]
+    ],
+    "wall_mirror": [
+      [
+        2,
+        1,
+        14.9,
+        14,
+        15,
+        16
+      ]
+    ],
+    "clothing_rack": [
+      [
+        0,
+        0,
+        6,
+        16,
+        16,
+        10
+      ]
+    ],
+    "shoe_rack": [
+      [
+        0,
+        0,
+        9,
+        16,
+        8,
+        15
+      ]
+    ],
+    "laundry_basket": [
+      [
+        3,
+        0,
+        3,
+        13,
+        8,
+        13
+      ]
+    ],
+    "wall_shelf": [
+      [
+        0,
+        7,
+        9,
+        16,
+        8,
+        16
+      ]
+    ],
+    "toilet": [
+      [
+        4,
+        0,
+        2,
+        12,
+        8,
+        11
+      ],
+      [
+        3.5,
+        0,
+        11,
+        12.5,
+        15.7,
+        15.2
+      ]
+    ],
+    "vanity": [
+      [
+        0,
+        0,
+        3,
+        16,
+        13,
+        16
+      ],
+      [
+        4,
+        13,
+        5.5,
+        12,
+        16,
+        12.5
+      ]
+    ],
+    "bathtub_head": [
+      [
+        0,
+        0,
+        0,
+        16,
+        2,
+        16
+      ],
+      [
+        0,
+        0,
+        0,
+        16,
+        9,
+        2
+      ],
+      [
+        0,
+        0,
+        0,
+        2,
+        9,
+        16
+      ],
+      [
+        14,
+        0,
+        0,
+        16,
+        9,
+        16
+      ]
+    ],
+    "bathtub_foot": [
+      [
+        0,
+        0,
+        0,
+        16,
+        2,
+        16
+      ],
+      [
+        0,
+        0,
+        14,
+        16,
+        9,
+        16
+      ],
+      [
+        0,
+        0,
+        0,
+        2,
+        9,
+        16
+      ],
+      [
+        14,
+        0,
+        0,
+        16,
+        9,
+        16
+      ]
+    ],
+    "shower_head": [
+      [
+        5.5,
+        3,
+        9,
+        10.5,
+        11,
+        16
+      ]
+    ],
+    "towel_rack": [
+      [
+        2,
+        3,
+        13,
+        14,
+        9.5,
+        16
+      ]
+    ],
+    "tp_holder": [
+      [
+        5,
+        3.5,
+        11,
+        11,
+        7.5,
+        16
+      ]
+    ],
+    "medicine_cabinet": [
+      [
+        3,
+        2,
+        12,
+        13,
+        14,
+        16
+      ]
+    ],
+    "vanity_mirror": [
+      [
+        0,
+        2,
+        14.9,
+        16,
+        15,
+        16
+      ]
+    ],
+    "mat": [
+      [
+        2,
+        0,
+        3,
+        14,
+        0.5,
+        13
+      ]
+    ],
+    "towel_stack": [
+      [
+        3,
+        0,
+        4,
+        13,
+        2,
+        12
+      ],
+      [
+        3.5,
+        2,
+        4.5,
+        12.5,
+        4,
+        11.5
+      ],
+      [
+        3,
+        4,
+        4,
+        13,
+        6,
+        12
+      ]
+    ],
+    "toiletries": [
+      [
+        3,
+        0,
+        8,
+        5.5,
+        6,
+        10.5
+      ],
+      [
+        6.5,
+        0,
+        8.5,
+        8.5,
+        4,
+        10.5
+      ],
+      [
+        9.5,
+        0,
+        8,
+        12,
+        5,
+        10.5
+      ]
+    ],
+    "washer": [
+      [
+        0,
+        0,
+        0,
+        16,
+        16,
+        16
+      ]
+    ],
+    "potted_plant": [
+      [
+        4,
+        0,
+        4,
+        12,
+        14,
+        12
+      ]
+    ],
+    "potted_plant_tall": [
+      [
+        4,
+        0,
+        4,
+        12,
+        16,
+        12
+      ]
+    ],
+    "table_plant": [
+      [
+        5,
+        0,
+        5,
+        11,
+        8,
+        11
+      ]
+    ],
+    "flower_vase": [
+      [
+        5.5,
+        0,
+        5.5,
+        10.5,
+        10,
+        10.5
+      ]
+    ],
+    "planter_box": [
+      [
+        0,
+        0,
+        0,
+        16,
+        10,
+        16
+      ]
+    ],
+    "book_stack": [
+      [
+        4,
+        0,
+        5,
+        12,
+        1.5,
+        11
+      ],
+      [
+        4.5,
+        1.5,
+        5.5,
+        11,
+        2.7,
+        10.5
+      ],
+      [
+        5,
+        2.7,
+        5,
+        12.5,
+        4,
+        11
+      ]
+    ],
+    "vase": [
+      [
+        6,
+        0,
+        6,
+        10,
+        8,
+        10
+      ],
+      [
+        6.8,
+        8,
+        6.8,
+        9.2,
+        10,
+        9.2
+      ]
+    ],
+    "candle_set": [
+      [
+        4,
+        0,
+        4,
+        12,
+        0.6,
+        12
+      ],
+      [
+        5,
+        0.6,
+        5,
+        7,
+        5,
+        7
+      ],
+      [
+        8.5,
+        0.6,
+        6,
+        10.5,
+        3.5,
+        8
+      ],
+      [
+        6,
+        0.6,
+        9,
+        8,
+        4,
+        11
+      ]
+    ],
+    "wall_art": [
+      [
+        1,
+        2,
+        14.9,
+        15,
+        14,
+        16
+      ]
+    ],
+    "wall_art_wide": [
+      [
+        0,
+        2,
+        14.9,
+        16,
+        14,
+        16
+      ]
+    ],
+    "wall_clock": [
+      [
+        3,
+        3,
+        15,
+        13,
+        13,
+        16
+      ]
+    ],
+    "laptop": [
+      [
+        3,
+        0,
+        4,
+        13,
+        1,
+        11
+      ]
+    ],
+    "monitor": [
+      [
+        0,
+        0,
+        7,
+        16,
+        12,
+        11
+      ]
+    ],
+    "game_console": [
+      [
+        3,
+        0,
+        5,
+        13,
+        2.5,
+        12
+      ]
+    ],
+    "speaker": [
+      [
+        5,
+        0,
+        6,
+        11,
+        12,
+        11
+      ]
+    ],
+    "router": [
+      [
+        4,
+        0,
+        6,
+        12,
+        2,
+        11
+      ]
+    ],
+    "rug_runner": [
+      [
+        1,
+        0,
+        0,
+        15,
+        0.5,
+        16
+      ]
+    ],
+    "treadmill_head": [
+      [
+        0,
+        0,
+        4,
+        16,
+        3,
+        16
+      ],
+      [
+        1,
+        3,
+        5,
+        15,
+        16,
+        9
+      ]
+    ],
+    "treadmill_foot": [
+      [
+        0,
+        0,
+        0,
+        16,
+        3,
+        15
+      ]
+    ],
+    "exercise_bike": [
+      [
+        5,
+        0,
+        2,
+        11,
+        10.5,
+        14
+      ]
+    ],
+    "weight_bench": [
+      [
+        5,
+        0,
+        0,
+        11,
+        8,
+        16
+      ],
+      [
+        1,
+        0,
+        13,
+        15,
+        15,
+        14
+      ]
+    ],
+    "dumbbell_rack": [
+      [
+        1,
+        0,
+        4,
+        15,
+        11,
+        12
+      ]
+    ],
+    "kettlebells": [
+      [
+        2,
+        0,
+        5,
+        13,
+        7,
+        11
+      ]
+    ],
+    "punching_bag": [
+      [
+        5,
+        0,
+        5,
+        11,
+        13,
+        11
+      ]
+    ],
+    "squat_rack_lower": [
+      [
+        1,
+        0,
+        3,
+        2.5,
+        16,
+        4.5
+      ],
+      [
+        13.5,
+        0,
+        3,
+        15,
+        16,
+        4.5
+      ],
+      [
+        1,
+        0,
+        11.5,
+        2.5,
+        16,
+        13
+      ],
+      [
+        13.5,
+        0,
+        11.5,
+        15,
+        16,
+        13
+      ]
+    ],
+    "squat_rack_upper": [
+      [
+        1,
+        0,
+        3,
+        2.5,
+        14,
+        4.5
+      ],
+      [
+        13.5,
+        0,
+        3,
+        15,
+        14,
+        4.5
+      ],
+      [
+        1,
+        0,
+        11.5,
+        2.5,
+        14,
+        13
+      ],
+      [
+        13.5,
+        0,
+        11.5,
+        15,
+        14,
+        13
+      ],
+      [
+        1,
+        13,
+        3,
+        15,
+        14,
+        13
+      ]
+    ],
+    "yoga_mat": [],
+    "rolled_mat": [
+      [
+        2,
+        0,
+        6,
+        14,
+        3,
+        9
+      ]
+    ],
+    "wall_panel_full": [
+      [
+        0,
+        0,
+        15,
+        16,
+        16,
+        16
+      ]
+    ],
+    "locker_lower": [
+      [
+        0,
+        0,
+        2,
+        16,
+        16,
+        16
+      ]
+    ],
+    "locker_upper": [
+      [
+        0,
+        0,
+        2,
+        16,
+        16,
+        16
+      ]
+    ],
+    "water_cooler": [
+      [
+        4,
+        0,
+        4,
+        12,
+        16,
+        12
+      ]
+    ],
+    "lounger_head": [
+      [
+        1,
+        0,
+        0,
+        15,
+        6,
+        16
+      ]
+    ],
+    "lounger_foot": [
+      [
+        1,
+        3,
+        0,
+        15,
+        4,
+        16
+      ],
+      [
+        1.5,
+        4,
+        0,
+        14.5,
+        6,
+        15.5
+      ]
+    ],
+    "umbrella": [
+      [
+        5,
+        0,
+        5,
+        11,
+        16,
+        11
+      ]
+    ],
+    "pool_ladder": [
+      [
+        2,
+        0,
+        11.5,
+        14,
+        16,
+        15
+      ]
+    ],
+    "lifebuoy": [
+      [
+        1,
+        1,
+        15,
+        15,
+        15,
+        16
+      ]
+    ],
+    "hot_tub_jet": [
+      [
+        5,
+        5,
+        15,
+        11,
+        11,
+        16
+      ]
+    ],
+    "outdoor_shower": [
+      [
+        7,
+        0,
+        12.5,
+        9,
+        16,
+        14.5
+      ]
+    ],
+    "outdoor_shower_top": [
+      [
+        7,
+        0,
+        12.5,
+        9,
+        12,
+        14.5
+      ]
+    ],
+    "bench": [
+      [
+        0,
+        0,
+        3,
+        16,
+        8,
+        13
+      ],
+      [
+        0,
+        8,
+        12.5,
+        16,
+        15,
+        13.5
+      ]
+    ],
+    "lobby_bench": [
+      [
+        0,
+        6,
+        3,
+        16,
+        8.5,
+        13
+      ]
+    ],
+    "adirondack_chair": [
+      [
+        1,
+        0,
+        1,
+        15,
+        7,
+        13
+      ],
+      [
+        2,
+        7,
+        11,
+        14,
+        15,
+        14
+      ]
+    ],
+    "bean_bag": [
+      [
+        2,
+        0,
+        2,
+        14,
+        5,
+        14
+      ],
+      [
+        2.5,
+        5,
+        9,
+        13.5,
+        11,
+        14
+      ]
+    ],
+    "picnic_table": [
+      [
+        0,
+        7,
+        0,
+        16,
+        8,
+        2.5
+      ],
+      [
+        0,
+        7,
+        13.5,
+        16,
+        8,
+        16
+      ],
+      [
+        0,
+        12,
+        3,
+        16,
+        13,
+        13
+      ],
+      [
+        1,
+        0,
+        7,
+        15,
+        12,
+        9
+      ]
+    ],
+    "bbq_grill": [
+      [
+        1,
+        0,
+        3,
+        15,
+        12,
+        13
+      ]
+    ],
+    "patio_heater": [
+      [
+        4,
+        0,
+        4,
+        12,
+        16,
+        12
+      ]
+    ],
+    "patio_heater_top": [
+      [
+        5,
+        0,
+        5,
+        11,
+        10,
+        11
+      ]
+    ],
+    "bike_rack": [
+      [
+        1,
+        0,
+        7,
+        15,
+        10,
+        9
+      ]
+    ],
+    "trash_bin": [
+      [
+        3,
+        0,
+        3,
+        13,
+        13,
+        13
+      ],
+      [
+        2.5,
+        13,
+        2.5,
+        13.5,
+        14.5,
+        13.5
+      ]
+    ],
+    "cornhole": [
+      [
+        1,
+        0,
+        0,
+        15,
+        6,
+        16
+      ]
+    ],
+    "swing_set": [
+      [
+        0,
+        5,
+        6.5,
+        4.5,
+        6,
+        9.5
+      ],
+      [
+        11.5,
+        5,
+        6.5,
+        16,
+        6,
+        9.5
+      ]
+    ],
+    "slide_top": [
+      [
+        0,
+        14,
+        0,
+        16,
+        16,
+        16
+      ]
+    ],
+    "slide_chute": [
+      [
+        2,
+        0,
+        0,
+        14,
+        10,
+        16
+      ]
+    ],
+    "agility_hurdle": [
+      [
+        0,
+        0,
+        7,
+        16,
+        12,
+        9
+      ]
+    ],
+    "pet_waste_station": [
+      [
+        4,
+        0,
+        3,
+        12,
+        16,
+        15
+      ]
+    ],
+    "dog_wash_tub": [
+      [
+        0,
+        0,
+        0,
+        16,
+        15,
+        16
+      ]
+    ],
+    "dog_ramp": [
+      [
+        0,
+        0,
+        0,
+        16,
+        2,
+        16
+      ],
+      [
+        0,
+        2,
+        4,
+        16,
+        4,
+        16
+      ],
+      [
+        0,
+        4,
+        8,
+        16,
+        6,
+        16
+      ],
+      [
+        0,
+        6,
+        12,
+        16,
+        8,
+        16
+      ]
+    ],
+    "pet_sprayer": [
+      [
+        6,
+        2,
+        13,
+        10,
+        12,
+        16
+      ]
+    ],
+    "grooming_table": [
+      [
+        1,
+        10,
+        3,
+        15,
+        11,
+        13
+      ]
+    ],
+    "wall_panel": [
+      [
+        1,
+        1,
+        15,
+        15,
+        15,
+        16
+      ]
+    ],
+    "paw_station": [
+      [
+        1,
+        0,
+        1,
+        15,
+        0.5,
+        15
+      ],
+      [
+        9,
+        0.5,
+        9,
+        15,
+        3,
+        15
+      ]
+    ],
+    "treat_jar": [
+      [
+        6,
+        0,
+        6,
+        10,
+        6,
+        10
+      ]
+    ],
+    "pool_table_head": [
+      [
+        0,
+        0,
+        0,
+        16,
+        11,
+        16
+      ]
+    ],
+    "pool_table_foot": [
+      [
+        0,
+        0,
+        0,
+        16,
+        11,
+        16
+      ]
+    ],
+    "ping_pong_head": [
+      [
+        0,
+        0,
+        0,
+        16,
+        12,
+        16
+      ]
+    ],
+    "ping_pong_foot": [
+      [
+        0,
+        0,
+        0,
+        16,
+        12,
+        16
+      ]
+    ],
+    "arcade_lower": [
+      [
+        1,
+        0,
+        1,
+        15,
+        16,
+        15
+      ]
+    ],
+    "arcade_upper": [
+      [
+        1,
+        0,
+        3,
+        15,
+        16,
+        15
+      ]
+    ],
+    "vending_lower": [
+      [
+        0,
+        0,
+        1,
+        16,
+        16,
+        16
+      ]
+    ],
+    "vending_upper": [
+      [
+        0,
+        0,
+        1,
+        16,
+        15,
+        16
+      ],
+      [
+        0,
+        15,
+        0.8,
+        16,
+        16,
+        16
+      ]
+    ],
+    "mini_fridge": [
+      [
+        2,
+        0,
+        3,
+        14,
+        14,
+        15
+      ]
+    ],
+    "whiteboard": [
+      [
+        0,
+        1,
+        14.9,
+        16,
+        15,
+        16
+      ]
+    ],
+    "printer": [
+      [
+        2,
+        0,
+        3,
+        14,
+        7,
+        13
+      ]
+    ],
+    "reception_desk": [
+      [
+        0,
+        0,
+        0,
+        16,
+        16,
+        6
+      ],
+      [
+        0,
+        0,
+        6,
+        16,
+        11,
+        16
+      ]
+    ],
+    "concierge_bell": [
+      [
+        6,
+        0,
+        6,
+        10,
+        0.5,
+        10
+      ],
+      [
+        6.5,
+        0.5,
+        6.5,
+        9.5,
+        2.5,
+        9.5
+      ],
+      [
+        7.5,
+        2.5,
+        7.5,
+        8.5,
+        3,
+        8.5
+      ]
+    ],
+    "luggage_cart": [
+      [
+        1,
+        0,
+        2,
+        15,
+        16,
+        14
+      ]
+    ],
+    "mailbox_bank": [
+      [
+        0,
+        0,
+        10,
+        16,
+        16,
+        16
+      ]
+    ],
+    "parcel_lower": [
+      [
+        0,
+        0,
+        3,
+        16,
+        16,
+        16
+      ]
+    ],
+    "parcel_upper": [
+      [
+        0,
+        0,
+        3,
+        16,
+        16,
+        16
+      ]
+    ],
+    "package_shelf": [
+      [
+        0,
+        0,
+        3,
+        16,
+        16,
+        16
+      ]
+    ],
+    "elevator_door_closed": [
+      [
+        0,
+        0,
+        7,
+        16,
+        16,
+        9
+      ]
+    ],
+    "elevator_door_open_left": [
+      [
+        0,
+        0,
+        7,
+        2,
+        16,
+        9
+      ]
+    ],
+    "elevator_door_open_right": [
+      [
+        14,
+        0,
+        7,
+        16,
+        16,
+        9
+      ]
+    ],
+    "elevator_panel": [
+      [
+        4.5,
+        3,
+        15,
+        11.5,
+        14,
+        16
+      ]
+    ],
+    "keycard_reader": [
+      [
+        5,
+        4,
+        15,
+        11,
+        12,
+        16
+      ]
+    ],
+    "intercom": [
+      [
+        4.5,
+        2,
+        15,
+        11.5,
+        14,
+        16
+      ]
+    ],
+    "security_camera": [
+      [
+        5,
+        8,
+        5,
+        11,
+        13,
+        16
+      ]
+    ],
+    "camera_dome": [
+      [
+        5,
+        14,
+        5,
+        11,
+        16,
+        11
+      ],
+      [
+        6,
+        13,
+        6,
+        10,
+        14,
+        10
+      ]
+    ],
+    "ceiling_disk": [
+      [
+        5,
+        15,
+        5,
+        11,
+        16,
+        11
+      ]
+    ],
+    "sprinkler": [
+      [
+        7.5,
+        14,
+        7.5,
+        8.5,
+        16,
+        8.5
+      ],
+      [
+        6.5,
+        13.5,
+        6.5,
+        9.5,
+        14,
+        9.5
+      ]
+    ],
+    "extinguisher": [
+      [
+        6,
+        1,
+        12,
+        10,
+        12,
+        16
+      ],
+      [
+        7,
+        12,
+        13,
+        9,
+        14,
+        15
+      ]
+    ],
+    "fire_alarm": [
+      [
+        5,
+        6,
+        15,
+        11,
+        13,
+        16
+      ]
+    ],
+    "exit_sign": [
+      [
+        1,
+        4,
+        14,
+        15,
+        12,
+        16
+      ]
+    ],
+    "thermostat": [
+      [
+        5,
+        5,
+        15.3,
+        11,
+        11,
+        16
+      ]
+    ],
+    "wall_switch": [
+      [
+        5.5,
+        3,
+        15.4,
+        10.5,
+        10,
+        16
+      ]
+    ],
+    "ev_charger": [
+      [
+        4,
+        2,
+        13,
+        12,
+        14,
+        16
+      ]
+    ],
+    "wheel_stop": [
+      [
+        0,
+        0,
+        6,
+        16,
+        2,
+        10
+      ],
+      [
+        0,
+        0.01,
+        6,
+        3,
+        2.01,
+        10
+      ],
+      [
+        13,
+        0.01,
+        6,
+        16,
+        2.01,
+        10
+      ]
+    ],
+    "speed_bump": [
+      [
+        0,
+        0,
+        4,
+        16,
+        1.5,
+        12
+      ]
+    ],
+    "wall_plaque": [
+      [
+        2,
+        2,
+        15.5,
+        14,
+        14,
+        16
+      ]
+    ]
+  },
+  "blocks": {
+    "ceiling_finish": {
+      "kind": "ceiling",
+      "shapes": {
+        "": "ceiling_layer"
+      }
+    },
+    "ceiling_finish_wood": {
+      "kind": "ceiling",
+      "shapes": {
+        "": "ceiling_layer"
+      }
+    },
+    "ceiling_downlight": {
+      "kind": "ceiling_lamp",
+      "shapes": {
+        "on": "ceiling_layer",
+        "off": "ceiling_layer"
+      }
+    },
+    "ceiling_led_panel": {
+      "kind": "ceiling_lamp",
+      "shapes": {
+        "on": "ceiling_layer",
+        "off": "ceiling_layer"
+      }
+    },
+    "sofa_gray": {
+      "kind": "sofa",
+      "shapes": {
+        "single": "sofa_single",
+        "left": "sofa_left",
+        "middle": "sofa_middle",
+        "right": "sofa_right",
+        "corner_left": "sofa_corner_left",
+        "corner_right": "sofa_corner_right"
+      }
+    },
+    "sofa_charcoal": {
+      "kind": "sofa",
+      "shapes": {
+        "single": "sofa_single",
+        "left": "sofa_left",
+        "middle": "sofa_middle",
+        "right": "sofa_right",
+        "corner_left": "sofa_corner_left",
+        "corner_right": "sofa_corner_right"
+      }
+    },
+    "sofa_navy": {
+      "kind": "sofa",
+      "shapes": {
+        "single": "sofa_single",
+        "left": "sofa_left",
+        "middle": "sofa_middle",
+        "right": "sofa_right",
+        "corner_left": "sofa_corner_left",
+        "corner_right": "sofa_corner_right"
+      }
+    },
+    "sofa_beige": {
+      "kind": "sofa",
+      "shapes": {
+        "single": "sofa_single",
+        "left": "sofa_left",
+        "middle": "sofa_middle",
+        "right": "sofa_right",
+        "corner_left": "sofa_corner_left",
+        "corner_right": "sofa_corner_right"
+      }
+    },
+    "sofa_emerald": {
+      "kind": "sofa",
+      "shapes": {
+        "single": "sofa_single",
+        "left": "sofa_left",
+        "middle": "sofa_middle",
+        "right": "sofa_right",
+        "corner_left": "sofa_corner_left",
+        "corner_right": "sofa_corner_right"
+      }
+    },
+    "sofa_cognac": {
+      "kind": "sofa",
+      "shapes": {
+        "single": "sofa_single",
+        "left": "sofa_left",
+        "middle": "sofa_middle",
+        "right": "sofa_right",
+        "corner_left": "sofa_corner_left",
+        "corner_right": "sofa_corner_right"
+      }
+    },
+    "sofa_white": {
+      "kind": "sofa",
+      "shapes": {
+        "single": "sofa_single",
+        "left": "sofa_left",
+        "middle": "sofa_middle",
+        "right": "sofa_right",
+        "corner_left": "sofa_corner_left",
+        "corner_right": "sofa_corner_right"
+      }
+    },
+    "sofa_outdoor": {
+      "kind": "sofa",
+      "shapes": {
+        "single": "sofa_single",
+        "left": "sofa_left",
+        "middle": "sofa_middle",
+        "right": "sofa_right",
+        "corner_left": "sofa_corner_left",
+        "corner_right": "sofa_corner_right"
+      }
+    },
+    "armchair_gray": {
+      "kind": "seat",
+      "shapes": {
+        "": "armchair"
+      }
+    },
+    "armchair_navy": {
+      "kind": "seat",
+      "shapes": {
+        "": "armchair"
+      }
+    },
+    "armchair_mustard": {
+      "kind": "seat",
+      "shapes": {
+        "": "armchair"
+      }
+    },
+    "armchair_terracotta": {
+      "kind": "seat",
+      "shapes": {
+        "": "armchair"
+      }
+    },
+    "armchair_emerald": {
+      "kind": "seat",
+      "shapes": {
+        "": "armchair"
+      }
+    },
+    "armchair_cream": {
+      "kind": "seat",
+      "shapes": {
+        "": "armchair"
+      }
+    },
+    "lounge_chair": {
+      "kind": "seat",
+      "shapes": {
+        "": "lounge_chair"
+      }
+    },
+    "lounge_chair_cognac": {
+      "kind": "seat",
+      "shapes": {
+        "": "lounge_chair"
+      }
+    },
+    "coffee_table_walnut": {
+      "kind": "furniture",
+      "shapes": {
+        "": "coffee_table"
+      }
+    },
+    "coffee_table_oak": {
+      "kind": "furniture",
+      "shapes": {
+        "": "coffee_table"
+      }
+    },
+    "coffee_table_marble": {
+      "kind": "furniture",
+      "shapes": {
+        "": "coffee_table"
+      }
+    },
+    "glass_coffee_table": {
+      "kind": "furniture",
+      "shapes": {
+        "": "glass_coffee_table"
+      }
+    },
+    "side_table": {
+      "kind": "furniture",
+      "shapes": {
+        "": "side_table"
+      }
+    },
+    "side_table_wood": {
+      "kind": "furniture",
+      "shapes": {
+        "": "side_table"
+      }
+    },
+    "media_console_walnut": {
+      "kind": "storage",
+      "shapes": {
+        "": "media_console"
+      }
+    },
+    "media_console_white": {
+      "kind": "storage",
+      "shapes": {
+        "": "media_console"
+      }
+    },
+    "media_console_charcoal": {
+      "kind": "storage",
+      "shapes": {
+        "": "media_console"
+      }
+    },
+    "wall_tv": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "tv_wall",
+        "on": "tv_wall"
+      }
+    },
+    "smart_tv": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "tv_stand",
+        "on": "tv_stand"
+      }
+    },
+    "bookcase_walnut": {
+      "kind": "tall",
+      "shapes": {
+        "lower": "bookcase_lower",
+        "upper": "bookcase_upper"
+      }
+    },
+    "bookcase_white": {
+      "kind": "tall",
+      "shapes": {
+        "lower": "bookcase_lower",
+        "upper": "bookcase_upper"
+      }
+    },
+    "bookcase_black": {
+      "kind": "tall",
+      "shapes": {
+        "lower": "bookcase_lower",
+        "upper": "bookcase_upper"
+      }
+    },
+    "curtains_cream": {
+      "kind": "curtain",
+      "shapes": {
+        "closed": "curtain_closed",
+        "open": "curtain_open"
+      }
+    },
+    "curtains_gray": {
+      "kind": "curtain",
+      "shapes": {
+        "closed": "curtain_closed",
+        "open": "curtain_open"
+      }
+    },
+    "curtains_navy": {
+      "kind": "curtain",
+      "shapes": {
+        "closed": "curtain_closed",
+        "open": "curtain_open"
+      }
+    },
+    "curtains_sage": {
+      "kind": "curtain",
+      "shapes": {
+        "closed": "curtain_closed",
+        "open": "curtain_open"
+      }
+    },
+    "curtains_blush": {
+      "kind": "curtain",
+      "shapes": {
+        "closed": "curtain_closed",
+        "open": "curtain_open"
+      }
+    },
+    "blinds_white": {
+      "kind": "curtain",
+      "shapes": {
+        "closed": "blinds_closed",
+        "open": "blinds_open"
+      }
+    },
+    "blinds_wood": {
+      "kind": "curtain",
+      "shapes": {
+        "closed": "blinds_closed",
+        "open": "blinds_open"
+      }
+    },
+    "floor_lamp": {
+      "kind": "lamp",
+      "shapes": {
+        "off": "floor_lamp",
+        "on": "floor_lamp"
+      }
+    },
+    "floor_lamp_black": {
+      "kind": "lamp",
+      "shapes": {
+        "off": "floor_lamp",
+        "on": "floor_lamp"
+      }
+    },
+    "table_lamp_ceramic": {
+      "kind": "lamp",
+      "shapes": {
+        "off": "table_lamp",
+        "on": "table_lamp"
+      }
+    },
+    "table_lamp_brass": {
+      "kind": "lamp",
+      "shapes": {
+        "off": "table_lamp",
+        "on": "table_lamp"
+      }
+    },
+    "table_lamp_black": {
+      "kind": "lamp",
+      "shapes": {
+        "off": "table_lamp",
+        "on": "table_lamp"
+      }
+    },
+    "pendant_light_black": {
+      "kind": "ceiling_lamp",
+      "shapes": {
+        "off": "pendant_light",
+        "on": "pendant_light"
+      }
+    },
+    "pendant_light_brass": {
+      "kind": "ceiling_lamp",
+      "shapes": {
+        "off": "pendant_light",
+        "on": "pendant_light"
+      }
+    },
+    "pendant_light_white": {
+      "kind": "ceiling_lamp",
+      "shapes": {
+        "off": "pendant_light",
+        "on": "pendant_light"
+      }
+    },
+    "chandelier": {
+      "kind": "ceiling_lamp",
+      "shapes": {
+        "off": "chandelier",
+        "on": "chandelier"
+      }
+    },
+    "ceiling_fan": {
+      "kind": "ceiling_lamp",
+      "shapes": {
+        "off": "ceiling_fan",
+        "on": "ceiling_fan"
+      }
+    },
+    "electric_fireplace": {
+      "kind": "wall_toggle",
+      "shapes": {
+        "off": "electric_fireplace",
+        "on": "electric_fireplace"
+      }
+    },
+    "wall_sconce": {
+      "kind": "wall_lamp",
+      "shapes": {
+        "off": "wall_sconce",
+        "on": "wall_sconce"
+      }
+    },
+    "garage_light": {
+      "kind": "ceiling_lamp",
+      "shapes": {
+        "off": "garage_light",
+        "on": "garage_light"
+      }
+    },
+    "string_lights": {
+      "kind": "string_lights",
+      "shapes": {
+        "off": "string_lights",
+        "on": "string_lights"
+      }
+    },
+    "lamp_post": {
+      "kind": "post",
+      "shapes": {
+        "": "lamp_post"
+      }
+    },
+    "lamp_head": {
+      "kind": "lamp_nodir",
+      "shapes": {
+        "off": "lamp_head",
+        "on": "lamp_head"
+      }
+    },
+    "bollard_light": {
+      "kind": "lamp_nodir",
+      "shapes": {
+        "off": "bollard_light",
+        "on": "bollard_light"
+      }
+    },
+    "kitchen_white_cabinet": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_cabinet"
+      }
+    },
+    "kitchen_white_drawers": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_cabinet"
+      }
+    },
+    "kitchen_white_sink": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "kitchen_sink",
+        "on": "kitchen_sink_on"
+      }
+    },
+    "kitchen_white_upper": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_upper"
+      }
+    },
+    "kitchen_white_dishwasher": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "dishwasher",
+        "on": "dishwasher"
+      }
+    },
+    "kitchen_navy_cabinet": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_cabinet"
+      }
+    },
+    "kitchen_navy_drawers": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_cabinet"
+      }
+    },
+    "kitchen_navy_sink": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "kitchen_sink",
+        "on": "kitchen_sink_on"
+      }
+    },
+    "kitchen_navy_upper": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_upper"
+      }
+    },
+    "kitchen_navy_dishwasher": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "dishwasher",
+        "on": "dishwasher"
+      }
+    },
+    "kitchen_sage_cabinet": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_cabinet"
+      }
+    },
+    "kitchen_sage_drawers": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_cabinet"
+      }
+    },
+    "kitchen_sage_sink": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "kitchen_sink",
+        "on": "kitchen_sink_on"
+      }
+    },
+    "kitchen_sage_upper": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_upper"
+      }
+    },
+    "kitchen_sage_dishwasher": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "dishwasher",
+        "on": "dishwasher"
+      }
+    },
+    "kitchen_charcoal_cabinet": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_cabinet"
+      }
+    },
+    "kitchen_charcoal_drawers": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_cabinet"
+      }
+    },
+    "kitchen_charcoal_sink": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "kitchen_sink",
+        "on": "kitchen_sink_on"
+      }
+    },
+    "kitchen_charcoal_upper": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_upper"
+      }
+    },
+    "kitchen_charcoal_dishwasher": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "dishwasher",
+        "on": "dishwasher"
+      }
+    },
+    "kitchen_walnut_cabinet": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_cabinet"
+      }
+    },
+    "kitchen_walnut_drawers": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_cabinet"
+      }
+    },
+    "kitchen_walnut_sink": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "kitchen_sink",
+        "on": "kitchen_sink_on"
+      }
+    },
+    "kitchen_walnut_upper": {
+      "kind": "storage",
+      "shapes": {
+        "": "kitchen_upper"
+      }
+    },
+    "kitchen_walnut_dishwasher": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "dishwasher",
+        "on": "dishwasher"
+      }
+    },
+    "refrigerator": {
+      "kind": "tall_storage",
+      "shapes": {
+        "lower": "fridge_lower",
+        "upper": "fridge_upper"
+      }
+    },
+    "oven_range": {
+      "kind": "oven",
+      "shapes": {
+        "off": "oven_range",
+        "on": "oven_range"
+      }
+    },
+    "range_hood": {
+      "kind": "wall",
+      "shapes": {
+        "": "range_hood"
+      }
+    },
+    "microwave": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "microwave",
+        "on": "microwave"
+      }
+    },
+    "coffee_maker": {
+      "kind": "coffee",
+      "shapes": {
+        "": "coffee_maker"
+      }
+    },
+    "espresso_machine": {
+      "kind": "coffee",
+      "shapes": {
+        "": "espresso_machine"
+      }
+    },
+    "toaster": {
+      "kind": "furniture",
+      "shapes": {
+        "": "toaster"
+      }
+    },
+    "kitchen_utensils": {
+      "kind": "furniture",
+      "shapes": {
+        "": "kitchen_utensils"
+      }
+    },
+    "fruit_bowl": {
+      "kind": "furniture",
+      "shapes": {
+        "": "fruit_bowl"
+      }
+    },
+    "dining_table_walnut": {
+      "kind": "table",
+      "shapes": {
+        "top": "table_top",
+        "leg_nw": "table_leg_nw",
+        "leg_ne": "table_leg_ne",
+        "leg_sw": "table_leg_sw",
+        "leg_se": "table_leg_se"
+      }
+    },
+    "dining_table_oak": {
+      "kind": "table",
+      "shapes": {
+        "top": "table_top",
+        "leg_nw": "table_leg_nw",
+        "leg_ne": "table_leg_ne",
+        "leg_sw": "table_leg_sw",
+        "leg_se": "table_leg_se"
+      }
+    },
+    "dining_table_white": {
+      "kind": "table",
+      "shapes": {
+        "top": "table_top",
+        "leg_nw": "table_leg_nw",
+        "leg_ne": "table_leg_ne",
+        "leg_sw": "table_leg_sw",
+        "leg_se": "table_leg_se"
+      }
+    },
+    "dining_table_black": {
+      "kind": "table",
+      "shapes": {
+        "top": "table_top",
+        "leg_nw": "table_leg_nw",
+        "leg_ne": "table_leg_ne",
+        "leg_sw": "table_leg_sw",
+        "leg_se": "table_leg_se"
+      }
+    },
+    "dining_chair_walnut": {
+      "kind": "seat",
+      "shapes": {
+        "": "dining_chair"
+      }
+    },
+    "dining_chair_oak": {
+      "kind": "seat",
+      "shapes": {
+        "": "dining_chair"
+      }
+    },
+    "dining_chair_black": {
+      "kind": "seat",
+      "shapes": {
+        "": "dining_chair"
+      }
+    },
+    "dining_chair_white": {
+      "kind": "seat",
+      "shapes": {
+        "": "dining_chair"
+      }
+    },
+    "bar_stool_black": {
+      "kind": "seat",
+      "shapes": {
+        "": "bar_stool"
+      }
+    },
+    "bar_stool_brass": {
+      "kind": "seat",
+      "shapes": {
+        "": "bar_stool"
+      }
+    },
+    "nightstand_walnut": {
+      "kind": "storage",
+      "shapes": {
+        "": "nightstand"
+      }
+    },
+    "nightstand_white": {
+      "kind": "storage",
+      "shapes": {
+        "": "nightstand"
+      }
+    },
+    "dresser_oak": {
+      "kind": "storage",
+      "shapes": {
+        "": "dresser"
+      }
+    },
+    "dresser_white": {
+      "kind": "storage",
+      "shapes": {
+        "": "dresser"
+      }
+    },
+    "wardrobe_white": {
+      "kind": "tall_storage",
+      "shapes": {
+        "lower": "wardrobe_lower",
+        "upper": "wardrobe_upper"
+      }
+    },
+    "wardrobe_walnut": {
+      "kind": "tall_storage",
+      "shapes": {
+        "lower": "wardrobe_lower",
+        "upper": "wardrobe_upper"
+      }
+    },
+    "desk_walnut": {
+      "kind": "furniture",
+      "shapes": {
+        "": "desk"
+      }
+    },
+    "desk_white": {
+      "kind": "furniture",
+      "shapes": {
+        "": "desk"
+      }
+    },
+    "office_chair": {
+      "kind": "seat",
+      "shapes": {
+        "": "office_chair"
+      }
+    },
+    "wall_mirror": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_mirror"
+      }
+    },
+    "wall_mirror_brass": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_mirror"
+      }
+    },
+    "clothing_rack": {
+      "kind": "furniture",
+      "shapes": {
+        "": "clothing_rack"
+      }
+    },
+    "shoe_rack": {
+      "kind": "furniture",
+      "shapes": {
+        "": "shoe_rack"
+      }
+    },
+    "laundry_basket": {
+      "kind": "storage",
+      "shapes": {
+        "": "laundry_basket"
+      }
+    },
+    "wall_shelf": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_shelf"
+      }
+    },
+    "toilet": {
+      "kind": "seat",
+      "shapes": {
+        "": "toilet"
+      }
+    },
+    "vanity_white": {
+      "kind": "storage",
+      "shapes": {
+        "": "vanity"
+      }
+    },
+    "vanity_walnut": {
+      "kind": "storage",
+      "shapes": {
+        "": "vanity"
+      }
+    },
+    "vanity_navy": {
+      "kind": "storage",
+      "shapes": {
+        "": "vanity"
+      }
+    },
+    "bathtub": {
+      "kind": "bathtub",
+      "shapes": {
+        "head": "bathtub_head",
+        "foot": "bathtub_foot"
+      }
+    },
+    "shower_head": {
+      "kind": "wall_toggle",
+      "shapes": {
+        "off": "shower_head",
+        "on": "shower_head"
+      }
+    },
+    "towel_rack": {
+      "kind": "wall",
+      "shapes": {
+        "": "towel_rack"
+      }
+    },
+    "toilet_paper_holder": {
+      "kind": "wall",
+      "shapes": {
+        "": "tp_holder"
+      }
+    },
+    "medicine_cabinet": {
+      "kind": "wall_storage",
+      "shapes": {
+        "": "medicine_cabinet"
+      }
+    },
+    "vanity_mirror": {
+      "kind": "wall",
+      "shapes": {
+        "": "vanity_mirror"
+      }
+    },
+    "bath_mat": {
+      "kind": "furniture",
+      "shapes": {
+        "": "mat"
+      }
+    },
+    "towel_stack": {
+      "kind": "furniture",
+      "shapes": {
+        "": "towel_stack"
+      }
+    },
+    "toiletries": {
+      "kind": "furniture",
+      "shapes": {
+        "": "toiletries"
+      }
+    },
+    "washing_machine": {
+      "kind": "appliance",
+      "shapes": {
+        "off": "washer",
+        "on": "washer"
+      }
+    },
+    "dryer": {
+      "kind": "appliance",
+      "shapes": {
+        "off": "washer",
+        "on": "washer"
+      }
+    },
+    "potted_monstera": {
+      "kind": "plant",
+      "shapes": {
+        "": "potted_plant"
+      }
+    },
+    "potted_snake": {
+      "kind": "plant",
+      "shapes": {
+        "": "potted_plant"
+      }
+    },
+    "potted_fern": {
+      "kind": "plant",
+      "shapes": {
+        "": "potted_plant"
+      }
+    },
+    "potted_herbs": {
+      "kind": "plant",
+      "shapes": {
+        "": "potted_plant"
+      }
+    },
+    "potted_flowers": {
+      "kind": "plant",
+      "shapes": {
+        "": "potted_plant"
+      }
+    },
+    "potted_fiddle": {
+      "kind": "plant",
+      "shapes": {
+        "": "potted_plant_tall"
+      }
+    },
+    "potted_olive": {
+      "kind": "plant",
+      "shapes": {
+        "": "potted_plant_tall"
+      }
+    },
+    "potted_palm": {
+      "kind": "plant",
+      "shapes": {
+        "": "potted_plant_tall"
+      }
+    },
+    "succulent_pot": {
+      "kind": "plant",
+      "shapes": {
+        "": "table_plant"
+      }
+    },
+    "flower_vase": {
+      "kind": "plant",
+      "shapes": {
+        "": "flower_vase"
+      }
+    },
+    "planter_box": {
+      "kind": "plant",
+      "shapes": {
+        "": "planter_box"
+      }
+    },
+    "planter_box_grass": {
+      "kind": "plant",
+      "shapes": {
+        "": "planter_box"
+      }
+    },
+    "book_stack": {
+      "kind": "furniture",
+      "shapes": {
+        "": "book_stack"
+      }
+    },
+    "vase": {
+      "kind": "furniture",
+      "shapes": {
+        "": "vase"
+      }
+    },
+    "candle_set": {
+      "kind": "furniture",
+      "shapes": {
+        "": "candle_set"
+      }
+    },
+    "art_fields": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_art"
+      }
+    },
+    "art_grid": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_art"
+      }
+    },
+    "art_waves": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_art"
+      }
+    },
+    "art_sunset": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_art"
+      }
+    },
+    "art_botanical": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_art"
+      }
+    },
+    "art_geometric": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_art"
+      }
+    },
+    "art_city": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_art"
+      }
+    },
+    "art_wide_strokes": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_art_wide"
+      }
+    },
+    "art_wide_landscape": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_art_wide"
+      }
+    },
+    "wall_clock": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_clock"
+      }
+    },
+    "laptop": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "laptop",
+        "on": "laptop"
+      }
+    },
+    "desktop_monitor": {
+      "kind": "toggle",
+      "shapes": {
+        "off": "monitor",
+        "on": "monitor"
+      }
+    },
+    "game_console": {
+      "kind": "furniture",
+      "shapes": {
+        "": "game_console"
+      }
+    },
+    "speaker": {
+      "kind": "furniture",
+      "shapes": {
+        "": "speaker"
+      }
+    },
+    "wifi_router": {
+      "kind": "furniture",
+      "shapes": {
+        "": "router"
+      }
+    },
+    "runner_rug_charcoal": {
+      "kind": "furniture",
+      "shapes": {
+        "": "rug_runner"
+      }
+    },
+    "runner_rug_cream": {
+      "kind": "furniture",
+      "shapes": {
+        "": "rug_runner"
+      }
+    },
+    "runner_rug_terracotta": {
+      "kind": "furniture",
+      "shapes": {
+        "": "rug_runner"
+      }
+    },
+    "doormat": {
+      "kind": "furniture",
+      "shapes": {
+        "": "mat"
+      }
+    },
+    "treadmill": {
+      "kind": "treadmill",
+      "shapes": {
+        "head": "treadmill_head",
+        "foot": "treadmill_foot"
+      }
+    },
+    "exercise_bike": {
+      "kind": "seat",
+      "shapes": {
+        "": "exercise_bike"
+      }
+    },
+    "weight_bench": {
+      "kind": "seat",
+      "shapes": {
+        "": "weight_bench"
+      }
+    },
+    "dumbbell_rack": {
+      "kind": "furniture",
+      "shapes": {
+        "": "dumbbell_rack"
+      }
+    },
+    "kettlebells": {
+      "kind": "furniture",
+      "shapes": {
+        "": "kettlebells"
+      }
+    },
+    "punching_bag": {
+      "kind": "ceiling",
+      "shapes": {
+        "": "punching_bag"
+      }
+    },
+    "squat_rack": {
+      "kind": "tall",
+      "shapes": {
+        "lower": "squat_rack_lower",
+        "upper": "squat_rack_upper"
+      }
+    },
+    "yoga_mat_purple": {
+      "kind": "furniture",
+      "shapes": {
+        "": "yoga_mat"
+      }
+    },
+    "yoga_mat_teal": {
+      "kind": "furniture",
+      "shapes": {
+        "": "yoga_mat"
+      }
+    },
+    "yoga_mat_coral": {
+      "kind": "furniture",
+      "shapes": {
+        "": "yoga_mat"
+      }
+    },
+    "rolled_yoga_mat": {
+      "kind": "furniture",
+      "shapes": {
+        "": "rolled_mat"
+      }
+    },
+    "gym_mirror": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_panel_full"
+      }
+    },
+    "locker": {
+      "kind": "tall_storage",
+      "shapes": {
+        "lower": "locker_lower",
+        "upper": "locker_upper"
+      }
+    },
+    "water_cooler": {
+      "kind": "furniture",
+      "shapes": {
+        "": "water_cooler"
+      }
+    },
+    "towel_cart": {
+      "kind": "furniture",
+      "shapes": {
+        "": "towel_stack"
+      }
+    },
+    "pool_lounger": {
+      "kind": "lounger",
+      "shapes": {
+        "head": "lounger_head",
+        "foot": "lounger_foot"
+      }
+    },
+    "patio_umbrella_navy": {
+      "kind": "furniture",
+      "shapes": {
+        "": "umbrella"
+      }
+    },
+    "patio_umbrella_teal": {
+      "kind": "furniture",
+      "shapes": {
+        "": "umbrella"
+      }
+    },
+    "patio_umbrella_beige": {
+      "kind": "furniture",
+      "shapes": {
+        "": "umbrella"
+      }
+    },
+    "pool_ladder": {
+      "kind": "pool_ladder",
+      "shapes": {
+        "": "pool_ladder"
+      }
+    },
+    "lifebuoy": {
+      "kind": "wall",
+      "shapes": {
+        "": "lifebuoy"
+      }
+    },
+    "hot_tub_jet": {
+      "kind": "jet",
+      "shapes": {
+        "": "hot_tub_jet"
+      }
+    },
+    "outdoor_shower": {
+      "kind": "tall_toggle",
+      "shapes": {
+        "lower": "outdoor_shower",
+        "upper": "outdoor_shower_top",
+        "lower_on": "outdoor_shower",
+        "upper_on": "outdoor_shower_top"
+      }
+    },
+    "park_bench": {
+      "kind": "seat",
+      "shapes": {
+        "": "bench"
+      }
+    },
+    "lobby_bench": {
+      "kind": "seat",
+      "shapes": {
+        "": "lobby_bench"
+      }
+    },
+    "adirondack_chair": {
+      "kind": "seat",
+      "shapes": {
+        "": "adirondack_chair"
+      }
+    },
+    "bean_bag": {
+      "kind": "seat",
+      "shapes": {
+        "": "bean_bag"
+      }
+    },
+    "picnic_table": {
+      "kind": "furniture",
+      "shapes": {
+        "": "picnic_table"
+      }
+    },
+    "bbq_grill": {
+      "kind": "grill",
+      "shapes": {
+        "off": "bbq_grill",
+        "on": "bbq_grill"
+      }
+    },
+    "patio_heater": {
+      "kind": "tall_toggle",
+      "shapes": {
+        "lower": "patio_heater",
+        "upper": "patio_heater_top",
+        "lower_on": "patio_heater",
+        "upper_on": "patio_heater_top"
+      }
+    },
+    "bike_rack": {
+      "kind": "furniture",
+      "shapes": {
+        "": "bike_rack"
+      }
+    },
+    "trash_bin": {
+      "kind": "storage",
+      "shapes": {
+        "": "trash_bin"
+      }
+    },
+    "recycling_bin": {
+      "kind": "storage",
+      "shapes": {
+        "": "trash_bin"
+      }
+    },
+    "cornhole_board": {
+      "kind": "furniture",
+      "shapes": {
+        "": "cornhole"
+      }
+    },
+    "swing_set": {
+      "kind": "seat",
+      "shapes": {
+        "": "swing_set"
+      }
+    },
+    "slide": {
+      "kind": "slide",
+      "shapes": {
+        "head": "slide_top",
+        "foot": "slide_chute"
+      }
+    },
+    "agility_hurdle": {
+      "kind": "furniture",
+      "shapes": {
+        "": "agility_hurdle"
+      }
+    },
+    "pet_waste_station": {
+      "kind": "furniture",
+      "shapes": {
+        "": "pet_waste_station"
+      }
+    },
+    "dog_wash_tub": {
+      "kind": "furniture",
+      "shapes": {
+        "": "dog_wash_tub"
+      }
+    },
+    "dog_ramp": {
+      "kind": "furniture",
+      "shapes": {
+        "": "dog_ramp"
+      }
+    },
+    "pet_sprayer": {
+      "kind": "wall_toggle",
+      "shapes": {
+        "off": "pet_sprayer",
+        "on": "pet_sprayer"
+      }
+    },
+    "grooming_table": {
+      "kind": "furniture",
+      "shapes": {
+        "": "grooming_table"
+      }
+    },
+    "grooming_supplies": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_panel"
+      }
+    },
+    "paw_station": {
+      "kind": "furniture",
+      "shapes": {
+        "": "paw_station"
+      }
+    },
+    "treat_jar": {
+      "kind": "furniture",
+      "shapes": {
+        "": "treat_jar"
+      }
+    },
+    "pool_table": {
+      "kind": "two_part",
+      "shapes": {
+        "head": "pool_table_head",
+        "foot": "pool_table_foot"
+      }
+    },
+    "ping_pong_table": {
+      "kind": "two_part",
+      "shapes": {
+        "head": "ping_pong_head",
+        "foot": "ping_pong_foot"
+      }
+    },
+    "arcade_machine": {
+      "kind": "tall_toggle",
+      "shapes": {
+        "lower": "arcade_lower",
+        "upper": "arcade_upper",
+        "lower_on": "arcade_lower",
+        "upper_on": "arcade_upper"
+      }
+    },
+    "vending_machine": {
+      "kind": "vending",
+      "shapes": {
+        "lower": "vending_lower",
+        "upper": "vending_upper"
+      }
+    },
+    "mini_fridge": {
+      "kind": "storage",
+      "shapes": {
+        "": "mini_fridge"
+      }
+    },
+    "dartboard": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_panel"
+      }
+    },
+    "whiteboard": {
+      "kind": "wall",
+      "shapes": {
+        "": "whiteboard"
+      }
+    },
+    "printer": {
+      "kind": "furniture",
+      "shapes": {
+        "": "printer"
+      }
+    },
+    "conference_table": {
+      "kind": "table",
+      "shapes": {
+        "top": "table_top",
+        "leg_nw": "table_leg_nw",
+        "leg_ne": "table_leg_ne",
+        "leg_sw": "table_leg_sw",
+        "leg_se": "table_leg_se"
+      }
+    },
+    "reception_desk_marble": {
+      "kind": "furniture",
+      "shapes": {
+        "": "reception_desk"
+      }
+    },
+    "reception_desk_walnut": {
+      "kind": "furniture",
+      "shapes": {
+        "": "reception_desk"
+      }
+    },
+    "concierge_bell": {
+      "kind": "bell",
+      "shapes": {
+        "": "concierge_bell"
+      }
+    },
+    "luggage_cart": {
+      "kind": "furniture",
+      "shapes": {
+        "": "luggage_cart"
+      }
+    },
+    "mailbox_bank": {
+      "kind": "wall_storage",
+      "shapes": {
+        "": "mailbox_bank"
+      }
+    },
+    "parcel_locker": {
+      "kind": "tall_storage",
+      "shapes": {
+        "lower": "parcel_lower",
+        "upper": "parcel_upper"
+      }
+    },
+    "package_shelf": {
+      "kind": "storage",
+      "shapes": {
+        "": "package_shelf"
+      }
+    },
+    "elevator_door": {
+      "kind": "elevator_door",
+      "shapes": {
+        "closed": "elevator_door_closed",
+        "open_left": "elevator_door_open_left",
+        "open_right": "elevator_door_open_right"
+      }
+    },
+    "elevator_panel": {
+      "kind": "elevator_panel",
+      "shapes": {
+        "": "elevator_panel"
+      }
+    },
+    "elevator_call_button": {
+      "kind": "elevator_panel",
+      "shapes": {
+        "": "keycard_reader"
+      }
+    },
+    "keycard_reader": {
+      "kind": "keycard_reader",
+      "shapes": {
+        "off": "keycard_reader",
+        "on": "keycard_reader"
+      }
+    },
+    "intercom": {
+      "kind": "intercom",
+      "shapes": {
+        "": "intercom"
+      }
+    },
+    "security_camera": {
+      "kind": "wall",
+      "shapes": {
+        "": "security_camera"
+      }
+    },
+    "security_camera_dome": {
+      "kind": "ceiling",
+      "shapes": {
+        "": "camera_dome"
+      }
+    },
+    "smoke_detector": {
+      "kind": "ceiling",
+      "shapes": {
+        "": "ceiling_disk"
+      }
+    },
+    "sprinkler": {
+      "kind": "ceiling",
+      "shapes": {
+        "": "sprinkler"
+      }
+    },
+    "fire_extinguisher": {
+      "kind": "wall",
+      "shapes": {
+        "": "extinguisher"
+      }
+    },
+    "fire_alarm": {
+      "kind": "wall",
+      "shapes": {
+        "": "fire_alarm"
+      }
+    },
+    "exit_sign": {
+      "kind": "wall",
+      "shapes": {
+        "": "exit_sign"
+      }
+    },
+    "thermostat": {
+      "kind": "wall",
+      "shapes": {
+        "": "thermostat"
+      }
+    },
+    "light_switch": {
+      "kind": "light_switch",
+      "shapes": {
+        "off": "wall_switch",
+        "on": "wall_switch"
+      }
+    },
+    "wall_outlet": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_switch"
+      }
+    },
+    "ev_charger": {
+      "kind": "wall",
+      "shapes": {
+        "": "ev_charger"
+      }
+    },
+    "wheel_stop": {
+      "kind": "furniture",
+      "shapes": {
+        "": "wheel_stop"
+      }
+    },
+    "speed_bump": {
+      "kind": "furniture",
+      "shapes": {
+        "": "speed_bump"
+      }
+    },
+    "sign_stairs": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_elevator": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_restroom": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_fitness": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_pool": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_laundry": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_mail": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_parking": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_pets": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_bike": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_lounge": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_wifi": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_leasing": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_trash": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_accessible": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    },
+    "sign_roof": {
+      "kind": "wall",
+      "shapes": {
+        "": "wall_plaque"
+      }
+    }
+  }
+}

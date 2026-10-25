@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/cornhole",
+  "textures": {
+    "frame": "modernapartments:block/wood_light",
+    "board": "modernapartments:block/cornhole_board",
+    "particle": "modernapartments:block/wood_light"
+  }
+}

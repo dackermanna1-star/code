@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "lit=false": {
+      "model": "modernapartments:block/chandelier_off"
+    },
+    "lit=true": {
+      "model": "modernapartments:block/chandelier_on"
+    }
+  }
+}

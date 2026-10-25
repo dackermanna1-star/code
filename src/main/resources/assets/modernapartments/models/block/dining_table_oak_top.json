@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/table_top",
+  "textures": {
+    "top": "modernapartments:block/wood_light",
+    "particle": "modernapartments:block/wood_light"
+  }
+}

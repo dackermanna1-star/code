@@ -1,0 +1,142 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        2,
+        0,
+        3
+      ],
+      "to": [
+        14,
+        9,
+        15
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            2,
+            7,
+            14,
+            16
+          ],
+          "texture": "#front"
+        },
+        "south": {
+          "uv": [
+            2,
+            7,
+            14,
+            16
+          ],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [
+            1,
+            7,
+            13,
+            16
+          ],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [
+            3,
+            7,
+            15,
+            16
+          ],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [
+            2,
+            3,
+            14,
+            15
+          ],
+          "texture": "#side"
+        },
+        "down": {
+          "uv": [
+            2,
+            1,
+            14,
+            13
+          ],
+          "texture": "#side",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        1.5,
+        9,
+        2.5
+      ],
+      "to": [
+        14.5,
+        10,
+        15.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            1.5,
+            6,
+            14.5,
+            7
+          ],
+          "texture": "#top"
+        },
+        "south": {
+          "uv": [
+            1.5,
+            6,
+            14.5,
+            7
+          ],
+          "texture": "#top"
+        },
+        "east": {
+          "uv": [
+            0.5,
+            6,
+            13.5,
+            7
+          ],
+          "texture": "#top"
+        },
+        "west": {
+          "uv": [
+            2.5,
+            6,
+            15.5,
+            7
+          ],
+          "texture": "#top"
+        },
+        "up": {
+          "uv": [
+            1.5,
+            2.5,
+            14.5,
+            15.5
+          ],
+          "texture": "#top"
+        },
+        "down": {
+          "uv": [
+            1.5,
+            0.5,
+            14.5,
+            13.5
+          ],
+          "texture": "#top"
+        }
+      }
+    }
+  ]
+}

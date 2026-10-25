@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "facing=north": {
+      "model": "modernapartments:block/wheel_stop"
+    },
+    "facing=east": {
+      "model": "modernapartments:block/wheel_stop",
+      "y": 90
+    },
+    "facing=south": {
+      "model": "modernapartments:block/wheel_stop",
+      "y": 180
+    },
+    "facing=west": {
+      "model": "modernapartments:block/wheel_stop",
+      "y": 270
+    }
+  }
+}
