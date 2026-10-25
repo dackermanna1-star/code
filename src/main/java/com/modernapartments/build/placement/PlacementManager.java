@@ -83,7 +83,10 @@ public final class PlacementManager {
 		return new PlacementTransform(min, probe.rotation(), type.sizeX(), type.sizeY(), type.sizeZ());
 	}
 
-	/** Validates world height limits; returns an error message or null. */
+	/**
+	 * Validates world height limits and keeps clear of buildings already placed or under construction (with
+	 * room for both terrain blends between them); returns an error message or null.
+	 */
 	public static @Nullable Component checkFits(ServerLevel level, PlacementTransform t) {
 		if (t.min().getY() < level.getMinY() + 1) {
 			return Component.translatable("message.modernapartments.too_low");
@@ -91,7 +94,33 @@ public final class PlacementManager {
 		if (t.min().getY() + t.sizeY() + 2 > level.getMaxY()) {
 			return Component.translatable("message.modernapartments.too_high");
 		}
+		for (PlacedBuilding b : placed(level)) {
+			if (tooClose(t, b.transform())) {
+				return overlap(b.complexType());
+			}
+		}
+		for (PlacementJob job : JOBS) {
+			if (job.level() == level && tooClose(t, job.transform())) {
+				return overlap(job.type());
+			}
+		}
+		for (PendingBuild p : PENDING) {
+			if (p.level() == level && tooClose(t, p.transform())) {
+				return overlap(p.type());
+			}
+		}
 		return null;
+	}
+
+	private static boolean tooClose(PlacementTransform a, PlacementTransform b) {
+		BoundingBox fa = a.footprintBox();
+		BoundingBox fb = b.footprintBox();
+		int gap = 2 * TerrainAdapter.BLEND;
+		return fa.minX() - gap <= fb.maxX() && fa.maxX() + gap >= fb.minX() && fa.minZ() - gap <= fb.maxZ() && fa.maxZ() + gap >= fb.minZ();
+	}
+
+	private static Component overlap(ComplexType other) {
+		return Component.translatable("message.modernapartments.overlaps", other.displayName(), 2 * TerrainAdapter.BLEND);
 	}
 
 	public static void start(ServerLevel level, ComplexType type, long seed, PlacementTransform transform, @Nullable ServerPlayer player) {

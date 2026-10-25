@@ -55,6 +55,7 @@ EXTRA_LANG = {
     'message.modernapartments.elevator_floor': 'Floor %s',
     'message.modernapartments.too_low': 'Not enough room below this spot for the building',
     'message.modernapartments.too_high': 'The building would reach above the build limit here',
+    'message.modernapartments.overlaps': 'Too close to %s: leave at least %s blocks between buildings',
     'message.modernapartments.build_planning': 'Planning %s...',
     'message.modernapartments.build_failed': 'Construction failed; see the server log for details',
     'message.modernapartments.build_done': '%s is complete (%s blocks placed)',

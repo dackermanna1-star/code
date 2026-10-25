@@ -27,9 +27,9 @@ switch by every door, smoke detectors, art, plants and rugs. Unit numbers are on
 and every entry door is labelled for the key system.
 
 Buildings include stair cores with floor signs and exit signs, elevator lobbies with call buttons and
-floor indicators, corridors with sconces, extinguishers and sprinklers, mail and package rooms, bike
-storage, resident storage, trash rooms, parking with EV chargers and accessible stalls, landscaping,
-street trees, lamps and monument signs.
+floor indicators, directories in the lobbies, corridors with sconces, extinguishers and sprinklers, mail
+and package rooms, bike storage, resident storage, trash rooms, parking with EV chargers and accessible
+stalls, landscaping, street trees, lamps and monument signs.
 
 ## Getting a complex into your world
 
@@ -37,7 +37,8 @@ street trees, lamps and monument signs.
 Blueprints*). Right-click the ground to see a preview of the footprint, height and front direction;
 sneak-right-click to turn it; right-click again within ten seconds to build. The building is placed over
 a few seconds without freezing the server: terrain is levelled, foundations go down to solid ground and
-the surrounding land is blended in. In survival the blueprint is consumed (configurable).
+the surrounding land is blended in. Spots too low, too high, or within 14 blocks of another placed complex
+are refused. In survival the blueprint is consumed (configurable).
 
 **Commands (operators).**
 

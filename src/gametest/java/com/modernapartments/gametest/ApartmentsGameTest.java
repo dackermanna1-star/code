@@ -3,9 +3,17 @@ package com.modernapartments.gametest;
 import com.modernapartments.build.BlockBuffer;
 import com.modernapartments.build.BuildCache;
 import com.modernapartments.build.ComplexType;
+import com.modernapartments.build.placement.PlacedBuilding;
+import com.modernapartments.build.placement.PlacementManager;
+import com.modernapartments.build.placement.PlacementTransform;
 import com.modernapartments.build.validation.ReachabilityValidator;
+import java.util.List;
+import java.util.UUID;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.server.level.ServerLevel;
 
 /**
  * Server game tests: every complex must generate with the exact plot size, and the reachability
@@ -65,14 +73,32 @@ public class ApartmentsGameTest {
 		check(helper, ComplexType.URBAN_LOFTS, 1234L);
 	}
 
+	/** Placement refuses a spot overlapping (or crowding) a building already placed, and accepts one well away. */
+	@GameTest(maxTicks = 100)
+	public void placementKeepsApart(GameTestHelper helper) {
+		ServerLevel level = helper.getLevel();
+		List<PlacedBuilding> before = PlacementManager.placed(level);
+		PlacementTransform existing = PlacementManager.transformFor(ComplexType.PARKSIDE, new BlockPos(5000, 0, 5000), Direction.SOUTH);
+		level.setAttached(PlacementManager.PLACED, List.of(new PlacedBuilding(UUID.randomUUID(), "parkside", 1L, existing, 0L)));
+		try {
+			PlacementTransform near = PlacementManager.transformFor(ComplexType.URBAN_LOFTS, new BlockPos(5060, 0, 5000), Direction.SOUTH);
+			PlacementTransform far = PlacementManager.transformFor(ComplexType.URBAN_LOFTS, new BlockPos(5300, 0, 5000), Direction.SOUTH);
+			helper.assertTrue(PlacementManager.checkFits(level, near) != null, "a complex was allowed on top of another");
+			helper.assertTrue(PlacementManager.checkFits(level, far) == null, "a complex well away from the others was refused");
+		} finally {
+			level.setAttached(PlacementManager.PLACED, before);
+		}
+		helper.succeed();
+	}
+
 	@GameTest(maxTicks = 400)
 	public void otherSeeds(GameTestHelper helper) {
 		for (ComplexType type : ComplexType.values()) {
 			for (long seed : new long[] {7L, 99L}) {
 				BlockBuffer buffer = BuildCache.generate(type, seed);
 				ReachabilityValidator.Report report = ReachabilityValidator.validate(buffer);
-				System.out.printf("[gametest] %s seed %d: %d unreachable, %d warnings%n", type.id(), seed, report.unreachable().size(),
-					report.warnings().size());
+				System.out.printf("[gametest] %s seed %d: %d units, %d unreachable, %d warnings%n", type.id(), seed,
+					buffer.markers("unit").size(), report.unreachable().size(), report.warnings().size());
 				report.unreachable().stream().limit(5).forEach(u -> System.out.println("[gametest]   unreachable " + u));
 				helper.assertTrue(report.ok(), type.id() + " seed " + seed + " failed validation");
 			}

@@ -402,6 +402,7 @@
   "message.modernapartments.no_building_here": "There is no placed apartment complex here",
   "message.modernapartments.no_elevator": "No elevator car nearby",
   "message.modernapartments.no_target": "Point at the ground within 128 blocks",
+  "message.modernapartments.overlaps": "Too close to %s: leave at least %s blocks between buildings",
   "message.modernapartments.reader_cleared": "Reader cleared; doors are unlocked",
   "message.modernapartments.reader_inactive": "Reader inactive. Sneak and use a keycard to pair it.",
   "message.modernapartments.reader_needs_card": "Tap a paired keycard to enter",
