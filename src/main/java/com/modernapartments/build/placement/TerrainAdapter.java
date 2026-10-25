@@ -221,7 +221,7 @@ public final class TerrainAdapter {
 					if (init != null) {
 						BlockEntity be = level.getBlockEntity(p);
 						if (be != null) {
-							init.apply(be, random);
+							init.apply(be, level.registryAccess(), random);
 							be.setChanged();
 						}
 					}

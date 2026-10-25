@@ -32,7 +32,7 @@ final class TestPaste {
 					if (init != null) {
 						BlockEntity be = level.getBlockEntity(p);
 						if (be != null) {
-							init.apply(be, level.random);
+							init.apply(be, level.registryAccess(), level.random);
 							be.setChanged();
 						}
 					}

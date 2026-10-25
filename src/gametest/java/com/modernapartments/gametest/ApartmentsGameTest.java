@@ -1,12 +1,14 @@
 package com.modernapartments.gametest;
 
 import com.modernapartments.build.BlockBuffer;
+import com.modernapartments.build.BlockEntityInit;
 import com.modernapartments.build.BuildCache;
 import com.modernapartments.build.ComplexType;
 import com.modernapartments.build.placement.PlacedBuilding;
 import com.modernapartments.build.placement.PlacementManager;
 import com.modernapartments.build.placement.PlacementTransform;
 import com.modernapartments.build.validation.ReachabilityValidator;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
 import java.util.UUID;
 import net.fabricmc.fabric.api.gametest.v1.GameTest;
@@ -14,6 +16,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.block.EntityBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.SignBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Server game tests: every complex must generate with the exact plot size, and the reachability
@@ -71,6 +78,37 @@ public class ApartmentsGameTest {
 	@GameTest(maxTicks = 400)
 	public void urbanLofts(GameTestHelper helper) {
 		check(helper, ComplexType.URBAN_LOFTS, 1234L);
+	}
+
+	/**
+	 * Every block-entity initializer (sign text, loot tables, door and elevator labels) must work on a block
+	 * entity that has no level yet, as in a chunk that is still generating.
+	 */
+	@GameTest(maxTicks = 100)
+	public void initsWorkWithoutLevel(GameTestHelper helper) {
+		RandomSource random = RandomSource.create(1L);
+		for (ComplexType type : ComplexType.values()) {
+			BlockBuffer buffer = BuildCache.get(type, 1234L);
+			int applied = 0;
+			int signs = 0;
+			for (Int2ObjectMap.Entry<BlockEntityInit> e : buffer.inits().int2ObjectEntrySet()) {
+				BlockState state = buffer.get(e.getIntKey());
+				if (state == null || !(state.getBlock() instanceof EntityBlock block)) {
+					continue;
+				}
+				BlockEntity be = block.newBlockEntity(BlockPos.ZERO, state);
+				if (be == null) {
+					continue;
+				}
+				e.getValue().apply(be, helper.getLevel().registryAccess(), random);
+				applied++;
+				if (be instanceof SignBlockEntity sign && !sign.getFrontText().getMessage(0, false).getString().isEmpty()) {
+					signs++;
+				}
+			}
+			helper.assertTrue(applied > 0 && signs > 0, type.id() + ": " + applied + " initializers applied, " + signs + " signs with text");
+		}
+		helper.succeed();
 	}
 
 	/** Placement refuses a spot overlapping (or crowding) a building already placed, and accepts one well away. */
