@@ -9,9 +9,11 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LevelAccessor;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -34,6 +36,7 @@ public final class TerrainAdapter {
 	private final PlacementTransform transform;
 	private final RandomSource random;
 	private final Map<BlockState, BlockState> rotated = new IdentityHashMap<>();
+	private final Map<BlockState, Boolean> makesBlockEntity = new IdentityHashMap<>();
 
 	public TerrainAdapter(LevelAccessor level, BlockBuffer buffer, PlacementTransform transform, RandomSource random) {
 		this.level = level;
@@ -51,6 +54,11 @@ public final class TerrainAdapter {
 
 	private BlockState rotate(BlockState s) {
 		return rotated.computeIfAbsent(s, k -> k.rotate(transform.rotation()));
+	}
+
+	/** Whether the block creates a block entity in this state (door upper halves and plain screens do not). */
+	private boolean makesBlockEntity(BlockState s) {
+		return makesBlockEntity.computeIfAbsent(s, k -> k.getBlock() instanceof EntityBlock e && e.newBlockEntity(BlockPos.ZERO, k) != null);
 	}
 
 	/** Foundations, clearing above and terrain blending for the columns inside {@code clip}. */
@@ -216,6 +224,10 @@ public final class TerrainAdapter {
 						level.setBlock(p, Blocks.AIR.defaultBlockState(), FLAGS);
 					}
 					level.setBlock(p, world, FLAGS);
+					if (!(level instanceof Level) && world.hasBlockEntity() && !makesBlockEntity(world)) {
+						// a generating chunk marks every block-entity block for one; drop the mark where none is made
+						level.getChunk(p).removeBlockEntity(p);
+					}
 					placed++;
 					BlockEntityInit init = buffer.init(index);
 					if (init != null) {
