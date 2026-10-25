@@ -257,32 +257,44 @@ def write_json(rel, data):
 
 # ============================================================== display presets
 
-def handheld_display(tp_scale=0.85, fp_scale=0.7, tp_translate=(0, 4.5, 1.0), fp_translate=(1.13, 4.2, 1.13)):
-    """Sword-like pose for models standing along +Y (an extra -45 deg Z twist turns them into the sprite diagonal)."""
+# First/third-person transforms, tuned with a preview that reproduces the game's held-item math and checked
+# against in-game screenshots (src/gametest). Each model's grip is anchored where a vanilla sword's grip sits
+# (vanilla crossbow for the guns); first person shows blades and staffs upright with their heads in view and
+# guns low on the right aiming at the crosshair; third person matches the vanilla sword / crossbow pose.
+HELD = {
+    #                  first person: rotation, translation, scale          third person: rotation, translation, scale
+    'worldcutter':     (([90, -75, 100], [0.17, 2.28, -2.17], 0.42),       ([0, -90, 10], [0, 5.17, 0.29], 0.8)),
+    'orb_eraser':      (([90, -78, 98], [-0.08, 4.38, -2.33], 0.42),       ([0, -90, 10], [0, 8.42, -0.28], 0.75)),
+    'black_hole':      (([90, -78, 98], [-0.08, 4.38, -2.33], 0.42),       ([0, -90, 10], [0, 8.42, -0.28], 0.75)),
+    'reality_breaker': (([90, -70, 100], [-0.49, 3.12, -2.35], 0.4),       ([0, -90, 10], [0, 6.94, -0.02], 0.75)),
+    'sunforge':        (([90, -78, 98], [-0.08, 4.38, -2.33], 0.42),       ([0, -90, 10], [0, 8.42, -0.28], 0.75)),
+    'laser_beam':      (([-82, 4, -3.6], [1.4, -1.31, -5.86], 0.42),       ([-90, 0, -15], [1.79, 4.22, -2.21], 0.75)),
+    'asteroid_gun':    (([-82, 4, -3.6], [1.42, -1.25, -6.27], 0.42),      ([-90, 0, -15], [1.98, 4.22, -2.93], 0.75)),
+    'planet_cracker':  (([-82, 4, -3.6], [1.45, -1.37, -7.04], 0.38),      ([-90, 0, -15], [2.37, 3.95, -4.38], 0.7)),
+    'godfist':         (([-49, 11.4, -19.8], [1.73, 2.2, -4.87], 0.45),    ([-90, 0, 0], [0, -1.92, -6.16], 0.7)),
+}
+
+
+def held_display(name, gui, head=None, fixed=None, ground=None):
+    """Display block for a 3D weapon: tuned hand transforms (left hand mirrored like vanilla) plus GUI/world poses."""
+    (fr, ft, fs), (tr, tt, ts) = HELD[name]
+
+    def mirror(r):
+        return [r[0], -r[1], -r[2]]
     return {
-        'thirdperson_righthand': {'rotation': [0, -90, 10], 'translation': list(tp_translate), 'scale': [tp_scale] * 3},
-        'thirdperson_lefthand': {'rotation': [0, 90, -10], 'translation': list(tp_translate), 'scale': [tp_scale] * 3},
-        'firstperson_righthand': {'rotation': [0, -90, -20], 'translation': list(fp_translate), 'scale': [fp_scale] * 3},
-        'firstperson_lefthand': {'rotation': [0, 90, 20], 'translation': list(fp_translate), 'scale': [fp_scale] * 3},
-        'head': {'rotation': [0, 180, -45], 'translation': [0, 13, 7], 'scale': [0.8] * 3},
-        'gui': {'rotation': [30, 225, -45], 'translation': [0, 0, 0], 'scale': [0.35] * 3},
-        'ground': {'rotation': [0, 0, 0], 'translation': [0, 2, 0], 'scale': [0.35] * 3},
-        'fixed': {'rotation': [0, 180, -45], 'translation': [0, 0, 0], 'scale': [0.45] * 3},
+        'thirdperson_righthand': {'rotation': tr, 'translation': tt, 'scale': [ts] * 3},
+        'thirdperson_lefthand': {'rotation': mirror(tr), 'translation': tt, 'scale': [ts] * 3},
+        'firstperson_righthand': {'rotation': fr, 'translation': ft, 'scale': [fs] * 3},
+        'firstperson_lefthand': {'rotation': mirror(fr), 'translation': ft, 'scale': [fs] * 3},
+        'head': head or {'rotation': [0, 180, -45], 'translation': [0, 13, 7], 'scale': [0.8] * 3},
+        'gui': gui,
+        'ground': ground or {'translation': [0, 2, 0], 'scale': [0.35] * 3},
+        'fixed': fixed or {'rotation': [0, 180, -45], 'scale': [0.45] * 3},
     }
 
 
-def gun_display(tp_scale=0.8, fp_scale=0.75, fp_translate=(2.0, -1.0, -3.0), tp_translate=(0, 3.0, 2.0)):
-    """Pose for guns built standing along +Y: the muzzle (+Y) points where the player looks."""
-    return {
-        'thirdperson_righthand': {'rotation': [-90, 0, 0], 'translation': list(tp_translate), 'scale': [tp_scale] * 3},
-        'thirdperson_lefthand': {'rotation': [-90, 0, 0], 'translation': list(tp_translate), 'scale': [tp_scale] * 3},
-        'firstperson_righthand': {'rotation': [-90, 0, 0], 'translation': list(fp_translate), 'scale': [fp_scale] * 3},
-        'firstperson_lefthand': {'rotation': [-90, 0, 0], 'translation': [-fp_translate[0], fp_translate[1], fp_translate[2]], 'scale': [fp_scale] * 3},
-        'head': {'rotation': [0, 0, 0], 'translation': [0, 14, 0], 'scale': [0.6] * 3},
-        'gui': {'rotation': [30, 225, -45], 'scale': [0.4] * 3},
-        'ground': {'translation': [0, 2, 0], 'scale': [0.35] * 3},
-        'fixed': {'rotation': [0, 180, -45], 'scale': [0.45] * 3},
-    }
+BLADE_GUI = {'rotation': [30, 225, -45], 'translation': [0, 0, 0], 'scale': [0.35] * 3}
+GUN_GUI = {'rotation': [30, 225, -45], 'scale': [0.4] * 3}
 
 
 # ============================================================== weapons
@@ -319,7 +331,7 @@ def worldcutter():
     m.box([12.4, 19.0, 7.7], [13.2, 21.0, 8.3], rift, rot={'origin': [12.8, 20, 8], 'z': 30}, light=15, shade=False)
     m.box([2.8, 15.0, 7.7], [3.5, 16.6, 8.3], rift, rot={'origin': [3.1, 15.8, 8], 'z': -25}, light=15, shade=False)
     m.box([12.0, 25.0, 7.8], [12.6, 26.2, 8.2], rift, rot={'origin': [12.3, 25.6, 8], 'z': 50}, light=15, shade=False)
-    return m, handheld_display(tp_scale=0.95, fp_scale=0.78)
+    return m, held_display('worldcutter', BLADE_GUI)
 
 
 def laser_beam():
@@ -347,7 +359,7 @@ def laser_beam():
     # grip + trigger guard
     m.box([7.0, 1.5, 0.5], [9.0, 6.5, 5.5], dark, rot={'origin': [8, 4, 5.5], 'x': -20})
     m.box([7.3, 7.0, 3.0], [8.7, 7.6, 5.5], dark)
-    return m, gun_display()
+    return m, held_display('laser_beam', GUN_GUI)
 
 
 def orb_eraser():
@@ -374,7 +386,7 @@ def orb_eraser():
     # orbiting motes
     for i, (x, y, z) in enumerate([(2.0, 26.0, 8.0), (14.0, 23.0, 8.0), (8.0, 29.5, 2.5), (8.0, 20.5, 13.5)]):
         m.box([x - 0.5, y - 0.5, z - 0.5], [x + 0.5, y + 0.5, z + 0.5], rainbow, rot={'origin': [x, y, z], 'y': 45, 'x': 30}, light=15, shade=False)
-    return m, handheld_display(tp_scale=0.9, fp_scale=0.75)
+    return m, held_display('orb_eraser', BLADE_GUI)
 
 
 def asteroid_gun():
@@ -401,7 +413,7 @@ def asteroid_gun():
     m.box([5.8, -8.0, 5.8], [10.2, -2.0, 10.2], dark)
     m.box([6.3, -8.5, 6.3], [9.7, -8.0, 9.7], hazard)
     m.box([7.0, 0.5, 0.5], [9.0, 5.5, 5.0], dark, rot={'origin': [8, 3, 5], 'x': -20})
-    return m, gun_display(tp_scale=0.85, fp_scale=0.8)
+    return m, held_display('asteroid_gun', GUN_GUI)
 
 
 def black_hole():
@@ -425,7 +437,7 @@ def black_hole():
     m.box([1.0, 22.75, 1.0], [15.0, 23.25, 15.0], disk, rot={'origin': [8, 23, 8], 'x': 22, 'z': 12}, light=15, shade=False)
     m.box([3.0, 22.7, 3.0], [13.0, 23.3, 13.0], disk, rot={'origin': [8, 23, 8], 'x': 22, 'y': 45, 'z': 12}, light=15, shade=False)
     m.box([7.0, 26.8, 7.0], [9.0, 28.0, 9.0], runes, rot={'origin': [8, 27.4, 8], 'y': 45}, light=15)
-    return m, handheld_display(tp_scale=0.9, fp_scale=0.75)
+    return m, held_display('black_hole', BLADE_GUI)
 
 
 def reality_breaker():
@@ -450,7 +462,7 @@ def reality_breaker():
     # orbiting shards of broken space
     for (x, y, z, r) in [(-1.5, 29.0, 8.0, 30), (17.0, 17.0, 8.0, -20), (8.0, 30.6, 12.5, 45), (3.0, 16.0, 3.5, 60)]:
         m.box([x - 0.7, y - 1.0, z - 0.4], [x + 0.7, y + 1.0, z + 0.4], crack, rot={'origin': [x, y, z], 'z': r, 'y': 20}, light=15, shade=False)
-    return m, handheld_display(tp_scale=0.9, fp_scale=0.75)
+    return m, held_display('reality_breaker', BLADE_GUI)
 
 
 def godfist():
@@ -477,16 +489,13 @@ def godfist():
     m.box([3.2, 2.0, 3.2], [12.8, 3.2, 11.8], trim)
     m.box([3.2, -4.5, 3.2], [12.8, -3.3, 11.8], trim)
     m.box([6.8, -2.0, 2.9], [9.2, 0.6, 3.5], energy, light=15)
-    return m, {
-        'thirdperson_righthand': {'rotation': [-90, 0, 0], 'translation': [0, 1.0, -1.5], 'scale': [0.9] * 3},
-        'thirdperson_lefthand': {'rotation': [-90, 0, 0], 'translation': [0, 1.0, -1.5], 'scale': [0.9] * 3},
-        'firstperson_righthand': {'rotation': [-80, 10, 0], 'translation': [3.0, 1.0, -2.0], 'scale': [0.95] * 3},
-        'firstperson_lefthand': {'rotation': [-80, -10, 0], 'translation': [-3.0, 1.0, -2.0], 'scale': [0.95] * 3},
-        'head': {'translation': [0, 12, 0], 'scale': [0.8] * 3},
-        'gui': {'rotation': [20, 200, 0], 'translation': [0, -1, 0], 'scale': [0.62] * 3},
-        'ground': {'translation': [0, 3, 0], 'scale': [0.4] * 3},
-        'fixed': {'rotation': [0, 180, 0], 'scale': [0.6] * 3},
-    }
+    return m, held_display(
+        'godfist',
+        gui={'rotation': [20, 200, 0], 'translation': [0, -1, 0], 'scale': [0.62] * 3},
+        head={'translation': [0, 12, 0], 'scale': [0.8] * 3},
+        ground={'translation': [0, 3, 0], 'scale': [0.4] * 3},
+        fixed={'rotation': [0, 180, 0], 'scale': [0.6] * 3},
+    )
 
 
 def sunforge():
@@ -519,7 +528,7 @@ def sunforge():
         x = 8 + math.cos(rad) * 4.6
         z = 8 + math.sin(rad) * 4.6
         m.box([x - 0.4, 22.5, z - 0.4], [x + 0.4, 25.5, z + 0.4], corona, rot={'origin': [x, 24, z], 'y': -ang, 'z': 35}, light=15, shade=False)
-    return m, handheld_display(tp_scale=0.9, fp_scale=0.75)
+    return m, held_display('sunforge', BLADE_GUI)
 
 
 def planet_cracker():
@@ -545,7 +554,7 @@ def planet_cracker():
     m.box([6.0, -12.6, 6.0], [10.0, -12.0, 10.0], energy, light=15)
     m.box([7.0, 4.0, 11.5], [9.0, 12.0, 14.0], steel)
     m.box([7.0, -2.0, 0.5], [9.0, 3.0, 4.6], steel, rot={'origin': [8, 0.5, 4.6], 'x': -18})
-    return m, gun_display(tp_scale=0.9, fp_scale=0.85, fp_translate=(2.5, -2.0, -2.0))
+    return m, held_display('planet_cracker', GUN_GUI)
 
 
 def starfall_bow(pull):
@@ -610,8 +619,8 @@ def starfall_bow(pull):
     display = {
         'thirdperson_righthand': {'rotation': [-80, 260, -40], 'translation': [-1, -2, 2.5], 'scale': [1.1] * 3},
         'thirdperson_lefthand': {'rotation': [-80, -280, 40], 'translation': [-1, -2, 2.5], 'scale': [1.1] * 3},
-        'firstperson_righthand': {'rotation': [0, -90, 25], 'translation': [1.13, 3.2, 1.13], 'scale': [0.9] * 3},
-        'firstperson_lefthand': {'rotation': [0, 90, -25], 'translation': [1.13, 3.2, 1.13], 'scale': [0.9] * 3},
+        'firstperson_righthand': {'rotation': [0, -90, 25], 'translation': [1.13, 3.2, 1.13], 'scale': [0.7] * 3},
+        'firstperson_lefthand': {'rotation': [0, 90, -25], 'translation': [1.13, 3.2, 1.13], 'scale': [0.7] * 3},
         'gui': {'rotation': [0, 0, 0], 'scale': [1.0] * 3},
         'ground': {'translation': [0, 2, 0], 'scale': [0.5] * 3},
         'fixed': {'rotation': [0, 180, 0], 'scale': [1.0] * 3},

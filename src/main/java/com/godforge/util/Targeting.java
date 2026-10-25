@@ -2,6 +2,7 @@ package com.godforge.util;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.ProjectileUtil;
@@ -51,6 +52,32 @@ public final class Targeting {
 		int top = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
 		double y = point.y < top ? point.y : top;
 		return new Vec3(point.x, y, point.z);
+	}
+
+	/**
+	 * Where an area ability lands: the ground the player is aiming at, or — when they aim at the sky or past the
+	 * active world — the ground {@code fallback} blocks ahead of them, or finally under their feet. Always a
+	 * position inside entity-ticking chunks, so whatever is spawned there can play out.
+	 */
+	public static Vec3 groundTarget(ServerPlayer player, double range, double fallback) {
+		ServerLevel level = player.level();
+		HitResult hit = aim(player, range);
+		if (hit.getType() != HitResult.Type.MISS) {
+			Vec3 aimed = ground(level, hit.getLocation());
+			if (aimed != null) {
+				return aimed;
+			}
+		}
+		Vec3 look = player.getLookAngle();
+		Vec3 flat = new Vec3(look.x, 0, look.z);
+		if (flat.lengthSqr() > 1.0E-4) {
+			Vec3 ahead = ground(level, player.position().add(flat.normalize().scale(fallback)));
+			if (ahead != null) {
+				return ahead;
+			}
+		}
+		Vec3 below = ground(level, player.position());
+		return below != null ? below : player.position();
 	}
 
 	public static @Nullable Entity entityAt(HitResult hit) {

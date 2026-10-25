@@ -70,7 +70,7 @@ public final class ScreenEffects {
 		trauma = Math.max(0.0F, trauma - traumaDecay);
 		flash = Math.max(0.0F, flash - flashDecay);
 		distortion = Math.max(0.0F, distortion - distortionDecay);
-		cracks = Math.max(0.0F, cracks - 0.012F);
+		cracks = Math.max(0.0F, cracks - 0.025F);
 	}
 
 	public static float distortion() {
@@ -135,7 +135,9 @@ public final class ScreenEffects {
 		int w = graphics.guiWidth();
 		int h = graphics.guiHeight();
 		if (cracks > 0.0F) {
-			int alpha = (int) (Mth.clamp(cracks, 0.0F, 1.0F) * 200);
+			// quadratic fade: a sharp crack of reality that clears quickly instead of veiling the view
+			float c = Mth.clamp(cracks, 0.0F, 1.0F);
+			int alpha = (int) (c * c * 170);
 			graphics.blit(RenderPipelines.GUI_TEXTURED, CRACKS, 0, 0, 0.0F, 0.0F, w, h, w, h, ARGB.color(alpha, 0xE8C8FF));
 		}
 		if (flash > 0.0F) {

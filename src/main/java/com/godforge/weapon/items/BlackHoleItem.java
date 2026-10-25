@@ -64,9 +64,7 @@ public class BlackHoleItem extends GodWeaponItem {
 		Vec3 look = player.getLookAngle();
 		boolean terrain;
 		if (ultimate) {
-			Vec3 target = Targeting.aimPoint(player, 112.0);
-			Vec3 ground = Targeting.ground(level, target);
-			Vec3 at = (ground != null ? ground : target).add(0, 8, 0);
+			Vec3 at = Targeting.groundTarget(player, 112.0, 32.0).add(0, 8, 0);
 			hole.setPos(at);
 			terrain = WeaponAccess.terrainAllowed(level, player, stack, BlockPos.containing(at));
 			hole.configure(160.0F, (float) (tuning.extra("ultimatePullRadius", 64.0) * scale), 1.4F * Math.max(0.4F, strength),

@@ -67,11 +67,7 @@ public class PlanetCrackerItem extends GodWeaponItem {
 				player.displayClientMessage(Component.translatable("message.godforge.too_many").withStyle(ChatFormatting.RED), true);
 				return false;
 			}
-			Vec3 aim = Targeting.aimPoint(player, 256.0);
-			Vec3 ground = Targeting.ground(level, aim);
-			if (ground == null) {
-				ground = aim;
-			}
+			Vec3 ground = Targeting.groundTarget(player, 256.0, 40.0);
 			float radius = (float) (tuning.extra("barrageRadius", 52.0) * scale * Math.max(0.3F, settings.sizeFraction()));
 			int strikes = Math.max(6, (int) (tuning.extra("barrageStrikes", 44.0) * settings.intensityFraction()));
 			OrbitalStrikeEntity barrage = new OrbitalStrikeEntity(ModEntities.ORBITAL_STRIKE, level);

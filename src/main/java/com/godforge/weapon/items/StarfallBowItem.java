@@ -71,11 +71,7 @@ public class StarfallBowItem extends GodWeaponItem {
 			Fx.sound(level, player.position(), ModSounds.MODE_SWITCH, 0.6F, 0.5F);
 			return false;
 		}
-		Vec3 aim = Targeting.aimPoint(player, mode.ultimate() ? 256.0 : 160.0);
-		Vec3 target = Targeting.ground(level, aim);
-		if (target == null) {
-			target = aim;
-		}
+		Vec3 target = Targeting.groundTarget(player, mode.ultimate() ? 256.0 : 160.0, mode.ultimate() ? 40.0 : 24.0);
 		double scale = GodforgeConfig.get().general.destructionScale * tuning.sizeScale;
 		boolean areaTerrain = WeaponAccess.terrainAllowed(level, player, stack, BlockPos.containing(target));
 		if (mode.ultimate()) {

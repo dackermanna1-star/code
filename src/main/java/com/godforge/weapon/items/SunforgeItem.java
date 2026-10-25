@@ -158,11 +158,7 @@ public class SunforgeItem extends GodWeaponItem {
 		GodforgeConfig.WeaponTuning tuning = this.tuning();
 		WeaponSettings settings = settings(stack);
 		double scale = GodforgeConfig.get().general.destructionScale * tuning.sizeScale;
-		Vec3 aim = Targeting.aimPoint(player, 192.0);
-		Vec3 ground = Targeting.ground(level, aim);
-		if (ground == null) {
-			ground = aim;
-		}
+		Vec3 ground = Targeting.groundTarget(player, 192.0, 24.0);
 		float area = (float) (tuning.extra("sunRadius", 42.0) * scale * Math.max(0.25F, settings.sizeFraction()));
 		float sunRadius = Math.max(3.0F, area * 0.18F);
 		ArtificialSunEntity sun = new ArtificialSunEntity(ModEntities.ARTIFICIAL_SUN, level);

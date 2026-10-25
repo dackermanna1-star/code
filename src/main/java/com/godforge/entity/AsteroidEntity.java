@@ -60,7 +60,15 @@ public class AsteroidEntity extends GfProjectile {
 	public void launchTowards(Vec3 target, Vec3 approachFrom, double height, double initialSpeed) {
 		Vec3 flat = new Vec3(approachFrom.x, 0, approachFrom.z);
 		flat = flat.lengthSqr() < 1.0E-4 ? new Vec3(1, 0, 0) : flat.normalize();
-		Vec3 start = target.add(flat.scale(height * 0.55)).add(0, height, 0);
+		// come in at a slant from beyond the target, but start inside ticking chunks or it would hang in the sky
+		double offset = height * 0.55;
+		Vec3 start = target.add(flat.scale(offset)).add(0, height, 0);
+		if (this.level() instanceof ServerLevel server) {
+			while (offset > 1.0 && !server.isPositionEntityTicking(BlockPos.containing(start))) {
+				offset *= 0.5;
+				start = target.add(flat.scale(offset)).add(0, height, 0);
+			}
+		}
 		this.setPos(start);
 		this.setDeltaMovement(target.subtract(start).normalize().scale(initialSpeed));
 	}

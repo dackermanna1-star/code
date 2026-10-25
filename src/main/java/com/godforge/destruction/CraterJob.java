@@ -1,5 +1,6 @@
 package com.godforge.destruction;
 
+import com.godforge.config.GodforgeConfig;
 import com.godforge.util.Noise;
 import java.util.concurrent.CompletableFuture;
 import net.minecraft.core.BlockPos;
@@ -36,8 +37,10 @@ public final class CraterJob extends BlockJob {
 	private CraterJob(Builder b) {
 		super(b.level);
 		this.center = b.center;
-		this.radius = Math.min(b.radius, Shapes.MAX_RADIUS / (1.0 + b.noise) - 1.0);
 		this.vertical = Mth.clamp(b.vertical, 0.2, 1.5);
+		// a sphere squashed by `vertical` holds about 4.19 * r^3 * vertical blocks; keep it within the per-job cap
+		double budgetRadius = Math.cbrt(GodforgeConfig.get().performance.maxBlocksPerJob / (4.19 * this.vertical));
+		this.radius = Math.min(Math.min(b.radius, budgetRadius), Shapes.MAX_RADIUS / (1.0 + b.noise) - 1.0);
 		this.noise = b.noise;
 		this.lining = b.lining;
 		this.liningDepth = b.liningDepth;

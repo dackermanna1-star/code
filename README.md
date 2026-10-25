@@ -209,11 +209,15 @@ Development tasks:
 
 `src/gametest` has a client game test. It starts a real client, builds a deep superflat world, renders every
 weapon model in first and third person and opens the configuration screen. Then it fires all 23 modes with
-real key input, with target dummies, and saves screenshots to `build/run/clientGameTest/screenshots`. It
-fails if an ability doesn't reshape the terrain or if anything throws. Without a display, run it under Xvfb:
+real key input, with target dummies, and films each one from a side camera. Finally it joins a real dedicated
+server and drives the settings, mode and firing packets over the network. Screenshots are saved to
+`build/run/clientGameTest/screenshots`. The test fails if an ability doesn't reshape the terrain, if the
+multiplayer connection breaks, or if anything throws. Without a display, run it under Xvfb (software
+rendering is fine):
 
 ```bash
 xvfb-run -a -s "-screen 0 1920x1080x24" ./gradlew runClientGameTest
+./gradlew runClientGameTest -PshowcaseOnly   # just the item models and the config screen (about a minute)
 ```
 
 ### Regenerating assets

@@ -11,6 +11,8 @@
   "screen.godforge.mode": "Mode: %s",
   "screen.godforge.reset": "Reset",
   "screen.godforge.apply": "Apply",
+  "screen.godforge.weapon_settings": "Weapon (server-checked)",
+  "screen.godforge.visual_settings": "Your visual effects",
   "format.godforge.blocks": "%s blocks",
   "format.godforge.level": "Level %s",
   "hud.godforge.ultimate_cd": "Ultimate in %ss",

@@ -42,6 +42,10 @@ loom {
 		named("clientGameTest") {
 			// lets the integrated server load chunks between frames when rendering is slow (software GL in CI)
 			vmArg "-Dfabric.client.gametest.disableNetworkSynchronizer=true"
+			// ./gradlew runClientGameTest -PshowcaseOnly  only renders the item models (quick check of display transforms)
+			if (project.hasProperty("showcaseOnly")) {
+				vmArg "-Dgodforge.gametest.showcaseOnly=true"
+			}
 		}
 	}
 }

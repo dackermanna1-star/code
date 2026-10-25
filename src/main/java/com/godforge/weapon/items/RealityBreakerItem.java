@@ -72,9 +72,7 @@ public class RealityBreakerItem extends GodWeaponItem {
 		WeaponSettings settings = settings(stack);
 		GodforgeConfig.WeaponTuning tuning = this.tuning();
 		double scale = GodforgeConfig.get().general.destructionScale * tuning.sizeScale;
-		Vec3 aim = Targeting.aimPoint(player, mode.ultimate() ? 96.0 : 56.0);
-		Vec3 ground = Targeting.ground(level, aim);
-		Vec3 center = ground != null ? ground : aim;
+		Vec3 center = Targeting.groundTarget(player, mode.ultimate() ? 96.0 : 56.0, mode.ultimate() ? 24.0 : 12.0);
 		boolean terrain = WeaponAccess.terrainAllowed(level, player, stack, BlockPos.containing(center));
 		float damage = (float) tuning.damage;
 		player.swing(net.minecraft.world.InteractionHand.MAIN_HAND, true);

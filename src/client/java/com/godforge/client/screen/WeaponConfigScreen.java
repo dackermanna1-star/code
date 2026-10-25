@@ -31,6 +31,9 @@ public class WeaponConfigScreen extends Screen {
 	private final WeaponType type;
 	private WeaponSettings settings;
 	private Button colorButton;
+	private int weaponColumnX = -1;
+	private int visualColumnX = -1;
+	private int columnLabelY;
 
 	public WeaponConfigScreen(ItemStack stack, InteractionHand hand) {
 		super(Component.translatable("screen.godforge.configure"));
@@ -42,12 +45,15 @@ public class WeaponConfigScreen extends Screen {
 
 	@Override
 	protected void init() {
-		boolean twoColumns = this.width >= 440;
-		int colW = twoColumns ? 200 : Math.min(260, this.width - 20);
-		int left = twoColumns ? this.width / 2 - colW - 10 : this.width / 2 - colW / 2;
+		// two columns from 400 scaled pixels: that covers 1280x720 at GUI scale 3 (426x240)
+		boolean twoColumns = this.width >= 400;
+		int colW = twoColumns ? Math.min(200, (this.width - 30) / 2) : Math.min(260, this.width - 20);
+		int left = twoColumns ? this.width / 2 - colW - 5 : this.width / 2 - colW / 2;
 		int top = 44;
 		int row = this.height < 300 ? 22 : 24;
 		int y = top;
+		this.weaponColumnX = twoColumns ? left : -1;
+		this.columnLabelY = top - 10;
 
 		// firing mode
 		this.addRenderableWidget(Button.builder(this.modeLabel(), b -> {
@@ -77,8 +83,9 @@ public class WeaponConfigScreen extends Screen {
 		}
 
 		// client visual preferences
-		int vx = twoColumns ? this.width / 2 + 10 : left;
+		int vx = twoColumns ? this.width / 2 + 5 : left;
 		int vy = twoColumns ? top : y + 8;
+		this.visualColumnX = twoColumns ? vx : -1;
 		ClientConfig cfg = ClientConfig.get();
 		this.addRenderableWidget(new IntSlider(vx, vy, colW, 20, 0, 200, (int) Math.round(cfg.screenShake * 100),
 			v -> Component.translatable("setting.godforge.client.shake").append(": " + v + "%"), v -> cfg.screenShake = v / 100.0));
@@ -157,6 +164,10 @@ public class WeaponConfigScreen extends Screen {
 		int color = ARGB.opaque(this.type.color());
 		graphics.drawCenteredString(this.font, Component.translatable(this.type.translationKey()).withStyle(ChatFormatting.BOLD), this.width / 2, 12, color);
 		graphics.drawCenteredString(this.font, Component.translatable(this.type.translationKey() + ".title"), this.width / 2, 24, 0xFFB0B0C0);
+		if (this.weaponColumnX >= 0) {
+			graphics.drawString(this.font, Component.translatable("screen.godforge.weapon_settings"), this.weaponColumnX + 2, this.columnLabelY, 0xFF8890A0);
+			graphics.drawString(this.font, Component.translatable("screen.godforge.visual_settings"), this.visualColumnX + 2, this.columnLabelY, 0xFF8890A0);
+		}
 		if (this.colorButton != null) {
 			int x = this.colorButton.getX() + this.colorButton.getWidth() + 4;
 			int y = this.colorButton.getY();
@@ -169,6 +180,12 @@ public class WeaponConfigScreen extends Screen {
 	@Override
 	public boolean isPauseScreen() {
 		return false;
+	}
+
+	@Override
+	public boolean isInGameUi() {
+		// darken the world behind the screen like inventories do
+		return true;
 	}
 
 	/** Integer slider with live label. */

@@ -1,5 +1,6 @@
 package com.godforge.destruction;
 
+import com.godforge.config.GodforgeConfig;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
@@ -69,8 +70,11 @@ public final class CutJob extends BlockJob {
 		double uz = Math.cos(rad);
 		double push = Math.max(14.0, gap * 1.8);
 		this.yMin = Math.max(level.getMinY() + 1, originY - depth);
+		// every column within `push` of the cut is rewritten from yMin up; keep the total within the per-job cap
+		double columnHeight = originY - this.yMin + 48.0;
+		double cappedLength = Math.min(length, GodforgeConfig.get().performance.maxBlocksPerJob / (2.0 * push * columnHeight));
 		this.cache = new BlockOps.ChunkCache(level);
-		this.plan = CompletableFuture.supplyAsync(() -> buildPlan(ox, oz, ux, uz, length, gap, push), Util.backgroundExecutor());
+		this.plan = CompletableFuture.supplyAsync(() -> buildPlan(ox, oz, ux, uz, cappedLength, gap, push), Util.backgroundExecutor());
 	}
 
 	private static List<Mapping[]> buildPlan(double ox, double oz, double ux, double uz, double length, double gap, double push) {

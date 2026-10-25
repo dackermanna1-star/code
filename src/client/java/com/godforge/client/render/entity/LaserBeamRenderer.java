@@ -79,19 +79,20 @@ public class LaserBeamRenderer extends EntityRenderer<LaserBeamEntity, GfRenderS
 		float intensity = state.charge;
 		float width = state.size * (state.flag ? 1.6F : 1.0F);
 		float pulse = 0.88F + 0.12F * Mth.sin(t * 2.3F) + (state.flag ? 0.1F * Mth.sin(t * 7.1F) : 0.0F);
-		float core = Math.max(0.06F, width * 0.18F) * (0.6F + 0.4F * intensity) * pulse;
+		// a bold but readable beam: seen along its axis (first person) the glow must not swallow the view
+		float core = (0.05F + width * 0.06F) * (0.6F + 0.4F * intensity) * pulse;
 		int color = state.color;
 		Vec3 a = state.start;
 		Vec3 b = state.end;
 		Vec3 cam = camera.pos.subtract(state.x, state.y, state.z);
 		collector.submitCustomGeometry(poseStack, GfRenderTypes.additive(), (pose, vc) -> {
 			FxDraw.colorBeam(vc, pose, a, b, core, 10, FxDraw.argb(0xFFFFFF, 0.95F), FxDraw.argb(0xFFFFFF, 0.95F));
-			FxDraw.colorBeam(vc, pose, a, b, core * 2.2F + width * 0.15F, 12, FxDraw.argb(color, 0.55F * (0.5F + power * 0.5F)), FxDraw.argb(color, 0.55F));
-			FxDraw.colorBeam(vc, pose, a, b, core * 4.0F + width * 0.35F, 12, FxDraw.argb(color, 0.16F * intensity), FxDraw.argb(color, 0.16F * intensity));
+			FxDraw.colorBeam(vc, pose, a, b, core * 2.0F, 12, FxDraw.argb(color, 0.5F * (0.5F + power * 0.5F)), FxDraw.argb(color, 0.5F));
+			FxDraw.colorBeam(vc, pose, a, b, core * 3.2F, 12, FxDraw.argb(color, 0.12F * intensity), FxDraw.argb(color, 0.12F * intensity));
 		});
 		collector.submitCustomGeometry(poseStack, GfRenderTypes.glow(GfRenderTypes.TEX_BEAM), (pose, vc) -> {
 			float len = (float) b.subtract(a).length();
-			FxDraw.texStrip(vc, pose, a, b, cam, width * 1.6F * pulse, -t * 0.6F, Math.max(1.0F, len / 6.0F), FxDraw.argb(color, 0.8F), FxDraw.argb(color, 0.8F));
+			FxDraw.texStrip(vc, pose, a, b, cam, width * 0.7F * pulse, -t * 0.6F, Math.max(1.0F, len / 6.0F), FxDraw.argb(color, 0.8F), FxDraw.argb(color, 0.8F));
 		});
 		// muzzle and impact flares
 		poseStack.pushPose();
@@ -106,7 +107,7 @@ public class LaserBeamRenderer extends EntityRenderer<LaserBeamEntity, GfRenderS
 			poseStack.pushPose();
 			poseStack.translate(b.x, b.y, b.z);
 			poseStack.mulPose(camera.orientation);
-			float impact = (1.0F + width * 0.8F) * (0.8F + power * 0.6F) * pulse;
+			float impact = (0.6F + width * 0.35F) * (0.7F + power * 0.5F) * pulse;
 			collector.submitCustomGeometry(poseStack, GfRenderTypes.glow(GfRenderTypes.TEX_GLOW), (pose, vc) -> {
 				FxDraw.billboard(vc, pose, impact * 2.4F, FxDraw.argb(color, 0.7F));
 				FxDraw.billboard(vc, pose, impact, FxDraw.argb(0xFFFFFF, 0.95F));

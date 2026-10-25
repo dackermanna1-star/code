@@ -167,7 +167,9 @@ public final class PathJob extends BlockJob {
 			if (state.isAir() || BlockOps.isProtected(this.level, this.cursor, state)) {
 				continue;
 			}
-			if (s.lining != Palette.NONE && Math.sqrt(distSq) > r - 1.2 && state.isSolid()) {
+			// the lined shell never eats the whole radius: thin beams still need an erased core to dig forward
+			double shell = Mth.clamp(r - 0.9, 0.0, 1.2);
+			if (s.lining != Palette.NONE && Math.sqrt(distSq) > r - shell && state.isSolid()) {
 				BlockState lined = s.lining.pick(state, this.cursor, this.seed);
 				if (lined != null) {
 					BlockOps.set(this.level, this.cursor, lined);
