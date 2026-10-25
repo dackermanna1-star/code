@@ -16,6 +16,25 @@ budget per tick, so even the biggest abilities don't freeze a server.
 | Java | 21 or newer |
 | Side | Install on **both** the client and the server (singleplayer just needs the client) |
 
+## Screenshots
+
+These are captured automatically by the in-game test (software rendering, no shaders).
+
+| | |
+|---|---|
+| ![Sever Reality: the land splits and both halves slide apart](docs/screenshots/sever_reality.jpg) | ![Planetfall impact](docs/screenshots/planetfall.jpg) |
+| **Worldcutter – Sever Reality** (tear in space before the chasm opens) | **Asteroid Gun – Planetfall** |
+| ![Event Horizon](docs/screenshots/event_horizon.jpg) | ![Dimensional Collapse](docs/screenshots/dimensional_collapse.jpg) |
+| **Black Hole – Event Horizon** | **Reality Breaker – Dimensional Collapse** |
+| ![Celestial Judgment](docs/screenshots/celestial_judgment.jpg) | ![Artificial Sun](docs/screenshots/artificial_sun.jpg) |
+| **Starfall Bow – Celestial Judgment** (the star descending) | **Sunforge – Artificial Sun** |
+| ![Orbital Bombardment](docs/screenshots/orbital_bombardment.jpg) | ![Worldbreaker](docs/screenshots/worldbreaker.jpg) |
+| **Planet Cracker – Orbital Bombardment** | **Godfist – Worldbreaker** |
+
+![First-person view of six weapons](docs/screenshots/held_weapons.jpg)
+![Third-person view of six weapons](docs/screenshots/third_person.jpg)
+![Weapon configuration screen](docs/screenshots/config_screen.jpg)
+
 ---
 
 ## Installation

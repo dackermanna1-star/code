@@ -274,8 +274,9 @@ public class GodforgeClientGameTest implements FabricClientGameTest {
 		for (Item item : shown) {
 			String id = BuiltInRegistries.ITEM.getKey(item).getPath();
 			equip(server, 0, weapon(item, 0));
-			// melee weapons are drawn lowered until the attack cooldown recharges after a swap
-			context.waitTicks(30);
+			// melee weapons are drawn lowered until the attack cooldown recharges after a swap,
+			// and the item name shown above the hotbar takes two seconds to fade
+			context.waitTicks(45);
 			camera(context, CameraType.FIRST_PERSON);
 			context.waitTicks(2);
 			screenshot(context, "model_" + id + "_first_person");
