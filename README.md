@@ -92,10 +92,10 @@ The mod jar is written to `build/libs/modern-apartments-1.0.0.jar`.
 * `./gradlew runClientGameTest` launches the real client and takes screenshots. Set `MA_TEST` to choose
   what: `showroom` (every block), `units` / `lofts` (sample floors seen from above and inside),
   `complex` with `MA_COMPLEX=metropolitan,skyline,...` (exteriors and interiors of whole complexes),
-  `plans` (each level cut away and photographed from above), or `world` (a normal survival-style world:
-  builds `MA_COMPLEX` on natural terrain through the blueprint pipeline, checks every home, undoes it,
-  then finds and photographs a naturally generated complex). Screenshots land in
-  `build/run/clientGameTest/screenshots`.
+  `plans` (each level cut away and photographed from above; `MA_PLAN_FLOORS=7,17` picks levels), or
+  `world` (a normal survival-style world: builds `MA_COMPLEX` on natural terrain through the blueprint
+  pipeline, checks every home, undoes it, then finds and photographs a naturally generated complex).
+  Screenshots land in `build/run/clientGameTest/screenshots`.
 
 ### Assets
 

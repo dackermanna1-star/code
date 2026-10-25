@@ -174,9 +174,9 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 		report.warnings().stream().limit(40).forEach(w -> System.out.println("[complex] warning " + w));
 		context.runOnClient(client -> client.options.renderDistance().set(12));
 		world.getServer().runOnServer(server -> server.getPlayerList().setViewDistance(12));
-		pasteAtOrigin(world, buf);
+		int ox = pasteOnNewLot(world, buf);
 		context.waitTicks(20);
-		int cx = buf.sizeX / 2;
+		int cx = ox + buf.sizeX / 2;
 		int cz = buf.sizeZ / 2;
 		int gy = buf.groundY;
 		String id = type.id();
@@ -218,7 +218,7 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 			BlockPos p = m.pos();
 			for (float yaw : m.type().equals("unit") ? new float[] {30f, 210f} : new float[] {30f}) {
 				world.getServer().runCommand(String.format(java.util.Locale.ROOT, "tp @a %.1f %.1f %.1f %.1f 10",
-					p.getX() + 0.5, p.getY() + 0.1, p.getZ() + 0.5, yaw));
+					ox + p.getX() + 0.5, p.getY() + 0.1, p.getZ() + 0.5, yaw));
 				context.waitTicks(4);
 				settleNear(world);
 				context.takeScreenshot(TestScreenshotOptions.of(String.format("%s_int_%02d_%s_%d", id, n, m.label().replace(' ', '_')
@@ -228,17 +228,17 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 		}
 	}
 
-	/** Volume of the last complex pasted at the origin, cleared before the next one goes in. */
-	private static int[] lastPasted;
+	/** West edge of the next free patch of ground for a complex (each gets its own; nothing is pasted twice). */
+	private static int nextLot;
 
-	/** Sets x 0..sizeX-1, y y0..y1-1, z 0..sizeZ-1 to air, top down. */
-	private static void clear(TestSingleplayerContext world, int sizeX, int y0, int y1, int sizeZ) {
+	/** Sets x x0..x0+sizeX-1, y y0..y1-1, z 0..sizeZ-1 to air, top down. */
+	private static void clear(TestSingleplayerContext world, int x0, int sizeX, int y0, int y1, int sizeZ) {
 		world.getServer().runOnServer(server -> {
 			ServerLevel level = server.overworld();
 			BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
 			for (int y = y1 - 1; y >= y0; y--) {
 				for (int z = 0; z < sizeZ; z++) {
-					for (int x = 0; x < sizeX; x++) {
+					for (int x = x0; x < x0 + sizeX; x++) {
 						p.set(x, y, z);
 						if (!level.getBlockState(p).isAir()) {
 							level.setBlock(p, Blocks.AIR.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS
@@ -250,12 +250,15 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 		});
 	}
 
-	private static void pasteAtOrigin(TestSingleplayerContext world, com.modernapartments.build.BlockBuffer buf) {
-		if (lastPasted != null) {
-			clear(world, lastPasted[0], 0, lastPasted[1], lastPasted[2]);
-		}
-		world.getServer().runOnServer(server -> TestPaste.paste(server.overworld(), buf, BlockPos.ZERO, buf.sizeY));
-		lastPasted = new int[] {buf.sizeX, buf.sizeY, buf.sizeZ};
+	/**
+	 * Pastes a complex on a fresh lot east of the previous one and returns the lot's x. Clearing a complex and
+	 * pasting the next over it in the same few ticks left some sections empty on the client.
+	 */
+	private static int pasteOnNewLot(TestSingleplayerContext world, com.modernapartments.build.BlockBuffer buf) {
+		int x0 = nextLot;
+		nextLot += buf.sizeX + 64;
+		world.getServer().runOnServer(server -> TestPaste.paste(server.overworld(), buf, new BlockPos(x0, 0, 0), buf.sizeY));
+		return x0;
 	}
 
 	/**
@@ -265,7 +268,7 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 	private void plans(ClientGameTestContext context, TestSingleplayerContext world, com.modernapartments.build.ComplexType type) {
 		long seed = Long.parseLong(System.getenv().getOrDefault("MA_SEED", "1234"));
 		com.modernapartments.build.BlockBuffer buf = com.modernapartments.build.BuildCache.generate(type, seed);
-		pasteAtOrigin(world, buf);
+		int ox = pasteOnNewLot(world, buf);
 		java.util.TreeSet<Integer> unitFloors = new java.util.TreeSet<>();
 		java.util.TreeSet<Integer> floors = new java.util.TreeSet<>();
 		buf.markers("unit").forEach(m -> unitFloors.add(m.pos().getY()));
@@ -273,18 +276,28 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 		floors.addAll(List.of(unitFloors.first(), unitFloors.last()));
 		List<Integer> typical = new java.util.ArrayList<>(unitFloors);
 		floors.add(typical.get(typical.size() / 2));
-		context.runOnClient(client -> client.options.renderDistance().set(8));
-		world.getServer().runOnServer(server -> server.getPlayerList().setViewDistance(8));
+		// MA_PLAN_FLOORS=7,17 limits the pictures to those levels (marker y, i.e. slab + 1)
+		String only = System.getenv().getOrDefault("MA_PLAN_FLOORS", "");
+		if (!only.isBlank()) {
+			java.util.Set<Integer> keep = new java.util.HashSet<>();
+			for (String part : only.split(",")) {
+				keep.add(Integer.parseInt(part.trim()));
+			}
+			floors.retainAll(keep);
+		}
+		// a short render distance lets the building's own chunks finish meshing before each picture
+		context.runOnClient(client -> client.options.renderDistance().set(5));
+		world.getServer().runOnServer(server -> server.getPlayerList().setViewDistance(5));
 		int cut = buf.sizeY;
 		for (int y : floors.descendingSet()) {
 			int top = y + 2;
 			if (top >= cut) {
 				continue;
 			}
-			clear(world, buf.sizeX, top, cut, buf.sizeZ);
+			clear(world, ox, buf.sizeX, top, cut, buf.sizeZ);
 			cut = top;
 			double h = Math.max(buf.sizeX, buf.sizeZ) * 0.72 + 4;
-			world.getServer().runCommand(String.format(java.util.Locale.ROOT, "tp @a %.1f %.1f %.1f 180 90", buf.sizeX / 2.0, y + h,
+			world.getServer().runCommand(String.format(java.util.Locale.ROOT, "tp @a %.1f %.1f %.1f 180 90", ox + buf.sizeX / 2.0, y + h,
 				buf.sizeZ / 2.0));
 			context.waitTicks(10);
 			settle(world);
