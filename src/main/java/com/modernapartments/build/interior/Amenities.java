@@ -249,32 +249,58 @@ public final class Amenities {
 	}
 
 	// ================================================================================== mail & packages
+	/** Mailbox banks along the first solid wall (the back wall unless it is glass), parcel lockers and shelves on the next. */
 	public static void mailRoom(Canvas c, int w, int d, int h, RandomSource r) {
 		RoomGrid g = grid(c, w, d, h, r, InteriorStyle.Theme.MODERN);
-		// mailbox banks stacked two high along the back wall, parcel lockers along a side
-		for (int[] p : g.side(S)) {
-			if (g.edge(p[0], p[1], S) == RoomGrid.Edge.WALL && g.free(p[0], p[1])) {
-				int x = p[0];
-				int z = p[1];
-				g.useDecor(x, z, S);
-				g.write(() -> {
-					c.put(x, 1, z, ModBlocks.MAILBOX_BANK, N);
-					c.put(x, 2, z, ModBlocks.MAILBOX_BANK, N);
-					if (h >= 4) {
-						c.put(x, 3, z, ModBlocks.MAILBOX_BANK, N);
-					}
-				});
-				g.use(x, z);
+		List<Direction> walls = new java.util.ArrayList<>();
+		for (Direction side : new Direction[] {S, W, E, N}) {
+			int solid = 0;
+			for (int[] p : g.side(side)) {
+				if (g.edge(p[0], p[1], side) == RoomGrid.Edge.WALL) {
+					solid++;
+				}
+			}
+			if (solid >= 3) {
+				walls.add(side);
 			}
 		}
-		row(g, W, 1, d - 2, ModBlocks.PARCEL_LOCKER, true, 1);
-		row(g, E, 1, d - 2, ModBlocks.PACKAGE_SHELF, false, 1);
+		if (!walls.isEmpty()) {
+			mailboxWall(g, walls.get(0), h);
+		}
+		for (int i = 1; i < Math.min(3, walls.size()); i++) {
+			Direction side = walls.get(i);
+			int length = side.getAxis() == Direction.Axis.Z ? w : d;
+			row(g, side, 1, length - 2, i == 1 ? ModBlocks.PARCEL_LOCKER : ModBlocks.PACKAGE_SHELF, i == 1, 1);
+		}
 		put(g, w / 2, d / 2, ModBlocks.SIDE_TABLE, N);
 		put(g, 0, 0, ModBlocks.RECYCLING_BIN, S);
 		put(g, w - 1, 0, ModBlocks.TRASH_BIN, S);
 		g.flush();
 		nameSign(c, w, "MAIL & PACKAGES", "Parcel lockers", "open 24/7");
 		finish(g, false);
+	}
+
+	/** Mailbox banks stacked two or three high on every free solid cell of one wall. */
+	private static void mailboxWall(RoomGrid g, Direction side, int h) {
+		Direction facing = side.getOpposite();
+		for (int[] p : g.side(side)) {
+			if (g.edge(p[0], p[1], side) != RoomGrid.Edge.WALL || !g.free(p[0], p[1])) {
+				continue;
+			}
+			int x = p[0];
+			int z = p[1];
+			RoomGrid.Tx tx = g.begin();
+			g.use(x, z);
+			if (!g.commitIfConnected(tx)) {
+				continue;
+			}
+			g.useDecor(x, z, side);
+			g.write(() -> {
+				for (int y = 1; y <= (h >= 4 ? 3 : 2); y++) {
+					g.c.put(x, y, z, ModBlocks.MAILBOX_BANK, facing);
+				}
+			});
+		}
 	}
 
 	// ================================================================================== fitness
@@ -867,7 +893,7 @@ public final class Amenities {
 	public static void leasing(Canvas c, int w, int d, int h, RandomSource r, InteriorStyle.Theme theme) {
 		RoomGrid g = grid(c, w, d, h, r, theme);
 		InteriorStyle st = g.style;
-		for (int i = 0; i < Math.min(3, (w - 1) / 3); i++) {
+		for (int i = 0; i < Math.min(4, (w - 1) / 3); i++) {
 			int x = 1 + i * 3;
 			if (put(g, x, d - 2, st.desk, N)) {
 				put(g, x, d - 1, ModBlocks.OFFICE_CHAIR, N);
@@ -876,7 +902,15 @@ public final class Amenities {
 				Furnish.tabletop(g, x, 2, d - 2, ModBlocks.DESKTOP_MONITOR, S, st.desk);
 			}
 		}
-		lounge(g, w / 2, 1, S, st.sofaBlock(), st.armchairBlock(), st.coffeeTable, st.rug, st.rugBorder);
+		// waiting lounge beside the walkway from the door, and a table for signing leases in wide offices
+		for (int[] a : new int[][] {{w / 2 + 4, 1}, {w / 2 - 4, 1}, {w / 2, d / 2 - 1}}) {
+			if (lounge(g, a[0], a[1], S, st.sofaBlock(), st.armchairBlock(), st.coffeeTable, st.rug, st.rugBorder)) {
+				break;
+			}
+		}
+		if (w >= 16) {
+			Furnish.dining(g, new Furnish.Zone(w / 2 + 2, d / 2 - 1, w - 2, d - 4), 2);
+		}
 		if (put(g, w - 1, 1, ModBlocks.kitchen(st.kitchen, ModBlocks.KitchenPart.CABINET), W)) {
 			Furnish.tabletop(g, w - 1, 2, 1, ModBlocks.COFFEE_MAKER, W, ModBlocks.kitchen(st.kitchen, ModBlocks.KitchenPart.CABINET));
 		}
