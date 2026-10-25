@@ -1,0 +1,9 @@
+{
+  "type": "modernapartments:apartment_complex",
+  "biomes": "#modernapartments:has_structure/apartment_complex",
+  "spawn_overrides": {},
+  "step": "surface_structures",
+  "terrain_adaptation": "none",
+  "complex": "courtyard",
+  "max_slope": 10
+}

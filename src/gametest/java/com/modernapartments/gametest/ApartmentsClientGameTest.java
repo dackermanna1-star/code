@@ -49,6 +49,12 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 			if (mode.contains("lofts")) {
 				units(context, world, true);
 			}
+			if (mode.startsWith("complex")) {
+				String which = System.getenv().getOrDefault("MA_COMPLEX", "metropolitan");
+				for (String id : which.split(",")) {
+					complex(context, world, com.modernapartments.build.ComplexType.byId(id));
+				}
+			}
 		}
 	}
 
@@ -143,35 +149,95 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 		}
 	}
 
-	/** Prints a character map of one buffer layer (for debugging layouts in the log). */
-	static void dump(com.modernapartments.build.BlockBuffer buf, int x0, int z0, int x1, int z1, int y) {
-		for (int z = z0; z <= z1; z++) {
-			StringBuilder line = new StringBuilder("[map] ");
-			for (int x = x0; x <= x1; x++) {
-				BlockState s = buf.get(x, y, z);
-				BlockState below = buf.get(x, y - 1, z);
-				char ch;
-				if (s == null) {
-					ch = below == null ? ' ' : '_';
-				} else if (s.isAir()) {
-					ch = below == null || below.isAir() ? 'v' : '.';
-				} else if (s.getBlock() instanceof DoorBlock) {
-					ch = 'D';
-				} else if (s.getBlock() instanceof net.minecraft.world.level.block.BedBlock) {
-					ch = 'b';
-				} else if (s.getBlock() instanceof net.minecraft.world.level.block.CarpetBlock) {
-					ch = 'r';
-				} else if (s.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
-					ch = '#';
-				} else if (s.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO).isEmpty()) {
-					ch = ',';
-				} else {
-					ch = 'f';
-				}
-				line.append(ch);
-			}
-			System.out.println(line);
+	/** Generates, validates and pastes a complex, then photographs it inside and out. */
+	private void complex(ClientGameTestContext context, TestSingleplayerContext world, com.modernapartments.build.ComplexType type) {
+		long seed = Long.parseLong(System.getenv().getOrDefault("MA_SEED", "1234"));
+		long t0 = System.currentTimeMillis();
+		com.modernapartments.build.BlockBuffer buf = com.modernapartments.build.BuildCache.generate(type, seed);
+		long t1 = System.currentTimeMillis();
+		com.modernapartments.build.validation.ReachabilityValidator.Report report =
+			com.modernapartments.build.validation.ReachabilityValidator.validate(buf);
+		System.out.println("[complex] " + type.id() + " generated in " + (t1 - t0) + " ms, validated in "
+			+ (System.currentTimeMillis() - t1) + " ms: units=" + buf.markers("unit").size() + " markers=" + report.markersChecked()
+			+ " unreachable=" + report.unreachable().size() + " warnings=" + report.warnings().size() + " nodes=" + report.nodesVisited());
+		report.unreachable().stream().limit(40).forEach(u -> System.out.println("[complex] unreachable " + u));
+		report.warnings().stream().limit(40).forEach(w -> System.out.println("[complex] warning " + w));
+		BlockPos origin = new BlockPos(0, 0, 0);
+		context.runOnClient(client -> client.options.renderDistance().set(12));
+		world.getServer().runOnServer(server -> server.getPlayerList().setViewDistance(12));
+		world.getServer().runOnServer(server -> TestPaste.paste(server.overworld(), buf, origin, buf.sizeY));
+		context.waitTicks(20);
+		int cx = buf.sizeX / 2;
+		int cz = buf.sizeZ / 2;
+		int gy = buf.groundY;
+		String id = type.id();
+		// exterior: three-quarter views aimed at the middle of the building, an aerial and a street view
+		double tx = cx;
+		double ty = gy + Math.min(buf.sizeY - gy, 60) * 0.45;
+		double tz = cz;
+		double dist = Math.max(buf.sizeX, buf.sizeZ) * 0.95 + 12;
+		double[][] cams = {
+			{cx - dist * 0.7, gy + dist * 0.45, -dist * 0.55},
+			{cx + dist * 0.7, gy + dist * 0.45, -dist * 0.55},
+			{cx + dist * 0.8, gy + dist * 0.5, buf.sizeZ + dist * 0.4},
+			{cx, gy + dist * 1.2, cz - dist * 0.25},
+			{cx - 9, gy + 2.6, -7},
+		};
+		String[] names = {"front_left", "front_right", "back_right", "aerial", "street"};
+		for (int i = 0; i < cams.length; i++) {
+			double[] p = cams[i];
+			double aimY = i == 4 ? gy + 8 : (i == 3 ? gy : ty);
+			double dx = tx - p[0];
+			double dy = aimY - p[1];
+			double dz = tz - p[2];
+			float yaw = (float) Math.toDegrees(Math.atan2(-dx, dz));
+			float pitch = (float) -Math.toDegrees(Math.atan2(dy, Math.sqrt(dx * dx + dz * dz)));
+			world.getServer().runCommand(String.format(java.util.Locale.ROOT, "tp @a %.1f %.1f %.1f %.1f %.1f", p[0], p[1], p[2], yaw, pitch));
+			context.waitTicks(10);
+			settle(world);
+			context.takeScreenshot(TestScreenshotOptions.of(id + "_ext_" + names[i]).withSize(1600, 900));
 		}
+		// interiors at amenity markers and a sample of units (near chunks only)
+		context.runOnClient(client -> client.options.renderDistance().set(3));
+		List<com.modernapartments.build.BlockBuffer.Marker> shots = new java.util.ArrayList<>(buf.markers("amenity"));
+		List<com.modernapartments.build.BlockBuffer.Marker> units = buf.markers("unit");
+		for (int i = 0; i < units.size(); i += Math.max(1, units.size() / 6)) {
+			shots.add(units.get(i));
+		}
+		int n = 0;
+		for (com.modernapartments.build.BlockBuffer.Marker m : shots) {
+			BlockPos p = m.pos();
+			for (float yaw : m.type().equals("unit") ? new float[] {30f, 210f} : new float[] {30f}) {
+				world.getServer().runCommand(String.format(java.util.Locale.ROOT, "tp @a %.1f %.1f %.1f %.1f 10",
+					p.getX() + 0.5, p.getY() + 0.1, p.getZ() + 0.5, yaw));
+				context.waitTicks(4);
+				settleNear(world);
+				context.takeScreenshot(TestScreenshotOptions.of(String.format("%s_int_%02d_%s_%d", id, n, m.label().replace(' ', '_')
+					.replace('\'', '_').replace('&', 'n'), (int) yaw)).withSize(1280, 720));
+			}
+			n++;
+		}
+	}
+
+	private static void settleNear(TestSingleplayerContext world) {
+		try {
+			world.getClientWorld().waitForChunksRender(200);
+		} catch (AssertionError e) {
+			System.out.println("[complex] near chunks still rendering");
+		}
+	}
+
+	/** Waits (up to a minute) for chunk meshes; slow software rendering is tolerated. */
+	private static void settle(TestSingleplayerContext world) {
+		try {
+			world.getClientWorld().waitForChunksRender(1200);
+		} catch (AssertionError e) {
+			System.out.println("[complex] chunks still rendering, taking the shot anyway");
+		}
+	}
+
+	static void dump(com.modernapartments.build.BlockBuffer buf, int x0, int z0, int x1, int z1, int y) {
+		TestDump.dump(buf, x0, z0, x1, z1, y);
 	}
 
 	private static void place(ServerLevel level, BlockPos pos, Block block) {

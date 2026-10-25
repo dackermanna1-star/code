@@ -5,7 +5,12 @@
 	"name": "Modern Apartments GameTests",
 	"environment": "*",
 	"entrypoints": {
-		"fabric-client-gametest": ["com.modernapartments.gametest.ApartmentsClientGameTest"]
+		"fabric-client-gametest": [
+			"com.modernapartments.gametest.ApartmentsClientGameTest"
+		],
+		"fabric-gametest": [
+			"com.modernapartments.gametest.ApartmentsGameTest"
+		]
 	},
 	"depends": {
 		"modernapartments": "*"

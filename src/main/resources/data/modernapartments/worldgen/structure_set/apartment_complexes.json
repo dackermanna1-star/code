@@ -1,0 +1,30 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 1940771205,
+    "separation": 32,
+    "spacing": 72
+  },
+  "structures": [
+    {
+      "structure": "modernapartments:parkside",
+      "weight": 3
+    },
+    {
+      "structure": "modernapartments:courtyard",
+      "weight": 3
+    },
+    {
+      "structure": "modernapartments:urban_lofts",
+      "weight": 3
+    },
+    {
+      "structure": "modernapartments:metropolitan",
+      "weight": 2
+    },
+    {
+      "structure": "modernapartments:skyline",
+      "weight": 1
+    }
+  ]
+}
