@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "E": "minecraft:echo_shard",
+    "D": "minecraft:diamond_block",
+    "N": "minecraft:netherite_ingot",
+    "S": "minecraft:nether_star"
+  },
+  "pattern": [
+    "EDE",
+    "NSN",
+    "EDE"
+  ],
+  "result": {
+    "count": 1,
+    "id": "godforge:divine_core"
+  }
+}

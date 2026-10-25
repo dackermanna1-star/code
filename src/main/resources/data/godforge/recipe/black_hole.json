@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "Y": "minecraft:crying_obsidian",
+    "E": "minecraft:ender_eye",
+    "C": "godforge:divine_core",
+    "H": "minecraft:heavy_core"
+  },
+  "pattern": [
+    "YEY",
+    "ECE",
+    " H "
+  ],
+  "result": {
+    "count": 1,
+    "id": "godforge:black_hole"
+  }
+}

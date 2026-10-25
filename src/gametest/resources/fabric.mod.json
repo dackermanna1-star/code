@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "godforge-gametest",
+  "version": "1.0.0",
+  "name": "Godforge Arsenal Game Tests",
+  "description": "Development-only client game tests for Godforge Arsenal.",
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "fabric-client-gametest": [
+      "com.godforge.gametest.GodforgeClientGameTest"
+    ]
+  },
+  "depends": {
+    "godforge": "*",
+    "fabric-client-gametest-api-v1": "*"
+  }
+}

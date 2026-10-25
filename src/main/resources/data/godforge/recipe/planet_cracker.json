@@ -1,0 +1,21 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "I": "minecraft:iron_block",
+    "T": "minecraft:tnt",
+    "O": "minecraft:obsidian",
+    "C": "godforge:divine_core",
+    "N": "minecraft:netherite_ingot",
+    "D": "minecraft:dispenser"
+  },
+  "pattern": [
+    "ITI",
+    "OCO",
+    "NDN"
+  ],
+  "result": {
+    "count": 1,
+    "id": "godforge:planet_cracker"
+  }
+}

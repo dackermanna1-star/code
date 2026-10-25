@@ -1,0 +1,25 @@
+{
+ "model": {
+  "type": "minecraft:select",
+  "property": "minecraft:display_context",
+  "cases": [
+   {
+    "when": [
+     "gui",
+     "ground",
+     "fixed",
+     "on_shelf"
+    ],
+    "model": {
+     "type": "minecraft:model",
+     "model": "godforge:item/planet_cracker_icon"
+    }
+   }
+  ],
+  "fallback": {
+   "type": "minecraft:model",
+   "model": "godforge:item/planet_cracker"
+  }
+ },
+ "hand_animation_on_swap": true
+}

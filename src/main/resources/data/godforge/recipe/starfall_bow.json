@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "F": "minecraft:firework_star",
+    "G": "minecraft:glowstone",
+    "C": "godforge:divine_core",
+    "B": "minecraft:bow"
+  },
+  "pattern": [
+    "FGF",
+    "GCG",
+    "FBF"
+  ],
+  "result": {
+    "count": 1,
+    "id": "godforge:starfall_bow"
+  }
+}

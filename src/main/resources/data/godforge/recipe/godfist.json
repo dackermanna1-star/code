@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "G": "minecraft:gold_block",
+    "N": "minecraft:netherite_ingot",
+    "C": "godforge:divine_core",
+    "P": "minecraft:piston"
+  },
+  "pattern": [
+    "GNG",
+    "NCN",
+    "GPG"
+  ],
+  "result": {
+    "count": 1,
+    "id": "godforge:godfist"
+  }
+}

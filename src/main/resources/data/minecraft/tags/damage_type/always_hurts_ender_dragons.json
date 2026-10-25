@@ -1,0 +1,15 @@
+{
+  "replace": false,
+  "values": [
+    "godforge:worldcutter",
+    "godforge:laser_beam",
+    "godforge:orb_eraser",
+    "godforge:asteroid_gun",
+    "godforge:black_hole",
+    "godforge:reality_breaker",
+    "godforge:starfall_bow",
+    "godforge:godfist",
+    "godforge:sunforge",
+    "godforge:planet_cracker"
+  ]
+}

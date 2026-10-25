@@ -1,0 +1,32 @@
+{
+ "model": {
+  "type": "minecraft:select",
+  "property": "minecraft:display_context",
+  "cases": [
+   {
+    "when": [
+     "gui",
+     "ground",
+     "fixed",
+     "on_shelf"
+    ],
+    "model": {
+     "type": "minecraft:model",
+     "model": "godforge:item/laser_beam_icon"
+    }
+   }
+  ],
+  "fallback": {
+   "type": "minecraft:model",
+   "model": "godforge:item/laser_beam",
+   "tints": [
+    {
+     "type": "minecraft:custom_model_data",
+     "index": 0,
+     "default": -1
+    }
+   ]
+  }
+ },
+ "hand_animation_on_swap": true
+}

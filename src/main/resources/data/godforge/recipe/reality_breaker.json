@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "S": "minecraft:echo_shard",
+    "A": "minecraft:amethyst_block",
+    "E": "minecraft:ender_pearl",
+    "C": "godforge:divine_core",
+    "M": "minecraft:mace"
+  },
+  "pattern": [
+    "SAS",
+    "ECE",
+    " M "
+  ],
+  "result": {
+    "count": 1,
+    "id": "godforge:reality_breaker"
+  }
+}

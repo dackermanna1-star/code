@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "P": "minecraft:prismarine_crystals",
+    "A": "minecraft:amethyst_block",
+    "C": "godforge:divine_core",
+    "B": "minecraft:end_rod"
+  },
+  "pattern": [
+    "PAP",
+    "ACA",
+    " B "
+  ],
+  "result": {
+    "count": 1,
+    "id": "godforge:orb_eraser"
+  }
+}

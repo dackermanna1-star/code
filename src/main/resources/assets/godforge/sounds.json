@@ -1,0 +1,344 @@
+{
+ "charge_up": {
+  "subtitle": "subtitles.godforge.charge_up",
+  "sounds": [
+   {
+    "name": "godforge:charge_up",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "mode_switch": {
+  "subtitle": "subtitles.godforge.mode_switch",
+  "sounds": [
+   {
+    "name": "godforge:mode_switch",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "big_explosion": {
+  "subtitle": "subtitles.godforge.big_explosion",
+  "sounds": [
+   {
+    "name": "godforge:big_explosion",
+    "attenuation_distance": 64
+   }
+  ]
+ },
+ "shockwave": {
+  "subtitle": "subtitles.godforge.shockwave",
+  "sounds": [
+   {
+    "name": "godforge:shockwave",
+    "attenuation_distance": 48
+   }
+  ]
+ },
+ "debris_impact": {
+  "subtitle": "subtitles.godforge.debris_impact",
+  "sounds": [
+   {
+    "name": "godforge:debris_impact",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "worldcutter_slash": {
+  "subtitle": "subtitles.godforge.worldcutter_slash",
+  "sounds": [
+   {
+    "name": "godforge:worldcutter_slash",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "worldcutter_sever": {
+  "subtitle": "subtitles.godforge.worldcutter_sever",
+  "sounds": [
+   {
+    "name": "godforge:worldcutter_sever",
+    "attenuation_distance": 96
+   }
+  ]
+ },
+ "worldcutter_rumble": {
+  "subtitle": "subtitles.godforge.worldcutter_rumble",
+  "sounds": [
+   {
+    "name": "godforge:worldcutter_rumble",
+    "attenuation_distance": 64
+   }
+  ]
+ },
+ "laser_loop": {
+  "subtitle": "subtitles.godforge.laser_loop",
+  "sounds": [
+   {
+    "name": "godforge:laser_loop",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "laser_start": {
+  "subtitle": "subtitles.godforge.laser_start",
+  "sounds": [
+   {
+    "name": "godforge:laser_start",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "laser_stop": {
+  "subtitle": "subtitles.godforge.laser_stop",
+  "sounds": [
+   {
+    "name": "godforge:laser_stop",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "laser_overload": {
+  "subtitle": "subtitles.godforge.laser_overload",
+  "sounds": [
+   {
+    "name": "godforge:laser_overload",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "orb_charge": {
+  "subtitle": "subtitles.godforge.orb_charge",
+  "sounds": [
+   {
+    "name": "godforge:orb_charge",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "orb_fire": {
+  "subtitle": "subtitles.godforge.orb_fire",
+  "sounds": [
+   {
+    "name": "godforge:orb_fire",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "orb_travel": {
+  "subtitle": "subtitles.godforge.orb_travel",
+  "sounds": [
+   {
+    "name": "godforge:orb_travel",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "orb_impact": {
+  "subtitle": "subtitles.godforge.orb_impact",
+  "sounds": [
+   {
+    "name": "godforge:orb_impact",
+    "attenuation_distance": 64
+   }
+  ]
+ },
+ "asteroid_lock": {
+  "subtitle": "subtitles.godforge.asteroid_lock",
+  "sounds": [
+   {
+    "name": "godforge:asteroid_lock",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "asteroid_incoming": {
+  "subtitle": "subtitles.godforge.asteroid_incoming",
+  "sounds": [
+   {
+    "name": "godforge:asteroid_incoming",
+    "attenuation_distance": 96
+   }
+  ]
+ },
+ "asteroid_impact": {
+  "subtitle": "subtitles.godforge.asteroid_impact",
+  "sounds": [
+   {
+    "name": "godforge:asteroid_impact",
+    "attenuation_distance": 96
+   }
+  ]
+ },
+ "blackhole_launch": {
+  "subtitle": "subtitles.godforge.blackhole_launch",
+  "sounds": [
+   {
+    "name": "godforge:blackhole_launch",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "blackhole_loop": {
+  "subtitle": "subtitles.godforge.blackhole_loop",
+  "sounds": [
+   {
+    "name": "godforge:blackhole_loop",
+    "attenuation_distance": 32
+   }
+  ]
+ },
+ "blackhole_collapse": {
+  "subtitle": "subtitles.godforge.blackhole_collapse",
+  "sounds": [
+   {
+    "name": "godforge:blackhole_collapse",
+    "attenuation_distance": 64
+   }
+  ]
+ },
+ "reality_shatter": {
+  "subtitle": "subtitles.godforge.reality_shatter",
+  "sounds": [
+   {
+    "name": "godforge:reality_shatter",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "rift_loop": {
+  "subtitle": "subtitles.godforge.rift_loop",
+  "sounds": [
+   {
+    "name": "godforge:rift_loop",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "reality_collapse": {
+  "subtitle": "subtitles.godforge.reality_collapse",
+  "sounds": [
+   {
+    "name": "godforge:reality_collapse",
+    "attenuation_distance": 96
+   }
+  ]
+ },
+ "starfall_shoot": {
+  "subtitle": "subtitles.godforge.starfall_shoot",
+  "sounds": [
+   {
+    "name": "godforge:starfall_shoot",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "star_impact": {
+  "subtitle": "subtitles.godforge.star_impact",
+  "sounds": [
+   {
+    "name": "godforge:star_impact",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "starfall_judgment": {
+  "subtitle": "subtitles.godforge.starfall_judgment",
+  "sounds": [
+   {
+    "name": "godforge:starfall_judgment",
+    "attenuation_distance": 96
+   }
+  ]
+ },
+ "godfist_punch": {
+  "subtitle": "subtitles.godforge.godfist_punch",
+  "sounds": [
+   {
+    "name": "godforge:godfist_punch",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "godfist_shockwave": {
+  "subtitle": "subtitles.godforge.godfist_shockwave",
+  "sounds": [
+   {
+    "name": "godforge:godfist_shockwave",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "godfist_slam": {
+  "subtitle": "subtitles.godforge.godfist_slam",
+  "sounds": [
+   {
+    "name": "godforge:godfist_slam",
+    "attenuation_distance": 96
+   }
+  ]
+ },
+ "sunforge_bolt": {
+  "subtitle": "subtitles.godforge.sunforge_bolt",
+  "sounds": [
+   {
+    "name": "godforge:sunforge_bolt",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "sun_loop": {
+  "subtitle": "subtitles.godforge.sun_loop",
+  "sounds": [
+   {
+    "name": "godforge:sun_loop",
+    "attenuation_distance": 48
+   }
+  ]
+ },
+ "solar_eruption": {
+  "subtitle": "subtitles.godforge.solar_eruption",
+  "sounds": [
+   {
+    "name": "godforge:solar_eruption",
+    "attenuation_distance": 96
+   }
+  ]
+ },
+ "cracker_charge": {
+  "subtitle": "subtitles.godforge.cracker_charge",
+  "sounds": [
+   {
+    "name": "godforge:cracker_charge",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "cracker_fire": {
+  "subtitle": "subtitles.godforge.cracker_fire",
+  "sounds": [
+   {
+    "name": "godforge:cracker_fire",
+    "attenuation_distance": 24
+   }
+  ]
+ },
+ "cracker_impact": {
+  "subtitle": "subtitles.godforge.cracker_impact",
+  "sounds": [
+   {
+    "name": "godforge:cracker_impact",
+    "attenuation_distance": 96
+   }
+  ]
+ },
+ "orbital_strike": {
+  "subtitle": "subtitles.godforge.orbital_strike",
+  "sounds": [
+   {
+    "name": "godforge:orbital_strike",
+    "attenuation_distance": 80
+   }
+  ]
+ }
+}

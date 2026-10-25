@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "equipment",
+  "key": {
+    "G": "minecraft:gold_block",
+    "B": "minecraft:beacon",
+    "L": "minecraft:magma_cream",
+    "C": "godforge:divine_core",
+    "R": "minecraft:blaze_rod"
+  },
+  "pattern": [
+    "GBG",
+    "LCL",
+    " R "
+  ],
+  "result": {
+    "count": 1,
+    "id": "godforge:sunforge"
+  }
+}

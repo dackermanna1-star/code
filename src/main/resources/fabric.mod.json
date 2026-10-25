@@ -1,0 +1,35 @@
+{
+	"schemaVersion": 1,
+	"id": "godforge",
+	"version": "${version}",
+	"name": "Godforge Arsenal",
+	"description": "Ten god-tier weapons that reshape reality: the Worldcutter, Laser Beam, Orb Eraser, Asteroid Gun, Black Hole, Reality Breaker, Starfall Bow, Godfist, Sunforge and Planet Cracker.",
+	"authors": [
+		"Godforge"
+	],
+	"license": "MIT",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.godforge.Godforge"
+		],
+		"client": [
+			"com.godforge.client.GodforgeClient"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"mixins": [
+		"godforge.mixins.json",
+		{
+			"config": "godforge.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"icon": "assets/godforge/icon.png",
+	"contact": {}
+}
