@@ -19,6 +19,20 @@ public class CoffeeMakerBlock extends FurnitureBlock {
 
 	public CoffeeMakerBlock(Properties properties) {
 		super(properties);
+		this.registerDefaultState(this.defaultBlockState().setValue(ModProperties.DROP, 0));
+	}
+
+	@Override
+	protected void createBlockStateDefinition(net.minecraft.world.level.block.state.StateDefinition.Builder<net.minecraft.world.level.block.Block, BlockState> builder) {
+		super.createBlockStateDefinition(builder);
+		builder.add(ModProperties.DROP);
+	}
+
+	@Override
+	public BlockState getStateForPlacement(net.minecraft.world.item.context.BlockPlaceContext context) {
+		BlockState state = super.getStateForPlacement(context);
+		return state == null ? null : state.setValue(ModProperties.DROP, Tabletop.dropOnto(
+			context.getLevel().getBlockState(context.getClickedPos().below()), context.getLevel(), context.getClickedPos().below()));
 	}
 
 	@Override

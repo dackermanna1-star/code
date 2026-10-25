@@ -25,6 +25,10 @@ public final class ShapeProvider {
 		this.facing = facing;
 	}
 
+	private static double dropOffset(BlockState s) {
+		return s.hasProperty(ModProperties.DROP) ? -s.getValue(ModProperties.DROP) / 16.0 : 0.0;
+	}
+
 	public VoxelShape get(BlockState state) {
 		Map<BlockState, VoxelShape> map = cache;
 		if (map == null) {
@@ -34,7 +38,9 @@ public final class ShapeProvider {
 					map = new IdentityHashMap<>();
 					String id = BuiltInRegistries.BLOCK.getKey(block).getPath();
 					for (BlockState s : block.getStateDefinition().getPossibleStates()) {
-						map.put(s, FurnitureShapes.get(id, key.apply(s), facing.apply(s)));
+						VoxelShape shape = FurnitureShapes.get(id, key.apply(s), facing.apply(s));
+						double dy = dropOffset(s);
+						map.put(s, dy == 0.0 ? shape : shape.move(0.0, dy, 0.0));
 					}
 					cache = map;
 				}

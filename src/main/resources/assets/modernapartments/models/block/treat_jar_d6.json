@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/treat_jar__d6",
+  "textures": {
+    "glass": "modernapartments:block/glass_clear",
+    "treats": "modernapartments:block/wood_teak",
+    "lid": "modernapartments:block/metal_chrome",
+    "particle": "modernapartments:block/glass_clear"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/fruit_bowl__d6",
+  "textures": {
+    "bowl": "modernapartments:block/wood_walnut",
+    "fruit_a": "modernapartments:block/plastic_red",
+    "fruit_b": "modernapartments:block/plastic_yellow",
+    "fruit_c": "modernapartments:block/plastic_green",
+    "particle": "modernapartments:block/wood_walnut"
+  }
+}

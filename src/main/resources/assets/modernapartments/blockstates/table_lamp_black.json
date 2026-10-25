@@ -1,33 +1,393 @@
 {
   "variants": {
-    "facing=north,lit=false": {
+    "facing=north,lit=false,drop=0": {
       "model": "modernapartments:block/table_lamp_black_off"
     },
-    "facing=north,lit=true": {
+    "facing=north,lit=false,drop=1": {
+      "model": "modernapartments:block/table_lamp_black_off_d1"
+    },
+    "facing=north,lit=false,drop=2": {
+      "model": "modernapartments:block/table_lamp_black_off_d2"
+    },
+    "facing=north,lit=false,drop=3": {
+      "model": "modernapartments:block/table_lamp_black_off_d3"
+    },
+    "facing=north,lit=false,drop=4": {
+      "model": "modernapartments:block/table_lamp_black_off_d4"
+    },
+    "facing=north,lit=false,drop=5": {
+      "model": "modernapartments:block/table_lamp_black_off_d5"
+    },
+    "facing=north,lit=false,drop=6": {
+      "model": "modernapartments:block/table_lamp_black_off_d6"
+    },
+    "facing=north,lit=false,drop=7": {
+      "model": "modernapartments:block/table_lamp_black_off_d7"
+    },
+    "facing=north,lit=false,drop=8": {
+      "model": "modernapartments:block/table_lamp_black_off_d8"
+    },
+    "facing=north,lit=false,drop=9": {
+      "model": "modernapartments:block/table_lamp_black_off_d9"
+    },
+    "facing=north,lit=false,drop=10": {
+      "model": "modernapartments:block/table_lamp_black_off_d10"
+    },
+    "facing=north,lit=false,drop=11": {
+      "model": "modernapartments:block/table_lamp_black_off_d11"
+    },
+    "facing=north,lit=false,drop=12": {
+      "model": "modernapartments:block/table_lamp_black_off_d12"
+    },
+    "facing=north,lit=true,drop=0": {
       "model": "modernapartments:block/table_lamp_black_on"
     },
-    "facing=east,lit=false": {
+    "facing=north,lit=true,drop=1": {
+      "model": "modernapartments:block/table_lamp_black_on_d1"
+    },
+    "facing=north,lit=true,drop=2": {
+      "model": "modernapartments:block/table_lamp_black_on_d2"
+    },
+    "facing=north,lit=true,drop=3": {
+      "model": "modernapartments:block/table_lamp_black_on_d3"
+    },
+    "facing=north,lit=true,drop=4": {
+      "model": "modernapartments:block/table_lamp_black_on_d4"
+    },
+    "facing=north,lit=true,drop=5": {
+      "model": "modernapartments:block/table_lamp_black_on_d5"
+    },
+    "facing=north,lit=true,drop=6": {
+      "model": "modernapartments:block/table_lamp_black_on_d6"
+    },
+    "facing=north,lit=true,drop=7": {
+      "model": "modernapartments:block/table_lamp_black_on_d7"
+    },
+    "facing=north,lit=true,drop=8": {
+      "model": "modernapartments:block/table_lamp_black_on_d8"
+    },
+    "facing=north,lit=true,drop=9": {
+      "model": "modernapartments:block/table_lamp_black_on_d9"
+    },
+    "facing=north,lit=true,drop=10": {
+      "model": "modernapartments:block/table_lamp_black_on_d10"
+    },
+    "facing=north,lit=true,drop=11": {
+      "model": "modernapartments:block/table_lamp_black_on_d11"
+    },
+    "facing=north,lit=true,drop=12": {
+      "model": "modernapartments:block/table_lamp_black_on_d12"
+    },
+    "facing=east,lit=false,drop=0": {
       "model": "modernapartments:block/table_lamp_black_off",
       "y": 90
     },
-    "facing=east,lit=true": {
+    "facing=east,lit=false,drop=1": {
+      "model": "modernapartments:block/table_lamp_black_off_d1",
+      "y": 90
+    },
+    "facing=east,lit=false,drop=2": {
+      "model": "modernapartments:block/table_lamp_black_off_d2",
+      "y": 90
+    },
+    "facing=east,lit=false,drop=3": {
+      "model": "modernapartments:block/table_lamp_black_off_d3",
+      "y": 90
+    },
+    "facing=east,lit=false,drop=4": {
+      "model": "modernapartments:block/table_lamp_black_off_d4",
+      "y": 90
+    },
+    "facing=east,lit=false,drop=5": {
+      "model": "modernapartments:block/table_lamp_black_off_d5",
+      "y": 90
+    },
+    "facing=east,lit=false,drop=6": {
+      "model": "modernapartments:block/table_lamp_black_off_d6",
+      "y": 90
+    },
+    "facing=east,lit=false,drop=7": {
+      "model": "modernapartments:block/table_lamp_black_off_d7",
+      "y": 90
+    },
+    "facing=east,lit=false,drop=8": {
+      "model": "modernapartments:block/table_lamp_black_off_d8",
+      "y": 90
+    },
+    "facing=east,lit=false,drop=9": {
+      "model": "modernapartments:block/table_lamp_black_off_d9",
+      "y": 90
+    },
+    "facing=east,lit=false,drop=10": {
+      "model": "modernapartments:block/table_lamp_black_off_d10",
+      "y": 90
+    },
+    "facing=east,lit=false,drop=11": {
+      "model": "modernapartments:block/table_lamp_black_off_d11",
+      "y": 90
+    },
+    "facing=east,lit=false,drop=12": {
+      "model": "modernapartments:block/table_lamp_black_off_d12",
+      "y": 90
+    },
+    "facing=east,lit=true,drop=0": {
       "model": "modernapartments:block/table_lamp_black_on",
       "y": 90
     },
-    "facing=south,lit=false": {
+    "facing=east,lit=true,drop=1": {
+      "model": "modernapartments:block/table_lamp_black_on_d1",
+      "y": 90
+    },
+    "facing=east,lit=true,drop=2": {
+      "model": "modernapartments:block/table_lamp_black_on_d2",
+      "y": 90
+    },
+    "facing=east,lit=true,drop=3": {
+      "model": "modernapartments:block/table_lamp_black_on_d3",
+      "y": 90
+    },
+    "facing=east,lit=true,drop=4": {
+      "model": "modernapartments:block/table_lamp_black_on_d4",
+      "y": 90
+    },
+    "facing=east,lit=true,drop=5": {
+      "model": "modernapartments:block/table_lamp_black_on_d5",
+      "y": 90
+    },
+    "facing=east,lit=true,drop=6": {
+      "model": "modernapartments:block/table_lamp_black_on_d6",
+      "y": 90
+    },
+    "facing=east,lit=true,drop=7": {
+      "model": "modernapartments:block/table_lamp_black_on_d7",
+      "y": 90
+    },
+    "facing=east,lit=true,drop=8": {
+      "model": "modernapartments:block/table_lamp_black_on_d8",
+      "y": 90
+    },
+    "facing=east,lit=true,drop=9": {
+      "model": "modernapartments:block/table_lamp_black_on_d9",
+      "y": 90
+    },
+    "facing=east,lit=true,drop=10": {
+      "model": "modernapartments:block/table_lamp_black_on_d10",
+      "y": 90
+    },
+    "facing=east,lit=true,drop=11": {
+      "model": "modernapartments:block/table_lamp_black_on_d11",
+      "y": 90
+    },
+    "facing=east,lit=true,drop=12": {
+      "model": "modernapartments:block/table_lamp_black_on_d12",
+      "y": 90
+    },
+    "facing=south,lit=false,drop=0": {
       "model": "modernapartments:block/table_lamp_black_off",
       "y": 180
     },
-    "facing=south,lit=true": {
+    "facing=south,lit=false,drop=1": {
+      "model": "modernapartments:block/table_lamp_black_off_d1",
+      "y": 180
+    },
+    "facing=south,lit=false,drop=2": {
+      "model": "modernapartments:block/table_lamp_black_off_d2",
+      "y": 180
+    },
+    "facing=south,lit=false,drop=3": {
+      "model": "modernapartments:block/table_lamp_black_off_d3",
+      "y": 180
+    },
+    "facing=south,lit=false,drop=4": {
+      "model": "modernapartments:block/table_lamp_black_off_d4",
+      "y": 180
+    },
+    "facing=south,lit=false,drop=5": {
+      "model": "modernapartments:block/table_lamp_black_off_d5",
+      "y": 180
+    },
+    "facing=south,lit=false,drop=6": {
+      "model": "modernapartments:block/table_lamp_black_off_d6",
+      "y": 180
+    },
+    "facing=south,lit=false,drop=7": {
+      "model": "modernapartments:block/table_lamp_black_off_d7",
+      "y": 180
+    },
+    "facing=south,lit=false,drop=8": {
+      "model": "modernapartments:block/table_lamp_black_off_d8",
+      "y": 180
+    },
+    "facing=south,lit=false,drop=9": {
+      "model": "modernapartments:block/table_lamp_black_off_d9",
+      "y": 180
+    },
+    "facing=south,lit=false,drop=10": {
+      "model": "modernapartments:block/table_lamp_black_off_d10",
+      "y": 180
+    },
+    "facing=south,lit=false,drop=11": {
+      "model": "modernapartments:block/table_lamp_black_off_d11",
+      "y": 180
+    },
+    "facing=south,lit=false,drop=12": {
+      "model": "modernapartments:block/table_lamp_black_off_d12",
+      "y": 180
+    },
+    "facing=south,lit=true,drop=0": {
       "model": "modernapartments:block/table_lamp_black_on",
       "y": 180
     },
-    "facing=west,lit=false": {
+    "facing=south,lit=true,drop=1": {
+      "model": "modernapartments:block/table_lamp_black_on_d1",
+      "y": 180
+    },
+    "facing=south,lit=true,drop=2": {
+      "model": "modernapartments:block/table_lamp_black_on_d2",
+      "y": 180
+    },
+    "facing=south,lit=true,drop=3": {
+      "model": "modernapartments:block/table_lamp_black_on_d3",
+      "y": 180
+    },
+    "facing=south,lit=true,drop=4": {
+      "model": "modernapartments:block/table_lamp_black_on_d4",
+      "y": 180
+    },
+    "facing=south,lit=true,drop=5": {
+      "model": "modernapartments:block/table_lamp_black_on_d5",
+      "y": 180
+    },
+    "facing=south,lit=true,drop=6": {
+      "model": "modernapartments:block/table_lamp_black_on_d6",
+      "y": 180
+    },
+    "facing=south,lit=true,drop=7": {
+      "model": "modernapartments:block/table_lamp_black_on_d7",
+      "y": 180
+    },
+    "facing=south,lit=true,drop=8": {
+      "model": "modernapartments:block/table_lamp_black_on_d8",
+      "y": 180
+    },
+    "facing=south,lit=true,drop=9": {
+      "model": "modernapartments:block/table_lamp_black_on_d9",
+      "y": 180
+    },
+    "facing=south,lit=true,drop=10": {
+      "model": "modernapartments:block/table_lamp_black_on_d10",
+      "y": 180
+    },
+    "facing=south,lit=true,drop=11": {
+      "model": "modernapartments:block/table_lamp_black_on_d11",
+      "y": 180
+    },
+    "facing=south,lit=true,drop=12": {
+      "model": "modernapartments:block/table_lamp_black_on_d12",
+      "y": 180
+    },
+    "facing=west,lit=false,drop=0": {
       "model": "modernapartments:block/table_lamp_black_off",
       "y": 270
     },
-    "facing=west,lit=true": {
+    "facing=west,lit=false,drop=1": {
+      "model": "modernapartments:block/table_lamp_black_off_d1",
+      "y": 270
+    },
+    "facing=west,lit=false,drop=2": {
+      "model": "modernapartments:block/table_lamp_black_off_d2",
+      "y": 270
+    },
+    "facing=west,lit=false,drop=3": {
+      "model": "modernapartments:block/table_lamp_black_off_d3",
+      "y": 270
+    },
+    "facing=west,lit=false,drop=4": {
+      "model": "modernapartments:block/table_lamp_black_off_d4",
+      "y": 270
+    },
+    "facing=west,lit=false,drop=5": {
+      "model": "modernapartments:block/table_lamp_black_off_d5",
+      "y": 270
+    },
+    "facing=west,lit=false,drop=6": {
+      "model": "modernapartments:block/table_lamp_black_off_d6",
+      "y": 270
+    },
+    "facing=west,lit=false,drop=7": {
+      "model": "modernapartments:block/table_lamp_black_off_d7",
+      "y": 270
+    },
+    "facing=west,lit=false,drop=8": {
+      "model": "modernapartments:block/table_lamp_black_off_d8",
+      "y": 270
+    },
+    "facing=west,lit=false,drop=9": {
+      "model": "modernapartments:block/table_lamp_black_off_d9",
+      "y": 270
+    },
+    "facing=west,lit=false,drop=10": {
+      "model": "modernapartments:block/table_lamp_black_off_d10",
+      "y": 270
+    },
+    "facing=west,lit=false,drop=11": {
+      "model": "modernapartments:block/table_lamp_black_off_d11",
+      "y": 270
+    },
+    "facing=west,lit=false,drop=12": {
+      "model": "modernapartments:block/table_lamp_black_off_d12",
+      "y": 270
+    },
+    "facing=west,lit=true,drop=0": {
       "model": "modernapartments:block/table_lamp_black_on",
+      "y": 270
+    },
+    "facing=west,lit=true,drop=1": {
+      "model": "modernapartments:block/table_lamp_black_on_d1",
+      "y": 270
+    },
+    "facing=west,lit=true,drop=2": {
+      "model": "modernapartments:block/table_lamp_black_on_d2",
+      "y": 270
+    },
+    "facing=west,lit=true,drop=3": {
+      "model": "modernapartments:block/table_lamp_black_on_d3",
+      "y": 270
+    },
+    "facing=west,lit=true,drop=4": {
+      "model": "modernapartments:block/table_lamp_black_on_d4",
+      "y": 270
+    },
+    "facing=west,lit=true,drop=5": {
+      "model": "modernapartments:block/table_lamp_black_on_d5",
+      "y": 270
+    },
+    "facing=west,lit=true,drop=6": {
+      "model": "modernapartments:block/table_lamp_black_on_d6",
+      "y": 270
+    },
+    "facing=west,lit=true,drop=7": {
+      "model": "modernapartments:block/table_lamp_black_on_d7",
+      "y": 270
+    },
+    "facing=west,lit=true,drop=8": {
+      "model": "modernapartments:block/table_lamp_black_on_d8",
+      "y": 270
+    },
+    "facing=west,lit=true,drop=9": {
+      "model": "modernapartments:block/table_lamp_black_on_d9",
+      "y": 270
+    },
+    "facing=west,lit=true,drop=10": {
+      "model": "modernapartments:block/table_lamp_black_on_d10",
+      "y": 270
+    },
+    "facing=west,lit=true,drop=11": {
+      "model": "modernapartments:block/table_lamp_black_on_d11",
+      "y": 270
+    },
+    "facing=west,lit=true,drop=12": {
+      "model": "modernapartments:block/table_lamp_black_on_d12",
       "y": 270
     }
   }

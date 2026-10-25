@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/flower_vase__d3",
+  "textures": {
+    "vase": "modernapartments:block/glass_tinted",
+    "plant": "modernapartments:block/plant_flowers",
+    "particle": "modernapartments:block/glass_tinted"
+  }
+}

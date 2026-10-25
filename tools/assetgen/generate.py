@@ -70,6 +70,9 @@ def write_models(templates: dict, blocks: list) -> None:
                    template_json(t['boxes'], t.get('display'), t.get('ao', True)))
 
     for b in blocks:
+        if b.id in catalog.TABLETOP:
+            write_tabletop_models(b, templates)
+            continue
         if b.kind == 'door':
             write_door_models(b)
             continue
@@ -82,6 +85,22 @@ def write_models(templates: dict, blocks: list) -> None:
             tx['particle'] = tex_ref(b.particle) if b.particle else next(iter(tx.values()))
             write_json(os.path.join(ASSETS, 'models', 'block', f'{b.id}' + (f'_{key}' if key else '') + '.json'),
                        {'parent': parent, 'textures': tx})
+
+
+def write_tabletop_models(b, templates: dict) -> None:
+    for key, (tpl, texs) in b.models.items():
+        tx = {k: tex_ref(v) for k, v in texs.items()}
+        tx['particle'] = tex_ref(b.particle) if b.particle else next(iter(tx.values()))
+        for d in catalog.DROPS:
+            name = tpl if d == 0 else f'{tpl}__d{d}'
+            if d and name not in templates:
+                templates[name] = dict(templates[tpl], boxes=[bx.moved(dy=-d) for bx in templates[tpl]['boxes']])
+            t = templates[name]
+            write_json(os.path.join(ASSETS, 'models', 'block', 'template', f'{name}.json'),
+                       template_json(t['boxes'], t.get('display'), t.get('ao', True)))
+            suffix = (f'_{key}' if key else '') + (f'_d{d}' if d else '')
+            write_json(os.path.join(ASSETS, 'models', 'block', f'{b.id}{suffix}.json'),
+                       {'parent': f'{NS}:block/template/{name}', 'textures': tx})
 
 
 def write_door_models(b) -> None:
@@ -115,6 +134,20 @@ def variant(model: str, y: int = 0, x: int = 0) -> dict:
 
 
 def blockstate(b) -> dict:
+    base = blockstate_base(b)
+    if b.id not in catalog.TABLETOP:
+        return base
+    out = {}
+    for key, v in base['variants'].items():
+        for d in catalog.DROPS:
+            vv = dict(v)
+            if d:
+                vv['model'] = v['model'] + f'_d{d}'
+            out[(key + ',' if key else '') + f'drop={d}'] = vv
+    return {'variants': out}
+
+
+def blockstate_base(b) -> dict:
     k = b.kind
     m = lambda key: model_name(b, key)  # noqa: E731
     if k in SIMPLE_KINDS:

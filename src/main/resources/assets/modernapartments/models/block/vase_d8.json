@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/vase__d8",
+  "textures": {
+    "vase": "modernapartments:block/ceramic_white",
+    "particle": "modernapartments:block/ceramic_white"
+  }
+}

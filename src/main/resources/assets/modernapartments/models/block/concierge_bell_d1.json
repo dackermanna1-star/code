@@ -1,0 +1,7 @@
+{
+  "parent": "modernapartments:block/template/concierge_bell__d1",
+  "textures": {
+    "metal": "modernapartments:block/metal_brass",
+    "particle": "modernapartments:block/metal_brass"
+  }
+}

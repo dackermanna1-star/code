@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/laptop__d11",
+  "textures": {
+    "body": "modernapartments:block/metal_steel",
+    "screen": "modernapartments:block/screen_off",
+    "particle": "modernapartments:block/metal_steel"
+  }
+}

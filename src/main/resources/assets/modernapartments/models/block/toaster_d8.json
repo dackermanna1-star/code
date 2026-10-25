@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/toaster__d8",
+  "textures": {
+    "side": "modernapartments:block/metal_chrome",
+    "slot": "modernapartments:block/plastic_black",
+    "particle": "modernapartments:block/metal_chrome"
+  }
+}

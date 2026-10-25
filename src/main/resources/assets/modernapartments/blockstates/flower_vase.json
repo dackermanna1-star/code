@@ -1,7 +1,43 @@
 {
   "variants": {
-    "": {
+    "drop=0": {
       "model": "modernapartments:block/flower_vase"
+    },
+    "drop=1": {
+      "model": "modernapartments:block/flower_vase_d1"
+    },
+    "drop=2": {
+      "model": "modernapartments:block/flower_vase_d2"
+    },
+    "drop=3": {
+      "model": "modernapartments:block/flower_vase_d3"
+    },
+    "drop=4": {
+      "model": "modernapartments:block/flower_vase_d4"
+    },
+    "drop=5": {
+      "model": "modernapartments:block/flower_vase_d5"
+    },
+    "drop=6": {
+      "model": "modernapartments:block/flower_vase_d6"
+    },
+    "drop=7": {
+      "model": "modernapartments:block/flower_vase_d7"
+    },
+    "drop=8": {
+      "model": "modernapartments:block/flower_vase_d8"
+    },
+    "drop=9": {
+      "model": "modernapartments:block/flower_vase_d9"
+    },
+    "drop=10": {
+      "model": "modernapartments:block/flower_vase_d10"
+    },
+    "drop=11": {
+      "model": "modernapartments:block/flower_vase_d11"
+    },
+    "drop=12": {
+      "model": "modernapartments:block/flower_vase_d12"
     }
   }
 }

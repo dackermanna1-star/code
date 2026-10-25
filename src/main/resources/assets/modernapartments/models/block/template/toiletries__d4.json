@@ -1,0 +1,280 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        3,
+        -4,
+        8
+      ],
+      "to": [
+        5.5,
+        2,
+        10.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            10.5,
+            10,
+            13,
+            16
+          ],
+          "texture": "#bottle_a"
+        },
+        "south": {
+          "uv": [
+            3,
+            10,
+            5.5,
+            16
+          ],
+          "texture": "#bottle_a"
+        },
+        "east": {
+          "uv": [
+            5.5,
+            10,
+            8,
+            16
+          ],
+          "texture": "#bottle_a"
+        },
+        "west": {
+          "uv": [
+            8,
+            10,
+            10.5,
+            16
+          ],
+          "texture": "#bottle_a"
+        },
+        "up": {
+          "uv": [
+            3,
+            8,
+            5.5,
+            10.5
+          ],
+          "texture": "#bottle_a"
+        },
+        "down": {
+          "uv": [
+            3,
+            5.5,
+            5.5,
+            8
+          ],
+          "texture": "#bottle_a",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        6.5,
+        -4,
+        8.5
+      ],
+      "to": [
+        8.5,
+        0,
+        10.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.5,
+            12,
+            9.5,
+            16
+          ],
+          "texture": "#bottle_b"
+        },
+        "south": {
+          "uv": [
+            6.5,
+            12,
+            8.5,
+            16
+          ],
+          "texture": "#bottle_b"
+        },
+        "east": {
+          "uv": [
+            5.5,
+            12,
+            7.5,
+            16
+          ],
+          "texture": "#bottle_b"
+        },
+        "west": {
+          "uv": [
+            8.5,
+            12,
+            10.5,
+            16
+          ],
+          "texture": "#bottle_b"
+        },
+        "up": {
+          "uv": [
+            6.5,
+            8.5,
+            8.5,
+            10.5
+          ],
+          "texture": "#bottle_b"
+        },
+        "down": {
+          "uv": [
+            6.5,
+            5.5,
+            8.5,
+            7.5
+          ],
+          "texture": "#bottle_b",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        9.5,
+        -4,
+        8
+      ],
+      "to": [
+        12,
+        1,
+        10.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            11,
+            6.5,
+            16
+          ],
+          "texture": "#bottle_c"
+        },
+        "south": {
+          "uv": [
+            9.5,
+            11,
+            12,
+            16
+          ],
+          "texture": "#bottle_c"
+        },
+        "east": {
+          "uv": [
+            5.5,
+            11,
+            8,
+            16
+          ],
+          "texture": "#bottle_c"
+        },
+        "west": {
+          "uv": [
+            8,
+            11,
+            10.5,
+            16
+          ],
+          "texture": "#bottle_c"
+        },
+        "up": {
+          "uv": [
+            9.5,
+            8,
+            12,
+            10.5
+          ],
+          "texture": "#bottle_c"
+        },
+        "down": {
+          "uv": [
+            9.5,
+            5.5,
+            12,
+            8
+          ],
+          "texture": "#bottle_c",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        9.8,
+        1,
+        8.8
+      ],
+      "to": [
+        11.6,
+        2.2,
+        9.8
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4.4,
+            13.8,
+            6.2,
+            15
+          ],
+          "texture": "#cap"
+        },
+        "south": {
+          "uv": [
+            9.8,
+            13.8,
+            11.6,
+            15
+          ],
+          "texture": "#cap"
+        },
+        "east": {
+          "uv": [
+            6.2,
+            13.8,
+            7.2,
+            15
+          ],
+          "texture": "#cap"
+        },
+        "west": {
+          "uv": [
+            8.8,
+            13.8,
+            9.8,
+            15
+          ],
+          "texture": "#cap"
+        },
+        "up": {
+          "uv": [
+            9.8,
+            8.8,
+            11.6,
+            9.8
+          ],
+          "texture": "#cap"
+        },
+        "down": {
+          "uv": [
+            9.8,
+            6.2,
+            11.6,
+            7.2
+          ],
+          "texture": "#cap"
+        }
+      }
+    }
+  ]
+}

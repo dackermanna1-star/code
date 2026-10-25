@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/toiletries__d1",
+  "textures": {
+    "bottle_a": "modernapartments:block/plastic_white",
+    "bottle_b": "modernapartments:block/plastic_blue",
+    "bottle_c": "modernapartments:block/glass_tinted",
+    "cap": "modernapartments:block/metal_chrome",
+    "particle": "modernapartments:block/plastic_white"
+  }
+}

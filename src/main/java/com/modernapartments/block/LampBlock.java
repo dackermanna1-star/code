@@ -35,6 +35,11 @@ public class LampBlock extends FurnitureBlock implements LightFixture {
 	}
 
 	@Override
+	protected String shapeKey(BlockState state) {
+		return state.getValue(BlockStateProperties.LIT) ? "on" : "off";
+	}
+
+	@Override
 	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
 		return toggleLight(state, level, pos);
 	}

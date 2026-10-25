@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/speaker__d6",
+  "textures": {
+    "body": "modernapartments:block/wood_walnut",
+    "front": "modernapartments:block/speaker_grille",
+    "particle": "modernapartments:block/wood_walnut"
+  }
+}

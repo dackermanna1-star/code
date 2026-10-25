@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/coffee_maker__d2",
+  "textures": {
+    "side": "modernapartments:block/plastic_black",
+    "glass": "modernapartments:block/glass_clear",
+    "coffee": "modernapartments:block/wood_ebony",
+    "particle": "modernapartments:block/plastic_black"
+  }
+}

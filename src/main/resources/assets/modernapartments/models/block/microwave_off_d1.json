@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/microwave__d1",
+  "textures": {
+    "front": "modernapartments:block/microwave_front",
+    "side": "modernapartments:block/metal_steel",
+    "particle": "modernapartments:block/microwave_front"
+  }
+}

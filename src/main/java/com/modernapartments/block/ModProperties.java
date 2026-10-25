@@ -3,12 +3,15 @@ package com.modernapartments.block;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.EnumProperty;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 
 /** Block state properties shared by the furniture blocks. */
 public final class ModProperties {
 	/** Appliances, screens and fixtures that can be switched on (lights use the vanilla {@code lit}). */
 	public static final BooleanProperty ON = BooleanProperty.create("on");
 	public static final EnumProperty<SofaShape> SOFA_SHAPE = EnumProperty.create("shape", SofaShape.class);
+	/** Tabletop items: how many pixels the model is lowered to rest on a furniture top below 16px. */
+	public static final IntegerProperty DROP = IntegerProperty.create("drop", 0, 12);
 
 	private ModProperties() {
 	}

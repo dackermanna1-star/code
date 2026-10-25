@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/book_stack__d2",
+  "textures": {
+    "book_a": "modernapartments:block/fabric_navy",
+    "book_b": "modernapartments:block/fabric_terracotta",
+    "book_c": "modernapartments:block/paint_cream",
+    "particle": "modernapartments:block/fabric_navy"
+  }
+}

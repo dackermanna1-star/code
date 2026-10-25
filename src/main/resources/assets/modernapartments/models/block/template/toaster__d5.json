@@ -1,0 +1,210 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        4,
+        -5,
+        6
+      ],
+      "to": [
+        12,
+        1,
+        11
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            10,
+            12,
+            16
+          ],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [
+            4,
+            10,
+            12,
+            16
+          ],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [
+            5,
+            10,
+            10,
+            16
+          ],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [
+            6,
+            10,
+            11,
+            16
+          ],
+          "texture": "#side"
+        },
+        "up": {
+          "uv": [
+            4,
+            6,
+            12,
+            11
+          ],
+          "texture": "#side"
+        },
+        "down": {
+          "uv": [
+            4,
+            5,
+            12,
+            10
+          ],
+          "texture": "#side",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        1,
+        7
+      ],
+      "to": [
+        11,
+        1.2,
+        8
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            14.8,
+            11,
+            15
+          ],
+          "texture": "#slot"
+        },
+        "south": {
+          "uv": [
+            5,
+            14.8,
+            11,
+            15
+          ],
+          "texture": "#slot"
+        },
+        "east": {
+          "uv": [
+            8,
+            14.8,
+            9,
+            15
+          ],
+          "texture": "#slot"
+        },
+        "west": {
+          "uv": [
+            7,
+            14.8,
+            8,
+            15
+          ],
+          "texture": "#slot"
+        },
+        "up": {
+          "uv": [
+            5,
+            7,
+            11,
+            8
+          ],
+          "texture": "#slot"
+        },
+        "down": {
+          "uv": [
+            5,
+            8,
+            11,
+            9
+          ],
+          "texture": "#slot"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        1,
+        9
+      ],
+      "to": [
+        11,
+        1.2,
+        10
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            14.8,
+            11,
+            15
+          ],
+          "texture": "#slot"
+        },
+        "south": {
+          "uv": [
+            5,
+            14.8,
+            11,
+            15
+          ],
+          "texture": "#slot"
+        },
+        "east": {
+          "uv": [
+            6,
+            14.8,
+            7,
+            15
+          ],
+          "texture": "#slot"
+        },
+        "west": {
+          "uv": [
+            9,
+            14.8,
+            10,
+            15
+          ],
+          "texture": "#slot"
+        },
+        "up": {
+          "uv": [
+            5,
+            9,
+            11,
+            10
+          ],
+          "texture": "#slot"
+        },
+        "down": {
+          "uv": [
+            5,
+            6,
+            11,
+            7
+          ],
+          "texture": "#slot"
+        }
+      }
+    }
+  ]
+}

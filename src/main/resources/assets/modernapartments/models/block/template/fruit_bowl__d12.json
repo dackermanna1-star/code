@@ -1,0 +1,281 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        4,
+        -12,
+        4
+      ],
+      "to": [
+        12,
+        -9.5,
+        12
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            4,
+            13.5,
+            12,
+            16
+          ],
+          "texture": "#bowl"
+        },
+        "south": {
+          "uv": [
+            4,
+            13.5,
+            12,
+            16
+          ],
+          "texture": "#bowl"
+        },
+        "east": {
+          "uv": [
+            4,
+            13.5,
+            12,
+            16
+          ],
+          "texture": "#bowl"
+        },
+        "west": {
+          "uv": [
+            4,
+            13.5,
+            12,
+            16
+          ],
+          "texture": "#bowl"
+        },
+        "up": {
+          "uv": [
+            4,
+            4,
+            12,
+            12
+          ],
+          "texture": "#bowl"
+        },
+        "down": {
+          "uv": [
+            4,
+            4,
+            12,
+            12
+          ],
+          "texture": "#bowl",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        -10,
+        5
+      ],
+      "to": [
+        8,
+        -7.5,
+        8
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            8,
+            13.5,
+            11,
+            16
+          ],
+          "texture": "#fruit_a"
+        },
+        "south": {
+          "uv": [
+            5,
+            13.5,
+            8,
+            16
+          ],
+          "texture": "#fruit_a"
+        },
+        "east": {
+          "uv": [
+            8,
+            13.5,
+            11,
+            16
+          ],
+          "texture": "#fruit_a"
+        },
+        "west": {
+          "uv": [
+            5,
+            13.5,
+            8,
+            16
+          ],
+          "texture": "#fruit_a"
+        },
+        "up": {
+          "uv": [
+            5,
+            5,
+            8,
+            8
+          ],
+          "texture": "#fruit_a"
+        },
+        "down": {
+          "uv": [
+            5,
+            8,
+            8,
+            11
+          ],
+          "texture": "#fruit_a",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        8,
+        -10,
+        7.5
+      ],
+      "to": [
+        11,
+        -7.5,
+        10.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            5,
+            13.5,
+            8,
+            16
+          ],
+          "texture": "#fruit_b"
+        },
+        "south": {
+          "uv": [
+            8,
+            13.5,
+            11,
+            16
+          ],
+          "texture": "#fruit_b"
+        },
+        "east": {
+          "uv": [
+            5.5,
+            13.5,
+            8.5,
+            16
+          ],
+          "texture": "#fruit_b"
+        },
+        "west": {
+          "uv": [
+            7.5,
+            13.5,
+            10.5,
+            16
+          ],
+          "texture": "#fruit_b"
+        },
+        "up": {
+          "uv": [
+            8,
+            7.5,
+            11,
+            10.5
+          ],
+          "texture": "#fruit_b"
+        },
+        "down": {
+          "uv": [
+            8,
+            5.5,
+            11,
+            8.5
+          ],
+          "texture": "#fruit_b",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        6,
+        -10,
+        8.5
+      ],
+      "to": [
+        8.5,
+        -8,
+        11
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            7.5,
+            14,
+            10,
+            16
+          ],
+          "texture": "#fruit_c"
+        },
+        "south": {
+          "uv": [
+            6,
+            14,
+            8.5,
+            16
+          ],
+          "texture": "#fruit_c"
+        },
+        "east": {
+          "uv": [
+            5,
+            14,
+            7.5,
+            16
+          ],
+          "texture": "#fruit_c"
+        },
+        "west": {
+          "uv": [
+            8.5,
+            14,
+            11,
+            16
+          ],
+          "texture": "#fruit_c"
+        },
+        "up": {
+          "uv": [
+            6,
+            8.5,
+            8.5,
+            11
+          ],
+          "texture": "#fruit_c"
+        },
+        "down": {
+          "uv": [
+            6,
+            5,
+            8.5,
+            7.5
+          ],
+          "texture": "#fruit_c",
+          "cullface": "down"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/printer__d3",
+  "textures": {
+    "front": "modernapartments:block/printer_front",
+    "side": "modernapartments:block/plastic_gray",
+    "paper": "modernapartments:block/paper_white",
+    "particle": "modernapartments:block/printer_front"
+  }
+}

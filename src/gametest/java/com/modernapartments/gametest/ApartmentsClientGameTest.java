@@ -32,14 +32,22 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 
 	@Override
 	public void runTest(ClientGameTestContext context) {
-		String mode = System.getProperty("modernapartments.test", "showroom");
+		String mode = System.getProperty("modernapartments.test", System.getenv().getOrDefault("MA_TEST", "showroom"));
 		try (TestSingleplayerContext world = context.worldBuilder().create()) {
 			world.getClientWorld().waitForChunksRender();
 			world.getServer().runCommand("time set noon");
 			world.getServer().runCommand("weather clear");
+			world.getServer().runCommand("gamemode spectator @a");
+			world.getServer().runCommand("gamerule doDaylightCycle false");
 			context.runOnClient(client -> client.options.hideGui = true);
 			if (mode.contains("showroom")) {
 				showroom(context, world);
+			}
+			if (mode.contains("units")) {
+				units(context, world, false);
+			}
+			if (mode.contains("lofts")) {
+				units(context, world, true);
 			}
 		}
 	}
@@ -69,6 +77,100 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 			context.waitTicks(5);
 			world.getClientWorld().waitForChunksRender();
 			context.takeScreenshot(TestScreenshotOptions.of("showroom_" + r).withSize(1600, 900));
+		}
+	}
+
+	private void units(ClientGameTestContext context, TestSingleplayerContext world, boolean lofts) {
+		long seed = Long.parseLong(System.getProperty("modernapartments.seed", System.getenv().getOrDefault("MA_SEED", "1234")));
+		List<UnitShowcase.Placed> placed = new java.util.ArrayList<>();
+		com.modernapartments.build.BlockBuffer buf = UnitShowcase.build(seed, placed, lofts);
+		buf.addMarker("entrance", 1, 1, UnitShowcase.CORRIDOR_Z + 1, "corridor");
+		com.modernapartments.build.validation.ReachabilityValidator.Report report =
+			com.modernapartments.build.validation.ReachabilityValidator.validate(buf);
+		System.out.println("[units] markers=" + report.markersChecked() + " unreachable=" + report.unreachable().size()
+			+ " warnings=" + report.warnings().size());
+		report.unreachable().forEach(u -> System.out.println("[units] unreachable " + u));
+		report.warnings().forEach(w -> System.out.println("[units] warning " + w));
+		if (!report.unreachable().isEmpty() && lofts) {
+			for (int y = 1; y <= 6; y++) {
+				System.out.println("[map] y=" + y);
+				dump(buf, 0, 29, 17, 47, y);
+			}
+		}
+		int cut = lofts ? 4 : 4;
+		BlockPos origin = new BlockPos(0, FLOOR_Y, 0);
+		world.getServer().runOnServer(server -> {
+			ServerLevel level = server.overworld();
+			TestPaste.paste(level, buf, origin, cut);
+		});
+		context.waitTicks(10);
+		for (UnitShowcase.Placed u : placed) {
+			double cx = u.x0() + u.w() / 2.0;
+			double cz = u.z0() + u.d() / 2.0;
+			int height = Math.max(u.w(), u.d()) + 6;
+			world.getServer().runCommand(String.format(java.util.Locale.ROOT, "tp @a %.1f %d %.1f 180 90", cx, FLOOR_Y + height, cz));
+			context.waitTicks(5);
+			world.getClientWorld().waitForChunksRender();
+			context.takeScreenshot(TestScreenshotOptions.of((lofts ? "loft_top_" : "unit_top_") + u.label().replace(' ', '_'))
+				.withSize(1280, 1280));
+		}
+		if (lofts) {
+			world.getServer().runOnServer(server -> TestPaste.paste(server.overworld(), buf, origin, 8));
+			context.waitTicks(10);
+			for (UnitShowcase.Placed u : placed) {
+				double cx = u.x0() + u.w() / 2.0;
+				double cz = u.z0() + u.d() / 2.0;
+				world.getServer().runCommand(String.format(java.util.Locale.ROOT, "tp @a %.1f %d %.1f 180 90", cx, FLOOR_Y + 30, cz));
+				context.waitTicks(5);
+				world.getClientWorld().waitForChunksRender();
+				context.takeScreenshot(TestScreenshotOptions.of("loft_upper_" + u.label()).withSize(1280, 1280));
+			}
+		}
+		// eye-level views: full height with ceilings
+		world.getServer().runOnServer(server -> TestPaste.paste(server.overworld(), buf, origin, buf.sizeY));
+		context.waitTicks(10);
+		for (UnitShowcase.Placed u : placed) {
+			// stand near the front of the living area looking towards the windows
+			boolean north = u.front() == net.minecraft.core.Direction.NORTH;
+			double cx = u.x0() + u.w() / 2.0;
+			double z = north ? u.z0() + 2.5 : u.z0() + u.d() - 2.5;
+			float yaw = north ? 0 : 180;
+			world.getServer().runCommand(String.format(java.util.Locale.ROOT, "tp @a %.1f %d %.1f %.0f 15", cx, FLOOR_Y + 1, z, yaw));
+			context.waitTicks(5);
+			world.getClientWorld().waitForChunksRender();
+			context.takeScreenshot(TestScreenshotOptions.of((lofts ? "loft_eye_" : "unit_eye_") + u.label().replace(' ', '_'))
+				.withSize(1280, 720));
+		}
+	}
+
+	/** Prints a character map of one buffer layer (for debugging layouts in the log). */
+	static void dump(com.modernapartments.build.BlockBuffer buf, int x0, int z0, int x1, int z1, int y) {
+		for (int z = z0; z <= z1; z++) {
+			StringBuilder line = new StringBuilder("[map] ");
+			for (int x = x0; x <= x1; x++) {
+				BlockState s = buf.get(x, y, z);
+				BlockState below = buf.get(x, y - 1, z);
+				char ch;
+				if (s == null) {
+					ch = below == null ? ' ' : '_';
+				} else if (s.isAir()) {
+					ch = below == null || below.isAir() ? 'v' : '.';
+				} else if (s.getBlock() instanceof DoorBlock) {
+					ch = 'D';
+				} else if (s.getBlock() instanceof net.minecraft.world.level.block.BedBlock) {
+					ch = 'b';
+				} else if (s.getBlock() instanceof net.minecraft.world.level.block.CarpetBlock) {
+					ch = 'r';
+				} else if (s.isCollisionShapeFullBlock(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO)) {
+					ch = '#';
+				} else if (s.getCollisionShape(net.minecraft.world.level.EmptyBlockGetter.INSTANCE, BlockPos.ZERO).isEmpty()) {
+					ch = ',';
+				} else {
+					ch = 'f';
+				}
+				line.append(ch);
+			}
+			System.out.println(line);
 		}
 	}
 

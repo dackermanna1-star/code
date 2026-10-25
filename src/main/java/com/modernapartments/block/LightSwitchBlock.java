@@ -48,6 +48,11 @@ public class LightSwitchBlock extends FurnitureBlock {
 	}
 
 	@Override
+	protected String shapeKey(BlockState state) {
+		return state.getValue(ModProperties.ON) ? "on" : "off";
+	}
+
+	@Override
 	protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player, BlockHitResult hit) {
 		if (level.isClientSide()) {
 			return InteractionResult.SUCCESS;

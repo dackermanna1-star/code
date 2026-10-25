@@ -28,6 +28,10 @@ import com.modernapartments.block.SofaBlock;
 import com.modernapartments.block.StorageFurnitureBlock;
 import com.modernapartments.block.StorageHolder.StorageSound;
 import com.modernapartments.block.TableBlock;
+import com.modernapartments.block.TabletopBlock;
+import com.modernapartments.block.TabletopDecorBlock;
+import com.modernapartments.block.TabletopLampBlock;
+import com.modernapartments.block.TabletopToggleBlock;
 import com.modernapartments.block.TallFurnitureBlock;
 import com.modernapartments.block.TallStorageBlock;
 import com.modernapartments.block.TallToggleBlock;
@@ -323,6 +327,18 @@ public final class ModBlocks {
 		return register(id, p -> new FurnitureBlock(p, true), props, tab, render);
 	}
 
+	private static Block tabletop(String id, BlockBehaviour.Properties props, Tab tab) {
+		return register(id, TabletopBlock::new, props, tab);
+	}
+
+	private static Block tabletop(String id, BlockBehaviour.Properties props, Tab tab, Render render) {
+		return register(id, TabletopBlock::new, props, tab, render);
+	}
+
+	private static Block tabletopToggle(String id, BlockBehaviour.Properties props, Tab tab, ToggleSettings settings) {
+		return register(id, p -> new TabletopToggleBlock(p, settings), settings.light() > 0 ? litWhenOn(props, settings.light()) : props, tab);
+	}
+
 	private static Block seat(String id, BlockBehaviour.Properties props, Tab tab, float height) {
 		return register(id, p -> new SeatBlock(p, height), props, tab);
 	}
@@ -448,9 +464,9 @@ public final class ModBlocks {
 	private static void registerLighting() {
 		FLOOR_LAMP = register("floor_lamp", p -> new LampBlock(p, false), lit(metalFurniture(MapColor.GOLD), 14), Tab.FURNITURE);
 		FLOOR_LAMP_BLACK = register("floor_lamp_black", p -> new LampBlock(p, false), lit(metalFurniture(MapColor.COLOR_BLACK), 14), Tab.FURNITURE);
-		TABLE_LAMP_CERAMIC = register("table_lamp_ceramic", p -> new LampBlock(p, false), lit(decor(SoundType.STONE), 12), Tab.FURNITURE);
-		TABLE_LAMP_BRASS = register("table_lamp_brass", p -> new LampBlock(p, false), lit(decor(SoundType.METAL), 12), Tab.FURNITURE);
-		TABLE_LAMP_BLACK = register("table_lamp_black", p -> new LampBlock(p, false), lit(decor(SoundType.METAL), 12), Tab.FURNITURE);
+		TABLE_LAMP_CERAMIC = register("table_lamp_ceramic", TabletopLampBlock::new, lit(decor(SoundType.STONE), 12), Tab.FURNITURE);
+		TABLE_LAMP_BRASS = register("table_lamp_brass", TabletopLampBlock::new, lit(decor(SoundType.METAL), 12), Tab.FURNITURE);
+		TABLE_LAMP_BLACK = register("table_lamp_black", TabletopLampBlock::new, lit(decor(SoundType.METAL), 12), Tab.FURNITURE);
 		PENDANT_LIGHT_BLACK = register("pendant_light_black", CeilingLampBlock::new, lit(decor(SoundType.METAL), 14), Tab.FURNITURE);
 		PENDANT_LIGHT_BRASS = register("pendant_light_brass", CeilingLampBlock::new, lit(decor(SoundType.METAL), 14), Tab.FURNITURE);
 		PENDANT_LIGHT_WHITE = register("pendant_light_white", CeilingLampBlock::new, lit(decor(SoundType.METAL), 14), Tab.FURNITURE);
@@ -485,13 +501,13 @@ public final class ModBlocks {
 		OVEN_RANGE = register("oven_range", OvenRangeBlock::new,
 			metalFurniture(MapColor.METAL).lightLevel(s -> s.getValue(BlockStateProperties.LIT) ? 9 : 0), Tab.KITCHEN_BATH);
 		RANGE_HOOD = wall("range_hood", metalFurniture(MapColor.METAL), Tab.KITCHEN_BATH);
-		MICROWAVE = toggle("microwave", metalFurniture(MapColor.METAL), Tab.KITCHEN_BATH, new ToggleSettings(3, 20 * 6,
+		MICROWAVE = tabletopToggle("microwave", metalFurniture(MapColor.METAL), Tab.KITCHEN_BATH, new ToggleSettings(3, 20 * 6,
 			SoundEvents.STONE_BUTTON_CLICK_ON, SoundEvents.NOTE_BLOCK_PLING.value(), Effect.NONE, false, false));
 		COFFEE_MAKER = register("coffee_maker", CoffeeMakerBlock::new, decor(SoundType.METAL), Tab.KITCHEN_BATH, Render.TRANSLUCENT);
 		ESPRESSO_MACHINE = register("espresso_machine", CoffeeMakerBlock::new, decor(SoundType.METAL), Tab.KITCHEN_BATH);
-		TOASTER = furniture("toaster", decor(SoundType.METAL), Tab.KITCHEN_BATH);
-		KITCHEN_UTENSILS = furniture("kitchen_utensils", decor(SoundType.WOOD), Tab.KITCHEN_BATH);
-		FRUIT_BOWL = furniture("fruit_bowl", decor(SoundType.WOOD), Tab.KITCHEN_BATH);
+		TOASTER = tabletop("toaster", decor(SoundType.METAL), Tab.KITCHEN_BATH);
+		KITCHEN_UTENSILS = tabletop("kitchen_utensils", decor(SoundType.WOOD), Tab.KITCHEN_BATH);
+		FRUIT_BOWL = tabletop("fruit_bowl", decor(SoundType.WOOD), Tab.KITCHEN_BATH);
 		for (TableStyle t : TableStyle.values()) {
 			DINING_TABLES.put(t, register("dining_table_" + lower(t), TableBlock::new, woodFurniture(MapColor.WOOD), Tab.KITCHEN_BATH));
 		}
@@ -532,8 +548,8 @@ public final class ModBlocks {
 			furniture(SoundType.GLASS, MapColor.SNOW), Tab.KITCHEN_BATH);
 		VANITY_MIRROR = wall("vanity_mirror", furniture(SoundType.GLASS, MapColor.NONE), Tab.KITCHEN_BATH);
 		BATH_MAT = furniture("bath_mat", decor(SoundType.WOOL), Tab.KITCHEN_BATH);
-		TOWEL_STACK = furniture("towel_stack", decor(SoundType.WOOL), Tab.KITCHEN_BATH);
-		TOILETRIES = furniture("toiletries", decor(SoundType.STONE), Tab.KITCHEN_BATH);
+		TOWEL_STACK = tabletop("towel_stack", decor(SoundType.WOOL), Tab.KITCHEN_BATH);
+		TOILETRIES = tabletop("toiletries", decor(SoundType.STONE), Tab.KITCHEN_BATH);
 		WASHING_MACHINE = toggle("washing_machine", metalFurniture(MapColor.SNOW), Tab.KITCHEN_BATH, ToggleSettings.appliance(20 * 15, Effect.WASHER));
 		DRYER = toggle("dryer", metalFurniture(MapColor.SNOW), Tab.KITCHEN_BATH, ToggleSettings.appliance(20 * 15, Effect.DRYER));
 	}
@@ -546,13 +562,13 @@ public final class ModBlocks {
 		for (String kind : new String[] {"fiddle", "olive", "palm"}) {
 			TALL_PLANTS.add(decorBlock("potted_" + kind, decor(SoundType.STONE), Tab.FURNITURE, Render.CUTOUT));
 		}
-		SUCCULENT_POT = decorBlock("succulent_pot", decor(SoundType.STONE), Tab.FURNITURE, Render.CUTOUT);
-		FLOWER_VASE = decorBlock("flower_vase", decor(SoundType.GLASS), Tab.FURNITURE, Render.CUTOUT);
+		SUCCULENT_POT = register("succulent_pot", TabletopDecorBlock::new, decor(SoundType.STONE), Tab.FURNITURE, Render.CUTOUT);
+		FLOWER_VASE = register("flower_vase", TabletopDecorBlock::new, decor(SoundType.GLASS), Tab.FURNITURE, Render.CUTOUT);
 		PLANTER_BOX = decorBlock("planter_box", woodFurniture(MapColor.WOOD), Tab.AMENITIES, Render.CUTOUT);
 		PLANTER_BOX_GRASS = decorBlock("planter_box_grass", furniture(SoundType.STONE, MapColor.STONE), Tab.AMENITIES, Render.CUTOUT);
-		BOOK_STACK = furniture("book_stack", decor(SoundType.WOOD), Tab.FURNITURE);
-		VASE = furniture("vase", decor(SoundType.STONE), Tab.FURNITURE);
-		CANDLE_SET = furniture("candle_set", decor(SoundType.CANDLE), Tab.FURNITURE);
+		BOOK_STACK = tabletop("book_stack", decor(SoundType.WOOD), Tab.FURNITURE);
+		VASE = tabletop("vase", decor(SoundType.STONE), Tab.FURNITURE);
+		CANDLE_SET = tabletop("candle_set", decor(SoundType.CANDLE), Tab.FURNITURE);
 		for (String art : new String[] {"fields", "grid", "waves", "sunset", "botanical", "geometric", "city"}) {
 			ART.add(wall("art_" + art, decor(SoundType.WOOD), Tab.FURNITURE));
 		}
@@ -560,11 +576,11 @@ public final class ModBlocks {
 			WIDE_ART.add(wall("art_" + art, decor(SoundType.WOOD), Tab.FURNITURE));
 		}
 		WALL_CLOCK = wall("wall_clock", decor(SoundType.WOOD), Tab.FURNITURE);
-		LAPTOP = toggle("laptop", decor(SoundType.METAL), Tab.FURNITURE, ToggleSettings.screen(0));
-		DESKTOP_MONITOR = toggle("desktop_monitor", decor(SoundType.METAL), Tab.FURNITURE, ToggleSettings.screen(0));
-		GAME_CONSOLE = furniture("game_console", decor(SoundType.METAL), Tab.FURNITURE);
-		SPEAKER = furniture("speaker", decor(SoundType.WOOD), Tab.FURNITURE);
-		WIFI_ROUTER = furniture("wifi_router", decor(SoundType.METAL), Tab.FURNITURE);
+		LAPTOP = tabletopToggle("laptop", decor(SoundType.METAL), Tab.FURNITURE, ToggleSettings.screen(0));
+		DESKTOP_MONITOR = tabletopToggle("desktop_monitor", decor(SoundType.METAL), Tab.FURNITURE, ToggleSettings.screen(0));
+		GAME_CONSOLE = tabletop("game_console", decor(SoundType.METAL), Tab.FURNITURE);
+		SPEAKER = tabletop("speaker", decor(SoundType.WOOD), Tab.FURNITURE);
+		WIFI_ROUTER = tabletop("wifi_router", decor(SoundType.METAL), Tab.FURNITURE);
 		for (String c : new String[] {"charcoal", "cream", "terracotta"}) {
 			RUNNER_RUGS.add(furniture("runner_rug_" + c, decor(SoundType.WOOL), Tab.FURNITURE));
 		}
@@ -620,7 +636,7 @@ public final class ModBlocks {
 		GROOMING_TABLE = furniture("grooming_table", metalFurniture(MapColor.METAL), Tab.AMENITIES);
 		GROOMING_SUPPLIES = wall("grooming_supplies", decor(SoundType.WOOD), Tab.AMENITIES, Render.CUTOUT);
 		PAW_STATION = furniture("paw_station", metalFurniture(MapColor.METAL), Tab.AMENITIES, Render.TRANSLUCENT);
-		TREAT_JAR = furniture("treat_jar", decor(SoundType.GLASS), Tab.AMENITIES, Render.TRANSLUCENT);
+		TREAT_JAR = tabletop("treat_jar", decor(SoundType.GLASS), Tab.AMENITIES, Render.TRANSLUCENT);
 		POOL_TABLE = register("pool_table", p -> new TwoPartFurnitureBlock(p, -1), woodFurniture(MapColor.COLOR_GREEN), Tab.AMENITIES);
 		PING_PONG_TABLE = register("ping_pong_table", p -> new TwoPartFurnitureBlock(p, -1), woodFurniture(MapColor.COLOR_BLUE), Tab.AMENITIES);
 		ARCADE_MACHINE = register("arcade_machine", p -> new TallToggleBlock(p, ToggleSettings.screen(6)),
@@ -630,7 +646,7 @@ public final class ModBlocks {
 		MINI_FRIDGE = storage("mini_fridge", metalFurniture(MapColor.COLOR_BLACK), Tab.AMENITIES, 2, StorageSound.FRIDGE);
 		DARTBOARD = wall("dartboard", decor(SoundType.WOOD), Tab.AMENITIES, Render.CUTOUT);
 		WHITEBOARD = wall("whiteboard", furniture(SoundType.METAL, MapColor.SNOW), Tab.AMENITIES);
-		PRINTER = furniture("printer", decor(SoundType.METAL), Tab.AMENITIES);
+		PRINTER = tabletop("printer", decor(SoundType.METAL), Tab.AMENITIES);
 		CONFERENCE_TABLE = register("conference_table", TableBlock::new, woodFurniture(MapColor.COLOR_BROWN), Tab.AMENITIES);
 	}
 

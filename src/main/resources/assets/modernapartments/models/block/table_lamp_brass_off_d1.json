@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/table_lamp__d1",
+  "textures": {
+    "base": "modernapartments:block/metal_brass",
+    "shade": "modernapartments:block/fabric_beige",
+    "particle": "modernapartments:block/metal_brass"
+  }
+}

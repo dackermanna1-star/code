@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/kitchen_utensils__d3",
+  "textures": {
+    "holder": "modernapartments:block/ceramic_white",
+    "tool": "modernapartments:block/wood_light",
+    "board": "modernapartments:block/wood_teak",
+    "particle": "modernapartments:block/ceramic_white"
+  }
+}

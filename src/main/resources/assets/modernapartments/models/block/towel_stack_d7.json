@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/towel_stack__d7",
+  "textures": {
+    "towel_a": "modernapartments:block/towel_white",
+    "towel_b": "modernapartments:block/towel_navy",
+    "particle": "modernapartments:block/towel_white"
+  }
+}

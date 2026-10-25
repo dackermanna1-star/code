@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/table_lamp__d11",
+  "textures": {
+    "base": "modernapartments:block/ceramic_white",
+    "shade": "modernapartments:block/light_diffuser",
+    "particle": "modernapartments:block/ceramic_white"
+  }
+}

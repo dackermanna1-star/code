@@ -74,3 +74,9 @@ jar {
 		rename { "${it}_${inputs.properties.archivesName}" }
 	}
 }
+
+
+afterEvaluate {
+	// the visual tests paste large buildings in one tick, which trips the client game test's packet synchronizer
+	loom.runs.findByName("clientGameTest")?.vmArg("-Dfabric.client.gametest.disableNetworkSynchronizer=true")
+}

@@ -1,0 +1,10 @@
+{
+  "parent": "modernapartments:block/template/espresso_machine__d4",
+  "textures": {
+    "front": "modernapartments:block/coffee_maker_front",
+    "side": "modernapartments:block/metal_steel",
+    "metal": "modernapartments:block/metal_chrome",
+    "cup": "modernapartments:block/ceramic_white",
+    "particle": "modernapartments:block/coffee_maker_front"
+  }
+}

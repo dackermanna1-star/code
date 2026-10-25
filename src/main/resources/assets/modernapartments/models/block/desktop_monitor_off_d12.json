@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/monitor__d12",
+  "textures": {
+    "body": "modernapartments:block/plastic_black",
+    "screen": "modernapartments:block/screen_off",
+    "particle": "modernapartments:block/plastic_black"
+  }
+}

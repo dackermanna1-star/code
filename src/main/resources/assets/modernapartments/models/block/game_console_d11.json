@@ -1,0 +1,9 @@
+{
+  "parent": "modernapartments:block/template/game_console__d11",
+  "textures": {
+    "body": "modernapartments:block/plastic_white",
+    "front": "modernapartments:block/game_console",
+    "pad": "modernapartments:block/plastic_black",
+    "particle": "modernapartments:block/plastic_white"
+  }
+}

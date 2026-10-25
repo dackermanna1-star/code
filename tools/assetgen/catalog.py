@@ -12,6 +12,15 @@ NS = 'modernapartments'
 TEMPLATES: dict[str, dict] = {}
 BLOCKS: list['BlockDef'] = []
 
+# Tabletop items get a `drop` state (0..12 px) so they sit exactly on lower furniture tops.
+TABLETOP = {
+    'table_lamp_ceramic', 'table_lamp_brass', 'table_lamp_black', 'laptop', 'desktop_monitor', 'book_stack', 'vase',
+    'candle_set', 'fruit_bowl', 'toaster', 'kitchen_utensils', 'coffee_maker', 'espresso_machine', 'microwave',
+    'succulent_pot', 'flower_vase', 'toiletries', 'towel_stack', 'game_console', 'speaker', 'wifi_router',
+    'concierge_bell', 'treat_jar', 'printer',
+}
+DROPS = tuple(range(0, 13))
+
 
 def template(name: str, boxes: list, display=None, ao=True, collision=None, item_boxes=None):
     TEMPLATES[name] = {'boxes': boxes, 'display': display, 'ao': ao, 'collision': collision,

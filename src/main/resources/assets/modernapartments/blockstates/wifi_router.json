@@ -1,18 +1,198 @@
 {
   "variants": {
-    "facing=north": {
+    "facing=north,drop=0": {
       "model": "modernapartments:block/wifi_router"
     },
-    "facing=east": {
+    "facing=north,drop=1": {
+      "model": "modernapartments:block/wifi_router_d1"
+    },
+    "facing=north,drop=2": {
+      "model": "modernapartments:block/wifi_router_d2"
+    },
+    "facing=north,drop=3": {
+      "model": "modernapartments:block/wifi_router_d3"
+    },
+    "facing=north,drop=4": {
+      "model": "modernapartments:block/wifi_router_d4"
+    },
+    "facing=north,drop=5": {
+      "model": "modernapartments:block/wifi_router_d5"
+    },
+    "facing=north,drop=6": {
+      "model": "modernapartments:block/wifi_router_d6"
+    },
+    "facing=north,drop=7": {
+      "model": "modernapartments:block/wifi_router_d7"
+    },
+    "facing=north,drop=8": {
+      "model": "modernapartments:block/wifi_router_d8"
+    },
+    "facing=north,drop=9": {
+      "model": "modernapartments:block/wifi_router_d9"
+    },
+    "facing=north,drop=10": {
+      "model": "modernapartments:block/wifi_router_d10"
+    },
+    "facing=north,drop=11": {
+      "model": "modernapartments:block/wifi_router_d11"
+    },
+    "facing=north,drop=12": {
+      "model": "modernapartments:block/wifi_router_d12"
+    },
+    "facing=east,drop=0": {
       "model": "modernapartments:block/wifi_router",
       "y": 90
     },
-    "facing=south": {
+    "facing=east,drop=1": {
+      "model": "modernapartments:block/wifi_router_d1",
+      "y": 90
+    },
+    "facing=east,drop=2": {
+      "model": "modernapartments:block/wifi_router_d2",
+      "y": 90
+    },
+    "facing=east,drop=3": {
+      "model": "modernapartments:block/wifi_router_d3",
+      "y": 90
+    },
+    "facing=east,drop=4": {
+      "model": "modernapartments:block/wifi_router_d4",
+      "y": 90
+    },
+    "facing=east,drop=5": {
+      "model": "modernapartments:block/wifi_router_d5",
+      "y": 90
+    },
+    "facing=east,drop=6": {
+      "model": "modernapartments:block/wifi_router_d6",
+      "y": 90
+    },
+    "facing=east,drop=7": {
+      "model": "modernapartments:block/wifi_router_d7",
+      "y": 90
+    },
+    "facing=east,drop=8": {
+      "model": "modernapartments:block/wifi_router_d8",
+      "y": 90
+    },
+    "facing=east,drop=9": {
+      "model": "modernapartments:block/wifi_router_d9",
+      "y": 90
+    },
+    "facing=east,drop=10": {
+      "model": "modernapartments:block/wifi_router_d10",
+      "y": 90
+    },
+    "facing=east,drop=11": {
+      "model": "modernapartments:block/wifi_router_d11",
+      "y": 90
+    },
+    "facing=east,drop=12": {
+      "model": "modernapartments:block/wifi_router_d12",
+      "y": 90
+    },
+    "facing=south,drop=0": {
       "model": "modernapartments:block/wifi_router",
       "y": 180
     },
-    "facing=west": {
+    "facing=south,drop=1": {
+      "model": "modernapartments:block/wifi_router_d1",
+      "y": 180
+    },
+    "facing=south,drop=2": {
+      "model": "modernapartments:block/wifi_router_d2",
+      "y": 180
+    },
+    "facing=south,drop=3": {
+      "model": "modernapartments:block/wifi_router_d3",
+      "y": 180
+    },
+    "facing=south,drop=4": {
+      "model": "modernapartments:block/wifi_router_d4",
+      "y": 180
+    },
+    "facing=south,drop=5": {
+      "model": "modernapartments:block/wifi_router_d5",
+      "y": 180
+    },
+    "facing=south,drop=6": {
+      "model": "modernapartments:block/wifi_router_d6",
+      "y": 180
+    },
+    "facing=south,drop=7": {
+      "model": "modernapartments:block/wifi_router_d7",
+      "y": 180
+    },
+    "facing=south,drop=8": {
+      "model": "modernapartments:block/wifi_router_d8",
+      "y": 180
+    },
+    "facing=south,drop=9": {
+      "model": "modernapartments:block/wifi_router_d9",
+      "y": 180
+    },
+    "facing=south,drop=10": {
+      "model": "modernapartments:block/wifi_router_d10",
+      "y": 180
+    },
+    "facing=south,drop=11": {
+      "model": "modernapartments:block/wifi_router_d11",
+      "y": 180
+    },
+    "facing=south,drop=12": {
+      "model": "modernapartments:block/wifi_router_d12",
+      "y": 180
+    },
+    "facing=west,drop=0": {
       "model": "modernapartments:block/wifi_router",
+      "y": 270
+    },
+    "facing=west,drop=1": {
+      "model": "modernapartments:block/wifi_router_d1",
+      "y": 270
+    },
+    "facing=west,drop=2": {
+      "model": "modernapartments:block/wifi_router_d2",
+      "y": 270
+    },
+    "facing=west,drop=3": {
+      "model": "modernapartments:block/wifi_router_d3",
+      "y": 270
+    },
+    "facing=west,drop=4": {
+      "model": "modernapartments:block/wifi_router_d4",
+      "y": 270
+    },
+    "facing=west,drop=5": {
+      "model": "modernapartments:block/wifi_router_d5",
+      "y": 270
+    },
+    "facing=west,drop=6": {
+      "model": "modernapartments:block/wifi_router_d6",
+      "y": 270
+    },
+    "facing=west,drop=7": {
+      "model": "modernapartments:block/wifi_router_d7",
+      "y": 270
+    },
+    "facing=west,drop=8": {
+      "model": "modernapartments:block/wifi_router_d8",
+      "y": 270
+    },
+    "facing=west,drop=9": {
+      "model": "modernapartments:block/wifi_router_d9",
+      "y": 270
+    },
+    "facing=west,drop=10": {
+      "model": "modernapartments:block/wifi_router_d10",
+      "y": 270
+    },
+    "facing=west,drop=11": {
+      "model": "modernapartments:block/wifi_router_d11",
+      "y": 270
+    },
+    "facing=west,drop=12": {
+      "model": "modernapartments:block/wifi_router_d12",
       "y": 270
     }
   }

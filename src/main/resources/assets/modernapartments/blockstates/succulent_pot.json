@@ -1,7 +1,43 @@
 {
   "variants": {
-    "": {
+    "drop=0": {
       "model": "modernapartments:block/succulent_pot"
+    },
+    "drop=1": {
+      "model": "modernapartments:block/succulent_pot_d1"
+    },
+    "drop=2": {
+      "model": "modernapartments:block/succulent_pot_d2"
+    },
+    "drop=3": {
+      "model": "modernapartments:block/succulent_pot_d3"
+    },
+    "drop=4": {
+      "model": "modernapartments:block/succulent_pot_d4"
+    },
+    "drop=5": {
+      "model": "modernapartments:block/succulent_pot_d5"
+    },
+    "drop=6": {
+      "model": "modernapartments:block/succulent_pot_d6"
+    },
+    "drop=7": {
+      "model": "modernapartments:block/succulent_pot_d7"
+    },
+    "drop=8": {
+      "model": "modernapartments:block/succulent_pot_d8"
+    },
+    "drop=9": {
+      "model": "modernapartments:block/succulent_pot_d9"
+    },
+    "drop=10": {
+      "model": "modernapartments:block/succulent_pot_d10"
+    },
+    "drop=11": {
+      "model": "modernapartments:block/succulent_pot_d11"
+    },
+    "drop=12": {
+      "model": "modernapartments:block/succulent_pot_d12"
     }
   }
 }

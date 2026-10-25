@@ -1,0 +1,212 @@
+{
+  "parent": "minecraft:block/block",
+  "elements": [
+    {
+      "from": [
+        3,
+        -9,
+        4
+      ],
+      "to": [
+        13,
+        -7,
+        12
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            3,
+            14,
+            13,
+            16
+          ],
+          "texture": "#towel_a"
+        },
+        "south": {
+          "uv": [
+            3,
+            14,
+            13,
+            16
+          ],
+          "texture": "#towel_a"
+        },
+        "east": {
+          "uv": [
+            4,
+            14,
+            12,
+            16
+          ],
+          "texture": "#towel_a"
+        },
+        "west": {
+          "uv": [
+            4,
+            14,
+            12,
+            16
+          ],
+          "texture": "#towel_a"
+        },
+        "up": {
+          "uv": [
+            3,
+            4,
+            13,
+            12
+          ],
+          "texture": "#towel_a"
+        },
+        "down": {
+          "uv": [
+            3,
+            4,
+            13,
+            12
+          ],
+          "texture": "#towel_a",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        3.5,
+        -7,
+        4.5
+      ],
+      "to": [
+        12.5,
+        -5,
+        11.5
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            3.5,
+            14,
+            12.5,
+            16
+          ],
+          "texture": "#towel_b"
+        },
+        "south": {
+          "uv": [
+            3.5,
+            14,
+            12.5,
+            16
+          ],
+          "texture": "#towel_b"
+        },
+        "east": {
+          "uv": [
+            4.5,
+            14,
+            11.5,
+            16
+          ],
+          "texture": "#towel_b"
+        },
+        "west": {
+          "uv": [
+            4.5,
+            14,
+            11.5,
+            16
+          ],
+          "texture": "#towel_b"
+        },
+        "up": {
+          "uv": [
+            3.5,
+            4.5,
+            12.5,
+            11.5
+          ],
+          "texture": "#towel_b"
+        },
+        "down": {
+          "uv": [
+            3.5,
+            4.5,
+            12.5,
+            11.5
+          ],
+          "texture": "#towel_b",
+          "cullface": "down"
+        }
+      }
+    },
+    {
+      "from": [
+        3,
+        -5,
+        4
+      ],
+      "to": [
+        13,
+        -3,
+        12
+      ],
+      "faces": {
+        "north": {
+          "uv": [
+            3,
+            14,
+            13,
+            16
+          ],
+          "texture": "#towel_a"
+        },
+        "south": {
+          "uv": [
+            3,
+            14,
+            13,
+            16
+          ],
+          "texture": "#towel_a"
+        },
+        "east": {
+          "uv": [
+            4,
+            14,
+            12,
+            16
+          ],
+          "texture": "#towel_a"
+        },
+        "west": {
+          "uv": [
+            4,
+            14,
+            12,
+            16
+          ],
+          "texture": "#towel_a"
+        },
+        "up": {
+          "uv": [
+            3,
+            4,
+            13,
+            12
+          ],
+          "texture": "#towel_a"
+        },
+        "down": {
+          "uv": [
+            3,
+            4,
+            13,
+            12
+          ],
+          "texture": "#towel_a",
+          "cullface": "down"
+        }
+      }
+    }
+  ]
+}

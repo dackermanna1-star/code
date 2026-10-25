@@ -1,0 +1,8 @@
+{
+  "parent": "modernapartments:block/template/router__d9",
+  "textures": {
+    "body": "modernapartments:block/plastic_black",
+    "front": "modernapartments:block/router",
+    "particle": "modernapartments:block/plastic_black"
+  }
+}
