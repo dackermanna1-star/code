@@ -46,6 +46,10 @@ public class ApartmentPiece extends StructurePiece {
 		return transform;
 	}
 
+	public long seed() {
+		return seed;
+	}
+
 	@Override
 	protected void addAdditionalSaveData(StructurePieceSerializationContext context, CompoundTag tag) {
 		tag.putString("Complex", complex.id());

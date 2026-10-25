@@ -33,6 +33,10 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 	@Override
 	public void runTest(ClientGameTestContext context) {
 		String mode = System.getProperty("modernapartments.test", System.getenv().getOrDefault("MA_TEST", "showroom"));
+		if (mode.equals("world")) {
+			RealWorldTest.run(context);
+			return;
+		}
 		try (TestSingleplayerContext world = context.worldBuilder().create()) {
 			world.getClientWorld().waitForChunksRender();
 			world.getServer().runCommand("time set noon");
@@ -48,6 +52,12 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 			}
 			if (mode.contains("lofts")) {
 				units(context, world, true);
+			}
+			if (mode.startsWith("plans")) {
+				String which = System.getenv().getOrDefault("MA_COMPLEX", "metropolitan");
+				for (String id : which.split(",")) {
+					plans(context, world, com.modernapartments.build.ComplexType.byId(id));
+				}
 			}
 			if (mode.startsWith("complex")) {
 				String which = System.getenv().getOrDefault("MA_COMPLEX", "metropolitan");
@@ -162,10 +172,9 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 			+ " unreachable=" + report.unreachable().size() + " warnings=" + report.warnings().size() + " nodes=" + report.nodesVisited());
 		report.unreachable().stream().limit(40).forEach(u -> System.out.println("[complex] unreachable " + u));
 		report.warnings().stream().limit(40).forEach(w -> System.out.println("[complex] warning " + w));
-		BlockPos origin = new BlockPos(0, 0, 0);
 		context.runOnClient(client -> client.options.renderDistance().set(12));
 		world.getServer().runOnServer(server -> server.getPlayerList().setViewDistance(12));
-		world.getServer().runOnServer(server -> TestPaste.paste(server.overworld(), buf, origin, buf.sizeY));
+		pasteAtOrigin(world, buf);
 		context.waitTicks(20);
 		int cx = buf.sizeX / 2;
 		int cz = buf.sizeZ / 2;
@@ -219,7 +228,71 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 		}
 	}
 
-	private static void settleNear(TestSingleplayerContext world) {
+	/** Volume of the last complex pasted at the origin, cleared before the next one goes in. */
+	private static int[] lastPasted;
+
+	/** Sets x 0..sizeX-1, y y0..y1-1, z 0..sizeZ-1 to air, top down. */
+	private static void clear(TestSingleplayerContext world, int sizeX, int y0, int y1, int sizeZ) {
+		world.getServer().runOnServer(server -> {
+			ServerLevel level = server.overworld();
+			BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
+			for (int y = y1 - 1; y >= y0; y--) {
+				for (int z = 0; z < sizeZ; z++) {
+					for (int x = 0; x < sizeX; x++) {
+						p.set(x, y, z);
+						if (!level.getBlockState(p).isAir()) {
+							level.setBlock(p, Blocks.AIR.defaultBlockState(), net.minecraft.world.level.block.Block.UPDATE_CLIENTS
+								| net.minecraft.world.level.block.Block.UPDATE_SKIP_ALL_SIDEEFFECTS);
+						}
+					}
+				}
+			}
+		});
+	}
+
+	private static void pasteAtOrigin(TestSingleplayerContext world, com.modernapartments.build.BlockBuffer buf) {
+		if (lastPasted != null) {
+			clear(world, lastPasted[0], 0, lastPasted[1], lastPasted[2]);
+		}
+		world.getServer().runOnServer(server -> TestPaste.paste(server.overworld(), buf, BlockPos.ZERO, buf.sizeY));
+		lastPasted = new int[] {buf.sizeX, buf.sizeY, buf.sizeZ};
+	}
+
+	/**
+	 * Floor plans: pastes a complex, then cuts it away floor by floor from the top and photographs each level
+	 * straight down, so every room's furniture can be checked at a glance.
+	 */
+	private void plans(ClientGameTestContext context, TestSingleplayerContext world, com.modernapartments.build.ComplexType type) {
+		long seed = Long.parseLong(System.getenv().getOrDefault("MA_SEED", "1234"));
+		com.modernapartments.build.BlockBuffer buf = com.modernapartments.build.BuildCache.generate(type, seed);
+		pasteAtOrigin(world, buf);
+		java.util.TreeSet<Integer> unitFloors = new java.util.TreeSet<>();
+		java.util.TreeSet<Integer> floors = new java.util.TreeSet<>();
+		buf.markers("unit").forEach(m -> unitFloors.add(m.pos().getY()));
+		buf.markers("amenity").forEach(m -> floors.add(m.pos().getY()));
+		floors.addAll(List.of(unitFloors.first(), unitFloors.last()));
+		List<Integer> typical = new java.util.ArrayList<>(unitFloors);
+		floors.add(typical.get(typical.size() / 2));
+		context.runOnClient(client -> client.options.renderDistance().set(8));
+		world.getServer().runOnServer(server -> server.getPlayerList().setViewDistance(8));
+		int cut = buf.sizeY;
+		for (int y : floors.descendingSet()) {
+			int top = y + 2;
+			if (top >= cut) {
+				continue;
+			}
+			clear(world, buf.sizeX, top, cut, buf.sizeZ);
+			cut = top;
+			double h = Math.max(buf.sizeX, buf.sizeZ) * 0.72 + 4;
+			world.getServer().runCommand(String.format(java.util.Locale.ROOT, "tp @a %.1f %.1f %.1f 180 90", buf.sizeX / 2.0, y + h,
+				buf.sizeZ / 2.0));
+			context.waitTicks(10);
+			settle(world);
+			context.takeScreenshot(TestScreenshotOptions.of(String.format("%s_plan_y%03d", type.id(), y)).withSize(1600, 1600));
+		}
+	}
+
+	static void settleNear(TestSingleplayerContext world) {
 		try {
 			world.getClientWorld().waitForChunksRender(200);
 		} catch (AssertionError e) {
@@ -228,7 +301,7 @@ public class ApartmentsClientGameTest implements FabricClientGameTest {
 	}
 
 	/** Waits (up to a minute) for chunk meshes; slow software rendering is tolerated. */
-	private static void settle(TestSingleplayerContext world) {
+	static void settle(TestSingleplayerContext world) {
 		try {
 			world.getClientWorld().waitForChunksRender(1200);
 		} catch (AssertionError e) {
