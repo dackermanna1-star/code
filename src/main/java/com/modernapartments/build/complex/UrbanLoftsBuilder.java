@@ -167,12 +167,18 @@ public final class UrbanLoftsBuilder extends ComplexBase {
 			furnishLater.add(() -> {
 				switch (name) {
 					case "cafe" -> cafe(f, w, D, h);
-					case "lobby" -> Amenities.lobby(f, w, D, h, r, Theme.INDUSTRIAL, ModBlocks.RECEPTION_DESK_WALNUT, "URBAN LOFTS",
-						"DIRECTORY", "L  Gallery, Cafe", "L  Maker, Boxing", "2-4 Lofts", "R  Roof Deck");
+					case "lobby" -> {
+						Amenities.lobby(f, w, D, h, r, Theme.INDUSTRIAL, ModBlocks.RECEPTION_DESK_WALNUT, "URBAN LOFTS",
+							"DIRECTORY", "L  Gallery, Cafe", "L  Maker, Boxing", "2-4 Lofts", "R  Roof Deck");
+						gallery(f, w, D, h);
+					}
 					case "maker" -> makerSpace(f, w, D, h);
 					case "boxing" -> Amenities.boxingGym(f, w, D, h, r);
 					case "cowork" -> Amenities.cowork(f, w, D, h, r);
-					default -> Amenities.mailRoom(f, w, D, h, r);
+					default -> {
+						Amenities.mailRoom(f, w, D, h, r);
+						bikeRow(f, w, D, h);
+					}
 				}
 				marker(f, w, D, switch (name) {
 					case "cafe" -> "loft cafe";
@@ -192,6 +198,56 @@ public final class UrbanLoftsBuilder extends ComplexBase {
 			c.set(x, y0 + h - 1, 3, ModBlocks.GARAGE_LIGHT);
 			c.fill(x, y0 + 1, 2, x, y0 + h - 1, 2, ModBlocks.STEEL_BEAM.defaultBlockState().setValue(RotatedPillarBlock.AXIS, Direction.Axis.Y));
 		}
+	}
+
+	/** Grid over a furnished room in which rugs count as taken, so later pieces stay off seating areas. */
+	private RoomGrid furnishedGrid(Canvas f, int w, int d, int h) {
+		RoomGrid g = Amenities.grid(f, w, d, h, r, Theme.INDUSTRIAL);
+		for (int x = 0; x < w; x++) {
+			for (int z = 0; z < d; z++) {
+				if (f.get(x, 1, z) != null && f.get(x, 1, z).getBlock() instanceof net.minecraft.world.level.block.CarpetBlock) {
+					g.use(x, z);
+				}
+			}
+		}
+		return g;
+	}
+
+	/** Gallery touches in the lobby: pedestals with vases either side of the walkway and art along the side walls. */
+	private void gallery(Canvas f, int w, int d, int h) {
+		RoomGrid g = furnishedGrid(f, w, d, h);
+		for (int z = 0; z < d; z++) {
+			g.keep(w / 2 - 1, z);
+			g.keep(w / 2, z);
+		}
+		for (int x = 3; x < w - 3; x += 4) {
+			if (Math.abs(x - w / 2) < 3) {
+				continue;
+			}
+			for (int z : new int[] {3, d - 4}) {
+				if (Furnish.placeIfFree(g, new int[] {x, z}, ModBlocks.SIDE_TABLE, Direction.SOUTH)) {
+					Furnish.tabletop(g, x, 2, z, (x / 4) % 2 == 0 ? ModBlocks.VASE : ModBlocks.SUCCULENT_POT, Direction.SOUTH, ModBlocks.SIDE_TABLE);
+				}
+			}
+		}
+		for (int z = 1; z < d - 1; z += 2) {
+			if (f.isAirOrUnset(0, 2, z)) {
+				Furnish.wallItem(g, 0, z, Direction.WEST, 2, ModBlocks.ART.get(z % ModBlocks.ART.size()));
+			}
+			if (f.isAirOrUnset(w - 1, 2, z)) {
+				Furnish.wallItem(g, w - 1, z, Direction.EAST, 2, ModBlocks.ART.get((z + 3) % ModBlocks.ART.size()));
+			}
+		}
+		g.flush();
+	}
+
+	/** Bike racks down the middle of the mail room. */
+	private void bikeRow(Canvas f, int w, int d, int h) {
+		RoomGrid g = furnishedGrid(f, w, d, h);
+		for (int x = 2; x < w - 2; x++) {
+			Furnish.placeIfFree(g, new int[] {x, d / 2 + 2}, ModBlocks.BIKE_RACK, Direction.EAST);
+		}
+		g.flush();
 	}
 
 	private void cafe(Canvas f, int w, int d, int h) {

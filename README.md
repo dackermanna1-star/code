@@ -11,13 +11,13 @@ building) while finishes and furniture are rolled per apartment, so no two homes
 
 ## The five complexes
 
-| Complex | Footprint (x × z × height) | Character |
-| --- | --- | --- |
-| **The Metropolitan** | 64 × 60 × 116 | Luxury high-rise. Underground garage, double-height marble lobby with concierge desk, amenity level (fitness, yoga & spin, screening room, game room, co-working) opening onto a podium pool deck, 15 floors of glass-walled homes with balconies, a penthouse floor with terraces, and a rooftop sky lounge under an illuminated crown. |
-| **The Skyline Towers** | 60 × 60 × 200 | 35-storey blue-glass skyscraper. Central core with four high-speed elevators and two fire stairs inside a racetrack corridor, so every home is a corner home with glass on two sides. Three-storey lobby, amenity floor, a double-height sky garden and spa halfway up, penthouses, a glass sky lounge and an open observation deck under a lantern crown and spire. |
-| **The Parkside Residences** | 96 × 84 × 40 | Six-storey brick and panel mid-rise wrapped in a U around a garden courtyard. Kids' club, fitness, leasing, courtyard lounge, ground-floor homes with patios, laundry and study lounges on the upper floors, a rooftop terrace, and a park with playground, community garden, dog park, splash pad and parking. |
-| **The Courtyard Apartments** | 112 × 100 × 36 | Garden-style community: three lap-sided buildings with hip roofs and a balcony or patio for every home around a resort pool deck, a turf lawn with cornhole and lounge seating, a clubhouse (leasing, fitness, lounge), dog park, playground, grilling pavilion and parking. |
-| **The Urban Lofts** | 72 × 60 × 56 | Converted brick warehouse. Double-height lofts with mezzanine bedrooms, exposed brick, steel beams and tall factory windows above a ground floor of shared creative space (gallery lobby, café, maker space, boxing gym, co-working), with a roof deck and timber water tower. |
+| Complex | Footprint (x × z × height) | Homes | Character |
+| --- | --- | --- | --- |
+| **The Metropolitan** | 64 × 60 × 116 | 79 | Luxury high-rise. Underground garage, double-height marble lobby with concierge desk, amenity level (fitness, yoga & spin, screening room, game room, co-working) opening onto a podium pool deck, 15 floors of glass-walled homes with balconies, a penthouse floor with terraces, and a rooftop sky lounge under an illuminated crown. |
+| **The Skyline Towers** | 60 × 60 × 200 | 122 | 35-storey blue-glass skyscraper. Central core with four high-speed elevators and two fire stairs inside a racetrack corridor, so every home is a corner home with glass on two sides. Three-storey lobby, amenity floor, a double-height sky garden and spa halfway up, penthouses, a glass sky lounge and an open observation deck under a lantern crown and spire. |
+| **The Parkside Residences** | 96 × 84 × 40 | 78 | Six-storey brick and panel mid-rise wrapped in a U around a garden courtyard. Kids' club, fitness, leasing, courtyard lounge, ground-floor homes with patios, laundry rooms, study lounges, a dog spa, game room and screening room on the upper floors, a rooftop terrace, and a park with playground, community garden, dog park, splash pad and parking. |
+| **The Courtyard Apartments** | 112 × 100 × 36 | 76 | Garden-style community: three lap-sided buildings with hip roofs and a balcony or patio for every home around a resort pool deck, a turf lawn with cornhole and lounge seating, a clubhouse (leasing, fitness, lounge), dog park, playground, grilling pavilion and parking. |
+| **The Urban Lofts** | 72 × 60 × 56 | 21 | Converted brick warehouse. Double-height lofts with mezzanine bedrooms, exposed brick, steel beams and tall factory windows above a ground floor of shared creative space (gallery lobby, café, maker space, boxing gym, co-working), with a roof deck and timber water tower. |
 
 Unit mix across the complexes: studios, one- and two-bedroom apartments, penthouses with dens and big
 terraces, and double-height lofts. Each home has a living room, kitchen (often with an island), dining
