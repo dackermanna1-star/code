@@ -28,6 +28,9 @@ const USE_TEXT = {
   project: (u) => `Build it over ${u.sessions || 3} sessions${u.produces ? ' — makes ' + (ITEMS[u.produces]?.name || 'something') : ''}`, workout: () => 'Work out for an endorphin boost', meditate: () => 'Meditate to restore energy & calm', boardgame: () => 'Play a round',
   telescope: () => 'Spot things across the city', camera: () => 'Take photos for your gallery', headphones: () => 'Listen to music anywhere', vr: () => 'Dive into a VR game', arcade: (u) => `Play ${u.title || 'arcade games'}`, handheld: () => 'Play games anywhere', smartspeaker: () => 'Ask it things · plays music', ingredient: (u) => `Cooking ingredient${u.uses ? ' · ' + u.uses + ' uses' : ''}`,
   package: () => 'A package', bedding: () => 'Put it on your bed',
+  drawers: (u) => `Stores up to ${u.capacity || 12} of your things`, table: () => 'A surface for your stuff · tidy it up',
+  hairdryer: () => 'Style your hair · fresh-out-of-the-salon buff', vitamins: (u) => `Take one a day${u.uses ? ' · ' + u.uses + ' doses' : ''}`,
+  jukebox: () => 'Plays music stations · neon pulses to the beat', streamgear: () => 'Go live from your desk (webcam + mic)', chess: () => 'Play chess · keeps your win record',
 };
 export function useText(def) {
   const u = def.use;

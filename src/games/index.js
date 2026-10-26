@@ -71,7 +71,9 @@ export class GameLauncher {
     requestAnimationFrame(() => frame.classList.add('in'));
     canvas.addEventListener('mousemove', (e) => { const r = canvas.getBoundingClientRect(); this.mouse.x = (e.clientX - r.left) / r.width * W; this.mouse.y = (e.clientY - r.top) / r.height * H; });
     canvas.addEventListener('mousedown', () => { this.mouse.down = true; this.mouse.clicked = true; });
-    window.addEventListener('mouseup', () => { this.mouse.down = false; });
+    // one shared listener (re-adding the same function is a no-op)
+    this._onMouseUp ||= () => { this.mouse.down = false; };
+    window.addEventListener('mouseup', this._onMouseUp);
     this.canvas = canvas;
     const ctx = canvas.getContext('2d');
     const self = this;
@@ -79,7 +81,8 @@ export class GameLauncher {
       w: W, h: H, ctx, canvas, score: 0, time: 0, best: G.state.flags.highscores?.[id] || 0,
       addScore(n) { api.score += n; },
       setScore(n) { api.score = n; },
-      gameOver() { self.finish(); },
+      // a late timer from a game that was already quit must not end the next one
+      gameOver() { if (self.active?.api === api) self.finish(); },
       sfx(name, opts = {}) { G.audio.play(name, opts); },
       rand: (a = 0, b = 1) => a + Math.random() * (b - a),
       music(station) { self.music?.stop(); self.music = new MusicPlayer({ station, volume: 0.4 }); self.music.start(); },

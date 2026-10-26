@@ -327,6 +327,7 @@ const blindbox = {
 
 const cardpack = {
   held(inst) { return [{ key: 'LMB', label: 'Rip it open!', run: () => cardpack.open(inst) }]; },
+  world(inst) { return [{ key: 'F', label: 'Rip it open!', run: () => { G.items.pickUp(inst); cardpack.open(inst); } }]; },
   async open(inst) {
     if (G.hand.busy) return;
     const set = CARD_SETS[inst.def.use.set];
