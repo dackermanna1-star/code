@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Homebody — item preview</title>
+    <style>
+      body { margin: 0; background: #e9e7e3; font-family: system-ui, sans-serif; }
+      #grid { display: grid; grid-template-columns: repeat(auto-fill, 160px); gap: 8px; padding: 10px; }
+      .c { background: #fff; border-radius: 10px; padding: 6px; text-align: center; font-size: 11px; }
+      .c img { width: 148px; height: 148px; object-fit: contain; display: block; }
+      .c .id { color: #888; font-size: 9px; }
+      .err { background: #fdd; }
+      #status { padding: 6px 12px; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <div id="status">loading…</div>
+    <div id="grid"></div>
+    <script type="module" src="/src/preview.js"></script>
+  </body>
+</html>
