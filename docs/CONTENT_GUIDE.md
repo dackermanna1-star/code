@@ -91,6 +91,10 @@ Shared parametric models (`src/catalog/shared.js`): `can`, `bottle`,
 and `src/catalog/core_furniture.js` / `core_essentials.js` for examples
 (sofa, bed, lamps, PC, plants, coffee machine, toaster...).
 
+Geometry you cache and reuse across builds (e.g. a memoised sneaker upper)
+must be marked `geometry.userData.shared = true`: model measurement and the
+thumbnail renderer dispose every geometry that isn't marked shared.
+
 ## Behaviors (`use: { type, ... }`)
 
 Handlers live in `src/items/behaviors/*.js`. Pick the matching type; add new

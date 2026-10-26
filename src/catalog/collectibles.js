@@ -516,7 +516,7 @@ function dripSmiley() {
   const cy = 0.064;
   g.add(at(sph(0.06, y, 40, 28), 0, cy, 0));
   const r = seeded(31);
-  for (let i = 0; i < 11; i++) { const a = i / 11 * PI * 2 + r() * 0.3; const len = 0.012 + r() * 0.03; const d = capsule(0.0065 + r() * 0.003, len, y); g.add(at(d, Math.cos(a) * 0.055, cy - 0.022 - len / 2, Math.sin(a) * 0.055)); }
+  for (let i = 0; i < 12; i++) { const a = i / 12 * PI * 2 + r() * 0.3; if (Math.sin(a) > 0.75) continue; const len = 0.012 + r() * 0.022; const dy = 0.012 + len / 2; const rr = Math.sqrt(0.06 * 0.06 - dy * dy) - 0.001; const d = capsule(0.0068 + r() * 0.003, len, y); d.rotation.set(Math.sin(a) * 0.35, 0, -Math.cos(a) * 0.35); g.add(at(d, Math.cos(a) * rr, cy - dy, Math.sin(a) * rr)); }
   for (let i = 0; i < 5; i++) { const a = i * 1.7; const b = sph(0.01, y, 12, 8); b.scale.y = 0.4; g.add(at(b, Math.cos(a) * 0.066, 0.004, Math.sin(a) * 0.066)); }
   for (const s of [-1, 1]) { const e = capsule(0.0065, 0.014, mat('#111', { rough: 0.2 })); e.scale.z = 0.5; g.add(at(e, s * 0.02, cy + 0.015, 0.056)); }
   g.add(at(rot(torus(0.03, 0.004, mat('#111', { rough: 0.2 }), 6, 24, PI * 0.8), 0, 0, PI * 1.1), 0, cy - 0.003, 0.05));

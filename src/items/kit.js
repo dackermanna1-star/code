@@ -132,7 +132,15 @@ export function disc(r, material, seg = 32, o = { cast: false, receive: true }) 
 export function lathe(profile, material, seg = 32, o) {
   const key = 'lathe:' + seg + ':' + profile.map((p) => p.map(r3).join(',')).join(';');
   return mesh(cg(key, () => {
-    const g = new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(Math.max(0.0001, r), y)), seg);
+    const pts = profile.map(([r, y]) => new THREE.Vector2(Math.max(0.0001, r), y));
+    const g = new THREE.LatheGeometry(pts, seg);
+    // map texture V by arc length along the profile (not by point index) so labels aren't squashed
+    const cum = [0];
+    for (let j = 1; j < pts.length; j++) cum.push(cum[j - 1] + pts[j].distanceTo(pts[j - 1]));
+    const total = cum[cum.length - 1] || 1;
+    const uv = g.attributes.uv;
+    for (let i = 0; i <= seg; i++) for (let j = 0; j < pts.length; j++) uv.setY(i * pts.length + j, cum[j] / total);
+    uv.needsUpdate = true;
     g.computeVertexNormals();
     return g;
   }), material, o);

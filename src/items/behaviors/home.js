@@ -3,10 +3,12 @@
 import * as THREE from 'three';
 import { G } from '../../game.js';
 import { allLayers } from '../../core/engine.js';
+import { VirtualLight } from '../../core/lightpool.js';
 import { findOwned, consumeUse } from './util.js';
 import { rand, clamp, pick } from '../../core/utils.js';
 import { tween, Ease } from '../../core/tween.js';
 import { getDef } from '../registry.js';
+import { Container, CONTAINERS } from '../container.js';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const gameMinutes = (dt) => dt * (G.state.settings.timeScale || 1) * G.clock.speedMult;
@@ -31,7 +33,7 @@ const light = {
   init(inst) {
     const u = inst.def.use;
     if (inst.st.on === undefined) inst.st.on = u.startOn ?? true;
-    const l = new THREE.PointLight(inst.st.color || u.color || '#ffd6a0', 0, u.distance || 5, 2);
+    const l = new VirtualLight(inst.st.color || u.color || '#ffd6a0', 0, u.distance || 5, 2);
     l.position.set(...(u.bulb || [0, 0.3, 0]));
     allLayers(l);
     inst.model.add(l);
@@ -46,7 +48,7 @@ const light = {
     if (l) { l.color.set(col); l.intensity = on ? (u.intensity ?? 3) : 0; }
     for (const b of inst.runtime.bulbs || []) { b.material.emissive?.set(col); b.material.emissiveIntensity = on ? (u.ei ?? 2.5) : 0; }
   },
-  dispose(inst) { inst.runtime.light?.parent?.remove(inst.runtime.light); inst.runtime.light?.dispose?.(); },
+  dispose(inst) { inst.runtime.light?.parent?.remove(inst.runtime.light); inst.runtime.light?.dispose(); },
   toggle(inst) {
     inst.st.on = !inst.st.on;
     G.audio.play('switch', { pos: worldPos(inst) });
@@ -125,9 +127,11 @@ const bed = {
     if (!u) return;
     inst.model.traverse((o) => {
       if (o.isMesh && (o.name === 'duvet' || o.name === 'pillow' || o.name === 'sheet')) {
-        if (!o.userData._uniq) { o.material = o.material.clone(); o.userData._uniq = true; }
+        if (!o.userData._uniq) { o.material = o.material.clone(); o.userData._uniq = true; o.userData.baseMap = o.material.map; }
         o.material.color.set(o.name === 'pillow' ? (u.color2 || u.color) : u.color);
-        if (u.map) { o.material.map = u.map(); o.material.needsUpdate = true; }
+        // patterned sets bring their own print; plain ones restore the bed's fabric weave
+        const map = u.map ? u.map() : o.userData.baseMap || null;
+        if (o.material.map !== map) { const hadMap = !!o.material.map; o.material.map = map; if (hadMap !== !!map) o.material.needsUpdate = true; }
       }
     });
   },
@@ -258,7 +262,7 @@ const wateringcan = {
 const candle = {
   init(inst) {
     if (inst.st.burn === undefined) inst.st.burn = inst.def.use.burn || 600;
-    const l = new THREE.PointLight('#ffab4d', 0, 3, 2); l.position.set(...(inst.def.use.flame || [0, 0.15, 0])); allLayers(l);
+    const l = new VirtualLight('#ffab4d', 0, 3, 2); l.position.set(...(inst.def.use.flame || [0, 0.15, 0])); allLayers(l);
     inst.model.add(l); inst.runtime.light = l;
     inst.runtime.flames = []; inst.model.traverse((o) => { if (o.userData.flame) inst.runtime.flames.push(o); });
     candle.apply(inst);
@@ -268,7 +272,7 @@ const candle = {
     inst.runtime.flames.forEach((f) => (f.visible = lit));
     inst.runtime.light.intensity = lit ? 1.2 : 0;
   },
-  dispose(inst) { inst.runtime.light?.parent?.remove(inst.runtime.light); },
+  dispose(inst) { inst.runtime.light?.parent?.remove(inst.runtime.light); inst.runtime.light?.dispose(); },
   subtitle: (inst) => `${inst.def.use.scent || 'Unscented'} · ${Math.round(inst.st.burn / 60)}h of burn time${inst.st.lit ? ' · lit' : ''}`,
   toggle(inst) {
     inst.st.lit = !inst.st.lit;
@@ -325,7 +329,7 @@ const neon = {
   init(inst) {
     if (inst.st.on === undefined) inst.st.on = true;
     inst.runtime.tubes = uniqueParts(inst, 'neon');
-    const l = new THREE.PointLight(inst.def.use.color || '#ff4fd8', 0, 3, 2); l.position.set(0, inst.def._bounds?.center.y || 0.2, 0.25); allLayers(l);
+    const l = new VirtualLight(inst.def.use.color || '#ff4fd8', 0, 3, 2); l.position.set(0, inst.def._bounds?.center.y || 0.2, 0.25); allLayers(l);
     inst.model.add(l); inst.runtime.light = l;
     neon.apply(inst);
   },
@@ -334,7 +338,7 @@ const neon = {
     for (const t of inst.runtime.tubes) t.material.emissiveIntensity = on ? 3.2 * k : 0.05;
     inst.runtime.light.intensity = on ? 1.6 * k : 0;
   },
-  dispose(inst) { inst.runtime.light?.parent?.remove(inst.runtime.light); },
+  dispose(inst) { inst.runtime.light?.parent?.remove(inst.runtime.light); inst.runtime.light?.dispose(); },
   world(inst) { return [{ key: 'E', label: inst.st.on ? 'Switch off' : 'Switch on', run: () => neon.toggle(inst) }]; },
   toggle(inst) {
     inst.st.on = !inst.st.on;
@@ -375,6 +379,9 @@ const aquarium = {
   init(inst) {
     inst.runtime.fish = [];
     inst.model.traverse((o) => { if (o.userData.fish) inst.runtime.fish.push({ o, a: Math.random() * 6, r: o.userData.r || 0.15, y: o.position.y, s: 0.4 + Math.random() * 0.5 }); });
+    // bubbles rise from just below the lowest fish (tanks can sit on cabinets)
+    const ys = inst.runtime.fish.map((f) => f.y);
+    inst.runtime.bubbleY = ys.length ? Math.max(0.03, Math.min(...ys) - 0.06) : 0.05;
   },
   world(inst) { return [{ key: 'E', label: 'Feed the fish', run: () => aquarium.feed(inst) }, { key: 'R', label: 'Watch them swim', run: () => { G.needs.add({ comfort: 6, fun: 4 }); G.ui.toast('Mesmerizing… 🐠', { icon: '🐟' }); G.needs.addBuff('calm', 120); } }]; },
   feed(inst) {
@@ -394,7 +401,7 @@ const aquarium = {
       f.o.position.y = f.y + Math.sin(f.a * 2) * 0.02;
       f.o.rotation.y = -f.a + Math.PI / 2;
     }
-    if (Math.random() < dt * 3) G.particles.bubble(worldPos(inst, [rand(-0.1, 0.1), 0.05, 0]), new THREE.Vector3(0, 0.1, 0), { size: 0.012, life: 1.6, gravity: -0.15 });
+    if (Math.random() < dt * 3) G.particles.bubble(worldPos(inst, [rand(-0.1, 0.1), inst.runtime.bubbleY, 0]), new THREE.Vector3(0, 0.1, 0), { size: 0.012, life: 1.6, gravity: -0.15 });
   },
 };
 
@@ -492,9 +499,68 @@ const decor = {
   },
 };
 
+// ---------------------------------------------------------------- storage furniture & tables
+// Dressers, nightstands, consoles and shelves hold things: each one is a
+// small container keyed by the furniture's uid ("in:<uid>").
+function drawerFor(inst) {
+  const id = 'in:' + inst.uid;
+  const u = inst.def.use;
+  return CONTAINERS[id] || new Container(id, inst.def.name, {
+    capacity: u.capacity || 12, icon: inst.def.emoji || '🗄️',
+    accepts: (d) => !d.furniture && d.place !== 'wall' && (!u.accepts || u.accepts.includes(d.category)),
+  });
+}
+const drawers = {
+  world(inst) {
+    const c = drawerFor(inst);
+    const u = inst.def.use;
+    const held = G.hand.held;
+    const a = [{ key: 'E', label: `${u.verb || 'Open drawers'} (${c.count()}/${c.capacity})`, run: () => { G.audio.play(u.sound || 'drawer', { pos: worldPos(inst) }); G.ui.openContainer(c); } }];
+    if (held && held !== inst) {
+      if (c.canStore(held)) a.push({ key: 'F', label: `Put away ${held.def.name}`, run: () => drawers.store(inst, held) });
+      else a.push({ key: 'F', label: c.full() ? 'No room left' : 'That doesn\'t fit in here', run: () => {}, disabled: true });
+    }
+    return a;
+  },
+  store(inst, held) {
+    const c = drawerFor(inst);
+    G.hand.release(true);
+    G.items.toContainer(held, c);
+    G.audio.play(inst.def.use.sound || 'drawer', { pos: worldPos(inst) });
+    G.ui.toast(`${held.def.name} put away`, { icon: inst.def.emoji || '🗄️' });
+    G.events.emit('act', 'tidy', { item: held.def.id });
+  },
+  subtitle(inst) { const n = drawerFor(inst).count(); return n ? `${n} thing${n > 1 ? 's' : ''} stashed inside` : 'Empty — room for your stuff'; },
+};
+
+// Tables square up whatever sits on them.
+const table = {
+  world(inst) {
+    const kids = G.items.childrenOf(inst);
+    return [{ key: 'E', label: kids.length ? `Tidy up (${kids.length})` : (inst.def.use.verb || 'Wipe down'), run: () => table.tidy(inst) }];
+  },
+  tidy(inst) {
+    const kids = G.items.childrenOf(inst);
+    const base = itemYaw(inst);
+    const step = Math.PI / 2;
+    for (const k of kids) {
+      const o = k.object;
+      const from = o.quaternion.clone();
+      const yaw = base + Math.round((itemYaw(k) - base) / step) * step;
+      const to = new THREE.Quaternion().setFromAxisAngle(UP, yaw);
+      tween({ duration: 0.35, ease: Ease.outCubic, update: (t, e) => o.quaternion.slerpQuaternions(from, to, e), done: () => { k.data.rot = to.toArray(); } });
+    }
+    G.audio.play('rustle', { pos: worldPos(inst), volume: 0.5 });
+    G.particles.sparkle(worldPos(inst, [0, (inst.def._bounds?.size.y || 0.5) + 0.05, 0]), 8);
+    if (!inst.st.wiped || G.clock.total - inst.st.wiped > 240) { G.needs.add({ comfort: 3 }); inst.st.wiped = G.clock.total; }
+    G.ui.toast(kids.length ? 'Everything squared away. Satisfying.' : 'Spotless. You can see your reflection.', { icon: '✨' });
+    G.events.emit('act', 'tidy', { item: inst.def.id });
+  },
+};
+
 // ---------------------------------------------------------------- generic toggle device (LED strips, string lights, etc.)
 const toggleDevice = light;
 
-export const home = { light, lamp: light, seat, bed, bedding, plant, wateringcan, candle, diffuser, clock, neon, fan, aquarium, vacuum, projector, decor, toggle: toggleDevice };
+export const home = { light, lamp: light, seat, bed, bedding, plant, wateringcan, candle, diffuser, clock, neon, fan, aquarium, vacuum, projector, decor, drawers, table, toggle: toggleDevice };
 export { worldPos, itemYaw, gameMinutes, uniqueParts };
 void UP; void findOwned; void consumeUse; void tween; void Ease;

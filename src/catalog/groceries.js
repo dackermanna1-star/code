@@ -61,6 +61,8 @@ function broccoliHead(s = 1) {
   for (let i = 0; i < 8; i++) { const a = i / 7 * PI * 2, rr = i === 7 ? 0 : 0.022 * s; g.add(at(sph(0.02 * s, fl[i % 2], 8, 6), Math.cos(a) * rr, 0.065 * s + (i === 7 ? 0.012 * s : 0), Math.sin(a) * rr)); }
   return g;
 }
+// a single cheap floret (2 meshes) for dishes
+function floret(s = 1) { const h = sph(0.016 * s, FLAT('#2f6b1f', 0.9), 8, 6); h.scale.y = 0.75; return group(at(cyl(0.005 * s, 0.007 * s, 0.018 * s, F('#8cbf5a', 0.6), 6), 0, 0.009 * s, 0), at(h, 0, 0.022 * s, 0)); }
 function pepper(color, s = 1) {
   const g = new THREE.Group();
   const m = mat(color, { rough: 0.2, clearcoat: 0.8 });
@@ -171,7 +173,7 @@ function tofuTub() {
 }
 function veggieTray() {
   const c = new THREE.Group();
-  c.add(at(broccoliHead(0.6), -0.05, 0, -0.02), at(broccoliHead(0.55), -0.035, 0, 0.03));
+  c.add(at(floret(1.6), -0.05, 0, -0.02), at(floret(1.5), -0.035, 0, 0.03), at(floret(1.4), -0.065, 0, 0.02));
   for (let i = 0; i < 6; i++) c.add(at(cyl(0.011, 0.011, 0.005, F('#f07a1a', 0.5), 14), 0.01 + (i % 3) * 0.02, 0.003 + Math.floor(i / 3) * 0.005, -0.03 + (i % 2) * 0.012));
   for (let i = 0; i < 5; i++) { const p = box(0.05, 0.006, 0.008, F(i % 2 ? '#d62828' : '#f6c431', 0.4)); p.rotation.y = 0.3 * i; c.add(at(p, 0.04, 0.006, 0.02 + i * 0.006)); }
   for (let i = 0; i < 3; i++) { const p = capsule2(); p.rotation.set(0, i, PI / 2); c.add(at(p, 0.02 - i * 0.02, 0.01, 0.045)); }
@@ -341,11 +343,11 @@ function salmonBowl() {
 function stirFry() {
   const g = group(bowlShell(0.1, 0.05, MAT.ceramic('#f4efe6')));
   g.add(bite(fill(0.09, 0.022, F('#f7f4ec', 0.95), 0.03), 9));
-  scatter(g, 8, () => rbox(0.015, 0.014, 0.015, 0.003, GL('#d9963c')), { cx: -0.025, cz: -0.015, rad: 0.026, y: 0.048, tag: (i) => 2 + (i % 3), seed: 21 });
-  for (let i = 0; i < 4; i++) g.add(bite(at(broccoliHead(0.45), 0.03 + (i % 2) * 0.02, 0.032, -0.02 + Math.floor(i / 2) * 0.03), 5 + (i % 2)));
+  scatter(g, 6, () => rbox(0.015, 0.014, 0.015, 0.003, GL('#d9963c')), { cx: -0.025, cz: -0.015, rad: 0.026, y: 0.048, tag: (i) => 2 + (i % 3), seed: 21 });
+  for (let i = 0; i < 4; i++) g.add(bite(at(floret(0.9), 0.03 + (i % 2) * 0.022, 0.034, -0.02 + Math.floor(i / 2) * 0.03), 5 + (i % 2)));
   scatter(g, 6, () => cyl(0.009, 0.009, 0.004, F('#f07a1a', 0.5), 12), { cx: 0, cz: 0.04, rad: 0.02, y: 0.048, tag: 1, seed: 22 });
   scatter(g, 5, () => box(0.03, 0.005, 0.007, GL('#c8102e')), { cx: -0.02, cz: 0.035, rad: 0.018, y: 0.05, tag: 1, seed: 23 });
-  scatter(g, 12, () => box(0.0025, 0.0018, 0.0015, F('#f8f1dd', 0.5)), { rad: 0.05, y: 0.06, tag: 0, seed: 24 });
+  scatter(g, 8, () => box(0.0025, 0.0018, 0.0015, F('#f8f1dd', 0.5)), { rad: 0.05, y: 0.06, tag: 0, seed: 24 });
   return g;
 }
 function omelette() {
@@ -367,7 +369,7 @@ function homePancakes() {
 }
 function grilledCheese() {
   const g = group(plateOf(0.11, '#f4efe6'));
-  const bread = mat('#b8661e', { rough: 0.7 });
+  const bread = mat('#9a4f14', { rough: 0.7 });
   [[-0.025, 0.4, -0.15], [0.03, -0.5, 0.2]].forEach(([x, ry, tilt], i) => {
     const s = new THREE.Group();
     const tri = [[0, 0], [0.09, 0], [0, 0.09]];
@@ -382,7 +384,7 @@ function grilledCheese() {
 }
 function homeTacos() {
   const g = group(plateOf(0.13, '#e9f2ef'));
-  const beef = [['cube', '#5a2d14', 8], ['shred', '#5ea52a', 6], ['dot', '#f29a00', 6], ['dot', '#c8102e', 3]];
+  const beef = [['mound', '#5a2d14', 1, ['#3b1a08', '#8a4a2a', '#c8102e']], ['shred', '#5ea52a', 3], ['dot', '#f29a00', 3]];
   for (let i = 0; i < 3; i++) { const t = taco({ shellCol: '#e8a83a', spot: '#a8661e', fillings: beef, seed: i + 30 }); t.position.set(0, 0.012, -0.045 + i * 0.045); g.add(bite(t, i)); }
   g.add(at(rot(citrusWedge(0.02), 0, 0.5, 0), 0.075, 0.012, 0.07));
   return g;
@@ -422,7 +424,7 @@ function cookieSheet() {
   g.add(at(box(0.32, 0.006, 0.23, al), 0, 0.003, 0));
   for (const s of [-1, 1]) { g.add(at(box(0.32, 0.016, 0.006, al), 0, 0.008, s * 0.115)); g.add(at(box(0.006, 0.016, 0.23, al), s * 0.16, 0.008, 0)); }
   g.add(at(box(0.29, 0.001, 0.2, F('#efe3c8', 0.9)), 0, 0.0065, 0));
-  for (let i = 0; i < 6; i++) g.add(bite(at(cookieModel('#b8742a', '#2b150c', i + 11), -0.09 + (i % 3) * 0.09, 0.007, -0.05 + Math.floor(i / 3) * 0.1), i));
+  for (let i = 0; i < 6; i++) g.add(bite(at(cookieModel('#b8742a', '#2b150c', i + 11, 3), -0.09 + (i % 3) * 0.09, 0.007, -0.05 + Math.floor(i / 3) * 0.1), i));
   return g;
 }
 function bananaBread() {
@@ -453,7 +455,7 @@ function sheetPanChicken() {
   const skin = mat('#ffffff', { map: speckTex('roastchk2', '#a8561a', ['#6b300c', '#3f6b2a', '#d98a3a'], 60, 2.5, 4), rough: 0.35, clearcoat: 0.6, flat: true });
   [[-0.08, -0.04], [0.0, 0.03], [0.08, -0.03]].forEach(([x, z], i) => { const c = sph(0.042, skin, 11, 8); c.scale.set(1.15, 0.6, 0.9); c.rotation.set(0.15, i, 0.1); g.add(bite(at(c, x, 0.022, z), 3 + i)); });
   scatter(g, 9, (i) => rbox(0.024, 0.02, 0.022, 0.006, mat('#ffffff', { map: speckTex('roastpot', '#d99a3e', ['#8a5a1d', '#3f6b2a', '#f2c46a'], 40, 2, 5), rough: 0.55 })), { rad: 0.1, y: 0.016, tag: (i) => i % 3, seed: 51 });
-  for (let i = 0; i < 4; i++) g.add(bite(at(broccoliHead(0.45), -0.11 + i * 0.07, 0.004, 0.065), i % 3));
+  for (let i = 0; i < 4; i++) g.add(bite(at(floret(1.1), -0.11 + i * 0.07, 0.006, 0.065), i % 3));
   return g;
 }
 function lasagnaDish() {
@@ -542,4 +544,4 @@ defineItems([
   book({ id: 'cookbook_sweet', name: 'Sweet Tooth Bakeshop', price: 22.99, emoji: '📘', desc: 'Desserts that make guests gasp. Teaches Molten Lava Cake and Berry Galette.', build: () => bookModel({ color: '#f48fb1', accent: '#5a2d14', title: 'Sweet Tooth Bakeshop', author: 'Pip Sugarman', style: 2, t: 0.026, w: 0.17, h: 0.23 }), use: { type: 'cookbook', recipes: ['lava_cake', 'berry_galette'], pages: 8, genre: 'Cookbook', author: 'Pip Sugarman' } }),
 ]);
 
-void rbox; void noodles; void polar; void FLAT; void stripeTex;
+void rbox; void noodles; void polar; void stripeTex;

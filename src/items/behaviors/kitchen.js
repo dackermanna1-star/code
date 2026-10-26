@@ -89,13 +89,23 @@ const station = {
     food.st.madeAt = G.clock.total + 4;
   },
   update(inst, dt) {
-    if (!inst.runtime.anim) return;
+    const lever = inst.model.getObjectByName('lever');
+    if (lever && lever.userData.baseY === undefined) lever.userData.baseY = lever.position.y;
+    if (!inst.runtime.anim) {
+      if (inst.runtime.animDirty) {
+        inst.runtime.animDirty = false;
+        inst.model.position.x = 0;
+        if (lever) lever.position.y = lever.userData.baseY;
+      }
+      return;
+    }
+    inst.runtime.animDirty = true;
     inst.runtime.animT += dt;
     const t = inst.runtime.animT;
     if (inst.runtime.anim === 'spin') { const s = inst.model.getObjectByName('spin'); if (s) s.rotation.y += dt * (inst.def.use.spinSpeed || 2); }
     if (inst.runtime.anim === 'shake') inst.model.position.x = Math.sin(t * 60) * 0.003;
     if (inst.runtime.anim === 'steam' && Math.random() < dt * 6) G.particles.steam(worldPos(inst, [0, (inst.def._bounds?.size.y || 0.3), 0]), 1, { size: 0.03, sizeEnd: 0.18, alpha: 0.2 });
-    const pop = inst.model.getObjectByName('lever'); if (pop) pop.position.y = inst.runtime.anim ? -0.05 : 0;
+    if (lever) lever.position.y = lever.userData.baseY - 0.05;
   },
 };
 

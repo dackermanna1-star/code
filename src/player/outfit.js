@@ -60,8 +60,10 @@ export class Outfit {
       if (u.comfy) comfy++;
       lines.push(`${it.def.name}`);
     }
-    const hasCore = ['top', 'bottom', 'shoes'].every((s) => this.worn(s));
-    if (hasCore) { score += 10; } else lines.push('<i>Missing pieces: ' + ['top', 'bottom', 'shoes'].filter((s) => !this.worn(s)).join(', ') + '</i>');
+    // a dress counts as both top and bottom
+    const dress = this.worn('top')?.def.use.style === 'dress';
+    const missing = ['top', 'bottom', 'shoes'].filter((s) => !this.worn(s) && !(s === 'bottom' && dress));
+    if (!missing.length) { score += 10; } else lines.push('<i>Missing pieces: ' + missing.join(', ') + '</i>');
     const top = Object.entries(vibeCount).sort((a, b) => b[1] - a[1])[0];
     if (top && top[1] >= 3) score += 18; else if (top && top[1] >= 2) score += 9;
     // color harmony: reward a restrained palette

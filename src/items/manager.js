@@ -128,8 +128,9 @@ export class ItemManager {
     this.list = this.list.filter((i) => i !== inst);
     this.byUid.delete(inst.uid);
     G.state.items = G.state.items.filter((r) => r !== inst.data);
-    // detach anything parented on it
+    // detach anything parented on it; anything stashed inside goes to storage
     for (const i of this.list) if (i.data.parent === inst.uid) i.data.parent = null;
+    for (const i of this.list) if (i.data.loc === 'in:' + inst.uid) this.setLoc(i, i.def.use?.type === 'wear' ? 'wardrobe' : 'storage');
     this._rebuildColliders();
     G.events.emit('inventoryChanged');
     queueSave();

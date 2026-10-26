@@ -26,7 +26,7 @@ const CONVOS = [
     { label: 'LOL tell him hi', reply: 'He says hi. He also says "how do I leave"' },
     { label: 'Iconic 😂', reply: 'He is very proud of himself' },
   ] },
-  { id: 'mom_plants', who: 'mom', cond: () => G.items.all().some((i) => i.def.category === 'plants' && i.data.loc === 'world'), text: ['Are you watering your plants?', 'You know plants have feelings'], replies: [
+  { id: 'mom_plants', who: 'mom', cond: () => G.items.all().some((i) => i.def.use?.type === 'plant' && i.data.loc === 'world'), text: ['Are you watering your plants?', 'You know plants have feelings'], replies: [
     { label: 'Every day!', reply: 'That\'s my kid 🌱' },
     { label: 'They\'re thriving (mostly)', reply: 'Talk to them, it helps!' },
   ] },

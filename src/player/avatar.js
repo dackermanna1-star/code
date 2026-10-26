@@ -73,9 +73,11 @@ export function buildPerson({ skin: skinIdx = 1, hair = 0, hairColor = 1, top: t
   const skin = mat(SKIN_TONES[look.skin % SKIN_TONES.length], { rough: 0.65 });
   const hairM = mat(HAIR_COLORS[look.hairColor % HAIR_COLORS.length], { rough: 0.75, sheen: 0.4 });
   const top = topU || { style: 'tee', color: '#f2f2f2' };
-  const bottom = botU || { style: 'sweats', color: '#6c757d' };
+  // a dress with nothing underneath shows bare legs
+  const bare = top.style === 'dress' && !botU;
+  const bottom = botU || (bare ? { style: 'bare' } : { style: 'sweats', color: '#6c757d' });
   const topM = top.fabric === 'knit' ? MAT.knit(top.color) : MAT.fabric(top.color);
-  const botM = bottom.style === 'jeans' ? mat(bottom.color, { rough: 0.85 }) : MAT.fabric(bottom.color);
+  const botM = bare ? skin : bottom.style === 'jeans' ? mat(bottom.color, { rough: 0.85 }) : MAT.fabric(bottom.color);
   const b = new THREE.Group();
   const bulky = ['hoodie', 'sweater', 'jacket', 'coat', 'puffer'].includes(top.style);
   // torso
@@ -119,7 +121,7 @@ export function buildPerson({ skin: skinIdx = 1, hair = 0, hairColor = 1, top: t
     else { head.add(at(new THREE.Mesh(new THREE.SphereGeometry(0.122, 20, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), hm), 0, 0.025, 0)); const brim = cyl(0.1, 0.1, 0.008, mat(hat.color2 || hat.color, { rough: 0.7 }), 20); brim.scale.set(0.75, 1, 1); at(brim, 0, 0.03, 0.11); head.add(brim); }
   }
   if (glasses) {
-    const gm = mat(glasses.color || '#111', { rough: 0.3, metal: glasses.style === 'wire' ? 1 : 0 });
+    const gm = mat(glasses.color || '#111', { rough: 0.3, metal: glasses.style === 'wire' || glasses.metal ? 1 : 0 });
     const lens = mat(glasses.lens || '#88aacc', { rough: 0.05, opacity: glasses.style === 'sun' ? 0.85 : 0.2, transparent: true });
     for (const s of [-1, 1]) { const rim = torus(0.028, 0.004, gm, 6, 18); at(rim, s * 0.042, 0.015, 0.113); head.add(rim); const l = cyl(0.027, 0.027, 0.002, lens, 16); l.rotation.x = Math.PI / 2; at(l, s * 0.042, 0.015, 0.113); head.add(l); }
     head.add(at(box(0.03, 0.004, 0.004, gm), 0, 0.018, 0.115));
@@ -157,12 +159,15 @@ export function buildPerson({ skin: skinIdx = 1, hair = 0, hairColor = 1, top: t
     // shoes
     const sm = mat(shoes?.color || SKIN_TONES[look.skin % SKIN_TONES.length], { rough: 0.6 });
     const sole = mat(shoes?.color2 || shoes?.color || '#eeeeee', { rough: 0.7 });
-    if (shoes) { const shoe = rbox(0.11, shoes.style === 'boots' ? 0.14 : 0.08, 0.26, 0.04, sm); at(shoe, 0, -0.42 + (shoes.style === 'boots' ? 0.03 : 0), 0.05); knee.add(shoe); knee.add(at(rbox(0.115, 0.025, 0.27, 0.01, sole), 0, -0.46, 0.05)); }
+    if (shoes?.style === 'heels') {
+      knee.add(at(rbox(0.09, 0.05, 0.22, 0.025, sm), 0, -0.42, 0.06));
+      knee.add(at(cyl(0.012, 0.008, 0.07, sm, 8), 0, -0.47, -0.03));
+    } else if (shoes) { const shoe = rbox(0.11, shoes.style === 'boots' ? 0.14 : 0.08, 0.26, 0.04, sm); at(shoe, 0, -0.42 + (shoes.style === 'boots' ? 0.03 : 0), 0.05); knee.add(shoe); knee.add(at(rbox(0.115, 0.025, 0.27, 0.01, sole), 0, -0.46, 0.05)); }
     else knee.add(at(rbox(0.09, 0.05, 0.22, 0.025, sm), 0, -0.44, 0.04));
     b.add(hip);
   }
   if (bottom.style === 'skirt') b.add(at(cone(0.24, 0.32, botM, 20), 0, 0.82, 0));
-  else b.add(at(cyl(0.16, 0.16, 0.14, botM, 20), 0, 0.92, 0)).children.at(-1).scale.z = 0.75;
+  else if (!bare) b.add(at(cyl(0.16, 0.16, 0.14, botM, 20), 0, 0.92, 0)).children.at(-1).scale.z = 0.75;
   b.traverse((o) => { o.layers.set(layer); if (o.isMesh) { o.castShadow = layer === 0; o.receiveShadow = true; } });
   void capsule; void getDef;
   return { body: b, head, arms: self.arms, eyes: self.eyes };

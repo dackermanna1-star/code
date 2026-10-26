@@ -311,6 +311,11 @@ const SFX = {
       this._noiseBurst(out, t, { type: 'bandpass', freq: 1800, dur: 0.03, peak: 0.25 });
     }
   },
+  drawer(out, t) {
+    this._noiseBurst(out, t, { type: 'bandpass', freq: 700, freqEnd: 1100, q: 1.5, dur: 0.28, peak: 0.35, attack: 0.04 });
+    this._noiseBurst(out, t + 0.3, { type: 'lowpass', freq: 500, dur: 0.06, peak: 0.45 });
+    this._tone(out, t + 0.3, { freq: 110, dur: 0.06, peak: 0.2 });
+  },
   latch(out, t) { this._noiseBurst(out, t, { type: 'bandpass', freq: 3000, q: 3, dur: 0.02, peak: 0.5 }); this._noiseBurst(out, t + 0.06, { type: 'bandpass', freq: 2200, q: 3, dur: 0.02, peak: 0.4 }); },
   fridge(out, t, p, o) {
     if (o.close) { this._tone(out, t, { freq: 70, dur: 0.2, peak: 0.5 }); this._noiseBurst(out, t, { type: 'lowpass', freq: 300, dur: 0.15, peak: 0.6 }); }

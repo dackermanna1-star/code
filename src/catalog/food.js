@@ -283,11 +283,10 @@ export function pizzaPie({ style = 'pepperoni', r = 0.16, slices = 8, y = 0, cru
   const baseM = F(crust, 0.75), cheeseM = mat(S.cheese, { rough: 0.45, clearcoat: 0.25 });
   for (let i = 0; i < slices; i++) {
     const s = new THREE.Group();
-    s.add(slab(sector(r - 0.004, gap, L - gap, 6), 0.006, baseM, y));
-    s.add(slab(sector(r - 0.014, gap + 0.01, L - gap - 0.01, 6), 0.004, cheeseM, y + 0.007));
+    s.add(slab(sector(r - 0.008, gap, L - gap, 6), 0.01, cheeseM, y, 0.002));
     s.add(slab(sector(r, gap, L - gap, 6, r - 0.016), 0.01, baseM, y, 0.004));
-    S.tops.forEach(([k, c], j) => {
-      const a = L * (j % 2 ? 0.66 : 0.34), rr = r * (j % 2 ? 0.66 : 0.38) + (j > 1 ? 0.03 : 0);
+    [0, 1].map((j) => [S.tops[(i + j) % S.tops.length], j]).forEach(([[k, c], j]) => {
+      const a = L * (j % 2 ? 0.66 : 0.34), rr = r * (j % 2 ? 0.68 : 0.4);
       let t;
       if (k === 'pep') t = cyl(0.017, 0.017, 0.003, mat(c, { rough: 0.45, clearcoat: 0.3 }), 16);
       else if (k === 'mozz') { t = sph(0.018, F(c, 0.5), 12, 6); t.scale.y = 0.25; }
@@ -559,19 +558,21 @@ function taco({ shellCol = '#e9c27a', spot = '#b07a32', fillings = [], seed = 1 
   const s = shell(0.034, 0.11, mat('#ffffff', { map: tortillaTex(shellCol, shellCol, spot), rough: 0.75, side: THREE.DoubleSide }));
   s.scale.set(1, 1.35, 0.62); t.add(at(s, 0, 0.046, 0));
   const rnd = seeded(seed);
-  fillings.forEach(([kind, c, n]) => {
+  fillings.forEach(([kind, c, n, specks]) => {
     for (let i = 0; i < n; i++) {
       let m;
-      if (kind === 'cube') m = rbox(0.013, 0.011, 0.012, 0.003, F(c, 0.6));
+      if (kind === 'mound') { m = capsule(0.017, 0.062, mat('#ffffff', { map: speckTex(`mound:${c}`, c, specks || [c], 70, 3, 5), rough: 0.6 })); m.rotation.z = PI / 2; m.scale.set(0.85, 1, 0.82); }
+      else if (kind === 'cube') m = rbox(0.013, 0.011, 0.012, 0.003, F(c, 0.6));
       else if (kind === 'leaf') { m = sph(0.008, F(c, 0.5), 8, 6); m.scale.set(1.2, 0.35, 0.9); }
       else if (kind === 'shred') { m = box(0.03, 0.0025, 0.0035, F(c, 0.6)); }
       else if (kind === 'fish') { m = capsule(0.011, 0.07, FLAT(c, 0.9)); m.rotation.z = PI / 2; m.scale.set(1, 1, 0.8); }
       else if (kind === 'drizzle') { m = tube([[-0.045, 0, 0], [-0.025, 0.002, 0.006], [-0.005, 0, -0.006], [0.015, 0.002, 0.006], [0.035, 0, -0.005], [0.048, 0, 0.003]], 0.0022, GL(c), 24, 5); }
       else m = sph(0.005, F(c, 0.5), 6, 5);
-      if (kind !== 'fish' && kind !== 'drizzle') m.rotation.y = rnd() * PI;
-      const x = kind === 'fish' || kind === 'drizzle' ? 0 : (rnd() - 0.5) * 0.085;
-      const z = kind === 'fish' || kind === 'drizzle' ? 0 : (rnd() - 0.5) * 0.02;
-      const y = kind === 'fish' ? 0.042 : kind === 'drizzle' ? 0.06 : 0.044 + rnd() * 0.01 + (kind === 'leaf' || kind === 'shred' || kind === 'dot' ? 0.008 : 0);
+      const whole = kind === 'fish' || kind === 'drizzle' || kind === 'mound';
+      if (!whole) m.rotation.y = rnd() * PI;
+      const x = whole ? 0 : (rnd() - 0.5) * 0.075;
+      const z = whole ? 0 : (rnd() - 0.5) * 0.016;
+      const y = kind === 'fish' || kind === 'mound' ? 0.044 : kind === 'drizzle' ? 0.06 : 0.056 + rnd() * 0.008;
       t.add(at(m, x, y, z));
     }
   });
@@ -580,8 +581,8 @@ function taco({ shellCol = '#e9c27a', spot = '#b07a32', fillings = [], seed = 1 
 function tacoTray(kind) {
   const g = group(tray({ w: 0.17, d: 0.15, h: 0.03, m: FLAT('#f3eee4', 0.9) }));
   g.add(at(liner(0.15, 0.13, checkerTex('#2a9d8f', '#fff7ec', 7)), 0, 0.004, 0));
-  const pastor = [['cube', '#b8380f', 7], ['cube', '#f5b700', 3], ['dot', '#fbf6ee', 5], ['leaf', '#2d7a27', 6]];
-  const fish = [['fish', '#c98428', 1], ['shred', '#6a1f7a', 7], ['shred', '#b8d77a', 4], ['drizzle', '#f7f2e6', 1], ['leaf', '#2d7a27', 4]];
+  const pastor = [['mound', '#b8380f', 1, ['#f5b700', '#7a2a0c', '#e0601a']], ['cube', '#f5b700', 1], ['dot', '#fbf6ee', 2], ['leaf', '#2d7a27', 3]];
+  const fish = [['fish', '#c98428', 1], ['shred', '#6a1f7a', 3], ['shred', '#b8d77a', 1], ['drizzle', '#f7f2e6', 1], ['leaf', '#2d7a27', 2]];
   for (let i = 0; i < 3; i++) {
     const t = taco(kind === 'fish' ? { shellCol: '#ecd29a', spot: '#b9813f', fillings: fish, seed: i + 3 } : { shellCol: '#e0b25a', spot: '#9a5f22', fillings: pastor, seed: i + 7 });
     t.rotation.z = (i - 1) * 0.06; t.position.set(0, 0.004, -0.045 + i * 0.045);
@@ -846,16 +847,16 @@ function pailWithFood(label, print, kind) {
 function padThai() {
   const g = group(plate({ r: 0.125 }));
   const nd = F('#d08a3e', 0.45);
-  const strands = noodles(9, { w: 0.13, d: 0.09, y: 0.018, r: 0.0048, m: nd, seed: 41, amp: 0.008 });
+  const strands = noodles(7, { w: 0.13, d: 0.09, y: 0.018, r: 0.0052, m: nd, seed: 41, amp: 0.008 });
   strands.forEach((n, i) => { n.scale.y = 0.6; n.rotation.y = 0.4; g.add(bite(n, 3 + (i % 3))); });
-  const top = noodles(6, { w: 0.1, d: 0.06, y: 0.026, r: 0.0048, m: nd, seed: 42, amp: 0.01 });
-  scatter(g, 6, () => rbox(0.012, 0.004, 0.009, 0.002, F('#f6c443', 0.5)), { rad: 0.035, y: 0.036, tag: 2, seed: 44 });
-  scatter(g, 8, () => box(0.016, 0.0025, 0.0025, F('#3f8f2a', 0.5)), { rad: 0.04, y: 0.04, tag: 0, seed: 45 });
+  const top = noodles(4, { w: 0.1, d: 0.06, y: 0.026, r: 0.0052, m: nd, seed: 42, amp: 0.01 });
+  scatter(g, 4, () => rbox(0.012, 0.004, 0.009, 0.002, F('#f6c443', 0.5)), { rad: 0.035, y: 0.036, tag: 2, seed: 44 });
+  scatter(g, 5, () => box(0.016, 0.0025, 0.0025, F('#3f8f2a', 0.5)), { rad: 0.04, y: 0.04, tag: 0, seed: 45 });
   top.forEach((n, i) => { n.scale.y = 0.6; n.rotation.y = -0.6; g.add(bite(n, 2 + (i % 2))); });
   const shrimp = F('#f2855e', 0.45);
   for (let i = 0; i < 3; i++) { const s = group(torus(0.013, 0.006, shrimp, 8, 14, PI * 1.3), at(cone(0.006, 0.012, F('#e0471c', 0.5), 6), 0.013, -0.004, 0)); s.rotation.set(PI / 2 - 0.2, 0, i * 2); g.add(bite(at(s, -0.03 + i * 0.03, 0.04, 0.01 - (i % 2) * 0.02), 1)); }
-  scatter(g, 10, () => rbox(0.004, 0.003, 0.004, 0.001, F('#c99c5f', 0.7)), { rad: 0.03, y: 0.045, tag: 0, seed: 43 });
-  for (let i = 0; i < 4; i++) { const s = cyl(0.0016, 0.0016, 0.035, F('#f6f1dc', 0.5), 5); s.rotation.set(PI / 2, 0, i * 0.5 + 0.3); g.add(bite(at(s, 0.055, 0.03, -0.01 + i * 0.008), 0)); }
+  scatter(g, 6, () => rbox(0.004, 0.003, 0.004, 0.001, F('#c99c5f', 0.7)), { rad: 0.03, y: 0.045, tag: 0, seed: 43 });
+  for (let i = 0; i < 3; i++) { const s = cyl(0.0016, 0.0016, 0.035, F('#f6f1dc', 0.5), 5); s.rotation.set(PI / 2, 0, i * 0.5 + 0.3); g.add(bite(at(s, 0.055, 0.03, -0.01 + i * 0.008), 0)); }
   g.add(at(rot(citrusWedge(0.022), 0, -0.6, 0), -0.07, 0.012, 0.055));
   return g;
 }
@@ -1171,21 +1172,33 @@ function rocketPop() {
 }
 
 // =================================================================== bakery (Crumb Bakery)
+// crescent tube with tapered ends and rolled ridges; part k of 3 (for bites)
+function croissantGeo(k) {
+  return cgeo(`croissant:${k}`, () => {
+    const A = 1.25, R = 0.05, a0 = -A + (2 * A) * k / 3, a1 = -A + (2 * A) * (k + 1) / 3;
+    const pts = [];
+    for (let i = 0; i <= 6; i++) { const a = a0 + (a1 - a0) * i / 6; pts.push(new THREE.Vector3(Math.sin(a) * R, 0, R - Math.cos(a) * R)); }
+    const path = new THREE.CatmullRomCurve3(pts);
+    const TS = 24, RS = 14;
+    const geo = new THREE.TubeGeometry(path, TS, 1, RS, false);
+    const pos = geo.attributes.position, c = new THREE.Vector3(), v = new THREE.Vector3();
+    for (let i = 0; i <= TS; i++) {
+      const t = (k + i / TS) / 3;
+      path.getPointAt(i / TS, c);
+      const taper = 1 - Math.pow(Math.abs(2 * t - 1), 1.7) * 0.82;
+      const r = 0.029 * taper * (1 + 0.14 * Math.abs(Math.sin(t * PI * 7)));
+      for (let j = 0; j <= RS; j++) { const q = i * (RS + 1) + j; v.fromBufferAttribute(pos, q).sub(c).multiplyScalar(r); v.y *= 0.72; v.add(c); pos.setXYZ(q, v.x, v.y, v.z); }
+    }
+    geo.computeVertexNormals();
+    geo.translate(0, 0.022, -0.025);
+    return geo;
+  });
+}
 function croissant() {
   const g = new THREE.Group();
-  g.add(at(liner(0.18, 0.12, checkerTex('#dda15e', '#fbf6ec', 6)), 0, 0.001, 0));
-  const m = mat('#b8661c', { rough: 0.4, clearcoat: 0.6 }), m2 = mat('#d48a32', { rough: 0.4, clearcoat: 0.6 });
-  const n = 7, R = 0.055;
-  for (let i = 0; i < n; i++) {
-    const t = (i / (n - 1)) * 2 - 1;            // -1 .. 1 along the crescent
-    const a = t * 1.15;
-    const r = 0.027 * (1 - Math.abs(t) * 0.55);
-    const s = sph(r, i % 2 ? m2 : m, 18, 12);
-    s.scale.set(0.62, 0.78, 1.45);
-    s.rotation.y = -a;
-    const x = Math.sin(a) * R, z = R - Math.cos(a) * R - 0.02;
-    g.add(bite(at(s, x, r * 0.78 + 0.001, z), [0, 2, 4, 6, 5, 3, 1][i]));
-  }
+  g.add(at(liner(0.15, 0.1, checkerTex('#dda15e', '#fbf6ec', 6)), 0, 0.001, 0));
+  const m = mat('#ffffff', { map: stripeTex('croissant2', '#b8601a', '#e3a050', 6, true), rough: 0.4, clearcoat: 0.6, side: THREE.DoubleSide });
+  [0, 2, 1].forEach((k, i) => g.add(bite(mesh(croissantGeo(k), m), i)));
   return g;
 }
 function cupcake({ cake = '#8e1d2b', frost = '#f8f1e4', liner: lc = '#d23b4a', topping = 'crumbs' }) {
@@ -1218,11 +1231,11 @@ function cakeSlice() {
   const f = fork(0.14); f.rotation.y = -0.6; g.add(at(f, 0.05, 0.016, 0.03));
   return g;
 }
-function cookieModel(color = '#c98b4a', chips = '#3b2314', seed = 1) {
+function cookieModel(color = '#c98b4a', chips = '#3b2314', seed = 1, nChips = 4) {
   const c = new THREE.Group();
   c.add(at(cyl(0.04, 0.041, 0.011, FLAT(color, 0.9), 14), 0, 0.0055, 0));
   const rnd = seeded(seed);
-  for (let i = 0; i < 6; i++) { const a = rnd() * 7, r = Math.sqrt(rnd()) * 0.03; c.add(at(rbox(0.008, 0.005, 0.007, 0.0015, F(chips, 0.5)), Math.cos(a) * r, 0.0115, Math.sin(a) * r)); }
+  for (let i = 0; i < nChips; i++) { const a = rnd() * 7, r = Math.sqrt(rnd()) * 0.03; c.add(at(rbox(0.008, 0.005, 0.007, 0.0015, F(chips, 0.5)), Math.cos(a) * r, 0.0115, Math.sin(a) * r)); }
   return c;
 }
 export { cookieModel };

@@ -115,7 +115,7 @@ export function burger({ bun = '#d4924a', patty = '#5a3320', cheese = '#ffc93c',
   }
   add(cyl(0.06, 0.06, 0.006, mat(lettuce, { rough: 0.7 }), 12), 0.006).userData.bite = 1;
   add(cyl(0.048, 0.048, 0.008, mat(tomato, { rough: 0.4 }), 20), 0.008).userData.bite = 1;
-  const top = lathe([[0.001, 0.035], [0.03, 0.033], [0.05, 0.022], [0.057, 0.008], [0.055, 0], [0.001, 0]], mat(bun, { rough: 0.5 }), 28);
+  const top = lathe([[0.001, 0], [0.055, 0], [0.057, 0.008], [0.05, 0.022], [0.03, 0.033], [0.001, 0.035]], mat(bun, { rough: 0.5 }), 28);
   top.userData.bite = 0; at(top, 0, y, 0); g.add(top);
   for (let i = 0; i < 9; i++) { const a = i * 2.1; const s = sph(0.003, mat('#f5ebd3', { rough: 0.6 }), 6, 4); s.scale.y = 0.4; s.userData.bite = 0; at(s, Math.cos(a) * 0.03 * (i % 3 + 1) / 2, y + 0.033 - (i % 3) * 0.004, Math.sin(a) * 0.03 * (i % 3 + 1) / 2); g.add(s); }
   return g;

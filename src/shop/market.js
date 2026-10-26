@@ -60,7 +60,9 @@ export class Market {
   // ---------------------------------------------------------------- resale market
   resellable(def) { return def.tags.includes('resell') || def.stores.includes('stockpile') || ['shoes', 'collectibles'].includes(def.category) || !!def.limited; }
   marketValue(def, day = G.clock.day) {
-    const base = def.resale ?? def.price;
+    // things anyone can buy at retail resell below sticker unless they set a resale value
+    const retail = def.stores.some((s) => s !== 'stockpile') && !def.limited;
+    const base = def.resale ?? (retail ? def.price * 0.7 / (RARITY_PREMIUM[def.rarity] || 1) : def.price);
     const rnd = seeded(hashStr(def.id) ^ 0x5bd1e995);
     const vol = 0.06 + rnd() * 0.12;
     const drift = (rnd() - 0.4) * 0.03; // most things slowly appreciate

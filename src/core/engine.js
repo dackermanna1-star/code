@@ -11,15 +11,16 @@ import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { setMaxAnisotropy } from './textures.js';
 import { updateTweens, tweensActive } from './tween.js';
+import { LightPool } from './lightpool.js';
 
 export const LAYER_WORLD = 0;
 export const LAYER_VIEWMODEL = 1;
 export const LAYER_AVATAR = 2;
 
 export const QUALITY = {
-  low: { pixelRatio: 0.85, samples: 0, bloom: false, ao: false, shadowSize: 1024, outline: true, softShadows: false },
-  medium: { pixelRatio: 1.25, samples: 4, bloom: true, ao: false, shadowSize: 2048, outline: true, softShadows: true },
-  high: { pixelRatio: 2, samples: 4, bloom: true, ao: true, shadowSize: 2048, outline: true, softShadows: true },
+  low: { pixelRatio: 0.85, samples: 0, bloom: false, ao: false, shadowSize: 1024, outline: true, softShadows: false, itemLights: 4 },
+  medium: { pixelRatio: 1.25, samples: 4, bloom: true, ao: false, shadowSize: 2048, outline: true, softShadows: true, itemLights: 6 },
+  high: { pixelRatio: 2, samples: 4, bloom: true, ao: true, shadowSize: 2048, outline: true, softShadows: true, itemLights: 8 },
 };
 
 export class Engine {
@@ -77,6 +78,7 @@ export class Engine {
     r.shadowMap.type = q.softShadows ? THREE.PCFSoftShadowMap : THREE.PCFShadowMap;
     r.shadowMap.needsUpdate = true;
     this.scene.traverse((o) => { if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => (m.needsUpdate = true)); } });
+    LightPool.init(this.scene, q.itemLights);
     this._buildComposer();
     this.onQualityChange?.(q);
   }
@@ -164,6 +166,7 @@ export class Engine {
       for (const u of this.updaters) {
         try { u.fn(dt, this.time); } catch (e) { console.error(e); }
       }
+      LightPool.update(this.camera);
       this.shadowT += dt;
       if (this.shadowT > 0.2 || tweensActive() || this.shadowBusy()) { this.shadowT = 0; this.renderer.shadowMap.needsUpdate = true; }
       this.composer.render(dt);

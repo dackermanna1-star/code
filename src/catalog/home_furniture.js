@@ -200,9 +200,8 @@ function rockingChair() {
   const g = new THREE.Group();
   const arc = 0.78, RR = 1.1;
   for (const s of [-1, 1]) {
-    const r = torus(RR, 0.02, wood, 6, 28, arc);
-    r.rotation.set(0, Math.PI / 2, -Math.PI / 2 - arc / 2);
-    g.add(at(r, s * 0.25, RR + 0.02, 0));
+    const r = meshOf(sharedGeo('hf:rocker', () => new THREE.TorusGeometry(RR, 0.02, 6, 28, arc).rotateZ(-Math.PI / 2 - arc / 2).rotateY(Math.PI / 2).translate(0, RR + 0.02, 0)), wood);
+    g.add(at(r, s * 0.25, 0, 0));
     g.add(at(cyl(0.018, 0.02, 0.4, wood, 8), s * 0.23, 0.23, 0.18));
     const post = cyl(0.02, 0.022, 1.02, wood, 8); post.rotation.x = -0.16; g.add(at(post, s * 0.23, 0.55, -0.24));
     g.add(at(rbox(0.06, 0.03, 0.5, 0.012, wood), s * 0.26, 0.66, 0.02));

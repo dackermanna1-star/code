@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { G } from '../../game.js';
 import { allLayers } from '../../core/engine.js';
+import { VirtualLight } from '../../core/lightpool.js';
 import { MusicPlayer, STATIONS } from '../../core/music.js';
 import { CHANNELS, drawChannel } from '../../ui/tvchannels.js';
 import { worldPos, itemYaw, home } from './home.js';
@@ -27,13 +28,13 @@ const tv = {
   init(inst) {
     inst.runtime.scr = screenSetup(inst);
     if (inst.st.ch === undefined) inst.st.ch = 0;
-    const l = new THREE.PointLight('#8fb3ff', 0, 4.5, 2);
+    const l = new VirtualLight('#8fb3ff', 0, 4.5, 2);
     const b = inst.def._bounds;
     l.position.set(0, b ? b.center.y : 0.8, 0.5); allLayers(l);
     inst.model.add(l); inst.runtime.light = l;
     tv.apply(inst);
   },
-  dispose(inst) { inst.runtime.snd?.stop(); inst.runtime.music?.stop(); inst.runtime.light?.parent?.remove(inst.runtime.light); },
+  dispose(inst) { inst.runtime.snd?.stop(); inst.runtime.music?.stop(); inst.runtime.light?.parent?.remove(inst.runtime.light); inst.runtime.light?.dispose(); },
   onLeaveWorld(inst) { if (inst.st.on) tv.power(inst, false, true); },
   apply(inst) {
     const s = inst.runtime.scr; if (!s) return;

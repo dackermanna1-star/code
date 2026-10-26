@@ -12,6 +12,10 @@ const WEARABLE = (def) => def.use?.type === 'wear';
 // flat garment silhouettes used on hangers
 const TOP_SHAPE = [[-0.1, 0.0], [-0.24, -0.06], [-0.3, -0.24], [-0.22, -0.27], [-0.17, -0.17], [-0.17, -0.62], [0.17, -0.62], [0.17, -0.17], [0.22, -0.27], [0.3, -0.24], [0.24, -0.06], [0.1, 0.0], [0.05, -0.04], [-0.05, -0.04]];
 const LONG_SHAPE = [[-0.1, 0.0], [-0.24, -0.06], [-0.3, -0.55], [-0.22, -0.57], [-0.18, -0.2], [-0.18, -0.66], [0.18, -0.66], [0.18, -0.2], [0.22, -0.57], [0.3, -0.55], [0.24, -0.06], [0.1, 0.0], [0.05, -0.05], [-0.05, -0.05]];
+const DRESS_SHAPE = [[-0.1, 0.0], [-0.16, -0.04], [-0.17, -0.2], [-0.14, -0.34], [-0.26, -0.95], [0.26, -0.95], [0.14, -0.34], [0.17, -0.2], [0.16, -0.04], [0.1, 0.0], [0.05, -0.06], [-0.05, -0.06]];
+const TANK_SHAPE = [[-0.1, 0.0], [-0.14, -0.02], [-0.17, -0.16], [-0.17, -0.6], [0.17, -0.6], [0.17, -0.16], [0.14, -0.02], [0.1, 0.0], [0.05, -0.08], [-0.05, -0.08]];
+const SHORTS_SHAPE = [[-0.17, 0.0], [0.17, 0.0], [0.2, -0.24], [0.03, -0.24], [0.0, -0.1], [-0.03, -0.24], [-0.2, -0.24]];
+const SKIRT_SHAPE = [[-0.15, 0.0], [0.15, 0.0], [0.24, -0.4], [-0.24, -0.4]];
 const PANTS_SHAPE = [[-0.17, 0.0], [0.17, 0.0], [0.19, -0.5], [0.03, -0.5], [0.0, -0.12], [-0.03, -0.5], [-0.19, -0.5]];
 
 export function garmentMesh(def) {
@@ -19,8 +23,10 @@ export function garmentMesh(def) {
   const col = u.color || '#888';
   const m = u.fabric === 'knit' ? MAT.knit(col) : MAT.fabric(col);
   let shape = TOP_SHAPE;
-  if (u.slot === 'bottom') shape = PANTS_SHAPE;
-  else if (['hoodie', 'jacket', 'sweater', 'coat', 'shirt'].includes(u.style)) shape = LONG_SHAPE;
+  if (u.slot === 'bottom') shape = u.style === 'shorts' ? SHORTS_SHAPE : u.style === 'skirt' ? SKIRT_SHAPE : PANTS_SHAPE;
+  else if (u.style === 'dress') shape = DRESS_SHAPE;
+  else if (u.style === 'tank') shape = TANK_SHAPE;
+  else if (['hoodie', 'jacket', 'sweater', 'coat', 'shirt', 'longsleeve', 'puffer'].includes(u.style)) shape = LONG_SHAPE;
   const g = new THREE.Group();
   const body = extrude(shape, 0.02, m, 0.01);
   g.add(body);

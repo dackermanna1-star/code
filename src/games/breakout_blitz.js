@@ -32,7 +32,8 @@ defineGame({
       L.rows.forEach((row, r) => [...row].forEach((c, k) => {
         if (c === '.') return;
         const hp = c === 'S' ? Infinity : c === 'B' ? 1 : +c;
-        bricks.push({ x: OX + k * (BW + GAP), y: OY + r * (BH + GAP), hp, max: hp, kind: c, hit: 0 });
+        const [c1, c2] = c === '1' ? [`hsl(${(170 + r * 32) % 360},85%,62%)`, `hsl(${(170 + r * 32) % 360},75%,46%)`] : HPC[c];
+        bricks.push({ x: OX + k * (BW + GAP), y: OY + r * (BH + GAP), hp, max: hp, kind: c, hit: 0, c1, c2 });
       }));
       banner = `LEVEL ${i + 1} · ${L.name}`; bannerT = 2; drops = []; lasers = [];
       resetBall();
@@ -47,7 +48,7 @@ defineGame({
       combo++;
       const pts = Math.round(20 * b.max * (1 + Math.min(combo, 20) * 0.1)); api.addScore(pts);
       if (combo >= 5 && combo % 5 === 0) pops.push({ x: b.x + BW / 2, y: b.y, txt: `COMBO ×${combo}`, life: 1 });
-      const col = HPC[b.kind][0];
+      const col = b.c1;
       burst(b.x + BW / 2, b.y + BH / 2, col, 14);
       api.sfx('pop', { pitch: 0.9 + Math.min(1, combo * 0.05), volume: 0.6 });
       shake = Math.max(shake, byLaser ? 2 : 4);
@@ -154,7 +155,7 @@ defineGame({
         ctx.strokeStyle = 'rgba(157,78,221,0.12)'; ctx.lineWidth = 1; ctx.beginPath();
         for (let x = 0; x < W; x += 32) { ctx.moveTo(x + 0.5, 30); ctx.lineTo(x + 0.5, H); } for (let y = 30; y < H; y += 32) { ctx.moveTo(0, y + 0.5); ctx.lineTo(W, y + 0.5); } ctx.stroke();
         for (const b of bricks) {
-          const [c1, c2] = HPC[b.kind], hitW = b.hit > 0;
+          const { c1, c2 } = b, hitW = b.hit > 0;
           const bg = ctx.createLinearGradient(0, b.y, 0, b.y + BH); bg.addColorStop(0, hitW ? '#fff' : c1); bg.addColorStop(1, hitW ? '#ddd' : c2);
           ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect(b.x, b.y, BW, BH, 4); ctx.fill();
           ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.fillRect(b.x + 3, b.y + 2, BW - 6, 3);

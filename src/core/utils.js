@@ -55,17 +55,19 @@ export function worldBox(obj, target = new THREE.Box3()) {
   return target.setFromObject(obj, false);
 }
 export function localBox(obj) {
-  // Bounding box of obj's meshes expressed in obj's own local frame.
+  // Precise bounding box of obj's meshes in obj's own frame (transforms actual
+  // vertices, so rotated parts don't inflate the box).
   obj.updateWorldMatrix(true, true);
   const inv = obj.matrixWorld.clone().invert();
   const m = new THREE.Matrix4();
+  const v = new THREE.Vector3();
   const box = new THREE.Box3();
   obj.traverse((o) => {
-    if (o.isMesh && o.geometry && o.visible !== false && !o.userData.noBounds) {
-      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-      m.multiplyMatrices(inv, o.matrixWorld);
-      box.union(o.geometry.boundingBox.clone().applyMatrix4(m));
-    }
+    if (!o.isMesh || !o.geometry || o.visible === false || o.userData.noBounds) return;
+    const pos = o.geometry.attributes.position;
+    if (!pos) return;
+    m.multiplyMatrices(inv, o.matrixWorld);
+    for (let i = 0; i < pos.count; i++) box.expandByPoint(v.fromBufferAttribute(pos, i).applyMatrix4(m));
   });
   return box;
 }

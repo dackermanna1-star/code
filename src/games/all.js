@@ -9,3 +9,7 @@ import './rhythm_pop.js';
 import './slice_party.js';
 import './fishing_frenzy.js';
 import './breakout_blitz.js';
+import './dungeon_dash.js';
+import './word_bloom.js';
+import './memory_match.js';
+import './solitaire_lite.js';

@@ -158,7 +158,7 @@ function bathBomb({ color = '#ff8fb1', speck = '#ffffff', topping = null, swirl 
   });
   const g = new THREE.Group();
   g.add(at(sph(0.034, mat('#ffffff', { map: tex, rough: 0.95 }), 32, 20), 0, 0.034, 0));
-  g.add(at(rot(torus(0.0342, 0.0016, mat(tint(color, 0.85), { rough: 1 }), 6, 40), PI / 2, 0, 0), 0, 0.034, 0));
+  g.add(at(rot(torus(0.0334, 0.0011, mat(tint(color, 0.9), { rough: 1 }), 6, 40), PI / 2, 0, 0), 0, 0.034, 0));
   if (topping === 'petals') for (let i = 0; i < 6; i++) { const p = sph(0.008, mat(i % 2 ? '#e0577a' : '#f49cb3', { rough: 0.8 }), 10, 6); p.scale.set(1, 0.3, 0.7); p.rotation.set(0.3, i, 0.2); g.add(at(p, Math.cos(i * 1.1) * 0.012, 0.066 + (i % 2) * 0.001, Math.sin(i * 1.1) * 0.012)); }
   if (topping === 'glitter') for (let i = 0; i < 14; i++) { const a = i * 2.4, rr = 0.03; g.add(at(box(0.004, 0.004, 0.004, mat('#ffe08a', { rough: 0.15, metal: 1 })), Math.cos(a) * rr * Math.sin(i), 0.034 + Math.cos(i * 0.7) * 0.02, Math.sin(a) * rr * Math.sin(i) + 0.012)); }
   if (topping === 'leaf') { const l = sph(0.012, mat('#4f8a3a', { rough: 0.6 }), 10, 8); l.scale.set(0.5, 0.2, 1); l.rotation.y = 0.6; g.add(at(l, 0.004, 0.068, 0)); }
@@ -317,7 +317,7 @@ defineItems([
     ['bathbomb_honey_lemon', 'Honey Lemon Bath Bomb', '#ffd23f', 7, '#fff3b0', null, 'honey', 'Golden, zesty and sweet. Like a hot toddy you can sit in.'],
     ['bathbomb_matcha_mint', 'Matcha Mint Bath Bomb', '#8fcf7a', 7, '#e9f5db', null, 'leaf', 'Green tea and spearmint for a very zen, very green soak.'],
     ['bathbomb_golden_hour', 'Golden Hour Glitter Bomb', '#f4a259', 12, '#ffe8a3', ['#ffbe0b', '#fb5607'], 'glitter', 'Sunset-orange fizz with biodegradable gold glitter. Your tub becomes the main character.'],
-  ].map(([id, name, color, price, speck, swirl, topping, desc]) => B({ id, name, price, stores: ['glow', 'primo'], rarity: price > 10 ? 'uncommon' : 'common', tags: ['bathroom', 'ball'], desc, build: () => bathBomb({ color, speck: speck || '#ffffff', swirl, topping, key: id }), use: { type: 'bathbomb', color } })),
+  ].map(([id, name, color, price, speck, swirl, topping, desc]) => B({ id, name, price, stores: ['glow', 'primo'], rarity: price > 10 ? 'uncommon' : 'common', tags: ['bathroom'], desc, build: () => bathBomb({ color, speck: speck || '#ffffff', swirl, topping, key: id }), use: { type: 'bathbomb', color } })),
   // ------------------------------------------------------------ soaps
   B({ id: 'soap_oatmeal_honey', name: 'Oatmeal & Honey Bar Soap', price: 8, stores: ['glow', 'freshcart'], desc: 'Cold-pressed oat bar on a little cedar dish. Gentle, cozy and very photogenic.', build: () => soapBar({ color: '#ead7b0', speck: '#a8834f', stamp: 'OAT', key: 'oat' }), use: { type: 'soap', uses: 30, scent: 'oat & honey' } }),
   B({ id: 'soap_charcoal_bar', name: 'Activated Charcoal Bar', price: 9, stores: ['glow'], desc: 'Jet-black detox bar that lathers bright white. Science? Magic? Both.', build: () => soapBar({ color: '#2a2a2c', stamp: 'DETOX', ink: '#555559', dish: '#d9c3a0', key: 'charcoal' }), use: { type: 'soap', uses: 30, scent: 'charcoal & tea tree' } }),

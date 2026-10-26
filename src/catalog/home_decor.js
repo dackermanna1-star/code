@@ -708,7 +708,7 @@ function checkerTex(c1, c2, key) { return labelTexture('hd:check:' + key, 128, 1
 function pillow({ w = 0.45, h = 0.45, d = 0.14, m }) {
   const p = rbox(w, h, d, Math.min(d / 2 - 0.002, 0.065), m);
   p.rotation.x = -0.18;
-  return group(at(p, 0, h / 2 - 0.01, -0.02));
+  return group(at(p, 0, h / 2 + 0.012, -0.02));
 }
 function mushroomPillow() {
   const cap = mat('#ffffff', { map: labelTexture('hd:mushcap', 128, 64, (ctx, W, H) => { ctx.fillStyle = '#d64a3a'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#fbf3e6'; for (const [x, y, r] of [[20, 20, 7], [60, 14, 6], [100, 24, 8], [40, 40, 5], [84, 46, 6], [118, 8, 4]]) { ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); } }), rough: 1, sheen: 0.8 });
@@ -721,7 +721,7 @@ function mushroomPillow() {
 function tasselPillow() {
   const v = mat('#7a8f86', { rough: 0.6, sheen: 1, map: fabric({ base: '#ffffff', seed: 6, scale: 2 }) });
   const g = pillow({ w: 0.55, h: 0.32, d: 0.13, m: v });
-  for (const [x, y] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const t = cone(0.012, 0.05, mat('#e2c290', { rough: 0.9 }), 8); t.rotation.z = x * 2.3 * (y > 0 ? 0.6 : 1); g.add(at(t, x * 0.285, 0.15 + y * 0.165, -0.02 + (y > 0 ? -0.03 : 0.03))); }
+  for (const [x, y] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { const t = cone(0.012, 0.05, mat('#e2c290', { rough: 0.9 }), 8); t.rotation.z = x * 2.3 * (y > 0 ? 0.6 : 1); g.add(at(t, x * 0.285, 0.185 + y * 0.15, -0.02 + (y > 0 ? -0.03 : 0.03))); }
   return g;
 }
 function chunkyKnitTex() {
