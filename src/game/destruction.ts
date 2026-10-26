@@ -67,8 +67,6 @@ export class Destruction {
     const w = this.g.world, st = this.g.structure, P = this.g.particles;
     let tq = performance.now();
     const lapc = (k: string) => { const n = performance.now(); this.prof['c_' + k] = (this.prof['c_' + k] || 0) + n - tq; tq = n; };
-    this.g.stress.prepare(Math.floor(cx * 10), Math.floor(cz * 10));
-    lapc('prep');
     // glass is handled by shatterGlassNear, so the scan box only needs the largest non-glass factor
     const maxF = o.blast ? 1.35 : 1.6;
     const R = r * maxF * (1 + o.noise * 0.5);
@@ -127,7 +125,6 @@ export class Destruction {
     lapc('set');
     if (removed === 0) return 0;
     for (let i = 0; i < removedList.length; i += 4) st.noteRemoved(removedList[i], removedList[i + 1], removedList[i + 2]);
-    this.g.stress.request(Math.floor(cx * 10), Math.floor(cy * 10), Math.floor(cz * 10), o.blast ? 0.15 : 0.3);
     lapc('note');
     w.noteChange(x0, y0, z0, x1, y1, z1);
     this.totalRemoved += removed;
@@ -304,7 +301,7 @@ export class Destruction {
     }
     if (removed === 0) return 0;
     this.totalRemoved += removed;
-    this.g.markBodyDirty(b);
+    this.g.markBodyDirty(b, [x0, y0, z0, x1, y1, z1], removed);
     b.wake();
     this.materialEffects(matCount, matPal, matPos, o, o.fromX ?? cx, o.fromY ?? cy, o.fromZ ?? cz);
     if (expl > 0 || (b.explosive > 0 && removed > 0)) this.detonateBody(b);
@@ -678,7 +675,6 @@ export class Destruction {
     for (let i = 0; i < sets.length; i += 4) w.set(sets[i], sets[i + 1], sets[i + 2], sets[i + 3]);
     for (let i = 0; i < clears.length; i += 3) if (!w.get(clears[i], clears[i + 1], clears[i + 2])) this.g.structure.noteRemoved(clears[i], clears[i + 1], clears[i + 2]);
     w.noteChange(Math.floor(X - R1 - 5), Math.floor(Y - R1 - 5), Math.floor(Z - R1 - 5), Math.ceil(X + R1 + 5), Math.ceil(Y + R1 + 5), Math.ceil(Z + R1 + 5));
-    this.g.stress.request(Math.floor(X), Math.floor(Y), Math.floor(Z), 0.2);
   }
 
   /** Blacken exposed surfaces around a blast (denser near the centre, ragged towards the edge). */

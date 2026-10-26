@@ -35,7 +35,8 @@ export class Structure {
   private visitY: number[] = [];
   stats = { searches: 0, visited: 0, detached: 0, ms: 0 };
 
-  constructor(readonly world: World, readonly onDetach: (p: DetachedPiece) => void) {
+  /** onDetach returns true when it takes over marking the piece's world box dirty (to keep drawing it until its body mesh is ready) */
+  constructor(readonly world: World, readonly onDetach: (p: DetachedPiece) => boolean | void) {
     for (let y = 0; y < world.sy; y++) this.buckets.push([]);
   }
 
@@ -205,9 +206,8 @@ export class Structure {
       w.set(x, y, z, 0);
     }
     w.bulk = wasBulk;
-    w.markBoxDirty(minX, minY, minZ, maxX, maxY, maxZ);
     this.stats.detached++;
-    this.onDetach({ vox, sx: gx, sy: gy, sz: gz, ox: minX, oy: minY, oz: minZ, count: vxz.length });
+    if (this.onDetach({ vox, sx: gx, sy: gy, sz: gz, ox: minX, oy: minY, oz: minZ, count: vxz.length }) !== true) w.markBoxDirty(minX, minY, minZ, maxX, maxY, maxZ);
     return true;
   }
 }

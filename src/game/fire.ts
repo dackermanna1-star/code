@@ -132,10 +132,8 @@ export class Fire {
         const c = PAL_CHAR[v];
         if (c && Math.random() < 0.3) w.set(f.x, f.y, f.z, c);
         else {
-          this.g.stress.prepare(f.x, f.z);
           w.set(f.x, f.y, f.z, 0);
           this.g.structure.noteRemoved(f.x, f.y, f.z);
-          if (Math.random() < 0.05) this.g.stress.request(f.x, f.y, f.z, 0.5);
           if (Math.random() < 0.3) this.g.particles.debris((f.x + 0.5) * VOXEL, (f.y + 0.5) * VOXEL, (f.z + 0.5) * VOXEL, 0, 0.3, 0, 0.06, c || v, 3);
         }
         w.noteChange(f.x, f.y, f.z, f.x, f.y, f.z);
@@ -146,7 +144,8 @@ export class Fire {
     // body fires
     for (const [b, m] of this.bodyCells) {
       if (b.removed) { this.bodyCells.delete(b); continue; }
-      let changed = false;
+      let changed = false, burnt = 0;
+      const box = [1e9, 1e9, 1e9, -1, -1, -1];
       const bornB: [number, number, number][] = [];
       for (const [k, f] of m) {
         const v = b.get(f.x, f.y, f.z);
@@ -160,12 +159,16 @@ export class Fire {
         if (f.t >= f.life) {
           m.delete(k);
           const c = PAL_CHAR[v];
-          b.vox[f.x + b.sx * (f.z + b.sz * f.y)] = c && Math.random() < 0.3 ? c : 0;
+          const nv = c && Math.random() < 0.3 ? c : 0;
+          b.vox[f.x + b.sx * (f.z + b.sz * f.y)] = nv;
           changed = true;
+          if (!nv) burnt++;
+          box[0] = Math.min(box[0], f.x); box[1] = Math.min(box[1], f.y); box[2] = Math.min(box[2], f.z);
+          box[3] = Math.max(box[3], f.x); box[4] = Math.max(box[4], f.y); box[5] = Math.max(box[5], f.z);
         }
       }
       for (const [x, y, z] of bornB) this.igniteBody(b, x, y, z);
-      if (changed) this.g.markBodyDirty(b);
+      if (changed) this.g.markBodyDirty(b, box, burnt);
       if (b.explosive > 0 && m.size > 0) {
         // small bottles and barrels go up almost at once, vehicles burn for a while first
         const bb = b as Body & { _burnT?: number };

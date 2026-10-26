@@ -54,6 +54,8 @@ export class RegionMeshes {
   private load: number[] = [];
   private static readonly MAX_INFLIGHT = 6;
   private jobs = new Map<number, Job>();
+  /** jobs for other clients (body meshes): result callbacks by job id */
+  private extJobs = new Map<number, (opaque: Uint32Array, trans: Uint32Array) => void>();
   private nextJob = 1;
   private bufPool: Uint8Array[] = [];
   private sortedLen = -1;
@@ -224,7 +226,25 @@ export class RegionMeshes {
     this.sortedLen = dq.length;
   }
 
+  /**
+   * Mesh a padded volume ((sx+2)(sy+2)(sz+2) voxels, 1-voxel border) on the least busy worker, quads offset
+   * by (ox, oy, oz) and bound to transform slot `slot`. Returns false when there are no workers.
+   */
+  meshPadded(vox: Uint8Array, sx: number, sy: number, sz: number, ox: number, oy: number, oz: number, slot: number,
+    done: (opaque: Uint32Array, trans: Uint32Array) => void): boolean {
+    if (!this.workers.length) return false;
+    let wi = 0;
+    for (let i = 1; i < this.load.length; i++) if (this.load[i] < this.load[wi]) wi = i;
+    const id = this.nextJob++;
+    this.extJobs.set(id, done);
+    this.load[wi]++;
+    this.workers[wi].postMessage({ type: 'mesh', id, vox, sx, sy, sz, ox, oy, oz, slot, lod: 0 }, [vox.buffer]);
+    return true;
+  }
+
   private onResult(wi: number, msg: { id: number; opaque: Uint32Array; trans: Uint32Array; vox: Uint8Array }): void {
+    const ext = this.extJobs.get(msg.id);
+    if (ext) { this.load[wi]--; this.extJobs.delete(msg.id); ext(msg.opaque, msg.trans); return; }
     const job = this.jobs.get(msg.id);
     this.load[wi]--;
     if (msg.vox && msg.vox.length === PADN) this.bufPool.push(msg.vox);

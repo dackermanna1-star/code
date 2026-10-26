@@ -241,7 +241,7 @@ export class Physics {
       const bx0 = x0 - M - (b.vel.x < 0 ? ex : 0), by0 = y0 - M - (b.vel.y < 0 ? ey : 0), bz0 = z0 - M - (b.vel.z < 0 ? ez : 0);
       const nx = x1 - x0 + 1 + 2 * M + ex, ny = y1 - y0 + 1 + 2 * M + ey, nz = z1 - z0 + 1 + 2 * M + ez;
       const vol = nx * ny * nz;
-      if (vol > 6_000_000) return; // absurdly large body; skip world contacts
+      if (vol > 40_000_000) return; // absurdly large body (over 40 MB of cache); skip world contacts
       const data = wc && wc.data.length >= vol ? wc.data : new Uint8Array(vol);
       w.copyBox(bx0, by0, bz0, nx, ny, nz, data);
       const cn = ((nx + 3) >> 2) * ((ny + 3) >> 2) * ((nz + 3) >> 2);

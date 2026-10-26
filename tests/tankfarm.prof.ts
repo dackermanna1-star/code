@@ -9,8 +9,6 @@ generateFactory(world);
 const game = new Game(null, world, {} as any, 0);
 const d = new Destruction(game);
 game.destruction = d;
-// like the loading screen: analyse every intact structure once up front
-{ const tb = performance.now(); while (game.stress.baselineStep(1280, 1280, 1e9)) { /* all tiles */ } console.log(`baselines ${(performance.now() - tb).toFixed(0)} ms`); }
 game.onImpactHook = (e) => d.impact(e.a, e.b, e.x, e.y, e.z, e.nx, e.ny, e.nz, e.speed, e.meff, e.matB);
 const fire = new Fire(game);
 d.ignite = (x, y, z) => fire.ignite(x, y, z);

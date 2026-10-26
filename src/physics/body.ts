@@ -11,6 +11,9 @@ let nextBodyId = 1;
 /** edge length (voxels) of the sample buckets of large bodies */
 export const SAMPLE_CELL = 8;
 
+/** Mesh of one 32^3 block of a big body (see BodyMeshes). */
+export interface BodyBlock { start: number; alloc: number; nOp: number; nTr: number; seq: number; ready: boolean }
+
 export class Body {
   readonly id = nextBodyId++;
   sx: number; sy: number; sz: number;
@@ -63,6 +66,16 @@ export class Body {
   nOp = 0;
   nTr = 0;
   meshDirty = true;
+  /** grid box (x0,y0,z0,x1,y1,z1, inclusive) changed since the last mesh build; null: the whole grid */
+  meshBox: number[] | null = null;
+  /** big bodies are meshed in 32^3 blocks so damage only remeshes what it touched */
+  blocks: BodyBlock[] | null = null;
+  blockDims = [0, 0, 0];
+  /** world voxel box the static world keeps drawing until this body's first mesh is ready */
+  worldDirtyBox: number[] | null = null;
+  /** grid box damaged since the last split check (null: unknown, check everything) and voxels removed there */
+  damageBox: number[] | null = null;
+  damageRemoved = 0;
   // gameplay
   explosive = 0;
   /** if true the body is not simulated (e.g. being held) */
@@ -154,6 +167,66 @@ export class Body {
    * spheres at surface voxels (coarser blocks for large bodies) plus exposed lattice corners for
    * small bodies so that small boxes rest flat instead of rolling on single spheres.
    */
+  /**
+   * Coarse samples: one per L^3 cell that holds surface voxels, at the centroid of its voxels, for the
+   * cells c0..c1 (inclusive cell coordinates). A partly filled cell always holds a surface voxel; a full
+   * one does when a neighbouring cell is not full (a cheap stand-in for testing every voxel).
+   */
+  private coarseSamples(L: number, c0x: number, c0y: number, c0z: number, c1x: number, c1y: number, c1z: number, pts: number[]): void {
+    const { sx, sy, sz, vox } = this;
+    const sh = L === 4 ? 2 : 1;
+    const ncx = Math.ceil(sx / L), ncy = Math.ceil(sy / L), ncz = Math.ceil(sz / L);
+    const ex0 = Math.max(0, c0x - 1), ey0 = Math.max(0, c0y - 1), ez0 = Math.max(0, c0z - 1);
+    const ex1 = Math.min(ncx - 1, c1x + 1), ey1 = Math.min(ncy - 1, c1y + 1), ez1 = Math.min(ncz - 1, c1z + 1);
+    const NX = ex1 - ex0 + 1, NY = ey1 - ey0 + 1, NZ = ez1 - ez0 + 1;
+    const cnt = new Int32Array(NX * NY * NZ), mx = new Float64Array(cnt.length), my = new Float64Array(cnt.length), mz = new Float64Array(cnt.length);
+    const xa = ex0 * L, xb = Math.min(sx, (ex1 + 1) * L);
+    for (let y = ey0 * L; y < Math.min(sy, (ey1 + 1) * L); y++) {
+      const cyo = NZ * ((y >> sh) - ey0);
+      for (let z = ez0 * L; z < Math.min(sz, (ez1 + 1) * L); z++) {
+        const row = NX * ((z >> sh) - ez0 + cyo) - ex0;
+        let i = xa + sx * (z + sz * y);
+        for (let x = xa; x < xb; x++, i++) {
+          if (!vox[i]) continue;
+          const c = (x >> sh) + row;
+          cnt[c]++; mx[c] += x; my[c] += y; mz[c] += z;
+        }
+      }
+    }
+    const vol = (cx: number, cy: number, cz: number) => Math.min(L, sx - cx * L) * Math.min(L, sy - cy * L) * Math.min(L, sz - cz * L);
+    const full = (cx: number, cy: number, cz: number) =>
+      cx >= 0 && cy >= 0 && cz >= 0 && cx < ncx && cy < ncy && cz < ncz && cnt[(cx - ex0) + NX * ((cz - ez0) + NZ * (cy - ey0))] === vol(cx, cy, cz);
+    for (let cy = c0y; cy <= c1y; cy++) for (let cz = c0z; cz <= c1z; cz++) for (let cx = c0x; cx <= c1x; cx++) {
+      const c = (cx - ex0) + NX * ((cz - ez0) + NZ * (cy - ey0));
+      const n = cnt[c];
+      if (n === 0) continue;
+      if (n === vol(cx, cy, cz) && full(cx - 1, cy, cz) && full(cx + 1, cy, cz) && full(cx, cy - 1, cz) && full(cx, cy + 1, cz) && full(cx, cy, cz - 1) && full(cx, cy, cz + 1)) continue;
+      pts.push(mx[c] / n + 0.5, my[c] / n + 0.5, mz[c] / n + 0.5, L * 0.5);
+    }
+  }
+
+  /** Re-derive coarse samples around a grid box whose voxels changed (big bodies; others rebuild all). */
+  refreshSamples(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): void {
+    const L = Math.round(this.sampleR * 2);
+    if (L <= 1) { this.buildSamples(); return; }
+    const sh = L === 4 ? 2 : 1;
+    const ncx = Math.ceil(this.sx / L), ncy = Math.ceil(this.sy / L), ncz = Math.ceil(this.sz / L);
+    // cells overlapping the box and their neighbours (whose surface status may have changed)
+    const c0x = Math.max(0, (x0 >> sh) - 1), c0y = Math.max(0, (y0 >> sh) - 1), c0z = Math.max(0, (z0 >> sh) - 1);
+    const c1x = Math.min(ncx - 1, (x1 >> sh) + 1), c1y = Math.min(ncy - 1, (y1 >> sh) + 1), c1z = Math.min(ncz - 1, (z1 >> sh) + 1);
+    const s = this.samples, pts: number[] = [];
+    for (let i = 0; i < this.nSamples; i++) {
+      const cx = Math.floor(s[i * 4]) >> sh, cy = Math.floor(s[i * 4 + 1]) >> sh, cz = Math.floor(s[i * 4 + 2]) >> sh;
+      if (cx >= c0x && cx <= c1x && cy >= c0y && cy <= c1y && cz >= c0z && cz <= c1z) continue;
+      pts.push(s[i * 4], s[i * 4 + 1], s[i * 4 + 2], s[i * 4 + 3]);
+    }
+    this.coarseSamples(L, c0x, c0y, c0z, c1x, c1y, c1z, pts);
+    this.samples = new Float32Array(pts);
+    this.nSamples = pts.length / 4;
+    this.buildSampleCells();
+    this.wsStep = -1;
+  }
+
   buildSamples(): void {
     const { sx, sy, sz, vox } = this;
     const L = this.count > 60000 ? 4 : this.count > 2500 ? 2 : 1;
@@ -174,16 +247,7 @@ export class Body {
         pts.push(x + 0.5, y + 0.5, z + 0.5, 0.5);
       }
     } else {
-      for (let by = 0; by < sy; by += L) for (let bz = 0; bz < sz; bz += L) for (let bx = 0; bx < sx; bx += L) {
-        let n = 0, cx = 0, cy = 0, cz = 0, isSurf = false;
-        for (let y = by; y < Math.min(sy, by + L); y++) for (let z = bz; z < Math.min(sz, bz + L); z++) for (let x = bx; x < Math.min(sx, bx + L); x++) {
-          if (!vox[x + sx * (z + sz * y)]) continue;
-          n++; cx += x + 0.5; cy += y + 0.5; cz += z + 0.5;
-          if (!isSurf && surf(x, y, z)) isSurf = true;
-        }
-        if (n === 0 || !isSurf) continue;
-        pts.push(cx / n, cy / n, cz / n, L * 0.5);
-      }
+      this.coarseSamples(L, 0, 0, 0, Math.ceil(sx / L) - 1, Math.ceil(sy / L) - 1, Math.ceil(sz / L) - 1, pts);
     }
     if (this.count <= 400) {
       // exposed lattice corners on edges / convex corners, inset slightly into the solid so that

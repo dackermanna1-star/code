@@ -73,6 +73,7 @@ async function main() {
   const game = new Game(renderer, world, env, workers);
   const destruction = new Destruction(game);
   game.destruction = destruction;
+  game.onBreakFree = (x, y, z) => audio.crumble(x, y, z);
   game.onImpactHook = (e) => destruction.impact(e.a, e.b, e.x, e.y, e.z, e.nx, e.ny, e.nz, e.speed, e.meff, e.matB);
   const fire = new Fire(game);
   destruction.ignite = (x, y, z) => fire.ignite(x, y, z);
@@ -93,7 +94,6 @@ async function main() {
   };
   destruction.onBreak = (x, y, z, m, n) => audio.breakMat(x, y, z, m, n);
   destruction.onImpactSound = (x, y, z, palA, palB, e) => audio.impact(x, y, z, PAL_MAT[palA || palB] as Mat, e);
-  game.onCrumble = (x, y, z) => audio.crumble(x, y, z);
   fire.onBurnSound = () => { /* loop volume handled per frame */ };
   const player = new Player(game);
   if (mapResult) {
@@ -174,8 +174,6 @@ async function main() {
   const total = world.dirtyQueue.length;
   while (game.meshes.pending > 0) {
     game.meshes.update(player.pos.x, player.pos.y, player.pos.z, 2, 30);
-    // the main thread is mostly idle while workers mesh: analyse intact structures meanwhile
-    game.stress.baselineStep(Math.floor(player.pos.x * 10), Math.floor(player.pos.z * 10), 25);
     hud.loading(0.1 + 0.9 * (1 - game.meshes.pending / Math.max(1, total)), `Meshing ${total - game.meshes.pending} / ${total} regions…`);
     await nextFrame();
   }
@@ -208,7 +206,7 @@ async function main() {
   g.__game = {
     game, world, renderer, player, tools, cam, input, fire, audio, viewModel, meshes: game.meshes, ready: true, frames: 0,
     setEnv: (n: string) => { Object.assign(env, ENV_PRESETS[n]); envName = n; },
-    extraStats: () => ({ fires: fire.count, bodies: game.physics.bodies.length, phys: game.physics.stats, debris: game.particles.dn, bb: game.particles.bn, removed: destruction.totalRemoved, detached: game.stats.detached, genMs, timing, structure: game.structure.stats, stress: game.stress.stats, gprof: game.prof, dprof: destruction.prof }),
+    extraStats: () => ({ fires: fire.count, bodies: game.physics.bodies.length, phys: game.physics.stats, debris: game.particles.dn, bb: game.particles.bn, removed: destruction.totalRemoved, detached: game.stats.detached, genMs, timing, structure: game.structure.stats, gprof: game.prof, dprof: destruction.prof }),
   };
 
   function frame() {
@@ -229,7 +227,6 @@ async function main() {
       if (input.wasPressed('KeyT')) { const i = (ENV_ORDER.indexOf(envName) + 1) % ENV_ORDER.length; envName = ENV_ORDER[i]; Object.assign(env, ENV_PRESETS[envName]); hud.setOption('env', envName); }
     }
     const tp = performance.now();
-    if (g.__game.frames % 3 === 0) game.stress.baselineStep(Math.floor(player.pos.x * 10), Math.floor(player.pos.z * 10), 4);
     player.update(Math.min(dt, 0.05), input, enabled);
     tools.update(dt, input, enabled);
     timing.player = performance.now() - tp;
@@ -289,7 +286,6 @@ async function main() {
       `quads ${(renderer.stats.quads / 1000).toFixed(0)}k  draws ${renderer.stats.drawn}  remesh ${game.meshes.pending}\n` +
       `${preset}${quality === 'auto' ? ' (auto)' : ''}  ${renderer.w}x${renderer.h}  lights ${renderer.lightCount}  cpu ${(timing.player + timing.sim + timing.mesh).toFixed(1)} ms\n` +
       `voxels destroyed ${destruction.totalRemoved}  detached ${game.stats.detached}  fires ${fire.count}\n` +
-      `stress ${game.stress.stats.analyses} (${game.stress.stats.ms.toFixed(1)} ms) failures ${game.stress.stats.failures}\n` +
       `${TOOL_NAMES[tools.current]}${player.noclip ? '  [fly]' : ''}${timeScale < 1 ? '  [slow-mo]' : ''}  ${envName}`);
     // resolution follows the GPU load: main-thread time outside rendering tells CPU-bound frames apart
     const cpuMs = performance.now() - now - timing.render;
@@ -298,9 +294,6 @@ async function main() {
       renderer.invalidateHistory();
       saveAuto();
     }
-    // leftover CPU time of this frame goes to structural analysis (no-op when nothing is pending)
-    const spare = 12 - (performance.now() - now);
-    if (spare > 1) game.stress.idle(spare);
     input.endFrame();
     g.__game.frames++;
     requestAnimationFrame(frame);

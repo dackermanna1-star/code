@@ -8,7 +8,7 @@
     "dev": "node build.mjs --watch --serve",
     "typecheck": "tsc --noEmit",
     "test": "node tools/runtest.mjs tests/autoscale.test.ts && node tools/runtest.mjs tests/physics.test.ts && node tools/runtest.mjs tests/bend.test.ts && node tools/runtest.mjs tests/vehicle.test.ts",
-    "test:slow": "node tools/runtest.mjs tests/stress.test.ts && node tools/runtest.mjs tests/collapse.test.ts"
+    "test:slow": "node tools/runtest.mjs tests/collapse.test.ts"
   },
   "devDependencies": {
     "esbuild": "0.27.2",

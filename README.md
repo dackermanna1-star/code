@@ -73,19 +73,14 @@ voxels against exposed voxel faces of the world and of other bodies, reduced to 
 solved with a warm-started sequential impulse solver (friction, restitution, speculative contacts),
 with island sleeping and CCD for fast small bodies.
 
-**Structural integrity** (`src/world/structure.ts`, `src/world/stress.ts`). After damage, a
-time-sliced best-first flood fill finds parts no longer connected to the ground and turns them into
-rigid bodies. A stress solver coarsens the structure into 0.4 m cells, routes every cell's weight to the
-ground along the cheapest load paths and compares link loads with per-material compression / shear /
-tension capacities, plus a bending check (load × lever arm against a capacity that grows with member
-depth, so deep trusses and slabs span far while slender rails and purlins cannot carry a lost column).
-Intact structures are analysed once at load time and anything already overloaded is reinforced, so the
-level always stands until it is damaged. Cladding, roof sheeting, plaster partitions and suspended ceilings
-carry no load (their weight goes to the structure they hang on), and a link may only fail when the damage
-made its load path to the ground substantially longer than in the intact structure: cutting columns brings
-the floors above down, while a hole in a wall that loads can walk around stays a local event. Overloaded
-links crumble, pieces detach, fall and hit things, and the analysis runs again — collapses progress over
-seconds instead of being scripted.
+**Structural integrity** (`src/world/structure.ts`). As in Teardown, there is no load simulation:
+anything stands as long as a path of solid voxels links it to the ground, however thin. After damage, a
+time-sliced best-first flood fill (it always expands the lowest voxel first, so for intact structures it
+races down the nearest wall or column and stops) finds parts that lost their last connection, and turns
+them into rigid bodies that fall, hit things and break. Cutting every column of a floor brings it down;
+leave one and it hangs on. A whole building cut loose becomes one big body: it is meshed in 32³ blocks
+on the worker pool (damage only remeshes the blocks it touched), and when it is hit again only the
+neighbourhood of the damage is checked for pieces breaking off.
 
 **Destruction** (`src/game/destruction.ts`, `fire.ts`). Explosions carve by per-material blast
 resistance, throw fragments out as rigid bodies, push bodies with a shockwave, shatter connected glass,
@@ -104,9 +99,8 @@ and resting fragments settle into the world as rubble, so damage persists.
 - Meshing, which re-runs for every modified region, happens in a worker pool off the main thread.
 - Physics: island sleeping, per-body world collision caches patched per modified chunk, small
   fragments do not collide with each other and are baked into the static world once they rest.
-- Structural analysis and connectivity searches are time-sliced (they resume on the next frame; the stress
-  solver also uses whatever CPU time is left at the end of a frame) and cache per-chunk cell masses and
-  link capacities, so a long collapse never stalls a frame.
+- Connectivity searches are time-sliced (they resume on the next frame) and remember which voxels are
+  already known to be grounded during a pass.
 - Chain reactions fire at most two blasts per step and share fragment and particle budgets; glass shattering
   skips chunks without glass; the simulation drops into brief slow motion rather than piling catch-up steps
   onto an expensive frame.
@@ -130,15 +124,13 @@ and resting fragments settle into the world as rubble, so damage persists.
 ```sh
 npm run typecheck
 npm test                                         # fast headless tests (resolution control, physics, bending, vehicles)
-npm run test:slow                                # structural analysis + collapse on the full map
+npm run test:slow                                # collapse on the full map (connectivity)
 node tools/runtest.mjs tests/physics.test.ts     # rigid body regression tests (headless)
-node tools/runtest.mjs tests/stress.test.ts      # structural analysis on the real map
-node tools/runtest.mjs tests/collapse.test.ts    # progressive collapse of the construction site
+node tools/runtest.mjs tests/collapse.test.ts    # construction site: stands on one column, falls when cut free
 node tools/runtest.mjs tests/bend.test.ts        # blast-bent sheet metal stays attached
 node tools/runtest.mjs tests/vehicle.test.ts     # vehicle fuel tanks: bumps vs. bombs
 node tools/scenario.mjs out tests/scenarios/factory_views.json 960 540   # headless screenshots
 ```
 
-Profiling scripts (`tests/*.prof.ts`) measure LOD quad counts, the construction-site and hall
-collapses, the tank-farm chain reaction step by step, and how far cracks spread after a pipe bomb
-against each building (`smallblast.prof.ts`).
+Profiling scripts (`tests/*.prof.ts`) measure LOD quad counts, the construction-site collapse (skeleton
+cut loose, then bombed) and the tank-farm chain reaction step by step.

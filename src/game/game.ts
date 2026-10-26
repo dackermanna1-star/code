@@ -3,12 +3,11 @@
 import { World, VOXEL } from '../world/world';
 import { RegionMeshes } from '../world/meshmanager';
 import { Structure, DetachedPiece } from '../world/structure';
-import { Stress, StressFailure } from '../world/stress';
 import { Physics, ImpactEvent, DEBRIS_VOXELS } from '../physics/physics';
 import { Body, trimGrid } from '../physics/body';
 import { Renderer, Environment, PointLight } from '../render/renderer';
 import { Particles } from '../render/particles';
-import { BodyMeshes } from './bodymeshes';
+import { BodyMeshes, bodyUsesBlocks } from './bodymeshes';
 import { Vec3 } from '../engine/math';
 import type { Destruction } from './destruction';
 import { PAL_FRICTION, PAL_RESTITUTION, PALETTE, PAL_RUBBLE, PAL_MAT, Mat, srgbToLinear } from '../world/materials';
@@ -39,10 +38,9 @@ export class Game {
   readonly bodyMeshes: BodyMeshes;
   readonly particles: ParticleSink;
   readonly structure: Structure;
-  readonly stress: Stress;
   destruction!: Destruction;
-  /** hook: a structural link failed (for audio) */
-  onCrumble: ((x: number, y: number, z: number, mat: number) => void) | null = null;
+  /** hook: a sizeable piece lost its last connection to the ground (for audio) */
+  onBreakFree: ((x: number, y: number, z: number, count: number) => void) | null = null;
   env: Environment;
   time = 0;
   /** transient lights (explosions, muzzle flashes, fires) */
@@ -52,7 +50,6 @@ export class Game {
   /** bodies whose voxels changed and need remesh / split */
   private dirtyBodies = new Set<Body>();
   shake = 0;
-  private crumbleDust = 0;
   stats = { bodies: 0, detached: 0, baked: 0 };
   /** ambient smoke / steam sources (chimneys, stacks); see emitAmbient */
   emitters: { x: number; y: number; z: number; kind: 'smoke' | 'steam'; rate: number; size: number; ax: number; ay: number; az: number; acc: number }[] = [];
@@ -71,7 +68,7 @@ export class Game {
     this.physics = new Physics(world);
     if (renderer) {
       this.meshes = new RegionMeshes(world, renderer.pool, workers);
-      this.bodyMeshes = new BodyMeshes(renderer);
+      this.bodyMeshes = new BodyMeshes(renderer, this.meshes);
       const p = new Particles(renderer.gl, world);
       this.particles = p;
       renderer.geometryPasses.push(p);
@@ -83,8 +80,6 @@ export class Game {
       this.particles = new NullParticles();
     }
     this.structure = new Structure(world, (p) => this.onDetach(p));
-    this.stress = new Stress(world);
-    this.stress.onFail = (f) => this.crumble(f);
     this.physics.onRemove = (b) => this.removeBody(b);
     this.physics.onImpact = (e) => this.onImpactHook?.(e);
   }
@@ -127,9 +122,25 @@ export class Game {
     this.dirtyBodies.delete(b);
   }
 
-  markBodyDirty(b: Body): void { this.dirtyBodies.add(b); b.meshDirty = true; }
+  /**
+   * Voxels of a body changed (box: grid coords x0,y0,z0,x1,y1,z1 inclusive, omitted = anywhere; removed:
+   * how many voxels went): the body is re-split, re-sampled and remeshed where it changed.
+   */
+  markBodyDirty(b: Body, box?: number[], removed = 0): void {
+    const pending = this.dirtyBodies.has(b);
+    b.damageBox = pending ? growBox(b.damageBox, box) : box ? box.slice() : null;
+    b.damageRemoved = (pending ? b.damageRemoved : 0) + removed;
+    this.dirtyBodies.add(b);
+    this.touchMesh(b, box);
+  }
 
-  private onDetach(p: DetachedPiece): void {
+  /** The mesh of b must be rebuilt within box (omitted: entirely). */
+  private touchMesh(b: Body, box?: number[]): void {
+    b.meshBox = b.meshDirty ? growBox(b.meshBox, box) : box ? box.slice() : null;
+    b.meshDirty = true;
+  }
+
+  private onDetach(p: DetachedPiece): boolean {
     this.stats.detached++;
     if (p.count <= 24) {
       // tiny bits become debris particles
@@ -137,20 +148,173 @@ export class Game {
         const v = p.vox[x + p.sx * (z + p.sz * y)];
         if (v) this.particles.debris((p.ox + x + 0.5) * VOXEL, (p.oy + y + 0.5) * VOXEL, (p.oz + z + 0.5) * VOXEL, 0, 0, 0, 0.1, v);
       }
-      return;
+      return false;
     }
     const b = this.spawnGrid(p.vox, p.sx, p.sy, p.sz, p.ox, p.oy, p.oz);
     if (b) b.debris = true;
+    if (b && p.count > 200) this.onBreakFree?.(b.pos.x, b.pos.y, b.pos.z, p.count);
     if (b) {
       // a tiny nudge so perfectly balanced pieces still topple
       b.ang.set((Math.random() - 0.5) * 0.05, 0, (Math.random() - 0.5) * 0.05);
       b.age = 0;
     }
+    // a big piece is meshed on the workers over a few frames: until then the world keeps drawing it
+    if (b && this.bodyMeshes && bodyUsesBlocks(b)) {
+      b.worldDirtyBox = [p.ox, p.oy, p.oz, p.ox + p.sx - 1, p.oy + p.sy - 1, p.oz + p.sz - 1];
+      return true;
+    }
+    return false;
   }
 
   /** Re-evaluate a body after voxel removal: split into connected components, recompute mass. */
+  /** A piece that came off body b (grid g placed at tx,ty,tz in b's grid) continues as its own body. */
+  private spawnPiece(b: Body, g: Uint8Array, nx: number, ny: number, nz: number, tx: number, ty: number, tz: number, oldCom: Vec3): void {
+    const nb = new Body(nx, ny, nz, g);
+    if (!nb.computeMass()) return;
+    nb.buildSamples();
+    nb.rot.copy(b.rot);
+    // COM of the new piece in b's grid coordinates
+    const R = b.R;
+    const cx = nb.com.x + tx, cy = nb.com.y + ty, cz = nb.com.z + tz;
+    const lx = (cx - oldCom.x) * VOXEL, ly = (cy - oldCom.y) * VOXEL, lz = (cz - oldCom.z) * VOXEL;
+    nb.pos.set(b.pos.x + R[0] * lx + R[1] * ly + R[2] * lz, b.pos.y + R[3] * lx + R[4] * ly + R[5] * lz, b.pos.z + R[6] * lx + R[7] * ly + R[8] * lz);
+    b.pointVel(nb.pos.x, nb.pos.y, nb.pos.z, nb.vel);
+    nb.ang.copy(b.ang);
+    nb.friction = b.friction; nb.restitution = b.restitution;
+    nb.debris = true;
+    this.physics.add(nb);
+    this.onBodySplit?.(b, nb);
+  }
+
+  private markBuf = new Int32Array(0);
+  private markId = 0;
+  /**
+   * Split check for a big body after local damage: bounded flood fills from the voxels around the damaged
+   * box. A fill that ends before LIMIT voxels is a piece that came off; one that grows past it (or runs
+   * into such a fill) is the main body. Returns false when that is ambiguous (two big parts?) and the
+   * full check has to run. Mass and samples are updated locally, so the cost follows the damage, not the
+   * body size.
+   */
+  private splitLocal(b: Body, box: number[], removed: number): boolean {
+    const { sx, sy, sz, vox } = b;
+    const n = sx * sy * sz, sxz = sx * sz;
+    if (this.markBuf.length < n) { this.markBuf = new Int32Array(n); this.markId = 0; }
+    if (this.markId > 2e9) { this.markBuf.fill(0); this.markId = 0; }
+    const mark = this.markBuf, base = this.markId;
+    const x0 = Math.max(0, box[0] - 1), y0 = Math.max(0, box[1] - 1), z0 = Math.max(0, box[2] - 1);
+    const x1 = Math.min(sx - 1, box[3] + 1), y1 = Math.min(sy - 1, box[4] + 1), z1 = Math.min(sz - 1, box[5] + 1);
+    // a fill counts as the main body once it holds several times the material around the damage: by then
+    // it has spread well past the damaged box, so fills from elsewhere in the box run into it
+    let solid = 0;
+    for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) {
+      let i = x0 + sx * (z + sz * y);
+      for (let x = x0; x <= x1; x++, i++) if (vox[i]) solid++;
+    }
+    // (a fill past half the body is the main body by definition)
+    const LIMIT = Math.min(b.count * 0.5, Math.max(20000, solid * 2));
+    // first fill from the solid voxel nearest the middle of the damage, so it spreads over the box evenly
+    const mx = (x0 + x1) >> 1, my = (y0 + y1) >> 1, mz = (z0 + z1) >> 1;
+    let first = -1;
+    for (let rr = 0; first < 0 && rr <= Math.max(x1 - x0, y1 - y0, z1 - z0); rr++) {
+      for (let y = Math.max(y0, my - rr); y <= Math.min(y1, my + rr) && first < 0; y++) for (let z = Math.max(z0, mz - rr); z <= Math.min(z1, mz + rr) && first < 0; z++) {
+        for (let x = Math.max(x0, mx - rr); x <= Math.min(x1, mx + rr); x++) {
+          if (Math.max(Math.abs(x - mx), Math.abs(y - my), Math.abs(z - mz)) !== rr) continue; // shell only
+          const i = x + sx * (z + sz * y);
+          if (vox[i]) { first = i; break; }
+        }
+      }
+    }
+    const pieces: number[][] = [];
+    let bigs = 0;
+    const q: number[] = [];
+    /** Fill from voxel s0; false when this shows two big parts (the full check must decide). */
+    const fill = (s0: number): boolean => {
+      if (!vox[s0] || mark[s0] > base) return true;
+      const id = ++this.markId;
+      mark[s0] = id;
+      q.length = 0; q.push(s0);
+      let head = 0, main = false;
+      // breadth first, so the visited set is a ball around the damage that later fills run into quickly
+      while (head < q.length && !main) {
+        if (q.length > LIMIT) { main = true; bigs++; break; }
+        const c = q[head++];
+        const cx = c % sx, r = (c - cx) / sx, cz = r % sz, cy = (r - cz) / sz;
+        for (let k = 0; k < 6; k++) {
+          let nbi: number;
+          if (k === 0) { if (cx === 0) continue; nbi = c - 1; } else if (k === 1) { if (cx === sx - 1) continue; nbi = c + 1; }
+          else if (k === 2) { if (cz === 0) continue; nbi = c - sx; } else if (k === 3) { if (cz === sz - 1) continue; nbi = c + sx; }
+          else if (k === 4) { if (cy === 0) continue; nbi = c - sxz; } else { if (cy === sy - 1) continue; nbi = c + sxz; }
+          if (!vox[nbi]) continue;
+          const m = mark[nbi];
+          if (m === id) continue;
+          if (m > base) { main = true; break; } // reached an earlier fill that grew big: connected to the main body
+          mark[nbi] = id;
+          q.push(nbi);
+        }
+      }
+      if (bigs > 1) return false;
+      if (!main) pieces.push(q.slice());
+      return true;
+    };
+    if (first >= 0 && !fill(first)) return false;
+    for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) {
+      if (!fill(x + sx * (z + sz * y))) return false;
+    }
+    // only small parts around the damage (the main body is elsewhere?): let the full check decide
+    if (bigs === 0 && pieces.length > 0) return false;
+    const oldCom = b.com.clone();
+    let lost = removed;
+    const mbox = box.slice();
+    for (const list of pieces) {
+      let px0 = sx, py0 = sy, pz0 = sz, px1 = 0, py1 = 0, pz1 = 0;
+      for (const c of list) {
+        const cx = c % sx, r = (c - cx) / sx, cz = r % sz, cy = (r - cz) / sz;
+        if (cx < px0) px0 = cx; if (cx > px1) px1 = cx; if (cy < py0) py0 = cy; if (cy > py1) py1 = cy; if (cz < pz0) pz0 = cz; if (cz > pz1) pz1 = cz;
+      }
+      const nx = px1 - px0 + 1, ny = py1 - py0 + 1, nz = pz1 - pz0 + 1;
+      const g = new Uint8Array(nx * ny * nz);
+      for (const c of list) {
+        const cx = c % sx, r = (c - cx) / sx, cz = r % sz, cy = (r - cz) / sz;
+        g[(cx - px0) + nx * ((cz - pz0) + nz * (cy - py0))] = vox[c];
+        vox[c] = 0;
+      }
+      lost += list.length;
+      mbox[0] = Math.min(mbox[0], px0); mbox[1] = Math.min(mbox[1], py0); mbox[2] = Math.min(mbox[2], pz0);
+      mbox[3] = Math.max(mbox[3], px1); mbox[4] = Math.max(mbox[4], py1); mbox[5] = Math.max(mbox[5], pz1);
+      if (list.length <= 6) {
+        for (const c of list) {
+          const cx = c % sx, r = (c - cx) / sx, cz = r % sz, cy = (r - cz) / sz;
+          const p = b.gridToWorld(cx + 0.5, cy + 0.5, cz + 0.5, new Vec3());
+          const v = b.pointVel(p.x, p.y, p.z, new Vec3());
+          this.particles.debris(p.x, p.y, p.z, v.x, v.y, v.z, 0.1, g[(cx - px0) + nx * ((cz - pz0) + nz * (cy - py0))]);
+        }
+      } else this.spawnPiece(b, g, nx, ny, nz, px0, py0, pz0, oldCom);
+    }
+    if (pieces.length) this.touchMesh(b, mbox);
+    // mass properties: a few voxels off a huge body change nothing visible; recompute after real losses
+    b.count = Math.max(1, b.count - lost);
+    if (lost > b.count * 0.02) {
+      b.computeMass();
+      const R = b.R;
+      const lx = (b.com.x - oldCom.x) * VOXEL, ly = (b.com.y - oldCom.y) * VOXEL, lz = (b.com.z - oldCom.z) * VOXEL;
+      const npx = b.pos.x + R[0] * lx + R[1] * ly + R[2] * lz, npy = b.pos.y + R[3] * lx + R[4] * ly + R[5] * lz, npz = b.pos.z + R[6] * lx + R[7] * ly + R[8] * lz;
+      b.pointVel(npx, npy, npz, b.vel);
+      b.pos.set(npx, npy, npz);
+      b.prevPos.copy(b.pos);
+      b.updateDerived();
+      (b as any)._lastRows = undefined;
+    }
+    b.refreshSamples(mbox[0], mbox[1], mbox[2], mbox[3], mbox[4], mbox[5]);
+    b.pvox = null;
+    b.wake();
+    return true;
+  }
+
   private rebuildBody(b: Body): void {
     if (b.removed) return;
+    const box = b.damageBox, removed = b.damageRemoved;
+    b.damageBox = null; b.damageRemoved = 0;
+    if (box && b.count > 40000 && this.splitLocal(b, box, removed)) return;
     const { sx, sy, sz, vox } = b;
     const n = sx * sy * sz;
     const label = new Int32Array(n);
@@ -206,20 +370,7 @@ export class Game {
           }
           continue;
         }
-        const nb = new Body(nx, ny, nz, g);
-        if (!nb.computeMass()) continue;
-        nb.buildSamples();
-        nb.rot.copy(b.rot);
-        // COM of the new piece in b's grid coordinates
-        const cx = nb.com.x + tx, cy = nb.com.y + ty, cz = nb.com.z + tz;
-        const lx = (cx - oldCom.x) * VOXEL, ly = (cy - oldCom.y) * VOXEL, lz = (cz - oldCom.z) * VOXEL;
-        nb.pos.set(b.pos.x + R[0] * lx + R[1] * ly + R[2] * lz, b.pos.y + R[3] * lx + R[4] * ly + R[5] * lz, b.pos.z + R[6] * lx + R[7] * ly + R[8] * lz);
-        b.pointVel(nb.pos.x, nb.pos.y, nb.pos.z, nb.vel);
-        nb.ang.copy(b.ang);
-        nb.friction = b.friction; nb.restitution = b.restitution;
-        nb.debris = true;
-        this.physics.add(nb);
-        this.onBodySplit?.(b, nb);
+        this.spawnPiece(b, g, nx, ny, nz, tx, ty, tz, oldCom);
       }
     }
     // remaining piece: tiny -> particles
@@ -246,43 +397,10 @@ export class Game {
     b.pos.set(npx, npy, npz);
     b.prevPos.copy(b.pos);
     b.updateDerived();
-    b.meshDirty = true;
+    // the grid was trimmed: its coordinates moved, so everything is remeshed
+    b.meshDirty = true; b.meshBox = null;
     b.wake();
     (b as any)._lastRows = undefined;
-  }
-
-  /** A structural link failed: the face layer of voxels between two cells crumbles away. */
-  private crumble(f: StressFailure): void {
-    const w = this.world, P = this.particles;
-    const ax = f.dir >> 1; // 0 x, 1 y, 2 z
-    const pos = (f.dir & 1) === 0 ? 3 : 0; // +dir -> far layer, -dir -> near layer
-    let n = 0, mx = 0, my = 0, mz = 0, pal = 0;
-    for (let a = 0; a < 4; a++) for (let b = 0; b < 4; b++) {
-      for (let layer = 0; layer < 2; layer++) {
-        const o = [0, 0, 0];
-        o[ax] = layer === 0 ? pos : pos + ((f.dir & 1) === 0 ? 1 : -1);
-        if (layer === 1 && Math.random() < 0.6) continue; // jagged crack into the neighbour
-        o[(ax + 1) % 3] = a; o[(ax + 2) % 3] = b;
-        const x = f.x + o[0], y = f.y + o[1], z = f.z + o[2];
-        const v = w.get(x, y, z);
-        if (!v || y < 2) continue;
-        w.set(x, y, z, 0);
-        this.structure.noteRemoved(x, y, z);
-        n++; mx += x; my += y; mz += z; pal = v;
-        if (Math.random() < 0.12) P.debris((x + 0.5) * VOXEL, (y + 0.5) * VOXEL, (z + 0.5) * VOXEL, (Math.random() - 0.5) * 1.5, Math.random(), (Math.random() - 0.5) * 1.5, 0.08, v, 6);
-      }
-    }
-    if (n === 0) return;
-    const cx = (mx / n + 0.5) * VOXEL, cy = (my / n + 0.5) * VOXEL, cz = (mz / n + 0.5) * VOXEL;
-    w.noteChange(f.x - 2, f.y - 2, f.z - 2, f.x + 6, f.y + 6, f.z + 6);
-    const e = PALETTE[pal];
-    const r = Math.min(1, srgbToLinear(e.r) * 1.2 + 0.1), g = Math.min(1, srgbToLinear(e.g) * 1.2 + 0.1), b = Math.min(1, srgbToLinear(e.b) * 1.2 + 0.1);
-    // dust budget per frame: big collapses produce hundreds of crumbles per second
-    const nd = this.crumbleDust > 40 ? (Math.random() < 0.25 ? 1 : 0) : 2;
-    this.crumbleDust += nd;
-    for (let i = 0; i < nd; i++) P.spawn(PT.Dust, cx + (Math.random() - 0.5) * 0.4, cy, cz + (Math.random() - 0.5) * 0.4, (Math.random() - 0.5) * 0.8, -0.2, (Math.random() - 0.5) * 0.8,
-      0.45 + Math.random() * 0.35, 3 + Math.random() * 3, r, g, b, 0.5, { grow: 0.45, drag: 1.5, buoy: 0.02 });
-    this.onCrumble?.(cx, cy, cz, pal);
   }
 
   // ------------------------------------------------------------------ lights
@@ -399,7 +517,6 @@ export class Game {
   prof: Record<string, number> = {};
   step(dt: number): void {
     this.time += dt;
-    this.crumbleDust = Math.max(0, this.crumbleDust - dt * 120);
     let tt = performance.now();
     const lap = (k: string) => { const n = performance.now(); this.prof[k] = Math.max(this.prof[k] || 0, n - tt); tt = n; };
     this.physics.step(dt);
@@ -413,8 +530,6 @@ export class Game {
     lap('wake');
     this.structure.process();
     lap('structure');
-    this.stress.update(dt);
-    lap('stress');
     // re-split damaged bodies within a time budget; the rest continue next step
     const tr = performance.now();
     for (const b of this.dirtyBodies) {
@@ -438,4 +553,10 @@ export class Game {
     }
     this.stats.bodies = this.physics.bodies.length;
   }
+}
+
+/** Union of two grid boxes (x0,y0,z0,x1,y1,z1); null (= everything) if either is. */
+function growBox(a: number[] | null, b: number[] | undefined | null): number[] | null {
+  if (!a || !b) return null;
+  return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.min(a[2], b[2]), Math.max(a[3], b[3]), Math.max(a[4], b[4]), Math.max(a[5], b[5])];
 }

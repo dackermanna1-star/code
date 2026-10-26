@@ -1,4 +1,4 @@
-// Profiles the worst simulation steps of the construction-site collapse.
+// Profiles the worst simulation steps of the construction-site collapse (skeleton cut loose, then bombed).
 import { World } from '../src/world/world';
 import { generateFactory, MAP } from '../src/map/factory';
 import { Game } from '../src/game/game';
@@ -8,17 +8,26 @@ generateFactory(world);
 const game = new Game(null, world, {} as any, 0);
 const d = new Destruction(game);
 game.destruction = d;
-// like the loading screen: analyse every intact structure once up front
-{ const tb = performance.now(); while (game.stress.baselineStep(1280, 1280, 1e9)) { /* all tiles */ } console.log(`baselines ${(performance.now() - tb).toFixed(0)} ms`); }
 game.onImpactHook = (e) => d.impact(e.a, e.b, e.x, e.y, e.z, e.nx, e.ny, e.nz, e.speed, e.meff, e.matB);
-const blasts = [[79.2, 5.6, 189.2], [86.2, 5.6, 189.2], [79.2, 5.6, 196.2], [86.2, 5.6, 196.2]];
+// cut through everything at ground-floor height: the whole skeleton comes loose as one piece
+const G = MAP.G;
 let t = performance.now();
-for (const [x, y, z] of blasts) d.explode(x, y, z, 3);
-console.log(`blasts ${(performance.now() - t).toFixed(1)} ms`, JSON.stringify(d.prof));
+for (let y = G + 10; y < G + 16; y++) for (let z = 1816; z <= 2038; z++) for (let x = 716; x <= 1008; x++) {
+  if (!world.get(x, y, z)) continue;
+  world.set(x, y, z, 0);
+  game.structure.noteRemoved(x, y, z);
+}
+console.log(`cut ${(performance.now() - t).toFixed(1)} ms`);
+// then a few bombs into the falling skeleton
+let bombs = 0;
 const worst: { i: number; ms: number; p: Record<string, number>; bodies: number; awake: number; pp: string }[] = [];
 for (let i = 0; i < 60 * (+(process.env.SECS || 10)); i++) {
   for (const k in game.prof) game.prof[k] = 0;
   const ts = performance.now();
+  if (i % 60 === 30 && bombs < 4) {
+    const big = game.physics.bodies.reduce((m, b) => (b.count > (m ? m.count : 0) ? b : m), null as any);
+    if (big && big.count > 100000) { d.explode(big.pos.x + (bombs - 1.5) * 6, big.pos.y, big.pos.z, 1.8); bombs++; }
+  }
   game.step(1 / 60);
   d.update(1 / 60);
   const ms = performance.now() - ts;
