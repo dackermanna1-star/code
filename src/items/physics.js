@@ -9,6 +9,9 @@ const UP = new THREE.Vector3(0, 1, 0);
 const _ray = new THREE.Raycaster();
 const _q = new THREE.Quaternion();
 const _v = new THREE.Vector3();
+const _o = new THREE.Vector3();
+const _d = new THREE.Vector3();
+const DOWN = new THREE.Vector3(0, -1, 0);
 
 export class Physics {
   constructor() { this.bodies = new Map(); }
@@ -49,6 +52,9 @@ export class Physics {
       if (!inst.built || inst.data.loc !== 'world') { this.bodies.delete(inst); continue; }
       body.life += dt;
       const o = inst.object;
+      const targets = solids.concat(G.items.worldMeshes(inst));
+      // rays start a little above the item's base so they never begin inside the floor
+      const lift = Math.max(0.05, Math.min(body.cy, 0.15));
       const sub = 3;
       for (let s = 0; s < sub; s++) {
         const h = dt / sub;
@@ -58,49 +64,58 @@ export class Physics {
           body.vel.y -= (9.8 - Math.min(8, sp * 1.6)) * h;
           body.vel.multiplyScalar(Math.exp(-0.35 * h));
         } else body.vel.y -= 9.8 * h;
-        const center = o.position.clone().add(new THREE.Vector3(0, Math.min(body.cy, 0.15), 0));
-        const step = body.vel.clone().multiplyScalar(h);
+        let landed = null;
+        // ---- sweep along the velocity: walls, furniture sides, landing on tops
+        const step = _v.copy(body.vel).multiplyScalar(h);
         const len = step.length();
-        if (len < 1e-6) continue;
-        _ray.set(center, step.clone().normalize());
-        _ray.far = len + body.r;
-        const targets = solids.concat(G.items.worldMeshes(inst));
-        const hits = _ray.intersectObjects(targets, false);
-        const hit = hits.find((x) => x.face);
-        if (hit) {
-          const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
-          if (n.dot(step) > 0) n.negate();
-          const vn = body.vel.dot(n);
-          const impact = Math.abs(vn);
-          if (n.y > 0.65) {
-            // landed on a surface
-            o.position.y = hit.point.y;
-            o.position.x += step.x * (hit.distance / (len + body.r)); o.position.z += step.z * (hit.distance / (len + body.r));
-            if (impact > 0.9 && body.life - body.lastHit > 0.08) this._sound(inst, impact, hit);
-            body.lastHit = body.life;
-            if (body.ball && impact > 0.6) {
-              body.vel.addScaledVector(n, -(1 + body.restitution) * vn);
-              body.vel.multiplyScalar(0.95);
+        if (len > 1e-6) {
+          _o.copy(o.position).y += lift;
+          _ray.set(_o, _d.copy(step).divideScalar(len));
+          _ray.far = len + body.r;
+          const hit = _ray.intersectObjects(targets, false).find((x) => x.face);
+          if (hit) {
+            const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld).normalize();
+            if (n.dot(step) > 0) n.negate();
+            const vn = body.vel.dot(n);
+            const impact = Math.abs(vn);
+            if (n.y > 0.65) {
+              const k = Math.max(0, hit.distance - body.r) / len;
+              o.position.x += step.x * k; o.position.z += step.z * k;
+              o.position.y = hit.point.y;
+              this._land(body, impact, hit);
+              landed = hit;
             } else {
-              body.vel.y = 0;
-              const fr = body.ball ? 0.6 : 6;
-              body.vel.x *= Math.exp(-fr * h); body.vel.z *= Math.exp(-fr * h);
-              body.onGround = hit;
+              // wall / side hit: bounce
+              body.vel.addScaledVector(n, -(1 + body.restitution) * vn);
+              body.vel.multiplyScalar(body.ball ? 0.9 : 0.6);
+              body.spin.multiplyScalar(0.6);
+              o.position.addScaledVector(n, 0.01);
+              if (impact > 0.6 && body.life - body.lastHit > 0.08) { this._sound(inst, impact, hit); body.lastHit = body.life; }
             }
-          } else {
-            // wall / side hit: bounce
-            body.vel.addScaledVector(n, -(1 + body.restitution) * vn);
-            body.vel.multiplyScalar(body.ball ? 0.9 : 0.6);
-            body.spin.multiplyScalar(0.6);
-            o.position.addScaledVector(n, 0.01);
-            if (impact > 0.6 && body.life - body.lastHit > 0.08) { this._sound(inst, impact, hit); body.lastHit = body.life; }
+          } else o.position.add(step);
+        }
+        // ---- ground probe: keeps sliding items glued to what they're on
+        let ground = landed;
+        if (!ground && body.vel.y <= 0.05) {
+          _o.copy(o.position).y += lift;
+          _ray.set(_o, DOWN);
+          _ray.far = lift + 0.025 + Math.max(0, -body.vel.y * h);
+          const g = _ray.intersectObjects(targets, false).find((x) => x.face && x.face.normal.clone().transformDirection(x.object.matrixWorld).y > 0.65);
+          if (g) {
+            const impact = Math.max(0, -body.vel.y);
+            o.position.y = g.point.y;
+            if (impact > 0.3) this._land(body, impact, g); else body.vel.y = 0;
+            ground = g;
           }
-        } else {
-          o.position.add(step);
-          body.onGround = null;
         }
         // floor safety
-        if (o.position.y < 0) { o.position.y = 0; if (body.vel.y < 0) body.vel.y = body.ball ? -body.vel.y * body.restitution : 0; }
+        if (o.position.y <= 0) {
+          o.position.y = 0;
+          if (body.vel.y < 0) { if (body.ball && -body.vel.y > 0.6) body.vel.y = -body.vel.y * body.restitution; else body.vel.y = 0; }
+          ground ||= { object: null, point: o.position.clone() };
+        }
+        body.onGround = ground && body.vel.y <= 0.05 ? ground : null;
+        if (body.onGround) this._friction(body, h);
       }
       // rotation
       const grounded = !!body.onGround;
@@ -123,10 +138,33 @@ export class Physics {
         const upright = new THREE.Quaternion().setFromAxisAngle(UP, e.y);
         o.quaternion.slerp(upright, 1 - Math.exp(-dt * 14));
       }
-      const speed = body.vel.length();
-      if (grounded && speed < (body.ball ? 0.06 : 0.25)) body.rest += dt; else body.rest = 0;
-      if (body.rest > (body.ball ? 0.3 : 0.12) || body.life > 12) this._settle(body);
+      const speed = Math.hypot(body.vel.x, body.vel.z) + Math.abs(body.vel.y);
+      if (grounded && speed < (body.ball ? 0.06 : 0.12)) body.rest += dt; else body.rest = 0;
+      if (body.rest > (body.ball ? 0.3 : 0.1) || body.life > 8) this._settle(body);
     }
+  }
+
+  // touching down: balls bounce, everything else loses most of its slide on impact
+  _land(body, impact, hit) {
+    if (impact > 0.9 && body.life - body.lastHit > 0.08) { this._sound(body.inst, impact, hit); body.lastHit = body.life; }
+    if (body.ball && impact > 0.6) { body.vel.y = impact * body.restitution; body.vel.x *= 0.95; body.vel.z *= 0.95; return; }
+    body.vel.y = 0;
+    if (body.ball) return;
+    const sp = Math.hypot(body.vel.x, body.vel.z);
+    if (sp > 0) { const k = Math.max(0, sp - 0.8 * impact) / sp; body.vel.x *= k; body.vel.z *= k; }
+    body.spin.multiplyScalar(0.3);
+  }
+
+  // Coulomb friction (constant deceleration) so slides stop instead of creeping forever
+  _friction(body, h) {
+    const sp = Math.hypot(body.vel.x, body.vel.z);
+    if (sp <= 0) return;
+    const rug = body.onGround.object?.userData?.step === 'rug';
+    const decel = body.ball ? (rug ? 1.2 : 0.35) : body.glide ? 9 : (rug ? 8 : 5.5);
+    let ns = Math.max(0, sp - decel * h);
+    if (body.ball) ns *= Math.exp(-0.4 * h);
+    const k = ns / sp;
+    body.vel.x *= k; body.vel.z *= k;
   }
 
   _sound(inst, impact, hit) {
@@ -146,7 +184,7 @@ export class Physics {
     const upright = new THREE.Quaternion().setFromAxisAngle(UP, e.y);
     // determine support item (to move with furniture)
     let parent = null;
-    if (body.onGround) {
+    if (body.onGround?.object) {
       let ob = body.onGround.object;
       while (ob) { if (ob.userData?.item) { parent = ob.userData.item.uid; break; } ob = ob.parent; }
     }

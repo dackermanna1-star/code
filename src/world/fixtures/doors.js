@@ -64,7 +64,7 @@ export class Door extends Interactable {
 
   getActions() {
     const acts = [{ key: 'E', label: this.isOpen ? 'Close' : 'Open', run: () => this.toggle() }];
-    if (this.front && !this.isOpen) acts.push({ key: 'F', label: 'Look through peephole', run: () => G.player.peephole?.() });
+    if (this.front && !this.isOpen && G.player.pos.z < 5) acts.push({ key: 'F', label: 'Look through peephole', run: () => G.player.peephole?.() });
     return acts;
   }
 
@@ -93,8 +93,8 @@ export function buildDoors(apt) {
   apt.doors.bath = new Door(apt, { id: 'bath', name: 'Bathroom Door', hinge: new THREE.Vector3(1, 0, 3.5), width: 0.9, yaw: Math.PI / 2, swing: -1.5 });
   // front door on wall z=5.15, opening x -1.1..-0.1, swings inward
   apt.doors.front = new Door(apt, { id: 'front', name: 'Front Door', hinge: new THREE.Vector3(-0.1, 0, 5.15), width: 1.0, height: 2.17, yaw: Math.PI, swing: -1.6, front: true, wallAxis: 'x' });
-  // the player never leaves: invisible threshold in the front door opening
-  apt.addCollider(-1.15, -0.05, 5.0, 5.4, 'threshold');
+  // the front door's own collider blocks the doorway while it's shut; open it
+  // to step out into the building hallway
 }
 
 // ------------------------------------------------------------------ switches

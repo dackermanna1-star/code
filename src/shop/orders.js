@@ -93,6 +93,7 @@ export class Orders {
     this._acc = 0;
     for (const o of this.active()) {
       const st = this.stageOf(o);
+      if (st.key === 'delivered' && G.couriers?.enRoute(o.id)) continue;
       if (st.key !== o.status) {
         o.status = st.key;
         const s = STORES[o.store];
@@ -125,8 +126,6 @@ export class Orders {
     const door = new THREE.Vector3(-0.6, 1.4, 5.5);
     G.audio.play('doorbell', { pos: door, volume: 0.9 });
     G.audio.play('knock', { pos: door, delay: 2.2, volume: 0.7 });
-    G.audio.play('ding', { pos: new THREE.Vector3(3, 2, 6.4), delay: 4.5, volume: 0.4 });
-    if (apt.elevatorLight) { apt.elevatorLight.emissiveIntensity = 3; setTimeout(() => (apt.elevatorLight.emissiveIntensity = 0.4), 5000); }
     G.phone?.notify({ app: o.store, title: `${s.name} · Delivered 📦`, body: `Your order #${o.id} is at your door${G.state.settings.autoStoreDeliveries ? ' (moved to storage)' : ''}.` });
     G.events.emit('delivered', o);
   }

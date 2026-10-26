@@ -62,7 +62,11 @@ export class Player {
     if (Math.abs(this.camera.fov - fov) > 0.01) { this.camera.fov = damp(this.camera.fov, fov, 8, dt); this.camera.updateProjectionMatrix(); }
     // room tracking
     const r = roomAt(this.pos.x, this.pos.z);
-    if (r !== this.room) { this.room = r; G.events.emit('roomChanged', r); G.audio.setRoomReverb(r === 'bath' ? 0.35 : r === 'closet' ? 0.06 : r === 'corridor' ? 0.25 : 0.12); }
+    if (r !== this.room) {
+      this.room = r; G.events.emit('roomChanged', r);
+      if (r === 'corridor' && !G.state.flags.visitedHall) { G.state.flags.visitedHall = true; G.ui.toast('The hallway. Fresh(ish) air.', { icon: '🚪' }); }
+      G.audio.setRoomReverb(r === 'bath' ? 0.35 : r === 'closet' ? 0.06 : r === 'corridor' ? 0.25 : 0.12);
+    }
   }
 
   _walk(dt, active) {
@@ -130,9 +134,14 @@ export class Player {
         }
       }
     }
-    // hard bounds
-    p.x = clamp(p.x, -6.85 + 0.1, 6.85 - 0.1);
-    p.z = clamp(p.z, -4.85 + 0.1, 4.75);
+    // hard bounds: the apartment, or the hallway once you're through the front door
+    if (p.z > 4.75) {
+      p.x = clamp(p.x, -4.2 + RADIUS, 3.2 - RADIUS);
+      p.z = Math.min(p.z, 7.5 - RADIUS);
+    } else {
+      p.x = clamp(p.x, -6.85 + 0.1, 6.85 - 0.1);
+      p.z = Math.max(p.z, -4.85 + 0.1);
+    }
   }
 
   _allColliders() {

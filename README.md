@@ -49,7 +49,10 @@ scenes), blinds that really block the sun, a fridge whose shelves show what
 you've stored, a gas range for cooking (with a timing minigame), a sink,
 shower and bathtub (bath bombs!), a toilet, a mirror cabinet with a live
 reflection of your outfitted avatar, a wardrobe, a full-length mirror,
-storage, a peephole, a thermostat and a hallway where packages land.
+storage, a peephole and a thermostat. Open the front door and step out into
+the building hallway: packages land on your doormat, couriers ride the
+elevator up, and you can knock on your neighbor's door or call the elevator
+(you never actually have to take it).
 
 **Shopping** — food delivery (GrubHop restaurants, Dashr cafés & sweets),
 groceries (FreshCart), an everything store (Primo), fashion (Threadline),

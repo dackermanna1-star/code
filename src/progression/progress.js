@@ -100,6 +100,7 @@ export const ACHIEVEMENTS = [
   { id: 'decor10', text: 'Interior Designer', desc: 'Place 10 decorations', icon: '🖼️', test: (s) => s.stats.itemsPlaced >= 10, money: 120, xp: 150 },
   { id: 'decor50', text: 'Magazine Worthy', desc: 'Place 50 items', icon: '🏡', test: (s) => s.stats.itemsPlaced >= 50, money: 400, xp: 500 },
   { id: 'gallery', text: 'Gallery Wall', desc: 'Have 6 pieces of art on your walls', icon: '🎨', test: () => G.items.all().filter((i) => i.data.loc === 'world' && i.def.place === 'wall').length >= 6, money: 200, xp: 250 },
+  { id: 'hallway', text: 'Brave New World', desc: 'Step out into the hallway', icon: '🚪', test: (s) => !!s.flags.visitedHall, money: 50, xp: 60 },
   { id: 'jungle', text: 'Urban Jungle', desc: 'Have 8 plants placed', icon: '🌿', test: () => G.items.all().filter((i) => i.data.loc === 'world' && i.def.use?.type === 'plant').length >= 8, money: 200, xp: 250 },
   { id: 'sneakers5', text: 'Sneakerhead', desc: 'Own 5 pairs of sneakers', icon: '👟', test: () => G.items.owned().filter((i) => i.def.category === 'shoes').length >= 5, money: 200, xp: 250 },
   { id: 'closet20', text: 'Fashionista', desc: 'Own 20 clothing items', icon: '👗', test: () => G.items.owned().filter((i) => i.def.use?.type === 'wear').length >= 20, money: 300, xp: 300 },
