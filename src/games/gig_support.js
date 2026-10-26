@@ -18,7 +18,7 @@ const TICKETS = [
 ];
 const REACT = { best: ['Wow, thank you so much!', 'Perfect, exactly what I needed.', 'You are the best, have a great day!'], okay: ['Hmm... okay, I guess.', 'Fine. Not super helpful though.', 'Alright...'], bad: ['Excuse me?! I want a manager.', 'Wow. Leaving a 1-star review.', 'That is incredibly rude.'], timeout: ['(customer left the chat)'] };
 const N = 8, LIMIT = 12;
-const PAY = (score) => (score < 150 ? 0 : Math.min(140, 20 + (score - 150) * 0.15));
+const PAY = (score) => (score < 150 ? 0 : Math.min(140, 20 + (score - 150) * 0.18));
 const COLORS = ['#f97316', '#8b5cf6', '#06b6d4', '#ec4899', '#22c55e', '#eab308', '#3b82f6', '#ef4444'];
 
 defineGame({
@@ -42,12 +42,12 @@ defineGame({
     function choose(i) {
       if (phase !== 'open') return;
       const [q] = cur().opts[i]; picked = i; phase = 'sent'; pt = 0;
-      const pts = q === 'best' ? 100 + Math.round(time * 2) : q === 'okay' ? 40 : -30;
+      const pts = q === 'best' ? 80 + Math.round(time * 2) : q === 'okay' ? 25 : -40;
       api.addScore(pts); results.push(q);
       reaction = REACT[q][Math.floor(Math.random() * REACT[q].length)]; stars = q === 'best' ? 5 : q === 'okay' ? 3 : 1;
       api.sfx('message');
     }
-    function timeout() { phase = 'sent'; pt = 0; picked = -1; results.push('timeout'); reaction = REACT.timeout[0]; stars = 0; api.sfx('error'); }
+    function timeout() { phase = 'sent'; pt = 0; picked = -1; results.push('timeout'); api.addScore(-20); reaction = REACT.timeout[0]; stars = 0; api.sfx('error'); }
 
     return {
       get debugState() { return phase === 'open' ? cur().opts.findIndex((o) => o[0] === 'best') : -1; },

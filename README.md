@@ -18,6 +18,7 @@ at runtime.
 npm install
 npm run dev          # open http://localhost:5173 and click "Move in"
 npm run build        # production build in dist/ (static, host anywhere)
+npm run build:single # one self-contained dist/homebody.html — just double-click it
 ```
 
 Use a desktop browser with a mouse. Headphones recommended (spatial audio).

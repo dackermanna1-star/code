@@ -39,7 +39,7 @@ defineGame({
         const pts = 10 + Math.min(6, Math.floor(streak / 5)); api.addScore(pts);
         api.sfx('pop', { pitch: 1 + Math.min(0.8, streak * 0.03), volume: 0.6 }); if (streak % 10 === 0) { api.sfx('sparkle'); pops.push({ x: W / 2, y: 306, txt: `${streak} in a row!`, col: '#facc15', life: 1.2 }); }
       } else {
-        bad++; streak = 0; shake = 0.3; api.addScore(-15); api.sfx('error');
+        bad++; streak = 0; shake = 0.3; api.addScore(-8); api.sfx('error');
         pops.push({ x: W / 2, y: 306, txt: `Wrong bin! That one was ${FIELDS[rule()].vals[rec[rule()]][0]}`, col: '#f87171', life: 1.3 });
       }
       newRec();
