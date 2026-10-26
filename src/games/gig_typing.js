@@ -24,7 +24,7 @@ const LINES = [
   'The quarterly numbers look strong, especially in online sales.',
 ];
 const MAXC = 44;
-const PAY = (score) => (score < 30 ? 0 : Math.min(140, 20 + score * 0.2));
+const PAY = (score) => (score < 30 ? 0 : Math.min(140, 20 + score * 0.16));
 
 defineGame({
   id: 'gig_typing', title: 'Transcription', genre: 'Freelance', icon: '⌨️', color: '#14b8a6', gig: true,

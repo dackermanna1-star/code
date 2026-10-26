@@ -10,7 +10,7 @@ const RULES = ['type', 'region', 'status'];
 const CLIENTS = ['Fernwood Coffee', 'Lumen Labs', 'Pixel & Pine', 'Harbor Dental', 'Kōji Studio', 'Bramble Books', 'Northside Gym', 'Velvet Bakery', 'Orbit Bikes', 'Maple Legal', 'Juno Florals', 'Tidewater Inc.'];
 const DIRS = ['left', 'up', 'right', 'down'];
 const ARROWS = { left: '←', up: '↑', right: '→', down: '↓' };
-const PAY = (score) => (score < 20 ? 0 : Math.min(140, 20 + score * 0.15));
+const PAY = (score) => (score < 20 ? 0 : Math.min(140, 20 + score * 0.13));
 const PHASE = 20;
 
 defineGame({
@@ -36,7 +36,7 @@ defineGame({
       flashBin[dir] = { t: 0.35, right };
       if (right) {
         ok++; streak++; best = Math.max(best, streak);
-        const pts = 10 + Math.min(10, Math.floor(streak / 5) * 2); api.addScore(pts);
+        const pts = 10 + Math.min(6, Math.floor(streak / 5)); api.addScore(pts);
         api.sfx('pop', { pitch: 1 + Math.min(0.8, streak * 0.03), volume: 0.6 }); if (streak % 10 === 0) { api.sfx('sparkle'); pops.push({ x: W / 2, y: 306, txt: `${streak} in a row!`, col: '#facc15', life: 1.2 }); }
       } else {
         bad++; streak = 0; shake = 0.3; api.addScore(-15); api.sfx('error');
