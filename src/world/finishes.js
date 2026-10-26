@@ -52,7 +52,7 @@ function checker(a = '#f1efe9', b = '#24262b') {
 
 // size = world meters covered by one texture repeat
 export const FLOORS = {
-  oak: { label: 'Natural Oak', price: 0, size: 2.4, rough: 0.55, step: 'wood', make: () => woodFloor({ base: '#c09062', seed: 3 }) },
+  oak: { label: 'Natural Oak', price: 0, size: 2.4, rough: 0.55, step: 'wood', make: () => woodFloor({ base: '#b38f69', seed: 3 }) },
   whiteoak: { label: 'Scandi White Oak', price: 420, size: 2.4, rough: 0.6, step: 'wood', make: () => woodFloor({ base: '#ddc3a0', seed: 12 }) },
   walnut: { label: 'Dark Walnut', price: 520, size: 2.4, rough: 0.45, step: 'wood', make: () => woodFloor({ base: '#7a5136', seed: 21 }) },
   herringbone: { label: 'Herringbone Parquet', price: 780, size: 2.0, rough: 0.5, step: 'wood', make: () => woodFloor({ base: '#b58353', seed: 5, herringbone: true }) },

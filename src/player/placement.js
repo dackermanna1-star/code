@@ -109,7 +109,9 @@ export class Placement {
           o.quaternion.setFromAxisAngle(UP, G.player.yaw);
         }
       } else if (n.y > 0.7) {
-        const onFloor = hit.object.name?.startsWith('floor_') || hit.object.userData.step;
+        let hitItem = null;
+        for (let ob = hit.object; ob; ob = ob.parent) if (ob.userData?.item) { hitItem = ob.userData.item; break; }
+        const onFloor = hit.object.name?.startsWith('floor_') || hit.object.userData.step || hitItem?.def.tags.includes('rug');
         o.position.copy(p);
         o.quaternion.setFromAxisAngle(UP, this.yaw);
         if (def.place === 'floor' && !onFloor && !def.tags.includes('anywhere')) {

@@ -97,6 +97,7 @@ export class Orders {
         o.status = st.key;
         const s = STORES[o.store];
         if (st.key === 'onway') G.phone?.notify({ app: o.store, title: `${s.name}`, body: `${st.label} 🛵 · ETA ${G.clock.fmtDuration(o.eta - G.clock.total)}`, quiet: true });
+        if (st.key === 'arriving') G.events.emit('courierArriving', o);
         if (st.key === 'delivered') this.deliver(o);
         G.events.emit('orders');
       }

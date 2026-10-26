@@ -21,6 +21,7 @@ export const Ease = {
 };
 
 const active = new Set();
+export function tweensActive() { return active.size; }
 
 // tween({ duration, ease, update(t, eased), done() }) -> handle with cancel()
 export function tween({ duration = 0.3, ease = Ease.outCubic, update, done, delay = 0 }) {

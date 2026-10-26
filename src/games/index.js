@@ -32,13 +32,13 @@ export class GameLauncher {
     this.mouse = { x: 0, y: 0, down: false, clicked: false };
     window.addEventListener('keydown', (e) => {
       if (!this.active) return;
-      if (e.code === 'Escape') { e.preventDefault(); this.quit(); return; }
+      if (e.code === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); this.quit(); return; }
       if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab'].includes(e.code)) e.preventDefault();
       if (!this.keys.has(e.code)) { const k = KEYMAP[e.code]; if (k) this.pressed.add(k); }
       this.keys.add(e.code);
       if (e.key.length === 1) this.typed.push(e.key);
       else if (e.key === 'Backspace') this.typed.push('\b');
-      e.stopPropagation();
+      e.stopImmediatePropagation();
     }, true);
     window.addEventListener('keyup', (e) => { this.keys.delete(e.code); });
   }
@@ -53,7 +53,7 @@ export class GameLauncher {
     if (!def) { G.ui.toast('That game isn\'t installed (yet!)', { kind: 'bad', icon: '🎮' }); return; }
     if (this.active) this.quit(true);
     G.input.unlock();
-    G.phone?.close?.(); G.computer?.close?.(true);
+    G.phone?.close?.();
     const streaming = this.canStream() && G.state.flags.streaming;
     const frame = el('div', { class: 'game-frame' + (vr ? ' vr' : '') + (arcade ? ' arcade' : '') });
     const canvas = el('canvas', { width: W, height: H, class: 'game-canvas' });

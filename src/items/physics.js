@@ -32,6 +32,7 @@ export class Physics {
       h: b.size.y, cy: b.center.y,
       restitution: ball ? (inst.def.use?.bounce ?? 0.72) : 0.25,
       ball, rest: 0, life: 0, lastHit: 0,
+      glide: inst.def.use?.type === 'glider',
     });
     G.items.invalidateMeshes();
     G.events.emit('inventoryChanged');
@@ -51,7 +52,12 @@ export class Physics {
       const sub = 3;
       for (let s = 0; s < sub; s++) {
         const h = dt / sub;
-        body.vel.y -= 9.8 * h;
+        if (body.glide && !body.onGround) {
+          // paper planes & frisbees: low gravity, gentle drag, lift while fast
+          const sp = Math.hypot(body.vel.x, body.vel.z);
+          body.vel.y -= (9.8 - Math.min(8, sp * 1.6)) * h;
+          body.vel.multiplyScalar(Math.exp(-0.35 * h));
+        } else body.vel.y -= 9.8 * h;
         const center = o.position.clone().add(new THREE.Vector3(0, Math.min(body.cy, 0.15), 0));
         const step = body.vel.clone().multiplyScalar(h);
         const len = step.length();
@@ -103,6 +109,10 @@ export class Physics {
         const hv = new THREE.Vector3(body.vel.x, 0, body.vel.z);
         const sp = hv.length();
         if (sp > 0.01) { const axis = new THREE.Vector3().crossVectors(UP, hv).normalize(); _q.setFromAxisAngle(axis, sp * dt / Math.max(0.02, body.r)); o.quaternion.premultiply(_q); }
+      } else if (!grounded && body.glide) {
+        const ahead = o.position.clone().add(body.vel);
+        const m = new THREE.Matrix4().lookAt(ahead, o.position, UP);
+        o.quaternion.slerp(new THREE.Quaternion().setFromRotationMatrix(m), 1 - Math.exp(-dt * 8));
       } else if (!grounded) {
         _v.copy(body.spin).multiplyScalar(dt);
         _q.setFromEuler(new THREE.Euler(_v.x, _v.y, _v.z));

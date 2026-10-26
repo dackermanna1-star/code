@@ -8,7 +8,7 @@ import { tween, Ease } from '../../core/tween.js';
 import { Container } from '../../items/container.js';
 import { rand } from '../../core/utils.js';
 
-const STEEL = () => mat('#c9ccd0', { rough: 0.32, metal: 0.9 });
+const STEEL = () => mat('#8f959c', { rough: 0.38, metal: 0.85, envInt: 0.7 });
 const DARK = () => mat('#1d1f22', { rough: 0.35, metal: 0.3 });
 const FOODISH = (def) => ['food', 'drink', 'grocery'].includes(def.category);
 
@@ -35,7 +35,6 @@ class Fridge extends Interactable {
     const shelfMat = mat('#dff0f6', { rough: 0.05, opacity: 0.45, transparent: true });
     const shelfYs = [0.62, 0.95, 1.27, 1.58];
     for (const y of shelfYs.slice(1)) { const s = box(W - 0.1, 0.008, D - 0.12, shelfMat, { cast: false }); at(s, 0, y - 0.004, 0.0); root.add(s); }
-    this.light = new THREE.PointLight('#eaf4ff', 0, 1.6, 2); this.light.position.set(0, 1.75, -0.1); allLayers(this.light); root.add(this.light);
     // freezer drawer front
     const fd = rbox(W - 0.01, 0.58, 0.05, 0.01, steel); at(fd, 0, 0.3, -D / 2 - 0.02); root.add(fd);
     const fh = rbox(0.6, 0.025, 0.035, 0.01, MAT.chrome()); at(fh, 0, 0.52, -D / 2 - 0.07); root.add(fh);
@@ -45,8 +44,13 @@ class Fridge extends Interactable {
     const handle = rbox(0.025, 0.7, 0.03, 0.01, MAT.chrome()); at(handle, W - 0.07, 1.3, -0.09); pivot.add(handle);
     for (const y of [1.0, 1.6]) { const st = box(0.02, 0.02, 0.05, MAT.chrome()); at(st, W - 0.07, y, -0.065); pivot.add(st); }
     // door bins (inside face)
-    const bin = mat('#e8f4f8', { rough: 0.1, opacity: 0.6, transparent: true });
-    for (const y of [0.8, 1.15, 1.5]) { const b = box(W - 0.16, 0.08, 0.08, bin, { cast: false }); at(b, W / 2, y, 0.06); pivot.add(b); }
+    const bin = mat('#dceff5', { rough: 0.05, opacity: 0.35, transparent: true, depthWrite: false });
+    const binBase = mat('#eef4f6', { rough: 0.3 });
+    for (const y of [0.8, 1.15, 1.5]) {
+      const b = box(W - 0.18, 0.07, 0.006, bin, { cast: false }); at(b, W / 2, y + 0.035, 0.09); pivot.add(b);
+      const f = box(W - 0.18, 0.008, 0.06, binBase, { cast: false }); at(f, W / 2, y, 0.06); pivot.add(f);
+    }
+    const lining = box(W - 0.06, Hh - 0.7, 0.01, mat('#f2f5f7', { rough: 0.5 }), { cast: false }); at(lining, W / 2, 0.62 + (Hh - 0.66) / 2, 0.006); pivot.add(lining);
     // little water/ice display
     const disp = rbox(0.12, 0.08, 0.005, 0.005, mat('#0d1b26', { emissive: '#42b6ff', ei: 0.5, rough: 0.2 })); at(disp, W / 2, 1.55, -0.063); pivot.add(disp);
     root.add(pivot);
@@ -100,8 +104,7 @@ class Fridge extends Interactable {
     const from = this.angle, to = open ? 1.75 : 0;
     this.tw?.cancel();
     this.tw = tween({ duration: 0.55, ease: Ease.inOutCubic, update: (t, e) => { this.angle = from + (to - from) * e; this.pivot.rotation.y = this.angle; } });
-    this.light.intensity = open ? 1.2 : 0;
-    this.liner.emissiveIntensity = open ? 0.35 : 0;
+    this.liner.emissiveIntensity = open ? 0.6 : 0;
     this.hum?.setVolume(open ? 0.06 : 0.035);
   }
 }

@@ -171,7 +171,7 @@ export class Phone {
     eng.composer.render(0);
     const src = eng.renderer.domElement;
     const c = document.createElement('canvas');
-    const W = 480, H = Math.round(480 * src.height / src.width);
+    const W = 400, H = Math.round(400 * src.height / src.width);
     c.width = W; c.height = H;
     const ctx = c.getContext('2d');
     if (filter === 'vintage') ctx.filter = 'sepia(0.5) contrast(1.1) saturate(0.8)';
@@ -184,7 +184,7 @@ export class Phone {
     if (selfie) setTimeout(() => (G.avatar.pose = 'idle'), 600);
     const photos = G.state.photos;
     photos.unshift({ url, day: G.clock.day, time: G.clock.fmt(), selfie });
-    if (photos.length > 24) photos.length = 24;
+    if (photos.length > 16) photos.length = 16;
     G.ui.toast('Photo saved to Photos', { icon: '📸' });
     G.events.emit('act', selfie ? 'selfie' : 'photo');
     queueSave();

@@ -14,6 +14,10 @@ export const CONTACTS = {
 
 // cond(state) -> bool ; effect keys: money, buff, xp, item
 const CONVOS = [
+  { id: 'mom_welcome', who: 'mom', event: 'welcome', text: ['Sweetie!! Your first day in the new place 🏡', 'I\'m so proud of you. Did the building leave you a welcome gift?', 'Sending a little housewarming money. Buy something cozy!'], replies: [
+    { label: 'Thank you mom!! ❤️', reply: 'Love you! Eat something real today 🥦', money: 100 },
+    { label: 'Already shopping 👀', reply: 'Of course you are 😂 Love you!', money: 100 },
+  ] },
   { id: 'mom_breakfast', who: 'mom', when: (h) => h >= 7 && h < 11, text: ['Morning sweetie! ☀️', 'Did you eat breakfast?'], replies: [
     { label: 'Yes mom 🙄', reply: 'Good! Love you 💕' },
     { label: '…not yet', reply: 'Eat something healthy please! Sending you $20 for groceries 🥦', money: 20 },

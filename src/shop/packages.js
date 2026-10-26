@@ -206,8 +206,13 @@ const pkg = {
         const item = G.items.spawn(id, { loc: 'storage' });
         if (!item) return;
         if (item.def.furniture) { G.ui.toast(`${item.def.name} → storage (place it from your phone's Storage app)`, { icon: '📦' }); return; }
-        const a = (i / Math.max(1, contents.length)) * Math.PI * 2 + rand(-0.4, 0.4);
-        const out = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)).multiplyScalar(rand(0.6, 1.2));
+        // pop toward the player (so things land inside, not out in the hallway)
+        const toPlayer = G.player.pos.clone().sub(top).setY(0);
+        const base = Math.atan2(toPlayer.z, toPlayer.x);
+        const spread = contents.length > 1 ? (i / (contents.length - 1) - 0.5) * 1.6 : 0;
+        const a = base + spread + rand(-0.2, 0.2);
+        const reach = Math.min(2.2, Math.max(0.6, toPlayer.length() * 1.1));
+        const out = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)).multiplyScalar(reach * rand(0.8, 1.15));
         G.physics.launch(item, top.clone().add(new THREE.Vector3(0, i * 0.05, 0)), new THREE.Vector3(out.x, rand(2.2, 3), out.z), new THREE.Vector3(rand(-4, 4), rand(-4, 4), rand(-4, 4)));
         G.audio.play('pop', { pos: top, pitch: 0.9 + i * 0.08 });
         if (item.def.rarity !== 'common' && item.def.rarity) G.particles.sparkle(top, 10, ['#ffffff', '#ffd27a', '#a259ff']);

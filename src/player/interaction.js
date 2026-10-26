@@ -37,14 +37,15 @@ export class Interaction {
     }
     // raycast
     _ray.setFromCamera(new THREE.Vector2(0, 0), G.camera);
-    _ray.far = REACH;
+    _ray.far = 8;
     _ray.layers.set(0);
     const hits = _ray.intersectObjects([G.apartment.root, G.items.root], true);
     let found = null, hit = null;
     for (const h of hits) {
       if (!h.object.visible) continue;
       const it = findInteractable(h.object);
-      if (it) { found = it; hit = h; }
+      // remote-controllable things (TVs, speakers) can be used from across the room
+      if (it && h.distance <= (it.reach ?? REACH)) { found = it; hit = h; }
       break; // first visible hit only (walls block)
     }
     if (G.player.occ && !G.player.occ.seat) found = null; // busy (showering etc.)

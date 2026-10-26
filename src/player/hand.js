@@ -6,6 +6,8 @@ import { defBounds } from '../items/registry.js';
 import { setLayers } from '../items/manager.js';
 import { damp, clamp } from '../core/utils.js';
 import { tween, Ease } from '../core/tween.js';
+import { mat, MAT, rbox, cyl, sph, capsule, at, rot } from '../items/kit.js';
+import { SKIN_TONES } from './avatar.js';
 
 const BASE_POS = new THREE.Vector3(0.27, -0.25, -0.5);
 const BASE_ROT = new THREE.Euler(0.08, -0.45, 0.04);
@@ -46,6 +48,39 @@ export class Hand {
     this.busy = false;
     this.raiseT = 0; // 0..1 raise-in animation when taking an item
     this.hidden = false;
+    this.arm = new THREE.Group();
+    this.anchor.add(this.arm);
+    this.buildArm();
+    G.events?.on('outfitChanged', () => this.buildArm());
+  }
+
+  // A stylized hand + sleeve that cradles whatever you're holding.
+  buildArm() {
+    while (this.arm.children.length) this.arm.remove(this.arm.children[0]);
+    const look = G.state?.flags?.avatar || { skin: 1 };
+    const skin = mat(SKIN_TONES[(look.skin ?? 1) % SKIN_TONES.length], { rough: 0.6 });
+    const topUid = G.state?.outfit?.top;
+    const top = topUid && G.items?.get(topUid)?.def.use;
+    const sleeveCol = top?.color || '#f2f2f2';
+    const longSleeve = ['hoodie', 'sweater', 'jacket', 'coat', 'shirt', 'longsleeve', 'puffer'].includes(top?.style);
+    const sleeve = top?.fabric === 'knit' ? MAT.knit(sleeveCol) : MAT.fabric(sleeveCol);
+    const g = new THREE.Group();
+    // palm under the object, fingers curling around the front, thumb on the side
+    const palm = rbox(0.085, 0.03, 0.1, 0.014, skin); palm.rotation.set(0.15, 0.3, -0.25); at(palm, 0.035, -0.125, 0.02); g.add(palm);
+    for (let i = 0; i < 4; i++) {
+      const f = capsule(0.0095, 0.035, skin); f.rotation.set(Math.PI / 2 - 0.5, 0, 0.15);
+      at(f, -0.005 + i * 0.022, -0.105 + i * 0.002, -0.035 - Math.abs(i - 1.5) * 0.004); g.add(f);
+      const tip = capsule(0.0085, 0.018, skin); tip.rotation.set(0.25, 0, 0.1); at(tip, -0.004 + i * 0.022, -0.082, -0.058); g.add(tip);
+    }
+    const thumb = capsule(0.011, 0.04, skin); thumb.rotation.set(0.2, 0, -0.9); at(thumb, -0.035, -0.095, 0.035); g.add(thumb);
+    const wrist = cyl(0.028, 0.03, 0.06, skin, 14); wrist.rotation.set(1.1, 0.3, -0.5); at(wrist, 0.075, -0.15, 0.08); g.add(wrist);
+    const fore = cyl(longSleeve ? 0.045 : 0.034, longSleeve ? 0.05 : 0.038, 0.32, longSleeve ? sleeve : skin, 16); fore.rotation.set(1.15, 0.3, -0.55); at(fore, 0.16, -0.24, 0.2); g.add(fore);
+    if (longSleeve) { const cuff = cyl(0.048, 0.048, 0.03, sleeve, 16); cuff.rotation.copy(fore.rotation); at(cuff, 0.095, -0.17, 0.105); g.add(cuff); }
+    else { const s2 = cyl(0.055, 0.058, 0.12, sleeve, 16); s2.rotation.copy(fore.rotation); at(s2, 0.27, -0.36, 0.33); g.add(s2); }
+    g.traverse((o) => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } o.layers.set(LAYER_VIEWMODEL); });
+    this.arm.add(g);
+    this.arm.visible = !!this.held;
+    void sph; void rot;
   }
 
   take(inst) {
@@ -66,6 +101,8 @@ export class Hand {
     this.holder.rotation.set(...(h.rot || [0, 0, 0]));
     if (h.pos) this.holder.position.add(new THREE.Vector3(...h.pos));
     this.raiseT = 0;
+    this.arm.visible = true;
+    // tuck the hand under the item regardless of its normalized size
     G.behaviors.onHold?.(inst);
     G.events.emit('held', inst);
   }
@@ -76,6 +113,7 @@ export class Hand {
     if (!inst) return null;
     G.behaviors.onUnhold?.(inst);
     this.held = null;
+    this.arm.visible = false;
     this.inspecting = false;
     this.busy = false;
     this.anim = null;
@@ -158,5 +196,6 @@ export class Hand {
       this.anchor.quaternion.slerp(new THREE.Quaternion().setFromEuler(e), k);
     }
     this.anchor.visible = !this.hidden;
+    this.arm.visible = !!this.held && !this.inspecting;
   }
 }

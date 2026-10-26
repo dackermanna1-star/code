@@ -122,8 +122,8 @@ defineItems([
   // -------------------------------------------------------------- books & art
   S({ id: 'book_novel_lighthouse', name: 'The Lighthouse Keeper', category: 'books', price: 16.99, stores: ['primo'], desc: 'A quiet novel about solitude, storms and finding home.', build: () => bookModel({ color: '#264653', accent: '#e9c46a', title: 'The Lighthouse Keeper', author: 'Mara Vell', style: 1 }), use: { type: 'book', genre: 'Literary Fiction', pages: 10, seed: 3 } }),
   S({ id: 'book_cozy_mystery', name: 'Murder at the Bakery', category: 'books', price: 12.99, stores: ['primo'], desc: 'A cozy mystery with croissants and a surprisingly sharp cat.', build: () => bookModel({ color: '#bc4749', accent: '#f2e8cf', title: 'Murder at the Bakery', author: 'Pip Halloway', style: 0 }), use: { type: 'book', genre: 'Cozy Mystery', pages: 12, seed: 7 } }),
-  S({ id: 'poster_sunset', name: '"Golden Hour" Print', category: 'art', price: 35, stores: ['arthaus', 'nestly'], place: 'wall', tags: ['framed'], desc: 'Framed screenprint of a warm sunset over hills.', build: () => wallArt({ w: 0.5, h: 0.7, draw: sunsetArt, key: 'goldenhour', frame: '#1b1b1b' }) }),
-  S({ id: 'poster_city', name: 'City Silhouette Print', category: 'art', price: 29, stores: ['arthaus'], place: 'wall', desc: 'Minimal skyline print — taped, gallery-casual.', build: () => wallArt({ w: 0.45, h: 0.6, draw: cityPrint, key: 'cityprint', frame: null }) }),
+  S({ id: 'poster_sunset', name: '"Golden Hour" Print', category: 'art', price: 35, stores: ['arthaus', 'nestly'], place: 'wall', tags: ['framed'], desc: 'Framed screenprint of a warm sunset over hills.', use: { type: 'decor', lines: ['It\'s always golden hour somewhere.', 'The hills look extra soft today.'] }, build: () => wallArt({ w: 0.5, h: 0.7, draw: sunsetArt, key: 'goldenhour', frame: '#1b1b1b' }) }),
+  S({ id: 'poster_city', name: 'City Silhouette Print', category: 'art', price: 29, stores: ['arthaus'], place: 'wall', desc: 'Minimal skyline print — taped, gallery-casual.', use: { type: 'decor', lines: ['It\'s the view, but flatter.', 'You can almost spot your own window.'] }, build: () => wallArt({ w: 0.45, h: 0.6, draw: cityPrint, key: 'cityprint', frame: null }) }),
   // -------------------------------------------------------------- toys
   S({ id: 'fidget_spinner', name: 'Neon Fidget Spinner', category: 'toys', price: 7.99, stores: ['primo', 'kollectiv'], desc: 'Flick it. Flick it again. Achieve inner peace.', build: () => spinner('#ff4d6d'), use: { type: 'spinner' }, emoji: '🌀' }),
   S({ id: 'rubber_duck', name: 'Classic Rubber Duck', category: 'toys', price: 4.99, stores: ['primo'], tags: ['soft'], desc: 'Squeaks with conviction.', build: rubberDuck, use: { type: 'squeak', verb: 'Squeak' }, emoji: '🦆' }),
@@ -133,9 +133,9 @@ defineItems([
   S({ id: 'wrapper', name: 'Wrapper', category: 'misc', price: 0, hidden: true, tags: ['trash'], desc: 'Toss it in the trash.', build: () => rbox(0.1, 0.004, 0.04, 0.002, mat('#d4d4d4', { rough: 0.3, metal: 0.5 })) }),
   S({ id: 'takeout_box_empty', name: 'Empty Takeout Box', category: 'misc', price: 0, hidden: true, tags: ['trash'], desc: 'Toss it in the trash.', build: () => rbox(0.14, 0.07, 0.11, 0.01, mat('#e9e2d6', { rough: 0.9 })) }),
   S({ id: 'watering_can', name: 'Watering Can', category: 'plants', price: 24, stores: ['greenhouse', 'primo'], desc: 'Keep your plants happy. Refill at any sink.', build: wateringCan, use: { type: 'wateringcan' }, emoji: '🚿' }),
-  S({ id: 'blank_canvas', name: 'Blank Canvas', category: 'hobby', price: 12, stores: ['arthaus', 'primo'], desc: 'Needed to paint at an easel.', build: blankCanvas }),
+  S({ id: 'blank_canvas', name: 'Blank Canvas', category: 'hobby', price: 12, stores: ['arthaus', 'primo'], desc: 'Needed to paint at an easel.', build: blankCanvas, use: { type: 'decor', verb: 'Contemplate', lines: ['So much potential. So much white.', 'Find an easel and make something!'] } }),
   S({
-    id: 'custom_painting', name: 'Your Painting', category: 'art', price: 0, hidden: true, place: 'wall', dynamic: true, desc: 'An original work by you!',
+    id: 'custom_painting', name: 'Your Painting', category: 'art', price: 0, hidden: true, place: 'wall', dynamic: true, desc: 'An original work by you!', use: { type: 'decor', lines: ['A masterpiece, honestly.', 'The artist is clearly a genius.'] },
     build: (d, st = {}) => {
       const w = 0.4, h = 0.5;
       if (!st.img) return wallArt({ w, h, key: 'blankpaint', draw: (ctx, W, H) => { ctx.fillStyle = '#fbfaf6'; ctx.fillRect(0, 0, W, H); }, frame: '#c9a86a' });
@@ -200,7 +200,7 @@ defineItems([
   S({ id: 'stress_ball', name: 'Smiley Stress Ball', category: 'toys', price: 4.99, stores: ['primo'], tags: ['soft', 'ball'], desc: 'Squeeze away your worries. Or throw it at a wall.', build: stressBall, use: { type: 'squish', verb: 'Squeeze', sound: 'squish', comfort: 2.5, fun: 1 }, emoji: '😊' }),
   S({ id: 'fidget_cube', name: 'Fidget Cube', category: 'toys', price: 9.99, stores: ['primo', 'kollectiv'], desc: 'Six sides of clicky, rolly, flippy satisfaction.', build: fidgetCube, use: { type: 'clicker', verb: 'Click', sound: 'click' }, emoji: '🎲' }),
   S({
-    id: 'custom_photo', name: 'Framed Photo', category: 'art', price: 0, hidden: true, place: 'wall', dynamic: true, desc: 'A memory, printed and framed.',
+    id: 'custom_photo', name: 'Framed Photo', category: 'art', price: 0, hidden: true, place: 'wall', dynamic: true, desc: 'A memory, printed and framed.', use: { type: 'decor', lines: ['Good times.', 'You look great in this one.'] },
     build: (d, st = {}) => {
       const w = 0.32, h = 0.24;
       const c = canvas(320, 240); const tex = toTexture(c, { wrap: false });

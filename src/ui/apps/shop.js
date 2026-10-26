@@ -65,7 +65,7 @@ function productCard(def, store, ctx, { compact = false } = {}) {
   const r = RARITY[def.rarity];
   const drop = def.limited && G.market.dropActive(def);
   const card = el('div', { class: 'p-card' + (compact ? ' compact' : ''), onclick: () => ctx.push('product', { store, id: def.id }) },
-    el('div', { class: 'p-img' }, thumbImg(def, 192), def.rarity !== 'common' ? el('span', { class: 'p-rar', style: { background: r.color } }, r.label) : null, drop ? el('span', { class: 'p-drop' }, `🔥 ${G.state.market.drop.stock} left`) : null, G.items.countOwned(def.id) ? el('span', { class: 'p-own' }, `Owned ×${G.items.countOwned(def.id)}`) : null),
+    el('div', { class: 'p-img' }, thumbImg(def, 192), def.rarity !== 'common' ? el('span', { class: 'p-rar', style: { background: r.color } }, r.label) : null, drop ? el('span', { class: 'p-drop' }, `🔥 ${G.state.market.drop.stock} left`) : null, G.items.countOwned(def.id) ? el('span', { class: 'p-own' }, `Owned ×${G.items.countOwned(def.id)}`) : G.market.isNew(def) ? el('span', { class: 'p-new' }, 'NEW') : null),
     el('div', { class: 'p-name' }, def.name),
     priceTag(def, store),
     el('button', { class: 'p-add', onclick: (e) => { e.stopPropagation(); G.orders.addToCart(store, def.id); ctx.refresh(); G.ui.toast(`Added ${def.name}`, { icon: '🛒', duration: 1.4 }); } }, '+'),
@@ -116,6 +116,11 @@ export const store = {
       if (deals.length) {
         body.appendChild(el('div', { class: 'sec' }, '🏷️ Today\'s deals'));
         const row = el('div', { class: 'hscroll' }); deals.forEach((d) => row.appendChild(productCard(d, sid, ctx, { compact: true }))); body.appendChild(row);
+      }
+      const fresh = all.filter((d) => G.market.isNew(d) && !d.limited).slice(0, 8);
+      if (fresh.length) {
+        body.appendChild(el('div', { class: 'sec' }, '✨ New arrivals'));
+        const row = el('div', { class: 'hscroll' }); fresh.forEach((d) => row.appendChild(productCard(d, sid, ctx, { compact: true }))); body.appendChild(row);
       }
       if (s.restaurants) {
         body.appendChild(el('div', { class: 'sec' }, s.kind === 'food' ? 'Restaurants near you' : 'Shops'));

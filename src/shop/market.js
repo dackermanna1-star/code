@@ -51,6 +51,12 @@ export class Market {
     return Math.round(base * (1 - d) * 100) / 100;
   }
 
+  // a rotating handful of "new arrivals" per store (changes every two days)
+  isNew(def) {
+    const k = Math.floor((G.clock.day - 1) / 2);
+    return (hashStr(def.id + ':' + k) % 9) === 0;
+  }
+
   // ---------------------------------------------------------------- resale market
   resellable(def) { return def.tags.includes('resell') || def.stores.includes('stockpile') || ['shoes', 'collectibles'].includes(def.category) || !!def.limited; }
   marketValue(def, day = G.clock.day) {

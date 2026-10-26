@@ -60,6 +60,11 @@ export class ItemInstance {
 class ItemInteractable extends Interactable {
   constructor(inst) { super(() => inst.displayName?.() || inst.def.name, 'item'); this.inst = inst; }
   getActions() { return G.items.actionsFor(this.inst); }
+  get reach() {
+    const t = this.inst.def.use?.type;
+    if (['tv', 'speaker', 'radio', 'smartspeaker', 'turntable', 'projector', 'arcade'].includes(t) || this.inst.def.use?.smart) return 7;
+    return this.inst.def.furniture ? 3.2 : 2.7;
+  }
   get subtitleText() { return G.behaviors.subtitle?.(this.inst) || ''; }
 }
 
@@ -267,7 +272,7 @@ export class ItemManager {
   }
 
   pickUp(inst) {
-    if (inst.def.furniture) { G.placement.begin(inst, { from: 'world' }); return; }
+    if (inst.def.furniture) { G.placement.begin(inst, { from: inst.data.loc === 'world' ? 'world' : 'storage' }); return; }
     const held = G.hand.held;
     if (held && held !== inst) {
       this.toStorage(held, true);

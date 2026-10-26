@@ -72,7 +72,8 @@ export function defBounds(def) {
   def._bounds = { box, size, center, max: Math.max(size.x, size.y, size.z) };
   if (def.furniture === undefined) def.furniture = def.place === 'floor' || (def.place !== 'wall' && (size.x > 0.95 || size.y > 1.1 || size.z > 0.95));
   if (!def.place) def.place = def.furniture ? 'floor' : 'surface';
-  tmpObjects.set(def.id, obj); // reuse for the first instance
+  // measured only; free any one-off geometry (cached kit geometry is shared and kept)
+  obj.traverse((o) => { if (o.geometry && !o.geometry.userData?.shared) o.geometry.dispose(); });
   return def._bounds;
 }
 export function takePrebuilt(def) {

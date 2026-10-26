@@ -259,7 +259,7 @@ export class Player {
   peephole() {
     const door = G.apartment.doors.front;
     const p = door.pivot.position;
-    const release = this.occupy({ pos: new THREE.Vector3(p.x - 0.5, 0, 4.98), yaw: Math.PI, pitch: -0.15, eye: 1.55, fov: 125, label: 'Peephole', yawLimit: 0.4 });
+    const release = this.occupy({ pos: new THREE.Vector3(p.x - 0.5, 0, 5.2), yaw: Math.PI, pitch: -0.15, eye: 1.55, fov: 125, label: 'Peephole', yawLimit: 0.4, exitPos: new THREE.Vector3(p.x - 0.5, 0, 4.55) });
     G.ui.peephole(true);
     const stop = () => { G.ui.peephole(false); release(); window.removeEventListener('keydown', onKey); window.removeEventListener('mousedown', onKey); };
     const onKey = () => stop();

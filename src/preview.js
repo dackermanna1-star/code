@@ -6,8 +6,11 @@ import { ITEMS, defBounds, RARITY } from './items/registry.js';
 import { thumbImg } from './ui/thumbs.js';
 import './catalog/index.js';
 import './shop/packages.js';
+import { validate } from './validate.js';
+import './player/outfit.js';
 
 G.events = new Events();
+if (new URLSearchParams(location.search).has('validate')) { window.__validation = validate(); }
 const p = new URLSearchParams(location.search);
 let list = Object.values(ITEMS);
 if (p.get('cat')) list = list.filter((d) => d.category === p.get('cat'));

@@ -17,6 +17,7 @@ import { Weather } from './world/weather.js';
 import { Particles } from './world/particles.js';
 import { updateMirrors } from './world/mirror.js';
 import { furnishStarter } from './world/starter.js';
+import { Ambient } from './world/ambient.js';
 import { ItemManager } from './items/manager.js';
 import { Physics } from './items/physics.js';
 import { behaviors, HANDLERS } from './items/behaviors/index.js';
@@ -33,6 +34,7 @@ import { Messages } from './progression/messages.js';
 import { Market } from './shop/market.js';
 import { Orders } from './shop/orders.js';
 import './shop/packages.js';
+import { Couriers } from './shop/courier.js';
 import { UI } from './ui/ui.js';
 import './ui/panels.js';
 import { Phone } from './ui/phone.js';
@@ -55,6 +57,7 @@ async function boot() {
   G.camera = G.engine.camera;
   G.audio = new AudioEngine();
   G.input = new Input(G.engine.renderer.domElement);
+  if (new URLSearchParams(location.search).has('autotest')) G.input.forceLock = true;
   G.state = loadState() || defaultState();
   const fresh = !G.state.flags.furnished;
   if (G.state.flags.startSeason === undefined) G.state.flags.startSeason = seasonFromDate(new Date());
@@ -85,6 +88,8 @@ async function boot() {
   setLoad('Raising the skyline…', 0.7);
   await tick();
   G.city = new City(G.scene);
+  G.ambient = new Ambient(G.scene);
+  G.couriers = new Couriers(G.scene);
 
   setLoad('Moving in…', 0.8);
   await tick();
@@ -149,6 +154,8 @@ async function boot() {
     G.sky.update(dt, t);
     G.weather.update(dt, t);
     G.city.update(dt, t);
+    G.ambient.update(dt);
+    G.couriers.update(dt);
     G.apartment.update(dt);
     G.particles.update(dt);
     G.avatar.update(dt);
@@ -157,6 +164,7 @@ async function boot() {
     G.ui.update(dt);
     G.input.endFrame();
   }, 0);
+  eng.shadowBusy = () => G.physics.bodies.size > 0 || G.placement.active || !!G.rc;
   G.particles.setScale(window.innerHeight);
   window.addEventListener('resize', () => G.particles.setScale(window.innerHeight));
   eng.start();
@@ -174,7 +182,9 @@ async function boot() {
     else if (e.code === 'KeyI' && !G.phone.open && !G.ui.modal && !G.computer.open) { G.ui.openContainer(G.apartment.storage.container); }
     else if (e.code === 'Escape') {
       if (G.ui.modal) { G.ui.closeModal(); }
-      else if (G.phone.open) { if (G.phone.stack.length) G.phone.back(); else G.phone.close(); }
+      else if (G.phone.open) G.phone.close();
+    } else if (e.code === 'Backspace' && G.phone.open && !(e.target && e.target.tagName === 'INPUT')) {
+      G.phone.back();
     }
   });
   G.engine.renderer.domElement.addEventListener('click', () => { if (G.started && !G.ui.blocking) { G.audio.unlock(); G.input.lock(); } });
@@ -227,7 +237,11 @@ function showTitle(fresh) {
     G.weather.startAmbience();
     G.events.emit('started');
     G.input.lock();
-    if (fresh) G.tutorial.begin();
+    if (fresh) {
+      G.tutorial.begin();
+      setTimeout(() => { G.audio.play('doorbell', { pos: new THREE.Vector3(-0.6, 1.4, 5.5) }); G.phone.notify({ app: 'primo', title: '📦 Package delivered', body: 'A welcome gift from the building is on your doormat.' }); }, 6000);
+      setTimeout(() => G.messages.trigger('welcome'), 25000);
+    }
     if (G.state.phone.music.playing) G.phone.toggleMusic();
     for (const i of G.items.all()) if (i.data.loc === 'world') G.behaviors.onEnterWorld(i);
     queueSave();
@@ -245,6 +259,8 @@ function showPause(on) {
     el('button', { class: 'btn primary big', onclick: () => { G.input.lock(); } }, 'Resume'),
     el('button', { class: 'btn', onclick: () => { showPause(false); G.phone.show('settings'); } }, 'Settings'),
     el('button', { class: 'btn', onclick: () => { saveState(); G.ui.toast('Saved!', { icon: '💾' }); } }, 'Save'),
+    el('button', { class: 'btn', onclick: (e) => e.target.nextSibling.classList.toggle('hidden') }, 'Controls'),
+    el('div', { class: 'controls hidden t-help on', style: { textAlign: 'left' } }, ...[['WASD', 'Move'], ['Shift', 'Run'], ['C', 'Crouch'], ['Space', 'Jump / stand up'], ['E · F · R · Q', 'Context actions'], ['Left click', 'Use held item'], ['Hold right click', 'Inspect'], ['F (holding)', 'Place / hang'], ['Scroll · Q · R', 'Rotate while placing'], ['G', 'Drop · hold to throw'], ['X', 'Stash in storage'], ['Tab', 'Phone'], ['I', 'Storage'], ['Esc', 'Pause / close']].map(([k, v]) => el('div', {}, el('span', { class: 'key' }, k), v))),
     el('div', { class: 'p-hint' }, 'Click anywhere to resume'),
   ));
   pauseEl.addEventListener('mousedown', (e) => { if (e.target === pauseEl) G.input.lock(); });

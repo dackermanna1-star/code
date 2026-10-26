@@ -6,9 +6,11 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { setMaxAnisotropy } from './textures.js';
-import { updateTweens } from './tween.js';
+import { updateTweens, tweensActive } from './tween.js';
 
 export const LAYER_WORLD = 0;
 export const LAYER_VIEWMODEL = 1;
@@ -35,6 +37,10 @@ export class Engine {
     renderer.toneMappingExposure = 1.0;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // Shadows are refreshed a few times per second (or every frame while things move)
+    renderer.shadowMap.autoUpdate = false;
+    this.shadowT = 0;
+    this.shadowBusy = () => false;
     renderer.setSize(window.innerWidth, window.innerHeight);
     container.appendChild(renderer.domElement);
     renderer.domElement.id = 'game-canvas';
@@ -114,6 +120,12 @@ export class Engine {
     } else this.bloomPass = null;
 
     composer.addPass(new OutputPass());
+    // cheap anti-aliasing when MSAA is off
+    if (!q.samples) {
+      this.fxaa = new ShaderPass(FXAAShader);
+      this.fxaa.material.uniforms.resolution.value.set(1 / (w * pr), 1 / (h * pr));
+      composer.addPass(this.fxaa);
+    } else this.fxaa = null;
   }
 
   setOutline(objects) {
@@ -128,6 +140,8 @@ export class Engine {
     this.renderer.setSize(w, h);
     this.composer.setSize(w, h);
     this.aoPass?.setSize(w, h);
+    const pr = this.renderer.getPixelRatio();
+    this.fxaa?.material.uniforms.resolution.value.set(1 / (w * pr), 1 / (h * pr));
   }
 
   onUpdate(fn, order = 0) {
@@ -150,6 +164,8 @@ export class Engine {
       for (const u of this.updaters) {
         try { u.fn(dt, this.time); } catch (e) { console.error(e); }
       }
+      this.shadowT += dt;
+      if (this.shadowT > 0.2 || tweensActive() || this.shadowBusy()) { this.shadowT = 0; this.renderer.shadowMap.needsUpdate = true; }
       this.composer.render(dt);
     };
     requestAnimationFrame(loop);

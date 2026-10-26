@@ -75,7 +75,12 @@ export function saveState() {
   if (!G.state) return;
   try {
     G.events?.emit('beforeSave');
-    localStorage.setItem(KEY, JSON.stringify(G.state));
+    try { localStorage.setItem(KEY, JSON.stringify(G.state)); }
+    catch (e) {
+      // storage quota: drop older gallery photos and try again
+      if (G.state.photos?.length > 3) { G.state.photos.length = 3; localStorage.setItem(KEY, JSON.stringify(G.state)); G.ui?.toast('Storage nearly full — older photos were removed', { icon: '⚠️' }); }
+      else throw e;
+    }
     G.events?.emit('saved');
   } catch (e) { console.warn('save failed', e); }
 }

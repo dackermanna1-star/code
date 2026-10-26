@@ -29,6 +29,7 @@ export class Input {
     canvas.addEventListener('mousedown', (e) => {
       const code = 'Mouse' + e.button;
       if (!this.locked) return;
+      if (this.forceLock && e.target !== canvas) return;
       if (!this.down.has(code)) { this.pressed.add(code); this.holdStart.set(code, performance.now()); }
       this.down.add(code);
     });
@@ -55,12 +56,16 @@ export class Input {
 
   lock() {
     if (this.locked) return;
+    if (this.forceLock) { this.locked = true; setTimeout(() => this.onLockChange?.(true), 0); return; }
     try {
       const p = this.canvas.requestPointerLock?.({ unadjustedMovement: false });
       if (p && p.catch) p.catch(() => { /* user gesture required */ });
     } catch { /* noop */ }
   }
-  unlock() { if (document.pointerLockElement) document.exitPointerLock(); }
+  unlock() {
+    if (this.forceLock) { if (this.locked) { this.locked = false; setTimeout(() => this.onLockChange?.(false), 0); } return; }
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
 
   isDown(c) { return this.down.has(c); }
   wasPressed(c) { return this.pressed.has(c); }

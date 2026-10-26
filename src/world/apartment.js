@@ -407,12 +407,15 @@ export class Apartment {
   // ---------------------------------------------------------------- lighting
   _lights() {
     const fixtureMat = mat('#fff7ea', { emissive: '#fff1db', ei: 0 });
-    const addLight = (room, x, y, z, { intensity = 9, distance = 9, color = null, recessed = true, pendant = null, name = '' } = {}) => {
-      const l = new THREE.PointLight(color || G.state.home.lightColor[room] || '#ffe0b8', 0, distance, 2);
-      l.position.set(x, y, z);
-      l.castShadow = false;
-      allLayers(l);
-      this.root.add(l);
+    const addLight = (room, x, y, z, { intensity = 9, distance = 9, color = null, recessed = true, pendant = null, name = '', fakeOnly = false } = {}) => {
+      let l = null;
+      if (!fakeOnly) {
+        l = new THREE.PointLight(color || G.state.home.lightColor[room] || '#ffe0b8', 0, distance, 2);
+        l.position.set(x, y, z);
+        l.castShadow = false;
+        allLayers(l);
+        this.root.add(l);
+      }
       let em = null;
       if (recessed) {
         const m = fixtureMat.clone();
@@ -425,9 +428,9 @@ export class Apartment {
       return l;
     };
     // living: two zones + dining pendant
-    addLight('living', -4.6, H - 0.1, -2.6, { intensity: 10 });
-    addLight('living', -1.6, H - 0.1, -2.6, { intensity: 10 });
-    addLight('living', -2.4, H - 0.1, 0.2, { intensity: 6 });
+    // (few lights keeps the forward renderer fast; emissive trims sell the rest)
+    addLight('living', -3.0, H - 0.1, -2.2, { intensity: 18, distance: 12 });
+    for (const [x, z] of [[-4.6, -3.6], [-1.4, -3.6], [-1.4, -0.4], [-4.6, -0.4]]) addLight('living', x, H - 0.1, z, { intensity: 0, distance: 0.1, fakeOnly: true });
     // dining pendant (big paper lantern)
     const lanternMat = mat('#fff8ee', { emissive: '#ffd9a8', ei: 0, rough: 0.9 });
     const lantern = group(
@@ -450,11 +453,11 @@ export class Apartment {
       this.root.add(shade);
     }
     addLight('kitchen', -4.4, H - 1.15, 2.4, { intensity: 9, recessed: false, pendant: pendMat, distance: 8 });
-    addLight('kitchen', -5.9, H - 0.1, 3.6, { intensity: 6 });
+    addLight('kitchen', -5.9, H - 0.1, 3.6, { intensity: 0, distance: 0.1, fakeOnly: true });
     (this.roomLights.kitchen).push({ light: null, base: 0, emissive: this.kitchenLed, emissiveBase: 2.5 });
     addLight('entry', -0.5, H - 0.1, 3.2, { intensity: 7 });
-    addLight('bedroom', 3.6, H - 0.1, -2.0, { intensity: 9 });
-    addLight('bedroom', 3.0, H - 0.1, -4.0, { intensity: 5 });
+    addLight('bedroom', 3.8, H - 0.1, -2.2, { intensity: 13, distance: 11 });
+    addLight('bedroom', 2.6, H - 0.1, -4.0, { intensity: 0, distance: 0.1, fakeOnly: true });
     addLight('bath', 2.5, H - 0.1, 3.2, { intensity: 8, color: '#f6f3ff' });
     addLight('closet', 5.5, H - 0.1, 3.2, { intensity: 7 });
 
