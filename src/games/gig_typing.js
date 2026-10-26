@@ -59,6 +59,7 @@ defineGame({
     const payFor = PAY;
 
     return {
+      get debugState() { return { text, typed, time }; },
       update(dt, input) {
         t += dt; flash = Math.max(0, flash - dt * 2); shakeT = Math.max(0, shakeT - dt);
         if (finished) { endT -= dt; if (endT <= 0) { endT = 99; api.gameOver(); } return; }

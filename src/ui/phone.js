@@ -51,6 +51,7 @@ export class Phone {
     if (G.games?.active || G.computer?.open) return;
     G.ui.closeModal(true);
     this.open = true;
+    document.body.classList.add('phone-open');
     G.input.unlock();
     this.el.classList.remove('hidden');
     requestAnimationFrame(() => this.el.classList.add('in'));
@@ -62,6 +63,7 @@ export class Phone {
   close() {
     if (!this.open) return;
     this.open = false;
+    document.body.classList.remove('phone-open');
     this.el.classList.remove('in');
     setTimeout(() => { if (!this.open) this.el.classList.add('hidden'); }, 250);
     G.audio.play('uiBack');

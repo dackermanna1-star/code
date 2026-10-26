@@ -72,6 +72,9 @@ for tips), speakers and record players with procedural music stations,
 plants that grow and wilt, candles, star projectors, aquariums, robot
 vacuums, RC cars & drones, instruments you can practice, an easel where you
 paint art you can hang, a journal, puzzles and model kits, books you can read.
+Dressers, nightstands, media consoles and bookshelves hold your things, and
+tables square up whatever you've left on them. 850+ items across 19
+categories, each with its own model and something to do.
 
 **Life** — lightweight needs (hunger, thirst, energy, hygiene, fun,
 comfort) with mood buffs; comfort comes from how you've decorated each room.
@@ -97,4 +100,6 @@ src/
 Adding content? See **[docs/CONTENT_GUIDE.md](docs/CONTENT_GUIDE.md)**.
 `preview.html` renders thumbnails of catalogue items for quick checks, and
 `scripts/` contains headless Playwright tours (`shot.mjs`, `flow.mjs`,
-`tour.mjs`, `preview.mjs`).
+`tour.mjs`, `preview.mjs`). With the dev server running,
+`node scripts/validate.mjs` checks every item (categories, stores, behaviors,
+recipes, wearables) and reports anything unobtainable or purely decorative.

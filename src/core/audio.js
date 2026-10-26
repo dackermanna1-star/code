@@ -193,7 +193,9 @@ export class AudioEngine {
     gain.gain.setTargetAtTime(vol, ctx.currentTime, opts.fadeIn ?? 0.15);
     const nodes = [];
     const handle = {
-      name, gain, panner, nodes, params: {}, stopped: false,
+      name, gain, panner, nodes, params: {}, stopped: false, vol,
+      // interval-driven grains skip work while the loop is silent
+      quiet: () => handle.vol < 0.003 || this.volumes.master === 0,
       stop: (fade = 0.25) => {
         if (handle.stopped) return;
         handle.stopped = true;
@@ -205,7 +207,7 @@ export class AudioEngine {
         }, fade * 1000 + 200);
         this.loops.delete(handle);
       },
-      setVolume: (v, tc = 0.1) => { if (!handle.stopped) gain.gain.setTargetAtTime(v, ctx.currentTime, tc); },
+      setVolume: (v, tc = 0.1) => { handle.vol = v; if (!handle.stopped) gain.gain.setTargetAtTime(v, ctx.currentTime, tc); },
       setPos: (p) => { if (panner) this._setPannerPos(panner, p); },
       setParam: (k, v) => { handle.params[k]?.(v); },
     };
@@ -381,7 +383,7 @@ const LOOPS = {
   water(out, h) {
     loopNoise(this, out, h, { freq: 1600, q: 0.5, gain: 0.5 });
     const { f } = loopNoise(this, out, h, { buffer: 'white', type: 'highpass', freq: 5000, gain: 0.12 });
-    h.timer = setInterval(() => { f.frequency.setTargetAtTime(rand(4000, 7000), this.ctx.currentTime, 0.05); }, 90);
+    h.timer = setInterval(() => { if (h.quiet()) return; f.frequency.setTargetAtTime(rand(4000, 7000), this.ctx.currentTime, 0.05); }, 90);
   },
   shower(out, h) {
     loopNoise(this, out, h, { freq: 1100, q: 0.4, gain: 0.7 });
@@ -390,7 +392,7 @@ const LOOPS = {
   bath(out, h) { loopNoise(this, out, h, { freq: 700, q: 0.6, gain: 0.6 }); },
   sizzle(out, h) {
     const { g } = loopNoise(this, out, h, { buffer: 'white', type: 'highpass', freq: 3500, gain: 0.25 });
-    h.timer = setInterval(() => {
+    h.timer = setInterval(() => { if (h.quiet()) return;
       const t = this.ctx.currentTime;
       g.gain.setTargetAtTime(rand(0.12, 0.4), t, 0.03);
       if (Math.random() < 0.5) this._noiseBurst(out, t, { type: 'bandpass', freq: rand(2000, 6000), q: 3, dur: 0.02, peak: rand(0.2, 0.5) });
@@ -429,7 +431,7 @@ const LOOPS = {
   rain(out, h) {
     loopNoise(this, out, h, { buffer: 'pink', type: 'lowpass', freq: 1800, gain: 0.7 });
     const hp = loopNoise(this, out, h, { buffer: 'white', type: 'highpass', freq: 6000, gain: 0.08 });
-    h.timer = setInterval(() => {
+    h.timer = setInterval(() => { if (h.quiet()) return;
       if (Math.random() < 0.6) this._noiseBurst(out, this.ctx.currentTime, { type: 'bandpass', freq: rand(2500, 6500), q: 4, dur: 0.012, peak: rand(0.05, 0.25) });
       hp.g.gain.setTargetAtTime(rand(0.05, 0.1), this.ctx.currentTime, 0.2);
     }, 45);
@@ -437,7 +439,7 @@ const LOOPS = {
   city(out, h) {
     loopNoise(this, out, h, { buffer: 'brown', type: 'lowpass', freq: 380, gain: 0.45 });
     loopNoise(this, out, h, { buffer: 'pink', type: 'bandpass', freq: 900, q: 0.3, gain: 0.03 });
-    h.timer = setInterval(() => {
+    h.timer = setInterval(() => { if (h.quiet()) return;
       const t = this.ctx.currentTime;
       const r = Math.random();
       if (r < 0.025) { // distant horn
@@ -451,7 +453,7 @@ const LOOPS = {
     }, 1000);
   },
   birds(out, h) {
-    h.timer = setInterval(() => {
+    h.timer = setInterval(() => { if (h.quiet()) return;
       if (Math.random() < 0.35) {
         const t = this.ctx.currentTime; const base = rand(2500, 4200); const n = Math.floor(rand(2, 6));
         for (let i = 0; i < n; i++) this._tone(out, t + i * rand(0.07, 0.12), { freq: base * rand(0.9, 1.15), freqEnd: base * rand(1.1, 1.5), dur: 0.06, peak: 0.03 });
@@ -460,7 +462,7 @@ const LOOPS = {
   },
   tvchatter(out, h) {
     const { g, f } = loopNoise(this, out, h, { buffer: 'pink', type: 'bandpass', freq: 800, q: 1.5, gain: 0.2 });
-    h.timer = setInterval(() => {
+    h.timer = setInterval(() => { if (h.quiet()) return;
       const t = this.ctx.currentTime;
       g.gain.setTargetAtTime(Math.random() < 0.25 ? 0.02 : rand(0.1, 0.35), t, 0.04);
       f.frequency.setTargetAtTime(rand(500, 1400), t, 0.05);
@@ -468,7 +470,7 @@ const LOOPS = {
   },
   static(out, h) { loopNoise(this, out, h, { buffer: 'white', type: 'highpass', freq: 1000, gain: 0.15 }); },
   bubbling(out, h) {
-    h.timer = setInterval(() => { if (Math.random() < 0.7) this._tone(out, this.ctx.currentTime, { freq: rand(300, 700), freqEnd: rand(800, 1400), dur: 0.04, peak: 0.08 }); }, 60);
+    h.timer = setInterval(() => { if (h.quiet()) return; if (Math.random() < 0.7) this._tone(out, this.ctx.currentTime, { freq: rand(300, 700), freqEnd: rand(800, 1400), dur: 0.04, peak: 0.08 }); }, 60);
   },
   kettle(out, h) {
     const o = this._osc('sine', 1800); const g = this.ctx.createGain(); g.gain.value = 0.0;
@@ -477,7 +479,7 @@ const LOOPS = {
     h.params.whistle = (v) => { g.gain.setTargetAtTime(v * 0.05, this.ctx.currentTime, 0.3); o.frequency.setTargetAtTime(1600 + v * 600, this.ctx.currentTime, 0.3); };
   },
   crackle(out, h) {
-    h.timer = setInterval(() => {
+    h.timer = setInterval(() => { if (h.quiet()) return;
       if (Math.random() < 0.5) this._noiseBurst(out, this.ctx.currentTime, { type: 'highpass', freq: rand(2000, 7000), dur: 0.005, peak: rand(0.03, 0.12) });
     }, 40);
   },

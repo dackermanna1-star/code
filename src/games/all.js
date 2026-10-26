@@ -13,3 +13,7 @@ import './dungeon_dash.js';
 import './word_bloom.js';
 import './memory_match.js';
 import './solitaire_lite.js';
+import './gig_typing.js';
+import './gig_sort.js';
+import './gig_color.js';
+import './gig_support.js';
