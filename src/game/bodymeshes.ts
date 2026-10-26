@@ -64,13 +64,20 @@ export class BodyMeshes {
       if (b.slot < 0 || b.nOp + b.nTr === 0) continue;
       // previous rendered transform is kept in the renderer's xform table (rows 3..5) via lastRows
       const lr = (b as any)._lastRows as Float32Array | undefined;
-      ip.copy(b.prevPos).lerp(b.pos, alpha);
-      iq.copy(b.prevRot).slerp(b.rot, alpha);
-      b.modelRows(rowsCur, ip, iq);
-      if (lr) rowsPrev.set(lr); else rowsPrev.set(rowsCur);
-      r.setXform(b.slot, rowsCur, rowsPrev);
-      if (!lr) (b as any)._lastRows = new Float32Array(rowsCur);
-      else lr.set(rowsCur);
+      if (b.sleeping && lr && (b as any)._xfSlot === b.slot && (b as any)._xfStill) {
+        // at rest and already written with current = previous: the renderer's rows are up to date
+        ip.copy(b.pos);
+      } else {
+        ip.copy(b.prevPos).lerp(b.pos, alpha);
+        iq.copy(b.prevRot).slerp(b.rot, alpha);
+        b.modelRows(rowsCur, ip, iq);
+        let still = !!lr;
+        if (lr) { for (let k = 0; k < 12 && still; k++) still = lr[k] === rowsCur[k]; rowsPrev.set(lr); } else rowsPrev.set(rowsCur);
+        r.setXform(b.slot, rowsCur, rowsPrev);
+        if (!lr) (b as any)._lastRows = new Float32Array(rowsCur);
+        else lr.set(rowsCur);
+        (b as any)._xfSlot = b.slot; (b as any)._xfStill = still;
+      }
       const d = this.drawPool.pop() ?? { slot: 0, start: 0, nOp: 0, nTr: 0, x: 0, y: 0, z: 0, r: 0 };
       d.slot = b.slot; d.start = b.meshStart; d.nOp = b.nOp; d.nTr = b.nTr;
       d.x = ip.x; d.y = ip.y; d.z = ip.z; d.r = b.radius; d.vm = b === viewModel;

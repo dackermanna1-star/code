@@ -34,6 +34,18 @@ export class Frustum {
     return true;
   }
 
+  /** 0: box completely outside, 1: intersects the frustum, 2: completely inside. */
+  classifyBox(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): number {
+    const p = this.p;
+    let r = 2;
+    for (let i = 0; i < 24; i += 4) {
+      const a = p[i], b = p[i + 1], c = p[i + 2], d = p[i + 3];
+      if (a * (a > 0 ? x1 : x0) + b * (b > 0 ? y1 : y0) + c * (c > 0 ? z1 : z0) + d < 0) return 0;
+      if (a * (a > 0 ? x0 : x1) + b * (b > 0 ? y0 : y1) + c * (c > 0 ? z0 : z1) + d < 0) r = 1;
+    }
+    return r;
+  }
+
   testSphere(x: number, y: number, z: number, r: number): boolean {
     const p = this.p;
     for (let i = 0; i < 24; i += 4) if (p[i] * x + p[i + 1] * y + p[i + 2] * z + p[i + 3] < -r) return false;

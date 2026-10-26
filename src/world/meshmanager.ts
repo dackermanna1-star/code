@@ -26,6 +26,17 @@ export class RegionMeshes {
   readonly bounds: Float32Array;
   /** regions that currently have geometry */
   readonly active: number[] = [];
+  /**
+   * Active regions grouped into superblocks of 4^3 regions (12.8 m cubes), so culling can accept or
+   * reject a whole block with one test. sbSize is the block edge in meters.
+   */
+  readonly sbx: number; readonly sby: number; readonly sbz: number;
+  readonly sbSize = 4 * RS * VOXEL;
+  readonly sbLists: number[][];
+  /** superblocks holding at least one active region */
+  readonly activeSb: number[] = [];
+  private sbPos: Int32Array;
+  private activeSbPos: Int32Array;
   /** LOD switch distances in meters (0 disables LOD) */
   lodDist = [60, 130];
   private activePos: Int32Array;
@@ -64,6 +75,11 @@ export class RegionMeshes {
     this.lod = new Uint8Array(n);
     this.bounds = new Float32Array(n * 6);
     this.activePos = new Int32Array(n).fill(-1);
+    this.sbx = Math.ceil(world.nrx / 4); this.sby = Math.ceil(world.nry / 4); this.sbz = Math.ceil(world.nrz / 4);
+    const nsb = this.sbx * this.sby * this.sbz;
+    this.sbLists = Array.from({ length: nsb }, () => []);
+    this.sbPos = new Int32Array(n).fill(-1);
+    this.activeSbPos = new Int32Array(nsb).fill(-1);
     this.meshablePos = new Int32Array(n).fill(-1);
     this.want = new Uint8Array(n).fill(NONE);
     this.inflight = new Uint8Array(n);
@@ -252,6 +268,12 @@ export class RegionMeshes {
 
   private setActive(ri: number, on: boolean): void {
     listSet(this.active, this.activePos, ri, on);
+    const w = this.world;
+    const rx = ri % w.nrx, rest = (ri / w.nrx) | 0, rz = rest % w.nrz, ry = (rest / w.nrz) | 0;
+    const sb = (rx >> 2) + this.sbx * ((rz >> 2) + this.sbz * (ry >> 2));
+    const list = this.sbLists[sb];
+    listSet(list, this.sbPos, ri, on);
+    listSet(this.activeSb, this.activeSbPos, sb, list.length > 0);
   }
 
   private setMeshable(ri: number, on: boolean): void {

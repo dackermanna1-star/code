@@ -145,6 +145,9 @@ void main() {
   vDepth = dot(-toCam, viewDir) ;
   clip.xy += uJitter * clip.w;
   gl_Position = clip;
+  // smoke / dust / steam fade out entirely this close to the camera (see the fragment shader), but would
+  // still be shaded over the whole screen: drop the quad instead
+  if ((type == 0 || type == 1 || type == 5) && vDepth < 0.2) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
   vUV = aCorner;
   vColor = iColor;
   vType = type;

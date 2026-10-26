@@ -32,7 +32,12 @@ export interface CameraState {
 }
 
 export interface RenderSettings {
+  /** render resolution relative to the canvas (CSS pixels x maxDpr) */
   scale: number;
+  /** device pixel ratio cap: 1 renders at CSS-pixel resolution even on high-DPI screens */
+  maxDpr: number;
+  /** most point lights shaded per pixel (the nearest / brightest ones that are in view) */
+  maxLights: number;
   shadows: boolean;
   shadowSize: number;
   ssao: boolean;
@@ -59,7 +64,7 @@ export class Renderer {
   readonly gl: GL;
   readonly pool: QuadPool;
   readonly multiDraw: any;
-  settings: RenderSettings = { scale: 1, shadows: true, shadowSize: 2048, ssao: true, taa: true, bloom: true, edge: 0.07, skyOcclusion: true, volumetrics: true, ssr: true };
+  settings: RenderSettings = { scale: 1, maxDpr: 1, maxLights: 32, shadows: true, shadowSize: 2048, ssao: true, taa: true, bloom: true, edge: 0.07, skyOcclusion: true, volumetrics: true, ssr: true };
   /** world bounds (meters) for the sky occlusion maps */
   worldBounds = [0, 0, 0, 256, 64, 256];
 
@@ -110,6 +115,9 @@ export class Renderer {
   private prevValid = false;
   private reproj = mat4();
   private tmp = mat4();
+  private tmpView = mat4();
+  private tmpProj = mat4();
+  private shadowFrustum = new Frustum();
   readonly frustum = new Frustum();
   private cascadeVP: Float32Array[] = [mat4(), mat4(), mat4(), mat4()];
   private cascadeVPFlat = new Float32Array(16 * S.NUM_CASCADES);
@@ -191,7 +199,7 @@ export class Renderer {
   // ---------------------------------------------------------------- targets
   private resize(): void {
     const gl = this.gl;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = Math.min(window.devicePixelRatio || 1, this.settings.maxDpr);
     const cw = Math.max(1, Math.floor(this.canvas.clientWidth * dpr));
     const ch = Math.max(1, Math.floor(this.canvas.clientHeight * dpr));
     const w = Math.max(1, Math.floor(cw * this.settings.scale)), h = Math.max(1, Math.floor(ch * this.settings.scale));
@@ -199,6 +207,7 @@ export class Renderer {
     this.canvasW = cw; this.canvasH = ch;
     if (w === this.w && h === this.h) return;
     this.w = w; this.h = h;
+    this.freeTargets();
     const L = gl.LINEAR, N = gl.NEAREST;
     this.gAlbedo = makeTex(gl, w, h, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, { filter: N });
     this.gNormal = makeTex(gl, w, h, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, { filter: N });
@@ -221,6 +230,15 @@ export class Renderer {
       this.bloomMips.push(this.target(bw, bh, gl.RGBA16F, gl.RGBA, gl.HALF_FLOAT, L));
       bw >>= 1; bh >>= 1;
     }
+  }
+
+  /** Release the screen-sized targets before they are recreated at a new resolution. */
+  private freeTargets(): void {
+    const gl = this.gl;
+    if (!this.gFbo) return;
+    for (const t of [this.gAlbedo, this.gNormal, this.gMat, this.gDepth, this.hdr, this.linDepth]) gl.deleteTexture(t);
+    for (const f of [this.gFbo, this.lightFbo, this.forwardFbo]) gl.deleteFramebuffer(f);
+    for (const t of [this.ssaoA, this.ssaoB, this.vol, ...this.hist, ...this.bloomMips]) { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fbo); }
   }
 
   private target(w: number, h: number, internal: number, format: number, type: number, filter: number): Target {
@@ -313,7 +331,7 @@ export class Renderer {
     ps.m4('uLightVP', this.skyVP[k]);
     const f = new Frustum().setFromMatrix(this.skyVP[k]);
     this.beginList();
-    this.collect(regions, bodies, f, false, 0, 0, 0, 0, true);
+    this.collect(regions, bodies, f, false, true);
     this.flush();
     gl.disable(gl.POLYGON_OFFSET_FILL);
     gl.colorMask(true, true, true, true);
@@ -341,23 +359,63 @@ export class Renderer {
     this.drawN = 0;
   }
 
-  /** Collect visible geometry for a frustum. transparent=false -> opaque ranges, true -> glass ranges. */
-  private collect(regions: RegionMeshes, bodies: BodyDraw[], f: Frustum, transparent: boolean, maxDistSq: number, cx: number, cy: number, cz: number, skipVM = false): number {
+  /**
+   * Collect visible geometry for a frustum. transparent=false -> opaque ranges, true -> glass ranges.
+   * mode 0: cull; 1: cull, nearest superblocks first, and remember the visible regions; 2: reuse them.
+   */
+  private collect(regions: RegionMeshes, bodies: BodyDraw[], f: Frustum, transparent: boolean, skipVM = false, mode = 0): number {
     let quads = 0;
-    const act = regions.active, b = regions.bounds;
-    for (let i = 0; i < act.length; i++) {
-      const ri = act[i];
-      const n = transparent ? regions.nTr[ri] : regions.nOp[ri];
-      if (n === 0) continue;
-      const o = ri * 6;
-      if (maxDistSq > 0) {
-        const dx = Math.max(b[o] - cx, 0, cx - b[o + 3]), dy = Math.max(b[o + 1] - cy, 0, cy - b[o + 4]), dz = Math.max(b[o + 2] - cz, 0, cz - b[o + 5]);
-        if (dx * dx + dy * dy + dz * dz > maxDistSq) continue;
+    const nOp = regions.nOp, nTr = regions.nTr, start = regions.start;
+    if (mode === 2) {
+      const vl = this.visList;
+      for (let i = 0; i < this.visN; i++) {
+        const ri = vl[i];
+        const n = transparent ? nTr[ri] : nOp[ri];
+        if (n === 0) continue;
+        this.add(start[ri] + (transparent ? nOp[ri] : 0), n);
+        quads += n;
       }
-      if (!f.testBox(b[o], b[o + 1], b[o + 2], b[o + 3], b[o + 4], b[o + 5])) continue;
-      const start = regions.start[ri] + (transparent ? regions.nOp[ri] : 0);
-      this.add(start, n);
-      quads += n;
+    } else {
+      const b = regions.bounds, sbs = regions.activeSb, S = regions.sbSize, SX = regions.sbx, SZ = regions.sbz;
+      let order: ArrayLike<number> = sbs, nsb = sbs.length;
+      if (mode === 1) {
+        this.visN = 0;
+        // front to back, so the depth test rejects hidden surfaces before they are shaded
+        if (this.sbKeys.length < nsb) this.sbKeys = new Float64Array(nsb * 2);
+        const keys = this.sbKeys, cam = this.cam;
+        for (let k = 0; k < nsb; k++) {
+          const sb = sbs[k];
+          const sx = sb % SX, rest = (sb / SX) | 0, sz = rest % SZ, sy = (rest / SZ) | 0;
+          const dx = (sx + 0.5) * S - cam.x, dy = (sy + 0.5) * S - cam.y, dz = (sz + 0.5) * S - cam.z;
+          keys[k] = Math.floor(dx * dx + dy * dy + dz * dz) * 8192 + sb;
+        }
+        const sorted = keys.subarray(0, nsb).sort();
+        if (this.sbOrder.length < nsb) this.sbOrder = new Int32Array(nsb * 2);
+        for (let k = 0; k < nsb; k++) this.sbOrder[k] = sorted[k] % 8192;
+        order = this.sbOrder;
+      }
+      for (let k = 0; k < nsb; k++) {
+        const sb = order[k];
+        const sx = sb % SX, rest = (sb / SX) | 0, sz = rest % SZ, sy = (rest / SZ) | 0;
+        const cls = f.classifyBox(sx * S - 0.1, sy * S - 0.1, sz * S - 0.1, (sx + 1) * S + 0.1, (sy + 1) * S + 0.1, (sz + 1) * S + 0.1);
+        if (cls === 0) continue;
+        const list = regions.sbLists[sb];
+        for (let i = 0; i < list.length; i++) {
+          const ri = list[i];
+          if (cls === 1) {
+            const o = ri * 6;
+            if (!f.testBox(b[o], b[o + 1], b[o + 2], b[o + 3], b[o + 4], b[o + 5])) continue;
+          }
+          if (mode === 1) {
+            if (this.visN >= this.visList.length) { const v = new Int32Array(this.visList.length * 2); v.set(this.visList); this.visList = v; }
+            this.visList[this.visN++] = ri;
+          }
+          const n = transparent ? nTr[ri] : nOp[ri];
+          if (n === 0) continue;
+          this.add(start[ri] + (transparent ? nOp[ri] : 0), n);
+          quads += n;
+        }
+      }
     }
     for (let i = 0; i < bodies.length; i++) {
       const bd = bodies[i];
@@ -369,6 +427,10 @@ export class Renderer {
     }
     return quads;
   }
+  private visList = new Int32Array(4096);
+  private visN = 0;
+  private sbKeys = new Float64Array(0);
+  private sbOrder = new Int32Array(0);
 
   private bindQuadData(p: Program): void {
     p.tex('uQuads', 0, this.pool.tex);
@@ -426,7 +488,7 @@ export class Renderer {
     pg.m4('uViewProj', this.viewProj).m4('uPrevViewProj', this.prevViewProj).f2('uJitter', this.jx, this.jy);
     pg.tex('uPalAlbedo', 2, this.palAlbedo).tex('uPalParams', 3, this.palParams).f('uEdge', this.settings.edge);
     this.beginList();
-    this.stats.quads = this.collect(regions, bodies, this.frustum, false, 0, cam.x, cam.y, cam.z);
+    this.stats.quads = this.collect(regions, bodies, this.frustum, false, false, 1);
     this.stats.drawn = this.drawN;
     this.flush();
     for (const gp of this.geometryPasses) gp.drawGBuffer(this);
@@ -474,10 +536,13 @@ export class Renderer {
       // bind something valid to the shadow sampler unit
       pl.tex('uSkyOcc', 7, this.shadowTex, gl.TEXTURE_2D_ARRAY);
     }
-    // lights
-    const nl = Math.min(lights.length, S.MAX_LIGHTS);
-    for (let i = 0; i < nl; i++) {
-      const L = lights[i];
+    // lights: the first ones (by priority) whose sphere of influence is in view; every pixel loops over them
+    const maxL = Math.min(this.settings.maxLights, S.MAX_LIGHTS);
+    let nl = 0;
+    for (let k = 0; k < lights.length && nl < maxL; k++) {
+      const L = lights[k];
+      if (L.r + L.g + L.b <= 0.001 || !this.frustum.testSphere(L.x, L.y, L.z, L.radius)) continue;
+      const i = nl++;
       this.lightPos[i * 4] = L.x; this.lightPos[i * 4 + 1] = L.y; this.lightPos[i * 4 + 2] = L.z; this.lightPos[i * 4 + 3] = L.radius;
       this.lightCol[i * 4] = L.r; this.lightCol[i * 4 + 1] = L.g; this.lightCol[i * 4 + 2] = L.b; this.lightCol[i * 4 + 3] = 0;
     }
@@ -505,7 +570,7 @@ export class Renderer {
     this.setEnvUniforms(pgl, env, cam);
     this.setCascadeUniforms(pgl);
     this.beginList();
-    this.collect(regions, bodies, this.frustum, true, 0, cam.x, cam.y, cam.z);
+    this.collect(regions, bodies, this.frustum, true, false, 2);
     this.flush();
     for (const fp of this.forwardPasses) fp.draw(this);
     gl.bindVertexArray(this.emptyVao);
@@ -603,7 +668,7 @@ export class Renderer {
     const v = cam.view;
     const fwdX = -v[2], fwdY = -v[6], fwdZ = -v[10];
     const tanY = Math.tan(cam.fov / 2), tanX = tanY * cam.aspect;
-    const f = new Frustum();
+    const f = this.shadowFrustum;
     this.stats.shadowDraws = 0;
     let near = cam.near;
     for (let c = 0; c < S.NUM_CASCADES; c++) {
@@ -634,8 +699,8 @@ export class Renderer {
         ccy = lv[4] * lx + lv[5] * ly + lv[6] * lz;
         ccz = lv[8] * lx + lv[9] * ly + lv[10] * lz;
         const back = radius + 150;
-        const view = mat4LookAt(mat4(), ccx + sd[0] * back, ccy + sd[1] * back, ccz + sd[2] * back, ccx, ccy, ccz, 0, 1, 0);
-        const proj = mat4Ortho(mat4(), -radius, radius, -radius, radius, 0.5, back + radius + 60);
+        const view = mat4LookAt(this.tmpView, ccx + sd[0] * back, ccy + sd[1] * back, ccz + sd[2] * back, ccx, ccy, ccz, 0, 1, 0);
+        const proj = mat4Ortho(this.tmpProj, -radius, radius, -radius, radius, 0.5, back + radius + 60);
         mat4Mul(this.cascadeVP[c], proj, view);
         this.cascadeTexel[c] = texel;
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowFbos[c]);
@@ -644,7 +709,7 @@ export class Renderer {
         ps.m4('uLightVP', this.cascadeVP[c]);
         f.setFromMatrix(this.cascadeVP[c]);
         this.beginList();
-        this.collect(regions, bodies, f, false, 0, cam.x, cam.y, cam.z);
+        this.collect(regions, bodies, f, false);
         this.stats.shadowDraws += this.drawN;
         this.flush();
         if (c < 3) for (const gp of this.geometryPasses) { gp.drawShadow(this, this.cascadeVP[c], c); }
@@ -666,7 +731,7 @@ export class Renderer {
     const a = this.ssaoA, b = this.ssaoB;
     gl.bindFramebuffer(gl.FRAMEBUFFER, b.fbo);
     gl.viewport(0, 0, b.w, b.h);
-    const invProj = mat4Invert(mat4(), cam.proj)!;
+    const invProj = mat4Invert(this.tmpProj, cam.proj)!;
     const p = this.pSSAO.use();
     p.tex('uDepth', 0, this.gDepth).tex('uNormal', 1, this.gNormal).m4('uProj', cam.proj).m4('uInvProj', invProj).m4('uView', cam.view)
       .f2('uTexel', 1 / b.w, 1 / b.h).f('uRadius', 0.55).i('uFrame', this.frame);

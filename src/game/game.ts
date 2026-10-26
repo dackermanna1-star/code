@@ -293,26 +293,43 @@ export class Game {
   }
 
   /** Lights to render this frame (most relevant first). */
+  private lightOut: PointLight[] = [];
+  private lightCand: { l: PointLight; s: number }[] = [];
+  private lightTmp: PointLight[] = [];
+  /** Lights by priority (brightness at the camera); reuses its arrays, valid until the next call. */
   gatherLights(cx: number, cy: number, cz: number, max: number): PointLight[] {
-    const out: { l: PointLight; s: number }[] = [];
+    const cand = this.lightCand;
+    let n = 0;
+    const slot = (l: PointLight, s: number) => {
+      let c = cand[n];
+      if (!c) { c = { l, s }; cand[n] = c; } else { c.l = l; c.s = s; }
+      n++;
+    };
+    let nd = 0;
     for (const L of this.lights) {
       const k = L.life / L.maxLife;
       const f = L.flicker > 0 ? 1 - L.flicker * (0.5 + 0.5 * Math.sin(this.time * 31 + L.x * 7) * Math.sin(this.time * 17.3 + L.z * 3)) : 1;
       const s = k * k * f;
-      const pl = { x: L.x, y: L.y, z: L.z, radius: L.radius, r: L.r * s, g: L.g * s, b: L.b * s };
+      let pl = this.lightTmp[nd];
+      if (!pl) { pl = { x: 0, y: 0, z: 0, radius: 0, r: 0, g: 0, b: 0 }; this.lightTmp[nd] = pl; }
+      nd++;
+      pl.x = L.x; pl.y = L.y; pl.z = L.z; pl.radius = L.radius; pl.r = L.r * s; pl.g = L.g * s; pl.b = L.b * s;
       const d2 = (L.x - cx) ** 2 + (L.y - cy) ** 2 + (L.z - cz) ** 2;
       // dynamic lights (fire, blasts, muzzle flashes) are favoured, but distant ones must not crowd out nearby lamps
-      out.push({ l: pl, s: 2.5 * (L.r + L.g + L.b) * s * L.radius * L.radius / (L.radius * L.radius + d2) });
+      slot(pl, 2.5 * (L.r + L.g + L.b) * s * L.radius * L.radius / (L.radius * L.radius + d2));
     }
     for (const lamp of this.lamps) {
       if (!lamp.on) continue;
       const L = lamp.light;
       const d2 = (L.x - cx) ** 2 + (L.y - cy) ** 2 + (L.z - cz) ** 2;
       if (d2 > 90 * 90) continue;
-      out.push({ l: L, s: (L.r + L.g + L.b) * L.radius * L.radius / (L.radius * L.radius + d2) });
+      slot(L, (L.r + L.g + L.b) * L.radius * L.radius / (L.radius * L.radius + d2));
     }
-    out.sort((a, b) => b.s - a.s);
-    return out.slice(0, max).map((o) => o.l);
+    const top = cand.slice(0, n).sort((a, b) => b.s - a.s);
+    const out = this.lightOut;
+    out.length = 0;
+    for (let i = 0; i < Math.min(max, n); i++) out.push(top[i].l);
+    return out;
   }
 
   /** Run the ambient emitters for a while so plumes are already standing when play starts. */

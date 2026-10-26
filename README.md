@@ -23,7 +23,7 @@ npm run build    # writes dist/ (open dist/index.html through any static web ser
 
 A prebuilt `dist/` is committed, so serving that folder is enough (`npx serve dist`, `python3 -m http.server -d dist`).
 
-Click the menu to start (the mouse is captured; Esc brings the menu back). URL options: `?quality=low|medium|high|ultra`, `?env=afternoon|sunset|overcast|night`,
+Click the menu to start (the mouse is captured; Esc brings the menu back). URL options: `?quality=auto|low|medium|high|ultra` (default `auto`), `?env=afternoon|sunset|overcast|night`,
 `?testmap` (small test level), `?autoplay` (skip the menu), `?stats` (performance overlay).
 
 ### Controls
@@ -112,14 +112,24 @@ and resting fragments settle into the world as rubble, so damage persists.
   onto an expensive frame.
 - Moving bodies keep their copy of the surrounding world extended in their direction of travel, and big
   damaged bodies split into pieces from per-piece bounding boxes.
+- Dynamic resolution: when the GPU cannot hold 60 fps the render resolution drops in steps (down to
+  half) and comes back once there is headroom; frames that are slow because of the CPU leave it alone.
+  In `auto` quality (the default) it also steps the preset down (high → medium → low) when even half
+  resolution is too slow, and remembers what it settled on for the next launch.
+- The 3D image is rendered at CSS-pixel resolution (Ultra uses the full device pixel ratio) and upscaled
+  with TAA, so high-DPI laptops do not shade four times the pixels.
+- Culling works on 12.8 m superblocks of render regions (one test accepts or rejects 64 regions), the
+  opaque pass draws nearest blocks first so hidden surfaces fail the depth test before shading, and
+  only point lights whose radius reaches into the view are shaded (up to 12 / 20 / 32 / 48 per preset).
+- Resting bodies keep their transforms on the GPU instead of being re-uploaded every frame.
 - Quality presets (menu or `?quality=`) scale resolution, shadow map size, SSAO, volumetrics,
-  reflections and LOD distances.
+  reflections, light count and LOD distances.
 
 ## Development
 
 ```sh
 npm run typecheck
-npm test                                         # fast headless tests (physics, bending, vehicles)
+npm test                                         # fast headless tests (resolution control, physics, bending, vehicles)
 npm run test:slow                                # structural analysis + collapse on the full map
 node tools/runtest.mjs tests/physics.test.ts     # rigid body regression tests (headless)
 node tools/runtest.mjs tests/stress.test.ts      # structural analysis on the real map

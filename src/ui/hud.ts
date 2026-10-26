@@ -70,7 +70,7 @@ export class Hud {
           <kbd>F3</kbd><span>Stats overlay</span><span></span><span></span>
         </div>
         <div class="opts">
-          <label>Quality <select data-k="quality"><option value="low">Low</option><option value="medium">Medium</option><option value="high" selected>High</option><option value="ultra">Ultra</option></select></label>
+          <label>Quality <select data-k="quality"><option value="auto" selected>Auto</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="ultra">Ultra</option></select></label>
           <label>Time <select data-k="env"><option value="afternoon">Afternoon</option><option value="sunset">Sunset</option><option value="overcast">Overcast</option><option value="night">Night</option></select></label>
           <label><input type="checkbox" data-k="stats"> Show stats</label>
           <button data-act="restart">Restart level</button>

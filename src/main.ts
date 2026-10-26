@@ -19,6 +19,7 @@ import { Audio } from './engine/audio';
 import { PAL_MAT, Mat } from './world/materials';
 import { ViewModel } from './game/viewmodel';
 import { raycastWorld, RayHit } from './physics/raycast';
+import { AutoScale } from './render/autoscale';
 
 function norm(v: number[]): [number, number, number] { const l = Math.hypot(v[0], v[1], v[2]); return [v[0] / l, v[1] / l, v[2] / l]; }
 
@@ -139,7 +140,35 @@ async function main() {
   player.onLand = (sp) => audio.ui('land', player.pos.x, player.pos.y, player.pos.z, Math.min(1, sp / 8));
   const input = new Input(canvas);
   const cam = new Camera();
-  applyQuality(renderer, game.meshes, params.get('quality') || 'high');
+  // quality: a preset, or "auto" (high, stepping down when the GPU cannot keep up). In every mode the
+  // render resolution adapts to the frame rate (except deterministic ?fixeddt captures).
+  let quality = params.get('quality') || 'auto';
+  let preset = quality === 'auto' ? 'high' : quality;
+  const autoScale = new AutoScale();
+  autoScale.enabled = !params.has('fixeddt');
+  const setPreset = (q: string) => { preset = q; applyQuality(renderer, game.meshes, q); autoScale.reset(); presetScale = renderer.settings.scale; };
+  let presetScale = 1;
+  // auto mode starts where the last session on this machine settled
+  const AUTO_KEY = 'voxel-teardown.auto';
+  if (quality === 'auto' && autoScale.enabled) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(AUTO_KEY) || 'null');
+      if (saved && ['low', 'medium', 'high'].includes(saved.preset)) preset = saved.preset;
+      setPreset(preset);
+      if (saved && typeof saved.step === 'number') { autoScale.setStep(saved.step); renderer.settings.scale = presetScale * autoScale.factor; }
+    } catch { setPreset(preset); }
+  } else setPreset(preset);
+  const saveAuto = () => {
+    if (quality !== 'auto') return;
+    try { localStorage.setItem(AUTO_KEY, JSON.stringify({ preset, step: autoScale.stepIndex })); } catch { /* storage unavailable */ }
+  };
+  autoScale.onFloor = () => {
+    const lower = preset === 'ultra' ? 'high' : preset === 'high' ? 'medium' : preset === 'medium' ? 'low' : null;
+    if (quality !== 'auto' || !lower) return false;
+    setPreset(lower);
+    console.log(`auto quality: GPU-bound at the lowest resolution, switching to ${lower}`);
+    return true;
+  };
   // initial meshing
   world.markBoxDirty(0, 0, 0, world.sx - 1, world.sy - 1, world.sz - 1);
   const total = world.dirtyQueue.length;
@@ -158,11 +187,11 @@ async function main() {
   input.onLockChange = (locked) => { playing = locked || autoplay; hud.showMenu(!playing); };
   let showStats = params.has('stats') || autoplay;
   hud.showStats(showStats);
-  hud.setOption('quality', params.get('quality') || 'high');
+  hud.setOption('quality', quality);
   hud.setOption('env', envName);
   hud.onSetting = (k, v) => {
     if (k === 'stats') { showStats = !!v; hud.showStats(showStats); }
-    if (k === 'quality') applyQuality(renderer, game.meshes, v as string);
+    if (k === 'quality') { quality = v as string; setPreset(quality === 'auto' ? 'high' : quality); }
     if (k === 'env' && ENV_PRESETS[v as string]) { envName = v as string; Object.assign(env, ENV_PRESETS[envName]); }
   };
 
@@ -185,7 +214,8 @@ async function main() {
   function frame() {
     const now = performance.now();
     // ?fixeddt: every frame advances exactly 1/60 s (deterministic headless captures)
-    const rawDt = fixedDt ? 1 / 60 : Math.min(0.1, (now - last) / 1000);
+    const interval = now - last;
+    const rawDt = fixedDt ? 1 / 60 : Math.min(0.1, interval / 1000);
     last = now;
     frameMs = frameMs * 0.9 + rawDt * 1000 * 0.1;
     fps = 1000 / frameMs;
@@ -238,7 +268,7 @@ async function main() {
     game.bodyMeshes.update(game.physics.bodies, alpha, enabled ? vm : null);
     timing.mesh = performance.now() - tm;
     (game.particles as any).prepare(alpha);
-    const lights = game.gatherLights(cam.x, cam.y, cam.z, 40);
+    const lights = game.gatherLights(cam.x, cam.y, cam.z, 96); // the renderer keeps the first ones in view
     audio.setListener(cam.x, cam.y, cam.z, cam.yaw);
     audio.setLoops(fire.count > 0 ? Math.min(1, fire.count / 150) : 0, tools.torchActive, cam.y);
     renderer.flash = Math.max(0, renderer.flash - rawDt * 4);
@@ -257,9 +287,17 @@ async function main() {
       `bodies ${game.physics.bodies.length} (awake ${game.physics.stats.awake})  phys ${game.physics.stats.ms.toFixed(1)} ms\n` +
       `contacts ${game.physics.stats.contacts}  debris ${game.particles.dn}  fx ${game.particles.bn}\n` +
       `quads ${(renderer.stats.quads / 1000).toFixed(0)}k  draws ${renderer.stats.drawn}  remesh ${game.meshes.pending}\n` +
+      `${preset}${quality === 'auto' ? ' (auto)' : ''}  ${renderer.w}x${renderer.h}  lights ${renderer.lightCount}  cpu ${(timing.player + timing.sim + timing.mesh).toFixed(1)} ms\n` +
       `voxels destroyed ${destruction.totalRemoved}  detached ${game.stats.detached}  fires ${fire.count}\n` +
       `stress ${game.stress.stats.analyses} (${game.stress.stats.ms.toFixed(1)} ms) failures ${game.stress.stats.failures}\n` +
       `${TOOL_NAMES[tools.current]}${player.noclip ? '  [fly]' : ''}${timeScale < 1 ? '  [slow-mo]' : ''}  ${envName}`);
+    // resolution follows the GPU load: main-thread time outside rendering tells CPU-bound frames apart
+    const cpuMs = performance.now() - now - timing.render;
+    if (autoScale.update(interval, cpuMs)) {
+      renderer.settings.scale = presetScale * autoScale.factor;
+      renderer.invalidateHistory();
+      saveAuto();
+    }
     // leftover CPU time of this frame goes to structural analysis (no-op when nothing is pending)
     const spare = 12 - (performance.now() - now);
     if (spare > 1) game.stress.idle(spare);
@@ -273,10 +311,10 @@ async function main() {
 function applyQuality(r: Renderer, meshes: RegionMeshes, q: string): void {
   const s = r.settings;
   switch (q) {
-    case 'low': s.scale = 0.6; s.shadows = true; s.shadowSize = 1024; s.ssao = false; s.taa = true; s.bloom = false; s.volumetrics = false; s.ssr = false; meshes.lodDist = [40, 90]; break;
-    case 'medium': s.scale = 0.8; s.shadows = true; s.shadowSize = 2048; s.ssao = false; s.taa = true; s.bloom = true; s.volumetrics = false; s.ssr = false; meshes.lodDist = [50, 110]; break;
-    case 'high': s.scale = 1.0; s.shadows = true; s.shadowSize = 2048; s.ssao = true; s.taa = true; s.bloom = true; s.volumetrics = true; s.ssr = true; meshes.lodDist = [60, 130]; break;
-    case 'ultra': s.scale = 1.0; s.shadows = true; s.shadowSize = 4096; s.ssao = true; s.taa = true; s.bloom = true; s.volumetrics = true; s.ssr = true; meshes.lodDist = [90, 180]; break;
+    case 'low': s.scale = 0.7; s.maxDpr = 1; s.maxLights = 12; s.shadows = true; s.shadowSize = 1024; s.ssao = false; s.taa = true; s.bloom = false; s.volumetrics = false; s.ssr = false; meshes.lodDist = [40, 90]; break;
+    case 'medium': s.scale = 0.85; s.maxDpr = 1; s.maxLights = 20; s.shadows = true; s.shadowSize = 2048; s.ssao = false; s.taa = true; s.bloom = true; s.volumetrics = false; s.ssr = false; meshes.lodDist = [50, 110]; break;
+    case 'high': s.scale = 1.0; s.maxDpr = 1; s.maxLights = 32; s.shadows = true; s.shadowSize = 2048; s.ssao = true; s.taa = true; s.bloom = true; s.volumetrics = true; s.ssr = true; meshes.lodDist = [60, 130]; break;
+    case 'ultra': s.scale = 1.0; s.maxDpr = 2; s.maxLights = 48; s.shadows = true; s.shadowSize = 4096; s.ssao = true; s.taa = true; s.bloom = true; s.volumetrics = true; s.ssr = true; meshes.lodDist = [90, 180]; break;
   }
   meshes.refreshLod();
   r.invalidateHistory();
