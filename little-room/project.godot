@@ -13,7 +13,7 @@ config_version=5
 config/name="Little Room"
 config/description="A tiny first-person room with a few basic props."
 run/main_scene="res://main.tscn"
-config/features=PackedStringArray("4.6", "Forward Plus")
+config/features=PackedStringArray("4.7", "GL Compatibility")
 
 [input]
 
@@ -54,4 +54,6 @@ sprint={
 
 [rendering]
 
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
 anti_aliasing/quality/msaa_3d=2

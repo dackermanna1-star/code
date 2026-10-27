@@ -9,7 +9,7 @@ are no external assets.
 
 ## Running it on a Mac
 
-1. Download **Godot 4.6 or newer** (the standard version, not .NET) from
+1. Download **Godot 4.7 or newer** (the standard version, not .NET) from
    <https://godotengine.org/download/macos/> and drag it into Applications.
 2. Open Godot. In the Project Manager click **Import**, pick
    `little-room/project.godot` from this repo, then **Import & Edit**.
@@ -17,6 +17,24 @@ are no external assets.
 
 To get a standalone `.app`, use **Project → Export… → Add… → macOS**. Godot
 will offer to download the export templates the first time.
+
+The project uses Godot's **Compatibility** (OpenGL) renderer, which is the
+most reliable choice on Macs, including older macOS versions.
+
+### If Godot crashes on launch
+
+- **Turn off Rosetta.** On Apple Silicon Macs (M1/M2/…), select Godot.app in
+  Finder, press ⌘I, and untick **Open using Rosetta**. A crash report that
+  says `X86-64 (Translated)` means Rosetta was on.
+- **Run it from Applications**, not from a disk image or external drive.
+- **Update macOS** if you can (Apple menu → System Settings/Preferences →
+  Software Update). Early releases like macOS 12.0.1 have since had many fixes.
+- **Force OpenGL** if the Project Manager itself crashes. Run this in
+  Terminal:
+
+  ```sh
+  /Applications/Godot.app/Contents/MacOS/Godot --rendering-driver opengl3
+  ```
 
 ## Controls
 

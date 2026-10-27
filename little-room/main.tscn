@@ -18,7 +18,6 @@ ambient_light_source = 2
 ambient_light_color = Color(1, 0.95, 0.88, 1)
 ambient_light_energy = 0.35
 tonemap_mode = 2
-ssao_enabled = true
 glow_enabled = true
 
 [sub_resource type="StandardMaterial3D" id="mat_wall"]
