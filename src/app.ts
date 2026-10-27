@@ -360,6 +360,7 @@ export class App {
     r.quality.cloudSteps = s.cloudSteps;
     r.quality.detail = s.surfaceDetail;
     r.quality.fov = s.fov;
+    r.quality.scatter = s.scatterDensity;
     r.galaxies.steps = s.galaxySteps;
     r.starField.boost = s.starBrightness;
     const ps = r.pipeline.settings;

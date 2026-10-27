@@ -29,13 +29,15 @@ export interface QualitySettings {
   cloudSteps: number;
   detail: number;
   fov: number;
+  /** rocks & vegetation density 0..1 */
+  scatter: number;
 }
 
 export const QUALITY_PRESETS: Record<string, QualitySettings & { renderScale: number }> = {
-  low: { lodK: 2.2, atmSteps: 12, cloudSteps: 24, detail: 0.6, fov: 60, renderScale: 0.7 },
-  medium: { lodK: 3.0, atmSteps: 18, cloudSteps: 36, detail: 0.85, fov: 60, renderScale: 0.85 },
-  high: { lodK: 3.6, atmSteps: 24, cloudSteps: 48, detail: 1, fov: 60, renderScale: 1 },
-  ultra: { lodK: 4.5, atmSteps: 32, cloudSteps: 72, detail: 1, fov: 60, renderScale: 1 },
+  low: { lodK: 2.2, atmSteps: 12, cloudSteps: 24, detail: 0.6, fov: 60, renderScale: 0.7, scatter: 0.3 },
+  medium: { lodK: 3.0, atmSteps: 18, cloudSteps: 36, detail: 0.85, fov: 60, renderScale: 0.85, scatter: 0.6 },
+  high: { lodK: 3.6, atmSteps: 24, cloudSteps: 48, detail: 1, fov: 60, renderScale: 1, scatter: 0.85 },
+  ultra: { lodK: 4.5, atmSteps: 32, cloudSteps: 72, detail: 1, fov: 60, renderScale: 1, scatter: 1 },
 };
 
 const _u = new UPos();

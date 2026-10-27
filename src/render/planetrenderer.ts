@@ -7,6 +7,9 @@ import type { Body } from '../astro/body';
 import { TerrainQuadtree } from '../terrain/quadtree';
 import type { TerrainWorkerPool } from '../terrain/workerpool';
 import { createTerrainMaterial } from './terrainmaterial';
+import { SurfaceScatter } from './scatter';
+import { Fauna } from './fauna';
+import { SurfaceGenerator } from '../terrain/surface';
 import { AtmosphereLUTs } from './atmosphere';
 import { AtmospherePass } from './atmospherepass';
 import { CloudLayer } from './clouds';
@@ -26,7 +29,7 @@ export interface FrameContext {
   camQuat: THREE.Quaternion;
   camera: THREE.PerspectiveCamera;
   suns: SunLight[];
-  quality: { lodK: number; atmSteps: number; cloudSteps: number; detail: number };
+  quality: { lodK: number; atmSteps: number; cloudSteps: number; detail: number; scatter?: number };
 }
 
 const _v = new THREE.Vector3();
@@ -56,6 +59,11 @@ export class PlanetRenderer {
   atmosphereVisible = false;
   /** occluding spheres for eclipses (camera-relative centre, radius) */
   occluders: THREE.Vector4[] = [];
+  /** rocks and plants near the camera */
+  scatter: SurfaceScatter | null = null;
+  fauna: Fauna | null = null;
+  private lastTime = NaN;
+  private gen: SurfaceGenerator | null = null;
 
   constructor(readonly body: Body, readonly pool: TerrainWorkerPool, private renderer: THREE.WebGLRenderer) {
     const sp = body.planet!.surface!;
@@ -106,6 +114,26 @@ export class PlanetRenderer {
     this.terrain!.lodK = ctx.quality.lodK;
     const camDir = _v2.set(0, 0, -1).applyQuaternion(ctx.camQuat).applyQuaternion(_q.copy(rot).invert());
     this.terrain!.update(camBody, camDir);
+
+    // ground scatter (created on first approach; shares this material's uniforms)
+    const altCam = camBody.length() - R;
+    if (!this.scatter && altCam < 4000) {
+      this.gen = new SurfaceGenerator(this.body.planet!.surface!);
+      this.scatter = new SurfaceScatter(this.body, this.material.uniforms, !!this.luts);
+      this.group.add(this.scatter.group);
+    }
+    if (this.scatter) {
+      const lvl = this.terrain?.stats.maxLevel ?? 0;
+      const spacing = (Math.PI / 2) * R / Math.pow(2, lvl) / 32;
+      this.scatter.update(this.gen, camBody, ctx.time, ctx.quality.scatter ?? 0.85, spacing);
+      if (!this.fauna && this.body.planet!.life.kind === 'complex') {
+        this.fauna = new Fauna(this.body, this.scatter.rockMat);
+        this.group.add(this.fauna.group);
+      }
+      const dt = isFinite(this.lastTime) ? Math.max(0, ctx.time - this.lastTime) : 0;
+      this.fauna?.update(this.gen, camBody, dt, (ctx.quality.scatter ?? 0.85) > 0);
+    }
+    this.lastTime = ctx.time;
 
     const u = this.material.uniforms;
     u.uPlanetCenter.value.copy(rel);
@@ -163,6 +191,8 @@ export class PlanetRenderer {
 
   dispose() {
     if (this.terrain) this.terrain.dispose();
+    this.scatter?.dispose();
+    this.fauna?.dispose();
     this.luts?.dispose();
     this.clouds?.dispose();
     this.material.dispose();
