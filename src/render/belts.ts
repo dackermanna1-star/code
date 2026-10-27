@@ -9,6 +9,8 @@ import * as THREE from 'three';
 import type { BeltInfo } from '../astro/body';
 import { Rng } from '../core/rng';
 import { G } from '../core/constants';
+import { PRE_EXPOSURE } from './exposure';
+
 
 const VERT = /* glsl */ `
 #include <common>
@@ -22,7 +24,7 @@ uniform mat3 uSysRot;      // system frame → world
 uniform vec3 uSunRel;
 uniform float uSunLum;     // relative irradiance scale at 1 m (L / (4π) / solar constant)
 uniform float uPixelAngle;
-uniform sampler2D tAdapt;
+uniform float uPreExposure;
 uniform vec3 uTint;
 varying vec3 vColor;
 varying float vAlpha;
@@ -51,9 +53,8 @@ void main() {
   float phase = (sin(phaseAng) + (3.14159 - phaseAng) * cos(phaseAng)) / 3.14159;
   float r = el2.z;
   float flux = el2.w * uSunLum / (ds * ds) * (r * r) / (d * d) * phase * 0.66;
-  float e = max(texture(tAdapt, vec2(0.5)).r, 1e-6);
   float peak = flux / (uPixelAngle * uPixelAngle * 2.26);
-  vColor = uTint * min(peak, 6e4);
+  vColor = uTint * min(peak * uPreExposure, 6e4);
   vAlpha = 1.0;
   gl_PointSize = 2.2;
   // fade very near particles (resolved bodies take over)
@@ -106,16 +107,14 @@ export class BeltRenderer {
       uniforms: {
         uTime: { value: 0 }, uMu: { value: G * belt.parent.mass }, uParentRel: { value: new THREE.Vector3() },
         uSysRot: { value: new THREE.Matrix3() }, uSunRel: { value: new THREE.Vector3() }, uSunLum: { value: 1 },
-        uPixelAngle: { value: 0.001 }, tAdapt: { value: null },
+        uPixelAngle: { value: 0.001 }, uPreExposure: PRE_EXPOSURE,
         uTint: { value: belt.icy ? new THREE.Vector3(0.9, 0.95, 1.05) : new THREE.Vector3(1.05, 0.95, 0.85) },
       },
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       transparent: true,
     });
-    this.material.onBeforeRender = () => {
-      this.material.uniforms.tAdapt.value = adapt();
-    };
+    void adapt;
     this.points = new THREE.Points(g, this.material);
     this.points.frustumCulled = false;
     this.points.renderOrder = 3;

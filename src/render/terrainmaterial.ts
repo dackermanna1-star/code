@@ -10,6 +10,8 @@ import { ATMOSPHERE_UNIFORMS, ATMOSPHERE_FUNCS, ATMOSPHERE_LUT_FUNCS } from './s
 import { LIGHTING_GLSL, ECLIPSE_GLSL } from './shaders/lighting.glsl';
 import type { SurfaceParams, LiquidKind } from '../terrain/surface';
 import { DETAIL_PERIOD } from '../terrain/meshbuilder';
+import { PRE_EXPOSURE } from './exposure';
+
 
 export const LIQUID_CODE: Record<LiquidKind, number> = {
   none: 0, water: 1, brine: 2, methane: 3, ammonia: 4, lava: 5, sulfur: 6, nitrogen: 7,
@@ -74,6 +76,7 @@ uniform float uPixelAngle;
 uniform float uDetail;
 uniform float uAmbient;
 uniform vec3 uPlanetShine;
+uniform float uPreExposure;
 varying vec3 vWorldPos;
 varying vec3 vNormalW;
 varying vec4 vA0;
@@ -264,7 +267,7 @@ void main() {
     float spots = smoothstep(0.55, 0.9, gnoised(vDetail / 5.0, PERIOD / 4).x * 0.5 + 0.5);
     emission += uVeg2 * uLifeGlow * night * veg * (0.02 + 0.2 * spots) * 0.05;
   }
-  gl_FragColor = vec4(color + emission, 1.0);
+  gl_FragColor = vec4(min((color + emission) * uPreExposure, vec3(6e4)), 1.0);
 }
 `;
 
@@ -309,6 +312,7 @@ export function createTerrainMaterial(sp: SurfaceParams, opts: TerrainMaterialOp
     uAmbient: { value: 3e-9 }, // starlight + airglow ≈ 1e-9 of daylight
     uPlanetShine: { value: new THREE.Vector3() },
     uLodK: { value: 3.5 },
+    uPreExposure: PRE_EXPOSURE,
   };
   const m = new THREE.ShaderMaterial({
     vertexShader: VERT,

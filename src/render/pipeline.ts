@@ -9,6 +9,7 @@
  */
 import * as THREE from 'three';
 import { FullscreenPass, FS_VERT, hdrTarget } from './fullscreen';
+import { PRE_EXPOSURE } from './exposure';
 
 export interface PipelineSettings {
   renderScale: number;
@@ -30,7 +31,7 @@ export const defaultPipelineSettings: PipelineSettings = {
   autoExposure: true,
   manualExposure: 2,
   minExposure: 0.0005,
-  maxExposure: 2e7,
+  maxExposure: 3e6, // ≈ dark-adapted eye: naked-eye stars visible, Milky Way faint
   adaptSpeed: 1.6,
   vignette: 0.18,
   fxaa: true,
@@ -42,6 +43,7 @@ const LUM_FRAG = /* glsl */ `
 // disc) barely move a log average. Stored in scene units (log2) – half-float safe.
 uniform sampler2D tColor;
 uniform sampler2D tAdapt;
+uniform float uPreExposure;
 varying vec2 vUv;
 void main() {
   float e = max(texture(tAdapt, vec2(0.5)).r, 1e-4);
@@ -50,7 +52,7 @@ void main() {
   for (int y = 0; y < 2; y++) for (int x = 0; x < 2; x++)
     c += texture(tColor, vUv + (vec2(x, y) - 0.5) * px * 0.5).rgb;
   c *= 0.25;
-  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722)) / uPreExposure;
   vec2 d = vUv - 0.5;
   float w = exp(-dot(d, d) * 3.0);
   float lit = l * e > 1e-3 ? 1.0 : 0.0;
@@ -126,6 +128,7 @@ uniform float uVignette;
 uniform vec2 uTexel;
 uniform float uFxaa;
 uniform float uTime;
+uniform float uPreExposure;
 varying vec2 vUv;
 
 // AgX (Troy Sobotka) – polynomial approximation (Benjamin Wrensch)
@@ -155,7 +158,7 @@ vec3 toSRGB(vec3 c) {
   return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c));
 }
 vec3 hdr(vec2 uv) {
-  float e = texture(tAdapt, vec2(0.5)).r;
+  float e = texture(tAdapt, vec2(0.5)).r / uPreExposure;
   vec3 c = texture(tColor, uv).rgb + texture(tBloom, uv).rgb * uBloom;
   return c * e;
 }
@@ -211,6 +214,8 @@ export class RenderPipeline {
   sceneRT!: THREE.WebGLRenderTarget;
   private pingRT!: THREE.WebGLRenderTarget;
   private pongRT!: THREE.WebGLRenderTarget;
+  private lowRT!: THREE.WebGLRenderTarget;
+  private addMat!: THREE.ShaderMaterial;
   private bloomDown: THREE.WebGLRenderTarget[] = [];
   private bloomUp: THREE.WebGLRenderTarget[] = [];
   private lumRT: THREE.WebGLRenderTarget;
@@ -233,7 +238,7 @@ export class RenderPipeline {
   constructor(readonly renderer: THREE.WebGLRenderer) {
     const mk = (frag: string, uniforms: Record<string, THREE.IUniform>) =>
       new THREE.ShaderMaterial({ vertexShader: FS_VERT, fragmentShader: frag, uniforms, depthTest: false, depthWrite: false });
-    this.lumMat = mk(LUM_FRAG, { tColor: { value: null }, tAdapt: { value: null } });
+    this.lumMat = mk(LUM_FRAG, { tColor: { value: null }, tAdapt: { value: null }, uPreExposure: PRE_EXPOSURE });
     this.adaptMat = mk(ADAPT_FRAG, {
       tLum: { value: null }, tPrev: { value: null }, uDt: { value: 0 }, uSpeed: { value: 1 }, uMin: { value: 0.1 }, uMax: { value: 100 },
       uComp: { value: 0 }, uInit: { value: 1 }, uManual: { value: 1 }, uAuto: { value: 1 },
@@ -242,9 +247,11 @@ export class RenderPipeline {
     this.upMat = mk(UP_FRAG, { tSrc: { value: null }, tBase: { value: null }, uTexel: { value: new THREE.Vector2() }, uRadius: { value: 1 } });
     this.compMat = mk(COMPOSITE_FRAG, {
       tColor: { value: null }, tBloom: { value: null }, tAdapt: { value: null }, uBloom: { value: 0.05 }, uVignette: { value: 0.2 },
-      uTexel: { value: new THREE.Vector2() }, uFxaa: { value: 1 }, uTime: { value: 0 },
+      uTexel: { value: new THREE.Vector2() }, uFxaa: { value: 1 }, uTime: { value: 0 }, uPreExposure: PRE_EXPOSURE,
     });
     this.copyMat = mk(COPY_FRAG, { tSrc: { value: null } });
+    this.addMat = new THREE.ShaderMaterial({ vertexShader: FS_VERT, fragmentShader: COPY_FRAG, uniforms: { tSrc: { value: null } },
+      depthTest: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending });
     this.fs = new FullscreenPass(this.copyMat);
     this.lumRT = hdrTarget(64, 64, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
     this.adaptRT = [hdrTarget(1, 1, { type: THREE.FloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter }),
@@ -262,6 +269,7 @@ export class RenderPipeline {
     this.sceneRT?.dispose();
     this.pingRT?.dispose();
     this.pongRT?.dispose();
+    this.lowRT?.dispose();
     for (const t of this.bloomDown) t.dispose();
     for (const t of this.bloomUp) t.dispose();
     const depthTexture = new THREE.DepthTexture(w, h, THREE.FloatType);
@@ -269,6 +277,7 @@ export class RenderPipeline {
     this.sceneRT = hdrTarget(w, h, { depthBuffer: true, depthTexture });
     this.pingRT = hdrTarget(w, h);
     this.pongRT = hdrTarget(w, h);
+    this.lowRT = hdrTarget(Math.ceil(w / 2), Math.ceil(h / 2));
     this.bloomDown = [];
     this.bloomUp = [];
     let bw = w, bh = h;
@@ -323,6 +332,27 @@ export class RenderPipeline {
     const ac = r.autoClear;
     r.autoClear = false;
     r.render(scene, camera);
+    r.autoClear = ac;
+  }
+
+  /** Render an additive overlay at half resolution and add it to the current image. */
+  overlayHalfRes(scene: THREE.Scene, camera: THREE.Camera) {
+    const r = this.renderer;
+    if (this.currentTarget === this.sceneRT) {
+      this.copyMat.uniforms.tSrc.value = this.sceneRT.texture;
+      this.fs.render(r, this.pingRT, this.copyMat);
+      this.currentTarget = this.pingRT;
+    }
+    r.setRenderTarget(this.lowRT);
+    r.setClearColor(0x000000, 1);
+    r.clear(true, false, false);
+    const ac = r.autoClear;
+    r.autoClear = false;
+    r.render(scene, camera);
+    r.autoClear = ac;
+    this.addMat.uniforms.tSrc.value = this.lowRT.texture;
+    r.autoClear = false;
+    this.fs.render(r, this.currentTarget, this.addMat);
     r.autoClear = ac;
   }
 
@@ -384,6 +414,23 @@ export class RenderPipeline {
     cu.uFxaa.value = s.fxaa ? 1 : 0;
     cu.uTime.value = this.time % 100;
     this.fs.render(r, null, this.compMat);
+    this.readbackExposure(next);
+  }
+
+  private readbackPending = false;
+  private readBuf = new Float32Array(4);
+  /** Asynchronously fetch the adapted exposure to use as next frames' pre-exposure. */
+  private readbackExposure(rt: THREE.WebGLRenderTarget) {
+    if (this.readbackPending) return;
+    this.readbackPending = true;
+    this.renderer.readRenderTargetPixelsAsync(rt, 0, 0, 1, 1, this.readBuf).then(
+      (b) => {
+        this.readbackPending = false;
+        const e = (b as Float32Array)[0];
+        if (e > 0 && isFinite(e)) PRE_EXPOSURE.value = e;
+      },
+      () => { this.readbackPending = false; },
+    );
   }
 
   /** The 1×1 adapted-exposure texture (r = exposure multiplier, g = average luminance). */

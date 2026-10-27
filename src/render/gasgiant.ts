@@ -14,6 +14,8 @@ import { sunIlluminanceAt } from './planetrenderer';
 import { AtmosphereLUTs } from './atmosphere';
 import { AtmospherePass } from './atmospherepass';
 import { RING_SHADOW_GLSL, RingSystem } from './rings';
+import { PRE_EXPOSURE } from './exposure';
+
 
 const VERT = /* glsl */ `
 #include <common>
@@ -54,6 +56,7 @@ uniform float uFlowPeriod;
 uniform vec3 uSunDir[2];
 uniform vec3 uSunIllum[2];
 uniform vec3 uCenter;
+uniform float uPreExposure;
 varying vec3 vObj;
 varying vec3 vWorldPos;
 varying vec3 vWorldN;
@@ -131,7 +134,7 @@ void main() {
     float night = 1.0 - smoothstep(-0.2, 0.3, dot(N, uSunDir[0]));
     radiance += blackbodyColor(uGlowTemp) * uGlow * 0.02 * pow(uGlowTemp / 1500.0, 4.0) * (0.3 + 0.7 * night) * (0.7 + 0.3 * fbm3(p * 8.0 + uSeed, 3));
   }
-  gl_FragColor = vec4(radiance, 1.0);
+  gl_FragColor = vec4(min(radiance * uPreExposure, vec3(6e4)), 1.0);
 }
 `;
 
@@ -173,6 +176,7 @@ export class GasGiantRenderer {
         uOcc: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] },
         uOccCount: { value: 0 },
         ...RingSystem.shadowUniforms(),
+        uPreExposure: PRE_EXPOSURE,
       },
     });
     // oblate (rotational flattening ~ up to 10%)

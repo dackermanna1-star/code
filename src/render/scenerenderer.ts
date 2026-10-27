@@ -10,6 +10,9 @@ import { StarRenderer } from './star';
 import { PointSprites } from './points';
 import { GasGiantRenderer } from './gasgiant';
 import { BeltRenderer } from './belts';
+import { StarField } from './starfield';
+import { GalaxyRenderer } from './galaxyrenderer';
+import type { Cosmos } from '../sim/cosmos';
 import { TerrainWorkerPool } from '../terrain/workerpool';
 import type { World } from '../sim/world';
 import type { Body, StarSystem } from '../astro/body';
@@ -48,6 +51,10 @@ export class SceneRenderer {
   readonly stars = new Map<string, StarRenderer>();
   readonly giants = new Map<string, GasGiantRenderer>();
   readonly belts: BeltRenderer[] = [];
+  readonly starField: StarField;
+  readonly galaxies: GalaxyRenderer;
+  readonly galaxyScene = new THREE.Scene();
+  cosmos: Cosmos | null = null;
   readonly bodyPoints: PointSprites;
   quality: QualitySettings = { ...QUALITY_PRESETS.high };
   private system: StarSystem | null = null;
@@ -75,6 +82,11 @@ export class SceneRenderer {
     this.pool = new TerrainWorkerPool();
     this.bodyPoints = new PointSprites(256, () => this.pipeline.exposureTexture);
     this.scene.add(this.bodyPoints.points);
+    this.starField = new StarField(() => this.pipeline.exposureTexture);
+    this.scene.add(this.starField.group);
+    this.galaxies = new GalaxyRenderer(() => this.pipeline.exposureTexture);
+    this.scene.add(this.galaxies.points.points);
+    this.galaxyScene.add(this.galaxies.group);
     this.ctx = {
       time: 0, frame: 0, pixelAngle: 0.001, camQuat: new THREE.Quaternion(), camera: this.camera, suns: [],
       quality: this.quality,
@@ -236,8 +248,17 @@ export class SceneRenderer {
       }
     }
 
+    // universe: star field of the current galaxy + galaxies
+    const cosmos = this.cosmos;
+    if (cosmos) {
+      const hide = cosmos.activeRef ? cosmos.activeRef.upos.sub(this.camUPos, new THREE.Vector3()) : null;
+      this.starField.update(this.camUPos, cosmos.camG, ctx.pixelAngle, hide);
+      this.galaxies.update(cosmos.galaxies, this.camUPos, _q.copy(ctx.camQuat), ctx.pixelAngle, this.frame, this.pipeline.depthTexture,
+        Math.ceil(this.pipeline.width / 2), Math.ceil(this.pipeline.height / 2), cosmos.current);
+    }
     if (!draw) return;
     this.pipeline.beginFrame(this.scene, cam);
+    if (this.galaxies.group.children.length) this.pipeline.overlayHalfRes(this.galaxyScene, cam);
     const atm: { body: Body; atmPass: { material: THREE.ShaderMaterial } | null }[] = [
       ...[...this.planets.values()].filter((p) => p.atmosphereVisible && p.atmPass),
       ...[...this.giants.values()].filter((g) => g.atmosphereVisible && g.atmPass),

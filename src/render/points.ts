@@ -5,6 +5,8 @@
  * HDR pipeline (exposure + bloom) gives a physically ordered brightness.
  */
 import * as THREE from 'three';
+import { PRE_EXPOSURE } from './exposure';
+
 
 const VERT = /* glsl */ `
 #include <common>
@@ -12,7 +14,7 @@ const VERT = /* glsl */ `
 attribute vec3 color;
 attribute float flux;
 uniform float uPixelAngle;
-uniform sampler2D tAdapt;
+uniform float uPreExposure;
 uniform float uBoost;
 uniform float uMinSize;
 varying vec3 vColor;
@@ -20,7 +22,7 @@ varying float vPeak;
 void main() {
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mv;
-  float e = max(texture(tAdapt, vec2(0.5)).r, 1e-6);
+  float e = uPreExposure;
   float F = flux * uBoost;
   // Gaussian with sigma ~0.6 px holds energy F over ~2.3 px²
   float omega = uPixelAngle * uPixelAngle;
@@ -29,7 +31,7 @@ void main() {
   // grow the footprint for very bright points (simulated glare), keeping energy
   float size = uMinSize * (1.0 + 0.6 * log2(max(disp, 1.0)) );
   size = clamp(size, uMinSize, 48.0);
-  vPeak = peak * (uMinSize * uMinSize) / (size * size);
+  vPeak = peak * e * (uMinSize * uMinSize) / (size * size);
   vColor = color;
   gl_PointSize = size;
   if (flux <= 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -70,15 +72,12 @@ export class PointSprites {
     this.material = new THREE.ShaderMaterial({
       vertexShader: VERT,
       fragmentShader: FRAG,
-      uniforms: { uPixelAngle: { value: 0.001 }, tAdapt: { value: null }, uBoost: { value: 1 }, uMinSize: { value: 2.6 } },
+      uniforms: { uPixelAngle: { value: 0.001 }, uPreExposure: PRE_EXPOSURE, uBoost: { value: 1 }, uMinSize: { value: 2.6 } },
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       transparent: true,
     });
-    const self = this;
-    this.material.onBeforeRender = () => {
-      self.material.uniforms.tAdapt.value = adapt();
-    };
+    void adapt;
     this.points = new THREE.Points(this.geometry, this.material);
     this.points.frustumCulled = false;
     this.points.renderOrder = 2;

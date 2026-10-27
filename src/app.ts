@@ -7,6 +7,9 @@ import { Hud } from './ui/hud';
 import { UPos } from './core/upos';
 import { G } from './core/constants';
 import { generateSystem } from './astro/systemgen';
+import { Cosmos } from './sim/cosmos';
+import { LY } from './core/constants';
+import { galaxyToUPos } from './astro/galaxy';
 import type { Body, StarSystem } from './astro/body';
 
 export class App {
@@ -15,6 +18,7 @@ export class App {
   readonly input: Input;
   readonly spectator: SpectatorController;
   readonly hud: Hud;
+  readonly cosmos: Cosmos;
   private last = performance.now();
   private fps = 60;
   running = true;
@@ -27,15 +31,24 @@ export class App {
     this.input = new Input(canvas);
     this.spectator = new SpectatorController(this.world, this.input);
     this.hud = new Hud(ui);
-    const sys = this.loadSystem(27993678);
-    const planet = sys.bodies.find((b) => b.planet?.life.kind === 'complex') ?? sys.bodies.find((b) => b.planet?.surface)!;
-    this.placeNear(planet, 3.2);
+    this.cosmos = new Cosmos(20261027, true);
+    this.renderer.cosmos = this.cosmos;
+    this.cosmos.onSystemChange = (sys) => this.renderer.setSystem(sys);
+    this.spectator.farSpeedRef = () => this.cosmos.speedReference(this.world.view.toUPos(new UPos()), this.renderer.starField);
+    // start in interstellar space near the Sun's position in the Milky Way
+    const u = this.cosmos.universe;
+    const start = galaxyToUPos(u.home, u.sunLocal.x + 3, u.sunLocal.y + 1, u.sunLocal.z + 2);
+    this.world.view.rebase('universe', null);
+    this.world.view.upos.copy(start);
     window.addEventListener('resize', () => this.resize());
     this.resize();
   }
 
   loadSystem(seed: number, name = `ICS ${seed}`): StarSystem {
-    const sys = generateSystem({ id: `sys${seed}`, name, seed, upos: new UPos() });
+    // place the test system at the camera's current location (inside the current galaxy)
+    const here = this.world.view.toUPos(new UPos());
+    const sys = generateSystem({ id: `sys${seed}`, name, seed, upos: here });
+    this.cosmos.activeRef = { id: sys.id, name, galaxyId: this.cosmos.current?.id ?? '', upos: here, local: this.cosmos.camG.clone(), build: () => sys };
     this.world.system = sys;
     sys.update(this.world.time);
     this.renderer.setSystem(sys);
@@ -134,6 +147,7 @@ export class App {
     this.fps += (1 / Math.max(dt, 1e-3) - this.fps) * 0.05;
     this.input.pollGamepad();
     this.world.advance(dt);
+    this.cosmos.update(this.world, this.world.view.toUPos(new UPos()), this.renderer.starField, this.frameNo);
     this.spectator.update(dt);
     this.frameNo++;
     this.renderer.render(this.world, dt, this.frameNo % this.drawEvery === 0);
@@ -161,7 +175,7 @@ export class App {
       timeScale: this.world.paused ? 0 : this.world.timeScale,
       date: new Date(Date.UTC(2000, 0, 1, 12) + this.world.time * 1000).toISOString().slice(0, 16).replace('T', ' '),
       fps: this.fps,
-      extra: `terrain ${ts.drawn}/${ts.nodes} L${ts.maxLevel} q${ts.pending}`,
+      extra: `terrain ${ts.drawn}/${ts.nodes} L${ts.maxLevel} q${ts.pending} · stars ${this.renderer.starField.stats.stars} · ${this.cosmos.current?.name ?? 'intergalactic'}`,
     });
   }
 }

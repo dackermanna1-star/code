@@ -129,25 +129,27 @@ export function evolve(m: number, age: number, rng?: Rng): StellarState {
       return { stage: 'subgiant', massSun: m, lumSun: L, radiusSun: R, temp: tempFromLR(L, R) };
     }
     if (f < 1.15) {
-      const s = (f - 1.1) / 0.05;
+      // RGB: luminosity climbs ever faster, so stars spend most of the phase near the base
+      const s = Math.pow((f - 1.1) / 0.05, 3);
       const L = Math.max(L0 * 3, 30 * Math.pow(m, 1.5)) * Math.pow(30, s);
       const T = 4800 - 900 * s;
       const R = Math.sqrt(L) * Math.pow(SOLAR_TEMP / T, 2);
       return { stage: 'red-giant', massSun: m * (1 - 0.1 * s), lumSun: L, radiusSun: R, temp: T };
     }
-    if (f < 1.25) {
+    if (f < 1.165) {
+      // core-helium burning (horizontal branch / red clump): ~1% of the MS lifetime
       const L = 50 * Math.pow(m, 0.8);
       const T = 4800 + 2500 * j * (m < 1.5 ? 1 : 0.3);
       return { stage: 'horizontal-branch', massSun: m * 0.85, lumSun: L, radiusSun: Math.sqrt(L) * Math.pow(SOLAR_TEMP / T, 2), temp: T };
     }
-    if (f < 1.27) {
+    if (f < 1.168) {
       const L = 3000 * Math.pow(m, 0.8);
       const T = 3100;
       return { stage: 'asymptotic-giant', massSun: m * 0.7, lumSun: L, radiusSun: Math.sqrt(L) * Math.pow(SOLAR_TEMP / T, 2), temp: T };
     }
     // white dwarf: initial–final mass relation and cooling
     const mwd = Math.min(1.35, 0.55 + 0.08 * (m - 1));
-    const tCool = Math.max((age - tMS * 1.27) / 1e6, 0.1); // Myr
+    const tCool = Math.max((age - tMS * 1.168) / 1e6, 0.1); // Myr
     const T = Math.max(3500, 100000 * Math.pow(tCool, -0.35) * 0.45 + 3500);
     const R = 0.0126 * Math.pow(mwd / 0.6, -1 / 3);
     const L = R * R * Math.pow(T / SOLAR_TEMP, 4);

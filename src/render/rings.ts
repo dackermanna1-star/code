@@ -8,6 +8,8 @@ import * as THREE from 'three';
 import type { Body } from '../astro/body';
 import type { FrameContext } from './planetrenderer';
 import { Rng } from '../core/rng';
+import { PRE_EXPOSURE } from './exposure';
+
 
 /** GLSL: transmittance through the ring plane toward the sun (uniforms bound by RingSystem.bindShadow). */
 export const RING_SHADOW_GLSL = /* glsl */ `
@@ -55,6 +57,7 @@ uniform vec3 uSunDir;
 uniform vec3 uSunIllum;
 uniform vec3 uColor;
 uniform float uPlanetR;
+uniform float uPreExposure;
 varying vec3 vWorldPos;
 varying vec2 vLocal;
 void main() {
@@ -80,7 +83,7 @@ void main() {
   float fwd = 1.0 + 3.0 * pow(max(phase, 0.0), 6.0);
   float illum = sameSide ? (1.0 - exp(-tau / max(muL, 0.03))) : exp(-tau / max(muL, 0.03)) * (1.0 - exp(-tau)) * fwd;
   vec3 col = uColor * tex.rgb * uSunIllum * illum * shadow * 0.32;
-  gl_FragColor = vec4(col, alpha);
+  gl_FragColor = vec4(min(col * uPreExposure, vec3(6e4)), alpha);
 }
 `;
 
@@ -156,6 +159,7 @@ export class RingSystem {
         uSunIllum: { value: new THREE.Vector3(1, 1, 1) },
         uColor: { value: new THREE.Vector3(...ri.color) },
         uPlanetR: { value: body.radius },
+        uPreExposure: PRE_EXPOSURE,
       },
       transparent: true,
       depthWrite: false,

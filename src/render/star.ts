@@ -8,6 +8,8 @@ import * as THREE from 'three';
 import { NOISE_GLSL } from './shaders/noise.glsl';
 import { SIGMA_SB, SOLAR_CONSTANT } from '../core/constants';
 import type { Body } from '../astro/body';
+import { PRE_EXPOSURE } from './exposure';
+
 
 const VERT = /* glsl */ `
 #include <common>
@@ -36,6 +38,7 @@ uniform float uActivity;
 uniform float uGranScale;
 uniform float uLimb;
 uniform float uSeed;
+uniform float uPreExposure;
 varying vec3 vObjN;
 varying vec3 vWorldN;
 varying vec3 vWorldPos;
@@ -62,7 +65,7 @@ void main() {
   vec3 col = uColor * uRadiance * b;
   // cooler limb is redder
   col *= mix(vec3(1.0), vec3(1.08, 0.95, 0.85), (1.0 - mu) * 0.6);
-  gl_FragColor = vec4(min(col, vec3(6e4)), 1.0);
+  gl_FragColor = vec4(min(col * uPreExposure, vec3(6e4)), 1.0);
 }
 `;
 
@@ -86,6 +89,7 @@ const HALO_FRAG = /* glsl */ `
 uniform vec3 uColor;
 uniform float uRadiance;
 uniform float uInner; // star radius as fraction of quad half-size
+uniform float uPreExposure;
 varying vec2 vQ;
 void main() {
   #include <logdepthbuf_fragment>
@@ -95,7 +99,7 @@ void main() {
   // K-corona-like power-law falloff (very faint relative to the disc)
   float k = 2e-5 * pow(x, -4.0) + 4e-7 * pow(x, -2.2);
   float fade = smoothstep(1.0, 0.7, r);
-  gl_FragColor = vec4(uColor * uRadiance * k * fade, 1.0);
+  gl_FragColor = vec4(min(uColor * uRadiance * k * fade * uPreExposure, vec3(6e4)), 1.0);
 }
 `;
 
@@ -126,6 +130,7 @@ export class StarRenderer {
         uGranScale: { value: gscale },
         uLimb: { value: THREE.MathUtils.clamp(0.95 - (s.temperature - 3000) / 30000, 0.35, 0.85) },
         uSeed: { value: (body.id.length * 13.7) % 50 },
+        uPreExposure: PRE_EXPOSURE,
       },
     });
     this.sphere = new THREE.Mesh(geo, this.mat);
@@ -137,6 +142,7 @@ export class StarRenderer {
         uColor: { value: new THREE.Vector3(...s.color) },
         uRadiance: { value: starRadiance(s.temperature) },
         uInner: { value: 1 / 6 },
+        uPreExposure: PRE_EXPOSURE,
       },
       transparent: true,
       blending: THREE.AdditiveBlending,

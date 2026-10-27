@@ -15,6 +15,8 @@ import { NOISE_GLSL } from './shaders/noise.glsl';
 import { ATMOSPHERE_UNIFORMS, ATMOSPHERE_FUNCS, ATMOSPHERE_LUT_FUNCS } from './shaders/atmosphere.glsl';
 import type { AtmosphereLUTs } from './atmosphere';
 import { CloudLayer, cloudDetailTexture } from './clouds';
+import { PRE_EXPOSURE } from './exposure';
+
 
 const FRAG = /* glsl */ `
 ${NOISE_GLSL}
@@ -32,6 +34,7 @@ uniform vec3 uSunIllum[2];
 uniform float uFrame;
 uniform int uSteps;
 uniform vec2 uResolution;
+uniform float uPreExposure;
 #ifdef CLOUDS
 uniform samplerCube uWeather;
 uniform sampler3D uCloudDetail;
@@ -216,7 +219,7 @@ void main() {
 #else
   integrate(ro, rd, t0, t1, uSteps, jit, L, T);
 #endif
-  gl_FragColor = vec4(scene * T + L, 1.0);
+  gl_FragColor = vec4(min(scene * T + L * uPreExposure, vec3(6e4)), 1.0);
 }
 `;
 
@@ -235,6 +238,7 @@ export class AtmospherePass {
       uFrame: { value: 0 },
       uSteps: { value: 24 },
       uResolution: { value: new THREE.Vector2(1, 1) },
+      uPreExposure: PRE_EXPOSURE,
     };
     luts.bind(u);
     const defines: Record<string, number> = {};
