@@ -14,6 +14,8 @@ import { StarField } from './starfield';
 import { GalaxyRenderer } from './galaxyrenderer';
 import type { Cosmos } from '../sim/cosmos';
 import { ShipRenderer } from './shipmodels';
+import { BlackHoleRenderer, type AccretionDisk } from './blackhole';
+import { NebulaRenderer } from './nebula';
 import type { Ship } from '../sim/ship';
 import { TerrainWorkerPool } from '../terrain/workerpool';
 import type { World } from '../sim/world';
@@ -52,10 +54,12 @@ export class SceneRenderer {
   readonly planets = new Map<string, PlanetRenderer>();
   readonly stars = new Map<string, StarRenderer>();
   readonly giants = new Map<string, GasGiantRenderer>();
+  readonly blackHoles = new Map<string, BlackHoleRenderer>();
   readonly belts: BeltRenderer[] = [];
   readonly starField: StarField;
   readonly galaxies: GalaxyRenderer;
   readonly galaxyScene = new THREE.Scene();
+  readonly nebulae = new NebulaRenderer();
   cosmos: Cosmos | null = null;
   shipRenderer: ShipRenderer | null = null;
   ship: Ship | null = null;
@@ -125,6 +129,8 @@ export class SceneRenderer {
       this.scene.remove(b.points);
       b.dispose();
     }
+    for (const bh of this.blackHoles.values()) bh.dispose();
+    this.blackHoles.clear();
     this.planets.clear();
     this.stars.clear();
     this.giants.clear();
@@ -132,7 +138,11 @@ export class SceneRenderer {
     this.system = sys;
     if (!sys) return;
     for (const b of sys.bodies) {
-      if (b.star && (b.kind === 'star' || b.kind === 'white-dwarf' || b.kind === 'brown-dwarf')) {
+      if (b.kind === 'black-hole') {
+        this.blackHoles.set(b.id, new BlackHoleRenderer(b, accretionDiskFor(b, sys)));
+        continue;
+      }
+      if (b.star && (b.kind === 'star' || b.kind === 'white-dwarf' || b.kind === 'brown-dwarf' || b.kind === 'neutron-star')) {
         const s = new StarRenderer(b);
         this.stars.set(b.id, s);
         this.scene.add(s.group);
@@ -196,6 +206,8 @@ export class SceneRenderer {
         suns.push({ body: b, rel, color: b.star!.color, luminosity: b.star!.luminosity, radius: b.radius });
         const sr = this.stars.get(b.id);
         if (sr) sr.update(rel, sys.bodyRotation(b, _q), world.time, ctx.pixelAngle);
+        const bh = this.blackHoles.get(b.id);
+        if (bh) bh.update(ctx, rel, sys.bodyRotation(b, _q));
         const d = rel.length();
         const ang = b.radius / d;
         if (ang < ctx.pixelAngle * 1.5) {
@@ -273,17 +285,21 @@ export class SceneRenderer {
       this.starField.update(this.camUPos, cosmos.camG, ctx.pixelAngle, hide);
       this.galaxies.update(cosmos.galaxies, this.camUPos, _q.copy(ctx.camQuat), ctx.pixelAngle, this.frame, this.pipeline.depthTexture,
         Math.ceil(this.pipeline.width / 2), Math.ceil(this.pipeline.height / 2), cosmos.current);
+      this.nebulae.update(cosmos.nebulae, cosmos.current, cosmos.camG, ctx.pixelAngle, this.frame, this.pipeline.depthTexture,
+        Math.ceil(this.pipeline.width / 2), Math.ceil(this.pipeline.height / 2));
     }
     this.updateShip(world, suns);
     if (!draw) return;
     this.pipeline.beginFrame(this.scene, cam);
     if (this.galaxies.group.children.length) this.pipeline.overlayHalfRes(this.galaxyScene, cam);
+    if (this.nebulae.drawn) this.pipeline.overlayHalfResOver(this.nebulae.scene, cam);
     const atm: { body: Body; atmPass: { material: THREE.ShaderMaterial } | null }[] = [
       ...[...this.planets.values()].filter((p) => p.atmosphereVisible && p.atmPass),
       ...[...this.giants.values()].filter((g) => g.atmosphereVisible && g.atmPass),
     ];
     atm.sort((a, b) => this.bodyRel.get(b.body.id)!.lengthSq() - this.bodyRel.get(a.body.id)!.lengthSq());
     if (!this.debug.noAtmosphere) for (const p of atm) this.pipeline.composite(p.atmPass!.material);
+    for (const bh of this.blackHoles.values()) if (bh.visible) this.pipeline.composite(bh.material);
     if (this.overlayScene.children.length) this.pipeline.overlay(this.overlayScene, cam);
     this.pipeline.endFrame(dt);
   }
@@ -381,4 +397,18 @@ export class SceneRenderer {
     }
     return { nodes, drawn, pending, maxLevel };
   }
+}
+
+/**
+ * Accretion disk for a black hole: bright and hot when fed by a companion
+ * star (X-ray binary), faint for a quiescent supermassive hole, none when
+ * isolated (lensing only).
+ */
+function accretionDiskFor(b: Body, sys: StarSystem): AccretionDisk | null {
+  const mSun = b.mass / 1.98847e30;
+  const companion = sys.bodies.some((o) => o !== b && o.kind === 'star');
+  // (the visible inner disk; real disks extend much further but fade in the optical)
+  if (mSun > 1e5) return { inner: 3, outer: 16, tempInner: 2.2e5 * Math.pow(mSun / 1e6, -0.25), brightness: 0.02 };
+  if (companion) return { inner: 3, outer: 18, tempInner: 1.0e7 * Math.pow(mSun / 10, -0.25), brightness: 1 };
+  return null;
 }

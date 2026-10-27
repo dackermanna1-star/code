@@ -21,6 +21,7 @@ import { buildSolarSystem, SOLAR_SYSTEM_ID } from '../astro/known/solarsystem';
 import { eclipticToGalaxyQuat, radecToGalaxyDir } from '../astro/known/coords';
 import { blackbodyRGB } from '../astro/stellar';
 import { visualEfficacy } from '../astro/photometry';
+import { knownNebulae, nebulaeAround, type Nebula } from '../astro/nebulae';
 
 export interface SystemRef {
   id: string;
@@ -49,10 +50,19 @@ export class Cosmos {
   knownSystems: SystemRef[] = [];
   lifeFrequency = 1;
   onSystemChange: (sys: StarSystem | null) => void = () => {};
+  /** catalogued nebulae (Milky Way) */
+  readonly knownNebulae: Nebula[] = [];
+  /** nebulae (catalogued + procedural) around the camera in the current galaxy */
+  nebulae: Nebula[] = [];
+  private nebQuery = new Vector3(1e30, 0, 0);
+  private nebGalaxy: string | null = null;
 
   constructor(seed: number, knownLocalGroup: boolean) {
     this.universe = new Universe({ seed, knownLocalGroup });
-    if (knownLocalGroup) this.addKnownSystems();
+    if (knownLocalGroup) {
+      this.addKnownSystems();
+      this.knownNebulae.push(...knownNebulae(this.universe.home, this.universe.sunLocal));
+    }
   }
 
   private addKnownSystems() {
@@ -144,6 +154,15 @@ export class Cosmos {
       field.setGalaxy(cur, cur ? this.exclusionsFor(cur) : []);
     }
     if (cur) uposToGalaxy(cur, cam, this.camG);
+    // nebulae near the camera (re-queried after moving a few hundred ly)
+    if (!cur) {
+      this.nebulae = [];
+      this.nebGalaxy = null;
+    } else if (cur.id !== this.nebGalaxy || this.camG.distanceTo(this.nebQuery) > 250) {
+      this.nebulae = nebulaeAround(cur, this.camG, 3500, this.knownNebulae);
+      this.nebQuery.copy(this.camG);
+      this.nebGalaxy = cur.id;
+    }
     // active system
     if (cur && frame % 10 === 0) {
       let cand: SystemRef | null = null;

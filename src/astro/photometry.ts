@@ -50,3 +50,14 @@ export function absMagV(lumSun: number, T: number): number {
   if (lv <= 0) return 99;
   return 4.83 - 2.5 * Math.log10(lv);
 }
+
+/**
+ * Visual (photopic) radiance of a blackbody surface at temperature T, in the
+ * renderer's units (solar constant per steradian), valid far beyond the
+ * stellar range (accretion disks at 10⁷ K are mostly X-ray, faint-ish to the eye).
+ */
+export function visualRadiance(T: number): number {
+  if (!(T > 0)) return 0;
+  const sigma = 5.670374419e-8, S0 = 1360.8;
+  return ((sigma * T ** 4) / Math.PI / S0) * (visualFraction(T) / SUN);
+}

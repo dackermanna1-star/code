@@ -31,7 +31,7 @@ export const defaultPipelineSettings: PipelineSettings = {
   exposureComp: 0,
   autoExposure: true,
   manualExposure: 2,
-  minExposure: 0.0005,
+  minExposure: 1e-10, // looking straight at a stellar surface or a hot accretion disk
   maxExposure: 3e6, // ≈ dark-adapted eye: naked-eye stars visible, Milky Way faint
   adaptSpeed: 1.6,
   vignette: 0.18,
@@ -57,8 +57,9 @@ void main() {
   vec2 d = vUv - 0.5;
   float w = exp(-dot(d, d) * 3.0);
   float lit = l * e > 1e-3 ? 1.0 : 0.0;
-  // alpha: highlight-clamped linear luminance (a small sun can't dominate)
-  gl_FragColor = vec4(log2(max(l, 1e-12)) * lit * w, lit * w, w, min(l, 8.0 / e) * w);
+  // alpha: highlight-clamped linear luminance — a small sun can't dominate, but a
+  // large bright area (accretion disk, nearby star surface) still pulls exposure down
+  gl_FragColor = vec4(log2(max(l, 1e-12)) * lit * w, lit * w, w, min(l, 48.0 / e) * w);
 }
 `;
 
@@ -245,6 +246,7 @@ export class RenderPipeline {
   private pingRT!: THREE.WebGLRenderTarget;
   private pongRT!: THREE.WebGLRenderTarget;
   private lowRT!: THREE.WebGLRenderTarget;
+  private overMat!: THREE.ShaderMaterial;
   private addMat!: THREE.ShaderMaterial;
   private bloomDown: THREE.WebGLRenderTarget[] = [];
   private bloomUp: THREE.WebGLRenderTarget[] = [];
@@ -287,6 +289,10 @@ export class RenderPipeline {
     this.copyMat = mk(COPY_FRAG, { tSrc: { value: null } });
     this.addMat = new THREE.ShaderMaterial({ vertexShader: FS_VERT, fragmentShader: COPY_FRAG, uniforms: { tSrc: { value: null } },
       depthTest: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending });
+    // premultiplied "over" composite (emission + absorption, e.g. nebulae)
+    this.overMat = new THREE.ShaderMaterial({ vertexShader: FS_VERT, fragmentShader: COPY_FRAG, uniforms: { tSrc: { value: null } },
+      depthTest: false, depthWrite: false, transparent: true, blending: THREE.CustomBlending,
+      blendSrc: THREE.OneFactor, blendDst: THREE.OneMinusSrcAlphaFactor, blendSrcAlpha: THREE.ZeroFactor, blendDstAlpha: THREE.OneFactor });
     this.fs = new FullscreenPass(this.copyMat);
     this.lumRT = hdrTarget(64, 64, { generateMipmaps: true, minFilter: THREE.LinearMipmapLinearFilter });
     this.adaptRT = [hdrTarget(1, 1, { type: THREE.FloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter }),
@@ -403,6 +409,29 @@ export class RenderPipeline {
     r.autoClear = false;
     this.fs.render(r, this.currentTarget, this.addMat);
     r.autoClear = ac;
+  }
+
+  /**
+   * Render a half-resolution scene of premultiplied (emission, coverage)
+   * volumes and composite it "over" the image: dst·(1 − a) + rgb.
+   */
+  overlayHalfResOver(scene: THREE.Scene, camera: THREE.Camera) {
+    const r = this.renderer;
+    if (this.currentTarget === this.sceneRT) {
+      this.copyMat.uniforms.tSrc.value = this.sceneRT.texture;
+      this.fs.render(r, this.pingRT, this.copyMat);
+      this.currentTarget = this.pingRT;
+    }
+    r.setRenderTarget(this.lowRT);
+    r.setClearColor(0x000000, 0);
+    r.clear(true, false, false);
+    const ac = r.autoClear;
+    r.autoClear = false;
+    r.render(scene, camera);
+    this.overMat.uniforms.tSrc.value = this.lowRT.texture;
+    this.fs.render(r, this.currentTarget, this.overMat);
+    r.autoClear = ac;
+    r.setClearColor(0x000000, 1);
   }
 
   endFrame(dt: number) {

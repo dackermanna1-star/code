@@ -8,17 +8,20 @@ import type { Body } from '../astro/body';
 import type { GalaxyParams } from '../astro/galaxy';
 import type { SystemRef, Cosmos } from './cosmos';
 import type { SceneRenderer } from '../render/scenerenderer';
+import type { Nebula } from '../astro/nebulae';
+import { galaxyToUPos } from '../astro/galaxy';
 import type { World } from './world';
 import { UPos } from '../core/upos';
 import { LY, SOLAR_LUMINOSITY, SOLAR_CONSTANT } from '../core/constants';
 
 export interface Target {
-  kind: 'body' | 'system' | 'galaxy';
+  kind: 'body' | 'system' | 'galaxy' | 'nebula';
   id: string;
   name: string;
   body?: Body;
   system?: SystemRef;
   galaxy?: GalaxyParams;
+  nebula?: Nebula;
   radius: number; // m
   position(out: UPos): UPos;
 }
@@ -38,9 +41,17 @@ export function galaxyTarget(g: GalaxyParams): Target {
   return { kind: 'galaxy', id: g.id, name: g.name, galaxy: g, radius: g.radius * LY, position: (out) => out.copy(g.upos) };
 }
 
+export function nebulaTarget(n: Nebula, g: GalaxyParams): Target {
+  return {
+    kind: 'nebula', id: n.id, name: n.name, nebula: n, galaxy: g, radius: n.radius * LY * Math.max(...n.axes),
+    position: (out) => galaxyToUPos(g, n.center.x, n.center.y, n.center.z, out),
+  };
+}
+
 /** Comfortable viewing distance for "go to". */
 export function standoff(t: Target): number {
   if (t.kind === 'galaxy') return t.radius * 2.6;
+  if (t.kind === 'nebula') return t.radius * 2.4;
   if (t.kind === 'system') return 3e11;
   const b = t.body!;
   if (b.isStarLike) return Math.max(b.radius * 6, 1e9);
@@ -101,6 +112,16 @@ export function pick(world: World, cosmos: Cosmos, r: SceneRenderer, sx: number,
       const flux = (st.lumV * SOLAR_LUMINOSITY) / (d * d) / SOLAR_CONSTANT;
       if (flux < 1e-15 && st.remnant !== 3) continue;
       consider(rel, 0, flux, () => systemTarget(cosmos.refFromStar(st)));
+    }
+  }
+  // nebulae (resolved discs only)
+  if (g) {
+    for (const n of cosmos.nebulae) {
+      const rel = new THREE.Vector3().copy(n.center).sub(cosmos.camG).multiplyScalar(LY).applyQuaternion(g.q);
+      const d = rel.length();
+      const R = n.radius * LY;
+      if (d < R) continue;
+      consider(rel, (R / d) * 0.7, (R / d) * 1e3, () => nebulaTarget(n, g));
     }
   }
   // galaxies

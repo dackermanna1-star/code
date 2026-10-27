@@ -12,7 +12,7 @@ import { galaxyToUPos } from './astro/galaxy';
 import type { Body, StarSystem } from './astro/body';
 import { Player } from './sim/player';
 import { formatDistance, formatSpeed } from './core/mathutil';
-import { bodyTarget, galaxyTarget, pick, standoff, systemTarget, type Target } from './sim/targets';
+import { bodyTarget, galaxyTarget, nebulaTarget, pick, standoff, systemTarget, type Target } from './sim/targets';
 import { Overlay } from './ui/overlay';
 import { InfoPanel } from './ui/infopanel';
 import { describe } from './ui/describe';
@@ -520,6 +520,16 @@ export class App {
       }
     }
     const g = this.cosmos.current;
+    if (g) {
+      for (const n of this.cosmos.nebulae) {
+        if (this.discoveries.has(n.id) || n.center.distanceTo(this.cosmos.camG) > n.radius * 3) continue;
+        const d = this.discoveries.discover({
+          id: n.id, name: n.name, kind: 'nebula', subtitle: n.type.replace('-', ' '), systemId: null, place: g.name,
+          simTime: this.world.time, location: captureLocation(this.world, this.cosmos),
+        });
+        if (d) { this.thumbQueue.push({ id: d.id }); if (!n.known) this.hud.toast(`Discovered ${n.name} — ${d.subtitle}`, 4); }
+      }
+    }
     if (g && g.id !== this.lastGalaxyId) {
       this.lastGalaxyId = g.id;
       const d = this.discoveries.discover({
@@ -629,8 +639,14 @@ export class App {
     const gals = new Map<string, (typeof this.cosmos.galaxies)[number]>();
     for (const g of [...this.cosmos.universe.known, ...this.cosmos.galaxies]) gals.set(g.id, g);
     for (const g of gals.values()) add(g.name, `${g.hubble} · ${formatDistance(g.upos.distanceTo(this.renderer.camUPos))}`, 'galaxy', () => galaxyTarget(g), g.known ? 0 : 0.3);
+    const nebs = new Map<string, (typeof this.cosmos.nebulae)[number]>();
+    for (const n of [...this.cosmos.knownNebulae, ...this.cosmos.nebulae]) nebs.set(n.id, n);
+    for (const n of nebs.values()) {
+      const g = this.cosmos.universe.galaxyById(n.galaxyId);
+      if (g) add(n.name, `${n.type.replace('-', ' ')} · ${n.known ? 'catalogued' : 'procedural'}`, 'nebula', () => nebulaTarget(n, g), n.known ? 0 : 0.4);
+    }
     for (const d of this.discoveries.entries.values()) {
-      if (sys?.byId.has(d.id) || d.kind === 'galaxy' || d.kind === 'system') continue;
+      if (sys?.byId.has(d.id) || d.kind === 'galaxy' || d.kind === 'system' || d.kind === 'nebula') continue;
       add(d.name, `discovered · ${d.place}`, 'visited', () => { this.visitDiscovery(d); return this.selected; }, 0.4);
     }
     for (const b of this.discoveries.bookmarks) add(b.name, `bookmark · ${b.place}`, 'bookmark', () => { this.visitBookmark(b); return null; }, 0.2);

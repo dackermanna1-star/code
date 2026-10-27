@@ -132,6 +132,7 @@ export class Overlay {
     if (s.showLabels) {
       if (sys) this.drawBodyLabels(s, sys);
       this.drawStarLabels(s);
+      this.drawNebulaLabels(s);
       this.drawGalaxyLabels(s);
     }
   }
@@ -313,6 +314,29 @@ export class Overlay {
       const p = this.project(rel, scr);
       if (!p || this.occluded(p.x, p.y, rel.length())) continue;
       this.label(p.x, p.y, b.name, 'rgba(220,228,240,0.7)', 'none', 5);
+    }
+  }
+
+  private drawNebulaLabels(s: OverlayState) {
+    const cosmos = s.cosmos;
+    const g = cosmos.current;
+    if (!g) return;
+    const scr = { x: 0, y: 0, depth: 0 };
+    const items: { name: string; rel: THREE.Vector3; px: number; known: boolean }[] = [];
+    for (const n of cosmos.nebulae) {
+      const rel = n.center.clone().sub(cosmos.camG).multiplyScalar(LY).applyQuaternion(g.q);
+      const d = rel.length();
+      if (d < n.radius * LY) continue;
+      const px = (n.radius * LY) / d / this.pxAngle;
+      if (px < 10 && !(n.known && px > 1.5)) continue;
+      items.push({ name: n.name, rel, px, known: n.known });
+    }
+    items.sort((a, b) => b.px - a.px);
+    for (const it of items.slice(0, 12)) {
+      if (it.px > this.h * 0.5) continue;
+      const p = this.project(it.rel, scr);
+      if (!p || this.occluded(p.x, p.y, it.rel.length())) continue;
+      this.label(p.x, p.y, it.name, it.known ? '#ffb3c8' : 'rgba(255,180,200,0.7)', 'none', Math.min(it.px, 30) * 0.4);
     }
   }
 

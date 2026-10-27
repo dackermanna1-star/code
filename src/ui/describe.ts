@@ -5,6 +5,7 @@
  */
 import type { Body } from '../astro/body';
 import type { GalaxyParams } from '../astro/galaxy';
+import type { Nebula } from '../astro/nebulae';
 import type { SystemRef } from '../sim/cosmos';
 import type { Target } from '../sim/targets';
 import { orbitalPeriod } from '../astro/orbit';
@@ -64,6 +65,7 @@ function level(x: number, words = ['none', 'low', 'moderate', 'high', 'extreme']
 
 export function describe(t: Target, distance: number, scanned: boolean): Description {
   if (t.kind === 'galaxy') return describeGalaxy(t.galaxy!, distance);
+  if (t.kind === 'nebula') return describeNebula(t.nebula!, distance);
   if (t.kind === 'system') return describeSystemRef(t.system!, distance, scanned);
   const b = t.body!;
   return b.isStarLike ? describeStar(b, distance, scanned) : describePlanet(b, distance, scanned);
@@ -268,3 +270,31 @@ function describeGalaxy(g: GalaxyParams, distance: number): Description {
   };
 }
 
+
+const NEBULA_INFO: Record<Nebula['type'], { kind: string; spectrum: string; origin: string }> = {
+  emission: { kind: 'Emission nebula (H II region)', spectrum: 'Hα 656 nm (red), [O III] 501 nm (teal), Hβ 486 nm', origin: 'Hydrogen ionised by hot young O/B stars that formed inside it; dust lanes and pillars are being eroded by their radiation.' },
+  planetary: { kind: 'Planetary nebula', spectrum: '[O III] in the inner shell, Hα and [N II] at the rim', origin: 'Outer layers shed by a dying Sun-like star; its hot white-dwarf core ionises the expanding shell for a few tens of thousands of years.' },
+  'supernova-remnant': { kind: 'Supernova remnant', spectrum: 'Hα and [O III] filaments, synchrotron continuum', origin: 'Debris of an exploded massive star sweeping up interstellar gas at thousands of km/s.' },
+  reflection: { kind: 'Reflection nebula', spectrum: 'Scattered starlight (blue: shorter wavelengths scatter more)', origin: 'Interstellar dust reflecting the light of nearby bright stars.' },
+  dark: { kind: 'Dark nebula', spectrum: 'Absorbs and reddens background light', origin: 'Cold, dense dust and molecular gas — the raw material of future stars.' },
+};
+
+function describeNebula(n: Nebula, distance: number): Description {
+  const info = NEBULA_INFO[n.type];
+  const rows: [string, string][] = [
+    ['Type', info.kind],
+    ['Diameter', `${(n.radius * 2).toPrecision(3)} ly`],
+    ['Distance', formatDistance(distance)],
+    ['Spectrum', info.spectrum],
+  ];
+  return {
+    title: n.name,
+    subtitle: info.kind.toLowerCase(),
+    provenance: n.known ? 'catalogued' : 'procedural',
+    provenanceNote: n.known
+      ? 'Position, size and type from catalogues; internal structure is procedural.'
+      : 'Procedural nebula placed by the galaxy\'s star-formation and stellar-population model.',
+    sections: [{ title: 'Nebula', rows }, { title: 'Origin', rows: [], text: info.origin + (n.note ? ' ' + n.note : '') }],
+    needsScan: false,
+  };
+}

@@ -10,7 +10,7 @@ export const SCAN_TIME = 3.5;
 
 /** Maximum distance (m, from the object's centre) at which a scan works. */
 export function scanRange(t: Target): number {
-  if (t.kind === 'galaxy') return t.radius * 3;
+  if (t.kind === 'galaxy' || t.kind === 'nebula') return t.radius * 3;
   if (t.kind === 'system') return 2 * LY;
   const b = t.body!;
   if (b.isStarLike) return Math.max(b.radius * 300, 60 * AU);

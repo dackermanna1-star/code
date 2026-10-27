@@ -170,3 +170,21 @@ describe('interface logic', () => {
     expect(fwd.dot(dir)).toBeCloseTo(1, 9);
   });
 });
+
+describe('nebulae', () => {
+  it('are deterministic and concentrated toward star-forming regions', async () => {
+    const { cellNebulae, knownNebulae } = await import('../../src/astro/nebulae');
+    const u = new Universe({ seed: 20261027, knownLocalGroup: true });
+    const a = cellNebulae(u.home, -10, 0, 3).map((n) => n.id + n.radius);
+    const b = cellNebulae(u.home, -10, 0, 3).map((n) => n.id + n.radius);
+    expect(a).toEqual(b);
+    let inner = 0, outer = 0;
+    for (let i = -3; i <= 3; i++) for (let j = -3; j <= 3; j++) {
+      inner += cellNebulae(u.home, -6 + i, 0, j).length;   // ~9 kly from centre
+      outer += cellNebulae(u.home, -30 + i, 0, j).length;  // ~45 kly
+    }
+    expect(inner).toBeGreaterThan(outer);
+    const orion = knownNebulae(u.home, u.sunLocal).find((n) => n.name.includes('Orion'))!;
+    expect(orion.center.distanceTo(u.sunLocal)).toBeCloseTo(1344, 0);
+  });
+});
