@@ -1,0 +1,9 @@
+{
+  "values": [
+    "minecraft:iron_golem", "minecraft:ravager", "minecraft:hoglin", "minecraft:zoglin", "minecraft:sniffer",
+    "minecraft:polar_bear", "minecraft:panda", "minecraft:camel", "minecraft:horse", "minecraft:mule", "minecraft:donkey",
+    "minecraft:skeleton_horse", "minecraft:zombie_horse", "minecraft:llama", "minecraft:trader_llama",
+    { "id": "minecraft:camel_husk", "required": false }, { "id": "minecraft:nautilus", "required": false },
+    { "id": "minecraft:zombie_nautilus", "required": false }
+  ]
+}

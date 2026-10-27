@@ -1,0 +1,28 @@
+{
+	"schemaVersion": 1,
+	"id": "visceral",
+	"version": "${version}",
+	"name": "Visceral: Combat & Animation Overhaul",
+	"description": "Cinematic over-the-shoulder camera, weighty timed melee with kicks, lock-on and finishers, Euphoria-inspired active ragdolls with balance, stumbling, knockdowns and recovery, and localised wounds, blood and optional gore.",
+	"authors": ["Visceral contributors"],
+	"license": "MIT",
+	"icon": "assets/visceral/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": ["dev.visceral.Visceral"],
+		"client": ["dev.visceral.client.VisceralClient"]
+	},
+	"mixins": [
+		"visceral.mixins.json",
+		{
+			"config": "visceral.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~1.21.11",
+		"java": ">=21",
+		"fabric-api": ">=0.141.0"
+	}
+}

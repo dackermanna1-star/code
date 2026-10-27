@@ -1,0 +1,8 @@
+{
+  "values": [
+    "minecraft:ender_dragon", "minecraft:wither", "minecraft:warden", "minecraft:elder_guardian", "minecraft:guardian",
+    "minecraft:ghast", "minecraft:happy_ghast", "minecraft:shulker", "minecraft:vex", "minecraft:giant", "minecraft:creaking",
+    "minecraft:breeze", "minecraft:blaze", "minecraft:phantom", "minecraft:bat", "minecraft:allay", "minecraft:bee",
+    "minecraft:parrot", "minecraft:slime", "minecraft:magma_cube", "#minecraft:aquatic"
+  ]
+}
