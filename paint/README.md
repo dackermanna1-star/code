@@ -3,6 +3,7 @@
 A small MS Paint-style drawing program written in Python with Tkinter and Pillow.
 
 ![Synthwave sunset painted with this app](synthwave-sunset.png)
+![Anime-style girl painted with this app](anime-girl.png)
 
 ## Run it
 
