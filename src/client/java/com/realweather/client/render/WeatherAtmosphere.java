@@ -71,6 +71,13 @@ public final class WeatherAtmosphere {
 		if (!config.weatherFog || !weather.hasWeather() || config.fogStrength <= 0.0F) {
 			return;
 		}
+		// RealWeather's visibility model replaces vanilla's rain fog, which would otherwise stack on top of it (and
+		// which oscillates wildly below ~4 fps). Start from the dimension's fog distances instead; boss fog stays.
+		if (!Minecraft.getInstance().gui.getBossOverlay().shouldCreateWorldFog()) {
+			var probe = camera.attributeProbe();
+			fog.environmentalStart = probe.getValue(EnvironmentAttributes.FOG_START_DISTANCE, partialTick);
+			fog.environmentalEnd = probe.getValue(EnvironmentAttributes.FOG_END_DISTANCE, partialTick);
+		}
 		float outdoor = outdoorFactor(level, camera);
 		Vec3 pos = camera.position();
 		float intensity = weather.localIntensity(partialTick);
@@ -79,7 +86,7 @@ public final class WeatherAtmosphere {
 		float blizzard = blizzardFactor(weather, level, pos, partialTick);
 		float inCloud = weather.inCloud(partialTick);
 
-		// Everything is relative to vanilla's own fog, so a hint of weather never makes the fog jump.
+		// Everything is relative to the unweathered fog, so a hint of weather never makes the fog jump.
 		float far = Math.max(fog.environmentalEnd, 32.0F);
 		float v = far;
 		if (intensity > 0.0F) {

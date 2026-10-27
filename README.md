@@ -13,6 +13,18 @@ layers behind, fog banks, wet glistening ground and grass that bends in the wind
 | Java | 21 |
 | Side | Both. Works client-only on vanilla servers, and server-only for vanilla clients (see [Multiplayer](#multiplayer)). |
 
+## Screenshots
+
+Captured in-game with the scripted demo (`./gradlew runDemo`, medium quality preset, software rendering at 720p).
+
+| | |
+|---|---|
+| ![Fair-weather cumulus](docs/screenshots/clear.jpg) **Clear** — fair-weather cumulus with flat grey bases | ![Overcast](docs/screenshots/overcast.jpg) **Overcast** — layered cloud deck breaking up |
+| ![Fog bank](docs/screenshots/fog.jpg) **Fog bank** — the landscape dissolves into milky haze | ![Rain](docs/screenshots/rain.jpg) **Rain** — ragged grey rain clouds, slanted rain, wet ground |
+| ![Thunderstorm](docs/screenshots/thunderstorm.jpg) **Thunderstorm** — dark storm deck and a wind-driven downpour | ![Lightning](docs/screenshots/lightning.jpg) **Lightning** — branching bolt lighting up the rain and clouds |
+| ![Snowfall](docs/screenshots/snow.jpg) **Snow** — flakes drifting in the wind, first snow settling | ![Snow cover](docs/screenshots/snow-cover.jpg) **Snow cover** — a few minutes later: drifting layered snow |
+| ![Blizzard](docs/screenshots/blizzard.jpg) **Blizzard** — gale-driven snow and a white-out | ![Night storm](docs/screenshots/night-storm.jpg) **Night storm** — a strike lights up the whole storm |
+
 ## Features
 
 ### Dynamic weather simulation (server)
@@ -44,23 +56,28 @@ layers behind, fog banks, wet glistening ground and grass that bends in the wind
 
 ### Visuals & audio (client)
 * **Rain**: high-resolution motion-blurred streaks in two parallax layers with independent fall speeds, light and
-  heavy textures that cross-fade with intensity, sparser columns in drizzle, wind tilt derived from the real fall
-  speed, per-column variation (no repeating patterns), a hard stop at the cloud base, and distant **rain curtains**.
+  heavy textures that cross-fade with intensity, sparser columns in drizzle, slant from the wind and the real fall
+  speed (rain arrives from upwind), streaks that are strongest at eye level, per-column variation (no repeating
+  patterns), a hard stop at the cloud base, and distant **rain curtains**.
 * **Rain splashes** (crown sprite sequence + thrown droplets), **ripples** on water, ground **spray** in downpours,
   steam over lava/magma/campfires.
 * **Snow**: flake sheets plus individual **snowflake particles** of varied size that flutter, spin, follow gusts,
   settle and melt; **spindrift** sweeping over the ground in blizzards; a rain/snow **sleet** mix near freezing.
-* **Volumetric clouds**: ray-marched, lit by the sun or moon (with silver linings and dark bases), fair-weather
-  cumulus, flat overcast decks, towering dark thunderstorm clouds with low bases, wind-driven movement, slowly
-  evolving shapes, aerial perspective, and internal lightning illumination. Flying into a cloud fogs your view.
+* **Volumetric clouds**: ray-marched and lit by the sun or moon with self-shadowing and an approximation of
+  multiple scattering (silver linings, grey bases, dark rain clouds), separate fair-weather cumulus cells, layered
+  overcast decks, ragged rain-cloud bases, towering dark thunderstorm clouds with low bases, wind-driven movement,
+  slowly evolving billowy shapes, aerial perspective that merges the deck into the horizon haze, and internal
+  lightning illumination. Flying into a cloud fogs your view.
 * **Cloud shadows** that drift across the landscape.
 * **Lightning**: tall, forked bolts with sub-branches, a white-hot core and blue glow, several flickering return
-  strokes, visible from far away; flashes light up the sky, the clouds, the rain and the world.
+  strokes, visible from far away and drawn over the rain so they shine through a downpour; flashes light up the
+  sky, the clouds, the rain and the world.
 * **Thunder** arrives after the flash with the delay of sound (343 m/s) and changes from a tearing crack nearby to a
   rolling rumble far away; in-cloud discharges only rumble.
-* **Fog & atmosphere**: visibility drops in heavy rain, much more in fog banks and blizzards (white-outs); fog
-  colour follows the weather (cool grey rain haze, milky snow fog); overcast skies grey out, the sun, moon and stars
-  dim, storms darken the light. Weather fog stays outside — caves are unaffected.
+* **Fog & atmosphere**: visibility drops in heavy rain, much more in fog banks and blizzards (white-outs) and
+  changes smoothly with the weather (it replaces vanilla's rain fog); fog colour follows the weather (cool grey rain
+  haze, milky snow fog, grey horizon under a cloud deck); overcast skies grey out, the sun, moon and stars dim,
+  storms darken the light. Weather fog stays outside — caves are unaffected.
 * **Wind**: grass, flowers, ferns and saplings sway in gust waves rolling across the land (top vertices only, so
   plants stay rooted); leaves are torn off trees in strong wind; dust blows across deserts.
 * **Wet surfaces**: rain-exposed blocks darken, gain saturation and pick up a sky sheen at grazing angles, then dry
@@ -161,6 +178,7 @@ Other useful tasks:
 | `./gradlew runServer` | Start a development dedicated server |
 | `./gradlew runClientGameTest` | Automated in-game test (needs an OpenGL display) |
 | `./gradlew runDemo -Prealweather.demo.pos="x z yaw pitch"` | Scripted tour through every weather type with screenshots (needs a world named `demo` in `build/run/demo/saves`) |
+| `./gradlew runDemo -Prealweather.demo.control=true` | Same world, driven live: write commands (`/weather rain`, `wait 100`, `shot name`, `set option value`, `reload`, `quit`) into `build/run/demo/demo/control.txt` |
 
 Assets are generated by scripts in [`tools/`](tools) (numpy + Pillow, and ffmpeg with libvorbis for audio); the
 generated files are committed, so you only need these when changing them:
