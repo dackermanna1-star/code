@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>St. Agatha General</title>
+    <style>
+      :root {
+        --ink: #d9d0b6;
+        --dim: #8d8672;
+        --bg: #050506;
+        --accent: #9a3b2c;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: var(--bg);
+        overflow: hidden;
+        color: var(--ink);
+        font-family: 'Courier New', Courier, monospace;
+      }
+      canvas {
+        position: absolute;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        display: block;
+      }
+      #hud {
+        pointer-events: none;
+      }
+      #loading {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        letter-spacing: 0.3em;
+        color: var(--dim);
+        pointer-events: none;
+      }
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: radial-gradient(ellipse at center, rgba(5, 5, 6, 0.55), rgba(5, 5, 6, 0.92));
+      }
+      .overlay.hidden {
+        display: none;
+      }
+      .panel {
+        width: min(560px, calc(100vw - 32px));
+        max-height: calc(100vh - 32px);
+        overflow: auto;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+      }
+      h1 {
+        font-size: clamp(26px, 6vw, 44px);
+        letter-spacing: 0.25em;
+        margin: 0 0 4px;
+        font-weight: bold;
+        color: #e6dcc0;
+        text-shadow: 2px 2px 0 #000, 0 0 18px rgba(154, 59, 44, 0.35);
+      }
+      .sub {
+        color: var(--dim);
+        font-size: 12px;
+        margin-bottom: 28px;
+      }
+      button {
+        font: inherit;
+        letter-spacing: 0.25em;
+        background: transparent;
+        color: var(--ink);
+        border: 1px solid #5a5446;
+        padding: 10px 22px;
+        cursor: pointer;
+        text-transform: uppercase;
+      }
+      button:hover,
+      button:focus-visible {
+        background: #1b1916;
+        border-color: var(--ink);
+        outline: none;
+      }
+      .controls {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 18px;
+        font-size: 12px;
+        color: var(--dim);
+        margin: 26px 0 18px;
+      }
+      .controls b {
+        color: var(--ink);
+        font-weight: normal;
+      }
+      details {
+        font-size: 12px;
+        color: var(--dim);
+      }
+      summary {
+        cursor: pointer;
+        color: var(--ink);
+        margin-bottom: 10px;
+      }
+      .opts {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 8px 16px;
+        align-items: center;
+      }
+      input[type='range'] {
+        width: 140px;
+        accent-color: #8a8270;
+      }
+      input[type='checkbox'] {
+        accent-color: #8a8270;
+      }
+      .warn {
+        font-size: 11px;
+        color: #6f6857;
+        margin-top: 22px;
+        text-transform: none;
+        letter-spacing: 0.04em;
+      }
+      #docs {
+        color: var(--dim);
+        font-size: 12px;
+        margin: 6px 0 22px;
+      }
+      #note {
+        position: absolute;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.72);
+      }
+      #note.show {
+        display: flex;
+      }
+      .paper {
+        width: min(520px, calc(100vw - 32px));
+        max-height: calc(100vh - 48px);
+        overflow: auto;
+        background: #c9bc98;
+        color: #2a241a;
+        padding: 26px 30px;
+        box-shadow: 0 0 0 1px #6b5f45, 8px 10px 0 rgba(0, 0, 0, 0.5);
+        background-image: repeating-linear-gradient(0deg, rgba(80, 60, 30, 0.06) 0 1px, transparent 1px 22px),
+          radial-gradient(ellipse at 70% 20%, rgba(120, 90, 40, 0.25), transparent 60%),
+          radial-gradient(ellipse at 15% 85%, rgba(90, 70, 30, 0.3), transparent 55%);
+        transform: rotate(-0.6deg);
+      }
+      #note.poster .paper {
+        background: #b9b6ad;
+        filter: contrast(1.15) grayscale(0.6);
+      }
+      #note.sign .paper {
+        background: #1d2b22;
+        color: #d8d4bf;
+        box-shadow: 0 0 0 3px #3a4a3e, 8px 10px 0 rgba(0, 0, 0, 0.5);
+        background-image: none;
+        transform: none;
+      }
+      #note-title {
+        font-weight: bold;
+        letter-spacing: 0.18em;
+        margin-bottom: 14px;
+        border-bottom: 1px solid rgba(40, 30, 20, 0.35);
+        padding-bottom: 8px;
+      }
+      #note-body {
+        white-space: pre-wrap;
+        font-size: 14px;
+        line-height: 1.5;
+      }
+      .close {
+        margin-top: 18px;
+        font-size: 11px;
+        opacity: 0.6;
+        letter-spacing: 0.2em;
+      }
+      #debug {
+        position: absolute;
+        left: 8px;
+        top: 6px;
+        font-size: 12px;
+        color: #9f9;
+        text-shadow: 1px 1px 0 #000;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <canvas id="hud"></canvas>
+    <div id="loading">LOADING...</div>
+    <div id="debug"></div>
+
+    <div id="title" class="overlay hidden">
+      <div class="panel">
+        <h1>ST. AGATHA</h1>
+        <div class="sub">General Hospital · closed March 1998</div>
+        <button id="start">Enter</button>
+        <div class="controls">
+          <b>WASD / Mouse</b><span>Move / look</span>
+          <b>Shift</b><span>Sprint</span>
+          <b>C</b><span>Crouch</span>
+          <b>F</b><span>Flashlight</span>
+          <b>E / Click</b><span>Open doors · read</span>
+          <b>Space</b><span>Let go of a ladder</span>
+          <b>Esc</b><span>Pause</span>
+        </div>
+        <div id="title-settings-slot"><details id="settings">
+          <summary>Settings</summary>
+          <div class="opts">
+            <label for="opt-sens">Mouse sensitivity</label><input id="opt-sens" type="range" min="0.2" max="3" step="0.05" />
+            <label for="opt-bright">Brightness</label><input id="opt-bright" type="range" min="0.6" max="2" step="0.05" />
+            <label for="opt-vol">Volume</label><input id="opt-vol" type="range" min="0" max="1" step="0.05" />
+            <label for="opt-invert">Invert mouse Y</label><input id="opt-invert" type="checkbox" />
+            <label for="opt-jitter">Vertex jitter</label><input id="opt-jitter" type="checkbox" />
+            <label for="opt-affine">Affine texture warp</label><input id="opt-affine" type="checkbox" />
+            <label for="opt-dither">15-bit dither</label><input id="opt-dither" type="checkbox" />
+            <label for="opt-43">4:3 frame</label><input id="opt-43" type="checkbox" />
+          </div>
+        </details></div>
+        <div class="warn">Headphones recommended. There are no jump scares.</div>
+      </div>
+    </div>
+
+    <div id="pause" class="overlay hidden">
+      <div class="panel">
+        <h1>PAUSED</h1>
+        <div id="docs"></div>
+        <button id="resume">Resume</button>
+        <div class="controls">
+          <b>WASD / Mouse</b><span>Move / look</span>
+          <b>Shift · C</b><span>Sprint · crouch</span>
+          <b>F</b><span>Flashlight</span>
+          <b>E / Click</b><span>Open doors · read</span>
+          <b>Space</b><span>Let go of a ladder</span>
+          <b>`</b><span>Performance overlay</span>
+        </div>
+        <div id="pause-settings-slot"></div>
+      </div>
+    </div>
+
+    <div id="note">
+      <div class="paper">
+        <div id="note-title"></div>
+        <div id="note-body"></div>
+        <div class="close">E · Click to close</div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
