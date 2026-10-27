@@ -1,0 +1,593 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://player.gd" id="1_player"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_material"]
+sky_top_color = Color(0.32, 0.52, 0.85, 1)
+sky_horizon_color = Color(0.72, 0.8, 0.9, 1)
+ground_bottom_color = Color(0.25, 0.35, 0.2, 1)
+ground_horizon_color = Color(0.72, 0.8, 0.9, 1)
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_material")
+
+[sub_resource type="Environment" id="environment"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 2
+ambient_light_color = Color(1, 0.95, 0.88, 1)
+ambient_light_energy = 0.35
+tonemap_mode = 2
+ssao_enabled = true
+glow_enabled = true
+
+[sub_resource type="StandardMaterial3D" id="mat_wall"]
+albedo_color = Color(0.86, 0.82, 0.74, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="mat_floor"]
+albedo_color = Color(0.52, 0.36, 0.22, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="mat_ceiling"]
+albedo_color = Color(0.95, 0.95, 0.93, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_wood_dark"]
+albedo_color = Color(0.36, 0.22, 0.12, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="mat_wood_light"]
+albedo_color = Color(0.72, 0.55, 0.35, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="mat_white"]
+albedo_color = Color(0.92, 0.92, 0.9, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_rug"]
+albedo_color = Color(0.62, 0.16, 0.14, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_blanket"]
+albedo_color = Color(0.22, 0.38, 0.62, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_red"]
+albedo_color = Color(0.7, 0.15, 0.12, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="mat_green"]
+albedo_color = Color(0.15, 0.45, 0.25, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="mat_blue"]
+albedo_color = Color(0.15, 0.25, 0.6, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="mat_yellow"]
+albedo_color = Color(0.9, 0.7, 0.2, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="mat_pot"]
+albedo_color = Color(0.72, 0.36, 0.2, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_soil"]
+albedo_color = Color(0.2, 0.13, 0.08, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_leaves"]
+albedo_color = Color(0.22, 0.52, 0.2, 1)
+roughness = 0.8
+
+[sub_resource type="StandardMaterial3D" id="mat_metal"]
+albedo_color = Color(0.15, 0.15, 0.15, 1)
+metallic = 0.8
+roughness = 0.35
+
+[sub_resource type="StandardMaterial3D" id="mat_brass"]
+albedo_color = Color(0.85, 0.65, 0.25, 1)
+metallic = 1.0
+roughness = 0.3
+
+[sub_resource type="StandardMaterial3D" id="mat_lampshade"]
+albedo_color = Color(1, 0.92, 0.75, 1)
+emission_enabled = true
+emission = Color(1, 0.8, 0.5, 1)
+emission_energy_multiplier = 1.5
+
+[sub_resource type="StandardMaterial3D" id="mat_ceiling_light"]
+albedo_color = Color(1, 1, 1, 1)
+emission_enabled = true
+emission = Color(1, 0.97, 0.9, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="StandardMaterial3D" id="mat_glass"]
+transparency = 1
+albedo_color = Color(0.75, 0.88, 1, 0.15)
+roughness = 0.05
+
+[sub_resource type="StandardMaterial3D" id="mat_crate"]
+albedo_color = Color(0.62, 0.46, 0.26, 1)
+roughness = 0.85
+
+[sub_resource type="Gradient" id="gradient_sunset"]
+offsets = PackedFloat32Array(0, 0.6, 0.62, 1)
+colors = PackedColorArray(0.15, 0.2, 0.45, 1, 0.95, 0.55, 0.3, 1, 0.25, 0.42, 0.2, 1, 0.1, 0.22, 0.1, 1)
+
+[sub_resource type="GradientTexture2D" id="texture_sunset"]
+gradient = SubResource("gradient_sunset")
+fill_to = Vector2(0, 1)
+
+[sub_resource type="StandardMaterial3D" id="mat_painting"]
+albedo_texture = SubResource("texture_sunset")
+
+[sub_resource type="QuadMesh" id="mesh_painting"]
+material = SubResource("mat_painting")
+size = Vector2(0.8, 0.6)
+
+[sub_resource type="BoxMesh" id="mesh_crate"]
+material = SubResource("mat_crate")
+size = Vector3(0.5, 0.5, 0.5)
+
+[sub_resource type="BoxShape3D" id="shape_crate"]
+size = Vector3(0.5, 0.5, 0.5)
+
+[sub_resource type="CapsuleShape3D" id="shape_player"]
+radius = 0.35
+height = 1.7
+
+[node name="Main" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("environment")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0, -0.5736, 0.8192, 0, 0.8192, 0.5736, -1, 0, 0, 0, 6, 0)
+light_color = Color(1, 0.96, 0.88, 1)
+light_energy = 1.5
+shadow_enabled = true
+directional_shadow_max_distance = 25.0
+
+[node name="Room" type="Node3D" parent="."]
+
+[node name="Floor" type="CSGBox3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.1, 0)
+use_collision = true
+size = Vector3(8.4, 0.2, 6.4)
+material = SubResource("mat_floor")
+
+[node name="Ceiling" type="CSGBox3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.1, 0)
+use_collision = true
+size = Vector3(8.4, 0.2, 6.4)
+material = SubResource("mat_ceiling")
+
+[node name="WallNorth" type="CSGBox3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -3)
+use_collision = true
+size = Vector3(8.4, 3, 0.2)
+material = SubResource("mat_wall")
+
+[node name="WallSouth" type="CSGBox3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 3)
+use_collision = true
+size = Vector3(8.4, 3, 0.2)
+material = SubResource("mat_wall")
+
+[node name="WallWest" type="CSGBox3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 1.5, 0)
+use_collision = true
+size = Vector3(0.2, 3, 5.8)
+material = SubResource("mat_wall")
+
+[node name="WallEast" type="CSGBox3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 1.5, 0)
+use_collision = true
+size = Vector3(0.2, 3, 5.8)
+material = SubResource("mat_wall")
+
+[node name="WindowHole" type="CSGBox3D" parent="Room/WallEast"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+operation = 2
+size = Vector3(0.4, 1.2, 1.6)
+
+[node name="Window" type="Node3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 1.6, 0)
+
+[node name="Glass" type="CSGBox3D" parent="Room/Window"]
+cast_shadow = 0
+use_collision = true
+size = Vector3(0.02, 1.24, 1.64)
+material = SubResource("mat_glass")
+
+[node name="MullionVertical" type="CSGBox3D" parent="Room/Window"]
+size = Vector3(0.06, 1.24, 0.05)
+material = SubResource("mat_white")
+
+[node name="MullionHorizontal" type="CSGBox3D" parent="Room/Window"]
+size = Vector3(0.06, 0.05, 1.64)
+material = SubResource("mat_white")
+
+[node name="Sill" type="CSGBox3D" parent="Room/Window"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.075, -0.605, 0)
+use_collision = true
+size = Vector3(0.35, 0.05, 1.8)
+material = SubResource("mat_wood_light")
+
+[node name="CeilingLamp" type="CSGCylinder3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.95, 0)
+cast_shadow = 0
+radius = 0.25
+height = 0.1
+sides = 24
+material = SubResource("mat_ceiling_light")
+
+[node name="CeilingLight" type="OmniLight3D" parent="Room"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.7, 0)
+light_color = Color(1, 0.95, 0.85, 1)
+light_energy = 1.2
+shadow_enabled = true
+omni_range = 8.0
+
+[node name="Rug" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.01, 0.4)
+size = Vector3(3, 0.02, 2)
+material = SubResource("mat_rug")
+
+[node name="Bed" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.3, 0, -1.9)
+
+[node name="Frame" type="CSGBox3D" parent="Bed"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+use_collision = true
+size = Vector3(1.2, 0.4, 2)
+material = SubResource("mat_wood_dark")
+
+[node name="Headboard" type="CSGBox3D" parent="Bed"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, -0.97)
+use_collision = true
+size = Vector3(1.2, 1.2, 0.06)
+material = SubResource("mat_wood_dark")
+
+[node name="Mattress" type="CSGBox3D" parent="Bed"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0.03)
+use_collision = true
+size = Vector3(1.1, 0.2, 1.86)
+material = SubResource("mat_white")
+
+[node name="Blanket" type="CSGBox3D" parent="Bed"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.58, 0.315)
+size = Vector3(1.14, 0.1, 1.33)
+material = SubResource("mat_blanket")
+
+[node name="Pillow" type="CSGBox3D" parent="Bed"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.66, -0.68)
+size = Vector3(0.7, 0.12, 0.35)
+material = SubResource("mat_white")
+
+[node name="Bookshelf" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0, -2.7)
+
+[node name="Frame" type="CSGBox3D" parent="Bookshelf"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+use_collision = true
+size = Vector3(1.6, 2, 0.4)
+material = SubResource("mat_wood_light")
+
+[node name="ShelfBottom" type="CSGBox3D" parent="Bookshelf/Frame"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.65, 0.05)
+operation = 2
+size = Vector3(1.5, 0.6, 0.4)
+
+[node name="ShelfMiddle" type="CSGBox3D" parent="Bookshelf/Frame"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.05)
+operation = 2
+size = Vector3(1.5, 0.6, 0.4)
+
+[node name="ShelfTop" type="CSGBox3D" parent="Bookshelf/Frame"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.65, 0.05)
+operation = 2
+size = Vector3(1.5, 0.6, 0.4)
+
+[node name="Books" type="Node3D" parent="Bookshelf"]
+
+[node name="Book1" type="CSGBox3D" parent="Bookshelf/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.68, 1.5, 0.04)
+size = Vector3(0.06, 0.3, 0.24)
+material = SubResource("mat_red")
+
+[node name="Book2" type="CSGBox3D" parent="Bookshelf/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.615, 1.48, 0.04)
+size = Vector3(0.06, 0.26, 0.24)
+material = SubResource("mat_blue")
+
+[node name="Book3" type="CSGBox3D" parent="Bookshelf/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.55, 1.51, 0.04)
+size = Vector3(0.06, 0.32, 0.24)
+material = SubResource("mat_green")
+
+[node name="Book4" type="CSGBox3D" parent="Bookshelf/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.485, 1.49, 0.04)
+size = Vector3(0.06, 0.28, 0.24)
+material = SubResource("mat_yellow")
+
+[node name="Book5" type="CSGBox3D" parent="Bookshelf/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.42, 1.5, 0.04)
+size = Vector3(0.06, 0.3, 0.24)
+material = SubResource("mat_red")
+
+[node name="Book6" type="CSGBox3D" parent="Bookshelf/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 0.84, 0.04)
+size = Vector3(0.06, 0.28, 0.24)
+material = SubResource("mat_blue")
+
+[node name="Book7" type="CSGBox3D" parent="Bookshelf/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.465, 0.865, 0.04)
+size = Vector3(0.06, 0.33, 0.24)
+material = SubResource("mat_yellow")
+
+[node name="Book8" type="CSGBox3D" parent="Bookshelf/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.53, 0.835, 0.04)
+size = Vector3(0.06, 0.27, 0.24)
+material = SubResource("mat_green")
+
+[node name="Book9" type="CSGBox3D" parent="Bookshelf/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.595, 0.85, 0.04)
+size = Vector3(0.06, 0.3, 0.24)
+material = SubResource("mat_red")
+
+[node name="Book10" type="CSGBox3D" parent="Bookshelf/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.66, 0.825, 0.04)
+size = Vector3(0.06, 0.25, 0.24)
+material = SubResource("mat_blue")
+
+[node name="BookFlat1" type="CSGBox3D" parent="Bookshelf/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 0.075, 0.04)
+size = Vector3(0.3, 0.05, 0.22)
+material = SubResource("mat_green")
+
+[node name="BookFlat2" type="CSGBox3D" parent="Bookshelf/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.38, 0.125, 0.04)
+size = Vector3(0.26, 0.05, 0.2)
+material = SubResource("mat_red")
+
+[node name="StorageBox" type="CSGBox3D" parent="Bookshelf/Books"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.35, 0.2, 0.04)
+size = Vector3(0.45, 0.3, 0.3)
+material = SubResource("mat_wood_dark")
+
+[node name="Desk" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.45, 0, 0)
+
+[node name="Top" type="CSGBox3D" parent="Desk"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+use_collision = true
+size = Vector3(0.9, 0.05, 1.4)
+material = SubResource("mat_wood_dark")
+
+[node name="LegFrontLeft" type="CSGBox3D" parent="Desk"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 0.3625, -0.65)
+use_collision = true
+size = Vector3(0.05, 0.725, 0.05)
+material = SubResource("mat_wood_dark")
+
+[node name="LegFrontRight" type="CSGBox3D" parent="Desk"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 0.3625, 0.65)
+use_collision = true
+size = Vector3(0.05, 0.725, 0.05)
+material = SubResource("mat_wood_dark")
+
+[node name="LegBackLeft" type="CSGBox3D" parent="Desk"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 0.3625, -0.65)
+use_collision = true
+size = Vector3(0.05, 0.725, 0.05)
+material = SubResource("mat_wood_dark")
+
+[node name="LegBackRight" type="CSGBox3D" parent="Desk"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 0.3625, 0.65)
+use_collision = true
+size = Vector3(0.05, 0.725, 0.05)
+material = SubResource("mat_wood_dark")
+
+[node name="Notebook" type="CSGBox3D" parent="Desk"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.1, 0.7825, 0)
+size = Vector3(0.2, 0.015, 0.28)
+material = SubResource("mat_blue")
+
+[node name="Mug" type="CSGCylinder3D" parent="Desk"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.05, 0.825, -0.35)
+radius = 0.04
+height = 0.1
+sides = 16
+material = SubResource("mat_red")
+
+[node name="Lamp" type="Node3D" parent="Desk"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.15, 0.775, 0.45)
+
+[node name="Base" type="CSGCylinder3D" parent="Desk/Lamp"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.015, 0)
+radius = 0.09
+height = 0.03
+sides = 24
+material = SubResource("mat_metal")
+
+[node name="Pole" type="CSGCylinder3D" parent="Desk/Lamp"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.19, 0)
+radius = 0.012
+height = 0.32
+sides = 12
+material = SubResource("mat_metal")
+
+[node name="Shade" type="CSGCylinder3D" parent="Desk/Lamp"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+cast_shadow = 0
+radius = 0.13
+height = 0.16
+sides = 24
+material = SubResource("mat_lampshade")
+
+[node name="Light" type="OmniLight3D" parent="Desk/Lamp"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.36, 0)
+light_color = Color(1, 0.8, 0.55, 1)
+shadow_enabled = true
+omni_range = 3.0
+
+[node name="Chair" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.8, 0, 0)
+
+[node name="Seat" type="CSGBox3D" parent="Chair"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+use_collision = true
+size = Vector3(0.45, 0.05, 0.45)
+material = SubResource("mat_wood_dark")
+
+[node name="Back" type="CSGBox3D" parent="Chair"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.205, 0.75, 0)
+use_collision = true
+size = Vector3(0.04, 0.55, 0.45)
+material = SubResource("mat_wood_dark")
+
+[node name="LegFrontLeft" type="CSGBox3D" parent="Chair"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.19, 0.2125, -0.19)
+use_collision = true
+size = Vector3(0.04, 0.425, 0.04)
+material = SubResource("mat_wood_dark")
+
+[node name="LegFrontRight" type="CSGBox3D" parent="Chair"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.19, 0.2125, 0.19)
+use_collision = true
+size = Vector3(0.04, 0.425, 0.04)
+material = SubResource("mat_wood_dark")
+
+[node name="LegBackLeft" type="CSGBox3D" parent="Chair"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.19, 0.2125, -0.19)
+use_collision = true
+size = Vector3(0.04, 0.425, 0.04)
+material = SubResource("mat_wood_dark")
+
+[node name="LegBackRight" type="CSGBox3D" parent="Chair"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.19, 0.2125, 0.19)
+use_collision = true
+size = Vector3(0.04, 0.425, 0.04)
+material = SubResource("mat_wood_dark")
+
+[node name="Plant" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.35, 0, 2.35)
+
+[node name="Pot" type="CSGCylinder3D" parent="Plant"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.225, 0)
+use_collision = true
+radius = 0.22
+height = 0.45
+sides = 24
+material = SubResource("mat_pot")
+
+[node name="Soil" type="CSGCylinder3D" parent="Plant"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.445, 0)
+radius = 0.2
+height = 0.02
+sides = 24
+material = SubResource("mat_soil")
+
+[node name="Leaves" type="CSGSphere3D" parent="Plant"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+radius = 0.38
+radial_segments = 24
+rings = 12
+material = SubResource("mat_leaves")
+
+[node name="Leaves2" type="CSGSphere3D" parent="Plant"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 1.18, -0.06)
+radius = 0.26
+radial_segments = 24
+rings = 12
+material = SubResource("mat_leaves")
+
+[node name="Leaves3" type="CSGSphere3D" parent="Plant"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.15, 1.1, 0.1)
+radius = 0.22
+radial_segments = 24
+rings = 12
+material = SubResource("mat_leaves")
+
+[node name="Picture" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.875, 1.8, -1.9)
+
+[node name="Frame" type="CSGBox3D" parent="Picture"]
+size = Vector3(0.05, 0.7, 0.9)
+material = SubResource("mat_wood_dark")
+
+[node name="Canvas" type="MeshInstance3D" parent="Picture"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0.03, 0, 0)
+mesh = SubResource("mesh_painting")
+
+[node name="Door" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0, 2.9)
+
+[node name="Trim" type="CSGBox3D" parent="Door"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.04, -0.015)
+size = Vector3(1.06, 2.08, 0.03)
+material = SubResource("mat_wood_light")
+
+[node name="Slab" type="CSGBox3D" parent="Door"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -0.02)
+size = Vector3(0.9, 2, 0.04)
+material = SubResource("mat_wood_dark")
+
+[node name="Knob" type="CSGSphere3D" parent="Door"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.33, 1, -0.065)
+radius = 0.035
+material = SubResource("mat_brass")
+
+[node name="Crates" type="Node3D" parent="."]
+
+[node name="Crate1" type="RigidBody3D" parent="Crates"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.9, 0.26, 2.2)
+mass = 2.0
+
+[node name="Mesh" type="MeshInstance3D" parent="Crates/Crate1"]
+mesh = SubResource("mesh_crate")
+
+[node name="Collision" type="CollisionShape3D" parent="Crates/Crate1"]
+shape = SubResource("shape_crate")
+
+[node name="Crate2" type="RigidBody3D" parent="Crates"]
+transform = Transform3D(0.9397, 0, 0.342, 0, 1, 0, -0.342, 0, 0.9397, -2.25, 0.26, 2.3)
+mass = 2.0
+
+[node name="Mesh" type="MeshInstance3D" parent="Crates/Crate2"]
+mesh = SubResource("mesh_crate")
+
+[node name="Collision" type="CollisionShape3D" parent="Crates/Crate2"]
+shape = SubResource("shape_crate")
+
+[node name="Crate3" type="RigidBody3D" parent="Crates"]
+transform = Transform3D(0.9781, 0, -0.2079, 0, 1, 0, 0.2079, 0, 0.9781, -2.9, 0.77, 2.2)
+mass = 2.0
+
+[node name="Mesh" type="MeshInstance3D" parent="Crates/Crate3"]
+mesh = SubResource("mesh_crate")
+
+[node name="Collision" type="CollisionShape3D" parent="Crates/Crate3"]
+shape = SubResource("shape_crate")
+
+[node name="Player" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0.05, 1.8)
+script = ExtResource("1_player")
+
+[node name="Collision" type="CollisionShape3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+shape = SubResource("shape_player")
+
+[node name="Head" type="Node3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+
+[node name="Camera" type="Camera3D" parent="Player/Head"]
+current = true
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="Controls" type="Label" parent="HUD"]
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 716.0
+offset_bottom = 38.0
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.8)
+theme_override_constants/outline_size = 4
+text = "WASD / arrows: move    Mouse: look    Space: jump    Shift: sprint    Esc: free mouse"
