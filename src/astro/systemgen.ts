@@ -32,7 +32,8 @@ export interface SystemSpec {
   age?: number;          // yr
   metallicity?: number;  // dex
   lifeFrequency?: number;
-  /** galaxy-frame orientation of the system's invariable plane is derived from the seed */
+  /** force a single star (catalogue stars whose multiplicity is known) */
+  forceSingle?: boolean;
 }
 
 const DEG = Math.PI / 180;
@@ -67,7 +68,7 @@ export function generateSystem(spec: SystemSpec): StarSystem {
 
   // ---- multiplicity
   const pBinary = m1 < 0.1 ? 0.15 : m1 < 0.5 ? 0.27 : m1 < 1.5 ? 0.44 : m1 < 5 ? 0.6 : 0.75;
-  const binary = rng.chance(pBinary);
+  const binary = rng.chance(pBinary) && !spec.forceSingle;
   let star2: StarPhysics | null = null;
   let m2 = 0, aBin = 0, eBin = 0;
   if (binary) {
@@ -231,6 +232,7 @@ export function generateSystem(spec: SystemSpec): StarSystem {
         const minc = rayleigh(mr, 0.5 * DEG);
         // regular moons orbit in the planet's equatorial plane: rotate by the planet's pole
         const mo = orbit(mr, ma, me, minc, G * (pl.mass + mm));
+        mo.refQ = { x: planet.poleQ.x, y: planet.poleQ.y, z: planet.poleQ.z, w: planet.poleQ.w };
         new Body(`${planet.id}.${mi}`, `${name} ${ROMAN[mi]}`, 'moon', planet, mm, mphys.radius, mo,
           { period: mphys.tidallyLocked ? 0 : mr.logUniform(5, 50) * 3600, tilt: mr.range(0, 0.05), tiltAzimuth: 0, phase0: mr.range(0, 6.28), locked: mphys.tidallyLocked },
           undefined, mphys);

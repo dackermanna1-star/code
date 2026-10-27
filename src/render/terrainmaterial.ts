@@ -10,7 +10,7 @@ import { ATMOSPHERE_UNIFORMS, ATMOSPHERE_FUNCS, ATMOSPHERE_LUT_FUNCS } from './s
 import { LIGHTING_GLSL, ECLIPSE_GLSL } from './shaders/lighting.glsl';
 import type { SurfaceParams, LiquidKind } from '../terrain/surface';
 import { DETAIL_PERIOD } from '../terrain/meshbuilder';
-import { PRE_EXPOSURE } from './exposure';
+import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
 
 
 export const LIQUID_CODE: Record<LiquidKind, number> = {
@@ -76,7 +76,7 @@ uniform float uPixelAngle;
 uniform float uDetail;
 uniform float uAmbient;
 uniform vec3 uPlanetShine;
-uniform float uPreExposure;
+${PRE_EXPOSURE_GLSL}
 varying vec3 vWorldPos;
 varying vec3 vNormalW;
 varying vec4 vA0;
@@ -312,7 +312,7 @@ export function createTerrainMaterial(sp: SurfaceParams, opts: TerrainMaterialOp
     uAmbient: { value: 3e-9 }, // starlight + airglow ≈ 1e-9 of daylight
     uPlanetShine: { value: new THREE.Vector3() },
     uLodK: { value: 3.5 },
-    uPreExposure: PRE_EXPOSURE,
+    tPreExposure: PRE_EXPOSURE_TEX,
   };
   const m = new THREE.ShaderMaterial({
     vertexShader: VERT,

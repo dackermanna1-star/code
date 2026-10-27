@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import type { BeltInfo } from '../astro/body';
 import { Rng } from '../core/rng';
 import { G } from '../core/constants';
-import { PRE_EXPOSURE } from './exposure';
+import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
 
 
 const VERT = /* glsl */ `
@@ -24,7 +24,7 @@ uniform mat3 uSysRot;      // system frame → world
 uniform vec3 uSunRel;
 uniform float uSunLum;     // relative irradiance scale at 1 m (L / (4π) / solar constant)
 uniform float uPixelAngle;
-uniform float uPreExposure;
+${PRE_EXPOSURE_GLSL}
 uniform vec3 uTint;
 varying vec3 vColor;
 varying float vAlpha;
@@ -107,7 +107,7 @@ export class BeltRenderer {
       uniforms: {
         uTime: { value: 0 }, uMu: { value: G * belt.parent.mass }, uParentRel: { value: new THREE.Vector3() },
         uSysRot: { value: new THREE.Matrix3() }, uSunRel: { value: new THREE.Vector3() }, uSunLum: { value: 1 },
-        uPixelAngle: { value: 0.001 }, uPreExposure: PRE_EXPOSURE,
+        uPixelAngle: { value: 0.001 }, tPreExposure: PRE_EXPOSURE_TEX,
         uTint: { value: belt.icy ? new THREE.Vector3(0.9, 0.95, 1.05) : new THREE.Vector3(1.05, 0.95, 0.85) },
       },
       blending: THREE.AdditiveBlending,

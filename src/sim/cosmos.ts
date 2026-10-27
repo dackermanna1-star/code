@@ -15,6 +15,12 @@ import type { StarSystem } from '../astro/body';
 import { UPos } from '../core/upos';
 import { LY, MPC } from '../core/constants';
 import type { World } from './world';
+import { KNOWN_STARS } from '../astro/known/stars';
+import { buildKnownSystem } from '../astro/known/knownsystems';
+import { buildSolarSystem, SOLAR_SYSTEM_ID } from '../astro/known/solarsystem';
+import { eclipticToGalaxyQuat, radecToGalaxyDir } from '../astro/known/coords';
+import { blackbodyRGB } from '../astro/stellar';
+import { visualEfficacy } from '../astro/photometry';
 
 export interface SystemRef {
   id: string;
@@ -24,6 +30,10 @@ export interface SystemRef {
   /** galaxy-local ly */
   local: Vector3;
   build: () => StarSystem;
+  /** for rendering unresolved known stars */
+  lumV?: number;
+  color?: [number, number, number];
+  known?: boolean;
 }
 
 export class Cosmos {
@@ -40,6 +50,30 @@ export class Cosmos {
 
   constructor(seed: number, knownLocalGroup: boolean) {
     this.universe = new Universe({ seed, knownLocalGroup });
+    if (knownLocalGroup) this.addKnownSystems();
+  }
+
+  private addKnownSystems() {
+    const mw = this.universe.home;
+    const sun = this.universe.sunLocal;
+    const sunU = galaxyToUPos(mw, sun.x, sun.y, sun.z);
+    const qEcl = eclipticToGalaxyQuat();
+    this.knownSystems.push({
+      id: SOLAR_SYSTEM_ID, name: 'Solar System', galaxyId: mw.id, upos: sunU, local: sun.clone(), known: true,
+      lumV: 1, color: blackbodyRGB(5772),
+      build: () => buildSolarSystem(sunU, qEcl),
+    });
+    for (const e of KNOWN_STARS) {
+      const dir = radecToGalaxyDir(e.ra, e.dec);
+      const local = sun.clone().addScaledVector(dir, e.dist);
+      const upos = galaxyToUPos(mw, local.x, local.y, local.z);
+      const id = `MW/known/${e.id}`;
+      const lumV = e.temp > 0 ? (e.lum + (e.companion?.lum ?? 0)) * visualEfficacy(e.temp) : 0;
+      this.knownSystems.push({
+        id, name: e.name, galaxyId: mw.id, upos, local, known: true, lumV, color: e.temp > 0 ? blackbodyRGB(e.temp) : [0, 0, 0],
+        build: () => buildKnownSystem(e, id, upos, this.lifeFrequency),
+      });
+    }
   }
 
   refFromStar(s: StarRef): SystemRef {

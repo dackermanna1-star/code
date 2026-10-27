@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { NOISE_GLSL } from './shaders/noise.glsl';
 import { SIGMA_SB, SOLAR_CONSTANT } from '../core/constants';
 import type { Body } from '../astro/body';
-import { PRE_EXPOSURE } from './exposure';
+import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
 
 
 const VERT = /* glsl */ `
@@ -38,7 +38,7 @@ uniform float uActivity;
 uniform float uGranScale;
 uniform float uLimb;
 uniform float uSeed;
-uniform float uPreExposure;
+${PRE_EXPOSURE_GLSL}
 varying vec3 vObjN;
 varying vec3 vWorldN;
 varying vec3 vWorldPos;
@@ -89,7 +89,7 @@ const HALO_FRAG = /* glsl */ `
 uniform vec3 uColor;
 uniform float uRadiance;
 uniform float uInner; // star radius as fraction of quad half-size
-uniform float uPreExposure;
+${PRE_EXPOSURE_GLSL}
 varying vec2 vQ;
 void main() {
   #include <logdepthbuf_fragment>
@@ -130,7 +130,7 @@ export class StarRenderer {
         uGranScale: { value: gscale },
         uLimb: { value: THREE.MathUtils.clamp(0.95 - (s.temperature - 3000) / 30000, 0.35, 0.85) },
         uSeed: { value: (body.id.length * 13.7) % 50 },
-        uPreExposure: PRE_EXPOSURE,
+        tPreExposure: PRE_EXPOSURE_TEX,
       },
     });
     this.sphere = new THREE.Mesh(geo, this.mat);
@@ -142,7 +142,7 @@ export class StarRenderer {
         uColor: { value: new THREE.Vector3(...s.color) },
         uRadiance: { value: starRadiance(s.temperature) },
         uInner: { value: 1 / 6 },
-        uPreExposure: PRE_EXPOSURE,
+        tPreExposure: PRE_EXPOSURE_TEX,
       },
       transparent: true,
       blending: THREE.AdditiveBlending,

@@ -10,6 +10,7 @@
 import { GYR, SOLAR_LUMINOSITY, SOLAR_MASS, SOLAR_RADIUS, SOLAR_TEMP, YEAR, DAY } from '../core/constants';
 import type { Rng } from '../core/rng';
 import type { StarPhysics, StellarStage } from './types';
+import { visualEfficacy } from './photometry';
 
 /** Main-sequence luminosity (L☉) for mass (M☉). */
 export function msLuminosity(m: number): number {
@@ -222,7 +223,8 @@ export function makeStar(massInit: number, age: number, metallicity: number, rng
     metallicity,
     rotationPeriod: rot,
     activity: Math.max(0, Math.min(1, activity)),
-    color: st.temp > 0 ? blackbodyRGB(st.temp) : [0, 0, 0],
+    // colour carries photopic efficacy: a red dwarf of solar bolometric flux looks far dimmer
+    color: st.temp > 0 ? (blackbodyRGB(st.temp).map((c) => c * visualEfficacy(st.temp)) as [number, number, number]) : [0, 0, 0],
   };
   if (st.stage === 'neutron-star') {
     star.pulsarPeriod = rot;

@@ -5,7 +5,7 @@
  *
  * Reference frame: system frame, Y up (north of the invariable plane).
  */
-import { Vector3 } from 'three';
+import { Quaternion, Vector3 } from 'three';
 
 export interface OrbitElements {
   a: number;      // semi-major axis (m); negative for hyperbolic
@@ -16,6 +16,8 @@ export interface OrbitElements {
   M0: number;     // mean anomaly at epoch (rad)
   epoch: number;  // s (J2000 seconds)
   mu: number;     // G(M_parent + M_body) m³/s²
+  /** optional reference-plane rotation (e.g. a planet's equator for its regular moons) */
+  refQ?: { x: number; y: number; z: number; w: number };
 }
 
 const TAU = Math.PI * 2;
@@ -65,6 +67,7 @@ function toSystem(o: OrbitElements, px: number, py: number, out: Vector3) {
   const Z = sw * si * px + cw * si * py;
   // map to Y-up: (X, Z, -Y)
   out.set(X, Z, -Y);
+  if (o.refQ) out.applyQuaternion(o.refQ as Quaternion);
   return out;
 }
 

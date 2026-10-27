@@ -80,7 +80,7 @@ export class SceneRenderer {
     this.camera.position.set(0, 0, 0);
     this.pipeline = new RenderPipeline(this.renderer);
     this.pool = new TerrainWorkerPool();
-    this.bodyPoints = new PointSprites(256, () => this.pipeline.exposureTexture);
+    this.bodyPoints = new PointSprites(512, () => this.pipeline.exposureTexture);
     this.scene.add(this.bodyPoints.points);
     this.starField = new StarField(() => this.pipeline.exposureTexture);
     this.scene.add(this.starField.group);
@@ -236,6 +236,16 @@ export class SceneRenderer {
             this.bodyPoints.add(rel, [col[0] / flux * tint[0], col[1] / flux * tint[1], col[2] / flux * tint[2]], flux * fade);
           }
         }
+      }
+    }
+    // catalogued stars outside the active system (unresolved points)
+    if (this.cosmos) {
+      for (const k of this.cosmos.knownSystems) {
+        if (!k.lumV || k.id === this.cosmos.activeRef?.id) continue;
+        const rel = k.upos.sub(this.camUPos, _v);
+        const d = rel.length();
+        const flux = (k.lumV * 3.828e26) / (4 * Math.PI * d * d) / SOLAR_CONSTANT;
+        this.bodyPoints.add(rel, k.color!, flux);
       }
     }
     this.bodyPoints.end();

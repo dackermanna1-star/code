@@ -15,7 +15,7 @@ import { NOISE_GLSL } from './shaders/noise.glsl';
 import { ATMOSPHERE_UNIFORMS, ATMOSPHERE_FUNCS, ATMOSPHERE_LUT_FUNCS } from './shaders/atmosphere.glsl';
 import type { AtmosphereLUTs } from './atmosphere';
 import { CloudLayer, cloudDetailTexture } from './clouds';
-import { PRE_EXPOSURE } from './exposure';
+import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
 
 
 const FRAG = /* glsl */ `
@@ -34,7 +34,10 @@ uniform vec3 uSunIllum[2];
 uniform float uFrame;
 uniform int uSteps;
 uniform vec2 uResolution;
-uniform float uPreExposure;
+${PRE_EXPOSURE_GLSL}
+uniform float uDebug;
+uniform vec3 uAxis;    // planet spin axis (world)
+uniform float uOblate; // 1/(1-f) - 1 : stretch along the axis that maps the oblate body onto a sphere
 #ifdef CLOUDS
 uniform samplerCube uWeather;
 uniform sampler3D uCloudDetail;
@@ -45,9 +48,20 @@ uniform int uCloudSteps;
 #endif
 varying vec2 vUv;
 
+vec2 raySphereG(vec3 ro, vec3 rd, float r) {
+  float a = dot(rd, rd);
+  float b = dot(ro, rd);
+  float c = dot(ro, ro) - r * r;
+  float d = b * b - a * c;
+  if (d < 0.0) return vec2(1e30, -1e30);
+  float s = sqrt(d);
+  return vec2((-b - s) / a, (-b + s) / a);
+}
+// positions are evaluated along rs (the axis-stretched ray); t stays metric (|rd| = 1 in world space)
+vec3 RD_PHASE;
 void integrate(vec3 ro, vec3 rd, float ta, float tb, int n, float jit, inout vec3 L, inout vec3 T) {
   if (tb <= ta || n <= 0) return;
-  float cs0 = dot(rd, uSunDir[0]), cs1 = dot(rd, uSunDir[1]);
+  float cs0 = dot(RD_PHASE, uSunDir[0]), cs1 = dot(RD_PHASE, uSunDir[1]);
   float pr0 = phaseRayleigh(cs0), pm0 = phaseMie(cs0, uMieG);
   float pr1 = phaseRayleigh(cs1), pm1 = phaseMie(cs1, uMieG);
   bool two = dot(uSunIllum[1], uSunIllum[1]) > 0.0;
@@ -114,29 +128,32 @@ void main() {
   float depth = texture(tDepth, vUv).r;
   vec4 vp = uInvProj * vec4(vUv * 2.0 - 1.0, -1.0, 1.0); // near plane: avoids w≈1/far cancellation
   vec3 vdir = normalize(vp.xyz / vp.w);
-  vec3 rd = normalize(uViewToWorld * vdir);
+  vec3 rdW = normalize(uViewToWorld * vdir);
+  RD_PHASE = rdW;
   float tScene = 1e30;
   if (depth < 0.99999) {
     float w = exp2(depth * log2(uFar + 1.0)) - 1.0;
     tScene = w / max(-vdir.z, 1e-6);
   }
-  vec3 ro = uCamPos;
-  vec2 ia = raySphere(ro, rd, uRt);
+  vec3 ro = uCamPos + uAxis * dot(uCamPos, uAxis) * uOblate;
+  vec3 rd = rdW + uAxis * dot(rdW, uAxis) * uOblate;
+  vec2 ia = raySphereG(ro, rd, uRt);
   if (ia.x > ia.y || ia.y < 0.0) { gl_FragColor = vec4(scene, 1.0); return; }
   float t0 = max(ia.x, 0.0);
   float t1 = min(ia.y, tScene);
   if (tScene >= 1e29) {
-    vec2 ig = raySphere(ro, rd, uRg);
+    vec2 ig = raySphereG(ro, rd, uRg);
     if (ig.x < ig.y && ig.x > 0.0) t1 = min(t1, ig.x);
   }
+  if (uDebug > 0.5) { gl_FragColor = vec4(t0 / 1e6, t1 / 1e6, tScene / 1e6, 1.0); return; }
   if (t1 <= t0) { gl_FragColor = vec4(scene, 1.0); return; }
   float jit = ign(gl_FragCoord.xy + vec2(uFrame * 5.588238, uFrame * 1.13));
   vec3 L = vec3(0.0), T = vec3(1.0);
 
 #ifdef CLOUDS
   // cloud shell interval within [t0, t1]
-  vec2 cTop = raySphere(ro, rd, uCloudTop);
-  vec2 cBot = raySphere(ro, rd, uCloudBottom);
+  vec2 cTop = raySphereG(ro, rd, uCloudTop);
+  vec2 cBot = raySphereG(ro, rd, uCloudBottom);
   float ca = 1e30, cb = -1e30;
   float rcam = length(ro);
   if (cTop.x < cTop.y && cTop.y > 0.0) {
@@ -165,7 +182,7 @@ void main() {
     // far above a thin deck, per-pixel jitter shows as dither: fade it toward fixed sampling
     float jitAmt = clamp(1.0 - (rcam - uCloudTop) / (25.0 * (uCloudTop - uCloudBottom)), 0.1, 1.0);
     float t = ca + dtc * mix(0.5, jit, jitAmt);
-    float c0 = dot(rd, uSunDir[0]);
+    float c0 = dot(rdW, uSunDir[0]);
     float ph = mix(hg(c0, 0.75), hg(c0, -0.2), 0.35);
     float fine = rcam < uCloudTop * 1.02 ? 1.0 : 0.0;
     float rcamC = rcam;
@@ -238,7 +255,10 @@ export class AtmospherePass {
       uFrame: { value: 0 },
       uSteps: { value: 24 },
       uResolution: { value: new THREE.Vector2(1, 1) },
-      uPreExposure: PRE_EXPOSURE,
+      tPreExposure: PRE_EXPOSURE_TEX,
+      uDebug: { value: 0 },
+      uAxis: { value: new THREE.Vector3(0, 1, 0) },
+      uOblate: { value: 0 },
     };
     luts.bind(u);
     const defines: Record<string, number> = {};

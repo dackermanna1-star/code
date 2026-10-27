@@ -17,7 +17,7 @@ import { LY, SOLAR_CONSTANT, SOLAR_LUMINOSITY } from '../core/constants';
 import { UPos } from '../core/upos';
 import { PointSprites } from './points';
 import { cloudDetailTexture } from './clouds';
-import { PRE_EXPOSURE } from './exposure';
+import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
 
 
 export const LUM_K = SOLAR_LUMINOSITY / (4 * Math.PI) / SOLAR_CONSTANT / (LY * LY); // L☉·ly⁻² → radiance units
@@ -57,7 +57,7 @@ uniform vec2 uResolution;
 uniform float uFar;
 uniform float uMetersPerLy;
 uniform sampler3D tNoise;
-uniform float uPreExposure;
+${PRE_EXPOSURE_GLSL}
 varying vec3 vWorld;
 float tex3(vec3 p) { return texture(tNoise, p).r; }
 
@@ -203,7 +203,7 @@ export class GalaxyVolume {
         uFar: { value: 1e27 },
         uMetersPerLy: { value: LY },
         tNoise: { value: cloudDetailTexture() },
-        uPreExposure: PRE_EXPOSURE,
+        tPreExposure: PRE_EXPOSURE_TEX,
       },
       side: THREE.BackSide,
       depthTest: false,

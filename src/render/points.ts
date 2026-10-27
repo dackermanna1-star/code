@@ -5,7 +5,7 @@
  * HDR pipeline (exposure + bloom) gives a physically ordered brightness.
  */
 import * as THREE from 'three';
-import { PRE_EXPOSURE } from './exposure';
+import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
 
 
 const VERT = /* glsl */ `
@@ -14,7 +14,7 @@ const VERT = /* glsl */ `
 attribute vec3 color;
 attribute float flux;
 uniform float uPixelAngle;
-uniform float uPreExposure;
+${PRE_EXPOSURE_GLSL}
 uniform float uBoost;
 uniform float uMinSize;
 varying vec3 vColor;
@@ -72,7 +72,7 @@ export class PointSprites {
     this.material = new THREE.ShaderMaterial({
       vertexShader: VERT,
       fragmentShader: FRAG,
-      uniforms: { uPixelAngle: { value: 0.001 }, uPreExposure: PRE_EXPOSURE, uBoost: { value: 1 }, uMinSize: { value: 2.6 } },
+      uniforms: { uPixelAngle: { value: 0.001 }, tPreExposure: PRE_EXPOSURE_TEX, uBoost: { value: 1 }, uMinSize: { value: 2.6 } },
       blending: THREE.AdditiveBlending,
       depthWrite: false,
       transparent: true,

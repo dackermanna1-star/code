@@ -64,7 +64,18 @@ function jitter(rng: Rng, c: RGB, amt = 0.12): RGB {
 /** Boiling point of water (K) at pressure P (bar), Clausius–Clapeyron. */
 function waterBoil(P: number) { return 1 / (1 / 373.15 - (8.314 / 40650) * Math.log(Math.max(P, 1e-4))); }
 
-export function generatePlanet(inp: PlanetInput): PlanetPhysics {
+export interface PlanetOverrides {
+  /** measured physical values that replace modelled ones before visuals are derived */
+  physics?: Partial<PlanetPhysics>;
+  atmosphere?: AtmosphereInfo | null;
+  surface?: Partial<SurfaceParams>;
+  palette?: Partial<SurfacePalette>;
+  clouds?: Partial<CloudParams> | null;
+  gasGiant?: Partial<GasGiantParams>;
+  rings?: RingInfo | null;
+}
+
+export function generatePlanet(inp: PlanetInput, ov?: PlanetOverrides): PlanetPhysics {
   const rng = new Rng(inp.seed);
   const M = inp.mass;
   const Me = M / EARTH_MASS;
@@ -320,21 +331,35 @@ export function generatePlanet(inp: PlanetInput): PlanetPhysics {
   phys.tempMax = Ts * (1 + spread * (locked ? 0.4 : 0.35));
   phys.tempMin = Ts * (1 - spread * (locked ? 0.9 : 0.6));
 
+  if (ov) {
+    if (ov.physics) Object.assign(phys, ov.physics);
+    if (ov.atmosphere !== undefined) phys.atmosphere = ov.atmosphere;
+  }
+  // visuals are derived from the (possibly catalogue-overridden) physical state
+  const Rf = phys.radius, gf = phys.gravity, Tf = phys.tempMean, atmf = phys.atmosphere, lockf = phys.tidallyLocked;
   if (isGiant) {
-    phys.gasGiant = gasGiantParams(rng, type, Teq, inp);
-    phys.atmosphereRender = giantAtmosphere(R, atmosphere!, g, Teq, phys.gasGiant);
-  } else if (type !== 'asteroid' || R > 2e5) {
-    phys.surface = surfaceParams(rng, phys, inp, tidal, R, g, Ts, locked);
-    if (atmosphere && atmosphere.pressure > 0.0005) {
-      phys.atmosphereRender = rockyAtmosphere(R, atmosphere, Ts, phys, rng);
+    phys.gasGiant = { ...gasGiantParams(rng, type, phys.tempEq, inp), ...(ov?.gasGiant ?? {}) };
+    phys.atmosphereRender = giantAtmosphere(Rf, atmf!, gf, phys.tempEq, phys.gasGiant);
+  } else if (type !== 'asteroid' || Rf > 2e5) {
+    phys.surface = surfaceParams(rng, phys, inp, tidal, Rf, gf, Tf, lockf);
+    if (atmf && atmf.pressure > 0.0005) {
+      phys.atmosphereRender = rockyAtmosphere(Rf, atmf, Tf, phys, rng);
       phys.clouds = cloudParams(rng, phys);
     }
   } else {
-    phys.surface = surfaceParams(rng, phys, inp, tidal, R, g, Ts, locked);
+    phys.surface = surfaceParams(rng, phys, inp, tidal, Rf, gf, Tf, lockf);
   }
   // rings: common and faint around giants; bright icy rings rarer
   if (isGiant && rng.chance(type === 'ice-giant' ? 0.6 : 0.35)) phys.rings = ringParams(rng, R, type, Teq);
   else if (!isGiant && R > 1.5e6 && rng.chance(0.015)) phys.rings = ringParams(rng, R, 'rocky', Teq);
+  if (ov) {
+    if (ov.rings !== undefined) phys.rings = ov.rings ?? undefined;
+    if (phys.surface && (ov.surface || ov.palette)) {
+      phys.surface = { ...phys.surface, ...(ov.surface ?? {}), palette: { ...phys.surface.palette, ...(ov.palette ?? {}) } };
+    }
+    if (ov.clouds === null) phys.clouds = undefined;
+    else if (ov.clouds && phys.atmosphereRender) phys.clouds = { ...(phys.clouds ?? cloudParams(rng, phys) ?? defaultClouds()), ...ov.clouds };
+  }
   return phys;
 }
 
@@ -539,29 +564,34 @@ function rockyAtmosphere(R: number, a: AtmosphereInfo, Ts: number, p: PlanetPhys
   const ray: [number, number, number] = [5.802e-6 * k, 13.558e-6 * k, 33.1e-6 * k];
   // aerosols
   let mieS = 3.0e-6 * Math.sqrt(P), mieAbs: [number, number, number] = [0.3e-6, 0.3e-6, 0.3e-6];
+  // single-scattering albedo per channel (coloured aerosols scatter coloured light)
+  let ssa: [number, number, number] = [0.9, 0.9, 0.9];
   let mieH = Math.min(1500, H * 0.2), g = 0.8;
   const absorb: [number, number, number] = [0, 0, 0];
   let absCenter = -1, absWidth = H;
   const hz = a.hazes;
   if (hz.includes('dust')) {
     // iron-oxide dust absorbs blue: butterscotch skies, blue sunsets (Mars)
-    const tauDust = rng.range(0.2, 0.9);
+    const tauDust = rng.range(0.15, 0.5);
     const Hd = H;
     mieS = tauDust / Hd;
-    mieAbs = [mieS * 0.03, mieS * 0.18, mieS * 0.45];
+    ssa = [0.97, 0.8, 0.55];
+    mieAbs = [0, 0, 0];
     mieH = Hd; g = 0.65;
   }
   if (hz.includes('sulfuric acid')) {
     // thick bright acid haze: yellowish (UV/blue absorber)
     mieS = 6e-5 * Math.min(P, 100) / 10;
-    mieAbs = [mieS * 0.01, mieS * 0.04, mieS * 0.2];
+    ssa = [0.99, 0.97, 0.85];
+    mieAbs = [0, 0, 0];
     mieH = H * 0.8; g = 0.72;
   }
   if (hz.includes('tholin')) {
     // organic haze: strong blue absorption → orange sky
     const tau = Math.min(P, 5) * rng.range(1.5, 4);
     mieS = tau / (H * 1.2);
-    mieAbs = [mieS * 0.15, mieS * 0.6, mieS * 1.8];
+    ssa = [0.92, 0.65, 0.3];
+    mieAbs = [0, 0, 0];
     mieH = H * 1.2; g = 0.6;
   }
   const o2 = a.composition.O2 ?? 0;
@@ -583,24 +613,32 @@ function rockyAtmosphere(R: number, a: AtmosphereInfo, Ts: number, p: PlanetPhys
   const ga = clamp(p.albedo, 0.05, 0.8);
   return {
     bottomRadius: R, topRadius: top, rayleigh: ray, rayleighH: H,
-    mieScat: [mieS, mieS, mieS], mieExt: [mieS + mieAbs[0], mieS + mieAbs[1], mieS + mieAbs[2]], mieH, mieG: g,
+    mieScat: [mieS * ssa[0], mieS * ssa[1], mieS * ssa[2]], mieExt: [mieS + mieAbs[0], mieS + mieAbs[1], mieS + mieAbs[2]], mieH, mieG: g,
     absorb, absCenter, absWidth, groundAlbedo: [ga, ga, ga],
   };
 }
 
 function giantAtmosphere(R: number, a: AtmosphereInfo, g: number, Teq: number, gg: GasGiantParams): AtmosphereParams {
   const H = clamp(a.scaleHeight, 8000, 400000);
-  const k = 0.6; // above the visible cloud deck
+  // only the thin, cold gas above the visible cloud deck scatters (vertical τ_blue ≈ 0.05)
+  const k = 0.05;
   const ch4 = a.composition.CH4 ?? 0;
   const ab: [number, number, number] = [ch4 * 2.5e-5, ch4 * 4e-6, ch4 * 2e-7];
   const hz = gg.haze;
-  const ms = 1.5e-6 * (1 + hz * 4);
+  const ms = 0.6e-6 * (1 + hz * 4);
+  // stratospheric haze tinted by its absorber (photochemical hydrocarbons absorb blue)
+  const hc = gg.hazeColor;
+  const abs = [(1 - hc[0]) * 0.6, (1 - hc[1]) * 0.6, (1 - hc[2]) * 0.6];
   return {
     bottomRadius: R, topRadius: R + H * 10,
-    rayleigh: [5.8e-6 * k * 0.25, 13.5e-6 * k * 0.25, 33.1e-6 * k * 0.25], rayleighH: H,
-    mieScat: [ms, ms, ms], mieExt: [ms * 1.1, ms * 1.15, ms * 1.3], mieH: H * 0.8, mieG: 0.7,
+    rayleigh: [5.8e-6 * k, 13.5e-6 * k, 33.1e-6 * k], rayleighH: H,
+    mieScat: [ms, ms, ms], mieExt: [ms * (1 + abs[0]), ms * (1 + abs[1]), ms * (1 + abs[2])], mieH: H * 0.8, mieG: 0.7,
     absorb: ab, absCenter: -1, absWidth: H, groundAlbedo: [0.4, 0.4, 0.4],
   };
+}
+
+function defaultClouds(): CloudParams {
+  return { bottom: 2000, top: 8000, coverage: 0.4, density: 0.03, scale: 7000, albedo: [0.95, 0.95, 0.95], windSpeed: 20, seed: 1, storminess: 0.4, bands: 0.1, overcast: 0 };
 }
 
 function cloudParams(rng: Rng, p: PlanetPhysics): CloudParams | undefined {

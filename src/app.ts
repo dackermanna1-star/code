@@ -56,6 +56,17 @@ export class App {
     return sys;
   }
 
+  /** Jump to a catalogued or procedural system by reference id or name and activate it. */
+  visitSystem(nameOrId: string): StarSystem | null {
+    const ref = this.cosmos.knownSystems.find((k) => k.id === nameOrId || k.name.toLowerCase() === nameOrId.toLowerCase());
+    if (!ref) return null;
+    this.world.view.rebase('universe', null);
+    this.world.view.upos.copy(ref.upos).addXYZ(0, 0, 1e12);
+    this.cosmos.update(this.world, this.world.view.toUPos(new UPos()), this.renderer.starField, 0);
+    this.cosmos.activate(this.world, ref);
+    return this.world.system;
+  }
+
   /** The star a body ultimately orbits (nearest star-like ancestor, else the brightest star). */
   hostStar(b: Body): Body {
     let p: Body | null = b.parent;

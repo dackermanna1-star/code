@@ -14,7 +14,7 @@ import { sunIlluminanceAt } from './planetrenderer';
 import { AtmosphereLUTs } from './atmosphere';
 import { AtmospherePass } from './atmospherepass';
 import { RING_SHADOW_GLSL, RingSystem } from './rings';
-import { PRE_EXPOSURE } from './exposure';
+import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
 
 
 const VERT = /* glsl */ `
@@ -56,7 +56,7 @@ uniform float uFlowPeriod;
 uniform vec3 uSunDir[2];
 uniform vec3 uSunIllum[2];
 uniform vec3 uCenter;
-uniform float uPreExposure;
+${PRE_EXPOSURE_GLSL}
 varying vec3 vObj;
 varying vec3 vWorldPos;
 varying vec3 vWorldN;
@@ -147,6 +147,7 @@ export class GasGiantRenderer {
   rings: RingSystem | null = null;
   atmosphereVisible = false;
   occluders: THREE.Vector4[] = [];
+  flattening = 0;
 
   constructor(readonly body: Body, private renderer: THREE.WebGLRenderer) {
     const gg = body.planet!.gasGiant!;
@@ -176,7 +177,7 @@ export class GasGiantRenderer {
         uOcc: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] },
         uOccCount: { value: 0 },
         ...RingSystem.shadowUniforms(),
-        uPreExposure: PRE_EXPOSURE,
+        tPreExposure: PRE_EXPOSURE_TEX,
       },
     });
     // oblate (rotational flattening ~ up to 10%)
@@ -186,6 +187,7 @@ export class GasGiantRenderer {
     const period = Math.abs(body.rotation.period) || 36000;
     const flat = Math.min(0.1, (4 * Math.PI ** 2 * R ** 3) / (period ** 2 * body.mu) * 0.6);
     this.mesh.scale.set(R, R * (1 - flat), R);
+    this.flattening = flat;
     this.group.add(this.mesh);
     if (body.planet!.rings) {
       this.rings = new RingSystem(body);
@@ -235,6 +237,8 @@ export class GasGiantRenderer {
         au.uFar.value = ctx.camera.far;
         au.uFrame.value = ctx.frame % 64;
         au.uSteps.value = Math.max(8, ctx.quality.atmSteps >> 1);
+        au.uAxis.value.set(0, 1, 0).applyQuaternion(rot);
+        au.uOblate.value = 1 / (1 - this.flattening) - 1;
         for (let k = 0; k < 2; k++) {
           au.uSunDir.value[k].copy(u.uSunDir.value[k]);
           au.uSunIllum.value[k].copy(u.uSunIllum.value[k]);

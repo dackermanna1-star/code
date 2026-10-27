@@ -9,7 +9,7 @@
  */
 import * as THREE from 'three';
 import { FullscreenPass, FS_VERT, hdrTarget } from './fullscreen';
-import { PRE_EXPOSURE } from './exposure';
+import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
 
 export interface PipelineSettings {
   renderScale: number;
@@ -43,7 +43,7 @@ const LUM_FRAG = /* glsl */ `
 // disc) barely move a log average. Stored in scene units (log2) – half-float safe.
 uniform sampler2D tColor;
 uniform sampler2D tAdapt;
-uniform float uPreExposure;
+${PRE_EXPOSURE_GLSL}
 varying vec2 vUv;
 void main() {
   float e = max(texture(tAdapt, vec2(0.5)).r, 1e-4);
@@ -56,7 +56,8 @@ void main() {
   vec2 d = vUv - 0.5;
   float w = exp(-dot(d, d) * 3.0);
   float lit = l * e > 1e-3 ? 1.0 : 0.0;
-  gl_FragColor = vec4(log2(max(l, 1e-12)) * lit * w, lit * w, w, 1.0);
+  // alpha: highlight-clamped linear luminance (a small sun can't dominate)
+  gl_FragColor = vec4(log2(max(l, 1e-12)) * lit * w, lit * w, w, min(l, 8.0 / e) * w);
 }
 `;
 
@@ -66,13 +67,16 @@ uniform sampler2D tPrev;
 uniform float uDt, uSpeed, uMin, uMax, uComp, uInit, uManual, uAuto;
 varying vec2 vUv;
 void main() {
-  vec3 s = textureLod(tLum, vec2(0.5), 6.0).rgb;
+  vec4 s = textureLod(tLum, vec2(0.5), 6.0);
   float prev = texture(tPrev, vec2(0.5)).r;
   float litW = s.g / max(s.b, 1e-6);
   float avgLog = s.r / max(s.g, 1e-9);
-  float avg = exp2(avgLog);
+  float mean = s.a / max(s.b, 1e-6);
+  // log-average of lit pixels, but never darker than the clamped arithmetic mean:
+  // a bright planet against a faintly glowing sky is exposed for the planet
+  float avg = max(exp2(avgLog), mean * 1.2);
   // nothing lit at all → open up fully (dark adaptation)
-  float target = litW < 1e-4 ? uMax : 0.14 / max(avg, 1e-14);
+  float target = litW < 1e-4 && mean < 1e-14 ? uMax : 0.14 / max(avg, 1e-14);
   target = clamp(target, uMin, uMax) * exp2(uComp);
   if (uAuto < 0.5) target = uManual * exp2(uComp);
   float e;
@@ -128,7 +132,7 @@ uniform float uVignette;
 uniform vec2 uTexel;
 uniform float uFxaa;
 uniform float uTime;
-uniform float uPreExposure;
+${PRE_EXPOSURE_GLSL}
 varying vec2 vUv;
 
 // AgX (Troy Sobotka) – polynomial approximation (Benjamin Wrensch)
@@ -238,7 +242,7 @@ export class RenderPipeline {
   constructor(readonly renderer: THREE.WebGLRenderer) {
     const mk = (frag: string, uniforms: Record<string, THREE.IUniform>) =>
       new THREE.ShaderMaterial({ vertexShader: FS_VERT, fragmentShader: frag, uniforms, depthTest: false, depthWrite: false });
-    this.lumMat = mk(LUM_FRAG, { tColor: { value: null }, tAdapt: { value: null }, uPreExposure: PRE_EXPOSURE });
+    this.lumMat = mk(LUM_FRAG, { tColor: { value: null }, tAdapt: { value: null }, tPreExposure: PRE_EXPOSURE_TEX });
     this.adaptMat = mk(ADAPT_FRAG, {
       tLum: { value: null }, tPrev: { value: null }, uDt: { value: 0 }, uSpeed: { value: 1 }, uMin: { value: 0.1 }, uMax: { value: 100 },
       uComp: { value: 0 }, uInit: { value: 1 }, uManual: { value: 1 }, uAuto: { value: 1 },
@@ -247,7 +251,7 @@ export class RenderPipeline {
     this.upMat = mk(UP_FRAG, { tSrc: { value: null }, tBase: { value: null }, uTexel: { value: new THREE.Vector2() }, uRadius: { value: 1 } });
     this.compMat = mk(COMPOSITE_FRAG, {
       tColor: { value: null }, tBloom: { value: null }, tAdapt: { value: null }, uBloom: { value: 0.05 }, uVignette: { value: 0.2 },
-      uTexel: { value: new THREE.Vector2() }, uFxaa: { value: 1 }, uTime: { value: 0 }, uPreExposure: PRE_EXPOSURE,
+      uTexel: { value: new THREE.Vector2() }, uFxaa: { value: 1 }, uTime: { value: 0 }, tPreExposure: PRE_EXPOSURE_TEX,
     });
     this.copyMat = mk(COPY_FRAG, { tSrc: { value: null } });
     this.addMat = new THREE.ShaderMaterial({ vertexShader: FS_VERT, fragmentShader: COPY_FRAG, uniforms: { tSrc: { value: null } },
@@ -303,6 +307,8 @@ export class RenderPipeline {
   /** Render the main scene into the HDR target. */
   beginFrame(scene: THREE.Scene, camera: THREE.Camera) {
     const r = this.renderer;
+    // shaders pre-expose with last frame's adapted exposure
+    PRE_EXPOSURE_TEX.value = this.adaptRT[this.adaptIdx].texture;
     r.setRenderTarget(this.sceneRT);
     r.setClearColor(0x000000, 1);
     r.clear(true, true, true);
@@ -417,20 +423,31 @@ export class RenderPipeline {
     this.readbackExposure(next);
   }
 
-  private readbackPending = false;
+  private readbackPending = 0;
   private readBuf = new Float32Array(4);
-  /** Asynchronously fetch the adapted exposure to use as next frames' pre-exposure. */
+  /** CPU copy of the exposure for built-in materials (lights scaled on the CPU); not used by our shaders. */
   private readbackExposure(rt: THREE.WebGLRenderTarget) {
-    if (this.readbackPending) return;
-    this.readbackPending = true;
+    const gl = this.renderer.getContext() as WebGL2RenderingContext;
+    if (this.readbackPending > 0) {
+      // some drivers never signal the fence: fall back to a cheap sync read occasionally
+      if (++this.readbackPending > 90) {
+        gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+        this.renderer.readRenderTargetPixels(rt, 0, 0, 1, 1, this.readBuf);
+        if (this.readBuf[0] > 0 && isFinite(this.readBuf[0])) PRE_EXPOSURE.value = this.readBuf[0];
+        this.readbackPending = 0;
+      }
+      return;
+    }
+    this.readbackPending = 1;
     this.renderer.readRenderTargetPixelsAsync(rt, 0, 0, 1, 1, this.readBuf).then(
       (b) => {
-        this.readbackPending = false;
+        this.readbackPending = 0;
         const e = (b as Float32Array)[0];
         if (e > 0 && isFinite(e)) PRE_EXPOSURE.value = e;
       },
-      () => { this.readbackPending = false; },
+      () => { this.readbackPending = 0; },
     );
+    gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
   }
 
   /** The 1×1 adapted-exposure texture (r = exposure multiplier, g = average luminance). */

@@ -14,7 +14,7 @@ import { ensureDensity } from '../astro/galaxy';
 import { blackbodyRGB } from '../astro/stellar';
 import { LY, SOLAR_CONSTANT, SOLAR_LUMINOSITY } from '../core/constants';
 import type { UPos } from '../core/upos';
-import { PRE_EXPOSURE } from './exposure';
+import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
 
 
 const K = SOLAR_LUMINOSITY / (4 * Math.PI) / SOLAR_CONSTANT / (LY * LY);
@@ -25,7 +25,7 @@ const VERT = /* glsl */ `
 attribute float lumV;
 attribute vec3 color;
 uniform float uPixelAngle;
-uniform float uPreExposure;
+${PRE_EXPOSURE_GLSL}
 uniform float uBoost;
 uniform float uRange;      // ly: this level's load range (fade at edge)
 uniform float uK;
@@ -117,7 +117,7 @@ export class StarField {
         vertexShader: VERT,
         fragmentShader: FRAG,
         uniforms: {
-          uPixelAngle: { value: 0.001 }, uPreExposure: PRE_EXPOSURE, uBoost: { value: 1 }, uRange: { value: LEVEL_RANGE[L] },
+          uPixelAngle: { value: 0.001 }, tPreExposure: PRE_EXPOSURE_TEX, uBoost: { value: 1 }, uRange: { value: LEVEL_RANGE[L] },
           uK: { value: K }, uLy: { value: LY }, uHide: { value: new THREE.Vector3(1e9, 0, 0) }, uHideR: { value: 0 },
           uCamG: { value: new THREE.Vector3() }, uWorldToG: { value: new THREE.Matrix3() }, uDustTau: { value: 0 }, uDustH: { value: 300 },
           uMinSize: { value: 2.4 },
