@@ -9,6 +9,7 @@ import dev.visceral.entity.VisceralEntity;
 import dev.visceral.net.Payloads;
 import dev.visceral.net.ServerNet;
 import dev.visceral.registry.VisceralRegistry;
+import dev.visceral.registry.VisceralTags;
 import dev.visceral.state.BloodType;
 import dev.visceral.state.BodyRegion;
 import dev.visceral.state.WoundType;
@@ -37,6 +38,7 @@ public final class ImpactSystem {
 	public static void onDamaged(LivingEntity target, DamageSource source, float damage) {
 		if (target.level().isClientSide() || damage <= 0) return;
 		if (source.is(VisceralRegistry.BLEEDING) || source.is(VisceralRegistry.WALL_SLAM)) return;
+		if (target.getType().is(VisceralTags.NO_PHYSICS)) return;
 		CommonConfig cfg = CommonConfig.get();
 		boolean fatal = target.isDeadOrDying();
 		CombatContext ctx = CombatContext.forTarget(target);

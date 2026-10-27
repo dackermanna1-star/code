@@ -3,6 +3,19 @@
 	"package": "dev.visceral.mixin.client",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
+		"AgeableMobRendererAccessor",
+		"CameraMixin",
+		"ClientInputAccessor",
+		"GameRendererMixin",
+		"ItemInHandLayerMixin",
+		"KeyboardInputMixin",
+		"LevelRendererMixin",
+		"LivingEntityClientMixin",
+		"LivingEntityRendererMixin",
+		"MinecraftMixin",
+		"ModelFeatureRendererMixin",
+		"ModelPartAccessor",
+		"MouseHandlerMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

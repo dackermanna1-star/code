@@ -247,7 +247,7 @@ public final class BalanceSystem {
 			case STAGGERED -> tickStagger(e, cs);
 			case FALLING -> {
 				checkSlam(e, cs);
-				if ((cs.stateTicks >= 6 && (e.onGround() || e.isInWater())) || cs.stateTicks >= cs.stateDuration + 40) {
+				if ((cs.stateTicks >= 6 && (e.onGround() || e.isInWater())) || cs.stateTicks >= cs.stateDuration + 20) {
 					enterDowned(e, cs, cs.force, false);
 				}
 			}
@@ -266,18 +266,18 @@ public final class BalanceSystem {
 	}
 
 	private static void tickStagger(LivingEntity e, CombatState cs) {
-		cs.imbX *= 0.88;
-		cs.imbZ *= 0.88;
+		cs.imbX *= 0.84;
+		cs.imbZ *= 0.84;
 		cs.balance = Math.min(1f, cs.balance + 0.035f);
 		double imb = Math.sqrt(cs.imbX * cs.imbX + cs.imbZ * cs.imbZ);
 		Vec3 dir = imb > 1e-4 ? new Vec3(cs.imbX / imb, 0, cs.imbZ / imb) : Vec3.ZERO;
 		if (--cs.stepCooldown <= 0 && imb > 0.2 && e.onGround()) {
 			// A catching step: the feet chase the centre of mass.
-			double step = Math.min(0.17, 0.05 + 0.055 * imb);
+			double step = Math.min(0.12, 0.035 + 0.04 * imb);
 			Vec3 v = e.getDeltaMovement();
 			e.setDeltaMovement(v.x + dir.x * step, v.y, v.z + dir.z * step);
 			e.hurtMarked = true;
-			cs.stepCooldown = 5;
+			cs.stepCooldown = 6;
 			if (nearLedge(e, dir) && imb > 0.45) {
 				startFalling(e, cs, dir, (float) imb + 1f);
 				return;

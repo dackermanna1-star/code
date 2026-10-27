@@ -47,7 +47,6 @@ public final class WoundSystem {
 			default -> (float) Mth.clamp((0.40 - h) / 0.40, 0.1, 0.9);
 		};
 		float u = (float) Mth.clamp(0.5 + lat * (region == BodyRegion.TORSO ? 0.55 : 0.35), 0.12, 0.88);
-		if (face == 1) u = 1 - u;
 		if (face >= 2) u = 0.25f + e.getRandom().nextFloat() * 0.5f;
 		int rotation = e.getRandom().nextInt(360);
 		Wound wound = new Wound(region, type, face, u, v, severity, rotation, e.level().getGameTime());
