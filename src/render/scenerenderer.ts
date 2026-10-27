@@ -13,6 +13,8 @@ import { BeltRenderer } from './belts';
 import { StarField } from './starfield';
 import { GalaxyRenderer } from './galaxyrenderer';
 import type { Cosmos } from '../sim/cosmos';
+import { ShipRenderer } from './shipmodels';
+import type { Ship } from '../sim/ship';
 import { TerrainWorkerPool } from '../terrain/workerpool';
 import type { World } from '../sim/world';
 import type { Body, StarSystem } from '../astro/body';
@@ -55,6 +57,8 @@ export class SceneRenderer {
   readonly galaxies: GalaxyRenderer;
   readonly galaxyScene = new THREE.Scene();
   cosmos: Cosmos | null = null;
+  shipRenderer: ShipRenderer | null = null;
+  ship: Ship | null = null;
   readonly bodyPoints: PointSprites;
   quality: QualitySettings = { ...QUALITY_PRESETS.high };
   private system: StarSystem | null = null;
@@ -266,6 +270,7 @@ export class SceneRenderer {
       this.galaxies.update(cosmos.galaxies, this.camUPos, _q.copy(ctx.camQuat), ctx.pixelAngle, this.frame, this.pipeline.depthTexture,
         Math.ceil(this.pipeline.width / 2), Math.ceil(this.pipeline.height / 2), cosmos.current);
     }
+    this.updateShip(world, suns);
     if (!draw) return;
     this.pipeline.beginFrame(this.scene, cam);
     if (this.galaxies.group.children.length) this.pipeline.overlayHalfRes(this.galaxyScene, cam);
@@ -277,6 +282,72 @@ export class SceneRenderer {
     for (const p of atm) this.pipeline.composite(p.atmPass!.material);
     if (this.overlayScene.children.length) this.pipeline.overlay(this.overlayScene, cam);
     this.pipeline.endFrame(dt);
+  }
+
+  private updateShip(world: World, suns: SunLight[]) {
+    const ship = this.ship;
+    if (!ship) {
+      if (this.shipRenderer) { this.scene.remove(this.shipRenderer.root); this.shipRenderer = null; }
+      return;
+    }
+    if (!this.shipRenderer || this.shipRenderer.cls !== ship.spec.cls) {
+      if (this.shipRenderer) this.scene.remove(this.shipRenderer.root);
+      this.shipRenderer = new ShipRenderer(ship.spec.cls);
+      this.scene.add(this.shipRenderer.root);
+    }
+    const sr = this.shipRenderer;
+    // camera-relative position (precise when ship and camera share a frame body)
+    const rel = _v;
+    const view = world.view;
+    if (ship.frame.body && view.body === ship.frame.body) rel.copy(ship.frame.offsetWorld(_v2)).sub(view.offsetWorld(new THREE.Vector3()));
+    else ship.frame.toUPos(_u).sub(this.camUPos, rel);
+    sr.root.position.copy(rel);
+    sr.model.group.quaternion.copy(ship.orient);
+    // lighting from stars, sky and planetshine
+    const E1 = new THREE.Vector3(), d1 = new THREE.Vector3(), E2 = new THREE.Vector3(), d2 = new THREE.Vector3();
+    const sky = new THREE.Color(0, 0, 0), ground = new THREE.Color(0, 0, 0);
+    if (suns[0]) {
+      d1.copy(suns[0].rel).sub(rel);
+      const dist = d1.length();
+      d1.divideScalar(dist);
+      const E = suns[0].luminosity / (4 * Math.PI * dist * dist) / SOLAR_CONSTANT;
+      E1.set(suns[0].color[0] * E, suns[0].color[1] * E, suns[0].color[2] * E);
+      const b = ship.frame.body;
+      if (b && b.planet) {
+        const off = ship.frame.offsetWorld(new THREE.Vector3());
+        const up = off.clone().normalize();
+        const cosS = up.dot(d1);
+        const alt = off.length() - b.radius;
+        // planet shadow
+        const sinH = b.radius / Math.max(off.length(), b.radius);
+        if (cosS < -Math.sqrt(Math.max(0, 1 - sinH * sinH))) E1.set(0, 0, 0);
+        const atm = b.planet.atmosphere;
+        const pressure = atm ? atm.pressure * Math.exp(-Math.max(alt, 0) / (atm.scaleHeight || 8000)) : 0;
+        if (pressure > 1e-4) {
+          const tau = Math.min(8, pressure * 0.12 / Math.max(cosS, 0.05));
+          E1.multiply(new THREE.Vector3(Math.exp(-tau * 0.4), Math.exp(-tau * 0.7), Math.exp(-tau * 1.4)));
+          sky.setRGB(E * 0.04 * Math.min(1, pressure), E * 0.06 * Math.min(1, pressure), E * 0.1 * Math.min(1, pressure)).multiplyScalar(Math.max(0, cosS + 0.1));
+        }
+        const albedo = b.planet.albedo;
+        const view = Math.max(0, b.radius / Math.max(off.length(), b.radius));
+        ground.setRGB(E * albedo * 0.3, E * albedo * 0.28, E * albedo * 0.25).multiplyScalar(Math.max(0, cosS) * view);
+      }
+    }
+    if (suns[1]) {
+      d2.copy(suns[1].rel).sub(rel);
+      const dist = d2.length();
+      d2.divideScalar(dist);
+      const E = suns[1].luminosity / (4 * Math.PI * dist * dist) / SOLAR_CONSTANT;
+      E2.set(suns[1].color[0] * E, suns[1].color[1] * E, suns[1].color[2] * E);
+    }
+    sr.setLighting(d1, E1, suns[1] ? d2 : null, suns[1] ? E2 : null, sky, ground);
+    const air = ship.atmo.pressure / 1e5;
+    const flow = ship.velocity.lengthSq() > 1 ? ship.velocity.clone().normalize() : new THREE.Vector3(0, 0, -1);
+    sr.update(world.time, ship.engineLevel, air * 3, ship.heatGlow, flow, ship.gearDown);
+    // FTL screen effects
+    const j = ship.jump;
+    this.pipeline.ftl.tunnel = j.phase === 'tunnel' ? Math.min(1, j.t * 2, (j.duration - j.t) * 2 + 0.2) : j.phase === 'charging' ? Math.min(0.3, j.t * 0.1) : j.phase === 'exit' ? Math.max(0, 1 - j.t) : 0;
+    this.pipeline.ftl.streak = ship.warp.active ? Math.min(1, Math.log10(1 + ship.warp.speed / 3e6) / 3) : 0;
   }
 
   private occludersFor(b: Body, rel: THREE.Vector3, sys: StarSystem): THREE.Vector4[] {

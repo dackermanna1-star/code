@@ -180,8 +180,8 @@ export class SurfaceGenerator {
     const mMask = Math.max(orogeny * p.plates, p.mountains > 0.01 ? p.mountains * sstep(0.05, 0.45, fbm(x * 2.2, y * 2.2, z * 2.2, s[9], 3)) : 0);
     if (mMask > 0.01) {
       const mf = 18;
-      let oct = 0;
-      for (let f = mf; f < fMax && oct < 7; f *= 2) oct++;
+      // fractional octave count: the finest octave fades in across LOD levels
+      const oct = Math.min(7, Math.max(0, Math.log2(fMax / mf) - 0.0));
       if (oct > 0) {
         const r = ridged(x * mf, y * mf, z * mf, s[10], oct, 2.03, 0.5, 2.2);
         h += mMask * Rr * 1.15 * r * r;
@@ -192,8 +192,7 @@ export class SurfaceGenerator {
     // ---- hills / eroded relief everywhere above the base
     if (p.hills > 0.001) {
       const hf = 60;
-      let oct = 0;
-      for (let f = hf; f < fMax && oct < 5; f *= 2) oct++;
+      const oct = Math.min(5, Math.max(0, Math.log2(fMax / hf)));
       if (oct > 0) {
         const e = erodedFbm(x * hf, y * hf, z * hf, s[11], oct, 1.2 + p.erosion * 3, 0.5);
         h += p.hills * Rr * 0.18 * e;
@@ -304,11 +303,12 @@ export class SurfaceGenerator {
         // large draa + mid dunes
         for (let i = 0; i < 2; i++) {
           const f = i === 0 ? Rp / 1400 : Rp / 260;
-          if (Rp / f < lambdaMin * 2) break;
+          const fadeD = sstep(lambdaMin * 2, lambdaMin * 4, Rp / f);
+          if (fadeD <= 0) break;
           const ph = along * f + wv * (i === 0 ? 3 : 6) + noise3(x * f * 0.15, y * f * 0.15, z * f * 0.15, s[27] + i) * 2;
           const fr = ph - Math.floor(ph);
           const prof = fr < 0.75 ? fr / 0.75 : (1 - fr) / 0.25; // gentle stoss, steep lee
-          dsum += (prof * prof * (3 - 2 * prof)) * (i === 0 ? 1 : 0.35) * (Rp / f) * 0.06;
+          dsum += (prof * prof * (3 - 2 * prof)) * (i === 0 ? 1 : 0.35) * (Rp / f) * 0.06 * fadeD;
         }
         h += dsum * duneAmt;
         rock -= duneAmt * 1.2;
@@ -382,7 +382,9 @@ export class SurfaceGenerator {
     for (let oct = 0; oct < 22; oct++, cs *= 0.5) {
       const cellM = cs * R;
       if (cellM * 0.28 < minR) break;            // atmosphere burns up small impactors
-      if (1 / cs > fMax * 0.7) break;           // finer than LOD can represent
+      // fade each size class in over one LOD level instead of switching it on abruptly
+      const lodFade = 1 - sstep(fMax * 0.35, fMax * 0.7, 1 / cs);
+      if (lodFade <= 0) break;
       const inv = 1 / cs;
       const gx = x * inv - 0.5, gy = y * inv - 0.5, gz = z * inv - 0.5;
       const bx = Math.floor(gx), by = Math.floor(gy), bz = Math.floor(gz);
@@ -426,7 +428,7 @@ export class SurfaceGenerator {
               const e = d - 1;
               c = rimH * Math.exp(-e * e / 0.02) + rimH * 0.35 * Math.pow(1 / d, 3) * sstep(2.2, 1.6, d);
             }
-            total += c;
+            total += c * lodFade;
             const fresh = 1 - age;
             if (d < 1.2) unitAcc += 0.25 * fresh * sstep(1.2, 0.8, d);
             else if (fresh > 0.7 && oct > 2) {

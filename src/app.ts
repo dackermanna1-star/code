@@ -11,6 +11,8 @@ import { Cosmos } from './sim/cosmos';
 import { LY } from './core/constants';
 import { galaxyToUPos } from './astro/galaxy';
 import type { Body, StarSystem } from './astro/body';
+import { Player } from './sim/player';
+import { formatDistance, formatSpeed } from './core/mathutil';
 
 export class App {
   readonly renderer: SceneRenderer;
@@ -19,6 +21,7 @@ export class App {
   readonly spectator: SpectatorController;
   readonly hud: Hud;
   readonly cosmos: Cosmos;
+  readonly player: Player;
   private last = performance.now();
   private fps = 60;
   running = true;
@@ -35,6 +38,11 @@ export class App {
     this.renderer.cosmos = this.cosmos;
     this.cosmos.onSystemChange = (sys) => this.renderer.setSystem(sys);
     this.spectator.farSpeedRef = () => this.cosmos.speedReference(this.world.view.toUPos(new UPos()), this.renderer.starField);
+    this.player = new Player(this.world, this.input, this.spectator);
+    this.player.onModeChange = (m) => {
+      if (m !== 'spectator') this.input.requestPointerLock();
+      if (this.player.ship && this.renderer.shipRenderer) this.player.cockpitOffset.copy(this.renderer.shipRenderer.model.cockpit);
+    };
     // start in interstellar space near the Sun's position in the Milky Way
     const u = this.cosmos.universe;
     const start = galaxyToUPos(u.home, u.sunLocal.x + 3, u.sunLocal.y + 1, u.sunLocal.z + 2);
@@ -157,16 +165,70 @@ export class App {
     this.last = now;
     this.fps += (1 / Math.max(dt, 1e-3) - this.fps) * 0.05;
     this.input.pollGamepad();
+    this.handleGlobalKeys();
     this.world.advance(dt);
     this.cosmos.update(this.world, this.world.view.toUPos(new UPos()), this.renderer.starField, this.frameNo);
-    this.spectator.update(dt);
+    this.player.update(dt);
+    this.renderer.ship = this.player.ship;
+    if (this.player.ship && this.renderer.shipRenderer) this.player.cockpitOffset.copy(this.renderer.shipRenderer.model.cockpit);
+    if (this.player.message) this.hud.toast(this.player.message, 2.5);
     this.frameNo++;
     this.renderer.render(this.world, dt, this.frameNo % this.drawEvery === 0);
     this.updateHud();
     this.input.endFrame();
   }
 
+  private handleGlobalKeys() {
+    const i = this.input, w = this.world;
+    if (i.pressed('timeFaster')) { w.timeScale = Math.min(1e7, w.timeScale * 10); w.paused = false; this.hud.toast(`Time ×${w.timeScale}`); }
+    if (i.pressed('timeSlower')) { w.timeScale = Math.max(1, w.timeScale / 10); this.hud.toast(`Time ×${w.timeScale}`); }
+    if (i.pressed('timeReal')) { w.timeScale = 1; w.paused = false; this.hud.toast('Real-time'); }
+    if (i.pressed('timePause')) { w.paused = !w.paused; this.hud.toast(w.paused ? 'Paused' : 'Resumed'); }
+    if (i.pressed('hideUI')) this.ui.classList.toggle('hidden');
+    if (i.pressed('mouseLook')) { if (i.pointerLocked) i.exitPointerLock(); else i.requestPointerLock(); }
+  }
+
   private updateHud() {
+    const pl = this.player;
+    if (pl.mode === 'ship' && pl.ship) {
+      const sh = pl.ship;
+      const b = sh.frame.body;
+      const o = sh.orbit;
+      const orbitTxt = o && o.e < 1 && b ? `Ap ${formatDistance(o.a * (1 + o.e) - b.radius)} · Pe ${formatDistance(o.a * (1 - o.e) - b.radius)}` : '';
+      this.hud.update({
+        mode: `${sh.spec.name}${sh.warp.active ? ' · WARP' : ''}${sh.jump.phase !== 'idle' ? ' · HYPERSPACE' : ''}`,
+        frame: b ? `${sh.landed ? 'landed' : 'flying'} · ${b.displayName}` : 'interstellar',
+        speed: sh.warp.active ? sh.warp.speed : sh.velocity.length(),
+        altitude: sh.altitude,
+        gravity: b ? b.mu / Math.max(sh.frame.offsetWorld(new THREE.Vector3()).lengthSq(), 1) : 0,
+        target: `thr ${(sh.throttle * 100).toFixed(0)}% · V/S ${formatSpeed(sh.verticalSpeed)}`,
+        targetDist: NaN,
+        timeScale: this.world.paused ? 0 : this.world.timeScale,
+        date: new Date(Date.UTC(2000, 0, 1, 12) + this.world.time * 1000).toISOString().slice(0, 16).replace('T', ' '),
+        fps: this.fps,
+        extra: `${sh.opts.flightAssist ? 'FA' : 'fa-off'} ${sh.hoverAssist ? 'HOVER' : ''} ${sh.gearDown ? 'GEAR' : ''} ${sh.autopilot.mode !== 'none' ? 'AP:' + sh.autopilot.mode : ''} · ${sh.gForce.toFixed(1)} g${sh.heatGlow > 0.05 ? ' · heat ' + (sh.atmo.heating / 1e6).toFixed(1) + ' MW/m²' : ''}${orbitTxt ? ' · ' + orbitTxt : ''}`,
+      });
+      return;
+    }
+    if (pl.mode === 'walk') {
+      const wk = pl.walker;
+      const b = wk.body!;
+      const P = b.planet?.atmosphere?.pressure ?? 0;
+      this.hud.update({
+        mode: wk.swimming ? `Swimming (${wk.liquid})` : 'On foot',
+        frame: b.displayName,
+        speed: wk.vel.length(),
+        altitude: NaN,
+        gravity: wk.gravity,
+        target: `jump ≈ ${((3.2 * 3.2) / (2 * Math.max(wk.gravity, 0.01))).toFixed(1)} m`,
+        targetDist: NaN,
+        timeScale: this.world.paused ? 0 : this.world.timeScale,
+        date: new Date(Date.UTC(2000, 0, 1, 12) + this.world.time * 1000).toISOString().slice(0, 16).replace('T', ' '),
+        fps: this.fps,
+        extra: `${P > 0 ? P.toPrecision(3) + ' bar' : 'vacuum'} · ~${(b.planet?.tempMean ?? 0).toFixed(0)} K · slope ${(wk.slope * 57.3).toFixed(0)}°`,
+      });
+      return;
+    }
     const s = this.spectator;
     const b = s.nearestBody;
     let g = 0;

@@ -53,7 +53,7 @@ export class Hud {
     this.cells.speed.textContent = formatSpeed(s.speed);
     this.cells.alt.textContent = isFinite(s.altitude) ? formatDistance(s.altitude) : '—';
     this.cells.grav.textContent = s.gravity > 0 ? `${s.gravity.toFixed(2)} m/s²` : '—';
-    this.cells.target.textContent = s.target ? `${s.target} · ${formatDistance(s.targetDist)}` : 'none';
+    this.cells.target.textContent = s.target ? (isFinite(s.targetDist) ? `${s.target} · ${formatDistance(s.targetDist)}` : s.target) : 'none';
     this.cells.frame.textContent = s.frame;
   }
 

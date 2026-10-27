@@ -97,15 +97,21 @@ export function fbm(x: number, y: number, z: number, seed: number, octaves: numb
   return sum / norm;
 }
 
-/** Ridged multifractal in [0, 1] (sharp crests), with crest-weighted detail. */
+/**
+ * Ridged multifractal in [0, 1] (sharp crests), with crest-weighted detail.
+ * `octaves` may be fractional: the last octave is faded in, so LOD levels that
+ * differ by one octave join without cracks.
+ */
 export function ridged(x: number, y: number, z: number, seed: number, octaves: number, lacunarity = 2.0, gain = 0.5, sharp = 2.0): number {
   let sum = 0, amp = 0.5, f = 1, weight = 1, norm = 0;
-  for (let i = 0; i < octaves; i++) {
+  const n0 = Math.ceil(octaves);
+  for (let i = 0; i < n0; i++) {
+    const w = Math.min(1, octaves - i);
     let n = 1 - Math.abs(noise3(x * f, y * f, z * f, seed + i * 7919));
     n = Math.pow(n, sharp) * weight;
     weight = Math.min(1, n * 2);
-    sum += n * amp;
-    norm += amp;
+    sum += n * amp * w;
+    norm += amp * w; // weighted normalisation keeps the result continuous in `octaves`
     amp *= gain;
     f *= lacunarity;
   }
@@ -119,12 +125,14 @@ export function ridged(x: number, y: number, z: number, seed: number, octaves: n
  */
 export function erodedFbm(x: number, y: number, z: number, seed: number, octaves: number, erosion = 1.0, gain = 0.5): number {
   let sum = 0, amp = 1, f = 1, dx = 0, dy = 0, dz = 0, norm = 0;
-  for (let i = 0; i < octaves; i++) {
+  const n0 = Math.ceil(octaves);
+  for (let i = 0; i < n0; i++) {
+    const w = Math.min(1, octaves - i);
     const n = noised(x * f, y * f, z * f, seed + i * 2741);
-    dx += D[0] * amp * f; dy += D[1] * amp * f; dz += D[2] * amp * f;
+    dx += D[0] * amp * f * w; dy += D[1] * amp * f * w; dz += D[2] * amp * f * w;
     const slope2 = (dx * dx + dy * dy + dz * dz) / (f * f);
-    sum += (amp * n) / (1 + erosion * slope2);
-    norm += amp;
+    sum += (amp * n * w) / (1 + erosion * slope2);
+    norm += amp * w;
     amp *= gain;
     f *= 2.0;
   }

@@ -132,6 +132,8 @@ uniform float uVignette;
 uniform vec2 uTexel;
 uniform float uFxaa;
 uniform float uTime;
+uniform float uStreak;   // warp: radial star streaks 0..1
+uniform float uTunnel;   // hyperspace tunnel 0..1
 ${PRE_EXPOSURE_GLSL}
 varying vec2 vUv;
 
@@ -164,6 +166,26 @@ vec3 toSRGB(vec3 c) {
 vec3 hdr(vec2 uv) {
   float e = texture(tAdapt, vec2(0.5)).r / uPreExposure;
   vec3 c = texture(tColor, uv).rgb + texture(tBloom, uv).rgb * uBloom;
+  if (uStreak > 0.001) {
+    // radial streaks (speculative warp drive): integrate the image toward the centre
+    vec2 d = uv - 0.5;
+    vec3 acc = c;
+    for (int i = 1; i < 12; i++) {
+      float k = float(i) / 12.0;
+      acc += texture(tColor, 0.5 + d * (1.0 - k * uStreak * 0.35)).rgb * (1.0 - k * 0.6);
+    }
+    c = mix(c, acc / 7.0, uStreak);
+  }
+  if (uTunnel > 0.001) {
+    vec2 d = uv - 0.5;
+    float r = length(d);
+    float a = atan(d.y, d.x);
+    float z = 0.12 / max(r, 0.02) + uTime * 3.0;
+    float rings = 0.5 + 0.5 * sin(z * 6.0 + sin(a * 5.0 + z) * 1.5);
+    float streaks = pow(0.5 + 0.5 * sin(a * 40.0 + z * 0.7), 8.0);
+    vec3 tun = mix(vec3(0.15, 0.3, 0.9), vec3(0.8, 0.9, 1.0), rings) * (0.15 + 1.2 * streaks) * smoothstep(0.02, 0.5, r);
+    c = mix(c, tun / max(e, 1e-12) * 0.3, uTunnel);
+  }
   return c * e;
 }
 float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
@@ -235,6 +257,8 @@ export class RenderPipeline {
   width = 1;
   height = 1;
   settings: PipelineSettings = { ...defaultPipelineSettings };
+  /** speculative-FTL screen effects */
+  ftl = { streak: 0, tunnel: 0 };
   /** The texture holding the current HDR image after composite passes. */
   currentTarget!: THREE.WebGLRenderTarget;
   time = 0;
@@ -251,7 +275,7 @@ export class RenderPipeline {
     this.upMat = mk(UP_FRAG, { tSrc: { value: null }, tBase: { value: null }, uTexel: { value: new THREE.Vector2() }, uRadius: { value: 1 } });
     this.compMat = mk(COMPOSITE_FRAG, {
       tColor: { value: null }, tBloom: { value: null }, tAdapt: { value: null }, uBloom: { value: 0.05 }, uVignette: { value: 0.2 },
-      uTexel: { value: new THREE.Vector2() }, uFxaa: { value: 1 }, uTime: { value: 0 }, tPreExposure: PRE_EXPOSURE_TEX,
+      uTexel: { value: new THREE.Vector2() }, uFxaa: { value: 1 }, uTime: { value: 0 }, uStreak: { value: 0 }, uTunnel: { value: 0 }, tPreExposure: PRE_EXPOSURE_TEX,
     });
     this.copyMat = mk(COPY_FRAG, { tSrc: { value: null } });
     this.addMat = new THREE.ShaderMaterial({ vertexShader: FS_VERT, fragmentShader: COPY_FRAG, uniforms: { tSrc: { value: null } },
@@ -419,6 +443,8 @@ export class RenderPipeline {
     cu.uTexel.value.set(1 / this.width, 1 / this.height);
     cu.uFxaa.value = s.fxaa ? 1 : 0;
     cu.uTime.value = this.time % 100;
+    cu.uStreak.value = this.ftl.streak;
+    cu.uTunnel.value = this.ftl.tunnel;
     this.fs.render(r, null, this.compMat);
     this.readbackExposure(next);
   }
