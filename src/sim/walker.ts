@@ -35,6 +35,7 @@ export class Walker {
   private north = new Vector3(0, 0, 1);
 
   placeAt(body: Body, posBody: Vector3, faceDir?: Vector3) {
+    this.gravity = body.mu / Math.max(posBody.lengthSq(), 1);
     this.body = body;
     this.pos.copy(posBody);
     this.vel.set(0, 0, 0);

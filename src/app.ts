@@ -30,6 +30,8 @@ import { loadRaw, save } from './ui/storage';
 import { SOLAR_SYSTEM_ID } from './astro/known/solarsystem';
 import { Rng } from './core/rng';
 
+const _tv = new THREE.Vector3();
+
 interface AutoSave {
   universe: string;
   location: SavedLocation;
@@ -391,14 +393,15 @@ export class App {
     this.selected = t;
   }
 
-  /** Camera-relative vector to a target (m). */
+  /** Vector from the current viewpoint to a target (m), valid even right after a teleport. */
   targetRel(t: Target, out = new THREE.Vector3()): THREE.Vector3 {
-    if (t.kind === 'body' && t.body!.system === this.world.system) {
-      const rel = this.renderer.bodyRel.get(t.body!.id);
-      if (rel) return out.copy(rel);
-      return this.renderer.relOf(this.world, t.body!, out);
+    const view = this.world.view;
+    if (t.kind === 'body' && t.body!.system === this.world.system && view.body && view.kind !== 'universe') {
+      // body-relative: precise at any distance from the universe origin
+      const b = t.body!, sys = b.system;
+      return sys.relative(view.body, b, out).sub(view.offsetWorld(_tv));
     }
-    return t.position(new UPos()).sub(this.world.view.toUPos(new UPos()), out);
+    return t.position(new UPos()).sub(view.toUPos(new UPos()), out);
   }
 
   goTo(t: Target) {
@@ -676,8 +679,12 @@ export class App {
     if (!blocking && this.input.clicked) this.clickSelect();
     if (this.frameNo % 20 === 0) this.autoDiscover();
     this.updateScan(dt);
-    this.overlay.avoid.length = 0;
-    if (this.selected && this.info.visible) this.overlay.avoid.push(this.info.root.getBoundingClientRect());
+    if (this.frameNo % 15 === 0) {
+      // keep labels clear of panels (re-measured occasionally: layout reads are not free)
+      this.overlay.avoid.length = 0;
+      if (this.selected && this.info.visible) this.overlay.avoid.push(this.info.root.getBoundingClientRect());
+      for (const el of this.hud.root.querySelectorAll('.hud-top > *, .hud-bottom')) this.overlay.avoid.push(el.getBoundingClientRect());
+    }
     this.overlay.draw({
       world: this.world, cosmos: this.cosmos, renderer: this.renderer, player: this.player, selected: this.selected,
       showLabels: this.settings.showLabels, showOrbits: this.settings.showOrbits,
