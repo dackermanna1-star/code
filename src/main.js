@@ -9,6 +9,7 @@ import { Dresser } from './props.js';
 import { Baker, LampController, markClosedDoors, los } from './lighting.js';
 import { DoorSystem } from './doors.js';
 import { buildBeams } from './beams.js';
+import { SprayPaint, SPRAY_COLORS } from './spray.js';
 import { Player } from './player.js';
 import { HUD } from './hud.js';
 import { NOTES, NOTE_COUNT } from './notes.js';
@@ -71,7 +72,7 @@ function resize() {
 }
 
 // ------------------------------------------------------------------ world
-let material, level, doors, player, lamps, chunks, baker, beams;
+let material, level, doors, player, lamps, chunks, baker, beams, spray;
 const notesRead = new Set();
 
 function buildWorld() {
@@ -106,6 +107,7 @@ function buildWorld() {
   doors = new DoorSystem(level, atlas, material, baker, scene);
   lamps = new LampController(level);
   material.uniforms.uLamps.value = lamps.levels;
+  spray = new SprayPaint(level, baker, doors, material, scene);
   beams = buildBeams(level);
   for (const m of beams.meshes) scene.add(m);
   player = new Player(level, doors);
@@ -151,6 +153,9 @@ addEventListener('keydown', (e) => {
     if (e.code === 'KeyF') toggleFlashlight();
     if (e.code === 'KeyE') interact();
     if (e.code === 'Backquote') debugOn = !debugOn;
+    const digit = /^Digit([1-6])$/.exec(e.code);
+    if (digit) pickColor(Number(digit[1]) - 1);
+    if (e.code === 'KeyQ') pickColor(spray.color + 1);
   }
   keys.add(e.code);
   if (['Space', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
@@ -165,10 +170,25 @@ addEventListener('mousemove', (e) => {
   player.pitch -= e.movementY * s * (settings.invertY ? -1 : 1);
   player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch));
 });
+let mouseSpray = false;
 addEventListener('mousedown', (e) => {
   if (state === 'note') closeNote();
   else if (state === 'play' && locked && e.button === 0) interact();
+  else if (state === 'play' && e.button === 2) mouseSpray = true;
 });
+addEventListener('mouseup', (e) => {
+  if (e.button === 2) mouseSpray = false;
+});
+addEventListener('contextmenu', (e) => e.preventDefault());
+addEventListener('wheel', (e) => {
+  if (state === 'play' && spray) pickColor(spray.color + (e.deltaY > 0 ? 1 : -1));
+});
+
+function pickColor(i) {
+  spray.color = ((i % SPRAY_COLORS.length) + SPRAY_COLORS.length) % SPRAY_COLORS.length;
+  hud.showMessage(`SPRAY CAN · ${SPRAY_COLORS[spray.color].name}`, 1.6);
+  audio.play('can_rattle', null, { volume: 0.5 });
+}
 
 document.addEventListener('pointerlockchange', () => {
   locked = document.pointerLockElement === canvas;
@@ -189,6 +209,7 @@ function readInput() {
   input.strafe = (k('KeyD') || k('ArrowRight') ? 1 : 0) - (k('KeyA') || k('ArrowLeft') ? 1 : 0);
   input.sprint = k('ShiftLeft') || k('ShiftRight');
   input.jump = k('Space');
+  input.spray = mouseSpray || k('KeyG');
 }
 
 function requestLock() {
@@ -402,6 +423,7 @@ function updateVisibility() {
     c.mesh.visible = vis;
   }
   for (const m of beams.meshes) m.visible = vertical || m.userData.k === camF;
+  spray.setVisible(camF, vertical);
   doors.setVisibility(cp, FAR);
 }
 
@@ -410,7 +432,7 @@ function simulate(dt) {
   const active = state === 'play';
   if (!active) {
     input.fwd = input.strafe = 0;
-    input.sprint = input.jump = false;
+    input.sprint = input.jump = input.spray = false;
   }
   player.update(dt, input);
   doors.update(dt);
@@ -434,7 +456,30 @@ function simulate(dt) {
       else if (ev.impact > 2) audio.footstep(ev.surface, { speed: 1, crouch: false });
     }
   }
+  updateSpray(dt);
   hud.update(dt);
+}
+
+// spray can: shake before the first burst, hiss while held
+const sprayState = { held: false, idle: 99, painting: false };
+const _eye = new THREE.Vector3();
+const _aim = new THREE.Vector3();
+function updateSpray(dt) {
+  const held = input.spray && !player.ladder;
+  if (held && !sprayState.held && sprayState.idle > 2.5) audio.play('can_rattle');
+  sprayState.held = held;
+  sprayState.idle = held ? 0 : sprayState.idle + dt;
+  let painting = false;
+  if (held) {
+    player.applyCamera(camera);
+    camera.updateMatrixWorld();
+    camera.getWorldPosition(_eye);
+    camera.getWorldDirection(_aim);
+    painting = spray.spray(dt, _eye, _aim);
+  }
+  sprayState.painting = painting;
+  audio.setSpray(held ? (painting ? 1 : 0.8) : 0);
+  hud.spray = held || sprayState.idle < 1.5 ? SPRAY_COLORS[spray.color] : null;
 }
 
 function frameUpdate(dt) {
@@ -521,6 +566,7 @@ function loop(now) {
   }
   if (n === 4) simAcc = 0;
   frameUpdate(STEP * Math.max(1, n));
+  spray.commit();
   renderer.info.reset();
   pipeline.render(scene, camera);
   fpsHist.push(now);
@@ -552,7 +598,7 @@ function boot() {
     $('title').classList.remove('hidden');
     $('start').addEventListener('click', startGame);
     $('resume').addEventListener('click', startGame);
-    window.__game = { level, player, camera, renderer, chunks, doors, lamps, settings, startGame, openNote, state: () => state, hud, flash, beams };
+    window.__game = { level, player, camera, renderer, chunks, doors, lamps, settings, startGame, openNote, state: () => state, hud, flash, beams, spray };
     requestAnimationFrame(loop);
   }, 30);
 }

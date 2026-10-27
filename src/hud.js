@@ -17,6 +17,7 @@ export class HUD {
     this.counter = '';
     this.counterT = 0;
     this.crosshair = 0.5;
+    this.spray = null;
     this.dirty = true;
     this.lastKey = '';
   }
@@ -47,7 +48,7 @@ export class HUD {
     const a = this.areaT > 0 ? Math.min(1, this.areaT / 1.2, (4.5 - this.areaT) / 0.6) : 0;
     const m = this.messageT > 0 ? Math.min(1, this.messageT / 0.6) : 0;
     const c = this.counterT > 0 ? Math.min(1, this.counterT / 0.6) : 0;
-    const key = `${this.prompt}|${this.hint}|${this.message}|${(m * 8) | 0}|${this.area}|${(a * 8) | 0}|${this.counter}|${(c * 8) | 0}|${this.crosshair}`;
+    const key = `${this.prompt}|${this.hint}|${this.message}|${(m * 8) | 0}|${this.area}|${(a * 8) | 0}|${this.counter}|${(c * 8) | 0}|${this.crosshair}|${this.spray ? this.spray.name : ''}`;
     if (key === this.lastKey && !this.dirty) return;
     this.lastKey = key;
     this.dirty = false;
@@ -90,6 +91,17 @@ export class HUD {
     if (msgA > 0) this.text(this.message, W / 2, H - 52, '#e0d8c0', 'center', msgA);
     if (areaA > 0) this.text(this.area, 10, H - 20, '#c8c0a8', 'left', areaA);
     if (cntA > 0) this.text(this.counter, W - 10, 10, '#c8c0a8', 'right', cntA);
+    if (this.spray) {
+      // spray can colour swatch, bottom right
+      const [r, g, b] = this.spray.rgb.map((v) => Math.round(v * 255));
+      ctx.fillStyle = '#000';
+      ctx.fillRect(W - 21, H - 23, 12, 14);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(W - 20, H - 22, 10, 12);
+      ctx.fillStyle = '#9a9488';
+      ctx.fillRect(W - 17, H - 25, 4, 3);
+      this.text(this.spray.name, W - 25, H - 20, '#c8c0a8', 'right');
+    }
     // binarise alpha with an ordered dither: crisp pixels, dissolve fades
     const img = ctx.getImageData(0, 0, W, H);
     const d = img.data;

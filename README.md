@@ -27,9 +27,16 @@ including straight from disk (`file://`).
 | C | Crouch (toggle) |
 | F | Flashlight |
 | E or left click | Open/close doors, read documents |
+| Right mouse or G (hold) | Spray paint on any wall, floor or ceiling |
+| Mouse wheel, 1–6 or Q | Change paint colour |
 | Space | Let go of a ladder |
 | Esc | Pause and settings |
 | `` ` `` | Performance overlay (FPS, draw calls, triangles) |
+
+You carry a can of spray paint, so you can leave your own marks next to everyone
+else's. Paint goes on as speckled, dithered dots and runs if you hold it in one spot.
+It is lit by the same baked light, flashlight and fog as the rest of the world. Each
+floor keeps the most recent 6,000 dots, and paint resets when you reload the page.
 
 On a ladder, W climbs and S descends. Look down and press W to climb down. Strafe
 sideways to step off onto a ledge.
@@ -103,5 +110,6 @@ Toggle jitter, affine warping and dithering in the settings to compare.
 | `src/player.js` | Controller: collision push-out, steps and ramps, ladder, crouch, head bob, footstep surfaces |
 | `src/textures.js` | Procedural texture atlas |
 | `src/audio.js` | Procedural Web Audio: ambience beds, positional drips, buzzing ballasts, wind, machinery, surface footsteps, reverb |
+| `src/spray.js` | Spray paint: ray-marched hits on the floor-plan grid, ring-buffered dot meshes, drips |
 | `src/hud.js` | 240p HUD with dithered text |
 | `src/notes.js` | Document texts |

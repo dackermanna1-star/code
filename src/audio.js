@@ -833,6 +833,18 @@ const SOUNDS = {
     modal(v, t, rand(560, 680), [[1, 1, 0.09], [2.76, 0.55, 0.05], [5.4, 0.28, 0.03], [8.93, 0.12, 0.018]], 0.24);
     nhit(v, t, { kind: 'brown', amp: 0.35, a: 0.002, tau: 0.025, f: [['lowpass', 320]] });
   },
+  can_rattle(v, t) {
+    // the mixing ball knocking around inside an aerosol can
+    const n = randi(5, 8);
+    let tt = 0;
+    for (let i = 0; i < n; i++) {
+      const at = v.at(tt);
+      nhit(v, at, { amp: rand(0.18, 0.3), a: 0.0003, tau: 0.004, f: [['bandpass', rand(2600, 3800), 2]] });
+      modal(v, at, rand(1700, 2100), [[1, 1, 0.03], [2.3, 0.5, 0.02], [3.9, 0.25, 0.012]], rand(0.06, 0.1));
+      nhit(v, at, { kind: 'brown', amp: 0.12, a: 0.001, tau: 0.012, f: [['lowpass', 500]] });
+      tt += rand(0.055, 0.1);
+    }
+  },
   flicker_click(v, t) {
     nhit(v, t, { amp: 0.3, a: 0.0002, tau: 0.0009, f: [['highpass', 3500]] });
     tone(v, t, { f: rand(5600, 6800), amp: 0.04, tau: 0.004 });
@@ -989,6 +1001,7 @@ const SOUND_META = {
   land_hard: { send: 0.45 },
   ladder_step: { send: 0.4 },
   flicker_click: { send: 0.15 },
+  can_rattle: { send: 0.12 },
   distant_creak: { send: 1.0, dry: 0.45 },
   distant_door: { send: 1.0, dry: 0.4 },
   distant_metal: { send: 1.0, dry: 0.45 },
@@ -1545,6 +1558,32 @@ export class AudioSystem {
     const v = renderOneShot(ctx, this._bank, dest, t, name, opts || {});
     this._track(v, nodes);
     return v ? v.end - now : 0;
+  }
+
+  /** Spray-can nozzle hiss: 0 = off, 1 = full. Built lazily, kept looping. */
+  setSpray(level) {
+    if (!this._ready) return;
+    const ctx = this._ctx;
+    if (!this._spray) {
+      if (level <= 0) return;
+      const src = bufSrc(ctx, this._bank.white);
+      const g = mkGain(ctx, 0, this._sfx);
+      const hp = mkFilt(ctx, 'highpass', 1800, 0.7);
+      const bp = mkFilt(ctx, 'bandpass', 6200, 0.6);
+      src.connect(hp);
+      hp.connect(bp);
+      bp.connect(g);
+      g.connect(mkGain(ctx, 0.25, this._revIn));
+      src.start();
+      this._spray = { src, g, bp, level: 0 };
+    }
+    const sp = this._spray;
+    const target = this._paused ? 0 : clamp(level, 0, 1) * 0.22;
+    if (Math.abs(target - sp.level) < 1e-4) return;
+    // fast attack when pressing, short tail when releasing
+    sp.g.gain.setTargetAtTime(target, ctx.currentTime, target > sp.level ? 0.015 : 0.05);
+    if (target > 0) sp.bp.frequency.setTargetAtTime(5600 + Math.random() * 1400, ctx.currentTime, 0.08);
+    sp.level = target;
   }
 
   setMasterVolume(v) {
