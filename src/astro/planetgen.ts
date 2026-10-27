@@ -334,6 +334,11 @@ export function generatePlanet(inp: PlanetInput, ov?: PlanetOverrides): PlanetPh
   if (ov) {
     if (ov.physics) Object.assign(phys, ov.physics);
     if (ov.atmosphere !== undefined) phys.atmosphere = ov.atmosphere;
+    // re-classify from the catalogue values unless a label was given explicitly
+    if ((ov.physics || ov.atmosphere !== undefined) && !ov.physics?.classLabel) {
+      phys.classLabel = classify(phys.type, phys.mass / EARTH_MASS, phys.tempMean, phys.atmosphere?.pressure ?? 0, phys.liquid,
+        phys.liquidCoverage, phys.iceCoverage, phys.composition.carbon, phys.composition.iron, phys.tidallyLocked, phys.life, S, phys.volcanism, inp, phys.radius);
+    }
   }
   // visuals are derived from the (possibly catalogue-overridden) physical state
   const Rf = phys.radius, gf = phys.gravity, Tf = phys.tempMean, atmf = phys.atmosphere, lockf = phys.tidallyLocked;

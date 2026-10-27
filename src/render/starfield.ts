@@ -8,6 +8,7 @@
  * analytically for the host galaxy.
  */
 import * as THREE from 'three';
+import { SPRITE_PROFILE_GLSL } from './points';
 import { LEVELS, LEVEL_RANGE, NEIGHBOUR_RADIUS, SECTOR_SIZE, type SectorStars, type Exclusion } from '../astro/starsectors';
 import type { GalaxyParams } from '../astro/galaxy';
 import { ensureDensity } from '../astro/galaxy';
@@ -39,6 +40,7 @@ uniform float uDustH;      // dust scale height (ly)
 uniform float uMinSize;
 varying vec3 vColor;
 varying float vPeak;
+varying float vSize;
 void main() {
   vec4 wp = modelMatrix * vec4(position, 1.0);
   vec3 rel = wp.xyz / uLy;           // ly
@@ -62,8 +64,9 @@ void main() {
   float omega = uPixelAngle * uPixelAngle;
   float peak = flux / (omega * 2.26);
   float disp = peak * e;
-  float size = clamp(uMinSize * (1.0 + 0.6 * log2(max(disp, 1.0))), uMinSize, 40.0);
-  vPeak = peak * e * (uMinSize * uMinSize) / (size * size);
+  float size = clamp(uMinSize * (1.0 + 0.6 * log2(max(disp, 1.0))), uMinSize, 48.0);
+  vPeak = disp;
+  vSize = size;
   vColor = color * ext;
   gl_PointSize = size;
   if (flux <= 0.0 || disp < 0.002) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -76,11 +79,11 @@ const FRAG = /* glsl */ `
 #include <logdepthbuf_pars_fragment>
 varying vec3 vColor;
 varying float vPeak;
+varying float vSize;
+${SPRITE_PROFILE_GLSL}
 void main() {
   #include <logdepthbuf_fragment>
-  vec2 d = gl_PointCoord - 0.5;
-  float r2 = dot(d, d) * 4.0;
-  float g = exp(-r2 * 4.0) + 0.02 * exp(-r2 * 0.8);
+  float g = spriteProfile(gl_PointCoord, vSize);
   gl_FragColor = vec4(min(vColor * vPeak * g, vec3(6e4)), 1.0);
 }
 `;

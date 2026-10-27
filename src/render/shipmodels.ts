@@ -75,7 +75,7 @@ export function buildShip(cls: ShipClass): ShipModel {
       const w = wing(7.5, 9, 3, 6, 0.35, grey, side);
       w.position.set(side * 1.8, -0.2, -1);
       g.add(w);
-      const fin = wing(2.6, 4, 1.4, 2.2, 0.2, accent, 1);
+      const fin = wing(2.6, 4, 1.4, 2.2, 0.2, accent, side);
       fin.rotation.z = side * 1.2;
       fin.position.set(side * 1.2, 0.8, 5.5);
       g.add(fin);

@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
 const [outDir, scenesFile, W = '960', H = '540'] = process.argv.slice(2);
 const scenes = JSON.parse(fs.readFileSync(scenesFile, 'utf8'));
 fs.mkdirSync(outDir, { recursive: true });
-const url = process.env.COSMOS_URL || 'http://localhost:5173/';
+const url = process.env.COSMOS_URL || 'http://localhost:5173/?test';
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: +W, height: +H } });
 const errors = [];

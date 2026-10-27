@@ -45,6 +45,7 @@ uniform mat3 uWorldToPlanet;
 uniform float uCloudBottom, uCloudTop, uCloudDensity, uCloudScale, uCloudTime, uCloudDrift, uCloudOvercast;
 uniform vec3 uCloudAlbedo;
 uniform int uCloudSteps;
+uniform float uPixelAngle;
 #endif
 varying vec2 vUv;
 
@@ -91,7 +92,7 @@ void integrate(vec3 ro, vec3 rd, float ta, float tb, int n, float jit, inout vec
 
 #ifdef CLOUDS
 vec3 rotY(vec3 v, float a) { float c = cos(a), s = sin(a); return vec3(c * v.x + s * v.z, v.y, -s * v.x + c * v.z); }
-float cloudDensity(vec3 pw, float lodFine, float stepLen) {
+float cloudDensity(vec3 pw, float lodFine, float stepLen, bool primary) {
   float r = length(pw);
   float hf = (r - uCloudBottom) / (uCloudTop - uCloudBottom);
   if (hf <= 0.0 || hf >= 1.0) return 0.0;
@@ -108,16 +109,32 @@ float cloudDensity(vec3 pw, float lodFine, float stepLen) {
   prof = mix(prof, smoothstep(0.0, 0.2, hf) * smoothstep(1.0, 0.6, hf), uCloudOvercast);
   float base = cov * prof;
   if (base < 0.01) return 0.0;
+  if (primary) {
+    // meso-scale structure (broken fields, cells, gaps: ~25–250 km), drifting
+    // with the weather; light samples skip it (cheap, slightly softer shadows)
+    vec3 pr = rotY(p, uCloudDrift);
+    float m1 = gnoise(pr / 150000.0 + 3.7);
+    // each octave fades in only once it spans several pixels (no speckle)
+    float m2 = gnoise(pr / 41000.0 + 1.3) * smoothstep(41000.0 * 0.4, 41000.0 * 0.12, stepLen);
+    float m3 = gnoise(pr / 11000.0 + 5.1) * smoothstep(11000.0 * 0.4, 11000.0 * 0.12, stepLen);
+    base *= clamp(0.8 + m1 * 1.1 + m2 * 0.5, 0.0, 1.5);
+    base -= max(0.0, -m2) * 0.45 + max(0.0, -m3) * 0.3;
+    if (base < 0.01) return 0.0;
+  }
   vec3 q = p / uCloudScale + vec3(uCloudTime * 0.002, 0.0, 0.0);
-  // mip level from the march step: avoid aliasing detail smaller than a step
+  // mip level from the sample footprint (march step or pixel cone, whichever is
+  // larger): detail smaller than a pixel is averaged instead of aliasing into a
+  // uniform veil of sub-pixel wisps
   float texel = uCloudScale / 64.0;
   float lod = clamp(log2(max(stepLen / texel, 1.0)), 0.0, 6.0);
-  vec2 n = textureLod(uCloudDetail, q, lod).rg;
+  vec2 n = lod < 5.99 ? textureLod(uCloudDetail, q, lod).rg : vec2(0.5);
   float dens = clamp((base - (1.0 - n.r) * 0.55 * (1.0 - hf * 0.3)) / max(1.0 - (1.0 - n.r) * 0.55, 0.1), 0.0, 1.0);
   if (lodFine > 0.5 && dens > 0.0 && lod < 2.5) {
     float n2 = textureLod(uCloudDetail, q * 4.3 + 0.37, lod + 2.1).g;
     dens = clamp(dens - (1.0 - n2) * 0.18 * (1.0 - dens), 0.0, 1.0);
   }
+  // clear air between clouds: suppress the faint fringe (even dens ≈ 0.01 is τ ≈ 2 through a deck)
+  dens = max(dens - 0.03, 0.0) * (1.0 / 0.97);
   return dens * uCloudDensity;
 }
 float hg(float c, float g) { float g2 = g * g; return (1.0 - g2) / (4.0 * PI * pow(1.0 + g2 - 2.0 * g * c, 1.5)); }
@@ -190,7 +207,7 @@ void main() {
     for (int i = 0; i < 96; i++) {
       if (i >= N || t > cb) break;
       vec3 p = ro + rd * t;
-      float dens = cloudDensity(p, fine, dtc);
+      float dens = cloudDensity(p, fine, max(dtc, t * uPixelAngle * 1.5), true);
       if (dens > 1e-5) {
         if (tFirst < 0.0) tFirst = t;
         float h = length(p);
@@ -201,20 +218,24 @@ void main() {
         vec3 lp = p;
         for (int j = 0; j < 4; j++) {
           lp += uSunDir[0] * ls;
-          od += cloudDensity(lp, 0.0, ls) * ls;
+          od += cloudDensity(lp, 0.0, ls, false) * ls;
           ls *= 2.2;
         }
         float muS = dot(up, uSunDir[0]);
         vec3 sunE = uSunIllum[0] * sunTransmittance(h, muS);
-        // multiple-scattering octaves (Wrenninge)
+        // multiple-scattering octaves (Wrenninge): each octave scatters less
+        // forward (eccentricity × c^o) and is attenuated less (extinction × b^o)
         float msum = 0.0, a = 1.0, b = 1.0, cc = 1.0;
         for (int o = 0; o < 3; o++) {
-          msum += a * exp(-od * b) * mix(hg(c0 * cc, 0.75), hg(c0 * cc, -0.2), 0.35);
-          a *= 0.5; b *= 0.4; cc *= 0.6;
+          msum += a * exp(-od * b) * mix(hg(c0, 0.75 * cc), hg(c0, -0.2 * cc), 0.35);
+          a *= 0.5; b *= 0.4; cc *= 0.45;
         }
+        // diffuse light of an optically thick deck: ~A/π at the lit top, decaying
+        // with depth toward the sun (light diffusing through the cloud body)
+        float diffuse = 0.95 / PI * exp(-od * 0.09) * (0.35 + 0.65 * clamp(muS * 1.5 + 0.3, 0.0, 1.0));
         float powder = 1.0 - exp(-od * 2.0 - dens * 60.0);
         vec3 amb = (uSunIllum[0] * skyIrradiance(h, muS)) / PI * (0.6 + 0.4 * (h - uCloudBottom) / (uCloudTop - uCloudBottom));
-        vec3 S = uCloudAlbedo * (sunE * msum * mix(1.0, powder, 0.5) * 1.6 + amb);
+        vec3 S = uCloudAlbedo * (sunE * (msum * mix(1.0, powder, 0.5) * 1.6 + diffuse) + amb);
         float Ts = exp(-dens * dtc);
         Lc += Tc * S * (1.0 - Ts);
         Tc *= Ts;
@@ -278,6 +299,7 @@ export class AtmospherePass {
         uCloudOvercast: { value: c.overcast },
         uCloudAlbedo: { value: new THREE.Vector3(...c.albedo) },
         uCloudSteps: { value: 48 },
+        uPixelAngle: { value: 1e-3 },
       });
     }
     this.material = new THREE.ShaderMaterial({

@@ -8,6 +8,23 @@ import * as THREE from 'three';
 import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
 
 
+/**
+ * Shared sprite profile: energy-conserving core (σ = 0.6 px) plus a faint
+ * Moffat glare halo, windowed to the sprite's inscribed circle so very bright
+ * points stay round. `size` is the sprite diameter in pixels.
+ */
+export const SPRITE_PROFILE_GLSL = /* glsl */ `
+float spriteProfile(vec2 pointCoord, float size) {
+  float rq = length(pointCoord - 0.5);
+  float rpx = rq * size;
+  float core = exp(-rpx * rpx / 0.72);
+  float halo = 0.015 / pow(1.0 + rpx * rpx * 0.5, 1.5);
+  // small sprites keep their full core; large (bright, glaring) ones fade to a circle
+  float win = size < 5.0 ? 1.0 : smoothstep(0.5, 0.3, rq);
+  return (core + halo) * win;
+}
+`;
+
 const VERT = /* glsl */ `
 #include <common>
 #include <logdepthbuf_pars_vertex>
@@ -19,6 +36,7 @@ uniform float uBoost;
 uniform float uMinSize;
 varying vec3 vColor;
 varying float vPeak;
+varying float vSize;
 void main() {
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   gl_Position = projectionMatrix * mv;
@@ -30,8 +48,9 @@ void main() {
   float disp = peak * e;
   // grow the footprint for very bright points (simulated glare), keeping energy
   float size = uMinSize * (1.0 + 0.6 * log2(max(disp, 1.0)) );
-  size = clamp(size, uMinSize, 48.0);
-  vPeak = peak * e * (uMinSize * uMinSize) / (size * size);
+  size = clamp(size, uMinSize, 64.0);
+  vPeak = disp;
+  vSize = size;
   vColor = color;
   gl_PointSize = size;
   if (flux <= 0.0) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
@@ -44,11 +63,11 @@ const FRAG = /* glsl */ `
 #include <logdepthbuf_pars_fragment>
 varying vec3 vColor;
 varying float vPeak;
+varying float vSize;
+${SPRITE_PROFILE_GLSL}
 void main() {
   #include <logdepthbuf_fragment>
-  vec2 d = gl_PointCoord - 0.5;
-  float r2 = dot(d, d) * 4.0;
-  float g = exp(-r2 * 4.0) + 0.02 * exp(-r2 * 0.8);
+  float g = spriteProfile(gl_PointCoord, vSize);
   gl_FragColor = vec4(min(vColor * vPeak * g, vec3(6e4)), 1.0);
 }
 `;

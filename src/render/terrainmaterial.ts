@@ -59,6 +59,7 @@ ${ATMOSPHERE_FUNCS}
 ${ATMOSPHERE_LUT_FUNCS}
 #endif
 uniform vec3 uPlanetCenter;
+uniform mat3 uWorldToPlanet;
 uniform float uRadius;
 uniform vec3 uSunDir[2];
 uniform vec3 uSunIllum[2];
@@ -127,6 +128,27 @@ void main() {
   float lineae = vA1.y;
   float depth = vA1.z;
 
+  // ---- macro variation on the sphere (km scales between the vertex spacing and
+  // the pixel): keeps land and coastlines from looking flat and blocky from orbit.
+  // Based on the planet-fixed direction, so it is stable across LOD changes.
+  vec3 sph = normalize(uWorldToPlanet * (P - uPlanetCenter)) * (uRadius / 1000.0); // km, planet-fixed
+  float fpKm = footprint / 1000.0;
+  float macro = 0.0, macroC = 0.0;
+  {
+    float w = 260.0, a = 0.5;
+    for (int i = 0; i < 5; i++) {
+      float f = smoothstep(3.0, 8.0, w / fpKm);
+      if (f <= 0.0) break;
+      float n = gnoise(sph / w + float(i) * 7.31);
+      macro += n * a * f;
+      if (i > 0) macroC += n * a * f;
+      w *= 0.28; a *= 0.62;
+    }
+  }
+  moist = clamp(moist + macro * 0.3, 0.0, 1.0);
+  float spacing = vA1.w / 32.0;
+  depth -= macroC * clamp(spacing * 0.004, 0.0, 300.0) * 2.0;
+
   float slope = 1.0 - dot(Ng, up);
   float rockExp = clamp(rock * 0.8 + smoothstep(0.12, 0.42, slope), 0.0, 1.0);
 
@@ -141,12 +163,15 @@ void main() {
   vec3 rockCol = mix(uRockA, uRockB, smoothstep(-0.25, 0.35, strataN));
   float speck = gnoised(vDetail / 3.0, PERIOD / 3).x * bandFade(3.0);
   rockCol *= 1.0 + 0.18 * speck;
-  vec3 loose = mix(uRegolith, uSand, uAeolian);
+  // dune sand where it is dry; soils where moist
+  float arid = 1.0 - smoothstep(0.2, 0.5, moist);
+  vec3 loose = mix(uRegolith, uSand, uAeolian * mix(0.2, 1.0, arid));
   loose *= 1.0 + 0.08 * gnoised(vDetail / 17.0, PERIOD / 16).x;
   vec3 albedo = mix(loose, rockCol, rockExp);
   albedo = mix(albedo, uLowland, clamp((0.5 - unit) * 2.0, 0.0, 1.0) * 0.85);
   albedo = mix(albedo, uHighland, clamp((unit - 0.5) * 2.0, 0.0, 1.0) * 0.85);
   albedo = mix(albedo, uLineae, clamp(lineae, 0.0, 1.0) * 0.8);
+  albedo *= 1.0 + macro * 0.22;
 
   // cracks / pebbles close up
   if (footprint < 0.05) {
@@ -160,12 +185,15 @@ void main() {
   // vegetation (only where a biosphere exists and climate allows)
   float veg = 0.0;
   if (uVegetation > 0.0) {
-    veg = uVegetation * smoothstep(0.18, 0.55, moist) * smoothstep(250.0, 278.0, temp) * smoothstep(335.0, 308.0, temp);
+    veg = clamp(uVegetation * 1.5, 0.0, 1.0) * smoothstep(0.1, 0.42, moist) * smoothstep(252.0, 280.0, temp) * smoothstep(335.0, 306.0, temp);
     veg *= 1.0 - smoothstep(0.22, 0.45, slope);
     veg *= step(depth, 0.0);
+    // clearings and groves once individual patches are resolved
     float patchN = gnoised(vDetail / 41.0, PERIOD / 32).x * 0.5 + 0.5;
-    veg *= smoothstep(0.15, 0.55, patchN + moist * 0.4);
-    vec3 vc = mix(uVeg1, uVeg2, smoothstep(0.3, 0.7, gnoised(vDetail / 97.0, PERIOD / 64).x * 0.5 + 0.5 + (temp - 290.0) * 0.01));
+    veg *= mix(1.0, smoothstep(0.15, 0.55, patchN + moist * 0.4), smoothstep(300.0, 30.0, footprint));
+    float vmix = macro * 0.8 + 0.5 + (temp - 290.0) * 0.012 - (moist - 0.4) * 0.8;
+    if (footprint < 200.0) vmix += gnoised(vDetail / 97.0, PERIOD / 64).x * 0.4 * smoothstep(200.0, 50.0, footprint);
+    vec3 vc = mix(uVeg1, uVeg2, smoothstep(0.3, 0.7, vmix));
     albedo = mix(albedo, vc, clamp(veg, 0.0, 1.0));
   }
 
@@ -305,6 +333,7 @@ export function createTerrainMaterial(sp: SurfaceParams, opts: TerrainMaterialOp
     uVegetation: { value: sp.vegetation },
     uLifeGlow: { value: sp.lifeGlow },
     uIceCap: { value: sp.iceCap },
+    uWorldToPlanet: { value: new THREE.Matrix3() },
     uReliefScale: { value: sp.reliefScale },
     uTime: { value: 0 },
     uPixelAngle: { value: 0.001 },

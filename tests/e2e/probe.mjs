@@ -8,7 +8,7 @@ const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=sw
 const page = await browser.newPage({ viewport: { width: +w, height: +h } });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));
 page.on('console', (m) => { if (m.type() === 'error') console.log('[error]', m.text().slice(0, 300)); });
-await page.goto(process.env.COSMOS_URL || 'http://localhost:5173/');
+await page.goto(process.env.COSMOS_URL || 'http://localhost:5173/?test');
 await page.waitForFunction(() => !!window.__cosmos, null, { timeout: 60000 });
 await page.evaluate(`(async () => { const app = window.__cosmos; ${setup} })()`);
 await page.waitForTimeout(+wait);

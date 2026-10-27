@@ -109,6 +109,7 @@ export class PlanetRenderer {
 
     const u = this.material.uniforms;
     u.uPlanetCenter.value.copy(rel);
+    u.uWorldToPlanet.value.setFromMatrix4(_m4.makeRotationFromQuaternion(_q.copy(rot).invert()));
     u.uTime.value = ctx.time % 100000;
     u.uPixelAngle.value = ctx.pixelAngle;
     u.uLodK.value = ctx.quality.lodK;
@@ -148,6 +149,7 @@ export class PlanetRenderer {
         const wind = this.clouds.params.windSpeed / (this.body.radius + this.clouds.params.bottom);
         au.uCloudDrift.value = (ctx.time * wind) % (Math.PI * 2);
         au.uCloudSteps.value = ctx.quality.cloudSteps;
+        au.uPixelAngle.value = ctx.pixelAngle;
       }
       // skip when the atmosphere is sub-pixel
       const Rt = this.luts!.params.topRadius;

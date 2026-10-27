@@ -67,6 +67,10 @@ export class SceneRenderer {
   readonly bodyRel = new Map<string, THREE.Vector3>();
   readonly ctx: FrameContext;
   camUPos = new UPos();
+  /** debugging switches (tests) */
+  debug = { noAtmosphere: false };
+  /** accessibility: tone down FTL streak / tunnel effects */
+  reduceMotion = false;
 
   constructor(readonly canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -279,7 +283,7 @@ export class SceneRenderer {
       ...[...this.giants.values()].filter((g) => g.atmosphereVisible && g.atmPass),
     ];
     atm.sort((a, b) => this.bodyRel.get(b.body.id)!.lengthSq() - this.bodyRel.get(a.body.id)!.lengthSq());
-    for (const p of atm) this.pipeline.composite(p.atmPass!.material);
+    if (!this.debug.noAtmosphere) for (const p of atm) this.pipeline.composite(p.atmPass!.material);
     if (this.overlayScene.children.length) this.pipeline.overlay(this.overlayScene, cam);
     this.pipeline.endFrame(dt);
   }
@@ -288,6 +292,8 @@ export class SceneRenderer {
     const ship = this.ship;
     if (!ship) {
       if (this.shipRenderer) { this.scene.remove(this.shipRenderer.root); this.shipRenderer = null; }
+      this.pipeline.ftl.tunnel = 0;
+      this.pipeline.ftl.streak = 0;
       return;
     }
     if (!this.shipRenderer || this.shipRenderer.cls !== ship.spec.cls) {
@@ -348,6 +354,10 @@ export class SceneRenderer {
     const j = ship.jump;
     this.pipeline.ftl.tunnel = j.phase === 'tunnel' ? Math.min(1, j.t * 2, (j.duration - j.t) * 2 + 0.2) : j.phase === 'charging' ? Math.min(0.3, j.t * 0.1) : j.phase === 'exit' ? Math.max(0, 1 - j.t) : 0;
     this.pipeline.ftl.streak = ship.warp.active ? Math.min(1, Math.log10(1 + ship.warp.speed / 3e6) / 3) : 0;
+    if (this.reduceMotion) {
+      this.pipeline.ftl.tunnel *= 0.25;
+      this.pipeline.ftl.streak *= 0.25;
+    }
   }
 
   private occludersFor(b: Body, rel: THREE.Vector3, sys: StarSystem): THREE.Vector4[] {

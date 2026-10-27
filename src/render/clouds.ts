@@ -80,7 +80,8 @@ void main() {
   // latitudinal climate: wet ITCZ, dry subtropics, stormy mid-latitudes
   float climate = 0.75 + 0.2 * cos(lat * 3.14159 * 3.0) - 0.12 * smoothstep(0.8, 1.0, lat);
   float thr = 1.0 - uCoverage * climate * 1.15;
-  float cov = smoothstep(thr - 0.1, thr + 0.16, n);
+  // fairly sharp edges: real cloud fields are mostly either clear or cloudy at 10–100 km scales
+  float cov = smoothstep(thr - 0.05, thr + 0.12, n);
   cov = mix(cov, 0.72 + 0.28 * clamp(n, 0.0, 1.0), uOvercast);
   float height = clamp(0.3 + 0.8 * (n - thr) + 0.3 * fbm3(q * 6.0 + sd * 3.1, 3), 0.15, 1.0);
   gl_FragColor = vec4(cov, height, n, 1.0);

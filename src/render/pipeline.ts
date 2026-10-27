@@ -8,6 +8,7 @@
  *   6. composite: exposure, bloom, AgX tone mapping, vignette, dither → screen
  */
 import * as THREE from 'three';
+import { blackbodyRGB } from '../astro/stellar';
 import { FullscreenPass, FS_VERT, hdrTarget } from './fullscreen';
 import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
 
@@ -82,8 +83,10 @@ void main() {
   float e;
   if (uInit > 0.5 || prev <= 0.0) e = target;
   else {
-    // adapt in log space; quicker toward darker (glare protection)
-    float k = 1.0 - exp(-uDt * uSpeed * (target < prev ? 2.5 : 1.0));
+    // adapt in log space; light adaptation (scene got brighter) is much
+    // faster than dark adaptation, and faster still for large jumps
+    float stops = log2(prev / target);
+    float k = 1.0 - exp(-uDt * uSpeed * (stops > 0.0 ? 2.5 + stops * 0.6 : 1.0));
     e = exp2(mix(log2(prev), log2(target), k));
   }
   gl_FragColor = vec4(e, avg, litW, 1.0);
@@ -134,6 +137,7 @@ uniform float uFxaa;
 uniform float uTime;
 uniform float uStreak;   // warp: radial star streaks 0..1
 uniform float uTunnel;   // hyperspace tunnel 0..1
+uniform vec3 uWhite;     // white balance (eye adapted to sunlight)
 ${PRE_EXPOSURE_GLSL}
 varying vec2 vUv;
 
@@ -186,7 +190,7 @@ vec3 hdr(vec2 uv) {
     vec3 tun = mix(vec3(0.15, 0.3, 0.9), vec3(0.8, 0.9, 1.0), rings) * (0.15 + 1.2 * streaks) * smoothstep(0.02, 0.5, r);
     c = mix(c, tun / max(e, 1e-12) * 0.3, uTunnel);
   }
-  return c * e;
+  return c * e * uWhite;
 }
 float luma(vec3 c) { return dot(c, vec3(0.299, 0.587, 0.114)); }
 vec3 tonemapped(vec2 uv) { return agxEotf(agx(hdr(uv))); }
@@ -247,7 +251,8 @@ export class RenderPipeline {
   private lumRT: THREE.WebGLRenderTarget;
   private adaptRT: THREE.WebGLRenderTarget[];
   private adaptIdx = 0;
-  private initExposure = true;
+  /** drawn frames during which exposure snaps to its target (after a teleport) */
+  private initExposure = 8;
   private lumMat: THREE.ShaderMaterial;
   private adaptMat: THREE.ShaderMaterial;
   private downMat: THREE.ShaderMaterial;
@@ -276,7 +281,9 @@ export class RenderPipeline {
     this.compMat = mk(COMPOSITE_FRAG, {
       tColor: { value: null }, tBloom: { value: null }, tAdapt: { value: null }, uBloom: { value: 0.05 }, uVignette: { value: 0.2 },
       uTexel: { value: new THREE.Vector2() }, uFxaa: { value: 1 }, uTime: { value: 0 }, uStreak: { value: 0 }, uTunnel: { value: 0 }, tPreExposure: PRE_EXPOSURE_TEX,
+      uWhite: { value: new THREE.Vector3(1, 1, 1) },
     });
+    this.setWhiteBalance(5772, 0.7);
     this.copyMat = mk(COPY_FRAG, { tSrc: { value: null } });
     this.addMat = new THREE.ShaderMaterial({ vertexShader: FS_VERT, fragmentShader: COPY_FRAG, uniforms: { tSrc: { value: null } },
       depthTest: false, depthWrite: false, transparent: true, blending: THREE.AdditiveBlending });
@@ -324,8 +331,20 @@ export class RenderPipeline {
     return this.sceneRT.depthTexture as THREE.DepthTexture;
   }
 
+  /**
+   * White balance toward a reference light (default: the Sun, partially, so
+   * sunlit white surfaces look white while cooler and hotter stars keep
+   * their tint). Colour sources use a ~6600 K white point.
+   */
+  setWhiteBalance(tempK: number, strength: number) {
+    const ref = blackbodyRGB(tempK);
+    const w = ref.map((c) => Math.pow(1 / Math.max(c, 1e-4), strength));
+    const lum = 0.2126 * w[0] + 0.7152 * w[1] + 0.0722 * w[2];
+    (this.compMat.uniforms.uWhite.value as THREE.Vector3).set(w[0] / lum, w[1] / lum, w[2] / lum);
+  }
+
   resetExposure() {
-    this.initExposure = true;
+    this.initExposure = 8;
   }
 
   /** Render the main scene into the HDR target. */
@@ -406,11 +425,11 @@ export class RenderPipeline {
     au.uMin.value = s.minExposure;
     au.uMax.value = s.maxExposure;
     au.uComp.value = s.exposureComp;
-    au.uInit.value = this.initExposure ? 1 : 0;
+    au.uInit.value = this.initExposure > 0 ? 1 : 0;
     au.uManual.value = s.manualExposure;
     au.uAuto.value = s.autoExposure ? 1 : 0;
     this.fs.render(r, next, this.adaptMat);
-    this.initExposure = false;
+    this.initExposure = Math.max(0, this.initExposure - 1);
     // bloom
     let input = src;
     let iw = this.width, ih = this.height;

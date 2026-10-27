@@ -7,7 +7,7 @@
 import { Vector3 } from 'three';
 import { Universe } from '../astro/universe';
 import { galaxyToUPos, uposToGalaxy, type GalaxyParams } from '../astro/galaxy';
-import { starDesignation, starSeed } from '../astro/starsectors';
+import { starDesignation, starSeed, generateSector, type Exclusion } from '../astro/starsectors';
 import type { StarRef } from '../render/starfield';
 import type { StarField } from '../render/starfield';
 import { generateSystem } from '../astro/systemgen';
@@ -34,6 +34,8 @@ export interface SystemRef {
   lumV?: number;
   color?: [number, number, number];
   known?: boolean;
+  /** stellar parameters of the primary (procedural stars, before the system is generated) */
+  star?: { lum: number; temp: number; mass: number; age: number; remnant: number };
 }
 
 export class Cosmos {
@@ -84,11 +86,39 @@ export class Cosmos {
     const seed = starSeed(g, s.level, s.ix, s.iy, s.iz, s.index);
     return {
       id, name, galaxyId: g.id, upos, local: new Vector3(s.x, s.y, s.z),
+      lumV: s.lumV, color: blackbodyRGB(Math.max(s.temp, 1000)),
+      star: { lum: s.lum, temp: s.temp, mass: s.mass, age: s.age, remnant: s.remnant },
       build: () => generateSystem({
         id, name, seed, upos,
         primaryMass: s.mass, age: s.age * 1e9, metallicity: g.metallicity, lifeFrequency: this.lifeFrequency,
       }),
     };
+  }
+
+  /** Regions where procedural stars are suppressed (the catalogued solar neighbourhood). */
+  exclusionsFor(g: GalaxyParams): Exclusion[] {
+    if (!(g.known && g.id === 'MW') || !this.knownSystems.length) return [];
+    const s = this.universe.sunLocal;
+    return [{ x: s.x, y: s.y, z: s.z, r: 20 }];
+  }
+
+  /** Rebuild a system reference from its id (catalogued or procedural star). */
+  refById(id: string): SystemRef | null {
+    const k = this.knownSystems.find((r) => r.id === id);
+    if (k) return k;
+    const slash = id.indexOf('/');
+    if (slash < 0) return null;
+    const g = this.universe.galaxyById(id.slice(0, slash));
+    const m = /^(\d+):(-?\d+):(-?\d+):(-?\d+):(\d+)$/.exec(id.slice(slash + 1));
+    if (!g || !m) return null;
+    const [level, ix, iy, iz, index] = m.slice(1).map(Number);
+    const sec = generateSector(g, level, ix, iy, iz, this.exclusionsFor(g));
+    if (index >= sec.count) return null;
+    return this.refFromStar({
+      galaxy: g, level, ix, iy, iz, index,
+      x: sec.cx + sec.pos[index * 3], y: sec.cy + sec.pos[index * 3 + 1], z: sec.cz + sec.pos[index * 3 + 2],
+      lum: sec.lum[index], lumV: sec.lumV[index], temp: sec.temp[index], mass: sec.mass[index], age: sec.age[index], remnant: sec.remnant[index],
+    });
   }
 
   update(world: World, cam: UPos, field: StarField, frame: number) {
@@ -111,8 +141,7 @@ export class Cosmos {
     }
     if (cur !== this.current) {
       this.current = cur;
-      const excl = cur && cur.known && cur.id === 'MW' ? [{ x: this.universe.sunLocal.x, y: this.universe.sunLocal.y, z: this.universe.sunLocal.z, r: 20 }] : [];
-      field.setGalaxy(cur, excl);
+      field.setGalaxy(cur, cur ? this.exclusionsFor(cur) : []);
     }
     if (cur) uposToGalaxy(cur, cam, this.camG);
     // active system

@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 // Playwright is resolved from the environment (globally installed) or local node_modules.
 const { chromium } = require('playwright');
 const [out = 'shot.png', setup = '', waitMs = '8000', w = '960', h = '540'] = process.argv.slice(2);
-const url = process.env.COSMOS_URL || 'http://localhost:5173/';
+const url = process.env.COSMOS_URL || 'http://localhost:5173/?test';
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 const page = await browser.newPage({ viewport: { width: +w, height: +h } });
 const errors = [];
