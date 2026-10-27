@@ -44,6 +44,8 @@ public final class PrecipitationRenderer {
 
 	private static final float RAIN_FALL_SPEED = 9.0F;
 	private static final float SNOW_FALL_SPEED = 1.3F;
+	private static final float MAX_RAIN_SLANT = 0.85F;
+	private static final float MAX_SNOW_SLANT = 1.6F;
 
 	private static final PrecipitationRenderer INSTANCE = new PrecipitationRenderer();
 
@@ -206,8 +208,9 @@ public final class PrecipitationRenderer {
 
 	private void renderColumns(VertexConsumer consumer, List<Column> columns, Vec3 camera, boolean snow, boolean heavyLayer, float layers) {
 		float fallSpeed = snow ? SNOW_FALL_SPEED : RAIN_FALL_SPEED;
-		float tiltX = Mth.clamp(this.windX / fallSpeed, -2.2F, 2.2F);
-		float tiltZ = Mth.clamp(this.windZ / fallSpeed, -2.2F, 2.2F);
+		float[] tilt = this.slant(fallSpeed, snow ? MAX_SNOW_SLANT : MAX_RAIN_SLANT);
+		float tiltX = tilt[0];
+		float tiltZ = tilt[1];
 		float vScale = snow ? 0.5F : 0.25F;
 		float radiusSq = this.radius * this.radius;
 		float brightness = 1.0F + this.flash * 0.9F;
@@ -245,10 +248,13 @@ public final class PrecipitationRenderer {
 			float bottom = column.bottom;
 			float top = column.top;
 			float height = top - bottom;
-			float topShiftX = tiltX * height;
-			float topShiftZ = tiltZ * height;
-			float baseX = cx;
-			float baseZ = cz;
+			// Precipitation drifts downwind while it falls, so higher up it comes from further upwind. The slant pivots
+			// at eye level: the sheet passes the camera at the column's own distance, so the near fade stays valid.
+			float eye = (float) camera.y;
+			float topShiftX = -tiltX * (top - eye);
+			float topShiftZ = -tiltZ * (top - eye);
+			float bottomShiftX = -tiltX * (bottom - eye);
+			float bottomShiftZ = -tiltZ * (bottom - eye);
 
 			float speed = fallSpeed * (0.85F + 0.3F * random) * (heavyLayer ? 1.12F : 1.0F);
 			float scroll = this.time * speed * vScale;
@@ -263,16 +269,19 @@ public final class PrecipitationRenderer {
 			float vAtTop = -top * vScale - scroll + random * 7.0F;
 			float vAtBottom = -bottom * vScale - scroll + random * 7.0F;
 
-			int color = ARGB.colorFromFloat(Math.min(1.0F, alpha), Math.min(1.0F, red * brightness), Math.min(1.0F, green * brightness),
-				Math.min(1.0F, blue * brightness));
+			float r = Math.min(1.0F, red * brightness);
+			float g = Math.min(1.0F, green * brightness);
+			float b = Math.min(1.0F, blue * brightness);
+			int topColor = ARGB.colorFromFloat(Math.min(1.0F, alpha * heightFade(top - eye, snow)), r, g, b);
+			int bottomColor = ARGB.colorFromFloat(Math.min(1.0F, alpha * heightFade(bottom - eye, snow)), r, g, b);
 			int light = this.flashLight(column.light);
 			float yBottom = (float) (bottom - camera.y);
 			float yTop = (float) (top - camera.y);
 
-			consumer.addVertex(baseX - sideX + topShiftX, yTop, baseZ - sideZ + topShiftZ).setUv(u0, vAtTop).setColor(color).setLight(light);
-			consumer.addVertex(baseX + sideX + topShiftX, yTop, baseZ + sideZ + topShiftZ).setUv(u1, vAtTop).setColor(color).setLight(light);
-			consumer.addVertex(baseX + sideX, yBottom, baseZ + sideZ).setUv(u1, vAtBottom).setColor(color).setLight(light);
-			consumer.addVertex(baseX - sideX, yBottom, baseZ - sideZ).setUv(u0, vAtBottom).setColor(color).setLight(light);
+			consumer.addVertex(cx - sideX + topShiftX, yTop, cz - sideZ + topShiftZ).setUv(u0, vAtTop).setColor(topColor).setLight(light);
+			consumer.addVertex(cx + sideX + topShiftX, yTop, cz + sideZ + topShiftZ).setUv(u1, vAtTop).setColor(topColor).setLight(light);
+			consumer.addVertex(cx + sideX + bottomShiftX, yBottom, cz + sideZ + bottomShiftZ).setUv(u1, vAtBottom).setColor(bottomColor).setLight(light);
+			consumer.addVertex(cx - sideX + bottomShiftX, yBottom, cz - sideZ + bottomShiftZ).setUv(u0, vAtBottom).setColor(bottomColor).setLight(light);
 		}
 	}
 
@@ -300,8 +309,9 @@ public final class PrecipitationRenderer {
 			float sideZ = cx / dist * halfWidth;
 			float fallSpeed = curtain.snow ? SNOW_FALL_SPEED : RAIN_FALL_SPEED;
 			float height = curtain.top - curtain.bottom;
-			float shiftX = Mth.clamp(this.windX / fallSpeed, -1.5F, 1.5F) * height * 0.5F;
-			float shiftZ = Mth.clamp(this.windZ / fallSpeed, -1.5F, 1.5F) * height * 0.5F;
+			float[] tilt = this.slant(fallSpeed, curtain.snow ? MAX_SNOW_SLANT : MAX_RAIN_SLANT);
+			float shiftX = -tilt[0] * height;
+			float shiftZ = -tilt[1] * height;
 			float alpha = Mth.clamp(curtain.intensity * (curtain.snow ? 0.55F : 0.42F), 0.0F, 0.6F);
 			float scroll = this.time * fallSpeed * 0.02F;
 			float vAtTop = -curtain.top * 0.02F - scroll;
@@ -317,6 +327,28 @@ public final class PrecipitationRenderer {
 			consumer.addVertex(cx + sideX, yBottom, cz + sideZ).setUv(u1, vAtBottom).setColor(color).setLight(light);
 			consumer.addVertex(cx - sideX, yBottom, cz - sideZ).setUv(u0, vAtBottom).setColor(color).setLight(light);
 		}
+	}
+
+	/**
+	 * Streaks are a near-eye-level phenomenon: drops high overhead fall almost straight towards the viewer and are
+	 * seen end-on, so the sheets fade out with height instead of forming a dense canopy across the sky.
+	 */
+	private static float heightFade(float aboveEye, boolean snow) {
+		float range = snow ? 30.0F : 20.0F;
+		return Mth.clamp(1.0F - (aboveEye - 3.0F) / range, snow ? 0.3F : 0.12F, 1.0F);
+	}
+
+	/**
+	 * Horizontal drift per block of fall (wind speed over fall speed), softly limited: real streaks in a gale are
+	 * nearly horizontal, but on screen that reads as a "warp speed" effect rather than rain.
+	 */
+	private float[] slant(float fallSpeed, float max) {
+		float speed = Mth.sqrt(this.windX * this.windX + this.windZ * this.windZ);
+		if (speed < 1.0E-3F) {
+			return new float[] {0.0F, 0.0F};
+		}
+		float slant = max * (float) Math.tanh(speed / fallSpeed / max);
+		return new float[] {this.windX / speed * slant, this.windZ / speed * slant};
 	}
 
 	/** Lightning briefly lights up the falling precipitation even where it is otherwise dark. */

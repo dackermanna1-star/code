@@ -58,7 +58,7 @@ public final class SnowAccumulation {
 				int samples = stochasticCount(ACCUMULATION_SAMPLES * config.snowAccumulationRate * state.precipitation * (radius * radius) / (48.0F * 48.0F));
 				for (int i = 0; i < samples; i++) {
 					if (this.pickColumn(level, player, radius)) {
-						this.trySnow(level, state, maxLayers, config.freezeWaterInColdSnaps);
+						this.trySnow(level, state, maxLayers, config.snowCoversPlants, config.freezeWaterInColdSnaps);
 					}
 				}
 			}
@@ -68,7 +68,7 @@ public final class SnowAccumulation {
 				int samples = stochasticCount(MELT_SAMPLES * config.snowMeltRate * daylight * rainBoost * (radius * radius) / (48.0F * 48.0F));
 				for (int i = 0; i < samples; i++) {
 					if (this.pickColumn(level, player, radius)) {
-						this.tryMelt(level, state, config.freezeWaterInColdSnaps);
+						this.tryMelt(level, state, config.snowCoversPlants, config.freezeWaterInColdSnaps);
 					}
 				}
 			}
@@ -98,7 +98,12 @@ public final class SnowAccumulation {
 		return true;
 	}
 
-	private void trySnow(ServerLevel level, WeatherState state, int maxLayers, boolean freezeWater) {
+	/** Low plants that snow settles over (the motion-blocking heightmap ends on top of them, not below). */
+	private static boolean isBuriable(BlockState state) {
+		return state.is(Blocks.SHORT_GRASS) || state.is(Blocks.FERN) || state.is(Blocks.SHORT_DRY_GRASS);
+	}
+
+	private void trySnow(ServerLevel level, WeatherState state, int maxLayers, boolean coverPlants, boolean freezeWater) {
 		BlockPos pos = this.cursor;
 		Biome biome = level.getBiome(pos).value();
 		if (Climate.precipitationFor(level, biome, pos, state.coldSnap) != Climate.Precipitation.SNOW) {
@@ -128,7 +133,7 @@ public final class SnowAccumulation {
 			BlockState grown = current.setValue(SnowLayerBlock.LAYERS, layers + 1);
 			Block.pushEntitiesUp(current, grown, level, pos);
 			level.setBlockAndUpdate(pos, grown);
-		} else if (current.isAir()) {
+		} else if (current.isAir() || (coverPlants && isBuriable(current))) {
 			BlockState snow = Blocks.SNOW.defaultBlockState();
 			if (snow.canSurvive(level, pos)) {
 				level.setBlockAndUpdate(pos, snow);
@@ -172,7 +177,7 @@ public final class SnowAccumulation {
 		}
 	}
 
-	private void tryMelt(ServerLevel level, WeatherState state, boolean meltIce) {
+	private void tryMelt(ServerLevel level, WeatherState state, boolean regrowPlants, boolean meltIce) {
 		BlockPos pos = this.cursor;
 		BlockState current = level.getBlockState(pos);
 		BlockPos target;
@@ -201,6 +206,12 @@ public final class SnowAccumulation {
 		int layers = current.getValue(SnowLayerBlock.LAYERS);
 		if (layers <= 1) {
 			level.removeBlock(target, false);
+			// Grass buried by the snow sprouts again on part of the thawed ground.
+			BlockState grass = Blocks.SHORT_GRASS.defaultBlockState();
+			if (regrowPlants && this.random.nextFloat() < 0.3F && level.getBlockState(target.below()).is(Blocks.GRASS_BLOCK)
+				&& grass.canSurvive(level, target)) {
+				level.setBlockAndUpdate(target, grass);
+			}
 		} else {
 			level.setBlockAndUpdate(target, current.setValue(SnowLayerBlock.LAYERS, layers - 1));
 		}

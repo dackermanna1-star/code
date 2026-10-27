@@ -78,8 +78,23 @@ public final class CloudNoise {
 		return v <= 0.0F ? 0.0F : Math.min(v, 1.0F);
 	}
 
+	/**
+	 * The cloud field for the given cover: the base map, broken up into separate fair-weather cumulus cells
+	 * (about 64 blocks) while the sky is sparse. Dense skies keep the large masses, decks and rain bands of the base.
+	 */
+	public static float field(double x, double z, float cover) {
+		float base = base(x, z);
+		float t = Math.min(Math.max((cover - 0.45F) / 0.35F, 0.0F), 1.0F);
+		float breakup = 0.45F * (1.0F - t * t * (3.0F - 2.0F * t));
+		if (breakup <= 0.0F) {
+			return base;
+		}
+		float cells = valueNoise(x + 311.0, z - 97.0, 6, SEED_BASE + 3039);
+		return base + (cells - base) * breakup;
+	}
+
 	public static float coverageAt(double x, double z, float cover) {
-		return coverage(base(x, z), cover);
+		return coverage(field(x, z, cover), cover);
 	}
 
 	public static double wrap(double v) {

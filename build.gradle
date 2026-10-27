@@ -78,7 +78,7 @@ loom {
 			runDir = "build/run/demo"
 			vmArg "-Drealweather.demo=true"
 			programArgs "--quickPlaySingleplayer", "demo", "--width", "1280", "--height", "720"
-			["pos", "settle", "quality", "time", "debug", "only", "diagnose"].each { key ->
+			["pos", "settle", "quality", "time", "debug", "only", "diagnose", "scout", "control"].each { key ->
 				def value = project.findProperty("realweather.demo." + key)
 				if (value != null) {
 					vmArg "-Drealweather.demo.${key}=${value}"

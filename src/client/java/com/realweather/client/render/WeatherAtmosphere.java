@@ -59,12 +59,12 @@ public final class WeatherAtmosphere {
 	}
 
 	public static void applyFog(FogData fog, Camera camera, ClientLevel level, float renderDistance, float partialTick) {
-		applyWeatherFog(fog, camera, level, renderDistance, partialTick);
+		applyWeatherFog(fog, camera, level, partialTick);
 		lastFogStart = fog.environmentalStart;
 		lastFogEnd = fog.environmentalEnd;
 	}
 
-	private static void applyWeatherFog(FogData fog, Camera camera, ClientLevel level, float renderDistance, float partialTick) {
+	private static void applyWeatherFog(FogData fog, Camera camera, ClientLevel level, float partialTick) {
 		ClientConfig config = ClientConfig.get();
 		ClientWeather weather = ClientWeather.get();
 		visibility = Float.MAX_VALUE;
@@ -79,7 +79,8 @@ public final class WeatherAtmosphere {
 		float blizzard = blizzardFactor(weather, level, pos, partialTick);
 		float inCloud = weather.inCloud(partialTick);
 
-		float far = Math.max(renderDistance, 256.0F);
+		// Everything is relative to vanilla's own fog, so a hint of weather never makes the fog jump.
+		float far = Math.max(fog.environmentalEnd, 32.0F);
 		float v = far;
 		if (intensity > 0.0F) {
 			float precipitationVisibility = type.isSnowy() ? Mth.lerp(smoothstep(0.0F, 1.0F, intensity), 260.0F, 70.0F) : Mth.lerp(smoothstep(0.0F, 1.1F, intensity), 420.0F, 85.0F);
@@ -102,11 +103,14 @@ public final class WeatherAtmosphere {
 		visibility = v;
 		// The start is derived from our visibility instead of combined with vanilla's: vanilla's rain fog pushes
 		// the start far negative (-160), which together with a short end would haze even the nearest blocks.
+		// Blended in as the visibility drops, so the fog starts out as vanilla's.
 		float density = Math.max(blizzard, Math.max(weatherFog, inCloud));
 		float startFraction = Mth.lerp(density, 0.3F, 0.0F);
 		float end = Math.min(fog.environmentalEnd, v);
+		float reduction = smoothstep(0.0F, 0.3F, 1.0F - end / far);
+		float start = Math.max(fog.environmentalStart, end * startFraction);
 		fog.environmentalEnd = end;
-		fog.environmentalStart = Math.min(Math.max(fog.environmentalStart, end * startFraction), end * 0.95F);
+		fog.environmentalStart = Math.min(Mth.lerp(reduction, fog.environmentalStart, start), end * 0.95F);
 		fog.skyEnd = Math.min(fog.skyEnd, Math.max(v * 1.6F, 24.0F));
 		fog.cloudEnd = Math.min(fog.cloudEnd, Math.max(v * 3.0F, 32.0F));
 	}
@@ -135,6 +139,12 @@ public final class WeatherAtmosphere {
 		r = Mth.lerp(rain, r, luma * 0.92F);
 		g = Mth.lerp(rain, g, luma * 0.96F);
 		b = Mth.lerp(rain, b, luma * 1.04F);
+		// Under a closed cloud deck the horizon haze loses the blue of the sky.
+		float overcast = smoothstep(0.5F, 1.0F, weather.cloudCover(partialTick)) * outdoor * 0.8F;
+		float overcastLuma = 0.299F * r + 0.587F * g + 0.114F * b;
+		r = Mth.lerp(overcast, r, overcastLuma * 1.02F);
+		g = Mth.lerp(overcast, g, overcastLuma * 1.04F);
+		b = Mth.lerp(overcast, b, overcastLuma * 1.1F);
 		// Fog banks, falling snow and the inside of clouds are bright, milky white-grey.
 		float milk = Math.max(Math.max(blizzard * 0.85F, weatherFog * 0.7F), inCloud * 0.9F);
 		milk = Math.max(milk, weather.localType().isSnowy() ? intensity * 0.45F : 0.0F);

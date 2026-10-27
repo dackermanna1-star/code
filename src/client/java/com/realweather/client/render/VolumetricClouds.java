@@ -182,7 +182,8 @@ public final class VolumetricClouds implements AutoCloseable {
 		float lightR = Mth.lerp(day, 0.30F, 1.0F);
 		float lightG = Mth.lerp(day, 0.34F, Mth.lerp(sunElevation, 0.62F, 0.97F));
 		float lightB = Mth.lerp(day, 0.45F, Mth.lerp(sunElevation, 0.38F, 0.90F));
-		float lightIntensity = Mth.lerp(day, 0.22F, 1.0F) * (1.0F - 0.62F * storm) * (1.0F - 0.25F * cover);
+		// Self-shadowing in the shader darkens thick clouds; only towering storm clouds (anvils above) dim it further.
+		float lightIntensity = Mth.lerp(day, 0.2F, 1.0F) * (1.0F - 0.35F * storm);
 
 		int sky = probe.getValue(EnvironmentAttributes.SKY_COLOR, partialTick);
 		int fog = probe.getValue(EnvironmentAttributes.FOG_COLOR, partialTick);

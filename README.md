@@ -31,9 +31,10 @@ layers behind, fog banks, wet glistening ground and grass that bends in the wind
   no lightning, powder snow in cauldrons where it snows).
 * **Wind**: prevailing direction that slowly meanders and veers with passing fronts, plus deterministic gusts
   (identical for every player) with direction wobble.
-* **Snow accumulation**: snow layers build up progressively (faster in blizzards), settle evenly, drift into hollows
-  and against walls, and **melt** again once a cold snap passes in a biome that is normally too warm for snow.
-  Optional freezing of still water during cold snaps.
+* **Snow accumulation**: snow layers build up progressively (faster in blizzards), bury short grass and ferns (never
+  flowers or crops), settle evenly, drift into hollows and against walls, and **melt** again once a cold snap passes
+  in a biome that is normally too warm for snow — after which some of the grass sprouts again. Optional freezing of
+  still water during cold snaps.
 * **Lightning**: vanilla strikes still happen; intense storms add a few extra strikes near players, and the server
   directs synchronized distant bolts and in-cloud flashes so all players see the same storm.
 * Vanilla integration: the vanilla `raining`/`thundering` state is kept in sync (crops, mobs, fishing, tridents,
@@ -111,7 +112,8 @@ values are corrected automatically; a broken file is backed up as `*.broken`.
 **`realweather-common.json`** (server/world simulation): `dynamicWeather`, `transitionSpeed`,
 `commandTransitionSpeed`, `durationMultiplier`, per-type `durations` (seconds `[min, max]`) and `weights`,
 `dynamicColdSnaps`, `coldSnapStrength`, `intensityMultiplier`, `windMultiplier`, `maxWindSpeed`,
-`snowAccumulation`, `maxSnowLayers`, `maxBlizzardSnowLayers`, `snowAccumulationRate`, `snowMelting`, `snowMeltRate`,
+`snowAccumulation`, `maxSnowLayers`, `maxBlizzardSnowLayers`, `snowAccumulationRate`, `snowCoversPlants`, `snowMelting`,
+`snowMeltRate`,
 `freezeWaterInColdSnaps`, `accumulationRadius`, `extraLightning`, `distantLightning`, `lightningFrequency`,
 `syncIntervalTicks`. Vanilla's `max_snow_accumulation_height` game rule set to 0 also disables accumulation.
 

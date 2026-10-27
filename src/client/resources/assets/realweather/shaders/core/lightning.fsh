@@ -13,5 +13,5 @@ void main() {
     // Lightning is far brighter than its surroundings: haze dims it but never hides it completely.
     float fog = total_fog_value(sphericalVertexDistance, cylindricalVertexDistance, FogEnvironmentalStart, FogEnvironmentalEnd, FogRenderDistanceStart, FogRenderDistanceEnd);
     float extinction = exp(-sphericalVertexDistance / 1600.0);
-    fragColor = vertexColor * ColorModulator * mix(1.0, 0.3, fog) * extinction;
+    fragColor = vertexColor * ColorModulator * mix(1.0, 0.7, fog) * extinction;
 }

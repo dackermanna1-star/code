@@ -21,7 +21,10 @@ import org.slf4j.LoggerFactory;
 public final class WeatherDemo implements ClientModInitializer {
 	private static final Logger LOGGER = LoggerFactory.getLogger("RealWeatherDemo");
 
-	private sealed interface Step permits Command, Wait, Shot, Config {
+	private sealed interface Step permits Command, Wait, Shot, Config, Reload {
+	}
+
+	private record Reload() implements Step {
 	}
 
 	private record Command(String command) implements Step {
@@ -37,6 +40,7 @@ public final class WeatherDemo implements ClientModInitializer {
 	}
 
 	private final List<Step> steps = new ArrayList<>();
+	private boolean control;
 	private int index;
 	private int waiting;
 	private int loadedTicks;
@@ -70,6 +74,12 @@ public final class WeatherDemo implements ClientModInitializer {
 		this.steps.add(new Command("time set " + System.getProperty("realweather.demo.time", "2000")));
 		this.steps.add(new Wait(160));
 
+		if (Boolean.getBoolean("realweather.demo.control")) {
+			// Interactive mode: steps are read from demo/control.txt while the game runs (see readControlFile).
+			this.control = true;
+			return;
+		}
+
 		String[][] scenes = {
 			{"01_clear", "weather clear 100000 0.55", "weather wind 3 w"},
 			{"02_overcast", "weather overcast 100000 0.9", "weather wind 6 sw"},
@@ -88,7 +98,7 @@ public final class WeatherDemo implements ClientModInitializer {
 			this.steps.add(new Wait(settle));
 			this.steps.add(new Shot(scene[0]));
 			if (scene[0].equals("05_thunderstorm")) {
-				this.steps.add(new Command("execute at @p rotated ~ 0 run summon minecraft:lightning_bolt ^-25 ~ ^70"));
+				this.steps.add(new Command("execute at @p rotated ~ 0 run summon minecraft:lightning_bolt ^-25 ^ ^70"));
 				this.steps.add(new Wait(2));
 				this.steps.add(new Shot("06_lightning"));
 			}
@@ -96,6 +106,23 @@ public final class WeatherDemo implements ClientModInitializer {
 				this.steps.add(new Wait(settle * 2));
 				this.steps.add(new Shot("08_snow_accumulated"));
 			}
+		}
+		String scout = System.getProperty("realweather.demo.scout", "");
+		if (!scout.isEmpty()) {
+			// "x z;x z;...": one screenshot per compass direction at each candidate spot, to pick a vantage point.
+			this.steps.add(new Command("weather clear 100000 0.4"));
+			String[] spots = scout.split(";");
+			for (int s = 0; s < spots.length; s++) {
+				String[] xz = spots[s].trim().split("\\s+");
+				this.steps.add(new Command("spreadplayers " + xz[0] + " " + xz[1] + " 0 1 false @a"));
+				this.steps.add(new Wait(60));
+				for (int yaw = 0; yaw < 360; yaw += 90) {
+					this.steps.add(new Command("execute as @a at @s run tp @s ~ ~ ~ " + yaw + " -4"));
+					this.steps.add(new Wait(30));
+					this.steps.add(new Shot("scout_" + s + "_" + yaw));
+				}
+			}
+			return;
 		}
 		String diagnose = System.getProperty("realweather.demo.diagnose", "");
 		if (!diagnose.isEmpty()) {
@@ -132,7 +159,66 @@ public final class WeatherDemo implements ClientModInitializer {
 		}
 	}
 
+	/**
+	 * Control file lines: {@code /command}, {@code wait <ticks>}, {@code shot <name>}, {@code set <option> <value>},
+	 * {@code reload} (resource reload, recompiles shaders) and {@code quit}.
+	 */
+	private void readControlFile(Minecraft client) {
+		java.nio.file.Path file = client.gameDirectory.toPath().resolve("demo/control.txt");
+		if (!java.nio.file.Files.exists(file)) {
+			return;
+		}
+		try {
+			List<String> lines = java.nio.file.Files.readAllLines(file);
+			java.nio.file.Files.delete(file);
+			for (String raw : lines) {
+				String line = raw.trim();
+				if (line.isEmpty() || line.startsWith("#")) {
+					continue;
+				}
+				String[] parts = line.split("\\s+", 3);
+				switch (parts[0]) {
+					case "wait" -> this.steps.add(new Wait(Integer.parseInt(parts[1])));
+					case "shot" -> this.steps.add(new Shot(parts[1]));
+					case "reload" -> this.steps.add(new Reload());
+					case "quit" -> this.control = false;
+					case "set" -> this.steps.add(new Config(() -> ClientCommandsAccess.set(parts[1], parts[2])));
+					default -> this.steps.add(new Command(line.startsWith("/") ? line.substring(1) : line));
+				}
+			}
+		} catch (Exception e) {
+			LOGGER.error("Bad control file", e);
+		}
+	}
+
+	private static final class ClientCommandsAccess {
+		static void set(String name, String value) {
+			try {
+				var field = ClientConfig.class.getField(name);
+				Object config = ClientConfig.get();
+				if (field.getType() == boolean.class) {
+					field.setBoolean(config, Boolean.parseBoolean(value));
+				} else if (field.getType() == float.class) {
+					field.setFloat(config, Float.parseFloat(value));
+				} else if (field.getType() == int.class) {
+					field.setInt(config, Integer.parseInt(value));
+				} else {
+					field.set(config, value);
+				}
+				LOGGER.info("Demo set {} = {}", name, value);
+			} catch (ReflectiveOperationException | RuntimeException e) {
+				LOGGER.error("Cannot set {}", name, e);
+			}
+		}
+	}
+
 	private void tick(Minecraft client) {
+		if (this.control && client.level != null && (client.level.getGameTime() % 10) == 0) {
+			this.readControlFile(client);
+		}
+		if (this.index >= this.steps.size() && this.control) {
+			return;
+		}
 		if (this.index >= this.steps.size()) {
 			if (this.index == this.steps.size()) {
 				LOGGER.info("Demo finished");
@@ -168,6 +254,10 @@ public final class WeatherDemo implements ClientModInitializer {
 					message -> LOGGER.info("Saved {}", message.getString()));
 			}
 			case Config config -> config.action().run();
+			case Reload reload -> {
+				LOGGER.info("Demo reloading resources");
+				client.reloadResourcePacks();
+			}
 		}
 	}
 }

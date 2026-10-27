@@ -45,6 +45,8 @@ public final class RealWeatherConfig {
 	public int maxSnowLayers = 3;
 	public int maxBlizzardSnowLayers = 6;
 	public float snowAccumulationRate = 1.0F;
+	/** Let snow bury short grass and ferns (they may grow back after the thaw). Flowers and crops are never covered. */
+	public boolean snowCoversPlants = true;
 	/** Melt snow that is exposed to the sky in biomes that are normally too warm for snow. */
 	public boolean snowMelting = true;
 	public float snowMeltRate = 1.0F;

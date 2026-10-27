@@ -35,6 +35,17 @@ float rw_cloud_base(vec2 p) {
          + 0.18 * rw_value_noise(p + vec2(-71.0, 293.0), 7, 26327u);
 }
 
+// Twin of CloudNoise.field: sparse skies break up into separate fair-weather cumulus cells.
+float rw_cloud_field(vec2 p, float cover) {
+    float base = rw_cloud_base(p);
+    float breakup = 0.45 * (1.0 - smoothstep(0.45, 0.8, cover));
+    if (breakup <= 0.0) {
+        return base;
+    }
+    float cells = rw_value_noise(p + vec2(311.0, -97.0), 6, 27340u);
+    return mix(base, cells, breakup);
+}
+
 float rw_coverage(float base, float cover) {
     if (cover <= 0.001) {
         return 0.0;

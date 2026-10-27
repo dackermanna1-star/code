@@ -74,12 +74,8 @@ public final class RealisticLightningRenderer extends EntityRenderer<LightningBo
 		if (brightness <= 0.01F) {
 			return;
 		}
-		var segments = LightningGeometry.get(state.channelSeed, state.height);
-		float cameraX = (float) (camera.pos.x - state.x);
-		float cameraY = (float) (camera.pos.y - state.y);
-		float cameraZ = (float) (camera.pos.z - state.z);
-		collector.submitCustomGeometry(poseStack, RealWeatherRenderTypes.lightning(),
-			(pose, consumer) -> LightningGeometry.emit(consumer, pose.pose(), segments, cameraX, cameraY, cameraZ, brightness));
+		// Drawn in the weather pass after the rain (see DistantLightning), not with the other entities.
+		DistantLightning.queueEntityBolt(state.channelSeed, state.x, state.y, state.z, state.height, brightness);
 	}
 
 	/** Bright first stroke, then flickering re-strikes of varying strength. */

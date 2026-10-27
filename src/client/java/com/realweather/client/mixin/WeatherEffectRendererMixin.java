@@ -3,6 +3,7 @@ package com.realweather.client.mixin;
 import com.realweather.client.render.DistantLightning;
 import com.realweather.client.render.PrecipitationRenderer;
 import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.WeatherEffectRenderer;
@@ -32,11 +33,21 @@ abstract class WeatherEffectRendererMixin {
 
 	@Inject(method = "render", at = @At("HEAD"), cancellable = true)
 	private void realweather$render(MultiBufferSource buffers, Vec3 camera, WeatherRenderState state, CallbackInfo ci) {
-		DistantLightning.render(buffers, camera.x, camera.y, camera.z, net.minecraft.client.Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
 		if (PrecipitationRenderer.enabled()) {
 			PrecipitationRenderer.get().render(buffers, camera);
+			renderLightning(buffers, camera);
 			ci.cancel();
 		}
+	}
+
+	@Inject(method = "render", at = @At("RETURN"))
+	private void realweather$renderAfterVanilla(MultiBufferSource buffers, Vec3 camera, WeatherRenderState state, CallbackInfo ci) {
+		renderLightning(buffers, camera);
+	}
+
+	/** Lightning goes last: it outshines the rain in front of it. */
+	private static void renderLightning(MultiBufferSource buffers, Vec3 camera) {
+		DistantLightning.render(buffers, camera.x, camera.y, camera.z, Minecraft.getInstance().getDeltaTracker().getGameTimeDeltaPartialTick(false));
 	}
 
 	@Inject(method = "tickRainParticles", at = @At("HEAD"), cancellable = true)

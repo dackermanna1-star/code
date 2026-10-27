@@ -39,8 +39,9 @@ float rw_cloud_shadow(vec3 pos, float skyLight) {
     float midHeight = RW_Cloud.y + RW_Cloud.z * 0.35;
     float t = (midHeight - pos.y) / RW_Sun.y;
     vec2 p = rw_noise_position(pos) + RW_Sun.xz * t;
-    float coverage = rw_coverage(rw_cloud_base(p), RW_Cloud.x);
-    return smoothstep(0.05, 0.75, coverage) * RW_Cloud.w * smoothstep(0.5, 1.0, skyLight);
+    float coverage = rw_coverage(rw_cloud_field(p, RW_Cloud.x), RW_Cloud.x);
+    // Matches the opaque cloud bodies of the volumetric clouds (their density saturates at a coverage of 0.3).
+    return smoothstep(0.02, 0.35, coverage) * RW_Cloud.w * smoothstep(0.5, 1.0, skyLight);
 }
 
 void main() {
