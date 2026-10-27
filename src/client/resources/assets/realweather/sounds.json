@@ -1,0 +1,101 @@
+{
+  "ambient.rain.light": {
+    "sounds": [
+      {
+        "name": "realweather:ambient/rain_light",
+        "stream": true,
+        "volume": 1.0
+      }
+    ],
+    "subtitle": "realweather.subtitle.rain_light"
+  },
+  "ambient.rain.heavy": {
+    "sounds": [
+      {
+        "name": "realweather:ambient/rain_heavy",
+        "stream": true,
+        "volume": 1.0
+      }
+    ],
+    "subtitle": "realweather.subtitle.rain_heavy"
+  },
+  "ambient.rain.indoor": {
+    "sounds": [
+      {
+        "name": "realweather:ambient/rain_indoor",
+        "stream": true,
+        "volume": 1.0
+      }
+    ],
+    "subtitle": "realweather.subtitle.rain_indoor"
+  },
+  "ambient.wind.light": {
+    "sounds": [
+      {
+        "name": "realweather:ambient/wind_light",
+        "stream": true,
+        "volume": 1.0
+      }
+    ],
+    "subtitle": "realweather.subtitle.wind_light"
+  },
+  "ambient.wind.strong": {
+    "sounds": [
+      {
+        "name": "realweather:ambient/wind_strong",
+        "stream": true,
+        "volume": 1.0
+      }
+    ],
+    "subtitle": "realweather.subtitle.wind_strong"
+  },
+  "ambient.blizzard": {
+    "sounds": [
+      {
+        "name": "realweather:ambient/blizzard",
+        "stream": true,
+        "volume": 1.0
+      }
+    ],
+    "subtitle": "realweather.subtitle.blizzard"
+  },
+  "thunder.near": {
+    "sounds": [
+      {
+        "name": "realweather:thunder/near_1"
+      },
+      {
+        "name": "realweather:thunder/near_2"
+      },
+      {
+        "name": "realweather:thunder/near_3"
+      }
+    ],
+    "subtitle": "realweather.subtitle.thunder"
+  },
+  "thunder.far": {
+    "sounds": [
+      {
+        "name": "realweather:thunder/far_1"
+      },
+      {
+        "name": "realweather:thunder/far_2"
+      },
+      {
+        "name": "realweather:thunder/far_3"
+      }
+    ],
+    "subtitle": "realweather.subtitle.thunder_far"
+  },
+  "thunder.distant": {
+    "sounds": [
+      {
+        "name": "realweather:thunder/distant_1"
+      },
+      {
+        "name": "realweather:thunder/distant_2"
+      }
+    ],
+    "subtitle": "realweather.subtitle.thunder_far"
+  }
+}

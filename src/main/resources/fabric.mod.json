@@ -1,0 +1,39 @@
+{
+	"schemaVersion": 1,
+	"id": "realweather",
+	"version": "${version}",
+	"name": "RealWeather",
+	"description": "Ultra-realistic, fully dynamic weather: wind-driven rain and snow, volumetric storm clouds, branching lightning with delayed thunder, blizzards, fog, snow accumulation, swaying foliage and wet surfaces.",
+	"authors": [
+		"RealWeather contributors"
+	],
+	"contact": {},
+	"license": "MIT",
+	"icon": "assets/realweather/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.realweather.RealWeather"
+		],
+		"client": [
+			"com.realweather.client.RealWeatherClient"
+		]
+	},
+	"mixins": [
+		"realweather.mixins.json",
+		{
+			"config": "realweather.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"accessWidener": "realweather.accesswidener",
+	"depends": {
+		"fabricloader": ">=0.18.0",
+		"minecraft": "~${minecraft_version}",
+		"java": ">=21",
+		"fabric-api": "*"
+	},
+	"breaks": {
+		"optifabric": "*"
+	}
+}

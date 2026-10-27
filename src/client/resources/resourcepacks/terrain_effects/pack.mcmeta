@@ -1,0 +1,7 @@
+{
+	"pack": {
+		"description": "RealWeather terrain effects: swaying plants, wet surfaces and cloud shadows",
+		"min_format": 75,
+		"max_format": 75
+	}
+}

@@ -1,0 +1,12 @@
+accessWidener v2 named
+
+# Biome climate internals: needed to compute the same temperature vanilla uses, offset by cold snaps.
+accessible class net/minecraft/world/level/biome/Biome$ClimateSettings
+accessible field net/minecraft/world/level/biome/Biome climateSettings Lnet/minecraft/world/level/biome/Biome$ClimateSettings;
+accessible method net/minecraft/world/level/biome/Biome getTemperature (Lnet/minecraft/core/BlockPos;I)F
+
+# Lets intense storms place extra strikes with vanilla's targeting (lightning rods, exposed mobs).
+accessible method net/minecraft/server/level/ServerLevel findLightningTargetAround (Lnet/minecraft/core/BlockPos;)Lnet/minecraft/core/BlockPos;
+
+# Client: custom render types for lightning and soft particles (RenderType.create is package-private).
+accessible method net/minecraft/client/renderer/rendertype/RenderType create (Ljava/lang/String;Lnet/minecraft/client/renderer/rendertype/RenderSetup;)Lnet/minecraft/client/renderer/rendertype/RenderType;
