@@ -2,7 +2,11 @@
 
 A very small first-person Godot 4 game: walk around a cozy room with a bed,
 bookshelf, desk and chair, desk lamp, rug, potted plant, painting, door, a
-window with sunlight coming in, and a few crates you can push around.
+window with sunlight coming in, and a few crates.
+
+Press **E** to pick up the loose stuff: books, crates, the chair, the lamp,
+the mug, the plant, the pillow, even the painting off the wall. Then drop
+it or throw it. The bed, desk and bookshelf stay put.
 
 Everything is built from Godot's CSG shapes and primitive meshes, so there
 are no external assets.
@@ -44,12 +48,16 @@ most reliable choice on Macs, including older macOS versions.
 | Mouse / trackpad | Look around |
 | Space | Jump |
 | Shift | Sprint |
+| E | Pick up / drop what you're looking at |
+| Click (while holding) | Throw it |
 | Esc | Free the mouse (click the window to grab it again) |
 
-Walk into the crates to push them. Close the window or press ⌘Q to quit.
+You can also walk into things to push them. Close the window or press ⌘Q to quit.
 
 ## Files
 
 - `main.tscn`: the room, props, lights and player.
-- `player.gd`: first-person movement, mouse look and crate pushing.
+- `player.gd`: first-person movement, mouse look, pushing, and picking things up.
+  Any `RigidBody3D` in the scene can be picked up, so to make something new
+  grabbable, give it a `RigidBody3D` with a `CollisionShape3D`.
 - `project.godot`: project settings and key bindings.
