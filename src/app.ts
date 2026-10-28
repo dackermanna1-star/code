@@ -29,6 +29,7 @@ import { loadSettings, saveSettings, type Settings } from './ui/settings';
 import { loadRaw, save } from './ui/storage';
 import { SOLAR_SYSTEM_ID } from './astro/known/solarsystem';
 import { Rng } from './core/rng';
+import { AudioEngine, type AudioState, type Surface } from './audio/audio';
 
 const _tv = new THREE.Vector3();
 
@@ -59,6 +60,7 @@ export class App {
   readonly settingsMenu: SettingsMenu;
   readonly help: HelpOverlay;
   readonly startScreen: StartScreen;
+  readonly audio = new AudioEngine();
   selected: Target | null = null;
   private last = performance.now();
   private fps = 60;
@@ -127,6 +129,11 @@ export class App {
     this.world.view.rebase('universe', null);
     this.world.view.upos.copy(start);
     this.applySettings();
+    // audio starts on the first user gesture (browser autoplay policy)
+    const unlock = () => this.audio.resume();
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
+    this.player.walker.onStep = () => this.footstep();
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('beforeunload', () => { this.autosave(); this.discoveries.flush(); });
     this.resize();
@@ -386,10 +393,77 @@ export class App {
     this.player.shipClass = s.defaultShip;
     Object.assign(this.player.shipOptions, { realisticFuel: s.realisticFuel, damage: s.shipDamage, ftlLimits: s.ftlLimits });
     r.reduceMotion = s.reduceMotion || !s.motionEffects;
+    this.audio.volumes = { master: s.masterVolume, ambience: s.ambienceVolume, effects: s.effectsVolume };
+    this.audio.cinematic = s.cinematicAudio;
+    this.audio.applyVolumes();
+  }
+
+  // ---------------------------------------------------------------- audio
+  private footstep() {
+    const wk = this.player.walker;
+    const b = wk.body;
+    if (!b) return;
+    let surf: Surface = 'rock';
+    if (wk.swimming) surf = 'liquid';
+    else {
+      const g = this.world.generator(b);
+      if (g) {
+        const d = wk.pos.clone().normalize();
+        const smp = g.sample(d.x, d.y, d.z, 0.5);
+        const sp = b.planet!.surface!;
+        if (smp.temp < 262) surf = smp.rock > 0.6 ? 'ice' : 'snow';
+        else if (sp.vegetation > 0 && smp.moisture > 0.35 && smp.temp > 255) surf = 'vegetation';
+        else if (smp.rock < 0.35 && (sp.dunes > 0.05 || smp.moisture < 0.2)) surf = 'sand';
+      }
+    }
+    this.audio.footstep(surf, wk.vel.length());
+  }
+
+  private audioState(): AudioState {
+    const pl = this.player;
+    const st: AudioState = { pressure: 0, airSpeed: 0, wind: 0, inCabin: false, inShip: false, engineLevel: 0, rcs: 0, heating: 0, storm: 0, liquidNear: 0, fauna: 0, ftl: 0 };
+    const b = pl.mode === 'spectator' ? this.spectator.nearestBody : pl.localBody;
+    let alt = Infinity;
+    if (pl.mode === 'walk') alt = pl.walker.swimming ? 0 : 1.7;
+    else if (pl.mode === 'ship' && pl.ship) alt = pl.ship.altitude;
+    else alt = this.spectator.altitude;
+    const atm = b?.planet?.atmosphere;
+    if (b && atm && isFinite(alt)) {
+      st.pressure = atm.pressure * Math.exp(-Math.max(alt, 0) / (atm.scaleHeight || 8000));
+      const clouds = b.planet!.clouds;
+      st.wind = (clouds?.windSpeed ?? 5) * 0.35 * Math.min(1, st.pressure * 2);
+      if (clouds && alt < clouds.top) st.storm = clouds.storminess * clouds.coverage;
+    }
+    if (pl.mode === 'ship' && pl.ship) {
+      const sh = pl.ship;
+      st.inShip = true;
+      st.inCabin = pl.shipView === 'cockpit';
+      st.engineLevel = sh.engineLevel;
+      st.rcs = Math.min(1, sh.rcs.length());
+      st.heating = sh.atmo.heating;
+      st.airSpeed = st.pressure > 0 ? Math.sqrt(sh.groundSpeed ** 2 + sh.verticalSpeed ** 2) : 0;
+      st.ftl = sh.warp.active ? 1 : sh.jump.phase !== 'idle' ? 1 : 0;
+    } else if (pl.mode === 'walk') {
+      st.airSpeed = pl.walker.vel.length();
+      if (pl.walker.swimming) st.liquidNear = 1;
+    } else {
+      st.airSpeed = this.world.view.kind === 'rotating' ? this.spectator.lastSpeed : 0;
+    }
+    if (b && b.hasSurface && alt < 400 && !st.liquidNear) {
+      const dir = this.world.view.offsetBodyFixed(new THREE.Vector3()).normalize();
+      const gi = this.world.groundInfo(b, dir);
+      if (gi.liquid > gi.ground) st.liquidNear = Math.max(0, 1 - alt / 400);
+    }
+    if (b && alt < 300) {
+      const fauna = this.renderer.planets.get(b.id)?.fauna;
+      if (fauna?.active && fauna.count > 0) st.fauna = Math.min(1, fauna.count / 40);
+    }
+    return st;
   }
 
   // ------------------------------------------------------------ selection
   select(t: Target | null) {
+    if (t && t.id !== this.selected?.id) this.audio.blip('select');
     if (this.scanner.active && this.scanner.target?.id !== t?.id) this.scanner.cancel();
     this.selected = t;
   }
@@ -516,6 +590,7 @@ export class App {
         });
         if (d) {
           this.thumbQueue.push({ id: d.id });
+          if (!b.known) this.audio.blip('discovery');
           if (!b.known) this.hud.toast(`Discovered ${b.displayName} — ${d.subtitle}`, 3.5);
         }
       }
@@ -583,6 +658,7 @@ export class App {
       this.thumbQueue.push({ id: t.id });
     }
     this.discoveries.markScanned(t.id, { life });
+    this.audio.blip(life && life !== 'none' ? 'discovery' : 'scan');
     const lifeMsg = life && life !== 'none' ? ` — ${life} life detected!` : '';
     this.hud.toast(`Scan complete: ${t.name}${lifeMsg}`, 4);
   }
@@ -710,6 +786,7 @@ export class App {
     if (this.map.isOpen) this.map.update(this.mapSources());
     this.updateHud();
     this.updateHint();
+    this.audio.update(this.audioState(), dt);
     this.autosaveTimer += dt;
     if (this.autosaveTimer > 30) { this.autosaveTimer = 0; this.autosave(); }
     this.input.endFrame();
