@@ -43,3 +43,26 @@ export async function renderFrames(scene: Scene, n: number): Promise<void> {
 export function now(): number {
   return performance.now();
 }
+
+/** Read the whole default framebuffer once (RGBA, bottom-left origin). */
+export async function readAll(engine: Engine): Promise<{ data: Uint8Array; w: number; h: number }> {
+  const w = engine.getRenderWidth();
+  const h = engine.getRenderHeight();
+  const data = (await engine.readPixels(0, 0, w, h, true, false)) as Uint8Array;
+  return { data, w, h };
+}
+
+/** Luminance (0..255) at canvas pixel (x,y) (top-left origin), averaged over a (2r+1)^2 square. */
+export function lumAt(fb: { data: Uint8Array; w: number; h: number }, x: number, y: number, r = 1): number {
+  let acc = 0, n = 0;
+  for (let dy = -r; dy <= r; dy++) {
+    for (let dx = -r; dx <= r; dx++) {
+      const px = Math.min(fb.w - 1, Math.max(0, x + dx));
+      const py = Math.min(fb.h - 1, Math.max(0, fb.h - 1 - (y + dy)));
+      const i = (py * fb.w + px) * 4;
+      acc += 0.2126 * fb.data[i] + 0.7152 * fb.data[i + 1] + 0.0722 * fb.data[i + 2];
+      n++;
+    }
+  }
+  return acc / n;
+}

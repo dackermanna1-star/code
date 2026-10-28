@@ -50,7 +50,7 @@ export function buildRoom(scene: Scene): Room {
   box("wallS_below", win.x0, win.x1, 0, win.y0, -t, 0, wallMat);
   box("wallS_above", win.x0, win.x1, win.y1, h, -t, 0, wallMat);
   const props: Mesh[] = [];
-  props.push(box("crate1", 3.4, 4.0, 0, 0.6, 2.0, 2.6, propMat));
+  props.push(box("crate1", 0.6, 1.2, 0, 0.6, 2.0, 2.6, propMat));
   props.push(box("crate2", 1.2, 1.7, 0, 0.9, 3.0, 3.5, propMat2));
   props.push(box("table", 2.2, 3.2, 0.7, 0.75, 1.0, 1.6, propMat));
   props.push(box("tableLeg", 2.25, 2.3, 0, 0.7, 1.05, 1.1, propMat));
