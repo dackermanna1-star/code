@@ -182,6 +182,32 @@ export class CloudLayer {
     renderer.setRenderTarget(prev);
     mat.dispose();
   }
+  private readBuf = new Uint8Array(4);
+
+  /**
+   * Weather (coverage, cloud-top height, raw field) at a weather-space
+   * direction, read back from the GPU map. Uses the GL cube-face convention
+   * the map was rendered with. Cheap (one texel) but synchronous: call rarely.
+   */
+  sample(renderer: THREE.WebGLRenderer, d: THREE.Vector3): { coverage: number; height: number } {
+    const ax = Math.abs(d.x), ay = Math.abs(d.y), az = Math.abs(d.z);
+    let face: number, sc: number, tc: number, ma: number;
+    if (ax >= ay && ax >= az) { ma = ax; face = d.x > 0 ? 0 : 1; sc = d.x > 0 ? -d.z : d.z; tc = -d.y; }
+    else if (ay >= az) { ma = ay; face = d.y > 0 ? 2 : 3; sc = d.x; tc = d.y > 0 ? d.z : -d.z; }
+    else { ma = az; face = d.z > 0 ? 4 : 5; sc = d.z > 0 ? d.x : -d.x; tc = -d.y; }
+    const size = this.weather.width;
+    const x = Math.min(size - 1, Math.max(0, Math.floor(((sc / ma + 1) / 2) * size)));
+    const y = Math.min(size - 1, Math.max(0, Math.floor(((tc / ma + 1) / 2) * size)));
+    try {
+      const gl = renderer.getContext() as WebGL2RenderingContext;
+      gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+      renderer.readRenderTargetPixels(this.weather, x, y, 1, 1, this.readBuf, face);
+    } catch {
+      return { coverage: 0, height: 0 };
+    }
+    return { coverage: this.readBuf[0] / 255, height: this.readBuf[1] / 255 };
+  }
+
   dispose() {
     this.weather.dispose();
   }

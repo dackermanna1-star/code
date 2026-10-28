@@ -62,6 +62,21 @@ vec2 raySphereG(vec3 ro, vec3 rd, float r) {
   float s = sqrt(d);
   return vec2((-b - s) / a, (-b + s) / a);
 }
+#ifdef CLOUDS
+// fraction of direct sunlight reaching air below the deck (weather-map lookup
+// where the sun ray crosses the middle of the deck)
+float belowCloudShadow(vec3 p, float h, vec3 L) {
+  float rMid = (uCloudBottom + uCloudTop) * 0.5;
+  if (h >= rMid) return 1.0;
+  float mu = max(dot(p / h, L), 0.04);
+  vec3 q = uWorldToPlanet * (p + L * (rMid - h) / mu);
+  vec3 d = normalize(q);
+  float c = cos(uCloudDrift), s = sin(uCloudDrift);
+  vec4 w = textureLod(uWeather, vec3(c * d.x + s * d.z, d.y, -s * d.x + c * d.z), 2.0);
+  float cov = smoothstep(0.25, 0.85, w.r) * smoothstep(0.15, 0.6, w.g) * clamp(uCloudDensity * (uCloudTop - uCloudBottom) * 0.02, 0.0, 1.0);
+  return 1.0 - cov * 0.95;
+}
+#endif
 // positions are evaluated along rs (the axis-stretched ray); t stays metric (|rd| = 1 in world space)
 vec3 RD_PHASE;
 void integrate(vec3 ro, vec3 rd, float ta, float tb, int n, float jit, inout vec3 L, inout vec3 T) {
@@ -83,7 +98,11 @@ void integrate(vec3 ro, vec3 rd, float ta, float tb, int n, float jit, inout vec
     vec3 ext, mieS;
     vec3 rs = atmScattering(h - uRg, ext, mieS);
     float muS = dot(p, uSunDir[0]) / h;
-    vec3 S = uSunIllum[0] * ((rs * pr0 + mieS * pm0) * sunTransmittance(h, muS) + (rs + mieS) * multiScat(h, muS));
+    float shade = 1.0;
+#ifdef CLOUDS
+    shade = belowCloudShadow(p, h, uSunDir[0]);
+#endif
+    vec3 S = uSunIllum[0] * ((rs * pr0 + mieS * pm0) * sunTransmittance(h, muS) * shade + (rs + mieS) * multiScat(h, muS) * (0.55 + 0.45 * shade));
     if (two) {
       float muS1 = dot(p, uSunDir[1]) / h;
       S += uSunIllum[1] * ((rs * pr1 + mieS * pm1) * sunTransmittance(h, muS1) + (rs + mieS) * multiScat(h, muS1));
@@ -170,7 +189,7 @@ void main() {
     vec2 ig = raySphereG(ro, rd, uRg);
     if (ig.x < ig.y && ig.x > 0.0) t1 = min(t1, ig.x);
   }
-  if (uDebug > 0.5) { gl_FragColor = vec4(t0 / 1e6, t1 / 1e6, tScene / 1e6, 1.0); return; }
+  if (uDebug > 0.5 && uDebug < 1.5) { gl_FragColor = vec4(t0 / 1e6, t1 / 1e6, tScene / 1e6, 1.0); return; }
   if (t1 <= t0) { gl_FragColor = vec4(scene, 1.0); return; }
   float jit = ign(gl_FragCoord.xy + vec2(uFrame * 5.588238, uFrame * 1.13));
   vec3 L = vec3(0.0), T = vec3(1.0);
@@ -238,9 +257,10 @@ void main() {
           msum += a * exp(-od * b) * mix(hg(c0, 0.75 * cc), hg(c0, -0.2 * cc), 0.35);
           a *= 0.5; b *= 0.4; cc *= 0.45;
         }
-        // diffuse light of an optically thick deck: ~A/π at the lit top, decaying
-        // with depth toward the sun (light diffusing through the cloud body)
-        float diffuse = 0.95 / PI * exp(-od * 0.09) * (0.35 + 0.65 * clamp(muS * 1.5 + 0.3, 0.0, 1.0));
+        // diffuse light inside an optically thick deck (two-stream estimate):
+        // transmitted fraction ≈ 1 / (1 + 0.75·τ·(1 − g)), g ≈ 0.85, so cloud
+        // bases are grey (10–30 % of daylight) rather than black
+        float diffuse = 0.95 / PI / (1.0 + 0.11 * od) * (0.35 + 0.65 * clamp(muS * 1.5 + 0.3, 0.0, 1.0));
         float powder = 1.0 - exp(-od * 2.0 - dens * 60.0);
         vec3 amb = (uSunIllum[0] * skyIrradiance(h, muS)) / PI * (0.6 + 0.4 * (h - uCloudBottom) / (uCloudTop - uCloudBottom));
         vec3 S = uCloudAlbedo * (sunE * (msum * mix(1.0, powder, 0.5) * 1.6 + diffuse) + amb);

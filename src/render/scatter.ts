@@ -16,6 +16,7 @@ import { Rng, seedOf } from '../core/rng';
 import { NOISE_GLSL } from './shaders/noise.glsl';
 import { LIGHTING_GLSL, ECLIPSE_GLSL } from './shaders/lighting.glsl';
 import { ATMOSPHERE_UNIFORMS, ATMOSPHERE_FUNCS, ATMOSPHERE_LUT_FUNCS } from './shaders/atmosphere.glsl';
+import { CLOUD_SHADOW_GLSL } from './shaders/cloudshadow.glsl';
 import { PRE_EXPOSURE_GLSL } from './exposure';
 import { floraFor, rockGeometries, type Species } from './flora';
 
@@ -46,8 +47,9 @@ void main() {
     p.z += cos(ph * 0.8) * 0.025 * h * h * uWind;
   }
   vec4 wp = modelMatrix * instanceMatrix * vec4(p, 1.0);
-  float d = length(wp.xyz);
-  if (d > size * uFade) wp.xyz = vec3(0.0, 0.0, 1e9);
+  // fade by the instance origin (a per-vertex test would stretch triangles)
+  float d = length((modelMatrix * vec4(ip, 1.0)).xyz);
+  if (d > size * uFade) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
   vWorld = wp.xyz;
   vNormalW = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);
 #ifdef USE_INSTANCING_COLOR
@@ -75,10 +77,12 @@ ${ATMOSPHERE_FUNCS}
 ${ATMOSPHERE_LUT_FUNCS}
 #endif
 uniform vec3 uPlanetCenter;
+uniform mat3 uWorldToPlanet;
 uniform float uRadius;
 uniform vec3 uSunDir[2];
 uniform vec3 uSunIllum[2];
 uniform float uAmbient;
+${CLOUD_SHADOW_GLSL}
 uniform vec3 uPlanetShine;
 uniform vec3 uStem;
 uniform float uFoliage;   // 1 = translucent foliage shading for part 1
@@ -117,6 +121,7 @@ void main() {
     sky = vec3(0.0);
 #endif
     float ecl = eclipseFactor(P, k);
+    applyCloudShade(P, L, muS, sunT, sky);
     float NdotL = dot(N, L);
     float diff = leaf ? max((NdotL + 0.45) / 1.45, 0.0) : max(NdotL, 0.0);
     // light through thin leaves (forward scattering toward the viewer)
@@ -186,7 +191,7 @@ export class SurfaceScatter {
         uStem: { value: new THREE.Vector3(...sp.palette.rockB).multiplyScalar(0.6) },
         uFoliage: { value: foliage ? 1 : 0 },
       },
-      defines: hasAtmosphere ? { HAS_ATMOSPHERE: '' } : {},
+      defines: { ...(hasAtmosphere ? { HAS_ATMOSPHERE: '' } : {}), ...(terrainUniforms.uShadowStrength && body.planet!.clouds ? { CLOUD_SHADOWS: '' } : {}) },
       side: foliage ? THREE.DoubleSide : THREE.FrontSide,
     });
     this.rockMat = mk(false);

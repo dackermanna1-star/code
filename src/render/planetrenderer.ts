@@ -9,6 +9,7 @@ import type { TerrainWorkerPool } from '../terrain/workerpool';
 import { createTerrainMaterial } from './terrainmaterial';
 import { SurfaceScatter } from './scatter';
 import { Fauna } from './fauna';
+import { Precipitation } from './precipitation';
 import { SurfaceGenerator } from '../terrain/surface';
 import { AtmosphereLUTs } from './atmosphere';
 import { AtmospherePass, auroraFor } from './atmospherepass';
@@ -62,13 +63,15 @@ export class PlanetRenderer {
   /** rocks and plants near the camera */
   scatter: SurfaceScatter | null = null;
   fauna: Fauna | null = null;
+  precip: Precipitation | null = null;
+  private weatherHere: { coverage: number; height: number } | null = null;
   private lastTime = NaN;
   private gen: SurfaceGenerator | null = null;
 
   constructor(readonly body: Body, readonly pool: TerrainWorkerPool, private renderer: THREE.WebGLRenderer) {
     const sp = body.planet!.surface!;
     const hasAtm = !!body.planet!.atmosphereRender;
-    this.material = createTerrainMaterial(sp, { hasAtmosphere: hasAtm });
+    this.material = createTerrainMaterial(sp, { hasAtmosphere: hasAtm, clouds: hasAtm && !!body.planet!.clouds });
     this.group.matrixAutoUpdate = true;
   }
 
@@ -133,6 +136,32 @@ export class PlanetRenderer {
       const dt = isFinite(this.lastTime) ? Math.max(0, ctx.time - this.lastTime) : 0;
       this.fauna?.update(this.gen, camBody, dt, (ctx.quality.scatter ?? 0.85) > 0);
     }
+    // local precipitation / airborne particles
+    if (!this.precip && this.body.planet!.atmosphere && altCam < 3000) {
+      this.precip = new Precipitation(this.body);
+      this.group.add(this.precip.group);
+    }
+    if (this.precip && this.gen) {
+      const dirB = _v2.copy(camBody).normalize();
+      if (this.clouds && this.atmPass && (ctx.frame % 30 === 0 || !this.weatherHere)) {
+        const a = this.atmPass.material.uniforms.uCloudDrift.value as number;
+        const c = Math.cos(a), sn = Math.sin(a);
+        const wd = new THREE.Vector3(c * dirB.x + sn * dirB.z, dirB.y, -sn * dirB.x + c * dirB.z);
+        this.weatherHere = this.clouds.sample(this.renderer, wd);
+      }
+      const s0 = ctx.suns[0];
+      const light = new THREE.Vector3();
+      if (s0) {
+        const L = new THREE.Vector3(), E = new THREE.Vector3();
+        sunIlluminanceAt(s0, rel, L, E);
+        const upW = _v.copy(camBody).normalize().applyQuaternion(rot);
+        const muS = upW.dot(L);
+        light.copy(E).multiplyScalar(Math.max(muS, 0) * 0.55 + Math.max(muS + 0.1, 0) * 0.25);
+      }
+      const temp = this.gen.sample(dirB.x, dirB.y, dirB.z, 50).temp;
+      const dtp = isFinite(this.lastTime) ? Math.min(0.2, Math.max(0, ctx.time - this.lastTime)) : 0;
+      this.precip.update(dtp, ctx.time, camBody, rot, this.weatherHere, light, altCam, temp, (ctx.quality.scatter ?? 0.85) > 0);
+    }
     this.lastTime = ctx.time;
 
     const u = this.material.uniforms;
@@ -178,6 +207,12 @@ export class PlanetRenderer {
         au.uCloudTime.value = ctx.time % 1e5;
         const wind = this.clouds.params.windSpeed / (this.body.radius + this.clouds.params.bottom);
         au.uCloudDrift.value = (ctx.time * wind) % (Math.PI * 2);
+        // the same weather drives cloud shadows on the ground
+        const cp = this.clouds.params;
+        u.uShadowWeather.value = this.clouds.weather.texture;
+        u.uShadowDrift.value = au.uCloudDrift.value;
+        u.uCloudMidR.value = this.body.radius + (cp.bottom + cp.top) / 2;
+        u.uShadowStrength.value = Math.min(1, cp.density * (cp.top - cp.bottom) * 0.02);
         au.uCloudSteps.value = ctx.quality.cloudSteps;
         au.uPixelAngle.value = ctx.pixelAngle;
       }
@@ -195,6 +230,7 @@ export class PlanetRenderer {
     if (this.terrain) this.terrain.dispose();
     this.scatter?.dispose();
     this.fauna?.dispose();
+    this.precip?.dispose();
     this.luts?.dispose();
     this.clouds?.dispose();
     this.material.dispose();

@@ -10,6 +10,7 @@ import { ATMOSPHERE_UNIFORMS, ATMOSPHERE_FUNCS, ATMOSPHERE_LUT_FUNCS } from './s
 import { LIGHTING_GLSL, ECLIPSE_GLSL } from './shaders/lighting.glsl';
 import type { SurfaceParams, LiquidKind } from '../terrain/surface';
 import { DETAIL_PERIOD } from '../terrain/meshbuilder';
+import { CLOUD_SHADOW_GLSL } from './shaders/cloudshadow.glsl';
 import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
 
 
@@ -76,6 +77,7 @@ uniform float uTime;
 uniform float uPixelAngle;
 uniform float uDetail;
 uniform float uAmbient;
+${CLOUD_SHADOW_GLSL}
 uniform vec3 uPlanetShine;
 ${PRE_EXPOSURE_GLSL}
 varying vec3 vWorldPos;
@@ -146,8 +148,14 @@ void main() {
     }
   }
   moist = clamp(moist + macro * 0.3, 0.0, 1.0);
+  // perturb the shoreline only near the liquid level: signed height of the
+  // surface relative to the liquid (positive = submerged)
   float spacing = vA1.w / 32.0;
-  depth -= macroC * clamp(spacing * 0.004, 0.0, 300.0) * 2.0;
+  if (uLiquid > 0.5) {
+    float shore = depth > 0.0 ? depth : -alt;
+    shore -= macroC * clamp(spacing * 0.004, 0.0, 300.0) * 2.0;
+    depth = shore > 0.0 ? max(shore, 0.001) : 0.0;
+  }
 
   float slope = 1.0 - dot(Ng, up);
   float rockExp = clamp(rock * 0.8 + smoothstep(0.12, 0.42, slope), 0.0, 1.0);
@@ -252,6 +260,7 @@ void main() {
     vec3 sky = vec3(0.0);
 #endif
     float ecl = eclipseFactor(P, k);
+    applyCloudShade(P, L, muS, sunT, sky);
     vec3 Ein = E * sunT * ecl;
     float NdotL = max(dot(Nshade, L), 0.0);
     // geometric self-shadowing of the macro normal (mountain back-faces)
@@ -301,6 +310,8 @@ void main() {
 
 export interface TerrainMaterialOptions {
   hasAtmosphere: boolean;
+  /** world has a cloud deck: surfaces get cloud shadows */
+  clouds?: boolean;
 }
 
 export function createTerrainMaterial(sp: SurfaceParams, opts: TerrainMaterialOptions): THREE.ShaderMaterial {
@@ -334,6 +345,10 @@ export function createTerrainMaterial(sp: SurfaceParams, opts: TerrainMaterialOp
     uLifeGlow: { value: sp.lifeGlow },
     uIceCap: { value: sp.iceCap },
     uWorldToPlanet: { value: new THREE.Matrix3() },
+    uShadowWeather: { value: null },
+    uShadowDrift: { value: 0 },
+    uCloudMidR: { value: 0 },
+    uShadowStrength: { value: 0 },
     uReliefScale: { value: sp.reliefScale },
     uTime: { value: 0 },
     uPixelAngle: { value: 0.001 },
@@ -347,7 +362,7 @@ export function createTerrainMaterial(sp: SurfaceParams, opts: TerrainMaterialOp
     vertexShader: VERT,
     fragmentShader: FRAG,
     uniforms,
-    defines: opts.hasAtmosphere ? { HAS_ATMOSPHERE: 1 } : {},
+    defines: { ...(opts.hasAtmosphere ? { HAS_ATMOSPHERE: 1 } : {}), ...(opts.clouds ? { CLOUD_SHADOWS: 1 } : {}) },
   });
   m.extensions = { clipCullDistance: false, multiDraw: false };
   return m;
