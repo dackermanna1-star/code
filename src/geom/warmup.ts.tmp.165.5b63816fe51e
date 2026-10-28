@@ -1,0 +1,63 @@
+// JIT warm-up for the geometry hot paths. PURE.
+//
+// The first Voronoi fracture + meshing in a fresh JS engine runs in the interpreter and costs
+// ~100–350 ms (a visible hitch on the first hit). Calling warmupGeometry() during loading runs
+// small but representative workloads (all seed patterns, anisotropic Voronoi, clipping, hulls,
+// lathe tiles, tessellated/dented/cracked meshgen) until the time budget is spent, after which a
+// typical first fracture costs a few ms. Deterministic, allocation-only (no global state kept).
+
+import type { Vec3 } from "./vec.ts";
+import { faceAttr, polyBox, polyClip, polyFromHull, polyCylinder, polyExtents } from "./poly.ts";
+import { voronoiFracture, generateSeeds, type SeedPattern } from "./fracture.ts";
+import { polyToRenderGeom, growCracks } from "./meshgen.ts";
+import { latheTiles } from "./primitives.ts";
+import { Rng } from "../core/rng.ts";
+
+const PATTERNS: SeedPattern[] = ["chunks", "dice", "splinter", "radial", "crumble", "crack"];
+
+/**
+ * Run warm-up iterations for about `budgetMs` milliseconds (default 400). Returns the number
+ * of iterations performed. Safe to call more than once.
+ */
+export function warmupGeometry(budgetMs = 400): number {
+  const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now()) - t0;
+  const a = faceAttr(0);
+  const smooth = faceAttr(1, 0xffffff, { smooth: 1 });
+  const interior = faceAttr(2, 0xffffff, { interior: true });
+  const v = (x: number, y: number, z: number): Vec3 => ({ x, y, z });
+  const rng = new Rng(0x5eed);
+  let it = 0;
+  do {
+    const k = it % PATTERNS.length;
+    const thin = k === 1 || k === 3;
+    const part = thin ? polyBox(v(0.3, 0.25, 0.005), a) : k === 2 ? polyBox(v(0.5, 0.02, 0.1), a) : polyCylinder(0.06, 0.05, 0.2, 12, smooth, a);
+    const seeds = generateSeeds(part, { pattern: PATTERNS[k], impact: v(0.02, 0, 0), dir: v(0, 0, -1), radius: 0.05, count: thin ? 40 : 14, cell: 0.04, grain: v(1, 0, 0), rng });
+    const cells = voronoiFracture(part, seeds, {
+      interiorAttr: interior,
+      anisotropy: k === 2 ? { axis: v(1, 0, 0), factor: 4 } : undefined,
+      grain: k === 2 ? v(1, 0, 0) : undefined,
+    });
+    for (let c = 0; c < cells.length; c++) {
+      const p = cells[c].poly;
+      polyToRenderGeom(p, c % 3 === 0 ? { tessCell: 0.02, dents: [{ p: cells[c].centroid, dir: v(0, 0, -1), r: 0.03, depth: 0.003 }] } : undefined);
+    }
+    const box = polyBox(v(0.4, 0.3, 0.2), a);
+    const cut = polyClip(box, v(0.3, 1, 0.2), 0.02, interior);
+    if (cut) {
+      polyExtents(cut);
+      polyToRenderGeom(cut, { tessCell: 0.04, cracks: growCracks(cut, v(0, 0.15, 0), v(0, -1, 0), 0.7, rng, { radial: it % 2 === 0 }) });
+    }
+    if (it % 4 === 0) {
+      const pts: Vec3[] = [];
+      for (let i = 0; i < 40; i++) {
+        const s = rng.onSphere();
+        pts.push(v(s.x * 0.1, s.y * 0.05, s.z * 0.08));
+      }
+      polyFromHull(pts, a);
+      latheTiles({ profile: [[0.03, 0], [0.05, 0.03], [0.055, 0.06]], thickness: 0.004, segments: 12, capBottom: true, outer: smooth, inner: faceAttr(3, 0xffffff, { smooth: 2 }), edge: a });
+    }
+    it++;
+  } while (now() < budgetMs && it < 400);
+  return it;
+}

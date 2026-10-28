@@ -93,31 +93,24 @@ function shadeCell(img: ImageData, size: number, cell: number, cellPx: number, f
 // ------------------------------------------------------------------ puff atlas
 function dustPuff(seed: number): (u: number, v: number) => [number, number] {
   const r = prng(seed);
-  // a few overlapping lobes make each puff a different cauliflower-ish shape
-  const lobes: Array<[number, number, number]> = [];
-  const n = 3 + Math.floor(r() * 3);
-  for (let k = 0; k < n; k++) {
-    const a = r() * Math.PI * 2,
-      dist = 0.12 + r() * 0.28;
-    lobes.push([Math.cos(a) * dist, Math.sin(a) * dist, 0.38 + r() * 0.22]);
-  }
-  lobes.push([0, 0, 0.55]);
   const nx = r() * 100,
     ny = r() * 100;
+  // slightly elliptical gaussian body whose density is eaten away by fractal noise → soft,
+  // wispy edges and an irregular silhouette (no hard lobes, so overlapping puffs merge)
+  const sx = 0.85 + r() * 0.3,
+    sy = 0.85 + r() * 0.3;
   return (u, v) => {
-    let field = 0;
-    for (const [lx, ly, lr] of lobes) {
-      const dx = u - lx,
-        dy = v - ly;
-      const t = Math.max(0, 1 - (dx * dx + dy * dy) / (lr * lr));
-      field = Math.max(field, t * t);
-    }
-    const n1 = fbm(u * 2.6 + nx, v * 2.6 + ny, seed, 4);
-    const edge = Math.max(0, 1 - Math.hypot(u, v) / 0.98); // hard zero before the cell border
-    const a = smoothstep(0.02, 0.75, field * (0.55 + 0.9 * n1)) * smoothstep(0, 0.25, edge);
-    // top-left lit volume: brighter where light comes from (upper-left), darker below
-    const shade = 0.82 + 0.18 * (-(u + v) * 0.5 + 0.5) - 0.12 * (n1 - 0.5);
-    return [shade, a * 0.95];
+    const uu = u / sx,
+      vv = v / sy;
+    const d2 = uu * uu + vv * vv;
+    const n = fbm(u * 2.2 + nx, v * 2.2 + ny, seed, 5);
+    const n2 = fbm(u * 5.5 + nx * 2, v * 5.5 + ny * 2, seed + 7, 3);
+    const fall = Math.exp(-d2 * 2.4);
+    let a = fall * (0.3 + 1.0 * n) * (0.75 + 0.5 * n2) - 0.07;
+    a = Math.min(1, Math.max(0, a * 1.25)) * smoothstep(0, 0.2, 1 - Math.sqrt(u * u + v * v));
+    // very subtle top-lit shading (strong shading makes puffs read as balls)
+    const shade = 0.92 + 0.06 * (-(u + v) * 0.5) + 0.04 * (n2 - 0.5);
+    return [shade, a];
   };
 }
 
@@ -134,9 +127,9 @@ function smokeWisp(seed: number): (u: number, v: number) => [number, number] {
     const warp = fbm(ru * 1.7 + nx, rv * 1.7 + ny, seed + 3, 3) - 0.5;
     const d = Math.hypot(ru * 1.15 + warp * 0.6, rv + warp * 0.4);
     const n1 = fbm(ru * 3.2 + nx + warp * 2, rv * 3.2 + ny, seed, 5);
-    const body = Math.max(0, 1 - d / 0.85);
-    const a = smoothstep(0.05, 0.9, body * body * (0.3 + 1.2 * n1)) * smoothstep(0, 0.2, 1 - Math.hypot(u, v));
-    return [0.75 + 0.25 * n1, a * 0.9];
+    const body = Math.max(0, 1 - d / 0.9);
+    const a = smoothstep(0.02, 0.55, body * (0.25 + 1.1 * n1)) * smoothstep(0, 0.2, 1 - Math.hypot(u, v));
+    return [0.8 + 0.2 * n1, a * 0.9];
   };
 }
 

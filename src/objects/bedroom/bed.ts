@@ -284,9 +284,12 @@ export function buildMetalBed(o: MetalBedOpts = {}): AssemblyDef {
       b.weld(r, posts[`${end}r`], 160);
     }
     const sp = (2 * xp) / (n + 1);
+    // spindle ends sit ~2 mm into the rail tubes (welded saddle joints)
+    const y0 = yLow + 0.0105,
+      y1 = yTop - 0.0105;
     for (let k = 0; k < n; k++) {
       const x = -xp + sp * (k + 1);
-      const s = b.cyl(`${end}_spindle${k}`, "steel", S, 0.008, yTop - yLow, [x, (yTop + yLow) / 2, z], { segments: 8, ...st, mass: roundTubeKgPerM(0.016, 0.001) * (yTop - yLow) });
+      const s = b.cyl(`${end}_spindle${k}`, "steel", S, 0.008, y1 - y0, [x, (y0 + y1) / 2, z], { segments: 8, ...st, mass: roundTubeKgPerM(0.016, 0.001) * (y1 - y0) });
       b.weld(s, top, 45);
       b.weld(s, low, 45);
     }

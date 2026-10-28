@@ -185,7 +185,7 @@ export const PROFILES: Readonly<Record<string, ParticleProfile>> = Object.fromEn
     }),
     P("concreteCloud", "puff", PUFF_CELLS.dust, {
       count: 16, maxCount: 220, life: [2.2, 4.5], size: [0.09, 0.2], sizeExp: 0.3, grow: [2.5, 4], speed: [0.9, 2.6], spread: 0.9,
-      radius: 0.05, ...settle(3, 0.2), turb: 0.08, collide: 1, color: [0.58, 0.58, 0.57], colorVar: 0.05, tintMix: 0.5,
+      radius: 0.05, ...settle(3, 0.2), turb: 0.08, collide: 1, color: [0.67, 0.66, 0.64], colorVar: 0.05, tintMix: 0.5,
       alpha: 0.48, fadeIn: 0.04, fadeOut: 0.6, spin: 0.4,
     }),
     P("concreteCrumbs", "bits", [...BITS_CELLS.crumbs, ...BITS_CELLS.chips], {

@@ -185,6 +185,32 @@ export class GeomBuilder {
     this.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
   }
 
+  /**
+   * Convex planar polygon with outward normal n (any vertex order): fan-triangulated, winding fixed so that
+   * cross(b - a, c - a) . n < 0 (Babylon front face). uv = planar projection on (U = n x V, V).
+   */
+  polyFace(pts: V3[], n: V3, s: SurfAttrs): void {
+    const base = this.positions.length / 3;
+    const ax = Math.abs(n[1]) < 0.9 ? ([0, 1, 0] as V3) : ([0, 0, 1] as V3);
+    const u = cross(n, ax);
+    const ul = Math.hypot(...u);
+    const U: V3 = [u[0] / ul, u[1] / ul, u[2] / ul];
+    const V = cross(U, n);
+    for (const p of pts) {
+      this.positions.push(...p);
+      this.normals.push(...n);
+      this.uvs.push(dot(p, U) / s.worldSize, dot(p, V) / s.worldSize);
+      this.colors.push(s.tint[0], s.tint[1], s.tint[2], s.metal);
+      this.surf.push(s.layer, s.normalLayer, s.rough, s.emissive);
+    }
+    const sub = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const flip = dot(cross(sub(pts[1], pts[0]), sub(pts[2], pts[0])), n) > 0; // RH-rule CCW around n -> reverse
+    for (let i = 1; i < pts.length - 1; i++) {
+      if (flip) this.indices.push(base, base + i + 1, base + i);
+      else this.indices.push(base, base + i, base + i + 1);
+    }
+  }
+
   box(c: V3, half: V3, faceSurf: (face: number) => SurfAttrs): void {
     const [hx, hy, hz] = half;
     // +X, -X, +Y, -Y, +Z, -Z ; V = up for sides, +Z for top/bottom

@@ -7,7 +7,6 @@
 
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 import type { Builder } from "../../objects/lib/builder.ts";
-import { ROOMS } from "../plan.ts";
 import {
   CEILING_SLAB_Y,
   CEILING_Y,
@@ -165,7 +164,7 @@ function addFinish(b: Builder, idx: BoxIndex, run: ConcreteRun, seg: ConcreteSeg
 }
 
 /** Gypsum reveal linings + marble window board for a window opening (inside the frame line). */
-function addWindowReveal(b: Builder, idx: BoxIndex, run: ConcreteRun, o: RunOpening, tint: number): FaceRect[] {
+function addWindowReveal(b: Builder, idx: BoxIndex, run: ConcreteRun, o: RunOpening, tint: number): void {
   const half = run.half;
   const wIn = half - WINDOW_REVEAL; // frame's interior face
   const t = WALL_FINISH_T;
@@ -204,9 +203,6 @@ function addWindowReveal(b: Builder, idx: BoxIndex, run: ConcreteRun, o: RunOpen
     if (Math.abs(f.u0 - o.r1) < 1e-4 && f.y1 > by1 && f.y0 < o.head) bondAt(b, right, f.name, "glue", 4, [o.r1, mid(Math.max(by1, f.y0), Math.min(o.head, f.y1)), half - t / 2]);
     if (Math.abs(f.y1 - o.sill) < 1e-4 && f.u1 > o.r0 && f.u0 < o.r1) bondAt(b, board, f.name, "glue", 6, [mid(Math.max(o.r0, f.u0), Math.min(o.r1, f.u1)), o.sill, half - t / 2]);
   }
-  return [
-    { u0: o.r0, u1: o.r1, y0: o.sill, y1: o.head },
-  ];
 }
 
 /** Face obstacles of a concrete opening (things on the interior face plane). */
@@ -299,9 +295,5 @@ export function buildSlab(kind: "floor" | "ceiling"): AssemblyDef {
       if (j + 1 < names[i].length) b.bond(names[i][j], names[i][j + 1], "fused", { anchor: [mid(xs[i], xs[i + 1]), mid(y0, y1), zs[j + 1]] });
     }
   }
-  const def = b.build();
-  def.room = floor ? "living" : "living";
-  return def;
+  return b.build();
 }
-
-export const _rooms = ROOMS.length;
