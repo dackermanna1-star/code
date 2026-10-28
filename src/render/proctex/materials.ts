@@ -623,8 +623,12 @@ function metalRaw(): TexOutput {
   for (let y = 0; y < SIZE; y++)
     for (let x = 0; x < SIZE; x++, i++) {
       const id = sp.id[i];
+      // directional sheen per crystal, periodic over the tile (integer wave numbers) so the
+      // texture stays seamless
       const dir = id * Math.PI * 2;
-      const grad = Math.sin((x * Math.cos(dir) + y * Math.sin(dir)) * 0.09 + id * 10) * 0.5 + 0.5;
+      const kx = Math.round(Math.cos(dir) * 6),
+        ky = Math.round(Math.sin(dir) * 6);
+      const grad = Math.sin(((x * kx + y * ky) / SIZE) * Math.PI * 2 + id * 10) * 0.5 + 0.5;
       const base = 0.52 + id * 0.16 + grad * 0.05;
       const k = base * (0.92 + smudge[i] * 0.14) + (fine[i] - 0.5) * 0.03;
       img.r[i] = k;

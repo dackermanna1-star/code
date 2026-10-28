@@ -199,8 +199,9 @@ export function buildMicrowave(o: MicrowaveOpts = {}): AssemblyDef {
   b.screen(display, "microwave", { on: true, mains: true });
   buttonGrid(b, "key", { on: cpFront, rows: 4, cols: 3, size: [0.026, 0.014], pitch: [0.032, 0.022], tint: 0x2c2d30 }, [-0.185, 0.165, 0.19]);
   buttonGrid(b, "startstop", { on: cpFront, rows: 1, cols: 2, size: [0.04, 0.016], pitch: [0.048, 0.02], tints: [0x2f8a3a, 0xb3261e] }, [-0.185, 0.103, 0.19]); // stop left, start right
-  // control board behind the fascia (components face into the compartment)
-  pcb(
+  // control board behind the fascia (components face into the compartment), screwed to two
+  // moulded ribs that stand it off the fascia's back face (z 0.1846 .. 0.1875)
+  const ctrl = pcb(
     b,
     "ctrl",
     {
@@ -213,12 +214,17 @@ export function buildMicrowave(o: MicrowaveOpts = {}): AssemblyDef {
         { kind: "transformer", x: 0.034, y: -0.015 },
         { kind: "buzzer", x: -0.036, y: 0.095 },
       ],
-      mount: { to: cpFront, screws: 4, each: 12 },
       sparks: 0.7,
     },
     [-0.186, 0.155, 0.183],
     [0, 180, 0],
   );
+  const ribLen = 0.1875 - 0.1846;
+  for (const sx of [-1, 1]) {
+    const rib = b.box(`ctrl_rib_${sx < 0 ? "l" : "r"}`, "plastic", "plastic", [0.004, 0.24, ribLen], [-0.186 + sx * 0.054, 0.155, 0.1846 + ribLen / 2], { tint: trim });
+    b.fuse(rib, cpFront, 20);
+    b.screw(ctrl.board, rib, 2, 12);
+  }
 
   // ------------------------------------------------------------------ door
   const door = glassPaneInFrame(

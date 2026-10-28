@@ -6,7 +6,7 @@
 // (foyerMirror, intercom): origin on the wall plane at floor level, +Z out of the wall.
 
 import { drawer, frameBars, pictureFrame, pcb, buttonGrid, cable } from "../lib/kit.ts";
-import { boxR, bondTouching, finish, mk, panelBox, taperedBlockPoints, CHROME, SOFT_SEAM, type BaseOpts } from "./helpers.ts";
+import { boxR, bondOverlapping, bondTouching, finish, mk, panelBox, taperedBlockPoints, CHROME, SOFT_SEAM, type BaseOpts } from "./helpers.ts";
 import type { V3 } from "../lib/builder.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 
@@ -122,9 +122,9 @@ export function buildFoyerMirror(o: FoyerMirrorOpts = {}): AssemblyDef {
   b.glue(glass, backing, 40);
   for (const p of fr.all) b.clip(backing, p, 8);
   for (const p of fr.all) b.clip(glass, p, 4);
-  // two D-rings on a cord over two picture hooks
-  b.world(fr.top, "nail", 18, [-0.18, y0 + h - bar / 2, 0]);
-  b.world(fr.top, "nail", 18, [0.18, y0 + h - bar / 2, 0]);
+  // two D-rings (screwed into the side bars) on picture hooks
+  b.world(fr.left, "nail", 18, [-w / 2 + bar / 2, y0 + h - 0.12, 0]);
+  b.world(fr.right, "nail", 18, [w / 2 - bar / 2, y0 + h - 0.12, 0]);
   return finish(b, o);
 }
 
@@ -159,7 +159,7 @@ export function buildKeyRing(o: BaseOpts = {}): AssemblyDef {
   const fob = boxR(b, "fob", "rubber", "leather", [0.0125, 0.045], [0, 0.006], [-0.011, 0.011], { tint: 0x5a3a22, mass: 0.012 });
   const key1 = boxR(b, "key_house", "copper", "steel_brushed", [-0.042, -0.0125], [0, 0.0022], [-0.009, 0.009], { tint: 0xd9b25e, tess: 0 });
   const key2 = b.box("key_car", "steel", "chrome", [0.03, 0.0022, 0.012], [0.0, 0.0011, -0.0265], { rot: [0, 90, 0], tess: 0 });
-  for (const p of [fob, key1, key2]) bondTouching(b, p, ring, "clip", 10, 0.002);
+  for (const p of [fob, key1, key2]) bondOverlapping(b, p, ring, "clip", 10, 0.003);
   return finish(b, o);
 }
 
@@ -238,7 +238,7 @@ export function buildShoe(o: ShoeOpts = {}): AssemblyDef {
   const b = mk("shoe", kind === "leather" ? "Leather Shoe" : kind === "runner" ? "Running Shoe" : "Sneaker", "soft", kind === "leather" ? 60 : 45, o);
   const m = (o.side ?? "right") === "left" ? -1 : 1;
   const L = kind === "leather" ? 0.285 : 0.29;
-  const soleT = kind === "leather" ? 0.012 : kind === "runner" ? 0.03 : 0.025;
+  const soleT = kind === "leather" ? 0.02 : kind === "runner" ? 0.03 : 0.025;
   // sole outline in plan (x, z): heel → arch → ball → toe, slight inside curve
   const outline: Array<[number, number]> = [
     [-0.03, -L / 2],
@@ -251,22 +251,16 @@ export function buildShoe(o: ShoeOpts = {}): AssemblyDef {
     [-0.042, L / 2 - 0.05],
     [-0.04, -L / 2 + 0.05],
   ].map(([x, z]) => [x * m, z] as [number, number]);
-  const yHeel = kind === "leather" ? 0.022 : 0;
+  // flat moulded sole (dress shoes: a stacked leather-look sole with the heel as a texture step)
   const solePts: V3[] = [];
   for (const [x, z] of outline) {
-    solePts.push([x, kind === "leather" && z < -L / 2 + 0.07 ? yHeel : 0, z]);
-    solePts.push([x, (kind === "leather" && z < -L / 2 + 0.07 ? yHeel : 0) + soleT, z]);
+    solePts.push([x, 0, z]);
+    solePts.push([x, soleT, z]);
   }
-  const sole = b.hull("sole", "rubber", "rubber", solePts, [0, 0, 0], { tint: kind === "leather" ? 0x2a1d14 : 0xf2f2ee, mass: kind === "leather" ? 0.16 : 0.18 });
-  const parts = [sole];
-  if (kind === "leather") {
-    const heel = boxR(b, "heel", "rubber", "rubber", [-0.03, 0.03], [0, yHeel], [-L / 2, -L / 2 + 0.065], { tint: 0x2a1d14, mass: 0.05 });
-    b.glue(heel, sole, 40);
-    parts.push(heel);
-  }
+  const sole = b.hull("sole", "rubber", "rubber", solePts, [0, 0, 0], { tint: kind === "leather" ? 0x2a1d14 : 0xf2f2ee, mass: kind === "leather" ? 0.2 : 0.18 });
   // upper: hull from the sole's top outline (inset) up to the collar and the toe box
   const up: V3[] = [];
-  const ySole = (z: number) => (kind === "leather" && z < -L / 2 + 0.07 ? yHeel : 0) + soleT;
+  const ySole = (_z: number) => soleT;
   for (const [x, z] of outline) up.push([x * 0.96, ySole(z), z * 0.985]);
   const collarY = kind === "leather" ? 0.085 : 0.095;
   for (const [x, z] of [
@@ -290,7 +284,6 @@ export function buildShoe(o: ShoeOpts = {}): AssemblyDef {
   const upper = b.hull("upper", kind === "leather" ? "rubber" : "fabric", kind === "leather" ? "leather" : "fabric_cotton", up, [0, 0, 0], { tint, mass: kind === "leather" ? 0.2 : 0.14 });
   b.glue(upper, sole, 60);
   if (kind !== "leather") b.stuffing(upper, "foam");
-  void parts;
   return finish(b, o);
 }
 
@@ -313,7 +306,7 @@ export function buildUmbrellaStand(o: BaseOpts & { tint?: number } = {}): Assemb
     tint: o.tint ?? 0x34495e,
     innerTint: 0x2a3a4a,
   });
-  const base = stand.reduce((best, p) => (b.get(p).poly.verts.every((v) => v.y < 0.012) ? p : best), stand[0]);
+  const capTiles = stand.filter((p) => b.get(p).poly.verts.every((v) => v.y < 0.012));
   const floorY = 0.0066;
   for (const [k, sx, sz, tint] of [
     [0, 1, 0.022, 0x1b1b1d],
@@ -325,15 +318,29 @@ export function buildUmbrellaStand(o: BaseOpts & { tint?: number } = {}): Assemb
     const p = (s: number): [number, number, number] => [-sx * 0.03 + Math.sin(-rad) * -s * -1, floorY + Math.cos(rad) * s, sz];
     void p;
     const ax = (s: number): [number, number, number] => [-sx * 0.03 + sx * Math.sin(Math.abs(rad)) * s, floorY + Math.cos(rad) * s, sz];
-    const canopyC = ax(0.36);
+    const canopyC = ax(0.0016 + 0.33);
     const canopy = b.cyl(`umbrella${k}_canopy`, "fabric", "fabric_upholstery", 0.014, 0.66, canopyC, { rTop: 0.026, segments: 8, rot: [0, 0, -lean], tint, mass: 0.22 });
-    const shaftC = ax(0.74);
+    const shaftC = ax(0.0016 + 0.71);
     const shaft = b.cyl(`umbrella${k}_shaft`, "steel", "chrome", 0.0045, 0.1, shaftC, { segments: 6, rot: [0, 0, -lean], mass: 0.02, tess: 0 });
-    const handleC = ax(0.83);
+    const handleC = ax(0.0016 + 0.8);
     const handle = b.cyl(`umbrella${k}_handle`, "hardwood", "wood_walnut", 0.013, 0.08, handleC, { segments: 8, rot: [0, 0, -lean], tint: 0xb07a4a, mass: 0.05 });
     b.glue(shaft, canopy, 30);
     b.glue(handle, shaft, 30);
-    b.friction(canopy, base, 2);
+    // the tip stands on the stand's floor: bond to the floor tile under it
+    const tip = ax(0.0016);
+    let best = capTiles[0],
+      bd = Infinity;
+    for (const t of capTiles) {
+      const vs = b.get(t).poly.verts;
+      const cx = vs.reduce((a, q) => a + q.x, 0) / vs.length,
+        cz = vs.reduce((a, q) => a + q.z, 0) / vs.length;
+      const dd = Math.hypot(cx - tip[0], cz - tip[2]);
+      if (dd < bd) {
+        bd = dd;
+        best = t;
+      }
+    }
+    b.bond(canopy, best, "friction", { strength: 2, anchor: [tip[0], floorY, tip[2]] });
   }
   return finish(b, o);
 }
@@ -351,29 +358,39 @@ export interface IntercomOpts extends BaseOpts {
 export function buildIntercom(o: IntercomOpts = {}): AssemblyDef {
   const b = mk("intercom", "Door Intercom", "electronics", 90, o);
   const y = o.y ?? 1.45;
-  const W = 0.1,
+  const W = 0.14,
     H = 0.22,
     D = 0.035;
   const white = 0xeeeeea;
   const box = panelBox(b, "base", { w: W, h: H, d: D, t: 0.0025, mat: "plastic", surf: "plastic", tint: white, faces: { top: true }, faceSurf: { front: "plastic_glossy" }, bond: "fused", strength: 20 }, [0, y - H / 2, D / 2]);
   b.world(box.back!, "screw", 50, [0, y, 0]);
-  pcb(b, "board", { w: 0.08, h: 0.12, components: [{ kind: "chip", x: 0.0, y: 0.02 }, { kind: "relay", x: -0.02, y: -0.03 }, { kind: "cap", x: 0.025, y: -0.035 }], mount: { to: box.back!, screws: 2, each: 8 }, sparks: 0.7 }, [0, y + 0.02, 0.0025 + 0.0016], undefined);
-  const grille = boxR(b, "grille", "plastic", "speaker_grille", [-0.03, 0.03], [y + 0.04, y + 0.09], [D, D + 0.002], { tint: 0xffffff, mass: 0.004 });
+  pcb(b, "board", { w: 0.1, h: 0.12, components: [{ kind: "chip", x: 0.0, y: 0.02 }, { kind: "relay", x: -0.03, y: -0.03 }, { kind: "cap", x: 0.03, y: -0.035 }], mount: { to: box.back!, screws: 2, each: 8 }, sparks: 0.7 }, [0, y + 0.02, 0.0025 + 0.0016], undefined);
+  // grille + buttons on the left half, handset parked on the right half
+  const grille = boxR(b, "grille", "plastic", "speaker_grille", [-0.062, -0.012], [y + 0.03, y + 0.09], [D, D + 0.002], { tint: 0xffffff, mass: 0.004 });
   b.glue(grille, box.front!, 4);
-  buttonGrid(b, "btn", { on: box.front!, rows: 2, cols: 1, size: [0.03, 0.012], pitch: [0.03, 0.02], tints: [0x2f8a3a, 0xd8d8d4] }, [-0.025, y - 0.075, D]);
-  // hook switch + handset parked in front of the unit
-  const hook = boxR(b, "hook", "plastic", "plastic", [-0.012, 0.012], [y - H / 2 + 0.01, y - H / 2 + 0.025], [D, D + 0.045], { tint: white, mass: 0.005 });
+  buttonGrid(b, "btn", { on: box.front!, rows: 2, cols: 1, size: [0.03, 0.012], pitch: [0.03, 0.02], tints: [0x2f8a3a, 0xd8d8d4] }, [-0.037, y - 0.06, D]);
+  const hx = 0.032;
+  const hsY0 = y - 0.1;
+  const hook = boxR(b, "hook", "plastic", "plastic", [hx - 0.014, hx + 0.014], [hsY0 - 0.012, hsY0], [D, D + 0.042], { tint: white, mass: 0.005 });
   b.fuse(hook, box.front!, 20);
-  const hs = b.bevelBox("handset", "plastic", "plastic_glossy", [0.05, 0.19, 0.035], 0.008, [0.022, y - 0.005, D + 0.0185], { tint: white, mass: 0.16 });
+  const hs = b.bevelBox("handset", "plastic", "plastic_glossy", [0.05, 0.19, 0.035], 0.008, [hx, hsY0 + 0.095, D + 0.0185], { tint: white, mass: 0.16 });
   b.friction(hs, hook, 3);
   b.friction(hs, box.front!, 2);
-  // coiled cord from the handset's bottom down and back into the unit
-  const coil: V3[] = [];
-  for (let k = 0; k <= 6; k++) coil.push([0.022 + (k % 2 ? 0.006 : -0.006), y - 0.1 - k * 0.012, D + 0.012]);
-  coil.push([0.03, y - H / 2 - 0.002, D * 0.6]);
+  // coiled cord: a vertical lead out of the handset, a loose zigzag, then up into the unit's bottom
+  const zc = D + 0.0185;
+  const cx = hx + 0.019; // beside the hook switch
+  const coil: V3[] = [
+    [cx, hsY0 - 0.0005, zc],
+    [cx, hsY0 - 0.025, zc],
+  ];
+  for (let k = 1; k <= 4; k++) coil.push([cx + (k % 2 ? 0.005 : -0.005), hsY0 - 0.025 - k * 0.022, zc - k * 0.003]);
+  const yEnd = y - H / 2;
+  coil.push([0.0, hsY0 - 0.025 - 5 * 0.022, D * 0.5]);
+  coil.push([0.0, yEnd - 0.03, D * 0.5]);
+  coil.push([0.0, yEnd - 0.0005, D * 0.5]);
   const cord = cable(b, "cord", coil, { r: 0.0035, kgPerM: 0.05, jointStrength: 12, tint: white, surf: "plastic" });
-  bondTouching(b, cord[0], [hs], "clip", 10, 0.006);
-  bondTouching(b, cord[cord.length - 1], [box.bottom!], "clip", 10, 0.006);
+  bondTouching(b, cord[0], [hs], "clip", 10, 0.002);
+  bondTouching(b, cord[cord.length - 1], [box.bottom!], "clip", 10, 0.002);
   return finish(b, o);
 }
 

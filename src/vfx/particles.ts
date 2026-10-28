@@ -8,12 +8,19 @@
 // (SI units, driven by the dt given to Vfx.update — 0 freezes everything) and per-profile.
 // Per-particle custom data lives in Particle fields that Babylon copies on recycle but never
 // writes on the CPU path: `initialColor` (base rgb + peak alpha), `colorDead` (r = encoded wall
-// plane, g = ground height, b = start size, a = end-size growth), `metadata` (profile).
+// plane, g = ground height, b = start size, a = end-size growth), `metadata` (profile), and
+// `colorStep` (written by Babylon's creation step, ours from the first update on: r, g = x, z
+// where the particle's ground height was last probed).
+//
+// Ground: a burst probes once at its centre; colliding particles re-probe (per-frame cached, on
+// a budget) after moving PROBE_STEP horizontally, so bits flying off a counter fall to the floor
+// instead of resting on an invisible plane, and bits from the floor do not rest on a table top.
 
 import { ParticleSystem, Vector3, type BaseTexture, type Matrix, type Particle, type Scene, type Observer } from "@babylonjs/core";
 import type { EmitterHandle, VfxKind } from "../core/context.ts";
 import type { Vec3 } from "../geom/vec.ts";
 import { ATLAS_GRID, BITS_ATLAS_SIZE, PUFF_ATLAS_SIZE } from "./atlas.ts";
+import { EmitterRate } from "./emitterRate.ts";
 import { EMITTER_LAYERS, GROUP_IDS, GROUPS, KIND_LAYERS, PROFILES, type GroupId, type ParticleProfile } from "./profiles.ts";
 
 export const NO_GROUND = -1e9;
@@ -69,6 +76,10 @@ export interface BurstOptions {
 }
 
 const TWO_PI = Math.PI * 2;
+/** Horizontal travel (m) after which a colliding particle re-probes its ground height. */
+const PROBE_STEP = 0.2;
+/** Ground re-probes per frame over all groups (cache hits included). */
+const REPROBES_PER_FRAME = 96;
 
 /** Pack a vertical wall plane (normal angle θ in the XZ plane + offset d) into one double. */
 function encodePlane(nx: number, nz: number, d: number): number {
@@ -316,6 +327,11 @@ class ParticleGroup {
     for (let i = 0; i < particles.length; i++) {
       const p = particles[i];
       const prof = p.metadata as ParticleProfile | null;
+      if (p.age === 0) {
+        // first update: the ground height (colorDead.g) was probed around this spot
+        p.colorStep.r = p.position.x;
+        p.colorStep.g = p.position.z;
+      }
       p.age += dt;
       if (!prof || p.age >= p.lifeTime) {
         ps.recycleParticle(p);
@@ -379,6 +395,17 @@ class ParticleGroup {
       }
       // ground contact
       if (prof.collide !== 0) {
+        const cs = p.colorStep;
+        const mx = pos.x - cs.r,
+          mz = pos.z - cs.g;
+        if (mx * mx + mz * mz > PROBE_STEP * PROBE_STEP) {
+          const h = this.fx.reprobe(pos.x, pos.y + 0.05, pos.z);
+          if (h === h) {
+            cd.g = h;
+            cs.r = pos.x;
+            cs.g = pos.z;
+          }
+        }
         const gy = cd.g;
         const rr = p.size * (prof.group === "puff" ? 0.4 : 0.3);
         if (pos.y < gy + rr) {
@@ -442,23 +469,7 @@ class ParticleGroup {
   }
 }
 
-/** Strength cap for continuous emitters (fill-rate/budget safety). */
-export const MAX_EMITTER_STRENGTH = 2.5;
-
-/**
- * Emitter rate → strength multiplier. Callers may pass either a strength (1 = nominal, the
- * documented convention) or a particle rate (particles/s, e.g. 220): values above 8 are taken
- * as particles per second of the kind's primary layer. Clamped to [0, MAX_EMITTER_STRENGTH].
- */
-export function emitterStrength(kind: VfxKind, rate: number): number {
-  if (!Number.isFinite(rate) || rate <= 0) return 0;
-  let s = rate;
-  if (rate > 8) {
-    const primary = EMITTER_LAYERS[kind]?.[0];
-    s = primary ? rate / primary.rate : 1;
-  }
-  return Math.min(MAX_EMITTER_STRENGTH, s);
-}
+export { MAX_EMITTER_STRENGTH, emitterStrength } from "./emitterRate.ts";
 
 export class FxEmitter implements EmitterHandle {
   readonly kind: VfxKind;
@@ -480,6 +491,7 @@ export class FxEmitter implements EmitterHandle {
   groundAge = 1e9;
   /** Seconds this emitter has been running (for consumers like puddle growth). */
   age = 0;
+  private readonly rateIn = new EmitterRate();
 
   constructor(kind: VfxKind, pos: Vec3, dir: Vec3, rate: number, tint: number | undefined) {
     this.kind = kind;
@@ -487,7 +499,7 @@ export class FxEmitter implements EmitterHandle {
     this.y = Number.isFinite(pos.y) ? pos.y : 0;
     this.z = Number.isFinite(pos.z) ? pos.z : 0;
     this.setDirection(dir);
-    this.rate = emitterStrength(kind, rate);
+    this.rate = this.rateIn.resolve(kind, rate);
     this.tint = tint;
     this.acc = (EMITTER_LAYERS[kind] ?? []).map(() => Math.random());
   }
@@ -508,7 +520,7 @@ export class FxEmitter implements EmitterHandle {
   }
 
   setRate(r: number): void {
-    this.rate = emitterStrength(this.kind, r);
+    this.rate = this.rateIn.resolve(this.kind, r);
   }
 
   stop(): void {
@@ -522,6 +534,7 @@ export class ParticleFx {
   readonly emitters: FxEmitter[] = [];
   private pool: BurstRecord[] = [];
   private readonly env: FxEnv;
+  private probesLeft = REPROBES_PER_FRAME;
   private totalCapacity = 0;
 
   constructor(scene: Scene, env: FxEnv, puffAtlas: BaseTexture, bitsAtlas: BaseTexture, capacityScale = 1.3) {
@@ -713,6 +726,13 @@ export class ParticleFx {
     return count;
   }
 
+  /** Ground height for a moving particle (NaN when this frame's re-probe budget is spent). */
+  reprobe(x: number, y: number, z: number): number {
+    if (this.probesLeft <= 0) return NaN;
+    this.probesLeft--;
+    return this.env.groundAt(x, y, z);
+  }
+
   dropLanded(x: number, y: number, z: number, prof: ParticleProfile): void {
     this.env.onDropLanded?.(x, y, z, prof);
   }
@@ -728,6 +748,7 @@ export class ParticleFx {
   update(dt: number): void {
     const d = Number.isFinite(dt) && dt > 0 ? Math.min(dt, 0.1) : 0;
     for (const id of GROUP_IDS) this.groups[id].pendingDt = d;
+    this.probesLeft = REPROBES_PER_FRAME;
     if (d <= 0) return;
     const q = Math.max(0.05, this.env.quality());
     const f = this.budgetFactor();

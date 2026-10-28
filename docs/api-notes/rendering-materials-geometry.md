@@ -10,7 +10,7 @@ All snippets import from the package root (`import { X } from "@babylonjs/core"`
 1. **Winding [RT].** With the default LH scene, default `sideOrientation` and `backFaceCulling = true`, a raw triangle `(a,b,c)` is visible from the side where it appears **counter-clockwise on screen**. Put another way, its outward normal `n` must satisfy **`dot(cross(b−a, c−a), n) < 0`**. That is clockwise around `n` by the right-hand rule, so CCW-from-outside hull output must be **reversed**. `VertexData.ComputeNormals` returns that outward (visible-side) normal. Mirrored (negative-determinant) transforms are compensated automatically.
 2. **Custom attributes [RT].** Call `mesh.setVerticesData("surf", data, updatable, 4)` only **after** positions exist; before that it is silently dropped. `Mesh.MergeMeshes`, `VertexData.merge`, `VertexData.ExtractFromMesh` and `Geometry`-less paths **drop custom kinds**, so concatenate the typed arrays yourself.
 3. **`updateVerticesData` [RT]** is a **silent no-op** unless the buffer was created `updatable`, and the data must keep the same length. When the vertex count changes, call `applyToMesh`/`setVerticesData` again. A 500-vertex rebuild costs about 0.03–0.2 ms CPU.
-4. **World material [RT].** Use `PBRMaterial` with `metallic = 0` and `roughness = 1`. Non-null values switch on `METALLICWORKFLOW`, which the roughness/metal injection needs. Add **`WorldMaterialPlugin`** (§4, complete code). It handles per-vertex `surf` (albedo layer, normal layer, roughness, HDR emissive), tint = vertex colour rgb and metallic = `color.a`, plus `sampler2DArray` albedo and normal maps. Verified with shadows, fog, bloom, thin instances and InstancedMesh. Plugin `getCustomCode()` runs **inside the base constructor**, before subclass fields exist.
+4. **World material [RT].** Use `PBRMaterial` with `metallic = 0` and `roughness = 1`. Non-null values switch on `METALLICWORKFLOW`, which the roughness/metal injection needs. Add **`WorldMaterialPlugin`** (§4, complete code). It handles per-vertex `surf` (albedo layer, normal layer, roughness, HDR emissive), tint = vertex colour rgb and metallic = `color.a`, plus `sampler2DArray` albedo and normal maps. Verified with shadows, fog, bloom, thin instances and InstancedMesh. Plugin `getCustomCode()` runs **inside the base constructor**, before subclass fields exist. Babylon's `cotangent_frame` maths gives T/B **negated** in LH scenes, so the plugin multiplies them by a handedness sign; otherwise normal maps come out inverted.
 5. **`RawTexture2DArray` [RT].** `invertY` **must be `false`** with ArrayBufferView data. `true` raises GL `INVALID_OPERATION` and gives a black texture, so flip rows on the CPU. **ImageBitmap uploads ignore `invertY`**, and that includes `CreateTexture2DArrayFromImageUrlsAsync({invertY:true})`; use `imageBitmapOptions: {imageOrientation: "flipY"}` instead. **`updateMipLevel()` is broken on WebGL.**
 6. **Shadows [RT].** Set `sun.autoCalcShadowZBounds = true` (see `rendering-lighting-post.md` §1). The default depth range is the camera's minZ..maxZ, so `bias = 0.002` ≈ 20 m and **no shadow is visible**.
 7. **Thin instances [RT].** `thinInstanceSetBuffer(kind, buf, stride)` defaults to a **static** buffer, and later `thinInstanceBufferUpdated` calls are ignored, so pass `staticBuffer = false`. Call `thinInstanceRefreshBoundingInfo()` after moving instances out of the old bounds, or they are culled.
@@ -19,7 +19,7 @@ All snippets import from the package root (`import { X } from "@babylonjs/core"`
 
 **Probe files** (all in `tests/probes/`, prefix `render-materials-`): `winding`, `geometry`, `worldmat.ts` (plugin +
 helpers, imported by probes), `proctex.ts` (test textures + face emitters), `plugin-pbr`, `plugin-std`,
-`plugin-pbr-env`, `roughness`, `shadowcheck`, `texarray`, `dyntex`, `instancing`, `thinworld`, `merge`, `perf`, `glass`.
+`plugin-pbr-env`, `roughness`, `normalconv`, `shadowcheck`, `texarray`, `dyntex`, `instancing`, `thinworld`, `merge`, `perf`, `glass`.
 **Timing caveat:** this 4-CPU box ran a load average of 20–45 from parallel agents during the probes. CPU timings are
 indicative only (min-of-N is reported where noted). GPU timings are meaningless (SwiftShader). `performance.now()` is
 quantised to 0.1 ms in this page.
@@ -172,6 +172,7 @@ Behaviour verified in the source and in the working plugin:
   - `vColor.a` is **not** passed unless `VERTEXALPHA` (`vColor.rgb *= color.rgb` only). Forward `color.a` through your own varying [RT].
   - StandardMaterial computes `clamp(diffuse + emissive + ambient, 0, 1) * baseColor`, so HDR emissive must be added at `CUSTOM_FRAGMENT_BEFORE_FOG` [RT].
   - Use no `dFdx`/`texture()` inside non-uniform branches (per-face values differ across triangle edges); use layer 0 = flat normal instead of `if`.
+  - **Babylon's `cotangent_frame` (Schüler) yields T = −∂P/∂u and B = −∂P/∂v in Babylon's left-handed view.** The formula assumes a right-handed (screen x, screen y, towards viewer) frame [RT: OpenGL-style maps came out inverted on 4 face orientations]. Multiply T and B by `s = dot(N, cross(dFdx(P), dFdy(P))) < 0 ? −1 : 1`, as the plugin and `src/render/worldMaterial.ts` do. `s` is −1 for front faces in the normal view and also adapts to flipped targets. A hard-coded negation was verified equivalent. Babylon's own bump uses `tangentSpaceParams = (1, 1)` unless `invertNormalMapX/Y` are set [SRC].
 
 ---
 
@@ -212,7 +213,17 @@ Source image: TL red, TR green, BL blue, BR white. The quad has v going up and u
 | … `{ imageBitmapOptions: { imageOrientation: "flipY" } }` | **upright** |
 | `decodeImageToLayer()` (fetch → createImageBitmap → OffscreenCanvas → getImageData → flip), §4 helper | upright; JPEG red decoded as (254,0,0) |
 
-Convention adopted by the world material: **image top = v 1** (OpenGL style), so flip rows on the CPU. The normal maps are then OpenGL-style ("green up", +y = +v). DirectX-style maps need `g = 255 − g`.
+Convention adopted by the world material: **image top = v 1** (OpenGL style), so flip rows on the CPU. The normal maps are then OpenGL-style ("green up", +x = +u, +y = +v), verified raised with the plugin's negated frame [RT]. DirectX-style maps need `g = 255 − g`.
+
+Procedural normal map from a height field (verified raised [RT], `render-materials-proctex.ts` `heightToNormalLayer`):
+```ts
+// h: Float32Array(size*size) in IMAGE space (row 0 = top); wraps for tiling. Returns RGBA bytes with rows flipped (top = v 1).
+const H = (x: number, y: number) => h[((y + size) % size) * size + ((x + size) % size)];
+const dx = (H(x + 1, y) - H(x - 1, y)) * 0.5 * strength;     // +x = right = +u
+const dyUp = (H(x, y - 1) - H(x, y + 1)) * 0.5 * strength;   // +y = up (towards row 0) = +v after the flip
+const n = normalize(-dx, -dyUp, 1);                          // rgb = round((n * 0.5 + 0.5) * 255), a = 255
+// ... then flipRowsRGBA(out, size, size) and put it in the normal array (layer 0 = flat 128,128,255)
+```
 
 ### 3.3 Filtering, mips, wrap, anisotropy [RT]
 - The wrap mode comes from `texture.wrapU/wrapV` at bind time, default `WRAP_ADDRESSMODE` (REPEAT). Verified: GL `TEXTURE_WRAP_S/T = REPEAT`, and UVs −1..2 tile 3×3 correctly. `wrapR` is not applied to arrays (layers never wrap).
@@ -229,11 +240,11 @@ Convention adopted by the world material: **image top = v 1** (OpenGL style), so
 
 ## 4. World material: PBR + `WorldMaterialPlugin` (complete, verified)
 
-**Verified [RT]** (`plugin-pbr`, `plugin-std`, `plugin-pbr-env`, `roughness`, `shadowcheck`, `thinworld`, `texarray`):
+**Verified [RT]** (`plugin-pbr`, `plugin-std`, `plugin-pbr-env`, `roughness`, `normalconv`, `shadowcheck`, `thinworld`, `texarray`):
 - Compiles on PBR and Standard with no errors.
 - Defines: `UV1` / `VERTEXCOLOR` / `WORLDMAT_NORMALMAP` / `METALLICWORKFLOW` / `FOG` / `SHADOW1` + `SHADOWPCF1` all true.
 - Albedo layers selected per vertex and tiling with REPEAT. The "F" glyph reads upright and unmirrored.
-- Brick and dome normal maps lit correctly: bumps appear raised.
+- Normal maps: an OpenGL-style dome map renders **raised** on walls facing −Z and +X, a floor (+Y) and a ceiling (−Y). Light from +V gives the +V half 183 vs 52; light from +U gives the +U half 183 vs 52 (`render-materials-normalconv.probe.ts`). The first version, which used Babylon's `cotangent_frame` unchanged, came out **inverted** in both axes; see §2.3.
 - Vertex tint is multiplied in.
 - Received shadows: lit tile (65,106,161) vs. in shadow (0,38,76).
 - Linear fog: far crate blended towards the fog colour.
@@ -310,7 +321,10 @@ varying vec2 vWmUV;
 varying float vWmMetal;
 vec4 wmAlbedoTex;
 vec3 wmBaseColor;
-// Same maths as Babylon's cotangent_frame (bumpFragmentMainFunctions), renamed to avoid clashes.
+// Babylon's cotangent_frame (bumpFragmentMainFunctions) maths, renamed. That formula assumes a right-handed
+// (screen x, screen y, towards viewer) frame; Babylon's LH view is left-handed, so it yields T = -dP/du and
+// B = -dP/dv. The handedness sign s (= -1 for front faces in the normal LH view) flips them back so
+// OpenGL-style normal maps (+x = +u, +y = +v) come out RAISED (verified); it also adapts to flipped targets.
 mat3 wmCotangentFrame(vec3 normal, vec3 p, vec2 uv) {
   vec3 dp1 = dFdx(p);
   vec3 dp2 = dFdy(p);
@@ -321,7 +335,8 @@ mat3 wmCotangentFrame(vec3 normal, vec3 p, vec2 uv) {
   vec3 tangent = dp2perp * duv1.x + dp1perp * duv2.x;
   vec3 bitangent = dp2perp * duv1.y + dp1perp * duv2.y;
   float det = max(dot(tangent, tangent), dot(bitangent, bitangent));
-  float invmax = det == 0.0 ? 0.0 : inversesqrt(det);
+  float s = dot(normal, cross(dp1, dp2)) < 0.0 ? -1.0 : 1.0;
+  float invmax = det == 0.0 ? 0.0 : inversesqrt(det) * s;
   return mat3(tangent * invmax, bitangent * invmax, normal);
 }
 `;
@@ -462,7 +477,10 @@ export class WorldMaterialPlugin extends MaterialPluginBase {
   }
 }
 
-// ---- texture-array helpers (same file)
+// ---------------------------------------------------------------------------------------------------
+// Texture-array helpers
+
+/** Flip rows in place so that image row 0 (top) ends up at v = 1 (OpenGL convention). */
 export function flipRowsRGBA(data: Uint8Array | Uint8ClampedArray, width: number, height: number): void {
   const stride = width * 4;
   const tmp = new Uint8Array(stride);
@@ -618,7 +636,7 @@ function promote(inst: InstancedMesh, scene: Scene): Mesh {
   return m;
 }
 ```
-  For a thin instance, read `matrices.subarray(i*16, i*16+16)` with `Matrix.FromArray(...).decompose(...)` and build the mesh the same way. Then remove the instance: copy the last matrix and colour into slot `i`, decrement `thinInstanceCount`, and call `thinInstanceBufferUpdated` (dynamic buffers). `source.clone()` also works but shares the geometry until `makeGeometryUnique()`. The clone did **not** inherit `instancedBuffers.color` [RT].
+  For a thin instance (described, not run), read `matrices.subarray(i*16, i*16+16)` with `Matrix.FromArray(...).decompose(...)` and build the mesh the same way. Then remove the instance: copy the last matrix and colour into slot `i`, decrement `thinInstanceCount`, and call `thinInstanceBufferUpdated` (dynamic buffers). `source.clone()` also works but shares the geometry until `makeGeometryUnique()`. The clone did **not** inherit `instancedBuffers.color` [RT].
 
 ---
 
@@ -724,3 +742,4 @@ glass.disableDepthWrite = true;                      // shards in one island mes
 20. Transparent meshes write depth by default (holes inside merged shard meshes). Sorting is per mesh only.
 21. PBR computes the view vector from the eye position even for orthographic cameras.
 22. Mirrored transforms are handled automatically (`frontFace` flips when det < 0). Don't also flip indices.
+23. Babylon's `cotangent_frame` (derivative TBN) returns T = −∂P/∂u and B = −∂P/∂v in LH scenes. Apply the handedness sign `s` (§2.3), or OpenGL-style normal maps render inverted (bumps look like dents). A screenshot did not show this; only a numeric lit-side test did.

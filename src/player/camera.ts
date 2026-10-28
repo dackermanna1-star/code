@@ -42,6 +42,8 @@ export class CameraRig {
   pitch = 0;
   /** Gameplay eye position (smoothed eye height, step smoothing; no bob/dip/shake). */
   readonly eye = new Vector3();
+  /** Gameplay eye at the previous fixed step (render interpolation). */
+  readonly prevEye = new Vector3();
   readonly forward = new Vector3(0, 0, 1);
   readonly right = new Vector3(1, 0, 0);
   readonly up = new Vector3(0, 1, 0);
@@ -52,6 +54,7 @@ export class CameraRig {
 
   private eyeH = 1.65;
   private eyeInit = false;
+  private snapEye = true; // next updateEye snaps prevEye (spawn / teleport: no interpolated sweep)
   private bobAmt = 0; // 0..1 blend of the bob (grounded & moving)
   private bobSpeed = 0; // smoothed speed used for amplitude
   private dip = 0; // landing dip (m, negative = down)
@@ -107,6 +110,7 @@ export class CameraRig {
     this.dip = this.dipVel = 0;
     this.stepOffset = 0;
     this.bobAmt = 0;
+    this.snapEye = true;
   }
 
   /**
@@ -120,13 +124,23 @@ export class CameraRig {
     this.eyeH += (inp.eyeHeight - this.eyeH) * k;
     this.stepOffset *= Math.exp(-dt * 11);
     if (Math.abs(this.stepOffset) < 1e-4) this.stepOffset = 0;
+    if (this.snapEye) {
+      this.eye.set(inp.footX, inp.footY + this.eyeH + this.stepOffset, inp.footZ);
+      this.snapEye = false;
+    }
+    this.prevEye.copyFrom(this.eye);
     this.eye.set(inp.footX, inp.footY + this.eyeH + this.stepOffset, inp.footZ);
   }
 
-  /** Per render frame: animate bob/dip/FOV, then place the render camera. */
-  updateCamera(inp: CameraInputs, dt: number): void {
+  /**
+   * Per render frame: animate bob/dip/FOV, then place the render camera. `dt` is simulation time
+   * (scaled by Time.scale: springs freeze in pause, slow down in hit-stop). `alpha` (0..1) blends the
+   * rendered eye from the previous to the last fixed-step eye (render interpolation); 1 = no blend.
+   */
+  updateCamera(inp: CameraInputs, dt: number, alpha = 1): void {
     const s = this.settings.data;
-    dt = Math.min(Math.max(dt, 0), 0.1);
+    dt = Number.isFinite(dt) ? Math.min(Math.max(dt, 0), 0.1) : 0;
+    const a = Number.isFinite(alpha) ? Math.min(1, Math.max(0, alpha)) : 1;
 
     // head-bob (vertical: lowest at each foot strike; lateral sway: one cycle per two steps)
     const moving = inp.grounded && inp.speed > 0.4;
@@ -178,7 +192,7 @@ export class CameraRig {
     const oy = bobY + this.dip + spy;
     const oz = spz;
     const t = this.tmp;
-    t.copyFrom(this.eye);
+    Vector3.LerpToRef(this.prevEye, this.eye, a, t);
     t.x += this.right.x * ox + this.up.x * oy + this.forward.x * oz;
     t.y += this.right.y * ox + this.up.y * oy + this.forward.y * oz;
     t.z += this.right.z * ox + this.up.z * oy + this.forward.z * oz;

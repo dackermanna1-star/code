@@ -65,7 +65,8 @@ vec4 wmAlbedoTex;
 vec3 wmBaseColor;
 // Babylon's cotangent_frame (bumpFragmentMainFunctions) maths, renamed. That formula assumes a right-handed
 // (screen x, screen y, towards viewer) frame; Babylon's LH view is left-handed, so it yields T = -dP/du and
-// B = -dP/dv. We negate both so OpenGL-style normal maps (+x = +u, +y = +v) come out RAISED (verified).
+// B = -dP/dv. The handedness sign s (= -1 for front faces in the normal LH view) flips them back so
+// OpenGL-style normal maps (+x = +u, +y = +v) come out RAISED (verified); it also adapts to flipped targets.
 mat3 wmCotangentFrame(vec3 normal, vec3 p, vec2 uv) {
   vec3 dp1 = dFdx(p);
   vec3 dp2 = dFdy(p);
@@ -76,8 +77,9 @@ mat3 wmCotangentFrame(vec3 normal, vec3 p, vec2 uv) {
   vec3 tangent = dp2perp * duv1.x + dp1perp * duv2.x;
   vec3 bitangent = dp2perp * duv1.y + dp1perp * duv2.y;
   float det = max(dot(tangent, tangent), dot(bitangent, bitangent));
-  float invmax = det == 0.0 ? 0.0 : inversesqrt(det);
-  return mat3(-tangent * invmax, -bitangent * invmax, normal);
+  float s = dot(normal, cross(dp1, dp2)) < 0.0 ? -1.0 : 1.0;
+  float invmax = det == 0.0 ? 0.0 : inversesqrt(det) * s;
+  return mat3(tangent * invmax, bitangent * invmax, normal);
 }
 `;
 

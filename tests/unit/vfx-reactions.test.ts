@@ -2,7 +2,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validateProfiles, KIND_LAYERS, EMITTER_LAYERS, PROFILES, GROUPS, VFX_KINDS } from "../../src/vfx/profiles.ts";
-import { Reactions, MAT_FX, fractureIntensity, type ReactionSink } from "../../src/vfx/reactions.ts";
+import { Reactions, MAT_FX, DUST_FX, fractureIntensity, type ReactionSink } from "../../src/vfx/reactions.ts";
+import { EmitterRate, MAX_EMITTER_STRENGTH as MAX_STRENGTH } from "../../src/vfx/emitterRate.ts";
+import { roomZoneOf, roomZoneBounds, ROOM_ZONE_GRID_BASE } from "../../src/vfx/zones.ts";
+import { ROOMS } from "../../src/world/plan.ts";
 import { MATERIALS, type MaterialId } from "../../src/destruction/model/materials.ts";
 import { MicroSim, defaultZoneOf, zoneBounds, MAX_ZONES, MICRO_KIND_INDEX } from "../../src/vfx/microSim.ts";
 import type { FractureEv, ImpactEv } from "../../src/core/events.ts";
@@ -12,16 +15,22 @@ interface Rec {
   kicks: number;
   patches: number;
   disturbs: number;
+  patchNormals: Array<{ x: number; y: number; z: number } | undefined>;
+  revalidations: Array<{ radius: number; surfaceRadius: number }>;
 }
 
 function sink(rand = 0.5): { s: ReactionSink; r: Rec; clock: { t: number } } {
-  const r: Rec = { bursts: [], kicks: 0, patches: 0, disturbs: 0 };
+  const r: Rec = { bursts: [], kicks: 0, patches: 0, disturbs: 0, patchNormals: [], revalidations: [] };
   const clock = { t: 0 };
   const s: ReactionSink = {
     burst: (kind, _p, _n, intensity, o) => r.bursts.push({ kind, intensity, tint: o?.tint }),
     kick: () => r.kicks++,
-    dustPatch: () => r.patches++,
+    dustPatch: (_p, _s, _t, n) => {
+      r.patches++;
+      r.patchNormals.push(n);
+    },
     disturb: () => r.disturbs++,
+    revalidate: (_p, radius, surfaceRadius) => r.revalidations.push({ radius, surfaceRadius }),
     now: () => clock.t,
     random: () => rand,
   };
@@ -220,13 +229,85 @@ test("micro-debris zones: bins per (zone, shape) with matching bounds", () => {
   assert.equal(sim.checkInvariants(), null);
 });
 
-test("emitter rate accepts strength or particles/s, clamped", async () => {
-  const { emitterStrength, MAX_EMITTER_STRENGTH } = await import("../../src/vfx/particles.ts").catch(() => ({ emitterStrength: null, MAX_EMITTER_STRENGTH: 0 }) as never);
-  if (!emitterStrength) return; // particles.ts imports Babylon (not loadable under plain Node)
-  assert.equal(emitterStrength("water", 1), 1);
-  assert.equal(emitterStrength("water", 0.25), 0.25);
-  assert.equal(emitterStrength("extinguisher", 45), 1);
-  assert.equal(emitterStrength("extinguisher", 220), MAX_EMITTER_STRENGTH);
-  assert.equal(emitterStrength("water", NaN), 0);
-  assert.equal(emitterStrength("water", -2), 0);
+test("emitter rate: strength contract, legacy particle rates scale from the first value", () => {
+  const warns: string[] = [];
+  const water = new EmitterRate((m) => warns.push(m));
+  assert.equal(water.resolve("water", 1), 1);
+  assert.equal(water.resolve("water", 0.25), 0.25);
+  assert.equal(water.resolve("water", 1.3), 1.3);
+  assert.equal(water.resolve("water", 6), MAX_STRENGTH, "strengths are capped");
+  assert.equal(water.resolve("water", NaN), 0);
+  assert.equal(water.resolve("water", -2), 0);
+  assert.equal(water.perSecond, false);
+  // the tools module: created at 220 "particles/s" (full pressure), then setRate(220 × pressure)
+  const ext = new EmitterRate((m) => warns.push(m));
+  assert.equal(ext.resolve("extinguisher", 220), 1, "full pressure = nominal, not the cap");
+  assert.ok(ext.perSecond);
+  let prev = -1;
+  for (const pressure of [0.2, 0.35, 0.5, 0.75, 1]) {
+    const s = ext.resolve("extinguisher", 220 * pressure);
+    assert.ok(Math.abs(s - pressure) < 1e-9, `pressure ${pressure} → ${s}`);
+    assert.ok(s > prev, "monotonic");
+    prev = s;
+  }
+  // continuous across the old 8/9 boundary
+  assert.ok(Math.abs(ext.resolve("extinguisher", 9) - ext.resolve("extinguisher", 8)) < 0.01);
+  assert.ok(warns.length <= 1, "warns at most once");
+});
+
+test("fracture dust follows the shared material table's dust kind", () => {
+  for (const id of Object.keys(MATERIALS) as MaterialId[]) {
+    const dk = MATERIALS[id].dust;
+    if (dk) assert.equal(MAT_FX[id].dust, DUST_FX[dk], `${id}: ${dk}`);
+    if (MATERIALS[id].sparks) assert.ok(MAT_FX[id].sparks, `${id} sparks`);
+  }
+  assert.equal(MAT_FX.gypsum.dust, "drywallDust");
+  assert.equal(MAT_FX.insulation.dust, "insulationFluff");
+  assert.equal(MAT_FX.ceramic.dust, "dust");
+  assert.equal(MAT_FX.mdf.dust, "woodChips");
+  // materials without a shared DustKind keep their hand-tuned faint puff
+  assert.equal(MAT_FX.fabric.dust, "dust");
+  const { s, r } = sink();
+  new Reactions(s).fracture(frac({ mat: "plaster" }));
+  assert.ok(r.bursts.some((b) => b.kind === "drywallDust" && b.tint === MAT_FX.plaster.dustTint), "plaster → tinted drywall cloud");
+});
+
+test("wall fractures pass the outward normal to the dust patch; supports are revalidated", () => {
+  const { s, r } = sink();
+  const re = new Reactions(s);
+  re.fracture(frac({ mat: "gypsum", dir: v(0, 0, 1), volume: 0.036, size: 2.4, global: true }));
+  assert.equal(r.patches, 1);
+  assert.deepEqual(r.patchNormals[0], { x: -0, y: -0, z: -1 });
+  assert.equal(r.revalidations.length, 1);
+  assert.ok(r.revalidations[0].surfaceRadius > 0.5, "a snapped panel removes wall decals over a large area");
+  re.fracture(frac({ mat: "gypsum", volume: 1.4e-4, global: false }));
+  assert.ok(r.revalidations[1].surfaceRadius < 0.2, "a small breakout removes only nearby wall decals");
+  re.split({ pos: v(0, 1, 0), mass: 20, pieces: 2 });
+  re.moved(v(0, 0.8, 0));
+  assert.equal(r.revalidations.length, 4);
+  assert.equal(r.revalidations[3].surfaceRadius, 0, "moving an object never removes wall marks");
+});
+
+test("micro-debris zones follow the apartment rooms", () => {
+  for (let i = 0; i < ROOMS.length; i++) {
+    const rm = ROOMS[i];
+    const cx = (rm.x0 + rm.x1) / 2,
+      cz = (rm.z0 + rm.z1) / 2;
+    const zone = roomZoneOf(cx, 0, cz);
+    assert.equal(zone, i, rm.id);
+    const b = roomZoneBounds(zone);
+    assert.deepEqual(b, { x0: rm.x0, x1: rm.x1, z0: rm.z0, z1: rm.z1 });
+  }
+  // living vs bedroom 2 either side of x = 9.2 are different zones (old 4 m grid merged them)
+  assert.notEqual(roomZoneOf(9.0, 0, 2), roomZoneOf(9.4, 0, 2));
+  // outside every room: fallback grid, still valid
+  const z = roomZoneOf(-3, 0, -5);
+  assert.ok(z >= ROOM_ZONE_GRID_BASE && z < MAX_ZONES);
+  const b = roomZoneBounds(z);
+  assert.ok(-3 >= b.x0 && -3 < b.x1 && -5 >= b.z0 && -5 < b.z1);
+  const sim = new MicroSim({ capacity: 10, groundProbe: () => 0, zoneOf: roomZoneOf });
+  const base = { kind: MICRO_KIND_INDEX.foam, y: 0.5, vx: 0, vy: 0, vz: 0, size: 0.01, r: 1, g: 1, b: 1, a: 1, s0: 0, s1: 0, s2: 0, s3: 0 };
+  sim.spawn({ ...base, x: -3, z: -5 });
+  assert.equal(sim.activeBins[0].zone, z);
+  assert.equal(sim.checkInvariants(), null);
 });

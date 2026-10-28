@@ -315,3 +315,136 @@ test("aabb helper used by info agrees with geometry", () => {
   const bb = aabbOf(b.get(p).poly);
   assert.ok(near(bb.max.x - bb.min.x, 0.6, 1e-9) && near(bb.max.z - bb.min.z, 0.2, 1e-9));
 });
+
+test("overlaps: any interpenetration between separate rigid bodies is flagged, in basic validation too", () => {
+  const warn = (level: "basic" | "full", setup: (b: Builder) => void): string => {
+    const b = mk();
+    setup(b);
+    b.build({ validate: level });
+    return b.warnings.join("\n");
+  };
+  for (const level of ["basic", "full"] as const) {
+    // two 0.8 mm sheets, the loose one overlapping two thirds of the other
+    const thin = warn(level, (b) => {
+      b.box("s1", "steelSheet", "metal_painted", [0.3, 0.0008, 0.3], [0, 0.1, 0]);
+      const s2 = b.box("s2", "steelSheet", "metal_painted", [0.3, 0.0008, 0.3], [0.1, 0.1, 0]);
+      b.tag(s2, "loose");
+      b.tag("s1", "loose");
+    });
+    assert.match(thin, /'s1' and 's2' interpenetrate by 0\.8 mm/, `${level}: ${thin}`);
+    // hinged door sunk 1 mm into its carcass across its whole face
+    const door = warn(level, (b) => {
+      const side = b.box("side", "particleboard", "laminate_white", [0.6, 0.7, 0.018], [0, 0.35, 0]);
+      const leaf = b.box("leaf", "mdf", "laminate_white", [0.6, 0.7, 0.018], [0, 0.35, 0.017]);
+      b.hinge(leaf, side, { pivots: [[-0.3, 0.1, 0.026], [-0.3, 0.6, 0.026]], axis: [0, 1, 0], min: 0, max: 100 });
+    });
+    assert.match(door, /'side' and 'leaf' interpenetrate by 1\.0 mm .*different rigid bodies/, `${level}: ${door}`);
+    // a long door stile passing straight through a 3 mm liner (the fridge-dike case)
+    const slice = warn(level, (b) => {
+      const liner = b.box("liner", "plastic", "plastic", [0.5, 0.003, 0.5], [0, 0.24, 0]);
+      const dike = b.box("dike", "plastic", "plastic", [0.04, 1.0, 0.05], [0.2, 0.66, 0.2]);
+      b.hinge(dike, liner, { pivots: [[0.25, 0.3, 0.25]], axis: [0, 1, 0], min: 0, max: 90 });
+    });
+    assert.match(slice, /'liner' and 'dike' interpenetrate/, `${level}: ${slice}`);
+    // touching (zero depth) and sub-tolerance contact between bodies stay clean
+    const touching = warn(level, (b) => {
+      const side = b.box("side", "particleboard", "laminate_white", [0.6, 0.7, 0.018], [0, 0.35, 0]);
+      const leaf = b.box("leaf", "mdf", "laminate_white", [0.6, 0.7, 0.018], [0, 0.35, 0.0182]);
+      b.hinge(leaf, side, { pivots: [[-0.3, 0.1, 0.027], [-0.3, 0.6, 0.027]], axis: [0, 1, 0], min: 0, max: 100 });
+    });
+    assert.equal(touching, "", `${level}: ${touching}`);
+  }
+});
+
+test("overlaps: same-body checks scale with part thickness and use the exact shared volume", () => {
+  const run = (setup: (b: Builder) => void): string => {
+    const b = mk();
+    setup(b);
+    b.build({ validate: "full" });
+    return b.warnings.join("\n");
+  };
+  // two glued 18 mm boards sunk 1.5 mm into each other: shallow (< ¼ thickness) → harmless, clean
+  assert.equal(
+    run((b) => {
+      const a = b.box("a", "particleboard", "laminate_white", [0.6, 0.018, 0.4], [0, 0.009, 0]);
+      const c = b.box("c", "particleboard", "laminate_white", [0.6, 0.018, 0.4], [0.3, 0.0255, 0]);
+      b.glue(a, c);
+    }),
+    "",
+  );
+  // ... but 6 mm deep over half the face is a modelling error
+  assert.match(
+    run((b) => {
+      const a = b.box("a", "particleboard", "laminate_white", [0.6, 0.018, 0.4], [0, 0.009, 0]);
+      const c = b.box("c", "particleboard", "laminate_white", [0.6, 0.018, 0.4], [0.3, 0.021, 0]);
+      b.glue(a, c);
+    }),
+    /'a' and 'c' overlap 6\.0 mm deep/,
+  );
+  // a shelf running straight through a cabinet side (small fraction of each, large volume)
+  assert.match(
+    run((b) => {
+      const side = b.box("side", "particleboard", "laminate_white", [0.018, 0.7, 0.56], [0, 0.35, 0]);
+      const shelf = b.box("shelf", "particleboard", "laminate_white", [0.8, 0.018, 0.5], [0, 0.35, 0]);
+      b.screw(shelf, side, 2);
+    }),
+    /'side' and 'shelf' overlap .* cm³/,
+  );
+  // a thin spindle through a thin clock hand on the same body: tiny shared volume → clean
+  assert.equal(
+    run((b) => {
+      const sp = b.cyl("spindle", "steel", "metal_raw", 0.0015, 0.012, [0, 0, 0.006], { axis: "z" });
+      const hand = b.box("hand", "aluminum", "metal_painted", [0.006, 0.08, 0.0008], [0, 0.03, 0.008]);
+      b.press(hand, sp);
+    }),
+    "",
+  );
+  // 'inset' parts (a hinge leaf in its mortise) are exempt on their own body
+  assert.equal(
+    run((b) => {
+      const stile = b.box("stile", "softwood", "wood_pine", [0.032, 0.5, 0.03], [0, 0.25, 0]);
+      const leaf = b.box("leaf", "steel", "steel_brushed", [0.002, 0.09, 0.022], [0.015, 0.25, 0.004], { tags: ["inset"], tess: 0 });
+      b.screw(leaf, stile, 3, 30);
+    }),
+    "",
+  );
+});
+
+test("hinge latch default anchor: far edge of the whole rigid leaf, even when glued on after hinge()", () => {
+  const b = mk();
+  const frame = b.box("frame", "softwood", "wood_pine", [0.03, 0.7, 0.05], [-0.315, 0.35, 0]);
+  // hinge-side stile first (as content commonly does), hinge + latch, then the panel glued on
+  const stile = b.box("stile", "softwood", "wood_pine", [0.04, 0.7, 0.018], [-0.28, 0.35, 0.034]);
+  b.hinge(stile, frame, { pivots: [[-0.3, 0.1, 0.025], [-0.3, 0.6, 0.025]], axis: [0, 1, 0], min: 0, max: 100, latch: 3 });
+  const panel = b.box("panel", "mdf", "laminate_white", [0.52, 0.7, 0.018], [0.0, 0.35, 0.034]);
+  b.glue(panel, stile, 40);
+  const def = b.build();
+  const latch = def.bonds.find((x) => x.kind === "latch")!;
+  assert.equal(latch.a, stile);
+  assert.ok(latch.anchor!.x > 0.25, `latch anchor at the free edge of the leaf (x ≈ 0.26), got ${latch.anchor!.x}`);
+  assert.ok(near(latch.anchor!.y, 0.35, 1e-9), "level with the pivots");
+  // an explicit latchPos is kept as given
+  const b2 = mk();
+  const f2 = b2.box("frame", "softwood", "wood_pine", [0.03, 0.7, 0.05], [-0.315, 0.35, 0]);
+  const s2 = b2.box("stile", "softwood", "wood_pine", [0.04, 0.7, 0.018], [-0.28, 0.35, 0.034]);
+  b2.hinge(s2, f2, { pivots: [[-0.3, 0.1, 0.025], [-0.3, 0.6, 0.025]], axis: [0, 1, 0], min: 0, max: 100, latch: 3, latchPos: [-0.27, 0.5, 0.034] });
+  const p2 = b2.box("panel", "mdf", "laminate_white", [0.52, 0.7, 0.018], [0.0, 0.35, 0.034]);
+  b2.glue(p2, s2, 40);
+  const l2 = b2.build().bonds.find((x) => x.kind === "latch")!;
+  assert.ok(nearV(l2.anchor!, v3(-0.27, 0.5, 0.034), 1e-12));
+});
+
+test("fastener bonds across an air gap are flagged (friction bonds may bridge small gaps)", () => {
+  const b = mk();
+  const a = b.box("a", "softwood", "wood_pine", [0.1, 0.02, 0.1], [0, 0.01, 0]);
+  const c = b.box("c", "softwood", "wood_pine", [0.1, 0.02, 0.1], [0, 0.036, 0]); // 6 mm gap
+  b.screw(a, c, 2);
+  const d = b.box("d", "softwood", "wood_pine", [0.1, 0.02, 0.1], [0.1, 0.01, 0]);
+  const e = b.box("e", "glass", "glass", [0.1, 0.006, 0.1], [0.1, 0.028, 0]); // 5 mm gap (felt pads)
+  b.friction(e, d);
+  b.glue(a, d, 10);
+  b.build({ validate: "full" });
+  const w = b.warnings.join("\n");
+  assert.match(w, /screw bond 'a'–'c': the parts are more than 3 mm apart/);
+  assert.doesNotMatch(w, /friction bond/);
+});

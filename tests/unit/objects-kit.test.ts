@@ -251,7 +251,8 @@ test("pictureFrame hangs on a weak nail; lightBulb carries the light", () => {
 test("cable and pipe: tear-apart segments, pipe water on alternate segments", () => {
   const b = mk("lines");
   const stud = b.box("stud", "softwood", "wood_pine", [0.038, 2.4, 0.089], [0, 1.2, 0]);
-  const cab = K.cable(b, "cable", [[0.03, 0.3, 0], [0.03, 1.1, 0], [0.03, 1.1, 0.3]], { sparks: 0.3, start: { to: stud } });
+  const cx = 0.019 + 0.0035; // cable stapled against the stud's +X face
+  const cab = K.cable(b, "cable", [[cx, 0.3, 0], [cx, 1.1, 0], [cx, 1.1, 0.3]], { sparks: 0.3, start: { to: stud } });
   const px = -0.019 - 0.0075; // pipe runs along the stud's face
   const pp = K.pipe(b, "pipe", [[px, 0.2, 0.0], [px, 0.8, 0.0], [px, 1.4, 0.0], [px, 1.4, 0.4], [-0.3, 1.4, 0.4]], { start: { to: stud } });
   b.clip(pp[1], stud, 20);
@@ -267,4 +268,19 @@ test("cable and pipe: tear-apart segments, pipe water on alternate segments", ()
   inRange("15 mm copper pipe kg/m (full)", kgm, 0.4, 0.5);
   inRange("pipe segment mass", b.mass(pp[0]), 0.6 * kgm - 1e-9, 0.6 * kgm + 1e-9);
   assert.equal(def.features!.filter((f) => f.type === "sparks").length, cab.length);
+});
+
+test("hingedDoorPanel: hinge leaves are mortised flush, so a jamb touching the door edge is clean", () => {
+  for (const kind of ["hollow", "solid"] as const) {
+    const b = mk(`flush_${kind}`);
+    // jamb's inner face exactly at the door's -X edge (x = -0.41)
+    const jamb = b.box("jamb", "softwood", "wood_pine", [0.03, 2.05, 0.1], [-0.425, 1.025, 0]);
+    b.world(jamb, "nail", 200, [-0.425, 1, 0]);
+    const d = K.hingedDoorPanel(b, "d", { w: 0.82, h: 2.04, kind, hinge: "left", fixed: jamb, latch: false, hardware: true }, [0, 0.005, 0]);
+    done(b);
+    for (const l of d.leaves) {
+      const xs = b.get(l).poly.verts.map((v) => v.x);
+      assert.ok(Math.min(...xs) >= -0.41 - 1e-9, `${kind} leaf ${l} stays inside the door edge (min x ${Math.min(...xs)})`);
+    }
+  }
 });

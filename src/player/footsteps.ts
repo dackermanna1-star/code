@@ -102,6 +102,8 @@ export class Footsteps {
 
   private readonly sweepFrom = new Vector3();
   private readonly sweepTo = new Vector3();
+  private readonly crushPoint = new Vector3();
+  private readonly crushDir = new Vector3(0, -1, 0);
 
   /** Light strike on a loose (dynamic, light) body under the foot. */
   private crush(target: SupportProbe, speed: number): void {
@@ -114,9 +116,10 @@ export class Footsteps {
       return;
     }
     if (mass === null || !(mass > 0) || mass > CRUSH_MAX_MASS) return;
+    // (strike copies point/dir: scratch vectors are safe)
     d.strike({
-      point: target.point.clone(),
-      dir: new Vector3(0, -1, 0),
+      point: this.crushPoint.copyFrom(target.point),
+      dir: this.crushDir.set(0, -1, 0),
       body: target.body,
       childIndex: target.childIndex,
       // part of the body weight comes down through one foot at heel strike

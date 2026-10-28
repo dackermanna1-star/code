@@ -16,16 +16,25 @@
 import type { VfxKind } from "../core/context.ts";
 import type { GameEvents, ImpactEv, FractureEv } from "../core/events.ts";
 import type { Vec3 } from "../geom/vec.ts";
-import { MATERIALS, type MaterialId } from "../destruction/model/materials.ts";
+import { MATERIALS, type DustKind, type MaterialId } from "../destruction/model/materials.ts";
 
 export interface ReactionSink {
   burst(kind: VfxKind, pos: Vec3, normal: Vec3, intensity: number, opts?: { tint?: number; dir?: Vec3; radius?: number }): void;
   /** Scatter settled micro-debris around a point (radius m, peak speed m/s). */
   kick(pos: Vec3, radius: number, speed: number): void;
-  /** A patch of settled dust on the floor below `pos` (diameter m). */
-  dustPatch(pos: Vec3, size: number, tint: number): void;
+  /**
+   * A patch of settled dust on the floor below `pos` (diameter m). `normal` = outward normal of
+   * the broken surface: for walls the patch is moved off the wall line to the room side.
+   */
+  dustPatch(pos: Vec3, size: number, tint: number, normal?: Vec3): void;
   /** Re-check settled debris near a point (its support may have moved). */
   disturb(pos: Vec3, radius: number): void;
+  /**
+   * Decals near a point may have lost their support: re-check horizontal decals within `radius`
+   * (deferred a little, the broken/moved bodies need time to fall away) and remove wall decals
+   * within `surfaceRadius` (0 = none) that sat on a surface that broke away.
+   */
+  revalidate(pos: Vec3, radius: number, surfaceRadius: number): void;
   /** Seconds (monotonic) for rate limiting. */
   now(): number;
   /** Random in [0, 1) (injectable for tests). */
@@ -34,7 +43,11 @@ export interface ReactionSink {
 
 /** Visual identity of a material. */
 export interface MatFx {
-  /** Dust cloud kind (null = makes no dust). */
+  /**
+   * Dust cloud kind (null = makes no dust). In MAT_FX this is DERIVED from the shared material
+   * table (`MATERIALS[id].dust`, see DUST_FX); the hand-written value in MAT_FX_BASE only applies
+   * to materials whose shared entry has no DustKind (a faint generic puff, e.g. fabric).
+   */
   dust: VfxKind | null;
   dustTint?: number;
   /** Flying chips/bits kind. */
@@ -50,20 +63,34 @@ export interface MatFx {
   patch?: number;
 }
 
-export const MAT_FX: Readonly<Record<MaterialId, MatFx>> = {
+/** Particle kind for each shared-table dust kind (src/destruction/model/materials.ts DustKind). */
+export const DUST_FX: Readonly<Record<DustKind, VfxKind>> = {
+  drywall: "drywallDust",
+  plaster: "drywallDust", // same billowing cloud, tinted warmer (MAT_FX_BASE.plaster.dustTint)
+  concrete: "concreteDust",
+  wood: "woodChips", // chips + fine wood dust layers
+  ceramic: "dust", // fine bisque powder, tinted (dustTint)
+  insulation: "insulationFluff",
+};
+
+/**
+ * Hand-tuned looks (tints, chip kinds, spark/glass flags). `dust` here is only a fallback for
+ * materials without a shared DustKind — see MatFx.dust; `null` placeholders mark derived ones.
+ */
+const MAT_FX_BASE: Readonly<Record<MaterialId, MatFx>> = {
   glass: { dust: null, chips: "glassGlitter", glass: true },
   temperedGlass: { dust: null, chips: "glassGlitter", glass: true },
-  ceramic: { dust: "dust", dustTint: 0xe8e6e1, chips: "ceramicChips", hard: true },
-  tile: { dust: "dust", dustTint: 0xe2ddd4, chips: "ceramicChips", hard: true },
-  stone: { dust: "concreteDust", dustTint: 0x9a948c, chips: "concreteDust", hard: true },
-  concrete: { dust: "concreteDust", chips: "concreteDust", hard: true, patch: 0x9c9a96 },
-  gypsum: { dust: "drywallDust", chips: "drywallDust", patch: 0xdedbd3 },
-  plaster: { dust: "drywallDust", dustTint: 0xe9e3d6, chips: "drywallDust", patch: 0xe0d9cb },
-  softwood: { dust: "woodChips", dustTint: 0xcfab72, chips: "woodChips", chipTint: 0xd8b47c, splinters: true },
-  hardwood: { dust: "woodChips", dustTint: 0x8f6040, chips: "woodChips", chipTint: 0x9a6a44, splinters: true },
-  plywood: { dust: "woodChips", dustTint: 0xc9a46e, chips: "woodChips", chipTint: 0xd0aa72, splinters: true },
-  mdf: { dust: "dust", dustTint: 0xa88459, chips: "woodChips", chipTint: 0xa98457 },
-  particleboard: { dust: "dust", dustTint: 0xb89663, chips: "woodChips", chipTint: 0xbf9b63 },
+  ceramic: { dust: null, dustTint: 0xe8e6e1, chips: "ceramicChips", hard: true },
+  tile: { dust: null, dustTint: 0xe2ddd4, chips: "ceramicChips", hard: true },
+  stone: { dust: null, dustTint: 0x9a948c, chips: "concreteDust", hard: true },
+  concrete: { dust: null, chips: "concreteDust", hard: true, patch: 0x9c9a96 },
+  gypsum: { dust: null, chips: "drywallDust", patch: 0xdedbd3 },
+  plaster: { dust: null, dustTint: 0xe9e3d6, chips: "drywallDust", patch: 0xe0d9cb },
+  softwood: { dust: null, dustTint: 0xcfab72, chips: "woodChips", chipTint: 0xd8b47c, splinters: true },
+  hardwood: { dust: null, dustTint: 0x8f6040, chips: "woodChips", chipTint: 0x9a6a44, splinters: true },
+  plywood: { dust: null, dustTint: 0xc9a46e, chips: "woodChips", chipTint: 0xd0aa72, splinters: true },
+  mdf: { dust: null, dustTint: 0xa88459, chips: "woodChips", chipTint: 0xa98457 },
+  particleboard: { dust: null, dustTint: 0xb89663, chips: "woodChips", chipTint: 0xbf9b63 },
   steelSheet: { dust: null, chips: null, metal: true },
   steel: { dust: null, chips: null, metal: true },
   aluminum: { dust: null, chips: null, metal: true },
@@ -78,11 +105,23 @@ export const MAT_FX: Readonly<Record<MaterialId, MatFx>> = {
   foam: { dust: null, chips: "foam" },
   paper: { dust: null, chips: "paper" },
   cardboard: { dust: "dust", dustTint: 0xa88d66, chips: "paper", chipTint: 0xb5935f },
-  insulation: { dust: "insulationFluff", chips: "insulationFluff" },
+  insulation: { dust: null, chips: "insulationFluff" },
   soil: { dust: "soil", chips: "soil" },
   food: { dust: null, chips: "liquid", chipTint: 0xb5502c },
   flesh: { dust: null, chips: null },
 };
+
+/** Resolved visual identity: dust kind and spark flag follow the shared material table. */
+export const MAT_FX: Readonly<Record<MaterialId, MatFx>> = (() => {
+  const out = {} as Record<MaterialId, MatFx>;
+  for (const id of Object.keys(MAT_FX_BASE) as MaterialId[]) {
+    const b = MAT_FX_BASE[id];
+    const def = MATERIALS[id];
+    const dk = def?.dust ?? null;
+    out[id] = { ...b, dust: dk ? DUST_FX[dk] : b.dust, sparks: b.sparks || !!def?.sparks };
+  }
+  return out;
+})();
 
 const UP: Vec3 = { x: 0, y: 1, z: 0 };
 const STEEL_TOOLS = new Set(["hammer", "sledgehammer", "crowbar", "axe", "extinguisher"]);
@@ -189,9 +228,13 @@ export class Reactions {
       s.burst("sparks", ev.pos, n, clamp(0.6 + I * 0.3, 0.5, 3));
       s.burst("smoke", ev.pos, UP, clamp(0.3 + I * 0.15, 0.3, 1.5));
     }
-    if (m.patch && ev.volume > 5e-5) s.dustPatch(ev.pos, clamp(Math.sqrt(ev.volume) * 9, 0.3, 1.8), m.patch);
+    if (m.patch && ev.volume > 5e-5) s.dustPatch(ev.pos, clamp(Math.sqrt(ev.volume) * 9, 0.3, 1.8), m.patch, n);
     this.kick(ev.pos, clamp(0.3 + 0.25 * Math.sqrt(I), 0.3, 1.2), clamp(0.8 + I * 0.4, 0.8, 4));
     s.disturb(ev.pos, clamp(size, 0.3, 2));
+    // marks/puddles/dust on the broken part (or resting on it) must not float
+    const vol = Number.isFinite(ev.volume) ? Math.max(0, ev.volume) : 0;
+    const broken = ev.global ? clamp(size * 0.6, 0.08, 1.2) : clamp(Math.sqrt(vol) * 6, 0.08, 0.6);
+    s.revalidate(ev.pos, clamp(size, 0.4, 2.5), broken);
   }
 
   impact(ev: ImpactEv): void {
@@ -372,6 +415,7 @@ export class Reactions {
     const mass = Math.max(0, Number.isFinite(ev.mass) ? ev.mass : 0);
     this.sink.burst("dust", ev.pos, UP, clamp(Math.sqrt(mass) / 6, 0.15, 1));
     this.sink.disturb(ev.pos, 1.5);
+    this.sink.revalidate(ev.pos, 1.5, 0.3);
   }
 
   strain(ev: GameEvents["strain"]): void {
@@ -385,7 +429,9 @@ export class Reactions {
 
   /** Something was moved by the player near `pos`: settled debris there may have lost its support. */
   moved(pos: Vec3): void {
-    if (fin(pos)) this.sink.disturb(pos, 1.2);
+    if (!fin(pos)) return;
+    this.sink.disturb(pos, 1.2);
+    this.sink.revalidate(pos, 1.2, 0);
   }
 
   private nearRecentHit(p: Vec3, now: number): boolean {

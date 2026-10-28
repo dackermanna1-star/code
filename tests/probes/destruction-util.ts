@@ -381,3 +381,41 @@ export function blockDef(mat: MaterialId, size: Vec3, name = "block", surf: keyo
 
 export const round = (x: number, k = 1000): number => Math.round(x * k) / k;
 export { FIXED_DT };
+
+/** Gate hinged directly to the WORLD (anchor body) about +Y at x = −0.45, limits [−90°, 90°]. */
+export function gateDef(): AssemblyDef {
+  const joint = (y: number) => ({ axis: { x: 0, y: 1, z: 0 }, pivot: { x: -0.45, y, z: 0 }, min: -Math.PI / 2, max: Math.PI / 2, friction: 0.3, group: "gate#hinge" });
+  return {
+    type: "testGate",
+    name: "Garden Gate",
+    category: "fixture",
+    value: 90,
+    parts: [boxPart("leaf", "softwood", "wood_pine", { x: 0.9, y: 1.0, z: 0.03 }, { x: 0, y: 0.6, z: 0 }, { grain: { x: 0, y: 1, z: 0 } })],
+    bonds: [
+      { a: "leaf", b: "world", kind: "hinge", anchor: { x: -0.45, y: 0.3, z: 0 }, joint: joint(0.3) },
+      { a: "leaf", b: "world", kind: "hinge", anchor: { x: -0.45, y: 0.9, z: 0 }, joint: joint(0.9) },
+    ],
+  };
+}
+
+/** Wall cabinet (static, screwed to the world) with a drawer on two slider runners (opens along +Z up to 0.4 m). */
+export function drawerDef(): AssemblyDef {
+  const parts: PartDef[] = [
+    boxPart("left", "particleboard", "laminate_white", { x: 0.018, y: 0.2, z: 0.5 }, { x: -0.291, y: 0.6, z: 0 }),
+    boxPart("right", "particleboard", "laminate_white", { x: 0.018, y: 0.2, z: 0.5 }, { x: 0.291, y: 0.6, z: 0 }),
+    boxPart("bottom", "particleboard", "laminate_white", { x: 0.6, y: 0.018, z: 0.5 }, { x: 0, y: 0.491, z: 0 }),
+    boxPart("front", "mdf", "wood_painted", { x: 0.56, y: 0.17, z: 0.018 }, { x: 0, y: 0.6, z: 0.259 }),
+    boxPart("box", "plywood", "plywood", { x: 0.54, y: 0.15, z: 0.46 }, { x: 0, y: 0.585, z: 0.02 }),
+  ];
+  const run = (x: number) => ({ axis: { x: 0, y: 0, z: 1 }, pivot: { x, y: 0.56, z: 0 }, min: 0, max: 0.4, friction: 2, group: "drawer#slide" });
+  const bonds: BondDef[] = [
+    { a: "left", b: "bottom", kind: "screw", strength: 140 },
+    { a: "right", b: "bottom", kind: "screw", strength: 140 },
+    { a: "left", b: "world", kind: "screw", strength: 400, anchor: { x: -0.3, y: 0.6, z: -0.25 } },
+    { a: "right", b: "world", kind: "screw", strength: 400, anchor: { x: 0.3, y: 0.6, z: -0.25 } },
+    { a: "front", b: "box", kind: "glue", strength: 120 },
+    { a: "box", b: "left", kind: "slider", strength: 50, anchor: { x: -0.275, y: 0.56, z: 0 }, joint: run(-0.275) },
+    { a: "box", b: "right", kind: "slider", strength: 50, anchor: { x: 0.275, y: 0.56, z: 0 }, joint: run(0.275) },
+  ];
+  return { type: "testDrawer", name: "Drawer Cabinet", category: "furniture", value: 150, parts, bonds };
+}

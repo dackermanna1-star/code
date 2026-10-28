@@ -48,7 +48,19 @@ export async function probe(): Promise<unknown> {
   const time = new Time();
   const d = new Destruction({ physics, render, vfx: new MockVfx(), events, time, settings, rng: new Rng(7), scene });
 
-  for (const p of buildStructure()) d.spawn(p.def, p.xf);
+  // only the structure around the kitchen (the whole apartment is heavy for a headless page)
+  let structure = 0;
+  for (const p of buildStructure()) {
+    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    for (const q of p.def.parts)
+      for (const v of q.poly.verts) {
+        const w = { x: v.x + p.xf.p.x, z: v.z + p.xf.p.z };
+        x0 = Math.min(x0, w.x); x1 = Math.max(x1, w.x); z0 = Math.min(z0, w.z); z1 = Math.max(z1, w.z);
+      }
+    if (x1 < 3.7 || x0 > 9.5 || z1 < 4.6 || z0 > 9.2) continue;
+    d.spawn(p.def, p.xf);
+    structure++;
+  }
   let fixtures = 0;
   try {
     const mod = await import("../../src/world/furnish/fixtures.ts");
@@ -60,6 +72,11 @@ export async function probe(): Promise<unknown> {
   } catch {
     /* fixtures optional */
   }
+  const log: string[] = [];
+  const r3 = (v: { x: number; y: number; z: number }) => `${v.x.toFixed(2)},${v.y.toFixed(2)},${v.z.toFixed(2)}`;
+  events.on("fracture", (e) => log.length < 60 && log.push(`t${time.simTime.toFixed(2)} fracture ${e.mat} E=${e.energy.toFixed(2)} @${r3(e.pos)}`));
+  events.on("bondBreak", (e) => log.length < 60 && log.push(`t${time.simTime.toFixed(2)} bond ${e.kind} ${e.matA}/${e.matB} E=${e.energy.toFixed(2)} @${r3(e.pos)}`));
+  events.on("impact", (e) => e.energy > 0.5 && log.length < 60 && log.push(`t${time.simTime.toFixed(2)} impact ${e.matA}/${e.matB} E=${e.energy.toFixed(2)} v=${e.speed.toFixed(2)} @${r3(e.pos)}`));
   const tb = performance.now();
   const L = kitchenLayout();
   const buildMs = performance.now() - tb;
@@ -156,11 +173,12 @@ export async function probe(): Promise<unknown> {
   document.body.appendChild(ov);
   await new Promise((r) => setTimeout(r, 300));
   return {
-    kitchen: { assemblies: L.placements.length, parts: L.placements.reduce((s, p) => s + p.def.parts.length, 0), fixtures },
+    kitchen: { structure, assemblies: L.placements.length, parts: L.placements.reduce((s, p) => s + p.def.parts.length, 0), fixtures },
     timingsMs: { build: Math.round(buildMs), spawn: Math.round(spawnMs), stepAvg: Math.round(stepMs * 10) / 10 },
     stats0,
     afterSettle: { destruction: d.stats(), physics: physics.stats() },
     moved,
     split,
+    log,
   };
 }

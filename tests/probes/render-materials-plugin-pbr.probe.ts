@@ -188,7 +188,7 @@ export async function runWorldMatScene(kind: "pbr" | "std", opts: { bloom: boole
     envInfo,
     metalCubeFront: await readWorld([0, 0.45, -0.41]),
   };
-  engine.runRenderLoop(() => scene.render());
+  scene.render(); // final frame; no render loop (keeps the page responsive for the screenshot under load)
   return { result, scene, engine, cam, plugin, pipeline };
 }
 

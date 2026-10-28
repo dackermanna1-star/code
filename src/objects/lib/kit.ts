@@ -823,7 +823,9 @@ export function hingedDoorPanel(b: Builder, name: string, o: DoorPanelOpts, pos:
     const moving: string[] = [];
     ys.forEach((y, k) => {
       if (hw) {
-        const leaf = b.box(`leaf${k}`, "steel", "steel_brushed", [0.002, 0.09, 0.022], [hx * (o.w / 2 + 0.001), y, sz * (t / 2 - 0.011)], { tess: 0 });
+        // leaf let into a mortise in the door edge (flush with it, so a jamb can touch the edge)
+        const ld = Math.min(0.022, t - 0.002);
+        const leaf = b.box(`leaf${k}`, "steel", "steel_brushed", [0.002, 0.09, ld], [hx * (o.w / 2 - 0.001), y, sz * (t / 2 - ld / 2)], { tess: 0, tags: ["inset"] });
         b.screw(leaf, hingeMember, 3, 30);
         leaves.push(leaf);
         moving.push(leaf);

@@ -290,3 +290,46 @@ test("performance: 5000 pieces (all moving, then all settled)", () => {
   assert.ok(settledMs < 0.1, `settled cost ${settledMs}`);
   assert.ok(movingMs < 4, `moving cost ${movingMs}`); // generous: shared CI machine
 });
+
+test("a big shatter thrown off a table: moving pieces get fresh ground heights first (no hovering)", () => {
+  // table top at 0.75 m for x < 0.3, floor elsewhere
+  const sim = new MicroSim({ capacity: 4000, groundProbe: (x, y) => (x < 0.3 && y >= 0.75 ? 0.75 : 0) });
+  let seed = 7;
+  const rnd = () => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 4294967296);
+  const slots: number[] = [];
+  for (let k = 0; k < 3000; k++) {
+    const a = rnd() * Math.PI - Math.PI / 2,
+      sp = 1 + rnd() * 2.5;
+    slots.push(sim.spawn(spawnArgs("glass", 0.2 + rnd() * 0.08, 0.78, rnd() * 0.3, Math.cos(a) * sp, 0.5 + rnd(), Math.sin(a) * sp, 0.012)));
+  }
+  const hovering = () => slots.filter((i) => {
+    const d = sim.debugSlot(i);
+    return d.alive && d.state !== 0 && d.x > 0.36 && d.y > 0.4;
+  }).length;
+  for (let s = 0; s < 20; s++) sim.step(FIXED_DT);
+  const h033 = hovering();
+  assert.ok(h033 < 450, `hovering at 0.33 s: ${h033}`); // was ~1400 with a plain FIFO
+  for (let s = 0; s < 10; s++) sim.step(FIXED_DT);
+  const h05 = hovering();
+  assert.ok(h05 < 30, `hovering at 0.5 s: ${h05}`);
+  assert.equal(sim.checkInvariants(), null);
+});
+
+test("probe cache: a probe from under a thin table top is never reused by a piece lying on it", () => {
+  // thin top at 0.75 (2 cm thick, underside 0.73) over x in [0, 1]
+  let calls = 0;
+  const sim = new MicroSim({
+    capacity: 10,
+    groundProbe: (x, y) => {
+      calls++;
+      return x >= 0 && x <= 1 && y >= 0.75 ? 0.75 : 0;
+    },
+  });
+  const below = sim.spawn(spawnArgs("wood", 0.5, 0.70, 0.5, 0, 0, 0, 0.01)); // under the top
+  const above = sim.spawn(spawnArgs("wood", 0.5, 0.76, 0.5, 0, 0, 0, 0.01)); // on the top, same cell
+  sim.step(FIXED_DT); // spawn probes are serviced in the first step (same per-step cache)
+  assert.equal(calls, 2, "the piece on the top must not reuse the under-table probe");
+  for (let s = 0; s < 240; s++) sim.step(FIXED_DT);
+  assert.ok(sim.debugSlot(below).y < 0.05, "fell to the floor");
+  assert.ok(Math.abs(sim.debugSlot(above).y - 0.75) < 0.03, `rests on the table top (y=${sim.debugSlot(above).y})`);
+});

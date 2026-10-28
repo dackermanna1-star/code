@@ -2,7 +2,7 @@
 // breaks → splits + static→dynamic, joints (hinge/latch/use/pull rip), fell-out removal,
 // consolidation + restore, full despawn leak check.
 import { Vector3 } from "@babylonjs/core";
-import { makeSim, floorDef, tableDef, paneDef, doorDef, blockDef, round } from "./destruction-util.ts";
+import { makeSim, floorDef, tableDef, paneDef, doorDef, blockDef, gateDef, drawerDef, round } from "./destruction-util.ts";
 import { Layer } from "../../src/core/context.ts";
 
 export async function probe() {
@@ -68,7 +68,7 @@ export async function probe() {
     sim.step(1);
     if (relatchedAt < 0 && !g.released) relatchedAt = i;
   }
-  out.doorClose = { angle: round(((d.joints.coordinate(g) ?? 0) * 180) / Math.PI, 10), relatchedAt, latched: g.constraints.some((c) => c.latched) };
+  out.doorClose = { angle: round(((d.joints.coordinate(g) ?? 0) * 180) / Math.PI, 10), relatchedAt, latched: g.constraints.some((c) => c.latched), hkConstraintsCreated: physics.hk.HP_GetStatistics()[1][2] };
 
   // ---- pull: yank the closed, latched door outward (+Z) at the handle until something gives
   const pullLog: Array<{ t: number; latch: number; hinges: number[]; c: string[] }> = [];
@@ -88,6 +88,47 @@ export async function probe() {
     if (g.bonds.every((b) => !b.alive)) break;
   }
   out.pull = { log: pullLog, latchAlive: g.latch?.alive, hingesAlive: g.bonds.filter((b) => b.alive).length, constraints: g.constraints.length, loadsActive: d.joints.loadsActive };
+
+  // ---- world-anchored hinge: a gate on the anchor body, rotated spawn (yaw 60°) to test frames
+  const gateId = d.spawn(gateDef(), { p: { x: -2.5, y: 0, z: 1 }, q: { x: 0, y: Math.sin(Math.PI / 6), z: 0, w: Math.cos(Math.PI / 6) } });
+  const gate = d.assembly(gateId)!;
+  const gg = [...gate.groups.values()][0];
+  const gIsl2 = gate.byName.get("leaf")!.island!;
+  sim.step(10);
+  const angle0 = d.joints.coordinate(gg)!;
+  const gp = d.world.toWorldVec(gIsl2, { x: 0.35, y: 0.6, z: 0 });
+  const gUsed = d.use(gIsl2.body!, new Vector3(gp.x, gp.y, gp.z), new Vector3(gp.x - 1, 1.6, gp.z));
+  let gMax = -10,
+    gMin = 10;
+  for (let i = 0; i < 120; i++) {
+    sim.step(1);
+    const a = d.joints.coordinate(gg)!;
+    gMax = Math.max(gMax, a);
+    gMin = Math.min(gMin, a);
+  }
+  out.gate = { constraints: gg.constraints.map((c) => c.kind + (c.fixed ? "" : "@world")), angle0: round((angle0 * 180) / Math.PI, 10), used: gUsed, maxDeg: round((gMax * 180) / Math.PI, 10), minDeg: round((gMin * 180) / Math.PI, 10), anchor: !!gate.anchorBody };
+
+  // ---- slider: drawer opens with use, then gets yanked out at full extension
+  const drwId = d.spawn(drawerDef(), { p: { x: 2.5, y: 0, z: -1 }, q: { x: 0, y: 0, z: 0, w: 1 } });
+  const drw = d.assembly(drwId)!;
+  const dg = [...drw.groups.values()][0];
+  const boxIsl = drw.byName.get("box")!.island!;
+  sim.step(10);
+  const fp = d.world.toWorldVec(boxIsl, { x: 0, y: 0.6, z: 0.27 });
+  const dUsed = d.use(boxIsl.body!, new Vector3(fp.x, fp.y, fp.z), new Vector3(fp.x, 1.6, fp.z + 1));
+  sim.step(60);
+  const s1 = d.joints.coordinate(dg)!;
+  const pullD: number[] = [];
+  for (let i = 0; i < 60 * 6; i++) {
+    const p = d.world.toWorldVec(boxIsl, { x: 0, y: 0.6, z: 0.27 });
+    const F = new Vector3(0, 0, 450);
+    boxIsl.body!.applyForce(F, new Vector3(p.x, p.y, p.z));
+    d.pull(boxIsl.body!, new Vector3(p.x, p.y, p.z), F, 1 / 60);
+    sim.step(1);
+    if (i % 60 === 0) pullD.push(round(dg.bonds.reduce((a, b) => a + Math.max(0, b.health), 0), 10));
+    if (dg.bonds.every((b) => !b.alive)) break;
+  }
+  out.drawer = { constraints: [...dg.constraints.map((c) => c.kind)], used: dUsed, openedTo: round(s1, 1000), runnerHealth: pullD, runnersAlive: dg.bonds.filter((b) => b.alive).length, drawerStatic: boxIsl.isStatic };
 
   // ---- fell out: drop a block into the void
   const voidId = d.spawn(blockDef("plastic", { x: 0.2, y: 0.2, z: 0.2 }), { p: { x: 30, y: 2, z: 0 }, q: { x: 0, y: 0, z: 0, w: 1 } });
@@ -121,7 +162,7 @@ export async function probe() {
   sim.render1();
 
   // ---- despawn everything: counts back to baseline
-  for (const id of [floorId, tableId, paneId, doorId, voidId, blkId]) d.despawn(id);
+  for (const id of [floorId, tableId, paneId, doorId, voidId, blkId, gateId, drwId]) d.despawn(id);
   d.dispose();
   sim.step(2);
   out.final = sim.counts();

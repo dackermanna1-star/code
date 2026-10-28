@@ -37,6 +37,8 @@ import {
   MAX_HITS_PER_SWING,
   TURN_SPEED_SHARE,
   DEFAULT_EYE_HEIGHT,
+  TOOL_SHAFTS,
+  SHAFT_SWEEP_FROM,
   type LegActionDef,
 } from "./defs.ts";
 import {
@@ -53,7 +55,9 @@ import {
   clamp01,
   smoothstep01,
   v3,
+  AIM_SLACK,
   type V3,
+  type StrikeAim,
 } from "./swing.ts";
 import { LegAction, type LegKind } from "./legs.ts";
 import { Viewmodel, type ViewState } from "./viewmodel.ts";
@@ -72,6 +76,8 @@ const NOZZLE_HOLD_RATE = 6;
 const FIST_PIVOT: V3 = { x: 0, y: -0.25, z: 0 };
 /** Right shoulder (camera space) for the crowbar levering pose, and the bar's face hint. */
 const SHOULDER_R: V3 = { x: 0.19, y: -0.24, z: -0.02 };
+/** Shoulder → grip distance the levering arm can reach (upper arm 0.3 + forearm 0.27, slightly bent). */
+const PRY_ARM_REACH = 0.55;
 const PRY_FACE_HINT: V3 = { x: -0.5, y: -0.3, z: 0.8 };
 /** Floor probe mask (what the player can stand on). */
 const FLOOR_MASK = Layer.STATIC | Layer.DYNAMIC;
@@ -139,6 +145,11 @@ export class ToolSystem implements IToolSystem {
   /** Strike time until which `swingIgnore` stays ignored (Infinity = rest of the swing). */
   private swingIgnoreUntil = 0;
   private readonly hitCentre = new Vector3();
+  private readonly aim: StrikeAim = { point: v3(), normal: v3() };
+  /** Shaft sweep scratch (world positions at the start / end of a sweep). */
+  private readonly shaftA = new Vector3();
+  private readonly shaftB = new Vector3();
+  private readonly c2 = v3();
 
   // ---- legs
   private readonly leg = new LegAction();
@@ -439,6 +450,18 @@ export class ToolSystem implements IToolSystem {
     this.lastStrikeId = m.strikeId;
     this.swingIgnore = null;
     this.swingIgnoreUntil = 0;
+    const def = this.defs[this._current];
+    // square up to what the crosshair is on: re-aim the contact along the view line at its surface
+    this.w1.copyFrom(this.fwd).scaleInPlace(def.reach + def.headRadius + AIM_SLACK).addInPlace(this.eye);
+    const target = this.safeRay(this.eye, this.w1, tc.ignore);
+    if (target && Number.isFinite(target.distance)) {
+      this.toCam(target.point, this.aim.point);
+      const n = target.normal;
+      this.aim.normal.x = n.x * this.right.x + n.y * this.right.y + n.z * this.right.z;
+      this.aim.normal.y = n.x * this.up.x + n.y * this.up.y + n.z * this.up.z;
+      this.aim.normal.z = n.x * this.fwd.x + n.y * this.fwd.y + n.z * this.fwd.z;
+      m.aimStrike(this.aim);
+    }
     m.headAt(0, this.c0);
     this.toWorld(this.c0, this.prevHead);
     // The wound-back head may be inside something behind/above the player (a wall, the ceiling):
@@ -446,7 +469,6 @@ export class ToolSystem implements IToolSystem {
     // head moves away from it (first part of the path towards the contact point).
     const rig = TOOL_RIGS[this._current];
     this.toWorld(rig.kind === "curve" ? SHOULDER_R : FIST_PIVOT, this.w0);
-    const def = this.defs[this._current];
     const block = this.safeSweep(this.w0, this.prevHead, def.headRadius, tc.ignore, null);
     if (block) {
       this.prevHead.copyFrom(this.hitCentre);
@@ -464,14 +486,36 @@ export class ToolSystem implements IToolSystem {
     const t1 = m.sweepTo;
     m.headAt(t1, this.c0);
     this.toWorld(this.c0, this.curHead);
+    const shaft = TOOL_SHAFTS[this._current];
+    const shaftFrom = SHAFT_SWEEP_FROM * m.path.tc;
     // a few hits per step are possible when the head breaks through (glass → stuff behind it)
-    for (let iter = 0; iter < MAX_HITS_PER_SWING; iter++) {
+    for (let iter = 0; iter < MAX_HITS_PER_SWING + 2; iter++) {
       if (m.hits >= MAX_HITS_PER_SWING) break;
       const ignore = this.swingIgnore && t0 < this.swingIgnoreUntil ? this.swingIgnore : null;
-      const hit = this.safeSweep(this.prevHead, this.curHead, def.headRadius, tc.ignore, ignore);
+      let hit = this.safeSweep(this.prevHead, this.curHead, def.headRadius, tc.ignore, ignore);
+      let tHit = hit ? t0 + (t1 - t0) * hit.fraction : Infinity;
+      let shaftOff = -1;
+      // the shaft (handle / barrel) sweeps too, from late in the approach on: earliest contact wins
+      if (shaft && t1 > shaftFrom) {
+        const ts = Math.max(t0, shaftFrom);
+        for (const off of shaft.offsets) {
+          this.toWorld(m.toolPointAt(ts, off, this.c2), this.shaftA);
+          this.toWorld(m.toolPointAt(t1, off, this.c2), this.shaftB);
+          const sh = this.safeSweep(this.shaftA, this.shaftB, shaft.radius, tc.ignore, ignore);
+          if (!sh) continue;
+          const tS = ts + (t1 - ts) * sh.fraction;
+          if (tS < tHit) {
+            hit = sh;
+            tHit = tS;
+            shaftOff = off;
+          }
+        }
+      }
       if (!hit) break;
-      const tHit = t0 + (t1 - t0) * hit.fraction;
-      const outcome = this.resolveSwingHit(hit, tHit, def);
+      const outcome = shaftOff >= 0 ? this.resolveShaftHit(hit, tHit, shaftOff, def) : this.resolveSwingHit(hit, tHit, def);
+      // the head's position at the contact time (the sweep's own contact centre for head hits)
+      if (shaftOff >= 0) this.toWorld(m.headAt(tHit, this.c0), this.hitCentre);
+      else this.hitCentre.copyFrom(this.prevHead).scaleInPlace(1 - hit.fraction).addInPlace(this.w0.copyFrom(this.curHead).scaleInPlace(hit.fraction));
       if (outcome !== "continue") {
         this.prevHead.copyFrom(this.hitCentre);
         return;
@@ -484,6 +528,30 @@ export class ToolSystem implements IToolSystem {
       if (m.phase !== "strike") break;
     }
     this.prevHead.copyFrom(this.curHead);
+  }
+
+  /** A blow with the shaft: its point velocity (finite difference along the path) and a reduced effective mass. */
+  private resolveShaftHit(hit: SweepHit, tHit: number, off: number, def: ToolDef): "continue" | "stop" | "recoil" {
+    const m = this.machine;
+    const shaft = TOOL_SHAFTS[this._current]!;
+    const h = 0.002;
+    const ta = Math.max(0, tHit - h),
+      tb = Math.min(m.path.T, tHit + h);
+    m.toolPointAt(ta, off, this.c1);
+    m.toolPointAt(tb, off, this.c2);
+    const k = tb > ta ? m.rate / (tb - ta) : 0;
+    this.c0.x = (this.c2.x - this.c1.x) * k;
+    this.c0.y = (this.c2.y - this.c1.y) * k;
+    this.c0.z = (this.c2.z - this.c1.z) * k;
+    const v = this.dirToWorld(this.c0, this.w1);
+    const pathSpeed = v.length();
+    m.toolPointAt(tHit, off, this.c1);
+    const turn = this.turnVelocity(this.c1, this.w2);
+    const tl = turn.length(),
+      tmax = TURN_SPEED_SHARE * Math.max(pathSpeed, def.speed * 0.5);
+    if (tl > tmax) turn.scaleInPlace(tmax / tl);
+    v.addInPlace(turn).addInPlace(this.vel);
+    return this.applyStrike(hit, v, def.mass * shaft.massScale, shaft.radius * 0.6, this._current, tHit, shaft.mat);
   }
 
   /**
@@ -531,24 +599,33 @@ export class ToolSystem implements IToolSystem {
    * Shared strike resolution for swings and legs. `v` = striker world velocity (m/s, modified).
    * Returns the swing/leg continuation.
    */
-  private applyStrike(hit: SweepHit, v: Vector3, mass: number, contactRadius: number, who: ToolId | LegKind, tHit: number): "continue" | "stop" | "recoil" {
+  private applyStrike(
+    hit: SweepHit,
+    v: Vector3,
+    mass: number,
+    contactRadius: number,
+    who: ToolId | LegKind,
+    tHit: number,
+    shaftMat: MaterialId | null = null,
+  ): "continue" | "stop" | "recoil" {
     const n = hit.normal;
     const speedTotal = v.length();
     const vn = -(v.x * n.x + v.y * n.y + v.z * n.z); // closing speed along the surface normal
     const isLeg = who === "kick" || who === "stomp";
-    const legOrMachineHit = (kind: "continue" | "stop" | "recoil", factor = 1, strength = 1) => {
-      if (this.lastHit) this.lastHit.outcome = kind;
+    // `struck` = this contact delivered a strike (refreshes lastHit and uses up the hit budget)
+    const legOrMachineHit = (kind: "continue" | "stop" | "recoil", factor = 1, strength = 1, struck = true) => {
+      if (struck && this.lastHit) this.lastHit.outcome = kind;
       if (isLeg) {
         if (kind === "continue") this.leg.slow(factor);
         else this.leg.stop(tHit);
-        this.leg.hits++;
-      } else this.machine.hit(kind, tHit, factor, strength);
+        if (struck) this.leg.hits++;
+      } else this.machine.hit(kind, tHit, factor, strength, struck);
       return kind;
     };
     if (!(vn >= MIN_STRIKE_SPEED)) {
       // grazing contact or a nearly stopped head: glide past fast grazes, otherwise rest against it
-      if (speedTotal > 2) return legOrMachineHit("continue", 0.85);
-      return legOrMachineHit("stop");
+      if (speedTotal > 2) return legOrMachineHit("continue", 0.85, 1, false);
+      return legOrMachineHit("stop", 1, 1, false);
     }
     const d = this.ctx.destruction;
     let preMat: MaterialId | null = null;
@@ -557,10 +634,9 @@ export class ToolSystem implements IToolSystem {
     } catch {
       preMat = null;
     }
-    const fleshy = who === "hands" || isLeg;
-    const painful = fleshy && isPainful(preMat);
-    // you instinctively pull a punch/kick into concrete or steel
-    const speed = painful ? vn * (who === "hands" ? PAINFUL_PULL : 0.8) : vn;
+    // you instinctively pull a bare-knuckle punch into concrete or steel (boots don't flinch)
+    const painful = who === "hands" && isPainful(preMat);
+    const speed = painful ? vn * PAINFUL_PULL : vn;
     // direction of travel into the surface (blend towards -n for glancing blows)
     const dir = this.w3.copyFrom(v);
     if (speedTotal > 1e-6) dir.scaleInPlace(1 / speedTotal);
@@ -579,9 +655,9 @@ export class ToolSystem implements IToolSystem {
         childIndex: hit.childIndex,
         mass,
         speed,
-        sharpness: isLeg ? 1 : sharpnessFor(who as ToolId, preMat),
+        sharpness: isLeg || shaftMat ? 1 : sharpnessFor(who as ToolId, preMat),
         contactRadius,
-        strikerMat: isLeg ? "flesh" : (def as ToolDef).strikerMat,
+        strikerMat: isLeg ? "flesh" : (shaftMat ?? (def as ToolDef).strikerMat),
         source,
         tool: isLeg ? undefined : (who as ToolId),
       });
@@ -655,7 +731,7 @@ export class ToolSystem implements IToolSystem {
     }
     if (painful) {
       try {
-        ctx.render?.flash(who === "hands" ? 0.22 : 0.12, 0xff2a1a);
+        ctx.render?.flash(0.22, 0xff2a1a);
       } catch {
         /* ignore */
       }
@@ -1173,17 +1249,21 @@ export class ToolSystem implements IToolSystem {
     // levering: the hand pulls back/down as the stress builds (ramps in over 0.25 s)
     const lever = 0.05 * smoothstep01((p.time + ex) / 0.25) * (0.35 + 0.65 * p.stress);
     const pr = this.pose.right;
-    pr.p.x = tip.x - ax * len;
-    pr.p.y = tip.y - ay * len - lever;
-    pr.p.z = tip.z - az * len - lever * 0.6;
-    // re-aim the bar from the moved hand to the tip
+    // the grip stays within the arm's reach of the shoulder: for a wedge point at the edge of the
+    // pry reach the bar end stops a little short of it rather than the hand floating off the arm
+    const gripDist = Math.min(Math.max(al - len, 0.12), PRY_ARM_REACH);
+    pr.p.x = SHOULDER_R.x + ax * gripDist;
+    pr.p.y = SHOULDER_R.y + ay * gripDist - lever;
+    pr.p.z = SHOULDER_R.z + az * gripDist - lever * 0.6;
+    // re-aim the bar from the moved hand to the tip (one bar length along it)
     this.c1.x = tip.x - pr.p.x;
     this.c1.y = tip.y - pr.p.y;
     this.c1.z = tip.z - pr.p.z;
     quatFromAxisFace(pr.q, this.c1, PRY_FACE_HINT);
-    this.pose.head.x = tip.x;
-    this.pose.head.y = tip.y;
-    this.pose.head.z = tip.z;
+    const bl = Math.hypot(this.c1.x, this.c1.y, this.c1.z) || 1;
+    this.pose.head.x = pr.p.x + (this.c1.x / bl) * len;
+    this.pose.head.y = pr.p.y + (this.c1.y / bl) * len;
+    this.pose.head.z = pr.p.z + (this.c1.z / bl) * len;
     this.pose.left.p.x = pr.p.x;
     this.pose.left.p.y = pr.p.y;
     this.pose.left.p.z = pr.p.z;

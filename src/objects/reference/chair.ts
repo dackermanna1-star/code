@@ -70,10 +70,12 @@ export function buildChair(o: ChairOpts = {}): AssemblyDef {
   const xIn = XO - L; // legs' inner faces at x = ±0.171
   const apY = (apBot + seatBot) / 2;
   const apronF = b.box("apron_f", mat, surf, [2 * xIn, apH, apT], [0, apY, 0.183 - apT / 2], { ...po, grain: "x" });
-  const zBackC = zRearFront(apY) - L / 2;
-  const apronB = b.box("apron_b", mat, surf, [2 * xIn, apH, apT], [0, apY, zBackC], { ...po, grain: "x" });
+  // back rail: against the raked posts' front faces (like the side rails) and between the side
+  // rails, so the seat rests on it and its screws bite into wood
   const sideZ0 = zRearFront(apBot) + 0.0002,
     sideZ1 = 0.185 - L;
+  const xBack = XO - 0.002 - apT; // side rails' inner faces
+  const apronB = b.box("apron_b", mat, surf, [2 * xBack, apH, apT], [0, apY, sideZ0 + apT / 2], { ...po, grain: "x" });
   const apronL = b.box("apron_l", mat, surf, [apT, apH, sideZ1 - sideZ0], [-(XO - 0.002 - apT / 2), apY, (sideZ0 + sideZ1) / 2], { ...po, grain: "z" });
   const apronR = b.box("apron_r", mat, surf, [apT, apH, sideZ1 - sideZ0], [XO - 0.002 - apT / 2, apY, (sideZ0 + sideZ1) / 2], { ...po, grain: "z" });
   for (const [a, l1, l2] of [

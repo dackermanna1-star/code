@@ -11,6 +11,7 @@ import { Builder, vec, type PartOpts, type Rot, type TiledOpts, type V3 } from "
 import { v3, vnorm, vdot, xapply, xinv, type Vec3 } from "../../geom/vec.ts";
 import { polyFromHull, type ConvexPoly, type PolyFace } from "../../geom/poly.ts";
 import { latheTiles, type Tile } from "../../geom/primitives.ts";
+import { polyPointDist } from "../lib/contact.ts";
 import { seedFrom } from "../../core/rng.ts";
 import type { AssemblyCategory, AssemblyDef, BondKind } from "../../destruction/model/types.ts";
 import type { MaterialId } from "../../destruction/model/materials.ts";
@@ -155,6 +156,49 @@ export function bondOverlapping(b: Builder, part: string, candidates: string[], 
   const toLocal = xinv(b.frameXf());
   for (const h of hits) b.bond(part, h, kind, { strength: Math.max(1, total / hits.length), anchor: xapply(toLocal, contactAnchor(b, part, h, undefined)) });
   return hits.length;
+}
+
+/** The candidate whose hull is nearest to `point` (assembly space), and that distance. */
+export function nearestPart(b: Builder, candidates: string[], point: V3): { name: string; dist: number } {
+  const q = vec(point);
+  let best = candidates[0],
+    bd = Infinity;
+  for (const c of candidates) {
+    const d = polyPointDist(b.get(c).poly, q);
+    if (d < bd) {
+      bd = d;
+      best = c;
+    }
+  }
+  return { name: best, dist: bd };
+}
+
+/** Bond `part` to the candidate nearest to `point` (assembly space), anchored there. */
+export function bondNearest(b: Builder, part: string, candidates: string[], kind: BondKind, strength: number, point: V3): string {
+  const n = nearestPart(b, candidates, point);
+  b.bond(part, n.name, kind, { strength, anchor: xapply(xinv(b.frameXf()), vec(point)) });
+  return n.name;
+}
+
+/**
+ * Height of the boundary of a regular N-gon (circumradius R, one vertex at angle `phaseDeg`
+ * measured from +X towards +Y) above/below its centre at horizontal offset x: the top (max y)
+ * or bottom (min y) intersection. Used to rest parts exactly on tiled cylinders (tubs, drums).
+ */
+export function polygonSurfaceY(N: number, R: number, phaseDeg: number, x: number, top: boolean): number {
+  let best = top ? -Infinity : Infinity;
+  for (let k = 0; k < N; k++) {
+    const a0 = ((phaseDeg + (360 * k) / N) * Math.PI) / 180,
+      a1 = ((phaseDeg + (360 * (k + 1)) / N) * Math.PI) / 180;
+    const x0 = R * Math.cos(a0),
+      y0 = R * Math.sin(a0),
+      x1 = R * Math.cos(a1),
+      y1 = R * Math.sin(a1);
+    if ((x < Math.min(x0, x1) - 1e-12) || (x > Math.max(x0, x1) + 1e-12) || Math.abs(x1 - x0) < 1e-12) continue;
+    const y = y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
+    best = top ? Math.max(best, y) : Math.min(best, y);
+  }
+  return Number.isFinite(best) ? best : 0;
 }
 
 // =============================================================================================

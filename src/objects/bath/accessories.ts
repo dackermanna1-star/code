@@ -269,10 +269,13 @@ export function buildHairDryer(o: BaseOpts & { tint?: number } = {}): AssemblyDe
   const grille = b.cyl("grille", "plastic", "vent_grille", R - 0.002, 0.004, [-len / 2 - 0.002, R, 0], { axis: "x", segments: 12, tint: 0x3a3a3c, mass: 0.015 });
   const nozzle = b.cyl("nozzle", "plastic", "plastic", R - 0.0015, 0.055, [len / 2 + 0.0275, R, 0], { axis: "x", rTop: R * 0.55, segments: 8, tint, mass: 0.035 });
   for (const t of [grille, nozzle]) bondTouching(b, t, shell, "clip", 12, 0.003);
-  // inside: motor + fan and the heater coil frame (mica)
+  // inside: a plastic bulkhead spider holding the motor + fan, then the heater coil frame (mica)
+  const rBulk = R - 0.003 - 0.0002; // aligned octagon: its sides sit 0.2 mm inside the shell's 8 inner faces
+  const bulk = b.cyl("bulkhead", "plastic", "plastic", rBulk, 0.004, [-0.067, R, 0], { axis: "x", segments: 8, tint: 0x3a3a3c, mass: 0.01 });
+  bondTouching(b, bulk, shell, "clip", 24, 0.0015);
   const motor = b.cyl("motor", "copper", "copper", 0.018, 0.04, [-0.045, R, 0], { axis: "x", segments: 10, mass: 0.09 });
-  const heater = boxR(b, "heater", "steel", "metal_raw", [-0.01, 0.06], [R - 0.022, R + 0.022], [-0.022, 0.022], { mass: 0.05 });
-  bondTouching(b, motor, shell, "clip", 15, 0.025, 0);
+  b.screw(motor, bulk, 2, 12);
+  const heater = boxR(b, "heater", "steel", "metal_raw", [-0.025, 0.06], [R - 0.022, R + 0.022], [-0.022, 0.022], { mass: 0.05 });
   b.screw(heater, motor, 1, 15);
   b.sparks(motor, 0.6);
   // handle lying flat towards −Z (hollow moulding) with a press-fit switch
@@ -362,7 +365,7 @@ export function buildBathScale(o: BaseOpts = {}): AssemblyDef {
   b.glue(lcd, standoff, 6);
   b.fuse(standoff, pan, 10);
   pcb(b, "board", { w: 0.06, h: 0.04, components: [{ kind: "chip", x: 0, y: 0.005 }, { kind: "cap", x: 0.022, y: -0.01 }], mount: { to: pan, screws: 2, each: 8 }, sparks: 0.5 }, [0, y0 + 0.0016, 0.03], [-90, 0, 0]);
-  const battery = b.cyl("battery", "steel", "metal_raw", 0.01, 0.045, [-0.07, y0 + 0.01, -0.06], { axis: "x", segments: 8, mass: 0.024 });
+  const battery = b.cyl("battery", "steel", "metal_raw", 0.01, 0.0032, [-0.07, y0 + 0.0016, -0.06], { segments: 10, mass: 0.003 }); // CR2032 coin cell
   b.clip(battery, pan, 4);
   return finish(b, o);
 }

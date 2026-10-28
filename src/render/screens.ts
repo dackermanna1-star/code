@@ -16,8 +16,9 @@
 //   const h = createScreen(scene, { parent: island.node, poly: part.poly }, feature.content,
 //                          { state: feature.on === false ? "off" : "on", mains: feature.mains });
 //   - `poly` is the screen part's ConvexPoly in the ISLAND frame (= node-local space); the quad
-//     is built on the face whose outward normal best matches `front` (default +Z, the builder's
-//     front direction), inset by `inset` and lifted `offset` (0.8 mm) to avoid z-fighting.
+//     is built on its display face (a large face with an lcd/display surface, else the large
+//     face looking +Z = builder front, else +Y for phones lying flat; or the face matching an
+//     explicit `front`), inset by `inset` and lifted `offset` (0.8 mm) to avoid z-fighting.
 //   - damaged → h.setState("cracked"); destroyed (part fractured / power board dead) →
 //     h.setState("dead") and, once the part's geometry is gone, h.dispose();
 //   - the part moved to another island after a split → h.setParent(newIsland.node)
@@ -39,6 +40,7 @@ import {
 import type { ConvexPoly } from "../geom/poly.ts";
 import type { Vec3 } from "../geom/vec.ts";
 import { drawSevenSeg, measureSevenSeg } from "./proctex/sevenseg.ts";
+import { SURFACES } from "./surfaces.ts";
 
 export type ScreenKind = "tv" | "monitor" | "laptop" | "phone" | "microwave";
 export type ScreenState = "on" | "off" | "cracked" | "dead";
@@ -48,7 +50,10 @@ export interface ScreenPlacement {
   parent: TransformNode;
   /** Screen part polyhedron in the island frame. */
   poly: ConvexPoly;
-  /** Outward direction of the display face in the island frame (default +Z). */
+  /**
+   * Outward direction of the display face in the island frame. Default: the part's large face
+   * carrying a display surface (lcd_off / display_*), else the large face looking +Z, else +Y.
+   */
   front?: Vec3;
   /** Bezel inset from the face edges (m). */
   inset?: number;
@@ -152,22 +157,70 @@ export function screenCount(scene: Scene): number {
 
 // ------------------------------------------------------------------ geometry
 
-/** Build the display quad on the poly face best matching `front`. */
-function buildQuad(scene: Scene, p: ScreenPlacement, name: string): Mesh {
-  const f = p.front ?? { x: 0, y: 0, z: 1 };
-  const fl = Math.hypot(f.x, f.y, f.z) || 1;
-  const fx = f.x / fl,
-    fy = f.y / fl,
-    fz = f.z / fl;
-  let best = -2,
-    face = p.poly.faces[0];
-  for (const fc of p.poly.faces) {
-    const d = fc.n.x * fx + fc.n.y * fy + fc.n.z * fz;
-    if (d > best) {
-      best = d;
-      face = fc;
-    }
+/** Surfaces that mark the display side of a screen part. */
+const DISPLAY_SURFACES = new Set(["lcd_off", "display_green", "display_blue", "glass_dark"]);
+
+function faceArea(poly: ConvexPoly, f: ConvexPoly["faces"][number]): number {
+  const v = poly.verts;
+  const p0 = v[f.idx[0]];
+  let ax = 0,
+    ay = 0,
+    az = 0;
+  for (let i = 1; i + 1 < f.idx.length; i++) {
+    const a = v[f.idx[i]],
+      b = v[f.idx[i + 1]];
+    const ux = a.x - p0.x,
+      uy = a.y - p0.y,
+      uz = a.z - p0.z;
+    const wx = b.x - p0.x,
+      wy = b.y - p0.y,
+      wz = b.z - p0.z;
+    ax += uy * wz - uz * wy;
+    ay += uz * wx - ux * wz;
+    az += ux * wy - uy * wx;
   }
+  return 0.5 * Math.hypot(ax, ay, az);
+}
+
+/**
+ * The display face of a screen part: with an explicit `front`, the face whose normal matches it
+ * best; otherwise among the part's large faces (≥ 50 % of the largest — the two sides of a
+ * panel) prefer display surfaces (lcd/display), then faces looking +Z (builder front), then +Y
+ * (phones lying flat).
+ */
+function pickDisplayFace(poly: ConvexPoly, front: Vec3 | undefined): ConvexPoly["faces"][number] | undefined {
+  if (front) {
+    const fl = Math.hypot(front.x, front.y, front.z) || 1;
+    let best = -2,
+      face = poly.faces[0];
+    for (const fc of poly.faces) {
+      const d = (fc.n.x * front.x + fc.n.y * front.y + fc.n.z * front.z) / fl;
+      if (d > best) {
+        best = d;
+        face = fc;
+      }
+    }
+    return face;
+  }
+  const areas = poly.faces.map((f) => faceArea(poly, f));
+  const maxA = Math.max(...areas, 0);
+  let best = -Infinity,
+    face: ConvexPoly["faces"][number] | undefined;
+  poly.faces.forEach((f, i) => {
+    if (areas[i] < maxA * 0.5) return;
+    const surfName = SURFACES[f.attr.surf]?.name ?? "";
+    const score = areas[i] / maxA + (DISPLAY_SURFACES.has(surfName) ? 1 : 0) + 0.5 * Math.max(0, f.n.z) + 0.25 * Math.max(0, f.n.y);
+    if (score > best) {
+      best = score;
+      face = f;
+    }
+  });
+  return face;
+}
+
+/** Build the display quad on the screen part's display face (see pickDisplayFace). */
+function buildQuad(scene: Scene, p: ScreenPlacement, name: string): Mesh {
+  const face = pickDisplayFace(p.poly, p.front);
   if (!face || face.idx.length < 3) throw new Error("createScreen: screen poly has no usable face");
   const n = face.n;
   // right/up axes (text upright, not mirrored, seen from outside): right = n × Y, up = right × n

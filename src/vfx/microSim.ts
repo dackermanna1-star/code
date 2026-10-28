@@ -255,7 +255,8 @@ export interface MicroSimOptions {
   seed?: number;
 }
 
-export const MAX_ZONES = 64;
+/** Zone slots (room zones + the fallback grid, see zones.ts). */
+export const MAX_ZONES = 80;
 /** Zone grid: 8 × 8 cells of ZONE_SIZE m starting at ZONE_ORIGIN (covers the apartment + balcony). */
 export const ZONE_SIZE = 4;
 export const ZONE_ORIGIN = -8;
@@ -336,9 +337,15 @@ export class MicroSim {
   private freeTop = 0;
   private active = new Int32Array(0);
   private activeCount = 0;
+  // Probe queues: `hiQ` for airborne / sliding pieces (a stale ground height makes them hover
+  // past an edge or rest on an invisible plane), `probeQ` for settled re-checks. pq flag per slot:
+  // 0 = not queued, 1 = in probeQ, 2 = in hiQ (a stale probeQ entry is skipped when serviced).
   private probeQ = new Int32Array(0);
   private probeQHead = 0;
   private probeQLen = 0;
+  private hiQ = new Int32Array(0);
+  private hiQHead = 0;
+  private hiQLen = 0;
   // FIFO rings (slot + validity stamp) for recycling order
   private spawnRingSlot = new Int32Array(0);
   private spawnRingGen = new Uint32Array(0);
@@ -357,6 +364,8 @@ export class MicroSim {
   private cacheKey = new Int32Array(MicroSim.CACHE);
   private cacheStamp = new Uint32Array(MicroSim.CACHE);
   private cacheVal = new Float32Array(MicroSim.CACHE);
+  /** Start height of the cached query (reused only for queries starting at or below it). */
+  private cacheY = new Float32Array(MicroSim.CACHE);
   // Last successful probe (provisional ground for spawns beyond the probe budget)
   private lastProbeX = 0;
   private lastProbeZ = 0;
@@ -491,6 +500,10 @@ export class MicroSim {
     for (let k = 0; k < this.probeQLen; k++) pq[k] = this.probeQ[(this.probeQHead + k) % Math.max(1, this.probeQ.length)];
     this.probeQ = pq;
     this.probeQHead = 0;
+    const hq = new Int32Array(n);
+    for (let k = 0; k < this.hiQLen; k++) hq[k] = this.hiQ[(this.hiQHead + k) % Math.max(1, this.hiQ.length)];
+    this.hiQ = hq;
+    this.hiQHead = 0;
     this.alloc = n;
   }
 
@@ -686,38 +699,41 @@ export class MicroSim {
   }
 
   // ------------------------------------------------------------------ ground probes
-  private cacheSlot(x: number, y: number, z: number): number {
+  // Per-step cache of ground probes on a 4 cm horizontal grid. Several entries per cell (one per
+  // start height) live in the open-addressing run. A probe started at height Y0 returned the
+  // first surface v below Y0; it answers a query from y <= Y0 exactly when v <= y (nothing lies
+  // between v and Y0, hence nothing between v and y). A query from ABOVE the cached start (a
+  // piece on a thin table top vs a probe from under it) never reuses it.
+  private cacheSlot(x: number, z: number): number {
     const ix = Math.floor(x * 25),
-      iz = Math.floor(z * 25),
-      iy = Math.floor(y * 5);
-    const key = (Math.imul(ix, 73856093) ^ Math.imul(iz, 19349663) ^ Math.imul(iy, 83492791)) | 0;
-    return key;
+      iz = Math.floor(z * 25);
+    return (Math.imul(ix, 73856093) ^ Math.imul(iz, 19349663)) | 0;
   }
 
   /** Look up the per-step cache; returns NaN on miss. */
   private cacheGet(key: number, y: number): number {
     const mask = MicroSim.CACHE - 1;
     let h = key & mask;
-    for (let probe = 0; probe < 4; probe++) {
+    for (let probe = 0; probe < 6; probe++) {
       if (this.cacheStamp[h] !== this.stepId) return NaN;
-      if (this.cacheKey[h] === key) {
+      if (this.cacheKey[h] === key && this.cacheY[h] >= y - 1e-4) {
         const v = this.cacheVal[h];
-        // Only valid if the cached surface lies below this start point.
-        return v <= y + PROBE_LIFT ? v : NaN;
+        if (v <= y + PROBE_LIFT) return v;
       }
       h = (h + 1) & mask;
     }
     return NaN;
   }
 
-  private cachePut(key: number, v: number): void {
+  private cachePut(key: number, v: number, y: number): void {
     const mask = MicroSim.CACHE - 1;
     let h = key & mask;
-    for (let probe = 0; probe < 4; probe++) {
-      if (this.cacheStamp[h] !== this.stepId || this.cacheKey[h] === key) {
+    for (let probe = 0; probe < 6; probe++) {
+      if (this.cacheStamp[h] !== this.stepId || (this.cacheKey[h] === key && Math.abs(this.cacheY[h] - y) < 0.03)) {
         this.cacheStamp[h] = this.stepId;
         this.cacheKey[h] = key;
         this.cacheVal[h] = v;
+        this.cacheY[h] = y;
         return;
       }
       h = (h + 1) & mask;
@@ -726,7 +742,7 @@ export class MicroSim {
 
   /** Probe (cached / budgeted). Returns ground height, NO_GROUND for none, NaN if over budget. */
   private probeAt(x: number, y: number, z: number): number {
-    const key = this.cacheSlot(x, y, z);
+    const key = this.cacheSlot(x, z);
     const c = this.cacheGet(key, y);
     if (c === c) return c;
     if (this.probesLeft <= 0) return NaN;
@@ -739,7 +755,7 @@ export class MicroSim {
       h = null;
     }
     const v = h === null || !Number.isFinite(h) ? NO_GROUND : Math.min(h, y + PROBE_LIFT);
-    this.cachePut(key, v);
+    this.cachePut(key, v, y);
     if (v > NO_GROUND) {
       this.lastProbeX = x;
       this.lastProbeZ = z;
@@ -772,7 +788,18 @@ export class MicroSim {
   }
 
   private queueProbe(i: number): void {
-    if (this.pq[i]) return;
+    const f = this.pq[i];
+    if (f === 2) return;
+    if (this.state[i] !== St.Settled) {
+      // moving piece: high priority (promoted even if it already waits in the plain queue)
+      const n = this.hiQ.length;
+      if (this.hiQLen >= n) return;
+      this.hiQ[(this.hiQHead + this.hiQLen) % n] = i;
+      this.hiQLen++;
+      this.pq[i] = 2;
+      return;
+    }
+    if (f === 1) return;
     const n = this.probeQ.length;
     if (this.probeQLen >= n) return;
     this.probeQ[(this.probeQHead + this.probeQLen) % n] = i;
@@ -780,25 +807,46 @@ export class MicroSim {
     this.pq[i] = 1;
   }
 
+  /** Pending probes (both queues; stats/tests). */
+  get queuedProbes(): number {
+    return this.probeQLen + this.hiQLen;
+  }
+
   private serviceProbes(): void {
+    // moving pieces first
+    const nh = this.hiQ.length;
+    while (this.hiQLen > 0 && this.probesLeft > 0) {
+      const i = this.hiQ[this.hiQHead];
+      this.hiQHead = (this.hiQHead + 1) % nh;
+      this.hiQLen--;
+      if (this.pq[i] !== 2) continue;
+      this.pq[i] = 0;
+      if (!this.serviceOne(i)) return;
+    }
     const n = this.probeQ.length;
     while (this.probeQLen > 0 && this.probesLeft > 0) {
       const i = this.probeQ[this.probeQHead];
       this.probeQHead = (this.probeQHead + 1) % n;
       this.probeQLen--;
+      if (this.pq[i] !== 1) continue; // promoted to the high-priority queue (or killed)
       this.pq[i] = 0;
-      if (!this.alive[i]) continue;
-      const x = this.px[i],
-        y = this.py[i],
-        z = this.pz[i];
-      const v = this.probeAt(x, y, z);
-      if (v !== v) {
-        // budget ran out between the check and the probe: requeue
-        this.queueProbe(i);
-        break;
-      }
-      this.applyProbe(i, v, x, z);
+      if (!this.serviceOne(i)) return;
     }
+  }
+
+  /** Probe one queued slot; false when the budget ran out (the slot is requeued). */
+  private serviceOne(i: number): boolean {
+    if (!this.alive[i]) return true;
+    const x = this.px[i],
+      y = this.py[i],
+      z = this.pz[i];
+    const v = this.probeAt(x, y, z);
+    if (v !== v) {
+      this.queueProbe(i);
+      return false;
+    }
+    this.applyProbe(i, v, x, z);
+    return true;
   }
 
   private applyProbe(i: number, v: number, x: number, z: number): void {
@@ -829,7 +877,9 @@ export class MicroSim {
     if (!(dt > 0)) return;
     if (dt > 0.05) dt = 0.05;
     this.stepId = (this.stepId + 1) >>> 0 || 1;
-    this.probesLeft = this.maxProbesPerStep;
+    // Raise the budget while many moving pieces wait for a fresh ground height (a big shatter
+    // thrown off a counter), up to 3× the nominal budget.
+    this.probesLeft = this.maxProbesPerStep + Math.min(2 * this.maxProbesPerStep, this.hiQLen >> 2);
     if (this.lowWaterMarks.length < this.activeBins.length) this.lowWaterMarks = new Int32Array(this.bins.length);
     const lowWater = this.lowWaterMarks;
     const nb = this.activeBins.length;
@@ -1316,7 +1366,7 @@ export class MicroSim {
   /** Remove every piece. */
   clear(): void {
     for (let i = 0; i < this.alloc; i++) if (this.alive[i]) this.kill(i);
-    this.spawnLen = this.settledLen = this.probeQLen = 0;
+    this.spawnLen = this.settledLen = this.probeQLen = this.hiQLen = 0;
     for (const sb of this.activeBins) {
       sb.matDirty.clear();
       sb.attrDirty.clear();

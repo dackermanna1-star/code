@@ -169,8 +169,8 @@ export function buildToilet(o: ToiletOpts = {}): AssemblyDef {
   b.press(flapper, tBottom, 3);
   const lever = boxR(b, "flush_lever", CHROME.mat, CHROME.surf, [-0.2, -0.15], [0.692, 0.707], [tz1, tz1 + 0.024], { mass: 0.06 });
   const arm = boxR(b, "flush_arm", "plastic", "plastic", [-0.2, -0.04], [0.695, 0.705], [tz1 - wt - 0.01, tz1 - wt], { tint: 0x2f3134, mass: 0.02 });
-  b.press(lever, tFront, 20);
-  b.press(arm, lever, 10);
+  b.press(lever, tFront, 20); // the lever's square spindle passes through the wall...
+  b.press(arm, tFront, 10); // ...and the arm is clamped to it by the nut on the inside
 
   // ------------------------------------------------------------------ seat + lid
   const seatY = rimY + 0.003; // rests on the rim's raised inner edge

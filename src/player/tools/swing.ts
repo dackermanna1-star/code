@@ -541,19 +541,32 @@ export class StrikePath {
   /** Jab pull-back weight at the start. */
   start = 0;
   hand = 0;
+  /** Contact point, unit travel at contact and the contact / end orientations of THIS path (curve rigs). */
+  readonly contact: V3 = v3();
+  readonly travel: V3 = v3(0, 0, 1);
+  readonly qContact: Q4 = q4();
+  readonly qEnd: Q4 = q4();
   private hint = 0;
 
-  /** Build for a curve rig starting at head position S with orientation q0 (the wound pose for this charge). */
-  buildCurve(prep: PreparedCurve, S: V3, q0: Q4, v: number): void {
+  /**
+   * Build for a curve rig starting at head position S with orientation q0 (the wound pose for this
+   * charge). `aim` (optional) re-targets the swing: contact point, travel and handle at contact and
+   * the end of the follow-through replace the rig's nominal ones (see SwingMachine.aimStrike).
+   */
+  buildCurve(prep: PreparedCurve, S: V3, q0: Q4, v: number, aim?: CurveAim): void {
     Object.assign(this.q0, q0);
     const rig = prep.rig;
-    const C = rig.contact,
-      E = rig.end.head;
+    const C = copy(this.contact, aim ? aim.contact : rig.contact);
+    const T = copy(this.travel, aim ? aim.travel : prep.travel);
+    const E = aim ? aim.end : rig.end.head;
+    if (aim) quatFromAxisFace(this.qContact, aim.handle, T);
+    else Object.assign(this.qContact, prep.qContact);
+    Object.assign(this.qEnd, prep.qEnd);
     const dA = Math.max(1e-3, Math.hypot(C.x - S.x, C.y - S.y, C.z - S.z));
     const dB = Math.max(1e-3, Math.hypot(E.x - C.x, E.y - C.y, E.z - C.z));
     // tangents scaled by the chords (well-behaved Hermite shapes)
-    const tA0 = set(_t1, prep.launch.x * dA * 1.1, prep.launch.y * dA * 1.1, prep.launch.z * dA * 1.1);
-    const tA1 = set(_t2, prep.travel.x * dA * 1.2, prep.travel.y * dA * 1.2, prep.travel.z * dA * 1.2);
+    const tA0 = set(_tA0, prep.launch.x * dA * 1.1, prep.launch.y * dA * 1.1, prep.launch.z * dA * 1.1);
+    const tA1 = set(_tA1, T.x * dA * 1.2, T.y * dA * 1.2, T.z * dA * 1.2);
     let acc = 0,
       px = 0,
       py = 0,
@@ -569,15 +582,15 @@ export class StrikePath {
         const u = (i - TAB_A) / (TAB_N - TAB_A);
         const tB0 = _tB0,
           tB1 = _tB1;
-        set(tB0, prep.travel.x * dB, prep.travel.y * dB, prep.travel.z * dB);
+        set(tB0, T.x * dB, T.y * dB, T.z * dB);
         set(tB1, prep.endDir.x * dB * 0.7, prep.endDir.y * dB * 0.7, prep.endDir.z * dB * 0.7);
         hermite(p, C, tB0, E, tB1, u);
         hermiteDeriv(d, C, tB0, E, tB1, u);
       }
       // exact directions at the junctions (the derivative at a rest point may vanish)
       if (i === 0) copy(d, prep.launch);
-      else if (i === TAB_A) copy(d, prep.travel);
-      normalizeInPlace(d, prep.travel);
+      else if (i === TAB_A) copy(d, T);
+      normalizeInPlace(d, T);
       if (i > 0) acc += Math.hypot(p.x - px, p.y - py, p.z - pz);
       this.s[i] = acc;
       this.head[3 * i] = px = p.x;
@@ -594,17 +607,27 @@ export class StrikePath {
     this.finish(acc, Lc, v);
   }
 
-  /** Build for a jab rig: straight line from guard (+ pull-back w0) to full extension. */
-  buildJab(prep: PreparedJab, hand: number, w0: number, v: number): void {
+  /**
+   * Build for a jab rig: straight line from guard (+ pull-back w0) to full extension. `contact`
+   * (optional) re-aims the punch line through that fist-centre contact point (over-extending by
+   * the rig's `extend` beyond it).
+   */
+  buildJab(prep: PreparedJab, hand: number, w0: number, v: number, contact?: V3): void {
     const rig = prep.rig;
     const g = rig.guard[hand],
-      b = prep.back[hand],
-      en = prep.end[hand],
-      c = rig.contact[hand];
+      b = prep.back[hand];
     const p0 = set(_t0, g.x + b.x * w0, g.y + b.y * w0, g.z + b.z * w0);
+    let en: V3 = prep.end[hand],
+      c: V3 = rig.contact[hand];
+    if (contact) {
+      c = contact;
+      const dir = normalizeInPlace(sub(_tA0, contact, p0), prep.dir[hand]);
+      en = set(_tA1, contact.x + dir.x * rig.extend, contact.y + dir.y * rig.extend, contact.z + dir.z * rig.extend);
+    }
     const L = this.line(p0, en);
-    // contact = projection of the nominal contact point onto the punch line
+    // contact = projection of the contact point onto the punch line
     const Lc = L > 1e-9 ? ((c.x - p0.x) * (en.x - p0.x) + (c.y - p0.y) * (en.y - p0.y) + (c.z - p0.z) * (en.z - p0.z)) / L : 0;
+    copy(this.contact, c);
     this.start = w0;
     this.hand = hand;
     this.finish(L, Lc, v);
@@ -639,6 +662,11 @@ export class StrikePath {
       this.dir[3 * i + 2] = inv > 0 ? dz * inv : 1;
     }
     return L;
+  }
+
+  /** Change the peak speed of the built path (re-derives the timing). */
+  retime(v: number): void {
+    this.finish(this.L, this.Lc, v);
   }
 
   private finish(L: number, Lc: number, v: number): void {
@@ -713,15 +741,24 @@ export class StrikePath {
    * Tool orientation at path length s (curve rigs): wound → contact eased so most of the rotation
    * happens late (wrist snap; reaches the contact orientation exactly at contact), then contact → end.
    */
-  quatAtS(prep: PreparedCurve, s: number, out: Q4): Q4 {
+  quatAtS(_prep: PreparedCurve, s: number, out: Q4): Q4 {
     if (s <= this.Lc) {
       const u = this.Lc > 0 ? clamp01(s / this.Lc) : 1;
-      return slerpQ(out, this.q0, prep.qContact, u * Math.sqrt(u));
+      return slerpQ(out, this.q0, this.qContact, u * Math.sqrt(u));
     }
     const u = this.L > this.Lc ? clamp01((s - this.Lc) / (this.L - this.Lc)) : 1;
-    return slerpQ(out, prep.qContact, prep.qEnd, u);
+    return slerpQ(out, this.qContact, this.qEnd, u);
   }
 }
+/** Re-targeted contact of a curve swing (camera space): head centre, unit travel and handle at contact, end of the follow-through. */
+export interface CurveAim {
+  contact: V3;
+  travel: V3;
+  handle: V3;
+  end: V3;
+}
+const _tA0 = v3();
+const _tA1 = v3();
 const _loc = { i: 0, f: 0 };
 const _tB0 = v3();
 const _tB1 = v3();
@@ -747,6 +784,30 @@ const RECOIL_TIME = 0.13;
 export function chargedSpeed(def: ToolDef, c: number): number {
   return def.speed * (1 + (def.chargeSpeedMul - 1) * clamp01(c));
 }
+
+// ------------------------------------------------------------------------------------ aiming
+
+/** What the crosshair is on at strike start (camera space): surface point on the view line + unit surface normal. */
+export interface StrikeAim {
+  point: V3;
+  normal: V3;
+}
+/** A retargeted contact never comes closer to the eye than this (m); nearer targets are met earlier in the swing. */
+export const MIN_AIM_REACH = 0.3;
+/** Targets up to this far (m) beyond reach + head radius still square the swing up (met in the follow-through). */
+export const AIM_SLACK = 0.25;
+/** The swing squares up to surfaces whose inward normal is within ~73° of the view (cos); others are hit along the view. */
+const SQUARE_COS = 0.3;
+/** An approach shorter than this fraction of the nominal one has less run-up: v ∝ √(approach / this). */
+const FULL_SPEED_APPROACH = 0.75;
+/** Lowest speed factor of a cramped swing. */
+const MIN_CRAMPED_SPEED = 0.5;
+
+const _aimInto = v3();
+const _aimAxis = v3();
+const _aimC = v3();
+const _aimDir = v3();
+const _aim: CurveAim = { contact: v3(), travel: v3(), handle: v3(), end: v3() };
 
 /** Pull-back weight of a jab for charge c (normal punches pull back a little). */
 const jabWind = (c: number) => 0.25 + 0.75 * smoothstep01(c);
@@ -785,6 +846,10 @@ export class SwingMachine {
   hand = 0;
   /** Incremented every time a strike starts (lets the tool system detect new strikes robustly). */
   strikeId = 0;
+  /** Approach length (m) of the current strike's NOMINAL path (before aimStrike). */
+  private nominalLc = 0;
+  private readonly tp = v3();
+  private readonly tq2 = q4();
   readonly path = new StrikePath();
   private nextHand = 0;
   private releaseQueued = false;
@@ -948,10 +1013,11 @@ export class SwingMachine {
   /**
    * Resolve a hit at strike time tHit: "recoil" bounces the tool back and ends the swing,
    * "stop" leaves it stuck briefly then recovers, "continue" keeps following through at a
-   * reduced rate (`factor` multiplies the strike time-rate, i.e. the head speed).
+   * reduced rate (`factor` multiplies the strike time-rate, i.e. the head speed). `count` = false
+   * for contacts that were not strikes (grazes): they do not use up the per-swing hit budget.
    */
-  hit(kind: "recoil" | "stop" | "continue", tHit: number, factor = 1, recoilStrength = 1): void {
-    this.hits++;
+  hit(kind: "recoil" | "stop" | "continue", tHit: number, factor = 1, recoilStrength = 1, count = true): void {
+    if (count) this.hits++;
     if (this.phase !== "strike" && !this.justEnded) return;
     if (kind === "continue") {
       if (this.phase === "strike") this.rate = Math.max(0.15, this.rate * clamp01(factor));
@@ -972,6 +1038,77 @@ export class SwingMachine {
     this.phase = "recoil";
     this.t = 0;
     this.phaseDur = RECOIL_TIME;
+  }
+
+  /**
+   * Re-aim the current strike at what the crosshair is on, the way a real swinger squares up: the
+   * contact point moves along the view line to where the head sphere just touches the surface
+   * (clamped to [MIN_AIM_REACH, reach]); curve swings also rotate their contact travel, handle and
+   * the rest of the path from "straight ahead" to "into the surface" (when it faces the player),
+   * so a square blow delivers ≈ cos²(travel, view) of ½·m·v². A much shortened approach loses
+   * speed (less run-up). Keeps the current strike time. Returns false (path unchanged) when there
+   * is no strike, no aim or the target is out of reach.
+   */
+  aimStrike(aim: StrikeAim | null): boolean {
+    if (this.phase !== "strike" || !aim) return false;
+    const def = this.def;
+    const r = def.headRadius;
+    const d = len(aim.point);
+    if (!(d > 1e-4) || !Number.isFinite(d) || d > def.reach + r + AIM_SLACK) return false;
+    const v = chargedSpeed(def, this.charge);
+    if (this.prep.rig.kind === "curve") {
+      const p = this.prep as PreparedCurve;
+      const rig = p.rig;
+      // into-surface direction (camera space): −normal when the surface faces us, else along the view
+      const into = set(_aimInto, -aim.normal.x, -aim.normal.y, -aim.normal.z);
+      normalizeInPlace(into, _ez);
+      if (into.z < SQUARE_COS) set(into, aim.point.x / d, aim.point.y / d, aim.point.z / d);
+      // rotation taking +Z (the rig's design "forward") onto `into`
+      const ax = set(_aimAxis, -into.y, into.x, 0);
+      const sa = len(ax);
+      const ang = Math.atan2(sa, into.z);
+      const rot = sa > 1e-6;
+      if (rot) set(ax, ax.x / sa, ax.y / sa, 0);
+      const a = _aim;
+      if (rot) {
+        rotateAxis(a.travel, ax, ang, p.travel);
+        rotateAxis(a.handle, ax, ang, p.handle);
+      } else {
+        copy(a.travel, p.travel);
+        copy(a.handle, p.handle);
+      }
+      // head centre where the sphere touches the aimed point when arriving along `into`
+      const c = set(a.contact, aim.point.x - into.x * r, aim.point.y - into.y * r, aim.point.z - into.z * r);
+      clampReach(c, def.reach);
+      // follow-through keeps its shape relative to the contact
+      set(a.end, rig.end.head.x + c.x - rig.contact.x, rig.end.head.y + c.y - rig.contact.y, rig.end.head.z + c.z - rig.contact.z);
+      this.path.buildCurve(p, woundHead(rig, this.charge, this.tv), woundQuat(p, this.charge, this.tq), v, a);
+    } else {
+      const p = this.prep as PreparedJab;
+      const g = p.rig.guard[this.hand],
+        b = p.back[this.hand],
+        w0 = jabWind(this.charge);
+      // fist centre short of the point along the punch line from the (pulled-back) guard
+      const dir = normalizeInPlace(set(_aimDir, aim.point.x - g.x - b.x * w0, aim.point.y - g.y - b.y * w0, aim.point.z - g.z - b.z * w0), p.dir[this.hand]);
+      const c = set(_aimC, aim.point.x - dir.x * r, aim.point.y - dir.y * r, aim.point.z - dir.z * r);
+      clampReach(c, def.reach);
+      this.path.buildJab(p, this.hand, w0, v, c);
+    }
+    const ratio = this.nominalLc > 1e-6 ? this.path.Lc / this.nominalLc : 1;
+    if (ratio < FULL_SPEED_APPROACH) this.path.retime(v * Math.max(MIN_CRAMPED_SPEED, Math.sqrt(ratio / FULL_SPEED_APPROACH)));
+    this.t = Math.min(this.t, this.path.T);
+    this.sweepTo = this.t;
+    return true;
+  }
+
+  /** Camera-space point on the tool axis `off` metres from the head towards the grip, at strike time t (curve rigs; fists: the fist). */
+  toolPointAt(t: number, off: number, out: V3): V3 {
+    const s = this.path.sAt(t);
+    this.path.headAtS(s, out);
+    if (this.prep.rig.kind !== "curve" || off === 0) return out;
+    this.path.quatAtS(this.prep as PreparedCurve, s, this.tq2);
+    const ax = rotateQ(this.tp, this.tq2, _ey);
+    return set(out, out.x - ax.x * off, out.y - ax.y * off, out.z - ax.z * off);
   }
 
   /** Camera-space head position at strike time t. */
@@ -1037,6 +1174,7 @@ export class SwingMachine {
       this.path.buildCurve(p, woundHead(p.rig, this.charge, this.tv), woundQuat(p, this.charge, this.tq), v);
     }
     else this.path.buildJab(this.prep as PreparedJab, this.hand, jabWind(this.charge), v);
+    this.nominalLc = this.path.Lc;
     this.phase = "strike";
     this.rate = 1;
     this.hits = 0;
@@ -1073,13 +1211,27 @@ export class SwingMachine {
     }
     const param = this.path.paramAtS(s);
     const w = this.path.start * (1 - param);
-    return this.hand === 1 ? evalJab(this.prep as PreparedJab, 0, 0, param, w, 1, out) : evalJab(this.prep as PreparedJab, param, w, 0, 0, 0, out);
+    if (this.hand === 1) evalJab(this.prep as PreparedJab, 0, 0, param, w, 1, out);
+    else evalJab(this.prep as PreparedJab, param, w, 0, 0, 0, out);
+    // the striking fist follows the (possibly re-aimed) punch line exactly
+    const f = this.hand === 1 ? out.left : out.right;
+    this.path.headAtS(s, f.p);
+    copy(out.head, f.p);
+    return out;
   }
 
   /** Pose on the strike path at strike time t. */
   private strikePose(t: number, out: Pose): Pose {
     return this.poseAtS(this.path.sAt(t), out);
   }
+}
+
+/** Scale a camera-space point onto the shell [MIN_AIM_REACH, reach] around the eye. */
+function clampReach(c: V3, reach: number): V3 {
+  const l = len(c);
+  if (!(l > 1e-6)) return set(c, 0, 0, MIN_AIM_REACH);
+  const k = Math.min(Math.max(l, MIN_AIM_REACH), Math.max(reach, MIN_AIM_REACH)) / l;
+  return set(c, c.x * k, c.y * k, c.z * k);
 }
 
 /** Strike duration (s) of a normal (uncharged) swing of a rig — used to fill ToolDef.strike. */

@@ -16,15 +16,19 @@
 //                                        dust; 5–8 = a shattered window / sledged wall.
 //   emitter(kind, pos, dir, rate)        rate is a strength multiplier, 1 = nominal (burst mains
 //                                        pipe ≈ 0.25 L/s spray, extinguisher at full blast);
-//                                        0 pauses; values > 8 are read as particles/s of the
-//                                        kind's main layer; capped at 2.5× nominal. Water/liquid
+//                                        0 pauses; capped at 2.5× nominal. Legacy values > 8 are
+//                                        read as caller particle rates relative to the first one
+//                                        (= strength 1), see emitterRate.ts. Water/liquid
 //                                        emitters grow puddles where their spray lands.
 //   micro(kind, pos, vel, size, surf, tint) size = largest extent (m), surf = surface index of
 //                                        the parent part, tint = 0xRRGGBB face tint.
-//   decal(kind, pos, normal, size)       size = diameter (m); world-static (use on static
-//                                        surfaces); puddles near an existing one enlarge it.
+//   decal(kind, pos, normal, size)       size = diameter (m); world-space quads, removed again
+//                                        when their support breaks or is moved away (fracture /
+//                                        split / grab / throw / drop re-checks); puddles near an
+//                                        existing one enlarge it.
 // Optional createVfx hooks: `lightLevel(x,y,z)` (exact light level for unlit sprites),
 // `roomMaskAt(x,z)` (room layer bits so lights of other rooms are ignored by the estimate),
+// `zoneOf/zoneBounds` (micro-debris mesh zones; default: the apartment's rooms, see zones.ts),
 // `registerMesh/unregisterMesh` (Lighting receiver registration). `vfx.stats()` feeds the
 // debug overlay (particles, budget, micro moving/settled, decals, timings).
 
@@ -44,6 +48,7 @@ import { MicroSim, MICRO_KIND_INDEX, type MicroSpawn } from "./microSim.ts";
 import { NO_GROUND, ParticleFx, type BurstOptions } from "./particles.ts";
 import { PROFILES } from "./profiles.ts";
 import { Reactions } from "./reactions.ts";
+import { roomZoneBounds, roomZoneOf, type ZoneRect } from "./zones.ts";
 
 export interface CreateVfxOptions {
   scene: Scene;
@@ -64,6 +69,13 @@ export interface CreateVfxOptions {
   /** Called for every opaque mesh VFX creates (e.g. Lighting.registerReceiver). */
   registerMesh?: (mesh: AbstractMesh) => void;
   unregisterMesh?: (mesh: AbstractMesh) => void;
+  /**
+   * Micro-debris zone of a spawn point (0..MAX_ZONES-1) and its horizontal bounds; each zone is
+   * one mesh per chunk shape, lit by the lights of the room(s) its bounds overlap. Default: one
+   * zone per apartment room (src/world/plan.ts ROOMS) plus a 4 m grid outside them.
+   */
+  zoneOf?: (x: number, y: number, z: number) => number;
+  zoneBounds?: (zone: number) => ZoneRect;
 }
 
 export interface VfxStats {
@@ -116,6 +128,23 @@ interface PuddleFeed {
   t: number;
 }
 
+/** Deferred decal support re-check (bodies need a moment to fall away after a break). */
+interface Revalidation {
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+  /** Only decals that existed when the event happened. */
+  stamp: number;
+  /** Seconds since the event. */
+  age: number;
+  /** Index into REVALIDATE_AT of the next check. */
+  next: number;
+}
+
+/** When (s after the event) decal supports are re-probed. */
+const REVALIDATE_AT = [0.15, 0.6, 1.6];
+const MAX_REVALIDATIONS = 48;
 export class Vfx implements VfxSystem {
   readonly scene: Scene;
   readonly light: LightSampler;
@@ -134,6 +163,7 @@ export class Vfx implements VfxSystem {
   private fixedMs = 0;
   private updateMs = 0;
   private readonly feeds = new WeakMap<object, PuddleFeed>();
+  private readonly revals: Revalidation[] = [];
   // ground cache (per frame)
   private readonly gKey = new Int32Array(512);
   private readonly gVal = new Float32Array(512);
@@ -169,11 +199,13 @@ export class Vfx implements VfxSystem {
     this.sim = new MicroSim({
       capacity: this.settings.quality.microDebrisMax,
       groundProbe: (x, y, z) => this.groundProbe(x, y, z),
+      zoneOf: opts.zoneOf ?? roomZoneOf,
     });
     this.microRender = new MicroRenderer(scene, this.sim, {
       material: opts.worldMaterial ?? null,
       registerMesh: opts.registerMesh,
       unregisterMesh: opts.unregisterMesh,
+      zoneBounds: opts.zoneBounds ?? (opts.zoneOf ? undefined : roomZoneBounds),
     });
     this.decals = new Decals(scene, { light: (x, y, z) => this.light.sample(x, y, z) });
     this.reactions = new Reactions({
@@ -181,8 +213,9 @@ export class Vfx implements VfxSystem {
       kick: (p, r, s) => {
         this.sim.kick(p.x, p.y, p.z, r, s);
       },
-      dustPatch: (p, size, tint) => this.dustPatch(p, size, tint),
+      dustPatch: (p, size, tint, n) => this.dustPatch(p, size, tint, n),
       disturb: (p, r) => this.sim.disturb(p.x, p.y, p.z, r),
+      revalidate: (p, r, sr) => this.revalidateDecals(p, r, sr),
       now: () => this.time,
       random: Math.random,
     });
@@ -269,7 +302,10 @@ export class Vfx implements VfxSystem {
     this.frame = (this.frame + 1) >>> 0 || 1;
     this.light.tick(d);
     this.fx.update(d);
-    if (d > 0) this.feedPuddles(d);
+    if (d > 0) {
+      this.feedPuddles(d);
+      this.runRevalidations(d);
+    }
     this.microRender.sync();
     this.decals.update(d);
     this.updateMs = performance.now() - t0;
@@ -304,10 +340,63 @@ export class Vfx implements VfxSystem {
     return kind === "glass" ? this.glassSurf : S[KIND_SURF[kind]];
   }
 
-  private dustPatch(p: Vec3, size: number, tint: number): void {
-    const gy = this.groundAt(p.x, p.y + 0.05, p.z);
+  /**
+   * Settled dust below a fracture. For a broken wall (horizontal outward normal) the patch is
+   * smaller and pushed off the wall line to the room side so it settles along the wall base
+   * instead of straddling it (and showing on the neighbouring room's floor). The patch texture
+   * fades out over its outer ~20 %, so an offset of 0.85 r + 4 cm keeps it clear of the wall.
+   */
+  private dustPatch(p: Vec3, size: number, tint: number, normal?: Vec3): void {
+    let x = p.x,
+      z = p.z;
+    let s = size;
+    if (finite3(normal)) {
+      const h = Math.hypot(normal.x, normal.z);
+      const nl = Math.hypot(normal.x, normal.y, normal.z);
+      if (nl > 1e-6 && h / nl > 0.5) {
+        s = Math.min(s, 1.0);
+        const off = 0.85 * (s / 2) + 0.04;
+        x += (normal.x / h) * off;
+        z += (normal.z / h) * off;
+      }
+    }
+    const gy = this.groundAt(x, p.y + 0.05, z);
     if (gy <= NO_GROUND || p.y - gy > 3.5) return;
-    this.decals.add("dust", p.x, gy, p.z, 0, 1, 0, size, { tint });
+    this.decals.add("dust", x, gy, z, 0, 1, 0, s, { tint });
+  }
+
+  /** Remove wall decals on a broken-out surface now; re-check horizontal supports shortly. */
+  private revalidateDecals(p: Vec3, radius: number, surfaceRadius: number): void {
+    if (this.disposed || !finite3(p) || this.decals.count === 0) return;
+    const stamp = this.decals.currentStamp;
+    if (surfaceRadius > 0) this.decals.revalidate(p.x, p.y, p.z, 0, surfaceRadius, this.groundAtFn, stamp);
+    if (!(radius > 0)) return;
+    // coalesce with a pending check nearby (event storms around one break)
+    for (const r of this.revals) {
+      if (r.next === 0 && (r.x - p.x) ** 2 + (r.y - p.y) ** 2 + (r.z - p.z) ** 2 < 0.09) {
+        r.radius = Math.max(r.radius, radius);
+        r.stamp = Math.max(r.stamp, stamp);
+        return;
+      }
+    }
+    if (this.revals.length >= MAX_REVALIDATIONS) this.revals.shift();
+    this.revals.push({ x: p.x, y: p.y, z: p.z, radius, stamp, age: 0, next: 0 });
+  }
+
+  private readonly groundAtFn = (x: number, y: number, z: number): number => this.groundAt(x, y, z);
+
+  private runRevalidations(dt: number): void {
+    for (let i = 0; i < this.revals.length; i++) {
+      const r = this.revals[i];
+      r.age += dt;
+      if (r.age < REVALIDATE_AT[r.next]) continue;
+      this.decals.revalidate(r.x, r.y, r.z, r.radius, 0, this.groundAtFn, r.stamp);
+      r.next++;
+      if (r.next >= REVALIDATE_AT.length) {
+        this.revals.splice(i, 1);
+        i--;
+      }
+    }
   }
 
   /** Water/liquid emitters grow a puddle where their spray lands. */

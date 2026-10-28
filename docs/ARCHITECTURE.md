@@ -450,3 +450,8 @@ Builders live in `src/objects/**` and only produce `AssemblyDef`s through the bu
 | `src/objects/lib/*` | builder agent | DSL + reference objects |
 | `src/objects/<room>/*`, `src/world/*` | content agents | apartment structure + furnishing |
 | `src/debug/*`, `tests/*` | QA agent | debug API, scenarios |
+
+### Handedness rule (added after the builder-kit review)
+Babylon is left-handed. Standing in FRONT of an object (looking along −Z of the object toward its
++Z-facing front), the object's −X side is on the viewer's RIGHT. Kit left/right names are axis-based:
+`left` = −X, `right` = +X. Liquid/water features on tiled vessels should be attached to the base tile.

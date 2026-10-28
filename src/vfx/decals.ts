@@ -12,7 +12,14 @@
 // Blending is switched on/off around the draw via onBind/onUnBind. Depth: no writes, polygon
 // offset + a 2 mm lift along the normal.
 //
-// Decals are world-static: callers should place them on static surfaces (floors, walls).
+// Decals are world-static quads, but they do not outlive their support: `revalidate()` (called
+// by Vfx a few times after fractures, splits and grabbed/thrown/dropped objects) re-probes the
+// surface under nearby horizontal decals and fades out those whose support dropped away or
+// moved, and removes wall decals inside a broken-out region.
+//
+// Slot policy: one shared pool with sub-caps — puddles (merge when they touch) and settled dust
+// patches (merge and thicken when they overlap) each have their own cap, and marks (impact,
+// scorch, crack) are recycled only by other marks while dust/puddles are around to recycle.
 
 import { Constants, Effect, Mesh, ShaderMaterial, Vector3, VertexBuffer, type RawTexture, type Scene, type Light } from "@babylonjs/core";
 import { atlasCanvas, dilateTransparent, rawAtlasTexture, shadeCell } from "./atlas.ts";
@@ -44,6 +51,16 @@ const GRID = 4;
 const LIFT = 0.002;
 /** Water film thickness used to turn litres into puddle area (m). */
 export const FILM_THICKNESS = 0.0025;
+/** Smallest puddle (a drop-sized wet spot, m radius). */
+export const MIN_PUDDLE_R = 0.03;
+/** Water needed before a wet spot shows (litres). */
+export const MIN_PUDDLE_LITRES = Math.PI * MIN_PUDDLE_R * MIN_PUDDLE_R * FILM_THICKNESS * 1e3;
+/** Settled dust patches never grow beyond this radius by merging (m). */
+const MAX_DUST_R = 1.1;
+/** Initial coverage density of a dust patch; overlapping patches thicken it up to 1. */
+const DUST_DENSITY0 = 0.7;
+/** Ground heights below this mean "nothing below". */
+const NO_SUPPORT = -1e8;
 
 interface Decal {
   alive: boolean;
@@ -76,6 +93,19 @@ interface Decal {
   area: number;
   maxR: number;
   aniso: number;
+  /** Coverage multiplier (dust patches thicken when they merge). */
+  density: number;
+  /** Fading out (support gone); freed when the opacity reaches 0. */
+  dying: boolean;
+}
+
+/** Water landed somewhere without a puddle yet (gathers until a wet spot can show). */
+interface WetSpot {
+  x: number;
+  y: number;
+  z: number;
+  litres: number;
+  t: number;
 }
 
 // ------------------------------------------------------------------ shaders
@@ -298,7 +328,9 @@ export class Decals {
   readonly material: ShaderMaterial;
   readonly capacity: number;
   readonly maxPuddles: number;
+  readonly maxDust: number;
   private readonly scene: Scene;
+  private readonly wet: WetSpot[] = [];
   private readonly atlas: RawTexture;
   private readonly list: Decal[] = [];
   private stamp = 0;
@@ -318,16 +350,18 @@ export class Decals {
   private sunColor = new Vector3(0, 0, 0);
   private light: (x: number, y: number, z: number) => number;
 
-  constructor(scene: Scene, opts: { capacity?: number; maxPuddles?: number; light: (x: number, y: number, z: number) => number }) {
+  constructor(scene: Scene, opts: { capacity?: number; maxPuddles?: number; maxDust?: number; light: (x: number, y: number, z: number) => number }) {
     this.scene = scene;
     this.capacity = Math.max(8, opts.capacity ?? 320);
     this.maxPuddles = Math.max(1, opts.maxPuddles ?? 24);
+    this.maxDust = Math.max(1, opts.maxDust ?? 64);
     this.light = opts.light;
     const n = this.capacity;
     for (let i = 0; i < n; i++)
       this.list.push({
         alive: false, kind: "impact", stamp: 0, x: 0, y: 0, z: 0, nx: 0, ny: 1, nz: 0, tx: 1, ty: 0, tz: 0, bx: 0, by: 0, bz: 1,
         ra: 0, rb: 0, cell: 0, r: 0, g: 0, b: 0, opacity: 0, fadeRate: 0, light: 1, ripple: 0, area: 0, maxR: 0, aniso: 1,
+        density: 1, dying: false,
       });
     this.pos = new Float32Array(n * 12);
     this.uv = new Float32Array(n * 8);
@@ -413,11 +447,25 @@ export class Decals {
     return a;
   }
 
+  /** Number of decals of a kind (tests/stats). */
+  countOf(kind: DecalKind): number {
+    let n = 0;
+    for (const d of this.list) if (d.alive && d.kind === kind) n++;
+    return n;
+  }
+
+  /** Monotonic id of the newest decal (revalidation only touches decals at or below a stamp). */
+  get currentStamp(): number {
+    return this.stamp;
+  }
+
   private allocate(kind: DecalKind): Decal | null {
     let free: Decal | null = null;
-    let oldest: Decal | null = null;
-    let puddles = 0;
+    let oldestMark: Decal | null = null;
+    let puddles = 0,
+      dusts = 0;
     let oldestPuddle: Decal | null = null;
+    let oldestDust: Decal | null = null;
     for (const d of this.list) {
       if (!d.alive) {
         if (!free) free = d;
@@ -426,10 +474,18 @@ export class Decals {
       if (d.kind === "puddle") {
         puddles++;
         if (!oldestPuddle || d.stamp < oldestPuddle.stamp) oldestPuddle = d;
-      } else if (!oldest || d.stamp < oldest.stamp) oldest = d;
+      } else if (d.kind === "dust") {
+        dusts++;
+        if (!oldestDust || d.stamp < oldestDust.stamp) oldestDust = d;
+      } else if (!oldestMark || d.stamp < oldestMark.stamp) oldestMark = d;
     }
     if (kind === "puddle" && puddles >= this.maxPuddles) return oldestPuddle;
-    return free ?? oldest ?? oldestPuddle;
+    if (kind === "dust" && dusts >= this.maxDust) return oldestDust;
+    if (free) return free;
+    // pool full: dust recycles dust, marks recycle marks; fall back across classes
+    if (kind === "dust") return oldestDust ?? oldestMark ?? oldestPuddle;
+    if (kind === "puddle") return oldestPuddle ?? oldestDust ?? oldestMark;
+    return oldestMark ?? oldestDust ?? oldestPuddle;
   }
 
   /**
@@ -457,12 +513,14 @@ export class Decals {
         if (area > p.area) this.setPuddleArea(p, area);
         return true;
       }
-    }
+    } else if (kind === "dust" && this.mergeDust(x, y + ny * LIFT, z, r)) return true;
     const d = this.allocate(kind);
     if (!d) return false;
     d.alive = true;
     d.kind = kind;
     d.stamp = ++this.stamp;
+    d.dying = false;
+    d.density = kind === "dust" ? DUST_DENSITY0 : 1;
     d.x = x + nx * LIFT;
     d.y = y + ny * LIFT;
     d.z = z + nz * LIFT;
@@ -525,11 +583,35 @@ export class Decals {
     return true;
   }
 
+  /** Overlapping settled dust thickens and spreads the existing patch instead of stacking. */
+  private mergeDust(x: number, y: number, z: number, r: number): boolean {
+    let best: Decal | null = null;
+    let bestD = Infinity;
+    for (const d of this.list) {
+      if (!d.alive || d.dying || d.kind !== "dust" || d.ny < 0.7 || Math.abs(d.y - y) > 0.05) continue;
+      const dist = Math.hypot(d.x - x, d.z - z);
+      if (dist < 0.5 * Math.max(r, d.ra) && dist < bestD) {
+        best = d;
+        bestD = dist;
+      }
+    }
+    if (!best) return false;
+    const d = best;
+    const ra = Math.max(d.ra, Math.min(MAX_DUST_R, Math.max(r, Math.sqrt(d.ra * d.ra + 0.35 * r * r))));
+    d.ra = ra;
+    d.rb = ra * d.aniso;
+    d.density = Math.min(1, d.density + 0.12);
+    d.stamp = ++this.stamp; // freshly disturbed: recycled last
+    this.writeQuad(this.list.indexOf(d));
+    this.dirty = true;
+    return true;
+  }
+
   private findPuddle(x: number, y: number, z: number, r: number): Decal | null {
     let best: Decal | null = null;
     let bestD = Infinity;
     for (const d of this.list) {
-      if (!d.alive || d.kind !== "puddle" || Math.abs(d.y - y) > 0.08) continue;
+      if (!d.alive || d.dying || d.kind !== "puddle" || Math.abs(d.y - y) > 0.08) continue;
       const dist = Math.hypot(d.x - x, d.z - z);
       if (dist < Math.max(d.ra, d.rb) + r * 0.5 + 0.2 && dist < bestD) {
         best = d;
@@ -561,11 +643,93 @@ export class Decals {
       p.ripple = Math.max(p.ripple, Math.min(1, ripple));
       return;
     }
-    const r0 = Math.max(0.06, Math.sqrt(dA / Math.PI));
-    if (this.add("puddle", x, y, z, 0, 1, 0, r0 * 2)) {
-      const q = this.findPuddle(x, y, z, 0.1);
+    // No puddle here yet: water gathers at the spot until there is enough for a wet spot
+    // (a slow drip takes ~10 s to show; a spray shows at once).
+    let w: WetSpot | null = null;
+    for (const s of this.wet) {
+      if (Math.abs(s.y - y) < 0.08 && (s.x - x) ** 2 + (s.z - z) ** 2 < 0.01) {
+        w = s;
+        break;
+      }
+    }
+    if (!w) {
+      if (this.wet.length >= 16) {
+        // forget the spot that has been dry the longest
+        let k = 0;
+        for (let j = 1; j < this.wet.length; j++) if (this.wet[j].t < this.wet[k].t) k = j;
+        this.wet.splice(k, 1);
+      }
+      w = { x, y, z, litres: 0, t: this.time };
+      this.wet.push(w);
+    }
+    w.litres += litres;
+    w.t = this.time;
+    if (w.litres < MIN_PUDDLE_LITRES) return;
+    this.wet.splice(this.wet.indexOf(w), 1);
+    const r0 = Math.max(MIN_PUDDLE_R, Math.sqrt((w.litres * 1e-3) / FILM_THICKNESS / Math.PI));
+    if (this.add("puddle", w.x, w.y, w.z, 0, 1, 0, r0 * 2)) {
+      const q = this.findPuddle(w.x, w.y, w.z, 0.1);
       if (q) q.ripple = Math.min(1, ripple);
     }
+  }
+
+  /** Water waiting at spots without a puddle yet (litres, tests). */
+  get pendingWater(): number {
+    let l = 0;
+    for (const s of this.wet) l += s.litres;
+    return l;
+  }
+
+  /**
+   * Re-check decals around (x, y, z) whose support may have broken or moved (decals created at
+   * or before `stamp`):
+   *  - horizontal decals (floors, table tops) whose centre lies within `radius` horizontally
+   *    (plus their own size) are re-probed with `groundAt`; if the surface under them is gone or
+   *    dropped by more than 3 cm they fade out;
+   *  - wall/door decals within `surfaceRadius` (3D, plus half their size) of the point are
+   *    removed (the surface they sat on broke away).
+   * Returns the number of decals removed.
+   */
+  revalidate(x: number, y: number, z: number, radius: number, surfaceRadius: number, groundAt: (x: number, y: number, z: number) => number, stamp = Infinity): number {
+    if (!Number.isFinite(x + y + z)) return 0;
+    const R = Number.isFinite(radius) ? Math.max(0, radius) : 0;
+    const SR = Number.isFinite(surfaceRadius) ? Math.max(0, surfaceRadius) : 0;
+    let n = 0;
+    for (let i = 0; i < this.list.length; i++) {
+      const d = this.list[i];
+      if (!d.alive || d.dying || d.stamp > stamp) continue;
+      if (d.ny > 0.7) {
+        if (R <= 0 || Math.abs(d.y - y) > R + 3) continue;
+        const reach = R + Math.max(d.ra, d.rb);
+        if ((d.x - x) ** 2 + (d.z - z) ** 2 > reach * reach) continue;
+        let g: number;
+        try {
+          g = groundAt(d.x, d.y + 0.05, d.z);
+        } catch {
+          continue;
+        }
+        if (!Number.isFinite(g)) continue;
+        if (g <= NO_SUPPORT || g < d.y - LIFT - 0.03) {
+          this.kill(i);
+          n++;
+        }
+      } else if (SR > 0) {
+        const reach = SR + 0.5 * Math.max(d.ra, d.rb);
+        if ((d.x - x) ** 2 + (d.y - y) ** 2 + (d.z - z) ** 2 <= reach * reach) {
+          this.kill(i);
+          n++;
+        }
+      }
+    }
+    return n;
+  }
+
+  /** Fade a decal out (0.25 s) and free its slot. */
+  private kill(i: number): void {
+    const d = this.list[i];
+    if (!d.alive || d.dying) return;
+    d.dying = true;
+    d.ripple = 0;
   }
 
   private writeQuad(i: number): void {
@@ -622,7 +786,7 @@ export class Decals {
       c[co] = d.r;
       c[co + 1] = d.g;
       c[co + 2] = d.b;
-      c[co + 3] = d.opacity;
+      c[co + 3] = d.opacity * d.density;
       dc[co] = look.wet;
       dc[co + 1] = look.darken;
       dc[co + 2] = d.light;
@@ -639,6 +803,19 @@ export class Decals {
       const d = this.list[i];
       if (!d.alive) continue;
       let changed = false;
+      if (d.dying) {
+        d.opacity -= dt * 4;
+        if (d.opacity <= 0) {
+          d.alive = false;
+          d.dying = false;
+          this.writeQuad(i);
+          this.dirty = true;
+          continue;
+        }
+        this.writeQuad(i);
+        this.geomDirty = true;
+        continue;
+      }
       if (d.opacity < 1 && d.fadeRate > 0) {
         d.opacity = Math.min(1, d.opacity + d.fadeRate * dt);
         changed = true;
@@ -751,8 +928,10 @@ export class Decals {
   clear(): void {
     for (let i = 0; i < this.list.length; i++) {
       this.list[i].alive = false;
+      this.list[i].dying = false;
       this.writeQuad(i);
     }
+    this.wet.length = 0;
     this.dirty = true;
     this.mesh.isVisible = false;
   }

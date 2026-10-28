@@ -20,6 +20,7 @@
 
 import {
   Physics6DoFConstraint,
+  ProximityCastResult,
   PhysicsActivationControl,
   PhysicsBody,
   PhysicsConstraintAxis,
@@ -85,6 +86,10 @@ const LAYER_RESTORE_DELAY = 0.35; // s after release before the body collides wi
 const G = 9.81;
 
 const QUERY_MASK = Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS;
+/** Where a grabbed part that broke off may now live (its leaves may still be on HELD). */
+const PART_QUERY_MASK = Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS | Layer.HELD;
+/** Max distance from the old grab point to the broken-off part's surface (m). */
+const PART_QUERY_DIST = 0.06;
 const HELD_COLLIDE = Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS;
 const LIN_AXES = [PhysicsConstraintAxis.LINEAR_X, PhysicsConstraintAxis.LINEAR_Y, PhysicsConstraintAxis.LINEAR_Z] as const;
 const ANG_AXES = [PhysicsConstraintAxis.ANGULAR_X, PhysicsConstraintAxis.ANGULAR_Y, PhysicsConstraintAxis.ANGULAR_Z] as const;
@@ -115,6 +120,21 @@ interface Hold {
   rotDx: number;
   rotDy: number;
   lastForce: Vector3;
+  /** Grabbed part identity (assembly + part name without its fracture suffix), -1/null if not ours. */
+  asmId: number;
+  partBase: string | null;
+  /** Island has joints or a usable part: destruction.pull is worth calling (free objects skip it). */
+  pullable: boolean;
+  /** Shape/topology seen at the last grabbed-part check. */
+  topoShape: PhysicsShape | null;
+  topoChildren: number;
+}
+
+/** Part name without the fracture suffix (`leg#2.1` → `leg`). */
+function partBase(name: string | null | undefined): string | null {
+  if (!name) return null;
+  const i = name.indexOf("#");
+  return i >= 0 ? name.slice(0, i) : name;
 }
 
 interface PendingRestore {
@@ -167,6 +187,7 @@ export class Interaction {
   private readonly yawQ = new Quaternion();
   private readonly qInv = new Quaternion();
   private readonly leafScratch: PhysicsShape[] = [];
+  private readonly proxResult = new ProximityCastResult();
 
   constructor(ctx: GameContext) {
     this.ctx = ctx;
@@ -226,7 +247,12 @@ export class Interaction {
   }
 
   // ---------------------------------------------------------------- per fixed step
-  fixedUpdate(dt: number, view: InteractionView): void {
+  /**
+   * `refreshTarget`: raycast the crosshair target here (headless / no render frames). When the
+   * game loop calls PlayerCore.update every frame, the target is refreshed there instead
+   * (updateFrameTarget) so it follows the view at display rate with one raycast per frame.
+   */
+  fixedUpdate(dt: number, view: InteractionView, refreshTarget = true): void {
     this.time += dt;
     if (this.slamCooldown > 0) this.slamCooldown -= dt;
     this.processPendingRestores(false);
@@ -244,9 +270,10 @@ export class Interaction {
           this.applyHeldLayer(hd);
           this.wake(hd.body);
         }
+        if (this.target) hd.pullable = this.target.usable !== null;
       }
       this.targetDistance = hd.dist;
-    } else {
+    } else if (refreshTarget) {
       this.updateTarget(view);
     }
 
@@ -265,12 +292,16 @@ export class Interaction {
       this.drop("standing");
       return;
     }
+    // the island was rebuilt (fracture / split): is the grabbed part still on this body?
+    this.checkGrabbedPart(h, view);
+    const hh = this.hold;
+    if (!hh) return;
     // anchored island ripped loose → becomes a normal held object
-    if (h.mode === "static" && !this.isAnchored(h.body)) this.promoteToDynamic(h, view);
+    if (hh.mode === "static" && !this.isAnchored(hh.body)) this.promoteToDynamic(hh, view);
     if (!this.hold) return;
 
-    if (h.mode === "dynamic") this.stepDynamic(h, dt, view);
-    else this.stepStatic(h, dt, view);
+    if (hh.mode === "dynamic") this.stepDynamic(hh, dt, view);
+    else this.stepStatic(hh, dt, view);
 
     if (this.hold && this.charging) {
       const held = this.time - this.chargeStart;
@@ -297,26 +328,51 @@ export class Interaction {
     const body = hit.body;
     if (view.support && view.support === body) return false; // can't lift what you stand on
     const info = this.safeTarget(body, hit.point, hit.childIndex);
+    const h = this.beginHold(body, hit.point, hit.distance, info, view, null);
+    if (!h) return false;
+    this.ctx.events.emit("grab", { pos: { x: hit.point.x, y: hit.point.y, z: hit.point.z }, mass: h.mass });
+    return true;
+  }
+
+  /**
+   * Start holding `body` at world `point`. `carry` continues an existing hold on a broken-off part
+   * (keeps the hand distance, takes over leaves already moved to the HELD layer).
+   */
+  private beginHold(
+    body: PhysicsBody,
+    point: Vector3,
+    distance: number,
+    info: TargetInfo | null,
+    view: InteractionView,
+    carry: { dist: number; leaves: Map<PhysicsShape, [number, number]> } | null,
+  ): Hold | null {
     let mode: "dynamic" | "static";
     if (info) {
-      if (!info.grabbable) return false;
+      if (!info.grabbable) return null;
       mode = info.isStatic ? "static" : "dynamic";
     } else {
       // not a destruction body: only free dynamic bodies can be held
-      if (body.getMotionType() !== PhysicsMotionType.DYNAMIC) return false;
+      if (body.getMotionType() !== PhysicsMotionType.DYNAMIC) return null;
       mode = "dynamic";
     }
     const node = body.transformNode;
     const q = node.rotationQuaternion ?? Quaternion.FromEulerVector(node.rotation);
     const local = new Vector3();
-    hit.point.subtractToRef(node.position, this.tmp);
+    point.subtractToRef(node.position, this.tmp);
     Quaternion.InverseToRef(q, this.qInv);
     this.tmp.applyRotationQuaternionToRef(this.qInv, local);
     const jointed = info?.usable === "door" || info?.usable === "drawer";
-    const minDist = mode === "dynamic" && !jointed ? this.minHoldDistance(body, hit.point) : 0.2;
+    const minDist = mode === "dynamic" && !jointed ? this.minHoldDistance(body, point) : 0.2;
     // Picking something up brings it towards you; doors/drawers and anchored things are held
-    // where the hand is.
-    const dist = mode === "static" || jointed ? Math.max(0.2, hit.distance) : Math.max(Math.max(HOLD_MIN, minDist), Math.min(HOLD_PICKUP, hit.distance));
+    // where the hand is. A carried-over hold keeps the hand where it was.
+    const want = carry ? carry.dist : distance;
+    const dist =
+      mode === "static" || jointed
+        ? Math.max(0.2, want)
+        : carry
+          ? Math.max(Math.max(HOLD_MIN, minDist), Math.min(HOLD_MAX, want))
+          : Math.max(Math.max(HOLD_MIN, minDist), Math.min(HOLD_PICKUP, want));
+    const shape = body.shape;
     const h: Hold = {
       body,
       mode,
@@ -340,17 +396,106 @@ export class Interaction {
       rotDx: 0,
       rotDy: 0,
       lastForce: new Vector3(),
+      asmId: info ? info.assemblyId : -1,
+      partBase: info ? partBase(info.partName) : null,
+      pullable: !!info && info.usable !== null,
+      topoShape: shape,
+      topoChildren: shape && shape.type === PhysicsShapeType.CONTAINER ? shape.getNumChildren() : -1,
     };
+    if (carry && carry.leaves.size) {
+      // leaves of the broken-off part are still on HELD: keep them there (dynamic, not jointed) or
+      // put them back now
+      if (mode === "dynamic" && !jointed) h.leaves = carry.leaves;
+      else this.restoreLeaves(carry.leaves, body);
+    }
     this.hold = h;
     this.charging = false;
     if (mode === "dynamic" && !this.beginDynamic(h, view)) {
-      this.hold = null;
-      return false;
+      if (this.hold === h) this.hold = null;
+      return null;
     }
     this.target = info;
     this.targetAge = 10;
-    this.ctx.events.emit("grab", { pos: { x: hit.point.x, y: hit.point.y, z: hit.point.z }, mass: h.mass });
-    return true;
+    return h;
+  }
+
+  /**
+   * After the held island was rebuilt (fracture, split), make sure the hand is still on the part it
+   * grabbed. destruction's splitIsland keeps the heaviest component on the old body and moves the
+   * others to new bodies, so when the grabbed leg / panel breaks off, the hold must follow it to its
+   * new body instead of steering the rest of the object by an empty point.
+   */
+  private checkGrabbedPart(h: Hold, view: InteractionView): void {
+    const shape = h.body.shape;
+    const n = shape && shape.type === PhysicsShapeType.CONTAINER ? shape.getNumChildren() : -1;
+    if (shape === h.topoShape && n === h.topoChildren) return;
+    h.topoShape = shape;
+    h.topoChildren = n;
+    if (h.asmId < 0 || h.partBase === null) return; // not one of ours: nothing can break off
+    const P = this.grabPointWorld(h, this.P);
+    if (!finiteVec(P)) return;
+    const here = this.safeTarget(h.body, P, -1);
+    if (here && here.assemblyId === h.asmId && partBase(here.partName) === h.partBase) return; // still attached
+    // the grabbed part is not the nearest part of this body any more: look for it at the grab point
+    const other = this.bodyAt(P, h.body);
+    if (!other || !this.alive(other)) return; // crumbled / not found → keep the hold (conservative)
+    const info = this.safeTarget(other, P, -1);
+    if (!info || info.assemblyId !== h.asmId || partBase(info.partName) !== h.partBase) return;
+    // transfer: release the old body (its other leaves go back to their layers after the usual
+    // grace period) and hold the broken-off part with the same hand distance
+    const oldBody = h.body;
+    const dist = h.dist;
+    const wasCharging = this.charging;
+    const chargeStart = this.chargeStart;
+    const point = this.tmp2.copyFrom(P);
+    this.release(false);
+    const carried = new Map<PhysicsShape, [number, number]>();
+    const pend = this.pending.find((p) => p.body === oldBody);
+    if (pend && other.shape) {
+      const leaves = this.leafScratch;
+      leaves.length = 0;
+      this.collectLeaves(other.shape, leaves);
+      for (const leaf of leaves) {
+        const masks = pend.leaves.get(leaf);
+        if (masks) {
+          carried.set(leaf, masks);
+          pend.leaves.delete(leaf);
+        }
+      }
+      leaves.length = 0;
+    }
+    const nh = this.beginHold(other, point, dist, info, view, { dist, leaves: carried });
+    if (!nh) {
+      if (carried.size) this.restoreLeaves(carried, other);
+      return;
+    }
+    if (wasCharging && nh.mode === "dynamic" && !nh.jointed) {
+      this.charging = true;
+      this.chargeStart = chargeStart;
+    }
+  }
+
+  /** The body (other than `ignore`) closest to world point `p` within PART_QUERY_DIST, or null. */
+  private bodyAt(p: Vector3, ignore: PhysicsBody): PhysicsBody | null {
+    const plugin = this.getPlugin();
+    if (!plugin) return null;
+    const r = this.proxResult;
+    try {
+      plugin.pointProximity(
+        {
+          position: p,
+          maxDistance: PART_QUERY_DIST,
+          collisionFilter: { membership: 0xffffffff, collideWith: PART_QUERY_MASK },
+          shouldHitTriggers: false,
+          ignoreBody: ignore._pluginData ? ignore : undefined,
+        },
+        r,
+      );
+    } catch {
+      return null;
+    }
+    if (!r.hasHit || !r.body || r.body === this.anchor) return null;
+    return r.body;
   }
 
   /** Release what is held (keeps its current velocity, clamped). */
@@ -364,10 +509,20 @@ export class Interaction {
 
   /** LMB pressed while holding: start charging a throw. */
   beginCharge(): void {
-    if (!this.hold || this.hold.mode !== "dynamic") return;
+    if (!this.canThrow) return;
     this.charging = true;
     this.chargeStart = this.time;
     this.throwCharge = 0;
+  }
+
+  /**
+   * Only free dynamic holds can be thrown. Doors / drawers refuse like slam does: a view-aligned
+   * velocity on a body still held by its hinge or slider would be cancelled by the joint in one
+   * step, a load spike destruction could read as an impact and rip the part out.
+   */
+  get canThrow(): boolean {
+    const h = this.hold;
+    return !!h && h.mode === "dynamic" && !h.jointed;
   }
 
   get isCharging(): boolean {
@@ -381,7 +536,7 @@ export class Interaction {
   throwHeld(view: InteractionView, charge?: number): number {
     const h = this.hold;
     if (!h) return 0;
-    if (h.mode !== "dynamic" || !this.alive(h.body)) {
+    if (h.mode !== "dynamic" || h.jointed || !this.alive(h.body)) {
       this.drop("throw-static");
       return 0;
     }
@@ -420,7 +575,8 @@ export class Interaction {
     const hit = this.cast(view, REACH);
     if (!hit) return false;
     try {
-      return this.ctx.destruction.use(hit.body, hit.point, view.eye.clone());
+      // (use copies the vectors)
+      return this.ctx.destruction.use(hit.body, hit.point, view.eye);
     } catch (e) {
       console.warn("destruction.use failed", e);
       return false;
@@ -460,6 +616,11 @@ export class Interaction {
       console.warn("raycast failed", e);
       return null;
     }
+  }
+
+  /** Per render frame (PlayerCore.update): refresh the crosshair target unless something is held. */
+  updateFrameTarget(view: InteractionView): void {
+    if (!this.hold) this.updateTarget(view);
   }
 
   private updateTarget(view: InteractionView): void {
@@ -889,7 +1050,8 @@ export class Interaction {
     else h.lastForce.setAll(0);
     if (f > 1) {
       try {
-        this.ctx.destruction.pull(h.body, P.clone(), h.lastForce.clone(), dt);
+        // (pull copies point/force: no per-step clones needed)
+        this.ctx.destruction.pull(h.body, P, h.lastForce, dt);
       } catch (e) {
         console.warn("destruction.pull failed", e);
       }
@@ -970,11 +1132,14 @@ export class Interaction {
     Quaternion.RotationYawPitchRollToRef(view.yaw, 0, 0, this.yawQ);
     this.anchor?.setTargetTransform(T, this.yawQ);
 
-    // jointed islands (doors, lids): the hand force stresses their joints
-    try {
-      this.ctx.destruction.pull(body, P.clone(), h.lastForce.clone(), dt);
-    } catch (err) {
-      console.warn("destruction.pull failed", err);
+    // jointed islands (doors, lids): the hand force stresses their joints. Free islands have no
+    // joints for pull to load, so it is skipped for them (h.pullable tracks target().usable).
+    if (h.pullable) {
+      try {
+        this.ctx.destruction.pull(body, P, h.lastForce, dt);
+      } catch (err) {
+        console.warn("destruction.pull failed", err);
+      }
     }
   }
 }

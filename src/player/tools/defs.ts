@@ -31,8 +31,11 @@ export const TOOL_ORDER: readonly ToolId[] = ["hands", "hammer", "sledgehammer",
 // ------------------------------------------------------------------------------------ swing rigs
 // Camera space (+X right, +Y up, +Z forward, eye at origin; right shoulder ≈ (0.19, −0.24, −0.05),
 // arm reach ≈ 0.65 m). Each tool's head path passes the crosshair line at the nominal reach moving
-// with a strong forward component (overhead: 45° down, diagonal: down-left, bat: left with 50 %
-// forward), the handle perpendicular to the travel there; grips stay within arm's reach.
+// almost straight ahead (forward component ≥ 0.9 — the arc's curvature happens earlier in the path:
+// overhead swings still come down ~24°, diagonals down-left, the bat right → left), so a square
+// blow delivers ≥ ~84 % of ½·m·v²; the handle is perpendicular to the travel there and grips stay
+// within arm's reach. At strike start the tool system re-aims the contact at whatever the
+// crosshair is on and squares the travel up to its surface (SwingMachine.aimStrike).
 // `axis` = grip → head (the hands sit `toolLen` down the handle from the head).
 
 export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
@@ -48,7 +51,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     kind: "curve",
     toolLen: 0.26,
     contact: v(0, -0.02, 0.72),
-    travel: v(-0.3, -0.5, 0.8),
+    travel: v(-0.2, -0.3, 0.93),
     handle: v(-0.3, 1, 0.1),
     wound: { head: v(0.33, 0.28, 0.22), axis: v(0.1, 0.55, -0.83) },
     woundCharged: { head: v(0.42, 0.33, 0.12), axis: v(0.15, 0.45, -0.88) },
@@ -63,7 +66,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     kind: "curve",
     toolLen: 0.55,
     contact: v(0, -0.04, 0.95),
-    travel: v(0, -0.7, 0.7),
+    travel: v(0, -0.4, 0.92),
     handle: v(0, 1, 0),
     wound: { head: v(0.1, 0.55, 0.1), axis: v(0.03, 0.85, -0.53) },
     woundCharged: { head: v(0.12, 0.62, -0.45), axis: v(0.03, 0.4, -0.92) },
@@ -78,7 +81,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     kind: "curve",
     toolLen: 0.5,
     contact: v(0, -0.02, 0.8),
-    travel: v(-0.3, -0.5, 0.8),
+    travel: v(-0.2, -0.3, 0.93),
     handle: v(-0.3, 1, 0.1),
     wound: { head: v(0.4, 0.36, 0.25), axis: v(0.08, 0.75, -0.66) },
     woundCharged: { head: v(0.46, 0.46, 0.02), axis: v(0.1, 0.55, -0.83) },
@@ -94,7 +97,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     kind: "curve",
     toolLen: 0.6,
     contact: v(0, -0.08, 0.95),
-    travel: v(-0.866, -0.03, 0.5),
+    travel: v(-0.4, -0.03, 0.92),
     handle: v(1, 0, 0),
     wound: { head: v(0.42, 0.32, 0.0), axis: v(0.2, 0.8, -0.55) },
     woundCharged: { head: v(0.55, 0.15, -0.45), axis: v(0.45, 0.45, -0.77) },
@@ -109,7 +112,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     kind: "curve",
     toolLen: 0.5,
     contact: v(0, -0.04, 0.9),
-    travel: v(0, -0.7, 0.7),
+    travel: v(0, -0.4, 0.92),
     handle: v(0, 1, 0),
     wound: { head: v(0.1, 0.52, 0.1), axis: v(0.03, 0.85, -0.53) },
     woundCharged: { head: v(0.12, 0.58, -0.42), axis: v(0.03, 0.4, -0.92) },
@@ -126,7 +129,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     kind: "curve",
     toolLen: 0.3,
     contact: v(0, -0.08, 0.62),
-    travel: v(0, -0.7, 0.7),
+    travel: v(0, -0.4, 0.92),
     handle: v(-1, 0, 0),
     wound: { head: v(0.02, 0.22, 0.38), axis: v(-1, 0.05, 0) },
     woundCharged: { head: v(0.03, 0.42, 0.12), axis: v(-1, 0.1, -0.05) },
@@ -266,6 +269,28 @@ export const TOOL_DEFS: Readonly<Record<ToolId, ToolDef>> = Object.fromEntries(
   }),
 ) as Record<ToolId, ToolDef>;
 
+/**
+ * Tool shafts swept in addition to the head (long tools), so the handle/barrel cannot pass through
+ * things lying along the arc: points on the tool axis `offsets` metres from the head towards the
+ * grip, swept as spheres of `radius`. A shaft blow carries `massScale` × the head's effective mass
+ * (less of the tool's inertia acts there) and strikes with the shaft material.
+ */
+export interface ShaftDef {
+  offsets: readonly number[];
+  radius: number;
+  mat: MaterialId;
+  massScale: number;
+}
+export const TOOL_SHAFTS: Readonly<Partial<Record<ToolId, ShaftDef>>> = {
+  bat: { offsets: [0.17, 0.33], radius: 0.03, mat: "hardwood", massScale: 0.7 },
+  sledgehammer: { offsets: [0.2, 0.38], radius: 0.018, mat: "hardwood", massScale: 0.35 },
+  axe: { offsets: [0.18, 0.34], radius: 0.017, mat: "hardwood", massScale: 0.4 },
+  crowbar: { offsets: [0.2, 0.36], radius: 0.012, mat: "steel", massScale: 0.55 },
+  extinguisher: { offsets: [0.15], radius: 0.06, mat: "steel", massScale: 0.8 },
+};
+/** Shafts are swept from this fraction of the approach on (the wound-back shaft may rest against the ceiling/walls). */
+export const SHAFT_SWEEP_FROM = 0.5;
+
 // ------------------------------------------------------------------------------------ material-dependent behaviour
 
 const WOODS: ReadonlySet<MaterialId> = new Set<MaterialId>(["softwood", "hardwood", "plywood", "mdf", "particleboard"]);
@@ -294,7 +319,7 @@ export function sharpnessFor(tool: ToolId | "kick" | "stomp", mat: MaterialId | 
   return 1;
 }
 
-/** Materials that hurt to punch/kick bare-handed (and make you pull the blow). */
+/** Materials that hurt to punch bare-handed (and make you pull the blow). Boots don't flinch. */
 const PAINFUL: ReadonlySet<MaterialId> = new Set<MaterialId>(["concrete", "stone", "steel", "castIron", "copper", "tile"]);
 export const isPainful = (mat: MaterialId | null): boolean => mat !== null && PAINFUL.has(mat);
 /** Speed factor of a pulled punch on a painful material (the knuckles flinch). */
@@ -363,9 +388,13 @@ export const DEFAULT_EYE_HEIGHT = 1.65;
 /** Crowbar pry: leverage force applied to bonds near the wedge point. */
 export const PRY = {
   force: 3000,
-  reach: 1.3,
+  /**
+   * Max eye → wedge distance (m): arm reach (~0.57 m from a shoulder ~0.3 m from the eye) plus the
+   * 0.5 m levering length of the bar, minus a margin — the bar can't lever beyond that.
+   */
+  reach: 1.05,
   /** The wedge slips out if the point drifts beyond this distance (m) or angle from the view (rad). */
-  slipDistance: 1.55,
+  slipDistance: 1.2,
   slipAngle: deg(40),
   /** Seconds of zero returned stress (nothing to lever) before the bar slips off. */
   slipAfter: 0.3,

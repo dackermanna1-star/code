@@ -33,6 +33,7 @@ import {
 } from "@babylonjs/core";
 import { Layer, type GameContext, type PlayerSystem, type TargetInfo, type ToolId } from "../core/context.ts";
 import { SPAWN } from "../world/plan.ts";
+import { FIXED_DT, MAX_STEPS_PER_FRAME } from "../core/time.ts";
 import type { IToolSystem, ToolContext } from "./contracts.ts";
 import { CameraRig, type CameraInputs } from "./camera.ts";
 import { Footsteps, type SupportProbe } from "./footsteps.ts";
@@ -57,10 +58,18 @@ export const PLAYER = {
   gravity: 9.81,
   coyoteTime: 0.12,
   jumpBuffer: 0.15,
-  /** Landing faster than this (m/s) on one of our bodies stomps it. */
-  stompSpeed: 3,
+  /**
+   * Landing faster than this (m/s) on one of our bodies stomps it. An ordinary ≈1 m jump lands at
+   * ≈4.4–4.6 m/s and must not crack tiles or kick furniture apart, so the threshold sits well above
+   * it (≈1.5 m drop), and only the energy beyond a normal jump landing is delivered (see onLand).
+   */
+  stompSpeed: 5.5,
+  /** Anchored/structural floors (tiles, laminate, slabs) only take a landing stomp above this (≈2.9 m drop). */
+  stompSpeedStatic: 7.5,
   /** Effective mass of a landing stomp (≈ 0.4 × body mass through the legs). */
   stompMass: 0.4 * 80,
+  /** Contact radius of a landing stomp: a shoe heel / forefoot (m). */
+  stompContactRadius: 0.09,
   /** Landings faster than this emit a `land` event. */
   landEventSpeed: 1.0,
   stepHeight: 0.25,
@@ -75,7 +84,15 @@ export const TOOL_SLOTS: readonly ToolId[] = ["hands", "hammer", "sledgehammer",
 const SLOT_ACTIONS = ["slot1", "slot2", "slot3", "slot4", "slot5", "slot6", "slot7"] as const;
 const DOWN = new Vector3(0, -1, 0);
 const GRAVITY = new Vector3(0, -PLAYER.gravity, 0);
-const SUPPORT_MASK = Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS;
+/**
+ * What can carry the player: the capsule only collides with STATIC | DYNAMIC, so debris lying under
+ * the foot ray is not "what you stand on" (footsteps.ts presses/crunches debris with its own sweep).
+ */
+const SUPPORT_MASK = Layer.STATIC | Layer.DYNAMIC;
+/** Crowbar fallback target query (debris included). */
+const PRY_MASK = Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS;
+/** Vertical speed of a normal jump take-off = its landing speed on flat ground (m/s). */
+const JUMP_SPEED = Math.sqrt(2 * PLAYER.gravity * PLAYER.jumpHeight);
 
 export class PlayerCore implements PlayerSystem {
   readonly rig: CameraRig;
@@ -117,6 +134,20 @@ export class PlayerCore implements PlayerSystem {
   private wheelAcc = 0;
   private readonly prevFoot = new Vector3();
   private hasPrevFoot = false;
+  /**
+   * Render interpolation: mirror of the game loop's fixed-step accumulator (simulation seconds).
+   * Each fixed step subtracts FIXED_DT, each frame adds its scaled dt; the remainder after a frame's
+   * steps is the time elapsed since the last step (0..FIXED_DT).
+   */
+  private sinceFixed = 0;
+  /** Stride phase at the previous / last fixed step (head-bob interpolation). */
+  private phasePrev = 0;
+  private phaseCur = 0;
+  /**
+   * Fixed steps since the last update() call. While render frames are running the crosshair target
+   * is raycast per frame (update) instead of per step; headless stepping falls back to per step.
+   */
+  private stepsSinceFrame = 1e9;
 
   // scratch
   private readonly v = new Vector3();
@@ -133,6 +164,8 @@ export class PlayerCore implements PlayerSystem {
   private readonly c0 = new Vector3();
   private readonly s0 = new Vector3();
   private readonly s1 = new Vector3();
+  private readonly stompPoint = new Vector3();
+  private readonly stompDir = new Vector3(0, -1, 0);
 
   constructor(ctx: GameContext, tools: IToolSystem | null) {
     this.ctx = ctx;
@@ -234,12 +267,16 @@ export class PlayerCore implements PlayerSystem {
     this.airVy = 0;
     this.jumpBufferT = this.coyoteT = this.jumpLockT = 0;
     this.hasPrevFoot = false;
+    this.sinceFixed = 0;
+    this.phasePrev = this.phaseCur = this.footsteps.phase;
     this.syncFoot();
     this.updateEye(0);
   }
 
   fixedUpdate(dt: number): void {
     if (!(dt > 0)) return;
+    this.sinceFixed -= FIXED_DT;
+    this.phasePrev = this.phaseCur;
     const input = this.ctx.input;
     const holdingBefore = this.interaction.held !== null;
     const rotating = holdingBefore && input.down("rotate");
@@ -336,20 +373,35 @@ export class PlayerCore implements PlayerSystem {
       const dist = Math.min(moved, rel * dt * 1.5 + 1e-3);
       if (this.footsteps.advance(dist, rel)) this.footsteps.step(this.foot.x, this.foot.y, this.foot.z, rel, this.support, this.rig.right, this.body);
     }
+    this.phaseCur = this.footsteps.phase;
 
     // ---- actions
     this.view.tool = this.tool;
     this.view.yaw = this.rig.yaw;
     this.tc.holding = this.interaction.held !== null;
     this.handleActions(dt);
-    this.interaction.fixedUpdate(dt, this.view);
+    this.interaction.fixedUpdate(dt, this.view, ++this.stepsSinceFrame > MAX_STEPS_PER_FRAME);
     this.tc.holding = this.interaction.held !== null;
     this.tools?.fixedUpdate(dt, this.tc);
   }
 
   update(dt: number): void {
+    const rawDt = Number.isFinite(dt) ? Math.max(0, dt) : 0;
+    // Simulation-time dt for the camera springs (pause / hit-stop slow them down with the physics);
+    // mouse look stays on real time.
+    const scale = this.ctx.time ? Math.max(0, Number.isFinite(this.ctx.time.scale) ? this.ctx.time.scale : 1) : 1;
+    const simDt = rawDt * scale;
+    this.stepsSinceFrame = 0;
     const rotating = this.interaction.held !== null && this.ctx.input.down("rotate");
     this.applyLook(rotating);
+    // crosshair target follows the view every frame (one raycast per frame)
+    this.view.tool = this.tool;
+    this.interaction.updateFrameTarget(this.view);
+    // Render interpolation: the gameplay eye moves once per fixed step; the rendered camera blends
+    // between the last two fixed-step eyes by the frame time since the last step (≤ 1 step of lag,
+    // no judder at any refresh rate). The bob phase is interpolated the same way.
+    this.sinceFixed = Math.min(FIXED_DT, Math.max(0, this.sinceFixed + simDt));
+    const alpha = this.sinceFixed / FIXED_DT;
     const ci = this.camIn;
     ci.footX = this.foot.x;
     ci.footY = this.foot.y;
@@ -358,8 +410,9 @@ export class PlayerCore implements PlayerSystem {
     ci.speed = this.grounded ? this.relativeGroundSpeed() : 0;
     ci.grounded = this.grounded;
     ci.sprinting = this.sprinting;
-    ci.stridePhase = this.footsteps.phase;
-    this.rig.updateCamera(ci, dt);
+    // (resetToStrike only moves the phase forward to the next strike: a plain lerp is fine)
+    ci.stridePhase = this.phasePrev + (this.phaseCur - this.phasePrev) * alpha;
+    this.rig.updateCamera(ci, simDt, alpha);
     this.tc.holding = this.interaction.held !== null;
     this.tools?.update(dt, this.tc);
   }
@@ -377,8 +430,7 @@ export class PlayerCore implements PlayerSystem {
         t?.debugSwing(clamp01(power ?? 1), this.tc);
         break;
       case "kick":
-        if (this.interaction.held) this.interaction.slam();
-        else t?.kick(this.tc);
+        if (!this.interaction.held || !this.interaction.slam()) t?.kick(this.tc);
         break;
       case "stomp":
         t?.stomp(this.tc);
@@ -698,25 +750,31 @@ export class PlayerCore implements PlayerSystem {
       this.ctx.events.emit("land", { pos: { x: p.x, y: p.y, z: p.z }, speed, mat });
     }
     if (speed > 4.5) this.ctx.render.shake(Math.min(0.45, (speed - 4.5) / 12));
-    // stomp: landing hard on one of our bodies damages it
+    // stomp: landing hard on one of our bodies damages it. Only landings clearly harder than a
+    // normal jump count, and only the energy beyond a jump landing reaches the target (the legs
+    // absorb an ordinary landing): v_eff = √(v² − v_jump²). Anchored floors need a real fall.
     if (speed > PLAYER.stompSpeed && sp) {
       let ours = false;
+      let anchored = false;
       try {
         ours = this.ctx.destruction.massOf(sp.body) !== null;
+        anchored = ours && this.ctx.destruction.isStatic(sp.body);
       } catch {
         ours = false;
       }
-      if (ours) {
+      const effSpeed = Math.sqrt(Math.max(0, speed * speed - JUMP_SPEED * JUMP_SPEED));
+      if (ours && effSpeed > 0.5 && (!anchored || speed > PLAYER.stompSpeedStatic)) {
         try {
+          // (strike copies point/dir: scratch vectors are safe)
           this.ctx.destruction.strike({
-            point: sp.point.clone(),
-            dir: new Vector3(0, -1, 0),
+            point: this.stompPoint.copyFrom(sp.point),
+            dir: this.stompDir.set(0, -1, 0),
             body: sp.body,
             childIndex: sp.childIndex,
             mass: PLAYER.stompMass,
-            speed,
+            speed: effSpeed,
             sharpness: 1,
-            contactRadius: 0.06,
+            contactRadius: PLAYER.stompContactRadius,
             strikerMat: "flesh",
             source: "stomp",
           });
@@ -735,9 +793,20 @@ export class PlayerCore implements PlayerSystem {
     if (input.pressed("grab")) it.toggleGrab(this.view);
     const wheel = input.consumeWheel();
     if (it.held) {
-      if (input.pressed("fire")) it.beginCharge();
-      if (input.released("fire") && it.isCharging) it.throwHeld(this.view);
-      if (input.pressed("kick")) it.slam();
+      // Edges that mean nothing while holding are consumed here, so a press made while holding
+      // does not fire a stale use / pry on the step after a throw or drop (edges latch ≈250 ms).
+      input.pressed("use");
+      input.pressed("alt");
+      input.released("alt");
+      if (input.pressed("fire")) {
+        // free dynamic holds charge a throw; doors/drawers and anchored things are just let go
+        // (a thrown velocity on a jointed body would spike its joint load)
+        if (it.canThrow) it.beginCharge();
+        else it.drop("fire");
+      }
+      if (it.held && input.released("fire") && it.isCharging) it.throwHeld(this.view);
+      // F: slam a free held object; while pulling a door / anchored thing, kick instead
+      if (input.pressed("kick") && !it.slam()) tools?.kick(this.tc);
       if (input.pressed("drop")) it.drop("key");
       if (wheel !== 0) it.addWheel(wheel);
       this.wheelAcc = 0;
@@ -775,7 +844,7 @@ export class PlayerCore implements PlayerSystem {
     // no tool system / foreign input: one direct pry impulse of `seconds` duration
     this.rayFrom.copyFrom(this.rig.eye);
     this.rayTo.copyFrom(this.rig.forward).scaleInPlace(PRY_REACH).addInPlace(this.rig.eye);
-    const hit = this.ctx.physics.raycast(this.rayFrom, this.rayTo, SUPPORT_MASK, this.body);
+    const hit = this.ctx.physics.raycast(this.rayFrom, this.rayTo, PRY_MASK, this.body);
     if (hit) this.ctx.destruction.pry(hit.body, hit.point, this.tmp2.copyFrom(this.rig.forward), 3000, Math.max(0.016, seconds));
   }
 }

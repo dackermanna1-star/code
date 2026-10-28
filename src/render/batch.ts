@@ -35,33 +35,17 @@ import type { RenderGeom } from "../geom/meshgen.ts";
 import type { IslandMeshes } from "../core/context.ts";
 import { SURFACES } from "./surfaces.ts";
 import type { TextureLibrary } from "./textures.ts";
+import { WORLD_STRIDE, OFF_NORMAL, OFF_UV, OFF_COLOR, OFF_SURF, SRGB_TO_LINEAR, SURFACE_ROW, packSurfaceRow } from "./layout.ts";
 
-/** Floats per vertex in batched island buffers. */
-export const WORLD_STRIDE = 16;
-const OFF_NORMAL = 3,
-  OFF_UV = 6,
-  OFF_COLOR = 8,
-  OFF_SURF = 12;
-
-/** Emissive surfaces that keep glowing when the apartment loses mains power. */
-const ALWAYS_ON_EMISSIVE = new Set<string>(["city_windows"]);
-
-/** sRGB 8-bit → linear float. */
-export const SRGB_TO_LINEAR: Float32Array = (() => {
-  const t = new Float32Array(256);
-  for (let i = 0; i < 256; i++) {
-    const c = i / 255;
-    t[i] = c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-  }
-  return t;
-})();
+// layout constants + packing live in the pure module (unit-tested in Node); re-exported here
+export { WORLD_STRIDE, SRGB_TO_LINEAR } from "./layout.ts";
 
 // ------------------------------------------------------------------ surface table
 
 /** Per-surface packed vertex constants, rebuilt/extended as surfaces are registered. */
 export class SurfaceTable {
-  /** Stride 10: albedoL, normalL, packedRM, emissive, invWorldSize, tintR, tintG, tintB, alpha, transparent. */
-  static readonly STRIDE = 10;
+  /** Row stride (see layout.ts packSurfaceRow): albedoL, normalL, packedRM, emissive, invWorldSize, tintR, tintG, tintB, alpha, transparent. */
+  static readonly STRIDE = SURFACE_ROW;
   data = new Float32Array(0);
   count = 0;
   readonly textures: TextureLibrary;
@@ -77,25 +61,9 @@ export class SurfaceTable {
     if (this.count >= SURFACES.length) return;
     this.textures.sync();
     const n = SURFACES.length;
-    const grown = new Float32Array(n * SurfaceTable.STRIDE);
+    const grown = new Float32Array(n * SURFACE_ROW);
     grown.set(this.data);
-    for (let i = this.count; i < n; i++) {
-      const s = SURFACES[i];
-      const o = i * SurfaceTable.STRIDE;
-      const rough = clamp(s.roughness, 0, 1),
-        metal = clamp(s.metallic, 0, 1);
-      grown[o] = this.textures.albedoLayerOf(i);
-      grown[o + 1] = this.textures.normalLayerOf(i);
-      grown[o + 2] = Math.round(rough * 255) + 256 * Math.round(metal * 255);
-      const em = Math.max(0, s.emissive ?? 0);
-      grown[o + 3] = em > 0 && ALWAYS_ON_EMISSIVE.has(s.name) ? -em : em;
-      grown[o + 4] = 1 / (s.worldSize > 1e-6 ? s.worldSize : 1);
-      grown[o + 5] = SRGB_TO_LINEAR[(s.tint >> 16) & 255];
-      grown[o + 6] = SRGB_TO_LINEAR[(s.tint >> 8) & 255];
-      grown[o + 7] = SRGB_TO_LINEAR[s.tint & 255];
-      grown[o + 8] = s.transparent ? glassOpacity(s.tint, rough) : 1;
-      grown[o + 9] = s.transparent ? 1 : 0;
-    }
+    for (let i = this.count; i < n; i++) packSurfaceRow(SURFACES[i], this.textures.albedoLayerOf(i), this.textures.normalLayerOf(i), grown, i * SURFACE_ROW);
     this.data = grown;
     this.count = n;
   }
@@ -113,19 +81,6 @@ export class SurfaceTable {
     }
     return 0;
   }
-}
-
-/** Opacity of a transparent surface: clear glass ≈ 0.18, frosted ≈ 0.55, smoked ≈ 0.8. */
-function glassOpacity(tint: number, rough: number): number {
-  const r = ((tint >> 16) & 255) / 255,
-    g = ((tint >> 8) & 255) / 255,
-    b = (tint & 255) / 255;
-  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return clamp(0.06 + (1 - lum) * 0.9 + rough * 1.1, 0.08, 0.95);
-}
-
-function clamp(x: number, lo: number, hi: number): number {
-  return x < lo ? lo : x > hi ? hi : x;
 }
 
 let activeTable: SurfaceTable | null = null;

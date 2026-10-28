@@ -169,7 +169,7 @@ export async function probe() {
   w.step(5);
   const strikesBefore = w.destruction.strikes.length;
   const landsBefore = w.log.land.length;
-  p.teleport({ x: 3, y: 0.5 + 1.2 + 1.65, z: -6 }, 0, 0); // feet 1.2 m above the crate top
+  p.teleport({ x: 3, y: 0.5 + 2.2 + 1.65, z: -6 }, 0, 0); // feet 2.2 m above the crate top (≈6.5 m/s)
   for (let i = 0; i < 60; i++) w.step(1);
   const stomps = w.destruction.strikes.slice(strikesBefore).filter((s) => s.source === "stomp" && s.body === crate);
   out.stomp = {
@@ -181,7 +181,7 @@ export async function probe() {
     onCrate: p.grounded && p.foot.y > 0.4,
     shakes: w.shakes.length,
   };
-  // a hop in place on the crate lands at the jump speed (≈4.4 m/s) → stomps again
+  // a hop in place on the crate lands at the jump speed (≈4.4 m/s) → an ordinary landing, no stomp
   const sb2 = w.destruction.strikes.length;
   key("Space", true);
   w.step(1);
@@ -243,6 +243,51 @@ export async function probe() {
   const headBox = w.box("headBox", [0.3, 0.3, 0.3], [hx, 2.6, hz], { motion: PhysicsMotionType.DYNAMIC, mass: 3 });
   w.step(90);
   out.boxOnHead = { boxY: r2(headBox.transformNode.position.y), restsOnHead: headBox.transformNode.position.y > 1.75 };
+
+  // ---------------------------------------------------------------- render interpolation at 144 Hz
+  // (fixed steps at 60 Hz; the rendered camera must move on every frame, smoothly)
+  p.teleport({ x: 0, y: 1.65, z: 0 }, 0, 0);
+  w.step(10);
+  key("KeyD", true);
+  w.step(40); // reach full strafe speed
+  {
+    const xs: number[] = [];
+    let acc = 0;
+    const fdt = 1 / 144;
+    for (let f = 0; f < 144; f++) {
+      acc += fdt;
+      while (acc >= 1 / 60) {
+        acc -= 1 / 60;
+        w.step(1);
+      }
+      p.update(fdt);
+      xs.push(w.ctx.render.camera.position.x);
+    }
+    // (skip the first frames: the probe stepped headless before, the accumulator mirror resyncs)
+    const d = xs.slice(1).map((x, i) => x - xs[i]).slice(6);
+    const still = d.filter((v) => Math.abs(v) < 1e-5).length;
+    const mean = d.reduce((a2, b2) => a2 + b2, 0) / d.length;
+    // frame-to-frame change of the step (judder shows as 0 / 60 mm alternation: |Δ| ≈ 25–35 mm)
+    const jerk = Math.max(...d.slice(1).map((v, i) => Math.abs(v - d[i])));
+    out.interp144 = { frames: d.length, stillFrames: still, meanStepMm: r3(mean * 1000), maxStepChangeMm: r3(jerk * 1000), smooth: still === 0 && jerk < 0.006 };
+  }
+  key("KeyD", false);
+  w.step(30);
+  // pause: camera springs freeze with the simulation
+  {
+    const t = w.ctx.time as { scale: number };
+    p.rig.land(6);
+    t.scale = 0;
+    p.update(1 / 60);
+    const y0 = w.ctx.render.camera.position.y;
+    for (let i = 0; i < 30; i++) p.update(1 / 60);
+    const y1 = w.ctx.render.camera.position.y;
+    t.scale = 1;
+    for (let i = 0; i < 5; i++) p.update(1 / 60);
+    const y2 = w.ctx.render.camera.position.y;
+    out.pauseFreezesDip = { frozen: Math.abs(y1 - y0) < 1e-3, resumes: Math.abs(y2 - y1) > 1e-3 };
+    w.step(60);
+  }
 
   // ---------------------------------------------------------------- look & camera
   p.teleport({ x: 0, y: 1.65, z: 0 }, 0, 0);

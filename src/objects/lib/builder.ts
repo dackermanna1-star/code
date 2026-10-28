@@ -119,6 +119,11 @@ export interface PartOpts {
   strength?: number;
   mass?: number;
   noCollide?: boolean;
+  /**
+   * Free-form tags. Builder-recognised: 'loose' (deliberately unbonded / resting), 'noauto'
+   * (skipped by autoBond), 'inset' (let into a neighbour on the same rigid body, e.g. a hinge
+   * leaf in its mortise: exempt from same-body overlap warnings, still checked against other bodies).
+   */
   tags?: string[];
   /** Explicit uv offset in metres (default: random per part so copies don't look identical). */
   uvOffset?: [number, number];
@@ -271,6 +276,8 @@ export class Builder {
   private features: FeatureDef[] = [];
   private frames: GroupFrame[] = [{ xf: xform(v3()), prefix: "" }];
   private groupCounter = 0;
+  /** Hinge latches without an explicit latchPos; their anchors are finalised in build(). */
+  private pendingLatches: Array<{ bond: BondDef; pivots: Vec3[]; axis: Vec3; fixed: string[] }> = [];
   /** Local-space primitive polys by parameter key (keycaps, feet, legs repeat a lot). */
   private primCache = new Map<string, ConvexPoly>();
 
@@ -829,19 +836,20 @@ export class Builder {
   }
 
   /** Point of `part` farthest from the axis line, brought level with the pivots' centre. */
-  private farEdgePoint(part: string, pivots: Vec3[], axis: Vec3): Vec3 {
+  private farEdgePoint(parts: string | string[], pivots: Vec3[], axis: Vec3): Vec3 {
     const c = vscale(pivots.reduce((s, p) => vadd(s, p), v3()), 1 / pivots.length);
     let best = c,
       bestD = -1;
-    for (const v of this.get(part).poly.verts) {
-      const r = vsub(v, c);
-      const perp = vsub(r, vscale(axis, vdot(r, axis)));
-      const d = vlen(perp);
-      if (d > bestD) {
-        bestD = d;
-        best = vadd(c, perp);
+    for (const part of Array.isArray(parts) ? parts : [parts])
+      for (const v of this.get(part).poly.verts) {
+        const r = vsub(v, c);
+        const perp = vsub(r, vscale(axis, vdot(r, axis)));
+        const d = vlen(perp);
+        if (d > bestD) {
+          bestD = d;
+          best = vadd(c, perp);
+        }
       }
-    }
     return best;
   }
 
@@ -870,7 +878,11 @@ export class Builder {
       const lp = h.latchPart ? this.resolve(h.latchPart) : mv;
       const lf = h.latchFixed ? (h.latchFixed === "world" ? "world" : this.resolve(h.latchFixed)) : fx[0];
       const anchor = h.latchPos ? this.p(h.latchPos) : this.farEdgePoint(lp, pivots, axis);
-      this.bonds.push({ a: lp, b: lf, kind: "latch", strength: h.latch, anchor, joint: { axis, pivot: pivots[0], min: 0, max: 0, group } });
+      const def: BondDef = { a: lp, b: lf, kind: "latch", strength: h.latch, anchor, joint: { axis, pivot: pivots[0], min: 0, max: 0, group } };
+      this.bonds.push(def);
+      // Leaves are often assembled after hinge() (hinge stile first, panel glued on later), so
+      // build() moves the default anchor to the far edge of everything rigidly joined to `lp`.
+      if (!h.latchPos) this.pendingLatches.push({ bond: def, pivots, axis, fixed: fx });
     }
     return group;
   }
@@ -1137,12 +1149,47 @@ export class Builder {
     return vscale(vadd(ba.min, ba.max), 0.5);
   }
 
+  /**
+   * Default hinge-latch anchors: the point farthest from the hinge axis over the latch part and
+   * every part rigidly bonded to it (non-joint, non-world bonds), level with the pivots. Falls
+   * back to the latch part alone if that rigid group reaches the fixed side.
+   */
+  private resolveLatchAnchors(): void {
+    if (!this.pendingLatches.length) return;
+    const adj = new Map<string, string[]>();
+    const link = (a: string, b: string): void => {
+      const l = adj.get(a);
+      if (l) l.push(b);
+      else adj.set(a, [b]);
+    };
+    for (const b of this.bonds) {
+      if (b.kind === "hinge" || b.kind === "slider" || b.kind === "latch" || b.b === "world") continue;
+      link(b.a, b.b);
+      link(b.b, b.a);
+    }
+    for (const { bond, pivots, axis, fixed } of this.pendingLatches) {
+      if (!this.partIndex.has(bond.a)) continue;
+      const seen = new Set<string>([bond.a]);
+      const stack = [bond.a];
+      while (stack.length) {
+        for (const nb of adj.get(stack.pop()!) ?? []) {
+          if (seen.has(nb) || !this.partIndex.has(nb)) continue;
+          seen.add(nb);
+          stack.push(nb);
+        }
+      }
+      const tied = seen.has(bond.b) || fixed.some((f) => seen.has(f));
+      bond.anchor = this.farEdgePoint(tied ? bond.a : [...seen], pivots, axis);
+    }
+  }
+
   // ------------------------------------------------------------------ build
   /**
    * Validate and return the AssemblyDef. Errors throw; warnings are handled per
    * Builder.warnMode. Validation depth: `o.validate` ?? Builder.validation.
    */
   build(o: { validate?: ValidationLevel } = {}): AssemblyDef {
+    this.resolveLatchAnchors();
     const { errors, warnings } = this.validate((o.validate ?? Builder.validation) === "full");
     if (errors.length) throw new Error(`${this.type}: invalid assembly:\n  ${errors.join("\n  ")}`);
     for (const w of warnings) if (!this.warnings.includes(w)) this.warnings.push(w);
@@ -1249,7 +1296,11 @@ export class Builder {
           e.pivots.push(b.joint.pivot);
         }
       } else if (b.kind !== "latch") {
-        if (full && B && !polyContact(A.poly, B.poly, 0.02)) warnings.push(`${tag}: the parts are more than 2 cm apart`);
+        // fasteners need material to bite into: a bond across an air gap holds nothing in reality
+        // (friction bonds model wedged/resting contact and may bridge small gaps)
+        if (full && B && !polyContact(A.poly, B.poly, b.kind === "friction" ? 0.02 : 0.003)) {
+          warnings.push(`${tag}: the parts are more than ${b.kind === "friction" ? "2 cm" : "3 mm"} apart (add a spacer/standoff part or move them into contact)`);
+        }
         if (full && b.anchor && isFiniteVec(b.anchor)) {
           const dA = polyPointDist(A.poly, b.anchor);
           const dB = B ? polyPointDist(B.poly, b.anchor) : 0;
@@ -1343,7 +1394,8 @@ export class Builder {
    * soil, a spindle through a clock hand) are harmless; full validation reports a part completely
    * inside another, and overlaps deeper than max(0.5 mm, ¼ of the thinner part's thickness) whose
    * exact shared volume exceeds 10 % of either part (and 0.1 cm³) or 50 cm³ (e.g. a shelf through a
-   * cabinet side, or two boards sunk into each other across a large face).
+   * cabinet side, or two boards sunk into each other across a large face). Parts tagged
+   * 'inset' (hinge leaves in mortises, inserts) are exempt from the same-island checks.
    */
   private validateOverlaps(full: boolean, boxes: Aabb[], vols: number[], warnings: string[]): void {
     const CROSS_ISLAND_TOL = 0.0005;
@@ -1358,6 +1410,7 @@ export class Builder {
     };
     const idx = new Map<string, number>(this.parts.map((p, i) => [p.name, i]));
     const isLoose = this.parts.map((p) => !!p.tags?.includes("loose"));
+    const isInset = this.parts.map((p) => !!p.tags?.includes("inset"));
     for (const b of this.bonds) {
       if (b.kind === "hinge" || b.kind === "slider" || b.kind === "latch" || b.b === "world") continue;
       const ia = idx.get(b.a),
@@ -1373,7 +1426,7 @@ export class Builder {
       const A = this.parts[i],
         B = this.parts[j];
       const cross = find(i) !== find(j);
-      if (!cross && !full) continue;
+      if (!cross && (!full || isInset[i] || isInset[j])) continue;
       if (full) {
         if (aabbContains(boxes[j], boxes[i], 1e-5) && polyInside(A.poly, B.poly, 1e-5)) {
           warnings.push(`part '${A.name}' is completely inside '${B.name}'`);

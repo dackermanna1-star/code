@@ -38,6 +38,12 @@ const ARM_ANGLE = 0.14;
 const CLOSED_SLIDE = 0.012;
 const ARM_SLIDE = 0.04;
 
+/** Optional joint helpers exposed by src/physics/physics.ts (feature-detected). */
+interface PhysicsJointExt {
+  setHingeMotor?(c: unknown, target: number, maxForce: number): void;
+  setSliderLimits?(c: unknown, min: number, max: number): void;
+}
+
 /** Optional raw access exposed by src/physics/physics.ts (feature-detected). */
 interface PhysicsRawExt {
   hk?: { HP_Constraint_GetAppliedImpulses?(id: unknown): [unknown, number[], number[]] };
@@ -190,8 +196,16 @@ export class JointSystem {
       wanted.push({ plan, sig, latched: latchedHere });
     }
     for (const jc of g.constraints) {
-      const idx = wanted.findIndex((x) => x.sig === jc.sig);
-      if (idx >= 0 && jc.moving.alive && (!jc.fixed || jc.fixed.alive)) {
+      const ok = jc.moving.alive && (!jc.fixed || jc.fixed.alive);
+      let idx = ok ? wanted.findIndex((x) => x.sig === jc.sig) : -1;
+      if (idx < 0 && ok) {
+        // same joint, only the latch state changed: toggle it in place (no constraint churn —
+        // Havok's constraint count never shrinks)
+        const base = jc.sig.slice(0, -1);
+        const j = wanted.findIndex((x) => x.sig.slice(0, -1) === base);
+        if (j >= 0 && this.setLatchInPlace(g, jc, wanted[j].latched)) idx = j;
+      }
+      if (idx >= 0) {
         keep.push(jc);
         wanted.splice(idx, 1);
       } else this.removeConstraint(jc);
@@ -205,6 +219,25 @@ export class JointSystem {
       if (jc) g.constraints.push(jc);
     }
     if (g.motorSpeed !== 0) this.motors.add(g);
+  }
+
+  /** Engage/release a latch on an existing constraint; false if the physics API can't. */
+  private setLatchInPlace(g: JointGroup, jc: JointConstraint, latched: boolean): boolean {
+    const ext = this.w.physics as unknown as PhysicsJointExt;
+    if (jc.kind === "hinge" && typeof ext.setHingeMotor === "function" && g.latch) {
+      // the current angle may differ from the creation pose: the motor target is the built pose
+      ext.setHingeMotor(jc.c, this.angleSign * (0 - jc.offset), latched ? latchTorque(g.latch.max) : 0);
+    } else if (jc.kind === "slider" && typeof ext.setSliderLimits === "function") {
+      let min = Number.isFinite(g.def.min) ? g.def.min : 0;
+      let max = Number.isFinite(g.def.max) ? g.def.max : 0;
+      if (latched) min = max = 0;
+      const a = this.slideSign * (min - jc.offset),
+        b = this.slideSign * (max - jc.offset);
+      ext.setSliderLimits(jc.c, Math.min(a, b), Math.max(a, b));
+    } else return false;
+    jc.latched = latched;
+    jc.sig = jc.sig.slice(0, -1) + (latched ? "1" : "0");
+    return true;
   }
 
   private anchorBody(asm: Assembly): PhysicsBody {
