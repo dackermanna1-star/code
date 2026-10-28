@@ -95,7 +95,7 @@ export function bondTouching(b: Builder, part: string, candidates: string[], kin
   for (const c of candidates) {
     if (b.resolve(c) === self) continue;
     const ct = b.contact(part, c, tol);
-    if (ct && (ct.kind === "face" || ct.penetrating || ct.length > 0.004)) hits.push({ name: c, at: ct.point });
+    if (ct && (ct.kind === "face" || ct.penetrating || ct.length > 0.004)) hits.push({ name: c, at: contactAnchor(b, part, c, ct.point) });
   }
   if (hits.length < minCount) b.warn(`bondTouching: '${self}' touches ${hits.length} of the expected parts`);
   if (!hits.length) return 0;
@@ -104,6 +104,37 @@ export function bondTouching(b: Builder, part: string, candidates: string[], kin
   const toLocal = xinv(b.frameXf());
   for (const h of hits) b.bond(part, h.name, kind, { strength: each, anchor: xapply(toLocal, h.at) });
   return hits.length;
+}
+
+/** AABB of a part (assembly space). */
+function partBox(b: Builder, name: string): { min: Vec3; max: Vec3 } {
+  const min = v3(Infinity, Infinity, Infinity),
+    max = v3(-Infinity, -Infinity, -Infinity);
+  for (const q of b.get(name).poly.verts) {
+    min.x = Math.min(min.x, q.x);
+    min.y = Math.min(min.y, q.y);
+    min.z = Math.min(min.z, q.z);
+    max.x = Math.max(max.x, q.x);
+    max.y = Math.max(max.y, q.y);
+    max.z = Math.max(max.z, q.z);
+  }
+  return { min, max };
+}
+
+/**
+ * A trustworthy bond anchor for two touching parts: the contact patch centre when it lies on
+ * both parts' bounds, else the centre of their (tolerance-padded) AABB overlap — the contact
+ * solver can return a far-off point for long edge-to-edge contacts.
+ */
+export function contactAnchor(b: Builder, a: string, c: string, point: Vec3 | undefined, pad = 0.01): Vec3 {
+  const A = partBox(b, a),
+    C = partBox(b, c);
+  const inBox = (q: Vec3, bx: { min: Vec3; max: Vec3 }) =>
+    q.x >= bx.min.x - pad && q.x <= bx.max.x + pad && q.y >= bx.min.y - pad && q.y <= bx.max.y + pad && q.z >= bx.min.z - pad && q.z <= bx.max.z + pad;
+  if (point && Number.isFinite(point.x + point.y + point.z) && inBox(point, A) && inBox(point, C)) return point;
+  const lo = v3(Math.max(A.min.x, C.min.x), Math.max(A.min.y, C.min.y), Math.max(A.min.z, C.min.z));
+  const hi = v3(Math.min(A.max.x, C.max.x), Math.min(A.max.y, C.max.y), Math.min(A.max.z, C.max.z));
+  return v3((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, (lo.z + hi.z) / 2);
 }
 
 // =============================================================================================

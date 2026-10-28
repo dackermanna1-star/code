@@ -89,7 +89,7 @@ test("city geometry stays within budget", () => {
 
 test("tower geometry never intrudes into the apartment's own storey", () => {
   const t = buildTowerGeometry();
-  for (const [label, mb] of Object.entries({ near: t.near, far: t.far, glass: t.glass })) {
+  for (const [label, mb] of Object.entries({ near: t.near, far: t.far, glass: t.glass, rails: t.rails })) {
     assertFinite(mb, label);
     const P = mb.positions;
     for (let i = 0; i < P.length; i += 3) {

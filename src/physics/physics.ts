@@ -380,7 +380,9 @@ export class Physics implements PhysicsSystem {
     this.worldRec = this.register(this.worldBody, false);
     this.worldRec.motion = STATIC;
 
-    this.sceneDisposeObs = scene.onDisposeObservable.add(() => this.dispose());
+    // Scene.dispose() notifies this BEFORE disposing nodes; the scene disables its physics engine itself afterwards
+    // (bodies must leave the world before it is released), so only our own resources are released here.
+    this.sceneDisposeObs = scene.onDisposeObservable.add(() => this.release(false));
   }
 
   // ================================================================================== stepping
@@ -1803,8 +1805,15 @@ export class Physics implements PhysicsSystem {
     return this._disposed;
   }
 
-  /** Release everything this system created and disable the scene's physics engine. Bodies made by createBody become invalid. */
+  /**
+   * Dispose every body made by createBody (their nodes stay), the world body and internal resources, then disable
+   * the scene's physics engine. Foreign bodies (made directly with Babylon) must be disposed before this.
+   */
   dispose(): void {
+    this.release(true);
+  }
+
+  private release(disableEngine: boolean): void {
     if (this._disposed) return;
     this._disposed = true;
     for (const c of [...this.joints.keys()]) this.removeConstraint(c);
@@ -1822,18 +1831,18 @@ export class Physics implements PhysicsSystem {
       this.bjsObs = null;
     }
     this.agg.clear();
-    for (const rec of [...this.own]) {
-      if (rec.disposeObserver) {
-        rec.disposeObserver.remove();
-        rec.disposeObserver = null;
-      }
-      this.forget(rec);
-    }
+    // dispose every body we created (joints and owned containers go with them) so that later node disposal never
+    // touches a released world; nodes and leaf shapes stay with their owners
+    for (const rec of [...this.own]) if (rec !== this.worldRec) this.disposeBody(rec.body);
     this.byId.clear();
     if (!this.worldBody.isDisposed) this.worldBody.dispose();
     this.worldBody.transformNode.dispose();
-    if (this.sceneDisposeObs) this.sceneDisposeObs.remove();
-    if (this.scene.getPhysicsEngine() === (this.engine as unknown)) this.scene.disablePhysicsEngine();
+    if (disableEngine) {
+      // (on the scene-dispose path we are inside that observable's notification: removing would splice its array
+      // mid-iteration; the scene clears it anyway)
+      this.sceneDisposeObs?.remove();
+      if (this.scene.getPhysicsEngine() === (this.engine as unknown)) this.scene.disablePhysicsEngine();
+    }
   }
 
   private alive(): void {

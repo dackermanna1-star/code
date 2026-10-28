@@ -26,8 +26,12 @@ export const PRY_RADIUS = 0.15;
 export const PRY_RATE = 0.012;
 /** Elastic holding force of a bond per joule of strength (N/J). */
 export const HOLD_N_PER_J = 1.2;
-/** Creep speed converting excess force into bond damage (m/s → J/s per N). */
-export const PULL_CREEP = 0.2;
+/**
+ * Creep speed converting excess force into bond damage (J/s per N, before the damage model's
+ * bond-kind factor): yanking a door past its stop (≈ 450 N) tears its nearest 90 J hinge out
+ * in ≈ 4 s, a 40 J latch in under a second.
+ */
+export const PULL_CREEP = 0.3;
 /** Pulls weaker than this (N) do nothing (casual handling). */
 const PULL_MIN_FORCE = 40;
 const STRAIN_INTERVAL = 0.12;

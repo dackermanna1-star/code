@@ -562,7 +562,10 @@ function respondBrittle(c: Ctx): number {
     {
       let r = sharp < 1.5 ? Math.sqrt(rE * rE + 0.25 * rc * rc) : rE;
       const rMax = K.globalFrac * geom.inPlaneMin;
-      if (r > rMax && globalAllowed && Number.isFinite(Eg)) {
+      // A breakout that would span most of the part becomes a global failure only when the
+      // energy is also a meaningful fraction of the global threshold; otherwise it stays a
+      // (clamped) local breakout — an edge chip, not an exploding door.
+      if (r > rMax && globalAllowed && Number.isFinite(Eg) && rG >= K.promoteFrac) {
         fp = plan(c, { global: true, mode: mat.mode, pattern, radius: 0, depth: geom.t, through: true, overload: Math.max(1, rL) });
       } else {
         r = Math.min(r, rMax);
@@ -587,71 +590,159 @@ function respondBrittle(c: Ctx): number {
     }
     if (mat.mode === "crack" && mat.dentRadius > 0 && mat.yieldY > 0 && E >= 0.5) dent(c, false);
   }
-  // ---- fatigue memory (endurance limit; no sharpness: what the material itself experienced)
-  const ref = Math.min(El, Eg);
-  const gate = smooth(K.enduranceLo, K.enduranceHi, ratio);
-  remember(c, E * amp(ref) * gate);
+  // ---- fatigue memory. The RAW delivered energy is remembered (the amplification only
+  // decides failure; storing amplified energy would make the memory feed on itself), gated by an
+  // endurance limit on the raw load ratio: knocks below ~6 % of the threshold leave nothing,
+  // however often they repeat (rattling contacts, objects being set down).
+  const rawG = Number.isFinite(Eg) ? Math.max(E / Math.max(1, sharp), dice ? E * conc : 0) / Eg : 0;
+  const rawL = Number.isFinite(El) ? (E * sharp) / El : 0;
+  const gate = smooth(K.enduranceLo, K.enduranceHi, Math.max(rawG, rawL));
+  remember(c, E * gate);
   return 1;
 }
 
-/** Plastic dent at the impact (accumulated, capped). Returns [added depth, crumple before, after]. */
+/** Unit in-plane basis (e1, e2) perpendicular to n. */
+function planeBasis(n: Vec3): [Vec3, Vec3] {
+  const ax = Math.abs(n.x) < 0.9;
+  const e1x = ax ? 0 : n.z,
+    e1y = ax ? -n.z : 0,
+    e1z = ax ? n.y : -n.x;
+  const l = Math.hypot(e1x, e1y, e1z) || 1;
+  const e1 = { x: e1x / l, y: e1y / l, z: e1z / l };
+  return [e1, { x: n.y * e1.z - n.z * e1.y, y: n.z * e1.x - n.x * e1.z, z: n.x * e1.y - n.y * e1.x }];
+}
+
+/**
+ * Largest depth a new dent (centre q, radius r) may have so that the accumulated displacement
+ * stays ≤ cap at sample points: its centre, a ring at r/2, and `extra` points (e.g. the hit).
+ */
+function dentRoom(dents: readonly Dent[], q: Vec3, r: number, cap: number, e1: Vec3, e2: Vec3, extra: readonly Vec3[]): number {
+  let room = Infinity;
+  const test = (x: Vec3): void => {
+    const dd = ((x.x - q.x) ** 2 + (x.y - q.y) ** 2 + (x.z - q.z) ** 2) / (r * r);
+    if (dd >= 1) return;
+    const w = (1 - dd) * (1 - dd);
+    room = Math.min(room, Math.max(0, cap - dentDepthAt(dents, x)) / w);
+  };
+  test(q);
+  for (const h of [0.35 * r, 0.7 * r])
+    for (const [a, b] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const)
+      test({ x: q.x + (e1.x * a + e2.x * b) * h, y: q.y + (e1.y * a + e2.y * b) * h, z: q.z + (e1.z * a + e2.z * b) * h });
+  for (const x of extra) test(x);
+  // displacement peaks sit near existing dent centres: test those inside the new dent too
+  for (const d of dents) if (d && finVec(d.p)) test(d.p);
+  return room;
+}
+
+/** True when an in-plane dent centre q (radius r) lies on the sheet, at least margin from its rim. */
+function onSheet(poly: ConvexPoly, q: Vec3, faceN: Vec3, margin: number): boolean {
+  for (const f of poly.faces) {
+    if (Math.abs(f.n.x * faceN.x + f.n.y * faceN.y + f.n.z * faceN.z) > 0.5) continue;
+    if (f.n.x * q.x + f.n.y * q.y + f.n.z * q.z - f.d > -margin) return false;
+  }
+  return true;
+}
+
+/**
+ * Plastic dent at the impact, accumulated and capped: the displacement anywhere never exceeds
+ * cap = min(maxDent·ext2, 0.5·ext1). For sheets, energy left over once the spot is capped
+ * spreads into wider, shallower dents AROUND the hit (the dent widens instead of deepening),
+ * which is what eventually crumples a sheet. Returns [central depth added, crumple before, after].
+ */
 function dent(c: Ctx, sheet: boolean): [number, number, number] {
   const { part, E } = c;
   const m = part.mat;
   const ext = part.ext;
+  const den = Math.max(1e-12, ext[0] * ext[1] * ext[2]);
   const rc = c.imp.contactRadius > 0 ? c.rc : 0.02;
-  const rd = Math.min(Math.max(0.005, 0.5 * ext[1]), Math.max(m.dentRadius * Math.cbrt(E / 100), rc));
+  const rMaxD = Math.max(0.005, 0.5 * ext[1]);
+  const rd = Math.min(rMaxD, Math.max(m.dentRadius * Math.cbrt(E / 100), rc));
   const d = E / (m.yieldY * Math.PI * rd * rd);
   const cap = Math.min(m.maxDent * ext[2], 0.5 * ext[1]);
-  const cur = dentDepthAt(part.dents ?? [], c.p);
-  const add = Math.min(d, Math.max(0, cap - cur));
   const C0 = sheet ? crumpleMetric(part.dents ?? [], ext) : 0;
-  if (!Number.isFinite(add) || !Number.isFinite(d)) return [0, C0, C0];
-  if (!(add >= 2e-4) && !(sheet && d > add)) return [0, C0, C0];
+  if (!Number.isFinite(d) || !(d > 0) || !(cap > 0)) return [0, C0, C0];
+  const dents: Dent[] = (part.dents ?? []).slice();
+  const [e1, e2] = planeBasis(c.geom.faceN);
   const P = { x: c.p.x, y: c.p.y, z: c.p.z },
     Dd = { x: c.dir.x, y: c.dir.y, z: c.dir.z };
   let C1 = C0;
-  if (add >= 2e-4) {
-    c.out.addDents.push({ p: P, dir: Dd, r: rd, depth: add });
-    c.out.dentDepth = Math.max(c.out.dentDepth, add);
-    C1 += (add * rd * rd) / Math.max(1e-12, ext[0] * ext[1] * ext[2]);
-  }
-  // Capped locally: the rest of the energy deforms a wider area (the dent spreads instead of
-  // deepening without limit), which is what eventually crumples a sheet.
+  const push = (q: Vec3, r: number, depth: number): void => {
+    const dn: Dent = { p: q, dir: { ...Dd }, r, depth };
+    dents.push(dn);
+    c.out.addDents.push(dn);
+    c.out.dentDepth = Math.max(c.out.dentDepth, depth);
+    C1 += (depth * r * r) / den;
+  };
+  const room0 = dentRoom(dents, P, rd, cap, e1, e2, []);
+  const add = Math.min(d, room0);
+  if (add >= 2e-4) push(P, rd, add);
+  else if (!sheet) return [0, C0, C0];
+  // capped locally: spread the remaining energy over wider dents around the hit
   if (sheet && add < d) {
-    const left = E * (1 - add / d);
-    const r2 = Math.min(Math.max(0.005, 0.5 * ext[1]), rd * 1.8);
-    const d2 = Math.min(left / (m.yieldY * Math.PI * r2 * r2), 0.5 * cap);
-    if (d2 >= 2e-4) {
-      c.out.addDents.push({ p: { ...P }, dir: { ...Dd }, r: r2, depth: d2 });
-      c.out.dentDepth = Math.max(c.out.dentDepth, d2);
-      C1 += (d2 * r2 * r2) / Math.max(1e-12, ext[0] * ext[1] * ext[2]);
+    let left = E * (1 - Math.max(0, add) / d);
+    const r2 = Math.min(rMaxD, rd * 1.8);
+    const a0 = c.rng.range(0, Math.PI * 2);
+    // rings of candidate centres further and further out (the dented area grows)
+    for (let ring = 0; ring <= 4 && left > 1e-3; ring++) {
+      const dist = ring * 0.9 * r2;
+      const nA = ring === 0 ? 1 : 6;
+      for (let k = 0; k < nA && left > 1e-3; k++) {
+        const a = a0 + (k / nA) * Math.PI * 2 + ring * 0.5;
+        const q = { x: P.x + (e1.x * Math.cos(a) + e2.x * Math.sin(a)) * dist, y: P.y + (e1.y * Math.cos(a) + e2.y * Math.sin(a)) * dist, z: P.z + (e1.z * Math.cos(a) + e2.z * Math.sin(a)) * dist };
+        if (ring > 0 && !onSheet(part.poly, q, c.geom.faceN, 0.3 * r2)) continue;
+        const want = left / (m.yieldY * Math.PI * r2 * r2);
+        const d2 = Math.min(want, 0.5 * cap, dentRoom(dents, q, r2, cap, e1, e2, ring > 0 ? [P] : []));
+        if (d2 < 2e-4) continue;
+        push(q, r2, d2);
+        left -= d2 * m.yieldY * Math.PI * r2 * r2;
+      }
     }
   }
-  return [add, C0, C1];
+  return [Math.max(0, add >= 2e-4 ? add : 0), C0, C1];
 }
 
-/** Ductile metals: dents, crumpling, extreme-energy tears. Returns the bond-load multiplier. */
+/** Ductile metals: dents, crumpling, tears. Returns the bond-load multiplier. */
 function respondBend(c: Ctx): number {
   const { part, E, sharp } = c;
   const m = part.mat;
   const ext = part.ext;
   if (!(m.yieldY > 0)) return 1;
-  const [add, C0, C1] = dent(c, true);
-  let mul = 1;
-  if (C1 >= K.crumple && (C1 > C0 || E >= 0.25 * m.yieldY * effVolume(part))) {
+  const [, C0, C1] = dent(c, true);
+  const cap = Math.min(m.maxDent * ext[2], 0.5 * ext[1]);
+  // a crumpled sheet loads its welds harder (state); the `crumpled` EVENT (collider refresh) is
+  // only reported when the crumple metric crosses the threshold or doubles again (1, 2, 4, …).
+  const mul = C1 >= K.crumple ? 2 : 1;
+  const level = (C: number): number => (C >= K.crumple ? Math.floor(Math.log2(C / K.crumple)) : -1);
+  if (level(C1) > level(C0)) {
     c.out.crumpled = true;
-    mul = 2;
     if (C0 < K.crumple) {
-      // the whole sheet buckles: broad, shallow bending field around the hit
-      const cap = Math.min(m.maxDent * ext[2], 0.5 * ext[1]);
-      c.out.addDents.push({ p: { x: c.p.x, y: c.p.y, z: c.p.z }, dir: { x: c.dir.x, y: c.dir.y, z: c.dir.z }, r: 0.45 * ext[0], depth: Math.min(0.06 * ext[1], cap) });
+      // the whole sheet buckles: broad, shallow bending field around the hit (within the cap)
+      const [e1, e2] = planeBasis(c.geom.faceN);
+      // centred on the sheet (the hit spot itself is usually already at the cap)
+      const n = c.geom.faceN,
+        g = part.centroid;
+      const off = (c.p.x - g.x) * n.x + (c.p.y - g.y) * n.y + (c.p.z - g.z) * n.z;
+      const P = finVec(g) ? { x: g.x + n.x * off, y: g.y + n.y * off, z: g.z + n.z * off } : { x: c.p.x, y: c.p.y, z: c.p.z };
+      const rb = 0.45 * ext[0];
+      const all = (part.dents ?? []).concat(c.out.addDents);
+      const db = Math.min(0.06 * ext[1], cap, dentRoom(all, P, rb, cap, e1, e2, []));
+      if (db >= 2e-4) c.out.addDents.push({ p: P, dir: { x: c.dir.x, y: c.dir.y, z: c.dir.z }, r: rb, depth: db });
     }
   }
-  // tear: heavily crumpled thin sheet hit with extreme energy splits into 2–3 pieces
-  if (C0 >= K.crumple && ext[2] < 0.004 && E * sharp >= 6 * m.yieldY * effVolume(part)) {
-    const fp = plan(c, { global: true, mode: "bend", pattern: "crack", radius: 0, depth: c.geom.t, through: true, overload: 1, count: c.rng.int(2, 3) });
-    if (fp) c.out.fracture = fp;
+  // Tear: a crumpled thin sheet whose metal at the hit is already folded to the cap tears into
+  // 2–3 pieces. The tear energy scales with the torn cross-section (yield energy density ×
+  // thickness × tear length × process-zone width), not the whole panel volume; remembered
+  // damage at the spot (repeated sledge/axe blows) brings it within reach. Each blow must
+  // still be substantial (passive drops do not tear panels).
+  if (C0 >= K.crumple && ext[2] < 0.004) {
+    const tearLen = Math.min(ext[1], 0.4);
+    const Et = K.tearZone * m.yieldY * ext[2] * tearLen * partFlaw(part);
+    const local = dentDepthAt(part.dents ?? [], c.p) >= 0.8 * cap;
+    const Es = E * sharp;
+    if (local && Es >= 0.25 * Et && Es + K.tearMemory * c.D >= Et) {
+      const fp = plan(c, { global: true, mode: "bend", pattern: "crack", radius: 0, depth: c.geom.t, through: true, overload: 1, count: c.rng.int(2, 3) });
+      if (fp) c.out.fracture = fp;
+    }
   }
   remember(c, E);
   return mul;

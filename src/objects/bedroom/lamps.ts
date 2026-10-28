@@ -26,7 +26,7 @@ export interface TableLampOpts extends BaseOpts {
 export const TABLE_LAMP_H = 0.49;
 
 export function buildTableLamp(o: TableLampOpts = {}): AssemblyDef {
-  const b = mk("tableLamp", "Table Lamp", "decor", 85, o);
+  const b = mk("bedsideLamp", "Bedside Lamp", "decor", 85, o);
   const glaze = o.tint ?? 0x5d7f8f;
   // ---- hollow ceramic base (glazed outside, bisque inside), closed bottom
   const base = b.lathe("base", "ceramic", "ceramic_glaze", "ceramic_bisque", {

@@ -113,7 +113,7 @@ export interface PillowOpts extends BaseOpts {
 export function buildBedPillow(o: PillowOpts = {}): AssemblyDef {
   const deco = o.kind === "deco";
   const size = o.size ?? (deco ? [0.45, 0.15, 0.45] : [0.7, 0.14, 0.5]);
-  const b = mk(deco ? "throwPillow" : "bedPillow", deco ? "Throw Pillow" : "Bed Pillow", "soft", deco ? 25 : 40, o);
+  const b = mk(deco ? "decoPillow" : "bedPillow", deco ? "Decorative Pillow" : "Bed Pillow", "soft", deco ? 25 : 40, o);
   const vol = size[0] * size[1] * size[2];
   const kg = deco ? Math.max(0.3, vol * 16) : Math.max(0.5, vol * 17); // ≈ 0.85 kg feather pillow
   const p = b.pillow("pillow", "fabric", deco ? "fabric_upholstery" : "fabric_cotton", size, deco ? 0.45 : 0.55, [0, size[1] / 2, 0], {

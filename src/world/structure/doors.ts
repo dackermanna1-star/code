@@ -15,6 +15,7 @@ import type { ConcreteRun, PartitionRun, RunOpening } from "./layout.ts";
 import { Fixings, PAL, bondAt, boxR, mid, newBuilder, worldAt, type Interval, type V3 } from "./common.ts";
 import { clearOpening } from "./openings.ts";
 import { hingeGroup } from "./joints.ts";
+import { hingedDoorPanel } from "../../objects/lib/kit.ts";
 import { inFrame } from "./concrete.ts";
 import { splitEven } from "./rects.ts";
 
@@ -293,52 +294,47 @@ export function buildInteriorDoor(run: PartitionRun, o: RunOpening): AssemblyDef
     addCasings(b, "casingP", c0, c1, top, 1, T / 2, { L: jL, R: jR, H: jH }, { l: o.r0 + SHIM, r: o.r1 - SHIM });
     addCasings(b, "casingN", c0, c1, top, -1, T / 2, { L: jL, R: jR, H: jH }, { l: o.r0 + SHIM, r: o.r1 - SHIM });
 
-    // ---- leaf
-    const spec: LeafSpec = {
-      s0: c0 + 0.003,
-      s1: c1 - 0.003,
-      yb: 0.01,
-      yt: top - 0.003,
-      wS,
-      sw,
-      hingeAtLow,
-      thick: DOOR_T,
-      skinT: 0.003,
-      skinMat: "mdf",
-      skinSurf: "wood_painted",
-      skinTint: PAL.doorWhite,
-      stileMat: "softwood",
-      stileSurf: "wood_pine",
-      stileW: 0.03,
-      railH: 0.05,
-      core: "honeycomb",
-      handleY: HANDLE_Y,
-    };
-    const parts = addLeaf(b, spec);
-    addLevers(b, spec, parts, false);
+    // ---- leaf: the kit's hollow-core panel (HDF skins on pine stiles/rails + lock block,
+    // honeycomb core, steel hinge leaves, levers both sides, latch on the lock block)
+    const s0 = c0 + 0.003,
+      s1 = c1 - 0.003,
+      yb = 0.01,
+      yt = top - 0.003;
     const latchJamb = hingeAtLow ? jR : jL,
       hingeJamb = hingeAtLow ? jL : jR;
-    const uH = hingeAtLow ? spec.s0 : spec.s1;
+    // kit frame: slab centred in x/z, y up from its bottom, opens towards +Z
+    const flip = sw < 0;
+    hingedDoorPanel(
+      b,
+      "leaf",
+      {
+        w: s1 - s0,
+        h: yt - yb,
+        t: DOOR_T,
+        kind: "hollow",
+        mat: "mdf",
+        surf: "wood_painted",
+        tint: PAL.doorWhite,
+        hinge: hingeAtLow !== flip ? "left" : "right",
+        swing: "front",
+        fixed: hingeJamb,
+        hinges: 3,
+        hingeStrength: 120,
+        hingeInset: 0.22,
+        openDeg: 105,
+        friction: 0.4,
+        latch: { strength: 40, fixed: latchJamb },
+        handleHeight: HANDLE_Y - yb,
+        hardware: true,
+      },
+      [mid(s0, s1), yb, wS - sw * (DOOR_T / 2)],
+      flip ? [0, 180, 0] : undefined,
+    );
     const cEdge = hingeAtLow ? c1 : c0;
     const strike = "strikePlate";
-    boxR(b, strike, "steel", "chrome", rng(cEdge, cEdge + (hingeAtLow ? -0.0015 : 0.0015)), [HANDLE_Y - 0.035, HANDLE_Y + 0.035], parts.wCore, { noCollide: true, tags: ["door-frame"] });
-    bondAt(b, strike, latchJamb, "screw", 30, [cEdge, HANDLE_Y, mid(parts.wCore[0], parts.wCore[1])]);
-    const ys = [spec.yb + 0.25, mid(spec.yb + 0.25, spec.yt - 0.18), spec.yt - 0.18];
-    const pw = wS + sw * 0.004;
-    addKnuckles(b, ys, uH, hingeAtLow ? 1 : -1, wS, sw, 0.0065, 0.089, parts, 0xffffff);
-    hingeGroup(
-      b,
-      `${o.op.id}#hinge`,
-      parts.hingeStile,
-      hingeJamb,
-      [0, sw * hs, 0],
-      ys.map((y): V3 => [uH, y, pw]),
-      0,
-      105,
-      120,
-      0.4,
-      { part: parts.latch, fixed: latchJamb, at: [hingeAtLow ? spec.s1 : spec.s0, HANDLE_Y, mid(parts.wCore[0], parts.wCore[1])], strength: 40 },
-    );
+    const wc = wS - sw * (DOOR_T / 2);
+    boxR(b, strike, "steel", "chrome", rng(cEdge, cEdge + (hingeAtLow ? -0.0015 : 0.0015)), [HANDLE_Y - 0.035, HANDLE_Y + 0.035], [wc - 0.0125, wc + 0.0125], { noCollide: true, tags: ["door-frame"] });
+    bondAt(b, strike, latchJamb, "screw", 30, [cEdge, HANDLE_Y, wc]);
   });
   const def = b.build();
   def.room = o.op.into;

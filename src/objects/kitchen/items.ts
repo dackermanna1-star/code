@@ -19,7 +19,13 @@ export interface ItemOpts {
 
 /** Knife block geometry: slot i is centred at x = KNIFE_SLOTS[i], tilted back by KNIFE_TILT°. */
 export const KNIFE_TILT = 15;
-export const KNIFE_SLOTS = [-0.0375, -0.0125, 0.0125, 0.0375] as const;
+const KB_GAP = 0.004;
+const KB_SLAB = (0.125 - 4 * KB_GAP) / 5;
+export const KNIFE_SLOTS = [0, 1, 2, 3].map((k) => -0.0625 + (k + 1) * KB_SLAB + k * KB_GAP + KB_GAP / 2);
+/** Slot length along the tilted slot axis (slab height). */
+export const KNIFE_SLOT_LEN = 0.22;
+/** Blade length per knife kind. */
+export const KNIFE_BLADE = { chef: 0.2, bread: 0.21, utility: 0.13, paring: 0.09 } as const;
 /** Slot floor (top of the base plate) and slot centre z at the floor. */
 export const KNIFE_SLOT_FLOOR = { y: 0.015, z: 0.0 } as const;
 
@@ -30,11 +36,11 @@ export const KNIFE_SLOT_FLOOR = { y: 0.015, z: 0.0 } as const;
 export function buildKnifeBlock(o: ItemOpts = {}): AssemblyDef {
   const b = new Builder("knifeBlock", "Knife Block", "kitchenware", 35, o.seed);
   const tilt = (KNIFE_TILT * Math.PI) / 180;
-  const H = 0.22; // slab height along the slot
+  const H = KNIFE_SLOT_LEN; // slab height along the slot
   const yb = KNIFE_SLOT_FLOOR.y;
   const base = b.box("base", "hardwood", "wood_walnut", [0.13, yb, 0.15], [0, yb / 2, -0.02], { grain: "x" });
-  const gap = 0.004;
-  const slabT = (0.125 - 4 * gap) / 5;
+  const gap = KB_GAP;
+  const slabT = KB_SLAB;
   const dz = Math.sin(tilt) * H,
     dy = Math.cos(tilt) * H;
   const slabs: string[] = [];
@@ -77,7 +83,7 @@ export function buildKnifeBlock(o: ItemOpts = {}): AssemblyDef {
 /** Kitchen knife: stainless blade (tip at the origin, blade up +Y) and a riveted handle. */
 export function buildKnife(o: { kind?: "chef" | "bread" | "utility" | "paring"; seed?: number } = {}): AssemblyDef {
   const kind = o.kind ?? "chef";
-  const spec = { chef: [0.2, 0.045, 0.12], bread: [0.21, 0.03, 0.12], utility: [0.13, 0.025, 0.105], paring: [0.09, 0.02, 0.095] }[kind];
+  const spec = { chef: [KNIFE_BLADE.chef, 0.045, 0.12], bread: [KNIFE_BLADE.bread, 0.03, 0.12], utility: [KNIFE_BLADE.utility, 0.025, 0.105], paring: [KNIFE_BLADE.paring, 0.02, 0.095] }[kind];
   const [L, w, hl] = spec;
   const b = new Builder("knife", `${kind[0].toUpperCase()}${kind.slice(1)} Knife`, "tool", 30, o.seed);
   const t = 0.002;

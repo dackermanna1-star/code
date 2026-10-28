@@ -77,9 +77,13 @@ export const K = {
   bluntPlug: 0.75,
   /** Breakout radius above this fraction of the smallest in-plane extent → global failure. */
   globalFrac: 0.6,
-  /** Hits below this fraction of the fracture threshold leave no fatigue (endurance limit). */
-  enduranceLo: 0.02,
-  enduranceHi: 0.1,
+  /** …but only when the effective energy also reaches this fraction of the global threshold
+   *  (otherwise the breakout is clamped to a big local hole / edge chip). */
+  promoteFrac: 0.5,
+  /** Hits below this fraction of the fracture threshold leave no fatigue (endurance limit);
+   *  the remembered share ramps up smoothly to full at enduranceHi. */
+  enduranceLo: 0.06,
+  enduranceHi: 0.2,
   /** Bond loads below this fraction of the bond's capacity do no damage (elastic). */
   bondEndurance: 0.03,
   /** Fused seam strength = G × area × fusedFactor (weaker than the bulk). */
@@ -89,10 +93,13 @@ export const K = {
   edgeFactor: 0.3,
   /** Max damage points remembered per part. */
   maxDmgPoints: 16,
-  /** Max seeds of one (non-dice) fracture, coarse dice cells, and expanded dice micro cubes. */
+  /** Max seeds of one (non-dice) fracture, and max micro cubes of a tempered-glass dice. */
   maxSeeds: 40,
-  maxDiceCoarse: 64,
   maxDiceMicro: 900,
   /** Crumple metric threshold (Σ depth·r² / (ext0·ext1·ext2)). */
   crumple: 1,
+  /** Sheet tear energy = tearZone × yieldY × thickness × tear length (process-zone width, m⁻¹·m). */
+  tearZone: 2,
+  /** Share of the remembered damage at the spot that counts towards a tear. */
+  tearMemory: 0.15,
 } as const;

@@ -164,5 +164,41 @@ export async function probe() {
     check(out, "T7_invalidDtIgnored", unchanged && w.physics.stepIndex === 1, { stepIndex: w.physics.stepIndex, y: v3(b.transformNode.position) });
     w.dispose();
   }
+  // ---- T8: lifecycle — dispose and re-create on the same scene; scene disposal with live joints and bodies
+  {
+    const w = await makeWorld();
+    floor(w);
+    const a = dynBox(w, new Vector3(0, 2, 0), new Vector3(0.3, 0.3, 0.3), 500);
+    const b = dynBox(w, new Vector3(0, 3, 0), new Vector3(0.3, 0.3, 0.3), 500);
+    w.physics.ball(a, b, new Vector3(0, 0.5, 0), new Vector3(0, -0.5, 0));
+    w.physics.hinge(w.physics.worldBody, a, { pivotA: new Vector3(0, 2, 0), pivotB: Vector3.Zero(), axisA: new Vector3(0, 0, 1), axisB: new Vector3(0, 0, 1) });
+    steps(w, 30);
+    const old = w.physics;
+    old.dispose();
+    const engineGone = w.scene.getPhysicsEngine() === null;
+    a.transformNode.dispose(); // node of a body whose physics system is gone: must not touch Havok
+    const { createPhysics } = await import("../../src/physics/physics.ts");
+    const p2 = await createPhysics(w.scene);
+    const n = new TransformNode("again", w.scene);
+    n.position.set(0, 5, 0);
+    const c = p2.createBody(n, "dynamic");
+    p2.setShape(c, p2.boxShape({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, { x: 0.3, y: 0.3, z: 0.3 }, { density: 500 }));
+    for (let i = 0; i < 30; i++) p2.step(1 / 60);
+    const fell = n.position.y < 4.9;
+    // scene disposal with live bodies and joints
+    const m = new TransformNode("m", w.scene);
+    m.position.set(2, 5, 0);
+    const d = p2.createBody(m, "dynamic");
+    p2.setShape(d, p2.boxShape({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 0, w: 1 }, { x: 0.3, y: 0.3, z: 0.3 }, { density: 500 }));
+    p2.hinge(c, d, { pivotA: Vector3.Zero(), pivotB: new Vector3(-2, 0, 0), axisA: new Vector3(0, 1, 0), axisB: new Vector3(0, 1, 0) });
+    p2.step(1 / 60);
+    let err = "";
+    try {
+      w.dispose();
+    } catch (e) {
+      err = String(e);
+    }
+    check(out, "T8_lifecycle", engineGone && old.disposed && fell && p2.disposed && !err, { engineGone, oldDisposed: old.disposed, newSystemSteps: fell, newDisposedWithScene: p2.disposed, err });
+  }
   return out;
 }

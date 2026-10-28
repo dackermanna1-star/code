@@ -241,12 +241,21 @@ export class EnvironmentCapture {
       cube.boundingBoxPosition = o.box.center.clone();
     }
     if (this.pending) cube.onAfterRenderObservable.remove(this.pending);
+    // Babylon 9 only renders RTTs that are bound to materials, listed as custom render targets
+    // or used as the environment; the probe is none of these while capturing, so list it
+    // until its six faces are done
+    if (!scene.customRenderTargets.includes(cube)) scene.customRenderTargets.push(cube);
+    const unlist = (): void => {
+      const i = scene.customRenderTargets.indexOf(cube);
+      if (i >= 0) scene.customRenderTargets.splice(i, 1);
+    };
     return new Promise<boolean>((resolve) => {
       let faces = 0;
       this.pending = cube.onAfterRenderObservable.add(() => {
         if (++faces < 6) return;
         if (this.pending) cube.onAfterRenderObservable.remove(this.pending);
         this.pending = null;
+        unlist();
         const sh = CubeMapToSphericalPolynomialTools.ConvertCubeMapTextureToSphericalPolynomial(cube);
         if (!sh) {
           resolve(false);
@@ -267,7 +276,12 @@ export class EnvironmentCapture {
   }
 
   dispose(): void {
-    if (this.scene.environmentTexture === this.probe?.cubeTexture) this.scene.environmentTexture = this.fallback;
+    const cube = this.probe?.cubeTexture;
+    if (cube) {
+      const i = this.scene.customRenderTargets.indexOf(cube);
+      if (i >= 0) this.scene.customRenderTargets.splice(i, 1);
+    }
+    if (this.scene.environmentTexture === cube) this.scene.environmentTexture = this.fallback;
     this.probe?.dispose();
     this.probe = null;
   }

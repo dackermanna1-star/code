@@ -68,13 +68,13 @@ export function buildVanity(o: VanityOpts = {}): AssemblyDef {
   const doorH = yDeck - 0.08 - 0.012;
   const zDoor = zBack + cd + 0.009;
   const knobSpec = { kind: "knob" as const, mat: CHROME.mat, surf: CHROME.surf, tint: CHROME.tint };
-  // kit: hinge "right" = hinges at -X (left door's outer edge), "left" = +X
-  hingedDoorPanel(b, "door_l", { w: doorW, h: doorH, t: 0.018, kind: "solid", mat: "mdf", surf: "laminate_white", tint, hinge: "right", fixed: carc.left, handle: knobSpec, openDeg: 105 }, [
+  // kit convention (axis-based): hinge "left" = hinges on the -X edge, "right" = +X edge
+  hingedDoorPanel(b, "door_l", { w: doorW, h: doorH, t: 0.018, kind: "solid", mat: "mdf", surf: "laminate_white", tint, hinge: "left", fixed: carc.left, handle: knobSpec, openDeg: 105 }, [
     -(doorW / 2 + 0.0015),
     0.084,
     zDoor,
   ]);
-  hingedDoorPanel(b, "door_r", { w: doorW, h: doorH, t: 0.018, kind: "solid", mat: "mdf", surf: "laminate_white", tint, hinge: "left", fixed: carc.right, handle: knobSpec, openDeg: 105 }, [
+  hingedDoorPanel(b, "door_r", { w: doorW, h: doorH, t: 0.018, kind: "solid", mat: "mdf", surf: "laminate_white", tint, hinge: "right", fixed: carc.right, handle: knobSpec, openDeg: 105 }, [
     doorW / 2 + 0.0015,
     0.084,
     zDoor,

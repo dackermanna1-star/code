@@ -5,7 +5,8 @@
 //
 // Invariants maintained by every constructor/operation here:
 //  * faces are convex, CCW seen from outside, unit outward normals, dot(n, p) == d on the face;
-//  * every vertex is referenced by a face, no duplicate vertices (welded at 1e-7 × scale);
+//  * every vertex is referenced by a face, no duplicate vertices (hulls weld at 1e-7 × scale, clipping
+//    snaps/welds at 1e-8 × scale, see wpoly.ts);
 //  * no NaN: degenerate inputs give an empty poly ({verts: [], faces: []}) or a flat
 //    two-sided poly (volume 0) instead of throwing.
 // Tolerances are relative to the shape size (see util.ts).

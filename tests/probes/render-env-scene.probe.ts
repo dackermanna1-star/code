@@ -66,7 +66,9 @@ export async function probe(): Promise<unknown> {
   const t3 = performance.now();
   const post = new PostFX(scene, cam, settings);
   const t4 = performance.now();
+  console.log(`setup done lighting ${(t1 - t0).toFixed(0)} ext ${(t2 - t1).toFixed(0)} atm ${(t3 - t2).toFixed(0)} post ${(t4 - t3).toFixed(0)}`);
   await scene.whenReadyAsync();
+  console.log("ready");
   const t5 = performance.now();
   const shots: Record<string, string> = {};
   const timings: Record<string, number> = {};
@@ -84,6 +86,7 @@ export async function probe(): Promise<unknown> {
     for (let i = 0; i < 3; i++) scene.render();
     timings[name] = +((performance.now() - ts) / 3).toFixed(1);
     shots[name] = shot(canvas);
+    console.log(`view ${name} ${timings[name]} ms/frame`);
   }
   // PS2 mode and SSAO off comparisons from the slider view.
   if (!only || only.includes("ps2")) {

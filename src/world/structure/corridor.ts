@@ -39,13 +39,18 @@ export function buildCorridor(): AssemblyDef {
   const C = CORRIDOR_STUB;
   const b = newBuilder("corridor", "Building Corridor", "structure", 6000);
   const yTop = C.ceilingY + 0.25;
-  const cells: string[] = [];
+  const cells: Array<{ name: string; r: Array<[number, number]> }> = [];
+  const bonded = new Set<string>();
+  const fuse = (a: string, c: string, at: [number, number, number]) => {
+    b.bond(a, c, "fused", { anchor: at });
+    bonded.add(a < c ? `${a}|${c}` : `${c}|${a}`);
+  };
   const cell = (name: string, x: [number, number], y: [number, number], z: [number, number], paintFace: "px" | "nx" | "pz" | "nz" | "ny" | null) => {
     const o: PartOpts = { tags: ["concrete"], uvOffset: [x[0], y[0]] };
     if (paintFace) o.faces = { [paintFace]: { surf: paintFace === "ny" ? "plaster_ceiling" : "paint_wall", tint: paintFace === "ny" ? 0xd8d6d0 : CORRIDOR_PAINT } };
     boxW(b, name, "concrete", "concrete", x, y, z, o);
     worldAt(b, name, "fused", 20000, [mid(x[0], x[1]), mid(y[0], y[1]), mid(z[0], z[1])]);
-    cells.push(name);
+    cells.push({ name, r: [x, y, z] });
     return name;
   };
   // ---- floor slab (top 5 mm below the carpet top) and carpet tiles
@@ -53,7 +58,7 @@ export function buildCorridor(): AssemblyDef {
   const fx = splitEven(C.x0, C.x1, 1.7);
   const floor: string[] = [];
   for (let i = 0; i + 1 < fx.length; i++) floor.push(cell(`floor_${i}`, [fx[i], fx[i + 1]], [SLAB_BOTTOM_Y, slabTop], [C.z0, C.z1], null));
-  for (let i = 0; i + 1 < floor.length; i++) b.bond(floor[i], floor[i + 1], "fused", { anchor: [fx[i + 1], mid(SLAB_BOTTOM_Y, slabTop), mid(C.z0, C.z1)] });
+  for (let i = 0; i + 1 < floor.length; i++) fuse(floor[i], floor[i + 1], [fx[i + 1], mid(SLAB_BOTTOM_Y, slabTop), mid(C.z0, C.z1)]);
   const tx = splitEven(C.x0, C.x1, 0.6),
     tz = splitEven(C.z0, C.z1, 0.6);
   const tiles: string[][] = [];
@@ -88,8 +93,8 @@ export function buildCorridor(): AssemblyDef {
     for (let i = 0; i < grid.length; i++) {
       for (let j = 0; j < grid[i].length; j++) {
         const m = mid(fixed[0], fixed[1]);
-        if (j + 1 < grid[i].length) b.bond(grid[i][j], grid[i][j + 1], "fused", { anchor: along === "x" ? [mid(as[i], as[i + 1]), ys[j + 1], m] : [m, ys[j + 1], mid(as[i], as[i + 1])] });
-        if (i + 1 < grid.length) b.bond(grid[i][j], grid[i + 1][j], "fused", { anchor: along === "x" ? [as[i + 1], mid(ys[j], ys[j + 1]), m] : [m, mid(ys[j], ys[j + 1]), as[i + 1]] });
+        if (j + 1 < grid[i].length) fuse(grid[i][j], grid[i][j + 1], along === "x" ? [mid(as[i], as[i + 1]), ys[j + 1], m] : [m, ys[j + 1], mid(as[i], as[i + 1])]);
+        if (i + 1 < grid.length) fuse(grid[i][j], grid[i + 1][j], along === "x" ? [as[i + 1], mid(ys[j], ys[j + 1]), m] : [m, mid(ys[j], ys[j + 1]), as[i + 1]]);
       }
     }
   };
@@ -100,6 +105,33 @@ export function buildCorridor(): AssemblyDef {
   const cx = splitEven(C.x0, C.x1, 1.7);
   const ceil: string[] = [];
   for (let i = 0; i + 1 < cx.length; i++) ceil.push(cell(`ceiling_${i}`, [cx[i], cx[i + 1]], [C.ceilingY, yTop], [C.z0, C.z1], "ny"));
-  for (let i = 0; i + 1 < ceil.length; i++) b.bond(ceil[i], ceil[i + 1], "fused", { anchor: [cx[i + 1], mid(C.ceilingY, yTop), mid(C.z0, C.z1)] });
+  for (let i = 0; i + 1 < ceil.length; i++) fuse(ceil[i], ceil[i + 1], [cx[i + 1], mid(C.ceilingY, yTop), mid(C.z0, C.z1)]);
+  // cast monolithically: fuse slabs and walls wherever two cells share a face
+  for (let i = 0; i < cells.length; i++) {
+    for (let j = i + 1; j < cells.length; j++) {
+      const A = cells[i],
+        B = cells[j];
+      const key = A.name < B.name ? `${A.name}|${B.name}` : `${B.name}|${A.name}`;
+      if (bonded.has(key)) continue;
+      for (let ax = 0; ax < 3; ax++) {
+        const touch = Math.abs(A.r[ax][1] - B.r[ax][0]) < 1e-6 ? A.r[ax][1] : Math.abs(B.r[ax][1] - A.r[ax][0]) < 1e-6 ? A.r[ax][0] : null;
+        if (touch === null) continue;
+        const o = [0, 1, 2].filter((k) => k !== ax).map((k) => [Math.max(A.r[k][0], B.r[k][0]), Math.min(A.r[k][1], B.r[k][1])] as [number, number]);
+        if (o.some(([lo, hi]) => hi - lo < 0.01)) continue;
+        const at: [number, number, number] = [0, 0, 0];
+        at[ax] = touch;
+        [0, 1, 2].filter((k) => k !== ax).forEach((k, n) => (at[k] = mid(o[n][0], o[n][1])));
+        fuse(A.name, B.name, at);
+        break;
+      }
+    }
+  }
+  for (let i = 0; i + 1 < tx.length; i++) {
+    for (let j = 0; j + 1 < tz.length; j++) {
+      const xm = mid(tx[i], tx[i + 1]);
+      const k = fx.findIndex((v, q) => q + 1 < fx.length && xm >= v && xm <= fx[q + 1]);
+      bondAt(b, tiles[i][j], floor[Math.max(0, k)], "glue", 4, [xm, slabTop, mid(tz[j], tz[j + 1])]);
+    }
+  }
   return b.build();
 }

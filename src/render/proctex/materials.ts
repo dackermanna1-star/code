@@ -207,7 +207,8 @@ function paintWall(): TexOutput {
   img.modulate(h, 0.025).modulate(blot, 0.025);
   const rough = channel();
   for (let i = 0; i < PIX; i++) rough[i] = 0.95 + h[i] * 0.1;
-  return { rgba: img.toRGBA(), height: h, bump: 1.4, rough };
+  // smooth painted drywall: the roller texture is barely perceptible
+  return { rgba: img.toRGBA(), height: h, bump: 0.45, rough };
 }
 
 function damaskMotif(g: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D, cx: number, cy: number, s: number): void {

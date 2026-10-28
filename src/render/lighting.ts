@@ -40,7 +40,9 @@ import { noise1 } from "./env/noise.ts";
 export const MAX_LIGHTS_PER_MATERIAL = 8;
 
 /** Apartment bounds the sun shadows must cover (furniture up to ~2 m, balcony included). */
-export const SHADOW_BOUNDS = { min: { x: -1.5, y: -0.3, z: -2.0 }, max: { x: 14.3, y: 3.2, z: 10.2 } } as const;
+export const SHADOW_BOUNDS = { min: { x: -1.5, y: -0.3, z: -2.0 }, max: { x: 14.3, y: 3.4, z: 10.2 } } as const;
+/** Upstream casters (balcony of the storey above) that must fit in the light's depth range. */
+const SHADOW_CASTER_TOP = 6.2;
 
 /** Tunable look parameters (exposed for integration tweaks). */
 export interface LightingTuning {
@@ -64,8 +66,8 @@ export const DEFAULT_TUNING: LightingTuning = {
   skyIntensity: 0.62,
   skyColor: [0.48, 0.56, 0.74],
   groundColor: [0.5, 0.39, 0.3],
-  shadowBias: 0.0012,
-  shadowNormalBias: 0.012,
+  shadowBias: 0.0005,
+  shadowNormalBias: 0.02,
   shadowMaxZ: 24,
 };
 
@@ -265,7 +267,7 @@ export class Lighting implements ILighting {
   applyQuality(q: QualityPreset): void {
     const prev = this._quality;
     this._quality = q;
-    const csmWanted = CascadedShadowGenerator.IsSupported && q.shadowCascades >= 2;
+    const csmWanted = this.wantsCascades(q);
     if (csmWanted !== (this.csm !== null)) {
       this.createSunShadows(q);
     } else {
@@ -374,6 +376,17 @@ export class Lighting implements ILighting {
 
   // ------------------------------------------------------------------ internals
 
+  /**
+   * Cascades only on the top preset: the apartment is small and the low sun makes its
+   * light-space footprint compact (≈16 × 7 m), so one fitted map is stable (no shimmer,
+   * no cascade seams) at 4–8 mm/texel and costs one pass instead of casters × cascades
+   * (see docs/api-notes/rendering-lighting-post.md §1.2). Ultra adds CSM for crisper
+   * contact shadows near the camera.
+   */
+  private wantsCascades(q: QualityPreset): boolean {
+    return CascadedShadowGenerator.IsSupported && q.shadowCascades >= 4;
+  }
+
   private cascadeCount(q: QualityPreset): number {
     return Math.max(2, Math.min(4, Math.round(q.shadowCascades)));
   }
@@ -388,7 +401,7 @@ export class Lighting implements ILighting {
     this.csm = null;
     this.appliedMaxZ = false;
     let gen: ShadowGenerator;
-    if (CascadedShadowGenerator.IsSupported && q.shadowCascades >= 2) {
+    if (this.wantsCascades(q)) {
       const csm = new CascadedShadowGenerator(q.shadowMapSize, this.sun);
       csm.numCascades = this.cascadeCount(q);
       csm.stabilizeCascades = true; // no shimmering when the camera turns
@@ -405,7 +418,7 @@ export class Lighting implements ILighting {
     }
     gen.usePercentageCloserFiltering = true;
     gen.filteringQuality = this.filterQuality(q);
-    gen.bias = this.tuning.shadowBias;
+    gen.bias = this.csm ? this.tuning.shadowBias * 4 : this.tuning.shadowBias;
     gen.normalBias = this.tuning.shadowNormalBias;
     gen.darkness = 0;
     gen.transparencyShadow = false;
@@ -427,13 +440,15 @@ export class Lighting implements ILighting {
       maxZ = -Infinity;
     const b = SHADOW_BOUNDS;
     for (const x of [b.min.x, b.max.x])
-      for (const y of [b.min.y, b.max.y])
+      for (const y of [b.min.y, b.max.y, SHADOW_CASTER_TOP])
         for (const z of [b.min.z, b.max.z]) {
           Vector3.TransformCoordinatesToRef(new Vector3(x, y, z), view, TMP_V);
           minX = Math.min(minX, TMP_V.x);
           maxX = Math.max(maxX, TMP_V.x);
-          minY = Math.min(minY, TMP_V.y);
-          maxY = Math.max(maxY, TMP_V.y);
+          if (y <= b.max.y) {
+            minY = Math.min(minY, TMP_V.y);
+            maxY = Math.max(maxY, TMP_V.y);
+          }
           minZ = Math.min(minZ, TMP_V.z);
           maxZ = Math.max(maxZ, TMP_V.z);
         }
@@ -441,8 +456,8 @@ export class Lighting implements ILighting {
     s.orthoRight = maxX;
     s.orthoBottom = minY;
     s.orthoTop = maxY;
-    s.shadowMinZ = Math.max(0.1, minZ - 30);
-    s.shadowMaxZ = maxZ + 1;
+    s.shadowMinZ = Math.max(0.1, minZ - 0.5);
+    s.shadowMaxZ = maxZ + 0.5;
   }
 
   /** Per-cascade caster culling: outside the cascade box → skip; tiny meshes skip coarse cascades. */

@@ -142,12 +142,18 @@ export function wpolyClip(w: WPoly, nx: number, ny: number, nz: number, d: numbe
   let totalIdx = 0;
   for (const f of w.faces) totalIdx += f.v.length;
   ensureScratch(nv + totalIdx + 16);
-  // Vertices closer to the plane than the weld distance are snapped "on" the plane (kept, not
-  // split). Otherwise a cut passing ~1e-8×scale beside a vertex creates crossing points just
-  // beyond the weld distance on its edges: sub-micron edges whose rounded/welded corners come
-  // out slightly reflex (breaks the convex-face invariant). The snapped vertex stays where it is,
-  // at most weldEps off the cap plane, and both complementary halves share it (volume exact).
-  const onEps = Math.max(planeEps, weldEps);
+  // Snap/weld tolerances. History: welding crossings to nearby vertices at the full weldEps
+  // (1e-7×scale) moved them by up to that much, and when a cut passed ~1e-8×scale beside a
+  // vertex the resulting sub-micron edges came out with slightly reflex corners. Now:
+  //  * vertices within onEps (= 0.1·weldEps ≈ 1e-8×scale) of the plane are snapped "on" it
+  //    (kept, not split; both complementary halves share them, so volume stays exact). Every
+  //    crossing is therefore farther than onEps from both endpoints of its edge;
+  //  * a crossing welds to an on-plane vertex only within onEps, and to another crossing only
+  //    when they are numerically the same point (3·planeEps); both only if the two points share
+  //    a face (consecutive on the cap loop → a plain edge collapse, never a pinch);
+  //  * otherwise points stay apart and form exact, tiny but convex edges.
+  // Net effect: geometry moves by at most ~1e-8×scale, far inside the validator tolerances.
+  const onEps = Math.max(planeEps, 0.1 * weldEps);
   let nOut = 0,
     nIn = 0;
   for (let i = 0; i < nv; i++) {
@@ -166,12 +172,8 @@ export function wpolyClip(w: WPoly, nx: number, ny: number, nz: number, d: numbe
 
   cp = p;
   cnv = nv;
-  cWeld2 = weldEps * weldEps;
-  // Two crossings are merged only when they are numerically the same point (planeEps): with
-  // vertices within weldEps snapped on-plane, distinct crossings can only be close on nearly
-  // collinear edges, and pulling one onto the other by up to weldEps would bend the faces they
-  // sit on (reflex corners ~weldEps deep). Left apart they form an exact, tiny but convex edge.
-  cDup2 = planeEps * planeEps;
+  cWeld2 = onEps * onEps;
+  cDup2 = 3 * planeEps * (3 * planeEps);
   edgeKey.length = 0;
   edgeVert.length = 0;
   newVerts.length = 0;

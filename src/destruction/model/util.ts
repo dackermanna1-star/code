@@ -44,7 +44,8 @@ export interface LocalGeom {
   face: PolyFace | null;
   /** Local thickness under the impact (m). */
   t: number;
-  /** Smallest extent perpendicular to the face normal (m). */
+  /** In-plane size at the hit (m): the plate's middle extent for planar parts, else the smallest
+   *  principal extent perpendicular to the face normal. */
   inPlaneMin: number;
   /** True when the part is a plate (thin compared to its in-plane size). */
   planar: boolean;
@@ -77,9 +78,13 @@ export function localGeom(part: PartState, p: Vec3, dir: Vec3): LocalGeom {
   let t = Math.min(chord(dir), chord({ x: -faceN.x, y: -faceN.y, z: -faceN.z }));
   if (!(t > 0) || !Number.isFinite(t)) t = polyWidth(poly, faceN);
   if (!(t > 0) || !Number.isFinite(t)) t = Math.max(1e-4, fin(ext[2], 0.01));
-  // in-plane extents: principal axes except the one most aligned with the face normal
+  // in-plane extents. A plate's in-plane size is a property of the plate itself (its two
+  // largest principal extents), whatever face was hit: an edge hit on a door or table top must
+  // not see the plate thickness as its "in-plane" size (that would turn every edge chip into a
+  // whole-part failure). Bulky parts: principal axes except the one most aligned with the face.
+  const planar = ext[2] < 0.3 * ext[1];
   let inPlaneMin = fin(ext[1], 0.1);
-  try {
+  if (!planar) try {
     const E = polyExtents(poly);
     let k = 0,
       bd = -1;
@@ -96,7 +101,6 @@ export function localGeom(part: PartState, p: Vec3, dir: Vec3): LocalGeom {
   } catch {
     /* keep fallback */
   }
-  const planar = ext[2] < 0.3 * ext[1];
   return { faceN, face, t, inPlaneMin: Math.max(1e-4, inPlaneMin), planar };
 }
 

@@ -289,8 +289,7 @@ export function furnishLivingItems(): LivingItem[] {
   L.floor("sideTable", buildSideTable({ seed: 3132 }), 7.75, sofaZ + SOFA_PARAMS.L / 2 + 0.06 + 0.225, -90);
   L.rest("tableLamp", buildTableLamp({ seed: 3133, tint: 0x3d6f8c }), 7.75, sofaZ + SOFA_PARAMS.L / 2 + 0.285, yawQ(-90), ["sideTable"]);
 
-  const rug = L.floor("rug", buildAreaRug({ seed: 3134, l: 1.86 }), 6.15, 2.33, 0);
-  void rug;
+  L.floor("rug", buildAreaRug({ seed: 3134, l: 1.86 }), 6.15, 2.33, 0);
   const ctX = 6.5,
     ctZ = 2.35;
   L.rest("coffeeTable", buildCoffeeTable({ seed: 3135 }), ctX, ctZ, q90, ["rug"]);
