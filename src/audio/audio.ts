@@ -47,10 +47,17 @@ const WET_SCALE = 0.35;
 const MIX_GAIN = 2;
 const STREET_Y = -FLOOR_LEVEL * STOREY_H;
 const INAUDIBLE = 2e-4;
+/** Occlusion rays end this far (m) in front of the sounding contact point. */
+const OCC_PULLBACK = 0.08;
+/** Max simultaneous strain (creak) loops. */
+const MAX_STRAINS = 4;
 const HRTF_BY_QUALITY: Record<string, number> = { low: 8, medium: 16, high: 24, ultra: 32 };
 
 const dbToGain = (db: number): number => Math.pow(10, db / 20);
-const clamp = (x: number, lo: number, hi: number): number => (x < lo ? lo : x > hi ? hi : x);
+/** NaN-safe clamp: NaN → lo (non-finite values must never reach an AudioParam). */
+const clamp = (x: number, lo: number, hi: number): number => (x >= lo ? (x <= hi ? x : hi) : lo);
+/** Finite number or fallback. */
+const num = (x: unknown, d: number): number => (typeof x === "number" && Number.isFinite(x) ? x : d);
 const finite = (v: Vec3 | null | undefined): v is Vec3 => !!v && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
 
 type Bus = 0 | 1 | 2; // sfx, ambience, ui
@@ -252,6 +259,9 @@ export class Audio implements AudioSystem {
   private revRet: GainNode[] = [];
   private channels: Channel[] = [];
   private masterUser = -1;
+  /** settings.masterVolume seen by the last applySettings (NaN = never applied). */
+  private lastSettingsMaster = NaN;
+  private disposed = false;
 
   // listener
   private lis = { x: 0, y: 1.6, z: 0 };
@@ -318,6 +328,7 @@ export class Audio implements AudioSystem {
   private readonly tmpW2 = [0, 0, 0];
   private readonly tmpSend = [0, 0, 0];
   private readonly va = { x: 0, y: 0, z: 0 };
+  private readonly tmpS = { x: 0, y: 0, z: 0 };
   private readonly vb = { x: 0, y: 0, z: 0 };
 
   private st = { played: 0, dropped: 0, stolen: 0, limited: 0, rays: 0 };
@@ -336,7 +347,13 @@ export class Audio implements AudioSystem {
     this.maxVoices = clamp(Math.floor(opts.maxVoices ?? 48), 8, 128);
     if (!this.bank.size) this.disabled = true;
     try {
-      this.settings.onChange((d) => this.applySettings(d));
+      // Settings.onChange has no unsubscribe: hold the engine weakly so a disposed Audio can be
+      // collected, and ignore changes after dispose().
+      const W = (globalThis as { WeakRef?: new <T extends object>(t: T) => { deref(): T | undefined } }).WeakRef;
+      if (W) {
+        const ref = new W(this);
+        this.settings.onChange((d) => ref.deref()?.applySettings(d));
+      } else this.settings.onChange((d) => this.applySettings(d));
     } catch {
       /* settings without listeners */
     }
@@ -406,14 +423,14 @@ export class Audio implements AudioSystem {
       const g = opts?.gain ?? 1;
       if (!(g > 0) || !Number.isFinite(g)) return;
       const now = this.clock();
-      if (!this.buckets.allow(M.familyKey(r.def.id), now, ...M.limitsFor(r.def.id))) {
+      const db = r.def.level + 20 * Math.log10(g);
+      const positional = finite(pos);
+      if (!this.buckets.allow(M.familyKey(r.def.id), now, ...M.limitsFor(r.def.id), this.levelAtListener(db, positional ? pos : null))) {
         this.st.limited++;
         return;
       }
-      const db = r.def.level + 20 * Math.log10(g);
-      const positional = finite(pos);
       const req = this.newReq(positional ? pos : null, positional ? 0 : r.def.bus === "ui" ? 2 : 1, BUS_OF[r.def.bus] ?? 0);
-      const rate = r.rate * clamp(opts?.pitch ?? 1, 0.25, 4) * this.jitter(0.03);
+      const rate = r.rate * clamp(num(opts?.pitch, 1), 0.25, 4) * this.jitter(0.03);
       this.addLayer(req, this.bank.pick(e, this.rand), dbToGain(db), rate, 0);
       this.addSampleLayer(req, M.SAMPLE_FOR_ID[r.def.id], db, rate);
       req.prio = Number.isFinite(opts?.priority) ? Math.max(0, opts!.priority!) : 1;
@@ -435,7 +452,7 @@ export class Audio implements AudioSystem {
         return NOOP_LOOP;
       }
       const positional = finite(pos);
-      const lv = new LoopVoice(this, r.def, this.bank.pick(e, this.rand), positional, Math.max(0, opts?.gain ?? 1), clamp((opts?.pitch ?? 1) * r.rate, 0.25, 4), this.clock());
+      const lv = new LoopVoice(this, r.def, this.bank.pick(e, this.rand), positional, Math.max(0, num(opts?.gain, 1)), clamp(num(opts?.pitch, 1) * r.rate, 0.25, 4), this.clock());
       if (positional) {
         lv.x = pos.x;
         lv.y = pos.y;
@@ -451,8 +468,12 @@ export class Audio implements AudioSystem {
     }
   }
 
+  /**
+   * Explicit master volume (pause ducking, mute …). It stays in force until the settings'
+   * masterVolume itself changes; unrelated settings changes (FOV, shake …) keep it.
+   */
   setMasterVolume(v: number): void {
-    if (!Number.isFinite(v)) return;
+    if (!Number.isFinite(v) || this.disposed) return;
     this.masterUser = clamp(v, 0, 1);
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(this.masterUser * this.masterUser * MIX_GAIN, this.ctx.currentTime, 0.03);
   }
@@ -543,13 +564,71 @@ export class Audio implements AudioSystem {
 
   /** Stop everything, unsubscribe, close an owned context (tests / teardown). */
   dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
     for (const u of this.unsubs) u();
     this.unsubs.length = 0;
     this.gestureOff?.();
     this.samples.abort();
     for (const lv of [...this.loops]) lv.stop(0);
+    this.loops.clear();
+    this.water.clear();
+    this.buzz.clear();
+    this.strains.clear();
+    this.windowWind.length = 0;
+    this.city = null;
+    this.windBed = null;
+    // Queued one-shots hold AudioBuffer references.
+    for (const r of this.pending) this.release(r);
+    for (const r of this.delayed) this.release(r);
+    this.pending.length = 0;
+    this.delayed.length = 0;
+    this.reqPool.length = 0;
     const c = this.ctx as AudioContext | null;
+    // Stop scheduled one-shots and tear the graph down (matters for an attached, non-owned context).
+    const t = c ? c.currentTime : 0;
+    for (const ch of this.channels) {
+      for (const src of ch.sources) {
+        try {
+          src.onended = null;
+          src.stop(t);
+        } catch {
+          /* never started / already stopped */
+        }
+        try {
+          src.disconnect();
+        } catch {
+          /* ignore */
+        }
+      }
+      ch.sources.length = 0;
+      ch.busyUntil = 0;
+      const nodes: Array<AudioNode | null> = [ch.input, ch.filter, ch.panner, ...ch.outs, ...ch.sends];
+      for (const n of nodes) {
+        try {
+          n?.disconnect();
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    for (const n of [...this.revIn, ...this.revRet, ...this.buses, this.master]) {
+      try {
+        n?.disconnect();
+      } catch {
+        /* ignore */
+      }
+    }
+    this.channels = [];
+    this.revIn = [];
+    this.revRet = [];
+    this.buses = [];
+    this.master = null;
+    this.occCache.clear();
+    this.roomFn = null;
+    this.occFn = null;
     if (c && this.ownsContext && typeof c.close === "function") void c.close().catch(() => undefined);
+    this.ctx = null;
     this.disabled = true;
   }
 
@@ -659,7 +738,9 @@ export class Audio implements AudioSystem {
       }
       // Voice channels.
       const q = (this.settings?.data?.quality as string) ?? "high";
-      const hrtfN = this.hrtfOpt ?? HRTF_BY_QUALITY[q] ?? 24;
+      // HRTF panners inside an OfflineAudioContext can hang startRendering (api-notes §6): offline
+      // renders use equal-power unless HRTF is requested explicitly.
+      const hrtfN = this.hrtfOpt ?? (this.offline ? 0 : (HRTF_BY_QUALITY[q] ?? 24));
       this.hrtfLoops = hrtfN > 0;
       const nUi = 2;
       const nSelf = 6;
@@ -759,14 +840,17 @@ export class Audio implements AudioSystem {
 
   private applySettings(d: SettingsData): void {
     const c = this.ctx;
-    if (!c || !this.master || this.buses.length < 3 || !d) return;
+    if (this.disposed || !c || !this.master || this.buses.length < 3 || !d) return;
     const sq = (v: unknown) => {
       const n = typeof v === "number" && Number.isFinite(v) ? clamp(v, 0, 1) : 1;
       return n * n;
     };
     const t = c.currentTime;
+    // An explicit setMasterVolume() holds until the settings' own masterVolume changes.
+    const sm = num(d.masterVolume, 1);
+    if (this.masterUser >= 0 && !Number.isNaN(this.lastSettingsMaster) && sm !== this.lastSettingsMaster) this.masterUser = -1;
+    this.lastSettingsMaster = sm;
     const mv = this.masterUser >= 0 ? this.masterUser * this.masterUser : sq(d.masterVolume);
-    this.masterUser = -1; // settings changes win after an explicit setMasterVolume
     this.master.gain.setTargetAtTime(mv * MIX_GAIN, t, 0.03);
     this.buses[0].gain.setTargetAtTime(sq(d.sfxVolume), t, 0.03);
     this.buses[1].gain.setTargetAtTime(sq(d.ambienceVolume), t, 0.03);
@@ -803,7 +887,7 @@ export class Audio implements AudioSystem {
       L.push(M.swingLayer(e.tool ?? "hands", e.power));
       this.playLayers(L, e.pos, 0, { occlude: false, prio: 1.5 });
     });
-    on("toolHit", (e) => this.playLayers(M.toolHitLayers(e.tool, e.energy, e.hard, this.tmpLayers), e.pos, 0, { occlude: false, prio: 2 }));
+    on("toolHit", (e) => this.playLayers(M.toolHitLayers(e.tool, e.energy, e.hard, this.tmpLayers), e.pos, 0, { occlude: false, prio: 2, noLimit: true }));
     on("footstep", (e) => this.onFootstep(e.pos, e.mat, e.speed));
     on("land", (e) => {
       const L = this.tmpLayers;
@@ -826,18 +910,22 @@ export class Audio implements AudioSystem {
   private onImpact(e: ImpactEv): void {
     if (!(e.energy >= 2e-3) || !finite(e.pos)) return;
     const now = this.clock();
-    // Rate-limit per dynamic island (structure-sized parts are not limited: everything lands on them).
-    const limA = e.idA >= 0 && !M.isStructure(e.sizeA, e.massA);
-    const limB = e.idB >= 0 && !M.isStructure(e.sizeB, e.massB);
-    if ((limA && !this.islands.check(e.idA, now, e.energy)) || (limB && !this.islands.check(e.idB, now, e.energy))) {
+    // Rate-limit per dynamic island. Bonded surfaces (floor, walls) are limited per contact
+    // position instead: everything lands on them, so a whole room's floor island must not
+    // swallow a debris shower. Player strikes are never limited.
+    const strike = M.isStrike(e);
+    const surf = M.surfaceSides(e);
+    const keyA = e.idA >= 0 ? (surf & 1 ? this.contactKey(e.pos) : e.idA) : -1;
+    const keyB = e.idB >= 0 && !strike ? (surf & 2 ? this.contactKey(e.pos) : e.idB) : -1;
+    if (!strike && ((keyA >= 0 && !this.islands.check(keyA, now, e.energy)) || (keyB >= 0 && keyB !== keyA && !this.islands.check(keyB, now, e.energy)))) {
       this.st.limited++;
       return;
     }
     const layers = M.impactLayers(e, this.tmpLayers);
     if (!layers.length) return;
-    if (limA) this.islands.record(e.idA, now, e.energy);
-    if (limB) this.islands.record(e.idB, now, e.energy);
-    this.playLayers(layers, e.pos, 0);
+    if (keyA >= 0) this.islands.record(keyA, now, e.energy);
+    if (keyB >= 0) this.islands.record(keyB, now, e.energy);
+    this.playLayers(layers, e.pos, 0, strike ? { noLimit: true, prio: 2 } : undefined);
     this.noteMaterial(e.pos, M.profileOf(e.matA));
     // Sympathetic rattle: a really heavy blow makes nearby dishes / panes buzz.
     if (e.energy > 150 && this.rand() < 0.3) {
@@ -882,18 +970,35 @@ export class Audio implements AudioSystem {
     const prof = M.profileOf(mat);
     const fam = kind === "hinge" || kind === "slider" || kind === "latch" ? "hinge" : prof === "metal" || prof === "metalThin" ? "metal" : prof === "drywall" || prof === "concrete" ? "drywall" : "wood";
     const now = this.clock();
-    let st = this.strains.get(fam);
+    // One loop per family and joint location (0.5 m cells): two joints strained at once each
+    // creak in place instead of sharing one emitter that jumps between them.
+    const key = `${fam}@${this.posKey(pos, 0.5)}`;
+    let st = this.strains.get(key);
+    let fresh = false;
     if (!st) {
+      if (this.strains.size >= MAX_STRAINS) {
+        // Replace the stalest strain loop.
+        let oldK: string | null = null;
+        let oldT = Infinity;
+        for (const [k, v] of this.strains) if (v.last < oldT) ((oldT = v.last), (oldK = k));
+        if (oldK) {
+          this.strains.get(oldK)!.lv.stop(0.15);
+          this.strains.delete(oldK);
+        }
+      }
       const h = this.loop(`strain.${fam}`, pos, { gain: 0 });
       if (!(h instanceof LoopVoice)) return;
       st = { lv: h, last: now, nextAccent: now + 0.3 };
-      this.strains.set(fam, st);
+      this.strains.set(key, st);
+      fresh = true;
     }
     st.last = now;
     st.lv.setPosition(pos);
     // Absolute level −32 … −8 dB with stress; pitch rises as the joint is loaded.
     st.lv.setGain(dbToGain(-32 + 24 * s - st.lv.def.level));
     st.lv.setPitch(0.8 + 0.5 * s);
+    // Realise the new loop now rather than on the next 0.1 s loop pass.
+    if (fresh && st.lv.state === 0) this.updateLoops(now, true);
     if (s > 0.45 && now > st.nextAccent) {
       st.nextAccent = now + 0.25 + this.rand() * 0.8 * (1.2 - s);
       this.simple(fam === "metal" ? "creak.metal" : fam === "hinge" ? "creak.hinge" : fam === "drywall" ? "crack.dull" : "creak.wood", -20 + 10 * s, pos, 0);
@@ -991,7 +1096,7 @@ export class Audio implements AudioSystem {
    * Turn layers into voices: immediate layers share one channel (same position, filter and
    * panner); delayed layers become their own (delayed) voices.
    */
-  private playLayers(layers: readonly M.Layer[], pos: Vec3 | null, kind: 0 | 1 | 2, o?: { occlude?: boolean; prio?: number; ext?: boolean; cutoff?: number; reverb?: number }): void {
+  private playLayers(layers: readonly M.Layer[], pos: Vec3 | null, kind: 0 | 1 | 2, o?: { occlude?: boolean; prio?: number; ext?: boolean; cutoff?: number; reverb?: number; noLimit?: boolean }): void {
     if (!layers.length || !this.running) return;
     const now = this.clock();
     const positional = finite(pos) && kind === 0;
@@ -1004,9 +1109,18 @@ export class Audio implements AudioSystem {
         this.warnOnce(L.id);
         continue;
       }
-      if (!this.buckets.allow(M.familyKey(r.def.id), now, ...M.limitsFor(r.def.id))) {
-        this.st.limited++;
-        continue;
+      if (!o?.noLimit) {
+        // Family limits only thin out quiet layers (see TokenBuckets); clearly inaudible ones
+        // are dropped before they can take a token from audible ones.
+        const lvl = this.levelAtListener(L.db, positional ? pos : null);
+        if (lvl < -80) {
+          this.st.dropped++;
+          continue;
+        }
+        if (!this.buckets.allow(M.familyKey(r.def.id), now, ...M.limitsFor(r.def.id), lvl)) {
+          this.st.limited++;
+          continue;
+        }
       }
       const delayed = (L.delay ?? 0) > 0.03;
       let req: Req;
@@ -1020,7 +1134,7 @@ export class Audio implements AudioSystem {
         if (o?.reverb !== undefined) req.reverb = o.reverb;
         if (!delayed) main = req;
       } else req = main;
-      const rate = r.rate * (L.rate ?? 1) * this.jitter(0.035);
+      const rate = r.rate * clamp(num(L.rate, 1), 0.25, 4) * this.jitter(0.035);
       this.addLayer(req, this.bank.pick(e, this.rand), dbToGain(L.db), rate, 0);
       this.addSampleLayer(req, L.sample ?? M.SAMPLE_FOR_ID[r.def.id], L.db, rate);
       if (L.cutoff) req.cutoff = Math.min(req.cutoff, L.cutoff);
@@ -1173,11 +1287,17 @@ export class Audio implements AudioSystem {
           this.release(r);
           continue;
         }
-        const ch = this.allocate(r);
-        if (ch) {
-          this.startVoice(ch, r);
-          this.st.played++;
-        } else this.st.dropped++;
+        try {
+          const ch = this.allocate(r);
+          if (ch) {
+            this.startVoice(ch, r);
+            this.st.played++;
+          } else this.st.dropped++;
+        } catch (err) {
+          // One bad request must not discard the rest of the batch.
+          this.st.dropped++;
+          this.fail("voice", err);
+        }
         this.release(r);
       }
     } catch (err) {
@@ -1247,7 +1367,7 @@ export class Audio implements AudioSystem {
       gain *= this.extGain;
       cut = Math.min(cut, this.extCutoff * 1.5);
     }
-    ch.input.gain.setValueAtTime(gain, when);
+    ch.input.gain.setValueAtTime(num(gain, 0), when);
     ch.filter.frequency.setValueAtTime(clamp(cut, 60, 20000), when);
     if (ch.panner) {
       this.setPannerPos(ch.panner, r.vx, r.vy, r.vz, when);
@@ -1262,17 +1382,17 @@ export class Audio implements AudioSystem {
     if (ch.sends.length) {
       const room = r.pos ? this.roomAt(r.x, r.y, r.z) : this.lisRoom;
       const w = this.sendWeights(room, r.pos ? r.occ : 1, this.tmpSend);
-      for (let i = 0; i < ch.sends.length; i++) ch.sends[i].gain.setValueAtTime(w[i] * r.reverb, when);
+      for (let i = 0; i < ch.sends.length; i++) ch.sends[i].gain.setValueAtTime(num(w[i] * r.reverb, 0), when);
     }
     let end = when;
     for (let i = 0; i < r.n; i++) {
       const L = r.layers[i];
       const src = c.createBufferSource();
       src.buffer = L.buffer;
-      src.playbackRate.value = clamp(L.rate, 0.25, 4);
+      src.playbackRate.value = clamp(num(L.rate, 1), 0.25, 4);
       if (Math.abs(L.gain - 1) > 1e-4) {
         const g = c.createGain();
-        g.gain.value = L.gain;
+        g.gain.value = clamp(L.gain, 0, 64);
         src.connect(g);
         g.connect(ch.input);
         this.srcGain.set(src, g);
@@ -1360,7 +1480,11 @@ export class Audio implements AudioSystem {
     if (this.rayBudget <= 0) return cached ? cached.occ : 1;
     const L = this.lis;
     const S = { x: r.x, y: r.y, z: r.z };
-    const direct = this.ray(L, S);
+    // Contact points lie ON the struck wall/floor: pull the ray end a few cm back toward the
+    // listener so a raycast against static structure does not hit the very surface that is
+    // sounding (which would muffle the player's own hits on walls and everything landing on
+    // the floor). Same for the portal → source leg below.
+    const direct = this.ray(L, pullBack(S, L, this.tmpS));
     let best = direct;
     let vx = r.x,
       vy = r.y,
@@ -1379,7 +1503,7 @@ export class Audio implements AudioSystem {
         const { p, len } = cands[i];
         const a = this.ray(L, p);
         if (a < 0.05) continue;
-        const b = this.ray(p, S);
+        const b = this.ray(p, pullBack(S, p, this.tmpS));
         const ax = p.x - L.x,
           ay = p.y - L.y,
           az = p.z - L.z;
@@ -1771,6 +1895,23 @@ export class Audio implements AudioSystem {
     return 1 + amount * (this.rng.next() * 2 - 1);
   }
 
+  /**
+   * Estimated level (dB) of a layer at the listener: its 1 m level through the distance law
+   * (occlusion not included). 2-D self sounds count at their own level.
+   */
+  private levelAtListener(db: number, pos: Vec3 | null): number {
+    if (!pos) return db;
+    const d = Math.hypot(pos.x - this.lis.x, pos.y - this.lis.y, pos.z - this.lis.z);
+    return db + 20 * Math.log10(Math.max(M.inverseDistanceGain(num(d, 0), 1, M.rolloffFor(db)), 1e-6));
+  }
+
+  /** Rate-limiter key for a contact point on a bonded surface (0.2 m cells, ≥ 2^30 so it never collides with island ids). */
+  private contactKey(p: Vec3): number {
+    const q = (v: number) => Math.round(v / 0.2) & 0x3ff;
+    const h = Math.imul(q(p.x) | (q(p.y) << 10) | (q(p.z) << 20), 0x9e3779b1) >>> 0;
+    return 0x40000000 + (h & 0x3fffffff);
+  }
+
   private posKey(p: Vec3, q: number): string {
     return `${Math.round(p.x / q)},${Math.round(p.y / q)},${Math.round(p.z / q)}`;
   }
@@ -1796,6 +1937,19 @@ function holdParam(p: AudioParam, t: number): void {
     p.cancelScheduledValues(t);
     p.setValueAtTime(v, t);
   }
+}
+
+/** Source point moved toward `to` by 8 cm (at most half the distance) — keeps occlusion rays off the sounding surface. */
+function pullBack(s: Vec3, to: Vec3, out: Vec3): Vec3 {
+  const dx = to.x - s.x,
+    dy = to.y - s.y,
+    dz = to.z - s.z;
+  const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  const k = d > 1e-6 ? Math.min(OCC_PULLBACK, d * 0.5) / d : 0;
+  out.x = s.x + dx * k;
+  out.y = s.y + dy * k;
+  out.z = s.z + dz * k;
+  return out;
 }
 
 /** Numeric cache key for a (source, listener) pair quantised to 0.3 m. */

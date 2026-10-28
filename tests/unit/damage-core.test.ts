@@ -279,10 +279,16 @@ test("dents: accumulated depth never exceeds the cap; the dent widens instead; c
   const E = dropEnergy(15, 5, "steelSheet", "concrete");
   const P = v(0.1, 0.0004, 0.05);
   let events = 0;
-  const gridMax = (): number => {
-    let m = 0;
-    for (let x = -0.25; x <= 0.25; x += 0.01) for (let z = -0.175; z <= 0.175; z += 0.01) m = Math.max(m, dentDepthAt(panel.dents, v(x, 0, z)));
-    return m;
+  const grid = (): { max: number; area: number } => {
+    let max = 0,
+      area = 0;
+    for (let x = -0.25; x <= 0.25; x += 0.01)
+      for (let z = -0.175; z <= 0.175; z += 0.01) {
+        const d = dentDepthAt(panel.dents, v(x, 0, z));
+        max = Math.max(max, d);
+        if (d >= 0.5 * cap) area += 1e-4; // m² deeply dented
+      }
+    return { max, area };
   };
   let wide5 = 0;
   for (let k = 0; k < 30; k++) {
@@ -290,11 +296,11 @@ test("dents: accumulated depth never exceeds the cap; the dent widens instead; c
     if (o.crumpled) events++;
     applyOutcome(panel, o);
     assert.ok(dentDepthAt(panel.dents, P) <= cap * 1.0001, `hit ${k + 1}: depth ${dentDepthAt(panel.dents, P)} > cap ${cap}`);
-    if (k === 4) wide5 = panel.dents.reduce((m, d) => Math.max(m, Math.hypot(d.p.x - P.x, d.p.z - P.z) + d.r), 0);
+    if (k === 4) wide5 = grid().area;
   }
-  assert.ok(gridMax() <= 1.06 * cap, `max displacement ${gridMax()} vs cap ${cap}`);
-  const wide30 = panel.dents.reduce((m, d) => Math.max(m, Math.hypot(d.p.x - P.x, d.p.z - P.z) + d.r), 0);
-  assert.ok(wide30 > 1.3 * wide5, `dented area widens (${wide5.toFixed(3)} → ${wide30.toFixed(3)} m)`);
+  const g = grid();
+  assert.ok(g.max <= 1.06 * cap, `max displacement ${g.max} vs cap ${cap}`);
+  assert.ok(g.area > 1.5 * wide5, `deeply dented area widens (${(wide5 * 1e4).toFixed(0)} → ${(g.area * 1e4).toFixed(0)} cm²)`);
   assert.ok(events >= 1 && events <= 5, `crumple events ${events} (not one per hit)`);
   // a plastic casing dent obeys its cap too
   const cas = makePart("plastic", box(0.3, 0.2, 0.002));

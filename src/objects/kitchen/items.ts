@@ -321,7 +321,7 @@ export function buildSaucepan(o: ItemOpts & { r?: number; h?: number; handles?: 
     let n = 0;
     for (const w of s.wall) {
       const c = b.contact(part, w, 0.004);
-      if (c && (c.penetrating || c.kind === "face" || c.length > 0.003)) {
+      if (c && (c.penetrating || c.kind === "face" || c.length > 0.003 || c.sep < -0.0005)) {
         b.bond(part, w, kind, { strength });
         n++;
       }

@@ -119,7 +119,7 @@ export interface AtmosphereTuning {
   motes: number;
 }
 
-export const DEFAULT_ATMOSPHERE: AtmosphereTuning = { density: 0.075, motes: 260 };
+export const DEFAULT_ATMOSPHERE: AtmosphereTuning = { density: 0.2, motes: 260 };
 
 interface ShaftRender {
   vol: ShaftVolume;
