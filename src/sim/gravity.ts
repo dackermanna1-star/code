@@ -19,7 +19,7 @@ export function gravityAccel(sys: StarSystem, ref: Body, rel: Vector3, out = new
   out.set(0, 0, 0);
   _p.copy(ref.posSys).add(rel); // particle in system frame
   for (const b of sys.bodies) {
-    if (b.mass <= 0 || b.kind === 'barycenter') continue;
+    if (b.mass <= 0 || b.kind === 'barycenter' || b.kind === 'station') continue;
     _d.copy(b.posSys).sub(_p);
     const r2 = _d.lengthSq();
     const minR = Math.max(b.radius * 0.5, 1);
@@ -44,7 +44,7 @@ export function dominantBody(sys: StarSystem, posSys: Vector3): Body {
   let best: Body = sys.root;
   let bestSoi = Infinity;
   for (const b of sys.bodies) {
-    if (b.kind === 'barycenter' && b !== sys.root) continue;
+    if ((b.kind === 'barycenter' && b !== sys.root) || b.kind === 'station') continue;
     const d = _d.copy(posSys).sub(b.posSys).length();
     const soi = b.parent ? b.soi : Infinity;
     if (d < soi && soi < bestSoi) {

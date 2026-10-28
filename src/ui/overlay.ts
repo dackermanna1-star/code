@@ -560,9 +560,65 @@ export class Overlay {
     g.textAlign = 'left';
   }
 
+  /**
+   * Docking: marker on the selected port, and an alignment scope seen down
+   * the port axis (lateral offset, misalignment, closing rate, capture state).
+   */
+  private drawDocking(s: OverlayState) {
+    const ship = s.player.ship;
+    const dk = ship?.dock;
+    const geo = dk?.geo;
+    if (!ship || !dk || !geo || ship.docked) return;
+    const g = this.g;
+    const view = s.world.view;
+    if (view.body === ship.frame.body) {
+      const rel = geo.portPos.clone().sub(view.offsetWorld(new THREE.Vector3()));
+      const p = this.project(rel);
+      if (p) {
+        g.strokeStyle = '#7dffb0'; g.lineWidth = 1.5;
+        g.beginPath(); g.moveTo(p.x, p.y - 9); g.lineTo(p.x + 9, p.y); g.lineTo(p.x, p.y + 9); g.lineTo(p.x - 9, p.y); g.closePath(); g.stroke();
+        g.fillStyle = 'rgba(200,255,220,0.9)';
+        g.fillText(`${dk.target.ports[dk.port].name} · ${geo.range < 1000 ? geo.range.toFixed(1) + ' m' : (geo.range / 1000).toFixed(2) + ' km'}`, p.x + 14, p.y);
+      }
+    }
+    if (geo.range > 600) return;
+    // scope: the port is the centre; the dot is our probe's lateral offset
+    // stacked above the attitude indicator
+    const R = 46, cx = this.w - R - 22, cy = this.h - R - 92 - 2 * R - 86;
+    const side = new THREE.Vector3().crossVectors(geo.portAxis, geo.portUp);
+    const lx = geo.lateral.dot(side), ly = geo.lateral.dot(geo.portUp);
+    const scale = (d: number) => Math.sign(d) * Math.min(R - 4, (R * 0.5) * Math.log10(1 + Math.abs(d) / 0.1) / Math.log10(1 + 2 / 0.1));
+    const ready = geo.lateralDist < 0.3 && geo.angle < 0.1 && geo.roll < 0.2 && geo.closing < 0.6 && geo.closing > -0.1;
+    g.save();
+    g.fillStyle = 'rgba(8,14,22,0.55)';
+    g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = 'rgba(160,190,230,0.5)'; g.lineWidth = 1;
+    g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.moveTo(cx - R, cy); g.lineTo(cx + R, cy); g.moveTo(cx, cy - R); g.lineTo(cx, cy + R); g.stroke();
+    g.strokeStyle = 'rgba(125,255,176,0.6)';
+    g.beginPath(); g.arc(cx, cy, scale(0.3), 0, Math.PI * 2); g.stroke();
+    // probe offset and attitude error (tick from the probe dot)
+    const px = cx + scale(lx), py = cy - scale(ly);
+    g.fillStyle = ready ? '#7dffb0' : '#ffcf7c';
+    g.beginPath(); g.arc(px, py, 4, 0, Math.PI * 2); g.fill();
+    g.strokeStyle = g.fillStyle; g.lineWidth = 2;
+    const tick = Math.min(R, geo.angle * 57.3 * 3);
+    g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.sin(geo.roll) * tick, py - Math.cos(geo.roll) * tick); g.stroke();
+    g.restore();
+    g.fillStyle = 'rgba(232,238,246,0.9)';
+    g.textAlign = 'right';
+    const xr = this.w - 16;
+    const auto = ship.autopilot.mode === 'dock' ? `AUTO ${dk.phase}` : 'manual';
+    g.fillText(`RNG ${geo.range.toFixed(geo.range < 100 ? 2 : 0)} m · ${geo.closing >= 0 ? 'CLS' : 'OPN'} ${Math.abs(geo.closing).toFixed(2)} m/s`, xr, cy + R + 14);
+    g.fillText(`LAT ${geo.lateralDist.toFixed(2)} m · ALN ${(geo.angle * 57.3).toFixed(1)}° · ROLL ${(geo.roll * 57.3).toFixed(0)}°`, xr, cy + R + 30);
+    g.fillStyle = ready ? '#7dffb0' : 'rgba(232,238,246,0.6)';
+    g.fillText(ready ? 'CAPTURE ENVELOPE' : `DOCK · ${auto}`, xr, cy - R - 10);
+    g.textAlign = 'left';
+  }
+
   private drawFlightMarkers(s: OverlayState) {
     this.drawTrajectory(s);
     this.drawAttitude(s);
+    this.drawDocking(s);
     const ship = s.player.ship;
     if (!ship || !ship.frame.body || ship.landed) return;
     const v = ship.velocity;

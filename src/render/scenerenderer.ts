@@ -13,7 +13,8 @@ import { BeltRenderer } from './belts';
 import { StarField } from './starfield';
 import { GalaxyRenderer } from './galaxyrenderer';
 import type { Cosmos } from '../sim/cosmos';
-import { ShipRenderer } from './shipmodels';
+import { ShipRenderer, VesselLights } from './shipmodels';
+import { StationRenderer } from './stations';
 import { BlackHoleRenderer, type AccretionDisk } from './blackhole';
 import { NebulaRenderer } from './nebula';
 import { CometTail } from './comet';
@@ -69,6 +70,11 @@ export class SceneRenderer {
   cosmos: Cosmos | null = null;
   shipRenderer: ShipRenderer | null = null;
   ship: Ship | null = null;
+  /** parked vessels (rendered without engines) */
+  fleet: Ship[] = [];
+  private fleetRenderers = new Map<Ship, ShipRenderer>();
+  readonly stations = new Map<string, StationRenderer>();
+  readonly vesselLights = new VesselLights();
   readonly bodyPoints: PointSprites;
   quality: QualitySettings = { ...QUALITY_PRESETS.high };
   private system: StarSystem | null = null;
@@ -102,6 +108,7 @@ export class SceneRenderer {
     this.pool = new TerrainWorkerPool();
     this.bodyPoints = new PointSprites(512, () => this.pipeline.exposureTexture);
     this.scene.add(this.bodyPoints.points);
+    this.scene.add(this.vesselLights.group);
     this.starField = new StarField(() => this.pipeline.exposureTexture);
     this.scene.add(this.starField.group);
     this.galaxies = new GalaxyRenderer(() => this.pipeline.exposureTexture);
@@ -141,6 +148,8 @@ export class SceneRenderer {
     this.blackHoles.clear();
     for (const c of this.comets.values()) { this.scene.remove(c.mesh); c.dispose(); }
     this.comets.clear();
+    for (const st of this.stations.values()) { this.scene.remove(st.root); st.dispose(); }
+    this.stations.clear();
     this.planets.clear();
     this.stars.clear();
     this.giants.clear();
@@ -148,6 +157,12 @@ export class SceneRenderer {
     this.system = sys;
     if (!sys) return;
     for (const b of sys.bodies) {
+      if (b.station) {
+        const st = new StationRenderer(b);
+        this.stations.set(b.id, st);
+        this.scene.add(st.root);
+        continue;
+      }
       if (b.kind === 'comet') {
         const c = new CometTail(b);
         this.comets.set(b.id, c);
@@ -324,7 +339,7 @@ export class SceneRenderer {
       this.nebulae.update(cosmos.nebulae, cosmos.current, cosmos.camG, ctx.pixelAngle, this.frame, this.pipeline.depthTexture,
         Math.ceil(this.pipeline.width / 2), Math.ceil(this.pipeline.height / 2));
     }
-    this.updateShip(world, suns);
+    this.updateVessels(world, suns);
     if (!draw) return;
     this.renderShadows(suns);
     this.pipeline.beginFrame(this.scene, cam);
@@ -354,33 +369,26 @@ export class SceneRenderer {
     if (L.dot(up) < -0.05) { best.material.uniforms.uShadowOn.value = 0; return; } // night
     const casters: THREE.Object3D[] = [best.group];
     if (this.shipRenderer) casters.push(this.shipRenderer.model.group);
+    for (const r of this.fleetRenderers.values()) if (r.root.visible) casters.push(r.model.group);
     const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(this.camera.quaternion);
     this.shadows.render(this.renderer, this.scene, casters, best.material, this.quality.lodK,
       best.lastRel, best.lastRot, best.lastCamBody, L, fwd, best.material.uniforms, best.body.id);
   }
 
-  private updateShip(world: World, suns: SunLight[]) {
-    const ship = this.ship;
-    if (!ship) {
-      if (this.shipRenderer) { this.scene.remove(this.shipRenderer.root); this.shipRenderer = null; }
-      this.pipeline.ftl.tunnel = 0;
-      this.pipeline.ftl.streak = 0;
-      return;
-    }
-    if (!this.shipRenderer || this.shipRenderer.cls !== ship.spec.cls) {
-      if (this.shipRenderer) this.scene.remove(this.shipRenderer.root);
-      this.shipRenderer = new ShipRenderer(ship.spec.cls);
-      this.scene.add(this.shipRenderer.root);
-    }
-    const sr = this.shipRenderer;
-    // camera-relative position (precise when ship and camera share a frame body)
-    const rel = _v;
+  /** Camera-relative position of a vessel (precise when it shares the view's frame body). */
+  private vesselRel(world: World, ship: Ship, out: THREE.Vector3): THREE.Vector3 {
     const view = world.view;
-    if (ship.frame.body && view.body === ship.frame.body) rel.copy(ship.frame.offsetWorld(_v2)).sub(view.offsetWorld(new THREE.Vector3()));
-    else ship.frame.toUPos(_u).sub(this.camUPos, rel);
-    sr.root.position.copy(rel);
-    sr.model.group.quaternion.copy(ship.orient);
-    // lighting from stars, sky and planetshine
+    if (ship.frame.body && view.body === ship.frame.body) return out.copy(ship.frame.offsetWorld(_v2)).sub(view.offsetWorld(new THREE.Vector3()));
+    if (ship.frame.body && view.body && view.body.system === ship.frame.body.system)
+      return ship.frame.body.system.relative(view.body, ship.frame.body, out).add(ship.frame.offsetWorld(_v2)).sub(view.offsetWorld(new THREE.Vector3()));
+    return ship.frame.toUPos(_u).sub(this.camUPos, out);
+  }
+
+  /**
+   * Stars, sky and planetshine at a point near a body (for the shared vessel
+   * lights): planet shadow, atmospheric extinction and a hemispherical fill.
+   */
+  private lightVessels(rel: THREE.Vector3, b: Body | null, off: THREE.Vector3 | null, suns: SunLight[]) {
     const E1 = new THREE.Vector3(), d1 = new THREE.Vector3(), E2 = new THREE.Vector3(), d2 = new THREE.Vector3();
     const sky = new THREE.Color(0, 0, 0), ground = new THREE.Color(0, 0, 0);
     if (suns[0]) {
@@ -389,9 +397,7 @@ export class SceneRenderer {
       d1.divideScalar(dist);
       const E = suns[0].luminosity / (4 * Math.PI * dist * dist) / SOLAR_CONSTANT;
       E1.set(suns[0].color[0] * E, suns[0].color[1] * E, suns[0].color[2] * E);
-      const b = ship.frame.body;
-      if (b && b.planet) {
-        const off = ship.frame.offsetWorld(new THREE.Vector3());
+      if (b && b.planet && off) {
         const up = off.clone().normalize();
         const cosS = up.dot(d1);
         const alt = off.length() - b.radius;
@@ -417,7 +423,55 @@ export class SceneRenderer {
       const E = suns[1].luminosity / (4 * Math.PI * dist * dist) / SOLAR_CONSTANT;
       E2.set(suns[1].color[0] * E, suns[1].color[1] * E, suns[1].color[2] * E);
     }
-    sr.setLighting(d1, E1, suns[1] ? d2 : null, suns[1] ? E2 : null, sky, ground);
+    this.vesselLights.set(d1, E1, suns[1] ? d2 : null, suns[1] ? E2 : null, sky, ground);
+  }
+
+  /** Active ship, parked vessels and stations near the observer. */
+  private updateVessels(world: World, suns: SunLight[]) {
+    const ship = this.ship;
+    const view = world.view;
+    // lights: at the active ship, else at the camera
+    if (ship) this.lightVessels(this.vesselRel(world, ship, new THREE.Vector3()), ship.frame.body, ship.frame.body ? ship.frame.offsetWorld(new THREE.Vector3()) : null, suns);
+    else this.lightVessels(new THREE.Vector3(), view.body, view.body ? view.offsetWorld(new THREE.Vector3()) : null, suns);
+    // stations: detailed model within a few hundred km (a point sprite beyond)
+    const sys = this.system;
+    for (const st of this.stations.values()) {
+      const b = st.body;
+      const rel = this.relOf(world, b, new THREE.Vector3());
+      const near = rel.length() < 4e5;
+      st.root.visible = near;
+      if (!near || !sys) continue;
+      const sunDir = suns[0] ? suns[0].rel.clone().sub(rel).normalize() : null;
+      st.update(rel, sys.bodyRotation(b, new THREE.Quaternion()), sunDir);
+    }
+    // parked vessels
+    for (const [s, r] of this.fleetRenderers) {
+      if (!this.fleet.includes(s)) { this.scene.remove(r.root); r.dispose(); this.fleetRenderers.delete(s); }
+    }
+    for (const s of this.fleet) {
+      let r = this.fleetRenderers.get(s);
+      if (!r) { r = new ShipRenderer(s.spec.cls); this.fleetRenderers.set(s, r); this.scene.add(r.root); }
+      const visible = !s.frame.body || s.frame.body.system === sys;
+      r.root.visible = visible;
+      if (!visible) continue;
+      this.vesselRel(world, s, r.root.position);
+      r.model.group.quaternion.copy(s.orient);
+      r.update(world.time, s.engineLevel, s.atmo.pressure / 1e5 * 3, s.heatGlow, new THREE.Vector3(0, 0, -1), s.gearDown);
+    }
+    if (!ship) {
+      if (this.shipRenderer) { this.scene.remove(this.shipRenderer.root); this.shipRenderer.dispose(); this.shipRenderer = null; }
+      this.pipeline.ftl.tunnel = 0;
+      this.pipeline.ftl.streak = 0;
+      return;
+    }
+    if (!this.shipRenderer || this.shipRenderer.cls !== ship.spec.cls) {
+      if (this.shipRenderer) { this.scene.remove(this.shipRenderer.root); this.shipRenderer.dispose(); }
+      this.shipRenderer = new ShipRenderer(ship.spec.cls);
+      this.scene.add(this.shipRenderer.root);
+    }
+    const sr = this.shipRenderer;
+    this.vesselRel(world, ship, sr.root.position);
+    sr.model.group.quaternion.copy(ship.orient);
     const air = ship.atmo.pressure / 1e5;
     const flow = ship.velocity.lengthSq() > 1 ? ship.velocity.clone().normalize() : new THREE.Vector3(0, 0, -1);
     sr.update(world.time, ship.engineLevel, air * 3, ship.heatGlow, flow, ship.gearDown);
@@ -434,7 +488,7 @@ export class SceneRenderer {
   private occludersFor(b: Body, rel: THREE.Vector3, sys: StarSystem): THREE.Vector4[] {
     const list: { v: THREE.Vector4; s: number }[] = [];
     for (const o of sys.bodies) {
-      if (o === b || o.isStarLike || o.kind === 'barycenter') continue;
+      if (o === b || o.isStarLike || o.kind === 'barycenter' || o.kind === 'station') continue;
       const orel = this.bodyRel.get(o.id)!;
       const d = _v.copy(orel).sub(rel).length();
       list.push({ v: new THREE.Vector4(orel.x, orel.y, orel.z, o.radius), s: o.radius / d });

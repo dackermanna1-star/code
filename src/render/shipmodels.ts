@@ -299,9 +299,6 @@ export class ShipRenderer {
   readonly model: ShipModel;
   readonly plumes: THREE.Mesh[] = [];
   readonly plasma: THREE.Mesh;
-  readonly sun1 = new THREE.DirectionalLight(0xffffff, 1);
-  readonly sun2 = new THREE.DirectionalLight(0xffffff, 0);
-  readonly hemi = new THREE.HemisphereLight(0x8899aa, 0x332211, 0);
   private plumeMat: THREE.ShaderMaterial;
   private plasmaMat: THREE.ShaderMaterial;
 
@@ -339,7 +336,6 @@ export class ShipRenderer {
     this.plasma.renderOrder = 21;
     this.plasma.visible = false;
     this.model.group.add(this.plasma);
-    this.root.add(this.sun1, this.sun2, this.hemi, this.sun1.target, this.sun2.target);
   }
 
   update(time: number, engineLevel: number, air: number, heat: number, flowWorld: THREE.Vector3, gearDown: boolean) {
@@ -360,8 +356,30 @@ export class ShipRenderer {
     for (const g of this.model.gear) g.visible = gearDown;
   }
 
-  /** Light the ship from the system's stars. dir* point toward the stars; E* are illuminances. */
-  setLighting(dir1: THREE.Vector3, E1: THREE.Vector3, dir2: THREE.Vector3 | null, E2: THREE.Vector3 | null, sky: THREE.Color, ground: THREE.Color) {
+  dispose() {
+    this.root.traverse((o) => {
+      const m = o as THREE.Mesh;
+      if (m.isMesh) m.geometry.dispose();
+    });
+  }
+}
+
+/**
+ * Scene lights for spacecraft and stations (built-in lit materials). Lights
+ * are global in three.js, so one set serves every vessel near the observer.
+ */
+export class VesselLights {
+  readonly group = new THREE.Group();
+  readonly sun1 = new THREE.DirectionalLight(0xffffff, 1);
+  readonly sun2 = new THREE.DirectionalLight(0xffffff, 0);
+  readonly hemi = new THREE.HemisphereLight(0x8899aa, 0x332211, 0);
+
+  constructor() {
+    this.group.add(this.sun1, this.sun2, this.hemi, this.sun1.target, this.sun2.target);
+  }
+
+  /** dir* point toward the stars; E* are illuminances; sky/ground: hemispherical fill. */
+  set(dir1: THREE.Vector3, E1: THREE.Vector3, dir2: THREE.Vector3 | null, E2: THREE.Vector3 | null, sky: THREE.Color, ground: THREE.Color) {
     const set = (l: THREE.DirectionalLight, d: THREE.Vector3, E: THREE.Vector3) => {
       const I = Math.max(E.x, E.y, E.z, 1e-12);
       l.color.setRGB(E.x / I, E.y / I, E.z / I);

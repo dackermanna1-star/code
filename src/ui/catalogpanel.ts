@@ -51,7 +51,7 @@ export class CatalogPanel {
           <span><b>${st.system ?? 0}</b> systems</span><span><b>${(st.planet ?? 0) + (st.moon ?? 0) + (st.dwarf ?? 0)}</b> worlds</span>
           <span><b>${st.life}</b> with life</span><span><b>${st.galaxy ?? 0}</b> galaxies</span></div>
         <div class="cat-filter"><input name="filter" type="search" placeholder="Filter…" value="${esc(this.filter)}" />
-          <select name="kind">${['all', 'system', 'star', 'planet', 'moon', 'dwarf', 'small', 'nebula', 'galaxy', 'event', 'life'].map((k) => `<option ${k === this.kind ? 'selected' : ''}>${k}</option>`).join('')}</select></div>`
+          <select name="kind">${['all', 'system', 'star', 'planet', 'moon', 'dwarf', 'small', 'station', 'nebula', 'galaxy', 'event', 'life'].map((k) => `<option ${k === this.kind ? 'selected' : ''}>${k}</option>`).join('')}</select></div>`
       : `<div class="cat-stats"><span><b>${this.data.bookmarks.length}</b> bookmarks</span><span class="dim">Press F5 anywhere to bookmark your location.</span></div>`;
     this.modal.content.innerHTML = `${head}<div class="cat-list"></div>`;
     this.renderList();

@@ -6,7 +6,7 @@
 import { load, save } from '../ui/storage';
 import type { SavedLocation } from './locations';
 
-export type DiscoveryKind = 'system' | 'star' | 'planet' | 'moon' | 'dwarf' | 'small' | 'galaxy' | 'nebula' | 'event';
+export type DiscoveryKind = 'system' | 'star' | 'planet' | 'moon' | 'dwarf' | 'small' | 'station' | 'galaxy' | 'nebula' | 'event';
 
 export interface Discovery {
   id: string;

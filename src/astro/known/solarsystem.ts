@@ -16,6 +16,7 @@ import { generatePlanet, type Formation, type PlanetOverrides } from '../planetg
 import { blackbodyRGB } from '../stellar';
 import { visualEfficacy } from '../photometry';
 import { poleFromRaDec } from './coords';
+import { addStations } from './stations';
 import type { OrbitElements } from '../orbit';
 import type { StarPhysics } from '../types';
 import type { UPos } from '../../core/upos';
@@ -211,6 +212,7 @@ export function buildSolarSystem(upos: UPos, systemQ: { x: number; y: number; z:
       { period: k.rotHours === 0 ? 0 : k.rotHours * 3600, tilt: pole.tilt, tiltAzimuth: pole.az, phase0: 0, locked: k.rotHours === 0 }, undefined, phys, true);
     byId.set(k.id, b);
   }
+  addStations(byId.get('earth')!);
   const sys = new StarSystem(SOLAR_SYSTEM_ID, 'Solar System', upos, sun, true);
   sys.q.set(systemQ.x, systemQ.y, systemQ.z, systemQ.w);
   sys.notes = 'Known Universe: measured orbits and bulk properties; terrain is procedural (not real elevation data).';

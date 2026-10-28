@@ -1,4 +1,4 @@
-import { Quaternion, Vector3 } from 'three';
+import { Matrix4, Quaternion, Vector3 } from 'three';
 import { G } from '../core/constants';
 import { orbitState, type OrbitElements } from './orbit';
 import type { BodyKind, PlanetPhysics, StarPhysics } from './types';
@@ -6,6 +6,8 @@ import { UPos } from '../core/upos';
 
 const Y = new Vector3(0, 1, 0);
 const _q = new Quaternion();
+const _v1 = new Vector3(), _v2 = new Vector3(), _v3 = new Vector3();
+const _m = new Matrix4();
 
 export interface RotationInfo {
   period: number;      // sidereal period (s); negative → retrograde
@@ -13,6 +15,28 @@ export interface RotationInfo {
   tiltAzimuth: number; // direction of the tilt (rad)
   phase0: number;      // rotation angle at J2000
   locked: boolean;     // synchronous with orbit (spin follows mean longitude)
+}
+
+/** A docking port in vessel axes: position, outward axis and the "up" used for roll alignment. */
+export interface DockPortDef {
+  name: string;
+  pos: [number, number, number];
+  dir: [number, number, number];
+  up: [number, number, number];
+}
+
+/** Crewed orbital station (flies in LVLH attitude: +X along track, +Y zenith). */
+export interface StationInfo {
+  model: 'iss' | 'tiangong';
+  ports: DockPortDef[];
+  /** overall span (m) */
+  span: number;
+  operator: string;
+  crew: number;
+  /** first module launch (year) */
+  launched: number;
+  mass: number;
+  notes: string;
 }
 
 export class Body {
@@ -30,6 +54,8 @@ export class Body {
   discovered = false;
   customName: string | null = null;
   system!: StarSystem;
+  /** crewed station data (kind 'station') */
+  station?: StationInfo;
 
   constructor(
     readonly id: string,
@@ -82,6 +108,14 @@ export class Body {
     } else {
       this.posSys.set(0, 0, 0);
       this.velSys.set(0, 0, 0);
+    }
+    if (this.station && this.parent) {
+      // LVLH: +X along track, +Y away from the parent, +Z completes the frame
+      const up = _v1.copy(this.posSys).sub(this.parent.posSys).normalize();
+      const fwd = _v2.copy(this.velSys).sub(this.parent.velSys);
+      fwd.addScaledVector(up, -fwd.dot(up)).normalize();
+      this.rot.setFromRotationMatrix(_m.makeBasis(fwd, up, _v3.crossVectors(fwd, up)));
+      return;
     }
     _q.setFromAxisAngle(Y, this.spinAngle(t));
     this.rot.copy(this.poleQ).multiply(_q);

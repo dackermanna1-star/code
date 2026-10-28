@@ -123,6 +123,19 @@ accessibility, simulation, audio, key rebinding).
   under time warp. Flight includes atmospheric drag and lift, Sutton–Graves heating with a plasma sheath, hover and
   landing assist, autopilot (approach, land), and orbit readouts.
 - There are five ship classes. Warp drive and hyperspace jumps are **speculative fiction** and are labelled as such.
+- Ship motion is integrated with velocity Verlet, so velocity stays in step with position. Relative navigation
+  relies on this.
+- Docking works with the ISS and Tiangong, which fly their real orbits (Kepler about Earth's equator) in LVLH
+  attitude, with ports at their real locations.
+  - Within 5 km, a docking computer selects the nearest port.
+  - The docking scope shows range, closing rate, lateral offset, alignment and roll.
+  - Near a port, W/S fire fore/aft thrusters.
+  - Auto-dock flies to a hold point on the port axis (detouring around the structure), aligns, then closes at
+    0.04 + 0.22√d m/s.
+  - Soft capture needs < 0.3 m lateral offset, < 0.6 m/s closing speed, < 6° misalignment and < 12° roll. The ship
+    then hard-docks, rides with the target and is refuelled.
+- The cruiser and the heavy explorer carry a shuttle (scout or lander). You can launch it while the mothership stays
+  in orbit, fly down, land and walk, then dock back into the berth and take command of the mothership again.
 - On foot, gravity is the real surface gravity, and traction is friction-limited (μg). Steep slopes make you slide.
   You can swim in any surface liquid. Jump height scales as 1/g (unit-tested: the Moon gives about 6× Earth).
   Following the project brief, walking has no spacesuit or survival restrictions.
@@ -186,8 +199,10 @@ of use.
   ecological simulation. Alien biology is speculative by nature.
 - **Known data.** Catalogue values are rounded literature estimates. Unknown properties (for example the surfaces
   of exoplanets) are modelled, and the info panel says so.
-- **Not yet implemented.** Binary black holes, docking (there are no stations), survival mode (omitted by design for
-  walking), depth of field, motion blur, and video export. The Oort cloud is shown only as an inferred shell in the
+- **Stations.** Only real stations exist (the ISS and Tiangong). The procedural universe has no inhabited outposts.
+  Station orbits ignore drag and J2 nodal precession. Station models are simplified, and you cannot go inside.
+- **Not yet implemented.** Binary black holes, survival mode (omitted by design for walking), depth of field,
+  motion blur, and video export. The Oort cloud is shown only as an inferred shell in the
   map.
 - **Performance** has been verified only in headless Chromium with software rendering (SwiftShader), where it is
   functional at reduced frame rates. Real GPUs have not been profiled yet, so no frame rate is promised.
@@ -207,14 +222,22 @@ of use.
 - rebuilding systems from their ids
 - info-panel provenance and scan gating, and search ranking
 - ship orbit stability, surface gravity and jump heights
+- the ISS orbit (period, altitude, 51.6° inclination) and its LVLH attitude
+- auto-docking from 120 m:
+  - the ship never passes through the structure
+  - it stays latched for minutes of orbit
+  - it separates cleanly
+- launching a mothership's shuttle, docking it back and stowing it
 - nebula placement and transient-event rates
+- lava channels on molten worlds
 
 `npm run test:e2e` drives the real application in headless Chromium:
 
 - the Earth start, search and go-to
 - the map at all scales
 - a ship in lunar orbit, then landing, walking and boarding
-- bookmarks, the Proxima Centauri system and scanning
+- bookmarks, then auto-docking to the ISS's forward port and undocking
+- the Proxima Centauri system and scanning
 - the intergalactic view and arrival at a procedural star
 
 It asserts on simulation state and on rendered pixels.

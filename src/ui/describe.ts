@@ -68,7 +68,40 @@ export function describe(t: Target, distance: number, scanned: boolean): Descrip
   if (t.kind === 'nebula') return describeNebula(t.nebula!, distance);
   if (t.kind === 'system') return describeSystemRef(t.system!, distance, scanned);
   const b = t.body!;
+  if (b.station) return describeStation(b, distance);
   return b.isStarLike ? describeStar(b, distance, scanned) : describePlanet(b, distance, scanned);
+}
+
+function describeStation(b: Body, distance: number): Description {
+  const st = b.station!;
+  const o = b.orbit!;
+  const alt = o.a - b.parent!.radius;
+  return {
+    title: b.displayName,
+    subtitle: 'crewed orbital station',
+    provenance: 'catalogued',
+    provenanceNote: 'Real station: orbit from published elements (two-body, no drag or J2 precession); simplified model.',
+    sections: [
+      { title: 'Station', rows: [
+        ['Operator', st.operator],
+        ['Crew', `${st.crew}`],
+        ['First module', `${st.launched}`],
+        ['Mass', `${(st.mass / 1000).toFixed(0)} t`],
+        ['Span', `${st.span} m`],
+        ['Distance', formatDistance(distance)],
+      ], text: st.notes },
+      { title: 'Orbit', rows: [
+        ['Orbits', b.parent!.displayName],
+        ['Altitude', `${(alt / 1000).toFixed(0)} km`],
+        ['Inclination', `${((o.i * 180) / Math.PI).toFixed(2)}° to the equator`],
+        ['Period', formatDuration(orbitalPeriod(o))],
+        ['Speed', `${(Math.sqrt(o.mu / o.a) / 1000).toFixed(2)} km/s`],
+        ['Attitude', 'LVLH (fixed toward the Earth)'],
+      ] },
+      { title: 'Docking ports', rows: st.ports.map((p) => [p.name, 'free']), text: 'In a spacecraft within 5 km: ; starts automatic docking with the nearest port; WASD/R/F translate on thrusters near the port.' },
+    ],
+    needsScan: false,
+  };
 }
 
 function orbitSection(b: Body): InfoSection {

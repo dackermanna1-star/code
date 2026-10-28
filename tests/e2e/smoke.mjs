@@ -131,6 +131,37 @@ await step('bookmarks restore positions exactly', async () => {
   assert(d < 1e8, `moved ${d} m away from the bookmark (planet motion only)`);
 });
 
+await step('dock with the International Space Station', async () => {
+  // start lined up 8 m in front of the forward port, then let the docking computer bring us in
+  await run(`app.player.toSpectator(); app.startKnown();`);
+  await run(`await app.settle(3000);`);
+  await run(`
+    const sys = app.world.system; const iss = app.findBody('International Space Station');
+    const V = app.world.view.local.constructor; sys.update(app.world.time);
+    const q = sys.bodyRotation(iss);
+    app.world.view.rebase('inertial', iss);
+    app.world.view.local.copy(new V(12.4 + 8 + 11.3, 0, 0).applyQuaternion(q));
+    app.world.view.setWorldOrientation(q.clone().multiply(new q.constructor().setFromAxisAngle(new V(0, 1, 0), Math.PI / 2)));
+    app.player.spawnShip('scout');`);
+  await wait(1500);
+  const sel = await run(`const d = app.player.ship.dock; return d && d.target.ports[d.port].name;`);
+  assert(/IDA-2/.test(sel ?? ''), `selected port ${sel}`);
+  try {
+    // skip most draws so the (real-time) approach is not throttled by software rendering
+    await run(`app.player.toggleDock(); app.settle(120000);`);
+    await until(`return !!app.player.ship.docked;`, 150000, 'capture',
+      `const g = app.player.ship.dock?.geo; return g && { phase: app.player.ship.dock.phase, axial: g.axial, lat: g.lateralDist, cl: g.closing };`);
+    const s = await run(`const d = app.player.ship.docked; return { t: d.target.name, p: d.target.ports[d.port].name };`);
+    assert(s.t === 'International Space Station' && /IDA-2/.test(s.p), `docked to ${s.t} / ${s.p}`);
+    await run(`app.player.toggleDock();`);
+    await wait(1500);
+    const free = await run(`return app.player.ship.docked === null && app.player.ship.dock.geo.closing < 0;`);
+    assert(free, 'did not separate after undocking');
+  } finally {
+    await run(`app.drawEvery = 1; app.player.toSpectator();`);
+  }
+});
+
 await step('catalogued exoplanet system: Proxima Centauri', async () => {
   await run(`app.visitSystem('Proxima Centauri');`);
   const s = await run(`return { sys: app.world.system?.name, planets: app.world.system?.bodies.filter((b) => b.kind === 'planet').map((b) => b.name) };`);

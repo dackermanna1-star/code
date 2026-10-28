@@ -11,6 +11,10 @@ import { Ship, type ShipClass, type ShipOptions } from './ship';
 import { Walker } from './walker';
 import type { Body } from '../astro/body';
 import { FramedPosition } from './frame';
+import { nearestPort, SHIP_PORTS, type DockTarget } from './docking';
+
+/** Docking computer range (m). */
+export const DOCK_RANGE = 5000;
 
 export type PlayerMode = 'spectator' | 'ship' | 'walk';
 export type ShipView = 'cockpit' | 'chase' | 'orbit';
@@ -31,6 +35,10 @@ export class Player {
   private orbitDist = 2.2;
   cockpitOffset = new Vector3();
   message = '';
+  /** parked vessels (a mothership waiting in orbit while its shuttle flies) */
+  readonly fleet: Ship[] = [];
+  private stationTargets = new Map<string, DockTarget>();
+  private fleetTargets = new Map<Ship, DockTarget>();
   onModeChange: (m: PlayerMode) => void = () => {};
 
   constructor(readonly world: World, readonly input: Input, readonly spectator: SpectatorController) {}
@@ -136,10 +144,124 @@ export class Player {
     return true;
   }
 
+  /** Everything the active ship could dock with in the current system. */
+  dockTargets(): DockTarget[] {
+    const sys = this.world.system;
+    const out: DockTarget[] = [];
+    if (sys) for (const b of sys.bodies) {
+      if (!b.station) continue;
+      let t = this.stationTargets.get(b.id);
+      if (!t) {
+        t = { id: b.id, name: b.displayName, ports: b.station.ports, radius: b.station.span * 0.55, station: b };
+        this.stationTargets.set(b.id, t);
+      }
+      out.push(t);
+    }
+    for (const s of this.fleet) {
+      const berth = SHIP_PORTS[s.spec.cls].berth;
+      if (!berth || s.shuttleAboard || !s.frame.body || s.frame.body.system !== sys || s.landed) continue;
+      let t = this.fleetTargets.get(s);
+      if (!t) {
+        t = { id: `fleet:${s.spec.cls}`, name: s.spec.name, ports: [berth], radius: s.spec.length * 0.6, ship: s };
+        this.fleetTargets.set(s, t);
+      }
+      out.push(t);
+    }
+    return out;
+  }
+
+  /** ; key: undock, cancel auto-dock, or start auto-docking with the selected port. */
+  toggleDock() {
+    const ship = this.ship;
+    if (!ship) return;
+    if (ship.docked) {
+      ship.undock(this.world);
+      this.message = ship.message;
+      return;
+    }
+    if (ship.autopilot.mode === 'dock') {
+      ship.autopilot.mode = 'none';
+      this.message = 'Auto-dock off';
+      return;
+    }
+    if (!ship.dock) {
+      this.message = `No docking port within ${DOCK_RANGE / 1000} km`;
+      return;
+    }
+    ship.autopilot.mode = 'dock';
+    ship.dock.phase = 'approach';
+    ship.throttle = 0;
+    this.message = `Auto-dock → ${ship.dock.target.name} · ${ship.dock.target.ports[ship.dock.port].name}`;
+  }
+
+  /**
+   * \ key: launch the shuttle from a mothership's berth (the mothership
+   * stays parked in its orbit), or — docked in that berth — stow the shuttle
+   * and take command of the mothership again.
+   */
+  shuttleAction() {
+    const ship = this.ship;
+    const w = this.world;
+    if (!ship) return;
+    const mother = ship.docked?.target.ship;
+    if (mother) {
+      const i = this.fleet.indexOf(mother);
+      if (i >= 0) this.fleet.splice(i, 1);
+      this.fleetTargets.delete(mother);
+      mother.shuttleAboard = true;
+      this.ship = mother;
+      this.shipClass = mother.spec.cls;
+      this.chaseQ.copy(mother.orient);
+      this.message = `${ship.spec.name} stowed · aboard ${mother.spec.name}`;
+      return;
+    }
+    const sp = SHIP_PORTS[ship.spec.cls];
+    if (!sp.shuttle || !sp.berth) {
+      this.message = `${ship.spec.name} carries no shuttle (the cruiser and the heavy explorer do)`;
+      return;
+    }
+    if (!ship.shuttleAboard) {
+      this.message = 'The shuttle is away';
+      return;
+    }
+    if (ship.landed || ship.docked || !ship.frame.body || ship.frame.kind === 'universe' || ship.jump.phase !== 'idle' || ship.warp.active) {
+      this.message = 'Launch the shuttle in flight, inside a star system';
+      return;
+    }
+    const shuttle = new Ship(sp.shuttle, this.shipOptions);
+    shuttle.frame.copy(ship.frame);
+    shuttle.velocity.copy(ship.velocity);
+    shuttle.orient.copy(ship.orient);
+    shuttle.hoverAssist = ship.hoverAssist;
+    ship.shuttleAboard = false;
+    ship.autopilot.mode = 'none';
+    ship.throttle = 0;
+    ship.rcs.set(0, 0, 0);
+    ship.rotInput.set(0, 0, 0);
+    this.fleet.push(ship);
+    const target = this.dockTargets().find((t) => t.ship === ship);
+    if (target) {
+      shuttle.dock = { target, port: 0, geo: null, phase: 'final' };
+      shuttle.captureDock(w);
+    }
+    this.ship = shuttle;
+    this.shipClass = shuttle.spec.cls;
+    this.chaseQ.copy(shuttle.orient);
+    this.message = `${shuttle.spec.name} in the berth · ; to undock`;
+  }
+
   update(dt: number) {
     const input = this.input;
     const w = this.world;
     this.message = '';
+    // parked vessels keep orbiting (frozen while in another star system)
+    for (const s of this.fleet) {
+      if (s.frame.body && s.frame.body.system !== w.system) continue;
+      s.throttle = 0;
+      s.rcs.set(0, 0, 0);
+      s.rotInput.set(0, 0, 0);
+      s.update(dt, w);
+    }
     if (input.pressed('spawnShip')) {
       if (this.mode === 'spectator') this.spawnShip();
       else if (this.mode === 'ship') this.toSpectator();
@@ -189,7 +311,12 @@ export class Player {
       ship.rotInput.clampLength(0, 1.5);
     }
     const hover = ship.hoverAssist && ship.altitude < 20000 && !ship.landed;
-    if (hover) {
+    // close to a docking port: W/S fire fore/aft thrusters instead of the main engine
+    const fine = !hover && !!ship.dock?.geo && ship.dock.geo.range < 400;
+    if (fine) {
+      ship.rcs.set(input.axis('right', 'left'), input.axis('up', 'down'), input.axis('forward', 'back'));
+      ship.throttle = 0;
+    } else if (hover) {
       // hover assist: WASD/R/F command velocity relative to the ground
       ship.rcs.set(input.axis('right', 'left'), input.axis('up', 'down'), input.axis('forward', 'back'));
       ship.throttle = 0;
@@ -207,8 +334,18 @@ export class Player {
     if (input.pressed('frameTarget')) { ship.hoverAssist = !ship.hoverAssist; this.message = `Hover assist ${ship.hoverAssist ? 'ON' : 'OFF'}`; }
     if (input.pressed('gear')) { ship.gearDown = !ship.gearDown; this.message = `Landing gear ${ship.gearDown ? 'down' : 'up'}`; }
     if (input.pressed('warp')) ship.toggleWarp(w);
+    if (input.pressed('dock')) this.toggleDock();
+    if (input.pressed('shuttle')) this.shuttleAction();
+    if (ship.autopilot.mode === 'dock' && w.timeScale > 1) {
+      w.timeScale = 1;
+      this.message = 'Time acceleration is off while docking';
+    }
     if (input.pressed('land')) { ship.autopilot.mode = ship.autopilot.mode === 'land' ? 'none' : 'land'; this.message = ship.autopilot.mode === 'land' ? 'Autopilot: landing' : 'Autopilot off'; }
-    if (input.pressed('brake') && ship.frame.body && w.system && !ship.landed) {
+    if (input.pressed('brake') && ship.dock?.geo && ship.dock.geo.range < 2000 && !ship.docked) {
+      // match velocity with the docking target
+      ship.velocity.lerp(ship.dock.geo.portVel, 0.5);
+      this.message = `Matching velocity with ${ship.dock.target.name}`;
+    } else if (input.pressed('brake') && ship.frame.body && w.system && !ship.landed) {
       // match velocity with the local surface (or frame body) using available thrust over ~2 s
       const off = ship.frame.offsetWorld(new Vector3());
       const vs = ship.surfaceVelocity(ship.frame.body, off, w);
@@ -221,6 +358,13 @@ export class Player {
     }
     if (input.wheel && this.shipView !== 'cockpit') this.orbitDist = Math.max(1.2, Math.min(40, this.orbitDist * Math.pow(1.15, input.wheel)));
     ship.update(dt, w);
+    // docking computer: nearest port in range (locked while auto-docking or
+    // docked); after the update, when ship and targets refer to the same instant
+    if (!ship.docked && ship.autopilot.mode !== 'dock') {
+      const near = ship.frame.body && !ship.landed && ship.jump.phase === 'idle' ? nearestPort(ship, this.dockTargets(), w, DOCK_RANGE) : null;
+      if (!near) ship.dock = null;
+      else if (!ship.dock || ship.dock.target !== near.target || ship.dock.port !== near.port) ship.dock = { target: near.target, port: near.port, geo: null, phase: 'approach' };
+    }
     if (ship.message) this.message = ship.message;
     this.placeShipCamera(dt);
   }

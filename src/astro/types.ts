@@ -4,7 +4,7 @@ import type { CloudParams } from '../render/clouds';
 
 export type BodyKind =
   | 'barycenter' | 'star' | 'white-dwarf' | 'neutron-star' | 'black-hole' | 'brown-dwarf'
-  | 'planet' | 'moon' | 'dwarf-planet' | 'asteroid' | 'comet';
+  | 'planet' | 'moon' | 'dwarf-planet' | 'asteroid' | 'comet' | 'station';
 
 export type StellarStage =
   | 'main-sequence' | 'subgiant' | 'red-giant' | 'horizontal-branch' | 'asymptotic-giant'

@@ -7,7 +7,7 @@ export type Action =
   | 'warp' | 'hyperjump' | 'brake' | 'autopilot' | 'land' | 'cameraView' | 'spawnShip'
   | 'map' | 'menu' | 'help' | 'hideUI' | 'screenshot' | 'timeFaster' | 'timeSlower' | 'timeReal' | 'timePause'
   | 'search' | 'catalog' | 'bookmark' | 'orbits' | 'info' | 'mouseLook' | 'run' | 'orbitCam' | 'scan' | 'labels'
-  | 'cinema' | 'pathAdd' | 'pathPlay';
+  | 'cinema' | 'pathAdd' | 'pathPlay' | 'dock' | 'shuttle';
 
 export const ACTION_LABELS: Record<Action, string> = {
   forward: 'Move forward / thrust forward', back: 'Move back / thrust back', left: 'Strafe left', right: 'Strafe right',
@@ -22,6 +22,7 @@ export const ACTION_LABELS: Record<Action, string> = {
   search: 'Search', catalog: 'Discovery catalog', bookmark: 'Bookmark location', orbits: 'Toggle orbit lines',
   info: 'Toggle info panel', mouseLook: 'Toggle mouse look', run: 'Run', orbitCam: 'Orbit camera around target', scan: 'Scientific scan', labels: 'Toggle labels',
   cinema: 'Cinematic camera paths', pathAdd: 'Add camera keyframe', pathPlay: 'Play / stop camera path',
+  dock: 'Auto-dock / undock', shuttle: 'Launch / stow shuttle',
 };
 
 export const DEFAULT_BINDINGS: Record<Action, string[]> = {
@@ -35,6 +36,7 @@ export const DEFAULT_BINDINGS: Record<Action, string[]> = {
   search: ['F3'], catalog: ['F4'], bookmark: ['F5'], orbits: ['KeyO'], info: ['KeyI'], mouseLook: ['Tab'], run: ['ShiftLeft'],
   orbitCam: ['F6'], scan: ['F7'], labels: ['F8'],
   cinema: ['F10'], pathAdd: ['BracketLeft'], pathPlay: ['BracketRight'],
+  dock: ['Semicolon'], shuttle: ['Backslash'],
 };
 
 export class Input {

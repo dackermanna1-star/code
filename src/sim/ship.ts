@@ -21,6 +21,7 @@ import { elementsFromState, orbitState, type OrbitElements } from '../astro/orbi
 import type { World } from './world';
 import { UPos } from '../core/upos';
 import { C_LIGHT, K_B, AMU, LY } from '../core/constants';
+import { canCapture, dockGeometry, dockingGuidance, newTargetState, SHIP_PORTS, type DockGeometry, type DockPhase, type DockTarget } from './docking';
 
 export type ShipClass = 'scout' | 'lander' | 'cruiser' | 'heavy' | 'experimental';
 
@@ -75,6 +76,7 @@ export interface AtmosphereSample {
 const _v = new Vector3(), _v2 = new Vector3(), _v3 = new Vector3(), _a = new Vector3();
 const _q = new Quaternion(), _q2 = new Quaternion();
 const _u = new UPos();
+const _ts = newTargetState();
 
 export class Ship {
   readonly spec: ShipSpec;
@@ -102,7 +104,13 @@ export class Ship {
   gForce = 0;
   /** orbit around the dominant body (null when landed/in atmosphere/escaping wildly) */
   orbit: OrbitElements | null = null;
-  autopilot: { mode: 'none' | 'approach' | 'land' | 'hold'; target: Body | null; standoff: number } = { mode: 'none', target: null, standoff: 0 };
+  autopilot: { mode: 'none' | 'approach' | 'land' | 'hold' | 'dock'; target: Body | null; standoff: number } = { mode: 'none', target: null, standoff: 0 };
+  /** docking port selected by the docking computer, with its live geometry */
+  dock: { target: DockTarget; port: number; geo: DockGeometry | null; phase: DockPhase } | null = null;
+  /** hard-docked to a port: the ship rides with the target */
+  docked: { target: DockTarget; port: number } | null = null;
+  /** motherships: the shuttle is in its berth */
+  shuttleAboard: boolean;
   warp = { active: false, speed: 0, charge: 0 };
   jump = { phase: 'idle' as 'idle' | 'charging' | 'tunnel' | 'exit', t: 0, duration: 0, from: new UPos(), to: new UPos(), targetName: '', cooldown: 0, onArrive: null as null | (() => void) };
   lastImpact = 0;
@@ -111,6 +119,7 @@ export class Ship {
   constructor(cls: ShipClass, readonly opts: ShipOptions) {
     this.spec = SHIP_SPECS[cls];
     this.fuel = this.spec.fuelMass;
+    this.shuttleAboard = !!SHIP_PORTS[cls].shuttle;
   }
 
   get mass() {
@@ -161,12 +170,20 @@ export class Ship {
     return { rho: rho0 * f, P: P0 * f, T };
   }
 
+  private lastDt = 0;
+  private lastSimDt = 0;
+
   update(dt: number, world: World) {
     const sys = world.system;
     this.message = '';
+    this.lastDt = dt;
     if (this.jump.cooldown > 0) this.jump.cooldown -= dt;
     if (this.jump.phase !== 'idle') {
       this.updateJump(dt, world);
+      return;
+    }
+    if (this.docked) {
+      this.followDock(dt, world);
       return;
     }
     // spool engine toward throttle
@@ -204,10 +221,11 @@ export class Ship {
     const body = this.frame.body;
     const warpScale = world.paused ? 0 : world.timeScale;
     const simDt = dt * warpScale;
+    this.lastSimDt = simDt;
     // choose frame: dominant body by SOI
     const posSys = _v.copy(this.frame.offsetWorld(_v2)).applyQuaternion(_q.copy(sys.q).invert()).add(body.posSys);
     const dom = dominantBody(sys, posSys);
-    if (dom !== body) this.switchFrame(dom, world);
+    if (dom !== body) this.switchFrame(dom, world, simDt);
 
     const b = this.frame.body!;
     const off = this.frame.offsetWorld(new Vector3());
@@ -279,17 +297,27 @@ export class Ship {
       this.setOffset(off);
       this.orbit = el;
     } else {
+      // velocity Verlet (kick–drift–kick): velocity stays synchronous with
+      // position, which relative navigation (docking) depends on
       const nSub = Math.min(200, Math.max(1, Math.ceil(simDt / 0.5)));
       const h = simDt / nSub;
       const qi = _q2.copy(sys.q).invert();
+      const acc = (p: Vector3, out: Vector3) => gravityAccel(sys, b, _v.copy(p).applyQuaternion(qi), out).applyQuaternion(sys.q).add(totalAcc);
+      const a = acc(off, _v2);
       for (let i = 0; i < nSub; i++) {
-        const relSys = _v.copy(off).applyQuaternion(qi);
-        const g = gravityAccel(sys, b, relSys, _v2).applyQuaternion(sys.q);
-        this.velocity.addScaledVector(g, h).addScaledVector(totalAcc, h);
+        this.velocity.addScaledVector(a, h / 2);
         off.addScaledVector(this.velocity, h);
+        acc(off, a);
+        this.velocity.addScaledVector(a, h / 2);
       }
       this.setOffset(off);
       this.orbit = atm.rho < 1e-7 ? elementsFromState(off, this.velocity, b.mu, world.time) : null;
+    }
+    // ---- docking: soft capture when inside the envelope
+    if (this.dock) {
+      const g = dockGeometry(this, this.dock.target, this.dock.port, world, _ts);
+      this.dock.geo = g;
+      if (g && canCapture(g)) this.captureDock(world);
     }
     // ---- ground contact
     const r2 = off.length();
@@ -307,18 +335,84 @@ export class Ship {
     }
   }
 
+  /** Soft capture → hard dock: latch onto the port and ride with the target. */
+  captureDock(world: World) {
+    const dk = this.dock;
+    if (!dk) return;
+    this.docked = { target: dk.target, port: dk.port };
+    this.autopilot.mode = 'none';
+    this.throttle = 0;
+    this.engineLevel = 0;
+    this.rcs.set(0, 0, 0);
+    this.angVel.set(0, 0, 0);
+    this.followDock(0, world);
+    this.message = `Docked · ${dk.target.name} · ${dk.target.ports[dk.port].name}`;
+  }
+
+  /** Separate from the port with a gentle push along its axis. */
+  undock(world: World) {
+    const d = this.docked;
+    if (!d) return;
+    const g = dockGeometry(this, d.target, d.port, world, _ts);
+    this.docked = null;
+    if (g) {
+      this.velocity.copy(g.portVel).addScaledVector(g.portAxis, 0.25);
+      this.dock = { target: d.target, port: d.port, geo: g, phase: 'approach' };
+    }
+    this.message = `Undocked from ${d.target.name}`;
+  }
+
+  private followDock(dt: number, world: World) {
+    const d = this.docked!;
+    const fb = this.frame.body;
+    const g = fb ? dockGeometry(this, d.target, d.port, world, _ts) : null;
+    if (!g || !fb) {
+      this.docked = null;
+      this.message = 'Docking latch released';
+      return;
+    }
+    if (this.frame.kind !== 'inertial') this.frame.rebase('inertial', fb);
+    this.orient.copy(g.dockQ);
+    this.setOffset(g.dockPos.clone());
+    this.velocity.crossVectors(_ts.omega, g.dockPos.clone().sub(_ts.pos)).add(_ts.vel);
+    this.angVel.set(0, 0, 0);
+    this.engineLevel = 0;
+    this.dock = { target: d.target, port: d.port, geo: g, phase: 'final' };
+    const off = g.dockPos;
+    this.altitude = off.length() - fb.radius;
+    this.verticalSpeed = 0;
+    this.groundSpeed = 0;
+    this.gForce = 0;
+    this.heatGlow = 0;
+    this.atmo.density = 0; this.atmo.pressure = 0; this.atmo.heating = 0; this.atmo.mach = 0;
+    this.orbit = elementsFromState(off, this.velocity, fb.mu, world.time);
+    // replenish propellant and repair through the port
+    this.fuel = Math.min(this.spec.fuelMass, this.fuel + this.spec.fuelMass * 0.02 * dt);
+    this.integrity = Math.min(1, this.integrity + 0.02 * dt);
+  }
+
   private setOffset(off: Vector3) {
     if (this.frame.kind === 'inertial') this.frame.local.copy(off);
     else this.frame.translateWorld(off.clone().sub(this.frame.offsetWorld(new Vector3())));
   }
 
-  private switchFrame(nb: Body, world: World) {
+  /**
+   * Re-express the ship relative to another body. `lag`: the ship's state
+   * still refers to `lag` seconds before the bodies' current positions, so
+   * the offset between the bodies is taken back to that instant.
+   */
+  private switchFrame(nb: Body, world: World, lag = 0) {
     const sys = world.system!;
     const old = this.frame.body!;
     const off = this.frame.offsetWorld(new Vector3());
     // r' = r + (old − new), v' = v + (v_old − v_new)   (system → world axes)
     const dPos = _v.copy(old.posSys).sub(nb.posSys).applyQuaternion(sys.q);
     const dVel = _v2.copy(old.velSys).sub(nb.velSys).applyQuaternion(sys.q);
+    if (lag > 0) {
+      const dAcc = gravityAccel(sys, nb, old.posSys.clone().sub(nb.posSys), new Vector3()).applyQuaternion(sys.q);
+      dPos.addScaledVector(dVel, -lag).addScaledVector(dAcc, 0.5 * lag * lag);
+      dVel.addScaledVector(dAcc, -lag);
+    }
     this.frame.kind = 'inertial';
     this.frame.body = nb;
     this.frame.local.copy(off.add(dPos));
@@ -411,6 +505,19 @@ export class Ship {
   private autopilotAccel(acc: Vector3, world: World, b: Body, off: Vector3, up: Vector3, g: number, vAir: Vector3) {
     const ap = this.autopilot;
     if (ap.mode === 'none') return;
+    if (ap.mode === 'dock') {
+      const dk = this.dock;
+      // the ship's state is still at the previous step: compare with the target then
+      const geo = dk ? dockGeometry(this, dk.target, dk.port, world, _ts, this.lastSimDt) : null;
+      if (!dk || !geo) { ap.mode = 'none'; this.message = 'Docking target lost'; return; }
+      dk.geo = geo;
+      dk.phase = dockingGuidance(this, geo, dk.phase, acc);
+      this.burnFuelFor(acc.length() * this.mass, this.lastDt);
+      // attitude: turn toward the docked orientation at a gentle rate
+      this.orient.rotateTowards(geo.dockQ, Math.min(0.35, 0.05 + geo.angle) * this.lastDt);
+      this.angVel.set(0, 0, 0);
+      return;
+    }
     const maxA = this.spec.thrust / this.mass;
     if (ap.mode === 'land') {
       // vertical descent: target sink rate proportional to altitude, null horizontal drift

@@ -64,7 +64,7 @@ const TABS: Record<string, Field[]> = {
 const GROUPS: [string, Action[]][] = [
   ['Movement', ['forward', 'back', 'left', 'right', 'up', 'down', 'rollLeft', 'rollRight', 'boost', 'slow', 'jump', 'run']],
   ['Navigation', ['select', 'gotoTarget', 'frameTarget', 'orbitCam', 'scan', 'search', 'map', 'catalog', 'bookmark', 'info', 'labels', 'orbits']],
-  ['Spacecraft', ['spawnShip', 'interact', 'throttleUp', 'throttleDown', 'throttleFull', 'throttleCut', 'flightAssist', 'gear', 'autopilot', 'land', 'brake', 'warp', 'hyperjump', 'cameraView']],
+  ['Spacecraft', ['spawnShip', 'interact', 'throttleUp', 'throttleDown', 'throttleFull', 'throttleCut', 'flightAssist', 'gear', 'autopilot', 'land', 'brake', 'warp', 'hyperjump', 'cameraView', 'dock', 'shuttle']],
   ['Time & interface', ['timeFaster', 'timeSlower', 'timeReal', 'timePause', 'menu', 'help', 'hideUI', 'screenshot', 'mouseLook']],
   ['Cinematic camera', ['cinema', 'pathAdd', 'pathPlay', 'orbitCam']],
 ];
@@ -249,6 +249,8 @@ export class HelpOverlay {
           <dt>${k('hyperjump')}</dt><dd>Hyperspace jump to selected star/galaxy — <i>speculative fiction</i></dd>
           <dt>${k('cameraView')}</dt><dd>Chase / cockpit / orbit view</dd>
           <dt>${k('interact')}</dt><dd>Exit ship when landed · board when next to it</dd>
+          <dt>${k('dock')}</dt><dd>Auto-dock with the nearest port (within 5 km) · undock. Near a port ${k('forward')}/${k('back')} fire fore/aft thrusters and ${k('brake')} matches the target's velocity</dd>
+          <dt>${k('shuttle')}</dt><dd>Cruiser / heavy explorer: launch the shuttle (the mothership stays in orbit) · docked in its berth: stow it and take command again</dd>
         </dl></section>
         <section><h3>On foot</h3><dl>
           <dt>${k('forward')} ${k('left')} ${k('back')} ${k('right')}</dt><dd>Walk (gravity and traction depend on the world)</dd>

@@ -632,6 +632,7 @@ export class App {
     if (b.kind === 'planet') return 'planet';
     if (b.kind === 'moon') return 'moon';
     if (b.kind === 'dwarf-planet') return 'dwarf';
+    if (b.kind === 'station') return 'station';
     return 'small';
   }
 
@@ -831,6 +832,7 @@ export class App {
     this.input.suspended = false;
     if (this.lookAnim) this.updateLookAnim(dt);
     this.renderer.ship = this.player.ship;
+    this.renderer.fleet = this.player.fleet;
     if (this.player.ship && this.renderer.shipRenderer) this.player.cockpitOffset.copy(this.renderer.shipRenderer.model.cockpit);
     if (this.player.message) this.hud.toast(this.player.message, 2.5);
     this.frameNo++;
@@ -916,7 +918,10 @@ export class App {
   private updateHint() {
     const pl = this.player;
     let hint = '';
+    const dk = pl.mode === 'ship' ? pl.ship?.dock : null;
     if (pl.mode === 'ship' && pl.ship?.landed) hint = 'X: exit ship · R/Space: lift off · H: hover assist';
+    else if (pl.mode === 'ship' && pl.ship?.docked) hint = `; undock${pl.ship.docked.target.ship ? ' · \\ stow shuttle and take command of ' + pl.ship.docked.target.name : ''}`;
+    else if (dk?.geo && dk.geo.range < 2000) hint = `; auto-dock with ${dk.target.name} · B match velocity · WASD/R/F translate (RCS)`;
     else if (pl.mode === 'walk') hint = 'X: board ship (when next to it) · Space: jump · Shift: run · N: free camera';
     else if (pl.mode === 'spectator' && this.selected && !this.spectator.travel && !this.orbitCam) hint = 'G: go to · H: look at · F6: orbit · F7: scan · N: spaceship';
     if (this.orbitCam) hint = 'Orbit camera — drag: rotate · wheel: zoom · WASD: free flight';
@@ -1024,7 +1029,7 @@ export class App {
         target: sel ? sel.name : `thr ${(sh.throttle * 100).toFixed(0)}%`,
         targetDist: selDist,
         timeScale, date, fps: this.fps,
-        extra: `thr ${(sh.throttle * 100).toFixed(0)}% · V/S ${formatSpeed(sh.verticalSpeed)} · ${sh.opts.flightAssist ? 'FA' : 'fa-off'}${sh.hoverAssist ? ' HOVER' : ''}${sh.gearDown ? ' GEAR' : ''}${sh.autopilot.mode !== 'none' ? ' AP:' + sh.autopilot.mode : ''} · ${sh.gForce.toFixed(1)} g${sh.heatGlow > 0.05 ? ' · heat ' + (sh.atmo.heating / 1e6).toFixed(1) + ' MW/m²' : ''}${orbitTxt ? ' · ' + orbitTxt : ''}${sh.opts.realisticFuel ? ` · fuel ${(sh.fuel / sh.spec.fuelMass * 100).toFixed(0)}%` : ''}`,
+        extra: `${sh.docked ? `DOCKED · ${sh.docked.target.name} · ${sh.docked.target.ports[sh.docked.port].name} · ` : ''}thr ${(sh.throttle * 100).toFixed(0)}% · V/S ${formatSpeed(sh.verticalSpeed)} · ${sh.opts.flightAssist ? 'FA' : 'fa-off'}${sh.hoverAssist ? ' HOVER' : ''}${sh.gearDown ? ' GEAR' : ''}${sh.autopilot.mode !== 'none' ? ' AP:' + sh.autopilot.mode : ''} · ${sh.gForce.toFixed(1)} g${sh.heatGlow > 0.05 ? ' · heat ' + (sh.atmo.heating / 1e6).toFixed(1) + ' MW/m²' : ''}${orbitTxt ? ' · ' + orbitTxt : ''}${sh.opts.realisticFuel ? ` · fuel ${(sh.fuel / sh.spec.fuelMass * 100).toFixed(0)}%` : ''}`,
       });
       return;
     }
