@@ -15,7 +15,10 @@ import type { RenderSystem } from "../core/context.ts";
 import type { Settings } from "../core/settings.ts";
 
 const DEG = Math.PI / 180;
-export const MAX_PITCH = 89 * DEG;
+/** Look pitch limit (±88.8°): at ±π/2 Babylon's view degenerates and flips (api-notes §3). */
+export const MAX_PITCH = 1.55;
+/** Limit for the composed render pitch (look + landing dip + shake). */
+const MAX_RENDER_PITCH = 1.565;
 /** Radians of view rotation per (sensitivity-scaled) mouse pixel. */
 export const LOOK_RAD_PER_PX = 0.0022;
 
@@ -61,7 +64,11 @@ export class CameraRig {
     this.camera = camera;
     this.settings = settings;
     this.render = render;
-    this.camera.rotationQuaternion = null as unknown as UniversalCamera["rotationQuaternion"];
+    // Euler rotation only (a rotationQuaternion would override it), no Babylon camera inputs, and
+    // a near plane that works next to 12.5 mm drywall (the render system normally sets these).
+    this.camera.rotationQuaternion = null;
+    this.camera.inputs?.clear();
+    if (this.camera.minZ > 0.1) this.camera.minZ = 0.05;
     this.updateBasis();
   }
 
@@ -178,7 +185,8 @@ export class CameraRig {
     t.z += this.right.z * ox + this.up.z * oy + this.forward.z * oz;
     this.camera.position.copyFrom(t);
     const dipPitch = -this.dip * 0.45; // nod down a little on hard landings
-    this.camera.rotation.set(this.pitch + dipPitch + srx, this.yaw + sry, roll + srz);
+    const pitch = Math.max(-MAX_RENDER_PITCH, Math.min(MAX_RENDER_PITCH, this.pitch + dipPitch + srx));
+    this.camera.rotation.set(pitch, this.yaw + sry, roll + srz);
   }
 
   private updateBasis(): void {

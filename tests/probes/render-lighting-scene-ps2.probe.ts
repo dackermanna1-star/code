@@ -1,6 +1,6 @@
 // Probe: showcase with the PS2 post-process attached after the DefaultRenderingPipeline; checks chain order
 // across pipeline rebuilds and runtime toggling. Screenshot shows PS2 mode ON.
-import { makeEngine, renderFrames, readAll } from "./render-lighting-util.ts";
+import { captureCanvas, makeEngine, renderFrames, readAll } from "./render-lighting-util.ts";
 import { buildShowcase, chainNames, keepLast } from "./render-lighting-scene.ts";
 
 export async function probe(): Promise<any> {
@@ -49,5 +49,6 @@ export async function probe(): Promise<any> {
   out.redValuesSample = Array.from(vals).sort((a, b) => a - b).slice(0, 12);
   out.horizontalNeighbourEqualFraction = +(sameBlocks / blocks).toFixed(2);
   out.drawCalls = s.si.drawCallsCounter.current;
+  out.png = captureCanvas(engine, 960, 0.6);
   return out;
 }

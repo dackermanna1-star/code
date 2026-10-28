@@ -75,8 +75,8 @@ const ALL_ACTIONS: readonly Action[] = [
 
 /** Unconsumed edges older than this are dropped (paused game, nobody reading). */
 const EDGE_TTL_MS = 250;
-/** Single mouse events larger than this are treated as browser glitches (known Chrome spikes). */
-const MAX_MOUSE_EVENT_DELTA = 400;
+/** Single mouse events larger than this are teleports/glitches (Chrome spikes, cursor warps). */
+const MAX_MOUSE_EVENT_DELTA = 250;
 /** Fallback mode: a left press that moves less than this (px) and is released quickly is a click. */
 const DRAG_THRESHOLD_PX = 6;
 /** Fallback mode: a still left press held longer than this becomes a held "fire" (charge). */
@@ -202,8 +202,12 @@ export class Input implements InputSystem {
 
   /**
    * Request pointer lock (must run inside a user gesture). Resolves true when locked, or when the
-   * fallback (drag-to-look) mode is in use; false when the request failed but may succeed later
-   * (e.g. Chrome's cooldown right after the user pressed Escape).
+   * drag-to-look fallback is in use; false when the request failed but may succeed later
+   * (NotAllowedError: no user activation, or Chrome's ~1 s cooldown after the user pressed Escape).
+   * Error handling follows docs/api-notes/input-loop-camera.md §5: `unadjustedMovement` is tried
+   * first (NotSupportedError on Linux → plain retry); SecurityError (sandboxed iframe without
+   * allow-pointer-lock) or a missing API → fallback; a late `pointerlockerror` from the failed
+   * raw-input attempt is ignored when the retry succeeds.
    */
   requestLock(): Promise<boolean> {
     if (this.locked) return Promise.resolve(true);
@@ -215,51 +219,59 @@ export class Input implements InputSystem {
     }
     return new Promise<boolean>((resolve) => {
       let settled = false;
-      const finish = (ok: boolean, err?: string) => {
+      let promiseApi = false;
+      const finish = (ok: boolean, errName?: string, msg?: string) => {
         if (settled) return;
         settled = true;
         document.removeEventListener("pointerlockchange", onChange);
         document.removeEventListener("pointerlockerror", onError);
         clearTimeout(timer);
-        if (ok) {
+        if (ok || this.locked) {
           this.lockFailures = 0;
           resolve(true);
           return;
         }
-        // Failure: a request right after an exit is the browser's cooldown → retry later.
-        const sinceExit = performance.now() - this.lastLockExit;
         this.lockFailures++;
-        if (sinceExit > LOCK_COOLDOWN_MS && this.lockFailures >= 2) {
-          this.enterFallback(err ?? "Pointer lock refused");
+        const sinceExit = performance.now() - this.lastLockExit;
+        const hard = errName === "SecurityError" || (errName !== "NotAllowedError" && this.lockFailures >= 2 && sinceExit > LOCK_COOLDOWN_MS);
+        if (hard) {
+          this.enterFallback(msg ?? errName ?? "Pointer lock refused");
           resolve(true);
         } else {
-          this.emitLock(false, { requested: true, fallback: false, error: err ?? "Pointer lock refused" });
+          this.emitLock(false, { requested: true, fallback: false, error: msg ?? errName ?? "Pointer lock refused" });
           resolve(false);
         }
       };
       const onChange = () => {
         if (this.locked) finish(true);
       };
-      const onError = () => finish(false, "pointerlockerror");
+      // Only browsers without the promise API report failures through this event alone.
+      const onError = () => {
+        if (!promiseApi) setTimeout(() => finish(this.locked, "Error", "pointerlockerror"), 0);
+      };
       document.addEventListener("pointerlockchange", onChange);
       document.addEventListener("pointerlockerror", onError);
-      const timer = setTimeout(() => finish(this.locked, "Pointer lock timed out"), 1500);
+      const timer = setTimeout(() => finish(this.locked, "Timeout", "Pointer lock timed out"), 1500);
       const attempt = (opts: unknown, allowRetry: boolean) => {
+        let ret: Promise<void> | void;
         try {
-          const ret = el.requestPointerLock!(opts);
-          if (ret && typeof (ret as Promise<void>).then === "function") {
-            (ret as Promise<void>).then(
-              () => finish(true),
-              (e: DOMException) => {
-                // Raw (unadjusted) movement unsupported on this OS/browser → plain lock.
-                if (allowRetry && e?.name === "NotSupportedError") attempt(undefined, false);
-                else finish(false, `${e?.name ?? "Error"}: ${e?.message ?? ""}`);
-              },
-            );
-          }
+          ret = el.requestPointerLock!(opts);
         } catch (e) {
+          const name = (e as DOMException)?.name;
           if (allowRetry) attempt(undefined, false);
-          else finish(false, String((e as Error)?.message ?? e));
+          else finish(false, name, String((e as Error)?.message ?? e));
+          return;
+        }
+        if (ret && typeof (ret as Promise<void>).then === "function") {
+          promiseApi = true;
+          (ret as Promise<void>).then(
+            () => finish(true),
+            (e: DOMException) => {
+              // raw (unadjusted) movement unsupported on this OS/browser → plain lock
+              if (allowRetry && e?.name === "NotSupportedError") attempt(undefined, false);
+              else finish(false, e?.name, `${e?.name ?? "Error"}: ${e?.message ?? ""}`);
+            },
+          );
         }
       };
       attempt({ unadjustedMovement: true }, true);
@@ -465,6 +477,7 @@ export class Input implements InputSystem {
     e.preventDefault(); // middle-click autoscroll, text selection
     const now = performance.now();
     if (this._fallback && !this.locked) {
+      if (this.dragButtons === 0) this.skipNextMove = true; // first move after a press can be a warp
       this.dragButtons |= 1 << b;
       if (b === 0) {
         // Decide later whether this is a click (fire), a hold (charge) or a look drag.
@@ -507,6 +520,10 @@ export class Input implements InputSystem {
     }
     if (!this._fallback || this.dragButtons === 0) return;
     // Drag-to-look fallback.
+    if (this.skipNextMove) {
+      this.skipNextMove = false;
+      return;
+    }
     const pf = this.pendingFire;
     if (pf && !pf.converted) {
       pf.moved += Math.abs(dx) + Math.abs(dy);

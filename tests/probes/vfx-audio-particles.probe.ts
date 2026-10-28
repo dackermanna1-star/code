@@ -117,9 +117,9 @@ export class BurstPool {
       const b = this.active;
       if (!b) return;
       const [ux, uy, uz] = randUnit();
-      let dx = b.nx + ux * b.spread;
-      let dy = b.ny + uy * b.spread;
-      let dz = b.nz + uz * b.spread;
+      const dx = b.nx + ux * b.spread;
+      const dy = b.ny + uy * b.spread;
+      const dz = b.nz + uz * b.spread;
       const len = Math.hypot(dx, dy, dz) || 1;
       const sp = b.speed * (0.35 + 0.65 * Math.random());
       dir.set((dx / len) * sp, (dy / len) * sp, (dz / len) * sp);

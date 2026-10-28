@@ -128,6 +128,10 @@ export interface CreateAudioOpts {
   maxVoices?: number;
   /** Seed for variation choices. */
   seed?: number;
+  /** Start the city / wind ambience beds automatically (default true). */
+  ambience?: boolean;
+  /** Number of HRTF voice channels (default by quality preset: 8/16/24/32); 0 = equal-power only. */
+  hrtf?: number;
 }
 
 export interface AudioStats {
@@ -316,7 +320,13 @@ export class Audio implements AudioSystem {
 
   private st = { played: 0, dropped: 0, stolen: 0, limited: 0, rays: 0 };
 
-  constructor(opts: { events: EventBus<GameEvents>; settings: Settings; bank: SoundBank; maxVoices?: number; seed?: number }) {
+  private readonly ambienceOn: boolean;
+  private readonly hrtfOpt: number | undefined;
+  private hrtfLoops = true;
+
+  constructor(opts: { events: EventBus<GameEvents>; settings: Settings; bank: SoundBank; maxVoices?: number; seed?: number; ambience?: boolean; hrtf?: number }) {
+    this.ambienceOn = opts.ambience !== false;
+    this.hrtfOpt = Number.isFinite(opts.hrtf) ? Math.max(0, Math.floor(opts.hrtf as number)) : undefined;
     this.events = opts.events;
     this.settings = opts.settings;
     this.bank = opts.bank;
@@ -647,7 +657,8 @@ export class Audio implements AudioSystem {
       }
       // Voice channels.
       const q = (this.settings?.data?.quality as string) ?? "high";
-      const hrtfN = HRTF_BY_QUALITY[q] ?? 24;
+      const hrtfN = this.hrtfOpt ?? HRTF_BY_QUALITY[q] ?? 24;
+      this.hrtfLoops = hrtfN > 0;
       const nUi = 2;
       const nSelf = 6;
       const nSpatial = Math.max(4, this.maxVoices - nUi - nSelf);
@@ -658,10 +669,44 @@ export class Audio implements AudioSystem {
       this.applySettings(this.settings.data);
       this.applyListener();
       this.updateListenerRoom(true);
+      if (hrtfN > 0 && !this.offline) this.prewarmHrtf();
       this.startAmbience();
     } catch (err) {
       console.warn("audio: graph construction failed, audio disabled", err);
       this.disabled = true;
+    }
+  }
+
+  /**
+   * Load the HRTF database right away (a muted oscillator through an HRTF panner) so the first
+   * real sounds are not silent while it loads — see docs/api-notes/vfx-audio.md §6.
+   */
+  private prewarmHrtf(): void {
+    const c = this.ctx;
+    if (!c) return;
+    try {
+      const osc = c.createOscillator();
+      const mute = c.createGain();
+      mute.gain.value = 0;
+      const p = c.createPanner();
+      p.panningModel = "HRTF";
+      this.setPannerPos(p, 1, 0, 0);
+      osc.connect(mute);
+      mute.connect(p);
+      p.connect(c.destination);
+      osc.onended = () => {
+        try {
+          osc.disconnect();
+          mute.disconnect();
+          p.disconnect();
+        } catch {
+          /* ignore */
+        }
+      };
+      osc.start();
+      osc.stop(c.currentTime + 0.5);
+    } catch {
+      /* optional */
     }
   }
 
@@ -780,8 +825,8 @@ export class Audio implements AudioSystem {
     if (!(e.energy >= 2e-3) || !finite(e.pos)) return;
     const now = this.clock();
     // Rate-limit per dynamic island (structure-sized parts are not limited: everything lands on them).
-    const limA = e.idA >= 0 && !(e.sizeA > 1.5);
-    const limB = e.idB >= 0 && !(e.sizeB > 1.5);
+    const limA = e.idA >= 0 && !M.isStructure(e.sizeA, e.massA);
+    const limB = e.idB >= 0 && !M.isStructure(e.sizeB, e.massB);
     if ((limA && !this.islands.check(e.idA, now, e.energy)) || (limB && !this.islands.check(e.idB, now, e.energy))) {
       this.st.limited++;
       return;
@@ -1435,7 +1480,7 @@ export class Audio implements AudioSystem {
       lv.sends = [];
       if (lv.positional) {
         const p = c.createPanner();
-        p.panningModel = "HRTF";
+        p.panningModel = this.hrtfLoops ? "HRTF" : "equalpower";
         p.distanceModel = "inverse";
         p.refDistance = 1;
         p.rolloffFactor = 1;
@@ -1550,7 +1595,7 @@ export class Audio implements AudioSystem {
   // ============================================================================ ambience
 
   private startAmbience(): void {
-    if (this.city || this.disabled) return;
+    if (this.city || this.disabled || !this.ambienceOn) return;
     const city = this.loop("amb.city", null, { gain: 1 });
     const wind = this.loop("amb.wind", null, { gain: 1 });
     if (city instanceof LoopVoice) {
@@ -1794,7 +1839,7 @@ export async function createAudio(opts: CreateAudioOpts): Promise<Audio> {
       bank = new SoundBank(48000);
     }
   }
-  const audio = new Audio({ events: opts.events, settings: opts.settings, bank, maxVoices: opts.maxVoices, seed: opts.seed });
+  const audio = new Audio({ events: opts.events, settings: opts.settings, bank, maxVoices: opts.maxVoices, seed: opts.seed, ambience: opts.ambience, hrtf: opts.hrtf });
   if (opts.context) audio.attachContext(opts.context);
   else audio.installGestureResume();
   if (opts.samples !== false && hasWebAudio && bank.size) {

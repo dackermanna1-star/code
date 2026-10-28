@@ -193,6 +193,8 @@ export interface Sim {
   step(n?: number): void;
   counts(): Record<string, number>;
   render1(): void;
+  /** Wait for shaders, then render a few frames (screenshots). */
+  renderReady(frames?: number): Promise<void>;
 }
 
 const EVENT_TYPES: Array<keyof GameEvents> = ["impact", "fracture", "chip", "crack", "dent", "bondBreak", "split", "strain", "feature", "damage", "fellOut"];
@@ -271,6 +273,10 @@ export async function makeSim(opts: { webgl?: boolean; camPos?: Vector3; camTarg
     },
     render1() {
       scene.render();
+    },
+    async renderReady(frames = 3) {
+      await scene.whenReadyAsync();
+      for (let i = 0; i < frames; i++) scene.render();
     },
   };
   return sim;

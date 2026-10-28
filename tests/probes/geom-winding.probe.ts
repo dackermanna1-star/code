@@ -2,7 +2,7 @@
 // renders a tessellated + dented + cracked meshgen cube, a lathe bowl and a Voronoi-fractured
 // slab for a visual check. Run: node tests/probe.mjs tests/probes/geom-winding.probe.ts --screenshot out.png
 import { Engine, Scene, Vector3, Color3, Color4, Mesh, VertexData, StandardMaterial, FreeCamera, HemisphericLight, DirectionalLight } from "@babylonjs/core";
-import { polyBox, faceAttr, polyTransform, type ConvexPoly } from "../../src/geom/poly.ts";
+import { polyBox, faceAttr, polyTransform, polyHiddenFaces, type ConvexPoly } from "../../src/geom/poly.ts";
 import { polyToRenderGeom, growCracks, mergeRenderGeoms, type RenderGeom } from "../../src/geom/meshgen.ts";
 import { latheTiles } from "../../src/geom/primitives.ts";
 import { voronoiFracture, generateSeeds } from "../../src/geom/fracture.ts";
@@ -112,7 +112,15 @@ export async function probe() {
     inner: faceAttr(4, 0xffffff, { smooth: 2 }),
     edge: faceAttr(3),
   });
-  const bowl = toMesh("bowl", mergeRenderGeoms(tiles.map((t) => polyToRenderGeom(t.poly))), scene, lit);
+  // internal seam faces between fused tiles are skipped (they only cause depth-tie seams)
+  const tilePolys = tiles.map((t) => t.poly);
+  let hiddenCount = 0;
+  const bowlGeoms = tilePolys.map((p) => {
+    const hidden = polyHiddenFaces(p, tilePolys);
+    hiddenCount += hidden.size;
+    return polyToRenderGeom({ verts: p.verts, faces: p.faces.filter((_, i) => !hidden.has(i)) });
+  });
+  const bowl = toMesh("bowl", mergeRenderGeoms(bowlGeoms), scene, lit);
   bowl.position = new Vector3(0.75, 0, 0.1);
 
   // fractured slab (radial glass-like pattern on a thick slab so cells are visible), cells pushed apart
@@ -133,7 +141,7 @@ export async function probe() {
   return {
     winding: { asIsVisible, reversedVisible, left, right, convention: "RenderGeom triangles: cross(p1-p0,p2-p0) = -n (clockwise seen from outside)" },
     casing: { verts: cg.vertexCount, tris: cg.indices.length / 3, cracks: cracks.length },
-    bowl: { tiles: tiles.length },
+    bowl: { tiles: tiles.length, hiddenInternalFaces: hiddenCount },
     fracture: { cells: cells.length },
   };
 }

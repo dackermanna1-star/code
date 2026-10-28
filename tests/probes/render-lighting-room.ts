@@ -19,6 +19,8 @@ export function makePbr(scene: Scene, name: string, rgb: [number, number, number
   m.albedoColor = new Color3(rgb[0], rgb[1], rgb[2]);
   m.metallic = 0;
   m.roughness = roughness;
+  m.useGLTFLightFalloff = true; // smooth falloff to 0 at light.range (required to avoid clustered-light tile seams)
+  m.maxSimultaneousLights = 6;  // sun + hemi + cluster container (+ spare); each light = 1 vertex UBO, keep <= 8
   return m;
 }
 

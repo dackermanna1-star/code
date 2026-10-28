@@ -13,13 +13,12 @@ import { Vector3 } from "@babylonjs/core";
 import type { RawImpact, StrikeInput, StrikeResult } from "../../core/context.ts";
 import { Rng, seedFrom } from "../../core/rng.ts";
 import type { Vec3 } from "../../geom/vec.ts";
-import type { Dent } from "../../geom/meshgen.ts";
 import { S } from "../../render/surfaces.ts";
 import { hardness, impactEnergy, inertialBondDamage, respond, type ImpactOnPart, type PartOutcome } from "../model/damage.ts";
 import { MATERIALS } from "../model/materials.ts";
 import type { BondKind } from "../model/types.ts";
 import { farMasses, type GraphBond } from "./graph.ts";
-import { nearestFace } from "./polyUtil.ts";
+import { mergeDents, nearestFace } from "./polyUtil.ts";
 import type { Bond, Island, Part } from "./types.ts";
 import type { World } from "./world.ts";
 
@@ -473,45 +472,3 @@ function safeHardness(part: Part): number {
   return Number.isFinite(h) ? Math.min(1, Math.max(0, h)) : 0.5;
 }
 
-/** Merge the closest dent pairs until at most `max` remain (keeps the visual deformation). */
-export function mergeDents(dents: Dent[], max: number): void {
-  while (dents.length > max) {
-    let bi = 0,
-      bj = 1,
-      bd = Infinity;
-    for (let i = 0; i < dents.length; i++) {
-      for (let j = i + 1; j < dents.length; j++) {
-        const a = dents[i].p,
-          b = dents[j].p;
-        const d = (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2;
-        if (d < bd) {
-          bd = d;
-          bi = i;
-          bj = j;
-        }
-      }
-    }
-    const A = dents[bi],
-      B = dents[bj];
-    const wa = A.depth,
-      wb = B.depth;
-    const ws = wa + wb || 1;
-    const p = { x: (A.p.x * wa + B.p.x * wb) / ws, y: (A.p.y * wa + B.p.y * wb) / ws, z: (A.p.z * wa + B.p.z * wb) / ws };
-    let dx = A.dir.x * wa + B.dir.x * wb,
-      dy = A.dir.y * wa + B.dir.y * wb,
-      dz = A.dir.z * wa + B.dir.z * wb;
-    const dl = Math.hypot(dx, dy, dz) || 1;
-    dx /= dl;
-    dy /= dl;
-    dz /= dl;
-    const sep = Math.sqrt(bd) / 2;
-    const merged: Dent = {
-      p,
-      dir: { x: dx, y: dy, z: dz },
-      r: Math.max(A.r, B.r, sep + Math.min(A.r, B.r)),
-      depth: Math.max(wa, wb) + 0.3 * Math.min(wa, wb),
-    };
-    dents.splice(bj, 1);
-    dents[bi] = merged;
-  }
-}

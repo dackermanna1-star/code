@@ -73,6 +73,58 @@ export function ringXZ(r: number, n: number, y: number, a0 = 0): Array<[number, 
 /** Linear interpolation. */
 export const lerp = (a: number, b: number, t: number): number => a + (b - a) * t;
 
+/**
+ * Low-poly soft block (mattress, duvet slab, clothes, beanbag): convex hull of a superellipsoid
+ * |x/a|^(2/e) + |y/b|^(2/e) + |z/c|^(2/e) = 1 sampled on a cube-sphere grid with `n` cells per
+ * cube edge (rounded up to even, so the face centres are sampled and the extents are exact),
+ * smooth shaded. n = 2 gives 26 hull vertices, n = 4 gives 98 (the kit's pillow uses ~218),
+ * which keeps big soft slabs cheap for physics and batching. Centred at `pos` (current frame).
+ */
+export function softBlock(
+  b: Builder,
+  name: string,
+  mat: MaterialId,
+  surf: SurfaceName,
+  size: readonly [number, number, number],
+  roundness: number,
+  pos: readonly [number, number, number],
+  o: PartOpts = {},
+  n = 4,
+): string {
+  const [sx, sy, sz] = size;
+  if (!(sx > 0 && sy > 0 && sz > 0)) throw new Error(`${b.type}: softBlock '${name}' needs a positive size`);
+  const e = Math.min(1, Math.max(0.05, roundness));
+  const p = 2 / e;
+  const a = sx / 2,
+    bb = sy / 2,
+    c = sz / 2;
+  const seen = new Set<string>();
+  const pts: Array<[number, number, number]> = [];
+  const add = (qx: number, qy: number, qz: number): void => {
+    const s = Math.pow(Math.pow(Math.abs(qx), p) + Math.pow(Math.abs(qy), p) + Math.pow(Math.abs(qz), p), -1 / p);
+    const x = pos[0] + a * qx * s,
+      y = pos[1] + bb * qy * s,
+      z = pos[2] + c * qz * s;
+    const key = `${x.toFixed(6)},${y.toFixed(6)},${z.toFixed(6)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    pts.push([x, y, z]);
+  };
+  const N = Math.max(2, 2 * Math.ceil(Math.floor(n) / 2));
+  for (let i = 0; i <= N; i++)
+    for (let j = 0; j <= N; j++) {
+      const u = -1 + (2 * i) / N,
+        v = -1 + (2 * j) / N;
+      add(1, u, v);
+      add(-1, u, v);
+      add(u, 1, v);
+      add(u, -1, v);
+      add(u, v, 1);
+      add(u, v, -1);
+    }
+  return b.hull(name, mat, surf, pts, [0, 0, 0], { smooth: 1, ...o });
+}
+
 /** Colour palette shared by the bedroom objects (0xRRGGBB tints). */
 export const PAL = {
   white: 0xf2f0ea,

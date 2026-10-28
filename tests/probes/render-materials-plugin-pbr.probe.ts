@@ -2,14 +2,14 @@
 // shadows, fog, HDR emissive + bloom). The StandardMaterial variant is render-materials-plugin-std.probe.ts.
 import {
   Engine, Scene, Vector3, Color3, Color4, FreeCamera, HemisphericLight, DirectionalLight, ShadowGenerator, Mesh, VertexData,
-  PBRMaterial, StandardMaterial, DefaultRenderingPipeline, Matrix, type Material,
+  PBRMaterial, StandardMaterial, DefaultRenderingPipeline, Matrix, MeshBuilder, ReflectionProbe, RenderTargetTexture, type Material,
 } from "@babylonjs/core";
 import { WorldMaterialPlugin, createTextureArray } from "./render-materials-worldmat.ts";
 import { makeAlbedoLayers, makeNormalLayers, GeomBuilder, TEX, type SurfAttrs, type V3 } from "./render-materials-proctex.ts";
 
 const lin = (c: V3): V3 => [Math.pow(c[0], 2.2), Math.pow(c[1], 2.2), Math.pow(c[2], 2.2)];
 
-export async function runWorldMatScene(kind: "pbr" | "std", opts: { bloom: boolean }) {
+export async function runWorldMatScene(kind: "pbr" | "std", opts: { bloom: boolean; env?: boolean }) {
   const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true });
   const scene = new Scene(engine);
@@ -95,6 +95,23 @@ export async function runWorldMatScene(kind: "pbr" | "std", opts: { bloom: boole
   propMesh.receiveShadows = true;
   sg.addShadowCaster(propMesh);
 
+  let envInfo: Record<string, unknown> | null = null;
+  if (opts.env) {
+    // Network-free IBL: gradient sky dome + scene geometry captured once into a cube RT, used as the scene
+    // environment (PBR reflections/IBL). Re-render on demand with probe.cubeTexture.resetRefreshCounter().
+    const dome = MeshBuilder.CreateSphere("skyDome", { diameter: 200, segments: 12, sideOrientation: Mesh.BACKSIDE }, scene);
+    const dm = new StandardMaterial("skyDomeMat", scene);
+    dm.disableLighting = true;
+    dm.emissiveColor = sky;
+    dm.fogEnabled = false;
+    dome.material = dm;
+    const probe = new ReflectionProbe("envProbe", 128, scene, true);
+    probe.position = new Vector3(0, 1.5, -1);
+    probe.renderList!.push(dome, envMesh, propMesh);
+    probe.refreshRate = RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
+    scene.environmentTexture = probe.cubeTexture;
+    envInfo = { probeSize: 128 };
+  }
   let pipeline: DefaultRenderingPipeline | null = null;
   if (opts.bloom) {
     pipeline = new DefaultRenderingPipeline("pp", true, scene, [cam]);
@@ -153,6 +170,8 @@ export async function runWorldMatScene(kind: "pbr" | "std", opts: { bloom: boole
     msPerFrameCPU: +msPerFrame.toFixed(2),
     activeMeshes: scene.getActiveMeshes().length,
     shadowRenderList: sg.getShadowMap()?.renderList?.length,
+    envInfo,
+    metalCubeFront: await readWorld([0, 0.45, -0.41]),
   };
   engine.runRenderLoop(() => scene.render());
   return { result, scene, engine, cam, plugin, pipeline };

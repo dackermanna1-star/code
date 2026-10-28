@@ -31,33 +31,35 @@ export function warmupGeometry(budgetMs = 400): number {
   do {
     const k = it % PATTERNS.length;
     const thin = k === 1 || k === 3;
-    const part = thin ? polyBox(v(0.3, 0.25, 0.005), a) : k === 2 ? polyBox(v(0.5, 0.02, 0.1), a) : polyCylinder(0.06, 0.05, 0.2, 12, smooth, a);
-    const seeds = generateSeeds(part, { pattern: PATTERNS[k], impact: v(0.02, 0, 0), dir: v(0, 0, -1), radius: 0.05, count: thin ? 40 : 14, cell: 0.04, grain: v(1, 0, 0), rng });
+    // small parts and seed counts: many light iterations tier the hot functions up fastest
+    const part = thin ? polyBox(v(0.12, 0.1, 0.004), a) : k === 2 ? polyBox(v(0.3, 0.02, 0.06), a) : polyCylinder(0.04, 0.035, 0.12, 10, smooth, a);
+    const seeds = generateSeeds(part, { pattern: PATTERNS[k], impact: v(0.01, 0, 0), dir: v(0, 0, -1), radius: 0.03, count: thin ? 16 : 8, cell: 0.03, grain: v(1, 0, 0), rng });
     const cells = voronoiFracture(part, seeds, {
       interiorAttr: interior,
       anisotropy: k === 2 ? { axis: v(1, 0, 0), factor: 4 } : undefined,
       grain: k === 2 ? v(1, 0, 0) : undefined,
     });
-    for (let c = 0; c < cells.length; c++) {
-      const p = cells[c].poly;
-      polyToRenderGeom(p, c % 3 === 0 ? { tessCell: 0.02, dents: [{ p: cells[c].centroid, dir: v(0, 0, -1), r: 0.03, depth: 0.003 }] } : undefined);
-    }
-    const box = polyBox(v(0.4, 0.3, 0.2), a);
-    const cut = polyClip(box, v(0.3, 1, 0.2), 0.02, interior);
+    for (const c of cells) polyToRenderGeom(c.poly);
+    const box = polyBox(v(0.2, 0.15, 0.1), a);
+    const cut = polyClip(box, v(0.3, 1, 0.2), 0.01, interior);
     if (cut) {
       polyExtents(cut);
-      polyToRenderGeom(cut, { tessCell: 0.04, cracks: growCracks(cut, v(0, 0.15, 0), v(0, -1, 0), 0.7, rng, { radial: it % 2 === 0 }) });
+      polyToRenderGeom(cut, {
+        tessCell: 0.04,
+        dents: [{ p: v(0, 0.075, 0), dir: v(0, -1, 0), r: 0.05, depth: 0.004 }],
+        cracks: it % 3 === 0 ? growCracks(cut, v(0, 0.07, 0), v(0, -1, 0), 0.6, rng, { radial: it % 2 === 0 }) : undefined,
+      });
     }
-    if (it % 4 === 0) {
+    if (it % 8 === 0) {
       const pts: Vec3[] = [];
-      for (let i = 0; i < 40; i++) {
+      for (let i = 0; i < 24; i++) {
         const s = rng.onSphere();
         pts.push(v(s.x * 0.1, s.y * 0.05, s.z * 0.08));
       }
       polyFromHull(pts, a);
-      latheTiles({ profile: [[0.03, 0], [0.05, 0.03], [0.055, 0.06]], thickness: 0.004, segments: 12, capBottom: true, outer: smooth, inner: faceAttr(3, 0xffffff, { smooth: 2 }), edge: a });
+      latheTiles({ profile: [[0.03, 0], [0.05, 0.03], [0.055, 0.06]], thickness: 0.004, segments: 8, capBottom: true, outer: smooth, inner: faceAttr(3, 0xffffff, { smooth: 2 }), edge: a });
     }
     it++;
-  } while (now() < budgetMs && it < 400);
+  } while (now() < budgetMs && it < 2000);
   return it;
 }

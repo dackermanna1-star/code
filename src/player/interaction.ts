@@ -1,30 +1,36 @@
 // Hands-on interaction: crosshair target, physics grab/hold, throw, slam, pull on anchored or
 // jointed islands, and the use key.
 //
-// HOLD MECHANISM (dynamic islands). The grab point P (fixed in the body frame, where the ray hit)
-// is driven towards a target T in front of the camera by a force-capped "velocity servo":
-//   v_des = v_T + (T − P)/τ            (τ ≈ 75 ms, clamped)
-//   J     = β · K⁻¹ (v_des − v_P) + m g dt ŷ      applied AT P
-//   |J|  ≤ F_max · dt                  (F_max = 450 N lift strength, 1400 N during a slam)
-// where K = (1/m)·E − [r]× I⁻¹ [r]× is the point effective-mass matrix (r = P − COM), so the
-// servo is stable for any grab offset and mass, and gravity compensation acting at P makes the
-// body hang naturally below the grab point. Objects heavier than F_max/g (≈ 46 kg) can't be
-// lifted: they are dragged and tilted. While held, the body is ALWAYS_ACTIVE, angular damping is
-// raised, and its leaf shapes are moved to the HELD collision layer (no collision with the
-// player capsule, ignored by tool sweeps) — restored shortly after release.
+// HOLD MECHANISM (dynamic islands) — the one recommended by docs/api-notes/physics-constraints-
+// character.md §6: a Physics6DoFConstraint between a persistent ANIMATED "hand" anchor (collides
+// with nothing) and the held body, pivot = the grab point in the body frame, with POSITION motors
+// on the three linear axes of the anchor frame (camera yaw): lift 450 N on Y, push 300 N on X/Z.
+// Havok solves hand + contacts implicitly: exact hold, no jitter with heavy swings, stable against
+// walls, objects heavier than ≈46 kg can only be dragged/tilted, and the joint's applied impulse is
+// the exact hand force (fed to destruction.pull for doors and lids). No angular motors by default,
+// so a body hangs naturally from where it was grabbed (angular damping raised while held); R + mouse
+// re-creates the joint with angular POSITION motors (40 N·m) whose targets follow the mouse.
+// While held the body is ALWAYS_ACTIVE and its leaf shapes are on the HELD layer (no collision with
+// the player capsule, ignored by tool sweeps) — restored shortly after release.
 //
-// ANCHORED/JOINTED islands (wall cabinets, doors, toilet lids): the grab point stays where it is
-// (static) or swings with the joint (dynamic), and the actual spring force is passed every fixed
-// step to `destruction.pull(...)`, which stresses hinges / world bonds until they give.
+// ANCHORED islands (wall cabinets, fixtures) can't be moved by a joint to an animated anchor (both
+// infinite mass): the grab point stays put and a capped spring force (2000 N/m, ≤ 450 N) is passed
+// to destruction.pull every fixed step until the island breaks loose — then it becomes a normal
+// held object.
 
 import {
+  Physics6DoFConstraint,
   PhysicsActivationControl,
+  PhysicsBody,
+  PhysicsConstraintAxis,
+  PhysicsConstraintMotorType,
   PhysicsMotionType,
+  PhysicsShapeSphere,
   PhysicsShapeType,
   Quaternion,
+  TransformNode,
   Vector3,
   type HavokPlugin,
-  type PhysicsBody,
   type PhysicsShape,
 } from "@babylonjs/core";
 import { Layer, type GameContext, type RayHit, type TargetInfo, type ToolId } from "../core/context.ts";
@@ -37,6 +43,8 @@ export interface InteractionView {
   forward: Vector3;
   right: Vector3;
   up: Vector3;
+  /** Camera yaw (rad): the hand anchor's frame turns with it. */
+  yaw: number;
   /** Player velocity (m/s). */
   velocity: Vector3;
   /** The player's own physics body (ignored by queries). */
@@ -48,8 +56,13 @@ export interface InteractionView {
 
 export const REACH = 2.6;
 export const PRY_REACH = 1.3;
-export const LIFT_FORCE = 450; // N
-export const SLAM_FORCE = 1400; // N
+/** Hand strength: vertical (lift) and horizontal (push/pull) motor caps (N). */
+export const LIFT_FORCE = 450;
+export const PUSH_FORCE = 300;
+/** Motor caps during the 0.15 s slam thrust (N): a two-handed overhead slam is a few times body weight briefly. */
+export const SLAM_FORCE = 1200;
+/** Angular motor torque once the player rotates the held object with R (N·m). */
+export const HOLD_TORQUE = 40;
 export const HOLD_MIN = 0.6;
 export const HOLD_MAX = 2.5;
 /** Initial hold distance when picking something up (it is brought this close). */
@@ -64,35 +77,29 @@ const DROP_STRETCH = 1.2; // m between grab point and hold target → hand slips
 const DROP_STRETCH_TIME = 0.3; // s
 const SLAM_TIME = 0.15; // s
 const SLAM_COOLDOWN = 0.45; // s
-const HOLD_ANG_DAMPING = 4;
-const SERVO_TAU = 0.075; // s
-const SERVO_TAU_SLAM = 0.045;
-const SERVO_BETA = 0.55;
-const SERVO_MAX_REL_SPEED = 12; // m/s
+const HOLD_ANG_DAMPING = 3;
 const STATIC_SPRING_K = 2000; // N/m for pulling on anchored islands
 const ROTATE_RAD_PER_PX = 0.006;
-const ROTATE_MAX_TORQUE = 35; // N·m
 const RELEASE_MAX_SPEED = 16; // m/s
 const LAYER_RESTORE_DELAY = 0.35; // s after release before the body collides with the player again
 const G = 9.81;
 
 const QUERY_MASK = Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS;
 const HELD_COLLIDE = Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS;
-
-interface MassCache {
-  mass: number;
-  com: Vector3; // body-local
-  inertia: Vector3; // principal, per unit mass
-  inertiaQ: Quaternion; // body-local orientation of the principal axes
-}
+const LIN_AXES = [PhysicsConstraintAxis.LINEAR_X, PhysicsConstraintAxis.LINEAR_Y, PhysicsConstraintAxis.LINEAR_Z] as const;
+const ANG_AXES = [PhysicsConstraintAxis.ANGULAR_X, PhysicsConstraintAxis.ANGULAR_Y, PhysicsConstraintAxis.ANGULAR_Z] as const;
+const AX = new Vector3(1, 0, 0);
+const AY = new Vector3(0, 1, 0);
 
 interface Hold {
   body: PhysicsBody;
   mode: "dynamic" | "static";
+  /** Doors / drawers: held where the hand is, stay on their layer. */
+  jointed: boolean;
   local: Vector3; // grab point in the body frame
   dist: number;
   minDist: number;
-  mass: MassCache;
+  mass: number;
   massAge: number;
   prevAngDamping: number;
   leaves: Map<PhysicsShape, [number, number]>; // leaf → original [membership, collide]
@@ -100,12 +107,14 @@ interface Hold {
   shapeChildren: number;
   stretchTime: number;
   slamTime: number;
-  prevT: Vector3;
-  hasPrevT: boolean;
+  joint: Physics6DoFConstraint | null;
+  slamCaps: boolean;
+  angular: boolean;
+  rotPitch: number;
+  rotYaw: number;
   rotDx: number;
   rotDy: number;
   lastForce: Vector3;
-  age: number;
 }
 
 interface PendingRestore {
@@ -114,35 +123,11 @@ interface PendingRestore {
   t: number;
 }
 
-// ---------------------------------------------------------------- small 3×3 helpers (row-major)
-function quatToMat(q: Quaternion, m: Float64Array): void {
-  const { x, y, z, w } = q;
-  m[0] = 1 - 2 * (y * y + z * z); m[1] = 2 * (x * y - z * w); m[2] = 2 * (x * z + y * w);
-  m[3] = 2 * (x * y + z * w); m[4] = 1 - 2 * (x * x + z * z); m[5] = 2 * (y * z - x * w);
-  m[6] = 2 * (x * z - y * w); m[7] = 2 * (y * z + x * w); m[8] = 1 - 2 * (x * x + y * y);
-}
-
-/** out = R · diag(d) · Rᵀ */
-function rotDiag(R: Float64Array, dx: number, dy: number, dz: number, out: Float64Array): void {
-  for (let i = 0; i < 3; i++) {
-    for (let j = 0; j < 3; j++) {
-      out[i * 3 + j] = R[i * 3] * dx * R[j * 3] + R[i * 3 + 1] * dy * R[j * 3 + 1] + R[i * 3 + 2] * dz * R[j * 3 + 2];
-    }
-  }
-}
-
-/** Inverse of a 3×3 matrix; returns false when (near) singular. */
-function inv3(m: Float64Array, out: Float64Array): boolean {
-  const a = m[0], b = m[1], c = m[2], d = m[3], e = m[4], f = m[5], g = m[6], h = m[7], i = m[8];
-  const A = e * i - f * h, B = -(d * i - f * g), C = d * h - e * g;
-  const det = a * A + b * B + c * C;
-  if (!Number.isFinite(det) || Math.abs(det) < 1e-12) return false;
-  const s = 1 / det;
-  out[0] = A * s; out[1] = -(b * i - c * h) * s; out[2] = (b * f - c * e) * s;
-  out[3] = B * s; out[4] = (a * i - c * g) * s; out[5] = -(a * f - c * d) * s;
-  out[6] = C * s; out[7] = -(a * h - b * g) * s; out[8] = (a * e - b * d) * s;
-  return true;
-}
+type HavokRaw = {
+  HP_Body_SetQTransform?: (id: unknown, t: [number[], number[]]) => unknown;
+  HP_Constraint_GetAppliedImpulses?: (id: unknown) => [unknown, number[], number[]];
+  HP_Shape_GetChildShape?: (s: unknown, i: number) => [unknown, [bigint]];
+};
 
 function finiteVec(v: Vector3): boolean {
   return Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
@@ -165,30 +150,22 @@ export class Interaction {
   private charging = false;
   private chargeStart = 0;
   private slamCooldown = 0;
-  private targetHit: RayHit | null = null;
   private targetAge = 0;
   private plugin: HavokPlugin | null = null;
+  private anchor: PhysicsBody | null = null;
+  private anchorShape: PhysicsShape | null = null;
 
-  // scratch (no per-step allocations in the hold servo)
+  // scratch
   private readonly from = new Vector3();
   private readonly to = new Vector3();
   private readonly P = new Vector3();
   private readonly T = new Vector3();
-  private readonly com = new Vector3();
-  private readonly r = new Vector3();
   private readonly v = new Vector3();
   private readonly w = new Vector3();
-  private readonly vP = new Vector3();
-  private readonly vT = new Vector3();
-  private readonly J = new Vector3();
   private readonly tmp = new Vector3();
   private readonly tmp2 = new Vector3();
-  private readonly qTmp = new Quaternion();
-  private readonly R = new Float64Array(9);
-  private readonly RI = new Float64Array(9);
-  private readonly Iinv = new Float64Array(9);
-  private readonly K = new Float64Array(9);
-  private readonly Kinv = new Float64Array(9);
+  private readonly yawQ = new Quaternion();
+  private readonly qInv = new Quaternion();
   private readonly leafScratch: PhysicsShape[] = [];
 
   constructor(ctx: GameContext) {
@@ -205,12 +182,12 @@ export class Interaction {
   }
 
   get heldMass(): number {
-    return this.hold ? this.hold.mass.mass : 0;
+    return this.hold ? this.hold.mass : 0;
   }
 
   /** True when the held object is light enough to be lifted (else it is dragged). */
   get canLift(): boolean {
-    return !!this.hold && this.hold.mass.mass * G <= LIFT_FORCE * 0.95;
+    return !!this.hold && this.hold.mass * G <= LIFT_FORCE * 0.95;
   }
 
   /** Current hold distance (m). */
@@ -218,7 +195,7 @@ export class Interaction {
     return this.hold ? this.hold.dist : 0;
   }
 
-  /** Last force (N) applied by the hand (pull force for anchored islands). */
+  /** Force (N) the hand applied during the last step (joint load, or the pull spring). */
   get handForce(): number {
     return this.hold ? this.hold.lastForce.length() : 0;
   }
@@ -244,7 +221,7 @@ export class Interaction {
   addWheel(notches: number): void {
     if (!this.hold || !Number.isFinite(notches) || notches === 0) return;
     const h = this.hold;
-    const lo = h.mode === "static" || h.minDist < HOLD_MIN ? 0.2 : Math.max(HOLD_MIN, h.minDist);
+    const lo = h.mode === "static" || h.jointed ? 0.2 : Math.max(HOLD_MIN, h.minDist);
     h.dist = Math.max(lo, Math.min(HOLD_MAX, h.dist + notches * 0.15));
   }
 
@@ -256,10 +233,9 @@ export class Interaction {
 
     // crosshair target (or the held object)
     if (this.hold) {
-      this.targetHit = null;
-      if (--this.targetAge <= 0) {
+      if (--this.targetAge <= 0 && this.alive(this.hold.body)) {
         this.targetAge = 10;
-        this.target = this.safeTarget(this.hold.body, this.P, -1);
+        this.target = this.safeTarget(this.hold.body, this.grabPointWorld(this.hold, this.P), -1);
       }
       this.targetDistance = this.hold.dist;
     } else {
@@ -272,18 +248,18 @@ export class Interaction {
       this.throwCharge = -1;
       return;
     }
-    if (h.body.isDisposed || !h.body.transformNode || h.body.transformNode.isDisposed()) {
+    if (!this.alive(h.body)) {
       this.release(false);
       return;
     }
-    h.age += dt;
     // standing on what you hold → let go
     if (view.support && view.support === h.body) {
       this.drop("standing");
       return;
     }
     // anchored island ripped loose → becomes a normal held object
-    if (h.mode === "static" && !this.isAnchored(h.body)) this.promoteToDynamic(h);
+    if (h.mode === "static" && !this.isAnchored(h.body)) this.promoteToDynamic(h, view);
+    if (!this.hold) return;
 
     if (h.mode === "dynamic") this.stepDynamic(h, dt, view);
     else this.stepStatic(h, dt, view);
@@ -326,24 +302,21 @@ export class Interaction {
     const q = node.rotationQuaternion ?? Quaternion.FromEulerVector(node.rotation);
     const local = new Vector3();
     hit.point.subtractToRef(node.position, this.tmp);
-    Quaternion.InverseToRef(q, this.qTmp);
-    this.tmp.applyRotationQuaternionToRef(this.qTmp, local);
-    const mass = this.readMass(body, info?.mass ?? null);
-    const minDist = mode === "dynamic" && !(info?.usable === "door" || info?.usable === "drawer") ? this.minHoldDistance(body, hit.point) : 0.2;
-    // Picking something up brings it towards you (≤ HOLD_PICKUP); doors/drawers and anchored
-    // things are held where the hand is.
+    Quaternion.InverseToRef(q, this.qInv);
+    this.tmp.applyRotationQuaternionToRef(this.qInv, local);
     const jointed = info?.usable === "door" || info?.usable === "drawer";
-    const dist =
-      mode === "static" || jointed
-        ? Math.max(0.2, hit.distance)
-        : Math.max(Math.max(HOLD_MIN, minDist), Math.min(HOLD_PICKUP, hit.distance));
+    const minDist = mode === "dynamic" && !jointed ? this.minHoldDistance(body, hit.point) : 0.2;
+    // Picking something up brings it towards you; doors/drawers and anchored things are held
+    // where the hand is.
+    const dist = mode === "static" || jointed ? Math.max(0.2, hit.distance) : Math.max(Math.max(HOLD_MIN, minDist), Math.min(HOLD_PICKUP, hit.distance));
     const h: Hold = {
       body,
       mode,
+      jointed,
       local,
       dist,
       minDist,
-      mass,
+      mass: this.readMass(body, info?.mass ?? null),
       massAge: 0,
       prevAngDamping: 0.1,
       leaves: new Map(),
@@ -351,28 +324,34 @@ export class Interaction {
       shapeChildren: -1,
       stretchTime: 0,
       slamTime: 0,
-      prevT: new Vector3(),
-      hasPrevT: false,
+      joint: null,
+      slamCaps: false,
+      angular: false,
+      rotPitch: 0,
+      rotYaw: 0,
       rotDx: 0,
       rotDy: 0,
       lastForce: new Vector3(),
-      age: 0,
     };
     this.hold = h;
     this.charging = false;
-    if (mode === "dynamic") this.beginDynamic(h);
+    if (mode === "dynamic" && !this.beginDynamic(h, view)) {
+      this.hold = null;
+      return false;
+    }
     this.target = info;
     this.targetAge = 10;
-    this.ctx.events.emit("grab", { pos: { x: hit.point.x, y: hit.point.y, z: hit.point.z }, mass: mass.mass });
+    this.ctx.events.emit("grab", { pos: { x: hit.point.x, y: hit.point.y, z: hit.point.z }, mass: h.mass });
     return true;
   }
 
   /** Release what is held (keeps its current velocity, clamped). */
   drop(_reason: string = "drop"): void {
     if (!this.hold) return;
-    const pos = this.grabPointWorld(this.hold, this.tmp2);
+    const pos = this.alive(this.hold.body) ? this.grabPointWorld(this.hold, this.tmp2) : this.P;
+    const p = { x: pos.x, y: pos.y, z: pos.z };
     this.release(true);
-    this.ctx.events.emit("drop", { pos: { x: pos.x, y: pos.y, z: pos.z } });
+    this.ctx.events.emit("drop", { pos: p });
   }
 
   /** LMB pressed while holding: start charging a throw. */
@@ -389,39 +368,40 @@ export class Interaction {
 
   /**
    * Throw the held object along the view: E = THROW_MAX_ENERGY · (0.2 + 0.8·charge),
-   * v = min(√(2E/m), 16 m/s) + player velocity. Returns the energy given (J), 0 if nothing thrown.
+   * v = min(√(2E/m), 16 m/s) + player velocity. Returns the kinetic energy given (J), 0 if nothing.
    */
   throwHeld(view: InteractionView, charge?: number): number {
     const h = this.hold;
     if (!h) return 0;
-    if (h.mode !== "dynamic") {
+    if (h.mode !== "dynamic" || !this.alive(h.body)) {
       this.drop("throw-static");
       return 0;
     }
     let c = charge;
-    if (c === undefined) c = this.charging ? Math.max(0, Math.min(1, (this.time - this.chargeStart - CHARGE_DELAY) / (CHARGE_FULL - CHARGE_DELAY))) : 0;
+    if (c === undefined) c = this.charging ? (this.time - this.chargeStart - CHARGE_DELAY) / (CHARGE_FULL - CHARGE_DELAY) : 0;
     c = Math.max(0, Math.min(1, Number.isFinite(c) ? c : 0));
     const body = h.body;
-    const m = Math.max(0.05, h.mass.mass);
+    const m = Math.max(0.05, h.mass);
     const energy = THROW_MAX_ENERGY * (THROW_TAP_FRACTION + (1 - THROW_TAP_FRACTION) * c);
     const speed = Math.min(Math.sqrt((2 * energy) / m), THROW_MAX_SPEED);
     const given = 0.5 * m * speed * speed;
-    const pos = this.grabPointWorld(h, this.tmp2).clone();
+    const pos = this.grabPointWorld(h, this.tmp2);
+    const p = { x: pos.x, y: pos.y, z: pos.z };
     this.release(false);
-    const vel = view.forward.scale(speed).addInPlace(view.velocity);
+    const vel = this.v.copyFrom(view.forward).scaleInPlace(speed).addInPlace(view.velocity);
     if (finiteVec(vel)) body.setLinearVelocity(vel);
     body.getAngularVelocityToRef(this.w);
     body.setAngularVelocity(this.w.scaleInPlace(0.5));
     this.charging = false;
     this.throwCharge = -1;
-    this.ctx.events.emit("throw", { pos: { x: pos.x, y: pos.y, z: pos.z }, energy: given, mass: m });
+    this.ctx.events.emit("throw", { pos: p, energy: given, mass: m });
     return given;
   }
 
   /** F while holding: thrust the held object forward/down hard for a moment. */
   slam(): boolean {
     const h = this.hold;
-    if (!h || h.mode !== "dynamic" || this.slamCooldown > 0) return false;
+    if (!h || h.mode !== "dynamic" || h.jointed || this.slamCooldown > 0) return false;
     h.slamTime = SLAM_TIME;
     this.slamCooldown = SLAM_COOLDOWN;
     return true;
@@ -439,15 +419,26 @@ export class Interaction {
     }
   }
 
-  /** Immediately forget everything (teleport / dispose). */
+  /** Immediately forget everything (teleport). */
   reset(): void {
     if (this.hold) this.release(false);
     this.processPendingRestores(true);
     this.target = null;
-    this.targetHit = null;
     this.targetDistance = -1;
     this.charging = false;
     this.throwCharge = -1;
+  }
+
+  dispose(): void {
+    this.reset();
+    if (this.anchor && !this.anchor.isDisposed) {
+      const node = this.anchor.transformNode;
+      this.anchor.dispose();
+      node.dispose();
+    }
+    this.anchorShape?.dispose();
+    this.anchor = null;
+    this.anchorShape = null;
   }
 
   // ---------------------------------------------------------------- internals: targeting
@@ -465,7 +456,6 @@ export class Interaction {
 
   private updateTarget(view: InteractionView): void {
     const hit = this.cast(view, REACH);
-    this.targetHit = hit;
     if (!hit) {
       this.target = null;
       this.targetDistance = -1;
@@ -491,6 +481,10 @@ export class Interaction {
     }
   }
 
+  private alive(body: PhysicsBody): boolean {
+    return !body.isDisposed && !!body.transformNode && !body.transformNode.isDisposed();
+  }
+
   // ---------------------------------------------------------------- internals: holding
   private getPlugin(): HavokPlugin | null {
     if (this.plugin) return this.plugin;
@@ -500,14 +494,17 @@ export class Interaction {
     return this.plugin;
   }
 
-  private readMass(body: PhysicsBody, fallbackMass: number | null): MassCache {
-    let mp: { mass?: number; centerOfMass?: Vector3; inertia?: Vector3; inertiaOrientation?: Quaternion } = {};
+  private get hk(): HavokRaw | null {
+    return (this.getPlugin() as unknown as { _hknp?: HavokRaw } | null)?._hknp ?? null;
+  }
+
+  private readMass(body: PhysicsBody, fallbackMass: number | null): number {
+    let mass = 0;
     try {
-      mp = body.getMassProperties();
+      mass = body.getMassProperties().mass ?? 0;
     } catch {
-      /* body without mass properties */
+      mass = 0;
     }
-    let mass = mp.mass ?? 0;
     if (!(mass > 0) || !Number.isFinite(mass)) {
       let dm: number | null = null;
       try {
@@ -517,17 +514,7 @@ export class Interaction {
       }
       mass = dm ?? fallbackMass ?? 10;
     }
-    const inertia = mp.inertia && finiteVec(mp.inertia) ? mp.inertia.clone() : new Vector3(0.1, 0.1, 0.1);
-    // guard degenerate (zero) principal moments
-    inertia.x = Math.max(inertia.x, 1e-5);
-    inertia.y = Math.max(inertia.y, 1e-5);
-    inertia.z = Math.max(inertia.z, 1e-5);
-    return {
-      mass: Math.max(0.01, mass),
-      com: mp.centerOfMass && finiteVec(mp.centerOfMass) ? mp.centerOfMass.clone() : Vector3.Zero(),
-      inertia,
-      inertiaQ: mp.inertiaOrientation ? mp.inertiaOrientation.clone() : Quaternion.Identity(),
-    };
+    return Math.max(0.01, mass);
   }
 
   /** Hold distance below which a big object would clip into the camera. */
@@ -556,38 +543,156 @@ export class Interaction {
     return out;
   }
 
-  private beginDynamic(h: Hold): void {
+  /** The persistent ANIMATED "hand" body the grab joints attach to (collides with nothing). */
+  private ensureAnchor(): PhysicsBody | null {
+    if (this.anchor && !this.anchor.isDisposed) return this.anchor;
+    const scene = this.ctx.scene;
+    if (!scene.getPhysicsEngine()) return null;
+    const n = new TransformNode("playerHandAnchor", scene);
+    n.position.set(0, -50, 0);
+    n.rotationQuaternion = Quaternion.Identity();
+    n.computeWorldMatrix(true);
+    const b = new PhysicsBody(n, PhysicsMotionType.ANIMATED, false, scene);
+    const s = new PhysicsShapeSphere(Vector3.Zero(), 0.01, scene);
+    s.filterMembershipMask = 0;
+    s.filterCollideMask = 0;
+    b.shape = s;
+    this.anchor = b;
+    this.anchorShape = s;
+    return b;
+  }
+
+  /** Teleport the anchor (zero initial joint error). */
+  private placeAnchor(p: Vector3, q: Quaternion): void {
+    const a = this.anchor;
+    if (!a) return;
+    const n = a.transformNode;
+    n.position.copyFrom(p);
+    n.rotationQuaternion!.copyFrom(q);
+    const id = (a as unknown as { _pluginData?: { hpBodyId?: unknown } })._pluginData?.hpBodyId;
+    const hk = this.hk;
+    if (hk?.HP_Body_SetQTransform && id !== undefined) hk.HP_Body_SetQTransform(id, [[p.x, p.y, p.z], [q.x, q.y, q.z, q.w]]);
+    else a.setTargetTransform(p, q);
+  }
+
+  /** (Re)create the grab joint at the current pose (no jump: the anchor starts at the grab point). */
+  private createJoint(h: Hold, view: InteractionView): boolean {
+    const anchor = this.ensureAnchor();
+    if (!anchor) return false;
+    this.destroyJoint(h);
     const body = h.body;
+    const node = body.transformNode;
+    const q = node.rotationQuaternion;
+    if (!q) return false;
+    Quaternion.RotationYawPitchRollToRef(view.yaw, 0, 0, this.yawQ);
+    Quaternion.InverseToRef(q, this.qInv);
+    // anchor axes (camera-yaw frame) expressed in the body frame → zero relative rotation now
+    const ax = AX.applyRotationQuaternion(this.yawQ).applyRotationQuaternion(this.qInv);
+    const ay = AY.applyRotationQuaternion(this.yawQ).applyRotationQuaternion(this.qInv);
+    this.placeAnchor(this.grabPointWorld(h, this.P), this.yawQ);
+    try {
+      const c = new Physics6DoFConstraint(
+        { pivotA: Vector3.Zero(), pivotB: h.local.clone(), axisA: AX.clone(), perpAxisA: AY.clone(), axisB: ax, perpAxisB: ay },
+        [],
+        this.ctx.scene,
+      );
+      anchor.addConstraint(body, c); // axis setters only work after this
+      for (let i = 0; i < 3; i++) {
+        c.setAxisMotorType(LIN_AXES[i], PhysicsConstraintMotorType.POSITION);
+        c.setAxisMotorTarget(LIN_AXES[i], 0);
+      }
+      h.joint = c;
+      h.slamCaps = !(h.slamTime > 0); // make applyCaps write the caps below
+      this.applyCaps(h, h.slamTime > 0);
+      if (h.angular) {
+        for (const a of ANG_AXES) {
+          c.setAxisMotorType(a, PhysicsConstraintMotorType.POSITION);
+          c.setAxisMotorTarget(a, 0);
+          c.setAxisMotorMaxForce(a, HOLD_TORQUE);
+        }
+        h.rotPitch = h.rotYaw = 0;
+      }
+      return true;
+    } catch (e) {
+      console.warn("grab joint failed", e);
+      this.destroyJoint(h);
+      return false;
+    }
+  }
+
+  private destroyJoint(h: Hold): void {
+    if (!h.joint) return;
+    try {
+      h.joint.dispose();
+    } catch {
+      /* body already gone */
+    }
+    h.joint = null;
+  }
+
+  /** Linear motor caps: normal hand strength, or the brief slam thrust. */
+  private applyCaps(h: Hold, slam: boolean): void {
+    if (!h.joint || h.slamCaps === slam) return;
+    h.slamCaps = slam;
+    const caps = slam ? [SLAM_FORCE, SLAM_FORCE, SLAM_FORCE] : [PUSH_FORCE, LIFT_FORCE, PUSH_FORCE];
+    for (let i = 0; i < 3; i++) h.joint.setAxisMotorMaxForce(LIN_AXES[i], caps[i]);
+  }
+
+  /** World force (N) the joint applied to the held body during the last step. */
+  private readJointForce(h: Hold, out: Vector3): void {
+    out.setAll(0);
+    const ids = (h.joint as unknown as { _pluginData?: unknown[] } | null)?._pluginData;
+    const hk = this.hk;
+    if (!ids || ids.length === 0 || !hk?.HP_Constraint_GetAppliedImpulses) return;
+    try {
+      const lin = hk.HP_Constraint_GetAppliedImpulses(ids[0])[1];
+      const dt = this.getPlugin()?.getTimeStep() || 1 / 60;
+      out.set(lin[0] / dt, lin[1] / dt, lin[2] / dt);
+      if (!finiteVec(out)) out.setAll(0);
+    } catch {
+      out.setAll(0);
+    }
+  }
+
+  private beginDynamic(h: Hold, view: InteractionView): boolean {
+    const body = h.body;
+    if (body.getMotionType() !== PhysicsMotionType.DYNAMIC) return false;
     try {
       h.prevAngDamping = body.getAngularDamping();
     } catch {
       h.prevAngDamping = 0.1;
     }
     body.setAngularDamping(HOLD_ANG_DAMPING);
-    const plugin = this.getPlugin();
     try {
-      plugin?.setActivationControl(body, PhysicsActivationControl.ALWAYS_ACTIVE);
+      this.getPlugin()?.setActivationControl(body, PhysicsActivationControl.ALWAYS_ACTIVE);
     } catch {
       /* instanced body / unsupported */
     }
-    // re-grab during the post-release grace period: take over the remembered original masks
-    const idx = this.pending.findIndex((p) => p.body === body);
-    if (idx >= 0) {
-      h.leaves = this.pending[idx].leaves;
-      this.pending.splice(idx, 1);
+    if (!h.jointed) {
+      // re-grab during the post-release grace period: take over the remembered original masks
+      const idx = this.pending.findIndex((p) => p.body === body);
+      if (idx >= 0) {
+        h.leaves = this.pending[idx].leaves;
+        this.pending.splice(idx, 1);
+      }
+      this.applyHeldLayer(h);
     }
-    this.applyHeldLayer(h);
-    body.getLinearVelocityToRef(this.v);
-    if (this.v.lengthSquared() < 1e-6) body.setLinearVelocity(this.v.set(0, 1e-3, 0)); // wake
+    if (!this.createJoint(h, view)) {
+      this.release(false);
+      return false;
+    }
+    return true;
   }
 
-  private promoteToDynamic(h: Hold): void {
+  private promoteToDynamic(h: Hold, view: InteractionView): void {
     h.mode = "dynamic";
     h.mass = this.readMass(h.body, null);
     h.massAge = 0;
-    h.minDist = this.minHoldDistance(h.body, this.grabPointWorld(h, this.tmp));
-    h.dist = Math.max(Math.max(HOLD_MIN, h.minDist), Math.min(HOLD_MAX, h.dist));
-    this.beginDynamic(h);
+    if (!h.jointed) {
+      h.minDist = this.minHoldDistance(h.body, this.grabPointWorld(h, this.tmp));
+      h.dist = Math.max(Math.max(HOLD_MIN, h.minDist), Math.min(HOLD_MAX, h.dist));
+    }
+    if (!this.beginDynamic(h, view)) this.hold = null;
   }
 
   /** Move the body's leaf shapes to the HELD layer (remembering the original masks). */
@@ -622,12 +727,8 @@ export class Interaction {
       out.push(shape);
       return true;
     }
-    const plugin = this.getPlugin() as unknown as {
-      _hknp?: { HP_Shape_GetChildShape?: (s: unknown, i: number) => [unknown, [bigint]] };
-      _shapes?: Map<bigint, PhysicsShape>;
-    } | null;
-    const hk = plugin?._hknp;
-    const registry = plugin?._shapes;
+    const hk = this.hk;
+    const registry = (this.getPlugin() as unknown as { _shapes?: Map<bigint, PhysicsShape> } | null)?._shapes;
     if (!hk?.HP_Shape_GetChildShape || !registry) return false;
     let complete = true;
     const n = shape.getNumChildren();
@@ -679,8 +780,9 @@ export class Interaction {
     this.throwCharge = -1;
     this.target = null;
     this.stretch.setAll(0);
+    this.destroyJoint(h);
     const body = h.body;
-    const alive = !body.isDisposed && !!body.transformNode && !body.transformNode.isDisposed();
+    const alive = this.alive(body);
     if (h.mode === "dynamic" && alive) {
       try {
         body.setAngularDamping(h.prevAngDamping);
@@ -737,67 +839,50 @@ export class Interaction {
 
   private stepDynamic(h: Hold, dt: number, view: InteractionView): void {
     const body = h.body;
-    const node = body.transformNode;
-    const q = node.rotationQuaternion;
-    if (!q) {
-      this.drop("no-rotation");
+    if (!h.joint && !this.createJoint(h, view)) {
+      this.drop("no-joint");
       return;
     }
     // keep the HELD layer on new leaves (the island may have been rebuilt by a fracture)
-    const shape = body.shape;
-    const nChildren = shape && shape.type === PhysicsShapeType.CONTAINER ? shape.getNumChildren() : -1;
-    if (shape !== h.shapeRef || nChildren !== h.shapeChildren) {
-      this.applyHeldLayer(h);
-      h.massAge = 1e9; // force a mass refresh
+    if (!h.jointed) {
+      const shape = body.shape;
+      const nChildren = shape && shape.type === PhysicsShapeType.CONTAINER ? shape.getNumChildren() : -1;
+      if (shape !== h.shapeRef || nChildren !== h.shapeChildren) {
+        this.applyHeldLayer(h);
+        h.massAge = 1e9;
+      }
     }
     if ((h.massAge += dt) > 0.5) {
-      h.mass = this.readMass(body, h.mass.mass);
+      h.mass = this.readMass(body, h.mass);
       h.massAge = 0;
     }
-    const m = h.mass.mass;
 
-    // pose
+    // last step's hand force (exact joint load) → bond stress on jointed islands, HUD
+    this.readJointForce(h, h.lastForce);
+
     const P = this.grabPointWorld(h, this.P);
-    h.mass.com.applyRotationQuaternionToRef(q, this.com);
-    this.com.addInPlace(node.position);
-    P.subtractToRef(this.com, this.r);
-    body.getLinearVelocityToRef(this.v);
-    body.getAngularVelocityToRef(this.w);
-    if (!finiteVec(P) || !finiteVec(this.v) || !finiteVec(this.w)) {
+    if (!finiteVec(P)) {
       this.drop("nan");
       return;
     }
-    Vector3.CrossToRef(this.w, this.r, this.vP);
-    this.vP.addInPlace(this.v);
-
     // hold target (slam: thrust forward and down)
     const T = this.T;
-    let tau = SERVO_TAU;
-    let fMax = LIFT_FORCE;
     if (h.slamTime > 0) {
+      // A POSITION motor stops at its target, so aim well beyond (through the floor): the object
+      // keeps accelerating at the slam cap until it hits something.
       h.slamTime -= dt;
       this.tmp.set(view.forward.x, view.forward.y - 0.75, view.forward.z).normalize();
-      this.tmp.scaleToRef(h.dist + 0.7, T);
-      tau = SERVO_TAU_SLAM;
-      fMax = SLAM_FORCE;
-    } else {
-      view.forward.scaleToRef(h.dist, T);
-    }
+      this.tmp.scaleToRef(h.dist + 2.5, T);
+    } else view.forward.scaleToRef(h.dist, T);
     T.addInPlace(view.eye);
-    // target velocity (the target moves with the player and the view)
-    if (h.hasPrevT) {
-      T.subtractToRef(h.prevT, this.vT).scaleInPlace(1 / dt);
-      const s = this.vT.length();
-      if (s > 25) this.vT.scaleInPlace(25 / s);
-    } else this.vT.copyFrom(view.velocity);
-    h.prevT.copyFrom(T);
-    h.hasPrevT = true;
+    this.applyCaps(h, h.slamTime > 0);
+    // too heavy to lift: keep the hand near the object's height (drag and tilt, don't "reach")
+    if (h.mass * G > LIFT_FORCE * 0.95) T.y = Math.max(P.y - 0.3, Math.min(T.y, P.y + 0.25));
 
-    // error, stuck check
-    const e = this.tmp;
-    T.subtractToRef(P, e);
-    this.stretch.copyFrom(e);
-    const stretch = e.length();
+    // stretch & stuck check
+    T.subtractToRef(P, this.tmp);
+    this.stretch.copyFrom(this.tmp);
+    const stretch = this.tmp.length();
     if (stretch > DROP_STRETCH && h.slamTime <= 0) {
       h.stretchTime += dt;
       if (h.stretchTime > DROP_STRETCH_TIME) {
@@ -805,123 +890,31 @@ export class Interaction {
         return;
       }
     } else h.stretchTime = 0;
-    // too heavy to lift: only drag and tilt (limit the vertical goal)
-    if (m * G > LIFT_FORCE * 0.95) e.y = Math.max(-0.3, Math.min(0.2, e.y));
 
-    // desired point velocity
-    const vDes = this.tmp2;
-    e.scaleToRef(1 / tau, vDes);
-    const rel = vDes.length();
-    if (rel > SERVO_MAX_REL_SPEED) vDes.scaleInPlace(SERVO_MAX_REL_SPEED / rel);
-    vDes.addInPlace(this.vT);
-    vDes.subtractInPlace(this.vP).scaleInPlace(SERVO_BETA); // Δv at P
-
-    // K = (1/m)E − [r]× I⁻¹ [r]×
-    this.worldInvInertia(q, h.mass, this.Iinv);
-    this.pointMassMatrix(this.r, m, this.Iinv, this.K);
-    const J = this.J;
-    if (inv3(this.K, this.Kinv)) {
-      const k = this.Kinv;
-      J.set(
-        k[0] * vDes.x + k[1] * vDes.y + k[2] * vDes.z,
-        k[3] * vDes.x + k[4] * vDes.y + k[5] * vDes.z,
-        k[6] * vDes.x + k[7] * vDes.y + k[8] * vDes.z,
-      );
-    } else vDes.scaleToRef(m, J);
-    J.y += m * G * dt; // gravity compensation at the grab point
-    const jMax = fMax * dt;
-    const jLen = J.length();
-    if (!Number.isFinite(jLen)) {
-      this.drop("nan");
-      return;
-    }
-    if (m * G > fMax * 0.95) {
-      // Too heavy to lift: spend the hand's force like a person dragging a heavy thing — lift
-      // at most ~55 % of it (unloading/tilting the object) and pull with the rest.
-      const upMax = 0.55 * jMax;
-      if (J.y > upMax) J.y = upMax;
-      const hMax = Math.sqrt(Math.max(0, jMax * jMax - J.y * J.y));
-      const hLen = Math.hypot(J.x, J.z);
-      if (hLen > hMax && hLen > 0) {
-        J.x *= hMax / hLen;
-        J.z *= hMax / hLen;
-      }
-    } else if (jLen > jMax) J.scaleInPlace(jMax / jLen);
-    body.applyImpulse(J, P);
-    J.scaleToRef(1 / dt, h.lastForce);
-
-    // R + mouse: rotate the held object about the camera axes (torque-limited)
+    // R + mouse: rotate relative to the hand (angular motors, enabled on first use)
     if (h.rotDx !== 0 || h.rotDy !== 0) {
-      const wy = (h.rotDx * ROTATE_RAD_PER_PX) / dt;
-      const wx = (h.rotDy * ROTATE_RAD_PER_PX) / dt;
+      if (!h.angular) {
+        h.angular = true;
+        this.createJoint(h, view); // zero = current orientation, no snap
+      }
+      h.rotYaw += h.rotDx * ROTATE_RAD_PER_PX;
+      h.rotPitch = Math.max(-1.5, Math.min(1.5, h.rotPitch + h.rotDy * ROTATE_RAD_PER_PX));
       h.rotDx = h.rotDy = 0;
-      const wd = this.tmp2.set(
-        view.up.x * wy + view.right.x * wx,
-        view.up.y * wy + view.right.y * wx,
-        view.up.z * wy + view.right.z * wx,
-      );
-      wd.subtractInPlace(this.w); // Δω
-      // L = I_w Δω with I_w = R diag(m·I) Rᵀ
-      this.worldInertia(q, h.mass, this.Iinv);
-      const I = this.Iinv;
-      const L = this.tmp.set(
-        I[0] * wd.x + I[1] * wd.y + I[2] * wd.z,
-        I[3] * wd.x + I[4] * wd.y + I[5] * wd.z,
-        I[6] * wd.x + I[7] * wd.y + I[8] * wd.z,
-      ).scaleInPlace(0.6);
-      const lMax = ROTATE_MAX_TORQUE * dt;
-      const lLen = L.length();
-      if (Number.isFinite(lLen) && lLen > 0) {
-        if (lLen > lMax) L.scaleInPlace(lMax / lLen);
-        body.applyAngularImpulse(L);
+      if (h.joint) {
+        h.joint.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_X, h.rotPitch);
+        h.joint.setAxisMotorTarget(PhysicsConstraintAxis.ANGULAR_Y, h.rotYaw);
       }
     }
+
+    // drive the hand anchor (before the physics step)
+    Quaternion.RotationYawPitchRollToRef(view.yaw, 0, 0, this.yawQ);
+    this.anchor?.setTargetTransform(T, this.yawQ);
 
     // jointed islands (doors, lids): the hand force stresses their joints
     try {
       this.ctx.destruction.pull(body, P.clone(), h.lastForce.clone(), dt);
     } catch (err) {
       console.warn("destruction.pull failed", err);
-    }
-  }
-
-  /** World inverse inertia tensor (row-major) from cached principal moments (per unit mass). */
-  private worldInvInertia(q: Quaternion, mc: MassCache, out: Float64Array): void {
-    this.principalFrame(q, mc);
-    const m = mc.mass;
-    rotDiag(this.RI, 1 / (m * mc.inertia.x), 1 / (m * mc.inertia.y), 1 / (m * mc.inertia.z), out);
-  }
-
-  private worldInertia(q: Quaternion, mc: MassCache, out: Float64Array): void {
-    this.principalFrame(q, mc);
-    const m = mc.mass;
-    rotDiag(this.RI, m * mc.inertia.x, m * mc.inertia.y, m * mc.inertia.z, out);
-  }
-
-  /** this.RI = rotation(body) · rotation(principal axes). */
-  private principalFrame(q: Quaternion, mc: MassCache): void {
-    q.multiplyToRef(mc.inertiaQ, this.qTmp);
-    quatToMat(this.qTmp, this.RI);
-  }
-
-  /** K = (1/m)E − [r]× A [r]× for symmetric A (world inverse inertia). */
-  private pointMassMatrix(r: Vector3, m: number, A: Float64Array, out: Float64Array): void {
-    // X = [r]× (row-major)
-    const X = this.R;
-    X[0] = 0; X[1] = -r.z; X[2] = r.y;
-    X[3] = r.z; X[4] = 0; X[5] = -r.x;
-    X[6] = -r.y; X[7] = r.x; X[8] = 0;
-    // out = −X A X + (1/m)E
-    for (let i = 0; i < 3; i++) {
-      for (let j = 0; j < 3; j++) {
-        let s = 0;
-        for (let k = 0; k < 3; k++) {
-          // (A X)[k][j]
-          const ax = A[k * 3] * X[j] + A[k * 3 + 1] * X[3 + j] + A[k * 3 + 2] * X[6 + j];
-          s += X[i * 3 + k] * ax;
-        }
-        out[i * 3 + j] = -s + (i === j ? 1 / m : 0);
-      }
     }
   }
 }

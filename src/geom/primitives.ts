@@ -91,7 +91,7 @@ function buildTile(c: TileCorners, st: TileStyle, tol: number): ConvexPoly | nul
     const fast = tileFast(c, st, tol);
     if (fast) return fast;
   }
-  return tileHull(c, st, tol);
+  return tileHull(c, st);
 }
 
 function tileFast(c: TileCorners, st: TileStyle, tol: number): ConvexPoly | null {
@@ -128,7 +128,7 @@ function tileFast(c: TileCorners, st: TileStyle, tol: number): ConvexPoly | null
   return { verts, faces };
 }
 
-function tileHull(c: TileCorners, st: TileStyle, tol: number): ConvexPoly | null {
+function tileHull(c: TileCorners, st: TileStyle): ConvexPoly | null {
   const h = quickHull(c.P);
   if (!h) return null;
   const verts = h.verts;
@@ -150,7 +150,6 @@ function tileHull(c: TileCorners, st: TileStyle, tol: number): ConvexPoly | null
     if (kind !== 2 && attr.smooth !== 0) face.vn = srcs.map((s) => vx(c.N[s].x, c.N[s].y, c.N[s].z));
     faces.push(face);
   }
-  void tol;
   return { verts, faces };
 }
 

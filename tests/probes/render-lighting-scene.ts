@@ -155,8 +155,8 @@ export function buildShowcase(scene: Scene, engine: Engine, opts: ShowcaseOption
     const l = new PointLight("lamp" + i, pp[i], scene);
     l.diffuse = new Color3(1.0, 0.68, 0.38);
     l.specular = new Color3(1.0, 0.68, 0.38);
-    l.intensity = i === 2 ? 1.5 : 3;
-    l.range = 4;
+    l.intensity = i === 2 ? 2 : 4;
+    l.range = 6;
     points.push(l);
   }
   if (o.clustered) new ClusteredLightContainer("interiorLights", points, scene);
@@ -171,6 +171,7 @@ export function buildShowcase(scene: Scene, engine: Engine, opts: ShowcaseOption
   tvMat.emissiveIntensity = 4;
   tvMat.metallic = 0;
   tvMat.roughness = 0.3;
+  tvMat.useGLTFLightFalloff = true;
   tv.material = tvMat;
   // a bulb
   const bulb = MeshBuilder.CreateSphere("bulb", { diameter: 0.16, segments: 8 }, scene);

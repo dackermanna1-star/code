@@ -8,7 +8,8 @@
 //   CCW in *screen* space, which for a left-handed view is CLOCKWISE seen from the front in
 //   world space. RenderGeom therefore emits every triangle REVERSED: for each triangle (a,b,c)
 //   of a face, normalize(cross(pb-pa, pc-pa)) == -n. Use the data as-is with default
-//   backFaceCulling / sideOrientation; do not flip again in the batcher.
+//   backFaceCulling / sideOrientation; do not flip again in the batcher. (A right-handed scene,
+//   scene.useRightHandedSystem = true, flips Babylon's default and would need reversed indices.)
 //
 // Tessellation (tessCell > 0) is watertight: every polyhedron edge (and every T-junction
 // sub-edge) is split into ceil(len / tessCell) segments with points computed canonically from
@@ -23,7 +24,7 @@ import type { ConvexPoly, PolyFace } from "./poly.ts";
 import type { Rng } from "../core/rng.ts";
 import { ConvexTriangulator } from "./tess.ts";
 import { growCracksImpl, faceFrame, clipPolyline2D, to3D, type FaceFrame } from "./cracks.ts";
-import { scaleOfPoints } from "./util.ts";
+import { scaleOfPoints, polygonArea } from "./util.ts";
 
 /**
  * Raw triangle soup for one part, in the part's (island) frame. Triangles use the winding
@@ -74,6 +75,8 @@ export interface MeshGenOptions {
 
 /** Offset of crack ribbons above their face (m). */
 export const CRACK_OFFSET = 0.0005;
+/** Approximate maximum number of tessellation vertices per part (huge slabs get coarser cells). */
+export const TESS_VERTEX_BUDGET = 12000;
 /** Tint used for crack ribbons when no crackSurf is given (texture of the face, darkened). */
 const CRACK_TINT = 0x1c1916;
 
@@ -287,6 +290,7 @@ function tJunctions(poly: ConvexPoly, scale: number): Map<number, number[]> | nu
 
 // ====================================================================== main entry
 const TRI = new ConvexTriangulator();
+const NO_UV = { u: { x: 0, y: 0, z: 0 }, v: { x: 0, y: 0, z: 0 }, u0: 0, v0: 0 };
 
 /** Triangulate a convex poly (+ tessellation, dents applied to vertices, crack overlays). */
 export function polyToRenderGeom(poly: ConvexPoly, opts: MeshGenOptions = {}): RenderGeom {
@@ -295,8 +299,15 @@ export function polyToRenderGeom(poly: ConvexPoly, opts: MeshGenOptions = {}): R
   if (!V.length || !poly.faces.length) return pack(acc);
   const scale = scaleOfPoints(V);
   const tc = opts.tessCell;
-  // tessellation cell, guarded against absurdly small values (≤ 1000 segments per edge)
-  const tess = tc !== undefined && tc > 0 && Number.isFinite(tc) ? Math.max(tc, scale * 1e-3) : 0;
+  // tessellation cell, guarded against absurdly small values (≤ 1000 segments per edge) and
+  // capped by a per-part vertex budget. The effective cell is chosen once per poly so both
+  // faces of every edge still get identical subdivisions (watertight).
+  let tess = tc !== undefined && tc > 0 && Number.isFinite(tc) ? Math.max(tc, scale * 1e-3) : 0;
+  if (tess > 0) {
+    let area = 0;
+    for (const f of poly.faces) area += polygonArea(V, f.idx);
+    tess = Math.max(tess, Math.sqrt(area / TESS_VERTEX_BUDGET));
+  }
   const dents = dentField(opts.dents);
   const darken = Math.min(1, Math.max(0, opts.dentDarken ?? 0.25));
   const groups = groupNormals(poly);
@@ -352,7 +363,7 @@ function emitFace(
   const m = idx.length;
   const nV = V.length;
   const n = f.n;
-  const uv = f.attr.uv;
+  const uv = f.attr.uv ?? NO_UV; // defensive: hand-made polys from other modules may omit uv
   const surf = f.attr.surf & 0xffff;
   const tint = f.attr.tint >>> 0;
   // corner base normals
@@ -410,7 +421,7 @@ function emitFace(
     }
     const tris: number[] = [];
     for (let k = 1; k + 1 < m; k++) tris.push(0, k, k + 1);
-    if (dents) applyFaceDents(acc, base, m, tris, f, cn, smoothFace, dents, darken, tint);
+    if (dents) applyFaceDents(acc, base, m, tris, f, dents, darken, tint);
     for (let t = 0; t < tris.length; t += 3) acc.idx.push(base + tris[t], base + tris[t + 2], base + tris[t + 1]);
     return;
   }
@@ -574,7 +585,7 @@ function emitFace(
     acc.surf.push(surf);
     acc.tint.push(tint);
   }
-  if (dents) applyFaceDents(acc, base, npts, tris, f, null, smoothFace, dents, darken, tint);
+  if (dents) applyFaceDents(acc, base, npts, tris, f, dents, darken, tint);
   for (let t = 0; t < tris.length; t += 3) acc.idx.push(base + tris[t], base + tris[t + 2], base + tris[t + 1]);
 }
 
@@ -628,8 +639,6 @@ function applyFaceDents(
   count: number,
   tris: number[],
   f: PolyFace,
-  _cn: number[] | null,
-  _smooth: boolean,
   dents: DentField,
   darken: number,
   tint: number,

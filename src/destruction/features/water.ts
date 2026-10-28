@@ -1,11 +1,10 @@
 // `water` feature: a pipe / faucet / supply line / tank. When its part fractures, loses a bond
 // or vanishes, water sprays from the feature position along its direction (a VFX emitter that
-// follows the island holding the supply side) and a puddle grows on the floor below. Finite
+// follows the island holding the supply side; the VFX system grows the puddle). Finite
 // sources (tanks) run dry. Intact faucets can be turned on/off with the use key (gentle
 // stream). Audio reacts to the `waterStart` / `waterStop` feature events.
 
-import { Vector3 } from "@babylonjs/core";
-import { Layer, type EmitterHandle } from "../../core/context.ts";
+import type { EmitterHandle } from "../../core/context.ts";
 import type { Vec3 } from "../../geom/vec.ts";
 import type { FeatureDef } from "../model/types.ts";
 import type { Assembly, Bond, Island, Part } from "../runtime/types.ts";
@@ -13,9 +12,6 @@ import { BaseFeature } from "./base.ts";
 import type { FeatureSystem } from "./system.ts";
 
 type WaterDef = Extract<FeatureDef, { type: "water" }>;
-
-const tA = new Vector3();
-const tB = new Vector3();
 
 export class WaterFeature extends BaseFeature {
   declare readonly def: WaterDef;
@@ -26,9 +22,8 @@ export class WaterFeature extends BaseFeature {
   private emitter: EmitterHandle | null = null;
   /** Island whose node carries the spray (supply side). */
   private anchor: Island | null = null;
-  private spilled = 0;
-  private puddleT = 0;
-  private puddleAt: Vec3 | null = null;
+  /** Litres released so far. */
+  spilled = 0;
   private dir: Vec3;
 
   constructor(fs: FeatureSystem, asm: Assembly, def: FeatureDef, part: Part) {
@@ -81,11 +76,11 @@ export class WaterFeature extends BaseFeature {
     const pos = this.sprayPos();
     if (!pos) return;
     const dir = this.sprayDir();
-    const rate = (40 + 260 * this.pressure) * strength;
+    // VFX emitter rate is a strength multiplier (1 = nominal burst mains pipe, ≈ 0.25 L/s);
+    // the VFX system also grows the puddle where the spray lands
+    const rate = (0.35 + 0.95 * this.pressure) * strength;
     this.emitter = this.fs.w.vfx.emitter("water", pos, dir, rate);
     this.fs.w.events.emit("feature", { kind: "waterStart", pos, intensity: this.pressure * strength });
-    this.puddleAt = this.findFloor(pos);
-    this.puddleT = 0;
     this.fs.activate(this);
   }
 
@@ -130,13 +125,6 @@ export class WaterFeature extends BaseFeature {
     return isl && isl.alive ? this.fs.w.dirToWorldVec(isl, this.dir) : { ...this.dir };
   }
 
-  private findFloor(p: Vec3): Vec3 | null {
-    tA.set(p.x + this.dir.x * 0.3, p.y, p.z + this.dir.z * 0.3);
-    tB.set(tA.x, p.y - 4, tA.z);
-    const hit = this.fs.w.physics.raycast(tA, tB, Layer.STATIC);
-    return hit ? { x: hit.point.x, y: hit.point.y + 0.002, z: hit.point.z } : null;
-  }
-
   fixedUpdate(dt: number): void {
     if (!this.flowing) {
       if (this.emitter) this.stopEmitter(true);
@@ -148,13 +136,6 @@ export class WaterFeature extends BaseFeature {
     if (this.litres <= 0) {
       this.litres = 0;
       this.stopEmitter(true);
-      return;
-    }
-    this.puddleT -= dt;
-    if (this.puddleT <= 0 && this.puddleAt) {
-      this.puddleT = 3;
-      const size = Math.min(2.5, 0.25 + 0.12 * Math.sqrt(this.spilled));
-      this.fs.w.vfx.decal("puddle", this.puddleAt, { x: 0, y: 1, z: 0 }, size);
     }
   }
 

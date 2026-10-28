@@ -143,7 +143,8 @@ const DEFAULT_RESTITUTION = 0;
 const STATIC_FRICTION_RATIO = 1.2;
 /** Hinge-angle sign so hingeAngle() matches Havok's ANGULAR_X limits/motor (verified by physics-sys-joints probe). */
 const HINGE_SIGN = 1;
-const NULL_SHAPE_ID: [bigint] = [BigInt(0)];
+/** Null handle (shape / body) for HP_Body_SetShape and constraint detaching. */
+const NULL_ID: [bigint] = [BigInt(0)];
 const IDENTITY_Q = Quaternion.Identity();
 
 type HP_Id = [bigint];
@@ -1306,7 +1307,7 @@ export class Physics implements PhysicsSystem {
     if (!body._pluginData || !shape || shape._pluginData === undefined) return;
     const hk = this.hk;
     const asleep = rec.motion !== STATIC && hk.HP_Body_GetActivationState(rec.hpId)[1] === hk.ActivationState.INACTIVE;
-    hk.HP_Body_SetShape(rec.hpId, NULL_SHAPE_ID);
+    hk.HP_Body_SetShape(rec.hpId, NULL_ID);
     hk.HP_Body_SetShape(rec.hpId, shape._pluginData);
     if (asleep) hk.HP_Body_SetActivationState(rec.hpId, hk.ActivationState.INACTIVE);
   }
@@ -1437,9 +1438,17 @@ export class Physics implements PhysicsSystem {
     const j = this.joints.get(c);
     const pd = c._pluginData as HP_Id[] | undefined;
     if (pd && pd.length > 0) {
+      const hk = this.hk;
       const map = this.P._constraintToBodyIdPair;
-      if (map) for (const id of pd) map.delete(id[0]);
-      c.dispose();
+      for (const id of pd) {
+        map?.delete(id[0]);
+        // HP_Constraint_Release alone keeps the constraint alive (inert) as long as its bodies live — forever
+        // for world-anchored joints. Detaching both bodies first lets Havok free it (verified: counts drop).
+        hk.HP_Constraint_SetEnabled(id, false as unknown as number); // embind bool (Babylon passes a boolean too)
+        hk.HP_Constraint_SetParentBody(id, NULL_ID);
+        hk.HP_Constraint_SetChildBody(id, NULL_ID);
+      }
+      c.dispose(); // release + empties _pluginData (a second release would trap in WASM)
     }
     if (!j) return;
     this.joints.delete(c);
@@ -1472,7 +1481,7 @@ export class Physics implements PhysicsSystem {
   setHingeMotor(c: PhysicsConstraint, target: number, maxForce: number): void {
     const P = this.plugin;
     const ax = PhysicsConstraintAxis.ANGULAR_X;
-    if (!(maxForce > 0) || !Number.isFinite(target)) P.setAxisMotorType(c, ax, PhysicsConstraintMotorType.NONE);
+    if (!(maxForce > 0) || !Number.isFinite(target)) this.disableMotor(c, ax);
     else {
       P.setAxisMotorType(c, ax, PhysicsConstraintMotorType.POSITION);
       P.setAxisMotorTarget(c, ax, target);
@@ -1485,12 +1494,20 @@ export class Physics implements PhysicsSystem {
   setHingeVelocityMotor(c: PhysicsConstraint, velocity: number, maxTorque: number): void {
     const P = this.plugin;
     const ax = PhysicsConstraintAxis.ANGULAR_X;
-    if (!(maxTorque > 0) || !Number.isFinite(velocity)) P.setAxisMotorType(c, ax, PhysicsConstraintMotorType.NONE);
+    if (!(maxTorque > 0) || !Number.isFinite(velocity)) this.disableMotor(c, ax);
     else {
       P.setAxisMotorType(c, ax, PhysicsConstraintMotorType.VELOCITY);
       P.setAxisMotorTarget(c, ax, velocity);
       P.setAxisMotorMaxForce(c, ax, maxTorque);
     }
+    this.wakeJoint(c);
+  }
+
+  /** Havok ignores motor type NONE (the type stays POSITION/VELOCITY): a motor is only off with zero max force. */
+  private disableMotor(c: PhysicsConstraint, ax: PhysicsConstraintAxis): void {
+    if (!c._pluginData || c._pluginData.length === 0) return;
+    this.plugin.setAxisMotorMaxForce(c, ax, 0);
+    this.plugin.setAxisMotorType(c, ax, PhysicsConstraintMotorType.NONE);
     this.wakeJoint(c);
   }
 

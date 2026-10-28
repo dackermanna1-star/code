@@ -255,11 +255,9 @@ function makeNeighborOrder(TX: Float64Array, TY: Float64Array, TZ: Float64Array,
         }
         ids.sort((a, b) => d2[a] - d2[b]);
         for (const j of ids) {
+          // sorted by distance and the radius only shrinks: nothing after this can cut the cell
           const R = radius();
-          if (d2[j] > 4 * R * R * (1 + 1e-9)) {
-            // sorted: everything after is farther — but duplicates must still be honoured, so only stop here
-            return;
-          }
+          if (d2[j] > 4 * R * R * (1 + 1e-9)) return;
           if (fn(j, d2[j]) === 1) return;
         }
       },
@@ -574,22 +572,26 @@ class SeedGen {
     return vx(A[0].x * s[0] + A[1].x * s[1] + A[2].x * s[2], A[0].y * s[0] + A[1].y * s[1] + A[2].y * s[2], A[0].z * s[0] + A[1].z * s[1] + A[2].z * s[2]);
   }
 
-  /** Best-candidate (Mitchell) point inside the part, preferring distance > minR from the impact. */
+  /**
+   * Best-candidate (Mitchell) point inside the part: maximises the distance to existing seeds
+   * (and to the impact when minR > 0); candidates closer than minR to the impact are penalised.
+   */
   spreadPoint(minR: number, k = 12): Vec3 {
     let best: Vec3 | null = null,
       bestScore = -Infinity;
-    for (let t = 0; t < k * 4 && t < 200; t++) {
+    let tries = 0;
+    for (let t = 0; t < 200 && tries < k; t++) {
       const q = this.accept(this.obbPoint());
       if (!q) continue;
-      let dmin = Infinity;
-      for (const s of this.seeds) dmin = Math.min(dmin, dist(q, s));
+      tries++;
       const di = dist(q, this.impact);
-      const score = Math.min(dmin, Infinity) + (di > minR ? 0 : -1e3 + di);
+      let dmin = minR > 0 ? di : Infinity;
+      for (const s of this.seeds) dmin = Math.min(dmin, dist(q, s));
+      const score = (Number.isFinite(dmin) ? dmin : 0) - (di < minR ? 1e3 : 0);
       if (score > bestScore) {
         bestScore = score;
         best = q;
       }
-      if (t + 1 >= k && best) break;
     }
     return best ?? this.clampInside(this.obbPoint());
   }
@@ -610,9 +612,10 @@ class SeedGen {
         const a = base + ((j + 0.5 + ringJ * 0.35 + rng.range(-0.15, 0.15)) * Math.PI * 2) / R;
         const r = rk * rng.range(0.8, 1.2);
         const c = this.impact;
+        // in the pattern plane (pane mid-surface for planar parts, ⟂ dir otherwise)
         this.push(this.sample(() => {
           const rr = r * rng.range(0.9, 1.1);
-          return this.planar ? this.inPlane(c, rr * Math.cos(a), rr * Math.sin(a)) : this.inPlane(c, rr * Math.cos(a), rr * Math.sin(a));
+          return this.inPlane(c, rr * Math.cos(a), rr * Math.sin(a));
         }, 6));
         made++;
       }

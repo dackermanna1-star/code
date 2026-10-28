@@ -8,6 +8,9 @@
 // impact.<profile>.<s|m|l>  modal impacts; profile = glass ceramic stone concrete drywall wood
 //                           metal metalThin plastic electronics soft paper flesh; size classes
 //                           s=0.08 m, m=0.3 m, l=1.1 m (4 variations each)
+// surface.<p>               damped local response of heavy bonded structure (floor, wall, slab,
+//                           mounted pane): p = wood ceramic stone concrete drywall glass metal
+//                           metalThin plastic
 // tick.<p>                  tiny debris clicks (p = glass ceramic wood drywall concrete metal plastic)
 // rattle.<p>                debris settling sequences (pieces bouncing, physically timed)
 // shatter.glass.<s|l>       annealed glass shatter (glassware / window pane with floor cluster)
@@ -45,6 +48,7 @@ import { MODAL, SIZE_CLASSES, synthImpact, synthRattle, synthTick, type ModalPro
 import * as B from "./synth/breaks.ts";
 import * as F from "./synth/foley.ts";
 import * as E from "./synth/env.ts";
+import { SURFACE_PROFILES } from "./mapping.ts";
 
 export type Bus = "sfx" | "ambience" | "ui";
 
@@ -104,6 +108,24 @@ function buildDefs(): SoundDef[] {
       const size = SIZE_CLASSES[sc];
       defs.push(d(`impact.${p}.${sc}`, 4, -8, (g) => synthImpact(g.sr, g.rng, g.noise, prof, size * g.rng.range(0.92, 1.08)), { lo: isLo(p, sc), size, sizeExp: prof.sizeExp }));
     }
+  }
+  for (const p of SURFACE_PROFILES) {
+    // Damped "surface" response of heavy bonded structure (floors, walls, slabs, mounted panes).
+    const b = MODAL[p];
+    const prof: ModalProfile = {
+      ...b,
+      alphaG: b.alphaG * 4 + 25,
+      alphaR: b.alphaR * 3,
+      beat: 0,
+      wobble: 0,
+      rattle: 0,
+      noiseAmp: b.noiseAmp * 1.4 + 0.15,
+      thumpHz: b.thumpHz ?? 95,
+      thumpAmp: Math.max(b.thumpAmp ?? 0, 0.55),
+      thumpDecay: b.thumpDecay ?? 0.03,
+      maxLen: Math.min(b.maxLen, 0.5),
+    };
+    defs.push(d(`surface.${p}`, 4, -12, (g) => synthImpact(g.sr, g.rng, g.noise, prof, 0.6 * g.rng.range(0.85, 1.15)), { lo: true }));
   }
   for (const p of DEBRIS_PROFILES) {
     const prof = MODAL[p];

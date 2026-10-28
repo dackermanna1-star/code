@@ -284,3 +284,11 @@ test("meshgen performance: 0.4 m panel with tessCell 0.04 < 1 ms", () => {
   const r = bench(() => polyToRenderGeom(cell), 200, 200);
   console.log(`  polyToRenderGeom plain 7-face cell: min ${(r.min * 1000).toFixed(1)} µs, median ${(r.median * 1000).toFixed(1)} µs`);
 });
+
+test("tessellation vertex budget keeps huge parts bounded and watertight", async () => {
+  const { TESS_VERTEX_BUDGET } = await import("../../src/geom/meshgen.ts");
+  const slab = polyBox(v(5, 0.2, 2.4), A);
+  const g = polyToRenderGeom(slab, { tessCell: 0.01 });
+  assert.ok(g.vertexCount < TESS_VERTEX_BUDGET * 2.5, `vertices ${g.vertexCount}`);
+  assert.equal(watertight(g).bad, 0);
+});

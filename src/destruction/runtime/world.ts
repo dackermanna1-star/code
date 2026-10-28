@@ -494,6 +494,8 @@ export class World {
   applyMass(island: Island): void {
     if (!island.body || island.isStatic) return;
     island.body.setMassProperties({ mass: Math.max(island.mass, MIN_ISLAND_MASS) });
+    // let the physics module re-read it (its impact gating caches body masses)
+    (this.physics as PhysicsSystem & { refreshMass?(b: PhysicsBody): void }).refreshMass?.(island.body);
   }
 
   /** Create (or re-layer) a part's child collision shape. */
@@ -612,21 +614,29 @@ export class World {
       island.pendingRemove.size < island.childParts.length &&
       island.parts.some((p) => !p.noCollide);
     if (inPlace) {
+      // Re-assigning the same container after each phase keeps the physics module's child list
+      // (raycast childIndex) in sync — it re-reads the children when their count changed.
       if (island.pendingRemove.size) {
+        let removed = 0;
         for (let i = island.childParts.length - 1; i >= 0; i--) {
           const p = island.childParts[i];
           if (!island.pendingRemove.has(p)) continue;
           c!.removeChild!(i);
           island.childParts.splice(i, 1);
           p.inContainer = false;
+          removed++;
         }
+        if (removed) this.physics.setShape(island.body, c!);
       }
+      let added = 0;
       for (const p of island.pendingAdd) {
         if (!p.alive || p.island !== island || p.inContainer || p.noCollide) continue;
         c!.addChild!(this.ensureShape(p, island.layer));
         island.childParts.push(p);
         p.inContainer = true;
+        added++;
       }
+      if (added) this.physics.setShape(island.body, c!);
     } else {
       for (const p of island.childParts) p.inContainer = false;
       const coll = this.collidable(island);
@@ -668,7 +678,11 @@ export class World {
 
   releaseDeadShapes(): void {
     if (!this.deadShapes.length) return;
-    for (const s of this.deadShapes) s.dispose();
+    const ext = this.physics as PhysicsSystem & { disposeShape?(s: PhysicsShape): void };
+    for (const s of this.deadShapes) {
+      if (typeof ext.disposeShape === "function") ext.disposeShape(s);
+      else s.dispose();
+    }
     this.deadShapes.length = 0;
   }
 
@@ -1078,13 +1092,14 @@ export class World {
 
   /**
    * The part of `island` hit at island-frame point `p`: the container child `childIndex` when it
-   * is valid and plausible (≤ 3 cm from its surface), else the nearest part by signed distance
+   * is valid and plausible (≤ 1.5 cm from its surface), else the nearest part by signed distance
    * (spatial grid for large islands). noCollide details are never hit by collisions.
    */
   locatePart(island: Island, p: Vec3, childIndex = -1): Part | null {
     if (childIndex >= 0 && childIndex < island.childParts.length) {
       const c = island.childParts[childIndex];
-      if (c.alive && c.island === island && signedDistance(c.poly, p) < 0.03) return c;
+      // a stale index (container edited since the query) can only point at a part this close
+      if (c.alive && c.island === island && signedDistance(c.poly, p) < 0.015) return c;
     }
     const parts = island.parts;
     if (!parts.length) return null;

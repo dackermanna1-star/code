@@ -1,5 +1,5 @@
 // Probe: full showcase (no PS2). Screenshot shows the final look.
-import { makeEngine, renderFrames } from "./render-lighting-util.ts";
+import { captureCanvas, makeEngine, renderFrames } from "./render-lighting-util.ts";
 import { buildShowcase, chainNames } from "./render-lighting-scene.ts";
 
 export async function probe(): Promise<any> {
@@ -8,6 +8,7 @@ export async function probe(): Promise<any> {
   await scene.whenReadyAsync();
   await renderFrames(scene, 8);
   return {
+    png: captureCanvas(engine, 960, 0.6),
     chain: chainNames(s.camera),
     drawCalls: s.si.drawCallsCounter.current,
     prePassEnabled: !!scene.prePassRenderer?.enabled,

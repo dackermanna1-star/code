@@ -39,16 +39,22 @@ export function buildStructure(): StructurePiece[] {
     defs.push(buildFloor(r.id));
     defs.push(buildCeiling(r.id));
   }
-  for (const p of L.partitions) for (const o of p.openings) if (o.op.kind === "door") defs.push(buildInteriorDoor(p, o));
+  for (const p of L.partitions) for (const o of p.openings) if (o.op.kind === "door") defs.push(tagOpening(buildInteriorDoor(p, o), o.op.id));
   for (const c of L.concrete) {
     for (const o of c.openings) {
-      if (o.op.kind === "window") defs.push(buildWindow(c, o));
-      else if (o.op.kind === "slidingDoor") defs.push(buildSlidingDoor(c, o));
-      else if (o.op.kind === "frontDoor") defs.push(buildFrontDoor(c, o));
+      if (o.op.kind === "window") defs.push(tagOpening(buildWindow(c, o), o.op.id));
+      else if (o.op.kind === "slidingDoor") defs.push(tagOpening(buildSlidingDoor(c, o), o.op.id));
+      else if (o.op.kind === "frontDoor") defs.push(tagOpening(buildFrontDoor(c, o), o.op.id));
     }
   }
   defs.push(buildBalcony());
   return defs.map((def) => ({ def, xf: xident() }));
+}
+
+/** Tag every part of a door/window assembly with `opening:<id>` (links it to OPENINGS). */
+function tagOpening(def: AssemblyDef, id: string): AssemblyDef {
+  for (const p of def.parts) p.tags = [...(p.tags ?? []), `opening:${id}`];
+  return def;
 }
 
 /** Doors, windows, the sliding door and the cased opening, with world rectangles. */

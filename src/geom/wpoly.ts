@@ -56,6 +56,12 @@ const edgeKey: number[] = [];
 const edgeVert: number[] = [];
 const newVerts: number[] = [];
 const onVerts: number[] = [];
+// cap-construction scratch (reused between calls; lengths reset per call)
+const EU: number[] = [];
+const EV: number[] = [];
+const CU: number[] = [];
+const CV: number[] = [];
+let USED = new Uint8Array(64);
 
 function near2(i: number, x: number, y: number, z: number): number {
   const dx = cp[3 * i] - x,
@@ -208,8 +214,11 @@ export function wpolyClip(w: WPoly, nx: number, ny: number, nz: number, d: numbe
   }
 
   // ---- cap: reversed open boundary edges lying on the plane
-  const eu: number[] = [],
-    ev: number[] = [];
+  const eu = EU,
+    ev = EV,
+    cu = CU,
+    cv = CV;
+  eu.length = ev.length = cu.length = cv.length = 0;
   for (const f of out) {
     const fv = f.v;
     const m = fv.length;
@@ -222,8 +231,6 @@ export function wpolyClip(w: WPoly, nx: number, ny: number, nz: number, d: numbe
       }
     }
   }
-  const cu: number[] = [],
-    cv: number[] = [];
   for (let i = 0; i < eu.length; i++) {
     let paired = false;
     for (let j = 0; j < eu.length; j++) {
@@ -240,7 +247,9 @@ export function wpolyClip(w: WPoly, nx: number, ny: number, nz: number, d: numbe
   let loop: number[] | null = null;
   if (cu.length >= 3) {
     loop = [];
-    const used = new Uint8Array(cu.length);
+    if (USED.length < cu.length) USED = new Uint8Array(cu.length * 2);
+    const used = USED;
+    used.fill(0, 0, cu.length);
     let cur = cu[0];
     const start = cur;
     for (let step = 0; step <= cu.length; step++) {
@@ -264,7 +273,11 @@ export function wpolyClip(w: WPoly, nx: number, ny: number, nz: number, d: numbe
   }
   if (!loop) loop = capByAngle(cu.length ? cu.concat(cv) : collectOn(out), nx, ny, nz);
   if (loop.length >= 3) out.push({ v: loop, nx, ny, nz, d, tag, vn: null });
-  if (out.length < 4) return CLIP_EMPTY;
+  if (out.length < 4) {
+    p.length = nv * 3; // drop the vertices appended by edgeVertex; w stays as it was
+    cp = [];
+    return CLIP_EMPTY;
+  }
 
   // ---- compact: renumber referenced vertices, drop dead ones
   const total = cp.length / 3;
@@ -311,7 +324,7 @@ function capByAngle(ids: number[], nx: number, ny: number, nz: number): number[]
   cy /= uniq.length;
   cz /= uniq.length;
   // in-plane basis e1, e2 = n × e1 (so angles increase CCW seen from +n)
-  let ax = Math.abs(nx) < 0.9 ? 1 : 0,
+  const ax = Math.abs(nx) < 0.9 ? 1 : 0,
     ay = Math.abs(nx) < 0.9 ? 0 : 1;
   let e1x = ny * 0 - nz * ay,
     e1y = nz * ax - nx * 0,
@@ -330,7 +343,6 @@ function capByAngle(ids: number[], nx: number, ny: number, nz: number): number[]
       dz = cp[3 * i + 2] - cz;
     ang.set(i, Math.atan2(dx * e2x + dy * e2y + dz * e2z, dx * e1x + dy * e1y + dz * e1z));
   }
-  ax = ay = 0;
   return uniq.sort((a, b) => ang.get(a)! - ang.get(b)!);
 }
 

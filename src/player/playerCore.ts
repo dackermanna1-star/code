@@ -65,7 +65,7 @@ export const PLAYER = {
   stepHeight: 0.25,
   maxSlopeDeg: 50,
   /** Horizontal push the body can exert on loose furniture while walking into it (N). */
-  pushForce: 350,
+  pushForce: 600,
   /** Falling below this height (off the balcony) respawns the player. */
   killY: -25,
 } as const;
@@ -155,11 +155,15 @@ export class PlayerCore implements PlayerSystem {
     cc.characterStrength = PLAYER.pushForce;
     cc.characterMass = PLAYER.mass;
     cc.maxCharacterSpeedForSolver = 30;
+    // Default 0.05/0.1 lets the capsule hover 5–15 cm above the floor depending on how it
+    // arrived; 0.02/0.03 keeps it at 1.4–5 cm (api-notes §7.3).
+    cc.keepDistance = 0.02;
+    cc.keepContactTolerance = 0.03;
     this.syncFoot();
 
     this.tools = tools;
     this.tc = { eye: this.rig.eye, forward: this.rig.forward, right: this.rig.right, up: this.rig.up, velocity: this.velocity, ignore: this.body, holding: false };
-    this.view = { eye: this.rig.eye, forward: this.rig.forward, right: this.rig.right, up: this.rig.up, velocity: this.velocity, playerBody: this.body, support: null, tool: "hands" };
+    this.view = { eye: this.rig.eye, forward: this.rig.forward, right: this.rig.right, up: this.rig.up, yaw: 0, velocity: this.velocity, playerBody: this.body, support: null, tool: "hands" };
     this.teleport(spawn.pos, spawn.yaw, spawn.pitch);
   }
 
@@ -334,6 +338,7 @@ export class PlayerCore implements PlayerSystem {
 
     // ---- actions
     this.view.tool = this.tool;
+    this.view.yaw = this.rig.yaw;
     this.tc.holding = this.interaction.held !== null;
     this.handleActions(dt);
     this.interaction.fixedUpdate(dt, this.view);
@@ -361,6 +366,7 @@ export class PlayerCore implements PlayerSystem {
   debugAction(a: "swing" | "chargeSwing" | "kick" | "stomp" | "grab" | "throw" | "use" | "pry", power?: number): void {
     const t = this.tools;
     this.view.tool = this.tool;
+    this.view.yaw = this.rig.yaw;
     this.tc.holding = this.interaction.held !== null;
     switch (a) {
       case "swing":
@@ -393,7 +399,7 @@ export class PlayerCore implements PlayerSystem {
   }
 
   dispose(): void {
-    this.interaction.reset();
+    this.interaction.dispose();
     this.cc.dispose();
     this.standShape.dispose();
     this.crouchShape.dispose();

@@ -80,7 +80,7 @@ export class StuffingFeature extends BaseFeature {
   private burst(pos: Vec3, normal: Vec3, intensity: number): void {
     if (this.now - this.last < 0.08) return;
     this.last = this.now;
-    this.fs.w.vfx.burst(this.kind, pos, normal, Math.min(1, Math.max(0.1, intensity)));
+    this.fs.w.vfx.burst(this.kind, pos, normal, Math.min(3, Math.max(0.1, intensity)));
   }
 
   onDamage(ev: DamageInfo): void {
@@ -104,7 +104,7 @@ export class LiquidFeature extends BaseFeature {
     this.spilled = true;
     const d = this.def as Extract<FeatureDef, { type: "liquid" }>;
     const litres = Number.isFinite(d.litres) ? Math.max(0.02, d.litres) : 0.5;
-    this.fs.w.vfx.burst("liquid", pos, UP, Math.min(1, 0.25 + litres * 0.5), { tint: d.color });
+    this.fs.w.vfx.burst("liquid", pos, UP, Math.min(3, 0.4 + litres), { tint: d.color });
     tA.set(pos.x, pos.y + 0.05, pos.z);
     tB.set(pos.x, pos.y - 3, pos.z);
     const hit = this.fs.w.physics.raycast(tA, tB, Layer.STATIC);
@@ -126,7 +126,7 @@ export class SoilFeature extends BaseFeature {
 
   onFracture(_old: Part, _f: Part[], ev: FractureInfo): void {
     if (this.bursts++ > 3) return;
-    this.fs.w.vfx.burst("soil", ev.pos, UP, Math.min(1, 0.4 + ev.energy / 120));
+    this.fs.w.vfx.burst("soil", ev.pos, UP, Math.min(3, 0.6 + ev.energy / 80));
   }
 }
 

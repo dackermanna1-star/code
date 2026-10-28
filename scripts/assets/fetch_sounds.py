@@ -241,6 +241,7 @@ def main():
                 print("   %-60s %6.2fs %5dHz ch%d %-9s -> %s" % (f, info.get("duration", 0), info.get("rate", 0),
                                                               info.get("channels", 0), info.get("codec"), cat))
             continue
+        shutil.rmtree(os.path.join(OUT_DIR, p["id"]), ignore_errors=True)  # no stale files from older rules
         used = set()
         for f in files:
             cat, max_len = categorize(p, f)

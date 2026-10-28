@@ -153,7 +153,15 @@ export const SAMPLE_FOR_ID: Readonly<Record<string, string>> = {
 };
 
 /** Parts larger than this behave like locally responding surfaces (walls, floors, slabs). */
-const STRUCTURE_SIZE = 1.5;
+export const STRUCTURE_SIZE = 1.5;
+
+/**
+ * Profiles with a damped "surface" variant in the bank: heavy, bonded structure (tiled floor,
+ * laminate, wall, slab, mounted pane) clacks or thuds locally instead of ringing like a free
+ * object of the same size.
+ */
+export const SURFACE_PROFILES: readonly SoundProfile[] = ["wood", "ceramic", "stone", "concrete", "drywall", "glass", "metal", "metalThin", "plastic"];
+const SURFACE_SET = new Set<SoundProfile>(SURFACE_PROFILES);
 
 // ============================================================================ impacts
 
@@ -167,22 +175,35 @@ export function impactLayers(ev: ImpactEv, out: Layer[] = []): Layer[] {
   if (!(E > 2e-3)) return out;
   const base = energyDb(E);
   const cutoff = contactCutoff(ev.matA, ev.matB);
-  addImpactSide(out, ev.matA, ev.sizeA, base, cutoff, E, false);
+  addImpactSide(out, ev.matA, ev.sizeA, ev.massA, base, cutoff, E, false);
   if (ev.matB) {
     // Strikes report the striker (tool head / fist) as side B with idB = −1: it rings less
     // (held, damped by the hand).
     const striker = ev.idB === -1 && fin(ev.sizeB, 1) < 0.15;
-    addImpactSide(out, ev.matB, ev.sizeB, base + (striker ? -6 : 0), cutoff, E, striker);
+    addImpactSide(out, ev.matB, ev.sizeB, ev.massB, base + (striker ? -6 : 0), cutoff, E, striker);
   }
   return out;
 }
 
-function addImpactSide(out: Layer[], mat: MaterialId, size0: number, base: number, cutoff: number, E: number, striker: boolean): void {
+/**
+ * Structure-like part: large and heavy (floor/wall/slab regions), or very large. A 25 kg door
+ * or a table top is large but still rings like a free panel.
+ */
+export function isStructure(size: number, mass: number): boolean {
+  return (size > STRUCTURE_SIZE && (!Number.isFinite(mass) || mass > 60)) || size > 3;
+}
+
+function addImpactSide(out: Layer[], mat: MaterialId, size0: number, mass: number, base: number, cutoff: number, E: number, striker: boolean): void {
   const prof = profileOf(mat);
   let size = fin(size0, 0.3);
   if (!(size > 0)) size = 0.3;
-  const structure = size > STRUCTURE_SIZE;
-  const eff = structure ? 0.8 : size;
+  const structure = !striker && isStructure(size, mass);
+  if (structure && SURFACE_SET.has(prof)) {
+    // Massive, bonded surface: local damped response, quieter than a free radiator.
+    out.push({ id: `surface.${prof}`, db: base + PROFILE_DB[prof] - 4, cutoff, sample: SAMPLE_FOR_PROFILE[prof] });
+    return;
+  }
+  const eff = structure ? 0.8 : Math.min(size, 2.2);
   const db = base + PROFILE_DB[prof] + sizeDb(eff) + (structure ? -1.5 : 0);
   const dp = debrisOf(prof);
   if (dp && !striker && (eff < 0.035 || E < 0.02)) {

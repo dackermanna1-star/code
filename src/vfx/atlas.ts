@@ -6,12 +6,13 @@
 //                                             15 hot dot
 // Shapes are white/grey (particle colours tint them) with straight alpha. Long shapes are drawn
 // vertically: stretched billboards align the cell's V axis with the particle velocity.
-// Cell 0 is the top-left of the canvas. The atlases are uploaded WITHOUT the usual Y flip:
-// Babylon's animation-sheet shader indexes rows from v = 0 and samples v' = row + 1 − offset.y,
-// so with invertY = false row 0 is the canvas top row and every cell is upright (verified by
-// the atlas row in tests/probes/vfx-fx-bursts.probe.ts).
+// Cell 0 is the top-left of the generated image. The atlases are uploaded as raw RGBA WITHOUT
+// a Y flip: Babylon's animation-sheet shader indexes rows from v = 0 and samples
+// v' = row + 1 − offset.y, so row 0 is the image's top row and every cell is upright (verified
+// by the atlas row in tests/probes/vfx-fx-bursts.probe.ts). Raw upload (instead of a canvas
+// texture) keeps RGB in transparent texels, which `dilateTransparent` fills to avoid fringes.
 
-import { DynamicTexture, Texture, type Scene } from "@babylonjs/core";
+import { RawTexture, Texture, type Scene } from "@babylonjs/core";
 
 export const PUFF_ATLAS_SIZE = 512;
 export const BITS_ATLAS_SIZE = 256;
@@ -70,11 +71,11 @@ const smoothstep = (a: number, b: number, x: number) => {
 
 type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
-/** Pixel-shader style fill of one cell: fn(u, v) in [-1,1]² → [lum 0..1, alpha 0..1]. */
-function shadeCell(img: ImageData, size: number, cell: number, cellPx: number, fn: (u: number, v: number) => [number, number]): void {
-  const cx = (cell % ATLAS_GRID) * cellPx,
-    cy = Math.floor(cell / ATLAS_GRID) * cellPx;
-  const d = img.data;
+/** Pixel-shader style fill of one cell: fn(u, v) in [-1,1]² → [lum 0..1, alpha 0..1]. RGB is
+ *  written for every texel (also where alpha = 0) so filtering never pulls in black. */
+export function shadeCell(d: Uint8ClampedArray, size: number, cell: number, cellPx: number, fn: (u: number, v: number) => [number, number], grid = ATLAS_GRID): void {
+  const cx = (cell % grid) * cellPx,
+    cy = Math.floor(cell / grid) * cellPx;
   for (let y = 0; y < cellPx; y++) {
     for (let x = 0; x < cellPx; x++) {
       const u = ((x + 0.5) / cellPx) * 2 - 1,
@@ -88,6 +89,90 @@ function shadeCell(img: ImageData, size: number, cell: number, cellPx: number, f
       d[i + 3] = Math.round(Math.min(1, Math.max(0, a)) * 255);
     }
   }
+}
+
+/** 2D canvas for drawing atlas cells (OffscreenCanvas when available). */
+export function atlasCanvas(size: number): Ctx {
+  if (typeof OffscreenCanvas !== "undefined") {
+    const c = new OffscreenCanvas(size, size);
+    return c.getContext("2d", { willReadFrequently: true }) as OffscreenCanvasRenderingContext2D;
+  }
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  return c.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
+}
+
+/**
+ * Straight-alpha fix-up: canvas readback leaves RGB = 0 where alpha = 0, which bilinear/mip
+ * filtering bleeds into sprite edges as dark fringes. Grow the colour of covered texels into
+ * the transparent ones (a few texels — enough for the mip chain we actually sample).
+ */
+export function dilateTransparent(d: Uint8ClampedArray, size: number, iterations = 6): void {
+  const n = size * size;
+  let filled = new Uint8Array(n);
+  for (let i = 0; i < n; i++) filled[i] = d[i * 4 + 3] > 0 ? 1 : 0;
+  let next = new Uint8Array(n);
+  for (let it = 0; it < iterations; it++) {
+    next.set(filled);
+    let changed = false;
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const i = y * size + x;
+        if (filled[i]) continue;
+        let r = 0,
+          g = 0,
+          b = 0,
+          c = 0;
+        if (x > 0 && filled[i - 1]) {
+          r += d[(i - 1) * 4];
+          g += d[(i - 1) * 4 + 1];
+          b += d[(i - 1) * 4 + 2];
+          c++;
+        }
+        if (x < size - 1 && filled[i + 1]) {
+          r += d[(i + 1) * 4];
+          g += d[(i + 1) * 4 + 1];
+          b += d[(i + 1) * 4 + 2];
+          c++;
+        }
+        if (y > 0 && filled[i - size]) {
+          r += d[(i - size) * 4];
+          g += d[(i - size) * 4 + 1];
+          b += d[(i - size) * 4 + 2];
+          c++;
+        }
+        if (y < size - 1 && filled[i + size]) {
+          r += d[(i + size) * 4];
+          g += d[(i + size) * 4 + 1];
+          b += d[(i + size) * 4 + 2];
+          c++;
+        }
+        if (c) {
+          d[i * 4] = r / c;
+          d[i * 4 + 1] = g / c;
+          d[i * 4 + 2] = b / c;
+          next[i] = 1;
+          changed = true;
+        }
+      }
+    }
+    const t = filled;
+    filled = next;
+    next = t;
+    if (!changed) break;
+  }
+  // anything still untouched (far from every sprite): neutral white
+  for (let i = 0; i < n; i++) if (!filled[i]) d[i * 4] = d[i * 4 + 1] = d[i * 4 + 2] = 255;
+}
+
+/** Upload RGBA bytes (row 0 = v 0) as a mipmapped, clamped RGBA texture. */
+export function rawAtlasTexture(scene: Scene, name: string, d: Uint8ClampedArray, size: number): RawTexture {
+  const tex = RawTexture.CreateRGBATexture(new Uint8Array(d.buffer, d.byteOffset, d.byteLength), size, size, scene, true, false, Texture.TRILINEAR_SAMPLINGMODE);
+  tex.name = name;
+  tex.hasAlpha = true;
+  tex.wrapU = Texture.CLAMP_ADDRESSMODE;
+  tex.wrapV = Texture.CLAMP_ADDRESSMODE;
+  return tex;
 }
 
 // ------------------------------------------------------------------ puff atlas
@@ -346,7 +431,7 @@ function drawBitsCell(ctx: Ctx, cell: number, cellPx: number): void {
   ctx.restore();
 }
 
-function bitsPixelCells(img: ImageData): void {
+function bitsPixelCells(img: Uint8ClampedArray): void {
   const S = BITS_ATLAS_SIZE,
     C = S / ATLAS_GRID;
   // 12 droplet: elongated soft drop with a bright core (V = travel direction)
@@ -378,42 +463,29 @@ function bitsPixelCells(img: ImageData): void {
   });
 }
 
-function makeDynamic(name: string, size: number, scene: Scene): DynamicTexture {
-  const tex = new DynamicTexture(name, { width: size, height: size }, scene, true, Texture.TRILINEAR_SAMPLINGMODE);
-  tex.hasAlpha = true;
-  tex.wrapU = Texture.CLAMP_ADDRESSMODE;
-  tex.wrapV = Texture.CLAMP_ADDRESSMODE;
-  tex.anisotropicFilteringLevel = 1;
-  return tex;
-}
-
-/** Soft puffs / smoke / fibres atlas. */
-export function createPuffAtlas(scene: Scene): DynamicTexture {
+/** Soft puffs / smoke / fibres atlas (row 0 = top of the generated image = v 0). */
+export function createPuffAtlas(scene: Scene): RawTexture {
   const S = PUFF_ATLAS_SIZE,
     C = S / ATLAS_GRID;
-  const tex = makeDynamic("vfxPuffAtlas", S, scene);
-  const ctx = tex.getContext() as Ctx;
+  const ctx = atlasCanvas(S);
   ctx.clearRect(0, 0, S, S);
-  const img = ctx.getImageData(0, 0, S, S);
-  for (let cell = 0; cell < 8; cell++) shadeCell(img, S, cell, C, dustPuff(101 + cell * 31));
-  for (let cell = 8; cell < 12; cell++) shadeCell(img, S, cell, C, smokeWisp(501 + cell * 13));
-  ctx.putImageData(img, 0, 0);
   for (let cell = 12; cell < 16; cell++) fibreTuft(ctx, cell, C, 901 + cell * 7);
-  tex.update(false, false);
-  return tex;
+  const d = ctx.getImageData(0, 0, S, S).data;
+  dilateTransparent(d, S);
+  for (let cell = 0; cell < 8; cell++) shadeCell(d, S, cell, C, dustPuff(101 + cell * 31));
+  for (let cell = 8; cell < 12; cell++) shadeCell(d, S, cell, C, smokeWisp(501 + cell * 13));
+  return rawAtlasTexture(scene, "vfxPuffAtlas", d, S);
 }
 
 /** Chips / splinters / crumbs / paper / feathers / drops / sparks / glints atlas. */
-export function createBitsAtlas(scene: Scene): DynamicTexture {
+export function createBitsAtlas(scene: Scene): RawTexture {
   const S = BITS_ATLAS_SIZE,
     C = S / ATLAS_GRID;
-  const tex = makeDynamic("vfxBitsAtlas", S, scene);
-  const ctx = tex.getContext() as Ctx;
+  const ctx = atlasCanvas(S);
   ctx.clearRect(0, 0, S, S);
   for (let cell = 0; cell < 12; cell++) drawBitsCell(ctx, cell, C);
-  const img = ctx.getImageData(0, 0, S, S);
-  bitsPixelCells(img);
-  ctx.putImageData(img, 0, 0);
-  tex.update(false, false);
-  return tex;
+  const d = ctx.getImageData(0, 0, S, S).data;
+  dilateTransparent(d, S);
+  bitsPixelCells(d);
+  return rawAtlasTexture(scene, "vfxBitsAtlas", d, S);
 }

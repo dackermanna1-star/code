@@ -31,7 +31,7 @@ export const IR_SPECS: readonly IrSpec[] = [
 
 /** Render a stereo impulse response for a spec at sample rate sr. */
 export function generateIR(spec: IrSpec, sr: number, seed = 1234): Float32Array[] {
-  const tail = spec.rt60 * Math.max(1, spec.lfRatio) * 1.15; // ≈ −69 dB at the end
+  const tail = spec.rt60 * Math.max(1, spec.lfRatio) * 1.3; // ≈ −69 dB at the end
   const n = Math.max(64, Math.ceil((spec.preDelay + spec.early.spread + tail) * sr));
   const chans: Float32Array[] = [];
   for (let c = 0; c < 2; c++) {
@@ -43,9 +43,11 @@ export function generateIR(spec: IrSpec, sr: number, seed = 1234): Float32Array[
     const bpL = new Biquad().lowpass(sr, 3000);
     const hp = new Biquad().highpass(sr, 3000);
     const air = new Biquad().lowpass(sr, Math.min(16000, sr * 0.45));
-    const kL = Math.exp(-Math.log(1000) / (spec.rt60 * spec.lfRatio * sr));
-    const kM = Math.exp(-Math.log(1000) / (spec.rt60 * sr));
-    const kH = Math.exp(-Math.log(1000) / (spec.rt60 * spec.hfRatio * sr));
+    // The strong early field shortens the measured (Schroeder T20) decay by ~12 %: compensate.
+    const rt = spec.rt60 * 1.13;
+    const kL = Math.exp(-Math.log(1000) / (rt * spec.lfRatio * sr));
+    const kM = Math.exp(-Math.log(1000) / (rt * sr));
+    const kH = Math.exp(-Math.log(1000) / (rt * spec.hfRatio * sr));
     const onset = Math.floor((spec.preDelay + spec.early.spread * 0.35) * sr);
     const fadeN = Math.max(1, Math.floor(0.012 * sr));
     let eL = 1,

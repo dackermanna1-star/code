@@ -402,6 +402,14 @@ export class Hud implements HudSystem {
     const t = this.ctx.time;
     if (t && t.scale === 0) t.scale = this.savedScale > 0 ? this.savedScale : 1;
     this.setInputEnabled(true);
+    // the clicked menu button keeps focus (Space/Enter would re-activate it): hand focus to the game
+    const active = document.activeElement as HTMLElement | null;
+    if (active && active !== document.body && this.root.contains(active)) active.blur();
+    try {
+      this.ctx.canvas?.focus({ preventScroll: true });
+    } catch {
+      /* ignore */
+    }
     window.removeEventListener("beforeunload", this.beforeUnload);
     window.addEventListener("beforeunload", this.beforeUnload);
   }
