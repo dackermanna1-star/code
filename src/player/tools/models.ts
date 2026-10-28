@@ -279,8 +279,8 @@ interface MatDef {
 
 const MATS: Record<TexKind, MatDef> = {
   skin: { color: [0.8, 0.59, 0.46], spec: 0.08, power: 16, tex: "skin" },
-  sleeve: { color: [0.25, 0.28, 0.33], spec: 0.03, power: 8, tex: "sleeve" },
-  cuff: { color: [0.19, 0.21, 0.25], spec: 0.03, power: 8, tex: "sleeve" },
+  sleeve: { color: [0.4, 0.41, 0.33], spec: 0.04, power: 8, tex: "sleeve" },
+  cuff: { color: [0.3, 0.31, 0.25], spec: 0.04, power: 8, tex: "sleeve" },
   wood: { color: [0.66, 0.5, 0.33], spec: 0.12, power: 24, tex: "wood" },
   darkwood: { color: [0.46, 0.32, 0.2], spec: 0.15, power: 24, tex: "wood" },
   steel: { color: [0.44, 0.45, 0.47], spec: 0.55, power: 48, tex: "steel" },

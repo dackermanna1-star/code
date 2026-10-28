@@ -71,7 +71,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     end: { head: v(0.02, -0.95, 0.72), axis: v(0, -0.55, 0.83) },
     endDir: v(0, -0.85, -0.5),
     offhand: 0.24,
-    idle: F(v(0.22, -0.31, 0.34), v(0.12, 0.8, 0.5), v(-0.35, 0, 0.94)),
+    idle: F(v(0.21, -0.26, 0.36), v(0.12, 0.8, 0.5), v(-0.35, 0, 0.94)),
   },
   // Diagonal, one-handed: 0.75 m hex bar, strikes with the bend of the hooked end.
   crowbar: {
@@ -102,7 +102,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     end: { head: v(-0.75, -0.05, 0.1), axis: v(-0.8, 0.1, -0.6) },
     endDir: v(-0.4, 0.1, -0.9),
     offhand: 0.085,
-    idle: F(v(0.24, -0.3, 0.35), v(0.29, 0.88, 0.32), v(-0.2, 0.3, 0.93)),
+    idle: F(v(0.23, -0.25, 0.36), v(0.29, 0.88, 0.32), v(-0.2, 0.3, 0.93)),
   },
   // Overhead, two-handed: 0.7 m handle, 1.6 kg head.
   axe: {
@@ -117,7 +117,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     end: { head: v(0.02, -0.9, 0.68), axis: v(0, -0.55, 0.83) },
     endDir: v(0, -0.85, -0.5),
     offhand: 0.2,
-    idle: F(v(0.22, -0.31, 0.34), v(0.1, 0.82, 0.48), v(-0.45, 0, 0.9)),
+    idle: F(v(0.21, -0.26, 0.36), v(0.1, 0.82, 0.48), v(-0.45, 0, 0.9)),
   },
   // Two-handed overhead slam: the cylinder held horizontally across (right hand on the valve
   // handle, left hand under the bottom), its side smashing down. The left hand goes back to the
@@ -134,7 +134,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     end: { head: v(0.02, -0.6, 0.5), axis: v(-1, -0.1, 0) },
     endDir: v(0, -0.9, -0.4),
     offhand: -0.36,
-    idle: F(v(0.18, -0.13, 0.4), v(0.04, -0.98, 0.2), v(-0.15, 0.1, 1)),
+    idle: F(v(0.2, -0.07, 0.43), v(0.04, -0.98, 0.2), v(-0.15, 0.1, 1)),
   },
 };
 
@@ -376,7 +376,7 @@ export const PRY = {
  * handle, the left hand aiming the hose nozzle along the view.
  */
 /** Extinguisher: the left hand holds the hose nozzle, pointed forward-down when not spraying. */
-export const NOZZLE_IDLE: FrameDef = F(v(0.03, -0.27, 0.38), v(0, 1, 0.3), v(0.05, -0.3, 1));
+export const NOZZLE_IDLE: FrameDef = F(v(0.04, -0.2, 0.4), v(0, 1, 0.3), v(0.05, -0.3, 1));
 
 export const SPRAY_POSE: { right: FrameDef; left: FrameDef } = {
   right: F(v(0.27, -0.07, 0.46), v(0.06, -0.97, 0.2), v(-0.25, 0.05, 1)),

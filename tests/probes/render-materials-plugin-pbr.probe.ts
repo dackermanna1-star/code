@@ -152,6 +152,9 @@ export async function runWorldMatScene(kind: "pbr" | "std", opts: { bloom: boole
     fragHasSampler2DArrayDecl: /uniform\s+highp\s+sampler2DArray\s+wmAlbedoSampler/.test(frag),
     vertHasSurfAttr: /in\s+vec4\s+surf;/.test(vert),
     vertUsesUvUpdated: vert.includes("vWmUV=uvUpdated") || vert.includes("vWmUV = uvUpdated"),
+    // Standard only: the regex-injected glossiness replaced the original statement
+    regexGlossInjected: frag.includes("exp2(10.0*(1.0-clamp(vWmSurf.z*wmAlbedoTex.a"),
+    originalGlossStillPresent: frag.includes("glossiness=vSpecularColor.a;"),
     defines: {
       UV1: !!propMesh.subMeshes[0].materialDefines?.["UV1"],
       VERTEXCOLOR: !!propMesh.subMeshes[0].materialDefines?.["VERTEXCOLOR"],

@@ -101,6 +101,7 @@ export class Viewmodel {
   private readonly t2 = v3();
   private readonly t3 = v3();
   private readonly qTmp = q4();
+  private readonly shTmp = v3();
   private readonly restFrame: Frame = { p: v3(), q: q4() };
   private readonly nozzleFrame: Frame = { p: v3(), q: q4() };
 
@@ -277,11 +278,14 @@ export class Viewmodel {
     w.x += hand.p.x;
     w.y += hand.p.y;
     w.z += hand.p.z;
-    const lift = smoothstep01((w.y - SHOULDER[side].y + 0.02) / 0.28);
+    const sh0 = SHOULDER[side];
+    const lift = smoothstep01((w.y - sh0.y + 0.02) / 0.28);
     const pl = POLE_LOW[side],
       ph = POLE_HIGH[side];
     const pole = setV(this.t3, pl.x + (ph.x - pl.x) * lift, pl.y + (ph.y - pl.y) * lift, pl.z + (ph.z - pl.z) * lift);
-    const elbow = twoBoneElbow(SHOULDER[side], w, UPPER_ARM, FOREARM, pole, this.t2);
+    // raising the arms elevates the shoulder girdle a little (keeps raised forearms off the lens)
+    const sh = setV(this.shTmp, sh0.x * (1 + 0.15 * lift), sh0.y + 0.1 * lift, sh0.z + 0.06 * lift);
+    const elbow = twoBoneElbow(sh, w, UPPER_ARM, FOREARM, pole, this.t2);
     // forearm root at the wrist, local +Z towards the elbow, local +Y roughly up
     const dir = setV(this.t3, elbow.x - w.x, elbow.y - w.y, elbow.z - w.z);
     const node = this.arms[side].root;
