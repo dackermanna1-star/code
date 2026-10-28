@@ -14,18 +14,8 @@
 //
 // Decals are world-static: callers should place them on static surfaces (floors, walls).
 
-import {
-  Constants,
-  DynamicTexture,
-  Effect,
-  Mesh,
-  ShaderMaterial,
-  Texture,
-  Vector3,
-  VertexBuffer,
-  type Scene,
-  type Light,
-} from "@babylonjs/core";
+import { Constants, Effect, Mesh, ShaderMaterial, Vector3, VertexBuffer, type RawTexture, type Scene, type Light } from "@babylonjs/core";
+import { atlasCanvas, dilateTransparent, rawAtlasTexture, shadeCell } from "./atlas.ts";
 
 export type DecalKind = "impact" | "scorch" | "puddle" | "crack" | "dust";
 
@@ -44,8 +34,8 @@ const LOOK: Record<DecalKind, KindLook> = {
   impact: { cells: [0, 1], color: [0.16, 0.15, 0.14], darken: 0.7, wet: 0, lit: false, fadeIn: 0 },
   scorch: { cells: [2, 3], color: [0.035, 0.03, 0.028], darken: 0.92, wet: 0, lit: false, fadeIn: 0.3 },
   crack: { cells: [4, 5], color: [0.07, 0.06, 0.055], darken: 0.85, wet: 0, lit: false, fadeIn: 0 },
-  puddle: { cells: [6, 7], color: [0.045, 0.055, 0.06], darken: 0.38, wet: 1, lit: false, fadeIn: 0.4 },
-  dust: { cells: [8, 9], color: [0.86, 0.85, 0.81], darken: 0.55, wet: 0, lit: true, fadeIn: 5 },
+  puddle: { cells: [6, 7], color: [0.01, 0.012, 0.014], darken: 0.45, wet: 1, lit: false, fadeIn: 0.4 },
+  dust: { cells: [8, 9], color: [0.72, 0.71, 0.68], darken: 0.45, wet: 0, lit: true, fadeIn: 5 },
 };
 
 const ATLAS = 512;
@@ -129,7 +119,9 @@ void main(void) {
   float cov = t.a * vColor.a;
   if (cov < 0.004) discard;
   float alpha = cov * vDecal.y;
-  vec3 rgb = vColor.rgb * t.rgb * alpha;
+  // un-premultiplied target colour (linear) and additive light (reflections, glints)
+  vec3 base = vColor.rgb * t.rgb;
+  vec3 add = vec3(0.0);
   float wet = vDecal.x;
   if (wet > 0.0) {
     // ripples (only while water keeps landing): perturb the up normal
@@ -143,7 +135,7 @@ void main(void) {
     float F = 0.02 + 0.98 * pow(1.0 - NdV, 5.0);
     vec3 R = reflect(-V, N);
     float L = vDecal.z;
-    vec3 refl = envColor * L * (0.6 + 0.4 * clamp(R.y, 0.0, 1.0)) * F;
+    vec3 refl = envColor * L * (0.6 + 0.4 * clamp(R.y, 0.0, 1.0)) * F * 0.6;
     vec3 spec = sunColor * pow(max(dot(R, -sunDir), 0.0), 400.0);
     for (int i = 0; i < 4; i++) {
       vec3 d = lightPos[i] - vPos;
@@ -151,10 +143,16 @@ void main(void) {
       vec3 Ld = d * inversesqrt(dist2);
       spec += lightCol[i] * pow(max(dot(R, Ld), 0.0), 350.0) / dist2;
     }
-    rgb += (refl + min(spec, vec3(1.5)) * F * 4.0) * wet * cov;
+    add = (refl + min(spec, vec3(1.5)) * F * 4.0) * wet;
   }
-  rgb = pow(max(rgb, vec3(0.0)), vec3(gammaOut));
-  gl_FragColor = vec4(rgb, alpha);
+  if (gammaOut < 1.0) {
+    // framebuffer holds gamma-encoded colour (materials apply image processing themselves):
+    // encode the blend target exactly, and the small additive term with the local slope of the
+    // curve (pow() on small additive values would turn soft edges into bright rims)
+    base = pow(max(base, vec3(0.0)), vec3(gammaOut));
+    add *= 0.75;
+  }
+  gl_FragColor = vec4(base * alpha + add * cov, alpha);
 }
 `;
 
@@ -196,60 +194,12 @@ const sstep = (a: number, b: number, x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-function shade(img: ImageData, cell: number, fn: (u: number, v: number) => [number, number]): void {
+/** Decal atlas (row 0 = top of the image = v 0): marks, scorch, cracks, puddles, dust. */
+function createDecalAtlas(scene: Scene): RawTexture {
   const C = ATLAS / GRID;
-  const ox = (cell % GRID) * C,
-    oy = Math.floor(cell / GRID) * C;
-  for (let y = 0; y < C; y++)
-    for (let x = 0; x < C; x++) {
-      const u = ((x + 0.5) / C) * 2 - 1,
-        v = ((y + 0.5) / C) * 2 - 1;
-      const [l, a] = fn(u, v);
-      const i = ((oy + y) * ATLAS + ox + x) * 4;
-      const L = Math.round(Math.min(1, Math.max(0, l)) * 255);
-      img.data[i] = img.data[i + 1] = img.data[i + 2] = L;
-      img.data[i + 3] = Math.round(Math.min(1, Math.max(0, a)) * 255);
-    }
-}
-
-function createDecalAtlas(scene: Scene): DynamicTexture {
-  const tex = new DynamicTexture("vfxDecalAtlas", { width: ATLAS, height: ATLAS }, scene, true, Texture.TRILINEAR_SAMPLINGMODE);
-  tex.hasAlpha = true;
-  tex.wrapU = tex.wrapV = Texture.CLAMP_ADDRESSMODE;
-  const ctx = tex.getContext() as CanvasRenderingContext2D;
+  const ctx = atlasCanvas(ATLAS);
   ctx.clearRect(0, 0, ATLAS, ATLAS);
-  const img = ctx.getImageData(0, 0, ATLAS, ATLAS);
-  const edge = (u: number, v: number) => sstep(0, 0.12, 1 - Math.max(Math.abs(u), Math.abs(v)));
-  // impact scuffs: gritty core + radial streaks
-  for (const [cell, seed] of [
-    [0, 11],
-    [1, 23],
-  ]) {
-    shade(img, cell, (u, v) => {
-      const r = Math.hypot(u, v);
-      const ang = Math.atan2(v, u);
-      const streak = Math.pow(Math.max(0, Math.sin(ang * 7 + seed) * Math.sin(ang * 3.3 + seed * 0.7)), 2);
-      const n = fbm(u * 6, v * 6, seed, 4);
-      const core = sstep(0.75, 0.05, r + (n - 0.5) * 0.35);
-      const rays = streak * sstep(0.95, 0.2, r) * 0.6;
-      const speck = noise(u * 40, v * 40, seed) > 0.78 ? 0.5 * sstep(0.95, 0.3, r) : 0;
-      return [0.55 + 0.45 * n, Math.min(1, core * (0.55 + 0.45 * n) + rays + speck) * edge(u, v)];
-    });
-  }
-  // scorch: soot with a darker centre and ragged edge
-  for (const [cell, seed] of [
-    [2, 37],
-    [3, 41],
-  ]) {
-    shade(img, cell, (u, v) => {
-      const n = fbm(u * 3.2, v * 3.2, seed, 5);
-      const r = Math.hypot(u, v) + (n - 0.5) * 0.5;
-      return [0.5 + 0.5 * n, sstep(0.95, 0.1, r) * edge(u, v)];
-    });
-  }
-  ctx.putImageData(img, 0, 0);
-  // cracks: jagged branching lines (canvas strokes)
-  const C = ATLAS / GRID;
+  // cracks: jagged branching lines (canvas strokes), cells 4 and 5
   for (const [cell, seed] of [
     [4, 5],
     [5, 9],
@@ -285,34 +235,61 @@ function createDecalAtlas(scene: Scene): DynamicTexture {
     const arms = 4 + Math.floor(rnd() * 3);
     for (let k = 0; k < arms; k++) branch(ox, oy, (k / arms) * Math.PI * 2 + rnd() * 0.6, C * (0.3 + rnd() * 0.15), 2.2, 0);
   }
-  const img2 = ctx.getImageData(0, 0, ATLAS, ATLAS);
+  const d = ctx.getImageData(0, 0, ATLAS, ATLAS).data;
+  dilateTransparent(d, ATLAS);
+  const edge = (u: number, v: number) => sstep(0, 0.12, 1 - Math.max(Math.abs(u), Math.abs(v)));
+  // impact scuffs: gritty core + radial streaks
+  for (const [cell, seed] of [
+    [0, 11],
+    [1, 23],
+  ]) {
+    shadeCell(d, ATLAS, cell, C, (u, v) => {
+      const r = Math.hypot(u, v);
+      const ang = Math.atan2(v, u);
+      const streak = Math.pow(Math.max(0, Math.sin(ang * 7 + seed) * Math.sin(ang * 3.3 + seed * 0.7)), 2);
+      const n = fbm(u * 6, v * 6, seed, 4);
+      const core = sstep(0.75, 0.05, r + (n - 0.5) * 0.35);
+      const rays = streak * sstep(0.95, 0.2, r) * 0.6;
+      const speck = noise(u * 40, v * 40, seed) > 0.78 ? 0.5 * sstep(0.95, 0.3, r) : 0;
+      return [0.55 + 0.45 * n, Math.min(1, core * (0.55 + 0.45 * n) + rays + speck) * edge(u, v)];
+    }, GRID);
+  }
+  // scorch: soot with a darker centre and ragged edge
+  for (const [cell, seed] of [
+    [2, 37],
+    [3, 41],
+  ]) {
+    shadeCell(d, ATLAS, cell, C, (u, v) => {
+      const n = fbm(u * 3.2, v * 3.2, seed, 5);
+      const r = Math.hypot(u, v) + (n - 0.5) * 0.5;
+      return [0.5 + 0.5 * n, sstep(0.95, 0.1, r) * edge(u, v)];
+    }, GRID);
+  }
   // puddles: irregular blob masks with soft rims
   for (const [cell, seed] of [
     [6, 53],
     [7, 61],
   ]) {
-    shade(img2, cell, (u, v) => {
+    shadeCell(d, ATLAS, cell, C, (u, v) => {
       const ang = Math.atan2(v, u);
       const wob = fbm(Math.cos(ang) * 1.6 + 5, Math.sin(ang) * 1.6 + 5, seed, 4);
       const r = Math.hypot(u, v) / (0.62 + 0.36 * wob);
       return [1, sstep(1, 0.86, r) * edge(u, v)];
-    });
+    }, GRID);
   }
   // settled dust: grainy soft patch
   for (const [cell, seed] of [
     [8, 71],
     [9, 83],
   ]) {
-    shade(img2, cell, (u, v) => {
+    shadeCell(d, ATLAS, cell, C, (u, v) => {
       const n = fbm(u * 2.5, v * 2.5, seed, 5);
       const grain = noise(u * 64, v * 64, seed + 1);
       const r = Math.hypot(u, v) + (n - 0.5) * 0.7;
       return [0.85 + 0.15 * grain, sstep(0.95, 0.15, r) * (0.65 + 0.35 * grain) * edge(u, v)];
-    });
+    }, GRID);
   }
-  ctx.putImageData(img2, 0, 0);
-  tex.update(true, false);
-  return tex;
+  return rawAtlasTexture(scene, "vfxDecalAtlas", d, ATLAS);
 }
 
 // ------------------------------------------------------------------ system
@@ -322,7 +299,7 @@ export class Decals {
   readonly capacity: number;
   readonly maxPuddles: number;
   private readonly scene: Scene;
-  private readonly atlas: DynamicTexture;
+  private readonly atlas: RawTexture;
   private readonly list: Decal[] = [];
   private stamp = 0;
   private pos: Float32Array;
@@ -619,14 +596,14 @@ export class Decals {
     p[o + 9] = d.x - ax + bx;
     p[o + 10] = d.y - ay + by;
     p[o + 11] = d.z - az + bz;
-    // atlas cell (DynamicTexture invertY: canvas top row is v = 1)
+    // atlas cell (raw upload: image row 0 is v = 0)
     const col = d.cell % GRID,
       row = Math.floor(d.cell / GRID);
     const inset = 1.5 / ATLAS;
     const u0 = col / GRID + inset,
       u1 = (col + 1) / GRID - inset;
-    const v1 = 1 - row / GRID - inset,
-      v0 = 1 - (row + 1) / GRID + inset;
+    const v0 = (row + 1) / GRID - inset,
+      v1 = row / GRID + inset;
     const u = this.uv,
       uo = i * 8;
     u[uo] = u0;

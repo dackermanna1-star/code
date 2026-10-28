@@ -695,7 +695,11 @@ export class Interaction {
     if (!this.beginDynamic(h, view)) this.hold = null;
   }
 
-  /** Move the body's leaf shapes to the HELD layer (remembering the original masks). */
+  /**
+   * Move the body to the HELD layer, remembering each leaf's original masks. Goes through
+   * physics.setLayer: Havok caches leaf filters per body, so only a refreshed body (which the
+   * physics system does) actually changes what it collides with.
+   */
   private applyHeldLayer(h: Hold): void {
     const shape = h.body.shape;
     h.shapeRef = shape;
@@ -703,22 +707,18 @@ export class Interaction {
     if (!shape) return;
     const leaves = this.leafScratch;
     leaves.length = 0;
-    const complete = this.collectLeaves(shape, leaves);
+    this.collectLeaves(shape, leaves);
     for (const leaf of leaves) {
-      if (!leaf._pluginData) continue;
-      if (!h.leaves.has(leaf)) h.leaves.set(leaf, [leaf.filterMembershipMask, leaf.filterCollideMask]);
-      leaf.filterMembershipMask = Layer.HELD;
-      leaf.filterCollideMask = HELD_COLLIDE;
-    }
-    if (!complete) {
-      // children not reachable through the plugin registry: let the physics system do it
-      try {
-        this.ctx.physics.setLayer(shape, Layer.HELD, HELD_COLLIDE);
-      } catch {
-        /* ignore */
-      }
+      if (leaf._pluginData === undefined || h.leaves.has(leaf)) continue;
+      const m = leaf.filterMembershipMask, c = leaf.filterCollideMask;
+      if (m !== Layer.HELD) h.leaves.set(leaf, [m, c]);
     }
     leaves.length = 0;
+    try {
+      this.ctx.physics.setLayer(shape, Layer.HELD, HELD_COLLIDE);
+    } catch (e) {
+      console.warn("setLayer(HELD) failed", e);
+    }
   }
 
   /** Leaf shapes of a (possibly nested) container. Returns false if some child was not found. */
@@ -748,16 +748,45 @@ export class Interaction {
     return complete;
   }
 
-  private restoreLeaves(leaves: Map<PhysicsShape, [number, number]>): void {
+  /**
+   * Put remembered leaves back on their original layers (only those still on HELD: the destruction
+   * system may have re-layered a fragment since). One setLayer per body shape when every leaf of it
+   * goes back to the same layer (the common case), else per leaf.
+   */
+  private restoreLeaves(leaves: Map<PhysicsShape, [number, number]>, body: PhysicsBody | null): void {
+    const todo: Array<[PhysicsShape, number, number]> = [];
     for (const [leaf, [m, c]] of leaves) {
-      if (!leaf._pluginData) continue; // disposed (fractured away)
-      // only undo our own change (the destruction system may have re-layered the leaf since)
-      if (leaf.filterMembershipMask === Layer.HELD && leaf.filterCollideMask === HELD_COLLIDE) {
-        leaf.filterMembershipMask = m;
-        leaf.filterCollideMask = c;
-      }
+      if (leaf._pluginData === undefined) continue; // disposed (fractured away)
+      if (leaf.filterMembershipMask === Layer.HELD && leaf.filterCollideMask === HELD_COLLIDE) todo.push([leaf, m, c]);
     }
     leaves.clear();
+    if (!todo.length) return;
+    const physics = this.ctx.physics;
+    const shape = body && this.alive(body) ? body.shape : null;
+    if (shape && todo.every(([, m, c]) => m === todo[0][1] && c === todo[0][2])) {
+      const all = this.leafScratch;
+      all.length = 0;
+      this.collectLeaves(shape, all);
+      const covered = all.length > 0 && all.every((l) => l.filterMembershipMask !== Layer.HELD || todo.some(([t]) => t === l));
+      all.length = 0;
+      if (covered) {
+        try {
+          physics.setLayer(shape, todo[0][1], todo[0][2]);
+          // leaves that left this body (split off) still need their own restore
+          for (const [leaf, m, c] of todo) if (leaf.filterMembershipMask === Layer.HELD) physics.setLayer(leaf, m, c);
+          return;
+        } catch (e) {
+          console.warn("setLayer(restore) failed", e);
+        }
+      }
+    }
+    for (const [leaf, m, c] of todo) {
+      try {
+        physics.setLayer(leaf, m, c);
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   private processPendingRestores(all: boolean): void {
@@ -765,7 +794,7 @@ export class Interaction {
     for (let i = this.pending.length - 1; i >= 0; i--) {
       const p = this.pending[i];
       if (all || p.body.isDisposed || this.time >= p.t) {
-        this.restoreLeaves(p.leaves);
+        this.restoreLeaves(p.leaves, p.body);
         this.pending.splice(i, 1);
       }
     }
@@ -802,7 +831,7 @@ export class Interaction {
     }
     if (h.leaves.size) {
       if (alive) this.pending.push({ body, leaves: h.leaves, t: this.time + LAYER_RESTORE_DELAY });
-      else this.restoreLeaves(h.leaves);
+      else this.restoreLeaves(h.leaves, null);
     }
   }
 

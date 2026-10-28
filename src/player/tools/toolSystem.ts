@@ -436,7 +436,7 @@ export class ToolSystem implements IToolSystem {
     // start the swing from where the tool is actually blocked and ignore that obstacle while the
     // head moves away from it (first part of the path towards the contact point).
     const rig = TOOL_RIGS[this._current];
-    this.toWorld(rig.kind === "arc" ? rig.pivot : FIST_PIVOT, this.w0);
+    this.toWorld(rig.kind === "curve" ? SHOULDER_R : FIST_PIVOT, this.w0);
     const def = this.defs[this._current];
     const block = this.safeSweep(this.w0, this.prevHead, def.headRadius, tc.ignore, null);
     if (block) {

@@ -48,3 +48,10 @@ its vertex layout documented at the top of `src/render/batch.ts`).
    `microCount`.
 6. Probes + screenshots: each burst kind in a row, 3000 micro-debris pieces falling onto a floor
    and settling (timing), water emitter, decals. Look at screenshots critically.
+
+## Addendum (vfx-audio notes landed)
+- Particle time: set `ps.updateSpeed = gameDt / scene.getAnimationRatio()` each frame for SI units.
+- Never use disposeOnStop on systems sharing a texture (it disposes the texture); dispose(false).
+- New systems need one event-loop turn + a particleTexture before running; pre-fill pools at load.
+- Micro-debris: thin instances with dynamic buffers, doNotSyncBoundingInfo, alwaysSelectAsActiveMesh.
+- CreateDecal needs normals and is costly on big meshes; decal maps unusable with our UVs.

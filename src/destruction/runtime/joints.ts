@@ -590,17 +590,31 @@ export class JointSystem {
     }
   }
 
-  /** Velocity motor (fan): torque-limited drive towards the target spin. */
+  /**
+   * Velocity motor (fan): torque-limited drive towards the target spin, plus quadratic air drag
+   * on the rotor (sized so drag = half the motor torque at full speed) so an unpowered fan
+   * coasts down over ~10 s instead of spinning forever.
+   */
   private applyMotor(g: JointGroup, dt: number): void {
-    if (!g.motorOn || g.kind !== "hinge") return;
+    if (g.kind !== "hinge") return;
     const jc = g.constraints.find((c) => c.kind === "hinge");
-    if (!jc || !jc.moving.body || jc.moving.isStatic) return;
+    if (!jc || !jc.moving.body || jc.moving.isStatic) {
+      if (!g.motorOn) this.motors.delete(g);
+      return;
+    }
     const { axis } = this.worldAxis(g, jc);
     const wRel = this.relAngVel(jc, axis);
     const tmax = Math.max(0.05, g.motorTorque);
-    const tau = Math.max(-tmax, Math.min(tmax, (tmax / 1.5) * (g.motorSpeed - wRel)));
+    const target = Math.abs(g.motorSpeed) > 0.1 ? Math.abs(g.motorSpeed) : 10;
+    const kDrag = (0.5 * tmax) / (target * target);
+    let tau = -kDrag * wRel * Math.abs(wRel);
+    if (g.motorOn) tau += Math.max(-tmax, Math.min(tmax, (tmax / 1.5) * (g.motorSpeed - wRel)));
+    else if (Math.abs(wRel) < 0.05) {
+      this.motors.delete(g); // stopped: no more per-step work until powered again
+      return;
+    }
     this.applyTorque(jc, axis, tau, dt);
-    if (Math.abs(g.motorSpeed - wRel) > 0.2) this.w.physics.wake(jc.moving.body);
+    if (g.motorOn && Math.abs(g.motorSpeed - wRel) > 0.2) this.w.physics.wake(jc.moving.body);
   }
 }
 

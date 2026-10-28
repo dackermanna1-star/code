@@ -41,6 +41,7 @@ export class MotorFeature extends BaseFeature {
       if (pos) this.fs.w.events.emit("feature", { kind: "motorStop", pos });
     }
     this.group.motorOn = on;
+    if (on) this.fs.joints.motors.add(this.group);
   }
 
   onFracture(old: Part): void {

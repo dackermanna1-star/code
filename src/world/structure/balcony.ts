@@ -93,8 +93,8 @@ export function buildBalcony(): AssemblyDef {
         [a, x0],
         [c, x1],
       ] as Array<[{ name: string }, number]>) {
-        bondAt(b, name, p.name, "clip", 30, [x, gy0 + 0.15, a.z]);
-        bondAt(b, name, p.name, "clip", 30, [x, gy1 - 0.15, a.z]);
+        // two glass clamps per post → one bond with the summed strength
+        bondAt(b, name, p.name, "clip", 60, [x, mid(gy0, gy1), a.z]);
       }
     } else {
       const z0 = Math.min(a.z, c.z) + POST / 2 + 0.015,
@@ -104,8 +104,7 @@ export function buildBalcony(): AssemblyDef {
         [a, z0],
         [c, z1],
       ] as Array<[{ name: string }, number]>) {
-        bondAt(b, name, p.name, "clip", 30, [a.x, gy0 + 0.15, z]);
-        bondAt(b, name, p.name, "clip", 30, [a.x, gy1 - 0.15, z]);
+        bondAt(b, name, p.name, "clip", 60, [a.x, mid(gy0, gy1), z]);
       }
     }
   };

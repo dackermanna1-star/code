@@ -12,7 +12,7 @@ import type { SurfaceName } from "../../render/surfaces.ts";
 import { roomById } from "../plan.ts";
 import { CASING_REVEAL, CASING_T, CASING_W, DOOR_T, FRONT_DOOR_T, FRONT_JAMB_T, HANDLE_Y, JAMB_T, SHIM } from "./levels.ts";
 import type { ConcreteRun, PartitionRun, RunOpening } from "./layout.ts";
-import { PAL, bondAt, boxR, mid, newBuilder, worldAt, type Interval, type V3 } from "./common.ts";
+import { Fixings, PAL, bondAt, boxR, mid, newBuilder, worldAt, type Interval, type V3 } from "./common.ts";
 import { clearOpening } from "./openings.ts";
 import { hingeGroup } from "./joints.ts";
 import { inFrame } from "./concrete.ts";
@@ -210,6 +210,21 @@ function addLevers(b: Builder, sp: LeafSpec, parts: LeafParts, heavy: boolean): 
   }
 }
 
+/**
+ * Hinge barrels: visual-only (noCollide) cylinders hugging the leaf's hinge edge on the swing
+ * face (where real knuckles show), screwed to the leaf so they swing with it.
+ */
+function addKnuckles(b: Builder, ys: number[], uH: number, inward: number, wS: number, sw: number, r: number, h: number, parts: LeafParts, tint: number): void {
+  const uc = uH + inward * (r + 0.0001),
+    wc = wS + sw * (r + 0.0001);
+  ys.forEach((y, i) => {
+    const k = `hingeKnuckle${i}`;
+    b.cyl(k, "steel", "chrome", r, h, [uc, y, wc], { segments: 10, noCollide: true, tint, tags: ["door", "hinge"] });
+    bondAt(b, k, parts.skinS, "screw", 60, [uc, y, wS]);
+    bondAt(b, k, parts.hingeStile, "screw", 60, [uH + inward * 0.005, y, wS - sw * 0.003]);
+  });
+}
+
 /** Casings (MDF, painted) on one face around a frame (local u/y, face plane at w = side*faceW). */
 function addCasings(b: Builder, prefix: string, c0: number, c1: number, top: number, side: number, faceW: number, jambs: { L: string; R: string; H: string }, jambIn: { l: number; r: number }): void {
   const wc = rng(side * faceW, side * (faceW + CASING_T));
@@ -253,10 +268,13 @@ export function buildInteriorDoor(run: PartitionRun, o: RunOpening): AssemblyDef
     boxR(b, jH, "softwood", "wood_painted", [c0, c1], [top, o.head - SHIM], full, { ...trim, grain: "x" });
     bondAt(b, jH, jL, "nail", 40, [c0, mid(top, o.head - SHIM), 0]);
     bondAt(b, jH, jR, "nail", 40, [c1, mid(top, o.head - SHIM), 0]);
+    // nailed through the shims into the jack studs at three heights (one bond per jamb)
+    const fx = new Fixings();
     for (const y of [0.3, 1.0, 1.75]) {
-      worldAt(b, jL, "nail", 60, [o.r0 + SHIM, y, 0]);
-      worldAt(b, jR, "nail", 60, [o.r1 - SHIM, y, 0]);
+      fx.world(jL, "nail", 60, [o.r0 + SHIM, y, 0]);
+      fx.world(jR, "nail", 60, [o.r1 - SHIM, y, 0]);
     }
+    fx.flush(b);
     worldAt(b, jH, "nail", 60, [mid(o.r0, o.r1), o.head - SHIM, 0]);
 
     const wS = sw * (T / 2 - 0.005);
@@ -307,11 +325,7 @@ export function buildInteriorDoor(run: PartitionRun, o: RunOpening): AssemblyDef
     bondAt(b, strike, latchJamb, "screw", 30, [cEdge, HANDLE_Y, mid(parts.wCore[0], parts.wCore[1])]);
     const ys = [spec.yb + 0.25, mid(spec.yb + 0.25, spec.yt - 0.18), spec.yt - 0.18];
     const pw = wS + sw * 0.004;
-    ys.forEach((y, i) => {
-      const k = `hingeKnuckle${i}`;
-      b.cyl(k, "steel", "chrome", 0.0065, 0.089, [uH, y, pw], { segments: 10, noCollide: true, tags: ["door-frame", "hinge"] });
-      bondAt(b, k, hingeJamb, "screw", 105, [hingeAtLow ? c0 : c1, y, wS]);
-    });
+    addKnuckles(b, ys, uH, hingeAtLow ? 1 : -1, wS, sw, 0.0065, 0.089, parts, 0xffffff);
     hingeGroup(
       b,
       `${o.op.id}#hinge`,
@@ -358,10 +372,13 @@ export function buildFrontDoor(run: ConcreteRun, o: RunOpening): AssemblyDef {
     bondAt(b, jH, jR, "screw", 70, [c1, mid(top, o.head - SHIM), mid(fw[0], fw[1])]);
     bondAt(b, jL, thr, "screw", 40, [mid(o.r0 + SHIM, c0), TH, mid(fw[0], fw[1])]);
     bondAt(b, jR, thr, "screw", 40, [mid(c1, o.r1 - SHIM), TH, mid(fw[0], fw[1])]);
+    // frame anchors into the concrete at three heights (one bond per jamb)
+    const fx = new Fixings();
     for (const y of [0.35, 1.05, 1.8]) {
-      worldAt(b, jL, "screw", 120, [o.r0, y, mid(fw[0], fw[1])]);
-      worldAt(b, jR, "screw", 120, [o.r1, y, mid(fw[0], fw[1])]);
+      fx.world(jL, "screw", 120, [o.r0, y, mid(fw[0], fw[1])]);
+      fx.world(jR, "screw", 120, [o.r1, y, mid(fw[0], fw[1])]);
     }
+    fx.flush(b);
     worldAt(b, jH, "screw", 120, [mid(o.r0, o.r1), o.head, mid(fw[0], fw[1])]);
     const wS = sw * (half - 0.005);
     const wB = wS - sw * FRONT_DOOR_T;
@@ -431,7 +448,6 @@ export function buildFrontDoor(run: ConcreteRun, o: RunOpening): AssemblyDef {
     b.cyl(lens, "glass", "glass", 0.009, 0.003, [pu, py, wB - sw * 0.0015], { axis: "z", segments: 12, tags: ["door", "glass"] });
     bondAt(b, eye, parts.skinS, "screw", 15, [pu, py, wS]);
     bondAt(b, lens, parts.skinB, "glue", 10, [pu, py, wB]);
-    bondAt(b, eye, lens, "screw", 15, [pu, py, mid(wS, wB)]);
 
     const latchJamb = hingeAtLow ? jR : jL,
       hingeJamb = hingeAtLow ? jL : jR;
@@ -442,11 +458,7 @@ export function buildFrontDoor(run: ConcreteRun, o: RunOpening): AssemblyDef {
     bondAt(b, strike, latchJamb, "screw", 60, [cEdge, mid(HANDLE_Y, by), mid(parts.wCore[0], parts.wCore[1])]);
     const ys = [spec.yb + 0.25, mid(spec.yb + 0.25, spec.yt - 0.2), spec.yt - 0.2];
     const pw = wS + sw * 0.005;
-    ys.forEach((y, i) => {
-      const k = `hingeKnuckle${i}`;
-      b.cyl(k, "steel", "chrome", 0.008, 0.1, [uH, y, pw], { segments: 10, noCollide: true, tint: 0xe2c27a, tags: ["door-frame", "hinge"] });
-      bondAt(b, k, hingeJamb, "screw", 210, [hingeAtLow ? c0 : c1, y, wS]);
-    });
+    addKnuckles(b, ys, uH, hingeAtLow ? 1 : -1, wS, sw, 0.008, 0.1, parts, 0xe2c27a);
     hingeGroup(
       b,
       `${o.op.id}#hinge`,

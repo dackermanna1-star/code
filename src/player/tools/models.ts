@@ -487,8 +487,7 @@ export function createViewmodelMaterials(scene: Scene): Record<TexKind, Standard
 /** Grip → head distance of a tool (from its rig), i.e. where the physics head sphere sits on +Y. */
 export function toolLength(id: ToolId): number {
   const r = TOOL_RIGS[id];
-  if (r.kind !== "arc") return 0;
-  return Math.hypot(r.head.x - r.grip.x, r.head.y - r.grip.y, r.head.z - r.grip.z);
+  return r.kind === "curve" ? r.toolLen : 0;
 }
 
 /** Nozzle tip relative to the left hand frame (+Z forward along the hand, +Y up). */

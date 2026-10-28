@@ -61,3 +61,9 @@ a scripted burst of events headless without errors and with voices capped, (3) r
 sounds through OfflineAudioContext to WAV files in your scratch area and check simple spectral
 properties (glass centroid frequency > wood; larger size → lower pitch; shatter longer than knock).
 Document the sound id list at the top of `src/audio/bank.ts`.
+
+## Addendum (vfx-audio notes landed: docs/api-notes/vfx-audio.md)
+- FLIP Z when passing Babylon (left-handed) positions/orientations to Web Audio, else L/R swap.
+- HRTF PannerNode inside OfflineAudioContext can hang startRendering forever: pre-warm HRTF on the
+  realtime context first and always put a timeout on offline renders (or synthesize in pure JS).
+- Synthesize with a rotation oscillator (≈20× faster than sin/exp); pool HRTF voice chains (~180 µs each to create).

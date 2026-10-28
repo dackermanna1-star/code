@@ -220,7 +220,7 @@ export class Viewmodel {
     const isFists = vs.tool === "hands";
     if (!isFists) this.applyFrame(tool.root, pose.right);
     const rig = TOOL_RIGS[vs.tool];
-    const twoHanded = isFists || (rig.kind === "arc" && rig.offhand > 0) || vs.tool === "extinguisher";
+    const twoHanded = isFists || (rig.kind === "curve" && rig.offhand > 0) || vs.tool === "extinguisher";
     this.applyFrame(this.fists[0].root, pose.right);
     this.applyArm(0, pose.right);
     this.fists[1].root.setEnabled(twoHanded);

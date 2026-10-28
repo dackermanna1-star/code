@@ -11,9 +11,10 @@
 // pose through the NOMINAL CONTACT POINT on the crosshair line — where the head travels along a
 // designed direction with a strong forward component, so whatever the crosshair is on gets hit
 // squarely (a rigid lever about the shoulder would only graze a wall straight ahead) — and on into
-// the follow-through. The tool's orientation comes from a virtual pivot placed so the handle is
-// exactly perpendicular to the travel at contact (the striking face leads), plus a wrist cock that
-// is released on the way in. Fists punch along straight lines.
+// the follow-through. The tool's orientation is interpolated between key poses (wound, contact,
+// end); at contact the handle is exactly perpendicular to the travel so the striking face leads,
+// and most of the rotation happens late in the swing (the wrist snap). The hands sit one tool
+// length down the handle. Fists punch along straight lines.
 //
 // Timing. From rest at the wound pose the head speed rises as a quarter sine (muscle torque is
 // highest early in a swing) to the tool's peak speed v exactly at the contact point, then
@@ -259,7 +260,13 @@ export function blendFrame(a: Frame, b: Frame, u: number, out: Frame): Frame {
 
 // ------------------------------------------------------------------------------------ rigs
 
-/** A tool swing: head path through the crosshair contact point + derived hand/tool orientation. */
+/** Head position + tool axis (grip → head) of a key pose; the face follows the motion. */
+export interface KeyPose {
+  head: V3;
+  axis: V3;
+}
+
+/** A tool swing: head path through the crosshair contact point + key-pose orientations. */
 export interface CurveRig {
   kind: "curve";
   /** Grip → head distance (m): where the physics head sphere sits on the tool axis. */
@@ -270,17 +277,13 @@ export interface CurveRig {
   travel: V3;
   /** Handle direction hint at contact (grip → head); made perpendicular to `travel`. */
   handle: V3;
-  /** Virtual pivot distance (m) behind the head along the handle; sets how the tool turns along the path. */
-  pivotDist: number;
-  /** Head at the wound pose for a normal / fully charged swing, and the initial direction of motion. */
-  wound: V3;
-  woundCharged: V3;
+  /** Wound pose for a normal / fully charged swing, and the initial direction of motion. */
+  wound: KeyPose;
+  woundCharged: KeyPose;
   launch: V3;
-  /** Follow-through end of the head and the direction it arrives from. */
-  end: V3;
+  /** End of the follow-through and the direction the head arrives from. */
+  end: KeyPose;
   endDir: V3;
-  /** Wrist cock (rad, ≤ 0 = head tilted back against the motion) at the wound pose; released by contact. */
-  cock: number;
   /** Distance (m) from the main grip down the handle to the second hand; 0 = one-handed. */
   offhand: number;
   /** Rest pose of the main hand / tool (the off hand follows `offhand` down the handle). */
@@ -304,12 +307,16 @@ export type Rig = CurveRig | JabRig;
 /** Derived, immutable data of a curve rig. */
 export interface PreparedCurve {
   rig: CurveRig;
-  /** Unit travel at contact, unit handle at contact (⊥ travel), virtual pivot, unit launch/end directions. */
+  /** Unit travel at contact, unit handle at contact (⊥ travel), unit launch/end directions. */
   travel: V3;
   handle: V3;
-  pivot: V3;
   launch: V3;
   endDir: V3;
+  /** Key orientations (local +Y = axis, +Z = face). */
+  qContact: Q4;
+  qWound: Q4;
+  qWoundCharged: Q4;
+  qEnd: Q4;
   /** Main grip at contact. */
   grip: V3;
   toolLen: number;
@@ -333,15 +340,19 @@ export function prepareRig(rig: Rig): Prepared {
     const h = copy(v3(), rig.handle);
     const d = dot(h, travel);
     const handle = normalizeInPlace(set(h, h.x - travel.x * d, h.y - travel.y * d, h.z - travel.z * d), { x: 0, y: 1, z: 0 });
-    const pivot = set(v3(), rig.contact.x - handle.x * rig.pivotDist, rig.contact.y - handle.y * rig.pivotDist, rig.contact.z - handle.z * rig.pivotDist);
     const grip = set(v3(), rig.contact.x - handle.x * rig.toolLen, rig.contact.y - handle.y * rig.toolLen, rig.contact.z - handle.z * rig.toolLen);
+    const launch = normalizeInPlace(copy(v3(), rig.launch));
+    const endDir = normalizeInPlace(copy(v3(), rig.endDir));
     const prep: PreparedCurve = {
       rig,
       travel,
       handle,
-      pivot,
-      launch: normalizeInPlace(copy(v3(), rig.launch)),
-      endDir: normalizeInPlace(copy(v3(), rig.endDir)),
+      launch,
+      endDir,
+      qContact: quatFromAxisFace(q4(), handle, travel),
+      qWound: quatFromAxisFace(q4(), rig.wound.axis, launch),
+      qWoundCharged: quatFromAxisFace(q4(), rig.woundCharged.axis, launch),
+      qEnd: quatFromAxisFace(q4(), rig.end.axis, endDir),
       grip,
       toolLen: rig.toolLen,
       idle: makePose(),
@@ -378,28 +389,22 @@ function toolCompletePose(prep: PreparedCurve, pose: Pose): Pose {
   return pose;
 }
 
-/**
- * Tool pose with the head at `head`, moving along unit `motion`, wrist cocked by `alpha` (≤ 0 tilts
- * the head back against the motion): handle from the virtual pivot towards the head, face = the
- * motion made perpendicular to the handle, grip one tool length down the handle.
- */
-export function curvePose(prep: PreparedCurve, head: V3, motion: V3, alpha: number, out: Pose): Pose {
-  const axis = normalizeInPlace(sub(_t0, head, prep.pivot), prep.handle);
-  if (alpha !== 0) {
-    const k = cross(_t1, axis, motion);
-    if (len(k) > 1e-6) {
-      normalizeInPlace(k);
-      rotateAxis(axis, k, alpha, axis);
-    }
-  }
-  quatFromAxisFace(out.right.q, axis, motion);
+/** Tool pose from a head position and an orientation (grip one tool length down the handle). */
+export function toolPose(prep: PreparedCurve, head: V3, q: Q4, out: Pose): Pose {
+  Object.assign(out.right.q, q);
+  const axis = frameAxis(_t0, out.right);
   set(out.right.p, head.x - axis.x * prep.toolLen, head.y - axis.y * prep.toolLen, head.z - axis.z * prep.toolLen);
   copy(out.head, head);
   const off = prep.rig.offhand > 0 ? prep.rig.offhand : 0;
   set(out.left.p, out.right.p.x - axis.x * off, out.right.p.y - axis.y * off, out.right.p.z - axis.z * off);
-  Object.assign(out.left.q, out.right.q);
+  Object.assign(out.left.q, q);
   out.hand = 0;
   return out;
+}
+
+/** Wound orientation for charge c. */
+export function woundQuat(prep: PreparedCurve, c: number, out: Q4): Q4 {
+  return slerpQ(out, prep.qWound, prep.qWoundCharged, smoothstep01(c));
 }
 
 /** Fists pose: extension e (0 guard .. 1 full) and pull-back w (0..1) per hand. */
@@ -521,8 +526,8 @@ export class StrikePath {
   /** Head position and unit direction of motion per sample (camera space). */
   readonly head = new Float64Array(3 * (TAB_N + 1));
   readonly dir = new Float64Array(3 * (TAB_N + 1));
-  /** Wrist cock per sample. */
-  readonly alpha = new Float64Array(TAB_N + 1);
+  /** Orientation at the start of the path (curve rigs; the wound orientation for this charge). */
+  readonly q0: Q4 = q4();
   /** Total length, length to the nominal contact point, peak speed, duration, contact time, follow-through time. */
   L = 0;
   Lc = 0;
@@ -535,8 +540,9 @@ export class StrikePath {
   hand = 0;
   private hint = 0;
 
-  /** Build for a curve rig starting at head position S (the wound pose for this charge). */
-  buildCurve(prep: PreparedCurve, S: V3, v: number): void {
+  /** Build for a curve rig starting at head position S with orientation q0 (the wound pose for this charge). */
+  buildCurve(prep: PreparedCurve, S: V3, q0: Q4, v: number): void {
+    Object.assign(this.q0, q0);
     const rig = prep.rig;
     const C = rig.contact,
       E = rig.end;
@@ -579,11 +585,7 @@ export class StrikePath {
       this.dir[3 * i + 2] = d.z;
     }
     const Lc = this.s[TAB_A];
-    for (let i = 0; i <= TAB_N; i++) {
-      this.param[i] = acc > 0 ? this.s[i] / acc : i / TAB_N;
-      const f = Lc > 0 ? Math.max(0, 1 - this.s[i] / Lc) : 0;
-      this.alpha[i] = rig.cock * f * Math.sqrt(f);
-    }
+    for (let i = 0; i <= TAB_N; i++) this.param[i] = acc > 0 ? this.s[i] / acc : i / TAB_N;
     this.start = 0;
     this.hand = 0;
     this.finish(acc, Lc, v);
@@ -625,7 +627,6 @@ export class StrikePath {
     for (let i = 0; i <= TAB_N; i++) {
       const f = i / TAB_N;
       this.param[i] = f;
-      this.alpha[i] = 0;
       this.s[i] = L * f;
       this.head[3 * i] = p0x + dx * f;
       this.head[3 * i + 1] = p0y + dy * f;
@@ -697,18 +698,28 @@ export class StrikePath {
     return normalizeInPlace(out);
   }
 
-  /** Path fraction and wrist cock at path length s (shared result object). */
-  paramAtS(s: number): { param: number; alpha: number } {
+  /** Path fraction at path length s (jab: extension fraction along the punch line). */
+  paramAtS(s: number): number {
     this.locate(s);
     const i = _loc.i,
       f = _loc.f;
-    _par.param = this.param[i] + (this.param[i + 1] - this.param[i]) * f;
-    _par.alpha = this.alpha[i] + (this.alpha[i + 1] - this.alpha[i]) * f;
-    return _par;
+    return this.param[i] + (this.param[i + 1] - this.param[i]) * f;
+  }
+
+  /**
+   * Tool orientation at path length s (curve rigs): wound → contact eased so most of the rotation
+   * happens late (wrist snap; reaches the contact orientation exactly at contact), then contact → end.
+   */
+  quatAtS(prep: PreparedCurve, s: number, out: Q4): Q4 {
+    if (s <= this.Lc) {
+      const u = this.Lc > 0 ? clamp01(s / this.Lc) : 1;
+      return slerpQ(out, this.q0, prep.qContact, u * Math.sqrt(u));
+    }
+    const u = this.L > this.Lc ? clamp01((s - this.Lc) / (this.L - this.Lc)) : 1;
+    return slerpQ(out, prep.qContact, prep.qEnd, u);
   }
 }
 const _loc = { i: 0, f: 0 };
-const _par = { param: 0, alpha: 0 };
 const _tB0 = v3();
 const _tB1 = v3();
 
@@ -740,7 +751,9 @@ const jabWind = (c: number) => 0.25 + 0.75 * smoothstep01(c);
 /** Wound head position of a curve rig for charge c (eased so the charge continues smoothly from the windup's rest). */
 function woundHead(rig: CurveRig, c: number, out: V3): V3 {
   const k = smoothstep01(c);
-  return set(out, rig.wound.x + (rig.woundCharged.x - rig.wound.x) * k, rig.wound.y + (rig.woundCharged.y - rig.wound.y) * k, rig.wound.z + (rig.woundCharged.z - rig.wound.z) * k);
+  const a = rig.wound.head,
+    b = rig.woundCharged.head;
+  return set(out, a.x + (b.x - a.x) * k, a.y + (b.y - a.y) * k, a.z + (b.z - a.z) * k);
 }
 
 /**
@@ -780,7 +793,7 @@ export class SwingMachine {
   private readonly to = makePose();
   private readonly scratch = makePose();
   private readonly tv = v3();
-  private readonly tv2 = v3();
+  private readonly tq = q4();
 
   constructor(def: ToolDef, rig: Rig) {
     this.def = def;
@@ -1016,7 +1029,10 @@ export class SwingMachine {
     this.strikeId++;
     this.charge = clamp01(c);
     const v = chargedSpeed(this.def, this.charge);
-    if (this.prep.rig.kind === "curve") this.path.buildCurve(this.prep as PreparedCurve, woundHead(this.prep.rig, this.charge, this.tv), v);
+    if (this.prep.rig.kind === "curve") {
+      const p = this.prep as PreparedCurve;
+      this.path.buildCurve(p, woundHead(p.rig, this.charge, this.tv), woundQuat(p, this.charge, this.tq), v);
+    }
     else this.path.buildJab(this.prep as PreparedJab, this.hand, jabWind(this.charge), v);
     this.phase = "strike";
     this.rate = 1;
@@ -1039,7 +1055,7 @@ export class SwingMachine {
   private woundPose(c: number, out: Pose): Pose {
     if (this.prep.rig.kind === "curve") {
       const p = this.prep as PreparedCurve;
-      return curvePose(p, woundHead(p.rig, c, this.tv), p.launch, p.rig.cock, out);
+      return toolPose(p, woundHead(p.rig, c, this.tv), woundQuat(p, c, this.tq), out);
     }
     const w = jabWind(c);
     return this.hand === 1 ? evalJab(this.prep as PreparedJab, 0, 0, 0, w, 1, out) : evalJab(this.prep as PreparedJab, 0, w, 0, 0, 0, out);
@@ -1048,12 +1064,11 @@ export class SwingMachine {
   /** Pose at path length s of the current strike path. */
   private poseAtS(s: number, out: Pose): Pose {
     if (this.prep.rig.kind === "curve") {
-      const { alpha } = this.path.paramAtS(s);
+      const p = this.prep as PreparedCurve;
       this.path.headAtS(s, this.tv);
-      this.path.tangentAtS(s, this.tv2);
-      return curvePose(this.prep as PreparedCurve, this.tv, this.tv2, alpha, out);
+      return toolPose(p, this.tv, this.path.quatAtS(p, s, this.tq), out);
     }
-    const { param } = this.path.paramAtS(s);
+    const param = this.path.paramAtS(s);
     const w = this.path.start * (1 - param);
     return this.hand === 1 ? evalJab(this.prep as PreparedJab, 0, 0, param, w, 1, out) : evalJab(this.prep as PreparedJab, param, w, 0, 0, 0, out);
   }
@@ -1068,7 +1083,7 @@ export class SwingMachine {
 export function normalStrikeDuration(def: ToolDef, rig: Rig): number {
   const prep = prepareRig(rig);
   const path = new StrikePath();
-  if (prep.rig.kind === "curve") path.buildCurve(prep as PreparedCurve, prep.rig.wound, def.speed);
+  if (prep.rig.kind === "curve") path.buildCurve(prep as PreparedCurve, prep.rig.wound.head, (prep as PreparedCurve).qWound, def.speed);
   else path.buildJab(prep as PreparedJab, 0, jabWind(0), def.speed);
   return path.T;
 }

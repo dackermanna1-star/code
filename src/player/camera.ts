@@ -159,18 +159,17 @@ export class CameraRig {
     const fovDeg = Math.max(40, Math.min(110, (Number.isFinite(s.fov) ? s.fov : 75) + this.fovExtra));
     this.camera.fov = fovDeg * DEG;
 
-    // shake from the render system (scaled by the comfort setting)
+    // shake from the render system (PostFX.getShake already applies the camera-shake setting)
     let spx = 0, spy = 0, spz = 0, srx = 0, sry = 0, srz = 0;
     if (this.render) {
       const sh = this.render.getShake();
-      const m = Number.isFinite(s.cameraShake) ? Math.max(0, Math.min(1, s.cameraShake)) : 1;
-      if (sh && m > 0) {
-        spx = (sh.pos?.x || 0) * m;
-        spy = (sh.pos?.y || 0) * m;
-        spz = (sh.pos?.z || 0) * m;
-        srx = (sh.rot?.x || 0) * m;
-        sry = (sh.rot?.y || 0) * m;
-        srz = (sh.rot?.z || 0) * m;
+      if (sh) {
+        spx = sh.pos?.x || 0;
+        spy = sh.pos?.y || 0;
+        spz = sh.pos?.z || 0;
+        srx = sh.rot?.x || 0;
+        sry = sh.rot?.y || 0;
+        srz = sh.rot?.z || 0;
       }
     }
 

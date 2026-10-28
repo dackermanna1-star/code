@@ -89,14 +89,11 @@ function glaze(b: Builder, igu: { outer: string; inner: string }, u: Interval, y
   }
 }
 
-/** Screw a frame bar to the concrete reveal at two points along its length. */
+/** Screw a frame bar to the concrete reveal (two frame anchors → one bond, summed). */
 function anchorBar(b: Builder, br: Bar, outerU: number | null, outerY: number | null, strength: number): void {
   const wm = mid(br.w[0], br.w[1]);
-  if (outerY !== null) {
-    for (const f of [0.25, 0.75]) worldAt(b, br.name, "screw", strength, [br.u[0] + (br.u[1] - br.u[0]) * f, outerY, wm]);
-  } else if (outerU !== null) {
-    for (const f of [0.25, 0.75]) worldAt(b, br.name, "screw", strength, [outerU, br.y[0] + (br.y[1] - br.y[0]) * f, wm]);
-  }
+  if (outerY !== null) worldAt(b, br.name, "screw", 2 * strength, [mid(br.u[0], br.u[1]), outerY, wm]);
+  else if (outerU !== null) worldAt(b, br.name, "screw", 2 * strength, [outerU, mid(br.y[0], br.y[1]), wm]);
 }
 
 export function buildWindow(run: ConcreteRun, o: RunOpening): AssemblyDef {
