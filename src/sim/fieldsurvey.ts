@@ -7,6 +7,13 @@ import { Vector3 } from 'three';
 import type { Body } from '../astro/body';
 import type { World } from './world';
 import { airColumn, crustRock, doseEnv, EARTH_DOSE, surfaceDose } from '../astro/radiation';
+import type { CaveKind } from '../terrain/caves';
+
+const CAVE: Record<CaveKind, { label: string; rock: string; density: number; floor: string }> = {
+  'lava-tube': { label: 'lava tube', rock: 'basalt', density: 2.9, floor: 'tube floor: ropy basalt (pāhoehoe), rubble near the skylight' },
+  ice: { label: 'ice cave', rock: 'ice', density: 0.92, floor: 'scalloped ice' },
+  karst: { label: 'limestone cave', rock: 'limestone', density: 2.7, floor: 'damp limestone with flowstone' },
+};
 
 const fmt = (x: number, d = 1) => {
   const t = Math.abs(x) >= 1e4 || (Math.abs(x) < 1e-2 && x !== 0) ? x.toExponential(d) : x.toFixed(d);
@@ -29,6 +36,11 @@ export function fieldSurvey(world: World, b: Body, posBody: Vector3): FieldReado
   const rows: [string, string][] = [];
   const deg = (r: number, pos: string, neg: string) => `${Math.abs((r * 180) / Math.PI).toFixed(3)}° ${r >= 0 ? pos : neg}`;
   rows.push(['Position', `${deg(lat, 'N', 'S')}, ${deg(lon, 'E', 'W')}`]);
+  // underground? (inside a cave tunnel: rock overhead shields, and the air holds the mean temperature)
+  const cave = world.caves(b)?.locate(posBody.x, posBody.y, posBody.z) ?? null;
+  const caveInfo = cave ? CAVE[cave.tunnel.site.kind] : null;
+  const overburden = cave ? b.radius + g.sample(dir.x, dir.y, dir.z, 1).height - posBody.length() : 0;
+  if (cave && caveInfo) rows.push(['Location', `${caveInfo.label}, ${cave.local.s.toFixed(0)} m in from the skylight · ${overburden.toFixed(0)} m of ${caveInfo.rock} overhead`]);
   // the observer's altitude, and what lies under their feet
   const sea = g.liquidLevel();
   const alt = posBody.length() - b.radius;
@@ -50,10 +62,11 @@ export function fieldSurvey(world: World, b: Body, posBody: Vector3): FieldReado
   if (atm && P > 0) {
     const gases = Object.entries(atm.composition).sort((a, c) => c[1] - a[1]).slice(0, 3)
       .map(([k, v]) => `${k} ${v >= 0.01 ? (v * 100).toFixed(1) + '%' : (v * 1e6).toFixed(0) + ' ppm'}`).join(', ');
-    rows.push(['Air', `${fmt(P, P < 0.01 ? 2 : 3)} bar · ${s.temp.toFixed(0)} K (${(s.temp - 273.15).toFixed(0)} °C)`]);
+    const T = cave ? p.tempMean : s.temp; // deep caves sit at the mean surface temperature
+    rows.push(['Air', `${fmt(P, P < 0.01 ? 2 : 3)} bar · ${T.toFixed(0)} K (${(T - 273.15).toFixed(0)} °C)${cave ? ', steady' : ''}`]);
     rows.push(['Air composition', gases]);
   } else {
-    rows.push(['Air', `vacuum · surface ${s.temp.toFixed(0)} K`]);
+    rows.push(['Air', cave ? `vacuum · walls ${p.tempMean.toFixed(0)} K, steady (no day–night swing down here)` : `vacuum · surface ${s.temp.toFixed(0)} K`]);
   }
   // ground
   const bed = s.rock > 0.6 ? (s.unit < 0.4 ? 'dark basaltic (mafic)' : s.unit > 0.6 ? 'bright feldspathic (anorthositic)' : 'mixed silicate') : 'sediment';
@@ -65,6 +78,7 @@ export function fieldSurvey(world: World, b: Body, posBody: Vector3): FieldReado
   else if (s.moisture < 0.2) ground = p.surface?.dunes && p.surface.dunes > 0.05 ? 'aeolian sand' : 'dry regolith';
   else ground = p.life.kind === 'simple' || p.life.kind === 'complex' ? 'soil with organic matter' : 'moist regolith';
   if (s.temp > 700) ground = `molten or glowing rock (${s.temp.toFixed(0)} K)`;
+  if (caveInfo) ground = caveInfo.floor;
   rows.push(['Ground', ground]);
   const c = p.composition;
   rows.push(['Bulk composition', `iron ${(c.iron * 100).toFixed(0)}% · silicate ${(c.silicate * 100).toFixed(0)}% · ice ${(c.ice * 100).toFixed(0)}%${c.carbon > 0.02 ? ` · carbon ${(c.carbon * 100).toFixed(0)}%` : ''}`]);
@@ -74,7 +88,8 @@ export function fieldSurvey(world: World, b: Body, posBody: Vector3): FieldReado
   // radiation: the same dose model as the planet's mean, at this latitude and air column
   const env = p.radiationEnv ?? doseEnv(1, 0.3);
   const rocky = crustRock(p.type, c);
-  const dose = surfaceDose(env, airColumn(P, b.mu / (r * r)), p.magneticField, lat, wet ? 0 : rocky, P > 0.1 && !wet);
+  const rockColumn = caveInfo ? overburden * caveInfo.density * 100 : 0; // g/cm²
+  const dose = surfaceDose(env, airColumn(P, b.mu / (r * r)) + rockColumn, p.magneticField, lat, wet ? 0 : rocky, P > 0.1 && !wet);
   const main = (['cosmic', 'solar', 'trapped', 'ground'] as const).reduce((a, k) => (dose[k] > dose[a] ? k : a), 'ground' as 'cosmic' | 'solar' | 'trapped' | 'ground');
   const src = { cosmic: 'galactic cosmic rays', solar: 'stellar particles', trapped: 'trapped belt particles', ground: 'natural radioactivity' }[main];
   const doseStr = dose.total >= 1e4 ? `${fmt(dose.total / 1e3 / 365, 2)} Sv/day` : `${fmt(dose.total, 1)} mSv/yr`;
@@ -105,5 +120,20 @@ export function fieldSurvey(world: World, b: Body, posBody: Vector3): FieldReado
   if (p.anomalies.some((a) => /lava-tube/.test(a))) sub.push('large voids (lava tubes)');
   if (!wet && s.temp < 273 && p.liquid === 'water') sub.push('permafrost');
   rows.push(['Subsurface', sub.length ? sub.join(' · ') : 'no anomalies']);
+  // the nearest skylight into a cave, if any within a few kilometres
+  if (!cave) {
+    let best: { d: number; to: Vector3; kind: CaveKind } | null = null;
+    for (const t of world.caves(b)?.near(posBody.x, posBody.y, posBody.z, 2500) ?? []) {
+      const at = new Vector3(...t.site.dir).multiplyScalar(b.radius + t.floor0);
+      const d = at.distanceTo(posBody);
+      if (d < 3000 && (!best || d < best.d)) best = { d, to: at.sub(posBody), kind: t.site.kind };
+    }
+    if (best) {
+      const north = new Vector3(0, 1, 0).addScaledVector(dir, -dir.y).normalize();
+      const east = new Vector3().crossVectors(north, dir);
+      const brg = ((Math.atan2(best.to.dot(east), best.to.dot(north)) * 180) / Math.PI + 360) % 360;
+      rows.push(['Nearest cave', `${CAVE[best.kind].label} skylight, ${best.d < 1000 ? best.d.toFixed(0) + ' m' : (best.d / 1000).toFixed(2) + ' km'} away, bearing ${brg.toFixed(0)}°`]);
+    }
+  }
   return { title: `Field instruments · ${b.displayName}`, rows };
 }

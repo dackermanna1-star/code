@@ -47,6 +47,8 @@ interface AutoSave {
   selected?: string;
 }
 
+const CAVE_LABEL = { 'lava-tube': 'lava tube', ice: 'ice cave', karst: 'limestone cave' } as const;
+
 export class App {
   readonly renderer: SceneRenderer;
   readonly world = new World();
@@ -61,6 +63,7 @@ export class App {
   readonly overlay: Overlay;
   readonly info: InfoPanel;
   readonly field: FieldPanel;
+  private lastCave: number | null = null;
   readonly scanner = new Scanner();
   readonly search: SearchBox;
   readonly map: StarMap;
@@ -530,6 +533,7 @@ export class App {
     if (!b) return;
     let surf: Surface = 'rock';
     if (wk.swimming) surf = 'liquid';
+    else if (wk.cave) surf = wk.cave.tunnel.site.kind === 'ice' ? 'ice' : 'rock';
     else {
       const g = this.world.generator(b);
       if (g) {
@@ -571,6 +575,7 @@ export class App {
     } else if (pl.mode === 'walk') {
       st.airSpeed = pl.walker.vel.length();
       if (pl.walker.swimming) st.liquidNear = 1;
+      if (pl.walker.cave) { st.wind *= 0.05; st.storm = 0; } // sheltered underground
     } else {
       st.airSpeed = this.world.view.kind === 'rotating' ? this.spectator.lastSpeed : 0;
     }
@@ -1121,8 +1126,13 @@ export class App {
       const wk = pl.walker;
       const b = wk.body!;
       const P = b.planet?.atmosphere?.pressure ?? 0;
+      const caveKey = wk.cave ? wk.cave.tunnel.site.key : null;
+      if (caveKey !== this.lastCave) {
+        if (wk.cave) this.hud.toast(`Entering a ${CAVE_LABEL[wk.cave.tunnel.site.kind]} · ${wk.cave.tunnel.length.toFixed(0)} m long · headlamp on`);
+        this.lastCave = caveKey;
+      }
       this.hud.update({
-        mode: wk.swimming ? `Swimming (${wk.liquid})` : 'On foot',
+        mode: wk.swimming ? `Swimming (${wk.liquid})` : wk.cave ? `In a ${CAVE_LABEL[wk.cave.tunnel.site.kind]}` : 'On foot',
         frame: b.displayName,
         speed: wk.vel.length(),
         altitude: NaN,

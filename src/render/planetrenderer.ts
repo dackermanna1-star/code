@@ -11,6 +11,7 @@ import { SurfaceScatter } from './scatter';
 import { Fauna } from './fauna';
 import { Fliers, Floaters } from './aerial';
 import { Swimmers } from './swimmers';
+import { CaveRenderer } from './cave';
 import { Precipitation } from './precipitation';
 import { SurfaceGenerator } from '../terrain/surface';
 import { AtmosphereLUTs } from './atmosphere';
@@ -68,6 +69,7 @@ export class PlanetRenderer {
   floaters: Floaters | null = null;
   fliers: Fliers | null = null;
   swimmers: Swimmers | null = null;
+  cave: CaveRenderer | null = null;
   precip: Precipitation | null = null;
   /** camera altitude above this planet's surface (m), from the last update */
   camAltitude = Infinity;
@@ -162,6 +164,18 @@ export class PlanetRenderer {
       this.floaters?.update(this.gen, camBody, ctx.time % 1e6, lifeOn);
       this.fliers?.update(this.gen, camBody, ctx.time % 1e6, lifeOn, sunB, storm);
       if (this.swimmers?.hasSwimmers) this.swimmers.update(this.gen, camBody, ctx.time % 1e6, lifeOn, this.localLight(ctx, rel, rot, camBody));
+      // caves: the nearest skylight's tunnel, and the mouth cut in the terrain
+      if (!this.cave && this.gen && this.body.planet!.surface!.caves) {
+        this.cave = new CaveRenderer(this.body, this.gen);
+        this.group.add(this.cave.group);
+      }
+      if (this.cave) {
+        const s0 = ctx.suns[0];
+        const L = new THREE.Vector3(), E = new THREE.Vector3();
+        if (s0) sunIlluminanceAt(s0, rel, L, E);
+        const camFwd = new THREE.Vector3(0, 0, -1).applyQuaternion(ctx.camQuat);
+        this.cave.update(camBody, rel, rot, s0 ? L : null, E, (this.body.planet!.atmosphere?.pressure ?? 0) > 0.01, camFwd, ctx.time, this.material.uniforms);
+      }
     }
     // local precipitation / airborne particles
     if (!this.precip && this.body.planet!.atmosphere && altCam < 3000) {
@@ -179,7 +193,7 @@ export class PlanetRenderer {
       const light = this.localLight(ctx, rel, rot, camBody);
       const temp = this.gen.sample(dirB.x, dirB.y, dirB.z, 50).temp;
       const dtp = isFinite(this.lastTime) ? Math.min(0.2, Math.max(0, ctx.time - this.lastTime)) : 0;
-      this.precip.update(dtp, ctx.time, camBody, rot, this.weatherHere, light, altCam, temp, (ctx.quality.scatter ?? 0.85) > 0);
+      this.precip.update(dtp, ctx.time, camBody, rot, this.weatherHere, light, altCam, temp, (ctx.quality.scatter ?? 0.85) > 0 && !this.cave?.cameraInside);
     }
     this.lastTime = ctx.time;
 
@@ -274,6 +288,7 @@ export class PlanetRenderer {
     this.floaters?.dispose();
     this.fliers?.dispose();
     this.swimmers?.dispose();
+    this.cave?.dispose();
     this.precip?.dispose();
     this.luts?.dispose();
     this.clouds?.dispose();

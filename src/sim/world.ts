@@ -5,6 +5,7 @@
 import { Vector3 } from 'three';
 import type { Body, StarSystem } from '../astro/body';
 import { SurfaceGenerator } from '../terrain/surface';
+import { CaveIndex, type Tunnel, type TunnelLocal } from './caves';
 import { FramedPosition } from './frame';
 import { UPos } from '../core/upos';
 import { unixMsToJ2000Seconds } from '../core/constants';
@@ -20,6 +21,7 @@ export class World {
   system: StarSystem | null = null;
   readonly view = new FramedPosition();
   private gens = new Map<string, SurfaceGenerator>();
+  private caveIdx = new Map<string, CaveIndex>();
 
   advance(dt: number) {
     if (!this.paused) this.time += dt * this.timeScale;
@@ -45,6 +47,27 @@ export class World {
     const smp = g.sample(d.x, d.y, d.z, lambda);
     const sea = g.liquidLevel();
     return b.radius + Math.max(smp.height, sea, smp.water);
+  }
+
+  /** Cave tunnels of a body (traced lazily), or null on worlds without a solid surface. */
+  caves(b: Body): CaveIndex | null {
+    const g = this.generator(b);
+    if (!g) return null;
+    let c = this.caveIdx.get(b.id);
+    if (!c) { c = new CaveIndex(g); this.caveIdx.set(b.id, c); }
+    return c;
+  }
+
+  /**
+   * Ground under a body-fixed point, aware of caves: inside a tunnel the floor
+   * and ceiling are the tunnel's; elsewhere the terrain's (and liquid level).
+   */
+  groundAt(b: Body, posBody: Vector3, lambda = 0.25): { ground: number; liquid: number; cave: { tunnel: Tunnel; local: TunnelLocal } | null } {
+    const c = this.caves(b);
+    const inCave = c ? c.locate(posBody.x, posBody.y, posBody.z) : null;
+    if (inCave) return { ground: inCave.local.floorR, liquid: -Infinity, cave: inCave };
+    const gi = this.groundInfo(b, posBody, lambda);
+    return { ground: gi.ground, liquid: gi.liquid, cave: null };
   }
 
   /** Ground height (solid, ignoring liquid) and liquid level under a direction. */

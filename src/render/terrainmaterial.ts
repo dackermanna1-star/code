@@ -82,6 +82,10 @@ uniform float uAmbient;
 ${CLOUD_SHADOW_GLSL}
 ${SUN_SHADOW_GLSL}
 uniform vec3 uPlanetShine;
+// a cave mouth cut out of a skylight's far wall (camera-relative frame of the site)
+uniform float uCaveOn;
+uniform vec3 uCaveO, uCaveU, uCaveV, uCaveUp;
+uniform vec4 uCaveDim;   // floor length to the mouth, wall run, tunnel half-width, ceiling height
 ${PRE_EXPOSURE_GLSL}
 varying vec3 vWorldPos;
 varying vec3 vNormalW;
@@ -117,6 +121,15 @@ vec3 lavaColor(float T) { return blackbodyColor(T) * pow(clamp((T - 650.0) / 900
 
 void main() {
   #include <logdepthbuf_fragment>
+  if (uCaveOn > 0.5) {
+    vec3 cd = vWorldPos - uCaveO;
+    float cu = dot(cd, uCaveU), cv = dot(cd, uCaveV), cy = dot(cd, uCaveUp);
+    float rt = uCaveDim.z * 0.97, hc = uCaveDim.w * 0.97, yc = 0.45 * hc;
+    if (cu > uCaveDim.x - 0.6 && cu < uCaveDim.x + uCaveDim.y + 2.0 && cy > -0.3 && abs(cv) < rt) {
+      float a = cv / rt, b = max(cy - yc, 0.0) / (hc - yc);
+      if (a * a + b * b < 1.0) discard;
+    }
+  }
   vec3 P = vWorldPos;
   float dist = length(P);
   vec3 V = -P / max(dist, 1e-6);
@@ -366,6 +379,12 @@ export function createTerrainMaterial(sp: SurfaceParams, opts: TerrainMaterialOp
     uDetail: { value: 1 },
     uAmbient: { value: 3e-9 }, // starlight + airglow ≈ 1e-9 of daylight
     uPlanetShine: { value: new THREE.Vector3() },
+    uCaveOn: { value: 0 },
+    uCaveO: { value: new THREE.Vector3() },
+    uCaveU: { value: new THREE.Vector3(1, 0, 0) },
+    uCaveV: { value: new THREE.Vector3(0, 0, 1) },
+    uCaveUp: { value: new THREE.Vector3(0, 1, 0) },
+    uCaveDim: { value: new THREE.Vector4() },
     uLodK: { value: 3.5 },
     tPreExposure: PRE_EXPOSURE_TEX,
   };

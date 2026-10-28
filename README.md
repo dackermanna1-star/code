@@ -175,6 +175,20 @@ accessibility, simulation, audio, key rebinding).
 - On foot, gravity is the real surface gravity, and traction is friction-limited (μg). Steep slopes make you slide.
   You can swim in any surface liquid. Jump height scales as 1/g (unit-tested: the Moon gives about 6× Earth).
   Following the project brief, walking has no spacesuit or survival restrictions.
+- Caves can be entered on foot through skylights, stretches of collapsed roof with a rubble ramp at one end:
+  - lava tubes on volcanic worlds, wider under low gravity (about 25 m across on the Moon)
+  - ice caves in icy crusts
+  - limestone caves with stalactites and stalagmites on wet worlds
+
+  The skylight is carved into the terrain, so rendering, collisions and every LOD agree. The tunnel beyond is a
+  meandering mesh that runs under intact rock and ends in a breakdown choke where its roof would grow too thin.
+  The terrain shader cuts the mouth out of the skylight's far wall.
+
+  Inside, sunlight reaches only along rays that pass through the opening. Skylight fades with distance from the
+  mouth, a headlamp switches on, and living worlds have glow-worm lights on the ceiling. Walls and the ceiling hold
+  you in, and the air sits at the planet's mean temperature. The field instruments report the rock overhead and
+  how much radiation it blocks: a lunar lava tube cuts the dose by more than 50×. On the surface they give the
+  bearing to the nearest skylight.
 
 **Science instruments**
 - Spectra appear in the info panel after a scan. Stars show a Planck continuum with the lines their temperature
@@ -251,7 +265,7 @@ of use.
   shadows. Clouds receive no shadows from terrain.
 - **Terrain.** Rivers are channels carved along the zero set of a warped noise field. They are wide near the sea,
   narrow upstream, and absent where it is dry, frozen or without a surface liquid. They are not a drainage
-  simulation, so they do not merge into trees of tributaries. There are no caves, footprints or vehicle tracks.
+  simulation, so they do not merge into trees of tributaries. There are no footprints or vehicle tracks. Caves are single tunnels from a skylight, without branches or chambers.
   Erosion is procedural (derivative-damped noise), not a simulation. Terrain streaming speed depends on CPU cores; it is fast
   on desktop hardware and slow under software rendering.
 - **Climate.** Temperature varies with latitude, altitude, tidal locking and season. Seasons shift shading
@@ -297,6 +311,12 @@ of use.
   - H₂O, O₂, O₃, the red edge and the O₂ + CH₄ biosignature on Earth; CO₂ on Mars; CH₄ on Titan
 - field instruments on land and at sea, and surface radiation doses across the Solar System
 - swimmers: pods only in deep water, breathers mostly submerged, and leap apex ∝ 1/g
+- caves:
+  - a skylight floor at depth, with a walkable ramp
+  - a tunnel roof of rock along its length
+  - an inward-facing mesh
+  - walking from the skylight into the tunnel with walls and floor holding
+  - the field instruments' shelter reading
 
 `npm run test:e2e` drives the real application in headless Chromium:
 

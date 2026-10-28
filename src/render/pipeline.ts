@@ -76,9 +76,11 @@ void main() {
   float mean = s.a / max(s.b, 1e-6);
   // log-average of lit pixels, but never darker than the clamped arithmetic mean:
   // a bright planet against a faintly glowing sky is exposed for the planet
-  float avg = max(exp2(avgLog), mean * 1.2);
+  // nothing reads as lit at the current exposure (say a lamp-lit cave seen with
+  // daylight eyes): meter on the plain mean instead, so the eye opens up
+  float avg = litW > 1e-4 ? max(exp2(avgLog), mean * 1.2) : mean * 1.2;
   // nothing lit at all → open up fully (dark adaptation)
-  float target = litW < 1e-4 && mean < 1e-14 ? uMax : 0.14 / max(avg, 1e-14);
+  float target = avg < 1e-14 ? uMax : 0.14 / avg;
   target = clamp(target, uMin, uMax) * exp2(uComp);
   if (uAuto < 0.5) target = uManual * exp2(uComp);
   float e;

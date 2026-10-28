@@ -466,7 +466,25 @@ function surfaceParams(rng: Rng, p: PlanetPhysics, inp: PlanetInput, tidal: numb
     lifeGlow: life.bioluminescence,
     lavaGlow: lavaWorld ? 1 : icy ? 0 : clamp(p.volcanism * 1.3 - 0.3, 0, 1),
     palette: pal,
+    ...caveParams(p, g, icy, R),
   };
+}
+
+/**
+ * Caves (no random draws, so existing worlds keep their look): solution caves
+ * in wet carbonate-forming worlds, lava tubes on volcanic ones (wider under
+ * low gravity, as on the Moon and Mars), ice caves in icy crusts.
+ */
+function caveParams(p: PlanetPhysics, g: number, icy: boolean, R: number): Pick<SurfaceParams, 'caves' | 'caveKind' | 'caveSize'> {
+  if (R < 2e5 || p.type === 'gas-giant' || p.type === 'ice-giant') return { caves: 0 };
+  const gk = 9.81 / Math.max(g, 0.3);
+  const tubes = p.anomalies.some((a) => /lava-tube/.test(a));
+  if (p.liquid === 'water' && !icy) return { caves: tubes ? 0.9 : 0.35, caveKind: tubes ? 'lava-tube' : 'karst', caveSize: tubes ? clamp(5 * Math.sqrt(gk), 3, 18) : clamp(3 * gk ** 0.3, 2.2, 7) };
+  if (icy) return { caves: 0.35, caveKind: 'ice', caveSize: clamp(3.5 * gk ** 0.3, 2.5, 8) };
+  if (p.volcanism > 0.05 || p.liquid === 'lava' || p.surfaceAge > 1 || tubes) {
+    return { caves: tubes ? 0.95 : clamp(0.3 + p.volcanism * 0.5, 0.3, 0.8), caveKind: 'lava-tube', caveSize: clamp(5 * Math.sqrt(gk), 3, 18) };
+  }
+  return { caves: 0 };
 }
 
 function palette(rng: Rng, p: PlanetPhysics, inp: PlanetInput, Ts: number, icy: boolean): SurfacePalette {

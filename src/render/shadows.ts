@@ -154,7 +154,7 @@ export class SunShadows {
       top.visible = true;
       root.traverse((o) => {
         const mesh = o as THREE.Mesh;
-        if ((o as THREE.Points).isPoints || (o as THREE.LineSegments).isLineSegments) { if (o.visible) { hidden.push(o); o.visible = false; } return; }
+        if ((o as THREE.Points).isPoints || (o as THREE.LineSegments).isLineSegments || o.userData.noShadow) { if (o.visible) { hidden.push(o); o.visible = false; } return; }
         if (!mesh.isMesh) return;
         swapped.push({ m: mesh, mat: mesh.material });
         mesh.material = mesh.material === terrainMat ? this.terrainDepth : this.genericDepth;

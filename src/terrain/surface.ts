@@ -13,6 +13,7 @@
  */
 import { noise3, noised, D, fbm, ridged, erodedFbm, cellular3, CELL } from '../core/noise';
 import { hash3i, mix32 } from '../core/rng';
+import { caveCandidate, caveCellDa, carveSkylight, caveKey, caveSite, faceOf, inSkylight, type CaveKind, type CaveSite } from './caves';
 
 export type LiquidKind = 'none' | 'water' | 'brine' | 'methane' | 'ammonia' | 'lava' | 'sulfur' | 'nitrogen';
 export type RGB = [number, number, number];
@@ -69,6 +70,10 @@ export interface SurfaceParams {
   lifeGlow: number;        // night bioluminescence 0..1
   lavaGlow: number;        // emissive molten material
   palette: SurfacePalette;
+  /** cave density (0..1: chance of a site per 2.5-km cell ×2), kind and tunnel half-width (m) */
+  caves?: number;
+  caveKind?: CaveKind;
+  caveSize?: number;
 }
 
 /** Vertex material channels written by sample(). */
@@ -400,6 +405,34 @@ export class SurfaceGenerator {
       }
     }
 
+    // ---- cave skylights (faded in as the mesh becomes fine enough to show them)
+    if (p.caves && !this.caveRefBusy && lambdaMin < 80) {
+      const f = faceOf(x, y, z);
+      const da = caveCellDa(Rp);
+      const face = f.face, ci = Math.floor(f.a / da), cj = Math.floor(f.b / da);
+      if (caveCandidate(p.seed, p.caves, face, ci, cj)) {
+        const cs = this.caveSiteAt(face, ci, cj);
+        if (cs) {
+          const dx = (x - cs.dir[0]) * Rp, dy = (y - cs.dir[1]) * Rp, dz = (z - cs.dir[2]) * Rp;
+          const u = dx * cs.U[0] + dy * cs.U[1] + dz * cs.U[2], v = dx * cs.V[0] + dy * cs.V[1] + dz * cs.V[2];
+          if (inSkylight(cs, u, v)) {
+            const water = o.water; // the reference samples reuse this.out
+            const floor = this.caveFloor(cs);
+            o.water = water;
+            if (!isNaN(floor)) {
+              const c = carveSkylight(cs, u, v, h, floor, this.carveOut);
+              const fade = sstep(cs.w * 3, cs.w * 1.2, lambdaMin); // (mesh vertices sample at twice their spacing)
+              if (c.h < h) {
+                h += (c.h - h) * fade;
+                rock = Math.max(rock, c.rock * fade);
+                o.water = -Infinity;
+              }
+            }
+          }
+        }
+      }
+    }
+
     o.height = h;
     o.rock = Math.max(0, Math.min(1, rock));
     o.unit = Math.max(0, Math.min(1, unit));
@@ -498,6 +531,62 @@ export class SurfaceGenerator {
   }
 
   /** Liquid surface height for this sample (sea level), or -Infinity if none. */
+  // ---- caves: skylights carved into the terrain (tunnels are meshes, see terrain/caves.ts)
+  private caveRefBusy = false;
+  private caveSites = new Map<number, CaveSite | null>();
+  private caveFloors = new Map<number, number>();
+  private carveOut = { h: 0, rock: 0 };
+
+  /** The cave site of a cell (memoised), or null. */
+  caveSiteAt(face: number, ci: number, cj: number): CaveSite | null {
+    const p = this.p;
+    if (!p.caves || !p.caveKind) return null;
+    const k = caveKey(face, ci, cj);
+    let s = this.caveSites.get(k);
+    if (s === undefined) {
+      s = caveSite(p.seed, p.caves, p.caveKind, p.caveSize ?? 5, this.R, face, ci, cj);
+      this.caveSites.set(k, s);
+    }
+    return s;
+  }
+
+  /**
+   * Skylight floor height (m relative to the radius) of a site, or NaN where it
+   * is unsuitable: under liquid, or straddling a cliff.
+   */
+  caveFloor(s: CaveSite): number {
+    let f = this.caveFloors.get(s.key);
+    if (f !== undefined) return f;
+    this.caveRefBusy = true;
+    const R = this.R;
+    const at = (u: number) => {
+      const x = s.dir[0] * R + s.U[0] * u, y = s.dir[1] * R + s.U[1] * u, z = s.dir[2] * R + s.U[2] * u;
+      const l = Math.hypot(x, y, z);
+      return this.sample(x / l, y / l, z / l, 2).height;
+    };
+    const h0 = at(0), hA = at(-s.lr), hB = at(s.lf + 15);
+    this.caveRefBusy = false;
+    f = h0 - s.depth;
+    if ((this.seaLevel > -1e8 && f < this.seaLevel + 1) || Math.abs(hA - hB) > s.depth * 1.2) f = NaN;
+    this.caveFloors.set(s.key, f);
+    return f;
+  }
+
+  /** Cave sites (valid ones) in the cells around a direction. */
+  cavesNear(x: number, y: number, z: number, rings = 1): CaveSite[] {
+    const out: CaveSite[] = [];
+    if (!this.p.caves) return out;
+    const f = faceOf(x, y, z);
+    const face = f.face, da = caveCellDa(this.R);
+    const ci = Math.floor(f.a / da), cj = Math.floor(f.b / da);
+    for (let dj = -rings; dj <= rings; dj++)
+      for (let di = -rings; di <= rings; di++) {
+        const s = this.caveSiteAt(face, ci + di, cj + dj);
+        if (s && !isNaN(this.caveFloor(s))) out.push(s);
+      }
+    return out;
+  }
+
   liquidLevel(): number {
     return this.seaLevel > -1e8 ? this.seaLevel : -Infinity;
   }

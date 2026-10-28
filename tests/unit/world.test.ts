@@ -594,3 +594,95 @@ describe('science instruments', () => {
   });
 });
 
+
+describe('caves', () => {
+  const setup = async () => {
+    const { World } = await import('../../src/sim/world');
+    const w = new World();
+    w.system = buildSolarSystem(new UPos(), { x: 0, y: 0, z: 0, w: 1 });
+    w.system.update(0);
+    const moon = w.system.bodies.find((b) => b.name === 'Moon')!;
+    const g = w.generator(moon)!;
+    const caves = w.caves(moon)!;
+    // the first lava tube found on a spiral of directions
+    for (let i = 0; i < 400; i++) {
+      const y = 1 - (2 * (i + 0.5)) / 400, r = Math.sqrt(1 - y * y), th = 2.39996 * i;
+      for (const site of g.cavesNear(Math.cos(th) * r, y, Math.sin(th) * r, 0)) {
+        const t = caves.tunnel(site);
+        if (t && t.length > 60) return { w, moon, g, caves, t, site };
+      }
+    }
+    throw new Error('no cave');
+  };
+  const at = (g: SurfaceGenerator, site: { dir: number[]; U: number[]; V: number[] }, u: number, v: number) => {
+    const R = g.R;
+    const p = new Vector3(...(site.dir as [number, number, number])).multiplyScalar(R)
+      .addScaledVector(new Vector3(...(site.U as [number, number, number])), u).addScaledVector(new Vector3(...(site.V as [number, number, number])), v);
+    return p.normalize();
+  };
+
+  it('open through a skylight with a walkable rubble ramp', async () => {
+    const { g, t, site } = await setup();
+    expect(site.kind).toBe('lava-tube');
+    const h = (u: number, v: number) => { const d = at(g, site, u, v); return g.sample(d.x, d.y, d.z, 0.25).height; };
+    // flat floor at the skylight's depth below the surroundings
+    expect(Math.abs(h(site.lf / 2, 0) - t.floor0)).toBeLessThan(0.05);
+    expect(h(site.lf / 2, site.w + site.wall + 3) - t.floor0).toBeGreaterThan(site.depth * 0.6);
+    // the ramp climbs at 28°: walkable (the walker slides above ~42°)
+    const slope = Math.atan((h(-site.lr * 0.4, 0) - h(-site.lr * 0.2, 0)) / (site.lr * 0.2));
+    expect(slope).toBeGreaterThan(0.35);
+    expect(slope).toBeLessThan(0.6);
+    // the tunnel keeps a roof of rock over it
+    for (let i = 0; i < t.n; i += 5) {
+      if (t.s[i] < 3 * site.rt) continue;
+      const d = t.dir[i];
+      expect(g.sample(d[0], d[1], d[2], 4).height - (t.floor[i] + site.hc * t.scale[i])).toBeGreaterThan(2);
+    }
+  });
+
+  it('render as a closed tunnel seen from inside', async () => {
+    const { g, t, site } = await setup();
+    const { tunnelGeometry } = await import('../../src/render/cave');
+    const origin = new Vector3(...site.dir).multiplyScalar(g.R + t.floor0);
+    const geo = tunnelGeometry(t, g.R, origin);
+    expect(geo.attributes.position.count).toBeGreaterThan(t.n * 30);
+    // a ceiling vertex (straight up from the axis) has its normal pointing down, into the tunnel
+    const i = 6, k = 9, n = new Vector3().fromBufferAttribute(geo.attributes.normal, i * 36 + k);
+    expect(n.dot(new Vector3(...t.dir[i]))).toBeLessThan(-0.5);
+  });
+
+  it('can be walked into from the skylight, with walls and floor', async () => {
+    const { w, moon, caves, t, site, g } = await setup();
+    const { Walker } = await import('../../src/sim/walker');
+    const wk = new Walker();
+    const start = at(g, site, site.lf * 0.4, 0).multiplyScalar(g.R + t.floor0 + 0.5);
+    wk.placeAt(moon, start, new Vector3(...site.U));
+    const input = { look: () => ({ yaw: 0, pitch: 0 }), axis: (a: string) => (a === 'forward' ? 1 : 0), held: () => false, pressed: () => false, gamepadAxes: [0, 0, 0, 0] };
+    let maxV = 0, deepest = 0;
+    for (let k = 0; k < 60 * 25; k++) {
+      wk.update(1 / 60, w, input as never);
+      const loc = caves.locate(wk.pos.x, wk.pos.y, wk.pos.z);
+      if (wk.cave) {
+        maxV = Math.max(maxV, Math.abs(wk.cave.local.v) / wk.cave.local.rt);
+        deepest = Math.max(deepest, wk.cave.local.s);
+        // standing on the tunnel floor, not on the ground far above
+        expect(Math.abs(wk.pos.length() - wk.cave.local.floorR)).toBeLessThan(0.6);
+      }
+      void loc;
+    }
+    expect(deepest).toBeGreaterThan(10);
+    expect(maxV).toBeLessThan(1);
+    // the rock above shields it: the surface is far overhead
+    const up = wk.pos.clone().normalize();
+    expect(g.sample(up.x, up.y, up.z, 1).height + g.R - wk.pos.length()).toBeGreaterThan(site.hc);
+    // and the instruments say so: a lava tube is a radiation shelter
+    const { fieldSurvey } = await import('../../src/sim/fieldsurvey');
+    const dose = (rows: [string, string][]) => parseFloat(rows.find((r) => r[0] === 'Radiation')![1]) * (/Sv\/day/.test(rows.find((r) => r[0] === 'Radiation')![1]) ? 365e3 : 1);
+    const inside = fieldSurvey(w, moon, wk.pos)!.rows;
+    expect(inside.find((r) => r[0] === 'Location')![1]).toMatch(/lava tube/);
+    const outside = fieldSurvey(w, moon, start)!.rows;
+    expect(outside.find((r) => r[0] === 'Nearest cave')![1]).toMatch(/skylight/);
+    expect(dose(outside)).toBeGreaterThan(100); // ≈ 400 mSv/yr of cosmic rays on the open surface
+    expect(dose(inside)).toBeLessThan(dose(outside) / 50);
+  });
+});

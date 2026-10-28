@@ -118,7 +118,8 @@ export class SpectatorController {
     // terrain collision
     if (near.body && view.body === near.body && near.body.hasSurface) {
       const local = view.offsetBodyFixed(_v);
-      const ground = w.surfaceRadius(near.body, local);
+      const inCave = w.groundAt(near.body, local).cave; // inside a tunnel, its floor is the ground
+      const ground = inCave ? inCave.local.floorR : w.surfaceRadius(near.body, local);
       const r = local.length();
       if (r < ground + this.minAltitude) {
         const lift = ground + this.minAltitude - r;

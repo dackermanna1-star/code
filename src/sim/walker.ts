@@ -11,6 +11,7 @@ import { Matrix4, Quaternion, Vector3 } from 'three';
 import type { Body } from '../astro/body';
 import type { World } from './world';
 import type { Input } from './input';
+import type { Tunnel, TunnelLocal } from './caves';
 
 const EYE = 1.68;
 const _v = new Vector3(), _v2 = new Vector3(), _q = new Quaternion();
@@ -31,6 +32,9 @@ export class Walker {
   slope = 0;
   stepDist = 0;
   onStep: (() => void) | null = null;
+  /** the tunnel you are in (and where), or null above ground */
+  cave: { tunnel: Tunnel; local: TunnelLocal } | null = null;
+  private prevPos = new Vector3();
   /** local tangent frame (east/north) kept continuous as you walk */
   private north = new Vector3(0, 0, 1);
 
@@ -38,6 +42,8 @@ export class Walker {
     this.gravity = body.mu / Math.max(posBody.lengthSq(), 1);
     this.body = body;
     this.pos.copy(posBody);
+    this.prevPos.copy(posBody);
+    this.cave = null;
     this.vel.set(0, 0, 0);
     const up = _v.copy(posBody).normalize();
     this.north.set(0, 1, 0).addScaledVector(up, -up.y);
@@ -78,7 +84,7 @@ export class Walker {
     const g = b.mu / (r * r) - omega * omega * axisDist * Math.sqrt(1 - up.y * up.y);
     this.gravity = g;
     // ground & liquid
-    const info = world.groundInfo(b, up, 0.15);
+    const info = world.groundAt(b, this.pos, 0.15);
     const ground = info.ground;
     const liquidTop = info.liquid;
     const fwd = new Vector3(), right = new Vector3();
@@ -128,7 +134,39 @@ export class Walker {
     this.pos.addScaledVector(this.vel, dt);
     const r2 = this.pos.length();
     const up2 = _v.copy(this.pos).divideScalar(r2);
-    const g2 = world.groundInfo(b, up2, 0.15).ground;
+    let gi2 = world.groundAt(b, this.pos, 0.15);
+    // in a tunnel: walls and ceiling hold you in (half a metre of shoulder room)
+    if (!gi2.cave && this.cave) {
+      const l = this.cave.local;
+      if (l.s > 0.5) {
+        // stepped into the rock (the only way out is the mouth): slide along the wall, or stop
+        const side = new Vector3(...l.side);
+        const out = this.pos.clone().sub(this.prevPos);
+        this.pos.copy(this.prevPos).add(out.addScaledVector(side, -out.dot(side)));
+        this.vel.addScaledVector(side, -this.vel.dot(side));
+        gi2 = world.groundAt(b, this.pos, 0.15);
+        if (!gi2.cave) { this.pos.copy(this.prevPos); this.vel.set(0, 0, 0); gi2 = world.groundAt(b, this.pos, 0.15); }
+      }
+    }
+    if (gi2.cave) {
+      const l = gi2.cave.local;
+      const headroom = Math.max(l.ceilR - (EYE + 0.15), l.floorR); // (crouching through the end choke)
+      if (this.pos.length() > headroom) {
+        this.pos.multiplyScalar(headroom / this.pos.length());
+        const vn = this.vel.dot(up2);
+        if (vn > 0) this.vel.addScaledVector(up2, -vn);
+      }
+      const lim = Math.max(0, l.rt * 0.9 - 0.35);
+      if (Math.abs(l.v) > lim) {
+        const side = new Vector3(...l.side);
+        this.pos.addScaledVector(side, Math.sign(l.v) * lim - l.v);
+        const vs = this.vel.dot(side);
+        if (vs * l.v > 0) this.vel.addScaledVector(side, -vs);
+      }
+    }
+    this.cave = gi2.cave;
+    this.prevPos.copy(this.pos);
+    const g2 = gi2.ground;
     if (r2 <= g2 + 0.01 && !inLiquid) {
       this.pos.copy(up2).multiplyScalar(g2);
       const vn = this.vel.dot(up2);
@@ -137,8 +175,8 @@ export class Walker {
       // slope: sample a little around to estimate the ground normal
       const e = 0.6;
       const t1 = fwd.clone(), t2 = right.clone();
-      const hF = world.groundInfo(b, up2.clone().multiplyScalar(r2).addScaledVector(t1, e).normalize(), 0.15).ground - g2;
-      const hR = world.groundInfo(b, up2.clone().multiplyScalar(r2).addScaledVector(t2, e).normalize(), 0.15).ground - g2;
+      const hF = world.groundAt(b, up2.clone().multiplyScalar(r2).addScaledVector(t1, e), 0.15).ground - g2;
+      const hR = world.groundAt(b, up2.clone().multiplyScalar(r2).addScaledVector(t2, e), 0.15).ground - g2;
       const n = up2.clone().multiplyScalar(e).addScaledVector(t1, -hF).addScaledVector(t2, -hR).normalize();
       this.slope = Math.acos(Math.min(1, n.dot(up2)));
       if (this.slope > 0.73) {
