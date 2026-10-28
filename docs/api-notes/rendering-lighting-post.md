@@ -8,7 +8,7 @@ Babylon.js **9.30.0** (`@babylonjs/core`), WebGL2. Every import comes from the p
 4. **SSAO2 works** on WebGL2 through the prepass renderer (no extra geometry pass, +5 post passes). Create it **before** the `DefaultRenderingPipeline`. Pass `Constants.TEXTURETYPE_HALF_FLOAT`: the default 8-bit type clamps HDR and weakens bloom. With SSAO2 present, MSAA comes from `ssao.textureSamples`, and `drp.samples` is ignored.
 5. **Any `DefaultRenderingPipeline` rebuild** (toggling any `*Enabled`, or `samples`) re-appends its post-processes at the end of the camera chain. Custom post-processes such as PS2 must be moved back with an `onBuildObservable` hook. `drp.imageProcessing` is recreated on every rebuild, so configure `scene.imageProcessingConfiguration` instead.
 6. **PS2 mode:** one `PostProcess` with a fixed input size `{width:640,height:448}`, NEAREST sampling, 4×4 Bayer dither and 5-bit quantisation (§4). Output and order are verified. A cheaper alternative is `engine.setHardwareScalingLevel(h/448)` plus CSS `image-rendering: pixelated`.
-7. **Glow:** prefer **bloom from HDR emissive** (>1, `bloomThreshold = 1`): it is free and occlusion-correct. `GlowLayer` and `HighlightLayer` re-render every active mesh, and `GlowLayer` with `includedOnly` glows **through walls**. For grab highlights use `renderOutline` (+2 draws) or `renderOverlay` (+1).
+7. **Glow:** prefer **bloom from HDR emissive** (>1, `bloomThreshold = 1`): it is free and occlusion-correct. `GlowLayer` and `HighlightLayer` re-render every active mesh, and `GlowLayer` with `includedOnly` glows **through walls**. For grab highlights use `renderOverlay` (+1 draw) or `SelectionOutlineLayer` with `{ useDepthOcclusion: false }` (+2). **`renderOutline` silently fails while SSAO2's prepass is active** (GL_INVALID_OPERATION).
 8. **Light shafts:** VLS works but needs the sun disc on screen, re-renders the scene and washes the image out. Use fake additive shaft prisms instead (§6). **Environment:** a `ReflectionProbe` of the sky dome rendered once and assigned to `scene.environmentTexture` works offline, with irradiance computed automatically. `createDefaultEnvironment()` loads from a CDN, so don't use it.
 9. **Instrumentation:** `SceneInstrumentation.drawCallsCounter` resets per frame only while an instance exists. `capturePhysicsTime` only works if set **after** `enablePhysics`. `engine.getFps()` only updates under `runRenderLoop`. GPU timers read 0 under SwiftShader.
 
@@ -247,11 +247,12 @@ new SelectionOutlineLayer(name, scene?, options?)  sol.addSelection(meshOrMeshes
 | `GlowLayer` + `addIncludedOnlyMesh(screen)` | +6 | **glow shows through walls**: wall in front of a hidden bulb went 115 → 255 lum; all-meshes mode stayed 115 |
 | `HighlightLayer`, 1 mesh | **+20** | renders all active meshes as occluders [SRC `_shouldRenderMesh`] |
 | `SelectionOutlineLayer`, 1 mesh | +16/+17 | `useDepthOcclusion` defaults to true and calls `scene.enableDepthRenderer()`, a full geometry pass. **`dispose()` leaves that depth renderer running** (+14 draws until `scene.disableDepthRenderer()`). With `{ useDepthOcclusion: false }` it costs only **+2** (`render-lighting-soldispose.probe.ts`) |
-| `renderOutline` on 1 mesh | **+2** | inflated back-face pass; uses the stencil only for alpha-blended meshes, so create the engine with `{ stencil: true }` if those get outlines [SRC] |
-| `renderOverlay` on 1 mesh | **+1** | |
+| `renderOutline` on 1 mesh | **+2** | inflated-mesh pass; uses the stencil only for alpha-blended meshes [SRC]. **Broken with SSAO2 prepass (MRT):** WebGL logs `GL_INVALID_OPERATION: glDrawElements: Active draw buffers with missing fragment shader outputs` and no outline appears. It works without prepass, or with `SSAO2RenderingPipeline(..., forceGeometryBuffer = true)`, which costs an extra geometry pass (+16 draws here) (`render-lighting-outline*.probe.ts`) |
+| `renderOverlay` on 1 mesh | **+1** | works with SSAO2 prepass (the crate's tint went 47 → 132 lum) |
+| `SelectionOutlineLayer({ useDepthOcclusion: false })` | **+2** | works with SSAO2 prepass: a thin outline was visible (`render-lighting-outline-alt.probe.ts`) |
 
 GlowLayer works with SSAO2 prepass active (glow luminance above the quad went 0 → 163) [RT].
-**Recommendation:** use bloom (`bloomThreshold 1.0`, `bloomWeight 0.3–0.4`) with HDR emissive values for screens and bulbs. For the grab highlight use `renderOverlay` (subtle tint), `renderOutline`, or `SelectionOutlineLayer` with `{ useDepthOcclusion: false }` (+2 draws measured; its look was not checked visually).
+**Recommendation:** use bloom (`bloomThreshold 1.0`, `bloomWeight 0.3–0.4`) with HDR emissive values for screens and bulbs. For the grab highlight use `SelectionOutlineLayer` with `{ useDepthOcclusion: false }` (outline, +2 draws) and/or `renderOverlay` (tint, +1). Both were verified with the full pipeline. Use `renderOutline` only when SSAO2 is off.
 
 ---
 ## 6. Light shafts [RT] (`render-lighting-vls.probe.ts`, `render-lighting-shafts.probe.ts`)
@@ -374,7 +375,7 @@ const ps2 = createPs2PostProcess(camera, engine); drp.onBuildObservable.add(() =
 7. **The DRP re-appends its post-processes on every rebuild**, which reorders custom post-processes (hook `onBuildObservable`). `drp.imageProcessing` is recreated, so use `scene.imageProcessingConfiguration`.
 8. **SSAO2:** the default `textureType` clamps HDR (pass HALF_FLOAT); `drp.samples` is ignored with prepass (use `ssao.textureSamples`); re-attaching appends after the DRP (`drp.prepare()`).
 9. **GlowLayer `includedOnly`** leaks glow through walls; GlowLayer, HighlightLayer, SelectionOutlineLayer (default options) and VLS all re-render the scene. Disposing a `SelectionOutlineLayer` leaves `scene.enableDepthRenderer()` active (+1 geometry pass): call `scene.disableDepthRenderer()`, or create it with `{ useDepthOcclusion: false }` (+2 draws).
-10. **VLS** does nothing when the sun is off-screen.
+10. **VLS** does nothing when the sun is off-screen. **`renderOutline` is invisible while the SSAO2 prepass (MRT) is on** (GL_INVALID_OPERATION in the console). Use `SelectionOutlineLayer({ useDepthOcclusion: false })` or `renderOverlay`.
 11. `createDefaultEnvironment()` needs the CDN. A `ReflectionProbe`'s irradiance appears a few frames late (async readback).
 12. **`PostProcess` creation:** register the shader in `Effect.ShadersStore` **before** constructing, or Babylon fetches `<name>.fragment.fx`. In the options-object form, use `size`, not `width`/`height`.
 13. **Instrumentation:** no `SceneInstrumentation` means no per-frame draw-call reset; `capturePhysicsTime` must be set after `enablePhysics`; `getFps()` and `getDeltaTime()` are only live under `runRenderLoop`.

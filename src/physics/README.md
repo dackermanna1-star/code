@@ -15,9 +15,11 @@ for (let i = 0; i < time.beginFrame(dt); i++) physics.step(FIXED_DT); // scene.r
 * `step(dt)` = one fixed step: 1..`maxSubsteps` raw Havok steps, Babylon prestep for TELEPORT/ACTION bodies
   (character controller), node sync (world matrices refreshed), impact dispatch. `scene.onBefore/AfterPhysicsObservable`
   fire once per fixed step; `applyForce(F)` once per step = impulse F·dt. Bitwise deterministic per world.
-* **Adaptive substeps**: 1 normally; while *thin* dynamic bodies (< 2 cm equivalent thickness, from Havok's inertia)
-  move fast, `ceil(v/15 m/s)` substeps (max 4) — no tunnelling of 2–10 cm shards up to 60 m/s. Fragments are
-  covered automatically (velocity read after `setShape`); call `expectFast(body)` after striking a small body.
+* **Adaptive substeps**: `minSubsteps` (option `substeps`, default 1); while *thin* dynamic bodies (< 2 cm
+  equivalent thickness, from Havok's inertia) move fast, `ceil(v/15 m/s)` substeps (max 4) — no tunnelling of
+  2–10 cm shards up to 60 m/s. Fragments are covered automatically (velocity read after `setShape`); call
+  `expectFast(body)` after striking a small body. `physics.substeps` reads the count used by the last step
+  (Havok's constraint impulses are per substep: force = impulse / (dt / substeps) — or use `constraintLoad`).
 * **Sleep assist**: dynamic bodies slower than 0.1 m/s / 0.5 rad/s for 1.5 s are put to sleep (Havok never sleeps
   big piles). Bodies with joints or `setKeepAwake(b, true)` are exempt; HELD-layer bodies are kept awake.
 
