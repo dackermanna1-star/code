@@ -231,14 +231,29 @@ export class FeatureSystem {
 
   // ---------------------------------------------------------------------- ticks
 
+  // Set iteration tolerates features (de)activating themselves while being ticked.
   fixedUpdate(dt: number): void {
     if (!this.active.size) return;
-    for (const f of [...this.active]) if (f.fixedUpdate) safe(this.w, () => f.fixedUpdate!(dt));
+    for (const f of this.active) {
+      if (!f.fixedUpdate) continue;
+      try {
+        f.fixedUpdate(dt);
+      } catch (e) {
+        this.w.warnOnce(`feature:${(e as Error).message}`, `feature tick failed: ${(e as Error).stack ?? e}`);
+      }
+    }
   }
 
   update(dt: number): void {
     if (!this.active.size) return;
-    for (const f of [...this.active]) if (f.update) safe(this.w, () => f.update!(dt));
+    for (const f of this.active) {
+      if (!f.update) continue;
+      try {
+        f.update(dt);
+      } catch (e) {
+        this.w.warnOnce(`feature:${(e as Error).message}`, `feature update failed: ${(e as Error).stack ?? e}`);
+      }
+    }
   }
 }
 

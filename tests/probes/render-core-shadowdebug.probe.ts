@@ -39,6 +39,10 @@ export async function probe(): Promise<unknown> {
   shadows.addShadowCaster(box);
   const node2 = new TransformNode("n2", scene);
   b.build(node2, [boxGeom(1.7, 0.6, 0.5, 0.3, 0.3, 0.3, S.plastic, 0xff4040)], null, "cube2");
+  // a plain builder mesh using the WORLD material without a surf attribute: must not glow
+  const plain = MeshBuilder.CreateBox("plainWorld", { size: 0.35 }, scene);
+  plain.position.set(0, 0.6, -0.4);
+  plain.material = world.material;
   camera.position = new Vector3(0, 2.4, -2.6);
   camera.setTarget(new Vector3(0, 0, 0.3));
   await scene.whenReadyAsync();

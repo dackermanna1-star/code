@@ -1342,7 +1342,7 @@ export class Builder {
    * Parts on the SAME rigid island share one body, so shallow embeddings (a stem pushed into
    * soil, a spindle through a clock hand) are harmless; full validation reports a part completely
    * inside another, and overlaps deeper than max(0.5 mm, ¼ of the thinner part's thickness) whose
-   * exact shared volume exceeds 10 % of either part or 10 cm³ (e.g. a shelf running through a
+   * exact shared volume exceeds 10 % of either part (and 0.1 cm³) or 50 cm³ (e.g. a shelf through a
    * cabinet side, or two boards sunk into each other across a large face).
    */
   private validateOverlaps(full: boolean, boxes: Aabb[], vols: number[], warnings: string[]): void {
@@ -1368,7 +1368,6 @@ export class Builder {
       if (ra !== rb) parent[ra] = rb;
     }
     const thin: number[] = full ? this.parts.map((p) => polyExtents(p.poly).ext[2]) : [];
-    const rng = new Rng(0x5eed);
     const mm = (d: number): string => (d * 1000).toFixed(1);
     for (const [i, j] of overlappingPairs(boxes, 0)) {
       const A = this.parts[i],
@@ -1400,7 +1399,7 @@ export class Builder {
       }
       const ov = overlapVolume(A.poly, B.poly);
       const frac = ov / Math.max(1e-12, Math.min(vols[i], vols[j]));
-      if (frac > 0.1 || ov > 1e-5) {
+      if ((frac > 0.1 && ov > 1e-7) || ov > 5e-5) {
         const who = vols[i] <= vols[j] ? A.name : B.name;
         warnings.push(`parts '${A.name}' and '${B.name}' overlap ${mm(depth)} mm deep (${(ov * 1e6).toFixed(1)} cm³, ~${Math.round(frac * 100)}% of '${who}')`);
       }

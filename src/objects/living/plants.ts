@@ -43,7 +43,7 @@ export function buildFiddleLeafFig(o: { potTint?: number; seed?: number } = {}):
   const pot = pottedSoil(b, { r0: 0.12, r1: 0.16, h: 0.3, t: 0.01, fill: 0.85, tint: o.potTint ?? 0xe9e3d6, segments: 8 });
   const y0 = pot.soilTop;
   const path: Array<[number, number, number]> = [
-    [0, y0 - 0.02, 0],
+    [0, y0, 0],
     [0.02, 0.75, 0.01],
     [-0.01, 1.2, 0.0],
     [0.005, 1.6, 0.01],

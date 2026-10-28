@@ -13,7 +13,7 @@ import { TransformNode, type PhysicsBody } from "@babylonjs/core";
 import type { IslandMeshes } from "../../core/context.ts";
 import type { RenderGeom } from "../../geom/meshgen.ts";
 import type { Island } from "./types.ts";
-import type { World } from "./world.ts";
+import { nodeToWorld, type World } from "./world.ts";
 
 export const CONSOLIDATE_MAX_MASS = 20;
 export const CONSOLIDATE_MAX_EXTENT = 0.6;
@@ -62,6 +62,7 @@ export class DebrisSystem {
   consolidated = 0;
   /** Disable consolidation entirely (tests/debug). */
   enabled = true;
+  private readonly sc = { x: 0, y: 0, z: 0 };
 
   constructor(w: World, deps: DebrisDeps) {
     this.w = w;
@@ -125,7 +126,7 @@ export class DebrisSystem {
     const elapsed = Math.max(0, now - isl.lastCheck);
     isl.lastCheck = now;
     if (!isl.alive || !isl.body || isl.isStatic) return;
-    const c = w.toWorldVec(isl, isl.com);
+    const c = nodeToWorld(isl.node, isl.com, this.sc);
     if (!Number.isFinite(c.x) || !Number.isFinite(c.y) || !Number.isFinite(c.z)) {
       // a body whose state became non-finite can only poison the simulation: drop it
       w.warnOnce(`nan:${isl.asm.type}`, `${isl.asm.type}: island ${isl.id} has a non-finite pose; removed`);

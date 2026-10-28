@@ -20,7 +20,7 @@ import type { Vec3 } from "../../geom/vec.ts";
 import { planJointConstraints, type JointBondView } from "./graph.ts";
 import type { Assembly, Bond, Island, JointConstraint, JointGroup } from "./types.ts";
 import { PULL_CREEP } from "./interact.ts";
-import { rotate, type World } from "./world.ts";
+import { nodeToWorld, rotate, type World } from "./world.ts";
 
 const TWO_PI = Math.PI * 2;
 /** Holding force of hinge/slider bonds under sustained loads (N per J of strength): 90 J hinge ≈ 270 N. */
@@ -44,6 +44,11 @@ interface PhysicsRawExt {
   substeps?: number;
 }
 
+const IDQ = { x: 0, y: 0, z: 0, w: 1 };
+const sA: Vec3 = { x: 0, y: 0, z: 0 };
+const sAxis: Vec3 = { x: 0, y: 0, z: 0 };
+const sPivot: Vec3 = { x: 0, y: 0, z: 0 };
+const sCom: Vec3 = { x: 0, y: 0, z: 0 };
 const tV = new Vector3();
 const tW = new Vector3();
 const tW2 = new Vector3();
@@ -301,10 +306,27 @@ export class JointSystem {
 
   /** World axis and pivot of a constraint (axis fixed to the fixed side). */
   worldAxis(g: JointGroup, jc: JointConstraint): { axis: Vec3; pivot: Vec3 } {
-    const f = this.fixedPose(jc.fixed, g.asm);
-    const axis = rotate(f.q, unit(g.def.axis), { x: 0, y: 0, z: 0 }, false);
-    const pv = rotate(f.q, jc.pivot, { x: 0, y: 0, z: 0 }, false);
-    return { axis, pivot: { x: pv.x + f.p.x, y: pv.y + f.p.y, z: pv.z + f.p.z } };
+    const axis = { x: 0, y: 0, z: 0 },
+      pivot = { x: 0, y: 0, z: 0 };
+    this.worldAxisInto(g, jc, axis, pivot);
+    return { axis, pivot };
+  }
+
+  /** Allocation-free worldAxis(). */
+  worldAxisInto(g: JointGroup, jc: JointConstraint, axisOut: Vec3, pivotOut: Vec3): void {
+    const fixed = jc.fixed;
+    const q = fixed ? (fixed.node.rotationQuaternion ?? IDQ) : g.asm.xf.q;
+    const p = fixed ? fixed.node.position : g.asm.xf.p;
+    const a = g.def.axis;
+    const l = Math.hypot(a.x, a.y, a.z) || 1;
+    sA.x = a.x / l;
+    sA.y = a.y / l;
+    sA.z = a.z / l;
+    rotate(q, sA, axisOut, false);
+    rotate(q, jc.pivot, pivotOut, false);
+    pivotOut.x += p.x;
+    pivotOut.y += p.y;
+    pivotOut.z += p.z;
   }
 
   /** The joint group in which `island` is the moving side (door/drawer), if any. */
@@ -442,7 +464,9 @@ export class JointSystem {
           const lin = r[1],
             ang = r[2];
           if (!lin || !ang) continue;
-          const { axis, pivot } = this.worldAxis(g, jc);
+          this.worldAxisInto(g, jc, sAxis, sPivot);
+          const axis = sAxis,
+            pivot = sPivot;
           const F = Math.hypot(lin[0], lin[1], lin[2]) / h;
           const ta = (ang[0] * axis.x + ang[1] * axis.y + ang[2] * axis.z) / h;
           const tp = Math.hypot(ang[0] / h - ta * axis.x, ang[1] / h - ta * axis.y, ang[2] / h - ta * axis.z);
@@ -468,21 +492,26 @@ export class JointSystem {
           jc.fEma = sF;
           jc.tAxisEma = sA;
           jc.tPerpEma = sP;
-          const bonds = jc.bonds.filter((b) => b.alive);
-          const n = Math.max(1, bonds.length);
+          const bonds = jc.bonds;
+          let alive = 0;
           let spacing = 0.1;
-          for (let i = 0; i < bonds.length; i++)
+          for (let i = 0; i < bonds.length; i++) {
+            if (!bonds[i].alive) continue;
+            alive++;
             for (let j = i + 1; j < bonds.length; j++) {
+              if (!bonds[j].alive) continue;
               const a = bonds[i].anchor,
                 b = bonds[j].anchor;
               spacing = Math.max(spacing, Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z));
             }
+          }
+          const n = Math.max(1, alive);
           const latchHolds = jc.latched && !!g.latch && g.latch.alive;
           let perBond = sF / n + (jc.kind === "ball" ? 0 : sP / spacing);
           if (!latchHolds && jc.kind === "hinge") perBond += sA / (n * 0.25);
           // the joint must carry the moving part's own weight forever: never fail below 2× that
           const m = jc.moving;
-          const com = this.w.toWorldVec(m, m.com);
+          const com = nodeToWorld(m.node, m.com, sCom);
           const rx = com.x - pivot.x,
             ry = com.y - pivot.y,
             rz = com.z - pivot.z;
@@ -491,6 +520,7 @@ export class JointSystem {
           const weight = m.mass * 9.81;
           const staticShare = weight / n + (jc.kind === "ball" ? 0 : (weight * dPerp) / spacing);
           for (const b of bonds) {
+            if (!b.alive) continue;
             const hold = Math.max(JOINT_HOLD_N_PER_J * b.max, 2 * staticShare);
             const excess = perBond - hold;
             if (excess > 0 && this.w.damageBond(b, excess * PULL_CREEP * dt)) broke = true;
@@ -570,7 +600,8 @@ export class JointSystem {
     const jc = g.constraints[0];
     const k = g.def.spring ?? 0;
     if (!jc || !(k > 0) || !jc.moving.body || jc.moving.isStatic || jc.latched) return;
-    const { axis } = this.worldAxis(g, jc);
+    this.worldAxisInto(g, jc, sAxis, sPivot);
+    const axis = sAxis;
     if (g.kind === "hinge") {
       const theta = this.hingeAngleOf(jc.moving, jc.fixed, g.asm, unit(g.def.axis));
       if (Math.abs(theta) < 0.01) return;
@@ -602,7 +633,8 @@ export class JointSystem {
       if (!g.motorOn) this.motors.delete(g);
       return;
     }
-    const { axis } = this.worldAxis(g, jc);
+    this.worldAxisInto(g, jc, sAxis, sPivot);
+    const axis = sAxis;
     const wRel = this.relAngVel(jc, axis);
     const tmax = Math.max(0.05, g.motorTorque);
     const target = Math.abs(g.motorSpeed) > 0.1 ? Math.abs(g.motorSpeed) : 10;

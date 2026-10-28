@@ -312,7 +312,7 @@ export function furnishLivingItems(): LivingItem[] {
     const w = localToWorld(arm, 0, 0, lay.backZ1 + 0.006 + (loc.max.z - loc.min.z) / 2);
     L.rest("pillow2", def, w.x, w.z, qmul(arm.xf.q, qLocal), ["armchair"]);
   }
-  L.floor("fig", buildFiddleLeafFig({ seed: 3152 }), 8.86, 0.5, 15);
+  L.floor("fig", buildFiddleLeafFig({ seed: 3152 }), 8.8, 0.52, 15);
   L.floor("floorLamp", buildFloorLamp({ seed: 3153 }), 8.8, 1.07, -90);
 
   // ------------------------------------------------------------------ dining
