@@ -140,7 +140,7 @@ const CLOTH_TINTS = [0x41597a, 0xb34a3c, 0xe8e2d4, 0x5d6b4e, 0x2c2c30, 0xc9a66b,
 export function buildClothes(o: ClothesOpts = {}): AssemblyDef {
   const folded = (o.style ?? "folded") === "folded";
   const size = o.size ?? (folded ? [0.3, 0.06, 0.25] : [0.34, 0.12, 0.26]);
-  const b = mk(folded ? "foldedClothes" : "laundry", folded ? "Folded Clothes" : "Laundry", "soft", folded ? 30 : 15, o);
+  const b = mk(folded ? "foldedClothes" : "laundryPile", folded ? "Folded Clothes" : "Laundry", "soft", folded ? 30 : 15, o);
   const tint = o.tint ?? CLOTH_TINTS[Math.abs(Math.floor(o.seed ?? 0)) % CLOTH_TINTS.length];
   const kg = o.kg ?? (folded ? 0.35 : 0.45);
   const p = softBlock(b, "cloth", "fabric", folded ? "fabric_cotton" : "fabric_upholstery", size, folded ? 0.18 : 0.75, [0, size[1] / 2, 0], { tint, mass: kg }, folded ? 2 : 4);

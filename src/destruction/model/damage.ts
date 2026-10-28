@@ -16,15 +16,19 @@
 //    compared with E/sharpness.
 //  * Local breakout: E = G·2π·r·min(t, α·r) with α = √(0.02/r_c) (small contact → smaller,
 //    deeper; large contact → wider, shallower); a blunt contact cannot punch out a plug smaller
-//    than 0.75·r_c; blunt holes are widened by the crushed contact patch. r > 0.6 × smallest
-//    in-plane extent → global failure (or a clamped big hole for supported sheets).
+//    than 0.75·r_c; blunt holes are widened by the crushed contact patch. r > 0.6 × in-plane
+//    size (a plate's middle extent, whatever face was hit) → global failure if the energy is
+//    also ≥ 0.5·E_g, else a clamped big hole / edge chip.
 //    Tempered glass never breaks out locally: it dices when E·concentration ≥ E_g (×0.3 near
-//    an edge).
+//    an edge) into ~2–3 cm cubes on a grid (plan.ts planDice: no palm-sized plates remain).
 //  * Fatigue: E_eff = E·(1 + fatigue·D/E_threshold), D = distance-weighted remembered damage;
-//    hits below ~2–10 % of the threshold leave no memory (endurance limit). Callers decay D.
-//  * Ductile dents: r_d = max(dentRadius·(E/100)^⅓, r_c), depth = E/(Y·π·r_d²) capped by
-//    min(maxDent·ext2, 0.5·ext1) for the accumulated depth; crumple when Σdepth·r² is large
-//    relative to the sheet (bonds then take double load); heavily crumpled thin sheets tear.
+//    only the RAW delivered energy is remembered, and hits below ~6–20 % of the threshold
+//    (raw load ratio) leave little or no memory (endurance limit). Callers decay D.
+//  * Ductile dents: r_d = max(dentRadius·(E/100)^⅓, r_c), depth = E/(Y·π·r_d²); the accumulated
+//    displacement anywhere is capped at min(maxDent·ext2, 0.5·ext1) — energy beyond the cap
+//    spreads into wider dents around the hit. Crumple when Σdepth·r² is large relative to the
+//    sheet (bonds then take double load); a crumpled thin sheet tears when a strong blow plus
+//    remembered damage reaches tearZone·Y·t·L (L = tear length).
 //  * Soft: absorb blunt hits; sharp strikes (sharpness ≥ 2) tear (crack line + fluff chips) and
 //    heavily torn parts split into chunks.
 

@@ -54,6 +54,12 @@ const mono = (c: Float32Array[]) => {
 };
 const front = { x: 0, y: 1.6, z: 1.2 };
 const N = { x: 0, y: 1, z: 0 };
+// Real static-part data as the destruction runtime emits it (PART size/mass of static islands):
+// levels.ts FLOOR_TILE 0.3 m porcelain ≈ 2.07 kg, laminate PLANK 1.2 m oak ≈ 1.92 kg, a drywall
+// panel 2.6 m ≈ 27 kg. Floor contacts are at y = FLOOR_Y = 0.
+const TILE = { matB: "tile" as const, sizeB: 0.3, massB: 2.07, idB: 7 };
+const PLANK = { matB: "hardwood" as const, sizeB: 1.2, massB: 1.92, idB: 8 };
+const DRYWALL = { matA: "gypsum" as const, sizeA: 2.6, massA: 27, normal: { x: 0, y: 0, z: -1 } };
 const impact = (e: Partial<GameEvents["impact"]>): GameEvents["impact"] => ({ pos: front, normal: N, energy: 30, impulse: 5, speed: 3, matA: "hardwood", matB: null, sizeA: 0.3, sizeB: 0, massA: 5, massB: 0, idA: 1, idB: -1, ...e });
 
 /** Pre-warm HRTF on a realtime context (fixes offline HRTF hangs, see the API note). */
@@ -114,7 +120,7 @@ export async function probe() {
   // 4. Occlusion: the same sledgehammer blow through a wall is quieter and duller.
   const sledge = (_a: Audio, ev: EventBus<GameEvents>) => {
     const p = { x: 0, y: 1.6, z: 3 };
-    ev.emit("impact", impact({ pos: p, energy: 250, matA: "gypsum", matB: "steel", sizeA: 2.4, sizeB: 0.06, massA: 25 }));
+    ev.emit("impact", impact({ ...DRYWALL, pos: p, energy: 250, matB: "steel", sizeB: 0.06, massB: 7 }));
     ev.emit("fracture", { pos: p, dir: N, mat: "gypsum", mode: "crumble", energy: 250, volume: 0.0016, pieces: 5, micro: 30, global: false, size: 2.4, assembly: "Partition" });
   };
   const clear = await render({ dur: 2, setup: sledge, occ: () => 1 });
@@ -164,10 +170,19 @@ export async function probe() {
   // 7. Loudness ordering via gameplay events.
   const lvl = async (setup: Scene["setup"]) => toDb(peak(mono(await render({ dur: 1.5, room: ROOM.bed2, setup }))));
   m.peakSledgeDrywallDb = +(await lvl(sledge)).toFixed(1);
-  m.peakPunchDb = +(await lvl((_a, ev) => ev.emit("impact", impact({ pos: { x: 0, y: 1.6, z: 0.7 }, energy: 60, matA: "gypsum", matB: "flesh", sizeA: 2.4, sizeB: 0.08, massA: 25 })))).toFixed(1);
-  m.peakMugDropDb = +(await lvl((_a, ev) => ev.emit("impact", impact({ pos: { x: 0, y: 0.05, z: 1 }, energy: 3.4, matA: "ceramic", matB: "tile", sizeA: 0.1, sizeB: 3, massA: 0.35, massB: 90 })))).toFixed(1);
+  m.peakPunchDb = +(await lvl((_a, ev) => ev.emit("impact", impact({ ...DRYWALL, pos: { x: 0, y: 1.6, z: 0.7 }, energy: 60, matB: "flesh", sizeB: 0.08, massB: 3 })))).toFixed(1);
+  m.peakMugDropDb = +(await lvl((_a, ev) => ev.emit("impact", impact({ pos: { x: 0, y: 0, z: 1 }, normal: N, energy: 3.4, matA: "ceramic", sizeA: 0.1, massA: 0.35, idA: 2, ...TILE })))).toFixed(1);
   m.peakFootstepDb = +(await lvl((_a, ev) => ev.emit("footstep", { pos: { x: 0, y: 0, z: 0 }, mat: "hardwood", speed: 3.6 }))).toFixed(1);
-  m.peakPenDb = +(await lvl((_a, ev) => ev.emit("impact", impact({ pos: { x: 0, y: 0.05, z: 1 }, energy: 0.07, matA: "plastic", matB: "hardwood", sizeA: 0.14, sizeB: 3, massA: 0.01, massB: 84 })))).toFixed(1);
+  m.peakPenDb = +(await lvl((_a, ev) => ev.emit("impact", impact({ pos: { x: 0, y: 0, z: 1 }, normal: N, energy: 0.07, matA: "plastic", sizeA: 0.14, massA: 0.01, idA: 3, ...PLANK })))).toFixed(1);
+
+  // 7b. The player's own hit on a wall face is not occluded by that wall: the occlusion hook
+  //     below behaves like a raycast against a wall whose face is at z = 0.8 (anything reaching
+  //     the face counts as blocked), and the blow lands exactly on that face.
+  const faceHit = (_a: Audio, ev: EventBus<GameEvents>) => ev.emit("impact", impact({ ...DRYWALL, pos: { x: 0, y: 1.5, z: 0.8 }, energy: 250, matB: "steel", sizeB: 0.06, massB: 7 }));
+  const wallRay = (a: Vec3, b: Vec3) => ((a.z - 0.8) * (b.z - 0.8) <= 0 ? 0.05 : 1);
+  const faceClear = toDb(rms(mono(await render({ dur: 1.5, room: ROOM.bed2, setup: faceHit, occ: () => 1 }))));
+  const faceRay = toDb(rms(mono(await render({ dur: 1.5, room: ROOM.bed2, setup: faceHit, occ: wallRay }))));
+  m.ownWallHitOcclusionDb = +(faceRay - faceClear).toFixed(1);
 
   // 8. Distance: 8 m away is quieter, duller and arrives ~20 ms later.
   const near = await render({ dur: 1, room: ROOM.bed2, setup: (a) => a.play("impact.ceramic.m", { x: 0, y: 1.6, z: 1 }) });
@@ -200,6 +215,8 @@ export async function probe() {
     bathroomRingsLonger: (m.tailBathDb as number) > (m.tailBedDb as number) + 6,
     rightEarLouder: (m.rightMinusLeftDb as number) > 10,
     loudnessOrder: (m.peakSledgeDrywallDb as number) > (m.peakPunchDb as number) && (m.peakPunchDb as number) > (m.peakMugDropDb as number) && (m.peakMugDropDb as number) > (m.peakPenDb as number) && (m.peakFootstepDb as number) > (m.peakPenDb as number),
+    ownWallHitNotOccluded: Math.abs(m.ownWallHitOcclusionDb as number) < 1,
+    penBelowFootstep: (m.peakPenDb as number) < (m.peakFootstepDb as number) - 3,
     distanceQuieter: (m.farMinusNearDb as number) < -8,
     distanceDelayed: (m.farDelayMs as number) > 15 && (m.farDelayMs as number) < 30,
   };

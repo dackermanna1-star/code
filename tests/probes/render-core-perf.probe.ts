@@ -66,6 +66,20 @@ export async function probe(): Promise<unknown> {
       createPer1000: Math.round((c / (verts / 1000)) * 1000) / 1000,
     };
   }
+  // fracture-like churn: 12 small islands disposed, 12 new ones built (pool hits)
+  const small = make(3);
+  const churn: number[] = [];
+  let live = Array.from({ length: 12 }, (_, i) => b.build(new TransformNode("f" + i, scene), small, null, "frag" + i));
+  for (let round = 0; round < 10; round++) {
+    const t = performance.now();
+    for (const m of live) b.dispose(m);
+    live = Array.from({ length: 12 }, (_, i) => b.build(new TransformNode("f" + i, scene), small, null, "frag" + i));
+    churn.push((performance.now() - t) / 12);
+  }
+  for (const m of live) b.dispose(m);
+  out.churnPerIslandMs = Math.round(median(churn) * 1000) / 1000;
+  out.batchStats = b.stats;
+  b.clearPool();
   out.meshesLeft = scene.meshes.length;
   out.geometriesLeft = scene.geometries.length;
   return out;

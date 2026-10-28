@@ -30,8 +30,14 @@ export async function probe() {
   const progress: number[] = [];
 
   // 1. Workers (default path used by createAudio).
-  const w = await measureGaps(() => SoundBank.generate({ sr: 48000, budgetMs: 4000, onProgress: (p) => progress.push(p) }));
+  //    Default budget (1.5 s): generate() resolves once every sound has variation 0 and the budget
+  //    is spent; the workers keep filling extra variations in the background.
+  const w = await measureGaps(() => SoundBank.generate({ sr: 48000, onProgress: (p) => progress.push(p) }));
   const wb = w.result;
+  const buffersAtResolve = wb.stats.buffers;
+  const tBg = performance.now();
+  while (wb.stats.buffers < expectedBuffers && performance.now() - tBg < 8000) await new Promise((r) => setTimeout(r, 100));
+  const backgroundFillMs = Math.round(performance.now() - tBg);
   const missing = SOUND_DEFS.filter((d) => !wb.get(d.id)?.buffers.length).map((d) => d.id);
 
   // 2. Main-thread fallback with the 1.5 s budget.
@@ -56,7 +62,10 @@ export async function probe() {
     workers: {
       ms: Math.round(wb.stats.ms),
       mainThreadMs: Math.round(wb.stats.mainMs),
-      buffers: wb.stats.buffers,
+      buffersAtResolve,
+      backgroundPending: wb.stats.background,
+      buffersAfterBackground: wb.stats.buffers,
+      backgroundFillMs,
       MB: +(wb.stats.bytes / 1e6).toFixed(1),
       workers: wb.stats.workers,
       workerFailures: wb.stats.workerFailures,

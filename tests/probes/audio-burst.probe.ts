@@ -163,7 +163,62 @@ export async function probe() {
   silent.loop("fridge.hum", null).setGain(1);
   silent.update(0.016);
   const silentState = silent.stats().state;
+
+  // ---- Regressions (review findings) -------------------------------------------------------
+  const A = audio as unknown as Record<string, any>;
+  const flushNow = async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  };
+  await sleep(400);
+  audio.update(1 / 60);
+  // (a) Priority-aware family limits: distant small debris must not eat the tokens of a loud
+  //     close hit. 20 small hardwood impacts 8 m away, then a 300 J hit 0.5 m from the listener.
+  const far = { x: lis.x - 8, y: 0.5, z: lis.z };
+  for (let i = 0; i < 20; i++) events.emit("impact", { pos: far, normal: N, energy: 0.5, impulse: 0.2, speed: 1, matA: "hardwood", matB: "hardwood", sizeA: 0.3, sizeB: 0.3, massA: 1, massB: 1, idA: 5000 + i, idB: 6000 + i });
+  await flushNow();
+  const lim0 = audio.stats().limited;
+  events.emit("impact", { pos: { x: lis.x + 0.5, y: 1.2, z: lis.z }, normal: N, energy: 300, impulse: 50, speed: 6, matA: "hardwood", matB: null, sizeA: 0.8, sizeB: 0, massA: 15, massB: 0, idA: 7000, idB: -1 });
+  await flushNow();
+  const bigHitLimited = audio.stats().limited - lim0;
+  // (b) A non-finite pitch must not throw nor discard the other voices of the batch.
+  const errs0 = errors.length;
+  const played0 = audio.stats().played;
+  audio.play("impact.ceramic.m", { x: lis.x + 1, y: 1.2, z: lis.z }, { pitch: NaN });
+  audio.play("impact.glass.m", { x: lis.x - 1, y: 1.2, z: lis.z });
+  audio.play("impact.metal.m", { x: lis.x, y: 1.2, z: lis.z + 1 });
+  const nanLoop = audio.loop("fridge.hum", { x: lis.x, y: 1, z: lis.z + 1 }, { pitch: NaN, gain: NaN });
+  await flushNow();
+  audio.update(1 / 60);
+  await sleep(150);
+  audio.update(1 / 60);
+  nanLoop.stop(0);
+  const nanPitchPlayed = audio.stats().played - played0;
+  const nanPitchErrors = errors.length - errs0;
+  // (c) Two joints strained at once get their own creak loops, realised immediately.
+  events.emit("strain", { pos: { x: 2.8, y: 1, z: 4.4 }, stress: 0.7, kind: "hinge", mat: "hardwood" });
+  events.emit("strain", { pos: { x: 6.5, y: 1, z: 4.4 }, stress: 0.6, kind: "hinge", mat: "steel" });
+  const strainLoops = (A.strains as Map<string, { lv: LoopVoice }>).size;
+  const strainsRealised = [...(A.strains as Map<string, { lv: LoopVoice }>).values()].every((s) => s.lv.state === 1);
+  // (d) setMasterVolume survives unrelated settings changes, yields to a masterVolume change.
+  audio.setMasterVolume(0);
+  settings.set("fov", settings.data.fov);
+  settings.set("cameraShake", settings.data.cameraShake);
+  const masterHeldAfterUnrelated = A.masterUser === 0;
+  settings.set("masterVolume", Math.min(1, (settings.data.masterVolume ?? 1) * 0.9));
+  const masterYieldsToSetting = A.masterUser === -1;
+  // (e) Strikes / toolHit bypass family limits (flesh on hard: thud + transient + ouch).
+  const lim1 = audio.stats().limited;
+  for (let i = 0; i < 30; i++) events.emit("toolHit", { tool: "hands", pos: { x: lis.x + 0.4, y: 1.4, z: lis.z }, normal: N, mat: "concrete", energy: 60, hard: true });
+  await flushNow();
+  const toolHitsLimited = audio.stats().limited - lim1;
+
   audio.dispose();
+  // (f) dispose(): graph torn down, queues cleared, later settings changes ignored, no throws.
+  settings.set("sfxVolume", settings.data.sfxVolume);
+  audio.play("impact.wood.m", { x: 0, y: 1, z: 0 });
+  audio.update(1 / 60);
+  const disposedClean = A.channels.length === 0 && A.pending.length === 0 && A.delayed.length === 0 && A.master === null && A.ctx === null;
   console.error = origErr;
 
   const result = {
@@ -187,6 +242,7 @@ export async function probe() {
     powered: end.powered,
     listenerRoom: end.listenerRoom,
     silentState,
+    regressions: { bigHitLimited, nanPitchPlayed, nanPitchErrors, strainLoops, strainsRealised, masterHeldAfterUnrelated, masterYieldsToSetting, toolHitsLimited, disposedClean },
     errors,
     rooms: ROOMS.length,
     wallPoint: wallPoint(WALLS[0], 1)[0],
@@ -195,6 +251,13 @@ export async function probe() {
   if (humStateBefore !== 0 || humStateAfter !== 1) throw new Error(`loop states ${humStateBefore}/${humStateAfter}`);
   if (maxOneShot > 48) throw new Error(`voice cap exceeded: ${maxOneShot}`);
   if (errors.length) throw new Error("console errors: " + errors.join(" | "));
+  const R = result.regressions;
+  if (R.bigHitLimited !== 0) throw new Error("loud close hit was rate-limited after distant debris");
+  if (R.nanPitchErrors !== 0 || R.nanPitchPlayed < 3) throw new Error(`NaN pitch broke the batch: ${JSON.stringify(R)}`);
+  if (R.strainLoops !== 2 || !R.strainsRealised) throw new Error(`strain loops ${JSON.stringify(R)}`);
+  if (!R.masterHeldAfterUnrelated || !R.masterYieldsToSetting) throw new Error(`master volume ${JSON.stringify(R)}`);
+  if (R.toolHitsLimited !== 0) throw new Error("toolHit layers were rate-limited");
+  if (!R.disposedClean) throw new Error("dispose() left state behind");
   if (end.played < 100 || end.limited < 50) throw new Error(`unexpected counts ${JSON.stringify(result)}`);
   return result;
 }

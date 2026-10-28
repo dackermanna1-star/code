@@ -230,6 +230,7 @@ export class Render implements RenderSystem {
     this.atmosphere?.dispose();
     this.exterior?.dispose();
     this.postfx.dispose();
+    this.batcher.clearPool();
     this.lighting.dispose();
     this.world.material.dispose();
     this.glass.material.dispose();

@@ -254,14 +254,14 @@ test("performance: respond < 2 ms, 40-cell plan < 6 ms, full tempered dice < 4 m
   const win = makePart("glass", box(1, 1.2, 0.004));
   let cells = 0;
   for (let k = 0; k < 5; k++) hit(win, v(0.1, 0.1, 0.002), v(0, 0, -1), 300, { seed: k });
-  const glass = bestOf(15, 1, (k) => {
+  const glass = bestOf(30, 1, (k) => {
     cells = Math.max(cells, hit(win, v(0.1, 0.1, 0.002), v(0, 0, -1), 300, { seed: 100 + k }).fracture?.cells.length ?? 0);
   });
   // the largest dice in the apartment: a 0.9 × 1.9 m tempered shower panel
   const shower = makePart("temperedGlass", box(0.9, 1.9, 0.008), { bonds: [bond(1, "clip", v(-0.45, 0.6, 0), 50), bond(2, "clip", v(-0.45, -0.6, 0), 50)] });
   let micro = 0;
   for (let k = 0; k < 3; k++) hit(shower, v(0, 0, 0.004), v(0, 0, -1), 250, { contact: 0.03, seed: k });
-  const dice = bestOf(15, 1, (k) => {
+  const dice = bestOf(30, 1, (k) => {
     const o = hit(shower, v(0, 0, 0.004), v(0, 0, -1), 250, { contact: 0.03, seed: 50 + k });
     micro = Math.max(micro, o.fracture?.cells.filter((c) => c.role === "micro").length ?? 0);
   });

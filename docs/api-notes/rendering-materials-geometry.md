@@ -64,7 +64,7 @@ vd.positions = positions;          // Float32Array | number[]  (xyz)
 vd.normals = normals;              // xyz (or VertexData.ComputeNormals(positions, indices, normals))
 vd.uvs = uvs;                      // uv
 vd.colors = colors;                // rgba (4 floats/vertex). If colors.length === positions.length it is treated as RGB (stride 3) [SRC]
-vd.indices = indices;              // Uint32Array OK; >65535 vertices are handled (32-bit index buffer chosen automatically)
+vd.indices = indices;              // Uint32Array => 32-bit index buffer; number[] => 32-bit only if an index >= 65535; Uint16Array => 16-bit [SRC]
 vd.applyToMesh(mesh, /*updatable*/ true);
 mesh.setVerticesData("surf", surf, /*updatable*/ true, /*stride*/ 4);   // AFTER applyToMesh
 mesh.material = worldMaterial;
@@ -89,7 +89,7 @@ mesh.material = worldMaterial;
 Rules:
 - `updateVerticesData(kind, data)` on a buffer created with `updatable = false` does nothing, and the CPU copy is unchanged too [RT]. The underlying `Buffer.update` only writes updatable buffers [SRC]. Either create buffers with `applyToMesh(mesh, true)` / `setVerticesData(kind, d, true, n)`, or re-set them.
 - `updateVerticesData` uses `bufferSubData`, so the length **must not grow** [SRC]. When the count changes, call `applyToMesh` (it re-creates all buffers and sub-meshes) [RT].
-- `updateIndices`: for an updatable index buffer it uses `bufferData`, so the size may change and the global submesh is re-created. For a non-updatable buffer it falls back to `setIndices` [SRC]. `applyToMesh(m, true)` makes the index buffer updatable too.
+- `updateIndices`: for an updatable index buffer it uses `bufferData`, so the size may change and the global submesh is re-created. For a non-updatable buffer it falls back to `setIndices` [SRC]. `applyToMesh(m, true)` makes the index buffer updatable too. The 16/32-bit index type is **fixed at creation** (from the array type, or from the max index for `number[]`) [SRC]. Always pass `Uint32Array` indices so later growth past 65535 is safe.
 - After `updateVerticesData("position", data, /*updateExtends*/ false)`, call `refreshBoundingInfo()` (or pass `updateExtends = true`). Otherwise culling and picking use stale bounds.
 - **Recommendation for the batcher:** island meshes change rarely and their vertex counts change (fracture), so **re-apply** (`applyToMesh(mesh, true)` + `setVerticesData("surf", ..., true, 4)`) on change. It is simple and ≈0.2 ms. Use `updateVerticesData` only for same-topology edits such as dents and soft squash.
 
@@ -559,12 +559,13 @@ new DynamicTexture(name, size, options: IDynamicTextureOptions)             // i
 dt.getContext(): ICanvasRenderingContext   // cast to CanvasRenderingContext2D
 dt.update(invertY = true, premulAlpha = false, allowGPUOptimization = false): void   // uploads the canvas (+mips if created with mips)
 dt.drawText(text, x, y, font, color, fillColor | null, invertY = true, update = true)
-dt.clear(clearColor?); dt.scaleTo(w, h); dt.getContext().canvas
+dt.clear(clearColor?); dt.scaleTo(w, h);
+const canvas = (dt.getContext() as CanvasRenderingContext2D).canvas;   // ICanvasRenderingContext has no `canvas` in its type
 ```
 - Defaults [RT]: `wrapU/V = CLAMP` (the constructor forces it, so set `WRAP_ADDRESSMODE` for tiling), `noMipmap = true` (generateMipMaps defaults to false), `hasAlpha = false`. With the options object `{ samplingMode: NEAREST, noMipmap: false }` the internal texture still ended up TRILINEAR without mips.
 - `update()` with the default `invertY = true` shows the canvas upright on standard builder UVs (canvas top = v 1) [RT].
 - Cost: redrawing a 256² canvas plus `update()` with mips ≈ 0.2 ms CPU; `update()` alone ≈ 0.01 ms (CPU side) [RT].
-- To feed array layers from a canvas or DynamicTexture, use `UploadImageToTexture2DArrayLayer(arr, dt.getContext().canvas, layer, { invertY: true })` (DOM canvas honours flipY), or `canvasToLayer()` + `createTextureArray()`.
+- To feed array layers from a canvas or DynamicTexture, use `UploadImageToTexture2DArrayLayer(arr, canvas, layer, { invertY: true })` (DOM canvas honours flipY), or `canvasToLayer()` + `createTextureArray()`.
 - **PS2 look** (same 64-px brick texture on a receding floor, screenshot compared):
   - `NEAREST` (1): crisp texels, strong moiré at distance.
   - `BILINEAR` without mips (2): shimmering at distance; avoid for world textures.

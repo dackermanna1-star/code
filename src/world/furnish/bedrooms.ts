@@ -324,29 +324,31 @@ function furnishBed2(add: Add): void {
   let seed = 150;
   const shelfFront = sd.inner.z1 - 0.01;
   sd.levels.forEach((lev, li) => {
+    const stacked = li === 0 || li === 2;
+    const stackW = 0.15,
+      stackH = 0.21;
+    const stackX = sd.inner.x1 - 0.055 - stackW / 2; // centre of the lying stack (right side)
     const fill = li === 4 ? 0.45 : li === 0 ? 0.5 : 0.72;
+    const xEnd = Math.min(sd.inner.x0 + fill * (sd.inner.x1 - sd.inner.x0), stacked ? stackX - stackW / 2 - 0.01 : sd.inner.x1 - 0.01);
     let x = sd.inner.x0 + 0.01;
-    const xEnd = sd.inner.x0 + fill * (sd.inner.x1 - sd.inner.x0);
-    let k = 0;
-    while (x < xEnd) {
-      const opts = { seed: seed++, detail: seed % 3 === 0, h: Math.min(0.245, lev.clear - 0.02) } as { seed: number; detail: boolean; h?: number };
-      const d0 = bookDims({ seed: opts.seed });
-      opts.h = Math.min(d0.h, lev.clear - 0.02);
+    for (let k = 0; ; k++) {
+      const s0 = seed++;
+      const natural = bookDims({ seed: s0 });
+      const opts = { seed: s0, detail: s0 % 3 === 0, h: Math.min(natural.h, lev.clear - 0.02) };
       const dd = bookDims(opts);
-      if (x + dd.t > sd.inner.x1 - 0.01) break;
+      if (x + dd.t > xEnd) break;
       const lz = shelfFront - dd.w / 2;
       add(`b_shelf${li}_book${k}`, buildBook(opts), onParent(shelf, x + dd.t / 2, lev.y, lz), R, { in: "b_bookshelf" }, { restY: lev.y, overlaps: ["b_bookshelf"] });
       x += dd.t + 0.002;
-      k++;
     }
-    // a lying stack in the free part of the bottom and middle shelves
-    if (li === 0 || li === 2) {
+    if (stacked) {
+      // a lying stack: turned 90° so the book's height runs front-to-back
       let yy = lev.y;
       for (let s = 0; s < 2; s++) {
-        const o = { seed: seed++, lying: true, detail: false, h: 0.21, w: 0.15 } as const;
+        const o = { seed: seed++, lying: true, detail: false, h: stackH, w: stackW } as const;
         const dd = bookDims(o);
         const id = `b_shelf${li}_stack${s}`;
-        add(id, buildBook(o), onParent(shelf, sd.inner.x1 - 0.13, yy, shelfFront - dd.w / 2 - 0.01, P2 + 0.05 * s), R, s === 0 ? { in: "b_bookshelf" } : { on: `b_shelf${li}_stack${s - 1}` }, {
+        add(id, buildBook(o), onParent(shelf, stackX, yy, shelfFront - stackH / 2 - 0.005, P2 + 0.05 * s), R, s === 0 ? { in: "b_bookshelf" } : { on: `b_shelf${li}_stack${s - 1}` }, {
           restY: yy,
           overlaps: ["b_bookshelf", ...(s ? [`b_shelf${li}_stack${s - 1}`] : [])],
         });

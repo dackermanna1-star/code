@@ -106,8 +106,20 @@ export async function probe() {
   };
   const strike = (id: number, partName: string, local: { x: number; y: number; z: number }, dir: Vector3, mass: number, speed: number, r: number, mat: "steel" | "flesh" = "steel") => {
     const asm = d.assembly(id)!;
-    const p = asm.byName.get(partName) ?? [...asm.parts].find((q) => q.name.startsWith(partName))!;
-    const isl = p.island!;
+    // the original part may have fractured: use the live fragment nearest to the target point
+    let p = asm.byName.get(partName);
+    if (!p || !p.alive || !p.island) {
+      let best = Infinity;
+      for (const q of asm.parts) {
+        if (!q.name.startsWith(partName) || !q.island) continue;
+        const dd = (q.centroid.x - local.x) ** 2 + (q.centroid.y - local.y) ** 2 + (q.centroid.z - local.z) ** 2;
+        if (dd < best) {
+          best = dd;
+          p = q;
+        }
+      }
+    }
+    const isl = p!.island!;
     const wp = d.world.toWorldVec(isl, local);
     return d.strike({ point: new Vector3(wp.x, wp.y, wp.z), dir, body: isl.body!, childIndex: -1, mass, speed, sharpness: 1, contactRadius: r, strikerMat: mat, source: "debug" });
   };

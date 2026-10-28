@@ -124,8 +124,7 @@ export const DEFAULT_ATMOSPHERE: AtmosphereTuning = { density: 0.2, motes: 260 }
 interface ShaftRender {
   vol: ShaftVolume;
   mesh: Mesh;
-  front: ShaderMaterial;
-  back: ShaderMaterial;
+  mat: ShaderMaterial;
   inside: boolean;
 }
 
@@ -163,10 +162,9 @@ export class Atmosphere implements IAtmosphere {
       mesh.isPickable = false;
       mesh.layerMask = WORLD_LAYER_BIT;
       mesh.freezeWorldMatrix();
-      const front = this.makeMaterial(vol, color, L, true);
-      const back = this.makeMaterial(vol, color, L, false);
-      mesh.material = front;
-      this.renders.push({ vol, mesh, front, back, inside: false });
+      const mat = this.makeMaterial(vol, color, L);
+      mesh.material = mat;
+      this.renders.push({ vol, mesh, mat, inside: false });
     }
     this.buildMotes(color);
     const q = (this.lighting as ILighting & { quality?: { lightShafts: boolean } }).quality;
@@ -197,12 +195,12 @@ export class Atmosphere implements IAtmosphere {
     const cam = this.scene.activeCamera;
     const cp = cam ? cam.globalPosition : null;
     for (const r of this.renders) {
-      r.front.setFloat("uTime", this.time);
-      r.back.setFloat("uTime", this.time);
+      r.mat.setFloat("uTime", this.time);
       const inside = cp ? insideShaft(r.vol, cp, (cam?.minZ ?? 0.03) + 0.02) : false;
       if (inside !== r.inside) {
+        // Culling is render state only (no shader variant): inside the beam draw the far faces.
         r.inside = inside;
-        r.mesh.material = inside ? r.back : r.front;
+        r.mat.cullBackFaces = !inside;
       }
     }
   }
@@ -210,8 +208,7 @@ export class Atmosphere implements IAtmosphere {
   dispose(): void {
     for (const r of this.renders) {
       r.mesh.dispose();
-      r.front.dispose();
-      r.back.dispose();
+      r.mat.dispose();
     }
     this.renders.length = 0;
     this.motes?.dispose();
@@ -221,9 +218,9 @@ export class Atmosphere implements IAtmosphere {
 
   // ------------------------------------------------------------------ internals
 
-  private makeMaterial(vol: ShaftVolume, color: Vector3, L: Vector3, front: boolean): ShaderMaterial {
+  private makeMaterial(vol: ShaftVolume, color: Vector3, L: Vector3): ShaderMaterial {
     const m = new ShaderMaterial(
-      `shaftMat_${vol.id}_${front ? "f" : "b"}`,
+      `shaftMat_${vol.id}`,
       this.scene,
       { vertexSource: SHAFT_VERTEX, fragmentSource: SHAFT_FRAGMENT },
       {
@@ -235,7 +232,7 @@ export class Atmosphere implements IAtmosphere {
     m.alphaMode = Constants.ALPHA_ADD;
     m.disableDepthWrite = true;
     m.backFaceCulling = true;
-    m.cullBackFaces = front; // inside the beam: draw the far (back) faces
+    m.cullBackFaces = true;
     const [r0, r1, r2] = vol.invRows;
     m.setVector4("uRow0", new Vector4(r0[0], r0[1], r0[2], r0[3]));
     m.setVector4("uRow1", new Vector4(r1[0], r1[1], r1[2], r1[3]));
