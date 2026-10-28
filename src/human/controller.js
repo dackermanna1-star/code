@@ -1576,7 +1576,7 @@ export class HumanController {
       const headDown = clamp((pel.pos.y - chest.pos.y) / 0.1, 0, 1);
       this.assistBody(pel, gy + lerp(g.start.pel, 0.5, p) - 0.1 * headDown, rot, 1600, 300, 0.45 * M, 260, 160);
       this.assistBody(chest, gy + chestT, rot, 2600, 300, (0.45 + 0.2 * headDown) * M, 260, 170);
-      if (g.t > 1.5 && pel.pos.y > gy + 0.42 && chest.pos.y > gy + 0.42) this.getUpPhase(g, 'kneel');
+      if ((g.t > 1.5 && pel.pos.y > gy + 0.42 && chest.pos.y > gy + 0.4) || (g.t > 2.4 && pel.pos.y > gy + 0.4 && chest.pos.y > gy + 0.33)) this.getUpPhase(g, 'kneel');
       else if (g.t > 4) this.failGetUp();
       return;
     }

@@ -85,6 +85,9 @@ ui.setTime(1, false);
 let meshShared = null;
 const renders = new Map();
 ui.setLoading(true);
+// generate prop/weapon textures in idle slices now rather than on the first throw
+if (typeof OM.preloadObjectMeshes === 'function') setTimeout(() => OM.preloadObjectMeshes().catch(() => {}), 300);
+
 function onMeshReady(data) {
   meshShared = { data, adjacency: buildAdjacency(data), vhash: buildVertexHash(data) };
   for (const p of sandbox.people) attachRender(p);

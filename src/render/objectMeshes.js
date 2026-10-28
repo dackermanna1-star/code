@@ -14,7 +14,6 @@
  */
 import * as THREE from 'three';
 import { mergeGeometries, toCreasedNormals } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
-import { ImprovedNoise } from 'three/examples/jsm/math/ImprovedNoise.js';
 
 const DEG = Math.PI / 180;
 const TAU = Math.PI * 2;
@@ -69,10 +68,55 @@ function rng(seed) {
   };
 }
 
-let _perlin = null;
+// Ken Perlin's improved noise (same permutation/gradients as three's ImprovedNoise), inlined
+// with table-driven gradients because texture generation calls it millions of times.
+const _P = new Uint8Array(512);
+_P.set([
+  151, 160, 137, 91, 90, 15, 131, 13, 201, 95, 96, 53, 194, 233, 7, 225, 140, 36, 103, 30, 69, 142, 8, 99, 37, 240, 21, 10, 23, 190, 6, 148,
+  247, 120, 234, 75, 0, 26, 197, 62, 94, 252, 219, 203, 117, 35, 11, 32, 57, 177, 33, 88, 237, 149, 56, 87, 174, 20, 125, 136, 171, 168, 68, 175,
+  74, 165, 71, 134, 139, 48, 27, 166, 77, 146, 158, 231, 83, 111, 229, 122, 60, 211, 133, 230, 220, 105, 92, 41, 55, 46, 245, 40, 244, 102, 143, 54,
+  65, 25, 63, 161, 1, 216, 80, 73, 209, 76, 132, 187, 208, 89, 18, 169, 200, 196, 135, 130, 116, 188, 159, 86, 164, 100, 109, 198, 173, 186, 3, 64,
+  52, 217, 226, 250, 124, 123, 5, 202, 38, 147, 118, 126, 255, 82, 85, 212, 207, 206, 59, 227, 47, 16, 58, 17, 182, 189, 28, 42, 223, 183, 170, 213,
+  119, 248, 152, 2, 44, 154, 163, 70, 221, 153, 101, 155, 167, 43, 172, 9, 129, 22, 39, 253, 19, 98, 108, 110, 79, 113, 224, 232, 178, 185, 112, 104,
+  218, 246, 97, 228, 251, 34, 242, 193, 238, 210, 144, 12, 191, 179, 162, 241, 81, 51, 145, 235, 249, 14, 239, 107, 49, 192, 214, 31, 181, 199, 106, 157,
+  184, 84, 204, 176, 115, 121, 50, 45, 127, 4, 150, 254, 138, 236, 205, 93, 222, 114, 67, 29, 24, 72, 243, 141, 128, 195, 78, 66, 215, 61, 156, 180,
+]);
+_P.copyWithin(256, 0, 256);
+const _G3 = new Float32Array(48);
+for (let h = 0; h < 16; h++) {
+  _G3[h * 3 + (h < 8 ? 0 : 1)] += h & 1 ? -1 : 1;
+  _G3[h * 3 + (h < 4 ? 1 : h === 12 || h === 14 ? 0 : 2)] += h & 2 ? -1 : 1;
+}
 function noise3(x, y, z) {
-  if (_perlin === null) _perlin = new ImprovedNoise();
-  return _perlin.noise(x, y, z);
+  const fx = Math.floor(x), fy = Math.floor(y), fz = Math.floor(z);
+  x -= fx;
+  y -= fy;
+  z -= fz;
+  const X = fx & 255, Y = fy & 255, Z = fz & 255;
+  const u = x * x * x * (x * (x * 6 - 15) + 10), v = y * y * y * (y * (y * 6 - 15) + 10), w = z * z * z * (z * (z * 6 - 15) + 10);
+  const P = _P, G = _G3;
+  const A = P[X] + Y, AA = P[A] + Z, AB = P[A + 1] + Z, B = P[X + 1] + Y, BA = P[B] + Z, BB = P[B + 1] + Z;
+  const x1 = x - 1, y1 = y - 1, z1 = z - 1;
+  let h = (P[AA] & 15) * 3;
+  const n000 = G[h] * x + G[h + 1] * y + G[h + 2] * z;
+  h = (P[BA] & 15) * 3;
+  const n100 = G[h] * x1 + G[h + 1] * y + G[h + 2] * z;
+  h = (P[AB] & 15) * 3;
+  const n010 = G[h] * x + G[h + 1] * y1 + G[h + 2] * z;
+  h = (P[BB] & 15) * 3;
+  const n110 = G[h] * x1 + G[h + 1] * y1 + G[h + 2] * z;
+  h = (P[AA + 1] & 15) * 3;
+  const n001 = G[h] * x + G[h + 1] * y + G[h + 2] * z1;
+  h = (P[BA + 1] & 15) * 3;
+  const n101 = G[h] * x1 + G[h + 1] * y + G[h + 2] * z1;
+  h = (P[AB + 1] & 15) * 3;
+  const n011 = G[h] * x + G[h + 1] * y1 + G[h + 2] * z1;
+  h = (P[BB + 1] & 15) * 3;
+  const n111 = G[h] * x1 + G[h + 1] * y1 + G[h + 2] * z1;
+  const a0 = n000 + u * (n100 - n000), a1 = n010 + u * (n110 - n010);
+  const a2 = n001 + u * (n101 - n001), a3 = n011 + u * (n111 - n011);
+  const b0 = a0 + v * (a1 - a0), b1 = a2 + v * (a3 - a2);
+  return b0 + w * (b1 - b0);
 }
 function fbm3(x, y, z, oct = 4, gain = 0.5) {
   let s = 0, a = 1, n = 0;
@@ -156,14 +200,23 @@ function tcell(u, v, cx, cy, seed, out) {
 // ---------------------------------------------------------------------------------------------
 // Texture generation
 // ---------------------------------------------------------------------------------------------
+/** 2D canvas (DOM or OffscreenCanvas); null when no canvas API exists (e.g. plain Node tests). */
 function makeCanvas(w, h) {
-  if (typeof document !== 'undefined') {
+  if (typeof document !== 'undefined' && document.createElement) {
     const c = document.createElement('canvas');
     c.width = w;
     c.height = h;
     return c;
   }
-  return new OffscreenCanvas(w, h);
+  if (typeof OffscreenCanvas !== 'undefined') return new OffscreenCanvas(w, h);
+  return null;
+}
+/** Write a genBuffers() buffer into a canvas (rows flipped to match CanvasTexture.flipY). */
+function putBuffer(ctx, buf, w, h, flip = false) {
+  const img = ctx.createImageData(w, h);
+  if (flip) for (let j = 0; j < h; j++) img.data.set(buf.subarray((h - 1 - j) * w * 4, (h - j) * w * 4), j * w * 4);
+  else img.data.set(buf);
+  ctx.putImageData(img, 0, 0);
 }
 
 function finishTexture(t, { srgb = true, wrap = true, aniso = 8, repeat = null } = {}) {
@@ -507,17 +560,12 @@ function cylBetween(a, b, r0, r1 = r0, segs = 12, open = false) {
   return g;
 }
 
-/** Smooth normals across edges flatter than `deg`. Works in mm-scale coordinates (see note). */
+/**
+ * Smooth normals across edges flatter than `deg`. toCreasedNormals hashes positions at 0.01
+ * units, so this is only used on millimetre-scale (weapon design space) geometry.
+ */
 function creased(g, deg = 32) {
-  // toCreasedNormals hashes positions at 0.01 units, so callers must work in millimetres.
-  const out = toCreasedNormals(g, deg * DEG);
-  return out;
-}
-function creasedMetres(g, deg = 32) {
-  g.scale(1000, 1000, 1000);
-  const out = toCreasedNormals(g, deg * DEG);
-  out.scale(0.001, 0.001, 0.001);
-  return out;
+  return toCreasedNormals(g, deg * DEG);
 }
 
 /** Prepare a list of geometries for mergeGeometries (non-indexed, same attribute set). */
@@ -541,33 +589,16 @@ function mergeList(geos) {
   return mergeGeometries(prepared, false);
 }
 
-/** Collects geometry per material key and emits one merged mesh per material. */
+/** Collects geometry per material key; addParts() merges each list into one mesh. */
 class Parts {
   constructor() {
     this.map = new Map();
   }
-  add(key, geo, color = null) {
-    if (color) {
-      const cnt = geo.attributes.position.count, arr = new Float32Array(cnt * 3);
-      for (let i = 0; i < cnt; i++) arr.set(color, i * 3);
-      geo.setAttribute('color', new THREE.Float32BufferAttribute(arr, 3));
-    }
+  add(key, geo) {
     let a = this.map.get(key);
     if (!a) this.map.set(key, (a = []));
     a.push(geo);
     return geo;
-  }
-  build(parent = new THREE.Group(), scale = 1) {
-    for (const [key, geos] of this.map) {
-      const g = mergeList(geos);
-      if (scale !== 1) g.scale(scale, scale, scale);
-      g.computeBoundingSphere();
-      g.computeBoundingBox();
-      const m = new THREE.Mesh(g, getMat(key));
-      m.name = key;
-      parent.add(m);
-    }
-    return parent;
   }
 }
 
@@ -1044,6 +1075,7 @@ MATS.bowlingShell = () => {
     map: t.map,
     alphaMap: t.alpha,
     alphaTest: 0.5,
+    alphaToCoverage: true,
     roughness: 0.2,
     metalness: 0,
     clearcoat: 1,
@@ -1086,14 +1118,16 @@ const mmY = (h) => (h - 117) * 0.001;
 function bottleLabelTexture() {
   return cached('tex:bottleLabel', () => {
     const W = 1024, H = 336;
-    const cv = makeCanvas(W, H), g = cv.getContext('2d');
+    const cv = makeCanvas(W, H);
+    if (!cv) return dataTexture(new Uint8ClampedArray([239, 227, 196, 255]), 1, 1, { srgb: true });
+    const g = cv.getContext('2d');
     const [paper] = genBuffers(W, H, 1, (u, v, o) => {
       const n = pnoise2(u * 256, v * 84, 256, 84, 5) * 0.025 + pnoise2(u * 64, v * 21, 64, 21, 6) * 0.02;
       o[0][0] = 0.937 + n;
       o[0][1] = 0.89 + n;
       o[0][2] = 0.77 + n * 0.8;
     });
-    g.putImageData(new ImageData(paper, W, H), 0, 0);
+    putBuffer(g, paper, W, H);
     const R = rng(77);
     g.fillStyle = '#6e1212';
     g.fillRect(0, 0, W, 30);
@@ -1149,7 +1183,9 @@ function bottleLabelTexture() {
 }
 function bottleFoilTexture() {
   return cached('tex:bottleFoil', () => {
-    const cv = makeCanvas(256, 64), g = cv.getContext('2d');
+    const cv = makeCanvas(256, 64);
+    if (!cv) return dataTexture(new Uint8ClampedArray([122, 16, 16, 255]), 1, 1, { srgb: true });
+    const g = cv.getContext('2d');
     g.fillStyle = '#7a1010';
     g.fillRect(0, 0, 256, 64);
     g.fillStyle = '#d9b45a';
@@ -1400,7 +1436,7 @@ function pipeVMap() {
 function pipeTextures() {
   return cached('tex:pipe', () => {
     const { prof, cum, toS } = pipeVMap();
-    const zinc = hex3(0x6f757b), zincDark = hex3(0x50555a), whiteRust = hex3(0x9c9d97);
+    const zinc = hex3(0x63686d), zincDark = hex3(0x4a4f53), whiteRust = hex3(0x929390);
     const rust = hex3(0x6a3214), rustDark = hex3(0x3c1d0e), steel = hex3(0xaeb2b6);
     const c = [0, 0, 0], cell = [0, 0];
     const outerLen = cum[3] - cum[2];
@@ -1420,7 +1456,7 @@ function pipeTextures() {
       mixInto(c, zincDark, smooth(0.0, 0.5, mot) * 0.45);
       const wr = smooth(0.25, 0.55, fbm3(X * 1.2 + 4, Y * 1.2, Z * 1.2, 2));
       mixInto(c, whiteRust, wr * 0.4);
-      let rough = 0.52 + 0.06 * cell[1] + wr * 0.25 + 0.06 * brush, metal = 0.75 - wr * 0.4;
+      let rough = 0.58 + 0.06 * cell[1] + wr * 0.22 + 0.06 * brush, metal = 0.72 - wr * 0.4;
       let rs = fbm3(X * 0.9 + 13, Y * 0.9, Z * 0.9, 4) + 0.18 * noise3(X * 6, Y * 6, Z * 6);
       if (part === 'inner') rs += 0.32;
       const ra = smooth(0.2, 0.42, rs);
@@ -1493,12 +1529,11 @@ function plateTextures() {
       o[0][2] = k * 1.06;
       o[1][0] = o[1][1] = o[1][2] = clamp(0.5 + 0.35 * n, 0, 1);
     });
+    if (!makeCanvas(1, 1)) return { map: dataTexture(cb, W, H, { srgb: true }), bump: dataTexture(bb, W, H, { srgb: false }) };
     const mk = (buf, textColor) => {
       const cv = makeCanvas(W, H), g = cv.getContext('2d');
       // genBuffers row 0 is v≈0; canvas row 0 becomes v=1 after flipY, so draw flipped rows
-      const img = new ImageData(W, H);
-      for (let j = 0; j < H; j++) img.data.set(buf.subarray((H - 1 - j) * W * 4, (H - j) * W * 4), j * W * 4);
-      g.putImageData(img, 0, 0);
+      putBuffer(g, buf, W, H, true);
       const yTop = (1 - v1) * H, yBot = (1 - v0) * H, band = yBot - yTop;
       g.fillStyle = textColor;
       g.textAlign = 'center';
@@ -1704,11 +1739,6 @@ MATS.shardGlass = () =>
   new THREE.MeshStandardMaterial({ color: 0x4f9e5c, roughness: 0.06, metalness: 0.1, transparent: true, opacity: 0.6, depthWrite: false, side: THREE.DoubleSide });
 MATS.melonFlesh = () => new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.5, metalness: 0, clearcoat: 0.6, clearcoatRoughness: 0.25, flatShading: true });
 
-function flatNormals(g) {
-  const ng = g.index ? g.toNonIndexed() : g;
-  ng.computeVertexNormals();
-  return ng;
-}
 function shardGeometry(kind, variant) {
   return cached(`geo:shard:${kind}:${variant}`, () => {
     const R = rng(1000 + variant * 31 + kind.length * 7);
@@ -2473,7 +2503,10 @@ function flashTextures() {
   return cached('tex:flash', () => {
     const R = rng(99);
     // star (front view)
-    const S = 128, cs = makeCanvas(S, S), g = cs.getContext('2d');
+    const S = 128, cs = makeCanvas(S, S);
+    let star;
+    if (cs) {
+    const g = cs.getContext('2d');
     g.globalCompositeOperation = 'lighter';
     const c = S / 2;
     for (let i = 0; i < 7; i++) {
@@ -2497,7 +2530,16 @@ function flashTextures() {
     rg.addColorStop(1, 'rgba(255,90,20,0)');
     g.fillStyle = rg;
     g.fillRect(0, 0, S, S);
-    const star = canvasTexture(cs, { srgb: true, wrap: false });
+    star = canvasTexture(cs, { srgb: true, wrap: false });
+    } else {
+      [star] = genTextures(64, 64, [{ srgb: true, wrap: false }], (u, v, o) => {
+        const r = Math.hypot(u - 0.5, v - 0.5) * 2, I = clamp(1 - r, 0, 1) ** 2;
+        o[0][0] = I;
+        o[0][1] = I * I * 0.85;
+        o[0][2] = I * I * I * 0.6;
+        o[0][3] = I;
+      });
+    }
     // side flame (v = 0 at the muzzle, v = 1 at the tip)
     const [side] = genTextures(64, 128, [{ srgb: true, wrap: false }], (u, v, o) => {
       const across = Math.abs(u - 0.5) * 2;
@@ -2610,4 +2652,53 @@ export function createCasingMesh(type = 'pistol') {
   m.receiveShadow = true;
   m.userData.caliber = cal;
   return m;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Lifecycle helpers
+// ---------------------------------------------------------------------------------------------
+/**
+ * Build and cache every template up front (e.g. behind a loading screen) so that later create*
+ * calls are instant clones. Yields to the event loop between items. Resolves to elapsed ms.
+ * Shader compilation still happens on first render (use renderer.compileAsync to pre-warm).
+ */
+export async function preloadObjectMeshes({ throwables = THROWABLE_TYPES, weapons = WEAPON_TYPES, shards = true, flash = true } = {}) {
+  const t0 = performance.now();
+  const step = () => new Promise((r) => setTimeout(r, 0));
+  for (const t of throwables) {
+    createThrowableMesh(t);
+    await step();
+  }
+  for (const w of weapons) {
+    createWeaponModel(w);
+    createCasingMesh(w);
+    await step();
+  }
+  if (shards) for (const k of SHARD_KINDS) for (let v = 0; v < 4; v++) createShardMesh(k, v);
+  if (flash) createMuzzleFlashMesh();
+  return performance.now() - t0;
+}
+
+/** Dispose every cached geometry, material and texture (meshes created earlier become invalid). */
+export function disposeObjectMeshes() {
+  const seen = new Set();
+  const visit = (v, depth = 0) => {
+    if (!v || typeof v !== 'object' || seen.has(v) || depth > 3) return;
+    seen.add(v);
+    if (v.isBufferGeometry || v.isMaterial || v.isTexture) {
+      v.dispose();
+      return;
+    }
+    if (v.isObject3D) {
+      v.traverse((o) => {
+        if (o.geometry) visit(o.geometry, depth + 1);
+        const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+        for (const m of mats) visit(m, depth + 1);
+      });
+      return;
+    }
+    for (const x of Object.values(v)) visit(x, depth + 1);
+  };
+  for (const v of _cache.values()) visit(v);
+  _cache.clear();
 }

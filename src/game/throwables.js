@@ -16,7 +16,7 @@ export const THROWABLES = {
   brick: {
     label: 'Brick', mass: 2.3, speed: 15, spin: [6, 2, 0], material: 'brick',
     friction: 0.8, restitution: 0.08, drag: 1.0 * 0.007,
-    shapes: [{ type: 'box', half: [0.1075, 0.0325, 0.05125], r: 0.003 }],
+    shapes: [{ type: 'box', half: [0.1045, 0.0295, 0.04825], r: 0.003 }],
   },
   bowlingBall: {
     label: 'Bowling ball', mass: 6.4, speed: 11, spin: [0, 0, 0], material: 'bowling',
@@ -43,8 +43,11 @@ export const THROWABLES = {
     friction: 0.4, restitution: 0.15, drag: 1.0 * 0.03,
     shapes: [
       { type: 'capsule', r: 0.017, hh: 0.13, axis: 'x' },
-      { type: 'box', half: [0.016, 0.064, 0.064], r: 0.026, pos: [0.15, 0, 0], density: 6 },
-      { type: 'box', half: [0.016, 0.064, 0.064], r: 0.026, pos: [-0.15, 0, 0], density: 6 },
+      // round iron plates (r 0.09): two rounded squares at 45 degrees approximate the disc
+      { type: 'box', half: [0.008, 0.052, 0.052], r: 0.026, pos: [0.15, 0, 0], density: 6 },
+      { type: 'box', half: [0.008, 0.052, 0.052], r: 0.026, pos: [0.15, 0, 0], rotX: Math.PI / 4, density: 6 },
+      { type: 'box', half: [0.008, 0.052, 0.052], r: 0.026, pos: [-0.15, 0, 0], density: 6 },
+      { type: 'box', half: [0.008, 0.052, 0.052], r: 0.026, pos: [-0.15, 0, 0], rotX: Math.PI / 4, density: 6 },
     ],
   },
   watermelon: {
@@ -75,6 +78,7 @@ export function createThrowableBody(type) {
       if (sd.axis === 'x') s.localRot.setFromAxisAngle(new Vec3(0, 0, 1), Math.PI / 2);
     } else s = Shape.box(sd.half[0], sd.half[1], sd.half[2], { ...opts, radius: sd.r });
     if (sd.pos) s.localPos.set(sd.pos[0], sd.pos[1], sd.pos[2]);
+    if (sd.rotX) s.localRot.setFromAxisAngle(new Vec3(1, 0, 0), sd.rotX);
     if (sd.density) s.densityScale = sd.density;
     s.tag = type;
     body.addShape(s);

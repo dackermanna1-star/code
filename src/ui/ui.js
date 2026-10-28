@@ -238,7 +238,13 @@ export class UI {
     if (person.injury.bleedRate - v.externalRate > 3) flags.push(['bad', 'Internal haemorrhage']);
     const holding = person.ctl.holding;
     if (holding.L || holding.R) flags.push(['info', 'Applying pressure to wound']);
-    if (person.ctl.alive && person.ctl.conscious) flags.push(['info', `Behaviour: ${person.ctl.mode}`]);
+    if (person.ctl.alive && person.ctl.conscious) {
+      const c = person.ctl;
+      let b = { balance: c.step ? 'stepping to recover' : 'standing', falling: 'falling, bracing', ground: 'down', getup: 'getting up' }[c.mode] || c.mode;
+      if (c.threat && c.threat.tti < 0.65) b = 'flinching from incoming object';
+      else if (c.mode === 'ground' && c.pain > 0.6) b = 'down, in pain';
+      flags.push(['info', `Behaviour: ${b}`]);
+    }
     q('.flags').innerHTML = flags.map(([c, t]) => `<span class="flag ${c}">${t}</span>`).join('');
     const list = q('.injuries');
     const inj = v.injuries;

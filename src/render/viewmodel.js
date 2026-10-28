@@ -79,6 +79,7 @@ export class ViewModel {
   }
 
   fire(recoil = 1) {
+    this.action = 1; // drives the slide / pump / cylinder / bolt animation
     this.kickV += 0.9 * recoil;
     this.pitchV += 7 * recoil;
     if (this.flash) {
@@ -98,6 +99,7 @@ export class ViewModel {
     if (ej && typeof this.factory.createCasingMesh === 'function' && this.type !== 'revolver') {
       const c = this.factory.createCasingMesh(this.type);
       ej.getWorldPosition(c.position);
+      this.root.getWorldQuaternion(c.quaternion);
       this.scene.add(c);
       const v = new THREE.Vector3(1.2 + Math.random() * 0.6, 1.4 + Math.random() * 0.5, 0.3 * (Math.random() - 0.5));
       this.casings.push({ m: c, v, w: new THREE.Vector3(20 * Math.random(), 30, 10 * Math.random()), t: 0 });
@@ -129,6 +131,7 @@ export class ViewModel {
     const m = new THREE.Matrix4().lookAt(this.root.position, target, new THREE.Vector3(0, 1, 0));
     this.root.quaternion.setFromRotationMatrix(m);
     this.root.rotateX(this.pitch * 0.05);
+    this.animateAction(dt);
     if (this.flashT > 0) {
       this.flashT -= dt;
       if (this.flashT <= 0 && this.flash) {
@@ -148,6 +151,35 @@ export class ViewModel {
         this.casings.splice(i, 1);
       }
     }
+  }
+
+  /** Mechanical cycling after a shot: slide blow-back, pump stroke, cylinder index, bolt throw. */
+  animateAction(dt) {
+    const m = this.current;
+    if (!m.userData.parts) {
+      const parts = {};
+      for (const n of ['slide', 'pump', 'cylinder', 'bolt']) {
+        const o = m.getObjectByName(n);
+        if (o) parts[n] = { o, pos: o.position.clone(), rot: o.rotation.clone() };
+      }
+      m.userData.parts = parts;
+      m.userData.cyl = 0;
+    }
+    const P = m.userData.parts;
+    const a = this.action || 0;
+    // fast stroke back, slower return
+    const t = 1 - a;
+    const stroke = t < 0.25 ? t / 0.25 : Math.max(0, 1 - (t - 0.25) / 0.75);
+    const speed = { pistol: 9, smg: 14, rifle: 12, shotgun: 2.2, sniper: 1.6, revolver: 6 }[this.type] || 6;
+    this.action = Math.max(0, a - dt * speed);
+    if (P.slide) P.slide.o.position.z = P.slide.pos.z + 0.028 * (a > 0 ? stroke : 0);
+    if (P.pump) P.pump.o.position.z = P.pump.pos.z + 0.09 * (a > 0 ? stroke : 0);
+    if (P.bolt) P.bolt.o.rotation.z = P.bolt.rot.z + 1.2 * (a > 0 ? Math.min(1, stroke * 1.5) : 0);
+    if (P.cylinder) {
+      if (a > 0 && this._lastA !== undefined && this._lastA === 1) m.userData.cyl += Math.PI / 3;
+      P.cylinder.o.rotation.z += (P.cylinder.rot.z + m.userData.cyl - P.cylinder.o.rotation.z) * Math.min(1, dt * 25);
+    }
+    this._lastA = a;
   }
 
   render(renderer) {

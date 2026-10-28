@@ -521,7 +521,8 @@ export class InjurySystem {
       energy: 0,
     });
     this.addPain(PAIN_BY_SEGMENT[k] * (0.1 + 0.9 * sev), name);
-    this.muscle[name] = clamp((this.muscle[name] || 0) + 0.12 * sev, 0, 1);
+    // contusions weaken a muscle but do not stack up like torn tissue
+    this.muscle[name] = clamp(Math.max(this.muscle[name] || 0, 0.3 * sev), 0, 1);
     const result = { F, fracture: null };
     if (F > T.bruise * 1.6) this.log(`Blunt trauma, ${where} (${(F / 1000).toFixed(1)} kN)`, sev > 0.5 ? 2 : 1);
     // fractures
@@ -564,7 +565,7 @@ export class InjurySystem {
       if (F > 16000) {
         this.kill('massive head trauma');
       } else if (this.rng() < pKO) {
-        this.knockOut(4 + 30 * clamp((F - 3000) / 6000, 0, 1) + 10 * this.rng(), clamp(F / 8000, 0.3, 1));
+        this.knockOut(3 + 18 * clamp((F - 3000) / 6000, 0, 1) + 5 * this.rng(), clamp(F / 8000, 0.3, 1));
       }
       if (F > 2500) this.log(`  concussion`, 2);
     }
@@ -706,7 +707,8 @@ export class InjurySystem {
     const pelvisFx = this.fractures.some((f) => f.label === 'pelvis') ? 0.3 : 1;
     for (const s of ['L', 'R']) {
       const muscle = 1 - 0.55 * m('thigh' + s) - 0.35 * m('shin' + s) - 0.2 * m('foot' + s) - 0.25 * m('pelvis');
-      const limbPain = clamp(((this.limbPain['thigh' + s] || 0) + (this.limbPain['shin' + s] || 0) + (this.limbPain['foot' + s] || 0)) * 0.25, 0, 0.5);
+      // pain inhibits the muscles a little (fractures and torn muscle are modelled separately)
+      const limbPain = clamp(((this.limbPain['thigh' + s] || 0) + (this.limbPain['shin' + s] || 0) + (this.limbPain['foot' + s] || 0)) * 0.12, 0, 0.25);
       ctl.legStrength[s] = clamp(muscle * fracLeg(s) * pelvisFx * P.legs * (1 - 0.85 * weak) * this.buckle[s] * (1 - limbPain), 0, 1);
       const am = 1 - 0.5 * m('upperArm' + s) - 0.4 * m('forearm' + s);
       ctl.armStrength[s] = clamp(am * fracArm(s) * (s === 'L' ? P.armsL : P.armsR) * (1 - 0.7 * weak) * this.buckle.arms[s], 0, 1);
