@@ -83,7 +83,23 @@ export class BeltRenderer {
     const rng = new Rng(belt.seed);
     const n = belt.count;
     const e1 = new Float32Array(n * 4), e2 = new Float32Array(n * 4);
+    const tro = belt.trojanOf?.orbit;
     for (let i = 0; i < n; i++) {
+      if (tro) {
+        // tadpole orbits: same a (± libration width), the planet's plane, and a
+        // mean longitude leading/trailing by 60° with ~±25° libration
+        const L = (tro.node + tro.peri + tro.M0) + (rng.chance(0.55) ? 1 : -1) * Math.PI / 3 + rng.normal(0, 0.22);
+        e1[i * 4] = tro.a * (1 + rng.normal(0, 0.015));
+        e1[i * 4 + 1] = Math.min(0.25, Math.abs(rng.normal(0, 0.06)));
+        e1[i * 4 + 2] = Math.abs(rng.normal(tro.i, belt.thickness * 0.5));
+        e1[i * 4 + 3] = rng.range(0, Math.PI * 2);
+        e2[i * 4] = rng.range(0, Math.PI * 2);
+        // mean anomaly from the mean longitude (λ = Ω + ω + M), at the planet's epoch
+        e2[i * 4 + 1] = L - e1[i * 4 + 3] - e2[i * 4] - Math.sqrt(tro.mu / Math.pow(tro.a, 3)) * tro.epoch;
+        e2[i * 4 + 2] = 2000 * Math.pow(rng.next(), -0.8);
+        e2[i * 4 + 3] = belt.icy ? rng.range(0.05, 0.12) : rng.range(0.04, 0.08);
+        continue;
+      }
       // radial distribution with Kirkwood-like gaps
       let a: number;
       do a = rng.range(belt.inner, belt.outer);

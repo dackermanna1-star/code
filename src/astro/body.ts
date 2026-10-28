@@ -97,6 +97,8 @@ export interface BeltInfo {
   count: number;         // particles to render
   icy: boolean;
   seed: number;
+  /** Trojan swarms: co-orbital with this planet, librating around its L4/L5 points */
+  trojanOf?: Body;
 }
 
 /** A gravitationally bound system of bodies around a barycentre. */

@@ -213,6 +213,19 @@ function describeSystemRef(r: SystemRef, distance: number, scanned: boolean): De
   const rows: [string, string][] = [['Distance', formatDistance(distance)]];
   let subtitle = 'star system';
   let note = '';
+  if (r.rogue) {
+    const me = r.rogue.mass / EARTH_MASS;
+    subtitle = 'rogue planet (infrared detection)';
+    rows.push(['Type', me > 60 ? 'free-floating gas giant' : me > 12 ? 'free-floating ice giant' : 'free-floating terrestrial world']);
+    rows.push(['Mass (est.)', massStr(r.rogue.mass)]);
+    rows.push(['Temperature (est.)', me > 60 ? '~80–120 K' : '~30–50 K']);
+    rows.push(['Host star', 'none — ejected during planet formation']);
+    return {
+      title: r.name, subtitle, provenance: 'procedural',
+      provenanceNote: 'Procedural free-floating planet, placed with the local stellar density (≈0.3 per star). Visible only in thermal infrared.',
+      sections: [{ title: 'Rogue planet', rows }], needsScan: false,
+    };
+  }
   if (r.known) {
     const e = KNOWN_STARS.find((k) => r.id === `MW/known/${k.id}`);
     if (e) {

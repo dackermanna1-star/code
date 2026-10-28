@@ -205,6 +205,10 @@ export function generateSystem(spec: SystemSpec): StarSystem {
         orbit(pr, pl.a, e, inc, G * (h.mass + pl.mass)),
         { period: rotP, tilt, tiltAzimuth: pr.range(0, Math.PI * 2), phase0: pr.range(0, 6.28), locked: phys.tidallyLocked },
         undefined, phys);
+      // Jupiter-like giants collect Trojan swarms at L4/L5
+      if (phys.type === 'gas-giant' && e < 0.15 && pr.chance(0.6)) {
+        belts.push({ name: `${name} Trojans`, parent: h.body, inner: pl.a, outer: pl.a, thickness: 12 * DEG, count: 4000, icy: pl.a > snow, seed: pr.int(0, 1e9), trojanOf: planet });
+      }
       // ---- moons
       const isGiant = phys.type === 'gas-giant' || phys.type === 'ice-giant';
       let nm = 0;

@@ -167,3 +167,31 @@ describe('procedural systems', () => {
     }
   });
 });
+
+describe('Trojans', () => {
+  it('cluster around Jupiter’s L4 and L5 points', async () => {
+    const { BeltRenderer } = await import('../../src/render/belts');
+    const sys = buildSolarSystem(new UPos(), { x: 0, y: 0, z: 0, w: 1 });
+    const belt = sys.belts.find((b) => b.trojanOf)!;
+    const jup = belt.trojanOf!;
+    const br = new BeltRenderer(belt, () => null as never);
+    const e1 = br.points.geometry.getAttribute('el1').array as Float32Array;
+    const e2 = br.points.geometry.getAttribute('el2').array as Float32Array;
+    const t = 3e8;
+    const pj = new Vector3();
+    orbitState(jup.orbit!, t, pj);
+    const lj = Math.atan2(-pj.z, pj.x);
+    let l4 = 0, l5 = 0;
+    const p = new Vector3();
+    for (let i = 0; i < 400; i++) {
+      // same convention as the shader: M = M0 + n·t (epoch folded into M0)
+      orbitState({ a: e1[i * 4], e: e1[i * 4 + 1], i: e1[i * 4 + 2], node: e1[i * 4 + 3], peri: e2[i * 4], M0: e2[i * 4 + 1], epoch: 0, mu: jup.orbit!.mu }, t, p);
+      let d = Math.atan2(-p.z, p.x) - lj;
+      d = Math.atan2(Math.sin(d), Math.cos(d)) * 180 / Math.PI;
+      if (Math.abs(d - 60) < 35) l4++;
+      else if (Math.abs(d + 60) < 35) l5++;
+    }
+    expect(l4 + l5).toBeGreaterThan(330);
+    expect(Math.min(l4, l5)).toBeGreaterThan(100);
+  });
+});

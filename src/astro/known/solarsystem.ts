@@ -217,6 +217,7 @@ export function buildSolarSystem(upos: UPos, systemQ: { x: number; y: number; z:
   sys.belts = [
     { name: 'Main asteroid belt', parent: sun, inner: 2.1 * AU, outer: 3.3 * AU, thickness: 10 * DEG, count: 15000, icy: false, seed: 1801 },
     { name: 'Kuiper belt', parent: sun, inner: 30 * AU, outer: 50 * AU, thickness: 12 * DEG, count: 15000, icy: true, seed: 1992 },
+    { name: 'Jupiter Trojans', parent: sun, inner: 5.2 * AU, outer: 5.2 * AU, thickness: 15 * DEG, count: 5000, icy: false, seed: 1906, trojanOf: byId.get('jupiter') },
   ];
   return sys;
 }

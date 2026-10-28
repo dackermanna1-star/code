@@ -213,3 +213,22 @@ describe('cosmic events', () => {
     expect(eventLumV(e, e.t0 + 3 * 365 * 86400)).toBeLessThan(peak * 1e-2);
   });
 });
+
+describe('rogue planets', () => {
+  it('are deterministic, follow stellar density and rebuild from their id', async () => {
+    const { cellRogues } = await import('../../src/astro/rogues');
+    const cosmos = new Cosmos(20261027, true);
+    const g = cosmos.universe.home;
+    const near = [] as ReturnType<typeof cellRogues>;
+    for (let i = 0; i < 4; i++) near.push(...cellRogues(g, -650 + i, 0, 2));
+    const again = [] as ReturnType<typeof cellRogues>;
+    for (let i = 0; i < 4; i++) again.push(...cellRogues(g, -650 + i, 0, 2));
+    expect(near.map((r) => r.id + r.mass)).toEqual(again.map((r) => r.id + r.mass));
+    expect(near.length).toBeGreaterThan(10); // ~0.3 per star at 0.004 stars/ly³ in 4×(40 ly)³
+    const ref = cosmos.refById(near[0].id)!;
+    expect(ref.rogue?.name).toBe(near[0].name);
+    const sys = ref.build();
+    expect(sys.stars.length).toBe(0);
+    expect(sys.root.planet!.classLabel.startsWith('Rogue')).toBe(true);
+  });
+});

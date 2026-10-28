@@ -114,6 +114,14 @@ export function pick(world: World, cosmos: Cosmos, r: SceneRenderer, sx: number,
       consider(rel, 0, flux, () => systemTarget(cosmos.refFromStar(st)));
     }
   }
+  // rogue planets (infrared detections within a few light-years)
+  if (g) {
+    for (const rg of cosmos.rogues) {
+      if (rg.id === cosmos.activeRef?.id) continue;
+      const rel = new THREE.Vector3().copy(rg.local).sub(cosmos.camG).multiplyScalar(LY).applyQuaternion(g.q);
+      consider(rel, 0, 1e-12, () => systemTarget(cosmos.refFromRogue(rg)));
+    }
+  }
   // nebulae (resolved discs only)
   if (g) {
     for (const n of cosmos.nebulae) {

@@ -263,7 +263,7 @@ export class App {
       const planets = sys.bodies.filter((b) => b.kind === 'planet').length;
       const d = this.discoveries.discover({
         id: ref.id, name: ref.name, kind: 'system',
-        subtitle: `${primary?.star?.spectralType ?? '?'} · ${planets} planet${planets === 1 ? '' : 's'}${sys.stars.length > 1 ? ` · ${sys.stars.length} stars` : ''}`,
+        subtitle: ref.rogue ? 'rogue planet' : `${primary?.star?.spectralType ?? '?'} · ${planets} planet${planets === 1 ? '' : 's'}${sys.stars.length > 1 ? ` · ${sys.stars.length} stars` : ''}`,
         systemId: ref.id, place: this.cosmos.current?.name ?? '', simTime: this.world.time,
         location: captureLocation(this.world, this.cosmos),
       });

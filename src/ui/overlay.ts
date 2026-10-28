@@ -132,6 +132,7 @@ export class Overlay {
     if (s.showLabels) {
       if (sys) this.drawBodyLabels(s, sys);
       this.drawTransientLabels(s);
+      this.drawRogueLabels(s);
       this.drawStarLabels(s);
       this.drawNebulaLabels(s);
       this.drawGalaxyLabels(s);
@@ -315,6 +316,22 @@ export class Overlay {
       const p = this.project(rel, scr);
       if (!p || this.occluded(p.x, p.y, rel.length())) continue;
       this.label(p.x, p.y, b.name, 'rgba(220,228,240,0.7)', 'none', 5);
+    }
+  }
+
+  private drawRogueLabels(s: OverlayState) {
+    const cosmos = s.cosmos;
+    const g = cosmos.current;
+    if (!g) return;
+    const scr = { x: 0, y: 0, depth: 0 };
+    for (const rg of cosmos.rogues) {
+      if (rg.id === cosmos.activeRef?.id) continue;
+      const relLy = rg.local.clone().sub(cosmos.camG);
+      if (relLy.length() > 3) continue;
+      const rel = relLy.multiplyScalar(LY).applyQuaternion(g.q);
+      const p = this.project(rel, scr);
+      if (!p || this.occluded(p.x, p.y, rel.length())) continue;
+      this.label(p.x, p.y, `${rg.name} · rogue planet (IR)`, 'rgba(200,150,255,0.75)', 'ring', 4);
     }
   }
 

@@ -239,6 +239,20 @@ export class StarMap {
         this.lines.push({ pts, color: pri === 3 ? 'rgba(180,190,210,0.18)' : b.kind === 'comet' ? 'rgba(150,230,255,0.25)' : 'rgba(124,196,255,0.32)' });
       }
     }
+    // Oort cloud: an inferred, far too sparse to see, spherical reservoir of comets
+    if (sys.bodies.some((b) => b.kind === 'comet') && sys.stars.length) {
+      for (const r of [2000, 50000]) {
+        for (const plane of [0, 1, 2]) {
+          const pts: number[] = [];
+          for (let i = 0; i <= 96; i++) {
+            const a = (i / 96) * Math.PI * 2, c = Math.cos(a) * r, d = Math.sin(a) * r;
+            pts.push(plane === 0 ? c : plane === 1 ? c : 0, plane === 0 ? 0 : plane === 1 ? d : c, plane === 0 ? d : plane === 1 ? 0 : d);
+          }
+          this.lines.push({ pts, color: 'rgba(150,200,255,0.06)' });
+        }
+      }
+      this.points.push({ x: 0, y: 50000, z: 0, size: 0, color: '#9cc', label: 'Oort cloud (inferred, 2 000–100 000 AU)', pri: 2 });
+    }
     for (const belt of sys.belts) {
       const pts: number[] = [];
       for (const r of [belt.inner, belt.outer]) {
@@ -269,6 +283,11 @@ export class StarMap {
         color: st.remnant === 3 ? '#b080ff' : tempCss(st.temp, st.remnant === 1 ? 0.7 : 0.9), label, pri: 5,
         target: () => systemTarget(s.cosmos.refFromStar(st)), id: `${g.id}/${st.level}:${st.ix}:${st.iy}:${st.iz}:${st.index}`,
       });
+    }
+    for (const rg of s.cosmos.rogues) {
+      const d = rg.local.clone().sub(c);
+      this.points.push({ x: d.x, y: d.y, z: d.z, size: 1.4, color: 'rgba(190,140,255,0.8)', label: d.length() < 4 ? `${rg.name} (rogue)` : undefined, pri: 4,
+        target: () => systemTarget(s.cosmos.refFromRogue(rg)), id: rg.id });
     }
     for (const k of s.cosmos.knownSystems) {
       if (k.galaxyId !== g.id) continue;

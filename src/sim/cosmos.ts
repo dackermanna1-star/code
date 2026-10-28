@@ -22,6 +22,7 @@ import { eclipticToGalaxyQuat, radecToGalaxyDir } from '../astro/known/coords';
 import { blackbodyRGB } from '../astro/stellar';
 import { visualEfficacy } from '../astro/photometry';
 import { knownNebulae, nebulaeAround, type Nebula } from '../astro/nebulae';
+import { buildRogueSystem, cellRogues, roguesAround, type Rogue } from '../astro/rogues';
 
 export interface SystemRef {
   id: string;
@@ -37,6 +38,8 @@ export interface SystemRef {
   known?: boolean;
   /** stellar parameters of the primary (procedural stars, before the system is generated) */
   star?: { lum: number; temp: number; mass: number; age: number; remnant: number };
+  /** free-floating planet (no star) */
+  rogue?: Rogue;
 }
 
 export class Cosmos {
@@ -55,6 +58,10 @@ export class Cosmos {
   /** nebulae (catalogued + procedural) around the camera in the current galaxy */
   nebulae: Nebula[] = [];
   private nebQuery = new Vector3(1e30, 0, 0);
+  /** rogue planets within a few light-years */
+  rogues: Rogue[] = [];
+  private rogueQuery = new Vector3(1e30, 0, 0);
+  private rogueGalaxy: string | null = null;
   private nebGalaxy: string | null = null;
 
   constructor(seed: number, knownLocalGroup: boolean) {
@@ -112,10 +119,23 @@ export class Cosmos {
     return [{ x: s.x, y: s.y, z: s.z, r: 20 }];
   }
 
-  /** Rebuild a system reference from its id (catalogued or procedural star). */
+  refFromRogue(r: Rogue): SystemRef {
+    const g = this.universe.galaxyById(r.galaxyId)!;
+    const upos = galaxyToUPos(g, r.local.x, r.local.y, r.local.z);
+    return { id: r.id, name: r.name, galaxyId: r.galaxyId, upos, local: r.local.clone(), lumV: 0, color: [0, 0, 0], rogue: r, build: () => buildRogueSystem(r, upos, this.lifeFrequency) };
+  }
+
+  /** Rebuild a system reference from its id (catalogued or procedural star, or rogue planet). */
   refById(id: string): SystemRef | null {
     const k = this.knownSystems.find((r) => r.id === id);
     if (k) return k;
+    const rm = /^(.+)\/rogue\/(-?\d+):(-?\d+):(-?\d+):(\d+)$/.exec(id);
+    if (rm) {
+      const g = this.universe.galaxyById(rm[1]);
+      if (!g) return null;
+      const r = cellRogues(g, +rm[2], +rm[3], +rm[4], this.exclusionsFor(g)).find((x) => x.id === id);
+      return r ? this.refFromRogue(r) : null;
+    }
     const slash = id.indexOf('/');
     if (slash < 0) return null;
     const g = this.universe.galaxyById(id.slice(0, slash));
@@ -154,6 +174,15 @@ export class Cosmos {
       field.setGalaxy(cur, cur ? this.exclusionsFor(cur) : []);
     }
     if (cur) uposToGalaxy(cur, cam, this.camG);
+    // rogue planets near the camera (re-queried after moving half a light-year)
+    if (!cur) {
+      this.rogues = [];
+      this.rogueGalaxy = null;
+    } else if (cur.id !== this.rogueGalaxy || this.camG.distanceTo(this.rogueQuery) > 0.5) {
+      this.rogues = roguesAround(cur, this.camG, 6, this.exclusionsFor(cur));
+      this.rogueQuery.copy(this.camG);
+      this.rogueGalaxy = cur.id;
+    }
     // nebulae near the camera (re-queried after moving a few hundred ly)
     if (!cur) {
       this.nebulae = [];
@@ -178,8 +207,22 @@ export class Cosmos {
         const sfx = `${n.star.level}:${n.star.ix}:${n.star.iy}:${n.star.iz}:${n.star.index}`;
         cand = this.activeRef && this.activeRef.id.endsWith('/' + sfx) ? this.activeRef : this.refFromStar(n.star);
       }
+      // a rogue planet takes over very close to it (~600 AU), and is kept within ~1900 AU
+      let rogue: Rogue | null = null, rd = Infinity;
+      for (const r of this.rogues) {
+        const d = r.local.distanceTo(this.camG);
+        if (d < rd) { rd = d; rogue = r; }
+      }
       const act = this.activeRef;
       const actDist = act ? act.local.distanceTo(this.camG) : Infinity;
+      if (act?.rogue) {
+        if (actDist > 0.03) this.activate(world, null);
+        return;
+      }
+      if (rogue && rd < 0.01) {
+        this.activate(world, this.refFromRogue(rogue));
+        return;
+      }
       if (act && actDist < 1.0 && (!cand || cand.id === act.id || cd > actDist * 0.5)) {
         // keep the current system (hysteresis)
       } else if (cand && cd < 0.5) {
