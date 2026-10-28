@@ -58,6 +58,7 @@ export class Render implements RenderSystem {
   private quality: QualityPreset;
   private powered = true;
   private disposed = false;
+  private unsubscribeSettings: (() => void) | null = null;
 
   constructor(parts: {
     engine: Engine;
@@ -90,7 +91,8 @@ export class Render implements RenderSystem {
     this.atmosphere = parts.atmosphere;
     this.environment = parts.environment;
     this.quality = parts.settings.quality;
-    parts.settings.onChange((d) => this.onSettings(d));
+    const off = parts.settings.onChange((d) => this.onSettings(d)) as unknown;
+    this.unsubscribeSettings = typeof off === "function" ? (off as () => void) : null;
   }
 
   // ---------------------------------------------------------------- RenderSystem
@@ -228,6 +230,8 @@ export class Render implements RenderSystem {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.unsubscribeSettings?.();
+    this.unsubscribeSettings = null;
     this.environment.dispose();
     this.atmosphere?.dispose();
     this.exterior?.dispose();

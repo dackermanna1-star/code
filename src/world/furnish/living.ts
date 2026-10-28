@@ -303,7 +303,7 @@ export function furnishLivingItems(): LivingItem[] {
   L.rest("controller1", buildGameController({ seed: 3143, tint: 0xe8e8ea }), ctX - 0.18, ctZ - 0.3, yawQ(70), ["coffeeTable"]);
 
   // armchair near the window, facing the TV wall, with a pillow
-  const arm = L.floor("armchair", buildArmchair({ seed: 3150 }), 8.0, 0.76, -70);
+  const arm = L.floor("armchair", buildArmchair({ seed: 3150 }), 7.955, 0.76, -70);
   {
     const lay = seatLayout(ARMCHAIR_PARAMS);
     const def = buildThrowPillow({ seed: 3151, size: 0.4, tint: 0x5c6b5a });
@@ -312,7 +312,7 @@ export function furnishLivingItems(): LivingItem[] {
     const w = localToWorld(arm, 0, 0, lay.backZ1 + 0.006 + (loc.max.z - loc.min.z) / 2);
     L.rest("pillow2", def, w.x, w.z, qmul(arm.xf.q, qLocal), ["armchair"]);
   }
-  L.floor("fig", buildFiddleLeafFig({ seed: 3152 }), 8.8, 0.52, 15);
+  L.floor("fig", buildFiddleLeafFig({ seed: 3152 }), 8.82, 0.52, 15);
   L.floor("floorLamp", buildFloorLamp({ seed: 3153 }), 8.8, 1.07, -90);
 
   // ------------------------------------------------------------------ dining

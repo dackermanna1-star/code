@@ -1386,6 +1386,15 @@ export class Builder {
       }
       // Face axes alone give a lower bound of the separation: a cheap reject before the exact test.
       const gate = cross ? CROSS_ISLAND_TOL : Math.max(0.0005, 0.25 * Math.min(thin[i], thin[j]));
+      // The penetration depth never exceeds the bounds' overlap along any world axis.
+      const bi = boxes[i],
+        bj = boxes[j];
+      const boxDepth = Math.min(
+        Math.min(bi.max.x, bj.max.x) - Math.max(bi.min.x, bj.min.x),
+        Math.min(bi.max.y, bj.max.y) - Math.max(bi.min.y, bj.min.y),
+        Math.min(bi.max.z, bj.max.z) - Math.max(bi.min.z, bj.min.z),
+      );
+      if (boxDepth <= gate) continue;
       const c0 = polyContact(A.poly, B.poly, 0, true);
       if (!c0 || c0.sep > -gate) continue;
       const c = polyContact(A.poly, B.poly, 0);
