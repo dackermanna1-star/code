@@ -166,8 +166,12 @@ export interface RenderSystem {
   setPower(on: boolean): void;
   /** Camera shake (0..1 trauma) and full-screen impact flash. */
   shake(trauma: number): void;
+  /** Current camera shake offsets (metres / radians) for the player camera to apply this frame. */
+  getShake(): { pos: Vec3; rot: Vec3 };
   flash(intensity: number, color?: number): void;
   setPS2Mode(on: boolean): void;
+  /** Re-capture the reflection environment (call after the apartment is built). */
+  captureEnvironment(): void;
   applyQuality(q: QualityPreset): void;
   update(dt: number): void;
 }
@@ -338,6 +342,7 @@ export interface VfxSystem {
 export type Action =
   | "fire"
   | "alt"
+  | "grab"
   | "jump"
   | "crouch"
   | "sprint"
