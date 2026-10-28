@@ -127,7 +127,7 @@ export function buildTrackLight(opts: CeilingLightOpts & { len?: number; tilt?: 
   const railH = 0.02;
   const rail = b.box("rail", "aluminum", "aluminum", [0.03, railH, L], [0, -railH / 2, 0], { mass: 0.45, tint: 0x2a2a2c, tess: 0.08 });
   b.world(rail, "screw", 105, [0, 0, 0]);
-  const feed = b.box("feed", "plastic", "plastic", [0.05, 0.022, 0.09], [0, -railH - 0.011, 0], { tint: 0x2a2a2c });
+  const feed = b.box("feed", "plastic", "plastic", [0.05, 0.022, 0.09], [0, -railH - 0.011, 0.19 * L], { tint: 0x2a2a2c });
   b.clip(feed, rail, 30);
   // [position along the bar (fraction of L), tilt (deg, > 0 aims towards −Z)]
   const heads: Array<[number, number]> = [
@@ -210,13 +210,13 @@ export function buildSchoolhouse(opts: CeilingLightOpts = {}): AssemblyDef {
 
 /**
  * Utility batten (laundry): a porcelain lampholder (breakable ceramic base screwed to the box)
- * with a bare ST64 "Edison" bulb. ~0.35 kg.
+ * with a bare ST64 "Edison" bulb (the porcelain is hollow: mass overrides). ~0.35 kg.
  */
 export function buildBatten(opts: CeilingLightOpts = {}): AssemblyDef {
   const b = new Builder("battenLight", "Porcelain Batten Holder", "fixture", 15, opts.seed);
-  const base = b.cyl("holder", "ceramic", "ceramic_glaze", 0.055, 0.028, [0, -0.014, 0], { segments: 14, rTop: 0.058, tint: 0xf5f2ea });
+  const base = b.cyl("holder", "ceramic", "ceramic_glaze", 0.055, 0.028, [0, -0.014, 0], { segments: 14, rTop: 0.058, tint: 0xf5f2ea, mass: 0.2 });
   b.world(base, "screw", 60, [0, 0, 0]);
-  const neck = b.cyl("neck", "ceramic", "ceramic_glaze", 0.024, 0.035, [0, -0.028 - 0.0175, 0], { segments: 12, rTop: 0.03, tint: 0xf5f2ea });
+  const neck = b.cyl("neck", "ceramic", "ceramic_glaze", 0.024, 0.035, [0, -0.028 - 0.0175, 0], { segments: 12, rTop: 0.03, tint: 0xf5f2ea, mass: 0.07 });
   b.fuse(neck, base, 60);
   const lamp = bulb(b, "bulb", "st64", { color: K2700, intensity: 3.0, range: 5, ...opts.light }, [0, -0.063, 0], [180, 0, 0]);
   b.screw(lamp.cap, neck, 1, 10);

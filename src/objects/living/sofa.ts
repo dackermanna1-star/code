@@ -53,8 +53,8 @@ export function buildSofa(o: SofaOpts = {}): AssemblyDef {
   const tint = o.tint ?? 0x6f7d8c;
   const up = { tint }; // upholstered faces
   const xi = L / 2 - armW; // inner face of the arms
-  const railH = 0.16,
-    railT = 0.05;
+  const railH = 0.12,
+    railT = 0.045;
   const yr0 = legH,
     yr1 = legH + railH; // 0.12 .. 0.28
   const zF = D / 2,
@@ -68,7 +68,7 @@ export function buildSofa(o: SofaOpts = {}): AssemblyDef {
   const crossZ = (zF - railT + zB + backT + railT) / 2;
   const cross: string[] = [];
   for (const x of [-0.29 * (L / 2.1), 0.29 * (L / 2.1)]) {
-    const c = b.box(`rail_cross${cross.length}`, "softwood", "wood_pine", [0.04, 0.12, crossLen], [x, yr1 - 0.06, crossZ], { grain: "z" });
+    const c = b.box(`rail_cross${cross.length}`, "softwood", "wood_pine", [0.035, 0.1, crossLen], [x, yr1 - 0.05, crossZ], { grain: "z" });
     b.dowel(c, frontRail, 2, 40);
     b.dowel(c, backRail, 2, 40);
     cross.push(c);
@@ -88,7 +88,7 @@ export function buildSofa(o: SofaOpts = {}): AssemblyDef {
     const postW = Math.abs(xo - xin) - 2 * pnl;
     const pf = b.box(`${nm}_post_f`, "softwood", surf, [postW, postY1 - yr0, railT], [xMid, (yr0 + postY1) / 2, zF - railT / 2], { ...up, grain: "y" });
     const pb = b.box(`${nm}_post_b`, "softwood", surf, [postW, H - 0.05 - yr0, railT], [xMid, (yr0 + H - 0.05) / 2, zB + railT / 2], { ...up, grain: "y" });
-    const roll = b.pillow(`${nm}_roll`, "foam", surf, [armW, 0.08, D], 0.35, [xMid, armTop - 0.046, 0], { tint, mass: 1.2 });
+    const roll = b.pillow(`${nm}_roll`, "foam", surf, [armW, 0.08, D - railT], 0.35, [xMid, armTop - 0.046, railT / 2], { tint, mass: 1.2 });
     for (const post of [pf, pb]) {
       b.nail(outer, post, 6, 8); // staples
     }

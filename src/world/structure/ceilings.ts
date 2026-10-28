@@ -9,7 +9,7 @@ import type { Builder, PartOpts } from "../../objects/lib/builder.ts";
 import { roomById, type RoomId } from "../plan.ts";
 import { CEILING_BOARD_T, CEILING_SLAB_Y, CEILING_Y, FURRING_H, FURRING_SPACING, FURRING_W } from "./levels.ts";
 import { ceilingCoverage } from "./layout.ts";
-import { PAL, bondAt, fasteners, mid, newBuilder, worldAt } from "./common.ts";
+import { Fixings, PAL, bondAt, fasteners, mid, newBuilder, worldAt } from "./common.ts";
 import { clipToUnion, rectArea, rectsBounds, splitEven, type Rect2 } from "./rects.ts";
 import type { MaterialId } from "../../destruction/model/materials.ts";
 import type { SurfaceName } from "../../render/surfaces.ts";
@@ -55,7 +55,9 @@ export function buildCeiling(id: RoomId): AssemblyDef {
         boxW(b, name, "steelSheet", "metal_raw", [xs[i], xs[i + 1]], [CH_Y0, CH_Y1], [p.z0, p.z1], { tint: PAL.galvanised, mass: CHANNEL_KG_M * len, tess: 0, tags: ["furring"] });
         // direct-fix hangers to the slab every ~1.2 m
         const hs = splitEven(xs[i], xs[i + 1], 1.2);
-        for (let h = 0; h + 1 < hs.length; h++) worldAt(b, name, "screw", 40, [mid(hs[h], hs[h + 1]), CH_Y1, zc]);
+        const fx = new Fixings();
+        for (let h = 0; h + 1 < hs.length; h++) fx.world(name, "screw", 40, [mid(hs[h], hs[h + 1]), CH_Y1, zc]);
+        fx.flush(b);
         channels.push({ name, x0: xs[i], x1: xs[i + 1], z0: p.z0, z1: p.z1 });
       }
     }

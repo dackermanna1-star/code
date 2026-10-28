@@ -69,6 +69,39 @@ export function worldAt(b: Builder, a: string, kind: BondKind, strength: number,
   b.world(a, kind, Math.max(0.5, strength), at);
 }
 
+/**
+ * Accumulates several fasteners of one kind on one part (pins every 0.6 m, hangers, shim nails)
+ * into ONE bond with the summed strength anchored at the fasteners' centroid (the builder flags
+ * duplicate same-kind bonds per pair). Call flush() inside the same builder frame.
+ */
+export class Fixings {
+  private m = new Map<string, { a: string; b: string; kind: BondKind; s: number; x: number; y: number; z: number; n: number }>();
+
+  add(a: string, b: string, kind: BondKind, strength: number, at: V3): void {
+    const key = `${a}|${b}|${kind}`;
+    const e = this.m.get(key) ?? { a, b, kind, s: 0, x: 0, y: 0, z: 0, n: 0 };
+    e.s += strength;
+    e.x += at[0];
+    e.y += at[1];
+    e.z += at[2];
+    e.n++;
+    this.m.set(key, e);
+  }
+
+  world(a: string, kind: BondKind, strength: number, at: V3): void {
+    this.add(a, "world", kind, strength, at);
+  }
+
+  flush(bld: Builder): void {
+    for (const e of this.m.values()) {
+      const at: V3 = [e.x / e.n, e.y / e.n, e.z / e.n];
+      if (e.b === "world") bld.world(e.a, e.kind, Math.max(0.5, e.s), at);
+      else bld.bond(e.a, e.b, e.kind, { strength: Math.max(0.5, e.s), anchor: at });
+    }
+    this.m.clear();
+  }
+}
+
 /** A box placed in a local frame, remembered for overlap queries. */
 export interface LBox {
   name: string;

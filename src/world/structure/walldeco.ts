@@ -378,15 +378,12 @@ export function addPlate(ctx: FaceCtx, p: ElecPoint, u: number, y: number, box: 
       tint: 0xeeece6,
       tags: [tag, "electrical"],
     });
-    bondAt(b, front, plate, "press", 2, [u, y, side * (faceW + T)]);
+    bondAt(b, front, plate, "screw", 15, [u, y, side * (faceW + T)]);
   }
   b.feature({ type: "sparks", part: plate, chance: 0.5 });
   b.feature({ type: "sparks", part: front, chance: 0.8 });
   // fixings: to the box through the sheet (stud walls) or to the cast-in box in the concrete
-  if (box) {
-    bondAt(b, plate, box, "screw", 30, [u, y, side * (faceW - 0.006)]);
-    bondAt(b, front, box, "screw", p.kind === "switch" ? 12 : 30, [u, y, side * (faceW - 0.006)]);
-  }
+  if (box) bondAt(b, plate, box, "screw", 30, [u, y, side * (faceW - 0.006)]);
   for (const q of behind) bondAt(b, plate, q, "screw", 25, [u, y, side * (faceW - 0.006)]);
   for (const h of idx.overlapping(u - W / 2, u + W / 2, y - H / 2, y + H / 2, ctx.substrateRoles, 0.002)) {
     bondAt(b, plate, h.box.name, "friction", 4, [mid(h.ou[0], h.ou[1]), mid(h.oy[0], h.oy[1]), side * faceW]);

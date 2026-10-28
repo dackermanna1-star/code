@@ -35,14 +35,15 @@ export function buildTableLamp(o: TableLampOpts = {}): AssemblyDef {
       [0.078, 0.085],
       [0.032, 0.2],
     ],
-    thickness: 0.007,
+    thickness: 0.008,
     segments: 7,
     capBottom: true,
     tint: glaze,
     innerTint: 0xe8e0d0,
   });
   // ---- brass neck cap on the rim, threaded rod, harp saddle, socket
-  const cap = b.cyl("neck_cap", "copper", "copper", 0.034, 0.012, [0, 0.206, 0], { segments: 12, tint: PAL.brass });
+  // pressed brass parts are thin shells: mass overrides
+  const cap = b.cyl("neck_cap", "copper", "copper", 0.034, 0.012, [0, 0.206, 0], { segments: 12, tint: PAL.brass, mass: 0.12 });
   let rimBonds = 0;
   for (const tile of base) {
     const c = b.contact(cap, tile, 0.002);
@@ -55,7 +56,7 @@ export function buildTableLamp(o: TableLampOpts = {}): AssemblyDef {
   b.screw(rod, cap, 1, 30);
   const saddle = boxR(b, "saddle", "steel", "steel_brushed", [-0.062, 0.062], [0.272, 0.28], [-0.007, 0.007], { tess: 0 });
   b.screw(saddle, rod, 1, 25);
-  const socket = b.cyl("socket", "copper", "copper", 0.017, 0.04, [0, 0.3, 0], { segments: 12, tint: PAL.brass });
+  const socket = b.cyl("socket", "copper", "copper", 0.017, 0.04, [0, 0.3, 0], { segments: 12, tint: PAL.brass, mass: 0.08 });
   b.screw(socket, saddle, 1, 20);
   lightBulb(b, "bulb", { kind: "a19", socket: false, fixedTo: socket, color: 0xffc98f, intensity: 0.8, range: 4, on: o.on ?? true }, [0, 0.32, 0]);
   // ---- harp clipped into the saddle
@@ -141,8 +142,8 @@ function spotBulb(b: Builder, name: string, socketPart: string, pos: [number, nu
 }
 
 /**
- * Articulated desk lamp. Built pose: lower arm leaning 25° forward, upper arm reaching forward
- * 20° below horizontal, shade aimed 30° forward of straight down. Spring-balanced friction
+ * Articulated desk lamp. Built pose: lower arm leaning 15° forward, upper arm reaching forward
+ * 15° below horizontal, shade aimed 30° forward of straight down. Spring-balanced friction
  * hinges hold the pose (like the balancing springs of a real task lamp).
  */
 export function buildDeskLamp(o: DeskLampOpts = {}): AssemblyDef {
@@ -165,24 +166,26 @@ export function buildDeskLamp(o: DeskLampOpts = {}): AssemblyDef {
   const fwd = hingeAxis([0, 1, 0], [0, 0, 1]); // positive angle tips the arms forward
 
   // ---- lower arm: two flat bars + spreader, leaning forward 25°
-  const L1 = 0.3,
-    L2 = 0.3;
-  const a1 = (25 * Math.PI) / 180;
+  const L1 = 0.36,
+    L2 = 0.34;
+  const lean = 15;
+  const a1 = (lean * Math.PI) / 180;
   const elbow: [number, number, number] = [0, yS + L1 * Math.cos(a1), L1 * Math.sin(a1)];
   const mid1: [number, number, number] = [0, (yS + elbow[1]) / 2, elbow[2] / 2];
-  const arm1 = [-1, 1].map((sx) => b.box(sx < 0 ? "arm1_l" : "arm1_r", "steel", S, [0.004, L1, 0.012], [sx * 0.018, mid1[1], mid1[2]], { rot: [25, 0, 0], tint, tess: 0 }));
-  const sp1 = b.box("arm1_spreader", "steel", S, [0.032, 0.02, 0.012], mid1, { rot: [25, 0, 0], tint });
+  const arm1 = [-1, 1].map((sx) => b.box(sx < 0 ? "arm1_l" : "arm1_r", "steel", S, [0.004, L1, 0.012], [sx * 0.018, mid1[1], mid1[2]], { rot: [lean, 0, 0], tint, tess: 0 }));
+  const sp1 = b.box("arm1_spreader", "steel", S, [0.032, 0.02, 0.012], mid1, { rot: [lean, 0, 0], tint });
   for (const a of arm1) b.weld(a, sp1, 60);
   b.hinge(arm1[0], knuckle, { pivots: [[-0.018, yS, 0]], axis: [fwd.x, fwd.y, fwd.z], min: -40, max: 45, friction: 4, spring: 6, strength: 50, group: "lamp_shoulder" });
   b.hinge(arm1[1], knuckle, { pivots: [[0.018, yS, 0]], axis: [fwd.x, fwd.y, fwd.z], min: -40, max: 45, friction: 4, spring: 6, strength: 50, group: "lamp_shoulder" });
 
-  // ---- elbow knuckle + upper arm, 20° below horizontal
+  // ---- elbow knuckle + upper arm, 15° below horizontal
   const ek = boxR(b, "elbow", "steel", S, [-0.016, 0.016], [elbow[1] - 0.012, elbow[1] + 0.012], [elbow[2] - 0.012, elbow[2] + 0.012], { tint });
   b.hinge(ek, arm1, { pivots: [[-0.018, elbow[1], elbow[2]], [0.018, elbow[1], elbow[2]]], axis: [fwd.x, fwd.y, fwd.z], min: -60, max: 70, friction: 3, spring: 4, strength: 45 });
-  const a2 = (-20 * Math.PI) / 180;
+  const drop = 15;
+  const a2 = (-drop * Math.PI) / 180;
   const head: [number, number, number] = [0, elbow[1] + L2 * Math.sin(a2), elbow[2] + L2 * Math.cos(a2)];
   const mid2: [number, number, number] = [0, (elbow[1] + head[1]) / 2, (elbow[2] + head[2]) / 2];
-  const pitch2 = 90 + 20; // bar axis (+Y) rotated to point forward, 20° below horizontal
+  const pitch2 = 90 + drop; // bar axis (+Y) rotated to point forward, below horizontal
   const arm2 = [-1, 1].map((sx) => b.box(sx < 0 ? "arm2_l" : "arm2_r", "steel", S, [0.004, L2, 0.012], [sx * 0.018, mid2[1], mid2[2]], { rot: [pitch2, 0, 0], tint, tess: 0 }));
   for (const a of arm2) b.weld(a, ek, 70);
   const sp2 = b.box("arm2_spreader", "steel", S, [0.032, 0.02, 0.012], mid2, { rot: [pitch2, 0, 0], tint });
@@ -205,11 +208,10 @@ export function buildDeskLamp(o: DeskLampOpts = {}): AssemblyDef {
     shade = b.lathe("shade", "steelSheet", S, "metal_painted", {
       profile: [
         [0.022, 0.0],
-        [0.03, 0.03],
         [0.075, 0.14],
       ],
       thickness: 0.0008,
-      segments: 10,
+      segments: 8,
       capBottom: true,
       tint,
       innerTint: 0xf2f0ea,

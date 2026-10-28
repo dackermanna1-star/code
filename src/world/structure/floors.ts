@@ -20,7 +20,7 @@ import {
   roomFaces,
 } from "./levels.ts";
 import { floorCoverage, thresholds } from "./layout.ts";
-import { PAL, bondAt, mid, newBuilder, seedOf, worldAt } from "./common.ts";
+import { Fixings, PAL, bondAt, mid, newBuilder, seedOf, worldAt } from "./common.ts";
 import { clipToUnion, rectArea, rectsBounds, splitEven, type Rect2 } from "./rects.ts";
 
 const EPS = 1e-6;
@@ -246,9 +246,11 @@ function addCarpet(b: Builder, id: RoomId, cov: Rect2[]): void {
           [Math.abs(x[0] - faces.x0) < 0.01, x[0], mid(z[0], z[1])],
           [Math.abs(x[1] - faces.x1) < 0.01, x[1], mid(z[0], z[1])],
         ];
-        for (const [on, ex, ez] of edges) if (on) worldAt(b, name, "nail", 25, [ex, FLOOR_Y - CARPET_T, ez]);
-        if (Math.abs(z[0] - faces.z0) < 0.01) worldAt(b, name, "nail", 25, [mid(x[0], x[1]), FLOOR_Y - CARPET_T, z[0]]);
-        if (Math.abs(z[1] - faces.z1) < 0.01) worldAt(b, name, "nail", 25, [mid(x[0], x[1]), FLOOR_Y - CARPET_T, z[1]]);
+        const fx = new Fixings();
+        for (const [on, ex, ez] of edges) if (on) fx.world(name, "nail", 25, [ex, FLOOR_Y - CARPET_T, ez]);
+        if (Math.abs(z[0] - faces.z0) < 0.01) fx.world(name, "nail", 25, [mid(x[0], x[1]), FLOOR_Y - CARPET_T, z[0]]);
+        if (Math.abs(z[1] - faces.z1) < 0.01) fx.world(name, "nail", 25, [mid(x[0], x[1]), FLOOR_Y - CARPET_T, z[1]]);
+        fx.flush(b);
         pieces.push({ name, x0: x[0], x1: x[1], z0: z[0], z1: z[1], row: j });
       }
     }
@@ -265,12 +267,9 @@ function addThresholds(b: Builder, id: RoomId): void {
     const name = t.id;
     boxW(b, name, "hardwood", "wood_oak", [r.x0, r.x1], [SLAB_TOP_Y, FLOOR_Y], [r.z0, r.z1], { tint: 0xd9c3a3, grain: along, tags: ["threshold", "floor"] });
     const len = along === "x" ? r.x1 - r.x0 : r.z1 - r.z0;
+    // glued and nailed down every ~0.6 m (one bond with the summed strength)
     const n = Math.max(1, Math.round(len / 0.6));
-    for (let i = 0; i < n; i++) {
-      const f = (i + 0.5) / n;
-      const at: [number, number, number] = along === "x" ? [r.x0 + (r.x1 - r.x0) * f, SLAB_TOP_Y, mid(r.z0, r.z1)] : [mid(r.x0, r.x1), SLAB_TOP_Y, r.z0 + (r.z1 - r.z0) * f];
-      worldAt(b, name, "nail", 40, at);
-    }
+    worldAt(b, name, "nail", 40 * n, [mid(r.x0, r.x1), SLAB_TOP_Y, mid(r.z0, r.z1)]);
   }
 }
 

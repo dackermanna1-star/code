@@ -26,7 +26,7 @@ import {
 } from "./levels.ts";
 import { STUD_SPACING } from "../plan.ts";
 import { partitionFaceIntervals, runSideRoom, type PartitionRun, type WallFrame } from "./layout.ts";
-import { BoxIndex, PAL, bondAt, boxR, fasteners, mid, newBuilder, sheetFaces, worldAt, type Interval, type LBox, type V3 } from "./common.ts";
+import { BoxIndex, Fixings, PAL, bondAt, boxR, fasteners, mid, newBuilder, sheetFaces, worldAt, type Interval, type LBox, type V3 } from "./common.ts";
 import { intervalsSubtract, splitEven } from "./rects.ts";
 import { addBaseboards, addPlate, addWallTiles, plateFits, tileZonesOnFace, visibleIntervals, type FaceCtx, type FaceRect } from "./walldeco.ts";
 import { BOX_D, BOX_H, BOX_W, CABLE_KG_PER_M, CABLE_T, CABLE_W, ELECTRICAL, type ElecPoint } from "./services.ts";
@@ -87,6 +87,7 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
   const ctxOf = (s: number) => (s > 0 ? ctxP : ctxN);
 
   inFrame(b, run, () => {
+    const fix = new Fixings();
     // ================================================================ framing
     const plates: LBox[] = [];
     let pk = 0;
@@ -100,7 +101,7 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
         plates.push(box);
         // powder-actuated pins into the slab every ~0.6 m
         const pins = splitEven(cuts[i], cuts[i + 1], 0.6);
-        for (let k = 0; k + 1 < pins.length; k++) worldAt(b, name, "nail", 45, [mid(pins[k], pins[k + 1]), role === "plateB" ? y0 : y1, 0]);
+        for (let k = 0; k + 1 < pins.length; k++) fix.world(name, "nail", 45, [mid(pins[k], pins[k + 1]), role === "plateB" ? y0 : y1, 0]);
         if (prev) bondAt(b, prev.name, name, "nail", 30, [cuts[i], mid(y0, y1), 0]);
         prev = box;
       }
@@ -196,11 +197,12 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
     }
     // end studs fixed to the concrete (anchor screws) or nailed into the abutted wall
     const fixEnd = (st: Member, kind: string, u: number) => {
-      if (kind === "concrete") for (const y of [0.5, 1.35, 2.2]) worldAt(b, st.name, "screw", 60, [u, y, 0]);
-      else if (kind === "butt") for (const y of [0.8, 1.9]) worldAt(b, st.name, "nail", 40, [u, y, 0]);
+      if (kind === "concrete") for (const y of [0.5, 1.35, 2.2]) fix.world(st.name, "screw", 60, [u, y, 0]);
+      else if (kind === "butt") for (const y of [0.8, 1.9]) fix.world(st.name, "nail", 40, [u, y, 0]);
     };
     fixEnd(end0, run.end0, fu0);
     fixEnd(end1, run.end1, fu1);
+    fix.flush(b);
 
     // ================================================================ plumbing (in-wall part)
     const reserved: FaceRect[] = [];
@@ -542,14 +544,25 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
       const s = v.side;
       const faceParts = idx.overlapping(v.u - 0.01, v.u + 0.01, v.y - 0.01, v.y + 0.01, tiled ? ["walltile"] : [s > 0 ? "sheetP" : "sheetN"], 0.001);
       const at = (dw: number): V3 => [v.u, v.y, s * (fW + dw)];
+      // fixings: threaded onto the stub through the sheet; on tiled walls the stub stops behind
+      // the sheet, so the trim is sealed to the tiles and screwed through into the sheet
+      const sheetBehind = idx.overlapping(v.u - 0.01, v.u + 0.01, v.y - 0.01, v.y + 0.01, [s > 0 ? "sheetP" : "sheetN"], 0.001);
+      const fixTrim = (part: string, through: number) => {
+        if (tiled) {
+          for (const fp of faceParts) bondAt(b, part, fp.box.name, "glue", 20, at(0));
+          for (const sh of sheetBehind) bondAt(b, part, sh.box.name, "screw", 30, [v.u, v.y, s * run.half]);
+        } else {
+          bondAt(b, part, v.stub, v.kind === "drain" ? "glue" : "screw", through, [v.u, v.y, s * SHEET_IN]);
+          for (const fp of faceParts) bondAt(b, part, fp.box.name, "friction", 3, at(0));
+        }
+      };
       if (v.kind === "drain") {
         const fl = `${v.id}_drain_flange`,
           so = `${v.id}_drain_stubout`;
         b.cyl(fl, "steel", "chrome", 0.032, 0.008, at(0.004), { axis: "z", segments: 12, tags: ["plumbing"] });
         b.cyl(so, "plastic", "plastic", 0.02, 0.05, at(0.033), { axis: "z", segments: 10, tint: PAL.pvc, tags: ["plumbing", "drain"] });
-        bondAt(b, fl, v.stub, "glue", 40, [v.u, v.y, s * SHEET_IN]);
+        fixTrim(fl, 40);
         bondAt(b, so, fl, "glue", 40, at(0.008));
-        for (const fp of faceParts) bondAt(b, fl, fp.box.name, "friction", 3, at(0));
       } else {
         const es = `${v.id}_${v.kind}_escutcheon`,
           body = `${v.id}_${v.kind}_valve`,
@@ -560,10 +573,9 @@ export function buildPartition(run: PartitionRun): AssemblyDef {
           tint: v.kind === "hot" ? 0xffd6d0 : 0xd6e4ff,
           tags: ["plumbing"],
         });
-        bondAt(b, es, v.stub, "screw", 40, [v.u, v.y, s * SHEET_IN]);
+        fixTrim(es, 40);
         bondAt(b, body, es, "press", 30, at(0.005));
         bondAt(b, hd, body, "press", 6, at(0.045));
-        for (const fp of faceParts) bondAt(b, es, fp.box.name, "friction", 3, at(0));
         b.water(body, at(0.03), [0, 0, s], 0.75);
       }
     }
