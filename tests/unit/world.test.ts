@@ -234,6 +234,29 @@ describe('rogue planets', () => {
   });
 });
 
+describe('terrain continuity', () => {
+  it('has no cliffs from features switching on or off between neighbouring samples', () => {
+    const sol = buildSolarSystem(new UPos(), { x: 0, y: 0, z: 0, w: 1 });
+    const lava = generateSystem({ id: 'sys1', name: 'S1', seed: 1, upos: new UPos() }).bodies.find((b) => b.name.endsWith('B c'))!;
+    const bodies = [...['Moon', 'Mars', 'Earth', 'Mercury'].map((n) => sol.bodies.find((b) => b.name === n)!), lava];
+    for (const b of bodies) {
+      const g = new SurfaceGenerator(b.planet!.surface!);
+      const R = b.radius;
+      let worst = 0;
+      for (let i = 0; i < 6000; i++) {
+        const y = 1 - (2 * (i + 0.5)) / 6000, r = Math.sqrt(1 - y * y), t = 2.39996 * i;
+        const p = new Vector3(Math.cos(t) * r, y, Math.sin(t) * r);
+        const e = new Vector3(-p.z, 0, p.x).normalize();
+        const q = p.clone().addScaledVector(e, 0.25 / R).normalize();
+        const h0 = g.sample(p.x, p.y, p.z, 0.5).height, h1 = g.sample(q.x, q.y, q.z, 0.5).height;
+        worst = Math.max(worst, Math.abs(h1 - h0));
+      }
+      // 25 cm apart: even a vertical crater wall changes by well under a few metres
+      expect(worst, b.name).toBeLessThan(3);
+    }
+  });
+});
+
 describe('rivers', () => {
   it('flow on wet worlds with surface liquids only, carved below their banks', () => {
     const sys = buildSolarSystem(new UPos(), { x: 0, y: 0, z: 0, w: 1 });

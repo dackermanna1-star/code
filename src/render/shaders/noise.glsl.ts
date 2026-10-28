@@ -75,6 +75,19 @@ vec3 cellular(vec3 p) {
   }
   return vec3(sqrt(f1), sqrt(f2), id);
 }
+// cellular noise wrapped with a period (in cells), for coordinates that wrap
+vec3 cellularP(vec3 p, float period) {
+  vec3 i = floor(p), f = p - i;
+  float f1 = 9.0, f2 = 9.0, id = 0.0;
+  for (int z = -1; z <= 1; z++) for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+    vec3 o = vec3(x, y, z);
+    vec3 h = hash33(mod(i + o, period));
+    vec3 r = o + h * 0.9 + 0.05 - f;
+    float d = dot(r, r);
+    if (d < f1) { f2 = f1; f1 = d; id = h.x; } else if (d < f2) { f2 = d; }
+  }
+  return vec3(sqrt(f1), sqrt(f2), id);
+}
 // interleaved gradient noise for dithering / jitter
 float ign(vec2 px) { return fract(52.9829189 * fract(dot(px, vec2(0.06711056, 0.00583715)))); }
 `;

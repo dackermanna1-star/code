@@ -19,7 +19,9 @@ export const SUN_SHADOW_GLSL = /* glsl */ `
 uniform sampler2D uShadow0, uShadow1;
 uniform mat4 uShadowM0, uShadowM1;
 uniform float uShadowOn;
-uniform vec2 uShadowBias;    // depth-units bias per cascade
+uniform vec2 uShadowBias;    // depth units per shadow-map texel, per cascade
+uniform vec2 uShadowTexel;   // texel size (m) per cascade
+uniform vec3 uShadowL;       // unit vector toward the star (world)
 float shadowPCF(sampler2D m, vec3 c, float bias) {
   float t = 1.0 / ${SHADOW_SIZE}.0;
   float s = 0.0;
@@ -31,16 +33,23 @@ float shadowPCF(sampler2D m, vec3 c, float bias) {
 }
 float sunShadow(vec3 P, vec3 N) {
   if (uShadowOn < 0.5) return 1.0;
-  vec4 c0 = uShadowM0 * vec4(P + N * 0.12, 1.0);
+  // normal offset and slope-scaled depth bias, both in shadow-map texels: at a
+  // low sun one texel spans a long stretch of ground, which would otherwise
+  // shadow itself (acne: moiré rings and grid lines)
+  float cosT = clamp(dot(N, uShadowL), 0.0, 1.0);
+  float sinT = sqrt(1.0 - cosT * cosT);
+  float tanT = min(sinT / max(cosT, 0.1), 10.0);
+  float off = 0.6 + 1.5 * sinT;
+  vec4 c0 = uShadowM0 * vec4(P + N * (uShadowTexel.x * off), 1.0);
   vec3 p0 = c0.xyz / c0.w * 0.5 + 0.5;
   vec2 e0 = min(p0.xy, 1.0 - p0.xy);
   float w0 = smoothstep(0.0, 0.06, min(e0.x, e0.y));
-  vec4 c1 = uShadowM1 * vec4(P + N * 1.0, 1.0);
+  vec4 c1 = uShadowM1 * vec4(P + N * (uShadowTexel.y * off), 1.0);
   vec3 p1 = c1.xyz / c1.w * 0.5 + 0.5;
   vec2 e1 = min(p1.xy, 1.0 - p1.xy);
   float w1 = smoothstep(0.0, 0.08, min(e1.x, e1.y));
-  float s1 = (w1 > 0.0 && p1.z < 1.0) ? mix(1.0, shadowPCF(uShadow1, p1, uShadowBias.y), w1) : 1.0;
-  if (w0 > 0.0 && p0.z < 1.0) return mix(s1, shadowPCF(uShadow0, p0, uShadowBias.x), w0);
+  float s1 = (w1 > 0.0 && p1.z < 1.0) ? mix(1.0, shadowPCF(uShadow1, p1, uShadowBias.y * (1.0 + tanT)), w1) : 1.0;
+  if (w0 > 0.0 && p0.z < 1.0) return mix(s1, shadowPCF(uShadow0, p0, uShadowBias.x * (1.0 + tanT)), w0);
   return s1;
 }
 `;
@@ -54,6 +63,8 @@ export function shadowUniforms(): Record<string, THREE.IUniform> {
     uShadowM1: { value: new THREE.Matrix4() },
     uShadowOn: { value: 0 },
     uShadowBias: { value: new THREE.Vector2() },
+    uShadowTexel: { value: new THREE.Vector2() },
+    uShadowL: { value: new THREE.Vector3(0, 1, 0) },
   };
 }
 
@@ -180,7 +191,11 @@ export class SunShadows {
     }
     for (const o of nearOnly) o.visible = true;
     for (let i = 0; i < 2; i++) (recv[i === 0 ? 'uShadowM0' : 'uShadowM1'].value as THREE.Matrix4).multiplyMatrices(this.mPF[i], worldToPf);
-    (recv.uShadowBias.value as THREE.Vector2).set(0.6 / (2 * DEPTHS[0]), 4 / (2 * DEPTHS[1]));
+    // per texel: half a texel of depth (the depth range is 2·DEPTH metres)
+    const t0 = (2 * EXTENTS[0]) / SHADOW_SIZE, t1 = (2 * EXTENTS[1]) / SHADOW_SIZE;
+    (recv.uShadowTexel.value as THREE.Vector2).set(t0, t1);
+    (recv.uShadowBias.value as THREE.Vector2).set((0.5 * t0) / (2 * DEPTHS[0]), (0.5 * t1) / (2 * DEPTHS[1]));
+    (recv.uShadowL.value as THREE.Vector3).copy(L);
     recv.uShadowOn.value = 1;
     renderer.setRenderTarget(prevTarget);
     renderer.autoClear = ac;

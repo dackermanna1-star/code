@@ -434,7 +434,8 @@ export class SurfaceGenerator {
       const inv = 1 / cs;
       const gx = x * inv - 0.5, gy = y * inv - 0.5, gz = z * inv - 0.5;
       const bx = Math.floor(gx), by = Math.floor(gy), bz = Math.floor(gz);
-      const prob = density * (oct < 3 ? 0.55 : 0.85);
+      // (×1.7: about 40% of candidates are dropped below for leaving their cell)
+      const prob = Math.min(1, density * (oct < 3 ? 0.55 : 0.85) * 1.7);
       const seed = this.s[31] + oct * 977;
       for (let k = 0; k < 2; k++)
         for (let j = 0; j < 2; j++)
@@ -450,10 +451,14 @@ export class SurfaceGenerator {
             const pl = Math.sqrt(px * px + py * py + pz * pz);
             if (pl < 0.5) continue;
             const ux = px / pl, uy = py / pl, uz = pz / pl;
+            // a crater belongs to the cell holding its projected centre, and reaches
+            // less than half a cell: every crater touching this sample is then in the
+            // 2×2×2 block, so none can pop in or out as the sample moves
+            if (Math.floor(ux * inv) !== cx || Math.floor(uy * inv) !== cy || Math.floor(uz * inv) !== cz) continue;
             const dx = x - ux, dy = y - uy, dz = z - uz;
             const dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
             const h3 = mix32(h2 + 77);
-            const r = cs * (0.08 + 0.2 * Math.pow((h3 & 1023) / 1023, 2));
+            const r = cs * (0.08 + 0.14 * Math.pow((h3 & 1023) / 1023, 2)); // 2.2 r < 0.5 cell
             const d = dist / r;
             if (d > 2.2) continue;
             const rM = r * R;
@@ -472,7 +477,8 @@ export class SurfaceGenerator {
               if (complex && d < 0.18) c += depth * 0.35 * (1 - d / 0.18) ** 2; // central peak
             } else {
               const e = d - 1;
-              c = rimH * Math.exp(-e * e / 0.02) + rimH * 0.35 * Math.pow(1 / d, 3) * sstep(2.2, 1.6, d);
+              // rim crest (matches the inner profile at d = 1) plus an ejecta apron that starts from zero
+              c = rimH * Math.exp(-e * e / 0.02) + rimH * 0.35 * Math.pow(1 / d, 3) * sstep(2.2, 1.6, d) * sstep(1, 1.15, d);
             }
             total += c * lodFade;
             const fresh = 1 - age;

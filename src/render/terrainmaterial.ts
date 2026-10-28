@@ -103,7 +103,7 @@ vec3 detailGradient(vec3 p, float rough, out float hsum) {
   for (int i = 0; i < 10; i++) {
     float f = bandFade(wl);
     if (f <= 0.0) break;
-    int per = PERIOD / int(wl);
+    int per = int(float(PERIOD) / wl + 0.5); // wl reaches 0.5 m: no integer division by zero
     vec4 n = gnoised(p / wl, per);
     g += n.yzw * (amp / wl) * f;
     hsum += n.x * amp * f;
@@ -176,12 +176,12 @@ void main() {
   // ---- albedo from geology
   float strataN = gnoise(vec3(alt / (uReliefScale * 0.015 + 2.0), vDetail.x * 0.002, vDetail.z * 0.002));
   vec3 rockCol = mix(uRockA, uRockB, smoothstep(-0.25, 0.35, strataN));
-  float speck = gnoised(vDetail / 3.0, PERIOD / 3).x * bandFade(3.0);
+  float speck = gnoised(vDetail / 4.0, PERIOD / 4).x * bandFade(4.0);
   rockCol *= 1.0 + 0.18 * speck;
   // dune sand where it is dry; soils where moist
   float arid = 1.0 - smoothstep(0.2, 0.5, moist);
   vec3 loose = mix(uRegolith, uSand, uAeolian * mix(0.2, 1.0, arid));
-  loose *= 1.0 + 0.08 * gnoised(vDetail / 17.0, PERIOD / 16).x;
+  loose *= 1.0 + 0.08 * gnoised(vDetail / 16.0, PERIOD / 16).x;
   vec3 albedo = mix(loose, rockCol, rockExp);
   albedo = mix(albedo, uLowland, clamp((0.5 - unit) * 2.0, 0.0, 1.0) * 0.85);
   albedo = mix(albedo, uHighland, clamp((unit - 0.5) * 2.0, 0.0, 1.0) * 0.85);
@@ -190,7 +190,7 @@ void main() {
 
   // cracks / pebbles close up
   if (footprint < 0.05) {
-    vec3 c = cellular(vDetail * 2.5);
+    vec3 c = cellularP(vDetail * 2.5, float(PERIOD) * 2.5);
     float crack = 1.0 - smoothstep(0.0, 0.06, c.y - c.x);
     float f = smoothstep(0.05, 0.01, footprint);
     albedo *= 1.0 - crack * 0.35 * f * rockExp;
@@ -204,10 +204,10 @@ void main() {
     veg *= 1.0 - smoothstep(0.22, 0.45, slope);
     veg *= step(depth, 0.0);
     // clearings and groves once individual patches are resolved
-    float patchN = gnoised(vDetail / 41.0, PERIOD / 32).x * 0.5 + 0.5;
+    float patchN = gnoised(vDetail / 32.0, PERIOD / 32).x * 0.5 + 0.5;
     veg *= mix(1.0, smoothstep(0.15, 0.55, patchN + moist * 0.4), smoothstep(300.0, 30.0, footprint));
     float vmix = macro * 0.8 + 0.5 + (temp - 290.0) * 0.012 - (moist - 0.4) * 0.8;
-    if (footprint < 200.0) vmix += gnoised(vDetail / 97.0, PERIOD / 64).x * 0.4 * smoothstep(200.0, 50.0, footprint);
+    if (footprint < 200.0) vmix += gnoised(vDetail / 64.0, PERIOD / 64).x * 0.4 * smoothstep(200.0, 50.0, footprint);
     vec3 vc = mix(uVeg1, uVeg2, smoothstep(0.3, 0.7, vmix));
     albedo = mix(albedo, vc, clamp(veg, 0.0, 1.0));
   }
@@ -237,7 +237,7 @@ void main() {
       if (f <= 0.0) break;
       int per = PERIOD / int(wl);
       vec3 q = wp / wl + vec3(uTime * 0.6 / wl * 4.0, 0.0, uTime * 0.45 / wl * 4.0);
-      vec4 n = gnoised(q, 0);
+      vec4 n = gnoised(q, per); // periodic: seamless across terrain nodes
       wg += n.yzw * amp * f;
       wl *= 0.5; amp *= 0.8;
     }
@@ -299,7 +299,7 @@ void main() {
   if (hotT > 700.0) {
     float crust = 1.0;
     if (liquid) {
-      vec3 c = cellular(vDetail / 9.0 + vec3(0.0, uTime * 0.01, 0.0));
+      vec3 c = cellularP(vDetail / 8.0 + vec3(0.0, uTime * 0.01, 0.0), float(PERIOD / 8));
       crust = smoothstep(0.0, 0.12, c.y - c.x);
       emission += lavaColor(hotT) * mix(1.0, 0.12, crust);
     } else {
@@ -309,7 +309,7 @@ void main() {
   // bioluminescence on the night side
   if (uLifeGlow > 0.0 && veg > 0.05) {
     float night = smoothstep(0.05, -0.15, dot(up, uSunDir[0]));
-    float spots = smoothstep(0.55, 0.9, gnoised(vDetail / 5.0, PERIOD / 4).x * 0.5 + 0.5);
+    float spots = smoothstep(0.55, 0.9, gnoised(vDetail / 4.0, PERIOD / 4).x * 0.5 + 0.5);
     // ≈ 1e−6 of sunlit radiance: foxfire-bright, dominant only for a dark-adapted eye
     emission += normalize(uVeg2 + 1e-4) * uLifeGlow * night * veg * (0.02 + spots) * 2.5e-7;
   }
