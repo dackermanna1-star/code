@@ -545,7 +545,7 @@ export class StrikePath {
     Object.assign(this.q0, q0);
     const rig = prep.rig;
     const C = rig.contact,
-      E = rig.end;
+      E = rig.end.head;
     const dA = Math.max(1e-3, Math.hypot(C.x - S.x, C.y - S.y, C.z - S.z));
     const dB = Math.max(1e-3, Math.hypot(E.x - C.x, E.y - C.y, E.z - C.z));
     // tangents scaled by the chords (well-behaved Hermite shapes)

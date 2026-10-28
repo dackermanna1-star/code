@@ -9,105 +9,33 @@ import {
   Quaternion,
   Color3,
   Color4,
-  HavokPlugin,
   HemisphericLight,
   DirectionalLight,
   MeshBuilder,
   StandardMaterial,
   TransformNode,
   UniversalCamera,
-  PhysicsBody,
   PhysicsMotionType,
-  PhysicsShapeBox,
-  PhysicsShapeSphere,
-  PhysicsShapeContainer,
-  PhysicsRaycastResult,
-  ShapeCastResult,
-  type PhysicsEngineV2,
+  type HavokPlugin,
+  type PhysicsBody,
   type PhysicsShape,
   type Mesh,
 } from "@babylonjs/core";
-import HavokPhysics from "@babylonjs/havok";
-import havokWasmUrl from "@babylonjs/havok/lib/esm/HavokPhysics.wasm?url";
-import { Layer, type GameContext, type RayHit, type SweepHit, type StrikeInput, type TargetInfo } from "../../src/core/context.ts";
+import { Layer, type GameContext, type StrikeInput, type TargetInfo } from "../../src/core/context.ts";
 import { EventBus, type GameEvents } from "../../src/core/events.ts";
 import { Settings } from "../../src/core/settings.ts";
 import { Time, FIXED_DT } from "../../src/core/time.ts";
 import { Rng } from "../../src/core/rng.ts";
 import type { MaterialId } from "../../src/destruction/model/materials.ts";
 import { Input } from "../../src/player/input.ts";
+import { createPhysics, defaultCollideMask, type Physics } from "../../src/physics/physics.ts";
 
 export const ALL = 0xffffffff;
 export const r3 = (x: number) => Math.round(x * 1000) / 1000;
 export const r2 = (x: number) => Math.round(x * 100) / 100;
 export const v3 = (v: { x: number; y: number; z: number }) => [r3(v.x), r3(v.y), r3(v.z)];
 
-export function defaultCollide(layer: number): number {
-  switch (layer) {
-    case Layer.STATIC:
-      return ALL;
-    case Layer.DYNAMIC:
-      return Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS | Layer.PLAYER | Layer.HELD;
-    case Layer.DEBRIS:
-      return Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS | Layer.HELD;
-    case Layer.PLAYER:
-      return Layer.STATIC | Layer.DYNAMIC;
-    case Layer.HELD:
-      return Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS;
-    default:
-      return ALL;
-  }
-}
-
-// ------------------------------------------------------------------ physics stand-in
-export class ProbePhysics {
-  readonly plugin: HavokPlugin;
-  readonly scene: Scene;
-  readonly pe: PhysicsEngineV2;
-  minImpulse = 0.5;
-  worldBody: PhysicsBody;
-  private res = new PhysicsRaycastResult();
-  private castIn = new ShapeCastResult();
-  private castHit = new ShapeCastResult();
-  private sphere: PhysicsShapeSphere;
-  constructor(scene: Scene, plugin: HavokPlugin) {
-    this.scene = scene;
-    this.plugin = plugin;
-    this.pe = scene.getPhysicsEngine() as PhysicsEngineV2;
-    const n = new TransformNode("worldBody", scene);
-    this.worldBody = new PhysicsBody(n, PhysicsMotionType.STATIC, false, scene);
-    this.sphere = new PhysicsShapeSphere(Vector3.Zero(), 0.05, scene);
-  }
-  step(dt: number) {
-    this.scene._advancePhysicsEngineStep(dt * 1000);
-  }
-  onImpact() {}
-  raycast(from: Vector3, to: Vector3, collideWith = ALL, ignore: PhysicsBody | null = null): RayHit | null {
-    this.pe.raycastToRef(from, to, this.res, { membership: ALL, collideWith, ignoreBody: ignore ?? undefined });
-    if (!this.res.hasHit || !this.res.body) return null;
-    return { body: this.res.body, point: this.res.hitPointWorld.clone(), normal: this.res.hitNormalWorld.clone(), distance: this.res.hitDistance, childIndex: -1 };
-  }
-  sphereSweep(from: Vector3, to: Vector3, radius: number, collideWith = ALL, ignore: PhysicsBody | null = null): SweepHit | null {
-    this.sphere.dispose();
-    this.sphere = new PhysicsShapeSphere(Vector3.Zero(), radius, this.scene);
-    this.sphere.filterMembershipMask = ALL;
-    this.sphere.filterCollideMask = collideWith;
-    this.plugin.shapeCast({ shape: this.sphere, rotation: Quaternion.Identity(), startPosition: from, endPosition: to, shouldHitTriggers: false, ignoreBody: ignore ?? undefined }, this.castIn, this.castHit);
-    if (!this.castHit.hasHit || !this.castHit.body) return null;
-    return { body: this.castHit.body, point: this.castHit.hitPoint.clone(), normal: this.castHit.hitNormal.clone(), distance: Vector3.Distance(from, to) * this.castHit.hitFraction, childIndex: -1, fraction: this.castHit.hitFraction };
-  }
-  setLayer(shape: PhysicsShape, layer: number, collideWith?: number) {
-    shape.filterMembershipMask = layer;
-    shape.filterCollideMask = collideWith ?? defaultCollide(layer);
-  }
-  wake() {}
-  isAwake() {
-    return true;
-  }
-  stats() {
-    return { bodies: this.pe.getBodies().length, awake: this.pe.getBodies().length, stepMs: 0, constraints: 0 };
-  }
-}
+export const defaultCollide = defaultCollideMask;
 
 // ------------------------------------------------------------------ destruction stand-in
 export interface BodyInfo {
@@ -197,7 +125,7 @@ export interface ProbeWorld {
   scene: Scene;
   plugin: HavokPlugin;
   ctx: GameContext;
-  physics: ProbePhysics;
+  physics: Physics;
   destruction: ProbeDestruction;
   input: Input;
   events: EventBus<GameEvents>;
@@ -228,10 +156,9 @@ export async function makeWorld(opts: { gravity?: number } = {}): Promise<ProbeW
   hemi.groundColor = new Color3(0.25, 0.22, 0.2);
   const sun = new DirectionalLight("sun", new Vector3(-0.4, -1, 0.3), scene);
   sun.intensity = 0.6;
-  const hk = await HavokPhysics({ locateFile: () => havokWasmUrl });
-  const plugin = new HavokPlugin(false, hk); // every step = exactly 1/60 s
-  scene.enablePhysics(new Vector3(0, -(opts.gravity ?? 9.81), 0), plugin);
-  scene.physicsEnabled = false; // scene.render() must not step physics; we step explicitly
+  // the real physics module (fixed steps, substeps, layers, queries, impacts)
+  const physics = await createPhysics(scene, { gravity: -(opts.gravity ?? 9.81) });
+  const plugin = physics.plugin;
   const camera = new UniversalCamera("cam", new Vector3(0, 1.65, 0), scene);
   camera.minZ = 0.03;
   camera.maxZ = 500;
@@ -242,7 +169,6 @@ export async function makeWorld(opts: { gravity?: number } = {}): Promise<ProbeW
   settings.data.showHints = false;
   const time = new Time();
   const events = new EventBus<GameEvents>();
-  const physics = new ProbePhysics(scene, plugin);
   const destruction = new ProbeDestruction();
   const input = new Input(canvas, settings);
   const shakes: number[] = [];
@@ -321,24 +247,21 @@ export async function makeWorld(opts: { gravity?: number } = {}): Promise<ProbeW
       node.rotationQuaternion = o.rot ? o.rot.clone() : Quaternion.Identity();
       node.computeWorldMatrix(true);
       const motion = o.motion ?? PhysicsMotionType.STATIC;
-      const body = new PhysicsBody(node, motion, false, scene);
+      const m = motion === PhysicsMotionType.STATIC ? "static" : motion === PhysicsMotionType.ANIMATED ? "animated" : "dynamic";
+      const body = physics.createBody(node, m);
       const layer = o.layer ?? (motion === PhysicsMotionType.STATIC ? Layer.STATIC : Layer.DYNAMIC);
-      const mk = (sz: Vector3, c: Vector3) => {
-        const s = new PhysicsShapeBox(c, Quaternion.Identity(), sz, scene);
-        s.material = { friction: o.friction ?? 0.6, restitution: 0.05 };
-        s.filterMembershipMask = layer;
-        s.filterCollideMask = defaultCollide(layer);
-        if (o.mass !== undefined) s.density = o.mass / (sz.x * sz.y * sz.z) / (o.container ? 1 : 1);
-        return s;
-      };
+      const vol = size[0] * size[1] * size[2];
+      const density = o.mass !== undefined ? o.mass / vol : 600;
+      const opts = { layer, collideWith: defaultCollide(layer), friction: o.friction ?? 0.6, restitution: 0.05, density };
+      const I = { x: 0, y: 0, z: 0, w: 1 };
+      let shape: PhysicsShape;
       if (o.container) {
-        const cont = new PhysicsShapeContainer(scene);
-        const half = new Vector3(size[0] / 2, size[1], size[2]);
-        cont.addChild(mk(half, Vector3.Zero()), new Vector3(-size[0] / 4, 0, 0));
-        cont.addChild(mk(half, Vector3.Zero()), new Vector3(size[0] / 4, 0, 0));
-        body.shape = cont;
-      } else body.shape = mk(new Vector3(size[0], size[1], size[2]), Vector3.Zero());
-      if (o.mass !== undefined && motion !== PhysicsMotionType.STATIC) body.setMassProperties({ mass: o.mass });
+        const hx = size[0] / 2;
+        const a = physics.boxShape({ x: -hx / 2, y: 0, z: 0 }, I, { x: hx, y: size[1], z: size[2] }, opts);
+        const b = physics.boxShape({ x: hx / 2, y: 0, z: 0 }, I, { x: hx, y: size[1], z: size[2] }, opts);
+        shape = physics.containerShape([a, b]);
+      } else shape = physics.boxShape({ x: 0, y: 0, z: 0 }, I, { x: size[0], y: size[1], z: size[2] }, opts);
+      physics.setShape(body, shape);
       const mesh: Mesh = MeshBuilder.CreateBox(name + "_m", { width: size[0], height: size[1], depth: size[2] }, scene);
       const mat = new StandardMaterial(name + "_mat", scene);
       mat.diffuseColor = o.color ?? (motion === PhysicsMotionType.STATIC ? new Color3(0.62, 0.6, 0.56) : new Color3(0.8, 0.45, 0.2));

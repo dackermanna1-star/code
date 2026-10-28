@@ -107,7 +107,8 @@ export async function runWorldMatScene(kind: "pbr" | "std", opts: { bloom: boole
     dome.material = dm;
     const probe = new ReflectionProbe("envProbe", 128, scene, true);
     probe.position = new Vector3(0, 1.5, -1);
-    probe.renderList!.push(dome, envMesh, propMesh);
+    // ONLY meshes whose materials do not sample scene.environmentTexture (else: GL feedback loop errors)
+    probe.renderList!.push(dome);
     probe.refreshRate = RenderTargetTexture.REFRESHRATE_RENDER_ONCE;
     scene.environmentTexture = probe.cubeTexture;
     envInfo = { probeSize: 128 };

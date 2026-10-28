@@ -16,19 +16,20 @@ const VIEW: "overview" | "microwave" | "microwaveOpen" = "overview";
 
 export async function probe() {
   const views = {
-    overview: { pos: new Vector3(1.9, 1.35, 2.3), target: new Vector3(0.05, 0.3, 0.1) },
-    microwave: { pos: new Vector3(0.75, 0.55, 1.05), target: new Vector3(0.3, 0.15, 0.0) },
-    microwaveOpen: { pos: new Vector3(0.95, 0.5, 0.95), target: new Vector3(0.3, 0.15, 0.0) },
+    overview: { pos: new Vector3(1.2, 1.5, 2.9), target: new Vector3(-0.2, 0.3, 0.1) },
+    microwave: { pos: new Vector3(1.25, 0.6, 1.25), target: new Vector3(0.8, 0.15, 0.35) },
+    microwaveOpen: { pos: new Vector3(1.4, 0.55, 1.2), target: new Vector3(0.8, 0.15, 0.3) },
   };
   const v = views[VIEW];
   const sim = await makeSim({ camPos: v.pos, camTarget: v.target });
   const { d } = sim;
   const I = { x: 0, y: 0, z: 0, w: 1 };
   d.spawn(floorDef(), { p: { x: 0, y: 0, z: 0 }, q: I });
-  const table = d.spawn(buildCoffeeTable(), { p: { x: -0.35, y: 0, z: -0.2 }, q: I });
-  const mug = d.spawn(buildMug(), { p: { x: -0.1, y: 0.44, z: -0.1 }, q: qeuler(0, 0.6, 0) });
-  const chair = d.spawn(buildChair(), { p: { x: -0.9, y: 0, z: 0.75 }, q: qeuler(0, 2.4, 0) });
-  const mw = d.spawn(buildMicrowave(), { p: { x: 0.3, y: 0, z: 0.0 }, q: qeuler(0, 0.35, 0) });
+  // well separated: assemblies must not interpenetrate at spawn
+  const table = d.spawn(buildCoffeeTable(), { p: { x: -0.45, y: 0, z: -0.3 }, q: I });
+  const mug = d.spawn(buildMug(), { p: { x: -0.25, y: 0.44, z: -0.2 }, q: qeuler(0, 0.6, 0) });
+  const chair = d.spawn(buildChair(), { p: { x: -1.45, y: 0, z: 0.7 }, q: qeuler(0, 2.4, 0) });
+  const mw = d.spawn(buildMicrowave(), { p: { x: 0.8, y: 0, z: 0.3 }, q: qeuler(0, -0.5, 0) });
   const ids = { table, mug, chair, mw };
   const start: Record<string, { x: number; y: number; z: number } | null> = {};
   for (const [k, id] of Object.entries(ids)) start[k] = d.positionOf(id);

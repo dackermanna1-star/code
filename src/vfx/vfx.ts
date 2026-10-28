@@ -143,6 +143,7 @@ export class Vfx implements VfxSystem {
       puff,
       bits,
     );
+    this.fx.prewarm(0.4);
     this.sim = new MicroSim({
       capacity: this.settings.quality.microDebrisMax,
       groundProbe: (x, y, z) => this.groundProbe(x, y, z),

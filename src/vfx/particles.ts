@@ -282,12 +282,31 @@ class ParticleGroup {
     p.metadata = prof;
   }
 
+  /**
+   * Pre-allocate Particle objects (the first big emission otherwise allocates them one by one,
+   * ~10–50 µs each): emit placeholders that are recycled into the stock on the next update.
+   */
+  prewarm(count: number): void {
+    const n = Math.max(0, Math.min(this.capacity - this.live, Math.floor(count)));
+    this.ps.manualEmitCount += n;
+  }
+
   /** Our per-frame particle update (replaces Babylon's update queue). */
   private update(particles: Particle[]): void {
     this.animated = true;
     const dt = this.pendingDt;
     this.pendingDt = 0;
-    if (!(dt > 0)) return;
+    if (!(dt > 0)) {
+      // paused: nothing moves, but placeholders / dead particles still go back to the stock
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        if (!p.metadata || p.age >= p.lifeTime) {
+          this.ps.recycleParticle(p);
+          i--;
+        }
+      }
+      return;
+    }
     this.inUpdate = true;
     const time = (this.time += dt);
     const stretched = this.stretched;
@@ -523,6 +542,11 @@ export class ParticleFx {
       dropped += this.groups[id].dropped;
     }
     return { live: this.particleCount, queued: this.queuedCount, budget: this.budget, emitted, dropped, emitters: this.emitters.length };
+  }
+
+  /** Pre-fill every group's particle stock with `fraction` of its capacity (call at load). */
+  prewarm(fraction = 0.4): void {
+    for (const id of GROUP_IDS) this.groups[id].prewarm(this.groups[id].capacity * fraction);
   }
 
   release(r: BurstRecord): void {
