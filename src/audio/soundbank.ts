@@ -67,9 +67,11 @@ const now = (): number => (typeof performance !== "undefined" ? performance.now(
 
 export class SoundBank {
   readonly entries = new Map<string, BankEntry>();
+  readonly sampleRate: number;
   stats: BankStats;
 
-  constructor(readonly sampleRate: number) {
+  constructor(sampleRate: number) {
+    this.sampleRate = sampleRate;
     this.stats = { ms: 0, mainMs: 0, buffers: 0, bytes: 0, workers: 0, workerFailures: 0, skipped: 0, sampleRate };
   }
 

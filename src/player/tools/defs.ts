@@ -67,7 +67,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     follow: deg(55),
     cock: deg(-30),
     offhand: 0.24,
-    idle: F(v(0.24, -0.36, 0.4), v(0.13, 0.5, 0.52), v(-0.3, 0, 0.95)),
+    idle: F(v(0.22, -0.31, 0.34), v(0.12, 0.8, 0.5), v(-0.35, 0, 0.94)),
   },
   // Diagonal, one-handed: 0.75 m hex bar, strikes with the hooked claw end.
   crowbar: {
@@ -109,7 +109,7 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     follow: deg(55),
     cock: deg(-35),
     offhand: 0.2,
-    idle: F(v(0.24, -0.36, 0.4), v(0.12, 0.52, 0.52), v(-0.4, 0, 0.9)),
+    idle: F(v(0.22, -0.31, 0.34), v(0.1, 0.82, 0.48), v(-0.45, 0, 0.9)),
   },
   // Overhead bash with the extinguisher's bottom, both hands on the cylinder.
   extinguisher: {
@@ -122,8 +122,9 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     windCharged: deg(-105),
     follow: deg(40),
     cock: 0,
-    offhand: 0.14,
-    idle: F(v(0.2, -0.2, 0.45), v(0.05, -0.99, 0.12), v(0, 0, 1)),
+    // one-handed bash: the left hand keeps holding the hose nozzle
+    offhand: 0,
+    idle: F(v(0.18, -0.13, 0.4), v(0.04, -0.98, 0.2), v(-0.15, 0.1, 1)),
   },
 };
 
@@ -364,6 +365,9 @@ export const PRY = {
  * Extinguisher spray pose (camera space): the cylinder held low on the right by its carrying
  * handle, the left hand aiming the hose nozzle along the view.
  */
+/** Extinguisher: the left hand holds the hose nozzle, pointed forward-down when not spraying. */
+export const NOZZLE_IDLE: FrameDef = F(v(0.03, -0.27, 0.38), v(0, 1, 0.3), v(0.05, -0.3, 1));
+
 export const SPRAY_POSE: { right: FrameDef; left: FrameDef } = {
   right: F(v(0.25, -0.24, 0.42), v(0.08, -0.97, 0.22), v(-0.2, 0.05, 1)),
   left: F(v(0.04, -0.17, 0.42), v(0, 1, 0.08), v(-0.03, 0.08, 1)),

@@ -24,11 +24,15 @@ export class Time {
     const dt = Math.min(Math.max(realDt, 0), 0.25);
     this.frameDt = dt;
     this.realTime += dt;
+    // Apply hit-stop to the portion of this frame it still covers, then advance its timer.
+    let simDt = dt;
     if (this.hitStopTimer > 0) {
+      const slow = Math.min(dt, this.hitStopTimer);
+      simDt = slow * this.hitStopScale + (dt - slow);
       this.hitStopTimer -= dt;
       if (this.hitStopTimer <= 0) this.hitStopScale = 1;
     }
-    this.acc += dt * this.scale * this.hitStopScale;
+    this.acc += simDt * this.scale;
     let n = Math.floor(this.acc / FIXED_DT);
     if (n > MAX_STEPS_PER_FRAME) {
       n = MAX_STEPS_PER_FRAME;

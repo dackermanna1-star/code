@@ -28,12 +28,16 @@ export async function probe() {
     hud.update(1 / 60);
     states.push(String((document.querySelector(".ads-crosshair") as HTMLElement | null)?.dataset.state));
   });
-  // debug overlay on (F3 goes through Input while playing → toggle via the action latch)
+  // switch tool (name pop-up), toast, debug overlay on (F3 goes through Input while playing)
+  tools.select("bat");
+  hud.update(1 / 60);
+  tools.select("sledgehammer");
+  hud.toast("Hold LMB to charge a swing", 300);
   w.input.tap("debug");
   hud.update(1 / 60);
-  await renderFrames(w, 20, () => {
+  await renderFrames(w, 4, () => {
     p.update(1 / 60);
-    hud.update(0.3);
+    hud.update(0.1);
   });
   const q = (s: string) => document.querySelector(s) as HTMLElement | null;
   return {

@@ -67,7 +67,7 @@ export function makeScene(opts: { bloom?: boolean; clear?: number[] } = {}): Pro
 }
 
 /** Triangle order emitted by boxGeom: true = counter-clockwise seen from outside. */
-export let BOX_WINDING_CCW = false;
+export let BOX_WINDING_CCW = true;
 export function setBoxWinding(ccw: boolean): void {
   BOX_WINDING_CCW = ccw;
 }

@@ -230,6 +230,14 @@ export async function probe(): Promise<any> {
       results.countAfterSet = ti.thinInstanceCount;
       ti.thinInstanceCount = N * 3; // ignored: higher than buffer capacity
       results.countAfterTooBig = ti.thinInstanceCount;
+      // same regrow with bounding-info sync disabled
+      const ti2 = makeShard(scene, "tiNoSync");
+      ti2.doNotSyncBoundingInfo = true;
+      ti2.alwaysSelectAsActiveMesh = true;
+      const t2 = performance.now();
+      ti2.thinInstanceSetBuffer("matrix", big, 16, false);
+      results.thinInstanceSetBuffer10000_doNotSyncBoundingInfoMs = r3(performance.now() - t2);
+      ti2.dispose();
     }
     if (N === 2000) {
       // keep these for the screenshot

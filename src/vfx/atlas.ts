@@ -6,8 +6,10 @@
 //                                             15 hot dot
 // Shapes are white/grey (particle colours tint them) with straight alpha. Long shapes are drawn
 // vertically: stretched billboards align the cell's V axis with the particle velocity.
-// Cell 0 is the top-left of the canvas; `CELL_ROW_FLIP` documents how rows map to Babylon's
-// animation-sheet indexing (verified by tests/probes/vfx-fx-atlas.probe.ts).
+// Cell 0 is the top-left of the canvas. The atlases are uploaded WITHOUT the usual Y flip:
+// Babylon's animation-sheet shader indexes rows from v = 0 and samples v' = row + 1 − offset.y,
+// so with invertY = false row 0 is the canvas top row and every cell is upright (verified by
+// the atlas row in tests/probes/vfx-fx-bursts.probe.ts).
 
 import { DynamicTexture, Texture, type Scene } from "@babylonjs/core";
 
@@ -404,7 +406,7 @@ export function createPuffAtlas(scene: Scene): DynamicTexture {
   for (let cell = 8; cell < 12; cell++) shadeCell(img, S, cell, C, smokeWisp(501 + cell * 13));
   ctx.putImageData(img, 0, 0);
   for (let cell = 12; cell < 16; cell++) fibreTuft(ctx, cell, C, 901 + cell * 7);
-  tex.update(true, false);
+  tex.update(false, false);
   return tex;
 }
 
@@ -419,6 +421,6 @@ export function createBitsAtlas(scene: Scene): DynamicTexture {
   const img = ctx.getImageData(0, 0, S, S);
   bitsPixelCells(img);
   ctx.putImageData(img, 0, 0);
-  tex.update(true, false);
+  tex.update(false, false);
   return tex;
 }

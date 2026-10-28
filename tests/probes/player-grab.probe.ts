@@ -245,5 +245,27 @@ export async function probe() {
   out.use = { calls: w.destruction.uses.length - u0, body: w.destruction.uses.length > u0 ? (w.destruction.uses[w.destruction.uses.length - 1].body === sw ? "switch" : "other") : null };
 
   out.nan = [p.position.x, p.position.y, p.position.z].some((x) => !Number.isFinite(x));
+  // final pose for the screenshot: holding a fresh box at chest height (the cabinet behind it)
+  if (p.holding) p.debugAction("grab");
+  const show = w.box("showbox", [0.45, 0.32, 0.36], [-6, 0.16, -1.0], { motion: PhysicsMotionType.DYNAMIC, mass: 9, color: new Color3(0.85, 0.85, 0.88) });
+  w.destruction.register(show, { name: "Microwave", mat: "steelSheet", isStatic: false, grabbable: true, usable: null });
+  p.teleport({ x: -6, y: 1.65, z: 0.2 }, Math.PI, Math.atan2(1.65 - 0.16, 1.2));
+  w.step(10);
+  p.debugAction("grab");
+  w.input.addLook(0, -420);
+  w.step(60);
+  p.update(1 / 60);
+  out.finalHolding = p.holding ? "yes" : "no";
+  await new Promise<void>((res) => {
+    let k = 0;
+    const fn = () => {
+      w.scene.render();
+      if (++k >= 3) {
+        w.engine.stopRenderLoop(fn);
+        res();
+      }
+    };
+    w.engine.runRenderLoop(fn);
+  });
   return out;
 }

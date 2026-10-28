@@ -281,8 +281,8 @@ const MATS: Record<TexKind, MatDef> = {
   skin: { color: [0.86, 0.66, 0.53], spec: 0.08, power: 16, tex: "skin" },
   sleeve: { color: [0.25, 0.28, 0.33], spec: 0.03, power: 8, tex: "sleeve" },
   cuff: { color: [0.19, 0.21, 0.25], spec: 0.03, power: 8, tex: "sleeve" },
-  wood: { color: [0.8, 0.6, 0.38], spec: 0.12, power: 24, tex: "wood" },
-  darkwood: { color: [0.58, 0.4, 0.24], spec: 0.15, power: 24, tex: "wood" },
+  wood: { color: [0.66, 0.5, 0.33], spec: 0.12, power: 24, tex: "wood" },
+  darkwood: { color: [0.46, 0.32, 0.2], spec: 0.15, power: 24, tex: "wood" },
   steel: { color: [0.44, 0.45, 0.47], spec: 0.55, power: 48, tex: "steel" },
   steelBright: { color: [0.74, 0.75, 0.77], spec: 0.9, power: 96, tex: "steel" },
   paintRed: { color: [0.75, 0.1, 0.07], spec: 0.35, power: 40, tex: "paintRed", baked: true },
@@ -495,8 +495,6 @@ export function toolLength(id: ToolId): number {
 export const NOZZLE_TIP: Readonly<V3> = { x: 0, y: 0.015, z: 0.14 };
 /** Extinguisher valve outlet (hose start) in the tool frame. */
 export const HOSE_START: Readonly<V3> = { x: 0.0, y: 0.035, z: -0.06 };
-/** Resting nozzle position (clipped to the cylinder) in the tool frame. */
-export const HOSE_REST: Readonly<V3> = { x: 0.0, y: 0.34, z: -0.085 };
 
 function buildHammer(k: MeshKit): void {
   const L = toolLength("hammer"); // ≈ 0.26
@@ -649,27 +647,38 @@ function buildNozzle(k: MeshKit): void {
   k.cyl("rubber", vv(0, 0, 0.09), vv(0, NOZZLE_TIP.y - 0.015, NOZZLE_TIP.z), 0.011, 0.02, 8, { uvScale: 0.05 });
 }
 
-/** Right fist around a handle through the origin along +Y; knuckles towards +Z, back of the hand +X. */
+/**
+ * Right fist around a handle through the origin along +Y (index finger at +Y); knuckles towards
+ * +Z, back of the hand +X, palm/curled fingertips −X, wrist −Z. ~9 × 7 × 8.5 cm.
+ */
 function buildFist(k: MeshKit): void {
-  // chamfered fist block (octagonal profile in X/Z, extruded along Y)
+  // back of the hand + palm: chamfered octagon in X/Z extruded along Y
   const prof: Array<[number, number]> = [
-    [-0.03, -0.025],
-    [-0.02, -0.04],
-    [0.026, -0.04],
-    [0.042, -0.022],
-    [0.042, 0.024],
-    [0.028, 0.04],
-    [-0.018, 0.04],
-    [-0.03, 0.022],
+    [-0.022, -0.046],
+    [0.026, -0.046],
+    [0.038, -0.032],
+    [0.038, 0.02],
+    [0.028, 0.032],
+    [-0.014, 0.032],
+    [-0.026, 0.02],
+    [-0.026, -0.032],
   ];
-  k.slab("skin", vv(0.006, 0, 0), vv(1, 0, 0), vv(0, 0, 1), vv(0, 1, 0), prof, prof.map(() => 0.094), 0.06);
-  // knuckle ridge
-  k.box("skin", vv(0.03, 0.0, 0.038), vv(0.022, 0.086, 0.012), undefined, 0.05);
-  // thumb wrapped over the top of the grip (index side, +Y), curling to the front
-  k.box("skin", vv(-0.006, 0.052, 0.012), vv(0.026, 0.02, 0.05), [vv(1, 0, 0), vv(0, 1, 0), vv(0, 0, 1)], 0.05);
-  k.box("skin", vv(-0.022, 0.044, 0.03), vv(0.022, 0.018, 0.024), undefined, 0.05);
-  // wrist stub towards the forearm
-  k.cyl("skin", vv(0.016, 0, -0.035), vv(0.02, 0, -0.07), 0.027, 0.025, 8, { uvScale: 0.06, capA: false });
+  k.slab("skin", vv(0, 0, 0), vv(1, 0, 0), vv(0, 0, 1), vv(0, 1, 0), prof, prof.map(() => 0.082), 0.06);
+  // four fingers wrapping the grip: proximal phalanges across the front, middle phalanges along
+  // the palm side, a knuckle bump each (pinky slightly smaller)
+  for (let i = 0; i < 4; i++) {
+    const sz = i === 0 ? 0.86 : 1;
+    const h = 0.0185 * sz;
+    const yc = -0.0315 + i * 0.021;
+    k.box("skin", vv(0.007, yc, 0.037), vv(0.046 * sz, h, 0.013), undefined, 0.05);
+    k.box("skin", vv(-0.03, yc, 0.005), vv(0.013, h, 0.05 * sz), undefined, 0.05);
+    k.box("skin", vv(0.033, yc, 0.031), vv(0.013, h * 0.85, 0.013), undefined, 0.05);
+  }
+  // thumb lying across the index/middle fingers on the palm side, thenar pad behind it
+  k.box("skin", vv(-0.039, 0.023, 0.012), vv(0.014, 0.021, 0.052), undefined, 0.05);
+  k.box("skin", vv(-0.017, 0.028, -0.03), vv(0.024, 0.026, 0.03), undefined, 0.05);
+  // wrist towards the forearm
+  k.cyl("skin", vv(0.012, 0, -0.04), vv(0.016, 0, -0.076), 0.027, 0.025, 8, { uvScale: 0.06, capA: false });
 }
 
 /** Forearm along +Z from the wrist (origin) to the elbow (length 1 → scaled at runtime). */

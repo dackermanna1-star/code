@@ -19,12 +19,16 @@ import type { HingeOpts, SliderOpts } from "../../core/context.ts";
 import type { Vec3 } from "../../geom/vec.ts";
 import { planJointConstraints, type JointBondView } from "./graph.ts";
 import type { Assembly, Bond, Island, JointConstraint, JointGroup } from "./types.ts";
-import { HOLD_N_PER_J, PULL_CREEP } from "./interact.ts";
+import { PULL_CREEP } from "./interact.ts";
 import { rotate, type World } from "./world.ts";
 
 const TWO_PI = Math.PI * 2;
 /** Holding force of hinge/slider bonds under sustained loads (N per J of strength): 90 J hinge ≈ 270 N. */
 export const JOINT_HOLD_N_PER_J = 3;
+/** Holding force of a latch bolt (N per J): 40 J latch ≈ 160 N at the bolt. */
+export const LATCH_HOLD_N_PER_J = 4;
+/** Sustained-load window (fixed steps): loads must persist this long to count (≈ 0.2 s). */
+const LOAD_WINDOW = 12;
 /** Latch torque (N·m) per joule of latch strength. */
 const LATCH_TORQUE_PER_J = 30;
 /** Hinge counts as closed within this angle (rad) for use/latching. */
@@ -250,7 +254,7 @@ export class JointSystem {
     }
     this.constraintCount++;
     w.physics.wake(moving.body);
-    return { c, kind, moving, fixed, bonds, pivot: { ...pivot }, latched, offset, sig, fEma: 0, tAxisEma: 0, tPerpEma: 0 };
+    return { c, kind, moving, fixed, bonds, pivot: { ...pivot }, latched, offset, sig, fEma: 0, tAxisEma: 0, tPerpEma: 0, hist: new Float32Array(LOAD_WINDOW * 3), histPos: 0, histCount: 0 };
   }
 
   // ------------------------------------------------------------------ joint coordinates
@@ -361,7 +365,13 @@ export class JointSystem {
         sign = theta > 0 ? -1 : 1;
         if (g.released) g.armed = true;
       }
-      const J = Math.min(60, Math.max(2, m * 1.5));
+      // impulse for a natural push: ω ≈ 1.4 rad/s about the hinge (I ≈ m(d² + L²/12))
+      const c = this.w.toWorldVec(island, island.com);
+      const rc = { x: c.x - pivot.x, y: c.y - pivot.y, z: c.z - pivot.z };
+      const al = rc.x * axis.x + rc.y * axis.y + rc.z * axis.z;
+      const d2 = (rc.x - al * axis.x) ** 2 + (rc.y - al * axis.y) ** 2 + (rc.z - al * axis.z) ** 2;
+      const inertia = m * (d2 + (island.extent * island.extent) / 12);
+      const J = Math.min(80, Math.max(0.5, (inertia * 1.4) / tl));
       const k = (sign * J) / tl;
       tV.set(t.x * k, t.y * k, t.z * k);
       tP.set(point.x, point.y, point.z);
@@ -379,7 +389,7 @@ export class JointSystem {
       if (!isOpen) this.release(g);
       else if (g.released) g.armed = true;
       const sign = isOpen ? -Math.sign(s || openDir) : openDir;
-      const J = Math.min(40, Math.max(1, m * 1.1));
+      const J = Math.min(40, Math.max(0.3, m * 0.6));
       tV.set(axis.x * sign * J, axis.y * sign * J, axis.z * sign * J);
       tP.set(point.x, point.y, point.z);
       island.body.applyImpulse(tV, tP);
@@ -404,21 +414,23 @@ export class JointSystem {
   }
 
   /**
-   * Sustained constraint reactions damage joint bonds (call after each physics step). The
-   * solver's applied impulses give exactly the load the joint resists — free swing/slide costs
-   * nothing, pulling a door past its stop, yanking it off its pins, a door hanging by one hinge
-   * or a drawer pulled at full extension all load the bonds. Loads are low-pass filtered
-   * (τ = 0.25 s) so impact spikes are left to the damage model. Per bond:
-   *   F_b = |F|/n + |τ⊥|/spacing (+ |τ_axis|/(n·0.25 m) when forced against a limit);
-   *   latch: F = |τ_axis| / r_latch while latched;
-   *   damage rate = max(0, F_b − JOINT_HOLD·strength) × PULL_CREEP.
+   * Sustained constraint reactions damage joint bonds (call after each physics step): the
+   * solver's applied impulses give the load the joint resists from steady forces — things piled
+   * on an open drawer or lid, the player standing on a door or drawer, a door hanging by its
+   * last hinge. Havok reports the LAST SUBSTEP only, so once-per-step impulses (the player's
+   * grab spring) are under-read; those are modelled exactly by Interactions.pull(). Only
+   * SUSTAINED load counts: the minimum over the last LOAD_WINDOW steps (slams and kicks are
+   * spikes, left to the damage model). Per bond:
+   *   F_b = F/n + τ⊥/spacing (+ τ_axis/(n·0.25 m) when forced against a limit, unlatched)
+   *   hold = max(JOINT_HOLD·strength, 2 × the share of the moving part's own weight)
+   *   latch: F = τ_axis / r_latch while latched, hold = LATCH_HOLD·strength
+   *   damage rate = max(0, F_b − hold) × PULL_CREEP.
    */
   jointLoads(dt: number): void {
     const raw = this.w.physics as unknown as PhysicsRawExt;
     const hk = raw.hk;
     if (!hk || typeof hk.HP_Constraint_GetAppliedImpulses !== "function") return;
     const h = dt / Math.max(1, raw.substeps ?? 1);
-    const k = Math.min(1, dt / 0.25);
     let broke = false;
     for (const asm of this.w.assemblies.values()) {
       if (!asm.groups.size) continue;
@@ -430,14 +442,32 @@ export class JointSystem {
           const lin = r[1],
             ang = r[2];
           if (!lin || !ang) continue;
-          const { axis } = this.worldAxis(g, jc);
+          const { axis, pivot } = this.worldAxis(g, jc);
           const F = Math.hypot(lin[0], lin[1], lin[2]) / h;
           const ta = (ang[0] * axis.x + ang[1] * axis.y + ang[2] * axis.z) / h;
           const tp = Math.hypot(ang[0] / h - ta * axis.x, ang[1] / h - ta * axis.y, ang[2] / h - ta * axis.z);
           if (!Number.isFinite(F) || !Number.isFinite(ta) || !Number.isFinite(tp)) continue;
-          jc.fEma += (F - jc.fEma) * k;
-          jc.tAxisEma += (Math.abs(ta) - jc.tAxisEma) * k;
-          jc.tPerpEma += (tp - jc.tPerpEma) * k;
+          // sustained load = minimum over the window (ring buffer, 3 metrics)
+          const H = jc.hist;
+          const slot = (jc.histPos = (jc.histPos + 1) % LOAD_WINDOW) * 3;
+          H[slot] = F;
+          H[slot + 1] = Math.abs(ta);
+          H[slot + 2] = tp;
+          if (jc.histCount < LOAD_WINDOW) {
+            jc.histCount++;
+            continue;
+          }
+          let sF = Infinity,
+            sA = Infinity,
+            sP = Infinity;
+          for (let i = 0; i < LOAD_WINDOW * 3; i += 3) {
+            if (H[i] < sF) sF = H[i];
+            if (H[i + 1] < sA) sA = H[i + 1];
+            if (H[i + 2] < sP) sP = H[i + 2];
+          }
+          jc.fEma = sF;
+          jc.tAxisEma = sA;
+          jc.tPerpEma = sP;
           const bonds = jc.bonds.filter((b) => b.alive);
           const n = Math.max(1, bonds.length);
           let spacing = 0.1;
@@ -447,20 +477,31 @@ export class JointSystem {
                 b = bonds[j].anchor;
               spacing = Math.max(spacing, Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z));
             }
-          let perBond = jc.fEma / n + (jc.kind === "ball" ? 0 : jc.tPerpEma / spacing);
           const latchHolds = jc.latched && !!g.latch && g.latch.alive;
-          if (!latchHolds && jc.kind === "hinge") perBond += jc.tAxisEma / (n * 0.25);
+          let perBond = sF / n + (jc.kind === "ball" ? 0 : sP / spacing);
+          if (!latchHolds && jc.kind === "hinge") perBond += sA / (n * 0.25);
+          // the joint must carry the moving part's own weight forever: never fail below 2× that
+          const m = jc.moving;
+          const com = this.w.toWorldVec(m, m.com);
+          const rx = com.x - pivot.x,
+            ry = com.y - pivot.y,
+            rz = com.z - pivot.z;
+          const along = rx * axis.x + ry * axis.y + rz * axis.z;
+          const dPerp = Math.hypot(rx - along * axis.x, ry - along * axis.y, rz - along * axis.z);
+          const weight = m.mass * 9.81;
+          const staticShare = weight / n + (jc.kind === "ball" ? 0 : (weight * dPerp) / spacing);
           for (const b of bonds) {
-            const excess = perBond - JOINT_HOLD_N_PER_J * b.max;
+            const hold = Math.max(JOINT_HOLD_N_PER_J * b.max, 2 * staticShare);
+            const excess = perBond - hold;
             if (excess > 0 && this.w.damageBond(b, excess * PULL_CREEP * dt)) broke = true;
           }
           if (latchHolds && g.latch) {
             const la = g.latch.anchor;
             const ax = unit(g.def.axis);
             const d = { x: la.x - jc.pivot.x, y: la.y - jc.pivot.y, z: la.z - jc.pivot.z };
-            const along = d.x * ax.x + d.y * ax.y + d.z * ax.z;
-            const rL = Math.max(0.05, Math.hypot(d.x - along * ax.x, d.y - along * ax.y, d.z - along * ax.z));
-            const excess = jc.tAxisEma / rL - HOLD_N_PER_J * g.latch.max;
+            const al = d.x * ax.x + d.y * ax.y + d.z * ax.z;
+            const rL = Math.max(0.05, Math.hypot(d.x - al * ax.x, d.y - al * ax.y, d.z - al * ax.z));
+            const excess = sA / rL - LATCH_HOLD_N_PER_J * g.latch.max;
             if (excess > 0 && this.w.damageBond(g.latch, excess * PULL_CREEP * dt)) broke = true;
           }
         }

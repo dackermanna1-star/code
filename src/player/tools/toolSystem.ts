@@ -27,6 +27,7 @@ import {
   PRY,
   SPRAY,
   SPRAY_POSE,
+  NOZZLE_IDLE,
   sharpnessFor,
   isPainful,
   PAINFUL_PULL,
@@ -171,6 +172,7 @@ export class ToolSystem implements IToolSystem {
   private readonly pose = makePose();
   private readonly pose2 = makePose();
   private readonly sprayPose = makePose();
+  private readonly nozzleIdle = makePose();
   private sinceFixed = 0;
   private recoilKick = 0;
   private readonly view: ViewState;
@@ -192,6 +194,7 @@ export class ToolSystem implements IToolSystem {
     this.machines = m;
     frameFromDef(SPRAY_POSE.right, this.sprayPose.right);
     frameFromDef(SPRAY_POSE.left, this.sprayPose.left);
+    frameFromDef(NOZZLE_IDLE, this.nozzleIdle.left);
     this.view = {
       tool: "hands",
       pose: this.pose,
@@ -1051,13 +1054,13 @@ export class ToolSystem implements IToolSystem {
       const target = this.spray.active && this.holdLower < 0.5 ? 1 : 0;
       const step = SPRAY_BLEND_RATE * dt;
       this.sprayBlend = target > this.sprayBlend ? Math.min(target, this.sprayBlend + step) : Math.max(target, this.sprayBlend - step);
+      const u = smoothstep01(this.sprayBlend);
       if (this.sprayBlend > 0.002) {
-        const u = smoothstep01(this.sprayBlend);
         copyPose(this.pose2, this.pose);
         blendPose(this.pose2, this.sprayPose, u, shownMachine.toolLen, 0, this.pose);
-        // the left hand holds the nozzle; it does not follow the handle
-        blendFrame(this.pose2.left, this.sprayPose.left, u, this.pose.left);
       }
+      // the left hand always holds the hose nozzle (aimed along the view while spraying)
+      blendFrame(this.nozzleIdle.left, this.sprayPose.left, u, this.pose.left);
     } else this.sprayBlend = 0;
     vs.sprayBlend = this.sprayBlend;
     vs.tool = this.shown;

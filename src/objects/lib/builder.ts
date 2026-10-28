@@ -213,6 +213,13 @@ export interface AutoBondOpts {
 }
 
 export type WarnMode = "collect" | "console" | "throw";
+export type ValidationLevel = "basic" | "full";
+
+/** True when running under `node --test` (or BUILDER_VALIDATE=full): full validation + printed warnings. */
+function testContext(): boolean {
+  const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+  return !!env && (!!env.NODE_TEST_CONTEXT || env.BUILDER_VALIDATE === "full");
+}
 
 export interface BuildInfo {
   mass: number;
@@ -234,10 +241,16 @@ interface GroupFrame {
 
 export class Builder {
   /**
-   * What build() does with validation warnings: keep them in `warnings` / info() (default),
-   * also print them, or throw. Tests assert registered objects build without warnings.
+   * What build() does with validation warnings: keep them in `warnings` / info(), also print
+   * them, or throw. Default: "console" under `node --test`, else "collect".
    */
-  static warnMode: WarnMode = "collect";
+  static warnMode: WarnMode = testContext() ? "console" : "collect";
+  /**
+   * Validation depth of build(): "basic" (cheap structural checks; the runtime default) or
+   * "full" (adds proximity/containment/pivot checks and the sample-based overlap check; the
+   * default under `node --test`).
+   */
+  static validation: ValidationLevel = testContext() ? "full" : "basic";
 
   readonly type: string;
   readonly name: string;
@@ -255,6 +268,8 @@ export class Builder {
   private features: FeatureDef[] = [];
   private frames: GroupFrame[] = [{ xf: xform(v3()), prefix: "" }];
   private groupCounter = 0;
+  /** Local-space primitive polys by parameter key (keycaps, feet, legs repeat a lot). */
+  private primCache = new Map<string, ConvexPoly>();
 
   constructor(type: string, name: string, category: AssemblyCategory, value: number, seed?: number) {
     this.type = type;
@@ -308,6 +323,19 @@ export class Builder {
     const s = S[surf];
     if (s === undefined) throw new Error(`${this.type}: unknown surface '${surf}'`);
     return { surf: s, tint, uv: { u: v3(), v: v3(), u0: 0, v0: 0 }, interior: false, smooth };
+  }
+
+  /**
+   * Local primitive from the cache (a copy whose faces can be re-attributed), or made by `make`.
+   * Cached polys are never decorated themselves.
+   */
+  private cachedPrim(key: string, make: () => ConvexPoly): ConvexPoly {
+    let p = this.primCache.get(key);
+    if (!p) {
+      p = make();
+      this.primCache.set(key, p);
+    }
+    return { verts: p.verts, faces: p.faces.map((f) => ({ ...f })) };
   }
 
   private uvOffset(o?: [number, number]): [number, number] {
@@ -446,8 +474,9 @@ export class Builder {
     const sz = vec(size);
     this.checkPositive(`bevelBox '${name}' size`, sz.x, sz.y, sz.z);
     const bv = Math.max(0, Math.min(bevel, 0.49 * Math.min(sz.x, sz.y, sz.z)));
-    const a = this.attr(surf, o.tint ?? 0xffffff, o.smooth ?? 0);
-    const poly = polyBeveledBox(sz, bv, a);
+    const tint = o.tint ?? 0xffffff,
+      smooth = o.smooth ?? 0;
+    const poly = this.cachedPrim(`bevel|${sz.x}|${sz.y}|${sz.z}|${bv}|${surf}|${tint}|${smooth}`, () => polyBeveledBox(sz, bv, this.attr(surf, tint, smooth)));
     const grain = this.grainFor(mat, o, sz);
     const [ou, ov] = this.uvOffset(o.uvOffset);
     this.decorate(poly, mat, grain, ou, ov, o.endGrain ?? true);
@@ -457,13 +486,19 @@ export class Builder {
   /** Cylinder / frustum part along `axis` (default y), centred at pos. */
   cyl(name: string, mat: MaterialId, surf: SurfaceName, radius: number, height: number, pos: V3, o: CylOpts = {}): string {
     this.checkPositive(`cyl '${name}' radius/height`, radius, height);
-    const side = this.attr(surf, o.tint ?? 0xffffff, o.smooth ?? 1);
-    const caps = this.attr(o.capSurf ?? surf, o.capTint ?? o.tint ?? 0xffffff, 0);
-    let axisRot: Quat = { x: 0, y: 0, z: 0, w: 1 };
-    if (o.axis === "x") axisRot = qeuler(0, 0, -90 * D2R);
-    else if (o.axis === "z") axisRot = qeuler(90 * D2R, 0, 0);
-    const poly0 = polyCylinder(radius, o.rTop ?? radius, height, Math.max(3, o.segments ?? 12), side, caps);
-    const poly = polyTransform(poly0, xform(v3(), axisRot));
+    const tint = o.tint ?? 0xffffff,
+      smooth = o.smooth ?? 1,
+      capSurf = o.capSurf ?? surf,
+      capTint = o.capTint ?? tint;
+    const segs = Math.max(3, o.segments ?? 12);
+    const key = `cyl|${radius}|${o.rTop ?? radius}|${height}|${segs}|${o.axis ?? "y"}|${surf}|${tint}|${smooth}|${capSurf}|${capTint}`;
+    const poly = this.cachedPrim(key, () => {
+      let axisRot: Quat = { x: 0, y: 0, z: 0, w: 1 };
+      if (o.axis === "x") axisRot = qeuler(0, 0, -90 * D2R);
+      else if (o.axis === "z") axisRot = qeuler(90 * D2R, 0, 0);
+      const poly0 = polyCylinder(radius, o.rTop ?? radius, height, segs, this.attr(surf, tint, smooth), this.attr(capSurf, capTint, 0));
+      return polyTransform(poly0, xform(v3(), axisRot));
+    });
     const axisVec = o.axis === "x" ? v3(1, 0, 0) : o.axis === "z" ? v3(0, 0, 1) : v3(0, 1, 0);
     const grain = o.grain ? this.grainVec(o.grain) : MATERIALS[mat].mode === "splinter" ? axisVec : undefined;
     const [ou, ov] = this.uvOffset(o.uvOffset);
@@ -1044,7 +1079,7 @@ export class Builder {
       const bb = aabbOf(A);
       return v3((bb.min.x + bb.max.x) / 2, bb.min.y, (bb.min.z + bb.max.z) / 2);
     }
-    const c = polyContact(A, this.partIndex.get(b)!.poly, Infinity);
+    const c = polyContact(A, this.partIndex.get(b)!.poly, Infinity, true);
     if (c && isFiniteVec(c.point)) return c.point;
     const ba = aabbOf(A);
     return vscale(vadd(ba.min, ba.max), 0.5);
@@ -1053,10 +1088,10 @@ export class Builder {
   // ------------------------------------------------------------------ build
   /**
    * Validate and return the AssemblyDef. Errors throw; warnings are handled per
-   * Builder.warnMode. `validate: "full"` adds the (slower) sample-based overlap check.
+   * Builder.warnMode. Validation depth: `o.validate` ?? Builder.validation.
    */
-  build(o: { validate?: "basic" | "full" } = {}): AssemblyDef {
-    const { errors, warnings } = this.validate(o.validate === "full");
+  build(o: { validate?: ValidationLevel } = {}): AssemblyDef {
+    const { errors, warnings } = this.validate((o.validate ?? Builder.validation) === "full");
     if (errors.length) throw new Error(`${this.type}: invalid assembly:\n  ${errors.join("\n  ")}`);
     for (const w of warnings) if (!this.warnings.includes(w)) this.warnings.push(w);
     if (this.warnings.length) {
@@ -1096,8 +1131,10 @@ export class Builder {
         errors.push(`part '${p.name}' has degenerate volume ${v}`);
         continue;
       }
-      const thin = polyExtents(p.poly).ext[2];
-      if (thin < 3e-4) warnings.push(`part '${p.name}' is only ${(thin * 1000).toFixed(2)} mm thick — too thin to simulate reliably`);
+      if (full) {
+        const thin = polyExtents(p.poly).ext[2];
+        if (thin < 3e-4) warnings.push(`part '${p.name}' is only ${(thin * 1000).toFixed(2)} mm thick — too thin to simulate reliably`);
+      }
       if (p.mass !== undefined) {
         if (!(p.mass > 0) || !Number.isFinite(p.mass)) errors.push(`part '${p.name}' has invalid mass override ${p.mass}`);
         else {
@@ -1160,8 +1197,8 @@ export class Builder {
           e.pivots.push(b.joint.pivot);
         }
       } else if (b.kind !== "latch") {
-        if (B && !polyContact(A.poly, B.poly, 0.02)) warnings.push(`${tag}: the parts are more than 2 cm apart`);
-        if (b.anchor && isFiniteVec(b.anchor)) {
+        if (full && B && !polyContact(A.poly, B.poly, 0.02)) warnings.push(`${tag}: the parts are more than 2 cm apart`);
+        if (full && b.anchor && isFiniteVec(b.anchor)) {
           const dA = polyPointDist(A.poly, b.anchor);
           const dB = B ? polyPointDist(B.poly, b.anchor) : 0;
           if (dA > 0.03 || dB > 0.03) warnings.push(`${tag}: anchor is ${(Math.max(dA, dB) * 100).toFixed(1)} cm away from a bonded part`);
@@ -1237,8 +1274,8 @@ export class Builder {
       }
     }
 
-    // ---- geometry relations (containment, overlap)
-    if (this.parts.length > 1 && !errors.length) {
+    // ---- geometry relations (containment, overlap) — full validation only
+    if (full && this.parts.length > 1 && !errors.length) {
       const pairs = overlappingPairs(boxes, 0);
       const rng = new Rng(0x5eed);
       for (const [i, j] of pairs) {
@@ -1252,7 +1289,6 @@ export class Builder {
           warnings.push(`part '${B.name}' is completely inside '${A.name}'`);
           continue;
         }
-        if (!full) continue;
         const c = polyContact(A.poly, B.poly, 0);
         if (!c || c.sep > -0.002) continue;
         const [small, big] = vols[i] <= vols[j] ? [A, B] : [B, A];

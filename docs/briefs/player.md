@@ -59,3 +59,11 @@ Read first: `docs/api-notes/input-loop-camera.md`, `docs/api-notes/physics-const
    interplay: menus release the lock; clicking resume re-locks.
 6. Probes: character walk/jump/step-up/stomp detection, grab+throw of a box (velocity check),
    pull on a hinged door body, HUD screenshot (start screen, in-game HUD, pause menu).
+
+## Addendum (constraints/input notes landed)
+- Grab = joint with position motors to an ANIMATED anchor (450 N lift / 300 N push cap), created
+  once per grab (constraints leak). Joint to a static body applies nothing: compute pull force by hand.
+- Character controller: radius 0.3, characterStrength ~600 N, characterMass 80, keepDistance 0.02,
+  keepContactTolerance 0.03; ignore "supported" a few steps after jump; raycasts must ignore the capsule.
+- Input: window keydown/keyup with event.code; virtual-lock mode + `injectLook(dx,dy)` for headless tests.
+- Viewmodel: renderingGroupId 1 (tools agent) — no second camera.

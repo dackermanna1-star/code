@@ -109,3 +109,8 @@ fell-out removal, no leaks (bodies/meshes count back to baseline after disposal)
 - Never create/dispose bodies inside collision callbacks; process in `afterPhysics`.
 - Large debris counts: use the physics module's auto-sleep + cheap sync; consolidated islands
   should have Babylon sync disabled while consolidated.
+
+## Addendum 2 (constraints notes)
+- Hinge reaction forces are readable (physics `appliedImpulse`): drive hinge/slider bond damage
+  from the measured joint load each step (plus pull/pry), not only from estimates.
+- Constraints leak — recreate joint constraints only when islands actually change.

@@ -48,8 +48,8 @@ interface PolyInfo {
   scale: number;
   /** Unique face-normal axes (n and -n deduplicated). */
   normals: Vec3[];
-  /** Unique edge directions (unit, sign-canonical). */
-  edges: Vec3[];
+  /** Unique edge directions (unit, sign-canonical); computed lazily. */
+  edges: Vec3[] | null;
 }
 
 const infoCache = new WeakMap<ConvexPoly, PolyInfo>();
@@ -68,8 +68,15 @@ function polyInfo(p: ConvexPoly): PolyInfo {
   const scale = Math.max(aabb.max.x - aabb.min.x, aabb.max.y - aabb.min.y, aabb.max.z - aabb.min.z, 1e-6);
   const normals: Vec3[] = [];
   for (const f of p.faces) addUniqueAxis(normals, f.n, 1 - 1e-9);
+  inf = { aabb, scale, normals, edges: null };
+  infoCache.set(p, inf);
+  return inf;
+}
+
+function polyEdges(p: ConvexPoly, inf: PolyInfo): Vec3[] {
+  if (inf.edges) return inf.edges;
   const edges: Vec3[] = [];
-  const minLen = 1e-9 * scale;
+  const minLen = 1e-9 * inf.scale;
   for (const f of p.faces) {
     const idx = f.idx;
     for (let k = 0; k < idx.length; k++) {
@@ -83,9 +90,8 @@ function polyInfo(p: ConvexPoly): PolyInfo {
       addUniqueAxis(edges, { x: ex / l, y: ey / l, z: ez / l }, 1 - 1e-7);
     }
   }
-  inf = { aabb, scale, normals, edges };
-  infoCache.set(p, inf);
-  return inf;
+  inf.edges = edges;
+  return edges;
 }
 
 /** Axis-aligned bounds of a polyhedron's vertices. */
@@ -427,9 +433,11 @@ function intersect2(A: P2[], B: P2[], eps: number): P2[] | null {
 /**
  * Contact between two convex polyhedra within tolerance `tol` (m), or null if some axis
  * separates them by more than `tol`. Pass tol = Infinity to always get the facing features
- * (used for anchors between non-touching parts).
+ * (used for anchors between non-touching parts). `faceAxesOnly` skips the edge×edge axes: much
+ * cheaper and exact for face contacts, but may report edge-only near-misses as touching — use it
+ * for anchors, not for deciding whether parts touch.
  */
-export function polyContact(A: ConvexPoly, B: ConvexPoly, tol = 0.003): Contact | null {
+export function polyContact(A: ConvexPoly, B: ConvexPoly, tol = 0.003, faceAxesOnly = false): Contact | null {
   if (!A.verts.length || !B.verts.length) return null;
   const ia = polyInfo(A),
     ib = polyInfo(B);
@@ -438,34 +446,59 @@ export function polyContact(A: ConvexPoly, B: ConvexPoly, tol = 0.003): Contact 
   const eps = 1e-9 * scale;
 
   let bestSep = -Infinity;
-  let bestAx: Vec3 = { x: 0, y: 1, z: 0 };
+  let bax = 0,
+    bay = 1,
+    baz = 0;
   let bestSign = 1;
-  // Returns true if the axis separates the parts by more than tol (early out).
-  const test = (ax: Vec3, isFace: boolean): boolean => {
-    const [aLo, aHi] = project(A, ax);
-    const [bLo, bHi] = project(B, ax);
+  const AV = A.verts,
+    BV = B.verts;
+  // Separation along axis (x,y,z); records the best axis; true if separated by more than tol.
+  const test = (x: number, y: number, z: number, isFace: boolean): boolean => {
+    let aLo = Infinity,
+      aHi = -Infinity,
+      bLo = Infinity,
+      bHi = -Infinity;
+    for (let i = 0; i < AV.length; i++) {
+      const v = AV[i];
+      const d = v.x * x + v.y * y + v.z * z;
+      if (d < aLo) aLo = d;
+      if (d > aHi) aHi = d;
+    }
+    for (let i = 0; i < BV.length; i++) {
+      const v = BV[i];
+      const d = v.x * x + v.y * y + v.z * z;
+      if (d < bLo) bLo = d;
+      if (d > bHi) bHi = d;
+    }
     const s1 = bLo - aHi; // B on the + side
     const s2 = aLo - bHi; // B on the - side
     const s = s1 >= s2 ? s1 : s2;
     // Face axes win ties so face contacts get the face normal (stable patches).
     if (s > bestSep + (isFace ? 0 : eps)) {
       bestSep = s;
-      bestAx = ax;
+      bax = x;
+      bay = y;
+      baz = z;
       bestSign = s1 >= s2 ? 1 : -1;
     }
     return s > tol;
   };
-  for (const n of ia.normals) if (test(n, true)) return null;
-  for (const n of ib.normals) if (test(n, true)) return null;
-  for (const ea of ia.edges)
-    for (const eb of ib.edges) {
-      const cx = ea.y * eb.z - ea.z * eb.y,
-        cy = ea.z * eb.x - ea.x * eb.z,
-        cz = ea.x * eb.y - ea.y * eb.x;
-      const l = Math.sqrt(cx * cx + cy * cy + cz * cz);
-      if (l < 1e-6) continue;
-      if (test({ x: cx / l, y: cy / l, z: cz / l }, false)) return null;
-    }
+  for (const n of ia.normals) if (test(n.x, n.y, n.z, true)) return null;
+  for (const n of ib.normals) if (test(n.x, n.y, n.z, true)) return null;
+  if (!faceAxesOnly) {
+    const ea0 = polyEdges(A, ia),
+      eb0 = polyEdges(B, ib);
+    for (const ea of ea0)
+      for (const eb of eb0) {
+        const cx = ea.y * eb.z - ea.z * eb.y,
+          cy = ea.z * eb.x - ea.x * eb.z,
+          cz = ea.x * eb.y - ea.y * eb.x;
+        const l = Math.sqrt(cx * cx + cy * cy + cz * cz);
+        if (l < 1e-6) continue;
+        if (test(cx / l, cy / l, cz / l, false)) return null;
+      }
+  }
+  const bestAx: Vec3 = { x: bax, y: bay, z: baz };
 
   const n: Vec3 = bestSign > 0 ? bestAx : { x: -bestAx.x, y: -bestAx.y, z: -bestAx.z };
   const [, aHi] = project(A, n);

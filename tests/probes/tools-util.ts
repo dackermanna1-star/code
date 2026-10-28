@@ -135,6 +135,8 @@ export interface Harness {
   step(n?: number): void;
   addBox(name: string, pos: Vector3, size: Vector3, opts?: { mass?: number; mat?: MaterialId; color?: Color3; breakAt?: number; layer?: number }): BodyInfo;
   render(frames?: number): void;
+  /** Wait until all materials are compiled, then render (screenshots). */
+  renderReady(frames?: number): Promise<void>;
   /** Make pry() return this sequence of stresses (then 0); emits bondBreak at 1. */
   pryScript: number[];
 }
@@ -398,10 +400,56 @@ export async function makeHarness(canvas: HTMLCanvasElement, opts: { floor?: boo
         scene.render();
       }
     },
+    async renderReady(frames = 2) {
+      harness.tools.update(1 / 60, tc);
+      await scene.whenReadyAsync();
+      for (let i = 0; i < frames; i++) {
+        harness.tools.update(1 / 60, tc);
+        scene.render();
+      }
+    },
   });
   harness.tools = new ToolSystem(ctx);
   harness.setView(new Vector3(0, 1.65, 0), 0, 0);
   return harness;
+}
+
+/**
+ * Render tiles one at a time (each with its own engine, disposed afterwards to avoid WebGL
+ * context eviction) and paste them into a single 2D canvas grid for the probe screenshot.
+ */
+export async function renderTiles(cols: number, rows: number, n: number, draw: (i: number, canvas: HTMLCanvasElement) => Promise<{ label: string; dispose: () => void }>): Promise<void> {
+  for (const c of Array.from(document.querySelectorAll("canvas"))) c.style.display = "none";
+  const W = window.innerWidth,
+    H = window.innerHeight;
+  const tw = Math.floor(W / cols),
+    th = Math.floor(H / rows);
+  const grid = document.createElement("canvas");
+  grid.width = W;
+  grid.height = H;
+  grid.style.cssText = "position:fixed;left:0;top:0;width:100%;height:100%;display:block;background:#111";
+  document.body.appendChild(grid);
+  const g = grid.getContext("2d")!;
+  for (let i = 0; i < n; i++) {
+    const c = document.createElement("canvas");
+    c.width = tw;
+    c.height = th;
+    c.style.cssText = `position:fixed;left:0;top:0;width:${tw}px;height:${th}px;display:block;visibility:hidden`;
+    document.body.appendChild(c);
+    const res = await draw(i, c);
+    const x = (i % cols) * tw,
+      y = Math.floor(i / cols) * th;
+    g.drawImage(c, x, y, tw, th);
+    g.fillStyle = "#fff";
+    g.font = "12px monospace";
+    g.shadowColor = "#000";
+    g.shadowBlur = 3;
+    g.fillText(res.label, x + 6, y + 14);
+    g.strokeStyle = "#000";
+    g.strokeRect(x + 0.5, y + 0.5, tw - 1, th - 1);
+    res.dispose();
+    c.remove();
+  }
 }
 
 /** One canvas per tile in a grid (cols × rows), hiding the default canvas. */

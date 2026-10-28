@@ -18,7 +18,7 @@ import { SceneInstrumentation, type PhysicsBody } from "@babylonjs/core";
 import type { GameContext, HudSystem, TargetInfo, ToolId } from "../core/context.ts";
 import { QUALITY, type SettingsData } from "../core/settings.ts";
 import { h, money, setClass, setText } from "./dom.ts";
-import { TOOL_NAMES, toolIcon } from "./icons.ts";
+import { TOOL_NAMES, TOOL_SHORT, toolIcon } from "./icons.ts";
 import { Menus } from "./menu.ts";
 
 export type HudState = "start" | "playing" | "paused";
@@ -104,6 +104,8 @@ export class Hud implements HudSystem {
   private readonly statFps: HTMLElement;
   private readonly popups: HTMLDivElement;
   private readonly hotbar: HTMLDivElement;
+  private readonly toolName: HTMLDivElement;
+  private toolNameTimer = 0;
   private readonly holdingBox: HTMLDivElement;
   private readonly holdingTitle: HTMLDivElement;
   private readonly holdingKeys: HTMLDivElement;
@@ -190,6 +192,7 @@ export class Hud implements HudSystem {
     );
     this.popups = h("div.ads-popups");
     this.hotbar = h("div.ads-hotbar");
+    this.toolName = h("div.ads-toolname");
     this.holdingTitle = h("div.ads-holding-title");
     this.holdingKeys = h("div.ads-holding-keys");
     this.holdingBox = h("div.ads-holding", null, this.holdingTitle, this.holdingKeys);
@@ -204,6 +207,7 @@ export class Hud implements HudSystem {
       this.stats,
       this.popups,
       this.holdingBox,
+      this.toolName,
       this.hotbar,
       this.toasts,
       this.debugBox,
@@ -273,6 +277,8 @@ export class Hud implements HudSystem {
   }
 
   private showToast(el: HTMLDivElement, seconds: number): void {
+    // the same message twice in a row replaces the older one
+    for (const old of Array.from(this.toasts.children)) if (old.textContent === el.textContent) old.remove();
     this.toasts.appendChild(el);
     while (this.toasts.children.length > 4) this.toasts.firstElementChild?.remove();
     const ms = Math.max(0.8, Number.isFinite(seconds) ? seconds : 3) * 1000;
@@ -460,8 +466,7 @@ export class Hud implements HudSystem {
     this.slotsBuiltFor = defs ?? p;
     this.hotbar.textContent = "";
     this.slots = TOOL_ORDER.map((id, i) => {
-      const name = defs?.[id]?.name ?? TOOL_NAMES[id];
-      const el = h("div.ads-slot", { dataset: { tool: id } }, h("span.ads-key", null, String(i + 1)), h("span", { html: toolIcon(id) }), h("span.ads-name", null, name));
+      const el = h("div.ads-slot", { dataset: { tool: id } }, h("span.ads-key", null, String(i + 1)), h("span", { html: toolIcon(id) }), h("span.ads-name", null, TOOL_SHORT[id]));
       this.hotbar.appendChild(el);
       return { id, el };
     });
@@ -491,12 +496,18 @@ export class Hud implements HudSystem {
       setClass(this.chargeBox, "ads-full", c >= 0.999);
     } else setClass(this.chargeBox, "ads-full", false);
 
-    // hotbar selection
+    // hotbar selection (+ the full tool name pops up for a moment when it changes)
     const tool = p.tool;
     if (tool !== this.lastSelTool) {
       for (const sl of this.slots) setClass(sl.el, "ads-sel", sl.id === tool);
+      if (this.lastSelTool !== null) {
+        setText(this.toolName, p.tools?.defs?.[tool]?.name ?? TOOL_NAMES[tool]);
+        this.toolNameTimer = 1.3;
+      }
       this.lastSelTool = tool;
     }
+    if (this.toolNameTimer > 0) this.toolNameTimer -= dt;
+    setClass(this.toolName, "ads-on", this.toolNameTimer > 0 && !p.holding);
     setClass(this.hotbar, "ads-dim", !!p.holding);
 
     // holding panel

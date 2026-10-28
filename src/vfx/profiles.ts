@@ -170,14 +170,14 @@ export const PROFILES: Readonly<Record<string, ParticleProfile>> = Object.fromEn
       color: [0.66, 0.63, 0.58], colorVar: 0.08, alpha: 0.5, fadeIn: 0.06, fadeOut: 0.65, spin: 0.5,
     }),
     P("drywallCloud", "puff", PUFF_CELLS.dust, {
-      count: 20, maxCount: 260, life: [5, 10], size: [0.14, 0.3], sizeExp: 0.35, grow: [3, 5.5], speed: [0.7, 2.4], speedExp: 0.3,
-      spread: 0.95, radius: 0.08, radiusExp: 0.5, offset: 0.05, ...settle(2.4, 0.05), turb: 0.08, collide: 1,
-      color: [0.87, 0.86, 0.83], colorVar: 0.05, tintMix: 0.5, alpha: 0.36, fadeIn: 0.04, fadeOut: 0.6, spin: 0.25,
+      count: 34, maxCount: 320, life: [5, 10], size: [0.16, 0.34], sizeExp: 0.35, grow: [3, 5.5], speed: [0.6, 2.6], speedExp: 0.3,
+      spread: 0.95, radius: 0.1, radiusExp: 0.5, offset: 0.05, ...settle(2.4, 0.05), turb: 0.08, collide: 1,
+      color: [0.88, 0.87, 0.84], colorVar: 0.05, tintMix: 0.5, alpha: 0.5, fadeIn: 0.03, fadeOut: 0.6, spin: 0.25,
     }),
     P("drywallFines", "puff", PUFF_CELLS.dust, {
-      count: 14, maxCount: 180, life: [1.2, 2.6], size: [0.04, 0.09], grow: [3, 5], speed: [1.5, 4.2], spread: 0.6,
-      radius: 0.04, ...settle(4.5, 0.09), turb: 0.15, collide: 1, color: [0.9, 0.89, 0.86], colorVar: 0.04, tintMix: 0.5,
-      alpha: 0.42, fadeIn: 0.02, fadeOut: 0.7, spin: 0.6,
+      count: 18, maxCount: 200, life: [1.2, 2.6], size: [0.05, 0.1], grow: [3, 5], speed: [1.5, 4.2], spread: 0.6,
+      radius: 0.04, ...settle(4.5, 0.09), turb: 0.15, collide: 1, color: [0.92, 0.91, 0.88], colorVar: 0.04, tintMix: 0.5,
+      alpha: 0.55, fadeIn: 0.02, fadeOut: 0.7, spin: 0.6,
     }),
     P("gypsumCrumbs", "bits", BITS_CELLS.crumbs, {
       count: 12, maxCount: 160, life: [0.8, 1.6], size: [0.008, 0.02], sizeExp: 0.1, speed: [1, 3], spread: 0.8, radius: 0.05,
@@ -212,7 +212,7 @@ export const PROFILES: Readonly<Record<string, ParticleProfile>> = Object.fromEn
     P("sparkStreaks", "spark", BITS_CELLS.streak, {
       count: 20, countExp: 0.7, maxCount: 240, life: [0.22, 0.6], size: [0.008, 0.014], sizeExp: 0, speed: [3, 10], speedExp: 0.3,
       spread: 0.8, radius: 0.01, radiusExp: 0.3, offset: 0.01, quadDrag: 1.2, collide: 2, bounce: 0.45, friction: 4,
-      color: [1, 0.85, 0.55], colorVar: 0.05, tintMix: 0, fadeOut: 0.3, stretch: 1 / 55, lit: 0, hdr: 4, cool: 1,
+      color: [1, 0.62, 0.22], colorVar: 0.05, tintMix: 0, fadeOut: 0.3, stretch: 1 / 55, lit: 0, hdr: 3, cool: 1,
     }),
     P("sparkFlash", "glint", BITS_CELLS.star, {
       count: 1, countExp: 0, maxCount: 2, life: [0.06, 0.1], size: [0.1, 0.18], sizeExp: 0.3, speed: [0, 0], radius: 0, offset: 0.02,
@@ -231,8 +231,8 @@ export const PROFILES: Readonly<Record<string, ParticleProfile>> = Object.fromEn
     // ---------------------------------------------------------------- water & liquids
     P("waterDrops", "drop", BITS_CELLS.drop, {
       count: 30, maxCount: 320, life: [0.5, 1.2], size: [0.006, 0.012], sizeExp: 0, speed: [2.5, 6], spread: 0.35, radius: 0.015,
-      offset: 0.01, quadDrag: 0.5, collide: 1, dieOnGround: true, color: [0.75, 0.83, 0.9], colorVar: 0.04, tintMix: 0.8,
-      alpha: 0.55, fadeOut: 0.1, stretch: 1 / 50,
+      offset: 0.01, quadDrag: 0.5, collide: 1, dieOnGround: true, color: [0.86, 0.91, 0.96], colorVar: 0.04, tintMix: 0.8,
+      alpha: 0.45, fadeOut: 0.1, stretch: 1 / 50,
     }),
     P("waterMist", "puff", PUFF_CELLS.dust, {
       count: 3, maxCount: 40, life: [0.8, 1.6], size: [0.08, 0.16], grow: [2, 3], speed: [0.5, 2], spread: 0.5,

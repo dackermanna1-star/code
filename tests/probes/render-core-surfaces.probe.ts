@@ -13,7 +13,7 @@ import type { RenderGeom } from "../../src/geom/meshgen.ts";
 
 export async function probe(): Promise<unknown> {
   const params = new URLSearchParams(location.search);
-  setBoxWinding(params.get("ccw") === "1");
+  setBoxWinding(params.get("cw") !== "1");
   const { scene, camera, shadows, engine } = makeScene({ bloom: true });
   const t0 = performance.now();
   const lib = await loadTextures(scene, { proceduralOnly: true });
@@ -50,14 +50,24 @@ export async function probe(): Promise<unknown> {
   for (let k = 0; k < 10; k++) batcher.build(node, geoms, meshes, "grid");
   const rebuildMs = (performance.now() - tr) / 10;
 
+  const marks: Record<string, number> = {};
+  const T0 = performance.now();
+  const mark = (k: string): void => {
+    marks[k] = Math.round(performance.now() - T0);
+    console.log("mark", k, marks[k]);
+  };
   const env = createInteriorEnvironment(scene, 64);
+  mark("env");
   const capture = new EnvironmentCapture(scene, env);
   camera.position = new Vector3(0, 2.6, -2.2);
   camera.setTarget(new Vector3(0, 0, 1.6));
   await scene.whenReadyAsync();
+  mark("ready");
   renderFrames(scene, 4);
+  mark("frames");
   const sheets: string[] = [];
   sheets.push(snap(scene));
+  mark("snap0");
   // close-ups: front rows (woods/walls/ceramics/metals) and back rows (printed/emissive)
   camera.position = new Vector3(-1.6, 1.1, -1.0);
   camera.setTarget(new Vector3(-1.2, 0.1, 0.8));
@@ -71,26 +81,10 @@ export async function probe(): Promise<unknown> {
   camera.position = new Vector3(1.4, 1.3, 1.2);
   camera.setTarget(new Vector3(1.2, 0.1, 3.2));
   sheets.push(snap(scene));
-  // real capture from above the grid, then the overview again
-  const tc = performance.now();
-  const ok = await Promise.race([
-    capture.capture({ position: new Vector3(0, 1.2, 1.5), size: 128, box: { center: new Vector3(0, 1.0, 2), size: new Vector3(8, 3, 6) } }),
-    (async () => {
-      for (let i = 0; i < 40 && !capture.captured; i++) {
-        scene.render();
-        await new Promise((r) => setTimeout(r, 25));
-      }
-      return capture.captured;
-    })(),
-  ]);
-  const captureMs = performance.now() - tc;
-  camera.position = new Vector3(0, 2.6, -2.2);
-  camera.setTarget(new Vector3(0, 0, 1.6));
-  sheets.push(snap(scene, 3));
+  void capture;
   return {
-    captureOk: ok,
-    captureMs: Math.round(captureMs),
     sheets,
+    timings: marks,
     texMs: Math.round(texMs),
     texReport: lib.report,
     layers: lib.layerCounts,

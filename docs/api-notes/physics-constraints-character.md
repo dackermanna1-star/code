@@ -4,41 +4,23 @@ Babylon.js **9.30.0** (`@babylonjs/core`) + **@babylonjs/havok 1.3.14**. Checked
 headless Chromium with fixed 1/60 s steps (`new HavokPlugin(false, hk)` + `scene._advancePhysicsEngineStep(1000/60)`).
 Markers: **[RT]** = verified at runtime by a probe; **[SRC]** = read from the installed source only; **[DER]** = derived
 from verified numbers (math only).
-Probes: `tests/probes/physics-constraints-*.probe.ts`; helpers `physics-constraints-util.ts`; the FPS movement helper
-`physics-constraints-ccutil.ts` (`FpsMover`, `supportContacts`, `characterBody`) is the tested source of §7's snippet.
+Probes: `tests/probes/physics-constraints-*.probe.ts`; helpers `physics-constraints-util.ts`. The snippets of §3, §6.2
+and §7.4 were extracted **verbatim** from this file into `physics-constraints-notesnippets.ts` and run by
+`physics-constraints-notesnippets.probe.ts` (5 kg held at exactly 1.2 m with 50.1 N, 60 kg not liftable at 451 N,
+setRotation yaw 0.5 ✓, jointLoad 40.5 N for a 4 kg lamp, jump apex 1.037 m, landing 4.56 m/s, crouch/stand check ✓).
 Timings come from a shared 4-CPU box (±50 % noise). All imports from the package root (`"@babylonjs/core"`).
 
 ## TL;DR
-1. **Pivots/axes are BODY-LOCAL, relative to the body origin (not the COM)** for every constraint class — the `.d.ts`
-   comments saying "world space" are wrong. `parent.addConstraint(child, c)` creates the Havok joint; **any axis setter
-   before that throws**. Hinge/Slider/Prismatic/Ball/Lock have **no axis methods**: use `plugin.setAxis*(c, axis, v)` or
-   `Physics6DoFConstraint` (identical behaviour).
-2. **Limits** are relative to the local frames (`perpAxisA` vs `perpAxisB`), not to the pose at creation: re-creating a
-   hinge at 60° with the same local pivots/axes → no jump and limits still ±100° from closed. **Friction = resisting
-   torque in N·m** (force in N on linear axes). **Motor maxForce = N·m / N.**
-3. **Motors:** set the type **before** the target (a target set while NONE is dropped). **Release with
-   `setAxisMotorMaxForce(c, axis, 0)`; `setAxisMotorType(NONE)` is ignored.** POSITION motor = capped spring-to-target
-   (latch held 28.8 N·m with a 30 N·m cap, opened at 36). VELOCITY motor works (fan).
-4. **Joint loads are readable:** `hk.HP_Constraint_GetAppliedImpulses(c._pluginData[0])` → world linear/angular impulse on
-   the child during the last step (incl. motor torque); hanging 20 kg door reads m·g·dt within 0.2 %. Impacts show up as
-   a 1-step spike → use per-step impulse for breakable hinges.
-5. **Every created constraint leaks ~3.5 KB and keeps costing solver time after `dispose()`** (20 k create/dispose: +64 MB
-   heap, 0.3 → 1.0 ms/step). A joint **cannot be re-pointed** to another body (`HP_Constraint_SetChildBody` returns OK but
-   does nothing). One joint per grab / per island change is fine; one per frame is not.
-6. **Havok kills slow linear velocity:** below ~0.12 m/s a body loses ~0.005 m/s every step (mass-independent, even
-   `ALWAYS_ACTIVE`; spin is not affected). Gentle forces (< 0.3·m N at the COM) never start a body moving.
-7. **Grab/hold → use a 6DoF joint with POSITION motors to an ANIMATED anchor** (per-axis caps: lift 450 N on Y, push
-   300 N on X/Z): exact hold, 0 jitter, ≤ 3 mm wall penetration, 60 kg can only be dragged, force readable. A manual
-   velocity controller works for light objects but oscillates with 30 kg swings. A joint to a STATIC body applies nothing
-   → compute the pull force for static islands yourself. Snippet §6.
-8. **Character controller** = JS shape-cast solver + an ANIMATED capsule body it teleports. Default capsule radius is
-   **0.6** (pass `capsuleRadius: 0.3`), `characterStrength` 1e38 (**shoves a 200 kg box at walking speed** → set 600 N),
-   `characterMass` 0 (**weightless on dynamic bodies** → set 80). Capsule filter masks drive its queries (debris layer
-   ignored ✓). Rides over ≤ 10 cm steps; `maxStepHeight` did not climb 20/35 cm steps at 3.6 m/s/60 Hz.
-9. **CC gotchas:** it **hovers 5–15 cm** above the floor with default `keepDistance 0.05/keepContactTolerance 0.1`
-   (use 0.02/0.03 → 2–5 cm); **jumps get killed** unless SUPPORTED is ignored for a few steps after the jump; dynamic
-   supports report surface velocity 0 (no riding along). Crouch = `setShapeOptions({capsuleHeight})` (feet kept); check
-   headroom yourself. Update order before or after the Havok step both work. Snippet §7.
+1. Pivots/axes are **body-local, relative to the body origin** (not COM; `.d.ts` "world space" is wrong); the joint exists only after `parent.addConstraint(child, c)` — axis setters before that throw.
+2. Hinge/Slider/Prismatic/Ball/Lock have no axis methods → `plugin.setAxisMode/MinLimit/MaxLimit/Friction/Motor*(c, axis, v)` or `Physics6DoFConstraint` (identical results).
+3. Limits are measured between the local frames (`perpAxisA`→`perpAxisB`, +right-hand about `axisA`): re-creating a hinge at 60° with the same local frames → no jump, limits still ±100° from closed. Friction = N·m (N), motor maxForce = N·m (N).
+4. Motors: set type **before** target; **release = `setAxisMotorMaxForce(c, axis, 0)`** (`setAxisMotorType(NONE)` is ignored). POSITION 30 N·m latch held 28.8 N·m, opened at 36; VELOCITY fan works.
+5. Joint loads: `hk.HP_Constraint_GetAppliedImpulses(c._pluginData[0])` = world impulse on the child last step (m·g·dt within 0.2 %, motor torque included); impacts = 1-step spikes.
+6. Every created joint leaks ~3.5 KB + solver time after `dispose()` (20 k → +64 MB, 0.3→1.0 ms/step) and joints can't be re-pointed → create per grab/island change, never per frame.
+7. Havok bleeds ~0.005 m/s per step off any body slower than ~0.12 m/s (even `ALWAYS_ACTIVE`): forces < ~0.3·m N never start motion.
+8. Grab: 6DoF joint with POSITION motors (lift 450 N / push 300 N) to an ANIMATED anchor — exact, jitter-free, force readable; joints to STATIC bodies do nothing (compute pull yourself). Snippet §6.2.
+9. CharacterController defaults bite: radius **0.6**, `characterStrength` 1e38 (shoves 200 kg → use 600 N), `characterMass` 0 (weightless → 80); hovers 5–15 cm (use keepDistance 0.02 / tolerance 0.03); jumps die without a post-jump grace.
+10. CC: capsule filter masks filter its queries (debris ignored ✓), rides over ≤ 10 cm, `maxStepHeight` 0.35 climbs 20 cm only with keepDistance 0.02; crouch = `setShapeOptions` (+ own headroom check); its ANIMATED body is hit by raycasts. Snippet §7.4.
 
 ---
 
@@ -297,7 +279,7 @@ inside a static wall. Caps: lift (Y) 450 N, push (X/Z) 300 N. Error measured at 
 | joint, raw SPRING_ACCEL 3 Hz, 1 / 30 kg | 17 / 41, **2.4 cm sag** | 16 cm / 30 kg jitter 268 mm | 2.4 / 0.11 mm | dragged |
 | manual velocity controller (gravity first, err clamp), 1 kg | 19, 0.6 cm (dead band) | 20.7 cm | 1.3 mm | — |
 | manual velocity controller, 30 kg | 39, 0.6 cm | **oscillates, jitter 227 mm** | 0.15 mm | dragged |
-| v1 manual controller with one isotropic 450 N cap, 30 kg | 39 | jitter 375 mm | **sagged 1.2 → 0.74 m** against the wall | overshoots 15 cm |
+| v1 manual controller with one isotropic 450 N cap, 30 kg | 39 | jitter 375 mm | **sagged 1.2 → 0.74 m** against the wall | (100 kg) dragged, overshoots 15 cm |
 
 Other measurements: grab at a corner (no angular motors, angular damping 3) → hangs with the COM 15 cm below the grab
 point; per-axis caps mean a diagonal pull can reach √(450² + 2·300²) = 636 N; the joint's force readout matched m·g
@@ -432,17 +414,18 @@ interface CharacterSurfaceInfo { isSurfaceDynamic: boolean; supportedState: Char
 | test | result |
 |---|---|
 | rest height (feet gap) after falling/landing, defaults 0.05/0.1 | **0.05–0.15 m** depending on arrival (drop 1 m → 0.094, walk off 0.3 m ledge → 0.123, start 0.35 → 0.137) |
-| same with keepDistance 0.02 / keepContactTolerance 0.03 | 0.02–0.05 m (walk-off 0.044, 2 m drop 0.043); 0.01/0.02 → 0.007–0.026 |
+| same with keepDistance 0.02 / keepContactTolerance 0.03 (snippet) | 0.014–0.05 m (start 0.3 → 0.014, walk-off 0.044, 2 m drop 0.043); 0.01/0.02 → 0.007–0.026 |
 | walk yaw 0 (+Z), 3.6 m/s, acceleration 0.35 | 3.52 m/s after 10 steps, 3.60 after 20; 7.04 m in 2 s; strafe right at yaw 90° → −Z ✓; stops in < 0.5 s |
 | jump 1.0 m (with 6-step grace) | apex 1.037 m, 54 airborne steps (0.9 s ✓); **without grace: apex 0.074 m** |
 | walk off a 0.3 m ledge / down a 20° ramp | falls and lands / stays grounded every step (both keepDistance settings) |
-| static steps 3 / 5 / 10 cm | climbed by the round capsule (feet peak 0.08 / 0.11 / 0.16) |
-| static steps 20 / 35 / 50 cm | blocked — with `maxStepHeight` 0 **and 0.35** (its forward sweep only covers v·dt = 6 cm) |
-| five 5 cm dynamic debris slabs (1.5 kg) | default masks: rides over (feet ≤ 0.124), debris moved ≤ 2 cm; filtered capsule: walks through |
-| 2 kg box / 200 kg box, defaults | both pushed: 200 kg box moved 6 m at 1.95 m/s, impulse 530 N·s in a step |
-| same with `characterStrength = 600` | 2 kg pushed 3.96 m; **200 kg not moved, character blocked** (impulse capped at 10 N·s = 600·dt) |
+| static steps 3 / 5 / 10 cm | climbed by the round capsule (feet peak 0.08–0.09 / 0.10–0.11 / 0.16–0.24), any settings |
+| static step 20 cm | keepDistance 0.05 (default): blocked with `maxStepHeight` 0 and 0.35. **keepDistance 0.02 + `maxStepHeight` 0.35: climbed** (0 → blocked) |
+| static steps 35 / 50 cm | blocked in every configuration (the step-up's forward sweep only covers v·dt − keepDistance) |
+| five 5 cm dynamic debris slabs (1.5 kg) | default masks: rides over (feet ≤ 0.12), shoves debris 2–17 cm; filtered capsule (PLAYER vs STATIC\|DYNAMIC): walks through, debris untouched |
+| 2 kg box / 200 kg box, `characterStrength` 1e38 (default) | both pushed: 200 kg box moved 6–6.7 m at 2–2.7 m/s, up to 530 N·s in one step |
+| same with `characterStrength = 600` | 2 kg pushed 4–5 m; **200 kg not moved, character blocked** (impulse capped at 10 N·s = 600·dt) |
 | stand on a 50 kg dynamic crate | SUPPORTED, isSurfaceDynamic true, support contact = crate at its top (normal y 1); jump from it 1.037 m |
-| seesaw plank (20 kg, hinged in the middle), standing 1.5 m out | characterMass 0 → 0° tilt; **characterMass 80 → −14.6°** |
+| seesaw plank (20 kg, hinged in the middle), standing 1.5 m out | characterMass 0 → 0° (keepDistance 0.05) / −4.1° creeping (0.02); **characterMass 80 → −14.6°** both |
 | landing detection (`landingSpeed`) | one event per landing: 0.5 m drop 3.107 m/s (√2gh 3.069), 2 m 6.213 (6.233), support = floor / crate |
 | crouch `setShapeOptions({capsuleHeight: 1.1, capsuleRadius: 0.3})` | centre 0.95 → 0.60, feet kept at 0.05; passes under a 1.3 m beam that blocks standing (stopped at z 1.67) |
 | standing up under the beam without a check | `setShapeOptions` accepted, capsule left 0.53 m inside the beam |
@@ -479,6 +462,7 @@ export class FpsMover {
     this.cc.keepContactTolerance = 0.03;
     this.cc.characterStrength = 600;  // N: pushes light things, blocked by heavy ones
     this.cc.characterMass = 80;       // kg pressing on dynamic supports
+    // optional (verified with keepDistance 0.02): this.cc.maxStepHeight = 0.35 -> also climbs 20 cm steps (not 35 cm)
   }
 
   /** Once per fixed step, e.g. in player.fixedUpdate() before the Havok step (after it works too). */
@@ -532,10 +516,10 @@ export function supportContacts(cc: PhysicsCharacterController, minNormalY = 0.5
 /** The controller's own ANIMATED capsule body (ignore it in raycasts/sweeps/proximity queries). */
 export function characterBody(cc: PhysicsCharacterController): PhysicsBody { return (cc as unknown as { _body: PhysicsBody })._body; }
 ```
-In the tested runs `keepDistance/keepContactTolerance/characterStrength/characterMass` were set by the probes, not the
-constructor; the values above are the tested ones. Layers: `cc.shape.filterMembershipMask = Layer.PLAYER;
-cc.shape.filterCollideMask = Layer.STATIC | Layer.DYNAMIC;` (set again after every `setShapeOptions`, which creates a
-new capsule). Crouch:
+The walk/jump/crouch/landing/step/push rows of §7.3 were re-run with exactly this class (constructor settings included).
+Layers: `cc.shape.filterMembershipMask = Layer.PLAYER;
+cc.shape.filterCollideMask = Layer.STATIC | Layer.DYNAMIC;` — set them again after every `setShapeOptions`, which builds a
+new `PhysicsShapeCapsule` with default masks **[SRC]**. Crouch:
 ```ts
 // headroom check before standing up (verified): capsule of standing size, 1 cm above the feet
 const standProbe = new PhysicsShapeCapsule(new Vector3(0, 0.6, 0), new Vector3(0, -0.6, 0), 0.3, scene); // 1.8 m tall, r 0.3
@@ -572,7 +556,8 @@ if (canStand()) mover.cc.setShapeOptions({ capsuleHeight: 1.8, capsuleRadius: 0.
 13. CC hovers up to keepDistance + keepContactTolerance (15 cm by default); jumps are cancelled unless SUPPORTED is
     ignored for a few steps after the jump.
 14. CC: dynamic supports give surface velocity 0 (no riding); animated-surface velocity relies on `scene.getFrameId()`;
-    `maxStepHeight` doesn't climb ≥ 20 cm steps at walking speed (natural ride-over ≈ r·(1 − maxSlopeCosine) = 15 cm).
+    natural ride-over ≈ r·(1 − maxSlopeCosine) = 15 cm; `maxStepHeight` only helps with a small keepDistance (0.02 +
+    0.35 → 20 cm climbed; 35 cm never) because its forward sweep covers only v·dt − keepDistance.
 15. CC: its ANIMATED capsule is hit by raycasts and blocks dynamic bodies like a wall — ignore it in queries, use
     layers; `getPosition()`/`getVelocity()` return internal vectors; `setShapeOptions` replaces the capsule (re-apply
     filter masks) and does no headroom check; `moveWithCollisions` uses `scene.deltaTime` (not fixed-step friendly).

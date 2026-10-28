@@ -208,10 +208,6 @@ export class Interactions {
         const anchors = this.nearestWorldBonds(isl, lp, MAX_ANCHOR_BONDS);
         this.share(loads, anchors, lp, fmag);
       }
-    } else if (this.deps.joints.loadsActive) {
-      // dynamic + jointed: the solver's constraint reactions already include this pull and are
-      // turned into bond damage by JointSystem.jointLoads() (no double counting)
-      return;
     } else {
       // dynamic: only joints hold it — find groups where this island is the moving side
       const groups = new Set<JointGroup>();

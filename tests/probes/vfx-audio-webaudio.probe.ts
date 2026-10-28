@@ -375,6 +375,64 @@ export async function probe(): Promise<any> {
     out.liveGraph = { rmsWhilePlaying: r3(rmsDuring), endedAfterSec: endedAt >= 0 ? r3(endedAt - startT) : null, rmsAfterTail: r3(rms(td)), compressorReductionDb: r3(comp.reduction), state: ctx.state };
   }
 
+  // ================================================================ J) handedness: Babylon (left-handed) -> Web Audio (right-handed)
+  {
+    const lr = async (flipZ: boolean, model: PanningModelType): Promise<{ L: number; R: number }> => {
+      const oc = new OfflineAudioContext({ numberOfChannels: 2, length: 22050, sampleRate: ctx.sampleRate });
+      const z = flipZ ? -1 : 1;
+      // Babylon pose: listener at origin looking +Z (forward), up +Y; source 2 m to the listener's RIGHT (+X in Babylon)
+      oc.listener.forwardX.value = 0; oc.listener.forwardY.value = 0; oc.listener.forwardZ.value = 1 * z;
+      oc.listener.upX.value = 0; oc.listener.upY.value = 1; oc.listener.upZ.value = 0;
+      const src = new AudioBufferSourceNode(oc, { buffer: impact });
+      const pn = new PannerNode(oc, { panningModel: model, positionX: 2, positionY: 0, positionZ: 0.5 * z });
+      src.connect(pn).connect(oc.destination);
+      src.start(0);
+      const res = await Promise.race([oc.startRendering(), tick(10000).then(() => null)]);
+      if (!res) return { L: NaN, R: NaN };
+      return { L: r3(rms(res.getChannelData(0))), R: r3(rms(res.getChannelData(1))) };
+    };
+    out.handedness = {
+      rawBabylonCoords_equalpower: await lr(false, "equalpower"),
+      zFlipped_equalpower: await lr(true, "equalpower"),
+      rawBabylonCoords_HRTF: await lr(false, "HRTF"),
+      zFlipped_HRTF: await lr(true, "HRTF"),
+      note: "source is on the listener's RIGHT in Babylon; correct output has R > L",
+    };
+  }
+
+  // ================================================================ K) main-thread cost of building one voice chain
+  {
+    const t = performance.now();
+    const chains: AudioNode[][] = [];
+    for (let i = 0; i < 200; i++) {
+      const src = new AudioBufferSourceNode(ctx, { buffer: impact });
+      const g = new GainNode(ctx, { gain: 0 });
+      const f = new BiquadFilterNode(ctx, { type: "lowpass", frequency: 5000 });
+      const p = new PannerNode(ctx, { panningModel: "HRTF", positionX: i * 0.1 });
+      src.connect(g).connect(f).connect(p);
+      chains.push([src, g, f, p]);
+    }
+    const ms = performance.now() - t;
+    for (const c of chains) for (const n of c) n.disconnect();
+    out.voiceChainCreateUs = r3((ms * 1000) / 200);
+    const each = (mk: () => AudioNode): number => {
+      const nodes: AudioNode[] = [];
+      const t0 = performance.now();
+      for (let i = 0; i < 200; i++) nodes.push(mk());
+      const us = ((performance.now() - t0) * 1000) / 200;
+      for (const n of nodes) n.disconnect();
+      return r3(us);
+    };
+    out.nodeCreateUs = {
+      bufferSource: each(() => new AudioBufferSourceNode(ctx, { buffer: impact })),
+      gain: each(() => new GainNode(ctx)),
+      biquad: each(() => new BiquadFilterNode(ctx, { type: "lowpass" })),
+      pannerEqualpower: each(() => new PannerNode(ctx, { panningModel: "equalpower" })),
+      pannerHRTF: each(() => new PannerNode(ctx, { panningModel: "HRTF" })),
+      stereoPanner: each(() => new StereoPannerNode(ctx)),
+    };
+  }
+
   // ================================================================ H) decodeAudioData of OGG Vorbis
   console.log("[va] section H", performance.now().toFixed(0));
   {

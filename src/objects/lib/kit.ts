@@ -1040,6 +1040,8 @@ export interface FrameOpts {
   tint?: number;
   /** Corner joint kind/strength (default: aluminium screw 60, wood glue 45, plastic fused). */
   corner?: { kind: BondKind; strength?: number };
+  /** Total mass of the 4 bars (kg) for hollow profiles (plastic mouldings, aluminium extrusions). */
+  kg?: number;
 }
 
 /** Four mitred bars of a rectangular frame (local XY centred, z ∈ [0, depth]). */
@@ -1048,11 +1050,21 @@ export function frameBars(b: Builder, name: string, o: FrameOpts, pos: V3 = [0, 
   const surf = o.surf ?? "wood_oak";
   const tint = o.tint ?? 0xffffff;
   const P = frameBarPoints(o.w, o.h, o.bar, 0, o.depth);
+  const bw: BarWidths = typeof o.bar === "number" ? { top: o.bar, bottom: o.bar, left: o.bar, right: o.bar } : o.bar;
+  // trapezoid areas (outer + inner edge) / 2 × width → mass split for hollow profiles
+  const areas = {
+    top: ((o.w + (o.w - bw.left - bw.right)) / 2) * bw.top,
+    bottom: ((o.w + (o.w - bw.left - bw.right)) / 2) * bw.bottom,
+    left: ((o.h + (o.h - bw.top - bw.bottom)) / 2) * bw.left,
+    right: ((o.h + (o.h - bw.top - bw.bottom)) / 2) * bw.right,
+  };
+  const totalA = areas.top + areas.bottom + areas.left + areas.right;
+  const kg = (k: keyof typeof areas): number | undefined => (o.kg !== undefined ? (o.kg * areas[k]) / totalA : undefined);
   return scoped(b, name, pos, rot, () => {
-    const top = b.hull("top", mat, surf, P.top, [0, 0, 0], { tint, grain: "x" });
-    const bottom = b.hull("bottom", mat, surf, P.bottom, [0, 0, 0], { tint, grain: "x" });
-    const left = b.hull("left", mat, surf, P.left, [0, 0, 0], { tint, grain: "y" });
-    const right = b.hull("right", mat, surf, P.right, [0, 0, 0], { tint, grain: "y" });
+    const top = b.hull("top", mat, surf, P.top, [0, 0, 0], { tint, grain: "x", mass: kg("top") });
+    const bottom = b.hull("bottom", mat, surf, P.bottom, [0, 0, 0], { tint, grain: "x", mass: kg("bottom") });
+    const left = b.hull("left", mat, surf, P.left, [0, 0, 0], { tint, grain: "y", mass: kg("left") });
+    const right = b.hull("right", mat, surf, P.right, [0, 0, 0], { tint, grain: "y", mass: kg("right") });
     const mode = MATERIALS[mat].mode;
     const corner = o.corner ?? (mat === "aluminum" || mat === "steel" ? { kind: "screw" as BondKind, strength: 60 } : mode === "splinter" || mat === "mdf" ? { kind: "glue" as BondKind, strength: 45 } : { kind: "fused" as BondKind });
     for (const [a, c] of [
@@ -1356,7 +1368,7 @@ export function bowl(b: Builder, name: string, o: { r?: number; h?: number; t?: 
 }
 
 /**
- * Ceramic mug (Ø 8.2 cm, h 9.5 cm, ~0.35 kg) with a D-shaped handle on +X built as a mitred tube
+ * Ceramic mug (Ø 8.2 cm, h 9.5 cm, 6 mm wall, ~0.35 kg) with a D-shaped handle on +X built as a mitred tube
  * whose ends are sunk into the wall and fused to it.
  */
 export function mug(
@@ -1368,7 +1380,7 @@ export function mug(
 ): { body: string[]; handle: string[]; all: string[] } {
   const r = o.r ?? 0.041,
     h = o.h ?? 0.095,
-    t = o.t ?? 0.0055;
+    t = o.t ?? 0.006;
   const rb = r * 0.9;
   return scoped(b, name, pos, rot, () => {
     const body = vessel(b, "body", {

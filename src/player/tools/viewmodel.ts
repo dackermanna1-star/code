@@ -13,8 +13,8 @@ import { Quaternion, TransformNode, type AbstractMesh, type Scene, type Standard
 import type { ToolId } from "../../core/context.ts";
 import { TOOL_ORDER, TOOL_RIGS } from "./defs.ts";
 import type { LegKind } from "./legs.ts";
-import { HOSE_REST, HOSE_START, buildFistModel, buildForearmModel, buildLegModel, buildToolModel, createViewmodelMaterials, type ToolModelParts } from "./models.ts";
-import { blendFrame, clamp01, q4, quatFromAxisFace, rotateQ, smoothstep01, v3, type Frame, type Pose, type V3 } from "./swing.ts";
+import { HOSE_START, buildFistModel, buildForearmModel, buildLegModel, buildToolModel, createViewmodelMaterials, type ToolModelParts } from "./models.ts";
+import { clamp01, q4, quatFromAxisFace, rotateQ, smoothstep01, v3, type Frame, type Pose, type V3 } from "./swing.ts";
 
 /** Rendering group of the viewmodel (depth is cleared before it renders). */
 export const VIEWMODEL_GROUP = 1;
@@ -89,8 +89,6 @@ export class Viewmodel {
   private prePassRef: unknown = null;
   private disposed = false;
   // temporaries
-  private readonly tmpFrame: Frame = { p: v3(), q: q4() };
-  private readonly restFrame: Frame = { p: v3(), q: q4() };
   private readonly t0 = v3();
   private readonly t1 = v3();
   private readonly t2 = v3();
@@ -231,7 +229,7 @@ export class Viewmodel {
       this.applyFrame(this.fists[1].root, pose.left);
       this.applyArm(1, pose.left);
     }
-    if (vs.tool === "extinguisher") this.updateHose(tool, pose, vs.sprayBlend);
+    if (vs.tool === "extinguisher") this.updateHose(tool, pose);
 
     // ---- leg (kick / stomp)
     this.updateLeg(vs);
@@ -280,19 +278,11 @@ export class Viewmodel {
     node.rotationQuaternion!.set(this.qTmp.x, this.qTmp.y, this.qTmp.z, this.qTmp.w);
   }
 
-  /** Extinguisher hose from the valve to the nozzle (rest on the cylinder ↔ left hand when spraying). */
-  private updateHose(tool: ToolModelParts, pose: Pose, sprayBlend: number): void {
+  /** Extinguisher hose from the valve to the nozzle held in the left hand. */
+  private updateHose(tool: ToolModelParts, pose: Pose): void {
     if (!tool.nozzle || !tool.hoseA || !tool.hoseB) return;
     const tf = pose.right;
-    // rest frame: clipped to the cylinder's back, pointing down along it
-    const rp = rotateQ(this.t0, tf.q, HOSE_REST as V3);
-    this.restFrame.p.x = tf.p.x + rp.x;
-    this.restFrame.p.y = tf.p.y + rp.y;
-    this.restFrame.p.z = tf.p.z + rp.z;
-    const toolAxis = rotateQ(this.t1, tf.q, UP);
-    const toolBack = rotateQ(this.t2, tf.q, BACK);
-    quatFromAxisFace(this.restFrame.q, toolBack, toolAxis);
-    const nf = blendFrame(this.restFrame, pose.left, smoothstep01(sprayBlend), this.tmpFrame);
+    const nf = pose.left;
     this.applyFrame(tool.nozzle, nf);
     // hose: valve outlet → sagging midpoint → nozzle tail
     const a = rotateQ(this.t0, tf.q, HOSE_START as V3);
@@ -354,7 +344,6 @@ export class Viewmodel {
 }
 
 const UP: V3 = { x: 0, y: 1, z: 0 };
-const BACK: V3 = { x: 0, y: 0, z: -1 };
 /** Hose attachment on the nozzle (left-hand frame). */
 const NOZZLE_TAIL: V3 = { x: 0, y: 0, z: -0.03 };
 const DEFAULT_HIP: V3 = { x: 0.1, y: -0.9, z: 0.05 };

@@ -317,20 +317,24 @@ let BX = new Float64Array(256),
 let BK = new Int32Array(256);
 let XS = new Float64Array(512),
   YS = new Float64Array(512);
+/** Grow a typed array preserving its contents. */
+function grow<T extends Float64Array | Int32Array>(a: T, n: number): T {
+  const b = new (a.constructor as { new (n: number): T })(Math.max(n, a.length * 2));
+  b.set(a);
+  return b;
+}
 function ensureB(n: number): void {
   if (BX.length >= n) return;
-  const m = Math.max(n, BX.length * 2);
-  BX = new Float64Array(m);
-  BY = new Float64Array(m);
-  BZ = new Float64Array(m);
-  BT = new Float64Array(m);
-  BK = new Int32Array(m);
+  BX = grow(BX, n);
+  BY = grow(BY, n);
+  BZ = grow(BZ, n);
+  BT = grow(BT, n);
+  BK = grow(BK, n);
 }
 function ensureXY(n: number): void {
   if (XS.length >= n) return;
-  const m = Math.max(n, XS.length * 2);
-  XS = new Float64Array(m);
-  YS = new Float64Array(m);
+  XS = grow(XS, n);
+  YS = grow(YS, n);
 }
 
 function emitFace(

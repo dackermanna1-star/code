@@ -236,6 +236,7 @@ export function buildMicrowave(o: MicrowaveOpts = {}): AssemblyDef {
       glassZ: 0.0345,
       glassBond: { kind: "glue", strength: 12 },
       corner: { kind: "fused" },
+      kg: 0.38, // hollow moulded frame (~2.5 mm walls), not solid 4 cm plastic
     },
     [-0.06495, 0.1551, 0.15],
   );

@@ -50,15 +50,15 @@ test("1 kg box dropped 1 m: speculative STARTED + CONTINUED peak merge into ONE 
   const em = run(agg, seq);
   assert.equal(em.length, 1, JSON.stringify(em.map((e) => [e.step, e.imp.impulse])));
   const { step, imp } = em[0];
-  assert.equal(step, 2, "emitted one step after the main impulse");
+  assert.equal(step, 3, "emitted once the resting load is steady (2 steps after the main impulse)");
   assert.equal(imp.started, true);
-  near(imp.impulse, 0.284 + 4.339 - 2 * rest, 1e-6);
+  near(imp.impulse, 0.284 + 4.339 + 2 * rest - 4 * rest, 1e-6);
   near(imp.impulse, 4.43, 0.2, "≈ m·v for a 1 m drop");
   assert.equal(imp.a, floor, "pair ordered by serial");
   // normal points from a (floor) to b (box): +Y
   near(imp.ny, 1, 1e-9);
   near(imp.py, 0, 0.05, "midpoint between the surfaces, impulse-weighted");
-  assert.equal(imp.steps, 2);
+  assert.equal(imp.steps, 4);
   assert.equal(imp.contacts, 4);
 });
 
@@ -68,7 +68,7 @@ test("2 m drop with the whole impulse on the STARTED step", () => {
   const em = run(agg, [[{ a: box, b: floor, type: EV_STARTED, impulse: 6.41 }], [{ a: box, b: floor, type: EV_CONTINUED, impulse: 0.1635 }], [{ a: box, b: floor, type: EV_CONTINUED, impulse: 0.1635 }]]);
   assert.equal(em.length, 1);
   near(em[0].imp.impulse, 6.41 - 0.1635, 1e-6);
-  assert.equal(em[0].step, 1);
+  assert.equal(em[0].step, 2);
 });
 
 test("restitution bounce: rebound impulse (next step) is merged → ≈ (1+e)·m·v, emitted after separation", () => {
@@ -123,9 +123,9 @@ test("muted bodies are tracked but not reported; un-muted they report again", ()
   const floor = side(1, Infinity), box = side(2, 1);
   box.muteUntil = 3;
   const agg = new ImpactAggregator<Side>();
-  const drop = (): Ev[][] => [[{ a: box, b: floor, type: EV_STARTED, impulse: 3 }], [{ a: box, b: floor, type: EV_CONTINUED, impulse: 0.16 }]];
-  assert.equal(run(agg, drop(), 0).length, 0);
-  assert.equal(run(agg, [[], []], 2).length, 0); // separate
+  const drop = (): Ev[][] => [[{ a: box, b: floor, type: EV_STARTED, impulse: 3 }], [{ a: box, b: floor, type: EV_CONTINUED, impulse: 0.16 }], []];
+  assert.equal(run(agg, drop(), 0).length, 0); // steps 0..2 (closes on separation at step 2 < muteUntil)
+  assert.equal(run(agg, [[]], 3).length, 0);
   assert.equal(run(agg, drop(), 4).length, 1);
 });
 
@@ -161,8 +161,8 @@ test("heavy-on-light impulse spread over 5 steps becomes one started impact", ()
   const em = run(agg, seq);
   assert.equal(em.length, 1, JSON.stringify(em.map((e) => [e.step, e.imp.impulse])));
   assert.equal(em[0].imp.started, true);
-  // 2.54 ≤ 0.25 × 30.13 ends the episode; that step is the resting estimate
-  near(em[0].imp.impulse, 1.55 + 20.96 + 30.13 + 16.49 - 4 * 2.54, 1e-6);
+  // the episode ends when the load is steady (1.64, 1.64): 7 steps, resting level 1.64
+  near(em[0].imp.impulse, 1.55 + 20.96 + 30.13 + 16.49 + 2.54 + 1.64 + 1.64 - 7 * 1.64, 1e-6);
   near(em[0].imp.peak, 30.13, 1e-9);
 });
 
@@ -188,8 +188,11 @@ test("rattle: FINISHED-only step then STARTED again is a new episode", () => {
     [{ a: box, b: floor, type: EV_FINISHED, impulse: 0 }],
     [{ a: box, b: floor, type: EV_STARTED, impulse: 0.9 }],
     [{ a: box, b: floor, type: EV_CONTINUED, impulse: 0.16 }],
+    [{ a: box, b: floor, type: EV_CONTINUED, impulse: 0.16 }],
   ]);
   assert.equal(em.length, 2);
+  near(em[0].imp.impulse, 1.16, 1e-6, "separated: nothing subtracted");
+  near(em[1].imp.impulse, 0.9 + 0.32 - 3 * 0.16, 1e-6);
   assert.ok(em.every((e) => e.imp.started));
 });
 
@@ -198,7 +201,7 @@ test("disposed bodies are skipped and their pairs swept; silent pairs are forgot
   const agg = new ImpactAggregator<Side>({ forgetSteps: 100 });
   run(agg, [[{ a: box, b: floor, type: EV_STARTED, impulse: 2 }, { a: other, b: floor, type: EV_STARTED, impulse: 2 }]], 1);
   box.disposed = true;
-  const em = run(agg, [[{ a: other, b: floor, type: EV_CONTINUED, impulse: 0.16 }]], 2);
+  const em = run(agg, [[]], 2); // both separate; only the live pair may report
   assert.equal(em.length, 1, "only the live pair reports");
   assert.equal(em[0].imp.b, other);
   run(agg, [[]], 64); // sweep step
@@ -223,8 +226,11 @@ test("substep events of one step accumulate into that step", () => {
   assert.equal(agg.endStep(out), 0);
   agg.beginStep(1);
   agg.add(box, floor, EV_CONTINUED, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0.16);
+  assert.equal(agg.endStep(out), 0);
+  agg.beginStep(2);
+  agg.add(box, floor, EV_CONTINUED, 0, 0, 0, 0, 0, 0, 0, -1, 0, 0.16);
   assert.equal(agg.endStep(out), 1);
-  near(out[0].impulse, 4.4 - 0.16, 1e-6);
+  near(out[0].impulse, 4.4 + 0.32 - 3 * 0.16, 1e-6);
 });
 
 test("garbage in (NaN / negative impulses, self pairs) never produces NaN output", () => {
@@ -242,4 +248,35 @@ test("garbage in (NaN / negative impulses, self pairs) never produces NaN output
   assert.equal(n, 1);
   for (const k of ["px", "py", "pz", "nx", "ny", "nz", "impulse"] as const) assert.ok(Number.isFinite(out[0][k]), k);
   near(out[0].impulse, 2, 1e-9);
+});
+
+test("corner hit: a smaller follow-up impulse before separating is part of the impact, not a resting load", () => {
+  const wall = side(1, Infinity), box = side(2, 1.5);
+  const agg = new ImpactAggregator<Side>();
+  const em = run(agg, [[{ a: box, b: wall, type: EV_STARTED, impulse: 11.041 }], [{ a: box, b: wall, type: EV_CONTINUED, impulse: 2.136 }], [{ a: box, b: wall, type: EV_FINISHED, impulse: 0 }]]);
+  assert.equal(em.length, 1);
+  near(em[0].imp.impulse, 13.177, 1e-6);
+});
+
+test("an impact spread evenly over two steps is not mistaken for a resting load", () => {
+  const floor = side(1, Infinity), box = side(2, 1);
+  const agg = new ImpactAggregator<Side>();
+  const seq: Ev[][] = [[{ a: box, b: floor, type: EV_STARTED, impulse: 10 }], [{ a: box, b: floor, type: EV_CONTINUED, impulse: 10 }]];
+  for (let i = 0; i < 4; i++) seq.push([{ a: box, b: floor, type: EV_CONTINUED, impulse: 0.16 }]);
+  const em = run(agg, seq);
+  assert.equal(em.length, 1);
+  near(em[0].imp.impulse, 20 + 0.32 - 4 * 0.16, 1e-6);
+});
+
+test("episodes never exceed maxEpisodeSteps (fluctuating tail)", () => {
+  const floor = side(1, Infinity), box = side(2, 1);
+  const agg = new ImpactAggregator<Side>({ maxEpisodeSteps: 5 });
+  const seq: Ev[][] = [[{ a: box, b: floor, type: EV_STARTED, impulse: 5 }]];
+  const tail = [2, 0.5, 1.5, 0.4, 1.2, 0.3, 1.1];
+  for (const t of tail) seq.push([{ a: box, b: floor, type: EV_CONTINUED, impulse: t }]);
+  const em = run(agg, seq);
+  assert.ok(em.length >= 1);
+  assert.equal(em[0].step, 4);
+  assert.equal(em[0].imp.steps, 5);
+  near(em[0].imp.impulse, 5 + 2 + 0.5 + 1.5 + 0.4 - 5 * 0.4, 1e-6);
 });

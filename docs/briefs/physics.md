@@ -94,3 +94,10 @@ The notes revealed performance/semantics traps that this module must solve for e
    everything and dispatch impacts after the step (already in the brief).
 7. Raycast `result.shape` is the hit child for containers (undefined for single shapes): map it to
    the child index via a per-container Map.
+
+## Addendum 2 (constraints notes landed: docs/api-notes/physics-constraints-character.md)
+- Pivots/axes are body-local (origin, not COM); axis setters only after addConstraint; use plugin
+  setAxis*/Motor* calls. Motor: set type before target; release with maxForce 0 (type NONE is ignored).
+- Constraints LEAK (~3.5 KB each, solver slows even after dispose): never create per frame;
+  expose `appliedImpulse(c)` via HP_Constraint_GetAppliedImpulses so hinges can break physically.
+- Dispose constraints before their bodies. One Havok world for the whole session.

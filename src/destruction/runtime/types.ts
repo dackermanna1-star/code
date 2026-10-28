@@ -253,10 +253,14 @@ export interface JointConstraint {
   offset: number;
   /** Signature used to avoid needless re-creation. */
   sig: string;
-  /** Low-pass filtered reaction force (N), axial torque and bending torque (N·m). */
+  /** Sustained (windowed minimum) reaction force (N), axial torque and bending torque (N·m). */
   fEma: number;
   tAxisEma: number;
   tPerpEma: number;
+  /** Ring buffer of the last steps' [force, axial torque, bending torque]. */
+  hist: Float32Array;
+  histPos: number;
+  histCount: number;
 }
 
 export class JointGroup {

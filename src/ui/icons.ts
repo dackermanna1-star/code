@@ -34,3 +34,14 @@ export const TOOL_NAMES: Readonly<Record<ToolId, string>> = {
   axe: "Axe",
   extinguisher: "Extinguisher",
 };
+
+/** Short hotbar labels (the full name pops up above the hotbar when switching). */
+export const TOOL_SHORT: Readonly<Record<ToolId, string>> = {
+  hands: "Fists",
+  hammer: "Hammer",
+  sledgehammer: "Sledge",
+  crowbar: "Crowbar",
+  bat: "Bat",
+  axe: "Axe",
+  extinguisher: "Fire Ext.",
+};

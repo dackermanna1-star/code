@@ -11,8 +11,11 @@
 // Model per body pair:
 //  IDLE ──STARTED──▶ EPISODE ──impulse decays / separation / max steps──▶ CONTACT (or IDLE if separated)
 //  * EPISODE merges the impulse of a contact start over consecutive steps and emits ONE `started` impact
-//    with impulse = Σ(step impulse − resting level after the impact) ≈ (1+e)·μ·v, at the end of the episode
-//    (typically one step after the main impulse).
+//    with impulse = Σ(step impulse − resting level) ≈ (1+e)·μ·v when the episode ends: on separation (resting
+//    level 0 — bounces, corner hits that rotate and leave), when the per-step impulse has become steady (that
+//    steady level is the resting load: 2 steady steps below endFraction·peak, or 3 when there is no distinct
+//    peak, e.g. a heavy box spawned in contact), or after maxEpisodeSteps. A low step right after the peak is
+//    NOT taken as the resting level by itself: it may be the rebound or a second corner hitting.
 //  * CONTACT tracks a resting baseline (asymmetric EMA) and emits `started:false` impacts for spikes above
 //    max(minImpulse, spikeFactor·baseline) — sustained crushing, sliding slams, things landing on a pile.
 //  * Every emission must also pass the Δv gate: impulse / (lightest DYNAMIC mass of the pair) ≥ minDeltaV,
@@ -41,9 +44,11 @@ export interface ImpactConfig {
   minDeltaV: number;
   /** A contact spike must exceed spikeFactor × resting baseline. */
   spikeFactor: number;
-  /** An episode ends once a step's impulse drops to ≤ endFraction × the episode peak. */
+  /** A steady per-step impulse ≤ endFraction × the episode peak ends the episode after 2 steps (else 3). */
   endFraction: number;
-  /** Episodes are cut after this many steps (heavy-on-light hits spread over ~5). */
+  /** Two step impulses a, b are "steady" when |a − b| ≤ steadyTolerance·max(a, b) (+ a tiny absolute slack). */
+  steadyTolerance: number;
+  /** Episodes are cut after this many steps (heavy-on-light hits spread over ~5, plus 2 steady steps). */
   maxEpisodeSteps: number;
   /**
    * A STARTED contact whose impulse is still below minImpulse is an approach (speculative contact before
@@ -64,7 +69,8 @@ export const DEFAULT_IMPACT_CONFIG: Readonly<ImpactConfig> = {
   minDeltaV: 0.25,
   spikeFactor: 3,
   endFraction: 0.25,
-  maxEpisodeSteps: 6,
+  steadyTolerance: 0.2,
+  maxEpisodeSteps: 8,
   maxApproachSteps: 30,
   idleSteps: 1,
   forgetSteps: 240,
@@ -133,6 +139,9 @@ class Pair<S extends ImpactSide> {
   eContacts = 0;
   /** Steps since the episode's STARTED (approach + impact). */
   eAge = 0;
+  /** The previous two step impulses inside the episode (−1 = none). */
+  ePrev = -1;
+  ePrev2 = -1;
   inEpisodeList = false;
   /** Resting impulse per step (EMA) while in CONTACT. */
   baseline = 0;
@@ -299,7 +308,7 @@ export class ImpactAggregator<S extends ImpactSide> {
           }
           n = this.contactStep(p, out, n);
           break;
-        case EPISODE:
+        case EPISODE: {
           p.eAge++;
           if (p.ePeak < cfg.minImpulse) {
             // nothing significant yet: still approaching inside the speculative margin (or a feather-light
@@ -313,20 +322,29 @@ export class ImpactAggregator<S extends ImpactSide> {
             }
             break;
           }
-          if (p.sImp <= cfg.endFraction * p.ePeak) {
-            // the impact is over and they are still touching: this step shows the resting level
-            n = this.finishEpisode(p, p.sImp, out, n);
-            p.phase = CONTACT;
-            p.baseline = p.sImp;
-          } else {
-            this.accumulateEpisode(p);
-            if (p.eSteps >= cfg.maxEpisodeSteps) {
-              n = this.finishEpisode(p, p.sImp, out, n);
+          this.accumulateEpisode(p);
+          const cur = p.sImp;
+          const prev = p.ePrev;
+          if (this.steady(prev, cur)) {
+            const level = 0.5 * (prev + cur);
+            if (level <= cfg.endFraction * p.ePeak || (p.eSteps >= 3 && this.steady(p.ePrev2, prev))) {
+              // still touching with a steady load: that load is the resting level
+              n = this.finishEpisode(p, level, out, n);
               p.phase = CONTACT;
-              p.baseline = p.sImp;
+              p.baseline = level;
+              break;
             }
           }
+          if (p.eSteps >= cfg.maxEpisodeSteps) {
+            n = this.finishEpisode(p, Math.min(prev, cur), out, n);
+            p.phase = CONTACT;
+            p.baseline = cur;
+            break;
+          }
+          p.ePrev2 = prev;
+          p.ePrev = cur;
           break;
+        }
       }
     }
     this.touched.length = 0;
@@ -383,9 +401,12 @@ export class ImpactAggregator<S extends ImpactSide> {
   private resetEpisode(p: Pair<S>): void {
     p.eImp = p.ePeak = p.eW = p.ePx = p.ePy = p.ePz = p.eNx = p.eNy = p.eNz = 0;
     p.eSteps = p.eContacts = 0;
+    p.ePrev = p.ePrev2 = -1;
   }
 
+  /** Episode accumulation; the first step of an episode becomes ePrev for the steadiness test. */
   private accumulateEpisode(p: Pair<S>): void {
+    if (p.eSteps === 0) p.ePrev = p.sImp;
     p.eImp += p.sImp;
     if (p.sImp >= p.ePeak) {
       p.ePeak = p.sImp;
@@ -408,6 +429,11 @@ export class ImpactAggregator<S extends ImpactSide> {
     if (i < this.episodes.length) this.episodes[i] = last;
   }
 
+  private steady(a: number, b: number): boolean {
+    if (a < 0 || b < 0) return false;
+    return Math.abs(a - b) <= this.cfg.steadyTolerance * Math.max(a, b) + 0.25 * this.cfg.minImpulse;
+  }
+
   private lightMass(p: Pair<S>): number {
     const ma = p.a.mass > 0 ? p.a.mass : Infinity; // NaN / 0 / negative → treat as immovable
     const mb = p.b.mass > 0 ? p.b.mass : Infinity;
@@ -421,7 +447,7 @@ export class ImpactAggregator<S extends ImpactSide> {
     return m === Infinity || impulse >= this.cfg.minDeltaV * m;
   }
 
-  /** Close an episode; `rest` = resting impulse per step observed after it (0 if separated). */
+  /** Close an episode; `rest` = resting impulse per step during it (0 if the bodies separated). */
   private finishEpisode(p: Pair<S>, rest: number, out: ImpactOut<S>[], n: number): number {
     const excess = p.eImp - p.eSteps * rest;
     if (!this.passes(p, excess)) return n;

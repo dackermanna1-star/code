@@ -143,15 +143,15 @@ void main(void) {
     float F = 0.02 + 0.98 * pow(1.0 - NdV, 5.0);
     vec3 R = reflect(-V, N);
     float L = vDecal.z;
-    vec3 refl = envColor * L * (0.55 + 0.45 * clamp(R.y, 0.0, 1.0)) * F;
-    vec3 spec = sunColor * pow(max(dot(R, -sunDir), 0.0), 300.0) * 4.0;
+    vec3 refl = envColor * L * (0.6 + 0.4 * clamp(R.y, 0.0, 1.0)) * F;
+    vec3 spec = sunColor * pow(max(dot(R, -sunDir), 0.0), 400.0);
     for (int i = 0; i < 4; i++) {
       vec3 d = lightPos[i] - vPos;
-      float dist2 = max(dot(d, d), 0.05);
+      float dist2 = max(dot(d, d), 0.25);
       vec3 Ld = d * inversesqrt(dist2);
-      spec += lightCol[i] * pow(max(dot(R, Ld), 0.0), 220.0) * 6.0 / dist2;
+      spec += lightCol[i] * pow(max(dot(R, Ld), 0.0), 350.0) / dist2;
     }
-    rgb += (refl + spec * (0.3 + 0.7 * F)) * wet * cov;
+    rgb += (refl + min(spec, vec3(1.5)) * F * 4.0) * wet * cov;
   }
   rgb = pow(max(rgb, vec3(0.0)), vec3(gammaOut));
   gl_FragColor = vec4(rgb, alpha);

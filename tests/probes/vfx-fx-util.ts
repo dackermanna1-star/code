@@ -116,14 +116,30 @@ export function makeVfx(scene: Scene, ground: (x: number, y: number, z: number) 
   return { vfx, events, settings };
 }
 
-/** Advance `frames` frames of 1/60 s: fixed step + frame update + render. */
-export function stepFrames(vfx: Vfx, scene: Scene, frames: number, onFrame?: (f: number) => void): void {
+/** Block until the GPU caught up (SwiftShader queues work; a 1-pixel readback flushes it). */
+export function gpuSync(engine: Engine): void {
+  const gl = (engine as unknown as { _gl: WebGL2RenderingContext })._gl;
+  const px = new Uint8Array(4);
+  gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+}
+
+/**
+ * Advance `frames` frames of 1/60 s: fixed step + frame update + render. Intermediate frames
+ * render at 1/4 resolution (particles still animate inside scene.render), the last
+ * `fullResLast` frames at full resolution; the GPU is synced every frame so timings are honest
+ * and no backlog delays the screenshot.
+ */
+export function stepFrames(vfx: Vfx, scene: Scene, frames: number, onFrame?: (f: number) => void, fullResLast = 2): void {
+  const engine = scene.getEngine() as Engine;
   for (let f = 0; f < frames; f++) {
+    engine.setHardwareScalingLevel(f >= frames - fullResLast ? 1 : 4);
     onFrame?.(f);
     vfx.fixedUpdate(1 / 60);
     vfx.update(1 / 60);
     scene.render();
+    gpuSync(engine);
   }
+  engine.setHardwareScalingLevel(1);
 }
 
 /** Render + yield until cond() (shader compiles / texture uploads are async). */
@@ -173,4 +189,71 @@ export function stats(xs: number[]): { med: number; mean: number; p90: number; m
   const mean = s.reduce((a, b) => a + b, 0) / Math.max(1, s.length);
   const r = (x: number) => Math.round(x * 1000) / 1000;
   return { med: r(pick(0.5)), mean: r(mean), p90: r(pick(0.9)), max: r(s[s.length - 1] ?? 0), n: s.length };
+}
+
+// ------------------------------------------------------------------ showcase runner
+import type { VfxKind } from "../../src/core/context.ts";
+
+export interface Shot {
+  kind: VfxKind;
+  /** Seconds before the screenshot frame at which the effect starts. */
+  at: number;
+  pos: [number, number, number];
+  normal: [number, number, number];
+  intensity: number;
+  emitter?: { dir: [number, number, number]; rate: number; tint?: number };
+  tint?: number;
+  label?: [number, number, number];
+  labelW?: number;
+}
+
+export interface ShowcaseOptions {
+  shots: Shot[];
+  cam: [number, number, number];
+  target: [number, number, number];
+  wallZ?: number;
+  /** Total simulated seconds (>= the largest `at`). */
+  seconds: number;
+  dark?: boolean;
+  lights?: Array<[number, number, number, number]>;
+  setup?: (fx: FxScene, vfx: Vfx) => void;
+}
+
+/** Run a staggered set of effects and stop on the screenshot frame. Returns stats. */
+export async function runShowcase(o: ShowcaseOptions): Promise<any> {
+  const fxs = makeFxScene({ wallZ: o.wallZ ?? 2.6, cam: o.cam, target: o.target, dark: o.dark });
+  const { engine, scene } = fxs;
+  for (const l of o.lights ?? []) addPointLight(scene, l[0], l[1], l[2], l[3]);
+  const { vfx } = makeVfx(scene, makeGroundProbe());
+  o.setup?.(fxs, vfx);
+  for (const s of o.shots) if (s.label) label(scene, s.kind, s.label[0], s.label[1], s.label[2], s.labelW ?? 1.0);
+  const out: any = {};
+  out.ready = await renderUntil(scene, () => Object.values(vfx.fx.groups).every((g) => g.ps.isReady()) && scene.isReady());
+  const FPS = 60;
+  const total = Math.round(o.seconds * FPS);
+  const counts: Record<string, number> = {};
+  const upd: number[] = [];
+  stepFrames(vfx, scene, total, (f) => {
+    const t = total - f;
+    for (const s of o.shots) {
+      if (Math.round(s.at * FPS) !== t) continue;
+      const pos = { x: s.pos[0], y: s.pos[1], z: s.pos[2] };
+      const n = { x: s.normal[0], y: s.normal[1], z: s.normal[2] };
+      if (s.emitter) {
+        const d = s.emitter.dir;
+        vfx.emitter(s.kind, pos, { x: d[0], y: d[1], z: d[2] }, s.emitter.rate, { tint: s.emitter.tint });
+      } else {
+        const before = vfx.fx.queuedCount;
+        vfx.burst(s.kind, pos, n, s.intensity, { tint: s.tint });
+        counts[s.kind] = (counts[s.kind] ?? 0) + vfx.fx.queuedCount - before;
+      }
+    }
+    upd.push(vfx.stats().updateMs);
+  });
+  out.burstCounts = counts;
+  out.groups = Object.fromEntries(Object.entries(vfx.fx.groups).map(([k, g]) => [k, { live: g.live, emitted: g.emitted, dropped: g.dropped }]));
+  out.stats = vfx.stats();
+  out.updateMs = stats(upd);
+  void engine;
+  return { out, vfx, fxs };
 }

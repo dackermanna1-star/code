@@ -162,7 +162,7 @@
 /* target info ---------------------------------------------------------- */
 .ads-target {
   position: absolute;
-  left: calc(50% + 34px);
+  left: calc(50% + 48px);
   top: calc(50% + 14px);
   min-width: 11em;
   max-width: 22em;
@@ -316,7 +316,7 @@
 .ads-hotbar.ads-dim { opacity: 0.35; }
 .ads-slot {
   position: relative;
-  width: 4.9em;
+  width: 5.3em;
   height: 4.3em;
   display: flex;
   flex-direction: column;
@@ -348,7 +348,7 @@
 }
 .ads-slot .ads-name {
   font-size: 0.68em;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
   max-width: 100%;
@@ -365,6 +365,22 @@
 }
 .ads-slot.ads-sel .ads-key { color: var(--ads-amber-hi); }
 
+.ads-toolname {
+  position: absolute;
+  left: 50%;
+  bottom: 6.6em;
+  transform: translateX(-50%);
+  font-size: 1.15em;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ads-amber-hi);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.85);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.ads-toolname.ads-on { opacity: 1; transition: opacity 0.08s; }
 .ads-holding {
   position: absolute;
   left: 50%;
@@ -645,6 +661,15 @@
 .ads-link:hover { color: var(--ads-text); }
 
 /* settings rows */
+.ads-rows h3 {
+  margin: 0.8em 0 0.25em;
+  font-size: 0.8em;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--ads-amber);
+}
+.ads-rows h3:first-child { margin-top: 0.1em; }
 .ads-rows {
   display: flex;
   flex-direction: column;
