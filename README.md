@@ -145,6 +145,12 @@ accessibility, simulation, audio, key rebinding).
 - Fliers soar in flocks, circling in thermals and banking into their turns, with bouts of flapping. Wing span grows
   as gravity weakens and the air thickens. Flocks roost by night (nocturnal ones by day) and stay down in heavy rain
   or snow.
+- Seas of water, brine, ammonia or hydrocarbons hold swimmers, in pods whose loops keep to water deeper than about
+  10 m. Large air-breathers surface in bouts of a few breaths, showing only their backs, with a misty blow, and end
+  each bout with a fluke-up dive. Where the air holds no oxygen, broad flat baskers rise to the surface instead.
+  Schools of small swimmers leap clear in ballistic arcs. Launch speed is set by muscle, so a leap rises
+  h = v²/2g: four times higher at a quarter of Earth's gravity. Spray from blows and splashes is lit by the local
+  daylight. The sea surface is opaque, so only what breaks it is drawn.
 - Some biospheres grow crystalline colonies: faceted, glassy silica-shelled prism clusters with a specular sheen.
 - Fossil biosignatures and other rare anomalies are recorded.
 
@@ -290,6 +296,7 @@ of use.
   - the Sun's Wien peak and Ca II lines, Vega's Balmer lines and TiO in M dwarfs
   - H₂O, O₂, O₃, the red edge and the O₂ + CH₄ biosignature on Earth; CO₂ on Mars; CH₄ on Titan
 - field instruments on land and at sea, and surface radiation doses across the Solar System
+- swimmers: pods only in deep water, breathers mostly submerged, and leap apex ∝ 1/g
 
 `npm run test:e2e` drives the real application in headless Chromium:
 

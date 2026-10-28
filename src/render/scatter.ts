@@ -199,6 +199,7 @@ export class SurfaceScatter {
   readonly rockMat: THREE.ShaderMaterial;
   private plantMat: THREE.ShaderMaterial;
   private aerialMat: THREE.ShaderMaterial | null = null;
+  private aquaticMat: THREE.ShaderMaterial | null = null;
   private species: Species[];
   private rockPalette: [number, number, number][];
   density = 1;
@@ -335,6 +336,19 @@ export class SurfaceScatter {
     return this.aerialMat;
   }
 
+  /** Rock-like (opaque skin) shading for swimmers and spray, visible far out over open water. */
+  aquaticMaterial(): THREE.ShaderMaterial {
+    if (!this.aquaticMat) {
+      const rm = this.rockMat;
+      this.aquaticMat = new THREE.ShaderMaterial({
+        vertexShader: rm.vertexShader, fragmentShader: rm.fragmentShader,
+        uniforms: { ...rm.uniforms, uFade: { value: 6000 } },
+        defines: { ...rm.defines }, side: rm.side,
+      });
+    }
+    return this.aquaticMat;
+  }
+
   /** wavelength (m) of the finest terrain mesh drawn near the camera */
   private meshLambda = 0;
 
@@ -446,5 +460,6 @@ export class SurfaceScatter {
     this.rockMat.dispose();
     this.plantMat.dispose();
     this.aerialMat?.dispose();
+    this.aquaticMat?.dispose();
   }
 }

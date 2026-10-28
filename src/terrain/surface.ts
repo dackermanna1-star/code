@@ -100,8 +100,9 @@ export class SurfaceGenerator {
   private dichX: number; private dichY: number; private dichZ: number;
   readonly out: SampleOut = { height: 0, rock: 0, unit: 0, moisture: 0, temp: 0, special: 0, water: -Infinity };
   /** freezing point of the surface liquid (K), for rivers */
-  private freezeT: number;
-  private boilT: number;
+  /** freezing and boiling temperature of the surface liquid (K) */
+  readonly freezeT: number;
+  readonly boilT: number;
 
   constructor(params: SurfaceParams) {
     this.p = params;

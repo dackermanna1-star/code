@@ -10,6 +10,7 @@ import { createTerrainMaterial } from './terrainmaterial';
 import { SurfaceScatter } from './scatter';
 import { Fauna } from './fauna';
 import { Fliers, Floaters } from './aerial';
+import { Swimmers } from './swimmers';
 import { Precipitation } from './precipitation';
 import { SurfaceGenerator } from '../terrain/surface';
 import { AtmosphereLUTs } from './atmosphere';
@@ -66,6 +67,7 @@ export class PlanetRenderer {
   fauna: Fauna | null = null;
   floaters: Floaters | null = null;
   fliers: Fliers | null = null;
+  swimmers: Swimmers | null = null;
   precip: Precipitation | null = null;
   /** camera altitude above this planet's surface (m), from the last update */
   camAltitude = Infinity;
@@ -149,7 +151,8 @@ export class PlanetRenderer {
       if (!this.floaters && this.body.planet!.life.kind === 'complex') {
         this.floaters = new Floaters(this.body, this.scatter.aerialMaterial());
         this.fliers = new Fliers(this.body, this.scatter.aerialMaterial());
-        this.group.add(this.floaters.group, this.fliers.group);
+        this.swimmers = new Swimmers(this.body, this.scatter.aquaticMaterial());
+        this.group.add(this.floaters.group, this.fliers.group, this.swimmers.group);
       }
       const dt = isFinite(this.lastTime) ? Math.max(0, ctx.time - this.lastTime) : 0;
       const sunB = ctx.suns[0] ? ctx.suns[0].rel.clone().sub(rel).normalize().applyQuaternion(rot.clone().invert()) : null;
@@ -158,6 +161,7 @@ export class PlanetRenderer {
       this.fauna?.update(this.gen, camBody, dt, lifeOn, sunB, storm);
       this.floaters?.update(this.gen, camBody, ctx.time % 1e6, lifeOn);
       this.fliers?.update(this.gen, camBody, ctx.time % 1e6, lifeOn, sunB, storm);
+      if (this.swimmers?.hasSwimmers) this.swimmers.update(this.gen, camBody, ctx.time % 1e6, lifeOn, this.localLight(ctx, rel, rot, camBody));
     }
     // local precipitation / airborne particles
     if (!this.precip && this.body.planet!.atmosphere && altCam < 3000) {
@@ -172,15 +176,7 @@ export class PlanetRenderer {
         const wd = new THREE.Vector3(c * dirB.x + sn * dirB.z, dirB.y, -sn * dirB.x + c * dirB.z);
         this.weatherHere = this.clouds.sample(this.renderer, wd);
       }
-      const s0 = ctx.suns[0];
-      const light = new THREE.Vector3();
-      if (s0) {
-        const L = new THREE.Vector3(), E = new THREE.Vector3();
-        sunIlluminanceAt(s0, rel, L, E);
-        const upW = _v.copy(camBody).normalize().applyQuaternion(rot);
-        const muS = upW.dot(L);
-        light.copy(E).multiplyScalar(Math.max(muS, 0) * 0.55 + Math.max(muS + 0.1, 0) * 0.25);
-      }
+      const light = this.localLight(ctx, rel, rot, camBody);
       const temp = this.gen.sample(dirB.x, dirB.y, dirB.z, 50).temp;
       const dtp = isFinite(this.lastTime) ? Math.min(0.2, Math.max(0, ctx.time - this.lastTime)) : 0;
       this.precip.update(dtp, ctx.time, camBody, rot, this.weatherHere, light, altCam, temp, (ctx.quality.scatter ?? 0.85) > 0);
@@ -257,12 +253,27 @@ export class PlanetRenderer {
     return this.terrain?.stats;
   }
 
+  /** Daylight on particles at the observer (direct sun, plus a little skylight while it is up). */
+  private localLight(ctx: FrameContext, rel: THREE.Vector3, rot: THREE.Quaternion, camBody: THREE.Vector3) {
+    const light = new THREE.Vector3();
+    const s0 = ctx.suns[0];
+    if (s0) {
+      const L = new THREE.Vector3(), E = new THREE.Vector3();
+      sunIlluminanceAt(s0, rel, L, E);
+      const upW = _v.copy(camBody).normalize().applyQuaternion(rot);
+      const muS = upW.dot(L);
+      light.copy(E).multiplyScalar(Math.max(muS, 0) * 0.55 + Math.max(muS + 0.1, 0) * 0.25);
+    }
+    return light;
+  }
+
   dispose() {
     if (this.terrain) this.terrain.dispose();
     this.scatter?.dispose();
     this.fauna?.dispose();
     this.floaters?.dispose();
     this.fliers?.dispose();
+    this.swimmers?.dispose();
     this.precip?.dispose();
     this.luts?.dispose();
     this.clouds?.dispose();

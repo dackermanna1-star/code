@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { InstancedMesh, Matrix4, Quaternion, ShaderMaterial, Vector3 } from 'three';
 import { Floaters, Fliers } from '../../src/render/aerial';
+import { Swimmers, swimState, type SwimState } from '../../src/render/swimmers';
 import { activeShowers, meteorAltitude, MeteorSky, solarLongitude } from '../../src/render/meteors';
 import { SurfaceGenerator } from '../../src/terrain/surface';
 import { buildNode, GRID } from '../../src/terrain/meshbuilder';
@@ -335,6 +336,55 @@ describe('floaters', () => {
     expect(med.d).toBeGreaterThan(5);
     expect(med.d).toBeLessThan(80);
     expect(med.v).toBeLessThan(med.d * 0.5);
+  });
+
+  it('swimmers live in deep water, surface to breathe and leap under local gravity', () => {
+    const sol = buildSolarSystem(new UPos(), { x: 0, y: 0, z: 0, w: 1 });
+    const mat = new ShaderMaterial();
+    for (const name of ['Earth', 'Mars', 'Titan']) expect(new Swimmers(sol.bodies.find((x) => x.name === name)!, mat).hasSwimmers, name).toBe(false);
+    const world = generateSystem({ id: 'sys1697', name: 'S1697', seed: 1697, upos: new UPos() }).bodies.find((x) => x.planet?.life.kind === 'complex')!;
+    expect(world.planet!.gravity).toBeLessThan(4);
+    const sw = new Swimmers(world, mat);
+    expect(sw.species.map((x) => x.kind).sort()).toEqual(['breather', 'leaper']);
+    const g = new SurfaceGenerator(world.planet!.surface!);
+    const sea = g.liquidLevel();
+    // every pod's loop keeps to deep water
+    let pods = 0;
+    const allPods = [0, 1, 4, 5].flatMap((f) => [...Array(100).keys()].flatMap((k) => sw.spawn(g, f, (k % 10) - 5, Math.floor(k / 10) - 5)));
+    for (const pod of allPods) {
+      pods++;
+      const pos = new Vector3(), fwd = new Vector3();
+      for (let t = 0; t < 600; t += 37) for (const m of pod.members) {
+        sw.pathAt(pod, m, t, sea, pos, fwd);
+        const d = pos.clone().normalize();
+        expect(sea - g.sample(d.x, d.y, d.z, 10).height).toBeGreaterThan(5);
+        expect(Math.abs(fwd.dot(d))).toBeLessThan(1e-6); // swimming along the surface
+      }
+    }
+    expect(pods).toBeGreaterThan(3);
+    // leaps: same launch speed, apex h = v²/2g, so 4× higher at a quarter of the gravity
+    const leaper = sw.species.find((x) => x.kind === 'leaper')!;
+    const pod = { sp: 1, centre: new Vector3(0, 0, 1), radius: 100, dir: 1, cycle: 60, members: [] };
+    const m = { a: 0, dr: 0, t0: 0, period: 30 };
+    const st: SwimState = { y: 0, pitch: 0, tau: -1, dur: 0, roll: 0 };
+    const apex = (gg: number) => { let h = -Infinity; for (let t = 0; t < 30; t += 0.005) h = Math.max(h, swimState(leaper, pod, m, t, gg, st).y); return h; };
+    expect(apex(9.81)).toBeCloseTo(leaper.leapV ** 2 / (2 * 9.81), 2);
+    expect(apex(9.81 / 4) / apex(9.81)).toBeCloseTo(4, 1);
+    // breathers spend most of their time below the surface
+    const br = sw.species.find((x) => x.kind === 'breather')!;
+    let up = 0, n = 0;
+    for (let t = 0; t < 600; t += 0.1, n++) if (swimState(br, { ...pod, sp: 0 }, m, t, world.planet!.gravity, st).y > -0.1 * br.length) up++;
+    expect(up / n).toBeGreaterThan(0.05);
+    expect(up / n).toBeLessThan(0.35);
+    // rendered: some animals and spray break the surface over a minute near a pod
+    const p0 = allPods.find((x) => x.sp === 0)!;
+    const cam = new Vector3();
+    sw.pathAt(p0, p0.members[0], 0, sea, cam, new Vector3());
+    cam.addScaledVector(p0.centre, 120); // hovering 120 m up, out of their way
+    let seen = 0, spray = 0;
+    for (let t = 0; t < 90; t += 0.5) { sw.update(g, cam, t, true); seen = Math.max(seen, sw.count); spray = Math.max(spray, sw.sprayCount); }
+    expect(seen).toBeGreaterThan(0);
+    expect(spray).toBeGreaterThan(0);
   });
 
   it('fliers circle in flocks by day and roost at night', () => {
