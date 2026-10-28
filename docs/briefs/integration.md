@@ -64,3 +64,10 @@ Implement:
    the smoke test pass. Look at the screenshots critically and report visual problems you see
    (missing textures, black rooms, floating objects, z-fighting, broken lighting) with the module
    responsible.
+
+## Notes collected from finished modules
+- Call `warmupGeometry(500)` (src/geom/warmup.ts) behind the loading overlay (first fracture otherwise 40–350 ms).
+- Batching should drop faces hidden by bonded neighbours (`polyHiddenFaces`) — removes dark seams on fused tiles;
+  check whether destruction-runtime already does this, wire it if not.
+- Interior lights: use the clustered light container (see render-env addendum) — open-plan area has 12+ lights.
+- Fixtures placed a full-length mirror in the master bedroom; bedrooms may add another — keep one.

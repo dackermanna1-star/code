@@ -11,6 +11,7 @@
 import { MATERIALS, type MaterialId, type SoundProfile } from "../destruction/model/materials.ts";
 import type { BondKind } from "../destruction/model/types.ts";
 import type { FractureEv, ImpactEv } from "../core/events.ts";
+import { BALCONY_FLOOR_Y, FLOOR_Y } from "../world/structure/levels.ts";
 
 export type DebrisProfile = "glass" | "ceramic" | "wood" | "drywall" | "concrete" | "metal" | "plastic";
 
@@ -34,7 +35,8 @@ export interface Layer {
 
 export const E_REF = 300;
 const log10 = (x: number): number => Math.log10(Math.max(x, 1e-12));
-const clamp = (x: number, lo: number, hi: number): number => (x < lo ? lo : x > hi ? hi : x);
+/** NaN-safe clamp (NaN → lo). */
+const clamp = (x: number, lo: number, hi: number): number => (x >= lo ? (x <= hi ? x : hi) : lo);
 const fin = (x: number | undefined | null, d: number): number => (typeof x === "number" && Number.isFinite(x) ? x : d);
 
 /** Level (dB) of an impact dissipating `energy` J. */
@@ -175,14 +177,20 @@ export function impactLayers(ev: ImpactEv, out: Layer[] = []): Layer[] {
   if (!(E > 2e-3)) return out;
   const base = energyDb(E);
   const cutoff = contactCutoff(ev.matA, ev.matB);
-  addImpactSide(out, ev.matA, ev.sizeA, ev.massA, base, cutoff, E, false);
+  const surf = surfaceSides(ev);
+  addImpactSide(out, ev.matA, ev.sizeA, base, cutoff, E, false, (surf & 1) !== 0);
   if (ev.matB) {
     // Strikes report the striker (tool head / fist) as side B with idB = −1: it rings less
     // (held, damped by the hand).
-    const striker = ev.idB === -1 && fin(ev.sizeB, 1) < 0.15;
-    addImpactSide(out, ev.matB, ev.sizeB, ev.massB, base + (striker ? -6 : 0), cutoff, E, striker);
+    const striker = isStrike(ev);
+    addImpactSide(out, ev.matB, ev.sizeB, base + (striker ? -6 : 0), cutoff, E, striker, (surf & 2) !== 0);
   }
   return out;
+}
+
+/** Player strike: side B is the striker (tool head / fist / boot), reported with idB = −1. */
+export function isStrike(ev: ImpactEv): boolean {
+  return ev.idB === -1 && !!ev.matB && fin(ev.sizeB, 1) < 0.15;
 }
 
 /**
@@ -193,11 +201,85 @@ export function isStructure(size: number, mass: number): boolean {
   return (size > STRUCTURE_SIZE && (!Number.isFinite(mass) || mass > 60)) || size > 3;
 }
 
-function addImpactSide(out: Layer[], mat: MaterialId, size0: number, mass: number, base: number, cutoff: number, E: number, striker: boolean): void {
+/**
+ * Bonded finish materials and the minimum part size (m) from which a part of that material is
+ * a piece of building fabric (floor tile, wall/ceiling board, slab) rather than a loose object.
+ * Static islands report their PART mass (a 0.3 m floor tile weighs ~2 kg, a drywall panel
+ * ~27 kg), so mass alone cannot tell a bonded finish from a free radiator.
+ */
+const FINISH_MIN_SIZE: Readonly<Partial<Record<MaterialId, number>>> = {
+  tile: 0.25,
+  gypsum: 0.6,
+  plaster: 0.6,
+  concrete: 0.6,
+};
+
+/** Floor-finish materials laid at the finished-floor plane (laminate planks, thresholds, tiles). */
+const FLOOR_FINISH = new Set<MaterialId>(["hardwood", "tile", "concrete", "plaster"]);
+
+/** Contact point on a finished floor (indoor y = FLOOR_Y, balcony slab a step lower). */
+function onFloorPlane(ev: ImpactEv): boolean {
+  const y = ev.pos ? ev.pos.y : NaN;
+  if (!Number.isFinite(y)) return false;
+  const ny = ev.normal ? fin(ev.normal.y, 0) : 0;
+  return y >= Math.min(FLOOR_Y, BALCONY_FLOOR_Y) - 0.04 && y <= FLOOR_Y + 0.04 && Math.abs(ny) >= 0.7;
+}
+
+/**
+ * Which sides of an impact are bonded building surfaces (bit 1 = A, bit 2 = B): they get the
+ * damped `surface.*` response and are exempt from per-island rate limiting.
+ *
+ * Uses the explicit static flags when the destruction runtime provides them (requested
+ * contract addition `staticA/staticB` on ImpactEv); otherwise infers it from size × mass
+ * (slabs, big structure), from bonded-finish materials (tile, gypsum, plaster, concrete
+ * boards) and from contacts on the finished-floor plane (laminate planks). Strikers never count.
+ */
+export function surfaceSides(ev: ImpactEv): number {
+  const x = ev as ImpactEv & { staticA?: boolean; staticB?: boolean };
+  const strike = isStrike(ev);
+  let a = false;
+  let b = false;
+  if (typeof x.staticA === "boolean" || typeof x.staticB === "boolean") {
+    a = x.staticA === true;
+    b = x.staticB === true && !strike;
+  } else {
+    a = surfaceGuess(ev.matA, ev.sizeA, ev.massA);
+    b = !!ev.matB && !strike && surfaceGuess(ev.matB, ev.sizeB, ev.massB);
+    if (!a || !b) {
+      // Floor plane: a laminate plank (1.2 m, 1.9 kg) is far below the structure thresholds.
+      const floor = onFloorPlane(ev);
+      const fa = !a && floor && floorFinish(ev.matA, ev.sizeA, ev.massA);
+      const fb = !b && floor && !!ev.matB && !strike && floorFinish(ev.matB, ev.sizeB, ev.massB);
+      if (fa && fb) {
+        // Both could be floor (a loose board dropped on the planks): the heavier one is the floor.
+        if (fin(ev.massA, 0) >= fin(ev.massB, 0)) a = true;
+        else b = true;
+      } else {
+        a ||= fa;
+        b ||= fb;
+      }
+    }
+  }
+  return (a ? 1 : 0) | (b ? 2 : 0);
+}
+
+function surfaceGuess(mat: MaterialId, size0: number, mass: number): boolean {
+  const size = fin(size0, 0);
+  if (!(size > 0)) return false;
+  if (isStructure(size, mass)) return true;
+  const min = FINISH_MIN_SIZE[mat];
+  return min !== undefined && size >= min;
+}
+
+function floorFinish(mat: MaterialId, size0: number, mass: number): boolean {
+  return FLOOR_FINISH.has(mat) && fin(size0, 0) >= 0.25 && fin(mass, 0) < 60;
+}
+
+function addImpactSide(out: Layer[], mat: MaterialId, size0: number, base: number, cutoff: number, E: number, striker: boolean, surface: boolean): void {
   const prof = profileOf(mat);
   let size = fin(size0, 0.3);
   if (!(size > 0)) size = 0.3;
-  const structure = !striker && isStructure(size, mass);
+  const structure = !striker && surface;
   if (structure && SURFACE_SET.has(prof)) {
     // Massive, bonded surface: local damped response, quieter than a free radiator.
     out.push({ id: `surface.${prof}`, db: base + PROFILE_DB[prof] - 4, cutoff, sample: SAMPLE_FOR_PROFILE[prof] });
@@ -393,11 +475,27 @@ export function swingLayer(tool: string, power: number): Layer {
   return { id, db: -22 + 12 * p, rate: (t.includes("hammer") && !t.includes("sledge") ? 0.92 : 1) * (0.85 + 0.3 * p) };
 }
 
+/** Body-part thud per flesh "tool" (fists, kick, stomp). */
+export function bodyThudId(tool: string | undefined): string {
+  const t = (tool ?? "").toLowerCase();
+  return /stomp/.test(t) ? "stomp" : /kick|foot|boot|leg/.test(t) ? "kick.thud" : "punch.thud";
+}
+
+/**
+ * Extra layers for a player strike (the struck material's ring comes from the impact event):
+ * fists / kicks / stomps add the body thud (+ a sharp transient and an "ouch" when the target
+ * is hard), real tools add a sharp contact transient.
+ */
 export function toolHitLayers(tool: string, energy: number, hard: boolean, out: Layer[] = []): Layer[] {
   out.length = 0;
   const E = Math.max(fin(energy, 0), 1e-3);
   if (isFleshTool(tool)) {
-    if (hard) out.push({ id: "ouch", db: clamp(-10 + 4 * log10(E / 50), -24, -4), sample: "punch" });
+    const id = bodyThudId(tool);
+    out.push({ id, db: clamp(-12 + 6 * log10(E / 50), -30, -2), sample: "punch" });
+    if (hard) {
+      out.push({ id: "tool.transient", db: clamp(6 * log10(E / 100) - 12, -34, -8), cutoff: 9000 });
+      out.push({ id: "ouch", db: clamp(-10 + 4 * log10(E / 50), -24, -4), sample: "punch" });
+    }
   } else out.push({ id: "tool.transient", db: clamp(6 * log10(E / 100) - 6, -30, -2), cutoff: 20000 });
   return out;
 }
@@ -479,25 +577,59 @@ export function fallOutDelay(y: number, streetY: number): number {
 
 // ============================================================================ rate limiting
 
-/** Token buckets keyed by string (per sound family). */
-export class TokenBuckets {
-  private m = new Map<string, { tokens: number; t: number }>();
+/** Level (dB, estimated at the listener) above which a layer is never family-rate-limited. */
+export const LIMIT_BYPASS_DB = -18;
+/** A layer this much louder than its family's recent peak passes even an empty bucket. */
+export const LIMIT_OVERRIDE_DB = 6;
 
-  allow(key: string, now: number, cap: number, rate: number): boolean {
+/**
+ * Priority-aware token buckets keyed by string (per sound family). Buckets only thin out
+ * quiet, numerous layers (debris showers): a layer loud at the listener (≥ LIMIT_BYPASS_DB)
+ * never takes or needs a token, and a layer clearly louder than everything the family played
+ * recently (peak decays 20 dB/s) passes an empty bucket — so distant rattle can never mask the
+ * next big close hit.
+ */
+export class TokenBuckets {
+  private m = new Map<string, { tokens: number; t: number; peak: number; pt: number }>();
+
+  /** `levelDb` = estimated level at the listener (omit for a plain token bucket). */
+  allow(key: string, now: number, cap: number, rate: number, levelDb = -Infinity): boolean {
+    if (levelDb >= LIMIT_BYPASS_DB) {
+      this.notePeak(key, now, levelDb, cap);
+      return true;
+    }
     let b = this.m.get(key);
     if (!b) {
-      b = { tokens: cap, t: now };
+      b = { tokens: cap, t: now, peak: -Infinity, pt: now };
       this.m.set(key, b);
     }
     b.tokens = Math.min(cap, b.tokens + Math.max(0, now - b.t) * rate);
     b.t = now;
-    if (b.tokens < 1) return false;
-    b.tokens -= 1;
+    const peak = b.peak - 20 * Math.max(0, now - b.pt);
+    if (b.tokens >= 1) {
+      b.tokens -= 1;
+    } else if (!(levelDb > peak + LIMIT_OVERRIDE_DB)) return false;
+    if (levelDb > peak) {
+      b.peak = levelDb;
+      b.pt = now;
+    }
     return true;
   }
 
+  private notePeak(key: string, now: number, levelDb: number, cap: number): void {
+    let b = this.m.get(key);
+    if (!b) {
+      b = { tokens: cap, t: now, peak: -Infinity, pt: now };
+      this.m.set(key, b);
+    }
+    if (levelDb > b.peak - 20 * Math.max(0, now - b.pt)) {
+      b.peak = levelDb;
+      b.pt = now;
+    }
+  }
+
   prune(now: number, maxAge = 5): void {
-    for (const [k, b] of this.m) if (now - b.t > maxAge) this.m.delete(k);
+    for (const [k, b] of this.m) if (now - b.t > maxAge && now - b.pt > maxAge) this.m.delete(k);
   }
 
   get size(): number {

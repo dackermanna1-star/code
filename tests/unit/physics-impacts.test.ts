@@ -280,3 +280,17 @@ test("episodes never exceed maxEpisodeSteps (fluctuating tail)", () => {
   assert.equal(em[0].imp.steps, 5);
   near(em[0].imp.impulse, 5 + 2 + 0.5 + 1.5 + 0.4 - 5 * 0.4, 1e-6);
 });
+
+test("noisy resting load after an impact: still one started impact, bounded latency, no false spikes", () => {
+  const floor = side(1, Infinity), box = side(2, 1);
+  const agg = new ImpactAggregator<Side>();
+  const seq: Ev[][] = [[{ a: box, b: floor, type: EV_STARTED, impulse: 0.3 }], [{ a: box, b: floor, type: EV_CONTINUED, impulse: 4.3 }]];
+  // ±30 % jitter around m·g·dt (exceeds the steadiness tolerance on purpose)
+  const jitter = [1.3, 0.7, 1.25, 0.72, 1.28, 0.75, 1.3, 0.7, 1.2, 0.8, 1.3, 0.7, 1.25, 0.72, 1.3, 0.75, 1.28, 0.7, 1.3, 0.72];
+  for (const j of jitter) seq.push([{ a: box, b: floor, type: EV_CONTINUED, impulse: 0.1635 * j }]);
+  const em = run(agg, seq);
+  assert.equal(em.length, 1, JSON.stringify(em.map((e) => [e.step, e.imp.impulse, e.imp.started])));
+  assert.equal(em[0].imp.started, true);
+  assert.ok(em[0].step <= 7, `latency bounded by maxEpisodeSteps (got step ${em[0].step})`);
+  near(em[0].imp.impulse, 4.6, 0.5);
+});

@@ -330,7 +330,7 @@ export function buildSaucepan(o: ItemOpts & { r?: number; h?: number; handles?: 
   };
   if (loops) {
     for (const sx of [-1, 1]) {
-      const hp = b.tube(`handle${sx < 0 ? "l" : "r"}`, "steel", "steel_brushed", [[sx * (r - 0.002), h - 0.03, -0.035], [sx * (r + 0.03), h - 0.025, -0.03], [sx * (r + 0.03), h - 0.025, 0.03], [sx * (r - 0.002), h - 0.03, 0.035]], 0.005, { sides: 6, tess: 0 });
+      const hp = b.tube(`handle${sx < 0 ? "l" : "r"}`, "steel", "steel_brushed", [[sx * (r - 0.001), h - 0.05, 0], [sx * (r + 0.03), h - 0.045, 0], [sx * (r + 0.03), h - 0.015, 0], [sx * (r - 0.001), h - 0.01, 0]], 0.005, { sides: 6, tess: 0 });
       for (const e of [hp[0], hp[hp.length - 1]]) touchWall(e, "weld", 60);
     }
   } else {

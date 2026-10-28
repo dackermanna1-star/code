@@ -16,8 +16,9 @@ import {
   type PartOutcome,
 } from "../../src/destruction/model/damage.ts";
 import { polyVolume } from "../../src/geom/poly.ts";
+import { dentDepthAt } from "../../src/destruction/model/util.ts";
 import { Rng } from "../../src/core/rng.ts";
-import { makePart, box, hit, v, bond, strikeEnergy } from "./damage-helpers.ts";
+import { makePart, box, hit, v, bond, strikeEnergy, dropEnergy, applyOutcome } from "./damage-helpers.ts";
 
 const close = (a: number, b: number, rel = 1e-9) => assert.ok(Math.abs(a - b) <= rel * Math.max(1, Math.abs(b)), `${a} ≈ ${b}`);
 
@@ -234,35 +235,107 @@ test("contact radius: a small contact makes a smaller, deeper breakout than a wi
   assert.ok(sharp.fracture.radius < blunt.fracture.radius);
 });
 
-test("performance: respond < 2 ms typical, 40-cell fracture plan within budget", () => {
+test("performance: respond < 2 ms, 40-cell plan < 6 ms, full tempered dice < 4 ms (fixed budgets, best of N)", () => {
+  // Fixed design budgets (ARCHITECTURE §4.8: the runtime spends ≤ 4 ms per step on plans).
+  // Best-of-N batches make the bounds robust against other processes competing for the CPU
+  // without relaxing them.
+  const bestOf = (batches: number, per: number, fn: (k: number) => void): number => {
+    let best = Infinity;
+    for (let b = 0; b < batches; b++) {
+      const t = performance.now();
+      for (let k = 0; k < per; k++) fn(b * per + k);
+      best = Math.min(best, (performance.now() - t) / per);
+    }
+    return best;
+  };
   const p = makePart("ceramic", box(0.3, 0.3, 0.01), { bonds: [bond(1, "glue", v(0.15, 0, 0), 40), bond(2, "glue", v(-0.15, 0, 0), 40)] });
   for (let k = 0; k < 50; k++) hit(p, v(0, 0, 0.005), v(0, 0, -1), 1, { seed: k }); // warm-up
-  // best of several batches: robust against other processes competing for the CPU
-  let per = Infinity;
-  let t = 0;
-  for (let b = 0; b < 5; b++) {
-    t = performance.now();
-    for (let k = 0; k < 100; k++) hit(p, v(0.01 * (k % 10), 0, 0.005), v(0, 0, -1), 1 + (k % 3), { seed: k });
-    per = Math.min(per, (performance.now() - t) / 100);
-  }
+  const per = bestOf(5, 100, (k) => hit(p, v(0.01 * (k % 10), 0, 0.005), v(0, 0, -1), 1 + (k % 3), { seed: k }));
   const win = makePart("glass", box(1, 1.2, 0.004));
-  for (let k = 0; k < 5; k++) hit(win, v(0.1, 0.1, 0.002), v(0, 0, -1), 300, { seed: k });
-  const times: number[] = [];
   let cells = 0;
-  for (let k = 0; k < 15; k++) {
-    t = performance.now();
-    const o = hit(win, v(0.1, 0.1, 0.002), v(0, 0, -1), 300, { seed: 100 + k });
-    times.push(performance.now() - t);
-    cells = Math.max(cells, o.fracture?.cells.length ?? 0);
-  }
-  times.sort((a, b) => a - b);
-  const med = times[times.length >> 1];
-  const best = times[0];
-  console.log(`respond (no fracture): ${per.toFixed(3)} ms; ${cells}-cell glass plan: best ${best.toFixed(2)} ms, median ${med.toFixed(2)} ms`);
-  // design targets: respond < 2 ms, plan < 6 ms. The test machine is shared with other agents,
-  // so the bounds are relaxed by the CPU over-subscription (load average / cores, capped at 4).
-  const load = Math.min(4, Math.max(1, os.loadavg()[0] / Math.max(1, os.cpus().length)));
-  assert.ok(per < 2 * load, `respond ${per} ms (load ×${load.toFixed(1)})`);
-  assert.ok(best < 6 * load, `plan ${best} ms (load ×${load.toFixed(1)})`);
+  for (let k = 0; k < 5; k++) hit(win, v(0.1, 0.1, 0.002), v(0, 0, -1), 300, { seed: k });
+  const glass = bestOf(15, 1, (k) => {
+    cells = Math.max(cells, hit(win, v(0.1, 0.1, 0.002), v(0, 0, -1), 300, { seed: 100 + k }).fracture?.cells.length ?? 0);
+  });
+  // the largest dice in the apartment: a 0.9 × 1.9 m tempered shower panel
+  const shower = makePart("temperedGlass", box(0.9, 1.9, 0.008), { bonds: [bond(1, "clip", v(-0.45, 0.6, 0), 50), bond(2, "clip", v(-0.45, -0.6, 0), 50)] });
+  let micro = 0;
+  for (let k = 0; k < 3; k++) hit(shower, v(0, 0, 0.004), v(0, 0, -1), 250, { contact: 0.03, seed: k });
+  const dice = bestOf(15, 1, (k) => {
+    const o = hit(shower, v(0, 0, 0.004), v(0, 0, -1), 250, { contact: 0.03, seed: 50 + k });
+    micro = Math.max(micro, o.fracture?.cells.filter((c) => c.role === "micro").length ?? 0);
+  });
+  console.log(`respond (no fracture): ${per.toFixed(3)} ms; ${cells}-cell glass plan: ${glass.toFixed(2)} ms; dice (${micro} cubes): ${dice.toFixed(2)} ms`);
+  assert.ok(per < 2, `respond ${per} ms`);
+  assert.ok(glass < 6, `glass plan ${glass} ms`);
+  assert.ok(dice < 4, `dice plan ${dice} ms`);
   assert.ok(cells >= 35);
+  assert.ok(micro >= 500, `dice produced ${micro} cubes`);
+});
+
+test("dents: accumulated depth never exceeds the cap; the dent widens instead; crumple events are rate-limited", () => {
+  const panel = makePart("steelSheet", box(0.5, 0.0008, 0.35));
+  const cap = Math.min(MATERIALS.steelSheet.maxDent * 0.0008, 0.5 * 0.35);
+  const E = dropEnergy(15, 5, "steelSheet", "concrete");
+  const P = v(0.1, 0.0004, 0.05);
+  let events = 0;
+  const gridMax = (): number => {
+    let m = 0;
+    for (let x = -0.25; x <= 0.25; x += 0.01) for (let z = -0.175; z <= 0.175; z += 0.01) m = Math.max(m, dentDepthAt(panel.dents, v(x, 0, z)));
+    return m;
+  };
+  let wide5 = 0;
+  for (let k = 0; k < 30; k++) {
+    const o = hit(panel, P, v(0, -1, 0), E, { strike: false, islandMass: 15, seed: k });
+    if (o.crumpled) events++;
+    applyOutcome(panel, o);
+    assert.ok(dentDepthAt(panel.dents, P) <= cap * 1.0001, `hit ${k + 1}: depth ${dentDepthAt(panel.dents, P)} > cap ${cap}`);
+    if (k === 4) wide5 = panel.dents.reduce((m, d) => Math.max(m, Math.hypot(d.p.x - P.x, d.p.z - P.z) + d.r), 0);
+  }
+  assert.ok(gridMax() <= 1.06 * cap, `max displacement ${gridMax()} vs cap ${cap}`);
+  const wide30 = panel.dents.reduce((m, d) => Math.max(m, Math.hypot(d.p.x - P.x, d.p.z - P.z) + d.r), 0);
+  assert.ok(wide30 > 1.3 * wide5, `dented area widens (${wide5.toFixed(3)} → ${wide30.toFixed(3)} m)`);
+  assert.ok(events >= 1 && events <= 5, `crumple events ${events} (not one per hit)`);
+  // a plastic casing dent obeys its cap too
+  const cas = makePart("plastic", box(0.3, 0.2, 0.002));
+  const capP = Math.min(MATERIALS.plastic.maxDent * 0.002, 0.1);
+  for (let k = 0; k < 30; k++) applyOutcome(cas, hit(cas, v(0.05, 0.03, 0.001), v(0, 0, -1), 4, { contact: 0.015, seed: k }));
+  assert.ok(dentDepthAt(cas.dents, v(0.05, 0.03, 0.001)) <= capP * 1.0001);
+});
+
+test("fatigue: knocks below the endurance limit never accumulate; memory never exceeds delivered energy", () => {
+  const cases: Array<[string, () => ReturnType<typeof makePart>, ReturnType<typeof v>, number]> = [
+    ["window", () => makePart("glass", box(1, 1.2, 0.004)), v(0.1, 0.1, 0.002), 0.03],
+    ["plate", () => makePart("ceramic", box(0.25, 0.25, 0.006)), v(0.02, 0.02, 0.003), 0.03],
+    ["drywall", () => makePart("gypsum", box(1.2, 2.4, 0.0125), { supported: true }), v(0.1, 0.2, 0.00625), 0.03],
+  ];
+  for (const [name, mk, P, frac] of cases) {
+    // threshold of a passive knock: smallest energy that fractures the virgin part
+    let lo = 0,
+      hi = 500;
+    for (let i = 0; i < 40; i++) {
+      const mid = (lo + hi) / 2;
+      if (hit(mk(), P, v(0, 0, -1), mid, { strike: false, seed: 1 }).fracture) hi = mid;
+      else lo = mid;
+    }
+    const e = frac * hi;
+    const p = mk();
+    for (let k = 0; k < 500; k++) {
+      const o = hit(p, P, v(0, 0, -1), e, { strike: false, seed: k });
+      assert.equal(o.fracture, null, `${name}: tap ${k + 1} at ${(frac * 100).toFixed(0)} % of the threshold broke it`);
+      applyOutcome(p, o);
+    }
+    assert.equal(p.dmg.length, 0, `${name}: no memory below the endurance limit`);
+    // above the limit, memory is the raw delivered energy (never amplified)
+    const q = mk();
+    let delivered = 0;
+    for (let k = 0; k < 30; k++) {
+      const o = hit(q, P, v(0, 0, -1), 0.3 * hi, { strike: false, seed: k });
+      delivered += 0.3 * hi;
+      applyOutcome(q, o);
+      if (o.fracture) break;
+      const remembered = q.dmg.reduce((s, d) => s + d.e, 0);
+      assert.ok(remembered <= delivered * 1.000001, `${name}: remembered ${remembered} > delivered ${delivered}`);
+    }
+  }
 });

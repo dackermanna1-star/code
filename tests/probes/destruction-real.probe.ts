@@ -40,6 +40,31 @@ export async function probe() {
     },
   });
   const d = new Destruction({ physics, render, vfx, events, time, settings, rng: new Rng(99), scene });
+  // ---- timing instrumentation
+  const acc: Record<string, { n: number; ms: number }> = {};
+  const wrap = (label: string, obj: Record<string, unknown>, name: string) => {
+    const fn = obj[name] as (...a: unknown[]) => unknown;
+    obj[name] = function (this: unknown, ...a: unknown[]) {
+      const t0 = performance.now();
+      try {
+        return fn.apply(this, a);
+      } finally {
+        const e = (acc[label] ??= { n: 0, ms: 0 });
+        e.n++;
+        e.ms += performance.now() - t0;
+      }
+    };
+  };
+  wrap("render.buildIsland", render as unknown as Record<string, unknown>, "buildIsland");
+  wrap("physics.hullShape", physics as unknown as Record<string, unknown>, "hullShape");
+  wrap("physics.step", physics as unknown as Record<string, unknown>, "step");
+  wrap("impacts.hitPart", d.impacts as unknown as Record<string, unknown>, "hitPart");
+  wrap("fracture.apply", d.fracture as unknown as Record<string, unknown>, "apply");
+  wrap("world.partGeom", d.world as unknown as Record<string, unknown>, "partGeom");
+  wrap("world.flushTopology", d.world as unknown as Record<string, unknown>, "flushTopology");
+  wrap("destruction.afterPhysics", d as unknown as Record<string, unknown>, "afterPhysics");
+  wrap("vfx.fixedUpdate", vfx as unknown as Record<string, unknown>, "fixedUpdate");
+  wrap("vfx.update", vfx as unknown as Record<string, unknown>, "update");
   const ev: Record<string, number> = {};
   for (const t of ["impact", "fracture", "bondBreak", "split", "dent", "crack", "chip", "feature", "damage"] as const) events.on(t, () => (ev[t] = (ev[t] ?? 0) + 1));
   const I = { x: 0, y: 0, z: 0, w: 1 };
@@ -164,6 +189,7 @@ export async function probe() {
   await new Promise((r) => setTimeout(r, 300));
   void BLayer;
   return {
+    timing: Object.fromEntries(Object.entries(acc).sort((a, b) => b[1].ms - a[1].ms).map(([k, v]) => [k, `${round(v.ms, 10)}ms/${v.n}`])),
     spawnMs,
     stepMs,
     log,

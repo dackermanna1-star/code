@@ -160,7 +160,14 @@ export async function probe() {
         else w.physics.ball(w.physics.worldBody, made[i].b, made[i].b.transformNode.position.clone(), Vector3.Zero());
       }
       steps(w, 20);
-      const peak = counts(w);
+      // body-buffer sync must stay exact under churn: every node equals Havok's own transform
+      let syncErr = 0;
+      for (const { b } of made) {
+        const t = w.physics.hk.HP_Body_GetQTransform(b._pluginData.hpBodyId)[1];
+        const p = b.transformNode.position;
+        syncErr = Math.max(syncErr, Math.abs(p.x - t[0][0]), Math.abs(p.y - t[0][1]), Math.abs(p.z - t[0][2]));
+      }
+      const peak = { ...counts(w), syncErr };
       for (let i = 0; i < made.length; i++) {
         const { b, kids } = made[i];
         if (i % 3 === 0) b.transformNode.dispose(); // node path
@@ -171,11 +178,12 @@ export async function probe() {
         for (const k of kids) w.physics.disposeShape(k);
       }
       steps(w, 2);
-      per.push({ cycle, peakBodies: peak.hkBodies, peakConstraints: peak.hkConstraints, after: counts(w) });
+      per.push({ cycle, peakBodies: peak.hkBodies, peakConstraints: peak.hkConstraints, syncErr: peak.syncErr, after: counts(w) });
     }
     const end = counts(w);
     const same = JSON.stringify({ ...end }) === JSON.stringify({ ...base });
-    out.P5_churnLeakCheck = { pass: same, base, end, heapGrowthBytes: w.physics.hk.HEAPU8.length - heap0, cycles: per.slice(0, 2) };
+    const maxSyncErr = Math.max(...per.map((c) => (c as { syncErr: number }).syncErr));
+    out.P5_churnLeakCheck = { pass: same && maxSyncErr === 0, maxSyncErr, base, end, heapGrowthBytes: w.physics.hk.HEAPU8.length - heap0, cycles: per.slice(0, 2) };
     w.dispose();
   }
 

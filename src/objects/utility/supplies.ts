@@ -37,7 +37,7 @@ export function buildDetergentJug(o: JugOpts = {}): AssemblyDef {
   // shoulder along its normal, sunk 1.5 mm into it (fused like a moulding)
   const sx0 = -w / 2,
     sy0 = h - 0.04,
-    sx1 = w * 0.18 - w * 0.2,
+    sx1 = w * 0.18 - w * 0.4,
     sy1 = h; // shoulder line (back side)
   const sl = Math.hypot(sx1 - sx0, sy1 - sy0);
   const nx = -(sy1 - sy0) / sl,
