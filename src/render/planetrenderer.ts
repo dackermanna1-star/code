@@ -144,7 +144,8 @@ export class PlanetRenderer {
         this.group.add(this.fauna.group);
       }
       const dt = isFinite(this.lastTime) ? Math.max(0, ctx.time - this.lastTime) : 0;
-      this.fauna?.update(this.gen, camBody, dt, (ctx.quality.scatter ?? 0.85) > 0);
+      const sunB = ctx.suns[0] ? ctx.suns[0].rel.clone().sub(rel).normalize().applyQuaternion(rot.clone().invert()) : null;
+      this.fauna?.update(this.gen, camBody, dt, (ctx.quality.scatter ?? 0.85) > 0, sunB, this.precip?.kind === 'rain' || this.precip?.kind === 'snow' ? this.precip.intensity : 0);
     }
     // local precipitation / airborne particles
     if (!this.precip && this.body.planet!.atmosphere && altCam < 3000) {
@@ -177,6 +178,14 @@ export class PlanetRenderer {
     const u = this.material.uniforms;
     u.uPlanetCenter.value.copy(rel);
     u.uWorldToPlanet.value.setFromMatrix4(_m4.makeRotationFromQuaternion(_q.copy(rot).invert()));
+    // seasons from axial tilt: subsolar latitude and an amplitude set by thermal inertia
+    if (ctx.suns[0] && !this.body.rotation.locked) {
+      const sunB = _v.copy(ctx.suns[0].rel).sub(rel).normalize().applyQuaternion(_q.copy(rot).invert());
+      const P = this.body.planet!.atmosphere?.pressure ?? 0;
+      const ocean = this.body.planet!.surface!.oceanFraction;
+      const amp = Math.min(80, 30 * (1 + 0.6 / (0.15 + P)) * (1 - 0.5 * ocean));
+      u.uSeason.value.set(sunB.y * 2, amp);
+    } else u.uSeason.value.set(0, 0);
     u.uTime.value = ctx.time % 100000;
     u.uPixelAngle.value = ctx.pixelAngle;
     u.uLodK.value = ctx.quality.lodK;

@@ -98,7 +98,10 @@ accessibility, simulation, audio, key rebinding).
   terrestrial kR values.
 - Rain, snow, dust and ash fall only under thick cloud read from the same weather map. Fall speed ∝ √(g/ρ).
 - Rivers cut valleys in wet lowlands with a surface liquid. You can swim in them, and vegetation and animals avoid
-  them.
+  them. Volcanic worlds with lava or sulfur seas have molten channels instead. They look dark and crusted under a
+  bright star and glow on the night side.
+- Seasons follow axial tilt. Snow lines and vegetation shift with the subsolar latitude. The swing is larger on
+  thin-aired, dry worlds and damped by oceans and thick atmospheres.
 - Sun shadows: two cascades around the observer.
 
 **Life (rare)**
@@ -108,7 +111,11 @@ accessibility, simulation, audio, key rebinding).
   green or purple under G stars; teal under F stars).
 - Flora are procedural body plans (conifer, broadleaf, frond, fungal, spire, coral, shrub, tuft, microbial mats). They
   scale with gravity and are placed by the same moisture and temperature fields the terrain shader uses.
-- Fauna are 4- or 6-legged herds. They graze, wander and flee the observer.
+- Bioluminescent biospheres glow after dark. Glowing ground and foliage are patchy and pulse slowly, with per-plant
+  hue and strength. The brightness is foxfire-like, about 10⁻⁶ of sunlit ground, so the glow dominates only once
+  the eye has dark-adapted.
+- Fauna are 4- or 6-legged herds. They graze, wander and flee the observer. Diurnal species rest at night and
+  nocturnal ones by day; nocturnal species are more common on glowing worlds. Herds bunch up in rain or snow.
 - Fossil biosignatures and other rare anomalies are recorded.
 
 **Spaceflight and walking**
@@ -172,8 +179,9 @@ of use.
   simulation, so they do not merge into trees of tributaries. There are no caves, footprints or vehicle tracks.
   Erosion is procedural (derivative-damped noise), not a simulation. Terrain streaming speed depends on CPU cores; it is fast
   on desktop hardware and slow under software rendering.
-- **Climate.** Temperature varies with latitude, altitude, and tidal locking. Seasons are not simulated, and the
-  weather map drifts but does not evolve dynamically.
+- **Climate.** Temperature varies with latitude, altitude, tidal locking and season. Seasons shift shading
+  (snow and vegetation lines) but not the weather map or ground physics. The weather map drifts but does not evolve
+  dynamically.
 - **Life.** Flora and fauna are procedural illustrations constrained by the world's physics. They are not an
   ecological simulation. Alien biology is speculative by nature.
 - **Known data.** Catalogue values are rounded literature estimates. Unknown properties (for example the surfaces

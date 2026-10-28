@@ -447,7 +447,7 @@ function surfaceParams(rng: Rng, p: PlanetPhysics, inp: PlanetInput, tidal: numb
     terraces: wetHistory && P > 0.003 ? rng.range(0, 0.7) : 0,
     iceCracks: icy ? clamp(tidal * 0.9 + rng.range(0, 0.4), 0, 1) : 0,
     maria: airless && !icy && p.volcanism < 0.5 && p.surfaceAge > 1.5 ? rng.range(0.3, 1) : 0,
-    rivers: p.liquid === 'water' || p.liquid === 'methane' ? rng.range(0.3, 1) : 0,
+    rivers: p.liquid === 'water' || p.liquid === 'methane' ? rng.range(0.3, 1) : p.liquid === 'lava' || p.liquid === 'sulfur' ? rng.range(0.2, 0.6) : 0,
     tempEquator: tempEq,
     tempPole,
     lapseRate: atm ? clamp(g / 1000, 0.0005, 0.03) * (P > 0.05 ? 1 : 0.2) : 0,

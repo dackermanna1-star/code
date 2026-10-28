@@ -72,6 +72,7 @@ uniform float uAeolian;
 uniform float uRegolithScatter;
 uniform float uVegetation;
 uniform float uLifeGlow;
+uniform vec2 uSeason;     // (sin of the subsolar latitude, seasonal amplitude K)
 uniform float uIceCap;
 uniform float uReliefScale;
 uniform float uTime;
@@ -135,7 +136,11 @@ void main() {
   // ---- macro variation on the sphere (km scales between the vertex spacing and
   // the pixel): keeps land and coastlines from looking flat and blocky from orbit.
   // Based on the planet-fixed direction, so it is stable across LOD changes.
-  vec3 sph = normalize(uWorldToPlanet * (P - uPlanetCenter)) * (uRadius / 1000.0); // km, planet-fixed
+  vec3 pfDir = normalize(uWorldToPlanet * (P - uPlanetCenter));
+  vec3 sph = pfDir * (uRadius / 1000.0); // km, planet-fixed
+  // seasons: insolation anomaly ∝ sin(latitude)·sin(subsolar latitude); the
+  // amplitude reflects thermal inertia (oceans and thick air damp it)
+  temp += uSeason.y * uSeason.x * pfDir.y;
   float fpKm = footprint / 1000.0;
   float macro = 0.0, macroC = 0.0;
   {
@@ -305,7 +310,8 @@ void main() {
   if (uLifeGlow > 0.0 && veg > 0.05) {
     float night = smoothstep(0.05, -0.15, dot(up, uSunDir[0]));
     float spots = smoothstep(0.55, 0.9, gnoised(vDetail / 5.0, PERIOD / 4).x * 0.5 + 0.5);
-    emission += uVeg2 * uLifeGlow * night * veg * (0.02 + 0.2 * spots) * 0.05;
+    // ≈ 1e−6 of sunlit radiance: foxfire-bright, dominant only for a dark-adapted eye
+    emission += normalize(uVeg2 + 1e-4) * uLifeGlow * night * veg * (0.02 + spots) * 2.5e-7;
   }
   gl_FragColor = vec4(min((color + emission) * uPreExposure, vec3(6e4)), 1.0);
 }
@@ -346,6 +352,7 @@ export function createTerrainMaterial(sp: SurfaceParams, opts: TerrainMaterialOp
     uRegolithScatter: { value: opts.hasAtmosphere ? 0.15 : 0.85 },
     uVegetation: { value: sp.vegetation },
     uLifeGlow: { value: sp.lifeGlow },
+    uSeason: { value: new THREE.Vector2(0, 0) },
     uIceCap: { value: sp.iceCap },
     uWorldToPlanet: { value: new THREE.Matrix3() },
     uShadowWeather: { value: null },

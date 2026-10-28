@@ -36,6 +36,7 @@ varying vec3 vCol;
 varying float vPart;
 varying float vAO;
 varying vec3 vLocal;
+varying float vSeed;
 void main() {
   vec3 p = position;
   float size = length(instanceMatrix[1].xyz);
@@ -61,6 +62,7 @@ void main() {
   vPart = aPart;
   vAO = clamp(0.35 + position.y * 1.3, 0.35, 1.0);
   vLocal = position * size + ip;
+  vSeed = fract(sin(dot(floor(ip * 4.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
   gl_Position = projectionMatrix * viewMatrix * wp;
   #include <logdepthbuf_vertex>
 }
@@ -88,6 +90,9 @@ ${SUN_SHADOW_GLSL}
 uniform vec3 uPlanetShine;
 uniform vec3 uStem;
 uniform float uFoliage;   // 1 = translucent foliage shading for part 1
+uniform float uLifeGlow;  // bioluminescence strength of the biosphere
+uniform vec3 uVeg2;
+uniform float uTime;
 ${PRE_EXPOSURE_GLSL}
 varying vec3 vWorld;
 varying vec3 vNormalW;
@@ -95,6 +100,7 @@ varying vec3 vCol;
 varying float vPart;
 varying float vAO;
 varying vec3 vLocal;
+varying float vSeed;
 void main() {
   #include <logdepthbuf_fragment>
   vec3 P = vWorld;
@@ -134,6 +140,16 @@ void main() {
     color += albedo / PI * E * sky * (0.55 + 0.45 * dot(N, up)) * vAO * ecl;
   }
   color += albedo * (uPlanetShine + vec3(uAmbient));
+  // bioluminescent foliage glows after dark (patchy, slowly pulsing)
+  // (not every plant: per-instance strength, hue and rhythm; brightest toward the tips)
+  if (leaf && uLifeGlow > 0.0 && vSeed > 0.35) {
+    float night = smoothstep(0.05, -0.15, dot(up, uSunDir[0]));
+    float spots = smoothstep(0.5, 0.85, gnoise(vLocal * 3.5) * 0.5 + 0.5);
+    float tips = mix(0.3, 1.0, smoothstep(0.5, 1.0, vAO));
+    float pulse = 0.6 + 0.4 * sin(uTime * (0.3 + vSeed) + vSeed * 40.0);
+    vec3 hue = mix(normalize(uVeg2 + 1e-4), vec3(0.25, 0.85, 0.75), fract(vSeed * 7.0) * 0.6);
+    color += hue * uLifeGlow * night * (0.04 + spots) * tips * pulse * (vSeed - 0.35) * 1.6e-6;
+  }
   gl_FragColor = vec4(min(color * uPreExposure, vec3(6e4)), 1.0);
 }
 `;
@@ -191,6 +207,7 @@ export class SurfaceScatter {
       fragmentShader: FRAG,
       uniforms: {
         ...shared,
+        uTime: { value: 0 }, // own clock (wind sway), not the terrain's
         uWind: { value: hasAtmosphere ? Math.min(1.5, (body.planet!.atmosphere?.pressure ?? 0) * 0.8 + 0.2) : 0 },
         uFade: { value: foliage ? 140 : 260 },
         uStem: { value: new THREE.Vector3(...sp.palette.rockB).multiplyScalar(0.6) },

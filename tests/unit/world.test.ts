@@ -14,6 +14,7 @@ import { scanRange, Scanner } from '../../src/sim/scanner';
 import { lookRotation } from '../../src/sim/locations';
 import { UPos } from '../../src/core/upos';
 import { buildSolarSystem } from '../../src/astro/known/solarsystem';
+import { generateSystem } from '../../src/astro/systemgen';
 
 const gen = new SurfaceGenerator(earthlikeSurface(6.371e6, 12345));
 
@@ -253,5 +254,21 @@ describe('rivers', () => {
     expect(earth.f).toBeLessThan(0.03);
     expect(earth.carved).toBeGreaterThan(0);
     expect(mars.f).toBe(0);
+  });
+
+  it('include lava channels on molten worlds, without making them "moist"', () => {
+    let found = 0;
+    for (let seed = 1; seed < 40 && !found; seed++) {
+      const sys = generateSystem({ id: `s${seed}`, name: `S${seed}`, seed, upos: new UPos() });
+      const b = sys.bodies.find((x) => x.planet?.liquid === 'lava' && x.planet.surface!.rivers > 0.2);
+      if (!b) continue;
+      const g = new SurfaceGenerator(b.planet!.surface!);
+      for (let i = 0; i < 60000; i++) {
+        const y = 1 - (2 * (i + 0.5)) / 60000, r = Math.sqrt(1 - y * y), t = 2.39996 * i;
+        const s = g.sample(Math.cos(t) * r, y, Math.sin(t) * r, 5);
+        if (s.water > s.height) { found++; expect(s.moisture).toBeLessThan(0.95); }
+      }
+    }
+    expect(found).toBeGreaterThan(0);
   });
 });

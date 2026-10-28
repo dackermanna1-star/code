@@ -24,6 +24,8 @@ interface Species {
   belly: THREE.Color;
   speed: number;    // walking speed (m/s)
   herd: [number, number];
+  /** active at night instead of by day */
+  nocturnal: boolean;
 }
 
 interface Animal {
@@ -78,6 +80,7 @@ export class Fauna {
         belly: col.clone().lerp(new THREE.Color(0.6, 0.55, 0.45), 0.5),
         speed: (big ? rng.range(1.2, 2.2) : rng.range(0.8, 1.6)) * Math.sqrt(scale),
         herd: big ? [4, 12] : [2, 7],
+        nocturnal: rng.chance(body.planet!.life.bioluminescence > 0.3 ? 0.6 : 0.25),
       });
     }
     const bodyGeo = new THREE.SphereGeometry(0.5, 14, 10);
@@ -134,7 +137,11 @@ export class Fauna {
     return out;
   }
 
-  update(gen: SurfaceGenerator | null, camBody: THREE.Vector3, dt: number, enabled: boolean) {
+  /**
+   * sunB: unit vector toward the star in planet-fixed coordinates (for day/night
+   * activity); storm: precipitation intensity at the observer (herds huddle).
+   */
+  update(gen: SurfaceGenerator | null, camBody: THREE.Vector3, dt: number, enabled: boolean, sunB: THREE.Vector3 | null = null, storm = 0) {
     const R = this.body.radius;
     const want = enabled && !!gen && this.hasFauna && camBody.length() - R < 1500;
     if (want !== this.active) {
@@ -165,10 +172,20 @@ export class Fauna {
     this.animals = [...this.herds.values()].flat();
     // behaviour
     const up = new THREE.Vector3(), east = new THREE.Vector3(), north = new THREE.Vector3(), fwd = new THREE.Vector3();
+    // herd centres (for huddling)
+    const centres = new Map<string, THREE.Vector3>();
+    for (const [k, list] of this.herds) {
+      if (!list.length) continue;
+      const c = new THREE.Vector3();
+      for (const a of list) c.add(a.pos);
+      centres.set(k, c.divideScalar(list.length));
+    }
     for (const an of this.animals) {
       const sp = this.species[an.sp];
       up.copy(an.pos).normalize();
       tangentBasis(up, east, north);
+      const day = sunB ? up.dot(sunB) > -0.05 : true;
+      const resting = sp.nocturnal ? day : !day;
       const toCam = camBody.clone().sub(an.pos);
       const dCam = toCam.length();
       an.timer -= dt;
@@ -177,6 +194,18 @@ export class Fauna {
         an.timer = 3;
         const away = toCam.negate().addScaledVector(up, -toCam.dot(up));
         an.heading = Math.atan2(away.dot(east), away.dot(north)) + an.rng.range(-0.3, 0.3) * dt;
+      } else if (resting) {
+        an.state = 'graze';          // asleep / resting in place
+        an.timer = 2;
+      } else if (storm > 0.3 && centres.has(an.herd)) {
+        // bad weather: huddle together
+        const c = centres.get(an.herd)!;
+        const to = c.clone().sub(an.pos);
+        to.addScaledVector(up, -to.dot(up));
+        if (to.length() > sp.length * 2) {
+          an.state = 'walk';
+          an.heading = Math.atan2(to.dot(east), to.dot(north));
+        } else an.state = 'graze';
       } else if (an.timer <= 0) {
         an.state = an.rng.chance(0.55) ? 'graze' : 'walk';
         an.timer = an.rng.range(3, 10);

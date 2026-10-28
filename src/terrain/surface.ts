@@ -114,7 +114,7 @@ export class SurfaceGenerator {
     const a2 = (this.s[22] / 0x7fffffff) * TAU, z2 = (this.s[23] / 0x7fffffff) * 2 - 1;
     this.dichX = Math.cos(a2) * Math.sqrt(1 - z2 * z2); this.dichY = z2; this.dichZ = Math.sin(a2) * Math.sqrt(1 - z2 * z2);
     this.seaLevel = params.oceanFraction > 0 ? this.computeSeaLevel(params.oceanFraction) : -1e9;
-    const ft: Record<string, [number, number]> = { water: [271, 400], brine: [252, 400], methane: [91, 190], ammonia: [195, 300], nitrogen: [63, 78] };
+    const ft: Record<string, [number, number]> = { water: [271, 400], brine: [252, 400], methane: [91, 190], ammonia: [195, 300], nitrogen: [63, 78], lava: [0, 1e5], sulfur: [300, 1e4] };
     [this.freezeT, this.boilT] = ft[params.liquid] ?? [Infinity, -Infinity];
   }
 
@@ -368,14 +368,17 @@ export class SurfaceGenerator {
     if (p.rivers > 0.01 && this.seaLevel > -1e8 && temp > this.freezeT - 8 && temp < this.boilT) {
       const elev = h - this.seaLevel;
       const hi = Rr * 0.9;
-      if (elev > -2 && elev < hi && moist > 0.12) {
+      // lava and sulfur flow from vents regardless of "moisture"
+      const molten = p.liquid === 'lava' || p.liquid === 'sulfur';
+      const flow = molten ? Math.max(moist, 0.6) : moist;
+      if (elev > -2 && elev < hi && flow > 0.12) {
         const F = Rp / 45000; // main rivers ~ every 30–60 km
         const wq = fbm(x * F * 0.35, y * F * 0.35, z * F * 0.35, s[31], 3) * 1.4;
         const n = noised(x * F + wq, y * F - wq, z * F + wq * 0.5, s[27]);
         // first-order distance to the river line (zero set), in metres
         const grad = Math.max(Math.hypot(D[0], D[1], D[2]), 0.45);
         const lowland = 1 - elev / hi;
-        const wet = sstep(0.12, 0.45, moist) * p.rivers;
+        const wet = sstep(0.12, 0.45, flow) * p.rivers;
         const widthM = (6 + 140 * lowland * lowland) * wet;
         const an = (Math.abs(n) / grad) * (Rp / F);
         const w = widthM;
@@ -390,7 +393,7 @@ export class SurfaceGenerator {
           const floor = h - valleyDepth * vp * vp;
           h = floor - chDepth * cp;
           if (cp > 0.02 && vis > 0.05) o.water = floor - chDepth * 0.3;
-          moist = Math.min(1, moist + 0.35 * vp);
+          if (!molten) moist = Math.min(1, moist + 0.35 * vp);
           rock *= 1 - 0.6 * vp;
         }
       }
