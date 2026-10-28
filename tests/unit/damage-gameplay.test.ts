@@ -118,6 +118,33 @@ test("4. microwave steel panel dropped at 5 m/s on concrete: 1–3 cm dent, weld
   }
   assert.ok(crumpled, "repeated hits crumple the panel");
   assert.ok(panel.bonds.some((b) => b.health <= 0), "a weld popped");
+  // dropping it again and again never tears it (each drop is too weak)...
+  const dropped = makePart("steelSheet", box(0.5, 0.0008, 0.35));
+  for (let k = 0; k < 40; k++) {
+    const r = hit(dropped, v(0.1, 0.0004, 0.05), v(0, -1, 0), E, { strike: false, islandMass: 15, seed: k });
+    assert.equal(r.fracture, null, `drop ${k + 1} tore the panel`);
+    applyOutcome(dropped, r);
+  }
+  // ...but a crumpled panel struck again and again with an axe or sledge eventually tears
+  const ea = strikeEnergy(120, 1.8, "steel", "steelSheet").E;
+  const es = strikeEnergy(300, 6, "steel", "steelSheet").E;
+  for (const [tool, Et, contact, sharp] of [["axe", ea, 0.012, 2.2], ["sledge", es, 0.03, 1]] as const) {
+    for (const id of IDS.slice(0, 4)) {
+      const pnl = makePart("steelSheet", box(0.5, 0.0008, 0.35), { id });
+      for (let k = 0; k < 6; k++) applyOutcome(pnl, hit(pnl, v(0.1, 0.0004, 0.05), v(0, -1, 0), E, { strike: false, islandMass: 15, seed: k }));
+      let tore = -1;
+      for (let k = 0; k < 10 && tore < 0; k++) {
+        const r = hit(pnl, v(0.1, 0.0004, 0.05), v(0, -1, 0), Et, { contact, sharp, seed: 100 + k });
+        applyOutcome(pnl, r);
+        if (r.fracture) {
+          tore = k + 1;
+          const n = r.fracture.cells.filter((c) => c.role !== "micro").length;
+          assert.ok(n >= 2 && n <= 3, `${tool}: tears into ${n} pieces`);
+        }
+      }
+      assert.ok(tore >= 2 && tore <= 10, `${tool}: crumpled panel tears after ${tore} blows`);
+    }
+  }
 });
 
 test("5. pine table top: hammer cracks first, breaks out after several hits; charged sledge snaps it along the grain", () => {
@@ -189,7 +216,45 @@ test("7. tempered shower panel: survives a mid hammer blow, dices near an edge o
     assert.ok(roles(edge).micro > 100, "hundreds of cubes");
     const big = hit(panel(id), v(0, 0, 0.004), v(0, 0, -1), e3, { contact: 0.03, seed: id });
     assert.ok(big.fracture?.global && big.fracture.mode === "dice", "300 J dices");
+    // tempered glass never leaves palm-sized intact plates: every rigid piece is cube-sized
+    for (const o of [edge, big]) {
+      const rigid = o.fracture!.cells.filter((c) => c.role !== "micro");
+      assert.ok(rigid.length >= 3, `a few small loose cubes (${rigid.length})`);
+      for (const c of rigid) assert.ok(c.maxExtent <= 0.06, `${c.role} piece ${(c.maxExtent * 100).toFixed(1)} cm`);
+    }
   }
+  // clamped panel: the cube at each clamp stays (small), its bond goes to it; the rest falls
+  const clamped = makePart("temperedGlass", box(0.9, 1.9, 0.008), { id: 5, bonds: [bond(1, "clip", v(-0.45, 0.6, 0), 50), bond(2, "clip", v(-0.45, -0.6, 0), 50)] });
+  const o = hit(clamped, v(0, 0, 0.004), v(0, 0, -1), e3, { contact: 0.03, seed: 3 });
+  assert.ok(o.fracture?.global);
+  const r = roles(o);
+  assert.equal(r.remain, 2);
+  for (const t of o.fracture.bondTransfer) assert.ok(t.cell >= 0 && o.fracture.cells[t.cell].role === "remain" && o.fracture.cells[t.cell].maxExtent <= 0.06);
+  const vol = o.fracture.cells.reduce((s, c) => s + c.volume, 0);
+  assert.ok(Math.abs(vol - clamped.volume) < 0.02 * clamped.volume, "volume conserved");
+});
+
+test("edge hits: kicking a door edge or hammering a table-top edge chips locally, never explodes the part", () => {
+  for (const id of IDS) {
+    const top = makePart("softwood", box(1.2, 0.025, 0.7), { grain: v(1, 0, 0), id });
+    const eh = strikeEnergy(140, 1.2, "steel", "softwood", 25).E; // a hard hammer blow (~100 J delivered)
+    const a = hit(top, v(0.6, 0, 0.1), v(-1, 0, 0), eh, { contact: 0.015, seed: id });
+    assert.ok(!a.fracture?.global, `table edge (${eh.toFixed(0)} J) does not snap the top`);
+    if (a.fracture) assert.ok(a.fracture.radius <= 0.1, `edge chip ${a.fracture.radius}`);
+    const door = makePart("mdf", box(0.8, 2.0, 0.04), { id, mass: 12, bonds: [bond(1, "hinge", v(-0.4, 0.7, 0), 300, true), bond(2, "hinge", v(-0.4, -0.7, 0), 300, true)] });
+    const k = hit(door, v(0.4, 0, 0), v(-1, 0, 0), 201, { contact: 0.05, seed: id });
+    assert.ok(k.fracture && !k.fracture.global, "door edge kick breaks out locally");
+    assert.ok(k.fracture.radius <= 0.15, `door edge chip ${k.fracture.radius}`);
+    assert.ok(k.fracture.bondTransfer.every((t) => t.cell >= 0), "hinges stay on the door");
+    // the same energy on the face is still a local hole, and a supported drywall edge is not clamped to millimetres
+    const dw = makePart("gypsum", box(1.2, 2.4, 0.0125), { supported: true, id });
+    const w = hit(dw, v(0.6, 0, 0), v(-1, 0, 0), strikeEnergy(70, 0.9, "steel", "gypsum").E, { contact: 0.015, seed: id });
+    assert.ok(w.fracture && !w.fracture.global && w.fracture.radius >= 0.02, `drywall edge hole ${w.fracture?.radius}`);
+  }
+  // a really big blow on the edge can still snap the top
+  const top = makePart("softwood", box(1.2, 0.025, 0.7), { grain: v(1, 0, 0), id: 3 });
+  const big = hit(top, v(0.6, 0, 0.1), v(-1, 0, 0), 4 * globalFailureEnergy(top), { contact: 0.03, seed: 3 });
+  assert.ok(big.fracture?.global, "4× the global threshold snaps it");
 });
 
 test("8. soft goods never fracture from blunt hits; an axe tears them", () => {

@@ -739,7 +739,7 @@ function respondBend(c: Ctx): number {
     const Et = K.tearZone * m.yieldY * ext[2] * tearLen * partFlaw(part);
     const local = dentDepthAt(part.dents ?? [], c.p) >= 0.8 * cap;
     const Es = E * sharp;
-    if (local && Es >= 0.25 * Et && Es + K.tearMemory * c.D >= Et) {
+    if (local && Es >= K.tearMinBlow * Et && Es + K.tearMemory * c.D >= Et) {
       const fp = plan(c, { global: true, mode: "bend", pattern: "crack", radius: 0, depth: c.geom.t, through: true, overload: 1, count: c.rng.int(2, 3) });
       if (fp) c.out.fracture = fp;
     }

@@ -165,6 +165,13 @@ export const STRUCTURE_SIZE = 1.5;
 export const SURFACE_PROFILES: readonly SoundProfile[] = ["wood", "ceramic", "stone", "concrete", "drywall", "glass", "metal", "metalThin", "plastic"];
 const SURFACE_SET = new Set<SoundProfile>(SURFACE_PROFILES);
 
+/**
+ * Level of a bonded surface relative to a free radiator of the same material (dB). Floors and
+ * slabs are heavily damped (−4); a drywall partition is a stud-framed drum over an air cavity
+ * and radiates nearly fully; mounted panes and sheet metal are in between.
+ */
+const SURFACE_DB: Readonly<Partial<Record<SoundProfile, number>>> = { drywall: 0, glass: -2, metal: -2, metalThin: -2 };
+
 // ============================================================================ impacts
 
 /**
@@ -282,7 +289,7 @@ function addImpactSide(out: Layer[], mat: MaterialId, size0: number, base: numbe
   const structure = !striker && surface;
   if (structure && SURFACE_SET.has(prof)) {
     // Massive, bonded surface: local damped response, quieter than a free radiator.
-    out.push({ id: `surface.${prof}`, db: base + PROFILE_DB[prof] - 4, cutoff, sample: SAMPLE_FOR_PROFILE[prof] });
+    out.push({ id: `surface.${prof}`, db: base + PROFILE_DB[prof] + (SURFACE_DB[prof] ?? -4), cutoff, sample: SAMPLE_FOR_PROFILE[prof] });
     return;
   }
   const eff = structure ? 0.8 : Math.min(size, 2.2);

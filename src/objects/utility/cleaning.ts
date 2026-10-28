@@ -6,7 +6,7 @@
 // of the wall, X along it.
 
 import { hingeAxis } from "../lib/kit.ts";
-import { boxR, bondTouching, finish, mk, panelBox, tubeKgPerM, CHROME, type BaseOpts } from "./helpers.ts";
+import { boxR, bondOverlapping, bondTouching, finish, mk, panelBox, tubeKgPerM, CHROME, type BaseOpts } from "./helpers.ts";
 import type { V3 } from "../lib/builder.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
 
@@ -32,7 +32,7 @@ export function buildMopBucket(o: BaseOpts & { tint?: number } = {}): AssemblyDe
   const ears: string[] = [];
   for (const sx of [-1, 1]) {
     const ear = boxR(b, `ear_${sx < 0 ? "l" : "r"}`, "plastic", "plastic", sx < 0 ? [-rEar - 0.012, -rEar + 0.002] : [rEar - 0.002, rEar + 0.012], [earY - 0.015, earY + 0.015], [-0.012, 0.012], { tint, mass: 0.01 });
-    bondTouching(b, ear, bucket, "fused", 30, 0.004);
+    bondOverlapping(b, ear, bucket, "fused", 30);
     ears.push(ear);
   }
   const R = rEar + 0.012 + 0.0022;
@@ -107,32 +107,19 @@ export function buildVacuumCleaner(o: BaseOpts & { tint?: number } = {}): Assemb
   const b = mk("vacuumCleaner", "Upright Vacuum", "appliance", 160, o);
   const tint = o.tint ?? 0x7b2fa8;
   const dark = 0x2a2a2c;
-  // floor head: hollow moulding on two rear wheels and two front rollers
-  const head = b.hull(
-    "head",
-    "plastic",
-    "plastic_glossy",
-    [
-      [-0.15, 0.012, 0.16],
-      [0.15, 0.012, 0.16],
-      [-0.15, 0.012, -0.05],
-      [0.15, 0.012, -0.05],
-      [-0.15, 0.055, 0.16],
-      [0.15, 0.055, 0.16],
-      [-0.12, 0.075, -0.05],
-      [0.12, 0.075, -0.05],
-    ],
-    [0, 0, 0],
-    { tint, mass: 1.1 },
-  );
+  // floor head: hollow hood (open underneath) on two rear wheels and two front rollers, brush roll inside
+  const hood = panelBox(b, "head", { w: 0.3, h: 0.063, d: 0.21, t: 0.004, mat: "plastic", surf: "plastic_glossy", tint, faces: { top: true, bottom: false }, bond: "fused", strength: 40, kg: 1.0 }, [0, 0.012, 0.055]);
+  const head = hood.top!;
   for (const sx of [-1, 1]) {
-    const wheel = b.cyl(`wheel_${sx < 0 ? "l" : "r"}`, "rubber", "rubber", 0.05, 0.025, [sx * 0.135, 0.05, -0.075], { axis: "x", segments: 12, tint: dark, mass: 0.08 });
-    bondTouching(b, wheel, [head], "clip", 25, 0.03);
-    const roller = b.cyl(`roller_${sx < 0 ? "l" : "r"}`, "plastic", "plastic", 0.012, 0.03, [sx * 0.11, 0.012, 0.13], { axis: "x", segments: 8, tint: dark, mass: 0.01 });
-    b.clip(roller, head, 6);
+    const side = sx < 0 ? hood.left! : hood.right!;
+    const wheel = b.cyl(`wheel_${sx < 0 ? "l" : "r"}`, "rubber", "rubber", 0.05, 0.025, [sx * (0.15 + 0.0125 + 0.001), 0.05, -0.05], { axis: "x", segments: 12, tint: dark, mass: 0.08 });
+    b.clip(wheel, side, 25); // on the axle through the head's rear corners
+    const roller = b.cyl(`roller_${sx < 0 ? "l" : "r"}`, "plastic", "plastic", 0.012, 0.03, [sx * 0.1305, 0.012, 0.13], { axis: "x", segments: 8, tint: dark, mass: 0.01 });
+    b.clip(roller, side, 6);
   }
-  const brush = b.cyl("brushroll", "plastic", "carpet", 0.022, 0.26, [0, 0.034, 0.1], { axis: "x", segments: 8, tint: 0x3a3a3a, mass: 0.12 });
-  b.clip(brush, head, 10);
+  const brush = b.cyl("brushroll", "plastic", "carpet", 0.022, 0.27, [0, 0.034, 0.07], { axis: "x", segments: 8, tint: 0x3a3a3a, mass: 0.12 });
+  b.clip(brush, hood.left!, 5);
+  b.clip(brush, hood.right!, 5);
   // body: motor housing (panels) with the motor inside, clear dust bin, filter cap
   const yB = 0.09;
   const housing = panelBox(b, "housing", { w: 0.22, h: 0.2, d: 0.17, t: 0.003, mat: "plastic", surf: "plastic_glossy", tint, faces: { top: true }, bond: "fused", strength: 40 }, [0, yB, -0.06]);
@@ -183,26 +170,28 @@ export function buildIroningBoard(o: IroningBoardOpts = {}): AssemblyDef {
   // hooks: steel arms out of the wall with an up-turned tip
   const hooks: string[] = [];
   for (const sx of [-1, 1]) {
-    const arm = boxR(b, `hook_${sx < 0 ? "l" : "r"}`, "steel", "metal_painted", [sx * 0.12 - 0.008, sx * 0.12 + 0.008], [hookY - 0.012, hookY], [0, 0.06], { tint: 0x2a2a2a, tess: 0, mass: 0.05 });
-    const tip = boxR(b, `hook_${sx < 0 ? "l" : "r"}_tip`, "steel", "metal_painted", [sx * 0.12 - 0.008, sx * 0.12 + 0.008], [hookY, hookY + 0.03], [0.05, 0.06], { tint: 0x2a2a2a, tess: 0, mass: 0.01 });
+    // short arms cradling the leg bar; the up-turned tip sits between the bar and the deck
+    const arm = boxR(b, `hook_${sx < 0 ? "l" : "r"}`, "steel", "metal_painted", [sx * 0.12 - 0.008, sx * 0.12 + 0.008], [hookY - 0.012, hookY], [0, 0.046], { tint: 0x2a2a2a, tess: 0, mass: 0.05 });
+    const tip = boxR(b, `hook_${sx < 0 ? "l" : "r"}_tip`, "steel", "metal_painted", [sx * 0.12 - 0.008, sx * 0.12 + 0.008], [hookY, hookY + 0.03], [0.0385, 0.046], { tint: 0x2a2a2a, tess: 0, mass: 0.01 });
     b.weld(tip, arm, 60);
     b.world(arm, "screw", 40, [sx * 0.12, hookY - 0.006, 0]);
     hooks.push(arm);
   }
   // folded leg frames lie flat against the deck's underside (between the deck and the wall)
   const zLeg = 0.025;
+  const yBar = hookY + 0.0125 + 0.0005; // frame A's crossbar rests on the hook arms
   const legR = 0.0125;
   const legKg = tubeKgPerM(0.025, 0.001, 7850);
   const legs: string[] = [];
   for (const [k, xs, yTop] of [
-    ["a", 0.15, bottom + 1.0],
+    ["a", 0.15, yBar - 0.0125],
     ["b", 0.11, bottom + 0.95],
   ] as Array<[string, number, number]>) {
     const y0 = bottom + 0.05;
     for (const sx of [-1, 1]) legs.push(b.cyl(`leg_${k}${sx < 0 ? "l" : "r"}`, "steel", "metal_painted", legR, yTop - y0, [sx * xs, (y0 + yTop) / 2, k === "a" ? zLeg : zLeg - 0.0 + 0.0], { segments: 8, tint: 0x9aa0a4, mass: legKg * (yTop - y0), tess: 0 }));
   }
   // the bars: frame A's crossbar rests on the hooks; feet bars with plastic caps at the tail
-  const bar = b.cyl("leg_a_bar", "steel", "metal_painted", legR, 0.3 - 2 * legR, [0, hookY + legR, zLeg], { axis: "x", segments: 8, tint: 0x9aa0a4, mass: legKg * 0.3, tess: 0 });
+  const bar = b.cyl("leg_a_bar", "steel", "metal_painted", legR, 0.3 + 2 * legR, [0, yBar, zLeg], { axis: "x", segments: 8, tint: 0x9aa0a4, mass: legKg * 0.3, tess: 0 });
   b.weld(bar, legs[0], 80);
   b.weld(bar, legs[1], 80);
   const footA = b.cyl("leg_a_foot", "plastic", "plastic", legR + 0.002, 0.3 - 2 * legR, [0, bottom + 0.05 - legR - 0.002, zLeg], { axis: "x", segments: 8, tint: 0x2a2a2a, mass: 0.12 });
@@ -213,7 +202,7 @@ export function buildIroningBoard(o: IroningBoardOpts = {}): AssemblyDef {
   b.weld(footB, legs[3], 60);
   for (const h of hooks) b.friction(bar, h, 6);
   // deck: perforated steel with the classic nose (pointing up), padded cotton cover on top
-  const zDeck = zLeg + legR;
+  const zDeck = zLeg + legR + 0.011; // pivot brackets hold the deck 11 mm off the folded legs
   const nose = 0.36;
   const outline: Array<[number, number]> = [
     [-W / 2, 0],
@@ -236,6 +225,6 @@ export function buildIroningBoard(o: IroningBoardOpts = {}): AssemblyDef {
   const deck = b.hull("deck", "steelSheet", "vent_grille", deckPts, [0, 0, 0], { tint: 0xc9ccce, mass: 1.6, tess: 0.06 });
   const cover = b.hull("cover", "fabric", "fabric_cotton", coverPts, [0, 0, 0], { tint: 0x8fb4d0, mass: 0.35 });
   b.glue(cover, deck, 25);
-  for (const l of legs) bondTouching(b, l, [deck], "screw", 30, 0.002);
+  for (const l of legs) b.screw(l, deck, 1, 30); // through the pivot brackets
   return finish(b, o);
 }

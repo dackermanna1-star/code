@@ -129,7 +129,7 @@ export interface CreateAudioOpts {
   /** Load CC0 samples from `samplesBase` (default true). */
   samples?: boolean;
   samplesBase?: string;
-  /** Bank generation time budget (ms). */
+  /** Bank generation time budget (ms, default 1500; extra variations then fill in from the workers in the background). */
   budgetMs?: number;
   /** Generate the bank in Web Workers (default true). */
   workers?: boolean | number;

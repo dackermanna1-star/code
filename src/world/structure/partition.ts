@@ -6,7 +6,7 @@
 // partition. Built in the wall's local frame (u along the wall, w across). PURE.
 
 import type { AssemblyDef } from "../../destruction/model/types.ts";
-import { roomAt } from "../plan.ts";
+import { STUD_SPACING, roomAt } from "../plan.ts";
 import {
   BASEBOARD_T,
   CASING_REVEAL,
@@ -24,7 +24,6 @@ import {
   STUD_W,
   WALL_TILE_T,
 } from "./levels.ts";
-import { STUD_SPACING } from "../plan.ts";
 import { partitionFaceIntervals, runSideRoom, type PartitionRun, type WallFrame } from "./layout.ts";
 import { BoxIndex, Fixings, PAL, bondAt, boxR, fasteners, mid, newBuilder, sheetFaces, worldAt, type Interval, type LBox, type V3 } from "./common.ts";
 import { intervalsSubtract, splitEven } from "./rects.ts";

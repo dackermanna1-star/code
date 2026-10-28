@@ -32,7 +32,7 @@ export function buildPedalBin(o: MiscOpts = {}): AssemblyDef {
   b.hinge(lid, hingeBlk, { pivots: [[0, H, -R - 0.004]], axis: [-1, 0, 0], min: 0, max: 95, strength: 25, friction: 0.3 });
   const pedal = b.box("pedal", "plastic", "plastic", [0.08, 0.012, 0.06], [0, 0.02, R + 0.03], { tint: 0x1d1d1f });
   b.hinge(pedal, foot, { pivots: [[0, 0.015, R + 0.002]], axis: [1, 0, 0], min: -8, max: 0, strength: 15, friction: 0.4, spring: 2 });
-  for (const [k, p] of ([[0.03, 0.07, 0.02], [-0.04, 0.06, -0.03]] as V3[]).entries()) {
+  for (const [k, p] of ([[0.03, 0.07, 0.02], [-0.04, 0.06, -0.03]] as Array<[number, number, number]>).entries()) {
     const pp = b.ellipsoid(`paper${k}`, "paper", "paper", [0.045, 0.035, 0.04], [p[0], 0.0242 + 0.035 + k * 0.0, p[2]], { segments: 7, rings: 5, mass: 0.02, tint: 0xf1efe8 });
     b.tag(pp, "loose");
     b.stuffing(pp, "paper");

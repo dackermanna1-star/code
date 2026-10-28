@@ -137,6 +137,26 @@ export function contactAnchor(b: Builder, a: string, c: string, point: Vec3 | un
   return v3((lo.x + hi.x) / 2, (lo.y + hi.y) / 2, (lo.z + hi.z) / 2);
 }
 
+/**
+ * Bond `part` to every candidate whose AABB overlaps its AABB (padded): a fallback for curved
+ * tile sets where the true contact is a point or a sloped edge. Splits `total` between them.
+ */
+export function bondOverlapping(b: Builder, part: string, candidates: string[], kind: BondKind, total: number, pad = 0.002): number {
+  const P = partBox(b, part);
+  const hits = candidates.filter((c) => {
+    if (b.resolve(c) === b.resolve(part)) return false;
+    const C = partBox(b, c);
+    return P.min.x - pad <= C.max.x && P.max.x + pad >= C.min.x && P.min.y - pad <= C.max.y && P.max.y + pad >= C.min.y && P.min.z - pad <= C.max.z && P.max.z + pad >= C.min.z;
+  });
+  if (!hits.length) {
+    b.warn(`bondOverlapping: '${b.resolve(part)}' overlaps none of the candidates`);
+    return 0;
+  }
+  const toLocal = xinv(b.frameXf());
+  for (const h of hits) b.bond(part, h, kind, { strength: Math.max(1, total / hits.length), anchor: xapply(toLocal, contactAnchor(b, part, h, undefined)) });
+  return hits.length;
+}
+
 // =============================================================================================
 // Non-uniform scaling (oval lathes)
 // =============================================================================================

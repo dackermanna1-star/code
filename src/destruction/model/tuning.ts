@@ -98,8 +98,13 @@ export const K = {
   maxDiceMicro: 900,
   /** Crumple metric threshold (Σ depth·r² / (ext0·ext1·ext2)). */
   crumple: 1,
-  /** Sheet tear energy = tearZone × yieldY × thickness × tear length (process-zone width, m⁻¹·m). */
-  tearZone: 2,
+  /** Sheet tear energy = tearZone × yieldY × thickness × tear length (tearZone: empirical
+   *  length, m, folding the plastic work around the tear into one number; gives ≈ 330 J for a
+   *  0.8 mm × 35 cm microwave side panel — a few axe/sledge blows on a crumpled spot). */
+  tearZone: 1.6,
+  /** A blow must deliver at least this fraction of the tear energy itself to tear a sheet
+   *  (repeated drops of an appliance dent and crumple it but do not rip it open). */
+  tearMinBlow: 0.35,
   /** Share of the remembered damage at the spot that counts towards a tear. */
   tearMemory: 0.15,
 } as const;

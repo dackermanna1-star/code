@@ -20,14 +20,22 @@ export interface BankStats {
   workers: number;
   workerFailures: number;
   skipped: number;
+  /** Extra variations still being rendered by the workers when generate() resolved. */
+  background: number;
   sampleRate: number;
 }
 
 export interface BankOpts {
   /** Base sample rate (Hz). */
   sr?: number;
-  /** Time budget (ms): after it, remaining extra variations are skipped. */
+  /**
+   * Time budget (ms, default 1500): generate() resolves once it is spent and every sound has
+   * its first variation. Remaining extra variations are then either filled in by the workers
+   * in the background (see `background`) or skipped.
+   */
   budgetMs?: number;
+  /** Let the workers keep adding extra variations after generate() resolved (default true). */
+  background?: boolean;
   onProgress?: (fraction: number) => void;
   /** Use Web Workers (default true when available). A number = worker count. */
   workers?: boolean | number;
@@ -65,6 +73,9 @@ export function bufferFactory(): MakeBuffer | null {
 
 const now = (): number => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
+/** Default bank generation budget (ms): the brief's ~1.5 s loading-time allowance. */
+export const DEFAULT_BUDGET_MS = 1500;
+
 export class SoundBank {
   readonly entries = new Map<string, BankEntry>();
   readonly sampleRate: number;
@@ -72,7 +83,7 @@ export class SoundBank {
 
   constructor(sampleRate: number) {
     this.sampleRate = sampleRate;
-    this.stats = { ms: 0, mainMs: 0, buffers: 0, bytes: 0, workers: 0, workerFailures: 0, skipped: 0, sampleRate };
+    this.stats = { ms: 0, mainMs: 0, buffers: 0, bytes: 0, workers: 0, workerFailures: 0, skipped: 0, background: 0, sampleRate };
   }
 
   get(id: string): BankEntry | undefined {
@@ -134,12 +145,12 @@ export class SoundBank {
       }
       done.add(`${id}#${v}`);
     };
-    const budget = o.budgetMs ?? 2500;
+    const budget = Number.isFinite(o.budgetMs) ? Math.max(0, o.budgetMs as number) : DEFAULT_BUDGET_MS;
     let remaining = tasks;
     const nw = workerCount(o.workers);
     if (nw > 0) {
       try {
-        remaining = await runWorkers(nw, sr, tasks, budget, t0, done, sink, progress, bank);
+        remaining = await runWorkers(nw, sr, tasks, budget, t0, done, sink, progress, bank, o.background !== false);
       } catch {
         bank.stats.workerFailures++;
         remaining = tasks.filter(([id, v]) => !done.has(`${id}#${v}`));
@@ -195,6 +206,7 @@ function runWorkers(
   sink: (id: string, v: number, r: RenderedSound) => void,
   progress: () => void,
   bank: SoundBank,
+  background: boolean,
 ): Promise<Array<[string, number]>> {
   return new Promise((resolve) => {
     const workers: Worker[] = [];
@@ -205,8 +217,35 @@ function runWorkers(
     let settled = false;
     let lastMsg = now();
     const remainder = () => tasks.filter(([id, v]) => !done.has(`${id}#${v}`));
+    let resolved = false;
+    const terminate = () => {
+      if (settled) return;
+      settled = true;
+      clearInterval(watch);
+      for (const w of workers) {
+        try {
+          w.terminate();
+        } catch {
+          /* ignore */
+        }
+      }
+      if (!resolved) {
+        resolved = true;
+        resolve(remainder());
+      }
+    };
+    // Budget spent and every sound has variation 0: resolve now and (optionally) let the
+    // workers keep delivering extra variations into the bank in the background.
+    const budgetDone = () => {
+      if (resolved || settled) return;
+      if (!background) return finish();
+      resolved = true;
+      bank.stats.background = remainder().length;
+      resolve([]);
+    };
     const finish = () => {
       if (settled) return;
+      if (resolved) return terminate();
       settled = true;
       clearInterval(watch);
       for (const w of workers) {
@@ -224,7 +263,7 @@ function runWorkers(
       if (now() - lastMsg > 8000) {
         bank.stats.workerFailures++;
         finish();
-      } else if (overBudget() && needFirst.size === 0) finish();
+      } else if (overBudget() && needFirst.size === 0) budgetDone();
     }, 100);
     for (let i = 0; i < n; i++) {
       let w: Worker;
@@ -247,8 +286,8 @@ function runWorkers(
         if (m.id !== undefined && m.v !== undefined && m.chans && m.sr) {
           sink(m.id, m.v, { sr: m.sr, chans: m.chans });
           if (m.v === 0) needFirst.delete(m.id);
-          progress();
-          if (overBudget() && needFirst.size === 0) finish();
+          if (!resolved) progress(); // the loading bar already reached 1 for background fills
+          if (overBudget() && needFirst.size === 0) budgetDone();
         }
       };
       w.onerror = (ev) => {

@@ -171,11 +171,11 @@ export function kitchenLayout(seed = 1): KitchenLayout {
   const itop = top(island, "top");
   const fb = put("fruitBowl", K.fruitBowl({ seed: nextSeed() }), yawXf(6.45, itop + REST_GAP, 6.6, 0), island);
   for (const [kind, x, z] of [
-    ["apple", -0.04, -0.022],
-    ["orange", 0.045, -0.02],
-    ["apple", 0.0, 0.048],
+    ["apple", -0.035, 0.0],
+    ["lemon", 0.04, 0.0],
   ] as const)
-    putIn(fb, "fruit", K.fruit({ kind, seed: nextSeed() }), onSurf(x, FRUIT_BOWL_FLOOR, z, nextSeed() % 6));
+    putIn(fb, "fruit", K.fruit({ kind, seed: nextSeed() }), onSurf(x, FRUIT_BOWL_FLOOR, z, 0));
+  put("fruit", K.fruit({ kind: "orange", seed: nextSeed() }), yawXf(6.62, itop + REST_GAP, 6.5, 0), island);
   put("fruit", K.fruit({ kind: "banana", seed: nextSeed() }), yawXf(6.72, itop + REST_GAP, 6.66, 0.4), island);
   put("wineBottle", K.wineBottle({ seed: nextSeed() }), yawXf(7.3, itop + REST_GAP, 6.7, 0), island);
   put("wineBottle", K.wineBottle({ seed: nextSeed() }), yawXf(7.4, itop + REST_GAP, 6.6, 1.3), island);
@@ -229,7 +229,7 @@ export function kitchenLayout(seed = 1): KitchenLayout {
     const [sx, sz] = nLocalXZ(4.96, 8.48);
     putIn(north, "stockPot", K.stockPot({ seed: nextSeed() }), onSurf(sx, localTop(north, "n1_car_bottom"), sz));
   }
-  putIn(north, "cutleryTray", K.cutleryTray({ seed: nextSeed() }), onSurf(nLocalXZ(6.8, 8.46)[0], localTop(north, "n3_drw0_bottom"), nLocalXZ(6.8, 8.46)[1]));
+  putIn(north, "cutleryTray", K.cutleryTray({ seed: nextSeed() }), onSurf(nLocalXZ(6.8, 8.4325)[0], localTop(north, "n3_drw0_bottom"), nLocalXZ(6.8, 8.4325)[1]));
 
   // ------------------------------------------------------------------ dishwasher contents
   {

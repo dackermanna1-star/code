@@ -14,16 +14,24 @@ const frac = (o: Partial<FractureEv>): FractureEv => ({ pos: P, dir: N, mat: "gl
 const rand = () => 0.5;
 const maxDb = (ls: M.Layer[]) => Math.max(...ls.map((l) => l.db));
 
+// What the destruction runtime really emits for static parts: PART sizes and masses
+// (levels.ts FLOOR_TILE 0.3 × 0.3 × 0.01 porcelain ≈ 2.1 kg, PLANK 1.2 × 0.19 × 0.012 oak ≈ 1.9 kg,
+// a 1.2 × 2.6 m drywall panel ≈ 27 kg). Contacts on the floor are at y = FLOOR_Y = 0.
+const FLOOR = { x: 0, y: 0, z: 1 };
+const TILE = { matB: "tile" as MaterialId, sizeB: 0.3, massB: 2.07, idB: 7 };
+const PLANK = { matB: "hardwood" as MaterialId, sizeB: 1.2, massB: 1.92, idB: 8 };
+const DRYWALL = { matA: "gypsum" as MaterialId, sizeA: 2.6, massA: 27, normal: { x: 1, y: 0, z: 0 } };
+
 test("loudness ordering: sledgehammer » punch » dropped mug » footstep » falling pen", () => {
-  const sledge = maxDb(M.impactLayers(imp({ energy: 300, matA: "gypsum", matB: "steel", sizeA: 2.4, sizeB: 0.06, idB: -1 })));
-  const punch = maxDb(M.impactLayers(imp({ energy: 60, matA: "gypsum", matB: "flesh", sizeA: 2.4, sizeB: 0.08, idB: -1 })));
-  const mug = maxDb(M.impactLayers(imp({ energy: 3.4, matA: "ceramic", matB: "tile", sizeA: 0.1, sizeB: 3 })));
-  const pen = maxDb(M.impactLayers(imp({ energy: 0.07, matA: "plastic", matB: "hardwood", sizeA: 0.14, sizeB: 3 })));
+  const sledge = maxDb(M.impactLayers(imp({ ...DRYWALL, energy: 300, matB: "steel", sizeB: 0.06, massB: 7, idB: -1 })));
+  const punch = maxDb(M.impactLayers(imp({ ...DRYWALL, energy: 60, matB: "flesh", sizeB: 0.08, massB: 3, idB: -1 })));
+  const mug = maxDb(M.impactLayers(imp({ pos: FLOOR, energy: 3.4, matA: "ceramic", sizeA: 0.1, massA: 0.35, ...TILE })));
+  const pen = maxDb(M.impactLayers(imp({ pos: FLOOR, energy: 0.07, matA: "plastic", sizeA: 0.14, massA: 0.01, ...PLANK })));
   const step = M.footstepDb(3.6);
   assert.ok(sledge > punch + 4, `sledge ${sledge} punch ${punch}`);
   assert.ok(punch > mug, `punch ${punch} mug ${mug}`);
   assert.ok(mug > step - 4, `mug ${mug} step ${step}`);
-  assert.ok(pen < -24, `pen ${pen}`);
+  assert.ok(pen < step - 4, `pen ${pen} must be a tiny tick below a footstep ${step}`);
   assert.ok(sledge > -4, "sledgehammer is loud");
   // Footsteps are subtle and scale with speed.
   assert.ok(M.footstepDb(6) > M.footstepDb(3.6) && M.footstepDb(3.6) > M.footstepDb(1.6));
@@ -33,8 +41,33 @@ test("loudness ordering: sledgehammer » punch » dropped mug » footstep » fal
   assert.ok(f > -3, `drywall breakout ${f}`);
 });
 
+test("real floor finishes and drywall panels are surfaces, loose objects ring", () => {
+  // Mug on a real floor tile: the tile clacks as a damped surface (not a ringing loose tile).
+  const mug = M.impactLayers(imp({ pos: FLOOR, energy: 3.4, matA: "ceramic", sizeA: 0.1, massA: 0.35, ...TILE }));
+  assert.deepEqual(mug.map((l) => l.id), ["impact.ceramic", "surface.ceramic"]);
+  // Pen on a laminate plank: no 105 Hz board ring.
+  const pen = M.impactLayers(imp({ pos: FLOOR, energy: 0.07, matA: "plastic", sizeA: 0.14, massA: 0.01, ...PLANK }));
+  assert.equal(pen[1].id, "surface.wood");
+  // Sledgehammer on a drywall panel: the wall sounds as a surface, the tool head as a striker.
+  const sl = M.impactLayers(imp({ ...DRYWALL, energy: 300, matB: "steel", sizeB: 0.06, massB: 7, idB: -1 }));
+  assert.equal(sl[0].id, "surface.drywall");
+  assert.equal(M.surfaceSides(imp({ ...DRYWALL, energy: 300, matB: "steel", sizeB: 0.06, massB: 7, idB: -1 })), 1);
+  // A hardwood cutting board dropped on the planks: the heavier plank is the floor, the board rings.
+  const board = M.impactLayers(imp({ pos: FLOOR, energy: 2, matA: "hardwood", sizeA: 0.4, massA: 0.8, ...PLANK }));
+  assert.deepEqual(board.map((l) => l.id), ["impact.wood", "surface.wood"]);
+  // A hardwood table top hit at table height is a free panel, not a floor.
+  const table = M.impactLayers(imp({ pos: { x: 0, y: 0.75, z: 0 }, energy: 5, matA: "hardwood", sizeA: 1.4, massA: 30, matB: "ceramic", sizeB: 0.25, massB: 0.5, idB: 3 }));
+  assert.deepEqual(table.map((l) => l.id), ["impact.wood", "impact.ceramic"]);
+  // A ceramic plate landing flat on the floor still rings (only floor-finish materials count).
+  const plate = M.impactLayers(imp({ pos: FLOOR, energy: 2, matA: "ceramic", sizeA: 0.27, massA: 0.5, ...PLANK }));
+  assert.equal(plate[0].id, "impact.ceramic");
+  // Explicit static flags (requested ImpactEv addition) win over the heuristics.
+  const flagged = { ...imp({ energy: 2, matA: "hardwood", sizeA: 0.4, massA: 0.8, matB: "softwood", sizeB: 0.5, massB: 3 }), staticA: false, staticB: true } as ImpactEv;
+  assert.equal(M.surfaceSides(flagged), 2);
+});
+
 test("impacts layer both materials, pitch from size, ticks for tiny debris", () => {
-  const ls = M.impactLayers(imp({ energy: 20, matA: "steelSheet", matB: "tile", sizeA: 0.4, sizeB: 0.3 }));
+  const ls = M.impactLayers(imp({ energy: 20, matA: "steelSheet", matB: "ceramic", sizeA: 0.4, sizeB: 0.3, massB: 0.6 }));
   assert.equal(ls.length, 2);
   assert.equal(ls[0].id, "impact.metalThin");
   assert.equal(ls[1].id, "impact.ceramic");
@@ -108,8 +141,12 @@ test("player foley mapping", () => {
   assert.equal(M.swingLayer("bat", 1).id, "swing.medium");
   assert.equal(M.swingLayer("hands", 1).id, "swing.light");
   assert.ok(M.swingLayer("bat", 1).db > M.swingLayer("bat", 0.1).db);
-  assert.equal(M.toolHitLayers("hands", 60, true)[0].id, "ouch");
-  assert.equal(M.toolHitLayers("hands", 60, false).length, 0, "soft fist hits: impact covers it");
+  const fistHard = M.toolHitLayers("hands", 60, true).map((l) => l.id);
+  assert.deepEqual(fistHard, ["punch.thud", "tool.transient", "ouch"], "flesh on hard: thud + sharp transient + ouch");
+  assert.deepEqual(M.toolHitLayers("hands", 60, false).map((l) => l.id), ["punch.thud"]);
+  assert.equal(M.toolHitLayers("kick", 120, false)[0].id, "kick.thud");
+  assert.equal(M.toolHitLayers("stomp", 120, false)[0].id, "stomp");
+  for (const l of M.toolHitLayers("stomp", 120, true)) assert.ok(resolveSound(l.id), l.id);
   assert.equal(M.toolHitLayers("hammer", 60, true)[0].id, "tool.transient");
   assert.equal(M.stepIdFor("hardwood"), "step.wood");
   assert.equal(M.stepIdFor("tile"), "step.tile");
@@ -140,6 +177,13 @@ test("token buckets and island limiter", () => {
   for (let i = 0; i < 50; i++) if (tb.allow("impact.wood", 0, 10, 30)) ok++;
   assert.equal(ok, 10, "burst capacity");
   assert.ok(tb.allow("impact.wood", 0.1, 10, 30), "refills over time");
+  // Priority: quiet debris drains the bucket, a loud close hit still passes.
+  const pb = new M.TokenBuckets();
+  for (let i = 0; i < 40; i++) pb.allow("impact.wood", 0, 12, 36, -45);
+  assert.ok(!pb.allow("impact.wood", 0, 12, 36, -44), "another quiet layer is limited");
+  assert.ok(pb.allow("impact.wood", 0, 12, 36, -30), "6 dB above the family's recent peak overrides");
+  assert.ok(pb.allow("impact.wood", 0, 12, 36, 0), "loud at the listener: never limited");
+  assert.ok(!pb.allow("impact.wood", 0, 12, 36, -40), "but quiet ones still are");
   tb.prune(100);
   assert.equal(tb.size, 0);
   const il = new M.IslandLimiter();

@@ -167,10 +167,10 @@ export function buildFruit(o: { kind?: "apple" | "orange" | "banana" | "lemon"; 
   const b = new Builder("fruit", kind[0].toUpperCase() + kind.slice(1), "misc", 1, o.seed);
   if (kind === "banana") {
     const pts: V3[] = [
-      [-0.09, 0.03, 0],
-      [-0.04, 0.012, 0],
-      [0.04, 0.012, 0],
-      [0.09, 0.03, 0],
+      [-0.09, 0.0297, 0],
+      [-0.04, 0.0142, 0],
+      [0.04, 0.0142, 0],
+      [0.09, 0.0297, 0],
     ];
     const segs = b.tube("banana", "food", "food", pts, 0.017, { sides: 6, tint: 0xe8c840, seam: "fused", jointStrength: 20, mass: 0.12 });
     void segs;
