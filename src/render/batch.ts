@@ -485,7 +485,10 @@ export class IslandBatcher {
     mesh.setVerticesBuffer(buffer.createVertexBuffer("surf", OFF_SURF, 4));
     mesh.setIndices(idx, capV, true);
     mesh.releaseSubMeshes();
+    // explicit draw range (only the used part of the capacity is drawn); give it a bounding box
+    // up front so Babylon never tries to compute one from the (partially stale) vertex data
     const sub = new SubMesh(0, 0, 0, 0, 0, mesh, undefined, false, true);
+    sub.setBoundingInfo(new BoundingInfo(Vector3.Zero(), Vector3.Zero()));
     mesh.material = glass ? this.glassMaterial : this.worldMaterial;
     mesh.hasVertexAlpha = glass;
     mesh.useVertexColors = true;
@@ -500,8 +503,11 @@ export class IslandBatcher {
   }
 
   private commit(mesh: Mesh, r: BatchRecord, nv: number, ni: number, x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): void {
-    // upload only the used ranges (the CPU arrays stay the context-restore source)
-    r.buffer.update(r.cpu.subarray(0, Math.max(1, nv) * WORLD_STRIDE));
+    // upload only the used vertex range; keep the FULL CPU array as the buffer's data so
+    // context restore and Babylon's own readers see a consistent, capacity-sized array
+    // (Buffer.updateDirectly with a count clears _data, so it is restored right after)
+    r.buffer.updateDirectly(r.cpu, 0, Math.max(1, nv));
+    (r.buffer as unknown as { _data: Float32Array | null })._data = r.cpu;
     const ib = mesh.geometry?.getIndexBuffer();
     if (ib) this.scene.getEngine().updateDynamicIndexBuffer(ib, r.idx.subarray(0, Math.max(3, ni)), 0);
     r.usedV = nv;

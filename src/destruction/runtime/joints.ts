@@ -19,9 +19,12 @@ import type { HingeOpts, SliderOpts } from "../../core/context.ts";
 import type { Vec3 } from "../../geom/vec.ts";
 import { planJointConstraints, type JointBondView } from "./graph.ts";
 import type { Assembly, Bond, Island, JointConstraint, JointGroup } from "./types.ts";
+import { HOLD_N_PER_J, PULL_CREEP } from "./interact.ts";
 import { rotate, type World } from "./world.ts";
 
 const TWO_PI = Math.PI * 2;
+/** Holding force of hinge/slider bonds under sustained loads (N per J of strength): 90 J hinge ≈ 270 N. */
+export const JOINT_HOLD_N_PER_J = 3;
 /** Latch torque (N·m) per joule of latch strength. */
 const LATCH_TORQUE_PER_J = 30;
 /** Hinge counts as closed within this angle (rad) for use/latching. */
@@ -31,8 +34,10 @@ const ARM_ANGLE = 0.14;
 const CLOSED_SLIDE = 0.012;
 const ARM_SLIDE = 0.04;
 
-interface PhysicsJointExt {
-  setHingeMotor?(c: unknown, target: number, maxForce: number): void;
+/** Optional raw access exposed by src/physics/physics.ts (feature-detected). */
+interface PhysicsRawExt {
+  hk?: { HP_Constraint_GetAppliedImpulses?(id: unknown): [unknown, number[], number[]] };
+  substeps?: number;
 }
 
 const tV = new Vector3();
@@ -245,7 +250,7 @@ export class JointSystem {
     }
     this.constraintCount++;
     w.physics.wake(moving.body);
-    return { c, kind, moving, fixed, bonds, pivot: { ...pivot }, latched, offset, sig };
+    return { c, kind, moving, fixed, bonds, pivot: { ...pivot }, latched, offset, sig, fEma: 0, tAxisEma: 0, tPerpEma: 0 };
   }
 
   // ------------------------------------------------------------------ joint coordinates
@@ -318,18 +323,9 @@ export class JointSystem {
     g.armed = false;
     g.releaseTime = this.w.now;
     this.released.add(g);
-    const ext = this.w.physics as unknown as PhysicsJointExt;
-    let done = false;
-    if (typeof ext.setHingeMotor === "function" && g.kind === "hinge") {
-      for (const jc of g.constraints) {
-        if (!jc.latched) continue;
-        ext.setHingeMotor(jc.c, this.angleSign * (0 - jc.offset), 0);
-        jc.latched = false;
-        jc.sig = jc.sig.replace(/\|1$/, "|0");
-        done = true;
-      }
-    }
-    if (!done) this.dirty.add(g);
+    // Re-create without the motor. (Setting the motor type to NONE is ignored by Havok once a
+    // motor was set — docs/api-notes/physics-constraints-character.md — so no in-place release.)
+    this.dirty.add(g);
     this.refreshDirty();
   }
 
@@ -399,6 +395,78 @@ export class JointSystem {
     if (this.released.size) this.checkRelatch();
     if (this.springs.size) for (const g of this.springs) this.applySpring(g, dt);
     if (this.motors.size) for (const g of this.motors) this.applyMotor(g, dt);
+  }
+
+  /** True when joint bonds are loaded from the solver's constraint reactions (see jointLoads). */
+  get loadsActive(): boolean {
+    const raw = this.w.physics as unknown as PhysicsRawExt;
+    return !!raw.hk && typeof raw.hk.HP_Constraint_GetAppliedImpulses === "function";
+  }
+
+  /**
+   * Sustained constraint reactions damage joint bonds (call after each physics step). The
+   * solver's applied impulses give exactly the load the joint resists — free swing/slide costs
+   * nothing, pulling a door past its stop, yanking it off its pins, a door hanging by one hinge
+   * or a drawer pulled at full extension all load the bonds. Loads are low-pass filtered
+   * (τ = 0.25 s) so impact spikes are left to the damage model. Per bond:
+   *   F_b = |F|/n + |τ⊥|/spacing (+ |τ_axis|/(n·0.25 m) when forced against a limit);
+   *   latch: F = |τ_axis| / r_latch while latched;
+   *   damage rate = max(0, F_b − JOINT_HOLD·strength) × PULL_CREEP.
+   */
+  jointLoads(dt: number): void {
+    const raw = this.w.physics as unknown as PhysicsRawExt;
+    const hk = raw.hk;
+    if (!hk || typeof hk.HP_Constraint_GetAppliedImpulses !== "function") return;
+    const h = dt / Math.max(1, raw.substeps ?? 1);
+    const k = Math.min(1, dt / 0.25);
+    let broke = false;
+    for (const asm of this.w.assemblies.values()) {
+      if (!asm.groups.size) continue;
+      for (const g of asm.groups.values()) {
+        for (const jc of g.constraints) {
+          const pd = (jc.c as unknown as { _pluginData?: unknown[] })._pluginData;
+          if (!pd || !pd.length || !jc.moving.body || jc.moving.isStatic) continue;
+          const r = hk.HP_Constraint_GetAppliedImpulses(pd[0]);
+          const lin = r[1],
+            ang = r[2];
+          if (!lin || !ang) continue;
+          const { axis } = this.worldAxis(g, jc);
+          const F = Math.hypot(lin[0], lin[1], lin[2]) / h;
+          const ta = (ang[0] * axis.x + ang[1] * axis.y + ang[2] * axis.z) / h;
+          const tp = Math.hypot(ang[0] / h - ta * axis.x, ang[1] / h - ta * axis.y, ang[2] / h - ta * axis.z);
+          if (!Number.isFinite(F) || !Number.isFinite(ta) || !Number.isFinite(tp)) continue;
+          jc.fEma += (F - jc.fEma) * k;
+          jc.tAxisEma += (Math.abs(ta) - jc.tAxisEma) * k;
+          jc.tPerpEma += (tp - jc.tPerpEma) * k;
+          const bonds = jc.bonds.filter((b) => b.alive);
+          const n = Math.max(1, bonds.length);
+          let spacing = 0.1;
+          for (let i = 0; i < bonds.length; i++)
+            for (let j = i + 1; j < bonds.length; j++) {
+              const a = bonds[i].anchor,
+                b = bonds[j].anchor;
+              spacing = Math.max(spacing, Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z));
+            }
+          let perBond = jc.fEma / n + (jc.kind === "ball" ? 0 : jc.tPerpEma / spacing);
+          const latchHolds = jc.latched && !!g.latch && g.latch.alive;
+          if (!latchHolds && jc.kind === "hinge") perBond += jc.tAxisEma / (n * 0.25);
+          for (const b of bonds) {
+            const excess = perBond - JOINT_HOLD_N_PER_J * b.max;
+            if (excess > 0 && this.w.damageBond(b, excess * PULL_CREEP * dt)) broke = true;
+          }
+          if (latchHolds && g.latch) {
+            const la = g.latch.anchor;
+            const ax = unit(g.def.axis);
+            const d = { x: la.x - jc.pivot.x, y: la.y - jc.pivot.y, z: la.z - jc.pivot.z };
+            const along = d.x * ax.x + d.y * ax.y + d.z * ax.z;
+            const rL = Math.max(0.05, Math.hypot(d.x - along * ax.x, d.y - along * ax.y, d.z - along * ax.z));
+            const excess = jc.tAxisEma / rL - HOLD_N_PER_J * g.latch.max;
+            if (excess > 0 && this.w.damageBond(g.latch, excess * PULL_CREEP * dt)) broke = true;
+          }
+        }
+      }
+    }
+    if (broke) this.refreshDirty();
   }
 
   private checkRelatch(): void {

@@ -20,6 +20,8 @@ export class FpsMover {
   private sinceJump = 1e9;
   /** True when the last step treated the character as standing on something. */
   grounded = false;
+  /** Set on the step the character lands: downward speed (m/s) just before touching down; 0 otherwise. */
+  landingSpeed = 0;
   support: CharacterSurfaceInfo = {
     isSurfaceDynamic: false, supportedState: CharacterSupportedState.UNSUPPORTED,
     averageSurfaceNormal: new Vector3(), averageSurfaceVelocity: new Vector3(), averageAngularSurfaceVelocity: new Vector3(),
@@ -34,6 +36,10 @@ export class FpsMover {
     this.cc = new PhysicsCharacterController(feet.add(new Vector3(0, height / 2, 0)), { capsuleHeight: height, capsuleRadius: radius }, scene);
     this.cc.acceleration = 0.35; // fraction of the velocity error removed per step (default 0.05 is floaty)
     this.cc.maxAcceleration = 40; // m/s^2 cap on velocity change (default 50)
+    this.cc.keepDistance = 0.02; // hover 2-5 cm instead of 5-15 cm
+    this.cc.keepContactTolerance = 0.03;
+    this.cc.characterStrength = 600; // N: pushes light things, blocked by heavy ones
+    this.cc.characterMass = 80; // kg pressing on dynamic supports
   }
 
   /** One fixed step. Call once per physics step (before or after Havok's step — see notes). */
@@ -74,8 +80,11 @@ export class FpsMover {
       this.v.addInPlace(this.up.scale(cur.dot(this.up) - this.v.dot(this.up)));
       this.v.addInPlace(this.gravity.scale(dt));
     }
+    const vyRequested = this.v.y;
     cc.setVelocity(this.v);
     cc.integrate(dt, s, this.gravity);
+    // landing = we asked to move down fast and the solver stopped us (velocity projected onto the floor plane)
+    this.landingSpeed = vyRequested < -1 && cc.getVelocity().y > vyRequested * 0.5 ? -vyRequested : 0;
   }
 
   get feetY(): number { return this.cc.getPosition().y - this.cc.footOffset; }

@@ -8,6 +8,7 @@ import { WorldMaterialPlugin, createTextureArray } from "./render-materials-worl
 import { makeAlbedoLayers, makeNormalLayers, GeomBuilder, TEX } from "./render-materials-proctex.ts";
 
 const COUNT = 2000;
+const FRAMES = 15;
 
 function median(a: number[]) {
   const s = [...a].sort((x, y) => x - y);
@@ -17,6 +18,10 @@ function median(a: number[]) {
 export async function probe() {
   const canvas = document.getElementById("renderCanvas") as HTMLCanvasElement;
   const engine = new Engine(canvas, true, { preserveDrawingBuffer: true });
+  // Tiny render resolution so SwiftShader's (CPU) rasterisation does not dominate / back up the GPU queue:
+  // we want the CPU-side cost of scene.render() only.
+  engine.setHardwareScalingLevel(10);
+  const gl = (engine as unknown as { _gl: WebGL2RenderingContext })._gl;
   const scene = new Scene(engine);
   scene.clearColor = new Color4(0.4, 0.5, 0.6, 1);
   const cam = new FreeCamera("cam", new Vector3(0, 18, -16), scene);
@@ -62,15 +67,21 @@ export async function probe() {
   const snap = (c: PerfCounter) => ({ t: c.total, n: c.count });
   const delta = (a: { t: number; n: number }, c: PerfCounter) => (c.count > a.n ? (c.total - a.t) / (c.count - a.n) : 0);
 
+  const T0 = performance.now();
+  const log = (msg: string) => console.log(`[perf ${((performance.now() - T0) / 1000).toFixed(1)}s] ${msg}`);
   const measure = async (label: string, perFrame?: (f: number) => void) => {
-    for (let i = 0; i < 8; i++) { perFrame?.(i); scene.render(); }
+    log("measure " + label);
+    for (let i = 0; i < 4; i++) { perFrame?.(i); scene.render(); }
+    gl.finish(); // drain the GPU queue so earlier work is not billed to this measurement
+    await new Promise((res) => setTimeout(res, 30));
     const rounds: number[] = [];
     let eval0 = snap(inst.activeMeshesEvaluationTimeCounter), rend0 = snap(inst.renderTimeCounter);
     for (let r = 0; r < 3; r++) {
       const t0 = performance.now();
-      for (let i = 0; i < 25; i++) { perFrame?.(i); scene.render(); }
-      rounds.push((performance.now() - t0) / 25);
-      await new Promise((res) => setTimeout(res, 0));
+      for (let i = 0; i < FRAMES; i++) { perFrame?.(i); scene.render(); }
+      rounds.push((performance.now() - t0) / FRAMES);
+      gl.finish();
+      await new Promise((res) => setTimeout(res, 10));
     }
     return {
       label,
@@ -98,6 +109,7 @@ export async function probe() {
   };
 
   results.push(await measure("baseline (defaults)"));
+  results.push(await measure("baseline (repeat)"));
   for (const m of meshes) m.freezeWorldMatrix();
   results.push(await measure("freezeWorldMatrix() all"));
   reset();
@@ -126,7 +138,9 @@ export async function probe() {
   scene.performancePriority = ScenePerformancePriority.Aggressive;
   results.push(await measure("performancePriority=Aggressive (set after mesh creation)"));
   reset();
+  log("freezeActiveMeshes start");
   await new Promise<void>((res, rej) => scene.freezeActiveMeshes(false, () => res(), (m) => rej(new Error(m))));
+  log("freezeActiveMeshes done");
   results.push(await measure("scene.freezeActiveMeshes()"));
   reset();
 
@@ -157,6 +171,7 @@ export async function probe() {
   results.push(await measure("baseline again (noise check)"));
 
   // batching reference: merge all 2000 into 1 mesh (custom 'surf' attribute check)
+  log("merge start");
   const tMerge0 = performance.now();
   const merged = Mesh.MergeMeshes(meshes, true, true);
   const msMerge = performance.now() - tMerge0;
@@ -164,7 +179,7 @@ export async function probe() {
   if (merged) {
     merged.material = mat;
     mergedInfo = { vertices: merged.getTotalVertices(), hasSurf: merged.isVerticesDataPresent("surf"), msMerge: +msMerge.toFixed(1) };
-    await scene.whenReadyAsync().catch(() => undefined);
+    log("merge done");
     results.push(await measure("MergeMeshes -> 1 mesh (surf dropped!)"));
   }
   engine.runRenderLoop(() => scene.render());

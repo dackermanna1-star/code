@@ -196,7 +196,7 @@ export class LightFeature extends BaseFeature {
     this.setEmissive(this.lit);
   }
 
-  dispose(): void {
+  override dispose(): void {
     this.destroyLight();
     super.dispose();
   }

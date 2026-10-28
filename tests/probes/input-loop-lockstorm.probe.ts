@@ -33,7 +33,13 @@ export async function probe() {
   canvas.addEventListener("click", () => {
     const p = canvas.requestPointerLock() as unknown as Promise<void> | undefined;
     p?.then(
-      () => ((stats.lockResult = "resolved"), (stats.lockedAt = performance.now())),
+      () => {
+        stats.lockResult = "resolved";
+        stats.lockedAt = performance.now();
+        // self-terminate: leave the lock after 1.5 s and finish 1 s later (the storm may delay timers)
+        setTimeout(() => document.exitPointerLock(), 1500);
+        setTimeout(() => (window.__lockDone = true), 2500);
+      },
       (e: DOMException) => (stats.lockResult = "rejected " + e.name),
     );
   });

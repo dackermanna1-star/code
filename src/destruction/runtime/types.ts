@@ -253,6 +253,10 @@ export interface JointConstraint {
   offset: number;
   /** Signature used to avoid needless re-creation. */
   sig: string;
+  /** Low-pass filtered reaction force (N), axial torque and bending torque (N·m). */
+  fEma: number;
+  tAxisEma: number;
+  tPerpEma: number;
 }
 
 export class JointGroup {

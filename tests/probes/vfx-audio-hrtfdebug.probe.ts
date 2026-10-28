@@ -1,9 +1,11 @@
 // Debug probe: intermittent hang of OfflineAudioContext.startRendering() when it contains the page's first
 // HRTF PannerNode. MODE "cold": no HRTF before the offline render; "prewarm": an HRTF PannerNode is created and
 // fed on the realtime context ~1 s before. Run several times (each run is a fresh page).
+// Measured 2026-10-28 (Chromium headless shell, SwiftShader box): cold -> 2 of 6 runs hung (firstHrtfShort AND every
+// later HRTF offline render in that page = TIMEOUT); prewarm -> 8 of 8 runs fine.
 import { r3, tick } from "./vfx-audio-util.ts";
 
-const MODE: "cold" | "prewarm" = "cold";
+const MODE: "cold" | "prewarm" = "cold"; // flip to "prewarm" to verify the workaround
 
 async function offlineRender(len: number, model: PanningModelType | null): Promise<{ res: string; ms: number }> {
   const t = performance.now();

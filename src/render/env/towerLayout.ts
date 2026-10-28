@@ -85,8 +85,10 @@ export interface TowerGeometry {
   near: MeshBuffer;
   /** Remaining facade, roof, base. */
   far: MeshBuffer;
-  /** Window glass (data.x = 1) and railing glass (data.x = 2); data.y = per-window seed, data.z = floor index. */
+  /** Window glass (opaque fake interiors): data.x = 1, data.y = per-window seed, data.z = floor, data.w = 1 for sliders. */
   glass: MeshBuffer;
+  /** Balcony railing glass (translucent): data.x = 2. */
+  rails: MeshBuffer;
   /** Corridor behind the front door (baked lighting in vertex colours). */
   corridor: MeshBuffer;
 }
@@ -181,6 +183,7 @@ function band(mb: MeshBuffer, face: Face, a0: number, a1: number, yFloor: number
 
 /** Balcony with slab, glass railing panels, posts and handrail (south facade). */
 function balcony(mb: MeshBuffer, glass: MeshBuffer, x0: number, x1: number, yFloor: number, floor: number): void {
+  // `glass` here is the railing-glass buffer.
   const zf = BALCONY.z0; // −1.6 front edge
   const zb = SOUTH_Z; // −0.2 facade
   const top = yFloor - 0.02;
@@ -213,6 +216,7 @@ export function buildTowerGeometry(): TowerGeometry {
   const near = new MeshBuffer();
   const far = new MeshBuffer();
   const glass = new MeshBuffer();
+  const rails = new MeshBuffer();
   const corridor = new MeshBuffer();
 
   for (let floor = 0; floor < TOWER_FLOORS; floor++) {
@@ -243,7 +247,7 @@ export function buildTowerGeometry(): TowerGeometry {
     if (floor >= 2) {
       for (const b of SOUTH_BALCONIES) {
         if (own && b.x0 === BALCONY.x0) continue;
-        balcony(mb, glass, b.x0, b.x1, yF, floor);
+        balcony(mb, rails, b.x0, b.x1, yF, floor);
       }
     }
   }
@@ -261,7 +265,7 @@ export function buildTowerGeometry(): TowerGeometry {
   far.box({ x: -9, y: yRoof + 4.2, z: 9 }, { x: -5, y: yRoof + 7.5, z: 13 }, [0.2, 0.2, 0.21, 1], NONE, { skip: ["bottom"] });
 
   buildCorridor(corridor);
-  return { near, far, glass, corridor };
+  return { near, far, glass, rails, corridor };
 }
 
 // ------------------------------------------------------------------ corridor

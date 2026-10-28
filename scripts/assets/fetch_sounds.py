@@ -167,7 +167,8 @@ def convert(src, dst, max_len=None):
         return False
     gain = -1.0 - peak
     os.makedirs(os.path.dirname(dst), exist_ok=True)
-    for _ in range(4):  # lossy coding shifts transient peaks: re-encode until the decoded peak is ~-1 dBFS
+    best = None  # (score, peak, encoded bytes)
+    for _ in range(6):  # lossy coding shifts transient peaks: re-encode until the decoded peak is ~-1 dBFS
         r = subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", src, "-af",
                             pre + ",volume=%.2fdB" % gain, "-ac", "1", "-ar", "44100", "-c:a", "libvorbis",
                             "-q:a", "5", "-map_metadata", "-1", dst], capture_output=True, text=True)
@@ -175,9 +176,16 @@ def convert(src, dst, max_len=None):
             print("ffmpeg failed:", src, r.stderr[-300:])
             return False
         p = decoded_peak_db(dst)
-        if p is None or abs(p + 1.0) <= 0.3:
-            break
-        gain -= p + 1.0
+        if p is None:
+            return True
+        score = abs(p + 1.0) + (10.0 if p > -0.5 else 0.0)  # never prefer a result hotter than -0.5 dBFS
+        if best is None or score < best[0]:
+            best = (score, p, open(dst, "rb").read())
+        if abs(p + 1.0) <= 0.3:
+            return True
+        gain -= (p + 1.0) * 0.9
+    with open(dst, "wb") as f:  # keep the closest attempt
+        f.write(best[2])
     return True
 
 

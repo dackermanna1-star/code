@@ -106,7 +106,7 @@ test("a chip dropped from 1.2 m bounces, slides, settles flat on the floor and f
   assert.ok(maxBounceY > 0.005 && maxBounceY < 0.25, `bounced a little (${maxBounceY})`);
   assert.equal(sim.checkInvariants(), null);
   // settled pieces cost nothing: no further probes except the slow re-check, matrix untouched
-  const sb = sim.shapes[d.shape];
+  const sb = sim.bins[d.bin]!;
   const m0 = Array.from(sb.mat.subarray(d.inst * 16, d.inst * 16 + 16));
   for (let s = 0; s < 30; s++) sim.step(FIXED_DT);
   assert.deepEqual(Array.from(sb.mat.subarray(d.inst * 16, d.inst * 16 + 16)), m0);
@@ -266,7 +266,7 @@ test("fuzz: random spawns/kicks/capacity changes keep invariants", () => {
     if (step % 50 === 0) assert.equal(sim.checkInvariants(), null, `step ${step}`);
   }
   assert.equal(sim.checkInvariants(), null);
-  for (const sb of sim.shapes) {
+  for (const sb of sim.activeBins) {
     sb.matDirty.normalize(sb.count);
     for (let r = 0; r < sb.matDirty.n; r++) assert.ok(sb.matDirty.lo[r] >= 0 && sb.matDirty.hi[r] <= sb.count);
   }

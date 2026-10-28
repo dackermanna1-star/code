@@ -13,10 +13,12 @@
 //     furniture), when an impact nearby disturbs it (`kick`), and a slow round-robin re-check
 //     of settled pieces (debris left on a table falls when the table is gone).
 //
-// Rendering data lives here too, as dense per-shape instance arrays laid out exactly like
-// Babylon thin-instance buffers (16-float row-major matrices, 4-float colour, 4-float surf).
-// Each shape's instances are partitioned [settled prefix | moving suffix] so that a frame only
-// needs to upload the moving range; scattered changes are tracked in small dirty-range lists.
+// Rendering data lives here too, as dense instance arrays laid out exactly like Babylon
+// thin-instance buffers (16-float row-major matrices, 4-float colour, 4-float surf), one array
+// set per BIN = (spatial zone, chunk shape). Zones (default: 4 m grid cells) let the renderer
+// give each instanced mesh a tight bounding box so room-based light assignment works. Each
+// bin's instances are partitioned [settled prefix | moving suffix] so that a frame only needs to
+// upload the moving range; scattered changes are tracked in small dirty-range lists.
 //
 // Hard cap: when full, the OLDEST SETTLED piece is recycled first, then the oldest overall.
 
@@ -173,8 +175,10 @@ export class DirtyRanges {
   }
 }
 
-/** Dense thin-instance storage for one chunk shape. */
+/** Dense thin-instance storage for one bin (zone × chunk shape). */
 export class ShapeBuffers {
+  readonly zone: number;
+  readonly shape: number;
   /** Live instances: [0, settled) frozen, [settled, count) moving. */
   count = 0;
   settled = 0;
@@ -188,7 +192,9 @@ export class ShapeBuffers {
   matDirty = new DirtyRanges();
   attrDirty = new DirtyRanges();
 
-  constructor(initialCap: number) {
+  constructor(zone: number, shape: number, initialCap: number) {
+    this.zone = zone;
+    this.shape = shape;
     this.grow(initialCap);
   }
 
@@ -244,12 +250,37 @@ export interface MicroSimOptions {
   maxProbesPerStep?: number;
   /** Settled pieces re-checked per step (round robin). Default 3. */
   recheckPerStep?: number;
+  /** Spatial zone of a spawn position, 0..MAX_ZONES-1 (default: 4 m grid, see defaultZoneOf). */
+  zoneOf?: (x: number, y: number, z: number) => number;
   seed?: number;
+}
+
+export const MAX_ZONES = 64;
+/** Zone grid: 8 × 8 cells of ZONE_SIZE m starting at ZONE_ORIGIN (covers the apartment + balcony). */
+export const ZONE_SIZE = 4;
+export const ZONE_ORIGIN = -8;
+
+export function defaultZoneOf(x: number, _y: number, z: number): number {
+  const ix = Math.min(7, Math.max(0, Math.floor((x - ZONE_ORIGIN) / ZONE_SIZE)));
+  const iz = Math.min(7, Math.max(0, Math.floor((z - ZONE_ORIGIN) / ZONE_SIZE)));
+  return ix + iz * 8;
+}
+
+/** Horizontal bounds of a default zone (for mesh bounding boxes). */
+export function zoneBounds(zone: number): { x0: number; x1: number; z0: number; z1: number } {
+  const ix = zone % 8,
+    iz = Math.floor(zone / 8) % 8;
+  const x0 = ZONE_ORIGIN + ix * ZONE_SIZE,
+    z0 = ZONE_ORIGIN + iz * ZONE_SIZE;
+  return { x0, x1: x0 + ZONE_SIZE, z0, z1: z0 + ZONE_SIZE };
 }
 
 /** Ballistic micro-debris simulation with persistent settled debris. */
 export class MicroSim {
-  readonly shapes: ShapeBuffers[] = [];
+  /** Instance bins indexed by zone * SHAPE_COUNT + shape (null until first used). */
+  readonly bins: Array<ShapeBuffers | null> = new Array(MAX_ZONES * SHAPE_COUNT).fill(null);
+  /** Bins in creation order (iteration without null checks). */
+  readonly activeBins: ShapeBuffers[] = [];
   maxProbesPerStep: number;
   recheckPerStep: number;
   /** Number of ground probes performed (stats). */
@@ -263,6 +294,7 @@ export class MicroSim {
   private alloc = 0;
   private live = 0;
   private groundProbe: (x: number, y: number, z: number) => number | null;
+  private zoneOf: (x: number, y: number, z: number) => number;
   private rngState: number;
 
   // ---- per-slot SoA state
@@ -270,6 +302,7 @@ export class MicroSim {
   private state = new Uint8Array(0);
   private kindA = new Uint8Array(0);
   private shapeA = new Uint8Array(0);
+  private binA = new Uint16Array(0);
   private pq = new Uint8Array(0);
   private gen = new Uint32Array(0);
   private sstamp = new Uint32Array(0);
@@ -333,10 +366,10 @@ export class MicroSim {
 
   constructor(opts: MicroSimOptions) {
     this.groundProbe = opts.groundProbe;
+    this.zoneOf = opts.zoneOf ?? defaultZoneOf;
     this.maxProbesPerStep = opts.maxProbesPerStep ?? 48;
     this.recheckPerStep = opts.recheckPerStep ?? 3;
     this.rngState = (opts.seed ?? 0x2545f491) >>> 0;
-    for (let s = 0; s < SHAPE_COUNT; s++) this.shapes.push(new ShapeBuffers(64));
     this.setCapacity(opts.capacity);
   }
 
@@ -391,6 +424,11 @@ export class MicroSim {
     this.state = g8(this.state);
     this.kindA = g8(this.kindA);
     this.shapeA = g8(this.shapeA);
+    {
+      const b = new Uint16Array(n);
+      b.set(this.binA);
+      this.binA = b;
+    }
     this.pq = g8(this.pq);
     this.gen = g32(this.gen);
     this.sstamp = g32(this.sstamp);
@@ -536,8 +574,22 @@ export class MicroSim {
     this.drag[i] = def.plateThickness > 0 ? 0.3 / (def.density * Math.max(def.plateThickness, 0.0001)) : 0.9 / (def.density * size);
     this.tState[i] = 0;
     this.phase[i] = this.rand() * 100;
-    // render instance (moving tail of its shape)
-    const sb = this.shapes[shape];
+    // render instance (moving tail of its bin)
+    let zone = 0;
+    try {
+      zone = this.zoneOf(p.x, p.y, p.z) | 0;
+    } catch {
+      zone = 0;
+    }
+    if (!(zone >= 0 && zone < MAX_ZONES)) zone = 0;
+    const bi = zone * SHAPE_COUNT + shape;
+    let sb = this.bins[bi];
+    if (!sb) {
+      sb = new ShapeBuffers(zone, shape, 64);
+      this.bins[bi] = sb;
+      this.activeBins.push(sb);
+    }
+    this.binA[i] = bi;
     if (sb.count >= sb.cap) sb.grow(Math.min(Math.max(sb.cap * 2, 64), Math.max(this.cap, sb.cap + 64)));
     const n = sb.count++;
     sb.owner[n] = i;
@@ -778,8 +830,10 @@ export class MicroSim {
     if (dt > 0.05) dt = 0.05;
     this.stepId = (this.stepId + 1) >>> 0 || 1;
     this.probesLeft = this.maxProbesPerStep;
+    if (this.lowWaterMarks.length < this.activeBins.length) this.lowWaterMarks = new Int32Array(this.bins.length);
     const lowWater = this.lowWaterMarks;
-    for (let s = 0; s < SHAPE_COUNT; s++) lowWater[s] = this.shapes[s].settled;
+    const nb = this.activeBins.length;
+    for (let s = 0; s < nb; s++) lowWater[s] = this.activeBins[s].settled;
     // Service the probe queue BEFORE integrating so this step uses fresh heights.
     this.serviceProbes();
 
@@ -909,14 +963,15 @@ export class MicroSim {
     }
 
     this.recheckSettled();
-    // Moving regions (plus anything that settled this step) need re-upload.
-    for (let s = 0; s < SHAPE_COUNT; s++) {
-      const sb = this.shapes[s];
+    // Moving regions (plus anything that settled this step) need re-upload. Bins created during
+    // this step (index >= nb) were fully marked dirty by their spawns.
+    for (let s = 0; s < nb; s++) {
+      const sb = this.activeBins[s];
       const lo = Math.min(lowWater[s], sb.settled);
       if (sb.count > lo) sb.matDirty.addRange(lo, sb.count);
     }
   }
-  private lowWaterMarks = new Int32Array(SHAPE_COUNT);
+  private lowWaterMarks = new Int32Array(MAX_ZONES * SHAPE_COUNT);
 
   /** Integrate orientation by the world-frame angular velocity, then damp the spin. */
   private integrateSpin(i: number, dt: number, damp: number): void {
@@ -1028,7 +1083,7 @@ export class MicroSim {
 
   /** Write the instance matrix (Babylon row-major layout: rows = scaled local axes, row 3 = translation). */
   private writeMatrix(i: number): void {
-    const sb = this.shapes[this.shapeA[i]];
+    const sb = this.bins[this.binA[i]]!;
     const o = this.inst[i] * 16;
     const m = sb.mat;
     const x = this.qx[i],
@@ -1135,7 +1190,7 @@ export class MicroSim {
     this.state[i] = St.Settled;
     this.tState[i] = 0;
     this.activeRemove(i);
-    const sb = this.shapes[this.shapeA[i]];
+    const sb = this.bins[this.binA[i]]!;
     this.writeMatrix(i);
     this.swapInstances(sb, this.inst[i], sb.settled);
     sb.settled++;
@@ -1146,7 +1201,7 @@ export class MicroSim {
   /** Make a settled piece dynamic again. */
   private wake(i: number): void {
     if (this.state[i] !== St.Settled) return;
-    const sb = this.shapes[this.shapeA[i]];
+    const sb = this.bins[this.binA[i]]!;
     sb.settled--;
     this.swapInstances(sb, this.inst[i], sb.settled);
     this.state[i] = St.Air;
@@ -1156,7 +1211,7 @@ export class MicroSim {
 
   private kill(i: number): void {
     if (!this.alive[i]) return;
-    const sb = this.shapes[this.shapeA[i]];
+    const sb = this.bins[this.binA[i]]!;
     const idx = this.inst[i];
     if (this.state[i] === St.Settled) {
       // hole in the settled prefix: fill with the last settled, then fill that with the last moving
@@ -1203,8 +1258,7 @@ export class MicroSim {
     if (!(radius > 0 && speed > 0 && Number.isFinite(x + y + z))) return 0;
     const r2 = radius * radius;
     let n = 0;
-    for (let s = 0; s < SHAPE_COUNT; s++) {
-      const sb = this.shapes[s];
+    for (const sb of this.activeBins) {
       for (let k = 0; k < sb.count; k++) {
         const i = sb.owner[k];
         const dx = this.px[i] - x,
@@ -1248,8 +1302,7 @@ export class MicroSim {
   disturb(x: number, y: number, z: number, radius: number): void {
     if (!(radius > 0)) return;
     const r2 = radius * radius;
-    for (let s = 0; s < SHAPE_COUNT; s++) {
-      const sb = this.shapes[s];
+    for (const sb of this.activeBins) {
       for (let k = 0; k < sb.settled; k++) {
         const i = sb.owner[k];
         const dx = this.px[i] - x,
@@ -1264,7 +1317,7 @@ export class MicroSim {
   clear(): void {
     for (let i = 0; i < this.alloc; i++) if (this.alive[i]) this.kill(i);
     this.spawnLen = this.settledLen = this.probeQLen = 0;
-    for (const sb of this.shapes) {
+    for (const sb of this.activeBins) {
       sb.matDirty.clear();
       sb.attrDirty.clear();
     }
@@ -1272,7 +1325,7 @@ export class MicroSim {
 
   // ------------------------------------------------------------------ introspection (tests/debug)
   /** Snapshot of one slot (tests). */
-  debugSlot(i: number): { alive: boolean; state: number; x: number; y: number; z: number; vx: number; vy: number; vz: number; ground: number; shape: number; inst: number; up: number } {
+  debugSlot(i: number): { alive: boolean; state: number; x: number; y: number; z: number; vx: number; vy: number; vz: number; ground: number; shape: number; bin: number; inst: number; up: number } {
     const qx = this.qx[i],
       qy = this.qy[i],
       qz = this.qz[i],
@@ -1291,6 +1344,7 @@ export class MicroSim {
       vz: this.vz[i],
       ground: this.ground[i],
       shape: this.shapeA[i],
+      bin: this.binA[i],
       inst: this.inst[i],
       up: Math.max(Math.abs(r10), Math.abs(r11), Math.abs(r12)),
     };
@@ -1299,16 +1353,18 @@ export class MicroSim {
   /** Verify internal invariants (tests). Returns an error message or null. */
   checkInvariants(): string | null {
     let live = 0;
-    for (let s = 0; s < SHAPE_COUNT; s++) {
-      const sb = this.shapes[s];
-      if (sb.settled < 0 || sb.settled > sb.count) return `shape ${s}: settled ${sb.settled} count ${sb.count}`;
+    for (let b = 0; b < this.bins.length; b++) {
+      const sb = this.bins[b];
+      if (!sb) continue;
+      const s = b;
+      if (sb.settled < 0 || sb.settled > sb.count) return `bin ${s}: settled ${sb.settled} count ${sb.count}`;
       for (let k = 0; k < sb.count; k++) {
         const i = sb.owner[k];
-        if (!this.alive[i]) return `shape ${s} inst ${k}: owner ${i} dead`;
-        if (this.inst[i] !== k) return `shape ${s} inst ${k}: owner ${i} has inst ${this.inst[i]}`;
-        if (this.shapeA[i] !== s) return `slot ${i}: shape mismatch`;
+        if (!this.alive[i]) return `bin ${s} inst ${k}: owner ${i} dead`;
+        if (this.inst[i] !== k) return `bin ${s} inst ${k}: owner ${i} has inst ${this.inst[i]}`;
+        if (this.binA[i] !== b || this.shapeA[i] !== sb.shape) return `slot ${i}: bin/shape mismatch`;
         const settled = this.state[i] === St.Settled;
-        if (settled !== k < sb.settled) return `shape ${s} inst ${k}: settled=${settled} but partition ${sb.settled}`;
+        if (settled !== k < sb.settled) return `bin ${s} inst ${k}: settled=${settled} but partition ${sb.settled}`;
         if (settled !== this.activeIdx[i] < 0) return `slot ${i}: settled=${settled} activeIdx ${this.activeIdx[i]}`;
       }
       live += sb.count;

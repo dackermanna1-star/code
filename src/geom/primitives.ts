@@ -288,8 +288,10 @@ export function latheTiles(opts: LatheOptions): Tile[] {
         inner: opts.inner,
         edge: opts.edge,
         uv: (n, isInner) => {
+          // u = arc length at this row's mean radius: exact along the row, small seams between rows
           const st = isInner ? inner[s] : prof[s];
-          return revolveUV(n, am, rRef, vx(st.r * cm, st.y, st.r * sm), arcLen[s]);
+          const rRow = isInner ? (inner[s].r + inner[s + 1].r) / 2 : (prof[s].r + prof[s + 1].r) / 2;
+          return revolveUV(n, am, rRow > 1e-9 ? rRow : rRef, vx(st.r * cm, st.y, st.r * sm), arcLen[s]);
         },
       };
       const poly = buildTile(corners, style, tol);

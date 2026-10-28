@@ -16,7 +16,7 @@
 //  * Structural changes (membership) rebuild meshes in the same step; cosmetic changes
 //    (dents/cracks) are rebuilt under a per-step time budget.
 
-import { Quaternion, TransformNode, Vector3, type PhysicsBody, type PhysicsShape, type Scene } from "@babylonjs/core";
+import { AbstractMesh, Quaternion, TransformNode, Vector3, type PhysicsBody, type PhysicsShape, type Scene } from "@babylonjs/core";
 import { Layer, type IslandMeshes, type PhysicsSystem, type RenderSystem, type ShapeOpts, type VfxSystem } from "../../core/context.ts";
 import type { EventBus, GameEvents } from "../../core/events.ts";
 import type { Rng } from "../../core/rng.ts";
@@ -543,8 +543,13 @@ export class World {
     });
     part.shapeLayer = island.layer;
     if (old) this.deadShapes.push(old);
-    if (part.inContainer) island.rebuildContainer = true;
+    if (part.inContainer) {
+      // swap the child (in place for static islands, rebuild for dynamic ones)
+      island.pendingRemove.add(part);
+      island.pendingAdd.push(part);
+    }
     this.syncContainer(island);
+    this.releaseDeadShapes();
   }
 
   // ------------------------------------------------------------------------ membership
@@ -707,7 +712,7 @@ export class World {
       else {
         if (!island.isStatic) this.reclassify(island);
         this.syncContainer(island);
-        this.applyKicks(island, null);
+        this.applyKicks(island);
       }
       return;
     }
@@ -764,8 +769,8 @@ export class World {
       cy += c.y * isl.mass;
       cz += c.z * isl.mass;
     }
-    this.applyKicks(island, null);
-    for (const isl of created) this.applyKicks(isl, null);
+    this.applyKicks(island);
+    for (const isl of created) this.applyKicks(isl);
     if (newMass > 0) {
       this.events.emit("split", { pos: { x: cx / newMass, y: cy / newMass, z: cz / newMass }, mass: newMass, pieces: created.length });
     }
@@ -814,7 +819,7 @@ export class World {
   }
 
   /** Add the mass-weighted pending fragment kicks of the island's parts to its velocity. */
-  private applyKicks(isl: Island, _unused: null): void {
+  private applyKicks(isl: Island): void {
     let kx = 0,
       ky = 0,
       kz = 0,
@@ -877,6 +882,13 @@ export class World {
     island.childParts.length = 0;
     island.pendingAdd.length = 0;
     island.pendingRemove.clear();
+    for (const ch of island.node.getChildren()) {
+      // anything still parented here belongs to a feature that should have moved it
+      if (!(ch instanceof AbstractMesh)) {
+        this.warnOnce("orphan", `island ${island.id}: orphaned child '${ch.name}' detached on dispose`);
+        (ch as TransformNode).parent = null;
+      }
+    }
     island.node.dispose();
     island.asm.islands.delete(island);
     this.islands.delete(island);
@@ -908,11 +920,9 @@ export class World {
       p.bonds.length = 0;
       island.asm.brokenVolume += p.volume;
     }
+    // parts first (features release their lights/emitters while the node still exists)
+    for (const p of parts) this.killPart(p, false);
     this.disposeIsland(island);
-    for (const p of parts) {
-      p.island = null;
-      this.killPart(p, false);
-    }
     this.releaseDeadShapes();
   }
 

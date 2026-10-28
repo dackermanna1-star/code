@@ -49,7 +49,7 @@ import { v3, vcross, vnorm, vlen, vsub, vadd, vscale, vdot, vperp, qaxisAngle, q
 import { polyCentroid } from "../../geom/poly.ts";
 import { MATERIALS, type MaterialId } from "../../destruction/model/materials.ts";
 import type { BondKind } from "../../destruction/model/types.ts";
-import type { SurfaceName } from "../../render/surfaces.ts";
+import { S, type SurfaceName } from "../../render/surfaces.ts";
 import { Builder, vec, type V3, type Rot } from "./builder.ts";
 import { frameBarPoints, arcPoints, type BarWidths } from "./shapes.ts";
 
@@ -1236,7 +1236,7 @@ export function book(
 // =============================================================================================
 
 export interface VesselOpts {
-  /** Outer profile [radius, y] bottom → top. */
+  /** Outer profile [radius, y] bottom → top; the first point should be at y = 0. */
   profile: Array<[number, number]>;
   /** Wall thickness (m). */
   t: number;
@@ -1245,24 +1245,45 @@ export interface VesselOpts {
   surf?: SurfaceName;
   innerSurf?: SurfaceName;
   edgeSurf?: SurfaceName;
+  /** Surface under the base (unglazed foot). */
+  footSurf?: SurfaceName;
   tint?: number;
   innerTint?: number;
-  /** Close the bottom (default true). */
-  cap?: boolean;
+  /**
+   * Bottom: "disc" (default) = one convex base part fitted inside the wall ring (fewest parts);
+   * "tiles" = the lathe's pie-slice cap tiles; "none" = open (a ring, a lampshade).
+   */
+  cap?: "disc" | "tiles" | "none";
+  /** Base thickness (m), default 1.2 × t. */
+  baseT?: number;
   /** Total mass override (kg). */
   kg?: number;
 }
 
-/** Thick-walled vessel of revolution (tiles fused into one shell). Sits on y = 0. Returns the tile names. */
+/**
+ * Thick-walled vessel of revolution: wall tiles fused into one shell plus a base. For steep walls
+ * (mugs, glasses, bottles, vases) the base is ONE frustum part whose sides lie exactly in the
+ * wall's inner facet planes (fused face-to-face to every wall tile); for strongly flared shapes
+ * (plates, shallow bowls) the lathe's mitred cap tiles are used instead. Sits on y = 0.
+ * Returns all part names; with a disc base the base is the LAST entry. `kg` = wall mass override.
+ */
 export function vessel(b: Builder, name: string, o: VesselOpts, pos: V3 = [0, 0, 0], rot?: Rot): string[] {
   const mat = o.mat ?? "ceramic";
   const glass = mat === "glass" || mat === "temperedGlass";
   const surf = o.surf ?? (glass ? "glass" : "ceramic_glaze");
-  return b.lathe(name, mat, surf, o.innerSurf ?? surf, {
+  const segs = o.segments ?? 10;
+  need(o.profile.length >= 2, `vessel '${name}': profile needs >= 2 points`);
+  const [r0, y0] = o.profile[0];
+  const [r1, y1] = o.profile[1];
+  const dr = r1 - r0,
+    dy = y1 - y0;
+  const slope = dy > 1e-9 ? dr / dy : Infinity;
+  const capMode = o.cap ?? (Math.abs(slope) < 0.5 ? "disc" : "tiles");
+  const wall = b.lathe(name, mat, surf, o.innerSurf ?? surf, {
     profile: o.profile,
     thickness: o.t,
-    segments: o.segments ?? 10,
-    capBottom: o.cap ?? true,
+    segments: segs,
+    capBottom: capMode === "tiles",
     tint: o.tint,
     innerTint: o.innerTint,
     edgeSurf: o.edgeSurf ?? (glass ? "glass_edge" : surf),
@@ -1270,6 +1291,40 @@ export function vessel(b: Builder, name: string, o: VesselOpts, pos: V3 = [0, 0,
     rot,
     mass: o.kg,
   });
+  if (capMode !== "disc") return wall;
+  need(Math.abs(y0) < 1e-9 && Number.isFinite(slope), `vessel '${name}': a disc base needs a profile starting at y = 0 and rising`);
+  const l = Math.hypot(dr, dy);
+  const nx = dy / l,
+    ny = -dr / l; // outward normal of the first wall span (r, y)
+  const yIn = -ny * o.t; // height where the inner wall surface starts
+  const top = Math.min(Math.max(o.baseT ?? o.t * 1.2, yIn + 0.5 * o.t), dy * 0.6);
+  const rIn = (y: number): number => r0 - nx * o.t + (y - yIn) * slope;
+  need(rIn(0) > 0.002 && rIn(top) > 0.002, `vessel '${name}': wall too thick for a disc base`);
+  let base = "";
+  b.group(pos, rot, "", () => {
+    base = b.cyl(`${name}_base`, mat, surf, rIn(0), top, [0, top / 2, 0], {
+      rTop: rIn(top),
+      segments: segs,
+      tint: o.innerTint ?? o.tint,
+      capSurf: o.innerSurf ?? surf,
+      capTint: o.innerTint ?? o.tint,
+    });
+  });
+  if (o.footSurf) {
+    const foot = S[o.footSurf];
+    const p = b.get(base);
+    for (const f of p.poly.faces) if (f.n.y < -0.9) f.attr = { ...f.attr, surf: foot };
+  }
+  let fused = 0;
+  for (const w of wall) {
+    const c = b.contact(base, w, 0.001);
+    if (c && (c.kind === "face" || c.penetrating)) {
+      b.fuse(base, w);
+      fused++;
+    }
+  }
+  if (fused < wall.length) b.warn(`vessel '${name}': base touches only ${fused}/${wall.length} wall tiles`);
+  return [...wall, base];
 }
 
 /** Lowest tile of a vessel (its base / cap) — where liquid features go. */
@@ -1316,16 +1371,19 @@ export function mug(
     t = o.t ?? 0.0055;
   const rb = r * 0.9;
   return scoped(b, name, pos, rot, () => {
-    const body = b.lathe("body", "ceramic", o.surf ?? "ceramic_glaze", "ceramic_glaze", {
+    const body = vessel(b, "body", {
       profile: [
         [rb, 0],
         [r, h],
       ],
-      thickness: t,
-      segments: o.segments ?? 10,
-      capBottom: true,
+      t,
+      segments: o.segments ?? 8,
+      surf: o.surf ?? "ceramic_glaze",
+      innerSurf: "ceramic_glaze",
+      footSurf: "ceramic_bisque",
       tint: o.tint ?? 0xffffff,
       innerTint: o.innerTint ?? 0xf6f3ec,
+      cap: "disc",
     });
     const handle: string[] = [];
     if (o.handle !== false) {
@@ -1385,18 +1443,22 @@ export function bottle(
   const t = wine ? 0.0035 : 0.003;
   const tint = o.tint ?? (wine ? 0x2f5a35 : 0x6b3d14);
   return scoped(b, name, pos, rot, () => {
-    const shell = b.lathe("shell", "glass", "glass_dark", "glass_dark", {
+    const shell = vessel(b, "shell", {
       profile: [
         [R, 0],
         [R, hb],
         [rn + 0.002, hs],
       ],
-      thickness: t,
+      t,
       segments: o.segments ?? 8,
-      capBottom: true,
+      mat: "glass",
+      surf: "glass_dark",
+      innerSurf: "glass_dark",
+      edgeSurf: "glass_edge",
       tint,
       innerTint: tint,
-      edgeSurf: "glass_edge",
+      cap: "disc",
+      baseT: t * 1.6,
     });
     // solid neck sunk 4 mm into the shoulder ring so it fuses to the shoulder tiles
     const neck = b.cyl("neck", "glass", "glass_dark", rn, hn + 0.004, [0, hs - 0.004 + (hn + 0.004) / 2, 0], { segments: o.segments ?? 8, tint, capSurf: "glass_edge" });
@@ -1409,7 +1471,7 @@ export function bottle(
       }
     }
     if (!fused) b.warn(`bottle '${name}': neck does not touch the shoulder`);
-    const base = lowestPart(b, shell);
+    const base = shell[shell.length - 1];
     const liq = o.liquid === undefined ? { color: wine ? 0x5a0f1e : 0xd9a441, litres: wine ? 0.75 : 0.33 } : o.liquid;
     if (liq) b.liquid(base, liq.color, liq.litres);
     return { shell, neck, base, all: [...shell, neck] };

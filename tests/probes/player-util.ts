@@ -355,3 +355,55 @@ export async function makeWorld(opts: { gravity?: number } = {}): Promise<ProbeW
 export function key(code: string, down: boolean) {
   window.dispatchEvent(new KeyboardEvent(down ? "keydown" : "keyup", { code, bubbles: true }));
 }
+
+// ------------------------------------------------------------------ HUD probe helpers
+/** A simple furnished room (floor, walls, a few boxes) as a backdrop for HUD screenshots. */
+export function buildBackdrop(w: ProbeWorld): { crate: PhysicsBody } {
+  w.box("floor", [10, 0.2, 10], [0, -0.1, 0], { color: new Color3(0.55, 0.42, 0.3) });
+  w.box("wallN", [10, 2.7, 0.2], [0, 1.35, 4], { color: new Color3(0.86, 0.84, 0.78) });
+  w.box("wallW", [0.2, 2.7, 10], [-3.5, 1.35, 0], { color: new Color3(0.8, 0.84, 0.78) });
+  w.box("wallE", [0.2, 2.7, 10], [3.5, 1.35, 0], { color: new Color3(0.82, 0.8, 0.76) });
+  w.box("counter", [2.4, 0.9, 0.6], [-1.6, 0.45, 3.5], { color: new Color3(0.9, 0.9, 0.88) });
+  const crate = w.box("microwave", [0.5, 0.3, 0.36], [0.2, 0.15, 1.6], { motion: PhysicsMotionType.DYNAMIC, mass: 13, color: new Color3(0.78, 0.78, 0.8) });
+  w.destruction.register(crate, { name: "Microwave Oven", mat: "steelSheet", isStatic: false, grabbable: true, usable: null, damage: 0.34 });
+  w.box("tv", [1.2, 0.7, 0.08], [1.8, 1.3, 3.85], { color: new Color3(0.08, 0.08, 0.1) });
+  w.box("table", [1.0, 0.75, 0.6], [1.6, 0.375, 1.8], { motion: PhysicsMotionType.DYNAMIC, mass: 18, color: new Color3(0.45, 0.3, 0.18) });
+  return { crate };
+}
+
+/** A tool system stand-in (selected tool + charge) so the hotbar/charge meter can be shown. */
+export function stubTools(current: string, charge = 0) {
+  const names: Record<string, string> = { hands: "Fists", hammer: "Claw Hammer", sledgehammer: "Sledgehammer", crowbar: "Crowbar", bat: "Baseball Bat", axe: "Axe", extinguisher: "Extinguisher" };
+  const defs: Record<string, { name: string }> = {};
+  for (const [k, v] of Object.entries(names)) defs[k] = { name: v };
+  return {
+    current,
+    defs,
+    charge,
+    busy: false,
+    select(id: string) {
+      this.current = id;
+    },
+    fixedUpdate() {},
+    update() {},
+    kick() {},
+    stomp() {},
+    debugSwing() {},
+  };
+}
+
+/** Render a few frames through the real render loop (rAF) so the canvas has content. */
+export function renderFrames(w: ProbeWorld, n: number, perFrame?: () => void): Promise<void> {
+  return new Promise((res) => {
+    let k = 0;
+    const fn = () => {
+      perFrame?.();
+      w.scene.render();
+      if (++k >= n) {
+        w.engine.stopRenderLoop(fn);
+        res();
+      }
+    };
+    w.engine.runRenderLoop(fn);
+  });
+}

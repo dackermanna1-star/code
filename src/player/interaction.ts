@@ -52,6 +52,8 @@ export const LIFT_FORCE = 450; // N
 export const SLAM_FORCE = 1400; // N
 export const HOLD_MIN = 0.6;
 export const HOLD_MAX = 2.5;
+/** Initial hold distance when picking something up (it is brought this close). */
+export const HOLD_PICKUP = 1.15;
 export const THROW_MAX_ENERGY = 250; // J
 export const THROW_MAX_SPEED = 16; // m/s
 /** Fraction of the max throw energy for a quick tap (no charge). */
@@ -153,6 +155,8 @@ export class Interaction {
   targetDistance = -1;
   /** Throw charge 0..1 while charging, -1 otherwise. */
   throwCharge = -1;
+  /** Arm stretch: hold target − grab point (world, m); zero when nothing is held. */
+  readonly stretch = new Vector3();
 
   private readonly ctx: GameContext;
   private hold: Hold | null = null;
@@ -240,7 +244,8 @@ export class Interaction {
   addWheel(notches: number): void {
     if (!this.hold || !Number.isFinite(notches) || notches === 0) return;
     const h = this.hold;
-    h.dist = Math.max(Math.max(HOLD_MIN, h.minDist), Math.min(HOLD_MAX, h.dist + notches * 0.15));
+    const lo = h.mode === "static" || h.minDist < HOLD_MIN ? 0.2 : Math.max(HOLD_MIN, h.minDist);
+    h.dist = Math.max(lo, Math.min(HOLD_MAX, h.dist + notches * 0.15));
   }
 
   // ---------------------------------------------------------------- per fixed step
@@ -324,11 +329,14 @@ export class Interaction {
     Quaternion.InverseToRef(q, this.qTmp);
     this.tmp.applyRotationQuaternionToRef(this.qTmp, local);
     const mass = this.readMass(body, info?.mass ?? null);
-    const minDist = mode === "dynamic" ? this.minHoldDistance(body, hit.point) : 0.2;
+    const minDist = mode === "dynamic" && !(info?.usable === "door" || info?.usable === "drawer") ? this.minHoldDistance(body, hit.point) : 0.2;
+    // Picking something up brings it towards you (≤ HOLD_PICKUP); doors/drawers and anchored
+    // things are held where the hand is.
+    const jointed = info?.usable === "door" || info?.usable === "drawer";
     const dist =
-      mode === "dynamic"
-        ? Math.max(Math.max(HOLD_MIN, minDist), Math.min(HOLD_MAX, hit.distance))
-        : Math.max(0.2, hit.distance);
+      mode === "static" || jointed
+        ? Math.max(0.2, hit.distance)
+        : Math.max(Math.max(HOLD_MIN, minDist), Math.min(HOLD_PICKUP, hit.distance));
     const h: Hold = {
       body,
       mode,
@@ -670,6 +678,7 @@ export class Interaction {
     this.charging = false;
     this.throwCharge = -1;
     this.target = null;
+    this.stretch.setAll(0);
     const body = h.body;
     const alive = !body.isDisposed && !!body.transformNode && !body.transformNode.isDisposed();
     if (h.mode === "dynamic" && alive) {
@@ -701,6 +710,7 @@ export class Interaction {
     view.forward.scaleToRef(h.dist, T);
     T.addInPlace(view.eye);
     T.subtractToRef(P, this.tmp); // stretch
+    this.stretch.copyFrom(this.tmp);
     const stretch = this.tmp.length();
     if (!Number.isFinite(stretch)) {
       this.drop("nan");
@@ -786,6 +796,7 @@ export class Interaction {
     // error, stuck check
     const e = this.tmp;
     T.subtractToRef(P, e);
+    this.stretch.copyFrom(e);
     const stretch = e.length();
     if (stretch > DROP_STRETCH && h.slamTime <= 0) {
       h.stretchTime += dt;
@@ -824,7 +835,18 @@ export class Interaction {
       this.drop("nan");
       return;
     }
-    if (jLen > jMax) J.scaleInPlace(jMax / jLen);
+    if (m * G > fMax * 0.95) {
+      // Too heavy to lift: spend the hand's force like a person dragging a heavy thing — lift
+      // at most ~55 % of it (unloading/tilting the object) and pull with the rest.
+      const upMax = 0.55 * jMax;
+      if (J.y > upMax) J.y = upMax;
+      const hMax = Math.sqrt(Math.max(0, jMax * jMax - J.y * J.y));
+      const hLen = Math.hypot(J.x, J.z);
+      if (hLen > hMax && hLen > 0) {
+        J.x *= hMax / hLen;
+        J.z *= hMax / hLen;
+      }
+    } else if (jLen > jMax) J.scaleInPlace(jMax / jLen);
     body.applyImpulse(J, P);
     J.scaleToRef(1 / dt, h.lastForce);
 

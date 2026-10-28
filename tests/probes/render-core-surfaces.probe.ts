@@ -2,7 +2,8 @@
 // shadow-casting sun + sky fill, ACES + bloom. Checks texture arrays, tiling, normals,
 // roughness/metallic, emissive bloom, glass, shadows. Also times buildIsland.
 import { Vector3, TransformNode } from "@babylonjs/core";
-import { makeScene, boxGeom, renderFrames, setBoxWinding } from "./render-core-util.ts";
+import { makeScene, boxGeom, renderFrames, setBoxWinding, snap } from "./render-core-util.ts";
+import { createInteriorEnvironment, EnvironmentCapture } from "../../src/render/reflections.ts";
 import { loadTextures } from "../../src/render/textures.ts";
 import { createWorldMaterial } from "../../src/render/worldMaterial.ts";
 import { createGlassMaterial } from "../../src/render/glass.ts";
@@ -49,11 +50,47 @@ export async function probe(): Promise<unknown> {
   for (let k = 0; k < 10; k++) batcher.build(node, geoms, meshes, "grid");
   const rebuildMs = (performance.now() - tr) / 10;
 
+  const env = createInteriorEnvironment(scene, 64);
+  const capture = new EnvironmentCapture(scene, env);
   camera.position = new Vector3(0, 2.6, -2.2);
   camera.setTarget(new Vector3(0, 0, 1.6));
   await scene.whenReadyAsync();
   renderFrames(scene, 4);
+  const sheets: string[] = [];
+  sheets.push(snap(scene));
+  // close-ups: front rows (woods/walls/ceramics/metals) and back rows (printed/emissive)
+  camera.position = new Vector3(-1.6, 1.1, -1.0);
+  camera.setTarget(new Vector3(-1.2, 0.1, 0.8));
+  sheets.push(snap(scene));
+  camera.position = new Vector3(1.6, 1.1, -1.0);
+  camera.setTarget(new Vector3(1.2, 0.1, 0.8));
+  sheets.push(snap(scene));
+  camera.position = new Vector3(-1.4, 1.3, 1.2);
+  camera.setTarget(new Vector3(-1.2, 0.1, 3.2));
+  sheets.push(snap(scene));
+  camera.position = new Vector3(1.4, 1.3, 1.2);
+  camera.setTarget(new Vector3(1.2, 0.1, 3.2));
+  sheets.push(snap(scene));
+  // real capture from above the grid, then the overview again
+  const tc = performance.now();
+  const ok = await Promise.race([
+    capture.capture({ position: new Vector3(0, 1.2, 1.5), size: 128, box: { center: new Vector3(0, 1.0, 2), size: new Vector3(8, 3, 6) } }),
+    (async () => {
+      for (let i = 0; i < 40 && !capture.captured; i++) {
+        scene.render();
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      return capture.captured;
+    })(),
+  ]);
+  const captureMs = performance.now() - tc;
+  camera.position = new Vector3(0, 2.6, -2.2);
+  camera.setTarget(new Vector3(0, 0, 1.6));
+  sheets.push(snap(scene, 3));
   return {
+    captureOk: ok,
+    captureMs: Math.round(captureMs),
+    sheets,
     texMs: Math.round(texMs),
     texReport: lib.report,
     layers: lib.layerCounts,

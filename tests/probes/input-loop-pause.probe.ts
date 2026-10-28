@@ -3,7 +3,7 @@
 // freeze them; deltaTime units after a stall.
 import {
   Vector3, Color4, MeshBuilder, PhysicsAggregate, PhysicsShapeType, ParticleSystem, Texture, Animation,
-  type IParticleSystem,
+  PhysicsEngineV2, type IParticleSystem,
 } from "@babylonjs/core";
 import { FIXED_DT } from "../../src/core/time.ts";
 import { makeWorld, freshCanvas, r, frames, sleep, type World } from "./input-loop-util.ts";
@@ -34,7 +34,7 @@ export async function probe() {
     const w2 = await makeWorld({ canvas: freshCanvas() });
     w2.scene.physicsEnabled = false;
     const b = sphere(w2, 50);
-    const pe = w2.scene.getPhysicsEngine()! as unknown as { getBodies(): import("@babylonjs/core").PhysicsBody[] };
+    const pe = w2.scene.getPhysicsEngine() as PhysicsEngineV2; // getBodies() is not on IPhysicsEngine
     for (let i = 0; i < 60; i++) w2.plugin.executeStep(FIXED_DT, pe.getBodies());
     out.A_step_vs_executeStep = { yAfter60_step: r(yA, 6), yAfter60_executeStep: r(b.m.position.y, 6), identical: yA === b.m.position.y };
     w2.engine.dispose();
@@ -92,24 +92,42 @@ export async function probe() {
     const s1 = { animX: r(anim.position.x, 3), particles: ps.getActiveCount(), p: particlePositions(ps) };
     // freeze: animations via scene.animationsEnabled=false, particles via updateSpeed=0
     w.scene.animationsEnabled = false;
+    const tFreeze = performance.now();
     const savedSpeed = ps.updateSpeed;
     ps.updateSpeed = 0;
     await frames(20);
     const s2 = { animX: r(anim.position.x, 3), particles: ps.getActiveCount(), p: particlePositions(ps) };
     await frames(20);
     const s3 = { animX: r(anim.position.x, 3), particles: ps.getActiveCount(), p: particlePositions(ps) };
+    const frozenSec = (performance.now() - tFreeze) / 1000;
     w.scene.animationsEnabled = true;
     ps.updateSpeed = savedSpeed;
+    const tRes0 = performance.now();
     await frames(10);
     const s4 = { animX: r(anim.position.x, 3), particles: ps.getActiveCount(), p: particlePositions(ps) };
+    out.C1_animationsEnabledFalse_resume = {
+      frozenRealSec: r(frozenSec, 3),
+      resumedRealSec: r((performance.now() - tRes0) / 1000, 3),
+      advanceAfterResume: r(s4.animX - s3.animX, 3),
+      expectedIfNoJump: r(10 * ((performance.now() - tRes0) / 1000), 3),
+    };
     // clean alternative for Animatables: animationTimeScale = 0 (clock keeps ticking, delta scaled to 0)
     w.scene.animationTimeScale = 0;
+    const tPause = performance.now();
     await frames(20);
-    const s4b = { animX: r(anim.position.x, 3) };
+    const s4b = { animX: r(anim.position.x, 3), pausedRealSec: r((performance.now() - tPause) / 1000, 3) };
     w.scene.animationTimeScale = 1;
+    const tRes = performance.now();
     await frames(10);
-    const s4c = { animX: r(anim.position.x, 3) };
-    out.C2_animationTimeScale0 = { before: s4, frozen20f: s4b, resumed10f: s4c };
+    const s4c = { animX: r(anim.position.x, 3), resumedRealSec: r((performance.now() - tRes) / 1000, 3) };
+    out.C2_animationTimeScale0 = {
+      before: s4,
+      frozen20f: s4b,
+      resumed10f: s4c,
+      animUnitsPerSec: 10,
+      advanceAfterResume: r(s4c.animX - s4b.animX, 3),
+      expectedIfNoJump: r(10 * s4c.resumedRealSec, 3),
+    };
     // scene.particlesEnabled=false: systems are neither animated nor drawn
     w.scene.particlesEnabled = false;
     await frames(10);

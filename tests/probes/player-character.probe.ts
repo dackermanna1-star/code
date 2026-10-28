@@ -4,7 +4,7 @@
 // pushing loose furniture, and the camera eye height.
 import { PhysicsMotionType, Quaternion, Vector3, Color3 } from "@babylonjs/core";
 import { Layer } from "../../src/core/context.ts";
-import { Player, PLAYER } from "../../src/player/player.ts";
+import { PlayerCore, PLAYER } from "../../src/player/playerCore.ts";
 import { makeWorld, key, r2, r3, v3 } from "./player-util.ts";
 
 export async function probe() {
@@ -32,7 +32,7 @@ export async function probe() {
   const chair = w.box("chair", [0.5, 0.9, 0.5], [-3, 0.45, -1.2], { motion: PhysicsMotionType.DYNAMIC, mass: 6, color: new Color3(0.3, 0.5, 0.7) });
   const sofa = w.box("sofa", [2.0, 0.8, 0.9], [-3, 0.4, -5], { motion: PhysicsMotionType.DYNAMIC, mass: 120, color: new Color3(0.4, 0.3, 0.5) });
 
-  const p = new Player(w.ctx, { tools: null });
+  const p = new PlayerCore(w.ctx, null);
   (w.ctx as { player: unknown }).player = p;
   w.input.setEnabled(true);
   w.input.setFallback(true); // headless: no pointer lock

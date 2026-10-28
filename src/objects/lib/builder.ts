@@ -325,7 +325,18 @@ export class Builder {
     for (const f of poly.faces) {
       const a = f.attr;
       const hasMap = !!a.uv && (a.uv.u.x !== 0 || a.uv.u.y !== 0 || a.uv.u.z !== 0);
-      const uv = grain || !hasMap ? autoUV(f.n, ou, ov, grain) : { u: { ...a.uv.u }, v: { ...a.uv.v }, u0: a.uv.u0 + ou, v0: a.uv.v0 + ov };
+      let uv: FaceAttr["uv"];
+      if (!hasMap) uv = autoUV(f.n, ou, ov, grain);
+      else if (!grain) uv = { u: { ...a.uv.u }, v: { ...a.uv.v }, u0: a.uv.u0 + ou, v0: a.uv.v0 + ov };
+      else {
+        // Keep the primitive's (continuous, wrap-around) map when it can be grain-aligned:
+        // textures put the grain along u, so swap u/v when the grain runs along v.
+        const ug = Math.abs(vdot(vnorm(a.uv.u), grain)),
+          vg = Math.abs(vdot(vnorm(a.uv.v), grain));
+        if (ug > 0.95) uv = { u: { ...a.uv.u }, v: { ...a.uv.v }, u0: a.uv.u0 + ou, v0: a.uv.v0 + ov };
+        else if (vg > 0.95) uv = { u: { ...a.uv.v }, v: { ...a.uv.u }, u0: a.uv.v0 + ou, v0: a.uv.u0 + ov };
+        else uv = autoUV(f.n, ou, ov, grain);
+      }
       let surf = a.surf;
       if (wood && grain && endGrain && Math.abs(vdot(f.n, grain)) > 0.9) surf = S.wood_fiber;
       f.attr = { ...a, uv, surf };

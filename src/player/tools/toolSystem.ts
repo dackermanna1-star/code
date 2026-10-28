@@ -201,7 +201,7 @@ export class ToolSystem implements IToolSystem {
       stress: 0,
       spraying: false,
       sprayPressure: 0,
-      leg: { weight: 0, foot: v3(), dir: v3(0, 0, 1), kind: "kick" },
+      leg: { weight: 0, foot: v3(), dir: v3(0, 0, 1), kind: "kick", hip: v3(0.1, -0.9, 0.05), toe: v3(0, 0, 1) },
       speed: 0,
       kick: 0,
       phase: "idle",
@@ -1077,12 +1077,25 @@ export class ToolSystem implements IToolSystem {
       this.legToWorld(this.c0.x, this.c0.y, this.c0.z, this.w0);
       this.toCam(this.w0, vs.leg.foot);
       vs.leg.kind = this.leg.kind;
-      // the boot points along the leg's travel (kick) or forward (stomp), camera space
+      // knee bends forward (player forward in camera space); hip under the right side of the body
       const fx = this.legFwd.x,
         fz = this.legFwd.z;
       vs.leg.dir.x = fx * this.right.x + fz * this.right.z;
       vs.leg.dir.y = fx * this.up.x + fz * this.up.z;
       vs.leg.dir.z = fx * this.fwd.x + fz * this.fwd.z;
+      this.legToWorld(0.12, 0.92, 0.0, this.w1);
+      this.toCam(this.w1, vs.leg.hip!);
+      // boot toes: up for a push kick (sole forward), forward for a stomp — camera space
+      const toe = vs.leg.toe!;
+      if (this.leg.kind === "kick") {
+        toe.x = this.right.y;
+        toe.y = this.up.y;
+        toe.z = this.fwd.y; // world up expressed in camera axes
+      } else {
+        toe.x = vs.leg.dir.x;
+        toe.y = vs.leg.dir.y;
+        toe.z = vs.leg.dir.z;
+      }
     }
   }
 

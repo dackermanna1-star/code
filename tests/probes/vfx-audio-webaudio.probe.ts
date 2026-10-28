@@ -154,8 +154,17 @@ export async function probe(): Promise<any> {
   const ctx = new AudioContext({ latencyHint: "interactive", sampleRate: 44100 });
   if (ctx.state !== "running") await Promise.race([ctx.resume(), tick(1000)]);
   out.context = { state: ctx.state, sampleRate: ctx.sampleRate, baseLatency: r3(ctx.baseLatency), outputLatency: r3(ctx.outputLatency ?? NaN), listenerHasAudioParams: "positionX" in ctx.listener, currentTime0: r3(ctx.currentTime) };
-  await tick(200);
-  out.context.currentTimeAfter200ms = r3(ctx.currentTime);
+  // Pre-warm the HRTF database on the REALTIME context (silent source -> HRTF panner). Without this, the page's
+  // first HRTF PannerNode inside an OfflineAudioContext sometimes never finishes rendering (2/6 runs hung).
+  {
+    const osc = new OscillatorNode(ctx, { frequency: 440 });
+    const mute = new GainNode(ctx, { gain: 0 });
+    osc.connect(mute).connect(new PannerNode(ctx, { panningModel: "HRTF", positionX: 1 })).connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+  }
+  await tick(1000);
+  out.context.currentTimeAfter1s = r3(ctx.currentTime);
 
   // ================================================================ C) synthesis budget: 150 buffers, 0.3-1.5 s, 12 modes
   console.log("[va] section C", performance.now().toFixed(0));
@@ -279,7 +288,7 @@ export async function probe(): Promise<any> {
     s.connect(new PannerNode(oc, { panningModel: "HRTF", positionX: 1 })).connect(oc.destination);
     s.start(0);
     console.log("[va] warmup start");
-    await oc.startRendering();
+    await Promise.race([oc.startRendering(), tick(10000).then(() => { throw new Error("offline HRTF render hung"); })]);
     out.hrtfWarmupMs = r3(performance.now() - t);
     console.log("[va] warmup done", out.hrtfWarmupMs);
   }

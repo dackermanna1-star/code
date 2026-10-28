@@ -7,8 +7,8 @@
 // physical (air relaxation, settling, turbulence, quadratic drag, ground contact), time-correct
 // (SI units, driven by the dt given to Vfx.update — 0 freezes everything) and per-profile.
 // Per-particle custom data lives in Particle fields that Babylon copies on recycle but never
-// writes on the CPU path: `initialColor` (base rgb + peak alpha), `colorDead` (wall plane,
-// ground height, start size, growth), `metadata` (profile).
+// writes on the CPU path: `initialColor` (base rgb + peak alpha), `colorDead` (r = encoded wall
+// plane, g = ground height, b = start size, a = end-size growth), `metadata` (profile).
 
 import { ParticleSystem, Vector3, type BaseTexture, type Matrix, type Particle, type Scene, type Observer } from "@babylonjs/core";
 import type { EmitterHandle, VfxKind } from "../core/context.ts";
@@ -337,8 +337,8 @@ class ParticleGroup {
       pos.z += v.z * dt;
       // keep big soft puffs from slicing through the wall they came out of
       const cd = p.colorDead;
-      if (cd.x !== 0) {
-        const code = cd.x - 1;
+      if (cd.r !== 0) {
+        const code = cd.r - 1;
         const it = code % 4096;
         const d = Math.floor(code / 4096) / 1000 - 1000;
         const th = (it / 4095) * TWO_PI - Math.PI;
@@ -358,7 +358,7 @@ class ParticleGroup {
       }
       // ground contact
       if (prof.collide !== 0) {
-        const gy = cd.y;
+        const gy = cd.g;
         const rr = p.size * (prof.group === "puff" ? 0.4 : 0.3);
         if (pos.y < gy + rr) {
           if (prof.dieOnGround) {
@@ -384,8 +384,8 @@ class ParticleGroup {
       }
       // size growth (ease-out)
       const t = p.age / p.lifeTime;
-      const grow = cd.w;
-      p.size = grow !== 1 ? cd.z * (1 + (grow - 1) * (1 - (1 - t) * (1 - t))) : cd.z;
+      const grow = cd.a;
+      p.size = grow !== 1 ? cd.b * (1 + (grow - 1) * (1 - (1 - t) * (1 - t))) : cd.b;
       // alpha envelope
       const ic = p.initialColor;
       let a = ic.a;
@@ -421,7 +421,7 @@ class ParticleGroup {
   }
 }
 
-class Emitter implements EmitterHandle {
+export class FxEmitter implements EmitterHandle {
   readonly kind: VfxKind;
   x: number;
   y: number;
@@ -480,7 +480,7 @@ class Emitter implements EmitterHandle {
 /** All particle groups + bursts + emitters + budget. */
 export class ParticleFx {
   readonly groups: Record<GroupId, ParticleGroup>;
-  readonly emitters: Emitter[] = [];
+  readonly emitters: FxEmitter[] = [];
   private pool: BurstRecord[] = [];
   private readonly env: FxEnv;
   private totalCapacity = 0;
@@ -674,7 +674,7 @@ export class ParticleFx {
   }
 
   emitter(kind: VfxKind, pos: Vec3, dir: Vec3, rate: number, opts?: { tint?: number }): EmitterHandle {
-    const e = new Emitter(kind, pos, dir, rate, opts?.tint);
+    const e = new FxEmitter(kind, pos, dir, rate, opts?.tint);
     if (EMITTER_LAYERS[kind]) this.emitters.push(e);
     else e.alive = false;
     return e;
@@ -723,7 +723,7 @@ export class ParticleFx {
     }
   }
 
-  private emitLayer(e: Emitter, prof: ParticleProfile, n: number): void {
+  private emitLayer(e: FxEmitter, prof: ParticleProfile, n: number): void {
     const group = this.groups[prof.group];
     const room = group.capacity - group.live - group.queued;
     const count = Math.min(n, room);

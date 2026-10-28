@@ -135,3 +135,10 @@ export function boxGeom(cx: number, cy: number, cz: number, sx: number, sy: numb
 export function renderFrames(scene: Scene, n: number): void {
   for (let i = 0; i < n; i++) scene.render();
 }
+
+/** Render a few frames and grab the canvas as a PNG data URL (needs preserveDrawingBuffer). */
+export function snap(scene: Scene, frames = 2): string {
+  renderFrames(scene, frames);
+  const c = scene.getEngine().getRenderingCanvas() as HTMLCanvasElement;
+  return c.toDataURL("image/png");
+}

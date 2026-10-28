@@ -74,6 +74,8 @@ const unit = (a: Vec3, fallback: Vec3 = vx(0, 1, 0)): Vec3 => {
   return l > 1e-300 && Number.isFinite(l) ? vx(a.x / l, a.y / l, a.z / l) : vx(fallback.x, fallback.y, fallback.z);
 };
 const EMPTY = (): ConvexPoly => ({ verts: [], faces: [] });
+/** Finite number or 0 (guards constructors against NaN/Infinity inputs). */
+const fin = (x: number | undefined): number => (x !== undefined && Number.isFinite(x) ? x : 0);
 
 // ====================================================================== attributes & UVs
 
@@ -190,9 +192,9 @@ export function makeFace(verts: Vec3[], idx: number[], attr: FaceAttr, inside: V
  * UV maps are derived per face (in metres) unless the attr carries a non-zero uv.u.
  */
 export function polyBox(size: Vec3, attrs: FaceAttr | FaceAttr[], xf?: Xform): ConvexPoly {
-  const hx = Math.abs(size.x) / 2,
-    hy = Math.abs(size.y) / 2,
-    hz = Math.abs(size.z) / 2;
+  const hx = Math.abs(fin(size.x)) / 2,
+    hy = Math.abs(fin(size.y)) / 2,
+    hz = Math.abs(fin(size.z)) / 2;
   const verts: Vec3[] = [];
   for (let i = 0; i < 8; i++) verts.push(vx(i & 1 ? hx : -hx, i & 2 ? hy : -hy, i & 4 ? hz : -hz));
   const loops = [
@@ -216,11 +218,11 @@ export function polyBox(size: Vec3, attrs: FaceAttr | FaceAttr[], xf?: Xform): C
 
 /** Box with chamfered edges (still convex). bevel in metres. */
 export function polyBeveledBox(size: Vec3, bevel: number, attrs: FaceAttr | FaceAttr[], xf?: Xform): ConvexPoly {
-  const hx = Math.abs(size.x) / 2,
-    hy = Math.abs(size.y) / 2,
-    hz = Math.abs(size.z) / 2;
+  const hx = Math.abs(fin(size.x)) / 2,
+    hy = Math.abs(fin(size.y)) / 2,
+    hz = Math.abs(fin(size.z)) / 2;
   const hmin = Math.min(hx, hy, hz);
-  const e = Math.min(Math.abs(bevel), hmin * 0.999);
+  const e = Math.min(Math.abs(fin(bevel)), hmin * 0.999);
   if (!(e > 1e-7 * Math.max(hx, hy, hz, 1e-9))) return polyBox(size, attrs, xf);
   const pts: Vec3[] = [];
   for (const sx of [-1, 1])
@@ -266,9 +268,9 @@ export function polyCylinder(
   xf?: Xform,
 ): ConvexPoly {
   const segs = Math.max(3, Math.floor(Number.isFinite(segments) ? segments : 12));
-  const rb = Math.abs(rBottom),
-    rt = Math.abs(rTop),
-    h = Math.abs(height);
+  const rb = Math.abs(fin(rBottom)),
+    rt = Math.abs(fin(rTop)),
+    h = Math.abs(fin(height));
   const scale = Math.max(2 * rb, 2 * rt, h, 1e-9);
   const tiny = 1e-7 * scale;
   if (h <= tiny || (rb <= tiny && rt <= tiny)) return EMPTY();
@@ -362,8 +364,8 @@ export function revolveUV(n: Vec3, midAngle: number, rRef: number, vOrigin: Vec3
 
 /** Convex 2D polygon (x,y pairs, any winding) extruded along local Z by `depth`, centred. */
 export function polyPrism(profile: Array<[number, number]>, depth: number, side: FaceAttr, caps: FaceAttr, xf?: Xform): ConvexPoly {
-  const hull = convexHull2D(profile);
-  const hz = Math.abs(depth) / 2;
+  const hull = convexHull2D(profile ?? []);
+  const hz = Math.abs(fin(depth)) / 2;
   if (hull.length < 3 || !(hz > 0)) return EMPTY();
   const verts: Vec3[] = [];
   for (const [x, y] of hull) {
@@ -476,8 +478,9 @@ function flatPoly(points: Vec3[], attrOf: (n: Vec3) => FaceAttr): ConvexPoly {
 
 /** Rigidly transform (UV maps are carried along so textures stay attached to the surface). */
 export function polyTransform(poly: ConvexPoly, xf: Xform): ConvexPoly {
-  const q = qnorm(xf.q);
-  const t = xf.p;
+  const q0 = xf?.q;
+  const q = q0 && Number.isFinite(q0.x + q0.y + q0.z + q0.w) && Math.hypot(q0.x, q0.y, q0.z, q0.w) > 1e-12 ? qnorm(q0) : { x: 0, y: 0, z: 0, w: 1 };
+  const t = vx(fin(xf?.p?.x), fin(xf?.p?.y), fin(xf?.p?.z));
   const verts = poly.verts.map((v) => {
     const r = qrot(q, v);
     return vx(r.x + t.x, r.y + t.y, r.z + t.z);
@@ -845,6 +848,55 @@ export function polyFaceAreaOnPlane(poly: ConvexPoly, n: Vec3, d: number, eps?: 
     if (ok) area += polygonArea(poly.verts, f.idx);
   }
   return area;
+}
+
+/**
+ * Indices of the faces of `poly` that are completely covered by a coincident, opposite-facing
+ * face of one of `others` (fused tiles, bonded fracture cells, stacked boards). When touching
+ * parts are batched into one mesh, drawing such internal faces causes depth ties along the
+ * shared edges, visible as thin dark seams on smooth surfaces; skip them when building render
+ * geometry:  faces.filter((_, i) => !hidden.has(i)).  tol default: 1e-6 × size + 1e-7 m.
+ */
+export function polyHiddenFaces(poly: ConvexPoly, others: readonly ConvexPoly[], tol?: number): Set<number> {
+  const hidden = new Set<number>();
+  if (!poly.faces.length || !others.length) return hidden;
+  const t = tol ?? 1e-6 * scaleOfPoints(poly.verts) + 1e-7;
+  const b = polyBounds(poly);
+  const cands = others.filter((o) => {
+    if (o === poly || !o.faces.length) return false;
+    const c = polyBounds(o);
+    return !(c.min.x > b.max.x + t || c.max.x < b.min.x - t || c.min.y > b.max.y + t || c.max.y < b.min.y - t || c.min.z > b.max.z + t || c.max.z < b.min.z - t);
+  });
+  if (!cands.length) return hidden;
+  for (let fi = 0; fi < poly.faces.length; fi++) {
+    const f = poly.faces[fi];
+    let covered = false;
+    for (const o of cands) {
+      for (const h of o.faces) {
+        if (dot(f.n, h.n) > -1 + 1e-6 || Math.abs(f.d + h.d) > t) continue;
+        // every vertex of f inside h's polygon (h is CCW around h.n)
+        let inside = true;
+        const m = h.idx.length;
+        for (const vi of f.idx) {
+          const p = poly.verts[vi];
+          for (let k = 0; k < m && inside; k++) {
+            const a = o.verts[h.idx[k]],
+              c = o.verts[h.idx[k + 1 === m ? 0 : k + 1]];
+            const e = sub(c, a);
+            if (dot(cross(e, sub(p, a)), h.n) < -t * len(e)) inside = false;
+          }
+          if (!inside) break;
+        }
+        if (inside) {
+          covered = true;
+          break;
+        }
+      }
+      if (covered) break;
+    }
+    if (covered) hidden.add(fi);
+  }
+  return hidden;
 }
 
 /** Deep copy. */
