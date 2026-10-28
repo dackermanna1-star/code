@@ -16,6 +16,8 @@ import {
 } from '../core/constants';
 import { formatDistance, formatDuration, sci } from '../core/mathutil';
 import { meteorAltitude, showersFor } from '../render/meteors';
+import { pulsarModel } from '../astro/pulsar';
+import { ejectaSpeed, eventLabel, eventMag, photosphericPhase, shellRadius, type CosmicEvent } from '../sim/events';
 
 export interface InfoSection {
   title: string;
@@ -64,7 +66,8 @@ function level(x: number, words = ['none', 'low', 'moderate', 'high', 'extreme']
   return words[Math.min(words.length - 1, 1 + Math.floor(x * (words.length - 1) * 0.999))];
 }
 
-export function describe(t: Target, distance: number, scanned: boolean): Description {
+export function describe(t: Target, distance: number, scanned: boolean, time = 0): Description {
+  if (t.kind === 'event') return describeEvent(t.event!, distance, time);
   if (t.kind === 'galaxy') return describeGalaxy(t.galaxy!, distance);
   if (t.kind === 'nebula') return describeNebula(t.nebula!, distance);
   if (t.kind === 'system') return describeSystemRef(t.system!, distance, scanned);
@@ -101,6 +104,39 @@ function describeStation(b: Body, distance: number): Description {
       ] },
       { title: 'Docking ports', rows: st.ports.map((p) => [p.name, 'free']), text: 'In a spacecraft within 5 km: ; starts automatic docking with the nearest port; WASD/R/F translate on thrusters near the port.' },
     ],
+    needsScan: false,
+  };
+}
+
+const EVENT_NOTES: Record<CosmicEvent['kind'], string> = {
+  'supernova-cc': 'The iron core of a massive star collapsed into a neutron star or black hole; the rebounding shock blew off the envelope at thousands of km/s. Hydrogen recombination holds the brightness on a plateau for months.',
+  'supernova-ia': 'A white dwarf exceeded the Chandrasekhar limit and burned in a thermonuclear runaway; the light comes from radioactive nickel and cobalt decaying in the ejecta.',
+  nova: 'Hydrogen accreted onto a white dwarf from its companion ignited in a thermonuclear flash on the surface; the star survives and may erupt again.',
+  tde: 'A star passed too close to the central black hole and was torn apart; part of the debris falls back and heats an accretion flow (L ∝ t^−5/3).',
+  kilonova: 'Two neutron stars merged; the neutron-rich ejecta forge heavy elements (gold, platinum) by the r-process, whose opacity makes the glow red and brief.',
+};
+
+function describeEvent(e: CosmicEvent, distance: number, time: number): Description {
+  const age = (time - e.t0) / 86400;
+  const M = eventMag(e, time);
+  const m = isFinite(M) ? M + 5 * Math.log10(Math.max(distance, 1) / 3.0857e17) : Infinity;
+  const R = shellRadius(e, time);
+  const rows: [string, string][] = [
+    ['Type', eventLabel(e.kind)],
+    ['Galaxy', e.galaxy.name],
+    ['Age', age < 0 ? 'not yet' : age < 3 ? `${(age * 24).toFixed(1)} hours` : age < 800 ? `${age.toFixed(0)} days` : `${(age / 365.25).toFixed(1)} years`],
+    ['Peak absolute magnitude', e.peakMag.toFixed(1)],
+    ['Absolute magnitude now', isFinite(M) ? M.toFixed(1) : 'faded'],
+    ['Apparent magnitude here', isFinite(m) ? m.toFixed(1) : '—'],
+    ['Distance', formatDistance(distance)],
+    ['Ejecta speed', `${(ejectaSpeed(e.kind) / 1000).toFixed(0)} km/s`],
+    ['Ejecta radius', R > 0 ? formatDistance(R) : '—'],
+    ['Phase', photosphericPhase(e, time) > 0.5 ? 'photospheric (optically thick)' : 'nebular (thin ejecta, emission lines)'],
+  ];
+  return {
+    title: e.name, subtitle: eventLabel(e.kind).toLowerCase(), provenance: 'procedural',
+    provenanceNote: 'Generated at physically motivated rates for this galaxy; light curve from analytic templates. Light-travel time is ignored.',
+    sections: [{ title: 'Event', rows, text: EVENT_NOTES[e.kind] }],
     needsScan: false,
   };
 }
@@ -142,7 +178,28 @@ function describeStar(b: Body, distance: number, scanned: boolean): Description 
     ['Magnetic activity', level(s.activity)],
   ];
   if (s.magneticField) deep.push(['Magnetic field', `${sci(s.magneticField)} T`]);
-  if (s.pulsarPeriod) deep.push(['Pulsar period', `${(s.pulsarPeriod * 1000).toPrecision(4)} ms`]);
+  // compact binary: two black holes spiralling together by gravitational waves (Peters 1964)
+  const mate = b.kind === 'black-hole' && b.parent?.kind === 'barycenter' ? b.parent.children.find((c) => c !== b && c.kind === 'black-hole') : undefined;
+  if (mate && b.orbit && mate.orbit) {
+    const a = b.orbit.a + mate.orbit.a;
+    const G = 6.674e-11, c = 2.998e8;
+    const m1 = b.mass, m2 = mate.mass;
+    const tau = ((5 / 256) * c ** 5 * a ** 4) / (G ** 3 * m1 * m2 * (m1 + m2));
+    deep.push(['Black-hole companion', `${mate.displayName} (${(m2 / SOLAR_MASS).toFixed(1)} M☉)`]);
+    deep.push(['Separation', a > 0.01 * AU ? `${(a / AU).toPrecision(3)} AU` : formatDistance(a)]);
+    deep.push(['Binary period', formatDuration(2 * Math.PI * Math.sqrt(a ** 3 / (G * (m1 + m2))))]);
+    deep.push(['Gravitational-wave merger in', formatDuration(tau)]);
+  }
+  if (s.pulsarPeriod) {
+    deep.push(['Pulsar period', `${(s.pulsarPeriod * 1000).toPrecision(4)} ms`]);
+    const pm = pulsarModel(b);
+    if (pm) {
+      deep.push(['Spin-down rate Ṗ', `${pm.pdot.toExponential(2)} s/s`]);
+      deep.push(['Spin-down power', `${sci(pm.lsd / SOLAR_LUMINOSITY)} L☉`]);
+      deep.push(['Characteristic age', formatDuration(pm.period / (2 * pm.pdot))]);
+      deep.push(['Pulsed optical', pm.lOpt > 1e24 ? `${sci(pm.lOpt / SOLAR_LUMINOSITY)} L☉ (flashes when a beam sweeps past you)` : 'too faint to see']);
+    }
+  }
   if (s.stage === 'main-sequence' || s.stage === 'subgiant') {
     const inner = Math.sqrt(Lsun / 1.1), outer = Math.sqrt(Lsun / 0.36);
     deep.push(['Habitable zone', `${inner.toPrecision(3)} – ${outer.toPrecision(3)} AU`]);
@@ -334,6 +391,7 @@ const NEBULA_INFO: Record<Nebula['type'], { kind: string; spectrum: string; orig
   'supernova-remnant': { kind: 'Supernova remnant', spectrum: 'Hα and [O III] filaments, synchrotron continuum', origin: 'Debris of an exploded massive star sweeping up interstellar gas at thousands of km/s.' },
   reflection: { kind: 'Reflection nebula', spectrum: 'Scattered starlight (blue: shorter wavelengths scatter more)', origin: 'Interstellar dust reflecting the light of nearby bright stars.' },
   dark: { kind: 'Dark nebula', spectrum: 'Absorbs and reddens background light', origin: 'Cold, dense dust and molecular gas — the raw material of future stars.' },
+  ejecta: { kind: 'Expanding explosion ejecta', spectrum: 'Thermal photosphere, then broad emission lines', origin: 'Debris of a stellar explosion only months or years old.' },
 };
 
 function describeNebula(n: Nebula, distance: number): Description {

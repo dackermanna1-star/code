@@ -75,9 +75,21 @@ accessibility, simulation, audio, key rebinding).
 - Black holes: per-pixel Schwarzschild null-geodesic integration near the hole (shadow, photon ring, Einstein ring),
   with weak-field deflection further out. Accretion disks follow a Novikov–Thorne temperature profile with Doppler
   beaming and gravitational redshift.
+- Binary black holes: massive binaries can leave black-hole pairs 0.01–1 AU apart (about 1 system in 1500 in the
+  Milky Way). Each hole lenses the sky, including its partner. The info panel gives the separation, the period and
+  the time to merge by gravitational waves (Peters formula).
+- Pulsars flash only when a beam sweeps across you; the beams themselves are invisible from the side. Ṗ comes from
+  the dipole field, and the spin-down power is 4π²IṖ/P³. The pulsed optical light is about 2×10⁻⁵ of that, as for the
+  Crab, so only young, fast pulsars are bright. Millisecond pulsars are averaged over a turn, and slow ones visibly
+  blink.
 - Transient events at physical rates: core-collapse and Ia supernovae, novae, tidal disruption events, kilonovae.
-  They have analytic light curves and are catalogued when observed. They are rare in real time and visible under
-  time acceleration.
+  - They have analytic light curves and are catalogued when observed. They are rare in real time and visible under
+    time acceleration.
+  - You can select an event and travel to it. Up close, its expanding ejecta (radius v·t) become a volume: first an
+    optically thick, mottled photosphere whose colour cools with time, then thinning knots and filaments glowing in
+    Hα, [O III] and [Fe II].
+  - Brightness follows the light curve. Seen from afar, the same explosion is a point source with the same total
+    flux.
 
 **Planets**
 - Bulk composition sets the radius. Each world gets irradiation and equilibrium temperature, tidal locking, Jeans
@@ -219,7 +231,7 @@ of use.
   of exoplanets) are modelled, and the info panel says so.
 - **Stations.** Only real stations exist (the ISS and Tiangong). The procedural universe has no inhabited outposts.
   Station orbits ignore drag and J2 nodal precession. Station models are simplified, and you cannot go inside.
-- **Not yet implemented.** Binary black holes, survival mode (omitted by design for walking), depth of field,
+- **Not yet implemented.** Survival mode (omitted by design for walking), depth of field,
   motion blur, and video export. The Oort cloud is shown only as an inferred shell in the
   map.
 - **Performance** has been verified only in headless Chromium with software rendering (SwiftShader), where it is

@@ -88,6 +88,41 @@ export function eventLumV(e: CosmicEvent, t: number): number {
   return Math.pow(10, -0.4 * (m - 4.83));
 }
 
+/** Expansion speed of the ejecta (m/s). */
+export function ejectaSpeed(k: EventKind): number {
+  switch (k) {
+    case 'supernova-cc': return 8.0e6;
+    case 'supernova-ia': return 1.1e7;
+    case 'nova': return 1.5e6;
+    case 'kilonova': return 6.0e7; // ≈ 0.2 c
+    case 'tde': return 1.0e7;
+  }
+}
+
+/** Radius of the expanding ejecta at time t (m). */
+export function shellRadius(e: CosmicEvent, t: number): number {
+  return ejectaSpeed(e.kind) * Math.max(0, t - e.t0);
+}
+
+/** 1 while the ejecta are optically thick (a photosphere), → 0 in the nebular phase. */
+export function photosphericPhase(e: CosmicEvent, t: number): number {
+  const d = (t - e.t0) / DAY;
+  const end = e.kind === 'supernova-cc' ? 130 : e.kind === 'supernova-ia' ? 45 : e.kind === 'nova' ? 25 : e.kind === 'kilonova' ? 4 : 300;
+  return Math.min(1, Math.max(0, 1 - (d - end * 0.7) / (end * 0.6)));
+}
+
+/** Photospheric colour temperature (K): hot at first, cooling as the ejecta expand. */
+export function photoTemperature(e: CosmicEvent, t: number): number {
+  const d = Math.max(0, (t - e.t0) / DAY);
+  switch (e.kind) {
+    case 'supernova-cc': return d < 15 ? 12000 - 400 * d : Math.max(5000, 6000 - 20 * (d - 15)); // hydrogen recombination plateau
+    case 'supernova-ia': return Math.max(6000, 11000 - 120 * d);
+    case 'nova': return Math.max(6000, 9000 - 100 * d);
+    case 'kilonova': return Math.max(2000, 5500 - 900 * d);  // lanthanide-rich: red
+    case 'tde': return 30000;
+  }
+}
+
 /** Deterministic pool of positions following a stellar population (cached per galaxy). */
 const pools = new Map<string, Vector3[]>();
 function poolFor(g: GalaxyParams, pop: 'young' | 'old'): Vector3[] {

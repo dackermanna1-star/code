@@ -16,6 +16,9 @@ import type { Cosmos } from '../sim/cosmos';
 import { ShipRenderer, VesselLights } from './shipmodels';
 import { StationRenderer } from './stations';
 import { MeteorSky } from './meteors';
+import { pulsarModel, pulseFactor } from '../astro/pulsar';
+import type { CosmicEvent } from '../sim/events';
+import type { Nebula } from '../astro/nebulae';
 import { BlackHoleRenderer, type AccretionDisk } from './blackhole';
 import { NebulaRenderer } from './nebula';
 import { CometTail } from './comet';
@@ -87,7 +90,9 @@ export class SceneRenderer {
   readonly ctx: FrameContext;
   camUPos = new UPos();
   /** transient point sources this frame (set by the app from the event system) */
-  transients: { upos: UPos; lumV: number; color: [number, number, number]; name: string }[] = [];
+  transients: { upos: UPos; lumV: number; color: [number, number, number]; name: string; event?: CosmicEvent }[] = [];
+  /** expanding ejecta of recent explosions near the observer (set by the app) */
+  ejecta: Nebula[] = [];
   /** debugging switches (tests) */
   debug = { noAtmosphere: false };
   /** accessibility: tone down FTL streak / tunnel effects */
@@ -248,6 +253,12 @@ export class SceneRenderer {
           const flux = (b.star!.luminosity * (1 + flare)) / (4 * Math.PI * d * d) / SOLAR_CONSTANT;
           this.bodyPoints.add(rel, b.star!.color, flux * Math.min(1, (ctx.pixelAngle * 1.5 - ang) / (ctx.pixelAngle * 0.75)));
         }
+        // pulsars flash when a beam sweeps across the observer
+        const pm = b.kind === 'neutron-star' ? pulsarModel(b) : null;
+        if (pm && pm.lOpt > 0) {
+          const f = pulseFactor(pm, _v2.copy(rel).negate().normalize(), sys.bodyRotation(b, _q), world.time);
+          if (f > 0) this.bodyPoints.add(rel, [0.75, 0.85, 1.2], (pm.lOpt * f) / (4 * Math.PI * d * d) / SOLAR_CONSTANT);
+        }
       }
       suns.sort((a, b) => b.luminosity / b.rel.lengthSq() - a.luminosity / a.rel.lengthSq());
       ctx.suns = suns;
@@ -347,7 +358,7 @@ export class SceneRenderer {
       this.starField.update(this.camUPos, cosmos.camG, ctx.pixelAngle, hide);
       this.galaxies.update(cosmos.galaxies, this.camUPos, _q.copy(ctx.camQuat), ctx.pixelAngle, this.frame, this.pipeline.depthTexture,
         Math.ceil(this.pipeline.width / 2), Math.ceil(this.pipeline.height / 2), cosmos.current);
-      this.nebulae.update(cosmos.nebulae, cosmos.current, cosmos.camG, ctx.pixelAngle, this.frame, this.pipeline.depthTexture,
+      this.nebulae.update(this.ejecta.length ? [...cosmos.nebulae, ...this.ejecta] : cosmos.nebulae, cosmos.current, cosmos.camG, ctx.pixelAngle, this.frame, this.pipeline.depthTexture,
         Math.ceil(this.pipeline.width / 2), Math.ceil(this.pipeline.height / 2));
     }
     this.updateVessels(world, suns);

@@ -34,6 +34,8 @@ export interface SystemSpec {
   lifeFrequency?: number;
   /** force a single star (catalogue stars whose multiplicity is known) */
   forceSingle?: boolean;
+  /** force a black-hole pair (tests, showcases) */
+  binaryBlackHole?: boolean;
 }
 
 const DEG = Math.PI / 180;
@@ -63,15 +65,25 @@ export function generateSystem(spec: SystemSpec): StarSystem {
   const age = spec.age ?? rng.range(0.3e9, 11e9);
   const Z = spec.metallicity ?? rng.normal(-0.05, 0.22);
   const lifeF = spec.lifeFrequency ?? 1;
-  const m1 = spec.primaryMass ?? sampleIMF(rng, 0.08, 60);
-  const star1 = makeStar(m1, age, Z, rng.fork('s1'));
+  const m1 = spec.binaryBlackHole ? rng.range(28, 60) : spec.primaryMass ?? sampleIMF(rng, 0.08, 60);
+  const star1 = makeStar(m1, spec.binaryBlackHole ? Math.max(age, 2e8) : age, Z, rng.fork('s1'));
 
   // ---- multiplicity
   const pBinary = m1 < 0.1 ? 0.15 : m1 < 0.5 ? 0.27 : m1 < 1.5 ? 0.44 : m1 < 5 ? 0.6 : 0.75;
-  const binary = rng.chance(pBinary) && !spec.forceSingle;
+  // massive binaries evolve together: a black-hole primary often keeps a
+  // compact companion (the LIGO population: BH–BH pairs at 0.01–1 AU,
+  // spiralling in by gravitational waves over millions of years)
+  const bbh = spec.binaryBlackHole || (star1.stage === 'black-hole' && !spec.forceSingle && rng.chance(0.25));
+  const binary = bbh || (rng.chance(pBinary) && !spec.forceSingle);
   let star2: StarPhysics | null = null;
   let m2 = 0, aBin = 0, eBin = 0;
-  if (binary) {
+  if (bbh) {
+    m2 = m1 * rng.range(0.6, 1);
+    star2 = makeStar(Math.max(m2, 25), Math.max(age, 2e8), Z, rng.fork('s2'));
+    if (star2.stage !== 'black-hole') star2 = null;
+    aBin = Math.pow(10, rng.range(-2, 0)) * AU;
+    eBin = rng.range(0, 0.1);
+  } else if (binary) {
     m2 = Math.max(0.08, m1 * rng.range(0.1, 1));
     star2 = makeStar(m2, age, Z, rng.fork('s2'));
     aBin = Math.pow(10, rng.normal(1.6, 1.3)) * AU;

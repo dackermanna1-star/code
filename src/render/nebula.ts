@@ -29,7 +29,10 @@ const FRAG = /* glsl */ `
 #include <common>
 #include <logdepthbuf_pars_fragment>
 ${NOISE_GLSL}
-uniform int uType;          // 0 emission, 1 planetary, 2 SNR, 3 reflection, 4 dark
+uniform int uType;          // 0 emission, 1 planetary, 2 SNR, 3 reflection, 4 dark, 5 young ejecta
+uniform float uSrc;         // ejecta: photospheric radiance
+uniform vec3 uPhotoCol;     // ejecta: photosphere colour (unit luminance)
+uniform float uPhase;       // ejecta: 1 photospheric → 0 nebular
 uniform vec3 uRo;           // camera relative to the centre, nebula unit space
 uniform mat3 uWorldToN;     // world direction → nebula unit space (rotation + 1/(R·axes))
 uniform float uR;           // radius (ly)
@@ -103,6 +106,25 @@ vec4 sampleNeb(vec3 u) {
     vec3 e = (HA * (1.0 - 0.6 * oiii) + O3 * 0.9 * oiii) * fil * shell * 10.0 + vec3(0.7, 0.85, 1.3) * inside * 0.04;
     return vec4(e, 0.0);
   }
+  if (uType == 5) {
+    // young explosion ejecta: a mottled (Rayleigh–Taylor) photosphere while the
+    // debris is optically thick (a = core density), then clumpy line-emitting
+    // shells as it thins out (rgb = optically thin emission)
+    vec3 dir = u / max(r, 1e-3);
+    float m = fbmT(dir * 2.2 + uSeed) - 0.48;
+    float m2 = fbmT(dir * 9.0 + uSeed + 3.1) - 0.48;
+    float rph = 0.5 + m * 0.35;
+    float core = smoothstep(rph + 0.04, rph - 0.04, r) * uPhase;
+    // knots and filaments of the thinning debris
+    vec3 w = vec3(tx(dir * 1.7 + uSeed), tx(dir * 1.7 + uSeed + 4.4), tx(dir * 1.7 + uSeed + 8.8)) - 0.48;
+    float fil = 1.0 - clamp(abs(fbmT(dir * 5.5 + w * 3.0 + uSeed) - 0.48) * 40.0, 0.0, 1.0);
+    float knots = smoothstep(0.04, 0.22, m2);
+    float clumps = 0.08 + 2.5 * knots + 4.0 * fil * fil * fil;
+    float shell = exp(-pow((r - 0.84 - m * 0.12) / mix(0.08, 0.13, uPhase), 2.0)) * clumps;
+    float inner = smoothstep(0.75, 0.2, r) * (0.1 + 1.5 * knots) * 0.3;
+    vec3 lines = HA * 0.55 + O3 * 0.25 + vec3(0.9, 0.55, 0.3) * 0.35; // Hα, [O III], [Fe II]/[Ca II]
+    return vec4(lines * (shell + inner), core);
+  }
   if (uType == 3) {
     // reflection nebula: wispy dust lit by a nearby blue star
     float n = fbmT(q + fbmT(q * 2.1) * 0.4);
@@ -141,6 +163,18 @@ void main() {
     if (i >= uSteps) break;
     float t = t0 + (float(i) + jit) * dt;
     vec4 s = sampleNeb(ro + du * t);
+    if (uType == 5) {
+      // optically thick photosphere: emits its source function as it absorbs
+      float tc = s.a * 25.0 * dt / uR;
+      float Tc = exp(-tc);
+      // convective / Rayleigh–Taylor mottling of the photosphere
+      vec3 pu = ro + du * t;
+      float mot = 0.55 + 0.9 * fbmT(normalize(pu) * 5.0 + uSeed + 7.7);
+      L += T * (s.rgb * uEmis * dt + uPhotoCol * uSrc * mot * (1.0 - Tc));
+      T *= Tc;
+      if (T < 0.003) break;
+      continue;
+    }
     float tau = s.a * uDust * dt / uR;
     float Ts = exp(-tau);
     float f = tau > 1e-4 ? (1.0 - Ts) / tau : 1.0;
@@ -163,7 +197,10 @@ export class NebulaVolume {
       vertexShader: VERT,
       fragmentShader: FRAG,
       uniforms: {
-        uType: { value: ['emission', 'planetary', 'supernova-remnant', 'reflection', 'dark'].indexOf(n.type) },
+        uType: { value: ['emission', 'planetary', 'supernova-remnant', 'reflection', 'dark', 'ejecta'].indexOf(n.type) },
+        uSrc: { value: 0 },
+        uPhotoCol: { value: new THREE.Vector3(1, 1, 1) },
+        uPhase: { value: 0 },
         uRo: { value: new THREE.Vector3() },
         uWorldToN: { value: new THREE.Matrix3() },
         uR: { value: n.radius },
@@ -198,6 +235,14 @@ export class NebulaVolume {
   update(relLy: THREE.Vector3, gq: THREE.Quaternion, steps: number, frame: number, depth: THREE.Texture, w: number, h: number) {
     const n = this.n;
     const u = this.material.uniforms;
+    // (ejecta evolve: their size and brightness change every frame)
+    u.uR.value = n.radius;
+    u.uEmis.value = n.emissivity;
+    if (n.photo) {
+      u.uSrc.value = n.photo.radiance;
+      u.uPhotoCol.value.set(...n.photo.color);
+      u.uPhase.value = n.photo.phase;
+    }
     const inv = this.qN.clone().invert();
     // camera in unit space
     u.uRo.value.copy(relLy).negate().applyQuaternion(inv).divide(new THREE.Vector3(...n.axes).multiplyScalar(n.radius));

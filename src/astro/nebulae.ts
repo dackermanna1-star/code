@@ -12,7 +12,7 @@ import { Rng, seedOf } from '../core/rng';
 import { KNOWN_NEBULAE } from './known/stars';
 import { radecToGalaxyDir } from './known/coords';
 
-export type NebulaType = 'emission' | 'planetary' | 'supernova-remnant' | 'reflection' | 'dark';
+export type NebulaType = 'emission' | 'planetary' | 'supernova-remnant' | 'reflection' | 'dark' | 'ejecta';
 
 export interface Nebula {
   id: string;
@@ -34,6 +34,8 @@ export interface Nebula {
   q: [number, number, number, number];
   known: boolean;
   note?: string;
+  /** young explosion ejecta: photospheric radiance (radiance units), colour (unit luminance) and phase */
+  photo?: { radiance: number; color: [number, number, number]; phase: number };
 }
 
 export const NEBULA_CELL = 1500; // ly
@@ -46,6 +48,7 @@ const BASE_EMISSIVITY: Record<NebulaType, number> = {
   'supernova-remnant': 3e-9,
   reflection: 4e-10,
   dark: 0,
+  ejecta: 0, // set from the explosion's light curve
 };
 
 function randomQuat(rng: Rng): [number, number, number, number] {
@@ -88,6 +91,7 @@ export function cellNebulae(g: GalaxyParams, ix: number, iy: number, iz: number)
     'supernova-remnant': 0.12 * (youngRel * g.starFormation + 0.2 * diskRel) * plane,
     reflection: 0.25 * youngRel * plane,
     dark: 0.4 * youngRel * g.dust * plane,
+    ejecta: 0, // only from live explosions
   };
   for (const type of TYPES) {
     const n = rng.poisson(Math.min(lam[type], 6));
@@ -117,7 +121,7 @@ export function cellNebulae(g: GalaxyParams, ix: number, iy: number, iz: number)
 }
 
 export function nebulaDesignation(g: GalaxyParams, type: NebulaType, ix: number, iy: number, iz: number, k: number): string {
-  const pre = { emission: 'ICH', planetary: 'ICP', 'supernova-remnant': 'ICR', reflection: 'ICF', dark: 'ICD' }[type];
+  const pre = { emission: 'ICH', planetary: 'ICP', 'supernova-remnant': 'ICR', reflection: 'ICF', dark: 'ICD', ejecta: 'ICX' }[type];
   const gal = g.known && g.id === 'MW' ? '' : ` ${g.name.replace(/[^A-Z0-9]/gi, '').slice(0, 6).toUpperCase()}`;
   const s = (v: number) => (v < 0 ? 'm' : 'p') + Math.abs(v);
   return `${pre}${gal} ${s(ix)}${s(iy)}${s(iz)}-${k}`;

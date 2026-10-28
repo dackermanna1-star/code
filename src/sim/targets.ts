@@ -9,19 +9,21 @@ import type { GalaxyParams } from '../astro/galaxy';
 import type { SystemRef, Cosmos } from './cosmos';
 import type { SceneRenderer } from '../render/scenerenderer';
 import type { Nebula } from '../astro/nebulae';
+import { shellRadius, type CosmicEvent } from './events';
 import { galaxyToUPos } from '../astro/galaxy';
 import type { World } from './world';
 import { UPos } from '../core/upos';
 import { LY, SOLAR_LUMINOSITY, SOLAR_CONSTANT } from '../core/constants';
 
 export interface Target {
-  kind: 'body' | 'system' | 'galaxy' | 'nebula';
+  kind: 'body' | 'system' | 'galaxy' | 'nebula' | 'event';
   id: string;
   name: string;
   body?: Body;
   system?: SystemRef;
   galaxy?: GalaxyParams;
   nebula?: Nebula;
+  event?: CosmicEvent;
   radius: number; // m
   position(out: UPos): UPos;
 }
@@ -48,8 +50,17 @@ export function nebulaTarget(n: Nebula, g: GalaxyParams): Target {
   };
 }
 
+/** A transient explosion (radius: its expanding ejecta at time t). */
+export function eventTarget(e: CosmicEvent, t: number): Target {
+  return {
+    kind: 'event', id: e.id, name: e.name, event: e, galaxy: e.galaxy, radius: Math.max(shellRadius(e, t), 1e11),
+    position: (out) => galaxyToUPos(e.galaxy, e.local.x, e.local.y, e.local.z, out),
+  };
+}
+
 /** Comfortable viewing distance for "go to". */
 export function standoff(t: Target): number {
+  if (t.kind === 'event') return Math.max(t.radius * 5, 0.004 * LY);
   if (t.kind === 'galaxy') return t.radius * 2.6;
   if (t.kind === 'nebula') return t.radius * 2.4;
   if (t.kind === 'system') return 3e11;
@@ -131,6 +142,14 @@ export function pick(world: World, cosmos: Cosmos, r: SceneRenderer, sx: number,
       if (d < R) continue;
       consider(rel, (R / d) * 0.7, (R / d) * 1e3, () => nebulaTarget(n, g));
     }
+  }
+  // transient explosions (supernovae, novae, …)
+  for (const tr of r.transients) {
+    if (!tr.event) continue;
+    const rel = tr.upos.sub(camU, new THREE.Vector3());
+    const d = rel.length();
+    const R = shellRadius(tr.event, world.time);
+    consider(rel, R / d, Math.max((tr.lumV * SOLAR_LUMINOSITY) / (d * d) / SOLAR_CONSTANT, (R / d) * 1e3), () => eventTarget(tr.event!, world.time));
   }
   // galaxies
   for (const gal of cosmos.galaxies) {

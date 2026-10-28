@@ -5,7 +5,8 @@ import { Input } from './sim/input';
 import { SpectatorController } from './sim/spectator';
 import { Hud } from './ui/hud';
 import { UPos } from './core/upos';
-import { AU, G, LY } from './core/constants';
+import { AU, G, LY, SOLAR_CONSTANT, SOLAR_LUMINOSITY } from './core/constants';
+import type { Nebula } from './astro/nebulae';
 import { generateSystem } from './astro/systemgen';
 import { Cosmos, type SystemRef } from './sim/cosmos';
 import { galaxyToUPos } from './astro/galaxy';
@@ -28,9 +29,9 @@ import { Modal } from './ui/modal';
 import { loadSettings, saveSettings, type Settings } from './ui/settings';
 import { loadRaw, save } from './ui/storage';
 import { SOLAR_SYSTEM_ID } from './astro/known/solarsystem';
-import { Rng } from './core/rng';
+import { Rng, seedOf } from './core/rng';
 import { AudioEngine, type AudioState, type Surface } from './audio/audio';
-import { EventSystem, eventLabel, type CosmicEvent } from './sim/events';
+import { EventSystem, eventLabel, photosphericPhase, photoTemperature, shellRadius, type CosmicEvent } from './sim/events';
 import { CinematicDirector, type CameraPath } from './sim/cinematic';
 import { CinemaPanel } from './ui/cinemapanel';
 import { blackbodyRGB } from './astro/stellar';
@@ -271,10 +272,10 @@ export class App {
     }
   }
 
-  loadSystem(seed: number, name = `ICS ${seed}`): StarSystem {
+  loadSystem(seed: number, name = `ICS ${seed}`, opts: { binaryBlackHole?: boolean } = {}): StarSystem {
     // place the test system at the camera's current location (inside the current galaxy)
     const here = this.world.view.toUPos(new UPos());
-    const sys = generateSystem({ id: `sys${seed}`, name, seed, upos: here });
+    const sys = generateSystem({ id: `sys${seed}`, name, seed, upos: here, ...opts });
     this.cosmos.activeRef = { id: sys.id, name, galaxyId: this.cosmos.current?.id ?? '', upos: here, local: this.cosmos.camG.clone(), build: () => sys };
     this.world.system = sys;
     sys.update(this.world.time);
@@ -457,10 +458,26 @@ export class App {
     if (!isFinite(this.lastSimTime) || Math.abs(t - this.lastSimTime) > expected * 10) this.events.silence(gal, t);
     this.lastSimTime = t;
     const vis = this.events.visible(gal, this.cosmos.current, t);
-    this.renderer.transients = vis.map(({ e, lumV }) => ({
-      upos: galaxyToUPos(e.galaxy, e.local.x, e.local.y, e.local.z),
-      lumV, color: blackbodyRGB(e.temp), name: e.name,
-    }));
+    // recent explosions near the observer are resolved: an expanding ejecta
+    // volume replaces the point source (same total flux)
+    const ejecta: Nebula[] = [];
+    const g0 = this.cosmos.current;
+    const pa = this.renderer.ctx.pixelAngle;
+    this.renderer.transients = vis.map(({ e, lumV }) => {
+      const upos = galaxyToUPos(e.galaxy, e.local.x, e.local.y, e.local.z);
+      let keep = 1;
+      if (e.galaxy === g0 && e.kind !== 'tde') {
+        const dLy = e.local.distanceTo(this.cosmos.camG);
+        const R = shellRadius(e, t);
+        const px = R / (dLy * LY) / pa;
+        if (px > 1 && dLy < 50) {
+          ejecta.push(this.ejectaNebula(e, t, lumV));
+          keep = Math.min(1, Math.max(0, 1 - (px - 1.5) / 3));
+        }
+      }
+      return { upos, lumV: lumV * keep, color: blackbodyRGB(e.temp), name: e.name, event: e };
+    });
+    this.renderer.ejecta = ejecta;
     // meteor showers where the observer is (once per shower and orbit)
     for (const m of this.renderer.meteors.current) {
       if (m.zhr < 15) continue;
@@ -471,6 +488,36 @@ export class App {
     }
   }
   private showerAnnounced = new Set<string>();
+  private ejectaCache = new Map<string, Nebula>();
+
+  /** Volume for an explosion's expanding debris, sized and lit from its light curve. */
+  private ejectaNebula(e: CosmicEvent, t: number, lumV: number): Nebula {
+    let n = this.ejectaCache.get(e.id);
+    if (!n) {
+      n = { id: `${e.id}/ejecta`, name: e.name, type: 'ejecta', galaxyId: e.galaxy.id, center: e.local.clone(), radius: 1e-6, seed: seedOf(0, e.id) % 100000,
+        emissivity: 0, dust: 0, axes: [1, 0.92, 0.96], q: [0, 0, 0, 1], known: false };
+      this.ejectaCache.set(e.id, n);
+      if (this.ejectaCache.size > 32) this.ejectaCache.delete(this.ejectaCache.keys().next().value!);
+    }
+    n.center.copy(e.local);
+    const R = Math.max(shellRadius(e, t), 1e9);
+    const Lw = lumV * SOLAR_LUMINOSITY;
+    const phase = photosphericPhase(e, t);
+    // photosphere (r ≈ 0.5 R): B = L / (4π² R_ph²); thin ejecta carry the rest as line emission
+    const Rph = 0.5 * R;
+    const col = blackbodyRGB(photoTemperature(e, t));
+    const lum = col[0] * 0.2126 + col[1] * 0.7152 + col[2] * 0.0722;
+    n.radius = R / LY;
+    n.photo = {
+      radiance: (phase * Lw) / (4 * Math.PI * Math.PI * Rph * Rph) / SOLAR_CONSTANT,
+      color: [col[0] / lum, col[1] / lum, col[2] / lum],
+      phase,
+    };
+    // thin emission per ly of path (the shells integrate to ≈ 0.5 R per sight line)
+    const Bthin = ((1 - phase * 0.95) * Lw) / (4 * Math.PI * Math.PI * R * R) / SOLAR_CONSTANT;
+    n.emissivity = Bthin / (0.5 * n.radius);
+    return n;
+  }
 
   // ---------------------------------------------------------------- audio
   private footstep() {
@@ -904,7 +951,7 @@ export class App {
     if (!t) { this.info.hide(); return; }
     const rel = this.targetRel(t);
     const dist = rel.length();
-    const desc = describe(t, dist, this.discoveries.isScanned(t.id));
+    const desc = describe(t, dist, this.discoveries.isScanned(t.id), this.world.time);
     const range = scanRange(t);
     const pl = this.player;
     const extra: { label: string; title: string; run: () => void }[] = [];

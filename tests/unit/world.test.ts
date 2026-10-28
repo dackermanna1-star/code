@@ -409,3 +409,50 @@ describe('meteors', () => {
   });
 });
 
+describe('supernova close-up', () => {
+  it('expands, cools and thins out; selectable and described', async () => {
+    const { eventTarget, standoff: so } = await import('../../src/sim/targets');
+    const { photosphericPhase, photoTemperature, shellRadius } = await import('../../src/sim/events');
+    const u = new Universe({ seed: 20261027, knownLocalGroup: true });
+    const g = u.home;
+    const DAY = 86400;
+    const e = { id: 'sn', kind: 'supernova-cc' as const, name: 'SN test', galaxy: g, local: new Vector3(), t0: 0, peakMag: -17, temp: 7000 };
+    expect(shellRadius(e, 365 * DAY) / 1.496e11).toBeGreaterThan(1000);   // ~1700 AU after a year at 8000 km/s
+    expect(photosphericPhase(e, 30 * DAY)).toBe(1);
+    expect(photosphericPhase(e, 400 * DAY)).toBe(0);
+    expect(photoTemperature(e, 2 * DAY)).toBeGreaterThan(photoTemperature(e, 60 * DAY));
+    const t = eventTarget(e, 60 * DAY);
+    expect(so(t)).toBeGreaterThan(t.radius * 4);
+    const d = describeTarget(t, 1e15, false, 60 * DAY);
+    expect(d.title).toBe('SN test');
+    expect(d.sections[0].rows.find((r) => r[0] === 'Phase')![1]).toMatch(/photospheric/);
+  });
+});
+
+describe('pulsars', () => {
+  it('spin down like the Crab and flash only when a beam sweeps past', async () => {
+    const { pulsarModel, pulseFactor } = await import('../../src/astro/pulsar');
+    const { Body: B } = await import('../../src/astro/body');
+    const mk = (P: number, Bt: number) => new B('ns-' + P, 'NS', 'neutron-star', null, 2.8e30, 1.2e4, null,
+      { period: P, tilt: 0, tiltAzimuth: 0, phase0: 0, locked: false },
+      { mass: 2.8e30, radius: 1.2e4, luminosity: 1e26, temperature: 1e6, spectralType: 'NS', stage: 'neutron-star', age: 1e3 * 3.15e7, lifetime: 1e18, metallicity: 0, rotationPeriod: P, activity: 0, color: [1, 1, 1], pulsarPeriod: P, magneticField: Bt });
+    const crab = pulsarModel(mk(0.0337, 4e8))!;
+    expect(crab.lsd).toBeGreaterThan(2e31);
+    expect(crab.lsd).toBeLessThan(1e32);
+    expect(crab.period / (2 * crab.pdot) / 3.156e7).toBeGreaterThan(500);   // characteristic age ~1000 yr
+    expect(crab.period / (2 * crab.pdot) / 3.156e7).toBeLessThan(3000);
+    const slow = pulsarModel(mk(1.0, 1e8))!;
+    const q = new Quaternion();
+    // an observer on the north beam's cone sees one flash per rotation
+    const onCone = new Vector3(Math.sin(slow.alpha), Math.cos(slow.alpha), 0);
+    const samples = Array.from({ length: 200 }, (_, i) => pulseFactor(slow, onCone, q, i * 0.005));
+    expect(Math.max(...samples)).toBeGreaterThan(1);
+    expect(Math.min(...samples)).toBeLessThan(0.01);
+    const peaks = samples.filter((v, i) => i > 0 && i < 199 && v > samples[i - 1] && v >= samples[i + 1] && v > 0.5).length;
+    expect(peaks).toBe(1);
+    // far from both cones: dark
+    const off = new Vector3(Math.sin(slow.alpha + 0.8), Math.cos(slow.alpha + 0.8), 0);
+    if (Math.abs(slow.alpha + 0.8 - (Math.PI - slow.alpha)) > 0.5) expect(pulseFactor(slow, off, q, 0.3)).toBe(0);
+  });
+});
+
