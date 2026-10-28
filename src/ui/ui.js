@@ -161,6 +161,10 @@ export class UI {
       <ol class="injuries"><li class="none">No injuries</li></ol>`;
     this.hud = hud;
     this.root.appendChild(hud);
+    const who = hud.querySelector('.who');
+    who.title = 'Click to monitor the next dummy';
+    who.style.cursor = 'pointer';
+    who.addEventListener('click', () => this.h.onAction('nextDummy'));
     this.ecg = hud.querySelector('.ecg');
     this.ecgCtx = this.ecg.getContext('2d');
     this.ecgX = 0;

@@ -698,6 +698,9 @@ export class InjurySystem {
     ctl.alive = this.alive;
     ctl.conscious = this.alive && this.conscious;
     ctl.pain = this.pain;
+    // breathing: deeper and faster with blood loss and hypoxia; gasping when the brain starves
+    ctl.respiration = this.alive ? this.breathing * this.airway * (this.arrestTime >= 0 ? 0.4 : 1) * (1 + 0.6 * smoothstep(0.1, 0.4, lossFrac)) : 0;
+    ctl.respRateBoost = 20 * smoothstep(0.1, 0.4, lossFrac) + 15 * clamp((0.95 - this.spo2) * 4, 0, 1);
     const weak = clamp(smoothstep(0.15, 0.42, lossFrac) + smoothstep(0.75, 0.5, this.delivery ?? 1) * 0.6, 0, 1);
     const P = this.paralysis;
     const m = (n) => this.muscle[n] || 0;

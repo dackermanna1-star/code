@@ -22,6 +22,12 @@ npm test
 npm run build
 ```
 
+To produce a single self-contained `ragdoll-lab.html` that runs straight from disk:
+
+```bash
+npm run build:single
+```
+
 ## Controls
 
 | Input | Action |
@@ -102,6 +108,13 @@ Muscle strength scales with consciousness, pain and injuries.
 - **Wound behaviour:** the dummy clutches its most painful wound with one or both hands. Hand
   pressure reduces the bleeding.
 - **On the ground:** pain-driven curling and writhing.
+- **Getting up:** when a fallen dummy is able (strong enough legs and arms, pain not too high) it
+  gets back up after a short rest. It rolls onto its front, pushes up to hands and knees, kneels
+  up, brings one foot forward, then squats and rises. Each phase is IK targets driven by the
+  muscles, with helper forces scaled by the balance assist. Too much pain, a broken limb or
+  paralysis keeps it down.
+- **Breathing:** the trunk breathes. The rate and depth rise with pain, blood loss and low
+  oxygen, and breathing stops with a high spinal cord injury or death.
 - **Loss of control:** unconsciousness and death release muscle tone over about 0.3 s, into a
   full ragdoll.
 

@@ -100,6 +100,7 @@ export class HumanController {
     this.neckStrength = 1;
     this.balanceSkill = 1; // reduced by concussion / blood loss
     this.autoGetUp = true; // get back up after a fall when able
+    this.respiration = 1; // breathing depth (set by the injury model)
     // Balance assist (Euphoria-style helper forces): an upright torque on pelvis and chest plus
     // partial weight support while the character is in control. It fades out as soon as balance is
     // judged lost, so falls stay fully physical. Exposed as a slider in the UI.
@@ -293,6 +294,12 @@ export class HumanController {
     for (const s of SIDES) this.footSpring[s].enabled = false;
     this.startle = Math.max(0, this.startle - dt * 2.5);
     this.flinch.amount *= Math.exp(-dt / 0.35);
+    // breathing: ~13/min at rest, faster with exertion, pain and blood loss; none without drive
+    if (this.alive && this.respiration > 0) {
+      const rate = clamp(13 + 10 * this.pain + (this.respRateBoost || 0), 8, 40);
+      this.breathPhase = (this.breathPhase || 0) + dt * (rate / 60) * Math.PI * 2;
+    }
+    this.breath = this.alive && this.respiration > 0 ? Math.sin(this.breathPhase || 0) * this.respiration : 0;
     this.updateMode(dt);
     // global tone dynamics: muscles relax over ~0.3 s on death / knockout, recover slower
     const rate = this.toneTarget < this.tone ? 3.5 : 1.2;
@@ -742,7 +749,7 @@ export class HumanController {
     _q2.multiplyQuats(_q0, _q1);
     this.setWorld('lumbar', _q2);
     this.gains('lumbar', k);
-    _q1.setFromEuler(lean * 0.5, 0, leanSide * 0.5, 'XYZ');
+    _q1.setFromEuler(lean * 0.5 - 0.018 * this.breath, 0, leanSide * 0.5, 'XYZ');
     _q2.multiplyQuats(_q0, _q1);
     this.setWorld('thoracic', _q2);
     this.gains('thoracic', k);
@@ -1415,7 +1422,7 @@ export class HumanController {
     // spine curls (relative), head lifts slightly
     this.setRel('lumbar', _q0.setFromEuler(curl * 0.6 + 0.2 * wr * n(0.7, 2), 0.2 * wr * n(0.5, 3), 0.25 * wr * n(0.6, 4), 'XYZ'));
     this.gains('lumbar', tone * 0.35);
-    this.setRel('thoracic', _q0.setFromEuler(curl * 0.5, 0.25 * wr * n(0.45, 5), 0.2 * wr * n(0.55, 6), 'XYZ'));
+    this.setRel('thoracic', _q0.setFromEuler(curl * 0.5 - 0.03 * this.breath, 0.25 * wr * n(0.45, 5), 0.2 * wr * n(0.55, 6), 'XYZ'));
     this.gains('thoracic', tone * 0.35);
     this.setRel('neckBase', _q0.setFromEuler(0.3 * curl + 0.2 * wr * n(0.8, 7), 0.3 * wr * n(0.3, 8), 0, 'XYZ'));
     this.gains('neckBase', tone * 0.6);

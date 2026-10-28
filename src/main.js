@@ -207,6 +207,13 @@ function doAction(act) {
       state.timeScale = state.timeScale < 0.99 ? 1 : 0.25;
       ui.setTime(state.timeScale, state.paused);
       break;
+    case 'nextDummy': {
+      const list = sandbox.people;
+      if (!list.length) break;
+      const i = list.indexOf(state.selected);
+      state.selected = list[(i + 1) % list.length];
+      break;
+    }
     case 'follow':
       state.follow = !state.follow;
       ui.setFlag('follow', state.follow);
@@ -220,6 +227,7 @@ function doAction(act) {
         r.hm.mesh.material.transparent = state.debug;
         r.hm.mesh.material.opacity = state.debug ? 0.35 : 1;
         r.hm.mesh.material.depthWrite = !state.debug;
+        r.hm.mesh.material.needsUpdate = true;
       }
       break;
   }
