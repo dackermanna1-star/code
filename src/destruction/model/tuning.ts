@@ -90,8 +90,8 @@ export const K = {
   /** Max damage points remembered per part. */
   maxDmgPoints: 16,
   /** Max seeds of one (non-dice) fracture, coarse dice cells, and expanded dice micro cubes. */
-  maxSeeds: 48,
-  maxDiceCoarse: 200,
+  maxSeeds: 40,
+  maxDiceCoarse: 100,
   maxDiceMicro: 900,
   /** Crumple metric threshold (Σ depth·r² / (ext0·ext1·ext2)). */
   crumple: 1,

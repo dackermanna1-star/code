@@ -6,10 +6,10 @@
 // `${name}_*` in a local frame placed at pos/rot (current group frame) and returns FULL names.
 
 import { qconj, qeuler, qrot, vsub, v3, type Quat, type Vec3, type Xform } from "../../geom/vec.ts";
-import type { BondKind } from "../../destruction/model/types.ts";
+import type { AssemblyDef, BondKind } from "../../destruction/model/types.ts";
 import type { MaterialId } from "../../destruction/model/materials.ts";
 import type { SurfaceName } from "../../render/surfaces.ts";
-import { Builder, type V3, type Rot } from "../lib/builder.ts";
+import { Builder, type BuildInfo, type V3, type Rot } from "../lib/builder.ts";
 
 // ============================================================================ palette
 
@@ -49,6 +49,21 @@ export function frontFinish(c: FrontColor | undefined, fallback: Finish): Finish
     default:
       return fallback;
   }
+}
+
+// ============================================================================ build
+
+/** Build settings for every kitchen builder (tests switch on full validation + recording). */
+export const KBUILD: { validate: "basic" | "full"; record: boolean } = { validate: "basic", record: false };
+
+/** Build info of recently built defs (only while KBUILD.record is on). */
+export const BUILD_INFO = new WeakMap<AssemblyDef, BuildInfo>();
+
+/** Validate and return the def (all kitchen builders end with this). */
+export function finish(b: Builder): AssemblyDef {
+  const def = b.build({ validate: KBUILD.validate });
+  if (KBUILD.record) BUILD_INFO.set(def, b.info());
+  return def;
 }
 
 // ============================================================================ frames
@@ -233,6 +248,21 @@ export function topOf(b: Builder, part: string): number {
   let y = -Infinity;
   for (const v of b.get(part).poly.verts) y = Math.max(y, v.y);
   return y;
+}
+
+/** Centre of a part's hull vertices (assembly space) — a safe anchor inside the part. */
+export function centerOf(b: Builder, part: string): [number, number, number] {
+  const vs = b.get(part).poly.verts;
+  let x = 0,
+    y = 0,
+    z = 0;
+  for (const v of vs) {
+    x += v.x;
+    y += v.y;
+    z += v.z;
+  }
+  const n = Math.max(1, vs.length);
+  return [x / n, y / n, z / n];
 }
 
 /** Convenience: [x, y, z] tuple from a Vec3. */

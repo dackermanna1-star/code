@@ -4,6 +4,7 @@
 // CONVENTIONS (read before writing an object; see also the guide at the top of kit.ts):
 //  * Assembly frame: origin at the object's base centre (floor contact point), +Y up,
 //    the object's FRONT (doors, screen, controls) faces +Z. The furnisher rotates it into place.
+//    Babylon is LEFT-handed: seen from the front, the object's left side is +X, its right -X.
 //  * Units: metres / kg / joules. Rotations: Euler DEGREES [x, y, z] applied like Babylon's
 //    RotationYawPitchRoll (roll Z first, then pitch X, then yaw Y — i.e. yaw is outermost),
 //    or a Quat. Positions/rotations passed to part methods are in the CURRENT GROUP FRAME

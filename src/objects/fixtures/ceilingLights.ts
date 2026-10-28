@@ -62,7 +62,7 @@ export function buildFlushMount(opts: CeilingLightOpts & { r?: number } = {}): A
  */
 export function buildPendant(opts: CeilingLightOpts & { cord?: number; shadeTint?: number } = {}): AssemblyDef {
   const b = new Builder("pendantLight", "Drum Pendant Light", "fixture", 120, opts.seed);
-  const cordLen = opts.cord ?? 0.55;
+  const cordLen = opts.cord ?? 0.45;
   const canopy = b.cyl("canopy", "steelSheet", "steel_brushed", 0.065, 0.03, [0, -0.015, 0], { segments: 14, mass: 0.25, tint: NICKEL });
   b.world(canopy, "screw", 80, [0, 0, 0]);
   const yc0 = -0.03,

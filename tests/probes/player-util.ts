@@ -64,8 +64,10 @@ export class ProbeDestruction {
     const i = this.info.get(s.body);
     return { energy: 0.5 * s.mass * s.speed * s.speed, impulse: s.mass * s.speed, hardness: 0.5, targetMat: i?.mat ?? null, partName: i?.name ?? null, assemblyName: i?.name ?? null, broke: false };
   }
-  pry() {
-    return 0;
+  pries: Array<{ body: PhysicsBody; force: number; dt: number; step: number }> = [];
+  pry(body: PhysicsBody, _point: Vector3, _dir: Vector3, force: number, dt: number) {
+    this.pries.push({ body, force, dt, step: this.step });
+    return 0.3;
   }
   pull(body: PhysicsBody, point: Vector3, force: Vector3, dt: number) {
     this.pulls.push({ body, point: point.clone(), force: force.clone(), dt, step: this.step });

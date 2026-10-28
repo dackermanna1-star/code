@@ -278,7 +278,7 @@ interface MatDef {
 }
 
 const MATS: Record<TexKind, MatDef> = {
-  skin: { color: [0.86, 0.66, 0.53], spec: 0.08, power: 16, tex: "skin" },
+  skin: { color: [0.8, 0.59, 0.46], spec: 0.08, power: 16, tex: "skin" },
   sleeve: { color: [0.25, 0.28, 0.33], spec: 0.03, power: 8, tex: "sleeve" },
   cuff: { color: [0.19, 0.21, 0.25], spec: 0.03, power: 8, tex: "sleeve" },
   wood: { color: [0.66, 0.5, 0.33], spec: 0.12, power: 24, tex: "wood" },
@@ -494,6 +494,8 @@ export function toolLength(id: ToolId): number {
 export const NOZZLE_TIP: Readonly<V3> = { x: 0, y: 0.015, z: 0.14 };
 /** Extinguisher valve outlet (hose start) in the tool frame. */
 export const HOSE_START: Readonly<V3> = { x: 0.0, y: 0.035, z: -0.06 };
+/** Resting nozzle position (clipped to the cylinder's back) in the tool frame. */
+export const HOSE_REST: Readonly<V3> = { x: 0.0, y: 0.32, z: -0.085 };
 
 function buildHammer(k: MeshKit): void {
   const L = toolLength("hammer"); // ≈ 0.26

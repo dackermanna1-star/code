@@ -29,7 +29,7 @@ import type { EventBus, GameEvents } from "../core/events.ts";
 import type { Settings } from "../core/settings.ts";
 import type { Vec3 } from "../geom/vec.ts";
 import type { MicroKind } from "../destruction/model/materials.ts";
-import { S, SURFACES, surfaceDef, type SurfaceName } from "../render/surfaces.ts";
+import { S, SURFACES, registerSurface, surfaceDef, type SurfaceName } from "../render/surfaces.ts";
 import { colorAttrib, surfAttrib } from "../render/batch.ts";
 import { createBitsAtlas, createPuffAtlas } from "./atlas.ts";
 import { Decals } from "./decals.ts";
@@ -86,6 +86,15 @@ const KIND_SURF: Record<Exclude<MicroKind, "none">, SurfaceName> = {
   soil: "soil",
 };
 
+/**
+ * Broken glass crumbs: the transparent pane surfaces render through the glass mesh, which
+ * instanced debris cannot use; `glass_edge` (meant for thin cut edges) reads as green candy on
+ * a whole crumb. This glossy, faintly cool-tinted white surface reads as clear glass bits.
+ */
+function glassCrumbSurface(): number {
+  return registerSurface({ name: "vfx_glass_crumb", tex: "proc:white", worldSize: 0.1, roughness: 0.04, metallic: 0, tint: 0xd2e8e0 });
+}
+
 /** Litres per second at emitter rate 1. */
 const FLOW: Partial<Record<VfxKind, number>> = { water: 0.25, liquid: 0.3, waterDrip: 0.0006 };
 
@@ -121,6 +130,7 @@ export class Vfx implements VfxSystem {
   // scratch
   private readonly tmpSurf = new Float32Array(4);
   private readonly tmpCol = new Float32Array(4);
+  private readonly glassSurf = glassCrumbSurface();
   private readonly spawnRec: MicroSpawn = { kind: 0, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, size: 0.01, r: 1, g: 1, b: 1, a: 1, s0: 0, s1: 0, s2: 0, s3: 0 };
 
   constructor(opts: CreateVfxOptions) {
@@ -275,10 +285,11 @@ export class Vfx implements VfxSystem {
 
   private surfaceFor(kind: Exclude<MicroKind, "none">, surf: number): number {
     if (Number.isInteger(surf) && surf >= 0 && surf < SURFACES.length) {
-      // transparent glass renders as its (opaque, glossy, green-edged) broken edge
-      return surfaceDef(surf).transparent ? S.glass_edge : surf;
+      // transparent panes break into opaque, glossy, faintly green crumbs
+      const def = surfaceDef(surf);
+      return def.transparent || def.name === "glass_edge" ? this.glassSurf : surf;
     }
-    return S[KIND_SURF[kind]];
+    return kind === "glass" ? this.glassSurf : S[KIND_SURF[kind]];
   }
 
   private dustPatch(p: Vec3, size: number, tint: number): void {

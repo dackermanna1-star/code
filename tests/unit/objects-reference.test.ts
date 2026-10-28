@@ -138,8 +138,12 @@ test("microwave: the showcase is built like the real thing", () => {
   assert.equal(new Set(hinges.map((h) => h.joint!.group)).size, 1);
   const latch = def.bonds.find((b) => b.kind === "latch")!;
   assert.ok(latch && latch.a === "door_hook_t" && latch.joint!.group === hinges[0].joint!.group);
-  const r = qrot(qaxisAngle(hinges[0].joint!.axis, 1.2), v3(1, 0, 0));
+  // hinges on the viewer's left (+X, left-handed world); the free edge (-X) swings out to +Z
+  assert.ok(hinges.every((h) => h.joint!.pivot.x > 0.2));
+  const r = qrot(qaxisAngle(hinges[0].joint!.axis, 1.2), v3(-1, 0, 0));
   assert.ok(r.z > 0.9, "door swings out towards +Z");
+  const cp = def.parts.find((p) => p.name === "cp_front")!;
+  assert.ok(cp.poly.verts.every((v) => v.x < 0), "controls on the viewer's right (-X)");
   // controls: ≥ 12 press-fit buttons, a display with a screen feature
   const buttons = def.bonds.filter((b) => b.kind === "press" && b.b === "cp_front");
   assert.ok(buttons.length >= 14, `${buttons.length} buttons`);

@@ -6,7 +6,7 @@
 //    turning swings it; destruction.pull gets the hand force every step
 //  - a static wall cabinet: grab = pull (force grows with stretch, capped at 450 N), slips at 1.2 m
 //  - slam: thrust down/forward; standing on the held object drops it; use key
-import { Color3, HingeConstraint, PhysicsMotionType, PhysicsConstraintAxis, PhysicsConstraintAxisLimitMode, PhysicsShapeType, Quaternion, Vector3, type PhysicsBody, type PhysicsShape } from "@babylonjs/core";
+import { Color3, PhysicsMotionType, PhysicsShapeType, Quaternion, Vector3, type PhysicsBody, type PhysicsShape } from "@babylonjs/core";
 import { Layer } from "../../src/core/context.ts";
 import { PlayerCore } from "../../src/player/playerCore.ts";
 import { LIFT_FORCE } from "../../src/player/interaction.ts";
@@ -41,7 +41,13 @@ export async function probe() {
   p.debugAction("grab");
   const grabbed = p.holding === box;
   const masksHeld = leafMasks(w as never, box);
-  w.step(90);
+  w.step(30);
+  // behavioural check of the HELD layer: world-layer queries pass through the held box
+  const bp = box.transformNode.position;
+  const rayWorld = w.physics.raycast(new Vector3(bp.x, bp.y + 1, bp.z), new Vector3(bp.x, bp.y - 1, bp.z), Layer.STATIC | Layer.DYNAMIC | Layer.DEBRIS);
+  const rayHeld = w.physics.raycast(new Vector3(bp.x, bp.y + 1, bp.z), new Vector3(bp.x, bp.y - 1, bp.z), Layer.HELD);
+  const heldLayerQuery = { worldMaskHitsBox: rayWorld?.body === box, heldMaskHitsBox: rayHeld?.body === box };
+  w.step(60);
   const hold = { dist: r2(it.holdDistance), boxPos: v3(box.transformNode.position) };
   // the grab point should sit near the hold target (eye + forward·dist)
   const target = p.position.add(p.forward.scale(it.holdDistance));
@@ -49,6 +55,7 @@ export async function probe() {
     grabbed,
     masksHeld,
     heldLayer: Layer.HELD,
+    heldLayerQuery,
     ...hold,
     targetPos: v3(target),
     lifted: box.transformNode.position.y > 0.3,
@@ -129,11 +136,15 @@ export async function probe() {
   const frame = w.box("frame", [0.1, 2.1, 0.1], [-6, 1.05, 3], { color: new Color3(0.9, 0.9, 0.88) });
   const door = w.box("door", [0.9, 2.0, 0.04], [-6 + 0.05 + 0.45, 1.05, 3], { motion: PhysicsMotionType.DYNAMIC, mass: 15, color: new Color3(0.75, 0.68, 0.55) });
   door.setAngularDamping(0.5);
-  const hinge = new HingeConstraint(new Vector3(0.05, 0, 0), new Vector3(-0.45, 0, 0), new Vector3(0, 1, 0), new Vector3(0, 1, 0), w.scene);
-  frame.addConstraint(door, hinge);
-  w.plugin.setAxisMode(hinge, PhysicsConstraintAxis.ANGULAR_X, PhysicsConstraintAxisLimitMode.LIMITED);
-  w.plugin.setAxisMinLimit(hinge, PhysicsConstraintAxis.ANGULAR_X, (-100 * Math.PI) / 180);
-  w.plugin.setAxisMaxLimit(hinge, PhysicsConstraintAxis.ANGULAR_X, (100 * Math.PI) / 180);
+  w.physics.hinge(frame, door, {
+    pivotA: new Vector3(0.05, 0, 0),
+    pivotB: new Vector3(-0.45, 0, 0),
+    axisA: new Vector3(0, 1, 0),
+    axisB: new Vector3(0, 1, 0),
+    min: (-100 * Math.PI) / 180,
+    max: (100 * Math.PI) / 180,
+    friction: 0.5,
+  });
   w.destruction.register(door, { name: "Bedroom door", mat: "mdf", isStatic: false, grabbable: true, usable: "door" });
   // stand in front of the door (on -Z side), look at its free edge
   p.teleport({ x: -5.3, y: 1.65, z: 2.1 }, 0, 0.0);

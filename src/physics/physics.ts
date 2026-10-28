@@ -6,8 +6,14 @@
 //    TELEPORT/ACTION bodies such as the character controller still work), then syncs bodies once, then
 //    aggregates collision events into impacts and dispatches them. scene.onBefore/AfterPhysicsObservable fire
 //    once per fixed step. applyForce(F) == F·dt per fixed step (plugin time step = dt).
-//  * SUBSTEPS (default 2): hull fragments of 2–5 cm spinning at 30 m/s tunnel through a 5 cm static slab in up to
-//    4/10 trials at 1 substep and 0/10 at 2; 60 m/s needs 4.
+//  * ADAPTIVE SUBSTEPS: thin hull fragments (≤ ~1 cm thick) spinning at 30 m/s tunnel through a 5 cm static slab
+//    in up to 4/10 trials at 1 substep and never at 2; 60 m/s needs 4 — failures start at ~30 m/s per substep.
+//    A fixed 2 substeps doubles the cost of every active step (1000-hull pile: 35–42 ms vs 8–27 ms), so each
+//    step uses `substeps` (minimum, default 1) and adds substeps while THIN dynamic bodies move fast:
+//    n = ceil(v_eff / fastThinSpeed (15 m/s)), up to maxSubsteps (4). Thinness = smallest dimension of the
+//    equivalent box of the body's per-unit-mass principal inertia (s_k = √(6(I_i + I_j − I_k)), free from Havok);
+//    speed = body-buffer displacement of the last step (+ corner speed ω·r), and freshly shaped/kicked thin
+//    bodies get their velocity read once (expectFast() does the same for strikes).
 //  * SMALL BOXES ARE HULLS: Havok BOX shapes with all extents ≤ ~3 cm, or two small extents (2×2×30 cm sticks),
 //    fall through static floors when rotated, even at 1 m/s. 8-point hulls of the same geometry never do, so
 //    boxShape() emits a hull below a size threshold.
@@ -84,8 +90,16 @@ export interface SleepAssistConfig {
 }
 
 export interface PhysicsOptions {
-  /** Havok world steps per fixed step (1–8). Default 2 (see header). */
+  /** Minimum Havok world steps per fixed step (1–8). Default 1; adaptive substepping adds more when needed. */
   substeps?: number;
+  /** Add substeps while thin dynamic bodies move fast (see header). Default true. */
+  adaptiveSubsteps?: boolean;
+  /** Upper bound for adaptive substeps. Default 4. */
+  maxSubsteps?: number;
+  /** Effective speed (m/s) a thin body may move per substep. Default 15 (tunnelling starts ≈ 30). */
+  fastThinSpeed?: number;
+  /** Bodies whose smallest equivalent dimension is below this (m) count as thin. Default 0.02. */
+  thinWidth?: number;
   /** Gravity along Y (m/s²). Default −9.81. */
   gravity?: number;
   /** Impact aggregation tuning (minImpulse, minDeltaV, spikeFactor, …). */
@@ -124,6 +138,10 @@ export interface PhysicsDebugStats extends PhysicsStats {
   impactsLastStep: number;
   forcedSleeps: number;
   substeps: number;
+  /** Substeps actually used by the last step (adaptive). */
+  substepsLast: number;
+  /** Fastest thin dynamic body seen in the last step (m/s, incl. corner speed). */
+  thinSpeedLast: number;
   stepIndex: number;
   /** Last step breakdown (ms). */
   havokMs: number;
@@ -187,6 +205,12 @@ class BodyRec implements ImpactSide {
   slow = 0;
   moved = false;
   awakePoll = false;
+  /** Smallest equivalent-box dimension < thinWidth (tunnelling-prone when fast). */
+  thin = false;
+  /** Half diagonal of the equivalent box (m): corner speed = ω·radius. */
+  radius = 0;
+  /** Step index until which the body's velocity is polled before stepping (fresh / expectFast). */
+  watchUntil = -1;
   disposeObserver: Observer<Node> | null = null;
 
   constructor(body: PhysicsBody, serial: number, foreign: boolean) {
@@ -243,8 +267,12 @@ export class Physics implements PhysicsSystem {
   readonly engine: PhysicsEngineV2;
   /** Static, shape-less body at the origin with identity transform: anchor for world-fixed joints. */
   readonly worldBody: PhysicsBody;
-  /** Havok world steps per fixed step. */
+  /** Minimum Havok world steps per fixed step. */
   substeps: number;
+  adaptiveSubsteps: boolean;
+  maxSubsteps: number;
+  fastThinSpeed: number;
+  thinWidth: number;
   syncWorldMatrices: boolean;
   rawEvents: boolean;
   minDynamicMass: number;
@@ -275,6 +303,10 @@ export class Physics implements PhysicsSystem {
   private f32: Float32Array<ArrayBufferLike> = new Float32Array(0);
   private i32: Int32Array<ArrayBufferLike> = new Int32Array(0);
   private pollCursor = 0;
+  /** Thin bodies whose velocity must be read before the next step (fresh fragments, expectFast). */
+  private watch: BodyRec[] = [];
+  private thinSpeed = 0;
+  private substepsLast = 1;
   // hull scratch memory in the WASM heap
   private scratchPtr = 0;
   private scratchFloats = 0;
@@ -312,7 +344,11 @@ export class Physics implements PhysicsSystem {
     if ((scene as unknown as { floatingOriginMode?: boolean }).floatingOriginMode) throw new Error("Physics: floating-origin mode is not supported");
     this.scene = scene;
     this.hk = hk;
-    this.substeps = clampInt(opts.substeps ?? 2, 1, 8);
+    this.substeps = clampInt(opts.substeps ?? 1, 1, 8);
+    this.adaptiveSubsteps = opts.adaptiveSubsteps ?? true;
+    this.maxSubsteps = clampInt(opts.maxSubsteps ?? 4, 1, 8);
+    this.fastThinSpeed = opts.fastThinSpeed && opts.fastThinSpeed > 0 ? opts.fastThinSpeed : 15;
+    this.thinWidth = opts.thinWidth && opts.thinWidth > 0 ? opts.thinWidth : 0.02;
     this.syncWorldMatrices = opts.syncWorldMatrices ?? true;
     this.rawEvents = opts.rawEvents ?? true;
     this.minDynamicMass = opts.minDynamicMass ?? 0.005;
@@ -370,7 +406,8 @@ export class Physics implements PhysicsSystem {
       console.warn("Physics: floating-origin world regions are not supported; only the default world is stepped");
     }
     scene.onBeforePhysicsObservable.notifyObservers(scene);
-    const n = clampInt(this.substeps, 1, 8);
+    const n = this.chooseSubsteps();
+    this.substepsLast = n;
     const h = dt / n;
     const babylonEvents = !this.rawEvents || this.externalListeners();
     if (babylonEvents) this.ensureBjsObservers();
@@ -430,6 +467,50 @@ export class Physics implements PhysicsSystem {
   muteImpacts(body: PhysicsBody, steps: number): void {
     const rec = this.recs.get(body);
     if (rec) rec.muteUntil = Math.max(rec.muteUntil, this._stepIndex + Math.max(0, steps | 0));
+  }
+
+  /**
+   * Note that `body` may have been given a large velocity outside the step (strike, kick): if it is thin, its
+   * velocity is read before the next step so adaptive substepping can react immediately.
+   */
+  expectFast(body: PhysicsBody): void {
+    const rec = this.recs.get(body);
+    if (rec && !rec.disposed && rec.motion === DYNAMIC && rec.thin) this.watchRec(rec, 1);
+  }
+
+  private watchRec(rec: BodyRec, steps: number): void {
+    if (rec.watchUntil < this._stepIndex) this.watch.push(rec);
+    rec.watchUntil = Math.max(rec.watchUntil, this._stepIndex + steps);
+  }
+
+  /** Substeps for this step: minimum, plus enough that no thin body moves more than fastThinSpeed·dt per substep. */
+  private chooseSubsteps(): number {
+    const lo = clampInt(this.substeps, 1, 8);
+    if (!this.adaptiveSubsteps) {
+      this.watch.length = 0;
+      return lo;
+    }
+    let v = this.thinSpeed;
+    if (this.watch.length > 0) {
+      const hk = this.hk;
+      let keep = 0;
+      for (let i = 0; i < this.watch.length; i++) {
+        const rec = this.watch[i];
+        if (rec.disposed || rec.motion !== DYNAMIC || !rec.body._pluginData) {
+          rec.watchUntil = -1;
+          continue;
+        }
+        const lv = hk.HP_Body_GetLinearVelocity(rec.hpId)[1];
+        const av = hk.HP_Body_GetAngularVelocity(rec.hpId)[1];
+        const ve = Math.hypot(lv[0], lv[1], lv[2]) + Math.hypot(av[0], av[1], av[2]) * rec.radius;
+        if (ve > v) v = ve;
+        if (rec.watchUntil > this._stepIndex) this.watch[keep++] = rec;
+        else rec.watchUntil = -1;
+      }
+      this.watch.length = keep;
+    }
+    const need = Number.isFinite(v) ? Math.ceil(v / this.fastThinSpeed) : this.maxSubsteps;
+    return Math.min(Math.max(lo, need), Math.max(lo, clampInt(this.maxSubsteps, 1, 8)));
   }
 
   private dispatch(count: number): void {
@@ -588,6 +669,8 @@ export class Physics implements PhysicsSystem {
       const sleepSteps = Math.max(1, Math.round(sa.seconds / dt));
       const wm = this.syncWorldMatrices;
       const INACTIVE = hk.ActivationState.INACTIVE;
+      const invDt = 1 / dt;
+      let thinSpeed = 0;
       for (let i = 0; i < list.length; i++) {
         const rec = list[i];
         const body = rec.body;
@@ -621,17 +704,26 @@ export class Physics implements PhysicsSystem {
           rec.slow = 0;
           continue;
         }
-        if (assist && rec.motion === DYNAMIC && !rec.keepAwake && rec.joints === null) {
+        const assistable = assist && rec.motion === DYNAMIC && !rec.keepAwake && rec.joints === null;
+        if (assistable || (rec.thin && rec.motion === DYNAMIC)) {
+          // displacement this step; Frobenius product of consecutive rotations = 1 + 2cosθ → 3 − dot ≈ θ²
           const dx = tx - prev[p + 9], dy = ty - prev[p + 10], dz = tz - prev[p + 11];
-          // Frobenius product of consecutive rotations = 1 + 2cosθ → 3 − dot ≈ θ²
           const dot = r0 * prev[p] + r1 * prev[p + 1] + r2 * prev[p + 2] + r4 * prev[p + 3] + r5 * prev[p + 4] + r6 * prev[p + 5] + r8 * prev[p + 6] + r9 * prev[p + 7] + r10 * prev[p + 8];
-          if (dx * dx + dy * dy + dz * dz < linLim2 && 3 - dot < angLim2) {
-            if (++rec.slow >= sleepSteps) {
-              hk.HP_Body_SetActivationState(rec.hpId, INACTIVE);
-              rec.slow = 0;
-              this.forcedSleeps++;
-            }
-          } else rec.slow = 0;
+          const d2 = dx * dx + dy * dy + dz * dz;
+          const a2 = 3 - dot;
+          if (rec.thin) {
+            const ve = (Math.sqrt(d2) + (a2 > 0 ? Math.sqrt(a2) : 0) * rec.radius) * invDt;
+            if (ve > thinSpeed) thinSpeed = ve;
+          }
+          if (assistable) {
+            if (d2 < linLim2 && a2 < angLim2) {
+              if (++rec.slow >= sleepSteps) {
+                hk.HP_Body_SetActivationState(rec.hpId, INACTIVE);
+                rec.slow = 0;
+                this.forcedSleeps++;
+              }
+            } else rec.slow = 0;
+          }
         }
         prev[p] = r0;
         prev[p + 1] = r1;
@@ -682,6 +774,7 @@ export class Physics implements PhysicsSystem {
         else q.set(qx, qy, qz, qw);
         if (wm) node.computeWorldMatrix(true);
       }
+      this.thinSpeed = thinSpeed;
       // round-robin activation polling (stats only; isAwake() always asks Havok)
       const ACTIVE = hk.ActivationState.ACTIVE;
       const k = Math.min(list.length, 48);
@@ -692,6 +785,7 @@ export class Physics implements PhysicsSystem {
       }
     }
     this.movedLast = moved;
+    if (list.length === 0) this.thinSpeed = 0;
   }
 
   private addFast(rec: BodyRec): void {
@@ -1006,6 +1100,16 @@ export class Physics implements PhysicsSystem {
       }
     }
     const inertia = props[2];
+    // equivalent box of the per-unit-mass principal inertia: s_k² = 6(I_i + I_j − I_k)
+    const i0 = inertia[0], i1 = inertia[1], i2 = inertia[2];
+    const s0 = Math.sqrt(Math.max(0, 6 * (i1 + i2 - i0)));
+    const s1 = Math.sqrt(Math.max(0, 6 * (i0 + i2 - i1)));
+    const s2 = Math.sqrt(Math.max(0, 6 * (i0 + i1 - i2)));
+    if (Number.isFinite(s0 + s1 + s2)) {
+      rec.thin = Math.min(s0, s1, s2) < this.thinWidth;
+      rec.radius = 0.5 * Math.sqrt(s0 * s0 + s1 * s1 + s2 * s2);
+      if (rec.thin) this.watchRec(rec, 2); // fresh thin fragment: read its kick velocity before the next steps
+    }
     if (!(inertia[0] > 0 && inertia[1] > 0 && inertia[2] > 0 && Number.isFinite(inertia[0] + inertia[1] + inertia[2]))) {
       // degenerate shape: use a solid sphere of the shape's bounding radius (per unit mass)
       let r = 0.05;
@@ -1562,7 +1666,7 @@ export class Physics implements PhysicsSystem {
     const pd = c._pluginData as HP_Id[] | undefined;
     if (!pd || pd.length === 0) return { force: 0, torque: 0 };
     const r = this.hk.HP_Constraint_GetAppliedImpulses(pd[0]);
-    const h = this.plugin.getTimeStep() / clampInt(this.substeps, 1, 8);
+    const h = this.plugin.getTimeStep() / this.substepsLast;
     const l = r[1], t = r[2];
     return { force: Math.hypot(l[0], l[1], l[2]) / h, torque: Math.hypot(t[0], t[1], t[2]) / h };
   }
@@ -1656,6 +1760,8 @@ export class Physics implements PhysicsSystem {
       impactsLastStep: this.impactsLast,
       forcedSleeps: this.forcedSleeps,
       substeps: this.substeps,
+      substepsLast: this.substepsLast,
+      thinSpeedLast: this.thinSpeed,
       stepIndex: this._stepIndex,
       havokMs: this.tHavok,
       eventsMs: this.tEvents,

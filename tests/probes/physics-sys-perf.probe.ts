@@ -26,8 +26,8 @@ function timeSteps(w: World, n: number): { avg: number; p95: number; max: number
   return { avg: r(t.reduce((x, y) => x + y, 0) / n, 3), p95: r(s[Math.floor(n * 0.95)], 3), max: r(s[n - 1], 3) };
 }
 
-async function pile(substeps: number, assist: boolean) {
-  const w = await makeWorld({ substeps, sleepAssist: assist });
+async function pile(opts: { substeps?: number; adaptive?: boolean; assist: boolean | { linear: number; angular: number; seconds: number } }) {
+  const w = await makeWorld({ substeps: opts.substeps ?? 1, adaptiveSubsteps: opts.adaptive ?? true, sleepAssist: opts.assist });
   pen(w);
   const bodies: PhysicsBody[] = [];
   let impacts = 0;
@@ -37,9 +37,18 @@ async function pile(substeps: number, assist: boolean) {
     bodies.push(body(w, "h", new Vector3(-2.7 + (i % 10) * 0.6, 0.4 + Math.floor(i / 100) * 0.6, -2.7 + (Math.floor(i / 10) % 10) * 0.6), "dynamic", s, { rot: Quaternion.RotationYawPitchRoll(i, i * 0.37, i * 0.11) }));
   }
   const phases: Record<string, unknown> = {};
+  const awakeTrace: number[] = [];
+  const sample = () => awakeTrace.push(bodies.filter((b) => w.physics.isAwake(b)).length);
   phases.fall_0_40 = timeSteps(w, 40);
   phases.impact_40_200 = timeSteps(w, 160);
-  phases.settle_200_600 = timeSteps(w, 400);
+  sample();
+  const settle: number[] = [];
+  for (let k = 0; k < 10; k++) {
+    const t = timeSteps(w, 40);
+    settle.push(t.avg);
+    sample();
+  }
+  phases.settle_200_600_avgPer40 = settle;
   phases.late_600_900 = timeSteps(w, 300);
   const st = w.physics.debugStats();
   const awakeExact = bodies.filter((b) => w.physics.isAwake(b)).length;
@@ -48,7 +57,7 @@ async function pile(substeps: number, assist: boolean) {
   steps(w, 90);
   const movedAfterBlock = bodies.filter((b) => w.physics.isAwake(b)).length;
   const blockY = block.transformNode.position.y;
-  const res = { phases, awakeAtEnd: awakeExact, forcedSleeps: st.forcedSleeps, eventsLastStep: st.eventsLastStep, impactsTotal: impacts, awakeAfterBlockDrop: movedAfterBlock, blockRestY: r(blockY, 2) };
+  const res = { phases, awakeEvery40StepsFrom200: awakeTrace, awakeAtEnd: awakeExact, forcedSleeps: st.forcedSleeps, eventsLastStep: st.eventsLastStep, maxSubstepsSeen: st.substepsLast, impactsTotal: impacts, awakeAfterBlockDrop: movedAfterBlock, blockRestY: r(blockY, 2) };
   w.dispose();
   return res;
 }
@@ -57,9 +66,10 @@ export async function probe() {
   const out: Record<string, unknown> = {};
 
   // ---- P1: 1000-hull pile
-  out.P1_pile_substeps2_assistOn = await pile(2, true);
-  out.P1_pile_substeps1_assistOn = await pile(1, true);
-  out.P1_pile_substeps1_assistOff = await pile(1, false);
+  out.P1_pile_default = await pile({ assist: true });
+  out.P1_pile_assistAggressive = await pile({ assist: { linear: 0.15, angular: 0.6, seconds: 1.0 } });
+  out.P1_pile_fixed2substeps = await pile({ substeps: 2, adaptive: false, assist: true });
+  out.P1_pile_assistOff = await pile({ assist: false });
 
   // ---- P2: 3000 sleeping bodies (startAsleep, resting on the floor)
   {
@@ -112,6 +122,8 @@ export async function probe() {
     const w = await makeWorld();
     floor(w, 0, 60);
     for (let i = 0; i < 500; i++) body(w, "q", new Vector3(-10 + (i % 25) * 0.8, 0.2 + Math.floor(i / 25) * 0.5, (i % 7) * 0.3), "static", w.physics.boxShape(ZERO, IDQ, { x: 0.3, y: 0.3, z: 0.3 }, { layer: Layer.STATIC }));
+    steps(w, 2);
+    for (let i = 0; i < 200; i++) w.physics.raycast(new Vector3(-12 + i * 0.1, 8, 0), new Vector3(-12 + i * 0.1, -1, 0)); // warm-up
     const t0 = performance.now();
     let hits = 0;
     for (let i = 0; i < 2000; i++) if (w.physics.raycast(new Vector3(-12 + (i % 100) * 0.24, 8, (i % 13) * 0.2), new Vector3(-12 + (i % 100) * 0.24, -1, (i % 13) * 0.2))) hits++;

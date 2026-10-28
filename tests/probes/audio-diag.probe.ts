@@ -1,44 +1,26 @@
-// Temporary diagnostic: does the engine's spatial channel pan left/right (equal-power and HRTF)?
-import { createAudio } from "../../src/audio/audio.ts";
+// Temporary diagnostic: convolver energy gain for real sounds vs an impulse.
+import { IR_SPECS, generateIR } from "../../src/audio/reverb.ts";
 import { SoundBank } from "../../src/audio/soundbank.ts";
-import { EventBus, type GameEvents } from "../../src/core/events.ts";
-import { Settings } from "../../src/core/settings.ts";
-import { rms, toDb } from "../../src/audio/analysis.ts";
-
-async function prewarm() {
-  const ctx = new AudioContext();
-  const osc = ctx.createOscillator();
-  const g = ctx.createGain();
-  g.gain.value = 0;
-  const p = ctx.createPanner();
-  p.panningModel = "HRTF";
-  osc.connect(g).connect(p).connect(ctx.destination);
-  osc.start();
-  osc.stop(ctx.currentTime + 0.5);
-  await new Promise((r) => setTimeout(r, 1000));
-  await ctx.close();
-}
-
+const E = (d: Float32Array) => { let e = 0; for (let i = 0; i < d.length; i++) e += d[i] * d[i]; return e; };
 export async function probe() {
-  await prewarm();
-  const bank = await SoundBank.generate({ sr: 48000, only: (d) => d.id.startsWith("impact.plastic") });
-  const out: Record<string, number> = {};
-  for (const hrtf of [0, 24]) {
-    for (const x of [2, -2]) {
-      const oac = new OfflineAudioContext(2, 48000, 48000);
-      const a = await createAudio({ events: new EventBus<GameEvents>(), settings: new Settings(), context: oac, bank, samples: false, ambience: false, maxVoices: 16, hrtf });
-      a.setListener({ x: 0, y: 1.6, z: 0 } as never, { x: 0, y: 0, z: 1 } as never, { x: 0, y: 1, z: 0 } as never);
-      a.play("impact.plastic.m", { x, y: 1.6, z: 0 });
-      await Promise.resolve();
-      const b = await Promise.race([oac.startRendering(), new Promise<never>((_, r) => setTimeout(() => r(new Error("timeout")), 20000))]);
-      const L = b.getChannelData(0),
-        R = b.getChannelData(1);
-      out[`${hrtf ? "hrtf" : "eq"}_x${x}_RminusL`] = +(toDb(rms(R)) - toDb(rms(L))).toFixed(1);
-      out[`${hrtf ? "hrtf" : "eq"}_x${x}_rms`] = +toDb(rms(L) + rms(R)).toFixed(1);
-      const lis = oac.listener as AudioListener;
-      out[`${hrtf ? "hrtf" : "eq"}_x${x}_lisFz`] = lis.forwardZ ? lis.forwardZ.value : NaN;
-      a.dispose();
-    }
+  const bank = await SoundBank.generate({ sr: 48000, only: (d) => d.id === "impact.plastic.m" || d.id === "impact.glass.s" || d.id === "impact.wood.l" });
+  const res: Record<string, number> = {};
+  const spec = IR_SPECS[1];
+  for (const id of ["impact.plastic.m", "impact.glass.s", "impact.wood.l", "impulse"]) {
+    const sr = 48000;
+    const oac = new OfflineAudioContext(2, sr * 3, sr);
+    const ir = generateIR(spec, sr);
+    const b = oac.createBuffer(2, ir[0].length, sr);
+    b.copyToChannel(ir[0], 0); b.copyToChannel(ir[1], 1);
+    const conv = oac.createConvolver(); conv.normalize = false; conv.buffer = b;
+    let buf: AudioBuffer;
+    if (id === "impulse") { buf = oac.createBuffer(1, 10, sr); buf.getChannelData(0)[0] = 1; } else buf = bank.get(id)!.buffers[0];
+    const src = oac.createBufferSource(); src.buffer = buf;
+    src.connect(conv).connect(oac.destination); src.start();
+    const out = await oac.startRendering();
+    let ein = 0; for (let c = 0; c < buf.numberOfChannels; c++) ein += E(buf.getChannelData(c));
+    res[id] = +(10 * Math.log10((E(out.getChannelData(0)) + E(out.getChannelData(1))) / ein)).toFixed(2);
+    res[id + "_sr"] = buf.sampleRate;
   }
-  return out;
+  return res;
 }

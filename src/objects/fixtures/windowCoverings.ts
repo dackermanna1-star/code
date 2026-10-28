@@ -5,7 +5,7 @@
 import { Builder } from "../lib/builder.ts";
 import { hingeAxis } from "../lib/kit.ts";
 import type { AssemblyDef } from "../../destruction/model/types.ts";
-import { ringX, BRONZE } from "./parts.ts";
+import { ringX } from "./parts.ts";
 
 // ============================================================================================
 // Venetian blind
@@ -204,4 +204,3 @@ export function buildCurtains(o: CurtainOpts): AssemblyDef {
   return b.build({ validate: o.validate });
 }
 
-void BRONZE;

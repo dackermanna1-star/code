@@ -67,6 +67,7 @@ const SWITCH_RAISE = 0.24;
 /** Lowering speed (1/s) while the player holds an object; spray pose blend speed (1/s). */
 const HOLD_LOWER_RATE = 5;
 const SPRAY_BLEND_RATE = 7;
+const NOZZLE_HOLD_RATE = 6;
 /** Chest pivot used for the fists' obstruction check (camera space). */
 const FIST_PIVOT: V3 = { x: 0, y: -0.25, z: 0 };
 /** Right shoulder (camera space) for the crowbar levering pose, and the bar's face hint. */
@@ -167,6 +168,11 @@ export class ToolSystem implements IToolSystem {
   };
   private readonly spray: SprayState = { active: false, contents: SPRAY.duration, emitter: null, loop: null, k: 0, pressure: 1 };
 
+  /** Debug/test record of the most recent strike (full head speed vs. the normal component used). */
+  lastHit: { who: string; speed: number; normalSpeed: number; energy: number; hardness: number; broke: boolean; outcome: string; point: V3; time: number } | null = null;
+  /** Number of strikes delivered since construction. */
+  hitCount = 0;
+
   // ---- viewmodel
   private readonly viewmodel: Viewmodel | null;
   private readonly pose = makePose();
@@ -209,6 +215,7 @@ export class ToolSystem implements IToolSystem {
       kick: 0,
       phase: "idle",
       sprayBlend: 0,
+      nozzleHold: 1,
     };
     let vm: Viewmodel | null = null;
     try {
@@ -528,6 +535,7 @@ export class ToolSystem implements IToolSystem {
     const vn = -(v.x * n.x + v.y * n.y + v.z * n.z); // closing speed along the surface normal
     const isLeg = who === "kick" || who === "stomp";
     const legOrMachineHit = (kind: "continue" | "stop" | "recoil", factor = 1, strength = 1) => {
+      if (this.lastHit) this.lastHit.outcome = kind;
       if (isLeg) {
         if (kind === "continue") this.leg.slow(factor);
         else this.leg.stop(tHit);
@@ -582,6 +590,18 @@ export class ToolSystem implements IToolSystem {
     const energy = Number.isFinite(res.energy) ? Math.max(0, res.energy) : 0;
     const hardness = Number.isFinite(res.hardness) ? clamp01(res.hardness) : 0.5;
     this.feel(hit, energy, hardness, res.targetMat ?? preMat, who, painful);
+    this.hitCount++;
+    const rec = (this.lastHit ??= { who: "", speed: 0, normalSpeed: 0, energy: 0, hardness: 0, broke: false, outcome: "", point: v3(), time: 0 });
+    rec.who = who;
+    rec.speed = speedTotal;
+    rec.normalSpeed = speed;
+    rec.energy = energy;
+    rec.hardness = hardness;
+    rec.broke = res.broke;
+    rec.point.x = hit.point.x;
+    rec.point.y = hit.point.y;
+    rec.point.z = hit.point.z;
+    rec.time = this.ctx.time ? this.ctx.time.simTime : 0;
 
     // ---- continuation (momentum): the head loses J/m of normal speed
     const dvHead = Number.isFinite(res.impulse) ? Math.max(0, res.impulse) / Math.max(mass, 1e-3) : speed;
@@ -1059,10 +1079,20 @@ export class ToolSystem implements IToolSystem {
         copyPose(this.pose2, this.pose);
         blendPose(this.pose2, this.sprayPose, u, shownMachine.toolLen, 0, this.pose);
       }
-      // the left hand always holds the hose nozzle (aimed along the view while spraying)
-      blendFrame(this.nozzleIdle.left, this.sprayPose.left, u, this.pose.left);
-    } else this.sprayBlend = 0;
+      // the left hand holds the hose nozzle (aimed along the view while spraying) except during
+      // a slam, when it grips the bottom of the cylinder and the nozzle rests clipped to it
+      const ph = shownMachine.phase;
+      const holdTarget = ph === "idle" || (ph === "recover" && shownMachine.t > 0.45 * this.defs.extinguisher.recover) || this.spray.active ? 1 : 0;
+      const hs = NOZZLE_HOLD_RATE * dt;
+      this.nozzleHold = holdTarget > this.nozzleHold ? Math.min(1, this.nozzleHold + hs) : Math.max(0, this.nozzleHold - hs);
+      blendFrame(this.nozzleIdle.left, this.sprayPose.left, u, this.nozzleFrame);
+      blendFrame(this.pose.left, this.nozzleFrame, smoothstep01(this.nozzleHold), this.pose.left);
+    } else {
+      this.sprayBlend = 0;
+      this.nozzleHold = 1;
+    }
     vs.sprayBlend = this.sprayBlend;
+    vs.nozzleHold = this.nozzleHold;
     vs.tool = this.shown;
     vs.lower = Math.max(this.switchLower(ex), this.holdLower);
     vs.charge = shownMachine.phase === "charge" ? shownMachine.charge : 0;
@@ -1103,6 +1133,8 @@ export class ToolSystem implements IToolSystem {
   }
 
   private sprayBlend = 0;
+  private nozzleHold = 1;
+  private readonly nozzleFrame = { p: v3(), q: { x: 0, y: 0, z: 0, w: 1 } };
 
   private composePryPose(ex: number): void {
     const p = this.pry;

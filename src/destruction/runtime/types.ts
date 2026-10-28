@@ -227,6 +227,9 @@ export class Island {
   savedDisableSync = false;
   /** Sim time of the last impact/strike involving this island. */
   lastHit = -1;
+  /** Split operation that created this island (siblings share it) and when. */
+  birth = 0;
+  birthTime = -1;
 
   constructor(id: number, asm: Assembly, node: TransformNode, isStatic: boolean) {
     this.id = id;

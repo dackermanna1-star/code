@@ -33,7 +33,7 @@ import { JointSystem } from "./runtime/joints.ts";
 import type { Assembly, Island, Part } from "./runtime/types.ts";
 import { World } from "./runtime/world.ts";
 import { FeatureSystem } from "./features/system.ts";
-import type { ScreenVisualFactory } from "./features/screen.ts";
+import { renderScreenFactory, type ScreenVisualFactory } from "./features/screen.ts";
 import { polyPoints } from "../geom/poly.ts";
 import { applyDents } from "../geom/meshgen.ts";
 
@@ -70,6 +70,7 @@ export class Destruction implements DestructionSystem {
     this.joints = new JointSystem(w);
     this.accounting = new Accounting(w);
     this.features = new FeatureSystem(w, this.joints, () => (ctx as Partial<GameContext>).audio ?? null);
+    this.features.screenFactory = renderScreenFactory(ctx.scene);
     this.debris = new DebrisSystem(w, {
       hasFeatures: (isl) => this.features.hasFeatures(isl),
       fellOut: (isl) => this.fellOut(isl),

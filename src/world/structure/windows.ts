@@ -26,11 +26,22 @@ interface Bar {
   w: Interval;
 }
 
-function bar(b: Builder, name: string, u: Interval, y: Interval, w: Interval, tags: string[], tess = ALU.tess): Bar {
+/**
+ * Aluminium frame member. Real profiles are hollow extrusions, so the mass comes from a linear
+ * density (kg/m) instead of a solid bar (a solid 45×60 mm bar would be 7 kg/m).
+ */
+function bar(b: Builder, name: string, u: Interval, y: Interval, w: Interval, tags: string[], kgPerM: number, tess = ALU.tess): Bar {
   const horiz = u[1] - u[0] >= y[1] - y[0];
-  boxR(b, name, "aluminum", "metal_painted", u, y, w, { tint: ALU.tint, tess, tags, grain: horiz ? "x" : "y" });
+  const len = Math.max(u[1] - u[0], y[1] - y[0]);
+  boxR(b, name, "aluminum", "metal_painted", u, y, w, { tint: ALU.tint, tess, tags, grain: horiz ? "x" : "y", mass: kgPerM * len });
   return { name, u, y, w };
 }
+
+/** Linear masses of the aluminium profiles (kg/m). */
+const KG_FRAME = 2.0,
+  KG_SASH = 1.6,
+  KG_SLIDER_FRAME = 2.6,
+  KG_SLIDER_PANEL = 1.9;
 
 /**
  * Insulated glass unit filling [u]×[y] centred at depth wc: two panes + 4 spacer bars.
@@ -49,10 +60,11 @@ function addIGU(b: Builder, prefix: string, u: Interval, y: Interval, wc: number
     sB = `${prefix}spacerB`,
     sL = `${prefix}spacerL`,
     sR = `${prefix}spacerR`;
-  boxR(b, sT, "aluminum", "aluminum", u, [y[1] - SPACER_W, y[1]], sw, { ...sp, grain: "x" });
-  boxR(b, sB, "aluminum", "aluminum", u, [y[0], y[0] + SPACER_W], sw, { ...sp, grain: "x" });
-  boxR(b, sL, "aluminum", "aluminum", [u[0], u[0] + SPACER_W], [y[0] + SPACER_W, y[1] - SPACER_W], sw, { ...sp, grain: "y" });
-  boxR(b, sR, "aluminum", "aluminum", [u[1] - SPACER_W, u[1]], [y[0] + SPACER_W, y[1] - SPACER_W], sw, { ...sp, grain: "y" });
+  const kg = (l: number) => 0.12 * l; // hollow spacer profile with desiccant
+  boxR(b, sT, "aluminum", "aluminum", u, [y[1] - SPACER_W, y[1]], sw, { ...sp, grain: "x", mass: kg(u[1] - u[0]) });
+  boxR(b, sB, "aluminum", "aluminum", u, [y[0], y[0] + SPACER_W], sw, { ...sp, grain: "x", mass: kg(u[1] - u[0]) });
+  boxR(b, sL, "aluminum", "aluminum", [u[0], u[0] + SPACER_W], [y[0] + SPACER_W, y[1] - SPACER_W], sw, { ...sp, grain: "y", mass: kg(y[1] - y[0]) });
+  boxR(b, sR, "aluminum", "aluminum", [u[1] - SPACER_W, u[1]], [y[0] + SPACER_W, y[1] - SPACER_W], sw, { ...sp, grain: "y", mass: kg(y[1] - y[0]) });
   const um = mid(u[0], u[1]),
     ym = mid(y[0], y[1]);
   const at: Record<string, [number, number]> = {
@@ -114,10 +126,10 @@ export function buildWindow(run: ConcreteRun, o: RunOpening): AssemblyDef {
       y0 = o.sill + 0.005,
       y1 = o.head - 0.005;
     const tags = ["window-frame"];
-    const head = bar(b, "frameHead", [u0, u1], [y1 - F, y1], fw, tags);
-    const sill = bar(b, "frameSill", [u0, u1], [y0, y0 + F], fw, tags);
-    const left = bar(b, "frameL", [u0, u0 + F], [y0 + F, y1 - F], fw, tags);
-    const right = bar(b, "frameR", [u1 - F, u1], [y0 + F, y1 - F], fw, tags);
+    const head = bar(b, "frameHead", [u0, u1], [y1 - F, y1], fw, tags, KG_FRAME);
+    const sill = bar(b, "frameSill", [u0, u1], [y0, y0 + F], fw, tags, KG_FRAME);
+    const left = bar(b, "frameL", [u0, u0 + F], [y0 + F, y1 - F], fw, tags, KG_FRAME);
+    const right = bar(b, "frameR", [u1 - F, u1], [y0 + F, y1 - F], fw, tags, KG_FRAME);
     for (const [j, uu] of [
       [left, u0 + F / 2],
       [right, u1 - F / 2],
@@ -134,7 +146,7 @@ export function buildWindow(run: ConcreteRun, o: RunOpening): AssemblyDef {
     const lights: Array<{ u: Interval; casement: boolean; hingeAtLow: boolean; lb: Bar; rb: Bar }> = [];
     if (width >= 1.4) {
       const m = um;
-      const mul = bar(b, "mullion", [m - F / 2, m + F / 2], [y0 + F, y1 - F], fw, tags);
+      const mul = bar(b, "mullion", [m - F / 2, m + F / 2], [y0 + F, y1 - F], fw, tags, KG_FRAME);
       bondAt(b, mul.name, head.name, "screw", 70, [m, y1 - F, wc]);
       bondAt(b, mul.name, sill.name, "screw", 70, [m, y0 + F, wc]);
       lights.push({ u: [u0 + F, m - F / 2], casement: false, hingeAtLow: true, lb: left, rb: mul });
@@ -145,9 +157,11 @@ export function buildWindow(run: ConcreteRun, o: RunOpening): AssemblyDef {
     const ly: Interval = [y0 + F, y1 - F];
     lights.forEach((L, i) => {
       const pfx = `light${i}_`;
+      // glazing and sashes sit tight in the frame (the real rebate/gasket overlap has no line
+      // of sight; sash and frame are joint-connected, so they never collide with each other)
       if (!L.casement) {
-        const gu: Interval = [L.u[0] + 0.002, L.u[1] - 0.002],
-          gy: Interval = [ly[0] + 0.002, ly[1] - 0.002];
+        const gu: Interval = [L.u[0], L.u[1]],
+          gy: Interval = [ly[0], ly[1]];
         const igu = addIGU(b, pfx, gu, gy, wc, "glass", ["window"]);
         glaze(b, igu, gu, gy, wc, { top: head, bottom: sill, left: L.lb, right: L.rb }, 10);
         return;
@@ -155,13 +169,13 @@ export function buildWindow(run: ConcreteRun, o: RunOpening): AssemblyDef {
       // casement sash (inward opening, side hung)
       const SF = 0.045;
       const sw: Interval = [wc - 0.03, wc + 0.03];
-      const su: Interval = [L.u[0] + 0.002, L.u[1] - 0.002],
-        sy: Interval = [ly[0] + 0.002, ly[1] - 0.002];
+      const su: Interval = [L.u[0], L.u[1]],
+        sy: Interval = [ly[0], ly[1]];
       const st = ["window-sash"];
-      const sT = bar(b, `${pfx}sashTop`, su, [sy[1] - SF, sy[1]], sw, st);
-      const sB = bar(b, `${pfx}sashBottom`, su, [sy[0], sy[0] + SF], sw, st);
-      const sL = bar(b, `${pfx}sashL`, [su[0], su[0] + SF], [sy[0] + SF, sy[1] - SF], sw, st);
-      const sR = bar(b, `${pfx}sashR`, [su[1] - SF, su[1]], [sy[0] + SF, sy[1] - SF], sw, st);
+      const sT = bar(b, `${pfx}sashTop`, su, [sy[1] - SF, sy[1]], sw, st, KG_SASH);
+      const sB = bar(b, `${pfx}sashBottom`, su, [sy[0], sy[0] + SF], sw, st, KG_SASH);
+      const sL = bar(b, `${pfx}sashL`, [su[0], su[0] + SF], [sy[0] + SF, sy[1] - SF], sw, st, KG_SASH);
+      const sR = bar(b, `${pfx}sashR`, [su[1] - SF, su[1]], [sy[0] + SF, sy[1] - SF], sw, st, KG_SASH);
       for (const [s, uu] of [
         [sL, su[0] + SF / 2],
         [sR, su[1] - SF / 2],
@@ -169,8 +183,8 @@ export function buildWindow(run: ConcreteRun, o: RunOpening): AssemblyDef {
         bondAt(b, s.name, sT.name, "screw", 60, [uu, sy[1] - SF, wc]);
         bondAt(b, s.name, sB.name, "screw", 60, [uu, sy[0] + SF, wc]);
       }
-      const gu: Interval = [su[0] + SF + 0.002, su[1] - SF - 0.002],
-        gy: Interval = [sy[0] + SF + 0.002, sy[1] - SF - 0.002];
+      const gu: Interval = [su[0] + SF, su[1] - SF],
+        gy: Interval = [sy[0] + SF, sy[1] - SF];
       const igu = addIGU(b, pfx, gu, gy, wc, "glass", ["window"]);
       glaze(b, igu, gu, gy, wc, { top: sT, bottom: sB, left: sL, right: sR }, 10);
       // handle on the latch stile, interior face
@@ -222,10 +236,10 @@ export function buildSlidingDoor(run: ConcreteRun, o: RunOpening): AssemblyDef {
     const HF = 0.05,
       JF = 0.05;
     const yh = o.head - 0.005;
-    const track = bar(b, "track", [u0, u1], [0, TR], fw, tags);
-    const head = bar(b, "frameHead", [u0, u1], [yh - HF, yh], fw, tags);
-    const left = bar(b, "frameL", [u0, u0 + JF], [TR, yh - HF], fw, tags);
-    const right = bar(b, "frameR", [u1 - JF, u1], [TR, yh - HF], fw, tags);
+    const track = bar(b, "track", [u0, u1], [0, TR], fw, tags, KG_SLIDER_FRAME);
+    const head = bar(b, "frameHead", [u0, u1], [yh - HF, yh], fw, tags, KG_SLIDER_FRAME);
+    const left = bar(b, "frameL", [u0, u0 + JF], [TR, yh - HF], fw, tags, KG_SLIDER_FRAME);
+    const right = bar(b, "frameR", [u1 - JF, u1], [TR, yh - HF], fw, tags, KG_SLIDER_FRAME);
     for (const j of [left, right]) {
       const uu = mid(j.u[0], j.u[1]);
       bondAt(b, j.name, head.name, "screw", 70, [uu, yh - HF, mid(fw[0], fw[1])]);
@@ -240,16 +254,16 @@ export function buildSlidingDoor(run: ConcreteRun, o: RunOpening): AssemblyDef {
       ou1 = u1 - JF;
     const m = mid(ou0, ou1);
     const OV = 0.025; // meeting stiles overlap
-    const py: Interval = [TR + 0.004, yh - HF - 0.004];
+    const py: Interval = [TR, yh - HF]; // panels run in the track / head channel (brush seals)
     const outerW: Interval = [-0.0075, 0.0375],
       innerW: Interval = [0.0475, 0.0925];
     const PF = 0.06;
     const panel = (pfx: string, u: Interval, w: Interval) => {
       const st = ["door", "slider-panel"];
-      const pT = bar(b, `${pfx}top`, u, [py[1] - PF, py[1]], w, st);
-      const pB = bar(b, `${pfx}bottom`, u, [py[0], py[0] + PF], w, st);
-      const pL = bar(b, `${pfx}L`, [u[0], u[0] + PF], [py[0] + PF, py[1] - PF], w, st);
-      const pR = bar(b, `${pfx}R`, [u[1] - PF, u[1]], [py[0] + PF, py[1] - PF], w, st);
+      const pT = bar(b, `${pfx}top`, u, [py[1] - PF, py[1]], w, st, KG_SLIDER_PANEL);
+      const pB = bar(b, `${pfx}bottom`, u, [py[0], py[0] + PF], w, st, KG_SLIDER_PANEL);
+      const pL = bar(b, `${pfx}L`, [u[0], u[0] + PF], [py[0] + PF, py[1] - PF], w, st, KG_SLIDER_PANEL);
+      const pR = bar(b, `${pfx}R`, [u[1] - PF, u[1]], [py[0] + PF, py[1] - PF], w, st, KG_SLIDER_PANEL);
       const wcP = mid(w[0], w[1]);
       for (const [s, uu] of [
         [pL, u[0] + PF / 2],
@@ -258,8 +272,8 @@ export function buildSlidingDoor(run: ConcreteRun, o: RunOpening): AssemblyDef {
         bondAt(b, s.name, pT.name, "screw", 70, [uu, py[1] - PF, wcP]);
         bondAt(b, s.name, pB.name, "screw", 70, [uu, py[0] + PF, wcP]);
       }
-      const gu: Interval = [u[0] + PF + 0.002, u[1] - PF - 0.002],
-        gy: Interval = [py[0] + PF + 0.002, py[1] - PF - 0.002];
+      const gu: Interval = [u[0] + PF, u[1] - PF],
+        gy: Interval = [py[0] + PF, py[1] - PF];
       const igu = addIGU(b, pfx, gu, gy, wcP, "temperedGlass", ["door"]);
       glaze(b, igu, gu, gy, wcP, { top: pT, bottom: pB, left: pL, right: pR }, 14);
       return { pT, pB, pL, pR };

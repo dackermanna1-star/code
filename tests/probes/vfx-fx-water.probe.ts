@@ -7,7 +7,7 @@ import { runShowcase, type Shot } from "./vfx-fx-util.ts";
 export async function probe(): Promise<any> {
   const W = 2.6;
   const shots: Shot[] = [
-    { kind: "water", at: 12, pos: [-1.6, 0.9, W], normal: [0, 0, -1], intensity: 1, emitter: { dir: [0.15, -0.25, -1], rate: 1 }, label: [-1.6, 0.25, W - 0.02], labelW: 0.8 },
+    { kind: "water", at: 12, pos: [-2.4, 0.9, 1.6], normal: [1, 0, 0], intensity: 1, emitter: { dir: [1, 0.15, -0.1], rate: 1 }, label: [-1.6, 0.25, W - 0.02], labelW: 0.8 },
     { kind: "waterDrip", at: 12, pos: [-0.2, 2.5, 1.6], normal: [0, -1, 0], intensity: 1, emitter: { dir: [0, -1, 0], rate: 2 }, label: [-0.2, 0.25, W - 0.02], labelW: 0.8 },
     { kind: "smoke", at: 4, pos: [0.9, 0.6, 2.4], normal: [0, 1, 0], intensity: 1, emitter: { dir: [0, 1, 0], rate: 1 }, label: [0.9, 0.25, W - 0.02], labelW: 0.8 },
     { kind: "extinguisher", at: 1.2, pos: [1.6, 1.0, 0.4], normal: [1, 0, 0], intensity: 1, emitter: { dir: [1, -0.05, 0.6], rate: 1 }, label: [2.4, 0.25, W - 0.02], labelW: 1.0 },

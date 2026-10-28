@@ -21,7 +21,7 @@ import {
   EV_STRIKE_END,
   MAX_CHARGE_HOLD,
   RECOVER_INTERRUPT,
-  type PreparedArc,
+  type PreparedCurve,
   type PreparedJab,
   type V3,
 } from "../../src/player/tools/swing.ts";
@@ -100,7 +100,7 @@ test("strike path: speed at the nominal contact equals the (charged) tool speed,
       assert.ok(p.speedAt(p.tc * 0.5) < p.v && p.speedAt(p.tc + (p.T - p.tc) * 0.5) < p.v);
       const head = m.headAt(p.tc, v3());
       const rig = TOOL_RIGS[id];
-      const target = rig.kind === "arc" ? rig.head : rig.contact[m.hand];
+      const target = rig.kind === "curve" ? rig.contact : rig.contact[m.hand];
       assert.ok(dist(head, target) < 0.015, `${id} c=${c} contact point ${JSON.stringify(head)} vs ${JSON.stringify(target)}`);
       // nominal contact point lies near the crosshair line at roughly the tool's reach
       near(Math.hypot(target.x, target.y, target.z), def.reach, 0.08, `${id} reach`);
@@ -135,21 +135,50 @@ test("strike path: s(t) monotonic, continuous, ends at L; T = tc + tf", () => {
   }
 });
 
-test("strike path: head position samples match the analytic rig", () => {
-  const prep = prepareRig(TOOL_RIGS.sledgehammer) as PreparedArc;
-  const path = new StrikePath();
-  path.buildArc(prep, prep.rig.wind, prep.rig.follow, 6.5);
-  // consecutive samples are evenly spread in angle; path length is the sum of chords
-  let acc = 0;
-  for (let i = 1; i < path.s.length; i++) {
-    const a = 3 * (i - 1),
-      b = 3 * i;
-    acc += Math.hypot(path.head[b] - path.head[a], path.head[b + 1] - path.head[a + 1], path.head[b + 2] - path.head[a + 2]);
-    near(path.s[i], acc, 1e-9);
+test("strike path: samples, travel at contact, handle ⊥ travel, hands within reach", () => {
+  for (const id of TOOL_ORDER) {
+    const rig = TOOL_RIGS[id];
+    if (rig.kind !== "curve") continue;
+    const prep = prepareRig(rig) as PreparedCurve;
+    for (const c of [0, 1]) {
+      const m = new SwingMachine(TOOL_DEFS[id], rig);
+      m.forceStrike(c);
+      const path = m.path;
+      // cumulative length = sum of chords
+      let acc = 0;
+      for (let i = 1; i < path.s.length; i++) {
+        const a = 3 * (i - 1),
+          b = 3 * i;
+        acc += Math.hypot(path.head[b] - path.head[a], path.head[b + 1] - path.head[a + 1], path.head[b + 2] - path.head[a + 2]);
+        near(path.s[i], acc, 1e-9);
+      }
+      // direction of travel at contact = the rig's travel (strong forward component)
+      const tan = path.tangentAtS(path.Lc, v3());
+      near(tan.x * prep.travel.x + tan.y * prep.travel.y + tan.z * prep.travel.z, 1, 1e-6, `${id} travel at contact`);
+      assert.ok(tan.z >= 0.49, `${id} forward component ${tan.z}`);
+      // at contact the striking face leads: face == travel, handle ⊥ travel
+      const pose = makePose();
+      const N = 60;
+      for (let k = 0; k <= N; k++) {
+        const t = (path.T * k) / N;
+        m.t = t;
+        m.poseAt(0, pose);
+        // hands stay within arm's reach of the shoulders and never come near the eye
+        const sh = { x: 0.19, y: -0.24, z: -0.05 };
+        assert.ok(dist(pose.right.p, sh) < 0.82, `${id} c=${c} grip reach ${dist(pose.right.p, sh).toFixed(2)} at t=${t.toFixed(3)}`);
+        assert.ok(mag(pose.right.p) > 0.12, `${id} c=${c} grip too close to the eye at t=${t.toFixed(3)}`);
+        // head is one tool length up the handle from the grip
+        near(dist(pose.head, pose.right.p), rig.toolLen, 1e-6);
+      }
+      m.t = path.tc;
+      m.poseAt(0, pose);
+      const face = frameFace(v3(), pose.right),
+        axis = frameAxis(v3(), pose.right);
+      near(face.x * prep.travel.x + face.y * prep.travel.y + face.z * prep.travel.z, 1, 1e-4, `${id} face leads at contact`);
+      near(axis.x * prep.travel.x + axis.y * prep.travel.y + axis.z * prep.travel.z, 0, 1e-4, `${id} handle ⊥ travel`);
+      assert.ok(dist(pose.right.p, prep.grip) < 1e-4, `${id} contact grip`);
+    }
   }
-  // a tangent at contact is perpendicular-ish to the lever and points along the requested travel (down)
-  const tan = path.tangentAtS(path.Lc, v3());
-  assert.ok(tan.y < -0.9, `sledge travels down at contact: ${JSON.stringify(tan)}`);
   const jab = prepareRig(TOOL_RIGS.hands) as PreparedJab;
   const jp = new StrikePath();
   jp.buildJab(jab, 0, 0.25, 8.5);
@@ -334,7 +363,7 @@ test("quaternion helpers", () => {
 });
 
 test("pose blending keeps tools away from the eye and the head on the handle", () => {
-  const prep = prepareRig(TOOL_RIGS.sledgehammer) as PreparedArc;
+  const prep = prepareRig(TOOL_RIGS.sledgehammer) as PreparedCurve;
   const a = makePose(),
     b = makePose(),
     o = makePose();

@@ -119,19 +119,21 @@ export const TOOL_RIGS: Readonly<Record<ToolId, Rig>> = {
     offhand: 0.2,
     idle: F(v(0.22, -0.31, 0.34), v(0.1, 0.82, 0.48), v(-0.45, 0, 0.9)),
   },
-  // Overhead one-handed bash with the side of the cylinder (the left hand keeps the hose nozzle).
+  // Two-handed overhead slam: the cylinder held horizontally across (right hand on the valve
+  // handle, left hand under the bottom), its side smashing down. The left hand goes back to the
+  // hose nozzle at rest.
   extinguisher: {
     kind: "curve",
-    toolLen: 0.4,
-    contact: v(0, -0.06, 0.72),
+    toolLen: 0.3,
+    contact: v(0, -0.08, 0.62),
     travel: v(0, -0.7, 0.7),
-    handle: v(0, 1, 0),
-    wound: { head: v(0.1, 0.52, 0.15), axis: v(0.05, 0.85, -0.52) },
-    woundCharged: { head: v(0.12, 0.45, -0.2), axis: v(0.05, 0.5, -0.86) },
-    launch: v(0, 0.4, 0.9),
-    end: { head: v(0.02, -0.72, 0.6), axis: v(0, -0.5, 0.86) },
-    endDir: v(0, -0.85, -0.5),
-    offhand: 0,
+    handle: v(-1, 0, 0),
+    wound: { head: v(0.02, 0.4, 0.26), axis: v(-1, 0.05, 0) },
+    woundCharged: { head: v(0.03, 0.48, 0.04), axis: v(-1, 0.1, -0.05) },
+    launch: v(0, 0.3, 1),
+    end: { head: v(0.02, -0.6, 0.5), axis: v(-1, -0.1, 0) },
+    endDir: v(0, -0.9, -0.4),
+    offhand: -0.36,
     idle: F(v(0.18, -0.13, 0.4), v(0.04, -0.98, 0.2), v(-0.15, 0.1, 1)),
   },
 };
@@ -246,7 +248,7 @@ const BASE: Readonly<Record<ToolId, Def>> = {
     chargeTime: 0.9,
     windup: 0.25,
     recover: 0.45,
-    reach: 0.72,
+    reach: 0.62,
     headRadius: 0.065,
     contactRadius: 0.05,
     sharpness: 1,
@@ -377,8 +379,8 @@ export const PRY = {
 export const NOZZLE_IDLE: FrameDef = F(v(0.03, -0.27, 0.38), v(0, 1, 0.3), v(0.05, -0.3, 1));
 
 export const SPRAY_POSE: { right: FrameDef; left: FrameDef } = {
-  right: F(v(0.25, -0.24, 0.42), v(0.08, -0.97, 0.22), v(-0.2, 0.05, 1)),
-  left: F(v(0.04, -0.17, 0.42), v(0, 1, 0.08), v(-0.03, 0.08, 1)),
+  right: F(v(0.27, -0.07, 0.46), v(0.06, -0.97, 0.2), v(-0.25, 0.05, 1)),
+  left: F(v(0.05, -0.16, 0.42), v(0, 1, 0.08), v(-0.03, 0.08, 1)),
 };
 
 /** Fire extinguisher (6 kg dry powder): ~12 s of discharge, ~9 N jet thrust. */

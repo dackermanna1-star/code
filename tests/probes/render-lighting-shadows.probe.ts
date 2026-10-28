@@ -32,11 +32,16 @@ export async function probe(): Promise<any> {
     return !hit || !hit.hit;
   };
   const samples: { p: Vector3; lit: boolean }[] = [];
+  let occludedFromCamera = 0;
   for (let x = 0.15; x < ROOM.w; x += 0.15) {
     for (let z = 0.15; z < ROOM.d; z += 0.15) {
       const p = new Vector3(x, 0, z);
       // skip points under props (their top faces are not the floor)
       if (room.props.some((m) => { const b = m.getBoundingInfo().boundingBox; return x > b.minimumWorld.x - 0.02 && x < b.maximumWorld.x + 0.02 && z > b.minimumWorld.z - 0.02 && z < b.maximumWorld.z + 0.02 && b.minimumWorld.y < 0.05; })) continue;
+      // skip points the top-down camera cannot see directly (occluded by props)
+      const toP = p.subtract(cam.position);
+      const vis = scene.pickWithRay(new Ray(cam.position, toP.normalize(), toP.length() + 0.01), (m) => room.meshes.includes(m as any));
+      if (vis?.hit && vis.pickedMesh !== room.floor) { occludedFromCamera++; continue; }
       const lit = isLit(p);
       const e = 0.06; // exclude penumbra / boundary samples
       const nb = [new Vector3(x + e, 0, z), new Vector3(x - e, 0, z), new Vector3(x, 0, z + e), new Vector3(x, 0, z - e)];
@@ -70,7 +75,7 @@ export async function probe(): Promise<any> {
     };
   }
 
-  const out: any = { samples: samples.length, litSamples: samples.filter((s) => s.lit).length, results: [] as any[] };
+  const out: any = { occludedFromCamera, samples: samples.length, litSamples: samples.filter((s) => s.lit).length, results: [] as any[] };
   out.results.push(await score("no shadows", null));
 
   const addCasters = (g: ShadowGenerator) => { for (const m of room.casters) g.addShadowCaster(m, false); };

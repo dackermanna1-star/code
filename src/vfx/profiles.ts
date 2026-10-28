@@ -230,13 +230,19 @@ export const PROFILES: Readonly<Record<string, ParticleProfile>> = Object.fromEn
     }),
     // ---------------------------------------------------------------- water & liquids
     P("waterDrops", "drop", BITS_CELLS.drop, {
-      count: 30, maxCount: 320, life: [0.5, 1.2], size: [0.006, 0.012], sizeExp: 0, speed: [2.5, 6], spread: 0.35, radius: 0.015,
-      offset: 0.01, quadDrag: 0.5, collide: 1, dieOnGround: true, color: [0.86, 0.91, 0.96], colorVar: 0.04, tintMix: 0.8,
-      alpha: 0.45, fadeOut: 0.1, stretch: 1 / 50,
+      count: 30, maxCount: 320, life: [0.5, 1.2], size: [0.008, 0.016], sizeExp: 0, speed: [2.5, 6], spread: 0.35, radius: 0.015,
+      offset: 0.01, quadDrag: 0.5, collide: 1, dieOnGround: true, color: [0.9, 0.94, 0.98], colorVar: 0.05, tintMix: 0.8,
+      alpha: 0.6, fadeOut: 0.1, stretch: 1 / 50, hdr: 1.15,
+    }),
+    // coherent jet right at a broken pipe, before it breaks up into droplets
+    P("waterJet", "drop", BITS_CELLS.drop, {
+      count: 6, maxCount: 60, life: [0.1, 0.22], size: [0.014, 0.022], sizeExp: 0, speed: [4.5, 6.5], spread: 0.07, radius: 0.006,
+      offset: 0, quadDrag: 0.3, collide: 1, dieOnGround: true, color: [0.92, 0.95, 0.99], colorVar: 0.03, tintMix: 0.8,
+      alpha: 0.55, fadeIn: 0, fadeOut: 0.3, stretch: 1 / 28, hdr: 1.2,
     }),
     P("waterMist", "puff", PUFF_CELLS.dust, {
-      count: 3, maxCount: 40, life: [0.8, 1.6], size: [0.08, 0.16], grow: [2, 3], speed: [0.5, 2], spread: 0.5,
-      ...settle(3, 0.07), turb: 0.1, collide: 1, color: [0.86, 0.9, 0.95], colorVar: 0.03, tintMix: 0.5, alpha: 0.16,
+      count: 3, maxCount: 40, life: [0.8, 1.6], size: [0.1, 0.2], grow: [2, 3], speed: [0.5, 2], spread: 0.5,
+      ...settle(3, 0.07), turb: 0.1, collide: 1, color: [0.88, 0.92, 0.96], colorVar: 0.03, tintMix: 0.5, alpha: 0.22,
       fadeIn: 0.1, fadeOut: 0.6, spin: 0.5,
     }),
     P("drip", "drop", BITS_CELLS.drop, {
@@ -359,7 +365,7 @@ export const EMITTER_LAYERS: Readonly<Record<VfxKind, readonly EmitterLayer[]>> 
   splinters: [{ p: "splinterBits", rate: 12 }],
   sparks: [{ p: "sparkStreaks", rate: 30, clump: 10 }, { p: "sparkFlash", rate: 3, clump: 1 }],
   glassGlitter: [{ p: "glitter", rate: 25 }],
-  water: [{ p: "waterDrops", rate: 260 }, { p: "waterMist", rate: 14 }],
+  water: [{ p: "waterJet", rate: 120 }, { p: "waterDrops", rate: 320 }, { p: "waterMist", rate: 24 }],
   waterDrip: [{ p: "drip", rate: 3 }],
   smoke: [{ p: "smokePuff", rate: 10 }],
   feathers: [{ p: "featherBits", rate: 12 }],

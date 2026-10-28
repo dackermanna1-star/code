@@ -13,8 +13,8 @@ import { Quaternion, TransformNode, type AbstractMesh, type Scene, type Standard
 import type { ToolId } from "../../core/context.ts";
 import { TOOL_ORDER, TOOL_RIGS } from "./defs.ts";
 import type { LegKind } from "./legs.ts";
-import { HOSE_START, buildFistModel, buildForearmModel, buildLegModel, buildToolModel, createViewmodelMaterials, type ToolModelParts } from "./models.ts";
-import { clamp01, q4, quatFromAxisFace, rotateQ, smoothstep01, v3, type Frame, type Pose, type V3 } from "./swing.ts";
+import { HOSE_REST, HOSE_START, buildFistModel, buildForearmModel, buildLegModel, buildToolModel, createViewmodelMaterials, type ToolModelParts } from "./models.ts";
+import { blendFrame, clamp01, q4, quatFromAxisFace, rotateQ, smoothstep01, v3, type Frame, type Pose, type V3 } from "./swing.ts";
 
 /** Rendering group of the viewmodel (depth is cleared before it renders). */
 export const VIEWMODEL_GROUP = 1;
@@ -33,8 +33,10 @@ export interface ViewState {
   stress: number;
   spraying: boolean;
   sprayPressure: number;
-  /** 0..1 blend of the extinguisher spray pose (nozzle in the left hand). */
+  /** 0..1 blend of the extinguisher spray pose (nozzle aimed along the view). */
   sprayBlend: number;
+  /** 0..1: the left hand holds the extinguisher nozzle (1) or the nozzle rests on the cylinder (0). */
+  nozzleHold: number;
   /** Kick/stomp leg (camera space): visibility weight, foot (sole centre), hip, toe direction hint. */
   leg: { weight: number; foot: V3; dir: V3; kind: LegKind; hip?: V3; toe?: V3 };
   /** Horizontal player speed (m/s) for the walk bob. */
@@ -94,6 +96,8 @@ export class Viewmodel {
   private readonly t2 = v3();
   private readonly t3 = v3();
   private readonly qTmp = q4();
+  private readonly restFrame: Frame = { p: v3(), q: q4() };
+  private readonly nozzleFrame: Frame = { p: v3(), q: q4() };
 
   constructor(scene: Scene, camera: UniversalCamera) {
     this.scene = scene;
@@ -224,12 +228,11 @@ export class Viewmodel {
     this.applyFrame(this.fists[0].root, pose.right);
     this.applyArm(0, pose.right);
     this.fists[1].root.setEnabled(twoHanded);
-    this.arms[1].root.setEnabled(twoHanded);
     if (twoHanded) {
       this.applyFrame(this.fists[1].root, pose.left);
       this.applyArm(1, pose.left);
-    }
-    if (vs.tool === "extinguisher") this.updateHose(tool, pose);
+    } else this.arms[1].root.setEnabled(false);
+    if (vs.tool === "extinguisher") this.updateHose(tool, pose, vs.nozzleHold);
 
     // ---- leg (kick / stomp)
     this.updateLeg(vs);
@@ -273,16 +276,28 @@ export class Viewmodel {
     // forearm root at the wrist, local +Z towards the elbow, local +Y roughly up
     const dir = setV(this.t3, elbow.x - w.x, elbow.y - w.y, elbow.z - w.z);
     const node = this.arms[side].root;
+    // hide a forearm whose segment passes right in front of the lens (hands raised overhead / behind)
+    const near = segmentDistToOrigin(w, elbow) < ARM_NEAR || w.z < 0.04;
+    node.setEnabled(!near && this.fists[side].root.isEnabled());
+    if (near) return;
     node.position.set(w.x, w.y, w.z);
     quatFromFaceUp(this.qTmp, dir, UP);
     node.rotationQuaternion!.set(this.qTmp.x, this.qTmp.y, this.qTmp.z, this.qTmp.w);
   }
 
-  /** Extinguisher hose from the valve to the nozzle held in the left hand. */
-  private updateHose(tool: ToolModelParts, pose: Pose): void {
+  /** Extinguisher hose from the valve to the nozzle (in the left hand, or clipped to the cylinder during a slam). */
+  private updateHose(tool: ToolModelParts, pose: Pose, hold: number): void {
     if (!tool.nozzle || !tool.hoseA || !tool.hoseB) return;
     const tf = pose.right;
-    const nf = pose.left;
+    // rest frame: clipped to the cylinder's back, pointing down along it
+    const rp = rotateQ(this.t0, tf.q, HOSE_REST as V3);
+    this.restFrame.p.x = tf.p.x + rp.x;
+    this.restFrame.p.y = tf.p.y + rp.y;
+    this.restFrame.p.z = tf.p.z + rp.z;
+    const toolAxis = rotateQ(this.t1, tf.q, UP);
+    const toolBack = rotateQ(this.t2, tf.q, BACK);
+    quatFromAxisFace(this.restFrame.q, toolBack, toolAxis);
+    const nf = blendFrame(this.restFrame, pose.left, smoothstep01(hold), this.nozzleFrame);
     this.applyFrame(tool.nozzle, nf);
     // hose: valve outlet → sagging midpoint → nozzle tail
     const a = rotateQ(this.t0, tf.q, HOSE_START as V3);
@@ -344,9 +359,22 @@ export class Viewmodel {
 }
 
 const UP: V3 = { x: 0, y: 1, z: 0 };
+const BACK: V3 = { x: 0, y: 0, z: -1 };
+/** Forearms closer than this to the eye are hidden (they would fill the screen). */
+const ARM_NEAR = 0.15;
 /** Hose attachment on the nozzle (left-hand frame). */
 const NOZZLE_TAIL: V3 = { x: 0, y: 0, z: -0.03 };
 const DEFAULT_HIP: V3 = { x: 0.1, y: -0.9, z: 0.05 };
+
+/** Distance from the eye (origin) to segment a–b. */
+function segmentDistToOrigin(a: V3, b: V3): number {
+  const dx = b.x - a.x,
+    dy = b.y - a.y,
+    dz = b.z - a.z;
+  const l2 = dx * dx + dy * dy + dz * dz;
+  const t = l2 > 1e-12 ? Math.max(0, Math.min(1, -(a.x * dx + a.y * dy + a.z * dz) / l2)) : 0;
+  return Math.hypot(a.x + dx * t, a.y + dy * t, a.z + dz * t);
+}
 
 function setV(o: V3, x: number, y: number, z: number): V3 {
   o.x = x;

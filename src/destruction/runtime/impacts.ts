@@ -28,6 +28,8 @@ export const RESPOND_MIN_ENERGY = 0.04;
 export const IMPACT_EVENT_MIN_ENERGY = 0.004;
 /** Minimum time between impact events of the same island pair (s). */
 export const IMPACT_PAIR_INTERVAL = 0.04;
+/** Contacts between fresh siblings of one split are ignored this long (s). */
+export const SIBLING_GRACE = 0.15;
 /** Fatigue memory decay time constant (s). */
 export const DAMAGE_DECAY_TAU = 120;
 /** Inertial bond loading is skipped when the island's kinetic energy change is below this (J). */
@@ -144,14 +146,17 @@ export class ImpactSystem {
       nz = -nz;
     }
     const islA = A!;
+    // pieces of the same split spawn touching each other: ignore their mutual contacts briefly
+    if (B && islA.birth !== 0 && islA.birth === B.birth && w.now - Math.max(islA.birthTime, B.birthTime) < SIBLING_GRACE) return;
     if (islA.consolidated) this.deps.restore(islA);
     if (B && B.consolidated) this.deps.restore(B);
     const P = { x: r.px, y: r.py, z: r.pz };
     const pA = w.locatePart(islA, w.toLocal(islA, P, this.lp));
     if (!pA) return;
     const pB = B ? w.locatePart(B, w.toLocal(B, P, this.lp)) : null;
-    const mA = islA.isStatic ? Infinity : islA.mass;
-    const mB = B && pB ? (B.isStatic ? Infinity : B.mass) : Infinity;
+    // the masses Havok used to produce J (tiny shards are clamped)
+    const mA = w.physMass(islA);
+    const mB = B && pB ? w.physMass(B) : Infinity;
     if (!Number.isFinite(mA) && !Number.isFinite(mB)) return;
     const J = r.impulse;
     const ie = impactEnergy(J, mA, mB, pA.mat, pB ? pB.mat : null);
@@ -335,7 +340,7 @@ export class ImpactSystem {
    */
   inertial(island: Island, hit: Part, J: number): void {
     if (island.isStatic || !(J > 0)) return;
-    const M = island.mass;
+    const M = this.w.physMass(island);
     if (!(M > 0) || (J * J) / (2 * M) < INERTIAL_MIN_ENERGY) return;
     const parts = island.parts;
     const n = parts.length;
@@ -407,7 +412,7 @@ export class ImpactSystem {
     res.partName = part.name;
     res.assemblyName = island.asm.name;
     res.hardness = safeHardness(part);
-    const M = island.isStatic ? Infinity : island.mass;
+    const M = w.physMass(island);
     const ms = Math.max(Number.isFinite(s.mass) ? s.mass : 1, 0.05);
     const mu = Number.isFinite(M) ? (ms * M) / (ms + M) : ms;
     const sm = MATERIALS[s.strikerMat] ?? MATERIALS.steel;

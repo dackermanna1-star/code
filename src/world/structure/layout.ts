@@ -530,6 +530,23 @@ export function thresholds(): Threshold[] {
     }
   }
   open.sort((p, q) => p.len - q.len);
+  // snap the strip's long edges to nearby parallel wall faces (no finish slivers beside it)
+  const SNAP = 0.03;
+  for (const o of open) {
+    const alongZ = o.r.z1 - o.r.z0 > o.r.x1 - o.r.x0;
+    const edges = fps.flatMap((f) => (alongZ ? [f.full.x0, f.full.x1] : [f.full.z0, f.full.z1]));
+    if (alongZ) {
+      const lo = edges.filter((e) => e <= o.r.x0 + 1e-9 && e >= o.r.x0 - SNAP);
+      const hi = edges.filter((e) => e >= o.r.x1 - 1e-9 && e <= o.r.x1 + SNAP);
+      if (lo.length) o.r.x0 = Math.min(...lo);
+      if (hi.length) o.r.x1 = Math.max(...hi);
+    } else {
+      const lo = edges.filter((e) => e <= o.r.z0 + 1e-9 && e >= o.r.z0 - SNAP);
+      const hi = edges.filter((e) => e >= o.r.z1 - 1e-9 && e <= o.r.z1 + SNAP);
+      if (lo.length) o.r.z0 = Math.min(...lo);
+      if (hi.length) o.r.z1 = Math.max(...hi);
+    }
+  }
   let k = 0;
   for (const o of open) {
     let pieces: Rect2[] = [o.r];

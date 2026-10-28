@@ -43,6 +43,8 @@ const MAX_NEW_PER_FLUSH = 20;
 const MAX_REAL_LOOPS = 14;
 const RAY_BUDGET = 48;
 const WET_SCALE = 1.1;
+/** Mix pre-gain into the bus compressor/limiter (+6 dB): loud events peak near −3 dBFS. */
+const MIX_GAIN = 2;
 const STREET_Y = -FLOOR_LEVEL * STOREY_H;
 const INAUDIBLE = 2e-4;
 const HRTF_BY_QUALITY: Record<string, number> = { low: 8, medium: 16, high: 24, ultra: 32 };
@@ -452,7 +454,7 @@ export class Audio implements AudioSystem {
   setMasterVolume(v: number): void {
     if (!Number.isFinite(v)) return;
     this.masterUser = clamp(v, 0, 1);
-    if (this.master && this.ctx) this.master.gain.setTargetAtTime(this.masterUser * this.masterUser, this.ctx.currentTime, 0.03);
+    if (this.master && this.ctx) this.master.gain.setTargetAtTime(this.masterUser * this.masterUser * MIX_GAIN, this.ctx.currentTime, 0.03);
   }
 
   /** Integrator hook: room acoustics at a point (from plan.ts / world.roomAt). */
@@ -765,7 +767,7 @@ export class Audio implements AudioSystem {
     const t = c.currentTime;
     const mv = this.masterUser >= 0 ? this.masterUser * this.masterUser : sq(d.masterVolume);
     this.masterUser = -1; // settings changes win after an explicit setMasterVolume
-    this.master.gain.setTargetAtTime(mv, t, 0.03);
+    this.master.gain.setTargetAtTime(mv * MIX_GAIN, t, 0.03);
     this.buses[0].gain.setTargetAtTime(sq(d.sfxVolume), t, 0.03);
     this.buses[1].gain.setTargetAtTime(sq(d.ambienceVolume), t, 0.03);
     this.buses[2].gain.setTargetAtTime(sq(d.sfxVolume), t, 0.03);
@@ -1236,7 +1238,9 @@ export class Audio implements AudioSystem {
       when = Math.max(when, now + 0.015);
     } else ch.input.gain.cancelScheduledValues(now);
     ch.sources.length = 0;
-    let gain = r.pos ? M.occlusionGain(r.occ) : 1;
+    // 2-D voices: match the −3 dB centre level of panned voices (self sounds also sit ~1.5 m
+    // away at the feet/hands: another −2 dB).
+    let gain = r.pos ? M.occlusionGain(r.occ) : r.kind === 1 ? 0.56 : 0.71;
     let cut = r.cutoff;
     if (r.pos) cut = Math.min(cut, M.airCutoff(r.dist), M.occlusionCutoff(r.occ));
     if (r.ext) {

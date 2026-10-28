@@ -71,7 +71,8 @@ export function buildBalcony(): AssemblyDef {
     const base = `post${k}_base`,
       post = `post${k}`;
     boxW(b, base, "steel", "metal_painted", [x - BASE / 2, x + BASE / 2], [yTop, yPost0], [z - BASE / 2, z + BASE / 2], { tint: PAL.frameCharcoal, tags: ["railing"] });
-    boxW(b, post, "aluminum", "metal_painted", [x - POST / 2, x + POST / 2], [yPost0, yPost1], [z - POST / 2, z + POST / 2], { tint: PAL.frameCharcoal, tess: 0.05, tags: ["railing"] });
+    // 50×50×3 mm aluminium tube ≈ 1.5 kg/m
+    boxW(b, post, "aluminum", "metal_painted", [x - POST / 2, x + POST / 2], [yPost0, yPost1], [z - POST / 2, z + POST / 2], { tint: PAL.frameCharcoal, tess: 0.05, tags: ["railing"], mass: 1.5 * (yPost1 - yPost0) });
     bondAt(b, base, cellAt(x, z), "bolt", 300, [x, yTop, z]);
     bondAt(b, post, base, "weld", 220, [x, yPost0, z]);
     posts.push({ name: post, x, z });
@@ -121,7 +122,8 @@ export function buildBalcony(): AssemblyDef {
   // ---- handrail: two pieces along the front, one per side (fixed to the facade bracket)
   const ry: [number, number] = [yPost1, yPost1 + RAIL_T];
   const railOn = (name: string, x: [number, number], z: [number, number]) => {
-    boxW(b, name, "aluminum", "metal_painted", x, ry, z, { tint: PAL.frameCharcoal, tess: 0.05, tags: ["railing", "handrail"] });
+    // hollow 60×40 mm handrail profile ≈ 1.3 kg/m
+    boxW(b, name, "aluminum", "metal_painted", x, ry, z, { tint: PAL.frameCharcoal, tess: 0.05, tags: ["railing", "handrail"], mass: 1.3 * Math.max(x[1] - x[0], z[1] - z[0]) });
     for (const p of posts) {
       if (p.x >= x[0] - 1e-6 && p.x <= x[1] + 1e-6 && p.z >= z[0] - 1e-6 && p.z <= z[1] + 1e-6) bondAt(b, name, p.name, "screw", 70, [p.x, ry[0], p.z]);
     }

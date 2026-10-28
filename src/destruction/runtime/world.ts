@@ -135,6 +135,7 @@ export class World {
   bondsBroken = 0;
   /** Edit static containers in place (disabled automatically if the physics shapes don't support it). */
   inPlaceEdits = true;
+  private nextBirth = 1;
 
   /** Islands needing a connectivity check (bond broken / parts replaced). */
   readonly topoDirty = new Set<Island>();
@@ -490,6 +491,11 @@ export class World {
     island.metricsDirty = false;
   }
 
+  /** Mass Havok simulates the island with (kg): tiny shards are clamped for solver stability. */
+  physMass(island: Island): number {
+    return island.isStatic ? Infinity : Math.max(island.mass, MIN_ISLAND_MASS);
+  }
+
   /** Exact island mass on the Havok body (COM/inertia still come from the child shapes). */
   applyMass(island: Island): void {
     if (!island.body || island.isStatic) return;
@@ -693,7 +699,8 @@ export class World {
    * dynamic. Pending fragment kicks are added. Emits `split`.
    */
   splitIsland(island: Island): void {
-    const parts = island.parts;
+    // snapshot: detachPart() below mutates island.parts
+    const parts = island.parts.slice();
     if (parts.length === 0) {
       this.disposeIsland(island);
       return;
@@ -772,8 +779,14 @@ export class World {
       cy = 0,
       cz = 0;
     const created: Island[] = [];
+    // siblings of one split start in contact: their mutual impacts are ignored briefly
+    const birth = this.nextBirth++;
+    island.birth = birth;
+    island.birthTime = this.now;
     for (let k = 0; k < groups.length; k++) {
       const isl = this.createIsland(island.asm, groups[k], anchoredOf[k], island.node, false);
+      isl.birth = birth;
+      isl.birthTime = this.now;
       created.push(isl);
       if (!isl.isStatic) this.setPieceVelocity(isl, vOld, wOld, comOld);
       for (const p of groups[k]) this.hooks.partMoved(p, isl);

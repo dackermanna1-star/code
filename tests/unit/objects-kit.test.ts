@@ -81,7 +81,8 @@ test("hingedDoorPanel: hollow-core interior door and solid cabinet door", () => 
   b.world(jamb, "nail", 200, [-0.43, 1, 0]);
   const strike = b.box("strike", "softwood", "wood_pine", [0.03, 2.05, 0.1], [0.43, 1.025, 0]);
   b.world(strike, "nail", 200, [0.43, 1, 0]);
-  const d = K.hingedDoorPanel(b, "door", { w: 0.82, h: 2.04, hinge: "left", fixed: jamb, latch: { strength: 40, fixed: strike } }, [0, 0.005, 0]);
+  // jamb at -X = the viewer's right (left-handed world) → "right" hinges
+  const d = K.hingedDoorPanel(b, "door", { w: 0.82, h: 2.04, hinge: "right", fixed: jamb, latch: { strength: 40, fixed: strike } }, [0, 0.005, 0]);
   const info = b.info();
   inRange("hollow door kg", info.mass - b.mass(jamb) - b.mass(strike), 9, 16);
   const def = done(b);
@@ -93,14 +94,21 @@ test("hingedDoorPanel: hollow-core interior door and solid cabinet door", () => 
   assert.ok(d.skins.every((s) => def.parts.find((p) => p.name === s)!.supported), "skins fail locally (supported)");
   assert.ok(d.core.some((c) => c.includes("comb")), "honeycomb core present");
   assert.equal(d.leaves.length, 3);
-  // opening direction: rotating by +max about the axis swings the free edge towards +Z
+  // hinges sit on the jamb side; rotating by +angle swings the free edge (+X from the hinges) to +Z
+  assert.ok(hinges.every((h) => h.joint!.pivot.x < -0.4));
   const ax = hinges[0].joint!.axis;
   const r = qrot(qaxisAngle(ax, 1), v3(1, 0, 0));
   assert.ok(r.z > 0.8);
+  // "left" (viewer's left) = +X
+  const bl = mk("lefty");
+  const j2 = bl.box("jamb", "softwood", "wood_pine", [0.03, 2.05, 0.1], [0.43, 1.025, 0]);
+  bl.world(j2, "nail", 200, [0.43, 1, 0]);
+  K.hingedDoorPanel(bl, "door", { w: 0.82, h: 2.04, hinge: "left", fixed: j2, latch: false }, [0, 0.005, 0]);
+  assert.ok(bl.build().bonds.filter((x) => x.kind === "hinge").every((h) => h.joint!.pivot.x > 0.4));
 
   const b2 = mk("cabdoor");
   const side = b2.box("side", "particleboard", "laminate_white", [0.018, 0.72, 0.56], [-0.309, 0.36, 0]);
-  const cd = K.hingedDoorPanel(b2, "cd", { w: 0.596, h: 0.7, hinge: "left", fixed: side }, [0, 0.01, 0.289]);
+  const cd = K.hingedDoorPanel(b2, "cd", { w: 0.596, h: 0.7, hinge: "right", fixed: side }, [0, 0.01, 0.289]);
   const def2 = done(b2);
   assert.equal(def2.bonds.filter((x) => x.kind === "hinge").length, 2);
   const catchB = def2.bonds.find((x) => x.kind === "latch")!;
@@ -115,6 +123,11 @@ test("shelfBoard, tableBase + attachTop", () => {
   assert.equal(K.attachTop(b, top, base.aprons), 4);
   inRange("dining table kg", b.info().mass, 25, 60);
   done(b);
+  const bl = mk("legs");
+  const legs = K.legs4(bl, "legs", { w: 0.8, d: 0.4, h: 0.15, leg: 0.035, taper: 0.025 });
+  const bodyPart = bl.box("body", "particleboard", "laminate_white", [0.8, 0.5, 0.4], [0, 0.4, 0]);
+  for (const l of legs) bl.screw(l, bodyPart, 2, 30);
+  done(bl);
   const b2 = mk("shelf");
   const l = b2.box("l", "particleboard", "laminate_white", [0.018, 1, 0.3], [-0.209, 0.5, 0]);
   const r = b2.box("r", "particleboard", "laminate_white", [0.018, 1, 0.3], [0.209, 0.5, 0]);

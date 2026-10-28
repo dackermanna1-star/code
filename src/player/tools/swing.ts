@@ -284,9 +284,12 @@ export interface CurveRig {
   /** End of the follow-through and the direction the head arrives from. */
   end: KeyPose;
   endDir: V3;
-  /** Distance (m) from the main grip down the handle to the second hand; 0 = one-handed. */
+  /**
+   * Second hand position along the handle relative to the main grip (m): > 0 further down the
+   * handle (away from the head), < 0 towards/beyond the head, 0 = one-handed.
+   */
   offhand: number;
-  /** Rest pose of the main hand / tool (the off hand follows `offhand` down the handle). */
+  /** Rest pose of the main hand / tool (the off hand follows `offhand` along the handle). */
   idle: FrameDef;
 }
 
@@ -381,7 +384,7 @@ const _t3 = v3();
 /** Derive the off hand and head of a tool pose from its right-hand frame. */
 function toolCompletePose(prep: PreparedCurve, pose: Pose): Pose {
   const ax = frameAxis(_t3, pose.right);
-  const off = prep.rig.offhand > 0 ? prep.rig.offhand : 0;
+  const off = prep.rig.offhand;
   set(pose.left.p, pose.right.p.x - ax.x * off, pose.right.p.y - ax.y * off, pose.right.p.z - ax.z * off);
   Object.assign(pose.left.q, pose.right.q);
   set(pose.head, pose.right.p.x + ax.x * prep.toolLen, pose.right.p.y + ax.y * prep.toolLen, pose.right.p.z + ax.z * prep.toolLen);
@@ -395,7 +398,7 @@ export function toolPose(prep: PreparedCurve, head: V3, q: Q4, out: Pose): Pose 
   const axis = frameAxis(_t0, out.right);
   set(out.right.p, head.x - axis.x * prep.toolLen, head.y - axis.y * prep.toolLen, head.z - axis.z * prep.toolLen);
   copy(out.head, head);
-  const off = prep.rig.offhand > 0 ? prep.rig.offhand : 0;
+  const off = prep.rig.offhand;
   set(out.left.p, out.right.p.x - axis.x * off, out.right.p.y - axis.y * off, out.right.p.z - axis.z * off);
   Object.assign(out.left.q, q);
   out.hand = 0;
@@ -475,7 +478,7 @@ export function blendPose(a: Pose, b: Pose, u: number, toolLen: number, offhand:
   }
   if (toolLen > 0) {
     const ax = frameAxis(_t3, out.right);
-    if (offhand > 0) {
+    if (offhand !== 0) {
       // keep the off hand on the handle
       set(out.left.p, out.right.p.x - ax.x * offhand, out.right.p.y - ax.y * offhand, out.right.p.z - ax.z * offhand);
       Object.assign(out.left.q, out.right.q);

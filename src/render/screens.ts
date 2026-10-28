@@ -812,7 +812,9 @@ export function createScreen(scene: Scene, target: Mesh | ScreenPlacement, kind:
   };
 
   const applyLook = (): void => {
-    mat.emissiveIntensity = lit() ? brightness * flicker : 0;
+    // unlit but cracked: a faint glow keeps the crack edges visible (room light catching the
+    // broken glass); otherwise a switched-off panel is pure glossy black
+    mat.emissiveIntensity = lit() ? brightness * flicker : wasCracked ? 0.08 : 0;
     // a cracked panel scatters light: rougher reflections
     mat.roughness = wasCracked ? 0.3 : 0.14;
   };

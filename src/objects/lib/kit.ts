@@ -11,6 +11,9 @@
 //     back stapled on, shelves resting on pins. Model THAT and the destruction comes for free.
 //  2. Frame: origin at the base centre on the floor, +Y up, front faces +Z. Real dimensions in
 //     metres. Hollow things are hollow: thin panels with their real thickness, not solid blocks.
+//     HANDEDNESS: Babylon is LEFT-handed. Standing in front of the object (looking at its +Z
+//     face) its LEFT side is +X and its RIGHT side is -X — so a microwave's controls (right) sit
+//     at -X and its hinges (left) at +X; check with a probe screenshot if unsure.
 //  3. Every part is convex. Curved shells = tiles (b.lathe / b.arcPanel / b.torus), rings and
 //     handles = b.tube along a path, frames = mitred bars (frameBars below).
 //  4. The material decides the behaviour: glass shatters, tempered glass dices, wood splinters
@@ -674,7 +677,10 @@ export interface DoorPanelOpts {
   mat?: MaterialId;
   surf?: SurfaceName;
   tint?: number;
-  /** Hinge side as seen from the front (+Z). */
+  /**
+   * Hinge side as seen by someone standing in front of the +Z face. Babylon is LEFT-handed, so
+   * "left" puts the hinges at +X and "right" at -X.
+   */
   hinge: "left" | "right";
   /** Opens towards +Z (front, default) or -Z (back). */
   swing?: "front" | "back";
@@ -727,7 +733,7 @@ export function hingedDoorPanel(b: Builder, name: string, o: DoorPanelOpts, pos:
   const mat = o.mat ?? "mdf";
   const surf = o.surf ?? (kind === "hollow" ? "wood_painted" : "laminate_white");
   const tint = o.tint ?? 0xffffff;
-  const hx = o.hinge === "left" ? -1 : 1; // hinge edge side in x
+  const hx = o.hinge === "left" ? 1 : -1; // hinge edge side in x (viewer's left = +X, left-handed)
   const sz = (o.swing ?? "front") === "front" ? 1 : -1;
   const fixed = o.fixed === "world" ? "world" : b.resolve(o.fixed);
   const latchSpec = o.latch === undefined ? (tall ? { strength: 40 } : { strength: 3 }) : o.latch === false ? null : typeof o.latch === "number" ? { strength: o.latch } : o.latch;
@@ -1010,6 +1016,48 @@ export function tableBase(b: Builder, name: string, o: TableBaseOpts, pos: V3 = 
     }
     const aprons = [front, back, left, right];
     return { legs, aprons, stretchers, all: [...legs, ...aprons, ...stretchers] };
+  });
+}
+
+/**
+ * Four legs only (sofas, cabinets, beds, stools on legs): square (optionally tapered on the inner
+ * faces) or round. Local frame: legs' outer faces at x = ±w/2, z = ±d/2, from y = 0 to h. Returns
+ * [front-left, front-right, back-left, back-right]; bond them to whatever they carry.
+ */
+export function legs4(
+  b: Builder,
+  name: string,
+  o: { w: number; d: number; h: number; leg?: number; taper?: number; round?: boolean; mat?: MaterialId; surf?: SurfaceName; tint?: number },
+  pos: V3 = [0, 0, 0],
+  rot?: Rot,
+): string[] {
+  const L = o.leg ?? 0.04;
+  const tp = o.taper ?? L;
+  const mat = o.mat ?? "hardwood",
+    surf = o.surf ?? "wood_oak",
+    tint = o.tint ?? 0xffffff;
+  need(o.w > 2 * L && o.d > 2 * L && o.h > 0.01, `legs4 '${name}': dimensions too small`);
+  return scoped(b, name, pos, rot, () => {
+    const out: string[] = [];
+    for (const [sx, sz, nm] of [
+      [-1, 1, "fl"],
+      [1, 1, "fr"],
+      [-1, -1, "bl"],
+      [1, -1, "br"],
+    ] as Array<[number, number, string]>) {
+      if (o.round) {
+        out.push(b.cyl(`leg_${nm}`, mat, surf, tp / 2, o.h, [sx * (o.w / 2 - L / 2), o.h / 2, sz * (o.d / 2 - L / 2)], { rTop: L / 2, segments: 10, tint }));
+        continue;
+      }
+      const pts: V3[] = [];
+      for (const [y, s] of [
+        [0, tp],
+        [o.h, L],
+      ])
+        for (const a of [0, 1]) for (const c of [0, 1]) pts.push([sx * (o.w / 2) - sx * a * s, y, sz * (o.d / 2) - sz * c * s]);
+      out.push(b.hull(`leg_${nm}`, mat, surf, pts, [0, 0, 0], { tint, grain: "y" }));
+    }
+    return out;
   });
 }
 

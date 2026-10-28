@@ -120,3 +120,46 @@ export function inside(poly: ConvexPoly, p: [number, number, number], eps = 0): 
   for (const f of poly.faces) if (p[0] * f.n.x + p[1] * f.n.y + p[2] * f.n.z - f.d > eps) return false;
   return true;
 }
+
+/** Uniform XZ grid over part AABBs for fast ray queries. */
+export class PartGrid {
+  readonly parts: PartRef[];
+  private cell: number;
+  private map = new Map<string, number[]>();
+
+  constructor(parts: PartRef[], cell = 0.25) {
+    this.parts = parts;
+    this.cell = cell;
+    parts.forEach((p, i) => {
+      for (let x = Math.floor(p.min[0] / cell); x <= Math.floor(p.max[0] / cell); x++)
+        for (let z = Math.floor(p.min[2] / cell); z <= Math.floor(p.max[2] / cell); z++) {
+          const k = `${x},${z}`;
+          let l = this.map.get(k);
+          if (!l) this.map.set(k, (l = []));
+          l.push(i);
+        }
+    });
+  }
+
+  /** All hits along a ray within [0, tMax], sorted by distance. */
+  hits(o: [number, number, number], d: [number, number, number], tMax: number): Array<{ t: number; ref: PartRef }> {
+    const e = [o[0] + d[0] * tMax, o[2] + d[2] * tMax];
+    const x0 = Math.floor(Math.min(o[0], e[0]) / this.cell),
+      x1 = Math.floor(Math.max(o[0], e[0]) / this.cell);
+    const z0 = Math.floor(Math.min(o[2], e[1]) / this.cell),
+      z1 = Math.floor(Math.max(o[2], e[1]) / this.cell);
+    const seen = new Set<number>();
+    const out: Array<{ t: number; ref: PartRef }> = [];
+    for (let x = x0; x <= x1; x++)
+      for (let z = z0; z <= z1; z++)
+        for (const i of this.map.get(`${x},${z}`) ?? []) {
+          if (seen.has(i)) continue;
+          seen.add(i);
+          const ref = this.parts[i];
+          if (ref.part.noCollide) continue;
+          const t = rayHit(ref.part.poly, o, d, tMax);
+          if (t !== null) out.push({ t, ref });
+        }
+    return out.sort((a, b) => a.t - b.t);
+  }
+}

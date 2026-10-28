@@ -481,6 +481,24 @@ export class Interaction {
     }
   }
 
+  /** Wake a (possibly sleeping) body: a sleeping island ignores the hand joint. */
+  private wake(body: PhysicsBody): void {
+    try {
+      this.ctx.physics.wake(body);
+    } catch {
+      /* ignore */
+    }
+    const hk = this.hk as unknown as { HP_Body_SetActivationState?: (id: unknown, s: unknown) => unknown; ActivationState?: { ACTIVE: unknown } } | null;
+    const id = (body as unknown as { _pluginData?: { hpBodyId?: unknown } })._pluginData?.hpBodyId;
+    if (hk?.HP_Body_SetActivationState && hk.ActivationState && id !== undefined) {
+      try {
+        hk.HP_Body_SetActivationState(id, hk.ActivationState.ACTIVE);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   private alive(body: PhysicsBody): boolean {
     return !body.isDisposed && !!body.transformNode && !body.transformNode.isDisposed();
   }
@@ -646,7 +664,9 @@ export class Interaction {
     if (!ids || ids.length === 0 || !hk?.HP_Constraint_GetAppliedImpulses) return;
     try {
       const lin = hk.HP_Constraint_GetAppliedImpulses(ids[0])[1];
-      const dt = this.getPlugin()?.getTimeStep() || 1 / 60;
+      // the impulse is for the last Havok step: one substep of the fixed step
+      const substeps = Math.max(1, Math.round(Number((this.ctx.physics as unknown as { substeps?: number }).substeps) || 1));
+      const dt = (this.getPlugin()?.getTimeStep() || 1 / 60) / substeps;
       out.set(lin[0] / dt, lin[1] / dt, lin[2] / dt);
       if (!finiteVec(out)) out.setAll(0);
     } catch {
@@ -663,11 +683,6 @@ export class Interaction {
       h.prevAngDamping = 0.1;
     }
     body.setAngularDamping(HOLD_ANG_DAMPING);
-    try {
-      this.getPlugin()?.setActivationControl(body, PhysicsActivationControl.ALWAYS_ACTIVE);
-    } catch {
-      /* instanced body / unsupported */
-    }
     if (!h.jointed) {
       // re-grab during the post-release grace period: take over the remembered original masks
       const idx = this.pending.findIndex((p) => p.body === body);
@@ -675,8 +690,15 @@ export class Interaction {
         h.leaves = this.pending[idx].leaves;
         this.pending.splice(idx, 1);
       }
+      // (setLayer re-sets the body's shape and keeps its sleep state — wake it afterwards)
       this.applyHeldLayer(h);
     }
+    try {
+      this.getPlugin()?.setActivationControl(body, PhysicsActivationControl.ALWAYS_ACTIVE);
+    } catch {
+      /* instanced body / unsupported */
+    }
+    this.wake(body);
     if (!this.createJoint(h, view)) {
       this.release(false);
       return false;
@@ -878,6 +900,7 @@ export class Interaction {
       const nChildren = shape && shape.type === PhysicsShapeType.CONTAINER ? shape.getNumChildren() : -1;
       if (shape !== h.shapeRef || nChildren !== h.shapeChildren) {
         this.applyHeldLayer(h);
+        this.wake(body);
         h.massAge = 1e9;
       }
     }

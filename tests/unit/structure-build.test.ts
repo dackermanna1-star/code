@@ -10,6 +10,7 @@ import { MATERIALS } from "../../src/destruction/model/materials.ts";
 import { JOINT_KINDS, type AssemblyDef, type PartDef } from "../../src/destruction/model/types.ts";
 import { buildStructure, structureStats } from "../../src/world/structure.ts";
 import { allParts, overlaps } from "./structure-helpers.ts";
+import { Builder } from "../../src/objects/lib/builder.ts";
 
 const t0 = performance.now();
 const pieces = buildStructure();
@@ -33,7 +34,20 @@ test("structure builds within the part budget and reports totals", () => {
   }
   for (const [k, v] of byType) console.log(`  ${k.padEnd(16)} ×${String(v.n).padStart(2)}  parts ${String(v.parts).padStart(5)}  mass ${(v.mass / 1000).toFixed(2)} t`);
   assert.ok(st.parts >= 2500 && st.parts <= 5000, `part count ${st.parts}`);
-  assert.ok(buildMs < 5000, `build took ${buildMs} ms`);
+  // runtime cost (the browser uses the builder's "basic" validation); the first build above ran
+  // the slow "full" test validation
+  const prev = Builder.validation;
+  Builder.validation = "basic";
+  try {
+    buildStructure();
+    const t = performance.now();
+    buildStructure();
+    const ms = performance.now() - t;
+    console.log(`  runtime build (basic validation, warm): ${ms.toFixed(0)} ms`);
+    assert.ok(ms < 4000, `runtime build took ${ms} ms`);
+  } finally {
+    Builder.validation = prev;
+  }
   assert.ok(pieces.every((p) => p.xf.q.w === 1 && p.xf.p.x === 0 && p.xf.p.y === 0 && p.xf.p.z === 0), "identity transforms");
 });
 

@@ -99,6 +99,24 @@ function fanDef(): AssemblyDef {
   };
 }
 
+function tvDef(): AssemblyDef {
+  return {
+    type: "testTv",
+    name: "Television",
+    category: "electronics",
+    value: 400,
+    parts: [
+      boxPart("case", "plastic", "plastic_glossy", { x: 0.9, y: 0.54, z: 0.06 }, { x: 0, y: 1.2, z: -0.03 }, { tint: 0x222222 }),
+      boxPart("lcd", "lcd", "lcd_off", { x: 0.84, y: 0.48, z: 0.006 }, { x: 0, y: 1.2, z: 0.003 }),
+    ],
+    bonds: [
+      { a: "lcd", b: "case", kind: "clip", strength: 30 },
+      { a: "case", b: "world", kind: "screw", strength: 300, anchor: { x: 0, y: 1.2, z: -0.06 } },
+    ],
+    features: [{ type: "screen", part: "lcd", content: "tv", on: true }],
+  };
+}
+
 export async function probe() {
   const sim = await makeSim({ camPos: new Vector3(3, 2.2, -3), camTarget: new Vector3(0, 1.6, 0) });
   const { d } = sim;
@@ -110,6 +128,19 @@ export async function probe() {
   const pipeId = d.spawn(pipeDef(), { p: { x: -1.5, y: 0, z: 1 }, q: I });
   const faucetId = d.spawn(faucetDef(), { p: { x: 1.5, y: 0, z: -1 }, q: I });
   const fanId = d.spawn(fanDef(), { p: { x: -1.5, y: 0, z: -1.5 }, q: I });
+  const meshesBeforeTv = sim.scene.meshes.length;
+  const tvId = d.spawn(tvDef(), { p: { x: 0.2, y: 0, z: 1.6 }, q: { x: 0, y: 1, z: 0, w: 0 } });
+  const tv = d.assembly(tvId)!;
+  const tvIsl = [...tv.islands][0];
+  const tvp = d.world.toWorldVec(tvIsl, { x: 0, y: 1.2, z: 0.01 });
+  const tvTarget = d.target(tvIsl.body!, new Vector3(tvp.x, tvp.y, tvp.z), -1);
+  const screenMeshes = sim.scene.meshes.length - meshesBeforeTv - 1;
+  const tu1 = d.use(tvIsl.body!, new Vector3(tvp.x, tvp.y, tvp.z), new Vector3(0, 1.6, 0));
+  const tvOff = (d.features as unknown as { all: Set<{ state?: string }> }).all;
+  const tvState1 = [...tvOff].find((f) => (f as { def?: { type: string } }).def?.type === "screen")?.state;
+  const tu2 = d.use(tvIsl.body!, new Vector3(tvp.x, tvp.y, tvp.z), new Vector3(0, 1.6, 0));
+  const tvState2 = [...tvOff].find((f) => (f as { def?: { type: string } }).def?.type === "screen")?.state;
+  out.tv = { usable: tvTarget?.usable, screenMeshes, tu1, tvState1, tu2, tvState2 };
   const lightOf = () => [...d.features.all].find((f) => f instanceof LightFeature) as LightFeature;
   out.spawned = { lights: sim.render.lights.length, light: !!lightOf().light, sceneLights: sim.scene.lights.length };
 
@@ -164,9 +195,15 @@ export async function probe() {
   hubIsl.body!.getAngularVelocityToRef(w);
   out.powerOut = { renderPower: sim.render.power, motorOn: fg.motorOn, omegaY: round(w.y, 100), powerOutEvents: sim.log.filter((e) => e.type === "feature" && (e.ev as { kind: string }).kind === "powerOut").length, motorStop: sim.log.filter((e) => e.type === "feature" && (e.ev as { kind: string }).kind === "motorStop").length };
 
+  // rip the LCD out of its case: screen goes dead (quad stays, black)
+  const lcd = tv.byName.get("lcd")!;
+  for (const b of lcd.bonds.slice()) d.world.breakBond(b);
+  d.world.flushTopology();
+  const tvState3 = [...tvOff].find((f) => (f as { def?: { type: string } }).def?.type === "screen")?.state;
+  out.tvRipped = { state: tvState3, screenBroken: sim.log.filter((e) => e.type === "feature" && (e.ev as { kind: string }).kind === "screenBroken").length };
   await sim.renderReady(2);
   out.events = { ...sim.ev };
-  for (const id of [floorId, lampId, swId, pipeId, faucetId, fanId]) d.despawn(id);
+  for (const id of [floorId, lampId, swId, pipeId, faucetId, fanId, tvId]) d.despawn(id);
   sim.step(2);
   const fin = sim.counts();
   out.leak = { ...Object.fromEntries(Object.entries(fin).map(([k, v]) => [k, v - (base as Record<string, number>)[k]])), liveEmitters: sim.vfx.liveEmitters, renderLights: sim.render.lights.length };
