@@ -467,7 +467,102 @@ export class Overlay {
     g.textAlign = 'left';
   }
 
+  /** Predicted ship trajectory around its frame body, with apoapsis/periapsis marks. */
+  private drawTrajectory(s: OverlayState) {
+    const ship = s.player.ship;
+    const o = ship?.orbit;
+    const b = ship?.frame.body;
+    if (!ship || !o || !b || ship.landed) return;
+    const g = this.g;
+    const bodyRel = s.renderer.relOf(s.world, b, new THREE.Vector3());
+    const t0 = s.world.time;
+    const n = Math.sqrt(o.mu / Math.abs(o.a * o.a * o.a));
+    const span = o.e < 1 ? (2 * Math.PI) / n : Math.min(4 * 86400, (3 * ship.frame.offsetWorld(new THREE.Vector3()).length()) / Math.max(ship.velocity.length(), 1));
+    const N = 180;
+    const p = new THREE.Vector3();
+    let prev: Screen | null = null;
+    let impact = false;
+    g.lineWidth = 1.4;
+    g.strokeStyle = 'rgba(143,227,165,0.85)';
+    g.beginPath();
+    for (let i = 0; i <= N && !impact; i++) {
+      orbitState(o, t0 + (span * i) / N, p);
+      if (p.length() < b.radius) { impact = true; }
+      const scr = this.project(p.add(bodyRel));
+      if (scr && prev) g.lineTo(scr.x, scr.y);
+      else if (scr) g.moveTo(scr.x, scr.y);
+      prev = scr ? { ...scr } : null;
+    }
+    g.stroke();
+    if (impact && prev) {
+      g.fillStyle = '#ff5f6b';
+      g.beginPath(); g.arc(prev.x, prev.y, 5, 0, Math.PI * 2); g.fill();
+      g.fillText('impact', prev.x + 8, prev.y);
+    }
+    if (o.e < 1) {
+      // apsides: true anomaly 0 (Pe) and π (Ap)
+      const tPe = o.epoch + (-o.M0) / n;
+      for (const [name, M] of [['Pe', 0], ['Ap', Math.PI]] as const) {
+        let t = tPe + M / n;
+        t += Math.ceil((t0 - t) / span) * span;
+        orbitState(o, t, p);
+        const alt = p.length() - b.radius;
+        const scr = this.project(p.add(bodyRel));
+        if (!scr) continue;
+        g.fillStyle = name === 'Pe' ? '#7cc4ff' : '#ffcf7c';
+        g.beginPath(); g.arc(scr.x, scr.y, 3.5, 0, Math.PI * 2); g.fill();
+        g.fillText(`${name} ${formatDistance(alt)}`, scr.x + 7, scr.y - 8);
+      }
+    }
+  }
+
+  /** Attitude indicator: pitch/roll relative to the local horizon, heading. */
+  private drawAttitude(s: OverlayState) {
+    const ship = s.player.ship;
+    const b = ship?.frame.body;
+    if (!ship || !b) return;
+    const g = this.g;
+    const up = ship.frame.offsetWorld(new THREE.Vector3()).normalize();
+    const fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(ship.orient);
+    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(ship.orient);
+    const shipUp = new THREE.Vector3(0, 1, 0).applyQuaternion(ship.orient);
+    const pitch = Math.asin(THREE.MathUtils.clamp(fwd.dot(up), -1, 1));
+    const roll = Math.atan2(right.dot(up), shipUp.dot(up));
+    // heading from local north (spin axis projected on the horizon)
+    const axis = new THREE.Vector3(0, 1, 0).applyQuaternion(s.world.system!.bodyRotation(b, new THREE.Quaternion()));
+    const north = axis.clone().addScaledVector(up, -axis.dot(up));
+    const east = new THREE.Vector3().crossVectors(north, up);
+    const fh = fwd.clone().addScaledVector(up, -fwd.dot(up));
+    let hdg = Math.atan2(fh.dot(east), fh.dot(north)) * (180 / Math.PI);
+    if (hdg < 0) hdg += 360;
+    const R = 46, cx = this.w - R - 22, cy = this.h - R - 92;
+    g.save();
+    g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.clip();
+    g.translate(cx, cy);
+    g.rotate(-roll);
+    const off = (pitch / (Math.PI / 2)) * R;
+    g.fillStyle = 'rgba(70,120,190,0.55)'; g.fillRect(-R * 2, -R * 2 + off, R * 4, R * 2);
+    g.fillStyle = 'rgba(120,85,50,0.55)'; g.fillRect(-R * 2, off, R * 4, R * 2);
+    g.strokeStyle = 'rgba(255,255,255,0.8)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(-R * 2, off); g.lineTo(R * 2, off); g.stroke();
+    for (const k of [-60, -30, 30, 60]) {
+      const y = off - (k / 90) * R;
+      g.beginPath(); g.moveTo(-10, y); g.lineTo(10, y); g.stroke();
+    }
+    g.restore();
+    g.strokeStyle = '#ffcf7c'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(cx - 18, cy); g.lineTo(cx - 6, cy); g.lineTo(cx, cy + 5); g.lineTo(cx + 6, cy); g.lineTo(cx + 18, cy); g.stroke();
+    g.strokeStyle = 'rgba(160,190,230,0.5)'; g.lineWidth = 1;
+    g.beginPath(); g.arc(cx, cy, R, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = 'rgba(232,238,246,0.85)';
+    g.textAlign = 'center';
+    g.fillText(`HDG ${hdg.toFixed(0).padStart(3, '0')}°  P ${(pitch * 57.3).toFixed(0)}°  R ${(roll * 57.3).toFixed(0)}°`, cx, cy + R + 14);
+    g.textAlign = 'left';
+  }
+
   private drawFlightMarkers(s: OverlayState) {
+    this.drawTrajectory(s);
+    this.drawAttitude(s);
     const ship = s.player.ship;
     if (!ship || !ship.frame.body || ship.landed) return;
     const v = ship.velocity;
