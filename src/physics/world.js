@@ -37,6 +37,7 @@ class Contact {
     this.compliance = 0;
     this.key = -1; // persistent feature key (ground contacts)
     this.anchor = null; // persistent friction anchor (world point on the ground)
+    this.impact = null; // impact record this contact reports into
   }
 }
 
@@ -329,6 +330,7 @@ export class World {
     c.compliance = Math.max(sA.compliance ?? 0, sB ? sB.compliance ?? 0 : 0);
     c.key = -1;
     c.anchor = null;
+    c.impact = null;
     if (!sB && this.collector.feature >= 0 && sA.type === SHAPE_BOX && sA.radius <= 0.02) {
       c.key = sA.id * 16 + this.collector.feature;
       let an = this.anchors.get(c.key);
@@ -614,6 +616,8 @@ export class World {
         if (w < 1e-12) continue;
         _v3.copy(nrm).scale(dvn / w);
         this.applyPairImpulse(A, B, _v3, _rA, _rB);
+        // velocity-level part of the collision (residual approach velocity + restitution)
+        if (c.impact && dvn > 0) c.impact.impulse += dvn / w;
       }
       if (B === null || this.patchAll) this.patchDynamicFriction(pool, i0, i1, h);
       else for (let i = i0; i < i1; i++) this.contactDynamicFriction(pool[i], h);
@@ -756,6 +760,7 @@ export class World {
       this.impactList.push(imp);
     }
     imp.impulse += J;
+    c.impact = imp;
     const approach = -c.vnPre;
     if (approach > imp.speed) {
       imp.speed = approach;

@@ -84,7 +84,7 @@ function polygonDistance(poly, x, z, closest) {
  * consciousness, pain and injuries.
  */
 export class HumanController {
-  constructor(ragdoll) {
+  constructor(ragdoll, opts = {}) {
     this.rd = ragdoll;
     this.world = ragdoll.world;
     this.seg = ragdoll.segments;
@@ -99,6 +99,7 @@ export class HumanController {
     this.spineStrength = 1;
     this.neckStrength = 1;
     this.balanceSkill = 1; // reduced by concussion / blood loss
+    this.autoGetUp = true; // get back up after a fall when able
     // Balance assist (Euphoria-style helper forces): an upright torque on pelvis and chest plus
     // partial weight support while the character is in control. It fades out as soon as balance is
     // judged lost, so falls stay fully physical. Exposed as a slider in the UI.
@@ -114,12 +115,15 @@ export class HumanController {
     this.startle = 0;
     this.lookTarget = null;
     this.armTask = { L: null, R: null }; // behaviour override per arm
-    this.wounds = []; // [{segment, local: Vec3, normal: Vec3, priority}]
-    this.threats = []; // incoming objects [{body}]
+    this.wounds = []; // [{body, segment, local: Vec3, normal: Vec3 (outward), priority}] from the injury model
+    this.threat = null; // incoming object {point, from, tti, miss} set by the perception layer
+    this.flinch = { amount: 0, kind: 'torso', side: 0, time: -1 };
+    this.dodge = new Vec3();
+    this.holding = { L: null, R: null };
     this.events = [];
     this.debug = { cp: new Vec3(), com: new Vec3(), support: [], stepTarget: null };
-    this.rng = Math.random;
-    this.seed = Math.random() * 100;
+    this.rng = opts.rng ?? Math.random;
+    this.seed = this.rng() * 100;
 
     this.initGeometry();
     // swing-foot end-effector springs (leg muscles pulling the foot relative to the pelvis)
@@ -188,6 +192,12 @@ export class HumanController {
       const hand = rd.segments['hand' + s];
       g['wristInHand' + s] = new Vec3().subVectors(wr, hand.bindPos);
       g['palmInHand' + s] = new Vec3(s === 'L' ? -0.02 : 0.02, -0.01, 0.005); // palm surface (medial side in bind)
+      // hand frame in the bind pose: fingers along the forearm, palm facing the thigh
+      const fdir = new Vec3().subVectors(wr, el).normalize();
+      const eW = new Vec3(0, 0, 1).addScaled(fdir, -fdir.z).normalize();
+      const palm = new Vec3().crossVectors(fdir, eW).normalize();
+      if (s === 'R') palm.negate();
+      g['handBasis' + s] = new Quat().setFromBasis(palm, fdir, new Vec3().crossVectors(palm, fdir));
     }
     g.pelvisBindY = rd.segments.pelvis.bindPos.y;
     g.chestBind = rd.segments.chest.bindPos.clone();
@@ -221,6 +231,7 @@ export class HumanController {
     this.mode = m;
     this.modeTime = 0;
     if (m !== 'balance') this.step = null;
+    if (m === 'getup') this.gu = null;
   }
 
   // ------------------------------------------------------------------------------------------
@@ -281,6 +292,7 @@ export class HumanController {
     this.sense();
     for (const s of SIDES) this.footSpring[s].enabled = false;
     this.startle = Math.max(0, this.startle - dt * 2.5);
+    this.flinch.amount *= Math.exp(-dt / 0.35);
     this.updateMode(dt);
     // global tone dynamics: muscles relax over ~0.3 s on death / knockout, recover slower
     const rate = this.toneTarget < this.tone ? 3.5 : 1.2;
@@ -348,9 +360,37 @@ export class HumanController {
     } else if (this.mode === 'ground') {
       // body back up somehow (e.g. dragged): resume balance attempt if feet are under it
       if (S.footContact.L && S.footContact.R && S.pelvisH > 0.8 && S.upTilt < 0.3) this.setMode('balance');
+      else if (this.wantsToGetUp(dt)) this.setMode('getup');
     } else if (this.mode === 'getup') {
-      if (this.modeTime > 6) this.setMode('ground');
+      if (this.modeTime > 9 || !this.ableToGetUp(true)) this.failGetUp();
     }
+  }
+
+  /** Strict to start a get-up, lenient to keep going (hysteresis). */
+  ableToGetUp(continuing = false) {
+    const k = continuing ? 0.6 : 1;
+    return (
+      Math.min(this.legStrength.L, this.legStrength.R) > 0.55 * k &&
+      Math.max(this.armStrength.L, this.armStrength.R) > 0.35 * k &&
+      this.spineStrength > 0.5 * k &&
+      this.balanceSkill > 0.45 * k &&
+      this.pain < (continuing ? 0.9 : 0.75)
+    );
+  }
+
+  /** Lying still, able-bodied and not in too much pain: try to get back up after a while. */
+  wantsToGetUp(dt) {
+    if (!this.autoGetUp || this.assistGain < 0.25) return false;
+    const calm = this.sens.comVel.length() < 0.3;
+    this.restTime = calm ? (this.restTime || 0) + dt : 0;
+    const wait = 1.8 + 3 * this.pain;
+    return this.restTime > wait && this.ableToGetUp() && this.time - (this.lastGetUpFail ?? -100) > 5;
+  }
+
+  failGetUp() {
+    this.lastGetUpFail = this.time;
+    this.restTime = 0;
+    this.setMode('ground');
   }
 
   // ------------------------------------------------------------------------------------------
@@ -498,13 +538,14 @@ export class HumanController {
       const stack = [seg];
       while (stack.length) {
         const s = stack.pop();
-        const b = s.body;
-        _v2.subVectors(b.pos, _v0);
-        // torque = r x (m * g_up)
-        _v1.x += -_v2.z * b.mass * G;
-        _v1.z += _v2.x * b.mass * G;
+        // torque = r x (m * g_up), including the distal fragment of a broken bone
+        for (let k = -1; k < (s.fractured ? s.fractured.extra.length : 0); k++) {
+          const b = k < 0 ? s.body : s.fractured.extra[k];
+          _v2.subVectors(b.pos, _v0);
+          _v1.x += -_v2.z * b.mass * G;
+          _v1.z += _v2.x * b.mass * G;
+        }
         for (const c of s.children) stack.push(c);
-        if (s.fractured) stack.push(...s.fractured.extra);
       }
       _v1.scale(str * 0.92);
       j.child.torque.add(_v1);
@@ -513,7 +554,7 @@ export class HumanController {
     // Stance legs: the upper body (pelvis and above) is carried at the hips. Vertical load is split
     // between the legs by the lever rule; the residual (sagittal) moment is held by the hip muscles
     // and passed down each leg, so the ankles only see the moments they can actually resist.
-    if (this.mode === 'balance' || this.mode === 'getup') {
+    if (this.mode === 'balance') {
       this.applyLegSupport(tone);
       if (this.step) this.applySwingLegCompensation(this.step.foot, tone);
     }
@@ -717,6 +758,12 @@ export class HumanController {
       const dy = clamp(wrapAngle(yy - yaw), -1.2, 1.2);
       hy = yaw + dy;
       pitch = clamp(-Math.atan2(_v0.y, Math.hypot(_v0.x, _v0.z)), -0.6, 0.6);
+    }
+    if (this.threat && this.threat.tti < 0.6) {
+      // eyes shut, chin tucked, face turned away from the incoming object
+      pitch = 0.45;
+      const away = Math.atan2(this.dodge.x, this.dodge.z);
+      hy = yaw + clamp(wrapAngle(away - yaw), -0.7, 0.7);
     }
     yawQuat(hy, _q0);
     _q1.setFromEuler(pitch, 0, 0, 'XYZ');
@@ -941,10 +988,48 @@ export class HumanController {
       leanSide = clamp(-fx * cpOut * 1.2, -0.2, 0.2);
     }
     lean += 0.12 * this.startle + 0.25 * this.painHunch();
+    // hit reaction: double over around a torso wound, sag toward a wounded leg
+    const fl = this.flinch;
+    if (fl.amount > 0.02) {
+      if (fl.kind === 'torso') lean += 0.38 * fl.amount;
+      else if (fl.kind === 'leg') leanSide += 0.14 * fl.amount * fl.side;
+      else if (fl.kind === 'arm') leanSide += 0.06 * fl.amount * fl.side;
+      else if (fl.kind === 'head') lean -= 0.12 * fl.amount;
+    }
+    // dodge: lean the trunk away from an incoming object's path
+    if (this.threat && this.threat.tti < 0.6) {
+      const c = Math.cos(-this.heading), sn = Math.sin(-this.heading);
+      const fx = this.dodge.x * c + this.dodge.z * sn;
+      const fz = -this.dodge.x * sn + this.dodge.z * c;
+      lean += clamp(fz * 0.3, -0.25, 0.25);
+      leanSide += clamp(-fx * 0.3, -0.25, 0.25);
+    }
     this.standingSpine(lean, leanSide, this.heading, 1);
     const flail = clamp(cpOut * 2.5, 0, 1);
+    this.flail = flail;
     this.relaxedArms(1, 0);
     if (flail > 0.05) this.armsOut(flail);
+  }
+
+  // ------------------------------------------------------------------------------------------
+  // Reflexes
+
+  /** Called by the injury model when the body is struck (bullet or blunt impact). */
+  onHit(info) {
+    if (!this.alive || !this.conscious) return;
+    const s = info.strength;
+    this.startle = Math.min(1.2, this.startle + 0.4 + 0.6 * s);
+    const name = info.segment;
+    const side = name.endsWith('L') ? 1 : name.endsWith('R') ? -1 : 0;
+    const kind = /^(chest|abdomen|pelvis)$/.test(name) ? 'torso' : /^(thigh|shin|foot)/.test(name) ? 'leg' : /^(upperArm|forearm|hand)/.test(name) ? 'arm' : 'head';
+    const fl = this.flinch;
+    if (s * 1.2 + 0.3 >= fl.amount) {
+      fl.amount = Math.min(1.2, 0.35 + 0.9 * s);
+      fl.kind = kind;
+      fl.side = side;
+      fl.time = this.time;
+    }
+    this.events.push({ type: 'hit', segment: name, strength: s, time: this.time });
   }
 
   painHunch() {
@@ -1260,30 +1345,56 @@ export class HumanController {
 
   braceArms(fd, along, left) {
     const chest = this.seg.chest.body;
+    const S = this.sens;
+    const gy = this.world.groundY;
+    if (!this.braceLatch || this.modeTime < 0.02) this.braceLatch = { L: null, R: null };
     for (const s of SIDES) {
       if (this.armTask[s] && this.armTask[s].priority > 2) continue;
       const sg = s === 'L' ? 1 : -1;
-      // shoulder world position
       chest.localToWorld(this.geo['shoulderAnchor' + s], _v0);
-      // hand target: ahead in fall direction, toward the ground, shoulder-width apart
-      const lx = fd.z, lz = -fd.x; // left of fall direction
-      const sideOffset = 0.22 * sg * (along >= 0 ? 1 : 1);
-      _v1.copy(_v0);
-      _v1.x += fd.x * 0.45 + lx * sideOffset * (along >= -0.3 ? 1 : 1.5);
-      _v1.z += fd.z * 0.45 + lz * sideOffset * (along >= -0.3 ? 1 : 1.5);
-      _v1.y = Math.max(this.world.groundY + 0.05, _v0.y - 0.55);
+      const hand = this.seg['hand' + s].body;
+      // a hand that reached the floor stays planted: the arm becomes a strut that yields under load
+      if (!this.braceLatch[s] && hand.groundContact) this.braceLatch[s] = hand.pos.clone();
+      const latch = this.braceLatch[s];
+      if (latch) {
+        _v1.copy(latch);
+        _v1.y = gy + 0.05;
+        _v2.subVectors(_v0, chest.pos);
+        _v2.y = 0.3;
+        const arm = this._armOut || (this._armOut = { upper: new Quat(), fore: new Quat(), reach: 0 });
+        this.armIK(s, _v0, _v1, _v2, arm);
+        this.setWorld('shoulder' + s, arm.upper, 280, 16, 150);
+        _q0.multiplyConjA(arm.upper, arm.fore);
+        // eccentric triceps: stiff but compliant enough to soak up the landing
+        this.setRel('elbow' + s, _q0, 150, 9, 115);
+        this.cmd['elbow' + s].gc = 1.6;
+        this.setRel('wrist' + s, _q1.setFromEuler(0, 0, 0), 14, 0.5, 16);
+        continue;
+      }
+      // where will this shoulder be when the body lands? (ballistic guess from the COM motion)
+      const vy = Math.min(S.comVel.y, -0.5);
+      const tImp = clamp((_v0.y - gy - 0.15) / -vy, 0.05, 0.6);
+      const px = _v0.x + S.comVel.x * tImp, pz = _v0.z + S.comVel.z * tImp;
+      // hands go to the floor ahead of the shoulders, a bit wider than shoulder width, arms
+      // nearly straight: they touch first and the elbows then yield
+      const lx = fd.z, lz = -fd.x;
+      const back = along < -0.3; // falling backward: hands reach back and to the side
+      const ahead = back ? 0.05 : 0.22;
+      const wide = back ? 0.32 : 0.12;
+      _v1.set(px + fd.x * ahead + lx * sg * wide, gy + 0.04, pz + fd.z * ahead + lz * sg * wide);
       // the arm on the side we fall toward reaches more
-      const bias = 1 + clamp(left * sg, -0.6, 0.6);
-      _v1.lerp(_v0, clamp(1 - bias, 0, 0.6));
-      _v2.set(-fd.x, 0.6, -fd.z); // elbows bend back/up
+      const bias = clamp(1 + left * sg, 0.4, 1.6);
+      _v1.lerp(_v0, clamp((1 - bias) * 0.5, 0, 0.3));
+      _v2.set(-fd.x, 0.4, -fd.z).addScaled(new Vec3(lx, 0, lz), sg * 0.5); // elbows back and out
       const arm = this._armOut || (this._armOut = { upper: new Quat(), fore: new Quat(), reach: 0 });
       this.armIK(s, _v0, _v1, _v2, arm);
-      this.setWorld('shoulder' + s, arm.upper, 180, 10, 85);
+      this.setWorld('shoulder' + s, arm.upper, 230, 13, 120);
+      this.feedForward('shoulder' + s, arm.upper, 1 / 60);
       _q0.multiplyConjA(arm.upper, arm.fore);
-      this.setRel('elbow' + s, _q0, 70, 3, 60);
-      // wrist extended (palm toward ground)
+      this.setRel('elbow' + s, _q0, 110, 5, 95);
+      // wrist extended (palm toward the floor)
       _q1.setFromEuler(0, 0, 0);
-      this.setRel('wrist' + s, _q1, 10, 0.3, 12);
+      this.setRel('wrist' + s, _q1, 12, 0.35, 14);
     }
   }
 
@@ -1328,7 +1439,303 @@ export class HumanController {
     }
   }
 
-  doGetUp() {}
+  // ------------------------------------------------------------------------------------------
+  /**
+   * Getting up, physically: roll to prone, push up to hands and knees, kneel up, bring one foot
+   * forward (half kneel) and rise. Each phase sets world-space limb targets solved by IK and the
+   * muscles do the work; Euphoria-style helper forces (scaled by the balance assist) lift the
+   * pelvis and chest toward the phase's height targets, as a stand-in for the many small
+   * strategies a person uses.
+   */
+  beginGetUp() {
+    const chest = this.seg.chest.body;
+    const front = chest.localDirToWorld(FWD, new Vec3());
+    const axis = chest.localDirToWorld(UP, new Vec3()); // toward the head
+    const ah = new Vec3(axis.x, 0, axis.z);
+    if (ah.lengthSq() < 1e-4) ah.set(Math.sin(this.heading), 0, Math.cos(this.heading));
+    ah.normalize();
+    const g = { phase: front.y > -0.45 ? 'roll' : 'quad', t: 0, psi: Math.atan2(ah.x, ah.z), rollSign: 1, front: 'R', start: null };
+    // roll toward the side the chest already faces (or the stronger arm's side)
+    const c = new Vec3().crossVectors(axis, front);
+    g.rollSign = c.y > 0.05 ? -1 : c.y < -0.05 ? 1 : this.armStrength.L >= this.armStrength.R ? 1 : -1;
+    g.front = this.legStrength.L > this.legStrength.R ? 'L' : 'R';
+    return g;
+  }
+
+  getUpPhase(g, phase) {
+    g.phase = phase;
+    g.t = 0;
+    g.start = null;
+    this.events.push({ type: 'getup', phase, time: this.time });
+  }
+
+  /** Helper force/torque pulling a body toward a height and a world orientation. */
+  assistBody(body, height, rot, kp, kd, fmax, tk, tmax) {
+    const a = this.assistGain;
+    if (a <= 0) return;
+    if (height !== null) {
+      const fy = clamp((height - body.pos.y) * kp - body.vel.y * kd, -fmax * 0.3, fmax) * a;
+      body.force.y += fy;
+    }
+    if (rot) {
+      _q0.multiplyConjB(rot, body.rot).toRotVec(_v0);
+      _v0.scale(tk);
+      _v0.addScaled(body.angVel, -tk * 0.12);
+      const l = _v0.length();
+      if (l > tmax) _v0.scale(tmax / l);
+      body.torque.addScaled(_v0, a);
+    }
+  }
+
+  kneelLeg(s, hipW, ahx, ahz, lift = 0) {
+    // knee on the floor under the hip, shin and instep flat behind it
+    const g = this.geo;
+    _v1.set(hipW.x - ahx * 0.02, this.world.groundY + 0.06 + lift, hipW.z - ahz * 0.02);
+    _v2.set(_v1.x - ahx * g['L2' + s], this.world.groundY + 0.075 + lift, _v1.z - ahz * g['L2' + s]);
+    _v3.set(ahx * 0.4, -1, ahz * 0.4);
+    const legOut = this._legOut || (this._legOut = { thigh: new Quat(), shin: new Quat(), reach: 0 });
+    this.legIK(s, hipW, _v2, _v3, legOut);
+    this.setWorld('hip' + s, legOut.thigh, undefined, undefined, undefined);
+    this.gains('hip' + s, 0.9);
+    _q0.multiplyConjA(legOut.thigh, legOut.shin);
+    this.setRel('knee' + s, _q0);
+    this.gains('knee' + s, 0.9);
+    this.setRel('ankle' + s, _q1.setFromAxisAngle(LAT, -0.75));
+    this.gains('ankle' + s, 0.4);
+  }
+
+  armToFloor(s, ahx, ahz, ahead = 0.06, k = 1) {
+    const chest = this.seg.chest.body;
+    chest.localToWorld(this.geo['shoulderAnchor' + s], _v0);
+    const sg = s === 'L' ? 1 : -1;
+    const lx = ahz, lz = -ahx; // left of the facing direction
+    _v1.set(_v0.x + ahx * ahead + lx * sg * 0.04, this.world.groundY + 0.06, _v0.z + ahz * ahead + lz * sg * 0.04);
+    _v2.set(-ahx, 0.2, -ahz).addScaled(new Vec3(lx, 0, lz), sg * 0.5);
+    const arm = this._armOut || (this._armOut = { upper: new Quat(), fore: new Quat(), reach: 0 });
+    this.armIK(s, _v0, _v1, _v2, arm);
+    this.setWorld('shoulder' + s, arm.upper, 260 * k, 15 * k, 140);
+    _q0.multiplyConjA(arm.upper, arm.fore);
+    this.setRel('elbow' + s, _q0, 140 * k, 7 * k, 110);
+    this.setRel('wrist' + s, _q1.identity(), 14, 0.5, 16);
+  }
+
+  doGetUp(dt) {
+    this.assist = 0;
+    if (!this.gu) this.gu = this.beginGetUp();
+    const g = this.gu;
+    g.t += dt;
+    const S = this.sens;
+    const pel = this.seg.pelvis.body, chest = this.seg.chest.body;
+    const gy = this.world.groundY;
+    const ahx = Math.sin(g.psi), ahz = Math.cos(g.psi);
+    const M = this.rd.totalMass * G;
+    const upright = yawQuat(g.psi, new Quat());
+    const front = chest.localDirToWorld(FWD, _v3).clone();
+    this.heading = g.psi;
+
+    if (g.phase === 'roll') {
+      // roll onto the front: a twist of the trunk led by the shoulders, the far knee pushing
+      const axis = chest.localDirToWorld(UP, new Vec3());
+      const tq = axis.scale(70 * g.rollSign * this.assistGain);
+      chest.torque.add(tq);
+      pel.torque.addScaled(tq, 0.8);
+      this.relaxedArms(0.6, 0);
+      const far = g.rollSign > 0 ? 'R' : 'L';
+      this.setRel('hip' + far, _q0.setFromEuler(-0.9, 0, 0, 'XYZ'));
+      this.gains('hip' + far, 0.5);
+      this.setRel('knee' + far, _q0.setFromAxisAngle(LAT, 1.3));
+      this.gains('knee' + far, 0.5);
+      for (const n of ['lumbar', 'thoracic', 'neckBase', 'neckTop']) {
+        this.setRel(n, _q0.identity());
+        this.gains(n, 0.5);
+      }
+      if (front.y < -0.55) {
+        const axis2 = chest.localDirToWorld(UP, new Vec3());
+        g.psi = Math.atan2(axis2.x, axis2.z);
+        this.getUpPhase(g, 'quad');
+      } else if (g.t > 2.5) this.failGetUp();
+      return;
+    }
+
+    if (g.phase === 'quad') {
+      // hands and knees: trunk horizontal facing the floor; the arms push the chest up first
+      if (!g.start) g.start = { pel: pel.pos.y - gy, chest: chest.pos.y - gy };
+      // the chest leads: hips only come up once the arms have pushed the shoulders up
+      const pc = smoothstep(0, 1.0, g.t);
+      const p = smoothstep(0.35, 1.6, g.t) * clamp((chest.pos.y - gy - 0.2) / 0.2, 0.3, 1);
+      const rot = yawQuat(g.psi, new Quat()).multiply(_q1.setFromEuler(Math.PI / 2 - 0.12, 0, 0, 'XYZ'));
+      this.standingSpine(Math.PI / 2 - 0.15, 0, g.psi, 1.1);
+      this.setRel('neckTop', _q0.setFromEuler(-0.5, 0, 0, 'XYZ'), 60, 3, 30);
+      for (const s of SIDES) {
+        this.armToFloor(s, ahx, ahz, 0.08, 1);
+        pel.localToWorld(this.geo['hipAnchor' + s], _v0);
+        this.kneelLeg(s, _v0.clone(), ahx, ahz);
+      }
+      // keep the shoulders above the hips: a head-down pitch means the arms are not carrying
+      const chestT = Math.max(lerp(g.start.chest, 0.52, pc), pel.pos.y - gy + 0.02);
+      const headDown = clamp((pel.pos.y - chest.pos.y) / 0.1, 0, 1);
+      this.assistBody(pel, gy + lerp(g.start.pel, 0.5, p) - 0.1 * headDown, rot, 1600, 300, 0.45 * M, 260, 160);
+      this.assistBody(chest, gy + chestT, rot, 2600, 300, (0.45 + 0.2 * headDown) * M, 260, 170);
+      if (g.t > 1.5 && pel.pos.y > gy + 0.42 && chest.pos.y > gy + 0.42) this.getUpPhase(g, 'kneel');
+      else if (g.t > 4) this.failGetUp();
+      return;
+    }
+
+    if (g.phase === 'kneel') {
+      // kneel up: trunk rises to vertical over the knees
+      const p = smoothstep(0, 0.9, g.t);
+      const lean = lerp(Math.PI / 2 - 0.15, 0.12, p);
+      const rot = yawQuat(g.psi, new Quat()).multiply(_q1.setFromEuler(lean, 0, 0, 'XYZ'));
+      this.standingSpine(lean, 0, g.psi, 1.1);
+      for (const s of SIDES) {
+        if (p < 0.4) this.armToFloor(s, ahx, ahz, 0.12, 1 - p);
+        pel.localToWorld(this.geo['hipAnchor' + s], _v0);
+        this.kneelLeg(s, _v0.clone(), ahx, ahz);
+      }
+      if (p >= 0.4) this.relaxedArms(1, 0);
+      this.assistBody(pel, gy + 0.56, upright, 2500, 260, 0.6 * M, 320, 200);
+      this.assistBody(chest, gy + lerp(0.5, 0.9, p), rot, 2200, 220, 0.45 * M, 300, 180);
+      if (g.t > 0.8 && S.chestTilt < 0.4 && pel.pos.y > gy + 0.45) this.getUpPhase(g, 'lunge');
+      else if (g.t > 3) this.failGetUp();
+      return;
+    }
+
+    if (g.phase === 'lunge') {
+      // half kneel: the front foot comes forward and plants in front of its hip
+      const F = g.front, B = F === 'L' ? 'R' : 'L';
+      this.standingSpine(0.15, 0, g.psi, 1);
+      this.relaxedArms(1, 0);
+      const sgF = F === 'L' ? 1 : -1;
+      const lx = ahz, lz = -ahx;
+      pel.localToWorld(this.geo['hipAnchor' + B], _v0);
+      this.kneelLeg(B, _v0.clone(), ahx, ahz);
+      pel.localToWorld(this.geo['hipAnchor' + F], _v0);
+      const hipF = _v0.clone();
+      if (!g.start) g.start = this.ankleWorld(F, new Vec3());
+      const p = smoothstep(0, 0.6, g.t);
+      const target = new Vec3(hipF.x + ahx * 0.42 + lx * sgF * 0.03, gy + 0.085, hipF.z + ahz * 0.42 + lz * sgF * 0.03);
+      const now = new Vec3().lerpVectors(g.start, target, p);
+      now.y = lerp(g.start.y, target.y, p) + 0.12 * Math.sin(Math.PI * p);
+      const spring = this.footSpring[F];
+      spring.enabled = true;
+      spring.offset.subVectors(now, hipF);
+      spring.maxForce = 260 * this.legStrength[F] * this.tone;
+      const legOut = this._legOut || (this._legOut = { thigh: new Quat(), shin: new Quat(), reach: 0 });
+      this.legIK(F, hipF, now, new Vec3(ahx, 0.1, ahz), legOut);
+      this.setWorld('hip' + F, legOut.thigh);
+      this.gains('hip' + F, 0.9);
+      _q0.multiplyConjA(legOut.thigh, legOut.shin);
+      this.setRel('knee' + F, _q0);
+      this.gains('knee' + F, 0.9);
+      yawQuat(g.psi, _q1);
+      _q0.multiplyConjA(legOut.shin, _q1);
+      this.setRel('ankle' + F, _q0);
+      this.gains('ankle' + F, 0.6);
+      this.assistBody(pel, gy + 0.6, upright, 2500, 260, 0.7 * M, 320, 200);
+      this.assistBody(chest, gy + 0.95, upright, 2000, 200, 0.4 * M, 300, 180);
+      if (g.t > 0.55 && S.footContact[F]) this.getUpPhase(g, 'crouch');
+      else if (g.t > 2.5) this.failGetUp();
+      return;
+    }
+
+    if (g.phase === 'crouch') {
+      // the back foot comes forward beside the front one; the hips stay low (a squat)
+      const F = g.front, B = F === 'L' ? 'R' : 'L';
+      this.standingSpine(0.3, 0, g.psi, 1);
+      this.relaxedArms(1, 0);
+      const lx = ahz, lz = -ahx;
+      const sgB = B === 'L' ? 1 : -1;
+      const ankF = this.ankleWorld(F, new Vec3());
+      if (!g.start) g.start = { back: this.ankleWorld(B, new Vec3()) };
+      const backT = new Vec3(ankF.x + lx * sgB * 0.21, gy + 0.085, ankF.z + lz * sgB * 0.21);
+      const q = smoothstep(0.05, 0.8, g.t);
+      const now = new Vec3().lerpVectors(g.start.back, backT, q);
+      now.y = lerp(g.start.back.y, backT.y, q) + 0.12 * Math.sin(Math.PI * q);
+      const pelT = new Vec3(lerp(pel.pos.x, (ankF.x + backT.x) / 2, 0.5), gy + 0.62, lerp(pel.pos.z, (ankF.z + backT.z) / 2, 0.5));
+      this.stanceLegTo(F, pelT, upright, ankF, 1.2);
+      pel.localToWorld(this.geo['hipAnchor' + B], _v0);
+      const hipB = _v0.clone();
+      const spring = this.footSpring[B];
+      spring.enabled = true;
+      spring.offset.subVectors(now, hipB);
+      spring.maxForce = 240 * this.legStrength[B] * this.tone;
+      const legOut = this._legOut || (this._legOut = { thigh: new Quat(), shin: new Quat(), reach: 0 });
+      this.legIK(B, hipB, now, new Vec3(ahx, 0.1, ahz), legOut);
+      this.setWorld('hip' + B, legOut.thigh);
+      this.gains('hip' + B, 0.8);
+      _q0.multiplyConjA(legOut.thigh, legOut.shin);
+      this.setRel('knee' + B, _q0);
+      this.gains('knee' + B, 0.8);
+      yawQuat(g.psi, _q1);
+      _q0.multiplyConjA(legOut.shin, _q1);
+      this.setRel('ankle' + B, _q0);
+      this.gains('ankle' + B, 0.5);
+      this.assistBody(pel, pelT.y, upright, 3000, 320, 0.75 * M, 360, 220);
+      this.holdOver(pel, pelT, 0);
+      this.assistBody(chest, null, yawQuat(g.psi, new Quat()).multiply(_q1.setFromEuler(0.3, 0, 0, 'XYZ')), 0, 0, 0, 280, 160);
+      if (g.t > 0.7 && S.footContact[B] && S.footContact[F]) this.getUpPhase(g, 'rise');
+      else if (g.t > 2.5) this.failGetUp();
+      return;
+    }
+
+    if (g.phase === 'rise') {
+      // stand up from the squat with both legs; settle the centre of mass before letting go
+      const p = smoothstep(0, 1.0, g.t);
+      this.standingSpine(lerp(0.3, 0.04, p), 0, g.psi, 1);
+      this.relaxedArms(1, 0);
+      const aL = this.ankleWorld('L', new Vec3()), aR = this.ankleWorld('R', new Vec3());
+      const cx = (aL.x + aR.x) / 2 - ahx * 0.03, cz = (aL.z + aR.z) / 2 - ahz * 0.03;
+      const pelT = new Vec3(cx, gy + lerp(0.62, this.geo.pelvisBindY - 0.025, p), cz);
+      // reach limit for both planted feet
+      for (const s of SIDES) {
+        const a = s === 'L' ? aL : aR;
+        const hx = pelT.x + Math.cos(g.psi) * this.geo['hipAnchor' + s].x - a.x;
+        const hz = pelT.z - Math.sin(g.psi) * this.geo['hipAnchor' + s].x - a.z;
+        const Lmax = (this.geo['L1' + s] + this.geo['L2' + s]) * 0.975;
+        pelT.y = Math.min(pelT.y, a.y + Math.sqrt(Math.max(Lmax * Lmax - hx * hx - hz * hz, 0.04)) - this.geo['hipAnchor' + s].y);
+      }
+      this.stanceLegTo('L', pelT, upright, aL, 1.1);
+      this.stanceLegTo('R', pelT, upright, aR, 1.1);
+      this.assistBody(pel, pelT.y, upright, 3000, 320, 0.7 * M, 360, 220);
+      this.holdOver(pel, pelT, 1);
+      this.assistBody(chest, null, upright, 0, 0, 0, 280, 160);
+      const calm = Math.hypot(S.comVel.x, S.comVel.z) < 0.2 && S.cpDist < 0.03 && Math.abs(S.comVel.y) < 0.15;
+      if (g.t > 0.9 && pel.pos.y > gy + 0.85 && S.footContact.L && S.footContact.R && calm) {
+        this.heading = g.psi;
+        this.cdes = null;
+        this.pelvisYTarget = pel.pos.y;
+        this.comInt.setZero();
+        this.setMode('balance');
+      } else if (g.t > 3.5) this.failGetUp();
+    }
+  }
+
+  /** Stance leg from a desired pelvis frame to a planted ankle (relative joint targets). */
+  stanceLegTo(s, pelT, pelRot, ankle, k = 1) {
+    const legOut = this._legOut2 || (this._legOut2 = { thigh: new Quat(), shin: new Quat(), reach: 0 });
+    _v1.copy(this.geo['hipAnchor' + s]).applyQuat(pelRot).add(pelT);
+    _v2.set(Math.sin(this.heading), 0, Math.cos(this.heading));
+    this.legIK(s, _v1, ankle, _v2, legOut);
+    _q0.multiplyConjA(pelRot, legOut.thigh);
+    this.setRel('hip' + s, _q0);
+    this.gains('hip' + s, k);
+    _q0.multiplyConjA(legOut.thigh, legOut.shin);
+    this.setRel('knee' + s, _q0);
+    this.gains('knee' + s, k);
+    yawQuat(this.footYaw(s), _q1);
+    _q0.multiplyConjA(legOut.shin, _q1);
+    this.setRel('ankle' + s, _q0);
+    this.gains('ankle' + s, k);
+  }
+
+  /** Helper force holding the pelvis over a ground point and damping centre-of-mass drift. */
+  holdOver(pel, pelT, strength) {
+    const S = this.sens;
+    const a = this.assistGain;
+    const kp = 600 + 400 * strength, kd = 300;
+    pel.force.x += clamp((pelT.x - pel.pos.x) * kp - S.comVel.x * kd, -220, 220) * a;
+    pel.force.z += clamp((pelT.z - pel.pos.z) * kp - S.comVel.z * kd, -220, 220) * a;
+  }
 
   doLimp() {
     this.assist = 0;
@@ -1339,6 +1746,120 @@ export class HumanController {
   }
 
   // ------------------------------------------------------------------------------------------
-  // Arm behaviour layer (wound holding, head protection) — overrides arm targets when active.
-  applyArmTasks() {}
+  // Arm behaviour layer (protective blocking, wound holding) — overrides arm targets when active.
+  applyArmTasks(dt) {
+    this.holding.L = this.holding.R = null;
+    if (!this.alive || !this.conscious || this.tone < 0.3) return;
+    const mode = this.mode;
+    if (mode !== 'balance' && mode !== 'falling' && mode !== 'ground' && mode !== 'getup') return;
+    // 1) protective reflex: forearms between the face and an incoming object
+    const th = this.threat;
+    if (th && th.tti < 0.65 && mode !== 'ground') {
+      for (const s of SIDES) if (this.armStrength[s] > 0.2) this.blockWithArm(s, th);
+      return;
+    }
+    // 2) clutch wounds (direct pressure); keep the arms for balance while stumbling or bracing
+    if (!this.wounds.length) return;
+    const busy = { L: false, R: false };
+    if (mode === 'balance' && (this.flail || 0) > 0.4) return;
+    // falling: the protective bracing reflex wins over clutching a wound
+    if (mode === 'falling') return;
+    for (const w of this.wounds) {
+      const segName = w.segment.name;
+      // which hands can reach it (not the wounded arm itself)
+      let best = null, bestD = Infinity;
+      for (const s of SIDES) {
+        if (busy[s] || this.armStrength[s] < 0.25) continue;
+        if (segName.endsWith(s) && /^(upperArm|forearm|hand)/.test(segName)) continue;
+        const chest = this.seg.chest.body;
+        const sh = chest.localToWorld(this.geo['shoulderAnchor' + s], _v0);
+        const p = w.body.localToWorld(w.local, _v1);
+        const d = sh.distanceTo(p);
+        // prefer the hand on the same side for the torso, the opposite one for arm wounds
+        const pref = /^(upperArm|forearm|hand)/.test(segName) ? 0 : segName.endsWith(s) ? -0.08 : 0;
+        if (d + pref < bestD) {
+          bestD = d + pref;
+          best = s;
+        }
+      }
+      if (!best || bestD > 0.68) continue;
+      if (this.holdWound(best, w, 0)) {
+        busy[best] = true;
+        this.holding[best] = w;
+        // a bad torso/neck wound gets both hands
+        const other = best === 'L' ? 'R' : 'L';
+        const severeCore = /^(chest|abdomen|pelvis|neck|head)$/.test(segName) && this.pain > 0.65;
+        if (severeCore && !busy[other] && this.armStrength[other] > 0.25 && this.holdWound(other, w, 1)) {
+          busy[other] = true;
+          this.holding[other] = w;
+        }
+      }
+      if (busy.L && busy.R) break;
+    }
+  }
+
+  /** Put the palm of hand `s` on a wound (`layer` 1 = second hand stacked beside the first). */
+  holdWound(s, w, layer) {
+    const chest = this.seg.chest.body;
+    const sh = chest.localToWorld(this.geo['shoulderAnchor' + s], new Vec3());
+    const p = w.body.localToWorld(w.local, new Vec3());
+    const n = w.body.localDirToWorld(w.normal, new Vec3());
+    if (n.lengthSq() < 1e-8) return false;
+    n.normalize();
+    // fingers point away from the shoulder along the skin
+    const t = new Vec3().subVectors(sh, p);
+    t.addScaled(n, -t.dot(n));
+    if (t.lengthSq() < 1e-6) t.set(0, 1, 0).addScaled(n, -n.y);
+    t.normalize();
+    const b = new Vec3().crossVectors(n, t);
+    const palm = p.clone().addScaled(n, 0.024);
+    if (layer) palm.addScaled(b, (s === 'L' ? 1 : -1) * 0.045).addScaled(t, 0.02);
+    const wrist = palm.clone().addScaled(t, 0.07);
+    if (wrist.distanceTo(sh) > 0.62) return false;
+    // elbow drops down and out
+    const pole = new Vec3().subVectors(sh, this.seg.chest.body.pos);
+    pole.y = 0;
+    pole.normalize();
+    pole.y = -1.2;
+    const arm = this._armOut || (this._armOut = { upper: new Quat(), fore: new Quat(), reach: 0 });
+    this.armIK(s, sh, wrist, pole, arm);
+    const k = 0.8 + 0.6 * this.pain;
+    this.setWorld('shoulder' + s, arm.upper, 150 * k, 9 * k, 85);
+    _q0.multiplyConjA(arm.upper, arm.fore);
+    this.setRel('elbow' + s, _q0, 70 * k, 3 * k, 65);
+    // hand: palm onto the wound, fingers along -t
+    const X = n.clone().negate();
+    const Y = t.clone().negate();
+    const Z = new Vec3().crossVectors(X, Y);
+    _q1.setFromBasis(X, Y, Z);
+    _q2.copy(this.geo['handBasis' + s]).conjugate();
+    _q1.multiply(_q2);
+    this.setWorld('wrist' + s, _q1, 14, 0.4, 14);
+    return true;
+  }
+
+  /** Protective block: forearm raised into the path of an incoming object in front of the head. */
+  blockWithArm(s, th) {
+    const chest = this.seg.chest.body;
+    const head = this.seg.head.body.pos;
+    const sh = chest.localToWorld(this.geo['shoulderAnchor' + s], new Vec3());
+    const sg = s === 'L' ? 1 : -1;
+    const lat = chest.localDirToWorld(LAT, new Vec3());
+    // guard point: between the threatened point and the object, biased toward the face
+    const guard = new Vec3().lerpVectors(th.point, head, 0.5);
+    guard.addScaled(th.from, -0.26);
+    guard.addScaled(lat, sg * 0.075);
+    guard.y += 0.04;
+    const d = guard.distanceTo(sh);
+    if (d > 0.55) guard.sub(sh).scale(0.55 / d).add(sh);
+    const pole = new Vec3(0, -1, 0).addScaled(lat, sg * 0.6);
+    const arm = this._armOut || (this._armOut = { upper: new Quat(), fore: new Quat(), reach: 0 });
+    this.armIK(s, sh, guard, pole, arm);
+    const str = 1.6;
+    this.setWorld('shoulder' + s, arm.upper, 160 * str, 10 * str, 95);
+    this.feedForward('shoulder' + s, arm.upper, 1 / 60);
+    _q0.multiplyConjA(arm.upper, arm.fore);
+    this.setRel('elbow' + s, _q0, 80 * str, 3.5 * str, 70);
+    this.setRel('wrist' + s, _q1.identity(), 10, 0.3, 12);
+  }
 }

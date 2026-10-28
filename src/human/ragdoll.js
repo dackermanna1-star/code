@@ -3,7 +3,7 @@ import { Body } from '../physics/body.js';
 import { Shape } from '../physics/shapes.js';
 import { Joint } from '../physics/joints.js';
 import { ContactCollector, collideShapes } from '../physics/collide.js';
-import { buildSegmentList, jointDef, landmark, DIRS } from './anatomy.js';
+import { buildSegmentList, jointDef, landmark, DIRS, frameFromYZ } from './anatomy.js';
 
 const _v0 = new Vec3();
 const _v1 = new Vec3();
@@ -57,6 +57,7 @@ export class Ragdoll {
     this.bodies = [];
     this.totalMass = 0;
     this.extraBodies = []; // bodies created by fractures
+    this.fractureJoints = [];
     this.build();
     this.resetPose(opts.position ?? new Vec3(0, 0, 0), opts.yaw ?? 0);
   }
@@ -160,8 +161,99 @@ export class Ragdoll {
   }
 
   removeFromWorld() {
-    for (const b of this.bodies) this.world.removeBody(b);
+    for (const b of this.allBodies()) this.world.removeBody(b);
     for (const j of this.jointList) this.world.removeJoint(j);
+    for (const j of this.fractureJoints) this.world.removeJoint(j);
+  }
+
+  /**
+   * Break the long bone of `seg` at fraction t along it (0 = proximal joint). The segment body keeps
+   * the proximal fragment (its frame is re-centred on the new centre of mass, every reference into
+   * it is shifted accordingly); the distal fragment becomes a new body joined by a loose,
+   * barely-resisting joint, so the limb bends where it broke. Returns fracture info or null.
+   */
+  fractureSegment(seg, t) {
+    if (seg.fractured || !seg.bone) return null;
+    const sd = seg.def.shapes[0];
+    if (sd.type !== 'capsule') return null;
+    t = Math.min(Math.max(t, 0.22), 0.78);
+    const A = toVec(sd.a), B = toVec(sd.b);
+    const F = new Vec3().lerpVectors(A, B, t);
+    const axis = new Vec3().subVectors(B, A).normalize();
+    const body = seg.body;
+    const mass = body.mass;
+    const opts = { friction: 0.9, restitution: 0.05, material: 'flesh' };
+    // distal fragment
+    const frag = new Body({ name: seg.name + 'Frag', linearDamping: body.linearDamping, angularDamping: body.angularDamping });
+    frag.collisionGroup = RAGDOLL_GROUP;
+    const cd = Shape.capsuleBetween(F, B, sd.radius, opts);
+    cd.tag = seg.name;
+    frag.addShape(cd);
+    const fragBind = frag.setMassFromShapes(mass * (1 - t));
+    // proximal fragment: rebuild the segment body's collider and mass
+    const oldBind = seg.bindPos.clone();
+    body.shapes.length = 0;
+    const cp = Shape.capsuleBetween(A, F, sd.radius, opts);
+    cp.tag = seg.name;
+    body.addShape(cp);
+    const proxBind = body.setMassFromShapes(mass * t);
+    const delta = new Vec3().subVectors(proxBind, oldBind); // origin shift in the body frame
+    const rDelta = delta.clone().applyQuat(body.rot);
+    const w = body.angVel.clone(), v0 = body.vel.clone();
+    const origin = body.pos.clone();
+    body.pos.add(rDelta);
+    body.prevPos.add(rDelta);
+    body.framePos.add(delta.clone().applyQuat(body.frameRot));
+    body.vel.add(new Vec3().crossVectors(w, rDelta));
+    seg.bindPos.copy(proxBind);
+    // place the distal fragment where that material currently is
+    const rFrag = new Vec3().subVectors(fragBind, oldBind).applyQuat(body.rot);
+    frag.setPose(new Vec3().addVectors(origin, rFrag), body.rot);
+    frag.framePos.copy(body.framePos).add(new Vec3().subVectors(fragBind, proxBind).applyQuat(body.frameRot));
+    frag.frameRot.copy(body.frameRot);
+    frag.vel.copy(v0).add(new Vec3().crossVectors(w, rFrag));
+    frag.angVel.copy(w);
+    frag.userData = { ragdoll: this, segment: seg, fragment: true, bindPos: fragBind };
+    // re-anchor joints
+    for (const j of this.jointList) {
+      if (j.child === body) j.anchorC.sub(delta);
+      if (j.parent === body) {
+        const anchorBind = new Vec3().addVectors(j.anchorP, oldBind);
+        const distal = new Vec3().subVectors(anchorBind, F).dot(axis) > 0;
+        if (distal) {
+          j.parent = frag;
+          j.anchorP.subVectors(anchorBind, fragBind);
+        } else j.anchorP.sub(delta);
+      }
+    }
+    // the broken bone: a joint with almost no resistance and wide limits
+    const frame = frameFromYZ(axis, new Vec3(0, 0, 1));
+    const fj = new Joint(body, frag, {
+      name: seg.name + 'Fracture',
+      anchorP: new Vec3().subVectors(F, proxBind),
+      anchorC: new Vec3().subVectors(F, fragBind),
+      frameP: frame,
+      frameC: frame,
+      limits: { swingX: [-1.0, 1.0], swingZ: [-0.9, 0.9], twist: [-0.7, 0.7], mode: 'ellipse' },
+      limitCompliance: 2e-5,
+    });
+    fj.driveMode = 1; // relative: torn muscle and periosteum, weak and well damped
+    fj.target.identity();
+    fj.stiffness = 3;
+    fj.damping = 0.5;
+    fj.maxTorque = 12;
+    fj.userData = { fracture: true, segment: seg };
+    // collision filtering: the fragment behaves like the segment it came from
+    frag.ignore = new Set(body.ignore);
+    frag.ignore.add(body);
+    body.ignore.add(frag);
+    for (const b of this.allBodies()) if (b.ignore && b.ignore.has(body)) b.ignore.add(frag);
+    this.world.addBody(frag);
+    this.world.addJoint(fj);
+    this.extraBodies.push(frag);
+    this.fractureJoints.push(fj);
+    seg.fractured = { extra: [frag], joint: fj, t, pointBind: F, axis, fragBind, delta };
+    return { seg, fragment: frag, joint: fj, pointBind: F, axisBind: axis, delta };
   }
 
   /** Place every segment at its bind configuration, translated to `origin` and rotated by `yaw`. */

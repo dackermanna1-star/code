@@ -17,7 +17,7 @@ const { chromium } = require('playwright');
     if (res !== undefined) console.log('eval result:', typeof res === 'string' ? res : JSON.stringify(res));
   }
   await page.waitForTimeout(300);
-  await page.screenshot({ path: out });
+  await page.screenshot({ path: out, timeout: 120000 });
   for (const l of logs) console.log(l);
   await browser.close();
 })().catch((e) => { console.error(e); process.exit(1); });
