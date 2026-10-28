@@ -109,13 +109,21 @@ accessibility, simulation, audio, key rebinding).
   time. Even then it usually stays microbial; complex life is rarer still.
 - Pigments follow the host star's spectrum (near-black, purple or crimson under red dwarfs; golden under K stars;
   green or purple under G stars; teal under F stars).
-- Flora are procedural body plans (conifer, broadleaf, frond, fungal, spire, coral, shrub, tuft, microbial mats). They
-  scale with gravity and are placed by the same moisture and temperature fields the terrain shader uses.
+- Flora are procedural body plans (conifer, broadleaf, frond, fungal, spire, coral, crystal, shrub, tuft, microbial
+  mats). They scale with gravity and are placed by the same moisture and temperature fields the terrain shader uses.
 - Bioluminescent biospheres glow after dark. Glowing ground and foliage are patchy and pulse slowly, with per-plant
   hue and strength. The brightness is foxfire-like, about 10⁻⁶ of sunlit ground, so the glow dominates only once
   the eye has dark-adapted.
 - Fauna are 4- or 6-legged herds. They graze, wander and flee the observer. Diurnal species rest at night and
   nocturnal ones by day; nocturnal species are more common on glowing worlds. Herds bunch up in rain or snow.
+- Living worlds with dense air (above about 1 bar) host floaters: buoyant gas-filled bells trailing tentacles.
+  They drift with the zonal winds (easterly trades, westerlies beyond about 30°), bob and pulse. They are translucent
+  against the light and glow at night on bioluminescent worlds. Bells grow larger where the air is denser and gravity
+  weaker. This is speculative biology, after Sagan & Salpeter's Jovian floaters.
+- Fliers soar in flocks, circling in thermals and banking into their turns, with bouts of flapping. Wing span grows
+  as gravity weakens and the air thickens. Flocks roost by night (nocturnal ones by day) and stay down in heavy rain
+  or snow.
+- Some biospheres grow crystalline colonies: faceted, glassy silica-shelled prism clusters with a specular sheen.
 - Fossil biosignatures and other rare anomalies are recorded.
 
 **Spaceflight and walking**

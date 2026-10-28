@@ -110,6 +110,7 @@ void main() {
   vec3 N = normalize(vNormalW);
   if (!gl_FrontFacing) N = -N;
   bool leaf = vPart > 0.5 && uFoliage > 0.5;
+  bool glassy = vPart > 1.5 && uFoliage > 0.5; // biomineral facets: specular sheen
   vec3 albedo = vPart > 0.5 || uFoliage < 0.5 ? vCol : uStem;
   // surface variation (lichen-like mottling on rock, leaf clumps)
   float n = gnoise(vLocal * (leaf ? 3.0 : 1.7));
@@ -137,6 +138,12 @@ void main() {
     float trans = leaf ? pow(max(dot(-V, L), 0.0), 4.0) * 0.35 : 0.0;
     vec3 Ein = E * sunT * ecl;
     color += albedo / PI * Ein * (diff + trans) * mix(0.6, 1.0, vAO);
+    if (glassy && NdotL > 0.0) {
+      vec3 H = normalize(L + V);
+      float fres = 0.05 + 0.95 * pow(1.0 - max(dot(H, V), 0.0), 5.0);
+      color += Ein * pow(max(dot(N, H), 0.0), 90.0) * 3.0 * fres;
+      color += E * sky * 0.12 * (0.05 + 0.95 * pow(1.0 - max(dot(N, V), 0.0), 5.0)) * ecl;
+    }
     color += albedo / PI * E * sky * (0.55 + 0.45 * dot(N, up)) * vAO * ecl;
   }
   color += albedo * (uPlanetShine + vec3(uAmbient));
@@ -170,7 +177,7 @@ interface Layer {
 }
 
 /** Find the cube face and face coordinates of a direction. */
-function dirToFace(d: THREE.Vector3): { face: number; a: number; b: number } {
+export function dirToFace(d: THREE.Vector3): { face: number; a: number; b: number } {
   let face = 0, best = -Infinity;
   for (let f = 0; f < 6; f++) {
     const n = FACES[f].n;
@@ -191,6 +198,7 @@ export class SurfaceScatter {
   private hasAnchor = false;
   readonly rockMat: THREE.ShaderMaterial;
   private plantMat: THREE.ShaderMaterial;
+  private aerialMat: THREE.ShaderMaterial | null = null;
   private species: Species[];
   private rockPalette: [number, number, number][];
   density = 1;
@@ -311,6 +319,22 @@ export class SurfaceScatter {
     return out;
   }
 
+  /**
+   * Foliage shading (translucency, night glow) for organisms in the air: the
+   * same shaders and shared uniforms, but visible much farther away.
+   */
+  aerialMaterial(): THREE.ShaderMaterial {
+    if (!this.aerialMat) {
+      const pm = this.plantMat;
+      this.aerialMat = new THREE.ShaderMaterial({
+        vertexShader: pm.vertexShader, fragmentShader: pm.fragmentShader,
+        uniforms: { ...pm.uniforms, uFade: { value: 2500 } },
+        defines: { ...pm.defines }, side: THREE.DoubleSide,
+      });
+    }
+    return this.aerialMat;
+  }
+
   /** wavelength (m) of the finest terrain mesh drawn near the camera */
   private meshLambda = 0;
 
@@ -421,5 +445,6 @@ export class SurfaceScatter {
     for (const l of this.layers) for (const m of l.meshes) m.dispose();
     this.rockMat.dispose();
     this.plantMat.dispose();
+    this.aerialMat?.dispose();
   }
 }

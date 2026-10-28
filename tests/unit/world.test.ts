@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { Vector3 } from 'three';
+import { InstancedMesh, Matrix4, ShaderMaterial, Vector3 } from 'three';
+import { Floaters, Fliers } from '../../src/render/aerial';
 import { SurfaceGenerator } from '../../src/terrain/surface';
 import { buildNode, GRID } from '../../src/terrain/meshbuilder';
 import { earthlikeSurface } from '../../src/astro/testworlds';
@@ -293,5 +294,69 @@ describe('rivers', () => {
       }
     }
     expect(found).toBeGreaterThan(0);
+  });
+});
+
+describe('floaters', () => {
+  it('drift through dense living skies only, deterministically and downwind', () => {
+    const sol = buildSolarSystem(new UPos(), { x: 0, y: 0, z: 0, w: 1 });
+    const mat = new ShaderMaterial();
+    for (const name of ['Earth', 'Mars', 'Venus']) {
+      const b = sol.bodies.find((x) => x.name === name)!;
+      expect(new Floaters(b, mat).abundance, name).toBe(0);
+    }
+    const living = generateSystem({ id: 'sys1873', name: 'S1873', seed: 1873, upos: new UPos() }).bodies.find((x) => x.planet?.life.kind === 'complex')!;
+    expect(living.planet!.atmosphere!.pressure).toBeGreaterThan(1);
+    const g = new SurfaceGenerator(living.planet!.surface!);
+    const cam = new Vector3(0.3, 0.2, 0.93).normalize();
+    cam.multiplyScalar(living.radius + Math.max(g.sample(cam.x, cam.y, cam.z, 5).height, 0) + 50);
+    const a = new Floaters(living, mat), b = new Floaters(living, mat);
+    expect(a.abundance).toBeGreaterThan(0.3);
+    a.update(g, cam, 1000, true);
+    b.update(g, cam, 1000, true);
+    expect(a.count).toBeGreaterThan(5);
+    expect(a.count).toBe(b.count);
+    // same placement from independent instances
+    const pos = (f: Floaters, i: number) => {
+      const m = new Matrix4();
+      (f.group.children[0] as InstancedMesh).getMatrixAt(i, m);
+      return new Vector3().setFromMatrixPosition(m).add(f.group.children[0].position);
+    };
+    expect(pos(a, 0).distanceTo(pos(b, 0))).toBeLessThan(1e-6);
+    // ten seconds later the organisms have drifted some metres, mostly horizontally
+    const n = (a.group.children[0] as InstancedMesh).count;
+    const before = Array.from({ length: n }, (_, i) => pos(a, i));
+    a.update(g, cam, 1010, true);
+    const moves = before.map((p0, i) => { const d = pos(a, i).sub(p0); return { d: d.length(), v: Math.abs(d.dot(p0.clone().normalize())) }; })
+      .filter((m) => m.d < 200) // (an organism that wrapped to the far edge of its cell)
+      .sort((x, y) => x.d - y.d);
+    const med = moves[moves.length >> 1];
+    expect(med.d).toBeGreaterThan(5);
+    expect(med.d).toBeLessThan(80);
+    expect(med.v).toBeLessThan(med.d * 0.5);
+  });
+
+  it('fliers circle in flocks by day and roost at night', () => {
+    const living = generateSystem({ id: 'sys1873', name: 'S1873', seed: 1873, upos: new UPos() }).bodies.find((x) => x.planet?.life.kind === 'complex')!;
+    const g = new SurfaceGenerator(living.planet!.surface!);
+    const mat = new ShaderMaterial();
+    const f = new Fliers(living, mat);
+    expect(f.hasFliers).toBe(true);
+    let seen = 0;
+    // try a few spots: flocks occupy about half the cells
+    for (let i = 0; i < 12 && !seen; i++) {
+      const cam = new Vector3(Math.cos(i), 0.3, Math.sin(i)).normalize();
+      cam.multiplyScalar(living.radius + Math.max(g.sample(cam.x, cam.y, cam.z, 5).height, 0) + 50);
+      const sun = cam.clone().normalize();
+      f.update(g, cam, 500, true, sun, 0);
+      if (f.count > 0) {
+        seen = f.count;
+        // all roost at night (unless the species is nocturnal), and in heavy rain
+        f.update(g, cam, 500, true, sun, 0.9);
+        expect(f.count).toBe(0);
+      }
+    }
+    expect(seen).toBeGreaterThan(1);
+    expect(new Fliers(buildSolarSystem(new UPos(), { x: 0, y: 0, z: 0, w: 1 }).bodies.find((b) => b.name === 'Mars')!, mat).hasFliers).toBe(false);
   });
 });

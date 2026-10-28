@@ -9,6 +9,7 @@ import type { TerrainWorkerPool } from '../terrain/workerpool';
 import { createTerrainMaterial } from './terrainmaterial';
 import { SurfaceScatter } from './scatter';
 import { Fauna } from './fauna';
+import { Fliers, Floaters } from './aerial';
 import { Precipitation } from './precipitation';
 import { SurfaceGenerator } from '../terrain/surface';
 import { AtmosphereLUTs } from './atmosphere';
@@ -63,6 +64,8 @@ export class PlanetRenderer {
   /** rocks and plants near the camera */
   scatter: SurfaceScatter | null = null;
   fauna: Fauna | null = null;
+  floaters: Floaters | null = null;
+  fliers: Fliers | null = null;
   precip: Precipitation | null = null;
   /** camera altitude above this planet's surface (m), from the last update */
   camAltitude = Infinity;
@@ -143,9 +146,18 @@ export class PlanetRenderer {
         this.fauna = new Fauna(this.body, this.scatter.rockMat);
         this.group.add(this.fauna.group);
       }
+      if (!this.floaters && this.body.planet!.life.kind === 'complex') {
+        this.floaters = new Floaters(this.body, this.scatter.aerialMaterial());
+        this.fliers = new Fliers(this.body, this.scatter.aerialMaterial());
+        this.group.add(this.floaters.group, this.fliers.group);
+      }
       const dt = isFinite(this.lastTime) ? Math.max(0, ctx.time - this.lastTime) : 0;
       const sunB = ctx.suns[0] ? ctx.suns[0].rel.clone().sub(rel).normalize().applyQuaternion(rot.clone().invert()) : null;
-      this.fauna?.update(this.gen, camBody, dt, (ctx.quality.scatter ?? 0.85) > 0, sunB, this.precip?.kind === 'rain' || this.precip?.kind === 'snow' ? this.precip.intensity : 0);
+      const storm = this.precip?.kind === 'rain' || this.precip?.kind === 'snow' ? this.precip.intensity : 0;
+      const lifeOn = (ctx.quality.scatter ?? 0.85) > 0;
+      this.fauna?.update(this.gen, camBody, dt, lifeOn, sunB, storm);
+      this.floaters?.update(this.gen, camBody, ctx.time % 1e6, lifeOn);
+      this.fliers?.update(this.gen, camBody, ctx.time % 1e6, lifeOn, sunB, storm);
     }
     // local precipitation / airborne particles
     if (!this.precip && this.body.planet!.atmosphere && altCam < 3000) {
@@ -249,6 +261,8 @@ export class PlanetRenderer {
     if (this.terrain) this.terrain.dispose();
     this.scatter?.dispose();
     this.fauna?.dispose();
+    this.floaters?.dispose();
+    this.fliers?.dispose();
     this.precip?.dispose();
     this.luts?.dispose();
     this.clouds?.dispose();

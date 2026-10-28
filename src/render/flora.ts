@@ -10,7 +10,7 @@ import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferG
 import { Rng } from '../core/rng';
 import { noise3 } from '../core/noise';
 
-export type PlantForm = 'conifer' | 'broadleaf' | 'frond' | 'fungal' | 'spire' | 'coral' | 'shrub' | 'tuft' | 'mound' | 'tubes' | 'bulb';
+export type PlantForm = 'conifer' | 'broadleaf' | 'frond' | 'fungal' | 'spire' | 'coral' | 'shrub' | 'tuft' | 'mound' | 'tubes' | 'bulb' | 'crystal';
 
 export interface Species {
   form: PlantForm;
@@ -90,6 +90,7 @@ function blob(r: number, x: number, y: number, z: number, sy = 1, seed = 0, deta
 function plantGeometry(form: PlantForm, rng: Rng): THREE.BufferGeometry {
   const stems: THREE.BufferGeometry[] = [];
   const leaves: THREE.BufferGeometry[] = [];
+  const glass: THREE.BufferGeometry[] = []; // faceted, glossy biomineral (aPart = 2)
   const s = rng.range(0, 100);
   switch (form) {
     case 'conifer': {
@@ -214,8 +215,30 @@ function plantGeometry(form: PlantForm, rng: Rng): THREE.BufferGeometry {
       leaves.push(blob(0.28, 0, 0.7, 0, 1.2, s));
       break;
     }
+    case 'crystal': {
+      // silica-shelled colony (a fictional "glass sponge" biology): clustered
+      // hexagonal prisms with pyramidal tips, flat-shaded facets
+      const n = rng.int(5, 11);
+      for (let i = 0; i < n; i++) {
+        const h = i === 0 ? 1 : rng.range(0.3, 0.8);
+        const r = h * rng.range(0.07, 0.12);
+        const prism = new THREE.CylinderGeometry(r, r * 1.15, h * 0.8, 6, 1, false).toNonIndexed();
+        prism.translate(0, h * 0.4, 0);
+        const tip = new THREE.ConeGeometry(r, h * 0.2, 6).toNonIndexed();
+        tip.translate(0, h * 0.9, 0);
+        const tilt = i === 0 ? rng.range(0, 0.1) : rng.range(0.2, 0.75), az = rng.range(0, Math.PI * 2);
+        for (const g of [prism, tip]) {
+          g.deleteAttribute('uv');
+          g.rotateZ(tilt).rotateY(az);
+          g.translate(rng.range(-0.04, 0.04), 0, rng.range(-0.04, 0.04));
+          g.computeVertexNormals();
+          glass.push(g);
+        }
+      }
+      break;
+    }
   }
-  const all = [...stems.map((g) => part(g, 0)), ...leaves.map((g) => part(g, 1))];
+  const all = [...stems.map((g) => part(g, 0)), ...leaves.map((g) => part(g, 1)), ...glass.map((g) => part(g, 2))];
   const merged = mergeGeometries(all, false)!;
   merged.computeBoundingSphere();
   return merged;
@@ -251,12 +274,15 @@ export function floraFor(inp: FloraInput): Species[] {
     out.push({ form: 'shrub', geometry: plantGeometry('shrub', rng), height: 1.4, color: [0.05, 0.1, 0.03], stem, weight: 1, large: false });
     out.push({ form: 'tuft', geometry: plantGeometry('tuft', rng), height: 0.5, color: [0.09, 0.14, 0.04], stem, weight: 3, large: false });
   } else if (inp.life === 'complex') {
-    const tall: PlantForm[] = ['conifer', 'broadleaf', 'frond', 'fungal', 'spire', 'coral'];
+    const tall: PlantForm[] = ['conifer', 'broadleaf', 'frond', 'fungal', 'spire', 'coral', 'crystal'];
     const n = rng.int(2, 3);
     for (let i = 0; i < n; i++) {
       const form = rng.pick(tall);
-      const h = rng.range(6, 22) * gScale * (form === 'spire' || form === 'coral' ? 0.5 : 1);
-      out.push({ form, geometry: plantGeometry(form, rng), height: h, color: mix(rng.next()), stem, weight: rng.range(0.5, 1.5), large: true });
+      const h = rng.range(6, 22) * gScale * (form === 'spire' || form === 'coral' ? 0.5 : form === 'crystal' ? 0.3 : 1);
+      // biomineral shells: paler, glassier tints of the pigment
+      const c = mix(rng.next());
+      const color: [number, number, number] = form === 'crystal' ? [c[0] * 0.5 + 0.3, c[1] * 0.5 + 0.32, c[2] * 0.5 + 0.36] : c;
+      out.push({ form, geometry: plantGeometry(form, rng), height: h, color, stem, weight: rng.range(0.5, 1.5), large: true });
     }
     out.push({ form: 'tuft', geometry: plantGeometry('tuft', rng), height: rng.range(0.3, 0.9) * gScale, color: mix(rng.next()), stem, weight: 3, large: false });
     const form: PlantForm = rng.pick(['bulb', 'tubes', 'shrub'] as PlantForm[]);
