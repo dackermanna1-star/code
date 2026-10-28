@@ -234,7 +234,7 @@ export class HelpOverlay {
           <dt>${k('boost')} · ${k('slow')} · wheel</dt><dd>×10 · ×0.1 · speed multiplier</dd>
           <dt>Click</dt><dd>Select object</dd><dt>${k('gotoTarget')}</dt><dd>Travel to selection</dd>
           <dt>${k('frameTarget')}</dt><dd>Look at selection</dd><dt>${k('orbitCam')}</dt><dd>Orbit camera around selection</dd>
-          <dt>${k('scan')}</dt><dd>Scientific scan of selection (must be in range)</dd>
+          <dt>${k('scan')}</dt><dd>Scientific scan of selection (must be in range); on a surface, field instruments</dd>
         </dl></section>
         <section><h3>Spacecraft</h3><dl>
           <dt>${k('spawnShip')}</dt><dd>Spawn / board ship (lands it if you are near the ground)</dd>

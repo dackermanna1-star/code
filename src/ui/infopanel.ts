@@ -4,6 +4,38 @@
  * need a scientific scan are shown greyed out until scanned.
  */
 import type { Description } from './describe';
+import type { Spectrum } from '../astro/spectrum';
+
+/** Spectrum as an inline SVG: relative flux against wavelength, with labelled features. */
+function spectrumSvg(sp: Spectrum): string {
+  const W = 268, H = 96, bot = 14;
+  const lo = sp.wl[0], hi = sp.wl[sp.wl.length - 1];
+  const x = (l: number) => ((l - lo) / (hi - lo)) * W;
+  // place labels left to right in the first row where they don't collide (≈4.6 px per glyph at 8 px)
+  const ends: number[] = [];
+  const placed = sp.marks.slice(0, 10).map((m) => ({ ...m, x: x(m.wl) })).sort((a, b) => a.x - b.x).map((m) => {
+    const w = m.label.length * 4.6 + 4;
+    const cx = Math.min(W - w / 2, Math.max(w / 2, m.x));
+    let row = ends.findIndex((e) => e < cx - w / 2);
+    if (row < 0) { row = ends.length; ends.push(0); }
+    ends[row] = cx + w / 2;
+    return { ...m, cx, row };
+  });
+  const top = 6 + 8 * Math.max(1, ends.length);
+  const y = (f: number) => top + (1 - f) * (H - top - bot);
+  let d = '';
+  sp.wl.forEach((l, i) => { d += `${i ? 'L' : 'M'}${x(l).toFixed(1)},${y(sp.flux[i]).toFixed(1)}`; });
+  const fill = `${d}L${W},${H - bot}L0,${H - bot}Z`;
+  const ticks: number[] = [];
+  const step = hi - lo > 1200 ? 500 : 100;
+  for (let t = Math.ceil(lo / step) * step; t <= hi; t += step) if (x(t) > 10 && x(t) < W - 26) ticks.push(t);
+  const marks = placed.map((m) => `<line x1="${m.x.toFixed(1)}" x2="${m.x.toFixed(1)}" y1="${(top - 2).toFixed(1)}" y2="${H - bot}" class="sp-mark"/>` +
+    `<text x="${m.cx.toFixed(1)}" y="${(top - 4 - 8 * (ends.length - 1 - m.row)).toFixed(1)}" class="sp-lbl" text-anchor="middle">${m.label}</text>`).join('');
+  return `<svg class="spectrum" viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Spectrum: ${sp.findings.join('; ')}">
+    <path d="${fill}" class="sp-fill"/><path d="${d}" class="sp-line"/>${marks}
+    ${ticks.map((t) => `<text x="${x(t).toFixed(1)}" y="${H - 2}" class="sp-ax" text-anchor="middle">${t}</text>`).join('')}
+    <text x="${W}" y="${H - 2}" class="sp-ax" text-anchor="end">nm</text></svg>`;
+}
 
 export interface InfoActions {
   goTo: () => void;
@@ -88,6 +120,7 @@ export class InfoPanel {
           html += '<dl>';
           for (const [k, v] of s.rows) html += `<dt>${esc(k)}</dt><dd data-k="${esc(k)}">${esc(v)}</dd>`;
           html += '</dl>';
+          if (s.chart) html += spectrumSvg(s.chart);
           if (s.text) html += `<p>${esc(s.text)}</p>`;
         }
         html += '</section>';

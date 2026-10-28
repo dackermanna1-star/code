@@ -180,3 +180,18 @@ button.big small { font-size: 0.72em; color: var(--fg-dim); }
 .letterbox::before, .letterbox::after { content: ''; position: absolute; left: 0; right: 0; height: max(0px, calc((100vh - 100vw / 2.39) / 2)); background: #000; }
 .letterbox::before { top: 0; }
 .letterbox::after { bottom: 0; }
+
+/* spectra in the info panel */
+.spectrum { display: block; margin: 4px 0 2px; overflow: visible; }
+.spectrum .sp-line { fill: none; stroke: var(--accent, #8fc8ff); stroke-width: 1.2; }
+.spectrum .sp-fill { fill: color-mix(in srgb, var(--accent, #8fc8ff) 14%, transparent); stroke: none; }
+.spectrum .sp-mark { stroke: rgba(255, 207, 124, 0.45); stroke-width: 0.8; stroke-dasharray: 2 2; }
+.spectrum .sp-lbl { fill: #ffcf7c; font-size: 8px; }
+.spectrum .sp-ax { fill: rgba(200, 215, 235, 0.6); font-size: 8px; }
+.high-contrast .spectrum .sp-line { stroke: #fff; stroke-width: 1.6; }
+
+/* field instruments (on a surface) */
+.field-panel { position: fixed; left: 16px; top: 64px; width: min(330px, calc(100vw - 32px)); padding: 10px 12px; font-size: 12px; z-index: 6; }
+.field-panel dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; margin: 8px 0 6px; }
+.field-panel dt { color: var(--dim, #9aa6b8); white-space: nowrap; }
+.field-panel dd { margin: 0; }

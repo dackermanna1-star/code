@@ -70,7 +70,7 @@ const BODIES: KnownBody[] = [
     rotHours: 23.9344696, pole: [0, 90], formation: 'rocky',
     ov: { physics: { tempMean: 288, tempMin: 184, tempMax: 330, albedo: 0.306, liquid: 'water', liquidCoverage: 0.71, iceCoverage: 0.1, tectonics: 0.9, volcanism: 0.3,
         magneticField: 1, life: { kind: 'complex', biochemistry: 'water / carbon', pigment: 'green (chlorophyll)', coverage: 0.7, bioluminescence: 0, oxygenated: true, fossil: true, notes: 'Home. ~8.7 million eukaryotic species (estimated).' } },
-      atmosphere: { pressure: 1.01325, composition: { N2: 0.7808, O2: 0.2095, Ar: 0.0093, CO2: 0.00042 }, meanMolecularMass: 28.97, scaleHeight: 8500, greenhouseK: 33, hazes: [] },
+      atmosphere: { pressure: 1.01325, composition: { N2: 0.7808, O2: 0.2095, Ar: 0.0093, CO2: 0.00042, CH4: 1.9e-6 }, meanMolecularMass: 28.97, scaleHeight: 8500, greenhouseK: 33, hazes: [] },
       surface: { oceanFraction: 0.71, plates: 0.85, bimodal: 0.85, mountains: 0.35, volcanoes: 0.2, dunes: 0.3, terraces: 0.3, canyons: 0.2, craters: 0, tempEquator: 300, tempPole: 240, moisture: 0.7, iceCap: 0.12, vegetation: 0.75, rivers: 0.8 },
       palette: { veg1: srgb(0.13, 0.25, 0.08), veg2: srgb(0.3, 0.33, 0.12), sand: srgb(0.78, 0.66, 0.46) },
       clouds: { coverage: 0.55, bottom: 1500, top: 9000, density: 0.035, scale: 7000, windSpeed: 15, storminess: 0.6, bands: 0.1 } } },

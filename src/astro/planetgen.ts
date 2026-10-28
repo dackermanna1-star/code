@@ -16,6 +16,7 @@
 import { Rng } from '../core/rng';
 import { AU, EARTH_MASS, EARTH_RADIUS, G, JUPITER_MASS, JUPITER_RADIUS, K_B, AMU, SIGMA_SB, SOLAR_LUMINOSITY } from '../core/constants';
 import type { AtmosphereInfo, GasGiantParams, LifeInfo, PlanetPhysics, RingInfo } from './types';
+import { airColumn, crustRock, doseEnv, EARTH_DOSE, surfaceDose } from './radiation';
 import type { LiquidKind, SurfaceParams, SurfacePalette, RGB } from '../terrain/surface';
 import type { AtmosphereParams } from '../render/atmosphere';
 import type { CloudParams } from '../render/clouds';
@@ -272,8 +273,13 @@ export function generatePlanet(inp: PlanetInput, ov?: PlanetOverrides): PlanetPh
   if (isGiant) magneticField = rng.logUniform(20, 20000);
   else if (iron > 0.2 && Me > 0.3) magneticField = clamp(Math.pow(Me, 0.6) * (1.5 - ageGyr / 10) * (locked ? 0.15 : 1) * rng.range(0.4, 1.4), 0, 5);
   const P = atmosphere?.pressure ?? 0;
-  const shielding = (1 + Math.min(P, 10) * 4) * (1 + magneticField * 3);
-  const radiation = clamp((S * (0.3 + inp.starActivity * 3) * 4 + (host?.isGiant ? 30 * Math.pow(Math.max(0, 1 - host.moonA / (25 * host.radius)), 2) : 0)) / shielding, 0, 1e4);
+  // mean surface dose at mid latitude, relative to Earth's sea level
+  const radiationEnv = doseEnv(S, inp.starActivity, host);
+  const globalDose = (ph: Pick<PlanetPhysics, 'type' | 'atmosphere' | 'gravity' | 'magneticField' | 'composition'>) => {
+    const Pa = ph.atmosphere?.pressure ?? 0;
+    return surfaceDose(radiationEnv, airColumn(Pa, ph.gravity), ph.magneticField, Math.PI / 4, crustRock(ph.type, ph.composition), Pa > 0.1).total / EARTH_DOSE;
+  };
+  const radiation = globalDose({ type, atmosphere, gravity: g, magneticField, composition: { iron, silicate, ice, carbon, gas } });
 
   // ---------- life (rare by construction)
   const life: LifeInfo = { kind: 'none', biochemistry: '—', pigment: '—', coverage: 0, bioluminescence: 0, oxygenated: false, fossil: false, notes: 'No biosignatures detected.' };
@@ -332,7 +338,7 @@ export function generatePlanet(inp: PlanetInput, ov?: PlanetOverrides): PlanetPh
     type, classLabel: label, mass: M, radius: R, density, gravity: g, escapeVelocity: vesc,
     composition: { iron, silicate, ice, carbon, gas }, albedo, tempEq: Teq, tempMean: Ts,
     tempMin: 0, tempMax: 0, atmosphere, liquid, liquidCoverage, iceCoverage, tectonics, volcanism,
-    surfaceAge, magneticField, radiation, tidallyLocked: locked, life, anomalies,
+    surfaceAge, magneticField, radiation, radiationEnv, tidallyLocked: locked, life, anomalies,
   };
   // day/night & latitudinal spread: thin atmospheres → extreme contrasts
   const damp = atmosphere ? clamp(Math.log10(1 + P * 10) / 2.2, 0, 1) : 0;
@@ -343,6 +349,7 @@ export function generatePlanet(inp: PlanetInput, ov?: PlanetOverrides): PlanetPh
   if (ov) {
     if (ov.physics) Object.assign(phys, ov.physics);
     if (ov.atmosphere !== undefined) phys.atmosphere = ov.atmosphere;
+    if (ov.physics?.radiation === undefined) phys.radiation = globalDose(phys);
     // re-classify from the catalogue values unless a label was given explicitly
     if ((ov.physics || ov.atmosphere !== undefined) && !ov.physics?.classLabel) {
       phys.classLabel = classify(phys.type, phys.mass / EARTH_MASS, phys.tempMean, phys.atmosphere?.pressure ?? 0, phys.liquid,

@@ -1,6 +1,7 @@
 import type { SurfaceParams, LiquidKind } from '../terrain/surface';
 import type { AtmosphereParams } from '../render/atmosphere';
 import type { CloudParams } from '../render/clouds';
+import type { DoseEnv } from '../astro/radiation';
 
 export type BodyKind =
   | 'barycenter' | 'star' | 'white-dwarf' | 'neutron-star' | 'black-hole' | 'brown-dwarf'
@@ -90,7 +91,9 @@ export interface PlanetPhysics {
   volcanism: number;     // 0..1
   surfaceAge: number;    // Gyr since last global resurfacing
   magneticField: number; // relative to Earth
-  radiation: number;     // surface dose relative to Earth (rough)
+  radiation: number;     // mean surface dose relative to Earth's sea level (2.4 mSv/yr)
+  /** free-space particle environment at the body, for local dose estimates */
+  radiationEnv?: DoseEnv;
   tidallyLocked: boolean;
   life: LifeInfo;
   anomalies: string[];

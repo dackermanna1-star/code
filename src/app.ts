@@ -16,6 +16,8 @@ import { formatDistance, formatSpeed } from './core/mathutil';
 import { bodyTarget, galaxyTarget, nebulaTarget, pick, standoff, systemTarget, type Target } from './sim/targets';
 import { Overlay } from './ui/overlay';
 import { InfoPanel } from './ui/infopanel';
+import { FieldPanel } from './ui/fieldpanel';
+import { fieldSurvey } from './sim/fieldsurvey';
 import { describe } from './ui/describe';
 import { Scanner, scanRange } from './sim/scanner';
 import { Discoveries, type Discovery, type DiscoveryKind, type Bookmark } from './sim/discoveries';
@@ -58,6 +60,7 @@ export class App {
   readonly discoveries: Discoveries;
   readonly overlay: Overlay;
   readonly info: InfoPanel;
+  readonly field: FieldPanel;
   readonly scanner = new Scanner();
   readonly search: SearchBox;
   readonly map: StarMap;
@@ -107,6 +110,7 @@ export class App {
     };
     // UI
     this.info = new InfoPanel(ui);
+    this.field = new FieldPanel(ui);
     this.search = new SearchBox(ui, (q) => this.searchProvider(q));
     this.map = new StarMap(ui);
     this.catalog = new CatalogPanel(ui, this.discoveries, {
@@ -1041,7 +1045,17 @@ export class App {
     if (i.pressed('orbits')) { this.settings.showOrbits = !this.settings.showOrbits; saveSettings(this.settings); this.hud.toast(`Orbits ${this.settings.showOrbits ? 'on' : 'off'}`); }
     if (i.pressed('labels')) { this.settings.showLabels = !this.settings.showLabels; saveSettings(this.settings); this.hud.toast(`Labels ${this.settings.showLabels ? 'on' : 'off'}`); }
     if (i.pressed('info')) { this.info.visible = !this.info.visible; }
-    if (i.pressed('scan')) this.startScan();
+    if (i.pressed('scan')) {
+      // on a surface, F7 opens the field instruments (and the local survey reveals the world's data)
+      const pl = this.player;
+      const ground = pl.mode === 'walk' ? pl.walker.body : pl.mode === 'ship' && pl.ship?.landed ? pl.ship.frame.body : null;
+      if (ground) {
+        if (this.field.toggle()) {
+          this.discoveries.markScanned(ground.id);
+          this.hud.toast('Field instruments deployed');
+        }
+      } else this.startScan();
+    }
     if (i.pressed('pathAdd')) this.addKeyframe();
     if (i.pressed('pathPlay')) {
       if (this.director.playing) this.director.stop(this.world);
@@ -1065,7 +1079,21 @@ export class App {
     }
   }
 
+  private updateField() {
+    const pl = this.player;
+    const b = pl.mode === 'walk' ? pl.walker.body : pl.mode === 'ship' && pl.ship?.landed ? pl.ship.frame.body : null;
+    if (!this.field.open || !b) {
+      if (this.field.open && !b) this.field.toggle();
+      return;
+    }
+    if (this.frameNo % 10) return;
+    const pos = pl.mode === 'walk' ? pl.walker.pos : pl.ship!.frame.offsetBodyFixed(new THREE.Vector3());
+    const r = fieldSurvey(this.world, b, pos);
+    if (r) this.field.show(r);
+  }
+
   private updateHud() {
+    this.updateField();
     const pl = this.player;
     const date = new Date(Date.UTC(2000, 0, 1, 12) + this.world.time * 1000).toISOString().slice(0, 16).replace('T', ' ');
     const timeScale = this.world.paused ? 0 : this.world.timeScale;

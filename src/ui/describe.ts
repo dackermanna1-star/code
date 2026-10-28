@@ -17,13 +17,23 @@ import {
 import { formatDistance, formatDuration, sci } from '../core/mathutil';
 import { meteorAltitude, showersFor } from '../render/meteors';
 import { pulsarModel } from '../astro/pulsar';
+import { planetSpectrum, stellarSpectrum, type Spectrum } from '../astro/spectrum';
 import { ejectaSpeed, eventLabel, eventMag, photosphericPhase, shellRadius, type CosmicEvent } from '../sim/events';
+
+/** spectra depend only on a body's physics; describe() runs every frame, so compute each once */
+const spectra = new WeakMap<object, Spectrum | null>();
+const spectrumOf = (key: object, make: () => Spectrum | null) => {
+  if (!spectra.has(key)) spectra.set(key, make());
+  return spectra.get(key)!;
+};
 
 export interface InfoSection {
   title: string;
   rows: [string, string][];
   text?: string;
   locked?: boolean;
+  /** a spectrum to plot (relative flux vs wavelength) */
+  chart?: Spectrum;
 }
 
 export interface Description {
@@ -206,6 +216,8 @@ function describeStar(b: Body, distance: number, scanned: boolean): Description 
   }
   const known = b.known;
   sections.push({ title: 'Stellar physics', rows: deep, locked: !scanned && !known });
+  const spec = spectrumOf(s, () => stellarSpectrum(s));
+  if (spec) sections.push({ title: 'Spectrum', rows: [], chart: spec, text: spec.findings.join(' · '), locked: !scanned && !known });
   sections.push(orbitSection(b));
   if (b.system.notes) sections.push({ title: 'Notes', rows: [], text: b.system.notes });
   return {
@@ -259,6 +271,10 @@ function describePlanet(b: Body, distance: number, scanned: boolean): Descriptio
       : [['Atmosphere', 'none (exposed surface)']];
     if (atm?.hazes.length) atmRows.push(['Hazes / clouds', atm.hazes.join(', ')]);
     sections.push({ title: 'Atmosphere', rows: atmRows, locked: !full });
+    let host: Body | null = b.parent;
+    while (host && !host.isStarLike) host = host.kind === 'barycenter' ? host.children.find((c) => c.isStarLike) ?? null : host.parent;
+    const rs = spectrumOf(p, () => planetSpectrum(p, host?.star?.temperature || 5772));
+    if (rs) sections.push({ title: 'Reflectance spectrum', rows: [], chart: rs, text: rs.findings.join(' · '), locked: !full });
     const showers = showersFor(b);
     const hM = meteorAltitude(b);
     if (showers.length && hM !== null) {

@@ -456,3 +456,91 @@ describe('pulsars', () => {
   });
 });
 
+describe('science instruments', () => {
+  it('stellar spectra show the lines each temperature should', async () => {
+    const { stellarSpectrum } = await import('../../src/astro/spectrum');
+    const star = (T: number, stage = 'main-sequence') => ({ mass: 2e30, radius: 7e8, luminosity: 3.8e26, temperature: T, spectralType: '', stage, age: 1e9, lifetime: 1e10, metallicity: 0, rotationPeriod: 2e6, activity: 0.1, color: [1, 1, 1] }) as never;
+    const sun = stellarSpectrum(star(5772))!;
+    expect(sun.findings[0]).toMatch(/50\d nm/);              // Wien peak ≈ 502 nm
+    expect(sun.marks.map((m) => m.label)).toContain('Ca II K');
+    const vega = stellarSpectrum(star(9600))!;
+    expect(vega.findings[1]).toMatch(/^Strongest lines: H/);
+    const mdwarf = stellarSpectrum(star(3100))!;
+    expect(mdwarf.marks.map((m) => m.label)).toContain('TiO');
+  });
+
+  it('planetary spectra reveal composition and biosignatures', async () => {
+    const { planetSpectrum } = await import('../../src/astro/spectrum');
+    const sol = buildSolarSystem(new UPos(), { x: 0, y: 0, z: 0, w: 1 });
+    const get = (n: string) => sol.bodies.find((b) => b.name === n)!.planet!;
+    const earth = planetSpectrum(get('Earth'), 5772)!;
+    const ef = earth.findings.join(' ');
+    expect(ef).toMatch(/H₂O/);
+    expect(ef).toMatch(/O₂/);
+    expect(ef).toMatch(/red edge/);
+    expect(ef).toMatch(/O₃/); // Chappuis band from the ozone layer
+    expect(ef).toMatch(/disequilibrium/); // O₂ with trace CH₄, as the Galileo flyby saw (Sagan et al. 1993)
+    const mars = planetSpectrum(get('Mars'), 5772)!.findings.join(' ');
+    expect(mars).toMatch(/CO₂/);
+    expect(mars).not.toMatch(/biosignature/);
+    const titan = planetSpectrum(get('Titan'), 5772)!.findings.join(' ');
+    expect(titan).toMatch(/CH₄/);
+    expect(planetSpectrum(get('Moon'), 5772)).toBeNull();
+  });
+
+  it('field instruments read the local world', async () => {
+    const { fieldSurvey } = await import('../../src/sim/fieldsurvey');
+    const { World } = await import('../../src/sim/world');
+    const w = new World();
+    w.system = buildSolarSystem(new UPos(), { x: 0, y: 0, z: 0, w: 1 });
+    w.system.update(0);
+    const earth = w.system.bodies.find((b) => b.name === 'Earth')!;
+    const g = w.generator(earth)!;
+    // a dry-land spot
+    let dir = new Vector3();
+    for (let i = 0; i < 2000; i++) {
+      const y = 1 - (2 * (i + 0.5)) / 2000, r = Math.sqrt(1 - y * y), t = 2.39996 * i;
+      dir.set(Math.cos(t) * r, y, Math.sin(t) * r);
+      if (g.sample(dir.x, dir.y, dir.z, 5).height > g.liquidLevel() + 50) break;
+    }
+    const rd = fieldSurvey(w, earth, dir.clone().multiplyScalar(earth.radius + g.sample(dir.x, dir.y, dir.z, 1).height))!;
+    const v = (k: string) => rd.rows.find((r) => r[0] === k)![1];
+    const gv = parseFloat(v('Gravity'));
+    expect(gv).toBeGreaterThan(9.7);
+    expect(gv).toBeLessThan(9.9);
+    expect(parseFloat(v('Magnetic field'))).toBeGreaterThan(25);
+    expect(v('Air composition')).toMatch(/N2/);
+    const moon = w.system.bodies.find((b) => b.name === 'Moon')!;
+    const mr = fieldSurvey(w, moon, new Vector3(0, 0, moon.radius))!;
+    expect(mr.rows.find((r) => r[0] === 'Air')![1]).toMatch(/vacuum/);
+    expect(mr.rows.find((r) => r[0] === 'Radiation')![1]).toMatch(/cosmic rays/);
+    // afloat on the open ocean: the sea, not the seabed, is under the observer
+    for (let i = 0; i < 2000; i++) {
+      const y = 1 - (2 * (i + 0.5)) / 2000, r = Math.sqrt(1 - y * y), t = 2.39996 * i;
+      dir.set(Math.cos(t) * r, y, Math.sin(t) * r);
+      if (g.sample(dir.x, dir.y, dir.z, 5).height < g.liquidLevel() - 2000) break;
+    }
+    const sr = fieldSurvey(w, earth, dir.clone().multiplyScalar(earth.radius + g.liquidLevel()))!;
+    const sv = (k: string) => sr.rows.find((r) => r[0] === k)![1];
+    expect(sv('Ground')).toMatch(/open water sea/);
+    expect(parseFloat(sv('Elevation'))).toBeCloseTo(0, 0);
+    expect(sv('Life detection')).toMatch(/aquatic/);
+    expect(sv('Subsurface')).not.toMatch(/permafrost|groundwater/);
+  });
+
+  it('surface radiation matches measured doses across the Solar System', () => {
+    const sol = buildSolarSystem(new UPos(), { x: 0, y: 0, z: 0, w: 1 });
+    const rad = (n: string) => sol.bodies.find((b) => b.name === n)!.planet!.radiation; // × Earth (2.4 mSv/yr)
+    expect(rad('Earth')).toBeGreaterThan(0.8);
+    expect(rad('Earth')).toBeLessThan(1.2);
+    expect(rad('Moon')).toBeGreaterThan(100);   // ≈500 mSv/yr (Chang'e 4)
+    expect(rad('Moon')).toBeLessThan(300);
+    expect(rad('Mars')).toBeGreaterThan(60);    // ≈230 mSv/yr (Curiosity RAD)
+    expect(rad('Mars')).toBeLessThan(160);
+    expect(rad('Europa')).toBeGreaterThan(3e5); // ≈5 Sv/day
+    expect(rad('Io')).toBeGreaterThan(rad('Europa'));
+    expect(rad('Callisto')).toBeLessThan(rad('Ganymede'));
+    expect(rad('Titan')).toBeLessThan(0.5);     // under 10 m of air-equivalent
+  });
+});
+

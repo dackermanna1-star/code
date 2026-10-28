@@ -32,7 +32,7 @@ The title screen offers two universes:
 - **Procedural Universe.** A new universe from any seed.
 
 Click anything to select it. The info panel shows its properties; **G** travels there, **H** looks at it, **F6** orbits
-it and **F7** runs a scientific scan. **N** spawns a spacecraft. Land, press **X** to step out, and **X** next to the ship
+it and **F7** runs a scientific scan (on a surface, it opens the field instruments). **N** spawns a spacecraft. Land, press **X** to step out, and **X** next to the ship
 boards it again. **M** opens the 3D map, **F3** search, **F4** the discovery catalogue, **F5** bookmarks the current
 location, **F10** opens cinematic camera paths, **F1** shows all controls and **Esc** opens settings (graphics,
 accessibility, simulation, audio, key rebinding).
@@ -170,6 +170,32 @@ accessibility, simulation, audio, key rebinding).
   You can swim in any surface liquid. Jump height scales as 1/g (unit-tested: the Moon gives about 6× Earth).
   Following the project brief, walking has no spacesuit or survival restrictions.
 
+**Science instruments**
+- Spectra appear in the info panel after a scan. Stars show a Planck continuum with the lines their temperature
+  produces: He II in O stars, Balmer lines peaking near 9,500 K, Ca II H and K, the G band, Mg b and Na D in cool
+  stars, TiO bands in M dwarfs and broad Balmer wings in white dwarfs. Planets with air show a reflectance spectrum.
+  It has a Rayleigh blue slope and the molecular bands of the generated atmosphere (H₂O, CO₂, CH₄, O₂, O₃, NH₃, CO,
+  H₂). Water vapour comes from Clausius–Clapeyron over surface water, and ozone from photochemistry wherever there is
+  free O₂. A vegetation "red edge" shifts toward the infrared around cool stars. Each spectrum carries a short
+  reading, such as the O₂ + CH₄ disequilibrium biosignature that the Galileo flyby saw on Earth.
+- Field instruments (**F7** while on foot or landed) take live readings from the same generator as the terrain:
+  - position and elevation relative to the liquid level
+  - gravity, including the centrifugal term
+  - local air pressure, temperature and composition
+  - what lies underfoot (bedrock type, regolith, sand, ice, soil or open sea), and bulk composition
+  - the dipole magnetic field at your latitude
+  - seismicity per 100 km, calibrated on Earth
+  - life detection, including aquatic life at sea
+  - subsurface findings (groundwater, permafrost, buried oceans, lava tubes)
+- The radiation dose model is shared by the instruments and the info panel. It is calibrated on measured doses:
+  - Earth: 2.4 mSv/yr at sea level and about 45 at airliner altitude
+  - Mars: about 230 (Curiosity)
+  - the Moon: about 500 (Chang'e 4)
+  - the Galilean moons: Io about 36 Sv/day, Europa 5.4, Ganymede 0.08, Callisto 0.0001
+
+  It combines cosmic rays attenuated by the air column and screened by the magnetosphere, stellar particles,
+  trapped belt particles around giant planets, and ground radioactivity.
+
 **Presentation**
 - The HDR pipeline has GPU auto-exposure (log-average metering, eye-like adaptation), bloom, AgX tone mapping, FXAA
   and white balance toward sunlight.
@@ -260,6 +286,10 @@ of use.
 - launching a mothership's shuttle, docking it back and stowing it
 - nebula placement and transient-event rates
 - lava channels on molten worlds
+- spectra:
+  - the Sun's Wien peak and Ca II lines, Vega's Balmer lines and TiO in M dwarfs
+  - H₂O, O₂, O₃, the red edge and the O₂ + CH₄ biosignature on Earth; CO₂ on Mars; CH₄ on Titan
+- field instruments on land and at sea, and surface radiation doses across the Solar System
 
 `npm run test:e2e` drives the real application in headless Chromium:
 

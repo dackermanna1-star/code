@@ -143,10 +143,11 @@ await step('dock with the International Space Station', async () => {
     app.world.view.local.copy(new V(12.4 + 8 + 11.3, 0, 0).applyQuaternion(q));
     app.world.view.setWorldOrientation(q.clone().multiply(new q.constructor().setFromAxisAngle(new V(0, 1, 0), Math.PI / 2)));
     app.player.spawnShip('scout');`);
-  await wait(1500);
-  const sel = await run(`const d = app.player.ship.dock; return d && d.target.ports[d.port].name;`);
-  assert(/IDA-2/.test(sel ?? ''), `selected port ${sel}`);
   try {
+    // the docking computer picks a port once the ship has run a few updates (slow under software rendering)
+    await until(`return !!app.player.ship?.dock;`, 15000, 'docking port selection');
+    const sel = await run(`const d = app.player.ship.dock; return d && d.target.ports[d.port].name;`);
+    assert(/IDA-2/.test(sel ?? ''), `selected port ${sel}`);
     // skip most draws so the (real-time) approach is not throttled by software rendering
     await run(`app.player.toggleDock(); app.settle(120000);`);
     await until(`return !!app.player.ship.docked;`, 150000, 'capture',
