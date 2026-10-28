@@ -15,9 +15,13 @@ irradiation, atmosphere, climate, life) rather than random cosmetics. Most world
 npm install
 npm run dev          # http://localhost:5173
 npm run build        # type-check + production build into dist/
+npm run build:html   # the whole simulator in one self-contained page: dist-html/infinite-cosmos.html
 npm test             # unit tests (Vitest)
 npm run test:e2e     # end-to-end smoke test in headless Chromium (needs Playwright: npm i -D playwright && npx playwright install chromium)
 ```
+
+The single-file page opens straight from disk (double-click it). It needs no server and no other files, only the
+web fonts, which fall back to system fonts offline.
 
 URL parameters: `?nomenu` skips the title screen; `?test` is the same, for automated tests.
 The browser needs WebGL2. A discrete GPU is recommended. The renderer scales from the Low preset upward.
