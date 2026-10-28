@@ -17,6 +17,7 @@ import { bodyTarget, galaxyTarget, nebulaTarget, pick, standoff, systemTarget, t
 import { Overlay } from './ui/overlay';
 import { InfoPanel } from './ui/infopanel';
 import { FieldPanel } from './ui/fieldpanel';
+import { DynamicResolution } from './render/dynres';
 import { fieldSurvey } from './sim/fieldsurvey';
 import { describe } from './ui/describe';
 import { Scanner, scanRange } from './sim/scanner';
@@ -28,7 +29,7 @@ import { CatalogPanel } from './ui/catalogpanel';
 import { HelpOverlay, SettingsMenu } from './ui/menu';
 import { StartScreen } from './ui/start';
 import { Modal } from './ui/modal';
-import { loadSettings, saveSettings, type Settings } from './ui/settings';
+import { applyPreset, isFirstRun, loadSettings, saveSettings, weakGpu, type Settings } from './ui/settings';
 import { loadRaw, save } from './ui/storage';
 import { SOLAR_SYSTEM_ID } from './astro/known/solarsystem';
 import { Rng, seedOf } from './core/rng';
@@ -64,6 +65,9 @@ export class App {
   readonly info: InfoPanel;
   readonly field: FieldPanel;
   private lastCave: number | null = null;
+  readonly dynres = new DynamicResolution();
+  /** automated tests: deterministic quality (no dynamic resolution) */
+  private readonly testMode = new URLSearchParams(location.search).has('test');
   private shotPending = false;
   readonly scanner = new Scanner();
   readonly search: SearchBox;
@@ -95,6 +99,7 @@ export class App {
 
   constructor(readonly canvas: HTMLCanvasElement, readonly ui: HTMLElement) {
     this.settings = loadSettings();
+    if (!this.testMode && isFirstRun() && weakGpu()) applyPreset(this.settings, 'medium'); // integrated GPUs (Apple M1, Intel): start lighter
     this.renderer = new SceneRenderer(canvas);
     this.input = new Input(canvas);
     this.spectator = new SpectatorController(this.world, this.input);
@@ -397,6 +402,7 @@ export class App {
     r.quality.detail = s.surfaceDetail;
     r.quality.fov = s.fov;
     r.quality.scatter = s.scatterDensity;
+    r.quality.atmosphereScale = +s.atmosphereScale || 1;
     r.galaxies.steps = s.galaxySteps;
     r.starField.boost = s.starBrightness;
     const ps = r.pipeline.settings;
@@ -412,8 +418,12 @@ export class App {
     ps.exposureComp = s.exposureComp;
     ps.autoExposure = s.autoExposure;
     ps.maxExposure = Math.pow(10, s.maxExposureLog);
-    if (key === undefined || key === 'renderScale' || key === 'preset') {
-      ps.renderScale = s.renderScale;
+    this.dynres.enabled = s.dynamicResolution && !this.testMode;
+    this.dynres.targetFps = +s.targetFps || 45;
+    if (key === undefined || key === 'renderScale' || key === 'preset' || key === 'hiDpi' || key === 'dynamicResolution') {
+      if (!this.dynres.enabled) this.dynres.scale = 1;
+      ps.hiDpi = s.hiDpi;
+      ps.renderScale = s.renderScale * this.dynres.scale;
       this.resize();
     }
     const root = document.documentElement;
@@ -912,6 +922,16 @@ export class App {
     if (this.frameNo % 3 === 0) this.updateEvents();
     this.renderer.render(this.world, dt, draw);
     if (this.shotPending && draw) { this.shotPending = false; this.captureShot(); }
+    // dynamic resolution: real frame time while actually exploring
+    {
+      const active = draw && this.drawEvery === 1 && !this.startScreen.isOpen && document.visibilityState === 'visible' && dtOverride === undefined;
+      const k = this.dynres.update(dt, active);
+      if (k !== null) {
+        this.renderer.pipeline.settings.renderScale = this.settings.renderScale * k;
+        this.resize();
+      }
+      this.hud.resScale = this.dynres.scale;
+    }
     if (draw) this.captureThumbs();
     if (!blocking && this.input.clicked) this.clickSelect();
     if (this.frameNo % 20 === 0) this.autoDiscover();

@@ -52,6 +52,13 @@ uniform int uCloudSteps;
 uniform float uPixelAngle;
 #endif
 varying vec2 vUv;
+#ifdef SPLIT_OUT
+// low-resolution path: in-scattered light and transmittance, applied at full resolution (atmohalf.ts)
+layout(location = 1) out highp vec4 gTrans;
+#define OUT_PASS { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); gTrans = vec4(1.0); return; }
+#else
+#define OUT_PASS { gl_FragColor = vec4(scene, 1.0); return; }
+#endif
 
 vec2 raySphereG(vec3 ro, vec3 rd, float r) {
   float a = dot(rd, rd);
@@ -142,8 +149,9 @@ float cloudDensity(vec3 pw, float lodFine, float stepLen, bool primary) {
     vec3 pr = rotY(p, uCloudDrift);
     float m1 = gnoise(pr / 150000.0 + 3.7);
     // each octave fades in only once it spans several pixels (no speckle)
-    float m2 = gnoise(pr / 41000.0 + 1.3) * smoothstep(41000.0 * 0.4, 41000.0 * 0.12, stepLen);
-    float m3 = gnoise(pr / 11000.0 + 5.1) * smoothstep(11000.0 * 0.4, 11000.0 * 0.12, stepLen);
+    float f2 = smoothstep(41000.0 * 0.4, 41000.0 * 0.12, stepLen), f3 = smoothstep(11000.0 * 0.4, 11000.0 * 0.12, stepLen);
+    float m2 = f2 > 0.0 ? gnoise(pr / 41000.0 + 1.3) * f2 : 0.0;
+    float m3 = f3 > 0.0 ? gnoise(pr / 11000.0 + 5.1) * f3 : 0.0;
     base *= clamp(0.8 + m1 * 1.1 + m2 * 0.5, 0.0, 1.5);
     base -= max(0.0, -m2) * 0.45 + max(0.0, -m3) * 0.3;
     if (base < 0.01) return 0.0;
@@ -168,7 +176,11 @@ float hg(float c, float g) { float g2 = g * g; return (1.0 - g2) / (4.0 * PI * p
 #endif
 
 void main() {
+#ifdef SPLIT_OUT
+  vec3 scene = vec3(0.0);
+#else
   vec3 scene = texture(tColor, vUv).rgb;
+#endif
   float depth = texture(tDepth, vUv).r;
   vec4 vp = uInvProj * vec4(vUv * 2.0 - 1.0, -1.0, 1.0); // near plane: avoids w≈1/far cancellation
   vec3 vdir = normalize(vp.xyz / vp.w);
@@ -182,7 +194,7 @@ void main() {
   vec3 ro = uCamPos + uAxis * dot(uCamPos, uAxis) * uOblate;
   vec3 rd = rdW + uAxis * dot(rdW, uAxis) * uOblate;
   vec2 ia = raySphereG(ro, rd, uRt);
-  if (ia.x > ia.y || ia.y < 0.0) { gl_FragColor = vec4(scene, 1.0); return; }
+  if (ia.x > ia.y || ia.y < 0.0) OUT_PASS
   float t0 = max(ia.x, 0.0);
   float t1 = min(ia.y, tScene);
   if (tScene >= 1e29) {
@@ -190,7 +202,7 @@ void main() {
     if (ig.x < ig.y && ig.x > 0.0) t1 = min(t1, ig.x);
   }
   if (uDebug > 0.5 && uDebug < 1.5) { gl_FragColor = vec4(t0 / 1e6, t1 / 1e6, tScene / 1e6, 1.0); return; }
-  if (t1 <= t0) { gl_FragColor = vec4(scene, 1.0); return; }
+  if (t1 <= t0) OUT_PASS
   float jit = ign(gl_FragCoord.xy + vec2(uFrame * 5.588238, uFrame * 1.13));
   vec3 L = vec3(0.0), T = vec3(1.0);
 
@@ -295,7 +307,8 @@ void main() {
 #else
   integrate(ro, rd, t0, t1, uSteps, jit, L, T);
 #endif
-  if (uAurora > 0.0) {
+  // aurorae are ~1e-8–1e-7 of daylight: against a lit or twilit sky they cannot be seen, so skip the march
+  if (uAurora > 0.0 && dot(L, vec3(0.2126, 0.7152, 0.0722)) < 3e-6) {
     // auroral ovals around the magnetic poles (≈ spin axis), 95–320 km,
     // shifted toward the night side; folded curtains with fine vertical rays
     float rA0 = uRg + 95000.0, rA1 = uRg + 320000.0;
@@ -317,6 +330,7 @@ void main() {
         float mlat = asin(clamp(dot(n, uAxis), -1.0, 1.0));
         float night = clamp(-dot(n, uSunDir[0]) * 0.5 + 0.5, 0.0, 1.0);
         float ovalLat = 1.17 - 0.08 * night;            // ≈ 67° (lower toward midnight)
+        if (abs(abs(mlat) - ovalLat) > 0.16) continue;  // outside the oval (± wobble + 3σ): skip the noise
         // longitude in magnetic local time: measured from the anti-sun meridian,
         // so the oval stays fixed relative to the star while the planet turns
         vec3 e1 = -uSunDir[0] + uAxis * dot(uSunDir[0], uAxis);
@@ -338,12 +352,19 @@ void main() {
       L += (length(ro) > rA0 ? vec3(1.0) : T) * Lau * dta * uAurora;
     }
   }
+#ifdef SPLIT_OUT
+  gl_FragColor = vec4(min(L * uPreExposure, vec3(6e4)), 1.0);
+  gTrans = vec4(T, 1.0);
+#else
   gl_FragColor = vec4(min(scene * T + L * uPreExposure, vec3(6e4)), 1.0);
+#endif
 }
 `;
 
 export class AtmospherePass {
   readonly material: THREE.ShaderMaterial;
+  /** the same pass writing (L, T) for reduced-resolution rendering; shares the uniforms */
+  readonly splitMaterial: THREE.ShaderMaterial;
   constructor(readonly luts: AtmosphereLUTs, readonly clouds: CloudLayer | null) {
     const u: Record<string, THREE.IUniform> = {
       tColor: { value: null },
@@ -396,6 +417,19 @@ export class AtmospherePass {
       depthTest: false,
       depthWrite: false,
     });
+    this.splitMaterial = new THREE.ShaderMaterial({
+      vertexShader: FS_VERT,
+      fragmentShader: FRAG,
+      uniforms: u,
+      defines: { ...defines, SPLIT_OUT: 1 },
+      depthTest: false,
+      depthWrite: false,
+    });
+  }
+
+  dispose() {
+    this.material.dispose();
+    this.splitMaterial.dispose();
   }
 }
 

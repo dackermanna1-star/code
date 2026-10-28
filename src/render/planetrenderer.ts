@@ -293,7 +293,7 @@ export class PlanetRenderer {
     this.luts?.dispose();
     this.clouds?.dispose();
     this.material.dispose();
-    this.atmPass?.material.dispose();
+    this.atmPass?.dispose();
   }
 }
 

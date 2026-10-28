@@ -253,7 +253,7 @@ export class GasGiantRenderer {
     this.mesh.geometry.dispose();
     this.material.dispose();
     this.luts?.dispose();
-    this.atmPass?.material.dispose();
+    this.atmPass?.dispose();
     this.rings?.dispose();
   }
 }

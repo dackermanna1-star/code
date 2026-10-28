@@ -102,9 +102,13 @@ float bandFade(float wavelength) { return smoothstep(1.5 * footprint, 5.0 * foot
 vec3 detailGradient(vec3 p, float rough, out float hsum) {
   vec3 g = vec3(0.0);
   hsum = 0.0;
+  if (rough <= 0.0) return g;
+  // lower detail settings stop before the finest (most numerous) octaves
+  int octaves = 4 + int(6.0 * clamp(uDetail, 0.0, 1.0) + 0.5);
   float wl = 256.0;
   float amp = 0.10 * wl * rough;
   for (int i = 0; i < 10; i++) {
+    if (i >= octaves) break;
     float f = bandFade(wl);
     if (f <= 0.0) break;
     int per = int(float(PERIOD) / wl + 0.5); // wl reaches 0.5 m: no integer division by zero

@@ -39,6 +39,8 @@ export interface QualitySettings {
   fov: number;
   /** rocks & vegetation density 0..1 */
   scatter: number;
+  /** resolution of the atmosphere/cloud pass relative to the image (1 = full) */
+  atmosphereScale?: number;
 }
 
 export const QUALITY_PRESETS: Record<string, QualitySettings & { renderScale: number }> = {
@@ -369,12 +371,17 @@ export class SceneRenderer {
     this.pipeline.beginFrame(this.scene, cam);
     if (this.galaxies.group.children.length) this.pipeline.overlayHalfRes(this.galaxyScene, cam);
     if (this.nebulae.drawn) this.pipeline.overlayHalfResOver(this.nebulae.scene, cam);
-    const atm: { body: Body; atmPass: { material: THREE.ShaderMaterial } | null }[] = [
+    const atm: { body: Body; atmPass: { material: THREE.ShaderMaterial; splitMaterial: THREE.ShaderMaterial } | null }[] = [
       ...[...this.planets.values()].filter((p) => p.atmosphereVisible && p.atmPass),
       ...[...this.giants.values()].filter((g) => g.atmosphereVisible && g.atmPass),
     ];
     atm.sort((a, b) => this.bodyRel.get(b.body.id)!.lengthSq() - this.bodyRel.get(a.body.id)!.lengthSq());
-    if (!this.debug.noAtmosphere) for (const p of atm) this.pipeline.composite(p.atmPass!.material);
+    // the atmosphere/cloud raymarch is the costliest pass: render it at reduced resolution when asked
+    const atmScale = this.quality.atmosphereScale ?? 1;
+    if (!this.debug.noAtmosphere) for (const p of atm) {
+      if (atmScale < 0.99) this.pipeline.compositeLowRes(p.atmPass!.splitMaterial, atmScale);
+      else this.pipeline.composite(p.atmPass!.material);
+    }
     for (const bh of this.blackHoles.values()) if (bh.visible) this.pipeline.composite(bh.material);
     if (this.overlayScene.children.length) this.pipeline.overlay(this.overlayScene, cam);
     // lens: motion blur relative to what the camera moves with, then depth of field

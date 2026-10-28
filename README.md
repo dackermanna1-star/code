@@ -24,7 +24,16 @@ The single-file page opens straight from disk (double-click it). It needs no ser
 web fonts, which fall back to system fonts offline.
 
 URL parameters: `?nomenu` skips the title screen; `?test` is the same, for automated tests.
-The browser needs WebGL2. A discrete GPU is recommended. The renderer scales from the Low preset upward.
+The browser needs WebGL2. The renderer scales from the Low preset upward. Laptops and integrated GPUs (for example
+Apple M1 or Intel) start on Medium. On those, these settings (Settings → Graphics) make the biggest difference:
+
+- **Sky & cloud resolution.** The atmosphere and cloud raymarch is the most expensive part of a planet view. It
+  renders at half resolution by default and is upsampled with depth awareness, so terrain edges stay sharp. A
+  third is faster still.
+- **Dynamic resolution** (on by default) lowers the 3D resolution when the frame rate drops below the target (30,
+  45 or 60 fps) and raises it when there is headroom. The HUD shows the current scale.
+- **Full Retina / HiDPI resolution** is off by default. On a high-density display it would render up to 4× the
+  pixels.
 
 ## Getting started
 
@@ -293,8 +302,13 @@ of use.
   Station orbits ignore drag and J2 nodal precession. Station models are simplified, and you cannot go inside.
 - **Not yet implemented.** Survival mode (omitted by design for walking) and video export. The Oort cloud is shown only as an inferred shell in the
   map.
-- **Performance** has been verified only in headless Chromium with software rendering (SwiftShader), where it is
-  functional at reduced frame rates. Real GPUs have not been profiled yet, so no frame rate is promised.
+- **Performance** has been measured only in headless Chromium with software rendering (SwiftShader). Timed with a
+  forced GPU sync on Earth at 1280×720:
+  - the atmosphere and cloud pass dominated the frame (≈ 75 %)
+  - rendering it at half resolution, and skipping the aurora march against a lit sky, cut the whole frame by more
+    than half
+
+  Real GPUs have not been profiled, so no frame rate is promised.
 
 ## Testing
 
@@ -324,6 +338,7 @@ of use.
   - H₂O, O₂, O₃, the red edge and the O₂ + CH₄ biosignature on Earth; CO₂ on Mars; CH₄ on Titan
 - field instruments on land and at sea, and surface radiation doses across the Solar System
 - swimmers: pods only in deep water, breathers mostly submerged, and leap apex ∝ 1/g
+- dynamic resolution: drops when frames are slow, recovers with headroom, holds steady near the target
 - caves:
   - a skylight floor at depth, with a walkable ramp
   - a tunnel roof of rock along its length

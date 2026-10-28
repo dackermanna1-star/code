@@ -21,6 +21,8 @@ export class Hud {
   private top: HTMLElement;
   private toastEl: HTMLElement;
   private toastTimer = 0;
+  /** dynamic-resolution scale, shown next to the frame rate when below 100 % */
+  resScale = 1;
 
   constructor(parent: HTMLElement) {
     this.root = document.createElement('div');
@@ -49,7 +51,8 @@ export class Hud {
     (this.top.querySelector('#hud-mode') as HTMLElement).innerHTML = `<b>${s.mode}</b>`;
     const ts = s.timeScale === 0 ? 'paused' : s.timeScale === 1 ? 'real-time' : `×${s.timeScale.toExponential(0).replace('e+', 'e')}`;
     (this.top.querySelector('#hud-time') as HTMLElement).textContent = `${s.date}  ·  ${ts}`;
-    (this.top.querySelector('#hud-perf') as HTMLElement).textContent = `${s.fps.toFixed(0)} fps${s.extra ? '  ·  ' + s.extra : ''}`;
+    const res = this.resScale < 0.995 ? `  ·  ${Math.round(this.resScale * 100)}% res` : '';
+    (this.top.querySelector('#hud-perf') as HTMLElement).textContent = `${s.fps.toFixed(0)} fps${res}${s.extra ? '  ·  ' + s.extra : ''}`;
     this.cells.speed.textContent = formatSpeed(s.speed);
     this.cells.alt.textContent = isFinite(s.altitude) ? formatDistance(s.altitude) : '—';
     this.cells.grav.textContent = s.gravity > 0 ? `${s.gravity.toFixed(2)} m/s²` : '—';

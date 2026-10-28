@@ -3,7 +3,7 @@
  * which can then be tuned independently.
  */
 import { DEFAULT_BINDINGS, type Action } from '../sim/input';
-import { load, save } from './storage';
+import { load, loadRaw, save } from './storage';
 
 export type Preset = 'low' | 'medium' | 'high' | 'ultra';
 
@@ -16,6 +16,10 @@ export interface Settings {
   galaxySteps: number;
   surfaceDetail: number;   // fragment micro-detail 0..1
   scatterDensity: number;  // rocks / plants 0..1
+  atmosphereScale: '1' | '0.5' | '0.35'; // atmosphere & cloud pass resolution
+  hiDpi: boolean;          // full Retina resolution
+  dynamicResolution: boolean;
+  targetFps: '30' | '45' | '60';
   fov: number;
   bloom: number;
   exposureComp: number;
@@ -62,15 +66,16 @@ export interface Settings {
 }
 
 export const PRESETS: Record<Preset, Partial<Settings>> = {
-  low: { renderScale: 0.6, terrainDetail: 2.2, atmosphereSteps: 10, cloudSteps: 20, galaxySteps: 20, surfaceDetail: 0.5, scatterDensity: 0.3 },
-  medium: { renderScale: 0.8, terrainDetail: 3.0, atmosphereSteps: 16, cloudSteps: 32, galaxySteps: 32, surfaceDetail: 0.8, scatterDensity: 0.6 },
-  high: { renderScale: 1, terrainDetail: 3.6, atmosphereSteps: 22, cloudSteps: 44, galaxySteps: 48, surfaceDetail: 1, scatterDensity: 0.85 },
-  ultra: { renderScale: 1, terrainDetail: 4.6, atmosphereSteps: 30, cloudSteps: 72, galaxySteps: 72, surfaceDetail: 1, scatterDensity: 1 },
+  low: { renderScale: 0.6, terrainDetail: 2.2, atmosphereSteps: 10, cloudSteps: 20, galaxySteps: 20, surfaceDetail: 0.5, scatterDensity: 0.3, atmosphereScale: '0.35' },
+  medium: { renderScale: 0.8, terrainDetail: 3.0, atmosphereSteps: 16, cloudSteps: 32, galaxySteps: 32, surfaceDetail: 0.8, scatterDensity: 0.6, atmosphereScale: '0.5' },
+  high: { renderScale: 1, terrainDetail: 3.6, atmosphereSteps: 22, cloudSteps: 44, galaxySteps: 48, surfaceDetail: 1, scatterDensity: 0.85, atmosphereScale: '0.5' },
+  ultra: { renderScale: 1, terrainDetail: 4.6, atmosphereSteps: 30, cloudSteps: 72, galaxySteps: 72, surfaceDetail: 1, scatterDensity: 1, atmosphereScale: '1' },
 };
 
 export const DEFAULT_SETTINGS: Settings = {
   preset: 'high',
   renderScale: 1, terrainDetail: 3.6, atmosphereSteps: 22, cloudSteps: 44, galaxySteps: 48, surfaceDetail: 1, scatterDensity: 0.85,
+  atmosphereScale: '0.5', hiDpi: false, dynamicResolution: true, targetFps: '45',
   fov: 60, bloom: 0.012, exposureComp: 0, autoExposure: true, maxExposureLog: 6.5, starBrightness: 1, vignette: 0.18, fxaa: true,
   cinematic: false, motionEffects: true,
   dof: 'off', fNumber: 2.8, focusDistance: 10, motionBlur: 0, chromaticAberration: 0, filmGrain: 0, screenshotScale: '2',
@@ -80,6 +85,29 @@ export const DEFAULT_SETTINGS: Settings = {
   bindings: structuredClone(DEFAULT_BINDINGS),
   tutorialSeen: false,
 };
+
+/** No settings saved yet (first launch in this browser). */
+export function isFirstRun(): boolean {
+  return loadRaw('settings') === null;
+}
+
+/**
+ * Integrated or mobile-class GPU (Apple M1/M2 base chips, Intel, mobile
+ * parts, software rendering)? Used to pick a lighter starting preset.
+ */
+export function weakGpu(): boolean {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (!gl) return true;
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = String(ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    if (/Apple M\d (Pro|Max|Ultra)/i.test(name)) return false;
+    return /Apple (M\d|GPU)|Intel|Iris|UHD|Adreno|Mali|PowerVR|SwiftShader|llvmpipe/i.test(name);
+  } catch {
+    return false;
+  }
+}
 
 export function loadSettings(): Settings {
   const s = load<Settings>('settings', structuredClone(DEFAULT_SETTINGS));

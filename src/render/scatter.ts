@@ -386,17 +386,21 @@ export class SurfaceScatter {
       this.hasAnchor = true;
       for (const l of this.layers) l.dirty = true;
     }
+    // place new cells within a time budget per frame (nearest first), so walking never stalls a frame
+    const deadline = performance.now() + 2.5;
     for (const layer of this.layers) {
-      let budget = 10; // cells per layer per frame
+      let budget = 10; // and at most this many cells per layer
       const da = layer.cell / (R * QPI);
       const ci = Math.floor(f.a / da), cj = Math.floor(f.b / da);
-      const rc = Math.ceil(layer.radius / layer.cell);
+      // lower densities also draw less far (area ∝ r²): trees and boulders reach 65 % as far at 0.3
+      const radius = layer.radius * Math.min(1, 0.5 + 0.5 * density);
+      const rc = Math.ceil(radius / layer.cell);
       const needed = new Set<string>();
       const todo: { key: string; di: number; dj: number; d2: number }[] = [];
       for (let dj = -rc; dj <= rc; dj++)
         for (let di = -rc; di <= rc; di++) {
           const d2 = (di * di + dj * dj) * layer.cell * layer.cell;
-          if (d2 > (layer.radius + layer.cell) ** 2) continue;
+          if (d2 > (radius + layer.cell) ** 2) continue;
           const key = `${f.face}:${ci + di}:${cj + dj}`;
           needed.add(key);
           const dist = Math.sqrt(d2);
@@ -405,7 +409,7 @@ export class SurfaceScatter {
         }
       todo.sort((a, b) => (layer.cells.has(a.key) ? 1 : 0) - (layer.cells.has(b.key) ? 1 : 0) || a.d2 - b.d2);
       for (const t of todo) {
-        if (budget-- <= 0) break;
+        if (budget-- <= 0 || (budget < 9 && performance.now() > deadline)) break;
         const dist = Math.sqrt(t.d2);
         layer.cells.set(t.key, this.generate(layer, gen, f.face, ci + t.di, cj + t.dj, dist));
         layer.cellLam.set(t.key, Math.min(80, Math.max(0.25, dist / 55, this.meshLambda)));

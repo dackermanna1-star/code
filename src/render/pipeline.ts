@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { blackbodyRGB } from '../astro/stellar';
 import { FullscreenPass, FS_VERT, hdrTarget } from './fullscreen';
 import { PRE_EXPOSURE, PRE_EXPOSURE_TEX, PRE_EXPOSURE_GLSL } from './exposure';
+import { LowResAtmosphere } from './atmohalf';
 
 export interface PipelineSettings {
   renderScale: number;
@@ -26,6 +27,8 @@ export interface PipelineSettings {
   /** lateral chromatic aberration 0..1 and film grain 0..1 (lens effects) */
   chromaticAberration: number;
   filmGrain: number;
+  /** render at the display's full pixel density (Retina): sharper, up to 4× the pixels */
+  hiDpi: boolean;
 }
 
 export const defaultPipelineSettings: PipelineSettings = {
@@ -41,6 +44,7 @@ export const defaultPipelineSettings: PipelineSettings = {
   fxaa: true,
   chromaticAberration: 0,
   filmGrain: 0,
+  hiDpi: false,
 };
 
 const LUM_FRAG = /* glsl */ `
@@ -322,7 +326,7 @@ export class RenderPipeline {
   }
 
   setSize(cssW: number, cssH: number) {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = this.settings.hiDpi ? Math.min(window.devicePixelRatio || 1, 2) : 1;
     const w = Math.max(1, Math.floor(cssW * dpr * this.settings.renderScale));
     const h = Math.max(1, Math.floor(cssH * dpr * this.settings.renderScale));
     if (w === this.width && h === this.height && this.sceneRT) return;
@@ -392,6 +396,26 @@ export class RenderPipeline {
     if (material.uniforms.tDepth) material.uniforms.tDepth.value = this.depthTexture;
     const out = this.currentTarget === this.pingRT ? this.pongRT : this.pingRT;
     this.fs.render(this.renderer, out, material);
+    this.currentTarget = out;
+  }
+
+  private lowAtm: LowResAtmosphere | null = null;
+
+  /**
+   * Apply an atmosphere pass rendered at a fraction of the resolution
+   * (material: the pass's split variant writing L and T), upsampled with
+   * depth awareness.
+   */
+  compositeLowRes(material: THREE.ShaderMaterial, scale: number) {
+    const la = (this.lowAtm ??= new LowResAtmosphere());
+    la.setSize(Math.max(1, Math.round(this.width * scale)), Math.max(1, Math.round(this.height * scale)));
+    material.uniforms.tDepth.value = this.depthTexture;
+    this.fs.render(this.renderer, la.target, material);
+    const a = la.apply.uniforms;
+    a.tColor.value = this.currentTarget.texture;
+    a.tDepth.value = this.depthTexture;
+    const out = this.currentTarget === this.pingRT ? this.pongRT : this.pingRT;
+    this.fs.render(this.renderer, out, la.apply);
     this.currentTarget = out;
   }
 
