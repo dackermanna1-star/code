@@ -31,6 +31,8 @@ import { SOLAR_SYSTEM_ID } from './astro/known/solarsystem';
 import { Rng } from './core/rng';
 import { AudioEngine, type AudioState, type Surface } from './audio/audio';
 import { EventSystem, eventLabel, type CosmicEvent } from './sim/events';
+import { CinematicDirector, type CameraPath } from './sim/cinematic';
+import { CinemaPanel } from './ui/cinemapanel';
 import { blackbodyRGB } from './astro/stellar';
 
 const _tv = new THREE.Vector3();
@@ -64,6 +66,9 @@ export class App {
   readonly startScreen: StartScreen;
   readonly audio = new AudioEngine();
   readonly events = new EventSystem();
+  readonly director: CinematicDirector;
+  readonly cinema: CinemaPanel;
+  private letterboxEl: HTMLElement;
   private lastSimTime = NaN;
   selected: Target | null = null;
   private last = performance.now();
@@ -123,6 +128,16 @@ export class App {
       settings: () => this.settingsMenu.modal.open(),
       help: () => this.help.modal.open(),
     });
+    this.director = new CinematicDirector(this.universeKey);
+    this.cinema = new CinemaPanel(ui, this.director, {
+      addKey: () => this.addKeyframe(),
+      play: (p) => this.playPath(p),
+      stop: () => this.director.stop(this.world),
+    });
+    this.letterboxEl = document.createElement('div');
+    this.letterboxEl.className = 'letterbox always';
+    this.letterboxEl.style.display = 'none';
+    ui.appendChild(this.letterboxEl);
     this.hintEl = document.createElement('div');
     this.hintEl.className = 'panel hint-bar';
     this.hintEl.style.display = 'none';
@@ -401,6 +416,20 @@ export class App {
     this.audio.volumes = { master: s.masterVolume, ambience: s.ambienceVolume, effects: s.effectsVolume };
     this.audio.cinematic = s.cinematicAudio;
     this.audio.applyVolumes();
+  }
+
+  // ------------------------------------------------------------ cinematic
+  addKeyframe() {
+    this.director.addKey(this.world, this.cosmos);
+    this.hud.toast(`Keyframe ${this.director.current.keys.length} recorded`);
+  }
+
+  playPath(p: CameraPath) {
+    this.player.toSpectator();
+    this.orbitCam = null;
+    this.spectator.cancelTravel();
+    if (!this.director.play(p, this.world, this.cosmos, this.renderer.starField)) { this.hud.toast('A path needs at least two keyframes'); return; }
+    this.renderer.pipeline.resetExposure();
   }
 
   // --------------------------------------------------------------- events
@@ -794,8 +823,11 @@ export class App {
     this.cosmos.update(this.world, this.world.view.toUPos(new UPos()), this.renderer.starField, this.frameNo);
     const blocking = this.uiBlocking;
     if (blocking) this.input.suspended = true;
-    if (this.orbitCam && this.player.mode === 'spectator') this.updateOrbitCam(dt);
+    if (this.director.playing) {
+      this.director.update(dt, this.world);
+    } else if (this.orbitCam && this.player.mode === 'spectator') this.updateOrbitCam(dt);
     else this.player.update(dt);
+    this.letterboxEl.style.display = this.director.playing && this.cinema.letterbox ? '' : 'none';
     this.input.suspended = false;
     if (this.lookAnim) this.updateLookAnim(dt);
     this.renderer.ship = this.player.ship;
@@ -928,6 +960,7 @@ export class App {
       return;
     }
     if (i.pressed('help')) this.help.modal.toggle();
+    if (i.pressed('cinema')) this.cinema.modal.toggle();
     if (this.startScreen.isOpen) return;
     if (i.pressed('search')) this.search.toggle();
     if (i.pressed('catalog')) this.catalog.toggle();
@@ -948,6 +981,12 @@ export class App {
     if (i.pressed('labels')) { this.settings.showLabels = !this.settings.showLabels; saveSettings(this.settings); this.hud.toast(`Labels ${this.settings.showLabels ? 'on' : 'off'}`); }
     if (i.pressed('info')) { this.info.visible = !this.info.visible; }
     if (i.pressed('scan')) this.startScan();
+    if (i.pressed('pathAdd')) this.addKeyframe();
+    if (i.pressed('pathPlay')) {
+      if (this.director.playing) this.director.stop(this.world);
+      else this.playPath(this.director.current);
+    }
+    if (this.director.playing && (i.held('forward') || i.held('back') || i.held('left') || i.held('right'))) this.director.stop(this.world);
     const t = this.selected;
     const mode = this.player.mode;
     if (i.pressed('orbitCam')) this.toggleOrbitCam();
@@ -1015,7 +1054,7 @@ export class App {
     }
     const ts = this.renderer.terrainStats;
     this.hud.update({
-      mode: this.orbitCam ? 'Orbit camera' : s.travel ? `Travelling → ${s.travel.target.name}` : 'Free camera',
+      mode: this.director.playing ? `Camera path ${(this.director.progress * 100).toFixed(0)}%` : this.orbitCam ? 'Orbit camera' : s.travel ? `Travelling → ${s.travel.target.name}` : 'Free camera',
       frame: this.world.view.body ? `${this.world.view.kind} · ${this.world.view.body.displayName}` : this.cosmos.activeRef?.name ?? this.cosmos.current?.name ?? 'intergalactic space',
       speed: s.lastSpeed,
       altitude: s.altitude,

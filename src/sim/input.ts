@@ -6,7 +6,8 @@ export type Action =
   | 'throttleUp' | 'throttleDown' | 'throttleFull' | 'throttleCut' | 'flightAssist' | 'gear'
   | 'warp' | 'hyperjump' | 'brake' | 'autopilot' | 'land' | 'cameraView' | 'spawnShip'
   | 'map' | 'menu' | 'help' | 'hideUI' | 'screenshot' | 'timeFaster' | 'timeSlower' | 'timeReal' | 'timePause'
-  | 'search' | 'catalog' | 'bookmark' | 'orbits' | 'info' | 'mouseLook' | 'run' | 'orbitCam' | 'scan' | 'labels';
+  | 'search' | 'catalog' | 'bookmark' | 'orbits' | 'info' | 'mouseLook' | 'run' | 'orbitCam' | 'scan' | 'labels'
+  | 'cinema' | 'pathAdd' | 'pathPlay';
 
 export const ACTION_LABELS: Record<Action, string> = {
   forward: 'Move forward / thrust forward', back: 'Move back / thrust back', left: 'Strafe left', right: 'Strafe right',
@@ -20,6 +21,7 @@ export const ACTION_LABELS: Record<Action, string> = {
   screenshot: 'Screenshot', timeFaster: 'Time ×10', timeSlower: 'Time ÷10', timeReal: 'Real-time', timePause: 'Pause time',
   search: 'Search', catalog: 'Discovery catalog', bookmark: 'Bookmark location', orbits: 'Toggle orbit lines',
   info: 'Toggle info panel', mouseLook: 'Toggle mouse look', run: 'Run', orbitCam: 'Orbit camera around target', scan: 'Scientific scan', labels: 'Toggle labels',
+  cinema: 'Cinematic camera paths', pathAdd: 'Add camera keyframe', pathPlay: 'Play / stop camera path',
 };
 
 export const DEFAULT_BINDINGS: Record<Action, string[]> = {
@@ -32,6 +34,7 @@ export const DEFAULT_BINDINGS: Record<Action, string[]> = {
   timeFaster: ['Period'], timeSlower: ['Comma'], timeReal: ['Slash'], timePause: ['Pause', 'Backquote'],
   search: ['F3'], catalog: ['F4'], bookmark: ['F5'], orbits: ['KeyO'], info: ['KeyI'], mouseLook: ['Tab'], run: ['ShiftLeft'],
   orbitCam: ['F6'], scan: ['F7'], labels: ['F8'],
+  cinema: ['F10'], pathAdd: ['BracketLeft'], pathPlay: ['BracketRight'],
 };
 
 export class Input {
@@ -56,7 +59,7 @@ export class Input {
   constructor(private el: HTMLElement) {
     window.addEventListener('keydown', (e) => {
       if (this.isTyping(e)) return;
-      if (['Tab', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'Space', 'Backquote', 'Slash'].includes(e.code)) e.preventDefault();
+      if (['Tab', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10', 'Space', 'Backquote', 'Slash'].includes(e.code)) e.preventDefault();
       if (!this.down.has(e.code)) this.pressedQ.add(e.code);
       this.down.add(e.code);
     });

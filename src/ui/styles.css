@@ -174,3 +174,9 @@ button.big small { font-size: 0.72em; color: var(--fg-dim); }
   .field { grid-template-columns: 1fr; }
 }
 @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+
+/* cinematic letterbox (2.39:1) */
+.letterbox { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+.letterbox::before, .letterbox::after { content: ''; position: absolute; left: 0; right: 0; height: max(0px, calc((100vh - 100vw / 2.39) / 2)); background: #000; }
+.letterbox::before { top: 0; }
+.letterbox::after { bottom: 0; }

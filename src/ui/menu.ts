@@ -66,6 +66,7 @@ const GROUPS: [string, Action[]][] = [
   ['Navigation', ['select', 'gotoTarget', 'frameTarget', 'orbitCam', 'scan', 'search', 'map', 'catalog', 'bookmark', 'info', 'labels', 'orbits']],
   ['Spacecraft', ['spawnShip', 'interact', 'throttleUp', 'throttleDown', 'throttleFull', 'throttleCut', 'flightAssist', 'gear', 'autopilot', 'land', 'brake', 'warp', 'hyperjump', 'cameraView']],
   ['Time & interface', ['timeFaster', 'timeSlower', 'timeReal', 'timePause', 'menu', 'help', 'hideUI', 'screenshot', 'mouseLook']],
+  ['Cinematic camera', ['cinema', 'pathAdd', 'pathPlay', 'orbitCam']],
 ];
 
 export function keyName(code: string): string {
@@ -77,6 +78,7 @@ export function keyName(code: string): string {
   const map: Record<string, string> = {
     Space: 'Space', ShiftLeft: 'L-Shift', ShiftRight: 'R-Shift', AltLeft: 'L-Alt', AltRight: 'R-Alt', ControlLeft: 'L-Ctrl', Backquote: '`', Period: '.', Comma: ',', Slash: '/',
     Equal: '=', Minus: '-', NumpadAdd: 'Num +', NumpadSubtract: 'Num −', Backspace: 'Backspace', Escape: 'Esc', Tab: 'Tab', Pause: 'Pause',
+    BracketLeft: '[', BracketRight: ']', Backslash: '\\', Semicolon: ';', Quote: "'",
   };
   return map[code] ?? code;
 }
@@ -258,6 +260,7 @@ export class HelpOverlay {
           <dt>${k('labels')} · ${k('orbits')}</dt><dd>Labels · orbits</dd>
           <dt>${k('timeFaster')} ${k('timeSlower')} ${k('timeReal')} ${k('timePause')}</dt><dd>Time ×10, ÷10, real-time, pause</dd>
           <dt>${k('screenshot')}</dt><dd>Screenshot</dd><dt>${k('hideUI')}</dt><dd>Hide interface</dd><dt>${k('menu')}</dt><dd>Menu & settings</dd>
+          <dt>${k('cinema')} · ${k('pathAdd')} · ${k('pathPlay')}</dt><dd>Camera paths: panel · add keyframe · play/stop</dd>
         </dl></section>
       </div>
       <p class="dim">Everything you see follows physical models: appearance emerges from mass, composition, temperature and atmosphere.
